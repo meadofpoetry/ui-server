@@ -6,10 +6,24 @@ open Api.Api_types
    
 open Lwt.Infix
 
+module SID = struct
+
+  type t = Stream.ID.t
+  let db_type : string = "UUID"
+  let of_stream_id (id:Stream.ID.t) =
+    Stream.ID.to_string id 
+  let to_stream_id (t:string) =
+    Stream.ID.of_string t
+  let typ     = Caqti_type.custom
+                  ~encode:(fun x -> Ok (of_stream_id x))
+                  ~decode:(fun x -> try Ok (to_stream_id x) with _ -> Error "Bad SID")
+                  Caqti_type.string
+end
+   
 let data_t =
   Caqti_type.custom
     Caqti_type.(let (&) = tup2 in
-                int & int & int & int
+                SID.typ & int & int & int
                 & int & int
                 & float & float & float
                 & bool & bool & ptime)
@@ -47,7 +61,7 @@ module Model = struct
                      }
 
   let pid_state_keys = { time_key = Some "date_end"
-                       ; columns  = [ "stream",     key "INTEGER"
+                       ; columns  = [ "stream",     key SID.db_type
                                     ; "channel",    key "INTEGER"
                                     ; "pid",        key "INTEGER"
                                     ; "date_start", key "TIMESTAMP"
@@ -63,7 +77,7 @@ module Model = struct
                      }
 
   let stream_loss_keys = { time_key = Some "date_end"
-                         ; columns  = [ "stream",     key "INTEGER"
+                         ; columns  = [ "stream",     key SID.db_type
                                       ; "channel",    key "INTEGER"
                                       ; "pid",        key "INTEGER"
                                       ; "date_start", key "TIMESTAMP"
@@ -72,7 +86,7 @@ module Model = struct
                          }
 
   let err_keys = { time_key = Some "date"
-                 ; columns = [ "stream", key "INTEGER"
+                 ; columns = [ "stream",  key SID.db_type
                              ; "channel", key "INTEGER"
                              ; "pid",     key "INTEGER"
                              ; "error",   key "INTEGER"
@@ -170,7 +184,7 @@ module Pid_state = struct
   let init db pids =
     let open Printf in
     let table = (Conn.names db).pid_state in
-    let insert_new = R.exec Types.(tup4 int int int (tup2 ptime ptime))
+    let insert_new = R.exec Types.(tup4 SID.typ int int (tup2 ptime ptime))
                        (sprintf "INSERT INTO %s (stream,channel,pid,date_start,date_end) VALUES (?,?,?,?,?)" table) in
     let now = Time.Clock.now_s () in
     Logs.err (fun m -> m "DB pids len: %d" @@ List.length pids);
@@ -181,7 +195,7 @@ module Pid_state = struct
   let bump db pids =
      let open Printf in
      let table = (Conn.names db).pid_state in
-     let update_last = R.exec Types.(tup4 int int int ptime)
+     let update_last = R.exec Types.(tup4 SID.typ int int ptime)
                          (sprintf {|UPDATE %s SET date_end = $4
                                    WHERE stream = $1 AND channel = $2 AND pid = $3
                                    AND date_start = (SELECT date_start FROM %s 
@@ -197,7 +211,7 @@ module Pid_state = struct
   let req_select_distinct_pids db ~from ~till =
     let open Printf in
     let table = (Conn.names db).pid_state in
-    let r = R.collect Types.(tup2 ptime ptime) Types.(tup3 int int int)
+    let r = R.collect Types.(tup2 ptime ptime) Types.(tup3 SID.typ int int)
               (sprintf {|SELECT DISTINCT stream,channel,pid FROM %s 
                         WHERE date_start <= $2 AND date_end >= $1|} table)
     in Request.(list r (from,till))
@@ -205,7 +219,7 @@ module Pid_state = struct
   let req_select_intervals db ?(limit = 500) ~stream ~channel ~pid ~from ~till =
     let open Printf in
     let table = (Conn.names db).pid_state in
-    let r = R.collect Types.(tup4 int int int (tup3 ptime ptime int)) Types.(tup2 ptime ptime)
+    let r = R.collect Types.(tup4 SID.typ int int (tup3 ptime ptime int)) Types.(tup2 ptime ptime)
               (sprintf {|SELECT date_start,date_end FROM %s 
                         WHERE stream = $1 AND channel = $2 AND pid = $3
                         AND date_end >= $4 AND date_start <= $5 ORDER BY date_end DESC LIMIT $6|} table)
@@ -215,7 +229,7 @@ module Pid_state = struct
     let open Printf in
     let table = (Conn.names db).pid_state in
     let full  = Time.diff till from in
-    let r = R.find Types.(tup4 int int int (tup2 ptime ptime)) Types.ptime_span
+    let r = R.find Types.(tup4 SID.typ int int (tup2 ptime ptime)) Types.ptime_span
               (sprintf {|SELECT SUM(date_end - date_start) FROM
                         ((SELECT date_start,date_end FROM %s 
                           WHERE stream = $1 AND channel = $2 AND pid = $3 AND date_start >= $4 AND date_end <= $5)
@@ -278,19 +292,20 @@ module Stream_status = struct
     let open Printf in
     let open Qoe_status in
     let table = (Conn.names db).stream_loss in
-    let insert_new = R.exec Types.(tup4 int int int (tup2 ptime ptime))
+    let insert_new = R.exec Types.(tup4 SID.typ int int (tup2 ptime ptime))
                        (sprintf "INSERT INTO %s (stream,channel,pid,date_start,date_end) VALUES (?,?,?,?,?)" table) in
     let now = Time.Clock.now_s () in
     Logs.err (fun m -> m "DB pids len: %d" @@ List.length pids);
     Conn.request db Request.(with_trans (List.fold_left (fun acc {stream;channel;pid;_} ->
-                                             acc >>= fun () -> exec insert_new (stream,channel,pid,(now,now)))
+                                             acc >>= fun () ->
+                                             exec insert_new (stream,channel,pid,(now,now)))
                                            (return ()) pids))
     
   let bump db pids =
     let open Printf in
     let open Qoe_status in
     let table = (Conn.names db).stream_loss in
-    let update_last = R.exec Types.(tup4 int int int ptime)
+    let update_last = R.exec Types.(tup4 SID.typ int int ptime)
                         (sprintf {|UPDATE %s SET date_end = $4
                                   WHERE stream = $1 AND channel = $2 AND pid = $3
                                   AND date_start = (SELECT date_start FROM %s 
@@ -300,7 +315,8 @@ module Stream_status = struct
     in
     let now = Time.Clock.now_s () in
     Conn.request db Request.(with_trans (List.fold_left (fun acc {stream;channel;pid;_} ->
-                                             acc >>= fun () -> exec update_last (stream,channel,pid,now))
+                                             acc >>= fun () ->
+                                             exec update_last (stream,channel,pid,now))
                                            (return ()) pids))
      
 end 
@@ -320,13 +336,14 @@ module Errors = struct
 
   let insert_video db data = insert_data db (video_data_to_list data)
 
-  let coords_conv = is_in "(stream,channel,pid)" (fun (s,c,p) -> Printf.sprintf "(%d,%d,%d)" s c p)
+  let coords_conv = is_in "(stream,channel,pid)" (fun (s,c,p) -> Printf.sprintf "(%s,%d,%d)"
+                                                                   (SID.of_stream_id s) c p)
                            
   let select_has_any db ?(coords = []) ?(errors = []) ?(typ = `Both) ~from ~till =
     let open Printf in
     let table   = (Conn.names db).errors in
     let errors   = is_in "error" string_of_int (List.map labels_to_int errors) in
-    let coords   = is_in "(stream,channel,pid)" (fun (s,c,p) -> Printf.sprintf "(%d,%d,%d)" s c p) coords in
+    let coords   = coords_conv coords in
     let typ      = match typ with
       | `Both -> "(peak_flag = TRUE OR cont_flag = TRUE) AND"
       | `Peak -> "peak_flag = TRUE AND"
@@ -349,7 +366,7 @@ module Errors = struct
       | `Peak -> "peak_flag = TRUE AND"
       | `Cont -> "cont_flag = TRUE AND"
     in
-    let select = R.find Types.(tup4 int int int (tup2 ptime ptime)) Types.int
+    let select = R.find Types.(tup4 SID.typ int int (tup2 ptime ptime)) Types.int
                    (sprintf {|SELECT count(DISTINCT date_trunc('second',date)) FROM %s 
                              WHERE %s %s stream = $1 AND channel = $2 AND pid = $3 AND date >= $4 AND date <= $5|}
                       table typ errors)
@@ -364,8 +381,8 @@ module Errors = struct
                                                 let span = Time.Period.to_float_s span in
                                                 find select (s,c,p,(from,till)) >>= function
                                                 | None   -> return ((s,c,p,0.0)::acc)
-                                                | Some s ->
-                                                   let perc = (100. *. (float_of_int s) /. span) in
+                                                | Some x ->
+                                                   let perc = (100. *. (float_of_int x) /. span) in
                                                    return ((s,c,p,perc)::acc))
                                               (return []) coords))
 
@@ -373,7 +390,7 @@ module Errors = struct
     let open Printf in
     let table    = (Conn.names db).errors in
     let errors   = is_in "error"   string_of_int (List.map labels_to_int errors) in
-    let coords   = is_in "(stream,channel,pid)" (fun (s,c,p) -> Printf.sprintf "(%d,%d,%d)" s c p) coords in
+    let coords   = coords_conv coords in
     let typ      = match typ with
       | `Both -> "(peak_flag = TRUE OR cont_flag = TRUE) AND"
       | `Peak -> "peak_flag = TRUE AND"
@@ -397,7 +414,7 @@ module Errors = struct
       | `Cont -> "cont_flag = TRUE AND"
     in
     let intvals = Time.split ~from ~till in
-    let select = R.find Types.(tup4 int int int (tup2 ptime ptime)) Types.int
+    let select = R.find Types.(tup4 SID.typ int int (tup2 ptime ptime)) Types.int
                    (sprintf {|SELECT count(DISTINCT date_trunc('second',date)) FROM %s
                              WHERE %s %s stream = $1 AND channel = $2 AND pid = $3 AND date >= $4 AND date <= $5|}
                       table typ errors)
@@ -429,7 +446,7 @@ module Errors = struct
   let select_states db ?(limit = 500) ~error ~stream ~channel ~pid ~from ~till =
     let open Printf in
     let table    = (Conn.names db).errors in
-    let select = R.collect Types.(List.(int & int & int & int & ptime & ptime & int)) Types.(tup4 float float float ptime)
+    let select = R.collect Types.(List.(SID.typ & int & int & int & ptime & ptime & int)) Types.(tup4 float float float ptime)
                    (sprintf {|SELECT min,max,avg,date FROM %s 
                              WHERE stream = $1 AND channel = $2 AND pid = $3 AND error = $4
                              AND date >= $5 AND date <= $6 ORDER BY date DESC LIMIT $7|}
@@ -442,7 +459,7 @@ module Errors = struct
     let open Printf in
     let table    = (Conn.names db).errors in
     let intvals  = Time.split ~from ~till in
-    let select   = R.find Types.(List.(int & int & int & int & ptime & ptime)) Types.(tup3 float float float)
+    let select   = R.find Types.(List.(SID.typ & int & int & int & ptime & ptime)) Types.(tup3 float float float)
                    (sprintf {|SELECT min(min),max(max),sum(avg)/count(1) FROM %s 
                              WHERE stream = $1 AND channel = $2 AND pid = $3 AND error = $4
                              AND date >= $5 AND date <= $6|}

@@ -6,6 +6,7 @@ open Msg_conv
 open Message
 open Notif
 open Qoe_errors
+open Common
         
 type options = { wm         : Wm.t Storage.Options.storage
                ; structures : Structure.Structures.t Storage.Options.storage
@@ -151,7 +152,7 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
     match lst with
     | [] -> [entry]
     | h::tl ->
-       if h.stream = entry.stream
+       if Stream.ID.equal h.stream entry.stream
           && h.channel = entry.channel
           && h.pid = entry.pid
        then entry::tl
@@ -251,8 +252,11 @@ let create (type a) (typ : a typ) db_conf config sock_in sock_out =
 let reset typ send bin_path bin_name msg_fmt api state (sources : (Common.Url.t * Common.Stream.t) list) =
   let exec_path = (Filename.concat bin_path bin_name) in
   let msg_fmt   = Pipeline_settings.format_to_string msg_fmt in
+  let ids       = List.map (fun (_,s) ->
+                      Yojson.Safe.to_string @@ Common.Stream.ID.to_yojson s.Common.Stream.id) sources in
   let uris      = List.map Fun.(fst %> Common.Url.to_string) sources in
-  let exec_opts = Array.of_list (bin_name :: "-m" :: msg_fmt :: uris) in
+  let args      = List.interleave ids uris in
+  let exec_opts = Array.of_list (bin_name :: "-m" :: msg_fmt :: args) in
   state.srcs  := sources;
   state.ready := false;
   Option.iter (fun proc -> proc#terminate) state.proc;

@@ -1,7 +1,7 @@
 let name = "stream_lost"
 
 type t =
-  { stream  : int
+  { stream  : Common.Stream.ID.t
   ; channel : int
   ; pid     : int
   ; playing : bool

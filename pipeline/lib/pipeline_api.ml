@@ -118,13 +118,16 @@ let get_vdata_sock api stream channel pid _ body sock_data () =
   let open Pipeline_protocol in
   match stream, channel, pid with
   | Some s, Some c, Some p ->
-     let pred (x : Video_data.t) = x.pid = p && x.channel = c && x.stream = s in
+     let pred (x : Video_data.t) = x.pid = p
+                                   && x.channel = c
+                                   && Stream.ID.equal x.stream s in
      get_sock sock_data body Video_data.to_yojson (React.E.filter pred api.notifs.vdata)
   | Some s, Some c, _ ->
-     let pred (x : Video_data.t) = x.channel = c && x.stream = s in
+     let pred (x : Video_data.t) = x.channel = c
+                                   && Stream.ID.equal x.stream s in
      get_sock sock_data body Video_data.to_yojson (React.E.filter pred api.notifs.vdata)
   | Some s, _, _ ->
-     let pred (x : Video_data.t) = x.stream = s in
+     let pred (x : Video_data.t) = Stream.ID.equal x.stream s in
      get_sock sock_data body Video_data.to_yojson (React.E.filter pred api.notifs.vdata)
   | _ -> get_sock sock_data body Video_data.to_yojson api.notifs.vdata
 
@@ -178,7 +181,7 @@ let handlers (api : Pipeline_protocol.api) =
         (get_status_sock api)
     ; create_ws_handler ~docstring:"Video data socket"
         ~path:Path.Format.("vdata" @/ empty)
-        ~query:Query.[ "stream",  (module Option(Int))
+        ~query:Query.[ "stream",  (module Option(Stream.ID))
                      ; "channel", (module Option(Int))
                      ; "pid",     (module Option(Int)) ]
         (get_vdata_sock api)

@@ -48,7 +48,7 @@ type channel =
   } [@@deriving yojson,eq]
 
 type structure =
-  { id       : int32 
+  { id       : Common.Stream.ID.t
   ; uri      : Common.Url.t
   ; channels : channel list
   } [@@deriving yojson,eq]
@@ -88,7 +88,7 @@ module Structures = struct
   let restore s = of_yojson (Yojson.Safe.from_string s)
   let combine ~set strs =
     let changed = ref false in
-    let res = List.map (fun s -> match List.find_opt (fun x -> x.uri = s.uri) set with
+    let res = List.map (fun s -> match List.find_opt (fun x -> x.id = s.id) set with
                        | None   -> s
                        | Some x -> combine_structure ~changed ~set:x s)
                 strs

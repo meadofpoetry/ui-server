@@ -13,10 +13,9 @@ let appeared_pids ~past ~pres =
   let open Structure in
   let flat (sl : structure list) =
     List.fold_left (fun acc s ->
-        let stream = Int32.to_int s.id in
         let l = List.fold_left (fun acc c ->
                     let channel = c.number in
-                    let l = List.fold_left (fun acc p -> (stream, channel, p.pid, p.to_be_analyzed)::acc)
+                    let l = List.fold_left (fun acc p -> (s.id, channel, p.pid, p.to_be_analyzed)::acc)
                               [] c.pids in
                     l @ acc)
                   [] s.channels in
@@ -25,9 +24,9 @@ let appeared_pids ~past ~pres =
   let rec not_in_or_diff (s,c,p,tba) = function
     | [] -> true
     | (so,co,po,tbao)::_
-         when so = s && co = c && po = p && Bool.(not @@ equal tbao tba) -> true
+         when Stream.ID.equal so s && co = c && po = p && Bool.(not @@ equal tbao tba) -> true
     | (so,co,po,tbao)::_
-         when so = s && co = c && po = p && Bool.(equal tbao tba) -> false
+         when Stream.ID.equal so s && co = c && po = p && Bool.(equal tbao tba) -> false
     | _::tl -> not_in_or_diff (s,c,p,tba) tl
   in                          
   let past = flat past in
@@ -42,12 +41,11 @@ let active_pids str =
   let open Structure in
   let flat_filter (sl : structure list) =
     List.fold_left (fun acc s ->
-        let stream = Int32.to_int s.id in
         let l = List.fold_left (fun acc c ->
                     let channel = c.number in
                     let l = List.fold_left (fun acc p ->
                                 if p.to_be_analyzed
-                                then (stream, channel, p.pid, p.to_be_analyzed)::acc
+                                then (s.id, channel, p.pid, p.to_be_analyzed)::acc
                                 else acc)
                               [] c.pids in
                     l @ acc)
@@ -95,7 +93,7 @@ let create db_conf s_struct s_status e_video e_audio =
     let open Qoe_status in
     let merge pres past =
       let find s = List.find (fun sold ->
-                       s.stream = sold.stream
+                       Stream.ID.equal s.stream sold.stream
                        && s.channel = sold.channel
                        && s.pid = sold.pid)
                      past
