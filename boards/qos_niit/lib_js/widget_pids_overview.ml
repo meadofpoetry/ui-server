@@ -6,10 +6,6 @@ open Api_js.Api_types
 open Widget_common
 open Board_types
 
-type config =
-  { stream : Stream.t
-  } [@@deriving yojson]
-
 type pid_flags =
   { has_pcr : bool
   ; scrambled : bool
@@ -19,9 +15,48 @@ let name = "PIDs"
 
 let base_class = "qos-niit-pids-overview"
 
-let settings = None
-
 let ( % ) = Fun.( % )
+
+module Settings = struct
+
+  type t =
+    { hex : bool
+    }
+
+  let (default : t) =
+    { hex = false (* FIXME *)
+    }
+
+  class view () =
+    let hex_switch =
+      new Switch.t
+        ~state:default.hex
+        () in
+    let hex_form =
+      new Form_field.t
+        ~input:hex_switch
+        ~label:"HEX IDs"
+        () in
+    let s, set = React.S.create default in
+    object(self)
+
+      inherit Vbox.t ~widgets:[hex_form] ()
+
+      method apply () : unit =
+        let hex = hex_switch#checked in
+        set { hex }
+
+      method reset () : unit =
+        let { hex } = React.S.value self#s in
+        hex_switch#set_checked hex
+
+      method s : t React.signal = s
+
+    end
+
+  let make () = new view ()
+
+end
 
 module Pid_info = struct
   type t = Pid.t
@@ -88,17 +123,18 @@ let pid_flags_fmt : pid_flags Table.custom_elt =
   ; is_numeric = false
   }
 
+
+let dec_pid_fmt = Table.(Int None)
+let hex_pid_fmt = Table.(Int (Some (Printf.sprintf "0x%04X")))
+
 (* TODO add table empty state *)
-let make_table (is_hex : bool)
+let make_table_fmt (is_hex : bool)
       (init : Pid.t list) =
   let open Table in
-  let dec_pid_fmt = Int None in
-  let hex_pid_fmt = Int (Some (Printf.sprintf "0x%04X")) in
+  let open Format in
   let br_fmt = Option (Float None, "-") in
   let pct_fmt = Option (Float (Some (Printf.sprintf "%.2f")), "-") in
-  let fmt =
-    let open Format in
-    let to_sort_column = to_column ~sortable:true in
+  let to_sort_column = to_column ~sortable:true in
     (to_sort_column "PID", dec_pid_fmt)
     :: (to_sort_column "Тип", Custom pid_type_fmt)
     :: (to_column "Доп. инфо", Custom_elt pid_flags_fmt)
@@ -107,17 +143,7 @@ let make_table (is_hex : bool)
     :: (to_sort_column "%", pct_fmt)
     :: (to_sort_column "Min, Мбит/с", br_fmt)
     :: (to_sort_column "Max, Мбит/с", br_fmt)
-    :: [] in
-  let table = new t (* ~footer *) ~dense:true ~fmt () in
-  let on_change = fun (x : bool) ->
-    List.iter (fun row ->
-        let open Table in
-        match row#cells with
-        | pid :: _ ->
-           pid#set_format (if x then hex_pid_fmt else dec_pid_fmt))
-      table#rows in
-  if is_hex then on_change true;
-  table, on_change
+    :: []
 
 let add_row (table : 'a Table.t) ((pid, info) : Pid.t) =
   let open Table in
@@ -131,38 +157,30 @@ let add_row (table : 'a Table.t) ((pid, info) : Pid.t) =
   let row = table#add_row data in
   row
 
-class t (init : Pid.t list timestamped option) () =
-  (* FIXME should remember preffered state *)
+class ['a] t (init : Pid.t list timestamped option) () =
+  let settings = Settings.make () in
   let init, timestamp = match init with
     | None -> [], None
     | Some { data; timestamp } -> data, Some timestamp in
   let is_hex = false in
-  let table, on_change = make_table is_hex init in
-  let title = "Список PID" in
-  let subtitle = make_timestamp_string timestamp in
-  let switch = new Switch.t ~state:is_hex ~on_change () in
-  let hex = new Form_field.t ~input:switch ~label:"HEX IDs" () in
-  let title' = new Card.Primary.title ~large:true title () in
-  let subtitle' = new Card.Primary.subtitle subtitle () in
-  let text_box = Widget.create_div () in
-  let primary = new Card.Primary.t ~widgets:[text_box; hex#widget] () in
-  let media = new Card.Media.t ~widgets:[ table ] () in
+  let fmt = make_table_fmt is_hex init in
   object(self)
 
     val mutable _timestamp : Time.t option = timestamp
     val mutable _data : Set.t = Set.of_list init
 
-    inherit Card.t ~widgets:[ ] ()
+    inherit ['a] Table.t ~sticky_header:true
+              ~dense:true ~fmt ()
+
+    method settings_widget = settings
 
     (** Adds new row to the overview *)
-    method add_row (x : Pid.t) =
-      add_row table x
+    method add_pid (x : Pid.t) =
+      add_row (self :> 'a Table.t) x
 
     (** Updates the overview *)
     method update ({ timestamp; data } : Pid.t list timestamped) =
-      (* Update timestamp *)
       _timestamp <- Some timestamp;
-      subtitle'#set_text_content @@ make_timestamp_string _timestamp;
       (* Manage found, lost and updated items *)
       let prev = _data in
       _data <- Set.of_list data;
@@ -178,14 +196,14 @@ class t (init : Pid.t list timestamped option) () =
           | x :: _ -> x#value in
         pid = pid' in
       Set.iter (fun (pid : Pid.t) ->
-          match List.find_opt (find pid) table#rows with
+          match List.find_opt (find pid) self#rows with
           | None -> ()
-          | Some row -> table#remove_row row) lost;
+          | Some row -> self#remove_row row) lost;
       Set.iter (fun (pid : Pid.t) ->
-          match List.find_opt (find pid) table#rows with
+          match List.find_opt (find pid) self#rows with
           | None -> ()
           | Some row -> self#_update_row row pid) upd;
-      Set.iter (ignore % self#add_row) found
+      Set.iter (ignore % self#add_pid) found
 
     (** Updates bitrate values *)
     method set_rate : Bitrate.t option -> unit = function
@@ -199,16 +217,18 @@ class t (init : Pid.t list timestamped option) () =
              | Some x ->
                 update_row x total br pid |> ignore;
                 List.remove ~eq:Equal.physical ~x rows
-             | None -> rows) table#rows pids
+             | None -> rows) self#rows pids
          |> ignore
 
     method pids = Set.to_list _data
 
-    method table = table
-
-    method switch = hex
-
-    method set_hex x = on_change x
+    method set_hex (x : bool) : unit =
+    List.iter (fun row ->
+        let open Table in
+        match row#cells with
+        | pid :: _ ->
+           pid#set_format (if x then hex_pid_fmt else dec_pid_fmt))
+      self#rows
 
     (* Private methods *)
 
@@ -223,27 +243,21 @@ class t (init : Pid.t list timestamped option) () =
          service#set_value info.service_name;
 
     initializer
-      List.iter Fun.(ignore % add_row table) init;
-      text_box#append_child title';
-      text_box#append_child subtitle';
-      self#add_class base_class;
-      self#append_child primary#widget;
-      self#append_child @@ new Divider.t ();
-      self#append_child media#widget;
+      List.iter Fun.(ignore % add_row (self :> 'a Table.t)) init;
+      self#add_class base_class
   end
 
 let make ?(init : (pids, string) Lwt_result.t option)
-      (stream : Stream.t)
+      (stream : Stream.ID.t)
       control =
   let init = match init with
     | Some x -> x
     | None ->
        let open Requests.Streams.HTTP in
-       get_pids ~ids:[stream.id] control
+       get_pids ~ids:[stream] control
        |> Lwt_result.map_err Api_js.Requests.err_to_string in
   init
   >|= (function
        | [(_, x)] -> new t (Some x) ()
        | _ -> new t None ()) (* FIXME show error *)
-  |> Ui_templates.Loader.create_widget_loader
 

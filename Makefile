@@ -12,8 +12,8 @@ input:
 	cp _build/default/frontend/input.bc.js dist/resources/js/input.js
 
 stream:
-	$(BUILD) frontend/stream.bc.js
-	cp _build/default/frontend/stream.bc.js dist/resources/js/stream.js
+	$(BUILD) frontend/stream_page.bc.js
+	cp _build/default/frontend/stream_page.bc.js dist/resources/js/stream.js
 
 pipeline:
 	$(BUILD) frontend/pipeline_video.bc.js
@@ -67,6 +67,6 @@ test:
 all: build
 
 clean:
-	$(CLEAN) clean
+	$(CLEAN)
 
 .PHONY: build doc test all frontend backend pipeline hardware clean

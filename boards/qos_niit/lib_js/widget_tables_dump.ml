@@ -7,10 +7,6 @@ open Lwt_result.Infix
 open Api_js.Api_types
 open Ui_templates.Sdom
 
-type config =
-  { stream : Stream.t
-  }
-
 let name = "Таблицы"
 
 let settings = None
@@ -273,7 +269,7 @@ let make_dump
       ~(table_id_ext : int)
       ~(id_ext_1 : int)
       ~(id_ext_2 : int)
-      (stream : Stream.t)
+      (stream : Stream.ID.t)
       (list : (SI_PSI_table.section_info * Dump.t timestamped option) Item_list.t)
       (control : int) =
   let open SI_PSI_table in
@@ -338,7 +334,7 @@ let make_dump
              Lwt.catch (fun () ->
                  (req_of_table table_id table_id_ext
                     id_ext_1 id_ext_2 section.section)
-                   ~id:stream.id control
+                   ~id:stream control
                  |> Lwt_result.map_err Api_js.Requests.err_to_string
                  >|= (function
                       | Ok dump ->
@@ -372,7 +368,7 @@ let make_dump
       self#add_class base_class
   end
 
-class t ~(config : config)
+class t ~(stream : Stream.ID.t)
         ~(table_id : int)
         ~(table_id_ext : int)
         ~(id_ext_1 : int)
@@ -384,7 +380,7 @@ class t ~(config : config)
   let box = Widget.create_div () in
   let list, update_list = make_list sections control in
   let dump = make_dump ~table_id ~table_id_ext
-               ~id_ext_1 ~id_ext_2 config.stream list control in
+               ~id_ext_1 ~id_ext_2 stream list control in
   let list_name =
     let _class = Markup.CSS.add_element stream_panel_class "title" in
     let w = new Typography.Text.t ~text:"Секции" () in

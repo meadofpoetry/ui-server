@@ -53,7 +53,7 @@ end = struct
     Db.start () >>= fail_if >>= fun () ->
     m (module Db: Caqti_lwt.CONNECTION) >>= fun res ->
     Db.commit () >>= fail_if >>= fun () -> Lwt.return res
-                                                          
+
   let run db m = m db
 
 end
@@ -139,14 +139,17 @@ module Make (M : MODEL) : (CONN with type init := M.init and type names := M.nam
   (* TODO sprintf *)
   let cleanup_trans tables cleanup_dur =
     let open Request in
-    with_trans (List.fold_left (fun acc (table,keys,_) ->
-                    match keys.time_key with
-                    | None -> acc
-                    | Some time_key ->
-                       acc >>= fun () -> exec (Caqti_request.exec Caqti_type.ptime_span
-                                                 (Printf.sprintf "DELETE FROM %s WHERE %s <= (now()::TIMESTAMP - ?::INTERVAL)"
-                                                    table time_key)) cleanup_dur)
-                  (return ()) tables)
+    with_trans (
+        List.fold_left (fun acc (table,keys,_) ->
+            match keys.time_key with
+            | None -> acc
+            | Some time_key ->
+               acc >>= fun () ->
+               exec (Caqti_request.exec Caqti_type.ptime_span
+                       (Printf.sprintf "DELETE FROM %s \
+                                        WHERE %s <= (now()::TIMESTAMP - ?::INTERVAL)"
+                          table time_key)) cleanup_dur)
+          (return ()) tables)
 
   let delete_trans tables =
     let open Request in
@@ -166,6 +169,8 @@ module Make (M : MODEL) : (CONN with type init := M.init and type names := M.nam
     let names, tables = M.tables sign in
     let obj = { state; tables; names } in
     (* TODO cleanup at startup *)
+    request obj (cleanup_trans tables obj.state.cleanup)
+    |> Lwt.ignore_result;
     let rec loop () =
       Lwt_unix.sleep obj.state.period >>= (fun () ->
         match workers_trans tables with

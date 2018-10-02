@@ -9,6 +9,47 @@ open Widget_common
 
 let ( % ) = Fun.( % )
 
+module Settings = struct
+
+  type t =
+    { hex : bool
+    }
+
+  let (default : t) =
+    { hex = false (* FIXME *)
+    }
+
+  class view () =
+    let hex_switch =
+      new Switch.t
+        ~state:default.hex
+        () in
+    let hex_form =
+      new Form_field.t
+        ~input:hex_switch
+        ~label:"HEX IDs"
+        () in
+    let s, set = React.S.create default in
+    object(self)
+
+      inherit Vbox.t ~widgets:[hex_form] ()
+
+      method apply () : unit =
+        let hex = hex_switch#checked in
+        set { hex }
+
+      method reset () : unit =
+        let { hex } = React.S.value self#s in
+        hex_switch#set_checked hex
+
+      method s : t React.signal = s
+
+    end
+
+  let make () = new view ()
+
+end
+
 module Service_info = struct
   type t = Service.t
 
@@ -123,31 +164,7 @@ let map_details (details : Widget_service_info.t option React.signal)
   | Some x when x#service_id = id -> Some x
   | _ -> None
 
-module Heading = struct
-
-  class t ?title ?subtitle ~meta () =
-    let title' = new Card.Primary.title ~large:true "" () in
-    let subtitle' = new Card.Primary.subtitle "" () in
-    let box = Widget.create_div ~widgets:[title'; subtitle'] () in
-    object(self)
-      inherit Card.Primary.t ~widgets:[box; meta#widget] ()
-
-      method set_title (s : string) : unit =
-        title'#set_text_content s
-
-      method set_subtitle (s : string) : unit =
-        subtitle'#set_text_content s
-
-      initializer
-        Option.iter self#set_title title;
-        Option.iter self#set_subtitle subtitle
-    end
-
-end
-
-let add_row (stream : Stream.t)
-      (primary : Heading.t)
-      (media : Card.Media.t)
+let add_row (parent : #Widget.t)
       (table : 'a Table.t)
       (pids : Pid.t list timestamped option React.signal)
       (rate : Bitrate.t option React.signal)
@@ -165,60 +182,60 @@ let add_row (stream : Stream.t)
         | _ :: name :: _ :: _ :: _ :: _ :: b :: c :: _ ->
            name#value, b#value, c#value in
       let back = make_back () in
-      primary#set_title name;
       let rate = React.S.value rate in
       let pids = React.S.value pids in
+      let title = new Card.Primary.title info.name () in
+      let primary =
+        new Card.Primary.t
+          ~widgets:[ back#widget; title]
+          () in
       let details =
-        Widget_service_info.make ?rate ?min ?max stream (id, info) pids control in
+        Widget_service_info.make ?rate ?min ?max (id, info) pids control in
+      let box =
+        new Vbox.t
+          ~widgets:[ primary
+                   ; (new Divider.t ())#widget
+                   ; details#widget] () in
       set_details @@ Some details;
       back#listen_once_lwt Widget.Event.click
       >|= (fun _ ->
-        media#append_child table;
-        media#remove_child details;
-        primary#remove_child back;
+        parent#append_child table;
+        parent#remove_child box;
         set_details None;
         details#destroy ();
         back#destroy ())
       |> Lwt.ignore_result;
-      primary#insert_child_at_idx 0 back;
-      media#remove_child table;
-      media#append_child details;
+      parent#remove_child table;
+      parent#append_child box;
       Lwt.return_unit)
   |> Lwt.ignore_result
 
-class t (stream : Stream.t)
-        (init : Service.t list timestamped option)
+class t (init : Service.t list timestamped option)
         (pids : Pid.t list timestamped option)
         (control : int)
         () =
+  let settings = Settings.make () in
   let init, timestamp = match init with
     | None -> [], None
     | Some { data; timestamp } -> data, Some timestamp in
   (* FIXME should remember previous state *)
   let is_hex = false in
   let table, on_change = make_table is_hex init in
-  let title = "Список сервисов" in
-  let subtitle = make_timestamp_string timestamp in
   let rate, set_rate = React.S.create None in
   let details, set_details = React.S.create None in
   let pids, set_pids = React.S.create pids in
-  let on_change = fun x ->
-    Option.iter (fun d -> d#set_hex x) @@ React.S.value details;
-    on_change x in
-  let switch = new Switch.t ~state:is_hex ~on_change () in
-  let hex = new Form_field.t ~input:switch ~label:"HEX IDs" () in
-  let primary = new Heading.t ~title ~subtitle ~meta:hex () in
-  let media = new Card.Media.t ~widgets:[table] () in
   object(self)
 
     val mutable _timestamp : Time.t option = timestamp
     val mutable _data : Set.t = Set.of_list init
 
-    inherit Card.t ~widgets:[ ] ()
+    inherit Widget.t Dom_html.(createDiv document) ()
+
+    method settings_widget = settings
 
     (** Adds new row to the overview *)
     method add_row (s : Service.t) =
-      add_row stream primary media table pids rate set_details s control
+      add_row (self :> Widget.t) table pids rate set_details s control
 
     (** Updates PID list *)
     method update_pids (pids : Pid.t list timestamped) : unit =
@@ -230,8 +247,6 @@ class t (stream : Stream.t)
     method update ({ timestamp; data } : Service.t list timestamped) =
       (* Update timestamp *)
       _timestamp <- Some timestamp;
-      (* Set timestamp in heading only if details view is not active *)
-      primary#set_subtitle @@ make_timestamp_string _timestamp;
       (* Manage found, lost and updated items *)
       let prev = _data in
       _data <- Set.of_list data;
@@ -284,6 +299,11 @@ class t (stream : Stream.t)
       | Some rate ->
          List.iter (self#_update_row_rate rate) table#rows
 
+    (** Sets identifiers to hex or decimal view *)
+    method set_hex (x : bool) : unit =
+      Option.iter (fun d -> d#set_hex x) @@ React.S.value details;
+      on_change x
+
     (* Private methods *)
 
     method private _update_row_rate (rate : Bitrate.t) (row : 'a Table.Row.t) =
@@ -315,16 +335,9 @@ class t (stream : Stream.t)
          pcr#set_value info.pcr_pid
 
     initializer
-      self#_keep_e
-      @@ React.E.map (function
-             | Some _ -> ()
-             | None -> primary#set_title title)
-      @@ React.S.changes details;
       List.iter Fun.(ignore % self#add_row) init;
       self#add_class base_class;
-      self#append_child primary#widget;
-      self#append_child @@ new Divider.t ();
-      self#append_child media#widget;
+      self#append_child table;
 
   end
 
@@ -333,14 +346,14 @@ let lwt_l2 (a : 'a Lwt.t) (b : 'b Lwt.t) =
 
 let make ?(init : (services, string) Lwt_result.t option)
       ?(pids : (pids, string) Lwt_result.t option)
-      (stream : Stream.t)
+      (stream : Stream.ID.t)
       (control : int) =
   let init =
     begin match init with
     | Some x -> x
     | None ->
        let open Requests.Streams.HTTP in
-       get_services ~ids:[stream.id] control
+       get_services ~ids:[stream] control
        |> Lwt_result.map_err Api_js.Requests.err_to_string
     end
     >|= function
@@ -351,14 +364,13 @@ let make ?(init : (services, string) Lwt_result.t option)
     | Some x -> x
     | None ->
        let open Requests.Streams.HTTP in
-       get_pids ~ids:[stream.id] control
+       get_pids ~ids:[stream] control
        |> Lwt_result.map_err Api_js.Requests.err_to_string
     end
   >|= function
     | [(_, x)] -> Some x
     | _ -> None in (* FIXME show error *)
   lwt_l2 init pids
-  >|= (fun (services, pids) -> new t stream services pids control ())
-  |> Ui_templates.Loader.create_widget_loader
+  >|= (fun (services, pids) -> new t services pids control ())
 
 

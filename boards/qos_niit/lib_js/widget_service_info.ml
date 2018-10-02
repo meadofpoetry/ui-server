@@ -179,7 +179,7 @@ module Pids = struct
     object(self)
       val mutable _service : Service.t = service
 
-      inherit Widget_pids_overview.t init () as super
+      inherit ['a] Widget_pids_overview.t init () as super
 
       method update_service (service : Service.t) =
         _service <- service;
@@ -190,21 +190,20 @@ module Pids = struct
         super#update { pids with data = filter_pids _service pids.data }
 
       initializer
-        self#table#add_class _class
+        self#add_class _class
     end
 
 end
 
 class t ?(rate : Bitrate.t option)
         ?min ?max
-        (stream : Stream.t)
         (init : Service.t)
         (pids : Pid.t list timestamped option)
         (control : int)
         () =
   let info, set_info, set_rate, set_min, set_max = make_description () in
   let pids = new Pids.t init pids () in
-  let table = pids#table in
+  let table = pids in
   let tabs =
     let info_icon =
       Icon.SVG.(create_simple Path.file_document_box_outline) in
@@ -292,8 +291,7 @@ class t ?(rate : Bitrate.t option)
   end
 
 let make ?rate ?min ?max
-      (stream : Stream.t)
       (init : Service.t)
       (pids : Pid.t list timestamped option)
       (control : int) =
-  new t ?rate ?min ?max stream init pids control ()
+  new t ?rate ?min ?max init pids control ()

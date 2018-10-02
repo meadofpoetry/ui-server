@@ -5,6 +5,16 @@
 @import "../../components/card/_variables";
 @import "../../components/elevation/_mixins";
 
+// Common widget wrapper
+.qos-niit-widget-wrapper {
+    &__title {
+        padding-bottom: 1rem;
+        .mdc-icon {
+            @include mdc-theme-prop(color, text-icon-on-surface);
+        }
+    }
+}
+
 .mdc-list-title {
     @include mdc-typography(caption);
     @include mdc-theme-prop(color, text-secondary-on-surface);
@@ -238,14 +248,12 @@
 
 .qos-niit-pids-summary {
 
-    &__content {
-        display: flex;
-        justify-content: space-around;
-        flex-wrap: nowrap;
-        align-items: center;
-        @media (max-width: 600px) {
-            flex-wrap: wrap;
-        }
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: nowrap;
+    align-items: center;
+    @media (max-width: 600px) {
+        flex-wrap: wrap;
     }
 
     &__pie {
@@ -305,19 +313,11 @@
 /* Pids overview widget */
 
 .qos-niit-pids-overview {
-    .mdc-data-table {
-        th:nth-of-type(2), td:nth-of-type(2) {
-            max-width: 200px;
-        }
+    th:nth-of-type(2), td:nth-of-type(2) {
+        max-width: 200px;
     }
-    .mdc-data-table .mdc-icon {
+    .mdc-icon {
         @include mdc-theme-prop(fill, text-icon-on-surface);
-    }
-    .mdc-card__actions {
-        justify-content: flex-end;
-    }
-    .mdc-form-field {
-        @include mdc-typography(caption);
     }
 }
 

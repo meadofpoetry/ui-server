@@ -10,6 +10,47 @@ type config =
   { stream : Stream.t
   } [@@deriving yojson]
 
+module Settings = struct
+
+  type t =
+    { hex : bool
+    }
+
+  let (default : t) =
+    { hex = false (* FIXME *)
+    }
+
+  class view () =
+    let hex_switch =
+      new Switch.t
+        ~state:default.hex
+        () in
+    let hex_form =
+      new Form_field.t
+        ~input:hex_switch
+        ~label:"HEX IDs"
+        () in
+    let s, set = React.S.create default in
+    object(self)
+
+      inherit Vbox.t ~widgets:[hex_form] ()
+
+      method apply () : unit =
+        let hex = hex_switch#checked in
+        set { hex }
+
+      method reset () : unit =
+        let { hex } = React.S.value self#s in
+        hex_switch#set_checked hex
+
+      method s : t React.signal = s
+
+    end
+
+  let make () = new view ()
+
+end
+
 module Pid_info = struct
 
   include Pid
@@ -315,34 +356,22 @@ class t (timestamp : Time.t option)
         (init : Pid.t list)
         () =
   (* FIXME read from storage *)
+  let settings = Settings.make () in
   let is_hex = false in
-  let content_class = Markup.CSS.add_element base_class "content" in
-  let title = "Сводка" in
-  let subtitle = make_timestamp_string timestamp in
-  let title = new Card.Primary.title ~large:true title () in
-  let subtitle = new Card.Primary.subtitle subtitle () in
-  let text_box = Widget.create_div () in
   let pie = new Pie.t ~hex:is_hex () in
   let info = new Info.t ~hex:is_hex init () in
-  let content = Widget.create_div () in
-  let on_change = fun (x : bool) ->
-    pie#set_hex x;
-    info#set_hex x in
-  let switch = new Switch.t ~state:is_hex ~on_change () in
-  let hex = new Form_field.t ~input:switch ~label:"HEX IDs" () in
-  let primary = new Card.Primary.t ~widgets:[text_box; hex#widget] () in
-  let media = new Card.Media.t ~widgets:[content] () in
   object(self)
 
     val mutable _timestamp : Time.t option = timestamp
     val mutable _data : Set.t = Set.of_list init
 
-    inherit Card.t ~widgets:[] ()
+    inherit Widget.t (Dom_html.createDiv Dom_html.document) ()
+
+    method settings_widget = settings
 
     method update ({ timestamp; data } : Pid.t list timestamped) =
       (* Update timestamp *)
       _timestamp <- Some timestamp;
-      subtitle#set_text_content @@ make_timestamp_string _timestamp;
       (* Manage found, lost and updated items *)
       let prev = _data in
       _data <- Set.of_list data;
@@ -354,35 +383,32 @@ class t (timestamp : Time.t option)
             List.mem ~eq:Pid.equal_info info @@ List.map snd data) inter in
       info#update ~lost ~found ~changed:upd
 
+    method set_hex (x : bool) : unit =
+      pie#set_hex x;
+      info#set_hex x
+
     method set_rate (x : Bitrate.t option) =
       info#set_rate x;
       pie#set_rate x
 
     initializer
       self#add_class base_class;
-      text_box#append_child title;
-      text_box#append_child subtitle;
-      content#add_class content_class;
-      content#append_child pie;
-      content#append_child info;
-      self#append_child primary;
-      self#append_child @@ new Divider.t ();
-      self#append_child media
+      self#append_child pie;
+      self#append_child info
 
   end
 
 let make ?(init : (pids, string) Lwt_result.t option)
-      (stream : Stream.t)
+      (stream : Stream.ID.t)
       (control : int) =
   let init = match init with
     | Some x -> x
     | None ->
        let open Requests.Streams.HTTP in
-       get_pids ~ids:[stream.id] control
+       get_pids ~ids:[stream] control
        |> Lwt_result.map_err Api_js.Requests.err_to_string in
   init
   >|= (function
        | [(_, x)] -> Some x.timestamp, x.data
        | _ -> None, []) (* FIXME show error *)
   >|= (fun (ts, data) -> new t ts data ())
-  |> Ui_templates.Loader.create_widget_loader

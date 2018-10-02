@@ -1,0 +1,44 @@
+open Containers
+open Components
+open Common
+open Lwt_result.Infix
+open Board_types
+open Page_common
+
+let make (id : Stream.ID.t) control =
+  let thread = Widget_services_overview.make id control in
+  let sock_lwt =
+    let open React in
+    thread
+    >|= fun w ->
+    let rate, rate_sock = Requests.Streams.WS.get_bitrate ~ids:[id] control in
+    let pids, pids_sock = Requests.Streams.WS.get_pids ~ids:[id] control in
+    let e, sock = Requests.Streams.WS.get_services ~ids:[id]  control in
+    let e = E.map (function [(_, x)] -> w#update x | _ -> ()) e in
+    let pids = E.map (function [(_, x)] -> w#update_pids x | _ -> ()) pids in
+    let rate =
+      E.map (function
+          | [(_, (x : Bitrate.t timestamped))] ->
+             w#set_rate @@ Option.return x.data
+          | _ -> ()) rate in
+    e, sock, pids, pids_sock, rate, rate_sock in
+  let box =
+    let open Layout_grid in
+    let open Typography in
+    let span = 12 in
+    let overview = wrap "Обзор" thread in
+    let overview_cell = new Cell.t ~span ~widgets:[overview] () in
+    let cells = [overview_cell] in
+    new t ~cells () in
+  box#set_on_destroy
+  @@ Some (fun () ->
+         sock_lwt
+         >|= (fun (e, sock, pids, pids_sock, rate, rate_sock) ->
+             React.E.stop ~strong:true e;
+             React.E.stop ~strong:true rate;
+             React.E.stop ~strong:true pids;
+             sock##close;
+             rate_sock##close;
+             pids_sock##close)
+         |> Lwt.ignore_result);
+  box#widget

@@ -8,11 +8,11 @@ open Api
 open Common.Uri
 
 module Api_handler = Api.Handler.Make(Common.User)
-   
-let (%) = Fun.(%)
+
+let ( % ) = Fun.( % )
 
 let resource base uri =
-  respond_file base uri () 
+  respond_file base uri ()
 
 module Settings = struct
   type t = { path : string
@@ -25,7 +25,7 @@ module Settings = struct
 end
 
 module Conf = Storage.Config.Make(Settings)
-            
+
 let get_handler ~settings
       ~auth_filter
       ~routes

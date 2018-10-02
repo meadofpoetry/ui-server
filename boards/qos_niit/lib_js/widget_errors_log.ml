@@ -6,10 +6,6 @@ open Board_types
 open Lwt_result.Infix
 open Api_js.Api_types
 
-type config =
-  { stream : Stream.t
-  }
-
 type state_list = state list [@@deriving show]
 
 let name = "Errors"
@@ -18,8 +14,6 @@ let base_class = "qos-niit-errors-log"
 let failure_class = Markup.CSS.add_modifier base_class "failure"
 let dander_class = Markup.CSS.add_modifier base_class "danger"
 let warning_class = Markup.CSS.add_modifier base_class "warning"
-
-let settings = None
 
 let ( >>* ) x f = Lwt_result.map_err f x
 let ( % ) = Fun.( % )
@@ -210,7 +204,7 @@ class ['a] t ~id (init : Error.raw) control () =
   end
 
 let make ?(init : (Error.raw, string) Lwt_result.t option)
-      (stream : Stream.t)
+      (stream : Stream.ID.t)
       (control : int) =
   let state = get_state control in
   state
@@ -219,8 +213,7 @@ let make ?(init : (Error.raw, string) Lwt_result.t option)
   |> Lwt.ignore_result;
   let init = match init with
     | Some x -> x
-    | None -> get_errors ~id:stream.id control
+    | None -> get_errors ~id:stream control
               >|= snd in
   init
-  >|= (fun errors -> new t ~id:stream.id errors control ())
-  |> Ui_templates.Loader.create_widget_loader
+  >|= (fun errors -> new t ~id:stream errors control ())

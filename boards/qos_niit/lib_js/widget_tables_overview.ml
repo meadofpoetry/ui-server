@@ -6,17 +6,52 @@ open Lwt_result.Infix
 open Api_js.Api_types
 open Widget_common
 
-type config =
-  { stream : Stream.t
-  }
-
 let ( % ) = Fun.( % )
 
 let name = "Обзор таблиц"
 let base_class = "qos-niit-table-overview"
 let failure_class = Markup.CSS.add_modifier base_class "failure"
 
-let settings = None
+module Settings = struct
+
+  type t =
+    { hex : bool
+    }
+
+  let (default : t) =
+    { hex = false (* FIXME *)
+    }
+
+  class view () =
+    let hex_switch =
+      new Switch.t
+        ~state:default.hex
+        () in
+    let hex_form =
+      new Form_field.t
+        ~input:hex_switch
+        ~label:"HEX IDs"
+        () in
+    let s, set = React.S.create default in
+    object(self)
+
+      inherit Vbox.t ~widgets:[hex_form] ()
+
+      method apply () : unit =
+        let hex = hex_switch#checked in
+        set { hex }
+
+      method reset () : unit =
+        let { hex } = React.S.value self#s in
+        hex_switch#set_checked hex
+
+      method s : t React.signal = s
+
+    end
+
+  let make () = new view ()
+
+end
 
 module Table_info = struct
 
@@ -160,12 +195,13 @@ let make_dump_title ?is_hex
 
 module Heading = struct
 
-  class t ?title ?subtitle () =
-    let title' = new Card.Primary.title ~large:true "" () in
+  class t ?meta ?title ?subtitle () =
+    let title' = new Card.Primary.title "" () in
     let subtitle' = new Card.Primary.subtitle "" () in
     let box = Widget.create_div ~widgets:[title'; subtitle'] () in
+    let widgets = List.cons_maybe meta [box] in
     object(self)
-      inherit Card.Primary.t ~widgets:[box] ()
+      inherit Card.Primary.t ~widgets ()
 
       method set_title (s : string) : unit =
         title'#set_text_content s
@@ -181,10 +217,9 @@ module Heading = struct
 end
 
 let add_row (table : 'a Table.t)
-      (stream : Stream.t)
-      (primary : Heading.t)
+      (stream : Stream.ID.t)
       (hex : bool React.signal)
-      (media : Card.Media.t)
+      (parent : #Widget.t)
       (control : int)
       (set_dump : (SI_PSI_table.t * Widget_tables_dump.t) option -> unit)
       ((id, info) : SI_PSI_table.t) =
@@ -198,25 +233,29 @@ let add_row (table : 'a Table.t)
       let back = make_back () in
       let is_hex = React.S.value hex in
       let title, subtitle = make_dump_title ~is_hex (id, info) in
-      primary#set_title title;
-      primary#set_subtitle subtitle;
+      let heading = new Heading.t ~meta:back#widget ~title ~subtitle () in
       let dump =
         new Widget_tables_dump.t
-          ~config:{ stream }
+          ~stream
           ~sections:cell#value
           ~table_id:id.table_id
           ~table_id_ext:id.table_id_ext
           ~id_ext_1:id.id_ext_1
           ~id_ext_2:id.id_ext_2
           control () in
+      let box =
+        new Vbox.t
+          ~widgets:[ heading#widget
+                   ; (new Divider.t ())#widget
+                   ; dump#widget ]
+          () in
       set_dump @@ Some ((id, info), dump);
       back#listen_once_lwt Widget.Event.click
       >|= (fun _ ->
         let sections = List.map (fun i -> i#value) dump#list#items in
         cell#set_value ~force:true sections;
-        media#set_empty ();
-        media#append_child table;
-        primary#remove_child back;
+        parent#remove_child box;
+        parent#append_child table;
         set_dump None;
         dump#destroy ();
         back#destroy ())
@@ -225,14 +264,13 @@ let add_row (table : 'a Table.t)
       | hd :: _ -> dump#list#set_active hd
       | _ -> ()
       end;
-      primary#insert_child_at_idx 0 back;
-      media#remove_child table;
-      media#append_child dump;
+      parent#remove_child table;
+      parent#append_child box;
       Lwt.return_unit)
   |> Lwt.ignore_result;
   row
 
-class t (stream : Stream.t)
+class t (stream : Stream.ID.t)
         (init : SI_PSI_table.t list timestamped option)
         (control : int)
         () =
@@ -240,19 +278,17 @@ class t (stream : Stream.t)
     | None -> [], None
     | Some { data; timestamp } -> data, Some timestamp in
   (* FIXME should remember preffered state *)
+  let settings = Settings.make () in
   let is_hex = false in
   let table, on_change = make_table is_hex init in
-  let title = "Список таблиц SI/PSI" in
-  let subtitle = make_timestamp_string timestamp in
   let dump, set_dump = React.S.create None in
-  let primary = new Heading.t ~title ~subtitle () in
   let on_change = fun x ->
     begin match React.S.value dump with
     | None -> ()
-    | Some (i, _) ->
-       primary#set_subtitle
-       @@ snd
-       @@ make_dump_title ~is_hex:x i
+    | Some (i, _) -> ()
+       (* primary#set_subtitle
+        * @@ snd
+        * @@ make_dump_title ~is_hex:x i *)
     end;
     on_change x in
   let hex = let switch = new Switch.t ~state:is_hex ~on_change () in
@@ -263,12 +299,14 @@ class t (stream : Stream.t)
     val mutable _data : Set.t = Set.of_list init
     val media = new Card.Media.t ~widgets:[table] ()
 
-    inherit Card.t ~widgets:[ ] ()
+    inherit Widget.t Dom_html.(createDiv document) ()
+
+    method settings_widget = settings
 
     (** Adds new row to the overview *)
     method add_row (t : SI_PSI_table.t) =
-      add_row table stream primary hex#input_widget#s_state
-        media control set_dump t
+      add_row table stream hex#input_widget#s_state
+        (self :> Widget.t) control set_dump t
 
     method set_sync (x : bool) : unit =
       self#add_or_remove_class (not x) failure_class
@@ -321,11 +359,6 @@ class t (stream : Stream.t)
       let open SI_PSI_table in
       (* Update timestamp *)
       _timestamp <- Some timestamp;
-      (* Set timestamp in a heading only if dump view is not active *)
-      begin match React.S.value dump with
-      | None -> primary#set_subtitle @@ make_timestamp_string _timestamp;
-      | Some _ -> ()
-      end;
       (* Manage found, lost and updated items *)
       let prev = _data in
       _data <- Set.of_list data;
@@ -374,32 +407,21 @@ class t (stream : Stream.t)
       | _ :: _ :: _ :: x :: _ -> x#value
 
     initializer
-      primary#append_child hex;
-      self#_keep_e
-      @@ React.E.map (function
-             | Some _ -> ()
-             | None ->
-                primary#set_title title;
-                primary#set_subtitle @@ make_timestamp_string _timestamp)
-      @@ React.S.changes dump;
       Set.iter (ignore % self#add_row) _data;
       self#add_class base_class;
-      self#append_child primary;
-      self#append_child @@ new Divider.t ();
-      self#append_child media;
+      self#append_child table
   end
 
 let make ?(init : (tables, string) Lwt_result.t option)
-      (stream : Stream.t)
+      (stream : Stream.ID.t)
       control =
   let init = match init with
     | Some x -> x
     | None ->
        let open Requests_streams.HTTP in
-       get_tables ~ids:[stream.id] control
+       get_tables ~ids:[stream] control
        |> Lwt_result.map_err Api_js.Requests.err_to_string in
   init
-  >|= (function
-       | [(_, x)] -> new t stream (Some x) control ()
-       | _ -> new t stream None control ()) (* FIXME show error *)
-  |> Ui_templates.Loader.create_widget_loader
+  >|= function
+  | [(_, x)] -> new t stream (Some x) control ()
+  | _ -> new t stream None control () (* FIXME show error *)
