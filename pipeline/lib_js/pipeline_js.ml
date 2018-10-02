@@ -15,4 +15,5 @@ let pages =
   let tab f () = ((f ()) :> Widget.t) in
   [ new Tab.t ~content:(Text "Видео") ~value:(tab Mosaic.page) ()
   ; new Tab.t ~content:(Text "Редактор") ~value:(tab Wm_page.page) ()
+  ; new Tab.t ~content:(Text "Шаблоны") ~value:(tab Wm_templates.page) ()
   ]

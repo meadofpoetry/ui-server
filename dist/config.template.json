@@ -10,7 +10,7 @@
         "extern" : null,
         "intern" : {
             "interface": "eno1",
-            "address": ["192.168.111.205", 24],
+            "address": ["192.168.111.237", 24],
             "routes": { "gateway" : "192.168.111.1",
                         "static"  : [] },
             "mac_address": null
