@@ -253,10 +253,11 @@ let reset typ send bin_path bin_name msg_fmt api state (sources : (Common.Url.t 
   let exec_path = (Filename.concat bin_path bin_name) in
   let msg_fmt   = Pipeline_settings.format_to_string msg_fmt in
   let ids       = List.map (fun (_,s) ->
-                      Yojson.Safe.to_string @@ Common.Stream.ID.to_yojson s.Common.Stream.id) sources in
+                      Common.Stream.ID.to_string s.Common.Stream.id) sources in
   let uris      = List.map Fun.(fst %> Common.Url.to_string) sources in
   let args      = List.interleave ids uris in
   let exec_opts = Array.of_list (bin_name :: "-m" :: msg_fmt :: args) in
+  (* ignore @@ Lwt_io.printf "Arguments: %s\n" (Array.fold_left (fun acc s -> acc ^ " " ^ s) "" exec_opts); *)
   state.srcs  := sources;
   state.ready := false;
   Option.iter (fun proc -> proc#terminate) state.proc;
