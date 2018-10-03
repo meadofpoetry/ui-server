@@ -11,6 +11,12 @@ module WS = struct
 
   include Boards_js.Requests.Device.WS
 
+  let get_receivers control =
+    WS.get ~from:Json.(Option.of_yojson @@ List.of_yojson Int.of_yojson)
+      ~path:Path.Format.(get_base_path () / ("receivers" @/ empty))
+      ~query:Query.empty
+      control
+
   let get_mode ?(ids = []) control =
     WS.get ~from:config_of_yojson
       ~path:Path.Format.(get_base_path () / ("mode" @/ empty))
@@ -42,6 +48,12 @@ module HTTP = struct
   let get_devinfo control =
     get_result ~from:(Json.Option.of_yojson devinfo_of_yojson)
       ~path:Path.Format.(get_base_path () / ("info" @/ empty))
+      ~query:Query.empty
+      control
+
+  let get_receivers control =
+    get_result ~from:Json.(Option.of_yojson @@ List.of_yojson Int.of_yojson)
+      ~path:Path.Format.(get_base_path () / ("receivers" @/ empty))
       ~query:Query.empty
       control
 

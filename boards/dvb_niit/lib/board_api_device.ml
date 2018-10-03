@@ -7,9 +7,21 @@ open Common
 
 module WS = struct
 
+  open Api.Socket
+  open React
+
   let get_state (events : events) _ body sock_data () =
-    Api.Socket.handler socket_table sock_data
-      (React.S.changes events.state) Topology.state_to_yojson body
+    handler socket_table sock_data
+      (S.changes events.state) Topology.state_to_yojson body
+
+  let get_receivers (events : events) _ body sock_data () =
+    let to_yojson = Json.(Option.to_yojson @@ List.to_yojson Int.to_yojson) in
+    let e =
+      S.map (function
+          | None -> None
+          | Some x -> Some x.receivers) events.devinfo
+      |> S.changes in
+    handler socket_table sock_data e to_yojson body
 
   let get_mode (events : events) ids _ body sock_data () =
     let e = match ids with
@@ -18,7 +30,7 @@ module WS = struct
          React.E.fmap (fun l ->
              List.filter (fun (id, _) -> List.mem ~eq:(=) id ids) l
              |> function [] -> None | l -> Some l) events.config in
-    Api.Socket.handler socket_table sock_data e config_to_yojson body
+    handler socket_table sock_data e config_to_yojson body
 
 end
 
@@ -39,6 +51,13 @@ module HTTP = struct
   let get_devinfo (api : api) _ _ () =
     api.get_devinfo ()
     >|= (Result.return % Json.Option.to_yojson devinfo_to_yojson)
+    >>= respond_result
+
+  let get_receivers (api : api) _ _ () =
+    api.get_devinfo ()
+    >|= (function None -> None | Some x -> Some x.receivers)
+    >|= Json.(Option.to_yojson @@ List.to_yojson Int.to_yojson)
+    >|= Result.return
     >>= respond_result
 
   let get_mode (api : api) ids _ _ () =
@@ -67,6 +86,10 @@ let handler api events =
         ~path:Path.Format.("mode" @/ empty)
         ~query:Query.(["id", (module List(Int))])
         (WS.get_mode events)
+    ; create_ws_handler ~docstring:"Returns available modules"
+        ~path:Path.Format.("receivers" @/ empty)
+        ~query:Query.empty
+        (WS.get_receivers events)
     ]
     [ `POST,
       [ create_handler ~docstring:"Resets the board"
@@ -89,6 +112,10 @@ let handler api events =
           ~path:Path.Format.("info" @/ empty)
           ~query:Query.empty
           (HTTP.get_devinfo api)
+      ; create_handler ~docstring:"Returns available modules"
+          ~path:Path.Format.("receivers" @/ empty)
+          ~query:Query.empty
+          (HTTP.get_receivers api)
       ; create_handler ~docstring:"Returns current board mode"
           ~path:Path.Format.("mode" @/ empty)
           ~query:Query.["id", (module List(Int))]

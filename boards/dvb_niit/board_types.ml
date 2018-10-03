@@ -38,19 +38,6 @@ module Device = struct
 
   type config = (int * mode) list [@@deriving yojson]
 
-  let config_to_string c =
-    Yojson.Safe.to_string @@ config_to_yojson c
-
-  let config_of_string s =
-    config_of_yojson @@ Yojson.Safe.from_string s
-
-  let default ?(freq = 586000000) ?(plp = 0) () =
-    { standard = T2
-    ; channel = { bw = Bw8; freq; plp }
-    }
-
-  let (config_default : config) = []
-
 end
 
 module Plp_list = struct

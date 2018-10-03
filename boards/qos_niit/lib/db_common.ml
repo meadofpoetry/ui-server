@@ -70,6 +70,7 @@ module Model = struct
   let keys_ts_info =
     make_keys ~time_key:"date_end"
       [ "stream", key ~primary:true ID.typ
+      
       ; "complete", key "BOOL"
       ; "services", key "INTEGER"
       ; "nw_pid", key "INTEGER"

@@ -11,7 +11,7 @@ type item =
   | Module_measures of Widget_module_measures.config option
   | Chart of Widget_chart.config option
   | Module_settings of Widget_module_settings.widget_config option
-  | Settings of Widget_settings.widget_config option [@@deriving yojson]
+  | Settings [@@deriving yojson]
 
 let item_to_info : item -> Dashboard.Item.info = fun item ->
   let serialized = item_to_yojson item in
@@ -43,7 +43,7 @@ let item_to_info : item -> Dashboard.Item.info = fun item ->
        ~thumbnail:(`Icon "settings")
        ~description:"Позволяет осуществлять настройку выбранного модуля" ()
        ~serialized
-  | Settings _ ->
+  | Settings ->
      Dashboard.Item.to_info
        ~title:"Настройки"
        ~thumbnail:(`Icon "settings")
@@ -63,6 +63,7 @@ class t (control:int) () =
 object(self)
   val mutable _state : Topology.state React.signal t_lwt = empty ()
   val mutable _config : Device.config React.signal t_lwt = empty ()
+  val mutable _receivers : int list option React.signal t_lwt = empty ()
   val mutable _measures : (int * Measure.t) React.event Factory_state.t = empty ()
 
   val mutable _measures_ref = 0
@@ -73,7 +74,7 @@ object(self)
     | Module_measures conf -> self#_create_module_measures conf
     | Chart conf -> self#_create_chart conf
     | Module_settings conf -> self#_create_module_settings conf
-    | Settings conf -> self#_create_settings conf
+    | Settings -> self#_create_settings ()
 
   method destroy () =
     finalize _state;
@@ -82,7 +83,7 @@ object(self)
 
   method available : Dashboard.available =
     `List [ item_to_info (Chart None)
-          ; item_to_info (Settings None)
+          ; item_to_info Settings
           ; item_to_info (Module_measure None)
           ; item_to_info (Module_measures None)
           ; item_to_info (Module_settings None)
@@ -110,9 +111,10 @@ object(self)
     |> Dashboard.Item.to_item ~name:(Widget_module_settings.name conf)
          ?settings:Widget_module_settings.settings
 
-  method private _create_settings conf =
-    (fun s c -> Widget_settings.make ~state:s ~config:c conf control)
-    |> Factory_state_lwt.l2 self#_state self#_config
+  method private _create_settings () =
+    (fun s c r ->
+      Widget_settings.make ~state:s ~config:c ~receivers:r control)
+    |> Factory_state_lwt.l3 self#_state self#_config self#_receivers
     |> Ui_templates.Loader.create_widget_loader
     |> Dashboard.Item.to_item ~name:Widget_settings.name
          ?settings:Widget_settings.settings
@@ -131,6 +133,12 @@ object(self)
       ~get:(fun () -> Requests.Device.HTTP.get_mode control |> map_err)
       ~get_socket:(fun () -> Requests.Device.WS.get_mode control)
       _config
+
+  method private _receivers =
+    Factory_state_lwt.get_value_as_signal
+      ~get:(fun () -> Requests.Device.HTTP.get_receivers control |> map_err)
+      ~get_socket:(fun () -> Requests.Device.WS.get_receivers control)
+      _receivers
 
   method private _measures = match _measures.value with
     | Some x -> Factory_state.succ_ref _measures; x

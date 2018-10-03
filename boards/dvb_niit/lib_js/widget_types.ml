@@ -1,6 +1,6 @@
 type measure_type = [ `Power | `Mer | `Ber | `Freq | `Bitrate ] [@@deriving yojson]
 
-let module_name = "Поток"
+let module_name = "Тюнер"
 
 let measure_type_to_string = function
   | `Power   -> "Мощность"

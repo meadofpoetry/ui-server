@@ -7,25 +7,33 @@ open Common
 
 module WS = struct
 
+  open Api.Socket
+
   let to_yojson f v = Json.(Pair.to_yojson Int.to_yojson f v)
 
   let measures (events : events) ids _ body sock_data () =
     let e = match ids with
-      | []  -> events.measures
-      | ids -> React.E.filter (fun (id,_) -> List.mem ~eq:(=) id ids) events.measures
-    in Api.Socket.handler socket_table sock_data e (to_yojson Measure.to_yojson) body
+      | [] -> events.measures
+      | ids -> React.E.filter (fun (id, _) ->
+                   List.mem ~eq:(=) id ids) events.measures
+    in
+    handler socket_table sock_data e (to_yojson Measure.to_yojson) body
 
   let parameters (events : events) ids _ body sock_data () =
     let e = match ids with
-      | []  -> events.params
-      | ids -> React.E.filter (fun (id,_) -> List.mem ~eq:(=) id ids) events.params
-    in Api.Socket.handler socket_table sock_data e (to_yojson Params.to_yojson) body
+      | [] -> events.params
+      | ids -> React.E.filter (fun (id, _) ->
+                   List.mem ~eq:(=) id ids) events.params
+    in
+    handler socket_table sock_data e (to_yojson Params.to_yojson) body
 
   let plp_list (events : events) ids _ body sock_data () =
     let e = match ids with
-      | []  -> events.plp_list
-      | ids -> React.E.filter (fun (id,_) -> List.mem ~eq:(=) id ids) events.plp_list
-    in Api.Socket.handler socket_table sock_data e (to_yojson Plp_list.to_yojson) body
+      | [] -> events.plp_list
+      | ids -> React.E.filter (fun (id, _) ->
+                   List.mem ~eq:(=) id ids) events.plp_list
+    in
+    handler socket_table sock_data e (to_yojson Plp_list.to_yojson) body
 
 end
 

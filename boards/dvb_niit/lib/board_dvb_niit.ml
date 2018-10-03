@@ -8,9 +8,15 @@ module Api_handler = Api.Handler.Make (Common.User)
 module Data = struct
   open Device
   type t = config
-  let default = config_default
-  let dump = config_to_string
-  let restore = config_of_string
+
+  let default =
+    [ 0, { standard = T2; channel = { freq = 586000000; bw = Bw8; plp = 0 }} ]
+
+  let dump c =
+    Yojson.Safe.to_string @@ config_to_yojson c
+
+  let restore s =
+    config_of_yojson @@ Yojson.Safe.from_string s
 end
 
 module Config_storage = Storage.Options.Make (Data)
@@ -19,7 +25,7 @@ let invalid_port prefix port =
   let s = prefix ^ ": invalid port " ^ (string_of_int port) in
   raise (Invalid_port s)
 
-let create (b:topo_board) _ convert_streams send _ (* db_conf*) base step =
+let create (b : topo_board) _ convert_streams send _ (* db_conf*) base step =
   let log_name = Boards.Board.log_name b in
   let log_src = Logs.Src.create log_name in
   Option.iter (fun x -> Logs.Src.set_level log_src @@ Some x) b.logs;
