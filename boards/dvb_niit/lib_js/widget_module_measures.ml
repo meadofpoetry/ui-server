@@ -17,9 +17,9 @@ end
 
 module Row = struct
 
-  module Make(M:M) = struct
+  module Make(M : M) = struct
     let _class = Markup.CSS.add_element base_class "row"
-    class t ~(s_value:M.t option React.signal) () =
+    class t ~(s_value : M.t option React.signal) () =
       let meta =
         new Typography.Text.t
           ~adjust_margin:false
@@ -44,13 +44,13 @@ module Row = struct
 
   end
 
-  module Float      = Widget_module_measure.Float
+  module Float = Widget_module_measure.Float
   module Scientific = Widget_module_measure.Scientific
-  module Power      = Make(struct include Float      let typ = `Power   end)
-  module Mer        = Make(struct include Float      let typ = `Mer     end)
-  module Ber        = Make(struct include Scientific let typ = `Ber     end)
-  module Freq       = Make(struct include Int        let typ = `Freq    end)
-  module Bitrate    = Make(struct include Float      let typ = `Bitrate end)
+  module Power = Make(struct include Float let typ = `Power end)
+  module Mer = Make(struct include Float let typ = `Mer end)
+  module Ber = Make(struct include Scientific let typ = `Ber end)
+  module Freq = Make(struct include Int let typ = `Freq end)
+  module Bitrate = Make(struct include Float let typ = `Bitrate end)
 
 end
 
@@ -61,19 +61,22 @@ let name conf =
   Printf.sprintf "Модуль %d. Измерения" (succ conf.id)
 let settings  = None
 
-let make ~(measures:(int * measures) React.event) (config:config option) =
+let make ~(measures : (int * Measure.t) React.event)
+      (config : config option) =
   let open Row in
   let open React in
+  let open Measure in
   let config = Option.get_or ~default:default_config config in
   let measures = E.filter (fun (id,_) -> id = config.id) measures in
-  let power   = Power.make (S.hold None @@ E.map (fun (_,m) -> m.power) measures) in
-  let mer     = Mer.make   (S.hold None @@ E.map (fun (_,m) -> m.mer) measures) in
-  let ber     = Ber.make   (S.hold None @@ E.map (fun (_,m) -> m.ber) measures) in
-  let freq    = Freq.make  (S.hold None @@ E.map (fun (_,(m:measures)) -> m.freq) measures) in
-  let bitrate = E.map (fun (_,m) -> Option.map (fun x -> float_of_int x /. 1_000_000.) m.bitrate) measures
-                |> S.hold None |> Bitrate.make
-  in
-  let items = [ power; mer; ber; freq; bitrate] in
+  let power = Power.make (S.hold None @@ E.map (fun (_, m) -> m.power) measures) in
+  let mer = Mer.make (S.hold None @@ E.map (fun (_, m) -> m.mer) measures) in
+  let ber = Ber.make (S.hold None @@ E.map (fun (_, m) -> m.ber) measures) in
+  let freq = Freq.make (S.hold None @@ E.map (fun (_, m) -> m.freq) measures) in
+  let bitrate =
+    E.map (fun (_, m) ->
+        Option.map (fun x -> float_of_int x /. 1_000_000.) m.bitrate) measures
+    |> S.hold None |> Bitrate.make in
+  let items = [power; mer; ber; freq; bitrate] in
   let list  =
     new Item_list.t
       ~items:(List.map (fun x -> `Item x) items)

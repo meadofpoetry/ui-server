@@ -6,15 +6,14 @@ open Board_types
 module Api_handler = Api.Handler.Make (Common.User)
 
 module Data = struct
-  type t      = config
+  open Device
+  type t = config
   let default = config_default
-  let dump    = config_to_string
+  let dump = config_to_string
   let restore = config_of_string
 end
 
 module Config_storage = Storage.Options.Make (Data)
-
-(* module Database = Storage.Database.Make(Board_model) *)
 
 let invalid_port prefix port =
   let s = prefix ^ ": invalid port " ^ (string_of_int port) in
@@ -41,8 +40,6 @@ let create (b:topo_board) _ convert_streams send _ (* db_conf*) base step =
     SM.create source send (fun x -> convert_streams x b) storage step in
   let handlers = Board_api.handlers b.control api events in
   let state = object
-      (* method _s = _s;
-       * method db = db; *)
       method finalize () = ()
     end in
   { handlers

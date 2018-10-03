@@ -14,16 +14,15 @@ exception Parse_error
 (* Misc *)
 
 type _ request =
-  | Get_devinfo : devinfo request
-  | Reset       : unit request
-  | Set_src_id  : int -> int request
-  | Set_mode    : (int * mode)        -> (int * mode_rsp) request
-  | Set_plp     : (int * plp_set_req) -> (int * plp_set_rsp) request
+  | Get_devinfo : Device.devinfo request
+  | Reset : unit request
+  | Set_src_id : int -> int request
+  | Set_mode : (int * Device.mode) -> (int * Device.mode_rsp) request
 
 type event =
-  | Measures of (int * measures)
-  | Params   of (int * params)
-  | Plp_list of (int * plp_list) [@@deriving show]
+  | Measures of (int * Measure.t)
+  | Params   of (int * Params.t)
+  | Plp_list of (int * Plp_list.t) [@@deriving show]
 
 type _ event_request =
   | Get_measure  : int -> event event_request
@@ -32,7 +31,7 @@ type _ event_request =
 
 (* Helper functions *)
 
-let calc_crc (msg:Cstruct.t) =
+let calc_crc (msg : Cstruct.t) =
   let _, body = Cstruct.split msg (sizeof_prefix - 1) in
   let iter = Cstruct.iter (fun _ -> Some 1)
                (fun buf -> Cstruct.get_uint8 buf 0)
@@ -43,15 +42,15 @@ let calc_crc (msg:Cstruct.t) =
 
 let to_prefix ~length ~msg_code =
   let prefix = Cstruct.create sizeof_prefix in
-  let () = set_prefix_tag_start prefix tag_start in
-  let () = set_prefix_length prefix length in
-  let () = set_prefix_msg_code prefix msg_code in
+  set_prefix_tag_start prefix tag_start;
+  set_prefix_length prefix length;
+  set_prefix_msg_code prefix msg_code;
   prefix
 
 let to_suffix ~crc =
   let suffix = Cstruct.create sizeof_suffix in
-  let () = set_suffix_crc suffix crc in
-  let () = set_suffix_tag_stop suffix tag_stop in
+  set_suffix_crc suffix crc;
+  set_suffix_tag_stop suffix tag_stop;
   suffix
 
 let to_msg ~msg_code ~body =
@@ -67,33 +66,11 @@ let to_empty_msg ~msg_code =
 
 (* Requests/responses *)
 
-let standard_to_int : standard -> int = function
-  | T2 -> 1
-  | T -> 2
-  | C -> 3
-
-let standard_of_int : int -> standard option = function
-  | 1 -> Some T2
-  | 2 -> Some T
-  | 3 -> Some C
-  | _ -> None
-
-let bw_to_int : bw -> int = function
-  | Bw8 -> 1
-  | Bw7 -> 2
-  | Bw6 -> 3
-
-let bw_of_int : int -> bw option = function
-  | 1 -> Some Bw8
-  | 2 -> Some Bw7
-  | 3 -> Some Bw6
-  | _ -> None
-
 (* Src id *)
 
 let to_src_id_req id =
   let body = Cstruct.create sizeof_cmd_src_id in
-  let () = set_cmd_src_id_source_id body id in
+  set_cmd_src_id_source_id body id;
   to_msg ~msg_code:0xD0 ~body
 
 let parse_src_id_rsp_exn msg =
@@ -105,47 +82,57 @@ let parse_src_id_rsp_exn msg =
 
 let to_devinfo_req reset =
   let body = Cstruct.create sizeof_cmd_devinfo in
-  let () = set_cmd_devinfo_reset body (if reset then 0xFF else 0) in
+  set_cmd_devinfo_reset body (if reset then 0xFF else 0);
   to_msg ~msg_code:0x10 ~body
 
-let parse_devinfo_rsp_exn msg =
+let parse_devinfo_rsp_exn msg : Device.devinfo =
   try
     let hw_cfg = get_rsp_devinfo_hw_config msg in
-    { serial    = get_rsp_devinfo_serial msg
-    ; hw_ver    = get_rsp_devinfo_hw_ver msg
-    ; fpga_ver  = get_rsp_devinfo_fpga_ver msg
-    ; soft_ver  = get_rsp_devinfo_soft_ver msg
-    ; asi       = if (hw_cfg land 16) > 0 then true else false
-    ; receivers = List.fold_left (fun acc x ->
-                      let x' = float_of_int x in
-                      if (hw_cfg land (int_of_float (2. ** x'))) > 0
-                      then x :: acc
-                      else acc) [] (List.rev @@ List.range 0 3)
+    { serial = get_rsp_devinfo_serial msg
+    ; hw_ver = get_rsp_devinfo_hw_ver msg
+    ; fpga_ver = get_rsp_devinfo_fpga_ver msg
+    ; soft_ver = get_rsp_devinfo_soft_ver msg
+    ; asi = if (hw_cfg land 16) > 0 then true else false
+    ; receivers =
+        List.fold_left (fun acc x ->
+            let x' = float_of_int x in
+            if (hw_cfg land (int_of_float (2. ** x'))) > 0
+            then x :: acc
+            else acc) [] (List.rev @@ List.range 0 3)
     }
   with _ -> raise Parse_error
 
 (* Mode *)
 
-let to_mode_req id (mode:mode) =
+let to_mode_req id (mode : Device.mode) =
+  let open Device in
   let body = Cstruct.create sizeof_mode in
-  let () = set_mode_standard body (standard_to_int mode.standard) in
-  let () = set_mode_bw body (bw_to_int mode.channel.bw) in
-  let () = set_mode_freq body @@ Int32.of_int mode.channel.freq in
-  let () = set_mode_plp body mode.channel.plp in
+  set_mode_standard body (standard_to_enum mode.standard);
+  set_mode_bw body (bw_to_enum mode.channel.bw);
+  set_mode_freq body @@ Int32.of_int mode.channel.freq;
+  set_mode_plp body mode.channel.plp;
   to_msg ~msg_code:(0x20 lor id) ~body
 
-let parse_mode_rsp_exn id msg =
+let parse_mode_rsp_exn id msg : int * Device.mode_rsp =
   try
     let open Option in
-    id,{ lock       = int_to_bool8 (get_mode_lock msg)       |> get_exn |> bool_of_bool8
-       ; hw_present = int_to_bool8 (get_mode_hw_present msg) |> get_exn |> bool_of_bool8
-       ; mode       = { standard = get_exn @@ standard_of_int (get_mode_standard msg)
-                      ; channel  = { bw   = get_exn @@ bw_of_int (get_mode_bw msg)
-                                   ; freq = Int32.to_int @@ get_mode_freq msg
-                                   ; plp  = get_mode_plp msg
-                                   }
-                      }
-       }
+    let open Device in
+    let lock =
+      int_to_bool8 (get_mode_lock msg)
+      |> get_exn
+      |> bool_of_bool8 in
+    let hw_present =
+      int_to_bool8 (get_mode_hw_present msg)
+      |> get_exn
+      |> bool_of_bool8 in
+    let standard = get_exn @@ standard_of_enum (get_mode_standard msg) in
+    let bw = get_exn @@ bw_of_enum (get_mode_bw msg) in
+    let freq = Int32.to_int @@ get_mode_freq msg in
+    let plp = get_mode_plp msg in
+    id, { lock
+        ; hw_present
+        ; mode = { standard; channel = { bw; freq; plp }}
+        }
   with _ -> raise Parse_error
 
 (* Measure *)
@@ -153,24 +140,29 @@ let parse_mode_rsp_exn id msg =
 let to_measure_req id =
   to_empty_msg ~msg_code:(0x30 lor id)
 
-let parse_measures_rsp_exn id msg =
-  let int_to_opt   x = if Int.equal x max_uint16 then None else Some x in
+let parse_measures_rsp_exn id msg : int * Measure.t =
+  let int_to_opt x = if Int.equal x max_uint16 then None else Some x in
   let int32_to_opt x = if Int32.equal x max_uint32 then None else Some x in
   try
-    let timestamp = Common.Time.Clock.now_s () in
-    let lock = int_to_bool8 (get_rsp_measure_lock msg)
-               |> Option.get_exn |> bool_of_bool8 in
-    let power = Fun.(int_to_opt % get_rsp_measure_power) msg
-                |> Option.map (fun x -> -.((float_of_int x) /. 10.)) in
-    let mer = Fun.(int_to_opt % get_rsp_measure_mer) msg
-              |> Option.map (fun x -> (float_of_int x) /. 10.) in
-    let ber = Fun.(int32_to_opt % get_rsp_measure_ber) msg
-              |> Option.map (fun x -> (Int32.to_float x) /. (2.**24.)) in
-    let freq = Fun.(int32_to_opt % get_rsp_measure_freq) msg
-               |> Option.map Int32.to_int in
-    let bitrate = Fun.(int32_to_opt % get_rsp_measure_bitrate) msg
-                  |> Option.map Int32.to_int in
-    id, { timestamp; lock; power; mer; ber; freq; bitrate }
+    let lock =
+      int_to_bool8 (get_rsp_measure_lock msg)
+      |> Option.get_exn |> bool_of_bool8 in
+    let power =
+      Fun.(int_to_opt % get_rsp_measure_power) msg
+      |> Option.map (fun x -> -.((float_of_int x) /. 10.)) in
+    let mer =
+      Fun.(int_to_opt % get_rsp_measure_mer) msg
+      |> Option.map (fun x -> (float_of_int x) /. 10.) in
+    let ber =
+      Fun.(int32_to_opt % get_rsp_measure_ber) msg
+      |> Option.map (fun x -> (Int32.to_float x) /. (2.**24.)) in
+    let freq =
+      Fun.(int32_to_opt % get_rsp_measure_freq) msg
+      |> Option.map Int32.to_int in
+    let bitrate =
+      Fun.(int32_to_opt % get_rsp_measure_bitrate) msg
+      |> Option.map Int32.to_int in
+    id, { lock; power; mer; ber; freq; bitrate }
   with _ -> raise Parse_error
 
 (* Params *)
@@ -178,46 +170,46 @@ let parse_measures_rsp_exn id msg =
 let to_params_req id =
   to_empty_msg ~msg_code:(0x40 lor id)
 
-let parse_params_rsp_exn id msg : int * params =
-  let bool_of_int x = if x = 0 then false else true in
+let parse_params_rsp_exn id msg : int * Params.t =
+  let bool_of_int x = x <> 0 in
   try
-    let lock = int_to_bool8 (get_rsp_params_lock msg)
-               |> Option.get_exn
-               |> bool_of_bool8 in
-    let params =
-      { fft             = get_rsp_params_fft msg
-      ; gi              = get_rsp_params_gi  msg
-      ; bw_ext          = get_rsp_params_bw_ext msg |> bool_of_int
-      ; papr            = get_rsp_params_papr msg
-      ; l1_rep          = get_rsp_params_l1_rep msg |> bool_of_int
-      ; l1_mod          = get_rsp_params_l1_mod msg
-      ; freq            = get_rsp_params_freq msg |> Int32.to_int
-      ; l1_post_sz      = get_rsp_params_l1_post_sz msg
+    let lock =
+      int_to_bool8 (get_rsp_params_lock msg)
+      |> Option.get_exn
+      |> bool_of_bool8 in
+    let (params : Params.t) =
+      { lock
+      ; fft = get_rsp_params_fft msg
+      ; gi = get_rsp_params_gi  msg
+      ; bw_ext = get_rsp_params_bw_ext msg |> bool_of_int
+      ; papr = get_rsp_params_papr msg
+      ; l1_rep = get_rsp_params_l1_rep msg |> bool_of_int
+      ; l1_mod = get_rsp_params_l1_mod msg
+      ; freq = get_rsp_params_freq msg |> Int32.to_int
+      ; l1_post_sz = get_rsp_params_l1_post_sz msg
       ; l1_post_info_sz = get_rsp_params_l1_post_info_sz msg
-      ; tr_fmt          = get_rsp_params_tr_fmt msg
-      ; sys_id          = get_rsp_params_sys_id msg
-      ; net_id          = get_rsp_params_net_id msg
-      ; cell_id         = get_rsp_params_cell_id msg
-      ; t2_frames       = get_rsp_params_t2_frames msg
-      ; ofdm_syms       = get_rsp_params_ofdm_syms msg
-      ; pp              = get_rsp_params_pp msg
-      ; plp_num         = get_rsp_params_plp_num msg
-      ; tx_id_avail     = get_rsp_params_tx_id_avail msg
-      ; num_rf          = get_rsp_params_num_rf msg
-      ; cur_rf_id       = get_rsp_params_cur_rf_id msg
-      ; cur_plp_id      = get_rsp_params_cur_plp_id msg
-      ; plp_type        = get_rsp_params_plp_type msg
-      ; cr              = get_rsp_params_cr msg
-      ; plp_mod         = get_rsp_params_plp_mod msg
-      ; rotation        = get_rsp_params_rotation msg |> bool_of_int
-      ; fec_sz          = get_rsp_params_fec_size msg
-      ; fec_block_num   = get_rsp_params_fec_block_num msg
-      ; in_band_flag    = get_rsp_params_in_band_flag msg |> bool_of_int
+      ; tr_fmt = get_rsp_params_tr_fmt msg
+      ; sys_id = get_rsp_params_sys_id msg
+      ; net_id = get_rsp_params_net_id msg
+      ; cell_id = get_rsp_params_cell_id msg
+      ; t2_frames = get_rsp_params_t2_frames msg
+      ; ofdm_syms = get_rsp_params_ofdm_syms msg
+      ; pp = get_rsp_params_pp msg
+      ; plp_num = get_rsp_params_plp_num msg
+      ; tx_id_avail = get_rsp_params_tx_id_avail msg
+      ; num_rf = get_rsp_params_num_rf msg
+      ; cur_rf_id = get_rsp_params_cur_rf_id msg
+      ; cur_plp_id = get_rsp_params_cur_plp_id msg
+      ; plp_type = get_rsp_params_plp_type msg
+      ; cr = get_rsp_params_cr msg
+      ; plp_mod = get_rsp_params_plp_mod msg
+      ; rotation = get_rsp_params_rotation msg |> bool_of_int
+      ; fec_sz = get_rsp_params_fec_size msg
+      ; fec_block_num = get_rsp_params_fec_block_num msg
+      ; in_band_flag = get_rsp_params_in_band_flag msg |> bool_of_int
       }
     in
-    id, { timestamp = Common.Time.Clock.now ()
-        ; params    = if lock then Some params else None
-        }
+    id, params
   with _ -> raise Parse_error
 
 (* PLP list *)
@@ -225,51 +217,33 @@ let parse_params_rsp_exn id msg : int * params =
 let to_plp_list_req id =
   to_empty_msg ~msg_code:(0x50 lor id)
 
-let parse_plp_list_rsp_exn id msg : int * plp_list =
+let parse_plp_list_rsp_exn id msg : int * Plp_list.t =
   try
     let plp_num =
       Cstruct.get_uint8 msg 1
       |> (fun x -> if x = 0xFF then None else Some x) in
-    id, { timestamp = Common.Time.Clock.now ()
-        ; lock =
-            int_to_bool8 (Cstruct.get_uint8 msg 0)
-            |> Option.get_exn
-            |> bool_of_bool8
-        ; plps =
-            begin match plp_num with
-            | Some _ ->
-               let iter = Cstruct.iter (fun _ -> Some 1)
-                            (fun buf -> Cstruct.get_uint8 buf 0)
-                            (Cstruct.shift msg 2) in
-               Cstruct.fold (fun acc el -> el :: acc) iter []
-               |> List.sort compare
-            | None   -> []
-            end
-        }
+    let lock =
+      int_to_bool8 (Cstruct.get_uint8 msg 0)
+      |> Option.get_exn
+      |> bool_of_bool8 in
+    let plps = match plp_num with
+      | None -> []
+      | Some _ ->
+         let iter =
+           Cstruct.iter (fun _ -> Some 1)
+             (fun buf -> Cstruct.get_uint8 buf 0)
+             (Cstruct.shift msg 2) in
+         Cstruct.fold (fun acc el -> el :: acc) iter []
+         |> List.sort compare in
+    id, { lock; plps }
   with _ -> raise Parse_error
 
-(* PLP set *)
-
-let to_plp_set_req id (plp:int) =
-  let body = Cstruct.create sizeof_cmd_plp_set in
-  let () = set_cmd_plp_set_plp_id body plp in
-  to_msg ~msg_code:(0x60 lor id) ~body
-
-let parse_plp_set_rsp_exn id msg =
-  try
-    id, { lock = int_to_bool8 (get_rsp_plp_set_lock msg)
-                 |> Option.get_exn
-                 |> bool_of_bool8
-        ; plp  = get_rsp_plp_set_plp msg
-        }
-  with _ -> raise Parse_error
-
-module Make(Logs:Logs.LOG) = struct
+module Make(Logs : Logs.LOG) = struct
 
   type parsed =
     { code : int
     ; body : Cstruct.t
-    ; res  : Cstruct.t
+    ; res : Cstruct.t
     }
 
   type err =
@@ -407,11 +381,6 @@ let parse_mode_rsp id = function
      try_parse (fun b -> parse_mode_rsp_exn id b) buf
   | _ -> None
 
-let parse_plp_set_rsp id = function
-  | `Plp_settings (idx, buf) when idx = id ->
-     try_parse (fun b -> parse_plp_set_rsp_exn id b) buf
-  | _ -> None
-
 let parse_measures_rsp id = function
   | `Measure (idx, buf) when idx = id ->
      try_parse (fun b -> Measures (parse_measures_rsp_exn id b)) buf
@@ -433,10 +402,9 @@ let is_response (type a) (req : a request) msg : a option =
   | Set_src_id _ -> parse_src_id_rsp msg
   | Get_devinfo -> parse_devinfo_rsp msg
   | Set_mode (id, _) -> parse_mode_rsp id msg
-  | Set_plp (id, _) -> parse_plp_set_rsp id msg
 
 let is_event (type a) (req : a event_request) msg : a option =
   match req with
-  | Get_measure  id -> parse_measures_rsp id msg
-  | Get_params   id -> parse_params_rsp   id msg
+  | Get_measure id -> parse_measures_rsp id msg
+  | Get_params id -> parse_params_rsp   id msg
   | Get_plp_list id -> parse_plp_list_rsp id msg

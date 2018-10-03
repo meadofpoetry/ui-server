@@ -68,6 +68,22 @@ let of_yojson (j : Yojson.Safe.json) : (t, string) result =
      end
   | _ -> Error (to_err j)
 
+type 'a timestamped =
+  { timestamp : t
+  ; data : 'a
+  } [@@deriving yojson, eq, show]
+
+let make_timestamped timestamp data =
+  { timestamp; data }
+
+type 'a timespan =
+  { from : t
+  ; till : t
+  ; data : 'a
+  } [@@deriving yojson, eq]
+
+let make_timespan ~from ~till data =
+  { from; till; data }
 
 module Show_RFC3339 = struct
   type t = Ptime.t

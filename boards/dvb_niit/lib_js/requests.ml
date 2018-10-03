@@ -1,3 +1,2 @@
-module Device    = Requests_device
-module Receiver  = Requests_receiver
+module Device = Requests_device
 module Receivers = Requests_receivers

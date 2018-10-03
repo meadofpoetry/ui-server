@@ -155,7 +155,7 @@ let merge_streams (boards : t Map.t)
         |> function
           | None -> `Error (Printf.sprintf "merge_streams: \
                                             port %d is not connected" i)
-          | Some (`Input i)     -> create_in_stream s i
+          | Some (`Input i) -> create_in_stream s i
           | Some (`Streams lst) -> find_cor_stream s lst)
     | Stream id -> compose_hier s id acc
     | Board     -> create_board_stream s in

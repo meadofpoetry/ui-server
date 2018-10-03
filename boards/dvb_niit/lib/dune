@@ -6,7 +6,8 @@
   (flags          (:standard -short-paths -bin-annot
                    -w A+1..49+60-4-39-40-41-42-44-45-48))
   (ocamlopt_flags (-O3 -unbox-closures))
-  (preprocess (pps ppx_cstruct ppx_deriving_yojson ppx_deriving.eq ppx_deriving.show)))
+  (preprocess (pps ppx_cstruct ppx_deriving_yojson ppx_deriving.eq
+               ppx_deriving.show ppx_deriving.enum)))
 
 (rule
   (targets board_types.ml)

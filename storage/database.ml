@@ -169,15 +169,14 @@ module Make (M : MODEL) : (CONN with type init := M.init and type names := M.nam
     let names, tables = M.tables sign in
     let obj = { state; tables; names } in
     (* TODO cleanup at startup *)
-    request obj (cleanup_trans tables obj.state.cleanup)
-    |> Lwt.ignore_result;
     let rec loop () =
-      Lwt_unix.sleep obj.state.period >>= (fun () ->
-        match workers_trans tables with
-        | None   -> Lwt.return_unit
-        | Some w -> request obj w)
-      >>= fun () ->
-      request obj (cleanup_trans tables obj.state.cleanup) >>= loop
+      begin match workers_trans tables with
+      | None   -> Lwt.return_unit
+      | Some w -> request obj w
+      end
+      >>= fun () -> request obj (cleanup_trans tables obj.state.cleanup)
+      >>= fun () -> Lwt_unix.sleep obj.state.period
+      >>= loop
     in
     Lwt_main.run (request obj @@ init_trans tables);
     Lwt.async loop;
