@@ -42,10 +42,7 @@ end
 
 module Plp_list = struct
 
-  type t =
-    { lock : bool
-    ; plps : int list
-    } [@@deriving yojson, show]
+  type t = int list [@@deriving yojson, show, eq]
 
 end
 

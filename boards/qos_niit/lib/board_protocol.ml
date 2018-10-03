@@ -17,9 +17,8 @@ let is_incoming ({ t2mi; _ } : init) =
   fun (s : Stream.t) ->
   match s.orig_id with
   | TS_multi x ->
-     let parsed = Multi_TS_ID.parse x in
-     if parsed.source_id = t2mi
-     then false else true
+     let source_id = Multi_TS_ID.source_id x in
+     source_id <> t2mi
   | _ -> false
 
 let find_stream_by_multi_id (id : Stream.Multi_TS_ID.t)
@@ -247,10 +246,11 @@ module Make(Logs : Logs.LOG) = struct
           (i : input) (id : Multi_TS_ID.t) =
       let open Stream.Source in
       let open Stream.Raw in
-      let parsed = Multi_TS_ID.parse id in
+      let source_id = Multi_TS_ID.source_id id in
+      let stream_id = Multi_TS_ID.stream_id id in
       let spi_id = input_to_int SPI in
       let asi_id = input_to_int ASI in
-      let src = match parsed.source_id, parsed.stream_id with
+      let src = match source_id, stream_id with
         | src, id when src = input && id = spi_id -> `Spi
         | src, id when src = input && id = asi_id -> `Asi
         | src, id when src = t2mi -> `T2mi id

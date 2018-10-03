@@ -4,25 +4,26 @@ open Storage.Options
 open Boards.Board
 open Boards.Pools
 open Common
-open Board_parser
+open Common.Time
+open Common.Stream
 
 type events =
   { devinfo : Device.devinfo option React.signal
   ; state : Topology.state React.signal
   ; config : Device.config React.event
   ; mode : (int * Device.mode) React.event
-  ; measures : (int * Measure.t) React.event
-  ; params : (int * Params.t) React.event
-  ; plp_list : (int * Plp_list.t) React.event
+  ; measures : (Multi_TS_ID.t * Measure.t timestamped) React.event
+  ; params : (Multi_TS_ID.t * Params.t timestamped) React.event
+  ; plps : (Multi_TS_ID.t * Plp_list.t timestamped) React.event
   ; raw_streams : Stream.Raw.t list React.signal
   ; streams : Stream.t list React.signal
   }
 
 type push_events =
   { mode : int * Device.mode -> unit
-  ; measure : int * Measure.t -> unit
-  ; params : int * Params.t -> unit
-  ; plp_list : int * Plp_list.t -> unit
+  ; measure : Multi_TS_ID.t * Measure.t timestamped -> unit
+  ; params : Multi_TS_ID.t * Params.t timestamped -> unit
+  ; plp_list : Multi_TS_ID.t * Plp_list.t timestamped -> unit
   ; state : Topology.state -> unit
   ; devinfo : Device.devinfo option -> unit
   }
@@ -32,18 +33,18 @@ type api =
   ; reset : unit -> unit Lwt.t
   ; set_mode : int * Device.mode -> (int * Device.mode_rsp) Lwt.t
   ; get_config : ?ids:int list -> unit -> Device.config Lwt.t
-  ; get_measures : unit -> (int * Measure.t) list
-  ; get_params : unit -> (int * Params.t) list
-  ; get_plp_list : unit -> (int * Plp_list.t) list
+  ; get_measures : unit -> (Multi_TS_ID.t * Measure.t timestamped) list
+  ; get_params : unit -> (Multi_TS_ID.t * Params.t timestamped) list
+  ; get_plp_list : unit -> (Multi_TS_ID.t * Plp_list.t timestamped) list
   }
 
 (* Board protocol implementation *)
 
 let timeout = 3 (* seconds *)
 
-module Make(Logs : Logs.LOG) = struct
+module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
 
-  module Parser = Board_parser.Make(Logs)
+  module Parser = Board_parser.Make(Logs)(Src)
 
   open Parser
 
@@ -121,9 +122,9 @@ module Make(Logs : Logs.LOG) = struct
         }
 
       type t =
-        { measures : Measure.t state
-        ; plp_list : Plp_list.t state
-        ; params : Params.t state
+        { measures : Measure.t timestamped state
+        ; plp_list : Plp_list.t timestamped state
+        ; params : Params.t timestamped state
         }
 
       let empty : t =
@@ -193,27 +194,29 @@ module Make(Logs : Logs.LOG) = struct
     let handle_event (pe : push_events) (e : event) (t : t) : t =
       let states = match e with
         | Measures ((id, m) as rsp) ->
+           let id = Multi_TS_ID.stream_id id in
            (* push event in any case *)
            pe.measure rsp;
            (* update previous field *)
-           begin match List.find_opt (fun (x,_) -> x = id) t.states with
+           begin match List.Assoc.get ~eq:(=) id t.states with
            | None -> None
-           | Some (id, tmr) ->
+           | Some tmr ->
               let tmr = { tmr with measures = { tmr.measures with prev = Some m }} in
               let tmr = Timer.reset_measures tmr in
               Some (List.Assoc.set ~eq:(=) id tmr t.states)
            end
         | Params ((id, p) as rsp) ->
-           begin match List.find_opt (fun (x, _) -> x = id) t.states with
+           let id = Multi_TS_ID.stream_id id in
+           begin match List.Assoc.get ~eq:(=) id t.states with
            | None -> None
-           | Some (id, tmr) ->
+           | Some tmr ->
               (* push event only if it is different
                  from the previous one or it is first *)
               begin match tmr.params.prev with
               | None -> pe.params rsp
               | Some prev ->
                  let eq = Params.equal in
-                 if not (eq prev p)
+                 if not (eq prev.data p.data)
                  then pe.params rsp
               end;
               (* update previous field *)
@@ -222,16 +225,17 @@ module Make(Logs : Logs.LOG) = struct
               Some (List.Assoc.set ~eq:(=) id tmr t.states)
            end
         | Plp_list ((id, l) as rsp) ->
-           begin match List.find_opt (fun (x, _) -> x = id) t.states with
+           let id = Multi_TS_ID.stream_id id in
+           begin match List.Assoc.get ~eq:(=) id t.states with
            | None -> None
-           | Some (id, tmr) ->
+           | Some tmr ->
               (* push event only if it is different
                  from the previous one or it is first *)
               begin match tmr.plp_list.prev with
               | None -> pe.plp_list rsp
               | Some prev ->
-                 let eq = Equal.list (=) in
-                 if not (eq prev.plps l.plps) then pe.plp_list rsp
+                 let eq = Plp_list.equal in
+                 if not (eq prev.data l.data) then pe.plp_list rsp
               end;
               (* update previous field *)
               let tmr = { tmr with plp_list = { tmr.plp_list with prev = Some l }} in
@@ -296,7 +300,7 @@ module Make(Logs : Logs.LOG) = struct
     (match msg with
      | Get_devinfo -> to_devinfo_req false
      | Reset -> to_devinfo_req true
-     | Set_src_id id -> to_src_id_req id
+     | Set_src_id () -> to_src_id_req ()
      | Set_mode (id, m) -> to_mode_req id m)
     |> sender
 
@@ -329,7 +333,7 @@ module Make(Logs : Logs.LOG) = struct
 
   let initial_timeout = -1
 
-  let step source msgs sender (storage : Device.config storage)
+  let step msgs sender (storage : Device.config storage)
         step_duration (pe:push_events) =
 
     let module Probes =
@@ -362,7 +366,7 @@ module Make(Logs : Logs.LOG) = struct
            Logs.info (fun m ->
                m "connection established, \
                   board initialization started...");
-           let req = Set_src_id source in
+           let req = Set_src_id () in
            let msg =
              { send = (fun () -> (send_msg sender) req)
              ; pred = (is_response req)
@@ -385,13 +389,13 @@ module Make(Logs : Logs.LOG) = struct
         match Pool.responsed pool responses with
         | None ->
            `Continue (step_init_src_id devinfo (Pool.step pool) acc)
-        | Some id when id = source ->
+        | Some id when id = Src.source_id ->
            Logs.debug (fun m -> m "source id setup done! id = %d" id);
            step_start_init devinfo
         | Some id ->
            Logs.warn (fun m ->
                m "failed setup source id! board returned id = %d, \
-                  expected %d" id source);
+                  expected %d" id Src.source_id);
            first_step ()
       with Timeout ->
         Logs.warn (fun m -> m "timeout while initializing source id, \
@@ -498,11 +502,9 @@ module Make(Logs : Logs.LOG) = struct
         first_step ()
 
     in
-
     first_step ()
 
-  let mode_to_stream (src : int)
-        (id, ({ standard; channel } : Device.mode)) : Stream.Raw.t =
+  let mode_to_stream (id, ({ standard; channel } : Device.mode)) : Stream.Raw.t =
     let open Common.Stream in
     let (freq : int64) = Int64.of_int channel.freq in
     let (bw : float) = match channel.bw with
@@ -512,25 +514,31 @@ module Make(Logs : Logs.LOG) = struct
       | T -> DVB_T { freq; bw }
       | C -> DVB_C { freq; bw} in
     let (id : Multi_TS_ID.t) =
-      Multi_TS_ID.make { source_id = src; stream_id = id } in
+      Multi_TS_ID.make
+        ~source_id:Src.source_id
+        ~stream_id:id in
     { source = { info; node = Port 0 }
     ; id = TS_multi id
     ; typ = TS
     }
 
-  let to_streams_s src (config : Device.config React.signal) =
-    React.S.map (List.map (mode_to_stream src)) config
+  let to_streams_s (config : Device.config React.signal) =
+    React.S.map (List.map mode_to_stream) config
 
-  let map_measures storage (e : (int * Measure.t) React.event)
-      : (int * Measure.t) React.event =
-    React.E.map (fun (id, (m : Measure.t)) ->
-        match m.freq, List.Assoc.get ~eq:(=) id storage#get with
+  let map_measures storage e =
+    React.E.map (fun (id, (m : Measure.t timestamped)) ->
+        let id' = Multi_TS_ID.stream_id id in
+        match m.data.freq,
+              List.Assoc.get ~eq:(=) id' storage#get with
         | Some x, Some (mode : Device.mode) ->
-           let freq = mode.channel.freq in
-           id, ({ m with freq = Some (x - freq) } : Measure.t)
-        | _ -> id, { m with freq = None }) e
+           let freq = Some (mode.channel.freq - x) in
+           let data = { m.data with freq } in
+           id, ({ m with data } : Measure.t timestamped)
+        | _ ->
+           let data = { m.data with freq = None } in
+           id, { m with data }) e
 
-  let create source sender streams_conv
+  let create sender streams_conv
         (storage : Device.config storage) step_duration =
     let s_devinfo, devinfo_push = React.S.create None in
     let e_mode, mode_push = React.E.create () in
@@ -543,25 +551,25 @@ module Make(Logs : Logs.LOG) = struct
           let c = List.Assoc.set ~eq:(=) id mode acc in
           storage#store c;
           c) storage#get e_mode in
-    let hold_e f e  =
-      React.E.fold (fun acc x -> List.Assoc.set ~eq:(=) (f x) x acc) [] e
+    let hold_e ~eq f e  =
+      React.E.fold (fun acc x -> List.Assoc.set ~eq (f x) x acc) [] e
       |> React.E.map (List.map snd)
       |> React.S.hold [] in
-    let s_measures = hold_e fst e_measures in
-    let s_params = hold_e fst e_params in
-    let s_plp_list = hold_e fst e_plp_list in
-    let measures = map_measures storage e_measures in
-    let raw_streams = to_streams_s source s_config in
+    let s_measures = hold_e ~eq:Multi_TS_ID.equal fst e_measures in
+    let s_params = hold_e ~eq:Multi_TS_ID.equal fst e_params in
+    let s_plp_list = hold_e ~eq:Multi_TS_ID.equal fst e_plp_list in
+    let raw_streams = to_streams_s s_config in
+    let streams = streams_conv raw_streams in
     let (events : events) =
       { mode = e_mode
-      ; measures
+      ; measures = map_measures storage e_measures
       ; params = e_params
-      ; plp_list = e_plp_list
+      ; plps = e_plp_list
       ; devinfo = s_devinfo
       ; config = React.S.changes s_config
       ; state = s_state
       ; raw_streams
-      ; streams = streams_conv raw_streams
+      ; streams
       } in
     let (push_events : push_events) =
       { mode = mode_push
@@ -598,6 +606,6 @@ module Make(Logs : Logs.LOG) = struct
     in
     events,
     api,
-    (step source msgs sender storage step_duration push_events)
+    (step msgs sender storage step_duration push_events)
 
 end

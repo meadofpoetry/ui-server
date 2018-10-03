@@ -159,10 +159,6 @@ module Multi_TS_ID : sig
    *)
 
   type t
-  type parsed =
-    { source_id : int
-    ; stream_id : int
-    }
 
   val to_yojson : t -> Yojson.Safe.json
   val of_yojson : Yojson.Safe.json -> (t, string) result
@@ -170,8 +166,9 @@ module Multi_TS_ID : sig
   val equal : t -> t -> bool
   val pp : Format.formatter -> t -> unit
   val show : t -> string
-  val parse : t -> parsed
-  val make : parsed -> t
+  val source_id : t -> int
+  val stream_id : t -> int
+  val make : source_id:int -> stream_id:int -> t
   val of_int32_raw : int32 -> t
   val of_int32_pure : int32 -> t
   val to_int32_raw : t -> int32
@@ -180,10 +177,10 @@ module Multi_TS_ID : sig
 end = struct
 
   type t =
+    | Parsed of parsed
     | Raw of int32
-    | Pure of int32 [@@deriving yojson]
-
-  type parsed =
+    | Pure of int32
+  and parsed =
     { source_id : int
     ; stream_id : int
     } [@@deriving eq, ord]
@@ -222,10 +219,11 @@ end = struct
     |> (lor) 0x80000000l   (* ensure ones at right places *)
     |> (land) 0xFFBFFDFEl  (* ensure zeros at right places *)
 
-  let make (p : parsed) : t =
-    Pure (make_pure p)
+  let make ~source_id ~stream_id : t =
+    Parsed { source_id; stream_id }
 
   let parse = function
+    | Parsed x -> x
     | Raw i -> parse_raw i
     | Pure i -> parse_pure i
 
@@ -241,10 +239,12 @@ end = struct
   let of_int32_pure (i : int32) = Pure i
 
   let to_int32_raw = function
+    | Parsed x -> make_raw x
     | Raw i -> i
     | Pure i -> parse_pure i |> make_raw
 
   let to_int32_pure = function
+    | Parsed x -> make_raw x
     | Pure i -> i
     | Raw i -> parse_raw i |> make_pure
 
@@ -255,6 +255,17 @@ end = struct
 
   let show t =
     Format.asprintf "%a" pp t
+
+  let source_id (t : t) = (parse t).source_id
+
+  let stream_id (t : t) = (parse t).stream_id
+
+  let to_yojson (t : t) =
+    Json.Int32.to_yojson (to_int32_pure t)
+
+  let of_yojson (json : Yojson.Safe.json) =
+    Json.Int32.of_yojson json
+    |> Result.map of_int32_pure
 
 end
 

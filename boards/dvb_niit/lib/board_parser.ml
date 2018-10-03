@@ -1,4 +1,6 @@
 open Containers
+open Common.Time
+open Common.Stream
 open Board_msg_formats
 
 let tag_start = 0x55AA
@@ -13,23 +15,30 @@ exception Parse_error
 
 (* Misc *)
 
-type _ request =
-  | Get_devinfo : Device.devinfo request
-  | Reset : unit request
-  | Set_src_id : int -> int request
-  | Set_mode : (int * Device.mode) -> (int * Device.mode_rsp) request
+module type Src = sig
+  val source_id : int
+end
 
-type event =
-  | Measures of (int * Measure.t)
-  | Params   of (int * Params.t)
-  | Plp_list of (int * Plp_list.t) [@@deriving show]
+module Make(Logs : Logs.LOG)(Src : Src) = struct
 
-type _ event_request =
-  | Get_measure  : int -> event event_request
-  | Get_params   : int -> event event_request
-  | Get_plp_list : int -> event event_request
+  type _ request =
+    | Get_devinfo : Device.devinfo request
+    | Reset : unit request
+    | Set_src_id : unit -> int request
+    | Set_mode : (int * Device.mode) -> (int * Device.mode_rsp) request
 
-module Make(Logs : Logs.LOG) = struct
+  type event =
+    | Measures of (Multi_TS_ID.t * Measure.t timestamped)
+    | Params of (Multi_TS_ID.t * Params.t timestamped)
+    | Plp_list of (Multi_TS_ID.t * Plp_list.t timestamped) [@@deriving show]
+
+  type _ event_request =
+    | Get_measure : int -> event event_request
+    | Get_params : int -> event event_request
+    | Get_plp_list : int -> event event_request
+
+  let make_id (id : int) : Multi_TS_ID.t =
+    Multi_TS_ID.make ~source_id:Src.source_id ~stream_id:id
 
   (* Helper functions *)
 
@@ -70,9 +79,9 @@ module Make(Logs : Logs.LOG) = struct
 
   (* Src id *)
 
-  let to_src_id_req id =
+  let to_src_id_req () =
     let body = Cstruct.create sizeof_cmd_src_id in
-    set_cmd_src_id_source_id body id;
+    set_cmd_src_id_source_id body Src.source_id;
     to_msg ~msg_code:0xD0 ~body
 
   let parse_src_id_rsp_exn msg =
@@ -142,7 +151,7 @@ module Make(Logs : Logs.LOG) = struct
   let to_measure_req id =
     to_empty_msg ~msg_code:(0x30 lor id)
 
-  let parse_measures_rsp_exn id msg : int * Measure.t =
+  let parse_measures_rsp_exn id msg : Multi_TS_ID.t * Measure.t timestamped =
     let int_to_opt x = if Int.equal x max_uint16 then None else Some x in
     let int32_to_opt x = if Int32.equal x max_uint32 then None else Some x in
     try
@@ -164,7 +173,9 @@ module Make(Logs : Logs.LOG) = struct
       let bitrate =
         Fun.(int32_to_opt % get_rsp_measure_bitrate) msg
         |> Option.map Int32.to_int in
-      id, { lock; power; mer; ber; freq; bitrate }
+      let (data : Measure.t) =
+        { lock; power; mer; ber; freq; bitrate } in
+      make_id id, { timestamp = Clock.now_s (); data }
     with _ -> raise Parse_error
 
   (* Params *)
@@ -172,14 +183,14 @@ module Make(Logs : Logs.LOG) = struct
   let to_params_req id =
     to_empty_msg ~msg_code:(0x40 lor id)
 
-  let parse_params_rsp_exn id msg : int * Params.t =
+  let parse_params_rsp_exn id msg : Multi_TS_ID.t * Params.t timestamped =
     let bool_of_int x = x <> 0 in
     try
       let lock =
         int_to_bool8 (get_rsp_params_lock msg)
         |> Option.get_exn
         |> bool_of_bool8 in
-      let (params : Params.t) =
+      let (data : Params.t) =
         { lock
         ; fft = get_rsp_params_fft msg
         ; gi = get_rsp_params_gi  msg
@@ -211,7 +222,7 @@ module Make(Logs : Logs.LOG) = struct
         ; in_band_flag = get_rsp_params_in_band_flag msg |> bool_of_int
         }
       in
-      id, params
+      make_id id, { timestamp = Clock.now_s (); data }
     with _ -> raise Parse_error
 
   (* PLP list *)
@@ -219,15 +230,15 @@ module Make(Logs : Logs.LOG) = struct
   let to_plp_list_req id =
     to_empty_msg ~msg_code:(0x50 lor id)
 
-  let parse_plp_list_rsp_exn id msg : int * Plp_list.t =
+  let parse_plp_list_rsp_exn id msg : Multi_TS_ID.t * Plp_list.t timestamped =
     try
       let plp_num =
         Cstruct.get_uint8 msg 1
         |> (fun x -> if x = 0xFF then None else Some x) in
-      let lock =
-        int_to_bool8 (Cstruct.get_uint8 msg 0)
-        |> Option.get_exn
-        |> bool_of_bool8 in
+      (* let lock =
+       *   int_to_bool8 (Cstruct.get_uint8 msg 0)
+       *   |> Option.get_exn
+       *   |> bool_of_bool8 in *)
       let plps = match plp_num with
         | None -> []
         | Some _ ->
@@ -236,8 +247,8 @@ module Make(Logs : Logs.LOG) = struct
                (fun buf -> Cstruct.get_uint8 buf 0)
                (Cstruct.shift msg 2) in
            Cstruct.fold (fun acc el -> el :: acc) iter []
-           |> List.sort compare in
-      id, { lock; plps }
+           |> List.sort Int.compare in
+      make_id id, { timestamp = Clock.now_s (); data = plps }
     with _ -> raise Parse_error
 
   type parsed =
