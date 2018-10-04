@@ -29,53 +29,95 @@ open Wm_components
  *   List.iteri (fun i _ -> make_row i () |> ignore) @@ List.range' 0 7;
  *   table#widget *)
 
+let add_template ?f_def ?f_new text grid =
+  let text_w = new Typography.Text.t ~text () in
+  let left   = new Hbox.t ~valign:`Start ~widgets:[text_w#widget] () in
+  let box    = new Hbox.t ~halign:`Start ~widgets:[left#widget] () in
+  let positions = grid#positions in
+  let x,y = List.fold_while (fun (_,i) _ ->
+      let r = List.fold_left (fun acc (x : Dynamic_grid.Position.t) -> if x.y = i * 30
+                               then
+                                 (let right = x.x + x.w in
+                                  if right > acc then right else acc)
+                               else acc) 0 positions in
+      if 120 - r >= 30 then ((r,i*30), `Stop) else ((0, i+1), `Continue)) (0,0) (List.range 0 3)
+  in
+  let item = Dynamic_grid.Item.to_item
+      ~pos:{ x ; y ; w = 30 ; h = 30 }
+      ~resizable:false
+      ~draggable:false
+      ~selectable:true
+      ~widget:box#widget
+      ~value:()
+      ()
+  in
+  (match f_def, f_new with
+  | None, Some f -> box#listen Dom_events.Typ.dblclick f |> ignore (*FIXME should be item root el*)
+  | Some f, None -> box#listen Dom_events.Typ.dblclick (f box#append_child) |> ignore
+  | _, _         -> ());
+  grid#add item |> ignore
 
-let widget =
+let make_grid ~dlg_def ~dlg_new ~name =
   let (props:Dynamic_grid.grid) =
-    Dynamic_grid.to_grid ~rows:20 ~cols:30
-      ~row_height:10 ~min_col_width:10
-      ~vertical_compact:true ~items_margin:(10,10) ()
+    Dynamic_grid.to_grid ~cols:120 ~row_height:10 ~min_col_width:10 ~items_margin:(10,10) ()
   in
-  let text   = new Typography.Text.t ~text:"Шаблон" () in
-  let left   = new Hbox.t ~valign:`Center
-    ~widgets:[text#widget ] () in
-  let box    = new Hbox.t ~halign:`Space_between
-    ~widgets:[left#widget] () in
-  let text1  = new Typography.Text.t ~text:"Шаблон 1" () in
-  let left1  = new Hbox.t ~valign:`Center
-    ~widgets:[text1#widget ] () in
-  let box1   = new Hbox.t ~halign:`Space_between
-    ~widgets:[left1#widget] () in
-  let items  = [ Dynamic_grid.Item.to_item
-                   ~pos:{ x = 0
-                        ; y = 0
-                        ; w = 15
-                        ; h = 10 }
-                   ~resizable:false
-                   ~draggable:false
-                   ~selectable:true
-                   ~widget:box#widget
-                   ~value:()
-                   ()
-               ; Dynamic_grid.Item.to_item
-                   ~pos:{ x = 15
-                        ; y = 0
-                        ; w = 15
-                        ; h = 10 }
-                   ~resizable:false
-                   ~draggable:false
-                   ~selectable:true
-                   ~widget:box1#widget
-                   ~value:()
-                   ()
-               ]
-  in
-  let grid = new Dynamic_grid.t ~grid:props ~items () in
-  grid#widget
+  let def_txt = new Typography.Text.t ~text:"По умолчанию" () in
+  let default = new Hbox.t ~valign:`Start ~widgets:[def_txt#widget] () in
+  let grid = new Dynamic_grid.t ~grid:props ~items:[] () in
+  let def_fun meth = (fun _ _ ->
+      let open Lwt.Infix in
+      dlg_def#show_await ()
+      >>= (function
+           | `Accept -> Lwt.return @@ meth default#widget
+           | `Cancel -> Lwt.return ())
+      |> ignore;
+      false) in
+  let create () = (fun _ _ ->
+      let open Lwt.Infix in
+      dlg_new#show_await ()
+      >>= (function
+          | `Accept ->(match React.S.value name#s_input with
+              | Some x -> Lwt.return @@ add_template ~f_def:def_fun x grid
+              | None -> Lwt.return ())
+          | `Cancel -> Lwt.return())
+      |> ignore;
+      false) in
+  add_template ~f_new:(create ()) "Создать шаблон" grid;
+  add_template ~f_def:def_fun "Шаблон №1" grid;
+  add_template ~f_def:def_fun "Шаблон №2" grid;
+  grid
 
 class t () =
 
-  let cell  = new Layout_grid.Cell.t ~span:12 ~widgets:[widget] () in
+  let dlg_def =
+    new Dialog.t
+      ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Отмена" ()
+               ; new Dialog.Action.t ~typ:`Accept ~label:"Ok" () ]
+      ~title:"Сделать шаблоном по умолчанию?"
+      ~content:(`Widgets []) () in
+  let () = dlg_def#add_class "wm-confirmation-dialog" in
+  let name = new Textfield.t
+    ~input_id:"name"
+    ~label:"Имя нового шаблона"
+    ~input_type:Widget.Text
+    ~help_text:{ validation = true
+               ; persistent = false
+               ; text       = Some "Введите имя шаблона"
+               }
+    () in
+  let () = name#set_required true in
+  let box  = new Vbox.t ~widgets:[name] () in
+  let dlg_new =
+    new Dialog.t
+      ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Отмена" ()
+               ; new Dialog.Action.t ~typ:`Accept ~label:"Ok" () ]
+      ~title:"Введите имя шаблона"
+      ~content:(`Widgets [box]) () in
+  let () = dlg_new#add_class "wm-confirmation-dialog" in
+  let grid = make_grid ~dlg_def ~dlg_new ~name in
+  let cell = new Layout_grid.Cell.t ~span:12 ~widgets:[ grid#widget
+                                                      ; dlg_def#widget
+                                                      ; dlg_new#widget] () in
 
   object
 

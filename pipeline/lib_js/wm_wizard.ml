@@ -40,42 +40,68 @@ let position_widget ~(pos:Wm.position) (widget:string * Wm.widget) : string * Wm
   s,{ v with position = pos }
 
 let to_checkboxes (widgets:(string * Wm.widget) list) =
+  let domains =
+    List.fold_left (fun acc (_,(wdg:Wm.widget)) ->
+        if List.exists (fun x -> String.equal x wdg.domain) acc
+        then acc
+        else wdg.domain :: acc) [] widgets
+    |> List.rev
+  in
   let wds =
-    List.fold_left (fun acc (x: (string * Wm.widget)) ->
-        let str, _ = x in
+    List.fold_left (fun acc str ->
         let label = str in
         let checkbox = new Checkbox.t () in
         checkbox#set_id label;
         let form_field =
           new Form_field.t ~label ~input:checkbox () in
         List.append acc [form_field]
-      ) [] widgets in
+      ) [] domains in
   let checkbox = new Checkbox.t () in
-  let all = new Form_field.t ~label:"Выбрать все" ~input:checkbox () in
+  let check_all = new Form_field.t ~label:"Выбрать все" ~input:checkbox () in
   React.E.map (fun checked ->
       if not checked
       then List.iter (fun x -> x#input_widget#set_checked false) wds
       else List.iter (fun x -> x#input_widget#set_checked true) wds)
   @@ React.S.changes checkbox#s_state |> ignore;
-  all :: wds
+  check_all :: wds
 
 let to_layout ~resolution (widgets:(string * Wm.widget) list) =
   let ar_x,ar_y    = 16,9 in
-  let items_in_row = get_items_in_row ~resolution ~item_ar:(ar_x,ar_y) widgets in
-  List.mapi (fun i (n,v) -> let w   = (fst resolution) / items_in_row in
-                            let s   = Printf.sprintf "Контейнер #%d" (succ i) in
-                            let h   = (ar_y * w) / ar_x in
-                            let row = i / items_in_row in
-                            let x   = (i - items_in_row * row) * w in
-                            let y   = row * h in
-                            let (pos : Wm.position) = { left=x;top=y;right=x+w;bottom=y+h} in
-                            let w   = position_widget ~pos (n,v) in
-                            let c   = ({ position = pos
-                                       ; widgets  = [w]
-                                       }:Wm.container)
-                            in
-                            s,c)
-            widgets
+  let video_widgets = List.filter (fun (x: string * Wm.widget) ->
+      String.equal (snd x).type_ "video") widgets in
+  let items_in_row = get_items_in_row ~resolution ~item_ar:(ar_x,ar_y) video_widgets in
+  List.mapi (fun i (n,(v:Wm.widget)) ->
+      let video_w = (fst resolution) / items_in_row in
+      let name = v.domain ^ " " ^ n in
+      (*             let s   = Printf.sprintf "Контейнер #%d" (succ i) in*)
+      let video_h = (ar_y * video_w) / ar_x in
+      let row = i / items_in_row in
+      let video_x = (i - items_in_row * row) * video_w in
+      let video_y = row * video_h in
+      let (video_pos : Wm.position) = { left =video_x
+                                      ; top = video_y
+                                      ; right = video_x + video_w
+                                      ; bottom = video_y + video_h
+                                      } in
+      let audio_h = video_h in
+      let audio_w = 30 in
+      let audio_x = video_x + video_w - 30 in
+      let audio_y = video_y in
+      let audio = List.find (fun (_, (x:Wm.widget)) ->
+          String.equal x.domain v.domain && String.equal x.domain "soundbar") widgets in
+      let (audio_pos : Wm.position) = { left =audio_x
+                                      ; top = audio_y
+                                      ; right = audio_x + audio_w
+                                      ; bottom = audio_y + audio_h
+                                      } in
+      let video_wdg = position_widget ~pos:video_pos (n,v) in
+      let audio_wdg = position_widget ~pos:audio_pos audio in
+      let container   = ({ position = video_pos
+                         ; widgets  = [video_wdg;audio_wdg]
+                         }:Wm.container)
+      in
+      name,container)
+    video_widgets
 
 let to_dialog (wm:Wm.t) =
   let e,push     = React.E.create () in
@@ -94,10 +120,13 @@ let to_dialog (wm:Wm.t) =
     Lwt.bind (dialog#show_await ())
              (function
               | `Accept -> let widgets =
-                             List.filter_map (fun x -> if not @@ x#input_widget#checked then None
-                                                       else let id = x#input_widget#id in
-                                                            List.find_pred (fun (s,_) -> String.equal id s)
-                                                                           wm.widgets)
+                             List.filter_map (fun x ->
+                                 if not @@ x#input_widget#checked
+                                 then None
+                                 else let id = x#input_widget#id in
+                                   List.find_pred (fun (wdg: string * Wm.widget) ->
+                                       String.equal id (snd wdg).domain)
+                                     wm.widgets)
                                              checkboxes
                            in Lwt.return @@ push @@ to_layout ~resolution:wm.resolution widgets
               | `Cancel -> Lwt.return ())
