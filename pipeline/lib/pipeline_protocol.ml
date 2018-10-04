@@ -151,7 +151,7 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
   let pid_to_status (stream,channel,pid,_) : Qoe_status.t =
     { stream; channel; pid; playing = true }
   in
-  let pid_diff prev post =
+  let pid_diff post prev =
     let is_in (s,c,p,_) = List.exists (fun (sp,cp,pp,_) ->
                               Stream.ID.equal s sp && c = cp && p = pp)
     in `Diff (object
