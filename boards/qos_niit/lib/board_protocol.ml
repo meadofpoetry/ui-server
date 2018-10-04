@@ -6,9 +6,9 @@ open Boards.Pools
 open Common
 open Board_parser
 
-let status_timeout = 8 (* seconds *)
-let detect_timeout = 3 (* seconds *)
-let probes_timeout = 5 (* seconds *)
+let status_timeout = 8. (* seconds *)
+let detect_timeout = 3. (* seconds *)
+let probes_timeout = 3. (* seconds *)
 
 module Timer = Boards.Timer
 
@@ -20,17 +20,6 @@ let is_incoming ({ t2mi; _ } : init) =
      let source_id = Multi_TS_ID.source_id x in
      source_id <> t2mi
   | _ -> false
-
-let find_stream_by_multi_id (id : Stream.Multi_TS_ID.t)
-      (streams : Stream.t list) =
-  List.find_opt (fun (s : Stream.t) ->
-      match s.orig_id with
-      | TS_multi x -> Stream.Multi_TS_ID.equal x id
-      | _ -> false) streams
-
-let find_stream_by_id (id : Stream.ID.t) (streams : Stream.t list) =
-  List.find_opt (fun (s : Stream.t) ->
-      Stream.ID.equal s.id id) streams
 
 let t2mi_mode_to_raw (mode : t2mi_mode option) =
   match mode with
@@ -235,7 +224,7 @@ module Make(Logs : Logs.LOG) = struct
 
     let merge_streams streams l =
       List.filter_map (fun (id, x) ->
-          match find_stream_by_multi_id id streams with
+          match Stream.find_by_multi_id id streams with
           | None ->
              Logs.err (fun m -> m "Not found a stream for data!");
              None
@@ -476,7 +465,7 @@ module Make(Logs : Logs.LOG) = struct
       "board info was received during normal \
        operation, restarting..." in
     let no_status_msg t =
-      Printf.sprintf "no status received for %d seconds, restarting..."
+      Printf.sprintf "no status received for %g seconds, restarting..."
         (Timer.period t) in
 
     let deserialize ~with_init_exn (acc : Acc.t) recvd =
@@ -515,7 +504,7 @@ module Make(Logs : Logs.LOG) = struct
         | Some info -> `Continue (step_init info acc)
       with Timer.Timeout t ->
         (Logs.warn (fun m ->
-             m "connection is not established after %d seconds, \
+             m "connection is not established after %g seconds, \
                 restarting" (Timer.period t));
          first_step ())
 
@@ -769,7 +758,7 @@ module Make(Logs : Logs.LOG) = struct
       >>= (fun () ->
       if eq (S.value s) v then Lwt.return v
       else Lwt.pick [ E.next @@ S.changes s
-                    ; Lwt_unix.timeout (float_of_int status_timeout)])
+                    ; Lwt_unix.timeout status_timeout])
       >>= (fun x  ->
       React.S.stop s;
       if eq x v then Lwt.return x
@@ -813,7 +802,7 @@ module Make(Logs : Logs.LOG) = struct
         (fun ?section ?table_id_ext ?id_ext_1 ?id_ext_2
              ~id ~table_id () ->
           let open SI_PSI_section.Dump in
-          match find_stream_by_id id @@ React.S.value events.streams with
+          match Stream.find_by_id id @@ React.S.value events.streams with
           | None -> Lwt_result.fail Stream_not_found
           | Some s ->
              begin match s.orig_id with
@@ -827,7 +816,7 @@ module Make(Logs : Logs.LOG) = struct
                   ; id_ext_2
                   } in
                 let req = Get_section { request_id = get_id (); params } in
-                let timer = Timer.steps ~step_duration 125 in
+                let timer = Timer.steps ~step_duration 125. in
                 enqueue state msgs sender req timer None
              (* XXX maybe other error here *)
              | _ -> Lwt_result.fail Stream_not_found
@@ -835,7 +824,8 @@ module Make(Logs : Logs.LOG) = struct
     ; get_t2mi_seq =
         (fun params ->
           let req = Get_t2mi_frame_seq { request_id = get_id (); params } in
-          let timer = Timer.steps ~step_duration (params.seconds + 10) in
+          let timer = Timer.steps ~step_duration
+                      @@ float_of_int (params.seconds + 10) in
           enqueue state msgs sender req timer None)
     ; config =
         (fun () -> storage#get)

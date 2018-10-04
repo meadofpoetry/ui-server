@@ -2,9 +2,10 @@ open Containers
 open Components
 open Widget_types
 open Board_types
+open Common
 
 type config =
-  { id  : int
+  { id : Stream.ID.t
   ; typ : Widget_types.measure_type
   } [@@deriving yojson]
 
@@ -58,25 +59,28 @@ module Ber = Make(Scientific)
 module Freq = Make(Int)
 module Bitrate = Make(Float)
 
-let default_config = { id = 0; typ = `Power }
+let name conf =
+  let n = measure_type_to_string conf.typ in
+  n
 
-let name conf = let conf = Option.get_or ~default:default_config conf in
-                let n = measure_type_to_string conf.typ in
-                Printf.sprintf "Модуль %d. %s" (succ conf.id) n
 let settings  = None
 
-let make ~(measures:(int * Measure.t) React.event)
-      (config:config option) =
+let equal_id = Stream.ID.equal
+
+let make ~(measures : (Stream.t * Measure.t Time.timestamped) React.event)
+      (config : config) =
+  let open React in
   let open Measure in
-  let config = Option.get_or ~default:default_config config in
-  let e = React.E.filter (fun (id,_) -> id = config.id) measures in
+  let e = E.fmap (fun ((s : Stream.t), (x : Measure.t Time.timestamped)) ->
+              if equal_id s.id config.id
+              then Some x.data else None) measures in
   (match config.typ with
-   | `Power -> Power.make (React.E.map (fun (_,m) -> m.power) e) config
-   | `Mer -> Mer.make (React.E.map (fun (_,m) -> m.mer) e) config
-   | `Ber -> Ber.make (React.E.map (fun (_,m) -> m.ber) e) config
-   | `Freq -> Freq.make (React.E.map (fun (_, m) -> m.freq) e) config
+   | `Power -> Power.make (E.map (fun m -> m.power) e) config
+   | `Mer -> Mer.make (E.map (fun m -> m.mer) e) config
+   | `Ber -> Ber.make (E.map (fun m -> m.ber) e) config
+   | `Freq -> Freq.make (E.map (fun m -> m.freq) e) config
    | `Bitrate ->
       Bitrate.make (
-          React.E.map (fun (_, m) ->
+          E.map (fun m ->
               Option.map (fun b -> float_of_int b /. 1_000_000.)
                 m.bitrate) e) config)

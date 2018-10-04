@@ -103,7 +103,10 @@ class t (content:('a,'b) page_content) () =
 
     inherit Widget.t main ()
 
-    method set_title x =
+    method title : string =
+      Js.to_string Dom_html.document##.title
+
+    method set_title (x : string) : unit =
       Dom_html.document##.title := Js.string x;
       title#set_text_content x
 

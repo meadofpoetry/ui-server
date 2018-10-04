@@ -187,7 +187,7 @@ module Stream_grid = struct
       method cells   = archive_grid#cells @ grid#cells
       method streams = List.map (fun x -> x#stream) _streams
 
-      method add_stream ?(time=`Now) (stream:Stream.t) =
+      method add_stream ?(time = `Now) (stream : Stream.t) =
         let e = React.E.map (List.find_opt (Stream.equal stream)) event
                 |> React.E.changes ~eq:(Equal.option (fun _ _ -> false)) in
         let w =

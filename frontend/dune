@@ -1,5 +1,6 @@
 (executables
-  (names       home pipeline_video pipeline_editor topology user network demo input stream_page)
+  (names       home pipeline_video pipeline_editor topology user network demo
+               page_input page_stream)
   (libraries   js_of_ocaml
                gg vg vg.htmlc js_of_ocaml-tyxml lwt_react
                common components pipeline_js application_js pc_control_js

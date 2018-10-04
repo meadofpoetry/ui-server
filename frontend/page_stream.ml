@@ -16,7 +16,7 @@ let dummy_tab = fun () ->
   let div = Widget.create_div () in
   Ui_templates.Placeholder.under_development ()
 
-let get_board_tabs (stream : Common.Stream.ID.t)
+let get_board_tabs (stream : ID.t)
       (input : topo_input)
       (control : int)
       (name : string) =
@@ -41,8 +41,12 @@ let get_board_tabs (stream : Common.Stream.ID.t)
        (fun () -> Page_tables.make stream control) in
      [log; services; pids; tables]
   | "DVB" ->
-     [ "RF", "rf", dummy_tab
-     ]
+     let open Board_dvb_niit_js in
+     let measures =
+       "RF",
+       "rf",
+       (fun () -> (Page_stream.make stream control)#widget) in
+     [measures]
   | _ -> []
 
 let make_tabs stream input (boards : (int * string) list) =
@@ -73,7 +77,9 @@ let () =
     |> Result.get_exn in
   let stream =
     Path.Format.scan_unsafe (Path.of_string uri) fmt (fun _ _ c -> c) in
-  let w =
-    Widget.create_div () in
-  let _ = new Ui_templates.Page.t (`Dynamic (make_tabs stream input boards)) () in
+  let w = Widget.create_div () in
+  let page = new Ui_templates.Page.t (`Dynamic (make_tabs stream input boards)) () in
+  let info = "" in
+  let title = page#title ^ " / " ^ info in
+  page#set_title title;
   ()

@@ -354,6 +354,17 @@ let typ_of_string = function
 
 let rec equal l r = ID.equal l.id r.id
 
+let find_by_multi_id (id : Multi_TS_ID.t)
+      (streams : t list) =
+  List.find_opt (fun (s : t) ->
+      match s.orig_id with
+      | TS_multi x -> Multi_TS_ID.equal x id
+      | _ -> false) streams
+
+let find_by_id (id : ID.t) (streams : t list) =
+  List.find_opt (fun (s : t) ->
+      ID.equal s.id id) streams
+
 let rec get_input (s : t) : topo_input option =
   match s.source.node with
   | Stream s -> get_input s

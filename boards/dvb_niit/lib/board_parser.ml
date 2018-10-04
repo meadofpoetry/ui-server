@@ -333,18 +333,35 @@ module Make(Logs : Logs.LOG)(Src : Src) = struct
 
   let parse_msg = fun { code; body; _ } ->
     match code with
-    | 0xEE -> `R `Ack
-    | 0x10 -> `R (`Devinfo body)
-    | 0xD0 -> `R (`Src_id body)
+    | 0xEE ->
+       Logs.debug (fun m -> m "deserializer - got ack");
+       `R `Ack
+    | 0x10 ->
+       Logs.debug (fun m -> m "deserializer - got devinfo");
+       `R (`Devinfo body)
+    | 0xD0 ->
+       Logs.debug (fun m -> m "deserializer - got source id");
+       `R (`Src_id body)
     | code ->
        let id, code' = split_code code in
        begin match code' with
-       | 2 -> `R (`Settings (id, body))
-       | 3 -> `E (`Measure (id, body))
-       | 4 -> `E (`Params (id, body))
-       | 5 -> `E (`Plps (id, body))
-       | 6 -> `R (`Plp_setting (id, body))
-       | _ -> Logs.warn (fun m -> m "unknown message code 0x%x" code); `N
+       | 2 ->
+          Logs.debug (fun m -> m "deserializer - got settings (%d)" id);
+          `R (`Settings (id, body))
+       | 3 ->
+          Logs.debug (fun m -> m "deserializer - got measure (%d)" id);
+          `E (`Measure (id, body))
+       | 4 ->
+          Logs.debug (fun m -> m "deserializer - got params (%d)" id);
+          `E (`Params (id, body))
+       | 5 ->
+          Logs.debug (fun m -> m "deserializer - got plp list (%d)" id);
+          `E (`Plps (id, body))
+       | 6 ->
+          Logs.debug (fun m -> m "deserializer - got plp setting (%d)" id);
+          `R (`Plp_setting (id, body))
+       | _ -> Logs.warn (fun m ->
+                  m "deserializer - unknown message code 0x%x" code); `N
        end
 
   let deserialize buf =
@@ -364,7 +381,8 @@ module Make(Logs : Logs.LOG)(Src : Src) = struct
            | Insufficient_payload x ->
               List.rev events, List.rev responses, x
            | e ->
-              Logs.warn (fun m -> m "parser error: %s" @@ err_to_string e);
+              Logs.warn (fun m ->
+                  m "deserializer - parser error: %s" @@ err_to_string e);
               f events responses (Cstruct.shift b 1)
            end in
     let events, responses, res = f [] [] buf in

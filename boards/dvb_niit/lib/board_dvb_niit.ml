@@ -9,8 +9,7 @@ module Data = struct
   open Device
   type t = config
 
-  let default =
-    [ 0, { standard = T2; channel = { freq = 586000000; bw = Bw8; plp = 0 }} ]
+  let default = []
 
   let dump c =
     Yojson.Safe.to_string @@ config_to_yojson c
@@ -27,11 +26,7 @@ let invalid_port prefix port =
 
 let create (b : topo_board) _ convert_streams send _ (* db_conf*) base step =
   let log_name = Boards.Board.log_name b in
-  let log_src = Logs.Src.create log_name in
-  Option.iter (fun x -> Logs.Src.set_level log_src @@ Some x) b.logs;
-  let (module Logs : Logs.LOG) = Logs.src_log log_src in
-  let module SM = Board_protocol.Make(Logs) in
-  let source = match b.sources with
+  let source_id = match b.sources with
     | None ->
        let s = log_name ^ ": no source provided!" in
        raise (Invalid_sources s)
@@ -40,10 +35,16 @@ let create (b : topo_board) _ convert_streams send _ (* db_conf*) base step =
        | Ok i -> i
        | Error s -> raise (Invalid_sources s)
        end in
+  let log_src = Logs.Src.create log_name in
+  Option.iter (fun x -> Logs.Src.set_level log_src @@ Some x) b.logs;
+  let (module Logs : Logs.LOG) = Logs.src_log log_src in
+  let module SM =
+    Board_protocol.Make(Logs)
+      (struct let source_id = source_id end) in
   let storage = Config_storage.create base
                   ["board"; (string_of_int b.control)] in
   let events, api, step =
-    SM.create source send (fun x -> convert_streams x b) storage step in
+    SM.create send (fun x -> convert_streams x b) storage step in
   let handlers = Board_api.handlers b.control api events in
   let state = object
       method finalize () = ()

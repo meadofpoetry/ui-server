@@ -2,18 +2,19 @@ open Containers
 open Components
 open Widget_types
 open Board_types
+open Common
 
 type 'a point = (Common.Time.t, 'a) Chartjs.Line.point
-type 'a data = (int * ('a point list)) list
+type 'a data = (Stream.ID.t * ('a point list)) list
 
 type settings =
   { range : (float * float) option
   } [@@deriving yojson]
 
 type config =
-  { ids : int list
+  { ids : Stream.ID.t list
   ; typ : measure_type
-  ; duration : Common.Time.Period.t
+  ; duration : Time.Period.t
   ; settings : settings option
   } [@@deriving yojson]
 
@@ -55,9 +56,9 @@ let make_chart_base ~(config : config)
   let settings, s_settings = make_settings { range = None } in
   let range = get_suggested_range config.typ in
   let init = List.map (fun x ->
-                 match List.Assoc.get ~eq:Int.equal x init with
-                 | Some i -> x,i
-                 | None   -> x,[]) config.ids in
+                 match List.Assoc.get ~eq:Stream.ID.equal x init with
+                 | Some i -> x, i
+                 | None   -> x, []) config.ids in
   let delta = config.duration in
   let x_axis =
     new Chartjs.Line.Axes.Time.t
@@ -98,8 +99,8 @@ let make_chart_base ~(config : config)
       ~y_axes:[y_axis]
       () in
   let datasets =
-    List.map (fun (id,data) ->
-        let label = Printf.sprintf "%s %d" module_name (succ id) in
+    List.map (fun (_, data) ->
+        let label = Printf.sprintf "%s" module_name in
         new Chartjs.Line.Dataset.t ~label ~data ~x_axis ~y_axis ())
       init in
   List.iteri (fun i x ->
@@ -110,10 +111,13 @@ let make_chart_base ~(config : config)
       x#set_cubic_interpolation_mode `Monotone;
       x#set_fill `Disabled)
     datasets;
+  if List.length config.ids < 2
+  then options#legend#set_display false;
   x_axis#ticks#set_auto_skip_padding 2;
   x_axis#scale_label#set_display true;
   x_axis#scale_label#set_label_string "Время";
   x_axis#time#set_tooltip_format "ll HH:mm:ss";
+  x_axis#time#set_unit (Some `Second);
   y_axis#scale_label#set_display true;
   y_axis#scale_label#set_label_string @@ measure_type_to_unit config.typ;
   options#set_maintain_aspect_ratio false;
@@ -123,9 +127,9 @@ let make_chart_base ~(config : config)
     chart#update None in
   let _ =
     React.E.map (fun d ->
-        List.iter (fun (id, data) ->
+        List.iter (fun (_, data) ->
             Option.iter (fun ds -> set ds data)
-            @@ List.get_at_idx id datasets) d)
+            @@ List.head_opt datasets) d)
       event in
   let box = Widget.create_div () in
   box#add_class base_class;
@@ -144,12 +148,13 @@ let make_chart_base ~(config : config)
                          Lwt_result.fail "no settings available" }
     box
 
-type event = (int * Measure.t) React.event
-let to_event (get: Measure.t -> float option)
-      (event: event) : float data React.event =
-  React.E.map (fun (id, m) ->
-      let y = Option.get_or ~default:nan (get m) in
-      [ id, List.return ({ x = Common.Time.Clock.now (); y } : 'a point) ])
+type event = (Stream.t * Measure.t Time.timestamped) React.event
+
+let to_event (get : Measure.t -> float option)
+      (event : event) : float data React.event =
+  React.E.map (fun ((s : Stream.t), Time.{ data; timestamp }) ->
+      let y = Option.get_or ~default:nan (get data) in
+      [ s.id, List.return ({ x = timestamp; y } : 'a point) ])
     event
 
 let to_power_event (event : event) =
@@ -213,7 +218,7 @@ module Ber = Make(Float)
 module Freq = Make(Int)
 module Bitrate = Make(Float)
 
-let make ~(measures : (int * Measure.t) React.event)
+let make ~(measures : (Stream.t * Measure.t Time.timestamped) React.event)
       (config : config option) =
   let config = Option.get_exn config in (* FIXME *)
   let event = measures in

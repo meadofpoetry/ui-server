@@ -8,12 +8,12 @@ home:
 	cp _build/default/frontend/home.bc.js dist/resources/js/home.js
 
 input:
-	$(BUILD) frontend/input.bc.js
-	cp _build/default/frontend/input.bc.js dist/resources/js/input.js
+	$(BUILD) frontend/page_input.bc.js
+	cp _build/default/frontend/page_input.bc.js dist/resources/js/input.js
 
 stream:
-	$(BUILD) frontend/stream_page.bc.js
-	cp _build/default/frontend/stream_page.bc.js dist/resources/js/stream.js
+	$(BUILD) frontend/page_stream.bc.js
+	cp _build/default/frontend/page_stream.bc.js dist/resources/js/stream.js
 
 pipeline:
 	$(BUILD) frontend/pipeline_video.bc.js

@@ -12,9 +12,9 @@ type events =
   ; state : Topology.state React.signal
   ; config : Device.config React.event
   ; mode : (int * Device.mode) React.event
-  ; measures : (Multi_TS_ID.t * Measure.t timestamped) React.event
-  ; params : (Multi_TS_ID.t * Params.t timestamped) React.event
-  ; plps : (Multi_TS_ID.t * Plp_list.t timestamped) React.event
+  ; measures : (Stream.t * Measure.t timestamped) React.event
+  ; params : (Stream.t * Params.t timestamped) React.event
+  ; plps : (Stream.t * Plp_list.t timestamped) React.event
   ; raw_streams : Stream.Raw.t list React.signal
   ; streams : Stream.t list React.signal
   }
@@ -33,14 +33,14 @@ type api =
   ; reset : unit -> unit Lwt.t
   ; set_mode : int * Device.mode -> (int * Device.mode_rsp) Lwt.t
   ; get_config : ?ids:int list -> unit -> Device.config Lwt.t
-  ; get_measures : unit -> (Multi_TS_ID.t * Measure.t timestamped) list
-  ; get_params : unit -> (Multi_TS_ID.t * Params.t timestamped) list
-  ; get_plp_list : unit -> (Multi_TS_ID.t * Plp_list.t timestamped) list
+  ; get_measures : unit -> (Stream.t * Measure.t timestamped) list
+  ; get_params : unit -> (Stream.t * Params.t timestamped) list
+  ; get_plp_list : unit -> (Stream.t * Plp_list.t timestamped) list
   }
 
 (* Board protocol implementation *)
 
-let timeout = 3 (* seconds *)
+let timeout = 3. (* seconds *)
 
 module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
 
@@ -110,9 +110,9 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
 
     open Boards
 
-    let meas_period = Timer.steps ~step_duration:M.duration 1
-    let plp_list_period = Timer.steps ~step_duration:M.duration 5
-    let params_period = Timer.steps ~step_duration:M.duration 5
+    let meas_period = Timer.steps ~step_duration:M.duration 1.
+    let plp_list_period = Timer.steps ~step_duration:M.duration 5.
+    let params_period = Timer.steps ~step_duration:M.duration 5.
 
     module States = struct
 
@@ -128,9 +128,9 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
         }
 
       let empty : t =
-        { measures = { timer = meas_period; prev     = None }
+        { measures = { timer = meas_period; prev = None }
         ; plp_list = { timer = plp_list_period; prev = None }
-        ; params = { timer = params_period; prev   = None }
+        ; params = { timer = params_period; prev = None }
         }
 
     end
@@ -188,8 +188,9 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
         List.map (fun (id, (x : States.t)) ->
             id, ({ measures = pred x.measures
                  ; plp_list = pred x.plp_list
-                 ; params   = pred x.params } : States.t)) t.states
-      in { t with states }
+                 ; params = pred x.params } : States.t)) t.states
+      in
+      { t with states }
 
     let handle_event (pe : push_events) (e : event) (t : t) : t =
       let states = match e with
@@ -246,24 +247,23 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
 
     let make_pool (config : Device.config)
           (states : (id * States.t) list) : pool =
-      List.fold_left (fun acc (id,(tmr:States.t)) ->
+      List.fold_left (fun acc (id, (tmr : States.t)) ->
           match List.Assoc.get ~eq:(=) id config with
-          | None      -> []
+          | None -> acc
           | Some mode ->
              let ( ^:: ) = List.cons_maybe in
              let is_t2 = Device.equal_standard mode.standard T2 in
              let meas =
                if tmr.measures.timer > 0 then None
-               else Some (make_measure_probe id)
-             in
+               else Some (make_measure_probe id) in
              let params =
                if (tmr.params.timer > 0) || (not is_t2) then None
-               else Some (make_params_probe id)
-             in
+               else Some (make_params_probe id) in
              let plps =
                if (tmr.plp_list.timer > 0) || (not is_t2) then None
                else Some (make_plp_list_probe id)
-             in meas ^:: params ^:: plps ^:: acc) [] states
+             in
+             meas ^:: params ^:: plps ^:: acc) [] states
       |> Pool.create
 
     let step t = { t with pool = Pool.step t.pool }
@@ -284,7 +284,8 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
 
     let make config (receivers : int list) : t =
       let states = List.map (fun id -> id, States.empty) receivers in
-      let pool   = make_pool config states in
+      Logs.err (fun m -> m "states length: %d" (List.length states));
+      let pool = make_pool config states in
       { states; pool }
 
   end
@@ -298,17 +299,31 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
 
   let send_msg (type a) sender (msg : a request) : unit Lwt.t =
     (match msg with
-     | Get_devinfo -> to_devinfo_req false
-     | Reset -> to_devinfo_req true
-     | Set_src_id () -> to_src_id_req ()
-     | Set_mode (id, m) -> to_mode_req id m)
+     | Get_devinfo ->
+        Logs.debug (fun m -> m "requesting devinfo");
+        to_devinfo_req false
+     | Reset ->
+        Logs.debug (fun m -> m "requesting reset");
+        to_devinfo_req true
+     | Set_src_id () ->
+        Logs.debug (fun m -> m "requesting source id setup (%d)" Src.source_id);
+        to_src_id_req ()
+     | Set_mode (id, m) ->
+        Logs.debug (fun m -> m "requesting mode setup (%d)" id);
+        to_mode_req id m)
     |> sender
 
   let send_event (type a) sender (msg : a event_request) : unit Lwt.t =
     (match msg with
-     | Get_measure  id -> to_measure_req id
-     | Get_params   id -> to_params_req id
-     | Get_plp_list id -> to_plp_list_req id)
+     | Get_measure id ->
+        Logs.debug (fun m -> m "requesting measures (%d)" id);
+        to_measure_req id
+     | Get_params id ->
+        Logs.debug (fun m -> m "requesting params (%d)" id);
+        to_params_req id
+     | Get_plp_list id ->
+        Logs.debug (fun m -> m "requesting plp list (%d)" id);
+        to_plp_list_req id)
     |> sender
 
   let send (type a) state msgs sender (pe : push_events)
@@ -379,7 +394,7 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
         | _ -> `Continue (step_detect (Pool.step detect_pool) acc)
       with Timeout ->
         Logs.warn (fun m ->
-            m "connection is not established after %d seconds, \
+            m "connection is not established after %g seconds, \
                restarting..." timeout);
         first_step ()
 
@@ -432,7 +447,7 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
               Logs.info (fun m -> m "initialization done!");
               pe.state `Fine;
               `Continue (step_ok_tee probes acc)
-           | false  ->
+           | false ->
               let init_pool = Pool.next init_pool in
               Pool.send init_pool () |> ignore;
               `Continue (step_init devinfo probes init_pool acc)
@@ -444,7 +459,7 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
 
     and step_ok_tee probes acc recvd =
       match Queue.empty !msgs with
-      | true  ->
+      | true ->
          let probes = Probes.update_pool storage#get probes in
          step_ok_probes_send probes acc recvd
       | false -> step_ok_requests_send probes acc recvd
@@ -457,8 +472,8 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
             `Continue (step_ok_probes_wait probes acc))
 
     and step_ok_probes_wait probes acc recvd =
-      let probes       = Probes.wait probes in
-      let events,_,acc = deserialize acc recvd in
+      let probes = Probes.wait probes in
+      let events, _, acc = deserialize acc recvd in
       try
         (match Probes.responsed probes events with
          | None    ->
@@ -538,6 +553,19 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
            let data = { m.data with freq = None } in
            id, { m with data }) e
 
+  let map_streams (streams : Stream.t list React.signal)
+        (e : (Stream.Multi_TS_ID.t * 'a) React.event) =
+    React.S.sample (fun ((id, x) : Stream.Multi_TS_ID.t * 'a)
+                        (streams : Stream.t list) ->
+        match Stream.find_by_multi_id id streams with
+        | None ->
+           Logs.err (fun m -> m "stream not found");
+           None
+        | Some s ->
+           Logs.err (fun m -> m "stream found");
+           Some (s, x)) e streams
+    |> React.E.fmap Fun.id
+
   let create sender streams_conv
         (storage : Device.config storage) step_duration =
     let s_devinfo, devinfo_push = React.S.create None in
@@ -555,16 +583,16 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
       React.E.fold (fun acc x -> List.Assoc.set ~eq (f x) x acc) [] e
       |> React.E.map (List.map snd)
       |> React.S.hold [] in
-    let s_measures = hold_e ~eq:Multi_TS_ID.equal fst e_measures in
-    let s_params = hold_e ~eq:Multi_TS_ID.equal fst e_params in
-    let s_plp_list = hold_e ~eq:Multi_TS_ID.equal fst e_plp_list in
     let raw_streams = to_streams_s s_config in
     let streams = streams_conv raw_streams in
+    let measures = map_streams streams (map_measures storage e_measures) in
+    let params = map_streams streams e_params in
+    let plps = map_streams streams e_plp_list in
     let (events : events) =
       { mode = e_mode
-      ; measures = map_measures storage e_measures
-      ; params = e_params
-      ; plps = e_plp_list
+      ; measures
+      ; params
+      ; plps
       ; devinfo = s_devinfo
       ; config = React.S.changes s_config
       ; state = s_state
@@ -579,6 +607,9 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
       ; plp_list = plp_list_push
       ; devinfo = devinfo_push
       } in
+    let s_measures = hold_e ~eq:Stream.equal fst events.measures in
+    let s_params = hold_e ~eq:Stream.equal fst events.params in
+    let s_plp_list = hold_e ~eq:Stream.equal fst events.plps in
     let msgs = ref (Queue.create []) in
     let steps = Boards.Timer.steps ~step_duration timeout in
     let send x = send s_state msgs sender push_events steps x in
