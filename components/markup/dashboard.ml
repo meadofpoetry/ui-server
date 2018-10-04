@@ -7,8 +7,9 @@ module Make(Xml : Xml_sigs.NoWrap)
            and module Svg := Svg) = struct
   open Html
 
-  let base_class        = "mdc-dashboard"
+  let base_class = "mdc-dashboard"
   let edit_button_class = CSS.add_element base_class "edit-button"
+  let non_editable_class = CSS.add_modifier base_class "non-editable"
 
   module Item = struct
     let _class        = CSS.add_element base_class "item"

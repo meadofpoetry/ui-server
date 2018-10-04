@@ -60,6 +60,8 @@ end
 module Set = Set.Make(Service_info)
 
 let base_class = "qos-niit-services-overview"
+let no_sync_class = Markup.CSS.add_modifier base_class "no-sync"
+let no_response_class = Markup.CSS.add_modifier base_class "no-response"
 
 let get_service_bitrate (br : (int * int) list) ((_, info) : Service.t) =
   let elts =
@@ -224,6 +226,11 @@ class t (init : Service.t list timestamped option)
   let rate, set_rate = React.S.create None in
   let details, set_details = React.S.create None in
   let pids, set_pids = React.S.create pids in
+  let empty =
+    Ui_templates.Placeholder.create_with_icon
+      ~icon:Icon.SVG.(create_simple Path.emoticon_sad)
+      ~text:"Не найдено ни одного сервиса"
+      () in
   object(self)
 
     val mutable _timestamp : Time.t option = timestamp
@@ -235,7 +242,7 @@ class t (init : Service.t list timestamped option)
 
     (** Adds new row to the overview *)
     method add_row (s : Service.t) =
-      add_row (self :> Widget.t) table pids rate set_details s control
+      add_row (self :> Widget.t) table pids rate self#set_details s control
 
     (** Updates PID list *)
     method update_pids (pids : Pid.t list timestamped) : unit =
@@ -304,7 +311,34 @@ class t (init : Service.t list timestamped option)
       Option.iter (fun d -> d#set_hex x) @@ React.S.value details;
       on_change x
 
+    (** Returns widget state *)
+    method state : widget_state =
+      if self#has_class no_response_class then No_response
+      else if self#has_class no_sync_class then No_sync
+      else Fine
+
+    (** Updates widget state *)
+    method set_state (x : widget_state) =
+      begin match React.S.value details with
+      | Some details -> details#set_state x
+      | None -> ()
+      end;
+      match x with
+      | Fine ->
+         self#remove_class no_response_class;
+         self#remove_class no_sync_class
+      | No_sync ->
+         self#remove_class no_response_class;
+         self#add_class no_sync_class
+      | No_response ->
+         self#remove_class no_sync_class;
+         self#add_class no_response_class
+
     (* Private methods *)
+
+    method private set_details (x : Widget_service_info.t option) =
+      Option.iter (fun x -> x#set_state self#state) x;
+      set_details x
 
     method private _update_row_rate (rate : Bitrate.t) (row : 'a Table.Row.t) =
       let open Table in
@@ -335,9 +369,13 @@ class t (init : Service.t list timestamped option)
          pcr#set_value info.pcr_pid
 
     initializer
+      self#append_child table;
+      React.S.map (function
+          | [] -> self#append_child empty
+          | _ -> self#remove_child empty) table#s_rows
+      |> self#_keep_s;
       List.iter Fun.(ignore % self#add_row) init;
       self#add_class base_class;
-      self#append_child table;
 
   end
 

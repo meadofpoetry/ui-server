@@ -6,10 +6,12 @@ open Board_types
 open Page_common
 
 let make (id : Stream.ID.t) control =
+  let state = get_state id control in
   let thread = Widget_services_overview.make id control in
   let sock_lwt =
     let open React in
-    thread
+    state
+    >>= fun (state, state_close) -> thread
     >|= fun w ->
     let rate, rate_sock = Requests.Streams.WS.get_bitrate ~ids:[id] control in
     let pids, pids_sock = Requests.Streams.WS.get_pids ~ids:[id] control in
@@ -21,7 +23,8 @@ let make (id : Stream.ID.t) control =
           | [(_, (x : Bitrate.t timestamped))] ->
              w#set_rate @@ Option.return x.data
           | _ -> ()) rate in
-    e, sock, pids, pids_sock, rate, rate_sock in
+    let state = S.map w#set_state state in
+    e, sock, pids, pids_sock, rate, rate_sock, state, state_close in
   let box =
     let open Layout_grid in
     let open Typography in
@@ -33,7 +36,10 @@ let make (id : Stream.ID.t) control =
   box#set_on_destroy
   @@ Some (fun () ->
          sock_lwt
-         >|= (fun (e, sock, pids, pids_sock, rate, rate_sock) ->
+         >|= (fun (e, sock, pids, pids_sock, rate,
+                   rate_sock, state, state_close) ->
+             state_close ();
+             React.S.stop ~strong:true state;
              React.E.stop ~strong:true e;
              React.E.stop ~strong:true rate;
              React.E.stop ~strong:true pids;

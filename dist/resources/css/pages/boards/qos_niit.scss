@@ -185,15 +185,27 @@
 /* Service info widget */
 
 .qos-niit-service-info {
-    $border-color: mix(mdc-theme-prop-value(on-error), mdc-theme-prop-value(error), 12%);
+
+    &--no-sync, &--no-sync .mdc-data-table {
+        .qos-niit-service-info__pids, .qos-niit-service-info__description,
+        .qos-niit-service-info__description > .mdc-card {
+            @include mdc-theme-prop(background-color, error, true);
+        }
+    }
+    &--no-response, &--no-response .mdc-data-table {
+        .qos-niit-service-info__pids, .qos-niit-service-info__description,
+        .qos-niit-service-info__description > .mdc-card {
+            @include mdc-theme-prop(background-color, error, true);
+        }
+    }
     &--not-available {
         .qos-niit-service-info__pids, .qos-niit-service-info__description,
         .qos-niit-service-info__description > .mdc-card {
-            @include mdc-theme-prop(border-color, $border-color);
             @include mdc-theme-prop(color, text-primary-on-error);
             @include mdc-theme-prop(background-color, error);
         }
     }
+
     &__pids {
         .mdc-data-table__row {
             cursor: auto !important;
@@ -242,6 +254,13 @@
             cursor: pointer;
         }
     }
+
+    &--no-sync, &--no-sync .mdc-data-table {
+        @include mdc-theme-prop(background-color, error, true);
+    }
+    &--no-response, &--no-response .mdc-data-table {
+        @include mdc-theme-prop(background-color, error, true);
+    }
 }
 
 /* Pids summary widget */
@@ -254,6 +273,13 @@
     align-items: center;
     @media (max-width: 600px) {
         flex-wrap: wrap;
+    }
+
+    &--no-sync {
+        @include mdc-theme-prop(background-color, error, true);
+    }
+    &--no-response {
+        @include mdc-theme-prop(background-color, error, true);
     }
 
     &__pie {
@@ -272,7 +298,10 @@
         }
     }
     &__info {
+        align-self: stretch;
         flex-grow: 1;
+        border-left: 1px solid;
+        @include mdc-theme-prop(border-color, $mdc-card-outline-color);
     }
     &__info__rate {
         .mdc-list-item__meta {
@@ -306,6 +335,9 @@
             align-content: flex-start;
             flex-wrap: wrap;
         }
+        &__box:empty {
+            visibility: hidden;
+        }
     }
 
 }
@@ -316,8 +348,14 @@
     th:nth-of-type(2), td:nth-of-type(2) {
         max-width: 200px;
     }
-    .mdc-icon {
-        @include mdc-theme-prop(fill, text-icon-on-surface);
+    td .mdc-icon {
+        @include mdc-theme-prop(color, text-icon-on-surface);
+    }
+    &--no-sync, &--no-sync .mdc-data-table {
+        @include mdc-theme-prop(background-color, error, true);
+    }
+    &--no-response, &--no-response .mdc-data-table {
+        @include mdc-theme-prop(background-color, error, true);
     }
 }
 

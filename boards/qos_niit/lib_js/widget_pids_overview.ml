@@ -14,6 +14,8 @@ type pid_flags =
 let name = "PIDs"
 
 let base_class = "qos-niit-pids-overview"
+let no_sync_class = Markup.CSS.add_modifier base_class "no-sync"
+let no_response_class = Markup.CSS.add_modifier base_class "no-response"
 
 let ( % ) = Fun.( % )
 
@@ -123,7 +125,6 @@ let pid_flags_fmt : pid_flags Table.custom_elt =
   ; is_numeric = false
   }
 
-
 let dec_pid_fmt = Table.(Int None)
 let hex_pid_fmt = Table.(Int (Some (Printf.sprintf "0x%04X")))
 
@@ -157,26 +158,45 @@ let add_row (table : 'a Table.t) ((pid, info) : Pid.t) =
   let row = table#add_row data in
   row
 
-class ['a] t (init : Pid.t list timestamped option) () =
+class t (init : Pid.t list timestamped option) () =
   let settings = Settings.make () in
   let init, timestamp = match init with
     | None -> [], None
     | Some { data; timestamp } -> data, Some timestamp in
   let is_hex = false in
   let fmt = make_table_fmt is_hex init in
+  let table = new Table.t ~sticky_header:true ~dense:true ~fmt () in
+  let empty =
+    Ui_templates.Placeholder.create_with_icon
+      ~icon:Icon.SVG.(create_simple Path.emoticon_sad)
+      ~text:"Не найдено ни одного PID"
+      () in
   object(self)
 
     val mutable _timestamp : Time.t option = timestamp
     val mutable _data : Set.t = Set.of_list init
 
-    inherit ['a] Table.t ~sticky_header:true
-              ~dense:true ~fmt ()
+    inherit Widget.t Dom_html.(createDiv document) ()
 
     method settings_widget = settings
 
+    method pids = Set.to_list _data
+
+    (** Updates widget state *)
+    method set_state = function
+      | Fine ->
+         self#remove_class no_response_class;
+         self#remove_class no_sync_class
+      | No_sync ->
+         self#remove_class no_response_class;
+         self#add_class no_sync_class
+      | No_response ->
+         self#remove_class no_sync_class;
+         self#add_class no_response_class
+
     (** Adds new row to the overview *)
     method add_pid (x : Pid.t) =
-      add_row (self :> 'a Table.t) x
+      add_row table x
 
     (** Updates the overview *)
     method update ({ timestamp; data } : Pid.t list timestamped) =
@@ -196,11 +216,11 @@ class ['a] t (init : Pid.t list timestamped option) () =
           | x :: _ -> x#value in
         pid = pid' in
       Set.iter (fun (pid : Pid.t) ->
-          match List.find_opt (find pid) self#rows with
+          match List.find_opt (find pid) table#rows with
           | None -> ()
-          | Some row -> self#remove_row row) lost;
+          | Some row -> table#remove_row row) lost;
       Set.iter (fun (pid : Pid.t) ->
-          match List.find_opt (find pid) self#rows with
+          match List.find_opt (find pid) table#rows with
           | None -> ()
           | Some row -> self#_update_row row pid) upd;
       Set.iter (ignore % self#add_pid) found
@@ -217,18 +237,17 @@ class ['a] t (init : Pid.t list timestamped option) () =
              | Some x ->
                 update_row x total br pid |> ignore;
                 List.remove ~eq:Equal.physical ~x rows
-             | None -> rows) self#rows pids
+             | None -> rows) table#rows pids
          |> ignore
 
-    method pids = Set.to_list _data
-
+    (** Sets ID display format to dec or hex *)
     method set_hex (x : bool) : unit =
     List.iter (fun row ->
         let open Table in
         match row#cells with
         | pid :: _ ->
            pid#set_format (if x then hex_pid_fmt else dec_pid_fmt))
-      self#rows
+      table#rows
 
     (* Private methods *)
 
@@ -243,7 +262,12 @@ class ['a] t (init : Pid.t list timestamped option) () =
          service#set_value info.service_name;
 
     initializer
-      List.iter Fun.(ignore % add_row (self :> 'a Table.t)) init;
+      self#append_child table;
+      React.S.map (function
+          | [] -> self#append_child empty
+          | _ -> self#remove_child empty) table#s_rows
+      |> self#_keep_s;
+      List.iter Fun.(ignore % add_row table) init;
       self#add_class base_class
   end
 

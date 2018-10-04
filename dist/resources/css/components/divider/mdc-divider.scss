@@ -1,5 +1,7 @@
+@import "./_variables";
+
 .mdc-divider {
-    background-color: rgba(0, 0, 0, .12);
+    background-color: $mdc-divider-color;
     height: 1px;
     margin: 0;
     border: none;

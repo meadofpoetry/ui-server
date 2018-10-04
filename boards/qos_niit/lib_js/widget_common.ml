@@ -1,5 +1,10 @@
 open Common
 
+type widget_state =
+  | Fine
+  | No_sync
+  | No_response
+
 module PID = struct
 
   let to_hex_string =

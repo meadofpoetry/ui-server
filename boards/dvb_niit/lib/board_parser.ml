@@ -175,7 +175,7 @@ module Make(Logs : Logs.LOG)(Src : Src) = struct
         |> Option.map Int32.to_int in
       let (data : Measure.t) =
         { lock; power; mer; ber; freq; bitrate } in
-      make_id id, { timestamp = Clock.now_s (); data }
+      make_id id, { timestamp = Clock.now (); data }
     with _ -> raise Parse_error
 
   (* Params *)

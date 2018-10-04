@@ -45,10 +45,10 @@ module WS = struct
     let e = match filter with
       | [] -> S.changes events.streams
       | fns ->
-         E.fmap (fun streams ->
-             List.filter (apply fns) streams
-             |> function [] -> None | l -> Some l)
-           (S.changes events.streams)
+         E.changes
+         @@ E.map (fun streams ->
+                List.filter (apply fns) streams)
+              (S.changes events.streams)
     in Api.Socket.handler socket_table sock_data e
          (Json.List.to_yojson Stream.to_yojson) body
 

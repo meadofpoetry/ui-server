@@ -286,13 +286,20 @@ class t (stream : Stream.ID.t)
     begin match React.S.value dump with
     | None -> ()
     | Some (i, _) -> ()
-       (* primary#set_subtitle
-        * @@ snd
-        * @@ make_dump_title ~is_hex:x i *)
+    (* primary#set_subtitle
+     * @@ snd
+     * @@ make_dump_title ~is_hex:x i *)
     end;
     on_change x in
-  let hex = let switch = new Switch.t ~state:is_hex ~on_change () in
-            new Form_field.t ~input:switch ~label:"HEX IDs" () in
+  let hex =
+    let switch = new Switch.t ~state:is_hex ~on_change () in
+    new Form_field.t ~input:switch ~label:"HEX IDs" () in
+  let empty =
+    Ui_templates.Placeholder.create_with_icon
+      ~icon:Icon.SVG.(create_simple Path.emoticon_sad)
+      ~text:"Не найдено ни одной таблицы SI/PSI"
+      () in
+
   object(self)
 
     val mutable _timestamp : Time.t option = timestamp
@@ -407,9 +414,13 @@ class t (stream : Stream.ID.t)
       | _ :: _ :: _ :: x :: _ -> x#value
 
     initializer
+      self#append_child table;
+      React.S.map (function
+          | [] -> self#append_child empty
+          | _ -> self#remove_child empty) table#s_rows
+      |> self#_keep_s;
       Set.iter (ignore % self#add_row) _data;
       self#add_class base_class;
-      self#append_child table
   end
 
 let make ?(init : (tables, string) Lwt_result.t option)

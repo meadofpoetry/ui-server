@@ -17,6 +17,7 @@ type events =
   ; plps : (Stream.t * Plp_list.t timestamped) React.event
   ; raw_streams : Stream.Raw.t list React.signal
   ; streams : Stream.t list React.signal
+  ; available_streams : Stream.t list React.signal
   }
 
 type push_events =
@@ -284,7 +285,6 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
 
     let make config (receivers : int list) : t =
       let states = List.map (fun id -> id, States.empty) receivers in
-      Logs.err (fun m -> m "states length: %d" (List.length states));
       let pool = make_pool config states in
       { states; pool }
 
@@ -558,13 +558,19 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
     React.S.sample (fun ((id, x) : Stream.Multi_TS_ID.t * 'a)
                         (streams : Stream.t list) ->
         match Stream.find_by_multi_id id streams with
-        | None ->
-           Logs.err (fun m -> m "stream not found");
-           None
-        | Some s ->
-           Logs.err (fun m -> m "stream found");
-           Some (s, x)) e streams
+        | None -> None
+        | Some s -> Some (s, x)) e streams
     |> React.E.fmap Fun.id
+
+  let to_available_streams (e : (Stream.t * Measure.t timestamped) React.event) =
+    let eq = Stream.equal in
+    React.E.map (fun (s, (m : Measure.t timestamped)) ->
+        match m.data.lock, m.data.bitrate with
+        | true, Some x when x > 0 -> `Found s
+        | _ -> `Lost s) e
+    |> React.S.fold (fun acc -> function
+           | `Found x -> List.add_nodup ~eq x acc
+           | `Lost x -> List.remove ~eq ~x acc) []
 
   let create sender streams_conv
         (storage : Device.config storage) step_duration =
@@ -588,6 +594,7 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
     let measures = map_streams streams (map_measures storage e_measures) in
     let params = map_streams streams e_params in
     let plps = map_streams streams e_plp_list in
+    let available_streams = to_available_streams measures in
     let (events : events) =
       { mode = e_mode
       ; measures
@@ -598,6 +605,7 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
       ; state = s_state
       ; raw_streams
       ; streams
+      ; available_streams
       } in
     let (push_events : push_events) =
       { mode = mode_push

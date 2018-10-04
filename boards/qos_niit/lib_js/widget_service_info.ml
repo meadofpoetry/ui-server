@@ -3,9 +3,11 @@ open Components
 open Common
 open Board_types
 open Lwt_result.Infix
+open Widget_common
 
 let base_class = "qos-niit-service-info"
-
+let no_sync_class = Markup.CSS.add_modifier base_class "no-sync"
+let no_response_class = Markup.CSS.add_modifier base_class "no-response"
 let not_available_class = Markup.CSS.add_modifier base_class "not-available"
 
 let sum_bitrate : (int * int) list -> int =
@@ -179,7 +181,7 @@ module Pids = struct
     object(self)
       val mutable _service : Service.t = service
 
-      inherit ['a] Widget_pids_overview.t init () as super
+      inherit Widget_pids_overview.t init () as super
 
       method update_service (service : Service.t) =
         _service <- service;
@@ -233,6 +235,18 @@ class t ?(rate : Bitrate.t option)
 
     method set_not_available (x : bool) : unit =
       self#add_or_remove_class x not_available_class
+
+    (** Updates widget state *)
+    method set_state = function
+      | Fine ->
+         self#remove_class no_response_class;
+         self#remove_class no_sync_class
+      | No_sync ->
+         self#remove_class no_response_class;
+         self#add_class no_sync_class
+      | No_response ->
+         self#remove_class no_sync_class;
+         self#add_class no_response_class
 
     (** Sets IDs to hex(true) or decimal(false) view *)
     method set_hex (x : bool) : unit =

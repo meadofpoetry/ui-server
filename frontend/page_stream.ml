@@ -39,7 +39,7 @@ let get_board_tabs (stream : ID.t)
        "SI/PSI",
        "qos_tables",
        (fun () -> Page_tables.make stream control) in
-     [log; services; pids; tables]
+     [services; pids; tables; log]
   | "DVB" ->
      let open Board_dvb_niit_js in
      let measures =
@@ -49,10 +49,24 @@ let get_board_tabs (stream : ID.t)
      [measures]
   | _ -> []
 
-let make_tabs stream input (boards : (int * string) list) =
-  let tabs =
+let get_cpu_tabs (stream : ID.t)
+      (input : topo_input)
+      (name : string option) =
+  match name with
+  | Some "pipeline" ->
+     let log =
+       "QoE",
+       "qoe_log",
+       dummy_tab in
+     [log]
+  | _ -> []
+
+let make_tabs stream input (boards : (int * string) list) cpu =
+  let boards_tabs =
     List.flat_map (fun (control, name) ->
         get_board_tabs stream input control name) boards in
+  let cpu_tabs = get_cpu_tabs stream input cpu in
+  let tabs = boards_tabs @ cpu_tabs in
   List.map (fun (name, hash, f) ->
       new Tab.t ~value:(hash, f) ~content:(Text name) ()) tabs
 
@@ -78,7 +92,7 @@ let () =
   let stream =
     Path.Format.scan_unsafe (Path.of_string uri) fmt (fun _ _ c -> c) in
   let w = Widget.create_div () in
-  let page = new Ui_templates.Page.t (`Dynamic (make_tabs stream input boards)) () in
+  let page = new Ui_templates.Page.t (`Dynamic (make_tabs stream input boards cpu)) () in
   let info = "" in
   let title = page#title ^ " / " ^ info in
   page#set_title title;

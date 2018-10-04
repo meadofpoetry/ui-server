@@ -57,7 +57,8 @@ let create (b : topo_board) _ convert_streams send _ (* db_conf*) base step =
   ; ports_sync =
       List.fold_left (fun acc p ->
           (match p.port with
-           | 0 -> React.S.map (function [] -> false | _ -> true) events.streams
+           | 0 -> React.S.map (function [] -> false | _ -> true)
+                    events.available_streams
            | x -> invalid_port log_name x)
           |> fun x -> Ports.add p.port x acc)
         Ports.empty b.ports

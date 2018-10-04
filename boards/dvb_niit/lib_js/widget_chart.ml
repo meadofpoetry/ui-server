@@ -117,7 +117,7 @@ let make_chart_base ~(config : config)
   x_axis#scale_label#set_display true;
   x_axis#scale_label#set_label_string "Время";
   x_axis#time#set_tooltip_format "ll HH:mm:ss";
-  x_axis#time#set_unit (Some `Second);
+  (* x_axis#time#set_unit (Some `Second); *)
   y_axis#scale_label#set_display true;
   y_axis#scale_label#set_label_string @@ measure_type_to_unit config.typ;
   options#set_maintain_aspect_ratio false;

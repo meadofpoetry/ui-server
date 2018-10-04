@@ -62,6 +62,8 @@ end
 module Set = Set.Make(Pid_info)
 
 let base_class = "qos-niit-pids-summary"
+let no_sync_class = Markup.CSS.add_modifier base_class "no-sync"
+let no_response_class = Markup.CSS.add_modifier base_class "no-response"
 
 (* TODO improve tooltip. add pid type, bitrate units *)
 module Pie = struct
@@ -382,6 +384,18 @@ class t (timestamp : Time.t option)
         Set.filter (fun ((_, info) : Pid.t) ->
             List.mem ~eq:Pid.equal_info info @@ List.map snd data) inter in
       info#update ~lost ~found ~changed:upd
+
+    (** Updates widget state *)
+    method set_state = function
+      | Fine ->
+         self#remove_class no_response_class;
+         self#remove_class no_sync_class
+      | No_sync ->
+         self#remove_class no_response_class;
+         self#add_class no_sync_class
+      | No_response ->
+         self#remove_class no_sync_class;
+         self#add_class no_response_class
 
     method set_hex (x : bool) : unit =
       pie#set_hex x;

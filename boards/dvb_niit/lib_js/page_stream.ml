@@ -28,5 +28,8 @@ let make (stream : Stream.ID.t) (control:int) =
       }
     ]
   in
-  let dashboard = new Dashboard.t ~items:default factory () in
-  dashboard
+  new Dashboard.t
+    ~non_editable:true
+    ~items:default
+    factory
+    ()
