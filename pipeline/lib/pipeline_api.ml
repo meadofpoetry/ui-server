@@ -68,7 +68,7 @@ let get_structure api headers body () =
 
 let get_structure_sock api _ body sock_data () =
   let open Pipeline_protocol in
-  get_sock sock_data body Structure.Streams.to_yojson (React.S.changes api.streams)
+  get_sock sock_data body Structure.Streams.to_yojson (React.S.changes api.notifs.streams)
 
 let set_settings api headers body () =
   set body Settings.of_yojson
@@ -85,7 +85,7 @@ let get_settings api headers body () =
 
 let get_settings_sock api _ body sock_data () =
   let open Pipeline_protocol in
-  get_sock sock_data body Settings.to_yojson (React.S.changes api.settings)
+  get_sock sock_data body Settings.to_yojson (React.S.changes api.notifs.settings)
 
 let set_wm api _ body () =
   set body Wm.of_yojson
@@ -102,21 +102,34 @@ let get_wm api _ body () =
 
 let get_wm_sock api _ body sock_data () =
   let open Pipeline_protocol in
-  get_sock sock_data body Wm.to_yojson (React.S.changes api.wm)
+  get_sock sock_data body Wm.to_yojson (React.S.changes api.notifs.wm)
+
+let get_status api _ body () =
+  let open Pipeline_protocol in
+  Lwt_react.S.value api.notifs.status
+  |> Qoe_status.status_list_to_yojson
+  |> fun r -> respond_result (Ok r)
+  
+let get_status_sock api _ body sock_data () =
+  let open Pipeline_protocol in
+  get_sock sock_data body Qoe_status.status_list_to_yojson (React.S.changes api.notifs.status)
 
 let get_vdata_sock api stream channel pid _ body sock_data () =
   let open Pipeline_protocol in
   match stream, channel, pid with
   | Some s, Some c, Some p ->
-     let pred (x : Video_data.t) = x.pid = p && x.channel = c && x.stream = s in
-     get_sock sock_data body Video_data.to_yojson (React.E.filter pred api.vdata)
+     let pred (x : Video_data.t) = x.pid = p
+                                   && x.channel = c
+                                   && Stream.ID.equal x.stream s in
+     get_sock sock_data body Video_data.to_yojson (React.E.filter pred api.notifs.vdata)
   | Some s, Some c, _ ->
-     let pred (x : Video_data.t) = x.channel = c && x.stream = s in
-     get_sock sock_data body Video_data.to_yojson (React.E.filter pred api.vdata)
+     let pred (x : Video_data.t) = x.channel = c
+                                   && Stream.ID.equal x.stream s in
+     get_sock sock_data body Video_data.to_yojson (React.E.filter pred api.notifs.vdata)
   | Some s, _, _ ->
-     let pred (x : Video_data.t) = x.stream = s in
-     get_sock sock_data body Video_data.to_yojson (React.E.filter pred api.vdata)
-  | _ -> get_sock sock_data body Video_data.to_yojson api.vdata
+     let pred (x : Video_data.t) = Stream.ID.equal x.stream s in
+     get_sock sock_data body Video_data.to_yojson (React.E.filter pred api.notifs.vdata)
+  | _ -> get_sock sock_data body Video_data.to_yojson api.notifs.vdata
 
 module Archive = struct
 
@@ -145,7 +158,7 @@ module Archive = struct
     
 end
        
-let handlers api =
+let handlers (api : Pipeline_protocol.api) =
   let open Common.Uri in
   let open Api_handler in
   create_dispatcher
@@ -162,9 +175,13 @@ let handlers api =
         ~path:Path.Format.("wm" @/ empty)
         ~query:Query.empty
         (get_wm_sock api)
+    ; create_ws_handler ~docstring:"Stream status socket"
+        ~path:Path.Format.("status" @/ empty)
+        ~query:Query.empty
+        (get_status_sock api)
     ; create_ws_handler ~docstring:"Video data socket"
         ~path:Path.Format.("vdata" @/ empty)
-        ~query:Query.[ "stream",  (module Option(Int))
+        ~query:Query.[ "stream",  (module Option(Stream.ID))
                      ; "channel", (module Option(Int))
                      ; "pid",     (module Option(Int)) ]
         (get_vdata_sock api)
@@ -185,6 +202,10 @@ let handlers api =
                  ~path:Path.Format.("wm" @/ empty)
                  ~query:Query.empty
                  (get_wm api)
+             ; create_handler ~docstring:"Status"
+                 ~path:Path.Format.("status" @/ empty)
+                 ~query:Query.empty
+                 (get_status api)
              (* Archive *)
              ; create_handler ~docstring:"Streams archive"
                  ~path:Path.Format.("streams/archive" @/ empty)
