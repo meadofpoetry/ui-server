@@ -148,15 +148,35 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
     List.iter (fun (n,f) -> Hashtbl.add table n f) lst;
     table
   in
-  let rec update_status (lst : Qoe_status.t list) (entry : Qoe_status.t) =
-    match lst with
-    | [] -> [entry]
-    | h::tl ->
-       if Stream.ID.equal h.stream entry.stream
-          && h.channel = entry.channel
-          && h.pid = entry.pid
-       then entry::tl
-       else h::(update_status tl entry)
+  let pid_to_status (stream,channel,pid,_) : Qoe_status.t =
+    { stream; channel; pid; playing = true }
+  in
+  let pid_diff prev post =
+    let is_in (s,c,p,_) = List.exists (fun (sp,cp,pp,_) ->
+                              Stream.ID.equal s sp && c = cp && p = pp)
+    in `Diff (object
+      method appeared = List.filter (fun x -> not @@ is_in x prev) post
+      method disappeared = List.filter (fun x -> not @@ is_in x post) prev
+    end)
+  in
+  let rec update_status (lst : Qoe_status.t list) event =
+    let rec apply_status (entry : Qoe_status.t) : Qoe_status.t list -> Qoe_status.t list = function
+      | [] -> []
+      | h::tl ->
+         if Stream.ID.equal h.stream entry.stream
+            && h.channel = entry.channel
+            && h.pid = entry.pid
+         then entry::tl
+         else h::(apply_status entry tl)
+    in
+    match event with
+    | `Diff o ->
+       let new_lst = List.filter (fun (x : Qoe_status.t) ->
+                         not @@ List.exists (fun (s,c,p,_) ->
+                                    Stream.ID.equal s x.stream && c = x.channel && p = x.pid)
+                                  o#disappeared) lst
+       in (List.map pid_to_status o#appeared) @ new_lst
+    | `Status s -> apply_status s lst
   in
   let unwrap f result =
     match result with
@@ -190,7 +210,13 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
 
   let structures, wm, settings = add_storages typ send options strm wm sets in
   let streams = S.map structures_packer structures in
-  let status = S.fold update_status [] stat in
+  
+  let pids_diff =
+    S.diff pid_diff
+    @@ S.map (fun x -> Structure.active_pids x) structures in
+  let status    = S.fold update_status []
+                  @@ E.select [pids_diff; E.map (fun x -> `Status x) stat]
+  in
   
   let notifs = { streams; wm; settings; adata; vdata; status } in
   

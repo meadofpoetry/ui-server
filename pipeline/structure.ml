@@ -79,7 +79,50 @@ let combine_structure ~changed ~set x =
        | None   -> x :: (combine_channels set_chans tl)
        | Some c -> (combine_channel ~changed ~set:c x) :: (combine_channels set_chans tl)
   in { x with channels = combine_channels set.channels x.channels }
-       
+
+let active_pids str =
+  let flat_filter (sl : structure list) =
+    List.fold_left (fun acc s ->
+        let l = List.fold_left (fun acc c ->
+                    let channel = c.number in
+                    let l = List.fold_left (fun acc p ->
+                                if p.to_be_analyzed
+                                then (s.id, channel, p.pid, p.to_be_analyzed)::acc
+                                else acc)
+                              [] c.pids in
+                    l @ acc)
+                  [] s.channels in
+        l @ acc) [] sl
+  in
+  flat_filter str
+
+let appeared_pids ~past ~pres =
+  let flat (sl : structure list) =
+    List.fold_left (fun acc s ->
+        let l = List.fold_left (fun acc c ->
+                    let channel = c.number in
+                    let l = List.fold_left (fun acc p -> (s.id, channel, p.pid, p.to_be_analyzed)::acc)
+                              [] c.pids in
+                    l @ acc)
+                  [] s.channels in
+        l @ acc) [] sl
+  in
+  let rec not_in_or_diff (s,c,p,tba) = function
+    | [] -> true
+    | (so,co,po,tbao)::_
+         when Common.Stream.ID.equal so s && co = c && po = p && not (tbao = tba) -> true
+    | (so,co,po,tbao)::_
+         when Common.Stream.ID.equal so s && co = c && po = p && (tbao = tba) -> false
+    | _::tl -> not_in_or_diff (s,c,p,tba) tl
+  in                          
+  let past = flat past in
+  let pres = flat pres in
+  let appeared = List.fold_left (fun acc pres ->
+                     let (_,_,_,tba) = pres in
+                     if tba && not_in_or_diff pres past
+                     then pres::acc else acc) [] pres in
+  appeared
+  
 module Structures = struct
   type t   = structure list [@@deriving yojson]
   let name = "structures"

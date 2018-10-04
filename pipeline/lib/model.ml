@@ -9,51 +9,6 @@ type t = { db : Db.Conn.t
          ; _loop : unit Lwt.t
          }
 
-let appeared_pids ~past ~pres =
-  let open Structure in
-  let flat (sl : structure list) =
-    List.fold_left (fun acc s ->
-        let l = List.fold_left (fun acc c ->
-                    let channel = c.number in
-                    let l = List.fold_left (fun acc p -> (s.id, channel, p.pid, p.to_be_analyzed)::acc)
-                              [] c.pids in
-                    l @ acc)
-                  [] s.channels in
-        l @ acc) [] sl
-  in
-  let rec not_in_or_diff (s,c,p,tba) = function
-    | [] -> true
-    | (so,co,po,tbao)::_
-         when Stream.ID.equal so s && co = c && po = p && Bool.(not @@ equal tbao tba) -> true
-    | (so,co,po,tbao)::_
-         when Stream.ID.equal so s && co = c && po = p && Bool.(equal tbao tba) -> false
-    | _::tl -> not_in_or_diff (s,c,p,tba) tl
-  in                          
-  let past = flat past in
-  let pres = flat pres in
-  let appeared = List.fold_left (fun acc pres ->
-                     let (_,_,_,tba) = pres in
-                     if tba && not_in_or_diff pres past
-                     then pres::acc else acc) [] pres in
-  appeared
-
-let active_pids str =
-  let open Structure in
-  let flat_filter (sl : structure list) =
-    List.fold_left (fun acc s ->
-        let l = List.fold_left (fun acc c ->
-                    let channel = c.number in
-                    let l = List.fold_left (fun acc p ->
-                                if p.to_be_analyzed
-                                then (s.id, channel, p.pid, p.to_be_analyzed)::acc
-                                else acc)
-                              [] c.pids in
-                    l @ acc)
-                  [] s.channels in
-        l @ acc) [] sl
-  in
-  flat_filter str
-                            
 let tick () =
   let e,push = Lwt_react.E.create () in
   let rec loop () =
