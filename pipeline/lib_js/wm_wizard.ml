@@ -94,7 +94,9 @@ let to_layout ~resolution (widgets:(string * Wm.widget) list) =
                                       } in
       let video_wdg = position_widget ~pos:video_pos (n,v) in
       let container = match audio with
-        | Some audio -> let audio_wdg = position_widget ~pos:audio_pos audio in
+        | Some audio -> let audio_str, audio_wdg = audio in
+                        let audio_wdg = {audio_wdg with layer = audio_wdg.layer + 1 } in
+                        let audio_wdg = position_widget ~pos:audio_pos (audio_str, audio_wdg) in
                         ({ position = video_pos
                          ; widgets  = [video_wdg;audio_wdg]
                          }:Wm.container)
