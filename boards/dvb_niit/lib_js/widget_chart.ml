@@ -52,7 +52,7 @@ let make_settings (settings : settings) =
 let make_chart_base ~(config : config)
       ~(init : float data)
       ~(event : float data React.event)
-      () : Dashboard.Item.item =
+      () : 'a Dashboard.Item.item =
   let settings, s_settings = make_settings { range = None } in
   let range = get_suggested_range config.typ in
   let init = List.map (fun x ->
@@ -134,7 +134,7 @@ let make_chart_base ~(config : config)
   let box = Widget.create_div () in
   box#add_class base_class;
   box#append_child chart;
-  Dashboard.Item.to_item
+  Dashboard.Item.make_item
     ~name:(measure_type_to_string config.typ)
     ~settings:{ widget = settings#widget
               ; ready = React.S.map Option.is_some s_settings

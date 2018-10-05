@@ -23,17 +23,17 @@ module Settings = struct
     { hex = false (* FIXME *)
     }
 
-  class view () =
+  class view ?(settings = default) () =
     let hex_switch =
       new Switch.t
-        ~state:default.hex
+        ~state:settings.hex
         () in
     let hex_form =
       new Form_field.t
         ~input:hex_switch
         ~label:"HEX IDs"
         () in
-    let s, set = React.S.create default in
+    let s, set = React.S.create settings in
     object(self)
 
       inherit Vbox.t ~widgets:[hex_form] ()
@@ -50,7 +50,7 @@ module Settings = struct
 
     end
 
-  let make () = new view ()
+  let make ?settings () = new view ?settings ()
 
 end
 
@@ -138,7 +138,7 @@ let section_fmt : 'a. unit -> 'a list Components.Table.custom = fun () ->
   ; compare = (fun x y -> Int.compare (List.length x) (List.length y))
   ; to_string = Fun.(string_of_int % List.length) }
 
-let make_table (is_hex : bool)
+let make_table ?(is_hex = false)
       (init : SI_PSI_table.t list) =
   let open Table in
   let dec_ext_fmt =
@@ -276,16 +276,15 @@ let add_row (table : 'a Table.t)
   |> Lwt.ignore_result;
   row
 
-class t (stream : Stream.ID.t)
+class t ?(settings : Settings.t option)
         (init : SI_PSI_table.t list timestamped option)
+        (stream : Stream.ID.t)
         (control : int)
         () =
   let init, timestamp = match init with
     | None -> [], None
     | Some { data; timestamp } -> data, Some timestamp in
-  let settings = Settings.make () in
-  let is_hex = false in
-  let table, on_change = make_table is_hex init in
+  let table, on_change = make_table init in
   let dump, set_dump = React.S.create None in
   let empty =
     Ui_templates.Placeholder.create_with_icon
@@ -295,14 +294,12 @@ class t (stream : Stream.ID.t)
 
   object(self)
 
-    val mutable _hex : bool = is_hex
+    val mutable _hex : bool = false
     val mutable _timestamp : Time.t option = timestamp
     val mutable _data : Set.t = Set.of_list init
     val media = new Card.Media.t ~widgets:[table] ()
 
     inherit Widget.t Dom_html.(createDiv document) ()
-
-    method settings_widget = settings
 
     (** Adds new row to the overview *)
     method add_row (t : SI_PSI_table.t) =
@@ -336,6 +333,9 @@ class t (stream : Stream.ID.t)
       | Some (set, _) -> set x
       end;
       on_change x
+
+    method set_settings (x : Settings.t) : unit =
+      self#set_hex x.hex
 
     (** Updates bitrate values *)
     method set_rate (x : Bitrate.t) : unit =
@@ -430,6 +430,7 @@ class t (stream : Stream.ID.t)
       | _ :: _ :: _ :: x :: _ -> x#value
 
     initializer
+      Option.iter self#set_settings settings;
       self#append_child table;
       React.S.map (function
           | [] -> self#append_child empty
@@ -439,16 +440,20 @@ class t (stream : Stream.ID.t)
       self#add_class base_class;
   end
 
-let make ?(init : (tables, string) Lwt_result.t option)
+let make ?(settings : Settings.t option)
+      (init : SI_PSI_table.t list timestamped option)
       (stream : Stream.ID.t)
       control =
-  let init = match init with
-    | Some x -> x
-    | None ->
-       let open Requests_streams.HTTP in
-       get_tables ~ids:[stream] control
-       |> Lwt_result.map_err Api_js.Requests.err_to_string in
-  init
-  >|= function
-  | [(_, x)] -> new t stream (Some x) control ()
-  | _ -> new t stream None control () (* FIXME show error *)
+  new t ?settings init stream control ()
+
+let make_dashboard_item ?settings init stream control : 'a Dashboard.Item.item =
+  let w = make ?settings init stream control in
+  let settings = Settings.make ?settings () in
+  let s = settings#s in
+  let (settings : Dashboard.Item.settings) =
+    { widget = settings#widget
+    ; ready = React.S.const true
+    ; set = (fun () -> Lwt_result.return @@ w#set_settings @@ React.S.value s)
+    }
+  in
+  Dashboard.Item.make_item ~name:"Обзор" ~settings w

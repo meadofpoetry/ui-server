@@ -14,14 +14,14 @@ let item_to_info : item -> Dashboard.Item.info = fun item ->
   let serialized = item_to_yojson item in
   match item with
   | Stream_chart _ ->
-     Dashboard.Item.to_info
+     Dashboard.Item.make_info
        ~title:"График"
        ~thumbnail:(`Icon "multiline_chart")
        ~description:"Отображает изменение выбранного измеряемого параметра во времени"
        ~serialized
        ()
   | Settings ->
-     Dashboard.Item.to_info
+     Dashboard.Item.make_info
        ~title:"Настройки"
        ~thumbnail:(`Icon "settings")
        ~description:"Позволяет осуществлять настройку"
@@ -48,7 +48,7 @@ object(self)
   val mutable _measures_ref = 0
 
   (** Create widget of type **)
-  method create : item -> Dashboard.Item.item = function
+  method create : item -> Widget.t Dashboard.Item.item = function
     | Stream_chart conf -> self#_create_chart conf
     | Settings -> self#_create_settings ()
 
@@ -72,11 +72,13 @@ object(self)
       Widget_settings.make ~state:s ~config:c ~receivers:r control)
     |> Factory_state_lwt.l3 self#_state self#_config self#_receivers
     |> Ui_templates.Loader.create_widget_loader
-    |> Dashboard.Item.to_item ~name:Widget_settings.name
+    |> Widget.coerce
+    |> Dashboard.Item.make_item ~name:Widget_settings.name
          ?settings:Widget_settings.settings
 
   method private _create_chart conf =
     Widget_chart.make ~measures:self#_measures conf
+    |> fun x -> { x with widget = x.widget#widget }
 
   method private _state =
     Factory_state_lwt.get_value_as_signal

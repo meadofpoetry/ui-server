@@ -28,17 +28,17 @@ module Settings = struct
     { hex = false (* FIXME *)
     }
 
-  class view () =
+  class view ?(settings = default) () =
     let hex_switch =
       new Switch.t
-        ~state:default.hex
+        ~state:settings.hex
         () in
     let hex_form =
       new Form_field.t
         ~input:hex_switch
         ~label:"HEX IDs"
         () in
-    let s, set = React.S.create default in
+    let s, set = React.S.create settings in
     object(self)
 
       inherit Vbox.t ~widgets:[hex_form] ()
@@ -57,7 +57,7 @@ module Settings = struct
 
     end
 
-  let make () = new view ()
+  let make ?settings () = new view ?settings ()
 
 end
 
@@ -105,8 +105,11 @@ let make_row_data ({ data = error; timestamp } : Error.t timestamped) =
   let extra = Ts_error.Description.of_ts_error error in
   Data.(timestamp :: check :: pid :: service :: count :: extra :: [])
 
-class ['a] t ~id (init : Error.raw) control () =
-  let settings = Settings.make () in
+class ['a] t ?(settings : Settings.t option)
+        (init : Error.raw)
+        (stream : Stream.ID.t)
+        control
+        () =
   let tz_offset_s = Ptime_clock.current_tz_offset_s () in
   let show_time = Time.to_human_string ?tz_offset_s in
   let fmt =
@@ -126,9 +129,6 @@ class ['a] t ~id (init : Error.raw) control () =
 
     inherit ['a] Table.t ~sticky_header:true
               ~dense:true ~fmt ()
-
-    method settings_widget : Settings.view =
-      settings
 
     method set_settings (x : Settings.t) : unit =
       let ({ hex } : Settings.t) = x in
@@ -173,8 +173,6 @@ class ['a] t ~id (init : Error.raw) control () =
       | _ -> ()
 
     initializer
-      React.S.map self#set_settings settings#s
-      |> self#_keep_s;
       (* FIXME implement infinite scroll *)
       self#content#listen_lwt Widget.Event.scroll (fun _ _ ->
           let el = self#content in
@@ -192,7 +190,7 @@ class ['a] t ~id (init : Error.raw) control () =
                    | Some acc ->
                       if Time.compare time acc >= 0
                       then Some acc else Some time) None self#rows in
-             get_errors ?till ~limit:200 ~order:`Desc ~id control
+             get_errors ?till ~limit:200 ~order:`Desc ~id:stream control
              >|= (fun (more, l) -> _has_more <- more; List.rev l)
              >|= List.iter (self#append_error % snd)
              |> Lwt.map ignore
@@ -203,17 +201,20 @@ class ['a] t ~id (init : Error.raw) control () =
       self#add_class base_class;
   end
 
-let make ?(init : (Error.raw, string) Lwt_result.t option)
+let make ?(settings : Settings.t option)
+      (init : Error.raw)
       (stream : Stream.ID.t)
       (control : int) =
-  let state = get_state control in
-  state
-  |> Lwt.map (function Error e -> print_endline e; Error e | Ok x -> Ok x)
-  >|= (fun x -> print_endline @@ show_state_list x)
-  |> Lwt.ignore_result;
-  let init = match init with
-    | Some x -> x
-    | None -> get_errors ~id:stream control
-              >|= snd in
-  init
-  >|= (fun errors -> new t ~id:stream errors control ())
+  new t ?settings init stream control ()
+
+let make_dashboard_item ?settings init stream control : 'a Dashboard.Item.item =
+  let w = make ?settings init stream control in
+  let settings = Settings.make ?settings () in
+  let s = settings#s in
+  let (settings : Dashboard.Item.settings) =
+    { widget = settings#widget
+    ; ready = React.S.const true
+    ; set = (fun () -> Lwt_result.return @@ w#set_settings @@ React.S.value s)
+    }
+  in
+  Dashboard.Item.make_item ~name:"Обзор" ~settings w

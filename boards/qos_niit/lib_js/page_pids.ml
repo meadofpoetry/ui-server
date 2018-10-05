@@ -5,74 +5,84 @@ open Lwt_result.Infix
 open Board_types
 open Page_common
 
-let make_summary init pids rate state id control =
-  let thread = Widget_pids_summary.make ~init id control in
-  let t_lwt =
-    let open React in
-    state
-    >>= fun (state, _) -> wrap "Сводка" thread
-    >|= (fun (w, box) ->
-      let pids = E.map (function [(_, x)] -> w#update x | _ -> ()) pids in
-      let rate =
-        E.map (function
-            | [(_, (x : Bitrate.t timestamped))] ->
-               w#set_rate @@ Option.return x.data
-            | _ -> ()) rate in
-      let state = S.map w#set_state state in
-      let state = pids, rate, state in
-      box, state) in
-  let close = fun () ->
-    t_lwt
-    >|= snd
-    >|= (fun (e1, e2, s) ->
-      React.S.stop ~strong:true s;
-      React.E.stop ~strong:true e1;
-      React.E.stop ~strong:true e2)
-    |> Lwt.ignore_result in
-  Ui_templates.Loader.create_widget_loader (t_lwt >|= fst), close
+let make_summary init pids rate state =
+  let open React in
+  let item = Widget_pids_summary.make_dashboard_item None in
+  let widget = item.widget in
+  let thread =
+    init
+    >>= fun init -> state
+    >|= (fun state ->
+      widget#set_state @@ React.S.value state;
+      Option.iter widget#update init;
+      widget) in
+  let loader = Ui_templates.Loader.create_widget_loader thread in
+  let item = { item with widget = loader } in
+  let pids =
+    E.map (function
+        | [(_, x)] -> widget#update x
+        | _ -> ()) pids in
+  let rate =
+    E.map (function
+        | [(_, (x : Bitrate.t timestamped))] ->
+           widget#set_rate @@ Option.return x.data
+        | _ -> ()) rate in
+  let state = state >|= (fun s -> S.map widget#set_state s) in
+  let close = (fun () ->
+      React.E.stop ~strong:true pids;
+      React.E.stop ~strong:true rate;
+      state >|= (React.S.stop ~strong:true)
+      |> Lwt.ignore_result;) in
+  Dashboard.Item.make item, close
 
-let make_overview init pids rate state id control =
-  let thread = Widget_pids_overview.make ~init id control in
-  let t_lwt =
-    let open React in
-    state
-    >>= fun (state, _) -> wrap "Обзор" thread
-    >|= (fun (w, box) ->
-      let pids = E.map (function [(_, x)] -> w#update x | _ -> ()) pids in
-      let rate =
-        E.map (function
-            | [(_, (x : Bitrate.t timestamped))] ->
-               w#set_rate @@ Option.return x.data
-            | _ -> ()) rate in
-      let state = S.map w#set_state state in
-      let state = pids, rate, state in
-      box, state) in
-  let close = fun () ->
-    t_lwt
-    >|= snd
-    >|= (fun (e1, e2, s) ->
-      React.S.stop ~strong:true s;
-      React.E.stop ~strong:true e1;
-      React.E.stop ~strong:true e2)
-    |> Lwt.ignore_result in
-  Ui_templates.Loader.create_widget_loader (t_lwt >|= fst), close
+let make_overview init pids rate state =
+  let open React in
+  let item = Widget_pids_overview.make_dashboard_item None in
+  let widget = item.widget in
+  let thread =
+    init
+    >>= fun init -> state
+    >|= (fun state ->
+      widget#set_state @@ React.S.value state;
+      Option.iter widget#update init;
+      widget) in
+  let loader = Ui_templates.Loader.create_widget_loader thread in
+  let item = { item with widget = loader } in
+  let pids =
+    E.map (function
+        | [(_, x)] -> widget#update x
+        | _ -> ()) pids in
+  let rate =
+    E.map (function
+        | [(_, (x : Bitrate.t timestamped))] ->
+           widget#set_rate @@ Option.return x.data
+        | _ -> ()) rate in
+  let state = state >|= (fun s -> S.map widget#set_state s) in
+  let close = (fun () ->
+      React.E.stop ~strong:true pids;
+      React.E.stop ~strong:true rate;
+      state >|= (React.S.stop ~strong:true)
+      |> Lwt.ignore_result) in
+  Dashboard.Item.make item, close
 
 let make (id : Stream.ID.t) control =
   let init =
     Requests.Streams.HTTP.get_pids ~ids:[id] control
+    >|= (function
+         | [(_, x)] -> Some x
+         | _ -> None)
     |> Lwt_result.map_err Api_js.Requests.err_to_string in
   let state = get_state id control in
+  let state' = state >|= fst in
   let rate, rate_sock = Requests.Streams.WS.get_bitrate ~ids:[id] control in
   let pids, pids_sock = Requests.Streams.WS.get_pids ~ids:[id] control in
-  let summary, summary_close =
-    make_summary init pids rate state id control in
-  let overview, overview_close =
-    make_overview init pids rate state id control in
+  let summary, summary_close = make_summary init pids rate state' in
+  let overview, overview_close = make_overview init pids rate state' in
   let box =
     let open Layout_grid in
     let open Typography in
     let span = 12 in
-    let summary_cell  = new Cell.t ~span ~widgets:[summary] () in
+    let summary_cell = new Cell.t ~span ~widgets:[summary] () in
     let overview_cell = new Cell.t ~span ~widgets:[overview] () in
     let cells =
       [ summary_cell

@@ -5,49 +5,82 @@ open Lwt_result.Infix
 open Board_types
 open Page_common
 
+let l3 a b c = a >>= fun a -> b >>= fun b -> c >|= fun c -> a, b, c
+
+let make_overview init pids e_services e_pids e_rate state =
+  let open React in
+  let item = Widget_services_overview.make_dashboard_item None None in
+  let widget = item.widget in
+  let thread =
+    l3 init pids state
+    >|= (fun (init, pids, state) ->
+      widget#set_state @@ React.S.value state;
+      Option.iter widget#update_pids pids;
+      Option.iter widget#update init;
+      widget) in
+  let loader = Ui_templates.Loader.create_widget_loader thread in
+  let item = { item with widget = loader } in
+  let e_services =
+    E.map (function
+        | [(_, x)] -> widget#update x
+        | _ -> ()) e_services in
+  let e_pids =
+    E.map (function
+        | [(_, x)] -> widget#update_pids x
+        | _ -> ()) e_pids in
+  let e_rate =
+    E.map (function
+        | [(_, (x : 'a timestamped))] ->
+           widget#set_rate @@ Option.return x.data
+        | _ -> ()) e_rate in
+  let state = state >|= S.map widget#set_state in
+  let close = (fun () ->
+      E.stop ~strong:true e_services;
+      E.stop ~strong:true e_pids;
+      E.stop ~strong:true e_rate;
+      state >|= (S.stop ~strong:true)
+      |> Lwt.ignore_result) in
+  Dashboard.Item.make item, close
+
+
 let make (id : Stream.ID.t) control =
+  let init =
+    Requests.Streams.HTTP.get_services ~ids:[id] control
+    >|= (function
+         | [(_, x)] -> Some x
+         | _ -> None)
+    |> Lwt_result.map_err Api_js.Requests.err_to_string in
+  let pids =
+    Requests.Streams.HTTP.get_pids ~ids:[id] control
+    >|= (function
+         | [(_, x)] -> Some x
+         | _ -> None)
+    |> Lwt_result.map_err Api_js.Requests.err_to_string in
   let state = get_state id control in
-  let thread = Widget_services_overview.make id control in
-  let t_lwt =
-    let open React in
-    state
-    >>= fun (state, state_close) -> wrap "Обзор" thread
-    >|= (fun (w, box) ->
-      let rate, rate_sock = Requests.Streams.WS.get_bitrate ~ids:[id] control in
-      let pids, pids_sock = Requests.Streams.WS.get_pids ~ids:[id] control in
-      let e, sock = Requests.Streams.WS.get_services ~ids:[id]  control in
-      let e = E.map (function [(_, x)] -> w#update x | _ -> ()) e in
-      let pids = E.map (function [(_, x)] -> w#update_pids x | _ -> ()) pids in
-      let rate =
-        E.map (function
-            | [(_, (x : Bitrate.t timestamped))] ->
-               w#set_rate @@ Option.return x.data
-            | _ -> ()) rate in
-      let state = S.map w#set_state state in
-      let state = e, sock, pids, pids_sock, rate, rate_sock,
-                  state, state_close in
-      box, state) in
+  let state' = state >|= fst in
+  let e_rate, rate_sock =
+    Requests.Streams.WS.get_bitrate ~ids:[id] control in
+  let e_pids, pids_sock =
+    Requests.Streams.WS.get_pids ~ids:[id] control in
+  let e_services, services_sock =
+    Requests.Streams.WS.get_services ~ids:[id]  control in
+  let overview, overview_close =
+    make_overview init pids e_services e_pids e_rate state' in
   let box =
     let open Layout_grid in
     let open Typography in
     let span = 12 in
-    let overview = Ui_templates.Loader.create_widget_loader (t_lwt >|= fst) in
     let overview_cell = new Cell.t ~span ~widgets:[overview] () in
     let cells = [overview_cell] in
     new t ~cells () in
   box#set_on_destroy
   @@ Some (fun () ->
-         t_lwt
-         >|= snd
-         >|= (fun (e, sock, pids, pids_sock, rate,
-                   rate_sock, state, state_close) ->
-             state_close ();
-             React.S.stop ~strong:true state;
-             React.E.stop ~strong:true e;
-             React.E.stop ~strong:true rate;
-             React.E.stop ~strong:true pids;
-             sock##close;
-             rate_sock##close;
-             pids_sock##close)
-         |> Lwt.ignore_result);
+         state >|= (fun (_, f) -> f ()) |> Lwt.ignore_result;
+         overview_close ();
+         React.E.stop ~strong:true e_services;
+         React.E.stop ~strong:true e_pids;
+         React.E.stop ~strong:true e_rate;
+         services_sock##close;
+         rate_sock##close;
+         pids_sock##close);
   box#widget

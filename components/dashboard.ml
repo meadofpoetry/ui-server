@@ -5,7 +5,7 @@ include Dashboard_common
 include Dashboard_grid
 
 module Position = Dynamic_grid.Position
-module Item     = Dashboard_item
+module Item = Dashboard_item
 
 let list_to_yojson f l = `List (List.map f l)
 let list_of_yojson f = function

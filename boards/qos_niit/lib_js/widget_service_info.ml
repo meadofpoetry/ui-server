@@ -201,7 +201,6 @@ class t ?(rate : Bitrate.t option)
         ?min ?max
         (init : Service.t)
         (pids : Pid.t list timestamped option)
-        (control : int)
         () =
   let info, set_info, set_rate, set_min, set_max = make_description () in
   let pids = new Pids.t init pids () in
@@ -306,6 +305,5 @@ class t ?(rate : Bitrate.t option)
 
 let make ?rate ?min ?max
       (init : Service.t)
-      (pids : Pid.t list timestamped option)
-      (control : int) =
-  new t ?rate ?min ?max init pids control ()
+      (pids : Pid.t list timestamped option) =
+  new t ?rate ?min ?max init pids ()

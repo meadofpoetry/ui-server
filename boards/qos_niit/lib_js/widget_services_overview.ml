@@ -19,17 +19,17 @@ module Settings = struct
     { hex = false (* FIXME *)
     }
 
-  class view () =
+  class view ?(settings = default) () =
     let hex_switch =
       new Switch.t
-        ~state:default.hex
+        ~state:settings.hex
         () in
     let hex_form =
       new Form_field.t
         ~input:hex_switch
         ~label:"HEX IDs"
         () in
-    let s, set = React.S.create default in
+    let s, set = React.S.create settings in
     object(self)
 
       inherit Vbox.t ~widgets:[hex_form] ()
@@ -46,7 +46,7 @@ module Settings = struct
 
     end
 
-  let make () = new view ()
+  let make ?settings () = new view ?settings ()
 
 end
 
@@ -130,7 +130,7 @@ let max_fmt =
   ; is_numeric = true
   }
 
-let make_table (is_hex : bool)
+let make_table ?(is_hex = false)
       (init : Service.t list) =
   let open Table in
   let hex_id_fmt = Some (Printf.sprintf "0x%04X") in
@@ -171,8 +171,7 @@ let add_row (parent : #Widget.t)
       (pids : Pid.t list timestamped option React.signal)
       (rate : Bitrate.t option React.signal)
       (set_details : Widget_service_info.t option -> unit)
-      ((id, info) : Service.t)
-      (control : int) =
+      ((id, info) : Service.t) =
   let row =
     table#add_row (id :: info.name :: info.pmt_pid :: info.pcr_pid
                    :: None :: None :: None :: None :: []) in
@@ -192,7 +191,7 @@ let add_row (parent : #Widget.t)
           ~widgets:[ back#widget; title]
           () in
       let details =
-        Widget_service_info.make ?rate ?min ?max (id, info) pids control in
+        Widget_service_info.make ?rate ?min ?max (id, info) pids in
       let box =
         new Vbox.t
           ~widgets:[ primary
@@ -212,17 +211,14 @@ let add_row (parent : #Widget.t)
       Lwt.return_unit)
   |> Lwt.ignore_result
 
-class t (init : Service.t list timestamped option)
+class t ?(settings : Settings.t option)
+        (init : Service.t list timestamped option)
         (pids : Pid.t list timestamped option)
-        (control : int)
         () =
-  let settings = Settings.make () in
   let init, timestamp = match init with
     | None -> [], None
     | Some { data; timestamp } -> data, Some timestamp in
-  (* FIXME should remember previous state *)
-  let is_hex = false in
-  let table, on_change = make_table is_hex init in
+  let table, on_change = make_table init in
   let rate, set_rate = React.S.create None in
   let details, set_details = React.S.create None in
   let pids, set_pids = React.S.create pids in
@@ -238,11 +234,9 @@ class t (init : Service.t list timestamped option)
 
     inherit Widget.t Dom_html.(createDiv document) ()
 
-    method settings_widget = settings
-
     (** Adds new row to the overview *)
     method add_row (s : Service.t) =
-      add_row (self :> Widget.t) table pids rate self#set_details s control
+      add_row (self :> Widget.t) table pids rate self#set_details s
 
     (** Updates PID list *)
     method update_pids (pids : Pid.t list timestamped) : unit =
@@ -334,6 +328,9 @@ class t (init : Service.t list timestamped option)
          self#remove_class no_sync_class;
          self#add_class no_response_class
 
+    method set_settings (x : Settings.t) =
+      self#set_hex x.hex
+
     (* Private methods *)
 
     method private set_details (x : Widget_service_info.t option) =
@@ -369,6 +366,7 @@ class t (init : Service.t list timestamped option)
          pcr#set_value info.pcr_pid
 
     initializer
+      Option.iter self#set_settings settings;
       self#append_child table;
       React.S.map (function
           | [] -> self#append_child empty
@@ -379,36 +377,19 @@ class t (init : Service.t list timestamped option)
 
   end
 
-let lwt_l2 (a : 'a Lwt.t) (b : 'b Lwt.t) =
-  a >>= fun a -> b >|= fun b -> a, b
+let make ?(settings : Settings.t option)
+      (init : Service.t list timestamped option)
+      (pids : Pid.t list timestamped option) =
+  new t ?settings init pids ()
 
-let make ?(init : (services, string) Lwt_result.t option)
-      ?(pids : (pids, string) Lwt_result.t option)
-      (stream : Stream.ID.t)
-      (control : int) =
-  let init =
-    begin match init with
-    | Some x -> x
-    | None ->
-       let open Requests.Streams.HTTP in
-       get_services ~ids:[stream] control
-       |> Lwt_result.map_err Api_js.Requests.err_to_string
-    end
-    >|= function
-    | [(_, x)] -> Some x
-    | _ -> None in (* FIXME show error *)
-  let pids =
-    begin match pids with
-    | Some x -> x
-    | None ->
-       let open Requests.Streams.HTTP in
-       get_pids ~ids:[stream] control
-       |> Lwt_result.map_err Api_js.Requests.err_to_string
-    end
-  >|= function
-    | [(_, x)] -> Some x
-    | _ -> None in (* FIXME show error *)
-  lwt_l2 init pids
-  >|= (fun (services, pids) -> new t services pids control ())
-
-
+let make_dashboard_item ?settings init pids =
+  let w = make ?settings init pids in
+  let settings = Settings.make ?settings () in
+  let s = settings#s in
+  let (settings : Dashboard.Item.settings) =
+    { widget = settings#widget
+    ; ready = React.S.const true
+    ; set = (fun () -> Lwt_result.return @@ w#set_settings @@ React.S.value s)
+    }
+  in
+  Dashboard.Item.make_item ~name:"Обзор" ~settings w

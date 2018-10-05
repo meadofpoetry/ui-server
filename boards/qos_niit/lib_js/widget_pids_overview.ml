@@ -21,27 +21,22 @@ let ( % ) = Fun.( % )
 
 module Settings = struct
 
-  type t =
-    { hex : bool
-    }
+  type t = { hex : bool }
 
-  let (default : t) =
-    { hex = false (* FIXME *)
-    }
+  let (default : t) = { hex = false (* FIXME *) }
 
-  class view () =
+  class view ?(settings = default) () =
     let hex_switch =
       new Switch.t
-        ~state:default.hex
+        ~state:settings.hex
         () in
     let hex_form =
       new Form_field.t
         ~input:hex_switch
         ~label:"HEX IDs"
         () in
-    let s, set = React.S.create default in
+    let s, set = React.S.create settings in
     object(self)
-
       inherit Vbox.t ~widgets:[hex_form] ()
 
       method apply () : unit =
@@ -56,7 +51,7 @@ module Settings = struct
 
     end
 
-  let make () = new view ()
+  let make ?settings () = new view ?settings ()
 
 end
 
@@ -129,7 +124,7 @@ let dec_pid_fmt = Table.(Int None)
 let hex_pid_fmt = Table.(Int (Some (Printf.sprintf "0x%04X")))
 
 (* TODO add table empty state *)
-let make_table_fmt (is_hex : bool)
+let make_table_fmt ?(is_hex = false)
       (init : Pid.t list) =
   let open Table in
   let open Format in
@@ -158,13 +153,13 @@ let add_row (table : 'a Table.t) ((pid, info) : Pid.t) =
   let row = table#add_row data in
   row
 
-class t (init : Pid.t list timestamped option) () =
-  let settings = Settings.make () in
+class t ?(settings : Settings.t option)
+        (init : Pid.t list timestamped option)
+        () =
   let init, timestamp = match init with
     | None -> [], None
     | Some { data; timestamp } -> data, Some timestamp in
-  let is_hex = false in
-  let fmt = make_table_fmt is_hex init in
+  let fmt = make_table_fmt init in
   let table = new Table.t ~sticky_header:true ~dense:true ~fmt () in
   let empty =
     Ui_templates.Placeholder.create_with_icon
@@ -178,9 +173,10 @@ class t (init : Pid.t list timestamped option) () =
 
     inherit Widget.t Dom_html.(createDiv document) ()
 
-    method settings_widget = settings
-
     method pids = Set.to_list _data
+
+    method set_settings ({ hex } : Settings.t) =
+      self#set_hex hex
 
     (** Updates widget state *)
     method set_state = function
@@ -262,6 +258,7 @@ class t (init : Pid.t list timestamped option) () =
          service#set_value info.service_name;
 
     initializer
+      Option.iter self#set_settings settings;
       self#append_child table;
       React.S.map (function
           | [] -> self#append_child empty
@@ -271,17 +268,18 @@ class t (init : Pid.t list timestamped option) () =
       self#add_class base_class
   end
 
-let make ?(init : (pids, string) Lwt_result.t option)
-      (stream : Stream.ID.t)
-      control =
-  let init = match init with
-    | Some x -> x
-    | None ->
-       let open Requests.Streams.HTTP in
-       get_pids ~ids:[stream] control
-       |> Lwt_result.map_err Api_js.Requests.err_to_string in
-  init
-  >|= (function
-       | [(_, x)] -> new t (Some x) ()
-       | _ -> new t None ()) (* FIXME show error *)
+let make ?settings
+      (init : Pid.t list timestamped option) =
+  new t ?settings init ()
 
+let make_dashboard_item ?settings init : 'a Dashboard.Item.item =
+  let w = make ?settings init in
+  let settings = Settings.make ?settings () in
+  let s = settings#s in
+  let (settings : Dashboard.Item.settings) =
+    { widget = settings#widget
+    ; ready = React.S.const true
+    ; set = (fun () -> Lwt_result.return @@ w#set_settings @@ React.S.value s)
+    }
+  in
+  Dashboard.Item.make_item ~name:"Обзор" ~settings w

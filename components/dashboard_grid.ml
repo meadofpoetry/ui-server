@@ -9,10 +9,10 @@ type available =
 
 class type ['a] factory =
   object
-    method create      : 'a -> item
-    method destroy     : unit -> unit
-    method available   : available
-    method serialize   : 'a -> Yojson.Safe.json
+    method create : 'a -> Widget.t item
+    method destroy : unit -> unit
+    method available : available
+    method serialize : 'a -> Yojson.Safe.json
     method deserialize : Yojson.Safe.json -> ('a,string) result
   end
 

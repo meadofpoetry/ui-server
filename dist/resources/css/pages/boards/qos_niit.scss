@@ -5,6 +5,8 @@
 @import "../../components/card/_variables";
 @import "../../components/elevation/_mixins";
 
+$error-surface: lighten(mdc-theme-prop-value(error), 12%);
+
 // Common widget wrapper
 .qos-niit-widget-wrapper {
     &__title {
@@ -150,10 +152,10 @@
     }
 
     &--no-sync, &--no-sync .mdc-data-table {
-        @include mdc-theme-prop(background-color, error, true);
+        @include mdc-theme-prop(background-color, $error-surface, true);
     }
     &--no-response, &--no-response .mdc-data-table {
-        @include mdc-theme-prop(background-color, error, true);
+        @include mdc-theme-prop(background-color, $error-surface, true);
     }
 }
 
@@ -167,11 +169,6 @@
         cursor: pointer;
         .mdc-icon {
             @include mdc-theme-prop(color, text-icon-on-surface);
-        }
-    }
-    &--failure {
-        .mdc-data-table {
-            @include mdc-theme-prop(background-color, error);
         }
     }
     .mdc-data-table {
@@ -196,20 +193,20 @@
     &--no-sync, &--no-sync .mdc-data-table {
         .qos-niit-service-info__pids, .qos-niit-service-info__description,
         .qos-niit-service-info__description > .mdc-card {
-            @include mdc-theme-prop(background-color, error, true);
+            @include mdc-theme-prop(background-color, $error-surface, true);
         }
     }
     &--no-response, &--no-response .mdc-data-table {
         .qos-niit-service-info__pids, .qos-niit-service-info__description,
         .qos-niit-service-info__description > .mdc-card {
-            @include mdc-theme-prop(background-color, error, true);
+            @include mdc-theme-prop(background-color, $error-surface, true);
         }
     }
     &--not-available {
         .qos-niit-service-info__pids, .qos-niit-service-info__description,
         .qos-niit-service-info__description > .mdc-card {
             @include mdc-theme-prop(color, text-primary-on-error);
-            @include mdc-theme-prop(background-color, error);
+            @include mdc-theme-prop(background-color, $error-surface, true);
         }
     }
 
@@ -263,10 +260,10 @@
     }
 
     &--no-sync, &--no-sync .mdc-data-table {
-        @include mdc-theme-prop(background-color, error, true);
+        @include mdc-theme-prop(background-color, $error-surface, true);
     }
     &--no-response, &--no-response .mdc-data-table {
-        @include mdc-theme-prop(background-color, error, true);
+        @include mdc-theme-prop(background-color, $error-surface, true);
     }
 }
 
@@ -283,10 +280,10 @@
     }
 
     &--no-sync {
-        @include mdc-theme-prop(background-color, error, true);
+        @include mdc-theme-prop(background-color, $error-surface, true);
     }
     &--no-response {
-        @include mdc-theme-prop(background-color, error, true);
+        @include mdc-theme-prop(background-color, $error-surface, true);
     }
 
     &__pie {
@@ -359,10 +356,10 @@
         @include mdc-theme-prop(color, text-icon-on-surface);
     }
     &--no-sync, &--no-sync .mdc-data-table {
-        @include mdc-theme-prop(background-color, error, true);
+        @include mdc-theme-prop(background-color, $error-surface, true);
     }
     &--no-response, &--no-response .mdc-data-table {
-        @include mdc-theme-prop(background-color, error, true);
+        @include mdc-theme-prop(background-color, $error-surface, true);
     }
 }
 

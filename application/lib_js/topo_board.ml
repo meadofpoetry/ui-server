@@ -9,9 +9,9 @@ let base_class          = "topology__board"
 let get_board_name (board:Common.Topology.topo_board) = match board.typ with
   | "IP2TS" -> "Приёмник TSoIP"
   | "TS2IP" -> "Передатчик TSoIP"
-  | "TS"    -> "Анализатор TS"
-  | "DVB"   -> "Приёмник DVB"
-  | s       -> s
+  | "TS" -> "Анализатор TS"
+  | "DVB" -> "Приёмник DVB"
+  | s -> s
 
 module Header = struct
 
@@ -83,22 +83,24 @@ let make_board_page ?error_prefix (board : Common.Topology.topo_board) =
   match board.typ, board.model, board.manufacturer, board.version with
   | "TS", "qos", "niitv", 1 ->
      Board_qos_niit_js.Topo_page.make ?error_prefix board
+     >|= fun w -> w#widget
   | "DVB", "rf", "niitv", 1 ->
      let open Board_dvb_niit_js in
      let factory    = new Widget_factory.t board.control () in
-     let { widget; _ } : Dashboard.Item.item =
+     let ({ widget; _ } : 'a Dashboard.Item.item) =
        factory#create Settings in
      widget#set_on_destroy @@ Some factory#destroy;
-     Lwt_result.return widget
+     Lwt_result.return widget#widget
   | "TS2IP", "ts2ip", "niitv", 1 ->
      let w = new Board_ts2ip_niit_js.Settings.settings board.control () in
-     Lwt_result.return w
+     Lwt_result.return w#widget
   | "IP2TS", "dtm-3200", "dektec", 1 ->
      let open Board_ip_dektec_js in
      let factory = new Widget_factory.t board.control () in
-     let ({ widget; _ } : Dashboard.Item.item) = factory#create @@ Settings None in
+     let ({ widget; _ } : 'a Dashboard.Item.item) =
+       factory#create @@ Settings None in
      widget#set_on_destroy @@ Some factory#destroy;
-     Lwt_result.return widget
+     Lwt_result.return widget#widget
   | typ, model, manuf, _ ->
      let s = Printf.sprintf "Неизвестная плата: %s\n\
                              Модель: %s\n\

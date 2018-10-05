@@ -15,19 +15,19 @@ let item_to_info : item -> Dashboard.Item.info = fun item ->
   let serialized = item_to_yojson item in
   match item with
   | Settings _ ->
-     Dashboard.Item.to_info ~title:Widget_settings.name
+     Dashboard.Item.make_info ~title:Widget_settings.name
        ~thumbnail:(`Icon "settings")
        ~description:"Позволяет осуществлять настройку"
        ~serialized
        ()
   | T2MI_settings _ ->
-     Dashboard.Item.to_info ~title:Widget_t2mi_settings.name
+     Dashboard.Item.make_info ~title:Widget_t2mi_settings.name
        ~thumbnail:(`Icon "settings")
        ~description:"Позволяет осуществлять настройку анализа потока T2-MI"
        ~serialized
        ()
   | Jitter_settings _ ->
-     Dashboard.Item.to_info ~title:Widget_jitter_settings.name
+     Dashboard.Item.make_info ~title:Widget_jitter_settings.name
        ~thumbnail:(`Icon "settings")
        ~description:"Позволяет осуществлять настройку измерений джиттера"
        ~serialized
@@ -51,27 +51,27 @@ object(self)
   val _incoming_streams : Stream.t list React.signal t_lwt = empty ()
 
   (** Create widget of type **)
-  method create : item -> Dashboard.Item.item = function
+  method create : item -> 'a Dashboard.Item.item = function
     | Settings conf ->
        (fun state t2mi_mode jitter_mode streams ->
          Widget_settings.make ~state ~t2mi_mode ~jitter_mode ~streams
            conf control)
        |> Factory_state_lwt.l4 self#state self#t2mi_mode self#jitter_mode self#incoming_streams
        |> Ui_templates.Loader.create_widget_loader
-       |> Dashboard.Item.to_item ~name:Widget_settings.name
+       |> Dashboard.Item.make_item ~name:Widget_settings.name
             ?settings:Widget_settings.settings
     | T2MI_settings conf ->
        (fun state mode streams ->
          Widget_t2mi_settings.make ~state ~mode ~streams conf control )
        |> Factory_state_lwt.l3 self#state self#t2mi_mode self#incoming_streams
        |> Ui_templates.Loader.create_widget_loader
-       |> Dashboard.Item.to_item ~name:Widget_t2mi_settings.name
+       |> Dashboard.Item.make_item ~name:Widget_t2mi_settings.name
             ?settings:Widget_t2mi_settings.settings
     | Jitter_settings conf ->
        (fun s m -> Widget_jitter_settings.make ~state:s ~mode:m conf control)
        |> Factory_state_lwt.l2 self#state self#jitter_mode
        |> Ui_templates.Loader.create_widget_loader
-       |> Dashboard.Item.to_item ~name:Widget_jitter_settings.name
+       |> Dashboard.Item.make_item ~name:Widget_jitter_settings.name
             ?settings:Widget_jitter_settings.settings
 
   method destroy () : unit =

@@ -20,17 +20,17 @@ module Settings = struct
     { hex = false (* FIXME *)
     }
 
-  class view () =
+  class view ?(settings = default) () =
     let hex_switch =
       new Switch.t
-        ~state:default.hex
+        ~state:settings.hex
         () in
     let hex_form =
       new Form_field.t
         ~input:hex_switch
         ~label:"HEX IDs"
         () in
-    let s, set = React.S.create default in
+    let s, set = React.S.create settings in
     object(self)
 
       inherit Vbox.t ~widgets:[hex_form] ()
@@ -47,7 +47,7 @@ module Settings = struct
 
     end
 
-  let make () = new view ()
+  let make ?settings () = new view ?settings ()
 
 end
 
@@ -354,22 +354,20 @@ module Info = struct
 
 end
 
-class t (timestamp : Time.t option)
-        (init : Pid.t list)
-        () =
+class t ?(settings : Settings.t option)
+        (init : Pid.t list timestamped option) () =
+  let init, timestamp = match init with
+    | None -> [], None
+    | Some { data; timestamp } -> data, Some timestamp in
   (* FIXME read from storage *)
-  let settings = Settings.make () in
-  let is_hex = false in
-  let pie = new Pie.t ~hex:is_hex () in
-  let info = new Info.t ~hex:is_hex init () in
+  let pie = new Pie.t () in
+  let info = new Info.t init () in
   object(self)
 
     val mutable _timestamp : Time.t option = timestamp
     val mutable _data : Set.t = Set.of_list init
 
     inherit Widget.t (Dom_html.createDiv Dom_html.document) ()
-
-    method settings_widget = settings
 
     method update ({ timestamp; data } : Pid.t list timestamped) =
       (* Update timestamp *)
@@ -405,24 +403,29 @@ class t (timestamp : Time.t option)
       info#set_rate x;
       pie#set_rate x
 
+    method set_settings (x : Settings.t) : unit =
+      self#set_hex x.hex
+
     initializer
+      Option.iter self#set_settings settings;
       self#add_class base_class;
       self#append_child pie;
       self#append_child info
 
   end
 
-let make ?(init : (pids, string) Lwt_result.t option)
-      (stream : Stream.ID.t)
-      (control : int) =
-  let init = match init with
-    | Some x -> x
-    | None ->
-       let open Requests.Streams.HTTP in
-       get_pids ~ids:[stream] control
-       |> Lwt_result.map_err Api_js.Requests.err_to_string in
-  init
-  >|= (function
-       | [(_, x)] -> Some x.timestamp, x.data
-       | _ -> None, []) (* FIXME show error *)
-  >|= (fun (ts, data) -> new t ts data ())
+let make ?(settings : Settings.t option)
+      (init : Pid.t list timestamped option) =
+  new t ?settings init ()
+
+let make_dashboard_item ?settings init : 'a Dashboard.Item.item =
+  let w = make ?settings init in
+  let settings = Settings.make ?settings () in
+  let s = settings#s in
+  let (settings : Dashboard.Item.settings) =
+    { widget = settings#widget
+    ; ready = React.S.const true
+    ; set = (fun () -> Lwt_result.return @@ w#set_settings @@ React.S.value s)
+    }
+  in
+  Dashboard.Item.make_item ~name:"Сводка" ~settings w
