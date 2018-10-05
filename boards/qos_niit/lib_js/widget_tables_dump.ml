@@ -398,6 +398,8 @@ class t ~(stream : Stream.ID.t)
 
     method dump = dump
 
+    method set_hex (_ : bool) : unit = ()
+
     method update (data : SI_PSI_table.section_info list) : unit =
       let eq (a : SI_PSI_table.section_info as 'a) (b : 'a) =
         a.section = b.section in

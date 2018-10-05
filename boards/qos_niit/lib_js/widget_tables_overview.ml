@@ -10,7 +10,8 @@ let ( % ) = Fun.( % )
 
 let name = "Обзор таблиц"
 let base_class = "qos-niit-table-overview"
-let failure_class = Markup.CSS.add_modifier base_class "failure"
+let no_sync_class = Markup.CSS.add_modifier base_class "no-sync"
+let no_response_class = Markup.CSS.add_modifier base_class "no-response"
 
 module Settings = struct
 
@@ -217,11 +218,11 @@ module Heading = struct
 end
 
 let add_row (table : 'a Table.t)
+      (is_hex : bool)
       (stream : Stream.ID.t)
-      (hex : bool React.signal)
       (parent : #Widget.t)
       (control : int)
-      (set_dump : (SI_PSI_table.t * Widget_tables_dump.t) option -> unit)
+      (set_dump : ((bool -> unit) * Widget_tables_dump.t) option -> unit)
       ((id, info) : SI_PSI_table.t) =
   let row = table#add_row (table_info_to_data (id, info)) in
   row#listen_click_lwt (fun _ _ ->
@@ -231,7 +232,6 @@ let add_row (table : 'a Table.t)
         match row#cells with
         | _ :: _ :: _ :: _ :: _ :: _ :: x :: _ -> x in
       let back = make_back () in
-      let is_hex = React.S.value hex in
       let title, subtitle = make_dump_title ~is_hex (id, info) in
       let heading = new Heading.t ~meta:back#widget ~title ~subtitle () in
       let dump =
@@ -243,13 +243,19 @@ let add_row (table : 'a Table.t)
           ~id_ext_1:id.id_ext_1
           ~id_ext_2:id.id_ext_2
           control () in
+      let set_hex (x : bool) =
+        let title, subtitle = make_dump_title (id, info) in
+        heading#set_title title;
+        heading#set_subtitle subtitle;
+        dump#set_hex x in
       let box =
         new Vbox.t
           ~widgets:[ heading#widget
                    ; (new Divider.t ())#widget
                    ; dump#widget ]
           () in
-      set_dump @@ Some ((id, info), dump);
+      dump#set_hex is_hex;
+      set_dump @@ Some (set_hex, dump);
       back#listen_once_lwt Widget.Event.click
       >|= (fun _ ->
         let sections = List.map (fun i -> i#value) dump#list#items in
@@ -277,23 +283,10 @@ class t (stream : Stream.ID.t)
   let init, timestamp = match init with
     | None -> [], None
     | Some { data; timestamp } -> data, Some timestamp in
-  (* FIXME should remember preffered state *)
   let settings = Settings.make () in
   let is_hex = false in
   let table, on_change = make_table is_hex init in
   let dump, set_dump = React.S.create None in
-  let on_change = fun x ->
-    begin match React.S.value dump with
-    | None -> ()
-    | Some (i, _) -> ()
-    (* primary#set_subtitle
-     * @@ snd
-     * @@ make_dump_title ~is_hex:x i *)
-    end;
-    on_change x in
-  let hex =
-    let switch = new Switch.t ~state:is_hex ~on_change () in
-    new Form_field.t ~input:switch ~label:"HEX IDs" () in
   let empty =
     Ui_templates.Placeholder.create_with_icon
       ~icon:Icon.SVG.(create_simple Path.emoticon_sad)
@@ -302,6 +295,7 @@ class t (stream : Stream.ID.t)
 
   object(self)
 
+    val mutable _hex : bool = is_hex
     val mutable _timestamp : Time.t option = timestamp
     val mutable _data : Set.t = Set.of_list init
     val media = new Card.Media.t ~widgets:[table] ()
@@ -312,14 +306,36 @@ class t (stream : Stream.ID.t)
 
     (** Adds new row to the overview *)
     method add_row (t : SI_PSI_table.t) =
-      add_row table stream hex#input_widget#s_state
+      add_row table self#hex stream
         (self :> Widget.t) control set_dump t
 
-    method set_sync (x : bool) : unit =
-      self#add_or_remove_class (not x) failure_class
+    (** Updates widget state *)
+    method set_state (x : widget_state) : unit =
+      begin match React.S.value dump with
+      | Some dump -> ()
+      | None -> ()
+      end;
+      match x with
+      | Fine ->
+         self#remove_class no_response_class;
+         self#remove_class no_sync_class
+      | No_sync ->
+         self#remove_class no_response_class;
+         self#add_class no_sync_class
+      | No_response ->
+         self#remove_class no_sync_class;
+         self#add_class no_response_class
 
-    method set_state (x : Topology.state) : unit =
-      ()
+    method hex : bool = _hex
+
+    (** Sets identifiers to hex or decimal view *)
+    method set_hex (x : bool) : unit =
+      _hex <- x;
+      begin match React.S.value dump with
+      | None -> ()
+      | Some (set, _) -> set x
+      end;
+      on_change x
 
     (** Updates bitrate values *)
     method set_rate (x : Bitrate.t) : unit =

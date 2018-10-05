@@ -148,6 +148,13 @@
             cursor: pointer;
         }
     }
+
+    &--no-sync, &--no-sync .mdc-data-table {
+        @include mdc-theme-prop(background-color, error, true);
+    }
+    &--no-response, &--no-response .mdc-data-table {
+        @include mdc-theme-prop(background-color, error, true);
+    }
 }
 
 /* Table overview widget, Services overview widget */

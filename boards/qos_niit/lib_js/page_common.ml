@@ -66,5 +66,4 @@ let wrap title thread =
     let box = new Vbox.t ~widgets:[title_box#widget; card#widget] () in
     title_box#add_class title_class;
     box#add_class _class;
-    box)
-  |> Ui_templates.Loader.create_widget_loader
+    w, box)

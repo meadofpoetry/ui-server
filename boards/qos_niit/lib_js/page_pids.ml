@@ -7,51 +7,55 @@ open Page_common
 
 let make_summary init pids rate state id control =
   let thread = Widget_pids_summary.make ~init id control in
-  let state_lwt =
+  let t_lwt =
     let open React in
     state
-    >>= fun (state, _) -> thread
-    >|= fun w ->
-    let pids = E.map (function [(_, x)] -> w#update x | _ -> ()) pids in
-    let rate =
-      E.map (function
-          | [(_, (x : Bitrate.t timestamped))] ->
-             w#set_rate @@ Option.return x.data
-          | _ -> ()) rate in
-    let state = S.map w#set_state state in
-    pids, rate, state in
+    >>= fun (state, _) -> wrap "Сводка" thread
+    >|= (fun (w, box) ->
+      let pids = E.map (function [(_, x)] -> w#update x | _ -> ()) pids in
+      let rate =
+        E.map (function
+            | [(_, (x : Bitrate.t timestamped))] ->
+               w#set_rate @@ Option.return x.data
+            | _ -> ()) rate in
+      let state = S.map w#set_state state in
+      let state = pids, rate, state in
+      box, state) in
   let close = fun () ->
-    state_lwt
+    t_lwt
+    >|= snd
     >|= (fun (e1, e2, s) ->
       React.S.stop ~strong:true s;
       React.E.stop ~strong:true e1;
       React.E.stop ~strong:true e2)
     |> Lwt.ignore_result in
-  wrap "Сводка" thread, close
+  Ui_templates.Loader.create_widget_loader (t_lwt >|= fst), close
 
 let make_overview init pids rate state id control =
   let thread = Widget_pids_overview.make ~init id control in
-  let state_lwt =
+  let t_lwt =
     let open React in
     state
-    >>= fun (state, _) -> thread
-    >|= fun w ->
-    let pids = E.map (function [(_, x)] -> w#update x | _ -> ()) pids in
-    let rate =
-      E.map (function
-          | [(_, (x : Bitrate.t timestamped))] ->
-             w#set_rate @@ Option.return x.data
-          | _ -> ()) rate in
-    let state = S.map w#set_state state in
-    pids, rate, state in
+    >>= fun (state, _) -> wrap "Обзор" thread
+    >|= (fun (w, box) ->
+      let pids = E.map (function [(_, x)] -> w#update x | _ -> ()) pids in
+      let rate =
+        E.map (function
+            | [(_, (x : Bitrate.t timestamped))] ->
+               w#set_rate @@ Option.return x.data
+            | _ -> ()) rate in
+      let state = S.map w#set_state state in
+      let state = pids, rate, state in
+      box, state) in
   let close = fun () ->
-    state_lwt
+    t_lwt
+    >|= snd
     >|= (fun (e1, e2, s) ->
       React.S.stop ~strong:true s;
       React.E.stop ~strong:true e1;
       React.E.stop ~strong:true e2)
     |> Lwt.ignore_result in
-  wrap "Обзор" thread, close
+  Ui_templates.Loader.create_widget_loader (t_lwt >|= fst), close
 
 let make (id : Stream.ID.t) control =
   let init =
