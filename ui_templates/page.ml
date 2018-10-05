@@ -30,14 +30,6 @@ let hash_of_tab (tab : ('a, 'b) tab) : string =
 let widget_of_tab (tab : ('a, 'b) tab) : Widget.t =
   Widget.coerce @@ (snd tab#value) ()
 
-let set_hash hash =
-  Dom_html.window##.location##.hash := Js.string hash
-
-let switch_tab (s : ('a, 'b) tab option React.signal) =
-  React.E.map (set_hash % hash_of_tab)
-  @@ React.E.fmap (fun x -> x)
-  @@ React.S.changes s
-
 let set_active_page container tab_bar =
   let hash =
     Dom_html.window##.location##.hash
@@ -56,17 +48,25 @@ let set_active_page container tab_bar =
      then tab_bar#scroller#set_active_tab tab |> ignore
   end
 
+let set_hash container tab_bar hash =
+  let history = Dom_html.window##.history in
+  let hash = "#" ^ hash in
+  history##replaceState Js.undefined (Js.string "") (Js.some @@ Js.string hash);
+  set_active_page container tab_bar
+
+let switch_tab container tab_bar =
+  React.E.map (set_hash container tab_bar % hash_of_tab)
+  @@ React.E.fmap (fun x -> x)
+  @@ React.S.changes tab_bar#scroller#s_active_tab
+
 let create_tab_row (container : container) (tabs : ('a, 'b) tab list) =
   let open Tabs in
   let bar = new Tab_bar.t ~align:Start ~tabs () in
   set_active_page container bar;
-  Dom_events.listen Dom_html.window Dom_events.Typ.hashchange (fun _ _ ->
-      set_active_page container bar;
-      true) |> ignore;
   let section = new Toolbar.Row.Section.t ~align:`Start ~widgets:[bar] () in
   let row = new Toolbar.Row.t ~sections:[section] () in
   let () = row#set_id row_id in
-  row, switch_tab bar#scroller#s_active_tab
+  row, switch_tab container bar
 
 let get_arbitrary () : container =
   let elt = Dom_html.getElementById "arbitrary-content" in
