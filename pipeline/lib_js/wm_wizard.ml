@@ -72,7 +72,7 @@ let to_layout ~resolution (widgets:(string * Wm.widget) list) =
   let items_in_row = get_items_in_row ~resolution ~item_ar:(ar_x,ar_y) video_widgets in
   List.mapi (fun i (n,(v:Wm.widget)) ->
       let video_w = (fst resolution) / items_in_row in
-      let name = v.domain ^ " " ^ n in
+      let name = v.domain in
       (*             let s   = Printf.sprintf "Контейнер #%d" (succ i) in*)
       let video_h = (ar_y * video_w) / ar_x in
       let row = i / items_in_row in
