@@ -33,9 +33,6 @@ let position_widget ~(pos:Wm.position) (widget:string * Wm.widget) : string * Wm
   let wpos   = Option.map_or ~default:cpos (Dynamic_grid.Position.correct_aspect cpos) v.aspect in
   let x      = cpos.x   + ((cpos.w - wpos.w) / 2) in
   let y      = cpos.y   + ((cpos.h - wpos.h) / 2) in
-  Printf.printf "cpos: %s, wpos: %s\n"
-                (Dynamic_grid.Position.to_string cpos)
-                (Dynamic_grid.Position.to_string { wpos with x;y});
   let pos    = {wpos with x;y} |> Utils.of_grid_position in
   s,{ v with position = pos }
 
@@ -48,14 +45,14 @@ let to_checkboxes (widgets:(string * Wm.widget) list) =
     |> List.rev
   in
   let wds =
-    List.fold_left (fun acc str ->
+    List.map (fun str ->
         let label = str in
         let checkbox = new Checkbox.t () in
         checkbox#set_id label;
         let form_field =
           new Form_field.t ~label ~input:checkbox () in
-        List.append acc [form_field]
-      ) [] domains in
+        form_field
+      ) domains in
   let checkbox = new Checkbox.t () in
   let check_all = new Form_field.t ~label:"Выбрать все" ~input:checkbox () in
   React.E.map (fun checked ->
@@ -69,6 +66,7 @@ let to_layout ~resolution (widgets:(string * Wm.widget) list) =
   let ar_x,ar_y    = 16,9 in
   let video_widgets = List.filter (fun (x: string * Wm.widget) ->
       String.equal (snd x).type_ "video") widgets in
+  let () = Printf.printf "Amount of video widgets: %d" (List.length video_widgets) in
   let items_in_row = get_items_in_row ~resolution ~item_ar:(ar_x,ar_y) video_widgets in
   List.mapi (fun i (n,(v:Wm.widget)) ->
       let video_w = (fst resolution) / items_in_row in
@@ -87,7 +85,7 @@ let to_layout ~resolution (widgets:(string * Wm.widget) list) =
       let audio_w = 30 in
       let audio_x = video_x + video_w - 30 in
       let audio_y = video_y in
-      let audio = List.find (fun (_, (x:Wm.widget)) ->
+      let audio = List.find_pred (fun (_, (x:Wm.widget)) ->
           String.equal x.domain v.domain && String.equal x.domain "soundbar") widgets in
       let (audio_pos : Wm.position) = { left =audio_x
                                       ; top = audio_y
@@ -95,9 +93,13 @@ let to_layout ~resolution (widgets:(string * Wm.widget) list) =
                                       ; bottom = audio_y + audio_h
                                       } in
       let video_wdg = position_widget ~pos:video_pos (n,v) in
-      let audio_wdg = position_widget ~pos:audio_pos audio in
-      let container   = ({ position = video_pos
+      let container = match audio with
+        | Some audio -> let audio_wdg = position_widget ~pos:audio_pos audio in
+                        ({ position = video_pos
                          ; widgets  = [video_wdg;audio_wdg]
+                         }:Wm.container)
+        | None       -> ({ position = video_pos
+                         ; widgets  = [video_wdg]
                          }:Wm.container)
       in
       name,container)
@@ -120,14 +122,14 @@ let to_dialog (wm:Wm.t) =
     Lwt.bind (dialog#show_await ())
              (function
               | `Accept -> let widgets =
-                             List.filter_map (fun x ->
+                             List.fold_left (fun acc x ->
                                  if not @@ x#input_widget#checked
-                                 then None
+                                 then acc
                                  else let id = x#input_widget#id in
-                                   List.find_pred (fun (wdg: string * Wm.widget) ->
-                                       String.equal id (snd wdg).domain)
-                                     wm.widgets)
-                                             checkboxes
+                                   let domain_widgets =
+                                     List.filter (fun (wdg: string * Wm.widget) ->
+                                         String.equal id (snd wdg).domain) wm.widgets in
+                               acc @ domain_widgets) [] checkboxes
                            in Lwt.return @@ push @@ to_layout ~resolution:wm.resolution widgets
               | `Cancel -> Lwt.return ())
   in
