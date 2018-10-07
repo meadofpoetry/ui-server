@@ -128,7 +128,7 @@ class t ?scrollable ?title ?(actions : Action.t list option) ~content () =
       (* Listen escape key *)
       Dom_events.listen Dom_html.document Widget.Event.keydown (fun _ e ->
           match Utils.Keyboard_event.event_to_key e with
-          | `Escape _ -> self#_cancel (); false
+          | `Escape -> self#_cancel (); false
           | _ -> true)
       |> (fun x -> _keydown <- Some x);
       self#_clear_timer ();

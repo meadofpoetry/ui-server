@@ -27,22 +27,29 @@ let sum_scroll_offsets (e:Dom_html.element Js.t) =
 
 module Keyboard_event = struct
 
-  let event_to_key (e : Dom_html.keyboardEvent Js.t) =
-    let key  = Option.map Js.to_string @@ Js.Optdef.to_option e##.key in
-    (match key, e##.keyCode with
-     | Some "Delete", _ | _, 46 -> `Delete e
-     | Some "Enter", _  | _, 13 -> `Enter e
-     | Some "Space", _  | _, 32 -> `Space e
-     | Some "Escape",_  | Some "Esc",_ | _, 27 -> `Escape e
-     | _ -> `Unknown e)
+  type key_name =
+    [ `Enter
+    | `Escape
+    | `Space
+    | `End
+    | `Home
+    | `Arrow_left
+    | `Arrow_right
+    | `Delete
+    | `Unknown ]
 
-  let listen ?(typ = `Keydown) elt f =
-    let typ = match typ with
-      | `Keydown  -> Dom_events.Typ.keydown
-      | `Keypress -> Dom_events.Typ.keypress
-      | `Keyup -> Dom_events.Typ.keyup
-    in
-    Dom_events.listen elt typ (fun _ e -> f @@ event_to_key e)
+  let event_to_key (e : Dom_html.keyboardEvent Js.t) : key_name =
+    let key = Option.map Js.to_string @@ Js.Optdef.to_option e##.key in
+    (match key, e##.keyCode with
+     | Some "Enter", _ | _, 13 -> `Enter
+     | Some "Escape", _ | _, 27 -> `Escape
+     | Some "Space", _ | _, 32 -> `Space
+     | Some "End", _ | _, 35 -> `End
+     | Some "Home", _ | _, 36 -> `Home
+     | Some "ArrowLeft", _ | _, 37 -> `Arrow_left
+     | Some "ArrowRight", _ | _, 39 -> `Arrow_right
+     | Some "Delete", _ | _, 46 -> `Delete
+     | _ -> `Unknown)
 
 end
 
@@ -73,60 +80,5 @@ module Animation = struct
 
     let _ = Dom_html.window##requestAnimationFrame (Js.wrap_callback cb) in
     ()
-
-end
-
-module Scroll_size_listener = struct
-
-  class t ?on_change () =
-    let node = Dom_html.createDiv Dom_html.document in
-    let ()   = node##.style##.width    := Js.string "100px" in
-    let ()   = node##.style##.height   := Js.string "100px" in
-    let ()   = node##.style##.position := Js.string "absolute" in
-    let ()   = node##.style##.top      := Js.string "-100000px" in
-    let ()   = node##.style##.overflow := Js.string "scroll" in
-    let ()   = (Js.Unsafe.coerce node##.style)##.msOverflowStyle := Js.string "scrollbar" in
-    let elt  = Dom_html.createDiv Dom_html.document in
-    let ()   = Dom.appendChild elt node in
-
-    object(self)
-
-      val mutable listener  = None
-      val mutable on_change = on_change
-      val mutable height    = 0
-      val mutable width     = 0
-
-      inherit Widget.t elt () as super
-
-      method on_change       = on_change
-      method set_on_change x = on_change <- x
-
-      method height = height
-      method width  = width
-      method measure () =
-        let prev_h = height in
-        let prev_w = width in
-        height <- node##.offsetHeight - node##.clientHeight;
-        width  <- node##.offsetWidth  - node##.clientWidth;
-        if prev_h <> height || prev_w <> width
-        then Option.iter (fun f -> f width height) on_change;
-
-      method private _listen =
-        Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ ->
-            self#measure (); true)
-
-      initializer
-        (* TODO maybe remove these listeners? *)
-        super#set_on_load
-        @@ Some (fun () ->
-               self#measure ();
-               Option.iter (fun f -> f width height) on_change;
-               listener <- Some self#_listen);
-        super#set_on_unload @@
-          Some (fun () ->
-              Option.iter (fun l -> Dom_events.stop_listen l) listener;
-              listener <- None)
-
-    end
 
 end

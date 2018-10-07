@@ -155,10 +155,13 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.t list) () =
               |> (fun x -> cancel_l <- Some x));
           Lwt.return_unit) |> Lwt.ignore_result;
 
-      Utils.Keyboard_event.listen Dom_html.window (function
-          | `Escape _ -> if self#has_class Markup.open_class
-                         then self#hide (); true
-          | _         -> true) |> ignore;
+      Dom_events.listen Dom_html.window Dom_events.Typ.keydown (fun _ e ->
+          match Utils.Keyboard_event.event_to_key e with
+          | `Escape ->
+             if self#has_class Markup.open_class
+             then self#hide ();
+             true
+          | _ -> true) |> ignore;
 
       self#listen_click_lwt (fun e _ ->
           let target = Js.Opt.get (e##.target) (fun () -> failwith "touch fail") in

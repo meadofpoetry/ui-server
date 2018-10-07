@@ -37,11 +37,14 @@ let make_overview init e_tables e_rate state stream control =
 
 let make (id : Stream.ID.t) control =
   let init =
+    let open Lwt.Infix in
     Requests.Streams.HTTP.get_tables ~ids:[id] control
+    |> Lwt_result.map_err Api_js.Requests.err_to_string
     >|= (function
-         | [(_, x)] -> Some x
-         | _ -> None)
-    |> Lwt_result.map_err Api_js.Requests.err_to_string in
+         | Ok [] -> Ok None
+         | Ok [(_, x)] -> Ok (Some x)
+         | Ok _ -> Error "Got tables for more than one stream"
+         | Error e -> Error e) in
   let state = get_state id control in
   let state' = state >|= fst in
   let e_rate, rate_sock =

@@ -34,8 +34,9 @@ let content_to_elt : type a. a content ->
      Markup.create content indicator (), (text, icon)
 
 class ['a,'b] t
-        ?(disabled=false)
-        ?(active=false)
+        ?(min_width = false)
+        ?(disabled = false)
+        ?(active = false)
         ~(value : 'b)
         ~(content : 'a content)
         () =
@@ -77,7 +78,7 @@ class ['a,'b] t
     method left  = self#offset_left
 
     initializer
-      (* Ripple.attach self |> ignore; *)
+      if min_width then self#add_class Markup.min_width_class;
       self#set_active active;
       self#set_disabled disabled;
 

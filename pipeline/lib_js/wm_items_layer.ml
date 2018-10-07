@@ -93,13 +93,14 @@ module Make(I : Item) = struct
         Result.iter (fun (i:#Widget.t) ->
             React.S.map (fun p -> self#update_item_value i p) i#s_change
             |> ignore;
-            i#listen_lwt Dom_events.Typ.dblclick (fun _ _ ->
+            i#listen_lwt Widget.Event.dblclick (fun _ _ ->
                 e_dblclick_push i;
                 Lwt.return_unit)
             |> Lwt.ignore_result;
-            Components.Utils.Keyboard_event.listen i#root (function
-                | `Delete _ -> e_delete_push i; true
-                | _ -> true) |> ignore)
+            i#listen_lwt Widget.Event.keydown (fun e _ ->
+                match Components.Utils.Keyboard_event.event_to_key e with
+                | `Delete -> e_delete_push i; Lwt.return_unit
+                | _ -> Lwt.return_unit) |> ignore)
           (self#add item)
 
       method private set_grid ((cols, rows) : int * int) =
