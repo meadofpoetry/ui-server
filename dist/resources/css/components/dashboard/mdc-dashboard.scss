@@ -93,24 +93,32 @@
     &__heading {
         padding: 0;
         align-items: center;
-        height: 52px;
+        display: flex;
+        flex-flow: row nowrap;
+        flex: 0 0 70px;
+        justify-content: space-between;
+    }
+    &__heading-title {
+        padding: 1rem;
         .mdc-card__title {
-            padding: 1rem;
-            @include mdc-typography(caption);
+            @include mdc-typography(headline6);
+            font-weight: 300;
             text-overflow: ellipsis;
             white-space: nowrap;
             overflow: hidden;
         }
-        display: flex;
-        flex-direction: row;
-        justify-content: space-between;
     }
     &__content {
-        // margin: 15px;
-        height: calc(100% - 80px);
+        flex-grow: 2;
+        display: flex;
         > * {
-            height: 100%;
+            flex-grow: 1;
         }
+        // margin: 15px;
+        /* height: calc(100% - 80px); */
+        /* > * { */
+        /*     height: 100%; */
+        /* } */
     }
     &--editing {
         pointer-events: none;

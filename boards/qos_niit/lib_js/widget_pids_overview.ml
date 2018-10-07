@@ -33,6 +33,7 @@ module Settings = struct
     let hex_form =
       new Form_field.t
         ~input:hex_switch
+        ~align_end:true
         ~label:"HEX IDs"
         () in
     let s, set = React.S.create settings in
@@ -159,6 +160,7 @@ class t ?(settings : Settings.t option)
   let init, timestamp = match init with
     | None -> [], None
     | Some { data; timestamp } -> data, Some timestamp in
+  let s_time, set_time = React.S.create timestamp in
   let fmt = make_table_fmt init in
   let table = new Table.t ~sticky_header:true ~dense:true ~fmt () in
   let empty =
@@ -168,7 +170,6 @@ class t ?(settings : Settings.t option)
       () in
   object(self)
 
-    val mutable _timestamp : Time.t option = timestamp
     val mutable _data : Set.t = Set.of_list init
 
     inherit Widget.t Dom_html.(createDiv document) ()
@@ -177,6 +178,9 @@ class t ?(settings : Settings.t option)
 
     method set_settings ({ hex } : Settings.t) =
       self#set_hex hex
+
+    method s_timestamp : Time.t option React.signal =
+      s_time
 
     (** Updates widget state *)
     method set_state = function
@@ -196,7 +200,7 @@ class t ?(settings : Settings.t option)
 
     (** Updates the overview *)
     method update ({ timestamp; data } : Pid.t list timestamped) =
-      _timestamp <- Some timestamp;
+      set_time @@ Some timestamp;
       (* Manage found, lost and updated items *)
       let prev = _data in
       _data <- Set.of_list data;
@@ -280,6 +284,15 @@ let make_dashboard_item ?settings init : 'a Dashboard.Item.item =
     { widget = settings#widget
     ; ready = React.S.const true
     ; set = (fun () -> Lwt_result.return @@ w#set_settings @@ React.S.value s)
-    }
-  in
-  Dashboard.Item.make_item ~name:"Обзор" ~settings w
+    } in
+  let tz_offset_s = Ptime_clock.current_tz_offset_s () in
+  let timestamp =
+    Dashboard.Item.make_timestamp
+      ~time:w#s_timestamp
+      ~to_string:(Time.to_human_string ?tz_offset_s)
+      () in
+  Dashboard.Item.make_item
+    ~name:"Обзор"
+    ~subtitle:(Timestamp timestamp)
+    ~settings
+    w

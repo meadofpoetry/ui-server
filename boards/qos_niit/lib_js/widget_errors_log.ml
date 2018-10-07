@@ -20,13 +20,9 @@ let ( % ) = Fun.( % )
 
 module Settings = struct
 
-  type t =
-    { hex : bool
-    }
+  type t = { hex : bool }
 
-  let (default : t) =
-    { hex = false (* FIXME *)
-    }
+  let (default : t) = { hex = false (* FIXME *) }
 
   class view ?(settings = default) () =
     let hex_switch =
@@ -36,6 +32,7 @@ module Settings = struct
     let hex_form =
       new Form_field.t
         ~input:hex_switch
+        ~align_end:true
         ~label:"HEX IDs"
         () in
     let s, set = React.S.create settings in

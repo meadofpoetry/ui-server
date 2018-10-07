@@ -11,13 +11,9 @@ let ( % ) = Fun.( % )
 
 module Settings = struct
 
-  type t =
-    { hex : bool
-    }
+  type t = { hex : bool }
 
-  let (default : t) =
-    { hex = false (* FIXME *)
-    }
+  let (default : t) = { hex = false (* FIXME *) }
 
   class view ?(settings = default) () =
     let hex_switch =
@@ -26,6 +22,7 @@ module Settings = struct
         () in
     let hex_form =
       new Form_field.t
+        ~align_end:true
         ~input:hex_switch
         ~label:"HEX IDs"
         () in
@@ -215,9 +212,17 @@ class t ?(settings : Settings.t option)
         (init : Service.t list timestamped option)
         (pids : Pid.t list timestamped option)
         () =
-  let init, timestamp = match init with
-    | None -> [], None
-    | Some { data; timestamp } -> data, Some timestamp in
+  let timestamp = match init, pids with
+    | None, None -> None
+    | Some { timestamp; _}, None -> Some timestamp
+    | None, Some { timestamp; _ } -> Some timestamp
+    | Some { timestamp = ts1; _ }, Some { timestamp = ts2; _ } ->
+       if Time.is_later ts1 ~than:ts2
+       then Some ts1 else Some ts2 in
+  let init = match init with
+    | None -> []
+    | Some { data; _ } -> data in
+  let s_time, set_time = React.S.create timestamp in
   let table, on_change = make_table init in
   let rate, set_rate = React.S.create None in
   let details, set_details = React.S.create None in
@@ -229,10 +234,12 @@ class t ?(settings : Settings.t option)
       () in
   object(self)
 
-    val mutable _timestamp : Time.t option = timestamp
     val mutable _data : Set.t = Set.of_list init
 
     inherit Widget.t Dom_html.(createDiv document) ()
+
+    method s_timestamp : Time.t option React.signal =
+      s_time
 
     (** Adds new row to the overview *)
     method add_row (s : Service.t) =
@@ -241,13 +248,14 @@ class t ?(settings : Settings.t option)
     (** Updates PID list *)
     method update_pids (pids : Pid.t list timestamped) : unit =
       set_pids @@ Some pids;
+      set_time @@ Some pids.timestamp;
       Option.iter (fun (x : Widget_service_info.t) -> x#update_pids pids)
       @@ React.S.value details
 
     (** Updates the overview *)
     method update ({ timestamp; data } : Service.t list timestamped) =
       (* Update timestamp *)
-      _timestamp <- Some timestamp;
+      set_time @@ Some timestamp;
       (* Manage found, lost and updated items *)
       let prev = _data in
       _data <- Set.of_list data;
@@ -390,6 +398,15 @@ let make_dashboard_item ?settings init pids =
     { widget = settings#widget
     ; ready = React.S.const true
     ; set = (fun () -> Lwt_result.return @@ w#set_settings @@ React.S.value s)
-    }
-  in
-  Dashboard.Item.make_item ~name:"Обзор" ~settings w
+    } in
+  let tz_offset_s = Ptime_clock.current_tz_offset_s () in
+  let timestamp =
+    Dashboard.Item.make_timestamp
+      ~time:w#s_timestamp
+      ~to_string:(Time.to_human_string ?tz_offset_s)
+      () in
+  Dashboard.Item.make_item
+    ~name:"Обзор"
+    ~subtitle:(Timestamp timestamp)
+    ~settings
+    w

@@ -12,11 +12,12 @@ module Make(Xml : Xml_sigs.NoWrap)
   let non_editable_class = CSS.add_modifier base_class "non-editable"
 
   module Item = struct
-    let _class        = CSS.add_element base_class "item"
+    let _class = CSS.add_element base_class "item"
     let content_class = CSS.add_element _class "content"
     let heading_class = CSS.add_element _class "heading"
+    let title_class = CSS.add_element _class "heading-title"
     let buttons_class = CSS.add_element _class "heading-buttons"
-    let button_class  = CSS.add_element _class "heading-button"
+    let button_class = CSS.add_element _class "heading-button"
     let editing_class = CSS.add_modifier _class "editing"
   end
 
