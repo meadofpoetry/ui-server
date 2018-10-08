@@ -64,17 +64,17 @@ let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
         else int_of_float cols, rows,
              (h /. (float_of_int rows) *. h /. (float_of_int rows) *. item_ar)*)
         if (h *. float_of_int rows >. float_of_int @@ fst resolution)
-        then 0, 0, 0.
+        then 0, 0.
         else
         ( let squares  = w *. h *. float_of_int num in
           let division = squares /. (float_of_int @@ fst resolution * snd resolution) in
-          int_of_float cols, rows, division)) (List.range 0 10) in
-  let (cols : int), _, _ =
+          int_of_float cols, division)) (List.range 0 10) in
+  let (cols : int), _ =
     List.fold_left (fun acc x ->
-        let _, _, sq = x in
-        let _, _, gr = acc in
+        let _, sq = x in
+        let _, gr = acc in
         if Float.(gr > sq) then acc else x)
-      (0, 0, 0.) squares in
+      (0, 0.) squares in
   cols
 
 let position_widget ~(pos : Wm.position)
@@ -115,35 +115,35 @@ let to_checkboxes (widgets : (string * Wm.widget) list) =
   @@ React.S.changes checkbox#s_state |> ignore;
   check_all :: wds
 
+let video_pos ~(cont_pos : Wm.position) : Wm.position =
+  { left = cont_pos.left
+  ; top  = cont_pos.top
+  ; right = cont_pos.right - 30
+  ; bottom = cont_pos.bottom
+  }
+
+let audio_pos ~(cont_pos : Wm.position) : Wm.position =
+  { left = cont_pos.right - 30
+  ; top  = cont_pos.top
+  ; right = cont_pos.right
+  ; bottom = cont_pos.bottom
+  }
+
 let to_layout ~resolution ~domains ~widgets =
   let ar_x, ar_y   = 16, 9 in
   let domains_num  = List.length domains in
   let items_in_row = get_items_in_row ~resolution ~item_ar:(ar_x, ar_y) domains_num in
   List.mapi (fun i domain ->
-      let video_w = (fst resolution) / items_in_row in
-      let video_h = (ar_y * video_w) / ar_x in
       let row     = i / items_in_row in
-      let video_x = (i - items_in_row * row) * video_w in
-      let video_y = row * video_h in
-      let (video_pos : Wm.position) =
-        { left = video_x
-        ; top = video_y
-        ; right = video_x + video_w - 30
-        ; bottom = video_y + video_h
-        }
-      in
+      let cont_w = (fst resolution) / items_in_row in
+      let cont_h = (ar_y * cont_w) / ar_x in
+      let cont_x = (i - items_in_row * row) * cont_w in
+      let cont_y = row * cont_h in
       let cont_pos : Wm.position =
-        { left = video_x
-        ; top = video_y
-        ; right = video_x + video_w
-        ; bottom = video_y + video_h
-        }
-      in
-      let (audio_pos : Wm.position) =
-        { left = video_x + video_w - 30
-        ; top = video_y
-        ; right = video_x + video_w
-        ; bottom = video_y + video_h
+        { left   = cont_x
+        ; top    = cont_y
+        ; right  = cont_x + cont_w
+        ; bottom = cont_y + cont_h
         }
       in
       let audio =
@@ -156,17 +156,21 @@ let to_layout ~resolution ~domains ~widgets =
       in
       let container = match video, audio with
         | Some video, Some audio ->
+          let video_pos = video_pos ~cont_pos in
+          let audio_pos = audio_pos ~cont_pos in
           let video_wdg = (fst video, {(snd video) with position = video_pos}) in
           let audio_wdg = (fst audio, {(snd audio) with position = audio_pos}) in
           ({ position = cont_pos
            ; widgets  = [video_wdg; audio_wdg]
            } : Wm.container)
         | None, Some audio ->
+          let audio_pos = audio_pos ~cont_pos in
           let audio_wdg = (fst audio, {(snd audio) with position = audio_pos}) in
           ({ position = cont_pos
            ; widgets  = [audio_wdg]
            } : Wm.container)
         | Some video, None ->
+          let video_pos = video_pos ~cont_pos in
           let video_wdg = (fst video, {(snd video) with position = video_pos}) in
           ({ position = cont_pos
            ; widgets  = [video_wdg]
@@ -179,8 +183,8 @@ let to_layout ~resolution ~domains ~widgets =
       (channel_of_domain domain), container)
     domains
 
-let to_dialog (wm:Wm.t) =
-  let e,push     = React.E.create () in
+let to_dialog (wm : Wm.t) =
+  let e, push    = React.E.create () in
   let checkboxes = to_checkboxes wm.widgets in
   let box        = new Vbox.t ~widgets:checkboxes () in
   let dialog     = new Dialog.t
@@ -196,10 +200,7 @@ let to_dialog (wm:Wm.t) =
     Lwt.bind (dialog#show_await ())
       (function
           | `Accept ->
-            let domains =
-              List.map (fun x ->
-                  domain_of_channel @@ x#input_widget#id) checkboxes
-            in
+            let domains = List.map (fun x -> domain_of_channel @@ x#input_widget#id) checkboxes in
             Lwt.return (push @@ to_layout ~resolution:wm.resolution ~domains ~widgets:wm.widgets)
           | `Cancel -> Lwt.return ())
   in
