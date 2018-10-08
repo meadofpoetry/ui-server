@@ -9,19 +9,21 @@ let get_items_in_row ~(resolution:int*int) ~(item_ar:int*int) items =
   in
 (*  let item_ar       = (float_of_int @@ fst item_ar) /. (float_of_int @@ snd item_ar) in*)
   let squares =
-    List.mapi (fun rows _ ->
+    List.map (fun rows ->
         let rows = rows + 1 in
         let cols = ceil (float_of_int num /. float_of_int rows) in
-        let w = 1. in
+        let w = float_of_int (fst resolution) /. cols in
         let h = w /. resolution_ar in
       (*  if Float.((w /. cols *. item_ar) *. float_of_int rows <= h)
         then int_of_float cols, rows, (w /. cols *. w /. cols *. item_ar)
         else int_of_float cols, rows,
              (h /. (float_of_int rows) *. h /. (float_of_int rows) *. item_ar)*)
-        let squares = (float_of_int @@ fst resolution) /. cols *.
-                      ((float_of_int @@ snd resolution) /. (float_of_int rows) *. h) in
-        let division = squares /. (float_of_int @@ fst resolution * snd resolution) in
-      int_of_float cols, rows, division) items in
+        if (h *. float_of_int rows >. float_of_int @@ fst resolution)
+        then 0,0,0.
+        else
+        ( let squares = w *. h *.float_of_int num in
+          let division = squares /. (float_of_int @@ fst resolution * snd resolution) in
+          int_of_float cols, rows, division)) (List.range 0 10) in
   let (cols:int), _, _ =
     List.fold_left (fun acc x ->
         let _,_,sq = x in
