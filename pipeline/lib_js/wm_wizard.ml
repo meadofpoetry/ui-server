@@ -7,18 +7,21 @@ let get_items_in_row ~(resolution:int*int) ~(item_ar:int*int) items =
   let resolution_ar = Utils.resolution_to_aspect resolution
                       |> (fun (x,y) -> (float_of_int x) /. (float_of_int y))
   in
-  let item_ar       = (float_of_int @@ fst item_ar) /. (float_of_int @@ snd item_ar) in
+(*  let item_ar       = (float_of_int @@ fst item_ar) /. (float_of_int @@ snd item_ar) in*)
   let squares =
     List.mapi (fun rows _ ->
         let rows = rows + 1 in
         let cols = ceil (float_of_int num /. float_of_int rows) in
         let w = 1. in
         let h = w /. resolution_ar in
-        if Float.((w /. cols *. item_ar) *. float_of_int rows <= h)
+      (*  if Float.((w /. cols *. item_ar) *. float_of_int rows <= h)
         then int_of_float cols, rows, (w /. cols *. w /. cols *. item_ar)
         else int_of_float cols, rows,
-             (h /. (float_of_int rows) *. h /. (float_of_int rows) *. item_ar)
-      ) items in
+             (h /. (float_of_int rows) *. h /. (float_of_int rows) *. item_ar)*)
+        let squares = (float_of_int @@ fst resolution) *.
+                      ((float_of_int @@ snd resolution) /. (float_of_int rows) *. h) in
+        let division = squares /. (float_of_int @@ fst resolution * snd resolution) in
+      int_of_float cols, rows, division) items in
   let (cols:int), _, _ =
     List.fold_left (fun acc x ->
         let _,_,sq = x in
@@ -79,7 +82,7 @@ let to_layout ~resolution (widgets:(string * Wm.widget) list) =
       let video_y = row * video_h in
       let (video_pos : Wm.position) = { left = video_x
                                       ; top = video_y
-                                      ; right = video_x + video_w + 30
+                                      ; right = video_x + video_w - 30
                                       ; bottom = video_y + video_h
                                       } in
       let cont_pos : Wm.position = { left =video_x
@@ -93,8 +96,8 @@ let to_layout ~resolution (widgets:(string * Wm.widget) list) =
       let container = match audio with
         | Some audio ->
           let audio_h = video_h in
-          let audio_w = 30 in
-          let audio_x = video_x + video_w + 30 in
+          let audio_w = 29 in
+          let audio_x = video_x + video_w - 29 in
           let audio_y = video_y in
           let (audio_pos : Wm.position) = { left =audio_x
                                           ; top = audio_y
