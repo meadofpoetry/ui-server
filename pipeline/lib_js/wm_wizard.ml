@@ -2,8 +2,53 @@ open Containers
 open Components
 open Wm_components
 
-let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) items =
-  let num           = List.length items in
+let channel_of_domain = function
+  | "s460b38ee-186b-5604-8811-235eb3005960_c1060" -> "Россия К"
+  | "s460b38ee-186b-5604-8811-235eb3005960_c1040" -> "НТВ"
+  | "s460b38ee-186b-5604-8811-235eb3005960_c1050" -> "5 канал"
+  | "s460b38ee-186b-5604-8811-235eb3005960_c1030" -> "МАТЧ ТВ"
+  | "s460b38ee-186b-5604-8811-235eb3005960_c1010" -> "Первый канал"
+  | "s460b38ee-186b-5604-8811-235eb3005960_c1080" -> "Карусель"
+  | "s460b38ee-186b-5604-8811-235eb3005960_c1090" -> "ОТР"
+  | "s460b38ee-186b-5604-8811-235eb3005960_c1100" -> "ТВЦ"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2090" -> "ТНТ"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2020" -> "Спас"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2070" -> "Звезда"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2080" -> "Мир"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2060" -> "Пятница!"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2100" -> "МУЗ ТВ"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2050" -> "ТВ3"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2040" -> "Домашний"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2030" -> "СТС"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2010" -> "РЕН ТВ"
+  | "s4b135670-ef01-59b1-be78-4e9bec93461f_c1020" -> "Россия 1"
+  | "s930c63bc-0ce2-555c-9a51-09de6b1b85f2_c1070" -> "Россия 24"
+  | _ -> ""
+
+let domain_of_channel = function
+  | "Россия К"     -> "s460b38ee-186b-5604-8811-235eb3005960_c1060"
+  | "НТВ"          -> "s460b38ee-186b-5604-8811-235eb3005960_c1040"
+  | "5 канал"      -> "s460b38ee-186b-5604-8811-235eb3005960_c1050"
+  | "МАТЧ ТВ"      -> "s460b38ee-186b-5604-8811-235eb3005960_c1030"
+  | "Первый канал" -> "s460b38ee-186b-5604-8811-235eb3005960_c1010"
+  | "Карусель"     -> "s460b38ee-186b-5604-8811-235eb3005960_c1080"
+  | "ОТР"          -> "s460b38ee-186b-5604-8811-235eb3005960_c1090"
+  | "ТВЦ"          -> "s460b38ee-186b-5604-8811-235eb3005960_c1100"
+  | "ТНТ"          -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2090"
+  | "Спас"         -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2020"
+  | "Звезда"       -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2070"
+  | "Мир"          -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2080"
+  | "Пятница!"     -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2060"
+  | "МУЗ ТВ"       -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2100"
+  | "ТВ3"          -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2050"
+  | "Домашний"     -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2040"
+  | "СТС"          -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2030"
+  | "РЕН ТВ"       -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2010"
+  | "Россия 1"     -> "s4b135670-ef01-59b1-be78-4e9bec93461f_c1020"
+  | "Россия 24"    -> "s930c63bc-0ce2-555c-9a51-09de6b1b85f2_c1070"
+  | _ -> ""
+
+let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
   let resolution_ar = Utils.resolution_to_aspect resolution
                       |> (fun (x,y) -> (float_of_int x) /. (float_of_int y))
   in
@@ -52,13 +97,14 @@ let to_checkboxes (widgets : (string * Wm.widget) list) =
           wdg.domain :: acc) [] widgets
     |> List.rev
   in
+  let channels = List.map (fun x -> channel_of_domain x) domains in
   let wds =
     List.map (fun str ->
         let label    = str in
         let checkbox = new Checkbox.t () in
         checkbox#set_id label;
         let form_field = new Form_field.t ~label ~input:checkbox () in
-        form_field) domains
+        form_field) channels
   in
   let checkbox  = new Checkbox.t () in
   let check_all = new Form_field.t ~label:"Выбрать все" ~input:checkbox () in
@@ -69,16 +115,12 @@ let to_checkboxes (widgets : (string * Wm.widget) list) =
   @@ React.S.changes checkbox#s_state |> ignore;
   check_all :: wds
 
-let to_layout ~resolution (widgets : (string * Wm.widget) list) =
-  let ar_x, ar_y    = 16, 9 in
-  let video_widgets =
-    List.filter (fun (x : string * Wm.widget) ->
-        String.equal (snd x).type_ "video") widgets
-  in
-  let items_in_row = get_items_in_row ~resolution ~item_ar:(ar_x, ar_y) video_widgets in
-  List.mapi (fun i (n, (v : Wm.widget)) ->
+let to_layout ~resolution ~domains ~widgets =
+  let ar_x, ar_y   = 16, 9 in
+  let domains_num  = List.length domains in
+  let items_in_row = get_items_in_row ~resolution ~item_ar:(ar_x, ar_y) domains_num in
+  List.mapi (fun i domain ->
       let video_w = (fst resolution) / items_in_row in
-      let name    = v.domain in
       let video_h = (ar_y * video_w) / ar_x in
       let row     = i / items_in_row in
       let video_x = (i - items_in_row * row) * video_w in
@@ -97,30 +139,45 @@ let to_layout ~resolution (widgets : (string * Wm.widget) list) =
         ; bottom = video_y + video_h
         }
       in
+      let (audio_pos : Wm.position) =
+        { left = video_x + video_w - 30
+        ; top = video_y
+        ; right = video_x + video_w
+        ; bottom = video_y + video_h
+        }
+      in
       let audio =
         List.find_pred (fun (_, (x : Wm.widget)) ->
-            String.equal x.domain v.domain && String.equal x.type_ "soundbar") widgets
+            String.equal x.domain domain && String.equal x.type_ "soundbar") widgets
       in
-      let video_wdg = (n, {v with position = video_pos}) in
-      let container = match audio with
-        | Some audio ->
-          let (audio_pos : Wm.position) =
-            { left = video_x + video_w - 30
-            ; top = video_y
-            ; right = video_x + video_w
-            ; bottom = video_y + video_h
-            }
-          in
+      let video =
+        List.find_pred (fun (_, (x : Wm.widget)) ->
+            String.equal x.domain domain && String.equal x.type_ "video") widgets
+      in
+      let container = match video, audio with
+        | Some video, Some audio ->
+          let video_wdg = (fst video, {(snd video) with position = video_pos}) in
           let audio_wdg = (fst audio, {(snd audio) with position = audio_pos}) in
           ({ position = cont_pos
            ; widgets  = [video_wdg; audio_wdg]
            } : Wm.container)
-        | None       -> ({ position = cont_pos
-                         ; widgets  = [video_wdg]
-                         } : Wm.container)
+        | None, Some audio ->
+          let audio_wdg = (fst audio, {(snd audio) with position = audio_pos}) in
+          ({ position = cont_pos
+           ; widgets  = [audio_wdg]
+           } : Wm.container)
+        | Some video, None ->
+          let video_wdg = (fst video, {(snd video) with position = video_pos}) in
+          ({ position = cont_pos
+           ; widgets  = [video_wdg]
+           } : Wm.container)
+        | _, _ ->
+          ({ position = cont_pos
+           ; widgets  = []
+           } : Wm.container)
       in
-      name, container)
-    video_widgets
+      (channel_of_domain domain), container)
+    domains
 
 let to_dialog (wm:Wm.t) =
   let e,push     = React.E.create () in
@@ -139,18 +196,11 @@ let to_dialog (wm:Wm.t) =
     Lwt.bind (dialog#show_await ())
       (function
           | `Accept ->
-            let widgets =
-              List.fold_left (fun acc x ->
-                  if not @@ x#input_widget#checked then
-                    acc
-                  else
-                    let id = x#input_widget#id in
-                    let domain_widgets =
-                      List.filter (fun (wdg : string * Wm.widget) ->
-                          String.equal id (snd wdg).domain) wm.widgets in
-                    acc @ domain_widgets) [] checkboxes
+            let domains =
+              List.map (fun x ->
+                  domain_of_channel @@ x#input_widget#id) checkboxes
             in
-            Lwt.return (push @@ to_layout ~resolution:wm.resolution widgets)
+            Lwt.return (push @@ to_layout ~resolution:wm.resolution ~domains ~widgets:wm.widgets)
           | `Cancel -> Lwt.return ())
   in
   dialog, e, show
