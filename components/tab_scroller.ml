@@ -27,9 +27,11 @@ class ['a, 'b] t ?on_change ?align
   let eq = Widget.equal in
   let tabs' = List.map Widget.to_markup tabs in
   let content =
-    Markup.create_scroll_content tabs' () in
+    Markup.create_scroll_content tabs' ()
+    |> To_dom.of_element
+    |> Widget.create in
   let area =
-    Markup.create_scroll_area ~content ()
+    Markup.create_scroll_area ~content:(Widget.to_markup content) ()
     |> To_dom.of_element
     |> Widget.create in
   let elt =
@@ -49,45 +51,8 @@ class ['a, 'b] t ?on_change ?align
     method active_tab : ('a, 'b) Tab.t option =
       React.S.value self#s_active_tab
 
-    method active_tab_index : int option =
-      match self#active_tab with
-      | None -> None
-      | Some x -> List.find_idx (eq x) self#tabs
-                  |> Option.map fst
-
-    method active_tab_value : 'b option =
-      Option.map (fun x -> x#value) @@ self#active_tab
-
-    method set_active_tab (tab : ('a, 'b) Tab.t) : (unit, string) result =
-      match List.find_opt (eq tab) self#tabs with
-      | None -> Error "tab not found"
-      | Some tab ->
-         tab#set_active ?previous:self#active_tab true;
-         set_active @@ Some tab;
-         self#scroll_tab_into_view tab;
-         self#layout ();
-         Ok ()
-
-    method set_active_tab_index (i : int) : (unit, string) result =
-      match List.get_at_idx i self#tabs with
-      | None -> Error "tab not found"
-      | Some tab ->
-         tab#set_active ?previous:self#active_tab true;
-         set_active @@ Some tab;
-         self#scroll_tab_into_view tab;
-         self#layout ();
-         Ok ()
-
-    method append_tab (tab : ('a, 'b) Tab.t) : unit =
-      _tabs <- _tabs @ [tab];
-      self#append_child tab;
-      self#_listen_click tab;
-      self#layout ()
-
-    method insert_tab_at_idx (i : int) (tab : ('a,'b) Tab.t) : unit =
-      _tabs <- List.insert_at_idx i tab _tabs;
-      self#insert_child_at_idx i tab;
-      self#_listen_click tab;
+    method set_active_tab (tab : ('a, 'b) Tab.t) : unit =
+      set_active @@ Some tab;
       self#layout ()
 
     method remove_tab (tab : ('a, 'b) Tab.t) : unit =
@@ -96,21 +61,20 @@ class ['a, 'b] t ?on_change ?align
       | Some tab ->
          self#remove_child tab;
          _tabs <- List.remove ~eq ~x:tab self#tabs;
-         if tab#active
-         then self#set_active_tab_index 0 |> ignore;
          self#layout ()
 
-    method remove_tab_at_idx (i : int) : unit =
-      match List.get_at_idx i self#tabs with
-      | None -> ()
-      | Some tab ->
-         _tabs <- List.remove_at_idx i self#tabs;
-         self#remove_child tab;
-         if tab#active
-         then self#set_active_tab_index 0 |> ignore;
-         self#layout ()
+    method append_tab (tab : ('a, 'b) Tab.t) : unit =
+      _tabs <- tabs @ [tab];
+      self#append_child tab;
+      self#layout ()
+
+    method insert_tab_at_index (i : int) (tab : ('a, 'b) Tab.t) : unit =
+      _tabs <- List.insert_at_idx i tab _tabs;
+      self#insert_child_at_idx i tab;
+      self#layout ()
 
     method align : align option = _align
+
     method set_align (x : align option) : unit =
       _align <- x;
       let pre = Components_markup.CSS.add_modifier
@@ -124,33 +88,9 @@ class ['a, 'b] t ?on_change ?align
 
     method tabs = _tabs
 
-    (* Private methods *)
+    method area = area
 
-    method private scroll_tab_into_view (tab : ('a, 'b) Tab.t) =
-      let left = area#scroll_left in
-      let width = area#client_width in
-      let right = left + width in
-      if tab#left < left
-      then self#scroll tab#left
-      else if tab#left + tab#width > right
-      then self#scroll @@ left + (tab#width + tab#left - right)
-
-    method private scroll next =
-      let old = area#scroll_left in
-      Utils.Animation.animate
-        ~timing:Utils.Animation.Timing.in_out_sine
-        ~draw:(fun x ->
-          let n = float_of_int next in
-          let o = float_of_int old in
-          let v = int_of_float @@ (x *. (n -. o)) +. o in
-          area#set_scroll_left v)
-        ~duration:0.35
-
-    method private _listen_click (tab : ('a, 'b) Tab.t) =
-      Lwt_js_events.clicks tab#root (fun _ _ ->
-          if not @@ (Equal.option eq) (Some tab) self#active_tab
-          then self#set_active_tab tab |> ignore;
-          Lwt.return_unit) |> Lwt.ignore_result
+    method content = content
 
     initializer
       area#style##.marginBottom :=
@@ -158,13 +98,6 @@ class ['a, 'b] t ?on_change ?align
          | Some x -> Js.string (Printf.sprintf "-%dpx" x)
          | None -> Js.string "");
       area#add_class Markup.scroll_area_scroll_class;
-      React.E.map (Option.iter
-                     (fun x -> x#set_active ?previous:self#active_tab false))
-      @@ React.S.diff (fun _ o -> o) self#s_active_tab |> self#_keep_e;
-      (match self#tabs with
-       | hd :: _ -> self#set_active_tab hd |> ignore
-       | _ -> ());
-      List.iter self#_listen_click self#tabs;
       self#set_align _align
 
   end

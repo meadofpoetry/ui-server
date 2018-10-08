@@ -39,7 +39,7 @@ let make_timestamp ~time ~to_string () =
   { time; to_string }
 
 let make_info ?(description = "") ?(thumbnail = `Icon "help")
-            ~(serialized : Yojson.Safe.json) ~(title : string) () =
+      ~(serialized : Yojson.Safe.json) ~(title : string) () =
   { title; thumbnail; description; serialized }
 
 let make_item ?settings
@@ -113,7 +113,7 @@ class t ~(item : 'a item) () =
     inherit Card.t ~widgets:[ heading#widget
                             ; (new Divider.t ())#widget
                             ; content#widget ] () as super
-    method remove  = remove
+    method remove = remove
     method content = content
     method heading = heading
 

@@ -35,17 +35,17 @@ let set_active_page container tab_bar =
     Dom_html.window##.location##.hash
     |> Js.to_string
     |> String.drop 1 in
-  let default = List.head_opt tab_bar#scroller#tabs in
+  let default = List.head_opt tab_bar#tabs in
   let active : ('a, 'b) tab option =
     List.find_opt (fun (tab : ('a, 'b) tab) ->
-        String.equal hash @@ hash_of_tab tab) tab_bar#scroller#tabs
+        String.equal hash @@ hash_of_tab tab) tab_bar#tabs
     |> fun x -> Option.choice [ x; default ] in
   begin match active with
   | None -> ()
   | Some tab ->
      container#set_content @@ widget_of_tab tab;
      if not tab#active
-     then tab_bar#scroller#set_active_tab tab |> ignore
+     then tab_bar#set_active_tab tab |> ignore
   end
 
 let set_hash container tab_bar hash =
@@ -56,8 +56,8 @@ let set_hash container tab_bar hash =
 
 let switch_tab container tab_bar =
   React.E.map (set_hash container tab_bar % hash_of_tab)
-  @@ React.E.fmap (fun x -> x)
-  @@ React.S.changes tab_bar#scroller#s_active_tab
+  @@ React.E.fmap Fun.id
+  @@ React.S.changes tab_bar#s_active_tab
 
 let create_tab_row (container : container) (tabs : ('a, 'b) tab list) =
   let open Tabs in
