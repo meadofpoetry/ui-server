@@ -89,7 +89,7 @@ let to_layout ~resolution (widgets:(string * Wm.widget) list) =
                                    } in
       let audio = List.find_pred (fun (_, (x:Wm.widget)) ->
           String.equal x.domain v.domain && String.equal x.domain "soundbar") widgets in
-      let video_wdg = position_widget ~pos:video_pos (n,v) in
+      let video_wdg = (n,{v with position = video_pos}) in
       let container = match audio with
         | Some audio ->
           let audio_h = video_h in
@@ -101,7 +101,7 @@ let to_layout ~resolution (widgets:(string * Wm.widget) list) =
                                           ; right = audio_x + audio_w
                                           ; bottom = audio_y + audio_h
                                           } in
-          let audio_wdg = position_widget ~pos:audio_pos audio in
+          let audio_wdg = (fst audio, {(snd audio) with position = audio_pos}) in
           ({ position = cont_pos
            ; widgets  = [video_wdg;audio_wdg]
            }:Wm.container)
