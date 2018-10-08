@@ -18,7 +18,7 @@ let get_items_in_row ~(resolution:int*int) ~(item_ar:int*int) items =
         then int_of_float cols, rows, (w /. cols *. w /. cols *. item_ar)
         else int_of_float cols, rows,
              (h /. (float_of_int rows) *. h /. (float_of_int rows) *. item_ar)*)
-        let squares = (float_of_int @@ fst resolution) *.
+        let squares = (float_of_int @@ fst resolution) /. cols *.
                       ((float_of_int @@ snd resolution) /. (float_of_int rows) *. h) in
         let division = squares /. (float_of_int @@ fst resolution * snd resolution) in
       int_of_float cols, rows, division) items in
@@ -70,7 +70,6 @@ let to_layout ~resolution (widgets:(string * Wm.widget) list) =
   let ar_x,ar_y     = 16,9 in
   let video_widgets = List.filter (fun (x: string * Wm.widget) ->
       String.equal (snd x).type_ "video") widgets in
-  let () = Printf.printf "Amount of video widgets: %d\n" (List.length video_widgets) in
   let items_in_row = get_items_in_row ~resolution ~item_ar:(ar_x,ar_y) video_widgets in
   List.mapi (fun i (n,(v:Wm.widget)) ->
       let video_w = (fst resolution) / items_in_row in
@@ -95,14 +94,10 @@ let to_layout ~resolution (widgets:(string * Wm.widget) list) =
       let video_wdg = (n,{v with position = video_pos}) in
       let container = match audio with
         | Some audio ->
-          let audio_h = video_h in
-          let audio_w = 29 in
-          let audio_x = video_x + video_w - 29 in
-          let audio_y = video_y in
-          let (audio_pos : Wm.position) = { left =audio_x
-                                          ; top = audio_y
-                                          ; right = audio_x + audio_w
-                                          ; bottom = audio_y + audio_h
+          let (audio_pos : Wm.position) = { left = video_x + video_w - 29
+                                          ; top = video_y
+                                          ; right = video_x + video_w
+                                          ; bottom = video_y + video_h
                                           } in
           let audio_wdg = (fst audio, {(snd audio) with position = audio_pos}) in
           ({ position = cont_pos
