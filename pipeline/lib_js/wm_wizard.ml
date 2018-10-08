@@ -77,9 +77,9 @@ let to_layout ~resolution (widgets:(string * Wm.widget) list) =
       let row = i / items_in_row in
       let video_x = (i - items_in_row * row) * video_w in
       let video_y = row * video_h in
-      let (video_pos : Wm.position) = { left =video_x
+      let (video_pos : Wm.position) = { left = video_x
                                       ; top = video_y
-                                      ; right = video_x + video_w - 30
+                                      ; right = video_x + video_w + 30
                                       ; bottom = video_y + video_h
                                       } in
       let cont_pos : Wm.position = { left =video_x
@@ -94,7 +94,7 @@ let to_layout ~resolution (widgets:(string * Wm.widget) list) =
         | Some audio ->
           let audio_h = video_h in
           let audio_w = 30 in
-          let audio_x = video_x + video_w - 30 in
+          let audio_x = video_x + video_w + 30 in
           let audio_y = video_y in
           let (audio_pos : Wm.position) = { left =audio_x
                                           ; top = audio_y
@@ -105,7 +105,7 @@ let to_layout ~resolution (widgets:(string * Wm.widget) list) =
           ({ position = cont_pos
            ; widgets  = [video_wdg;audio_wdg]
            }:Wm.container)
-        | None       -> ({ position = video_pos
+        | None       -> ({ position = cont_pos
                          ; widgets  = [video_wdg]
                          }:Wm.container)
       in
