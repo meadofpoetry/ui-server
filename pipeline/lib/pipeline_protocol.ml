@@ -141,7 +141,7 @@ let create_channels
   ; streams  = { get = s_get_upd; set = s_set_upd }
   ; settings = { set_chan with set = set_set_upd }
   }
-
+  
 let init_exchange (type a) (typ : a typ) send structures_packer options =
   let create_table lst =
     let table = Hashtbl.create 10 in
@@ -159,7 +159,7 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
       method disappeared = List.filter (fun x -> not @@ is_in x post) prev
     end)
   in
-  let rec update_status (lst : Qoe_status.t list) event =
+  let update_status (lst : Qoe_status.t list) event =
     let rec apply_status (entry : Qoe_status.t) : Qoe_status.t list -> Qoe_status.t list = function
       | [] -> []
       | h::tl ->
@@ -209,15 +209,17 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
   in
 
   let structures, wm, settings = add_storages typ send options strm wm sets in
-  let streams = S.map structures_packer structures in
-  
+  let streams = Lwt_react.S.map structures_packer structures in
+
+  (* TODO reimplement *)
   let pids_diff =
-    S.diff pid_diff
-    @@ S.map (fun x -> Structure.active_pids x) structures in
-  let status    = S.fold update_status []
-                  @@ E.select [pids_diff; E.map (fun x -> `Status x) stat]
+    Lwt_react.S.diff pid_diff
+    @@ Lwt_react.S.map (fun x -> Structure.active_pids x) structures in
+
+  let status    = Lwt_react.S.fold ~eq:(fun _ _ -> false) update_status []
+                  @@ Lwt_react.E.select [pids_diff; Lwt_react.E.map (fun x -> `Status x) stat]
   in
-  
+
   let notifs = { streams; wm; settings; adata; vdata; status } in
   
   epush, ready, notifs, requests
