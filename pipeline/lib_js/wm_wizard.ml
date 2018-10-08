@@ -21,7 +21,7 @@ let get_items_in_row ~(resolution:int*int) ~(item_ar:int*int) items =
         if (h *. float_of_int rows >. float_of_int @@ fst resolution)
         then 0,0,0.
         else
-        ( let squares = w *. h *.float_of_int num in
+        ( let squares = w *. h *. float_of_int num in
           let division = squares /. (float_of_int @@ fst resolution * snd resolution) in
           int_of_float cols, rows, division)) (List.range 0 10) in
   let (cols:int), _, _ =
@@ -86,17 +86,17 @@ let to_layout ~resolution (widgets:(string * Wm.widget) list) =
                                       ; right = video_x + video_w - 30
                                       ; bottom = video_y + video_h
                                       } in
-      let cont_pos : Wm.position = { left =video_x
+      let cont_pos : Wm.position = { left = video_x
                                    ; top = video_y
                                    ; right = video_x + video_w
                                    ; bottom = video_y + video_h
                                    } in
       let audio = List.find_pred (fun (_, (x:Wm.widget)) ->
-          String.equal x.domain v.domain && String.equal x.domain "soundbar") widgets in
+          String.equal x.domain v.domain && String.equal x.type_ "soundbar") widgets in
       let video_wdg = (n,{v with position = video_pos}) in
       let container = match audio with
         | Some audio ->
-          let (audio_pos : Wm.position) = { left = video_x + video_w - 29
+          let (audio_pos : Wm.position) = { left = video_x + video_w - 30
                                           ; top = video_y
                                           ; right = video_x + video_w
                                           ; bottom = video_y + video_h
