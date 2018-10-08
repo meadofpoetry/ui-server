@@ -82,23 +82,29 @@ let to_layout ~resolution (widgets:(string * Wm.widget) list) =
                                       ; right = video_x + video_w - 30
                                       ; bottom = video_y + video_h
                                       } in
-      let audio_h = video_h in
-      let audio_w = 30 in
-      let audio_x = video_x + video_w - 30 in
-      let audio_y = video_y in
+      let cont_pos : Wm.position = { left =video_x
+                                   ; top = video_y
+                                   ; right = video_x + video_w
+                                   ; bottom = video_y + video_h
+                                   } in
       let audio = List.find_pred (fun (_, (x:Wm.widget)) ->
           String.equal x.domain v.domain && String.equal x.domain "soundbar") widgets in
-      let (audio_pos : Wm.position) = { left =audio_x
-                                      ; top = audio_y
-                                      ; right = audio_x + audio_w
-                                      ; bottom = audio_y + audio_h
-                                      } in
       let video_wdg = position_widget ~pos:video_pos (n,v) in
       let container = match audio with
-        | Some audio -> let audio_wdg = position_widget ~pos:audio_pos audio in
-                        ({ position = { video_pos with right = video_pos.right + 30}
-                         ; widgets  = [video_wdg;audio_wdg]
-                         }:Wm.container)
+        | Some audio ->
+          let audio_h = video_h in
+          let audio_w = 30 in
+          let audio_x = video_x + video_w - 30 in
+          let audio_y = video_y in
+          let (audio_pos : Wm.position) = { left =audio_x
+                                          ; top = audio_y
+                                          ; right = audio_x + audio_w
+                                          ; bottom = audio_y + audio_h
+                                          } in
+          let audio_wdg = position_widget ~pos:audio_pos audio in
+          ({ position = cont_pos
+           ; widgets  = [video_wdg;audio_wdg]
+           }:Wm.container)
         | None       -> ({ position = video_pos
                          ; widgets  = [video_wdg]
                          }:Wm.container)
