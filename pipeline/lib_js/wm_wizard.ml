@@ -34,6 +34,7 @@ let position_widget ~(pos:Wm.position) (widget:string * Wm.widget) : string * Wm
   let x      = cpos.x   + ((cpos.w - wpos.w) / 2) in
   let y      = cpos.y   + ((cpos.h - wpos.h) / 2) in
   let pos    = {wpos with x;y} |> Utils.of_grid_position in
+
   s,{ v with position = pos }
 
 let to_checkboxes (widgets:(string * Wm.widget) list) =
@@ -63,10 +64,10 @@ let to_checkboxes (widgets:(string * Wm.widget) list) =
   check_all :: wds
 
 let to_layout ~resolution (widgets:(string * Wm.widget) list) =
-  let ar_x,ar_y    = 16,9 in
+  let ar_x,ar_y     = 16,9 in
   let video_widgets = List.filter (fun (x: string * Wm.widget) ->
       String.equal (snd x).type_ "video") widgets in
-  let () = Printf.printf "Amount of video widgets: %d" (List.length video_widgets) in
+  let () = Printf.printf "Amount of video widgets: %d\n" (List.length video_widgets) in
   let items_in_row = get_items_in_row ~resolution ~item_ar:(ar_x,ar_y) video_widgets in
   List.mapi (fun i (n,(v:Wm.widget)) ->
       let video_w = (fst resolution) / items_in_row in
@@ -95,7 +96,7 @@ let to_layout ~resolution (widgets:(string * Wm.widget) list) =
       let video_wdg = position_widget ~pos:video_pos (n,v) in
       let container = match audio with
         | Some audio -> let audio_wdg = position_widget ~pos:audio_pos audio in
-                        ({ position = video_pos
+                        ({ position = { video_pos with right = video_pos.right + 30}
                          ; widgets  = [video_wdg;audio_wdg]
                          }:Wm.container)
         | None       -> ({ position = video_pos
