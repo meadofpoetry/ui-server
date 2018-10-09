@@ -204,7 +204,7 @@ let to_layout ~resolution ~domains ~widgets =
       match container with
       | Some x -> succ i, ((channel_of_domain domain), x) :: acc
       | None   -> i, acc)
-    (0, []) domains
+    (1, []) domains
 
 let to_dialog (wm : Wm.t) =
   let e, push    = React.E.create () in
