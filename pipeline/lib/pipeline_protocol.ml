@@ -159,7 +159,7 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
       method disappeared = List.filter (fun x -> not @@ is_in x post) prev
     end)
   in
-  let rec update_status (lst : Qoe_status.t list) event =
+  let update_status (lst : Qoe_status.t list) event =
     let rec apply_status (entry : Qoe_status.t) : Qoe_status.t list -> Qoe_status.t list = function
       | [] -> []
       | h::tl ->
