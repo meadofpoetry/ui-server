@@ -203,7 +203,7 @@ let to_layout ~resolution ~domains ~widgets =
       match container with
       | Some x -> succ i, ((channel_of_domain domain), x) :: acc
       | None   -> i, acc)
-    (1, []) domains
+    (0, []) domains
   |> snd
 
 let to_dialog (wm : Wm.t) =
