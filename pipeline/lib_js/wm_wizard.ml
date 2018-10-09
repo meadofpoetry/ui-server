@@ -63,12 +63,12 @@ let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
         then int_of_float cols, rows, (w /. cols *. w /. cols *. item_ar)
         else int_of_float cols, rows,
              (h /. (float_of_int rows) *. h /. (float_of_int rows) *. item_ar)*)
-        if (h *. float_of_int rows >. float_of_int @@ fst resolution)
+        if (h *. float_of_int rows >. float_of_int @@ snd resolution)
         then 0, 0.
         else
         ( let squares  = w *. h *. float_of_int num in
           let division = squares /. (float_of_int @@ fst resolution * snd resolution) in
-          int_of_float cols, division)) (List.range 0 10) in
+          int_of_float cols, division)) (List.range' 0 num) in
   let (cols : int), _ =
     List.fold_left (fun acc x ->
         let _, sq = x in
