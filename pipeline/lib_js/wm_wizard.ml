@@ -130,8 +130,11 @@ let to_layout ~resolution ~domains ~widgets =
   let ar_x, ar_y   = 16, 9 in
   let domains_num  = List.length domains in
   let items_in_row = get_items_in_row ~resolution ~item_ar:(ar_x, ar_y) domains_num in
-  List.foldi (fun acc i domain ->
-      let row     = i / items_in_row in
+  snd @@
+  List.fold_left (fun acc domain ->
+      let i      = fst acc in
+      let acc    = snd acc in
+      let row    = i / items_in_row in
       let cont_w = (fst resolution) / items_in_row in
       let cont_h = (ar_y * cont_w) / ar_x in
       let cont_x = (i - items_in_row * row) * cont_w in
@@ -175,9 +178,9 @@ let to_layout ~resolution ~domains ~widgets =
         | _, _ -> None
       in
       match container with
-      | Some x -> ((channel_of_domain domain), x) :: acc
-      | None   -> acc)
-    [] domains
+      | Some x -> succ i, ((channel_of_domain domain), x) :: acc
+      | None   -> i, acc)
+    (0, []) domains
 
 let to_dialog (wm : Wm.t) =
   let e, push    = React.E.create () in
