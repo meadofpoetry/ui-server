@@ -27,12 +27,14 @@ type channels =
   { wm        : Wm.t channel
   ; streams   : Structure.t list channel
   ; settings  : Settings.t channel
+  ; graph     : Structure.structure list request
   }
 
 type notifs =
   { streams   : Structure.t list signal
   ; settings  : Settings.t signal
   ; wm        : Wm.t signal
+  ; graph     : Structure.structure list signal
   ; status    : Qoe_status.t list signal
   ; vdata     : Video_data.t event (* TODO to be split by purpose later *)
   ; adata     : Audio_data.t event
@@ -47,17 +49,18 @@ module Wm_options = Storage.Options.Make(Wm)
 module Structures_options = Storage.Options.Make(Structure.Structures)
 module Settings_options = Storage.Options.Make(Settings)
 
-module Wm_notif = Notif.Make(Wm)
+module Wm_notif         = Notif.Make(Wm)
 module Structures_notif = Notif.Make(Structure.Structures)
-module Settings_notif = Notif.Make(Settings)
-(*module Graph_notif = Notif.Make(Graph)*)
+module Settings_notif   = Notif.Make(Settings)
+module Graph_notif      = Notif.Make(Graph)
 module Video_data_notif = Notif.Make(Video_data)
 module Audio_data_notif = Notif.Make(Audio_data)
 module Qoe_status_notif = Notif.Make(Qoe_status)
 
-module Wm_msg = Message.Make(Wm)
+module Wm_msg        = Message.Make(Wm)
 module Structure_msg = Message.Make(Structure.Structures)
-module Settings_msg = Message.Make(Settings)
+module Settings_msg  = Message.Make(Settings)
+module Graph_request = Message.Make_request(Graph)
 
 let create_send (type a) (typ : a typ) (conv : a converter) msg_sock : (a -> (a, exn) result Lwt.t) =
   let mutex = Lwt_mutex.create () in
@@ -121,6 +124,7 @@ let create_channels
   let wm_chan    = Wm_msg.create typ send in
   let str_chan   = Structure_msg.create typ send in
   let set_chan   = Settings_msg.create typ send in
+  let graph_req  = Graph_request.create typ send in
   let set_with_push store push set = fun v ->
     set v >>= function
     | Error e -> Lwt.return_error e
@@ -137,9 +141,10 @@ let create_channels
     fun s -> set @@ Structure.Streams.unwrap s
   in
   let set_set_upd = set_with_push options.settings#store set_push set_chan.set in
-  { wm       = { wm_chan with set = wm_set_upd }
-  ; streams  = { get = s_get_upd; set = s_set_upd }
-  ; settings = { set_chan with set = set_set_upd }
+  { wm        = { wm_chan with set = wm_set_upd }
+  ; streams   = { get = s_get_upd; set = s_set_upd }
+  ; settings  = { set_chan with set = set_set_upd }
+  ; graph     = graph_req 
   }
   
 let init_exchange (type a) (typ : a typ) send structures_packer options =
@@ -188,6 +193,7 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
   let strm, strm_push   = E.create () in
   let sets, sets_push   = E.create () in
   let wm  , wm_push     = E.create () in
+  let graph, graph_push = S.create [] in
   let vdata, vdata_push = E.create () in
   let adata, adata_push = E.create () in
   let stat, stat_push   = E.create () in
@@ -196,6 +202,7 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
                  ; Wm_notif.create typ (unwrap wm_push)
                  ; Structures_notif.create typ (unwrap strm_push)
                  ; Settings_notif.create typ (unwrap sets_push)
+                 ; Graph_notif.create typ (unwrap graph_push)
                  ; Video_data_notif.create typ (unwrap vdata_push)
                  ; Audio_data_notif.create typ (unwrap adata_push)
                  ; Qoe_status_notif.create typ (unwrap stat_push)
@@ -214,13 +221,13 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
   (* TODO reimplement *)
   let pids_diff =
     Lwt_react.S.diff pid_diff
-    @@ Lwt_react.S.map (fun x -> Structure.active_pids x) structures in
+    @@ Lwt_react.S.map (fun x -> Structure.active_pids x) graph in
 
   let status    = Lwt_react.S.fold ~eq:(fun _ _ -> false) update_status []
                   @@ Lwt_react.E.select [pids_diff; Lwt_react.E.map (fun x -> `Status x) stat]
   in
 
-  let notifs = { streams; wm; settings; adata; vdata; status } in
+  let notifs = { streams; wm; settings; graph; adata; vdata; status } in
   
   epush, ready, notifs, requests
   

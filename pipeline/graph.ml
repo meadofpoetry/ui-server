@@ -1,5 +1,6 @@
 let name = "graph"
 
+(*
 type graph_state = Null
                  | Pause
                  | Play
@@ -20,5 +21,8 @@ let graph_state_to_yojson = function
 
 type t ={ state : graph_state
         } [@@deriving yojson]
+ *)
 
-let default = { state = Null }
+type t = Structure.structure list [@@deriving yojson]
+       
+let default = []

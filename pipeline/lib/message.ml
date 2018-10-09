@@ -50,7 +50,7 @@ module type VALUE = sig
   val of_yojson : Yojson.Safe.json -> (t,string) result
 end
        
-module Make(V: VALUE) = struct
+module Make (V: VALUE) = struct
   type t = V.t
 
   let mutex = Lwt_mutex.create ()
@@ -74,5 +74,46 @@ module Make(V: VALUE) = struct
                   | Error e ->
                      Logs.err (fun m -> m "(Pipeline) %s <set> failed with %s" V.name e); Lwt.return_error e)
               }
+    | Msgpack -> failwith "not implemented"
+end
+
+let get_request_js (name : string) (send : Yojson.Safe.json -> (Yojson.Safe.json, exn) result Lwt.t) of_ () =
+  let msg = msg_to_yojson (fun () -> `Null) { name; data = () } in
+  send msg >>= function
+  | Ok `Assoc [("Fine",rep)] -> begin
+      let rep' = of_ rep in
+      match rep' with
+      | Error e -> Lwt_io.printf "Received error: %s in\n %s" e (Yojson.Safe.pretty_to_string rep) >>= fun () ->
+                   Lwt.return_error e
+      | Ok v    -> Lwt.return_ok v
+    end
+  | Ok `Assoc [("Error",`String e)] -> Lwt.return_error e
+  | Ok s -> Lwt.return_error ("bad response: " ^ (Yojson.Safe.pretty_to_string s))
+  | Error Lwt_unix.Timeout -> Lwt.return_error "Timeout"
+  | Error _ -> Lwt.return_error "Unknown error"
+
+type 'a request = (unit -> ('a, string) result Lwt.t)
+                       
+module Make_request (V : sig
+             type t
+             val name : string
+             val of_yojson : Yojson.Safe.json -> (t,string) result
+           end) = struct
+  type t = V.t
+
+  let mutex = Lwt_mutex.create ()
+
+  let create : type a. a typ
+                    -> (a -> (a, exn) result Lwt.t)
+                    -> t request = function 
+    | Json -> fun send ->
+              (fun () ->
+                Logs.debug (fun m -> m "(Pipeline) %s <get> called" V.name);
+                get_request_js V.name send V.of_yojson ()
+                >>= function
+                | Ok v ->
+                   Logs.debug (fun m -> m "(Pipeline) %s <get> succeded" V.name); Lwt.return_ok v
+                | Error e ->
+                   Logs.err (fun m -> m "(Pipeline) %s <get> failed with %s" V.name e); Lwt.return_error e)
     | Msgpack -> failwith "not implemented"
 end
