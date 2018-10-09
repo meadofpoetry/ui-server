@@ -175,7 +175,7 @@ let to_layout ~resolution ~domains ~widgets =
         | _, _ -> None
       in
       match container with
-      | Some x -> ((channel_of_domain domain), container) :: acc
+      | Some x -> ((channel_of_domain domain), x) :: acc
       | None   -> acc)
     [] domains
 
