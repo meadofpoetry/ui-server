@@ -114,14 +114,14 @@ let to_checkboxes (widgets : (string * Wm.widget) list) =
   @@ React.S.changes checkbox#s_state |> ignore;
   check_all :: wds
 
-let video_pos ~(cont_pos : Wm.position) : Wm.position =
+let video_position ~(cont_pos : Wm.position) : Wm.position =
   { left = cont_pos.left
   ; top  = cont_pos.top
   ; right = cont_pos.right - 30
   ; bottom = cont_pos.bottom
   }
 
-let audio_pos ~(cont_pos : Wm.position) : Wm.position =
+let audio_position ~(cont_pos : Wm.position) : Wm.position =
   { left = cont_pos.right - 30
   ; top  = cont_pos.top
   ; right = cont_pos.right
@@ -155,22 +155,22 @@ let to_layout ~resolution ~domains ~widgets =
       in
       let container = match video, audio with
         | Some video, Some audio ->
-          let video_pos = video_pos ~cont_pos in
-          let audio_pos = audio_pos ~cont_pos in
-          let video_wdg = (fst video, {(snd video) with position = video_pos}) in
+          let video_pos = video_position ~cont_pos in
+          let audio_pos = audio_position ~cont_pos in
+          let video_wdg = position_widget ~pos:video_pos video in
           let audio_wdg = (fst audio, {(snd audio) with position = audio_pos}) in
           ({ position = cont_pos
            ; widgets  = [video_wdg; audio_wdg]
            } : Wm.container)
         | None, Some audio ->
-          let audio_pos = audio_pos ~cont_pos in
+          let audio_pos = audio_position ~cont_pos in
           let audio_wdg = (fst audio, {(snd audio) with position = audio_pos}) in
           ({ position = cont_pos
            ; widgets  = [audio_wdg]
            } : Wm.container)
         | Some video, None ->
-          let video_pos = video_pos ~cont_pos in
-          let video_wdg = (fst video, {(snd video) with position = video_pos}) in
+          let video_pos = video_position ~cont_pos in
+          let video_wdg = position_widget ~pos:video_pos video in
           ({ position = cont_pos
            ; widgets  = [video_wdg]
            } : Wm.container)
@@ -184,6 +184,7 @@ let to_layout ~resolution ~domains ~widgets =
 
 let to_dialog (wm : Wm.t) =
   let e, push    = React.E.create () in
+  List.iter (fun (_, (wdg : Wm.widget)) -> Printf.printf "%s | %s\n" wdg.domain (channel_of_domain wdg.domain)) wm.widgets;
   let checkboxes = to_checkboxes wm.widgets in
   let box        = new Vbox.t ~widgets:checkboxes () in
   let dialog     = new Dialog.t
