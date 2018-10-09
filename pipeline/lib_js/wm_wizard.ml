@@ -2,51 +2,79 @@ open Containers
 open Components
 open Wm_components
 
+let find_widget ~typ ~widgets ~domain =
+  match typ with
+  | `Soundbar ->
+    List.find_pred (fun (_, (x : Wm.widget)) ->
+        String.equal x.domain domain && String.equal x.type_ "soundbar") widgets
+  | `Video ->
+    List.find_pred (fun (_, (x : Wm.widget)) ->
+        String.equal x.domain domain && String.equal x.type_ "video") widgets
+  | _ -> None
+
+let video_position ~(cont_pos : Wm.position) : Wm.position =
+  { left = cont_pos.left
+  ; top  = cont_pos.top
+  ; right = cont_pos.right - 30
+  ; bottom = cont_pos.bottom
+  }
+
+let audio_position ~(cont_pos : Wm.position) : Wm.position =
+  { left = cont_pos.right - 30
+  ; top  = cont_pos.top
+  ; right = cont_pos.right
+  ; bottom = cont_pos.bottom
+  }
+
 let channel_of_domain = function
-  | "s460b38ee-186b-5604-8811-235eb3005960_c1060" -> "Russia K"
-  | "s460b38ee-186b-5604-8811-235eb3005960_c1040" -> "NTV"
-  | "s460b38ee-186b-5604-8811-235eb3005960_c1050" -> "5th channel"
-  | "s460b38ee-186b-5604-8811-235eb3005960_c1030" -> "Match TV"
-  | "s460b38ee-186b-5604-8811-235eb3005960_c1010" -> "1st channel"
-  | "s460b38ee-186b-5604-8811-235eb3005960_c1080" -> "Carousel"
-  | "s460b38ee-186b-5604-8811-235eb3005960_c1090" -> "OTR"
-  | "s460b38ee-186b-5604-8811-235eb3005960_c1100" -> "TVts"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2090" -> "TNT"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2020" -> "Spas"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2070" -> "Star"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2080" -> "World"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2060" -> "Friday"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2100" -> "Mus TV"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2050" -> "TV3"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2040" -> "Home"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2030" -> "STS"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2010" -> "REN TV"
-  | "s4b135670-ef01-59b1-be78-4e9bec93461f_c1020" -> "Russia 1"
-  | "s930c63bc-0ce2-555c-9a51-09de6b1b85f2_c1070" -> "Russia 24"
-  | _ -> ""
+  | "s460b38ee-186b-5604-8811-235eb3005960_c1060" -> "Россия К"
+  | "s460b38ee-186b-5604-8811-235eb3005960_c1040" -> "НТВ"
+  | "s460b38ee-186b-5604-8811-235eb3005960_c1050" -> "5 канал"
+  | "s460b38ee-186b-5604-8811-235eb3005960_c1030" -> "МАТЧ ТВ"
+  | "s460b38ee-186b-5604-8811-235eb3005960_c1010" -> "Первый канал"
+  | "s460b38ee-186b-5604-8811-235eb3005960_c1080" -> "Карусель"
+  | "s460b38ee-186b-5604-8811-235eb3005960_c1090" -> "ОТР"
+  | "s460b38ee-186b-5604-8811-235eb3005960_c1100" -> "ТВЦ"
+  | "s460b38ee-186b-5604-8811-235eb3005960_c1110" -> "Вести ФМ"
+  | "s460b38ee-186b-5604-8811-235eb3005960_c1120" -> "Маяк"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2090" -> "ТНТ"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2020" -> "Спас"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2070" -> "Звезда"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2080" -> "Мир"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2060" -> "Пятница!"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2100" -> "МУЗ ТВ"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2050" -> "ТВ3"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2040" -> "Домашний"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2030" -> "СТС"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2010" -> "РЕН ТВ"
+  | "s4b135670-ef01-59b1-be78-4e9bec93461f_c1020" -> "Россия 1"
+  | "s930c63bc-0ce2-555c-9a51-09de6b1b85f2_c1070" -> "Россия 24"
+  | x -> x
 
 let domain_of_channel = function
-  | "Russia K"     -> "s460b38ee-186b-5604-8811-235eb3005960_c1060"
-  | "NTV"          -> "s460b38ee-186b-5604-8811-235eb3005960_c1040"
-  | "5th channel"  -> "s460b38ee-186b-5604-8811-235eb3005960_c1050"
-  | "Match TV"     -> "s460b38ee-186b-5604-8811-235eb3005960_c1030"
-  | "1st channel"  -> "s460b38ee-186b-5604-8811-235eb3005960_c1010"
-  | "Carousel"     -> "s460b38ee-186b-5604-8811-235eb3005960_c1080"
-  | "OTR"          -> "s460b38ee-186b-5604-8811-235eb3005960_c1090"
-  | "TVts"         -> "s460b38ee-186b-5604-8811-235eb3005960_c1100"
-  | "TNT"          -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2090"
-  | "Spas"         -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2020"
-  | "Star"         -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2070"
-  | "World"        -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2080"
-  | "Friday"       -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2060"
-  | "Mus TV"       -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2100"
-  | "TV3"          -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2050"
-  | "Home"         -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2040"
-  | "STS"          -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2030"
-  | "REN TV"       -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2010"
-  | "Russia 1"     -> "s4b135670-ef01-59b1-be78-4e9bec93461f_c1020"
-  | "Russia 24"    -> "s930c63bc-0ce2-555c-9a51-09de6b1b85f2_c1070"
-  | _ -> ""
+  | "Россия К"     -> "s460b38ee-186b-5604-8811-235eb3005960_c1060"
+  | "НТВ"          -> "s460b38ee-186b-5604-8811-235eb3005960_c1040"
+  | "5 канал"      -> "s460b38ee-186b-5604-8811-235eb3005960_c1050"
+  | "МАТЧ ТВ"      -> "s460b38ee-186b-5604-8811-235eb3005960_c1030"
+  | "Первый канал" -> "s460b38ee-186b-5604-8811-235eb3005960_c1010"
+  | "Карусель"     -> "s460b38ee-186b-5604-8811-235eb3005960_c1080"
+  | "ОТР"          -> "s460b38ee-186b-5604-8811-235eb3005960_c1090"
+  | "ТВЦ"          -> "s460b38ee-186b-5604-8811-235eb3005960_c1100"
+  | "Вести ФМ"     -> "s460b38ee-186b-5604-8811-235eb3005960_c1110"
+  | "Маяк"         -> "s460b38ee-186b-5604-8811-235eb3005960_c1120"
+  | "ТНТ"          -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2090"
+  | "Спас"         -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2020"
+  | "Звезда"       -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2070"
+  | "Мир"          -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2080"
+  | "Пятница!"     -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2060"
+  | "МУЗ ТВ"       -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2100"
+  | "ТВ3"          -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2050"
+  | "Домашний"     -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2040"
+  | "СТС"          -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2030"
+  | "РЕН ТВ"       -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2010"
+  | "Россия 1"     -> "s4b135670-ef01-59b1-be78-4e9bec93461f_c1020"
+  | "Россия 24"    -> "s930c63bc-0ce2-555c-9a51-09de6b1b85f2_c1070"
+  | x -> x
 
 let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
   let resolution_ar = Utils.resolution_to_aspect resolution
@@ -63,8 +91,8 @@ let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
         then int_of_float cols, rows, (w /. cols *. w /. cols *. item_ar)
         else int_of_float cols, rows,
              (h /. (float_of_int rows) *. h /. (float_of_int rows) *. item_ar)*)
-        if (h *. float_of_int rows >. float_of_int @@ snd resolution)
-        then 0, 0.
+        if (h *. float_of_int rows >. float_of_int @@ snd resolution) then
+          0, 0.
         else
         ( let squares  = w *. h *. float_of_int num in
           let division = squares /. (float_of_int @@ fst resolution * snd resolution) in
@@ -105,26 +133,13 @@ let to_checkboxes (widgets : (string * Wm.widget) list) =
   in
   let checkbox  = new Checkbox.t () in
   let check_all = new Form_field.t ~label:"Выбрать все" ~input:checkbox () in
+  check_all#set_id "checkwdg";
   React.E.map (fun checked ->
       if not checked
       then List.iter (fun x -> x#input_widget#set_checked false) wds
       else List.iter (fun x -> x#input_widget#set_checked true) wds)
   @@ React.S.changes checkbox#s_state |> ignore;
   check_all :: wds
-
-let video_position ~(cont_pos : Wm.position) : Wm.position =
-  { left = cont_pos.left
-  ; top  = cont_pos.top
-  ; right = cont_pos.right - 30
-  ; bottom = cont_pos.bottom
-  }
-
-let audio_position ~(cont_pos : Wm.position) : Wm.position =
-  { left = cont_pos.right - 30
-  ; top  = cont_pos.top
-  ; right = cont_pos.right
-  ; bottom = cont_pos.bottom
-  }
 
 let to_layout ~resolution ~domains ~widgets =
   let ar_x, ar_y   = 16, 9 in
@@ -144,34 +159,34 @@ let to_layout ~resolution ~domains ~widgets =
         ; top    = cont_y
         ; right  = cont_x + cont_w
         ; bottom = cont_y + cont_h
-        }
-      in
-      let audio =
-        List.find_pred (fun (_, (x : Wm.widget)) ->
-            String.equal x.domain domain && String.equal x.type_ "soundbar") widgets
-      in
-      let video =
-        List.find_pred (fun (_, (x : Wm.widget)) ->
-            String.equal x.domain domain && String.equal x.type_ "video") widgets
-      in
-      let container = match video, audio with
-        | Some video, Some audio ->
+        } in
+      let audio = find_widget ~typ:`Soundbar ~widgets ~domain in
+      let video = find_widget ~typ:`Video ~widgets ~domain in
+      let video_wdg =
+        match video with
+        | Some video ->
           let video_pos = video_position ~cont_pos in
-          let audio_pos = audio_position ~cont_pos in
           let video_wdg = fst video, position_widget ~pos:video_pos (snd video) in
+          Some video_wdg
+        | None -> None in
+      let audio_wdg =
+        match audio with
+        | Some audio ->
+          let audio_pos = audio_position ~cont_pos in
           let audio_wdg = (fst audio, {(snd audio) with position = audio_pos}) in
+          Some audio_wdg
+        | None -> None in
+      let container =
+        match video_wdg, audio_wdg with
+        | Some video_wdg, Some audio_wdg ->
           Some ({ position = cont_pos
                 ; widgets  = [video_wdg; audio_wdg]
                 } : Wm.container)
-        | None, Some audio ->
-          let audio_pos = audio_position ~cont_pos in
-          let audio_wdg = (fst audio, {(snd audio) with position = audio_pos}) in
+        | None, Some audio_wdg ->
           Some ({ position = cont_pos
                 ; widgets  = [audio_wdg]
                 } : Wm.container)
-        | Some video, None ->
-          let video_pos = video_position ~cont_pos in
-          let video_wdg = fst video, position_widget ~pos:video_pos (snd video) in
+        | Some video_wdg, None ->
           Some ({ position = cont_pos
                 ; widgets  = [video_wdg]
                 } : Wm.container)
@@ -184,24 +199,28 @@ let to_layout ~resolution ~domains ~widgets =
 
 let to_dialog (wm : Wm.t) =
   let e, push    = React.E.create () in
-  List.iter (fun (_, (wdg : Wm.widget)) -> Printf.printf "%s | %s\n" wdg.domain (channel_of_domain wdg.domain)) wm.widgets;
   let checkboxes = to_checkboxes wm.widgets in
   let box        = new Vbox.t ~widgets:checkboxes () in
-  let dialog     = new Dialog.t
-                       ~title:"Выберите виджеты"
-                       ~scrollable:true
-                       ~content:(`Widgets [box])
-                       ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Отмена" ()
-                                ; new Dialog.Action.t ~typ:`Accept  ~label:"Применить"  ()
-                                ]
-                       ()
+  let dialog     =
+    new Dialog.t
+      ~title:"Выберите виджеты"
+      ~scrollable:true
+      ~content:(`Widgets [box])
+      ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Отмена" ()
+               ; new Dialog.Action.t ~typ:`Accept  ~label:"Применить" ()
+               ]
+      ()
   in
   let show = fun () ->
     Lwt.bind (dialog#show_await ())
       (function
           | `Accept ->
-            let domains = List.map (fun x -> domain_of_channel @@ x#input_widget#id) checkboxes in
-            Lwt.return (push @@ to_layout ~resolution:wm.resolution ~domains ~widgets:wm.widgets)
+            let domains =
+              List.map (fun x ->
+                  domain_of_channel @@ x#input_widget#id) checkboxes
+              |> List.filter (fun x -> not @@ String.equal x "checkwdg") in
+            Lwt.return
+              (push @@ to_layout ~resolution:wm.resolution ~domains ~widgets:wm.widgets)
           | `Cancel -> Lwt.return ())
   in
   dialog, e, show
