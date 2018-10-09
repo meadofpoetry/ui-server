@@ -27,53 +27,61 @@ let audio_position ~(cont_pos : Wm.position) : Wm.position =
   }
 
 let channel_of_domain = function
-  | "s460b38ee-186b-5604-8811-235eb3005960_c1060" -> "Россия К"
+  | "s460b38ee-186b-5604-8811-235eb3005960_c1010" -> "Первый канал"
+  | "s460b38ee-186b-5604-8811-235eb3005960_c1030" -> "МАТЧ"
   | "s460b38ee-186b-5604-8811-235eb3005960_c1040" -> "НТВ"
   | "s460b38ee-186b-5604-8811-235eb3005960_c1050" -> "5 канал"
-  | "s460b38ee-186b-5604-8811-235eb3005960_c1030" -> "МАТЧ ТВ"
-  | "s460b38ee-186b-5604-8811-235eb3005960_c1010" -> "Первый канал"
+  | "s460b38ee-186b-5604-8811-235eb3005960_c1060" -> "Россия К"
   | "s460b38ee-186b-5604-8811-235eb3005960_c1080" -> "Карусель"
   | "s460b38ee-186b-5604-8811-235eb3005960_c1090" -> "ОТР"
-  | "s460b38ee-186b-5604-8811-235eb3005960_c1100" -> "ТВЦ"
+  | "s460b38ee-186b-5604-8811-235eb3005960_c1100" -> "ТВ Центр"
   | "s460b38ee-186b-5604-8811-235eb3005960_c1110" -> "Вести ФМ"
   | "s460b38ee-186b-5604-8811-235eb3005960_c1120" -> "Маяк"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2090" -> "ТНТ"
+  (* do NOT edit or remove *)
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2010" -> "РЕН ТВ"
   | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2020" -> "Спас"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2030" -> "СТС"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2040" -> "Домашний"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2050" -> "ТВ3"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2060" -> "Пятница"
   | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2070" -> "Звезда"
   | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2080" -> "Мир"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2060" -> "Пятница!"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2090" -> "ТНТ"
   | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2100" -> "МУЗ ТВ"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2050" -> "ТВ3"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2040" -> "Домашний"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2030" -> "СТС"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2010" -> "РЕН ТВ"
+  (* do NOT edit or remove *)
   | "s4b135670-ef01-59b1-be78-4e9bec93461f_c1020" -> "Россия 1"
+  | "s4b135670-ef01-59b1-be78-4e9bec93461f_c1130" -> "Радио России"
+  (* do NOT edit or remove *)
   | "s930c63bc-0ce2-555c-9a51-09de6b1b85f2_c1070" -> "Россия 24"
   | x -> x
 
 let domain_of_channel = function
-  | "Россия К"     -> "s460b38ee-186b-5604-8811-235eb3005960_c1060"
+  | "Первый канал" -> "s460b38ee-186b-5604-8811-235eb3005960_c1010"
+  | "МАТЧ"         -> "s460b38ee-186b-5604-8811-235eb3005960_c1030"
   | "НТВ"          -> "s460b38ee-186b-5604-8811-235eb3005960_c1040"
   | "5 канал"      -> "s460b38ee-186b-5604-8811-235eb3005960_c1050"
-  | "МАТЧ ТВ"      -> "s460b38ee-186b-5604-8811-235eb3005960_c1030"
-  | "Первый канал" -> "s460b38ee-186b-5604-8811-235eb3005960_c1010"
+  | "Россия К"     -> "s460b38ee-186b-5604-8811-235eb3005960_c1060"
   | "Карусель"     -> "s460b38ee-186b-5604-8811-235eb3005960_c1080"
   | "ОТР"          -> "s460b38ee-186b-5604-8811-235eb3005960_c1090"
-  | "ТВЦ"          -> "s460b38ee-186b-5604-8811-235eb3005960_c1100"
+  | "ТВ Центр"     -> "s460b38ee-186b-5604-8811-235eb3005960_c1100"
   | "Вести ФМ"     -> "s460b38ee-186b-5604-8811-235eb3005960_c1110"
   | "Маяк"         -> "s460b38ee-186b-5604-8811-235eb3005960_c1120"
-  | "ТНТ"          -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2090"
-  | "Спас"         -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2020"
-  | "Звезда"       -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2070"
-  | "Мир"          -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2080"
-  | "Пятница!"     -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2060"
-  | "МУЗ ТВ"       -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2100"
-  | "ТВ3"          -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2050"
-  | "Домашний"     -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2040"
-  | "СТС"          -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2030"
-  | "РЕН ТВ"       -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2010"
+  (* do NOT edit or remove *)
+  | "РЕН ТВ"   -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2010"
+  | "Спас"     -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2020"
+  | "СТС"      -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2030"
+  | "Домашний" -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2040"
+  | "ТВ3"      -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2050"
+  | "Пятница"  -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2060"
+  | "Звезда"   -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2070"
+  | "Мир"      -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2080"
+  | "ТНТ"      -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2090"
+  | "МУЗ ТВ"   -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2100"
+  (* do NOT edit or remove *)
   | "Россия 1"     -> "s4b135670-ef01-59b1-be78-4e9bec93461f_c1020"
-  | "Россия 24"    -> "s930c63bc-0ce2-555c-9a51-09de6b1b85f2_c1070"
+  | "Радио России" -> "s4b135670-ef01-59b1-be78-4e9bec93461f_c1130"
+  (* do NOT edit or remove *)
+  | "Россия 24" -> "s930c63bc-0ce2-555c-9a51-09de6b1b85f2_c1070"
   | x -> x
 
 let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
@@ -138,7 +146,8 @@ let to_checkboxes (widgets : (string * Wm.widget) list) =
       if not checked
       then List.iter (fun x -> x#input_widget#set_checked false) wds
       else List.iter (fun x -> x#input_widget#set_checked true) wds)
-  @@ React.S.changes checkbox#s_state |> ignore;
+  @@ React.S.changes checkbox#s_state
+  |> ignore;
   check_all :: wds
 
 let to_layout ~resolution ~domains ~widgets =
