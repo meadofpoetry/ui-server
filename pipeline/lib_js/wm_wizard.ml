@@ -132,7 +132,7 @@ let to_layout ~resolution ~domains ~widgets =
   let ar_x, ar_y   = 16, 9 in
   let domains_num  = List.length domains in
   let items_in_row = get_items_in_row ~resolution ~item_ar:(ar_x, ar_y) domains_num in
-  List.mapi (fun i domain ->
+  List.foldi (fun acc i domain ->
       let row     = i / items_in_row in
       let cont_w = (fst resolution) / items_in_row in
       let cont_h = (ar_y * cont_w) / ar_x in
@@ -159,28 +159,27 @@ let to_layout ~resolution ~domains ~widgets =
           let audio_pos = audio_position ~cont_pos in
           let video_wdg = position_widget ~pos:video_pos video in
           let audio_wdg = (fst audio, {(snd audio) with position = audio_pos}) in
-          ({ position = cont_pos
-           ; widgets  = [video_wdg; audio_wdg]
-           } : Wm.container)
+          Some ({ position = cont_pos
+                ; widgets  = [video_wdg; audio_wdg]
+                } : Wm.container)
         | None, Some audio ->
           let audio_pos = audio_position ~cont_pos in
           let audio_wdg = (fst audio, {(snd audio) with position = audio_pos}) in
-          ({ position = cont_pos
-           ; widgets  = [audio_wdg]
-           } : Wm.container)
+          Some ({ position = cont_pos
+                ; widgets  = [audio_wdg]
+                } : Wm.container)
         | Some video, None ->
           let video_pos = video_position ~cont_pos in
           let video_wdg = position_widget ~pos:video_pos video in
-          ({ position = cont_pos
-           ; widgets  = [video_wdg]
-           } : Wm.container)
-        | _, _ ->
-          ({ position = cont_pos
-           ; widgets  = []
-           } : Wm.container)
+          Some ({ position = cont_pos
+                ; widgets  = [video_wdg]
+                } : Wm.container)
+        | _, _ -> None
       in
-      (channel_of_domain domain), container)
-    domains
+      match container with
+      | Some x -> ((channel_of_domain domain), container) :: acc
+      | None   -> acc)
+    [] domains
 
 let to_dialog (wm : Wm.t) =
   let e, push    = React.E.create () in
