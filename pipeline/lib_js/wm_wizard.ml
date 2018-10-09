@@ -154,7 +154,6 @@ let to_layout ~resolution ~domains ~widgets =
   let ar_x, ar_y   = 16, 9 in
   let domains_num  = List.length domains in
   let items_in_row = get_items_in_row ~resolution ~item_ar:(ar_x, ar_y) domains_num in
-  snd @@
   List.fold_left (fun acc domain ->
       let i      = fst acc in
       let acc    = snd acc in
@@ -205,6 +204,7 @@ let to_layout ~resolution ~domains ~widgets =
       | Some x -> succ i, ((channel_of_domain domain), x) :: acc
       | None   -> i, acc)
     (1, []) domains
+  |> snd
 
 let to_dialog (wm : Wm.t) =
   let e, push    = React.E.create () in
@@ -225,8 +225,11 @@ let to_dialog (wm : Wm.t) =
       (function
           | `Accept ->
             let domains =
-              List.map (fun x ->
-                  domain_of_channel @@ x#input_widget#id) checkboxes
+              List.fold_left (fun acc x ->
+                  if not @@ x#input_widget#checked then
+                    acc
+                  else
+                    (domain_of_channel @@ x#input_widget#id) :: acc) [] checkboxes
               |> List.filter (fun x -> not @@ String.equal x "checkwdg") in
             Lwt.return
               (push @@ to_layout ~resolution:wm.resolution ~domains ~widgets:wm.widgets)
