@@ -77,15 +77,13 @@ let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
       (0, 0.) squares in
   cols
 
-let position_widget ~(pos : Wm.position) (widget : string * Wm.widget) : string * Wm.widget =
-  let s, v = widget in
+let position_widget ~(pos : Wm.position) (widget : Wm.widget) : Wm.widget =
   let cpos = Utils.to_grid_position pos in
-  let wpos = Option.map_or ~default:cpos (Dynamic_grid.Position.correct_aspect cpos) v.aspect in
+  let wpos = Option.map_or ~default:cpos (Dynamic_grid.Position.correct_aspect cpos) widget.aspect in
   let x    = cpos.x + ((cpos.w - wpos.w) / 2) in
   let y    = cpos.y + ((cpos.h - wpos.h) / 2) in
   let pos  = {wpos with x ; y} |> Utils.of_grid_position in
-
-  s, { v with position = pos }
+  { widget with position = pos }
 
 let to_checkboxes (widgets : (string * Wm.widget) list) =
   let domains =
@@ -157,7 +155,7 @@ let to_layout ~resolution ~domains ~widgets =
         | Some video, Some audio ->
           let video_pos = video_position ~cont_pos in
           let audio_pos = audio_position ~cont_pos in
-          let video_wdg = position_widget ~pos:video_pos video in
+          let video_wdg = fst video, position_widget ~pos:video_pos (snd video) in
           let audio_wdg = (fst audio, {(snd audio) with position = audio_pos}) in
           Some ({ position = cont_pos
                 ; widgets  = [video_wdg; audio_wdg]
@@ -170,7 +168,7 @@ let to_layout ~resolution ~domains ~widgets =
                 } : Wm.container)
         | Some video, None ->
           let video_pos = video_position ~cont_pos in
-          let video_wdg = position_widget ~pos:video_pos video in
+          let video_wdg = fst video, position_widget ~pos:video_pos (snd video) in
           Some ({ position = cont_pos
                 ; widgets  = [video_wdg]
                 } : Wm.container)
