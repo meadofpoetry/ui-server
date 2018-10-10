@@ -134,7 +134,7 @@ let position_widget ~(pos : Wm.position) (widget : Wm.widget) : Wm.widget =
 
 let make_widget ~(widget : string * Wm.widget) =
   let domain = (snd widget).domain in
-  let label  = (snd widget).description ^ domain in
+  let label  = (snd widget).description in
   let checkbox = new Checkbox.t () in
   checkbox#set_id domain;
   checkbox, new Tree.Item.t ~text:label ~graphic:checkbox ~value:() ()
