@@ -132,12 +132,17 @@ let position_widget ~(pos : Wm.position) (widget : Wm.widget) : Wm.widget =
   let pos  = {wpos with x ; y} |> Utils.of_grid_position in
   { widget with position = pos }
 
-let make_widget ~(widget : string * Wm.widget) =
+let make_widget (widget : string * Wm.widget) =
   let domain = (snd widget).domain in
-  let label  = (snd widget).description in
+  let label  =
+    match (snd widget).description with
+    | "video widget"    -> "Видео"
+    | "soundbar widget" -> "Аудио"
+    | x -> x in
   let checkbox = new Checkbox.t () in
   checkbox#set_id domain;
-  checkbox, new Tree.Item.t ~text:label ~graphic:checkbox ~value:() ()
+  checkbox, new Tree.Item.t ~text:label ~secondary_text:(channel_of_domain domain)
+    ~graphic:checkbox ~value:() ()
 
 let make_channels ~channels ~(widgets : (string * Wm.widget) list)=
   let checkboxes, items =
@@ -149,7 +154,7 @@ let make_channels ~channels ~(widgets : (string * Wm.widget) list)=
           List.filter (fun (_,(wdg : Wm.widget)) ->
               String.equal domain wdg.domain) widgets in
         let checkboxes, wds =
-          List.split @@ List.map (fun widget -> make_widget ~widget) widgets in
+          List.split @@ List.map (fun widget -> make_widget widget) widgets in
         let checkbox = new Checkbox.t () in
         checkbox#set_id label;
         React.E.map (fun checked ->
@@ -170,7 +175,7 @@ let make_channels ~channels ~(widgets : (string * Wm.widget) list)=
         checkboxes,
         new Tree.Item.t ~text:label ~graphic:checkbox ~nested ~value:() ()) channels
   in
-  List.concat checkboxes,new Tree.t ~items ()
+  List.concat checkboxes, new Tree.t ~items ()
 
 let to_checkboxes (widgets : (string * Wm.widget) list) =
   let domains =
@@ -263,7 +268,7 @@ let to_dialog (wm : Wm.t) =
                   if not @@ x#checked then
                     acc
                   else
-                    (domain_of_channel @@ x#id) :: acc) [] checkboxes
+                    x#id :: acc) [] checkboxes
               |> List.filter (fun x -> not @@ String.equal x "checkwdg") in
             Lwt.return
               (push @@ to_layout ~resolution:wm.resolution ~domains ~widgets:wm.widgets)
