@@ -1,5 +1,3 @@
-let name = "graph"
-
 (*
 type graph_state = Null
                  | Pause
@@ -23,6 +21,7 @@ type t ={ state : graph_state
         } [@@deriving yojson]
  *)
 
-type t = Structure.structure list [@@deriving yojson]
-       
-let default = []
+module Applied_structures = struct
+  include Structure.Structures
+  let name = "graph"
+end

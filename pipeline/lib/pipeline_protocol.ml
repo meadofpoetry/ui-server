@@ -1,11 +1,11 @@
 open Containers
-open Zmq_lwt
 open Lwt_react
 open Lwt.Infix
 open Msg_conv
 open Message
 open Notif
 open Qoe_errors
+open Interop
 open Common
         
 type options = { wm         : Wm.t Storage.Options.storage
@@ -13,31 +13,28 @@ type options = { wm         : Wm.t Storage.Options.storage
                ; settings   : Settings.t Storage.Options.storage
                }
         
-type state = { ctx          : Zmq.Context.t
-             ; msg          : [ `Req] Zmq.Socket.t
-             ; ev           : [ `Sub] Zmq.Socket.t
+type state = { socket       : Exchange.t
+             ; ready_e      : unit event
              ; options      : options
              ; srcs         : (Common.Url.t * Common.Stream.t) list ref
              ; mutable proc : Lwt_process.process_none option
-             ; ready        : bool ref
-             ; ready_e      : unit event
              }
 
 type channels =
-  { wm        : Wm.t channel
-  ; streams   : Structure.t list channel
-  ; settings  : Settings.t channel
-  ; graph     : Structure.structure list request
+  { wm              : Wm.t channel
+  ; streams         : Structure.t list channel
+  ; settings        : Settings.t channel
+  ; applied_structs : Graph.Applied_structures.t request
   }
 
 type notifs =
-  { streams   : Structure.t list signal
-  ; settings  : Settings.t signal
-  ; wm        : Wm.t signal
-  ; graph     : Structure.structure list signal
-  ; status    : Qoe_status.t list signal
-  ; vdata     : Video_data.t event (* TODO to be split by purpose later *)
-  ; adata     : Audio_data.t event
+  { streams         : Structure.t list signal
+  ; settings        : Settings.t signal
+  ; wm              : Wm.t signal
+  ; applied_structs : Structure.structure list signal
+  ; status          : Qoe_status.t list signal
+  ; vdata           : Video_data.t event (* TODO to be split by purpose later *)
+  ; adata           : Audio_data.t event
   }
   
 type api = { notifs    : notifs
@@ -49,38 +46,26 @@ module Wm_options = Storage.Options.Make(Wm)
 module Structures_options = Storage.Options.Make(Structure.Structures)
 module Settings_options = Storage.Options.Make(Settings)
 
-module Wm_notif         = Notif.Make(Wm)
-module Structures_notif = Notif.Make(Structure.Structures)
-module Settings_notif   = Notif.Make(Settings)
-module Graph_notif      = Notif.Make(Graph)
-module Video_data_notif = Notif.Make(Video_data)
-module Audio_data_notif = Notif.Make(Audio_data)
-module Qoe_status_notif = Notif.Make(Qoe_status)
+module Wm_notif                 = Notif.Make(Wm)
+module Structures_notif         = Notif.Make(Structure.Structures)
+module Settings_notif           = Notif.Make(Settings)
+module Applied_structures_notif = Notif.Make(Graph.Applied_structures)
+module Video_data_notif         = Notif.Make(Video_data)
+module Audio_data_notif         = Notif.Make(Audio_data)
+module Qoe_status_notif         = Notif.Make(Qoe_status)
 
-module Wm_msg        = Message.Make(Wm)
-module Structure_msg = Message.Make(Structure.Structures)
-module Settings_msg  = Message.Make(Settings)
-module Graph_request = Message.Make_request(Graph)
+module Wm_msg                     = Message.Make(Wm)
+module Structure_msg              = Message.Make(Structure.Structures)
+module Settings_msg               = Message.Make(Settings)
+module Applied_structures_request = Message.Make_request(Graph.Applied_structures)
 
-let create_send (type a) (typ : a typ) (conv : a converter) msg_sock : (a -> (a, exn) result Lwt.t) =
-  let mutex = Lwt_mutex.create () in
-  fun x ->
-  Lwt_mutex.with_lock mutex (fun () ->
-      Lwt.catch
-        (fun () -> Lwt_unix.with_timeout 0.5 (fun () ->
-                       Socket.send msg_sock (conv.to_string x) >>= fun () ->
-                       (* Logs.debug (fun m -> m "(Pipeline) <Json send> msg was sent"); *)
-                       Socket.recv msg_sock >|= fun resp ->
-                       (* Logs.debug (fun m -> m "(Pipeline) <Json send> resp was received"); *)
-                       Ok (conv.of_string resp)))
-        Lwt.return_error)
-                    
+(*                    
 let settings_init typ send (options : options) =
   let set_chan = Settings_msg.create typ send in
   Lwt.ignore_result @@ (set_chan.set options.settings#get
                         >>= function  Ok ()   -> Lwt_io.printf "Settings resp: fine\n"
                                     | Error r -> Lwt_io.printf "Settings resp: %s\n" r)
-
+ *)
 let add_storages typ send options structs wm settings =
   (* TODO test this *)
   let combine_and_set name combine opt set push data =
@@ -124,7 +109,7 @@ let create_channels
   let wm_chan    = Wm_msg.create typ send in
   let str_chan   = Structure_msg.create typ send in
   let set_chan   = Settings_msg.create typ send in
-  let graph_req  = Graph_request.create typ send in
+  let graph_req  = Applied_structures_request.create typ send in
   let set_with_push store push set = fun v ->
     set v >>= function
     | Error e -> Lwt.return_error e
@@ -144,7 +129,7 @@ let create_channels
   { wm        = { wm_chan with set = wm_set_upd }
   ; streams   = { get = s_get_upd; set = s_set_upd }
   ; settings  = { set_chan with set = set_set_upd }
-  ; graph     = graph_req 
+  ; applied_structs  = graph_req 
   }
   
 let init_exchange (type a) (typ : a typ) send structures_packer options =
@@ -193,7 +178,7 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
   let strm, strm_push   = E.create () in
   let sets, sets_push   = E.create () in
   let wm  , wm_push     = E.create () in
-  let graph, graph_push = S.create [] in
+  let applied_structs, graph_push = S.create [] in
   let vdata, vdata_push = E.create () in
   let adata, adata_push = E.create () in
   let stat, stat_push   = E.create () in
@@ -202,7 +187,7 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
                  ; Wm_notif.create typ (unwrap wm_push)
                  ; Structures_notif.create typ (unwrap strm_push)
                  ; Settings_notif.create typ (unwrap sets_push)
-                 ; Graph_notif.create typ (unwrap graph_push)
+                 ; Applied_structures_notif.create typ (unwrap graph_push)
                  ; Video_data_notif.create typ (unwrap vdata_push)
                  ; Audio_data_notif.create typ (unwrap adata_push)
                  ; Qoe_status_notif.create typ (unwrap stat_push)
@@ -221,13 +206,13 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
   (* TODO reimplement *)
   let pids_diff =
     Lwt_react.S.diff pid_diff
-    @@ Lwt_react.S.map (fun x -> Structure.active_pids x) graph in
+    @@ Lwt_react.S.map (fun x -> Structure.active_pids x) applied_structs in
 
   let status    = Lwt_react.S.fold ~eq:(fun _ _ -> false) update_status []
                   @@ Lwt_react.E.select [pids_diff; Lwt_react.E.map (fun x -> `Status x) stat]
   in
 
-  let notifs = { streams; wm; settings; graph; adata; vdata; status } in
+  let notifs = { streams; wm; settings; applied_structs; adata; vdata; status } in
   
   epush, ready, notifs, requests
   
@@ -239,28 +224,12 @@ let create (type a) (typ : a typ) db_conf config sock_in sock_out =
                 ; settings   = Settings_options.create stor.config_dir ["pipeline";"settings"]
                 }
   in
-  let ctx = Zmq.Context.create () in
-  let msg = Zmq.Socket.create ctx Zmq.Socket.req in
-  let ev  = Zmq.Socket.create ctx Zmq.Socket.sub in
-
-  Zmq.Socket.bind msg sock_in;
-  Zmq.Socket.bind ev sock_out;
-  Zmq.Socket.subscribe ev "";
-
-  let msg_sock = Socket.of_socket msg in
-  let ev_sock  = Socket.of_socket ev in
-
   let srcs      = ref [] in
-  let ready     = ref false in
   let proc      = None in
-  let converter = (Msg_conv.get_converter typ) in
-  
-  let send =
-    let send = create_send typ converter msg_sock in
-    fun msg -> if not !ready
-               then Lwt.fail_with "backend is not ready"
-               else send msg
-  in
+  let converter = Msg_conv.get_converter typ in
+
+  let socket     = Exchange.create ~sock_in ~sock_out in
+  let send, recv = Exchange.get_send_and_recv socket converter in
 
   let merge v = Structure_conv.match_streams srcs v in
   
@@ -272,17 +241,12 @@ let create (type a) (typ : a typ) db_conf config sock_in sock_out =
   
   let api = { notifs; requests; model } in
   
-  let state = { ctx; msg; ev;
+  let state = { socket; ready_e;
                 options; srcs; proc;
-                ready; ready_e }
+              }
   in
   
-  let recv () =
-    Socket.recv ev_sock
-    >>= fun msg ->
-    Lwt.return @@ epush (converter.of_string msg)
-  in
-  api, state, recv, send
+  api, state, (recv epush), send
 
 let reset typ send bin_path bin_name msg_fmt api state (sources : (Common.Url.t * Common.Stream.t) list) =
   let exec_path = (Filename.concat bin_path bin_name) in
@@ -294,23 +258,60 @@ let reset typ send bin_path bin_name msg_fmt api state (sources : (Common.Url.t 
   let exec_opts = Array.of_list (bin_name :: "-m" :: msg_fmt :: args) in
   (* ignore @@ Lwt_io.printf "Arguments: %s\n" (Array.fold_left (fun acc s -> acc ^ " " ^ s) "" exec_opts); *)
   state.srcs  := sources;
-  state.ready := false;
+
+  Exchange.reset state.socket;
+  
   Option.iter (fun proc -> proc#terminate) state.proc;
+
   let is_ready = Notif.is_ready state.ready_e in
   state.proc <- Some (Lwt_process.open_process_none (exec_path, exec_opts));
-  (is_ready >|= fun () ->
-   Logs.debug (fun m -> m "(Pipeline) is ready");
-   state.ready := true;
-   settings_init typ send state.options)
-  |> Lwt.ignore_result;
+
+  Lwt.ignore_result (is_ready
+                     >|= Exchange.on_ready state.socket (fun () -> ()));
+  (*settings_init typ send state.options)); *)
+
   Model.set_streams api.model (List.map snd sources);
   Logs.debug (fun m -> m "(Pipeline) reset [%s]" (Array.fold_left (fun acc x -> acc ^ " " ^ x) "" exec_opts))
   
 let finalize state =
-  Zmq.Socket.unsubscribe state.ev "";
-  Zmq.Socket.close       state.ev;
-  Zmq.Socket.close       state.msg;
-  Zmq.Context.terminate  state.ctx;
+  Exchange.finalize state.socket;
   Option.iter (fun proc -> proc#terminate) state.proc;
   state.proc <- None;
   Logs.debug (fun m -> m "(Pipeline) finalize")
+
+  (*
+let add_storages typ send options structs wm settings =
+  (* TODO test this *)
+  let combine_and_set name combine opt set push data =
+    let nv = combine ~set:(opt#get) data in
+    match nv with
+    | `Kept v    ->
+       Logs.debug (fun m -> m "(Pipeline) settings for %s were not changed" name);
+       push v
+    | `Changed v -> 
+       Lwt_main.run (set v >>= function
+                     | Ok ()   ->
+                        Logs.debug (fun m -> m "(Pipeline) settings for %s were changed" name);
+                        Lwt.return @@ push v
+                     | Error e ->
+                        Logs_lwt.err (fun m -> m "(Pipeline) combine and set: failed to set data %s" e))
+  in
+  let storage name combine opt set events =
+    let s, push = React.S.create opt#get in
+    let events  = Lwt_react.E.limit (fun () -> Lwt_unix.sleep 0.5) events in
+    Lwt_react.E.keep @@
+      Lwt_react.E.map (combine_and_set name combine opt set push) events;
+    s
+  in
+  
+  let str_chan   = Structure_msg.create typ send in
+  let wm_chan    = Wm_msg.create typ send in
+  let set_chan   = Settings_msg.create typ send in
+  let structures = storage "Structures" Structure.Structures.combine options.structures str_chan.set structs in
+  let wm         = storage "Wm" Wm.combine options.wm wm_chan.set wm in
+  let settings   = storage "Settings" Settings.combine options.settings set_chan.set settings in
+  structures, wm, settings
+
+
+
+   *)

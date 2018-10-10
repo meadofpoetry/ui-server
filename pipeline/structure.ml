@@ -58,27 +58,53 @@ type packed = { source    : Common.Stream.t
               } [@@deriving yojson,eq]
 type t = packed [@@deriving eq]
 
-let combine_pid ~changed ~set x =
-  if not (x.to_be_analyzed = set.to_be_analyzed) then changed := true;
-  { x with to_be_analyzed = set.to_be_analyzed }
+module Structures = struct
+  type t   = structure list [@@deriving yojson]
+  let name = "structures"
+  let default : t = []
+  let dump w = Yojson.Safe.to_string (to_yojson w)
+  let restore s = of_yojson (Yojson.Safe.from_string s)
+                
+  let combine_pid ~changed ~set x =
+    if not (x.to_be_analyzed = set.to_be_analyzed) then changed := true;
+    { x with to_be_analyzed = set.to_be_analyzed }
 
-let combine_channel ~changed ~set x =
-  let rec combine_pids set_pids = function
-    | []    -> []
-    | x::tl ->
-       match List.find_opt (fun p -> x.pid = p.pid) set_pids with
-       | None   -> x :: (combine_pids set_pids tl)
-       | Some p -> (combine_pid ~changed ~set:p x) :: (combine_pids set_pids tl)
-  in { x with pids = combine_pids set.pids x.pids }
+  let combine_channel ~changed ~set x =
+    let rec combine_pids set_pids = function
+      | []    -> []
+      | x::tl ->
+         match List.find_opt (fun p -> x.pid = p.pid) set_pids with
+         | None   -> x :: (combine_pids set_pids tl)
+         | Some p -> (combine_pid ~changed ~set:p x) :: (combine_pids set_pids tl)
+    in { x with pids = combine_pids set.pids x.pids }
 
-let combine_structure ~changed ~set x =
-  let rec combine_channels set_chans = function
-    | []    -> []
-    | x::tl ->
-       match List.find_opt (fun c -> x.number = c.number) set_chans with
-       | None   -> x :: (combine_channels set_chans tl)
-       | Some c -> (combine_channel ~changed ~set:c x) :: (combine_channels set_chans tl)
-  in { x with channels = combine_channels set.channels x.channels }
+  let combine_structure ~changed ~set x =
+    let rec combine_channels set_chans = function
+      | []    -> []
+      | x::tl ->
+         match List.find_opt (fun c -> x.number = c.number) set_chans with
+         | None   -> x :: (combine_channels set_chans tl)
+         | Some c -> (combine_channel ~changed ~set:c x) :: (combine_channels set_chans tl)
+    in { x with channels = combine_channels set.channels x.channels }
+     
+     
+  let combine ~set strs =
+    let changed = ref false in
+    let res = List.map (fun s -> match List.find_opt (fun x -> x.id = s.id) set with
+                                 | None   -> s
+                                 | Some x -> combine_structure ~changed ~set:x s)
+                strs
+    in if !changed then `Changed res else `Kept strs
+end
+       
+module Streams = struct
+  type t   = packed list [@@deriving yojson]
+  let name = "streams"
+  let default : t = []
+
+  let unwrap : t -> structure list =
+    List.map (fun { source; structure } -> structure )
+end
 
 let active_pids str =
   let flat_filter (sl : structure list) =
@@ -122,27 +148,3 @@ let appeared_pids ~past ~pres =
                      if tba && not_in_or_diff pres past
                      then pres::acc else acc) [] pres in
   appeared
-  
-module Structures = struct
-  type t   = structure list [@@deriving yojson]
-  let name = "structures"
-  let default : t = []
-  let dump w = Yojson.Safe.to_string (to_yojson w)
-  let restore s = of_yojson (Yojson.Safe.from_string s)
-  let combine ~set strs =
-    let changed = ref false in
-    let res = List.map (fun s -> match List.find_opt (fun x -> x.id = s.id) set with
-                       | None   -> s
-                       | Some x -> combine_structure ~changed ~set:x s)
-                strs
-    in if !changed then `Changed res else `Kept strs
-end
-       
-module Streams = struct
-  type t   = packed list [@@deriving yojson]
-  let name = "streams"
-  let default : t = []
-
-  let unwrap : t -> structure list =
-    List.map (fun { source; structure } -> structure )
-end
