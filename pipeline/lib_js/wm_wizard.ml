@@ -113,6 +113,7 @@ let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
       (0, 0.) squares in
   cols
 
+
 let position_widget ~(pos : Wm.position) (widget : Wm.widget) : Wm.widget =
   let cpos = Utils.to_grid_position pos in
   let wpos = Option.map_or ~default:cpos (Dynamic_grid.Position.correct_aspect cpos) widget.aspect in
@@ -141,11 +142,17 @@ let to_checkboxes (widgets : (string * Wm.widget) list) =
   in
   let checkbox  = new Checkbox.t () in
   let check_all = new Form_field.t ~label:"Выбрать все" ~input:checkbox () in
+  List.iter (fun widget ->
+      let check = widget#input_widget in
+      React.E.map (fun checked ->
+          if not checked && Bool.equal (React.S.value checkbox#s_state) true then
+            checkbox#set_checked false)
+      @@ React.S.changes check#s_state
+      |> ignore) wds;
   check_all#set_id "checkwdg";
   React.E.map (fun checked ->
-      if not checked
-      then List.iter (fun x -> x#input_widget#set_checked false) wds
-      else List.iter (fun x -> x#input_widget#set_checked true) wds)
+      if checked then
+        List.iter (fun x -> x#input_widget#set_checked true) wds)
   @@ React.S.changes checkbox#s_state
   |> ignore;
   check_all :: wds
