@@ -159,6 +159,13 @@ let make_channels ~channels ~(widgets : (string * Wm.widget) list)=
               List.iter (fun ch -> ch#set_checked false) checkboxes)
         @@ React.S.changes checkbox#s_state
         |> ignore;
+        List.iter (fun check ->
+            React.E.map (fun checked ->
+                if not checked
+                && Bool.equal (React.S.value checkbox#s_state) true then
+                  checkbox#set_checked false)
+            @@ React.S.changes check#s_state
+            |> ignore) checkboxes;
         let nested  = new Tree.t ~items:wds () in
         checkboxes,
         new Tree.Item.t ~text:label ~graphic:checkbox ~nested ~value:() ()) channels
