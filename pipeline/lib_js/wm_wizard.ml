@@ -113,6 +113,7 @@ let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
             squares /. (float_of_int @@ fst resolution * snd resolution) in
           int_of_float cols, division)) (List.range' 0 num) in
   let (cols : int), _ =
+
     List.fold_left (fun acc x ->
         let _, sq = x in
         let _, gr = acc in
@@ -133,25 +134,26 @@ let position_widget ~(pos : Wm.position) (widget : Wm.widget) : Wm.widget =
   { widget with position = pos }
 
 let make_widget (widget : string * Wm.widget) =
-  let domain = (snd widget).domain in
+  let domain      = (snd widget).domain in
+  let description = (snd widget).description in
   let label  =
     match (snd widget).description with
     | "video widget"    -> "Видео"
     | "soundbar widget" -> "Аудио"
     | x -> x in
   let checkbox = new Checkbox.t () in
-  checkbox#set_id domain;
+  checkbox#set_id @@ domain ^ description;
   checkbox, new Tree.Item.t ~text:label ~secondary_text:(channel_of_domain domain)
     ~graphic:checkbox ~value:() ()
 
-let make_channels ~channels ~(widgets : (string * Wm.widget) list)=
+let make_channels ~channels ~(widgets : (string * Wm.widget) list) =
   let checkboxes, items =
     List.split
     @@ List.map (fun channel ->
         let label   = channel in
         let domain  = domain_of_channel channel in
         let widgets =
-          List.filter (fun (_,(wdg : Wm.widget)) ->
+          List.filter (fun (_, (wdg : Wm.widget)) ->
               String.equal domain wdg.domain) widgets in
         let checkboxes, wds =
           List.split @@ List.map (fun widget -> make_widget widget) widgets in
@@ -189,10 +191,18 @@ let to_checkboxes (widgets : (string * Wm.widget) list) =
   let channels = List.map (fun x -> channel_of_domain x) domains in
   make_channels ~channels ~widgets
 
-let to_layout ~resolution ~domains ~widgets =
+let to_layout ~resolution ~widgets =
   let ar_x, ar_y   = 16, 9 in
-  let domains_num  = List.length domains in
-  let items_in_row = get_items_in_row ~resolution ~item_ar:(ar_x, ar_y) domains_num in
+  let widgets_num  = List.length widgets in
+  let items_in_row = get_items_in_row ~resolution ~item_ar:(ar_x, ar_y) widgets_num in
+  let domains      =
+    List.fold_left (fun acc (_, (wdg : Wm.widget)) ->
+        if List.exists (fun x -> String.equal x wdg.domain) acc then
+          acc
+        else
+          wdg.domain :: acc) [] widgets
+    |> List.rev
+  in
   List.fold_left (fun acc domain ->
       let i      = fst acc in
       let acc    = snd acc in
@@ -263,15 +273,26 @@ let to_dialog (wm : Wm.t) =
     Lwt.bind (dialog#show_await ())
       (function
           | `Accept ->
-            let domains =
+            let wds =
               List.fold_left (fun acc x ->
                   if not @@ x#checked then
                     acc
                   else
                     x#id :: acc) [] checkboxes
-              |> List.filter (fun x -> not @@ String.equal x "checkwdg") in
+              |> List.filter (fun x -> not @@ String.equal x "checkwdg")
+              |> List.map (fun x ->
+                  let index = String.index x '|' in
+                  let length = String.length x - index - 1 in
+                  String.sub x 0 (index + 1), String.sub x (index) length) in
+            let widgets =
+              List.fold_left (fun acc (domain, typ) ->
+                  match List.find_pred (fun (name, (wdg : Wm.widget)) ->
+                      String.equal domain wdg.domain
+                      && String.equal typ wdg.type_) wm.widgets with
+                  | Some x -> x :: acc
+                  | None   -> acc) [] wds in
             Lwt.return
-              (push @@ to_layout ~resolution:wm.resolution ~domains ~widgets:wm.widgets)
+              (push @@ to_layout ~resolution:wm.resolution ~widgets)
           | `Cancel -> Lwt.return ())
   in
   dialog, e, show
