@@ -279,11 +279,10 @@ let to_dialog (wm : Wm.t) =
                     acc
                   else
                     x#id :: acc) [] checkboxes
-              |> List.filter (fun x -> not @@ String.equal x "checkwdg")
               |> List.map (fun x ->
                   let index = String.index x '|' in
                   let length = String.length x - index - 1 in
-                  String.sub x 0 (index + 1), String.sub x (index) length) in
+                  String.sub x 0 index, String.sub x (index + 1) length) in
             let widgets =
               List.fold_left (fun acc (domain, typ) ->
                   match List.find_pred (fun (name, (wdg : Wm.widget)) ->
