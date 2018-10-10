@@ -27,6 +27,8 @@ let audio_position ~(cont_pos : Wm.position) : Wm.position =
   }
 
 let channel_of_domain = function
+  (* do NOT edit or remove
+   * first multiplex *)
   | "s460b38ee-186b-5604-8811-235eb3005960_c1010" -> "Первый канал"
   | "s460b38ee-186b-5604-8811-235eb3005960_c1030" -> "МАТЧ"
   | "s460b38ee-186b-5604-8811-235eb3005960_c1040" -> "НТВ"
@@ -37,7 +39,8 @@ let channel_of_domain = function
   | "s460b38ee-186b-5604-8811-235eb3005960_c1100" -> "ТВ Центр"
   | "s460b38ee-186b-5604-8811-235eb3005960_c1110" -> "Вести ФМ"
   | "s460b38ee-186b-5604-8811-235eb3005960_c1120" -> "Маяк"
-  (* do NOT edit or remove *)
+  (* do NOT edit or remove
+   * second multiplex *)
   | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2010" -> "РЕН ТВ"
   | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2020" -> "Спас"
   | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2030" -> "СТС"
@@ -56,6 +59,8 @@ let channel_of_domain = function
   | x -> x
 
 let domain_of_channel = function
+  (* do NOT edit or remove
+   * first multiplex *)
   | "Первый канал" -> "s460b38ee-186b-5604-8811-235eb3005960_c1010"
   | "МАТЧ"         -> "s460b38ee-186b-5604-8811-235eb3005960_c1030"
   | "НТВ"          -> "s460b38ee-186b-5604-8811-235eb3005960_c1040"
@@ -66,7 +71,8 @@ let domain_of_channel = function
   | "ТВ Центр"     -> "s460b38ee-186b-5604-8811-235eb3005960_c1100"
   | "Вести ФМ"     -> "s460b38ee-186b-5604-8811-235eb3005960_c1110"
   | "Маяк"         -> "s460b38ee-186b-5604-8811-235eb3005960_c1120"
-  (* do NOT edit or remove *)
+  (* do NOT edit or remove
+   * second multiplex *)
   | "РЕН ТВ"   -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2010"
   | "Спас"     -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2020"
   | "СТС"      -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2030"
@@ -103,7 +109,8 @@ let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
           0, 0.
         else
         ( let squares  = w *. h *. float_of_int num in
-          let division = squares /. (float_of_int @@ fst resolution * snd resolution) in
+          let division =
+            squares /. (float_of_int @@ fst resolution * snd resolution) in
           int_of_float cols, division)) (List.range' 0 num) in
   let (cols : int), _ =
     List.fold_left (fun acc x ->
@@ -113,14 +120,50 @@ let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
       (0, 0.) squares in
   cols
 
-
 let position_widget ~(pos : Wm.position) (widget : Wm.widget) : Wm.widget =
   let cpos = Utils.to_grid_position pos in
-  let wpos = Option.map_or ~default:cpos (Dynamic_grid.Position.correct_aspect cpos) widget.aspect in
+  let wpos =
+    Option.map_or
+      ~default:cpos
+      (Dynamic_grid.Position.correct_aspect cpos)
+      widget.aspect in
   let x    = cpos.x + ((cpos.w - wpos.w) / 2) in
   let y    = cpos.y + ((cpos.h - wpos.h) / 2) in
   let pos  = {wpos with x ; y} |> Utils.of_grid_position in
   { widget with position = pos }
+
+let make_widget ~(widget : string * Wm.widget) =
+  let domain = (snd widget).domain in
+  let label  = (snd widget).description ^ domain in
+  let checkbox = new Checkbox.t () in
+  checkbox#set_id domain;
+  checkbox, new Tree.Item.t ~text:label ~graphic:checkbox ~value:() ()
+
+let make_channels ~channels ~(widgets : (string * Wm.widget) list)=
+  let checkboxes, items =
+    List.split
+    @@ List.map (fun channel ->
+        let label   = channel in
+        let domain  = domain_of_channel channel in
+        let widgets =
+          List.filter (fun (_,(wdg : Wm.widget)) ->
+              String.equal domain wdg.domain) widgets in
+        let checkboxes, wds =
+          List.split @@ List.map (fun widget -> make_widget ~widget) widgets in
+        let checkbox = new Checkbox.t () in
+        checkbox#set_id label;
+        React.E.map (fun checked ->
+            if checked then
+              List.iter (fun ch -> ch#set_checked true) checkboxes
+            else
+              List.iter (fun ch -> ch#set_checked false) checkboxes)
+        @@ React.S.changes checkbox#s_state
+        |> ignore;
+        let nested  = new Tree.t ~items:wds () in
+        checkboxes,
+        new Tree.Item.t ~text:label ~graphic:checkbox ~nested ~value:() ()) channels
+  in
+  List.concat checkboxes,new Tree.t ~items ()
 
 let to_checkboxes (widgets : (string * Wm.widget) list) =
   let domains =
@@ -132,30 +175,7 @@ let to_checkboxes (widgets : (string * Wm.widget) list) =
     |> List.rev
   in
   let channels = List.map (fun x -> channel_of_domain x) domains in
-  let wds =
-    List.map (fun str ->
-        let label    = str in
-        let checkbox = new Checkbox.t () in
-        checkbox#set_id label;
-        let form_field = new Form_field.t ~label ~input:checkbox () in
-        form_field) channels
-  in
-  let checkbox  = new Checkbox.t () in
-  let check_all = new Form_field.t ~label:"Выбрать все" ~input:checkbox () in
-  List.iter (fun widget ->
-      let check = widget#input_widget in
-      React.E.map (fun checked ->
-          if not checked && Bool.equal (React.S.value checkbox#s_state) true then
-            checkbox#set_checked false)
-      @@ React.S.changes check#s_state
-      |> ignore) wds;
-  check_all#set_id "checkwdg";
-  React.E.map (fun checked ->
-      if checked then
-        List.iter (fun x -> x#input_widget#set_checked true) wds)
-  @@ React.S.changes checkbox#s_state
-  |> ignore;
-  check_all :: wds
+  make_channels ~channels ~widgets
 
 let to_layout ~resolution ~domains ~widgets =
   let ar_x, ar_y   = 16, 9 in
@@ -215,8 +235,8 @@ let to_layout ~resolution ~domains ~widgets =
 
 let to_dialog (wm : Wm.t) =
   let e, push    = React.E.create () in
-  let checkboxes = to_checkboxes wm.widgets in
-  let box        = new Vbox.t ~widgets:checkboxes () in
+  let checkboxes, widget = to_checkboxes wm.widgets in
+  let box        = new Vbox.t ~widgets:[widget#widget] () in
   let dialog     =
     new Dialog.t
       ~title:"Выберите виджеты"
@@ -233,10 +253,10 @@ let to_dialog (wm : Wm.t) =
           | `Accept ->
             let domains =
               List.fold_left (fun acc x ->
-                  if not @@ x#input_widget#checked then
+                  if not @@ x#checked then
                     acc
                   else
-                    (domain_of_channel @@ x#input_widget#id) :: acc) [] checkboxes
+                    (domain_of_channel @@ x#id) :: acc) [] checkboxes
               |> List.filter (fun x -> not @@ String.equal x "checkwdg") in
             Lwt.return
               (push @@ to_layout ~resolution:wm.resolution ~domains ~widgets:wm.widgets)
