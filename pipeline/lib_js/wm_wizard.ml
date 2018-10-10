@@ -157,6 +157,10 @@ let make_channels ~channels ~(widgets : (string * Wm.widget) list)=
           List.split @@ List.map (fun widget -> make_widget widget) widgets in
         let checkbox = new Checkbox.t () in
         checkbox#set_id label;
+        Dom_events.listen checkbox#widget#root Dom_events.Typ.click
+          (fun _ ev -> Dom_html.stopPropagation ev;
+            false)
+        |> ignore;
         React.E.map (fun checked ->
             if checked then
               List.iter (fun ch -> ch#set_checked true) checkboxes
