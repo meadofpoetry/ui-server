@@ -16,6 +16,7 @@ module Make
   let align_start_class = CSS.add_modifier base_class "align-start"
   let align_end_class = CSS.add_modifier base_class "align-end"
   let align_center_class = CSS.add_modifier base_class "align-center"
+  let animating_class = CSS.add_modifier base_class "animating"
 
   let create_scroll_content ?(classes=[]) ?attrs tabs () =
     div ~a:([ a_class (scroll_content_class :: classes) ]

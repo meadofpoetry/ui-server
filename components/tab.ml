@@ -8,6 +8,13 @@ type _ content =
   | Icon : (#Widget.t as 'a) -> 'a content
   | Both : string * (#Widget.t as 'a) -> (Widget.t * 'a) content
 
+type dimensions =
+  { root_left : int
+  ; root_right : int
+  ; content_left : int
+  ; content_right : int
+  }
+
 let content_to_elt : type a. a content ->
                           Tab_indicator.t ->
                           'c Html.elt * a =
@@ -86,8 +93,31 @@ class ['a, 'b] t
       indicator#set_active ?previous:prev_indicator x;
       self#focus ()
 
+    method compute_dimensions () : dimensions =
+      let root_width = self#offset_width in
+      let root_left = self#offset_left in
+      let content_width = self#content_element##.offsetWidth in
+      let content_left = self#content_element##.offsetLeft in
+      { root_left
+      ; root_right = root_left + root_width
+      ; content_left = root_left + content_left
+      ; content_right = root_left + content_left + content_width
+      }
+
+    method index : int =
+      let rec aux i node =
+        match Js.Opt.to_option node##.previousSibling with
+        | None -> i
+        | Some x -> aux (succ i) x in
+      aux 0 self#node
+
     method width : int = self#offset_width
     method left : int = self#offset_left
+
+    (* Private methods *)
+
+    method private content_element =
+      Option.get_exn @@ self#get_child_element_by_class Markup.content_class
 
     method destroy () =
       Option.iter Lwt.cancel _click_listener;

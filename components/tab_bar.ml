@@ -56,15 +56,21 @@ class ['a, 'b] t ?(use_auto_activation = true)
       Option.map (fun x -> x#value) @@ self#active_tab
 
     method set_active_tab (tab : ('a, 'b) Tab.t) : unit =
-      match List.find_opt (eq tab) self#tabs with
+      match List.find_idx (eq tab) self#tabs with
+      | None -> ()
+      | Some (idx, tab) ->
+         tab#set_active ?previous:self#active_tab true;
+         self#scroller#set_active_tab tab;
+         self#scroll_into_view idx
+
+    method set_active_tab_index (i : int) : unit =
+      let tab = List.get_at_idx i self#tabs in
+      match tab with
       | None -> ()
       | Some tab ->
          tab#set_active ?previous:self#active_tab true;
          self#scroller#set_active_tab tab;
-    (* self#scroll_tab_into_view tab; *)
-
-    method set_active_tab_index (i : int) : unit =
-      Option.iter self#set_active_tab (List.get_at_idx i self#tabs)
+         self#scroll_into_view i
 
     (* Remove tab actions *)
 
@@ -73,6 +79,7 @@ class ['a, 'b] t ?(use_auto_activation = true)
       | None -> ()
       | Some tab ->
          self#scroller#remove_tab tab;
+         (* FIXME should select previous *)
          if tab#active then self#set_active_tab_index 0;
          tab#destroy ()
 
@@ -100,41 +107,102 @@ class ['a, 'b] t ?(use_auto_activation = true)
           then self#set_active_tab tab;
           Lwt.return_unit)
 
-    method private get_current_translate_x () =
-      let style = Dom_html.window##getComputedStyle self#scroller#content#root in
-      let value = Js.to_string style##.transform in
-      match value with
-      | "none" -> 0
-      | _ -> 0
+    method private is_index_in_range (i : int) : bool =
+      i >= 0 && i < (List.length self#tabs)
 
-    method private get_scroll_position () =
-      let cur_translate_x = self#get_current_translate_x () in
-      let scroll_left = self#scroller#area#scroll_left in
-      scroll_left - cur_translate_x
+    (**
+     * Tabs are laid out in the Tab Scroller like this:
+     *
+     *    Scroll Position
+     *    +---+
+     *    |   |   Bar Width
+     *    |   +-----------------------------------+
+     *    |   |                                   |
+     *    |   V                                   V
+     *    |   +-----------------------------------+
+     *    V   |             Tab Scroller          |
+     *    +------------+--------------+-------------------+
+     *    |    Tab     |      Tab     |        Tab        |
+     *    +------------+--------------+-------------------+
+     *        |                                   |
+     *        +-----------------------------------+
+     *
+     * To determine the next adjacent index, we look at the Tab root left and
+     * Tab root right, both relative to the scroll position. If the Tab root
+     * left is less than 0, then we know it's out of view to the left. If the
+     * Tab root right minus the bar width is greater than 0, we know the Tab is
+     * out of view to the right. From there, we either increment or decrement
+     * the index.
+     *)
+    method private find_adjacent_tab_index_closest_to_edge (i : int)
+                     ({ root_left
+                      ; root_right
+                      ; _ } : Tab.dimensions)
+                     (scroll_position : int)
+                     (bar_width : int) : int =
+      let rel_root_left = root_left - scroll_position in
+      let rel_root_right = root_right - scroll_position - bar_width in
+      let rel_root_delta = rel_root_left + rel_root_right in
+      let left_edge_is_closer = rel_root_left < 0 || rel_root_delta < 0 in
+      let right_edge_is_closer = rel_root_right > 0 || rel_root_delta > 0 in
+      if left_edge_is_closer
+      then i - 1
+      else if right_edge_is_closer
+      then i + 1
+      else -1
 
-    method private scroll_to next =
-      let old = self#get_scroll_position () in
-      Utils.Animation.animate
-        ~timing:Utils.Animation.Timing.in_out_sine
-        ~draw:(fun x ->
-          let n = float_of_int next in
-          let o = float_of_int old in
-          let v = int_of_float @@ (x *. (n -. o)) +. o in
-          self#scroller#area#set_scroll_left v)
-        ~duration:0.35
+    (* Calculates the scroll increment that will make
+     * the tab at the given index visible
+     *)
+    method private calculate_scroll_increment (i : int)
+                     (next_index : int)
+                     (scroll_position : int)
+                     (bar_width : int) : int =
+      let extra_scroll_amount = 20 in
+      let tab = Option.get_exn @@ self#get_tab_at_index next_index in
+      let Tab.{ content_left
+              ; content_right
+              ; _ } = tab#compute_dimensions () in
+      let rel_content_left = content_left - scroll_position - bar_width in
+      let rel_content_right = content_right - scroll_position in
+      let left_increment = rel_content_right - extra_scroll_amount in
+      let right_increment = rel_content_left + extra_scroll_amount in
+      if next_index < i
+      then min left_increment 0
+      else max right_increment 0
 
+    (* Scrolls the tab at the given index into view *)
     method private scroll_into_view (i : int) : unit =
-      Option.iter self#scroll_tab_into_view @@ self#get_tab_at_index i
+      match self#get_tab_at_index i with
+      | None -> ()
+      | Some tab ->
+         begin match i with
+         | 0 -> self#scroller#scroll_to 0
+         | i when i = (List.length self#tabs) - 1 ->
+            self#scroller#scroll_to self#scroller#content#offset_width
+         | i ->
+            let scroll_position = self#scroller#get_scroll_position () in
+            let bar_width = self#offset_width in
+            let tab_dimensions = tab#compute_dimensions () in
+            let next_index =
+              self#find_adjacent_tab_index_closest_to_edge i
+                tab_dimensions
+                scroll_position
+                bar_width in
+            if not @@ self#is_index_in_range next_index then ()
+            else
+              let scroll_increment =
+                self#calculate_scroll_increment i
+                  next_index
+                  scroll_position
+                  bar_width
+              in
+              self#scroller#increment_scroll scroll_increment
+        end
 
-    method private scroll_tab_into_view (tab : ('a, 'b) Tab.t) : unit =
-      let left = self#scroller#area#scroll_left in
-      let width = self#scroller#area#client_width in
-      let right = left + width in
-      if tab#left < left
-      then self#scroll_to tab#left
-      else if tab#left + tab#width > right
-      then self#scroll_to @@ left + (tab#width + tab#left - right)
-
+    (* method for determining the index of the destination tab
+     * based on what key was pressed
+     *)
     method private determine_target_from_key (index : int)
                      (event : key_name) : int option =
       let max_index = (List.length self#tabs) - 1 in

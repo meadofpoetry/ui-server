@@ -3,10 +3,17 @@ open Tyxml_js
 
 module Markup = Components_markup.Tab_scroller.Make(Xml)(Svg)(Html)
 
+let ( % ) = Fun.( % )
+
 type align =
   | Start
   | End
   | Center
+
+type animation =
+  { final_scroll_position : int
+  ; scroll_delta : int
+  }
 
 let horizontal_scroll_height = ref None
 
@@ -91,6 +98,89 @@ class ['a, 'b] t ?on_change ?align
     method area = area
 
     method content = content
+
+    (* Computes the current visual scroll position *)
+    method get_scroll_position () : int =
+      let current_translate_x = self#get_current_translate_x () in
+      let scroll_left = self#area#scroll_left in
+      scroll_left - current_translate_x
+
+    (* Scrolls to the given scrollX value *)
+    method scroll_to (scroll_x : int) : unit =
+      let current_scroll_x = self#get_scroll_position () in
+      let safe_scroll_x = self#clamp_scroll_value scroll_x in
+      let scroll_delta = safe_scroll_x - current_scroll_x in
+      self#animate { scroll_delta; final_scroll_position = safe_scroll_x }
+
+    (* Increment scroll value by the given value *)
+    method increment_scroll (scroll_x : int) : unit =
+      match scroll_x with
+      | 0 -> ()
+      | x ->
+         let current_scroll_x = self#get_scroll_position () in
+         let target_scroll_x = x + current_scroll_x in
+         let safe_scroll_x = self#clamp_scroll_value target_scroll_x in
+         let scroll_delta = safe_scroll_x - current_scroll_x in
+         self#animate { scroll_delta; final_scroll_position = safe_scroll_x }
+
+    (* Private methods *)
+
+    method private calculate_scroll_edges () : int * int =
+      let content_width = self#content#offset_width in
+      let root_width = self#area#offset_width in
+      (* left, right *)
+      (0, content_width - root_width)
+
+    (* Calculates a safe scroll value that is > 0 and < the max scroll value
+     * v - the distance to scroll
+     *)
+    method private clamp_scroll_value (v : int) :  int =
+      let left, right = self#calculate_scroll_edges () in
+      min (max left v) right
+
+    method private get_current_translate_x () =
+      let style = Dom_html.window##getComputedStyle self#content#root in
+      let value = Js.to_string style##.transform in
+      match value with
+      | "none" -> 0
+      | value ->
+         let tx =
+           Option.map (Float.to_int % Float.of_string % String.trim)
+           @@ List.get_at_idx 4
+           @@ String.split ~by:"," value in
+         begin match tx with
+         | Some x -> x
+         | None -> 0
+         end
+
+    (* Gets the current scroll position during animation *)
+    method private get_animating_scroll_position () : int =
+      let current_translate_x = self#get_current_translate_x () in
+      let scroll_left = self#area#scroll_left in
+      scroll_left - current_translate_x
+
+    method private stop_scroll_animation () : unit =
+      let current_scroll_position = self#get_animating_scroll_position () in
+      self#remove_class Markup.animating_class;
+      self#style##.transform := Js.string "translateX(0px)";
+      self#area#set_scroll_left current_scroll_position
+
+    (* Animates the tab scrolling *)
+    method private animate (a : animation) : unit =
+      if a.scroll_delta = 0 then () else
+        begin
+          let translate_x = Printf.sprintf "translateX(%dpx)" a.scroll_delta in
+          self#stop_scroll_animation ();
+          self#area#set_scroll_left a.final_scroll_position;
+          self#content#style##.transform := Js.string translate_x;
+          (* Force repaint *)
+          ignore @@ self#area#bounding_client_rect;
+          let wnd = Dom_html.window in
+          let cb = fun _ ->
+            self#add_class Markup.animating_class;
+            self#content#style##.transform := Js.string "none" in
+          ignore @@ wnd##requestAnimationFrame (Js.wrap_callback cb);
+        end
 
     initializer
       area#style##.marginBottom :=

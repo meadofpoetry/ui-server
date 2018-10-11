@@ -43,7 +43,6 @@ module Fab_speed_dial = Fab_speed_dial
 
 module Form_field = Form_field
 
-(* XXX never used *)
 module Grid_list = Grid_list
 
 module Hexdump = Hexdump
@@ -85,7 +84,6 @@ module Hsplit = Hsplit
 
 module Switch = Switch
 
-(* XXX under development *)
 module Table = Table
 
 (* TODO add scroll logic. update scroll appearance for desktop & mobile *)
@@ -109,7 +107,6 @@ module Touch_draggable = Touch_draggable
 
 module Typography = Typography
 
-(* TODO remove data from key event variant *)
 module Utils = Utils
 
 (* Base classes *)
