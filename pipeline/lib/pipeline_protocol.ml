@@ -268,8 +268,6 @@ let reset typ send bin_path bin_name msg_fmt api state (sources : (Common.Url.t 
   Option.iter (fun proc -> proc#terminate) state.proc;
 
   let is_ready = Notif.is_ready state.ready_e in
-  Lwt_react.E.keep
-    @@ Lwt_react.E.map_s (fun () -> Lwt_io.printf "BACKEND IS READY\n") state.ready_e;
   state.proc <- Some (Lwt_process.open_process_none (exec_path, exec_opts));
 
   Lwt.ignore_result (is_ready
