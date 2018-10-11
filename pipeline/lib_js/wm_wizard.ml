@@ -213,7 +213,8 @@ let to_layout ~resolution ~widgets =
     get_items_in_row ~resolution ~item_ar:(ar_x, ar_y) num in
   let remain = List.length domains - (items_in_row * (rows_act - 1)) in
   let remain, multiplier =
-    if rows_act <> items_in_row then
+    if rows_act <> items_in_row
+         && remain <> items_in_row then
       if float_of_int remain /. float_of_int items_in_row <=. 0.5 then
         remain, 2
       else
@@ -235,7 +236,7 @@ let to_layout ~resolution ~widgets =
       let cont_h = (ar_y * cont_w) / ar_x in
       let greater_num = (i + 1) - (num - remain) in
       let cont_x = if greater_num > 0 then   (* magical *)
-          (i - items_in_row * row) * cont_w  (* do not touch *)
+          (i - items_in_row * row - greater_num) * cont_std_w + greater_num * cont_w  (* do not touch *)
         else
           (i - items_in_row * row) * cont_std_w in
       let cont_y = row * cont_std_h in
