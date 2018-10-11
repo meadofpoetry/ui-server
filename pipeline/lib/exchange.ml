@@ -6,7 +6,9 @@ open Msg_conv
    
 type t = { ctx          : Zmq.Context.t
          ; msg          : [ `Req] Zmq.Socket.t
-         ; ev           : [ `Sub] Zmq.Socket.t
+         ; ev           : [ `Sub ] Zmq.Socket.t
+         ; sock_in      : string
+         ; sock_out     : string
          ; ready        : bool ref
          }
 
@@ -17,10 +19,10 @@ let create ~sock_in ~sock_out =
   Zmq.Socket.bind msg sock_in;
   Zmq.Socket.bind ev sock_out;
   Zmq.Socket.subscribe ev "";
-  { ctx; msg; ev; ready = ref false }
+  { ctx; msg; ev; sock_in; sock_out; ready = ref false }
 
 let finalize sock =
-  Zmq.Socket.unsubscribe sock.ev "";
+  (*Zmq.Socket.unsubscribe sock.ev "";*)
   Zmq.Socket.close       sock.ev;
   Zmq.Socket.close       sock.msg;
   Zmq.Context.terminate  sock.ctx
@@ -53,6 +55,8 @@ let get_send_and_recv (type a) sock (conv : a converter) =
     Lwt.return @@ on_recv_msg (conv.of_string msg))
   
 let reset sock =
+  Zmq.Socket.bind sock.ev sock.sock_out;
+  Zmq.Socket.subscribe sock.ev "";
   sock.ready := false
   
 let on_ready sock init () =

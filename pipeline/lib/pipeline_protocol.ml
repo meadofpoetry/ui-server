@@ -211,6 +211,10 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
   let status    = Lwt_react.S.fold ~eq:(fun _ _ -> false) update_status []
                   @@ Lwt_react.E.select [pids_diff; Lwt_react.E.map (fun x -> `Status x) stat]
   in
+  Lwt_react.E.keep @@
+    Lwt_react.E.map_p (fun x -> Lwt_io.printf "Signal: %s %d %d (%b)"
+                                  (Stream.ID.to_string x.Qoe_status.stream) x.channel x.pid x.playing)
+      stat;
 
   let notifs = { streams; wm; settings; applied_structs; adata; vdata; status } in
   
@@ -264,6 +268,8 @@ let reset typ send bin_path bin_name msg_fmt api state (sources : (Common.Url.t 
   Option.iter (fun proc -> proc#terminate) state.proc;
 
   let is_ready = Notif.is_ready state.ready_e in
+  Lwt_react.E.keep
+    @@ Lwt_react.E.map_s (fun () -> Lwt_io.printf "BACKEND IS READY\n") state.ready_e;
   state.proc <- Some (Lwt_process.open_process_none (exec_path, exec_opts));
 
   Lwt.ignore_result (is_ready
