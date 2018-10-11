@@ -12,12 +12,20 @@ let find_widget ~typ ~widgets ~domain =
         String.equal x.domain domain && String.equal x.type_ "video") widgets
   | _ -> None
 
-let video_position ~(cont_pos : Wm.position) : Wm.position =
-  { left = cont_pos.left
-  ; top  = cont_pos.top
-  ; right = cont_pos.right - 30
-  ; bottom = cont_pos.bottom
-  }
+let video_position ~(cont_pos : Wm.position) ~audio : Wm.position =
+  match audio with 
+  | `With_audio ->
+    { left = cont_pos.left
+    ; top  = cont_pos.top
+    ; right = cont_pos.right - 30
+    ; bottom = cont_pos.bottom
+    }
+  | `Without_audio ->
+    { left = cont_pos.left
+    ; top  = cont_pos.top
+    ; right = cont_pos.right
+    ; bottom = cont_pos.bottom
+    }
 
 let audio_position ~(cont_pos : Wm.position) : Wm.position =
   { left = cont_pos.right - 30
@@ -106,19 +114,19 @@ let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
         else int_of_float cols, rows,
              (h /. (float_of_int rows) *. h /. (float_of_int rows) *. item_ar)*)
         if (h *. float_of_int rows >. float_of_int @@ snd resolution) then
-          0, 0.
+          0, 0, 0.
         else
         ( let squares  = w *. h *. float_of_int num in
           let division =
             squares /. (float_of_int @@ fst resolution * snd resolution) in
-          int_of_float cols, division)) (List.range' 0 num) in
-  let (cols : int), _ =
+          int_of_float cols, rows, division)) (List.range' 0 num) in
+  let (cols : int), (rows : int), _ =
     List.fold_left (fun acc x ->
-        let _, sq = x in
-        let _, gr = acc in
+        let _, _, sq = x in
+        let _, _, gr = acc in
         if Float.(gr > sq) then acc else x)
-      (0, 0.) squares in
-  cols
+      (0, 0, 0.) squares in
+  cols, rows
 
 let position_widget ~(pos : Wm.position) (widget : Wm.widget) : Wm.widget =
   let cpos = Utils.to_grid_position pos in
@@ -200,15 +208,18 @@ let to_layout ~resolution ~widgets =
           wdg.domain :: acc) [] widgets
     |> List.rev
   in
-  let items_in_row = get_items_in_row ~resolution ~item_ar:(ar_x, ar_y) (List.length domains) in
+  List.iter print_endline domains;
+  let items_in_row, rows_act =
+    get_items_in_row ~resolution ~item_ar:(ar_x, ar_y) (List.length domains) in
+  let cont_w = (fst resolution) / items_in_row in
+  let cont_h = (ar_y * cont_w) / ar_x in
+  let start = (snd resolution - rows_act * cont_h) / 2 in
   List.fold_left (fun acc domain ->
       let i      = fst acc in
       let acc    = snd acc in
       let row    = i / items_in_row in
-      let cont_w = (fst resolution) / items_in_row in
-      let cont_h = (ar_y * cont_w) / ar_x in
       let cont_x = (i - items_in_row * row) * cont_w in
-      let cont_y = row * cont_h in
+      let cont_y = row * cont_h + start in
       let cont_pos : Wm.position =
         { left   = cont_x
         ; top    = cont_y
@@ -220,7 +231,10 @@ let to_layout ~resolution ~widgets =
       let video_wdg =
         match video with
         | Some video ->
-          let video_pos = video_position ~cont_pos in
+          let video_pos =
+            match audio with
+            | Some _ -> video_position ~audio:`With_audio ~cont_pos
+            | None  ->  video_position ~audio:`Without_audio ~cont_pos in
           let video_wdg = fst video, position_widget ~pos:video_pos (snd video) in
           Some video_wdg
         | None -> None in
