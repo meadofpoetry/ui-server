@@ -113,7 +113,6 @@ let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
             squares /. (float_of_int @@ fst resolution * snd resolution) in
           int_of_float cols, division)) (List.range' 0 num) in
   let (cols : int), _ =
-
     List.fold_left (fun acc x ->
         let _, sq = x in
         let _, gr = acc in
@@ -284,10 +283,10 @@ let to_dialog (wm : Wm.t) =
                   let length = String.length x - index - 1 in
                   String.sub x 0 index, String.sub x (index + 1) length) in
             let widgets =
-              List.fold_left (fun acc (domain, typ) ->
+              List.fold_left (fun acc (domain, descr) ->
                   match List.find_pred (fun (name, (wdg : Wm.widget)) ->
                       String.equal domain wdg.domain
-                      && String.equal typ wdg.type_) wm.widgets with
+                      && String.equal descr wdg.description) wm.widgets with
                   | Some x -> x :: acc
                   | None   -> acc) [] wds in
             Lwt.return
