@@ -211,15 +211,28 @@ let to_layout ~resolution ~widgets =
   List.iter print_endline domains;
   let items_in_row, rows_act =
     get_items_in_row ~resolution ~item_ar:(ar_x, ar_y) (List.length domains) in
-  let cont_w = (fst resolution) / items_in_row in
-  let cont_h = (ar_y * cont_w) / ar_x in
-  let start = (snd resolution - rows_act * cont_h) / 2 in
+  let remain = List.length domains - (items_in_row * (rows_act - 1)) in
+  let remain, multiplier =
+    if rows_act mod 2 <> 0 then
+      if float_of_int remain /. float_of_int items_in_row <=. 0.5 then
+        remain, 2
+      else
+        remain/2, 2
+    else
+      remain, 1 in
+(*  let start = (snd resolution - rows_act * cont_h) / 2 in *)
   List.fold_left (fun acc domain ->
       let i      = fst acc in
       let acc    = snd acc in
       let row    = i / items_in_row in
+      let cont_w =
+        if i > List.length domains - remain then
+          fst resolution / items_in_row * multiplier
+        else
+          fst resolution / items_in_row in
+      let cont_h = (ar_y * cont_w) / ar_x in
       let cont_x = (i - items_in_row * row) * cont_w in
-      let cont_y = row * cont_h + start in
+      let cont_y = row * cont_h in
       let cont_pos : Wm.position =
         { left   = cont_x
         ; top    = cont_y
