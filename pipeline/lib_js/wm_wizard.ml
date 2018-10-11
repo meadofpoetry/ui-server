@@ -133,15 +133,15 @@ let position_widget ~(pos : Wm.position) (widget : Wm.widget) : Wm.widget =
   { widget with position = pos }
 
 let make_widget (widget : string * Wm.widget) =
-  let domain      = (snd widget).domain in
-  let description = (snd widget).description in
+  let domain = (snd widget).domain in
+  let typ    = (snd widget).type_ in
   let label  =
     match (snd widget).description with
     | "video widget"    -> "Видео"
     | "soundbar widget" -> "Аудио"
     | x -> x in
   let checkbox = new Checkbox.t () in
-  checkbox#set_id @@ domain ^ description;
+  checkbox#set_id @@ domain ^ "|" ^ typ;
   checkbox, new Tree.Item.t ~text:label ~secondary_text:(channel_of_domain domain)
     ~graphic:checkbox ~value:() ()
 
@@ -283,12 +283,13 @@ let to_dialog (wm : Wm.t) =
                   let length = String.length x - index - 1 in
                   String.sub x 0 index, String.sub x (index + 1) length) in
             let widgets =
-              List.fold_left (fun acc (domain, descr) ->
+              List.fold_left (fun acc (domain, typ) ->
                   match List.find_pred (fun (name, (wdg : Wm.widget)) ->
                       String.equal domain wdg.domain
-                      && String.equal descr wdg.description) wm.widgets with
+                      && String.equal typ wdg.type_) wm.widgets with
                   | Some x -> x :: acc
                   | None   -> acc) [] wds in
+            Printf.printf "%d chosen widgets\n" (List.length widgets);
             Lwt.return
               (push @@ to_layout ~resolution:wm.resolution ~widgets)
           | `Cancel -> Lwt.return ())
