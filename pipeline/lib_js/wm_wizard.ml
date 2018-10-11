@@ -192,8 +192,6 @@ let to_checkboxes (widgets : (string * Wm.widget) list) =
 
 let to_layout ~resolution ~widgets =
   let ar_x, ar_y   = 16, 9 in
-  let widgets_num  = List.length widgets in
-  let items_in_row = get_items_in_row ~resolution ~item_ar:(ar_x, ar_y) widgets_num in
   let domains      =
     List.fold_left (fun acc (_, (wdg : Wm.widget)) ->
         if List.exists (fun x -> String.equal x wdg.domain) acc then
@@ -202,6 +200,7 @@ let to_layout ~resolution ~widgets =
           wdg.domain :: acc) [] widgets
     |> List.rev
   in
+  let items_in_row = get_items_in_row ~resolution ~item_ar:(ar_x, ar_y) (List.length domains) in
   List.fold_left (fun acc domain ->
       let i      = fst acc in
       let acc    = snd acc in
