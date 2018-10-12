@@ -27,12 +27,15 @@ let create db_conf s_struct s_status e_video e_audio =
   in
   let pids_diff =
     let open Structure in
-    Lwt_react.S.diff (fun pres past -> `New (appeared_pids ~past:(strip past) ~pres:(strip pres))) s_struct
+    Lwt_react.S.diff (fun pres past ->
+        let pads = appeared_pids ~past:(strip past) ~pres:(strip pres) in
+        if List.is_empty pads then `None else `New pads) s_struct
   in
   Lwt_react.E.keep
   @@ Lwt_react.E.map_s (function
          | `Active pids -> Db.Pid_state.bump db pids
-         | `New pids -> Db.Pid_state.init db pids)
+         | `New pids -> Db.Pid_state.init db pids
+         | `None -> Lwt.return_unit)
   @@ Lwt_react.E.select [pids; pids_diff];
   (* Structures *)
   Lwt_react.S.keep
