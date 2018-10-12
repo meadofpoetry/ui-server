@@ -220,13 +220,15 @@ let to_layout ~resolution ~widgets =
   let items_in_row, rows_act =
     get_items_in_row ~resolution ~item_ar:(ar_x, ar_y) num in
   let remain = List.length domains - (items_in_row * (rows_act - 1)) in
-  let remain, multiplier =
+  (* greatest is the number of containers we should increase in size,
+   * multiplier is the number to multiply width and height on *)
+  let greatest, multiplier =
     if rows_act <> items_in_row
          && remain <> items_in_row then
       if float_of_int remain /. float_of_int items_in_row <=. 0.5 then
         remain, 2
       else
-        remain / 2, 2
+        1, 2 (* if the number of remaining containers is greater, than the hald of the row, *)
     else
       remain, 1 in
   let cont_std_w = fst resolution / items_in_row in
@@ -242,7 +244,7 @@ let to_layout ~resolution ~widgets =
         else
           fst resolution / items_in_row in
       let cont_h = (ar_y * cont_w) / ar_x in
-      let greater_num = i - (num - remain) in
+      let greater_num = i - (num - greatest) in (* the number of greater elements behind this *)
       let cont_x = if greater_num > 0 then      (* magical *)
           (i - items_in_row * row - greater_num)
           * cont_std_w + greater_num * cont_w   (* do not touch *)
