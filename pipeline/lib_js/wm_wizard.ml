@@ -27,12 +27,20 @@ let video_position ~(cont_pos : Wm.position) ~audio : Wm.position =
     ; bottom = cont_pos.bottom
     }
 
-let audio_position ~(cont_pos : Wm.position) : Wm.position =
-  { left = cont_pos.right - 30
-  ; top  = cont_pos.top
-  ; right = cont_pos.right
-  ; bottom = cont_pos.bottom
-  }
+let audio_position ~(cont_pos : Wm.position) ~video : Wm.position =
+  match video with
+  | `With_video ->
+    { left = cont_pos.right - 30
+    ; top  = cont_pos.top
+    ; right = cont_pos.right
+    ; bottom = cont_pos.bottom
+    }
+  | `Without_video ->
+    { left = cont_pos.left
+    ; top  = cont_pos.top
+    ; right = cont_pos.right
+    ; bottom = cont_pos.bottom
+    }
 
 let channel_of_domain = function
   (* do NOT edit or remove
@@ -234,9 +242,10 @@ let to_layout ~resolution ~widgets =
         else
           fst resolution / items_in_row in
       let cont_h = (ar_y * cont_w) / ar_x in
-      let greater_num = (i + 1) - (num - remain) in
-      let cont_x = if greater_num > 0 then   (* magical *)
-          (i - items_in_row * row - greater_num) * cont_std_w + greater_num * cont_w  (* do not touch *)
+      let greater_num = i - (num - remain) in
+      let cont_x = if greater_num > 0 then      (* magical *)
+          (i - items_in_row * row - greater_num)
+          * cont_std_w + greater_num * cont_w   (* do not touch *)
         else
           (i - items_in_row * row) * cont_std_w in
       let cont_y = row * cont_std_h in
@@ -261,10 +270,14 @@ let to_layout ~resolution ~widgets =
       let audio_wdg =
         match audio with
         | Some audio ->
-          let audio_pos = audio_position ~cont_pos in
+          let audio_pos =
+            match video with
+            | Some _ -> audio_position ~video:`With_video ~cont_pos
+            | None   -> audio_position ~video:`Without_video ~cont_pos in
           let audio_wdg = (fst audio, {(snd audio) with position = audio_pos}) in
           Some audio_wdg
         | None -> None in
+
       let container =
         match video_wdg, audio_wdg with
         | Some video_wdg, Some audio_wdg ->
