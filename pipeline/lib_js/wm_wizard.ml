@@ -107,34 +107,55 @@ let domain_of_channel = function
   | x -> x
 
 let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
-  let resolution_ar = Utils.resolution_to_aspect resolution
-                      |> (fun (x,y) -> (float_of_int x) /. (float_of_int y))
-  in
-(*  let item_ar       = (float_of_int @@ fst item_ar) /. (float_of_int @@ snd item_ar) in*)
-  let squares =
-    List.map (fun rows ->
-        let rows = rows + 1 in
-        let cols = ceil (float_of_int num /. float_of_int rows) in
-        let w    = float_of_int (fst resolution) /. cols in
-        let h    = w /. resolution_ar in
-      (*  if Float.((w /. cols *. item_ar) *. float_of_int rows <= h)
-        then int_of_float cols, rows, (w /. cols *. w /. cols *. item_ar)
-        else int_of_float cols, rows,
-             (h /. (float_of_int rows) *. h /. (float_of_int rows) *. item_ar)*)
-        if (h *. float_of_int rows >. float_of_int @@ snd resolution) then
-          0, 0, 0.
-        else
-        ( let squares  = w *. h *. float_of_int num in
-          let division =
-            squares /. (float_of_int @@ fst resolution * snd resolution) in
-          int_of_float cols, rows, division)) (List.range' 0 num) in
-  let (cols : int), (rows : int), _ =
-    List.fold_left (fun acc x ->
-        let _, _, sq = x in
-        let _, _, gr = acc in
-        if Float.(gr > sq) then acc else x)
-      (0, 0, 0.) squares in
-  cols, rows
+  match num with
+  | 1 -> 1, 1
+  | 2 -> 2, 1
+  | 3 | 4 -> 2, 2
+  | 5 | 6 -> 3, 2
+  | 7 | 8 | 9 -> 3, 3
+  | 10 | 11 | 12 -> 4, 3
+  | x when x >= 13 && x <= 16 -> 4, 4
+  | x when x >= 17 && x <= 20 -> 5, 4
+  | x when x >= 21 && x <= 25 -> 5, 5
+  | x when x >= 26 && x <= 30 -> 6, 5
+  | x when x >= 31 && x <= 36 -> 6, 6
+  | x when x >= 37 && x <= 42 -> 7, 6
+  | x when x >= 43 && x <= 49 -> 7, 7
+  | x when x >= 50 && x <= 56 -> 8, 7
+  | x when x >= 57 && x <= 64 -> 8, 8
+  | x when x >= 65 && x <= 72 -> 9, 8
+  | x when x >= 73 && x <= 81 -> 9, 9
+  | x when x >= 82 && x <= 90 -> 10, 9
+  | x when x >= 90 && x <= 100 -> 10, 10
+  | _ ->
+    let resolution_ar = Utils.resolution_to_aspect resolution
+                        |> (fun (x,y) -> (float_of_int x) /. (float_of_int y))
+    in
+    (*  let item_ar       = (float_of_int @@ fst item_ar) /. (float_of_int @@ snd item_ar) in*)
+    let squares =
+      List.map (fun rows ->
+          let rows = rows + 1 in
+          let cols = ceil (float_of_int num /. float_of_int rows) in
+          let w    = float_of_int (fst resolution) /. cols in
+          let h    = w /. resolution_ar in
+          (*  if Float.((w /. cols *. item_ar) *. float_of_int rows <= h)
+              then int_of_float cols, rows, (w /. cols *. w /. cols *. item_ar)
+              else int_of_float cols, rows,
+                 (h /. (float_of_int rows) *. h /. (float_of_int rows) *. item_ar)*)
+          if (h *. float_of_int rows >. float_of_int @@ snd resolution) then
+            0, 0, 0.
+          else
+            ( let squares  = w *. h *. float_of_int num in
+              let division =
+                squares /. (float_of_int @@ fst resolution * snd resolution) in
+              int_of_float cols, rows, division)) (List.range' 0 num) in
+    let (cols : int), (rows : int), _ =
+      List.fold_left (fun acc x ->
+          let _, _, sq = x in
+          let _, _, gr = acc in
+          if Float.(gr > sq) then acc else x)
+        (0, 0, 0.) squares in
+    cols, rows
 
 let position_widget ~(pos : Wm.position) (widget : Wm.widget) : Wm.widget =
   let cpos = Utils.to_grid_position pos in
