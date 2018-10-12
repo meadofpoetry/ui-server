@@ -35,7 +35,7 @@ class ['a] t ?(non_editable = false)
   let e, push = React.E.create () in
   object(self)
 
-    inherit Vbox.t ~widgets:[grid#widget; fab#widget] ()
+    inherit Vbox.t ~widgets:[grid#widget; fab#widget] () as super
 
     method e_edited : Yojson.Safe.json React.event = e
 
@@ -63,6 +63,8 @@ class ['a] t ?(non_editable = false)
              List.iter (fun x -> self#grid#add x |> ignore) l)
 
     method destroy () =
+      super#destroy ();
+      self#grid#destroy ();
       factory#destroy ();
       Dom.removeChild Dom_html.document##.body add_panel#root
 

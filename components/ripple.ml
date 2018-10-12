@@ -11,9 +11,12 @@ class type mdc =
     method unbounded  : bool Js.t Js.prop
   end
 
-let attach (elt:#Widget.t) : mdc Js.t =
+let attach (elt : #Widget.t) : mdc Js.t =
   (* elt#add_class Markup.Ripple.base_class; *)
   Js.Unsafe.global##.mdc##.ripple##.MDCRipple##attachTo elt#root
+
+let attach' (elt : Dom_html.element Js.t) : mdc Js.t =
+  Js.Unsafe.global##.mdc##.ripple##.MDCRipple##attachTo elt
 
 let remove_accent (elt:#Widget.t)  = elt#remove_class Markup.accent_class
 let remove_primary (elt:#Widget.t) = elt#remove_class Markup.primary_class

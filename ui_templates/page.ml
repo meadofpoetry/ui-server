@@ -65,7 +65,7 @@ let create_tab_row (container : container) (tabs : ('a, 'b) tab list) =
   set_active_page container bar;
   let section = new Toolbar.Row.Section.t ~align:`Start ~widgets:[bar] () in
   let row = new Toolbar.Row.t ~sections:[section] () in
-  let () = row#set_id row_id in
+  row#set_id row_id;
   row, switch_tab container bar
 
 let get_arbitrary () : container =

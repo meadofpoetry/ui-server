@@ -61,7 +61,8 @@ class ['a, 'b] t
     val mutable _click_listener = None
 
     method add_click_listener f : unit =
-      self#listen_click_lwt f
+      self#listen Widget.Event.click (fun _ _ ->
+          f (); true)
       |> fun x -> _click_listener <- Some x
 
     method indicator = indicator
@@ -116,15 +117,19 @@ class ['a, 'b] t
 
     (* Private methods *)
 
+    method private ripple_element =
+      Option.get_exn @@ self#get_child_element_by_class Markup.ripple_class
+
     method private content_element =
       Option.get_exn @@ self#get_child_element_by_class Markup.content_class
 
     method destroy () =
-      Option.iter Lwt.cancel _click_listener;
+      Option.iter Dom_events.stop_listen _click_listener;
       _click_listener <- None;
       super#destroy ()
 
     initializer
+      Ripple.attach' self#ripple_element |> ignore;
       if min_width then self#add_class Markup.min_width_class;
       self#set_active active;
       self#set_disabled disabled;

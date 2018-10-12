@@ -82,6 +82,7 @@ let make (id : Stream.ID.t) control =
   box#set_on_destroy
   @@ Some (fun () ->
          state >|= (fun (_, f) -> f ()) |> Lwt.ignore_result;
+         overview#destroy ();
          overview_close ();
          React.E.stop ~strong:true e_services;
          React.E.stop ~strong:true e_pids;

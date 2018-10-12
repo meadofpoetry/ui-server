@@ -18,8 +18,8 @@ class type ['a] factory =
 
 type 'a typ = 'a * t
 
-class ['a] grid (factory:'a #factory) () =
-  let get = fun (i:'a positioned_item) ->
+class ['a] grid (factory : 'a #factory) () =
+  let get = fun (i : 'a positioned_item) ->
     factory#create i.item
     |> fun x -> Dashboard_item.make x
                 |> fun x -> Dynamic_grid.Item.to_item

@@ -10,7 +10,7 @@ let ( % ) = Fun.( % )
 
 let eq = Widget.equal
 
-class ['a, 'b] t ?(use_auto_activation = true)
+class ['a, 'b] t ?(auto_activation = true)
         ?on_change
         ?align
         ~(tabs : ('a, 'b) Tab.t list)
@@ -23,7 +23,13 @@ class ['a, 'b] t ?(use_auto_activation = true)
 
     inherit Widget.t elt ()
 
-    val mutable _use_auto_activation = use_auto_activation
+    val mutable _auto_activation = auto_activation
+
+    method auto_activation : bool =
+      _auto_activation
+
+    method set_auto_activation (x : bool) : unit =
+      _auto_activation <- x
 
     method align : align option =
       self#scroller#align
@@ -56,6 +62,7 @@ class ['a, 'b] t ?(use_auto_activation = true)
       Option.map (fun x -> x#value) @@ self#active_tab
 
     method set_active_tab (tab : ('a, 'b) Tab.t) : unit =
+      print_endline "set active tab";
       match List.find_idx (eq tab) self#tabs with
       | None -> ()
       | Some (idx, tab) ->
@@ -64,6 +71,7 @@ class ['a, 'b] t ?(use_auto_activation = true)
          self#scroll_into_view idx
 
     method set_active_tab_index (i : int) : unit =
+      print_endline "set active tab index";
       let tab = List.get_at_idx i self#tabs in
       match tab with
       | None -> ()
@@ -102,10 +110,10 @@ class ['a, 'b] t ?(use_auto_activation = true)
       scroller
 
     method private add_tab_click_listener (tab : ('a, 'b) Tab.t) : unit =
-      tab#add_click_listener (fun _ _ ->
+      tab#add_click_listener (fun () ->
+          print_endline "on tab clicked";
           if not @@ (Equal.option eq) (Some tab) self#active_tab
-          then self#set_active_tab tab;
-          Lwt.return_unit)
+          then self#set_active_tab tab)
 
     method private is_index_in_range (i : int) : bool =
       i >= 0 && i < (List.length self#tabs)
@@ -227,29 +235,41 @@ class ['a, 'b] t ?(use_auto_activation = true)
            Option.get_or
              ~default:0
              self#active_tab_index in
-         if _use_auto_activation
+         if self#auto_activation
          then
-           if self#is_activation_key key then () else
-             let index = self#determine_target_from_key origin key in
-             Option.iter self#set_active_tab_index index
+           begin
+             print_endline "auto activation";
+             if self#is_activation_key key then print_endline "activation key"
+             else
+               (let index = self#determine_target_from_key origin key in
+                print_endline "setting auto active";
+                Option.iter self#set_active_tab_index index)
+           end
          else
-           begin match self#get_focused_tab_index () with
-           | None -> ()
-           | Some focused_tab_index ->
-              if self#is_activation_key key
-              then self#set_active_tab_index focused_tab_index
-              else
-                let index =
-                  self#determine_target_from_key focused_tab_index key in
-                Option.iter self#focus_tab_at_index index;
-                Option.iter self#scroll_into_view index
+           begin
+             print_endline "manual activation";
+             begin match self#get_focused_tab_index () with
+             | None -> print_endline "no focused tab"; ()
+             | Some focused_tab_index ->
+                Printf.printf "focused index: %d\n" focused_tab_index;
+                if self#is_activation_key key
+                then self#set_active_tab_index focused_tab_index
+                else
+                  (let index =
+                     self#determine_target_from_key focused_tab_index key in
+                   Format.asprintf "new focused index: %a\n" (Option.pp Int.pp) index
+                   |> print_endline;
+                   Option.iter (fun x ->
+                       self#focus_tab_at_index x;
+                       self#scroll_into_view x) index)
+             end
            end
 
     method private is_activation_key : key_name -> bool = function
       | `Space | `Enter -> true
       | _ -> false
 
-    method get_focused_tab_index () : int option =
+    method private get_focused_tab_index () : int option =
       let active_elt = Dom_html.document##.activeElement in
       match Js.Opt.to_option active_elt with
       | None -> None

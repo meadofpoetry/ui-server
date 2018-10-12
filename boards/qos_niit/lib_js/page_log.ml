@@ -45,6 +45,7 @@ let make (id : Stream.ID.t) control =
     new t ~cells () in
   box#set_on_destroy
   @@ Some (fun () ->
+         overview#destroy ();
          overview_close ();
          React.E.stop ~strong:true e_errors;
          errors_sock##close);

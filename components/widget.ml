@@ -24,6 +24,17 @@ let to_rect (x:Dom_html.clientRect Js.t) =
 
 module Event = struct
   include Dom_events.Typ
+
+  class type wheelEvent =
+    object
+      inherit Dom_html.mouseEvent
+      method deltaX : int
+      method deltaY : int
+      method deltaZ : int
+      method deltaMode : int
+    end
+
+  let wheel : wheelEvent Js.t typ = make "wheel"
 end
 
 class t (elt : #Dom_html.element Js.t) () = object(self)

@@ -62,6 +62,7 @@ let make (id : Stream.ID.t) control =
     new t ~cells () in
   box#set_on_destroy
   @@ Some (fun () ->
+         overview#destroy ();
          overview_close ();
          state >|= (fun (_, f) -> f ()) |> Lwt.ignore_result;
          React.E.stop ~strong:true e_tables;

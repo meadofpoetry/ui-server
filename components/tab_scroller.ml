@@ -49,8 +49,10 @@ class ['a, 'b] t ?on_change ?align
 
     val mutable _tabs : ('a, 'b) Tab.t list = tabs
     val mutable _align : align option = align
+    val mutable _animating : bool = false
+    val mutable _listeners = []
 
-    inherit Widget.t elt ()
+    inherit Widget.t elt () as super
 
     method s_active_tab : ('a, 'b) Tab.t option React.signal =
       s_active
@@ -123,7 +125,26 @@ class ['a, 'b] t ?on_change ?align
          let scroll_delta = safe_scroll_x - current_scroll_x in
          self#animate { scroll_delta; final_scroll_position = safe_scroll_x }
 
+    method destroy () : unit =
+      super#destroy ();
+      List.iter Dom_events.stop_listen _listeners;
+      _listeners <- []
+
     (* Private methods *)
+
+    (* Handles interaction events that occur during transition *)
+    method private handle_interaction () : unit =
+      if _animating then self#stop_scroll_animation ()
+
+    (* Handles transitionend event *)
+    method private handle_transition_end e : unit =
+      let eq = Equal.option Equal.physical in
+      let target = Js.Opt.to_option e##.target in
+      if _animating && eq (Some self#content#root) target
+      then begin
+          _animating <- false;
+          self#remove_class Markup.animating_class
+        end
 
     method private calculate_scroll_edges () : int * int =
       let content_width = self#content#offset_width in
@@ -159,7 +180,9 @@ class ['a, 'b] t ?on_change ?align
       let scroll_left = self#area#scroll_left in
       scroll_left - current_translate_x
 
+    (* Stops scroll animation *)
     method private stop_scroll_animation () : unit =
+      _animating <- false;
       let current_scroll_position = self#get_animating_scroll_position () in
       self#remove_class Markup.animating_class;
       self#style##.transform := Js.string "translateX(0px)";
@@ -167,6 +190,8 @@ class ['a, 'b] t ?on_change ?align
 
     (* Animates the tab scrolling *)
     method private animate (a : animation) : unit =
+      (* Early exit if translateX is 0, which means
+       * there is no animation to perform *)
       if a.scroll_delta = 0 then () else
         begin
           let translate_x = Printf.sprintf "translateX(%dpx)" a.scroll_delta in
@@ -180,9 +205,32 @@ class ['a, 'b] t ?on_change ?align
             self#add_class Markup.animating_class;
             self#content#style##.transform := Js.string "none" in
           ignore @@ wnd##requestAnimationFrame (Js.wrap_callback cb);
+          _animating <- true;
         end
 
+    method private _init () : unit =
+      let open Widget.Event in
+      let handler = fun _ _ -> self#handle_interaction (); true in
+      let wheel = self#listen wheel handler in
+      let touchstart = self#listen touchstart handler in
+      let pointerdown = self#listen (make "pointerdown") handler in
+      let mousedown = self#listen mousedown handler in
+      let keydown = self#listen keydown handler in
+      let transitionend =
+        self#listen (make "transitionend") (fun _ e->
+            self#handle_transition_end e;
+            true) in
+      let listeners =
+        [ wheel
+        ; touchstart
+        ; pointerdown
+        ; mousedown
+        ; keydown
+        ; transitionend] in
+      _listeners <- listeners;
+
     initializer
+      self#_init ();
       area#style##.marginBottom :=
         (match compute_horizontal_scroll_height () with
          | Some x -> Js.string (Printf.sprintf "-%dpx" x)

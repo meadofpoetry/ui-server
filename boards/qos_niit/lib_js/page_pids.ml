@@ -69,7 +69,7 @@ let make (id : Stream.ID.t) control =
   let init =
     let open Lwt.Infix in
     Requests.Streams.HTTP.get_pids ~ids:[id] control
-    |> Lwt_result.map_err Api_js.Requests.err_to_string 
+    |> Lwt_result.map_err Api_js.Requests.err_to_string
     >|= (function
          | Ok [] -> Ok None
          | Ok [(_, x)] -> Ok (Some x)
@@ -94,6 +94,8 @@ let make (id : Stream.ID.t) control =
   box#set_on_destroy
   @@ Some (fun () ->
          state >|= (fun (_, f) -> f ()) |> Lwt.ignore_result;
+         summary#destroy ();
+         overview#destroy ();
          summary_close ();
          overview_close ();
          React.E.stop ~strong:true rate;

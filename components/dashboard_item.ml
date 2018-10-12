@@ -127,6 +127,12 @@ class t ~(item : 'a item) () =
       item.widget#add_or_remove_class x Markup.Item.editing_class;
       List.iter (fun x -> x#layout ()) icons
 
+    method destroy () : unit =
+      super#destroy ();
+      Option.iter (fun (_, dialog) ->
+          try Dom.removeChild Dom_html.document##.body dialog#root
+          with _ -> ()) sd
+
     initializer
       Option.iter (fun ((settings : #Widget.t), (dialog : Dialog.t)) ->
           let open Lwt.Infix in
