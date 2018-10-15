@@ -69,7 +69,6 @@ class ['a, 'b] t ?(auto_activation = false)
       | Some (idx, _) -> self#set_active_tab_index idx
 
     method set_active_tab_index (i : int) : unit =
-      Printf.printf "set active tab index: %d\n" i;
       let tab = List.get_at_idx i self#tabs in
       match tab with
       | None -> ()
@@ -219,7 +218,6 @@ class ['a, 'b] t ?(auto_activation = false)
           else x) index
 
     method private handle_tab_interaction (evt : Dom_html.event Js.t) : unit =
-      print_endline "handle tab interaction";
       let (elt : Dom_html.element Js.t) = (Js.Unsafe.coerce evt)##.detail in
       List.find_idx (fun tab -> Equal.physical tab#root elt) self#tabs
       |> function
