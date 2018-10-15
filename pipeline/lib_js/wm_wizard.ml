@@ -262,7 +262,7 @@ let make_streams (widgets : (string * Wm.widget) list) =
         |> ignore;
         let stream_node = new Tree.Item.t ~text:stream ~graphic:checkbox
           ~nested ~value:() () in
-        chbs :: (fst acc), stream_node :: (snd acc)) ([],[]) streams_of_widgets in
+        (chbs @ (fst acc)), stream_node :: (snd acc)) ([],[]) streams_of_widgets in
   checkboxes, new Tree.t ~items ()
 (* TODO streams must be the first level of the menu *)
 
