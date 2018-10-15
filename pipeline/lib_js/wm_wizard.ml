@@ -260,6 +260,13 @@ let make_streams (widgets : (string * Wm.widget) list) =
               List.iter (fun ch -> ch#set_checked false) chbs)
         @@ React.S.changes checkbox#s_state
         |> ignore;
+        List.iter (fun check ->
+            React.E.map (fun checked ->
+                if not checked
+                && Bool.equal (React.S.value checkbox#s_state) true then
+                  checkbox#set_checked false)
+            @@ React.S.changes check#s_state
+            |> ignore) chbs;
         let stream_node = new Tree.Item.t ~text:stream ~graphic:checkbox
           ~nested ~value:() () in
         (chbs @ (fst acc)), stream_node :: (snd acc)) ([],[]) streams_of_widgets in
@@ -267,103 +274,107 @@ let make_streams (widgets : (string * Wm.widget) list) =
 (* TODO streams must be the first level of the menu *)
 
 let to_layout ~resolution ~widgets =
-  let ar_x, ar_y   = 16, 9 in
-  let domains      = find_domains widgets in
-  let num = List.length domains in
-  let cols, rows =
-    get_items_in_row ~resolution ~item_ar:(ar_x, ar_y) num in
-  let remain = List.length domains - (cols * (rows - 1)) in
-  (* greatest is the number of containers we should increase in size,
-   * multiplier is the number to multiply width and height on *)
-  let greatest, multiplier =
-    if rows < cols
-         && remain <> cols then
-      if float_of_int remain /. float_of_int cols <=. 0.5 then
-        remain, 2
+  let ar_x, ar_y = 16, 9 in
+  let domains    = find_domains widgets in
+  let num        = List.length domains in
+  Printf.printf "%d chosen domains\n" num;
+  if num <> 0 then
+    let cols, rows =
+      get_items_in_row ~resolution ~item_ar:(ar_x, ar_y) num in
+    let remain = List.length domains - (cols * (rows - 1)) in
+    (* greatest is the number of containers we should increase in size,
+     * multiplier is the number to multiply width and height on *)
+    let greatest, multiplier =
+      if rows < cols
+      && remain <> cols then
+        if float_of_int remain /. float_of_int cols <=. 0.5 then
+          remain, 2
+        else
+          (* if the number of remaining containers
+           * is greater than the half of the row *)
+          1, 2
       else
-        (* if the number of remaining containers
-         * is greater than the half of the row *)
-        1, 2
-    else
-      remain, 1 in
-  let cont_std_w = fst resolution / cols in
-  let cont_std_h = (ar_y * cont_std_w) / ar_x in
-  (*  let start = (snd resolution - rows_act * cont_h) / 2 in *)
-  List.fold_left (fun acc domain ->
-      let i       = fst acc in
-      let acc     = snd acc in
-      let row_num = i / cols in
-      let channel = channel_of_domain domain in
-      let cont_w  =
-        if i + 1 > List.length domains - remain then
-          fst resolution / cols * multiplier
-        else
-          fst resolution / cols in
-      let cont_h = (ar_y * cont_w) / ar_x in
-      let greater_num = i - (num - greatest) in
-      (* the number of greater elements behind this *)
-      let cont_x = if greater_num > 0 then      (* magical *)
-          (i - cols * row_num - greater_num)    (* do not touch *)
-          * cont_std_w + greater_num * cont_w
-        else
-          (i - cols * row_num) * cont_std_w in
-      let cont_y = row_num * cont_std_h in
-      let cont_pos : Wm.position =
-        { left   = cont_x
-        ; top    = cont_y
-        ; right  = cont_x + cont_w
-        ; bottom = cont_y + cont_h
-        } in
-      let audio = find_widget ~typ:`Soundbar ~widgets ~domain in
-      let video = find_widget ~typ:`Video ~widgets ~domain in
-      let video_wdg =
-        match video with
-        | Some video ->
-          let video_pos =
-            match audio with
-            | Some _ -> video_position ~audio:`With_audio ~cont_pos
-            | None  ->  video_position ~audio:`Without_audio ~cont_pos in
-          let video_wdg =
-            fst video, position_widget ~pos:video_pos (snd video) in
-          Some video_wdg
-        | None -> None in
-      let audio_wdg =
-        match audio with
-        | Some audio ->
-          let audio_pos =
-            match video with
-            | Some _ -> audio_position ~video:`With_video ~cont_pos
-            | None   -> audio_position ~video:`Without_video ~cont_pos in
-          let audio_wdg =
-            fst audio, {(snd audio) with position = audio_pos} in
-          Some audio_wdg
-        | None -> None in
-      let container =
-        if cont_pos.left >= 0 && cont_pos.right <= fst resolution
-           && cont_pos.top >= 0 && cont_pos.bottom <= snd resolution
-        then
-          match video_wdg, audio_wdg with
-          | Some video_wdg, Some audio_wdg ->
-            Some ({ position = cont_pos
-                  ; widgets  = [video_wdg; audio_wdg]
-                  } : Wm.container)
-          | None, Some audio_wdg ->
-            Some ({ position = cont_pos
-                  ; widgets  = [audio_wdg]
-                  } : Wm.container)
-          | Some video_wdg, None ->
-            Some ({ position = cont_pos
-                  ; widgets  = [video_wdg]
-                  } : Wm.container)
-          | _, _ -> None
-        else
-          (Printf.printf "Error building container %s!\n" channel;
-           None) in
-      match container with
-      | Some x -> succ i, (channel, x) :: acc
-      | None   -> i, acc)
-    (0, []) domains
-  |> snd
+        remain, 1 in
+    let cont_std_w = fst resolution / cols in
+    let cont_std_h = (ar_y * cont_std_w) / ar_x in
+    (*  let start = (snd resolution - rows_act * cont_h) / 2 in *)
+    List.fold_left (fun acc domain ->
+        let i       = fst acc in
+        let acc     = snd acc in
+        let row_num = i / cols in
+        let channel = channel_of_domain domain in
+        let cont_w  =
+          if i + 1 > List.length domains - remain then
+            fst resolution / cols * multiplier
+          else
+            fst resolution / cols in
+        let cont_h = (ar_y * cont_w) / ar_x in
+        let greater_num = i - (num - greatest) in
+        (* the number of greater elements behind this *)
+        let cont_x = if greater_num > 0 then      (* magical *)
+            (i - cols * row_num - greater_num)    (* do not touch *)
+            * cont_std_w + greater_num * cont_w
+          else
+            (i - cols * row_num) * cont_std_w in
+        let cont_y = row_num * cont_std_h in
+        let cont_pos : Wm.position =
+          { left   = cont_x
+          ; top    = cont_y
+          ; right  = cont_x + cont_w
+          ; bottom = cont_y + cont_h
+          } in
+        let audio = find_widget ~typ:`Soundbar ~widgets ~domain in
+        let video = find_widget ~typ:`Video ~widgets ~domain in
+        let video_wdg =
+          match video with
+          | Some video ->
+            let video_pos =
+              match audio with
+              | Some _ -> video_position ~audio:`With_audio ~cont_pos
+              | None  ->  video_position ~audio:`Without_audio ~cont_pos in
+            let video_wdg =
+              fst video, position_widget ~pos:video_pos (snd video) in
+            Some video_wdg
+          | None -> None in
+        let audio_wdg =
+          match audio with
+          | Some audio ->
+            let audio_pos =
+              match video with
+              | Some _ -> audio_position ~video:`With_video ~cont_pos
+              | None   -> audio_position ~video:`Without_video ~cont_pos in
+            let audio_wdg =
+              fst audio, {(snd audio) with position = audio_pos} in
+            Some audio_wdg
+          | None -> None in
+        let container =
+          if cont_pos.left >= 0 && cont_pos.right <= fst resolution
+             && cont_pos.top >= 0 && cont_pos.bottom <= snd resolution
+          then
+            match video_wdg, audio_wdg with
+            | Some video_wdg, Some audio_wdg ->
+              Some ({ position = cont_pos
+                    ; widgets  = [video_wdg; audio_wdg]
+                    } : Wm.container)
+            | None, Some audio_wdg ->
+              Some ({ position = cont_pos
+                    ; widgets  = [audio_wdg]
+                    } : Wm.container)
+            | Some video_wdg, None ->
+              Some ({ position = cont_pos
+                    ; widgets  = [video_wdg]
+                    } : Wm.container)
+            | _, _ -> None
+          else
+            (Printf.printf "Error building container %s!\n" channel;
+             None) in
+        match container with
+        | Some x -> succ i, (channel, x) :: acc
+        | None   -> i, acc)
+      (0, []) domains
+    |> snd
+  else
+    []
 
 let to_dialog (wm : Wm.t) =
   let e, push    = React.E.create () in
