@@ -197,9 +197,8 @@ let make_widget (widget : string * Wm.widget) =
 let make_channels (widgets : (string * Wm.widget) list) =
   let domains  = find_domains widgets in
   let channels = List.map (fun x -> channel_of_domain x) domains in
-  let checkboxes, items =
-    List.split
-    @@ List.map (fun channel ->
+  let wdg_chbs, ch_chbs, items =
+    List.map (fun channel ->
         let label   = channel in
         let domain  = domain_of_channel channel in
         let widgets =
@@ -224,10 +223,12 @@ let make_channels (widgets : (string * Wm.widget) list) =
             @@ React.S.changes check#s_state
             |> ignore) checkboxes;
         let nested  = new Tree.t ~items:wds () in
-        checkboxes,
+        checkboxes, checkbox,
         new Tree.Item.t ~text:label ~graphic:checkbox
-          ~nested ~value:() ()) channels in
-  (List.concat checkboxes), new Tree.t ~items ()
+          ~nested ~value:() ()) channels
+    |> List.fold_left (fun (first, second, third) (a, b, c) ->
+        a :: first, b :: second, c :: third) ([], [], []) in
+  (List.concat wdg_chbs), ch_chbs, new Tree.t ~items ()
 
 let make_streams (widgets : (string * Wm.widget) list) =
   let stream_of_domain domain =
@@ -250,14 +251,14 @@ let make_streams (widgets : (string * Wm.widget) list) =
       stream, wds) streams in
   let checkboxes, items =
     List.fold_left (fun acc (stream, wds) ->
-        let chbs, nested = make_channels wds in
+        let wdg_chbs,ch_chbs, nested = make_channels wds in
         let checkbox = new Checkbox.t () in
         checkbox#set_id stream;
         React.E.map (fun checked ->
             if checked then
-              List.iter (fun ch -> ch#set_checked true) chbs
+              List.iter (fun ch -> ch#set_checked true) ch_chbs
             else
-              List.iter (fun ch -> ch#set_checked false) chbs)
+              List.iter (fun ch -> ch#set_checked false) ch_chbs)
         @@ React.S.changes checkbox#s_state
         |> ignore;
         List.iter (fun check ->
@@ -266,10 +267,10 @@ let make_streams (widgets : (string * Wm.widget) list) =
                 && Bool.equal (React.S.value checkbox#s_state) true then
                   checkbox#set_checked false)
             @@ React.S.changes check#s_state
-            |> ignore) chbs;
+            |> ignore) ch_chbs;
         let stream_node = new Tree.Item.t ~text:stream ~graphic:checkbox
           ~nested ~value:() () in
-        (chbs @ (fst acc)), stream_node :: (snd acc)) ([],[]) streams_of_widgets in
+        (wdg_chbs @ (fst acc)), stream_node :: (snd acc)) ([], []) streams_of_widgets in
   checkboxes, new Tree.t ~items ()
 (* TODO streams must be the first level of the menu *)
 
@@ -277,7 +278,6 @@ let to_layout ~resolution ~widgets =
   let ar_x, ar_y = 16, 9 in
   let domains    = find_domains widgets in
   let num        = List.length domains in
-  Printf.printf "%d chosen domains\n" num;
   if num <> 0 then
     let cols, rows =
       get_items_in_row ~resolution ~item_ar:(ar_x, ar_y) num in
@@ -399,12 +399,10 @@ let to_dialog (wm : Wm.t) =
                     acc
                   else
                     x#id :: acc) [] checkboxes in
-            Printf.printf "%d chosen checkboxes\n" (List.length wds);
             let wds = List.map (fun x ->
                   let index = String.index x '|' in
                   let length = String.length x - index - 1 in
                   String.sub x 0 index, String.sub x (index + 1) length) wds in
-            Printf.printf "%d splitted names\n" (List.length wds);
             let widgets =
               List.fold_left (fun acc (domain, typ) ->
                   match List.find_pred (fun (name, (wdg : Wm.widget)) ->
@@ -412,7 +410,6 @@ let to_dialog (wm : Wm.t) =
                       && String.equal typ wdg.type_) wm.widgets with
                   | Some x -> x :: acc
                   | None   -> acc) [] wds in
-            Printf.printf "%d chosen widgets\n" (List.length widgets);
             Lwt.return
               (push @@ to_layout ~resolution:wm.resolution ~widgets)
           | `Cancel -> Lwt.return ()) in
