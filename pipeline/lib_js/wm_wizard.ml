@@ -170,6 +170,30 @@ let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
     | _ -> calculate_cols_rows ()
   else calculate_cols_rows ()
 
+let position_widget_1 ~(pos : Wm.position) (widget : Wm.widget) : Wm.widget =
+  match widget.aspect with
+  | Some aspect ->
+    let w = pos.right - pos.left in
+    let h = pos.bottom - pos.top in
+    let new_w, new_h =
+      if w / (fst aspect) * (snd aspect) > h then
+        h / (snd aspect) * (fst aspect), h
+      else
+        w, w / (fst aspect) * (snd aspect) in
+    if new_w > 0 && new_w <= w
+       && new_h > 0 && new_h <= h then
+      let left = pos.left + (w - new_w) / 2 in
+      let top  = pos.top + (h - new_h) / 2 in
+      let position  = { pos with left
+                               ; top
+                               ; right = left + new_w
+                               ; bottom = top + new_h
+                      } in
+      { widget with position }
+    else
+      widget
+  | None -> widget
+
 let position_widget ~(pos : Wm.position) (widget : Wm.widget) : Wm.widget =
   let cpos = Utils.to_grid_position pos in
   let wpos =
@@ -335,7 +359,8 @@ let to_layout ~resolution ~widgets =
             let video_wdg =
               (* actually we should use position_widget here,
                * but it leaves more blamk space *)
-              fst video, {(snd video) with position = video_pos} in
+             (* fst video, {(snd video) with position = video_pos} in*)
+              fst video, position_widget_1 ~pos:video_pos (snd video) in
             Some video_wdg
           | None -> None in
         let audio_wdg =
