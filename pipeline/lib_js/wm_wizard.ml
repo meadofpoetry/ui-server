@@ -224,10 +224,10 @@ let make_channels (widgets : (string * Wm.widget) list) =
             @@ React.S.changes check#s_state
             |> ignore) checkboxes;
         let nested  = new Tree.t ~items:wds () in
-        checkbox,
+        checkboxes,
         new Tree.Item.t ~text:label ~graphic:checkbox
           ~nested ~value:() ()) channels in
-  checkboxes, new Tree.t ~items ()
+  (List.concat checkboxes), new Tree.t ~items ()
 
 let make_streams (widgets : (string * Wm.widget) list) =
   let stream_of_domain domain =
