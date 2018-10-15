@@ -119,7 +119,7 @@ let stream_parse = function
   | "s460b38ee-186b-5604-8811-235eb3005960"
   | "s4b135670-ef01-59b1-be78-4e9bec93461f"
   | "s930c63bc-0ce2-555c-9a51-09de6b1b85f2" -> "Первый мультиплекс"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2010" -> "Второй мультиплекс"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1" -> "Второй мультиплекс"
   | _ -> ""
 
 let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
