@@ -19,12 +19,14 @@ let find_widget ~typ ~widgets ~domain =
   | `Video    -> find_with_typ "video"
   | _         -> None
 
+let soundbar_col_w = 20
+
 let video_position ~(cont_pos : Wm.position) ~audio : Wm.position =
   match audio with
   | `With_audio ->
     { left   = cont_pos.left
     ; top    = cont_pos.top
-    ; right  = cont_pos.right - 30
+    ; right  = cont_pos.right - soundbar_col_w
     ; bottom = cont_pos.bottom
     }
   | `Without_audio ->
@@ -37,7 +39,7 @@ let video_position ~(cont_pos : Wm.position) ~audio : Wm.position =
 let audio_position ~(cont_pos : Wm.position) ~video : Wm.position =
   match video with
   | `With_video ->
-    { left   = cont_pos.right - 30
+    { left   = cont_pos.right - soundbar_col_w
     ; top    = cont_pos.top
     ; right  = cont_pos.right
     ; bottom = cont_pos.bottom
@@ -326,21 +328,19 @@ let to_layout ~resolution ~widgets =
         let video_wdg =
           match video with
           | Some video ->
-            Printf.printf "%s %s %s %s\n"
-              (fst video) (snd video).type_ (snd video).description (snd video).domain;
             let video_pos =
               match audio with
               | Some _ -> video_position ~audio:`With_audio ~cont_pos
               | None  ->  video_position ~audio:`Without_audio ~cont_pos in
             let video_wdg =
+              (* actually we should use position_widget here,
+               * but it leaves more blamk space *)
               fst video, {(snd video) with position = video_pos} in
             Some video_wdg
           | None -> None in
         let audio_wdg =
           match audio with
           | Some audio ->
-            Printf.printf "%s %s %s %s\n\n"
-              (fst audio) (snd audio).type_ (snd audio).description (snd audio).domain;
             let audio_pos =
               match video with
               | Some _ -> audio_position ~video:`With_video ~cont_pos
