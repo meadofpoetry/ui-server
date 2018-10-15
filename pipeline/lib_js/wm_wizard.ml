@@ -115,29 +115,29 @@ let domain_of_channel = function
   | "Россия 24" -> "s930c63bc-0ce2-555c-9a51-09de6b1b85f2_c1070"
   | x -> x
 
+let stream_parse = function
+  | "s460b38ee-186b-5604-8811-235eb3005960"
+  | "s4b135670-ef01-59b1-be78-4e9bec93461f"
+  | "s930c63bc-0ce2-555c-9a51-09de6b1b85f2" -> "Первый мультиплекс"
+  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2010" -> "Второй мультиплекс"
+  | _ -> ""
+
 let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
   let calculate_cols_rows () =
     let resolution_ar =
       Utils.resolution_to_aspect resolution
-      |> (fun (x,y) -> (float_of_int x) /. (float_of_int y)) in
-    (*  let item_ar       = (float_of_int @@ fst item_ar) /. (float_of_int @@ snd item_ar) in*)
+      |> (fun (x, y) -> (float_of_int x) /. (float_of_int y)) in
     let squares =
       List.map (fun rows ->
           let rows = rows + 1 in
           let cols = ceil (float_of_int num /. float_of_int rows) in
           let w    = float_of_int (fst resolution) /. cols in
           let h    = w /. resolution_ar in
-          (*  if Float.((w /. cols *. item_ar) *. float_of_int rows <= h)
-              then int_of_float cols, rows, (w /. cols *. w /. cols *. item_ar)
-              else int_of_float cols, rows,
-                 (h /. (float_of_int rows) *. h /. (float_of_int rows) *. item_ar)*)
           if (h *. float_of_int rows >. float_of_int @@ snd resolution) then
             0, 0, 0.
           else
             ( let squares  = w *. h *. float_of_int num in
-              let division =
-                squares /. (float_of_int @@ fst resolution * snd resolution) in
-              int_of_float cols, rows, division)) (List.range' 0 num) in
+              int_of_float cols, rows, squares)) (List.range' 0 num) in
     let (cols : int), (rows : int), _ =
       List.fold_left (fun acc x ->
           let _, _, sq = x in
@@ -269,7 +269,7 @@ let make_streams (widgets : (string * Wm.widget) list) =
                   checkbox#set_checked false)
             @@ React.S.changes check#s_state
             |> ignore) ch_chbs;
-        let stream_node = new Tree.Item.t ~text:stream ~graphic:checkbox
+        let stream_node = new Tree.Item.t ~text:(stream_parse stream) ~graphic:checkbox
           ~nested ~value:() () in
         (wdg_chbs @ (fst acc)), stream_node :: (snd acc)) ([], []) streams_of_widgets in
   checkboxes, new Tree.t ~items ()
