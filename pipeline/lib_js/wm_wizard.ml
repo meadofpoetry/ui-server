@@ -333,7 +333,7 @@ let to_layout ~resolution ~widgets =
               | Some _ -> video_position ~audio:`With_audio ~cont_pos
               | None  ->  video_position ~audio:`Without_audio ~cont_pos in
             let video_wdg =
-              fst video, position_widget ~pos:video_pos (snd video) in
+              fst video, {(snd video) with position = video_pos} in
             Some video_wdg
           | None -> None in
         let audio_wdg =
