@@ -11,14 +11,13 @@ let find_domains (widgets : (string * Wm.widget) list)=
     |> List.rev
 
 let find_widget ~typ ~widgets ~domain =
+  let find_with_typ typ =
+    List.find_pred (fun (_, (x : Wm.widget)) ->
+        String.equal x.domain domain && String.equal x.type_ typ) widgets in
   match typ with
-  | `Soundbar ->
-    List.find_pred (fun (_, (x : Wm.widget)) ->
-        String.equal x.domain domain && String.equal x.type_ "soundbar") widgets
-  | `Video ->
-    List.find_pred (fun (_, (x : Wm.widget)) ->
-        String.equal x.domain domain && String.equal x.type_ "video") widgets
-  | _ -> None
+  | `Soundbar -> find_with_typ "soundbar"
+  | `Video    -> find_with_typ "video"
+  | _         -> None
 
 let video_position ~(cont_pos : Wm.position) ~audio : Wm.position =
   match audio with
@@ -219,13 +218,7 @@ let make_channels (widgets : (string * Wm.widget) list) =
             React.E.map (fun checked ->
                 if not checked
                 && Bool.equal (React.S.value checkbox#s_state) true then
-                  checkbox#set_indeterminate true
-                else
-                  (if checked
-                   && Bool.equal (React.S.value checkbox#s_state) false then
-                     checkbox#set_indeterminate true
-                   else
-                     checkbox#set_indeterminate false))
+                  checkbox#set_checked false)
             @@ React.S.changes check#s_state
             |> ignore) checkboxes;
         let nested  = new Tree.t ~items:wds () in
@@ -271,13 +264,7 @@ let make_streams (widgets : (string * Wm.widget) list) =
             React.E.map (fun checked ->
                 if not checked
                 && Bool.equal (React.S.value checkbox#s_state) true then
-                  checkbox#set_indeterminate true
-                else
-                  (if checked
-                   && Bool.equal (React.S.value checkbox#s_state) false then
-                     checkbox#set_indeterminate true
-                   else
-                     checkbox#set_indeterminate false))
+                  checkbox#set_checked false)
             @@ React.S.changes check#s_state
             |> ignore) ch_chbs;
         let stream_node = new Tree.Item.t ~text:stream ~graphic:checkbox
@@ -309,7 +296,6 @@ let to_layout ~resolution ~widgets =
         remain, 1 in
     let cont_std_w = fst resolution / cols in
     let cont_std_h = (ar_y * cont_std_w) / ar_x in
-    (*  let start = (snd resolution - rows_act * cont_h) / 2 in *)
     List.fold_left (fun acc domain ->
         let i       = fst acc in
         let acc     = snd acc in
@@ -340,6 +326,8 @@ let to_layout ~resolution ~widgets =
         let video_wdg =
           match video with
           | Some video ->
+            Printf.printf "%s %s %s %s\n"
+              (fst video) (snd video).type_ (snd video).description (snd video).domain;
             let video_pos =
               match audio with
               | Some _ -> video_position ~audio:`With_audio ~cont_pos
@@ -351,6 +339,8 @@ let to_layout ~resolution ~widgets =
         let audio_wdg =
           match audio with
           | Some audio ->
+            Printf.printf "%s %s %s %s\n\n"
+              (fst audio) (snd audio).type_ (snd audio).description (snd audio).domain;
             let audio_pos =
               match video with
               | Some _ -> audio_position ~video:`With_video ~cont_pos
@@ -363,20 +353,14 @@ let to_layout ~resolution ~widgets =
           if cont_pos.left >= 0 && cont_pos.right <= fst resolution
              && cont_pos.top >= 0 && cont_pos.bottom <= snd resolution
           then
-            match video_wdg, audio_wdg with
-            | Some video_wdg, Some audio_wdg ->
-              Some ({ position = cont_pos
-                    ; widgets  = [video_wdg; audio_wdg]
-                    } : Wm.container)
-            | None, Some audio_wdg ->
-              Some ({ position = cont_pos
-                    ; widgets  = [audio_wdg]
-                    } : Wm.container)
-            | Some video_wdg, None ->
-              Some ({ position = cont_pos
-                    ; widgets  = [video_wdg]
-                    } : Wm.container)
-            | _, _ -> None
+            let widgets = match video_wdg, audio_wdg with
+            | Some video_wdg, Some audio_wdg -> [video_wdg; audio_wdg]
+            | None,           Some audio_wdg -> [audio_wdg]
+            | Some video_wdg, None           -> [video_wdg]
+            | _, _ -> [] in
+            match widgets with
+            | [] -> None
+            | widgets -> Some ({ position = cont_pos; widgets } : Wm.container)
           else
             (Printf.printf "Error building container %s!\n" channel;
              None) in
