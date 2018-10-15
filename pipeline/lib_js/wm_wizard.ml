@@ -56,7 +56,7 @@ let channel_of_domain = function
   | "s460b38ee-186b-5604-8811-235eb3005960_c1010" -> "Первый канал"
   | "s460b38ee-186b-5604-8811-235eb3005960_c1030" -> "МАТЧ"
   | "s460b38ee-186b-5604-8811-235eb3005960_c1040" -> "НТВ"
-  | "s460b38ee-186b-5604-8811-235eb3005960_c1050" -> "5 канал"
+  | "s460b38ee-186b-5604-8811-235eb3005960_c1050" -> "Пятый канал"
   | "s460b38ee-186b-5604-8811-235eb3005960_c1060" -> "Россия К"
   | "s460b38ee-186b-5604-8811-235eb3005960_c1080" -> "Карусель"
   | "s460b38ee-186b-5604-8811-235eb3005960_c1090" -> "ОТР"
@@ -88,7 +88,7 @@ let domain_of_channel = function
   | "Первый канал" -> "s460b38ee-186b-5604-8811-235eb3005960_c1010"
   | "МАТЧ"         -> "s460b38ee-186b-5604-8811-235eb3005960_c1030"
   | "НТВ"          -> "s460b38ee-186b-5604-8811-235eb3005960_c1040"
-  | "5 канал"      -> "s460b38ee-186b-5604-8811-235eb3005960_c1050"
+  | "Пятый канал"  -> "s460b38ee-186b-5604-8811-235eb3005960_c1050"
   | "Россия К"     -> "s460b38ee-186b-5604-8811-235eb3005960_c1060"
   | "Карусель"     -> "s460b38ee-186b-5604-8811-235eb3005960_c1080"
   | "ОТР"          -> "s460b38ee-186b-5604-8811-235eb3005960_c1090"
@@ -219,7 +219,13 @@ let make_channels (widgets : (string * Wm.widget) list) =
             React.E.map (fun checked ->
                 if not checked
                 && Bool.equal (React.S.value checkbox#s_state) true then
-                  checkbox#set_checked false)
+                  checkbox#set_indeterminate true
+                else
+                  (if checked
+                   && Bool.equal (React.S.value checkbox#s_state) false then
+                     checkbox#set_indeterminate true
+                   else
+                     checkbox#set_indeterminate false))
             @@ React.S.changes check#s_state
             |> ignore) checkboxes;
         let nested  = new Tree.t ~items:wds () in
@@ -265,7 +271,13 @@ let make_streams (widgets : (string * Wm.widget) list) =
             React.E.map (fun checked ->
                 if not checked
                 && Bool.equal (React.S.value checkbox#s_state) true then
-                  checkbox#set_checked false)
+                  checkbox#set_indeterminate true
+                else
+                  (if checked
+                   && Bool.equal (React.S.value checkbox#s_state) false then
+                     checkbox#set_indeterminate true
+                   else
+                     checkbox#set_indeterminate false))
             @@ React.S.changes check#s_state
             |> ignore) ch_chbs;
         let stream_node = new Tree.Item.t ~text:stream ~graphic:checkbox
