@@ -7,9 +7,19 @@ module Make(Xml : Xml_sigs.NoWrap)
            and module Svg := Svg) = struct
   open Html
 
-  let base_class      = "mdc-ripple-surface"
-  let primary_class   = CSS.add_modifier base_class "primary"
-  let accent_class    = CSS.add_modifier base_class "accent"
+  let base_class = "mdc-ripple-upgraded"
+  let unbounded_class = CSS.add_modifier base_class "unbounded"
+  let bg_focused_class = CSS.add_modifier base_class "background-focused"
+  let fg_activation_class = CSS.add_modifier base_class "foreground-activation"
+  let fg_deactivation_class = CSS.add_modifier base_class "foreground-deactivation"
+
+  let var_left = "--mdc-ripple-left"
+  let var_top = "--mdc-ripple-top"
+  let var_fg_size = "--mdc-ripple-fg-size"
+  let var_fg_scale = "--mdc-ripple-fg-scale"
+  let var_fg_translate_start = "--mdc-ripple-fg-translate-start"
+  let var_fg_translate_end = "--mdc-ripple-fg-translate-end"
+
   let unbounded_attr  = a_user_data "mdc-ripple-is-unbounded" ""
 
 end
