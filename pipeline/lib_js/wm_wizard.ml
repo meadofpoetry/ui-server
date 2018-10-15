@@ -398,11 +398,13 @@ let to_dialog (wm : Wm.t) =
                   if not @@ x#checked then
                     acc
                   else
-                    x#id :: acc) [] checkboxes
-              |> List.map (fun x ->
+                    x#id :: acc) [] checkboxes in
+            Printf.printf "%d chosen checkboxes\n" (List.length wds);
+            let wds = List.map (fun x ->
                   let index = String.index x '|' in
                   let length = String.length x - index - 1 in
-                  String.sub x 0 index, String.sub x (index + 1) length) in
+                  String.sub x 0 index, String.sub x (index + 1) length) wds in
+            Printf.printf "%d splitted names\n" (List.length wds);
             let widgets =
               List.fold_left (fun acc (domain, typ) ->
                   match List.find_pred (fun (name, (wdg : Wm.widget)) ->
