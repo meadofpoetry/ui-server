@@ -35,16 +35,15 @@ let button_demo () =
   demo_section "Button" [box]
 
 let circular_progress_demo () =
+  (* let slider = new Slider.t ~min:0.0 ~max:100. ~markers:true () in *)
+  (* let box = new Vbox.t ~widgets:[ determinate#widget; slider#widget ] () in
+   * let _ = React.S.map (fun v -> determinate#set_progress v) slider#s_input in
+   *)
   let indeterminate = new Circular_progress.t ~indeterminate:true () in
   let determinate = new Circular_progress.t ~indeterminate:false ~max:100. () in
-  let slider = new Slider.t ~min:0.0 ~max:100. ~markers:true () in
-  let box = new Vbox.t ~widgets:[ determinate#widget; slider#widget ] () in
-  let _ = React.S.map (fun v -> determinate#set_progress v) slider#s_input in
   let section =
-    demo_section "Circular progress" [ subsection "Indeterminate" indeterminate
-                                     ; subsection "Determinate" box ]
-  in
-  let _ = React.S.map (fun x -> if x then slider#layout ()) section#s_expanded in
+    demo_section "Circular progress" [subsection "Indeterminate" indeterminate] in
+  (* let _ = React.S.map (fun x -> if x then slider#layout ()) section#s_expanded in *)
   section
 
 let fab_demo () =
@@ -162,25 +161,25 @@ let card_demo () =
   card#style##.width := Js.string "320px";
   demo_section "Card" [ card ]
 
-let slider_demo () =
-  let continuous = new Slider.t () in
-  let discrete = new Slider.t ~discrete:true () in
-  let with_markers = new Slider.t ~discrete:true ~markers:true () in
-  let disabled = new Slider.t () in
-  disabled#set_disabled true;
-  let section =
-    demo_section "Slider"
-      [ subsection "Continuous slider" continuous
-      ; subsection "Discrete slider" discrete
-      ; subsection "Discrete slider with markers" with_markers
-      ; subsection "Disabled slider" disabled ] in
-  let _ =
-    React.S.map (fun x -> if x then (continuous#layout ();
-                                     discrete#layout ();
-                                     with_markers#layout ()))
-      section#s_expanded
-  in
-  section
+(* let slider_demo () =
+ *   let continuous = new Slider.t () in
+ *   let discrete = new Slider.t ~discrete:true () in
+ *   let with_markers = new Slider.t ~discrete:true ~markers:true () in
+ *   let disabled = new Slider.t () in
+ *   disabled#set_disabled true;
+ *   let section =
+ *     demo_section "Slider"
+ *       [ subsection "Continuous slider" continuous
+ *       ; subsection "Discrete slider" discrete
+ *       ; subsection "Discrete slider with markers" with_markers
+ *       ; subsection "Disabled slider" disabled ] in
+ *   let _ =
+ *     React.S.map (fun x -> if x then (continuous#layout ();
+ *                                      discrete#layout ();
+ *                                      with_markers#layout ()))
+ *       section#s_expanded
+ *   in
+ *   section *)
 
 let grid_list_demo () =
   let tiles =
@@ -197,13 +196,23 @@ let grid_list_demo () =
 let ripple_demo () =
   let bounded =
     Widget.create (
-        Html.div ~a:[Html.a_style "height: 200px; width: 200px; margin: 20px"] []
+        Html.div ~a:[ Html.a_class ["demo-ripple-box"]
+                    ; Html.a_tabindex 0 ] []
         |> To_dom.of_element) in
-  Elevation.set_elevation bounded 5; Ripple.attach bounded |> ignore;
+  Elevation.set_elevation bounded 5;
+  let ripple = Ripple.attach_to bounded in
+  ignore ripple;
   let unbounded = new Icon.Font.t ~icon:"favorite" () in
-  Ripple.attach unbounded |> ignore; Ripple.set_unbounded unbounded;
-  demo_section "Ripple" [ subsection "Bounded ripple. Click me!" bounded
-                        ; subsection "Unbounded ripple. Click me!" unbounded]
+  unbounded#set_attribute "tabindex" "0";
+  unbounded#add_class "demo-ripple-unbounded";
+  let ripple' = Ripple.attach_to ~unbounded:true unbounded in
+  ignore ripple';
+  let section =
+    demo_section
+      "Ripple"
+      [ subsection "Bounded ripple. Click me!" bounded
+      ; subsection "Unbounded ripple. Click me!" unbounded] in
+  section
 
 let layout_grid_demo () =
   let cells =
@@ -384,52 +393,52 @@ let menu_demo () =
   |> ignore;
   demo_section "Menu" [ wrapper#widget; icon_wrapper#widget ]
 
-let linear_progress_demo () =
-  let linear_progress = new Linear_progress.t () in
-  linear_progress#set_indeterminate true;
-  let ind_btn = new Button.t ~label:"indeterminate" () in
-  let det_btn = new Button.t ~label:"determinate" () in
-  let open_btn = new Button.t ~label:"open" () in
-  let close_btn = new Button.t ~label:"close" () in
-  let pgrs_txt = new Typography.Text.t ~text:"Progress" () in
-  let pgrs = new Slider.t ~markers:true ~min:0.0 ~max:100.0 ~step:1. () in
-  let buffer_txt = new Typography.Text.t ~text:"Buffer" () in
-  let buffer = new Slider.t ~markers:true ~min:0.0 ~max:100.0 ~step:1. () in
-  let _ = React.S.map (fun x -> linear_progress#set_progress (x /. 100.)) pgrs#s_input in
-  let _ = React.S.map (fun x -> linear_progress#set_buffer (x /. 100.)) buffer#s_input in
-  ind_btn#listen_click_lwt (fun _ _ ->
-      linear_progress#set_indeterminate true;
-      Lwt.return_unit) |> Lwt.ignore_result;
-  det_btn#listen_click_lwt (fun _ _ ->
-      linear_progress#set_indeterminate false;
-      linear_progress#set_progress (React.S.value pgrs#s_value /. 100.);
-      linear_progress#set_buffer (React.S.value buffer#s_value /. 100.);
-      Lwt.return_unit) |> Lwt.ignore_result;
-  open_btn#listen_click_lwt (fun _ _ ->
-      linear_progress#show ();
-      Lwt.return_unit) |> Lwt.ignore_result;
-  close_btn#listen_click_lwt (fun _ _ ->
-      linear_progress#hide ();
-      Lwt.return_unit) |> Lwt.ignore_result;
-  let btn_box = new Vbox.t ~widgets:[ ind_btn
-                                    ; det_btn
-                                    ; open_btn
-                                    ; close_btn ] () in
-  let sld_box = new Vbox.t ~widgets:[ pgrs_txt#widget
-                                    ; pgrs#widget
-                                    ; buffer_txt#widget
-                                    ; buffer#widget] () in
-  btn_box#set_justify_content `Start;
-  btn_box#set_align_items `Start;
-  btn_box#set_gap 20;
-  linear_progress#style##.marginTop := Js.string "50px";
-  sld_box#style##.marginTop := Js.string "50px";
-  let sect = demo_section "Linear progress" [ btn_box#widget
-                                            ; sld_box#widget
-                                            ; linear_progress#widget ] in
-  let _ = React.S.map (fun _ -> pgrs#layout ();
-                                buffer#layout ()) sect#s_expanded in
-  sect
+(* let linear_progress_demo () =
+ *   let linear_progress = new Linear_progress.t () in
+ *   linear_progress#set_indeterminate true;
+ *   let ind_btn = new Button.t ~label:"indeterminate" () in
+ *   let det_btn = new Button.t ~label:"determinate" () in
+ *   let open_btn = new Button.t ~label:"open" () in
+ *   let close_btn = new Button.t ~label:"close" () in
+ *   let pgrs_txt = new Typography.Text.t ~text:"Progress" () in
+ *   let pgrs = new Slider.t ~markers:true ~min:0.0 ~max:100.0 ~step:1. () in
+ *   let buffer_txt = new Typography.Text.t ~text:"Buffer" () in
+ *   let buffer = new Slider.t ~markers:true ~min:0.0 ~max:100.0 ~step:1. () in
+ *   let _ = React.S.map (fun x -> linear_progress#set_progress (x /. 100.)) pgrs#s_input in
+ *   let _ = React.S.map (fun x -> linear_progress#set_buffer (x /. 100.)) buffer#s_input in
+ *   ind_btn#listen_click_lwt (fun _ _ ->
+ *       linear_progress#set_indeterminate true;
+ *       Lwt.return_unit) |> Lwt.ignore_result;
+ *   det_btn#listen_click_lwt (fun _ _ ->
+ *       linear_progress#set_indeterminate false;
+ *       linear_progress#set_progress (React.S.value pgrs#s_value /. 100.);
+ *       linear_progress#set_buffer (React.S.value buffer#s_value /. 100.);
+ *       Lwt.return_unit) |> Lwt.ignore_result;
+ *   open_btn#listen_click_lwt (fun _ _ ->
+ *       linear_progress#show ();
+ *       Lwt.return_unit) |> Lwt.ignore_result;
+ *   close_btn#listen_click_lwt (fun _ _ ->
+ *       linear_progress#hide ();
+ *       Lwt.return_unit) |> Lwt.ignore_result;
+ *   let btn_box = new Vbox.t ~widgets:[ ind_btn
+ *                                     ; det_btn
+ *                                     ; open_btn
+ *                                     ; close_btn ] () in
+ *   let sld_box = new Vbox.t ~widgets:[ pgrs_txt#widget
+ *                                     ; pgrs#widget
+ *                                     ; buffer_txt#widget
+ *                                     ; buffer#widget] () in
+ *   btn_box#set_justify_content `Start;
+ *   btn_box#set_align_items `Start;
+ *   btn_box#set_gap 20;
+ *   linear_progress#style##.marginTop := Js.string "50px";
+ *   sld_box#style##.marginTop := Js.string "50px";
+ *   let sect = demo_section "Linear progress" [ btn_box#widget
+ *                                             ; sld_box#widget
+ *                                             ; linear_progress#widget ] in
+ *   let _ = React.S.map (fun _ -> pgrs#layout ();
+ *                                 buffer#layout ()) sect#s_expanded in
+ *   sect *)
 
 let tabs_demo () =
   let idx = new Textfield.t
@@ -503,31 +512,31 @@ let tabs_demo () =
   in
   section
 
-let snackbar_demo () =
-  let snackbar =
-    new Snackbar.t
-      ~message:"I am a snackbar"
-      ~action:{ handler = (fun () -> print_endline "Clicked on snackbar action")
-              ; text = "Action"}
-      () in
-  let aligned  =
-    new Snackbar.t
-      ~start_aligned:true
-      ~message:"I am a snackbar"
-      ~action:{ handler = (fun () -> print_endline "Clicked on snackbar action")
-              ; text = "Action"}
-      () in
-  let snackbar_btn = new Button.t ~label:"Open snackbar" () in
-  let aligned_btn  = new Button.t ~label:"Open start-aligned snackbar" () in
-  snackbar_btn#listen_click_lwt (fun _ _ ->
-      snackbar#show ();
-      Lwt.return_unit) |> Lwt.ignore_result;
-  aligned_btn#listen_click_lwt (fun _ _ ->
-      aligned#show ();
-      Lwt.return_unit) |> Lwt.ignore_result;
-  Dom.appendChild Dom_html.document##.body snackbar#root;
-  Dom.appendChild Dom_html.document##.body aligned#root;
-  demo_section "Snackbar" [ snackbar_btn; aligned_btn ]
+(* let snackbar_demo () =
+ *   let snackbar =
+ *     new Snackbar.t
+ *       ~message:"I am a snackbar"
+ *       ~action:{ handler = (fun () -> print_endline "Clicked on snackbar action")
+ *               ; text = "Action"}
+ *       () in
+ *   let aligned  =
+ *     new Snackbar.t
+ *       ~start_aligned:true
+ *       ~message:"I am a snackbar"
+ *       ~action:{ handler = (fun () -> print_endline "Clicked on snackbar action")
+ *               ; text = "Action"}
+ *       () in
+ *   let snackbar_btn = new Button.t ~label:"Open snackbar" () in
+ *   let aligned_btn  = new Button.t ~label:"Open start-aligned snackbar" () in
+ *   snackbar_btn#listen_click_lwt (fun _ _ ->
+ *       snackbar#show ();
+ *       Lwt.return_unit) |> Lwt.ignore_result;
+ *   aligned_btn#listen_click_lwt (fun _ _ ->
+ *       aligned#show ();
+ *       Lwt.return_unit) |> Lwt.ignore_result;
+ *   Dom.appendChild Dom_html.document##.body snackbar#root;
+ *   Dom.appendChild Dom_html.document##.body aligned#root;
+ *   demo_section "Snackbar" [ snackbar_btn; aligned_btn ] *)
 
 let textfield_demo () =
   (* CSS only textbox *)
@@ -636,16 +645,16 @@ let select_demo () =
   demo_section "Select" [ subsection "Select" select
                         ; subsection "Disabled" disabled ]
 
-let elevation_demo () =
-  let d =
-    Widget.create (
-        Html.div ~a:[Html.a_style "height: 200px; width: 200px; margin: 20px"] []
-        |> To_dom.of_element) in
-  let slider = new Slider.t ~markers:true ~max:24.0 () in
-  let _ = React.S.map (fun v -> Elevation.set_elevation d @@ int_of_float v) slider#s_input in
-  let section = demo_section "Elevation" [ d#widget; slider#widget ] in
-  let _ = React.S.map (fun x -> if x then slider#layout ()) section#s_expanded in
-  section
+(* let elevation_demo () =
+ *   let d =
+ *     Widget.create (
+ *         Html.div ~a:[Html.a_style "height: 200px; width: 200px; margin: 20px"] []
+ *         |> To_dom.of_element) in
+ *   let slider = new Slider.t ~markers:true ~max:24.0 () in
+ *   let _ = React.S.map (fun v -> Elevation.set_elevation d @@ int_of_float v) slider#s_input in
+ *   let section = demo_section "Elevation" [ d#widget; slider#widget ] in
+ *   let _ = React.S.map (fun x -> if x then slider#layout ()) section#s_expanded in
+ *   section *)
 
 let table_demo () =
   let fmt   =
@@ -1013,11 +1022,11 @@ let onload _ =
               ; checkbox_demo ()
               ; switch_demo ()
               ; toggle_demo ()
-              ; elevation_demo ()
+              (* ; elevation_demo () *)
               ; select_demo ()
               ; textfield_demo ()
               ; card_demo ()
-              ; slider_demo ()
+              (* ; slider_demo () *)
               ; grid_list_demo ()
               ; ripple_demo ()
               ; layout_grid_demo ()
@@ -1025,8 +1034,8 @@ let onload _ =
               ; list_demo ()
               ; tree_demo ()
               (* ; menu_demo () *)
-              ; snackbar_demo ()
-              ; linear_progress_demo ()
+              (* ; snackbar_demo () *)
+              (* ; linear_progress_demo () *)
               ; circular_progress_demo ()
               ; tabs_demo ()
               ; hexdump_demo ()

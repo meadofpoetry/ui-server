@@ -42,6 +42,7 @@ css-components:
 
 css-pages:
 	$(CSS) $(CSS_DIR)/main.scss $(CSS_DIR)/main.min.css
+	$(CSS) $(CSS_DIR)/pages/demo/demo.scss $(CSS_DIR)/demo.min.css
 	$(CSS) $(CSS_DIR)/pages/topology/topology.scss $(CSS_DIR)/topology.min.css
 	$(CSS) $(CSS_DIR)/pages/pipeline/pipeline.scss $(CSS_DIR)/pipeline.min.css
 	$(CSS) $(CSS_DIR)/pages/user/user.scss $(CSS_DIR)/user.min.css

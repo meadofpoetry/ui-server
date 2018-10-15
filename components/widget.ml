@@ -261,6 +261,29 @@ class t (elt : #Dom_html.element Js.t) () = object(self)
     _on_unload <- f;
     self#_observe_if_needed
 
+  method emit ?(should_bubble = false)
+           (evt_type : string)
+           (evt_data : Js.Unsafe.any) : unit =
+    let custom : (Js.js_string Js.t -> 'b Js.t -> 'c Js.t) Js.constr =
+      Js.Unsafe.global##.CustomEvent in
+    let evt = match Js.to_string
+                    @@ Js.typeof (Js.Unsafe.global##.CustomEvent) with
+      | "function" ->
+         let obj =
+           object%js
+             val detail = evt_data
+             val bubbles = should_bubble
+           end in
+         new%js custom (Js.string evt_type) obj
+      | _ ->
+         let doc = Js.Unsafe.coerce Dom_html.document in
+         let evt = doc##createEvent (Js.string "CustomEvent") in
+         evt##initCustomEvent (Js.string evt_type)
+           (Js.bool should_bubble)
+           Js._false
+           evt_data in
+    (Js.Unsafe.coerce self#root)##dispatchEvent evt
+
   (* Private methods *)
 
   method private _keep_s : 'a. 'a React.signal -> unit = fun s ->

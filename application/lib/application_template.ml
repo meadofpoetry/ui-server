@@ -88,7 +88,7 @@ let create (app : Application.t) : upper ordered_item list user_table =
     ; pre_scripts = [ Src "/js/moment.min.js"
                     ; Src "/js/Chart.min.js" ]
     ; post_scripts = [ Src "/js/demo.js" ]
-    ; stylesheets = []
+    ; stylesheets = ["/css/demo.min.css"]
     ; content = []
     } in
   let inputs = Common.Topology.inputs topo in

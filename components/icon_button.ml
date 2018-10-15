@@ -11,7 +11,7 @@ class t ?(on = false) ?on_change ?on_icon ?disabled ~icon () =
             |> To_dom.of_button in
   object(self)
 
-    val mutable _ripple = None
+    val mutable _ripple : Ripple.t option = None
 
     inherit Widget.t elt () as super
 
@@ -35,19 +35,22 @@ class t ?(on = false) ?on_change ?on_icon ?disabled ~icon () =
       set_state x;
       self#add_or_remove_class x Markup.on_class
 
-    method! layout () =
+    method! layout () : unit =
       super#layout ();
-      Option.iter (fun r -> r##layout ()) _ripple
+      Option.iter (fun r -> r#layout ()) _ripple
+
+    method! destroy () : unit =
+      super#destroy ();
+      Option.iter (fun r -> r#destroy ()) _ripple;
+      _ripple <- None
 
     initializer
       Option.iter self#set_disabled disabled;
       if on then self#set_on true;
       (* FIXME implement ripple normally *)
-      (let r = Ripple.attach self in
-       _ripple <- Some r;
-       self#add_class "mdc-ripple-surface";
-       r##.unbounded := Js.bool true;
-       Ripple.set_unbounded self);
+
+      (let ripple = Ripple.attach_to ~unbounded:true (self :> Widget.t) in
+       _ripple <- Some ripple);
       Option.iter (fun i ->
           i#add_class Markup.icon_class;
           i#add_class Markup.icon_on_class) on_icon;

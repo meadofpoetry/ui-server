@@ -3,39 +3,6 @@ open Tyxml_js
 
 module Markup = Components_markup.Ripple.Make(Xml)(Svg)(Html)
 
-type adapter =
-  { add_class : string -> unit
-  ; remove_class : string -> unit
-  ; is_unbounded : unit -> bool
-  ; is_surface_active : unit -> bool
-  ; is_surface_disabled : unit -> bool
-  ; register_handler : string -> (Dom_html.event Js.t -> unit) -> handler
-  ; deregister_handler : handler -> unit
-  ; contains_event_target : Dom_html.element Js.t -> bool
-  ; update_css_variable : string -> string -> unit
-  ; compute_bounding_rect : unit -> Widget.rect
-  }
-and handler = Dom_events.listener
-
-let default_adapter (w : #Widget.t) : adapter =
-  { add_class = w#add_class
-  ; remove_class = w#remove_class
-  ; is_unbounded = (fun () -> false)
-  ; is_surface_active = (fun () -> false)
-  ; is_surface_disabled = (fun () -> false)
-  ; register_handler = (fun typ f ->
-    w#listen (Widget.Event.make typ) (fun _ e ->
-        f (e :> Dom_html.event Js.t); true))
-  ; deregister_handler = (fun x ->
-    Dom_events.stop_listen x)
-  ; contains_event_target = (fun _ -> true)
-  ; update_css_variable = (fun name value ->
-    (Js.Unsafe.coerce w#style)##setProperty
-      (Js.string name)
-      (Js.string value))
-  ; compute_bounding_rect = (fun () -> w#bounding_client_rect)
-  }
-
 type frame =
   { width : float
   ; height : float
@@ -69,9 +36,20 @@ let default_activation_state =
   ; is_programmatic = false
   }
 
+let request_animation_frame f =
+  let cb = Js.wrap_callback f in
+  Dom_html.window##requestAnimationFrame cb
+
+let cancel_animation_frame x =
+  Dom_html.window##cancelAnimationFrame x
+
+let set_timeout f d = Dom_html.setTimeout f d
+
 module Util = struct
 
   let supports_passive : bool option ref = ref None
+
+  let suppots_css_variables_ : bool option ref = ref None
 
   let apply_passive ?(global_obj = Dom_html.window)
         ?(force_refresh = false) () =
@@ -81,12 +59,56 @@ module Util = struct
         with _ -> ())
     | _ -> ()
 
+  let detect_edge_pseudo_var_bug (window : Dom_html.window Js.t) : bool =
+    let doc = window##.document in
+    let node = doc##createElement (Js.string "div") in
+    node##.className := Js.string "mdc-ripple-surface--test-edge-var-bug";
+    ignore (doc##.body##appendChild (node :> Dom.node Js.t));
+    let (computed_style : Dom_html.cssStyleDeclaration Js.t Js.opt) =
+      (Js.Unsafe.coerce window)##getComputedStyle node in
+    let has_pseudo_var_bug = match Js.Opt.to_option computed_style with
+      | None -> true
+      | Some s -> String.equal "solid" (Js.to_string s##.borderTopStyle) in
+    ignore @@ doc##.body##removeChild (node :> Dom.node Js.t);
+    has_pseudo_var_bug
+
   let supports_css_variables ?(force_refresh = false)
-        (window : Dom_html.window Js.t) =
-    (* TODO *)
-    ignore force_refresh;
-    ignore window;
-    true
+        (window : Dom_html.window Js.t) : bool =
+    match force_refresh, !suppots_css_variables_ with
+    | false, Some x -> x
+    | true, _ | _, None ->
+       let window = Js.Unsafe.coerce window in
+       let supports_function_present =
+         if not @@ Js.Optdef.test window##.CSS then false else
+           Js.Optdef.test window##.CSS##.supports
+           && String.equal
+                "function"
+                (Js.to_string (Js.typeof window##.CSS##.supports)) in
+       if not supports_function_present
+       then false
+       else begin
+           let explicitly_supports_css_vars =
+             window##.CSS##supports
+               (Js.string "--css-vars")
+               (Js.string "yes")
+             |> Js.to_bool in
+           let we_are_feature_detecting_safary_10_plus =
+             let a = Js.to_bool
+                     @@ window##.CSS##supports
+                          (Js.string "(--css-vars: yes)") in
+             let b = Js.to_bool
+                     @@ window##.CSS##supports
+                          (Js.string "color")
+                          (Js.string "#00000000") in
+             a && b in
+           let supports =
+             if explicitly_supports_css_vars
+                || we_are_feature_detecting_safary_10_plus
+             then not @@ detect_edge_pseudo_var_bug window
+             else false in
+           if force_refresh then suppots_css_variables_ := Some supports;
+           supports
+         end
 
   let get_normalized_event_coords (event : Dom_html.event Js.t)
         (page_offset : point)
@@ -113,9 +135,54 @@ module Util = struct
     ; y = normalized_y
     }
 
-
+  (* FIXME add method availability check *)
+  let get_matches_property (elt : Dom_html.element Js.t) s =
+    (Js.Unsafe.coerce elt)##matches (Js.string s)
 
 end
+
+type adapter =
+  { add_class : string -> unit
+  ; remove_class : string -> unit
+  ; is_unbounded : unit -> bool
+  ; is_surface_active : unit -> bool
+  ; is_surface_disabled : unit -> bool
+  ; register_handler : string -> (Dom_html.event Js.t -> unit) -> handler
+  ; deregister_handler : handler -> unit
+  ; contains_event_target : Dom_html.element Js.t -> bool
+  ; update_css_variable : string -> string option -> unit
+  ; compute_bounding_rect : unit -> Widget.rect
+  }
+and handler = Dom_events.listener
+
+exception Return
+
+let update_css_variable = fun node name value ->
+  (Js.Unsafe.coerce node##.style)##setProperty
+    (Js.string name)
+    (Js.string @@ Option.get_or ~default:"" value)
+
+let make_default_adapter (w : #Widget.t) : adapter =
+  { add_class = w#add_class
+  ; remove_class = w#remove_class
+  ; is_unbounded = (fun () -> false)
+  ; is_surface_active = (fun () ->
+    Util.get_matches_property w#root ":active"
+    |> Js.to_bool)
+  ; is_surface_disabled = (fun () ->
+    if Js.Optdef.test (Js.Unsafe.coerce w#root)##.disabled
+    then Js.to_bool (Js.Unsafe.coerce w#root)##.disabled else false)
+  ; register_handler = (fun typ f ->
+    w#listen (Widget.Event.make typ) (fun _ e ->
+        f (e :> Dom_html.event Js.t); true))
+  ; deregister_handler = (fun x ->
+    Dom_events.stop_listen x)
+  ; contains_event_target = (fun target ->
+    (Js.Unsafe.coerce w#root)##contains target |> Js.to_bool)
+  ; update_css_variable = (fun name value ->
+    update_css_variable w#root name value)
+  ; compute_bounding_rect = (fun () -> w#bounding_client_rect)
+  }
 
 let padding = 20
 
@@ -144,7 +211,8 @@ object(self)
   val mutable _activation_timer = None
   val mutable _fg_deactivation_removal_timer = None
   val mutable _activation_animation_has_ended = false
-  val mutable _previous_activation_event = None
+  val mutable _previous_activation_event : Dom_html.event Js.t option = None
+  val mutable _activated_targets = []
 
   val mutable _root_listeners = []
   val mutable _deactivation_listeners = []
@@ -156,42 +224,18 @@ object(self)
     if x then adapter.add_class Markup.unbounded_class
     else adapter.remove_class Markup.unbounded_class
 
-  method activate (e : Dom_html.event Js.t) : unit =
-    let typ = Js.to_string e##._type in
-    let is_programmatic = _activation_state.is_programmatic in
-    let _ =
-      if is_programmatic
-      then false
-      else List.mem ~eq:String.equal typ
-             ["mousedown"; "touchstart"; "pointerdown"] in
-    ()
+  method activate ?(event : Dom_html.event Js.t option) () : unit =
+    self#activate_ event
 
   method deactivate () : unit =
-    if _activation_state.is_activated
-    then
-      if _activation_state.is_programmatic
-      then
-        (let f = fun _ -> self#animate_deactivation _activation_state in
-         let cb = Js.wrap_callback f in
-         ignore @@ Dom_html.window##requestAnimationFrame cb;
-         self#reset_activation_state ())
-      else
-        (self#deregister_deactivation_handlers ();
-         let _ = fun _ ->
-           let state =
-             { _activation_state with has_deactivation_ux_run = true } in
-           ignore state;
-           self#animate_deactivation _activation_state;
-           self#reset_activation_state () in
-         ())
+    self#deactivate_ ()
 
   method layout () : unit =
-    let window = Dom_html.window in
-    Option.iter (fun x -> window##cancelAnimationFrame x)_layout_frame;
-    let cb = Js.wrap_callback (fun _ ->
-                 self#layout_internal ();
-                 _layout_frame <- None) in
-    _layout_frame <- Some (window##requestAnimationFrame cb)
+    Option.iter cancel_animation_frame _layout_frame;
+    let f = fun _ ->
+      self#layout_internal ();
+      _layout_frame <- None in
+    _layout_frame <- Some (request_animation_frame f)
 
   (* Private methods *)
 
@@ -206,8 +250,7 @@ object(self)
           if adapter.is_unbounded ()
           then (adapter.add_class Markup.unbounded_class;
                 self#layout_internal ()) in
-        let cb = Js.wrap_callback f in
-        ignore @@ Dom_html.window##requestAnimationFrame cb
+        ignore @@ request_animation_frame f
       end
 
   method destroy () =
@@ -231,15 +274,10 @@ object(self)
          adapter.remove_class Markup.base_class;
          adapter.remove_class Markup.unbounded_class;
          self#remove_css_vars () in
-       let cb = Js.wrap_callback f in
-       ignore @@ Dom_html.window##requestAnimationFrame cb)
+       ignore @@ request_animation_frame f)
     else
       (self#deregister_root_handlers ();
        self#deregister_deactivation_handlers ())
-
-  method private remove_css_vars () : unit =
-    (* TODO *)
-    ()
 
   (* We compute this property so that we are not querying information about
    * the client until the point in time where the foundation requests it.
@@ -247,16 +285,17 @@ object(self)
    * too early, such as when components are rendered on the server
    * and then initialized at mount time on the client. *)
   method private supports_press_ripple () : bool =
-    (* TODO *)
-    true
+    Util.supports_css_variables Dom_html.window
 
   method private register_root_handlers (supports_press_ripple : bool) : unit =
     let listeners =
       if not @@ supports_press_ripple then [] else
         let rsz =
           Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ ->
-            self#layout (); true) in
-        let oth = List.map (fun x -> adapter.register_handler x self#activate)
+              self#layout (); true) in
+        let handler = fun event ->
+          self#activate ~event () in
+        let oth = List.map (fun x -> adapter.register_handler x handler)
                     activation_event_types in
         rsz :: oth in
     let listeners =
@@ -288,34 +327,136 @@ object(self)
     _activation_animation_has_ended <- true;
     self#run_deactivation_ux_logic_if_ready ()
 
+  method private remove_css_vars () : unit =
+    List.iter (fun v -> adapter.update_css_variable v None) Markup.vars
+
+  method activate_ (event : Dom_html.event Js.t option) : unit =
+    let is_same_interaction () =
+      match _previous_activation_event, event with
+      | None, _ | _, None -> false
+      | Some event, Some e ->
+         let typ = Js.to_string event##._type in
+         let prev_typ = Js.to_string e##._type in
+         not @@ String.equal typ prev_typ in
+    let has_activated_child () =
+      match event with
+      | None -> false
+      | Some e ->
+         List.find_opt adapter.contains_event_target _activated_targets
+         |> Option.is_some in
+    try
+      if adapter.is_surface_disabled () then raise_notrace Return;
+      if _activation_state.is_activated then raise_notrace Return;
+      if is_same_interaction () then raise_notrace Return;
+      if has_activated_child ()
+      then (self#reset_activation_state ();
+            raise_notrace Return);
+
+      Option.iter (fun e ->
+          Js.Opt.iter e##.target (fun x ->
+              _activated_targets <- x :: _activated_targets);
+          self#register_deactivation_handlers e) event;
+
+      let is_activated = true in
+      let is_programmatic = Option.is_none event in
+      let activation_event = event in
+      let was_activated_by_pointer = match event with
+        | None -> false
+        | Some e ->
+           let typ = Js.to_string e##._type in
+           let lst = ["mousedown"; "touchstart"; "pointerdown"] in
+           List.mem ~eq:String.equal typ lst in
+      let was_element_made_active = self#check_element_made_active event in
+      let state = { _activation_state with is_activated
+                                         ; is_programmatic
+                                         ; activation_event
+                                         ; was_element_made_active
+                                         ; was_activated_by_pointer } in
+      _activation_state <- state;
+      if was_element_made_active then self#animate_activation ();
+      request_animation_frame (fun _ ->
+          _activated_targets <- [];
+          if (not was_element_made_active)
+             && Option.map_or ~default:false (fun e ->
+                    let e = Js.Unsafe.coerce e in
+                    let key = Option.map Js.to_string
+                              @@ Js.Optdef.to_option e##.key in
+                    let key_code = Js.Optdef.to_option e##.keyCode in
+                    begin match key, key_code with
+                    | Some " ", _ | _, Some 32 -> true
+                    | _ -> false
+                    end) event
+          then begin
+              let was_element_made_active =
+                self#check_element_made_active event in
+              if was_element_made_active then self#animate_activation ();
+              let state = { _activation_state with was_element_made_active } in
+              _activation_state <- state;
+            end;
+          (* Reset activation state immediately
+           * if element was not made active. *)
+          if not _activation_state.was_element_made_active
+          then _activation_state <- default_activation_state)
+      |> ignore;
+    with
+    | Return -> ()
+
+  method check_element_made_active (event : Dom_html.event Js.t option) : bool =
+    let eq s e = String.equal s (Js.to_string e##._type) in
+    match event with
+    | Some e when eq "keydown" e -> adapter.is_surface_active ()
+    | _ -> true
+
   method private animate_activation () : unit =
     self#layout_internal ();
     let translate_start, translate_end =
-      if not @@ self#unbounded then "", "" else
+      if self#unbounded then "", "" else
         let start_point, end_point = self#get_fg_translation_coordinates () in
         Printf.sprintf "%dpx, %dpx" start_point.x start_point.y,
         Printf.sprintf "%dpx, %dpx" end_point.x end_point.y in
-    adapter.update_css_variable Markup.var_fg_translate_start translate_start;
-    adapter.update_css_variable Markup.var_fg_translate_end translate_end;
+    adapter.update_css_variable
+      Markup.var_fg_translate_start
+      (Some translate_start);
+    adapter.update_css_variable
+      Markup.var_fg_translate_end
+      (Some translate_end);
     (* Cancel any ongoing activation/deactivation animations *)
     Option.iter Dom_html.clearTimeout _activation_timer;
+    _activation_timer <- None;
     Option.iter Dom_html.clearTimeout _fg_deactivation_removal_timer;
+    _fg_deactivation_removal_timer <- None;
+    self#rm_bounded_activation_classes ();
     adapter.remove_class Markup.fg_deactivation_class;
     (* Force layout in order to re-trigger the animation. *)
     ignore @@ adapter.compute_bounding_rect ();
     adapter.add_class Markup.fg_activation_class;
     let cb = self#activation_timer_callback in
     let timeout = deactivation_timeout_ms in
-    _activation_timer <- Some (Dom_html.setTimeout cb timeout)
+    _activation_timer <- Some (set_timeout cb timeout)
 
   method private get_fg_translation_coordinates () : point * point =
-    let _ = _activation_state.activation_event in
-    let _ = _activation_state.was_activated_by_pointer in
+    let start_point = match _activation_state.was_activated_by_pointer with
+      | true ->
+         let window_page_offset =
+           { x = (Js.Unsafe.coerce Dom_html.window)##.pageXOffset
+           ; y = (Js.Unsafe.coerce Dom_html.window)##.pageYOffset
+           } in
+         Util.get_normalized_event_coords
+           (Option.get_exn _activation_state.activation_event)
+           window_page_offset
+           (adapter.compute_bounding_rect ())
+      | false ->
+         { x = int_of_float @@ _frame.width /. 2.
+         ; y = int_of_float @@ _frame.height /. 2.} in
+    let start_point =
+      { x = start_point.x - (int_of_float (_initial_size /. 2.))
+      ; y = start_point.y - (int_of_float (_initial_size /. 2.))
+      } in
     let end_point =
       { x = int_of_float @@ (_frame.width /. 2.) -. (_initial_size /. 2.)
       ; y = int_of_float @@ (_frame.height /. 2.) -. (_initial_size /. 2.)
       } in
-    { x = 0; y = 0 }, end_point
+    start_point, end_point
 
   method private run_deactivation_ux_logic_if_ready () : unit =
     (* This method is called both when a pointing device is released,
@@ -328,8 +469,7 @@ object(self)
     then
       (self#rm_bounded_activation_classes ();
        adapter.add_class Markup.fg_deactivation_class;
-       Dom_html.setTimeout (fun () ->
-           adapter.remove_class Markup.fg_deactivation_class)
+       set_timeout (fun () -> adapter.remove_class Markup.fg_deactivation_class)
          fg_deactivation_ms
        |> fun timer_id -> _fg_deactivation_removal_timer <- Some timer_id)
 
@@ -339,11 +479,35 @@ object(self)
     ignore @@ adapter.compute_bounding_rect ()
 
   method private reset_activation_state () : unit =
-    (* TODO *)
-    ()
+    _previous_activation_event <- _activation_state.activation_event;
+    _activation_state <- default_activation_state;
+    (* Touch devices may fire additional events for the
+     * same interaction within a short time. Store the previous
+     * event until it's safe to assume that subsequent events are
+     *  for new interactions.
+     *)
+    set_timeout (fun () -> _previous_activation_event <- None) tap_delay_ms
+    |> ignore
 
-  method private animate_deactivation _ =
-    ()
+  method private deactivate_ () : unit =
+    let ({ is_activated; is_programmatic; _ } as state) = _activation_state in
+    match is_activated, is_programmatic with
+    | false, _ -> ()
+    | _, true ->
+       ignore @@ request_animation_frame (fun _ -> self#animate_deactivation state);
+       self#reset_activation_state ()
+    | _, false ->
+       self#deregister_deactivation_handlers ();
+       let f = fun _ ->
+         let state = { state with has_deactivation_ux_run = true } in
+         _activation_state <- state;
+         self#animate_deactivation state;
+         self#reset_activation_state () in
+       ignore @@ request_animation_frame f
+
+  method private animate_deactivation (a : activation_state) =
+    if a.was_activated_by_pointer || a.was_element_made_active
+    then self#run_deactivation_ux_logic_if_ready ()
 
   method private layout_internal () : unit =
     let rect = adapter.compute_bounding_rect () in
@@ -365,51 +529,38 @@ object(self)
 
   method private update_layout_css_vars () : unit =
     adapter.update_css_variable Markup.var_fg_size
-      (Printf.sprintf "%dpx" @@ int_of_float _initial_size);
+      (Some (Printf.sprintf "%dpx" @@ int_of_float _initial_size));
     adapter.update_css_variable Markup.var_fg_scale
-      (Printf.sprintf "%g" _fg_scale);
+      (Some (Printf.sprintf "%g" _fg_scale));
     if self#unbounded
     then
       (let left = Float.(round ((_frame.width / 2.) - (_initial_size / 2.))) in
        let top = Float.(round ((_frame.height / 2.) - (_initial_size / 2.))) in
        _unbounded_coords <- { left; top };
        adapter.update_css_variable Markup.var_left
-         (Printf.sprintf "%gpx" left);
+         (Some (Printf.sprintf "%gpx" left));
        adapter.update_css_variable Markup.var_top
-         (Printf.sprintf "%gpx" top))
+         (Some (Printf.sprintf "%gpx" top)))
 
   method private handle_focus () : unit =
     (fun _ -> adapter.add_class Markup.bg_focused_class)
-    |> Js.wrap_callback
-    |> (fun cb -> Dom_html.window##requestAnimationFrame cb)
+    request_animation_frame
     |> ignore
 
   method private handle_blur () : unit =
     (fun _ -> adapter.remove_class Markup.bg_focused_class)
-    |> Js.wrap_callback
-    |> (fun cb -> Dom_html.window##requestAnimationFrame cb)
+    request_animation_frame
     |> ignore
 
   initializer
+    self#set_unbounded @@ adapter.is_unbounded ();
     self#init ()
 
 end
 
-(* TODO remove *)
-class type mdc =
-  object
-    method activate   : unit -> unit Js.meth
-    method deactivate : unit -> unit Js.meth
-    method layout     : unit -> unit Js.meth
-    method unbounded  : bool Js.t Js.prop
-  end
-
-let attach (elt : #Widget.t) : mdc Js.t =
-  (* elt#add_class Markup.Ripple.base_class; *)
-  Js.Unsafe.global##.mdc##.ripple##.MDCRipple##attachTo elt#root
-
-let attach' (elt : Dom_html.element Js.t) : mdc Js.t =
-  Js.Unsafe.global##.mdc##.ripple##.MDCRipple##attachTo elt
-
-let set_unbounded (elt:#Widget.t)    = elt#set_attribute "data-mdc-ripple-is-unbounded" ""
-let remove_unbounded (elt:#Widget.t) = elt#remove_attribute "data-mdc-ripple-is-unbounded"
+let attach_to ?unbounded (w : #Widget.t) : t =
+  let adapter = make_default_adapter w in
+  let adapter = match unbounded with
+    | None -> adapter
+    | Some x -> { adapter with is_unbounded = (fun () -> x) } in
+  new t adapter ()

@@ -15,6 +15,8 @@ type dimensions =
   ; content_right : int
   }
 
+let interacted_event = "MDCTab:interacted"
+
 let content_to_elt : type a. a content ->
                           Tab_indicator.t ->
                           'c Html.elt * a =
@@ -57,13 +59,9 @@ class ['a, 'b] t
 
     inherit Widget.t elt () as super
 
+    val mutable _ripple : Ripple.t option = None
     val mutable _value : 'b = value
     val mutable _click_listener = None
-
-    method add_click_listener f : unit =
-      self#listen Widget.Event.click (fun _ _ ->
-          f (); true)
-      |> fun x -> _click_listener <- Some x
 
     method indicator = indicator
 
@@ -92,7 +90,7 @@ class ['a, 'b] t
       self#set_attribute "tabindex" (if x then "0" else "-1");
       let prev_indicator = Option.map (fun x -> x#indicator) previous in
       indicator#set_active ?previous:prev_indicator x;
-      self#focus ()
+      if x then self#focus ()
 
     method compute_dimensions () : dimensions =
       let root_width = self#offset_width in
@@ -123,15 +121,43 @@ class ['a, 'b] t
     method private content_element =
       Option.get_exn @@ self#get_child_element_by_class Markup.content_class
 
-    method destroy () =
+    method layout () : unit =
+      super#layout ();
+      Option.iter (fun r -> r#layout ()) _ripple
+
+    method destroy () : unit =
+      super#destroy ();
       Option.iter Dom_events.stop_listen _click_listener;
       _click_listener <- None;
-      super#destroy ()
+      Option.iter (fun r -> r#destroy ()) _ripple;
+      _ripple <- None
 
     initializer
-      Ripple.attach' self#ripple_element |> ignore;
       if min_width then self#add_class Markup.min_width_class;
       self#set_active active;
       self#set_disabled disabled;
+      self#listen Widget.Event.click (fun _ _ ->
+          self#emit ~should_bubble:true
+            interacted_event
+            (Js.Unsafe.inject self#root);
+          false)
+      |> (fun x -> _click_listener <- Some x);
+      let ripple_surface = self#ripple_element in
+      let adapter = Ripple.make_default_adapter (self :> Widget.t) in
+      let add_class = fun s ->
+        ripple_surface##.classList##add (Js.string s) in
+      let remove_class = fun s ->
+        ripple_surface##.classList##remove (Js.string s) in
+      let update_css_variable = fun name value ->
+        Ripple.update_css_variable ripple_surface name value in
+      let is_surface_disabled = fun () ->
+        self#disabled in
+      let adapter =
+        { adapter with add_class
+                     ; remove_class
+                     ; update_css_variable
+                     ; is_surface_disabled } in
+      let ripple = new Ripple.t adapter () in
+      _ripple <- Some ripple
 
   end

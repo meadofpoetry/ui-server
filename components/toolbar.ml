@@ -68,11 +68,11 @@ module Row = struct
 
 end
 
-(* TODO remove *)
-class type mdc =
-  object
-    method fixedAdjustElement : Dom_html.element Js.t Js.prop
-  end
+(* (\* TODO remove *\)
+ * class type mdc =
+ *   object
+ *     method fixedAdjustElement : Dom_html.element Js.t Js.prop
+ *   end *)
 
 class type change_event =
   object
@@ -92,5 +92,5 @@ class t ~rows () =
   let elt = Markup.create ~content:(List.map Widget.to_markup rows) () |> Tyxml_js.To_dom.of_header in
   object
     inherit Widget.t elt ()
-    val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.toolbar##.MDCToolbar##attachTo elt
+    (* val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.toolbar##.MDCToolbar##attachTo elt *)
   end

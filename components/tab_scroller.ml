@@ -30,7 +30,7 @@ let compute_horizontal_scroll_height ?(cache = true) () : int option =
      Some height
 
 class ['a, 'b] t ?on_change ?align
-        ~(tabs:('a, 'b) Tab.t list) () =
+        ~(tabs : ('a, 'b) Tab.t list) () =
   let eq = Widget.equal in
   let tabs' = List.map Widget.to_markup tabs in
   let content =
@@ -44,7 +44,8 @@ class ['a, 'b] t ?on_change ?align
   let elt =
     Markup.create ~scroll_area:(Widget.to_markup area) ()
     |> To_dom.of_element in
-  let s_active, set_active = React.S.create ~eq:(Equal.option eq) None in
+  let active_tab = List.find_opt (fun tab -> tab#active) tabs in
+  let s_active, set_active = React.S.create ~eq:(Equal.option eq) active_tab in
   object(self)
 
     val mutable _tabs : ('a, 'b) Tab.t list = tabs

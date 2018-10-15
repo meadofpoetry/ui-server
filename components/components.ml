@@ -53,8 +53,8 @@ module Icon_button = Icon_button
 
 module Layout_grid = Layout_grid
 
-(* TODO remove js dependency *)
-module Linear_progress = Linear_progress
+(* (\* TODO remove js dependency *\)
+ * module Linear_progress = Linear_progress *)
 
 module Item_list = Item_list
 
@@ -64,19 +64,17 @@ module Menu = Menu
 (* TODO add group, fix selection signal *)
 module Radio = Radio
 
-(* TODO remove js dependency *)
 module Ripple = Ripple
 
 (* TODO update styles *)
 module Select = Select
 
 (* TODO remove js dependency *)
-(* XXX never used *)
-module Slider = Slider
+(* module Slider = Slider *)
 
 (* TODO remove js dependency *)
 (* XXX never used *)
-module Snackbar = Snackbar
+(* module Snackbar = Snackbar *)
 
 module Vsplit = Vsplit
 
@@ -86,7 +84,6 @@ module Switch = Switch
 
 module Table = Table
 
-(* TODO add scroll logic. update scroll appearance for desktop & mobile *)
 module Tab = Tab
 module Tab_indicator = Tab_indicator
 module Tab_scroller = Tab_scroller
@@ -96,7 +93,6 @@ module Tab_bar = Tab_bar
 module Textfield = Textfield
 module Textarea = Textarea
 
-(* TODO remove js dependency *)
 module Toolbar = Toolbar
 
 (* TODO add lines? *)

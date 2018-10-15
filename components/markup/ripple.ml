@@ -20,6 +20,15 @@ module Make(Xml : Xml_sigs.NoWrap)
   let var_fg_translate_start = "--mdc-ripple-fg-translate-start"
   let var_fg_translate_end = "--mdc-ripple-fg-translate-end"
 
+  let vars =
+    [ var_left
+    ; var_top
+    ; var_fg_size
+    ; var_fg_scale
+    ; var_fg_translate_start
+    ; var_fg_translate_end
+    ]
+
   let unbounded_attr  = a_user_data "mdc-ripple-is-unbounded" ""
 
 end

@@ -32,8 +32,7 @@ module Make
                           |> cons_if stacked stacked_class
                           |> cons_if min_width min_width_class
                           |> List.cons base_class)
-               ; a_role ["tab"]
-               ; a_button_type `Button]
+               ; a_role ["tab"]]
                <@> attrs)
       [ content
       ; indicator

@@ -10,7 +10,7 @@ let ( % ) = Fun.( % )
 
 let eq = Widget.equal
 
-class ['a, 'b] t ?(auto_activation = true)
+class ['a, 'b] t ?(auto_activation = false)
         ?on_change
         ?align
         ~(tabs : ('a, 'b) Tab.t list)
@@ -24,6 +24,8 @@ class ['a, 'b] t ?(auto_activation = true)
     inherit Widget.t elt ()
 
     val mutable _auto_activation = auto_activation
+    val mutable _keydown_listener = None
+    val mutable _interaction_listener = None
 
     method auto_activation : bool =
       _auto_activation
@@ -62,23 +64,22 @@ class ['a, 'b] t ?(auto_activation = true)
       Option.map (fun x -> x#value) @@ self#active_tab
 
     method set_active_tab (tab : ('a, 'b) Tab.t) : unit =
-      print_endline "set active tab";
       match List.find_idx (eq tab) self#tabs with
       | None -> ()
-      | Some (idx, tab) ->
-         tab#set_active ?previous:self#active_tab true;
-         self#scroller#set_active_tab tab;
-         self#scroll_into_view idx
+      | Some (idx, _) -> self#set_active_tab_index idx
 
     method set_active_tab_index (i : int) : unit =
-      print_endline "set active tab index";
+      Printf.printf "set active tab index: %d\n" i;
       let tab = List.get_at_idx i self#tabs in
       match tab with
       | None -> ()
       | Some tab ->
-         tab#set_active ?previous:self#active_tab true;
-         self#scroller#set_active_tab tab;
-         self#scroll_into_view i
+         let eq = Equal.option Int.equal in
+         if not @@ eq (Some i) self#active_tab_index
+         then
+           (tab#set_active ?previous:self#active_tab true;
+            self#scroller#set_active_tab tab;
+            self#scroll_into_view i)
 
     (* Remove tab actions *)
 
@@ -97,23 +98,15 @@ class ['a, 'b] t ?(auto_activation = true)
     (* Add tab actions *)
 
     method append_tab (tab : ('a, 'b) Tab.t) : unit =
-      self#scroller#append_tab tab;
-      self#add_tab_click_listener tab
+      self#scroller#append_tab tab
 
     method insert_tab_at_index (i : int) (tab : ('a,'b) Tab.t) : unit =
-      self#scroller#insert_tab_at_index i tab;
-      self#add_tab_click_listener tab
+      self#scroller#insert_tab_at_index i tab
 
     (* Private methods *)
 
     method private scroller : ('a, 'b) Tab_scroller.t =
       scroller
-
-    method private add_tab_click_listener (tab : ('a, 'b) Tab.t) : unit =
-      tab#add_click_listener (fun () ->
-          print_endline "on tab clicked";
-          if not @@ (Equal.option eq) (Some tab) self#active_tab
-          then self#set_active_tab tab)
 
     method private is_index_in_range (i : int) : bool =
       i >= 0 && i < (List.length self#tabs)
@@ -225,6 +218,14 @@ class ['a, 'b] t ?(auto_activation = true)
           else if x > max_index then 0
           else x) index
 
+    method private handle_tab_interaction (evt : Dom_html.event Js.t) : unit =
+      print_endline "handle tab interaction";
+      let (elt : Dom_html.element Js.t) = (Js.Unsafe.coerce evt)##.detail in
+      List.find_idx (fun tab -> Equal.physical tab#root elt) self#tabs
+      |> function
+        | None -> ()
+        | Some (idx, _) -> self#set_active_tab_index idx
+
     method private handle_key_down (e : Dom_html.keyboardEvent Js.t) : unit =
       match Utils.Keyboard_event.event_to_key e with
       | `Unknown -> ()
@@ -238,27 +239,20 @@ class ['a, 'b] t ?(auto_activation = true)
          if self#auto_activation
          then
            begin
-             print_endline "auto activation";
-             if self#is_activation_key key then print_endline "activation key"
-             else
+             if self#is_activation_key key then () else
                (let index = self#determine_target_from_key origin key in
-                print_endline "setting auto active";
                 Option.iter self#set_active_tab_index index)
            end
          else
            begin
-             print_endline "manual activation";
              begin match self#get_focused_tab_index () with
-             | None -> print_endline "no focused tab"; ()
+             | None -> ()
              | Some focused_tab_index ->
-                Printf.printf "focused index: %d\n" focused_tab_index;
                 if self#is_activation_key key
                 then self#set_active_tab_index focused_tab_index
                 else
                   (let index =
                      self#determine_target_from_key focused_tab_index key in
-                   Format.asprintf "new focused index: %a\n" (Option.pp Int.pp) index
-                   |> print_endline;
                    Option.iter (fun x ->
                        self#focus_tab_at_index x;
                        self#scroll_into_view x) index)
@@ -281,14 +275,20 @@ class ['a, 'b] t ?(auto_activation = true)
       Option.iter (fun tab -> tab#focus ()) @@ self#get_tab_at_index i
 
     initializer
-      Option.iter self#set_active_tab @@ List.head_opt self#tabs;
+      begin match self#active_tab_index with
+      | Some i -> self#scroll_into_view i
+      | None -> Option.iter self#set_active_tab (List.head_opt self#tabs)
+      end;
       React.S.diff (fun _ o -> o) self#s_active_tab
       |> React.E.fmap Fun.id
       |> React.E.map (fun x -> x#set_active ?previous:self#active_tab false)
       |> self#_keep_e;
-      List.iter self#add_tab_click_listener self#tabs;
+      self#listen_lwt (Widget.Event.make Tab.interacted_event) (fun e _ ->
+          Lwt.return @@ self#handle_tab_interaction e)
+      |> (fun x -> _interaction_listener <- Some x);
       self#listen_lwt Widget.Event.keydown (fun e _ ->
           self#handle_key_down e;
-          Lwt.return_unit) |> Lwt.ignore_result
+          Lwt.return_unit)
+      |> (fun x -> _keydown_listener <- Some x)
 
   end

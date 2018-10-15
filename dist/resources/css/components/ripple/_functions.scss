@@ -20,36 +20,35 @@
 // THE SOFTWARE.
 //
 
-@import "../animation/functions";
-@import "../theme/mixins";
-@import "./common";
-@import "./mixins";
+@import "../theme/functions";
+@import "../theme/variables"; // for mdc-theme-prop-value
 @import "./variables";
 
-// postcss-bem-linter: define ripple-surface
+//
+// Public
+//
 
-.mdc-ripple-surface {
-  @include mdc-ripple-surface;
-  @include mdc-states;
-  @include mdc-ripple-radius-bounded;
+@function mdc-states-opacity($color, $state) {
+  $opacity-map: mdc-states-opacities_($color);
 
-  position: relative;
-  outline: none;
-  overflow: hidden;
-
-  &[data-mdc-ripple-is-unbounded] {
-    @include mdc-ripple-radius-unbounded;
-
-    overflow: visible;
+  @if not map-has-key($opacity-map, $state) {
+    @error "Invalid state: '#{$state}'. Choose one of: #{map-keys($opacity-map)}";
   }
 
-  &--primary {
-    @include mdc-states(primary);
-  }
-
-  &--accent {
-    @include mdc-states(secondary);
-  }
+  @return map-get($opacity-map, $state);
 }
 
-// postcss-bem-linter: end
+//
+// Private
+//
+
+@function mdc-states-opacities_($color) {
+  $color-value: mdc-theme-prop-value($color);
+  $opacity-map: if(
+    mdc-theme-tone($color-value) == "light",
+    $mdc-ripple-light-ink-opacities,
+    $mdc-ripple-dark-ink-opacities
+  );
+
+  @return $opacity-map;
+}
