@@ -13,6 +13,7 @@ module Make(Xml : Xml_sigs.NoWrap)
   let full_width_class = CSS.add_modifier base_class "fullwidth"
   let textarea_class = CSS.add_modifier base_class "textarea"
   let disabled_class = CSS.add_modifier base_class "disabled"
+  let invalid_class = CSS.add_modifier base_class "invalid"
   let dense_class = CSS.add_modifier base_class "dense"
   let with_leading_icon_class = CSS.add_modifier base_class "with-leading-icon"
   let with_trailing_icon_class = CSS.add_modifier base_class "with-trailing-icon"
@@ -49,7 +50,7 @@ module Make(Xml : Xml_sigs.NoWrap)
               |> cons_if required @@ a_required ()
               |> map_cons_option a_placeholder placeholder
               |> map_cons_option a_value value
-              <@> attrs)
+              <@> attrs) ()
 
   let create_textarea ?(classes = []) ?attrs ?input_id
         ?value ?placeholder ?(required = false)
@@ -68,8 +69,8 @@ module Make(Xml : Xml_sigs.NoWrap)
   let create ?(classes = []) ?attrs ?(disabled = false)
         ?leading_icon ?trailing_icon
         ?(full_width = false) ?(dense = false)
-        ?(textarea = false) ?outline ?(focused = false)
-        ?line_ripple ?label ~input () =
+        ?(textarea = false)  ?(focused = false)
+        ?line_ripple ?label ?outline ~input () =
     let classes =
       classes
       |> cons_if textarea textarea_class
@@ -81,7 +82,10 @@ module Make(Xml : Xml_sigs.NoWrap)
       |> cons_if (Option.is_some leading_icon) with_leading_icon_class
       |> cons_if (Option.is_some trailing_icon) with_trailing_icon_class
       |> List.cons base_class in
+    let outline, outline_idle = match outline with
+      | Some (x, y) -> Some x, Some y
+      | None -> None, None in
     div ~a:([a_class classes] <@> attrs)
-      (label ^:: line_ripple ^:: [input])
+      (label ^:: [input] @ (outline ^:: outline_idle ^:: line_ripple ^:: []))
 
 end

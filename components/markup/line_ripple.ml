@@ -12,4 +12,7 @@ module Make(Xml : Xml_sigs.NoWrap)
   let active_class = CSS.add_modifier base_class "active"
   let deactivating_class = CSS.add_modifier base_class "deactivating"
 
+  let create ?(classes = []) ?attrs () =
+    div ~a:([a_class (base_class :: classes)] <@> attrs) []
+
 end

@@ -539,84 +539,76 @@ let tabs_demo () =
  *   demo_section "Snackbar" [ snackbar_btn; aligned_btn ] *)
 
 let textfield_demo () =
-  (* CSS only textbox *)
-  let css = new Textfield.Pure.t ~placeholder:"placeholder" ~input_id:"demo-css-textfield" () in
-  let css_form = new Form_field.t ~label:"css textfield label: " ~input:css ~align_end:true () in
   (* Full-featured js textbox *)
-  let js = new Textfield.t
-             ~input_id:"js"
-             ~input_type:Widget.Text 
-             ~label:"js textfield label"
-             ~help_text:{ validation = true
-                        ; persistent = false
-                        ; text = Some "This field must not be empty"
-             }
-             () in
+  let js =
+    new Textfield.t
+      ~input_type:Widget.Text
+      ~label:"js textfield label"
+      (* ~help_text:{ validation = true
+       *            ; persistent = false
+       *            ; text = Some "This field must not be empty"
+       * } *)
+      () in
   js#set_required true;
   (* Dense js textbox with *)
   let dense =
     new Textfield.t
-      ~input_id:"dense"
       ~label:"dense textfield label"
       ~input_type:Widget.Email
-      ~help_text:{ validation = true
-                 ; persistent = false
-                 ; text = Some "Provide valid e-mail"
-      }
+      (* ~help_text:{ validation = true
+       *            ; persistent = false
+       *            ; text = Some "Provide valid e-mail"
+       * } *)
       () in
   dense#set_dense true;
   (* Textboxes with icons *)
   let lead_icon =
     new Textfield.t
-      ~input_id:"lead_icon"
       ~input_type:Widget.Text
       ~label:"textfield label"
-      ~icon:{ icon = "event"
-            ; clickable = false
-            ; pos  = `Leading
-      }
+      (* ~icon:{ icon = "event"
+       *       ; clickable = false
+       *       ; pos  = `Leading
+       * } *)
       () in
   let trail_icon =
     new Textfield.t
-      ~input_id:"trail_icon"
       ~input_type:Widget.Text
       ~label:"textfield label"
-      ~icon:{ icon = "delete"
-            ; clickable = false
-            ; pos = `Trailing
-      }
+      (* ~icon:{ icon = "delete"
+       *       ; clickable = false
+       *       ; pos = `Trailing
+       * } *)
       () in
   let outlined =
     new Textfield.t
-      ~input_id:"outlined"
       ~input_type:Widget.Text
       ~label:"textfield label"
-      ~icon:{ icon = "settings"
-            ; clickable = false
-            ; pos = `Trailing
-      }
-      ~outline:true
+      (* ~icon:{ icon = "settings"
+       *       ; clickable = false
+       *       ; pos = `Trailing
+       * } *)
+      ~outlined:true
       () in
   (* Textareas *)
-  let css_textarea =
-    new Textarea.Pure.t
-      ~input_id:"css_textarea"
-      ~placeholder:"Enter something"
-      ~rows:8 ~cols:40 () in
-  let textarea =
-    new Textarea.t
-      ~input_id:"textarea"
-      ~label:"textarea label"
-      ~rows:8 ~cols:40 () in
+  (* let css_textarea =
+   *   new Textarea.Pure.t
+   *     ~input_id:"css_textarea"
+   *     ~placeholder:"Enter something"
+   *     ~rows:8 ~cols:40 () in
+   * let textarea =
+   *   new Textarea.t
+   *     ~input_id:"textarea"
+   *     ~label:"textarea label"
+   *     ~rows:8 ~cols:40 () in *)
   demo_section "Textfield"
-    [ subsection "CSS only textfield" css_form
-    ; subsection "JS textfield" js
+    [ subsection "JS textfield" js
     ; subsection "Dense textfield (with email validation)" dense
     ; subsection "With leading icon" lead_icon
     ; subsection "With trailing icon" trail_icon
     ; subsection "Outlined" outlined
-    ; subsection "Textarea (css only)" css_textarea
-    ; subsection "Textarea" textarea ]
+    (* ; subsection "Textarea (css only)" css_textarea
+     * ; subsection "Textarea" textarea *) ]
 
 let select_demo () =
   let select =

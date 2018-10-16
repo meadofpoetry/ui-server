@@ -89,9 +89,7 @@ module Tab_indicator = Tab_indicator
 module Tab_scroller = Tab_scroller
 module Tab_bar = Tab_bar
 
-(* TODO remove js dependency, refactor, update styles *)
 module Textfield = Textfield
-module Textarea = Textarea
 
 module Toolbar = Toolbar
 

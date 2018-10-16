@@ -8,39 +8,39 @@ type config = unit [@@deriving yojson]
 let base_class = "ip-dektec-network-settings"
 
 let make_ip () =
-  let help_text : Textfield.Help_text.helptext =
-    { validation=true;persistent=false;text=None} in
+  (* let help_text : Textfield.Help_text.helptext =
+   *   { validation=true;persistent=false;text=None} in *)
   let ip =
     new Textfield.t
       ~input_id:"ip"
       ~input_type:IPV4
-      ~help_text
+      (* ~help_text *)
       ~label:"IP адрес" () in
-  let set (x:nw) = ip#fill_in x.ip in
+  let set (x:nw) = ip#set_value x.ip in
   ip#widget,set,ip#s_input,ip#set_disabled
 
 let make_mask () =
-  let help_text : Textfield.Help_text.helptext =
-    { validation=true;persistent=false;text=None} in
+  (* let help_text : Textfield.Help_text.helptext =
+   *   { validation=true;persistent=false;text=None} in *)
   let mask =
     new Textfield.t
       ~input_id:"mask"
       ~input_type:IPV4
-      ~help_text
+      (* ~help_text *)
       ~label:"Маска подсети" () in
-  let set (x:nw) = mask#fill_in x.mask in
+  let set (x:nw) = mask#set_value x.mask in
   mask#widget,set,mask#s_input,mask#set_disabled
 
 let make_gateway () =
-  let help_text : Textfield.Help_text.helptext =
-    { validation=true;persistent=false;text=None} in
+  (* let help_text : Textfield.Help_text.helptext =
+   *   { validation=true;persistent=false;text=None} in *)
   let gw =
     new Textfield.t
       ~input_id:"gw"
       ~input_type:IPV4
-      ~help_text
+      (* ~help_text *)
       ~label:"Шлюз" () in
-  let set (x:nw) = gw#fill_in x.gateway in
+  let set (x:nw) = gw#set_value x.gateway in
   gw#widget,set,gw#s_input,gw#set_disabled
 
 let make_dhcp () =

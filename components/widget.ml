@@ -385,35 +385,6 @@ class radio_or_cb_widget ?on_change ?state ~input_elt elt () =
 
   end
 
-class type validity_state =
-  object
-    method badInput : bool Js.t Js.readonly_prop
-    method customError : bool Js.t Js.readonly_prop
-    method patternMismatch : bool Js.t Js.readonly_prop
-    method rangeOverflow : bool Js.t Js.readonly_prop
-    method rangeUnderflow : bool Js.t Js.readonly_prop
-    method stepMismatch : bool Js.t Js.readonly_prop
-    method tooLong : bool Js.t Js.readonly_prop
-    method tooShort : bool Js.t Js.readonly_prop
-    method typeMismatch : bool Js.t Js.readonly_prop
-    method valid : bool Js.t Js.readonly_prop
-    method valueMissing : bool Js.t Js.readonly_prop
-  end
-
-type validity =
-  { bad_input : bool
-  ; custom_error : bool
-  ; pattern_mismatch : bool
-  ; range_overflow : bool
-  ; range_underflow : bool
-  ; step_mismatch : bool
-  ; too_long : bool
-  ; too_short : bool
-  ; type_mismatch : bool
-  ; valid : bool
-  ; value_missing : bool
-  }
-
 type email_v_msgs   =
   { mismatch : string option
   ; too_long : string option
@@ -529,27 +500,16 @@ class ['a] text_input_widget ?v_msg ~input_elt (v : 'a validation) elt () =
 
     method validation_message =
       Js.to_string (Js.Unsafe.coerce input_elt)##.validationMessage
-    method validity =
-      let (v:validity_state Js.t) = (Js.Unsafe.coerce input_elt)##.validity in
-      { bad_input        = Js.to_bool v##.badInput
-      ; custom_error     = Js.to_bool v##.customError
-      ; pattern_mismatch = Js.to_bool v##.patternMismatch
-      ; range_overflow   = Js.to_bool v##.rangeOverflow
-      ; range_underflow  = Js.to_bool v##.rangeUnderflow
-      ; step_mismatch    = Js.to_bool v##.stepMismatch
-      ; too_long         = Js.to_bool v##.tooLong
-      ; too_short        = Js.to_bool v##.tooShort
-      ; type_mismatch    = Js.to_bool v##.typeMismatch
-      ; valid            = Js.to_bool v##.valid
-      ; value_missing    = Js.to_bool v##.valueMissing
-      }
 
     method s_input   = s_input
 
-    method fill_in (x : 'a) =
-      s_input_push (Some x); self#_set_value (valid_to_string v x)
+    method set_value (x : 'a) =
+      s_input_push (Some x);
+      self#_set_value (valid_to_string v x)
+
     method clear () =
-      s_input_push None; self#_set_value ""
+      s_input_push None;
+      self#_set_value ""
 
     method private set_max (x : float) =
       (Js.Unsafe.coerce input_elt)##.max := x

@@ -38,29 +38,29 @@ let make_meth () =
   form#widget,set,en#s_state,en#set_disabled
 
 let make_port () =
-  let help_text : Textfield.Help_text.helptext =
-    { validation=true;persistent=false;text=None } in
+  (* let help_text : Textfield.Help_text.helptext =
+   *   { validation=true;persistent=false;text=None } in *)
   let port =
     new Textfield.t
       ~input_id:"port"
-      ~help_text
+      (* ~help_text *)
       ~label:"UDP порт"
       ~input_type:(Integer (Some 0, Some 65535)) () in
-  let set (x:ip) = port#fill_in x.port in
+  let set (x:ip) = port#set_value x.port in
   port#widget,set,port#s_input,port#set_disabled
 
 let make_multicast () =
-  let help_text : Textfield.Help_text.helptext =
-    { validation=true;persistent=false;text=None } in
+  (* let help_text : Textfield.Help_text.helptext =
+   *   { validation=true;persistent=false;text=None } in *)
   let mcast =
     new Textfield.t
       ~input_id:"mcast"
-      ~help_text
+      (* ~help_text *)
       ~label:"Multicast адрес"
       ~input_type:MulticastV4 () in
   let set (x:ip) = match x.multicast with
     | None   -> ()
-    | Some x -> mcast#fill_in x
+    | Some x -> mcast#set_value x
   in
   mcast#widget,set,mcast#s_input,mcast#set_disabled
 

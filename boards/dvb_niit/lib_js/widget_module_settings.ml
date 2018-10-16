@@ -79,15 +79,15 @@ let make_freq ?(terrestrial = true)
   freq, set
 
 let make_plp (standard : standard option React.signal) () =
-  let (ht : Textfield.Help_text.helptext) =
-    { persistent = false
-    ; validation = true
-    ; text = None} in
+  (* let (ht : Textfield.Help_text.helptext) =
+   *   { persistent = false
+   *   ; validation = true
+   *   ; text = None} in *)
   let plp =
     new Textfield.t
       ~input_id:"plp_field"
       ~input_type:(Integer ((Some 0),(Some 255)))
-      ~help_text:ht
+      (* ~help_text:ht *)
       ~label:"PLP ID"
       () in
   plp#set_required true;
@@ -97,7 +97,7 @@ let make_plp (standard : standard option React.signal) () =
         | _ -> plp#style##.display := Js.string "none") standard in
   let set = function
     | None -> plp#clear ()
-    | Some x -> plp#fill_in x.channel.plp in
+    | Some x -> plp#set_value x.channel.plp in
   plp, set
 
 let make_mode_box ~(id : int)

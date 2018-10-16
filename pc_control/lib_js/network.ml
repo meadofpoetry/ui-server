@@ -42,7 +42,7 @@ let make_eth (eth : Network_config.ethernet_conf) =
 
   let signal, push = React.S.create eth in
   
-  let set (eth : Network_config.ethernet_conf) = address#fill_in eth.mac_address in
+  let set (eth : Network_config.ethernet_conf) = address#set_value eth.mac_address in
 
   let media      = new Card.Media.t ~widgets:[new Vbox.t ~widgets:[ address#widget ] ()] () in
   media#style##.margin := Js.string "15px";
@@ -184,9 +184,9 @@ let make_ipv4 (ipv4 : Network_config.ipv4_conf) =
   
   let set (ipv4 : Network_config.ipv4_conf) =
     meth#input_widget#set_checked (ipv4.meth = Auto);
-    address#fill_in @@ fst ipv4.address;
-    mask#fill_in (Int32.to_int @@ snd ipv4.address);
-    CCOpt.iter gateway#fill_in ipv4.routes.gateway;
+    address#set_value @@ fst ipv4.address;
+    mask#set_value (Int32.to_int @@ snd ipv4.address);
+    CCOpt.iter gateway#set_value ipv4.routes.gateway;
     dns_set ipv4.dns;
     routes_set ipv4.routes.static;
     push ipv4
