@@ -1,5 +1,8 @@
 .mdc-card {
     &__media {
         padding: 1rem;
+        .mdc-text-field {
+            margin-bottom: 8px;
+        }
     }
 }

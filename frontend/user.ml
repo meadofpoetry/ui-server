@@ -4,48 +4,49 @@ open Api_js.Requests.Json_request
 
 let make_card user =
   let username = match user with
-    | `Root     -> "администратора"
+    | `Root -> "администратора"
     | `Operator -> "оператора"
-    | `Guest    -> "гостя" in
+    | `Guest -> "гостя" in
   let verify_pass pass =
     if String.length pass < 4
     then Error "password is too short"
     else Ok () in
   let eq_pass old npass =
     match old with
-    | None     -> Error "pass empty"
-    | Some old -> if old = npass then Ok ()
-                  else Error "pass mismatch" in
+    | None -> Error "pass empty"
+    | Some old ->
+       if old = npass then Ok ()
+       else Error "pass mismatch" in
   let title     =
     new Card.Primary.title ("Пароль " ^ username) () in
   let primary   =
     new Card.Primary.t ~widgets:[title] () in
   let old_form  =
     new Textfield.t
-      ~input_id:("user-ol-pass-" ^ to_string user)
+      ~outlined:true
+      ~required:true
       ~label:"Пароль"
-      ~input_type:(Widget.Password (fun pass -> Ok ())) () in
+      ~input_type:(Password (fun pass -> Ok ())) () in
   let new_form  =
     new Textfield.t
-      ~input_id:("user-new-pass-" ^ to_string user)
+      ~outlined:true
+      ~required:true
       ~label:"Новый пароль"
-      ~input_type:(Widget.Password (fun pass -> verify_pass pass)) () in
+      ~input_type:(Password (fun pass -> verify_pass pass)) () in
   let acc_form  =
     new Textfield.t
-      ~input_id:("user-repeat-pass-" ^ to_string user)
+      ~outlined:true
+      ~required:true
       ~label:"Повторите пароль"
-      ~input_type:(Widget.Password (fun pass ->
+      ~input_type:(Password (fun pass ->
                        eq_pass (React.S.value new_form#s_input) pass)) () in
-  let settings  =
+  let settings =
     new Vbox.t ~widgets:[ old_form#widget
                         ; new_form#widget
                         ; acc_form#widget ]
       () in
-  old_form#set_required true;
-  new_form#set_required true;
-  acc_form#set_required true;
-  let apply   = new Button.t ~label:"Применить" () in
-  let media   = new Card.Media.t ~widgets:[settings] () in
+  let apply = new Button.t ~label:"Применить" () in
+  let media = new Card.Media.t ~widgets:[settings] () in
   let actions = new Card.Actions.t ~widgets:[ apply ] () in
   let card =
     new Card.t ~widgets:[ primary#widget

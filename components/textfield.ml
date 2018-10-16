@@ -226,6 +226,7 @@ class ['a] t ?input_id
         ?label
         ?placeholder
         ?(native_validation = true)
+        ?required
         ?(line_ripple = true)
         ?(outlined = false)
         ?(full_width = false)
@@ -544,6 +545,7 @@ class ['a] t ?input_id
       self#set_custom_validity ""
 
     method init () : unit =
+      Option.iter self#set_required required;
       Option.iter (fun (x : Icon.t) ->
           x.widget#add_class Markup.Icon._class) leading_icon;
       Option.iter (fun (x : Icon.t) ->
