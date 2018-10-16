@@ -19,6 +19,7 @@ module Make(Xml : Xml_sigs.NoWrap)
   let with_trailing_icon_class = CSS.add_modifier base_class "with-trailing-icon"
   let focused_class = CSS.add_modifier base_class "focused"
   let input_class = CSS.add_element base_class "input"
+  let container_class = "mdc-text-field-container"
 
   module Helper_text = struct
 
@@ -38,7 +39,7 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   module Icon = struct
 
-    let _class = "mdc-text-field-icon"
+    let _class = CSS.add_element base_class "icon"
 
   end
 
@@ -86,6 +87,7 @@ module Make(Xml : Xml_sigs.NoWrap)
       | Some (x, y) -> Some x, Some y
       | None -> None, None in
     div ~a:([a_class classes] <@> attrs)
-      (label ^:: [input] @ (outline ^:: outline_idle ^:: line_ripple ^:: []))
+      ((label ^:: leading_icon ^:: trailing_icon ^:: [input])
+       @ (outline ^:: outline_idle ^:: line_ripple ^:: []))
 
 end

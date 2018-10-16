@@ -540,45 +540,51 @@ let tabs_demo () =
 
 let textfield_demo () =
   (* Full-featured js textbox *)
+  let js_helptext =
+    new Textfield.Helper_text.t
+      ~validation:true
+      ~content:"This field must not be empty"
+      () in
   let js =
     new Textfield.t
       ~input_type:Text
       ~label:"js textfield label"
-      (* ~help_text:{ validation = true
-       *            ; persistent = false
-       *            ; text = Some "This field must not be empty"
-       * } *)
+      ~helper_text:js_helptext
       () in
+  let js_wrapped =
+    Textfield.wrap
+      ~textfield:js
+      ~helper_text:js_helptext in
   js#set_required true;
   (* Dense js textbox with *)
+  let dense_helptext =
+    new Textfield.Helper_text.t
+      ~validation:true
+      ~content:"Provide valid e-mail"
+      () in
   let dense =
     new Textfield.t
       ~label:"dense textfield label"
       ~input_type:Email
-      (* ~help_text:{ validation = true
-       *            ; persistent = false
-       *            ; text = Some "Provide valid e-mail"
-       * } *)
+      ~helper_text:dense_helptext
       () in
+  let dense_wrapped =
+    Textfield.wrap
+      ~textfield:dense
+      ~helper_text:dense_helptext in
   dense#set_dense true;
   (* Textboxes with icons *)
   let lead_icon =
     new Textfield.t
-      ~input_type:(Integer (Some 2, Some 10))
+      ~input_type:Text
       ~label:"textfield label"
-      (* ~icon:{ icon = "event"
-       *       ; clickable = false
-       *       ; pos  = `Leading
-       * } *)
+      ~leading_icon:(Icon.SVG.(create_simple Path.earth))
       () in
   let trail_icon =
     new Textfield.t
       ~input_type:Text
       ~label:"textfield label"
-      (* ~icon:{ icon = "delete"
-       *       ; clickable = false
-       *       ; pos = `Trailing
-       * } *)
+      ~trailing_icon:(Icon.SVG.(create_simple Path.delete))
       () in
   let outlined =
     new Textfield.t
@@ -602,8 +608,8 @@ let textfield_demo () =
    *     ~label:"textarea label"
    *     ~rows:8 ~cols:40 () in *)
   demo_section "Textfield"
-    [ subsection "JS textfield" js
-    ; subsection "Dense textfield (with email validation)" dense
+    [ subsection "JS textfield" js_wrapped
+    ; subsection "Dense textfield (with email validation)" dense_wrapped
     ; subsection "With leading icon" lead_icon
     ; subsection "With trailing icon" trail_icon
     ; subsection "Outlined" outlined

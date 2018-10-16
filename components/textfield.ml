@@ -3,6 +3,119 @@ open Tyxml_js
 
 module Markup = Components_markup.Textfield.Make(Xml)(Svg)(Html)
 
+module Icon = struct
+
+  type t =
+    { widget : Widget.t
+    ; mutable saved_tab_index : int option
+    ; mutable listeners : unit Lwt.t list
+    ; event : Dom_html.event Js.t React.event
+    ; set_event : Dom_html.event Js.t -> unit
+    }
+
+  let make (widget : #Widget.t) : t =
+    let event, set_event = React.E.create () in
+    { widget = widget#widget
+    ; saved_tab_index = None
+    ; listeners = []
+    ; event
+    ; set_event
+    }
+
+  let set_disabled (t : t) (disabled : bool) =
+    match t.saved_tab_index with
+    | None -> ()
+    | Some index ->
+       if disabled
+       then (t.widget#set_attribute "tabindex" "-1";
+             t.widget#remove_attribute "role")
+       else (t.widget#set_attribute "tabindex" (string_of_int index);
+             t.widget#set_attribute "role" "button")
+
+  let set_aria_label (t : t) (label : string) =
+    t.widget#set_attribute "aria-label" label
+
+  let handle_interaction (t : t) (e : Dom_html.event Js.t) =
+    let key = Option.map Js.to_string
+              @@ Js.Optdef.to_option @@ (Js.Unsafe.coerce e)##.key in
+    let key_code = Js.Optdef.to_option @@ (Js.Unsafe.coerce e)##.key in
+    let typ = Js.to_string e##._type in
+    match typ, key, key_code with
+    | "click", _, _ | _, Some "Enter", _ | _, _, Some 13 ->
+       t.set_event e
+    | _ -> ()
+
+  let init (t : t) : unit =
+    let saved_tab_index =
+      t.widget#get_attribute "tabindex"
+      |> Option.flat_map int_of_string_opt in
+    let click_keydown =
+      List.map (fun x ->
+          t.widget#listen_lwt (Widget.Event.make x) (fun e _ ->
+              handle_interaction t e;
+              Lwt.return ())) ["click"; "keydown"] in
+    t.listeners <- t.listeners @ click_keydown;
+    t.saved_tab_index <- saved_tab_index
+
+  let destroy (t : t) : unit =
+    List.iter Lwt.cancel t.listeners;
+    t.listeners <- []
+
+end
+
+module Helper_text = struct
+
+  module Markup = Markup.Helper_text
+
+  class t ?(validation = false)
+          ?(persistent = false)
+          ?content
+          () =
+    let elt = Markup.create () |> To_dom.of_element in
+    object(self)
+
+      inherit Widget.t elt ()
+
+      method set_content (s : string) : unit =
+        self#set_text_content s
+
+      method persistent : bool =
+        self#has_class Markup.persistent_class
+
+      method set_persistent (is_persistent : bool) : unit =
+        self#add_or_remove_class is_persistent Markup.persistent_class
+
+      method validation : bool =
+        self#has_class Markup.validation_msg_class
+
+      method set_validation (is_validation : bool) : unit =
+        self#add_or_remove_class is_validation Markup.validation_msg_class
+
+      method show_to_screen_reader () : unit =
+        self#remove_attribute "aria-hidden"
+
+      method set_validity (is_valid : bool) : unit =
+        let needs_display = self#validation && not is_valid in
+        if needs_display
+        then self#set_attribute "role" "alert"
+        else self#remove_attribute "role";
+        if not self#persistent && not needs_display
+        then self#hide ()
+
+      (* Private methods *)
+
+      method private hide () : unit =
+        self#set_attribute "aria-hidden" "true"
+
+      initializer
+        self#set_validation validation;
+        self#set_persistent persistent;
+        Option.iter self#set_content content
+
+    end
+
+end
+
 let id_ref = ref (Unix.time () |> int_of_float)
 let get_id = fun () ->
   incr id_ref;
@@ -116,6 +229,10 @@ class ['a] t ?input_id
         ?(line_ripple = true)
         ?(outlined = false)
         ?(full_width = false)
+        ?(textarea = false)
+        ?(helper_text : Helper_text.t option)
+        ?(leading_icon : #Widget.t option)
+        ?(trailing_icon : #Widget.t option)
         ~(input_type : 'a validation)
         () =
   let s_input, set_s_input = React.S.create None in
@@ -138,6 +255,14 @@ class ['a] t ?input_id
   let line_ripple = match line_ripple with
     | true -> None
     | false -> Some (new Line_ripple.t ()) in
+  let leading_icon = Option.map Icon.make leading_icon in
+  let trailing_icon = Option.map Icon.make trailing_icon in
+  let leading_event = match leading_icon with
+    | None -> React.E.never
+    | Some x -> x.event in
+  let trailing_event = match trailing_icon with
+    | None -> React.E.never
+    | Some x -> x.event in
   let input_elt =
     Markup.create_input
       ?placeholder
@@ -151,10 +276,15 @@ class ['a] t ?input_id
     Markup.create
       ?label:(Option.map Widget.to_markup floating_label)
       ?outline:(Option.map (fun (x, y) -> Widget.to_markup x, y) outline)
+      ?leading_icon:(Option.map (fun (x : Icon.t) ->
+                         Widget.to_markup x.widget) leading_icon)
+      ?trailing_icon:(Option.map (fun (x : Icon.t) ->
+                          Widget.to_markup x.widget) trailing_icon)
       ~input:(Widget.to_markup input_widget) ()
     |> To_dom.of_element in
   object(self)
 
+    val mutable _ripple : Ripple.t option = None
     val mutable _use_native_validation = native_validation
     val mutable _received_user_input = false
     val mutable _is_valid = true
@@ -163,6 +293,22 @@ class ['a] t ?input_id
     val mutable _validation_observer = None
 
     inherit Widget.input_widget ~input_elt elt () as super
+
+    method e_leading_icon = leading_event
+
+    method e_trailing_icon = trailing_event
+
+    method set_leading_icon_aria_label (s : string) =
+      Option.iter (fun (x : Icon.t) -> Icon.set_aria_label x s)
+        leading_icon
+
+    method set_trailing_icon_aria_label (s : string) =
+      Option.iter (fun (x : Icon.t) -> Icon.set_aria_label x s)
+        trailing_icon
+
+    method set_helper_text_content (s : string) =
+      Option.iter (fun (x : Helper_text.t) ->
+          x#set_content s) helper_text
 
     method s_input : 'a option React.signal =
       s_input
@@ -247,9 +393,9 @@ class ['a] t ?input_id
            let label_width =
              Option.map_or ~default:0 (fun l -> l#width) floating_label in
            outline#notch (float_of_int label_width *. label_scale)
+         else outline#close_notch ()
 
     method private activate_focus () : unit =
-      (* TODO helper text *)
       _is_focused <- true;
       self#style_focused _is_focused;
       Option.iter (fun r -> r#activate ()) line_ripple;
@@ -257,6 +403,7 @@ class ['a] t ?input_id
           self#notch_outline self#should_float;
           l#float self#should_float;
           l#shake self#should_shake) floating_label;
+      Option.iter (fun x -> x#show_to_screen_reader ()) helper_text
 
     method private auto_complete_focus () : unit =
       if not _received_user_input
@@ -297,17 +444,19 @@ class ['a] t ?input_id
       Js.to_bool validity##.valid
 
     method private style_validity (is_valid : bool) : unit =
-      self#add_or_remove_class (not is_valid) Markup.invalid_class
+      self#add_or_remove_class (not is_valid) Markup.invalid_class;
+      Option.iter (fun x -> x#set_validity is_valid) helper_text
 
     method private style_focused (is_focused : bool) : unit =
       self#add_or_remove_class is_focused Markup.focused_class
 
     method private style_disabled (is_disabled : bool) : unit =
-      (* TODO add styles to icons *)
       if is_disabled
       then (self#add_class Markup.disabled_class;
-            self#remove_class Markup.invalid_class;)
-      else self#remove_class Markup.disabled_class
+            self#remove_class Markup.invalid_class)
+      else self#remove_class Markup.disabled_class;
+      Option.iter (fun x -> Icon.set_disabled x is_disabled) leading_icon;
+      Option.iter (fun x -> Icon.set_disabled x is_disabled) trailing_icon;
 
     method private should_always_float : bool =
       let typ = Js.to_string input_elt##._type in
@@ -384,9 +533,14 @@ class ['a] t ?input_id
       self#set_custom_validity ""
 
     method init () : unit =
+      Option.iter (fun (x : Icon.t) ->
+          x.widget#add_class Markup.Icon._class) leading_icon;
+      Option.iter (fun (x : Icon.t) ->
+          x.widget#add_class Markup.Icon._class) trailing_icon;
       (* Validitation *)
       self#apply_border input_type;
       self#apply_pattern input_type;
+      (* Other initialization *)
       if self#focused ()
       then self#activate_focus ()
       else if Option.is_some floating_label && self#should_float
@@ -427,7 +581,23 @@ class ['a] t ?input_id
         let handler = self#handle_validation_attribute_change in
         self#register_validation_handler handler in
       _listeners <- _listeners @ [focus; blur; input] @ ptr @ click_keydown;
-      _validation_observer <- Some observer
+      _validation_observer <- Some observer;
+      if not (self#has_class Markup.textarea_class)
+         && not (self#has_class Markup.outlined_class)
+      then
+        let adapter = Ripple.make_default_adapter (self :> Widget.t) in
+        let is_surface_disabled = fun () -> self#disabled in
+        let is_surface_active = fun () ->
+          Ripple.Util.get_matches_property input_widget#root ":active" in
+        let register_handler = fun typ f ->
+          Dom_events.listen input_elt (Widget.Event.make typ) (fun _ e ->
+              f e; true) in
+        let adapter =
+          { adapter with is_surface_active
+                       ; register_handler
+                       ; is_surface_disabled } in
+        let ripple = new Ripple.t adapter () in
+        _ripple <- Some ripple
 
     method destroy () : unit =
       super#destroy ();
@@ -443,3 +613,14 @@ class ['a] t ?input_id
       self#init ()
 
   end
+
+let wrap ~(textfield : 'a t)
+      ~(helper_text : Helper_text.t) =
+  let _class = Markup.container_class in
+  let w =
+    Widget.create_div
+      ~widgets:[ textfield#widget
+               ; helper_text#widget ]
+      () in
+  w#add_class _class;
+  w
