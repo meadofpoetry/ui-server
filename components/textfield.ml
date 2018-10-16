@@ -230,6 +230,7 @@ class ['a] t ?input_id
         ?(outlined = false)
         ?(full_width = false)
         ?(textarea = false)
+        ?rows ?cols
         ?(helper_text : Helper_text.t option)
         ?(leading_icon : #Widget.t option)
         ?(trailing_icon : #Widget.t option)
@@ -263,13 +264,22 @@ class ['a] t ?input_id
   let trailing_event = match trailing_icon with
     | None -> React.E.never
     | Some x -> x.event in
-  let input_elt =
-    Markup.create_input
-      ?placeholder
-      ~input_id
-      ~input_type:(input_type_of_validation input_type)
-      ()
-    |> To_dom.of_input in
+  let input_elt = match textarea with
+    | false ->
+       Markup.create_input
+         ?placeholder
+         ~input_id
+         ~input_type:(input_type_of_validation input_type)
+         ()
+       |> To_dom.of_input
+    | true ->
+       Markup.create_textarea
+         ?placeholder
+         ?rows ?cols
+         ~input_id
+         ()
+       |> To_dom.of_textarea
+       |> Js.Unsafe.coerce in
   let input_widget =
     Widget.create input_elt in
   let elt =
@@ -280,6 +290,7 @@ class ['a] t ?input_id
                          Widget.to_markup x.widget) leading_icon)
       ?trailing_icon:(Option.map (fun (x : Icon.t) ->
                           Widget.to_markup x.widget) trailing_icon)
+      ~textarea
       ~input:(Widget.to_markup input_widget) ()
     |> To_dom.of_element in
   object(self)
@@ -613,6 +624,14 @@ class ['a] t ?input_id
       self#init ()
 
   end
+
+let make_textarea ?cols ?rows ~label () =
+  new t ?cols ?rows
+    ~line_ripple:false
+    ~input_type:Text
+    ~label
+    ~textarea:true
+    ()
 
 let wrap ~(textfield : 'a t)
       ~(helper_text : Helper_text.t) =

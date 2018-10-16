@@ -590,31 +590,26 @@ let textfield_demo () =
     new Textfield.t
       ~input_type:Text
       ~label:"textfield label"
-      (* ~icon:{ icon = "settings"
-       *       ; clickable = false
-       *       ; pos = `Trailing
-       * } *)
       ~outlined:true
       () in
   (* Textareas *)
-  (* let css_textarea =
-   *   new Textarea.Pure.t
-   *     ~input_id:"css_textarea"
-   *     ~placeholder:"Enter something"
-   *     ~rows:8 ~cols:40 () in
-   * let textarea =
-   *   new Textarea.t
-   *     ~input_id:"textarea"
-   *     ~label:"textarea label"
-   *     ~rows:8 ~cols:40 () in *)
+  let textarea =
+    Textfield.make_textarea
+      ~label:"textarea label"
+      ()
+    |> fun x ->
+       let w = Widget.create_div ~widgets:[x] () in
+       let box = Widget.create_div ~widgets:[w] () in
+       box#add_class "mdc-text-field-row";
+       w#add_class Textfield.Markup.container_class;
+       box in
   demo_section "Textfield"
     [ subsection "JS textfield" js_wrapped
     ; subsection "Dense textfield (with email validation)" dense_wrapped
     ; subsection "With leading icon" lead_icon
     ; subsection "With trailing icon" trail_icon
     ; subsection "Outlined" outlined
-    (* ; subsection "Textarea (css only)" css_textarea
-     * ; subsection "Textarea" textarea *) ]
+    ; subsection "Textarea" textarea ]
 
 let select_demo () =
   let select =
