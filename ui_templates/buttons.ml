@@ -31,6 +31,12 @@ module Set = struct
     val _loader = new Circular_progress.t ~size:25 ~indeterminate:true ()
     val mutable _thread : unit Lwt.t option = None
     inherit Button.t ?typ ?style ?icon ?dense ?compact ?ripple ~label ()
+
+    method private finalize () : unit Lwt.t =
+      self#remove_class busy_class;
+      self#remove_child _loader;
+      Lwt.return_unit
+
     initializer
       React.S.map (function Some _ -> self#set_disabled false
                           | None   -> self#set_disabled true)
@@ -45,9 +51,10 @@ module Set = struct
            | true, Some v ->
               self#add_class busy_class;
               Dom.appendChild self#root _loader#root;
-              setter v
-              >|= (fun _ -> self#remove_class busy_class;
-                            Dom.removeChild self#root _loader#root)
+              Lwt.try_bind
+                (fun () -> setter v)
+                (fun _ -> self#finalize ())
+                (fun _ -> self#finalize ())
               |> fun t -> _thread <- Some t;
            | _ -> ());
           true) |> ignore;

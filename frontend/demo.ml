@@ -560,7 +560,7 @@ let textfield_demo () =
   let dense_helptext =
     new Textfield.Helper_text.t
       ~validation:true
-      ~content:"Provide valid e-mail"
+      ~content:"Bad input"
       () in
   let dense =
     new Textfield.t

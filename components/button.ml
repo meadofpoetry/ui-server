@@ -5,7 +5,7 @@ module Markup = Components_markup.Button.Make(Xml)(Svg)(Html)
 
 type style = [ `Raised | `Unelevated | `Stroked ]
 
-class t ?typ ?style ?icon ?dense ?compact ?(ripple=false) ~label () =
+class t ?typ ?style ?icon ?dense ?compact ?(ripple = true) ~label () =
 
   let () = Option.iter (fun x -> x#add_class Markup.icon_class) icon in
   let icon = Option.map Widget.to_markup icon in

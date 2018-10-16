@@ -69,10 +69,13 @@ module Helper_text = struct
 
   class t ?(validation = false)
           ?(persistent = false)
+          ?(auto_validation_message = false)
           ?content
           () =
     let elt = Markup.create () |> To_dom.of_element in
     object(self)
+
+      val mutable _auto_validation : bool = auto_validation_message
 
       inherit Widget.t elt ()
 
@@ -101,6 +104,12 @@ module Helper_text = struct
         else self#remove_attribute "role";
         if not self#persistent && not needs_display
         then self#hide ()
+
+      method auto_validation_message : bool =
+        _auto_validation
+
+      method set_auto_validation_message (x : bool) : unit =
+        _auto_validation <- x
 
       (* Private methods *)
 
@@ -346,6 +355,12 @@ class ['a] t ?input_id
       let shold_shake = not x && not _is_focused in
       Option.iter (fun x -> x#shake shold_shake) floating_label
 
+    method empty : bool =
+      String.is_empty self#raw_value
+
+    method raw_value : string =
+      Js.to_string input_elt##.value
+
     method value : 'a option =
       React.S.value s_input
 
@@ -368,11 +383,11 @@ class ['a] t ?input_id
     method set_dense (x : bool) : unit =
       self#add_or_remove_class x Markup.dense_class
 
-    method full_width : bool =
-      self#has_class Markup.full_width_class
+    method validation_message : string =
+      Js.to_string (Js.Unsafe.coerce input_elt)##.validationMessage
 
-    method set_full_width x  =
-      self#add_or_remove_class x Markup.full_width_class
+    method update () : unit =
+      self#deactivate_focus ()
 
     (* Private methods *)
 
@@ -422,6 +437,11 @@ class ['a] t ?input_id
       then self#activate_focus ()
 
     method private deactivate_focus () : unit =
+      (match parse_valid input_type self#set_custom_validity self#_value with
+       | Some v ->
+          set_s_input (Some v);
+          self#remove_custom_validity ()
+       | None -> set_s_input None);
       _is_focused <- false;
       Option.iter (fun r -> r#deactivate ()) line_ripple;
       self#style_validity self#valid;
@@ -457,7 +477,10 @@ class ['a] t ?input_id
 
     method private style_validity (is_valid : bool) : unit =
       self#add_or_remove_class (not is_valid) Markup.invalid_class;
-      Option.iter (fun x -> x#set_validity is_valid) helper_text
+      Option.iter (fun x ->
+          x#set_validity is_valid;
+          if x#auto_validation_message
+          then x#set_content self#validation_message) helper_text
 
     method private style_focused (is_focused : bool) : unit =
       self#add_or_remove_class is_focused Markup.focused_class
@@ -474,17 +497,14 @@ class ['a] t ?input_id
       let typ = Js.to_string input_elt##._type in
       List.mem ~eq:String.equal typ always_float_types
 
-    method private is_empty : bool =
-      String.is_empty @@ Js.to_string input_elt##.value
-
     method private should_float : bool =
       self#should_always_float
       || _is_focused
-      || not self#is_empty
+      || not self#empty
       || self#is_bad_input ()
 
     method private should_shake : bool =
-      not self#valid && not _is_focused && not self#is_empty
+      not self#valid && not _is_focused && not self#empty
 
     method private register_validation_handler handler =
       MutationObserver.observe
@@ -497,10 +517,6 @@ class ['a] t ?input_id
                 let opt = Js.Opt.to_option x##.attributeName in
                 Option.map Js.to_string opt) a in
           let l = Array.to_list a in
-          Format.asprintf "observer called: %a, %a"
-            (Option.pp String.pp) label
-            (List.pp String.pp) l
-          |> print_endline;
           handler l)
         ()
 
@@ -567,14 +583,6 @@ class ['a] t ?input_id
             Lwt.return @@ self#deactivate_focus ()) in
       let input =
         input_widget#listen_lwt Widget.Event.input (fun _ _ ->
-            (match parse_valid input_type self#set_custom_validity self#_value with
-             | Some v ->
-                print_endline "got valid input";
-                set_s_input (Some v);
-                self#remove_custom_validity ()
-             | None ->
-                print_endline "got invalid input";
-                set_s_input None);
             Lwt.return @@ self#auto_complete_focus ()) in
       let ptr =
         List.map (fun x ->
