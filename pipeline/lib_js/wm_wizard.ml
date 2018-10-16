@@ -51,6 +51,14 @@ let audio_position ~(cont_pos : Wm.position) ~video : Wm.position =
     ; bottom = cont_pos.bottom
     }
 
+let stream_of_domain domain = String.sub domain 1 (String.length domain - 7)
+
+let pid_of_domain domain = String.sub domain (String.length domain - 4) 4
+
+let stream_of_string stream =
+  let open Common.Stream.ID in
+  make stream |> to_string
+
 let channel_of_domain = function
   (* do NOT edit or remove
    * first multiplex *)
@@ -116,10 +124,10 @@ let domain_of_channel = function
   | x -> x
 
 let stream_parse = function
-  | "s460b38ee-186b-5604-8811-235eb3005960" -> "Первый мультиплекс, PLP 0"
-  | "s4b135670-ef01-59b1-be78-4e9bec93461f" -> "Первый мультиплекс, PLP 1"
-  | "s930c63bc-0ce2-555c-9a51-09de6b1b85f2" -> "Первый мультиплекс, PLP 2"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1" -> "Второй мультиплекс, PLP 0"
+  | "460b38ee-186b-5604-8811-235eb3005960" -> "Первый мультиплекс, PLP 0"
+  | "4b135670-ef01-59b1-be78-4e9bec93461f" -> "Первый мультиплекс, PLP 1"
+  | "930c63bc-0ce2-555c-9a51-09de6b1b85f2" -> "Первый мультиплекс, PLP 2"
+  | "4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1" -> "Второй мультиплекс, PLP 0"
   | _ -> ""
 
 let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
@@ -256,9 +264,6 @@ let make_channels (widgets : (string * Wm.widget) list) =
   (List.concat wdg_chbs), ch_chbs, new Tree.t ~items ()
 
 let make_streams (widgets : (string * Wm.widget) list) =
-  let stream_of_domain domain =
-    let len = String.length domain - 6 in
-    String.sub domain 0 len in
   let streams =
     List.fold_left (fun acc (x : string * Wm.widget) ->
         let stream = stream_of_domain (snd x).domain in
@@ -293,7 +298,7 @@ let make_streams (widgets : (string * Wm.widget) list) =
                   checkbox#set_checked false)
             @@ React.S.changes check#s_state
             |> ignore) ch_chbs;
-        let stream_node = new Tree.Item.t ~text:(stream_parse stream) ~graphic:checkbox
+        let stream_node = new Tree.Item.t ~text:(stream_of_string stream) ~graphic:checkbox
           ~nested ~value:() () in
         (wdg_chbs @ (fst acc)), stream_node :: (snd acc)) ([], []) streams_of_widgets in
   checkboxes, new Tree.t ~items ()
@@ -317,6 +322,7 @@ let to_layout ~resolution ~widgets =
         else
           (* if the number of remaining containers
            * is greater than the half of the row *)
+
           1, 2
       else
         remain, 1 in
