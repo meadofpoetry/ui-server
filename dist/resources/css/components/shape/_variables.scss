@@ -20,30 +20,14 @@
 // THE SOFTWARE.
 //
 
-// Public mixins
+// Shape categories
+$mdc-shape-small-surface-radius: 4px !default;
+$mdc-shape-medium-surface-radius: 4px !default;
+$mdc-shape-large-surface-radius: 0 !default;
 
-@mixin mdc-text-field-helper-text-color($color) {
-  &:not(.mdc-text-field--disabled) {
-    @include mdc-text-field-helper-text-color_($color);
-  }
-}
-
-@mixin mdc-text-field-helper-text-validation-color($color) {
-  &:not(.mdc-text-field--disabled) {
-    @include mdc-text-field-helper-text-validation-color_($color);
-  }
-}
-
-// Private mixins
-
-@mixin mdc-text-field-helper-text-color_($color) {
-  + .mdc-text-field-helper-text {
-    @include mdc-theme-prop(color, $color);
-  }
-}
-
-@mixin mdc-text-field-helper-text-validation-color_($color) {
-  &.mdc-text-field--invalid + .mdc-text-field-helper-text--validation-msg {
-    @include mdc-theme-prop(color, $color);
-  }
-}
+// Shape category mapping.
+$mdc-shape-category-values: (
+  small: $mdc-shape-small-surface-radius,
+  medium: $mdc-shape-medium-surface-radius,
+  large: $mdc-shape-large-surface-radius,
+);

@@ -231,17 +231,17 @@ module Settings = struct
     let peak_field         = new Textfield.t
                                ~input_id:"peak_field"
                                ~label:"Значение"
-                               ~input_type:(Widget.Float ((Some (-100.)),(Some 100.))) () in
+                               ~input_type:(Float ((Some (-100.)),(Some 100.))) () in
     let cont_en_chck       = new Checkbox.t () in
     let cont_en_field      = new Form_field.t ~label:"Длительная ошибка" ~input:cont_en_chck () in
     let cont_field         = new Textfield.t
                                ~input_id:"cont_field"
                                ~label:"Значение"
-                               ~input_type:(Widget.Float ((Some (-100.)),(Some 100.))) () in
+                               ~input_type:(Float ((Some (-100.)),(Some 100.))) () in
     let dur_field          = new Textfield.t
                                ~input_id:"dur_field"
                                ~label:"Длительность"
-                               ~input_type:(Widget.Float ((Some (-100.)),(Some 100.))) () in
+                               ~input_type:(Float ((Some (-100.)),(Some 100.))) () in
     peak_en_chck#set_checked s.peak_en;
     cont_en_chck#set_checked s.cont_en;
     peak_field#set_value s.peak;
@@ -272,7 +272,7 @@ module Settings = struct
     let bpixel_field       = new Textfield.t
                                ~input_id:"bpixel_field"
                                ~label:"Чёрный пиксель"
-                               ~input_type:(Widget.Integer ((Some 1),(Some 256))) () in
+                               ~input_type:(Integer ((Some 1),(Some 256))) () in
     bpixel_field#set_value b.black_pixel;
     let box                = new Vbox.t ~widgets:[(Widget.create header);
                                                  black_w#widget;
@@ -293,7 +293,7 @@ module Settings = struct
     let pixeld_field       = new Textfield.t
                                ~input_id:"pixeld_field"
                                ~label:"Идентичный пиксель"
-                               ~input_type:(Widget.Integer ((Some 1),(Some 256))) () in
+                               ~input_type:(Integer ((Some 1),(Some 256))) () in
     pixeld_field#set_value f.pixel_diff;
     let box                = new Vbox.t ~widgets:[(Widget.create header);
                                                  freeze_w#widget;
@@ -326,7 +326,7 @@ module Settings = struct
     let loss_field         = new Textfield.t
                                ~input_id:"loss_field"
                                ~label:"Пропадание видео"
-                               ~input_type:(Widget.Float ((Some 0.),(Some 1.))) () in
+                               ~input_type:(Float ((Some 0.),(Some 1.))) () in
     loss_field#set_value v.loss;
     let black_w, black_s   = make_black v.black in
     let freeze_w, freeze_s = make_freeze v.freeze in
@@ -365,11 +365,11 @@ module Settings = struct
     let diff               = new Textfield.t
                                ~input_id:"diff"
                                ~label:"diff"
-                               ~input_type:(Widget.Float ((Some 0.),(Some 100.))) () in
+                               ~input_type:(Float ((Some 0.),(Some 100.))) () in
     let buf                = new Textfield.t
                                ~input_id:"buf"
                                ~label:"buf"
-                               ~input_type:(Widget.Integer ((Some 0),(Some 100))) () in
+                               ~input_type:(Integer ((Some 0),(Some 100))) () in
     diff#set_value s.adv_diff;
     buf#set_value s.adv_buf;
     let box                = new Vbox.t ~widgets:[(Widget.create header); diff#widget; buf#widget] () in
@@ -385,7 +385,7 @@ module Settings = struct
     let loss_field         = new Textfield.t
                                ~input_id:"loss_field"
                                ~label:"Пропадание аудио"
-                               ~input_type:(Widget.Float ((Some 0.),(Some 1.))) () in
+                               ~input_type:(Float ((Some 0.),(Some 1.))) () in
     loss_field#set_value a.loss;
     let silence_w, sil_s   = make_silence  a.silence in
     let loudness_w, loud_s = make_loudness a.loudness in

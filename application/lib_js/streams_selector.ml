@@ -156,7 +156,7 @@ let make_stream_create_dialog () =
   let header = new Typography.Text.t ~text:"Create stream" () in
   let uri_box = new Textfield.t
                     ~input_id:"uri"
-                    ~input_type:(Widget.Custom (Common.Url.of_string, Common.Url.to_string))
+                    ~input_type:(Custom (Common.Url.of_string, Common.Url.to_string))
                     ~label:"Uri"
                     ()
   in
@@ -164,7 +164,7 @@ let make_stream_create_dialog () =
     new Textfield.t
       ~label:"description"
       ~input_id:"description"
-      ~input_type:Widget.Text
+      ~input_type:Text
       () in
   let box     = new Vbox.t ~widgets:[uri_box#widget; desc_box#widget] () in
   

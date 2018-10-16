@@ -542,7 +542,7 @@ let textfield_demo () =
   (* Full-featured js textbox *)
   let js =
     new Textfield.t
-      ~input_type:Widget.Text
+      ~input_type:Text
       ~label:"js textfield label"
       (* ~help_text:{ validation = true
        *            ; persistent = false
@@ -554,7 +554,7 @@ let textfield_demo () =
   let dense =
     new Textfield.t
       ~label:"dense textfield label"
-      ~input_type:Widget.Email
+      ~input_type:Email
       (* ~help_text:{ validation = true
        *            ; persistent = false
        *            ; text = Some "Provide valid e-mail"
@@ -564,7 +564,7 @@ let textfield_demo () =
   (* Textboxes with icons *)
   let lead_icon =
     new Textfield.t
-      ~input_type:Widget.Text
+      ~input_type:(Integer (Some 2, Some 10))
       ~label:"textfield label"
       (* ~icon:{ icon = "event"
        *       ; clickable = false
@@ -573,7 +573,7 @@ let textfield_demo () =
       () in
   let trail_icon =
     new Textfield.t
-      ~input_type:Widget.Text
+      ~input_type:Text
       ~label:"textfield label"
       (* ~icon:{ icon = "delete"
        *       ; clickable = false
@@ -582,7 +582,7 @@ let textfield_demo () =
       () in
   let outlined =
     new Textfield.t
-      ~input_type:Widget.Text
+      ~input_type:Text
       ~label:"textfield label"
       (* ~icon:{ icon = "settings"
        *       ; clickable = false
@@ -841,22 +841,22 @@ let dynamic_grid_demo () =
   let x = new Textfield.t
             ~input_id:"x_field"
             ~label:"x position"
-            ~input_type:(Widget.Integer (None, None))
+            ~input_type:(Integer (None, None))
             () in
   let y = new Textfield.t
             ~input_id:"y_field"
             ~label:"y position"
-            ~input_type:(Widget.Integer (None, None))
+            ~input_type:(Integer (None, None))
             () in
   let w = new Textfield.t
             ~input_id:"w_field"
             ~label:"width"
-            ~input_type:(Widget.Integer (None, None))
+            ~input_type:(Integer (None, None))
             () in
   let h = new Textfield.t
             ~input_id:"h_field"
             ~label:"height"
-            ~input_type:(Widget.Integer (None, None))
+            ~input_type:(Integer (None, None))
             () in
   let add  = new Button.t ~label:"add" () in
   let rem_all = new Button.t ~label:"remove all" () in

@@ -33,15 +33,13 @@ let make_eth (eth : Network_config.ethernet_conf) =
     | None   -> Error "Неверный мак адрес"
   in
   let to_string x = Macaddr.to_string x in
-  let address    = new Textfield.t
-                       ~input_id:"mac-addr"
-                       ~label:"MAC адрес"
-                       ~input_type:(Widget.Custom (of_string, to_string))
-                       ()
-  in
-
+  let address =
+    new Textfield.t
+      ~label:"MAC адрес"
+      ~input_type:(Custom (of_string, to_string))
+      () in
   let signal, push = React.S.create eth in
-  
+
   let set (eth : Network_config.ethernet_conf) = address#set_value eth.mac_address in
 
   let media      = new Card.Media.t ~widgets:[new Vbox.t ~widgets:[ address#widget ] ()] () in
@@ -60,21 +58,19 @@ let make_eth (eth : Network_config.ethernet_conf) =
                 
 let make_dns (dns : Network_config.v4 list) =
   let make_dns_entry del_dns addr =
-    let text        = Ipaddr.V4.to_string addr in
-    let del_button  = new Button.t ~label:"delete" () in
-    let item        = new Item_list.Item.t ~text ~meta:del_button ~value:() () in
+    let text = Ipaddr.V4.to_string addr in
+    let del_button = new Button.t ~label:"delete" () in
+    let item = new Item_list.Item.t ~text ~meta:del_button ~value:() () in
     del_button#listen_click_lwt (fun _ _ -> del_dns item addr; Lwt.return_unit)
     |> Lwt.ignore_result;
     item
   in
 
   let header = new Typography.Text.t ~font:Subtitle_1 ~text:"Список DNS" () in
-  let list   = new Item_list.t ~items:[] () in
-
-  let address  = new Textfield.t ~input_id:"address-dns" ~label:"Адрес" ~input_type:Widget.IPV4 () in
-  let add_but  = new Button.t ~label:"Добавить" () in
-  let add_box  = new Hbox.t ~widgets:[address#widget; add_but#widget] () in
-
+  let list = new Item_list.t ~items:[] () in
+  let address = new Textfield.t ~label:"Адрес" ~input_type:IPV4 () in
+  let add_but = new Button.t ~label:"Добавить" () in
+  let add_box = new Hbox.t ~widgets:[address#widget; add_but#widget] () in
   let full_box = new Vbox.t ~widgets:[header#widget; list#widget; add_box#widget] () in
 
   let signal, push = React.S.create [] in
@@ -125,10 +121,18 @@ let make_routes (routes : Network_config.address list) =
   let header = new Typography.Text.t ~font:Subtitle_1 ~text:"Список статических маршрутов" () in
   let list   = new Item_list.t ~items:[] () in
   
-  let address  = new Textfield.t ~input_id:"address-route" ~label:"Адрес" ~input_type:Widget.IPV4 () in
-  let mask     = new Textfield.t ~input_id:"mask-route" ~label:"Маска подсети" ~input_type:(Widget.Integer (Some 0, Some 32)) () in
-  let add_but  = new Button.t ~label:"Добавить" () in
-  let add_box  = new Hbox.t ~widgets:[address#widget; mask#widget; add_but#widget] () in
+  let address =
+    new Textfield.t
+      ~label:"Адрес"
+      ~input_type:IPV4
+      () in
+  let mask =
+    new Textfield.t
+      ~label:"Маска подсети"
+      ~input_type:(Integer (Some 0, Some 32))
+      () in
+  let add_but = new Button.t ~label:"Добавить" () in
+  let add_box = new Hbox.t ~widgets:[address#widget; mask#widget; add_but#widget] () in
 
   let full_box = new Vbox.t ~widgets:[header#widget; list#widget; add_box#widget] () in
 
@@ -167,16 +171,30 @@ let make_routes (routes : Network_config.address list) =
   full_box, signal, set, set_disabled
 
 let make_ipv4 (ipv4 : Network_config.ipv4_conf) =
-  let ipv4_head  = new Card.Primary.t ~widgets:[new Card.Primary.title "Настройки IP" ()] () in
-
-  let meth = new Form_field.t
-               ~input:(new Switch.t ~input_id:"autoconf" ())
-               ~label:"Автоматическая настройка" ()
-  in
-  
-  let address    = new Textfield.t ~input_id:"address-ipv4" ~label:"Адрес" ~input_type:Widget.IPV4 () in
-  let mask       = new Textfield.t ~input_id:"mask-ipv4"  ~label:"Маска подсети" ~input_type:(Widget.Integer (Some 0, Some 32)) () in
-  let gateway    = new Textfield.t ~input_id:"gateway" ~label:"Шлюз" ~input_type:Widget.IPV4 () in
+  let ipv4_head =
+    new Card.Primary.t
+      ~widgets:[new Card.Primary.title "Настройки IP" ()]
+      () in
+  let meth =
+    new Form_field.t
+      ~input:(new Switch.t ())
+      ~label:"Автоматическая настройка"
+      () in
+  let address =
+    new Textfield.t
+      ~label:"Адрес"
+      ~input_type:IPV4
+      () in
+  let mask =
+    new Textfield.t
+      ~label:"Маска подсети"
+      ~input_type:(Integer (Some 0, Some 32))
+      () in
+  let gateway =
+    new Textfield.t
+      ~label:"Шлюз"
+      ~input_type:IPV4
+      () in
   let dns, dns_s, dns_set, dns_disable = make_dns ipv4.dns in
   let routes, routes_s, routes_set, routes_disable = make_routes ipv4.routes.static in
 
@@ -194,46 +212,50 @@ let make_ipv4 (ipv4 : Network_config.ipv4_conf) =
 
   (* disable settings on Auto config *)
   Lwt_react.S.keep @@
-    Lwt_react.S.map (fun disabled -> address#set_disabled disabled;
-                                     mask#set_disabled disabled;
-                                     gateway#set_disabled disabled;
-                                     dns_disable disabled;
-                                     routes_disable disabled) meth#input_widget#s_state;
+    Lwt_react.S.map (fun disabled ->
+        address#set_disabled disabled;
+        mask#set_disabled disabled;
+        gateway#set_disabled disabled;
+        dns_disable disabled;
+        routes_disable disabled) meth#input_widget#s_state;
 
   (* disable routes on gateway config *)
   Lwt_react.S.keep @@
     Lwt_react.S.map (function None -> routes_disable false | _ -> routes_disable true) gateway#s_input;
 
-  let media      = new Card.Media.t ~widgets:[new Vbox.t ~widgets:[ meth#widget;
-                                                                    address#widget;
-                                                                    mask#widget;
-                                                                    gateway#widget;
-                                                                    dns#widget;
-                                                                    routes#widget ] ()
-                     ] ()
-  in
+  let media =
+    new Card.Media.t
+      ~widgets:[new Vbox.t ~widgets:[ meth#widget
+                                    ; address#widget
+                                    ; mask#widget
+                                    ; gateway#widget
+                                    ; dns#widget
+                                    ; routes#widget ] ()]
+      () in
   media#style##.margin := Js.string "15px";
-  let ipv4_sets  = new Card.t
-                     ~widgets:[ ipv4_head#widget
-                              ; media#widget
-                     ] ()
+  let ipv4_sets =
+    new Card.t
+      ~widgets:[ ipv4_head#widget
+               ; media#widget ]
+      () in
+  let signal =
+    Lwt_react.S.l6 (fun (config : Network_config.ipv4_conf) meth address mask gateway routes ->
+        { config with
+          meth = if meth then Auto else Manual
+        ; address =
+            (CCOpt.get_or address ~default:(fst config.address),
+             CCOpt.get_or mask ~default:(snd config.address))
+        ; routes = { gateway = gateway; static = routes } }) (* TODO fix *)
+      signal
+      meth#input_widget#s_state
+      address#s_input
+      (Lwt_react.S.map (CCOpt.map Int32.of_int) mask#s_input)
+      gateway#s_input
+      routes_s
   in
-  
-  let signal = Lwt_react.S.l6 (fun (config : Network_config.ipv4_conf) meth address mask gateway routes ->
-                   { config with
-                     meth    = if meth then Auto else Manual
-                   ; address =
-                       (CCOpt.get_or address ~default:(fst config.address), CCOpt.get_or mask ~default:(snd config.address))
-                   ; routes = { gateway = gateway; static = routes } }) (* TODO fix *)
-                 signal
-                 meth#input_widget#s_state
-                 address#s_input
-                 (Lwt_react.S.map (CCOpt.map Int32.of_int) mask#s_input)
-                 gateway#s_input
-                 routes_s
-  in
-  let signal = Lwt_react.S.l2 (fun (config : Network_config.ipv4_conf) dns -> { config with dns } ) signal dns_s in
-  
+  let signal =
+    Lwt_react.S.l2 (fun (config : Network_config.ipv4_conf) dns ->
+        { config with dns } ) signal dns_s in
   ipv4_sets, signal, set
   
 let make_card is_root post (config : Network_config.t) =

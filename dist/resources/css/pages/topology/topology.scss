@@ -5,6 +5,8 @@
 @import '../boards/dvb_niit';
 
 $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
+$error-surface: $material-color-red-200;
+$on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #fff) !default;
 
 @for $i from 1 through length($boards) {
     @include topology-board-type(nth($boards,$i));
@@ -143,8 +145,8 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
 
     &--fail {
         .topology__block__body {
-            @include mdc-theme-prop(background-color, error);
-            @include mdc-theme-prop(color, on-error);
+            @include mdc-theme-prop(background-color, $error-surface);
+            @include mdc-theme-prop(color, $on-error-surface);
         }
     }
 

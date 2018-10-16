@@ -67,32 +67,6 @@ module Group = struct
     end
 end
 
-module Label = struct
-  class t ~s_selected ~label () =
-    let elt = Markup.Label.create ~label () |> Tyxml_js.To_dom.of_element in
-    object(self)
-      inherit Widget.t elt ()
-      initializer
-        React.S.map (fun v ->
-            self#add_or_remove_class (Option.is_some v)
-              Markup.Label.float_above_class)
-          s_selected
-        |> self#_keep_s
-    end
-end
-
-module Bottom_line = struct
-  class t () =
-    let elt = Markup.Bottom_line.create ()
-              |> Tyxml_js.To_dom.of_element in
-    object(self)
-      inherit Widget.t elt ()
-
-      method activate (x : bool) : unit =
-        self#add_or_remove_class x Markup.Bottom_line.active_class
-    end
-end
-
 class ['a] t ?(disabled = false)
         ?(bottom_line = true)
         ?(default_selected = true)
@@ -114,10 +88,10 @@ class ['a] t ?(disabled = false)
     |> (fun l -> if not default_selected then make_empty () :: l else l) in
   let bottom_line = match bottom_line with
     | false -> None
-    | true -> Some (new Bottom_line.t ()) in
+    | true -> Some (new Line_ripple.t ()) in
   let label = match label with
     | None -> None
-    | Some label -> Some (new Label.t ~label ~s_selected:s_value ()) in
+    | Some label -> Some (new Floating_label.t label ()) in
   let select =
     Markup.create_select ~items:item_elts ()
     |> To_dom.of_element
@@ -150,7 +124,8 @@ class ['a] t ?(disabled = false)
       List.get_at_idx n self#items
 
     method! set_empty () =
-      self#select#set_empty (); push None;
+      self#select#set_empty ();
+      push None;
       if not default_selected
       then Dom.appendChild self#select#root
            @@ Tyxml_js.To_dom.of_option @@ make_empty ()
@@ -185,13 +160,13 @@ class ['a] t ?(disabled = false)
         self#selected_index
 
     method set_selected_index i =
-      print_endline @@ string_of_int i;
       self#_native_select##.selectedIndex := i;
       self#add_class Markup.is_changing_class;
       Dom_html.setTimeout (fun () ->
           self#remove_class Markup.is_changing_class) 125.0
       |> ignore;
-      push @@ List.find_opt (fun x -> x#index = i) self#items
+      let res = List.find_opt (fun x -> x#index = i) self#items in
+      push res
 
     method set_selected_value ~(eq : 'a -> 'a -> bool) (v : 'a) =
       match List.find_opt (fun (x : 'a Item.t) -> eq x#value v) self#items with
@@ -215,11 +190,14 @@ class ['a] t ?(disabled = false)
 
     initializer
       push self#selected_item;
+      React.S.map (fun v ->
+          Option.iter (fun x -> x#float @@ Option.is_some v) label) self#s_selected_item
+      |> self#_keep_s;
       select#listen_lwt Widget.Event.focus (fun _ _ ->
-          Option.iter (fun x -> x#activate true) self#bottom_line;
+          Option.iter (fun x -> x#activate ()) self#bottom_line;
           Lwt.return_unit) |> Lwt.ignore_result;
       select#listen_lwt Widget.Event.blur (fun _ _ ->
-          Option.iter (fun x -> x#activate false) self#bottom_line;
+          Option.iter (fun x -> x#deactivate ()) self#bottom_line;
           Lwt.return_unit) |> Lwt.ignore_result;
       select#listen_lwt Widget.Event.change (fun _ _ ->
           Option.iter self#set_selected_index self#selected_index;

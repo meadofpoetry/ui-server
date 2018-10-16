@@ -5,8 +5,8 @@ module Markup = Components_markup.Floating_label.Make(Xml)(Svg)(Html)
 
 type event = Dom_html.animationEvent Js.t
 
-class t ~(for_ : string) (label : string) () =
-  let elt = Markup.create ~for_ label () |> To_dom.of_element in
+class t ?(for_ : string option) (label : string) () =
+  let elt = Markup.create ?for_ label () |> To_dom.of_element in
   object(self)
 
     val mutable _listener = None

@@ -1,9 +1,5 @@
 open Containers
 
-(* TODO remove *)
-let (<=) = Pervasives.(<=)
-let (>=) = Pervasives.(>=)
-
 type rect =
   { top : float
   ; right : float
@@ -385,199 +381,59 @@ class radio_or_cb_widget ?on_change ?state ~input_elt elt () =
 
   end
 
-type email_v_msgs   =
-  { mismatch : string option
-  ; too_long : string option
-  }
-type integer_v_msgs =
-  { overflow : string option
-  ; underflow : string option
-  ; step : string option
-  ; mismatch : string option
-  }
-type float_v_msg = integer_v_msgs
-type text_v_msgs =
-  { too_long : string option
-  ; too_short : string option
-  ; pattern : string option
-  }
-type ipv4_v_msgs =
-  { mismatch : string option
-  }
-type multicastv4_v_msgs = ipv4_v_msgs
-type custom_v_msgs =
-  { mismatch : string option
-  ; too_long : string option
-  ; too_short : string option
-  }
-
-type 'a validation =
-  | Email : string validation
-  | Integer : (int option * int option) -> int validation
-  | Float : (float option * float option) -> float validation
-  | Text : string validation
-  | IPV4 : Ipaddr.V4.t validation
-  | MulticastV4 : Ipaddr.V4.t validation
-  | Password : (string -> (unit, string) result) -> string validation
-  | Custom : ((string -> ('a, string) result) * ('a -> string)) -> 'a validation
-
-let input_type_of_validation :
-      type a. a validation -> [> `Email | `Number | `Text ] =
-  function
-  | Email -> `Email
-  | Integer _ -> `Number
-  | Float _ -> `Number
-  | Text -> `Text
-  | IPV4 -> `Text
-  | MulticastV4 -> `Text
-  | Password _ -> `Password
-  | Custom _ -> `Text
-
-let parse_valid (type a) (v : a validation) (on_fail : string -> unit) (s : string) : a option =
-  match v with
-  | Email -> Some s
-  | Integer integer ->
-     (match integer with
-      | None, None -> CCInt.of_string s
-      | Some min, Some max ->
-         CCOpt.flat_map (fun i -> if i <= max && i >= min then Some i else None)
-           (CCInt.of_string s)
-      | Some min, None ->
-         CCOpt.flat_map (fun i -> if i >= min then Some i else None)
-           (CCInt.of_string s)
-      | None, Some max ->
-         CCOpt.flat_map (fun i -> if i <= max then Some i else None)
-           (CCInt.of_string s))
-  | Float float ->
-     (let num = float_of_string s in
-      match float with
-      | None, None -> Some num
-      | Some min, Some max -> if num <= max && num >= min then Some num else None
-      | Some min, None -> if num >= min then Some num else None
-      | None, Some max -> if num <= max then Some num else None)
-  | Text -> Some s
-  | IPV4 -> Ipaddr.V4.of_string s
-  | MulticastV4 ->
-     Option.(Ipaddr.V4.of_string s >>= (fun x ->
-               if Ipaddr.V4.is_multicast x then Some x else None))
-  | Password vf  ->
-     (match vf s with
-      | Ok () -> Some s
-      | Error e -> on_fail e; None)
-  | Custom (f,_) ->
-     (match f s with
-      | Ok v -> Some v
-      | Error s -> on_fail s; None)
-
-let valid_to_string (type a) (v : a validation) (e : a) : string =
-  match v with
-  | Custom (_, conv) -> conv e
-  | Float _ -> string_of_float e
-               |> (fun x -> if String.suffix ~suf:"." x then x ^ "0" else x)
-  | Integer _ -> string_of_int e
-  | Email -> e
-  | IPV4 -> Ipaddr.V4.to_string e
-  | MulticastV4 -> Ipaddr.V4.to_string e
-  | Password _ -> e
-  | Text -> e
-
-class ['a] text_input_widget ?v_msg ~input_elt (v : 'a validation) elt () =
-  let (s_input : 'a option React.signal), s_input_push = React.S.create None in
-  object(self)
-
-    inherit input_widget ~input_elt elt ()
-
-    val mutable v_msg = v_msg
-    val mutable req = false
-
-    method v_msg : string option = v_msg
-    method set_v_msg x = v_msg <- x
-
-    method required = req
-    method set_required x =
-      req <- x;
-      input_elt##.required := Js.bool x
-
-    method validation_message =
-      Js.to_string (Js.Unsafe.coerce input_elt)##.validationMessage
-
-    method s_input   = s_input
-
-    method set_value (x : 'a) =
-      s_input_push (Some x);
-      self#_set_value (valid_to_string v x)
-
-    method clear () =
-      s_input_push None;
-      self#_set_value ""
-
-    method private set_max (x : float) =
-      (Js.Unsafe.coerce input_elt)##.max := x
-    method private set_min (x : float) =
-      (Js.Unsafe.coerce input_elt)##.min := x
-
-    method private set_max_length (x : int) =
-      input_elt##.maxLength := x
-    method private set_min_length (x : int) =
-      (Js.Unsafe.coerce input_elt)##.minLength := x
-
-    method private set_custom_validity s =
-      (Js.Unsafe.coerce input_elt)##setCustomValidity (Js.string s)
-    method private remove_custom_validity =
-      self#set_custom_validity ""
-
-    initializer
-    let apply_border (type a) (v : a validation) : unit =
-      (match v with
-       | Float (min, max) ->
-          Option.iter self#set_min min;
-          Option.iter self#set_max max
-       | Integer (min, max) ->
-          Option.iter (fun min -> self#set_min @@ float_of_int min) min;
-          Option.iter (fun max -> self#set_max @@ float_of_int max) max
-       | _ -> ())
-        in
-        let apply_pattern (type a) (v : a validation) : unit =
-          let set p = (Js.Unsafe.coerce input_elt)##.pattern := Js.string p in
-          (match v with
-           | IPV4 ->
-              let p = "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.)\
-                       {3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$" in
-              set p
-           | MulticastV4 ->
-              let p = "2(?:2[4-9]|3\\d)(?:\\.(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d?|0)){3}" in
-              set p
-           | _ -> ())
-        in
-        apply_border v;
-        apply_pattern v;
-        Dom_events.listen input_elt Event.input (fun _ _ ->
-            (match parse_valid v self#set_custom_validity self#_value with
-             | Some v -> s_input_push (Some v); self#remove_custom_validity
-             | None   -> s_input_push (None));
-            false)
-        |> ignore;
-        Dom_events.listen
-          input_elt
-          (Event.make "invalid")
-          (fun _ _ -> (* let v = self#get_validity in
-                       * let set_maybe s = Option.iter self#set_custom_validity s in *)
-            s_input_push None;
-            (* if v.bad_input             then set_maybe bad_input_msg
-             * else if v.custom_error     then set_maybe custom_error_msg
-             * else if v.pattern_mismatch then set_maybe pattern_mismatch_msg
-             * else if v.range_overflow   then set_maybe range_overflow_msg
-             * else if v.range_underflow  then set_maybe range_underflow_msg
-             * else if v.step_mismatch    then set_maybe step_mismatch_msg
-             * else if v.too_long         then set_maybe too_long_msg
-             * else if v.too_short        then set_maybe too_short_msg
-             * else if v.type_mismatch    then set_maybe type_mismatch_msg
-             * else if v.valid            then set_maybe invalid_msg
-             * else if v.value_missing    then set_maybe value_missing_msg; *)
-            false)
-        |> ignore
-
-  end
+(* class ['a] text_input_widget ?v_msg ~input_elt (v : 'a validation) elt () =
+ *   let (s_input : 'a option React.signal), s_input_push = React.S.create None in
+ *   object(self)
+ * 
+ *     inherit input_widget ~input_elt elt ()
+ * 
+ *     val mutable v_msg = v_msg
+ * 
+ *     method v_msg : string option = v_msg
+ *     method set_v_msg x = v_msg <- x
+ * 
+ *     method validation_message =
+ *       Js.to_string (Js.Unsafe.coerce input_elt)##.validationMessage
+ * 
+ *     (\* Private methods *\)
+ * 
+ *     method private set_max (x : float) =
+ *       (Js.Unsafe.coerce input_elt)##.max := x
+ *     method private set_min (x : float) =
+ *       (Js.Unsafe.coerce input_elt)##.min := x
+ * 
+ *     method private set_max_length (x : int) =
+ *       input_elt##.maxLength := x
+ *     method private set_min_length (x : int) =
+ *       (Js.Unsafe.coerce input_elt)##.minLength := x
+ * 
+ *     method init () : unit =
+ *       Dom_events.listen
+ *         input_elt
+ *         (Event.make "invalid")
+ *         (fun _ _ ->
+ *           print_endline "invalid";
+ *           (\* let v = self#get_validity in
+ *                      * let set_maybe s = Option.iter self#set_custom_validity s in *\)
+ *           s_input_push None;
+ *           (\* if v.bad_input             then set_maybe bad_input_msg
+ *            * else if v.custom_error     then set_maybe custom_error_msg
+ *            * else if v.pattern_mismatch then set_maybe pattern_mismatch_msg
+ *            * else if v.range_overflow   then set_maybe range_overflow_msg
+ *            * else if v.range_underflow  then set_maybe range_underflow_msg
+ *            * else if v.step_mismatch    then set_maybe step_mismatch_msg
+ *            * else if v.too_long         then set_maybe too_long_msg
+ *            * else if v.too_short        then set_maybe too_short_msg
+ *            * else if v.type_mismatch    then set_maybe type_mismatch_msg
+ *            * else if v.valid            then set_maybe invalid_msg
+ *            * else if v.value_missing    then set_maybe value_missing_msg; *\)
+ *           false)
+ *       |> ignore
+ * 
+ *     initializer
+ *       self#init ()
+ * 
+ *   end *)
 
 let equal (x : (#t as 'a)) (y : 'a) =
   Equal.physical x#root y#root

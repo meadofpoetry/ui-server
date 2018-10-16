@@ -36,7 +36,7 @@ $mdc-theme-background: #ececec !default; // White
 $mdc-theme-surface: #fff !default;
 $mdc-theme-on-surface: if(mdc-theme-contrast-tone($mdc-theme-surface) == "dark", #000, #fff) !default;
 
-$mdc-theme-error: $material-color-red-200 !default;
+$mdc-theme-error: #b00020 !default;;
 $mdc-theme-on-error: if(mdc-theme-contrast-tone($mdc-theme-error) == "dark", #000, #fff) !default;
 
 //

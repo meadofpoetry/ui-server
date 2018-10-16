@@ -5,7 +5,8 @@
 @import "../../components/card/_variables";
 @import "../../components/elevation/_mixins";
 
-$error-surface: lighten(mdc-theme-prop-value(error), 12%);
+$error-surface: $material-color-red-200;
+$on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #fff) !default;
 
 // Common widget wrapper
 .qos-niit-widget-wrapper {
@@ -205,7 +206,6 @@ $error-surface: lighten(mdc-theme-prop-value(error), 12%);
     &--not-available {
         .qos-niit-service-info__pids, .qos-niit-service-info__description,
         .qos-niit-service-info__description > .mdc-card {
-            @include mdc-theme-prop(color, text-primary-on-error);
             @include mdc-theme-prop(background-color, $error-surface, true);
         }
     }
@@ -343,7 +343,6 @@ $error-surface: lighten(mdc-theme-prop-value(error), 12%);
             visibility: hidden;
         }
     }
-
 }
 
 /* Pids overview widget */
@@ -431,10 +430,6 @@ $error-surface: lighten(mdc-theme-prop-value(error), 12%);
     }
 
     &--lost {
-        .mdc-card__subtitle {
-            @include mdc-theme-prop(color, text-secondary-on-error);
-        }
-        @include mdc-theme-prop(background-color, error);
-        @include mdc-theme-prop(color, on-error);
+        @include mdc-theme-prop(background-color, $error-surface);
     }
 }
