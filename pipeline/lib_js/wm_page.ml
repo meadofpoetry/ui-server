@@ -278,25 +278,31 @@ let make_containers (widgets : (string * Wm.widget) list) =
   let open Wm_container.Container_item in
   let open Wm_wizard in
   let domains = find_domains widgets in
-    List.map (fun domain ->
-        let widgets =
-          List.filter (fun (_, (widget : Wm.widget)) ->
-              String.equal widget.domain domain
-            ) widgets in
-        let name = channel_of_pid @@ pid_of_domain domain in
-        ({ icon = Icon.SVG.(create_simple Path.contain)#widget
-         ; name
-         ; unique = true
-         ; min_size = None
-         ; item =
-             { position = { left   = 0
-                          ; right  = 0
-                          ; top    = 0
-                          ; bottom = 0 }
-            ; widgets
-            }
-        } : t)
-      ) domains
+  let structure =
+    Requests.get_structure ()
+    >|= (fun init ->
+        let e, _ = Requests.get_structure_socket () in
+        React.S.hold init e)
+    |> Lwt_main.run |> Result.to_opt in
+  List.map (fun domain ->
+      let widgets =
+        List.filter (fun (_, (widget : Wm.widget)) ->
+            String.equal widget.domain domain
+          ) widgets in
+      let name, _ = channel_of_domain domain structure in
+      ({ icon = Icon.SVG.(create_simple Path.contain)#widget
+       ; name
+       ; unique = true
+       ; min_size = None
+       ; item =
+           { position = { left   = 0
+                        ; right  = 0
+                        ; top    = 0
+                        ; bottom = 0 }
+           ; widgets
+           }
+       } : t)
+    ) domains
 
 let create ~(init: Wm.t)
       ~(post: Wm.t -> unit Lwt.t)
@@ -317,18 +323,21 @@ let create ~(init: Wm.t)
     List.map Widget_item.t_of_layout_item
     @@ get_free_widgets init.layout init.widgets in
   let s_wc, s_wc_push = React.S.create wc in
-  let s_cc, s_cc_push =
-    React.S.create
-      (* FIXME icon shoud be common *)
-      (({ icon = Icon.SVG.(create_simple Path.contain)#widget
-        ; name = "Контейнер"
+(* FIXME icon shoud be common *)
+  let new_cont = ({ icon = Icon.SVG.(create_simple Path.contain)#widget
+        ; name = "Новый контейнер"
         ; unique = false
         ; min_size = None
         ; item =
             { position = { left = 0; right = 0; top = 0; bottom = 0 }
             ; widgets = []
             }
-        } : Container_item.t) :: (make_containers init.widgets))  in
+        } : Container_item.t) in
+  let containers =
+    match make_containers init.widgets with
+    | [] -> [new_cont]
+    | l  -> l in
+  let s_cc, s_cc_push = React.S.create containers in
   let wz_dlg, wz_e, wz_show = Wm_wizard.to_dialog init in
   let resolution = init.resolution in
   let s_state, s_state_push = React.S.create `Container in

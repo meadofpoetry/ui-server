@@ -82,35 +82,23 @@ let parse_stream stream = stream
    *       | None     -> None in
    *     Source.to_string stream.source.info, url *)
 
-let channel_of_pid = function
-  (* do NOT edit or remove
-   * first multiplex *)
-  | "1010" -> "Первый канал"
-  | "1020" -> "Россия 1"
-  | "1030" -> "МАТЧ"
-  | "1040" -> "НТВ"
-  | "1050" -> "Пятый канал"
-  | "1060" -> "Россия К"
-  | "1070" -> "Россия 24"
-  | "1080" -> "Карусель"
-  | "1090" -> "ОТР"
-  | "1100" -> "ТВ Центр"
-  | "1110" -> "Вести ФМ"
-  | "1120" -> "Маяк"
-  | "1130" -> "Радио России"
-  (* do NOT edit or remove
-   * second multiplex *)
-  | "2010" -> "РЕН ТВ"
-  | "2020" -> "Спас"
-  | "2030" -> "СТС"
-  | "2040" -> "Домашний"
-  | "2050" -> "ТВ3"
-  | "2060" -> "Пятница"
-  | "2070" -> "Звезда"
-  | "2080" -> "Мир"
-  | "2090" -> "ТНТ"
-  | "2100" -> "МУЗ ТВ"
-  | x      -> x
+let channel_of_domain domain (structure : Structure.Streams.t React.signal option)=
+  let default = "", "" in
+  match structure with
+  | None -> default
+  | Some signal ->
+    let structure = React.S.value signal in
+    let pid = int_of_string @@ pid_of_domain domain in
+    let id = Common.Stream.ID.of_string @@ stream_of_domain domain in
+    match List.find_pred (fun (x : Structure.packed) ->
+        Common.Stream.ID.equal x.structure.id id) structure with
+    | None -> default
+    | Some packed ->
+      match List.find_pred (fun (ch : Structure.channel) ->
+          List.exists (fun (x : Structure.pid) ->
+              x.pid = pid) ch.pids ) packed.structure.channels with
+      | None -> default
+      | Some channel ->  channel.service_name, channel.provider_name
 
 let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
   let calculate_cols_rows () =
@@ -210,25 +198,24 @@ let make_widget (widget : string * Wm.widget) =
   let checkbox = new Checkbox.t () in
   checkbox#set_id @@ domain ^ "|" ^ typ;
   checkbox,
-  new Tree.Item.t ~text:label ~secondary_text:(channel_of_pid @@ pid_of_domain domain)
-    ~graphic:checkbox ~value:() ()
+  new Tree.Item.t ~text:label ~graphic:checkbox ~value:() ()
 
 (* makes all the widgets checkboxes with IDs, checkboxes of channels Tree items,
  * and a Tree.t containing all given channels *)
-let make_channels (widgets : (string * Wm.widget) list) =
+let make_channels (widgets : (string * Wm.widget) list) structure =
   let domains  = find_domains widgets in
   let channels =
-    List.map (fun x -> channel_of_pid @@ pid_of_domain x, x) domains in
+    List.map (fun x -> channel_of_domain x structure, x) domains in
   let wdg_chbs, ch_chbs, items =
     List.map (fun (channel, domain) ->
-        let label   = channel in
+        let text, secondary_text = channel in
         let widgets =
           List.filter (fun (_, (wdg : Wm.widget)) ->
               String.equal domain wdg.domain) widgets in
         let checkboxes, wds =
           List.split @@ List.map (fun widget -> make_widget widget) widgets in
         let checkbox = new Checkbox.t () in
-        checkbox#set_id label;
+        checkbox#set_id text;
         React.E.map (fun checked ->
             if checked then
               List.iter (fun ch -> ch#set_checked true) checkboxes
@@ -245,13 +232,13 @@ let make_channels (widgets : (string * Wm.widget) list) =
             |> ignore) checkboxes;
         let nested  = new Tree.t ~items:wds () in
         checkboxes, checkbox,
-        new Tree.Item.t ~text:label ~graphic:checkbox
+        new Tree.Item.t ~text ~secondary_text ~graphic:checkbox
           ~nested ~value:() ()) channels
     |> split_three in
   (List.concat wdg_chbs), ch_chbs, new Tree.t ~items ()
 
 (* makes all the widget checkboxes with IDs, and a Tree.t containing all streams *)
-let make_streams (widgets : (string * Wm.widget) list) =
+let make_streams (widgets : (string * Wm.widget) list) structure =
   let streams =
     List.fold_left (fun acc (x : string * Wm.widget) ->
         let stream = stream_of_domain (snd x).domain in
@@ -269,7 +256,7 @@ let make_streams (widgets : (string * Wm.widget) list) =
       stream, wds) streams in
   let checkboxes, items =
     List.fold_left (fun acc (stream, wds) ->
-        let wdg_chbs, chan_chbs, nested = make_channels wds in
+        let wdg_chbs, chan_chbs, nested = make_channels wds structure in
         let checkbox = new Checkbox.t () in
         checkbox#set_id stream;
         React.E.map (fun checked ->
@@ -300,7 +287,7 @@ let make_streams (widgets : (string * Wm.widget) list) =
   checkboxes, new Tree.t ~items ()
 
 (* makes a list of containers with widgets, calculates its positions *)
-let to_layout ~resolution ~widgets =
+let to_layout ~resolution ~widgets structure =
   let ar_x, ar_y = 16, 9 in
   let domains    = find_domains widgets in
   let num        = List.length domains in
@@ -326,7 +313,7 @@ let to_layout ~resolution ~widgets =
     List.fold_left (fun acc domain ->
         let i, acc  = acc in
         let row_num = i / cols in
-        let channel = channel_of_pid @@ pid_of_domain domain in
+        let channel, _ = channel_of_domain domain structure in
         let cont_w  =
           if i + 1 > List.length domains - remain then
             fst resolution / cols * multiplier
@@ -403,8 +390,15 @@ let to_layout ~resolution ~widgets =
  *        |_ widgets
  * returns dialog, react event and a fun showing dialog *)
 let to_dialog (wm : Wm.t) =
+  let open Lwt_result.Infix in
   let e, push    = React.E.create () in
-  let checkboxes, widget = make_streams wm.widgets in
+  let structure =
+  Requests.get_structure ()
+  >|= (fun init ->
+    let e, _ = Requests.get_structure_socket () in
+    React.S.hold init e)
+  |> Lwt_main.run |> Result.to_opt in
+  let checkboxes, widget = make_streams wm.widgets structure in
   let box        = new Vbox.t ~widgets:[widget#widget] () in
   let dialog     =
     new Dialog.t
@@ -437,6 +431,6 @@ let to_dialog (wm : Wm.t) =
                   | Some x -> x :: acc
                   | None   -> acc) [] wds in
             Lwt.return
-              (push @@ to_layout ~resolution:wm.resolution ~widgets)
+              (push @@ to_layout ~resolution:wm.resolution ~widgets structure)
           | `Cancel -> Lwt.return ()) in
   dialog, e, show
