@@ -12,8 +12,8 @@ class t () =
   let _class = "wm-resolution-dialog" in
   let width  = make_resolution_input ~id:"wm-width"  ~label:"Ширина" () in
   let height = make_resolution_input ~id:"wm-height" ~label:"Высота" () in
-  let accept = new Dialog.Action.t ~typ:`Accept ~label:"Ok" () in
-  let cancel = new Dialog.Action.t ~typ:`Cancel ~label:"Отмена" () in
+  let accept = new Dialog.Action.t ~typ:`Accept  ~label:"Ok" () in
+  let cancel = new Dialog.Action.t ~typ:`Decline ~label:"Отмена" () in
   let widget = new Vbox.t ~widgets:[width;height] () in
 
   object(self)

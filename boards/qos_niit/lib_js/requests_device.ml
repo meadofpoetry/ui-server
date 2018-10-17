@@ -16,7 +16,7 @@ module WS = struct
     WS.get ~from:status_of_yojson ~path ~query:Query.empty control
 
   let get_errors ?(errors=[]) control =
-    WS.get ~from:(Json.List.of_yojson board_error_of_yojson)
+    WS.get ~from:board_errors_of_yojson
       ~path:Path.Format.(get_base_path () / ("errors" @/ empty))
       ~query:Query.["errors", (module List(Int))]
       control errors
@@ -88,20 +88,7 @@ module HTTP = struct
 
   module Archive = struct
 
-    let of_yojson =
-      Api_js.Api_types.rows_of_yojson
-        (Json.List.of_yojson state_of_yojson)
-        state_compressed_of_yojson
-
-    let get_state ?limit ?compress ?from ?till ?duration control =
-      get_result ~from:of_yojson
-        ~path:Uri.Path.Format.(get_base_path () / ("state/archive" @/ empty))
-        ~query:Uri.Query.[ "limit",    (module Option(Int))
-                         ; "compress", (module Option(Bool))
-                         ; "from",     (module Option(Time.Show))
-                         ; "to",       (module Option(Time.Show))
-                         ; "duration", (module Option(Time.Relative))]
-        control limit compress from till duration
+    include Boards_js.Requests.Device.HTTP.Archive
 
     let get_errors ?(errors=[]) ?limit ?compress ?from ?till ?duration control =
       get_result ~from:(fun _ -> Error "not implemented")

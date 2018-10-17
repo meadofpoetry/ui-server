@@ -3,7 +3,6 @@ open Common.Topology
 open Common.User
 open Api.Template
 open Api
-open Common.Uri
 
 module Icon = Components_markup.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
@@ -26,56 +25,33 @@ let input topo (topo_input:topo_input) =
   match path with
   | None              -> failwith "input not found"
   | Some (boards, cpu) ->
-     let title = Common.Topology.get_input_name topo_input in
+     let title  = Common.Topology.get_input_name topo_input in
      let boards = List.map (fun x -> x.control, x.typ) boards
                   |> boards_to_yojson |> Yojson.Safe.to_string in
-     let cpu = Option.map (fun x -> x.process) cpu
-               |> cpu_opt_to_yojson |> Yojson.Safe.to_string in
-     let input = Common.Topology.Show_topo_input.to_string topo_input in
-     let input_template =
-       { title = Some title
-       ; pre_scripts  =
-           [ Raw (Printf.sprintf "var input = \"%s\";\
-                                  var boards = %s;\
-                                  var cpu = %s;"
-                    input boards cpu)]
-       ; post_scripts = [Src "/js/input.js"]
-       ; stylesheets = []
-       ; content = []
+     let cpu    = Option.map (fun x -> x.process) cpu
+                  |> cpu_opt_to_yojson |> Yojson.Safe.to_string in
+     let input  = Common.Topology.Show_topo_input.to_string topo_input in
+     let template =
+       { title        = Some ("Вход " ^ title)
+       ; pre_scripts  = [ Raw (Printf.sprintf "var input = \"%s\";\
+                                               var boards = %s;\
+                                               var cpu = %s;"
+                                 input boards cpu)
+                        ; Src "/js/moment.min.js"
+                        ; Src "/js/Chart.min.js"
+                        ; Src "/js/Chart.PieceLabel.min.js"]
+       ; post_scripts = [ Src "/js/input.js" ]
+       ; stylesheets  = []
+       ; content      = []
        } in
-     let input_page =
-       `Index topo_input.id,
-       Simple { title
-              ; icon = None
-              ; href = Path.of_string @@ get_input_href topo_input
-              ; template = input_template } in
-     let pre = "input/" ^ get_input_href topo_input in
-     let stream_template =
-       { title = Some ("Входы / " ^ title)
-       ; pre_scripts =
-           [ Raw (Printf.sprintf "var input = \"%s\";\
-                                  var boards = %s;\
-                                  var cpu = %s;"
-                    input boards cpu)
-           ; Src "/js/moment.min.js"
-           ; Src "/js/Chart.min.js"
-           ; Src "/js/Chart.PieceLabel.min.js"
-           ]
-       ; post_scripts = [Src "/js/stream.js"]
-       ; stylesheets = []
-       ; content = []
-       } in
-     let stream_page =
-       `Index topo_input.id,
-       Pure { path = Path.Format.(pre @/ Common.Stream.ID.fmt ^/ empty)
-            ; template = stream_template } in
-     input_page, stream_page
+     `Index topo_input.id,
+     Simple { title
+            ; icon = None
+            ; href = Path.of_string @@ get_input_href topo_input
+            ; template }
 
 let create (app : Application.t) : upper ordered_item list user_table =
   let topo  = React.S.value app.topo in
-  let hw_templates =
-    Hardware.Map.fold (fun _ (x:Boards.Board.t) acc ->
-        List.cons_maybe x.templates acc) app.hw.boards [] in
   let props =
     { title        = Some "Конфигурация"
     ; pre_scripts  = []
@@ -84,23 +60,21 @@ let create (app : Application.t) : upper ordered_item list user_table =
     ; content      = []
     } in
   let demo_props =
-    { title = Some "UI Демо"
-    ; pre_scripts = [ Src "/js/moment.min.js"
-                    ; Src "/js/Chart.min.js" ]
+    { title        = Some "UI Демо"
+    ; pre_scripts  = [ Src "/js/moment.min.js"
+                     ; Src "/js/Chart.min.js" ]
     ; post_scripts = [ Src "/js/demo.js" ]
-    ; stylesheets = ["/css/demo.min.css"]
-    ; content = []
+    ; stylesheets  = [ ]
+    ; content      = [ ]
     } in
-  let inputs = Common.Topology.inputs topo in
-  let input_templates, stream_templates =
-    List.map (input topo) inputs
-    |> List.split in
-  let app_template =
+  let inputs    = Common.Topology.inputs topo in
+  let templates = List.rev_map (input topo) inputs in
+  let rval =
     [ `Index 2,
       Subtree { title = "Входы"
               ; icon  = Some (make_icon Icon.SVG.Path.arrow_right_box)
               ; href  = Path.of_string "input"
-              ; templates = input_templates }
+              ; templates }
     ; `Index 3,
       Simple  { title = "Конфигурация"
               ; icon  = Some (make_icon Icon.SVG.Path.tournament)
@@ -117,16 +91,9 @@ let create (app : Application.t) : upper ordered_item list user_table =
     | None -> Common.User.empty_table
     | Some p -> p#template ()
   in
-  Common.User.concat_table
-    ([ Responses.home_template ()
-     ; User_template.create ()
-     ; Pc_control.Network_template.create ()
-     ; proc
-     ; { root = app_template
-       ; operator = app_template
-       ; guest = app_template }
-     ; { root = stream_templates
-       ; operator = stream_templates
-       ; guest = stream_templates }
-     ]
-     @ hw_templates)
+  Common.User.concat_table [ Responses.home_template ()
+                           ; User_template.create ()
+                           ; Pc_control.Network_template.create ()
+                           ; proc
+                           ; { root = rval; operator = rval; guest = rval }
+    ]

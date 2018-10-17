@@ -6,29 +6,29 @@ module Clock = struct
 
   let now () = match of_float_s @@ Unix.gettimeofday () with
     | Some x -> x
-    | None -> assert false
+    | None   -> assert false
 
   let now_s () = match of_float_s @@ Unix.time () with
     | Some x -> x
-    | None -> assert false
+    | None   -> assert false
 
 end
 
-let to_human_string ?tz_offset_s (t : t) =
-  let (y, m, d), ((h, min, s), _) = to_date_time ?tz_offset_s t in
+let to_human_string ?tz_offset_s (t:t) =
+  let (y,m,d),((h,min,s),_) = to_date_time ?tz_offset_s t in
   Printf.sprintf "%02d.%02d.%04d %02d:%02d:%02d" d m y h min s
 
-let of_human_string_exn ?(tz_offset_s = 0) s =
+let of_human_string_exn ?(tz_offset_s=0) s =
   match String.split_on_char ' ' s with
-  | [date; time] ->
+  | [ date; time ] ->
      let y, m, d = match String.split_on_char '.' date with
-       | [day; month; year] ->
+       | [ day; month; year ] ->
           int_of_string year,
           int_of_string month,
           int_of_string day
        | _ -> failwith "bad date value(s)" in
      let h, min, s = match String.split_on_char ':' time with
-       | [hour; min; sec] ->
+       | [ hour; min; sec ] ->
           int_of_string hour,
           int_of_string min,
           int_of_string sec
@@ -36,54 +36,19 @@ let of_human_string_exn ?(tz_offset_s = 0) s =
      of_date_time ((y, m, d), ((h, min, s), tz_offset_s)) |> Option.get_exn
   | _ -> failwith "not a human-readable date time string"
 
-let to_yojson' (v : t) : Yojson.Safe.json =
-  let d, ps = Ptime.to_span v |> Ptime.Span.to_d_ps in
-  `List [`Int d; `Intlit (Int64.to_string ps)]
+let to_yojson (v:t) : Yojson.Safe.json =
+  let d,ps = Ptime.to_span v |> Ptime.Span.to_d_ps in
+  `List [ `Int d;`Intlit (Int64.to_string ps) ]
 
-let of_yojson' (j : Yojson.Safe.json) : (t, string) result =
-  let to_err j =
-    Printf.sprintf "of_yojson: bad json value (%s)"
-    @@ Yojson.Safe.to_string j in
+let of_yojson (j:Yojson.Safe.json) : (t,string) result =
+  let to_err j = Printf.sprintf "of_yojson: bad json value (%s)" @@ Yojson.Safe.to_string j in
   match j with
-  | `List [d; ps] ->
-     Result.(
-      Json.Int.of_yojson d
-      >>= fun d -> Json.Int64.of_yojson ps
-      >>= fun ps -> return (v (d,ps)))
+  | `List [ d; ps] ->
+     Result.(Json.Int.of_yojson d >>= fun d ->
+             Json.Int64.of_yojson ps >>= fun ps ->
+             return (v (d,ps)))
   | _ -> Error (to_err j)
 
-let to_yojson (v : t) : Yojson.Safe.json =
-  let t = to_rfc3339 ~frac_s:6 v in
-  `String t
-
-let of_yojson (j : Yojson.Safe.json) : (t, string) result =
-  let to_err j =
-    Printf.sprintf "of_yojson: bad json value (%s)"
-    @@ Yojson.Safe.to_string j in
-  match j with
-  | `String s ->
-     begin match of_rfc3339 s with
-     | Ok (t, _, _) -> Ok t
-     | Error _ -> Error "of_yojson: bad rfc3339 string"
-     end
-  | _ -> Error (to_err j)
-
-type 'a timestamped =
-  { timestamp : t
-  ; data : 'a
-  } [@@deriving yojson, eq, show]
-
-let make_timestamped timestamp data =
-  { timestamp; data }
-
-type 'a timespan =
-  { from : t
-  ; till : t
-  ; data : 'a
-  } [@@deriving yojson, eq]
-
-let make_timespan ~from ~till data =
-  { from; till; data }
 
 module Show_RFC3339 = struct
   type t = Ptime.t
@@ -91,19 +56,15 @@ module Show_RFC3339 = struct
   let typ = "RFC3339 timestamp"
 
   let of_string s =
-    of_rfc3339 s
-    |> function
-      | Ok (v,_,_) -> v
-      | Error _ -> failwith (Printf.sprintf "RFC3339.of_string: bad input %s" s)
+    of_rfc3339 s |> function Ok (v,_,_) -> v | Error _ -> failwith (Printf.sprintf "RFC3339.of_string: bad input %s" s)
 
   let to_string s = to_rfc3339 s
 
   let of_yojson = function
-    | `String s ->
-       begin match of_rfc3339 s with
-       | Ok(v, _, _) -> Ok v
-       | Error _ -> Error (Printf.sprintf "RFC3339.of_yojson: bad input %s" s)
-       end
+    | `String s -> begin match of_rfc3339 s with
+                   | Ok(v,_,_) -> Ok v
+                   | Error _   -> Error (Printf.sprintf "RFC3339.of_yojson: bad input %s" s)
+                   end
     | _ -> Error (Printf.sprintf "RFC3339.of_yojson: bad input, expected a string")
 
   let to_yojson v = `String (to_string v)
@@ -119,8 +80,8 @@ module Show_float = struct
   let to_string x = Float.to_string @@ Ptime.to_float_s x
 
   let of_yojson x = match x with
-    | `Float x -> Ok (Option.get_exn @@ Ptime.of_float_s x)
-    | `Floatlit x -> Ok (of_string x)
+    | `Float x -> Ok(Option.get_exn @@ Ptime.of_float_s x)
+    | `Floatlit x -> Ok(of_string x)
     | _ -> Error (Printf.sprintf "Show_float.of_yojson: bad input, expected a string")
     | exception _ -> Error (Printf.sprintf "Show_float.of_yojson: bad input, expected a string")
 
@@ -137,33 +98,25 @@ module Show = struct
   let to_string t = Show_time.to_string (`Left t)
 end
 
-let make_interval ?(from : t option)
-      ?(till : t option)
-      ?(duration : span option) () =
-  let ok v = Result.return v in
+let make_interval ?(from:t option) ?(till:t option) ?(duration:span option) () =
+  let ok v  = Result.return v in
   let err s = Result.fail s in
-  match from, till, duration with
-  | Some _, Some _, Some _ -> err "excessive duration query"
-  | Some s, Some e, None -> ok (`Range (s,e))
-  | Some s, None, Some d ->
-     begin match add_span s d with
-     | Some e -> ok (`Range (s,e))
-     | None -> err "time range exceeded"
-     end
-  | Some s, None, None -> ok (`Range (s, max))
-  | None, Some e, Some d ->
-     begin match sub_span e d with
-     | Some s -> ok (`Range (s, e))
-     | None   -> err "time range exceeded"
-     end
-  | None, Some e, None -> ok (`Range (epoch, e))
-  | None, None, Some d ->
-     let e = Clock.now () in
-     begin match sub_span e d with
-     | Some s -> ok (`Range (s, e))
-     | None -> err "time range exceeded"
-     end
-  | None, None, None -> ok (`Range (epoch, max))
+  match from,till,duration with
+  | Some _,Some _,Some _ -> err "excessive duration query"
+  | Some s,Some e,None   -> ok (`Range (s,e))
+  | Some s,None,Some d   -> (match add_span s d with
+                             | Some e -> ok (`Range (s,e))
+                             | None   -> err "time range exceeded")
+  | Some s,None,None     -> ok (`Range (s, max))
+  | None,Some e,Some d   -> (match sub_span e d with
+                             | Some s -> ok (`Range (s,e))
+                             | None   -> err "time range exceeded")
+  | None,Some e,None     -> ok (`Range (epoch, e))
+  | None,None,Some d     -> let e = Clock.now () in
+                            (match sub_span e d with
+                             | Some s -> ok (`Range (s,e))
+                             | None   -> err "time range exceeded")
+  | None,None,None       -> ok (`Range (epoch, max))
 
 let split ~from ~till =
   let second = 1 in

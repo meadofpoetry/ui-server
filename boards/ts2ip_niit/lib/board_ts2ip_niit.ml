@@ -104,5 +104,4 @@ let create (b:topo_board) (streams:Stream.t list React.signal) _
             method constraints = constraints
           end)
   ; state = (state :> < finalize : unit -> unit >)
-  ; templates = None
   }

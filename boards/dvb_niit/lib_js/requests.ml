@@ -1,2 +1,3 @@
-module Device = Requests_device
-module Streams = Requests_streams
+module Device    = Requests_device
+module Receiver  = Requests_receiver
+module Receivers = Requests_receivers

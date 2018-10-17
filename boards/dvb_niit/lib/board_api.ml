@@ -3,7 +3,8 @@ open Common
 
 let handle api events =
   [ Board_api_device.handler api events
-  ; Board_api_streams.handler api events
+  ; Board_api_receiver.handler api events
+  ; Board_api_receivers.handler api events
   ]
 
 let handlers id api events =

@@ -125,8 +125,8 @@ let make_input_stream_list stream_list =
         ~secondary_text:(Common.Url.to_string uri)
         ~meta:del_button
         ~value:() () in
-    del_button#listen_click_lwt (fun _ _ ->
-        del_item item; del_stream stream; Lwt.return_unit) |> Lwt.ignore_result;
+    (* TODO remove event *)
+    Lwt_react.E.map (fun _ -> del_item item; del_stream stream) del_button#e_click |> ignore;
     item
   in
   let signal, push = React.S.create stream_list in
@@ -169,7 +169,7 @@ let make_stream_create_dialog () =
   let box     = new Vbox.t ~widgets:[uri_box#widget; desc_box#widget] () in
   
   let accept  = new Dialog.Action.t ~label:"accept" ~typ:`Accept () in
-  let decline = new Dialog.Action.t ~label:"decline" ~typ:`Cancel () in
+  let decline = new Dialog.Action.t ~label:"decline" ~typ:`Decline () in
   let dialog  = new Dialog.t ~actions:[accept; decline] ~content:(`Widgets [header#widget; box#widget]) () in
 
   let merge uri description source =
@@ -215,10 +215,11 @@ let make_input_entry (iid, _, stream_list) =
   let settings = React.S.map (fun slst -> iid, slst) streams in
   let add_button  = new Button.t ~label:"add stream" () in
   let dialog = make_stream_create_dialog () in
-  add_button#listen_click_lwt (fun _ _ ->
-      show_stream_create_dialog dialog streams (input, id) >>= function
-      | Error e -> Lwt.return @@ print_endline e
-      | Ok s -> Lwt.return @@ add s) |> Lwt.ignore_result;
+  Lwt_react.E.keep @@ Lwt_react.E.map_p (fun _ ->
+                          show_stream_create_dialog dialog streams (input,id) >>= function
+                          | Error e -> Lwt.return @@ print_endline e
+                          | Ok s    -> Lwt.return @@ add s)
+                                        add_button#e_click;
   let box = new Vbox.t ~widgets:[subheader#widget; list#widget; add_button#widget] () in
   box#widget, settings
 
