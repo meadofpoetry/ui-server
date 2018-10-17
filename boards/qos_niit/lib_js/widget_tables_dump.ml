@@ -27,6 +27,13 @@ let req_of_table table_id table_id_ext id_ext_1 id_ext_2 section =
   | `EIT _ -> r ~table_id_ext ~id_ext_1 ~id_ext_2
   | _ -> r ?table_id_ext:None ?id_ext_1:None ?id_ext_2:None
 
+let dump_error_to_string : Dump.error -> string = function
+  | Zero_length -> "Пустая секция"
+  | Stream_not_found -> "Поток не найден"
+  | Table_not_found -> "Таблица не найдена"
+  | Section_not_found -> "Секция не найдена"
+  | Unknown -> "Неизвестная ошибка"
+
 module Section = struct
 
   open SI_PSI_table
@@ -335,7 +342,9 @@ let make_dump
                  (req_of_table table_id table_id_ext
                     id_ext_1 id_ext_2 section.section)
                    ~id:stream control
-                 |> Lwt_result.map_err Api_js.Requests.err_to_string
+                 |> Lwt_result.map_err
+                      (Api_js.Requests.err_to_string
+                         ~to_string:dump_error_to_string)
                  >|= (function
                       | Ok dump ->
                          item#set_value (section, Some dump);

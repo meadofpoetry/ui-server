@@ -244,7 +244,7 @@ end = struct
     | Pure i -> parse_pure i |> make_raw
 
   let to_int32_pure = function
-    | Parsed x -> make_raw x
+    | Parsed x -> make_pure x
     | Pure i -> i
     | Raw i -> parse_raw i |> make_pure
 
@@ -362,8 +362,7 @@ let find_by_multi_id (id : Multi_TS_ID.t)
       | _ -> false) streams
 
 let find_by_id (id : ID.t) (streams : t list) =
-  List.find_opt (fun (s : t) ->
-      ID.equal s.id id) streams
+  List.find_opt (fun (s : t) -> ID.equal s.id id) streams
 
 let rec get_input (s : t) : topo_input option =
   match s.source.node with

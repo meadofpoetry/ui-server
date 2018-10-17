@@ -325,6 +325,7 @@ $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #
         }
         &__pid--lost {
             @include mdc-theme-prop(color, error);
+            font-weight: 600;
         }
         &__title {
             padding-bottom: 1rem;
@@ -386,7 +387,7 @@ $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #
 .qos-niit-errors-log {
     @include mdc-elevation(2);
     &--failure {
-        @include mdc-theme-prop(background-color, error, true);
+        background-color: $material-color-red-200 !important;
     }
     &--danger {
         background-color: $material-color-orange-200 !important;
