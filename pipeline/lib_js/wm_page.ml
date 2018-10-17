@@ -320,7 +320,7 @@ let create ~(init: Wm.t)
   let s_cc, s_cc_push =
     React.S.create
       (* FIXME icon shoud be common *)
-      [({ icon = Icon.SVG.(create_simple Path.contain)#widget
+      (({ icon = Icon.SVG.(create_simple Path.contain)#widget
         ; name = "Контейнер"
         ; unique = false
         ; min_size = None
@@ -328,8 +328,7 @@ let create ~(init: Wm.t)
             { position = { left = 0; right = 0; top = 0; bottom = 0 }
             ; widgets = []
             }
-        } : Container_item.t)
-      ] in
+        } : Container_item.t) :: (make_containers init.widgets))  in
   let wz_dlg, wz_e, wz_show = Wm_wizard.to_dialog init in
   let resolution = init.resolution in
   let s_state, s_state_push = React.S.create `Container in
