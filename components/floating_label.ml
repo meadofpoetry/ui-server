@@ -11,14 +11,16 @@ class t ?(for_ : string option) (label : string) () =
 
     val mutable _listener = None
 
-    inherit Widget.t elt ()
+    inherit Widget.t elt () as super
 
     method init () : unit =
+      super#init ();
       self#listen_lwt Widget.Event.animationend (fun e _ ->
           Lwt.return @@ self#shake_animation_end_handler e)
       |> fun x -> _listener <- Some x
 
     method destroy () : unit =
+      super#destroy ();
       Option.iter Lwt.cancel _listener;
       _listener <- None
 

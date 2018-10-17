@@ -77,7 +77,13 @@ module Helper_text = struct
 
       val mutable _auto_validation : bool = auto_validation_message
 
-      inherit Widget.t elt ()
+      inherit Widget.t elt () as super
+
+      method init () : unit =
+        super#init ();
+        self#set_validation validation;
+        self#set_persistent persistent;
+        Option.iter self#set_content content
 
       method set_content (s : string) : unit =
         self#set_text_content s
@@ -115,11 +121,6 @@ module Helper_text = struct
 
       method private hide () : unit =
         self#set_attribute "aria-hidden" "true"
-
-      initializer
-        self#set_validation validation;
-        self#set_persistent persistent;
-        Option.iter self#set_content content
 
     end
 
@@ -561,6 +562,7 @@ class ['a] t ?input_id
       self#set_custom_validity ""
 
     method init () : unit =
+      super#init ();
       Option.iter self#set_required required;
       Option.iter (fun (x : Icon.t) ->
           x.widget#add_class Markup.Icon._class) leading_icon;
@@ -629,9 +631,6 @@ class ['a] t ?input_id
       Option.iter (fun x -> x#destroy ()) line_ripple;
       Option.iter (fun x -> x#destroy ()) floating_label;
       Option.iter (fun x -> x#destroy ()) notched_outline;
-
-    initializer
-      self#init ()
 
   end
 

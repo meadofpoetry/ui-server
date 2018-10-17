@@ -1,22 +1,6 @@
 open Containers
 open Components
 
-(* FIXME legacy, remove *)
-(** Creates apply button which is disabled when signal value is None.
-    Sends provided request when clicked *)
-let create_apply : type a b. (a option React.signal) -> (a -> (b,_) Lwt_result.t) -> Button.t =
-  fun s f ->
-  let base_class = "mdc-apply-button" in
-  let b  = new Button.t ~label:"Применить" () in
-  let () = b#add_class base_class in
-  (* FIXME store signal *)
-  let _ = React.S.map (function Some _ -> b#set_disabled false
-                              | None -> b#set_disabled true) s in
-  b#listen_click_lwt (fun _ _ ->
-      Option.iter (fun s -> f s |> ignore) @@ React.S.value s;
-      Lwt.return_unit) |> Lwt.ignore_result;
-  b
-
 module Set = struct
 
   open Lwt.Infix

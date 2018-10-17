@@ -58,6 +58,9 @@ class t (elt : #Dom_html.element Js.t) () = object(self)
 
   method set_on_destroy f = _on_destroy <- f
 
+  method init () : unit =
+    ()
+
   method destroy () : unit =
     self#set_on_load None;
     self#set_on_unload None;
@@ -309,6 +312,9 @@ class t (elt : #Dom_html.element Js.t) () = object(self)
     | _, _, None -> _observer <- Some (init ())
     | _ -> ()
 
+  initializer
+    self#init ()
+
 end
 
 class button_widget ?on_click elt () =
@@ -380,60 +386,6 @@ class radio_or_cb_widget ?on_change ?state ~input_elt elt () =
           s_state_push self#checked; false) |> ignore;
 
   end
-
-(* class ['a] text_input_widget ?v_msg ~input_elt (v : 'a validation) elt () =
- *   let (s_input : 'a option React.signal), s_input_push = React.S.create None in
- *   object(self)
- * 
- *     inherit input_widget ~input_elt elt ()
- * 
- *     val mutable v_msg = v_msg
- * 
- *     method v_msg : string option = v_msg
- *     method set_v_msg x = v_msg <- x
- * 
- *     method validation_message =
- *       Js.to_string (Js.Unsafe.coerce input_elt)##.validationMessage
- * 
- *     (\* Private methods *\)
- * 
- *     method private set_max (x : float) =
- *       (Js.Unsafe.coerce input_elt)##.max := x
- *     method private set_min (x : float) =
- *       (Js.Unsafe.coerce input_elt)##.min := x
- * 
- *     method private set_max_length (x : int) =
- *       input_elt##.maxLength := x
- *     method private set_min_length (x : int) =
- *       (Js.Unsafe.coerce input_elt)##.minLength := x
- * 
- *     method init () : unit =
- *       Dom_events.listen
- *         input_elt
- *         (Event.make "invalid")
- *         (fun _ _ ->
- *           print_endline "invalid";
- *           (\* let v = self#get_validity in
- *                      * let set_maybe s = Option.iter self#set_custom_validity s in *\)
- *           s_input_push None;
- *           (\* if v.bad_input             then set_maybe bad_input_msg
- *            * else if v.custom_error     then set_maybe custom_error_msg
- *            * else if v.pattern_mismatch then set_maybe pattern_mismatch_msg
- *            * else if v.range_overflow   then set_maybe range_overflow_msg
- *            * else if v.range_underflow  then set_maybe range_underflow_msg
- *            * else if v.step_mismatch    then set_maybe step_mismatch_msg
- *            * else if v.too_long         then set_maybe too_long_msg
- *            * else if v.too_short        then set_maybe too_short_msg
- *            * else if v.type_mismatch    then set_maybe type_mismatch_msg
- *            * else if v.valid            then set_maybe invalid_msg
- *            * else if v.value_missing    then set_maybe value_missing_msg; *\)
- *           false)
- *       |> ignore
- * 
- *     initializer
- *       self#init ()
- * 
- *   end *)
 
 let equal (x : (#t as 'a)) (y : 'a) =
   Equal.physical x#root y#root

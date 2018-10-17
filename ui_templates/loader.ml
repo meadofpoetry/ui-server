@@ -69,6 +69,12 @@ class ['a] widget_loader ?text ?error_icon ?error_prefix
 object(self)
   inherit ['a] loader ?text ?error_icon ?error_prefix t () as super
 
+  method destroy () : unit =
+    let open Lwt_result in
+    super#destroy ();
+    self#thread >|= (fun w -> w#destroy ())
+    |> Lwt.ignore_result
+
   initializer
     Lwt_result.Infix.(
     self#thread

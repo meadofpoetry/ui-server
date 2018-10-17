@@ -37,7 +37,7 @@ let make_inner (parent : #Widget.t) state config control receivers =
          @@ List.sort compare ids in
        let bar, body = Ui_templates.Tabs.create_simple tabs in
        body#add_class body_class;
-       Ui_templates.Tabs.wrap_simple (bar, body) in
+       Ui_templates.Tabs.wrap bar body in
   parent#set_empty ();
   parent#append_child w
 

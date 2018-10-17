@@ -26,6 +26,7 @@ class t () =
       (Js.Unsafe.coerce self#style)##.transformOrigin := value
 
     method init () : unit =
+      super#init ();
       self#listen_lwt (Widget.Event.make "transitionend") (fun e _ ->
           Lwt.return @@ self#handle_transition_end e)
       |> fun x -> _transitionend_listener <- Some x
@@ -48,8 +49,5 @@ class t () =
            (self#remove_class Markup.active_class;
             self#remove_class Markup.deactivating_class)
       | _ -> ()
-
-    initializer
-      self#init ()
 
   end
