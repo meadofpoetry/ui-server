@@ -308,14 +308,10 @@ module Settings = struct
     let header             = Dom_html.createH5 Dom_html.document in
     header##.textContent   := Js.some @@ Js.string "Блочность";
     let blocky_w, blocky_s = make_setting "Блочность" b.blocky in
-    let mark_chck          = new Checkbox.t () in
-    let mark_field         = new Form_field.t ~label:"Визуализировать блоки" ~input:mark_chck () in
-    mark_chck#set_checked b.mark_blocks;
     let box                = new Vbox.t ~widgets:[(Widget.create header);
-                                                 blocky_w#widget;
-                                                 mark_field#widget] () in
-    let signal             = React.S.l2 (fun blocky markb -> Settings.{ blocky; mark_blocks = markb })
-                               blocky_s mark_chck#s_state in
+                                                 blocky_w#widget] () in
+    let signal             = React.S.map (fun blocky -> Settings.{ blocky })
+                               blocky_s in
     box, signal
     
   let make_video (v : Settings.video) =
