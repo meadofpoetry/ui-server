@@ -44,9 +44,7 @@ module Make(Xml : Xml_sigs.NoWrap)
       div ~a:([ a_class (_class :: classes ) ] <@> attrs) []
   end
 
-  let create ?(classes=[]) ?attrs ?label ?bottom_line ~select () =
-    let opt = label ^:: bottom_line ^:: [] in
-    div ~a:([ a_class (base_class :: classes)] <@> attrs)
-      (select :: opt)
+  let create ?(classes=[]) ?attrs ~select ~label ~bottom_line () =
+    div ~a:([ a_class (base_class :: classes)] <@> attrs) [ select; label; bottom_line ]
 
 end

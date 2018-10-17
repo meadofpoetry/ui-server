@@ -7,17 +7,14 @@ module Make(Xml : Xml_sigs.NoWrap)
            and module Svg := Svg) = struct
   open Html
 
-  let base_class = "mdc-dialog"
-  let surface_class = CSS.add_element base_class "surface"
+  let base_class     = "mdc-dialog"
+  let surface_class  = CSS.add_element base_class "surface"
   let backdrop_class = CSS.add_element base_class "backdrop"
-  let animating_class = CSS.add_modifier base_class "animating"
-  let scroll_lock_class = "mdc-dialog-scroll-lock"
-  let open_class = CSS.add_modifier base_class "open"
 
   module Header = struct
 
     let _class = CSS.add_element base_class "header"
-    let title_class = CSS.add_element _class "title"
+    let title_class  = CSS.add_element _class "title"
 
     let create ?(classes=[]) ?attrs ~title () =
       header ~a:([ a_class [_class]])
@@ -27,7 +24,7 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   module Body = struct
 
-    let _class = CSS.add_element base_class "body"
+    let _class           = CSS.add_element base_class "body"
     let scrollable_class = CSS.add_modifier _class "scrollable"
 
     let create ?(classes=[]) ?attrs ?(scrollable=false) ~content () =
@@ -50,22 +47,13 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   end
 
-  let create_surface ?(classes=[]) ?attrs content () =
-    div ~a:([ a_class (surface_class :: classes) ]
-            <@> attrs)
-      content
-
-  let create_backdrop ?(classes=[]) ?attrs () =
-    div ~a:([ a_class (backdrop_class :: classes) ]
-            <@> attrs) []
-
-  let create ?(classes=[]) ?attrs ?label_id ?description_id
-        ~backdrop ~surface () =
+  let create ?(classes=[]) ?attrs ?label_id ?description_id ~content () =
     aside ~a:([ a_class (base_class :: classes)
               ; a_role ["alertdialog"]]
               |> map_cons_option (fun x -> a_aria "labelledby" [x]) label_id
               |> map_cons_option (fun x -> a_aria "describedby" [x]) description_id
               <@> attrs)
-      [ surface; backdrop ]
+      [ div ~a:([a_class [surface_class]]) content
+      ; div ~a:([a_class [backdrop_class]]) [] ]
 
 end

@@ -14,7 +14,6 @@
         box-sizing: border-box;
         z-index: 2;
         @include mdc-no-selection;
-        @include mdc-theme-prop(background-color, surface);
         /* transition: transform 150ms ease-out; */
     }
     &__item:focus {

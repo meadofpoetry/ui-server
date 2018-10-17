@@ -84,29 +84,28 @@ module Make(M:M) = struct
   let get_name (config:config) =
     parameter_type_to_string config.typ
 
-  class t (event : event) (config : config) () =
-    let value =
-      new Typography.Text.t
-        ~adjust_margin:false
-        ~font:Headline_5
-        ~text:(value_to_string config None)
-        () in
-    let _ = React.E.map (fun v -> value#set_text @@ value_to_string config v) event in
-    let inner = Widget.create_div () in
+  class t (event:event) (config:config) () =
+    let value = new Typography.Text.t
+                    ~adjust_margin:false
+                    ~font:Headline_5
+                    ~text:(value_to_string config None)
+                    ()
+    in
+    let _     = React.E.map (fun v -> value#set_text @@ value_to_string config v) event in
+    let box   = Dom_html.createDiv Dom_html.document in
+    let inner = Dom_html.createDiv Dom_html.document |> Widget.create in
+    let ()    = inner#add_class inner_class in
+    let ()    = Dom.appendChild inner#root value#root in
+    let ()    = Dom.appendChild box inner#root in
     object(self)
-      inherit Widget.t Dom_html.(createDiv document) () as super
+      inherit Widget.t box () as super
       method! destroy = super#destroy
       initializer
-        inner#add_class inner_class;
-        inner#append_child value;
-        self#append_child inner;
         self#add_class base_class
     end
 
-  let make (event : event) (config : config) : 'a Dashboard.Item.item =
-    Dashboard.Item.make_item
-      ~name:(get_name config)
-      (new t event config ())#widget
+  let make (event:event) (config:config) : Dashboard.Item.item =
+    Dashboard.Item.to_item ~name:(get_name config) (new t event config ())#widget
 
 end
 

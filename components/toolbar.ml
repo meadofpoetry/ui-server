@@ -41,9 +41,8 @@ module Row = struct
           | `End    -> super#add_class Markup.Row.Section.align_end_class
           | `Center -> ()
 
-        method set_shrink_to_fit x =
-          Markup.Row.Section.shrink_to_fit_class
-          |> (fun c -> if x then super#add_class c else super#remove_class c)
+        method set_shrink_to_fit x = Markup.Row.Section.shrink_to_fit_class
+                                     |> (fun c -> if x then super#add_class c else super#remove_class c)
 
         method private remove_align =
           align <- `Center;
@@ -68,11 +67,11 @@ module Row = struct
 
 end
 
-(* (\* TODO remove *\)
- * class type mdc =
- *   object
- *     method fixedAdjustElement : Dom_html.element Js.t Js.prop
- *   end *)
+(* TODO remove *)
+class type mdc =
+  object
+    method fixedAdjustElement : Dom_html.element Js.t Js.prop
+  end
 
 class type change_event =
   object
@@ -92,5 +91,5 @@ class t ~rows () =
   let elt = Markup.create ~content:(List.map Widget.to_markup rows) () |> Tyxml_js.To_dom.of_header in
   object
     inherit Widget.t elt ()
-    (* val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.toolbar##.MDCToolbar##attachTo elt *)
+    val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.toolbar##.MDCToolbar##attachTo elt
   end

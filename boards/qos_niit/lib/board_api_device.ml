@@ -1,9 +1,10 @@
 open Containers
-open Board_qos_types
+open Board_types
 open Board_api_common
 open Api.Interaction
 open Api.Interaction.Json
 open Common
+open Types
 
 type events = device_events
 
@@ -17,14 +18,13 @@ module WS = struct
     Api.Socket.handler socket_table sock_data events.status status_to_yojson body
 
   let errors (events:events) errors _ body sock_data () =
-    let to_yojson = Json.List.to_yojson board_error_to_yojson in
     let e = match errors with
       | [] -> events.errors
       | _  ->
          React.E.fmap (fun l ->
              List.filter (fun (x:board_error) -> List.mem ~eq:(=) x.err_code errors) l
              |> function [] -> None | l -> Some l) events.errors
-    in Api.Socket.handler socket_table sock_data e to_yojson body
+    in Api.Socket.handler socket_table sock_data e board_errors_to_yojson body
 
   let mode mode (events:events) _ body sock_data () =
     let open React.S in
@@ -96,10 +96,9 @@ module HTTP = struct
   (** Archive GET requests **)
   module Archive = struct
 
-    let to_yojson =
-      Api.Api_types.rows_to_yojson
-        (Json.List.to_yojson state_to_yojson)
-        state_compressed_to_yojson
+    type err = (Common.Topology.state * Time.t * Time.t) list [@@deriving yojson]
+
+    type comp = float * float * float [@@deriving yojson]
 
     let state db limit compress from till duration _ _ () =
       match Time.make_interval ?from ?till ?duration () with
@@ -108,7 +107,7 @@ module HTTP = struct
          | Some true -> Db.Device.select_state_compressed db ~from ~till
          | _ -> Db.Device.select_state db ?limit ~from ~till
          end >>= fun data ->
-         respond_result (Ok (to_yojson data))
+         respond_result (Ok (Api.Api_types.rows_to_yojson err_to_yojson comp_to_yojson data))
       | _ -> respond_error ~status:`Not_implemented "not impelemented" ()
 
     (* let errors errors limit compress from till duration _ _ () =

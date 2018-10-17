@@ -16,13 +16,13 @@ module Make(I : Item) = struct
     ; rt : RT.t
     }
 
-  let make ?(on_remove : (I.t -> unit) option)
-           ~(title : string)
-           ~(resolution : (int * int))
-           ~(init : I.t list)
-           ~(candidates : I.t list React.signal)
-           ~(set_candidates : I.t list -> unit)
-           ~(actions : Fab.t list)
+  let make ?(on_remove:      (I.t -> unit) option)
+           ~(title:          string)
+           ~(resolution:     (int * int))
+           ~(init:           I.t list)
+           ~(candidates:     I.t list React.signal)
+           ~(set_candidates: I.t list -> unit)
+           ~(actions:        Fab.t list)
            () =
     let rm =
       Wm_left_toolbar.make_action
@@ -30,14 +30,15 @@ module Make(I : Item) = struct
         ; name = "Удалить" } in
     let layers = I.layers_of_t_list init |> List.sort compare in
     (* fix layers indexes to be from 0 to n *)
-    let init = List.foldi (fun acc i layer ->
-                   List.map (fun x -> if I.layer_of_t x = layer
-                                      then I.update_layer x i
-                                      else x) acc) init layers in
-    let selected, selected_push = React.S.create None in
-    let rt = RT.make ~selected ~layers ~candidates ~set_candidates in
-    let ig = IG.make ~title ~resolution ~init ~e_layers:rt#e_layers_action () in
-    let lt = Wm_left_toolbar.make (actions @ [ rm ]) in
+    let init   = List.foldi (fun acc i layer ->
+                     List.map (fun x -> if I.layer_of_t x = layer
+                                        then I.update_layer x i
+                                        else x) acc) init layers
+    in
+    let selected,selected_push = React.S.create None in
+    let rt   = RT.make ~selected ~layers ~candidates ~set_candidates in
+    let ig   = IG.make ~title ~resolution ~init ~e_layers:rt#e_layers_action () in
+    let lt   = Wm_left_toolbar.make (actions @ [rm]) in
 
     let _ = React.S.map (fun x -> selected_push x) ig#s_selected in
     let _ = React.S.diff (fun n o ->
@@ -47,21 +48,16 @@ module Make(I : Item) = struct
                                                    else None) o
                          |> List.flatten in
                 List.iter (fun x -> remove ~eq:I.equal candidates set_candidates x) rm)
-              ig#s_layers in
-    let e_click, set_click = React.E.create () in
-    rm#listen_click_lwt (fun _ _ ->
-        React.S.value selected |> Option.get_exn |> set_click;
-        Lwt.return_unit)
-    |> Lwt.ignore_result;
-    (* FIXME store event *)
-    let _ =
-      React.E.map (fun _ ->
-          Option.iter (fun x ->
-              Option.iter (fun f -> f x#value) on_remove;
-              remove ~eq:I.equal candidates set_candidates x#value;
-              x#remove ())
-          @@ React.S.value selected)
-      @@ React.E.select [ ig#e_item_delete; e_click ] in
+                         ig#s_layers in
+    let _ = React.E.map (fun _ -> Option.iter (fun x ->
+                                      Option.iter (fun f -> f x#value) on_remove;
+                                      remove ~eq:I.equal candidates set_candidates x#value;
+                                      x#remove ())
+                                  @@ React.S.value selected)
+            @@ React.E.select [ ig#e_item_delete
+                              ; React.E.map (fun _ -> React.S.value selected |> Option.get_exn) rm#e_click
+                              ]
+    in
     let _ = React.S.map (fun x -> rm#set_disabled @@ Option.is_none x) selected in
     { ig; lt; rt }
 

@@ -9,13 +9,13 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   type size = [ `S18 | `S24 | `S32 | `S48 ]
 
-  let base_class = "mdc-icon"
+  let base_class     = "mdc-icon"
+  let button_class   = CSS.add_modifier base_class "button"
+  let disabled_class = CSS.add_modifier base_class "disabled"
 
   module Font = struct
     let create ?(classes=[]) ?attrs ~icon () =
-      Html.i ~a:([ a_class ("material-icons" :: base_class :: classes) ]
-                 <@> attrs)
-        [ pcdata icon ]
+      Html.i ~a:([a_class ("material-icons" :: base_class :: classes)] <@> attrs) [pcdata icon]
   end
 
   module SVG = struct

@@ -3,12 +3,10 @@ open Tyxml_js
 
 module Markup = Components_markup.Fab.Make(Xml)(Svg)(Html)
 
-class t ?(ripple = true) ?(mini = false) ~icon () =
-  let elt = Markup.create ~icon:(Widget.to_markup icon) ()
-            |> To_dom.of_button in
+class t ?(ripple=true) ?(mini=false) ~icon () =
+  let elt  = Markup.create ~icon:(Widget.to_markup icon) () |> Tyxml_js.To_dom.of_button in
   object(self)
-    val mutable _ripple : Ripple.t option = None
-
+    val mutable _ripple = None
     inherit Widget.button_widget elt () as super
 
     method button_element : Dom_html.buttonElement Js.t = elt
@@ -23,22 +21,12 @@ class t ?(ripple = true) ?(mini = false) ~icon () =
     method set_disabled (x:bool) : unit =
       self#button_element##.disabled := Js.bool x
 
-    method layout () : unit =
-      super#layout ();
-      Option.iter (fun r -> r#layout ()) _ripple
-
-    method destroy () : unit =
-      super#destroy ();
-      Option.iter (fun r -> r#destroy ()) _ripple;
-      _ripple <- None
+    method layout () = super#layout (); Option.iter (fun r -> r##layout ()) _ripple
 
     (** Private methods **)
 
     initializer
       icon#add_class Markup.icon_class;
       self#set_mini mini;
-      if ripple
-      then
-        let ripple = Ripple.attach_to (self :> Widget.t) in
-        _ripple <- Some ripple
+      if ripple then _ripple <- Some (Ripple.attach self)
   end

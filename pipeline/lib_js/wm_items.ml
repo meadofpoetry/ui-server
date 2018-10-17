@@ -65,22 +65,22 @@ module Make(I : Item) = struct
       box
 
     let make ~candidates ~set_candidates () =
-      let ph =
-        Placeholder.make
-          ~text:"Нет доступных виджетов"
-          ~icon:Icon.SVG.(create_simple Path.information) () in
+      let ph      = Placeholder.make
+                      ~text:"Нет доступных виджетов"
+                      ~icon:"info" () in
       let wrapper = Tyxml_js.Html.(div ~a:[a_class [wrapper_class]] [])
                     |> Tyxml_js.To_dom.of_element
-                    |> Widget.create  in
-      let card = new Card.t ~widgets:[wrapper] () in
-      let () = card#add_class base_class in
-      let _ =
+                    |> Widget.create
+      in
+      let card    = new Card.t ~widgets:[wrapper] () in
+      let ()      = card#add_class base_class in
+      let _       =
         React.S.map (function
             | [] -> wrapper#set_empty ();
                     wrapper#append_child ph
-            | l -> wrapper#set_empty ();
-                   List.iter wrapper#append_child
-                   @@ List.map (make_item candidates set_candidates) l)
+            | l  -> wrapper#set_empty ();
+                    List.iter wrapper#append_child
+                    @@ List.map (make_item candidates set_candidates) l)
           candidates
       in
       card
@@ -92,13 +92,13 @@ module Make(I : Item) = struct
     let base_class = Markup.CSS.add_element base_class "properties"
 
     let make widgets (s : I.t Dynamic_grid.Item.t option React.signal) =
-      let ph = Placeholder.make
-                 ~text:"Выберите элемент в раскладке"
-                 ~icon:Icon.SVG.(create_simple Path.gesture_tap) () in
-      let card = new Card.t ~widgets:[] () in
-      let id = "wm-item-properties" in
+      let ph         = Placeholder.make
+                         ~text:"Выберите элемент в раскладке"
+                         ~icon:"touch_app" () in
+      let card       = new Card.t ~widgets:[] () in
+      let id         = "wm-item-properties" in
       let actions_id = "wm-item-properties-actions" in
-      let () = card#add_class base_class in
+      let ()         = card#add_class base_class in
       let _ =
         React.S.map (fun selected ->
             (try
@@ -130,19 +130,19 @@ module Make(I : Item) = struct
   end
 
   let make ~selected ~candidates ~set_candidates () =
-    let add_title = "Добавить" in
+    let add_title   = "Добавить" in
     let props_title = "Свойства" in
-    let add = Add.make ~candidates ~set_candidates () in
-    let props = Properties.make [] selected in
-    let title = Wm_selectable_title.make [ add_title, add
-                                         ; props_title, props ] in
-    let box = new Vbox.t ~widgets:[ add#widget; props#widget ] () in
-    let () = box#add_class base_class in
-    let box = new Vbox.t ~widgets:[ title#widget; box#widget ] () in
-    let sel = function
-      | `Add -> title#select_by_name add_title
+    let add     = Add.make ~candidates ~set_candidates () in
+    let props   = Properties.make [] selected in
+    let title   = Wm_selectable_title.make [ add_title, add
+                                           ; props_title, props ] in
+    let box     = new Vbox.t ~widgets:[add#widget; props#widget] () in
+    let ()      = box#add_class base_class in
+    let box     = new Vbox.t ~widgets:[title#widget; box#widget] () in
+    let sel     = function
+      | `Add   -> title#select_by_name add_title
       | `Props -> title#select_by_name props_title
     in
-    box, sel
+    box,sel
 
 end

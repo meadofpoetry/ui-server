@@ -69,7 +69,7 @@ let topo_handler (app:Application.t) =
 let handlers (app:Application.t) =
   let board_api = Hardware.Map.fold (fun _ x acc -> x.handlers @ acc) app.hw.boards [] in
   let proc_api  = match app.proc with
-    | None -> []
+    | None      -> []
     | Some proc -> proc#handlers () (* TODO ? *)
   in
   [ Api_handler.add_layer "board" board_api

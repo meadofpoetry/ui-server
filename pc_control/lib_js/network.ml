@@ -63,8 +63,7 @@ let make_dns (dns : Network_config.v4 list) =
     let text        = Ipaddr.V4.to_string addr in
     let del_button  = new Button.t ~label:"delete" () in
     let item        = new Item_list.Item.t ~text ~meta:del_button ~value:() () in
-    del_button#listen_click_lwt (fun _ _ -> del_dns item addr; Lwt.return_unit)
-    |> Lwt.ignore_result;
+    Lwt_react.E.map (fun _ -> del_dns item addr) del_button#e_click |> ignore;
     item
   in
 
@@ -102,12 +101,13 @@ let make_dns (dns : Network_config.v4 list) =
     address#set_disabled flag;
     add_but#set_disabled flag;
   in
-  add_but#listen_click_lwt (fun _ _ ->
-      begin match React.S.value address#s_input with
-      | Some addr -> add_dns addr
-      | _ -> ()
-      end;
-      Lwt.return_unit) |> Lwt.ignore_result;
+
+  Lwt_react.E.keep @@
+    Lwt_react.E.map (fun _ ->
+        match React.S.value address#s_input with
+        | Some addr -> add_dns addr
+        | _ -> ())
+      add_but#e_click;
   
   full_box, signal, set, set_disabled
                   
@@ -117,8 +117,7 @@ let make_routes (routes : Network_config.address list) =
     let text        = (Ipaddr.V4.to_string addr) ^ "/" ^ (Int32.to_string mask) in
     let del_button  = new Button.t ~label:"delete" () in
     let item        = new Item_list.Item.t ~text ~meta:del_button ~value:() () in
-    del_button#listen_click_lwt (fun _ _ ->
-        del_route item route |> Lwt.return) |> Lwt.ignore_result;
+    Lwt_react.E.map (fun _ -> del_route item route) del_button#e_click |> ignore;
     item
   in
 
@@ -158,12 +157,14 @@ let make_routes (routes : Network_config.address list) =
     mask#set_disabled flag;
     add_but#set_disabled flag;
   in
-  add_but#listen_click_lwt (fun _ _ ->
-      begin match React.S.value address#s_input, React.S.value mask#s_input with
-      | Some addr, Some mask -> add_route (addr, Int32.of_int mask)
-      | _ -> ()
-      end;
-      Lwt.return_unit) |> Lwt.ignore_result;
+
+  Lwt_react.E.keep @@
+    Lwt_react.E.map (fun _ ->
+        match React.S.value address#s_input, React.S.value mask#s_input with
+        | Some addr, Some mask -> add_route (addr, Int32.of_int mask)
+        | _ -> ())
+      add_but#e_click;
+  
   full_box, signal, set, set_disabled
 
 let make_ipv4 (ipv4 : Network_config.ipv4_conf) =
@@ -237,16 +238,14 @@ let make_ipv4 (ipv4 : Network_config.ipv4_conf) =
   ipv4_sets, signal, set
   
 let make_card is_root post (config : Network_config.t) =
-  let warning =
-    new Dialog.t
-      ~title:"Внимание!"
-      ~actions:[ new Dialog.Action.t ~typ:`Cancel ~label:"Отмена" ()
-               ; new Dialog.Action.t ~typ:`Accept ~label:"Применить" () ]
-      ~content:(`String "Применение настроек может привести к разрыву соединения. \
-                         Вы уверены, что хотите применить данные настройки?") ()
+  let warning    = new Dialog.t
+                     ~title:"Внимание!"
+                     ~actions:[ new Dialog.Action.t ~typ:`Decline ~label:"Отмена" ()
+                              ; new Dialog.Action.t ~typ:`Accept ~label:"Применить" () ]
+                     ~content:(`String "Применение настроек может привести к разрыву соединения. Вы уверены, что хотите применить данные настройки?") ()
   in
   Dom.appendChild Dom_html.document##.body warning#root;
-
+  
   let eth_sets, eth_s, eth_set = make_eth config.ethernet in
   let ipv4_sets, ipv4_s, ipv4_set  = make_ipv4 config.ipv4 in
 
@@ -267,11 +266,13 @@ let make_card is_root post (config : Network_config.t) =
                  (fun (config : Network_config.t) ipv4 ethernet -> { config with ipv4; ethernet })
                  signal ipv4_s eth_s
   in
-  apply#listen_click_lwt (fun _ _ ->
-      warning#show_await ()
-      >>= function
-      | `Accept -> post @@ Lwt_react.S.value signal
-      | `Cancel -> Lwt.return_unit) |> Lwt.ignore_result;
+  
+  Lwt_react.E.keep @@
+    Lwt_react.E.map (fun _ -> warning#show_await ()
+                              >>= function
+                              | `Accept -> post @@ Lwt_react.S.value signal
+                              | `Cancel -> Lwt.return_unit)
+      apply#e_click;
 
   let box = new Vbox.t ~widgets:[eth_sets#widget; ipv4_sets#widget; apply#widget] () in
   List.iter (fun card -> card#style##.marginBottom := Js.string "15px") box#widgets;

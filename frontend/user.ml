@@ -52,28 +52,27 @@ let make_card user =
                         ; (new Divider.t ())#widget
                         ; media#widget
                         ; actions#widget] () in
-  apply#listen_click_lwt (fun _ _ ->
-      let open Lwt.Infix in
-      begin match React.S.value old_form#s_input,
-                  React.S.value acc_form#s_input with
-      | Some old_pass, Some new_pass ->
-         let open Common in
-         let pass = { user; old_pass; new_pass } in
-         post_result
-           ?scheme:None ?host:None ?port:None ?from_err:None
-           ~from:(fun _ -> Ok ())
-           ~path:Uri.Path.Format.("/api/user/password" @/ empty)
-           ~query:Uri.Query.empty
-           ~contents:(User.pass_change_to_yojson pass)
-         >|= (function
-              | Ok _ -> if user = `Root
-                        then Dom_html.window##.location##.href := Js.string "/";
-                        Ok ()
-              | Error e -> Error (Api_js.Requests.err_to_string e))
-      | _, _ -> Lwt_result.fail "Incorrect or empty ip address"
-      end
-      >|= ignore)
-  |> Lwt.ignore_result;
+  let _ =
+    React.E.map (fun _ ->
+        let open Lwt.Infix in
+        match (React.S.value old_form#s_input, React.S.value acc_form#s_input) with
+        | Some old_pass, Some new_pass ->
+           let open Common in
+           let pass = { user; old_pass; new_pass } in
+           post_result
+             ?scheme:None ?host:None ?port:None ?from_err:None
+             ~from:(fun _ -> Ok ())
+             ~path:Uri.Path.Format.("/api/user/password" @/ empty)
+             ~query:Uri.Query.empty
+             ~contents:(User.pass_change_to_yojson pass)
+           >|= (function
+                | Ok _ -> if user = `Root
+                          then Dom_html.window##.location##.href := Js.string "/";
+                          Ok ()
+                | Error e -> Error (Api_js.Requests.err_to_string e))
+        | _, _ -> Lwt_result.fail "Incorrect or empty ip address")
+      apply#e_click
+  in
   card
 
 let () =

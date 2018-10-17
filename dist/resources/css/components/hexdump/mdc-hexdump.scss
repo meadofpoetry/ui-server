@@ -11,7 +11,6 @@
         position: relative;
         font-size: 1.0em;
         line-height: 1.4em;
-        margin-bottom: auto;
     }
     &__char, &__hex {
         &--selected {
@@ -37,7 +36,6 @@
     left: 0;
     overflow: visible;
     border-right: 1px solid;
-    @include mdc-theme-prop(background-color, surface);
     @include mdc-theme-prop-alpha(border-color, $mdc-theme-surface, .12);
 }
 
