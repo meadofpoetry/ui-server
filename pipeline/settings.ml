@@ -22,8 +22,7 @@ type freeze =
   } [@@deriving yojson,eq]
 
 type blocky =
-  { blocky      : setting
-  ; mark_blocks : bool
+  { blocky  : setting
   } [@@deriving yojson,eq]
 
 type silence =
@@ -94,7 +93,6 @@ let blocky_default = { blocky = { peak_en = true
                                 ; cont    = 4.0
                                 ; duration = 10.
                                 }
-                     ; mark_blocks = false
                      }
 
 let silence_default = { silence = { peak_en = false

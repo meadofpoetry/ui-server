@@ -1,31 +1,6 @@
 open Containers
 open Common.Topology
 
-let limit ?eq f s =
-  let limiter = ref Lwt.return_unit in
-  let delayed = ref None in
-  let event, push = React.E.create () in
-  let iter =
-    React.E.fmap
-      (fun x ->
-        if Lwt.is_sleeping !limiter then begin
-            match !delayed with
-            | Some cell ->
-               cell := x;
-               None
-            | None ->
-               let cell = ref x in
-               delayed := Some cell;
-               None
-          end else begin
-            limiter := f ();
-            push x;
-            None
-          end)
-      (React.S.changes s)
-  in
-  React.S.hold ?eq (React.S.value s) (React.E.select [iter; event])
-
 type t = { proc       : Data_processor.t option
          ; network    : Pc_control.Network.t
          ; users      : User.entries
@@ -66,7 +41,7 @@ let create config db =
       Lwt_react.S.map (fun l ->
           List.fold_left (fun acc (_,_,ss) -> (filter ss) @ acc) [] l
           |> proc#reset)
-      @@ limit (fun () -> Lwt_unix.sleep 2.) hw.streams
+      @@ Lwt_react.S.limit (fun () -> Lwt_unix.sleep 2.) hw.streams
       |> Lwt_react.S.keep) proc;
   { users; proc; network; hw; topo = hw.topo }, loop
 
