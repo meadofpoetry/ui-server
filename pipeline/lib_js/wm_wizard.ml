@@ -2,7 +2,6 @@ open Containers
 open Components
 open Wm_components
 open Common.Stream
-open Lwt_result.Infix
 
 let split_three l =
   List.fold_left (fun (first, second, third) (a, b, c) ->
@@ -65,37 +64,40 @@ let pid_of_domain domain = String.sub domain (String.length domain - 4) 4
 let parse_stream stream = stream
   (* let open Common.Stream in
    * let id = ID.of_string stream in
-   * let table_event, _ = Requests.WS.get_streams () in
-   * let table = React.S.value table_event in
+   * let table_event, _ = Requests.HTTP.get_streams () in
    * match List.fold_while (fun acc (_, _, l) ->
    *     let found =
    *       List.find_opt (fun (_, (stream : t)) ->
    *           ID.equal stream.id id) l in
    *     match found with
-   *     | Some x -> (Some (snd x), `Stop)
+   *     | Some x -> Some x, `Stop
    *     | None   -> None, `Continue
-   *   ) None table  with
+   *   ) None table with
    * | None -> "Could not parse stream name: " ^ stream
-   * | Some (stream : t) -> Source.to_string stream.source.info *)
+   * | Some (stream : t) ->
+   *     let url, stream = stream in
+   *     let url =
+   *       match url with
+   *       | Some url -> Some (Common.Url.to_string url) ^ " "
+   *       | None     -> None in
+   *     Source.to_string stream.source.info, url *)
 
 let channel_of_pid = function
   (* do NOT edit or remove
    * first multiplex *)
   | "1010" -> "Первый канал"
+  | "1020" -> "Россия 1"
   | "1030" -> "МАТЧ"
   | "1040" -> "НТВ"
   | "1050" -> "Пятый канал"
   | "1060" -> "Россия К"
+  | "1070" -> "Россия 24"
   | "1080" -> "Карусель"
   | "1090" -> "ОТР"
   | "1100" -> "ТВ Центр"
   | "1110" -> "Вести ФМ"
   | "1120" -> "Маяк"
-  (* do NOT edit or remove *)
-  | "1020" -> "Россия 1"
   | "1130" -> "Радио России"
-  (* do NOT edit or remove *)
-  | "1070" -> "Россия 24"
   (* do NOT edit or remove
    * second multiplex *)
   | "2010" -> "РЕН ТВ"
@@ -284,9 +286,12 @@ let make_streams (widgets : (string * Wm.widget) list) =
                   checkbox#set_checked false)
             @@ React.S.changes check#s_state
             |> ignore) chan_chbs;
+        (*        let text, secondary_text = parse_stream stream in *)
+        let text = parse_stream stream in
         let stream_node =
           new Tree.Item.t
-            ~text:(parse_stream stream)
+            ~text
+ (*        ~secondary_text *)
             ~graphic:checkbox
             ~nested ~value:()
             () in
@@ -392,12 +397,40 @@ let to_layout ~resolution ~widgets =
   else
     []
 
+let make_containers (widgets : (string * Wm.widget) list) =
+  let open Wm_container.Container_item in
+  let domains = find_domains widgets in
+    List.map (fun domain ->
+        let widgets =
+          List.filter (fun (_, (widget : Wm.widget)) ->
+              String.equal widget.domain domain
+            ) widgets in
+        let name = channel_of_pid @@ pid_of_domain domain in
+        ({ icon = Icon.SVG.(create_simple Path.contain)#widget
+         ; name
+         ; unique = true
+         ; min_size = None
+         ; item =
+             { position = { left   = 0
+                          ; right  = 0
+                          ; top    = 0
+                          ; bottom = 0 }
+            ; widgets
+            }
+        } : t)
+      ) domains
+
 (* makes a dialog which shows available
  * streams
  *   |_ channels
  *        |_ widgets
  * returns dialog, react event and a fun showing dialog *)
-let to_dialog (wm : Wm.t) =
+let to_dialog
+    ~(cc : Wm_container.Container_item.t list React.signal)
+    ~(cc_push : ?step:React.step -> Wm_container.Container_item.t list -> unit)
+    (wm : Wm.t) =
+  let open Wm_container.Container_item in
+  cc_push (React.S.value cc @ make_containers wm.widgets);
   let e, push    = React.E.create () in
   let checkboxes, widget = make_streams wm.widgets in
   let box        = new Vbox.t ~widgets:[widget#widget] () in

@@ -4,6 +4,7 @@ open Requests
 open Lwt_result.Infix
 open Wm_types
 open Wm_components
+open Wm_container
 
 type container_grids =
   { rect : Wm.position
@@ -110,76 +111,6 @@ let resize_layout ~(resolution : int * int) (l : Wm.container wm_item list) =
   in
   containers
 
-module Container_item : Item with type item = Wm.container = struct
-
-  type item = Wm.container [@@deriving yojson, eq]
-
-  type layout_item = string * item
-
-  type t = item wm_item [@@deriving yojson, eq]
-
-  let max_layers = 1
-
-  let update_min_size (t : t) =
-    let min_size = match t.item.widgets with
-      | [] -> None
-      | _  ->
-         let positions = List.map (fun (_, (x : Wm.widget)) -> x.position)
-                           t.item.widgets in
-         let w, h = List.hd (get_bounding_rect_and_grids positions).grids in
-         Some (w, h) in
-    { t with min_size }
-
-  let t_to_layout_item (t : t) = t.name, t.item
-
-  let t_of_layout_item (k, (v:item)) =
-    let t =
-      { icon = Icon.SVG.(create_simple Path.contain)#widget
-      ; name = k
-      ; unique = false
-      ; min_size = None
-      ; item = v
-      }
-    in
-    update_min_size t
-
-  let to_grid_item (t : t) (pos : Dynamic_grid.Position.t) =
-    let widget = Item_info.make_container_info t in
-    Dynamic_grid.Item.to_item ~value:t ~widget ~pos ()
-
-  let position_of_t (t : t) = t.item.position
-
-  let layer_of_t _ = 0
-
-  let size_of_t (_ : t) = None, None
-
-  let layers_of_t_list _ = [0]
-
-  let update_position (t : t) (p : Wm.position) =
-    let op = t.item.position in
-    let nw, nh = p.right - p.left, p.bottom - p.top in
-    let ow, oh = op.right - op.left, op.bottom - op.top in
-    match (ow <> nw || oh <> nh) && not (List.is_empty t.item.widgets) with
-    | true -> resize_container p t
-    | false -> { t with item = { t.item with position = p }}
-
-  let update_layer (t : t) _ = t
-
-  let make_item_name (t : t) (other : t list) =
-    let rec aux idx other =
-      let name = Printf.sprintf "%s #%d" t.name idx in
-      match List.partition (fun (x : t) -> String.equal x.name name) other with
-      | [], _ -> name
-      | _, other -> aux (succ idx) other
-
-    in
-    aux 1 other
-
-  let make_item_properties t _ _ =
-    Item_properties.make_container_props t
-
-end
-
 module Widget_item : Item with type item = Wm.widget = struct
 
   type item = Wm.widget [@@deriving yojson, eq]
@@ -241,7 +172,7 @@ module Widget_item : Item with type item = Wm.widget = struct
 
 end
 
-module Cont = Wm_editor.Make(Container_item)
+module Cont = Wm_editor.Make(Wm_container.Container_item)
 module Widg = Wm_editor.Make(Widget_item)
 
 let serialize ~(cont : Cont.t) () : (string * Wm.container) list =
@@ -375,7 +306,7 @@ let create ~(init: Wm.t)
             }
         } : Container_item.t)
       ] in
-  let wz_dlg, wz_e, wz_show = Wm_wizard.to_dialog init in
+  let wz_dlg, wz_e, wz_show = Wm_wizard.to_dialog ~cc:s_cc ~cc_push:s_cc_push init in
   let resolution = init.resolution in
   let s_state, s_state_push = React.S.create `Container in
   let title = "Контейнеры" in
