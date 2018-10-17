@@ -1,6 +1,12 @@
 open Containers
 open Components
 open Wm_components
+open Common.Stream
+open Lwt_result.Infix
+
+let split_three l =
+  List.fold_left (fun (first, second, third) (a, b, c) ->
+        a :: first, b :: second, c :: third) ([], [], []) l
 
 let find_domains (widgets : (string * Wm.widget) list)=
     List.fold_left (fun acc (_, (wdg : Wm.widget)) ->
@@ -19,14 +25,15 @@ let find_widget ~typ ~widgets ~domain =
   | `Video    -> find_with_typ "video"
   | _         -> None
 
-let soundbar_col_w = 20
+let soundbar_ch_w = 10
+let channels = 2
 
 let video_position ~(cont_pos : Wm.position) ~audio : Wm.position =
   match audio with
   | `With_audio ->
     { left   = cont_pos.left
     ; top    = cont_pos.top
-    ; right  = cont_pos.right - soundbar_col_w
+    ; right  = cont_pos.right - soundbar_ch_w * channels
     ; bottom = cont_pos.bottom
     }
   | `Without_audio ->
@@ -39,7 +46,7 @@ let video_position ~(cont_pos : Wm.position) ~audio : Wm.position =
 let audio_position ~(cont_pos : Wm.position) ~video : Wm.position =
   match video with
   | `With_video ->
-    { left   = cont_pos.right - soundbar_col_w
+    { left   = cont_pos.right - soundbar_ch_w * channels
     ; top    = cont_pos.top
     ; right  = cont_pos.right
     ; bottom = cont_pos.bottom
@@ -55,80 +62,53 @@ let stream_of_domain domain = String.sub domain 1 (String.length domain - 7)
 
 let pid_of_domain domain = String.sub domain (String.length domain - 4) 4
 
-let stream_of_string stream =
-  let open Common.Stream.ID in
-  make stream |> to_string
+let parse_stream stream = stream
+  (* let open Common.Stream in
+   * let id = ID.of_string stream in
+   * let table_event, _ = Requests.WS.get_streams () in
+   * let table = React.S.value table_event in
+   * match List.fold_while (fun acc (_, _, l) ->
+   *     let found =
+   *       List.find_opt (fun (_, (stream : t)) ->
+   *           ID.equal stream.id id) l in
+   *     match found with
+   *     | Some x -> (Some (snd x), `Stop)
+   *     | None   -> None, `Continue
+   *   ) None table  with
+   * | None -> "Could not parse stream name: " ^ stream
+   * | Some (stream : t) -> Source.to_string stream.source.info *)
 
-let channel_of_domain = function
+let channel_of_pid = function
   (* do NOT edit or remove
    * first multiplex *)
-  | "s460b38ee-186b-5604-8811-235eb3005960_c1010" -> "Первый канал"
-  | "s460b38ee-186b-5604-8811-235eb3005960_c1030" -> "МАТЧ"
-  | "s460b38ee-186b-5604-8811-235eb3005960_c1040" -> "НТВ"
-  | "s460b38ee-186b-5604-8811-235eb3005960_c1050" -> "Пятый канал"
-  | "s460b38ee-186b-5604-8811-235eb3005960_c1060" -> "Россия К"
-  | "s460b38ee-186b-5604-8811-235eb3005960_c1080" -> "Карусель"
-  | "s460b38ee-186b-5604-8811-235eb3005960_c1090" -> "ОТР"
-  | "s460b38ee-186b-5604-8811-235eb3005960_c1100" -> "ТВ Центр"
-  | "s460b38ee-186b-5604-8811-235eb3005960_c1110" -> "Вести ФМ"
-  | "s460b38ee-186b-5604-8811-235eb3005960_c1120" -> "Маяк"
+  | "1010" -> "Первый канал"
+  | "1030" -> "МАТЧ"
+  | "1040" -> "НТВ"
+  | "1050" -> "Пятый канал"
+  | "1060" -> "Россия К"
+  | "1080" -> "Карусель"
+  | "1090" -> "ОТР"
+  | "1100" -> "ТВ Центр"
+  | "1110" -> "Вести ФМ"
+  | "1120" -> "Маяк"
+  (* do NOT edit or remove *)
+  | "1020" -> "Россия 1"
+  | "1130" -> "Радио России"
+  (* do NOT edit or remove *)
+  | "1070" -> "Россия 24"
   (* do NOT edit or remove
    * second multiplex *)
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2010" -> "РЕН ТВ"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2020" -> "Спас"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2030" -> "СТС"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2040" -> "Домашний"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2050" -> "ТВ3"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2060" -> "Пятница"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2070" -> "Звезда"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2080" -> "Мир"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2090" -> "ТНТ"
-  | "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2100" -> "МУЗ ТВ"
-  (* do NOT edit or remove *)
-  | "s4b135670-ef01-59b1-be78-4e9bec93461f_c1020" -> "Россия 1"
-  | "s4b135670-ef01-59b1-be78-4e9bec93461f_c1130" -> "Радио России"
-  (* do NOT edit or remove *)
-  | "s930c63bc-0ce2-555c-9a51-09de6b1b85f2_c1070" -> "Россия 24"
-  | x -> x
-
-let domain_of_channel = function
-  (* do NOT edit or remove
-   * first multiplex *)
-  | "Первый канал" -> "s460b38ee-186b-5604-8811-235eb3005960_c1010"
-  | "МАТЧ"         -> "s460b38ee-186b-5604-8811-235eb3005960_c1030"
-  | "НТВ"          -> "s460b38ee-186b-5604-8811-235eb3005960_c1040"
-  | "Пятый канал"  -> "s460b38ee-186b-5604-8811-235eb3005960_c1050"
-  | "Россия К"     -> "s460b38ee-186b-5604-8811-235eb3005960_c1060"
-  | "Карусель"     -> "s460b38ee-186b-5604-8811-235eb3005960_c1080"
-  | "ОТР"          -> "s460b38ee-186b-5604-8811-235eb3005960_c1090"
-  | "ТВ Центр"     -> "s460b38ee-186b-5604-8811-235eb3005960_c1100"
-  | "Вести ФМ"     -> "s460b38ee-186b-5604-8811-235eb3005960_c1110"
-  | "Маяк"         -> "s460b38ee-186b-5604-8811-235eb3005960_c1120"
-  (* do NOT edit or remove
-   * second multiplex *)
-  | "РЕН ТВ"   -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2010"
-  | "Спас"     -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2020"
-  | "СТС"      -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2030"
-  | "Домашний" -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2040"
-  | "ТВ3"      -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2050"
-  | "Пятница"  -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2060"
-  | "Звезда"   -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2070"
-  | "Мир"      -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2080"
-  | "ТНТ"      -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2090"
-  | "МУЗ ТВ"   -> "s4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1_c2100"
-  (* do NOT edit or remove *)
-  | "Россия 1"     -> "s4b135670-ef01-59b1-be78-4e9bec93461f_c1020"
-  | "Радио России" -> "s4b135670-ef01-59b1-be78-4e9bec93461f_c1130"
-  (* do NOT edit or remove *)
-  | "Россия 24" -> "s930c63bc-0ce2-555c-9a51-09de6b1b85f2_c1070"
-  | x -> x
-
-let stream_parse = function
-  | "460b38ee-186b-5604-8811-235eb3005960" -> "Первый мультиплекс, PLP 0"
-  | "4b135670-ef01-59b1-be78-4e9bec93461f" -> "Первый мультиплекс, PLP 1"
-  | "930c63bc-0ce2-555c-9a51-09de6b1b85f2" -> "Первый мультиплекс, PLP 2"
-  | "4c953a1b-dbcc-57cc-82f3-7f1c50dbd4d1" -> "Второй мультиплекс, PLP 0"
-  | _ -> ""
+  | "2010" -> "РЕН ТВ"
+  | "2020" -> "Спас"
+  | "2030" -> "СТС"
+  | "2040" -> "Домашний"
+  | "2050" -> "ТВ3"
+  | "2060" -> "Пятница"
+  | "2070" -> "Звезда"
+  | "2080" -> "Мир"
+  | "2090" -> "ТНТ"
+  | "2100" -> "МУЗ ТВ"
+  | x      -> x
 
 let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
   let calculate_cols_rows () =
@@ -151,7 +131,7 @@ let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
           let _, _, sq = x in
           let _, _, gr = acc in
           if Float.(gr > sq) then acc else x)
-        (0, 0, 0.) squares in
+        (1, 1, 1.) squares in
     cols, rows in
   if ( Float.equal (float_of_int (fst resolution) /. float_of_int (snd resolution))
      (float_of_int (fst item_ar) /. float_of_int (snd item_ar))) then
@@ -178,6 +158,7 @@ let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
     | _ -> calculate_cols_rows ()
   else calculate_cols_rows ()
 
+(* position_widget_1 works better but it still adds slight distortion to an image *)
 let position_widget_1 ~(pos : Wm.position) (widget : Wm.widget) : Wm.widget =
   match widget.aspect with
   | Some aspect ->
@@ -202,6 +183,7 @@ let position_widget_1 ~(pos : Wm.position) (widget : Wm.widget) : Wm.widget =
       widget
   | None -> widget
 
+(* position_widget works properly, but leaves more blank space *)
 let position_widget ~(pos : Wm.position) (widget : Wm.widget) : Wm.widget =
   let cpos = Utils.to_grid_position pos in
   let wpos =
@@ -211,9 +193,10 @@ let position_widget ~(pos : Wm.position) (widget : Wm.widget) : Wm.widget =
       widget.aspect in
   let x    = cpos.x + ((cpos.w - wpos.w) / 2) in
   let y    = cpos.y + ((cpos.h - wpos.h) / 2) in
-  let pos  = {wpos with x ; y} |> Utils.of_grid_position in
+  let pos  = { wpos with x ; y } |> Utils.of_grid_position in
   { widget with position = pos }
 
+(* makes a checkbox with id of domains and typ, and a tree item named by channel*)
 let make_widget (widget : string * Wm.widget) =
   let domain = (snd widget).domain in
   let typ    = (snd widget).type_ in
@@ -224,16 +207,19 @@ let make_widget (widget : string * Wm.widget) =
     | x -> x in
   let checkbox = new Checkbox.t () in
   checkbox#set_id @@ domain ^ "|" ^ typ;
-  checkbox, new Tree.Item.t ~text:label ~secondary_text:(channel_of_domain domain)
+  checkbox,
+  new Tree.Item.t ~text:label ~secondary_text:(channel_of_pid @@ pid_of_domain domain)
     ~graphic:checkbox ~value:() ()
 
+(* makes all the widgets checkboxes with IDs, checkboxes of channels Tree items,
+ * and a Tree.t containing all given channels *)
 let make_channels (widgets : (string * Wm.widget) list) =
   let domains  = find_domains widgets in
-  let channels = List.map (fun x -> channel_of_domain x) domains in
+  let channels =
+    List.map (fun x -> channel_of_pid @@ pid_of_domain x, x) domains in
   let wdg_chbs, ch_chbs, items =
-    List.map (fun channel ->
+    List.map (fun (channel, domain) ->
         let label   = channel in
-        let domain  = domain_of_channel channel in
         let widgets =
           List.filter (fun (_, (wdg : Wm.widget)) ->
               String.equal domain wdg.domain) widgets in
@@ -259,10 +245,10 @@ let make_channels (widgets : (string * Wm.widget) list) =
         checkboxes, checkbox,
         new Tree.Item.t ~text:label ~graphic:checkbox
           ~nested ~value:() ()) channels
-    |> List.fold_left (fun (first, second, third) (a, b, c) ->
-        a :: first, b :: second, c :: third) ([], [], []) in
+    |> split_three in
   (List.concat wdg_chbs), ch_chbs, new Tree.t ~items ()
 
+(* makes all the widget checkboxes with IDs, and a Tree.t containing all streams *)
 let make_streams (widgets : (string * Wm.widget) list) =
   let streams =
     List.fold_left (fun acc (x : string * Wm.widget) ->
@@ -281,14 +267,14 @@ let make_streams (widgets : (string * Wm.widget) list) =
       stream, wds) streams in
   let checkboxes, items =
     List.fold_left (fun acc (stream, wds) ->
-        let wdg_chbs,ch_chbs, nested = make_channels wds in
+        let wdg_chbs, chan_chbs, nested = make_channels wds in
         let checkbox = new Checkbox.t () in
         checkbox#set_id stream;
         React.E.map (fun checked ->
             if checked then
-              List.iter (fun ch -> ch#set_checked true) ch_chbs
+              List.iter (fun ch -> ch#set_checked true) chan_chbs
             else
-              List.iter (fun ch -> ch#set_checked false) ch_chbs)
+              List.iter (fun ch -> ch#set_checked false) chan_chbs)
         @@ React.S.changes checkbox#s_state
         |> ignore;
         List.iter (fun check ->
@@ -297,13 +283,18 @@ let make_streams (widgets : (string * Wm.widget) list) =
                 && Bool.equal (React.S.value checkbox#s_state) true then
                   checkbox#set_checked false)
             @@ React.S.changes check#s_state
-            |> ignore) ch_chbs;
-        let stream_node = new Tree.Item.t ~text:(stream_of_string stream) ~graphic:checkbox
-          ~nested ~value:() () in
-        (wdg_chbs @ (fst acc)), stream_node :: (snd acc)) ([], []) streams_of_widgets in
+            |> ignore) chan_chbs;
+        let stream_node =
+          new Tree.Item.t
+            ~text:(parse_stream stream)
+            ~graphic:checkbox
+            ~nested ~value:()
+            () in
+        (wdg_chbs @ (fst acc)), stream_node :: (snd acc))
+      ([], []) streams_of_widgets in
   checkboxes, new Tree.t ~items ()
-(* TODO streams must be the first level of the menu *)
 
+(* makes a list of containers with widgets, calculates its positions *)
 let to_layout ~resolution ~widgets =
   let ar_x, ar_y = 16, 9 in
   let domains    = find_domains widgets in
@@ -311,9 +302,11 @@ let to_layout ~resolution ~widgets =
   if num <> 0 then
     let cols, rows =
       get_items_in_row ~resolution ~item_ar:(ar_x, ar_y) num in
+    let cont_std_w = fst resolution / cols in
+    let cont_std_h = (ar_y * cont_std_w) / ar_x in
     let remain = List.length domains - (cols * (rows - 1)) in
-    (* greatest is the number of containers we should increase in size,
-     * multiplier is the number to multiply width and height on *)
+    (* 'greatest' is the number of containers we should increase in size,
+     * 'multiplier' is the number to multiply width and height on *)
     let greatest, multiplier =
       if rows < cols
       && remain <> cols then
@@ -322,17 +315,13 @@ let to_layout ~resolution ~widgets =
         else
           (* if the number of remaining containers
            * is greater than the half of the row *)
-
-          1, 2
+          cols - remain, 2
       else
         remain, 1 in
-    let cont_std_w = fst resolution / cols in
-    let cont_std_h = (ar_y * cont_std_w) / ar_x in
     List.fold_left (fun acc domain ->
-        let i       = fst acc in
-        let acc     = snd acc in
+        let i, acc  = acc in
         let row_num = i / cols in
-        let channel = channel_of_domain domain in
+        let channel = channel_of_pid @@ pid_of_domain domain in
         let cont_w  =
           if i + 1 > List.length domains - remain then
             fst resolution / cols * multiplier
@@ -341,8 +330,9 @@ let to_layout ~resolution ~widgets =
         let cont_h = (ar_y * cont_w) / ar_x in
         let greater_num = i - (num - greatest) in
         (* the number of greater elements behind this *)
-        let cont_x = if greater_num > 0 then      (* magical *)
-            (i - cols * row_num - greater_num)    (* do not touch *)
+        let cont_x =
+          if greater_num > 0 then               (* magical *)
+            (i - cols * row_num - greater_num)  (* do not touch *)
             * cont_std_w + greater_num * cont_w
           else
             (i - cols * row_num) * cont_std_w in
@@ -364,8 +354,8 @@ let to_layout ~resolution ~widgets =
               | None  ->  video_position ~audio:`Without_audio ~cont_pos in
             let video_wdg =
               (* actually we should use position_widget here,
-               * but it leaves more blamk space *)
-             (* fst video, {(snd video) with position = video_pos} in*)
+               * but it leaves more blank space *)
+             (* fst video, {(snd video) with position = video_pos} in *)
               fst video, position_widget_1 ~pos:video_pos (snd video) in
             Some video_wdg
           | None -> None in
@@ -382,13 +372,12 @@ let to_layout ~resolution ~widgets =
           | None -> None in
         let container =
           if cont_pos.left >= 0 && cont_pos.right <= fst resolution
-             && cont_pos.top >= 0 && cont_pos.bottom <= snd resolution
-          then
+             && cont_pos.top >= 0 && cont_pos.bottom <= snd resolution then
             let widgets = match video_wdg, audio_wdg with
-            | Some video_wdg, Some audio_wdg -> [video_wdg; audio_wdg]
-            | None,           Some audio_wdg -> [audio_wdg]
-            | Some video_wdg, None           -> [video_wdg]
-            | _, _ -> [] in
+              | Some video_wdg, Some audio_wdg -> [video_wdg; audio_wdg]
+              | None,           Some audio_wdg -> [audio_wdg]
+              | Some video_wdg, None           -> [video_wdg]
+              | _ -> [] in
             match widgets with
             | [] -> None
             | widgets -> Some ({ position = cont_pos; widgets } : Wm.container)
@@ -403,6 +392,11 @@ let to_layout ~resolution ~widgets =
   else
     []
 
+(* makes a dialog which shows available
+ * streams
+ *   |_ channels
+ *        |_ widgets
+ * returns dialog, react event and a fun showing dialog *)
 let to_dialog (wm : Wm.t) =
   let e, push    = React.E.create () in
   let checkboxes, widget = make_streams wm.widgets in
