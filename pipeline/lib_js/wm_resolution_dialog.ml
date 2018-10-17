@@ -12,8 +12,8 @@ class t () =
   let _class = "wm-resolution-dialog" in
   let width  = make_resolution_input ~id:"wm-width"  ~label:"Ширина" () in
   let height = make_resolution_input ~id:"wm-height" ~label:"Высота" () in
-  let accept = new Dialog.Action.t ~typ:`Accept  ~label:"Ok" () in
-  let cancel = new Dialog.Action.t ~typ:`Decline ~label:"Отмена" () in
+  let accept = new Dialog.Action.t ~typ:`Accept ~label:"Ok" () in
+  let cancel = new Dialog.Action.t ~typ:`Cancel ~label:"Отмена" () in
   let widget = new Vbox.t ~widgets:[width;height] () in
 
   object(self)
@@ -25,7 +25,7 @@ class t () =
 
     method show_await_resolution init =
       let open Lwt.Infix in
-      width#fill_in (fst init); height#fill_in (snd init);
+      width#set_value (fst init); height#set_value (snd init);
       self#show_await ()
       >>= (function
            | `Accept -> let w = Option.get_exn @@ React.S.value width#s_input in

@@ -7,19 +7,19 @@ open Dynamic_grid
 let base_class = "wm-grid"
 
 let layout_pos_of_grid_pos ~resolution
-      ~cols ~rows (pos:Position.t) : Wm.position =
-  let w,h    = resolution in
-  let cw,rh  = w / cols, h / rows in
-  { left   = pos.x * cw
-  ; right  = (pos.w + pos.x) * cw
-  ; top    = pos.y * rh
+      ~cols ~rows (pos : Position.t) : Wm.position =
+  let w, h = resolution in
+  let cw, rh = w / cols, h / rows in
+  { left = pos.x * cw
+  ; right = (pos.w + pos.x) * cw
+  ; top = pos.y * rh
   ; bottom = (pos.h + pos.y) * rh
   }
 
 let grid_pos_of_layout_pos ~resolution
-      ~cols ~rows (pos:Wm.position) : Position.t =
-  let w,h   = resolution in
-  let cw,rh = w / cols, h / rows in
+      ~cols ~rows (pos : Wm.position) : Position.t =
+  let w, h = resolution in
+  let cw, rh = w / cols, h / rows in
   { x = pos.left / cw
   ; y = pos.top / rh
   ; w = (pos.right - pos.left) / cw
@@ -31,40 +31,41 @@ module Make(I : Item) = struct
   module Position = Dynamic_grid.Position
 
   class t ~layer ~resolution ~s_grid ~init () =
-    let (c,r)   = React.S.value s_grid in
-    let e_dblclick,e_dblclick_push = React.E.create () in
-    let e_delete,e_delete_push     = React.E.create () in
-    let _class  = Components_markup.CSS.add_element base_class "grid" in
-    let ph      = Placeholder.make
-                    ~text:"Добавьте элементы в раскладку"
-                    ~icon:"add_box" () in
-    let grid    = Dynamic_grid.to_grid ~cols:c ~rows:r
-                    ~restrict_move:true ~items_margin:(2,2) () in
+    let c, r = React.S.value s_grid in
+    let e_dblclick, e_dblclick_push = React.E.create () in
+    let e_delete, e_delete_push = React.E.create () in
+    let _class = Components_markup.CSS.add_element base_class "grid" in
+    let ph =
+      Placeholder.make
+        ~text:"Добавьте элементы в раскладку"
+        ~icon:Icon.SVG.(create_simple Path.plus_box) () in
+    let grid = Dynamic_grid.to_grid ~cols:c ~rows:r
+                 ~restrict_move:true ~items_margin:(2,2) () in
     object(self)
 
       inherit [I.t] Dynamic_grid.t ~grid ~items:[] ()
 
-      val mutable typ          = ""
-      val mutable layer        = layer
+      val mutable typ = ""
+      val mutable layer = layer
       val mutable enter_target = Js.null
 
-      method set_active x  =
+      method set_active x =
         self#add_or_remove_class (not x)
         @@ Components_markup.CSS.add_modifier _class "background"
       method set_visible x =
         self#add_or_remove_class (not x)
         @@ Components_markup.CSS.add_modifier _class "invisible"
-      method layer : int   =
+      method layer : int =
         layer
-      method set_layer x   =
+      method set_layer x =
         layer <- x;
         self#set_attribute "data-layer" @@ string_of_int layer;
         List.iter (fun x -> x#set_value (I.update_layer x#value layer)) self#items
       method e_item_dblclick = e_dblclick
-      method e_item_delete   = e_delete
+      method e_item_delete = e_delete
 
       method private move_ghost ?aspect ghost = function
-        | None      ->
+        | None ->
            ghost#set_pos Position.empty
         | Some epos ->
            let open Position in
@@ -76,7 +77,7 @@ module Make(I : Item) = struct
                (React.S.value self#s_rows) () in
            (match pos with
             | Some x -> ghost#set_pos x
-            | None   -> ghost#set_pos empty)
+            | None -> ghost#set_pos empty)
 
       method private update_item_value item position =
         let cols,rows = React.S.value s_grid in
@@ -84,28 +85,30 @@ module Make(I : Item) = struct
         item#set_value (I.update_position item#value pos)
 
       method private add_from_candidate t =
-        let pos       = I.position_of_t t in
-        let cols,rows = React.S.value s_grid in
-        let pos       = grid_pos_of_layout_pos ~resolution ~cols ~rows pos in
-        let (t:I.t)   = I.update_layer t self#layer in
-        let item      = I.to_grid_item t pos in
-        Result.iter (fun i ->
+        let pos = I.position_of_t t in
+        let cols, rows = React.S.value s_grid in
+        let pos = grid_pos_of_layout_pos ~resolution ~cols ~rows pos in
+        let (t : I.t) = I.update_layer t self#layer in
+        let item = I.to_grid_item t pos in
+        Result.iter (fun (i:#Widget.t) ->
             React.S.map (fun p -> self#update_item_value i p) i#s_change
             |> ignore;
-            Dom_events.listen i#root Dom_events.Typ.dblclick (fun _ _ ->
-                e_dblclick_push i; true)
-            |> ignore;
-            Components.Utils.Keyboard_event.listen i#root (function
-                | `Delete _ -> e_delete_push i; true
-                | _         -> true) |> ignore)
+            i#listen_lwt Widget.Event.dblclick (fun _ _ ->
+                e_dblclick_push i;
+                Lwt.return_unit)
+            |> Lwt.ignore_result;
+            i#listen_lwt Widget.Event.keydown (fun e _ ->
+                match Components.Utils.Keyboard_event.event_to_key e with
+                | `Delete -> e_delete_push i; Lwt.return_unit
+                | _ -> Lwt.return_unit) |> ignore)
           (self#add item)
 
-      method private set_grid ((c,r):int*int) =
+      method private set_grid ((cols, rows) : int * int) =
         List.iter (fun i ->
             let pos = I.position_of_t i#value in
-            let pos = grid_pos_of_layout_pos ~resolution ~cols:c ~rows:r pos in
+            let pos = grid_pos_of_layout_pos ~resolution ~cols ~rows pos in
             i#set_pos pos) self#items;
-        self#s_grid_push { self#grid with cols = c; rows = Some r };
+        self#s_grid_push { self#grid with cols; rows = Some rows };
 
       initializer
         self#add_class _class;
@@ -115,32 +118,32 @@ module Make(I : Item) = struct
         React.S.map self#set_grid s_grid |> ignore;
         React.S.map (function
             | [] -> self#append_child ph
-            | _  -> self#remove_child ph)
+            | _-> self#remove_child ph)
           self#s_items |> ignore;
         List.iter self#add_from_candidate init;
         List.iter (fun i -> React.S.map (fun p -> self#update_item_value i p)
                               i#s_change |> ignore)
           self#items;
         (let ghost = new Dynamic_grid.Item.cell
-                         ~typ:`Ghost
-                         ~s_grid:self#s_grid
-                         ~s_col_w:self#s_col_w
-                         ~s_row_h:self#s_row_h
-                         ~pos:Dynamic_grid.Position.empty
-                         ()
+                       ~typ:`Ghost
+                       ~s_grid:self#s_grid
+                       ~s_col_w:self#s_col_w
+                       ~s_row_h:self#s_row_h
+                       ~pos:Dynamic_grid.Position.empty
+                       ()
          in
          ghost#style##.zIndex := Js.string "10000";
-         Dom.appendChild self#root ghost#root;
-         self#listen Widget.Event.dragenter (fun _ e ->
+         self#append_child ghost;
+         self#listen_lwt Widget.Event.dragenter (fun e _ ->
              Dom_html.stopPropagation e; Dom.preventDefault e;
              enter_target <- e##.target;
-             true) |> ignore;
-         self#listen Widget.Event.dragleave (fun _ e ->
+             Lwt.return_unit) |> Lwt.ignore_result;
+         self#listen_lwt Widget.Event.dragleave (fun e _ ->
              Dom_html.stopPropagation e;Dom.preventDefault e;
              if Equal.physical enter_target e##.target
              then ghost#set_pos Dynamic_grid.Position.empty;
-             true) |> ignore;
-         self#listen Widget.Event.dragover (fun _ e ->
+             Lwt.return_unit) |> Lwt.ignore_result;
+         self#listen_lwt Widget.Event.dragover (fun e _ ->
              let a = Js.Unsafe.coerce e##.dataTransfer##.types in
              let l = Js.to_array a |> Array.to_list |> List.map Js.to_string in
              let t = List.find_map (fun x ->
@@ -149,10 +152,12 @@ module Make(I : Item) = struct
                          | None    -> None) l in
              Option.iter (fun wh ->
                  let aspect = match String.split_on_char ':' wh with
-                   | w :: h :: [] -> (match Int.of_string w, Int.of_string h with
-                                      | Some w, Some h -> Some (w,h)
-                                      | _              -> None)
-                   | _            -> None
+                   | w :: h :: [] ->
+                      begin match Int.of_string w, Int.of_string h with
+                      | Some w, Some h -> Some (w, h)
+                      | _ -> None
+                      end
+                   | _ -> None
                  in
                  let p = self#get_event_pos (e :> Dom_html.mouseEvent Js.t) in
                  match p with
@@ -161,30 +166,30 @@ module Make(I : Item) = struct
                              if not @@ Dynamic_grid.Position.(equal gp empty)
                              then Dom.preventDefault e;
                  | None -> ()) t;
-             true) |> ignore;
-         self#listen Widget.Event.drop (fun _ e ->
+             Lwt.return_unit) |> Lwt.ignore_result;
+         self#listen_lwt Widget.Event.drop (fun e _ ->
              Dom.preventDefault e;
              let json = e##.dataTransfer##getData (Js.string typ)
                         |> Js.to_string
                         |> Yojson.Safe.from_string in
              Result.iter (fun t ->
                  let open Dynamic_grid.Position in
-                 let pos       = ghost#pos in
+                 let pos = ghost#pos in
                  if not @@ equal pos empty
                  then
-                   let cols,rows = React.S.value s_grid in
-                   let pos       = layout_pos_of_grid_pos
+                   let cols, rows = React.S.value s_grid in
+                   let pos = layout_pos_of_grid_pos
                                      ~resolution ~cols ~rows pos in
-                   let other     = List.map (fun x -> x#value) self#items in
-                   let (t:I.t)   =
+                   let other = List.map (fun x -> x#value) self#items in
+                   let (t : I.t) =
                      if not (t:I.t).unique
                      then { t with name = I.make_item_name t other }
                      else t in
-                   let (t:I.t)   = I.update_position t pos in
+                   let (t : I.t) = I.update_position t pos in
                    self#add_from_candidate t) (I.of_yojson json);
              ghost#set_pos Dynamic_grid.Position.empty;
-             true)
-         |> ignore)
+             Lwt.return_unit)
+         |> Lwt.ignore_result)
 
     end
 

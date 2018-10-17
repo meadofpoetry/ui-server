@@ -3,6 +3,8 @@ open Common
 open Common.Topology
 open Storage.Options
 open Lwt.Infix
+open Api.Template
+open Common.User
 
 module Api_handler = Api.Handler.Make(User)
 
@@ -46,6 +48,7 @@ type t =
   ; ports_active    : bool React.signal Ports.t
   ; ports_sync      : bool React.signal Ports.t
   ; stream_handler  : stream_handler option
+  ; templates       : upper ordered_item list user_table option
   ; state           : < finalize : unit -> unit >
   }
 
@@ -120,9 +123,13 @@ let merge_streams (boards : t Map.t)
   (* When a board is connected to another board *)
   let find_cor_stream (s : Raw.t) (lst : Stream.t list signal) = (* use S.fmap `None*)
     let map (s : Raw.t) prev = match prev.orig_id, s.id with
-      | TS_raw, (TS_multi _ as id) -> Some { prev with orig_id = id }
-      | id, sid -> if equal_container_id id sid
-                   then Some prev else None in
+      | TS_raw, (TS_multi _ as id) ->
+         Some { prev with orig_id = id
+                        ; typ = s.typ }
+      | id, sid ->
+         if equal_container_id id sid
+         then Some { prev with typ = s.typ }
+         else None in
     `Done (S.map (List.find_map (map s)) lst) in
   (* When source of raw stream is another stream *)
   let compose_hier (s : Raw.t) (parent : container_id) sms =
@@ -148,7 +155,7 @@ let merge_streams (boards : t Map.t)
         |> function
           | None -> `Error (Printf.sprintf "merge_streams: \
                                             port %d is not connected" i)
-          | Some (`Input i)     -> create_in_stream s i
+          | Some (`Input i) -> create_in_stream s i
           | Some (`Streams lst) -> find_cor_stream s lst)
     | Stream id -> compose_hier s id acc
     | Board     -> create_board_stream s in

@@ -23,9 +23,9 @@ let clean_state (state : state) =
 
 let streams ~(init   : init)
       ~(events : events) =
-  let id            = "streams-list" in
-  let div           = Dom_html.createDiv Dom_html.document in
-  let s,s_push      = React.S.create [] in
+  let id = "streams-list" in
+  let div = Widget.create_div () in
+  let s, s_push = React.S.create [] in
   let _ =
     React.S.map (fun sms ->
         let items =
@@ -35,18 +35,18 @@ let streams ~(init   : init)
               let rec get_input = function
                 | Entry (Input x) -> "Вход " ^ (Topology.get_input_name x)
                 | Entry (Board b) -> Printf.sprintf "Плата %s" b.model
-                | Stream x        -> get_input x.source.node in
+                | Stream x -> get_input x.source.node in
               let info = Stream.Source.to_string x.source.info in
               let text =
                 Printf.sprintf "%s: %s" (get_input x.source.node) info in
-              let cb   = new Checkbox.t () in
+              let cb = new Checkbox.t () in
               new Item_list.Item.t ~ripple:true ~graphic:cb ~text ~value:() (),
               React.S.map (function true  -> Some x | false -> None) cb#s_state) sms
         in
         let lst = new Item_list.t ~items:(List.map (fun x -> `Item (fst x)) items) () in
         lst#set_id id;
-        (try Dom.removeChild div (Dom_html.getElementById id) with _ -> ());
-        Dom.appendChild div lst#root;
+        (try Dom.removeChild div#root (Dom_html.getElementById id) with _ -> ());
+        div#append_child lst;
         let s = React.S.merge (fun acc x -> match x with
                                             | Some x -> x :: acc
                                             | None   -> acc) [] @@ List.map snd items
@@ -54,39 +54,36 @@ let streams ~(init   : init)
         React.S.map (fun x -> s_push x) s |> ignore)
       (React.S.hold init.streams events.streams)
   in
-  Widget.create div,s
+  div, s
 
 let card control
       ~(init   : init)
       ~(events : events) =
-  (* let title   = new Card.Title.t ~title:"Настройки" () in
-   * let primary = new Card.Primary.t ~widgets:[title] () in *)
   let sms_lst,selected = streams ~init ~events in
   let apply   = new Button.t ~label:"Применить" () in
   let actions = new Card.Actions.t ~widgets:[apply] () in
-  (* title#add_class "color--primary-on-primary";
-   * primary#add_class "background--primary"; *)
-  let card = new Card.t ~widgets:[ (new Card.Media.t ~widgets:[sms_lst] ())#widget
-                                 ; actions#widget
-               ] ()
-  in
-  React.E.map (fun _ -> Requests.Transmitter.HTTP.set_streams (React.S.value selected)
-                          control) apply#e_click |> ignore;
+  let card =
+    new Card.t
+      ~widgets:[ (new Card.Media.t ~widgets:[sms_lst] ())#widget
+               ; actions#widget ] () in
+  apply#listen_lwt Widget.Event.click (fun _ _ ->
+      Requests.Transmitter.HTTP.set_streams (React.S.value selected) control
+      |> Lwt.map ignore) |> Lwt.ignore_result;
   card
 
 let layout control
-      ~(init   : init)
+      ~(init : init)
       ~(events : events) =
   let card = card control ~init ~events in
   card
 
 class settings control () = object(self)
 
-  val mutable in_dom               = false
+  val mutable in_dom = false
   val mutable state : state option = None
-  val mutable observer             = None
+  val mutable observer = None
 
-  inherit Widget.t (Dom_html.createDiv Dom_html.document) ()
+  inherit Widget.t Dom_html.(createDiv document) ()
 
   method private observe =
     MutationObserver.observe

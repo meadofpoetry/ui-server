@@ -1,21 +1,73 @@
 open Containers
 open Components
 open Common
-open Board_types.Streams.TS
+open Board_types
 open Lwt_result.Infix
 open Api_js.Api_types
+open Widget_common
 
-type config =
-  { stream : Stream.t
-  }
+let ( % ) = Fun.( % )
 
 let name = "Обзор таблиц"
 let base_class = "qos-niit-table-overview"
+let no_sync_class = Markup.CSS.add_modifier base_class "no-sync"
+let no_response_class = Markup.CSS.add_modifier base_class "no-response"
 
-let settings = None
+module Settings = struct
 
-let to_table_name ?(is_hex=false) table_id table_id_ext
-      service (eit_params:eit_params) =
+  type t = { hex : bool }
+
+  let (default : t) = { hex = false (* FIXME *) }
+
+  class view ?(settings = default) () =
+    let hex_switch =
+      new Switch.t
+        ~state:settings.hex
+        () in
+    let hex_form =
+      new Form_field.t
+        ~input:hex_switch
+        ~align_end:true
+        ~label:"HEX IDs"
+        () in
+    let s, set = React.S.create settings in
+    object(self)
+
+      inherit Vbox.t ~widgets:[hex_form] ()
+
+      method apply () : unit =
+        let hex = hex_switch#checked in
+        set { hex }
+
+      method reset () : unit =
+        let { hex } = React.S.value self#s in
+        hex_switch#set_checked hex
+
+      method s : t React.signal = s
+
+    end
+
+  let make ?settings () = new view ?settings ()
+
+end
+
+module Table_info = struct
+
+  include SI_PSI_table
+
+  let compare (a : t) (b : t) : int =
+    compare_id (fst a) (fst b)
+
+  let equal (a : t) (b : t) : bool =
+    0 = compare a b
+
+end
+
+module Set = Set.Make(Table_info)
+
+(** Returns string representing human-readable section name *)
+let to_table_name ?(is_hex = false) table_id table_id_ext
+      id_ext_1 id_ext_2 service =
   let open Printf in
   let divider  = ", " in
   let name     = Mpeg_ts.(table_to_string @@ table_of_int table_id) in
@@ -27,37 +79,40 @@ let to_table_name ?(is_hex=false) table_id table_id_ext
     | None -> s in
   let base     = id "table_id" table_id in
   let specific = match Mpeg_ts.table_of_int table_id with
-    | `PAT   -> Some [ id "tsid" table_id_ext ]
-    | `PMT   -> Some [ id ?service "program" table_id_ext ]
+    | `PAT -> Some [ id "tsid" table_id_ext ]
+    | `PMT -> Some [ id ?service "program" table_id_ext ]
     | `NIT _ -> Some [ id "network_id" table_id_ext ]
-    | `SDT _ -> Some [ id "tsid" table_id_ext ]
-    | `BAT   -> Some [ id "bid" table_id_ext ]
+    | `SDT _ -> Some [ id "tsid" table_id_ext
+                     ; id "onid" id_ext_1 ]
+    | `BAT -> Some [ id "bid" table_id_ext ]
     | `EIT _ -> Some [ id ?service "sid" table_id_ext
-                     ; id "tsid" eit_params.ts_id
-                     ; id "onid" eit_params.orig_nw_id ]
-    | _      -> None in
+                     ; id "tsid" id_ext_1
+                     ; id "onid" id_ext_2 ]
+    | _ -> None in
   match specific with
   | Some l -> name, String.concat divider (base :: l)
-  | None   -> name, base
+  | None -> name, base
 
-let to_table_extra ?(hex=false) (x:table_info) =
-  let id = match hex with
+(** Returns HTML element to insert into 'Extra' table column *)
+let to_table_extra ?(hex = false) ((id, info) : SI_PSI_table.t) =
+  let to_id_string = match hex with
     | true  -> Printf.sprintf "0x%02X"
     | false -> Printf.sprintf "%d" in
-  let specific = match Mpeg_ts.table_of_int x.id with
-    | `PAT   -> Some [ "tsid", x.id_ext ]
-    | `PMT   -> Some [ "program", x.id_ext ]
-    | `NIT _ -> Some [ "network_id", x.id_ext ]
-    | `SDT _ -> Some [ "tsid", x.id_ext ]
-    | `BAT   -> Some [ "bid", x.id_ext ]
-    | `EIT _ -> Some [ "onid", x.eit_params.orig_nw_id
-                     ; "tsid", x.eit_params.ts_id
-                     ; "sid",  x.id_ext ]
+  let specific = match Mpeg_ts.table_of_int id.table_id with
+    | `PAT   -> Some [ "tsid", id.table_id_ext ]
+    | `PMT   -> Some [ "program", id.table_id_ext ]
+    | `NIT _ -> Some [ "network_id", id.table_id_ext ]
+    | `SDT _ -> Some [ "tsid", id.table_id_ext
+                     ; "onid", id.id_ext_1 ]
+    | `BAT   -> Some [ "bid", id.table_id_ext ]
+    | `EIT _ -> Some [ "onid", id.id_ext_1
+                     ; "tsid", id.id_ext_2
+                     ; "sid",  id.table_id_ext ]
     | _      -> None in
   let open Tyxml_js.Html in
   let wrap x =
     List.mapi (fun i (s, v) ->
-        let v = id v in
+        let v = to_id_string v in
         let v = if i = pred @@ List.length x then v else v ^ ", " in
         span [ span ~a:[ a_class [ Typography.Markup.subtitle2_class ]]
                  [pcdata (s ^ ": ")]
@@ -65,66 +120,54 @@ let to_table_extra ?(hex=false) (x:table_info) =
     |> fun x -> span x in
   (match specific with
    | Some l -> wrap l
-   | None   -> span [])
-  |> Tyxml_js.Html.toelt
+   | None -> span [])
+  |> toelt
 
+(** Returns 'back' action element *)
 let make_back () =
-  let back_ico =
-    new Icon.Button.Font.t ~icon:"arrow_back" () in
-  let back_txt =
-    new Typography.Text.t ~adjust_margin:false
-      ~font:Caption
-      ~text:"Назад" () in
   let back =
-    new Hbox.t
-      ~valign:`Center
-      ~widgets:[ back_ico#widget; back_txt#widget ] () in
-  let () = back#add_class @@ Markup.CSS.add_element base_class "back" in
+    new Icon_button.t ~icon:Icon.SVG.(create_simple Path.arrow_left) () in
+  back#add_class @@ Markup.CSS.add_element base_class "back";
   back
 
-let make_dump_title ?is_hex
-      ({ id; id_ext; eit_params; service; _ }:table_info) =
-  let name     = to_table_name ?is_hex id id_ext service eit_params in
-  let title    = new Card.Primary.title (fst name) () in
-  let subtitle = new Card.Primary.subtitle (snd name) () in
-  let primary  = new Card.Primary.t ~widgets:[ title; subtitle ] () in
-  primary, fun x ->
-           let name = to_table_name ~is_hex:x id id_ext service eit_params in
-           subtitle#set_text_content @@ snd name
+let section_fmt : 'a. unit -> 'a list Components.Table.custom = fun () -> 
+  { is_numeric = true
+  ; compare = (fun x y -> Int.compare (List.length x) (List.length y))
+  ; to_string = Fun.(string_of_int % List.length) }
 
-let make_table
-      (is_hex:bool)
-      (init:table_info list) =
+let make_table ?(is_hex = false)
+      (init : SI_PSI_table.t list) =
   let open Table in
-  let dec_ext_fmt = Custom_elt { is_numeric = false
-                               ; compare = compare_table_info
-                               ; to_elt = to_table_extra } in
-  let hex_ext_fmt = Custom_elt { is_numeric = false
-                               ; compare = compare_table_info
-                               ; to_elt = to_table_extra ~hex:true } in
+  let dec_ext_fmt =
+    Custom_elt { is_numeric = false
+               ; compare = SI_PSI_table.compare
+               ; to_elt = to_table_extra } in
+  let hex_ext_fmt =
+    Custom_elt { is_numeric = false
+               ; compare = SI_PSI_table.compare
+               ; to_elt = to_table_extra ~hex:true } in
   let dec_pid_fmt = Int (Some (Printf.sprintf "%d")) in
   let hex_pid_fmt = Int (Some (Printf.sprintf "0x%04X")) in
   let hex_tid_fmt = Int (Some (Printf.sprintf "0x%02X")) in
-  let section_fmt =
-    Custom { is_numeric = true
-           ; compare    = (fun x y -> Int.compare
-                                        (List.length x)
-                                        (List.length y))
-           ; to_string  = Fun.(string_of_int % List.length) } in
+  let br_fmt = Table.(Option (Float None, "-")) in
+  let pct_fmt = Option (Float (Some (Printf.sprintf "%.2f")), "-") in
   let fmt =
-    let open Table in
     let open Format in
-    (   to_column ~sortable:true "ID",     dec_pid_fmt)
-    :: (to_column ~sortable:true "PID",    dec_pid_fmt)
-    :: (to_column ~sortable:true "Имя",    String None)
-    :: (to_column "Доп. инфо",             dec_ext_fmt)
+    (to_column ~sortable:true "ID", dec_pid_fmt)
+    :: (to_column ~sortable:true "PID", dec_pid_fmt)
+    :: (to_column ~sortable:true "Имя", String None)
+    :: (to_column "Доп. инфо", dec_ext_fmt)
     :: (to_column ~sortable:true "Версия", Int None)
     :: (to_column ~sortable:true "Сервис", Option (String None, ""))
-    :: (to_column "Количество секций",     section_fmt)
-    :: (to_column "Last section",          Int None)
+    :: (to_column "Кол-во секций", Custom (section_fmt ()))
+    :: (to_column "LSN", Int None)
+    :: (to_column "Битрейт, Мбит/с", br_fmt)
+    :: (to_column "%", pct_fmt)
+    :: (to_column "Min, Мбит/с", br_fmt)
+    :: (to_column "Max, Мбит/с", br_fmt)
     :: [] in
-  let table = new t ~sticky_header:true ~dense:true ~fmt () in
-  let on_change = fun (x:bool) ->
+  let table = new t ~dense:true ~fmt () in
+  let on_change = fun (x : bool) ->
     List.iter (fun row ->
         match row#cells with
         | tid :: pid :: _ :: ext :: _ ->
@@ -135,94 +178,291 @@ let make_table
   if is_hex then on_change true;
   table, on_change
 
-let make_card
-      ~config
-      (init:table_info list)
+let table_info_to_data ((id, info) : SI_PSI_table.t) =
+  let open Table.Data in
+  let name = Mpeg_ts.(table_to_string @@ table_of_int id.table_id) in
+  let sections = List.map (fun x -> x, None) info.sections in
+  id.table_id :: info.pid :: name :: (id, info) :: info.version
+  :: info.service_name :: sections :: info.last_section
+  :: None :: None :: None :: None :: []
+
+let make_dump_title ?is_hex
+      (({ table_id; table_id_ext; id_ext_1; id_ext_2; _ } : SI_PSI_table.id),
+       ({ service_name; _ } : SI_PSI_table.info)) =
+  to_table_name ?is_hex table_id table_id_ext id_ext_1 id_ext_2 service_name
+
+module Heading = struct
+
+  class t ?meta ?title ?subtitle () =
+    let title' = new Card.Primary.title "" () in
+    let subtitle' = new Card.Primary.subtitle "" () in
+    let box = Widget.create_div ~widgets:[title'; subtitle'] () in
+    let widgets = List.cons_maybe meta [box] in
+    object(self)
+      inherit Card.Primary.t ~widgets ()
+
+      method set_title (s : string) : unit =
+        title'#set_text_content s
+
+      method set_subtitle (s : string) : unit =
+        subtitle'#set_text_content s
+
+      initializer
+        Option.iter self#set_title title;
+        Option.iter self#set_subtitle subtitle;
+    end
+
+end
+
+let add_row (table : 'a Table.t)
+      (is_hex : bool)
+      (stream : Stream.ID.t)
+      (parent : #Widget.t)
+      (control : int)
+      (set_dump : ((bool -> unit) * Widget_tables_dump.t) option -> unit)
+      ((id, info) : SI_PSI_table.t) =
+  let row = table#add_row (table_info_to_data (id, info)) in
+  row#listen_click_lwt (fun _ _ ->
+      let open Lwt.Infix in
+      let cell =
+        let open Table in
+        match row#cells with
+        | _ :: _ :: _ :: _ :: _ :: _ :: x :: _ -> x in
+      let back = make_back () in
+      let title, subtitle = make_dump_title ~is_hex (id, info) in
+      let heading = new Heading.t ~meta:back#widget ~title ~subtitle () in
+      let dump =
+        new Widget_tables_dump.t
+          ~stream
+          ~sections:cell#value
+          ~table_id:id.table_id
+          ~table_id_ext:id.table_id_ext
+          ~id_ext_1:id.id_ext_1
+          ~id_ext_2:id.id_ext_2
+          control () in
+      let set_hex (x : bool) =
+        let title, subtitle = make_dump_title (id, info) in
+        heading#set_title title;
+        heading#set_subtitle subtitle;
+        dump#set_hex x in
+      let box =
+        new Vbox.t
+          ~widgets:[ heading#widget
+                   ; (new Divider.t ())#widget
+                   ; dump#widget ]
+          () in
+      dump#set_hex is_hex;
+      set_dump @@ Some (set_hex, dump);
+      back#listen_once_lwt Widget.Event.click
+      >|= (fun _ ->
+        let sections = List.map (fun i -> i#value) dump#list#items in
+        cell#set_value ~force:true sections;
+        parent#remove_child box;
+        parent#append_child table;
+        set_dump None;
+        dump#destroy ();
+        back#destroy ())
+      |> Lwt.ignore_result;
+      begin match dump#list#items with
+      | hd :: _ -> dump#list#set_active hd
+      | _ -> ()
+      end;
+      parent#remove_child table;
+      parent#append_child box;
+      Lwt.return_unit)
+  |> Lwt.ignore_result;
+  row
+
+class t ?(settings : Settings.t option)
+        (init : SI_PSI_table.t list timestamped option)
+        (stream : Stream.ID.t)
+        (control : int)
+        () =
+  let init, timestamp = match init with
+    | None -> [], None
+    | Some { data; timestamp } -> data, Some timestamp in
+  let s_time, set_time = React.S.create timestamp in
+  let table, on_change = make_table init in
+  let dump, set_dump = React.S.create None in
+  let empty =
+    Ui_templates.Placeholder.create_with_icon
+      ~icon:Icon.SVG.(create_simple Path.emoticon_sad)
+      ~text:"Не найдено ни одной таблицы SI/PSI"
+      () in
+
+  object(self)
+
+    val mutable _hex : bool = false
+    val mutable _data : Set.t = Set.of_list init
+    val media = new Card.Media.t ~widgets:[table] ()
+
+    inherit Widget.t Dom_html.(createDiv document) ()
+
+    method s_timestamp : Time.t option React.signal =
+      s_time
+
+    (** Adds new row to the overview *)
+    method add_row (t : SI_PSI_table.t) =
+      add_row table self#hex stream
+        (self :> Widget.t) control set_dump t
+
+    (** Updates widget state *)
+    method set_state (x : widget_state) : unit =
+      begin match React.S.value dump with
+      | Some dump -> ()
+      | None -> ()
+      end;
+      match x with
+      | Fine ->
+         self#remove_class no_response_class;
+         self#remove_class no_sync_class
+      | No_sync ->
+         self#remove_class no_response_class;
+         self#add_class no_sync_class
+      | No_response ->
+         self#remove_class no_sync_class;
+         self#add_class no_response_class
+
+    method hex : bool = _hex
+
+    (** Sets identifiers to hex or decimal view *)
+    method set_hex (x : bool) : unit =
+      _hex <- x;
+      begin match React.S.value dump with
+      | None -> ()
+      | Some (set, _) -> set x
+      end;
+      on_change x
+
+    method set_settings (x : Settings.t) : unit =
+      self#set_hex x.hex
+
+    (** Updates bitrate values *)
+    method set_rate (x : Bitrate.t) : unit =
+      let rec aux = function
+        | [], _ -> ()
+        | _, [] -> ()
+        | (rate : Bitrate.table) :: tl, rows ->
+           let find (row : 'a Table.Row.t) =
+             let ((id, info) : SI_PSI_table.t) = self#_row_to_table_info row in
+             id.table_id = rate.table_id
+             && id.table_id_ext = rate.table_id_ext
+             && id.id_ext_1 = rate.id_ext_1
+             && id.id_ext_2 = rate.id_ext_2 in
+           match List.find_opt find rows with
+           | None ->
+              aux (tl, rows)
+           | Some row ->
+              let open Table in
+              let rate', pct', min', max' = match row#cells with
+                | _ :: _ :: _ :: _ :: _ :: _ :: _ :: _
+                  :: rate :: pct :: min :: max :: [] ->
+                   rate, pct, min, max in
+              let br =
+                Float.(of_int rate.bitrate / 1_000_000.) in
+              let pct =
+                Float.(100. * (of_int rate.bitrate) / (of_int x.total)) in
+              rate'#set_value @@ Some br;
+              pct'#set_value @@ Some pct;
+              begin match min'#value with
+              | None -> min'#set_value (Some br)
+              | Some v -> if br <. v then min'#set_value (Some br)
+              end;
+              begin match max'#value with
+              | None -> max'#set_value (Some br)
+              | Some v -> if br >. v then max'#set_value (Some br)
+              end;
+              let rows = List.remove ~eq:Widget.equal ~x:row rows in
+              aux (tl, rows)
+      in
+      aux (x.tables, table#rows)
+
+    (** Updates the overview *)
+    method update ({ timestamp; data } : SI_PSI_table.t list timestamped) =
+      let open SI_PSI_table in
+      (* Update timestamp *)
+      set_time @@ Some timestamp;
+      (* Manage found, lost and updated items *)
+      let prev = _data in
+      _data <- Set.of_list data;
+      let lost = Set.diff prev _data in
+      let found = Set.diff _data prev in
+      let inter = Set.inter prev _data in
+      let upd = Set.filter (fun ((_, info) : t) ->
+                    List.mem ~eq:equal_info info @@ List.map snd data) inter in
+      let find = fun (table : t) (row : 'a Table.Row.t) ->
+        let open Table in
+        let info = self#_row_to_table_info row in
+        Table_info.equal table info in
+      Set.iter (fun (info : t) ->
+          match List.find_opt (find info) table#rows with
+          | None -> ()
+          | Some row -> table#remove_row row) lost;
+      Set.iter (fun (info : t) ->
+          match List.find_opt (find info) table#rows with
+          | None -> ()
+          | Some row -> self#_update_row row info) upd;
+      Set.iter (ignore % self#add_row) found
+
+    (* Private methods *)
+
+    method private _update_row (row : 'a Table.Row.t) ((id, info) : SI_PSI_table.t) =
+      let open Table in
+      let open SI_PSI_table in
+      begin match row#cells with
+      | _ :: _ :: _ :: _ :: ver :: serv :: sect :: lsn :: _ ->
+         let sections =
+           List.map (fun x ->
+               let res = List.find_opt (equal_section_info x % fst)
+                           sect#value in
+               match  res with
+               | Some (_, dump) -> x, dump
+               | None -> x, None) info.sections in
+         ver#set_value info.version;
+         serv#set_value info.service_name;
+         sect#set_value sections;
+         lsn#set_value info.last_section
+      end
+
+    method private _row_to_table_info (row : 'a Table.Row.t) =
+      let open Table in
+      match row#cells with
+      | _ :: _ :: _ :: x :: _ -> x#value
+
+    initializer
+      Option.iter self#set_settings settings;
+      self#append_child table;
+      React.S.map (function
+          | [] -> self#append_child empty
+          | _ -> self#remove_child empty) table#s_rows
+      |> self#_keep_s;
+      Set.iter (ignore % self#add_row) _data;
+      self#add_class base_class;
+  end
+
+let make ?(settings : Settings.t option)
+      (init : SI_PSI_table.t list timestamped option)
+      (stream : Stream.ID.t)
       control =
-  (* FIXME should remember preffered state *)
-  let is_hex = false in
-  let table, on_change  = make_table is_hex init in
-  let table_info_to_data (x:table_info) =
-    let open Table.Data in
-    let name = Mpeg_ts.(table_to_string @@ table_of_int x.id) in
-    let sections = List.map (fun x -> x, None) x.sections in
-    x.id :: x.pid :: name :: x :: x.version
-    :: x.service :: sections :: x.last_section :: [] in
-  let actions = new Card.Actions.t ~widgets:[ ] () in
-  let media   = new Card.Media.t ~widgets:[ table ] () in
-  let card =
-    new Card.t ~widgets:[ actions#widget
-                        ; (new Divider.t ())#widget
-                        ; media#widget ] () in
-  let set_title' = ref None in
-  let add_row (x:table_info) =
-    let row = table#add_row (table_info_to_data x) in
-    row#listen Widget.Event.click (fun _ _ ->
-        let cell =
-          let open Table in
-          match row#cells with
-          | _ :: _ :: _ :: _ :: _ :: _ :: x :: _ -> x in
-        let back    = make_back () in
-        let title, set_title = make_dump_title x in
-        set_title' := Some set_title;
-        let divider = new Divider.t () in
-        let dump =
-          new Widget_tables_dump.t
-            ~config:{ stream = config.stream }
-            ~sections:(List.filter_map (fun (x, v) ->
-                           match v with
-                           | Some v -> Some (x, v)
-                           | None   -> None) cell#value)
-            ~init:x
-            ~event:React.E.never
-            control () in
-        back#listen Widget.Event.click (fun _ _ ->
-            set_title' := None;
-            let sections = List.map (fun i -> i#value) dump#list#items in
-            cell#set_value ~force:true sections;
-            card#remove_child title;
-            card#remove_child divider;
-            media#set_empty ();
-            media#append_child table;
-            actions#remove_child back;
-            true) |> ignore;
-        (match dump#list#items with
-         | hd :: _ -> dump#list#set_active hd
-         | _       -> ());
-        card#insert_child_at_idx 2 title;
-        card#insert_child_at_idx 3 divider;
-        actions#insert_child_at_idx 0 back;
-        media#remove_child table;
-        media#append_child dump;
-        true) |> ignore in
-  let on_change = fun x ->
-    Option.iter (fun f -> f x) !set_title';
-    on_change x in
-  let switch = new Switch.t ~state:is_hex ~on_change () in
-  let hex    = new Form_field.t ~input:switch ~label:"HEX IDs" () in
-  actions#append_child hex;
-  List.iter add_row init;
-  card#add_class base_class;
-  card#widget
+  new t ?settings init stream control ()
 
-let make ~(config:config) control =
-  let init =
-    Requests.Streams.HTTP.get_tables ~id:config.stream.id ~limit:1 control
-    >>= (function
-         | Raw s -> Lwt_result.return s.data
-         | _     -> Lwt.fail_with "got compressed") in
-  let loader =
-    init
-    >|= (fun init ->
-      let tables = match List.head_opt init with
-        | Some (_, tables) ->
-           let list = tables.tables in
-           List.sort compare_table_info list
-        | None -> [] in
-      make_card ~config tables control)
-    >|= Widget.coerce
-    |> Lwt_result.map_err Api_js.Requests.err_to_string
-    |> Ui_templates.Loader.create_widget_loader
-  in loader
-
-
+let make_dashboard_item ?settings init stream control : 'a Dashboard.Item.item =
+  let w = make ?settings init stream control in
+  let settings = Settings.make ?settings () in
+  let s = settings#s in
+  let (settings : Dashboard.Item.settings) =
+    { widget = settings#widget
+    ; ready = React.S.const true
+    ; set = (fun () -> Lwt_result.return @@ w#set_settings @@ React.S.value s)
+    } in
+  let tz_offset_s = Ptime_clock.current_tz_offset_s () in
+  let timestamp =
+    Dashboard.Item.make_timestamp
+      ~time:w#s_timestamp
+      ~to_string:(Time.to_human_string ?tz_offset_s)
+      () in
+  Dashboard.Item.make_item
+    ~name:"Обзор"
+    ~subtitle:(Timestamp timestamp)
+    ~settings
+    w

@@ -1,13 +1,16 @@
 // Network settings widget
 
 .ip-dektec-network-settings {
+    .mdc-select, .mdc-text-field, .mdc-form-field {
+        margin-top: 1rem;
+    }
     padding: 1rem;
 }
 
 // Receiver settings widget
 .ip-dektec-receiver-settings {
-    .mdc-form-field {
-        padding-bottom: 1rem;
+    .mdc-select, .mdc-text-field, .mdc-form-field {
+        margin-top: 1rem;
     }
     padding: 1rem;
 }

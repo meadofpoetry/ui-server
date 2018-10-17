@@ -11,8 +11,11 @@ module Font = struct
     let elt = Markup.create ~icon () |> Tyxml_js.To_dom.of_i in
     object
       inherit Widget.button_widget elt () as super
-      method icon       = super#text_content |> Option.get_or ~default:""
-      method set_icon i = super#set_text_content i
+
+      method icon : string =
+        super#text_content |> Option.get_or ~default:""
+      method set_icon (i : string) : unit =
+        super#set_text_content i
     end
 
 end
@@ -35,7 +38,7 @@ module SVG = struct
 
     include Markup.Path
 
-    class t ?(fill:Color.t option) path () =
+    class t ?(fill : Color.t option) path () =
       let fill = Option.map Color.string_of_t fill in
       let elt  = Markup.create_path ?fill path ()
                  |> To_dom.of_element in
@@ -44,52 +47,28 @@ module SVG = struct
 
         method get : string =
           Option.get_or ~default:"" @@ self#get_attribute "d"
-        method set (s:string) : unit =
+        method set (s : string) : unit =
           self#set_attribute "d" s
 
     end
 
   end
 
-  class t ~(paths:Path.t list) () =
+  class t ~(paths : Path.t list) () =
     let paths' = List.map (fun x -> Of_dom.of_element x#root) paths in
     let elt = Markup.create paths' ()
               |> Tyxml_js.To_dom.of_element in
     object(self)
       inherit Widget.button_widget elt ()
 
-      method paths = paths
-      method path = List.hd self#paths
+      method paths : Path.t list =
+        paths
+      method path : Path.t =
+        List.hd self#paths
     end
 
-  let create_simple path =
+  let create_simple (path : string) : t =
     let path = new Path.t path () in
-    new t ~paths:[path] ()
-
-
-end
-
-module Button = struct
-
-  module Font = struct
-
-    class t ~icon () = object(self)
-      val mutable _ripple = None
-      inherit Font.t ~icon ()
-
-      method set_disabled x = self#add_or_remove_class x Markup.disabled_class
-      method disabled       = self#has_class Markup.disabled_class
-      method layout ()      = Option.iter (fun r -> r##layout ()) _ripple
-
-      initializer
-        self#add_class Markup.button_class;
-        (let r = Ripple.attach self in
-         _ripple <- Some r;
-         self#add_class "mdc-ripple-surface"; (*FIXME*)
-         r##.unbounded := Js.bool true;
-         Ripple.set_unbounded self)
-    end
-
-  end
+    new t ~paths:[ path ] ()
 
 end

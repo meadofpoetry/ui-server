@@ -8,11 +8,12 @@ let set_password (users:User.entries) _ body () =
   of_body body >>= fun js ->
   match pass_change_of_yojson js with
   | Error e -> respond_error e ()
-  | Ok pass -> (try if (get_pass users pass.user).pass = pass.old_pass
-                    then (set_pass users { user = pass.user; password = pass.new_pass };
-                          respond_result_unit (Ok ()))
-                    else respond_error "bad pass" ()
-                with _ -> respond_error "pass db err" ())
+  | Ok pass ->
+     try if (get_pass users pass.user).pass = pass.old_pass
+         then (set_pass users { user = pass.user; password = pass.new_pass };
+               respond_result_unit (Ok ()))
+         else respond_error "bad pass" ()
+     with _ -> respond_error "pass db err" ()
 
 let logout headers body () =
   respond_need_auth ~headers:headers ~auth:(`Basic "User Visible Realm") ()
