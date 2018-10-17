@@ -55,9 +55,10 @@ let create (({ control; ports; _ } as b):topo_board) _
   ; control
   ; streams_signal = streams
   ; step
-  ; connection     = events.state
-  ; ports_sync     = get_sync_ports log_name streams ports
-  ; ports_active   = get_active_ports log_name ports
+  ; connection = events.state
+  ; ports_sync = get_sync_ports log_name streams ports
+  ; ports_active = get_active_ports log_name ports
   ; stream_handler = None
-  ; state          = (state :> < finalize : unit -> unit >)
+  ; state = (state :> < finalize : unit -> unit >)
+  ; templates = None
   }

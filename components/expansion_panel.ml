@@ -99,8 +99,12 @@ class t ?(expanded=false)
       self#set_expanded expanded;
       Dom_events.listen primary#root Dom_events.Typ.click (fun _ _ ->
           self#set_expanded (not self#expanded); true) |> ignore;
-      Utils.Keyboard_event.listen primary#root (function
-          | `Enter e -> Dom.preventDefault e; self#set_expanded (not self#expanded); true
-          | _        -> true) |> ignore
+      Dom_events.listen primary#root Dom_events.Typ.keydown (fun _ e ->
+          match Utils.Keyboard_event.event_to_key e with
+          | `Enter ->
+             Dom.preventDefault e;
+             self#set_expanded (not self#expanded);
+             true
+          | _ -> true) |> ignore
 
   end

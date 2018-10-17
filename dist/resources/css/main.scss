@@ -1,5 +1,6 @@
 @import './components/tab/_mixins';
 @import './components/tab-indicator/_mixins';
+@import './components/ripple/_mixins';
 @import './sidebar_drawer';
 @import './templates/templates';
 
@@ -31,16 +32,23 @@ body {
     margin: 0;
     background-color: #ececec;
 }
-.material-icons { user-select: none; }
+.material-icons {
+    user-select: none;
+}
 #main-drawer {
     z-index: 21;
 }
 #main-toolbar {
-    .mdc-tab-indicator {
-        @include mdc-tab-indicator-underline-color($mdc-theme-on-primary);
+    .mdc-tab-bar {
+        .mdc-tab-indicator {
+            @include mdc-tab-indicator-underline-color(on-primary);
+        }
+        @include mdc-tab-text-label-color(on-primary);
+        @include mdc-tab-icon-color(on-primary);
     }
-    @include mdc-tab-text-label-color($mdc-theme-on-primary);
-    @include mdc-tab-icon-color($mdc-theme-on-primary);
+    .mdc-tab__ripple {
+        @include mdc-states(on-primary);
+    }
     z-index: 20;
     #main-toolbar__tabs {
         align-items: flex-end;

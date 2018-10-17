@@ -20,13 +20,12 @@ let make_enabled () =
 let make_pid () =
   let pid =
     new Textfield.t
-      ~input_id:"jitter_pid_field"
-      ~help_text:{validation=true;persistent=false;text=None}
+      (* ~help_text:{validation=true;persistent=false;text=None} *)
       ~input_type:(Integer ((Some 0),(Some 8192)))
       ~label:"PID"
       () in
   let set x = match x with
-    | Some (x:jitter_mode) -> pid#fill_in x.pid
+    | Some (x:jitter_mode) -> pid#set_value x.pid
     | None                 -> pid#clear () in
   pid#set_required true;
   pid#widget,set,pid#s_input,pid#set_disabled
@@ -61,7 +60,9 @@ let make ~(state: Topology.state React.signal)
         | _ -> None)
       s_en s_pid state in
   let submit = fun x -> Requests.Device.HTTP.post_jitter_mode x control in
-  let apply  = Ui_templates.Buttons.create_apply s submit in
-  let box    = new Vbox.t ~widgets:[ en; pid; apply#widget ] () in
-  let ()     = box#add_class base_class in
+  let apply = new Ui_templates.Buttons.Set.t s submit () in
+  let buttons = new Card.Actions.Buttons.t ~widgets:[apply] () in
+  let actions = new Card.Actions.t ~widgets:[buttons] () in
+  let box = new Vbox.t ~widgets:[en; pid; actions#widget] () in
+  box#add_class base_class;
   box#widget

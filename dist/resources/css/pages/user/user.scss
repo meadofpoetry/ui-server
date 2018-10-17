@@ -1,5 +1,16 @@
 .mdc-card {
+    overflow: hidden;
     &__media {
         padding: 1rem;
+        .mdc-text-field {
+            margin-right: 6px;
+        }
+        .mdc-text-field-helper-text {
+            margin-bottom: 16px;
+            height: 19px;
+        }
+        .mdc-text-field-helper-text:last-child {
+            margin-bottom: 0;
+        }
     }
 }

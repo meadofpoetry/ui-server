@@ -58,13 +58,13 @@ type 'a contents = [ `Blob of (#File.blob Js.t as 'a)
                    ]
 
 let err_to_string : 'a. ?to_string:('a -> string) -> 'a err -> string = fun ?to_string err ->
-  let base = Printf.sprintf "%d. %s" err.code (code_to_string err.code) in
+  let base = Printf.sprintf "%d %s" err.code (code_to_string err.code) in
   match err.data with
   | Some a -> (match to_string with
-               | Some f -> base ^ Printf.sprintf "\n%s" (f a)
+               | Some f -> base ^ Printf.sprintf ".\n%s" (f a)
                | None   -> base)
   | None   -> (match err.error with
-               | Some e -> base ^ Printf.sprintf "\n%s" e
+               | Some e -> base ^ Printf.sprintf ".\n%s" e
                | None   -> base)
 
 module type Req = sig
@@ -336,13 +336,14 @@ module Json_req : (Req with type t = json and type response = Js.js_string Js.t)
   let content_type     = "application/json; charset=UTF-8"
   let accept           = "application/json, text/javascript, */*; q=0.01"
   let response_type    = XmlHttpRequest.Text
-  let parse x          = match Uri.pct_decode @@ Js.to_string x with
-    | "" -> `String ""
-    | s  -> Yojson.Safe.from_string s
+  let parse x =
+    let s = Uri.pct_decode @@ Js.to_string x in
+    (try Yojson.Safe.from_string s
+     with _ -> `String s)
   let to_error_message = fun s ->
     let s = match parse s with
       | `String s -> s
-      | _         -> Js.to_string s in
+      | _ -> Js.to_string s in
     if CCString.is_empty s then None else Some s
   let to_contents x    = (`String (Yojson.Safe.to_string x) : 'a contents)
   let of_socket_msg m  = Js.to_string m##.data |> Yojson.Safe.from_string

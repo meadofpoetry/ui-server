@@ -3,23 +3,16 @@
 <html lang="ru">
     <head>
     <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="">
     <title>{{title}}</title>
     <link rel="stylesheet" href="/css/components.min.css">
     <link rel="stylesheet" href="/css/icon.css">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto+Mono">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans">
+    <link rel="stylesheet" href="/fonts/roboto/roboto.css">
+    <link rel="stylesheet" href="/fonts/robotomono/robotomono.css">
+    <link rel="stylesheet" href="/fonts/opensans/opensans.css">
     <link rel="stylesheet" href="/css/normalize.css" type="text/css">
     <link rel="stylesheet" href="/css/main.min.css" type="text/css">
-    <style>
-         @font-face {
-         font-family: "Open Sans";
-         src: url("https://fonts.googleapis.com/css?family=Open+Sans");
-         }
-    </style>
     <!-- Additional scripts -->
     <script type="text/javascript">var username="{{user}}"</script>
     {{#pre_scripts}}
@@ -137,7 +130,7 @@
             {{/content}}
         </section>
     </main>
-    <script src="https://unpkg.com/material-components-web@0.34.1/dist/material-components-web.min.js"></script>
+    <script src="/js/material-components-web.min.js"></script>
     <!-- Additional scripts -->
     {{#post_scripts}}
         <script {{#src}}src="{{script}}"{{/src}} type="text/javascript">

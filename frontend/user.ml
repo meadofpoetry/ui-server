@@ -1,79 +1,126 @@
 open Components
 open Common.User
 open Api_js.Requests.Json_request
+open Containers
 
 let make_card user =
   let username = match user with
-    | `Root     -> "администратора"
+    | `Root -> "администратора"
     | `Operator -> "оператора"
-    | `Guest    -> "гостя" in
+    | `Guest -> "гостя" in
   let verify_pass pass =
     if String.length pass < 4
-    then Error "password is too short"
+    then Error "Слишком короткий пароль"
     else Ok () in
   let eq_pass old npass =
     match old with
-    | None     -> Error "pass empty"
-    | Some old -> if old = npass then Ok ()
-                  else Error "pass mismatch" in
+    | None -> Ok ()
+    | Some old ->
+       if String.equal old npass then Ok ()
+       else Error "Пароли не совпадают" in
   let title     =
     new Card.Primary.title ("Пароль " ^ username) () in
   let primary   =
     new Card.Primary.t ~widgets:[title] () in
-  let old_form  =
-    new Textfield.t
-      ~input_id:("user-ol-pass-" ^ to_string user)
-      ~label:"Пароль"
-      ~input_type:(Widget.Password (fun pass -> Ok ())) () in
-  let new_form  =
-    new Textfield.t
-      ~input_id:("user-new-pass-" ^ to_string user)
-      ~label:"Новый пароль"
-      ~input_type:(Widget.Password (fun pass -> verify_pass pass)) () in
-  let acc_form  =
-    new Textfield.t
-      ~input_id:("user-repeat-pass-" ^ to_string user)
-      ~label:"Повторите пароль"
-      ~input_type:(Widget.Password (fun pass ->
-                       eq_pass (React.S.value new_form#s_input) pass)) () in
-  let settings  =
-    new Vbox.t ~widgets:[ old_form#widget
-                        ; new_form#widget
-                        ; acc_form#widget ]
+  let old_helper_text =
+    new Textfield.Helper_text.t
+      ~validation:true
+      ~auto_validation_message:true
       () in
-  old_form#set_required true;
-  new_form#set_required true;
-  acc_form#set_required true;
-  let apply   = new Button.t ~label:"Применить" () in
-  let media   = new Card.Media.t ~widgets:[settings] () in
-  let actions = new Card.Actions.t ~widgets:[ apply ] () in
-  let card =
-    new Card.t ~widgets:[ primary#widget
-                        ; (new Divider.t ())#widget
-                        ; media#widget
-                        ; actions#widget] () in
-  let _ =
-    React.E.map (fun _ ->
-        let open Lwt.Infix in
-        match (React.S.value old_form#s_input, React.S.value acc_form#s_input) with
-        | Some old_pass, Some new_pass ->
-           let open Common in
-           let pass = { user; old_pass; new_pass } in
-           post_result
-             ?scheme:None ?host:None ?port:None ?from_err:None
-             ~from:(fun _ -> Ok ())
-             ~path:Uri.Path.Format.("/api/user/password" @/ empty)
-             ~query:Uri.Query.empty
-             ~contents:(User.pass_change_to_yojson pass)
-           >|= (function
-                | Ok _ -> if user = `Root
-                          then Dom_html.window##.location##.href := Js.string "/";
-                          Ok ()
-                | Error e -> Error (Api_js.Requests.err_to_string e))
-        | _, _ -> Lwt_result.fail "Incorrect or empty ip address")
-      apply#e_click
-  in
-  card
+  let old_textfield  =
+    new Textfield.t
+      ~helper_text:old_helper_text
+      ~outlined:true
+      ~required:true
+      ~label:"Пароль"
+      ~input_type:(Password (fun _ -> Ok ())) () in
+  let new_helper_text =
+    new Textfield.Helper_text.t
+      ~validation:true
+      ~auto_validation_message:true
+      () in
+  let new_textfield =
+    new Textfield.t
+      ~helper_text:new_helper_text
+      ~outlined:true
+      ~required:true
+      ~label:"Новый пароль"
+      ~input_type:(Password verify_pass)
+      () in
+  let acc_helper_text =
+    new Textfield.Helper_text.t
+      ~validation:true
+      ~auto_validation_message:true
+      () in
+  let acc_textfield =
+    new Textfield.t
+      ~helper_text:acc_helper_text
+      ~outlined:true
+      ~required:true
+      ~label:"Повторите пароль"
+      ~input_type:(Password (fun pass ->
+                       eq_pass (React.S.value new_textfield#s_input) pass)) () in
+  let s_new =
+    React.S.map (fun x ->
+        begin match x with
+        | None -> ()
+        | Some _ ->
+           if not acc_textfield#empty
+           then acc_textfield#update ()
+        end;
+        x)
+      new_textfield#s_input in
+  let s =
+    React.S.l3 (fun n o r ->
+        match n, o, r with
+        | Some new_pass, Some old_pass, Some _ ->
+           Some { user; old_pass; new_pass }
+        | _ -> None) s_new old_textfield#s_input acc_textfield#s_input in
+  let settings =
+    new Vbox.t ~widgets:[ old_textfield#widget
+                        ; old_helper_text#widget
+                        ; new_textfield#widget
+                        ; new_helper_text#widget
+                        ; acc_textfield#widget
+                        ; acc_helper_text#widget ]
+      () in
+  let set_error (s : string) : unit =
+    old_textfield#set_valid false;
+    old_helper_text#set_content s in
+  let set (pass : pass_change) =
+    let open Common in
+    let open Lwt.Infix in
+    let f () =
+      post_result
+        ?scheme:None ?host:None ?port:None ?from_err:None
+        ~from:(fun _ -> Ok ())
+        ~path:Uri.Path.Format.("/api/user/password" @/ empty)
+        ~query:Uri.Query.empty
+        ~contents:(pass_change_to_yojson pass) in
+    Lwt.try_bind
+      (fun () -> f ())
+      (function
+       | Ok _ ->
+          if eq user `Root
+          then Dom_html.window##.location##.href := Js.string "/";
+          Lwt.return (Ok ())
+       | Error e ->
+          let s = Api_js.Requests.err_to_string e in
+          set_error s;
+          Lwt.return (Error s))
+      (fun e ->
+        let s = Printexc.to_string e in
+        set_error s;
+        Lwt.return (Error s)) in
+  let apply = new Ui_templates.Buttons.Set.t s set () in
+  let media = new Card.Media.t ~widgets:[settings] () in
+  let actions = new Card.Actions.t ~widgets:[apply] () in
+  new Card.t
+    ~widgets:[ primary#widget
+             ; (new Divider.t ())#widget
+             ; media#widget
+             ; actions#widget]
+    ()
 
 let () =
   let user      = Js.to_string @@ Js.Unsafe.global##.username in

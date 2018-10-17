@@ -19,7 +19,7 @@
     &__widget {
         width: 70px;
         height: 70px;
-        font-size: 70px;
+        // font-size: 70px;
     }
     &__text {
         margin-top: 10px;
@@ -29,7 +29,7 @@
 }
 .mdc-placeholder--icon {
     .mdc-placeholder__widget {
-        @include mdc-theme-prop(color,text-secondary-on-background);
+        @include mdc-theme-prop(color,text-icon-on-background);
     }
 }
 .mdc-placeholder--error {
@@ -38,9 +38,6 @@
     }
 }
 .mdc-placeholder--progress {
-    .mdc-placeholder__widget {
-        color: initial;
-    }
     .mdc-placeholder__text {
         @keyframes blink {
             0%   { opacity: .2; }

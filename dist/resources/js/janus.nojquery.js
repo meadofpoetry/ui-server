@@ -219,7 +219,7 @@ Janus.init = function(options) {
 			} catch(e) {
 				// Something broke up
 				params.error(XHR, 'error', '');
-			};
+			0};
 		};
 		// Detect tab close: make sure we don't loose existing onbeforeunload handlers
 		var oldOBF = window.onbeforeunload;

@@ -53,12 +53,12 @@ module Model = struct
             
   let name = "qoe(pipeline)"
 
-  let streams_keys = { time_key = Some "date_end"
-                     ; columns  = [ "streams",    key "JSONB"
-                                  ; "date_start", key "TIMESTAMP"
-                                  ; "date_end",   key "TIMESTAMP"
-                                  ]
-                     }
+  let streams_keys =
+    make_keys ~time_key:"date_end"
+      [ "streams",    key "JSONB"
+      ; "date_start", key "TIMESTAMP"
+      ; "date_end",   key "TIMESTAMP"
+      ]
 
   let pid_state_keys = { time_key = Some "date_end"
                        ; columns  = [ "stream",     key SID.db_type

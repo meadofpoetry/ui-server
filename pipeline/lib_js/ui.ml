@@ -188,8 +188,10 @@ module Structure = struct
 
   let make_structure_list (sl : Structure.t list) =
     match sl with
-    | [] -> let ph = Ui_templates.Placeholder.create_with_icon
-                       ~text:"Потоки не обнаружены" ~icon:"info" () in
+    | [] -> let ph =
+              Ui_templates.Placeholder.create_with_icon
+                ~text:"Потоки не обнаружены"
+                ~icon:Icon.SVG.(create_simple Path.information) () in
             ph#widget, React.S.const None
     | sl -> let wl, sl = List.split @@ List.map make_structure sl in
             let sl_s   = React.S.merge ~eq:Equal.physical (fun a p -> p::a) [] sl in
@@ -229,22 +231,22 @@ module Settings = struct
     let peak_field         = new Textfield.t
                                ~input_id:"peak_field"
                                ~label:"Значение"
-                               ~input_type:(Widget.Float ((Some (-100.)),(Some 100.))) () in
+                               ~input_type:(Float ((Some (-100.)),(Some 100.))) () in
     let cont_en_chck       = new Checkbox.t () in
     let cont_en_field      = new Form_field.t ~label:"Длительная ошибка" ~input:cont_en_chck () in
     let cont_field         = new Textfield.t
                                ~input_id:"cont_field"
                                ~label:"Значение"
-                               ~input_type:(Widget.Float ((Some (-100.)),(Some 100.))) () in
+                               ~input_type:(Float ((Some (-100.)),(Some 100.))) () in
     let dur_field          = new Textfield.t
                                ~input_id:"dur_field"
                                ~label:"Длительность"
-                               ~input_type:(Widget.Float ((Some (-100.)),(Some 100.))) () in
+                               ~input_type:(Float ((Some (-100.)),(Some 100.))) () in
     peak_en_chck#set_checked s.peak_en;
     cont_en_chck#set_checked s.cont_en;
-    peak_field#fill_in s.peak;
-    cont_field#fill_in s.cont;
-    dur_field#fill_in s.duration;
+    peak_field#set_value s.peak;
+    cont_field#set_value s.cont;
+    dur_field#set_value s.duration;
     let peak_box = new Vbox.t ~widgets:[peak_en_field#widget; peak_field#widget;] () in
     let cont_box = new Vbox.t ~widgets:[cont_en_field#widget; cont_field#widget;] () in
     let box      = new Vbox.t ~widgets:[(Widget.create header);
@@ -270,8 +272,8 @@ module Settings = struct
     let bpixel_field       = new Textfield.t
                                ~input_id:"bpixel_field"
                                ~label:"Чёрный пиксель"
-                               ~input_type:(Widget.Integer ((Some 1),(Some 256))) () in
-    bpixel_field#fill_in b.black_pixel;
+                               ~input_type:(Integer ((Some 1),(Some 256))) () in
+    bpixel_field#set_value b.black_pixel;
     let box                = new Vbox.t ~widgets:[(Widget.create header);
                                                  black_w#widget;
                                                  luma_w#widget;
@@ -291,8 +293,8 @@ module Settings = struct
     let pixeld_field       = new Textfield.t
                                ~input_id:"pixeld_field"
                                ~label:"Идентичный пиксель"
-                               ~input_type:(Widget.Integer ((Some 1),(Some 256))) () in
-    pixeld_field#fill_in f.pixel_diff;
+                               ~input_type:(Integer ((Some 1),(Some 256))) () in
+    pixeld_field#set_value f.pixel_diff;
     let box                = new Vbox.t ~widgets:[(Widget.create header);
                                                  freeze_w#widget;
                                                  diff_w#widget;
@@ -320,8 +322,8 @@ module Settings = struct
     let loss_field         = new Textfield.t
                                ~input_id:"loss_field"
                                ~label:"Пропадание видео"
-                               ~input_type:(Widget.Float ((Some 0.),(Some 1.))) () in
-    loss_field#fill_in v.loss;
+                               ~input_type:(Float ((Some 0.),(Some 1.))) () in
+    loss_field#set_value v.loss;
     let black_w, black_s   = make_black v.black in
     let freeze_w, freeze_s = make_freeze v.freeze in
     let blocky_w, blocky_s = make_blocky v.blocky in
@@ -359,13 +361,13 @@ module Settings = struct
     let diff               = new Textfield.t
                                ~input_id:"diff"
                                ~label:"diff"
-                               ~input_type:(Widget.Float ((Some 0.),(Some 100.))) () in
+                               ~input_type:(Float ((Some 0.),(Some 100.))) () in
     let buf                = new Textfield.t
                                ~input_id:"buf"
                                ~label:"buf"
-                               ~input_type:(Widget.Integer ((Some 0),(Some 100))) () in
-    diff#fill_in s.adv_diff;
-    buf#fill_in s.adv_buf;
+                               ~input_type:(Integer ((Some 0),(Some 100))) () in
+    diff#set_value s.adv_diff;
+    buf#set_value s.adv_buf;
     let box                = new Vbox.t ~widgets:[(Widget.create header); diff#widget; buf#widget] () in
     let signal             = React.S.l2 (fun diff buf ->
                                  Settings.{ adv_diff = Option.get_or ~default:(s.adv_diff) diff
@@ -379,8 +381,8 @@ module Settings = struct
     let loss_field         = new Textfield.t
                                ~input_id:"loss_field"
                                ~label:"Пропадание аудио"
-                               ~input_type:(Widget.Float ((Some 0.),(Some 1.))) () in
-    loss_field#fill_in a.loss;
+                               ~input_type:(Float ((Some 0.),(Some 1.))) () in
+    loss_field#set_value a.loss;
     let silence_w, sil_s   = make_silence  a.silence in
     let loudness_w, loud_s = make_loudness a.loudness in
     let adv_w, adv_s       = make_adv      a.adv in
