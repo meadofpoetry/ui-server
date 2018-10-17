@@ -1,7 +1,7 @@
 open Containers
-open Common.Topology
-open Boards.Board
+open Boards
 open Board_types
+open Common
 
 module Data = struct
   type t = Board_types.config
@@ -14,28 +14,28 @@ module Config_storage = Storage.Options.Make (Data)
 
 let invalid_port prefix x =
   let s = prefix ^ ": invalid_port " ^ (string_of_int x) in
-  raise (Invalid_port s)
+  raise (Board.Invalid_port s)
 
-let get_sync_ports prefix streams (ports:topo_port list) =
-  List.fold_left (fun acc (p : topo_port) ->
+let get_sync_ports prefix streams (ports : Topology.topo_port list) =
+  List.fold_left (fun acc (p : Topology.topo_port) ->
       (match p.port with
-       | 0 -> React.S.map (function [] -> false | _ -> true) streams
+       | 0 -> React.S.map ~eq:Equal.bool List.is_empty streams
        | x -> invalid_port prefix x)
-      |> fun x -> Ports.add p.port x acc)
-    Ports.empty ports
+      |> fun x -> Board.Ports.add p.port x acc)
+    Board.Ports.empty ports
 
-let get_active_ports prefix (ports:topo_port list) =
-  List.fold_left (fun acc (p : topo_port) ->
+let get_active_ports prefix (ports : Topology.topo_port list) =
+  List.fold_left (fun acc (p : Topology.topo_port) ->
       (match p.port with
        | 0 -> React.S.const true
        | x -> invalid_port prefix x)
-      |> fun x -> Ports.add p.port x acc)
-    Ports.empty ports
+      |> fun x -> Board.Ports.add p.port x acc)
+    Board.Ports.empty ports
 
 let log_prefix control = Printf.sprintf "(Board IP2TS: %d) " control
 
-let create (({ control; ports; _ } as b):topo_board) _
-      convert_streams send db_conf base step =
+let create (({ control; ports; _ } as b) : Topology.topo_board) _
+      convert_streams send db_conf base step : Board.t =
   let log_name = Boards.Board.log_name b in
   let log_src = Logs.Src.create log_name in
   let () = Option.iter (fun x -> Logs.Src.set_level log_src

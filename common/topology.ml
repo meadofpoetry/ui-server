@@ -1,7 +1,8 @@
-type state = [ `Fine
-             | `No_response
-             | `Init
-             ] [@@deriving yojson, show, eq, ord]
+type state =
+  [ `Fine
+  | `No_response
+  | `Init
+  ] [@@deriving yojson, show, eq, ord]
 
 let state_to_string = function
   | `Fine        -> "fine"
@@ -91,7 +92,7 @@ let pp_env = Env.pp CCString.pp CCString.pp
 let equal_env = Env.equal String.equal
 
 type t =
-  [`CPU of topo_cpu
+  [ `CPU of topo_cpu
   | `Boards of topo_board list
   ] [@@deriving yojson { strict = false }, show, eq, ord]
 
@@ -152,8 +153,6 @@ module Show_topo_input = struct
         | _ -> failwith "bad input string")
 end
 
-type cpu_opt = process_type option [@@deriving yojson, eq]
-
 let cpu_subbranches = function
   | `Boards _ -> `No_cpu
   | `CPU    c -> `Branches (List.map (fun i -> i.conn) c.ifaces)
@@ -171,7 +170,7 @@ let get_input_name (i:topo_input) =
   | TSOIP -> to_string "TSoIP"
   | ASI   -> to_string "ASI"
 
-let inputs t =
+let get_inputs t =
   let rec get acc = function
     | Input x -> x :: acc
     | Board x -> List.fold_left (fun acc x -> get acc x.child) acc x.ports
@@ -182,7 +181,7 @@ let inputs t =
   | `CPU c     -> topo_inputs_cpu c
   | `Boards bs -> List.fold_left (fun acc b -> (topo_inputs_board b) @ acc) [] bs
 
-let boards t =
+let get_boards t =
   let rec get acc = function
     | Input _ -> acc
     | Board x -> List.fold_left (fun acc x -> get acc x.child) (x :: acc) x.ports
@@ -193,7 +192,7 @@ let boards t =
   | `CPU c     -> topo_boards_cpu c
   | `Boards bs -> List.fold_left (fun acc b -> (topo_boards_board b) @ acc) [] bs
 
-let paths t =
+let get_paths t =
   let topo_paths acc =
     let rec add_node acc paths = function
       | Input i -> (i,acc) :: paths

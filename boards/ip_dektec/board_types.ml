@@ -1,51 +1,57 @@
 open Common
 
 (* Overall types *)
-type mode        = Asi2ip | Ip2asi
-type application = Failsafe | Normal
-type storage     = Flash | Ram
+type mode =
+  | Asi2ip
+  | Ip2asi [@@deriving show]
 
-let mode_to_string = function
-  | Asi2ip -> "ASI to IP"
-  | Ip2asi -> "IP to ASI"
+type application =
+  | Failsafe
+  | Normal [@@deriving show]
 
-let application_to_string = function
-  | Failsafe -> "failsafe"
-  | Normal   -> "normal"
-
-let storage_to_string = function
-  | Flash -> "flash"
-  | Ram   -> "RAM"
+type storage =
+  | Flash
+  | Ram [@@deriving show]
 
 (* Ip types *)
-type receiver_status = Enabled | Disabled | Failure   [@@deriving yojson, eq, show]
-type protocol        = Udp | Rtp                      [@@deriving yojson, eq, show]
-type meth            = Unicast | Multicast            [@@deriving yojson, eq, show]
-type output          = Asi | Spi
-type packet_sz       = Ts188 | Ts204                  [@@deriving yojson, eq, show]
-type rate_mode       = On | Fixed | Without_pcr | Off [@@deriving yojson, eq]
+type receiver_status =
+  | Enabled
+  | Disabled
+  | Failure [@@deriving yojson, eq, show]
 
-let meth_to_string = function
-  | Unicast   -> "unicast"
-  | Multicast -> "multicast"
+type protocol =
+  | Udp
+  | Rtp [@@deriving yojson, eq, show]
 
-let rate_mode_to_string = function
-  | On          -> "on"
-  | Fixed       -> "fixed"
-  | Without_pcr -> "without PCR"
-  | Off         -> "off"
+type meth =
+  | Unicast
+  | Multicast [@@deriving yojson, eq, show]
+
+type output =
+  | Asi
+  | Spi
+
+type packet_sz =
+  | Ts188
+  | Ts204 [@@deriving yojson, eq, show]
+
+type rate_mode =
+  | On
+  | Fixed
+  | Without_pcr
+  | Off [@@deriving yojson, eq, show]
 
 (* Asi types *)
 type asi_packet_sz = Sz of packet_sz | As_is
 
 type devinfo =
   { fpga_ver : int
-  ; hw_ver   : int
-  ; fw_ver   : int
-  ; serial   : int
-  ; typ      : int
-  ; mac      : Macaddr.t
-  } [@@deriving yojson]
+  ; hw_ver : int
+  ; fw_ver : int
+  ; serial : int
+  ; typ : int
+  ; mac : Macaddr.t
+  } [@@deriving yojson, eq]
 
 type status =
   { fec_delay       : int

@@ -1,9 +1,6 @@
 open Containers
-open Common.Topology
-open Common.User
 open Api.Template
-open Api
-open Common.Uri
+open Common
 
 module Icon = Components_markup.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
@@ -13,50 +10,55 @@ let make_icon path =
   let icon = create [path] () in
   Tyxml.Html.toelt icon
 
-let get_input_href x =
-  let name = input_to_string x.input in
-  let id   = string_of_int x.id in
+let get_input_href (x : Topology.topo_input) =
+  let name = Topology.input_to_string x.input in
+  let id = string_of_int x.id in
   Filename.concat name id
 
-let input topo (topo_input:topo_input) =
-  let path = List.find_map (fun (i, p, c) ->
-                 if Common.Topology.equal_topo_input i topo_input
-                 then Some (p, c) else None)
-               (Common.Topology.paths topo) in
+let input topo (input : Topology.topo_input) =
+  let path =
+    List.find_map (fun (i, p, c) ->
+        if Topology.equal_topo_input i input
+        then Some (p, c) else None)
+      (Topology.get_paths topo) in
   match path with
   | None              -> failwith "input not found"
   | Some (boards, cpu) ->
-     let title = Common.Topology.get_input_name topo_input in
-     let boards = List.map (fun x -> x.control, x.typ) boards
-                  |> boards_to_yojson |> Yojson.Safe.to_string in
-     let cpu = Option.map (fun x -> x.process) cpu
-               |> cpu_opt_to_yojson |> Yojson.Safe.to_string in
-     let input = Common.Topology.Show_topo_input.to_string topo_input in
+     let title = Topology.get_input_name input in
+     let boards =
+       List.map (fun (x : Topology.topo_board) -> x.control, x.typ) boards
+       |> Topology.boards_to_yojson
+       |> Yojson.Safe.to_string in
+     let cpu =
+       Option.map (fun (x : Topology.topo_cpu) -> x.process) cpu
+       |> Json.Option.to_yojson Topology.process_type_to_yojson
+       |> Yojson.Safe.to_string in
+     let input_string = Topology.Show_topo_input.to_string input in
      let input_template =
        { title = Some title
        ; pre_scripts  =
            [ Raw (Printf.sprintf "var input = \"%s\";\
                                   var boards = %s;\
                                   var cpu = %s;"
-                    input boards cpu)]
+                    input_string boards cpu)]
        ; post_scripts = [Src "/js/input.js"]
        ; stylesheets = []
        ; content = []
        } in
      let input_page =
-       `Index topo_input.id,
+       `Index input.id,
        Simple { title
               ; icon = None
-              ; href = Path.of_string @@ get_input_href topo_input
+              ; href = Uri.Path.of_string @@ get_input_href input
               ; template = input_template } in
-     let pre = "input/" ^ get_input_href topo_input in
+     let pre = "input/" ^ get_input_href input in
      let stream_template =
        { title = Some ("Входы / " ^ title)
        ; pre_scripts =
            [ Raw (Printf.sprintf "var input = \"%s\";\
                                   var boards = %s;\
                                   var cpu = %s;"
-                    input boards cpu)
+                    input_string boards cpu)
            ; Src "/js/moment.min.js"
            ; Src "/js/Chart.min.js"
            ; Src "/js/Chart.PieceLabel.min.js"
@@ -66,15 +68,15 @@ let input topo (topo_input:topo_input) =
        ; content = []
        } in
      let stream_page =
-       `Index topo_input.id,
-       Pure { path = Path.Format.(pre @/ Common.Stream.ID.fmt ^/ empty)
+       `Index input.id,
+       Pure { path = Uri.Path.Format.(pre @/ Stream.ID.fmt ^/ empty)
             ; template = stream_template } in
      input_page, stream_page
 
-let create (app : Application.t) : upper ordered_item list user_table =
+let create (app : Application.t) : upper ordered_item list User.user_table =
   let topo  = React.S.value app.topo in
   let hw_templates =
-    Hardware.Map.fold (fun _ (x:Boards.Board.t) acc ->
+    Hardware.Map.fold (fun _ (x : Boards.Board.t) acc ->
         List.cons_maybe x.templates acc) app.hw.boards [] in
   let props =
     { title        = Some "Конфигурация"
@@ -91,7 +93,7 @@ let create (app : Application.t) : upper ordered_item list user_table =
     ; stylesheets = ["/css/demo.min.css"]
     ; content = []
     } in
-  let inputs = Common.Topology.inputs topo in
+  let inputs = Topology.get_inputs topo in
   let input_templates, stream_templates =
     List.map (input topo) inputs
     |> List.split in
@@ -99,17 +101,17 @@ let create (app : Application.t) : upper ordered_item list user_table =
     [ `Index 2,
       Subtree { title = "Входы"
               ; icon  = Some (make_icon Icon.SVG.Path.arrow_right_box)
-              ; href  = Path.of_string "input"
+              ; href  = Uri.Path.of_string "input"
               ; templates = input_templates }
     ; `Index 3,
       Simple  { title = "Конфигурация"
               ; icon  = Some (make_icon Icon.SVG.Path.tournament)
-              ; href  = Path.of_string "application"
+              ; href  = Uri.Path.of_string "application"
               ; template = props }
     ; `Index 4,
       Simple  { title = "UI Демо"
               ; icon  = Some (make_icon Icon.SVG.Path.material_design)
-              ; href  = Path.of_string "demo"
+              ; href  = Uri.Path.of_string "demo"
               ; template = demo_props }
     ]
   in

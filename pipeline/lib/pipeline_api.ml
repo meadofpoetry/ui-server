@@ -4,12 +4,11 @@ open Api.Interaction.Json
 open Api.Redirect
 open Websocket_cohttp_lwt
 open Frame
+open Lwt.Infix
 open Qoe_errors
 open Common
 
-open Lwt.Infix
-
-module Api_handler = Api.Handler.Make(Common.User)
+module Api_handler = Api.Handler.Make(User)
 
 let ( %> ) = Fun.( %> )
 
@@ -18,14 +17,6 @@ let () = Random.init (int_of_float @@ Unix.time ())
 let rand_int = fun () -> Random.run (Random.int 10000000)
 
 let socket_table = Hashtbl.create 1000
-                 
-let get_page id headers body =
-  respond_html_elt
-    Tyxml.Html.(div
-                  [ h2 [ pcdata "Pipeline page" ];
-                    p  [ pcdata "Some text" ];
-                    div ~a:[ a_id "pipeline_container" ] [  ] ] )
-    ()
 
 let set body conv apply =
   of_body body >>= fun js ->
@@ -48,7 +39,7 @@ let get_sock sock_data body conv event =
     let msg = Msg_conv.to_string @@ conv x in
     frames_out_fn @@ Some (Frame.create ~content:msg ())
   in
-  let sock_events = Lwt_react.E.map send event in
+  let sock_events = React.E.map send event in
   Hashtbl.add socket_table id sock_events;
   Lwt.return (resp, (body :> Cohttp_lwt.Body.t))
 
@@ -106,7 +97,7 @@ let get_wm_sock api _ body sock_data () =
 
 let get_status api _ body () =
   let open Pipeline_protocol in
-  Lwt_react.S.value api.notifs.status
+  React.S.value api.notifs.status
   |> Qoe_status.status_list_to_yojson
   |> fun r -> respond_result (Ok r)
   
@@ -159,7 +150,7 @@ module Archive = struct
 end
        
 let handlers (api : Pipeline_protocol.api) =
-  let open Common.Uri in
+  let open Uri in
   let open Api_handler in
   create_dispatcher
     "pipeline"
@@ -186,11 +177,7 @@ let handlers (api : Pipeline_protocol.api) =
                      ; "pid",     (module Option(Int)) ]
         (get_vdata_sock api)
     ]
-    [ `GET,  [ create_handler ~docstring:"Pipeline page"
-                 ~path:Path.Format.empty
-                 ~query:Query.empty
-                 get_page
-             ; create_handler ~docstring:"Structure"
+    [ `GET,  [ create_handler ~docstring:"Structure"
                  ~path:Path.Format.("structure" @/ empty)
                  ~query:Query.empty
                  (get_structure api)
@@ -216,7 +203,7 @@ let handlers (api : Pipeline_protocol.api) =
                  (Archive.get_streams api.model.db)
              ; create_handler ~docstring:"Structure archive"
                  ~path:Path.Format.("structure/archive" @/ empty)
-                 ~query:Query.[ "uris",     (module List(Common.Url.Q))
+                 ~query:Query.[ "uris",     (module List(Url.Q))
                               ; "limit",    (module Option(Int))
                               ; "from",     (module Option(Time.Show))
                               ; "to",       (module Option(Time.Show))

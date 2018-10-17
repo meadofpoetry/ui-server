@@ -1,5 +1,7 @@
 include Macaddr
 
+let equal (a : t) (b : t) = 0 = compare a b
+
 let to_yojson (t:t) : Yojson.Safe.json =
   `String (to_string t)
 

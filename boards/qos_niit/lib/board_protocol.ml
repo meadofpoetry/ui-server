@@ -1,10 +1,10 @@
 open Containers
 open Board_qos_types
 open Storage.Options
-open Boards.Board
+open Boards
 open Boards.Pools
-open Common
 open Board_parser
+open Common
 
 let status_timeout = 8. (* seconds *)
 let detect_timeout = 3. (* seconds *)
@@ -470,7 +470,7 @@ module Make(Logs : Logs.LOG) = struct
 
     let deserialize ~with_init_exn (acc : Acc.t) recvd =
       let events, probes, rsps, parts, bytes =
-        Parser.deserialize acc.parts (concat_acc acc.bytes recvd) in
+        Parser.deserialize acc.parts (Board.concat_acc acc.bytes recvd) in
       (* raises exception if board info message is found *)
       if with_init_exn then check_board_info rsps;
       let events = acc.events @ events in
@@ -619,7 +619,7 @@ module Make(Logs : Logs.LOG) = struct
     in
     first_step ()
 
-  open Lwt_react
+  open React
 
   (* T2-MI mode signal, contains value to apply to the board *)
   (* FIXME check this *)
@@ -632,7 +632,7 @@ module Make(Logs : Logs.LOG) = struct
          List.find_opt (fun (s : Stream.t) ->
              not @@ Stream.ID.equal s.id stream.id
              && Stream.equal_container_id s.orig_id stream.orig_id) streams in
-    React.S.l2 (fun streams (mode : t2mi_mode option) ->
+    React.S.l2 ~eq:Equal.bool (fun streams (mode : t2mi_mode option) ->
         let stream = Option.map (fun (x : t2mi_mode) -> x.stream) mode in
         match find streams stream with
         | None -> false
@@ -664,34 +664,47 @@ module Make(Logs : Logs.LOG) = struct
             id, info) info.sections) tables
 
   let create_events (storage : config storage) streams_conv =
-    let state, set_state  = S.create `No_response in
-    let devinfo, set_devinfo = S.create None in
+    let state, set_state =
+      S.create ~eq:Topology.equal_state `No_response in
+    let devinfo, set_devinfo =
+      S.create ~eq:(Equal.option equal_devinfo) None in
     let status, set_status = E.create () in
-    let input, set_input = S.create storage#get.input in
+    let input, set_input =
+      S.create ~eq:equal_input storage#get.input in
     let hw_errors, set_hw_errors = E.create () in
-    let raw_streams, set_raw_streams = S.create [] in
-    let ts_info, set_ts_info = S.create [] in
-    let services, set_services = S.create [] in
-    let tables, set_tables = S.create [] in
-    let pids, set_pids = S.create [] in
+    let raw_streams, set_raw_streams =
+      S.create ~eq:(Equal.list Stream.Raw.equal)[] in
+    let ts_info, set_ts_info =
+      S.create ~eq:equal_ts_info [] in
+    let services, set_services =
+      S.create ~eq:equal_services [] in
+    let tables, set_tables =
+      S.create ~eq:equal_tables [] in
+    let pids, set_pids =
+      S.create ~eq:equal_pids [] in
     let bitrates, set_bitrates = E.create () in
-    let t2mi_info, set_t2mi_info = S.create [] in
+    let t2mi_info, set_t2mi_info =
+      S.create ~eq:equal_t2mi_info [] in
     let ts_errors, set_ts_errors = E.create () in
     let t2mi_errors, set_t2mi_errors = E.create () in
     let t2mi_mode_raw, set_t2mi_mode_raw = E.create () in
-    let t2mi_mode, set_t2mi_mode = S.create storage#get.t2mi_mode in
-    let jitter_mode, set_jitter_mode = S.create storage#get.jitter_mode in
+    let t2mi_mode, set_t2mi_mode =
+      S.create ~eq:(Equal.option equal_t2mi_mode) storage#get.t2mi_mode in
+    let jitter_mode, set_jitter_mode =
+      S.create ~eq:(Equal.option equal_jitter_mode) storage#get.jitter_mode in
     let config =
-      S.l3 (fun input t2mi_mode jitter_mode ->
-          { input; t2mi_mode; jitter_mode }) input t2mi_mode jitter_mode in
+      S.l3 ~eq:equal_config (fun input t2mi_mode jitter_mode ->
+          let config = { input; t2mi_mode; jitter_mode } in
+          storage#store config;
+          config) input t2mi_mode jitter_mode in
     let e_pcr, pcr_push = E.create () in
     let e_pcr_s, pcr_s_push = E.create () in
 
     let streams = streams_conv raw_streams in
     let sections =
-      S.map (List.map (fun (id, { timestamp; data }) ->
-                 id, { timestamp; data = to_sections data })) tables in
-    Lwt_react.S.keep @@ S.map (fun c -> storage#store c) config;
+      S.map ~eq:equal_sections
+        (List.map (fun (id, { timestamp; data }) ->
+             id, { timestamp; data = to_sections data })) tables in
     let device =
       { state
       ; info = devinfo
@@ -774,7 +787,7 @@ module Make(Logs : Logs.LOG) = struct
     { set_input =
         (fun i ->
           let eq = equal_input in
-          let s = S.map (fun (c : config) -> c.input) config in
+          let s = S.map ~eq:equal_input (fun (c : config) -> c.input) config in
           let mode = t2mi_mode_to_raw storage#get.t2mi_mode in
           let t () = isend (Set_board_mode (i, mode)) in
           wait ~eq t s i)
@@ -783,7 +796,8 @@ module Make(Logs : Logs.LOG) = struct
           let eq = equal_t2mi_mode_raw in
           (* current value *)
           let v = t2mi_mode_to_raw @@ (S.value events.device.t2mi_mode) in
-          let s = S.hold v @@ events.device.t2mi_mode_raw in
+          let s = S.hold ~eq:equal_t2mi_mode_raw v
+                  @@ events.device.t2mi_mode_raw in
           let raw = t2mi_mode_to_raw mode in
           let t () = isend (Set_board_mode (storage#get.input, raw)) in
           wait ~eq t s raw
@@ -792,7 +806,8 @@ module Make(Logs : Logs.LOG) = struct
     ; set_jitter_mode =
         (fun mode ->
           let eq = Equal.option equal_jitter_mode in
-          let s = S.map (fun (c : config) -> c.jitter_mode) config in
+          let s = S.map ~eq:(Equal.option equal_jitter_mode)
+                    (fun (c : config) -> c.jitter_mode) config in
           let t () = isend (Set_jitter_mode mode) in
           wait ~eq t s mode
           >|= (fun _ -> push_events.jitter_mode mode)

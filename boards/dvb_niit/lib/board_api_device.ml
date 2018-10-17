@@ -17,7 +17,7 @@ module WS = struct
   let get_receivers (events : events) _ body sock_data () =
     let to_yojson = Json.(Option.to_yojson @@ List.to_yojson Int.to_yojson) in
     let e =
-      S.map (function
+      S.map ~eq:(Equal.option @@ Equal.list Int.equal) (function
           | None -> None
           | Some x -> Some x.receivers) events.devinfo
       |> S.changes in
