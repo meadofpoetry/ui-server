@@ -9,10 +9,12 @@ let create_apply : type a b. (a option React.signal) -> (a -> (b,_) Lwt_result.t
   let base_class = "mdc-apply-button" in
   let b  = new Button.t ~label:"Применить" () in
   let () = b#add_class base_class in
-  let _  = React.S.map (function Some _ -> b#set_disabled false
-                               | None   -> b#set_disabled true) s in
-  let _  = React.E.map (fun _ -> Option.iter (fun s -> f s |> ignore)
-                                 @@ React.S.value s) b#e_click in
+  (* FIXME store signal *)
+  let _ = React.S.map (function Some _ -> b#set_disabled false
+                              | None -> b#set_disabled true) s in
+  b#listen_click_lwt (fun _ _ ->
+      Option.iter (fun s -> f s |> ignore) @@ React.S.value s;
+      Lwt.return_unit) |> Lwt.ignore_result;
   b
 
 module Set = struct
@@ -22,7 +24,7 @@ module Set = struct
   let base_class = "mdc-apply-button"
   let busy_class = Markup.CSS.add_modifier base_class "busy"
 
-  class t ?typ ?style ?icon ?dense ?compact ?ripple ?(label="Применить")
+  class t ?typ ?style ?icon ?dense ?compact ?ripple ?(label = "Применить")
           (signal:'a option React.signal)
           (setter:('a -> 'b Lwt.t)) () =
   object(self)
@@ -61,45 +63,98 @@ module Get = struct
   let base_class = "mdc-get-button"
   let busy_class = Markup.CSS.add_modifier base_class "busy"
 
-  class ['a] t ?typ ?style ?icon ?dense ?compact ?ripple ~label
-          ?(getter:(unit -> 'a Lwt.t) option) () =
+  class ['a] t ?typ ?style ?icon ?dense ?compact ?ripple
+          ?timeout ?(getter : (unit -> 'a Lwt.t) option)
+          ~label () =
   object(self)
-    val _loader = new Circular_progress.t ~size:25 ~indeterminate:true ()
-    val mutable _getter = getter
-    val mutable _prev   : 'a option = None
-    val mutable _thread : unit Lwt.t option = None
+
     inherit Button.t ?typ ?style ?icon ?dense ?compact ?ripple ~label ()
+
+    val _loader = new Circular_progress.t ~size:25 ()
+    val! mutable _listener = None
+    val mutable _getter = None
+    val mutable _prev : 'a option = None
+    val mutable _timer : Dom_html.interval_id option = None
+    val mutable _timeout = timeout
+    val _period = 250.
+
+    method progress = _loader
 
     method value : 'a option = _prev
 
     method getter = _getter
     method set_getter f =
-      self#set_disabled @@ Option.is_none f;
-      _getter <- f
+      _getter <- f;
+      match f with
+      | None ->
+         self#_stop_listen ();
+         self#set_disabled true
+      | Some f ->
+         self#set_disabled false;
+         self#_listen f
+
+    method set_timeout (x : float option) =
+      _timeout <- x;
+      match x with
+      | None ->
+         _loader#set_indeterminate true
+      | Some x ->
+         _loader#set_max (x *. 1000.);
+         _loader#set_indeterminate false
+
+    (* Private methods *)
+
+    method private _finalize () =
+      _loader#set_progress _loader#max;
+      Lwt_js.sleep (_period /. 1000.)
+      >|= fun () ->
+      self#remove_class busy_class;
+      self#remove_child _loader;
+      match _timer with
+      | Some x ->
+         Dom_html.window##clearInterval x;
+         _timer <- None
+      | None -> ()
+
+    method private _stop_listen () = match _listener with
+      | None -> ()
+      | Some l -> Lwt.cancel l
+
+    method private _listen f =
+      self#_stop_listen ();
+      self#listen_click_lwt ~cancel_handler:true (fun _ _ ->
+          self#add_class busy_class;
+          self#append_child _loader;
+          Lwt.try_bind
+            (fun () ->
+              let t = f () in
+              begin match _timeout with
+              | None -> ()
+              | Some _ ->
+                 _loader#set_progress 0.;
+                 let timer =
+                   Dom_html.window##setInterval
+                     (Js.wrap_callback (fun () ->
+                          let cur = _loader#progress in
+                          _loader#set_progress (cur +. _period)))
+                     _period in
+                 _timer <- Some timer;
+              end;
+              t)
+            (fun v ->
+              _prev <- Some v;
+              self#_finalize ())
+            (fun _ ->
+              self#_finalize ()))
+      |> fun t -> _listener <- Some t
 
     initializer
-      (match _getter with None   -> self#set_disabled true
-                        | Some _ -> self#set_disabled false);
-      Dom_events.listen self#root Dom_events.Typ.click (fun _ _ ->
-          let is_finished = match _thread with
-            | Some t -> (match Lwt.state t with
-                         | Return _ -> true
-                         | Fail _   -> true
-                         | Sleep    -> false)
-            | None   -> true in
-          (match is_finished, _getter with
-           | true, Some f ->
-              self#add_class busy_class;
-              Dom.appendChild self#root _loader#root;
-              f ()
-              >|= (fun v ->
-                _prev <- Some v;
-                self#remove_class busy_class;
-                Dom.removeChild self#root _loader#root)
-              |> fun t -> _thread <- Some t
-           | _ -> ());
-          true) |> ignore;
-      self#add_class base_class
+      self#set_timeout timeout;
+      self#add_class base_class;
+      self#set_getter getter;
+      match _getter with
+      | None -> self#set_disabled true
+      | Some _ -> self#set_disabled false
   end
 
 end

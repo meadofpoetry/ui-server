@@ -1,33 +1,40 @@
-BUILD   = dune
+BUILD   = dune build
+CLEAN   = dune clean
 CSS     = scss --style compressed
 CSS_DIR = dist/resources/css
 
 home:
-	$(BUILD) build frontend/home.bc.js
+	$(BUILD) frontend/home.bc.js
 	cp _build/default/frontend/home.bc.js dist/resources/js/home.js
 
 input:
-	$(BUILD) build frontend/input.bc.js
-	cp _build/default/frontend/input.bc.js dist/resources/js/input.js
+	$(BUILD) frontend/page_input.bc.js
+	cp _build/default/frontend/page_input.bc.js dist/resources/js/input.js
+
+stream:
+	$(BUILD) frontend/page_stream.bc.js
+	cp _build/default/frontend/page_stream.bc.js dist/resources/js/stream.js
 
 pipeline:
-	$(BUILD) build frontend/pipeline.bc.js
-	cp _build/default/frontend/pipeline.bc.js dist/resources/js/pipeline.js
+	$(BUILD) frontend/pipeline_video.bc.js
+	$(BUILD) frontend/pipeline_editor.bc.js
+	cp _build/default/frontend/pipeline_video.bc.js dist/resources/js/pipeline_video.js
+	cp _build/default/frontend/pipeline_editor.bc.js dist/resources/js/pipeline_editor.js
 
 hardware:
-	$(BUILD) build frontend/topology.bc.js
+	$(BUILD) frontend/topology.bc.js
 	cp _build/default/frontend/topology.bc.js dist/resources/js/topology.js
 
 user:
-	$(BUILD) build frontend/user.bc.js
+	$(BUILD) frontend/user.bc.js
 	cp _build/default/frontend/user.bc.js dist/resources/js/user.js
 
 network:
-	$(BUILD) build frontend/network.bc.js
+	$(BUILD) frontend/network.bc.js
 	cp _build/default/frontend/network.bc.js dist/resources/js/network.js
 
 demo:
-	$(BUILD) build frontend/demo.bc.js
+	$(BUILD) frontend/demo.bc.js
 	cp _build/default/frontend/demo.bc.js dist/resources/js/demo.js
 
 css-components:
@@ -35,16 +42,17 @@ css-components:
 
 css-pages:
 	$(CSS) $(CSS_DIR)/main.scss $(CSS_DIR)/main.min.css
+	$(CSS) $(CSS_DIR)/pages/demo/demo.scss $(CSS_DIR)/demo.min.css
 	$(CSS) $(CSS_DIR)/pages/topology/topology.scss $(CSS_DIR)/topology.min.css
 	$(CSS) $(CSS_DIR)/pages/pipeline/pipeline.scss $(CSS_DIR)/pipeline.min.css
 	$(CSS) $(CSS_DIR)/pages/user/user.scss $(CSS_DIR)/user.min.css
 
 css: css-components css-pages
 
-frontend: home pipeline hardware user network demo input
+frontend: home pipeline hardware user network demo input stream
 
 backend:
-	$(BUILD) build backend/backend.exe
+	$(BUILD) backend/backend.exe
 	cp _build/default/backend/backend.exe dist/backend
 
 
@@ -60,6 +68,6 @@ test:
 all: build
 
 clean:
-	$(BUILD) clean
+	$(CLEAN)
 
 .PHONY: build doc test all frontend backend pipeline hardware clean

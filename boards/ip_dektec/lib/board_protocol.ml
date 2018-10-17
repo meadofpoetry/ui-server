@@ -42,7 +42,7 @@ type api =
 
 (* Board protocol implementation *)
 
-let timeout = 3 (* seconds *)
+let timeout = 3. (* seconds *)
 
 module type M = sig
   val send     : event request -> unit Lwt.t
@@ -70,7 +70,7 @@ module Make_probes(M:M) : Probes = struct
   type event_raw = [ `Error of parsed | `Ok of parsed ]
   type pool = (event_raw,event) Pool.t
 
-  let period = Boards.Timer.steps ~step_duration:M.duration 1
+  let period = Boards.Timer.steps ~step_duration:M.duration 1.
 
   type t =
     { pool   : pool
@@ -312,7 +312,7 @@ module SM = struct
 
     and on_timeout t _ =
       Logs.warn (fun m ->
-          m "timeout (%d sec) reached while detect or init step, \
+          m "timeout (%g sec) reached while detect or init step, \
              restarting..." (Timer.period t));
       first_step ()
 
@@ -797,7 +797,8 @@ module SM = struct
       ; devinfo = devinfo_push
       } in
     let msgs = ref (Queue.create []) in
-    let send x = send state msgs sender storage pe (Boards.Timer.steps ~step_duration 2) x in
+    let send x = send state msgs sender storage pe
+                   (Boards.Timer.steps ~step_duration 2.) x in
     let log n s = Logs.info (fun m -> m "got %s set request: %s" n s) in
     let api =
       { set_ip =

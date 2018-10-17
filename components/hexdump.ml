@@ -317,7 +317,8 @@ class t ?(interactive=true)
     initializer
       self#set_bytes data;
       self#set_interactive interactive;
-      chr_elt#add_class Markup.chars_block_class;
       num_elt#add_class Markup.line_numbers_block_class;
+      hex_elt#add_class Markup.hex_block_class;
+      chr_elt#add_class Markup.chars_block_class;
       self#add_class    Markup.base_class
   end

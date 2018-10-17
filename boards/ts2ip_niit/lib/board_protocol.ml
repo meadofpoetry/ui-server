@@ -35,7 +35,7 @@ type push_events =
 
 (* Board protocol implementation *)
 
-let timeout = 5 (* seconds *)
+let timeout = 5. (* seconds *)
 
 module Timer = Boards.Timer
 
@@ -81,7 +81,7 @@ module SM = struct
     let board_info_err_msg =
       "board info was received during normal operation, restarting..." in
     let no_status_msg t =
-      Printf.sprintf "no status received for %d seconds, restarting..."
+      Printf.sprintf "no status received for %g seconds, restarting..."
         (Timer.period t) in
 
     let (module Logs : Logs.LOG) = logs in
@@ -128,7 +128,7 @@ module SM = struct
         | None -> `Continue (step_detect (Timer.step timer) acc)
       with Timer.Timeout t ->
         Logs.warn (fun m ->
-            m "connection is not established after %d seconds, \
+            m "connection is not established after %g seconds, \
                restarting..." (Timer.period t));
         first_step ()
 

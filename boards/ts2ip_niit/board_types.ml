@@ -81,9 +81,9 @@ let config_to_string c = Yojson.Safe.to_string @@ config_to_yojson c
 let config_of_string s = config_of_yojson @@ Yojson.Safe.from_string s
 
 let config_default =
-  { nw_mode      = { ip      = Ipaddr.V4.make 192 168 111 200
+  { nw_mode      = { ip      = Ipaddr.V4.make 192 168 100 200
                    ; mask    = Ipaddr.V4.make 255 255 255 0
-                   ; gateway = Ipaddr.V4.make 192 168 111 1
+                   ; gateway = Ipaddr.V4.make 192 168 100 1
                    }
   ; factory_mode = { mac = Macaddr.of_string_exn "00:50:c2:88:50:ab" }
   ; packers      = []

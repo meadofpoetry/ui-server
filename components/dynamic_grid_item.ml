@@ -37,18 +37,18 @@ let rec find_touch id num source =
 
 let eq x y = Equal.physical x#root y#root
 
-let filter ~(exclude:#Widget.t list) (l:#Widget.t list) =
+let filter ~(exclude : #Widget.t list) (l : #Widget.t list) =
   List.filter (fun x -> not (List.mem ~eq x exclude)) l
 
 class ['a] t ~s_grid        (* grid props *)
-           ~(item: 'a item) (* item props *)
-           ~e_modify_push   (* add/delete item event *)
-           ~s_selected      (* selected items *)
-           ~s_selected_push (* selected items signal modifier *)
-           ~s_col_w         (* column width signal -- px *)
-           ~s_row_h         (* row height signal   -- px *)
-           ~(s_items : 'a t list React.signal) (* items signal *)
-           () =
+        ~(item : 'a item) (* item props *)
+        ~e_modify_push   (* add/delete item event *)
+        ~s_selected      (* selected items *)
+        ~s_selected_push (* selected items signal modifier *)
+        ~s_col_w         (* column width signal -- px *)
+        ~s_row_h         (* row height signal   -- px *)
+        ~(s_items : 'a t list React.signal) (* items signal *)
+        () =
   let s_value,s_value_push = React.S.create item.value in
   object(self)
 
@@ -147,10 +147,17 @@ class ['a] t ~s_grid        (* grid props *)
                selected <- false;
                s_selected_push @@ List.filter (fun x -> not @@ eq x self) o)
 
-    method layout () =
+    method layout () : unit =
+      super#layout ();
       Option.iter (fun x -> x#layout ()) self#inner_widget;
       Option.iter (fun x -> x#layout ()) item.move_widget;
       Option.iter (fun x -> x#layout ()) item.close_widget
+
+    method destroy () : unit =
+      super#destroy ();
+      Option.iter (fun x -> x#destroy ()) item.widget;
+      Option.iter (fun x -> x#destroy ()) item.move_widget;
+      Option.iter (fun x -> x#destroy ()) item.close_widget;
 
     (** Private methods **)
 
@@ -454,10 +461,10 @@ class ['a] t ~s_grid        (* grid props *)
           if self#selectable && not self#grid.multi_select then self#set_selected true;
           if e##.touches##.length <= 1
           then
-            ( let timer   = 400. in                 (**  TIMER is here **)
-              let touch   = Js.Optdef.get (e##.touches##item 0)
-                              (fun () -> failwith "No touch with such id") in
-              let id      = touch##.identifier in
+            ( let timer = 400. in                 (**  TIMER is here **)
+              let touch = Js.Optdef.get (e##.touches##item 0)
+                            (fun () -> failwith "No touch with such id") in
+              let id = touch##.identifier in
               let wrapped = Js.wrap_callback
                               (fun _ -> if draggable
                                         then self#start_dragging (Touch e))
@@ -530,16 +537,16 @@ class ['a] t ~s_grid        (* grid props *)
     initializer
       (React.S.map (function
            | Some x -> self#_set_draggable x
-           | None   -> self#_set_draggable self#draggable) _s_draggable_global
-       |> ignore);
+           | None -> self#_set_draggable self#draggable) _s_draggable_global
+       |> self#_keep_s);
       (React.S.map (function
            | Some x -> self#_set_resizable x
-           | None   -> self#_set_resizable self#resizable) _s_resizable_global
-       |> ignore);
+           | None -> self#_set_resizable self#resizable) _s_resizable_global
+       |> self#_keep_s);
       (React.S.map (function
            | Some x -> self#_set_selectable x
-           | None   -> self#_set_selectable self#selectable) _s_selectable_global
-       |> ignore);
+           | None -> self#_set_selectable self#selectable) _s_selectable_global
+       |> self#_keep_s);
       (* add close listener to close widget if provided *)
       Option.iter (fun x ->
           Dom_events.listen x#root Dom_events.Typ.click (fun _ _ ->

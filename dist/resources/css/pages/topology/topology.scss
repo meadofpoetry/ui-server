@@ -166,6 +166,9 @@ $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
         display: flex;
         justify-content: space-between;
         align-items: center;
+        .mdc-card__title {
+            white-space: nowrap;
+        }
         &__action {
             margin-left: 10px;
         }

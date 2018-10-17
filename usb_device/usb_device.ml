@@ -126,12 +126,6 @@ let create ?(sleep = 1.) () =
   let recv     = recv usb in
   let send     = send usb in
 
-  (** Read garbage data before startup
-      XXX maybe there is a more proper way *)
-  let flush () = recv () |> Lwt.ignore_result in
-
-  flush ();
-
   let rec loop acc () =
     Lwt_unix.sleep sleep >>= fun () ->
     recv () >>= fun buf ->
