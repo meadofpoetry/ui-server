@@ -5,13 +5,14 @@ open Api.Redirect
 open Api.Interaction
 open Api.Template
 open Api
+open Common.Uri
 
 module Api_handler = Api.Handler.Make(Common.User)
-   
-let (%) = Fun.(%)
+
+let ( % ) = Fun.( % )
 
 let resource base uri =
-  respond_file base uri () 
+  respond_file base uri ()
 
 module Settings = struct
   type t = { path : string
@@ -24,11 +25,11 @@ module Settings = struct
 end
 
 module Conf = Storage.Config.Make(Settings)
-            
+
 let get_handler ~settings
-                ~auth_filter
-                ~routes
-                ~pages
+      ~auth_filter
+      ~routes
+      ~pages
   =
   let open Settings in
   let handler
@@ -36,7 +37,7 @@ let get_handler ~settings
         (req  : Cohttp_lwt_unix.Request.t)
         (body : Cohttp_lwt.Body.t) =
     let headers  = Request.headers req in
-    let uri      = Common.Uri.sep @@ Request.uri req in
+    let uri = Common.Uri.sep @@ Request.uri req in
     let resource_path = Common.Uri.(Path.to_string uri.path) in
     let respond_page path id =
       let tbl = match id with
@@ -44,31 +45,32 @@ let get_handler ~settings
         | `Operator -> pages.operator
         | `Guest    -> pages.guest
       in
-      (try Hashtbl.find tbl (Common.Uri.Path.to_string path)
-           |> fun page -> respond_string page ()
+      (try Dispatcher.dispatch tbl path
        with _ -> resource settings.path resource_path)
     in
-    let meth      = Request.meth req in
-    let redir     = auth_filter headers in
+    let meth = Request.meth req in
+    let redir = auth_filter headers in
     let sock_data = (req, (fst conn)) in
     let root, path = Common.Uri.(Path.next uri.path) in
     match meth, root with
-    | _, (Some "api")           -> Api_handler.handle routes redir (Common.Uri.upgrade_path uri path)
-                                     meth headers body sock_data 
-    | `GET, _                   -> redir (respond_page uri.path)
-    | _                         -> not_found ()
+    | _, (Some "api") ->
+       Api_handler.handle routes redir (Common.Uri.upgrade_path uri path)
+         meth headers body sock_data
+    | `GET, _ -> redir (respond_page uri)
+    | _ -> not_found ()
   in
   handler
 
 let create config auth_filter routes templates =
   let settings = Conf.get config in
-  let tmpl     = Filename.concat settings.path "html/templates/base.html"
-                 |> Containers.IO.File.read_exn (* FIXME *) in
-  let pages    = Common.User.map_table
-                   (fun u ts -> Api.Template.build_route_table tmpl (Common.User.to_string u) ts)
-                   templates
+  let tmpl = Filename.concat settings.path "html/templates/base.html"
+             |> Containers.IO.File.read_exn (* FIXME *) in
+  let pages = Common.User.map_table
+                (fun u ts -> Api.Template.build_route_table tmpl (Common.User.to_string u) ts)
+                templates
   in
   let handler  = get_handler ~settings ~auth_filter ~routes ~pages in
-  Cohttp_lwt_unix.Server.create ~mode:(`TCP (`Port settings.port))
-                                ~on_exn:(fun e -> Logs.err (fun m -> m "(Server) Exception: %s" (Printexc.to_string e)))
-                                (Cohttp_lwt_unix.Server.make ~callback:handler ())
+  Cohttp_lwt_unix.Server.create
+    ~mode:(`TCP (`Port settings.port))
+    ~on_exn:(fun e -> Logs.err (fun m -> m "(Server) Exception: %s" (Printexc.to_string e)))
+    (Cohttp_lwt_unix.Server.make ~callback:handler ())

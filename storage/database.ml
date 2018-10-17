@@ -53,26 +53,39 @@ end = struct
     Db.start () >>= fail_if >>= fun () ->
     m (module Db: Caqti_lwt.CONNECTION) >>= fun res ->
     Db.commit () >>= fail_if >>= fun () -> Lwt.return res
-                                                          
+
   let run db m = m db
 
 end
 
 module Key_t : sig
   type t
-  val key : ?default:string -> string -> t
+  val key : ?default:string -> ?primary:bool -> string -> t
+  val is_primary : t -> bool
+  val typ : t -> string
   val to_string : t -> string
 end = struct
-  type t = string
-  let key ?default (typ : string) : t = match default with
-    | None -> typ
-    | Some def -> typ ^ " DEFAULT " ^ def (* TODO add check *)
-  let to_string (t : t) : string = t
+  type t =
+    { typ : string
+    ; default : string option
+    ; primary : bool
+    }
+  let key ?default ?(primary = false) (typ : string) : t =
+    { typ; default; primary }
+  let typ (t : t) = t.typ
+  let is_primary (t : t) = t.primary
+  let to_string (t : t) : string = match t.default with
+    | Some def -> t.typ ^ " DEFAULT " ^ def (* TODO add check *)
+    | None -> t.typ
 end
-                
-type keys = { columns  : (string * Key_t.t) list
-            ; time_key : string option
-            }
+
+type keys =
+  { columns  : (string * Key_t.t) list
+  ; time_key : string option
+  }
+
+let make_keys ?time_key columns =
+  { columns; time_key }
           
 module type MODEL = sig
   type init
@@ -99,10 +112,19 @@ module Make (M : MODEL) : (CONN with type init := M.init and type names := M.nam
            } 
 
   let make_init_query name keys =
+    let primary =
+      List.filter_map (fun (k, t) ->
+          if Key_t.is_primary t then Some k else None) keys
+      |> function
+        | [] -> None
+        | s -> Some (Printf.sprintf "PRIMARY KEY (%s)" @@ String.concat "," s) in
     let cols = String.concat ", " (List.map (fun (k,t) -> k ^ " " ^ (Key_t.to_string t)) keys) in
+    let cols = match primary with
+      | None -> cols
+      | Some s -> cols ^ ", " ^ s in
     let exp = Printf.sprintf "CREATE TABLE IF NOT EXISTS %s (%s)" name cols in
     Request.exec (Caqti_request.exec Caqti_type.unit exp)
- 
+
   let init_trans tables =
     let open Request in
     with_trans (List.fold_left (fun acc (name,keys,_) -> acc >>= make_init_query name keys.columns)
@@ -113,17 +135,21 @@ module Make (M : MODEL) : (CONN with type init := M.init and type names := M.nam
     List.filter_map (fun (_,_,w) -> w) tables
     |> function [] -> None
               | lst -> Some (with_trans (List.fold_left (fun acc m -> acc >>= fun () -> m) (return ()) lst))
-                 
+
+  (* TODO sprintf *)
   let cleanup_trans tables cleanup_dur =
     let open Request in
-    with_trans (List.fold_left (fun acc (table,keys,_) ->
-                    match keys.time_key with
-                    | None -> acc
-                    | Some time_key ->
-                       acc >>= fun () -> exec (Caqti_request.exec Caqti_type.ptime_span
-                                                 (Printf.sprintf "DELETE FROM %s WHERE %s <= (now()::TIMESTAMP - ?::INTERVAL)"
-                                                    table time_key)) cleanup_dur)
-                  (return ()) tables)
+    with_trans (
+        List.fold_left (fun acc (table,keys,_) ->
+            match keys.time_key with
+            | None -> acc
+            | Some time_key ->
+               acc >>= fun () ->
+               exec (Caqti_request.exec Caqti_type.ptime_span
+                       (Printf.sprintf "DELETE FROM %s \
+                                        WHERE %s <= (now()::TIMESTAMP - ?::INTERVAL)"
+                          table time_key)) cleanup_dur)
+          (return ()) tables)
 
   let delete_trans tables =
     let open Request in
@@ -132,18 +158,25 @@ module Make (M : MODEL) : (CONN with type init := M.init and type names := M.nam
                                               (Printf.sprintf "DELETE FROM %s" table)) ())
                   (return ()) tables) 
 
-  let request (state : t) req = pool_use state.state.db (fun db -> Request.run db req)
+  (* FIXME remove log *)
+  let request (state : t) req =
+    pool_use state.state.db (fun db -> Request.run db req)
+    |> fun x -> Lwt.catch (fun () -> x)
+                  (fun e -> Logs.err (fun m -> m "DB ERR: %s" @@ Printexc.to_string e);
+                            raise e)
                
   let create (state : state) sign =
     let names, tables = M.tables sign in
     let obj = { state; tables; names } in
+    (* TODO cleanup at startup *)
     let rec loop () =
-      Lwt_unix.sleep obj.state.period >>= (fun () ->
-        match workers_trans tables with
-        | None   -> Lwt.return_unit
-        | Some w -> request obj w)
-      >>= fun () ->
-      request obj (cleanup_trans tables obj.state.cleanup) >>= loop
+      begin match workers_trans tables with
+      | None   -> Lwt.return_unit
+      | Some w -> request obj w
+      end
+      >>= fun () -> request obj (cleanup_trans tables obj.state.cleanup)
+      >>= fun () -> Lwt_unix.sleep obj.state.period
+      >>= loop
     in
     Lwt_main.run (request obj @@ init_trans tables);
     Lwt.async loop;

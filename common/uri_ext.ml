@@ -19,7 +19,10 @@ module Path : sig
   type t = string list
   type templ
 
+  val empty : t
+  val equal : t -> t -> bool
   val next : t -> string option * t
+  val show_templ : templ -> string
   val to_templ : t -> templ
   val templ_compare : templ -> templ -> int
   val of_string : string -> t
@@ -33,20 +36,24 @@ module Path : sig
       | Uuid   : Uuidm.t fmt
       | Bool   : bool fmt
     type (_,_) t
-    val to_templ    : (_,_) t -> templ
-    val empty       : ('a,'a) t
-    val (@/)        : string -> ('a,'b) t -> ('a,'b) t
-    val (^/)        : 'a fmt -> ('b,'c) t -> ('a -> 'b,'c) t
-    val (/)         : ('a,'b) t -> ('b,'c) t -> ('a,'c) t
+    val to_templ : (_,_) t -> templ
+    val empty : ('a,'a) t
+    val (@/) : string -> ('a,'b) t -> ('a,'b) t
+    val (^/) : 'a fmt -> ('b,'c) t -> ('a -> 'b,'c) t
+    val (/) : ('a,'b) t -> ('b,'c) t -> ('a,'c) t
     val scan_unsafe : string list -> ('a,'b) t -> 'a -> 'b
-    val kprint      : (string list -> 'b) -> ('a, 'b) t -> 'a
-    val doc         : ('a, 'b) t -> string
+    val kprint : (string list -> 'b) -> ('a, 'b) t -> 'a
+    val doc : ('a, 'b) t -> string
   end
 end = struct
 
   type t = string list
          
-  type templ = [ `S of string | `Hole ] list
+  type templ = [ `S of string | `Hole ] list [@@deriving show]
+
+  let empty = []
+
+  let equal = CCEqual.list String.equal
 
   let split s =
       String.split_on_char '/' s

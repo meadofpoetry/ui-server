@@ -5,14 +5,16 @@ include Dashboard_common
 include Dashboard_grid
 
 module Position = Dynamic_grid.Position
-module Item     = Dashboard_item
+module Item = Dashboard_item
 
 let list_to_yojson f l = `List (List.map f l)
 let list_of_yojson f = function
   | `List l -> List.map f l |> List.all_ok
   | _       -> Error "not a list"
 
-class ['a] t ~(items:'a Item.positioned_item list) (factory:'a #factory) () =
+class ['a] t ?(non_editable = false)
+        ~(items : 'a Item.positioned_item list)
+        (factory : 'a #factory) () =
   let grid = new grid factory () in
   let add_panel =
     new Dashboard_panel.add
@@ -23,35 +25,51 @@ class ['a] t ~(items:'a Item.positioned_item list) (factory:'a #factory) () =
   in
   let add_icon  = Icon.SVG.(new t ~paths:Path.[ new t plus () ] ()) in
   let edit_icon = Icon.SVG.(new t ~paths:Path.[ new t pencil () ] ()) in
-  let add    = new Fab.t ~icon:add_icon () in
-  let fab    = new Fab_speed_dial.t
-                 ~direction:`Up
-                 ~animation:`Scale
-                 ~icon:edit_icon
-                 ~items:[add] () in
-  let e,push = React.E.create () in
+  let add = new Fab.t ~icon:add_icon () in
+  let fab =
+    new Fab_speed_dial.t
+      ~direction:`Up
+      ~animation:`Scale
+      ~icon:edit_icon
+      ~items:[add] () in
+  let e, push = React.E.create () in
   object(self)
 
-    inherit Vbox.t ~widgets:[grid#widget;fab#widget] ()
+    inherit Vbox.t ~widgets:[grid#widget; fab#widget] () as super
 
     method e_edited : Yojson.Safe.json React.event = e
 
     method grid = grid
 
+    method non_editable : bool =
+      self#has_class Markup.non_editable_class
+
+    method set_non_editable (x : bool) : unit =
+      self#add_or_remove_class x Markup.non_editable_class
+
     method serialize () : Yojson.Safe.json =
-      List.map (fun x -> ({ position = x#pos; item = fst x#value}:'a Item.positioned_item)) self#grid#items
+      List.map (fun x ->
+          ({ position = x#pos; item = fst x#value} : 'a Item.positioned_item))
+        self#grid#items
       |> list_to_yojson (Item.positioned_item_to_yojson factory#serialize)
 
-    method deserialize (json:Yojson.Safe.json) : ('a Item.positioned_item list,string) result =
-      list_of_yojson (fun x -> Item.positioned_item_of_yojson factory#deserialize x) json
+    method deserialize (json : Yojson.Safe.json) : ('a Item.positioned_item list,string) result =
+      list_of_yojson (Item.positioned_item_of_yojson factory#deserialize) json
+
     method restore (json:Yojson.Safe.json) : (unit,string) result =
       self#deserialize json
-      |> Result.map (fun l -> List.iter (fun x -> x#remove ()) self#grid#items; (* remove previous items *)
-                              List.iter (fun x -> self#grid#add x |> ignore) l)
+      |> Result.map (fun l ->
+             List.iter (fun x -> x#remove ()) self#grid#items; (* remove previous items *)
+             List.iter (fun x -> self#grid#add x |> ignore) l)
 
-    method destroy () = factory#destroy (); Dom.removeChild Dom_html.document##.body add_panel#root
+    method destroy () =
+      super#destroy ();
+      self#grid#destroy ();
+      factory#destroy ();
+      Dom.removeChild Dom_html.document##.body add_panel#root
 
     initializer
+      self#set_non_editable non_editable;
       fab#main#listen Widget.Event.click (fun _ _ ->
           (match React.S.value fab#s_state with
            | false -> fab#show ()
