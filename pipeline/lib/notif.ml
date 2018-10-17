@@ -1,5 +1,6 @@
 open Containers
 open Msg_conv
+open Interop_json
    
 module type NOTIF = sig
   type t
@@ -14,17 +15,8 @@ module Make(N: NOTIF) = struct
     | Msgpack -> failwith "not implemented"
 end
 
-let dispatch_js
-      (des : (string, (Yojson.Safe.json -> unit)) Hashtbl.t) = function
-  | `Assoc [("name", `String name); ("data", data)] -> begin
-      match Hashtbl.find_opt des name with
-      | None   -> ()
-      | Some f -> f data
-    end
-  | m -> Lwt.ignore_result @@ Lwt_io.printf "UNKNOWN MSG %s\n" @@ Yojson.Safe.pretty_to_string m; ()
-
 let dispatch : type a. a typ -> (string, (a -> unit)) Hashtbl.t -> a -> unit = function
-  | Json    -> dispatch_js
+  | Json    -> Interop_json.dispatch
   | Msgpack -> failwith "not implemented"
 
 module Ready = Make(struct
@@ -44,9 +36,3 @@ let next ev =
     waiter
 
 let is_ready ev = next ev
-    (*
-let is_ready ev =
-  let thread, wakeup = Lwt.wait () in
-  _ready_ev := Some (Lwt_react.E.map (fun _ -> Lwt.wakeup_later wakeup ()) @@ Lwt_react.E.once ev);
-  thread
-     *)

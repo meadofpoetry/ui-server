@@ -25,7 +25,7 @@ module Video_data = struct
     ; blocky : error
     } [@@deriving yojson]
   type t =
-    { stream     : int
+    { stream     : Common.Stream.ID.t
     ; channel    : int
     ; pid        : int
     ; errors     : errors
@@ -41,7 +41,7 @@ module Audio_data = struct
     ; loudness_moment : error
     } [@@deriving yojson]
   type t =
-    { stream     : int
+    { stream     : Common.Stream.ID.t
     ; channel    : int
     ; pid        : int
     ; errors     : errors
