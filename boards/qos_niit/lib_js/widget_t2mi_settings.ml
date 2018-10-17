@@ -124,7 +124,9 @@ let make ~(state : Topology.state React.signal)
         let setters = [set_en; set_pid; set_sid; set_stream] in
         List.iter (fun f -> f x) setters) mode in
   let submit = fun x -> Requests.Device.HTTP.post_t2mi_mode x control in
-  let apply = Ui_templates.Buttons.create_apply s submit in
-  let box = new Vbox.t ~widgets:[en; ss; pid; sid; apply#widget] () in
+  let apply = new Ui_templates.Buttons.Set.t s submit () in
+  let buttons = new Card.Actions.Buttons.t ~widgets:[apply] () in
+  let actions = new Card.Actions.t ~widgets:[buttons] () in
+  let box = new Vbox.t ~widgets:[en; ss; pid; sid; actions#widget] () in
   box#add_class base_class;
   box#widget

@@ -111,9 +111,11 @@ let make ~(state: Topology.state React.signal)
     React.S.map (fun (ip:ip) ->
         let setters = [ set_en; set_fec; set_meth; set_port; set_mcast ] in
         List.iter (fun f -> f ip) setters) mode in
-  let submit  = fun x -> Requests.Receiver.HTTP.set_mode x control in
-  let apply   = Ui_templates.Buttons.create_apply s submit in
-  let widgets = [ en; fec; meth; mcast; port; apply#widget ] in
-  let box     = new Vbox.t ~widgets () in
-  let ()      = box#add_class base_class in
+  let submit = fun x -> Requests.Receiver.HTTP.set_mode x control in
+  let apply = new Ui_templates.Buttons.Set.t s submit () in
+  let buttons = new Card.Actions.Buttons.t ~widgets:[apply] () in
+  let actions = new Card.Actions.t ~widgets:[buttons] () in
+  let widgets = [en; fec; meth; mcast; port; actions#widget] in
+  let box = new Vbox.t ~widgets () in
+  box#add_class base_class;
   box#widget

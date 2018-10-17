@@ -184,8 +184,8 @@ let make ~(state : Common.Topology.state React.signal)
       ~state
       control
       () in
-  let a = Ui_templates.Buttons.create_apply s set in
-  let buttons = new Card.Actions.Buttons.t ~widgets:[a] () in
+  let apply = new Ui_templates.Buttons.Set.t s set () in
+  let buttons = new Card.Actions.Buttons.t ~widgets:[apply] () in
   let actions = new Card.Actions.t ~widgets:[buttons] () in
   let box = new Vbox.t ~widgets:[w#widget; actions#widget] () in
   box#add_class base_class;

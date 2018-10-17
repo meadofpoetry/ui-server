@@ -28,8 +28,8 @@ $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #
 // T2-MI settings widget
 
 .qos-niit-t2mi-settings, .qos-niit-jitter-settings {
-    .mdc-form-field {
-        padding-bottom: 1rem;
+    .mdc-form-field, .mdc-select, .mdc-text-field {
+        margin-top: 1rem;
     }
     padding: 1rem;
 }
