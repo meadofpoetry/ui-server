@@ -77,8 +77,9 @@ let make ~(state: Topology.state React.signal)
   let port,set_port,s_port,dis_port     = make_port () in
   let mcast,set_mcast,s_mcast,dis_mcast = make_multicast () in
   let s : ip option React.signal =
-    React.S.l6 (fun en fec meth port mcast state ->
-        let delay     = (React.S.value mode).delay in
+    React.S.l6 ~eq:(Equal.option equal_ip)
+      (fun en fec meth port mcast state ->
+        let delay = (React.S.value mode).delay in
         let rate_mode = (React.S.value mode).rate_mode in
         match port, meth, mcast, state with
         | Some port, true, Some mcast, `Fine ->

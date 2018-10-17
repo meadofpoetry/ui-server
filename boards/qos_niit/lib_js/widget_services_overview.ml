@@ -11,7 +11,7 @@ let ( % ) = Fun.( % )
 
 module Settings = struct
 
-  type t = { hex : bool }
+  type t = { hex : bool } [@@deriving eq]
 
   let (default : t) = { hex = false (* FIXME *) }
 
@@ -26,7 +26,7 @@ module Settings = struct
         ~input:hex_switch
         ~label:"HEX IDs"
         () in
-    let s, set = React.S.create settings in
+    let s, set = React.S.create ~eq:equal settings in
     object(self)
 
       inherit Vbox.t ~widgets:[hex_form] ()
@@ -222,11 +222,18 @@ class t ?(settings : Settings.t option)
   let init = match init with
     | None -> []
     | Some { data; _ } -> data in
-  let s_time, set_time = React.S.create timestamp in
+  let s_time, set_time =
+    React.S.create ~eq:(Equal.option Time.equal) timestamp in
   let table, on_change = make_table init in
-  let rate, set_rate = React.S.create None in
-  let details, set_details = React.S.create None in
-  let pids, set_pids = React.S.create pids in
+  let rate, set_rate =
+    React.S.create ~eq:(Equal.option Bitrate.equal) None in
+  let details, set_details =
+    React.S.create ~eq:(Equal.option Widget.equal) None in
+  let pids, set_pids =
+    let eq =
+      equal_timestamped (Equal.list Pid.equal)
+      |> Equal.option in
+    React.S.create ~eq pids in
   let empty =
     Ui_templates.Placeholder.create_with_icon
       ~icon:Icon.SVG.(create_simple Path.emoticon_sad)
@@ -236,7 +243,27 @@ class t ?(settings : Settings.t option)
 
     val mutable _data : Set.t = Set.of_list init
 
-    inherit Widget.t Dom_html.(createDiv document) ()
+    inherit Widget.t Dom_html.(createDiv document) () as super
+
+    method init () : unit =
+      super#init ();
+      Option.iter self#set_settings settings;
+      self#append_child table;
+      React.S.map ~eq:Equal.unit (function
+          | [] -> self#append_child empty
+          | _ -> self#remove_child empty) table#s_rows
+      |> self#_keep_s;
+      List.iter Fun.(ignore % self#add_row) init;
+      self#add_class base_class;
+
+    method destroy () : unit =
+      super#destroy ();
+      table#destroy ();
+      empty#destroy ();
+      React.S.stop ~strong:true s_time;
+      React.S.stop ~strong:true rate;
+      React.S.stop ~strong:true pids;
+      Option.iter (fun x -> x#destroy ()) @@ React.S.value details
 
     method s_timestamp : Time.t option React.signal =
       s_time
@@ -372,16 +399,6 @@ class t ?(settings : Settings.t option)
          name#set_value info.name;
          pmt#set_value info.pmt_pid;
          pcr#set_value info.pcr_pid
-
-    initializer
-      Option.iter self#set_settings settings;
-      self#append_child table;
-      React.S.map (function
-          | [] -> self#append_child empty
-          | _ -> self#remove_child empty) table#s_rows
-      |> self#_keep_s;
-      List.iter Fun.(ignore % self#add_row) init;
-      self#add_class base_class;
 
   end
 

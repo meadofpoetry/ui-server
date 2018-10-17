@@ -2,11 +2,12 @@ open Containers
 open Components
 open Topo_types
 open Lwt_result.Infix
+open Common
 
 let port_section_height = 50
 let base_class          = "topology__board"
 
-let get_board_name (board:Common.Topology.topo_board) = match board.typ with
+let get_board_name (board : Topology.topo_board) = match board.typ with
   | "IP2TS" -> "Приёмник TSoIP"
   | "TS2IP" -> "Передатчик TSoIP"
   | "TS" -> "Анализатор TS"
@@ -15,7 +16,7 @@ let get_board_name (board:Common.Topology.topo_board) = match board.typ with
 
 module Header = struct
 
-  class t (board:Common.Topology.topo_board) () =
+  class t (board : Topology.topo_board) () =
     let _class = Markup.CSS.add_element base_class "header" in
     let title = get_board_name board in
     let subtitle = Printf.sprintf "%s" board.model in
@@ -30,14 +31,14 @@ module Header = struct
       method layout () = self#settings_icon#layout ()
     end
 
-  let create (board : Common.Topology.topo_board) =
+  let create (board : Topology.topo_board) =
     new t board ()
 
 end
 
 module Body = struct
 
-  class t (board : Common.Topology.topo_board) () =
+  class t (board : Topology.topo_board) () =
     let _class = Markup.CSS.add_element base_class "body" in
     object(self)
       inherit Topo_block.Body.t (List.length board.ports) ()
@@ -45,7 +46,7 @@ module Body = struct
         self#add_class _class
     end
 
-  let create (board:Common.Topology.topo_board) =
+  let create (board : Topology.topo_board) =
     new t board ()
 
 end
@@ -83,17 +84,16 @@ let make_board_page ?error_prefix (board : Common.Topology.topo_board) =
   match board.typ, board.model, board.manufacturer, board.version with
   | "TS", "qos", "niitv", 1 ->
      Board_qos_niit_js.Topo_page.make ?error_prefix board
-     >|= fun w -> w#widget
+     >|= (fun w -> w#widget)
+     |> Option.return
   | "DVB", "rf", "niitv", 1 ->
      let open Board_dvb_niit_js in
-     let factory    = new Widget_factory.t board.control () in
-     let ({ widget; _ } : 'a Dashboard.Item.item) =
-       factory#create Settings in
+     let factory = new Widget_factory.t board.control () in
+     let ({ widget; _ } : 'a Dashboard.Item.item) = factory#create Settings in
      widget#set_on_destroy @@ Some factory#destroy;
      Lwt_result.return widget#widget
-  | "TS2IP", "ts2ip", "niitv", 1 ->
-     let w = new Board_ts2ip_niit_js.Settings.settings board.control () in
-     Lwt_result.return w#widget
+     |> Option.return
+  | "TS2IP", "ts2ip", "niitv", 1 -> None
   | "IP2TS", "dtm-3200", "dektec", 1 ->
      let open Board_ip_dektec_js in
      let factory = new Widget_factory.t board.control () in
@@ -101,13 +101,10 @@ let make_board_page ?error_prefix (board : Common.Topology.topo_board) =
        factory#create @@ Settings None in
      widget#set_on_destroy @@ Some factory#destroy;
      Lwt_result.return widget#widget
-  | typ, model, manuf, _ ->
-     let s = Printf.sprintf "Неизвестная плата: %s\n\
-                             Модель: %s\n\
-                             Производитель: %s" typ model manuf in
-     Lwt_result.fail s
+     |> Option.return
+  | typ, model, manuf, _ -> None
 
-let port_setter (b:Common.Topology.topo_board) port state =
+let port_setter (b : Common.Topology.topo_board) port state =
   match b.typ, b.model, b.manufacturer, b.version with
   | "TS", "qos", "niitv", 1 ->
      Board_qos_niit_js.Requests.Device.HTTP.post_port ~port ~state b.control
@@ -119,9 +116,10 @@ let port_setter (b:Common.Topology.topo_board) port state =
   | _ -> Lwt_result.fail "Unknown board"
 
 class t ~(connections : (#Topo_node.t * connection_point) list)
-        (board : Common.Topology.topo_board)
+        (board : Topology.topo_board)
         () =
-  let s, push = React.S.create board.connection in
+  let s, push =
+    React.S.create ~eq:Topology.equal_state board.connection in
   let header = Header.create board in
   let body = Body.create board in
   object(self)
@@ -163,5 +161,5 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
       self#set_attribute "data-board" _board.typ
   end
 
-let create ~connections (board : Common.Topology.topo_board) =
+let create ~connections (board : Topology.topo_board) =
   new t ~connections board ()

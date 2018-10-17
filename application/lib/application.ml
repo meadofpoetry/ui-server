@@ -38,7 +38,7 @@ let create config db =
         List.filter_map (function
             | (None, _) -> None
             | (Some uri, src) -> Some (uri, src)) in
-      React.S.map ~eq:(fun _ _ -> false) (fun (l : Application_types.stream_table) ->
+      React.S.map ~eq:Equal.unit (fun (l : Application_types.stream_table) ->
           List.fold_left (fun acc (_, _, ss) -> (filter ss) @ acc) [] l
           |> proc#reset)
       @@ React.S.limit ~eq:Application_types.equal_stream_table

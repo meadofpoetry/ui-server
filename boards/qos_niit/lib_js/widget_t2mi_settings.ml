@@ -65,7 +65,8 @@ let make_stream_select (streams : Stream.t list React.signal) =
       ~items:[]
       () in
   let _ =
-    React.S.map (fun sms ->
+    React.S.map ~eq:Equal.unit
+      (fun sms ->
         let sms = match select#selected_item with
           | None -> sms
           | Some s -> List.add_nodup ~eq:Stream.equal s#value sms in
@@ -101,7 +102,8 @@ let make ~(state : Topology.state React.signal)
   let sid, set_sid, s_sid, dis_sid = make_sid () in
   let ss, set_stream, s_stream, dis_stream = make_stream_select streams in
   let s : t2mi_mode option option React.signal =
-    React.S.l5 (fun en pid sid stream state ->
+    React.S.l5 ~eq:(Equal.option (Equal.option equal_t2mi_mode))
+      (fun en pid sid stream state ->
         match en, pid, sid, stream, state with
         | en, Some pid, Some sid, Some stream, `Fine ->
            Some (Some { enabled = en

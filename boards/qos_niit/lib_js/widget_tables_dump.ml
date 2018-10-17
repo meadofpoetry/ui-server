@@ -1,11 +1,11 @@
 open Containers
 open Components
-open Common
 open Board_types
 open Board_types.SI_PSI_section
 open Lwt_result.Infix
 open Api_js.Api_types
 open Ui_templates.Sdom
+open Common
 
 let name = "Таблицы"
 
@@ -285,96 +285,100 @@ let make_dump
   let hexdump, set_hexdump = make_hexdump () in
   let parsed = make_parsed () in
   let options = make_hexdump_options hexdump in
-  let () =
-    React.S.map (function
-        | Some item ->
-           let (section : section_info), prev_dump = item#value in
-           let open Lwt.Infix in
-           let open Dump in
-           let err x = Ui_templates.Placeholder.create_with_error ~text:x () in
-           let ph x =
-             Ui_templates.Placeholder.create_with_icon
-               ~icon:Icon.SVG.(create_simple Path.information)
-               ~text:x () in
-           let tz_offset_s = Ptime_clock.current_tz_offset_s () in
-           let fmt_time = Time.to_human_string ?tz_offset_s in
-           let upd : Dump.t timestamped option -> unit = function
-             | Some { timestamp; data = { section; content = Some x; _ } } ->
-                parsed#set_empty ();
-                subtitle#set_text @@ fmt_time timestamp;
-                let tree = make_tree x in
-                let rec get_items acc = function
-                  | [] -> acc
-                  | hd :: tl ->
-                     let acc = match hd#nested_tree with
-                       | None      ->
-                          (match hd#value.value with
-                           | List _, _ -> acc
-                           | _ -> hd :: acc)
-                       | Some tree -> get_items acc tree#items in
-                     get_items acc tl in
-                let items = get_items [] tree#items in
-                List.iter (fun (i : (node, _) Tree.Item.t) ->
-                    i#listen_lwt Widget.Event.click (fun _ _ ->
-                        let { offset; length; _ } = i#value in
-                        let res, from = offset mod 8, offset / 8 in
-                        let len  = float_of_int @@ length + res in
-                        let len  = int_of_float @@ ceil @@ len /. 8. in
-                        let till = from + (pred len) in
-                        hexdump#select_range from till;
-                        tree#set_active i;
-                        Lwt.return_unit) |> Lwt.ignore_result) items;
-                parsed#append_child tree;
-                set_hexdump @@ String.of_list @@ List.map Char.chr section
-             | Some { timestamp; data = { section; content = None; _ }} ->
-                let ph = ph "Не удалось разобрать содержимое секции" in
-                parsed#set_empty ();
-                subtitle#set_text @@ fmt_time timestamp;
-                parsed#append_child ph;
-                set_hexdump @@ String.of_list @@ List.map Char.chr section
-             | None ->
-                parsed#set_empty ();
-                subtitle#set_text "-";
-                parsed#append_child (ph "Нет захваченных данных");
-                set_hexdump "" in
-           let get = fun () ->
-             Lwt.catch (fun () ->
-                 (req_of_table table_id table_id_ext
-                    id_ext_1 id_ext_2 section.section)
-                   ~id:stream control
-                 |> Lwt_result.map_err
-                      (Api_js.Requests.err_to_string
-                         ~to_string:dump_error_to_string)
-                 >|= (function
-                      | Ok dump ->
-                         item#set_value (section, Some dump);
-                         parsed#set_empty ();
-                         upd (Some dump);
-                      | Error s ->
-                         parsed#set_empty ();
-                         Dom.appendChild parsed#root (err s)#root))
-               (fun e ->
-                 parsed#set_empty ();
-                 parsed#append_child (err @@ Printexc.to_string e);
-                 Lwt.return_unit) in
-           upd prev_dump;
-           button#set_getter (Some get);
-           title#set_text @@ Printf.sprintf "Секция %d" section.section;
-           button#set_disabled false;
-           ()
-        | _ -> ()) list#s_active
-    |> Lwt_react.S.keep in (* FIXME *)
   let vsplit = new Vsplit.t parsed hexdump () in
   object(self)
-    inherit Vbox.t ~widgets:[ header
-                            ; vsplit#widget
-                            ; (new Divider.t ())#widget
-                            ; options#widget ] ()
+    inherit Vbox.t
+              ~widgets:[ header
+                       ; vsplit#widget
+                       ; (new Divider.t ())#widget
+                       ; options#widget ] () as super
 
     method button = button
 
-    initializer
-      self#add_class base_class
+    method on_active_change = function
+      | None -> ()
+      | Some item ->
+         let (section : section_info), prev_dump = item#value in
+         let open Lwt.Infix in
+         let open Dump in
+         let err x = Ui_templates.Placeholder.create_with_error ~text:x () in
+         let ph x =
+           Ui_templates.Placeholder.create_with_icon
+             ~icon:Icon.SVG.(create_simple Path.information)
+             ~text:x () in
+         let tz_offset_s = Ptime_clock.current_tz_offset_s () in
+         let fmt_time = Time.to_human_string ?tz_offset_s in
+         let upd : Dump.t timestamped option -> unit = function
+           | Some { timestamp; data = { section; content = Some x; _ } } ->
+              parsed#set_empty ();
+              subtitle#set_text @@ fmt_time timestamp;
+              let tree = make_tree x in
+              let rec get_items acc = function
+                | [] -> acc
+                | hd :: tl ->
+                   let acc = match hd#nested_tree with
+                     | None      ->
+                        (match hd#value.value with
+                         | List _, _ -> acc
+                         | _ -> hd :: acc)
+                     | Some tree -> get_items acc tree#items in
+                   get_items acc tl in
+              let items = get_items [] tree#items in
+              List.iter (fun (i : (node, _) Tree.Item.t) ->
+                  i#listen_lwt Widget.Event.click (fun _ _ ->
+                      let { offset; length; _ } = i#value in
+                      let res, from = offset mod 8, offset / 8 in
+                      let len  = float_of_int @@ length + res in
+                      let len  = int_of_float @@ ceil @@ len /. 8. in
+                      let till = from + (pred len) in
+                      hexdump#select_range from till;
+                      tree#set_active i;
+                      Lwt.return_unit) |> Lwt.ignore_result) items;
+              parsed#append_child tree;
+              set_hexdump @@ String.of_list @@ List.map Char.chr section
+           | Some { timestamp; data = { section; content = None; _ }} ->
+              let ph = ph "Не удалось разобрать содержимое секции" in
+              parsed#set_empty ();
+              subtitle#set_text @@ fmt_time timestamp;
+              parsed#append_child ph;
+              set_hexdump @@ String.of_list @@ List.map Char.chr section
+           | None ->
+              parsed#set_empty ();
+              subtitle#set_text "-";
+              parsed#append_child (ph "Нет захваченных данных");
+              set_hexdump "" in
+         let get = fun () ->
+           Lwt.catch (fun () ->
+               (req_of_table table_id table_id_ext
+                  id_ext_1 id_ext_2 section.section)
+                 ~id:stream control
+               |> Lwt_result.map_err
+                    (Api_js.Requests.err_to_string
+                       ~to_string:dump_error_to_string)
+               >|= (function
+                    | Ok dump ->
+                       item#set_value (section, Some dump);
+                       parsed#set_empty ();
+                       upd (Some dump);
+                    | Error s ->
+                       parsed#set_empty ();
+                       Dom.appendChild parsed#root (err s)#root))
+             (fun e ->
+               parsed#set_empty ();
+               parsed#append_child (err @@ Printexc.to_string e);
+               Lwt.return_unit) in
+         upd prev_dump;
+         button#set_getter (Some get);
+         title#set_text @@ Printf.sprintf "Секция %d" section.section;
+         button#set_disabled false;
+         ()
+
+    method init () : unit =
+      super#init ();
+      self#add_class base_class;
+      React.S.map ~eq:(fun _ _ -> false) self#on_active_change list#s_active
+      |> self#_keep_s
+
   end
 
 class t ~(stream : Stream.ID.t)
@@ -386,7 +390,6 @@ class t ~(stream : Stream.ID.t)
         (control : int)
         () =
   let stream_panel_class = Markup.CSS.add_element base_class "list" in
-  let box = Widget.create_div () in
   let list, update_list = make_list sections control in
   let dump = make_dump ~table_id ~table_id_ext
                ~id_ext_1 ~id_ext_2 stream list control in
@@ -396,12 +399,10 @@ class t ~(stream : Stream.ID.t)
     w#add_class _class;
     w in
   let list_box =
-    let box = Widget.create_div () in
-    box#append_child list_name;
-    box#append_child list;
-    box in
+    Widget.create_div ~widgets:[list_name#widget; list#widget] () in
+  let box = Widget.create_div ~widgets:[list_box] () in
   object(self)
-    inherit Hbox.t ~widgets:[ box#widget; dump#widget ] ()
+    inherit Hbox.t ~widgets:[box#widget; dump#widget] () as super
 
     method list = list
 
@@ -419,8 +420,16 @@ class t ~(stream : Stream.ID.t)
             x, dump) data in
       update_list data
 
-    initializer
-      box#append_child list_box;
+    method init () : unit =
+      super#init ();
       box#add_class stream_panel_class;
       self#add_class base_class
+
+    method destroy () : unit =
+      super#destroy ();
+      dump#destroy ();
+      list#destroy ();
+      box#destroy ();
+
+
   end

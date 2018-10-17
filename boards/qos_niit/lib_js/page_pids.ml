@@ -27,7 +27,7 @@ let make_summary init pids rate state =
         | [(_, (x : Bitrate.t timestamped))] ->
            widget#set_rate @@ Option.return x.data
         | _ -> ()) rate in
-  let state = state >|= (fun s -> S.map widget#set_state s) in
+  let state = state >|= (fun s -> S.map ~eq:Equal.unit widget#set_state s) in
   let close = (fun () ->
       React.E.stop ~strong:true pids;
       React.E.stop ~strong:true rate;
@@ -57,7 +57,7 @@ let make_overview init pids rate state =
         | [(_, (x : Bitrate.t timestamped))] ->
            widget#set_rate @@ Option.return x.data
         | _ -> ()) rate in
-  let state = state >|= (fun s -> S.map widget#set_state s) in
+  let state = state >|= (fun s -> S.map ~eq:Equal.unit widget#set_state s) in
   let close = (fun () ->
       React.E.stop ~strong:true pids;
       React.E.stop ~strong:true rate;

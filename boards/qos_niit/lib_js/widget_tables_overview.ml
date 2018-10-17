@@ -1,10 +1,10 @@
 open Containers
 open Components
-open Common
 open Board_types
 open Lwt_result.Infix
 open Api_js.Api_types
 open Widget_common
+open Common
 
 let ( % ) = Fun.( % )
 
@@ -15,7 +15,7 @@ let no_response_class = Markup.CSS.add_modifier base_class "no-response"
 
 module Settings = struct
 
-  type t = { hex : bool }
+  type t = { hex : bool } [@@deriving eq]
 
   let (default : t) = { hex = false (* FIXME *) }
 
@@ -30,7 +30,7 @@ module Settings = struct
         ~align_end:true
         ~label:"HEX IDs"
         () in
-    let s, set = React.S.create settings in
+    let s, set = React.S.create ~eq:equal settings in
     object(self)
 
       inherit Vbox.t ~widgets:[hex_form] ()
@@ -281,9 +281,12 @@ class t ?(settings : Settings.t option)
   let init, timestamp = match init with
     | None -> [], None
     | Some { data; timestamp } -> data, Some timestamp in
-  let s_time, set_time = React.S.create timestamp in
+  let s_time, set_time =
+    React.S.create ~eq:(Equal.option Time.equal) timestamp in
   let table, on_change = make_table init in
-  let dump, set_dump = React.S.create None in
+  let dump, set_dump =
+    let eq = fun (_, w1) (_, w2) -> Widget.equal w1 w2 in
+    React.S.create ~eq:(Equal.option eq) None in
   let empty =
     Ui_templates.Placeholder.create_with_icon
       ~icon:Icon.SVG.(create_simple Path.emoticon_sad)
@@ -432,7 +435,7 @@ class t ?(settings : Settings.t option)
     initializer
       Option.iter self#set_settings settings;
       self#append_child table;
-      React.S.map (function
+      React.S.map ~eq:Equal.unit (function
           | [] -> self#append_child empty
           | _ -> self#remove_child empty) table#s_rows
       |> self#_keep_s;

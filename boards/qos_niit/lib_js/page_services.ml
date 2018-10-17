@@ -33,7 +33,7 @@ let make_overview init pids e_services e_pids e_rate state =
         | [(_, (x : 'a timestamped))] ->
            widget#set_rate @@ Option.return x.data
         | _ -> ()) e_rate in
-  let state = state >|= S.map widget#set_state in
+  let state = state >|= S.map ~eq:Equal.unit widget#set_state in
   let close = (fun () ->
       E.stop ~strong:true e_services;
       E.stop ~strong:true e_pids;

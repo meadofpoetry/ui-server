@@ -9,7 +9,7 @@ type 'a data = (Stream.ID.t * ('a point list)) list
 
 type settings =
   { range : (float * float) option
-  } [@@deriving yojson]
+  } [@@deriving yojson, eq]
 
 type config =
   { ids : Stream.ID.t list
@@ -42,7 +42,8 @@ let make_settings (settings : settings) =
       () in
   let box = new Hbox.t ~widgets:[range_min;range_max] () in
   let s =
-    React.S.l2 (fun min max ->
+    React.S.l2 ~eq:(Equal.option equal_settings)
+      (fun min max ->
         match min, max with
         | Some min, Some max -> Some { range = Some (min, max) }
         | _ -> None) range_min#s_input range_max#s_input
@@ -137,7 +138,7 @@ let make_chart_base ~(config : config)
   Dashboard.Item.make_item
     ~name:(measure_type_to_string config.typ)
     ~settings:{ widget = settings#widget
-              ; ready = React.S.map Option.is_some s_settings
+              ; ready = React.S.map ~eq:Equal.bool Option.is_some s_settings
               ; set = fun () ->
                       match React.S.value s_settings with
                       | Some s ->

@@ -65,26 +65,33 @@ let make ~(state: Topology.state React.signal)
   let gw,set_gw,s_gw,dis_gw         = make_gateway () in
   let dhcp,set_dhcp,s_dhcp,dis_dhcp = make_dhcp () in
   let s : nw option React.signal =
-    React.S.l5 (fun ip mask gw dhcp state ->
-        match ip,mask,gw,state with
-        | Some ip,Some mask,Some gw,`Fine -> Some { ip;mask;gateway=gw;dhcp }
-        | _                                         -> None)
-               s_ip s_mask s_gw s_dhcp state
-  in
-  let _ = React.S.map (fun x -> List.iter (fun f -> f x) [set_dhcp;set_ip;set_mask;set_gw]) mode in
-  let _ = React.S.l2 (fun state dhcp ->
-              let is_disabled = match state,dhcp with
-                | `Fine,false -> false
-                | _           -> true
-              in
-              List.iter (fun f -> f is_disabled) [dis_ip;dis_mask;dis_gw];
-              dis_dhcp (match state with `Fine -> false | _ -> true);
-            ) state s_dhcp
-  in
+    React.S.l5 ~eq:(Equal.option equal_nw)
+      (fun ip mask gw dhcp state ->
+        match ip, mask, gw, state with
+        | Some ip, Some mask, Some gw, `Fine ->
+           Some { ip; mask; gateway = gw; dhcp }
+        | _ -> None)
+      s_ip s_mask s_gw s_dhcp state in
+  let s_set =
+    React.S.map ~eq:Equal.unit
+      (fun x -> List.iter (fun f -> f x)
+                  [set_dhcp; set_ip; set_mask; set_gw]) mode in
+  let s_dis =
+    React.S.l2 ~eq:Equal.unit (fun state dhcp ->
+        let is_disabled = match state,dhcp with
+          | `Fine,false -> false
+          | _           -> true
+        in
+        List.iter (fun f -> f is_disabled) [dis_ip;dis_mask;dis_gw];
+        dis_dhcp (match state with `Fine -> false | _ -> true))
+      state s_dhcp in
   let submit = fun x -> Requests.Device.HTTP.set_mode x control in
   let apply = new Ui_templates.Buttons.Set.t s submit () in
   let buttons = new Card.Actions.Buttons.t ~widgets:[apply] () in
   let actions = new Card.Actions.t ~widgets:[buttons] () in
   let box = new Vbox.t ~widgets:[ dhcp; ip; mask; gw; actions#widget ] () in
+  box#set_on_destroy
+  @@ Some (fun () -> React.S.stop ~strong:true s_set;
+                     React.S.stop ~strong:true s_dis);
   box#add_class base_class;
   box#widget

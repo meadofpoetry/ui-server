@@ -43,8 +43,10 @@ end
 
 let make_cpu_page ?error_prefix (cpu:Common.Topology.topo_cpu) =
   match cpu.process with
-  | "pipeline" -> Topo_pipeline.make ?error_prefix ()
-  | s          -> Lwt_result.fail (Printf.sprintf "Неизвестный процесс: %s" s)
+  | "pipeline" ->
+     Topo_pipeline.make ?error_prefix ()
+     |> Option.return
+  | s -> None
 
 class t ~(connections : (#Topo_node.t * connection_point) list)
         (cpu : Common.Topology.topo_cpu)
