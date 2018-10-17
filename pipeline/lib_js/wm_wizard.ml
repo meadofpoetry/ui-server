@@ -397,40 +397,12 @@ let to_layout ~resolution ~widgets =
   else
     []
 
-let make_containers (widgets : (string * Wm.widget) list) =
-  let open Wm_container.Container_item in
-  let domains = find_domains widgets in
-    List.map (fun domain ->
-        let widgets =
-          List.filter (fun (_, (widget : Wm.widget)) ->
-              String.equal widget.domain domain
-            ) widgets in
-        let name = channel_of_pid @@ pid_of_domain domain in
-        ({ icon = Icon.SVG.(create_simple Path.contain)#widget
-         ; name
-         ; unique = true
-         ; min_size = None
-         ; item =
-             { position = { left   = 0
-                          ; right  = 0
-                          ; top    = 0
-                          ; bottom = 0 }
-            ; widgets
-            }
-        } : t)
-      ) domains
-
 (* makes a dialog which shows available
  * streams
  *   |_ channels
  *        |_ widgets
  * returns dialog, react event and a fun showing dialog *)
-let to_dialog
-    ~(cc : Wm_container.Container_item.t list React.signal)
-    ~(cc_push : ?step:React.step -> Wm_container.Container_item.t list -> unit)
-    (wm : Wm.t) =
-  let open Wm_container.Container_item in
-  cc_push (React.S.value cc @ make_containers wm.widgets);
+let to_dialog (wm : Wm.t) =
   let e, push    = React.E.create () in
   let checkboxes, widget = make_streams wm.widgets in
   let box        = new Vbox.t ~widgets:[widget#widget] () in

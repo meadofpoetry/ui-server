@@ -274,6 +274,30 @@ let switch ~grid
             ~on_cancel () in
   s_state_push (`Widget w)
 
+let make_containers (widgets : (string * Wm.widget) list) =
+  let open Wm_container.Container_item in
+  let open Wm_wizard in
+  let domains = find_domains widgets in
+    List.map (fun domain ->
+        let widgets =
+          List.filter (fun (_, (widget : Wm.widget)) ->
+              String.equal widget.domain domain
+            ) widgets in
+        let name = channel_of_pid @@ pid_of_domain domain in
+        ({ icon = Icon.SVG.(create_simple Path.contain)#widget
+         ; name
+         ; unique = true
+         ; min_size = None
+         ; item =
+             { position = { left   = 0
+                          ; right  = 0
+                          ; top    = 0
+                          ; bottom = 0 }
+            ; widgets
+            }
+        } : t)
+      ) domains
+
 let create ~(init: Wm.t)
       ~(post: Wm.t -> unit Lwt.t)
       () =
@@ -306,7 +330,7 @@ let create ~(init: Wm.t)
             }
         } : Container_item.t)
       ] in
-  let wz_dlg, wz_e, wz_show = Wm_wizard.to_dialog ~cc:s_cc ~cc_push:s_cc_push init in
+  let wz_dlg, wz_e, wz_show = Wm_wizard.to_dialog init in
   let resolution = init.resolution in
   let s_state, s_state_push = React.S.create `Container in
   let title = "Контейнеры" in
