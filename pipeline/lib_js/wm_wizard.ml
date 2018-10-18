@@ -7,9 +7,12 @@ let split_three l =
   List.fold_left (fun (first, second, third) (a, b, c) ->
         a :: first, b :: second, c :: third) ([], [], []) l
 
-let find_domains (widgets : (string * Wm.widget) list)=
+let stream_and_channel domain = String.sub domain 1 (String.length domain - 6)
+
+let find_channels (widgets : (string * Wm.widget) list)=
     List.fold_left (fun acc (_, (wdg : Wm.widget)) ->
-        if List.exists (fun x -> String.equal x wdg.domain) acc then
+      if List.exists (fun domain ->
+          String.equal (stream_and_channel domain) (stream_and_channel wdg.domain)) acc then
           acc
         else
           wdg.domain :: acc) [] widgets
@@ -211,7 +214,7 @@ let make_widget (widget : string * Wm.widget) signal =
 (* makes all the widgets checkboxes with IDs, checkboxes of channels Tree items,
  * and a Tree.t containing all given channels *)
 let make_channels (widgets : (string * Wm.widget) list) signal =
-  let domains  = find_domains widgets in
+  let domains  = find_channels widgets in
   let channels =
     List.map (fun domain -> parse_channel domain signal, domain) domains in
   let wdg_chbs, ch_chbs, items =
@@ -297,7 +300,7 @@ let make_streams (widgets : (string * Wm.widget) list) tree signal =
 (* makes a list of containers with widgets, calculates its positions *)
 let to_layout ~resolution ~widgets =
   let ar_x, ar_y = 16, 9 in
-  let domains    = find_domains widgets in
+  let domains    = find_channels widgets in
   let num        = List.length domains in
   if num <> 0 then
     let cols, rows =
