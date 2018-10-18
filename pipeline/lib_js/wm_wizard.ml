@@ -21,50 +21,29 @@ end
 
 module Parse_struct = struct
 
-  let parse_stream stream signal =
-    let default = "", "" in
+  let parse_stream stream (signal : Structure.packed list React.signal) =
     let structure = React.S.value signal in
     let id = Common.Stream.ID.of_string stream in
-    match List.find_pred (fun (x : Structure.packed) ->
-        Common.Stream.ID.equal x.structure.id id) structure with
-    | None -> default
-    | Some packed -> Common.Stream.Source.to_string packed.source.source.info,
-                     Common.Url.to_string packed.structure.uri
+    let packed =
+      List.find_pred_exn (fun (x : Structure.packed) ->
+          Common.Stream.ID.equal x.structure.id id) structure in
+    Common.Stream.Source.to_string packed.source.source.info,
+    Common.Url.to_string packed.structure.uri, packed
 
-  let parse_channel domain (signal : Structure.Streams.t React.signal) =
-    let default   = "", "" in
-    let structure = React.S.value signal in
-    let channel   = int_of_string @@ Parse_domain.channel domain in
-    let id = Common.Stream.ID.of_string @@ Parse_domain.stream domain in
-    match List.find_pred (fun (x : Structure.packed) ->
-        Common.Stream.ID.equal x.structure.id id) structure with
-    | None -> default
-    | Some packed ->
-      match List.find_pred (fun (ch : Structure.channel) ->
-          ch.number = channel)
-          packed.structure.channels with
-      | None -> default
-      | Some channel -> channel.service_name, channel.provider_name
+  let parse_channel domain (packed : Structure.packed) =
+    let channel_ = int_of_string @@ Parse_domain.channel domain in
+    let channel  =
+      List.find_pred_exn (fun (ch : Structure.channel) ->
+          ch.number = channel_)
+        packed.structure.channels in
+    channel.service_name, channel.provider_name, channel
 
-  let parse_widget domain (signal : Structure.Streams.t React.signal) =
-    let default   = "" in
-    let structure = React.S.value signal in
-    let channel   = int_of_string @@ Parse_domain.channel domain in
-    let pid_      = int_of_string @@ Parse_domain.pid domain in
-    let id = Common.Stream.ID.of_string @@ Parse_domain.stream domain in
-    match List.find_pred (fun (x : Structure.packed) ->
-        Common.Stream.ID.equal x.structure.id id) structure with
-    | None -> default
-    | Some packed ->
-      match List.find_pred (fun (ch : Structure.channel) ->
-          ch.number = channel)
-          packed.structure.channels with
-      | None -> default
-      | Some channel ->
-        match List.find_pred (fun (pid : Structure.pid) ->
-            pid.pid = pid_) channel.pids with
-        | None -> default
-        | Some pid -> "PID " ^ (string_of_int pid.pid) ^ (Printf.sprintf " (0x%04X)" pid.pid)
+  let parse_widget domain (channel : Structure.channel) =
+    let pid_ = int_of_string @@ Parse_domain.pid domain in
+    let pid  =
+      List.find_pred_exn (fun (pid : Structure.pid) ->
+        pid.pid = pid_) channel.pids in
+    "PID " ^ (string_of_int pid.pid) ^ (Printf.sprintf " (0x%04X)" pid.pid)
 
 end
 
@@ -233,20 +212,20 @@ module Branches = struct
 
   (* makes all the widgets checkboxes with IDs, checkboxes of channels Tree items,
    * and a Tree.t containing all given channels *)
-  let make_channels (widgets : (string * Wm.widget) list) signal =
+  let make_channels (widgets : (string * Wm.widget) list) (packed : Structure.packed) =
     let domains  = Find.channels widgets in
     let channels =
-      List.map (fun domain -> Parse_struct.parse_channel domain signal, domain) domains in
+      List.map (fun domain -> Parse_struct.parse_channel domain packed, domain) domains in
     let wdg_chbs, ch_chbs, items =
       List.map (fun (channel, domain) ->
-          let text, secondary_text = channel in
+          let text, secondary_text, channel_struct = channel in
           let widgets =
             List.filter (fun (_, (wdg : Wm.widget)) ->
                 String.equal
                   (Parse_domain.stream_and_channel domain)
                   (Parse_domain.stream_and_channel wdg.domain)) widgets in
           let checkboxes, wds =
-            List.split @@ List.map (fun widget -> make_widget widget signal) widgets in
+            List.split @@ List.map (fun widget -> make_widget widget channel_struct) widgets in
           let checkbox = new Checkbox.t () in
           checkbox#set_id text;
           React.E.map (fun checked ->
@@ -289,8 +268,9 @@ module Branches = struct
           stream, wds) streams in
     let checkboxes, items =
       List.fold_left (fun acc (stream, wds) ->
-          let text, secondary_text = Parse_struct.parse_stream stream signal in
-          let wdg_chbs, chan_chbs, nested = make_channels wds signal in
+          let text, secondary_text, packed =
+            Parse_struct.parse_stream stream signal in
+          let wdg_chbs, chan_chbs, nested = make_channels wds packed in
           let checkbox = new Checkbox.t () in
           checkbox#set_id stream;
           React.E.map (fun checked ->
