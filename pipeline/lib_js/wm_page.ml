@@ -278,18 +278,12 @@ let make_containers (widgets : (string * Wm.widget) list) =
   let open Wm_container.Container_item in
   let open Wm_wizard in
   let domains = find_domains widgets in
-  let structure =
-    Requests.get_structure ()
-    >|= (fun init ->
-        let e, _ = Requests.get_structure_socket () in
-        React.S.hold init e)
-    |> Lwt_main.run |> Result.to_opt in
   List.map (fun domain ->
       let widgets =
         List.filter (fun (_, (widget : Wm.widget)) ->
             String.equal widget.domain domain
           ) widgets in
-      let name, _ = channel_of_domain domain structure in
+      let name, _ = "channel", "provider" in
       ({ icon = Icon.SVG.(create_simple Path.contain)#widget
        ; name
        ; unique = true
