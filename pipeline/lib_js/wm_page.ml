@@ -317,16 +317,17 @@ let create ~(init: Wm.t)
     List.map Widget_item.t_of_layout_item
     @@ get_free_widgets init.layout init.widgets in
   let s_wc, s_wc_push = React.S.create wc in
-(* FIXME icon shoud be common *)
-  let new_cont = ({ icon = Icon.SVG.(create_simple Path.contain)#widget
-        ; name = "Новый контейнер"
-        ; unique = false
-        ; min_size = None
-        ; item =
-            { position = { left = 0; right = 0; top = 0; bottom = 0 }
-            ; widgets = []
-            }
-        } : Container_item.t) in
+  (* FIXME icon shoud be common *)
+  let new_cont =
+    ({ icon = Icon.SVG.(create_simple Path.contain)#widget
+     ; name = "Новый контейнер"
+     ; unique = false
+     ; min_size = None
+     ; item =
+         { position = { left = 0; right = 0; top = 0; bottom = 0 }
+         ; widgets = []
+         }
+     } : Container_item.t) in
   let containers =
     match make_containers init.widgets with
     | [] -> [new_cont]

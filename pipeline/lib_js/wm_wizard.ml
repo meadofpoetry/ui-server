@@ -207,7 +207,7 @@ let make_widget (widget : string * Wm.widget) signal =
     | _ -> "" in
   let secondary_text = parse_widget domain signal in
   let checkbox = new Checkbox.t () in
-  checkbox#set_id @@ domain ^ "|" ^ typ;
+  checkbox#set_id domain;
   checkbox,
   new Tree.Item.t ~text ~secondary_text  ~graphic:checkbox ~value:() ()
 
@@ -222,7 +222,7 @@ let make_channels (widgets : (string * Wm.widget) list) signal =
         let text, secondary_text = channel in
         let widgets =
           List.filter (fun (_, (wdg : Wm.widget)) ->
-              String.equal domain wdg.domain) widgets in
+              String.equal (stream_and_channel domain) (stream_and_channel wdg.domain)) widgets in
         let checkboxes, wds =
           List.split @@ List.map (fun widget -> make_widget widget signal) widgets in
         let checkbox = new Checkbox.t () in
@@ -249,7 +249,7 @@ let make_channels (widgets : (string * Wm.widget) list) signal =
   (List.concat wdg_chbs), ch_chbs, new Tree.t ~items ()
 
 (* makes all the widget checkboxes with IDs, and a Tree.t containing all streams *)
-let make_streams (widgets : (string * Wm.widget) list) tree signal =
+let make_streams (widgets : (string * Wm.widget) list) (tree : 'a Tree.t) signal =
   let streams =
     List.fold_left (fun acc (x : string * Wm.widget) ->
         let stream = stream_of_domain (snd x).domain in
@@ -434,15 +434,10 @@ let to_dialog (wm : Wm.t) =
                     acc
                   else
                     x#id :: acc) [] (React.S.value checkboxes) in
-            let wds = List.map (fun x ->
-                  let index = String.index x '|' in
-                  let length = String.length x - index - 1 in
-                  String.sub x 0 index, String.sub x (index + 1) length) wds in
             let widgets =
-              List.fold_left (fun acc (domain, typ) ->
+              List.fold_left (fun acc domain ->
                   match List.find_pred (fun (name, (wdg : Wm.widget)) ->
-                      String.equal domain wdg.domain
-                      && String.equal typ wdg.type_) wm.widgets with
+                      String.equal domain wdg.domain) wm.widgets with
                   | Some x -> x :: acc
                   | None   -> acc) [] wds in
             Lwt.return
