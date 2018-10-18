@@ -277,7 +277,7 @@ let switch ~grid
 let make_containers (widgets : (string * Wm.widget) list) =
   let open Wm_container.Container_item in
   let open Wm_wizard in
-  let domains = find_domains widgets in
+  let domains = find_channels widgets in
   List.map (fun domain ->
       let widgets =
         List.filter (fun (_, (widget : Wm.widget)) ->
