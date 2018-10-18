@@ -56,7 +56,7 @@ let create (b : Topology.topo_board) (streams : Stream.t list React.signal) _
             | Some o ->
                begin match o.orig_id with
                | TSoIP uri ->
-                  let uri : Url.t = { ip = uri.addr; port = uri.port } in
+                  let (uri : Url.t) = { ip = uri.addr; port = uri.port } in
                   Some uri, x
                | _ -> assert false (* unreachable *)
                end
@@ -107,7 +107,7 @@ let create (b : Topology.topo_board) (streams : Stream.t list React.signal) _
   ; connection = events.state
   ; ports_sync = get_ports_sync b streams
   ; ports_active =
-      List.fold_left (fun acc (p : Topology.topo_port)->
+      List.fold_left (fun acc (p : Topology.topo_port) ->
           Board.Ports.add p.port (React.S.const true) acc)
         Board.Ports.empty b.ports
   ; stream_handler =

@@ -4,6 +4,8 @@ open Components
 open Lwt_result.Infix
 open Common
 
+let ( % ) = Fun.( % )
+
 type config = unit [@@deriving yojson]
 
 let base_class = "qos-niit-t2mi-settings"
@@ -48,7 +50,17 @@ let make_sid () =
   sid#set_required true;
   sid#widget, set, sid#s_input, sid#set_disabled
 
-let make_stream_select (streams : Stream.t list React.signal) =
+let make_stream_select (streams : Stream.t list React.signal)
+      (mode : t2mi_mode option React.signal) =
+  let streams =
+    React.S.l2
+      ~eq:(Equal.list Stream.equal)
+      (fun (set : t2mi_mode option) lst ->
+        let streams = match set, lst with
+        | Some s, lst -> List.add_nodup ~eq:Stream.equal s.stream lst
+        | None, lst -> lst in
+        List.sort Stream.compare streams)
+      mode streams in
   let make_items sms =
     List.map (fun (s : Stream.t) ->
         new Select.Item.t
@@ -65,24 +77,15 @@ let make_stream_select (streams : Stream.t list React.signal) =
     React.S.map ~eq:Equal.unit
       (fun sms ->
         let eq = Stream.equal in
-        let sms = match select#selected_item with
-          | None -> sms
-          | Some s -> List.add_nodup ~eq s#value sms in
-        let prev = List.map (fun x -> x#value) select#items in
-        let found =
-          List.filter (fun s -> not @@ List.mem ~eq s prev) sms
-          |> make_items in
-        let lost =
-          List.filter (fun i ->
-              not @@ List.mem ~eq i#value sms) select#items in
-        List.iter select#remove_item lost;
-        List.iter (fun i -> select#append_item i) found)
+        let value = select#value in
+        let items = make_items sms in
+        select#set_empty ();
+        List.iter select#append_item items;
+        Option.iter (ignore % select#set_selected_value ~eq) value)
       streams in
   let set x = match x with
     | Some (x : t2mi_mode) ->
-       select#set_selected_value ~eq:Stream.equal x.stream
-       |> (function Ok _ -> print_endline "ok"
-                  | Error e -> print_endline e)
+       ignore @@ select#set_selected_value ~eq:Stream.equal x.stream
     | None -> select#set_selected_index 0 in
   select#set_on_destroy @@ Some (fun () -> React.S.stop ~strong:true _s);
   select#widget,
@@ -101,7 +104,8 @@ let make ~(state : Topology.state React.signal)
   let en, set_en, s_en, dis_en = make_enabled () in
   let pid, set_pid, s_pid, dis_pid = make_pid () in
   let sid, set_sid, s_sid, dis_sid = make_sid () in
-  let ss, set_stream, s_stream, dis_stream = make_stream_select streams in
+  let ss, set_stream, s_stream, dis_stream =
+    make_stream_select streams mode in
   let (s : t2mi_mode option option React.signal) =
     React.S.l5 ~eq:(Equal.option (Equal.option equal_t2mi_mode))
       (fun en pid sid stream state ->

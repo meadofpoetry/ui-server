@@ -222,9 +222,12 @@ module Freq = Make(Int)
 module Bitrate = Make(Float)
 
 let make ~(measures : (Stream.t * Measure.t Time.timestamped) React.event)
-      (config : config option) =
-  let config = Option.get_exn config in (* FIXME *)
-  let event = measures in
+      (config : config) =
+  let event = match config.ids with
+    | [] -> measures
+    | ids ->
+       React.E.filter (fun ((s : Stream.t), _) ->
+           List.mem ~eq:Stream.ID.equal s.id ids) measures in
   (match config.typ with
    | `Power -> Power.make ~init:[] ~event config
    | `Mer -> Mer.make ~init:[] ~event config

@@ -3,7 +3,9 @@ open Boards
 open Board_types
 open Common
 
-module Api_handler = Api.Handler.Make (User)
+let ( % ) = Fun.( % )
+
+module Api_handler = Api.Handler.Make(User)
 
 module Data = struct
   open Device
@@ -18,7 +20,7 @@ module Data = struct
     config_of_yojson @@ Yojson.Safe.from_string s
 end
 
-module Config_storage = Storage.Options.Make (Data)
+module Config_storage = Storage.Options.Make(Data)
 
 let invalid_port prefix port =
   let s = prefix ^ ": invalid port " ^ (string_of_int port) in
@@ -59,7 +61,7 @@ let create (b : Topology.topo_board) _ convert_streams send
       List.fold_left (fun acc (p : Topology.topo_port) ->
           (match p.port with
            | 0 -> React.S.map ~eq:Equal.bool
-                    List.is_empty events.available_streams
+                    (not % List.is_empty) events.available_streams
            | x -> invalid_port log_name x)
           |> fun x -> Board.Ports.add p.port x acc)
         Board.Ports.empty b.ports

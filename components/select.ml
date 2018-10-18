@@ -11,7 +11,11 @@ module Item = struct
 
       val mutable _value = value
 
-      inherit Widget.t elt ()
+      inherit Widget.t elt () as super
+
+      method init () : unit =
+        super#init ();
+        Option.iter self#set_selected selected
 
       method value = _value
       method set_value (x : 'a) = _value <- x
@@ -27,8 +31,6 @@ module Item = struct
 
       method private option_element = elt
 
-      initializer
-        Option.iter self#set_selected selected
     end
 end
 
@@ -46,7 +48,14 @@ module Group = struct
 
       val mutable _items = items
 
-      inherit Widget.t elt ()
+      inherit Widget.t elt () as super
+
+      method destroy () : unit =
+        super#destroy ();
+        List.iter (fun i ->
+            self#remove_child i;
+            i#destroy ()) _items;
+        _items <- []
 
       method opt_group_element = elt
 
@@ -124,11 +133,15 @@ class ['a] t ?(disabled = false)
       List.get_at_idx n self#items
 
     method! set_empty () =
-      self#select#set_empty ();
-      push None;
-      if not default_selected
-      then Dom.appendChild self#select#root
-           @@ Tyxml_js.To_dom.of_option @@ make_empty ()
+      List.iter (function
+          | `Group g ->
+             self#select#remove_child g;
+             g#destroy ()
+          | `Item i ->
+             self#select#remove_child i;
+             i#destroy ()) _items;
+      _items <- [];
+      push None
 
     method remove_item (i : 'a Item.t) =
       _items <- List.remove ~eq:(fun a b ->
@@ -155,8 +168,9 @@ class ['a] t ?(disabled = false)
       |> fun x -> if x = -1 then None else Some x
 
     method selected_item : 'a Item.t option =
-      Option.flat_map (fun x -> List.find_opt (fun i -> i#index = x)
-                                  self#items)
+      Option.flat_map (fun x ->
+          List.find_opt (fun i -> i#index = x)
+            self#items)
         self#selected_index
 
     method set_selected_index i =

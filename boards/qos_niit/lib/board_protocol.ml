@@ -127,6 +127,7 @@ module Make(Logs : Logs.LOG) = struct
     val to_ts_errors : group -> (Multi_TS_ID.t * Error.t list) list
     val to_t2mi_errors : group -> (Multi_TS_ID.t * Error.t list) list
     val handle : push_events -> events -> init -> Acc.t -> Acc.t
+    val handle_immediate : push_events -> Acc.t -> Acc.t
   end = struct
 
     let split_by l sep =
@@ -265,6 +266,15 @@ module Make(Logs : Logs.LOG) = struct
            then T2MI else TS in
          Some { id = TS_multi id; source; typ }
 
+    let handle_immediate (pe : push_events)
+          (acc : Acc.t) : Acc.t =
+      let (({ status = { status; input; _ }; _ } : group) as group) =
+        Option.get_exn acc.group in
+      pe.input input;
+      pe.status status;
+      pe.t2mi_mode_raw group.status.t2mi_mode;
+      acc
+
     let handle (pe : push_events)
           (events : events)
           (sources : init)
@@ -272,14 +282,9 @@ module Make(Logs : Logs.LOG) = struct
       let (({ status = { status; t2mi_mode; streams = ids; input; _ }
             ; _ } : group) as group) =
         Option.get_exn acc.group in
+      Logs.info (fun m -> m "%s" @@ show_input input);
       let timestamp = status.timestamp in
       let streams = React.S.value events.streams in
-      (* Push input *)
-      pe.input input;
-      (* Push status *)
-      pe.status status;
-      (* Push t2mi mode raw *)
-      pe.t2mi_mode_raw group.status.t2mi_mode;
       (* Push raw streams *)
       pe.raw_streams
       @@ List.filter_map (to_raw_stream sources t2mi_mode input) ids;
@@ -527,34 +532,36 @@ module Make(Logs : Logs.LOG) = struct
     and step_ok_idle (timer : Timer.t) (acc : Acc.t) recvd =
       try
         let _, rsps, acc = deserialize ~with_init_exn:true acc recvd in
-        let () = handle_msgs rsps in
-        let () = if not (Queue.empty !imsgs)
-                 then Queue.send !imsgs () |> Lwt.ignore_result in
-        let () = imsgs := Queue.next !imsgs in
-        (match Events.partition acc with
-         | [], acc -> `Continue (step_ok_idle (Timer.step timer) acc)
-         | [group], acc ->
-            if Option.is_none acc.group
-            then (Logs.info (fun m -> m "initialization done!");
-                  push_state pe `Fine);
-            Logs.debug (fun m ->
-                m "received group: load=%g%%" group.status.status.load);
-            let stack = Events.get_req_stack group acc.group in
-            let pool =
-              List.map (fun req ->
-                  { send = (fun () -> send_event sender req)
-                  ; pred = Parser.is_probe_response req
-                  ; timeout = Timer.steps ~step_duration probes_timeout
-                  ; exn = None }) stack
-              |> Pool.create in
-            Logs.debug (fun m ->
-                let pre = "prepared stack of probe requests" in
-                let stk = String.concat "; "
-                          @@ List.map probe_req_to_string stack in
-                m "%s: [%s]" pre stk);
-            step_ok_probes_send pool (Timer.reset timer)
-              { acc with group = Some group }
-         | _ -> raise_notrace (Protocol_invariant Unexpected_status))
+        handle_msgs rsps;
+        if not (Queue.empty !imsgs)
+        then Queue.send !imsgs () |> Lwt.ignore_result;
+        imsgs := Queue.next !imsgs;
+        begin match Events.partition acc with
+        | [], acc -> `Continue (step_ok_idle (Timer.step timer) acc)
+        | [group], acc ->
+           if Option.is_none acc.group
+           then (Logs.info (fun m -> m "initialization done!");
+                 push_state pe `Fine);
+           Logs.debug (fun m ->
+               m "received group: load=%g%%" group.status.status.load);
+           let stack = Events.get_req_stack group acc.group in
+           let pool =
+             List.map (fun req ->
+                 { send = (fun () -> send_event sender req)
+                 ; pred = Parser.is_probe_response req
+                 ; timeout = Timer.steps ~step_duration probes_timeout
+                 ; exn = None }) stack
+             |> Pool.create in
+           Logs.debug (fun m ->
+               let pre = "prepared stack of probe requests" in
+               let stk = String.concat "; "
+                         @@ List.map probe_req_to_string stack in
+               m "%s: [%s]" pre stk);
+           let acc = { acc with group = Some group } in
+           let acc = Events.handle_immediate pe acc in
+           step_ok_probes_send pool (Timer.reset timer) acc
+        | _ -> raise_notrace (Protocol_invariant Unexpected_status)
+        end
       with
       | Protocol_invariant (Unexpected_info info) ->
          Logs.warn (fun m -> m "%s" board_info_err_msg);
@@ -570,7 +577,9 @@ module Make(Logs : Logs.LOG) = struct
 
     and step_ok_probes_send pool (timer : Timer.t) (acc : Acc.t) =
       if Pool.empty pool
-      then `Continue (step_ok_idle (Timer.reset timer) acc)
+      then
+        let acc = Events.handle pe events sources acc in
+        `Continue (step_ok_idle (Timer.reset timer) acc)
       else (Pool.send pool () |> Lwt.ignore_result;
             `Continue (step_ok_probes_wait pool timer acc))
 
@@ -766,7 +775,7 @@ module Make(Logs : Logs.LOG) = struct
 
   let wait = fun ~eq t s v ->
     let open Lwt.Infix in
-    if eq (S.value s) v then Lwt.return v else
+    if eq (S.value s) v then (Logs.info (fun m -> m "already equal!"); Lwt.return v) else
       t ()
       >>= (fun () ->
       if eq (S.value s) v then Lwt.return v
@@ -774,7 +783,7 @@ module Make(Logs : Logs.LOG) = struct
                     ; Lwt_unix.timeout status_timeout])
       >>= (fun x  ->
       React.S.stop s;
-      if eq x v then Lwt.return x
+      if eq x v then (Logs.info (fun m -> m "applied!"); Lwt.return x)
       else Lwt.fail @@ Failure "got unexpected value")
 
   let create_api sources sender step_duration
@@ -787,7 +796,7 @@ module Make(Logs : Logs.LOG) = struct
     { set_input =
         (fun i ->
           let eq = equal_input in
-          let s = S.map ~eq:equal_input (fun (c : config) -> c.input) config in
+          let s = events.device.input in
           let mode = t2mi_mode_to_raw storage#get.t2mi_mode in
           let t () = isend (Set_board_mode (i, mode)) in
           wait ~eq t s i)

@@ -3,6 +3,8 @@ open Boards
 open Board_types
 open Common
 
+let ( % ) = Fun.( % )
+
 module Data = struct
   type t = Board_types.config
   let default = Board_types.config_default
@@ -19,7 +21,7 @@ let invalid_port prefix x =
 let get_sync_ports prefix streams (ports : Topology.topo_port list) =
   List.fold_left (fun acc (p : Topology.topo_port) ->
       (match p.port with
-       | 0 -> React.S.map ~eq:Equal.bool List.is_empty streams
+       | 0 -> React.S.map ~eq:Equal.bool (not % List.is_empty) streams
        | x -> invalid_port prefix x)
       |> fun x -> Board.Ports.add p.port x acc)
     Board.Ports.empty ports
