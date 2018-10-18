@@ -82,11 +82,8 @@ let parse_stream stream = stream
    *       | None     -> None in
    *     Source.to_string stream.source.info, url *)
 
-let channel_of_domain domain (structure : Structure.Streams.t React.signal option)=
+let channel_of_domain domain (signal : Structure.Streams.t React.signal) =
   let default = "", "" in
-  match structure with
-  | None -> default
-  | Some signal ->
     let structure = React.S.value signal in
     let pid = int_of_string @@ pid_of_domain domain in
     let id = Common.Stream.ID.of_string @@ stream_of_domain domain in
@@ -202,10 +199,10 @@ let make_widget (widget : string * Wm.widget) =
 
 (* makes all the widgets checkboxes with IDs, checkboxes of channels Tree items,
  * and a Tree.t containing all given channels *)
-let make_channels (widgets : (string * Wm.widget) list) structure =
+let make_channels (widgets : (string * Wm.widget) list) signal =
   let domains  = find_domains widgets in
   let channels =
-    List.map (fun x -> channel_of_domain x structure, x) domains in
+    List.map (fun x -> channel_of_domain x signal, x) domains in
   let wdg_chbs, ch_chbs, items =
     List.map (fun (channel, domain) ->
         let text, secondary_text = channel in
@@ -238,7 +235,7 @@ let make_channels (widgets : (string * Wm.widget) list) structure =
   (List.concat wdg_chbs), ch_chbs, new Tree.t ~items ()
 
 (* makes all the widget checkboxes with IDs, and a Tree.t containing all streams *)
-let make_streams (widgets : (string * Wm.widget) list) structure =
+let make_streams (widgets : (string * Wm.widget) list) tree signal =
   let streams =
     List.fold_left (fun acc (x : string * Wm.widget) ->
         let stream = stream_of_domain (snd x).domain in
@@ -256,7 +253,7 @@ let make_streams (widgets : (string * Wm.widget) list) structure =
       stream, wds) streams in
   let checkboxes, items =
     List.fold_left (fun acc (stream, wds) ->
-        let wdg_chbs, chan_chbs, nested = make_channels wds structure in
+        let wdg_chbs, chan_chbs, nested = make_channels wds signal in
         let checkbox = new Checkbox.t () in
         checkbox#set_id stream;
         React.E.map (fun checked ->
@@ -284,10 +281,11 @@ let make_streams (widgets : (string * Wm.widget) list) structure =
             () in
         (wdg_chbs @ (fst acc)), stream_node :: (snd acc))
       ([], []) streams_of_widgets in
-  checkboxes, new Tree.t ~items ()
+  List.iter (fun item -> tree#append_item item) items;
+  checkboxes
 
 (* makes a list of containers with widgets, calculates its positions *)
-let to_layout ~resolution ~widgets structure =
+let to_layout ~resolution ~widgets =
   let ar_x, ar_y = 16, 9 in
   let domains    = find_domains widgets in
   let num        = List.length domains in
@@ -313,7 +311,7 @@ let to_layout ~resolution ~widgets structure =
     List.fold_left (fun acc domain ->
         let i, acc  = acc in
         let row_num = i / cols in
-        let channel, _ = channel_of_domain domain structure in
+        let channel, _ = "channel", "provider" in
         let cont_w  =
           if i + 1 > List.length domains - remain then
             fst resolution / cols * multiplier
@@ -386,20 +384,24 @@ let to_layout ~resolution ~widgets structure =
 
 (* makes a dialog which shows available
  * streams
- *   |_ channels
+ *    |_ channels
  *        |_ widgets
  * returns dialog, react event and a fun showing dialog *)
 let to_dialog (wm : Wm.t) =
   let open Lwt_result.Infix in
-  let e, push    = React.E.create () in
-  let structure =
-  Requests.get_structure ()
+  let e, push   = React.E.create () in
+  let checkboxes, push_ch = React.S.create [] in
+  let tree    = new Tree.t ~items:[] () in
+  let thread =
+    Requests.get_structure ()
   >|= (fun init ->
     let e, _ = Requests.get_structure_socket () in
-    React.S.hold init e)
-  |> Lwt_main.run |> Result.to_opt in
-  let checkboxes, widget = make_streams wm.widgets structure in
-  let box        = new Vbox.t ~widgets:[widget#widget] () in
+    let signal = React.S.hold init e in
+    push_ch @@ make_streams wm.widgets tree signal;
+    tree#widget)
+  |> Lwt_result.map_err Api_js.Requests.err_to_string in
+  let loader = Ui_templates.Loader.create_widget_loader thread in
+  let box        = new Vbox.t ~widgets:[loader#widget] () in
   let dialog     =
     new Dialog.t
       ~title:"Выберите виджеты"
@@ -418,7 +420,7 @@ let to_dialog (wm : Wm.t) =
                   if not @@ x#checked then
                     acc
                   else
-                    x#id :: acc) [] checkboxes in
+                    x#id :: acc) [] (React.S.value checkboxes) in
             let wds = List.map (fun x ->
                   let index = String.index x '|' in
                   let length = String.length x - index - 1 in
@@ -431,6 +433,6 @@ let to_dialog (wm : Wm.t) =
                   | Some x -> x :: acc
                   | None   -> acc) [] wds in
             Lwt.return
-              (push @@ to_layout ~resolution:wm.resolution ~widgets structure)
+              (push @@ to_layout ~resolution:wm.resolution ~widgets)
           | `Cancel -> Lwt.return ()) in
   dialog, e, show
