@@ -86,14 +86,14 @@ class t ~(item : 'a item) () =
         let icon = Icon.SVG.(create_simple Path.settings) in
         let settings = new Icon_button.t ~icon () in
         let cancel = new Dialog.Action.t ~typ:`Cancel ~label:"Отмена" () in
-        let apply = new Dialog.Action.t ~typ:`Accept  ~label:"ОК" () in
+        let apply = new Dialog.Action.t ~typ:`Accept ~label:"ОК" () in
         let dialog =
           new Dialog.t
             ~title:(Printf.sprintf "Настройки. %s" item.name)
             ~content:(`Widgets [s.widget])
-            ~actions:[ cancel; apply ]
-            ()
-        in
+            ~actions:[cancel; apply]
+            () in
+        (* FIXME *)
         let _ = connect_apply apply s in
         settings, dialog)
       item.settings in

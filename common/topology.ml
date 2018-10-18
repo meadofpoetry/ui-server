@@ -51,9 +51,9 @@ let compare_input l r = match l, r with
   | ASI, _ | _, RF  -> 1
 
 let input_to_string = function
-  | RF    -> "RF"
+  | RF -> "RF"
   | TSOIP -> "TSOIP"
-  | ASI   -> "ASI"
+  | ASI -> "ASI"
 
 let input_of_string = function
   | "RF"    -> Ok RF
@@ -137,9 +137,9 @@ and topo_interface =
   }
 
 module Show_topo_input = struct
-  type t          = topo_input
-  let typ         = "topo input"
-  let to_string (x:t) =
+  type t = topo_input
+  let typ = "topo input"
+  let to_string (x : t) =
     input_to_string x.input
     ^ "-"
     ^ string_of_int x.id

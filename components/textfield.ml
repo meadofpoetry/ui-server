@@ -596,10 +596,6 @@ class ['a] t ?input_id
             self#listen_lwt (Widget.Event.make x) (fun e _ ->
                 Lwt.return @@ self#handle_text_field_interaction ()))
           ["click"; "keydown"] in
-      let _ =
-        input_widget#listen_lwt (Widget.Event.make "invalid") (fun _ _ ->
-            print_endline "invalid";
-            Lwt.return ()) in
       let observer =
         let handler = self#handle_validation_attribute_change in
         self#register_validation_handler handler in

@@ -1,4 +1,4 @@
-type t = [`Root | `Operator | `Guest ]
+type t = [`Root | `Operator | `Guest ] [@@deriving eq]
 
 let of_string = function
   | "root"     -> Ok `Root
@@ -17,14 +17,16 @@ let of_yojson = function
 
 let to_yojson u = `String (to_string u)
 
-type pass = { user     : t
-            ; password : string
-            } [@@deriving yojson]
+type pass =
+  { user     : t
+  ; password : string
+  } [@@deriving yojson]
 
-type pass_change = { user     : t
-                   ; old_pass : string
-                   ; new_pass : string
-                   } [@@deriving yojson]
+type pass_change =
+  { user     : t
+  ; old_pass : string
+  ; new_pass : string
+  } [@@deriving yojson, eq]
           
 let to_int = function
   | `Root     -> 0
@@ -39,11 +41,6 @@ let of_int = function
 let is_root = function
   | `Root -> true
   | _    -> false
-
-let eq usr1 usr2 =
-  match usr1, usr2 with
-  | `Root, `Root | `Operator, `Operator | `Guest, `Guest -> true
-  | _ -> false
 
 type 'a user_table =
   { root     : 'a

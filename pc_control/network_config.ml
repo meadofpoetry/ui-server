@@ -46,7 +46,7 @@ let address_of_string s =
              >>= fun m ->
              Some (a,m)
   | _ -> None
-                         
+
 module Macaddr = struct
   include Macaddr
   let equal l r = Macaddr.compare l r = 0

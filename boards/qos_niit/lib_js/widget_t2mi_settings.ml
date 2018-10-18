@@ -39,9 +39,6 @@ let make_pid () =
 let make_sid () =
   let sid =
     new Textfield.t
-      (* ~help_text:{ validation = true
-       *            ; persistent = false
-       *            ; text = None } *)
       ~input_type:(Integer (Some 0, Some 7))
       ~label:"T2-MI Stream ID"
       () in
@@ -64,13 +61,13 @@ let make_stream_select (streams : Stream.t list React.signal) =
       ~label:"Поток для анализа T2-MI"
       ~items:[]
       () in
-  let _ =
+  let _s =
     React.S.map ~eq:Equal.unit
       (fun sms ->
+        let eq = Stream.equal in
         let sms = match select#selected_item with
           | None -> sms
-          | Some s -> List.add_nodup ~eq:Stream.equal s#value sms in
-        let eq = Stream.equal in
+          | Some s -> List.add_nodup ~eq s#value sms in
         let prev = List.map (fun x -> x#value) select#items in
         let found =
           List.filter (fun s -> not @@ List.mem ~eq s prev) sms
@@ -80,14 +77,18 @@ let make_stream_select (streams : Stream.t list React.signal) =
               not @@ List.mem ~eq i#value sms) select#items in
         List.iter select#remove_item lost;
         List.iter (fun i -> select#append_item i) found)
-    @@ React.S.map ~eq:(Equal.list Stream.equal) Fun.id streams in
+      streams in
   let set x = match x with
     | Some (x : t2mi_mode) ->
        select#set_selected_value ~eq:Stream.equal x.stream
        |> (function Ok _ -> print_endline "ok"
                   | Error e -> print_endline e)
     | None -> select#set_selected_index 0 in
-  select#widget, set, select#s_selected_value, select#set_disabled
+  select#set_on_destroy @@ Some (fun () -> React.S.stop ~strong:true _s);
+  select#widget,
+  set,
+  select#s_selected_value,
+  select#set_disabled
 
 let name = "Настройки. T2-MI"
 let settings = None
@@ -101,7 +102,7 @@ let make ~(state : Topology.state React.signal)
   let pid, set_pid, s_pid, dis_pid = make_pid () in
   let sid, set_sid, s_sid, dis_sid = make_sid () in
   let ss, set_stream, s_stream, dis_stream = make_stream_select streams in
-  let s : t2mi_mode option option React.signal =
+  let (s : t2mi_mode option option React.signal) =
     React.S.l5 ~eq:(Equal.option (Equal.option equal_t2mi_mode))
       (fun en pid sid stream state ->
         match en, pid, sid, stream, state with
@@ -113,16 +114,16 @@ let make ~(state : Topology.state React.signal)
         | false, _, _, _, `Fine -> Some None
         | _ -> None)
       s_en s_pid s_sid s_stream state in
-  let _ =
-    React.S.l2 (fun state en ->
+  let s_dis =
+    React.S.l2 ~eq:Equal.unit (fun state en ->
         let is_disabled = match state with
           | `Fine -> false
           | _ -> true in
         dis_en is_disabled;
         List.iter (fun f -> f (if is_disabled then true else not en))
           [dis_pid; dis_sid; dis_stream]) state s_en in
-  let _ =
-    React.S.map (fun x ->
+  let s_set =
+    React.S.map ~eq:Equal.unit (fun x ->
         let setters = [set_en; set_pid; set_sid; set_stream] in
         List.iter (fun f -> f x) setters) mode in
   let submit = fun x -> Requests.Device.HTTP.post_t2mi_mode x control in
@@ -131,4 +132,8 @@ let make ~(state : Topology.state React.signal)
   let actions = new Card.Actions.t ~widgets:[buttons] () in
   let box = new Vbox.t ~widgets:[en; ss; pid; sid; actions#widget] () in
   box#add_class base_class;
+  box#set_on_destroy
+  @@ Some (fun () ->
+         React.S.stop ~strong:true s_dis;
+         React.S.stop ~strong:true s_set);
   box#widget

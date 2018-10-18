@@ -23,7 +23,7 @@ class t ?typ ?style ?icon ?dense ?compact ?(ripple = true) ~label () =
 
     method disabled = Js.to_bool self#button_element##.disabled
     method set_disabled x = self#button_element##.disabled := Js.bool x
-                          
+
     method layout () : unit =
       super#layout ();
       Option.iter (fun r -> r#layout ()) _ripple

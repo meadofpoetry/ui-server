@@ -4,7 +4,7 @@ open Widget_types
 open Board_types
 open Common
 
-type 'a point = (Common.Time.t, 'a) Chartjs.Line.point
+type 'a point = (Time.t, 'a) Chartjs.Line.point
 type 'a data = (Stream.ID.t * ('a point list)) list
 
 type settings =
@@ -50,6 +50,7 @@ let make_settings (settings : settings) =
   in
   box, s
 
+(* FIXME declare class instead *)
 let make_chart_base ~(config : config)
       ~(init : float data)
       ~(event : float data React.event)
@@ -126,7 +127,7 @@ let make_chart_base ~(config : config)
   let set = fun ds data ->
     List.iter (fun point -> ds#push point) data;
     chart#update None in
-  let _ =
+  let _e =
     React.E.map (fun d ->
         List.iter (fun (_, data) ->
             Option.iter (fun ds -> set ds data)
@@ -135,6 +136,7 @@ let make_chart_base ~(config : config)
   let box = Widget.create_div () in
   box#add_class base_class;
   box#append_child chart;
+  box#set_on_destroy @@ Some (fun () -> React.E.stop ~strong:true _e);
   Dashboard.Item.make_item
     ~name:(measure_type_to_string config.typ)
     ~settings:{ widget = settings#widget

@@ -127,6 +127,7 @@ let make_parsed () =
   body#add_class base_class;
   body
 
+(* FIXME declare class instead *)
 let make_hexdump_options hexdump =
   let base_class = Markup.CSS.add_element base_class "hexdump-options" in
   let base =
@@ -144,21 +145,30 @@ let make_hexdump_options hexdump =
              ; `Item (new Select.Item.t ~value:16 ~text:"16" ())
              ; `Item (new Select.Item.t ~value:32 ~text:"32" ()) ]
       () in
-  let line_numbers  = new Switch.t ~state:true () in
+  let line_numbers = new Switch.t ~state:true () in
   let line_numbers' = new Form_field.t ~input:line_numbers
                         ~label:"Номера" () in
   let options = new Hbox.t
                   ~widgets:[ base#widget
                            ; width#widget
                            ; line_numbers'#widget ] () in
-  let _ = React.S.map hexdump#set_line_numbers line_numbers#s_state in
-  let _ = React.S.map (function
-              | Some x -> hexdump#set_width x
-              | None   -> ()) width#s_selected_value in
-  let _ = React.S.map (function
-              | Some x -> hexdump#set_base x
-              | None   -> ()) base#s_selected_value in
+  let s_line_num =
+    React.S.map ~eq:Equal.unit hexdump#set_line_numbers
+      line_numbers#s_state in
+  let s_width =
+    React.S.map ~eq:Equal.unit (function
+        | Some x -> hexdump#set_width x
+        | None -> ()) width#s_selected_value in
+  let s_base =
+    React.S.map ~eq:Equal.unit (function
+        | Some x -> hexdump#set_base x
+        | None -> ()) base#s_selected_value in
   options#add_class base_class;
+  options#set_on_destroy
+  @@ Some (fun () ->
+         React.S.stop ~strong:true s_line_num;
+         React.S.stop ~strong:true s_width;
+         React.S.stop ~strong:true s_base);
   options#widget
 
 let make_hexdump () =
