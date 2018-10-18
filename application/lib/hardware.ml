@@ -16,7 +16,7 @@ module Input_map =
         else Int.compare lid rid
     end)
 
-type in_push = (Board.url * Stream.t) list -> unit
+type in_push = Stream.Table.setting list -> unit
 type input_control =
   { inputs : in_push Input_map.t
   ; boards : Board.stream_handler Map.t
@@ -122,18 +122,23 @@ let get_sources (topo : Topology.topo_entry list) uri_table boards =
     | (Input i) :: tl ->
        let input = `Input (i.input, i.id) in
        let s, push  =
-         let eq =
-           Equal.option (Url.equal)
-           |> (fun x -> Equal.pair x Stream.equal)
-           |> Equal.list in
+         let eq = Equal.list Stream.Table.equal_stream in
          (* consider previous uri preferences *)
-         let init =
+         let (init : Stream.Table.stream list) =
            Option.(
              get_or ~default:[]
                (External_uri_storage.Map.find_opt input uri_table
-                >|= List.map (fun (u, s) -> (Some u), s))) in
-         React.S.create ~eq init in
-       let push' xs = push @@ List.map (fun (url,x) -> (Some url, x)) xs in
+                >|= List.map (fun (x : Stream.Table.setting) ->
+                        Stream.Table.{ url = Some x.url
+                                     ; stream = x.stream
+                                     ; present = false }))) in
+         React.S.create ~eq [] in
+       let push' xs =
+         List.map (fun ({ url; stream } : Stream.Table.setting) ->
+             Stream.Table.{ url = Some url
+                          ; stream
+                          ; present = false }) xs
+         |> push in
        let controls = { controls with inputs = Input_map.add (i.input,i.id) push' controls.inputs } in
        let signals =
          (React.S.map ~eq:eq_row (fun s -> input, `Unlimited, s) s)
@@ -168,8 +173,12 @@ let get_sources (topo : Topology.topo_entry list) uri_table boards =
   controls, signals'
 
 let store_external_uris storage streams =
+  let open Stream.Table in
   let filter_streams =
-    List.filter_map (function (Some u, s) -> Some (u, s) | _ -> None) in
+    List.filter_map (function
+        | ({ url = Some url; stream; _ } : stream) ->
+           Some ({ url; stream } : setting)
+        | _ -> None) in
   let streams =
     List.map (function
         | (`Board _ as b, _, l) -> b, filter_streams l
@@ -181,7 +190,8 @@ let store_external_uris storage streams =
 let create config db (topo : Topology.t) =
   let open Topology in
   let stor = Storage.Options.Conf.get config in
-  let uri_storage = Uri_storage.create stor.config_dir ["application";"uri_storage"] in
+  let uri_storage = Uri_storage.create stor.config_dir
+                      ["application"; "uri_storage"] in
   let step_duration = 0.01 in
   let usb, loop = Usb_device.create ~sleep:step_duration () in
   let rec traverse acc = function
@@ -206,11 +216,12 @@ let create config db (topo : Topology.t) =
   let topo = topo_to_signal topo boards in
   { boards; usb; topo; sources; streams; uri_storage }, loop ()
 
-exception Constraints of set_error
+exception Constraints of Stream.Table.set_error
 
 let set_stream hw (ss : stream_setting) =
   let open Lwt_result.Infix in
-  let gen_uris (ss : stream_setting) : (marker * (Url.t * Stream.t) list) list =
+  let open Stream.Table in
+  let gen_uris (ss : stream_setting) : (marker * Stream.Table.setting list) list =
      let split = function
       | (`Input _, _) as i -> `Right i
       | (`Board id, sl)    ->
@@ -225,23 +236,26 @@ let set_stream hw (ss : stream_setting) =
        | (`Input _, _) :: tl -> rebuild_boards acc streams tl
        | (`Board id, _) :: tl ->
           let same, rest =
-            List.partition_map (function ((`Board bid,bs),buri) as v ->
-                                  if id = bid
-                                  then `Left  (buri,bs)
-                                  else `Right v) streams in
-          rebuild_boards ((`Board id, same)::acc) rest tl in
+            List.partition_map
+              (function ((`Board bid, bs), buri) as v ->
+                 if id = bid
+                 then `Left { url = buri; stream = bs }
+                 else `Right v) streams in
+          rebuild_boards ((`Board id, same) :: acc) rest tl in
      let rec input_add_uri (`Input i, sl) =
        let open Stream in
        let s_to_uri s = match s.orig_id with
-         | TSoIP x -> (Url.{ ip = x.addr; port = x.port }, s)
+         | TSoIP x ->
+            let url = Url.{ ip = x.addr; port = x.port } in
+            { url; stream = s }
          | _ -> raise_notrace (
                     Constraints (`Internal_error "set_stream: \
                                                   expected ip stream from an input")) in
        (`Input i, List.map s_to_uri sl) in
      let rec grep_input_uris acc = function
        | [] -> acc
-       | (_, sl)::tl ->
-          let uris = List.map fst sl in
+       | (_, (sl : setting list)) :: tl ->
+          let uris = List.map (fun x -> x.url) sl in
           grep_input_uris (uris @ acc) tl
      in
      (* TODO replace by a more generic check *)
@@ -275,8 +289,9 @@ let set_stream hw (ss : stream_setting) =
     | _ -> ()
     end;
     if List.is_empty range then ()
-    else List.iter (fun (url,_) -> if not @@ List.exists (fun r -> Url.in_range r url) range
-                                   then raise_notrace (Constraints `Not_in_range)) streams
+    else List.iter (fun ({ url; _} : Stream.Table.setting) ->
+             if not @@ List.exists (fun r -> Url.in_range r url) range
+             then raise_notrace (Constraints `Not_in_range)) streams
   in
   let rec loop l res = match l with
     | [] -> Lwt.return_ok ()
@@ -287,7 +302,7 @@ let set_stream hw (ss : stream_setting) =
         with Not_found -> Lwt.return_error (`Internal_error "set_stream: no control found")
                           >>= loop tl
       end
-    | (`Board k, streams)::tl -> begin
+    | (`Board k, streams) :: tl -> begin
         try let p = Map.find k hw.sources.boards in
             let Board.{ range; state } = p#constraints in
             let state = React.S.value state in

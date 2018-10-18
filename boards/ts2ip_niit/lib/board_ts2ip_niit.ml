@@ -32,28 +32,47 @@ let get_ports_sync board streams =
       |> fun x -> Board.Ports.add p.port x acc)
     Board.Ports.empty board.ports
 
+let of_packer_setting ~present (ps : packer_settings) =
+  let open Stream.Table in
+  let (uri :url) =
+    { ip = ps.dst_ip
+    ; port = ps.dst_port
+    } in
+  { url = Some uri
+  ; present
+  ; stream = ps.stream
+  }
+
+let find_and_rest (f : 'a -> bool) (l : 'a list) =
+  let rec aux acc = function
+    | [] -> None, List.rev acc
+    | hd :: tl ->
+       if f hd
+       then Some hd, (List.rev acc) @ tl
+       else aux (hd :: acc) tl
+  in
+  aux [] l
+
 let make_streams (events : Board_protocol.events) =
-  let eq =
-    Pair.equal (Equal.option Url.equal) Stream.equal
-    |> Equal.list in
-  React.S.l3 ~eq (fun incoming outgoing config ->
-      List.map (fun (x : Stream.t) ->
-          let (set : Stream.t list) =
-            List.map (fun x -> x.stream) config.packers in
-          let stream =
-            List.find_opt (fun (o : Stream.t) ->
-                Stream.ID.equal o.id x.id) outgoing in
-          match stream with
-          | Some o ->
-             begin match o.orig_id with
-             | TSoIP uri ->
-                let (uri : Url.t) =
-                  { ip = uri.addr; port = uri.port } in
-                Some uri, x
-             | _ -> assert false (* unreachable *)
-             end
-          | None -> None, x) incoming)
-    events.in_streams events.out_streams events.config
+  React.S.l2 ~eq:(Equal.list Stream.Table.equal_stream)
+    (fun incoming config ->
+      let merged, rest =
+        List.fold_left (fun (acc, rest) (s : Stream.t) ->
+            let opt, rest =
+              find_and_rest (fun (c : packer_settings) ->
+                  Stream.equal s c.stream) rest in
+            let res = match opt with
+              | Some (ps : packer_settings) ->
+                 of_packer_setting ~present:true ps
+              | None ->
+                 { url = None
+                 ; present = true
+                 ; stream = s } in
+            (res :: acc), rest)
+          ([], config.packers) incoming in
+      let rest = List.map (of_packer_setting ~present:false) rest in
+      merged @ rest)
+    events.in_streams events.config
 
 let create (b : Topology.topo_board) (streams : Stream.t list React.signal) _
       send _ base step : Board.t =
@@ -67,27 +86,27 @@ let create (b : Topology.topo_board) (streams : Stream.t list React.signal) _
   let events, api, step =
     Board_protocol.SM.create logs send storage step streams b in
   let handlers = Board_api.handlers b.control api events in
-  let constraints =
-    Board.{ state =
-              React.S.l2 ~eq:equal_set_state (fun s d ->
-                  match s, d with
-                  | `Fine, Some devi ->
-                     begin match devi.packers_num with
-                     | Some x when x > 0 -> `Limited x
-                     | Some _ | None -> `Forbidden
-                     end
-                  | _ -> `Forbidden)
-                events.state events.devinfo
-          ; range =
-              [ { ip = Ipaddr.V4.make 224 1 2 2; port = 1234 },
-                { ip = Ipaddr.V4.make 239 255 255 255; port = 65535 }
-              ]
-    } in
+  let state =
+    React.S.l2 ~eq:Stream.Table.equal_source_state
+      (fun s d ->
+        match s, d with
+        | `Fine, Some devi ->
+           begin match devi.packers_num with
+           | Some x when x > 0 -> `Limited x
+           | Some _ | None -> `Forbidden
+           end
+        | _ -> `Forbidden)
+      events.state events.devinfo in
+  let (range : (Stream.Table.url * Stream.Table.url) list) =
+    [ { ip = Ipaddr.V4.make 224 1 2 2; port = 1234 },
+      { ip = Ipaddr.V4.make 239 255 255 255; port = 65535 }
+    ] in
+  let constraints = Board.{ state; range } in
   let set streams =
     match React.S.value events.state with
     | `Fine ->
        (try
-          List.map (fun ((url : Url.t), stream) ->
+          List.map (fun ({ url; stream } : Stream.Table.setting) ->
               if List.fold_left (fun acc x ->
                      if not @@ Url.in_range x url
                      then false else acc) true constraints.range

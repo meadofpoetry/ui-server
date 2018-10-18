@@ -12,9 +12,9 @@ let compare l r = match l, r with
 
 module Map = Map.Make(struct type t = marker let compare = compare end)
            
-type t = (Common.Url.t * Common.Stream.t) list Map.t
+type t = Common.Stream.Table.setting list Map.t
 
-type lst = (marker * (Common.Url.t * Common.Stream.t) list) list [@@deriving yojson]
+type lst = (marker * Common.Stream.Table.setting list) list [@@deriving yojson]
 
 let default = Map.empty
 

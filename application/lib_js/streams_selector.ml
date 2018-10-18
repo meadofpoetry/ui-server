@@ -17,7 +17,7 @@ type stream_dialog =
   }
 
 let make_board_stream_entry ?(check = None)
-      ?(uri = None)
+      ?(url = None)
       (stream : Stream.t) =
   let text =
     let i = Stream.get_input stream in
@@ -26,7 +26,7 @@ let make_board_stream_entry ?(check = None)
     | Some i -> Printf.sprintf "Вход %s: %s" (Topology.get_input_name i) s
     | None   -> s in
   let checkbox = new Checkbox.t ~ripple:false () in
-  checkbox#set_checked @@ Option.is_some uri;
+  checkbox#set_checked @@ Option.is_some url;
   begin match check with
   | None -> ()
   | Some check ->
@@ -37,7 +37,7 @@ let make_board_stream_entry ?(check = None)
          if s then check.enable () else check.disable ()) checkbox#s_state
      |> React.E.keep;
   end;
-  let item = match uri with
+  let item = match url with
     | None ->
        new Item_list.Item.t
          ~text
@@ -55,9 +55,13 @@ let make_board_stream_entry ?(check = None)
       checkbox#s_state in
   item, s
 
-let make_board_limited lim bid stream_list =
+let make_board_limited lim bid (stream_list : Stream.Table.stream list) =
   let open Item_list.List_group in
-  let init_list = List.filter_map (function (Some _, s) -> Some s | (None, _) -> None) stream_list in
+  let open Stream.Table in
+  let init_list =
+    List.filter_map (function
+        | ({ url = Some _; stream; _ } : stream) -> Some stream
+        | { url = None;  _} -> None) stream_list in
   let counter, counter_push =
     React.S.create ~eq:Int.equal (List.length init_list) in
   let check =
@@ -70,10 +74,11 @@ let make_board_limited lim bid stream_list =
     | `Board id -> id
     | _ -> failwith "impossible"
   in
-  let items, stream_signals = List.split @@ List.map (fun (uri, stream) ->
-                                                make_board_stream_entry ~check:(Some check) ~uri stream
-                                              ) stream_list
-  in
+  let items, stream_signals =
+    List.split
+    @@ List.map (fun ({ url; stream; _ } : stream) ->
+           make_board_stream_entry ~check:(Some check) ~url stream)
+         stream_list in
   let subheader = new Typography.Text.t ~text:"" () in
   let list = new Item_list.t ~items:(List.map (fun i -> `Item i) items) () in
   let settings =
@@ -88,15 +93,18 @@ let make_board_limited lim bid stream_list =
   let box  = new Vbox.t ~widgets:[subheader#widget; list#widget] () in
   box#widget, settings
 
-let make_board_unlimited bid stream_list =
+let make_board_unlimited bid (stream_list : Stream.Table.stream list) =
   let open Item_list.List_group in
+  let open Stream.Table in
   let id = match bid with
     | `Board id -> id
     | _ -> failwith "impossible"
   in
-  let items, stream_signals = List.split @@ List.map (fun (uri, stream) ->
-                                                make_board_stream_entry ~uri stream
-                                              ) stream_list
+  let items, stream_signals =
+    List.split
+    @@ List.map (fun ({ url; stream; _ } : stream) ->
+           make_board_stream_entry ~url stream)
+         stream_list
   in
   let subheader = new Typography.Text.t ~text:(Printf.sprintf "Board: %d" id) () in
   let list = new Item_list.t ~items:(List.map (fun i -> `Item i) items) () in
@@ -109,9 +117,13 @@ let make_board_unlimited bid stream_list =
   let box  = new Vbox.t ~widgets:[subheader#widget; list#widget] () in
   box#widget, settings
 
-let make_board_forbidden bid stream_list = 
+let make_board_forbidden bid (stream_list : Stream.Table.stream list) =
   let open Item_list.List_group in
-  let init_list = List.filter_map (function (Some _, s) -> Some s | (None, _) -> None) stream_list in
+  let open Stream.Table in
+  let init_list =
+    List.filter_map (function
+        | ({ url = Some _; stream; _ } : stream) -> Some stream
+        | { url = None;  _} -> None) stream_list in
   let settings  = React.S.const (bid, init_list) in
   let id = match bid with
     | `Board id -> id
@@ -122,11 +134,11 @@ let make_board_forbidden bid stream_list =
   let box  = new Vbox.t ~widgets:[subheader#widget; list#widget] () in
   box#widget, settings
   
-let make_board_entry (bid, state, stream_list) =
+let make_board_entry ((bid, state, stream_list) : stream_table_row) =
   match state with
-  | `Forbidden   -> make_board_forbidden bid stream_list
+  | `Forbidden -> make_board_forbidden bid stream_list
   | `Limited lim -> make_board_limited lim bid stream_list
-  | `Unlimited   -> make_board_unlimited bid stream_list
+  | `Unlimited -> make_board_unlimited bid stream_list
 
 let make_input_stream_list stream_list =
   let make_board_stream_entry del_item del_stream (stream : Stream.t) =
@@ -222,13 +234,18 @@ let show_stream_create_dialog dialog streams i =
             then Error "streams exists" else Ok s)
      |> Lwt.return
 
-let make_input_entry (iid, _, stream_list) =
+let make_input_entry ((iid, _, stream_list) : stream_table_row) =
   let open Item_list.List_group in
+  let open Stream.Table in
   let input, id = match iid with
     | `Input (inp,id) -> inp,id
     | _ -> failwith "impossible"
   in
-  let init_list = List.filter_map (function (Some _, s) -> Some s | (None, _) -> None) stream_list in
+  let init_list =
+    List.filter_map (function
+        | ({ url = Some _; stream; _ } : stream) -> Some stream
+        | { url = None;  _} -> None)
+      stream_list in
   let subheader =
     let text = Printf.sprintf "Input: %s (%d)"
                  (Topology.input_to_string input) id in
@@ -252,11 +269,12 @@ let make_input_entry (iid, _, stream_list) =
   let box = new Vbox.t ~widgets:[subheader#widget; list#widget; add_button#widget] () in
   box#widget, settings
 
-let make_entry : 'a -> Widget.t * (marker * Stream.t list) React.signal = function
+let make_entry : stream_table_row ->
+                 Widget.t * (marker * Stream.t list) React.signal = function
   | `Input _, _, _ as x -> make_input_entry x
   | `Board _, _, _ as x -> make_board_entry x
 
-let make_table table =
+let make_table (table : stream_table) =
   let widgets, signals = List.split @@ List.map make_entry table in
   let list  = new Vbox.t ~widgets () in
   list, React.S.map ~eq:(Equal.option equal_stream_setting) Option.return

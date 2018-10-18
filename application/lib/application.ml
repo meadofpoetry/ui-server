@@ -35,9 +35,10 @@ let create config db =
   let hw, loop = Hardware.create config db topology in
   Option.iter (fun (proc : Data_processor.t) ->
       let filter =
+        let open Stream.Table in
         List.filter_map (function
-            | (None, _) -> None
-            | (Some uri, src) -> Some (uri, src)) in
+            | ({ url = None; _ } : stream) -> None
+            | { url = Some uri; stream; _ } -> Some (uri, stream)) in
       React.S.map ~eq:Equal.unit (fun (l : Application_types.stream_table) ->
           List.fold_left (fun acc (_, _, ss) -> (filter ss) @ acc) [] l
           |> proc#reset)
