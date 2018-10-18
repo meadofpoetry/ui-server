@@ -32,6 +32,29 @@ let get_ports_sync board streams =
       |> fun x -> Board.Ports.add p.port x acc)
     Board.Ports.empty board.ports
 
+let make_streams (events : Board_protocol.events) =
+  let eq =
+    Pair.equal (Equal.option Url.equal) Stream.equal
+    |> Equal.list in
+  React.S.l3 ~eq (fun incoming outgoing config ->
+      List.map (fun (x : Stream.t) ->
+          let (set : Stream.t list) =
+            List.map (fun x -> x.stream) config.packers in
+          let stream =
+            List.find_opt (fun (o : Stream.t) ->
+                Stream.ID.equal o.id x.id) outgoing in
+          match stream with
+          | Some o ->
+             begin match o.orig_id with
+             | TSoIP uri ->
+                let (uri : Url.t) =
+                  { ip = uri.addr; port = uri.port } in
+                Some uri, x
+             | _ -> assert false (* unreachable *)
+             end
+          | None -> None, x) incoming)
+    events.in_streams events.out_streams events.config
+
 let create (b : Topology.topo_board) (streams : Stream.t list React.signal) _
       send _ base step : Board.t =
   let log_name = Boards.Board.log_name b in
@@ -44,24 +67,6 @@ let create (b : Topology.topo_board) (streams : Stream.t list React.signal) _
   let events, api, step =
     Board_protocol.SM.create logs send storage step streams b in
   let handlers = Board_api.handlers b.control api events in
-  let available =
-    let eq =
-      Pair.equal (Equal.option Url.equal) Stream.equal
-      |> Equal.list in
-    React.S.l2 ~eq (fun incoming outgoing ->
-        List.map (fun x ->
-            let open Stream in
-            let stream = List.find_opt (fun o -> ID.equal o.id x.id) outgoing in
-            match stream with
-            | Some o ->
-               begin match o.orig_id with
-               | TSoIP uri ->
-                  let (uri : Url.t) = { ip = uri.addr; port = uri.port } in
-                  Some uri, x
-               | _ -> assert false (* unreachable *)
-               end
-            | None -> None, x) incoming)
-      events.in_streams events.out_streams in
   let constraints =
     Board.{ state =
               React.S.l2 ~eq:equal_set_state (fun s d ->
@@ -82,7 +87,7 @@ let create (b : Topology.topo_board) (streams : Stream.t list React.signal) _
     match React.S.value events.state with
     | `Fine ->
        (try
-          List.map (fun ((url : Board.url), stream) ->
+          List.map (fun ((url : Url.t), stream) ->
               if List.fold_left (fun acc x ->
                      if not @@ Url.in_range x url
                      then false else acc) true constraints.range
@@ -112,7 +117,7 @@ let create (b : Topology.topo_board) (streams : Stream.t list React.signal) _
         Board.Ports.empty b.ports
   ; stream_handler =
       Some (object
-            method streams = available
+            method streams = make_streams events
             method set x = set x
             method constraints = constraints
           end)
