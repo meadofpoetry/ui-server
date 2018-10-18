@@ -270,8 +270,8 @@ let create (type a) (typ : a typ) db_conf config sock_in sock_out =
   let proc = None in
   let converter = Msg_conv.get_converter typ in
 
-  let socket = Exchange.create ~sock_in ~sock_out in
-  let send, recv = Exchange.get_send_and_recv socket converter in
+  let socket = Exchange.create typ converter ~sock_in ~sock_out in
+  let send, recv = Exchange.get_send_and_recv socket converter in (* TODO remove converter *)
 
   let merge v = Structure_conv.match_streams srcs v in
 

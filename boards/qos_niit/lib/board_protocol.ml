@@ -282,7 +282,6 @@ module Make(Logs : Logs.LOG) = struct
       let (({ status = { status; t2mi_mode; streams = ids; input; _ }
             ; _ } : group) as group) =
         Option.get_exn acc.group in
-      Logs.info (fun m -> m "%s" @@ show_input input);
       let timestamp = status.timestamp in
       let streams = React.S.value events.streams in
       (* Push raw streams *)
@@ -775,7 +774,7 @@ module Make(Logs : Logs.LOG) = struct
 
   let wait = fun ~eq t s v ->
     let open Lwt.Infix in
-    if eq (S.value s) v then (Logs.info (fun m -> m "already equal!"); Lwt.return v) else
+    if eq (S.value s) v then Lwt.return v else
       t ()
       >>= (fun () ->
       if eq (S.value s) v then Lwt.return v
@@ -783,7 +782,7 @@ module Make(Logs : Logs.LOG) = struct
                     ; Lwt_unix.timeout status_timeout])
       >>= (fun x  ->
       React.S.stop s;
-      if eq x v then (Logs.info (fun m -> m "applied!"); Lwt.return x)
+      if eq x v then Lwt.return x
       else Lwt.fail @@ Failure "got unexpected value")
 
   let create_api sources sender step_duration
