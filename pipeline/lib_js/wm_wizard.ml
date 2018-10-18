@@ -108,7 +108,7 @@ let parse_widget domain (signal : Structure.Streams.t React.signal) =
       match List.find_pred (fun (pid : Structure.pid) ->
           pid.pid = pid_) channel.pids with
       | None -> default
-      | Some pid -> "PID " ^ (string_of_int pid.pid) ^ (Printf.sprintf " 0x%04X" pid.pid)
+      | Some pid -> "PID " ^ (string_of_int pid.pid) ^ (Printf.sprintf " (0x%04X)" pid.pid)
 
 let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
   let calculate_cols_rows () =
