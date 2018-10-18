@@ -88,7 +88,7 @@ let parse_channel domain (signal : Structure.Streams.t React.signal) =
     | Some channel -> channel.service_name, channel.provider_name
 
 let parse_widget domain (signal : Structure.Streams.t React.signal) =
-  let default   = "", "" in
+  let default   = "" in
   let structure = React.S.value signal in
   let channel   = int_of_string @@ channel_of_domain domain in
   let pid_      = int_of_string @@ pid_of_domain domain in
@@ -105,7 +105,7 @@ let parse_widget domain (signal : Structure.Streams.t React.signal) =
       match List.find_pred (fun (pid : Structure.pid) ->
           pid.pid = pid_) channel.pids with
       | None -> default
-      | Some pid -> string_of_int pid.pid, pid.stream_type_name
+      | Some pid -> "PID " ^ (string_of_int pid.pid) ^ (Printf.sprintf " 0x%04X" pid.pid)
 
 let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
   let calculate_cols_rows () =
@@ -197,7 +197,12 @@ let position_widget ~(pos : Wm.position) (widget : Wm.widget) : Wm.widget =
 let make_widget (widget : string * Wm.widget) signal =
   let domain = (snd widget).domain in
   let typ    = (snd widget).type_ in
-  let text, secondary_text = parse_widget domain signal in
+  let text =
+    match typ with
+    | "video"    -> "Виджет видео"
+    | "soundbar" -> "Виджет аудио"
+    | _ -> "" in
+  let secondary_text = parse_widget domain signal in
   let checkbox = new Checkbox.t () in
   checkbox#set_id @@ domain ^ "|" ^ typ;
   checkbox,
