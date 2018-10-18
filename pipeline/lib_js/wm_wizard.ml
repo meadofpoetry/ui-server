@@ -59,43 +59,32 @@ let audio_position ~(cont_pos : Wm.position) ~video : Wm.position =
 
 let stream_of_domain domain = String.sub domain 1 (String.length domain - 7)
 
-let pid_of_domain domain = String.sub domain (String.length domain - 4) 4
+let num_of_domain domain = String.sub domain (String.length domain - 4) 4
 
-let parse_stream stream = stream
-  (* let open Common.Stream in
-   * let id = ID.of_string stream in
-   * let table_event, _ = Requests.HTTP.get_streams () in
-   * match List.fold_while (fun acc (_, _, l) ->
-   *     let found =
-   *       List.find_opt (fun (_, (stream : t)) ->
-   *           ID.equal stream.id id) l in
-   *     match found with
-   *     | Some x -> Some x, `Stop
-   *     | None   -> None, `Continue
-   *   ) None table with
-   * | None -> "Could not parse stream name: " ^ stream
-   * | Some (stream : t) ->
-   *     let url, stream = stream in
-   *     let url =
-   *       match url with
-   *       | Some url -> Some (Common.Url.to_string url) ^ " "
-   *       | None     -> None in
-   *     Source.to_string stream.source.info, url *)
+let parse_stream stream signal =
+  let default = "", "" in
+  let structure = React.S.value signal in
+  let id = Common.Stream.ID.of_string stream in
+  match List.find_pred (fun (x : Structure.packed) ->
+      Common.Stream.ID.equal x.structure.id id) structure with
+  | None -> default
+  | Some packed -> Common.Stream.Source.to_string packed.source.source.info,
+                   Common.Url.to_string packed.structure.uri
 
 let channel_of_domain domain (signal : Structure.Streams.t React.signal) =
   let default = "", "" in
-    let structure = React.S.value signal in
-    let pid = int_of_string @@ pid_of_domain domain in
-    let id = Common.Stream.ID.of_string @@ stream_of_domain domain in
-    match List.find_pred (fun (x : Structure.packed) ->
-        Common.Stream.ID.equal x.structure.id id) structure with
+  let structure = React.S.value signal in
+  let num = int_of_string @@ num_of_domain domain in
+  let id = Common.Stream.ID.of_string @@ stream_of_domain domain in
+  match List.find_pred (fun (x : Structure.packed) ->
+      Common.Stream.ID.equal x.structure.id id) structure with
+  | None -> default
+  | Some packed ->
+    match List.find_pred (fun (ch : Structure.channel) ->
+        ch.number = num)
+        packed.structure.channels with
     | None -> default
-    | Some packed ->
-      match List.find_pred (fun (ch : Structure.channel) ->
-          List.exists (fun (x : Structure.pid) ->
-              x.pid = pid) ch.pids ) packed.structure.channels with
-      | None -> default
-      | Some channel ->  channel.service_name, channel.provider_name
+    | Some channel -> channel.service_name, channel.provider_name
 
 let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
   let calculate_cols_rows () =
@@ -271,11 +260,11 @@ let make_streams (widgets : (string * Wm.widget) list) tree signal =
             @@ React.S.changes check#s_state
             |> ignore) chan_chbs;
         (*        let text, secondary_text = parse_stream stream in *)
-        let text = parse_stream stream in
+        let text, secondary_text = parse_stream stream signal in
         let stream_node =
           new Tree.Item.t
             ~text
- (*        ~secondary_text *)
+            ~secondary_text
             ~graphic:checkbox
             ~nested ~value:()
             () in
