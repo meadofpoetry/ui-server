@@ -393,12 +393,13 @@ let to_layout ~resolution ~widgets =
 let to_dialog (wm : Wm.t) =
   let open Lwt_result.Infix in
   let widgets =
-    List.filter_map (fun (widget : string * Wm.widget) ->
-        match ((snd widget).domain : Wm.domain) with
-        | (Nihil : Wm.domain) -> None
+    List.filter_map (fun (name, (widget : Wm.widget)) ->
+        match (widget.domain : Wm.domain) with
         | (Chan channel : Wm.domain) ->
-          Some (widget, ({ stream  = channel.stream
-                         ; channel = channel.channel } : channel))) wm.widgets in
+          Some ((name, widget),
+                ({ stream  = channel.stream
+                 ; channel = channel.channel } : channel))
+        | (Nihil : Wm.domain) -> None) wm.widgets in
   let e, push = React.E.create () in
   let checkboxes, push_ch = React.S.create [] in
   let tree    = new Tree.t ~items:[] () in
