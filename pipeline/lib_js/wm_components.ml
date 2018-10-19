@@ -114,12 +114,15 @@ module Item_info = struct
     let line_1 = new Hbox.t ~valign:`Center
       ~widgets:[item.icon; text#widget] () in
     let text =
-      match item.item.domain with
-      | Nihil       -> "Unknown"
-      | Chan domain ->
-        let stream = Common.Stream.ID.to_string domain.stream in
-        let channel = string_of_int domain.channel in
-        stream ^ " " ^ channel in
+      let typ =
+        match item.item.type_ with
+        | Video -> "Видео"
+        | Audio -> "Audio" in
+      let pid =
+        match item.item.pid with
+        | Some pid -> string_of_int pid
+        | None     -> "" in
+      Printf.sprintf "%s %s" typ pid in
     let line_2 = new Typography.Text.t ~text () in
     let line_3 = new Typography.Text.t ~text:item.item.description () in
     let lines  = [line_1#widget;line_2#widget;line_3#widget] in
