@@ -54,9 +54,11 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.t list) () =
       self#add_class Markup.animating_class;
       self#add_class Markup.open_class;
       self#_disable_scroll ();
-      let _ = timeout ~f:(fun _ -> self#remove_class Markup.animating_class)
-                ~timer:200.
-      in
+      let _ =
+        timeout
+          ~f:(fun _ ->
+              self#remove_class Markup.animating_class)
+          ~timer:200. in
       ()
 
     method show_await () = match React.S.value self#s_state with
@@ -66,8 +68,8 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.t list) () =
          let t, w = Lwt.wait () in
          self#show ();
          Lwt_react.E.next (React.S.changes self#s_state)
-         >|= (fun _ ->
-           Lwt.wakeup w ()) |> Lwt.ignore_result;
+         >|= (fun _ -> Lwt.wakeup w ())
+         |> Lwt.ignore_result;
          t
 
     method hide () =
@@ -75,10 +77,11 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.t list) () =
       self#add_class Markup.animating_class;
       self#remove_class Markup.open_class;
       self#_enable_scroll ();
-      let _ = timeout
-                ~f:(fun () -> self#remove_class Markup.animating_class)
-                ~timer:200.
-      in
+      let _ =
+        timeout
+          ~f:(fun () ->
+              self#remove_class Markup.animating_class)
+          ~timer:200. in
       ()
 
     method s_state : bool React.signal = state
@@ -90,7 +93,8 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.t list) () =
       Dom_html.document##.body##.classList##remove
         (Js.string Markup.scroll_lock_class)
 
-    method private get_delta ~x ~y ~touch = match self#anchor with
+    method private get_delta ~x ~y ~touch =
+      match self#anchor with
       | `Left   -> x - touch##.clientX
       | `Right  -> touch##.clientX - x
       | `Top    -> y - touch##.clientY
@@ -99,53 +103,61 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.t list) () =
     initializer
 
       self#listen_lwt Widget.Event.touchstart (fun e _ ->
-          let touch = Js.Optdef.get (e##.changedTouches##item 0) (fun () -> failwith "touch fail") in
-          let target = Js.Opt.get (e##.target) (fun () -> failwith "touch fail") in
+          let touch =
+            Js.Optdef.get
+              (e##.changedTouches##item 0)
+              (fun () -> failwith "touch fail") in
+          let target =
+            Js.Opt.get
+              (e##.target)
+              (fun () -> failwith "touch fail") in
           let is_anchor x = Equal.physical self#anchor x in
           if self#has_class Markup.open_class
-             && not ((is_anchor `Top ||is_anchor `Bottom) &&
-                       target##.scrollHeight > target##.offsetHeight)
-             && not ((is_anchor `Right || is_anchor `Left) &&
-                       target##.scrollWidth > target##.offsetWidth)
-          then
+          && not ((is_anchor `Top ||is_anchor `Bottom)
+                  && target##.scrollHeight > target##.offsetHeight)
+          && not ((is_anchor `Right || is_anchor `Left)
+                  && target##.scrollWidth > target##.offsetWidth) then
             ( let start_x, start_y = touch##.clientX, touch##.clientY in
               let move_l =
                 self#listen_lwt Widget.Event.touchmove
                   (fun e _ ->
-                    Dom_html.stopPropagation e;
-                    let touch =
-                      Js.Optdef.get (e##.changedTouches##item 0)
-                        (fun () -> failwith "touch fail") in
-                    let delta, transform = match self#anchor with
-                      | `Left ->
+                     Dom_html.stopPropagation e;
+                     let touch =
+                       Js.Optdef.get
+                         (e##.changedTouches##item 0)
+                         (fun () -> failwith "touch fail") in
+                     let delta, transform = match self#anchor with
+                       | `Left ->
                          let dx = start_x - touch##.clientX in
                          dx, "translateX(-"^(string_of_int dx)^"px)"
-                      | `Right ->
+                       | `Right ->
                          let dx = touch##.clientX - start_x in
                          dx, "translateX(" ^(string_of_int dx)^"px)"
-                      | `Top ->
+                       | `Top ->
                          let dy = start_y - touch##.clientY in
                          dy, "translateY(-"^(string_of_int dy)^"px)"
-                      | `Bottom ->
+                       | `Bottom ->
                          let dy = touch##.clientY - start_y in
-                         dy, "translateY(" ^(string_of_int dy)^"px)"
-                    in
-                    if delta > 0
-                    then self#drawer#style##.transform := Js.string transform;
-                    Lwt.return_unit)
-              in
+                         dy, "translateY(" ^(string_of_int dy)^"px)" in
+                     if delta > 0 then
+                       self#drawer#style##.transform := Js.string transform;
+                     Lwt.return_unit) in
               let end_ev e =
                 Lwt.cancel move_l;
                 Option.iter (fun x -> Dom_events.stop_listen x) end_l;
                 Option.iter (fun x -> Dom_events.stop_listen x) cancel_l;
-                let touch = Js.Optdef.get (e##.changedTouches##item 0)
-                              (fun () -> failwith "touch fail")
-                in
+                let touch =
+                  Js.Optdef.get
+                    (e##.changedTouches##item 0)
+                    (fun () -> failwith "touch fail") in
                 let delta = self#get_delta ~x:start_x ~y:start_y ~touch in
-                if delta > self#drawer#offset_width / 2
-                then ( self#hide ();
-                       self#drawer#style##.transform := Js.string "")
-                else self#drawer#style##.transform := Js.string ""
+                if delta > self#drawer#offset_width / 2 then
+                  begin
+                    self#hide ();
+                    self#drawer#style##.transform := Js.string ""
+                  end
+                else
+                  self#drawer#style##.transform := Js.string ""
               in
               Dom_events.listen Dom_html.window Dom_events.Typ.touchend
                 (fun _ e -> end_ev e; true)
@@ -153,22 +165,37 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.t list) () =
               Dom_events.listen Dom_html.window Dom_events.Typ.touchcancel
                 (fun _ e -> end_ev e; true)
               |> (fun x -> cancel_l <- Some x));
-          Lwt.return_unit) |> Lwt.ignore_result;
+          Lwt.return_unit)
+      |> Lwt.ignore_result;
 
-      Dom_events.listen Dom_html.window Dom_events.Typ.keydown (fun _ e ->
+      Dom_events.listen Dom_html.window Dom_events.Typ.keydown
+        (fun _ e ->
           match Utils.Keyboard_event.event_to_key e with
           | `Escape ->
-             if self#has_class Markup.open_class
-             then self#hide ();
-             true
-          | _ -> true) |> ignore;
+            if self#has_class Markup.open_class then
+              begin
+                match self#get_attribute "tabIndex" with
+                | Some x ->
+                  if int_of_string x > 0 then
+                    self#hide ()
+                | None   -> ();
+              end;
+            true
+          | _ -> true)
+      |> ignore;
 
       self#listen_click_lwt (fun e _ ->
-          let target = Js.Opt.get (e##.target) (fun () -> failwith "touch fail") in
+          let target =
+            Js.Opt.get
+              (e##.target)
+              (fun () -> failwith "touch fail") in
           if self#has_class Markup.open_class
-             && Js.to_bool @@ target##.classList##contains (Js.string Markup.base_class)
-          then self#hide ();
-          Lwt.return_unit) |> Lwt.ignore_result;
+          && Js.to_bool
+             @@ target##.classList##contains
+               (Js.string Markup.base_class) then
+            self#hide ();
+          Lwt.return_unit)
+      |> Lwt.ignore_result;
 
       self#add_or_remove_class animating Markup.animating_class;
       self#set_anchor anchor

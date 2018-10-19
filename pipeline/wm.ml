@@ -19,6 +19,12 @@ type widget_type = Video
 let name = "wm"
 
 type widget_type = Video | Audio [@@deriving eq]
+let widget_type_equal typ_1 typ_2 =
+  if typ_1 = Video && typ_2 = Video
+  || typ_1 = Audio && typ_2 = Audio then
+    true
+  else
+    false
 let widget_type_of_yojson = function
   | `String "Video" -> Ok(Video)
   | `String "Audio" -> Ok(Audio)
@@ -26,9 +32,10 @@ let widget_type_of_yojson = function
 let widget_type_to_yojson = function
   | Video -> `String "Video"
   | Audio -> `String "Audio"
-                         
+
 type domain = Nihil : domain
-            | Chan : { stream: Common.Stream.ID.t; channel: int } -> domain
+            | Chan  : { stream  : Common.Stream.ID.t
+                      ; channel : int } -> domain
             [@@deriving eq]
 let domain_of_yojson = function
   | `String "Nihil" -> Ok(Nihil)

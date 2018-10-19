@@ -112,8 +112,15 @@ module Item_info = struct
   let make_widget_info (item:Wm.widget Wm_types.wm_item) =
     let text   = new Typography.Text.t ~text:item.name () in
     let line_1 = new Hbox.t ~valign:`Center
-                   ~widgets:[item.icon; text#widget] () in
-    let line_2 = new Typography.Text.t ~text:item.item.domain () in
+      ~widgets:[item.icon; text#widget] () in
+    let text =
+      match item.item.domain with
+      | Nihil       -> "Unknown"
+      | Chan domain ->
+        let stream = Common.Stream.ID.to_string domain.stream in
+        let channel = string_of_int domain.channel in
+        stream ^ " " ^ channel in
+    let line_2 = new Typography.Text.t ~text () in
     let line_3 = new Typography.Text.t ~text:item.item.description () in
     let lines  = [line_1#widget;line_2#widget;line_3#widget] in
     let box    = new Vbox.t ~widgets:lines () in
@@ -164,10 +171,10 @@ module Item_properties = struct
 
   let make_widget_props (t:t_widg React.signal) =
     match (React.S.value t).item.type_ with
-    | "video" -> make_video_props t
-    | "audio" -> make_audio_props t
-    | _       -> let widget = new Typography.Text.t ~text:"Unknown" () in
-                 Wm_types.({ widget = widget#widget; actions = [] })
+    | Video -> make_video_props t
+    | Audio -> make_audio_props t
+ (*   | _     -> let widget = new Typography.Text.t ~text:"Unknown" () in
+      Wm_types.({ widget = widget#widget; actions = [] })*)
 
 end
 

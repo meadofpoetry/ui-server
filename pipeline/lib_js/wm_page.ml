@@ -129,9 +129,8 @@ module Widget_item : Item with type item = Wm.widget = struct
     let path =
       let open Icon.SVG.Path in
       match v.type_ with
-      | "video" -> video
-      | "audio" -> music
-      | _ -> help in
+      | Video -> video
+      | Audio -> music in
     let t =
       { icon = Icon.SVG.(create_simple path)#widget
       ; name = k
@@ -274,29 +273,29 @@ let switch ~grid
             ~on_cancel () in
   s_state_push (`Widget w)
 
-let make_containers (widgets : (string * Wm.widget) list) =
-  let open Wm_container.Container_item in
-  let open Wm_wizard in
-  let domains = Find.channels widgets in
-  List.map (fun domain ->
-      let widgets =
-        List.filter (fun (_, (widget : Wm.widget)) ->
-            String.equal widget.domain domain
-          ) widgets in
-      let name, _ = "channel", "provider" in
-      ({ icon = Icon.SVG.(create_simple Path.contain)#widget
-       ; name
-       ; unique = true
-       ; min_size = None
-       ; item =
-           { position = { left   = 0
-                        ; right  = 0
-                        ; top    = 0
-                        ; bottom = 0 }
-           ; widgets
-           }
-       } : t)
-    ) domains
+(* let make_containers (widgets : (string * Wm.widget) list) =
+ *   let open Wm_container.Container_item in
+ *   let open Wm_wizard in
+ *   let domains = Find.channels widgets in
+ *   List.map (fun domain ->
+ *       let widgets =
+ *         List.filter (fun (_, (widget : Wm.widget)) ->
+ *             String.equal widget.domain domain
+ *           ) widgets in
+ *       let name, _ = "channel", "provider" in
+ *       ({ icon = Icon.SVG.(create_simple Path.contain)#widget
+ *        ; name
+ *        ; unique = true
+ *        ; min_size = None
+ *        ; item =
+ *            { position = { left   = 0
+ *                         ; right  = 0
+ *                         ; top    = 0
+ *                         ; bottom = 0 }
+ *            ; widgets
+ *            }
+ *        } : t)
+ *     ) domains *)
 
 let create ~(init: Wm.t)
       ~(post: Wm.t -> unit Lwt.t)
@@ -325,13 +324,13 @@ let create ~(init: Wm.t)
      ; min_size = None
      ; item =
          { position = { left = 0; right = 0; top = 0; bottom = 0 }
-         ; widgets = []
+         ; widgets  = []
          }
      } : Container_item.t) in
-  let containers =
-    match make_containers init.widgets with
-    | [] -> [new_cont]
-    | l  -> l in
+  let containers = [new_cont] in
+    (* match make_containers init.widgets with
+     * | [] -> [new_cont]
+     * | l  -> l in *)
   let s_cc, s_cc_push = React.S.create containers in
   let wz_dlg, wz_e, wz_show = Wm_wizard.to_dialog init in
   let resolution = init.resolution in

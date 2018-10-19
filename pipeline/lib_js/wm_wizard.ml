@@ -3,71 +3,66 @@ open Components
 open Wm_components
 open Common.Stream
 
+type channel = { stream  : ID.t
+               ; channel : int }
+
 let split_three l =
   List.fold_left (fun (first, second, third) (a, b, c) ->
         a :: first, b :: second, c :: third) ([], [], []) l
 
 module Parse_domain = struct
 
-  let stream_and_channel domain = String.sub domain 1 (String.length domain - 7)
+  let stream = function
+    | (Nihil : Wm.domain)       -> failwith "Widget domain is empty"
+    | (Chan domain : Wm.domain) -> domain.stream
 
-  let stream domain = String.sub domain 1 (String.length domain - 13)
-
-  let channel domain = String.sub domain (String.length domain - 10) 4
-
-  let pid domain = String.sub domain (String.length domain - 4) 4
+  let channel = function
+    | (Nihil : Wm.domain)       -> failwith "Widget domain is empty"
+    | (Chan domain : Wm.domain) -> domain.channel
 
 end
 
 module Parse_struct = struct
 
-  let parse_stream stream (signal : Structure.packed list React.signal) =
-    let structure = React.S.value signal in
-    let id = Common.Stream.ID.of_string stream in
+  let parse_stream id (signal : Structure.packed list React.signal) =
     let packed =
       List.find_pred_exn (fun (x : Structure.packed) ->
-          Common.Stream.ID.equal x.structure.id id) structure in
+          Common.Stream.ID.equal x.structure.id id) (React.S.value signal) in
     Common.Stream.Source.to_string packed.source.source.info,
     Common.Url.to_string packed.structure.uri, packed
 
-  let parse_channel domain (packed : Structure.packed) =
-    let channel_ = int_of_string @@ Parse_domain.channel domain in
+  let parse_channel (channel_ : int) (packed : Structure.packed) =
     let channel  =
       List.find_pred_exn (fun (ch : Structure.channel) ->
           ch.number = channel_)
         packed.structure.channels in
     channel.service_name, channel.provider_name, channel
 
-  let parse_widget domain (channel : Structure.channel) =
-    let pid_ = int_of_string @@ Parse_domain.pid domain in
+  let parse_widget pid_ (channel : Structure.channel) =
     let pid  =
       List.find_pred_exn (fun (pid : Structure.pid) ->
-        pid.pid = pid_) channel.pids in
+          pid.pid = pid_) channel.pids in
     "PID " ^ (string_of_int pid.pid) ^ (Printf.sprintf " (0x%04X)" pid.pid)
 
 end
 
 module Find = struct
 
-let channels (widgets : (string * Wm.widget) list)=
-    List.fold_left (fun acc (_, (wdg : Wm.widget)) ->
-      if List.exists (fun domain ->
-          String.equal
-            (Parse_domain.stream_and_channel domain)
-            (Parse_domain.stream_and_channel wdg.domain)) acc then
+  let channels (widgets : ((string * Wm.widget) * channel) list) =
+    List.fold_left (fun acc (widget : ((string * Wm.widget) * channel)) ->
+        let channel_ = (snd widget).channel in
+        if List.exists (fun channel ->
+            channel_ = channel.channel) acc then
           acc
         else
-          wdg.domain :: acc) [] widgets
+          (snd widget) :: acc) [] widgets
     |> List.rev
 
-let widget ~typ ~widgets ~domain =
-  let find_with_typ typ =
-    List.find_pred (fun (_, (x : Wm.widget)) ->
-        String.equal x.domain domain && String.equal x.type_ typ) widgets in
-  match typ with
-  | `Soundbar -> find_with_typ "soundbar"
-  | `Video    -> find_with_typ "video"
-  | _         -> None
+  let widget ~(widgets : ((string * Wm.widget) * channel) list) ~(typ : Wm.widget_type) ~channel =
+    List.find_pred (fun ((_, (widget : Wm.widget)), wdg_channel) ->
+        Common.Stream.ID.equal channel.stream wdg_channel.stream
+        && channel.channel = wdg_channel.channel
+        && Wm.widget_type_equal widget.type_ typ) widgets
 
 end
 
@@ -196,34 +191,37 @@ end
 
 module Branches = struct
   (* makes a checkbox with id of domains and typ, and a tree item named by channel*)
-  let make_widget (widget : string * Wm.widget) signal =
-    let domain = (snd widget).domain in
+  let make_widget (widget : (string * Wm.widget) * channel) channel_struct =
+    let widget, channel = widget in
     let typ    = (snd widget).type_ in
     let text =
       match typ with
-      | "video"    -> "Виджет видео"
-      | "soundbar" -> "Виджет аудио"
-      | _ -> "" in
-    let secondary_text = Parse_struct.parse_widget domain signal in
+      | Video -> "Виджет видео"
+      | Audio -> "Виджет аудио" in
+    let secondary_text =
+      match (snd widget).pid with
+      | Some pid -> Some (Parse_struct.parse_widget pid channel_struct)
+      | None     -> None in
     let checkbox = new Checkbox.t () in
-    checkbox#set_id domain;
+    checkbox#set_id (string_of_int channel.channel);
     checkbox,
-    new Tree.Item.t ~text ~secondary_text  ~graphic:checkbox ~value:() ()
+    new Tree.Item.t ~text ?secondary_text  ~graphic:checkbox ~value:() ()
 
   (* makes all the widgets checkboxes with IDs, checkboxes of channels Tree items,
    * and a Tree.t containing all given channels *)
-  let make_channels (widgets : (string * Wm.widget) list) (packed : Structure.packed) =
-    let domains  = Find.channels widgets in
-    let channels =
-      List.map (fun domain -> Parse_struct.parse_channel domain packed, domain) domains in
+  let make_channels (widgets : ((string * Wm.widget) * channel) list) (packed : Structure.packed) =
+    let channels  = Find.channels widgets in
     let wdg_chbs, ch_chbs, items =
-      List.map (fun (channel, domain) ->
-          let text, secondary_text, channel_struct = channel in
+      List.map (fun channel ->
+          let channel, stream = channel.channel, channel.stream in
+          let channel_struct =
+            List.find_pred_exn (fun (ch : Structure.channel) ->
+                channel = ch.number) packed.structure.channels in
+          let text, secondary_text = channel_struct.service_name, string_of_int channel in
           let widgets =
-            List.filter (fun (_, (wdg : Wm.widget)) ->
-                String.equal
-                  (Parse_domain.stream_and_channel domain)
-                  (Parse_domain.stream_and_channel wdg.domain)) widgets in
+            List.filter (fun (_, (ch : channel)) ->
+                Common.Stream.ID.equal ch.stream stream
+                && channel = ch.channel) widgets in
           let checkboxes, wds =
             List.split @@ List.map (fun widget -> make_widget widget channel_struct) widgets in
           let checkbox = new Checkbox.t () in
@@ -250,21 +248,21 @@ module Branches = struct
     (List.concat wdg_chbs), ch_chbs, new Tree.t ~items ()
 
   (* makes all the widget checkboxes with IDs, and a Tree.t containing all streams *)
-  let make_streams (widgets : (string * Wm.widget) list) (tree : 'a Tree.t) signal =
+  let make_streams (widgets : ((string * Wm.widget) * channel) list) (tree : 'a Tree.t) signal =
     let streams =
-      List.fold_left (fun acc (x : string * Wm.widget) ->
-          let stream = Parse_domain.stream (snd x).domain in
-          if List.exists (fun x ->
-              String.equal stream x) acc then
+      List.fold_left (fun acc (x : (string * Wm.widget) * channel) ->
+          let channel = snd x in
+          if List.exists (fun stream ->
+              Common.Stream.ID.equal channel.stream stream) acc then
             acc
           else
-            stream :: acc) [] widgets in
+            channel.stream :: acc) [] widgets in
     let streams_of_widgets =
       List.map (fun stream ->
           let wds =
-            List.filter (fun (x : string * Wm.widget) ->
-                let wdg_stream = Parse_domain.stream (snd x).domain in
-                String.equal stream wdg_stream) widgets in
+            List.filter (fun (x : (string * Wm.widget) * channel) ->
+                let wdg_stream = (snd x).stream in
+                Common.Stream.ID.equal wdg_stream stream) widgets in
           stream, wds) streams in
     let checkboxes, items =
       List.fold_left (fun acc (stream, wds) ->
@@ -272,7 +270,7 @@ module Branches = struct
             Parse_struct.parse_stream stream signal in
           let wdg_chbs, chan_chbs, nested = make_channels wds packed in
           let checkbox = new Checkbox.t () in
-          checkbox#set_id stream;
+          checkbox#set_id @@ Common.Stream.ID.to_string stream;
           React.E.map (fun checked ->
               if checked then
                 List.iter (fun ch -> ch#set_checked true) chan_chbs
@@ -300,17 +298,18 @@ module Branches = struct
     checkboxes
 
 end
-(* makes a list of containers with widgets, calculates its positions *)
+
+(* makes a list of containers with given widgets, calculates its positions *)
 let to_layout ~resolution ~widgets =
   let ar_x, ar_y = 16, 9 in
-  let domains    = Find.channels widgets in
-  let num        = List.length domains in
+  let channels   = Find.channels widgets in
+  let num        = List.length channels in
   if num <> 0 then
     let cols, rows =
       Positioning.get_items_in_row ~resolution ~item_ar:(ar_x, ar_y) num in
     let cont_std_w = fst resolution / cols in
     let cont_std_h = (ar_y * cont_std_w) / ar_x in
-    let remain = List.length domains - (cols * (rows - 1)) in
+    let remain = num - (cols * (rows - 1)) in
     (* 'greatest' is the number of containers we should increase in size,
      * 'multiplier' is the number to multiply width and height on *)
     let greatest, multiplier =
@@ -324,12 +323,12 @@ let to_layout ~resolution ~widgets =
           cols - remain, 2
       else
         remain, 1 in
-    List.fold_left (fun acc domain ->
+    List.fold_left (fun acc channel ->
         let i, acc  = acc in
         let row_num = i / cols in
-        let channel, _ = "channel", "provider" in
+        let ch, _   = "channel", "provider" in
         let cont_w  =
-          if i + 1 > List.length domains - remain then
+          if i + 1 > num - remain then
             fst resolution / cols * multiplier
           else
             fst resolution / cols in
@@ -349,15 +348,15 @@ let to_layout ~resolution ~widgets =
           ; right  = cont_x + cont_w
           ; bottom = cont_y + cont_h
           } in
-        let audio = Find.widget ~typ:`Soundbar ~widgets ~domain in
-        let video = Find.widget ~typ:`Video ~widgets ~domain in
+        let audio = Find.widget ~typ:Audio ~widgets ~channel in
+        let video = Find.widget ~typ:Video ~widgets ~channel in
         let video_wdg =
           match video with
-          | Some video ->
+          | Some (video, channel) ->
             let video_pos =
               match audio with
               | Some _ -> Positioning.video_position ~audio:`With_audio ~cont_pos
-              | None  ->  Positioning.video_position ~audio:`Without_audio ~cont_pos in
+              | None   -> Positioning.video_position ~audio:`Without_audio ~cont_pos in
             let video_wdg =
               (* actually we should use position_widget here,
                * but it leaves more blank space *)
@@ -367,7 +366,7 @@ let to_layout ~resolution ~widgets =
           | None -> None in
         let audio_wdg =
           match audio with
-          | Some audio ->
+          | Some (audio, channel) ->
             let audio_pos =
               match video with
               | Some _ -> Positioning.audio_position ~video:`With_video ~cont_pos
@@ -388,12 +387,12 @@ let to_layout ~resolution ~widgets =
             | [] -> None
             | widgets -> Some ({ position = cont_pos; widgets } : Wm.container)
           else
-            (Printf.printf "Error building container %s!\n" channel;
+            (Printf.printf "Error building container %s!\n" ch;
              None) in
         match container with
-        | Some x -> succ i, (channel, x) :: acc
+        | Some x -> succ i, (ch, x) :: acc
         | None   -> i, acc)
-      (0, []) domains
+      (0, []) channels
     |> snd
   else
     []
@@ -405,7 +404,14 @@ let to_layout ~resolution ~widgets =
  * returns dialog, react event and a fun showing dialog *)
 let to_dialog (wm : Wm.t) =
   let open Lwt_result.Infix in
-  let e, push   = React.E.create () in
+  let widgets =
+    List.filter_map (fun (widget : string * Wm.widget) ->
+        match (snd widget).domain with
+        | Nihil        -> None
+        | Chan channel ->
+          Some (widget, ({ stream = channel.stream
+                         ; channel = channel.channel } : channel))) wm.widgets in
+  let e, push = React.E.create () in
   let checkboxes, push_ch = React.S.create [] in
   let tree    = new Tree.t ~items:[] () in
   let thread =
@@ -413,12 +419,12 @@ let to_dialog (wm : Wm.t) =
   >|= (fun init ->
     let e, _ = Requests.get_structure_socket () in
     let signal = React.S.hold init e in
-    push_ch @@ Branches.make_streams wm.widgets tree signal;
+    push_ch @@ Branches.make_streams widgets tree signal;
     tree#widget)
   |> Lwt_result.map_err Api_js.Requests.err_to_string in
   let loader = Ui_templates.Loader.create_widget_loader thread in
-  let box        = new Vbox.t ~widgets:[loader#widget] () in
-  let dialog     =
+  let box    = new Vbox.t ~widgets:[loader#widget] () in
+  let dialog =
     new Dialog.t
       ~title:"Выберите виджеты"
       ~scrollable:true
@@ -438,9 +444,10 @@ let to_dialog (wm : Wm.t) =
                   else
                     x#id :: acc) [] (React.S.value checkboxes) in
             let widgets =
-              List.fold_left (fun acc domain ->
-                  match List.find_pred (fun (name, (wdg : Wm.widget)) ->
-                      String.equal domain wdg.domain) wm.widgets with
+              List.fold_left (fun acc channel ->
+                  match List.find_pred (fun (wdg : (string * Wm.widget) * channel) ->
+                      let ch = snd wdg in
+                      int_of_string channel = ch.channel) widgets with
                   | Some x -> x :: acc
                   | None   -> acc) [] wds in
             Lwt.return
