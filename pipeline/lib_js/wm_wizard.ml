@@ -10,18 +10,6 @@ let split_three l =
   List.fold_left (fun (first, second, third) (a, b, c) ->
         a :: first, b :: second, c :: third) ([], [], []) l
 
-module Parse_domain = struct
-
-  let stream = function
-    | (Nihil : Wm.domain)       -> failwith "Widget domain is empty"
-    | (Chan domain : Wm.domain) -> domain.stream
-
-  let channel = function
-    | (Nihil : Wm.domain)       -> failwith "Widget domain is empty"
-    | (Chan domain : Wm.domain) -> domain.channel
-
-end
-
 module Parse_struct = struct
 
   let parse_stream id (signal : Structure.packed list React.signal) =
@@ -404,24 +392,30 @@ let to_layout ~resolution ~widgets =
  * returns dialog, react event and a fun showing dialog *)
 let to_dialog (wm : Wm.t) =
   let open Lwt_result.Infix in
-  let widgets =
-    List.filter_map (fun (widget : string * Wm.widget) ->
-        match (snd widget).domain with
+  let map_widgets (widgets : (string * Wm.widget) list) : ((string * Wm.widget) * Wm.domain) list =
+    List.map (fun (widget : string * Wm.widget) ->
+        let domain = (snd widget).domain in
+        widget, domain) widgets in
+  let filter_widgets (widgets : ((string * Wm.widget) * Wm.domain) list) : ((string * Wm.widget) * channel) list =
+    List.filter_map (fun (widget : (string * Wm.widget) * Wm.domain) ->
+        match (snd widget : Wm.domain) with
         | Nihil        -> None
         | Chan channel ->
-          Some (widget, ({ stream = channel.stream
-                         ; channel = channel.channel } : channel))) wm.widgets in
+          Some (fst widget, ({ stream  = channel.stream
+                             ; channel = channel.channel } : channel))) widgets in
+  let widgets = map_widgets wm.widgets in
+  let widgets = filter_widgets widgets in
   let e, push = React.E.create () in
   let checkboxes, push_ch = React.S.create [] in
   let tree    = new Tree.t ~items:[] () in
   let thread =
     Requests.get_structure ()
-  >|= (fun init ->
-    let e, _ = Requests.get_structure_socket () in
-    let signal = React.S.hold init e in
-    push_ch @@ Branches.make_streams widgets tree signal;
-    tree#widget)
-  |> Lwt_result.map_err Api_js.Requests.err_to_string in
+    >|= (fun init ->
+        let e, _ = Requests.get_structure_socket () in
+        let signal = React.S.hold init e in
+        push_ch @@ Branches.make_streams widgets tree signal;
+        tree#widget)
+    |> Lwt_result.map_err Api_js.Requests.err_to_string in
   let loader = Ui_templates.Loader.create_widget_loader thread in
   let box    = new Vbox.t ~widgets:[loader#widget] () in
   let dialog =
@@ -436,21 +430,21 @@ let to_dialog (wm : Wm.t) =
   let show = fun () ->
     Lwt.bind (dialog#show_await ())
       (function
-          | `Accept ->
-            let wds =
-              List.fold_left (fun acc x ->
-                  if not @@ x#checked then
-                    acc
-                  else
-                    x#id :: acc) [] (React.S.value checkboxes) in
-            let widgets =
-              List.fold_left (fun acc channel ->
-                  match List.find_pred (fun (wdg : (string * Wm.widget) * channel) ->
-                      let ch = snd wdg in
-                      int_of_string channel = ch.channel) widgets with
-                  | Some x -> x :: acc
-                  | None   -> acc) [] wds in
-            Lwt.return
-              (push @@ to_layout ~resolution:wm.resolution ~widgets)
-          | `Cancel -> Lwt.return ()) in
+        | `Accept ->
+          let wds =
+            List.fold_left (fun acc x ->
+                if not @@ x#checked then
+                  acc
+                else
+                  x#id :: acc) [] (React.S.value checkboxes) in
+          let widgets =
+            List.fold_left (fun acc channel ->
+                match List.find_pred (fun (wdg : (string * Wm.widget) * channel) ->
+                    let ch = snd wdg in
+                    int_of_string channel = ch.channel) widgets with
+                | Some x -> x :: acc
+                | None   -> acc) [] wds in
+          Lwt.return
+            (push @@ to_layout ~resolution:wm.resolution ~widgets)
+        | `Cancel -> Lwt.return ()) in
   dialog, e, show
