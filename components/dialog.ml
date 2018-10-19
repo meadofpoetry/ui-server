@@ -3,7 +3,14 @@ open Tyxml_js
 
 type action =
   [ `Accept
-  | `Cancel ]
+  | `Cancel
+  ]
+
+let compare_action a b =
+  match a, b with
+  | `Accept, `Accept | `Cancel, `Cancel -> 0
+  | `Accept, _ -> 1
+  | `Cancel, _ -> -1
 
 module Markup = Components_markup.Dialog.Make(Xml)(Svg)(Html)
 
@@ -11,17 +18,19 @@ let animation_time_ms = 120.
 
 module Action = struct
 
-  class t ?ripple ~typ ~label () = object
-    inherit Button.t ?ripple ~typ:`Button ~label () as super
+  type t =
+    { button : Widget.t
+    ; typ : action
+    }
 
-    method typ : action = typ
-
-    initializer
-      super#add_class Markup.Footer.button_class;
-      super#add_class (match typ with
-                       | `Accept -> Markup.Footer.accept_button_class
-                       | `Cancel -> Markup.Footer.cancel_button_class)
-  end
+  let make ~typ (button : #Button.t) =
+    button#add_class Markup.Footer.button_class;
+    button#add_class (match typ with
+                      | `Accept -> Markup.Footer.accept_button_class
+                      | `Cancel -> Markup.Footer.cancel_button_class);
+    { button = button#widget
+    ; typ
+    }
 
 end
 
@@ -65,22 +74,44 @@ end
 
 module Footer = struct
 
-  class t ~(actions:Action.t list) () =
-    let elt = Markup.Footer.create ~children:(List.map Widget.to_markup actions) ()
-              |> Tyxml_js.To_dom.of_footer in
+  class t ?(sort_actions = true) ~(actions : Action.t list) () =
+    let actions =
+      if not sort_actions then actions else
+        List.sort (fun (a : Action.t) b ->
+            compare_action a.typ b.typ) actions in
+    let elt =
+      Markup.Footer.create
+        ~children:(List.map (fun (x : Action.t) ->
+                       Widget.to_markup x.button) actions) ()
+      |> To_dom.of_footer in
     object
-      val mutable actions = actions
-      inherit Widget.t elt ()
-      method actions = actions
+
+      val mutable _actions = actions
+      inherit Widget.t elt () as super
+
+      method destroy () : unit =
+        super#destroy ();
+        List.iter (fun (x : Action.t) ->
+            x.button#destroy ()) _actions
+
+      method actions = _actions
+
     end
 
 end
 
-class t ?scrollable ?title ?(actions : Action.t list option) ~content () =
-
-  let header_widget = Option.map (fun x -> new Header.t ~title:x ()) title in
-  let body_widget = new Body.t ?scrollable ~content () in
-  let footer_widget = Option.map (fun x -> new Footer.t ~actions:x ()) actions in
+class t ?scrollable
+        ?title
+        ?sort_actions
+        ?(actions : Action.t list option)
+        ~content () =
+  let header_widget =
+    Option.map (fun x -> new Header.t ~title:x ()) title in
+  let body_widget =
+    new Body.t ?scrollable ~content () in
+  let footer_widget =
+    Option.map (fun x -> new Footer.t ?sort_actions ~actions:x ())
+      actions in
 
   let content =
     List.empty
@@ -108,8 +139,39 @@ class t ?scrollable ?title ?(actions : Action.t list option) ~content () =
     val mutable _opened = false
     val mutable _keydown = None
     val mutable _bd_click = None
+    val mutable _action_listeners = []
 
     inherit Widget.t elt () as super
+
+    method init () : unit =
+      List.iter (fun (a : Action.t) ->
+          match a.typ with
+          | `Accept ->
+             let l =
+               a.button#listen_click_lwt (fun _ _ ->
+                   self#_accept (); Lwt.return_unit) in
+             _action_listeners <- l :: _action_listeners;
+          | `Cancel ->
+             let l =
+               a.button#listen_click_lwt (fun _ _ ->
+                   self#_cancel (); Lwt.return_unit) in
+             _action_listeners <- l :: _action_listeners)
+      @@ Option.get_or ~default:[] actions
+
+    method destroy () : unit =
+      super#destroy ();
+      Option.iter (fun x -> x#destroy ()) header_widget;
+      body_widget#destroy ();
+      Option.iter (fun x -> x#destroy ()) footer_widget;
+      if self#opened then self#hide ();
+      self#remove_class Markup.animating_class;
+      self#_clear_timer ();
+      List.iter Lwt.cancel _action_listeners;
+      _action_listeners <- [];
+      Option.iter Lwt.cancel _bd_click;
+      _bd_click <- None;
+      Option.iter Dom_events.stop_listen _keydown;
+      _keydown <- None
 
     method header = header_widget
     method body = body_widget
@@ -151,12 +213,6 @@ class t ?scrollable ?title ?(actions : Action.t list option) ~content () =
       self#add_class Markup.animating_class;
       self#remove_class Markup.open_class
 
-    method! destroy () =
-      super#destroy ();
-      if self#opened then self#hide ();
-      self#remove_class Markup.animating_class;
-      self#_clear_timer ()
-
     method e_action : action React.event = e_action
 
     (* Private methods *)
@@ -175,25 +231,17 @@ class t ?scrollable ?title ?(actions : Action.t list option) ~content () =
       if x then class_list##add _class
       else class_list##remove _class
 
-    method private _clear_timer () = match _timer with
+    method private _clear_timer () =
+      begin match _timer with
       | None -> ()
       | Some t -> Dom_html.clearTimeout t
+      end;
+      _timer <- None
 
     method private _set_timer () =
       (* TODO add focus on accept if animation ended and dialog is opened *)
       let f = fun () -> self#remove_class Markup.animating_class in
       Dom_html.setTimeout f animation_time_ms
       |> fun x -> _timer <- Some x
-
-    initializer
-      List.iter (fun (a : Action.t) ->
-          match a#typ with
-          | `Accept -> a#listen_click_lwt (fun _ _ ->
-                           self#_accept (); Lwt.return_unit)
-                       |> Lwt.ignore_result
-          | `Cancel -> a#listen_click_lwt (fun _ _ ->
-                           self#_cancel (); Lwt.return_unit)
-                       |> Lwt.ignore_result)
-      @@ Option.get_or ~default:[] actions
 
   end

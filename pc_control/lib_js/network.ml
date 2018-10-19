@@ -270,11 +270,13 @@ let make_ipv4 (ipv4 : Network_config.ipv4_conf) =
   ipv4_sets, signal, set
 
 let make_card is_root post (config : Network_config.t) =
+  let cancel = new Button.t ~label:"Отмена" () in
+  let accept = new Button.t ~label:"Применить" () in
   let warning =
     new Dialog.t
       ~title:"Внимание!"
-      ~actions:[ new Dialog.Action.t ~typ:`Cancel ~label:"Отмена" ()
-               ; new Dialog.Action.t ~typ:`Accept ~label:"Применить" () ]
+      ~actions:[ Dialog.Action.make ~typ:`Cancel cancel
+               ; Dialog.Action.make ~typ:`Accept accept ]
       ~content:(`String "Применение настроек может привести к разрыву соединения. \
                          Вы уверены, что хотите применить данные настройки?") ()
   in

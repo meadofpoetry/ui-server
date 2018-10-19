@@ -12,37 +12,37 @@ module Set = struct
           (signal:'a option React.signal)
           (setter:('a -> 'b Lwt.t)) () =
   object(self)
+
     val _loader = new Circular_progress.t ~size:25 ~indeterminate:true ()
-    val mutable _thread : unit Lwt.t option = None
-    inherit Button.t ?typ ?style ?icon ?dense ?compact ?ripple ~label ()
+    val mutable _click_listener = None
+
+    inherit Button.t ?typ ?style ?icon ?dense
+              ?compact ?ripple ~label () as super
+
+    method init () : unit =
+      super#init ();
+      self#add_class base_class;
+      React.S.map (function Some _ -> self#set_disabled false
+                          | None   -> self#set_disabled true)
+        signal |> self#_keep_s;
+      let listener =
+        self#listen_click_lwt (fun _ _ ->
+            match React.S.value signal with
+            | Some v ->
+               self#add_class busy_class;
+               Dom.appendChild self#root _loader#root;
+               Lwt.try_bind
+                 (fun () -> setter v)
+                 (fun _ -> self#finalize ())
+                 (fun _ -> self#finalize ())
+            | None -> Lwt.return_unit) in
+      _click_listener <- Some listener
 
     method private finalize () : unit Lwt.t =
       self#remove_class busy_class;
       self#remove_child _loader;
       Lwt.return_unit
 
-    initializer
-      React.S.map (function Some _ -> self#set_disabled false
-                          | None   -> self#set_disabled true)
-        signal |> self#_keep_s;
-      Dom_events.listen self#root Dom_events.Typ.click (fun _ _ ->
-          let is_finished = match _thread with
-            | Some t -> (match Lwt.state t with
-                         | Sleep -> false
-                         | _     -> true)
-            | None   -> true in
-          (match is_finished, React.S.value signal with
-           | true, Some v ->
-              self#add_class busy_class;
-              Dom.appendChild self#root _loader#root;
-              Lwt.try_bind
-                (fun () -> setter v)
-                (fun _ -> self#finalize ())
-                (fun _ -> self#finalize ())
-              |> fun t -> _thread <- Some t;
-           | _ -> ());
-          true) |> ignore;
-      self#add_class base_class
   end
 
 end

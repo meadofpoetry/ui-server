@@ -7,25 +7,25 @@ module Make(Xml : Xml_sigs.NoWrap)
            and module Svg := Svg) = struct
   open Html
 
-  let base_class            = "mdc-list"
-  let dense_class           = CSS.add_modifier base_class "dense"
-  let two_line_class        = CSS.add_modifier base_class "two-line"
-  let avatar_class          = CSS.add_modifier base_class "avatar-list"
+  let base_class = "mdc-list"
+  let dense_class = CSS.add_modifier base_class "dense"
+  let two_line_class = CSS.add_modifier base_class "two-line"
+  let avatar_class = CSS.add_modifier base_class "avatar-list"
   let non_interactive_class = CSS.add_modifier base_class "non-interactive"
 
   module Item = struct
 
-    let _class               = "mdc-list-item"
-    let text_class           = CSS.add_element _class "text"
-    let primary_text_class   = CSS.add_element _class "primary-text"
+    let _class = "mdc-list-item"
+    let text_class = CSS.add_element _class "text"
+    let primary_text_class = CSS.add_element _class "primary-text"
     let secondary_text_class = CSS.add_element _class "secondary-text"
-    let divider_class        = "mdc-list-divider"
+    let divider_class = "mdc-list-divider"
 
-    let graphic_class        = CSS.add_element _class "graphic"
-    let meta_class           = CSS.add_element _class "meta"
+    let graphic_class = CSS.add_element _class "graphic"
+    let meta_class = CSS.add_element _class "meta"
 
-    let selected_class       = CSS.add_modifier _class "selected"
-    let activated_class      = CSS.add_modifier _class "activated"
+    let selected_class = CSS.add_modifier _class "selected"
+    let activated_class = CSS.add_modifier _class "activated"
 
     let create_divider ?(classes=[]) ?attrs ?(tag=div) ?(inset=false) () =
       tag ~a:([ a_class (classes

@@ -1,4 +1,3 @@
-open Common.Topology
 open Containers
 open Components
 open Common
@@ -16,9 +15,10 @@ let find_max l =
 
 (* calculates the depth of the node *)
 let rec get_entry_depth depth = function
-  | Input _ -> succ depth
-  | Board x ->
-     let ports = List.map (fun x -> x.child) x.ports in
+  | Topology.Input _ -> succ depth
+  | Topology.Board x ->
+     let ports = List.map (fun (x : Topology.topo_port) ->
+                     x.child) x.ports in
      begin match ports with
      | [] -> succ depth
      | l -> succ @@ find_max (List.map (get_entry_depth depth) l)
@@ -27,14 +27,17 @@ let rec get_entry_depth depth = function
 let get_node_depth t =
   let depth = 0 in
   match t with
-  | `CPU x    ->
-     succ @@ find_max (List.map (fun x -> get_entry_depth depth x.conn) x.ifaces)
+  | `CPU (x : Topology.topo_cpu) ->
+     succ @@ find_max (List.map (fun (x : Topology.topo_interface) ->
+                           get_entry_depth depth x.conn) x.ifaces)
   | `Boards x ->
-     succ @@ find_max
-               (List.map (fun x ->
-                    succ @@ find_max
-                              (List.map (fun x -> get_entry_depth 0 x.child) x.ports)
-                  ) x)
+     find_max
+       (List.map (fun (x : Topology.topo_board) ->
+            succ @@ find_max
+                      (List.map (fun (x : Topology.topo_port) ->
+                           get_entry_depth 0 x.child) x.ports)
+          ) x)
+     |> succ
 
 let concat (l : string list) : string =
   List.fold_left (fun acc x -> x ^ " " ^ acc) "" l
@@ -42,28 +45,31 @@ let concat (l : string list) : string =
 let grid_template_areas t =
   let depth = get_node_depth t in
   let rec get_entry_areas acc count = function
-    | Input x ->
-       if (count+1) < depth
+    | Topology.Input x ->
+       if (count + 1) < depth
        then let inp  = "\"" ^ (Topo_node.input_to_area x) in
             let list = List.range 1 @@ (depth-count - 1) * 2 in
             (List.fold_left (fun acc _ -> acc ^ " . ") inp list) ^ acc ^ "\""
        else "\"" ^ (Topo_node.input_to_area x) ^ " " ^ acc ^ "\""
-    | Board x ->
-       let ports = List.map (fun x -> x.child) x.ports in
-       let str   = ". " ^ (Topo_node.board_to_area x)^" " in
+    | Topology.Board x ->
+       let ports = List.map (fun (x : Topology.topo_port) ->
+                       x.child) x.ports in
+       let str = ". " ^ (Topo_node.board_to_area x) ^ " " in
        match ports with
        | [] -> str ^ " " ^ acc
-       | l  -> concat (List.map (get_entry_areas (str^acc) (count+1)) l)
+       | l -> concat (List.map (get_entry_areas (str ^ acc) (count + 1)) l)
   in
   match t with
-  | `CPU x    ->
-     List.map (fun x -> get_entry_areas ". CPU" 1 x.conn) x.ifaces
+  | `CPU (x : Topology.topo_cpu) ->
+     List.map (fun (x : Topology.topo_interface) ->
+         get_entry_areas ". CPU" 1 x.conn) x.ifaces
      |> concat
   | `Boards x ->
      let map board =
        get_entry_areas (". " ^ (Topo_node.board_to_area board)) 1 in
      List.map (fun board ->
-         List.map (fun x -> map board x.child) board.ports
+         List.map (fun (x : Topology.topo_port) -> map board x.child)
+           board.ports
          |> concat) x
      |> concat
 
@@ -80,6 +86,7 @@ let to_topo_node = function
   | `CPU x   -> (x :> Topo_node.t)
 
 let make_nodes topology =
+  let open Topology in
   let create_element ~(element : Topo_node.node_entry) ~connections =
     let connections = List.map (fun (x,p) -> to_topo_node x, p) connections in
     match element with
@@ -126,7 +133,7 @@ let iter_paths f nodes =
 
 let update_nodes nodes (t : Topology.t) =
   let boards = Topology.get_boards t in
-  let f (b : Topo_board.t) (x : topo_board) =
+  let f (b : Topo_board.t) (x : Topology.topo_board) =
     Topo_board.eq_board b#board x in
   List.iter (function
       | `Board b ->
@@ -136,9 +143,9 @@ let update_nodes nodes (t : Topology.t) =
          end
       | _ -> ()) nodes
 
-let create ~(parent: #Widget.t)
-      ~(init : Common.Topology.t)
-      ~(event : Common.Topology.t React.event)
+let create ~(parent : #Widget.t)
+      ~(init : Topology.t)
+      ~(event : Topology.t React.event)
       () =
   let svg = Tyxml_js.Svg.(
       svg ~a:[a_class [Markup.CSS.add_element _class "paths"]] [] |> toelt) in
