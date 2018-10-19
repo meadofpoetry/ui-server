@@ -4,7 +4,7 @@ open Lwt.Infix
 open Api.Template
 open Common
 
-module Api_handler = Api.Handler.Make(Common.User)
+module Api_handler = Api.Handler.Make(User)
 
 type 'a cc = [`Continue of 'a]
 
@@ -14,33 +14,22 @@ exception Invalid_port of string
 
 exception Invalid_sources of string
 
-type url = Url.t
-type set_state =
-  [ `Forbidden
-  | `Limited of int
-  | `Unlimited
-  ] [@@deriving eq]
-type set_error =
-  [ `Not_in_range
-  | `Limit_exceeded of (int * int)
-  | `Forbidden
-  | `Internal_error of string
-  ] [@@deriving yojson]
 type constraints =
-  { range : (url * url) list
-  ; state : set_state React.signal
+  { range : (Stream.Table.url * Stream.Table.url) list
+  ; state : Stream.Table.source_state React.signal
   }
 
 type stream_handler =
-  < streams : (url option * Stream.t) list React.signal
-  ; set : (url * Stream.t) list -> (unit,set_error) Lwt_result.t
+  < streams : Stream.Table.stream list React.signal
+  ; set : Stream.Table.setting list ->
+          (unit, Stream.Table.set_error) Lwt_result.t
   ; constraints : constraints
   >
 
 type t =
   { handlers : (module Api_handler.HANDLER) list
   ; control : int
-  ; streams_signal : Common.Stream.t list React.signal
+  ; streams_signal : Stream.t list React.signal
   ; step : (Cstruct.t list -> 'c cc as 'c) cc
   ; connection : Topology.state React.signal
   ; ports_active : bool React.signal Ports.t

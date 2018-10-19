@@ -284,9 +284,11 @@ let create_widgets_grid
       { icon = Icon.SVG.(new t ~paths:Path.[ new t arrow_left ()] ())#widget
       ; name = "Назад" } in
   let dlg =
+    let cancel = new Button.t ~label:"Отмена" () in
+    let accept = new Button.t ~label:"ОК" () in
     new Dialog.t
-      ~actions:[ new Dialog.Action.t ~typ:`Cancel ~label:"Отмена" ()
-               ; new Dialog.Action.t ~typ:`Accept ~label:"Ok" () ]
+      ~actions:[ Dialog.Action.make ~typ:`Cancel cancel
+               ; Dialog.Action.make ~typ:`Accept accept ]
       ~title:"Сохранить изменения?"
       ~content:(`Widgets []) () in
   dlg#add_class "wm-confirmation-dialog";

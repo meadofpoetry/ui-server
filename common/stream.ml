@@ -387,3 +387,33 @@ let to_topo_port (b : topo_board) (t : t) : topo_port option =
        end
   in
   Option.flat_map (fun x -> get_port x b.ports) input
+
+module Table = struct
+
+  type url = Url.t [@@deriving eq]
+
+  type source_state =
+    [ `Forbidden
+    | `Limited of int
+    | `Unlimited
+    ] [@@deriving yojson, eq]
+
+  type set_error =
+    [ `Not_in_range
+    | `Limit_exceeded of (int * int)
+    | `Forbidden
+    | `Internal_error of string
+    ] [@@deriving yojson, eq]
+
+  type stream =
+    { url : Url.t option (* if None - stream is not selected *)
+    ; present : bool
+    ; stream : t
+    } [@@deriving yojson, eq]
+
+  type setting =
+    { url : Url.t
+    ; stream : t
+    } [@@deriving yojson, eq]
+
+end

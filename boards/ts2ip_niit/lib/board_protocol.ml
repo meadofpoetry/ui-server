@@ -22,7 +22,7 @@ type events =
   { state : Topology.state React.signal
   ; status : status React.event
   ; devinfo : devinfo option React.signal
-  ; config : config React.event
+  ; config : config React.signal
   ; in_streams : Stream.t list React.signal
   ; out_streams : Stream.t list React.signal
   }
@@ -168,12 +168,12 @@ module SM = struct
     let to_packer_settings (b : Topology.topo_board)
           (s : stream_settings) : packer_settings option =
       match s.stream.orig_id, Stream.to_topo_port b s.stream with
-      | TS_multi id, Some p ->
+      | TS_multi _, Some p ->
          Some { dst_ip = s.dst_ip
               ; dst_port = s.dst_port
               ; self_port = 2027
               ; enabled = s.enabled
-              ; stream = id
+              ; stream = s.stream
               ; socket = p.port }
       | _ -> None
 
@@ -189,7 +189,7 @@ module SM = struct
          let len = List.length streams in
          if len > n then Error (`Limit_exceeded (n, len)) else
            let rec pack acc = function
-             | []    -> acc
+             | [] -> acc
              | h :: tl ->
                 begin match to_packer_settings b h with
                 | Some pkr -> pack (pkr :: acc) tl
@@ -214,16 +214,17 @@ module SM = struct
 
   end
 
-  let find_stream (b : Topology.topo_board) (id : Stream.Multi_TS_ID.t)
-        (port : int) (streams : Stream.t list) =
-    List.find_opt (fun (t:Stream.t) ->
+  let find_stream (b : Topology.topo_board)
+        (stream : Stream.t)
+        (port : int)
+        (streams : Stream.t list) =
+    List.find_opt (fun (t : Stream.t) ->
         let p = Stream.to_topo_port b t in
-        match t.orig_id, p with
-        | TS_multi x, Some p when Stream.Multi_TS_ID.equal x id
-                                  && p.port = port -> true
+        match p with
+        | Some p when Stream.equal t stream && p.port = port -> true
         | _ -> false) streams
 
-  let to_out_streams_s b
+  let to_out_streams_s (b : Topology.topo_board)
         (status : status React.event)
         (streams : Stream.t list React.signal) =
     let status =
@@ -233,7 +234,8 @@ module SM = struct
       React.E.map (fun x -> x.packers_status) status
       |> React.S.hold ~eq [] in
     React.S.l2 ~eq:(Equal.list Stream.equal) (fun status streams ->
-        List.fold_left (fun acc (packer, { bitrate; enabled; has_data; _ }) ->
+        List.fold_left (fun acc ((packer : packer_settings),
+                                 { bitrate; enabled; has_data; _ }) ->
             let s = find_stream b packer.stream packer.socket streams in
             match s, bitrate, enabled, has_data with
             | Some s, Some _, true, true ->
@@ -269,13 +271,13 @@ module SM = struct
       @@ React.E.map Option.return status in
     let in_streams = streams in (* FIXME add ASI streams? *)
     let out_streams = to_out_streams_s board status streams in
-    let (events:events) =
+    let (events : events) =
       { state
       ; devinfo
       ; in_streams
       ; out_streams
       ; status
-      ; config = React.S.changes config
+      ; config
       } in
     let push_events =
       { status = status_push

@@ -8,11 +8,7 @@ let make_streams () =
   Requests.HTTP.get_streams ()
   >>= (fun init ->
     let event, sock = Requests.WS.get_streams () in
-    let w, s, set = Streams_selector.make ~init ~event () in
-    let apply = new Ui_templates.Buttons.Set.t s set () in
-    let buttons = new Card.Actions.Buttons.t ~widgets:[apply] () in
-    let actions = new Card.Actions.t ~widgets:[buttons] () in
-    let box = new Vbox.t ~widgets:[w; actions#widget] () in
+    let box = Streams_selector.make ~init ~event () in
     box#set_on_destroy
     @@ Some (fun () ->
            React.E.stop ~strong:true event;

@@ -265,8 +265,8 @@ class ['a] t ?input_id
     | _, None | false, _ -> None
     | true, Some x -> Some x in
   let line_ripple = match line_ripple with
-    | true -> None
-    | false -> Some (new Line_ripple.t ()) in
+    | false -> None
+    | true -> Some (new Line_ripple.t ()) in
   let leading_icon = Option.map Icon.make leading_icon in
   let trailing_icon = Option.map Icon.make trailing_icon in
   let leading_event = match leading_icon with
@@ -297,6 +297,7 @@ class ['a] t ?input_id
     Markup.create
       ?label:(Option.map Widget.to_markup floating_label)
       ?outline:(Option.map (fun (x, y) -> Widget.to_markup x, y) outline)
+      ?line_ripple:(Option.map Widget.to_markup line_ripple)
       ?leading_icon:(Option.map (fun (x : Icon.t) ->
                          Widget.to_markup x.widget) leading_icon)
       ?trailing_icon:(Option.map (fun (x : Icon.t) ->
@@ -389,6 +390,10 @@ class ['a] t ?input_id
 
     method update () : unit =
       self#deactivate_focus ()
+
+    method focus () : unit =
+      self#activate_focus ();
+      input_elt##focus
 
     (* Private methods *)
 

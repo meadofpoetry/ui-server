@@ -1,33 +1,23 @@
-type source_state =
-  [ `Forbidden
-  | `Limited   of int
-  | `Unlimited
-  ] [@@deriving yojson, eq]
-
-type set_error =
-  [ `Not_in_range
-  | `Limit_exceeded of (int * int)
-  | `Forbidden
-  | `Internal_error of string
-  ] [@@deriving yojson, eq]
+open Common
 
 type marker =
-  [ `Input of Common.Topology.input * int
+  [ `Input of Topology.input * int
   | `Board of int
   ] [@@deriving yojson, eq]
 
 type stream_setting =
-  (marker * Common.Stream.t list) list [@@deriving yojson, eq]
+  (marker * Stream.t list) list [@@deriving yojson, eq]
 
 type stream_table_row =
   (marker
-   * source_state
-   * (Common.Url.t option * Common.Stream.t) list) [@@deriving yojson, eq]
+   * Stream.Table.source_state
+   * Stream.Table.stream list) [@@deriving yojson, eq]
 
 type stream_table =
    stream_table_row list [@@deriving yojson ,eq]
 
-let set_error_to_string : set_error -> string  = function
+let set_error_to_string : Stream.Table.set_error -> string =
+  function
   | `Not_in_range -> "Not in range"
   | `Limit_exceeded (exp,got) ->
      Printf.sprintf "Limit exceeded: got %d streams, \

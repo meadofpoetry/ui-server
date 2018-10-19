@@ -81,15 +81,16 @@ let to_dialog (wm:Wm.t) =
   let e,push     = React.E.create () in
   let checkboxes = to_checkboxes wm.widgets in
   let box        = new Vbox.t ~widgets:checkboxes () in
-  let dialog     = new Dialog.t
-                       ~title:"Выберите виджеты"
-                       ~scrollable:true
-                       ~content:(`Widgets [box])
-                       ~actions:[ new Dialog.Action.t ~typ:`Cancel ~label:"Отмена" ()
-                                ; new Dialog.Action.t ~typ:`Accept  ~label:"Применить"  ()
-                                ]
-                       ()
-  in
+  let dialog =
+    let accept = new Button.t ~label:"Отмена" () in
+    let cancel = new Button.t ~label:"Применить" () in
+    new Dialog.t
+      ~title:"Выберите виджеты"
+      ~scrollable:true
+      ~content:(`Widgets [box])
+      ~actions:[ Dialog.Action.make ~typ:`Cancel cancel
+               ; Dialog.Action.make ~typ:`Accept accept ]
+      () in
   let show = fun () ->
     Lwt.bind (dialog#show_await ())
              (function

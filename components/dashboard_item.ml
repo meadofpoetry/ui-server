@@ -85,8 +85,10 @@ class t ~(item : 'a item) () =
     Option.map (fun (s : settings) ->
         let icon = Icon.SVG.(create_simple Path.settings) in
         let settings = new Icon_button.t ~icon () in
-        let cancel = new Dialog.Action.t ~typ:`Cancel ~label:"Отмена" () in
-        let apply = new Dialog.Action.t ~typ:`Accept ~label:"ОК" () in
+        let cancel_button = new Button.t ~label:"Отмена" () in
+        let apply_button = new Button.t ~label:"ОК" () in
+        let cancel = Dialog.Action.make ~typ:`Cancel cancel_button in
+        let apply = Dialog.Action.make ~typ:`Accept apply_button in
         let dialog =
           new Dialog.t
             ~title:(Printf.sprintf "Настройки. %s" item.name)
@@ -94,7 +96,7 @@ class t ~(item : 'a item) () =
             ~actions:[cancel; apply]
             () in
         (* FIXME *)
-        let _ = connect_apply apply s in
+        let _ = connect_apply apply_button s in
         settings, dialog)
       item.settings in
   let icons = match sd with

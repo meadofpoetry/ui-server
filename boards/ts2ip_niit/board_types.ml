@@ -24,12 +24,12 @@ type stream_settings =
   } [@@deriving yojson, show, eq]
 
 type packer_settings =
-  { stream : Stream.Multi_TS_ID.t (* stream id to listen to *)
+  { stream : Stream.t (* stream id to listen to *)
   ; dst_ip : Ipaddr.V4.t
   ; dst_port : int
   ; self_port : int
   ; enabled : bool
-  ; socket : int       (* physical port on a board where this stream should be found *)
+  ; socket : int (* physical port on a board where this stream should be found *)
   } [@@deriving yojson, show, eq]
 
 type packers_error =

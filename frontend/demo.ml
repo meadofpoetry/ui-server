@@ -227,12 +227,14 @@ let layout_grid_demo () =
   demo_section "Layout grid" [ layout_grid#widget; btn2#widget; btn4#widget ]
 
 let dialog_demo () =
+  let accept = new Button.t ~label:"Accept" () in
+  let cancel = new Button.t ~label:"Decline" () in
   let dialog =
     new Dialog.t
       ~title:"This is dialog"
       ~content:(`String "Dialog body")
-      ~actions:[ new Dialog.Action.t ~typ:`Cancel ~label:"Decline" ()
-               ; new Dialog.Action.t ~typ:`Accept ~label:"Accept" ()
+      ~actions:[ Dialog.Action.make ~typ:`Cancel accept
+               ; Dialog.Action.make ~typ:`Accept cancel
       ]
       () in
   let button = new Button.t ~label:"show dialog" () in

@@ -18,18 +18,20 @@ module Item = struct
           ~text () =
     let text_elt, set_primary, set_secondary = match secondary_text with
       | Some st ->
-         let primary   = Markup.Item.create_primary_text text ()
-                         |> Tyxml_js.To_dom.of_element
-                         |> Widget.create in
-         let secondary = Markup.Item.create_secondary_text st ()
-                         |> Tyxml_js.To_dom.of_element
-                         |> Widget.create in
+         let primary =
+           Markup.Item.create_primary_text text ()
+           |> Tyxml_js.To_dom.of_element
+           |> Widget.create in
+         let secondary =
+           Markup.Item.create_secondary_text st ()
+           |> Tyxml_js.To_dom.of_element
+           |> Widget.create in
          let w = Markup.Item.create_text
                    ~primary:(Widget.to_markup primary)
                    ~secondary:(Widget.to_markup secondary) ()
                  |> Tyxml_js.To_dom.of_element
                  |> Widget.create in
-         let set_primary x   = primary#set_text_content x in
+         let set_primary x = primary#set_text_content x in
          let set_secondary x = secondary#set_text_content x in
          w, set_primary, set_secondary
       | None ->

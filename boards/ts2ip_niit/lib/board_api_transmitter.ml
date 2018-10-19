@@ -9,18 +9,19 @@ module WS = struct
 
   open Api.Socket
 
-  let status (events:events) _ body sock_data () =
+  let status (events : events) _ body sock_data () =
     handler socket_table sock_data events.status status_to_yojson body
 
-  let mode (events:events) _ body sock_data () =
-    let e = React.E.map (fun (x:config) -> x.packers) events.config in
+  let mode (events : events) _ body sock_data () =
+    let e = React.E.map (fun (x : config) -> x.packers)
+            @@ React.S.changes events.config in
     handler socket_table sock_data e (Json.List.to_yojson packer_settings_to_yojson) body
 
-  let in_streams (events:events) _ body sock_data () =
+  let in_streams (events : events) _ body sock_data () =
     let e = React.S.changes events.in_streams in
     handler socket_table sock_data e (Json.List.to_yojson Stream.to_yojson) body
 
-  let out_streams (events:events) _ body sock_data () =
+  let out_streams (events : events) _ body sock_data () =
     let e = React.S.changes events.out_streams in
     handler socket_table sock_data e (Json.List.to_yojson Stream.to_yojson) body
 
@@ -28,7 +29,7 @@ end
 
 module HTTP = struct
 
-  let set_mode (api:api) _ body () =
+  let set_mode (api : api) _ body () =
     of_body body >>= fun json ->
     (match (Json.List.of_yojson stream_settings_of_yojson) json with
      | Error e -> Lwt_result.fail @@ of_error_string e
@@ -36,7 +37,7 @@ module HTTP = struct
                   |> Lwt_result.map_err packers_error_to_yojson)
     >>= respond_result_unit
 
-  let set_streams (api:api) _ body () =
+  let set_streams (api : api) _ body () =
     of_body body >>= fun json ->
     (match (Json.List.of_yojson Stream.of_yojson) json with
      | Error e -> Lwt_result.fail @@ of_error_string e
@@ -44,19 +45,19 @@ module HTTP = struct
                   |> Lwt_result.map_err packers_error_to_yojson)
     >>= respond_result_unit
 
-  let get_mode (api:api) _ _ () =
+  let get_mode (api : api) _ _ () =
     (api.config ()).packers |> Json.List.to_yojson packer_settings_to_yojson
     |> Result.return |> respond_result
 
-  let get_in_streams (api:api) _ _ () =
+  let get_in_streams (api : api) _ _ () =
     api.in_streams () |> Json.List.to_yojson Stream.to_yojson
     |> Result.return |> respond_result
 
-  let get_out_streams (api:api) _ _ () =
+  let get_out_streams (api : api) _ _ () =
     api.out_streams () |> Json.List.to_yojson Stream.to_yojson
     |> Result.return |> respond_result
 
-  let get_status (api:api) _ _ () =
+  let get_status (api : api) _ _ () =
     api.status () |> Json.Option.to_yojson status_to_yojson
     |> Result.return |> respond_result
 
