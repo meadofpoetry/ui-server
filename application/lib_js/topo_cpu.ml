@@ -14,7 +14,7 @@ let make_cpu_page (cpu : Topology.topo_cpu) =
   match cpu.process with
   | "pipeline" ->
      let getter () =
-       Topo_pipeline.make ()
+       Topo_pipeline.make cpu ()
        |> Ui_templates.Loader.create_widget_loader
        |> Widget.coerce in
      Some getter
