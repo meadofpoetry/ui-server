@@ -1,10 +1,10 @@
 open Containers
 open Components
-open Common
 open Board_types
 open Board_types
 open Lwt_result.Infix
 open Api_js.Api_types
+open Common
 
 type state_list = state list [@@deriving show]
 
@@ -20,7 +20,7 @@ let ( % ) = Fun.( % )
 
 module Settings = struct
 
-  type t = { hex : bool }
+  type t = { hex : bool } [@@deriving eq]
 
   let (default : t) = { hex = false (* FIXME *) }
 
@@ -35,7 +35,7 @@ module Settings = struct
         ~align_end:true
         ~label:"HEX IDs"
         () in
-    let s, set = React.S.create settings in
+    let s, set = React.S.create ~eq:equal settings in
     object(self)
 
       inherit Vbox.t ~widgets:[hex_form] ()
@@ -125,7 +125,36 @@ class ['a] t ?(settings : Settings.t option)
     val mutable _has_more = true
 
     inherit ['a] Table.t ~sticky_header:true
-              ~dense:true ~fmt ()
+              ~dense:true ~fmt () as super
+
+    method init () : unit =
+      super#init ();
+      (* FIXME implement infinite scroll *)
+      self#content#listen_lwt Widget.Event.scroll (fun _ _ ->
+          let el = self#content in
+          begin match _has_more,
+                      el#client_height = el#scroll_height - el#scroll_top with
+          | true, true ->
+             let till =
+               List.fold_left (fun acc row ->
+                   let time =
+                     let open Table in
+                     match row#cells with
+                     | t :: _ -> t#value in
+                   match acc with
+                   | None -> Some time
+                   | Some acc ->
+                      if Time.compare time acc >= 0
+                      then Some acc else Some time) None self#rows in
+             get_errors ?till ~limit:200 ~order:`Desc ~id:stream control
+             >|= (fun (more, l) -> _has_more <- more; List.rev l)
+             >|= List.iter (self#append_error % snd)
+             |> Lwt.map ignore
+          | _ -> Lwt.return_unit
+          end)
+      |> Lwt.ignore_result;
+      List.iter (self#prepend_error % snd) init;
+      self#add_class base_class
 
     method set_settings (x : Settings.t) : unit =
       let ({ hex } : Settings.t) = x in
@@ -169,33 +198,6 @@ class ['a] t ?(settings : Settings.t option)
       | 3 -> el#add_class warning_class
       | _ -> ()
 
-    initializer
-      (* FIXME implement infinite scroll *)
-      self#content#listen_lwt Widget.Event.scroll (fun _ _ ->
-          let el = self#content in
-          begin match _has_more,
-                      el#client_height = el#scroll_height - el#scroll_top with
-          | true, true ->
-             let till =
-               List.fold_left (fun acc row ->
-                   let time =
-                     let open Table in
-                     match row#cells with
-                     | t :: _ -> t#value in
-                   match acc with
-                   | None -> Some time
-                   | Some acc ->
-                      if Time.compare time acc >= 0
-                      then Some acc else Some time) None self#rows in
-             get_errors ?till ~limit:200 ~order:`Desc ~id:stream control
-             >|= (fun (more, l) -> _has_more <- more; List.rev l)
-             >|= List.iter (self#append_error % snd)
-             |> Lwt.map ignore
-          | _ -> Lwt.return_unit
-          end)
-      |> Lwt.ignore_result;
-      List.iter (self#prepend_error % snd) init;
-      self#add_class base_class;
   end
 
 let make ?(settings : Settings.t option)

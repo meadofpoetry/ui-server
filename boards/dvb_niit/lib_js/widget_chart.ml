@@ -4,12 +4,12 @@ open Widget_types
 open Board_types
 open Common
 
-type 'a point = (Common.Time.t, 'a) Chartjs.Line.point
+type 'a point = (Time.t, 'a) Chartjs.Line.point
 type 'a data = (Stream.ID.t * ('a point list)) list
 
 type settings =
   { range : (float * float) option
-  } [@@deriving yojson]
+  } [@@deriving yojson, eq]
 
 type config =
   { ids : Stream.ID.t list
@@ -42,13 +42,15 @@ let make_settings (settings : settings) =
       () in
   let box = new Hbox.t ~widgets:[range_min;range_max] () in
   let s =
-    React.S.l2 (fun min max ->
+    React.S.l2 ~eq:(Equal.option equal_settings)
+      (fun min max ->
         match min, max with
         | Some min, Some max -> Some { range = Some (min, max) }
         | _ -> None) range_min#s_input range_max#s_input
   in
   box, s
 
+(* FIXME declare class instead *)
 let make_chart_base ~(config : config)
       ~(init : float data)
       ~(event : float data React.event)
@@ -125,7 +127,7 @@ let make_chart_base ~(config : config)
   let set = fun ds data ->
     List.iter (fun point -> ds#push point) data;
     chart#update None in
-  let _ =
+  let _e =
     React.E.map (fun d ->
         List.iter (fun (_, data) ->
             Option.iter (fun ds -> set ds data)
@@ -134,10 +136,11 @@ let make_chart_base ~(config : config)
   let box = Widget.create_div () in
   box#add_class base_class;
   box#append_child chart;
+  box#set_on_destroy @@ Some (fun () -> React.E.stop ~strong:true _e);
   Dashboard.Item.make_item
     ~name:(measure_type_to_string config.typ)
     ~settings:{ widget = settings#widget
-              ; ready = React.S.map Option.is_some s_settings
+              ; ready = React.S.map ~eq:Equal.bool Option.is_some s_settings
               ; set = fun () ->
                       match React.S.value s_settings with
                       | Some s ->
@@ -219,9 +222,12 @@ module Freq = Make(Int)
 module Bitrate = Make(Float)
 
 let make ~(measures : (Stream.t * Measure.t Time.timestamped) React.event)
-      (config : config option) =
-  let config = Option.get_exn config in (* FIXME *)
-  let event = measures in
+      (config : config) =
+  let event = match config.ids with
+    | [] -> measures
+    | ids ->
+       React.E.filter (fun ((s : Stream.t), _) ->
+           List.mem ~eq:Stream.ID.equal s.id ids) measures in
   (match config.typ with
    | `Power -> Power.make ~init:[] ~event config
    | `Mer -> Mer.make ~init:[] ~event config

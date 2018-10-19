@@ -1,37 +1,36 @@
-open Containers
 open Common
 
 type devinfo =
-  { typ         : int
-  ; ver         : int
+  { typ : int
+  ; ver : int
   ; packers_num : int option
-  } [@@deriving yojson]
+  } [@@deriving yojson, eq]
 
 type factory_settings =
   { mac : Macaddr.t
-  } [@@deriving yojson]
+  } [@@deriving yojson, eq]
 
 type nw_settings     =
-  { ip      : Ipaddr.V4.t
-  ; mask    : Ipaddr.V4.t
+  { ip : Ipaddr.V4.t
+  ; mask : Ipaddr.V4.t
   ; gateway : Ipaddr.V4.t
-  } [@@deriving yojson, show]
+  } [@@deriving yojson, show, eq]
 
 type stream_settings =
-  { stream   : Stream.t
-  ; dst_ip   : Ipaddr.V4.t
+  { stream : Stream.t
+  ; dst_ip : Ipaddr.V4.t
   ; dst_port : int
-  ; enabled  : bool
-  } [@@deriving yojson, show]
+  ; enabled : bool
+  } [@@deriving yojson, show, eq]
 
 type packer_settings =
-  { stream    : Stream.Multi_TS_ID.t (* stream id to listen to *)
-  ; dst_ip    : Ipaddr.V4.t
-  ; dst_port  : int
+  { stream : Stream.Multi_TS_ID.t (* stream id to listen to *)
+  ; dst_ip : Ipaddr.V4.t
+  ; dst_port : int
   ; self_port : int
-  ; enabled   : bool
-  ; socket    : int       (* physical port on a board where this stream should be found *)
-  } [@@deriving yojson, show]
+  ; enabled : bool
+  ; socket : int       (* physical port on a board where this stream should be found *)
+  } [@@deriving yojson, show, eq]
 
 type packers_error =
   [ `Limit_exceeded of (int * int)
@@ -44,47 +43,36 @@ let packers_error_to_string = function
   | `Limit_exceeded (exp,got) ->
      Printf.sprintf "Limit exceeded. Got %d, but only %d is available" got exp
 
-type speed = Speed_10
-           | Speed_100
-           | Speed_1000
-           | Speed_failure [@@deriving yojson, show]
+type speed =
+  | Speed_10
+  | Speed_100
+  | Speed_1000
+  | Speed_failure [@@deriving yojson, show, eq]
 
 type board_status =
-  { phy_ok  : bool
+  { phy_ok : bool
   ; link_ok : bool
-  ; speed   : speed
-  } [@@deriving yojson, show]
+  ; speed : speed
+  } [@@deriving yojson, show, eq]
 
 type packer_status =
-  { bitrate  : int option
-  ; enabled  : bool
+  { bitrate : int option
+  ; enabled : bool
   ; has_data : bool
   ; overflow : bool
-  } [@@deriving yojson, show]
+  } [@@deriving yojson, show, eq]
 
 type status_data =
   | General of packer_status list
-  | Unknown of string
+  | Unknown of string [@@deriving eq]
 
 type status  =
-  { board_status   : board_status
+  { board_status : board_status
   ; packers_status : (packer_settings * packer_status) list
-  } [@@deriving yojson, show]
+  } [@@deriving yojson, show, eq]
 
 type config =
-  { nw_mode      : nw_settings
+  { nw_mode : nw_settings
   ; factory_mode : factory_settings
-  ; packers      : packer_settings list
-  } [@@deriving yojson]
-
-let config_to_string c = Yojson.Safe.to_string @@ config_to_yojson c
-let config_of_string s = config_of_yojson @@ Yojson.Safe.from_string s
-
-let config_default =
-  { nw_mode      = { ip      = Ipaddr.V4.make 192 168 100 200
-                   ; mask    = Ipaddr.V4.make 255 255 255 0
-                   ; gateway = Ipaddr.V4.make 192 168 100 1
-                   }
-  ; factory_mode = { mac = Macaddr.of_string_exn "00:50:c2:88:50:ab" }
-  ; packers      = []
-  }
+  ; packers : packer_settings list
+  } [@@deriving yojson, eq]

@@ -12,7 +12,7 @@ type config =
 
 module Settings = struct
 
-  type t = { hex : bool }
+  type t = { hex : bool } [@@deriving eq]
 
   let (default : t) = { hex = false (* FIXME *) }
 
@@ -27,7 +27,7 @@ module Settings = struct
         ~align_end:true
         ~label:"HEX IDs"
         () in
-    let s, set = React.S.create settings in
+    let s, set = React.S.create ~eq:equal settings in
     object(self)
 
       inherit Vbox.t ~widgets:[hex_form] ()
@@ -123,7 +123,23 @@ module Pie = struct
       val mutable _hex = hex
       val mutable _rate = None
 
-      inherit Widget.t Dom_html.(createDiv document) ()
+      inherit Widget.t Dom_html.(createDiv document) () as super
+
+      method init () : unit =
+        super#init ();
+        box#add_class box_class;
+        box#append_child pie;
+        title#add_class title_class;
+        self#set_rate None;
+        self#add_class _class;
+        self#append_child title;
+        self#append_child box;
+
+      method destroy () : unit =
+        super#destroy ();
+        title#destroy ();
+        box#destroy ();
+        pie#destroy ()
 
       method set_hex (x : bool) : unit =
         _hex <- x;
@@ -173,14 +189,6 @@ module Pie = struct
         | [] -> pids
         | _  -> pids @ ["Другие"]
 
-      initializer
-        box#add_class box_class;
-        box#append_child pie;
-        title#add_class title_class;
-        self#set_rate None;
-        self#add_class _class;
-        self#append_child title;
-        self#append_child box;
     end
 
 end
@@ -237,7 +245,13 @@ module Info = struct
 
     let make_pid ?(hex = false) ((pid, info) : Pid.t) =
       object(self)
-        inherit Widget.t Dom_html.(createSpan document) ()
+        inherit Widget.t Dom_html.(createSpan document) () as super
+
+        method init () : unit  =
+          super#init ();
+          self#update info;
+          self#add_class pid_class;
+          self#set_hex hex
 
         method update (info : Pid.info) : unit =
           self#add_or_remove_class (not info.present) lost_class
@@ -250,10 +264,6 @@ module Info = struct
 
         method pid : int = pid
 
-        initializer
-          self#update info;
-          self#add_class pid_class;
-          self#set_hex hex
       end
 
     class t ?hex (init : Pid.t list) () =
@@ -266,7 +276,20 @@ module Info = struct
 
         inherit Vbox.t
                   ~widgets:[ title#widget
-                           ; pids_box#widget] ()
+                           ; pids_box#widget] () as super
+
+        method init () : unit =
+          super#init ();
+          _pids <- List.map (make_pid ?hex) init;
+          List.iter pids_box#append_child _pids;
+          self#add_class _class;
+          title#add_class title_class;
+          pids_box#add_class box_class;
+
+        method destroy () : unit =
+          super#destroy ();
+          title#destroy ();
+          pids_box#destroy ();
 
         method update ~(lost : Set.t)
                  ~(found : Set.t)
@@ -301,13 +324,6 @@ module Info = struct
              cell#destroy ();
              _pids <- List.remove ~eq:Widget.equal ~x:cell _pids
 
-        initializer
-          _pids <- List.map (make_pid ?hex) init;
-          List.iter pids_box#append_child _pids;
-          self#add_class _class;
-          title#add_class title_class;
-          pids_box#add_class box_class;
-
       end
 
   end
@@ -322,7 +338,16 @@ module Info = struct
       inherit Vbox.t
                 ~widgets:[ rate#widget
                          ; (new Divider.t ())#widget
-                         ; pids#widget ] ()
+                         ; pids#widget ] () as super
+
+      method init () : unit =
+        super#init ();
+        self#add_class _class
+
+      method destroy () : unit =
+        super#destroy ();
+        pids#destroy ();
+        rate#destroy ()
 
       method set_rate (rate : Bitrate.t option) =
         match rate with
@@ -344,9 +369,6 @@ module Info = struct
       method set_hex (x : bool) : unit =
         pids#set_hex x
 
-      initializer
-        self#add_class _class
-
   end
 
 end
@@ -356,14 +378,28 @@ class t ?(settings : Settings.t option)
   let init, timestamp = match init with
     | None -> [], None
     | Some { data; timestamp } -> data, Some timestamp in
-  let s_time, set_time = React.S.create timestamp in
+  let s_time, set_time =
+    React.S.create ~eq:(Equal.option Time.equal) timestamp in
   let pie = new Pie.t () in
   let info = new Info.t init () in
   object(self)
 
     val mutable _data : Set.t = Set.of_list init
 
-    inherit Widget.t Dom_html.(createDiv document) ()
+    inherit Widget.t Dom_html.(createDiv document) () as super
+
+    method init () : unit =
+      super#init ();
+      Option.iter self#set_settings settings;
+      self#add_class base_class;
+      self#append_child pie;
+      self#append_child info
+
+    method destroy () : unit =
+      super#destroy ();
+      pie#destroy ();
+      info#destroy ();
+      React.S.stop ~strong:true s_time;
 
     method s_timestamp : Time.t option React.signal =
       s_time
@@ -404,12 +440,6 @@ class t ?(settings : Settings.t option)
 
     method set_settings (x : Settings.t) : unit =
       self#set_hex x.hex
-
-    initializer
-      Option.iter self#set_settings settings;
-      self#add_class base_class;
-      self#append_child pie;
-      self#append_child info
 
   end
 

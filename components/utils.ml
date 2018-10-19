@@ -60,25 +60,20 @@ module Animation = struct
     let in_out_sine x =  0.5 *. (1. -. (cos (pi *. x)))
   end
 
-  let animate ~(timing   : float -> float)
-              ~(draw     : float -> unit)
-              ~(duration : float) =
+  let animate ~(timing : float -> float)
+        ~(draw : float -> unit)
+        ~(duration : float) =
     let start = Unix.gettimeofday () in
-
     let rec cb = (fun _ ->
-
-        let time          = Unix.gettimeofday () in
+        let time = Unix.gettimeofday () in
         let time_fraction = Float.min ((time -. start) /. duration) 1. in
-        let progress      = timing time_fraction in
-        let ()            = draw progress in
+        let progress = timing time_fraction in
+        draw progress;
 
         if Float.(time_fraction < 1.)
         then
-          let _ = Dom_html.window##requestAnimationFrame (Js.wrap_callback cb) in
-          ())
+          ignore @@ Dom_html.window##requestAnimationFrame (Js.wrap_callback cb))
     in
-
-    let _ = Dom_html.window##requestAnimationFrame (Js.wrap_callback cb) in
-    ()
+    ignore @@ Dom_html.window##requestAnimationFrame (Js.wrap_callback cb)
 
 end

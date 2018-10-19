@@ -7,7 +7,7 @@ module Device = struct
     ; soft_ver : int
     ; asi : bool
     ; receivers : int list
-    } [@@deriving yojson]
+    } [@@deriving yojson, eq]
 
   type standard =
     | T2 [@value 1]
@@ -36,7 +36,7 @@ module Device = struct
     ; lock : bool
     } [@@deriving yojson, show]
 
-  type config = (int * mode) list [@@deriving yojson]
+  type config = (int * mode) list [@@deriving yojson, eq]
 
 end
 
@@ -55,7 +55,7 @@ module Measure = struct
     ; ber : float option
     ; freq : int option
     ; bitrate : int option
-    } [@@deriving yojson, show]
+    } [@@deriving yojson, show, eq]
 
 end
 

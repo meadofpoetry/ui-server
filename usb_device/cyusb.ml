@@ -62,7 +62,7 @@ let send usb b =
 
   let rec send' = function
     | [] -> ()
-    | x::xs ->
+    | x :: xs ->
        let _ = Cyusb_raw.bulk_transfer usb.handle (Unsigned.UChar.of_int usb.outp)
                                        (get_ptr x) (len x)
                                        got 2

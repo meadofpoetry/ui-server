@@ -1,6 +1,7 @@
+open Containers
 open Components
-open Common.User
 open Api_js.Requests.Json_request
+open Common
 
 open Lwt.Infix
 
@@ -38,7 +39,8 @@ let make_eth (eth : Network_config.ethernet_conf) =
       ~label:"MAC адрес"
       ~input_type:(Custom (of_string, to_string))
       () in
-  let signal, push = React.S.create eth in
+  let signal, push =
+    React.S.create ~eq:Network_config.equal_ethernet_conf eth in
 
   let set (eth : Network_config.ethernet_conf) = address#set_value eth.mac_address in
 
@@ -46,16 +48,17 @@ let make_eth (eth : Network_config.ethernet_conf) =
   media#style##.margin := Js.string "15px";
   let eth_sets  = new Card.t ~widgets:[ eth_head#widget; media#widget ] () in
   
-  let signal = Lwt_react.S.l2
-                 (fun (config : Network_config.ethernet_conf) mac_address ->
-                   match mac_address with
-                   | None -> config
-                   | Some mac_address -> { config with mac_address })
-                 signal address#s_input
+  let signal =
+    React.S.l2 ~eq:Network_config.equal_ethernet_conf
+      (fun (config : Network_config.ethernet_conf) mac_address ->
+        match mac_address with
+        | None -> config
+        | Some mac_address -> { config with mac_address })
+      signal address#s_input
   in
   
   eth_sets, signal, set
-                
+
 let make_dns (dns : Network_config.v4 list) =
   let make_dns_entry del_dns addr =
     let text = Ipaddr.V4.to_string addr in
@@ -73,7 +76,8 @@ let make_dns (dns : Network_config.v4 list) =
   let add_box = new Hbox.t ~widgets:[address#widget; add_but#widget] () in
   let full_box = new Vbox.t ~widgets:[header#widget; list#widget; add_box#widget] () in
 
-  let signal, push = React.S.create [] in
+  let signal, push =
+    React.S.create ~eq:(Equal.list Network_config.equal_v4) [] in
 
   let del_dns item addr =
     list#remove_item item;
@@ -104,9 +108,9 @@ let make_dns (dns : Network_config.v4 list) =
       | _ -> ()
       end;
       Lwt.return_unit) |> Lwt.ignore_result;
-  
+
   full_box, signal, set, set_disabled
-                  
+
 let make_routes (routes : Network_config.address list) =
   let make_route_entry del_route route =
     let (addr,mask) = route in
@@ -136,7 +140,8 @@ let make_routes (routes : Network_config.address list) =
 
   let full_box = new Vbox.t ~widgets:[header#widget; list#widget; add_box#widget] () in
 
-  let signal, push = React.S.create [] in
+  let signal, push =
+    React.S.create ~eq:(Equal.list Network_config.equal_address) [] in
 
   let del_route item (addr, mask) =
     list#remove_item item;
@@ -198,10 +203,11 @@ let make_ipv4 (ipv4 : Network_config.ipv4_conf) =
   let dns, dns_s, dns_set, dns_disable = make_dns ipv4.dns in
   let routes, routes_s, routes_set, routes_disable = make_routes ipv4.routes.static in
 
-  let signal, push = React.S.create ipv4 in
+  let signal, push =
+    React.S.create ~eq:Network_config.equal_ipv4_conf ipv4 in
   
   let set (ipv4 : Network_config.ipv4_conf) =
-    meth#input_widget#set_checked (ipv4.meth = Auto);
+    meth#input_widget#set_checked (Network_config.equal_meth ipv4.meth Auto);
     address#set_value @@ fst ipv4.address;
     mask#set_value (Int32.to_int @@ snd ipv4.address);
     CCOpt.iter gateway#set_value ipv4.routes.gateway;
@@ -211,17 +217,19 @@ let make_ipv4 (ipv4 : Network_config.ipv4_conf) =
   in
 
   (* disable settings on Auto config *)
-  Lwt_react.S.keep @@
-    Lwt_react.S.map (fun disabled ->
-        address#set_disabled disabled;
-        mask#set_disabled disabled;
-        gateway#set_disabled disabled;
-        dns_disable disabled;
-        routes_disable disabled) meth#input_widget#s_state;
+  React.S.map ~eq:Equal.unit (fun disabled ->
+      address#set_disabled disabled;
+      mask#set_disabled disabled;
+      gateway#set_disabled disabled;
+      dns_disable disabled;
+      routes_disable disabled) meth#input_widget#s_state
+  |> React.S.keep;
 
   (* disable routes on gateway config *)
-  Lwt_react.S.keep @@
-    Lwt_react.S.map (function None -> routes_disable false | _ -> routes_disable true) gateway#s_input;
+  React.S.map ~eq:Equal.unit (function
+      | None -> routes_disable false
+      | _ -> routes_disable true) gateway#s_input
+  |> React.S.keep;
 
   let media =
     new Card.Media.t
@@ -239,7 +247,8 @@ let make_ipv4 (ipv4 : Network_config.ipv4_conf) =
                ; media#widget ]
       () in
   let signal =
-    Lwt_react.S.l6 (fun (config : Network_config.ipv4_conf) meth address mask gateway routes ->
+    React.S.l6 ~eq:Network_config.equal_ipv4_conf
+      (fun (config : Network_config.ipv4_conf) meth address mask gateway routes ->
         { config with
           meth = if meth then Auto else Manual
         ; address =
@@ -249,15 +258,17 @@ let make_ipv4 (ipv4 : Network_config.ipv4_conf) =
       signal
       meth#input_widget#s_state
       address#s_input
-      (Lwt_react.S.map (CCOpt.map Int32.of_int) mask#s_input)
+      (React.S.map ~eq:(Equal.option Int32.equal)
+         (CCOpt.map Int32.of_int) mask#s_input)
       gateway#s_input
       routes_s
   in
   let signal =
-    Lwt_react.S.l2 (fun (config : Network_config.ipv4_conf) dns ->
+    React.S.l2 ~eq:Network_config.equal_ipv4_conf
+      (fun (config : Network_config.ipv4_conf) dns ->
         { config with dns } ) signal dns_s in
   ipv4_sets, signal, set
-  
+
 let make_card is_root post (config : Network_config.t) =
   let warning =
     new Dialog.t
@@ -272,10 +283,11 @@ let make_card is_root post (config : Network_config.t) =
   let eth_sets, eth_s, eth_set = make_eth config.ethernet in
   let ipv4_sets, ipv4_s, ipv4_set  = make_ipv4 config.ipv4 in
 
-  let apply      = new Button.t ~label:"Применить" () in
+  let apply = new Button.t ~label:"Применить" () in
   apply#set_disabled (not is_root);
 
-  let signal, push = React.S.create config in
+  let signal, push =
+    React.S.create ~eq:Network_config.equal config in
 
   let set (config : Network_config.t) =
     eth_set config.ethernet;
@@ -285,14 +297,16 @@ let make_card is_root post (config : Network_config.t) =
 
   (* init *)
   set config;
-  let signal = Lwt_react.S.l3
-                 (fun (config : Network_config.t) ipv4 ethernet -> { config with ipv4; ethernet })
-                 signal ipv4_s eth_s
+  let signal =
+    React.S.l3 ~eq:Network_config.equal
+      (fun (config : Network_config.t) ipv4 ethernet ->
+        { config with ipv4; ethernet })
+      signal ipv4_s eth_s
   in
   apply#listen_click_lwt (fun _ _ ->
       warning#show_await ()
       >>= function
-      | `Accept -> post @@ Lwt_react.S.value signal
+      | `Accept -> post @@ React.S.value signal
       | `Cancel -> Lwt.return_unit) |> Lwt.ignore_result;
 
   let box = new Vbox.t ~widgets:[eth_sets#widget; ipv4_sets#widget; apply#widget] () in
@@ -300,12 +314,12 @@ let make_card is_root post (config : Network_config.t) =
   box, set
 
 let page user =
-  let is_root = user = `Root in
+  let is_root = User.equal user `Root in
   Requests.get_config () >>= function
   | Error { data = Some e; _ } -> Lwt.fail_with e
   | Error _ -> Lwt.fail_with "unknown error"
   | Ok config ->
-    let event, push = Lwt_react.E.create () in
+    let event, push = React.E.create () in
     let post new_config =
       Requests.post_config new_config
       >>= function
@@ -315,5 +329,5 @@ let page user =
                    | Ok config -> (push config; Lwt.return_unit)
     in
     let card, set = make_card is_root post config in
-    Lwt_react.E.keep @@ Lwt_react.E.map (fun config -> print_endline (Yojson.Safe.pretty_to_string @@ Network_config.to_yojson config); set config) event;
+    React.E.keep @@ React.E.map (fun config -> print_endline (Yojson.Safe.pretty_to_string @@ Network_config.to_yojson config); set config) event;
     Lwt.return card

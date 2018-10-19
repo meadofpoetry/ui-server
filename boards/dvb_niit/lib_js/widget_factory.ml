@@ -77,7 +77,8 @@ object(self)
          ?settings:Widget_settings.settings
 
   method private _create_chart conf =
-    Widget_chart.make ~measures:self#_measures conf
+    (* FIXME conf should not be an option *)
+    Widget_chart.make ~measures:self#_measures @@ Option.get_exn conf
     |> fun x -> { x with widget = x.widget#widget }
 
   method private _state =

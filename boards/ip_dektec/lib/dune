@@ -2,7 +2,7 @@
   (name        board_ip_dektec)
   ;(public_name board_ip_dektec)
   (synopsis "ip board implementation")
-  (libraries   containers lwt_react websocket-lwt.cohttp common storage boards api)
+  (libraries   containers websocket-lwt.cohttp common storage boards api)
   (flags          (:standard -short-paths -bin-annot
                    -w A+1..49+60-4-7-23-27-33-39-40-41-42-44-45-48))
   (ocamlopt_flags (:standard -O3 -unbox-closures))

@@ -1,35 +1,35 @@
 open Containers
 open Interaction
-open Common.Uri
+open Common
 
 let rec filter_map f = function
-  | []    -> []
-  | x::xs ->
+  | [] -> []
+  | x :: xs ->
      match f x with
-     | Some v -> v::(filter_map f xs)
-     | None   -> filter_map f xs
+     | Some v -> v :: (filter_map f xs)
+     | None -> filter_map f xs
 
-let is_absolute : Path.t -> bool = function
+let is_absolute : Uri.Path.t -> bool = function
   | [] -> true
   | hd :: _ ->
      try Char.equal String.(get hd 0) '/'
      with _ -> false
 
-let is_absolute_ref : Path.t -> bool = function
+let is_absolute_ref : Uri.Path.t -> bool = function
   | [] -> true
   | hd :: _ ->
      try Char.equal (String.get hd 0) '/'
          && Char.equal (String.get hd 1) '/'
      with _ -> false
 
-let make_absolute : Path.t -> Path.t = function
+let make_absolute : Uri.Path.t -> Uri.Path.t = function
   | [] -> []
   | (hd :: tl) as path ->
      if is_absolute path
      then path
      else ("/" ^ hd) :: tl
 
-let make_absolute_ref : Path.t -> Path.t = function
+let make_absolute_ref : Uri.Path.t -> Uri.Path.t = function
   | [] -> []
   | (hd :: tl) as path ->
      if is_absolute_ref path
@@ -39,17 +39,17 @@ let make_absolute_ref : Path.t -> Path.t = function
 let elt_to_string elt =
   Format.asprintf "%a" (Tyxml.Xml.pp ()) elt
 
-module Api_handler = Handler.Make(Common.User)
+module Api_handler = Handler.Make(User)
 
 type script = Src of string
             | Raw of string
 
 type tmpl_props =
-  { title        : string option
-  ; pre_scripts  : script list
+  { title : string option
+  ; pre_scripts : script list
   ; post_scripts : script list
-  ; stylesheets  : string list
-  ; content      : string list
+  ; stylesheets : string list
+  ; content : string list
   }
 
 type priority = [ `Index of int | `None ]
@@ -59,13 +59,13 @@ module Priority = struct
   let compare a b =
     match a, b with
     | `None, `None -> 0
-    | `None, _     -> -1
+    | `None, _ -> -1
     | _    , `None -> 1
     | `Index x, `Index y -> Int.compare x y
   let equal a b =
     0 = compare a b
 end
-                
+
 type upper = Loc_upper
 type inner = Loc_inner
 
@@ -90,7 +90,7 @@ let rec merge_subtree items =
   let subtree_eq priority title href = function
     | (prior, Subtree { title = name; href = hr; _ })
          when String.equal name title
-              && Path.equal hr href
+              && Uri.Path.equal hr href
               && Priority.equal prior priority -> true
     | _ -> false in
   let subtree_merge acc = function
@@ -114,23 +114,23 @@ let make_template (props : tmpl_props) =
                              | Some t -> t)
   ; "pre_scripts",  `A (List.map script_to_object props.pre_scripts)
   ; "post_scripts", `A (List.map script_to_object props.post_scripts)
-  ; "stylesheets",  `A (List.map (fun x -> `O [ "stylesheet", `String x ]) props.stylesheets)
-  ; "content",      `A (List.map (fun x -> `O [ "element", `String x]) props.content) ]
+  ; "stylesheets",  `A (List.map (fun x -> `O ["stylesheet", `String x]) props.stylesheets)
+  ; "content",      `A (List.map (fun x -> `O ["element", `String x]) props.content) ]
 
 let make_subtree href (subitems : inner ordered_item list) =
   let make_ref (_,v) =
     match v with
     | Simple x ->
        `O [ "title", `String x.title
-          ; "icon",  (match x.icon with
-                      | Some e -> `O ["value", `String (elt_to_string e)]
-                      | None   -> `Null)
-          ; "href",  `String (Path.to_string @@ make_absolute (href :: x.href)) ]
+          ; "icon", (match x.icon with
+                     | Some e -> `O ["value", `String (elt_to_string e)]
+                     | None -> `Null)
+          ; "href",  `String (Uri.Path.to_string @@ make_absolute (href :: x.href)) ]
     | Ref x ->
        `O [ "title", `String x.title
-          ; "href",  `String (if x.absolute
-                              then Path.to_string @@ make_absolute_ref x.href
-                              else Path.to_string @@ make_absolute x.href) ]
+          ; "href", `String (if x.absolute
+                             then Uri.Path.to_string @@ make_absolute_ref x.href
+                             else Uri.Path.to_string @@ make_absolute x.href) ]
     | _ -> `Null
   in List.map make_ref subitems
 
@@ -139,9 +139,10 @@ let make_item (_, v) =
   | Home _ -> None
   | Pure _ -> None
   | Ref r ->
-     let href = if r.absolute
-                then Path.to_string @@ make_absolute_ref r.href
-                else Path.to_string @@ make_absolute r.href in
+     let href =
+       if r.absolute
+       then Uri.Path.to_string @@ make_absolute_ref r.href
+       else Uri.Path.to_string @@ make_absolute r.href in
      Some (`O [ "title", `String r.title
               ; "href", `String href
               ; "simple", `Bool true ])
@@ -151,13 +152,13 @@ let make_item (_, v) =
        | None   -> `Null in
      Some (`O [ "title", `String s.title
               ; "icon", icon
-              ; "href", `String (Path.to_string @@ make_absolute s.href)
+              ; "href", `String (Uri.Path.to_string @@ make_absolute s.href)
               ; "simple", `Bool true ])
   | Subtree s ->
      let icon = match s.icon with
        | Some e -> `O ["value", `String (elt_to_string e)]
        | None   -> `Null in
-     let subtree = make_subtree (Path.to_string s.href) s.templates in
+     let subtree = make_subtree (Uri.Path.to_string s.href) s.templates in
      Some (`O [ "title", `String s.title
               ; "icon", icon
               ; "href", `Null
@@ -176,10 +177,10 @@ let sort_items items =
       items
   in List.sort compare subsorted
 
-let make_node path tmpl : 'a Dispatcher.node =
+let make_node path tmpl : 'a Uri.Dispatcher.node =
   let templ, doc = match path with
-    | `Fmt x -> Path.Format.to_templ x, Path.Format.doc x
-    | `Path x -> Path.to_templ x, Path.to_string x in
+    | `Fmt x -> Uri.Path.Format.to_templ x, Uri.Path.Format.doc x
+    | `Path x -> Uri.Path.to_templ x, Uri.Path.to_string x in
   { docstring = None
   ; templ
   ; path_typ = doc
@@ -217,7 +218,7 @@ let build_templates ?(href_base = "") mustache_tmpl user
     | Ref r -> [ ]
     | Home t ->
        Mustache.render mustache_tmpl (`O (items @ make_template t))
-       |> make_node (`Path Path.empty)
+       |> make_node (`Path Uri.Path.empty)
        |> List.pure
     | Pure s ->
        Mustache.render mustache_tmpl (`O (items @ make_template s.template))
@@ -234,6 +235,6 @@ let build_templates ?(href_base = "") mustache_tmpl user
 
 let build_route_table ?(href_base="") template user vals =
   let pages = build_templates ~href_base template user vals in
-  let empty = Dispatcher.empty in
-  let tbl = List.fold_left Dispatcher.add empty pages in
+  let empty = Uri.Dispatcher.empty in
+  let tbl = List.fold_left Uri.Dispatcher.add empty pages in
   tbl

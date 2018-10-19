@@ -3,7 +3,6 @@ open Components
 open Api_js.Requests
 open Api_js.Api_types
 open Lwt_result.Infix
-open Common.Topology
 open Common
 
 type time = [ `Now | `Last of Time.t ]
@@ -85,7 +84,7 @@ module Stream_item = struct
     String.concat " -> " @@ aux [] source
 
   class t on_lost on_found
-          (input : topo_input)
+          (input : Topology.topo_input)
           (time : time)
           (stream : Stream.t)
           (event : Stream.t option React.event)
@@ -124,7 +123,7 @@ module Stream_item = struct
         self#add_class base_class;
         self#listen_lwt Widget.Event.click (fun _ _ ->
             let id = Stream.ID.to_string self#stream.id in
-            let input_name = input_to_string input.input in
+            let input_name = Topology.input_to_string input.input in
             let url = Printf.sprintf "/input/%s/%d/%s"
                         input_name input.id id in
             Dom_html.window##.location##.href := Js.string url;
@@ -162,7 +161,7 @@ module Stream_grid = struct
 
   let base_class = "qos-niit-stream-grid"
 
-  class t (input : topo_input)
+  class t (input : Topology.topo_input)
           (init : (Stream.t * time) list)
           (event : Stream.t list React.event)
           () =
@@ -288,19 +287,19 @@ let get_streams input (boards : (int * string) list) =
   | Error e -> Error e
 
 let make () =
-  let (input : topo_input) =
+  let (input : Topology.topo_input) =
     Js.Unsafe.global##.input
     |> Js.to_string
-    |> Show_topo_input.of_string in
+    |> Topology.Show_topo_input.of_string in
   let (boards : (int * string) list) =
     Yojson.Safe.from_string @@ Js.to_string
     @@ Js_of_ocaml.Json.output @@ Js.Unsafe.global##.boards
-    |> boards_of_yojson
+    |> Topology.boards_of_yojson
     |> Result.get_exn in
   let (cpu : string option) =
     Yojson.Safe.from_string @@ Js.to_string
     @@ Js_of_ocaml.Json.output @@ Js.Unsafe.global##.cpu
-    |> cpu_opt_of_yojson
+    |> Json.Option.of_yojson Topology.process_type_of_yojson
     |> Result.get_exn in
   let streams =
     get_streams input boards
@@ -314,7 +313,6 @@ let make () =
       grid#widget)
     |> Ui_templates.Loader.create_widget_loader
     |> Widget.coerce in
-  let _ = new Ui_templates.Page.t (`Static [w]) () in
-  ()
+  ignore @@ new Ui_templates.Page.t (`Static [w]) ()
 
 let () = make ()

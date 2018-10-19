@@ -1,6 +1,7 @@
 open Common.Topology
 open Containers
 open Components
+open Common
 
 let _class = "topology"
 
@@ -20,7 +21,7 @@ let rec get_entry_depth depth = function
      let ports = List.map (fun x -> x.child) x.ports in
      begin match ports with
      | [] -> succ depth
-     | l  -> succ @@ find_max (List.map (get_entry_depth depth) l)
+     | l -> succ @@ find_max (List.map (get_entry_depth depth) l)
      end
 
 let get_node_depth t =
@@ -79,7 +80,7 @@ let to_topo_node = function
   | `CPU x   -> (x :> Topo_node.t)
 
 let make_nodes topology =
-  let create_element ~(element:Topo_node.node_entry) ~connections =
+  let create_element ~(element : Topo_node.node_entry) ~connections =
     let connections = List.map (fun (x,p) -> to_topo_node x, p) connections in
     match element with
     | `Entry (Board board) -> `Board (Topo_board.create ~connections board)
@@ -123,14 +124,15 @@ let iter_paths f nodes =
       | `CPU c   -> List.iter (fun p -> f (c :> Topo_node.t) p) c#paths
       | _ -> ()) nodes
 
-let update_nodes nodes (t:Common.Topology.t) =
-  let boards = Common.Topology.boards t in
-  let f (b:Topo_board.t) (x:topo_board) = Topo_board.eq_board b#board x in
+let update_nodes nodes (t : Topology.t) =
+  let boards = Topology.get_boards t in
+  let f (b : Topo_board.t) (x : topo_board) =
+    Topo_board.eq_board b#board x in
   List.iter (function
       | `Board b ->
          begin match List.find_opt (f b) boards with
          | Some tb -> b#set_board tb
-         | None    -> ()
+         | None -> ()
          end
       | _ -> ()) nodes
 
@@ -142,33 +144,13 @@ let create ~(parent: #Widget.t)
       svg ~a:[a_class [Markup.CSS.add_element _class "paths"]] [] |> toelt) in
   let nodes = make_nodes init in
   let drawer, drawer_box, set_drawer_title = Topo_drawer.make ~title:"" () in
-  let on_settings = fun node ->
+  let on_settings = fun ((widget : Widget.t), (name : string)) ->
     drawer_box#set_empty ();
-    let error_prefix = "Ошибка при загрузке страницы" in
-    let res = match node with
-      | `Board board -> set_drawer_title @@ Topo_board.get_board_name board;
-                        Topo_board.make_board_page ~error_prefix board
-      | `CPU cpu -> set_drawer_title @@ Topo_cpu.get_cpu_name cpu;
-                    Topo_cpu.make_cpu_page ~error_prefix cpu in
-    let pgs = Ui_templates.Loader.create_widget_loader
-                ~parent:drawer_box
-                ~error_prefix
-                res in
+    drawer_box#append_child widget;
+    set_drawer_title name;
     Lwt.Infix.(
       drawer#show_await ()
-      >|= (fun () ->
-        pgs#thread
-        >|= (function Error _ -> ()
-                    | Ok w -> w#destroy ())
-        |> Lwt.ignore_result)) in
-  List.iter (function
-      | `Board (b : Topo_board.t) ->
-         b#settings_button#listen_lwt Widget.Event.click (fun _ _ ->
-             on_settings @@ `Board b#board) |> Lwt.ignore_result
-      | `CPU (c : Topo_cpu.t) ->
-         c#settings_button#listen_lwt Widget.Event.click (fun _ _ ->
-             on_settings @@ `CPU c#cpu) |> Lwt.ignore_result
-      | _ -> ()) nodes;
+      >|= (fun () -> widget#destroy ())) in
   iter_paths (fun _ x ->
       Option.iter (fun sw -> parent#append_child sw) x#switch;
       Dom.appendChild svg x#root) nodes;
@@ -178,6 +160,14 @@ let create ~(parent: #Widget.t)
                       let w = wrap node#area node in
                       parent#append_child w) nodes;
   let gta = "grid-template-areas: " ^ (grid_template_areas init) ^ ";" in
-  Lwt_react.(E.keep @@ E.map (update_nodes nodes) event);
+  (* FIXME store events? *)
+  List.filter_map (function
+      | `Board (b : Topo_board.t) -> Some b#settings_event
+      | `CPU (c : Topo_cpu.t) -> Some c#settings_event
+      | `Input _ -> None) nodes
+  |> React.E.select
+  |> React.E.map_s on_settings
+  |> React.E.keep;
+  React.(E.keep @@ E.map (update_nodes nodes) event);
   parent#style##.cssText := Js.string gta;
   nodes

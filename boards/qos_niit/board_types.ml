@@ -24,7 +24,7 @@ let make_timespan ~from ~till data =
 type devinfo =
   { typ : int
   ; ver : int
-  } [@@deriving yojson]
+  } [@@deriving yojson, eq]
 
 (** Modes *)
 
@@ -62,15 +62,6 @@ type config =
   ; t2mi_mode : t2mi_mode option
   ; jitter_mode : jitter_mode option
   } [@@deriving yojson,eq]
-
-let config_to_string c = Yojson.Safe.to_string @@ config_to_yojson c
-let config_of_string s = config_of_yojson @@ Yojson.Safe.from_string s
-
-let config_default =
-  { input = ASI
-  ; t2mi_mode = None
-  ; jitter_mode = None
-  }
 
 type packet_sz =
   | Ts188
@@ -174,13 +165,13 @@ module Bitrate = struct
     ; fully_analyzed : bool
     ; section_syntax : bool
     ; bitrate : int
-    } [@@deriving yojson]
+    } [@@deriving yojson, eq]
 
   type t =
     { total : int
     ; tables : table list
     ; pids : (int * int) list
-    } [@@deriving yojson]
+    } [@@deriving yojson, eq]
 
 
 end
@@ -542,12 +533,21 @@ end
 
 (* Helper types *)
 
-type bitrates = (Stream.ID.t * Bitrate.t timestamped) list [@@deriving yojson]
-type ts_info = (Stream.ID.t * Ts_info.t timestamped) list [@@deriving yojson]
-type pids = (Stream.ID.t * Pid.t list timestamped) list [@@deriving yojson]
-type services = (Stream.ID.t * (Service.t list timestamped)) list [@@deriving yojson]
-type elements = (Stream.ID.t * ((int * int) * Pid.typ) list timestamped) list [@@deriving yojson]
-type tables = (Stream.ID.t * (SI_PSI_table.t list timestamped)) list [@@deriving yojson]
-type sections = (Stream.ID.t * (SI_PSI_section.t list timestamped)) list [@@deriving yojson]
-type t2mi_info = (Stream.ID.t * T2mi_info.t list timestamped) list [@@deriving yojson]
-type errors = (Stream.ID.t * (Error.t timestamped list)) list [@@deriving yojson]
+type bitrates =
+  (Stream.ID.t * Bitrate.t timestamped) list [@@deriving yojson, eq]
+type ts_info =
+  (Stream.ID.t * Ts_info.t timestamped) list [@@deriving yojson, eq]
+type pids =
+  (Stream.ID.t * Pid.t list timestamped) list [@@deriving yojson, eq]
+type services =
+  (Stream.ID.t * (Service.t list timestamped)) list [@@deriving yojson, eq]
+type elements =
+  (Stream.ID.t * ((int * int) * Pid.typ) list timestamped) list [@@deriving yojson, eq]
+type tables =
+  (Stream.ID.t * (SI_PSI_table.t list timestamped)) list [@@deriving yojson, eq]
+type sections =
+  (Stream.ID.t * (SI_PSI_section.t list timestamped)) list [@@deriving yojson, eq]
+type t2mi_info =
+  (Stream.ID.t * T2mi_info.t list timestamped) list [@@deriving yojson, eq]
+type errors =
+  (Stream.ID.t * (Error.t timestamped list)) list [@@deriving yojson, eq]

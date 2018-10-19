@@ -1,6 +1,5 @@
 open Containers
 open Zmq_lwt
-open Lwt_react
 open Lwt.Infix
 open Msg_conv
 open Interop

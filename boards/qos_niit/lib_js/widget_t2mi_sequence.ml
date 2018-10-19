@@ -1,10 +1,10 @@
 open Containers
 open Components
-open Common
 open Widget_common
 open Lwt_result.Infix
 open Board_types
 open Board_types.T2mi_sequence
+open Common
 
 let base_class = "qos-niit-t2mi-sequence"
 
@@ -251,7 +251,7 @@ class t (stream : Stream.t) (control : int) () =
 
     initializer
       self#_keep_s
-      @@ React.S.map button#set_timeout
+      @@ React.S.map ~eq:Equal.unit button#set_timeout
       @@ select#s_selected_value;
       button#set_getter @@ Some getter;
       primary#append_child hex;
