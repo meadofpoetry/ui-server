@@ -62,7 +62,7 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.t list) () =
       ()
 
     method show_await () = match React.S.value self#s_state with
-      | true -> Lwt.return_unit
+      | true  -> Lwt.return_unit
       | false ->
          let open Lwt.Infix in
          let t, w = Lwt.wait () in
@@ -121,12 +121,12 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.t list) () =
               let move_l =
                 self#listen_lwt Widget.Event.touchmove
                   (fun e _ ->
-                     Dom_html.stopPropagation e;
                      let touch =
                        Js.Optdef.get
                          (e##.changedTouches##item 0)
                          (fun () -> failwith "touch fail") in
-                     let delta, transform = match self#anchor with
+                     let delta, transform =
+                       match self#anchor with
                        | `Left ->
                          let dx = start_x - touch##.clientX in
                          dx, "translateX(-"^(string_of_int dx)^"px)"
@@ -140,7 +140,10 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.t list) () =
                          let dy = touch##.clientY - start_y in
                          dy, "translateY(" ^(string_of_int dy)^"px)" in
                      if delta > 0 then
-                       self#drawer#style##.transform := Js.string transform;
+                       begin
+                         Dom_html.stopPropagation e;
+                         self#drawer#style##.transform := Js.string transform;
+                       end;
                      Lwt.return_unit) in
               let end_ev e =
                 Lwt.cancel move_l;
@@ -174,10 +177,9 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.t list) () =
           | `Escape ->
             if self#has_class Markup.open_class then
               begin
-                match self#get_attribute "tabIndex" with
+                match self#get_attribute "tabindex" with
                 | Some x ->
-                  if int_of_string x > 0 then
-                    self#hide ()
+                  if int_of_string x > 0 then self#hide ()
                 | None   -> ();
               end;
             true

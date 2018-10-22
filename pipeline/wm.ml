@@ -19,12 +19,12 @@ type widget_type = Video
 let name = "wm"
 
 type widget_type = Video | Audio [@@deriving eq]
+
 let widget_type_equal typ_1 typ_2 =
-  if typ_1 = Video && typ_2 = Video
-  || typ_1 = Audio && typ_2 = Audio then
-    true
-  else
-    false
+  match typ_1, typ_2 with
+  | Video, Video | Audio, Audio -> true
+  | _ -> false
+
 let widget_type_of_yojson = function
   | `String "Video" -> Ok(Video)
   | `String "Audio" -> Ok(Audio)
