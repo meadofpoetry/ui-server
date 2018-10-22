@@ -68,59 +68,18 @@ let settings_init typ send (options : options) =
                         >>= function  Ok ()   -> Lwt_io.printf "Settings resp: fine\n"
                                     | Error r -> Lwt_io.printf "Settings resp: %s\n" r)
  *)
-let add_storages typ send options structs wm settings =
-  (* TODO test this *)
-  let combine_and_set name combine opt set push data =
-    let nv = combine ~set:(opt#get) data in
-    match nv with
-    | `Kept v ->
-       Logs.debug (fun m -> m "(Pipeline) settings for %s were not changed" name);
-       push v
-    | `Changed v ->
-       set v
-       >>= (function
-            | Ok ()   ->
-               Logs.debug (fun m -> m "(Pipeline) settings for %s were changed" name);
-               Lwt.return @@ push v
-            | Error e ->
-               Logs_lwt.err (fun m -> m "(Pipeline) combine and set: failed to set data %s" e))
-       |> Lwt_main.run
-  in
-  let storage ~eq name combine opt set events =
-    let s, push = React.S.create ~eq opt#get in
-    let events = React.E.limit (fun () -> Lwt_unix.sleep 0.5) events in
-    React.E.map (combine_and_set name combine opt set push) events
-    |> React.E.keep;
-    s in
 
-  let str_chan = Structure_msg.create typ send in
-  let wm_chan = Wm_msg.create typ send in
-  let set_chan = Settings_msg.create typ send in
-  let structures =
-    storage
-      ~eq:(Equal.list Structure.equal_structure)
-      "Structures"
-      Structure.Structures.combine
-      options.structures
-      str_chan.set
-      structs in
-  let wm =
-    storage
-      ~eq:Wm.equal
-      "Wm"
-      Wm.combine
-      options.wm
-      wm_chan.set
-      wm in
-  let settings =
-    storage
-      ~eq:Settings.equal
-      "Settings"
-      Settings.combine
-      options.settings
-      set_chan.set
-      settings in
-  structures, wm, settings
+let make_setter merge set value =
+  match merge value with
+  | `Kept v -> Some v
+  | `Changed v -> Lwt_main.run @@ set v
+                  |> function Ok () -> Some v
+                            | Error _e -> None (* TODO add log *)
+                                  
+let signal_add_setter signal default setter =
+  let signal = React.S.limit ~eq:Pervasives.(=) (fun () -> Lwt_unix.sleep 0.5) signal in
+  React.S.fmap ~eq:Pervasives.(=) setter default signal
+
 
 let create_channels
       typ
@@ -223,8 +182,31 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
     create_channels typ send options structures_packer strm_push wm_push sets_push
   in
 
-  let structures, wm, settings =
-    add_storages typ send options strm wm sets in
+  let structures =
+    let signal =
+      React.S.l2 ~eq:Pervasives.(=) Pair.make
+        applied_structs
+        (React.S.hold ~eq:Pervasives.(=) options.structures#get strm)
+    in
+    let chan   = Structure_msg.create typ send in
+    let merge  = make_setter (fun x -> Structure.Structures.combine ~set:(options.structures#get) x) chan.set in
+    signal_add_setter signal Structure.Structures.default merge
+  in
+    
+  let wm =
+    let signal = React.S.hold ~eq:Wm.equal options.wm#get wm in
+    let chan   = Wm_msg.create typ send in
+    let merge  = make_setter (fun x -> Wm.combine ~set:(options.wm#get) x) chan.set in
+    signal_add_setter signal Wm.default merge
+  in
+
+  let settings =
+    let signal = React.S.hold ~eq:Settings.equal options.settings#get sets in
+    let chan   = Settings_msg.create typ send in
+    let merge  = make_setter (fun x -> Settings.combine ~set:(options.settings#get) x) chan.set in
+    signal_add_setter signal Settings.default merge
+  in
+  
   let streams =
     React.S.map ~eq:(Equal.list Structure.equal_packed)
       structures_packer structures in
@@ -249,13 +231,7 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
     stat
   |> React.E.keep;
   let notifs =
-    { streams
-    ; wm
-    ; settings
-    ; applied_structs
-    ; adata
-    ; vdata
-    ; status }
+    { streams; wm; settings; applied_structs; adata; vdata; status }
   in
   epush, ready, notifs, requests
 
