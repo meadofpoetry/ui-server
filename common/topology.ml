@@ -5,15 +5,15 @@ type state =
   ] [@@deriving yojson, show, eq, ord]
 
 let state_to_string = function
-  | `Fine        -> "fine"
+  | `Fine -> "fine"
   | `No_response -> "no-response"
-  | `Init        -> "init"
+  | `Init -> "init"
 
 let state_of_string = function
-  | "fine"        -> Some `Fine
+  | "fine" -> Some `Fine
   | "no-response" -> Some `No_response
-  | "init"        -> Some `Init
-  | _             -> None
+  | "init" -> Some `Init
+  | _ -> None
 
 type log_level = Logs.level
 
@@ -38,8 +38,7 @@ let equal_log_level x y = 0 = compare_log_level x y
 type input =
   | RF
   | TSOIP
-  | ASI
-[@@deriving show, eq, enum]
+  | ASI [@@deriving show, eq, enum]
 
 type board_type = string [@@deriving yojson, show, eq, ord]
 
@@ -97,43 +96,43 @@ type t =
   ] [@@deriving yojson { strict = false }, show, eq, ord]
 
 and topo_entry =
-  | Input  : topo_input -> topo_entry
-  | Board  : topo_board -> topo_entry
+  | Input : topo_input -> topo_entry
+  | Board : topo_board -> topo_entry
 
 and topo_input =
-  { input        : input
-  ; id           : int
+  { input : input
+  ; id : int
   }
 
 and topo_board =
-  { typ          : board_type
-  ; model        : string
+  { typ : board_type
+  ; model : string
   ; manufacturer : string
-  ; version      : version
-  ; control      : int
-  ; connection   : (state [@default `No_response])
-  ; sources      : (Json.t option [@default None])
-  ; env          : (env [@default Env.empty])
-  ; ports        : topo_port list
-  ; logs         : (log_level option [@default None])
+  ; version : version
+  ; control : int
+  ; connection : (state [@default `No_response])
+  ; sources : (Json.t option [@default None])
+  ; env : (env [@default Env.empty])
+  ; ports : topo_port list
+  ; logs : (log_level option [@default None])
   }
 
 and topo_port =
-  { port       : int
-  ; listening  : (bool [@default false])
-  ; has_sync   : (bool [@default false])
+  { port : int
+  ; listening : (bool [@default false])
+  ; has_sync : (bool [@default false])
   ; switchable : (bool [@default false])
-  ; child      : topo_entry
+  ; child : topo_entry
   }
 
 and topo_cpu  =
   { process : process_type
-  ; ifaces  : topo_interface list
+  ; ifaces : topo_interface list
   }
 
 and topo_interface =
   { iface : string
-  ; conn  : topo_entry
+  ; conn : topo_entry
   }
 
 module Show_topo_input = struct
@@ -155,30 +154,32 @@ end
 
 let cpu_subbranches = function
   | `Boards _ -> `No_cpu
-  | `CPU    c -> `Branches (List.map (fun i -> i.conn) c.ifaces)
+  | `CPU c -> `Branches (List.map (fun i -> i.conn) c.ifaces)
 
 let get_entries = function
   | `Boards l -> List.fold_left (fun acc b -> (List.map (fun p -> p.child) b.ports) @ acc) [] l
-  | `CPU    c -> List.map (fun i -> i.conn) c.ifaces
+  | `CPU c -> List.map (fun i -> i.conn) c.ifaces
 
 let get_api_path = string_of_int
 
-let get_input_name (i:topo_input) =
+let get_input_name (i : topo_input) =
   let to_string s = Printf.sprintf "%s %d" s i.id in
   match i.input with
-  | RF    -> to_string "RF"
+  | RF -> to_string "RF"
   | TSOIP -> to_string "TSoIP"
-  | ASI   -> to_string "ASI"
+  | ASI -> to_string "ASI"
+
+let get_board_name (b : topo_board) =
+  Printf.sprintf "%s. %s" b.manufacturer b.model
 
 let get_inputs t =
   let rec get acc = function
     | Input x -> x :: acc
-    | Board x -> List.fold_left (fun acc x -> get acc x.child) acc x.ports
-  in
+    | Board x -> List.fold_left (fun acc x -> get acc x.child) acc x.ports in
   let topo_inputs_cpu   c = List.fold_left (fun acc i -> get acc i.conn) [] c.ifaces in
   let topo_inputs_board b = List.fold_left (fun acc p -> get acc p.child) [] b.ports in
   match t with
-  | `CPU c     -> topo_inputs_cpu c
+  | `CPU c -> topo_inputs_cpu c
   | `Boards bs -> List.fold_left (fun acc b -> (topo_inputs_board b) @ acc) [] bs
 
 let get_boards t =
@@ -189,7 +190,7 @@ let get_boards t =
   let topo_boards_cpu   c = List.fold_left (fun acc i -> get acc i.conn) [] c.ifaces in
   let topo_boards_board b = List.fold_left (fun acc p -> get acc p.child) [b] b.ports in
   match t with
-  | `CPU c     -> topo_boards_cpu c
+  | `CPU c -> topo_boards_cpu c
   | `Boards bs -> List.fold_left (fun acc b -> (topo_boards_board b) @ acc) [] bs
 
 let get_paths t =

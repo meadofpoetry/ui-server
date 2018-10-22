@@ -82,8 +82,8 @@ let to_dialog (wm:Wm.t) =
   let checkboxes = to_checkboxes wm.widgets in
   let box        = new Vbox.t ~widgets:checkboxes () in
   let dialog =
-    let accept = new Button.t ~label:"Отмена" () in
-    let cancel = new Button.t ~label:"Применить" () in
+    let cancel = new Button.t ~label:"Отмена" () in
+    let accept = new Button.t ~label:"Применить" () in
     new Dialog.t
       ~title:"Выберите виджеты"
       ~scrollable:true

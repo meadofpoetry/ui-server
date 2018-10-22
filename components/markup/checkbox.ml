@@ -8,12 +8,13 @@ module Make (Xml : Xml_sigs.NoWrap)
 
   open Html
 
-  let base_class           = "mdc-checkbox"
+  let base_class = "mdc-checkbox"
+  let disabled_class = CSS.add_modifier base_class "disabled"
   let native_control_class = CSS.add_element base_class "native-control"
-  let background_class     = CSS.add_element base_class "background"
-  let checkmark_class      = CSS.add_element base_class "checkmark"
+  let background_class = CSS.add_element base_class "background"
+  let checkmark_class = CSS.add_element base_class "checkmark"
   let checkmark_path_class = CSS.add_element base_class "checkmark-path"
-  let mixedmark_class      = CSS.add_element base_class "mixedmark"
+  let mixedmark_class = CSS.add_element base_class "mixedmark"
 
   let create ?(classes=[]) ?attrs ?input_id ?(disabled=false) ?(checked=false) () =
     div ~a:([a_class (classes

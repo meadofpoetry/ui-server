@@ -1,14 +1,15 @@
 open Containers
 open Components
 open Lwt_result.Infix
+open Common
 
 let base_class = "pipeline-settings"
 
-let make_streams () =
+let make_streams (cpu : Topology.topo_cpu) () =
   Requests.HTTP.get_streams ()
   >>= (fun init ->
     let event, sock = Requests.WS.get_streams () in
-    let box = Streams_selector.make ~init ~event () in
+    let box = Streams_selector.make ~init ~event cpu () in
     box#set_on_destroy
     @@ Some (fun () ->
            React.E.stop ~strong:true event;
@@ -48,12 +49,12 @@ let make_settings () =
     Lwt_result.return box#widget)
   |> Lwt_result.map_err Api_js.Requests.err_to_string
 
-let make ?error_prefix () : (#Widget.t,string) Lwt_result.t =
+let make (cpu : Topology.topo_cpu) () : (#Widget.t,string) Lwt_result.t =
   let wrap f () = Ui_templates.Loader.create_widget_loader (f ()) in
   let tabs =
     [ new Tab.t
         ~content:(Text "Выбор потоков")
-        ~value:(wrap make_streams) ()
+        ~value:(wrap (make_streams cpu)) ()
     ; new Tab.t
         ~content:(Text "Выбор PID")
         ~value:(wrap make_structure) ()
