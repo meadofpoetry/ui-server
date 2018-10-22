@@ -68,18 +68,26 @@ let settings_init typ send (options : options) =
                         >>= function  Ok ()   -> Lwt_io.printf "Settings resp: fine\n"
                                     | Error r -> Lwt_io.printf "Settings resp: %s\n" r)
  *)
-
-let make_setter merge set value =
+                           
+let notification_signal (type a b)
+      ~(combine: set:a -> b -> [`Kept of a | `Changed of a ])
+      ~channel
+      ~options
+      ~(signal:b React.signal) =
+  let make_setter merge set value =
   match merge value with
   | `Kept v -> Some v
   | `Changed v -> Lwt_main.run @@ set v
                   |> function Ok () -> Some v
                             | Error _e -> None (* TODO add log *)
-                                  
-let signal_add_setter signal default setter =
-  let signal = React.S.limit ~eq:Pervasives.(=) (fun () -> Lwt_unix.sleep 0.5) signal in
-  React.S.fmap ~eq:Pervasives.(=) setter default signal
-
+  in                   
+  let signal_add_setter signal default setter =
+    let signal = React.S.limit ~eq:Pervasives.(=) (fun () -> Lwt_unix.sleep 0.5) signal in
+    React.S.fmap ~eq:Pervasives.(=) setter default signal
+  in
+  let merge   = make_setter (fun (x : b) -> combine ~set:(options#get) x) channel.set in
+  let default = options#get in
+  signal_add_setter signal default merge
 
 let create_channels
       typ
@@ -182,34 +190,32 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
     create_channels typ send options structures_packer strm_push wm_push sets_push
   in
 
-  let structures =
-    let signal =
-      React.S.l2 ~eq:Pervasives.(=) Pair.make
-        applied_structs
-        (React.S.hold ~eq:Pervasives.(=) options.structures#get strm)
-    in
-    let chan   = Structure_msg.create typ send in
-    let merge  = make_setter (fun x -> Structure.Structures.combine ~set:(options.structures#get) x) chan.set in
-    signal_add_setter signal Structure.Structures.default merge
-  in
-    
-  let wm =
-    let signal = React.S.hold ~eq:Wm.equal options.wm#get wm in
-    let chan   = Wm_msg.create typ send in
-    let merge  = make_setter (fun x -> Wm.combine ~set:(options.wm#get) x) chan.set in
-    signal_add_setter signal Wm.default merge
+  let structures = notification_signal
+                     ~combine:Structure.Structures.combine
+                     ~channel:(Structure_msg.create typ send)
+                     ~options:(options.structures)
+                     ~signal:(React.S.l2 ~eq:Pervasives.(=) Pair.make
+                                applied_structs
+                                (React.S.hold ~eq:Pervasives.(=) options.structures#get strm))
   in
 
-  let settings =
-    let signal = React.S.hold ~eq:Settings.equal options.settings#get sets in
-    let chan   = Settings_msg.create typ send in
-    let merge  = make_setter (fun x -> Settings.combine ~set:(options.settings#get) x) chan.set in
-    signal_add_setter signal Settings.default merge
+  let wm = notification_signal
+             ~combine:Wm.combine
+             ~channel:(Wm_msg.create typ send)
+             ~options:(options.wm)
+             ~signal:(React.S.hold ~eq:Wm.equal options.wm#get wm)
+  in
+
+  let settings = notification_signal
+                   ~combine:Settings.combine
+                   ~channel:(Settings_msg.create typ send)
+                   ~options:(options.settings)
+                   ~signal:(React.S.hold ~eq:Settings.equal options.settings#get sets)
   in
   
   let streams =
-    React.S.map ~eq:(Equal.list Structure.equal_packed)
-      structures_packer structures in
+    React.S.map ~eq:(Equal.list Structure.equal_packed) structures_packer structures
+  in
 
   (* TODO reimplement *)
   let pids_diff =
@@ -256,16 +262,10 @@ let create (type a) (typ : a typ) db_conf config sock_in sock_out =
 
   let model = Model.create db_conf notifs.streams notifs.status notifs.vdata notifs.adata in
   let api =
-    { notifs
-    ; requests
-    ; model } in
+    { notifs; requests; model }
+  in
   let state =
-    { socket
-    ; ready_e
-    ; options
-    ; srcs
-    ; proc
-    }
+    { socket; ready_e; options; srcs; proc }
   in
   api, state, (recv epush), send
 
