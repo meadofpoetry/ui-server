@@ -3,7 +3,7 @@ open Tyxml_js
 
 module Markup = Components_markup.Checkbox.Make(Xml)(Svg)(Html)
 
-class t ?(ripple=true) ?state ?on_change ?input_id () =
+class t ?(ripple = true) ?state ?on_change ?input_id () =
 
   let elt = Markup.create ?input_id () |> Tyxml_js.To_dom.of_div in
   let input_elt =
@@ -15,16 +15,24 @@ class t ?(ripple=true) ?state ?on_change ?input_id () =
 
     inherit Widget.radio_or_cb_widget ?state ?on_change ~input_elt elt () as super
 
-    method set_indeterminate x = (Js.Unsafe.coerce input_elt)##.indeterminate := Js.bool x
-    method indeterminate = Js.to_bool (Js.Unsafe.coerce input_elt)##.indeterminate
+    method set_indeterminate (x : bool) : unit =
+      (Js.Unsafe.coerce input_elt)##.indeterminate := Js.bool x
+
+    method indeterminate : bool =
+      Js.to_bool (Js.Unsafe.coerce input_elt)##.indeterminate
 
     method layout () : unit =
       super#layout ();
       Option.iter (fun r -> r#layout ()) _ripple
 
     method destroy () : unit =
+      super#destroy ();
       Option.iter (fun r -> r#destroy ()) _ripple;
       _ripple <- None
+
+    method set_disabled (x : bool) : unit =
+      super#set_disabled x;
+      super#add_or_remove_class x Markup.disabled_class
 
     initializer
       if ripple

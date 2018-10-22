@@ -4,8 +4,14 @@ open Lwt.Infix
 open Application_types
 open Common
 
+let dense = false
+
 let base_class = "application-stream-selector"
+let inputs_class = Markup.CSS.add_element base_class "inputs"
+let stream_class = Markup.CSS.add_element base_class "stream"
+let lost_class = Markup.CSS.add_modifier stream_class "lost"
 let block_class = Markup.CSS.add_element base_class "block"
+let forbidden_class = Markup.CSS.add_modifier block_class "forbidden"
 let dialog_class = Markup.CSS.add_element base_class "dialog"
 
 type check =
@@ -20,17 +26,15 @@ type stream_dialog =
   ; result : (Stream.t, string) result React.signal
   }
 
-class base ?actions ~body ?(lim : int React.signal option)
-        ~(inputs : Topology.topo_input list) () =
-
-  let title =
-    let s = List.map Topology.get_input_name inputs in
-    match s with
-    | [] -> "Неизвестный источник"
-    | [s] -> "Вход " ^ s
-    | l -> "Входы " ^ (String.concat ", " l) in
+class base ?actions ~body
+        ?(left : int React.signal option)
+        ~(state : Stream.Table.source_state)
+        ~(entry : Topology.topo_entry) () =
+  let title = match entry with
+    | Topology.Input i -> "Вход " ^ Topology.get_input_name i
+    | Topology.Board b -> "Плата " ^ Topology.get_board_name b in
   let title = new Card.Primary.title title () in
-  let subtitle = match lim with
+  let subtitle = match left with
     | None -> None
     | Some x -> Some (new Card.Primary.subtitle "" ()) in
   let primary_widgets = match subtitle with
@@ -48,11 +52,11 @@ class base ?actions ~body ?(lim : int React.signal option)
     | Some p, None -> [p#widget; media#widget]
     | None, Some a -> [media#widget; a#widget]
     | Some p, Some a -> [p#widget; media#widget; a#widget] in
-  let s = match lim with
+  let s = match left with
     | None -> React.S.const ()
     | Some s ->
        React.S.map ~eq:Equal.unit (fun n ->
-           let s = Printf.sprintf "Доступно для выбора: %d" n in
+           let s = Printf.sprintf "Лимит: %d" n in
            Option.iter (fun st -> st#set_text_content s) subtitle) s in
   object
 
@@ -63,7 +67,11 @@ class base ?actions ~body ?(lim : int React.signal option)
 
     method init () : unit =
       super#init ();
-      super#add_class block_class
+      super#add_class block_class;
+      begin match state with
+      | `Forbidden -> super#add_class forbidden_class
+      | _ -> ()
+      end
 
     method destroy () : unit =
       super#destroy ();
@@ -73,167 +81,158 @@ class base ?actions ~body ?(lim : int React.signal option)
 
 module Board = struct
 
-  let make_stream_entry ?(check = None)
-        ?(url = None)
+  let make_item ?(url = None)
+        ~(check : check)
+        ~(present : bool)
         (stream : Stream.t) =
-    let text =
-      let i = Stream.get_input stream in
-      let s = Stream.Source.to_string stream.source.info in
-      match i with
-      | Some i -> Printf.sprintf "Вход %s: %s" (Topology.get_input_name i) s
-      | None -> s in
-    let checkbox = new Checkbox.t ~ripple:false () in
+    let text = Stream.Source.to_string stream.source.info in
+    let checkbox = new Checkbox.t () in
     checkbox#set_checked @@ Option.is_some url;
-    begin match check with
-    | None -> ()
-    | Some check ->
-       React.S.map ~eq:Equal.unit
-         (fun v -> checkbox#set_disabled (not v)) check.avail
-       |> React.S.keep;
-       React.S.diff (fun s _ ->
-           if s then check.enable () else check.disable ()) checkbox#s_state
-       |> React.E.keep;
-    end;
-    let item =
-      new Item_list.Item.t
-        ~text
-        ~meta:checkbox
-        ~value:()
-        () in
+    let _s =
+      React.S.map ~eq:Equal.unit
+        (fun v -> checkbox#set_disabled (not v)) check.avail in
+    let _e =
+      React.S.diff (fun s _ ->
+          if s then check.enable () else check.disable ())
+        checkbox#s_state in
     let s =
       React.S.map ~eq:(Equal.option Stream.equal)
         (fun s -> if s then Some stream else None)
         checkbox#s_state in
-    item, s
-
-  module Limited = struct
-
-    let make_list lim marker (stream_list : Stream.Table.stream list) =
-      let open Stream.Table in
-      let init_list =
-        List.filter_map (function
-            | ({ url = Some _; stream; _ } : stream) -> Some stream
-            | { url = None;  _} -> None) stream_list in
-      let counter, counter_push =
-        React.S.create ~eq:Int.equal (List.length init_list) in
-      let check =
-        { avail = React.S.map ~eq:Bool.equal
-                    (fun counter -> not (counter > lim)) counter
-        ; enable = (fun () -> counter_push @@ succ @@ React.S.value counter)
-        ; disable = (fun () -> counter_push @@ pred @@ React.S.value counter)
-        } in
-      let items, stream_signals =
-        List.split
-        @@ List.map (fun ({ url; stream; _ } : stream) ->
-               make_stream_entry ~check:(Some check) ~url stream)
-             stream_list in
-      let settings =
-        let eq = Equal.pair equal_marker (Equal.list Stream.equal) in
-        React.S.merge ~eq:(Equal.list (Equal.option Stream.equal))
-          (fun acc v -> v :: acc) [] stream_signals
-        |> React.S.map ~eq (fun l -> (marker, List.filter_map Fun.id l)) in
-      let list =
-        new Item_list.t
-          ~dense:true
-          ~items:(List.map (fun i -> `Item i) items)
-          () in
-      list, settings, counter
-
-    class t (lim : int)
-            (marker : marker)
-            (board : Topology.topo_board option)
-            (stream_list : Stream.Table.stream list) () =
-      let open Item_list.List_group in
-      let open Stream.Table in
-      let inputs =
-        Option.map_or ~default:[]
-          (fun b -> Topology.get_inputs (`Boards [b])) board in
-      let list, settings, counter = make_list lim marker stream_list in
+    let o =
       object
 
-        inherit base ~lim:(React.S.map ~eq:(=) (fun x -> lim - x) counter)
-                  ~body:list
-                  ~inputs
+        val mutable _click_listener = None
+
+        inherit [unit] Item_list.Item.t
+                  ~text
+                  ~meta:checkbox
+                  ~value:()
                   () as super
+
+        method init () : unit =
+          super#init ();
+          super#add_class stream_class;
+          if not present then super#add_class lost_class;
+          let l =
+            super#listen_click_lwt (fun e _ ->
+                let target = Js.Opt.to_option e##.target in
+                let is_checkbox =
+                  Option.map_or ~default:false
+                    (fun e ->
+                      let open Dom_html in
+                      let elt = (checkbox#input_element :> element Js.t) in
+                      Equal.physical e elt)
+                    target in
+                if not is_checkbox
+                then
+                  if not checkbox#disabled
+                  then checkbox#toggle ();
+                Lwt.return_unit) in
+          _click_listener <- Some l
 
         method destroy () : unit =
           super#destroy ();
-          React.S.stop ~strong:true counter;
-          React.S.stop ~strong:true settings
+          Option.iter Lwt.cancel _click_listener;
+          _click_listener <- None;
+          React.S.stop ~strong:true _s;
+          React.S.stop ~strong:true s;
+          React.E.stop ~strong:true _e;
 
-        method settings = settings
+      end in
+    o, s
 
-      end
+  let make_list state counter counter_push
+        (stream_list : Stream.Table.stream list) =
+    let open Stream.Table in
+    let available = match state with
+      | `Forbidden -> React.S.const false
+      | `Unlimited -> React.S.const true
+      | `Limited lim ->
+         React.S.map ~eq:Bool.equal
+           (fun counter -> not (counter > lim)) counter in
+    let check =
+      { avail = available
+      ; enable = (fun () -> counter_push @@ succ @@ React.S.value counter)
+      ; disable = (fun () -> counter_push @@ pred @@ React.S.value counter)
+      } in
+    let items, stream_signals =
+      List.split
+      @@ List.map (fun ({ url; stream; present } : stream) ->
+             make_item ~check ~url ~present stream)
+           stream_list in
+    let settings =
+      let eq = Equal.list Stream.equal in
+      React.S.merge ~eq:(Equal.list (Equal.option Stream.equal))
+        (fun acc v -> v :: acc) [] stream_signals
+      |> React.S.map ~eq (List.filter_map Fun.id) in
+    let non_interactive = match state with
+      | `Forbidden -> true | _ -> false in
+    let list =
+      new Item_list.t
+        ~non_interactive
+        ~dense
+        ~items:(List.map (fun i -> `Item i) items) () in
+    list, settings
 
-    let make lim marker board streams =
-      let w = new t lim marker board streams () in
-      w#widget, w#settings
+  class t (state : Stream.Table.source_state)
+          (list : unit Item_list.t)
+          (settings : Stream.t list React.signal)
+          (counter : int React.signal)
+          (left : int React.signal option)
+          (entry : Topology.topo_entry)
+          () =
+  object
+
+    inherit base ?left ~body:list ~entry ~state () as super
+
+    method destroy () : unit =
+      super#destroy ();
+      React.S.stop ~strong:true counter;
+      React.S.stop ~strong:true settings;
+      Option.iter (React.S.stop ~strong:true) left
 
   end
 
-  module Unlimited = struct
+  let make_entry state counter counter_push left stream_list input =
+    let open Stream.Table in
+    let list, settings = make_list state counter counter_push stream_list in
+    let w = new t state list settings counter left (Topology.Input input) () in
+    w#widget, settings
 
-    let make marker board (stream_list : Stream.Table.stream list) =
-      let open Item_list.List_group in
-      let open Stream.Table in
-      let items, stream_signals =
-        List.split
-        @@ List.map (fun ({ url; stream; _ } : stream) ->
-               make_stream_entry ~url stream)
-             stream_list in
-      let subheader = new Typography.Text.t ~text:(Printf.sprintf "Board") () in
-      let list =
-        new Item_list.t
-          ~dense:true
-          ~items:(List.map (fun i -> `Item i) items)
-          () in
-      let settings =
-        let eq = Equal.pair equal_marker (Equal.list Stream.equal) in
-        React.S.merge ~eq:(Equal.list (Equal.option Stream.equal))
-          (fun acc v -> v :: acc) [] stream_signals
-        |> React.S.map ~eq (fun l -> (marker, List.filter_map Fun.id l))
-      in
-      let box  = new Vbox.t ~widgets:[subheader#widget; list#widget] () in
-      box#widget, settings
-
-  end
-
-  module Forbidden = struct
-
-    class t (marker : marker)
-            (board: Topology.topo_board option)
-            (stream_list : Stream.Table.stream list) () =
-      let open Item_list.List_group in
-      let open Stream.Table in
+  let make (board : Topology.topo_board option)
+        ((marker, state, stream_list) : stream_table_row) =
+    let open Stream.Table in
+    let open Topology in
+    let inputs =
+      Option.map_or ~default:[]
+        (fun b -> Topology.get_inputs (`Boards [b])) board in
+    let counter, counter_push =
       let init_list =
         List.filter_map (function
             | ({ url = Some _; stream; _ } : stream) -> Some stream
             | { url = None;  _} -> None) stream_list in
-      let inputs =
-        Option.map_or ~default:[]
-          (fun b -> Topology.get_inputs (`Boards [b])) board in
-      let settings = React.S.const (marker, init_list) in
-      let list = new Item_list.t ~items:[] () in
-      object
-
-        inherit base ~body:list ~inputs ()
-
-        method settings = settings
-
-      end
-
-    let make marker board streams =
-      let w = new t marker board streams () in
-      w#widget, w#settings
-
-  end
-
-  let make (board : Topology.topo_board option)
-        ((marker, state, stream_list) : stream_table_row) =
-    match state with
-    | `Forbidden -> Forbidden.make marker board stream_list
-    | `Limited lim -> Limited.make lim marker board stream_list
-    | `Unlimited -> Unlimited.make marker board stream_list
+      React.S.create ~eq:Int.equal (List.length init_list) in
+    let left = match state with
+      | `Forbidden | `Unlimited -> None
+      | `Limited lim ->
+         Some (React.S.map ~eq:(=) (fun x -> lim - x) counter) in
+    let w, settings =
+      List.map (fun (i : topo_input) ->
+          let filtered_streams =
+            List.filter (fun (s : stream) ->
+                match Stream.get_input s.stream with
+                | None -> false
+                | Some input -> equal_topo_input i input)
+              stream_list in
+          make_entry state counter counter_push left filtered_streams i) inputs
+      |> List.split in
+    let eq_l = Equal.list Stream.equal in
+    let eq = Equal.pair equal_marker eq_l in
+    let settings =
+      React.S.merge ~eq:eq_l (fun l x -> l @ x) [] settings
+      |> React.S.map ~eq (Pair.make marker) in
+    w, settings
 
 end
 
@@ -241,31 +240,37 @@ module Input = struct
 
   module Stream_dialog = struct
 
-    let merge input uri =
+    let merge input addr port =
       let open Stream in
-      match uri with
-      | None -> Error ("no uri provided")
-      | Some (uri : Url.t) ->
+      match addr, port with
+      | Some (addr : Ipaddr.V4.t), Some (port : int) ->
          let source =
            { info = IPV4 { scheme = "udp"
-                         ; addr = uri.ip
-                         ; port = uri.port }
+                         ; addr
+                         ; port }
            ; node = Entry (Input input) } in
          Ok { id = make_id source
-            ; orig_id = TSoIP { addr = uri.ip; port = uri.port }
+            ; orig_id = TSoIP { addr; port }
             ; typ = TS
             ; source
            }
+      | _ -> Error "no data provided"
 
     let make (input : Topology.topo_input) =
       let open Stream in
-      let uri =
+      let addr =
         new Textfield.t
-          ~input_type:(Custom (Url.of_string, Url.to_string))
-          ~label:"URL"
+          ~input_type:IPV4
+          ~label:"IP адрес"
+          () in
+      let port =
+        new Textfield.t
+          ~input_type:(Integer ((Some 0), (Some 65535)))
+          ~label:"UDP порт"
           () in
       let eq = Result.equal ~err:String.equal equal in
-      let result = React.S.map ~eq (merge input) uri#s_input in
+      let result = React.S.l2 ~eq (merge input)
+                     addr#s_input port#s_input in
       let accept =
         new Ui_templates.Buttons.Set.t ~label:"применить"
           (React.S.map ~eq:(Equal.option equal)
@@ -273,18 +278,16 @@ module Input = struct
           (fun _ -> Lwt.return_unit)
           () in
       let cancel = new Button.t ~label:"отмена" () in
+      let box = new Vbox.t ~widgets:[addr#widget; port#widget] () in
       let dialog =
         new Dialog.t
           ~title:"Добавление потока"
           ~actions:[ Dialog.Action.make ~typ:`Accept accept
                    ; Dialog.Action.make ~typ:`Cancel cancel ]
-          ~content:(`Widgets [uri#widget])
+          ~content:(`Widgets [box#widget])
           () in
       dialog#add_class dialog_class;
-      let show () =
-        let t = dialog#show_await () in
-        uri#focus ();
-        t in
+      let show () = dialog#show_await () in
       { dialog; show; result }
 
     let show dialog streams =
@@ -303,17 +306,12 @@ module Input = struct
 
   let make_stream_list stream_list =
     let make_board_stream_entry del_item del_stream (stream : Stream.t) =
-      let text =
-        Printf.sprintf "Поток %s"
-        @@ Stream.Source.to_string stream.source.info in
+      let text = Stream.Source.to_string stream.source.info in
       let icon = Icon.SVG.(create_simple Path.delete) in
-      let del_button = new Icon_button.t ~icon () in
-      let uri = match stream.orig_id with
-        | TSoIP x -> ({ ip = x.addr; port = x.port } : Url.t) in
+      let del_button = new Icon_button.t ~ripple:false ~icon () in
       let item =
         new Item_list.Item.t
           ~text
-          ~secondary_text:(Url.to_string uri)
           ~meta:del_button
           ~value:()
           () in
@@ -327,8 +325,7 @@ module Input = struct
       React.S.create ~eq:(Equal.list Stream.equal) stream_list in
     let list =
       new Item_list.t
-        ~dense:true
-        ~two_line:true
+        ~dense
         ~items:[]
         () in
     let del_item i = list#remove_item i in
@@ -348,7 +345,7 @@ module Input = struct
     in
     signal, list, add
 
-  class t ((iid, _, stream_list) : stream_table_row) () =
+  class t ((iid, state, stream_list) : stream_table_row) () =
     let open Item_list.List_group in
     let open Stream.Table in
     let input, id = match iid with
@@ -384,9 +381,10 @@ module Input = struct
     let buttons = new Card.Actions.Buttons.t ~widgets:[apply] () in
     object(self)
 
-      inherit base ~body:list
+      inherit base ~state
+                ~body:list
                 ~actions:[buttons]
-                ~inputs:[topo_input]
+                ~entry:(Input topo_input)
                 () as super
 
       method init () : unit =
@@ -404,12 +402,12 @@ module Input = struct
 
   let make (row : stream_table_row) =
     let w = new t row () in
-    w#widget, w#settings
+    [w#widget], w#settings
 
 end
 
 let make_entry : Topology.topo_cpu -> stream_table_row ->
-                 Widget.t * (marker * Stream.t list) React.signal =
+                 (Widget.t list) * ((marker * Stream.t list) React.signal) =
   fun cpu st ->
   let (marker, b, sl) = st in
   let sl =
@@ -427,6 +425,7 @@ let make_entry : Topology.topo_cpu -> stream_table_row ->
 
 let make_table cpu (table : stream_table) =
   let widgets, signals = List.split @@ List.map (make_entry cpu) table in
+  let widgets = List.concat widgets in
   let list = new Vbox.t ~widgets () in
   list#set_on_destroy
   @@ Some (fun () ->
@@ -475,6 +474,7 @@ class t ~(init : stream_table)
 
     method init () : unit =
       super#init ();
+      div#add_class inputs_class;
       self#add_class base_class;
 
     method destroy () : unit =

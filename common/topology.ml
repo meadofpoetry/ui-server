@@ -169,6 +169,9 @@ let get_input_name (i : topo_input) =
   | TSOIP -> to_string "TSoIP"
   | ASI -> to_string "ASI"
 
+let get_board_name (b : topo_board) =
+  Printf.sprintf "%s. %s" b.manufacturer b.model
+
 let get_inputs t =
   let rec get acc = function
     | Input x -> x :: acc

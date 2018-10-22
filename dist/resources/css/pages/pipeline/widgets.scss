@@ -1,9 +1,20 @@
-// Settings
-
-// FIXME should be divided into several widgets
+@import "../../components/theme/_mixins";
 
 .pipeline-settings {
+    .mdc-tab-bar {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        @include mdc-theme-prop(background-color, surface);
+    }
     &__body {
         padding: 1rem;
     }
+    .mdc-card__actions {
+        position: sticky;
+        bottom: 0;
+        @include mdc-theme-prop(background-color, surface);
+    }
 }
+
+

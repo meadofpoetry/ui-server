@@ -1,8 +1,41 @@
+@import "../../components/theme/_mixins";
+
 .application-stream-selector {
-    &__block:last-child {
+}
+
+.application-stream-selector__inputs {
+}
+
+.application-stream-selector__block {
+    margin-bottom: 1rem;
+
+    &:last-child {
         margin-bottom: 0;
     }
-    &__block {
+
+    &--forbidden {
+        @include mdc-theme-prop(color, text-disabled-on-surface);
+        .mdc-list-item {
+            @include mdc-theme-prop(color, text-disabled-on-surface);
+        }
+    }
+}
+
+.application-stream-selector__stream {
+    &--lost {
+        @include mdc-theme-prop(color, error);
+    }
+}
+
+.application-stream-selector__dialog {
+    /* .mdc-dialog__surface { */
+    /*     width: 250px */
+
+    /* } */
+    .mdc-text-field {
         margin-bottom: 1rem;
+    }
+    .mdc-text-field:last-child {
+        margin-bottom: 0;
     }
 }
