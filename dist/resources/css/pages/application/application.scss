@@ -1,4 +1,5 @@
 @import "../../components/theme/_mixins";
+@import "../../components/typography/_mixins";
 
 .application-stream-selector {
 }
@@ -28,14 +29,19 @@
 }
 
 .application-stream-selector__dialog {
-    /* .mdc-dialog__surface { */
-    /*     width: 250px */
-
-    /* } */
     .mdc-text-field {
         margin-bottom: 1rem;
     }
     .mdc-text-field:last-child {
         margin-bottom: 0;
     }
+}
+
+.application-stream-selector__empty-placeholder {
+    @include mdc-typography(body2);
+    @include mdc-theme-prop(color, text-secondary-on-surface);
+    padding: 1rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }

@@ -13,6 +13,7 @@ let lost_class = Markup.CSS.add_modifier stream_class "lost"
 let block_class = Markup.CSS.add_element base_class "block"
 let forbidden_class = Markup.CSS.add_modifier block_class "forbidden"
 let dialog_class = Markup.CSS.add_element base_class "dialog"
+let empty_placeholder_class = Markup.CSS.add_element base_class "empty-placeholder"
 
 type check =
   { avail : bool React.signal
@@ -25,6 +26,9 @@ type stream_dialog =
   ; show : unit -> Dialog.action Lwt.t
   ; result : (Stream.t, string) result React.signal
   }
+
+let make_empty_placeholder () =
+  new Typography.Text.t ~text:"Нет потоков" ()
 
 class base ?actions ~body
         ?(left : int React.signal option)
@@ -182,17 +186,32 @@ module Board = struct
           (left : int React.signal option)
           (entry : Topology.topo_entry)
           () =
-  object
+    let empty = make_empty_placeholder () in
+    let body = Widget.create_div () in
+    object(self)
 
-    inherit base ?left ~body:list ~entry ~state () as super
+      inherit base ?left ~body ~entry ~state () as super
 
-    method destroy () : unit =
-      super#destroy ();
-      React.S.stop ~strong:true counter;
-      React.S.stop ~strong:true settings;
-      Option.iter (React.S.stop ~strong:true) left
+      method init () : unit =
+        super#init ();
+        empty#add_class empty_placeholder_class;
+        React.S.map ~eq:Equal.unit self#check_empty list#s_items
+        |> super#_keep_s
 
-  end
+      method destroy () : unit =
+        super#destroy ();
+        React.S.stop ~strong:true counter;
+        React.S.stop ~strong:true settings;
+        Option.iter (React.S.stop ~strong:true) left
+
+      method private check_empty items : unit =
+        match items with
+        | [] -> body#remove_child list;
+                body#append_child empty
+        | _ -> body#remove_child empty;
+               body#append_child list
+
+    end
 
   let make_entry state counter counter_push left stream_list input =
     let open Stream.Table in
@@ -211,7 +230,7 @@ module Board = struct
       let init_list =
         List.filter_map (function
             | ({ url = Some _; stream; _ } : stream) -> Some stream
-            | { url = None;  _} -> None) stream_list in
+            | { url = None;  _ } -> None) stream_list in
       React.S.create ~eq:Int.equal (List.length init_list) in
     let left = match state with
       | `Forbidden | `Unlimited -> None
@@ -230,7 +249,7 @@ module Board = struct
     let eq_l = Equal.list Stream.equal in
     let eq = Equal.pair equal_marker eq_l in
     let settings =
-      React.S.merge ~eq:eq_l (fun l x -> l @ x) [] settings
+      React.S.merge ~eq:eq_l (@) [] settings
       |> React.S.map ~eq (Pair.make marker) in
     w, settings
 
@@ -379,16 +398,21 @@ module Input = struct
         add
         () in
     let buttons = new Card.Actions.Buttons.t ~widgets:[apply] () in
+    let body = Widget.create_div () in
+    let empty = make_empty_placeholder () in
     object(self)
 
       inherit base ~state
-                ~body:list
+                ~body
                 ~actions:[buttons]
                 ~entry:(Input topo_input)
                 () as super
 
       method init () : unit =
         super#init ();
+        empty#add_class empty_placeholder_class;
+        React.S.map ~eq:Equal.unit self#check_empty list#s_items
+        |> self#_keep_s;
         Dom.appendChild Dom_html.document##.body dialog.dialog#root
 
       method destroy () : unit =
@@ -397,6 +421,13 @@ module Input = struct
         React.S.stop ~strong:true settings
 
       method settings = settings
+
+      method private check_empty items : unit =
+        match items with
+        | [] -> body#remove_child list;
+                body#append_child empty
+        | _ -> body#remove_child empty;
+               body#append_child list
 
     end
 
