@@ -15,8 +15,9 @@
     }
 
     &--forbidden {
-        @include mdc-theme-prop(color, text-disabled-on-surface);
-        .mdc-list-item {
+        @include mdc-theme-prop(color, text-disabled-on-surface, true);
+        .mdc-list-item,
+        .application-stream-selector__empty-placeholder {
             @include mdc-theme-prop(color, text-disabled-on-surface);
         }
     }
