@@ -350,6 +350,11 @@ let to_layout ~resolution ~widgets =
           cols - remain, 2
       else
         remain, 1 in
+    let start_h =
+      if Int.equal multiplier 1 && not (Int.equal remain cols) then
+        (snd resolution - cont_std_h * rows) / 2
+      else
+        0 in
     List.fold_left (fun acc channel ->
         let i, containers = acc in
         let row_num = i / cols in
@@ -368,7 +373,7 @@ let to_layout ~resolution ~widgets =
             * cont_std_w + greater_num * cont_w
           else
             (i - cols * row_num) * cont_std_w in
-        let cont_y = row_num * cont_std_h in
+        let cont_y = row_num * cont_std_h + start_h in
         let cont_pos : Wm.position =
           { left   = cont_x
           ; top    = cont_y
@@ -450,10 +455,10 @@ let to_dialog (wm : Wm.t) =
                   Some (int_of_string x#id)) (React.S.value checkboxes) in
           let widgets =
             List.fold_left (fun acc channel ->
-                match List.find_pred (fun (wdg : (string * Wm.widget) * channel) ->
+                match List.filter (fun (wdg : (string * Wm.widget) * channel) ->
                     Int.equal channel (snd wdg).channel) widgets with
-                | Some x -> x :: acc
-                | None   -> acc) [] wds in
+                | [] -> acc
+                | l  -> l @ acc) [] wds in
           Lwt.return
             (push @@ to_layout ~resolution:wm.resolution ~widgets)
         | `Cancel -> Lwt.return ()) in
