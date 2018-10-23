@@ -20,7 +20,11 @@ type config =
 
 let base_class = "dvb-niit-measures-line-chart"
 
-let colors = Color.([ Indigo C500; Amber C500; Green C500; Cyan C500 ])
+let colors =
+  Color.[ Indigo C500
+        ; Amber C500
+        ; Green C500
+        ; Cyan C500 ]
 
 let get_suggested_range = function
   | `Power -> (-70.0, 0.0)

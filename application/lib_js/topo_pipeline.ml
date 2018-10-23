@@ -18,9 +18,9 @@ let make_streams (cpu : Topology.topo_cpu) () =
   |> Lwt_result.map_err Api_js.Requests.err_to_string
 
 let make_structure () =
-  Pipeline_js.Requests.get_structure ()
+  Pipeline_js.Requests_structure.HTTP.get ()
   >>= (fun init ->
-    let event, sock = Pipeline_js.Requests.get_structure_socket () in
+    let event, sock = Pipeline_js.Requests_structure.WS.get () in
     let w, s, set = Pipeline_js.Ui.Structure.make ~init ~event () in
     let apply = new Ui_templates.Buttons.Set.t s set () in
     let buttons = new Card.Actions.Buttons.t ~widgets:[apply] () in
@@ -34,9 +34,9 @@ let make_structure () =
   |> Lwt_result.map_err Api_js.Requests.err_to_string
 
 let make_settings () =
-  Pipeline_js.Requests.get_settings ()
+  Pipeline_js.Requests_settings.HTTP.get ()
   >>= (fun init ->
-    let event, sock = Pipeline_js.Requests.get_settings_socket () in
+    let event, sock = Pipeline_js.Requests_settings.WS.get () in
     let w, s, set = Pipeline_js.Ui.Settings.make ~init ~event () in
     let apply = new Ui_templates.Buttons.Set.t s set () in
     let buttons = new Card.Actions.Buttons.t ~widgets:[apply] () in

@@ -52,10 +52,11 @@ let get_cpu_tabs (stream : Stream.ID.t)
       (name : string option) =
   match name with
   | Some "pipeline" ->
+     let open Pipeline_js in
      let log =
        "QoE",
        "qoe_log",
-       dummy_tab in
+       Page_channels.make stream in
      [log]
   | _ -> []
 

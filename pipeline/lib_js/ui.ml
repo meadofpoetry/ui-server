@@ -102,7 +102,7 @@ module Structure = struct
              Dom.appendChild div#root tree#root;
              n_s) s_div)
     in
-    let post = Requests.post_structure in
+    let post = Requests_structure.HTTP.set in
     div, s, post
 
 end
@@ -345,6 +345,6 @@ module Settings = struct
              Dom.appendChild div#root w#root;
              n_s) s_div)
     in
-    let post = Requests.post_settings in
+    let post = Requests_settings.HTTP.set in
     div, s, post
 end

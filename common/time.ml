@@ -245,28 +245,40 @@ module Period = struct
   end
 
   module Conv64 (M : sig val second : int64 end) = struct
-    let () = if Int64.compare M.second ps_in_s > 0
-             then failwith "Time.Span.Conv64: second precision is more than 1ps"
+    let () =
+      if Int64.compare M.second ps_in_s > 0
+      then failwith "Time.Span.Conv64: second precision is more than 1ps"
 
-    type t = Ptime.Span.t
+    type t = Ptime.t
+
     let typ = "period"
-            
-    let of_int64 x =
+
+    let of_int64 (x : int64) : t =
       let d  = Int64.(to_int (x / (24L * 60L * 60L * M.second))) in
       let ps = Int64.((x mod (24L * 60L * 60L)) * (ps_in_s / M.second)) in
-      Option.get_exn @@ Ptime.Span.of_d_ps (d, ps)
-    let to_int64 x =
-      let d, ps = Ptime.Span.to_d_ps x in
+      Option.get_exn
+      @@ Option.flat_map Ptime.of_span (Ptime.Span.of_d_ps (d, ps))
+
+    let to_int64 (x : t) : int64 =
+      let d, ps = Ptime.Span.to_d_ps @@ Ptime.to_span x in
       let d = Int64.((of_int d) * (24L * 60L * 60L * M.second)) in
       let ps = Int64.((ps * M.second) / ps_in_s) in
       Int64.(d + ps)
-    let of_string s = of_int64 @@ Int64.of_string_exn s
-    let to_string x = Int64.to_string @@ to_int64 x
-    let of_yojson x = match x with `Intlit x -> Ok(of_string x)
-                                 | `Int x -> Ok(of_int64 @@ Int64.of_int x)
-                                 | _ -> Error "of_yojson"
-                                 | exception _ -> Error "of_yojson"
-    let to_yojson x = `Intlit (to_string x)
+
+    let of_string (s : string) : t =
+      of_int64 @@ Int64.of_string_exn s
+    let to_string (x : t) : string =
+      Int64.to_string @@ to_int64 x
+
+    let of_yojson (x : Yojson.Safe.json) : (t, string) result = match x with
+      | `Intlit x -> Ok(of_string x)
+      | `Int x -> Ok(of_int64 @@ Int64.of_int x)
+      | _ -> Error "of_yojson"
+      | exception _ -> Error "of_yojson"
+
+    let to_yojson (x : t) : Yojson.Safe.json =
+      `Intlit (to_string x)
+
   end
 
   module Hours = Conv(struct

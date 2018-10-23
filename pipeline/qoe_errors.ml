@@ -48,16 +48,17 @@ module Audio_data = struct
     } [@@deriving yojson]
 end
 
-type labels = [ `Black
-              | `Luma
-              | `Freeze
-              | `Diff
-              | `Blocky
-              | `Silence_shortt
-              | `Silence_moment
-              | `Loudness_shortt
-              | `Loudness_moment
-              ] [@@deriving yojson]
+type labels =
+  [ `Black
+  | `Luma
+  | `Freeze
+  | `Diff
+  | `Blocky
+  | `Silence_shortt
+  | `Silence_moment
+  | `Loudness_shortt
+  | `Loudness_moment
+  ] [@@deriving yojson, eq]
 
 let video_data_to_list Video_data.{ stream; channel; pid; errors = { black; luma; freeze; diff; blocky } } =
   [ stream, channel, pid, 0, black
@@ -73,7 +74,7 @@ let audio_data_to_list Audio_data.{ stream; channel; pid; errors = { silence_sho
   ; stream, channel, pid, 7, loudness_shortt
   ; stream, channel, pid, 8, loudness_moment
   ]
-  
+
 let labels_of_int = function
   | 0 -> `Black
   | 1 -> `Luma
