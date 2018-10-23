@@ -142,7 +142,7 @@ class t ~(init : float data)
 
     method append_data (data : float data) : unit =
       List.iter (fun (src, data) ->
-          match List.Assoc.get ~eq:equal_data_source src datasets with
+          match List.Assoc.get ~eq:equal_data_source src _datasets with
           | None ->
              begin match config.sources with
              | [] ->
