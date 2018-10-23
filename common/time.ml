@@ -254,16 +254,21 @@ module Period = struct
     let typ = "period"
 
     let of_int64 (x : int64) : t =
-      let d  = Int64.(to_int (x / (24L * 60L * 60L * M.second))) in
-      let ps = Int64.((x mod (24L * 60L * 60L)) * (ps_in_s / M.second)) in
-      Option.get_exn
-      @@ Option.flat_map Ptime.of_span (Ptime.Span.of_d_ps (d, ps))
+      Ptime.of_float_s ((Int64.to_float x) /. (Int64.to_float M.second))
+      |> Option.get_exn
+      (* let d  = Int64.(to_int (x / (24L * 60L * 60L * M.second))) in
+       * let ps = Int64.((x mod (24L * 60L * 60L)) * (ps_in_s / M.second)) in
+       * Option.get_exn
+       * @@ Option.flat_map Ptime.of_span (Ptime.Span.of_d_ps (d, ps)) *)
 
     let to_int64 (x : t) : int64 =
-      let d, ps = Ptime.Span.to_d_ps @@ Ptime.to_span x in
-      let d = Int64.((of_int d) * (24L * 60L * 60L * M.second)) in
-      let ps = Int64.((ps * M.second) / ps_in_s) in
-      Int64.(d + ps)
+      Ptime.to_float_s x
+      |> ( *. ) (Int64.to_float M.second)
+      |> Int64.of_float_exn
+      (* let d, ps = Ptime.Span.to_d_ps @@ Ptime.to_span x in
+       * let d = Int64.((of_int d) * (24L * 60L * 60L * M.second)) in
+       * let ps = Int64.((ps * M.second) / ps_in_s) in
+       * Int64.(d + ps) *)
 
     let of_string (s : string) : t =
       of_int64 @@ Int64.of_string_exn s
