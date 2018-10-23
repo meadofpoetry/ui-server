@@ -3,7 +3,7 @@ open Tyxml_js
 
 module Markup = Components_markup.Icon_button.Make(Xml)(Svg)(Html)
 
-class t ?(on = false) ?on_change ?on_icon ?disabled ~icon () =
+class t ?(on = false) ?(ripple = true) ?on_change ?on_icon ?disabled ~icon () =
   let state, set_state = React.S.create on in
   let elt = Markup.create
               ?on_icon:(Option.map Widget.to_markup on_icon)
@@ -47,10 +47,10 @@ class t ?(on = false) ?on_change ?on_icon ?disabled ~icon () =
     initializer
       Option.iter self#set_disabled disabled;
       if on then self#set_on true;
-      (* FIXME implement ripple normally *)
-
-      (let ripple = Ripple.attach_to ~unbounded:true (self :> Widget.t) in
-       _ripple <- Some ripple);
+      if ripple
+      then
+        (let ripple = Ripple.attach_to ~unbounded:true (self :> Widget.t) in
+         _ripple <- Some ripple);
       Option.iter (fun i ->
           i#add_class Markup.icon_class;
           i#add_class Markup.icon_on_class) on_icon;

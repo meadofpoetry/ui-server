@@ -1,5 +1,5 @@
 //
-// Copyright 2017 Google Inc.
+// Copyright 2018 Google Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -20,23 +20,19 @@
 // THE SOFTWARE.
 //
 
-@import "../ripple/variables";
-@import "../theme/variables";
+$mdc-dialog-scrim-color: on-surface;
+$mdc-dialog-title-ink-color: on-surface;
+$mdc-dialog-content-ink-color: on-surface;
+$mdc-dialog-scroll-divider-color: on-surface;
 
-$mdc-checkbox-mark-color: mdc-theme-prop-value(on-primary);
-$mdc-checkbox-border-color: rgba(mdc-theme-prop-value(on-surface), .54);
-$mdc-checkbox-disabled-color: rgba(mdc-theme-prop-value(on-surface), .26);
-$mdc-checkbox-baseline-theme-color: secondary;
+$mdc-dialog-scrim-opacity: .32;
+$mdc-dialog-title-ink-opacity: .87;
+$mdc-dialog-content-ink-opacity: .6;
+$mdc-dialog-scroll-divider-opacity: .12;
 
-$mdc-checkbox-touch-area: 40px;
-$mdc-checkbox-size: 18px;
-$mdc-checkbox-ui-pct: percentage($mdc-checkbox-size / $mdc-checkbox-touch-area);
-$mdc-checkbox-mark-stroke-size: 2/15 * $mdc-checkbox-size;
-$mdc-checkbox-border-width: 2px;
-$mdc-checkbox-transition-duration: 90ms;
-$mdc-checkbox-item-spacing: 4px;
-$mdc-checkbox-focus-indicator-opacity: map-get($mdc-ripple-dark-ink-opacities, focus);
+$mdc-dialog-min-width: 280px;
+$mdc-dialog-max-width: 560px;
+$mdc-dialog-margin: 16px;
+$mdc-dialog-title-bottom-padding: 9px;
 
-// Manual calculation done on SVG
-$mdc-checkbox-mark-path-length_: 29.7833385;
-$mdc-checkbox-indeterminate-checked-easing-function_: cubic-bezier(.14, 0, 0, 1);
+$mdc-dialog-z-index: 31;

@@ -24,55 +24,57 @@ module Action = struct
     }
 
   let make ~typ (button : #Button.t) =
-    button#add_class Markup.Footer.button_class;
+    button#add_class Markup.Actions.button_class;
     button#add_class (match typ with
-                      | `Accept -> Markup.Footer.accept_button_class
-                      | `Cancel -> Markup.Footer.cancel_button_class);
+                      | `Accept -> Markup.Actions.accept_button_class
+                      | `Cancel -> Markup.Actions.cancel_button_class);
     { button = button#widget
     ; typ
     }
 
 end
 
-module Header = struct
+module Title = struct
 
   class t ~title () =
-    let elt = Markup.Header.create ~title () |> To_dom.of_header in
+    let elt =
+      Markup.Title.create ~title ()
+      |> To_dom.of_header in
     object
 
-      val h2_widget =
-        elt##querySelector (Js.string @@ "." ^ Markup.Header.title_class)
-        |> Js.Opt.to_option |> Option.get_exn |> Widget.create
+      inherit Widget.t elt () as super
+
+      method title : string =
+        super#text_content |> Option.get_or ~default:""
+
+      method set_title (s : string) : unit =
+        super#set_text_content s
+    end
+
+end
+
+module Content = struct
+
+  type 'a content =
+    [ `String of string
+    | `Widgets of (#Widget.t as 'a) list
+    ]
+
+  class t ~(content : 'a content) () =
+    let content = match content with
+      | `String s -> [Html.pcdata s]
+      | `Widgets w -> List.map Widget.to_markup w in
+    let elt = Markup.Content.create ~content ()
+              |> To_dom.of_element in
+    object
 
       inherit Widget.t elt ()
 
-      method title : string =
-        h2_widget#text_content |> Option.get_or ~default:""
-
-      method set_title (s : string) : unit =
-        h2_widget#set_text_content s
     end
 
 end
 
-module Body = struct
-
-  class t ?scrollable
-          ~(content : [ `String of string | `Widgets of #Widget.t list ]) () =
-    let content = match content with
-      | `String s -> [ Html.pcdata s ]
-      | `Widgets w -> List.map Widget.to_markup w in
-    let elt = Markup.Body.create ?scrollable ~content () |> To_dom.of_element in
-    object
-      inherit Widget.t elt () as super
-
-      method set_scrollable (x : bool) : unit =
-        super#add_or_remove_class x Markup.Body.scrollable_class
-    end
-
-end
-
-module Footer = struct
+module Actions = struct
 
   class t ?(sort_actions = true) ~(actions : Action.t list) () =
     let actions =
@@ -80,7 +82,7 @@ module Footer = struct
         List.sort (fun (a : Action.t) b ->
             compare_action a.typ b.typ) actions in
     let elt =
-      Markup.Footer.create
+      Markup.Actions.create
         ~children:(List.map (fun (x : Action.t) ->
                        Widget.to_markup x.button) actions) ()
       |> To_dom.of_footer in
@@ -106,11 +108,10 @@ class t ?scrollable
         ?(actions : Action.t list option)
         ~content () =
   let header_widget =
-    Option.map (fun x -> new Header.t ~title:x ()) title in
-  let body_widget =
-    new Body.t ?scrollable ~content () in
+    Option.map (fun x -> new Title.t ~title:x ()) title in
+  let body_widget = new Content.t ~content () in
   let footer_widget =
-    Option.map (fun x -> new Footer.t ?sort_actions ~actions:x ())
+    Option.map (fun x -> new Actions.t ?sort_actions ~actions:x ())
       actions in
 
   let content =
@@ -122,14 +123,18 @@ class t ?scrollable
     Markup.create_surface content ()
     |> To_dom.of_div
     |> Widget.create in
-  let backdrop =
-    Markup.create_backdrop ()
+  let scrim =
+    Markup.create_scrim ()
+    |> To_dom.of_div
+    |> Widget.create in
+  let container =
+    Markup.create_container (Widget.to_markup surface) ()
     |> To_dom.of_div
     |> Widget.create in
   let elt =
     Markup.create
-      ~surface:(Widget.to_markup surface)
-      ~backdrop:(Widget.to_markup backdrop) ()
+      ~container:(Widget.to_markup container)
+      ~scrim:(Widget.to_markup scrim) ()
     |> To_dom.of_aside in
   let e_action, set_action = React.E.create () in
 
@@ -144,6 +149,7 @@ class t ?scrollable
     inherit Widget.t elt () as super
 
     method init () : unit =
+      Option.iter self#set_scrollable scrollable;
       List.iter (fun (a : Action.t) ->
           match a.typ with
           | `Accept ->
@@ -173,9 +179,8 @@ class t ?scrollable
       Option.iter Dom_events.stop_listen _keydown;
       _keydown <- None
 
-    method header = header_widget
-    method body = body_widget
-    method footer = footer_widget
+    method set_scrollable (x : bool) : unit =
+      super#add_or_remove_class x Markup.scrollable_class
 
     method opened : bool =
       _opened
@@ -184,7 +189,7 @@ class t ?scrollable
       _opened <- true;
       self#_disable_scroll true;
       (* Listen backdrop click *)
-      backdrop#listen_click_lwt (fun _ _ ->
+      scrim#listen_click_lwt (fun _ _ ->
           self#_cancel (); Lwt.return_unit)
       |> (fun x -> _bd_click <- Some x);
       (* Listen escape key *)

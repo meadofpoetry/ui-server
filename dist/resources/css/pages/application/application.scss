@@ -1,8 +1,47 @@
+@import "../../components/theme/_mixins";
+@import "../../components/typography/_mixins";
+
 .application-stream-selector {
-    &__block:last-child {
+}
+
+.application-stream-selector__inputs {
+}
+
+.application-stream-selector__block {
+    margin-bottom: 1rem;
+
+    &:last-child {
         margin-bottom: 0;
     }
-    &__block {
+
+    &--forbidden {
+        @include mdc-theme-prop(color, text-disabled-on-surface);
+        .mdc-list-item {
+            @include mdc-theme-prop(color, text-disabled-on-surface);
+        }
+    }
+}
+
+.application-stream-selector__stream {
+    &--lost {
+        @include mdc-theme-prop(color, error);
+    }
+}
+
+.application-stream-selector__dialog {
+    .mdc-text-field {
         margin-bottom: 1rem;
     }
+    .mdc-text-field:last-child {
+        margin-bottom: 0;
+    }
+}
+
+.application-stream-selector__empty-placeholder {
+    @include mdc-typography(body2);
+    @include mdc-theme-prop(color, text-secondary-on-surface);
+    padding: 1rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }

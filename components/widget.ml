@@ -338,7 +338,8 @@ class input_widget ~(input_elt : Dom_html.inputElement Js.t) elt () =
     method disabled =
       Js.to_bool input_elt##.disabled
     method set_disabled x =
-      input_elt##.disabled := Js.bool x; s_disabled_push x
+      input_elt##.disabled := Js.bool x;
+      s_disabled_push x
 
     method input_id = match Js.to_string input_elt##.id with
       | "" -> None
@@ -370,13 +371,16 @@ class radio_or_cb_widget ?on_change ?state ~input_elt elt () =
 
     inherit input_widget ~input_elt elt ()
 
-    method set_checked (x:bool) : unit =
+    method set_checked (x : bool) : unit =
       input_elt##.checked := Js.bool x;
       Option.iter (fun f -> f x) _on_change;
       s_state_push x
 
     method checked : bool =
       Js.to_bool input_elt##.checked
+
+    method toggle () : unit =
+      self#set_checked @@ not self#checked
 
     method s_state = s_state
 
