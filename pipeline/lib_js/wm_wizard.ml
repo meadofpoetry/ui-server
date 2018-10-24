@@ -409,7 +409,8 @@ let to_layout ~resolution ~widgets signal =
  *        |_ widgets,
  * all with checkboxes.
  * it returns dialog, react event and a fun showing dialog *)
-let to_dialog (wm : Wm.t) push (wizard : Fab.t) =
+
+let to_content (wm : Wm.t) push =
   let open Lwt_result.Infix in
   Requests.get_structure ()
   >|= (fun init ->
@@ -423,33 +424,44 @@ let to_dialog (wm : Wm.t) push (wizard : Fab.t) =
       let ev, _  = Requests.get_structure_socket () in
       let struct_signal = React.S.hold init ev in
       let checkboxes, tree = Branches.make_streams widgets struct_signal in
-      let box    = new Vbox.t ~widgets:[tree#widget] () in
-      let dialog = new Dialog.t
-        ~title:"Выберите виджеты"
-        ~scrollable:true
-        ~content:(`Widgets [box])
-        ~actions:[ new Dialog.Action.t ~typ:`Cancel ~label:"Отмена" ()
-                 ; new Dialog.Action.t ~typ:`Accept  ~label:"Применить" () ]
-        () in
-      wizard#listen_click_lwt (fun _ _ ->
-          Lwt.bind (dialog#show_await ())
-            (function
-              | `Accept ->
-                let wds =
-                  List.filter_map (fun (x : Checkbox.t) ->
-                      if not @@ x#checked then
-                        None
-                      else
-                        Some (int_of_string x#id)) checkboxes in
-                let widgets =
-                  List.fold_left (fun acc channel ->
-                      match List.filter (fun ((wdg : (string * Wm.widget)), (ch : channel)) ->
-                          Int.equal channel ch.channel) widgets with
-                      | [] -> acc
-                      | l  -> l @ acc) [] wds in
-                Lwt.return (push @@ to_layout ~resolution:wm.resolution ~widgets struct_signal)
-              | `Cancel -> Lwt.return ()))
-          |> Lwt.ignore_result;
-      dialog#widget)
+      let box = new Vbox.t ~widgets:[tree#widget] () in
+      let wds =
+        List.filter_map (fun (x : Checkbox.t) ->
+            if not @@ x#checked then
+              None
+            else
+              Some (int_of_string x#id)) checkboxes in
+      let widgets =
+        List.fold_left (fun acc channel ->
+            match List.filter (fun ((wdg : (string * Wm.widget)), (ch : channel)) ->
+                Int.equal channel ch.channel) widgets with
+            | [] -> acc
+            | l  -> l @ acc) [] wds in
+      let set = fun () -> to_layout ~resolution:wm.resolution ~widgets struct_signal in
+      box, set)
   |> Lwt_result.map_err Api_js.Requests.err_to_string
-  |> Ui_templates.Loader.create_widget_loader
+
+let to_dialog (wm : Wm.t) push =
+  let thread = to_content wm push in
+  let content =
+    Ui_templates.Loader.create_widget_loader
+    @@ Lwt_result.map fst thread in
+  let dialog = new Dialog.t
+    ~title:"Выберите виджеты"
+    ~scrollable:true
+    ~content:(`Widgets [content#widget])
+    ~actions:[ new Dialog.Action.t ~typ:`Cancel ~label:"Отмена" ()
+             ; new Dialog.Action.t ~typ:`Accept  ~label:"Применить" () ]
+    () in
+  let show () =
+    let open Lwt.Infix in
+    dialog#show_await ()
+    >>= (function
+        | `Accept ->
+          begin match Lwt.state thread with
+            | Return (Ok (_, f)) -> push @@ f ()
+            | _ -> ()
+          end;
+          Lwt.return_unit
+        | `Cancel -> Lwt.return ()) in
+  dialog, show

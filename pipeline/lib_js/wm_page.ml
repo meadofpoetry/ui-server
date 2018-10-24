@@ -334,16 +334,16 @@ let create ~(init: Wm.t)
        l in *)
   let s_cc, s_cc_push = React.S.create containers in
   let wz_e, wz_push = React.E.create () in
+  let wz_dlg, wz_show = Wm_wizard.to_dialog init wz_push in
+  let resolution = init.resolution in
+  let s_state, s_state_push = React.S.create `Container in
+  let title = "Контейнеры" in
   let open Wm_left_toolbar in
   let open Icon.SVG in
   let wizard =
     make_action
       { icon = Icon.SVG.(create_simple Path.auto_fix)#widget
       ; name = "Авто" } in
-  let wz_dlg = Wm_wizard.to_dialog init wz_push wizard in
-  let resolution = init.resolution in
-  let s_state, s_state_push = React.S.create `Container in
-  let title = "Контейнеры" in
   let edit =
     make_action
       { icon = Icon.SVG.(create_simple Path.pencil)#widget
@@ -356,6 +356,7 @@ let create ~(init: Wm.t)
     make_action
       { icon = Icon.SVG.(create_simple Path.aspect_ratio)#widget
       ; name = "Разрешение" } in
+  wizard#listen_click_lwt (fun _ _ -> wz_show ()) |> Lwt.ignore_result;
   let size_dlg = Wm_resolution_dialog.make () in
   let on_remove = fun (t:Wm.container wm_item) ->
     let eq = Widget_item.equal in
