@@ -192,12 +192,7 @@ module Branches = struct
       | Some pid -> Parse_struct.widget pid channel_struct
       | None     -> "" in
     let checkbox = new Checkbox.t () in
-    let typ, channel =
-      ( match typ with
-        | Video -> "Video"
-        | Audio -> "Audio"),
-      (string_of_int channel.channel) in
-    checkbox#set_id (channel ^ " | " ^ typ);
+    checkbox#set_id (string_of_int channel.channel);
     checkbox,
     new Tree.Item.t ~text ~secondary_text ~graphic:checkbox ~value:() ()
 
@@ -445,20 +440,11 @@ let to_dialog (wm : Wm.t) push (wizard : Fab.t) =
                       if not @@ x#checked then
                         None
                       else
-                        let channel =
-                          String.sub x#id 0 (String.length x#id - 9)
-                          |> int_of_string in
-                        let typ =
-                          match String.sub x#id (String.length x#id - 5) 5 with
-                          | "Video" -> (Video : widget_type)
-                          | "Audio" -> (Audio : widget_type)
-                          | _ -> failwith "Unexpected widget typ" in
-                        Some (channel, typ)) checkboxes in
+                        Some (int_of_string x#id)) checkboxes in
                 let widgets =
-                  List.fold_left (fun acc (channel, typ) ->
+                  List.fold_left (fun acc channel ->
                       match List.filter (fun ((wdg : (string * Wm.widget)), (ch : channel)) ->
-                          Int.equal channel ch.channel
-                          && widget_type_equal typ (snd wdg).type_) widgets with
+                          Int.equal channel ch.channel) widgets with
                       | [] -> acc
                       | l  -> l @ acc) [] wds in
                 Lwt.return (push @@ to_layout ~resolution:wm.resolution ~widgets struct_signal)
