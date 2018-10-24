@@ -116,13 +116,9 @@ class t ~(left_node:node_entry)
          self#remove_class sync_class
 
     method layout () =
-      let depth  = elt##id |> Js.to_string |> int_of_string in
-      let full_w = elt##offsetWidth in
-      let step   =
-        if depth > 0 then
-          full_w / depth / 4
-        else
-          80 in
+    (*  let depth  = elt##id |> Js.to_string |> int_of_string in
+      let full_w = elt##offsetWidth in*)
+      let step   = 80 in
       let left   = f_lp () in
       let right  = f_rp () in
       let top,height =
