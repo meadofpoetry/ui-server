@@ -406,6 +406,7 @@ let create ~(init: Wm.t)
   |> Lwt.ignore_result;
   let _ =
     React.E.map (fun l ->
+        print_endline "event called";
         let layout =
           List.map (fun (n, (v : Wm.container)) ->
               let widgets = conv v.position v.widgets in

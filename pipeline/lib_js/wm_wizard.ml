@@ -354,8 +354,8 @@ let to_layout ~resolution ~widgets signal =
         0 in
     List.fold_left (fun (i, containers) channel ->
         let _, _, stream  = Parse_struct.stream channel.stream signal in
-        let s1, s2, _    = Parse_struct.channel channel.channel stream in
-        let name = s1 ^ " " ^ s2 in
+        let s1, _, _    = Parse_struct.channel channel.channel stream in
+        let name = s1 in
         let row_num = i / cols in
         let cont_w  =
           if i + 1 > num - remain then
@@ -446,22 +446,25 @@ let to_dialog (wm : Wm.t) push =
   let content =
     Ui_templates.Loader.create_widget_loader
     @@ Lwt_result.map fst thread in
+  let accept = new Dialog.Action.t ~typ:`Accept  ~label:"Применить" () in
+  accept#set_disabled true;
   let dialog = new Dialog.t
     ~title:"Выберите виджеты"
     ~scrollable:true
     ~content:(`Widgets [content#widget])
     ~actions:[ new Dialog.Action.t ~typ:`Cancel ~label:"Отмена" ()
-             ; new Dialog.Action.t ~typ:`Accept  ~label:"Применить" () ]
+             ; accept ]
     () in
+  Lwt_result.map (fun _ -> accept#set_disabled false) thread
+  |> Lwt.ignore_result;
   let show () =
     let open Lwt.Infix in
     dialog#show_await ()
     >>= (function
         | `Accept ->
-          begin match Lwt.state thread with
-            | Return (Ok (_, f)) -> push @@ f ()
-            | _ -> ()
-          end;
-          Lwt.return_unit
+          thread
+          >|= (function
+              | Ok (_, f) -> print_endline "ok"; push @@ f ()
+              | Error e -> print_endline @@ "error!: " ^ e)
         | `Cancel -> Lwt.return ()) in
   dialog, show
