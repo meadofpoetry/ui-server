@@ -4,6 +4,8 @@ open Common
 open Chartjs
 open Qoe_errors
 
+let base_class = "pipeline-chart"
+
 type widget_config =
   { duration : Time.Period.t
   ; typ : labels
@@ -24,6 +26,20 @@ type 'a point = (Time.t, 'a) Chartjs.Line.point
 type 'a data = (data_source * ('a point list)) list
 
 type dataset = (Time.t, float) Line.Dataset.t
+
+let colors =
+  Array.init 100 (fun _ ->
+      Random.run (Random.int 255),
+      Random.run (Random.int 255),
+      Random.run (Random.int 255))
+
+let get_suggested_range = function
+  | `Black -> 0.0, 100.0
+  | `Luma -> 16.0, 235.0
+  | `Freeze -> 0.0, 100.0
+  | `Diff -> 0.0, 216.0
+  | `Blocky -> 0.0, 100.0
+  | _ -> 0.0, 0.0
 
 let convert_video_data (config : widget_config)
       (d : Video_data.t) : 'a data =
@@ -90,8 +106,12 @@ let make_y_axis ?(id = "y-axis") (config : widget_config)
       ~position:`Left
       ~typ:Float
       () in
+  let (min, max) = get_suggested_range config.typ in
+  let label = typ_to_unit_string config.typ in
+  axis#ticks#set_suggested_min min;
+  axis#ticks#set_suggested_max max;
   axis#scale_label#set_display true;
-  axis#scale_label#set_label_string @@ typ_to_unit_string config.typ;
+  axis#scale_label#set_label_string label;
   axis
 
 let make_options ~x_axes ~y_axes
@@ -100,7 +120,7 @@ let make_options ~x_axes ~y_axes
   options#set_maintain_aspect_ratio false;
   options
 
-let make_dataset ~x_axis ~y_axis src data =
+let make_dataset ~x_axis ~y_axis id src data =
   let label = data_source_to_string src in
   let ds =
     new Line.Dataset.t ~label
@@ -108,20 +128,26 @@ let make_dataset ~x_axis ~y_axis src data =
       ~x_axis
       ~y_axis
       () in
+  let (r, g, b) = colors.(id) in
+  let color = Color.rgb r g b in
+  ds#set_bg_color color;
+  ds#set_border_color color;
+  ds#set_cubic_interpolation_mode `Monotone;
+  ds#set_fill `Disabled;
   src, ds
 
 let make_datasets ~x_axis ~y_axis
       (init : float data)
       (sources : data_source list)
     : (data_source * dataset) list =
-  let map (src : data_source) =
+  let map id (src : data_source) =
     let data =
       List.find_map (fun (src', data) ->
           if equal_data_source src src'
           then Some data else None) init
       |> Option.get_or ~default:[] in
-    make_dataset ~x_axis ~y_axis src data in
-  List.map map sources
+    make_dataset ~x_axis ~y_axis id src data in
+  List.mapi map sources
 
 class t ~(init : float data)
         ~(config : widget_config)
@@ -132,13 +158,21 @@ class t ~(init : float data)
     make_options ~x_axes:[x_axis] ~y_axes:[y_axis] config in
   let (datasets : (data_source * dataset) list) =
     make_datasets ~x_axis ~y_axis init config.sources in
+  let chart =
+    new Line.t
+      ~options
+      ~datasets:(List.map snd datasets)
+      () in
   object
 
     val mutable _datasets = datasets
 
-    inherit Line.t
-              ~options
-              ~datasets:(List.map snd datasets) () as super
+    inherit Widget.t Dom_html.(createDiv document) () as super
+
+    method init () : unit =
+      super#init ();
+      super#add_class base_class;
+      super#append_child chart
 
     method append_data (data : float data) : unit =
       List.iter (fun (src, data) ->
@@ -146,15 +180,16 @@ class t ~(init : float data)
           | None ->
              begin match config.sources with
              | [] ->
-                let ds = make_dataset ~x_axis ~y_axis src data in
+                let id = List.length _datasets in
+                let ds = make_dataset ~x_axis ~y_axis id src data in
                 _datasets <- ds :: _datasets;
-                super#set_datasets @@ List.map snd _datasets;
-                super#update None
+                chart#set_datasets @@ List.map snd _datasets;
+                chart#update None
              | _ -> ()
              end
           | Some ds ->
              List.iter (fun point -> ds#push point) data;
-             super#update None) data
+             chart#update None) data
 
   end
 
@@ -162,4 +197,4 @@ let make_dashboard_item ~init ~config () =
   let widget = new t ~init ~config () in
   Dashboard.Item.make_item
     ~name:(typ_to_string config.typ)
-    widget#widget
+    widget

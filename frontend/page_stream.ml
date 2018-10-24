@@ -2,6 +2,8 @@ open Containers
 open Components
 open Common
 
+let ( % ) = Fun.( % )
+
 let cpu_of_yojson =
   Common.Json.(
     Option.of_yojson String.of_yojson)
@@ -43,7 +45,7 @@ let get_board_tabs (stream : Stream.ID.t)
      let measures =
        "RF",
        "rf",
-       (fun () -> (Page_stream.make stream control)#widget) in
+       Widget.coerce % fun () -> Page_stream.make stream control in
      [measures]
   | _ -> []
 
@@ -56,7 +58,7 @@ let get_cpu_tabs (stream : Stream.ID.t)
      let log =
        "QoE",
        "qoe_log",
-       Page_channels.make stream in
+       Widget.coerce % Page_channels.make stream in
      [log]
   | _ -> []
 
