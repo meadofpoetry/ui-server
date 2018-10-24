@@ -15,6 +15,9 @@ type widget_config =
 and widget_settings =
   { range : (float * float) option
   }
+and data_filter =
+  { streams : Stream.ID.t list
+  }
 and data_source =
   { stream : Stream.ID.t
   ; service : int
@@ -118,6 +121,10 @@ let make_options ~x_axes ~y_axes
       (config : widget_config) : Line.Options.t =
   let options = new Line.Options.t ~x_axes ~y_axes () in
   options#set_maintain_aspect_ratio false;
+  options#set_responsive true;
+  options#animation#set_duration 0;
+  options#hover#set_animation_duration 0;
+  options#set_responsive_animation_duration 0;
   options
 
 let make_dataset ~x_axis ~y_axis id src data =
@@ -130,6 +137,7 @@ let make_dataset ~x_axis ~y_axis id src data =
       () in
   let (r, g, b) = colors.(id) in
   let color = Color.rgb r g b in
+  ds#set_line_tension 0.;
   ds#set_bg_color color;
   ds#set_border_color color;
   ds#set_cubic_interpolation_mode `Monotone;

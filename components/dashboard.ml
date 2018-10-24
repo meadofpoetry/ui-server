@@ -10,9 +10,18 @@ module Item = Dashboard_item
 let list_to_yojson f l = `List (List.map f l)
 let list_of_yojson f = function
   | `List l -> List.map f l |> List.all_ok
-  | _       -> Error "not a list"
+  | _ -> Error "not a list"
 
-class ['a] t ?(non_editable = false)
+type edit =
+  { add : bool
+  }
+
+type edit_caps =
+  | Absolute
+  | Partial of edit
+  | Forbidden
+
+class ['a] t ?(edit_caps = Absolute)
         ~(items : 'a Item.positioned_item list)
         (factory : 'a #factory) () =
   let grid = new grid factory () in
@@ -23,29 +32,72 @@ class ['a] t ?(non_editable = false)
                    | `List l -> l
                    | `Groups _ -> [])) ()
   in
-  let add_icon  = Icon.SVG.(new t ~paths:Path.[ new t plus () ] ()) in
-  let edit_icon = Icon.SVG.(new t ~paths:Path.[ new t pencil () ] ()) in
+  let edit_icon = Icon.SVG.(create_simple Path.pencil) in
+  let add_icon = Icon.SVG.(create_simple Path.plus) in
   let add = new Fab.t ~icon:add_icon () in
   let fab =
     new Fab_speed_dial.t
       ~direction:`Up
       ~animation:`Scale
       ~icon:edit_icon
-      ~items:[add] () in
+      ~items:[add]
+      () in
   let e, push = React.E.create () in
   object(self)
 
+    val mutable _add_listener = None
+
     inherit Vbox.t ~widgets:[grid#widget; fab#widget] () as super
+
+    method init () : unit =
+      super#init ();
+      self#set_edit_caps edit_caps;
+      let add_listener =
+        add#listen_click_lwt (fun _ _ ->
+            add_panel#show_await ()) in
+      _add_listener <- Some add_listener;
+      fab#main#listen Widget.Event.click (fun _ _ ->
+          (match React.S.value fab#s_state with
+           | false -> fab#show ()
+           | true  -> push @@ self#serialize ();
+                      fab#hide ());
+          true)|> ignore;
+      React.S.map (function
+          | true  -> grid#set_editable true;
+                     edit_icon#path#set Icon.SVG.Path.check
+          | false -> grid#set_editable false;
+                     edit_icon#path#set Icon.SVG.Path.pencil)
+        fab#s_state |> ignore;
+      Dom.appendChild Dom_html.document##.body add_panel#root;
+      self#set_on_load @@ Some (fun () -> self#grid#layout (); fab#hide ());
+      fab#add_class Markup.edit_button_class;
+      self#add_class Markup.base_class;
+      List.map self#grid#add items |> ignore;
+      self#grid#set_editable false;
+
+    method destroy () : unit =
+      super#destroy ();
+      self#grid#destroy ();
+      factory#destroy ();
+      Option.iter Lwt.cancel _add_listener;
+      _add_listener <- None;
+      Dom.removeChild Dom_html.document##.body add_panel#root
 
     method e_edited : Yojson.Safe.json React.event = e
 
     method grid = grid
 
-    method non_editable : bool =
-      self#has_class Markup.non_editable_class
-
-    method set_non_editable (x : bool) : unit =
-      self#add_or_remove_class x Markup.non_editable_class
+    method set_edit_caps : edit_caps -> unit = function
+      | Absolute ->
+         add#style##.display := Js.string "";
+         self#remove_class Markup.non_editable_class
+      | Partial caps ->
+         if not caps.add
+         then add#style##.display := Js.string "none"
+         else add#style##.display := Js.string "";
+         self#remove_class Markup.non_editable_class
+      | Forbidden ->
+         self#add_class Markup.non_editable_class
 
     method serialize () : Yojson.Safe.json =
       List.map (fun x ->
@@ -62,32 +114,4 @@ class ['a] t ?(non_editable = false)
              List.iter (fun x -> x#remove ()) self#grid#items; (* remove previous items *)
              List.iter (fun x -> self#grid#add x |> ignore) l)
 
-    method destroy () =
-      super#destroy ();
-      self#grid#destroy ();
-      factory#destroy ();
-      Dom.removeChild Dom_html.document##.body add_panel#root
-
-    initializer
-      self#set_non_editable non_editable;
-      fab#main#listen Widget.Event.click (fun _ _ ->
-          (match React.S.value fab#s_state with
-           | false -> fab#show ()
-           | true  -> push @@ self#serialize ();
-                      fab#hide ());
-          true)|> ignore;
-      add#listen Widget.Event.click (fun _ _ ->
-          add_panel#show (); true) |> ignore;
-      React.S.map (function
-          | true  -> grid#set_editable true;
-                     edit_icon#path#set Icon.SVG.Path.check
-          | false -> grid#set_editable false;
-                     edit_icon#path#set Icon.SVG.Path.pencil)
-        fab#s_state |> ignore;
-      Dom.appendChild Dom_html.document##.body add_panel#root;
-      self#set_on_load @@ Some (fun () -> self#grid#layout (); fab#hide ());
-      fab#add_class Markup.edit_button_class;
-      self#add_class Markup.base_class;
-      List.map self#grid#add items |> ignore;
-      self#grid#set_editable false;
   end

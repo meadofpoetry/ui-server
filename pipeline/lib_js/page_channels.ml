@@ -22,7 +22,7 @@ let make (id : Stream.ID.t) () =
       }
     ] in
   new Dashboard.t
-    ~non_editable:true
+    ~edit_caps:(Partial { add = false })
     ~items:default
     factory
     ()
