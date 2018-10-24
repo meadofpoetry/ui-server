@@ -179,7 +179,7 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.t list) () =
               begin
                 match self#get_attribute "tabindex" with
                 | Some x ->
-                  if int_of_string x > 0 then self#hide ()
+                  if int_of_string x >= 0 then self#hide ()
                 | None   -> ();
               end;
             true
