@@ -173,17 +173,11 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.t list) () =
 
       Dom_events.listen Dom_html.window Dom_events.Typ.keydown
         (fun _ e ->
-          match Utils.Keyboard_event.event_to_key e with
-          | `Escape ->
-            if self#has_class Markup.open_class then
-              begin
-                match self#get_attribute "tabindex" with
-                | Some x ->
-                  if int_of_string x >= 0 then self#hide ()
-                | None   -> ();
-              end;
-            true
-          | _ -> true)
+           match Utils.Keyboard_event.event_to_key e with
+           | `Escape ->
+             if self#has_class Markup.open_class then self#hide ();
+             true
+           | _ -> true)
       |> ignore;
 
       self#listen_click_lwt (fun e _ ->
