@@ -78,9 +78,10 @@ let notification_signal (type a b)
     match merge value with
     | `Kept v -> Some v
     | `Updated v -> (options#store v; Some v)
-    | `Changed v -> Lwt_main.run @@ set v
-                    |> function Ok () -> Some v
-                              | Error _e -> None (* TODO add log *)
+    | `Changed v -> match Lwt_main.run @@ set v with
+                    | Ok () -> Some v
+                    | Error _e -> None (* TODO add log *)
+                    | exception Failure _e -> None
   in                   
   let signal_add_setter signal default setter =
     let signal = React.S.limit ~eq:Pervasives.(=) (fun () -> Lwt_unix.sleep 0.5) signal in
