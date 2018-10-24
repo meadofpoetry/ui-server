@@ -426,19 +426,19 @@ let to_content (wm : Wm.t) push =
       let checkboxes, tree = Branches.make_streams widgets struct_signal in
       let box = new Vbox.t ~widgets:[tree#widget] () in
       let set = fun () ->
-      let wds =
-        List.filter_map (fun (x : Checkbox.t) ->
-            if not @@ x#checked then
-              None
-            else
-              Some (int_of_string x#id)) checkboxes in
-      let widgets =
-        List.fold_left (fun acc channel ->
-            match List.filter (fun ((wdg : (string * Wm.widget)), (ch : channel)) ->
-                Int.equal channel ch.channel) widgets with
-            | [] -> acc
-            | l  -> l @ acc) [] wds in
-      to_layout ~resolution:wm.resolution ~widgets struct_signal in
+        let wds =
+          List.filter_map (fun (x : Checkbox.t) ->
+              if not @@ x#checked then
+                None
+              else
+                Some (int_of_string x#id)) checkboxes in
+        let widgets =
+          List.fold_left (fun acc channel ->
+              match List.filter (fun ((wdg : (string * Wm.widget)), (ch : channel)) ->
+                  Int.equal channel ch.channel) widgets with
+              | [] -> acc
+              | l  -> l @ acc) [] wds in
+        to_layout ~resolution:wm.resolution ~widgets struct_signal in
       box, set)
   |> Lwt_result.map_err Api_js.Requests.err_to_string
 
