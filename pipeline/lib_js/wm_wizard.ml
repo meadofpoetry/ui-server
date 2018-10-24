@@ -425,6 +425,7 @@ let to_content (wm : Wm.t) push =
       let struct_signal = React.S.hold init ev in
       let checkboxes, tree = Branches.make_streams widgets struct_signal in
       let box = new Vbox.t ~widgets:[tree#widget] () in
+      let set = fun () ->
       let wds =
         List.filter_map (fun (x : Checkbox.t) ->
             if not @@ x#checked then
@@ -437,7 +438,7 @@ let to_content (wm : Wm.t) push =
                 Int.equal channel ch.channel) widgets with
             | [] -> acc
             | l  -> l @ acc) [] wds in
-      let set = fun () -> to_layout ~resolution:wm.resolution ~widgets struct_signal in
+      to_layout ~resolution:wm.resolution ~widgets struct_signal in
       box, set)
   |> Lwt_result.map_err Api_js.Requests.err_to_string
 
@@ -464,7 +465,7 @@ let to_dialog (wm : Wm.t) push =
         | `Accept ->
           thread
           >|= (function
-              | Ok (_, f) -> print_endline "ok"; push @@ f ()
-              | Error e -> print_endline @@ "error!: " ^ e)
+              | Ok (_, f) -> push @@ f ()
+              | Error e -> print_endline @@ "Wm_wizard error!: " ^ e)
         | `Cancel -> Lwt.return ()) in
   dialog, show
