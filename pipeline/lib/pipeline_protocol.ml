@@ -70,16 +70,17 @@ let settings_init typ send (options : options) =
  *)
                            
 let notification_signal (type a b)
-      ~(combine: set:a -> b -> [`Kept of a | `Changed of a ])
+      ~(combine: set:a -> b -> [`Kept of a | `Changed of a | `Updated of a ])
       ~channel
       ~options
       ~(signal:b React.signal) =
   let make_setter merge set value =
-  match merge value with
-  | `Kept v -> Some v
-  | `Changed v -> Lwt_main.run @@ set v
-                  |> function Ok () -> Some v
-                            | Error _e -> None (* TODO add log *)
+    match merge value with
+    | `Kept v -> Some v
+    | `Updated v -> (options#store v; Some v)
+    | `Changed v -> Lwt_main.run @@ set v
+                    |> function Ok () -> Some v
+                              | Error _e -> None (* TODO add log *)
   in                   
   let signal_add_setter signal default setter =
     let signal = React.S.limit ~eq:Pervasives.(=) (fun () -> Lwt_unix.sleep 0.5) signal in
@@ -230,7 +231,7 @@ let init_exchange (type a) (typ : a typ) send structures_packer (options : optio
     React.S.fold ~eq:(fun _ _ -> false) update_status []
     @@ React.E.select [pids_diff; React.E.map (fun x -> `Status x) stat] in
   React.E.map_p (fun x ->
-      Lwt_io.printf "Signal: %s %d %d (%b)"
+      Lwt_io.printf "Signal: %s %d %d (%b)\n"
         (Stream.ID.to_string x.Qoe_status.stream) x.channel x.pid x.playing)
     stat
   |> React.E.keep;
