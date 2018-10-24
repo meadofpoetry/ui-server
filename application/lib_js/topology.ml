@@ -179,5 +179,6 @@ let create ~(parent: #Widget.t)
                       parent#append_child w) nodes;
   let gta = "grid-template-areas: " ^ (grid_template_areas init) ^ ";" in
   Lwt_react.(E.keep @@ E.map (update_nodes nodes) event);
+  parent#root##.id := (Js.string @@ string_of_int (get_node_depth init));
   parent#style##.cssText := Js.string gta;
   nodes

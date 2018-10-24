@@ -237,7 +237,7 @@ module Branches = struct
     (List.concat wdg_chbs), ch_chbs, new Tree.t ~items ()
 
   (* makes all the widget checkboxes with IDs, and a Tree.t containing all streams *)
-  let make_streams (widgets : ((string * Wm.widget) * channel) list) (tree : 'a Tree.t) signal =
+  let make_streams (widgets : ((string * Wm.widget) * channel) list) signal =
     let streams =
       List.fold_left (fun acc (x : (string * Wm.widget) * channel) ->
           let channel = snd x in
@@ -283,8 +283,7 @@ module Branches = struct
               () in
           (wdg_chbs @ (fst acc)), stream_node :: (snd acc))
         ([], []) streams_of_widgets in
-    List.iter (fun item -> tree#append_item item) items;
-    checkboxes
+    checkboxes, new Tree.t ~items ()
 
 end
 
@@ -301,12 +300,10 @@ module Create = struct
         match audio with
         | Some _ -> Positioning.video_position ~audio:`With_audio ~cont_pos
         | None   -> Positioning.video_position ~audio:`Without_audio ~cont_pos in
-      let video_wdg =
-        (* actually we should use position_widget here,
-         * but it leaves more blank space *)
-        (* fst video, {(snd video) with position = video_pos} in *)
-        fst video, Positioning.position_widget_1 ~pos:video_pos (snd video) in
-      Some video_wdg
+      (* actually we should use position_widget here,
+       * but it leaves more blank space *)
+      (* fst video, {(snd video) with position = video_pos} in *)
+      Some (fst video, Positioning.position_widget_1 ~pos:video_pos (snd video))
     | None -> None
 
   let audio_widget
@@ -319,9 +316,7 @@ module Create = struct
         match video with
         | Some _ -> Positioning.audio_position ~video:`With_video ~cont_pos
         | None   -> Positioning.audio_position ~video:`Without_video ~cont_pos in
-      let audio_wdg =
-        fst audio, {(snd audio) with position = audio_pos} in
-      Some audio_wdg
+      Some (fst audio, {(snd audio) with position = audio_pos})
     | None -> None
 
 end
@@ -351,14 +346,14 @@ let to_layout ~resolution ~widgets =
       else
         remain, 1 in
     let start_h =
-      if Int.equal multiplier 1 && not (Int.equal remain cols) then
+      if Int.equal multiplier 1
+      && not (Int.equal remain cols)
+      && not (Int.equal cols rows) then
         (snd resolution - cont_std_h * rows) / 2
       else
         0 in
-    List.fold_left (fun acc channel ->
-        let i, containers = acc in
+    List.fold_left (fun (i, containers) channel ->
         let row_num = i / cols in
-        let name    = (string_of_int channel.channel) in
         let cont_w  =
           if i + 1 > num - remain then
             fst resolution / cols * multiplier
@@ -367,19 +362,15 @@ let to_layout ~resolution ~widgets =
         let cont_h = (ar_y * cont_w) / ar_x in
         let greater_num = i - (num - greatest) in
         (* the number of greater elements behind this *)
-        let cont_x =
+        let left =
           if greater_num > 0 then               (* magical *)
             (i - cols * row_num - greater_num)  (* do not touch *)
             * cont_std_w + greater_num * cont_w
           else
             (i - cols * row_num) * cont_std_w in
-        let cont_y = row_num * cont_std_h + start_h in
+        let top = row_num * cont_std_h + start_h in
         let cont_pos : Wm.position =
-          { left   = cont_x
-          ; top    = cont_y
-          ; right  = cont_x + cont_w
-          ; bottom = cont_y + cont_h
-          } in
+          { left ; top ; right  = left + cont_w ; bottom = top + cont_h } in
         let audio = Find.widget ~typ:Audio ~widgets channel in
         let video = Find.widget ~typ:Video ~widgets channel in
         let video_wdg = Create.video_widget ~video ~audio cont_pos in
@@ -387,19 +378,23 @@ let to_layout ~resolution ~widgets =
         let container =
           if cont_pos.left >= 0 && cont_pos.right <= fst resolution
              && cont_pos.top >= 0 && cont_pos.bottom <= snd resolution then
-            let widgets = match video_wdg, audio_wdg with
+            let widgets =
+              match video_wdg, audio_wdg with
               | Some video_wdg, Some audio_wdg -> [video_wdg; audio_wdg]
               | None,           Some audio_wdg -> [audio_wdg]
               | Some video_wdg, None           -> [video_wdg]
               | _ -> [] in
             match widgets with
             | []      -> None
-            | widgets -> Some ({ position = cont_pos; widgets } : Wm.container)
+            | widgets -> Some ({ position = cont_pos
+                               ; widgets } : Wm.container)
           else
-            (Printf.printf "Error building container %s!\n" name;
+            (Printf.printf "Error building container %s!\n"
+               (string_of_int channel.channel);
              None) in
         match container with
-        | Some cont -> succ i, (name, cont) :: containers
+        | Some cont ->
+          succ i, ((string_of_int channel.channel), cont) :: containers
         | None      -> i, containers)
       (0, []) channels
     |> snd
@@ -415,7 +410,6 @@ let to_layout ~resolution ~widgets =
 let to_dialog (wm : Wm.t) =
   let checkboxes, push_ch = React.S.create [] in
   let e, push = React.E.create () in
-  let tree    = new Tree.t ~items:[] () in
   let widgets =
     let open Wm in
     List.filter_map (fun (name, (widget : widget)) ->
@@ -430,7 +424,8 @@ let to_dialog (wm : Wm.t) =
     >|= (fun init ->
         let ev, _  = Requests.get_structure_socket () in
         let signal = React.S.hold init ev in
-        push_ch @@ Branches.make_streams widgets tree signal;
+        let chbs, tree = Branches.make_streams widgets signal in
+        push_ch chbs;
         tree#widget)
     |> Lwt_result.map_err Api_js.Requests.err_to_string in
   let loader = Ui_templates.Loader.create_widget_loader streams_thread in

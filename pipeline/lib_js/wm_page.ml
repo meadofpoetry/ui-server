@@ -330,7 +330,8 @@ let create ~(init: Wm.t)
   let containers = [new_cont] in
     (* match make_containers init.widgets with
      * | [] -> [new_cont]
-     * | l  -> l in *)
+     * | l  -> new_cont ::
+       l in *)
   let s_cc, s_cc_push = React.S.create containers in
   let wz_dlg, wz_e, wz_show = Wm_wizard.to_dialog init in
   let resolution = init.resolution in

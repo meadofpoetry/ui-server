@@ -110,9 +110,9 @@ module Item_info = struct
     box#widget
 
   let make_widget_info (item:Wm.widget Wm_types.wm_item) =
-    let text   = new Typography.Text.t ~text:item.name () in
+   (* let text   = new Typography.Text.t ~text:item.name () in
     let line_1 = new Hbox.t ~valign:`Center
-      ~widgets:[item.icon; text#widget] () in
+      ~widgets:[item.icon; text#widget] () in*)
     let text =
       let typ =
         match item.item.type_ with
@@ -122,12 +122,12 @@ module Item_info = struct
         match item.item.pid with
         | Some pid -> string_of_int pid
         | None     -> "" in
-      Printf.sprintf "%s %s" typ pid in
+      Printf.sprintf "%s PID:%s" typ pid in
     let line_2 = new Typography.Text.t ~text () in
-    let line_3 = new Typography.Text.t ~text:item.item.description () in
-    let lines  = [line_1#widget;line_2#widget;line_3#widget] in
+    (* let line_3 = new Typography.Text.t ~text:item.item.description () in *)
+    let lines  = [line_2#widget] in
     let box    = new Vbox.t ~widgets:lines () in
-    let ()     = line_1#add_class
+    let ()     = line_2#add_class
                  @@ Markup.CSS.add_modifier line_class "with-icon" in
     let ()     = List.iter (fun x -> x#add_class line_class) lines in
     let ()     = box#add_class _class in
