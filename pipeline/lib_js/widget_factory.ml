@@ -39,6 +39,13 @@ object(self)
 
   (* Private methods *)
 
+  (* XXX
+   * Some thoughts about optimization:
+   * Maybe this function should make request according to current widget needs
+   * and when these needs change it should close an old socket and open a new one
+   * with new filtering applied.
+   * E.g., Requesting a socket with data for all sources is very redundant for one widget
+   *)
   method private get_video_data () = match _video_data with
     | Some state -> state.value
     | None ->

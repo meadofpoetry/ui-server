@@ -29,7 +29,7 @@ let make (stream : Stream.ID.t) (control:int) =
     ]
   in
   new Dashboard.t
-    ~edit_caps:(Partial { add = false })
+    ~edit_caps:(Partial { add = false; remove = false })
     ~items:default
     factory
     ()

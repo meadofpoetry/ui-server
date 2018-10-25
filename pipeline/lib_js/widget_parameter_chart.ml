@@ -10,13 +10,19 @@ type widget_config =
   { duration : Time.Period.t
   ; typ : labels
   ; sources : data_source list
+  ; filter : data_filter list
   ; settings : widget_settings option
   }
 and widget_settings =
   { range : (float * float) option
   }
 and data_filter =
-  { streams : Stream.ID.t list
+  { stream_id : Stream.ID.t
+  ; services : service_filter list
+  }
+and service_filter =
+  { service_id : int
+  ; pids : int list
   }
 and data_source =
   { stream : Stream.ID.t
@@ -44,6 +50,28 @@ let get_suggested_range = function
   | `Blocky -> 0.0, 100.0
   | _ -> 0.0, 0.0
 
+let filter (src : data_source) (filter : data_filter list) : bool =
+  let check_pid pid = function
+    | [] -> true
+    | pids -> List.mem ~eq:Int.equal pid pids in
+  let check_service service pid = function
+    | [] -> true
+    | services ->
+       List.fold_while (fun acc (x : service_filter) ->
+           if service = x.service_id
+           then check_pid pid x.pids, `Stop
+           else false, `Continue) false services in
+  let { stream; service; pid } = src in
+  let rec aux = function
+    | [] -> false
+    | (hd : data_filter) :: tl ->
+       if Stream.ID.equal hd.stream_id stream
+       then check_service service pid hd.services
+       else aux tl in
+  match filter with
+  | [] -> true
+  | filter -> aux filter
+
 let convert_video_data (config : widget_config)
       (d : Video_data.t) : 'a data =
   let (src : data_source) =
@@ -51,19 +79,20 @@ let convert_video_data (config : widget_config)
     ; service = d.channel
     ; pid = d.pid
     } in
-  let (error : error) = match config.typ with
-    | `Black -> d.errors.black
-    | `Luma -> d.errors.luma
-    | `Freeze -> d.errors.freeze
-    | `Diff -> d.errors.diff
-    | `Blocky -> d.errors.blocky
-    | `Silence_shortt | `Silence_moment | `Loudness_shortt | `Loudness_moment ->
-       failwith "not a video chart" in
-  let (point : float point) =
-    { x = error.timestamp
-    ; y = error.params.avg
-    } in
-  [src, [point]]
+  if not (filter src config.filter) then [] else
+    let (error : error) = match config.typ with
+      | `Black -> d.errors.black
+      | `Luma -> d.errors.luma
+      | `Freeze -> d.errors.freeze
+      | `Diff -> d.errors.diff
+      | `Blocky -> d.errors.blocky
+      | `Silence_shortt | `Silence_moment | `Loudness_shortt | `Loudness_moment ->
+         failwith "not a video chart" in
+    let (point : float point) =
+      { x = error.timestamp
+      ; y = error.params.avg
+      } in
+    [src, [point]]
 
 let data_source_to_string (src : data_source) : string =
   "Label"

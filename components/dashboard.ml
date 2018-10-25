@@ -7,6 +7,8 @@ include Dashboard_grid
 module Position = Dynamic_grid.Position
 module Item = Dashboard_item
 
+let ( % ) = Fun.( % )
+
 let list_to_yojson f l = `List (List.map f l)
 let list_of_yojson f = function
   | `List l -> List.map f l |> List.all_ok
@@ -14,6 +16,7 @@ let list_of_yojson f = function
 
 type edit =
   { add : bool
+  ; remove : bool
   }
 
 type edit_caps =
@@ -88,16 +91,9 @@ class ['a] t ?(edit_caps = Absolute)
     method grid = grid
 
     method set_edit_caps : edit_caps -> unit = function
-      | Absolute ->
-         add#style##.display := Js.string "";
-         self#remove_class Markup.non_editable_class
-      | Partial caps ->
-         if not caps.add
-         then add#style##.display := Js.string "none"
-         else add#style##.display := Js.string "";
-         self#remove_class Markup.non_editable_class
-      | Forbidden ->
-         self#add_class Markup.non_editable_class
+      | Absolute -> self#set_absolute_edit_caps ()
+      | Partial caps -> self#set_partial_edit_caps caps
+      | Forbidden -> self#add_class Markup.non_editable_class
 
     method serialize () : Yojson.Safe.json =
       List.map (fun x ->
@@ -112,6 +108,18 @@ class ['a] t ?(edit_caps = Absolute)
       self#deserialize json
       |> Result.map (fun l ->
              List.iter (fun x -> x#remove ()) self#grid#items; (* remove previous items *)
-             List.iter (fun x -> self#grid#add x |> ignore) l)
+             List.iter (ignore % self#grid#add) l)
+
+    (* Private methods *)
+
+    method private set_absolute_edit_caps () : unit =
+      add#style##.display := Js.string "";
+      self#remove_class Markup.non_editable_class
+
+    method private set_partial_edit_caps (caps : edit) : unit =
+      if not caps.add
+      then add#style##.display := Js.string "none"
+      else add#style##.display := Js.string "";
+      self#remove_class Markup.non_editable_class
 
   end
