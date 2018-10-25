@@ -116,6 +116,9 @@ class t ~(left_node:node_entry)
          self#remove_class sync_class
 
     method layout () =
+    (*  let depth  = elt##id |> Js.to_string |> int_of_string in
+      let full_w = elt##offsetWidth in*)
+      let step   = 80 in
       let left   = f_lp () in
       let right  = f_rp () in
       let top,height =
@@ -135,22 +138,22 @@ class t ~(left_node:node_entry)
         if abs (left.y - right.y) < 4
         then Printf.sprintf "M %d %d L %d %d" left.x left.y right.x left.y
         else
-          if right.x - left.x < 80
+          if right.x - left.x < step
           then
             self#_make_straight_path
               left.x left.y
-              left.x left.y (left.x + width/2) left.y
-              (left.x + width/2) (top - height/2)
-              (left.x + width/2) (top - height/2)
-              (left.x + width/2) right.y right.x right.y
+              left.x left.y (left.x + width / 2) left.y
+              (left.x + width / 2) (top - height / 2)
+              (left.x + width / 2) (top - height / 2)
+              (left.x + width / 2) right.y right.x right.y
           else
             self#_make_curved_path
               left.x left.y
-              (right.x - 80) left.y
-              (right.x - 80) left.y (right.x - 40) left.y
-              (right.x - 40) (top - height/2)
-              (right.x - 40) (top - height/2)
-              (right.x - 40) (right.y) right.x right.y in
+              (right.x - step) left.y
+              (right.x - step) left.y (right.x - step / 2) left.y
+              (right.x - step / 2) (top - height / 2)
+              (right.x - step / 2) (top - height / 2)
+              (right.x - step / 2) (right.y) right.x right.y in
       self#set_attribute "d" path
 
     method private _make_straight_path =

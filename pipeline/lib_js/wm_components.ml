@@ -110,14 +110,24 @@ module Item_info = struct
     box#widget
 
   let make_widget_info (item:Wm.widget Wm_types.wm_item) =
-    let text   = new Typography.Text.t ~text:item.name () in
+   (* let text   = new Typography.Text.t ~text:item.name () in
     let line_1 = new Hbox.t ~valign:`Center
-                   ~widgets:[item.icon; text#widget] () in
-    let line_2 = new Typography.Text.t ~text:item.item.domain () in
-    let line_3 = new Typography.Text.t ~text:item.item.description () in
-    let lines  = [line_1#widget;line_2#widget;line_3#widget] in
+      ~widgets:[item.icon; text#widget] () in*)
+    let text =
+      let typ =
+        match item.item.type_ with
+        | Video -> "Видео"
+        | Audio -> "Аудио" in
+      let pid =
+        match item.item.pid with
+        | Some pid -> string_of_int pid
+        | None     -> "" in
+      Printf.sprintf "%s PID:%s" typ pid in
+    let line_2 = new Typography.Text.t ~text () in
+    (* let line_3 = new Typography.Text.t ~text:item.item.description () in *)
+    let lines  = [line_2#widget] in
     let box    = new Vbox.t ~widgets:lines () in
-    let ()     = line_1#add_class
+    let ()     = line_2#add_class
                  @@ Markup.CSS.add_modifier line_class "with-icon" in
     let ()     = List.iter (fun x -> x#add_class line_class) lines in
     let ()     = box#add_class _class in
@@ -164,10 +174,10 @@ module Item_properties = struct
 
   let make_widget_props (t:t_widg React.signal) =
     match (React.S.value t).item.type_ with
-    | "video" -> make_video_props t
-    | "audio" -> make_audio_props t
-    | _       -> let widget = new Typography.Text.t ~text:"Unknown" () in
-                 Wm_types.({ widget = widget#widget; actions = [] })
+    | Video -> make_video_props t
+    | Audio -> make_audio_props t
+ (*   | _     -> let widget = new Typography.Text.t ~text:"Unknown" () in
+      Wm_types.({ widget = widget#widget; actions = [] })*)
 
 end
 

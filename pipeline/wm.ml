@@ -18,6 +18,42 @@ type widget_type = Video
 
 let name = "wm"
 
+type widget_type = Video | Audio [@@deriving eq]
+
+let widget_type_equal typ_1 typ_2 =
+  match typ_1, typ_2 with
+  | Video, Video | Audio, Audio -> true
+  | _ -> false
+
+let widget_type_of_yojson = function
+  | `String "Video" -> Ok(Video)
+  | `String "Audio" -> Ok(Audio)
+  | _ -> Error "widget_type_of_yojson"
+let widget_type_to_yojson = function
+  | Video -> `String "Video"
+  | Audio -> `String "Audio"
+
+type domain = Nihil : domain
+            | Chan  : { stream  : Common.Stream.ID.t
+                      ; channel : int } -> domain
+            [@@deriving eq]
+let domain_of_yojson = function
+  | `String "Nihil" -> Ok(Nihil)
+  | `Assoc ["Chan",
+            `Assoc ["stream", `String id;
+                    "channel", `Int channel]] ->
+     Ok(Chan { stream = Common.Stream.ID.of_string id; channel })
+  | `Assoc ["Chan",
+            `Assoc ["stream", `String id;
+                    "channel", `Intlit channel]] ->
+     Ok(Chan { stream = Common.Stream.ID.of_string id; channel = int_of_string channel })
+  | _ -> Error "domain_of_yojson: bad json"
+let domain_to_yojson = function
+  | Nihil -> `String "Nihil"
+  | Chan { stream; channel } ->
+     `Assoc ["Chan", `Assoc ["stream", `String (Common.Stream.ID.to_string stream);
+                             "channel", `Int channel]]
+         
 type background = (* NOTE incomplete *)
   { color : int } [@@deriving yojson]
 
@@ -29,8 +65,9 @@ type position =
   } [@@deriving yojson, eq]
 
 type widget =
-  { type_       : string [@key "type"]
-  ; domain      : string
+  { type_       : widget_type [@key "type"]
+  ; domain      : domain
+  ; pid         : int option
   ; position    : position
   ; layer       : int
   ; aspect      : ((int * int) option [@default None])

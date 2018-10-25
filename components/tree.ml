@@ -61,21 +61,38 @@ module Item = struct
           nested;
         self#remove_class Markup.Item.item_open_class
 
+      method toggle () =
+        let open_class = Markup.Item.item_open_class in
+        let open_list  = Markup.Item.list_open_class in
+        Option.iter (fun x ->
+            x#toggle_class open_list
+            |> ignore)
+          self#nested_tree;
+        self#toggle_class open_class |> s_push
+
       initializer
         Option.iter (fun x ->
             x#add_class Markup.Item.list_class;
             item#style##.cursor := Js.string "pointer") nested;
-        if expand_on_click
-        then
+        if expand_on_click then
           self#listen Widget.Event.click (fun _ e ->
-              let open_class = Markup.Item.item_open_class in
-              let open_list  = Markup.Item.list_open_class in
+              (* FIXME click on a graphic widget
+               * opens and closes the tree item,
+               * but it shouldn't be *)
               Dom_html.stopPropagation e;
-              Option.iter (fun x -> x#toggle_class open_list |> ignore)
-                self#nested_tree;
-              self#toggle_class open_class |> s_push;
+              self#toggle ();
               true)
           |> ignore;
+
+        Option.iter (fun meta ->
+            Dom_events.listen meta#root Dom_events.Typ.click
+              (fun _ e ->
+                 Dom_html.stopPropagation e;
+                 self#toggle ();
+                 true)
+            |> ignore;
+          ) meta;
+
     end
 
 end
