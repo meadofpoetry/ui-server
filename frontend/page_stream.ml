@@ -1,8 +1,8 @@
 open Containers
 open Components
-open Common.Uri
-open Common.Topology
-open Common.Stream
+open Common
+
+let ( % ) = Fun.( % )
 
 let cpu_of_yojson =
   Common.Json.(
@@ -16,8 +16,8 @@ let dummy_tab = fun () ->
   let div = Widget.create_div () in
   Ui_templates.Placeholder.under_development ()
 
-let get_board_tabs (stream : ID.t)
-      (input : topo_input)
+let get_board_tabs (stream : Stream.ID.t)
+      (input : Topology.topo_input)
       (control : int)
       (name : string) =
   match name with
@@ -45,19 +45,20 @@ let get_board_tabs (stream : ID.t)
      let measures =
        "RF",
        "rf",
-       (fun () -> (Page_stream.make stream control)#widget) in
+       Widget.coerce % fun () -> Page_stream.make stream control in
      [measures]
   | _ -> []
 
-let get_cpu_tabs (stream : ID.t)
-      (input : topo_input)
+let get_cpu_tabs (stream : Stream.ID.t)
+      (input : Topology.topo_input)
       (name : string option) =
   match name with
   | Some "pipeline" ->
+     let open Pipeline_js in
      let log =
        "QoE",
        "qoe_log",
-       dummy_tab in
+       Widget.coerce % Page_channels.make stream in
      [log]
   | _ -> []
 
@@ -74,23 +75,24 @@ let () =
   let open Common.Stream in
   let uri = Dom_html.window##.location##.pathname
             |> Js.to_string in
-  let fmt = Path.Format.("input" @/ String ^/ Int ^/ ID.fmt ^/ empty) in
-  let (input : topo_input) =
+  let fmt = Uri.Path.Format.("input" @/ String ^/ Int ^/ ID.fmt ^/ empty) in
+  let (input : Topology.topo_input) =
     Js.Unsafe.global##.input
     |> Js.to_string
-    |> Show_topo_input.of_string in
+    |> Topology.Show_topo_input.of_string in
   let (boards : (int * string) list) =
     Yojson.Safe.from_string @@ Js.to_string
-    @@ Json.output @@ Js.Unsafe.global##.boards
+    @@ Js_of_ocaml.Json.output @@ Js.Unsafe.global##.boards
     |> boards_of_yojson
     |> Result.get_exn in
   let (cpu : string option) =
     Yojson.Safe.from_string @@ Js.to_string
-    @@ Json.output @@ Js.Unsafe.global##.cpu
+    @@ Js_of_ocaml.Json.output @@ Js.Unsafe.global##.cpu
     |> cpu_of_yojson
     |> Result.get_exn in
   let stream =
-    Path.Format.scan_unsafe (Path.of_string uri) fmt (fun _ _ c -> c) in
+    Uri.Path.Format.scan_unsafe (Uri.Path.of_string uri)
+      fmt (fun _ _ c -> c) in
   let w = Widget.create_div () in
   let page = new Ui_templates.Page.t (`Dynamic (make_tabs stream input boards cpu)) () in
   let info = "" in

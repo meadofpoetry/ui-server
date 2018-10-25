@@ -14,6 +14,7 @@ module Make(Xml : Xml_sigs.NoWrap)
   module Item = struct
     let _class = CSS.add_element base_class "item"
     let content_class = CSS.add_element _class "content"
+    let widget_class = CSS.add_element _class "widget"
     let heading_class = CSS.add_element _class "heading"
     let title_class = CSS.add_element _class "heading-title"
     let buttons_class = CSS.add_element _class "heading-buttons"

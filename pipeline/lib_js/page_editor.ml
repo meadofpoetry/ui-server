@@ -1,6 +1,5 @@
 open Containers
 open Components
-open Requests
 open Lwt_result.Infix
 open Wm_types
 open Wm_components
@@ -495,12 +494,12 @@ class t () = object(self)
   inherit Layout_grid.t ~cells:[] () as super
 
   method private on_load () =
-    Requests.get_wm ()
+    Requests_wm.HTTP.get ()
     >>= (fun wm ->
-      let e_wm, wm_sock = Requests.get_wm_socket () in
+      let e_wm, wm_sock = Requests_wm.WS.get () in
       let post = fun w ->
         Lwt.Infix.(
-          Requests.post_wm w
+          Requests_wm.HTTP.set w
           >|= (function
                | Ok () -> ()
                | Error _ -> print_endline @@ "error post wm")) in

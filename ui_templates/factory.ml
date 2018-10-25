@@ -2,93 +2,104 @@ open Containers
 open Components
 open Lwt_result.Infix
 
-let return = Lwt_result.return
-
-module Factory_state = struct
+module State = struct
 
   type 'a t =
-    { mutable value     : 'a option
-    ; mutable fin       : (unit -> unit)
-    ; mutable ref_count : int
+    { value : 'a
+    ; fin : (unit -> unit)
+    ; ref_count : int ref
     }
 
-  type 'a value_lwt = ('a,string) Lwt_result.t
+  let finalize (state : 'a t) =
+    state.fin ();
+    state.ref_count := 0
 
-  type 'a t_lwt = 'a value_lwt t
+  let succ_ref (state : 'a t) : unit =
+    Ref.update succ state.ref_count
 
+  let pred_ref ?(fin = false) (state : 'a t) : unit =
+    Ref.update pred state.ref_count;
+    if !(state.ref_count) <= 0 && fin
+    then finalize state
 
-  type ws = WebSockets.webSocket Js.t
+  let zero_ref (state : 'a t) : unit =
+    state.ref_count := 0
 
-  let finalize (state:'a t) = state.fin (); state.value <- None; state.ref_count <- 0
+  let set_ref (state : 'a t) (v : int) =
+    state.ref_count := v
 
-  let succ_ref (state:'a t) : unit =
-    state.ref_count <- succ state.ref_count
+  let make_empty () =
+    { value = None
+    ; fin = (fun () -> ())
+    ; ref_count = ref 0
+    }
 
-  let pred_ref ?(fin=false) (state:'a t) : unit =
-    state.ref_count <- pred state.ref_count;
-    if state.ref_count <= 0 && fin then finalize state
-
-  let zero_ref (state:'a t) : unit =
-    state.ref_count <- 0
-
-  let set_ref (state:'a t) (v:int) =
-    state.ref_count <- v
-
-  let empty () = { value = None
-                 ; fin = (fun () -> ())
-                 ; ref_count = 0
-                 }
+  let make ?(fin = (fun () -> ()))
+        ?(ref_count = ref 0)
+        value =
+    { value; fin; ref_count }
 
 end
 
-module Factory_state_lwt = struct
+module Lift = struct
 
-  type 'a value = ('a,string) Lwt_result.t
-  type 'a t     = ('a value) Factory_state.t
+  type ('a, 'b) t = ('a, 'b) Lwt_result.t
 
-  let l1 : 'a. 'a value -> ('a -> 'b) -> 'b value =
+  let l1 : 'a. ('a, _) t -> ('a -> 'b) -> ('b, _) t =
     fun t1 f ->
     t1 >>= fun t1 -> Lwt_result.return @@ f t1
 
-  let l2 : 'a 'b. 'a value -> 'b value -> ('a -> 'b -> 'c) -> 'c value =
+  let l2 : 'a 'b. ('a, _) t -> ('b, _) t -> ('a -> 'b -> 'c) -> ('c, _) t =
     fun t1 t2 f ->
-    t1 >>= fun t1 -> t2 >>= fun t2 -> Lwt_result.return @@ f t1 t2
-
-  let l3 : 'a 'b 'c. 'a value -> 'b value -> 'c value ->
-           ('a -> 'b -> 'c -> 'd) -> 'd value =
-    fun t1 t2 t3 f ->
     t1
     >>= fun t1 -> t2
-    >>= fun t2 -> t3
-    >>= fun t3 -> Lwt_result.return @@ f t1 t2 t3
+    >>= fun t2 -> Lwt_result.return @@ f t1 t2
 
-  let l4 : 'a 'b 'c 'd. 'a value -> 'b value -> 'c value -> 'd value ->
-           ('a -> 'b -> 'c -> 'd -> 'e) -> 'e value =
-    fun t1 t2 t3 t4 f ->
-    t1
-    >>= fun t1 -> t2
-    >>= fun t2 -> t3
-    >>= fun t3 -> t4
-    >>= fun t4 -> Lwt_result.return @@ f t1 t2 t3 t4
+  let l3 = fun a b c f ->
+    l2 a b (fun a b -> a, b)
+    >>= fun (a, b) -> c
+    >>= fun c -> Lwt_result.return @@ f a b c
 
-  let get_value_as_signal ~(get:(unit -> 'a value))
-                          ~(get_socket:(unit -> 'a React.event * Factory_state.ws))
-                          (state:('a React.signal t)) : 'a React.signal value =
-    match state.value with
-    | Some x -> Factory_state.succ_ref state; x
-    | None   -> Factory_state.set_ref state 1;
-                let t = get ()
-                        >>= (fun state -> let e,sock = get_socket () in
-                                          let s      = React.S.hold state e in
-                                          let fin () = sock##close;
-                                                       React.E.stop ~strong:true e;
-                                                       React.S.stop ~strong:true s
-                                          in
-                                          return (s,fin))
-                in
-                let v = t >>= (fun (s,_) -> return s) in
-                state.value <- Some v;
-                state.fin   <- (fun () -> t >>= (fun (_,f) -> return @@ f ()) |> Lwt.ignore_result);
-                v
+  let l4 = fun a b c d f ->
+    l3 a b c (fun a b c -> a, b, c)
+    >>= fun (a, b, c) -> d
+    >>= fun d -> Lwt_result.return @@ f a b c d
+
+  let l5 = fun a b c d e f ->
+    l4 a b c d (fun a b c d -> a, b, c, d)
+    >>= fun (a, b, c, d) -> e
+    >>= fun e -> Lwt_result.return @@ f a b c d e
+
+  let l6 = fun a b c d e g f ->
+    l5 a b c d e (fun a b c d e -> a, b, c, d, e)
+    >>= fun (a, b, c, d, e) -> g
+    >>= fun g -> Lwt_result.return @@ f a b c d e g
+
+end
+
+module Signal = struct
+
+  open WebSockets
+
+  type 'a t = ('a React.signal, string) Lwt_result.t State.t
+
+  let make_state
+        ~(get : (unit -> ('a, string) Lwt_result.t))
+        ~(get_socket : (unit -> 'a React.event * webSocket Js.t)) : 'a t =
+    let t =
+      get ()
+      >>= (fun state ->
+        let e, sock = get_socket () in
+        let s = React.S.hold state e in
+        let state = (e, s, sock) in
+        Lwt_result.return (s, state)) in
+    let fin = fun () ->
+      t >|= (fun (_, (e, s, sock)) ->
+        sock##close;
+        React.E.stop ~strong:true e;
+        React.S.stop ~strong:true s)
+      |> Lwt.ignore_result in
+    let value = t >|= fst in
+    State.make ~fin value
 
 end

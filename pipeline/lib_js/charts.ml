@@ -1,6 +1,5 @@
 open Containers
 open Components
-open Requests
 open Lwt_result.Infix
 
 class t () =

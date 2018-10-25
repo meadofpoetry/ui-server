@@ -33,81 +33,93 @@ let return = Lwt_result.return
 let map_err : 'a 'b. ('b,'a Api_js.Requests.err) Lwt_result.t -> ('b,string) Lwt_result.t =
   fun x -> Lwt_result.map_err (fun e -> Api_js.Requests.err_to_string ?to_string:None e) x
 
-open Factory_state
-
 type measures = Stream.t * (Measure.t Time.timestamped)
 
 (* Widget factory *)
-class t (control:int) () =
-object(self)
-  val mutable _state : Topology.state React.signal t_lwt = empty ()
-  val mutable _config : Device.config React.signal t_lwt = empty ()
-  val mutable _receivers : int list option React.signal t_lwt = empty ()
-  val mutable _measures : measures React.event Factory_state.t = empty ()
+class t (control : int) () =
+  let open Ui_templates.Factory in
+  object(self)
+    val mutable _state = None
+    val mutable _config = None
+    val mutable _receivers = None
+    val mutable _measures = None
 
-  val mutable _measures_ref = 0
+    val mutable _measures_ref = 0
 
-  (** Create widget of type **)
-  method create : item -> Widget.t Dashboard.Item.item = function
-    | Stream_chart conf -> self#_create_chart conf
-    | Settings -> self#_create_settings ()
+    (** Create widget of type *)
+    method create : item -> Widget.t Dashboard.Item.item = function
+      | Stream_chart conf -> self#_create_chart conf
+      | Settings -> self#_create_settings ()
 
-  method destroy () =
-    finalize _state;
-    finalize _config;
-    finalize _measures
+    method destroy () =
+      Option.iter State.finalize _state;
+      Option.iter State.finalize _config;
+      Option.iter State.finalize _receivers;
+      Option.iter State.finalize _measures;
 
-  method available : Dashboard.available =
-    `List [ item_to_info (Stream_chart None)
-          ; item_to_info Settings
-          ]
+    method available : Dashboard.available =
+      `List [ item_to_info (Stream_chart None)
+            ; item_to_info Settings ]
 
-  method serialize (x : item) : Yojson.Safe.json = item_to_yojson x
-  method deserialize (json : Yojson.Safe.json) : (item, string) result = item_of_yojson json
+    method serialize (x : item) : Yojson.Safe.json =
+      item_to_yojson x
 
-  (** Private methods **)
+    method deserialize (json : Yojson.Safe.json) : (item, string) result =
+      item_of_yojson json
 
-  method private _create_settings () =
-    (fun s c r ->
-      Widget_settings.make ~state:s ~config:c ~receivers:r control)
-    |> Factory_state_lwt.l3 self#_state self#_config self#_receivers
-    |> Ui_templates.Loader.create_widget_loader
-    |> Widget.coerce
-    |> Dashboard.Item.make_item ~name:Widget_settings.name
-         ?settings:Widget_settings.settings
+    (** Private methods **)
 
-  method private _create_chart conf =
-    (* FIXME conf should not be an option *)
-    Widget_chart.make ~measures:self#_measures @@ Option.get_exn conf
-    |> fun x -> { x with widget = x.widget#widget }
+    method private _create_settings () =
+      (fun s c r ->
+        Widget_settings.make ~state:s ~config:c ~receivers:r control)
+      |> Lift.l3 self#_state self#_config self#_receivers
+      |> Ui_templates.Loader.create_widget_loader
+      |> Widget.coerce
+      |> Dashboard.Item.make_item ~name:Widget_settings.name
+           ?settings:Widget_settings.settings
 
-  method private _state =
-    Factory_state_lwt.get_value_as_signal
-      ~get:(fun () -> Requests.Device.HTTP.get_state control |> map_err)
-      ~get_socket:(fun () -> Requests.Device.WS.get_state control)
-      _state
+    method private _create_chart conf =
+      (* FIXME conf should not be an option *)
+      Widget_chart.make ~measures:self#_measures @@ Option.get_exn conf
+      |> fun x -> { x with widget = x.widget#widget }
 
-  method private _config =
-    Factory_state_lwt.get_value_as_signal
-      ~get:(fun () -> Requests.Device.HTTP.get_mode control |> map_err)
-      ~get_socket:(fun () -> Requests.Device.WS.get_mode control)
-      _config
+    method private _state = match _state with
+      | Some state -> state.value
+      | None ->
+         let state =
+           Signal.make_state
+             ~get:(fun () -> Requests.Device.HTTP.get_state control |> map_err)
+             ~get_socket:(fun () -> Requests.Device.WS.get_state control) in
+         _state <- Some state;
+         state.value
 
-  method private _receivers =
-    Factory_state_lwt.get_value_as_signal
-      ~get:(fun () -> Requests.Device.HTTP.get_receivers control |> map_err)
-      ~get_socket:(fun () -> Requests.Device.WS.get_receivers control)
-      _receivers
+    method private _config = match _config with
+      | Some state -> state.value
+      | None ->
+         let state =
+           Signal.make_state
+             ~get:(fun () -> Requests.Device.HTTP.get_mode control |> map_err)
+             ~get_socket:(fun () -> Requests.Device.WS.get_mode control) in
+         _config <- Some state;
+         state.value
 
-  method private _measures : measures React.event =
-    match _measures.value with
-    | Some x ->
-       Factory_state.succ_ref _measures; x
-    | None ->
-       Factory_state.set_ref _measures 1;
-       let e,sock = Requests.Streams.WS.get_measures control in
-       _measures.value <- Some e;
-       _measures.fin   <- (fun () -> sock##close; React.E.stop ~strong:true e);
-       e
+    method private _receivers = match _receivers with
+      | Some state -> state.value
+      | None ->
+         let state =
+           Signal.make_state
+             ~get:(fun () -> Requests.Device.HTTP.get_receivers control |> map_err)
+             ~get_socket:(fun () -> Requests.Device.WS.get_receivers control) in
+         _receivers <- Some state;
+         state.value
 
-end
+    method private _measures : measures React.event = match _measures with
+      | Some state -> state.value
+      | None ->
+         let e, sock = Requests.Streams.WS.get_measures control in
+         let fin = fun () -> sock##close; React.E.stop ~strong:true e in
+         let state = State.make ~fin e in
+         _measures <- Some state;
+         e
+
+  end

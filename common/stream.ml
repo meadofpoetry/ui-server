@@ -352,7 +352,11 @@ let typ_of_string = function
   | "t2mi" -> T2MI
   | _ -> failwith "bad typ string"
 
-let rec equal l r = ID.equal l.id r.id
+let equal l r = ID.equal l.id r.id
+
+let compare l r =
+  if equal l r then 0
+  else compare l r
 
 let find_by_multi_id (id : Multi_TS_ID.t)
       (streams : t list) =

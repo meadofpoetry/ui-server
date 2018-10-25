@@ -103,7 +103,7 @@ let msg_channel (type a b)
     channel.set x >|= fun () ->
     update x
   in match convert with
-     | Preserve  -> { channel with set = set' }
+     | Preserve  -> ({ channel with set = set' } : b channel)
      | Convert c -> { get = (fun () -> channel.get () >|= c.into);
                       set = (fun x  -> set' @@ c.from x)
                     }

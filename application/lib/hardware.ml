@@ -132,7 +132,7 @@ let get_sources (topo : Topology.topo_entry list) uri_table boards =
                         Stream.Table.{ url = Some x.url
                                      ; stream = x.stream
                                      ; present = false }))) in
-         React.S.create ~eq [] in
+         React.S.create ~eq init in
        let push' xs =
          List.map (fun ({ url; stream } : Stream.Table.setting) ->
              Stream.Table.{ url = Some url
@@ -222,7 +222,7 @@ let set_stream hw (ss : stream_setting) =
   let open Lwt_result.Infix in
   let open Stream.Table in
   let gen_uris (ss : stream_setting) : (marker * Stream.Table.setting list) list =
-     let split = function
+    let split = function
       | (`Input _, _) as i -> `Right i
       | (`Board id, sl)    ->
          try let p = Map.find id hw.sources.boards in
@@ -230,53 +230,53 @@ let set_stream hw (ss : stream_setting) =
              `Left (List.map (fun s -> ((`Board id, s), range)) sl)
          with Not_found ->
            raise_notrace (Constraints (`Internal_error "set_stream: no control found"))
-     in
-     let rec rebuild_boards acc streams = function
-       | [] -> acc
-       | (`Input _, _) :: tl -> rebuild_boards acc streams tl
-       | (`Board id, _) :: tl ->
-          let same, rest =
-            List.partition_map
-              (function ((`Board bid, bs), buri) as v ->
-                 if id = bid
-                 then `Left { url = buri; stream = bs }
-                 else `Right v) streams in
-          rebuild_boards ((`Board id, same) :: acc) rest tl in
-     let rec input_add_uri (`Input i, sl) =
-       let open Stream in
-       let s_to_uri s = match s.orig_id with
-         | TSoIP x ->
-            let url = Url.{ ip = x.addr; port = x.port } in
-            { url; stream = s }
-         | _ -> raise_notrace (
-                    Constraints (`Internal_error "set_stream: \
-                                                  expected ip stream from an input")) in
-       (`Input i, List.map s_to_uri sl) in
-     let rec grep_input_uris acc = function
-       | [] -> acc
-       | (_, (sl : setting list)) :: tl ->
-          let uris = List.map (fun x -> x.url) sl in
-          grep_input_uris (uris @ acc) tl
-     in
-     (* TODO replace by a more generic check *)
-     let check_inputs l =
-       let rec check = function
-         | [] -> ()
-         | x::tl ->
-            if List.exists (Stream.equal x) tl
-            then raise_notrace (Constraints (`Internal_error "set_stream: input streams duplication"));
-            check tl
-       in List.iter (fun (_,l) -> check l) l
-     in
-     let boards, inputs = List.partition_map split ss in
-     check_inputs inputs;
-     let inputs = List.map input_add_uri inputs in
-     let forbidden = grep_input_uris [] inputs in
-     let boards = match Url.gen_in_ranges ~forbidden (List.concat boards) with
-       | Ok boards -> rebuild_boards [] boards ss
-       | Error ()  -> raise_notrace (Constraints (`Internal_error "set_stream: uri generation failure"))
-     in
-     inputs @ boards
+    in
+    let rec rebuild_boards acc streams = function
+      | [] -> acc
+      | (`Input _, _) :: tl -> rebuild_boards acc streams tl
+      | (`Board id, _) :: tl ->
+         let same, rest =
+           List.partition_map
+             (function ((`Board bid, bs), buri) as v ->
+                if id = bid
+                then `Left { url = buri; stream = bs }
+                else `Right v) streams in
+         rebuild_boards ((`Board id, same) :: acc) rest tl in
+    let rec input_add_uri (`Input i, sl) =
+      let open Stream in
+      let s_to_uri s = match s.orig_id with
+        | TSoIP x ->
+           let url = Url.{ ip = x.addr; port = x.port } in
+           { url; stream = s }
+        | _ -> raise_notrace (
+                   Constraints (`Internal_error "set_stream: \
+                                                 expected ip stream from an input")) in
+      (`Input i, List.map s_to_uri sl) in
+    let rec grep_input_uris acc = function
+      | [] -> acc
+      | (_, (sl : setting list)) :: tl ->
+         let uris = List.map (fun x -> x.url) sl in
+         grep_input_uris (uris @ acc) tl
+    in
+    (* TODO replace by a more generic check *)
+    let check_inputs l =
+      let rec check = function
+        | [] -> ()
+        | x::tl ->
+           if List.exists (Stream.equal x) tl
+           then raise_notrace (Constraints (`Internal_error "set_stream: input streams duplication"));
+           check tl
+      in List.iter (fun (_,l) -> check l) l
+    in
+    let boards, inputs = List.partition_map split ss in
+    check_inputs inputs;
+    let inputs = List.map input_add_uri inputs in
+    let forbidden = grep_input_uris [] inputs in
+    let boards = match Url.gen_in_ranges ~forbidden (List.concat boards) with
+      | Ok boards -> rebuild_boards [] boards ss
+      | Error ()  -> raise_notrace (Constraints (`Internal_error "set_stream: uri generation failure"))
+    in
+    inputs @ boards
   in
   (* TODO simplify this part *)
   let check_constraints range state streams =

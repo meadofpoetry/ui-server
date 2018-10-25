@@ -27,7 +27,7 @@ let filter_stream_table =
                
 let create config db =
   let topology   = match Conf_topology.get_opt config with
-    | None   -> failwith "bad topology config"
+    | None -> failwith "bad topology config"
     | Some t -> t
   in
   let users = User.create config in

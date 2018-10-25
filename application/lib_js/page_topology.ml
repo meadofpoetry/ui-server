@@ -4,6 +4,11 @@ open Common
 
 let _class = "topology"
 
+let is_ts2ip_niitv (b : Topology.topo_board) =
+  match b.typ, b.model, b.manufacturer with
+  | "TS2IP", "ts2ip", "niitv" -> true
+  | _ -> false
+
 let find_max l =
   let rec f = fun max ->
     function
@@ -85,6 +90,25 @@ let to_topo_node = function
   | `Input x -> (x :> Topo_node.t)
   | `CPU x   -> (x :> Topo_node.t)
 
+let map_cpu_conn (cpu : Topology.topo_cpu) : Topology.topo_cpu =
+  let open Topology in
+  let rec aux acc = function
+    | [] -> acc
+    | iface :: rest ->
+       match iface.conn with
+       | Input _ -> aux (iface :: acc) rest
+       | Board b ->
+          match is_ts2ip_niitv b with
+          | false -> aux (iface :: acc) rest
+          | true ->
+             let ifaces =
+               List.rev_map (fun x ->
+                   { iface = iface.iface
+                   ; conn = x.child }) b.ports in
+             aux (acc @ ifaces) rest in
+  let ifaces = List.rev @@ aux [] cpu.ifaces in
+  { cpu with ifaces }
+
 let make_nodes topology =
   let open Topology in
   let create_element ~(element : Topo_node.node_entry) ~connections =
@@ -109,10 +133,11 @@ let make_nodes topology =
   in
   match topology with
   | `CPU cpu  ->
+     let cpu' = map_cpu_conn cpu in
      let connections, acc =
        List.fold_left (fun (conn, total) x ->
            let e, acc = get_boards [] x.conn in
-           (e, `Iface x) :: conn, acc @ total) ([], []) cpu.ifaces in
+           (e, `Iface x) :: conn, acc @ total) ([], []) cpu'.ifaces in
      let cpu_el = create_element ~element:(`CPU cpu) ~connections in
      cpu_el :: acc
   | `Boards x ->
