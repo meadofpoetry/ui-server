@@ -79,11 +79,11 @@ let create (app : Application.t) : upper ordered_item list User.user_table =
     Hardware.Map.fold (fun _ (x : Boards.Board.t) acc ->
         List.cons_maybe x.templates acc) app.hw.boards [] in
   let props =
-    { title        = Some "Конфигурация"
-    ; pre_scripts  = []
-    ; post_scripts = [ Src "js/topology.js" ]
-    ; stylesheets  = [ "/css/topology.min.css" ]
-    ; content      = []
+    { title = Some "Конфигурация"
+    ; pre_scripts = []
+    ; post_scripts = [Src "js/topology.js"]
+    ; stylesheets = ["/css/topology.min.css"]
+    ; content = []
     } in
   let demo_props =
     { title = Some "UI Демо"
@@ -100,19 +100,19 @@ let create (app : Application.t) : upper ordered_item list User.user_table =
   let app_template =
     [ `Index 2,
       Subtree { title = "Входы"
-              ; icon  = Some (make_icon Icon.SVG.Path.arrow_right_box)
-              ; href  = Uri.Path.of_string "input"
+              ; icon = Some (make_icon Icon.SVG.Path.arrow_right_box)
+              ; href = Uri.Path.of_string "input"
               ; templates = input_templates }
     ; `Index 3,
       Simple  { title = "Конфигурация"
-              ; icon  = Some (make_icon Icon.SVG.Path.tournament)
-              ; href  = Uri.Path.of_string "application"
+              ; icon = Some (make_icon Icon.SVG.Path.tournament)
+              ; href = Uri.Path.of_string "application"
               ; template = props }
-    ; `Index 4,
-      Simple  { title = "UI Демо"
-              ; icon  = Some (make_icon Icon.SVG.Path.material_design)
-              ; href  = Uri.Path.of_string "demo"
-              ; template = demo_props }
+    (* ; `Index 4,
+     *   Simple  { title = "UI Демо"
+     *           ; icon = Some (make_icon Icon.SVG.Path.material_design)
+     *           ; href = Uri.Path.of_string "demo"
+     *           ; template = demo_props } *)
     ]
   in
   let proc = match app.proc with

@@ -37,10 +37,12 @@ type 'a data = (data_source * ('a point list)) list
 type dataset = (Time.t, float) Line.Dataset.t
 
 let colors =
+  Random.init 255;
+  let st = Random.get_state () in
   Array.init 100 (fun _ ->
-      Random.run (Random.int 255),
-      Random.run (Random.int 255),
-      Random.run (Random.int 255))
+      Random.run ~st (Random.int 255),
+      Random.run ~st (Random.int 255),
+      Random.run ~st (Random.int 255))
 
 let get_suggested_range = function
   | `Black -> 0.0, 100.0
@@ -94,8 +96,27 @@ let convert_video_data (config : widget_config)
       } in
     [src, [point]]
 
-let data_source_to_string (src : data_source) : string =
-  "Label"
+let data_source_to_string (structures : Structure.t list)
+      (src : data_source) : string =
+  let open Structure in
+  match List.find_opt (fun (x : t) ->
+            Stream.ID.equal x.source.id src.stream) structures with
+  | None -> ""
+  | Some { structure = { channels; _ }; source } ->
+     begin match List.find_opt (fun (x : channel) ->
+                     src.service = x.number) channels with
+     | None -> ""
+     | Some channel ->
+        begin match List.find_opt (fun (x : pid) ->
+                        x.pid = src.pid) channel.pids with
+        | None -> ""
+        | Some pid ->
+           Printf.sprintf "%s. PID %d (%s)"
+             channel.service_name
+             pid.pid
+             pid.stream_type_name
+        end
+     end
 
 let typ_to_string : labels -> string = function
   | `Black -> "Чёрный кадр"
@@ -156,8 +177,9 @@ let make_options ~x_axes ~y_axes
   options#set_responsive_animation_duration 0;
   options
 
-let make_dataset ~x_axis ~y_axis id src data =
-  let label = data_source_to_string src in
+let make_dataset ~x_axis ~y_axis id src structures data =
+  (* TODO implement label update on structure update *)
+  let label = data_source_to_string structures src in
   let ds =
     new Line.Dataset.t ~label
       ~data
@@ -176,6 +198,7 @@ let make_dataset ~x_axis ~y_axis id src data =
 let make_datasets ~x_axis ~y_axis
       (init : float data)
       (sources : data_source list)
+      (structures : Structure.t list)
     : (data_source * dataset) list =
   let map id (src : data_source) =
     let data =
@@ -183,10 +206,11 @@ let make_datasets ~x_axis ~y_axis
           if equal_data_source src src'
           then Some data else None) init
       |> Option.get_or ~default:[] in
-    make_dataset ~x_axis ~y_axis id src data in
+    make_dataset ~x_axis ~y_axis id src structures data in
   List.mapi map sources
 
 class t ~(init : float data)
+        ~(structures : Structure.t list React.signal)
         ~(config : widget_config)
         () =
   let x_axis = make_x_axis config in
@@ -194,13 +218,14 @@ class t ~(init : float data)
   let (options : Line.Options.t) =
     make_options ~x_axes:[x_axis] ~y_axes:[y_axis] config in
   let (datasets : (data_source * dataset) list) =
-    make_datasets ~x_axis ~y_axis init config.sources in
+    make_datasets ~x_axis ~y_axis init config.sources
+      (React.S.value structures) in
   let chart =
     new Line.t
       ~options
       ~datasets:(List.map snd datasets)
       () in
-  object
+  object(self)
 
     val mutable _datasets = datasets
 
@@ -209,7 +234,11 @@ class t ~(init : float data)
     method init () : unit =
       super#init ();
       super#add_class base_class;
-      super#append_child chart
+      super#append_child chart;
+      (* FIXME maybe remove this map and call 'udpdate'
+       * from the top level if needed? *)
+      React.S.map ~eq:Equal.unit self#update_structures structures
+      |> self#_keep_s
 
     method append_data (data : float data) : unit =
       List.iter (fun (src, data) ->
@@ -218,7 +247,8 @@ class t ~(init : float data)
              begin match config.sources with
              | [] ->
                 let id = List.length _datasets in
-                let ds = make_dataset ~x_axis ~y_axis id src data in
+                let structs = React.S.value structures in
+                let ds = make_dataset ~x_axis ~y_axis id src structs data in
                 _datasets <- ds :: _datasets;
                 chart#set_datasets @@ List.map snd _datasets;
                 chart#update None
@@ -228,10 +258,17 @@ class t ~(init : float data)
              List.iter (fun point -> ds#push point) data;
              chart#update None) data
 
+    (* Private methods *)
+
+    method private update_structures (structures : Structure.t list) : unit =
+      List.iter (fun (src, ds) ->
+          let label = data_source_to_string structures src in
+          ds#set_label label) _datasets
+
   end
 
-let make_dashboard_item ~init ~config () =
-  let widget = new t ~init ~config () in
+let make_dashboard_item ~init ~structures ~config () =
+  let widget = new t ~init ~structures ~config () in
   Dashboard.Item.make_item
     ~name:(typ_to_string config.typ)
     widget

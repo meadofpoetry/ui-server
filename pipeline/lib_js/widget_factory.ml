@@ -1,8 +1,11 @@
 open Containers
 open Components
 open Qoe_errors
-open Common
 open Ui_templates.Factory
+open Lwt_result.Infix
+open Common
+
+let ( % ) = Fun.( % )
 
 type item =
   | Chart of Widget_parameter_chart.widget_config option
@@ -10,19 +13,28 @@ type item =
 class t () =
 object(self)
 
+  val mutable _structures = None
   val mutable _video_data : Video_data.t React.event State.t option = None
 
   method create : item -> Widget.t Dashboard.Item.item = function
     | Chart cfg ->
        let open Widget_parameter_chart in
-       let video_data = self#get_video_data () in
        let config = Option.get_exn cfg in
-       let item = make_dashboard_item ~init:[] ~config () in
-       React.E.map (fun data ->
-           let data = convert_video_data config data in
-           item.widget#append_data data) video_data
-       |> React.E.keep;
-       { item with widget = item.widget#widget }
+       let structures = self#get_structures () in
+       let t =
+         structures
+         >|= (fun structures ->
+           let video_data = self#get_video_data () in
+           let chart = new t ~init:[] ~structures ~config () in
+           React.E.map (fun data ->
+               let data = convert_video_data config data in
+               chart#append_data data) video_data
+           |> React.E.keep;
+           chart) in
+       let w = Ui_templates.Loader.create_widget_loader t in
+       Dashboard.Item.make_item
+         ~name:(typ_to_string config.typ)
+         w#widget
 
   method destroy () : unit =
     ()
@@ -38,6 +50,18 @@ object(self)
     Ok (Chart None)
 
   (* Private methods *)
+
+  method private get_structures () = match _structures with
+    | Some (state : _ State.t) -> state.value
+    | None ->
+       let state =
+         let get () =
+           Requests_structure.HTTP.get ()
+           |> Lwt_result.map_err Api_js.Requests.err_to_string in
+         Signal.make_state ~get
+           ~get_socket:Requests_structure.WS.get in
+       _structures <- Some state;
+       state.value
 
   (* XXX
    * Some thoughts about optimization:
