@@ -14,6 +14,7 @@ class t () =
 object(self)
 
   val mutable _structures = None
+  val mutable _audio_data = None
   val mutable _video_data : Video_data.t React.event State.t option = None
 
   method create : item -> Widget.t Dashboard.Item.item = function
@@ -24,12 +25,21 @@ object(self)
        let t =
          structures
          >|= (fun structures ->
-           let video_data = self#get_video_data () in
            let chart = new t ~init:[] ~structures ~config () in
-           React.E.map (fun data ->
-               let data = convert_video_data config data in
-               chart#append_data data) video_data
-           |> React.E.keep;
+           begin match typ_to_content config.typ with
+           | `Video ->
+              let video_data = self#get_video_data () in
+              React.E.map (fun data ->
+                  let data = convert_video_data config data in
+                  chart#append_data data) video_data
+              |> React.E.keep;
+           | `Audio ->
+              let audio_data = self#get_audio_data () in
+              React.E.map (fun data ->
+                  let data = convert_audio_data config data in
+                  chart#append_data data) audio_data
+              |> React.E.keep;
+           end;
            chart) in
        let w = Ui_templates.Loader.create_widget_loader t in
        Dashboard.Item.make_item
@@ -37,7 +47,9 @@ object(self)
          w#widget
 
   method destroy () : unit =
-    ()
+    Option.iter State.finalize _structures;
+    Option.iter State.finalize _audio_data;
+    Option.iter State.finalize _video_data;
 
   method available : Dashboard.available =
     `List []
@@ -79,7 +91,13 @@ object(self)
        _video_data <- Some state;
        e
 
-  method private get_audio_date () =
-    []
+  method private get_audio_data () = match _audio_data with
+    | Some (state : _ State.t) -> state.value
+    | None ->
+       let e, sock = Requests_measurements.WS.get_audio () in
+       let fin = fun () -> sock##close; React.E.stop ~strong:true e in
+       let state = State.make ~fin e in
+       _audio_data <- Some state;
+       e
 
 end

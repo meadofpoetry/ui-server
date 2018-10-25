@@ -50,7 +50,7 @@ let get_suggested_range = function
   | `Freeze -> 0.0, 100.0
   | `Diff -> 0.0, 216.0
   | `Blocky -> 0.0, 100.0
-  | _ -> 0.0, 0.0
+  | _ -> -40., 0.
 
 let filter (src : data_source) (filter : data_filter list) : bool =
   let check_pid pid = function
@@ -96,6 +96,26 @@ let convert_video_data (config : widget_config)
       } in
     [src, [point]]
 
+let convert_audio_data (config : widget_config)
+      (d : Audio_data.t) : 'a data =
+  let (src : data_source) =
+    { stream = d.stream
+    ; service = d.channel
+    ; pid = d.pid
+    } in
+  if not (filter src config.filter) then [] else
+    let (error : error) = match config.typ with
+      | `Silence_shortt -> d.errors.silence_shortt
+      | `Silence_moment -> d.errors.silence_moment
+      | `Loudness_shortt -> d.errors.loudness_shortt
+      | `Loudness_moment -> d.errors.loudness_moment
+      | _ -> failwith "not an audio chart" in
+    let (point : float point) =
+      { x = error.timestamp
+      ; y = error.params.avg
+      } in
+    [src, [point]]
+
 let data_source_to_string (structures : Structure.t list)
       (src : data_source) : string =
   let open Structure in
@@ -118,16 +138,19 @@ let data_source_to_string (structures : Structure.t list)
         end
      end
 
+let typ_to_content : labels -> [`Video | `Audio] = function
+  | `Black | `Luma | `Freeze | `Diff | `Blocky -> `Video
+  | `Silence_shortt | `Silence_moment | `Loudness_shortt | `Loudness_moment ->
+     `Audio
+
 let typ_to_string : labels -> string = function
   | `Black -> "Чёрный кадр"
   | `Luma -> "Средняя яркость"
   | `Freeze -> "Заморозка видео"
   | `Diff -> "Средняя разность"
   | `Blocky -> "Блочность"
-  | `Silence_shortt -> "\"Тишина\" (short term)"
-  | `Silence_moment -> "\"Тишина\" (momentary)"
-  | `Loudness_shortt -> "Перегрузка звука (short term)"
-  | `Loudness_moment -> "Перегрузка звука (momentary)"
+  | `Silence_shortt | `Loudness_shortt -> "Громкость (short term)"
+  | `Silence_moment | `Loudness_moment -> "Громкость (momentary)"
 
 let typ_to_unit_string : labels -> string = function
   | `Black | `Freeze | `Blocky -> "%"
