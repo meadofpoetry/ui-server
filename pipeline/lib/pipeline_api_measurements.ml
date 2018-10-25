@@ -35,6 +35,33 @@ module WS = struct
        Api.Socket.handler socket_table sock_data event
          Video_data.to_yojson body
 
+  let get_audio (api : api) stream channel pid _ body sock_data () =
+    match stream, channel, pid with
+    | Some s, Some c, Some p ->
+       let pred (x : Audio_data.t) =
+         x.pid = p
+         && x.channel = c
+         && Stream.ID.equal x.stream s in
+       let event = React.E.filter pred api.notifs.adata in
+       Api.Socket.handler socket_table sock_data event
+         Audio_data.to_yojson body
+    | Some s, Some c, _ ->
+       let pred (x : Audio_data.t) =
+         x.channel = c
+         && Stream.ID.equal x.stream s in
+       let event = React.E.filter pred api.notifs.adata in
+       Api.Socket.handler socket_table sock_data event
+         Audio_data.to_yojson body
+    | Some s, _, _ ->
+       let pred (x : Audio_data.t) = Stream.ID.equal x.stream s in
+       let event = React.E.filter pred api.notifs.adata in
+       Api.Socket.handler socket_table sock_data event
+         Audio_data.to_yojson body
+    | _ ->
+       let event = api.notifs.adata in
+       Api.Socket.handler socket_table sock_data event
+         Audio_data.to_yojson body
+
 end
 
 module HTTP = struct
@@ -52,5 +79,11 @@ let handler (api : api) =
                      ; "channel", (module Option(Int))
                      ; "pid", (module Option(Int)) ]
         (WS.get_video api)
+    ; create_ws_handler ~docstring:"Audio data socket"
+        ~path:Path.Format.("audio" @/ empty)
+        ~query:Query.[ "stream", (module Option(Stream.ID))
+                     ; "channel", (module Option(Int))
+                     ; "pid", (module Option(Int)) ]
+        (WS.get_audio api)
     ]
     []
