@@ -141,7 +141,11 @@ module Widget_item : Item with type item = Wm.widget = struct
 
   let to_grid_item (t : t) (pos : Dynamic_grid.Position.t) =
     let widget = Item_info.make_widget_info t in
-    Dynamic_grid.Item.to_item ~keep_ar:false ~widget ~value:t ~pos ()
+    let keep_ar   =
+      match t.item.aspect with
+      | Some _ -> true
+      | None   -> false in
+    Dynamic_grid.Item.to_item ~keep_ar ~widget ~value:t ~pos ()
 
   let layer_of_t (t : t) = t.item.layer
 
@@ -164,7 +168,14 @@ module Widget_item : Item with type item = Wm.widget = struct
   let update_position (t : t) (p : Wm.position) =
     { t with item = { t.item with position = p }}
 
-  let make_item_name (t : t) _ = t.name
+  let make_item_name (t : t) _ =
+    let typ =
+      match t.item.type_ with
+      | Video -> "Видео "
+      | Audio -> "Аудио " in
+      match t.item.pid with
+      | Some pid -> typ ^ "PID:" ^ string_of_int pid
+      | None     -> t.name
 
   let make_item_properties (t : t React.signal) _ _ =
     Item_properties.make_widget_props t

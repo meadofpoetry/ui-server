@@ -77,8 +77,8 @@ module Item = struct
         if expand_on_click then
           self#listen Widget.Event.click (fun _ e ->
               (* FIXME click on a graphic widget
-               * opens and closes the tree item
-               * shouldn't be *)
+               * opens and closes the tree item,
+               * but it shouldn't be *)
               Dom_html.stopPropagation e;
               self#toggle ();
               true)

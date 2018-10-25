@@ -192,7 +192,11 @@ module Branches = struct
       | Some pid -> Parse_struct.widget pid channel_struct
       | None     -> "" in
     let checkbox = new Checkbox.t () in
-    checkbox#set_id (string_of_int channel.channel);
+    let widget_typ =
+      match typ with
+      | Video -> "Video"
+      | Audio -> "Audio" in
+    checkbox#set_id (string_of_int channel.channel ^ "|" ^ widget_typ);
     checkbox,
     new Tree.Item.t ~text ~secondary_text ~graphic:checkbox ~value:() ()
 
@@ -427,11 +431,20 @@ let to_content (wm : Wm.t) push =
               if not @@ x#checked then
                 None
               else
-                Some (int_of_string x#id)) checkboxes in
+                Some x#id) checkboxes in
         let widgets =
           List.fold_left (fun acc channel ->
+              let typ =
+                match String.sub channel (String.length channel - 5) 5 with
+                | "Video" -> Video
+                | "Audio" -> Audio
+                | _       -> failwith "Wrong widget type!" in
+              let channel =
+                String.sub channel 0 (String.length channel - 6)
+                |> int_of_string in
               match List.filter (fun ((wdg : (string * Wm.widget)), (ch : channel)) ->
-                  Int.equal channel ch.channel) widgets with
+                  Int.equal channel ch.channel
+                  && widget_type_equal (snd wdg).type_ typ) widgets with
               | [] -> acc
               | l  -> l @ acc) [] wds in
         to_layout ~resolution:wm.resolution ~widgets struct_signal in
