@@ -19,6 +19,12 @@ type t =
 
 let proc_table = Data_processor.create_dispatcher [(module Pipeline)]
 
+let filter_stream_table =
+  let open Common.Stream.Table in
+  List.filter_map (function
+      | ({ url = None; _ } : stream) -> None
+      | { url = Some uri; stream; _ } -> Some (uri, stream))
+               
 let create config db =
   let topology   = match Conf_topology.get_opt config with
     | None -> failwith "bad topology config"
@@ -34,16 +40,15 @@ let create config db =
     | `CPU c -> Data_processor.create proc_table c.process config db in
   let hw, loop = Hardware.create config db topology in
   Option.iter (fun (proc : Data_processor.t) ->
-      let filter =
-        let open Common.Stream.Table in
-        List.filter_map (function
-            | ({ url = None; _ } : stream) -> None
-            | { url = Some uri; stream; _ } -> Some (uri, stream)) in
-      S.map ~eq:Equal.unit (fun (l : Application_types.stream_table) ->
-          List.fold_left (fun acc (_, _, ss) -> (filter ss) @ acc) [] l
-          |> proc#reset)
-      @@ S.limit ~eq:Application_types.equal_stream_table
-           (fun () -> Lwt_unix.sleep 2.) hw.streams
+      hw.streams
+      |> S.limit ~eq:Application_types.equal_stream_table (fun () ->
+             Lwt_unix.sleep 2.)
+      |> S.map ~eq:Equal.poly (fun (l : Application_types.stream_table) ->
+             let open Common.Stream in
+             List.fold_left (fun acc (_, _, ss) -> (filter_stream_table ss) @ acc) [] l
+             |> List.sort (fun (_,l) (_,r) -> ID.compare l.id r.id))
+      |> S.map ~eq:Equal.poly
+             proc#reset
       |> S.keep) proc;
   { users; proc; network; hw; topo = hw.topo }, loop
 

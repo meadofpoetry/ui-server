@@ -64,37 +64,64 @@ module Structures = struct
   let default : t = []
   let dump w = Yojson.Safe.to_string (to_yojson w)
   let restore s = of_yojson (Yojson.Safe.from_string s)
-                
-  let combine_pid ~changed ~set x =
-    if not (x.to_be_analyzed = set.to_be_analyzed) then changed := true;
-    { x with to_be_analyzed = set.to_be_analyzed }
 
-  let combine_channel ~changed ~set x =
+  let rec find_list p = function
+    | [] -> []
+    | h::tl -> match p h with
+               | Some h -> h
+               | None -> find_list p tl
+                
+  let combine_pid ~changed ~updated ~applied ~set x =
+    match applied with
+    | None ->
+       if x.to_be_analyzed <> set.to_be_analyzed
+       then changed := true;
+       { x with to_be_analyzed = set.to_be_analyzed }
+    | Some applied ->
+       if applied.to_be_analyzed <> set.to_be_analyzed
+       then updated := true;
+       applied
+
+  let combine_channel ~changed ~updated ~applied ~set x =
     let rec combine_pids set_pids = function
       | []    -> []
-      | x::tl ->
-         match List.find_opt (fun p -> x.pid = p.pid) set_pids with
-         | None   -> x :: (combine_pids set_pids tl)
-         | Some p -> (combine_pid ~changed ~set:p x) :: (combine_pids set_pids tl)
+      | h::tl ->
+         match List.find_opt (fun p -> h.pid = p.pid) set_pids with
+         | None   -> h :: (combine_pids set_pids tl)
+         | Some set ->
+            let applied = List.find_opt (fun p -> h.pid = p.pid) applied in
+            (combine_pid ~changed ~updated ~applied ~set h) :: (combine_pids set_pids tl)
     in { x with pids = combine_pids set.pids x.pids }
 
-  let combine_structure ~changed ~set x =
+  let combine_structure ~changed ~updated ~applied ~set x =
     let rec combine_channels set_chans = function
       | []    -> []
-      | x::tl ->
-         match List.find_opt (fun c -> x.number = c.number) set_chans with
-         | None   -> x :: (combine_channels set_chans tl)
-         | Some c -> (combine_channel ~changed ~set:c x) :: (combine_channels set_chans tl)
+      | h::tl ->
+         match List.find_opt (fun c -> h.number = c.number) set_chans with
+         | None -> h :: (combine_channels set_chans tl)
+         | Some set ->
+            let applied =
+              find_list (fun x -> if x.number = h.number then Some x.pids else None) applied
+            in
+            (combine_channel ~changed ~updated ~applied ~set h) :: (combine_channels set_chans tl)
     in { x with channels = combine_channels set.channels x.channels }
      
-     
-  let combine ~set strs =
+  let combine ~set (applied, strs) =
     let changed = ref false in
-    let res = List.map (fun s -> match List.find_opt (fun x -> x.id = s.id) set with
-                                 | None   -> s
-                                 | Some x -> combine_structure ~changed ~set:x s)
+    let updated = ref false in
+    let res = List.map (fun s -> match List.find_opt (fun x -> Common.Stream.ID.equal x.id s.id) set with
+                                 | None -> s
+                                 | Some set ->
+                                    let applied =
+                                      find_list (fun appl -> if Common.Stream.ID.equal appl.id s.id
+                                                             then Some appl.channels else None) applied
+                                    in
+                                    combine_structure ~changed ~updated ~applied ~set s)
                 strs
-    in if !changed then `Changed res else `Kept strs
+    in match !changed, !updated with
+       | true, _ -> `Changed res
+       | _, true -> `Updated res
+       | _       -> `Kept strs
 end
        
 module Streams = struct

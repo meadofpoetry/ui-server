@@ -68,92 +68,47 @@ let settings_init typ send (options : options) =
                         >>= function  Ok ()   -> Lwt_io.printf "Settings resp: fine\n"
                                     | Error r -> Lwt_io.printf "Settings resp: %s\n" r)
  *)
-let add_storages typ send options structs wm settings =
-  (* TODO test this *)
-  let combine_and_set name combine opt set push data =
-    let nv = combine ~set:(opt#get) data in
-    match nv with
-    | `Kept v ->
-       Logs.debug (fun m -> m "(Pipeline) settings for %s were not changed" name);
-       push v
-    | `Changed v ->
-       set v
-       >>= (function
-            | Ok ()   ->
-               Logs.debug (fun m -> m "(Pipeline) settings for %s were changed" name);
-               Lwt.return @@ push v
-            | Error e ->
-               Logs_lwt.err (fun m -> m "(Pipeline) combine and set: failed to set data %s" e))
-       |> Lwt_main.run
+                           
+let notification_signal (type a b)
+      ~(combine: set:a -> b -> [`Kept of a | `Changed of a | `Updated of a ])
+      ~channel
+      ~options
+      ~(signal:b React.signal) =
+  let make_setter merge set value =
+    match merge value with
+    | `Kept v -> Some v
+    | `Updated v -> (options#store v; Some v)
+    | `Changed v -> match Lwt_main.run @@ set v with
+                    | Ok () -> Some v
+                    | Error _e -> None (* TODO add log *)
+                    | exception Failure _e -> None
+  in                   
+  let signal_add_setter signal default setter =
+    let signal = React.S.limit ~eq:Pervasives.(=) (fun () -> Lwt_unix.sleep 0.5) signal in
+    React.S.fmap ~eq:Pervasives.(=) setter default signal
   in
-  let storage ~eq name combine opt set events =
-    let s, push = React.S.create ~eq opt#get in
-    let events = React.E.limit (fun () -> Lwt_unix.sleep 0.5) events in
-    React.E.map (combine_and_set name combine opt set push) events
-    |> React.E.keep;
-    s in
+  let merge   = make_setter (fun (x : b) -> combine ~set:(options#get) x) channel.set in
+  let default = options#get in
+  signal_add_setter signal default merge
 
-  let str_chan = Structure_msg.create typ send in
-  let wm_chan = Wm_msg.create typ send in
-  let set_chan = Settings_msg.create typ send in
-  let structures =
-    storage
-      ~eq:(Equal.list Structure.equal_structure)
-      "Structures"
-      Structure.Structures.combine
-      options.structures
-      str_chan.set
-      structs in
-  let wm =
-    storage
-      ~eq:Wm.equal
-      "Wm"
-      Wm.combine
-      options.wm
-      wm_chan.set
-      wm in
-  let settings =
-    storage
-      ~eq:Settings.equal
-      "Settings"
-      Settings.combine
-      options.settings
-      set_chan.set
-      settings in
-  structures, wm, settings
+type (_,_) conv = Preserve : ('a,'a) conv
+                | Convert :  { into:'a -> 'b; from:'b -> 'a } -> ('a, 'b) conv
+  
+let msg_channel (type a b)
+      ~(convert : (a,b) conv)
+      ~update
+      ~(channel : a channel) : b channel =
+  let open Lwt_result in
+  let set' x =
+    channel.set x >|= fun () ->
+    update x
+  in match convert with
+     | Preserve  -> ({ channel with set = set' } : b channel)
+     | Convert c -> { get = (fun () -> channel.get () >|= c.into);
+                      set = (fun x  -> set' @@ c.from x)
+                    }
 
-let create_channels
-      typ
-      send
-      (options : options)
-      (trans : Structure.structure list -> Structure.t list)
-      (s_push : Structure.structure list -> unit)
-      (wm_push : Wm.t -> unit)
-      (set_push : Settings.t -> unit) =
-  let wm_chan = Wm_msg.create typ send in
-  let str_chan = Structure_msg.create typ send in
-  let set_chan = Settings_msg.create typ send in
-  let graph_req = Applied_structures_request.create typ send in
-  let set_with_push store push set = fun v ->
-    set v >>= function
-    | Error e -> Lwt.return_error e
-    | Ok () -> store v; push v; Lwt.return_ok () in
-  let s_get_upd () =
-    str_chan.get () >|= function
-    | Error _ as r -> r
-    | Ok v -> Ok(trans v) in
-  let wm_set_upd  = set_with_push options.wm#store wm_push wm_chan.set in
-  let s_set_upd   =
-    let set = set_with_push options.structures#store s_push str_chan.set in
-    fun s -> set @@ Structure.Streams.unwrap s in
-  let set_set_upd = set_with_push options.settings#store set_push set_chan.set in
-  { wm = { wm_chan with set = wm_set_upd }
-  ; streams = { get = s_get_upd; set = s_set_upd }
-  ; settings = { set_chan with set = set_set_upd }
-  ; applied_structs = graph_req
-  }
-
-let init_exchange (type a) (typ : a typ) send structures_packer options =
+let init_exchange (type a) (typ : a typ) send structures_packer (options : options) =
   let create_table lst =
     let table = Hashtbl.create 10 in
     List.iter (fun (n,f) -> Hashtbl.add table n f) lst;
@@ -218,17 +173,50 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
   in
   let dispatch = dispatch typ table in
   React.E.keep @@ React.E.map dispatch events;
-
-  let requests =
-    create_channels typ send options structures_packer strm_push wm_push sets_push
+  
+  let requests = { wm =  msg_channel
+                           ~convert:Preserve
+                           ~update:(fun x -> wm_push x; options.wm#store x)
+                           ~channel:(Wm_msg.create typ send)
+                 ; streams = msg_channel
+                               ~convert:(Convert { into = structures_packer
+                                                 ; from = Structure.Streams.unwrap })
+                               ~update:(fun x -> strm_push x; options.structures#store x)
+                               ~channel:(Structure_msg.create typ send)
+                 ; settings = msg_channel
+                                ~convert:Preserve
+                                ~update:(fun x -> sets_push x; options.settings#store x)
+                                ~channel:(Settings_msg.create typ send)
+                 ; applied_structs = Applied_structures_request.create typ send }
   in
 
-  let structures, wm, settings =
-    add_storages typ send options strm wm sets in
-  let streams =
-    React.S.map ~eq:(Equal.list Structure.equal_packed)
-      structures_packer structures in
+  let structures = notification_signal
+                     ~combine:Structure.Structures.combine
+                     ~channel:(Structure_msg.create typ send)
+                     ~options:(options.structures)
+                     ~signal:(React.S.l2 ~eq:Pervasives.(=) Pair.make
+                                applied_structs
+                                (React.S.hold ~eq:Pervasives.(=) options.structures#get strm))
+  in
 
+  let wm = notification_signal
+             ~combine:Wm.combine
+             ~channel:(Wm_msg.create typ send)
+             ~options:(options.wm)
+             ~signal:(React.S.hold ~eq:Wm.equal options.wm#get wm)
+  in
+
+  let settings = notification_signal
+                   ~combine:Settings.combine
+                   ~channel:(Settings_msg.create typ send)
+                   ~options:(options.settings)
+                   ~signal:(React.S.hold ~eq:Settings.equal options.settings#get sets)
+  in
+  
+  let streams =
+    React.S.map ~eq:(Equal.list Structure.equal_packed) structures_packer structures
+  in
+  
   (* TODO reimplement *)
   let pids_diff =
     let eq = fun (a, b, c, d) (e, f, g, h) ->
@@ -244,18 +232,13 @@ let init_exchange (type a) (typ : a typ) send structures_packer options =
     React.S.fold ~eq:(fun _ _ -> false) update_status []
     @@ React.E.select [pids_diff; React.E.map (fun x -> `Status x) stat] in
   React.E.map_p (fun x ->
-      Lwt_io.printf "Signal: %s %d %d (%b)"
+      Lwt_io.printf "Signal: %s %d %d (%b)\n"
         (Stream.ID.to_string x.Qoe_status.stream) x.channel x.pid x.playing)
     stat
   |> React.E.keep;
+  
   let notifs =
-    { streams
-    ; wm
-    ; settings
-    ; applied_structs
-    ; adata
-    ; vdata
-    ; status }
+    { streams; wm; settings; applied_structs; adata; vdata; status }
   in
   epush, ready, notifs, requests
 
@@ -280,16 +263,10 @@ let create (type a) (typ : a typ) db_conf config sock_in sock_out =
 
   let model = Model.create db_conf notifs.streams notifs.status notifs.vdata notifs.adata in
   let api =
-    { notifs
-    ; requests
-    ; model } in
+    { notifs; requests; model }
+  in
   let state =
-    { socket
-    ; ready_e
-    ; options
-    ; srcs
-    ; proc
-    }
+    { socket; ready_e; options; srcs; proc }
   in
   api, state, (recv epush), send
 
@@ -324,40 +301,3 @@ let finalize state =
   Option.iter (fun proc -> proc#terminate) state.proc;
   state.proc <- None;
   Logs.debug (fun m -> m "(Pipeline) finalize")
-
-  (*
-let add_storages typ send options structs wm settings =
-  (* TODO test this *)
-  let combine_and_set name combine opt set push data =
-    let nv = combine ~set:(opt#get) data in
-    match nv with
-    | `Kept v    ->
-       Logs.debug (fun m -> m "(Pipeline) settings for %s were not changed" name);
-       push v
-    | `Changed v -> 
-       Lwt_main.run (set v >>= function
-                     | Ok ()   ->
-                        Logs.debug (fun m -> m "(Pipeline) settings for %s were changed" name);
-                        Lwt.return @@ push v
-                     | Error e ->
-                        Logs_lwt.err (fun m -> m "(Pipeline) combine and set: failed to set data %s" e))
-  in
-  let storage name combine opt set events =
-    let s, push = React.S.create opt#get in
-    let events  = React.E.limit (fun () -> Lwt_unix.sleep 0.5) events in
-    React.E.keep @@
-      React.E.map (combine_and_set name combine opt set push) events;
-    s
-  in
-  
-  let str_chan   = Structure_msg.create typ send in
-  let wm_chan    = Wm_msg.create typ send in
-  let set_chan   = Settings_msg.create typ send in
-  let structures = storage "Structures" Structure.Structures.combine options.structures str_chan.set structs in
-  let wm         = storage "Wm" Wm.combine options.wm wm_chan.set wm in
-  let settings   = storage "Settings" Settings.combine options.settings set_chan.set settings in
-  structures, wm, settings
-
-
-
-   *)
