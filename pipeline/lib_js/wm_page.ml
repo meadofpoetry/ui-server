@@ -141,7 +141,7 @@ module Widget_item : Item with type item = Wm.widget = struct
 
   let to_grid_item (t : t) (pos : Dynamic_grid.Position.t) =
     let widget = Item_info.make_widget_info t in
-    Dynamic_grid.Item.to_item ~keep_ar:true ~widget ~value:t ~pos ()
+    Dynamic_grid.Item.to_item ~keep_ar:false ~widget ~value:t ~pos ()
 
   let layer_of_t (t : t) = t.item.layer
 
