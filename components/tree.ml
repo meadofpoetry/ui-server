@@ -74,22 +74,8 @@ module Item = struct
             item#style##.cursor := Js.string "pointer") nested;
         if expand_on_click then
           self#listen Widget.Event.click (fun _ e ->
-              (match Js.Opt.to_option e##.target with
-               | Some target ->
-                 print_endline "tree Some target";
-                 Js.Unsafe.global##.console##log target
-                 |> ignore;
-                 print_endline "tree Some root";
-                 Js.Unsafe.global##.console##log self#root
-                 |> ignore;
-                 if Equal.physical self#root target then
-                   begin
-                     Dom_html.stopPropagation e;
-                     self#toggle ();
-                   end
-               | None ->
-                 print_endline "tree None";
-                 ());
+              Dom_html.stopPropagation e;
+              self#toggle ();
               true)
           |> ignore;
 
@@ -100,7 +86,15 @@ module Item = struct
                  self#toggle ();
                  true)
             |> ignore;
-          ) meta
+          ) meta;
+
+        Option.iter (fun graphic ->
+            Dom_events.listen graphic#root Dom_events.Typ.click
+              (fun _ e ->
+                 Dom_html.stopPropagation e;
+                 false)
+            |> ignore;
+          )graphic
     end
 
 end
