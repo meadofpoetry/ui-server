@@ -64,7 +64,9 @@ module Item = struct
       method toggle () =
         let open_class = Markup.Item.item_open_class in
         let open_list  = Markup.Item.list_open_class in
-        Option.iter (fun x -> x#toggle_class open_list |> ignore)
+        Option.iter (fun x ->
+            x#toggle_class open_list
+            |> ignore)
           self#nested_tree;
         self#toggle_class open_class |> s_push
 
@@ -74,6 +76,9 @@ module Item = struct
             item#style##.cursor := Js.string "pointer") nested;
         if expand_on_click then
           self#listen Widget.Event.click (fun _ e ->
+              (* FIXME click on a graphic widget
+               * opens and closes the tree item
+               * shouldn't be *)
               Dom_html.stopPropagation e;
               self#toggle ();
               true)
@@ -88,13 +93,6 @@ module Item = struct
             |> ignore;
           ) meta;
 
-        Option.iter (fun graphic ->
-            Dom_events.listen graphic#root Dom_events.Typ.click
-              (fun _ e ->
-                 Dom_html.stopPropagation e;
-                 false)
-            |> ignore;
-          )graphic
     end
 
 end
