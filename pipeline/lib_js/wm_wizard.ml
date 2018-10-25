@@ -217,9 +217,7 @@ module Branches = struct
           checkbox#set_id text;
           React.E.map (fun checked ->
               if checked then
-                List.iter (fun ch -> ch#set_checked true) checkboxes
-              else
-                List.iter (fun ch -> ch#set_checked false) checkboxes)
+                List.iter (fun ch -> ch#set_checked true) checkboxes)
           @@ React.S.changes checkbox#s_state
           |> ignore;
           List.iter (fun check ->

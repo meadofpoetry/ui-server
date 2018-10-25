@@ -76,12 +76,20 @@ module Item = struct
           self#listen Widget.Event.click (fun _ e ->
               (match Js.Opt.to_option e##.target with
                | Some target ->
-                 if Equal.physical elt target then
+                 print_endline "tree Some target";
+                 Js.Unsafe.global##.console##log target
+                 |> ignore;
+                 print_endline "tree Some root";
+                 Js.Unsafe.global##.console##log self#root
+                 |> ignore;
+                 if Equal.physical self#root target then
                    begin
                      Dom_html.stopPropagation e;
                      self#toggle ();
                    end
-               | None -> ());
+               | None ->
+                 print_endline "tree None";
+                 ());
               true)
           |> ignore;
 
