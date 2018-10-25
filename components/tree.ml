@@ -66,7 +66,7 @@ module Item = struct
         let open_list  = Markup.Item.list_open_class in
         match Js.Opt.to_option event##.target with
         | Some target ->
-          if  Pervasives.(=) target self#root then
+          if Pervasives.(==) target self#root then
             begin
               Dom_html.stopPropagation event;
               Option.iter (fun x -> x#toggle_class open_list |> ignore)
@@ -79,8 +79,7 @@ module Item = struct
         Option.iter (fun x ->
             x#add_class Markup.Item.list_class;
             item#style##.cursor := Js.string "pointer") nested;
-        if expand_on_click
-        then
+        if expand_on_click then
           self#listen Widget.Event.click (fun _ e ->
               self#toggle e;
               true)
