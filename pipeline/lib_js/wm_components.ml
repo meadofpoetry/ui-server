@@ -117,7 +117,7 @@ module Item_info = struct
       let typ =
         match item.item.type_ with
         | Video -> "Видео"
-        | Audio -> "Audio" in
+        | Audio -> "Аудио" in
       let pid =
         match item.item.pid with
         | Some pid -> string_of_int pid

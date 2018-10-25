@@ -70,10 +70,16 @@ module Item = struct
           self#listen Widget.Event.click (fun _ e ->
               let open_class = Markup.Item.item_open_class in
               let open_list  = Markup.Item.list_open_class in
-              Dom_html.stopPropagation e;
-              Option.iter (fun x -> x#toggle_class open_list |> ignore)
-                self#nested_tree;
-              self#toggle_class open_class |> s_push;
+              begin
+                match Js.Opt.to_option e##.target with
+                | Some target ->
+                  if  Pervasives.(=) target self#root then
+                    Dom_html.stopPropagation e;
+                  Option.iter (fun x -> x#toggle_class open_list |> ignore)
+                    self#nested_tree;
+                  self#toggle_class open_class |> s_push;
+                | None -> ();
+              end;
               true)
           |> ignore;
     end

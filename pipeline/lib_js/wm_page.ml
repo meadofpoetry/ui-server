@@ -352,10 +352,10 @@ let create ~(init: Wm.t)
     make_action
       { icon = Icon.SVG.(create_simple Path.content_save)#widget
       ; name = "Сохранить" } in
-  let size =
-    make_action
-      { icon = Icon.SVG.(create_simple Path.aspect_ratio)#widget
-      ; name = "Разрешение" } in
+  (* let size =
+   *   make_action
+   *     { icon = Icon.SVG.(create_simple Path.aspect_ratio)#widget
+   *     ; name = "Разрешение" } in *)
   wizard#listen_click_lwt (fun _ _ -> wz_show ()) |> Lwt.ignore_result;
   let size_dlg = Wm_resolution_dialog.make () in
   let on_remove = fun (t:Wm.container wm_item) ->
@@ -369,7 +369,7 @@ let create ~(init: Wm.t)
       ~set_candidates:s_cc_push
       ~resolution
       ~on_remove
-      ~actions:[save; wizard; size; edit]
+      ~actions:[save; wizard;(* size;*) edit]
       () in
   (* FIXME store events and signals *)
   let _ =
@@ -395,15 +395,15 @@ let create ~(init: Wm.t)
            ; widgets = init.widgets
            ; layout = serialize ~cont () })
   |> Lwt.ignore_result;
-  size#listen_click_lwt (fun _ _ ->
-      let open Lwt.Infix in
-      size_dlg#show_await_resolution cont.ig#resolution
-      >|= function
-      | None -> ()
-      | Some r ->
-         let new_layout = resize_layout ~resolution:r cont.ig#items in
-         cont.ig#initialize r new_layout)
-  |> Lwt.ignore_result;
+  (* size#listen_click_lwt (fun _ _ ->
+   *     let open Lwt.Infix in
+   *     size_dlg#show_await_resolution cont.ig#resolution
+   *     >|= function
+   *     | None -> ()
+   *     | Some r ->
+   *        let new_layout = resize_layout ~resolution:r cont.ig#items in
+   *        cont.ig#initialize r new_layout)
+   * |> Lwt.ignore_result; *)
   let _ =
     React.E.map (fun l ->
         let layout =
