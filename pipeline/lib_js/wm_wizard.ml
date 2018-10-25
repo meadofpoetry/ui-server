@@ -262,9 +262,7 @@ module Branches = struct
           checkbox#set_id @@ Common.Stream.ID.to_string stream;
           React.E.map (fun checked ->
               if checked then
-                List.iter (fun ch -> ch#set_checked true) chan_chbs
-              else
-                List.iter (fun ch -> ch#set_checked false) chan_chbs)
+                List.iter (fun ch -> ch#set_checked true) chan_chbs)
           @@ React.S.changes checkbox#s_state
           |> ignore;
           List.iter (fun check ->

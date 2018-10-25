@@ -76,7 +76,7 @@ module Item = struct
           self#listen Widget.Event.click (fun _ e ->
               (match Js.Opt.to_option e##.target with
                | Some target ->
-                 if Equal.physical self#root target then
+                 if Equal.physical elt target then
                    begin
                      Dom_html.stopPropagation e;
                      self#toggle ();
