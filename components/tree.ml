@@ -61,6 +61,20 @@ module Item = struct
           nested;
         self#remove_class Markup.Item.item_open_class
 
+      method toggle event =
+        let open_class = Markup.Item.item_open_class in
+        let open_list  = Markup.Item.list_open_class in
+        match Js.Opt.to_option event##.target with
+        | Some target ->
+          if  Pervasives.(=) target self#root then
+            begin
+              Dom_html.stopPropagation event;
+              Option.iter (fun x -> x#toggle_class open_list |> ignore)
+                self#nested_tree;
+              self#toggle_class open_class |> s_push;
+            end
+        | None -> ()
+
       initializer
         Option.iter (fun x ->
             x#add_class Markup.Item.list_class;
@@ -68,18 +82,7 @@ module Item = struct
         if expand_on_click
         then
           self#listen Widget.Event.click (fun _ e ->
-              let open_class = Markup.Item.item_open_class in
-              let open_list  = Markup.Item.list_open_class in
-              begin
-                match Js.Opt.to_option e##.target with
-                | Some target ->
-                  if  Pervasives.(=) target self#root then
-                    Dom_html.stopPropagation e;
-                  Option.iter (fun x -> x#toggle_class open_list |> ignore)
-                    self#nested_tree;
-                  self#toggle_class open_class |> s_push;
-                | None -> ();
-              end;
+              self#toggle e;
               true)
           |> ignore;
     end
