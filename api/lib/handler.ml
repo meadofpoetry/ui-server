@@ -1,7 +1,7 @@
 open Containers
 open Redirect
 
-module Make ( User : sig type t val eq : t -> t -> bool end ) = struct
+module Make ( User : sig type t val equal : t -> t -> bool end ) = struct
   
   type socket_data = Cohttp_lwt_unix.Request.t * Conduit_lwt_unix.flow
 
@@ -60,13 +60,13 @@ module Make ( User : sig type t val eq : t -> t -> bool end ) = struct
   let (%) f g x = f (g x)
 
   let create_ws_handler ?docstring ?(restrict = []) ~path ~query handler : ws_handler =
-    let not_allowed id = List.exists (User.eq id) restrict in
+    let not_allowed id = List.exists (User.equal id) restrict in
     let node = Common.Uri.Dispatcher.make ?docstring ~path ~query handler in
     { node with handler = (fun uri id headers body sock_data ->
       redirect_if (not_allowed id) @@ node.handler uri headers body sock_data) }
 
   let create_handler ?docstring ?(restrict = []) ~path ~query handler : http_handler =
-    let not_allowed id = List.exists (User.eq id) restrict in
+    let not_allowed id = List.exists (User.equal id) restrict in
     let node = Common.Uri.Dispatcher.make ?docstring ~path ~query handler in
     { node with handler = (fun uri id headers body ->
       redirect_if (not_allowed id) @@ node.handler uri headers body) }

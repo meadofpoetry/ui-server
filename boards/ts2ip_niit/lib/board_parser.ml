@@ -7,7 +7,7 @@ type _ request =
   | Get_board_info : devinfo request
 
 type _ instant_request =
-  | Set_board_mode   : nw_settings * packer_settings list -> unit instant_request
+  | Set_board_mode : nw_settings * packer_settings list -> unit instant_request
   | Set_factory_mode : factory_settings -> unit instant_request
 
 let prefix = 0x55AA
@@ -16,8 +16,8 @@ let prefix = 0x55AA
 
 let to_header ~msg_code () =
   let hdr = Cstruct.create sizeof_header in
-  let ()  = set_header_prefix hdr prefix in
-  let ()  = set_header_msg_code hdr msg_code in
+  set_header_prefix hdr prefix;
+  set_header_msg_code hdr msg_code;
   hdr
 
 let to_msg ~msg_code ~body () =
@@ -29,17 +29,22 @@ let to_msg ~msg_code ~body () =
 module type Request = sig
   type t
   type rsp
-  val req_code  : int
-  val rsp_code  : int
+  val req_code : int
+  val rsp_code : int
   val serialize : t -> Cstruct.t
-  val parse     : Cstruct.t -> rsp
+  val parse : Cstruct.t -> rsp
 end
 
-module Get_board_info : (Request with type t := unit with type rsp := devinfo) = struct
+module Get_board_info : (Request
+                         with type t := unit
+                         with type rsp := devinfo) = struct
 
   let req_code = 0x0080
   let rsp_code = 0x0140
-  let serialize () = to_msg ~msg_code:req_code ~body:(Cstruct.create 0) ()
+
+  let serialize () =
+    to_msg ~msg_code:req_code ~body:(Cstruct.create 0) ()
+
   let parse msg =
     { typ = get_board_info_board_type msg
     ; ver = get_board_info_board_version msg
@@ -54,17 +59,17 @@ end
 
 module type Instant_request = sig
   type t
-  val msg_code  : int
+  val msg_code : int
   val serialize : t -> Cstruct.t
 end
 
-module Set_factory_mode
-       : (Instant_request with type t := factory_settings) = struct
+module Set_factory_mode : (Instant_request
+                           with type t := factory_settings) = struct
 
   let msg_code = 0x0087
   let serialize mode =
     let body = Cstruct.create sizeof_factory_settings in
-    let () = set_factory_settings_mac (Macaddr.to_bytes mode.mac) 0 body in
+    set_factory_settings_mac (Macaddr.to_bytes mode.mac) 0 body;
     to_msg ~msg_code ~body ()
 
 end
@@ -73,12 +78,12 @@ module Set_board_mode
        : (Instant_request
           with type t := nw_settings * (packer_settings list)) = struct
 
-  let msg_code         = 0x0088
+  let msg_code = 0x0088
   let main_packers_num = 4
   let rest_packers_num = 6
-  let rest_msgs_num    = 3
+  let rest_msgs_num = 3
 
-  let reverse_ip x    =
+  let reverse_ip x =
     Ipaddr.V4.to_bytes x
     |> String.rev
     |> Ipaddr.V4.of_bytes_exn
@@ -98,33 +103,33 @@ module Set_board_mode
                             ; (b3 lsl 16)
                             ; (b4 lsl 24) ]
 
-  let serialize_packer_settings (s:packer_settings) =
-    let buf  = Cstruct.create sizeof_packer_settings in
-    let id   = Stream.Multi_TS_ID.to_int32_raw s.stream in
+  let serialize_packer_settings (s : packer_settings) =
+    let buf = Cstruct.create sizeof_packer_settings in
+    let id = Stream.Multi_TS_ID.to_int32_raw (Stream.to_multi_id s.stream) in
     let mode = (s.socket lsl 1)
                |> (fun x -> if s.enabled then x lor 1 else x) in
     (* FIXME temp reverse *)
-    let () = Ipaddr.V4.to_int32 (reverse_ip s.dst_ip)
-             |> set_packer_settings_dst_ip buf in
-    let () = (reverse_port s.dst_port) |> set_packer_settings_dst_port buf in
-    let () = Ipaddr.V4.multicast_to_mac s.dst_ip
-             |> Macaddr.to_bytes
-             |> fun mac -> set_packer_settings_dst_mac mac 0 buf in
-    let () = set_packer_settings_self_port buf (reverse_port s.self_port) in
-    let () = set_packer_settings_mode buf mode in
-    let () = set_packer_settings_stream_id buf (reverse_int32 id) in
+    Ipaddr.V4.to_int32 (reverse_ip s.dst_ip)
+    |> set_packer_settings_dst_ip buf;
+    (reverse_port s.dst_port) |> set_packer_settings_dst_port buf;
+    Ipaddr.V4.multicast_to_mac s.dst_ip
+    |> Macaddr.to_bytes
+    |> (fun mac -> set_packer_settings_dst_mac mac 0 buf);
+    set_packer_settings_self_port buf (reverse_port s.self_port);
+    set_packer_settings_mode buf mode;
+    set_packer_settings_stream_id buf (reverse_int32 id);
     buf
 
-  let serialize_main ip mask gw (pkrs:packer_settings list) =
+  let serialize_main ip mask gw (pkrs : packer_settings list) =
     let buf = Cstruct.create sizeof_req_settings_main in
-    let () = set_req_settings_main_cmd buf 0 in
+    set_req_settings_main_cmd buf 0;
     (* FIXME temp reverse *)
-    let () = Ipaddr.V4.to_int32 (reverse_ip ip)
-             |> set_req_settings_main_ip buf in
-    let () = Ipaddr.V4.to_int32 (reverse_ip mask)
-             |> set_req_settings_main_mask buf in
-    let () = Ipaddr.V4.to_int32 (reverse_ip gw)
-             |> set_req_settings_main_gateway buf in
+    Ipaddr.V4.to_int32 (reverse_ip ip)
+    |> set_req_settings_main_ip buf;
+    Ipaddr.V4.to_int32 (reverse_ip mask)
+    |> set_req_settings_main_mask buf;
+    Ipaddr.V4.to_int32 (reverse_ip gw)
+    |> set_req_settings_main_gateway buf;
     let pkrs = List.map serialize_packer_settings pkrs in
     let len = (main_packers_num * sizeof_packer_settings)
               + sizeof_req_settings_main in
@@ -134,15 +139,15 @@ module Set_board_mode
 
   let serialize_rest i (pkrs:packer_settings list) =
     let buf  = Cstruct.create sizeof_req_settings_packers in
-    let ()   = set_req_settings_packers_cmd buf i in
+    set_req_settings_packers_cmd buf i;
     let pkrs = List.map serialize_packer_settings pkrs in
-    let len  = (rest_packers_num * sizeof_packer_settings)
-               + sizeof_req_settings_packers in
+    let len = (rest_packers_num * sizeof_packer_settings)
+              + sizeof_req_settings_packers in
     Cstruct.concat @@ buf :: pkrs
     |> (fun b -> Cstruct.append b @@ Cstruct.create (len - Cstruct.len b))
     |> (fun body -> to_msg ~msg_code ~body ())
 
-  let serialize (nw,(packers:packer_settings list)) =
+  let serialize (nw, (packers : packer_settings list)) =
     let fst_pkrs, rest_pkrs =
       let hd, tl = List.take_drop main_packers_num packers in
       hd, List.take rest_msgs_num
@@ -162,7 +167,7 @@ end
 module type Event = sig
   type t
   val msg_code : int
-  val parse    : Cstruct.t -> t
+  val parse : Cstruct.t -> t
 end
 
 module Status : (Event with type t := (board_status * status_data)) = struct
@@ -189,21 +194,21 @@ module Status : (Event with type t := (board_status * status_data)) = struct
 
   let parse msg =
     let data = get_status_data msg in
-    let phy  = get_status_phy msg in
-    let cmd  = get_status_sub_cmd msg in
-    let brd  =
-      { phy_ok  = phy land 1 > 0
+    let phy = get_status_phy msg in
+    let cmd = get_status_sub_cmd msg in
+    let brd =
+      { phy_ok = phy land 1 > 0
       ; link_ok = phy land 0x20 > 0
-      ; speed   = if phy land 0x06 > 0 then Speed_1000
-                  else if phy land 0x0A > 0 then Speed_100
-                  else if phy land 0x12 > 0 then Speed_10
-                  else Speed_failure
+      ; speed = if phy land 0x06 > 0 then Speed_1000
+                else if phy land 0x0A > 0 then Speed_100
+                else if phy land 0x12 > 0 then Speed_10
+                else Speed_failure
       } in
     let data = match cmd with
       | 0 -> General (parse_packers data)
       | _ -> Unknown (Cstruct.to_string data)
     in
-    brd,data
+    brd, data
 
 end
 
@@ -212,12 +217,12 @@ end
 module Make(Logs : Logs.LOG) = struct
 
   type err =
-    | Bad_prefix           of int
-    | Bad_length           of int
-    | Bad_msg_code         of int
-    | No_prefix_after_msg  of int
+    | Bad_prefix of int
+    | Bad_length of int
+    | Bad_msg_code of int
+    | No_prefix_after_msg of int
     | Insufficient_payload of Cstruct.t
-    | Unknown_err          of string
+    | Unknown_err of string
 
   let string_of_err = function
     | Bad_prefix x -> "incorrect prefix: " ^ (string_of_int x)
@@ -242,7 +247,7 @@ module Make(Logs : Logs.LOG) = struct
       | _ -> None in
     match length with
     | Some x -> Ok (x, code, rest)
-    | None   -> Error (Bad_msg_code code)
+    | None -> Error (Bad_msg_code code)
 
   let check_length (len, code, rest') =
     if len > 512 - sizeof_header
@@ -284,7 +289,7 @@ module Make(Logs : Logs.LOG) = struct
               begin match parse_msg (code, body) with
               | `E x -> f (x :: events) responses rest
               | `R x -> f events (x :: responses) rest
-              | `N   -> f events responses rest
+              | `N -> f events responses rest
               end
            | Error e ->
               begin match e with

@@ -1,7 +1,7 @@
 open Components
-open Common.User
 open Api_js.Requests.Json_request
 open Containers
+open Common
 
 let make_card user =
   let username = match user with
@@ -61,7 +61,8 @@ let make_card user =
       ~input_type:(Password (fun pass ->
                        eq_pass (React.S.value new_textfield#s_input) pass)) () in
   let s_new =
-    React.S.map (fun x ->
+    React.S.map ~eq:(Equal.option String.equal)
+      (fun x ->
         begin match x with
         | None -> ()
         | Some _ ->
@@ -71,24 +72,26 @@ let make_card user =
         x)
       new_textfield#s_input in
   let s =
-    React.S.l3 (fun n o r ->
+    React.S.l3 ~eq:(Equal.option User.equal_pass_change)
+      (fun n o r ->
         match n, o, r with
         | Some new_pass, Some old_pass, Some _ ->
-           Some { user; old_pass; new_pass }
-        | _ -> None) s_new old_textfield#s_input acc_textfield#s_input in
+           Some User.{ user; old_pass; new_pass }
+        | _ -> None)
+      s_new old_textfield#s_input acc_textfield#s_input in
   let settings =
-    new Vbox.t ~widgets:[ old_textfield#widget
-                        ; old_helper_text#widget
-                        ; new_textfield#widget
-                        ; new_helper_text#widget
-                        ; acc_textfield#widget
-                        ; acc_helper_text#widget ]
+    new Vbox.t
+      ~widgets:[ old_textfield#widget
+               ; old_helper_text#widget
+               ; new_textfield#widget
+               ; new_helper_text#widget
+               ; acc_textfield#widget
+               ; acc_helper_text#widget ]
       () in
   let set_error (s : string) : unit =
     old_textfield#set_valid false;
     old_helper_text#set_content s in
-  let set (pass : pass_change) =
-    let open Common in
+  let set (pass : User.pass_change) =
     let open Lwt.Infix in
     let f () =
       post_result
@@ -96,12 +99,12 @@ let make_card user =
         ~from:(fun _ -> Ok ())
         ~path:Uri.Path.Format.("/api/user/password" @/ empty)
         ~query:Uri.Query.empty
-        ~contents:(pass_change_to_yojson pass) in
+        ~contents:(User.pass_change_to_yojson pass) in
     Lwt.try_bind
       (fun () -> f ())
       (function
        | Ok _ ->
-          if eq user `Root
+          if User.equal user `Root
           then Dom_html.window##.location##.href := Js.string "/";
           Lwt.return (Ok ())
        | Error e ->
@@ -123,17 +126,15 @@ let make_card user =
     ()
 
 let () =
-  let user      = Js.to_string @@ Js.Unsafe.global##.username in
-
-  let root_card     = make_card `Root in
+  let user = Js.to_string @@ Js.Unsafe.global##.username in
+  let root_card = make_card `Root in
   let operator_card = make_card `Operator in
-  let guest_card    = make_card `Guest in
+  let guest_card = make_card `Guest in
 
-  let box = new Layout_grid.t
-                ~cells:[ new Layout_grid.Cell.t ~widgets:[root_card] ()
-                       ; new Layout_grid.Cell.t ~widgets:[operator_card] ()
-                       ; new Layout_grid.Cell.t ~widgets:[guest_card] () ]
-                ()
-  in
-  let _ = new Ui_templates.Page.t (`Static [box#widget]) () in
-  ()
+  let box =
+    new Layout_grid.t
+      ~cells:[ new Layout_grid.Cell.t ~widgets:[root_card] ()
+             ; new Layout_grid.Cell.t ~widgets:[operator_card] ()
+             ; new Layout_grid.Cell.t ~widgets:[guest_card] () ]
+      () in
+  ignore @@ new Ui_templates.Page.t (`Static [box#widget]) ()

@@ -1,6 +1,5 @@
 open Containers
 open Components
-open Requests
 open Lwt_result.Infix
 open Wm_types
 open Wm_components
@@ -225,9 +224,11 @@ let create_widgets_grid
       { icon = Icon.SVG.(new t ~paths:Path.[ new t arrow_left ()] ())#widget
       ; name = "Назад" } in
   let dlg =
+    let cancel = new Button.t ~label:"Отмена" () in
+    let accept = new Button.t ~label:"ОК" () in
     new Dialog.t
-      ~actions:[ new Dialog.Action.t ~typ:`Cancel ~label:"Отмена" ()
-               ; new Dialog.Action.t ~typ:`Accept ~label:"Ok" () ]
+      ~actions:[ Dialog.Action.make ~typ:`Cancel cancel
+               ; Dialog.Action.make ~typ:`Accept accept ]
       ~title:"Сохранить изменения?"
       ~content:(`Widgets []) () in
   dlg#add_class "wm-confirmation-dialog";
@@ -463,12 +464,12 @@ class t () = object(self)
   inherit Layout_grid.t ~cells:[] () as super
 
   method private on_load () =
-    Requests.get_wm ()
+    Requests_wm.HTTP.get ()
     >>= (fun wm ->
-      let e_wm, wm_sock = Requests.get_wm_socket () in
+      let e_wm, wm_sock = Requests_wm.WS.get () in
       let post = fun w ->
         Lwt.Infix.(
-          Requests.post_wm w
+          Requests_wm.HTTP.set w
           >|= (function
                | Ok () -> ()
                | Error _ -> print_endline @@ "error post wm")) in

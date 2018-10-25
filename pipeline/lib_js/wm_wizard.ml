@@ -412,7 +412,7 @@ let to_layout ~resolution ~widgets signal =
 
 let to_content (wm : Wm.t) push =
   let open Lwt_result.Infix in
-  Requests.get_structure ()
+  Requests_structure.HTTP.get ()
   >|= (fun init ->
       let open Wm in
       let widgets = List.filter_map (fun (name, (widget : widget)) ->
@@ -421,7 +421,7 @@ let to_content (wm : Wm.t) push =
             Some ((name, widget),
                   ({ stream; channel } : channel))
           | (Nihil : domain) -> None) wm.widgets in
-      let ev, _  = Requests.get_structure_socket () in
+      let ev, _  = Requests_structure.WS.get () in
       let struct_signal = React.S.hold init ev in
       let checkboxes, tree = Branches.make_streams widgets struct_signal in
       let box = new Vbox.t ~widgets:[tree#widget] () in
@@ -456,14 +456,15 @@ let to_dialog (wm : Wm.t) push =
   let content =
     Ui_templates.Loader.create_widget_loader
     @@ Lwt_result.map fst thread in
-  let accept = new Dialog.Action.t ~typ:`Accept  ~label:"Применить" () in
+  let accept = new Button.t ~label:"Accept" () in
+  let cancel = new Button.t ~label:"Decline" () in
   accept#set_disabled true;
   let dialog = new Dialog.t
     ~title:"Выберите виджеты"
     ~scrollable:true
     ~content:(`Widgets [content#widget])
-    ~actions:[ new Dialog.Action.t ~typ:`Cancel ~label:"Отмена" ()
-             ; accept ]
+    ~actions:[ Dialog.Action.make ~typ:`Cancel cancel
+             ; Dialog.Action.make ~typ:`Accept accept ]
     () in
   Lwt_result.map (fun _ -> accept#set_disabled false) thread
   |> Lwt.ignore_result;

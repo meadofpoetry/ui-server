@@ -1,8 +1,13 @@
-open Common.Topology
 open Containers
 open Components
+open Common
 
 let _class = "topology"
+
+let is_ts2ip_niitv (b : Topology.topo_board) =
+  match b.typ, b.model, b.manufacturer with
+  | "TS2IP", "ts2ip", "niitv" -> true
+  | _ -> false
 
 let find_max l =
   let rec f = fun max ->
@@ -15,25 +20,29 @@ let find_max l =
 
 (* calculates the depth of the node *)
 let rec get_entry_depth depth = function
-  | Input _ -> succ depth
-  | Board x ->
-     let ports = List.map (fun x -> x.child) x.ports in
+  | Topology.Input _ -> succ depth
+  | Topology.Board x ->
+     let ports = List.map (fun (x : Topology.topo_port) ->
+                     x.child) x.ports in
      begin match ports with
      | [] -> succ depth
-     | l  -> succ @@ find_max (List.map (get_entry_depth depth) l)
+     | l -> succ @@ find_max (List.map (get_entry_depth depth) l)
      end
 
 let get_node_depth t =
   let depth = 0 in
   match t with
-  | `CPU x    ->
-     succ @@ find_max (List.map (fun x -> get_entry_depth depth x.conn) x.ifaces)
+  | `CPU (x : Topology.topo_cpu) ->
+     succ @@ find_max (List.map (fun (x : Topology.topo_interface) ->
+                           get_entry_depth depth x.conn) x.ifaces)
   | `Boards x ->
-     succ @@ find_max
-               (List.map (fun x ->
-                    succ @@ find_max
-                              (List.map (fun x -> get_entry_depth 0 x.child) x.ports)
-                  ) x)
+     find_max
+       (List.map (fun (x : Topology.topo_board) ->
+            succ @@ find_max
+                      (List.map (fun (x : Topology.topo_port) ->
+                           get_entry_depth 0 x.child) x.ports)
+          ) x)
+     |> succ
 
 let concat (l : string list) : string =
   List.fold_left (fun acc x -> x ^ " " ^ acc) "" l
@@ -41,28 +50,31 @@ let concat (l : string list) : string =
 let grid_template_areas t =
   let depth = get_node_depth t in
   let rec get_entry_areas acc count = function
-    | Input x ->
-       if (count+1) < depth
+    | Topology.Input x ->
+       if (count + 1) < depth
        then let inp  = "\"" ^ (Topo_node.input_to_area x) in
             let list = List.range 1 @@ (depth-count - 1) * 2 in
             (List.fold_left (fun acc _ -> acc ^ " . ") inp list) ^ acc ^ "\""
        else "\"" ^ (Topo_node.input_to_area x) ^ " " ^ acc ^ "\""
-    | Board x ->
-       let ports = List.map (fun x -> x.child) x.ports in
-       let str   = ". " ^ (Topo_node.board_to_area x)^" " in
+    | Topology.Board x ->
+       let ports = List.map (fun (x : Topology.topo_port) ->
+                       x.child) x.ports in
+       let str = ". " ^ (Topo_node.board_to_area x) ^ " " in
        match ports with
        | [] -> str ^ " " ^ acc
-       | l  -> concat (List.map (get_entry_areas (str^acc) (count+1)) l)
+       | l -> concat (List.map (get_entry_areas (str ^ acc) (count + 1)) l)
   in
   match t with
-  | `CPU x    ->
-     List.map (fun x -> get_entry_areas ". CPU" 1 x.conn) x.ifaces
+  | `CPU (x : Topology.topo_cpu) ->
+     List.map (fun (x : Topology.topo_interface) ->
+         get_entry_areas ". CPU" 1 x.conn) x.ifaces
      |> concat
   | `Boards x ->
      let map board =
        get_entry_areas (". " ^ (Topo_node.board_to_area board)) 1 in
      List.map (fun board ->
-         List.map (fun x -> map board x.child) board.ports
+         List.map (fun (x : Topology.topo_port) -> map board x.child)
+           board.ports
          |> concat) x
      |> concat
 
@@ -78,8 +90,28 @@ let to_topo_node = function
   | `Input x -> (x :> Topo_node.t)
   | `CPU x   -> (x :> Topo_node.t)
 
+let map_cpu_conn (cpu : Topology.topo_cpu) : Topology.topo_cpu =
+  let open Topology in
+  let rec aux acc = function
+    | [] -> acc
+    | iface :: rest ->
+       match iface.conn with
+       | Input _ -> aux (iface :: acc) rest
+       | Board b ->
+          match is_ts2ip_niitv b with
+          | false -> aux (iface :: acc) rest
+          | true ->
+             let ifaces =
+               List.rev_map (fun x ->
+                   { iface = iface.iface
+                   ; conn = x.child }) b.ports in
+             aux (acc @ ifaces) rest in
+  let ifaces = List.rev @@ aux [] cpu.ifaces in
+  { cpu with ifaces }
+
 let make_nodes topology =
-  let create_element ~(element:Topo_node.node_entry) ~connections =
+  let open Topology in
+  let create_element ~(element : Topo_node.node_entry) ~connections =
     let connections = List.map (fun (x,p) -> to_topo_node x, p) connections in
     match element with
     | `Entry (Board board) -> `Board (Topo_board.create ~connections board)
@@ -101,10 +133,11 @@ let make_nodes topology =
   in
   match topology with
   | `CPU cpu  ->
+     let cpu' = map_cpu_conn cpu in
      let connections, acc =
        List.fold_left (fun (conn, total) x ->
            let e, acc = get_boards [] x.conn in
-           (e, `Iface x) :: conn, acc @ total) ([], []) cpu.ifaces in
+           (e, `Iface x) :: conn, acc @ total) ([], []) cpu'.ifaces in
      let cpu_el = create_element ~element:(`CPU cpu) ~connections in
      cpu_el :: acc
   | `Boards x ->
@@ -123,52 +156,33 @@ let iter_paths f nodes =
       | `CPU c   -> List.iter (fun p -> f (c :> Topo_node.t) p) c#paths
       | _ -> ()) nodes
 
-let update_nodes nodes (t : Common.Topology.t) =
-  let boards = Common.Topology.boards t in
-  let f (b : Topo_board.t) (x : topo_board) = Topo_board.eq_board b#board x in
+let update_nodes nodes (t : Topology.t) =
+  let boards = Topology.get_boards t in
+  let f (b : Topo_board.t) (x : Topology.topo_board) =
+    Topo_board.eq_board b#board x in
   List.iter (function
       | `Board b ->
          begin match List.find_opt (f b) boards with
          | Some tb -> b#set_board tb
-         | None    -> ()
+         | None -> ()
          end
       | _ -> ()) nodes
 
-let create ~(parent: #Widget.t)
-      ~(init : Common.Topology.t)
-      ~(event : Common.Topology.t React.event)
+let create ~(parent : #Widget.t)
+      ~(init : Topology.t)
+      ~(event : Topology.t React.event)
       () =
   let svg = Tyxml_js.Svg.(
       svg ~a:[a_class [Markup.CSS.add_element _class "paths"]] [] |> toelt) in
   let nodes = make_nodes init in
   let drawer, drawer_box, set_drawer_title = Topo_drawer.make ~title:"" () in
-  let on_settings = fun node ->
+  let on_settings = fun ((widget : Widget.t), (name : string)) ->
     drawer_box#set_empty ();
-    let error_prefix = "Ошибка при загрузке страницы" in
-    let res = match node with
-      | `Board board -> set_drawer_title @@ Topo_board.get_board_name board;
-                        Topo_board.make_board_page ~error_prefix board
-      | `CPU cpu -> set_drawer_title @@ Topo_cpu.get_cpu_name cpu;
-                    Topo_cpu.make_cpu_page ~error_prefix cpu in
-    let pgs = Ui_templates.Loader.create_widget_loader
-                ~parent:drawer_box
-                ~error_prefix
-                res in
+    drawer_box#append_child widget;
+    set_drawer_title name;
     Lwt.Infix.(
       drawer#show_await ()
-      >|= (fun () ->
-        pgs#thread
-        >|= (function Error _ -> ()
-                    | Ok w -> w#destroy ())
-        |> Lwt.ignore_result)) in
-  List.iter (function
-      | `Board (b : Topo_board.t) ->
-         b#settings_button#listen_lwt Widget.Event.click (fun _ _ ->
-             on_settings @@ `Board b#board) |> Lwt.ignore_result
-      | `CPU (c : Topo_cpu.t) ->
-         c#settings_button#listen_lwt Widget.Event.click (fun _ _ ->
-             on_settings @@ `CPU c#cpu) |> Lwt.ignore_result
-      | _ -> ()) nodes;
+      >|= (fun () -> widget#destroy ())) in
   iter_paths (fun _ x ->
       Option.iter (fun sw -> parent#append_child sw) x#switch;
       Dom.appendChild svg x#root) nodes;
@@ -178,6 +192,14 @@ let create ~(parent: #Widget.t)
                       let w = wrap node#area node in
                       parent#append_child w) nodes;
   let gta = "grid-template-areas: " ^ (grid_template_areas init) ^ ";" in
-  Lwt_react.(E.keep @@ E.map (update_nodes nodes) event);
+  (* FIXME store events? *)
+  List.filter_map (function
+      | `Board (b : Topo_board.t) -> Some b#settings_event
+      | `CPU (c : Topo_cpu.t) -> Some c#settings_event
+      | `Input _ -> None) nodes
+  |> React.E.select
+  |> React.E.map_s on_settings
+  |> React.E.keep;
+  React.(E.keep @@ E.map (update_nodes nodes) event);
   parent#style##.cssText := Js.string gta;
   nodes

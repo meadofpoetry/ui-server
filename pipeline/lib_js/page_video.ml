@@ -1,7 +1,6 @@
-open Lwt_react
 open Containers
-open Requests
 open Components
+open Common
 
 open Lwt.Infix
 
@@ -30,17 +29,17 @@ let janus_session ?(debug=`All false) () =
     res.success)
 
 let janus_plugin ~(tracks: track list)
-      ~(selected: track Lwt_react.signal)
+      ~(selected: track React.signal)
       ~(target:   #Dom_html.element Js.t)
       session =
   let open Janus_static in
-  let e_jsep, on_jsep        = Lwt_react.E.create () in
-  let e_rs, on_remote_stream = Lwt_react.E.create () in
+  let e_jsep, on_jsep        = React.E.create () in
+  let e_rs, on_remote_stream = React.E.create () in
   Session.attach ~session ~plugin_type:Plugin.Streaming ~on_remote_stream ~on_jsep ()
   >>= (fun plugin ->
-    Lwt_react.E.map (fun stream -> Janus.attachMediaStream target stream) e_rs
-    |> Lwt_react.E.keep;
-    Lwt_react.E.map (function
+    React.E.map (fun stream -> Janus.attachMediaStream target stream) e_rs
+    |> React.E.keep;
+    React.E.map (function
         | Session.Offer x ->
            Plugin.create_answer plugin Janus_streaming.default_media_props None x
            >>= (function
@@ -50,7 +49,7 @@ let janus_plugin ~(tracks: track list)
            |> Lwt.ignore_result
         | Answer x  -> Plugin.handle_remote_jsep plugin x |> Lwt.ignore_result
         | Unknown _ -> Printf.printf "Unknown jsep received\n") e_jsep
-    |> Lwt_react.E.keep;
+    |> React.E.keep;
     List.iter (fun x ->
         let req =
           ({ type_ = Rtp { base = ({ id          = Some x.id
@@ -76,8 +75,9 @@ let janus_plugin ~(tracks: track list)
              | Ok _    -> Printf.printf "created mp!\n"; Lwt.return_unit
              | Error e -> Printf.printf "failure creating mp: %s\n" e; Lwt.return_unit)
         |> Lwt.ignore_result) tracks;
-    Lwt_react.S.map (fun x -> Janus_streaming.send plugin (Switch x.id)) selected
-    |> Lwt_react.S.keep;
+    React.S.changes selected
+    |> React.E.map_s (fun x -> Janus_streaming.send plugin (Switch x.id))
+    |> React.E.keep;
     let init = React.S.value selected in
     Janus_streaming.send plugin (Watch { id = init.id; secret = None }) |> ignore;
     Lwt.return_unit)

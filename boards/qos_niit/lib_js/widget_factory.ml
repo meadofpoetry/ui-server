@@ -38,92 +38,112 @@ let return = Lwt_result.return
 let map_err : 'a 'b. ('b,'a Api_js.Requests.err) Lwt_result.t -> ('b,string) Lwt_result.t =
   fun x -> Lwt_result.map_err (fun e -> Api_js.Requests.err_to_string ?to_string:None e) x
 
-open Factory_state
-
 (* Widget factory *)
-class t (control:int) () =
-object(self)
+class t (control : int) () =
+  let open Ui_templates.Factory in
+  object(self)
 
-  val _state : state React.signal t_lwt = empty ()
-  val _t2mi_mode : t2mi_mode option React.signal t_lwt = empty ()
-  val _jitter_mode : jitter_mode option React.signal t_lwt = empty ()
-  val _streams : Stream.t list React.signal t_lwt = empty ()
-  val _incoming_streams : Stream.t list React.signal t_lwt = empty ()
+    val mutable _state = None
+    val mutable _t2mi_mode = None
+    val mutable _jitter_mode = None
+    val mutable _streams : Stream.t list Signal.t option = None
+    val mutable _incoming_streams : Stream.t list Signal.t option = None
 
-  (** Create widget of type **)
-  method create : item -> 'a Dashboard.Item.item = function
-    | Settings conf ->
-       (fun state t2mi_mode jitter_mode streams ->
-         Widget_settings.make ~state ~t2mi_mode ~jitter_mode ~streams
-           conf control)
-       |> Factory_state_lwt.l4 self#state self#t2mi_mode self#jitter_mode self#incoming_streams
-       |> Ui_templates.Loader.create_widget_loader
-       |> Dashboard.Item.make_item ~name:Widget_settings.name
-            ?settings:Widget_settings.settings
-    | T2MI_settings conf ->
-       (fun state mode streams ->
-         Widget_t2mi_settings.make ~state ~mode ~streams conf control )
-       |> Factory_state_lwt.l3 self#state self#t2mi_mode self#incoming_streams
-       |> Ui_templates.Loader.create_widget_loader
-       |> Dashboard.Item.make_item ~name:Widget_t2mi_settings.name
-            ?settings:Widget_t2mi_settings.settings
-    | Jitter_settings conf ->
-       (fun s m -> Widget_jitter_settings.make ~state:s ~mode:m conf control)
-       |> Factory_state_lwt.l2 self#state self#jitter_mode
-       |> Ui_templates.Loader.create_widget_loader
-       |> Dashboard.Item.make_item ~name:Widget_jitter_settings.name
-            ?settings:Widget_jitter_settings.settings
+    (** Create widget of type **)
+    method create : item -> 'a Dashboard.Item.item = function
+      | Settings conf ->
+         (fun state t2mi_mode jitter_mode streams ->
+           Widget_settings.make ~state ~t2mi_mode ~jitter_mode ~streams
+             conf control)
+         |> Lift.l4 self#state self#t2mi_mode self#jitter_mode self#incoming_streams
+         |> Ui_templates.Loader.create_widget_loader
+         |> Dashboard.Item.make_item ~name:Widget_settings.name
+              ?settings:Widget_settings.settings
+      | T2MI_settings conf ->
+         (fun state mode streams ->
+           Widget_t2mi_settings.make ~state ~mode ~streams conf control )
+         |> Lift.l3 self#state self#t2mi_mode self#incoming_streams
+         |> Ui_templates.Loader.create_widget_loader
+         |> Dashboard.Item.make_item ~name:Widget_t2mi_settings.name
+              ?settings:Widget_t2mi_settings.settings
+      | Jitter_settings conf ->
+         (fun s m -> Widget_jitter_settings.make ~state:s ~mode:m conf control)
+         |> Lift.l2 self#state self#jitter_mode
+         |> Ui_templates.Loader.create_widget_loader
+         |> Dashboard.Item.make_item ~name:Widget_jitter_settings.name
+              ?settings:Widget_jitter_settings.settings
 
-  method destroy () : unit =
-    Factory_state.finalize _state;
-    Factory_state.finalize _t2mi_mode;
-    Factory_state.finalize _jitter_mode;
+    method destroy () : unit =
+      Option.iter State.finalize _state;
+      Option.iter State.finalize _t2mi_mode;
+      Option.iter State.finalize _jitter_mode;
 
-  method available : Dashboard.available =
-    `List [ item_to_info (T2MI_settings None)
-          ; item_to_info (Jitter_settings None)
-          ; item_to_info (Settings None) ]
+    method available : Dashboard.available =
+      `List [ item_to_info (T2MI_settings None)
+            ; item_to_info (Jitter_settings None)
+            ; item_to_info (Settings None) ]
 
-  method serialize (x : item) : Yojson.Safe.json =
-    item_to_yojson x
-  method deserialize (json : Yojson.Safe.json) : (item, string) result =
-    item_of_yojson json
+    method serialize (x : item) : Yojson.Safe.json =
+      item_to_yojson x
 
-  (* Requests *)
+    method deserialize (json : Yojson.Safe.json) : (item, string) result =
+      item_of_yojson json
 
-  method state =
-    Factory_state_lwt.get_value_as_signal
-      ~get:(fun () -> Requests.Device.HTTP.get_state control |> map_err)
-      ~get_socket:(fun () -> Requests.Device.WS.get_state control)
-      _state
+    (* Requests *)
 
-  method t2mi_mode =
-    Factory_state_lwt.get_value_as_signal
-      ~get:(fun () -> Requests.Device.HTTP.get_t2mi_mode control |> map_err)
-      ~get_socket:(fun () -> Requests.Device.WS.get_t2mi_mode control)
-      _t2mi_mode
+    method state = match _state with
+      | Some state -> state.value
+      | None ->
+         let state =
+           Signal.make_state
+             ~get:(fun () -> Requests.Device.HTTP.get_state control |> map_err)
+             ~get_socket:(fun () -> Requests.Device.WS.get_state control) in
+         _state <- Some state;
+         state.value
 
-  method jitter_mode =
-    Factory_state_lwt.get_value_as_signal
-      ~get:(fun () -> Requests.Device.HTTP.get_jitter_mode control |> map_err)
-      ~get_socket:(fun () -> Requests.Device.WS.get_jitter_mode control)
-      _jitter_mode
+    method t2mi_mode = match _t2mi_mode with
+      | Some state -> state.value
+      | None ->
+         let state =
+           Signal.make_state
+             ~get:(fun () -> Requests.Device.HTTP.get_t2mi_mode control |> map_err)
+             ~get_socket:(fun () -> Requests.Device.WS.get_t2mi_mode control) in
+         _t2mi_mode <- Some state;
+         state.value
 
-  method incoming_streams =
-    Factory_state_lwt.get_value_as_signal
-      ~get:(fun () ->
-        Requests.Streams.HTTP.get_streams ~incoming:true control
-        |> map_err)
-      ~get_socket:(fun () ->
-        Requests.Streams.WS.get_streams ~incoming:true control)
-      _incoming_streams
+    method jitter_mode = match _jitter_mode with
+      | Some state -> state.value
+      | None ->
+         let state =
+           Signal.make_state
+             ~get:(fun () -> Requests.Device.HTTP.get_jitter_mode control |> map_err)
+             ~get_socket:(fun () -> Requests.Device.WS.get_jitter_mode control) in
+         _jitter_mode <- Some state;
+         state.value
 
-  method streams =
-    Factory_state_lwt.get_value_as_signal
-      ~get:(fun () ->
-        Requests.Streams.HTTP.get_streams ~incoming:false control
-        |> map_err)
-      ~get_socket:(fun () -> Requests.Streams.WS.get_streams control)
-      _streams
+    method incoming_streams = match _incoming_streams with
+      | Some state -> state.value
+      | None ->
+         let state =
+           Signal.make_state
+             ~get:(fun () ->
+               Requests.Streams.HTTP.get_streams ~incoming:true control
+               |> map_err)
+             ~get_socket:(fun () ->
+               Requests.Streams.WS.get_streams ~incoming:true control) in
+         _incoming_streams <- Some state;
+         state.value
 
-end
+    method streams = match _streams with
+      | Some state -> state.value
+      | None ->
+         let state =
+           Signal.make_state
+             ~get:(fun () ->
+               Requests.Streams.HTTP.get_streams ~incoming:false control
+               |> map_err)
+             ~get_socket:(fun () -> Requests.Streams.WS.get_streams control) in
+         _streams <- Some state;
+         state.value
+
+  end

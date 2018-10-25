@@ -19,6 +19,7 @@ $mdc-persistent-drawer-width: 280px;
   @include mdc-drawer-base_;
   @include mdc-drawer-ink-color($mdc-persistent-drawer-ink-color);
   @include mdc-drawer-fill-color($mdc-persistent-drawer-fill-color);
+  @include mdc-drawer-list_();
 
   height: 100%;
   width: 0;

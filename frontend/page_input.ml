@@ -3,7 +3,6 @@ open Components
 open Api_js.Requests
 open Api_js.Api_types
 open Lwt_result.Infix
-open Common.Topology
 open Common
 
 type time = [ `Now | `Last of Time.t ]
@@ -15,16 +14,22 @@ module WS = struct
     ; close : unit -> unit
     }
 
-  let now input board control =
-    match board with
-    | "TS" ->
+  let now input node =
+    match node with
+    | `Board (control, "TS") ->
        Board_qos_niit_js.Requests.Streams.WS.get_streams
          ~inputs:[input]
          control
        |> fun (e, s) ->
           Some { event = e; close = fun () -> s##close }
-    | _ -> Some { event = React.E.never
-                ; close = fun () -> () }
+    | `Cpu (Some "pipeline") ->
+       let open Pipeline_js in
+       Requests_structure.WS.get_streams
+         ~inputs:[input]
+         ()
+       |> fun (e, s) ->
+          Some { event = e; close = fun () -> s##close }
+    | _ -> None
 
 end
 
@@ -42,12 +47,17 @@ module HTTP = struct
             | _ -> Lwt.fail_with "raw")
     | _ -> Lwt_result.return []
 
-  let now input board control =
-    match board with
-    | "TS" ->
+  let now input node =
+    match node with
+    | `Board (control, "TS") ->
        Board_qos_niit_js.Requests.Streams.HTTP.get_streams
          ~inputs:[input]
          control
+    | `Cpu (Some "pipeline") ->
+       let open Pipeline_js in
+       Requests_structure.HTTP.get_streams
+         ~inputs:[input]
+         ()
     | _ -> Lwt_result.return []
 
 end
@@ -64,13 +74,13 @@ module Stream_item = struct
   let lost_class = Markup.CSS.add_modifier base_class "lost"
 
   let time_to_string = function
-    | `Now    -> "Активен"
+    | `Now -> "Активен"
     | `Last t ->
        let tz_offset_s = Ptime_clock.current_tz_offset_s () in
        Time.to_human_string ?tz_offset_s t
 
   let typ_to_string : Stream.stream_type -> string = function
-    | TS   -> "MPEG-TS"
+    | TS -> "MPEG-TS"
     | T2MI -> "T2-MI"
 
   let source_to_string (source : Stream.source) : string =
@@ -85,7 +95,7 @@ module Stream_item = struct
     String.concat " -> " @@ aux [] source
 
   class t on_lost on_found
-          (input : topo_input)
+          (input : Topology.topo_input)
           (time : time)
           (stream : Stream.t)
           (event : Stream.t option React.event)
@@ -124,7 +134,7 @@ module Stream_item = struct
         self#add_class base_class;
         self#listen_lwt Widget.Event.click (fun _ _ ->
             let id = Stream.ID.to_string self#stream.id in
-            let input_name = input_to_string input.input in
+            let input_name = Topology.input_to_string input.input in
             let url = Printf.sprintf "/input/%s/%d/%s"
                         input_name input.id id in
             Dom_html.window##.location##.href := Js.string url;
@@ -162,7 +172,7 @@ module Stream_grid = struct
 
   let base_class = "qos-niit-stream-grid"
 
-  class t (input : topo_input)
+  class t (input : Topology.topo_input)
           (init : (Stream.t * time) list)
           (event : Stream.t list React.event)
           () =
@@ -264,57 +274,65 @@ module Stream_grid = struct
 
 end
 
-let get_streams_ws input (boards : (int * string) list) =
-  List.map (fun (control, board) ->
-      WS.now input board control) boards
+let get_streams_ws (input : Topology.topo_input)
+      (cpu : Topology.process_type option)
+      (boards : (int * string) list) =
+  List.map (WS.now input)
+  @@ (`Cpu cpu) :: (List.map (fun x -> `Board x) boards)
   |> List.all_some
   |> function
     | Some l ->
        let ev, s =
          List.map (fun (x : WS.e) -> x.event, x.close) l
          |> List.split in
-       let e = React.E.merge (fun _ x -> x) [] ev in
+       let e =
+         React.E.merge (fun acc l ->
+             List.sorted_merge_uniq ~cmp:Stream.compare acc l)
+           [] ev in
        let s = fun () -> List.iter (fun f -> f ()) s in
        e, s
     | None -> React.E.never, fun () -> ()
 
-let get_streams input (boards : (int * string) list) =
+let get_streams (input : Topology.topo_input)
+      (cpu : Topology.process_type option)
+      (boards : (int * string) list) =
   let open Lwt.Infix in
-  Lwt_list.map_p (fun (control, board) ->
-      HTTP.history input board control) boards
+  Lwt_list.map_p (HTTP.now input)
+  @@ (`Cpu cpu) :: (List.map (fun x -> `Board x) boards)
   >|= List.all_ok
   >|= function
-  | Ok l -> Ok (List.flatten l)
+  | Ok l ->
+     Ok (List.sort_uniq ~cmp:Stream.compare @@ List.flatten l)
   | Error e -> Error e
 
 let make () =
-  let (input : topo_input) =
+  let (input : Topology.topo_input) =
     Js.Unsafe.global##.input
     |> Js.to_string
-    |> Show_topo_input.of_string in
+    |> Topology.Show_topo_input.of_string in
   let (boards : (int * string) list) =
     Yojson.Safe.from_string @@ Js.to_string
     @@ Js_of_ocaml.Json.output @@ Js.Unsafe.global##.boards
-    |> boards_of_yojson
+    |> Topology.boards_of_yojson
     |> Result.get_exn in
   let (cpu : string option) =
     Yojson.Safe.from_string @@ Js.to_string
     @@ Js_of_ocaml.Json.output @@ Js.Unsafe.global##.cpu
-    |> cpu_opt_of_yojson
+    |> Json.Option.of_yojson Topology.process_type_of_yojson
     |> Result.get_exn in
   let streams =
-    get_streams input boards
+    get_streams input cpu boards
     |> Lwt_result.map_err Api_js.Requests.err_to_string in
   let w =
     streams
     >|= (fun streams ->
+      let streams = List.map (fun x -> x, `Now) streams in
       let event, close =
-        get_streams_ws input boards in
+        get_streams_ws input cpu boards in
       let grid = new Stream_grid.t input streams event () in
       grid#widget)
     |> Ui_templates.Loader.create_widget_loader
     |> Widget.coerce in
-  let _ = new Ui_templates.Page.t (`Static [w]) () in
-  ()
+  ignore @@ new Ui_templates.Page.t (`Static [w]) ()
 
 let () = make ()

@@ -1,7 +1,7 @@
 open Containers
-open Lwt_react
 open Components
 open Tyxml_js
+open Common
 
 let demo_section ?expanded title content =
   new Expansion_panel.t ?expanded ~title ~content ()
@@ -21,7 +21,8 @@ let button_demo () =
   let ripple = new Button.t ~label:"ripple" ~ripple:true () in
   let dense = new Button.t ~label:"dense" ~dense:true () in
   let compact = new Button.t ~label:"compact" ~compact:true () in
-  (* let icon       = new Button.t ~label:"icon" ~icon:"favorite" () in *)
+  let icon = Icon.SVG.(create_simple Path.heart) in
+  let icon = new Button.t ~label:"icon" ~icon () in
   let box =
     new Vbox.t
       ~widgets:[ raised
@@ -30,20 +31,20 @@ let button_demo () =
                ; stroked
                ; ripple
                ; dense
-               ; compact] () in
+               ; compact
+               ; icon ] () in
   box#set_align_items `Start;
   demo_section "Button" [box]
 
 let circular_progress_demo () =
-  (* let slider = new Slider.t ~min:0.0 ~max:100. ~markers:true () in *)
-  (* let box = new Vbox.t ~widgets:[ determinate#widget; slider#widget ] () in
-   * let _ = React.S.map (fun v -> determinate#set_progress v) slider#s_input in
-   *)
-  let indeterminate = new Circular_progress.t ~indeterminate:true () in
-  let determinate = new Circular_progress.t ~indeterminate:false ~max:100. () in
+  let open Circular_progress in
+  let indeterminate = new t ~indeterminate:true () in
+  let determinate = new t ~indeterminate:false ~value:45. ~max:100. () in
   let section =
-    demo_section "Circular progress" [subsection "Indeterminate" indeterminate] in
-  (* let _ = React.S.map (fun x -> if x then slider#layout ()) section#s_expanded in *)
+    demo_section "Circular progress"
+      [ subsection "Indeterminate" indeterminate
+      ; subsection "Determinate" determinate
+      ] in
   section
 
 let fab_demo () =
@@ -69,13 +70,14 @@ let fab_speed_dial_demo () =
   let left = new Radio.t ~name:"dir" ~value:`Left () in
   let right = new Radio.t ~name:"dir" ~value:`Right () in
   let f x =
-    React.S.map ~eq:(fun _ _ -> false)
-      (function true -> print_endline "changed";
-                        fab#set_direction x#value | false -> ()) x#s_state in
-  let _ = f up in
-  let _ = f down in
-  let _ = f left in
-  let _ = f right in
+    React.S.map ~eq:Equal.unit
+      (function true ->
+                 fab#set_direction x#value | false -> ()) x#s_state
+    |> React.S.keep in
+  f up;
+  f down;
+  f left;
+  f right;
   let dbox =
     new Hbox.t
       ~widgets:[ new Form_field.t ~label:"Up" ~input:up ()
@@ -85,18 +87,19 @@ let fab_speed_dial_demo () =
   let fling = new Radio.t ~name:"anim" ~value:`Fling () in
   let scale = new Radio.t ~name:"anim" ~value:`Scale () in
   let f x =
-    React.S.map ~eq:(fun _ _ -> false)
+    React.S.map ~eq:Equal.unit
       (function true ->
                  print_endline "changed";
-                 fab#set_animation x#value | false -> ()) x#s_state in
-  let _ = f fling in
-  let _ = f scale in
+                 fab#set_animation x#value | false -> ()) x#s_state
+    |> React.S.keep in
+  f fling;
+  f scale;
   let abox =
     new Hbox.t
       ~widgets:[ new Form_field.t ~label:"Fling" ~input:fling ()
                ; new Form_field.t ~label:"Scale" ~input:scale () ] () in
-  let _ = fling#set_checked true in
-  let _ = up#set_checked true in
+  fling#set_checked true;
+  up#set_checked true;
   fab#main#listen_click_lwt (fun _ _ ->
       begin match React.S.value fab#s_state with
       | false -> fab#show ()
@@ -112,10 +115,13 @@ let radio_demo () =
   demo_section "Radio button" [ radio1; radio2; radio3 ]
 
 let checkbox_demo () =
-  let checkbox     = new Checkbox.t ~input_id:"checkbox-demo" () in
+  let checkbox = new Checkbox.t ~input_id:"checkbox-demo" () in
   let css_checkbox = new Checkbox.t ~ripple:false () in
-  let btn          = new Button.t ~label:"toggle indeterminate" () in
-  let form_field   = new Form_field.t ~label:"checkbox label" ~input:checkbox () in
+  let btn = new Button.t ~label:"toggle indeterminate" () in
+  let form_field =
+    new Form_field.t
+      ~label:"checkbox label"
+      ~input:checkbox () in
   btn#listen_click_lwt (fun _ _ ->
     checkbox#set_indeterminate @@ not checkbox#indeterminate;
     css_checkbox#set_indeterminate @@ not css_checkbox#indeterminate;
@@ -149,10 +155,6 @@ let card_demo () =
   (Js.Unsafe.coerce media#style)##.backgroundSize := Js.string "cover";
   media#style##.backgroundRepeat := Js.string "no-repeat";
   media#style##.height := Js.string "12.313rem";
-  (* let title    = new Card.Title.t ~large:true ~title:"Demo card title" () in
-   * let subtitle = new Card.Subtitle.t ~subtitle:"Subtitle" () in
-   * let primary  = new Card.Primary.t ~widgets:[ title#widget; subtitle#widget ] () in
-   * let text     = new Card.Supporting_text.t ~text:"Supporting text" () in *)
   let actions =
     new Card.Actions.t
       ~widgets:[ new Button.t ~compact:true ~label:"action 1" ()
@@ -160,26 +162,6 @@ let card_demo () =
   let card = new Card.t ~widgets:[ media#widget; actions#widget ] () in
   card#style##.width := Js.string "320px";
   demo_section "Card" [ card ]
-
-(* let slider_demo () =
- *   let continuous = new Slider.t () in
- *   let discrete = new Slider.t ~discrete:true () in
- *   let with_markers = new Slider.t ~discrete:true ~markers:true () in
- *   let disabled = new Slider.t () in
- *   disabled#set_disabled true;
- *   let section =
- *     demo_section "Slider"
- *       [ subsection "Continuous slider" continuous
- *       ; subsection "Discrete slider" discrete
- *       ; subsection "Discrete slider with markers" with_markers
- *       ; subsection "Disabled slider" disabled ] in
- *   let _ =
- *     React.S.map (fun x -> if x then (continuous#layout ();
- *                                      discrete#layout ();
- *                                      with_markers#layout ()))
- *       section#s_expanded
- *   in
- *   section *)
 
 let grid_list_demo () =
   let tiles =
@@ -245,12 +227,14 @@ let layout_grid_demo () =
   demo_section "Layout grid" [ layout_grid#widget; btn2#widget; btn4#widget ]
 
 let dialog_demo () =
+  let accept = new Button.t ~label:"Accept" () in
+  let cancel = new Button.t ~label:"Decline" () in
   let dialog =
     new Dialog.t
       ~title:"This is dialog"
       ~content:(`String "Dialog body")
-      ~actions:[ new Dialog.Action.t ~typ:`Cancel ~label:"Decline" ()
-               ; new Dialog.Action.t ~typ:`Accept ~label:"Accept" ()
+      ~actions:[ Dialog.Action.make ~typ:`Cancel accept
+               ; Dialog.Action.make ~typ:`Accept cancel
       ]
       () in
   let button = new Button.t ~label:"show dialog" () in
@@ -393,53 +377,6 @@ let menu_demo () =
   |> ignore;
   demo_section "Menu" [ wrapper#widget; icon_wrapper#widget ]
 
-(* let linear_progress_demo () =
- *   let linear_progress = new Linear_progress.t () in
- *   linear_progress#set_indeterminate true;
- *   let ind_btn = new Button.t ~label:"indeterminate" () in
- *   let det_btn = new Button.t ~label:"determinate" () in
- *   let open_btn = new Button.t ~label:"open" () in
- *   let close_btn = new Button.t ~label:"close" () in
- *   let pgrs_txt = new Typography.Text.t ~text:"Progress" () in
- *   let pgrs = new Slider.t ~markers:true ~min:0.0 ~max:100.0 ~step:1. () in
- *   let buffer_txt = new Typography.Text.t ~text:"Buffer" () in
- *   let buffer = new Slider.t ~markers:true ~min:0.0 ~max:100.0 ~step:1. () in
- *   let _ = React.S.map (fun x -> linear_progress#set_progress (x /. 100.)) pgrs#s_input in
- *   let _ = React.S.map (fun x -> linear_progress#set_buffer (x /. 100.)) buffer#s_input in
- *   ind_btn#listen_click_lwt (fun _ _ ->
- *       linear_progress#set_indeterminate true;
- *       Lwt.return_unit) |> Lwt.ignore_result;
- *   det_btn#listen_click_lwt (fun _ _ ->
- *       linear_progress#set_indeterminate false;
- *       linear_progress#set_progress (React.S.value pgrs#s_value /. 100.);
- *       linear_progress#set_buffer (React.S.value buffer#s_value /. 100.);
- *       Lwt.return_unit) |> Lwt.ignore_result;
- *   open_btn#listen_click_lwt (fun _ _ ->
- *       linear_progress#show ();
- *       Lwt.return_unit) |> Lwt.ignore_result;
- *   close_btn#listen_click_lwt (fun _ _ ->
- *       linear_progress#hide ();
- *       Lwt.return_unit) |> Lwt.ignore_result;
- *   let btn_box = new Vbox.t ~widgets:[ ind_btn
- *                                     ; det_btn
- *                                     ; open_btn
- *                                     ; close_btn ] () in
- *   let sld_box = new Vbox.t ~widgets:[ pgrs_txt#widget
- *                                     ; pgrs#widget
- *                                     ; buffer_txt#widget
- *                                     ; buffer#widget] () in
- *   btn_box#set_justify_content `Start;
- *   btn_box#set_align_items `Start;
- *   btn_box#set_gap 20;
- *   linear_progress#style##.marginTop := Js.string "50px";
- *   sld_box#style##.marginTop := Js.string "50px";
- *   let sect = demo_section "Linear progress" [ btn_box#widget
- *                                             ; sld_box#widget
- *                                             ; linear_progress#widget ] in
- *   let _ = React.S.map (fun _ -> pgrs#layout ();
- *                                 buffer#layout ()) sect#s_expanded in
- *   sect *)
-
 let tabs_demo () =
   let idx = new Textfield.t
               ~input_id:"idx"
@@ -470,73 +407,13 @@ let tabs_demo () =
     ; new Tab.t ~content:(Both ("GPS", icon Icon.SVG.Path.map_marker))
         ~value:() ()
     ] |> (fun tabs -> new Tab_bar.t ~tabs ()) in
-  (* React.E.map (fun _ ->
-   *     let len  = List.length text_bar#tabs in
-   *     let name = Printf.sprintf "Tab %d" len in
-   *     match React.S.value idx#s_input with
-   *     | Some idx ->
-   *        text_bar#insert_tab_at_index idx
-   *          { content  = name
-   *          ; href     = None
-   *          ; disabled = false
-   *          ; value    = ()
-   *          }
-   *     | None ->
-   *        text_bar#append_tab
-   *          { content  = name
-   *          ; href     = None
-   *          ; disabled = false
-   *          ; value    = () })
-   *   add#e_click
-   * |> ignore;
-   * React.E.map (fun _ ->
-   *     match React.S.value idx#s_input with
-   *     | Some idx -> text_bar#remove_tab_at_index idx |> ignore
-   *     | None     -> ())
-   *   remove#e_click
-   * |> ignore; *)
   let section =
     demo_section "Tabs"
       [ (subsection "With icon labels" icon_bar)#widget
       ; (subsection "With text labels" text_bar)#widget
-      (* ; idx#widget
-       * ; add#widget
-       * ; remove#widget *)
       ; (subsection "With icon and text labels" both_bar)#widget
       ] in
-  let _ =
-    React.S.map (fun x ->
-        if x then (icon_bar#layout (); text_bar#layout ();
-                   both_bar#layout ()))
-      section#s_expanded
-  in
   section
-
-(* let snackbar_demo () =
- *   let snackbar =
- *     new Snackbar.t
- *       ~message:"I am a snackbar"
- *       ~action:{ handler = (fun () -> print_endline "Clicked on snackbar action")
- *               ; text = "Action"}
- *       () in
- *   let aligned  =
- *     new Snackbar.t
- *       ~start_aligned:true
- *       ~message:"I am a snackbar"
- *       ~action:{ handler = (fun () -> print_endline "Clicked on snackbar action")
- *               ; text = "Action"}
- *       () in
- *   let snackbar_btn = new Button.t ~label:"Open snackbar" () in
- *   let aligned_btn  = new Button.t ~label:"Open start-aligned snackbar" () in
- *   snackbar_btn#listen_click_lwt (fun _ _ ->
- *       snackbar#show ();
- *       Lwt.return_unit) |> Lwt.ignore_result;
- *   aligned_btn#listen_click_lwt (fun _ _ ->
- *       aligned#show ();
- *       Lwt.return_unit) |> Lwt.ignore_result;
- *   Dom.appendChild Dom_html.document##.body snackbar#root;
- *   Dom.appendChild Dom_html.document##.body aligned#root;
- *   demo_section "Snackbar" [ snackbar_btn; aligned_btn ] *)
 
 let textfield_demo () =
   (* Full-featured js textbox *)
@@ -638,17 +515,6 @@ let select_demo () =
   demo_section "Select" [ subsection "Select" select
                         ; subsection "Disabled" disabled ]
 
-(* let elevation_demo () =
- *   let d =
- *     Widget.create (
- *         Html.div ~a:[Html.a_style "height: 200px; width: 200px; margin: 20px"] []
- *         |> To_dom.of_element) in
- *   let slider = new Slider.t ~markers:true ~max:24.0 () in
- *   let _ = React.S.map (fun v -> Elevation.set_elevation d @@ int_of_float v) slider#s_input in
- *   let section = demo_section "Elevation" [ d#widget; slider#widget ] in
- *   let _ = React.S.map (fun x -> if x then slider#layout ()) section#s_expanded in
- *   section *)
-
 let table_demo () =
   let fmt   =
     let open Table in
@@ -715,10 +581,10 @@ let chart_demo () =
       x#set_cubic_interpolation_mode `Monotone;
       x#set_fill `Disabled) datasets;
   let update = new Button.t ~label:"update" () in
-  let push   = new Button.t ~label:"push" () in
+  let push = new Button.t ~label:"push" () in
   let push_less = new Button.t ~label:"push less" () in
-  let append    = new Button.t ~label:"append" () in
-  let chart  = new Chartjs.Line.t ~options ~datasets () in
+  let append = new Button.t ~label:"append" () in
+  let chart = new Chartjs.Line.t ~options ~datasets () in
   update#listen_click_lwt (fun _ _ ->
       List.iter (fun x ->
           x#set_point_radius (`Fun (fun _ x -> if x.x mod 2 > 0
@@ -803,13 +669,15 @@ let time_chart_demo () =
                           @@ Unix.gettimeofday () |> Option.get_exn
                     ; y = Random.run (Random.int range_i) };
       chart#update None)
-    e_update |> ignore;
+    e_update
+  |> React.E.keep;
   React.E.map (fun () ->
       dataset2#push { x = Common.Time.of_float_s
                           @@ Unix.gettimeofday () |> Option.get_exn
                     ; y = Random.run (Random.float range_f) };
       chart#update None)
-    e_update |> ignore;
+    e_update
+  |> React.E.keep;
   Dom_html.window##setInterval (Js.wrap_callback (fun () -> e_update_push () |> ignore)) 1000. |> ignore;
   let w = Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.to_markup chart ]
           |> To_dom.of_element
@@ -881,8 +749,6 @@ let dynamic_grid_demo () =
              | Error _ -> ())
          |> Lwt.return
       | _ -> Lwt.return_unit) |> Lwt.ignore_result;
-  React.S.map (fun x -> Printf.printf "%d items in grid\n" @@ CCList.length x)
-    grid#s_items |> ignore;
   let sect =
     demo_section "Dynamic grid" [ grid#widget
                                 ; x#widget
@@ -891,7 +757,8 @@ let dynamic_grid_demo () =
                                 ; h#widget
                                 ; add#widget
                                 ; rem_all#widget ] in
-  let _ = React.S.map (fun x -> if x then grid#layout ()) sect#s_expanded in
+  React.S.map ~eq:Equal.unit (fun x -> if x then grid#layout ()) sect#s_expanded
+  |> React.S.keep;
   sect
 
 let expansion_panel_demo () =
@@ -944,19 +811,20 @@ let split_demo () =
   demo_section "Split" [ el ]
 
 let pie_demo () =
-  let options =
-    new Chartjs.Pie.Options.t () in
+  let open Chartjs in
+  let options = new Pie.Options.t () in
   let dataset =
-    new Chartjs.Pie.Dataset.t
+    new Pie.Dataset.t
       ~label:"Dataset1"
       Int
-      Chartjs.Pie.Dataset.[ to_point (Color.of_material (Blue C500)) 3
-                          ; to_point (Color.of_material (Amber C500)) 7
-                          ; to_point (Color.of_material (Deep_orange C500)) 1 ] in
-  let pie = new Chartjs.Pie.t ~options
-              ~labels:[ "Blue"; "Amber"; "Deep orange"]
-              ~datasets:[dataset] () in
-  demo_section "Chart (Pie)" [ pie ]
+      Pie.Dataset.[ to_point (Color.of_material (Blue C500)) 3
+                  ; to_point (Color.of_material (Amber C500)) 7
+                  ; to_point (Color.of_material (Deep_orange C500)) 1 ] in
+  let pie =
+    new Pie.t ~options
+      ~labels:["Blue"; "Amber"; "Deep orange"]
+      ~datasets:[dataset] () in
+  demo_section "Chart (Pie)" [pie]
 
 let typography_demo () =
   let open Typography in
@@ -991,8 +859,7 @@ let typography_demo () =
                                 ; button
                                 ; caption
                                 ; overline ] () in
-  let () = List.iter (fun w -> w#style##.marginBottom := Js.string "20px")
-             box#widgets in
+  List.iter (fun w -> w#style##.marginBottom := Js.string "20px") box#widgets;
   demo_section "Typography" [ box ]
 
 let add_demos demos =
@@ -1015,20 +882,15 @@ let onload _ =
               ; checkbox_demo ()
               ; switch_demo ()
               ; toggle_demo ()
-              (* ; elevation_demo () *)
               ; select_demo ()
               ; textfield_demo ()
               ; card_demo ()
-              (* ; slider_demo () *)
               ; grid_list_demo ()
               ; ripple_demo ()
               ; layout_grid_demo ()
               ; dialog_demo ()
               ; list_demo ()
               ; tree_demo ()
-              (* ; menu_demo () *)
-              (* ; snackbar_demo () *)
-              (* ; linear_progress_demo () *)
               ; circular_progress_demo ()
               ; tabs_demo ()
               ; hexdump_demo ()
@@ -1036,7 +898,7 @@ let onload _ =
               ; pie_demo ()
               ; typography_demo ()
       ] in
-  let _ = new Ui_templates.Page.t (`Static [Widget.create demos]) () in
+  ignore @@ new Ui_templates.Page.t (`Static [Widget.create demos]) ();
   Js._false
 
 let () =

@@ -1,4 +1,5 @@
 module String_map = Map.Make(String)
+module React = Common.React
 
 open Containers
 open Lwt.Infix
@@ -12,7 +13,7 @@ let properties_changed interface =
     ~annotations:[]
 
 let monitor proxy interface switch =
-  let open Lwt_react in
+  let open React in
   let open OBus_value in
   OBus_signal.connect ~switch
     (OBus_signal.with_context

@@ -45,7 +45,7 @@ module WS = struct
     let e = match filter with
       | [] -> S.changes events.streams
       | fns ->
-         E.changes
+         E.changes ~eq:(Equal.list equal)
          @@ E.map (fun streams ->
                 List.filter (apply fns) streams)
               (S.changes events.streams)

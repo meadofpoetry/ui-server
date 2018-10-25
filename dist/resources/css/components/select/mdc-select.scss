@@ -107,6 +107,7 @@
     cursor: pointer;
     appearance: none;
     -webkit-appearance: none;
+    -moz-appearance: none;
   }
 
   @include mdc-select-focused-line-ripple_ {
@@ -139,6 +140,7 @@
     padding-bottom: 12px;
     border: none;
     background-color: transparent;
+    outline: none;
     z-index: 1;
   }
 

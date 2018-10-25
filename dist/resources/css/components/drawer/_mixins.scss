@@ -85,7 +85,7 @@
 @mixin mdc-drawer-base_() {
   @include mdc-drawer-toolbar-spacer_;
   @include mdc-drawer-header_;
-  @include mdc-drawer-list_;
+  // @include mdc-drawer-list_;
 }
 
 @mixin mdc-drawer-fill-color($color) {

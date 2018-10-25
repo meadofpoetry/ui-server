@@ -4,6 +4,7 @@ open Api.Interaction.Json
 open Common.Topology
 open Boards.Board
 open Application_types
+open Common
 
 let socket_table = Hashtbl.create 1000
 
@@ -23,9 +24,10 @@ module HTTP = struct
     of_body body >>= fun js ->
     match stream_setting_of_yojson js with
     | Error e -> respond_error e ()
-    | Ok s    -> Hardware.set_stream app.hw s >>= function
-                 | Ok () as r -> Json.respond_result_unit r
-                 | Error ejs  -> Json.respond_result_unit (Error (set_error_to_yojson ejs))
+    | Ok s ->
+       Hardware.set_stream app.hw s >>= function
+       | Ok () as r -> respond_result_unit r
+       | Error ejs -> respond_result_unit (Error (Stream.Table.set_error_to_yojson ejs))
 
   let get_topology (app:Application.t) _ _ () =
     app.topo |> React.S.value |> to_yojson |> Result.return |> respond_result

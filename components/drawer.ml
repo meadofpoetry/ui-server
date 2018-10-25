@@ -49,17 +49,14 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.t list) () =
            ; anchor_right_class ]
 
     method drawer = _drawer
-    method show () =
+    method show () : unit =
       set_state true;
       self#add_class Markup.animating_class;
       self#add_class Markup.open_class;
       self#_disable_scroll ();
-      let _ =
-        timeout
-          ~f:(fun _ ->
-              self#remove_class Markup.animating_class)
-          ~timer:200. in
-      ()
+      timeout ~f:(fun _ -> self#remove_class Markup.animating_class)
+        ~timer:200.
+      |> ignore
 
     method show_await () = match React.S.value self#s_state with
       | true  -> Lwt.return_unit
@@ -72,18 +69,15 @@ class t ?(animating=true) ~(anchor:anchor) ~(content:#Widget.t list) () =
          |> Lwt.ignore_result;
          t
 
-    method hide () =
+    method hide () : unit =
       set_state false;
       self#add_class Markup.animating_class;
       self#remove_class Markup.open_class;
       self#_enable_scroll ();
-      let _ =
-        timeout
-          ~f:(fun () ->
-              self#remove_class Markup.animating_class)
-          ~timer:200. in
-      ()
-
+      timeout
+        ~f:(fun () -> self#remove_class Markup.animating_class)
+        ~timer:200.
+      |> ignore
     method s_state : bool React.signal = state
 
     method private _disable_scroll () =

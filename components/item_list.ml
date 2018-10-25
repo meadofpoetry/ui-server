@@ -18,18 +18,20 @@ module Item = struct
           ~text () =
     let text_elt, set_primary, set_secondary = match secondary_text with
       | Some st ->
-         let primary   = Markup.Item.create_primary_text text ()
-                         |> Tyxml_js.To_dom.of_element
-                         |> Widget.create in
-         let secondary = Markup.Item.create_secondary_text st ()
-                         |> Tyxml_js.To_dom.of_element
-                         |> Widget.create in
+         let primary =
+           Markup.Item.create_primary_text text ()
+           |> Tyxml_js.To_dom.of_element
+           |> Widget.create in
+         let secondary =
+           Markup.Item.create_secondary_text st ()
+           |> Tyxml_js.To_dom.of_element
+           |> Widget.create in
          let w = Markup.Item.create_text
                    ~primary:(Widget.to_markup primary)
                    ~secondary:(Widget.to_markup secondary) ()
                  |> Tyxml_js.To_dom.of_element
                  |> Widget.create in
-         let set_primary x   = primary#set_text_content x in
+         let set_primary x = primary#set_text_content x in
          let set_secondary x = secondary#set_text_content x in
          w, set_primary, set_secondary
       | None ->
@@ -83,12 +85,17 @@ object(self)
 
 end
 
+type 'a item =
+  [ `Item of 'a Item.t
+  | `Divider of Divider.t
+  ]
+
 class ['a] t ?avatar
-        ?(selection:selection option)
+        ?(selection : selection option)
         ?two_line
-        ?(non_interactive=false)
-        ?(dense=false)
-        ~(items:[ `Item of 'a Item.t | `Divider of Divider.t ] list) () =
+        ?(non_interactive = false)
+        ?(dense = false)
+        ~(items : 'a item list) () =
   let two_line = match two_line with
     | Some x -> x
     | None   ->
@@ -103,19 +110,19 @@ class ['a] t ?avatar
                           | `Item x    -> Widget.to_markup x)
                         items) ()
             |> Tyxml_js.To_dom.of_element in
+  let s_items, set_items = React.S.create items in
   let s_selected, set_selected = React.S.create [] in
   let s_active, set_active = React.S.create None in
   object(self)
 
-    val mutable _items = items
-
     inherit base elt ()
 
-    method items' = _items
+    method items' : 'a item list = React.S.value s_items
     method items  = List.filter_map (function
                         | `Item i -> Some i
-                        | _       -> None) _items
+                        | _ -> None) self#items'
 
+    method s_items = s_items
 
     method non_interactive : bool =
       self#has_class Markup.non_interactive_class
@@ -137,7 +144,7 @@ class ['a] t ?avatar
       React.S.value s_selected
     method s_selected : 'a Item.t list React.signal =
       s_selected
-    method set_selected (item:'a Item.t) =
+    method set_selected (item : 'a Item.t) =
       match selection with
       | Some `Single ->
          List.iter (fun i ->
@@ -156,15 +163,15 @@ class ['a] t ?avatar
       self#add_or_remove_class x Markup.dense_class
 
     method append_item (x : 'a Item.t) =
-      _items <- _items @ [ `Item x];
+      set_items (self#items' @ [ `Item x]);
       Dom.appendChild self#root x#root
 
     method cons_item (x : 'a Item.t) =
-      _items <- (`Item x) :: _items;
+      set_items ((`Item x) :: self#items');
       Dom.insertBefore self#root x#root self#node##.firstChild
 
     method insert_item_at_idx (index:int) (x : 'a Item.t) =
-      _items <- List.insert_at_idx index (`Item x) _items;
+      set_items @@ List.insert_at_idx index (`Item x) self#items';
       let child = self#root##.childNodes##item index in
       Dom.insertBefore self#root x#root child
 
@@ -174,7 +181,7 @@ class ['a] t ?avatar
                 | _       -> false) self#items' with
       | Some (i, (`Item x)) ->
          Dom.removeChild self#root x#root;
-         _items <- List.remove_at_idx i _items
+         set_items @@ List.remove_at_idx i self#items'
       | Some _ | None  -> ()
 
     initializer

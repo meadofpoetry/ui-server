@@ -2,6 +2,7 @@ open Containers
 open Components
 open Board_types.Device
 open Lwt_result.Infix
+open Common
 
 type widget_config =
   { id : int
@@ -40,14 +41,14 @@ let make_bw (standard : standard option React.signal) () =
       ~default_selected:false
       ~label:"Полоса пропускания"
       ~items () in
-  let _ =
-    React.S.map (function
+  let s_hide =
+    React.S.map ~eq:Equal.unit (function
         | None -> bw#style##.display := Js.string "none"
         | Some _ -> bw#style##.display := Js.string "") standard in
   let set = function
     | None -> bw#set_selected_index 0
     | Some x -> bw#set_selected_value ~eq:equal_bw x.channel.bw |> ignore in
-  bw, set
+  bw, set, (fun () -> React.S.stop ~strong:true s_hide)
 
 let make_freq ?(terrestrial = true)
       (standard : standard option React.signal)
@@ -62,8 +63,8 @@ let make_freq ?(terrestrial = true)
       ~default_selected:false
       ~label:"ТВ канал"
       ~items () in
-  let _ =
-    React.S.map (fun x ->
+  let s_hide =
+    React.S.map ~eq:Equal.unit (fun x ->
         match x, terrestrial with
         | (Some T, true) | (Some T2, true) | (Some C, false) ->
            freq#style##.display := Js.string ""
@@ -76,29 +77,23 @@ let make_freq ?(terrestrial = true)
           freq#set_selected_value ~eq:(=) x.channel.freq |> ignore
        | _ -> ()
        end in
-  freq, set
+  freq, set, (fun () -> React.S.stop ~strong:true s_hide)
 
 let make_plp (standard : standard option React.signal) () =
-  (* let (ht : Textfield.Help_text.helptext) =
-   *   { persistent = false
-   *   ; validation = true
-   *   ; text = None} in *)
   let plp =
     new Textfield.t
-      ~input_id:"plp_field"
       ~input_type:(Integer ((Some 0),(Some 255)))
-      (* ~help_text:ht *)
       ~label:"PLP ID"
       () in
   plp#set_required true;
-  let _ =
-    React.S.map (function
+  let s_hide =
+    React.S.map ~eq:Equal.unit (function
         | Some T2 -> plp#style##.display := Js.string ""
         | _ -> plp#style##.display := Js.string "none") standard in
   let set = function
     | None -> plp#clear ()
     | Some x -> plp#set_value x.channel.plp in
-  plp, set
+  plp, set, (fun () -> React.S.stop ~strong:true s_hide)
 
 let make_mode_box ~(id : int)
       ~(init : mode option)
@@ -107,12 +102,14 @@ let make_mode_box ~(id : int)
       control
       () =
   let std, set_std = make_standard () in
-  let t_freq, set_t_freq =
+  let t_freq, set_t_freq, t_freq_close =
     make_freq ~terrestrial:true std#s_selected_value () in
-  let c_freq, set_c_freq =
+  let c_freq, set_c_freq, c_freq_close =
     make_freq ~terrestrial:false std#s_selected_value () in
-  let bw, set_bw = make_bw std#s_selected_value () in
-  let plp, set_plp = make_plp std#s_selected_value () in
+  let bw, set_bw, bw_close =
+    make_bw std#s_selected_value () in
+  let plp, set_plp, plp_close =
+    make_plp std#s_selected_value () in
   let box =
     new Vbox.t
       ~widgets:[ std#widget
@@ -122,7 +119,8 @@ let make_mode_box ~(id : int)
                ; plp#widget ]
       () in
   let s =
-    React.S.l6 (fun standard t_freq c_freq bw plp state ->
+    React.S.l6 ~eq:(Equal.option @@ Equal.pair Int.equal equal_mode)
+      (fun standard t_freq c_freq bw plp state ->
         match standard, t_freq, c_freq, bw, plp, state with
         | Some T2, Some freq, _, Some bw, Some plp, `Fine ->
            Some (id, { standard = T2; channel = { freq; bw; plp }})
@@ -137,21 +135,20 @@ let make_mode_box ~(id : int)
       bw#s_selected_value
       plp#s_input
       state in
-  let _ =
-    React.S.map (fun (m : mode option) ->
+  let s_set =
+    React.S.hold init ~eq:(Equal.option equal_mode) event
+    |> React.S.map ~eq:Equal.unit (fun (m : mode option) ->
         (* NOTE standard should be updated first *)
         set_std m;
         set_t_freq m;
         set_c_freq m;
         set_bw m;
-        set_plp m)
-      @@ React.S.hold init event in
-  let _ =
-    React.S.map (fun x ->
+        set_plp m) in
+  let s_dis =
+    React.S.map ~eq:Equal.unit (fun x ->
         let is_disabled = match x with
           | `Fine -> false
-          | _ -> true
-        in
+          | _ -> true in
         std#set_disabled is_disabled;
         t_freq#set_disabled is_disabled;
         c_freq#set_disabled is_disabled;
@@ -161,7 +158,9 @@ let make_mode_box ~(id : int)
   in
   let submit = fun (id, m) ->
     Requests.Device.HTTP.set_mode ~id m control >|= (fun _ -> ()) in
-  box, s, submit
+  box, s, submit, (fun () ->
+    React.S.stop ~strong:true s_set;
+    React.S.stop ~strong:true s_dis)
 
 let default_config = { id = 0 }
 
@@ -171,16 +170,18 @@ let name conf =
 
 let settings = None
 
+(* FIXME declare class instead *)
 let make ~(state : Common.Topology.state React.signal)
       ~(config : config React.signal)
       (conf : widget_config option)
       control =
   let conf = Option.get_or ~default:default_config conf in
   let get = List.Assoc.get ~eq:(=) conf.id in
-  let w, s, set =
+  let w, s, set, close =
     make_mode_box ~id:conf.id
       ~init:(get @@ React.S.value config)
-      ~event:(React.S.changes @@ React.S.map get config)
+      ~event:(React.S.map ~eq:(Equal.option equal_mode) get config
+              |> React.S.changes)
       ~state
       control
       () in
@@ -189,4 +190,5 @@ let make ~(state : Common.Topology.state React.signal)
   let actions = new Card.Actions.t ~widgets:[buttons] () in
   let box = new Vbox.t ~widgets:[w#widget; actions#widget] () in
   box#add_class base_class;
+  box#set_on_destroy @@ Some close;
   box#widget

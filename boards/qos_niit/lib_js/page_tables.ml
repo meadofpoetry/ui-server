@@ -1,9 +1,9 @@
 open Containers
 open Components
-open Common
 open Lwt_result.Infix
 open Board_types
 open Page_common
+open Common
 
 let l2 a b = a >>= fun a -> b >|= fun b -> a, b
 
@@ -27,7 +27,7 @@ let make_overview init e_tables e_rate state stream control =
     E.map (function
         | [(_, (x : Bitrate.t timestamped))] -> widget#set_rate x.data
         | _ -> ()) e_rate in
-  let state = state >|= S.map widget#set_state in
+  let state = state >|= S.map ~eq:Equal.unit widget#set_state in
   let close = (fun () ->
       E.stop ~strong:true e_tables;
       E.stop ~strong:true e_rate;

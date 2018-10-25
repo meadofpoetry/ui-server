@@ -51,36 +51,60 @@ class t ~(options:#Options.t) ?width ?height ~typ ~data () =
       canvas ~a:(List.cons_maybe (Option.map a_width width)
                  @@ List.cons_maybe (Option.map a_height height) []) [ ])
             |> Tyxml_js.To_dom.of_canvas in
-  let conf = [ "type", Js.Unsafe.inject @@ Js.string @@ Base.typ_to_string typ
-             ; "options", Js.Unsafe.inject options#get_obj
-             ; "data", data ]
-             |> Array.of_list
-             |> Js.Unsafe.obj in
+  let conf =
+    [ "type", Js.Unsafe.inject @@ Js.string @@ Base.typ_to_string typ
+    ; "options", Js.Unsafe.inject options#get_obj
+    ; "data", data ]
+    |> Array.of_list
+    |> Js.Unsafe.obj in
   object(self)
 
     val _canvas = Components.Widget.create elt
     val _chart  = new%js constr elt conf
+
     inherit Components.Widget.t elt () as super
 
-    method canvas        = _canvas
-    method set_width x   = self#canvas#set_attribute "width"  x
-    method set_height x  = self#canvas#set_attribute "height" x
-
-    method destroy () = _chart##destroy
-    method update  = function
-      | Some c -> _chart##update_conf (config_to_obj c)
-      | None   -> _chart##update
-    method reset () = _chart##reset
-    method render = function
-      | Some c -> _chart##render_conf (config_to_obj c)
-      | None   -> _chart##render
-    method stop   () = _chart##stop   |> ignore
-    method layout () = _chart##resize |> ignore
-    method clear  () = _chart##clear  |> ignore
-
-    method to_png_image ()    = _chart##toBase64Image  |> Js.to_string
-    method generate_legend () = _chart##generateLegend |> Js.to_string
-
-    initializer
+    method init () : unit =
+      super#init ();
       options#replace (Js.Unsafe.coerce _chart)##.options
+
+    method canvas = _canvas
+
+    method set_width (x : string) : unit =
+      self#canvas#set_attribute "width"  x
+
+    method set_height (x : string) : unit =
+      self#canvas#set_attribute "height" x
+
+    method destroy () : unit =
+      super#destroy ();
+      _chart##destroy
+
+    method layout () : unit =
+      super#layout ();
+      ignore @@ _chart##resize
+
+    method update : config option -> unit = function
+      | Some c -> _chart##update_conf (config_to_obj c)
+      | None -> _chart##update
+
+    method reset () : unit =
+      _chart##reset
+
+    method render : config option -> unit = function
+      | Some c -> _chart##render_conf (config_to_obj c)
+      | None -> _chart##render
+
+    method stop () : unit =
+      ignore @@ _chart##stop
+
+    method clear () : unit =
+      ignore @@ _chart##clear
+
+    method to_png_image () : string =
+      Js.to_string _chart##toBase64Image
+
+    method generate_legend () : string =
+      Js.to_string _chart##generateLegend
+
   end

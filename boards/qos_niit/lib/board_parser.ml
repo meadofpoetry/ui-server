@@ -467,7 +467,7 @@ module Get_ts_structs
     let sections =
       Cstruct.fold (fun acc x ->
           let section = List.length acc in
-          let _ = (x land 0x8000) > 0 in (* analyzed *)
+          (* let analyzed = (x land 0x8000) > 0 in *)
           let length = (x land 0x0FFF) in
           ({ section; length } :: acc)) iter []
       |> List.filter (fun ({ length; _ }) -> length > 0)
@@ -671,7 +671,7 @@ module Get_ts_structs
     let hdr, bdy' = Cstruct.split msg sizeof_ts_structs in
     let count = get_ts_structs_count hdr in
     (* stream id list *)
-    let _, bdy = Cstruct.split bdy' (count * 4) in
+    let bdy = snd @@ Cstruct.split bdy' (count * 4) in
     (* FIXME stuffing bytes when requesting for a single stream *)
     let parse = match stream with
       | `All ->
@@ -807,8 +807,8 @@ module Get_t2mi_info : (Request
            get_t2mi_info_ext_conf_len body
            |> fun x -> let r, d = x mod 8,
                                   x / 8 in d + (if r > 0 then 1 else 0) in
-         let _, conf = Cstruct.split body sizeof_t2mi_info_ext in
-         let conf, _ = Cstruct.split conf conf_len in
+         let conf = snd @@ Cstruct.split body sizeof_t2mi_info_ext in
+         let conf = fst @@ Cstruct.split conf conf_len in
          let l1_pre' = Cstruct.to_string @@ get_t2mi_info_ext_l1_pre body in
          let l1_post' = Cstruct.to_string conf in
          let l1 = match L1_parser.l1_pre_of_string l1_pre' with
@@ -1027,7 +1027,7 @@ module T2mi_errors : (Event with type msg := Multi_TS_ID.t * (Error.t list)) = s
     let errors, _ = Cstruct.split rest (number * sizeof_t2mi_error) in
     let stream_id = get_t2mi_errors_stream_id common in
     let pid = get_t2mi_errors_pid common in
-    let _ = int_to_t2mi_sync_list (get_t2mi_errors_sync common) in
+    (* let sync = int_to_t2mi_sync_list (get_t2mi_errors_sync common) in *)
     let iter = Cstruct.iter (fun _ -> Some sizeof_t2mi_error)
                  (fun buf -> buf) errors in
     let cnt,adv,oth =

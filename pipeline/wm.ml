@@ -62,7 +62,7 @@ type position =
   ; top    : int
   ; right  : int
   ; bottom : int
-  } [@@deriving yojson,eq]
+  } [@@deriving yojson, eq]
 
 type widget =
   { type_       : widget_type [@key "type"]
@@ -72,18 +72,18 @@ type widget =
   ; layer       : int
   ; aspect      : ((int * int) option [@default None])
   ; description : string
-  } [@@deriving yojson,eq]
+  } [@@deriving yojson, eq]
 
 type container =
   { position : position
   ; widgets  : (string * widget) list
-  } [@@deriving yojson,eq]
+  } [@@deriving yojson, eq]
 
 type t =
   { resolution : int * int
   ; widgets    : (string * widget) list
   ; layout     : (string * container) list
-  } [@@deriving yojson]
+  } [@@deriving yojson, eq]
 
 let update _ b = b
 

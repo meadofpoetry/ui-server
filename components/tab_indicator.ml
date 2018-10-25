@@ -63,7 +63,7 @@ class t ?(fade = false) ?(active = false) () =
          let f = fun _ ->
            self#add_class sliding_activate_class;
            content#style##.transform := Js.string "" in
-         let _ = wnd##requestAnimationFrame (Js.wrap_callback f) in
+         ignore @@ wnd##requestAnimationFrame (Js.wrap_callback f);
          Lwt_js_events.transitionend self#root
          >|= (fun () -> self#remove_class sliding_activate_class)
          |> Lwt.ignore_result

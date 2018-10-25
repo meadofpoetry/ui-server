@@ -1,10 +1,9 @@
 open Containers
-open Lwt_react
 open Lwt.Infix
 open Containers
 open Msg_conv
 open Pipeline_protocol
-   
+
 let (%) = Fun.(%)
 
 module Conf = Storage.Config.Make(Pipeline_settings)
@@ -29,7 +28,7 @@ let create (config:Storage.Config.config) (db_conf:Storage.Database.t) =
        let reset = Pipeline_protocol.reset Msgpack send cfg.bin_path cfg.bin_name cfg.msg_fmt in
        api, state, recv, reset
   in
-  (*Lwt_react.E.keep @@ connect_db (S.changes api.streams) dbs;*)
+  (*React.E.keep @@ connect_db (S.changes api.streams) dbs;*)
   (* polling loop *)
   let rec loop () =
     recv () >>= loop
@@ -39,8 +38,8 @@ let create (config:Storage.Config.config) (db_conf:Storage.Database.t) =
     val loop  = loop ()
     val api   = api
     val state = state
-    method reset ss    = reset api state ss
-    method handlers () = List.return @@ Pipeline_api.handlers api
+    method reset ss = reset api state ss
+    method handlers () = Pipeline_api.handlers api
     method template () = Pipeline_template.create ()
     method finalize () = Pipeline_protocol.finalize state
   end

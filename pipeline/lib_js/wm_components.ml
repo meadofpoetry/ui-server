@@ -191,10 +191,11 @@ module Settings_dialog = struct
                       ~input:show_grid_switch
                       ~label:"Показывать сетку" () in
     let box = new Vbox.t ~widgets:[show_grid#widget] () in
-    let d   =
+    let accept = new Button.t ~label:"Применить" () in
+    let d =
       new Dialog.t
         ~title:"Настройки редактора мозаики"
-        ~actions:[ new Dialog.Action.t ~typ:`Accept () ~label:"Применить" ]
+        ~actions:[Dialog.Action.make ~typ:`Accept accept]
         ~content:(`Widgets [ box#widget ])
         ()
     in

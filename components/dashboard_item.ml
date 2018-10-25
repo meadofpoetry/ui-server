@@ -79,22 +79,25 @@ class t ~(item : 'a item) () =
     new Vbox.t
       ~widgets:(title :: (List.cons_maybe subtitle []))
       () in
-  let close = Icon.SVG.(create_simple Path.close) in
-  let remove = new Icon_button.t ~icon:close () in
+  let remove =
+    let icon = Icon.SVG.(create_simple Path.close) in
+    new Icon_button.t ~icon () in
   let sd =
     Option.map (fun (s : settings) ->
         let icon = Icon.SVG.(create_simple Path.settings) in
         let settings = new Icon_button.t ~icon () in
-        let cancel = new Dialog.Action.t ~typ:`Cancel ~label:"Отмена" () in
-        let apply = new Dialog.Action.t ~typ:`Accept  ~label:"ОК" () in
+        let cancel_button = new Button.t ~label:"Отмена" () in
+        let apply_button = new Button.t ~label:"ОК" () in
+        let cancel = Dialog.Action.make ~typ:`Cancel cancel_button in
+        let apply = Dialog.Action.make ~typ:`Accept apply_button in
         let dialog =
           new Dialog.t
             ~title:(Printf.sprintf "Настройки. %s" item.name)
             ~content:(`Widgets [s.widget])
-            ~actions:[ cancel; apply ]
-            ()
-        in
-        let _ = connect_apply apply s in
+            ~actions:[cancel; apply]
+            () in
+        (* FIXME *)
+        let _ = connect_apply apply_button s in
         settings, dialog)
       item.settings in
   let icons = match sd with
@@ -119,21 +122,17 @@ class t ~(item : 'a item) () =
 
     method show_settings_button (x : bool) : unit = ()
 
-    method editable = _editable
+    method editable : bool  = _editable
+
     method set_editable (x : bool) : unit =
       _editable <- x;
-      if x then buttons#append_child remove
+      if x
+      then buttons#append_child remove
       else buttons#remove_child remove;
       item.widget#add_or_remove_class x Markup.Item.editing_class;
       List.iter (fun x -> x#layout ()) icons
 
-    method destroy () : unit =
-      super#destroy ();
-      Option.iter (fun (_, dialog) ->
-          try Dom.removeChild Dom_html.document##.body dialog#root
-          with _ -> ()) sd
-
-    initializer
+    method init () : unit =
       Option.iter (fun ((settings : #Widget.t), (dialog : Dialog.t)) ->
           let open Lwt.Infix in
           settings#listen_click_lwt (fun _ _ ->
@@ -142,8 +141,17 @@ class t ~(item : 'a item) () =
       self#add_class Markup.Item._class;
       title_box#add_class Markup.Item.title_class;
       content#add_class Markup.Item.content_class;
+      item.widget#add_class Markup.Item.widget_class;
       heading#add_class Markup.Item.heading_class;
       buttons#add_class Markup.Item.buttons_class
+
+    method destroy () : unit =
+      super#destroy ();
+      item.widget#remove_class Markup.Item.widget_class;
+      Option.iter (fun (_, dialog) ->
+          try Dom.removeChild Dom_html.document##.body dialog#root
+          with _ -> ()) sd
+
   end
 
 let make item =

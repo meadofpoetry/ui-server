@@ -1,10 +1,10 @@
 open Containers
 open Components
-open Common
 open Lwt_result.Infix
 open Api_js.Api_types
 open Widget_common
 open Board_types
+open Common
 
 type pid_flags =
   { has_pcr : bool
@@ -21,7 +21,7 @@ let ( % ) = Fun.( % )
 
 module Settings = struct
 
-  type t = { hex : bool }
+  type t = { hex : bool } [@@deriving eq]
 
   let (default : t) = { hex = false (* FIXME *) }
 
@@ -36,7 +36,7 @@ module Settings = struct
         ~align_end:true
         ~label:"HEX IDs"
         () in
-    let s, set = React.S.create settings in
+    let s, set = React.S.create ~eq:equal settings in
     object(self)
       inherit Vbox.t ~widgets:[hex_form] ()
 
@@ -160,7 +160,8 @@ class t ?(settings : Settings.t option)
   let init, timestamp = match init with
     | None -> [], None
     | Some { data; timestamp } -> data, Some timestamp in
-  let s_time, set_time = React.S.create timestamp in
+  let s_time, set_time =
+    React.S.create ~eq:(Equal.option Time.equal) timestamp in
   let fmt = make_table_fmt init in
   let table = new Table.t ~sticky_header:true ~dense:true ~fmt () in
   let empty =
@@ -172,7 +173,23 @@ class t ?(settings : Settings.t option)
 
     val mutable _data : Set.t = Set.of_list init
 
-    inherit Widget.t Dom_html.(createDiv document) ()
+    inherit Widget.t Dom_html.(createDiv document) () as super
+
+    method init () : unit =
+      super#init ();
+      Option.iter self#set_settings settings;
+      self#append_child table;
+      React.S.map ~eq:Equal.unit (function
+          | [] -> self#append_child empty
+          | _ -> self#remove_child empty) table#s_rows
+      |> self#_keep_s;
+      List.iter Fun.(ignore % add_row table) init;
+      self#add_class base_class
+
+    method destroy () : unit =
+      super#destroy ();
+      table#destroy ();
+      empty#destroy ();
 
     method pids = Set.to_list _data
 
@@ -261,15 +278,6 @@ class t ?(settings : Settings.t option)
                          ; scrambled = info.scrambled };
          service#set_value info.service_name;
 
-    initializer
-      Option.iter self#set_settings settings;
-      self#append_child table;
-      React.S.map (function
-          | [] -> self#append_child empty
-          | _ -> self#remove_child empty) table#s_rows
-      |> self#_keep_s;
-      List.iter Fun.(ignore % add_row table) init;
-      self#add_class base_class
   end
 
 let make ?settings

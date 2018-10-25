@@ -352,7 +352,11 @@ let typ_of_string = function
   | "t2mi" -> T2MI
   | _ -> failwith "bad typ string"
 
-let rec equal l r = ID.equal l.id r.id
+let equal l r = ID.equal l.id r.id
+
+let compare l r =
+  if equal l r then 0
+  else compare l r
 
 let find_by_multi_id (id : Multi_TS_ID.t)
       (streams : t list) =
@@ -387,3 +391,33 @@ let to_topo_port (b : topo_board) (t : t) : topo_port option =
        end
   in
   Option.flat_map (fun x -> get_port x b.ports) input
+
+module Table = struct
+
+  type url = Url.t [@@deriving eq]
+
+  type source_state =
+    [ `Forbidden
+    | `Limited of int
+    | `Unlimited
+    ] [@@deriving yojson, eq]
+
+  type set_error =
+    [ `Not_in_range
+    | `Limit_exceeded of (int * int)
+    | `Forbidden
+    | `Internal_error of string
+    ] [@@deriving yojson, eq]
+
+  type stream =
+    { url : Url.t option (* if None - stream is not selected *)
+    ; present : bool
+    ; stream : t
+    } [@@deriving yojson, eq]
+
+  type setting =
+    { url : Url.t
+    ; stream : t
+    } [@@deriving yojson, eq]
+
+end

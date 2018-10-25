@@ -48,16 +48,17 @@ module Audio_data = struct
     } [@@deriving yojson]
 end
 
-type labels = [ `Black
-              | `Luma
-              | `Freeze
-              | `Diff
-              | `Blocky
-              | `Silence_shortt
-              | `Silence_moment
-              | `Loudness_shortt
-              | `Loudness_moment
-              ] [@@deriving yojson]
+type labels =
+  [ `Black
+  | `Luma
+  | `Freeze
+  | `Diff
+  | `Blocky
+  | `Silence_shortt
+  | `Silence_moment
+  | `Loudness_shortt
+  | `Loudness_moment
+  ] [@@deriving yojson, eq]
 
 let video_data_to_list Video_data.{ stream; channel; pid; errors = { black; luma; freeze; diff; blocky } } =
   [ stream, channel, pid, 0, black
@@ -69,11 +70,11 @@ let video_data_to_list Video_data.{ stream; channel; pid; errors = { black; luma
 
 let audio_data_to_list Audio_data.{ stream; channel; pid; errors = { silence_shortt; silence_moment; loudness_shortt; loudness_moment } } =
   [ stream, channel, pid, 5, silence_shortt
-  ; stream, channel, pid, 6, silence_moment
-  ; stream, channel, pid, 7, loudness_shortt
+  ; stream, channel, pid, 6, loudness_shortt
+  ; stream, channel, pid, 7, silence_moment
   ; stream, channel, pid, 8, loudness_moment
   ]
-  
+
 let labels_of_int = function
   | 0 -> `Black
   | 1 -> `Luma
@@ -81,8 +82,8 @@ let labels_of_int = function
   | 3 -> `Diff
   | 4 -> `Blocky
   | 5 -> `Silence_shortt
-  | 6 -> `Silence_moment
-  | 7 -> `Loudness_shortt
+  | 6 -> `Loudness_shortt
+  | 7 -> `Silence_moment
   | 8 -> `Loudness_moment
   | _ -> failwith "Qoe_errors.labels_of_int: wrong int"
 
@@ -93,6 +94,6 @@ let labels_to_int = function
   | `Diff -> 3
   | `Blocky -> 4
   | `Silence_shortt -> 5
-  | `Silence_moment -> 6
-  | `Loudness_shortt -> 7
+  | `Loudness_shortt -> 6
+  | `Silence_moment -> 7
   | `Loudness_moment -> 8

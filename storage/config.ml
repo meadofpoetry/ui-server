@@ -1,14 +1,9 @@
 open Containers
 
 type config = Yojson.Safe.json option
-(*
-let () =
-  let _ = (let%lwt () = Lwt_io.printf "test\n" in
-           Lwt.return_unit)
-  in ()
- *)          
+
 let create path =
-  try 
+  try
     Unix.stat path
     |> (fun st -> st.Unix.st_kind)
     |> function

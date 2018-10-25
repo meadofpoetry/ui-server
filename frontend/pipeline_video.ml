@@ -1,6 +1,5 @@
 open Pipeline_js
 
 let () =
-  let w = Mosaic.page () in
-  let _ = new Ui_templates.Page.t (`Static [ w ]) () in
-  ()
+  let w = Page_video.page () in
+  ignore @@ new Ui_templates.Page.t (`Static [ w ]) ()
