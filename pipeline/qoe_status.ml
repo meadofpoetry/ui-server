@@ -5,6 +5,6 @@ type t =
   ; channel : int
   ; pid     : int
   ; playing : bool
-  } [@@deriving yojson]
+  } [@@deriving yojson, ord]
 
 type status_list = t list [@@deriving yojson]
