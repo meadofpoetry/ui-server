@@ -20,8 +20,14 @@ module WS = struct
     Api.Socket.handler socket_table sock_data event
       Wm.to_yojson body
 
-  let get_status (api : api) _ body sock_data () =
+  let get_status (api : api) ids _ body sock_data () =
     let event = S.changes api.notifs.status in
+    let event = match ids with
+      | [] -> event
+      | ids ->
+         React.E.map (List.filter (fun (x : Qoe_status.t) ->
+                          List.mem ~eq:Stream.ID.equal x.stream ids))
+           event in
     Api.Socket.handler socket_table sock_data event
       Qoe_status.status_list_to_yojson body
 
@@ -57,8 +63,13 @@ module HTTP = struct
          | Ok v -> Ok (Wm.to_yojson v))
     >>= respond_result
 
-  let get_status (api : api) _ body () =
+  let get_status (api : api) ids _ body () =
     React.S.value api.notifs.status
+    |> (fun l ->
+      match ids with
+      | [] -> l
+      | ids -> List.filter (fun (x : Qoe_status.t) ->
+                   List.mem ~eq:Stream.ID.equal x.stream ids) l)
     |> Qoe_status.status_list_to_yojson
     |> fun r -> respond_result (Ok r)
 
@@ -112,12 +123,12 @@ let status_handler (api : api) =
     "status"
     [ create_ws_handler ~docstring:"Stream status socket"
         ~path:Uri.Path.Format.empty
-        ~query:Uri.Query.empty
+        ~query:Uri.Query.["id", (module List(Stream.ID))]
         (WS.get_status api)
     ]
     [ `GET,  [ create_handler ~docstring:"Status"
                  ~path:Uri.Path.Format.empty
-                 ~query:Uri.Query.empty
+                 ~query:Uri.Query.["id", (module List(Stream.ID))]
                  (HTTP.get_status api)
              ]
     ]

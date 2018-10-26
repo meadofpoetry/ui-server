@@ -1,25 +1,23 @@
 open Api_js.Requests.Json_request
+open Common
 
 module WS = struct
 
-  open Common.Uri
-
   let get () =
     WS.get ?secure:None ?host:None ?port:None
-      ~path:Path.Format.("api/pipeline/status" @/ empty)
-      ~query:Query.empty
+      ~path:Uri.Path.Format.("api/pipeline/status" @/ empty)
+      ~query:Uri.Query.["id", (module List(Stream.ID))]
       ~from:Qoe_status.status_list_of_yojson
 
 end
 
 module HTTP = struct
 
-  open Common.Uri
-
-  let get () =
+  let get ?(ids = []) () =
     get_result ?scheme:None ?from_err:None ?host:None ?port:None
-      ~path:Path.Format.("api/pipeline/status" @/ empty)
-      ~query:Query.empty
+      ~path:Uri.Path.Format.("api/pipeline/status" @/ empty)
+      ~query:Uri.Query.["id", (module List(Stream.ID))]
       ~from:Qoe_status.status_list_of_yojson
+      ids
 
 end

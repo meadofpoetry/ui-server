@@ -313,6 +313,7 @@ module Info = struct
         method private add_pid (x : Pid.t) : unit =
           let pid = make_pid x in
           _pids <- pid :: _pids;
+          (* FIXME sort? *)
           pids_box#append_child pid
 
         method private remove_pid ((pid, info) : Pid.t) : unit =
