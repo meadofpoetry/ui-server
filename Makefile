@@ -1,4 +1,4 @@
-BUILD   = dune build
+BUILD   = dune build --profile release
 CLEAN   = dune clean
 CSS     = scss --style compressed
 CSS_DIR = dist/resources/css

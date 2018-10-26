@@ -26,7 +26,7 @@ let create (type a) typ (conv : a converter) ~sock_in ~sock_out =
     fun x ->
     Lwt_mutex.with_lock mutex (fun () ->
         Lwt.catch
-          (fun () -> Lwt_unix.with_timeout 0.5 (fun () ->
+          (fun () -> Lwt_unix.with_timeout 10.0 (fun () ->
                          Socket.send msg_sock (conv.to_string x) >>= fun () ->
                          (* Logs.debug (fun m -> m "(Pipeline) <send> msg was sent"); *)
                          Socket.recv msg_sock >|= fun resp ->
@@ -62,7 +62,7 @@ let get_send_and_recv (type a) sock (conv : a converter) =
     fun x ->
     Lwt_mutex.with_lock mutex (fun () ->
         Lwt.catch
-          (fun () -> Lwt_unix.with_timeout 0.5 (fun () ->
+          (fun () -> Lwt_unix.with_timeout 10.0 (fun () ->
                          Socket.send msg_sock (conv.to_string x) >>= fun () ->
                          (* Logs.debug (fun m -> m "(Pipeline) <send> msg was sent"); *)
                          Socket.recv msg_sock >|= fun resp ->
