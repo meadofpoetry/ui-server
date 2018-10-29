@@ -103,7 +103,7 @@ let notification_signal (type a b)
                       (function Failure _e -> Lwt.return_none)
   in                   
   let signal_add_setter signal default setter =
-    let signal = limit_inert ~eq:Pervasives.(=) 1.0 signal in
+    let signal = limit_inert ~eq:Pervasives.(=) 2.0 signal in
     React.S.fmap_s ~eq:Pervasives.(=) setter default signal
     |> Lwt_main.run
   in
