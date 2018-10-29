@@ -36,6 +36,6 @@ let make (id : Stream.ID.t) () =
     ] in
   new Dashboard.t
     ~edit_caps:(Partial { add = false; remove = false })
-    ~items:default
+    ~init:(Items default)
     factory
     ()

@@ -19,20 +19,20 @@ let event_of_string_exn = function
 
 class type t_js =
   object
-    method responsive                  : bool Js.t Js.prop
+    method responsive : bool Js.t Js.prop
     method responsiveAnimationDuration : int Js.prop
-    method maintainAspectRatio         : bool Js.t Js.prop
-    method onResize                    : (unit -> unit) Js.prop (* FIXME *)
-    method events                      : Js.js_string Js.t Js.js_array Js.t Js.prop
-    method onHover                     : (Dom_html.event Js.t -> 'a Js.js_array Js.t -> unit) Js.meth Js.prop
-    method onClick                     : (Dom_html.event Js.t -> 'a Js.js_array Js.t -> unit) Js.meth Js.prop
-    method hover                       : Hover.t_js Js.t Js.prop
-    method animation                   : Animation.t_js Js.t Js.prop
-    method layout                      : Layout.t_js Js.t Js.prop
-    method legend                      : Legend.t_js Js.t Js.prop
-    method title                       : Title.t_js Js.t Js.prop
-    method tooltips                    : Tooltip.t_js Js.t Js.prop
-    method elements                    : Elements.t_js Js.t Js.prop
+    method maintainAspectRatio : bool Js.t Js.prop
+    method onResize : (unit -> unit) Js.prop (* FIXME *)
+    method events : Js.js_string Js.t Js.js_array Js.t Js.prop
+    method onHover : (Dom_html.event Js.t -> 'a Js.js_array Js.t -> unit) Js.meth Js.prop
+    method onClick : (Dom_html.event Js.t -> 'a Js.js_array Js.t -> unit) Js.meth Js.prop
+    method hover : Hover.t_js Js.t Js.prop
+    method animation : Animation.t_js Js.t Js.prop
+    method layout : Layout.t_js Js.t Js.prop
+    method legend : Legend.t_js Js.t Js.prop
+    method title : Title.t_js Js.t Js.prop
+    method tooltips : Tooltip.t_js Js.t Js.prop
+    method elements : Elements.t_js Js.t Js.prop
   end
 
 class t (o:#t_js Js.t) () =
@@ -40,13 +40,13 @@ object(self)
 
   inherit base_option o () as super
 
-  val _hover     = new Hover.t ()
+  val _hover = new Hover.t ()
   val _animation = new Animation.t ()
-  val _layout    = new Layout.t ()
-  val _legend    = new Legend.t ()
-  val _title     = new Title.t ()
-  val _tooltip   = new Tooltip.t ()
-  val _elements  = new Elements.t ()
+  val _layout = new Layout.t ()
+  val _legend = new Legend.t ()
+  val _title = new Title.t ()
+  val _tooltip = new Tooltip.t ()
+  val _elements = new Elements.t ()
 
   (** Resizes the chart canvas when its container does *)
   method responsive : bool = Js.to_bool _obj##.responsive

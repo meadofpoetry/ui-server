@@ -1,5 +1,4 @@
 open Containers
-open Dynamic_grid
 
 include Dashboard_common
 include Dashboard_grid
@@ -24,8 +23,13 @@ type edit_caps =
   | Partial of edit
   | Forbidden
 
+type 'a init =
+  | Serialized of Yojson.Safe.json
+  | Items of 'a Item.positioned_item list
+
 class ['a] t ?(edit_caps = Absolute)
-        ~(items : 'a Item.positioned_item list)
+        ?on_edit
+        ~(init : 'a init)
         (factory : 'a #factory) () =
   let grid = new grid factory () in
   let add_panel =
@@ -33,8 +37,7 @@ class ['a] t ?(edit_caps = Absolute)
       ~widgets:(List.map (fun x -> new Dashboard_add_item.t x ())
                   (match factory#available with
                    | `List l -> l
-                   | `Groups _ -> [])) ()
-  in
+                   | `Groups _ -> [])) () in
   let edit_icon = Icon.SVG.(create_simple Path.pencil) in
   let add_icon = Icon.SVG.(create_simple Path.plus) in
   let add = new Fab.t ~icon:add_icon () in
@@ -52,7 +55,7 @@ class ['a] t ?(edit_caps = Absolute)
 
     inherit Vbox.t ~widgets:[grid#widget; fab#widget] () as super
 
-    method init () : unit =
+    method! init () : unit =
       super#init ();
       self#set_edit_caps edit_caps;
       let add_listener =
@@ -62,8 +65,10 @@ class ['a] t ?(edit_caps = Absolute)
       fab#main#listen Widget.Event.click (fun _ _ ->
           (match React.S.value fab#s_state with
            | false -> fab#show ()
-           | true  -> push @@ self#serialize ();
-                      fab#hide ());
+           | true ->
+              push @@ self#serialize ();
+              Option.iter (fun f -> f @@ self#serialize ()) on_edit;
+                fab#hide ());
           true)|> ignore;
       React.S.map (function
           | true  -> grid#set_editable true;
@@ -75,10 +80,13 @@ class ['a] t ?(edit_caps = Absolute)
       self#set_on_load @@ Some (fun () -> self#grid#layout (); fab#hide ());
       fab#add_class Markup.edit_button_class;
       self#add_class Markup.base_class;
-      List.map self#grid#add items |> ignore;
       self#grid#set_editable false;
+      begin match init with
+      | Serialized json -> ignore @@ self#restore json
+      | Items items -> ignore @@ List.map self#grid#add items
+      end
 
-    method destroy () : unit =
+    method! destroy () : unit =
       super#destroy ();
       self#grid#destroy ();
       factory#destroy ();
@@ -101,10 +109,11 @@ class ['a] t ?(edit_caps = Absolute)
         self#grid#items
       |> list_to_yojson (Item.positioned_item_to_yojson factory#serialize)
 
-    method deserialize (json : Yojson.Safe.json) : ('a Item.positioned_item list,string) result =
+    method deserialize (json : Yojson.Safe.json)
+           : ('a Item.positioned_item list,string) result =
       list_of_yojson (Item.positioned_item_of_yojson factory#deserialize) json
 
-    method restore (json:Yojson.Safe.json) : (unit,string) result =
+    method restore (json : Yojson.Safe.json) : (unit, string) result =
       self#deserialize json
       |> Result.map (fun l ->
              List.iter (fun x -> x#remove ()) self#grid#items; (* remove previous items *)

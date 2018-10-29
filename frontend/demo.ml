@@ -256,7 +256,6 @@ let list_demo () =
                       ~text:("List item " ^ (string_of_int x))
                       ~secondary_text:"some subtext here"
                       ~graphic:(new Avatar.Letter.t ~text:"A" ())
-                      ~ripple:true
                       ~value:()
                       ()))
       (List.range 0 5) in

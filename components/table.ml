@@ -308,7 +308,7 @@ module Row = struct
         let rec aux : type a. a Data.t -> a cells -> unit =
           fun data cells ->
           match data, cells with
-          | Data.[], Cell.[] -> ()
+          | Data.[], [] -> ()
           | Data.(::) (x, l1), cell :: l2 ->
              cell#set_value ?force x;
              aux l1 l2 in
@@ -467,7 +467,7 @@ module Body = struct
     ; offset : int
     }
 
-  class ['a] t ?selection () =
+  class ['a] t () =
     let elt = Markup.Body.create ~rows:[] ()
               |> To_dom.of_element in
     let s_rows, s_rows_push = React.S.create List.empty in
@@ -569,19 +569,19 @@ module Footer = struct
     let spacer = match spacer with
       | false -> None
       | true -> Option.return @@ Markup.Footer.create_spacer () in
-    let rpp : 'a list = match rows_per_page with
+    let (rpp : 'a list) = match rows_per_page with
       | Some (s, select) ->
          let caption = Markup.Footer.create_caption s () in
          [ caption; Widget.to_markup select ]
       | None -> [] in
-    let actions : 'a list = match actions with
+    let (actions : 'a list) = match actions with
       | [] -> []
       | l -> let actions = List.map Widget.to_markup l in
              [ Markup.Footer.create_actions actions () ] in
     let content = List.cons_maybe spacer rpp @ actions in
     let elt = Markup.Footer.create_toolbar content ()
               |> To_dom.of_element in
-    object(self)
+    object
       inherit Widget.t elt ()
     end
 
@@ -606,7 +606,6 @@ let rec compare : type a. int ->
                        a cells ->
                        a cells -> int =
   fun index cells1 cells2 ->
-  let open Cell in
   match cells1, cells2 with
   | [], [] -> 0
   | x1 :: rest1, x2 :: rest2 ->
@@ -620,7 +619,7 @@ class ['a] t ?selection
         ?(dense = false)
         ~(fmt : 'a Format.t) () =
   let s_selected, set_selected = React.S.create List.empty in
-  let body = new Body.t ?selection () in
+  let body = new Body.t () in
   let header = new Header.t ?selection s_selected
                  set_selected body#s_rows fmt () in
   let table = new Table.t ~header ~body () in

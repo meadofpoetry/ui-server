@@ -61,6 +61,7 @@ let input topo (input : Topology.topo_input) =
                     input_string boards cpu)
            ; Src "/js/moment.min.js"
            ; Src "/js/Chart.min.js"
+           ; Src "/js/chartjs-plugin-deferred.min.js"
            ; Src "/js/Chart.PieceLabel.min.js"
            ]
        ; post_scripts = [Src "/js/stream.js"]
@@ -88,7 +89,8 @@ let create (app : Application.t) : upper ordered_item list User.user_table =
   let demo_props =
     { title = Some "UI Демо"
     ; pre_scripts = [ Src "/js/moment.min.js"
-                    ; Src "/js/Chart.min.js" ]
+                    ; Src "/js/Chart.min.js"
+                    ; Src "/js/chartjs-plugin-deferred.min.js"]
     ; post_scripts = [ Src "/js/demo.js" ]
     ; stylesheets = ["/css/demo.min.css"]
     ; content = []

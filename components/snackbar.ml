@@ -44,18 +44,19 @@ class type mdc =
 
 class t ?start_aligned ?action ~message () =
 
-  let data = { message
-             ; action
-             ; multiline = false
-             ; action_on_bottom = false
-             ; timeout = None
-             } in
+  let data =
+    { message
+    ; action
+    ; multiline = false
+    ; action_on_bottom = false
+    ; timeout = None
+    } in
 
   let elt = Markup.create ?start_aligned () |> Tyxml_js.To_dom.of_div in
 
   object(self)
 
-    inherit Widget.t elt () as super
+    inherit Widget.t elt ()
 
     val mutable data_obj : data_obj Js.t = data_to_js_obj data
     val mutable data     : data = data

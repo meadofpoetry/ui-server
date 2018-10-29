@@ -29,7 +29,7 @@ let compute_horizontal_scroll_height ?(cache = true) () : int option =
      Dom.removeChild Dom_html.document##.body el;
      Some height
 
-class ['a, 'b] t ?on_change ?align
+class ['a, 'b] t ?align
         ~(tabs : ('a, 'b) Tab.t list) () =
   let eq = Widget.equal in
   let tabs' = List.map Widget.to_markup tabs in
@@ -54,6 +54,21 @@ class ['a, 'b] t ?on_change ?align
     val mutable _listeners = []
 
     inherit Widget.t elt () as super
+
+    method! init () : unit =
+      super#init ();
+      self#_init ();
+      area#style##.marginBottom :=
+        (match compute_horizontal_scroll_height () with
+         | Some x -> Js.string (Printf.sprintf "-%dpx" x)
+         | None -> Js.string "");
+      area#add_class Markup.scroll_area_scroll_class;
+      self#set_align _align
+
+    method! destroy () : unit =
+      super#destroy ();
+      List.iter Dom_events.stop_listen _listeners;
+      _listeners <- []
 
     method s_active_tab : ('a, 'b) Tab.t option React.signal =
       s_active
@@ -125,11 +140,6 @@ class ['a, 'b] t ?on_change ?align
          let safe_scroll_x = self#clamp_scroll_value target_scroll_x in
          let scroll_delta = safe_scroll_x - current_scroll_x in
          self#animate { scroll_delta; final_scroll_position = safe_scroll_x }
-
-    method destroy () : unit =
-      super#destroy ();
-      List.iter Dom_events.stop_listen _listeners;
-      _listeners <- []
 
     (* Private methods *)
 
@@ -229,14 +239,5 @@ class ['a, 'b] t ?on_change ?align
         ; keydown
         ; transitionend] in
       _listeners <- listeners;
-
-    initializer
-      self#_init ();
-      area#style##.marginBottom :=
-        (match compute_horizontal_scroll_height () with
-         | Some x -> Js.string (Printf.sprintf "-%dpx" x)
-         | None -> Js.string "");
-      area#add_class Markup.scroll_area_scroll_class;
-      self#set_align _align
 
   end

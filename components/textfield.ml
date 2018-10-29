@@ -79,7 +79,7 @@ module Helper_text = struct
 
       inherit Widget.t elt () as super
 
-      method init () : unit =
+      method! init () : unit =
         super#init ();
         self#set_validation validation;
         self#set_persistent persistent;
@@ -234,7 +234,6 @@ let valid_to_string (type a) (v : a validation) (e : a) : string =
 
 class ['a] t ?input_id
         ?label
-        ?placeholder
         ?(native_validation = true)
         ?required
         ?(line_ripple = true)
@@ -339,11 +338,11 @@ class ['a] t ?input_id
     method set_required (x : bool) : unit =
       input_elt##.required := Js.bool x
 
-    method set_disabled (x : bool) =
+    method! set_disabled (x : bool) : unit =
       super#set_disabled x;
       self#style_disabled x
 
-    method set_use_native_validation (x : bool) =
+    method set_use_native_validation (x : bool) : unit =
       _use_native_validation <- x
 
     method valid : bool =
@@ -566,7 +565,7 @@ class ['a] t ?input_id
     method private remove_custom_validity () : unit =
       self#set_custom_validity ""
 
-    method init () : unit =
+    method! init () : unit =
       super#init ();
       Option.iter self#set_required required;
       Option.iter (fun (x : Icon.t) ->
@@ -598,7 +597,7 @@ class ['a] t ?input_id
           ["mousedown"; "touchstart"] in
       let click_keydown =
         List.map (fun x ->
-            self#listen_lwt (Widget.Event.make x) (fun e _ ->
+            self#listen_lwt (Widget.Event.make x) (fun _ _ ->
                 Lwt.return @@ self#handle_text_field_interaction ()))
           ["click"; "keydown"] in
       let observer =
@@ -623,7 +622,7 @@ class ['a] t ?input_id
         let ripple = new Ripple.t adapter () in
         _ripple <- Some ripple
 
-    method destroy () : unit =
+    method! destroy () : unit =
       super#destroy ();
       List.iter Lwt.cancel _listeners;
       _listeners <- [];

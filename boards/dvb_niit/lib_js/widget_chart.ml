@@ -59,7 +59,10 @@ let make_chart_base ~(config : config)
       ~(init : float data)
       ~(event : float data React.event)
       () : 'a Dashboard.Item.item =
-  let settings, s_settings = make_settings { range = None } in
+  let init_settings = match config.settings with
+    | None -> { range = None }
+    | Some x -> x in
+  let settings, s_settings = make_settings init_settings in
   let range = get_suggested_range config.typ in
   let init = List.map (fun x ->
                  match List.Assoc.get ~eq:Stream.ID.equal x init with
@@ -80,7 +83,7 @@ let make_chart_base ~(config : config)
     | None ->
        axis#ticks#set_min None;
        axis#ticks#set_max None in
-  let y_axis,f = match config.typ with
+  let y_axis, f = match config.typ with
     | `Ber ->
        let axis =
          new Chartjs.Line.Axes.Logarithmic.t
@@ -88,7 +91,7 @@ let make_chart_base ~(config : config)
            ~position:`Left
            ~typ:Float
            () in
-       axis#coerce_common,f axis
+       axis#coerce_common, f axis
     | _ ->
        let axis =
          new Chartjs.Line.Axes.Linear.t
@@ -104,6 +107,13 @@ let make_chart_base ~(config : config)
       ~x_axes:[x_axis]
       ~y_axes:[y_axis]
       () in
+  let deferred =
+    object%js
+      val xOffset = 150
+      val yOffset = Js.string "50%"
+      val delay = 500
+    end in
+  (Js.Unsafe.coerce options#get_obj)##.deferred := deferred;
   let datasets =
     List.map (fun (_, data) ->
         let label = Printf.sprintf "%s" module_name in

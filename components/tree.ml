@@ -5,72 +5,44 @@ module Markup = Components_markup.Tree.Make(Xml)(Svg)(Html)
 
 module Item = struct
 
-  class ['a,'b] t ?ripple
-          ?(expand_on_click=true)
+  class ['a, 'b] t ?(expand_on_click = true)
           ?secondary_text
-          ?(graphic:#Widget.t option)
-          ?(meta:#Widget.t option)
-          ?(nested:'b option)
-          ~(value:'a)
+          ?(graphic : #Widget.t option)
+          ?(meta : #Widget.t option)
+          ?(nested : 'b option)
+          ~(value : 'a)
           ~text
           () =
 
-    let s,s_push = React.S.create false in
-    let meta =
-      (match meta with
-       | Some x -> Some x
-       | None   ->
-          Option.map (fun _ ->
-              let open Icon.SVG in
-              (* FIXME *)
-              let path = new Path.t Markup.Path.chevron_down () in
-              let icon = new Icon.SVG.t ~paths:[path] () in
-              React.S.map (fun x ->
-                  if x then path#set Markup.Path.chevron_up
-                  else path#set Markup.Path.chevron_down) s |> ignore;
-              icon#widget)
-            nested) in
-    let item = new Item_list.Item.t ?ripple ?secondary_text
-                 ?graphic ?meta ~tag:Html.div ~value ~text () in
-    let elt  = Markup.Item.create ~item:(Widget.to_markup item)
-                 ?nested_list:(Option.map Widget.to_markup nested) ()
-               |> Tyxml_js.To_dom.of_element in
+    let s, s_push = React.S.create false in
+    let meta = match meta with
+      | Some x -> Some x
+      | None ->
+         Option.map (fun _ ->
+             let open Icon.SVG in
+             (* FIXME *)
+             let path = new Path.t Markup.Path.chevron_down () in
+             let icon = new Icon.SVG.t ~paths:[path] () in
+             React.S.map (fun x ->
+                 if x then path#set Markup.Path.chevron_up
+                 else path#set Markup.Path.chevron_down) s |> ignore;
+             icon#widget)
+           nested in
+    let item =
+      new Item_list.Item.t ?secondary_text
+        ?graphic ?meta ~tag:Html.div ~value ~text () in
+    let elt =
+      Markup.Item.create ~item:(Widget.to_markup item)
+        ?nested_list:(Option.map Widget.to_markup nested) ()
+      |> To_dom.of_element in
     object(self)
 
       val mutable _value = value
 
-      inherit Widget.t elt ()
+      inherit Widget.t elt () as super
 
-      method value : 'a = _value
-      method set_value (x:'a) : unit =
-        _value <- x
-
-      method item = item
-      method nested_tree : 'b option = nested
-
-      method expanded : bool =
-        self#has_class Markup.Item.item_open_class
-
-      method expand () =
-        Option.iter (fun x -> x#add_class Markup.Item.list_open_class)
-          nested;
-        self#add_class Markup.Item.item_open_class
-
-      method collapse () =
-        Option.iter (fun x -> x#remove_class Markup.Item.list_open_class)
-          nested;
-        self#remove_class Markup.Item.item_open_class
-
-      method toggle () =
-        let open_class = Markup.Item.item_open_class in
-        let open_list  = Markup.Item.list_open_class in
-        Option.iter (fun x ->
-            x#toggle_class open_list
-            |> ignore)
-          self#nested_tree;
-        self#toggle_class open_class |> s_push
-
-      initializer
+      method! init () : unit =
+        super#init ();
         Option.iter (fun x ->
             x#add_class Markup.Item.list_class;
             item#style##.cursor := Js.string "pointer") nested;
@@ -83,15 +55,47 @@ module Item = struct
               self#toggle ();
               true)
           |> ignore;
-
         Option.iter (fun meta ->
             Dom_events.listen meta#root Dom_events.Typ.click
               (fun _ e ->
-                 Dom_html.stopPropagation e;
-                 self#toggle ();
-                 true)
+                Dom_html.stopPropagation e;
+                self#toggle ();
+                true)
             |> ignore;
-          ) meta;
+          ) meta
+
+      method value : 'a =
+        _value
+
+      method set_value (x : 'a) : unit =
+        _value <- x
+
+      method item = item
+
+      method nested_tree : 'b option =
+        nested
+
+      method expanded : bool =
+        self#has_class Markup.Item.item_open_class
+
+      method expand () : unit =
+        Option.iter (fun x -> x#add_class Markup.Item.list_open_class)
+          nested;
+        self#add_class Markup.Item.item_open_class
+
+      method collapse () : unit =
+        Option.iter (fun x -> x#remove_class Markup.Item.list_open_class)
+          nested;
+        self#remove_class Markup.Item.item_open_class
+
+      method toggle () : unit =
+        let open_class = Markup.Item.item_open_class in
+        let open_list  = Markup.Item.list_open_class in
+        Option.iter (fun x ->
+            x#toggle_class open_list
+            |> ignore)
+          self#nested_tree;
+        self#toggle_class open_class |> s_push
 
     end
 
@@ -122,6 +126,13 @@ class ['a] t
     val mutable _items = items
 
     inherit Widget.t elt () as super
+
+    method! init () : unit =
+      super#init ();
+      self#set_dense dense;
+      match level with
+      | Some l -> self#set_attribute "data-level" @@ string_of_int l
+      | None -> self#_padding ()
 
     method items = _items
 
@@ -180,11 +191,5 @@ class ['a] t
             | Some el -> iter el#items (n+1)
             | None   -> ()) l in
       iter self#items 1
-
-    initializer
-      self#set_dense dense;
-      match level with
-      | Some l -> self#set_attribute "data-level" @@ string_of_int l
-      | None   -> self#_padding ()
 
   end

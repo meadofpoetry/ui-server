@@ -192,7 +192,14 @@ let make_y_axis ?(id = "y-axis") (config : widget_config)
 
 let make_options ~x_axes ~y_axes
       (config : widget_config) : Line.Options.t =
+  let deferred =
+    object%js
+      val xOffset = 150
+      val yOffset = Js.string "50%"
+      val delay = 500
+    end in
   let options = new Line.Options.t ~x_axes ~y_axes () in
+  (Js.Unsafe.coerce options#get_obj)##.deferred := deferred;
   options#set_maintain_aspect_ratio false;
   options#set_responsive true;
   options#animation#set_duration 0;

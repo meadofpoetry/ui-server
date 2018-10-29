@@ -13,13 +13,13 @@ class t ?(for_ : string option) (label : string) () =
 
     inherit Widget.t elt () as super
 
-    method init () : unit =
+    method! init () : unit =
       super#init ();
       self#listen_lwt Widget.Event.animationend (fun e _ ->
           Lwt.return @@ self#shake_animation_end_handler e)
       |> fun x -> _listener <- Some x
 
-    method destroy () : unit =
+    method! destroy () : unit =
       super#destroy ();
       Option.iter Lwt.cancel _listener;
       _listener <- None
@@ -38,7 +38,7 @@ class t ?(for_ : string option) (label : string) () =
 
     (* Private methods *)
 
-    method private shake_animation_end_handler (e : event) : unit =
+    method private shake_animation_end_handler (_ : event) : unit =
       self#remove_class Markup.shake_class
 
   end
