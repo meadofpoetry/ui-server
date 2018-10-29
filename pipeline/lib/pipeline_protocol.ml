@@ -68,26 +68,48 @@ let settings_init typ send (options : options) =
                         >>= function  Ok ()   -> Lwt_io.printf "Settings resp: fine\n"
                                     | Error r -> Lwt_io.printf "Settings resp: %s\n" r)
  *)
-                           
+
+let limit_inert ~eq t s =
+  let open React in
+  let tm = ref Lwt.return_unit in
+  let event, epush = E.create () in
+  let iter = E.fmap (fun x ->
+                 if Lwt.is_sleeping !tm then begin
+                     Lwt.cancel !tm;
+                     tm := Lwt_unix.sleep t;
+                     Lwt.on_success !tm (fun () -> epush x);
+                     None end
+                 else begin
+                     tm := Lwt_unix.sleep t;
+                     Lwt.on_success !tm (fun () -> epush x);
+                     None
+                   end) (S.changes s)
+  in S.hold ~eq (S.value s) (E.select [iter; event])
+
+let notification_mutex = Lwt_mutex.create ()
+   
 let notification_signal (type a b)
       ~(combine: set:a -> b -> [`Kept of a | `Changed of a | `Updated of a ])
       ~channel
       ~options
-      ~(signal:b React.signal) =
+      ~(signal:b React.signal) =  
   let make_setter merge set value =
     match merge value with
-    | `Kept v -> Some v
-    | `Updated v -> (options#store v; Some v)
-    | `Changed v -> match Lwt_main.run @@ set v with
-                    | Ok () -> Some v
-                    | Error _e -> None (* TODO add log *)
-                    | exception Failure _e -> None
+    | `Kept v -> Lwt.return_some v
+    | `Updated v -> (options#store v; Lwt.return_some v)
+    | `Changed v -> Lwt.try_bind (fun () -> set v)
+                      (function Ok () -> Lwt.return_some v
+                              | Error _e -> Lwt.return_none (* TODO add log *))
+                      (function Failure _e -> Lwt.return_none)
   in                   
   let signal_add_setter signal default setter =
-    let signal = React.S.limit ~eq:Pervasives.(=) (fun () -> Lwt_unix.sleep 1.) signal in
-    React.S.fmap ~eq:Pervasives.(=) setter default signal
+    let signal = limit_inert ~eq:Pervasives.(=) 1.0 signal in
+    React.S.fmap_s ~eq:Pervasives.(=) setter default signal
+    |> Lwt_main.run
   in
-  let merge   = make_setter (fun (x : b) -> combine ~set:(options#get) x) channel.set in
+  let merge v = Lwt_mutex.with_lock notification_mutex
+                  (fun () -> make_setter (fun (x : b) -> combine ~set:(options#get) x) channel.set v)
+  in
   let default = options#get in
   signal_add_setter signal default merge
 
@@ -189,31 +211,31 @@ let init_exchange (type a) (typ : a typ) send structures_packer (options : optio
                                 ~channel:(Settings_msg.create typ send)
                  ; applied_structs = Applied_structures_request.create typ send }
   in
-  let structures = React.S.hold ~eq:Pervasives.(=) [] strm in
-  let wm         = React.S.hold ~eq:Wm.equal Wm.default wm in
-  let settings   = React.S.hold ~eq:Settings.equal Settings.default sets in
-  (* let structures = notification_signal
-   *                    ~combine:Structure.Structures.combine
-   *                    ~channel:(Structure_msg.create typ send)
-   *                    ~options:(options.structures)
-   *                    ~signal:(React.S.l2 ~eq:Pervasives.(=) Pair.make
-   *                               applied_structs
-   *                               (React.S.hold ~eq:Pervasives.(=) options.structures#get strm))
-   * in
-   * 
-   * let wm = notification_signal
-   *            ~combine:Wm.combine
-   *            ~channel:(Wm_msg.create typ send)
-   *            ~options:(options.wm)
-   *            ~signal:(React.S.hold ~eq:Wm.equal options.wm#get wm)
-   * in
-   * 
-   * let settings = notification_signal
-   *                  ~combine:Settings.combine
-   *                  ~channel:(Settings_msg.create typ send)
-   *                  ~options:(options.settings)
-   *                  ~signal:(React.S.hold ~eq:Settings.equal options.settings#get sets)
-   * in *)
+  (* let structures = React.S.hold ~eq:Pervasives.(=) [] strm in
+   * let wm         = React.S.hold ~eq:Wm.equal Wm.default wm in
+   * let settings   = React.S.hold ~eq:Settings.equal Settings.default sets in *)
+  let structures = notification_signal
+                     ~combine:Structure.Structures.combine
+                     ~channel:(Structure_msg.create typ send)
+                     ~options:(options.structures)
+                     ~signal:(React.S.l2 ~eq:Pervasives.(=) Pair.make
+                                applied_structs
+                                (React.S.hold ~eq:Pervasives.(=) options.structures#get strm))
+  in
+  
+  let wm = notification_signal
+             ~combine:Wm.combine
+             ~channel:(Wm_msg.create typ send)
+             ~options:(options.wm)
+             ~signal:(React.S.hold ~eq:Wm.equal options.wm#get wm)
+  in
+  
+  let settings = notification_signal
+                   ~combine:Settings.combine
+                   ~channel:(Settings_msg.create typ send)
+                   ~options:(options.settings)
+                   ~signal:(React.S.hold ~eq:Settings.equal options.settings#get sets)
+  in
   
   let streams =
     React.S.map ~eq:(Equal.list Structure.equal_packed) structures_packer structures
