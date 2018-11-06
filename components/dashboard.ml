@@ -29,9 +29,7 @@ type load_error =
   | Bad_format of string
 
 let sort l =
-  let cmp = fun (a : 'a Item.positioned_item as 'b) (b : 'b) ->
-    Position.compare a.position b.position in
-  List.sort cmp l
+  Position.sort_by_y ~f:(fun (x : 'a Item.positioned_item) -> x.position) l
 
 class ['a] t ?(edit_caps = Absolute)
         ?on_edit

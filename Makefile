@@ -7,6 +7,10 @@ home:
 	$(BUILD) frontend/home.bc.js
 	cp _build/default/frontend/home.bc.js dist/resources/js/home.js
 
+sandbox:
+	$(BUILD) frontend/page_sandbox.bc.js
+	cp _build/default/frontend/page_sandbox.bc.js dist/resources/js/sandbox.js
+
 input:
 	$(BUILD) frontend/page_input.bc.js
 	cp _build/default/frontend/page_input.bc.js dist/resources/js/input.js
@@ -49,7 +53,7 @@ css-pages:
 
 css: css-components css-pages
 
-frontend: home pipeline hardware user network demo input stream
+frontend: home pipeline hardware user network demo input stream sandbox
 
 backend:
 	$(BUILD) backend/backend.exe

@@ -50,7 +50,7 @@ class ['a] cell ?(typ = `Item)
       self#set_x (pos.x * w);
       self#set_y (pos.y * h);
       self#set_w (pos.w * w);
-      self#set_h (pos.h * h)
+      self#set_h (pos.h * h);
 
     method private margin : int * int =
       React.S.value s_margin
@@ -59,13 +59,13 @@ class ['a] cell ?(typ = `Item)
       px_pos
 
     method private set_x (x : int) : unit =
-      let value = Utils.translate px_pos.x px_pos.y in
       px_pos <- { px_pos with x = x + (fst self#margin) };
+      let value = Utils.translate px_pos.x px_pos.y in
       self#root##.style##.transform := Js.string value
 
     method private set_y (y : int) : unit =
-      let value = Utils.translate px_pos.x px_pos.y in
       px_pos <- { px_pos with y = y + (snd self#margin) };
+      let value = Utils.translate px_pos.x px_pos.y in
       self#root##.style##.transform := Js.string value
 
     method private set_w (w : int) : unit =

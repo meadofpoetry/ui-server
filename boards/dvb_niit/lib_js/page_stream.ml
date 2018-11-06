@@ -34,12 +34,10 @@ let make_default (stream : Stream.ID.t)
 
 let make (stream : Stream.ID.t) (control : int) =
   let factory = new Widget_factory.t control () in
-  let (init : 'a Dashboard.content) = match Storage.get key with
-    | None -> Items (make_default stream)
-    | Some x -> Serialized x in
   new Dashboard.t
+    ?init:(Option.map (fun x -> Dashboard.Serialized x) @@ Storage.get key)
+    ~default:(Items (make_default stream))
     ~on_edit:(Storage.put key)
     ~edit_caps:(Partial { add = false; remove = false })
-    ~init
     factory
     ()

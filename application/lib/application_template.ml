@@ -95,6 +95,15 @@ let create (app : Application.t) : upper ordered_item list User.user_table =
     ; stylesheets = ["/css/demo.min.css"]
     ; content = []
     } in
+  let sandbox =
+    { title = Some "Песочница"
+    ; pre_scripts = [ Src "/js/moment.min.js"
+                    ; Src "/js/Chart.min.js"
+                    ; Src "/js/chartjs-plugin-deferred.min.js" ]
+    ; post_scripts = [Src "/js/sandbox.js"]
+    ; stylesheets = ["/css/sandbox.min.css"]
+    ; content = []
+    } in
   let inputs = Topology.get_inputs topo in
   let input_templates, stream_templates =
     List.map (input topo) inputs
@@ -106,10 +115,15 @@ let create (app : Application.t) : upper ordered_item list User.user_table =
               ; href = Uri.Path.of_string "input"
               ; templates = input_templates }
     ; `Index 3,
-      Simple  { title = "Конфигурация"
-              ; icon = Some (make_icon Icon.SVG.Path.tournament)
-              ; href = Uri.Path.of_string "application"
-              ; template = props }
+      Simple { title = "Конфигурация"
+             ; icon = Some (make_icon Icon.SVG.Path.tournament)
+             ; href = Uri.Path.of_string "application"
+             ; template = props }
+    (* ; `Index 4,
+     *   Simple { title = "Песочница"
+     *          ; icon = Some (make_icon Icon.SVG.Path.view_dashboard)
+     *          ; href = Uri.Path.of_string "sandbox"
+     *          ; template = sandbox } *)
     (* ; `Index 4,
      *   Simple  { title = "UI Демо"
      *           ; icon = Some (make_icon Icon.SVG.Path.material_design)

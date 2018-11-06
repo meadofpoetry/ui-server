@@ -189,7 +189,6 @@ class ['a, 'b, 'c] t ~grid
 
     method add (x : 'c) : ('a Item.t, add_error) result =
       let (x : 'a item) = get x in
-      print_endline @@ "add: " ^ Position.to_string x.pos;
       let items = List.map (fun x -> x#pos) (React.S.value s_items) in
       match Position.get_all_collisions ~f:(fun x -> x) x.pos items with
       | [] ->

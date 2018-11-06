@@ -382,7 +382,7 @@ class ['a] t ~s_grid (* grid props *)
         (self#get_drag_target#add_class Markup.Item.dragging_class;
          let ghost = self#make_ghost () in
          ghost#style##.zIndex := Js.string "1";
-         self#style##.zIndex  := Js.string "3";
+         self#style##.zIndex := Js.string "3";
          (* add ghost item to dom to show possible element position *)
          Dom.appendChild self#get_parent ghost#root;
          match ev with
@@ -393,22 +393,26 @@ class ['a] t ~s_grid (* grid props *)
       if self#resizable
       then (let ghost = self#make_ghost () in
             ghost#style##.zIndex := Js.string "4";
-            self#style##.zIndex  := Js.string "3";
+            self#style##.zIndex := Js.string "3";
             Dom.appendChild self#get_parent ghost#root;
             (* add resize/stop resize event listeners *)
             match ev with
-            | Mouse ev -> Dom_html.stopPropagation ev;
-                          self#mouse_action self#apply_size ghost ev
-            | Touch ev -> Dom_html.stopPropagation ev;
-                          self#touch_action self#apply_size ghost ev)
+            | Mouse ev ->
+               Dom_html.stopPropagation ev;
+               self#mouse_action self#apply_size ghost ev
+            | Touch ev ->
+               Dom_html.stopPropagation ev;
+               self#touch_action self#apply_size ghost ev)
 
     method private apply_position ~x ~y ~init_x ~init_y ~init_pos typ ghost =
       match x, y with
       | 0, 0 -> ()
       | _ ->
-         let col_px, row_px = React.S.value s_col_w, React.S.value s_row_h in
+         let col_px, row_px =
+           React.S.value s_col_w,
+           React.S.value s_row_h in
          match typ with
-         | `Move->
+         | `Move ->
             let open Utils in
             let cols, rows = self#grid.cols,self#grid.rows in
             let x, y = init_pos.x + x - init_x, init_pos.y + y - init_y in
@@ -429,7 +433,7 @@ class ['a] t ~s_grid (* grid props *)
             self#layout ();
             Option.iter (fun f -> f self#pos ghost#pos col_px row_px)
               item.on_dragging
-         | `End->
+         | `End ->
             self#get_drag_target#remove_class Markup.Item.dragging_class;
             Option.iter Dom_events.stop_listen mov_listener;
             Option.iter Dom_events.stop_listen end_listener;
@@ -453,30 +457,34 @@ class ['a] t ~s_grid (* grid props *)
          | _ -> ()
 
     method private apply_size ~x ~y ~init_x ~init_y ~init_pos typ ghost =
-      let col_px, row_px = React.S.value s_col_w, React.S.value s_row_h in
+      let col_px, row_px =
+        React.S.value s_col_w,
+        React.S.value s_row_h in
       match typ with
       | `Move ->
          let open Utils in
          let cols, rows = self#grid.cols, self#grid.rows in
          let w, h = init_pos.w + x - init_x, init_pos.h + y - init_y in
-         let pos  =
+         let pos =
            let { max_w; min_w; max_h; min_h; _ } = _item in
            Position.correct_wh ?max_w ?min_w ?max_h ?min_h
              { self#pos with w = w // col_px
                            ; h = h // row_px }
              cols rows in
          let pos =
-           if not _item.keep_ar then pos
-           else let resolution = self#pos.w,self#pos.h in
-                let aspect = Utils.resolution_to_aspect resolution in
-                Position.correct_aspect pos aspect in
+           if not _item.keep_ar then pos else
+             let resolution = self#pos.w,self#pos.h in
+             let aspect = Utils.resolution_to_aspect resolution in
+             Position.correct_aspect pos aspect in
          self#resolve_pos_conflicts ~action:`Size ghost pos;
          let w, h =
            if self#grid.restrict_move
-           then (let pos = Position.correct_wh { self#px_pos with w;h }
-                             (cols * col_px)
-                             (Option.map (fun x -> x * row_px) rows) in
-                 pos.w, pos.h)
+           then
+             (let pos =
+                Position.correct_wh { self#px_pos with w; h }
+                  (cols * col_px)
+                  (Option.map (( * ) row_px) rows) in
+              pos.w, pos.h)
            else w, h in
          self#set_w w;
          self#set_h h;

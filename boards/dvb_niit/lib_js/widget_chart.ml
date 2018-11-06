@@ -127,8 +127,6 @@ let make_chart_base ~(config : config)
       x#set_cubic_interpolation_mode `Monotone;
       x#set_fill `Disabled)
     datasets;
-  if List.length config.ids < 2
-  then options#legend#set_display false;
   x_axis#ticks#set_auto_skip_padding 2;
   x_axis#scale_label#set_display true;
   x_axis#scale_label#set_label_string "Время";
@@ -136,7 +134,13 @@ let make_chart_base ~(config : config)
   (* x_axis#time#set_unit (Some `Second); *)
   y_axis#scale_label#set_display true;
   y_axis#scale_label#set_label_string @@ measure_type_to_unit config.typ;
+  if List.length config.ids < 2
+  then options#legend#set_display false;
   options#set_maintain_aspect_ratio false;
+  options#set_responsive true;
+  options#animation#set_duration 0;
+  options#hover#set_animation_duration 0;
+  options#set_responsive_animation_duration 0;
   let chart = new Chartjs.Line.t ~options ~datasets () in
   let set = fun ds data ->
     List.iter (fun point -> ds#push point) data;

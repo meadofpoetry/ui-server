@@ -33,7 +33,7 @@ type 'a item =
 type 'a positioned_item =
   { item : 'a
   ; position : Position.t
-  } [@@deriving yojson]
+  } [@@deriving yojson, eq]
 
 let make_timestamp ~time ~to_string () =
   { time; to_string }

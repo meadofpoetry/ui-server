@@ -72,7 +72,7 @@ let make_tabs stream input (boards : (int * string) list) cpu =
       new Tab.t ~value:(hash, f) ~content:(Text name) ()) tabs
 
 let () =
-  let open Common.Stream in
+  let open Stream in
   let uri = Dom_html.window##.location##.pathname
             |> Js.to_string in
   let fmt = Uri.Path.Format.("input" @/ String ^/ Int ^/ ID.fmt ^/ empty) in
