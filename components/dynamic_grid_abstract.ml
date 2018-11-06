@@ -43,10 +43,10 @@ class ['a, 'b, 'c] t ~grid
   let s_items =
     React.S.fold (fun acc -> function
         | `Add x -> x :: acc
-        | `Remove x -> List.filter Fun.(Widget.equal x %> not) acc)
+        | `Remove x -> List.filter Fun.(not % Widget.equal x) acc)
       [] e_modify in
   let new_item item =
-    new Item.t ~s_grid ~s_items ~e_modify_push ~s_selected ~s_selected_push
+    new Item.t ~s_grid ~s_items ~s_selected ~s_selected_push
       ~s_col_w ~s_row_h ~item () in
   let items = List.map (fun item -> new_item item) items in
   let s_change =
@@ -95,6 +95,17 @@ class ['a, 'b, 'c] t ~grid
     method! init () : unit =
       (* FIXME save state *)
       super#init ();
+      let remove_event = Widget.Event.make Item.remove_event in
+      let remove_listener =
+        self#listen_lwt remove_event (fun e _ ->
+            let eq = Equal.physical in
+            let item = (Js.Unsafe.coerce e)##.detail in
+            begin match List.find_opt (fun x -> eq x#root item) self#items with
+            | None -> ()
+            | Some i -> e_modify_push (`Remove i)
+            end;
+            Lwt.return_unit) in
+      Lwt.ignore_result remove_listener;
       React.S.map (fun _ -> self#layout ()) s_grid |> ignore;
       (* add item add/remove listener *)
       React.E.map (fun action ->
@@ -102,7 +113,7 @@ class ['a, 'b, 'c] t ~grid
            | `Add (x : 'b) -> self#append_child x
            | `Remove x -> self#remove_child x);
           (* FIXME make vertical compact variable *)
-          if self#grid.vertical_compact then self#compact) e_modify
+          if self#grid.vertical_compact then self#compact ()) e_modify
       |> ignore;
       (* add initial items *)
       List.iter (fun x -> e_modify_push (`Add x)) items;
@@ -178,14 +189,14 @@ class ['a, 'b, 'c] t ~grid
 
     method add (x : 'c) : ('a Item.t, add_error) result =
       let (x : 'a item) = get x in
+      print_endline @@ "add: " ^ Position.to_string x.pos;
       let items = List.map (fun x -> x#pos) (React.S.value s_items) in
       match Position.get_all_collisions ~f:(fun x -> x) x.pos items with
       | [] ->
          let item = new_item x in
          e_modify_push (`Add item);
-         self#append_child item;
          Ok item
-      | l -> Error (Collides l)
+      | l -> print_endline "error: collides"; Error (Collides l)
 
     method draggable : bool option =
       self#grid.draggable
@@ -205,11 +216,16 @@ class ['a, 'b, 'c] t ~grid
     method set_selectable (x : bool option) : unit =
       s_grid_push { self#grid with selectable = x }
 
-    method remove (x : 'b) : unit =
-      x#remove ()
+    method remove (item : 'b) : unit =
+      match List.find_opt (Widget.equal item) self#items with
+      | None -> ()
+      | Some x ->
+         x#set_selected false;
+         self#remove_child x;
+         x#destroy ()
 
     method remove_all () : unit =
-      List.iter self#remove self#items
+      List.iter (fun x -> e_modify_push (`Remove x)) self#items
 
     (* Private methods *)
 
@@ -228,10 +244,12 @@ class ['a, 'b, 'c] t ~grid
       if x <= self#offset_width && x >= 0 && y <= self#offset_height && y >= 0
       then Some { x; y; w = 1; h = 1 } else None
 
-    method private compact =
+    method private compact () : unit =
       let other i = List.filter (not % Widget.equal i) self#items in
       List.iter (fun x ->
           x#set_pos
-          @@ Position.compact ~f:(fun x -> x#pos) x#pos (other x)) self#items
+          @@ Position.compact ~f:(fun x -> x#pos)
+               x#pos
+               (other x)) self#items
 
   end

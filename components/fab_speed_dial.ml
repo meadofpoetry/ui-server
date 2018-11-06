@@ -40,11 +40,20 @@ class actions ~(items : Fab.t list) () =
 
     method items = _items
 
-    method add (x : Fab.t) : unit =
-      x#set_mini true;
-      let action = new action ~z_index:(List.length self#items + z) x () in
-      super#append_child action;
+    method prepend (x : Fab.t) : unit =
+      let action = self#wrap_action x in
+      super#insert_child_at_idx 0 action;
       _items <- action :: self#items
+
+    method append (x : Fab.t) : unit =
+      let action = self#wrap_action x in
+      super#append_child action;
+      _items <- self#items @ [action]
+
+    method insert_at_index (idx : int) (x : Fab.t) : unit =
+      let action = self#wrap_action x in
+      super#insert_child_at_idx idx action;
+      _items <- List.insert_at_idx idx action _items
 
     method remove (fab : Fab.t) : unit =
       match List.find_opt (fun a -> Equal.physical fab a#fab) self#items with
@@ -52,6 +61,10 @@ class actions ~(items : Fab.t list) () =
       | Some x ->
          self#remove_child x;
          _items <- List.remove ~eq:Widget.equal ~x self#items
+
+    method private wrap_action (x : Fab.t) : action =
+      x#set_mini true;
+      new action ~z_index:(List.length self#items + z) x ()
 
   end
 
@@ -103,8 +116,18 @@ class t ?(animation = `Scale) ?(direction = `Up) ~icon ~items () =
     method items =
       List.map (fun x -> x#fab) self#actions#items
 
-    method add (x : Fab.t) : unit =
-      self#actions#add x; self#_set_main_z_index ()
+    method append (x : Fab.t) : unit =
+      self#actions#append x;
+      self#_set_main_z_index ()
+
+    method prepend (x : Fab.t) : unit =
+      self#actions#prepend x;
+      self#_set_main_z_index ()
+
+    method insert_at_index (idx : int) (x : Fab.t) : unit =
+      self#actions#insert_at_index idx x;
+      self#_set_main_z_index ()
+
     method remove (x : Fab.t) : unit =
       self#actions#remove x
 

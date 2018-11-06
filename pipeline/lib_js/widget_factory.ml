@@ -8,7 +8,7 @@ open Common
 let ( % ) = Fun.( % )
 
 type item =
-  | Chart of Widget_parameter_chart.widget_config option
+  | Chart of Widget_parameter_chart.widget_config option [@@deriving yojson]
 
 class t () =
 object(self)
@@ -55,11 +55,11 @@ object(self)
     `List []
 
   method serialize (x : item) : Yojson.Safe.json =
-    `Null
+    item_to_yojson x
 
   method deserialize (json : Yojson.Safe.json)
          : (item, string) result =
-    Ok (Chart None)
+    item_of_yojson json
 
   (* Private methods *)
 

@@ -8,10 +8,15 @@ type action =
   | Mouse of Dom_html.mouseEvent Js.t
   | Touch of Dom_html.touchEvent Js.t
 
+let remove_event = "MDCDynamicGridItem:remove"
+
 let ( % ) = Fun.( % )
 
-let to_item ?min_w ?min_h ?max_w ?max_h ?(keep_ar = false)
-      ?(resizable = true) ?(draggable = true) ?(selectable = true)
+let to_item ?min_w ?min_h ?max_w ?max_h
+      ?(keep_ar = false)
+      ?(resizable = true)
+      ?(draggable = true)
+      ?(selectable = true)
       ?on_resize ?on_resizing ?on_drag ?on_dragging
       ?close_widget ?move_widget ?widget ~pos ~value () =
   { pos; min_w; min_h; max_w; max_h; keep_ar; resizable; draggable; selectable;
@@ -39,13 +44,12 @@ let rec find_touch id num source =
 let filter ~(exclude : #Widget.t list) (l : #Widget.t list) =
   List.filter (fun x -> not (List.mem ~eq:Widget.equal x exclude)) l
 
-class ['a] t ~s_grid      (* grid props *)
+class ['a] t ~s_grid (* grid props *)
         ~(item : 'a item) (* item props *)
-        ~e_modify_push    (* add/delete item event *)
-        ~s_selected       (* selected items *)
-        ~s_selected_push  (* selected items signal modifier *)
-        ~s_col_w          (* column width signal -- px *)
-        ~s_row_h          (* row height signal   -- px *)
+        ~s_selected (* selected items *)
+        ~s_selected_push (* selected items signal modifier *)
+        ~s_col_w (* column width signal -- px *)
+        ~s_row_h (* row height signal -- px *)
         ~(s_items : 'a t list React.signal) (* items signal *)
         () =
   let s_value, s_value_push = React.S.create item.value in
@@ -55,8 +59,6 @@ class ['a] t ~s_grid      (* grid props *)
 
     (* FIXME make normal signal *)
     val s_change = React.S.create ~eq:(fun _ _ -> false) item.pos
-
-    val ghost = new cell ~typ:`Ghost ~s_col_w ~s_row_h ~s_grid ~pos:item.pos ()
 
     val resize_button =
       let icon = Icon.SVG.(create_simple Path.resize_bottom_right) in
@@ -78,11 +80,46 @@ class ['a] t ~s_grid      (* grid props *)
     val mutable selected = false
     val mutable drag_timer = None
 
-    (** API **)
+    (** API *)
+
+    method! init () : unit =
+      super#init ();
+      (self#_keep_s
+       @@ React.S.map (function
+              | Some x -> self#_set_draggable x
+              | None -> self#_set_draggable self#draggable)
+       @@ React.S.map ~eq:(Equal.option Equal.bool) (fun x -> x.draggable) s_grid);
+      (self#_keep_s
+       @@ React.S.map (function
+              | Some x -> self#_set_resizable x
+              | None -> self#_set_resizable self#resizable)
+       @@ React.S.map ~eq:(Equal.option Equal.bool) (fun x -> x.resizable) s_grid);
+      (self#_keep_s
+       @@ React.S.map (function
+              | Some x -> self#_set_selectable x
+              | None -> self#_set_selectable self#selectable)
+       @@ React.S.map ~eq:(Equal.option Equal.bool) (fun x -> x.selectable) s_grid);
+      (* add close listener to close widget if provided *)
+      Option.iter (fun x ->
+          Dom_events.listen x#root Dom_events.Typ.click (fun _ _ ->
+              self#remove (); true) |> ignore) item.close_widget;
+      (* append widget to cell if provided *)
+      Option.iter self#append_child item.widget;
+
+    method! layout () : unit =
+      super#layout ();
+      Option.iter (fun x -> x#layout ()) _item.widget;
+      Option.iter (fun x -> x#layout ()) item.move_widget;
+      Option.iter (fun x -> x#layout ()) item.close_widget
+
+    method! destroy () : unit =
+      super#destroy ();
+      Option.iter (fun x -> x#destroy ()) item.widget;
+      Option.iter (fun x -> x#destroy ()) item.move_widget;
+      Option.iter (fun x -> x#destroy ()) item.close_widget;
 
     method! set_pos (p : Position.t) =
-      super#set_pos p;
-      ghost#set_pos p
+      super#set_pos p
 
     method set_min_w (x : int option) =
       _item <- { _item with min_w = x }
@@ -100,7 +137,8 @@ class ['a] t ~s_grid      (* grid props *)
       _item <- { _item with keep_ar = x }
 
     method s_changing : Position.t React.signal =
-      ghost#s_pos
+      (* FIXME formely ghost post was here *)
+      self#s_pos
 
     (* FIXME this is ok, but will raise change event even before dragging is not over *)
     method s_change : Position.t React.signal =
@@ -136,10 +174,6 @@ class ['a] t ~s_grid      (* grid props *)
       self#_set_selectable x;
       _item <- { _item with selectable = x }
 
-    method remove () : unit =
-      self#set_selected false;
-      e_modify_push (`Remove self)
-
     method selected : bool =
       selected
 
@@ -162,19 +196,12 @@ class ['a] t ~s_grid      (* grid props *)
                s_selected_push
                @@ List.filter (not % Widget.equal (self :> 'a t)) o)
 
-    method! layout () : unit =
-      super#layout ();
-      Option.iter (fun x -> x#layout ()) _item.widget;
-      Option.iter (fun x -> x#layout ()) item.move_widget;
-      Option.iter (fun x -> x#layout ()) item.close_widget
+    method remove () : unit =
+      self#set_selected false;
+      self#emit ~should_bubble:true
+        remove_event (Js.Unsafe.inject self#root)
 
-    method! destroy () : unit =
-      super#destroy ();
-      Option.iter (fun x -> x#destroy ()) item.widget;
-      Option.iter (fun x -> x#destroy ()) item.move_widget;
-      Option.iter (fun x -> x#destroy ()) item.close_widget;
-
-    (** Private methods **)
+    (** Private methods *)
 
     method private _set_draggable x =
       (match x with
@@ -222,22 +249,22 @@ class ['a] t ~s_grid      (* grid props *)
       |> Option.map Js.Unsafe.coerce
       |> Option.get_exn
 
-    method private mouse_action meth ev =
+    method private mouse_action meth ghost ev =
       let init_pos = px_pos in
       let init_x, init_y = ev##.clientX, ev##.clientY in
       listen ~save:(fun x -> mov_listener <- x)
         Dom_html.window Typ.mousemove (fun _ ev ->
           let x,y = ev##.clientX, ev##.clientY in
-          meth ~x ~y ~init_x ~init_y ~init_pos `Move;
+          meth ~x ~y ~init_x ~init_y ~init_pos `Move ghost;
           false);
       listen ~save:(fun x -> end_listener <- x)
         Dom_html.window Typ.mouseup (fun _ ev ->
           if ev##.button = 0
           then (let x, y = ev##.clientX, ev##.clientY in
-                meth ~x ~y ~init_x ~init_y ~init_pos `End);
+                meth ~x ~y ~init_x ~init_y ~init_pos `End ghost);
           false);
 
-    method private touch_action meth ev =
+    method private touch_action meth ghost ev =
       let init_pos = px_pos in
       Js.Optdef.iter
         (ev##.touches##item (ev##.touches##.length - 1))
@@ -254,6 +281,7 @@ class ['a] t ~s_grid      (* grid props *)
                                  ~y:touch##.clientY
                                  ~init_x ~init_y ~init_pos
                                  `Move
+                                 ghost
                | None       -> ());
               false);
           listen ~save:(fun x -> end_listener <- x)
@@ -266,6 +294,7 @@ class ['a] t ~s_grid      (* grid props *)
                                  ~y:touch##.clientY
                                  ~init_x ~init_y ~init_pos
                                  `End
+                                 ghost
                | None       -> ());
               false);
           listen ~save:(fun x -> cancel_listener <- x)
@@ -278,10 +307,11 @@ class ['a] t ~s_grid      (* grid props *)
                                  ~y:touch##.clientY
                                  ~init_x ~init_y ~init_pos
                                  `End
+                                 ghost
                | None -> ());
               false))
 
-    method private resolve_pos_conflicts ~action (pos : Position.t) =
+    method private resolve_pos_conflicts ~action ghost (pos : Position.t) =
       let other = filter ~exclude:[(self :> 'a t)] self#items in
       let f = fun x -> x#pos in
       let cols, rows = self#grid.cols, self#grid.rows in
@@ -317,19 +347,31 @@ class ['a] t ~s_grid      (* grid props *)
               | l -> List.iter (fun (pos, item) -> item#set_pos pos) l;
                      pos
            end in
-      (match action with
-       | `Drag -> if self#grid.vertical_compact
-                  then ghost#set_pos @@ Position.compact ~f new_pos other
-                  else ghost#set_pos new_pos;
-       | `Size -> ghost#set_pos new_pos);
+      begin match action with
+      | `Drag ->
+         if self#grid.vertical_compact
+         then ghost#set_pos @@ Position.compact ~f new_pos other
+         else ghost#set_pos new_pos;
+      | `Size -> ghost#set_pos new_pos
+      end;
       if self#grid.vertical_compact;
-      then List.iter (fun x ->
-               let lst = filter ~exclude:[(x:>'a t)] other
-                         |> List.map f
-                         |> List.cons ghost#pos in
-               let pos = Position.compact ~f:(fun x -> x) x#pos lst in
-               x#set_pos pos)
-             (Position.sort_by_y ~f other)
+      then
+        List.iter (fun x ->
+            let lst = filter ~exclude:[(x:>'a t)] other
+                      |> List.map f
+                      |> List.cons ghost#pos in
+            let pos = Position.compact ~f:(fun x -> x) x#pos lst in
+            x#set_pos pos)
+          (Position.sort_by_y ~f other)
+
+    method private make_ghost () : 'a cell =
+      new Dynamic_grid_cell.cell
+        ~typ:`Ghost
+        ~s_col_w
+        ~s_row_h
+        ~s_grid
+        ~pos:self#pos
+        ()
 
     method private start_dragging (ev : action) =
       stop_listen mov_listener;
@@ -338,15 +380,29 @@ class ['a] t ~s_grid      (* grid props *)
       if self#draggable
       then
         (self#get_drag_target#add_class Markup.Item.dragging_class;
+         let ghost = self#make_ghost () in
          ghost#style##.zIndex := Js.string "1";
          self#style##.zIndex  := Js.string "3";
          (* add ghost item to dom to show possible element position *)
          Dom.appendChild self#get_parent ghost#root;
          match ev with
-         | Mouse ev -> self#mouse_action self#apply_position ev
-         | Touch ev -> self#touch_action self#apply_position ev)
+         | Mouse ev -> self#mouse_action self#apply_position ghost ev
+         | Touch ev -> self#touch_action self#apply_position ghost ev)
 
-    method private apply_position ~x ~y ~init_x ~init_y ~init_pos typ =
+    method private start_resizing (ev : action) =
+      if self#resizable
+      then (let ghost = self#make_ghost () in
+            ghost#style##.zIndex := Js.string "4";
+            self#style##.zIndex  := Js.string "3";
+            Dom.appendChild self#get_parent ghost#root;
+            (* add resize/stop resize event listeners *)
+            match ev with
+            | Mouse ev -> Dom_html.stopPropagation ev;
+                          self#mouse_action self#apply_size ghost ev
+            | Touch ev -> Dom_html.stopPropagation ev;
+                          self#touch_action self#apply_size ghost ev)
+
+    method private apply_position ~x ~y ~init_x ~init_y ~init_pos typ ghost =
       match x, y with
       | 0, 0 -> ()
       | _ ->
@@ -354,12 +410,12 @@ class ['a] t ~s_grid      (* grid props *)
          match typ with
          | `Move->
             let open Utils in
-            let cols,rows = self#grid.cols,self#grid.rows in
-            let x,y = init_pos.x + x - init_x, init_pos.y + y - init_y in
+            let cols, rows = self#grid.cols,self#grid.rows in
+            let x, y = init_pos.x + x - init_x, init_pos.y + y - init_y in
             let pos = Position.correct_xy { self#pos with x = x // col_px
                                                         ; y = y // row_px }
-                                          cols rows in
-            self#resolve_pos_conflicts ~action:`Drag pos;
+                        cols rows in
+            self#resolve_pos_conflicts ~action:`Drag ghost pos;
             let x, y =
               if self#grid.restrict_move
               then (let pos = Position.correct_xy { self#px_pos with x;y }
@@ -384,6 +440,7 @@ class ['a] t ~s_grid      (* grid props *)
             self#set_y @@ React.S.value s_row_h * ghost#pos.y;
             self#set_pos ghost#pos;
             Dom.removeChild self#get_parent ghost#root;
+            ghost#destroy ();
             if self#grid.vertical_compact
             then List.iter (fun x ->
                      let lst = filter ~exclude:[(x:>'a t)] self#items in
@@ -395,19 +452,7 @@ class ['a] t ~s_grid      (* grid props *)
             Option.iter (fun f -> f self#pos ghost#pos col_px row_px) item.on_drag
          | _ -> ()
 
-    method private start_resizing (ev: action) =
-      if self#resizable
-      then (ghost#style##.zIndex := Js.string "4";
-            self#style##.zIndex  := Js.string "3";
-            Dom.appendChild self#get_parent ghost#root;
-            (* add resize/stop resize event listeners *)
-            match ev with
-            | Mouse ev -> Dom_html.stopPropagation ev;
-                          self#mouse_action self#apply_size ev
-            | Touch ev -> Dom_html.stopPropagation ev;
-                          self#touch_action self#apply_size ev)
-
-    method private apply_size ~x ~y ~init_x ~init_y ~init_pos typ =
+    method private apply_size ~x ~y ~init_x ~init_y ~init_pos typ ghost =
       let col_px, row_px = React.S.value s_col_w, React.S.value s_row_h in
       match typ with
       | `Move ->
@@ -425,7 +470,7 @@ class ['a] t ~s_grid      (* grid props *)
            else let resolution = self#pos.w,self#pos.h in
                 let aspect = Utils.resolution_to_aspect resolution in
                 Position.correct_aspect pos aspect in
-         self#resolve_pos_conflicts ~action:`Size pos;
+         self#resolve_pos_conflicts ~action:`Size ghost pos;
          let w, h =
            if self#grid.restrict_move
            then (let pos = Position.correct_wh { self#px_pos with w;h }
@@ -448,6 +493,7 @@ class ['a] t ~s_grid      (* grid props *)
          self#set_h @@ React.S.value s_row_h * ghost#pos.h;
          self#set_pos ghost#pos;
          Dom.removeChild self#get_parent ghost#root;
+         ghost#destroy ();
          if self#grid.vertical_compact
          then List.iter (fun x ->
                   let lst = filter ~exclude:[(x:>'a t)] self#items in
@@ -562,28 +608,5 @@ class ['a] t ~s_grid      (* grid props *)
         self#root Typ.focus (fun _ _ ->
           if self#selectable && not self#grid.multi_select
           then self#set_selected true; true);
-
-    initializer
-      (self#_keep_s
-       @@ React.S.map (function
-              | Some x -> self#_set_draggable x
-              | None -> self#_set_draggable self#draggable)
-       @@ React.S.map ~eq:(Equal.option Equal.bool) (fun x -> x.draggable) s_grid);
-      (self#_keep_s
-       @@ React.S.map (function
-              | Some x -> self#_set_resizable x
-              | None -> self#_set_resizable self#resizable)
-       @@ React.S.map ~eq:(Equal.option Equal.bool) (fun x -> x.resizable) s_grid);
-      (self#_keep_s
-       @@ React.S.map (function
-              | Some x -> self#_set_selectable x
-              | None -> self#_set_selectable self#selectable)
-       @@ React.S.map ~eq:(Equal.option Equal.bool) (fun x -> x.selectable) s_grid);
-      (* add close listener to close widget if provided *)
-      Option.iter (fun x ->
-          Dom_events.listen x#root Dom_events.Typ.click (fun _ _ ->
-              self#remove (); true) |> ignore) item.close_widget;
-      (* append widget to cell if provided *)
-      Option.iter self#append_child item.widget;
 
   end

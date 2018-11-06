@@ -28,7 +28,7 @@ and data_source =
   { stream : Stream.ID.t
   ; service : int
   ; pid : int
-  } [@@deriving eq]
+  } [@@deriving eq, yojson]
 
 type 'a point = (Time.t, 'a) Chartjs.Line.point
 

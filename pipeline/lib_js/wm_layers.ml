@@ -1,6 +1,8 @@
 open Containers
 open Components
 
+let ( % ) = Fun.( % )
+
 type value  =
   { original : int
   ; actual : int
@@ -66,9 +68,9 @@ let make_layer_item s_layers push layer =
   let () = List.iter (fun i ->
                if i#pos.y >= y
                then i#set_pos { i#pos with y = i#pos.y + 1 }) layers in
-  let () = vis#add_class show_icon_class in
-  let () = drag#add_class drag_handle_class in
-  let () = box#add_class _class in
+  vis#add_class show_icon_class;
+  drag#add_class drag_handle_class;
+  box#add_class _class;
   item, vis#s_state
 
 let on_add grid push =
@@ -91,13 +93,15 @@ let on_add grid push =
   | _ -> ()
 
 
-let remove_layer s_layers push layer =
+let remove_layer grid push layer =
   let open Dynamic_grid.Position in
-  let layers = List.filter (fun x -> not @@ Equal.physical x#root layer#root) @@ React.S.value s_layers in
-  let y      = layer#pos.y in
+  let layers =
+    List.filter (not % Widget.equal layer)
+    @@ React.S.value grid#s_items in
+  let y = layer#pos.y in
   push (`Removed layer#value.actual);
-  layer#remove ();
-  emit_new_pos s_layers push;
+  grid#remove layer;
+  emit_new_pos grid#s_items push;
   match List.find_pred (fun w -> w#pos.y = y) layers with
   | Some w -> w#set_selected true;
   | None   -> (match List.find_pred (fun w -> w#pos.y = y - 1) layers with
@@ -129,35 +133,46 @@ let move_layer_down s_layers push layer =
 
 class t ~init () =
   let _class = "wm-layers-grid" in
-  let grid   = Dynamic_grid.to_grid ~cols:1 ~min_col_width:20 ~row_height:50 ~vertical_compact:true
-                                    ~restrict_move:true ()
-  in
-  let e_layer,push = React.E.create () in
+  let grid =
+    Dynamic_grid.to_grid
+      ~cols:1
+      ~min_col_width:20
+      ~row_height:50
+      ~vertical_compact:true
+      ~restrict_move:true
+      () in
+  let e_layer, push = React.E.create () in
 
   object(self)
 
     inherit [value] Dynamic_grid.t ~grid ~items:[] ()
 
-    method e_layer      : action React.event = e_layer
+    method! init () : unit =
+      self#initialize init;
+      self#add_class _class;
+      self#set_on_load @@ Some self#layout;
+      React.S.diff (fun n o ->
+          let open Dynamic_grid.Position in
+          match n with
+          | [x] -> push @@ `Selected x#value.actual
+          | _   ->
+             begin match o with
+             | [x] -> push @@ `Selected x#pos.y
+             | _   -> ()
+             end) self#s_selected
+      |> ignore
+
+    method e_layer : action React.event = e_layer
+
     method e_layer_push : ?step:React.step -> action -> unit = push
+
     method clear () = self#remove_all ()
-    method initialize (init:int list) =
+
+    method initialize (init : int list) =
       let init = List.length init in
       self#clear ();
       List.iter (fun _ -> on_add self push) @@ List.range' init 0;
       Option.iter (fun x -> x#set_selected true) @@ List.head_opt self#items
-
-    initializer
-      self#initialize init;
-      self#add_class _class;
-      self#set_on_load @@ Some self#layout;
-      React.S.diff (fun n o -> let open Dynamic_grid.Position in
-                               match n with
-                               | [x] -> push @@ `Selected x#value.actual
-                               | _   -> (match o with
-                                         | [x] -> push @@ `Selected x#pos.y
-                                         | _   -> ())) self#s_selected
-      |> ignore
 
   end
 
@@ -172,8 +187,13 @@ let make_layers_actions max layers_grid push =
   let rm = new Icon_button.t ~icon:(create_simple Path.delete) () in
   let up = new Icon_button.t ~icon:(create_simple Path.arrow_up) () in
   let down = new Icon_button.t ~icon:(create_simple Path.arrow_down) () in
-  let icons = new Card.Actions.Icons.t ~widgets:[down#widget;up#widget;add#widget;rm#widget] () in
-  let () = icons#add_class _class in
+  let icons =
+    new Card.Actions.Icons.t
+      ~widgets:[ down#widget
+               ; up#widget
+               ; add#widget
+               ; rm#widget ] () in
+  icons#add_class _class;
   (* Actions with layers *)
   let s_sel =
     React.S.map (function
@@ -183,7 +203,7 @@ let make_layers_actions max layers_grid push =
     a#listen_lwt Widget.Event.click (fun _ _ ->
         Option.iter f @@ React.S.value s_sel;
         Lwt.return_unit) |> Lwt.ignore_result in
-  let _  =
+  let _ =
     React.S.l2 (fun s l ->
         let len = List.length l in
         let sel = Option.is_some s in
@@ -200,7 +220,7 @@ let make_layers_actions max layers_grid push =
       on_add layers_grid push;
       Lwt.return_unit) |> Lwt.ignore_result;
   let l =
-    [ rm, (fun w -> remove_layer layers_grid#s_items push w)
+    [ rm, (fun w -> remove_layer layers_grid push w)
     ; up, (fun w -> move_layer_up layers_grid#s_items push w)
     ; down, (fun w -> move_layer_down layers_grid#s_items push w)
     ]
@@ -209,17 +229,17 @@ let make_layers_actions max layers_grid push =
   icons
 
 let make ~init ~max =
-  let _class        = "wm-layers-card"  in
+  let _class = "wm-layers-card"  in
   let wrapper_class = "wm-layers-grid-wrapper" in
 
   let open Dynamic_grid.Position in
-  let layers      = Dom_html.createDiv Dom_html.document |> Widget.create in
-  let grid        = make_layers_grid ~init in
-  let actions     = new Card.Actions.t ~widgets:[(make_layers_actions max grid grid#e_layer_push)#widget] () in
-  let card        = new Card.t ~widgets:[layers#widget;actions#widget] () in
-  let ()          = layers#add_class wrapper_class in
-  let ()          = Dom.appendChild layers#root grid#root in
-  let ()          = card#add_class _class in
-  let title       = Wm_selectable_title.make ["Слои",card] in
-  let box         = new Vbox.t ~widgets:[title#widget; card#widget] () in
+  let layers = Widget.create_div () in
+  let grid = make_layers_grid ~init in
+  let actions = new Card.Actions.t ~widgets:[(make_layers_actions max grid grid#e_layer_push)#widget] () in
+  let card = new Card.t ~widgets:[layers#widget;actions#widget] () in
+  layers#add_class wrapper_class;
+  layers#append_child grid;
+  card#add_class _class;
+  let title = Wm_selectable_title.make [("Слои", card)] in
+  let box = new Vbox.t ~widgets:[title#widget; card#widget] () in
   box,grid

@@ -4,7 +4,7 @@ open Common
 
 module Storage = Ui_templates.Storage.Local_storage
 
-let key : string =
+let (key : string) =
   Js.to_string Dom_html.window##.location##.href
 
 let make_default (stream : Stream.ID.t)
@@ -32,9 +32,9 @@ let make_default (stream : Stream.ID.t)
     }
   ]
 
-let make (stream : Stream.ID.t) (control:int) =
+let make (stream : Stream.ID.t) (control : int) =
   let factory = new Widget_factory.t control () in
-  let (init : 'a Dashboard.init) = match Storage.get key with
+  let (init : 'a Dashboard.content) = match Storage.get key with
     | None -> Items (make_default stream)
     | Some x -> Serialized x in
   new Dashboard.t

@@ -14,14 +14,21 @@ class ['a] cell ?(typ = `Item)
 
   object(self)
 
-    inherit Widget.t elt ()
+    inherit Widget.t elt () as super
 
     val s_margin : (int * int) React.signal =
       React.S.map (fun x -> x.items_margin) s_grid
 
     val mutable px_pos : Position.t = Position.empty
 
-    (** API **)
+    (** API *)
+
+    method! init () : unit =
+      super#init ();
+      React.S.l3 (fun w h _ ->
+          self#set_pos_internal self#pos w h)
+        s_col_w s_row_h s_grid
+      |> self#_keep_s
 
     method pos : Position.t =
       React.S.value s_pos
@@ -29,10 +36,21 @@ class ['a] cell ?(typ = `Item)
     method s_pos : Position.t React.signal =
       s_pos
 
-    method set_pos : Position.t -> unit =
-      s_pos_push ?step:None
+    method set_pos (pos : Position.t) : unit =
+      self#set_pos_internal pos
+        (React.S.value s_col_w)
+        (React.S.value s_row_h);
+      s_pos_push ?step:None pos
 
-    (** Private methods **)
+    (** Private methods *)
+
+    method private set_pos_internal (pos : Position.t)
+                     (w : int)
+                     (h : int) : unit =
+      self#set_x (pos.x * w);
+      self#set_y (pos.y * h);
+      self#set_w (pos.w * w);
+      self#set_h (pos.h * h)
 
     method private margin : int * int =
       React.S.value s_margin
@@ -61,14 +79,5 @@ class ['a] cell ?(typ = `Item)
       let h = if with_margin < 0 then 0 else with_margin in
       px_pos <- { px_pos with h };
       self#root##.style##.height := Js.string @@ Utils.px px_pos.h
-
-    initializer
-      React.S.l4 (fun (pos : Position.t) w h _ ->
-          self#set_x (pos.x * w);
-          self#set_y (pos.y * h);
-          self#set_w (pos.w * w);
-          self#set_h (pos.h * h))
-        self#s_pos s_col_w s_row_h s_grid
-      |> self#_keep_s
 
   end

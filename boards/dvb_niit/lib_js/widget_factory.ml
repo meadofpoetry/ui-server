@@ -51,7 +51,7 @@ class t (control : int) () =
       | Stream_chart conf -> self#_create_chart conf
       | Settings -> self#_create_settings ()
 
-    method destroy () =
+    method destroy () : unit =
       Option.iter State.finalize _state;
       Option.iter State.finalize _config;
       Option.iter State.finalize _receivers;
@@ -67,7 +67,7 @@ class t (control : int) () =
     method deserialize (json : Yojson.Safe.json) : (item, string) result =
       item_of_yojson json
 
-    (** Private methods **)
+    (** Private methods *)
 
     method private _create_settings () =
       (fun s c r ->
