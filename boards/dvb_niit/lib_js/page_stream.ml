@@ -12,9 +12,9 @@ let make_default (stream : Stream.ID.t)
   let duration = Common.Time.Span.of_int_s 120 in
   let conf t =
     (Some { typ = t
-          ; ids = [stream]
+          ; sources = [stream]
           ; duration
-          ; settings = None } : Widget_chart.config option) in
+          ; settings = None } : Widget_chart.widget_config option) in
   [ { item = Stream_chart (conf `Power)
     ; position = { x = 0; y = 0; w = 4; h = 2 }
     }

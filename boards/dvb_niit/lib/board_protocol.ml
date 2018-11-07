@@ -22,9 +22,9 @@ type events =
 
 type push_events =
   { mode : int * Device.mode -> unit
-  ; measure : Stream.Multi_TS_ID.t * Measure.t timestamped -> unit
-  ; params : Stream.Multi_TS_ID.t * Params.t timestamped -> unit
-  ; plp_list : Stream.Multi_TS_ID.t * Plp_list.t timestamped -> unit
+  ; measure : int * Measure.t timestamped -> unit
+  ; params : int * Params.t timestamped -> unit
+  ; plp_list : int * Plp_list.t timestamped -> unit
   ; state : Topology.state -> unit
   ; devinfo : Device.devinfo option -> unit
   }
@@ -43,9 +43,9 @@ type api =
 
 let timeout = 3. (* seconds *)
 
-module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
+module Make(Logs : Logs.LOG) = struct
 
-  module Parser = Board_parser.Make(Logs)(Src)
+  module Parser = Board_parser.Make(Logs)
 
   open Parser
 
@@ -196,7 +196,6 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
     let handle_event (pe : push_events) (e : event) (t : t) : t =
       let states = match e with
         | Measures ((id, m) as rsp) ->
-           let id = Stream.Multi_TS_ID.stream_id id in
            (* push event in any case *)
            pe.measure rsp;
            (* update previous field *)
@@ -208,7 +207,6 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
               Some (List.Assoc.set ~eq:(=) id tmr t.states)
            end
         | Params ((id, p) as rsp) ->
-           let id = Stream.Multi_TS_ID.stream_id id in
            begin match List.Assoc.get ~eq:(=) id t.states with
            | None -> None
            | Some tmr ->
@@ -227,7 +225,6 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
               Some (List.Assoc.set ~eq:(=) id tmr t.states)
            end
         | Plp_list ((id, l) as rsp) ->
-           let id = Stream.Multi_TS_ID.stream_id id in
            begin match List.Assoc.get ~eq:(=) id t.states with
            | None -> None
            | Some tmr ->
@@ -305,9 +302,9 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
      | Reset ->
         Logs.debug (fun m -> m "requesting reset");
         to_devinfo_req true
-     | Set_src_id () ->
-        Logs.debug (fun m -> m "requesting source id setup (%d)" Src.source_id);
-        to_src_id_req ()
+     | Set_src_id id ->
+        Logs.debug (fun m -> m "requesting source id setup (%d)" id);
+        to_src_id_req id
      | Set_mode (id, m) ->
         Logs.debug (fun m -> m "requesting mode setup (%d)" id);
         to_mode_req id m)
@@ -348,8 +345,8 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
 
   let initial_timeout = -1
 
-  let step msgs sender (storage : Device.config storage)
-        step_duration (pe:push_events) =
+  let step msgs sender (storage : Device.config storage) source_id
+        step_duration (pe : push_events) =
 
     let module Probes =
       Make_probes(struct
@@ -381,7 +378,7 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
            Logs.info (fun m ->
                m "connection established, \
                   board initialization started...");
-           let req = Set_src_id () in
+           let req = Set_src_id source_id in
            let msg =
              { send = (fun () -> (send_msg sender) req)
              ; pred = (is_response req)
@@ -404,13 +401,13 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
         match Pool.responsed pool responses with
         | None ->
            `Continue (step_init_src_id devinfo (Pool.step pool) acc)
-        | Some id when id = Src.source_id ->
+        | Some id when id = source_id ->
            Logs.debug (fun m -> m "source id setup done! id = %d" id);
            step_start_init devinfo
         | Some id ->
            Logs.warn (fun m ->
                m "failed setup source id! board returned id = %d, \
-                  expected %d" id Src.source_id);
+                  expected %d" id source_id);
            first_step ()
       with Timeout ->
         Logs.warn (fun m -> m "timeout while initializing source id, \
@@ -519,7 +516,8 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
     in
     first_step ()
 
-  let mode_to_stream (id, ({ standard; channel } : Device.mode)) : Stream.Raw.t =
+  let mode_to_stream (source_id : int)
+        (id, ({ standard; channel } : Device.mode)) : Stream.Raw.t =
     let open Stream in
     let (freq : int64) = Int64.of_int channel.freq in
     let (bw : float) = match channel.bw with
@@ -530,22 +528,22 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
       | C -> DVB_C { freq; bw} in
     let (id : Multi_TS_ID.t) =
       Multi_TS_ID.make
-        ~source_id:Src.source_id
+        ~source_id
         ~stream_id:id in
     { source = { info; node = Port 0 }
     ; id = TS_multi id
     ; typ = TS
     }
 
-  let to_streams_s (config : Device.config React.signal) =
+  let to_streams_s (source_id : int)
+        (config : Device.config React.signal) =
     React.S.map ~eq:(Equal.list Stream.Raw.equal)
-      (List.map mode_to_stream) config
+      (List.map (mode_to_stream source_id)) config
 
   let map_measures storage e =
     React.E.map (fun (id, (m : Measure.t timestamped)) ->
-        let id' = Stream.Multi_TS_ID.stream_id id in
         match m.data.freq,
-              List.Assoc.get ~eq:(=) id' storage#get with
+              List.Assoc.get ~eq:(=) id storage#get with
         | Some x, Some (mode : Device.mode) ->
            let freq = Some (mode.channel.freq - x) in
            let data = { m.data with freq } in
@@ -554,10 +552,15 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
            let data = { m.data with freq = None } in
            id, { m with data }) e
 
-  let map_streams (streams : Stream.t list React.signal)
-        (e : (Stream.Multi_TS_ID.t * 'a) React.event) =
-    React.S.sample (fun ((id, x) : Stream.Multi_TS_ID.t * 'a)
+  let map_streams (source_id : int)
+        (streams : Stream.t list React.signal)
+        (e : (int * 'a) React.event) =
+    React.S.sample (fun ((id, x) : int * 'a)
                         (streams : Stream.t list) ->
+        let id =
+          Stream.Multi_TS_ID.make
+            ~source_id
+            ~stream_id:id in
         match Stream.find_by_multi_id id streams with
         | None -> None
         | Some s -> Some (s, x)) e streams
@@ -573,7 +576,7 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
            | `Found x -> List.add_nodup ~eq x acc
            | `Lost x -> List.remove ~eq ~x acc) []
 
-  let create sender streams_conv
+  let create sender streams_conv source_id
         (storage : Device.config storage) step_duration =
     let s_devinfo, devinfo_push =
       React.S.create ~eq:(Equal.option Device.equal_devinfo) None in
@@ -593,11 +596,13 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
           List.Assoc.set ~eq:Stream.equal (f x) x acc) [] e
       |> React.E.map (List.map snd)
       |> React.S.hold ~eq [] in
-    let raw_streams = to_streams_s s_config in
+    let raw_streams = to_streams_s source_id s_config in
     let streams = streams_conv raw_streams in
-    let measures = map_streams streams (map_measures storage e_measures) in
-    let params = map_streams streams e_params in
-    let plps = map_streams streams e_plp_list in
+    let measures =
+      map_streams source_id streams
+        (map_measures storage e_measures) in
+    let params = map_streams source_id streams e_params in
+    let plps = map_streams source_id streams e_plp_list in
     let available_streams = to_available_streams measures in
     let (events : events) =
       { mode = e_mode
@@ -652,6 +657,6 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
     in
     events,
     api,
-    (step msgs sender storage step_duration push_events)
+    (step msgs sender storage source_id step_duration push_events)
 
 end

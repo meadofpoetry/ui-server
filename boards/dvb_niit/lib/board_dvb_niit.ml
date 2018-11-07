@@ -42,13 +42,12 @@ let create (b : Topology.topo_board) _ convert_streams send
   Option.iter (fun x -> Logs.Src.set_level log_src @@ Some x) b.logs;
   let (module Logs : Logs.LOG) = Logs.src_log log_src in
   let module SM =
-    Board_protocol.Make(Logs)
-      (struct let source_id = source_id end) in
+    Board_protocol.Make(Logs) in
   let storage = Config_storage.create base
                   ["board"; (string_of_int b.control)] in
   let db = Result.get_exn @@ Db.Conn.create db_conf b.control in
   let events, api, step =
-    SM.create send (fun x -> convert_streams x b) storage step in
+    SM.create send (fun x -> convert_streams x b) source_id storage step in
   let handlers = Board_api.handlers b.control db api events in
   React.E.(keep @@ map_s (fun ((s : Stream.t), m) ->
                        Db.Measurements.insert db (s.id, m))

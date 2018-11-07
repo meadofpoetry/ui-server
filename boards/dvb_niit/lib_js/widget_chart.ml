@@ -2,29 +2,35 @@ open Containers
 open Components
 open Widget_types
 open Board_types
+open Chartjs
 open Common
 
-type 'a point = (Time.t, 'a) Chartjs.Line.point
+type 'a point = (Time.t, 'a) Line.point
+
 type 'a data = (Stream.ID.t * ('a point list)) list
 
-type settings =
-  { range : (float * float) option
-  } [@@deriving yojson, eq]
+type dataset = (Time.t, float) Line.Dataset.t
 
-type config =
-  { ids : Stream.ID.t list
+type widget_config =
+  { sources : data_source list
   ; typ : measure_type
   ; duration : Time.Period.t
-  ; settings : settings option
-  } [@@deriving yojson]
+  ; settings : widget_settings option
+  }
+and widget_settings =
+  { range : (float * float) option
+  }
+and data_source = Stream.ID.t [@@deriving yojson, eq]
 
 let base_class = "dvb-niit-measures-line-chart"
 
 let colors =
-  Color.[ Indigo C500
-        ; Amber C500
-        ; Green C500
-        ; Cyan C500 ]
+  Random.init 255;
+  let st = Random.get_state () in
+  Array.init 100 (fun _ ->
+      Random.run ~st (Random.int 255),
+      Random.run ~st (Random.int 255),
+      Random.run ~st (Random.int 255))
 
 let get_suggested_range = function
   | `Power -> (-70.0, 0.0)
@@ -33,7 +39,7 @@ let get_suggested_range = function
   | `Freq -> (-10.0, 10.0)
   | `Bitrate -> (0.0, 1.0)
 
-let make_settings (settings : settings) =
+let make_settings (settings : widget_settings) =
   let range_min =
     new Textfield.t
       ~label:"Min"
@@ -46,7 +52,7 @@ let make_settings (settings : settings) =
       () in
   let box = new Hbox.t ~widgets:[range_min;range_max] () in
   let s =
-    React.S.l2 ~eq:(Equal.option equal_settings)
+    React.S.l2 ~eq:(Equal.option equal_widget_settings)
       (fun min max ->
         match min, max with
         | Some min, Some max -> Some { range = Some (min, max) }
@@ -54,44 +60,40 @@ let make_settings (settings : settings) =
   in
   box, s
 
-(* FIXME declare class instead *)
-let make_chart_base ~(config : config)
-      ~(init : float data)
-      ~(event : float data React.event)
-      () =
-  (* let init_settings = match config.settings with
-   *   | None -> { range = None }
-   *   | Some x -> x in *)
-  (* let settings, s_settings = make_settings init_settings in *)
-  let range = get_suggested_range config.typ in
-  let init = List.map (fun x ->
-                 match List.Assoc.get ~eq:Stream.ID.equal x init with
-                 | Some i -> x, i
-                 | None -> x, []) config.ids in
+let make_x_axis ?(id = "x-axis") (config : widget_config)
+    : (Time.t, Time.span) Line.Axes.Time.t =
   let delta = config.duration in
-  let x_axis =
-    new Chartjs.Line.Axes.Time.t
+  let axis =
+    new Line.Axes.Time.t
       ~delta
-      ~id:"x-axis"
+      ~id
       ~position:`Bottom
       ~typ:Ptime
       () in
-  let f axis = function
+  axis#scale_label#set_display true;
+  axis#scale_label#set_label_string "Время";
+  axis#time#set_tooltip_format "ll HH:mm:ss";
+  axis#ticks#set_auto_skip_padding 2;
+  axis
+
+let make_y_axis ?(id = "y-axis") (config : widget_config) =
+  let range = get_suggested_range config.typ in
+  let set_range axis = function
     | Some (min, max) ->
        axis#ticks#set_min (Some min);
        axis#ticks#set_max (Some max)
     | None ->
        axis#ticks#set_min None;
        axis#ticks#set_max None in
-  let y_axis, f = match config.typ with
+  let axis, set_range = match config.typ with
     | `Ber ->
        let axis =
          new Chartjs.Line.Axes.Logarithmic.t
-           ~id:"y-axis"
+           ~id
            ~position:`Left
            ~typ:Float
            () in
-       axis#coerce_common, f axis
+       axis#coerce_common, set_range axis
     | _ ->
        let axis =
          new Chartjs.Line.Axes.Linear.t
@@ -101,74 +103,59 @@ let make_chart_base ~(config : config)
            () in
        axis#ticks#set_suggested_min (fst range);
        axis#ticks#set_suggested_max (snd range);
-       axis#coerce_common, f axis in
-  let options =
-    new Chartjs.Line.Options.t
-      ~x_axes:[x_axis]
-      ~y_axes:[y_axis]
-      () in
+       axis#coerce_common, set_range axis in
+  axis#scale_label#set_display true;
+  axis#scale_label#set_label_string @@ measure_type_to_unit config.typ;
+  axis, set_range
+
+let make_options ~x_axes ~y_axes
+      (config : widget_config) : Line.Options.t =
   let deferred =
     object%js
       val xOffset = 150
       val yOffset = Js.string "50%"
       val delay = 500
     end in
+  let options = new Line.Options.t ~x_axes ~y_axes () in
   (Js.Unsafe.coerce options#get_obj)##.deferred := deferred;
-  let datasets =
-    List.map (fun (_, data) ->
-        let label = Printf.sprintf "%s" module_name in
-        new Chartjs.Line.Dataset.t ~label ~data ~x_axis ~y_axis ())
-      init in
-  List.iteri (fun i x ->
-      let clr = Option.get_or ~default:(Color.Red C500)
-                @@ List.get_at_idx i colors in
-      x#set_bg_color @@ Color.(RGB (rgb_of_material clr));
-      x#set_border_color @@ Color.(RGB (rgb_of_material clr));
-      x#set_cubic_interpolation_mode `Monotone;
-      x#set_fill `Disabled)
-    datasets;
-  x_axis#ticks#set_auto_skip_padding 2;
-  x_axis#scale_label#set_display true;
-  x_axis#scale_label#set_label_string "Время";
-  x_axis#time#set_tooltip_format "ll HH:mm:ss";
-  (* x_axis#time#set_unit (Some `Second); *)
-  y_axis#scale_label#set_display true;
-  y_axis#scale_label#set_label_string @@ measure_type_to_unit config.typ;
-  if List.length config.ids < 2
+  if List.length config.sources < 2
   then options#legend#set_display false;
   options#set_maintain_aspect_ratio false;
   options#set_responsive true;
   options#animation#set_duration 0;
   options#hover#set_animation_duration 0;
   options#set_responsive_animation_duration 0;
-  let chart = new Chartjs.Line.t ~options ~datasets () in
-  let set = fun ds data ->
-    List.iter (fun point -> ds#push point) data;
-    chart#update None in
-  let _e =
-    React.E.map (fun d ->
-        List.iter (fun (_, data) ->
-            Option.iter (fun ds -> set ds data)
-            @@ List.head_opt datasets) d)
-      event in
-  let box = Widget.create_div () in
-  box#add_class base_class;
-  box#append_child chart;
-  box#set_on_destroy @@ Some (fun () -> React.E.stop ~strong:true _e);
-  box
-  (* Dashboard.Item.make_item
-   *   ~name:(measure_type_to_string config.typ)
-   *   ~settings:{ widget = settings#widget
-   *             ; ready = React.S.map ~eq:Equal.bool Option.is_some s_settings
-   *             ; set = fun () ->
-   *                     match React.S.value s_settings with
-   *                     | Some s ->
-   *                        f s.range;
-   *                        chart#update None;
-   *                        Lwt_result.return ()
-   *                     | None ->
-   *                        Lwt_result.fail "no settings available" }
-   *   box *)
+  options
+
+let make_dataset ~x_axis ~y_axis id src data =
+  let label = Printf.sprintf "%s" module_name in
+  let ds =
+    new Line.Dataset.t ~label
+      ~data
+      ~x_axis
+      ~y_axis
+      () in
+  let (r, g, b) = colors.(id) in
+  let color = Color.rgb r g b in
+  ds#set_line_tension 0.;
+  ds#set_bg_color color;
+  ds#set_border_color color;
+  ds#set_cubic_interpolation_mode `Monotone;
+  ds#set_fill `Disabled;
+  src, ds
+
+let make_datasets ~x_axis ~y_axis
+      (init : float data)
+      (sources : Stream.ID.t list)
+    : (Stream.ID.t * dataset) list =
+  let map id (src : Stream.ID.t) =
+    let data =
+      List.find_map (fun (src', data) ->
+          if Stream.ID.equal src src'
+          then Some data else None) init
+      |> Option.get_or ~default:[] in
+    make_dataset ~x_axis ~y_axis id src data in
+  List.mapi map sources
 
 type init = (Stream.ID.t * Measure.t Time.timestamped list) list
 type event = (Stream.t * Measure.t Time.timestamped) React.event
@@ -186,32 +173,56 @@ let to_event (get : Measure.t -> float option)
       (event : event) : float data React.event =
   React.E.map (fun ((s : Stream.t), Time.{ data; timestamp }) ->
       let y = Option.get_or ~default:nan (get data) in
-      [ s.id, List.return ({ x = timestamp; y } : 'a point) ])
+      [s.id, List.return ({ x = timestamp; y } : 'a point)])
     event
 
-let to_power_event (event : event) =
-  to_event (fun m -> m.power) event
-let to_mer_event (event : event) =
-  to_event (fun m -> m.mer) event
-let to_ber_event (event : event) =
-  to_event (fun m -> m.ber) event
-let to_freq_event (event : event) =
-  to_event (fun m -> Option.map float_of_int m.freq) event
-let to_bitrate_event (event : event) =
-  to_event (fun m ->
-      Option.map (fun b -> float_of_int b /. 1_000_000.) m.bitrate) event
+class t ~(config : widget_config)
+        ~(init : init)
+        ~(event : event)
+        ~(getter : Measure.t -> float option)
+        () =
+  let init = to_init getter init in
+  let x_axis = make_x_axis config in
+  let y_axis, set_range = make_y_axis config in
+  let (event : float data React.event) = to_event getter event in
+  let (options : Line.Options.t) =
+    make_options ~x_axes:[x_axis] ~y_axes:[y_axis] config in
+  let (datasets : (Stream.ID.t * dataset) list) =
+    make_datasets ~x_axis ~y_axis init config.sources in
+  let chart =
+    new Line.t
+      ~options
+      ~datasets:(List.map snd datasets)
+      () in
+  object(self)
 
-let to_power_init (init : init) =
-  to_init (fun m -> m.power) init
-let to_mer_init (init : init) =
-  to_init (fun m -> m.mer) init
-let to_ber_init (init : init) =
-  to_init (fun m -> m.ber) init
-let to_freq_init (init : init) =
-  to_init (fun m -> Option.map float_of_int m.freq) init
-let to_bitrate_init (init : init) =
-  to_init (fun m ->
-    Option.map (fun b -> float_of_int b /. 1_000_000.) m.bitrate) init
+    val mutable _datasets = datasets
+
+    inherit Widget.t Dom_html.(createDiv document) () as super
+
+    method init () : unit =
+      super#init ();
+      super#add_class base_class;
+      super#append_child chart;
+      React.E.map (fun d ->
+          List.iter (fun ((s : Stream.ID.t), data) ->
+              match List.Assoc.get ~eq:equal_data_source s datasets with
+              | None -> ()
+              | Some ds ->
+                 List.iter ds#push data;
+                 chart#update None) d)
+        event
+      |> self#_keep_e
+
+  end
+
+let get_power (m : Measure.t) = m.power
+let get_mer (m : Measure.t) = m.mer
+let get_ber (m : Measure.t) = m.ber
+let get_freq (m : Measure.t) =
+  Option.map float_of_int m.freq
+let get_bitrate (m : Measure.t) =
+  Option.map (fun b -> float_of_int b /. 1_000_000.) m.bitrate
 
 module type M = sig
   type t
@@ -222,28 +233,14 @@ module Make(M : M) = struct
 
   let make ~(init : init)
         ~(event : event)
-        (config : config) =
-    match config.typ with
-    | `Power ->
-       let init = to_power_init init in
-       let event = to_power_event event in
-       make_chart_base ~init ~event ~config ()
-    | `Mer ->
-       let init = to_mer_init init in
-       let event = to_mer_event event in
-       make_chart_base ~init ~event ~config ()
-    | `Ber ->
-       let init = to_ber_init init in
-       let event = to_ber_event event in
-       make_chart_base ~init ~event ~config ()
-    | `Freq ->
-       let init = to_freq_init init in
-       let event = to_freq_event event in
-       make_chart_base ~init ~event ~config ()
-    | `Bitrate ->
-       let init = to_bitrate_init init in
-       let event = to_bitrate_event event in
-       make_chart_base ~init ~event ~config ()
+        (config : widget_config) =
+    let getter = match config.typ with
+      | `Power -> get_power
+      | `Mer -> get_mer
+      | `Ber -> get_ber
+      | `Freq -> get_freq
+      | `Bitrate -> get_bitrate in
+    new t ~init ~getter ~event ~config ()
 
 end
 
@@ -265,8 +262,8 @@ module Bitrate = Make(Float)
 let make
       ~(init : (Stream.ID.t * Measure.t Time.timestamped list) list)
       ~(measures : (Stream.t * Measure.t Time.timestamped) React.event)
-      (config : config) =
-  let event = match config.ids with
+      (config : widget_config) =
+  let event = match config.sources with
     | [] -> measures
     | ids ->
        React.E.filter (fun ((s : Stream.t), _) ->

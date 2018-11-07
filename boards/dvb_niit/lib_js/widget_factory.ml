@@ -7,7 +7,7 @@ open Ui_templates.Factory
 
 (* Widget type *)
 type item =
-  | Stream_chart of Widget_chart.config option
+  | Stream_chart of Widget_chart.widget_config option
   | Settings [@@deriving yojson]
 
 let item_to_info : item -> Dashboard.Item.info = fun item ->
@@ -83,7 +83,7 @@ class t (control : int) () =
       let conf = Option.get_exn conf in
       let init =
         Requests.History.HTTP.Measurements.get
-          ~ids:conf.ids
+          ~ids:conf.sources
           ~duration:(conf.duration)
           control
         |> Lwt_result.map (function Api_js.Api_types.Raw x -> x.data

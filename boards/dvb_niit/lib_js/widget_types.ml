@@ -1,4 +1,10 @@
-type measure_type = [ `Power | `Mer | `Ber | `Freq | `Bitrate ] [@@deriving yojson]
+type measure_type =
+  [ `Power
+  | `Mer
+  | `Ber
+  | `Freq
+  | `Bitrate
+  ] [@@deriving yojson, eq]
 
 let module_name = "Канал"
 

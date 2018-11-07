@@ -1,3 +1,5 @@
+open Common
+
 module Device = struct
 
   type devinfo =
@@ -48,6 +50,10 @@ end
 
 module Measure = struct
 
+  type id =
+    { stream : Stream.ID.t
+    ; tuner : int
+    }
   type t =
     { lock : bool
     ; power : float option
