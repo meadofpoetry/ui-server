@@ -5,16 +5,16 @@ open Boards.Board
 open Boards.Pools
 open Common
 
-type 'a timestamped = 'a Common.Time.timestamped
+type 'a timestamped = 'a Time.timestamped
 
 type events =
   { devinfo : Device.devinfo option React.signal
   ; state : Topology.state React.signal
   ; config : Device.config React.event
   ; mode : (int * Device.mode) React.event
-  ; measures : (Stream.t * Measure.t Time.timestamped) React.event
-  ; params : (Stream.t * Params.t Time.timestamped) React.event
-  ; plps : (Stream.t * Plp_list.t Time.timestamped) React.event
+  ; measures : (Stream.t * Measure.t timestamped) React.event
+  ; params : (Stream.t * Params.t timestamped) React.event
+  ; plps : (Stream.t * Plp_list.t timestamped) React.event
   ; raw_streams : Stream.Raw.t list React.signal
   ; streams : Stream.t list React.signal
   ; available_streams : Stream.t list React.signal

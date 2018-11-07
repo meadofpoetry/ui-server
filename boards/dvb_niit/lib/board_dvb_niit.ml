@@ -27,7 +27,7 @@ let invalid_port prefix port =
   raise (Board.Invalid_port s)
 
 let create (b : Topology.topo_board) _ convert_streams send
-      _ (* db_conf*) base step : Board.t =
+      db_conf base step : Board.t =
   let log_name = Boards.Board.log_name b in
   let source_id = match b.sources with
     | None ->
@@ -46,9 +46,13 @@ let create (b : Topology.topo_board) _ convert_streams send
       (struct let source_id = source_id end) in
   let storage = Config_storage.create base
                   ["board"; (string_of_int b.control)] in
+  let db = Result.get_exn @@ Db.Conn.create db_conf b.control in
   let events, api, step =
     SM.create send (fun x -> convert_streams x b) storage step in
-  let handlers = Board_api.handlers b.control api events in
+  let handlers = Board_api.handlers b.control db api events in
+  React.E.(keep @@ map_s (fun ((s : Stream.t), m) ->
+                       Db.Measurements.insert db (s.id, m))
+                     events.measures);
   let state = object
       method finalize () = ()
     end in

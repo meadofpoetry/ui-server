@@ -5,7 +5,7 @@ open Common
 module Storage = Ui_templates.Storage.Local_storage
 
 let (key : string) =
-  Js.to_string Dom_html.window##.location##.href
+  "pipeline-page-charts"
 
 let make_default (stream_id : Stream.ID.t)
     : Widget_factory.item Dashboard.Item.positioned_item list =

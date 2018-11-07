@@ -58,16 +58,16 @@ let make_settings (settings : settings) =
 let make_chart_base ~(config : config)
       ~(init : float data)
       ~(event : float data React.event)
-      () : 'a Dashboard.Item.item =
-  let init_settings = match config.settings with
-    | None -> { range = None }
-    | Some x -> x in
-  let settings, s_settings = make_settings init_settings in
+      () =
+  (* let init_settings = match config.settings with
+   *   | None -> { range = None }
+   *   | Some x -> x in *)
+  (* let settings, s_settings = make_settings init_settings in *)
   let range = get_suggested_range config.typ in
   let init = List.map (fun x ->
                  match List.Assoc.get ~eq:Stream.ID.equal x init with
                  | Some i -> x, i
-                 | None   -> x, []) config.ids in
+                 | None -> x, []) config.ids in
   let delta = config.duration in
   let x_axis =
     new Chartjs.Line.Axes.Time.t
@@ -155,21 +155,32 @@ let make_chart_base ~(config : config)
   box#add_class base_class;
   box#append_child chart;
   box#set_on_destroy @@ Some (fun () -> React.E.stop ~strong:true _e);
-  Dashboard.Item.make_item
-    ~name:(measure_type_to_string config.typ)
-    ~settings:{ widget = settings#widget
-              ; ready = React.S.map ~eq:Equal.bool Option.is_some s_settings
-              ; set = fun () ->
-                      match React.S.value s_settings with
-                      | Some s ->
-                         f s.range;
-                         chart#update None;
-                         Lwt_result.return ()
-                      | None ->
-                         Lwt_result.fail "no settings available" }
-    box
+  box
+  (* Dashboard.Item.make_item
+   *   ~name:(measure_type_to_string config.typ)
+   *   ~settings:{ widget = settings#widget
+   *             ; ready = React.S.map ~eq:Equal.bool Option.is_some s_settings
+   *             ; set = fun () ->
+   *                     match React.S.value s_settings with
+   *                     | Some s ->
+   *                        f s.range;
+   *                        chart#update None;
+   *                        Lwt_result.return ()
+   *                     | None ->
+   *                        Lwt_result.fail "no settings available" }
+   *   box *)
 
+type init = (Stream.ID.t * Measure.t Time.timestamped list) list
 type event = (Stream.t * Measure.t Time.timestamped) React.event
+
+let to_init (get : Measure.t -> float option)
+      (init : init) : float data =
+  List.map (fun (id, meas) ->
+      let data =
+        List.map (fun Time.{ data; timestamp } ->
+            let y = Option.get_or ~default:nan (get data) in
+            ({ x = timestamp; y } : 'a point)) meas in
+      id, data) init
 
 let to_event (get : Measure.t -> float option)
       (event : event) : float data React.event =
@@ -186,9 +197,21 @@ let to_ber_event (event : event) =
   to_event (fun m -> m.ber) event
 let to_freq_event (event : event) =
   to_event (fun m -> Option.map float_of_int m.freq) event
-let to_bitrate_event (event:event) =
+let to_bitrate_event (event : event) =
   to_event (fun m ->
       Option.map (fun b -> float_of_int b /. 1_000_000.) m.bitrate) event
+
+let to_power_init (init : init) =
+  to_init (fun m -> m.power) init
+let to_mer_init (init : init) =
+  to_init (fun m -> m.mer) init
+let to_ber_init (init : init) =
+  to_init (fun m -> m.ber) init
+let to_freq_init (init : init) =
+  to_init (fun m -> Option.map float_of_int m.freq) init
+let to_bitrate_init (init : init) =
+  to_init (fun m ->
+    Option.map (fun b -> float_of_int b /. 1_000_000.) m.bitrate) init
 
 module type M = sig
   type t
@@ -197,28 +220,28 @@ end
 
 module Make(M : M) = struct
 
-  let make ~(init : M.t data)
+  let make ~(init : init)
         ~(event : event)
         (config : config) =
-    let conv =
-      List.map (fun (id,data) ->
-          id, List.map (fun (x : M.t point) ->
-                  ({ x with y = M.to_float x.y } : float point)) data) in
-    let init = conv init in
     match config.typ with
     | `Power ->
+       let init = to_power_init init in
        let event = to_power_event event in
        make_chart_base ~init ~event ~config ()
     | `Mer ->
+       let init = to_mer_init init in
        let event = to_mer_event event in
        make_chart_base ~init ~event ~config ()
     | `Ber ->
+       let init = to_ber_init init in
        let event = to_ber_event event in
        make_chart_base ~init ~event ~config ()
     | `Freq ->
+       let init = to_freq_init init in
        let event = to_freq_event event in
        make_chart_base ~init ~event ~config ()
     | `Bitrate ->
+       let init = to_bitrate_init init in
        let event = to_bitrate_event event in
        make_chart_base ~init ~event ~config ()
 
@@ -239,7 +262,9 @@ module Ber = Make(Float)
 module Freq = Make(Int)
 module Bitrate = Make(Float)
 
-let make ~(measures : (Stream.t * Measure.t Time.timestamped) React.event)
+let make
+      ~(init : (Stream.ID.t * Measure.t Time.timestamped list) list)
+      ~(measures : (Stream.t * Measure.t Time.timestamped) React.event)
       (config : config) =
   let event = match config.ids with
     | [] -> measures
@@ -247,8 +272,8 @@ let make ~(measures : (Stream.t * Measure.t Time.timestamped) React.event)
        React.E.filter (fun ((s : Stream.t), _) ->
            List.mem ~eq:Stream.ID.equal s.id ids) measures in
   (match config.typ with
-   | `Power -> Power.make ~init:[] ~event config
-   | `Mer -> Mer.make ~init:[] ~event config
-   | `Ber -> Ber.make ~init:[] ~event config
-   | `Freq -> Freq.make ~init:[] ~event config
-   | `Bitrate -> Freq.make  ~init:[] ~event config)
+   | `Power -> Power.make ~init ~event config
+   | `Mer -> Mer.make ~init ~event config
+   | `Ber -> Ber.make ~init ~event config
+   | `Freq -> Freq.make ~init ~event config
+   | `Bitrate -> Freq.make ~init ~event config)

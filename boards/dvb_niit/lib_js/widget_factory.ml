@@ -80,8 +80,21 @@ class t (control : int) () =
 
     method private _create_chart conf =
       (* FIXME conf should not be an option *)
-      Widget_chart.make ~measures:self#_measures @@ Option.get_exn conf
-      |> fun x -> { x with widget = x.widget#widget }
+      let conf = Option.get_exn conf in
+      let init =
+        Requests.History.HTTP.Measurements.get
+          ~ids:conf.ids
+          ~duration:(conf.duration)
+          control
+        |> Lwt_result.map (function Api_js.Api_types.Raw x -> x.data
+                                  | _ -> assert false)
+        |> Lwt_result.map_err Api_js.Requests.err_to_string in
+      init
+      >|= (fun init -> Widget_chart.make ~init ~measures:self#_measures conf)
+      |> Ui_templates.Loader.create_widget_loader
+      |> Widget.coerce
+      |> Dashboard.Item.make_item
+           ~name:(Widget_types.measure_type_to_string conf.typ)
 
     method private _state = match _state with
       | Some state -> state.value

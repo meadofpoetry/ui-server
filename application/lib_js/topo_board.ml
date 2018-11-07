@@ -90,7 +90,7 @@ module Header = struct
           (board : Topology.topo_board) () =
     let _class = Markup.CSS.add_element base_class "header" in
     let title = get_board_name board in
-    let subtitle = Printf.sprintf "%s" board.model in
+    (* let subtitle = Printf.sprintf "%s" board.model in *)
     let settings = match has_settings_button with
       | false -> None
       | true ->
@@ -98,7 +98,7 @@ module Header = struct
          let button = new Icon_button.t ~icon () in
          Some button in
     object(self)
-      inherit Topo_block.Header.t ?action:settings ~title ~subtitle () as super
+      inherit Topo_block.Header.t ?action:settings ~title () as super
 
       method init () : unit =
         super#init ();

@@ -94,6 +94,7 @@ class ['a] t ?(edit_caps = Absolute)
       | Some init ->
          let icon = Icon.SVG.(create_simple Path.restore) in
          let restore = new Fab.t ~icon () in
+         restore#set_attribute "title" "Восстановить по умолчанию";
          let listener =
            restore#listen_click_lwt (fun _ _ ->
                ignore @@ self#load init;
