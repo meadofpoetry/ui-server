@@ -141,7 +141,7 @@ let make_dataset ~x_axis ~y_axis id src data =
       () in
   let (r, g, b) = colors.(id) in
   let color = Color.rgb r g b in
-  ds#set_point_radius (`Val 0);
+  ds#set_point_radius (`Val 2);
   ds#set_line_tension 0.;
   ds#set_bg_color color;
   ds#set_border_color color;
@@ -179,19 +179,32 @@ let to_event (get : Measure.t -> float option)
           id.stream, List.return ({ x = timestamp; y } : 'a point)))
     event
 
-class t ~(config : widget_config)
-        ~(init : init)
+let get_power (m : Measure.t) = m.power
+let get_mer (m : Measure.t) = m.mer
+let get_ber (m : Measure.t) = m.ber
+let get_freq (m : Measure.t) =
+  Option.map float_of_int m.freq
+let get_bitrate (m : Measure.t) =
+  Option.map (fun b -> float_of_int b /. 1_000_000.) m.bitrate
+
+class t ~(init : init)
         ~(event : event)
-        ~(getter : Measure.t -> float option)
+        (widget_config : widget_config)
         () =
+  let getter = match widget_config.typ with
+    | `Power -> get_power
+    | `Mer -> get_mer
+    | `Ber -> get_ber
+    | `Freq -> get_freq
+    | `Bitrate -> get_bitrate in
   let init = to_init getter init in
-  let x_axis = make_x_axis config in
-  let y_axis, set_range = make_y_axis config in
+  let x_axis = make_x_axis widget_config in
+  let y_axis, set_range = make_y_axis widget_config in
   let (event : float data React.event) = to_event getter event in
   let (options : Line.Options.t) =
-    make_options ~x_axes:[x_axis] ~y_axes:[y_axis] config in
+    make_options ~x_axes:[x_axis] ~y_axes:[y_axis] widget_config in
   let (datasets : (Stream.ID.t * dataset) list) =
-    make_datasets ~x_axis ~y_axis init config.sources in
+    make_datasets ~x_axis ~y_axis init widget_config.sources in
   let chart =
     new Line.t
       ~options
@@ -219,53 +232,10 @@ class t ~(config : widget_config)
 
   end
 
-let get_power (m : Measure.t) = m.power
-let get_mer (m : Measure.t) = m.mer
-let get_ber (m : Measure.t) = m.ber
-let get_freq (m : Measure.t) =
-  Option.map float_of_int m.freq
-let get_bitrate (m : Measure.t) =
-  Option.map (fun b -> float_of_int b /. 1_000_000.) m.bitrate
-
-module type M = sig
-  type t
-  val to_float : t -> float
-end
-
-module Make(M : M) = struct
-
-  let make ~(init : init)
-        ~(event : event)
-        (config : widget_config) =
-    let getter = match config.typ with
-      | `Power -> get_power
-      | `Mer -> get_mer
-      | `Ber -> get_ber
-      | `Freq -> get_freq
-      | `Bitrate -> get_bitrate in
-    new t ~init ~getter ~event ~config ()
-
-end
-
-module Float = struct
-  type t = float
-  let to_float t = t
-end
-module Int = struct
-  type t = int
-  let to_float = float_of_int
-end
-
-module Power = Make(Float)
-module Mer = Make(Float)
-module Ber = Make(Float)
-module Freq = Make(Int)
-module Bitrate = Make(Float)
-
 let make ~(init : init)
       ~(measures : event)
-      (config : widget_config) =
-  let event = match config.sources with
+      (widget_config : widget_config) =
+  let event = match widget_config.sources with
     | [] -> measures
     | ids ->
        React.E.fmap (fun l ->
@@ -274,9 +244,4 @@ let make ~(init : init)
            |> function
              | [] -> None
              | l -> Some l) measures in
-  (match config.typ with
-   | `Power -> Power.make ~init ~event config
-   | `Mer -> Mer.make ~init ~event config
-   | `Ber -> Ber.make ~init ~event config
-   | `Freq -> Freq.make ~init ~event config
-   | `Bitrate -> Freq.make ~init ~event config)
+  new t ~init ~event widget_config ()

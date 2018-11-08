@@ -172,6 +172,12 @@ module Make(Logs : Logs.LOG) = struct
       ; plps : (int * Plp_list.t timestamped) list
       }
 
+    let (empty_acc : acc) =
+      { measures = []
+      ; params = []
+      ; plps = []
+      }
+
     module Timer = struct
 
       let reset : 'a. 'a States.state -> 'a States.state =
@@ -301,6 +307,7 @@ module Make(Logs : Logs.LOG) = struct
       handle_measurements pe t
       |> handle_params pe
       |> handle_plps pe
+      |> fun t -> { t with acc = empty_acc }
 
     let make_pool (config : Device.config)
           (states : (id * States.t) list) : pool =
@@ -341,8 +348,7 @@ module Make(Logs : Logs.LOG) = struct
     let make config (receivers : int list) : t =
       let states = List.map (fun id -> id, States.empty) receivers in
       let pool = make_pool config states in
-      let acc = { plps = []; params = []; measures = [] } in
-      { states; pool; acc }
+      { states; pool; acc = empty_acc }
 
   end
 
@@ -402,16 +408,14 @@ module Make(Logs : Logs.LOG) = struct
        t
     | _ -> Lwt.fail (Failure "board is not responding")
 
-  let initial_timeout = -1
-
   let step msgs sender (storage : Device.config storage) source_id
         step_duration (pe : push_events) =
 
     let module Probes =
       Make_probes(struct
           let duration = step_duration
-          let send     = send_event sender
-          let timeout  = Boards.Timer.steps ~step_duration timeout
+          let send = send_event sender
+          let timeout = Boards.Timer.steps ~step_duration timeout
         end) in
 
     let deserialize acc recvd =
@@ -440,7 +444,7 @@ module Make(Logs : Logs.LOG) = struct
            let req = Set_src_id source_id in
            let msg =
              { send = (fun () -> (send_msg sender) req)
-             ; pred = (is_response req)
+             ; pred = is_response req
              ; timeout = Boards.Timer.steps ~step_duration timeout
              ; exn = None
              } in
@@ -531,22 +535,23 @@ module Make(Logs : Logs.LOG) = struct
       let probes = Probes.wait probes in
       let events, _, acc = deserialize acc recvd in
       try
-        (match Probes.responsed probes events with
-         | None    ->
-            let probes = Probes.step probes in
-            `Continue (step_ok_probes_wait probes acc)
-         | Some ev ->
-            Logs.debug (fun m -> m "got probe response: %s"
-                                 @@ show_event ev);
-            let probes = Probes.cons_event probes ev in
-            if Probes.last probes
-            then (let probes = Probes.handle_events pe probes in
-                  `Continue (step_ok_tee probes acc))
-            else let probes = Probes.next probes in
-                 `Continue (step_ok_probes_send probes acc))
+        begin match Probes.responsed probes events with
+        | None ->
+           let probes = Probes.step probes in
+           `Continue (step_ok_probes_wait probes acc)
+        | Some ev ->
+           Logs.debug (fun m ->
+               m "got probe response: %s" @@ show_event ev);
+           let probes = Probes.cons_event probes ev in
+           if Probes.last probes
+           then let probes = Probes.handle_events pe probes in
+                `Continue (step_ok_tee probes acc)
+           else let probes = Probes.next probes in
+                `Continue (step_ok_probes_send probes acc)
+        end
       with Timeout ->
-        Logs.warn (fun m -> m "timeout while waiting for probe response, \
-                               restarting...");
+        Logs.warn (fun m ->
+            m "timeout while waiting for probe response, restarting...");
         first_step ()
 
     and step_ok_requests_send probes acc _ =
@@ -599,6 +604,22 @@ module Make(Logs : Logs.LOG) = struct
         (config : Device.config React.signal) =
     React.S.map ~eq:(Equal.list Stream.Raw.equal)
       (List.map (mode_to_stream source_id)) config
+
+  let map_measures (config : Device.config React.signal)
+        (e : (int * Measure.t timestamped) list React.event) =
+    React.S.sample (fun l config ->
+        List.filter_map
+          (fun (id, ({ data; timestamp } : Measure.t timestamped)) ->
+            match List.Assoc.get ~eq:(=) id config with
+            | None -> None
+            | Some (mode : Device.mode) ->
+               let freq =
+                 Option.map (fun x -> mode.channel.freq - x)
+                   data.freq in
+               let (data : Measure.t timestamped) =
+                 { data = { data with freq }; timestamp } in
+               Some (id, data)) l) e config
+    |> React.E.fmap (function [] -> None | l -> Some l)
 
   let map_streams (source_id : int)
         (streams : Stream.t list React.signal)
@@ -654,7 +675,8 @@ module Make(Logs : Logs.LOG) = struct
       |> React.S.hold ~eq [] in
     let raw_streams = to_streams_s source_id s_config in
     let streams = streams_conv raw_streams in
-    let measures = map_streams source_id streams e_measures in
+    let measures = map_streams source_id streams
+                   @@ map_measures s_config e_measures in
     let params = map_streams source_id streams e_params in
     let plps = map_streams source_id streams e_plp_list in
     let available_streams = to_available_streams measures in
