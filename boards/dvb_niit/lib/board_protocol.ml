@@ -12,9 +12,9 @@ type events =
   ; state : Topology.state React.signal
   ; config : Device.config React.event
   ; mode : (int * Device.mode) React.event
-  ; measures : (Stream.t * Measure.t timestamped) React.event
-  ; params : (Stream.t * Params.t timestamped) React.event
-  ; plps : (Stream.t * Plp_list.t timestamped) React.event
+  ; measures : (id * Measure.t timestamped) list React.event
+  ; params : (id * Params.t timestamped) list React.event
+  ; plps : (id * Plp_list.t timestamped) list React.event
   ; raw_streams : Stream.Raw.t list React.signal
   ; streams : Stream.t list React.signal
   ; available_streams : Stream.t list React.signal
@@ -22,9 +22,9 @@ type events =
 
 type push_events =
   { mode : int * Device.mode -> unit
-  ; measure : int * Measure.t timestamped -> unit
-  ; params : int * Params.t timestamped -> unit
-  ; plp_list : int * Plp_list.t timestamped -> unit
+  ; measure : (int * Measure.t timestamped) list -> unit
+  ; params : (int * Params.t timestamped) list -> unit
+  ; plp_list : (int * Plp_list.t timestamped) list -> unit
   ; state : Topology.state -> unit
   ; devinfo : Device.devinfo option -> unit
   }
@@ -34,14 +34,20 @@ type api =
   ; reset : unit -> unit Lwt.t
   ; set_mode : int * Device.mode -> (int * Device.mode_rsp) Lwt.t
   ; get_config : ?ids:int list -> unit -> Device.config Lwt.t
-  ; get_measures : unit -> (Stream.t * Measure.t timestamped) list
-  ; get_params : unit -> (Stream.t * Params.t timestamped) list
-  ; get_plp_list : unit -> (Stream.t * Plp_list.t timestamped) list
+  ; get_measures : unit -> (id * Measure.t timestamped) list
+  ; get_params : unit -> (id * Params.t timestamped) list
+  ; get_plp_list : unit -> (id * Plp_list.t timestamped) list
   }
 
 (* Board protocol implementation *)
 
 let timeout = 3. (* seconds *)
+
+let rec merge_assoc ~eq ~acc = function
+  | [] -> acc
+  | (id, x) :: tl ->
+     let acc = List.Assoc.set ~eq id x acc in
+     merge_assoc ~eq ~acc tl
 
 module Make(Logs : Logs.LOG) = struct
 
@@ -76,16 +82,16 @@ module Make(Logs : Logs.LOG) = struct
 
   type event_raw =
     [ `Measure of int * Cstruct.t
-    | `Params  of int * Cstruct.t
-    | `Plps    of int * Cstruct.t
+    | `Params of int * Cstruct.t
+    | `Plps of int * Cstruct.t
     ]
-  type event_msg = (event_raw,event) msg
-  type pool      = (event_raw,event) Pool.t
+  type event_msg = (event_raw, event) msg
+  type pool= (event_raw, event) Pool.t
 
   module type M = sig
     val duration : float
-    val timeout  : int
-    val send     : event event_request -> unit Lwt.t
+    val timeout : int
+    val send : event event_request -> unit Lwt.t
   end
 
   module type Probes = sig
@@ -95,7 +101,8 @@ module Make(Logs : Logs.LOG) = struct
       | `Params of int * Cstruct.t
       | `Plps of int * Cstruct.t
       ]
-    val handle_event : push_events -> event -> t -> t
+    val cons_event : t -> event -> t
+    val handle_events : push_events -> t -> t
     val wait : t -> t
     val send : t -> unit Lwt.t
     val step : t -> t
@@ -111,15 +118,12 @@ module Make(Logs : Logs.LOG) = struct
 
     open Boards
 
-    let meas_period = Timer.steps ~step_duration:M.duration 1.
-    let plp_list_period = Timer.steps ~step_duration:M.duration 5.
-    let params_period = Timer.steps ~step_duration:M.duration 5.
-
     module States = struct
 
       type 'a state =
         { prev : 'a option
         ; timer : int
+        ; period : int
         }
 
       type t =
@@ -129,9 +133,24 @@ module Make(Logs : Logs.LOG) = struct
         }
 
       let empty : t =
-        { measures = { timer = meas_period; prev = None }
-        ; plp_list = { timer = plp_list_period; prev = None }
-        ; params = { timer = params_period; prev = None }
+        let meas_period = Timer.steps ~step_duration:M.duration 1. in
+        let plps_period = Timer.steps ~step_duration:M.duration 5. in
+        let prms_period = Timer.steps ~step_duration:M.duration 5. in
+        { measures =
+            { timer = meas_period
+            ; period = meas_period
+            ; prev = None
+            }
+        ; plp_list =
+            { timer = plps_period
+            ; period = plps_period
+            ; prev = None
+            }
+        ; params =
+            { timer = prms_period
+            ; period = prms_period
+            ; prev = None
+            }
         }
 
     end
@@ -144,16 +163,23 @@ module Make(Logs : Logs.LOG) = struct
       ]
     type t  =
       { states : (id * States.t) list
-      ; pool : (event_raw,event) Pool.t
+      ; pool : (event_raw, event) Pool.t
+      ; acc : acc
+      }
+    and acc =
+      { measures : (int * Measure.t timestamped) list
+      ; params : (int * Params.t timestamped) list
+      ; plps : (int * Plp_list.t timestamped) list
       }
 
     module Timer = struct
-      let reset_measures (t : States.t) : States.t =
-        { t with measures = { t.measures with timer = meas_period }}
-      let reset_plp_list (t : States.t) : States.t =
-        { t with plp_list = { t.plp_list with timer = plp_list_period }}
-      let reset_params (t : States.t) : States.t =
-        { t with params = { t.params with timer = params_period }}
+
+      let reset : 'a. 'a States.state -> 'a States.state =
+        fun state -> { state with timer = state.period }
+
+      let set_prev : 'a. 'a States.state -> 'a -> 'a States.state =
+        fun state prev -> { state with prev = Some prev }
+
     end
 
     let make_measure_probe id : event_msg =
@@ -193,55 +219,88 @@ module Make(Logs : Logs.LOG) = struct
       in
       { t with states }
 
-    let handle_event (pe : push_events) (e : event) (t : t) : t =
-      let states = match e with
-        | Measures ((id, m) as rsp) ->
-           (* push event in any case *)
-           pe.measure rsp;
-           (* update previous field *)
-           begin match List.Assoc.get ~eq:(=) id t.states with
-           | None -> None
-           | Some tmr ->
-              let tmr = { tmr with measures = { tmr.measures with prev = Some m }} in
-              let tmr = Timer.reset_measures tmr in
-              Some (List.Assoc.set ~eq:(=) id tmr t.states)
-           end
-        | Params ((id, p) as rsp) ->
-           begin match List.Assoc.get ~eq:(=) id t.states with
-           | None -> None
-           | Some tmr ->
-              (* push event only if it is different
-                 from the previous one or it is first *)
-              begin match tmr.params.prev with
-              | None -> pe.params rsp
-              | Some prev ->
-                 let eq = Params.equal in
-                 if not (eq prev.data p.data)
-                 then pe.params rsp
-              end;
-              (* update previous field *)
-              let tmr = { tmr with params = { tmr.params with prev = Some p }} in
-              let tmr = Timer.reset_params tmr in
-              Some (List.Assoc.set ~eq:(=) id tmr t.states)
-           end
-        | Plp_list ((id, l) as rsp) ->
-           begin match List.Assoc.get ~eq:(=) id t.states with
-           | None -> None
-           | Some tmr ->
-              (* push event only if it is different
-                 from the previous one or it is first *)
-              begin match tmr.plp_list.prev with
-              | None -> pe.plp_list rsp
-              | Some prev ->
-                 let eq = Plp_list.equal in
-                 if not (eq prev.data l.data) then pe.plp_list rsp
-              end;
-              (* update previous field *)
-              let tmr = { tmr with plp_list = { tmr.plp_list with prev = Some l }} in
-              let tmr = Timer.reset_plp_list tmr in
-              Some (List.Assoc.set ~eq:(=) id tmr t.states)
-           end
-      in match states with Some states -> { t with states } | None -> t
+    let cons_event (t : t) (event : event) : t =
+      let stamp : 'a. 'a -> 'a timestamped = fun data ->
+        { timestamp = Time.Clock.now (); data } in
+      let acc = match event with
+        | Measures (id, m) ->
+           let measures =
+             List.Assoc.set ~eq:(=) id (stamp m) t.acc.measures in
+           { t.acc with measures }
+        | Params (id, p) ->
+           let params =
+             List.Assoc.set ~eq:(=) id (stamp p) t.acc.params in
+           { t.acc with params }
+        | Plp_list (id, p) ->
+           let plps =
+             List.Assoc.set ~eq:(=) id (stamp p) t.acc.plps in
+           { t.acc with plps } in
+      { t with acc }
+
+    let handle_measurements (pe : push_events) (t : t) : t =
+      (* Push measures in any case *)
+      pe.measure t.acc.measures;
+      let states =
+        List.fold_left (fun states (id, m) ->
+            match List.Assoc.get ~eq:(=) id states with
+            | None -> states
+            | Some (tmr : States.t) ->
+               let measures = Timer.(reset @@ set_prev tmr.measures m) in
+               let tmr = { tmr with measures } in
+               List.Assoc.set ~eq:(=) id tmr states)
+          t.states t.acc.measures in
+      { t with states }
+
+    let handle_params (pe : push_events) (t : t) : t =
+      let states, acc =
+        List.fold_left (fun (states, acc)
+                            (id, (p : Params.t timestamped)) ->
+            match List.Assoc.get ~eq:(=) id states with
+            | None -> states, acc
+            | Some (tmr : States.t) ->
+               (* collect event only if it is different
+                  from the previous one or it is first *)
+               let acc = match tmr.params.prev with
+                 | None -> (id, p) :: acc
+                 | Some prev ->
+                    let eq = Params.equal in
+                    if eq prev.data p.data then acc
+                    else (id, p) :: acc in
+               (* update previous field *)
+               let params = Timer.(reset @@ set_prev tmr.params p) in
+               let tmr = { tmr with params } in
+               List.Assoc.set ~eq:(=) id tmr t.states, acc)
+          (t.states, []) t.acc.params in
+      if not @@ List.is_empty acc then pe.params acc;
+      { t with states }
+
+    let handle_plps (pe : push_events) (t : t) : t =
+      let states, acc =
+        List.fold_left (fun (states, acc)
+                            (id, (p : Plp_list.t timestamped)) ->
+            match List.Assoc.get ~eq:(=) id states with
+            | None -> states, acc
+            | Some (tmr : States.t) ->
+               (* collect event only if it is different
+                  from the previous one or it is first *)
+               let acc = match tmr.plp_list.prev with
+                 | None -> (id, p) :: acc
+                 | Some prev ->
+                    let eq = Plp_list.equal in
+                    if eq prev.data p.data then acc
+                    else (id, p) :: acc in
+               (* update previous field *)
+               let plp_list = Timer.(reset @@ set_prev tmr.plp_list p) in
+               let tmr = { tmr with plp_list } in
+               List.Assoc.set ~eq:(=) id tmr t.states, acc)
+          (t.states, []) t.acc.plps in
+      if not @@ List.is_empty acc then pe.plp_list acc;
+      { t with states }
+
+    let handle_events (pe : push_events) (t : t) : t =
+      handle_measurements pe t
+      |> handle_params pe
+      |> handle_plps pe
 
     let make_pool (config : Device.config)
           (states : (id * States.t) list) : pool =
@@ -252,15 +311,14 @@ module Make(Logs : Logs.LOG) = struct
              let ( ^:: ) = List.cons_maybe in
              let is_t2 = Device.equal_standard mode.standard T2 in
              let meas =
-               if tmr.measures.timer > 0 then None
-               else Some (make_measure_probe id) in
+               if tmr.measures.timer = 0
+               then Some (make_measure_probe id) else None in
              let params =
-               if (tmr.params.timer > 0) || (not is_t2) then None
-               else Some (make_params_probe id) in
+               if is_t2 && tmr.params.timer = 0
+               then Some (make_params_probe id) else None in
              let plps =
-               if (tmr.plp_list.timer > 0) || (not is_t2) then None
-               else Some (make_plp_list_probe id)
-             in
+               if is_t2 && tmr.plp_list.timer = 0
+               then Some (make_plp_list_probe id) else None in
              meas ^:: params ^:: plps ^:: acc) [] states
       |> Pool.create
 
@@ -283,7 +341,8 @@ module Make(Logs : Logs.LOG) = struct
     let make config (receivers : int list) : t =
       let states = List.map (fun id -> id, States.empty) receivers in
       let pool = make_pool config states in
-      { states; pool }
+      let acc = { plps = []; params = []; measures = [] } in
+      { states; pool; acc }
 
   end
 
@@ -479,9 +538,10 @@ module Make(Logs : Logs.LOG) = struct
          | Some ev ->
             Logs.debug (fun m -> m "got probe response: %s"
                                  @@ show_event ev);
-            let probes = Probes.handle_event pe ev probes in
+            let probes = Probes.cons_event probes ev in
             if Probes.last probes
-            then `Continue (step_ok_tee probes acc)
+            then (let probes = Probes.handle_events pe probes in
+                  `Continue (step_ok_tee probes acc))
             else let probes = Probes.next probes in
                  `Continue (step_ok_probes_send probes acc))
       with Timeout ->
@@ -540,41 +600,38 @@ module Make(Logs : Logs.LOG) = struct
     React.S.map ~eq:(Equal.list Stream.Raw.equal)
       (List.map (mode_to_stream source_id)) config
 
-  let map_measures storage e =
-    React.E.map (fun (id, (m : Measure.t timestamped)) ->
-        match m.data.freq,
-              List.Assoc.get ~eq:(=) id storage#get with
-        | Some x, Some (mode : Device.mode) ->
-           let freq = Some (mode.channel.freq - x) in
-           let data = { m.data with freq } in
-           id, ({ m with data } : Measure.t timestamped)
-        | _ ->
-           let data = { m.data with freq = None } in
-           id, { m with data }) e
-
   let map_streams (source_id : int)
         (streams : Stream.t list React.signal)
-        (e : (int * 'a) React.event) =
-    React.S.sample (fun ((id, x) : int * 'a)
+        (e : (int * 'a) list React.event) =
+    React.S.sample (fun (data : (int * 'a) list)
                         (streams : Stream.t list) ->
-        let id =
-          Stream.Multi_TS_ID.make
-            ~source_id
-            ~stream_id:id in
-        match Stream.find_by_multi_id id streams with
-        | None -> None
-        | Some s -> Some (s, x)) e streams
-    |> React.E.fmap Fun.id
+        List.filter_map (fun ((id : int), x) ->
+            let multi_id =
+              Stream.Multi_TS_ID.make
+                ~source_id
+                ~stream_id:id in
+            match Stream.find_by_multi_id multi_id streams with
+            | None -> None
+            | Some s ->
+               let id = { tuner = id; stream = s.id } in
+               Some (id, x)) data) e streams
+    |> React.E.fmap (function [] -> None | l -> Some l)
 
-  let to_available_streams (e : (Stream.t * Measure.t timestamped) React.event) =
-    let eq = Stream.equal in
-    React.E.map (fun (s, (m : Measure.t timestamped)) ->
-        match m.data.lock, m.data.bitrate with
-        | true, Some x when x > 0 -> `Found s
-        | _ -> `Lost s) e
-    |> React.S.fold ~eq:(Equal.list Stream.equal) (fun acc -> function
-           | `Found x -> List.add_nodup ~eq x acc
-           | `Lost x -> List.remove ~eq ~x acc) []
+  let to_available_streams (_ : (id * Measure.t timestamped) list React.event) =
+    React.S.const []
+        (* (streams : Stream.t list React.signal) *)
+    (* let eq = Stream.equal in
+     * React.S.sample (fun ((id : id), (m : Measure.t timestamped))
+     *                     (streams : Stream.t list) ->
+     *     let stream =
+     *       List.find (fun (s : Stream.t) ->
+     *           Stream.ID.equal s.id id.stream) streams in
+     *     match stream, m.data.lock, m.data.bitrate with
+     *     | Some stream, true, Some x when x > 0 -> `Found s
+     *     | Some stream, _, _ -> `Lost s) e streams
+     * |> React.S.fold ~eq:(Equal.list Stream.equal) (fun acc -> function
+     *        | `Found x -> List.add_nodup ~eq x acc
+     *        | `Lost x -> List.remove ~eq ~x acc) [] *)
 
   let create sender streams_conv source_id
         (storage : Device.config storage) step_duration =
@@ -591,16 +648,13 @@ module Make(Logs : Logs.LOG) = struct
           let c = List.Assoc.set ~eq:(=) id mode acc in
           storage#store c;
           c) storage#get e_mode in
-    let hold_e ~eq f e  =
+    let hold_e ~eq e  =
       React.E.fold (fun acc x ->
-          List.Assoc.set ~eq:Stream.equal (f x) x acc) [] e
-      |> React.E.map (List.map snd)
+          merge_assoc ~eq:equal_id ~acc x) [] e
       |> React.S.hold ~eq [] in
     let raw_streams = to_streams_s source_id s_config in
     let streams = streams_conv raw_streams in
-    let measures =
-      map_streams source_id streams
-        (map_measures storage e_measures) in
+    let measures = map_streams source_id streams e_measures in
     let params = map_streams source_id streams e_params in
     let plps = map_streams source_id streams e_plp_list in
     let available_streams = to_available_streams measures in
@@ -626,10 +680,10 @@ module Make(Logs : Logs.LOG) = struct
       } in
     let eq f =
       let ts = Time.equal_timestamped f in
-      Equal.list @@ Equal.pair Stream.equal ts in
-    let s_measures = hold_e ~eq:(eq Measure.equal) fst events.measures in
-    let s_params = hold_e ~eq:(eq Params.equal) fst events.params in
-    let s_plp_list = hold_e ~eq:(eq Plp_list.equal) fst events.plps in
+      Equal.list @@ Equal.pair equal_id ts in
+    let s_measures = hold_e ~eq:(eq Measure.equal) events.measures in
+    let s_params = hold_e ~eq:(eq Params.equal) events.params in
+    let s_plp_list = hold_e ~eq:(eq Plp_list.equal) events.plps in
     let msgs = ref (Queue.create []) in
     let steps = Boards.Timer.steps ~step_duration timeout in
     let send x = send s_state msgs sender push_events steps x in

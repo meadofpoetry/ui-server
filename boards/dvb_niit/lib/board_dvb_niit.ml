@@ -49,9 +49,7 @@ let create (b : Topology.topo_board) _ convert_streams send
   let events, api, step =
     SM.create send (fun x -> convert_streams x b) source_id storage step in
   let handlers = Board_api.handlers b.control db api events in
-  React.E.(keep @@ map_s (fun ((s : Stream.t), m) ->
-                       Db.Measurements.insert db (s.id, m))
-                     events.measures);
+  React.E.(keep @@ map_s (Db.Measurements.insert db) events.measures);
   let state = object
       method finalize () = ()
     end in

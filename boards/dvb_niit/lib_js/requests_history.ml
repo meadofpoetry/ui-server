@@ -14,7 +14,7 @@ module HTTP = struct
       let open Json in
       List.of_yojson
         (Pair.of_yojson
-           Stream.ID.of_yojson
+           id_of_yojson
            (List.of_yojson @@ Time.timestamped_of_yojson Measure.of_yojson))
         data
 

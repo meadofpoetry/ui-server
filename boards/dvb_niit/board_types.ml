@@ -1,5 +1,10 @@
 open Common
 
+type id =
+  { stream : Stream.ID.t
+  ; tuner : int
+  } [@@deriving yojson, eq]
+
 module Device = struct
 
   type devinfo =
@@ -50,10 +55,6 @@ end
 
 module Measure = struct
 
-  type id =
-    { stream : Stream.ID.t
-    ; tuner : int
-    }
   type t =
     { lock : bool
     ; power : float option
@@ -67,7 +68,8 @@ end
 
 module Params = struct
 
-  type dvb_t2 =
+  type t = dvb_t2
+  and dvb_t2 =
     { lock : bool
     ; fft : int
     ; gi : int
@@ -98,7 +100,5 @@ module Params = struct
     ; fec_block_num : int
     ; in_band_flag : bool
     } [@@deriving yojson, eq, show]
-
-  type t = dvb_t2 [@@deriving yojson, eq, show]
 
 end

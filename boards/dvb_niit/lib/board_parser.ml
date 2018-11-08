@@ -1,5 +1,4 @@
 open Containers
-open Common.Time
 open Board_msg_formats
 
 let tag_start = 0x55AA
@@ -27,9 +26,9 @@ module Make(Logs : Logs.LOG) = struct
     | Set_mode : (int * Device.mode) -> (int * Device.mode_rsp) request
 
   type event =
-    | Measures of (int * Measure.t timestamped)
-    | Params of (int * Params.t timestamped)
-    | Plp_list of (int * Plp_list.t timestamped) [@@deriving show]
+    | Measures of (int * Measure.t)
+    | Params of (int * Params.t)
+    | Plp_list of (int * Plp_list.t) [@@deriving show]
 
   type _ event_request =
     | Get_measure : int -> event event_request
@@ -147,7 +146,7 @@ module Make(Logs : Logs.LOG) = struct
   let to_measure_req id =
     to_empty_msg ~msg_code:(0x30 lor id)
 
-  let parse_measures_rsp_exn id msg : int * Measure.t timestamped =
+  let parse_measures_rsp_exn id msg : int * Measure.t =
     let int_to_opt x = if Int.equal x max_uint16 then None else Some x in
     let int32_to_opt x = if Int32.equal x max_uint32 then None else Some x in
     try
@@ -171,7 +170,7 @@ module Make(Logs : Logs.LOG) = struct
         |> Option.map Int32.to_int in
       let (data : Measure.t) =
         { lock; power; mer; ber; freq; bitrate } in
-      id, { timestamp = Clock.now (); data }
+      id, data
     with _ -> raise Parse_error
 
   (* Params *)
@@ -179,7 +178,7 @@ module Make(Logs : Logs.LOG) = struct
   let to_params_req id =
     to_empty_msg ~msg_code:(0x40 lor id)
 
-  let parse_params_rsp_exn id msg : int * Params.t timestamped =
+  let parse_params_rsp_exn id msg : int * Params.t =
     let bool_of_int x = x <> 0 in
     try
       let lock =
@@ -218,7 +217,7 @@ module Make(Logs : Logs.LOG) = struct
         ; in_band_flag = get_rsp_params_in_band_flag msg |> bool_of_int
         }
       in
-      id, { timestamp = Clock.now_s (); data }
+      id, data
     with _ -> raise Parse_error
 
   (* PLP list *)
@@ -226,7 +225,7 @@ module Make(Logs : Logs.LOG) = struct
   let to_plp_list_req id =
     to_empty_msg ~msg_code:(0x50 lor id)
 
-  let parse_plp_list_rsp_exn id msg : int * Plp_list.t timestamped =
+  let parse_plp_list_rsp_exn id msg : int * Plp_list.t =
     try
       let plp_num =
         Cstruct.get_uint8 msg 1
@@ -244,7 +243,7 @@ module Make(Logs : Logs.LOG) = struct
                (Cstruct.shift msg 2) in
            Cstruct.fold (fun acc el -> el :: acc) iter []
            |> List.sort Int.compare in
-      id, { timestamp = Clock.now_s (); data = plps }
+      id, plps
     with _ -> raise Parse_error
 
   type parsed =

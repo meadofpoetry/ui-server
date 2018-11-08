@@ -11,17 +11,17 @@ let typ =
     Types.(List.(int & ID.db & bool
                  & option float & option float & option float
                  & option int & option int & ptime))
-    ~encode:(fun (id, ({ data; timestamp } : Measure.t Time.timestamped)) ->
-      Ok (0,
-          (ID.to_db id,
+    ~encode:(fun ((id : id), ({ data; timestamp } : Measure.t Time.timestamped)) ->
+      Ok (id.tuner,
+          (ID.to_db id.stream,
            (data.lock,
             (data.power,
              (data.mer,
               (data.ber,
                (data.freq,
                 (data.bitrate, timestamp)))))))))
-    ~decode:(fun (_,
-                  (id,
+    ~decode:(fun (tuner,
+                  (stream,
                    (lock,
                     (power,
                      (mer,
@@ -29,7 +29,7 @@ let typ =
                        (freq,
                         (bitrate, timestamp)))))))) ->
       let (data : Measure.t) = { lock; power; mer; ber; freq; bitrate } in
-      Ok (ID.of_db id, { data; timestamp }))
+      Ok ({ tuner; stream = ID.of_db stream }, { data; timestamp }))
 
 let insert db meas =
   let table = (Conn.names db).measurements in
@@ -38,7 +38,10 @@ let insert db meas =
       (sprintf {|INSERT INTO %s(tuner,stream,lock,power,mer,ber,freq,bitrate,date)
                 VALUES (?,?,?,?,?,?,?,?,?)|} table)
   in
-  Conn.request db Request.(exec insert meas)
+  Conn.request db Request.(
+    with_trans (List.fold_left (fun acc x ->
+                    acc >>= fun () -> exec insert x)
+                  (return ()) meas))
 
 let select db ?(streams = []) ?(tuners = []) ?(limit = 500) ?(order = `Desc)
       ~from ~till () =
@@ -61,7 +64,7 @@ let select db ?(streams = []) ?(tuners = []) ?(limit = 500) ?(order = `Desc)
       | [] -> acc
       | (id, m) :: tl ->
          let acc =
-           List.Assoc.update ~eq:Stream.ID.equal
+           List.Assoc.update ~eq:equal_id
              ~f:(function None -> Some [m] | Some l -> Some (m :: l))
              id acc in
          aux acc tl in

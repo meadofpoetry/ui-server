@@ -11,6 +11,10 @@ type 'a data = (Stream.ID.t * ('a point list)) list
 
 type dataset = (Time.t, float) Line.Dataset.t
 
+type init = (id * Measure.t Time.timestamped list) list
+
+type event = (id * Measure.t Time.timestamped) list React.event
+
 type widget_config =
   { sources : data_source list
   ; typ : measure_type
@@ -137,6 +141,7 @@ let make_dataset ~x_axis ~y_axis id src data =
       () in
   let (r, g, b) = colors.(id) in
   let color = Color.rgb r g b in
+  ds#set_point_radius (`Val 0);
   ds#set_line_tension 0.;
   ds#set_bg_color color;
   ds#set_border_color color;
@@ -157,23 +162,21 @@ let make_datasets ~x_axis ~y_axis
     make_dataset ~x_axis ~y_axis id src data in
   List.mapi map sources
 
-type init = (Stream.ID.t * Measure.t Time.timestamped list) list
-type event = (Stream.t * Measure.t Time.timestamped) React.event
-
 let to_init (get : Measure.t -> float option)
       (init : init) : float data =
-  List.map (fun (id, meas) ->
+  List.map (fun ((id : id), meas) ->
       let data =
         List.map (fun Time.{ data; timestamp } ->
             let y = Option.get_or ~default:nan (get data) in
             ({ x = timestamp; y } : 'a point)) meas in
-      id, data) init
+      id.stream, data) init
 
 let to_event (get : Measure.t -> float option)
       (event : event) : float data React.event =
-  React.E.map (fun ((s : Stream.t), Time.{ data; timestamp }) ->
-      let y = Option.get_or ~default:nan (get data) in
-      [s.id, List.return ({ x = timestamp; y } : 'a point)])
+  React.E.map (
+      List.map (fun ((id : id), Time.{ data; timestamp }) ->
+          let y = Option.get_or ~default:nan (get data) in
+          id.stream, List.return ({ x = timestamp; y } : 'a point)))
     event
 
 class t ~(config : widget_config)
@@ -259,15 +262,18 @@ module Ber = Make(Float)
 module Freq = Make(Int)
 module Bitrate = Make(Float)
 
-let make
-      ~(init : (Stream.ID.t * Measure.t Time.timestamped list) list)
-      ~(measures : (Stream.t * Measure.t Time.timestamped) React.event)
+let make ~(init : init)
+      ~(measures : event)
       (config : widget_config) =
   let event = match config.sources with
     | [] -> measures
     | ids ->
-       React.E.filter (fun ((s : Stream.t), _) ->
-           List.mem ~eq:Stream.ID.equal s.id ids) measures in
+       React.E.fmap (fun l ->
+           List.filter (fun ((id : id), _) ->
+               List.mem ~eq:Stream.ID.equal id.stream ids) l
+           |> function
+             | [] -> None
+             | l -> Some l) measures in
   (match config.typ with
    | `Power -> Power.make ~init ~event config
    | `Mer -> Mer.make ~init ~event config

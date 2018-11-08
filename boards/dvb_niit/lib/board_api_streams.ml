@@ -9,14 +9,19 @@ module WS = struct
 
   open Api.Socket
 
-  let to_yojson f (v : Stream.t * 'a Time.timestamped) =
-    Json.(Pair.to_yojson
-            Stream.to_yojson
-            (Time.timestamped_to_yojson f) v)
+  let to_yojson f (v : (id * 'a Time.timestamped) list) =
+    Json.(List.to_yojson
+          @@ Pair.to_yojson
+               id_to_yojson
+               (Time.timestamped_to_yojson f)) v
 
   let filter ids e =
-    React.E.filter (fun ((s : Stream.t), _) ->
-        List.mem ~eq:Stream.ID.equal s.id ids) e
+    React.E.fmap (fun l ->
+        List.filter (fun (id, _) ->
+            List.mem ~eq:Stream.ID.equal id.stream ids) l
+        |> function
+          | [] -> None
+          | l -> Some l) e
 
   let get_measures (events : events) ids _ body sock_data () =
     let e = events.measures in
@@ -38,18 +43,18 @@ end
 module HTTP = struct
 
   let get (ids : Stream.ID.t list)
-        (get : unit -> (Stream.t * 'a) list)
+        (get : unit -> (id * 'a) list)
         (_to : 'b -> Yojson.Safe.json)
         () =
     let to_yojson =
       Json.(Pair.to_yojson
-              Stream.to_yojson
+              id_to_yojson
               (Time.timestamped_to_yojson _to)) in
     let l = match ids with
       | [] -> get ()
       | ids ->
-         List.filter (fun ((s : Stream.t), _) ->
-             List.mem ~eq:Stream.ID.equal s.id ids)
+         List.filter (fun ((id : id), _) ->
+             List.mem ~eq:Stream.ID.equal id.stream ids)
          @@ get ()
     in
     Json.List.to_yojson to_yojson l

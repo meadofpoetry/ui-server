@@ -33,7 +33,7 @@ let return = Lwt_result.return
 let map_err : 'a 'b. ('b,'a Api_js.Requests.err) Lwt_result.t -> ('b,string) Lwt_result.t =
   fun x -> Lwt_result.map_err (fun e -> Api_js.Requests.err_to_string ?to_string:None e) x
 
-type measures = Stream.t * (Measure.t Time.timestamped)
+type measures = (id * Measure.t Time.timestamped) list
 
 (* Widget factory *)
 class t (control : int) () =

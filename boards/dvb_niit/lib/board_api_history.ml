@@ -8,12 +8,12 @@ module HTTP = struct
 
   module Measurements = struct
 
-    let raw_to_yojson (data : (Stream.ID.t * Measure.t Time.timestamped list) list)
+    let raw_to_yojson (data : (id * Measure.t Time.timestamped list) list)
         : Yojson.Safe.json =
       let open Json in
       List.to_yojson
         (Pair.to_yojson
-           Stream.ID.to_yojson
+           id_to_yojson
            (List.to_yojson @@ Time.timestamped_to_yojson Measure.to_yojson))
           data
 

@@ -11,9 +11,10 @@ module WS = struct
   open Common.Uri
 
   let of_yojson f v =
-    Json.(Pair.of_yojson
-            Stream.of_yojson
-            (Time.timestamped_of_yojson f) v)
+    Json.(List.of_yojson
+          @@ Pair.of_yojson
+               id_of_yojson
+               (Time.timestamped_of_yojson f)) v
 
   let get_measures ?(ids = []) control =
     WS.get ~from:(of_yojson Measure.of_yojson)
@@ -41,7 +42,7 @@ module HTTP = struct
 
   let of_yojson f =
     Json.(List.of_yojson (Pair.of_yojson
-                            Stream.of_yojson
+                            id_of_yojson
                             (Time.timestamped_of_yojson f)))
 
   let get_measures ?(ids = []) control =
