@@ -332,9 +332,13 @@ module Errors = struct
     in Conn.request db Request.(with_trans (List.fold_left (fun acc x -> acc >>= fun () -> exec insert x)
                                               (return ()) data))
 
-  let insert_audio db data = insert_data db (audio_data_to_list data)
+  let insert_audio db data =
+    insert_data db
+      (List.concat @@ List.map audio_data_to_list data)
 
-  let insert_video db data = insert_data db (video_data_to_list data)
+  let insert_video db data =
+    insert_data db
+      (List.concat @@ List.map video_data_to_list data)
 
   let coords_conv = is_in "(stream,channel,pid)" (fun (s,c,p) -> Printf.sprintf "(%s,%d,%d)"
                                                                    (SID.of_stream_id s) c p)

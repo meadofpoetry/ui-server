@@ -77,10 +77,12 @@ let create db_conf s_struct s_status e_video e_audio =
   (* Errors *)
   React.E.keep
   @@ React.E.map_p (fun x -> Lwt.catch (fun () -> Db.Errors.insert_video db x)
-                                  (function Failure e -> Lwt_io.printf "vdata error: %s\n" e)) e_video;
+                               (function Failure e -> Lwt_io.printf "vdata error: %s\n" e))
+  @@ Storage.Database.aggregate 5. [e_video];
   React.E.keep
   @@ React.E.map_p (fun x -> Lwt.catch (fun () -> Db.Errors.insert_audio db x)
-                                  (function Failure e -> Lwt_io.printf "adata error: %s\n" e)) e_audio;
+                               (function Failure e -> Lwt_io.printf "adata error: %s\n" e))
+  @@ Storage.Database.aggregate 5. [e_audio];
   { db; tick; _loop = loop () }
   
 let set_streams model streams =
