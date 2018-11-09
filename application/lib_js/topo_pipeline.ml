@@ -58,9 +58,9 @@ let make (cpu : Topology.topo_cpu) () : (#Widget.t,string) Lwt_result.t =
     ; new Tab.t
         ~content:(Text "Выбор PID")
         ~value:(wrap make_structure) ()
-    ; new Tab.t
-        ~content:(Text "Настройки анализа")
-        ~value:(wrap make_settings) ()
+    (* ; new Tab.t
+     *     ~content:(Text "Настройки анализа")
+     *     ~value:(wrap make_settings) () *)
     ] in
   let bar, body = Ui_templates.Tabs.create_dynamic tabs in
   let box = Ui_templates.Tabs.wrap bar body in

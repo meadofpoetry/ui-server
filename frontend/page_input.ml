@@ -22,13 +22,13 @@ module WS = struct
          control
        |> fun (e, s) ->
           Some { event = e; close = fun () -> s##close }
-    | `Cpu (Some "pipeline") ->
-       let open Pipeline_js in
-       Requests_structure.WS.get_streams
-         ~inputs:[input]
-         ()
-       |> fun (e, s) ->
-          Some { event = e; close = fun () -> s##close }
+    (* | `Cpu (Some "pipeline") ->
+     *    let open Pipeline_js in
+     *    Requests_structure.WS.get_streams
+     *      ~inputs:[input]
+     *      ()
+     *    |> fun (e, s) ->
+     *       Some { event = e; close = fun () -> s##close } *)
     | _ -> None
 
 end
@@ -53,11 +53,11 @@ module HTTP = struct
        Board_qos_niit_js.Requests.Streams.HTTP.get_streams
          ~inputs:[input]
          control
-    | `Cpu (Some "pipeline") ->
-       let open Pipeline_js in
-       Requests_structure.HTTP.get_streams
-         ~inputs:[input]
-         ()
+    (* | `Cpu (Some "pipeline") ->
+     *    let open Pipeline_js in
+     *    Requests_structure.HTTP.get_streams
+     *      ~inputs:[input]
+     *      () *)
     | _ -> Lwt_result.return []
 
 end
