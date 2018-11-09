@@ -12,6 +12,7 @@ dist/resources/css/*.map
 dist/resources/js/*.js
 !dist/resources/js/adapter.min.js
 !dist/resources/js/chartjs-plugin-deferred.min.js
+!dist/resources/js/chartjs-plugin-streaming.min.js
 !dist/resources/js/Chart.min.js
 !dist/resources/js/Chart.PieceLabel.min.js
 !dist/resources/js/janus.nojquery.js

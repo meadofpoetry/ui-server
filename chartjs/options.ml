@@ -86,15 +86,11 @@ object(self)
     self#elements#replace  _obj##.elements;
 
   initializer
-    self#set_responsive true;
-    self#set_responsive_animation_duration 0;
-    self#set_maintain_aspect_ratio true;
-    self#set_events [`Mousemove; `Mouseout; `Click; `Touchstart; `Touchmove; `Touchend];
-    _obj##.hover     := Js.Unsafe.coerce self#hover#get_obj;
+    _obj##.hover := Js.Unsafe.coerce self#hover#get_obj;
     _obj##.animation := Js.Unsafe.coerce self#animation#get_obj;
-    _obj##.layout    := Js.Unsafe.coerce self#layout#get_obj;
-    _obj##.legend    := Js.Unsafe.coerce self#legend#get_obj;
-    _obj##.title     := Js.Unsafe.coerce self#title#get_obj;
-    _obj##.tooltips  := Js.Unsafe.coerce self#tooltip#get_obj;
-    _obj##.elements  := Js.Unsafe.coerce self#elements#get_obj;
+    _obj##.layout := Js.Unsafe.coerce self#layout#get_obj;
+    _obj##.legend := Js.Unsafe.coerce self#legend#get_obj;
+    _obj##.title := Js.Unsafe.coerce self#title#get_obj;
+    _obj##.tooltips := Js.Unsafe.coerce self#tooltip#get_obj;
+    _obj##.elements := Js.Unsafe.coerce self#elements#get_obj;
 end

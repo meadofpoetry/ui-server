@@ -626,21 +626,19 @@ let time_chart_demo () =
   let range_i = 20 in
   let range_f = 40. in
   Random.init (Unix.time () |> int_of_float);
-  let open Chartjs.Line in
-  let delta = Common.Time.Span.of_int_s 40 in
-  let x_axis = new Chartjs.Line.Axes.Time.t ~id:"x" ~position:`Bottom ~typ:Ptime ~delta () in
-  let y_axis = new Chartjs.Line.Axes.Linear.t ~id:"y" ~position:`Left ~typ:Int () in
-  let y2_axis = new Chartjs.Line.Axes.Logarithmic.t ~id:"y2" ~position:`Right ~typ:Float () in
+  let open Chartjs in
+  let delta = Time.Span.of_int_s 40 in
+  let x_axis = new Line.Axes.Time.t ~id:"x" ~position:`Bottom ~typ:Ptime ~delta () in
+  let y_axis = new Line.Axes.Linear.t ~id:"y" ~position:`Left ~typ:Int () in
+  let y2_axis = new Line.Axes.Logarithmic.t ~id:"y2" ~position:`Right ~typ:Float () in
   let options  =
-    new Chartjs.Line.Options.t
+    new Line.Options.t
       ~x_axes:[x_axis]
       ~y_axes:[ y_axis#coerce_base
-              ; y2_axis#coerce_base
-      ]
-      ()
-  in
-  let dataset1 = new Chartjs.Line.Dataset.t ~x_axis ~y_axis ~label:"Dataset 1" ~data:[] () in
-  let dataset2 = new Chartjs.Line.Dataset.t ~x_axis ~y_axis:y2_axis ~label:"Dataset 2" ~data:[] () in
+              ; y2_axis#coerce_base ]
+      () in
+  let dataset1 = new Line.Dataset.t ~x_axis ~y_axis ~label:"Dataset 1" ~data:[] () in
+  let dataset2 = new Line.Dataset.t ~x_axis ~y_axis:y2_axis ~label:"Dataset 2" ~data:[] () in
   let datasets = [ dataset1#coerce; dataset2#coerce ] in
   options#hover#set_mode `Index;
   options#hover#set_axis `X;
@@ -661,17 +659,17 @@ let time_chart_demo () =
       else x#set_border_color @@ Color.(of_material (Amber C500));
       x#set_cubic_interpolation_mode `Monotone;
       x#set_fill `Disabled) datasets;
-  let chart = new Chartjs.Line.t ~options ~datasets () in
+  let chart = new Line.t ~options ~datasets () in
   let e_update, e_update_push = React.E.create () in
   React.E.map (fun () ->
-      dataset1#push { x = Common.Time.of_float_s
+      dataset1#push { x = Time.of_float_s
                           @@ Unix.gettimeofday () |> Option.get_exn
                     ; y = Random.run (Random.int range_i) };
       chart#update None)
     e_update
   |> React.E.keep;
   React.E.map (fun () ->
-      dataset2#push { x = Common.Time.of_float_s
+      dataset2#push { x = Time.of_float_s
                           @@ Unix.gettimeofday () |> Option.get_exn
                     ; y = Random.run (Random.float range_f) };
       chart#update None)
