@@ -26,6 +26,13 @@ let invalid_port prefix port =
   let s = prefix ^ ": invalid port " ^ (string_of_int port) in
   raise (Board.Invalid_port s)
 
+let rec has_sync = function
+  | [] -> false
+  | (_, ({ data; _ } : Measure.t Time.timestamped)) :: tl ->
+     match data.lock, data.bitrate with
+     | true, Some x when x > 0 -> true
+     | _ -> has_sync tl
+
 let create (b : Topology.topo_board) _ convert_streams send
       db_conf base step : Board.t =
   let log_name = Boards.Board.log_name b in
@@ -61,8 +68,8 @@ let create (b : Topology.topo_board) _ convert_streams send
   ; ports_sync =
       List.fold_left (fun acc (p : Topology.topo_port) ->
           (match p.port with
-           | 0 -> React.S.map ~eq:Equal.bool
-                    (not % List.is_empty) events.available_streams
+           | 0 -> React.E.map has_sync events.measures
+                  |> React.S.hold ~eq:Equal.bool false
            | x -> invalid_port log_name x)
           |> fun x -> Board.Ports.add p.port x acc)
         Board.Ports.empty b.ports

@@ -228,18 +228,16 @@ module Make(Logs : Logs.LOG) = struct
     let cons_event (t : t) (event : event) : t =
       let stamp : 'a. 'a -> 'a timestamped = fun data ->
         { timestamp = Time.Clock.now (); data } in
+      let set id v lst = List.Assoc.set ~eq:(=) id (stamp v) lst in
       let acc = match event with
         | Measures (id, m) ->
-           let measures =
-             List.Assoc.set ~eq:(=) id (stamp m) t.acc.measures in
+           let measures = set id m t.acc.measures in
            { t.acc with measures }
         | Params (id, p) ->
-           let params =
-             List.Assoc.set ~eq:(=) id (stamp p) t.acc.params in
+           let params = set id p t.acc.params in
            { t.acc with params }
         | Plp_list (id, p) ->
-           let plps =
-             List.Assoc.set ~eq:(=) id (stamp p) t.acc.plps in
+           let plps = set id p t.acc.plps in
            { t.acc with plps } in
       { t with acc }
 
@@ -581,32 +579,37 @@ module Make(Logs : Logs.LOG) = struct
     in
     first_step ()
 
+  (** Converts tuner mode to raw stream *)
   let mode_to_stream (source_id : int)
         (id, ({ standard; channel } : Device.mode)) : Stream.Raw.t =
     let open Stream in
     let (freq : int64) = Int64.of_int channel.freq in
     let (bw : float) = match channel.bw with
-      | Bw8 -> 8. | Bw7 -> 7. | Bw6 -> 6. in
+      | Bw8 -> 8.
+      | Bw7 -> 7.
+      | Bw6 -> 6. in
     let (info : Source.t) = match standard with
-      | T2 -> DVB_T2 { freq; bw; plp = channel.plp }
+      | C -> DVB_C { freq; bw}
       | T -> DVB_T { freq; bw }
-      | C -> DVB_C { freq; bw} in
-    let (id : Multi_TS_ID.t) =
-      Multi_TS_ID.make
-        ~source_id
-        ~stream_id:id in
+      | T2 -> DVB_T2 { freq; bw; plp = channel.plp } in
+    let id = Multi_TS_ID.make ~source_id ~stream_id:id in
     { source = { info; node = Port 0 }
     ; id = TS_multi id
     ; typ = TS
     }
 
+  (** Converts device config signal to raw stream list signal *)
   let to_streams_s (source_id : int)
-        (config : Device.config React.signal) =
+        (config : Device.config React.signal)
+      : Stream.Raw.t list React.signal =
     React.S.map ~eq:(Equal.list Stream.Raw.equal)
       (List.map (mode_to_stream source_id)) config
 
+  (** Converts absolute measured channel frequency value
+      to frequency offset in measurements event *)
   let map_measures (config : Device.config React.signal)
-        (e : (int * Measure.t timestamped) list React.event) =
+        (e : (int * Measure.t timestamped) list React.event)
+      : (int * Measure.t timestamped) list React.event =
     React.S.sample (fun l config ->
         List.filter_map
           (fun (id, ({ data; timestamp } : Measure.t timestamped)) ->
