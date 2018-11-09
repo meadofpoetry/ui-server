@@ -200,6 +200,24 @@ module Types = struct
 end
                                
 type t = state
+
+let aggregate t es =
+  let merged = React.E.merge (fun acc x -> x::acc) [] es in
+  let tm = ref Lwt.return_unit in
+  let result = ref [] in
+  let event, epush = React.E.create () in
+  let iter = React.E.fmap (fun l ->
+                 if Lwt.is_sleeping !tm then begin
+                     result := l @ !result;
+                     None
+                   end else begin
+                     tm := Lwt_unix.sleep t;
+                     result := l @ !result;
+                     Lwt.on_success !tm (fun () -> epush !result; result := []);
+                     None
+                   end) merged
+  in
+  React.E.select [iter; event]
        
 let create config period =   
   let user = Sys.getenv "USER" in
