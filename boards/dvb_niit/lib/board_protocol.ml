@@ -17,7 +17,6 @@ type events =
   ; plps : (id * Plp_list.t timestamped) list React.event
   ; raw_streams : Stream.Raw.t list React.signal
   ; streams : Stream.t list React.signal
-  ; available_streams : Stream.t list React.signal
   }
 
 type push_events =
@@ -641,22 +640,6 @@ module Make(Logs : Logs.LOG) = struct
                Some (id, x)) data) e streams
     |> React.E.fmap (function [] -> None | l -> Some l)
 
-  let to_available_streams (_ : (id * Measure.t timestamped) list React.event) =
-    React.S.const []
-        (* (streams : Stream.t list React.signal) *)
-    (* let eq = Stream.equal in
-     * React.S.sample (fun ((id : id), (m : Measure.t timestamped))
-     *                     (streams : Stream.t list) ->
-     *     let stream =
-     *       List.find (fun (s : Stream.t) ->
-     *           Stream.ID.equal s.id id.stream) streams in
-     *     match stream, m.data.lock, m.data.bitrate with
-     *     | Some stream, true, Some x when x > 0 -> `Found s
-     *     | Some stream, _, _ -> `Lost s) e streams
-     * |> React.S.fold ~eq:(Equal.list Stream.equal) (fun acc -> function
-     *        | `Found x -> List.add_nodup ~eq x acc
-     *        | `Lost x -> List.remove ~eq ~x acc) [] *)
-
   let create sender streams_conv source_id
         (storage : Device.config storage) step_duration =
     let s_devinfo, devinfo_push =
@@ -682,7 +665,6 @@ module Make(Logs : Logs.LOG) = struct
                    @@ map_measures s_config e_measures in
     let params = map_streams source_id streams e_params in
     let plps = map_streams source_id streams e_plp_list in
-    let available_streams = to_available_streams measures in
     let (events : events) =
       { mode = e_mode
       ; measures
@@ -693,7 +675,6 @@ module Make(Logs : Logs.LOG) = struct
       ; state = s_state
       ; raw_streams
       ; streams
-      ; available_streams
       } in
     let (push_events : push_events) =
       { mode = mode_push
