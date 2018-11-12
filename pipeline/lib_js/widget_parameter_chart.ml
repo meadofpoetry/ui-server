@@ -221,7 +221,7 @@ let make_dataset ~x_axis ~y_axis id src structures data =
   ds#set_line_tension 0.;
   ds#set_bg_color color;
   ds#set_border_color color;
-  ds#set_cubic_interpolation_mode `Monotone;
+  (* ds#set_cubic_interpolation_mode `Monotone; *)
   ds#set_fill `Disabled;
   src, ds
 

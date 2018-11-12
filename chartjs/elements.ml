@@ -146,10 +146,10 @@ module Line = struct
       method set_border_color x = _obj##.borderColor := CSS.Color.js x
 
       (** Line cap style *)
-      method border_cap_style : Canvas.line_cap =
-        Canvas.line_cap_of_string_exn @@ Js.to_string _obj##.borderCapStyle
-      method set_border_cap_style (x:Canvas.line_cap) =
-        _obj##.borderCapStyle := Js.string @@ Canvas.line_cap_to_string x
+      (* method border_cap_style : Canvas.line_cap =
+       *   Canvas.line_cap_of_string_exn @@ Js.to_string _obj##.borderCapStyle
+       * method set_border_cap_style (x:Canvas.line_cap) =
+       *   _obj##.borderCapStyle := Js.string @@ Canvas.line_cap_to_string x *)
 
       (** Line dash *)
       method border_dash : int list = Array.to_list @@ Js.to_array _obj##.borderDash
@@ -160,10 +160,10 @@ module Line = struct
       method set_border_dash_offset x = _obj##.borderDashOffset := x
 
       (** Line join style *)
-      method border_join_style : Canvas.line_join =
-        Canvas.line_join_of_string_exn @@ Js.to_string _obj##.borderJoinStyle
-      method set_border_join_style (x:Canvas.line_join) =
-        _obj##.borderJoinStyle := Js.string @@ Canvas.line_join_to_string x
+      (* method border_join_style : Canvas.line_join =
+       *   Canvas.line_join_of_string_exn @@ Js.to_string _obj##.borderJoinStyle
+       * method set_border_join_style (x:Canvas.line_join) =
+       *   _obj##.borderJoinStyle := Js.string @@ Canvas.line_join_to_string x *)
 
       (** true to keep Bézier control inside the chart, false for no restriction. *)
       method cap_bezier_points : bool = Js.to_bool _obj##.capBezierPoints
@@ -182,10 +182,10 @@ module Line = struct
         self#set_bg_color @@ CSS.Color.rgb ~a:0.1 0 0 0;
         self#set_border_width 3;
         self#set_border_color @@ CSS.Color.rgb ~a:0.1 0 0 0;
-        self#set_border_cap_style `Butt;
+        (* self#set_border_cap_style `Butt; *)
         self#set_border_dash [];
         self#set_border_dash_offset 0;
-        self#set_border_join_style `Miter;
+        (* self#set_border_join_style `Miter; *)
         self#set_cap_bezier_points true;
         self#set_fill `Zero;
         self#set_stepped false

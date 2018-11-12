@@ -13,11 +13,6 @@ type ('a, 'b, 'c) point_setting =
   | `Fun of (int -> ('a, 'b) point -> 'c)
   ]
 
-type cubic_interpolation_mode =
-  [ `Default
-  | `Monotone
-  ]
-
 type stepped_line =
   [ `Disabled
   | `Before
@@ -32,15 +27,6 @@ type fill =
   | `Absolute_index of int
   | `Relative_index of int
   ]
-
-let cubic_interpolation_mode_to_string = function
-  | `Default -> "default"
-  | `Monotone -> "monotone"
-
-let cubic_interpolation_mode_of_string_exn = function
-  | "default" -> `Default
-  | "monotone" -> `Monotone
-  | _ -> failwith "Bad cubic interpolation mode string"
 
 class type point_js =
   object
@@ -151,13 +137,6 @@ object(self)
   method border_color : Color.t option = Option.map Color.ml @@ Js.Optdef.to_option _obj##.borderColor
   method set_border_color x = _obj##.borderColor := CSS.Color.js x
 
-  (** Cap style of the line. *)
-  method border_cap_style : Canvas.line_cap option =
-    Option.map (Js.to_string %> Canvas.line_cap_of_string_exn)
-    @@ Js.Optdef.to_option _obj##.borderCapStyle
-  method set_border_cap_style (x:Canvas.line_cap) =
-    _obj##.borderCapStyle := Js.string @@ Canvas.line_cap_to_string x
-
   (** Length and spacing of dashes. *)
   method border_dash : int list option =
     Option.map (Js.to_array %> Array.to_list) @@ Js.Optdef.to_option _obj##.borderDash
@@ -166,21 +145,6 @@ object(self)
   (** Offset for line dashes. *)
   method border_dash_offset : int option = Js.Optdef.to_option _obj##.borderDashOffset
   method set_border_dash_offset (x:int) = _obj##.borderDashOffset := x
-
-  (** Line joint style. *)
-  method border_join_style : Canvas.line_join option =
-    Option.map (Js.to_string %> Canvas.line_join_of_string_exn)
-    @@ Js.Optdef.to_option _obj##.borderJoinStyle
-  method set_border_join_style (x:Canvas.line_join) =
-    _obj##.borderJoinStyle := Js.string @@ Canvas.line_join_to_string x
-
-  (** Algorithm used to interpolate a smooth curve from the discrete data points. *)
-  method cubic_interpolation_mode : cubic_interpolation_mode option =
-    Option.map (Js.to_string %> cubic_interpolation_mode_of_string_exn)
-    @@ Js.Optdef.to_option _obj##.cubicInterpolationMode
-  method set_cubic_interpolation_mode (x : cubic_interpolation_mode) =
-    Js.string @@ cubic_interpolation_mode_to_string x
-    |> (fun x -> _obj##.cubicInterpolationMode := x)
 
   (** How to fill the area under the line. *)
   method fill : fill option =

@@ -577,7 +577,6 @@ let chart_demo () =
       if String.equal x#label "Dataset 1"
       then x#set_border_color @@ Color.(RGB (rgb_of_material (Lime C500)))
       else x#set_border_color @@ Color.(RGB (rgb_of_material (Pink C500)));
-      x#set_cubic_interpolation_mode `Monotone;
       x#set_fill `Disabled) datasets;
   let update = new Button.t ~label:"update" () in
   let push = new Button.t ~label:"push" () in
@@ -622,6 +621,43 @@ let chart_demo () =
   in
   demo_section "Chart (Line)" [w]
 
+let new_chart_demo () =
+  let open Chartjs.Line' in
+  let init =
+    Dataset.[ { x = 0.; y = 10. }
+            ; { x = 5.; y = 7. }
+            ; { x = 10.; y = 12. } ] in
+  let dataset =
+    Dataset.make ~label:"My dataset"
+      ~border_color:(CSS.Color.(string_of_name Blue))
+      ~background_color:(CSS.Color.(string_of_name Red))
+      ~point_radius:(`Int 7)
+      ~data:init
+      () in
+  let data = Data.make ~datasets:[dataset] in
+  let line = Chartjs.Options'.Elements.Line.make
+               ~fill:`Disabled
+               ~border_dash:[5; 10]
+               () in
+  let elements = Chartjs.Options'.Elements.make ~line () in
+  let title = Chartjs.Options'.Title.make
+                ~display:true
+                ~text:(`Single "This is a title")
+                ~position:`Right
+                () in
+  let on_resize = fun _ (size : Chartjs.Options'.size) ->
+    Printf.printf "width: %d, height: %d\n" size.width size.height in
+  let options = Chartjs.Options'.make
+                  ~elements
+                  ~title
+                  ~on_resize
+                  () in
+  let conf = Config.make ~options ~data "line" in
+  let canvas = Dom_html.(createCanvas document) in
+  ignore @@ Js.Unsafe.global##.console##log conf;
+  let chart = Chartjs.Line.Chart.make (`Canvas canvas) conf in
+  demo_section "Chart (New)" [Widget.create canvas]
+
 let time_chart_demo () =
   let range_i = 20 in
   let range_f = 40. in
@@ -657,7 +693,6 @@ let time_chart_demo () =
       if String.equal x#label "Dataset 1"
       then x#set_border_color @@ Color.(of_material (Indigo C500))
       else x#set_border_color @@ Color.(of_material (Amber C500));
-      x#set_cubic_interpolation_mode `Monotone;
       x#set_fill `Disabled) datasets;
   let chart = new Line.t ~options ~datasets () in
   let e_update, e_update_push = React.E.create () in
@@ -871,7 +906,7 @@ let onload _ =
               ; dynamic_grid_demo ()
               ; table_demo ()
               ; button_demo ()
-              ; chart_demo ()
+              ; new_chart_demo ()
               ; time_chart_demo ()
               ; fab_demo ()
               ; fab_speed_dial_demo ()

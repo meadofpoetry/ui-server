@@ -53,24 +53,6 @@ module Cast = struct
 
 end
 
-module Canvas = struct
-
-  type line_cap = [`Butt | `Round | `Square]
-
-  type line_join = [`Bevel | `Round | `Miter]
-
-  let line_cap_to_string = function
-    | `Butt -> "butt" | `Round -> "round" | `Square -> "square"
-  let line_cap_of_string_exn = function
-    | "butt" -> `Butt | "round" -> `Round | "square" -> `Square | _ -> failwith "Bad line cap string"
-
-  let line_join_to_string = function
-    | `Bevel -> "bevel" | `Round -> "round" | `Miter -> "miter"
-  let line_join_of_string_exn = function
-    | "bevel" -> `Bevel | "round" -> `Round | "miter" -> `Miter | _ -> failwith "Bad line join string"
-
-end
-
 module Obj = struct
   let (>|=) x f = Js.Optdef.map x f
   let map x f   = Js.Optdef.option x >|= f |> Js.Unsafe.inject

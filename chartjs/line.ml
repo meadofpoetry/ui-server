@@ -1,5 +1,4 @@
 open Containers
-open Base
 
 include Line_types
 
@@ -38,3 +37,33 @@ class t ?width ?height
 
     method options = options
   end
+
+module Chart : sig
+  type t
+
+  type node =
+    [ `Id of string
+    | `Canvas of Dom_html.canvasElement Js.t
+    | `Context of Dom_html.canvasRenderingContext2D Js.t
+    ]
+
+  val make : node -> Line_dataset_.Config.t -> t
+
+end = struct
+
+  include Line_dataset_.Chart
+
+  type node =
+    [ `Id of string
+    | `Canvas of Dom_html.canvasElement Js.t
+    | `Context of Dom_html.canvasRenderingContext2D Js.t
+    ]
+
+  let make (node : node) (config : Line_dataset_.Config.t) : t =
+    let node = match node with
+      | `Id s -> Ojs.string_to_js s
+      | `Canvas c -> Obj.magic c
+      | `Context c -> Obj.magic c in
+    Line_dataset_.Chart.new_chart node config
+
+end

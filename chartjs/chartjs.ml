@@ -4,6 +4,9 @@ module Line = Line
 module Bar = Bar
 module Pie = Pie
 
+module Line' = Line_dataset_
+module Options' = Options_
+
 let register_empty_state_plugin text =
   let chart = Js.Unsafe.global##.Chart in
   let after_draw = fun chart ->
