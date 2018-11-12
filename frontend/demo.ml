@@ -622,37 +622,51 @@ let chart_demo () =
   demo_section "Chart (Line)" [w]
 
 let new_chart_demo () =
-  let open Chartjs.Line' in
+  let open Chartjs in
   let init =
-    Dataset.[ { x = 0.; y = 10. }
-            ; { x = 5.; y = 7. }
-            ; { x = 10.; y = 12. } ] in
+    Line'.Dataset.[ { x = 0.; y = 10. }
+                  ; { x = 5.; y = 7. }
+                  ; { x = 10.; y = 12. } ] in
   let dataset =
-    Dataset.make ~label:"My dataset"
+    Line'.Dataset.make ~label:"My dataset"
       ~border_color:(CSS.Color.(string_of_name Blue))
       ~background_color:(CSS.Color.(string_of_name Red))
       ~point_radius:(`Int 7)
       ~data:init
       () in
-  let data = Data.make ~datasets:[dataset] in
-  let line = Chartjs.Options'.Elements.Line.make
-               ~fill:`Disabled
-               ~border_dash:[5; 10]
-               () in
-  let elements = Chartjs.Options'.Elements.make ~line () in
-  let title = Chartjs.Options'.Title.make
-                ~display:true
-                ~text:(`Single "This is a title")
-                ~position:`Right
-                () in
-  let on_resize = fun _ (size : Chartjs.Options'.size) ->
-    Printf.printf "width: %d, height: %d\n" size.width size.height in
-  let options = Chartjs.Options'.make
-                  ~elements
-                  ~title
-                  ~on_resize
-                  () in
-  let conf = Config.make ~options ~data "line" in
+  let data = Line'.Data.make ~datasets:[dataset] in
+  let line =
+    Options'.Elements.Line.make
+      ~fill:(`Bool false)
+      ~border_dash:[5; 10]
+      () in
+  let elements =
+    Options'.Elements.make
+      ~line
+      () in
+  let legend =
+    let labels =
+      Options'.Legend.Labels.make
+        () in
+    Options'.Legend.make
+      ~labels
+      () in
+  let title =
+    Chartjs.Options'.Title.make
+      ~display:true
+      ~text:"This is a title"
+      ~position:`Right
+      () in
+  (* let on_resize = fun _ (size : Chartjs.Options'.size) ->
+   *   Printf.printf "width: %d, height: %d\n" size.width size.height in *)
+  let options =
+    Chartjs.Options'.make
+      ~elements
+      ~legend
+      ~title
+      (* ~on_resize *)
+      () in
+  let conf = Line'.Config.make ~options ~data "line" in
   let canvas = Dom_html.(createCanvas document) in
   ignore @@ Js.Unsafe.global##.console##log conf;
   let chart = Chartjs.Line.Chart.make (`Canvas canvas) conf in

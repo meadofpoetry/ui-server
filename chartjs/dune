@@ -12,8 +12,8 @@
   (action (run ocamlfind gen_js_api/gen_js_api %{deps})))
 
 (rule
-  (targets types_.ml)
-  (deps types_.mli)
+  (targets types.ml)
+  (deps types.mli)
   (action (run ocamlfind gen_js_api/gen_js_api %{deps})))
 
 (rule
