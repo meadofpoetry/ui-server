@@ -7,8 +7,8 @@
   (preprocess  (pps js_of_ocaml-ppx gen_js_api.ppx ppx_deriving.show)))
 
 (rule
-  (targets line_dataset_.ml)
-  (deps line_dataset_.mli)
+  (targets line_dataset.ml)
+  (deps line_dataset.mli)
   (action (run ocamlfind gen_js_api/gen_js_api %{deps})))
 
 (rule
@@ -17,6 +17,11 @@
   (action (run ocamlfind gen_js_api/gen_js_api %{deps})))
 
 (rule
-  (targets options_.ml)
-  (deps options_.mli)
+  (targets options.ml)
+  (deps options.mli)
+  (action (run ocamlfind gen_js_api/gen_js_api %{deps})))
+
+(rule
+  (targets scales.ml)
+  (deps scales.mli)
   (action (run ocamlfind gen_js_api/gen_js_api %{deps})))

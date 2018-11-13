@@ -193,7 +193,7 @@ module Config : sig
   type t = private Ojs.t
 
   val make : ?data:Data.t ->
-             ?options:Options_.t ->
+             ?options:Options.t ->
              (string[@js "type"]) ->
              t [@@js.builder]
 

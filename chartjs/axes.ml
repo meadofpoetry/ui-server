@@ -1,40 +1,67 @@
 open Containers
-open Base
+open Scales
+open Types
+
+module Scale_label = Scale_label
+module Grid_lines = Grid_lines
 
 module Cartesian = struct
 
-  module Category    = Axes_cartesian_category
-  module Linear      = Axes_cartesian_linear
-  module Logarithmic = Axes_cartesian_logarithmic
-  module Time        = Axes_cartesian_time
+  module Category = struct
 
-  class type t_js =
-    object
-      method xAxes : 'a. 'a Js.t Js.js_array Js.t Js.prop
-      method yAxes : 'a. 'a Js.t Js.js_array Js.t Js.prop
+    module Ticks = struct
+      include Ticks
+      include (Category.Ticks : module type of Category.Ticks
+                                               with type t := Ticks.t)
     end
 
-  class t ~(x_axes:#Axes_cartesian_common.t_base list)
-          ~(y_axes:#Axes_cartesian_common.t_base list)
-          () =
-    let o : t_js Js.t = Js.Unsafe.coerce @@ Js.Unsafe.obj [||] in
-    object
-      inherit base_option o () as super
-      val _x_axes : base_option list = List.map (fun x -> (x :> base_option)) x_axes
-      val _y_axes : base_option list = List.map (fun x -> (x :> base_option)) y_axes
+    include Cartesian
+    let make = make ~type_:"category"
+  end
 
-      method! replace x =
-        super#replace x;
-        List.iter2 (fun (x:base_option) y -> x#replace y) _x_axes (Array.to_list @@ Js.to_array _obj##.xAxes);
-        List.iter2 (fun (x:base_option) y -> x#replace y) _y_axes (Array.to_list @@ Js.to_array _obj##.yAxes)
+  module Linear = struct
 
-      initializer
-        _obj##.xAxes := Js.array @@ Array.of_list @@ List.map (fun x -> x#get_obj) _x_axes;
-        _obj##.yAxes := Js.array @@ Array.of_list @@ List.map (fun x -> x#get_obj) _y_axes
+    module Ticks = struct
+      include Ticks
+      include (Linear.Ticks : module type of Linear.Ticks
+                                             with type t := Ticks.t)
     end
+
+    include Cartesian
+    let make = make ~type_:"linear"
+
+  end
+
+  module Logarithmic = struct
+
+    module Ticks = struct
+      include Ticks
+      include (Logarithmic.Ticks : module type of Logarithmic.Ticks
+                                                  with type t := Ticks.t)
+    end
+
+    include Cartesian
+    let make = make ~type_:"logarithmic"
+  end
+
+  module Time = struct
+
+    module Ticks = struct
+      include Ticks
+      include (Time.Ticks : module type of Time.Ticks
+                                           with type t := Ticks.t)
+    end
+
+    include Cartesian
+    include (Time : module type of Time with type t := Cartesian.t
+                                   with module Ticks := Ticks)
+    let make = make ~type_:"time"
+  end
 
 end
 
 module Radial = struct
 
 end
+
+let make = make

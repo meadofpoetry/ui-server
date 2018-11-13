@@ -85,30 +85,30 @@ module Pie = struct
     ; Light_blue C500, Black
     ]
 
-  let make_pie () =
-    let open Chartjs.Pie in
-    Chartjs.register_empty_state_plugin "Нет данных";
-    let dataset = new Dataset.t ~label:"dataset" Float [  ] in
-    let piece_label = new Options.Piece_label.t () in
-    let options = new Options.t ~piece_label () in
-    dataset#set_border_width [0.];
-    dataset#set_bg_color
-    @@ List.map Fun.(Color.of_material % fst) colors;
-    piece_label#set_font_color
-    @@ List.map (fun x -> Color.Name (snd x)) colors;
-    piece_label#set_render `Label;
-    piece_label#set_position `Border;
-    options#set_responsive true;
-    options#set_maintain_aspect_ratio true;
-    options#legend#set_position `Left;
-    options#legend#set_display false;
-    let pie =
-      new t ~options
-        ~width:250 ~height:250
-        ~labels:[]
-        ~datasets:[] ()
-    in
-    pie, dataset
+  (* let make_pie () =
+   *   let open Chartjs.Pie in
+   *   Chartjs.register_empty_state_plugin "Нет данных";
+   *   let dataset = new Dataset.t ~label:"dataset" Float [  ] in
+   *   (\* let piece_label = new Options.Piece_label.t () in
+   *    * let options = new Options.t ~piece_label () in *\)
+   *   (\* dataset#set_border_width [0.];
+   *    * dataset#set_bg_color
+   *    * @@ List.map Fun.(Color.of_material % fst) colors;
+   *    * piece_label#set_font_color
+   *    * @@ List.map (fun x -> Color.Name (snd x)) colors;
+   *    * piece_label#set_render `Label;
+   *    * piece_label#set_position `Border;
+   *    * options#set_responsive true;
+   *    * options#set_maintain_aspect_ratio true; *\)
+   *   (\* options#legend#set_position `Left;
+   *    * options#legend#set_display false; *\)
+   *   let pie =
+   *     new t (\* ~options *\)
+   *       ~width:250 ~height:250
+   *       ~labels:[]
+   *       ~datasets:[] ()
+   *   in
+   *   pie, dataset *)
 
   class t ?(hex = false) () =
     let _class = Markup.CSS.add_element base_class "pie" in
@@ -117,7 +117,7 @@ module Pie = struct
     let text = "Битрейт" in
     let title = new Typography.Text.t ~font:Caption ~text () in
     let box = Widget.create_div () in
-    let pie, dataset = make_pie () in
+    (* let pie, dataset = make_pie () in *)
     object(self)
 
       val mutable _hex = hex
@@ -128,7 +128,7 @@ module Pie = struct
       method init () : unit =
         super#init ();
         box#add_class box_class;
-        box#append_child pie;
+        (* box#append_child pie; *)
         title#add_class title_class;
         self#set_rate None;
         self#add_class _class;
@@ -139,44 +139,44 @@ module Pie = struct
         super#destroy ();
         title#destroy ();
         box#destroy ();
-        pie#destroy ()
+        (* pie#destroy () *)
 
       method set_hex (x : bool) : unit =
         _hex <- x;
         match _rate with
         | None -> ()
-        | Some (pids, oth) ->
-           pie#set_labels @@ self#make_labels pids oth;
-           pie#update None;
+        | Some (pids, oth) -> ()
+           (* pie#set_labels @@ self#make_labels pids oth;
+            * pie#update None; *)
 
       method set_rate : Bitrate.t option -> unit = function
-        | None ->
-           pie#set_datasets [];
-           _rate <- None;
-           pie#update None
-        | Some { total; pids; _ } ->
-           let br =
-             List.fold_left (fun acc (pid, br) ->
-                 let open Float in
-                 let pct = 100. * (of_int br) / (of_int total) in
-                 let br = (of_int br) / 1_000_000. in
-                 (pid, (br, pct)) :: acc) [] pids in
-           let pids, oth =
-             List.fold_left (fun (pids, oth) (pid, (br, pct)) ->
-                 if pct >. 1. then (pid, br) :: pids, oth
-                 else pids, br :: oth) ([], []) br in
-           let labels = self#make_labels pids oth in
-           if Option.is_none _rate
-           then pie#set_datasets [dataset];
-           _rate <- Some (pids, oth);
-           let data =
-             let pids = List.map snd pids in
-             match oth with
-             | [] -> pids
-             | l  -> pids @ [List.fold_left (+.) 0. l] in
-           pie#set_labels labels;
-           dataset#set_data data;
-           pie#update None
+        | None -> ()
+           (* pie#set_datasets [];
+            * _rate <- None;
+            * pie#update None *)
+        | Some { total; pids; _ } -> ()
+           (* let br =
+            *   List.fold_left (fun acc (pid, br) ->
+            *       let open Float in
+            *       let pct = 100. * (of_int br) / (of_int total) in
+            *       let br = (of_int br) / 1_000_000. in
+            *       (pid, (br, pct)) :: acc) [] pids in *)
+           (* let pids, oth =
+            *   List.fold_left (fun (pids, oth) (pid, (br, pct)) ->
+            *       if pct >. 1. then (pid, br) :: pids, oth
+            *       else pids, br :: oth) ([], []) br in *)
+           (* let labels = self#make_labels pids oth in
+            * (\* if Option.is_none _rate
+            *  * then pie#set_datasets [dataset]; *\)
+            * _rate <- Some (pids, oth);
+            * let data =
+            *   let pids = List.map snd pids in
+            *   match oth with
+            *   | [] -> pids
+            *   | l  -> pids @ [List.fold_left (+.) 0. l] in *)
+           (* pie#set_labels labels;
+            * dataset#set_data data;
+            * pie#update None *)
 
       (* Private methods *)
 
