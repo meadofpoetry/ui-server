@@ -16,6 +16,62 @@ module Font : sig
 
 end
 
+type easing =
+  [ `Linear [@js "linear"]
+  | `Ease_in_quad [@js "easeInQuad"]
+  | `Ease_out_quad [@js "easeOutQuad"]
+  | `Ease_in_out_quad [@js "easeInOutQuad"]
+  | `Ease_in_cubic [@js "easeInCubic"]
+  | `Ease_out_cubic [@js "easeOutCubic"]
+  | `Ease_in_out_cubic [@js "easeInOutCubic"]
+  | `Ease_in_quart [@js "easeInQuart"]
+  | `Ease_out_quart [@js "easeOutQuart"]
+  | `Ease_in_out_quart [@js "easeInOutQuart"]
+  | `Ease_in_quint [@js "easeInQuint"]
+  | `Ease_out_quint [@js "easeOutQuint"]
+  | `Ease_in_out_quint [@js "easeInOutQuint"]
+  | `Ease_in_sine [@js "easeInSine"]
+  | `Ease_out_sine [@js "easeOutSine"]
+  | `Ease_in_out_sine [@js "easeInOutSine"]
+  | `Ease_in_expo [@js "easeInExpo"]
+  | `Ease_out_expo [@js "easeOutExpo"]
+  | `Ease_in_out_expo [@js "easeInOutExpo"]
+  | `Ease_in_circ [@js "easeInCirc"]
+  | `Ease_out_circ [@js "easeOutCirc"]
+  | `Ease_in_out_circ [@js "easeInOutCirc"]
+  | `Ease_in_elastic [@js "easeInElastic"]
+  | `Ease_out_elastic [@js "easeOutElastic"]
+  | `Ease_in_out_elastic [@js "easeInOutElastic"]
+  | `Ease_in_back [@js "easeInBack"]
+  | `Ease_out_back [@js "easeOutBack"]
+  | `Ease_in_out_back [@js "easeInOutBack"]
+  | `Ease_in_bounce [@js "easeInBounce"]
+  | `Ease_out_bounce [@js "easeOutBounce"]
+  | `Ease_in_out_bounce [@js "easeInOutBounce"]
+  ] [@js.enum]
+val easing_to_js : easing -> Ojs.t
+val easing_of_js : Ojs.t -> easing
+
+module Update_config : sig
+  type t
+
+  val duration : t -> int
+  val set_duration : t -> int -> unit
+
+  val lazy_ : t -> bool
+  val set_lazy_ : t -> bool -> unit
+
+  val easing : t -> easing
+  val set_easing : t -> easing -> unit
+
+  val make : ?duration:int ->
+             ?lazy_:bool ->
+             ?easing:easing ->
+             unit ->
+             t [@@js.builder]
+
+end
+
 type line_cap =
   [ `Butt [@js "butt"]
   | `Round [@js "round"]

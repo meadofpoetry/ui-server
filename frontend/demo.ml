@@ -635,6 +635,10 @@ let new_chart_demo () =
       ~data:init
       () in
   let data = Line'.Data.make ~datasets:[dataset] in
+  let animation =
+    Options'.Animation.make
+      ~on_complete:(fun _ -> print_endline "animation complete")
+      () in
   let line =
     Options'.Elements.Line.make
       ~fill:(`Bool false)
@@ -680,6 +684,7 @@ let new_chart_demo () =
       () in
   let options =
     Options'.make
+      ~animation
       ~elements
       ~legend
       ~title

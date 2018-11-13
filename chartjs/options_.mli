@@ -242,6 +242,44 @@ module Elements : sig
              t [@@js.builder]
 end
 
+module Animation : sig
+  type animation =
+    { chart : Ojs.t
+    ; current_step : float
+    ; num_steps : float
+    ; easing : easing
+    ; render : chart:Ojs.t -> animation -> unit
+    ; on_animation_progress : callback
+    ; on_animation_complete : callback
+    }
+  and callback = animation -> unit
+  type t
+
+  (** The number of milliseconds an animation takes. *)
+  val duration : t -> int
+  val set_duration : t -> int -> unit
+
+  (** Easing function to use. *)
+  val easing : t -> easing
+  val set_easing : t -> easing -> unit
+
+  (** Callback called on each step of an animation. *)
+  val on_progress : t -> callback
+  val set_on_progress : t -> callback -> unit
+
+  (** Callback called at the end of an animation. *)
+  val on_complete : t -> callback
+  val set_on_complete : t -> callback -> unit
+
+  val make : ?duration:int ->
+             ?easing:easing ->
+             ?on_progress:callback ->
+             ?on_complete:callback ->
+             unit ->
+             t [@@js.builder]
+
+end
+
 module Legend : sig
 
   module Item : sig
@@ -485,14 +523,14 @@ module Tooltips : sig
   type color =
     { border_color : Color.t
     ; background_color : Color.t
-    } [@@deriving show]
+    }
 
   module Item : sig
     type t =
       { (** X Value of the tooltip as a string. *)
-        x_label : string option
+        x_label : Ojs.t
       (** Y value of the tooltip as a string. *)
-      ; y_label : string option
+      ; y_label : Ojs.t
       (** Index of the dataset the item comes from. *)
       ; dataset_index : int
       (** Index of this data item in the dataset. *)
@@ -501,7 +539,7 @@ module Tooltips : sig
       ; x : float
       (** Y position of matching point. *)
       ; y : float
-      } [@@deriving show]
+      }
 
   end
 
@@ -556,7 +594,7 @@ module Tooltips : sig
       { before : string list option
       ; lines : string list option
       ; after : string list option
-      } [@@deriving show]
+      }
 
   end
 
@@ -862,6 +900,12 @@ val t_of_js : Ojs.t -> t
 val elements : t -> Elements.t
 val set_elements : t -> Elements.t -> unit
 
+(** Chart.js animates charts out of the box.
+    A number of options are provided to configure how the animation
+    looks and how long it takes *)
+val animation : t -> Animation.t
+val set_animation : t -> Animation.t -> unit
+
 (** The chart legend displays data about the datasets
     that are appearing on the chart. *)
 val legend : t -> Legend.t
@@ -877,6 +921,7 @@ val legend_callback : t -> legend_callback
 val set_legend_callback : t -> legend_callback -> unit
 
 val make : ?elements:Elements.t ->
+           ?animation:Animation.t ->
            ?legend:Legend.t ->
            ?title:Title.t ->
            ?tooltips:Tooltips.t ->
