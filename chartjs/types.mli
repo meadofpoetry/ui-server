@@ -48,7 +48,8 @@ type easing =
   | `Ease_in_bounce [@js "easeInBounce"]
   | `Ease_out_bounce [@js "easeOutBounce"]
   | `Ease_in_out_bounce [@js "easeInOutBounce"]
-  ] [@js.enum]
+  | `Unknown of string [@js.default]
+  ] [@js.enum] [@@deriving show]
 val easing_to_js : easing -> Ojs.t
 val easing_of_js : Ojs.t -> easing
 
@@ -71,6 +72,14 @@ module Update_config : sig
              t [@@js.builder]
 
 end
+
+type border_dash = int list
+val border_dash_to_js : border_dash -> Ojs.t
+val border_dash_of_js : Ojs.t -> border_dash
+
+type border_dash_offset = float
+val border_dash_offset_to_js : border_dash_offset -> Ojs.t
+val border_dash_offset_of_js : Ojs.t -> border_dash_offset
 
 type line_cap =
   [ `Butt [@js "butt"]
@@ -111,3 +120,14 @@ val text_of_js : Ojs.t -> text
         Ojs.string_of_js js
      | _ -> assert false
   ]
+
+type interaction_mode =
+  [ `Point [@js "point"]
+  | `Nearest [@js "nearest"]
+  | `Index [@js "index"]
+  | `Dataset [@js "dataset"]
+  | `X [@js "x"]
+  | `Y [@js "y"]
+  ] [@js.enum]
+val interaction_mode_to_js : interaction_mode -> Ojs.t
+val interaction_mode_of_js : Ojs.t -> interaction_mode

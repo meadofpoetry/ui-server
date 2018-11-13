@@ -637,7 +637,6 @@ let new_chart_demo () =
   let data = Line'.Data.make ~datasets:[dataset] in
   let animation =
     Options'.Animation.make
-      ~on_complete:(fun _ -> print_endline "animation complete")
       () in
   let line =
     Options'.Elements.Line.make
@@ -674,14 +673,14 @@ let new_chart_demo () =
         () in
     Options'.Tooltips.make
       ~enabled:true
-      ~custom:(fun ~model ->
-        (* print_endline @@ Options'.Tooltips.Model.show model; *)
-        Js.Unsafe.global##.console##log model |> ignore)
       ~corner_radius:2
       ~caret_padding:6
       ~caret_size:0
       ~callbacks
       () in
+  let on_resize = fun ~chart (size : Options'.size) ->
+    Printf.printf "resize. width: %d, height: %d\n"
+      size.width size.height in
   let options =
     Options'.make
       ~animation
@@ -689,7 +688,9 @@ let new_chart_demo () =
       ~legend
       ~title
       ~tooltips
-      (* ~on_resize *)
+      ~on_resize
+      ~on_hover:(fun ~event ~elts ->
+        Js.Unsafe.global##.console##log elts |> ignore)
       () in
   let conf = Line'.Config.make ~options ~data "line" in
   let canvas = Dom_html.(createCanvas document) in

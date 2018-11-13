@@ -77,12 +77,12 @@ module Dataset : sig
   val set_border_width : t -> int -> unit
 
   (** Length and spacing of dashes. *)
-  val border_dash : t -> int list
-  val set_border_dash : t -> int list -> unit
+  val border_dash : t -> border_dash
+  val set_border_dash : t -> border_dash -> unit
 
   (** Offset for line dashes. *)
-  val border_dash_offset : t -> int
-  val set_border_dash_offset : t -> int -> unit
+  val border_dash_offset : t -> border_dash_offset
+  val set_border_dash_offset : t -> border_dash_offset -> unit
 
   (** Cap style of the line. *)
   val border_cap_style : t -> line_cap
@@ -162,8 +162,8 @@ module Dataset : sig
              ?background_color:Color.t ->
              ?border_color:Color.t ->
              ?border_width:int ->
-             ?border_dash:(int list) ->
-             ?border_dash_offset:int ->
+             ?border_dash:border_dash ->
+             ?border_dash_offset:border_dash_offset ->
              ?border_cap_style:line_cap ->
              ?border_join_style:line_join ->
              ?cubic_interpolation_mode:cubic_interpolation_mode ->

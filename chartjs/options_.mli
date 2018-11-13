@@ -121,12 +121,12 @@ module Elements : sig
     val set_border_cap_style : t -> line_cap -> unit
 
     (** Line dash. *)
-    val border_dash : t -> int list
-    val set_border_dash : t -> int list -> unit
+    val border_dash : t -> border_dash
+    val set_border_dash : t -> border_dash -> unit
 
     (** Line dash offset. *)
-    val border_dash_offset : t -> float
-    val set_border_dash_offset : t -> float -> unit
+    val border_dash_offset : t -> border_dash_offset
+    val set_border_dash_offset : t -> border_dash_offset -> unit
 
     (** Line join style. *)
     val border_join_style : t -> line_join
@@ -152,8 +152,8 @@ module Elements : sig
                ?border_width:int ->
                ?border_color:Color.t ->
                ?border_cap_style:line_cap ->
-               ?border_dash:int list ->
-               ?border_dash_offset:float ->
+               ?border_dash:border_dash ->
+               ?border_dash_offset:border_dash_offset ->
                ?border_join_style:line_join ->
                ?cap_bezier_points:bool ->
                ?fill:fill ->
@@ -245,14 +245,15 @@ end
 module Animation : sig
   type animation =
     { chart : Ojs.t
-    ; current_step : float
+    ; current_step : float option
     ; num_steps : float
-    ; easing : easing
-    ; render : chart:Ojs.t -> animation -> unit
-    ; on_animation_progress : callback
-    ; on_animation_complete : callback
+    ; easing : easing option
+    ; render : (chart:Ojs.t -> animation -> unit) option
+    ; on_animation_progress : callback option
+    ; on_animation_complete : callback option
     }
   and callback = animation -> unit
+
   type t
 
   (** The number of milliseconds an animation takes. *)
@@ -303,8 +304,12 @@ module Legend : sig
     val set_line_cap : t -> line_cap -> unit
 
     (** For box border. *)
-    val line_dash : t -> int list option
-    val set_line_dash : t -> int list -> unit
+    val line_dash : t -> border_dash option
+    val set_line_dash : t -> border_dash -> unit
+
+    (** For box border. *)
+    val line_dash_offset : t -> border_dash_offset
+    val set_line_dash_offset : t -> border_dash_offset -> unit
 
     (** For box border. *)
     val line_join : t -> line_join option
@@ -328,8 +333,8 @@ module Legend : sig
     val make : ?fill_style:Color.t ->
                ?hidden:bool ->
                ?line_cap:line_cap ->
-               ?line_dash:int list ->
-               ?line_dash_offset:float ->
+               ?line_dash:border_dash ->
+               ?line_dash_offset:border_dash_offset ->
                ?line_join:line_join ->
                ?line_width:int ->
                ?stroke_style:Color.t ->
@@ -683,15 +688,6 @@ module Tooltips : sig
 
   type filter = item:Item.t -> data:Ojs.t -> bool
 
-  type mode =
-    [ `Point [@js "point"]
-    | `Nearest [@js "nearest"]
-    | `Index [@js "index"]
-    | `Dataset [@js "dataset"]
-    | `X [@js "x"]
-    | `Y [@js "y"]
-    ] [@js.enum]
-
   type position =
     [ `Average [@js "average"]
     | `Nearest [@js "nearest"]
@@ -708,8 +704,8 @@ module Tooltips : sig
   val set_custom : t -> custom -> unit
 
   (** Sets which elements appear in the tooltip. *)
-  val mode : t -> mode
-  val set_mode : t -> mode -> unit
+  val mode : t -> interaction_mode
+  val set_mode : t -> interaction_mode -> unit
 
   (** If true, the tooltip mode applies only when the mouse position
       intersects with an element. If false, the mode will be applied
@@ -845,7 +841,7 @@ module Tooltips : sig
 
   val make : ?enabled:bool ->
              ?custom:custom ->
-             ?mode:mode ->
+             ?mode:interaction_mode ->
              ?intersect:bool ->
              ?position:position ->
              ?callbacks:Callbacks.t ->
@@ -878,6 +874,42 @@ module Tooltips : sig
              ?display_colors:bool ->
              ?border_color:Color.t ->
              ?border_width:int ->
+             unit ->
+             t [@@js.builder]
+
+end
+
+module Hover : sig
+  type axis =
+    [ `X [@js "x"]
+    | `Y [@js "y"]
+    | `XY [@js "xy"]
+    ] [@js.enum]
+  type t
+
+  (** Sets which elements appear in the tooltip. *)
+  val mode : t -> interaction_mode
+  val set_mode : t -> interaction_mode -> unit
+
+  (** If true, the hover mode only applies when the mouse
+      position intersects an item on the chart. *)
+  val intersect : t -> bool
+  val set_intersect : t -> bool -> unit
+
+  (** Can be set to 'x', 'y', or 'xy' to define which directions
+      are used in calculating distances. Defaults to 'x' for index
+      mode and 'xy' in dataset and nearest modes. *)
+  val axis : t -> axis
+  val set_axis : t -> axis -> unit
+
+  (** Duration in milliseconds it takes to animate hover style changes. *)
+  val animation_duration : t -> int
+  val set_animation_duration : t -> int -> unit
+
+  val make : ?mode:interaction_mode ->
+             ?intersect:bool ->
+             ?axis:axis ->
+             ?animation_duration:int ->
              unit ->
              t [@@js.builder]
 
@@ -920,11 +952,85 @@ type legend_callback = chart:Ojs.t -> string
 val legend_callback : t -> legend_callback
 val set_legend_callback : t -> legend_callback -> unit
 
+(** Resizes the chart canvas when its container does. *)
+val responsive : t -> bool
+val set_responsive : t -> bool -> unit
+
+(** Duration in milliseconds it takes to animate
+    to new size after a resize event. *)
+val responsive_animation_duration : t -> int
+val set_responsive_animation_duration : t -> int -> unit
+
+(** Maintain the original canvas aspect ratio (width / height) when resizing. *)
+val maintain_aspect_ratio : t -> bool
+val set_maintain_aspect_ratio : t -> bool -> unit
+
+(** Canvas aspect ratio (i.e. width / height, a value of 1
+    representing a square canvas). Note that this option is
+    ignored if the height is explicitly defined either as
+    attribute or via the style. *)
+val aspect_ratio : t -> float
+val set_aspect_ratio : t -> float -> unit
+
+type size =
+  { width : int
+  ; height : int
+  }
+type resize_cb = chart:Ojs.t -> size -> unit
+
+(** Called when a resize occurs. Gets passed two arguments:
+    the chart instance and the new size. *)
+val on_resize : t -> resize_cb
+val set_on_resize : t -> resize_cb -> unit
+
+(** Override the window's default devicePixelRatio. *)
+val device_pixel_ratio : t -> float
+val set_device_pixel_ratio : t -> float -> unit
+
+type event =
+  [ `Mousemove [@js "mousemove"]
+  | `Mouseout [@js "mouseout"]
+  | `Click [@js "click"]
+  | `Touchstart [@js "touchstart"]
+  | `Touchmove [@js "touchmove"]
+  | `Touchend [@js "touchend"]
+  ] [@js.enum]
+
+(* TODO unwrap elts array from Ojs.t to OCaml type *)
+type interaction_cb = event:Ojs.t -> elts:Ojs.t -> unit
+
+(** The events option defines the browser events that
+    the chart should listen to for tooltips and hovering. *)
+val events : t -> event list
+val set_events : t -> event list -> unit
+
+(** Called when any of the events fire.
+    Called in the context of the chart and passed the event
+    and an array of active elements (bars, points, etc). *)
+val on_hover : t -> interaction_cb
+val set_on_hover : t -> interaction_cb -> unit
+
+(** Called if the event is of type 'mouseup' or 'click'.
+    Called in the context of the chart and passed the event
+    and an array of active elements. *)
+val on_click : t -> interaction_cb
+val set_on_click : t -> interaction_cb -> unit
+
 val make : ?elements:Elements.t ->
            ?animation:Animation.t ->
            ?legend:Legend.t ->
            ?title:Title.t ->
            ?tooltips:Tooltips.t ->
+           ?hover:Hover.t ->
            ?legend_callback:legend_callback ->
+           ?responsive:bool ->
+           ?responsive_animation_duration:int ->
+           ?maintain_aspect_ratio:bool ->
+           ?aspect_ratio:float ->
+           ?on_resize:resize_cb ->
+           ?device_pixel_ratio:float ->
+           ?events:event list ->
+           ?on_hover:interaction_cb ->
+           ?on_click:interaction_cb ->
            unit ->
            t [@@js.builder]
