@@ -421,3 +421,31 @@ module Table = struct
     } [@@deriving yojson, eq]
 
 end
+
+module Log_message = struct
+
+  type level = Low
+             | Normal
+             | High
+             | Urgent
+             [@@deriving eq, enum]
+
+  let level_to_yojson l = `Int (level_to_enum l)
+
+  let level_of_yojson = function
+    | `Int i -> begin
+        match level_of_enum i with
+        | None -> Error "level_of_yojson: bad level"
+        | Some v -> Ok v
+      end
+    | _ -> Error "level_of_yojson: bad level"
+  
+  type t = { time    : Time.t
+           ; level   : level
+           ; message : string
+           ; info    : string
+           ; pid     : int option
+           ; service : string option
+           } [@@deriving eq, yojson]
+    
+end

@@ -16,6 +16,9 @@ module WS = struct
   let get_streams (app:Application.t) _ body sock_data () =
     Api.Socket.handler socket_table sock_data (React.S.changes app.hw.streams) stream_table_to_yojson body
 
+  let get_log (app:Application.t) input id _ body sock_data () =
+    failwith "Not implemented"
+    
 end
 
 module HTTP = struct
@@ -35,6 +38,15 @@ module HTTP = struct
   let get_streams (app:Application.t) _ _ () =
     app.hw.streams |> React.S.value |> stream_table_to_yojson |> Result.return |> respond_result
 
+  let get_all_streams (app:Application.t) _ _ () =
+    failwith "Not implemented"
+
+  let get_stream_source (app:Application.t) id _ _ () =
+    failwith "Not implemented"
+
+  let get_log (app:Application.t) input id _ _ () =
+    failwith "Not implemented"
+    
 end
 
 let topo_handler (app:Application.t) =
@@ -47,9 +59,14 @@ let topo_handler (app:Application.t) =
         ~query:Query.empty
         (WS.get_topology app)
     ; create_ws_handler ~docstring:"Pushes stream table to the client"
-        ~path:Path.Format.("streams" @/ empty)
+        ~path:Path.Format.("stream_table" @/ empty)
         ~query:Query.empty
         (WS.get_streams app)
+    ; create_ws_handler ~docstring:"Log for input (and stream)"
+        ~path:Path.Format.("log" @/ empty)
+        ~query:Query.["input", (module Single(Show_topo_input));
+                      "stream", (module Option(Stream.ID))]
+        (WS.get_log app)
     ]
     [ `POST, [ create_handler ~docstring:"Sets streams that are received by PC process"
                  ~restrict:[ `Guest ]
@@ -62,9 +79,22 @@ let topo_handler (app:Application.t) =
                  ~query:Query.empty
                  (HTTP.get_topology app)
              ; create_handler ~docstring:"Returns stream table"
-                 ~path:Path.Format.("streams" @/ empty)
+                 ~path:Path.Format.("stream_table" @/ empty)
                  ~query:Query.empty
                  (HTTP.get_streams app)
+             ; create_handler ~docstring:"Returns all streams"
+                 ~path:Path.Format.("streams" @/ empty)
+                 ~query:Query.empty
+                 (HTTP.get_all_streams app)
+             ; create_handler ~docstring:"Returns the source of a last suitable stream"
+                 ~path:Path.Format.("source" @/ empty)
+                 ~query:Query.["id", (module Single(Stream.ID))]
+                 (HTTP.get_stream_source app)
+             ; create_handler ~docstring:"Log for input (and stream)"
+                 ~path:Path.Format.("log" @/ empty)
+                 ~query:Query.["input", (module Single(Show_topo_input));
+                               "stream", (module Option(Stream.ID))]
+                 (HTTP.get_log app)
              ]
     ]
 
