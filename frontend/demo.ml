@@ -624,7 +624,7 @@ let chart_demo () =
 let new_chart_demo () =
   let open Chartjs in
   let init =
-    Line'.Dataset.[ { x = 0.; y = 10. }
+    Line'.Dataset.[ { x = 0.; y = 15. }
                   ; { x = 5.; y = 7. }
                   ; { x = 10.; y = 12. } ] in
   let dataset =
@@ -652,18 +652,38 @@ let new_chart_demo () =
       ~labels
       () in
   let title =
-    Chartjs.Options'.Title.make
+    Options'.Title.make
       ~display:true
       ~text:"This is a title"
       ~position:`Right
       () in
-  (* let on_resize = fun _ (size : Chartjs.Options'.size) ->
-   *   Printf.printf "width: %d, height: %d\n" size.width size.height in *)
+  let tooltips =
+    let callbacks =
+      Options'.Tooltips.Callbacks.make
+        ~title:(fun ~items ~data -> "This is my custom title")
+        ~label:(fun ~item ~data -> "label")
+        ~label_color:(fun ~item ~chart ->
+          { background_color = "yellow"
+          ; border_color = "blue" })
+        ~label_text_color:(fun ~item ~chart -> "yellow")
+        ~footer:(fun ~items ~data -> "This is my custom footer")
+        () in
+    Options'.Tooltips.make
+      ~enabled:true
+      ~custom:(fun ~model ->
+        (* print_endline @@ Options'.Tooltips.Model.show model; *)
+        Js.Unsafe.global##.console##log model |> ignore)
+      ~corner_radius:2
+      ~caret_padding:6
+      ~caret_size:0
+      ~callbacks
+      () in
   let options =
-    Chartjs.Options'.make
+    Options'.make
       ~elements
       ~legend
       ~title
+      ~tooltips
       (* ~on_resize *)
       () in
   let conf = Line'.Config.make ~options ~data "line" in

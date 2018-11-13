@@ -420,26 +420,6 @@ end
 
 module Title : sig
 
-  type text = string
-  val text_to_js : text -> Ojs.t
-    [@@js.custom
-     let text_to_js (s : text) : Ojs.t =
-       match String.split_on_char '\n' s with
-       | [s] -> Ojs.string_to_js s
-       | l -> Ojs.list_to_js Ojs.string_to_js l
-    ]
-  val text_of_js : Ojs.t -> text
-    [@@js.custom
-     let text_of_js (js : Ojs.t) : text =
-       match Ojs.obj_type js with
-       | "[object Array]" ->
-          let l = Ojs.list_of_js Ojs.string_of_js js in
-          String.concat "\n" l
-       | "[object String]" ->
-          Ojs.string_of_js js
-       | _ -> assert false
-    ]
-
   type position =
     [ `Left [@js "left"]
     | `Right [@js "right"]
@@ -500,6 +480,371 @@ module Title : sig
 
 end
 
+module Tooltips : sig
+
+  type color =
+    { border_color : Color.t
+    ; background_color : Color.t
+    } [@@deriving show]
+
+  module Item : sig
+    type t =
+      { (** X Value of the tooltip as a string. *)
+        x_label : string option
+      (** Y value of the tooltip as a string. *)
+      ; y_label : string option
+      (** Index of the dataset the item comes from. *)
+      ; dataset_index : int
+      (** Index of this data item in the dataset. *)
+      ; index : int
+      (** X position of matching point. *)
+      ; x : float
+      (** Y position of matching point. *)
+      ; y : float
+      } [@@deriving show]
+
+  end
+
+  module Model : sig
+
+    type t =
+      { data_points : Item.t list option
+      ; x_padding : int
+      ; y_padding : int
+      ; x_align : string option
+      ; y_align : string option
+      ; x : float
+      ; y : float
+      ; width : float
+      ; height : float
+      ; caret_x : int
+      ; caret_y : int
+      ; body : body option
+      ; before_body : string list option
+      ; after_body : string list option
+      ; body_font_color : Color.t
+      ; body_font_family : Font.family [@js "_bodyFontFamily"]
+      ; body_font_style : Font.style [@js "_bodyFontStyle"]
+      ; body_align : string [@js "_bodyAlign"]
+      ; body_font_size : int
+      ; body_spacing : int
+      ; title : string list option
+      ; title_font_color : Color.t
+      ; title_font_family : Font.family [@js "_titleFontFamily"]
+      ; title_font_style : Font.style [@js "_titleFontStyle"]
+      ; title_font_size : int
+      ; title_align : string [@js "_titleAlign"]
+      ; title_spacing : int
+      ; title_margin_bottom : int
+      ; footer : string list option
+      ; footer_font_color : Color.t
+      ; footer_font_family : Font.family [@js "_footerFontFamily"]
+      ; footer_font_style : Font.style [@js "_footerFontStyle"]
+      ; footer_font_size : int
+      ; footer_align : string [@js "_footerAlign"]
+      ; footer_spacing : int
+      ; footer_margin_top : int
+      ; caret_size : int
+      ; corner_radius : int
+      ; background_color : Color.t
+      ; label_colors : color list option
+      ; opacity : int
+      ; legend_color_background : Color.t
+      ; display_color : bool
+      }
+    and body =
+      { before : string list option
+      ; lines : string list option
+      ; after : string list option
+      } [@@deriving show]
+
+  end
+
+  module Callbacks : sig
+    type t
+
+    type items_cb = items:Item.t list -> data:Ojs.t -> text
+    type item_cb = item:Item.t -> data:Ojs.t -> text
+    type label_color_cb = item:Item.t -> chart:Ojs.t -> color
+    type label_text_color_cb = item:Item.t -> chart:Ojs.t -> Color.t
+
+    (** Returns the text to render before the title. *)
+    val before_title : t -> items_cb
+    val set_before_title : t -> items_cb -> unit
+
+    (** Returns text to render as the title of the tooltip. *)
+    val title : t -> items_cb
+    val set_title : t -> items_cb -> unit
+
+    (** Returns text to render after the title. *)
+    val after_title : t -> items_cb
+    val set_after_title : t -> items_cb -> unit
+
+    (** Returns text to render before the body section. *)
+    val before_body : t -> items_cb
+    val set_before_body : t -> items_cb -> unit
+
+    (** Returns text to render before an individual label.
+        This will be called for each item in the tooltip. *)
+    val before_label : t -> item_cb
+    val set_before_label : t -> item_cb
+
+    (** Returns text to render for an individual item in the tooltip. *)
+    val label : t -> item_cb
+    val set_label : t -> item_cb -> unit
+
+    (** Returns the colors to render for the tooltip item. *)
+    val label_color : t -> label_color_cb
+    val set_label_color : t -> label_color_cb -> unit
+
+    (** Returns the colors for the text of the label for the tooltip item. *)
+    val label_text_color : t -> label_text_color_cb
+    val set_label_text_color : t -> label_text_color_cb -> unit
+
+    (** Returns text to render after an individual label. *)
+    val after_label : t -> item_cb
+    val set_after_label : t -> item_cb
+
+    (** Returns text to render after the body section *)
+    val after_body : t -> items_cb
+    val set_after_body : t -> items_cb -> unit
+
+    (** Returns text to render before the footer section. *)
+    val before_footer : t -> items_cb
+    val set_before_footer : t -> items_cb -> unit
+
+    (** Returns text to render as the footer of the tooltip. *)
+    val footer : t -> items_cb
+    val set_footer : t -> items_cb -> unit
+
+    (** Text to render after the footer section. *)
+    val after_footer : t -> items_cb
+    val set_after_footer : t -> items_cb -> unit
+
+    val make : ?before_title:items_cb ->
+               ?title:items_cb ->
+               ?after_title:items_cb ->
+               ?before_body:items_cb ->
+               ?before_label:item_cb ->
+               ?label:item_cb ->
+               ?label_color:label_color_cb ->
+               ?label_text_color:label_text_color_cb ->
+               ?after_label:item_cb ->
+               ?after_body:items_cb ->
+               ?before_footer:items_cb ->
+               ?footer:items_cb ->
+               ?after_footer:items_cb ->
+               unit ->
+               t [@@js.builder]
+
+  end
+
+  type custom = model:Model.t -> unit
+
+  type sort = a:Item.t -> b:Item.t -> data:Ojs.t -> int
+
+  type filter = item:Item.t -> data:Ojs.t -> bool
+
+  type mode =
+    [ `Point [@js "point"]
+    | `Nearest [@js "nearest"]
+    | `Index [@js "index"]
+    | `Dataset [@js "dataset"]
+    | `X [@js "x"]
+    | `Y [@js "y"]
+    ] [@js.enum]
+
+  type position =
+    [ `Average [@js "average"]
+    | `Nearest [@js "nearest"]
+    ] [@js.enum]
+
+  type t
+
+  (** Are on-canvas tooltips enabled. *)
+  val enabled : t -> bool
+  val set_enabled : t -> bool -> unit
+
+  (** Custom tooltip callback. *)
+  val custom : t -> custom
+  val set_custom : t -> custom -> unit
+
+  (** Sets which elements appear in the tooltip. *)
+  val mode : t -> mode
+  val set_mode : t -> mode -> unit
+
+  (** If true, the tooltip mode applies only when the mouse position
+      intersects with an element. If false, the mode will be applied
+      at all times. *)
+  val intersect : t -> bool
+  val set_intersect : t -> bool -> unit
+
+  (** The mode for positioning the tooltip. *)
+  val position : t -> position
+  val set_position : t -> position -> unit
+
+  (** Callbacks *)
+  val callbacks : t -> Callbacks.t
+  val set_callbacks : t -> Callbacks.t -> unit
+
+  (** Sort tooltip items. *)
+  val item_sort : t -> sort
+  val set_item_sort : t -> sort -> unit
+
+  (** Filter tooltip items. *)
+  val filter : t -> filter
+  val set_filter : t -> filter -> unit
+
+  (** Background color of the tooltip. *)
+  val background_color : t -> Color.t
+  val set_background_color : t -> Color.t -> unit
+
+  (** Title font. *)
+  val title_font_family : t -> Font.family
+  val set_title_font_family : t -> Font.family -> unit
+
+  (** Title font size. *)
+  val title_font_size : t -> int
+  val set_title_font_size : t -> int -> unit
+
+  (** Title font style *)
+  val title_font_style : t -> Font.style
+  val set_title_font_style : t -> Font.style -> unit
+
+  (** Title font color *)
+  val title_font_color : t -> Color.t
+  val set_title_font_color : t -> Color.t -> unit
+
+  (** Spacing to add to top and bottom of each title line. *)
+  val title_spacing : t -> int
+  val set_title_spacing : t -> int -> unit
+
+  (** Margin to add on bottom of title section. *)
+  val title_margin_bottom : t -> int
+  val set_title_margin_bottom : t -> int -> unit
+
+  (** Body line font. *)
+  val body_font_family : t -> Font.family
+  val set_body_font_family : t -> Font.family -> unit
+
+  (** Body font size. *)
+  val body_font_size : t -> int
+  val set_body_font_size : t -> int -> unit
+
+  (** Body font style. *)
+  val body_font_style : t -> Font.style
+  val set_body_font_style : t -> Font.style -> unit
+
+  (** Body font color. *)
+  val body_font_color : t -> Color.t
+  val set_body_font_color : t -> Color.t -> unit
+
+  (** Spacing to add to top and bottom of each tooltip item. *)
+  val body_spacing : t -> int
+  val set_body_spacing : t -> int -> unit
+
+  (** Footer font. *)
+  val footer_font_family : t -> Font.family
+  val set_footer_font_family : t -> Font.family -> unit
+
+  (** Footer font size. *)
+  val footer_font_size : t -> int
+  val set_footer_font_size : t -> int -> unit
+
+  (** Footer font style. *)
+  val footer_font_style : t -> Font.style
+  val set_footer_font_style : t -> Font.style -> unit
+
+  (** Footer font color. *)
+  val footer_font_color : t -> Color.t
+  val set_footer_font_color : t -> Color.t -> unit
+
+  (** Spacing to add to top and bottom of each footer line. *)
+  val footer_spacing : t -> int
+  val set_footer_spacing : t -> int -> unit
+
+  (** Margin to add before drawing the footer. *)
+  val footer_margin_top : t -> int
+  val set_footer_margin_top : t -> int -> unit
+
+  (** Padding to add on left and right of tooltip. *)
+  val x_padding : t -> int
+  val set_x_padding : t -> int -> unit
+
+  (** Padding to add on top and bottom of tooltip. *)
+  val y_padding : t -> int
+  val set_y_padding : t -> int -> unit
+
+  (** Extra distance to move the end of the tooltip arrow
+      away from the tooltip point. *)
+  val caret_padding : t -> int
+  val set_caret_padding : t -> int -> unit
+
+  (** Size, in px, of the tooltip arrow. *)
+  val caret_size : t -> int
+  val set_caret_size : t -> int -> unit
+
+  (** Radius of tooltip corner curves. *)
+  val corner_radius : t -> int
+  val set_corner_radius : t -> int -> unit
+
+  (** Color to draw behind the colored boxes when multiple
+      items are in the tooltip. *)
+  val multi_key_background : t -> Color.t
+  val set_multi_key_background : t -> Color.t -> unit
+
+  (** If true, color boxes are shown in the tooltip. *)
+  val display_colors : t -> bool
+  val set_display_colors : t -> bool -> unit
+
+  (** Color of the border. *)
+  val border_color : t -> Color.t
+  val set_border_color : t -> Color.t -> unit
+
+  (** Size of the border. *)
+  val border_width : t -> int
+  val set_border_width : t -> int -> unit
+
+  val make : ?enabled:bool ->
+             ?custom:custom ->
+             ?mode:mode ->
+             ?intersect:bool ->
+             ?position:position ->
+             ?callbacks:Callbacks.t ->
+             ?item_sort:sort ->
+             ?filter:filter ->
+             ?background_color:Color.t ->
+             ?title_font_family:Font.family ->
+             ?title_font_size:int ->
+             ?title_font_style:Font.style ->
+             ?title_font_color:Color.t ->
+             ?title_spacing:int ->
+             ?title_margin_bottom:int ->
+             ?body_font_family:Font.family ->
+             ?body_font_size:int ->
+             ?body_font_style:Font.style ->
+             ?body_font_color:Color.t ->
+             ?body_spacing:int ->
+             ?footer_font_family:Font.family ->
+             ?footer_font_size:int ->
+             ?footer_font_style:Font.style ->
+             ?footer_font_color:Color.t ->
+             ?footer_spacing:int ->
+             ?footer_margin_top:int ->
+             ?x_padding:int ->
+             ?y_padding:int ->
+             ?caret_padding:int ->
+             ?caret_size:int ->
+             ?corner_radius:int ->
+             ?multi_key_background:Color.t ->
+             ?display_colors:bool ->
+             ?border_color:Color.t ->
+             ?border_width:int ->
+             unit ->
+             t [@@js.builder]
+
+end
+
 (** The configuration is used to change how the chart behaves.
     There are properties to control styling, fonts, the legend, etc.*)
 type t
@@ -534,6 +879,7 @@ val set_legend_callback : t -> legend_callback -> unit
 val make : ?elements:Elements.t ->
            ?legend:Legend.t ->
            ?title:Title.t ->
+           ?tooltips:Tooltips.t ->
            ?legend_callback:legend_callback ->
            unit ->
            t [@@js.builder]
