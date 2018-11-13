@@ -14,6 +14,7 @@ type t =
   ; network : Pc_control.Network.t
   ; users : User.entries
   ; hw : Hardware.t
+  ; db : Database.Conn.t
   ; topo : Common.Topology.t signal
   }
 
@@ -39,6 +40,7 @@ let create config db =
     | `Boards bs -> None
     | `CPU c -> Data_processor.create proc_table c.process config db in
   let hw, loop = Hardware.create config db topology in
+  let db = Result.get_exn @@ Database.Conn.create db () in
   (* Attach the process' reset mechanism to the stream_table signal 
      containing uris of the streams being measured *)
   Option.iter (fun (proc : Data_processor.t) ->
@@ -53,10 +55,18 @@ let create config db =
              proc#reset
       |> S.keep) proc;
   (* Attach database to the aggregated log event stream *)
-  (*
-    
-   *)
-  { users; proc; network; hw; topo = hw.topo }, loop
+  hw.boards
+  |> Hardware.Map.to_list
+  (* Get boards' logs *)
+  |> List.map (fun (_,b) -> Boards.Board.(b.log_source `All))
+  (* Add proc's logs *)
+  |> List.append (Option.map_or ~default:[] (fun p -> [p#log_source `All])
+                    proc)
+  |> Storage.Database.aggregate 1.0
+  |> Lwt_react.E.map_p (Database.Log.insert db)
+  |> Lwt_react.E.keep;
+
+  { users; proc; network; hw; db; topo = hw.topo }, loop
 
 let redirect_filter app =
   Api.Redirect.redirect_auth (User.validate app.users)

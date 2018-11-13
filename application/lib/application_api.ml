@@ -55,8 +55,16 @@ module HTTP = struct
     |> Result.map2 source_to_yojson (fun e -> `String e)
     |> respond_result
 
-  let get_log (app:Application.t) input id _ _ () =
-    failwith "Not implemented"
+  let get_log (app:Application.t) input id limit from till duration _ _ () =
+    match Time.make_interval ?from ?till ?duration () with
+    | Ok `Range (from,till) ->
+       Database.Log.select app.db input ?id ?limit ~from ~till
+       |> Lwt.map (Api.Api_types.rows_to_yojson
+                     (Json.List.to_yojson Stream.Log_message.to_yojson)
+                     (fun () -> `Null))
+       >>= fun x -> Lwt_result.return x
+       >>= respond_result
+    | _ -> respond_error ~status:`Not_implemented "FIXME" ()
     
 end
 
@@ -103,8 +111,12 @@ let topo_handler (app:Application.t) =
                  (HTTP.get_stream_source app)
              ; create_handler ~docstring:"Log for input (and stream)"
                  ~path:Path.Format.("log" @/ empty)
-                 ~query:Query.["input", (module Single(Show_topo_input));
-                               "stream", (module Option(Stream.ID))]
+                 ~query:Query.[ "input",    (module Single(Show_topo_input))
+                              ; "stream",   (module Option(Stream.ID))
+                              ; "limit",    (module Option(Int))
+                              ; "from",     (module Option(Time.Show))
+                              ; "to",       (module Option(Time.Show))
+                              ; "duration", (module Option(Time.Relative)) ]
                  (HTTP.get_log app)
              ]
     ]

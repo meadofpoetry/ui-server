@@ -61,12 +61,16 @@ module HTTP = struct
       ~query:Uri.Query.["id", (module Single(Stream.ID))]
       stream_id
 
-  let get_log ~input ?stream  () =
+  let get_log ~input ?stream ?limit ?from ?till ?duration  () =
     get_result ?scheme:None ?host:None ?port:None ?from_err:None
       ~from:(Json.List.of_yojson Stream.Log_message.of_yojson)
       ~path:Uri.Path.Format.("api/topology/log" @/ empty)
-      ~query:Uri.Query.["input", (module Single(Topology.Show_topo_input));
-                        "stream", (module Option(Stream.ID))]
-      input stream
+      ~query:Uri.Query.[ "input",    (module Single(Topology.Show_topo_input))
+                       ; "stream",   (module Option(Stream.ID))
+                       ; "limit",    (module Option(Int))
+                       ; "from",     (module Option(Time.Show))
+                       ; "to",       (module Option(Time.Show))
+                       ; "duration", (module Option(Time.Relative)) ]
+      input stream limit from till duration
 
 end

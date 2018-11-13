@@ -444,6 +444,7 @@ module Log_message = struct
            ; level   : level
            ; message : string
            ; info    : string
+           ; input   : topo_input option
            ; stream  : ID.t option
            ; pid     : int option
            ; service : string option
