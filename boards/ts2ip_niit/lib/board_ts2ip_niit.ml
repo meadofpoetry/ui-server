@@ -127,6 +127,7 @@ let create (b : Topology.topo_board) (streams : Stream.t list React.signal) _
   { handlers
   ; control = b.control
   ; streams_signal = events.out_streams
+  ; log_source = (fun _ -> React.E.never) (* TODO implement source *)
   ; step
   ; connection = events.state
   ; ports_sync = get_ports_sync b streams

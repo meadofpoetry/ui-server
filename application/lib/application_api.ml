@@ -17,7 +17,13 @@ module WS = struct
     Api.Socket.handler socket_table sock_data (React.S.changes app.hw.streams) stream_table_to_yojson body
 
   let get_log (app:Application.t) input id _ body sock_data () =
-    failwith "Not implemented"
+    match Application.log_for_input app input id with
+    | Error e  -> respond_not_found ()
+    | Ok event ->
+       Api.Socket.handler
+         socket_table sock_data
+         event (Json.List.to_yojson Stream.Log_message.to_yojson)
+         body
     
 end
 
@@ -38,11 +44,16 @@ module HTTP = struct
   let get_streams (app:Application.t) _ _ () =
     app.hw.streams |> React.S.value |> stream_table_to_yojson |> Result.return |> respond_result
 
-  let get_all_streams (app:Application.t) _ _ () =
-    failwith "Not implemented"
+  let get_all_streams (app:Application.t) input _ _ () =
+    Application.streams_on_input app input
+    |> Result.map2 Application_types.stream_list_to_yojson (fun e -> `String e)
+    |> respond_result
 
   let get_stream_source (app:Application.t) id _ _ () =
-    failwith "Not implemented"
+    let open Common.Stream in
+    Application.stream_source app id
+    |> Result.map2 source_to_yojson (fun e -> `String e)
+    |> respond_result
 
   let get_log (app:Application.t) input id _ _ () =
     failwith "Not implemented"
@@ -70,7 +81,7 @@ let topo_handler (app:Application.t) =
     ]
     [ `POST, [ create_handler ~docstring:"Sets streams that are received by PC process"
                  ~restrict:[ `Guest ]
-                 ~path:Path.Format.("streams" @/ empty)
+                 ~path:Path.Format.("stream_table" @/ empty)
                  ~query:Query.empty
                  (HTTP.set_streams app)
              ]
@@ -84,7 +95,7 @@ let topo_handler (app:Application.t) =
                  (HTTP.get_streams app)
              ; create_handler ~docstring:"Returns all streams"
                  ~path:Path.Format.("streams" @/ empty)
-                 ~query:Query.empty
+                 ~query:Query.["input", (module Single(Show_topo_input))]
                  (HTTP.get_all_streams app)
              ; create_handler ~docstring:"Returns the source of a last suitable stream"
                  ~path:Path.Format.("source" @/ empty)

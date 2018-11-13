@@ -444,8 +444,11 @@ module Log_message = struct
            ; level   : level
            ; message : string
            ; info    : string
+           ; stream  : ID.t option
            ; pid     : int option
            ; service : string option
            } [@@deriving eq, yojson]
+
+  type source = [`All | `Id of ID.t] -> t React.event
     
 end

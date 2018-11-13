@@ -30,6 +30,7 @@ type t =
   { handlers : (module Api_handler.HANDLER) list
   ; control : int
   ; streams_signal : Stream.t list React.signal
+  ; log_source : Stream.Log_message.source
   ; step : (Cstruct.t list -> 'c cc as 'c) cc
   ; connection : Topology.state React.signal
   ; ports_active : bool React.signal Ports.t

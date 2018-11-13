@@ -19,7 +19,7 @@ module WS = struct
 
   let get_log ~input ?stream  () =
     WS.get ?secure:None ?host:None ?port:None
-      ~from:Stream.Log_message.of_yojson
+      ~from:(Json.List.of_yojson Stream.Log_message.of_yojson)
       ~path:Uri.Path.Format.("api/topology/log" @/ empty)
       ~query:Uri.Query.["input", (module Single(Topology.Show_topo_input));
                         "stream", (module Option(Stream.ID))]
@@ -52,7 +52,7 @@ module HTTP = struct
     get_result ?scheme:None ?host:None ?port:None ?from_err:None
       ~from:Application_types.stream_list_of_yojson
       ~path:Uri.Path.Format.("api/topology/streams" @/ empty)
-      ~query:Uri.Query.empty
+      ~query:Uri.Query.["input", (module Single(Topology.Show_topo_input))]
 
   let get_stream_source ~stream_id () =
     get_result ?scheme:None ?host:None ?port:None ?from_err:None
@@ -60,5 +60,13 @@ module HTTP = struct
       ~path:Uri.Path.Format.("api/topology/source" @/ empty)
       ~query:Uri.Query.["id", (module Single(Stream.ID))]
       stream_id
+
+  let get_log ~input ?stream  () =
+    get_result ?scheme:None ?host:None ?port:None ?from_err:None
+      ~from:(Json.List.of_yojson Stream.Log_message.of_yojson)
+      ~path:Uri.Path.Format.("api/topology/log" @/ empty)
+      ~query:Uri.Query.["input", (module Single(Topology.Show_topo_input));
+                        "stream", (module Option(Stream.ID))]
+      input stream
 
 end
