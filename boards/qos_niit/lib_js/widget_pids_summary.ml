@@ -85,30 +85,40 @@ module Pie = struct
     ; Light_blue C500, Black
     ]
 
-  (* let make_pie () =
-   *   let open Chartjs.Pie in
-   *   Chartjs.register_empty_state_plugin "Нет данных";
-   *   let dataset = new Dataset.t ~label:"dataset" Float [  ] in
-   *   (\* let piece_label = new Options.Piece_label.t () in
-   *    * let options = new Options.t ~piece_label () in *\)
-   *   (\* dataset#set_border_width [0.];
-   *    * dataset#set_bg_color
-   *    * @@ List.map Fun.(Color.of_material % fst) colors;
-   *    * piece_label#set_font_color
-   *    * @@ List.map (fun x -> Color.Name (snd x)) colors;
-   *    * piece_label#set_render `Label;
-   *    * piece_label#set_position `Border;
-   *    * options#set_responsive true;
-   *    * options#set_maintain_aspect_ratio true; *\)
-   *   (\* options#legend#set_position `Left;
-   *    * options#legend#set_display false; *\)
-   *   let pie =
-   *     new t (\* ~options *\)
-   *       ~width:250 ~height:250
-   *       ~labels:[]
-   *       ~datasets:[] ()
-   *   in
-   *   pie, dataset *)
+  let make_pie_options () : Chartjs.Pie.Options.t =
+    let open Chartjs.Pie in
+    let legend =
+      Options.Legend.make
+        ~position:`Left
+        ~display:false
+        () in
+    Options.make
+      ~responsive:true
+      ~maintain_aspect_ratio:true
+      ~aspect_ratio:1.0
+      ~legend
+      ()
+
+  let make_pie_dataset () : Chartjs.Pie.Dataset.t =
+    let open Chartjs.Pie in
+    let background_color =
+      List.map Fun.(Color.(string_of_t % of_material % fst)) colors in
+    Dataset.make
+      ~background_color
+      ~border_width:[0]
+      ~data:[]
+      ()
+
+  let make_pie () =
+    let open Chartjs.Pie in
+    let dataset = make_pie_dataset () in
+    let options = make_pie_options () in
+    let data = Data.make ~datasets:[] ~labels:[] () in
+    let config = Config.make ~data ~options () in
+    let canvas = Dom_html.(createCanvas document) in
+    let chart = make (`Canvas canvas) config in
+    Js.Unsafe.global##.console##log (t_to_js chart) |> ignore;
+    Widget.create canvas, chart, dataset
 
   class t ?(hex = false) () =
     let _class = Markup.CSS.add_element base_class "pie" in
@@ -117,7 +127,7 @@ module Pie = struct
     let text = "Битрейт" in
     let title = new Typography.Text.t ~font:Caption ~text () in
     let box = Widget.create_div () in
-    (* let pie, dataset = make_pie () in *)
+    let pie_widget, pie, dataset = make_pie () in
     object(self)
 
       val mutable _hex = hex
@@ -128,7 +138,7 @@ module Pie = struct
       method init () : unit =
         super#init ();
         box#add_class box_class;
-        (* box#append_child pie; *)
+        box#append_child pie_widget;
         title#add_class title_class;
         self#set_rate None;
         self#add_class _class;
@@ -146,37 +156,46 @@ module Pie = struct
         match _rate with
         | None -> ()
         | Some (pids, oth) -> ()
-           (* pie#set_labels @@ self#make_labels pids oth;
-            * pie#update None; *)
+           (* let open Chartjs.Pie in
+            * let data = Config.data @@ config pie in
+            * data.labels <- self#make_labels pids oth; *)
+           (* update pie *)
 
       method set_rate : Bitrate.t option -> unit = function
         | None -> ()
-           (* pie#set_datasets [];
-            * _rate <- None;
-            * pie#update None *)
-        | Some { total; pids; _ } -> ()
-           (* let br =
-            *   List.fold_left (fun acc (pid, br) ->
-            *       let open Float in
-            *       let pct = 100. * (of_int br) / (of_int total) in
-            *       let br = (of_int br) / 1_000_000. in
-            *       (pid, (br, pct)) :: acc) [] pids in *)
-           (* let pids, oth =
-            *   List.fold_left (fun (pids, oth) (pid, (br, pct)) ->
-            *       if pct >. 1. then (pid, br) :: pids, oth
-            *       else pids, br :: oth) ([], []) br in *)
-           (* let labels = self#make_labels pids oth in
-            * (\* if Option.is_none _rate
-            *  * then pie#set_datasets [dataset]; *\)
-            * _rate <- Some (pids, oth);
-            * let data =
-            *   let pids = List.map snd pids in
-            *   match oth with
-            *   | [] -> pids
-            *   | l  -> pids @ [List.fold_left (+.) 0. l] in *)
-           (* pie#set_labels labels;
-            * dataset#set_data data;
-            * pie#update None *)
+           (* let open Chartjs.Pie in
+            * let data = Config.data @@ config pie in
+            * data.datasets <- [];
+            * _rate <- None; *)
+           (* update pie *)
+        | Some { total; pids; _ } ->
+           let open Chartjs.Pie in
+           let config = config pie in
+           Js.Unsafe.global##.console##log (t_to_js pie) |> ignore;
+           Js.Unsafe.global##.console##log (Config.t_to_js config) |> ignore;
+           let data = config.data in
+           let br =
+             List.fold_left (fun acc (pid, br) ->
+                 let open Float in
+                 let pct = 100. * (of_int br) / (of_int total) in
+                 let br = (of_int br) / 1_000_000. in
+                 (pid, (br, pct)) :: acc) [] pids in
+           let pids, oth =
+             List.fold_left (fun (pids, oth) (pid, (br, pct)) ->
+                 if pct >. 1. then (pid, br) :: pids, oth
+                 else pids, br :: oth) ([], []) br in
+           if Option.is_none _rate
+           then data.datasets <- [dataset];
+           _rate <- Some (pids, oth);
+           let data' =
+             let pids = List.map snd pids in
+             match oth with
+             | [] -> pids
+             | l  -> pids @ [List.fold_left (+.) 0. l] in
+           data.labels <- self#make_labels pids oth;
+           Js.Unsafe.global##.console##log (t_to_js pie) |> ignore;
+           Dataset.set_data dataset data';
+           update pie
 
       (* Private methods *)
 

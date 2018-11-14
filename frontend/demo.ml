@@ -547,6 +547,18 @@ let table_demo () =
   let row = table#rows |> List.hd in
   demo_section "Table" [ table#widget ]
 
+let pie_chart_demo () =
+  let open Chartjs.Pie in
+  let options = Options.make () in
+  let dataset = Dataset.make ~data:[10.; 20.; 30.] () in
+  let data = Data.make ~datasets:[dataset] ~labels:["label1"; "label2"; "label3"] () in
+  let config = Config.make ~data ~options () in
+  let canvas = Dom_html.(createCanvas document) in
+  let chart = make (`Canvas canvas) config in
+  ignore @@ Js.Unsafe.global##.console##log (Config.t_to_js config);
+  ignore @@ Js.Unsafe.global##.console##log (t_to_js chart);
+  demo_section "Chart (Pie)" [Widget.create canvas]
+
 let chart_demo () =
   let open Chartjs in
   let init =
@@ -565,9 +577,9 @@ let chart_demo () =
     Config.Data.make
       ~datasets:[Line.Dataset.coerce dataset]
       () in
-  let animation =
-    Options.Animation.make
-      () in
+  (* let animation =
+   *   Options.Animation.make
+   *     () in *)
   let line =
     Options.Elements.Line.make
       ~fill:(`Bool false)
@@ -633,7 +645,7 @@ let chart_demo () =
       () in
   let options =
     Options.make
-      ~animation
+      (* ~animation *)
       ~elements
       ~legend
       ~title
@@ -820,7 +832,7 @@ let onload _ =
               ; dynamic_grid_demo ()
               ; table_demo ()
               ; button_demo ()
-              ; chart_demo ()
+              ; pie_chart_demo ()
               ; fab_demo ()
               ; fab_speed_dial_demo ()
               ; radio_demo ()

@@ -1,10 +1,13 @@
-open Containers
+open Types
 
 module Axes = Axes
 module Options = Options
 module Config = Config
 
 (** Chart types *)
+module Pie = Pie
+module Doughnut = Doughnut
+
 module Line = struct
 
   module Dataset = struct
@@ -16,12 +19,6 @@ module Line = struct
   include (Line : module type of Line with module Dataset := Dataset)
 
 end
-
-type node =
-  [ `Id of string
-  | `Canvas of Dom_html.canvasElement Js.t
-  | `Context of Dom_html.canvasRenderingContext2D Js.t
-  ]
 
 let make (node : node) (config : Config.t) : Chart.t =
   let node = match node with

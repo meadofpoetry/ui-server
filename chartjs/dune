@@ -7,31 +7,16 @@
   (preprocess  (pps js_of_ocaml-ppx gen_js_api.ppx ppx_deriving.show)))
 
 (rule
-  (targets line.ml)
-  (deps line.mli)
-  (action (run ocamlfind gen_js_api/gen_js_api %{deps})))
-
-(rule
-  (targets types.ml)
-  (deps types.mli)
-  (action (run ocamlfind gen_js_api/gen_js_api %{deps})))
-
-(rule
-  (targets config.ml)
-  (deps config.mli)
-  (action (run ocamlfind gen_js_api/gen_js_api %{deps})))
-
-(rule
-  (targets chart.ml)
-  (deps chart.mli)
-  (action (run ocamlfind gen_js_api/gen_js_api %{deps})))
-
-(rule
-  (targets options.ml)
-  (deps options.mli)
-  (action (run ocamlfind gen_js_api/gen_js_api %{deps})))
-
-(rule
-  (targets scales.ml)
-  (deps scales.mli)
-  (action (run ocamlfind gen_js_api/gen_js_api %{deps})))
+  (targets line.ml types.ml pie_.ml config.ml chart.ml options.ml
+           animation.ml scales.ml)
+  (deps line.mli types.mli pie_.mli config.mli chart.mli options.mli
+        animation.mli scales.mli)
+  (action (progn
+            (run ocamlfind gen_js_api/gen_js_api line.mli)
+            (run ocamlfind gen_js_api/gen_js_api types.mli)
+            (run ocamlfind gen_js_api/gen_js_api pie_.mli)
+            (run ocamlfind gen_js_api/gen_js_api config.mli)
+            (run ocamlfind gen_js_api/gen_js_api chart.mli)
+            (run ocamlfind gen_js_api/gen_js_api options.mli)
+            (run ocamlfind gen_js_api/gen_js_api animation.mli)
+            (run ocamlfind gen_js_api/gen_js_api scales.mli))))

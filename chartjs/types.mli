@@ -131,3 +131,18 @@ type interaction_mode =
   ] [@js.enum]
 val interaction_mode_to_js : interaction_mode -> Ojs.t
 val interaction_mode_of_js : Ojs.t -> interaction_mode
+
+[@@@js.stop]
+type node =
+  [ `Id of string
+  | `Canvas of Dom_html.canvasElement Js.t
+  | `Context of Dom_html.canvasRenderingContext2D Js.t
+  ]
+[@@@js.start]
+[@@@js.implem
+type node =
+  [ `Id of string
+  | `Canvas of Dom_html.canvasElement Js.t
+  | `Context of Dom_html.canvasRenderingContext2D Js.t
+  ]
+]

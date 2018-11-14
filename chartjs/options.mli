@@ -242,45 +242,6 @@ module Elements : sig
              t [@@js.builder]
 end
 
-module Animation : sig
-  type animation =
-    { chart : Ojs.t
-    ; current_step : float option
-    ; num_steps : float
-    ; easing : easing option
-    ; render : (chart:Ojs.t -> animation -> unit) option
-    ; on_animation_progress : callback option
-    ; on_animation_complete : callback option
-    }
-  and callback = animation -> unit
-
-  type t
-
-  (** The number of milliseconds an animation takes. *)
-  val duration : t -> int
-  val set_duration : t -> int -> unit
-
-  (** Easing function to use. *)
-  val easing : t -> easing
-  val set_easing : t -> easing -> unit
-
-  (** Callback called on each step of an animation. *)
-  val on_progress : t -> callback
-  val set_on_progress : t -> callback -> unit
-
-  (** Callback called at the end of an animation. *)
-  val on_complete : t -> callback
-  val set_on_complete : t -> callback -> unit
-
-  val make : ?duration:int ->
-             ?easing:easing ->
-             ?on_progress:callback ->
-             ?on_complete:callback ->
-             unit ->
-             t [@@js.builder]
-
-end
-
 module Layout : sig
   type padding =
     [ `Int of int
