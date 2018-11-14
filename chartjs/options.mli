@@ -1054,6 +1054,16 @@ val set_on_hover : t -> interaction_cb -> unit
 val on_click : t -> interaction_cb
 val set_on_click : t -> interaction_cb -> unit
 
+(** Line-specific options *)
+
+(** If false, the lines between points are not drawn. *)
+val show_lines : t -> bool
+val set_show_lines : t -> bool -> unit
+
+(** If false, NaN data causes a break in the line. *)
+val span_gaps : t -> bool
+val set_span_gaps : t -> bool -> unit
+
 val make : ?elements:Elements.t ->
            ?animation:Animation.t ->
            ?layout:Layout.t ->
@@ -1072,5 +1082,8 @@ val make : ?elements:Elements.t ->
            ?events:event list ->
            ?on_hover:interaction_cb ->
            ?on_click:interaction_cb ->
+           (* Line-specific options *)
+           ?show_lines:bool ->
+           ?span_gaps:bool ->
            unit ->
            t [@@js.builder]

@@ -548,22 +548,23 @@ let table_demo () =
   demo_section "Table" [ table#widget ]
 
 let chart_demo () =
-  let open Chartjs.Line in
-  let open Chartjs.Axes in
   let open Chartjs in
   let init =
-    Dataset.[ { x = 0.; y = 15. }
-            ; { x = 5.; y = 7. }
-            ; { x = 10.; y = 12. } ] in
+    Line.Dataset.[ { x = 0.; y = 15. }
+                 ; { x = 5.; y = 7. }
+                 ; { x = 10.; y = 12. } ] in
   let dataset =
-    Dataset.make ~label:"My dataset"
+    Line.Dataset.make ~label:"My dataset"
       ~border_color:(CSS.Color.(string_of_name Blue))
       ~background_color:(CSS.Color.(string_of_name Red))
       ~point_radius:(`Int 7)
       ~x_axis_id:"x-axis"
       ~data:init
       () in
-  let data = Data.make ~datasets:[dataset] in
+  let data =
+    Config.Data.make
+      ~datasets:[Line.Dataset.coerce dataset]
+      () in
   let animation =
     Options.Animation.make
       () in
@@ -640,10 +641,10 @@ let chart_demo () =
       ~scales
       ~on_resize
       () in
-  let conf = Config.make ~options ~data "line" in
+  let conf = Config.make ~options ~data ~type_:"line" () in
   let canvas = Dom_html.(createCanvas document) in
   ignore @@ Js.Unsafe.global##.console##log conf;
-  let chart = Chartjs.Line.make (`Canvas canvas) conf in
+  let chart = make (`Canvas canvas) conf in
   demo_section "Chart" [Widget.create canvas]
 
 let dynamic_grid_demo () =

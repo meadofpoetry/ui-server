@@ -5,6 +5,8 @@ open Types
 module Scale_label = Scale_label
 module Grid_lines = Grid_lines
 
+type axis
+
 module Cartesian = struct
 
   module Category = struct
@@ -16,7 +18,11 @@ module Cartesian = struct
     end
 
     include Cartesian
+
     let make = make ~type_:"category"
+
+    let to_axis (t : t) : axis =
+      Obj.magic t
   end
 
   module Linear = struct
@@ -28,7 +34,11 @@ module Cartesian = struct
     end
 
     include Cartesian
+
     let make = make ~type_:"linear"
+
+    let to_axis (t : t) : axis =
+      Obj.magic t
 
   end
 
@@ -41,7 +51,11 @@ module Cartesian = struct
     end
 
     include Cartesian
+
     let make = make ~type_:"logarithmic"
+
+    let to_axis (t : t) : axis =
+      Obj.magic t
   end
 
   module Time = struct

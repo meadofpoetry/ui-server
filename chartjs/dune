@@ -7,13 +7,23 @@
   (preprocess  (pps js_of_ocaml-ppx gen_js_api.ppx ppx_deriving.show)))
 
 (rule
-  (targets line_dataset.ml)
-  (deps line_dataset.mli)
+  (targets line.ml)
+  (deps line.mli)
   (action (run ocamlfind gen_js_api/gen_js_api %{deps})))
 
 (rule
   (targets types.ml)
   (deps types.mli)
+  (action (run ocamlfind gen_js_api/gen_js_api %{deps})))
+
+(rule
+  (targets config.ml)
+  (deps config.mli)
+  (action (run ocamlfind gen_js_api/gen_js_api %{deps})))
+
+(rule
+  (targets chart.ml)
+  (deps chart.mli)
   (action (run ocamlfind gen_js_api/gen_js_api %{deps})))
 
 (rule

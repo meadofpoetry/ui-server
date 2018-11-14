@@ -172,36 +172,8 @@ module Dataset : sig
              ?show_line:bool ->
              ?span_gaps:bool ->
              ?stepped_line:stepped_line ->
-             ?data:(point list) ->
+             ?data:point list ->
              unit ->
              t [@@js.builder]
-
-end
-
-module Data : sig
-  type t
-
-  val datasets : t -> Dataset.t list
-
-  val set_datasets : t -> Dataset.t list -> unit
-
-  val make : datasets:(Dataset.t list) -> t [@@js.builder]
-
-end
-
-module Config : sig
-  type t = private Ojs.t
-
-  val make : ?data:Data.t ->
-             ?options:Options.t ->
-             (string[@js "type"]) ->
-             t [@@js.builder]
-
-end
-
-module Chart : sig
-  type t
-
-  val new_chart : Ojs.t -> Config.t -> t [@@js.new "Chart"]
 
 end
