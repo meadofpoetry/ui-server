@@ -20,9 +20,4 @@ module Line = struct
 
 end
 
-let make (node : node) (config : Config.t) : Chart.t =
-  let node = match node with
-    | `Id s -> Ojs.string_to_js s
-    | `Canvas c -> Obj.magic c
-    | `Context c -> Obj.magic c in
-  Chart.new_chart node config
+include Chart

@@ -59,20 +59,20 @@ class overlay_grid ~parent ~s_col_w ~s_row_h ~s_cols ~s_rows ~s_im () =
       let im = React.S.value s_im in
       let empty =
         I.const @@ Color.v 1. 1. 1. 0.
-        >> I.cut (P.empty
-                  >> P.sub (P2.v 0. 0.)
-                  >> P.line (P2.v 0. 1.)
-                  >> P.line (P2.v 1. 1.)
-                  >> P.line (P2.v 1. 0.)
-                  >> P.line (P2.v 0. 0.)) in
+        |> I.cut (P.empty
+                  |> P.sub (P2.v 0. 0.)
+                  |> P.line (P2.v 0. 1.)
+                  |> P.line (P2.v 1. 1.)
+                  |> P.line (P2.v 1. 0.)
+                  |> P.line (P2.v 0. 0.)) in
       let filler =
         I.const @@ self#grid_color
-        >> I.cut (P.empty
-                  >> P.sub  (P2.v 0. 0.)
-                  >> P.line (P2.v 0. 1.)
-                  >> P.line (P2.v 1. 1.)
-                  >> P.line (P2.v 1. 0.)
-                  >> P.line (P2.v 0. 0.)) in
+        |> I.cut (P.empty
+                  |> P.sub  (P2.v 0. 0.)
+                  |> P.line (P2.v 0. 1.)
+                  |> P.line (P2.v 1. 1.)
+                  |> P.line (P2.v 1. 0.)
+                  |> P.line (P2.v 0. 0.)) in
       let col_border = 1. /. (float_of_int @@ cw * cn) in
       let row_border = 1. /. (float_of_int @@ rh * rn) in
       let one_row_pos = 1. /. float_of_int rn in
@@ -137,8 +137,8 @@ class overlay_grid ~parent ~s_col_w ~s_row_h ~s_cols ~s_rows ~s_im () =
         | Row -> P2.v (pos *. num) 0., P2.v (pos *. num) 1.
         | Column -> P2.v 0. (1. -. pos *. num), P2.v 1. (1. -. pos *. num) in
       let path = P.empty
-                 >> P.sub starting
-                 >> P.line ending in
-      I.const self#grid_color >> I.cut ~area path
+                 |> P.sub starting
+                 |> P.line ending in
+      I.const self#grid_color |> I.cut ~area path
 
   end

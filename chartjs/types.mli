@@ -16,6 +16,21 @@ module Font : sig
 
 end
 
+type point_style =
+  [ `Circle [@js "circle"]
+  | `Cross [@js "cross"]
+  | `Cross_rot [@js "crossRot"]
+  | `Dash [@js "dash"]
+  | `Line [@js "line"]
+  | `Rect [@js "rect"]
+  | `Rect_rounded [@js "rectRounded"]
+  | `Rect_rot [@js "rectRot"]
+  | `Star [@js "star"]
+  | `Triangle [@js "triangle"]
+  ] [@js.enum]
+val point_style_to_js : point_style -> Ojs.t
+val point_style_of_js : Ojs.t -> point_style
+
 type easing =
   [ `Linear [@js "linear"]
   | `Ease_in_quad [@js "easeInQuad"]

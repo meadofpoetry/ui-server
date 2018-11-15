@@ -64,49 +64,6 @@ module Data : sig
              unit ->
              t [@@js.builder]
 
-  val cast : t -> Config.Data.t [@@js.cast]
-
-end
-
-module Options : sig
-
-  module Animation : sig
-    type t = Animation.t
-
-    (** If true, the chart will animate in with a rotation animation.
-        This property is in the options.animation object.*)
-    val animate_rotate : t -> bool
-    val set_animate_rotate : t -> bool -> unit
-
-    (** If true, will animate scaling the chart from the center outwards. *)
-    val animate_scale : t -> bool
-    val set_animate_scale : t -> bool -> unit
-
-    val make : ?duration:int ->
-               ?easing:easing ->
-               ?on_progress:Animation.callback ->
-               ?on_complete:Animation.callback ->
-               ?animate_rotate:bool ->
-               ?animate_scale:bool ->
-               unit ->
-               t [@@js.builder]
-
-  end
-
-  type t = Options.t
-
-  (** The percentage of the chart that is cut out of the middle. *)
-  val cutout_percentage : t -> float
-  val set_cutout_percentage : t -> float -> unit
-
-  (** Starting angle to draw arcs from. *)
-  val rotation : t -> float
-  val set_rotation : t -> float -> unit
-
-  (** Sweep to allow arcs to cover. *)
-  val circumference : t -> float
-  val set_circumference : t -> float -> unit
-
 end
 
 module Config : sig

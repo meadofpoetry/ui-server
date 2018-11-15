@@ -1,245 +1,57 @@
 open Types
 
-module Elements : sig
-
-  module Point : sig
-    type t
-
-    type style =
-      [ `Circle [@js "circle"]
-      | `Cross [@js "cross"]
-      | `Cross_rot [@js "crossRot"]
-      | `Dash [@js "dash"]
-      | `Line [@js "line"]
-      | `Rect [@js "rect"]
-      | `Rect_rounded [@js "rectRounded"]
-      | `Rect_rot [@js "rectRot"]
-      | `Star [@js "star"]
-      | `Triangle [@js "triangle"]
-      ] [@js.enum]
-
-    (** Point radius. *)
-    val radius : t -> int
-    val set_radius : t -> int -> unit
-
-    (** Point style. *)
-    val point_style : t -> style
-    val set_point_style : t -> style -> unit
-
-    (** Point rotation (in degrees). *)
-    val rotation : t -> int
-    val set_rotation : t -> int -> unit
-
-    (** Point fill color. *)
-    val background_color : t -> Color.t
-    val set_background_color : t -> Color.t -> unit
-
-    (** Point stroke width. *)
-    val border_width : t -> int
-    val set_border_width : t -> int -> unit
-
-    (** Point stroke color. *)
-    val border_color : t -> Color.t
-    val set_border_color : t -> Color.t -> unit
-
-    (** Extra radius added to point radius for hit detection. *)
-    val hit_radius : t -> int
-    val set_hit_radius : t -> int -> unit
-
-    (** Point radius when hovered. *)
-    val hover_radius : t -> int
-    val set_hover_radius : t -> int -> unit
-
-    (** Stroke width when hovered. *)
-    val hover_border_width : t -> int
-    val set_hover_border_width : t -> int -> unit
-
-    val make : ?radius:int ->
-               ?point_style:style ->
-               ?rotation:int ->
-               ?background_color:Color.t ->
-               ?border_width:int ->
-               ?border_color:Color.t ->
-               ?hit_radius:int ->
-               ?hover_radius:int ->
-               ?hover_border_width:int ->
-               unit ->
-               t [@@js.builder]
-
-  end
-
-  module Line : sig
-    type t
-
-    type fill =
-      [ `Zero
-      | `Top
-      | `Bottom
-      | `Bool of bool (* true -> 'zero', false -> disabled *)
-      ] [@js.union]
-    val fill_to_js : fill -> Ojs.t
-      [@@js.custom
-       let fill_to_js : fill -> Ojs.t = function
-         | `Zero -> Ojs.string_to_js "zero"
-         | `Top -> Ojs.string_to_js "top"
-         | `Bottom -> Ojs.string_to_js "bottom"
-         | `Bool x -> Ojs.bool_to_js x
-      ]
-    val fill_of_js : Ojs.t -> fill
-      [@@js.custom
-       let fill_of_js (js : Ojs.t) : fill =
-         match Ojs.obj_type js with
-         | "[object Boolean]" -> `Bool (Ojs.bool_of_js js)
-         | "[object String]" ->
-            begin match Ojs.string_of_js js with
-            | "zero" -> `Zero
-            | "top" -> `Top
-            | "bottom" -> `Bottom
-            | _ -> assert false
-            end
-         | _ -> assert false
-      ]
-
-    (** Bézier curve tension (0 for no Bézier curves). *)
-    val tension : t -> float
-    val set_tension : t -> float -> unit
-
-    (** Line fill color. *)
-    val background_color : t -> Color.t
-    val set_background_color : t -> Color.t -> unit
-
-    (** Line stroke width. *)
-    val border_width : t -> int
-    val set_border_width : t -> int -> unit
-
-    (** Line stroke color. *)
-    val border_color : t -> Color.t
-    val set_border_color : t -> Color.t -> unit
-
-    (** Line cap style. *)
-    val border_cap_style : t -> line_cap
-    val set_border_cap_style : t -> line_cap -> unit
-
-    (** Line dash. *)
-    val border_dash : t -> border_dash
-    val set_border_dash : t -> border_dash -> unit
-
-    (** Line dash offset. *)
-    val border_dash_offset : t -> border_dash_offset
-    val set_border_dash_offset : t -> border_dash_offset -> unit
-
-    (** Line join style. *)
-    val border_join_style : t -> line_join
-    val set_border_join_style : t -> line_join -> unit
-
-    (** 'true' to keep Bézier control inside the chart,
-        'false' for no restriction.*)
-    val cap_bezier_points : t -> bool
-    val set_cap_bezier_points : t -> bool -> unit
-
-    (** Fill location: 'zero', 'top', 'bottom', true (eq. 'zero')
-        or false (no fill). *)
-    val fill : t -> fill
-    val set_fill : t -> fill -> unit
-
-    (** 'true' to show the line as a stepped line
-        (tension will be ignored). *)
-    val stepped : t -> bool
-    val set_stepped : t -> bool -> unit
-
-    val make : ?tension:float ->
-               ?background_color:Color.t ->
-               ?border_width:int ->
-               ?border_color:Color.t ->
-               ?border_cap_style:line_cap ->
-               ?border_dash:border_dash ->
-               ?border_dash_offset:border_dash_offset ->
-               ?border_join_style:line_join ->
-               ?cap_bezier_points:bool ->
-               ?fill:fill ->
-               ?stepped:bool ->
-               unit ->
-               t [@@js.builder]
-
-  end
-
-  module Rectangle : sig
-    type t
-
-    type border_skipped =
-      [ `Bottom [@js "bottom"]
-      | `Left [@js "left"]
-      | `Top [@js "top"]
-      | `Right [@js "right"]
-      ] [@js.enum]
-
-    (** Bar fill color. *)
-    val background_color : t -> Color.t
-    val set_background_color : t -> Color.t -> unit
-
-    (** Bar stroke width. *)
-    val border_width : t -> int
-    val set_border_width : t -> int -> unit
-
-    (** Bar stroke color. *)
-    val border_color : t -> Color.t
-    val set_border_color : t -> Color.t -> unit
-
-    (** Skipped (excluded) border: 'bottom', 'left', 'top' or 'right'. *)
-    val border_skipped : t -> border_skipped
-    val set_border_skipped : t -> border_skipped -> unit
-
-    val make : ?background_color:Color.t ->
-               ?border_width:int ->
-               ?border_color:Color.t ->
-               ?border_skipped:border_skipped ->
-               unit ->
-               t [@@js.builder]
-
-  end
-
-  module Arc : sig
-    type t
-
-    (** Arc fill color. *)
-    val background_color : t -> Color.t
-    val set_background_color : t -> Color.t -> unit
-
-    (** Arc stroke color. *)
-    val border_color : t -> Color.t
-    val set_border_color : t -> Color.t -> unit
-
-    (** Arc stroke width. *)
-    val border_width : t -> int
-    val set_border_width : t -> int -> unit
-
-  end
+module Animation : sig
+  type animation =
+    { chart : Ojs.t
+    ; current_step : float option
+    ; num_steps : float
+    ; easing : easing option
+    ; render : (chart:Ojs.t -> animation -> unit) option
+    ; on_animation_progress : callback option
+    ; on_animation_complete : callback option
+    }
+  and callback = animation -> unit
 
   type t
+  val t_to_js : t -> Ojs.t
 
-  (** Point elements are used to represent the points
-      in a line chart or a bubble chart. *)
-  val point : t -> Point.t
-  val set_point : t -> Point.t -> unit
+  (** The number of milliseconds an animation takes. *)
+  val duration : t -> int
+  val set_duration : t -> int -> unit
 
-  (** Line elements are used to represent the line in a line chart. *)
-  val line : t -> Line.t
-  val set_line : t -> Line.t -> unit
+  (** Easing function to use. *)
+  val easing : t -> easing
+  val set_easing : t -> easing -> unit
 
-  (** Rectangle elements are used to represent the bars in a bar chart. *)
-  val rectangle : t -> Rectangle.t
-  val set_rectangle : t -> Rectangle.t -> unit
+  (** Callback called on each step of an animation. *)
+  val on_progress : t -> callback
+  val set_on_progress : t -> callback -> unit
 
-  (** Arcs are used in the polar area, doughnut and pie charts. *)
-  val arc : t -> Arc.t
-  val set_arc : t -> Arc.t -> unit
+  (** Callback called at the end of an animation. *)
+  val on_complete : t -> callback
+  val set_on_complete : t -> callback -> unit
 
-  val make : ?point:Point.t ->
-             ?line:Line.t ->
-             ?rectangle:Rectangle.t ->
-             ?arc:Arc.t ->
+  (** Pie-specific options *)
+
+  (** If true, the chart will animate in with a rotation animation.
+        This property is in the options.animation object.*)
+  val animate_rotate : t -> bool
+  val set_animate_rotate : t -> bool -> unit
+
+  (** If true, will animate scaling the chart from the center outwards. *)
+  val animate_scale : t -> bool
+  val set_animate_scale : t -> bool -> unit
+
+  val make : ?duration:int ->
+             ?easing:easing ->
+             ?on_progress:callback ->
+             ?on_complete:callback ->
+             (* Pie-specific options *)
+             ?animate_rotate:bool ->
+             ?animate_scale:bool ->
              unit ->
              t [@@js.builder]
+
 end
 
 module Layout : sig
@@ -248,10 +60,10 @@ module Layout : sig
     | `Obj of padding_obj
     ] [@js.union]
   and padding_obj =
-    { left : int option
-    ; right : int option
-    ; top : int option
-    ; bottom : int option
+    { mutable left : int option
+    ; mutable right : int option
+    ; mutable top : int option
+    ; mutable bottom : int option
     }
   val padding_of_js : Ojs.t -> padding
     [@@js.custom
@@ -268,7 +80,9 @@ module Layout : sig
           `Obj x
        | _ -> assert false
     ]
-  type t
+  type t =
+    { mutable padding : padding
+    }
 
   (** The padding to add inside the chart. *)
   val padding : t -> padding
@@ -323,8 +137,8 @@ module Legend : sig
     val set_stroke_style : t -> Color.t -> unit
 
     (** Point style of the legend box (only used if usePointStyle is true) *)
-    val point_style : t -> Elements.Point.style option
-    val set_point_style : t -> Elements.Point.style -> unit
+    val point_style : t -> point_style option
+    val set_point_style : t -> point_style -> unit
 
     val dataset_index : t -> int option
     val set_dataset_index : t -> int -> unit
@@ -337,7 +151,7 @@ module Legend : sig
                ?line_join:line_join ->
                ?line_width:int ->
                ?stroke_style:Color.t ->
-               ?point_style:Elements.Point.style ->
+               ?point_style:point_style ->
                ?dataset_index:int ->
                ?text:string ->
                unit ->
@@ -914,22 +728,240 @@ module Hover : sig
 
 end
 
+module Elements : sig
+
+  module Point : sig
+    type t
+
+    (** Point radius. *)
+    val radius : t -> int
+    val set_radius : t -> int -> unit
+
+    (** Point style. *)
+    val point_style : t -> point_style
+    val set_point_style : t -> point_style -> unit
+
+    (** Point rotation (in degrees). *)
+    val rotation : t -> int
+    val set_rotation : t -> int -> unit
+
+    (** Point fill color. *)
+    val background_color : t -> Color.t
+    val set_background_color : t -> Color.t -> unit
+
+    (** Point stroke width. *)
+    val border_width : t -> int
+    val set_border_width : t -> int -> unit
+
+    (** Point stroke color. *)
+    val border_color : t -> Color.t
+    val set_border_color : t -> Color.t -> unit
+
+    (** Extra radius added to point radius for hit detection. *)
+    val hit_radius : t -> int
+    val set_hit_radius : t -> int -> unit
+
+    (** Point radius when hovered. *)
+    val hover_radius : t -> int
+    val set_hover_radius : t -> int -> unit
+
+    (** Stroke width when hovered. *)
+    val hover_border_width : t -> int
+    val set_hover_border_width : t -> int -> unit
+
+    val make : ?radius:int ->
+               ?point_style:point_style ->
+               ?rotation:int ->
+               ?background_color:Color.t ->
+               ?border_width:int ->
+               ?border_color:Color.t ->
+               ?hit_radius:int ->
+               ?hover_radius:int ->
+               ?hover_border_width:int ->
+               unit ->
+               t [@@js.builder]
+
+  end
+
+  module Line : sig
+    type t
+
+    type fill =
+      [ `Zero
+      | `Top
+      | `Bottom
+      | `Bool of bool (* true -> 'zero', false -> disabled *)
+      ] [@js.union]
+    val fill_to_js : fill -> Ojs.t
+      [@@js.custom
+       let fill_to_js : fill -> Ojs.t = function
+         | `Zero -> Ojs.string_to_js "zero"
+         | `Top -> Ojs.string_to_js "top"
+         | `Bottom -> Ojs.string_to_js "bottom"
+         | `Bool x -> Ojs.bool_to_js x
+      ]
+    val fill_of_js : Ojs.t -> fill
+      [@@js.custom
+       let fill_of_js (js : Ojs.t) : fill =
+         match Ojs.obj_type js with
+         | "[object Boolean]" -> `Bool (Ojs.bool_of_js js)
+         | "[object String]" ->
+            begin match Ojs.string_of_js js with
+            | "zero" -> `Zero
+            | "top" -> `Top
+            | "bottom" -> `Bottom
+            | _ -> assert false
+            end
+         | _ -> assert false
+      ]
+
+    (** Bézier curve tension (0 for no Bézier curves). *)
+    val tension : t -> float
+    val set_tension : t -> float -> unit
+
+    (** Line fill color. *)
+    val background_color : t -> Color.t
+    val set_background_color : t -> Color.t -> unit
+
+    (** Line stroke width. *)
+    val border_width : t -> int
+    val set_border_width : t -> int -> unit
+
+    (** Line stroke color. *)
+    val border_color : t -> Color.t
+    val set_border_color : t -> Color.t -> unit
+
+    (** Line cap style. *)
+    val border_cap_style : t -> line_cap
+    val set_border_cap_style : t -> line_cap -> unit
+
+    (** Line dash. *)
+    val border_dash : t -> border_dash
+    val set_border_dash : t -> border_dash -> unit
+
+    (** Line dash offset. *)
+    val border_dash_offset : t -> border_dash_offset
+    val set_border_dash_offset : t -> border_dash_offset -> unit
+
+    (** Line join style. *)
+    val border_join_style : t -> line_join
+    val set_border_join_style : t -> line_join -> unit
+
+    (** 'true' to keep Bézier control inside the chart,
+        'false' for no restriction.*)
+    val cap_bezier_points : t -> bool
+    val set_cap_bezier_points : t -> bool -> unit
+
+    (** Fill location: 'zero', 'top', 'bottom', true (eq. 'zero')
+        or false (no fill). *)
+    val fill : t -> fill
+    val set_fill : t -> fill -> unit
+
+    (** 'true' to show the line as a stepped line
+        (tension will be ignored). *)
+    val stepped : t -> bool
+    val set_stepped : t -> bool -> unit
+
+    val make : ?tension:float ->
+               ?background_color:Color.t ->
+               ?border_width:int ->
+               ?border_color:Color.t ->
+               ?border_cap_style:line_cap ->
+               ?border_dash:border_dash ->
+               ?border_dash_offset:border_dash_offset ->
+               ?border_join_style:line_join ->
+               ?cap_bezier_points:bool ->
+               ?fill:fill ->
+               ?stepped:bool ->
+               unit ->
+               t [@@js.builder]
+
+  end
+
+  module Rectangle : sig
+    type t
+
+    type border_skipped =
+      [ `Bottom [@js "bottom"]
+      | `Left [@js "left"]
+      | `Top [@js "top"]
+      | `Right [@js "right"]
+      ] [@js.enum]
+
+    (** Bar fill color. *)
+    val background_color : t -> Color.t
+    val set_background_color : t -> Color.t -> unit
+
+    (** Bar stroke width. *)
+    val border_width : t -> int
+    val set_border_width : t -> int -> unit
+
+    (** Bar stroke color. *)
+    val border_color : t -> Color.t
+    val set_border_color : t -> Color.t -> unit
+
+    (** Skipped (excluded) border: 'bottom', 'left', 'top' or 'right'. *)
+    val border_skipped : t -> border_skipped
+    val set_border_skipped : t -> border_skipped -> unit
+
+    val make : ?background_color:Color.t ->
+               ?border_width:int ->
+               ?border_color:Color.t ->
+               ?border_skipped:border_skipped ->
+               unit ->
+               t [@@js.builder]
+
+  end
+
+  module Arc : sig
+    type t
+
+    (** Arc fill color. *)
+    val background_color : t -> Color.t
+    val set_background_color : t -> Color.t -> unit
+
+    (** Arc stroke color. *)
+    val border_color : t -> Color.t
+    val set_border_color : t -> Color.t -> unit
+
+    (** Arc stroke width. *)
+    val border_width : t -> int
+    val set_border_width : t -> int -> unit
+
+  end
+
+  type t
+
+  (** Point elements are used to represent the points
+      in a line chart or a bubble chart. *)
+  val point : t -> Point.t
+  val set_point : t -> Point.t -> unit
+
+  (** Line elements are used to represent the line in a line chart. *)
+  val line : t -> Line.t
+  val set_line : t -> Line.t -> unit
+
+  (** Rectangle elements are used to represent the bars in a bar chart. *)
+  val rectangle : t -> Rectangle.t
+  val set_rectangle : t -> Rectangle.t -> unit
+
+  (** Arcs are used in the polar area, doughnut and pie charts. *)
+  val arc : t -> Arc.t
+  val set_arc : t -> Arc.t -> unit
+
+  val make : ?point:Point.t ->
+             ?line:Line.t ->
+             ?rectangle:Rectangle.t ->
+             ?arc:Arc.t ->
+             unit ->
+             t [@@js.builder]
+end
+
 (** The configuration is used to change how the chart behaves.
-    There are properties to control styling, fonts, the legend, etc.*)
+    There are properties to control styling, fonts, the legend, etc. *)
 type t
 val t_to_js : t -> Ojs.t
 val t_of_js : Ojs.t -> t
-
-(** While chart types provide settings to configure the styling
-    of each dataset, you sometimes want to style all datasets the same way.
-    A common example would be to stroke all of the bars in a bar chart with
-    the same colour but change the fill per dataset.
-    Options can be configured for four different types of elements: arc, lines,
-    points, and rectangles. When set, these options apply to all objects
-    of that type unless specifically overridden by the configuration attached
-    to a dataset.*)
-val elements : t -> Elements.t
-val set_elements : t -> Elements.t -> unit
 
 (** Chart.js animates charts out of the box.
     A number of options are provided to configure how the animation
@@ -945,6 +977,17 @@ val set_legend : t -> Legend.t -> unit
 (** The chart title defines text to draw at the top of the chart. *)
 val title : t -> Title.t
 val set_title : t -> Title.t -> unit
+
+(** While chart types provide settings to configure the styling
+    of each dataset, you sometimes want to style all datasets the same way.
+    A common example would be to stroke all of the bars in a bar chart with
+    the same colour but change the fill per dataset.
+    Options can be configured for four different types of elements: arc, lines,
+    points, and rectangles. When set, these options apply to all objects
+    of that type unless specifically overridden by the configuration attached
+    to a dataset.*)
+val elements : t -> Elements.t
+val set_elements : t -> Elements.t -> unit
 
 type legend_callback = chart:Ojs.t -> string
 
@@ -1025,6 +1068,20 @@ val set_show_lines : t -> bool -> unit
 val span_gaps : t -> bool
 val set_span_gaps : t -> bool -> unit
 
+(** Pie-specific options *)
+
+(** The percentage of the chart that is cut out of the middle. *)
+val cutout_percentage : t -> float
+val set_cutout_percentage : t -> float -> unit
+
+(** Starting angle to draw arcs from. *)
+val rotation : t -> float
+val set_rotation : t -> float -> unit
+
+(** Sweep to allow arcs to cover. *)
+val circumference : t -> float
+val set_circumference : t -> float -> unit
+
 val make : ?elements:Elements.t ->
            ?animation:Animation.t ->
            ?layout:Layout.t ->
@@ -1046,5 +1103,24 @@ val make : ?elements:Elements.t ->
            (* Line-specific options *)
            ?show_lines:bool ->
            ?span_gaps:bool ->
+           (* Pie-specific options *)
+           ?cutout_percentage:float ->
+           ?rotation:float ->
+           ?circumference:float ->
            unit ->
            t [@@js.builder]
+
+type options =
+  { animation : Animation.t
+  ; mutable layout : Layout.t
+  ; legend : Legend.t
+  ; title : Title.t
+  ; tooltips : Tooltips.t
+  ; hover : Hover.t
+  ; elements : Elements.t
+  ; responsive : bool
+  ; responsive_animation_duration : int
+  ; maintain_aspect_ratio : bool
+  }
+val options_to_js : options -> Ojs.t
+val options_of_js : Ojs.t -> options

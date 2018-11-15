@@ -3,6 +3,9 @@ open Components
 open Tyxml_js
 open Common
 
+let log (x : 'a) : unit =
+  Js.Unsafe.global##.console##log x
+
 let demo_section ?expanded title content =
   new Expansion_panel.t ?expanded ~title ~content ()
 
@@ -548,35 +551,35 @@ let table_demo () =
   demo_section "Table" [ table#widget ]
 
 let pie_chart_demo () =
-  let open Chartjs.Pie in
+  let open Chartjs in
   let options = Options.make () in
-  let dataset = Dataset.make ~data:[10.; 20.; 30.] () in
-  let data = Data.make ~datasets:[dataset] ~labels:["label1"; "label2"; "label3"] () in
-  let config = Config.make ~data ~options () in
+  let dataset = Pie.Dataset.make ~data:[10.; 20.; 30.] () in
+  let data =
+    Pie.Data.make
+      ~datasets:[dataset]
+      ~labels:["label1"; "label2"; "label3"] () in
+  let config =
+    Config.make
+      ~type_:"pie"
+      ~data:(Pie.Data.t_to_js data)
+      ~options
+      () in
   let canvas = Dom_html.(createCanvas document) in
-  let chart = make (`Canvas canvas) config in
-  ignore @@ Js.Unsafe.global##.console##log (Config.t_to_js config);
-  ignore @@ Js.Unsafe.global##.console##log (t_to_js chart);
-  demo_section "Chart (Pie)" [Widget.create canvas]
+  let chart = new_chart (`Canvas canvas) config in
+  let conf = make_api_config () in
+  chart.options.layout.padding <- `Obj { left = Some 200
+                                       ; right = None
+                                       ; top = Some 100
+                                       ; bottom = None };
+  print_endline "before update";
+  chart.update None;
+  log (Config.t_to_js config);
+  log (Pie.t_to_js chart);
+  Printf.printf "maintain ar: %b\n" chart.options.maintain_aspect_ratio;
+  demo_section "Chart (Pie)" [Widget.create chart.canvas]
 
 let chart_demo () =
   let open Chartjs in
-  let init =
-    Line.Dataset.[ { x = 0.; y = 15. }
-                 ; { x = 5.; y = 7. }
-                 ; { x = 10.; y = 12. } ] in
-  let dataset =
-    Line.Dataset.make ~label:"My dataset"
-      ~border_color:(CSS.Color.(string_of_name Blue))
-      ~background_color:(CSS.Color.(string_of_name Red))
-      ~point_radius:(`Int 7)
-      ~x_axis_id:"x-axis"
-      ~data:init
-      () in
-  let data =
-    Config.Data.make
-      ~datasets:[Line.Dataset.coerce dataset]
-      () in
   (* let animation =
    *   Options.Animation.make
    *     () in *)
@@ -653,10 +656,11 @@ let chart_demo () =
       ~scales
       ~on_resize
       () in
+  let data = Ojs.null in
   let conf = Config.make ~options ~data ~type_:"line" () in
   let canvas = Dom_html.(createCanvas document) in
   ignore @@ Js.Unsafe.global##.console##log conf;
-  let chart = make (`Canvas canvas) conf in
+  let chart = new_chart (`Canvas canvas) conf in
   demo_section "Chart" [Widget.create canvas]
 
 let dynamic_grid_demo () =

@@ -85,8 +85,8 @@ module Pie = struct
     ; Light_blue C500, Black
     ]
 
-  let make_pie_options () : Chartjs.Pie.Options.t =
-    let open Chartjs.Pie in
+  let make_pie_options () : Chartjs.Options.t =
+    let open Chartjs in
     let legend =
       Options.Legend.make
         ~position:`Left
@@ -110,14 +110,16 @@ module Pie = struct
       ()
 
   let make_pie () =
-    let open Chartjs.Pie in
+    let open Chartjs in
     let dataset = make_pie_dataset () in
     let options = make_pie_options () in
-    let data = Data.make ~datasets:[] ~labels:[] () in
-    let config = Config.make ~data ~options () in
+    let data = Pie.Data.make ~datasets:[] ~labels:[] () in
+    let config = Config.make
+                   ~type_:"pie"
+                   ~data:(Pie.Data.t_to_js data)
+                   ~options () in
     let canvas = Dom_html.(createCanvas document) in
-    let chart = make (`Canvas canvas) config in
-    Js.Unsafe.global##.console##log (t_to_js chart) |> ignore;
+    let chart = new_chart (`Canvas canvas) config in
     Widget.create canvas, chart, dataset
 
   class t ?(hex = false) () =
@@ -169,33 +171,34 @@ module Pie = struct
             * _rate <- None; *)
            (* update pie *)
         | Some { total; pids; _ } ->
-           let open Chartjs.Pie in
-           let config = config pie in
-           Js.Unsafe.global##.console##log (t_to_js pie) |> ignore;
-           Js.Unsafe.global##.console##log (Config.t_to_js config) |> ignore;
-           let data = config.data in
-           let br =
-             List.fold_left (fun acc (pid, br) ->
-                 let open Float in
-                 let pct = 100. * (of_int br) / (of_int total) in
-                 let br = (of_int br) / 1_000_000. in
-                 (pid, (br, pct)) :: acc) [] pids in
-           let pids, oth =
-             List.fold_left (fun (pids, oth) (pid, (br, pct)) ->
-                 if pct >. 1. then (pid, br) :: pids, oth
-                 else pids, br :: oth) ([], []) br in
-           if Option.is_none _rate
-           then data.datasets <- [dataset];
-           _rate <- Some (pids, oth);
-           let data' =
-             let pids = List.map snd pids in
-             match oth with
-             | [] -> pids
-             | l  -> pids @ [List.fold_left (+.) 0. l] in
-           data.labels <- self#make_labels pids oth;
-           Js.Unsafe.global##.console##log (t_to_js pie) |> ignore;
-           Dataset.set_data dataset data';
-           update pie
+           ()
+           (* let open Chartjs.Pie in
+            * let config = config pie in
+            * Js.Unsafe.global##.console##log (t_to_js pie) |> ignore;
+            * Js.Unsafe.global##.console##log (Config.t_to_js config) |> ignore;
+            * let data = config.data in
+            * let br =
+            *   List.fold_left (fun acc (pid, br) ->
+            *       let open Float in
+            *       let pct = 100. * (of_int br) / (of_int total) in
+            *       let br = (of_int br) / 1_000_000. in
+            *       (pid, (br, pct)) :: acc) [] pids in
+            * let pids, oth =
+            *   List.fold_left (fun (pids, oth) (pid, (br, pct)) ->
+            *       if pct >. 1. then (pid, br) :: pids, oth
+            *       else pids, br :: oth) ([], []) br in
+            * if Option.is_none _rate
+            * then data.datasets <- [dataset];
+            * _rate <- Some (pids, oth);
+            * let data' =
+            *   let pids = List.map snd pids in
+            *   match oth with
+            *   | [] -> pids
+            *   | l  -> pids @ [List.fold_left (+.) 0. l] in
+            * data.labels <- self#make_labels pids oth;
+            * Js.Unsafe.global##.console##log (t_to_js pie) |> ignore;
+            * Dataset.set_data dataset data';
+            * update pie *)
 
       (* Private methods *)
 
