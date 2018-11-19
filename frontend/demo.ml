@@ -553,115 +553,124 @@ let table_demo () =
 let pie_chart_demo () =
   let open Chartjs in
   let options = Options.make () in
-  let dataset = Pie.Dataset.make ~data:[10.; 20.; 30.] () in
+  let dataset =
+    Pie.Dataset.make
+      ~background_color:["blue"; "red"; "indigo"]
+      ~data:[10.; 20.; 30.]
+      () in
   let data =
     Pie.Data.make
       ~datasets:[dataset]
       ~labels:["label1"; "label2"; "label3"] () in
   let config =
-    Config.make
+    make_config
       ~type_:"pie"
       ~data:(Pie.Data.t_to_js data)
       ~options
       () in
-  let canvas = Dom_html.(createCanvas document) in
-  let chart = new_chart (`Canvas canvas) config in
+  let chart = new_chart (`Canvas Dom_html.(createCanvas document)) config in
   let conf = make_api_config () in
-  chart.options.layout.padding <- `Obj { left = Some 200
-                                       ; right = None
-                                       ; top = Some 100
-                                       ; bottom = None };
-  print_endline "before update";
-  chart.update None;
-  log (Config.t_to_js config);
-  log (Pie.t_to_js chart);
-  Printf.printf "maintain ar: %b\n" chart.options.maintain_aspect_ratio;
-  demo_section "Chart (Pie)" [Widget.create chart.canvas]
+  let button = new Button.t ~label:"update" () in
+  button#listen_click_lwt (fun _ _ ->
+      let data = Pie.data chart in
+      let dataset = (Pie.Data.datasets data).%[0] in
+      let points = Pie.Dataset.data dataset in
+      let labels = Pie.Data.labels data in
+      Array.Float.(points.%[0] <- 50.);
+      Array.String.(labels.%[0] <- "updated label");
+      ignore @@ Array.Float.push points 10.;
+      ignore @@ Array.String.push labels "new point";
+      ignore @@ Array.String.push (Pie.Dataset.background_color dataset) "orange";
+      update chart None;
+      Lwt.return_unit)
+  |> Lwt.ignore_result;
+  demo_section "Chart (Pie)" [ Widget.create (canvas chart)
+                             ; button#widget ]
 
-let chart_demo () =
-  let open Chartjs in
-  (* let animation =
-   *   Options.Animation.make
-   *     () in *)
-  let line =
-    Options.Elements.Line.make
-      ~fill:(`Bool false)
-      ~border_dash:[5; 10]
-      () in
-  let elements =
-    Options.Elements.make
-      ~line
-      () in
-  let legend =
-    let labels =
-      Options.Legend.Labels.make
-        () in
-    Options.Legend.make
-      ~labels
-      () in
-  let title =
-    Options.Title.make
-      ~display:true
-      ~text:"This is a title"
-      ~position:`Right
-      () in
-  let tooltips =
-    let callbacks =
-      Options.Tooltips.Callbacks.make
-        ~title:(fun ~items ~data -> "This is my custom title")
-        ~label:(fun ~item ~data -> "label")
-        ~label_color:(fun ~item ~chart ->
-          { background_color = "yellow"
-          ; border_color = "blue" })
-        ~label_text_color:(fun ~item ~chart -> "yellow")
-        ~footer:(fun ~items ~data -> "This is my custom footer")
-        () in
-    Options.Tooltips.make
-      ~enabled:true
-      ~corner_radius:2
-      ~caret_padding:6
-      ~caret_size:0
-      ~callbacks
-      () in
-  let on_resize = fun ~chart (size : Options.size) ->
-    Printf.printf "resize. width: %d, height: %d\n"
-      size.width size.height in
-  let x_axis =
-    let scale_label =
-      Axes.Scale_label.make
-        ~display:true
-        ~label_string:"Great X axis"
-        () in
-    let ticks =
-      Axes.Cartesian.Linear.Ticks.make
-        ~display:true
-        ~max:20.
-        () in
-    Axes.Cartesian.Linear.make
-      ~id:"x-axis"
-      ~scale_label
-      ~ticks
-      () in
-  let scales =
-    Axes.make
-      ~x_axes:[Obj.magic x_axis]
-      () in
-  let options =
-    Options.make
-      (* ~animation *)
-      ~elements
-      ~legend
-      ~title
-      ~tooltips
-      ~scales
-      ~on_resize
-      () in
-  let data = Ojs.null in
-  let conf = Config.make ~options ~data ~type_:"line" () in
-  let canvas = Dom_html.(createCanvas document) in
-  ignore @@ Js.Unsafe.global##.console##log conf;
-  let chart = new_chart (`Canvas canvas) conf in
-  demo_section "Chart" [Widget.create canvas]
+(* let chart_demo () =
+ *   let open Chartjs in
+ *   (\* let animation =
+ *    *   Options.Animation.make
+ *    *     () in *\)
+ *   let line =
+ *     Options.Elements.Line.make
+ *       ~fill:(`Bool false)
+ *       ~border_dash:[5; 10]
+ *       () in
+ *   let elements =
+ *     Options.Elements.make
+ *       ~line
+ *       () in
+ *   let legend =
+ *     let labels =
+ *       Options.Legend.Labels.make
+ *         () in
+ *     Options.Legend.make
+ *       ~labels
+ *       () in
+ *   let title =
+ *     Options.Title.make
+ *       ~display:true
+ *       ~text:"This is a title"
+ *       ~position:`Right
+ *       () in
+ *   let tooltips =
+ *     let callbacks =
+ *       Options.Tooltips.Callbacks.make
+ *         ~title:(fun ~items ~data -> "This is my custom title")
+ *         ~label:(fun ~item ~data -> "label")
+ *         ~label_color:(fun ~item ~chart ->
+ *           { background_color = "yellow"
+ *           ; border_color = "blue" })
+ *         ~label_text_color:(fun ~item ~chart -> "yellow")
+ *         ~footer:(fun ~items ~data -> "This is my custom footer")
+ *         () in
+ *     Options.Tooltips.make
+ *       ~enabled:true
+ *       ~corner_radius:2
+ *       ~caret_padding:6
+ *       ~caret_size:0
+ *       ~callbacks
+ *       () in
+ *   let on_resize = fun ~chart (size : Options.size) ->
+ *     Printf.printf "resize. width: %d, height: %d\n"
+ *       size.width size.height in
+ *   let x_axis =
+ *     let scale_label =
+ *       Axes.Scale_label.make
+ *         ~display:true
+ *         ~label_string:"Great X axis"
+ *         () in
+ *     let ticks =
+ *       Axes.Cartesian.Linear.Ticks.make
+ *         ~display:true
+ *         ~max:20.
+ *         () in
+ *     Axes.Cartesian.Linear.make
+ *       ~id:"x-axis"
+ *       ~scale_label
+ *       ~ticks
+ *       () in
+ *   let scales =
+ *     Axes.make
+ *       ~x_axes:[Obj.magic x_axis]
+ *       () in
+ *   let options =
+ *     Options.make
+ *       (\* ~animation *\)
+ *       ~elements
+ *       ~legend
+ *       ~title
+ *       ~tooltips
+ *       ~scales
+ *       ~on_resize
+ *       () in
+ *   let data = Ojs.null in
+ *   let conf = Config.make ~options ~data ~type_:"line" () in
+ *   let canvas = Dom_html.(createCanvas document) in
+ *   ignore @@ Js.Unsafe.global##.console##log conf;
+ *   let chart = new_chart (`Canvas canvas) conf in
+ *   demo_section "Chart" [Widget.create canvas] *)
 
 let dynamic_grid_demo () =
   let (props:Dynamic_grid.grid) =

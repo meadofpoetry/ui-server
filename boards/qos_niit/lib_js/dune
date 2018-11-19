@@ -2,7 +2,7 @@
   (name        board_qos_niit_js)
   ;(public_name board_qos_niit_js)
   (synopsis    "js interface of the qos_niit board")
-  (libraries   containers common api_js components chartjs boards_js ui_templates
+  (libraries   containers common api_js components gen_js_api chartjs boards_js ui_templates
                ptime.clock.jsoo)
   (flags      (:standard -short-paths -strict-sequence -bin-annot
                -w A+1..49+60-4-7-23-27-33-39-40-41-42-44-45-48))
