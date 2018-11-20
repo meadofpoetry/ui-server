@@ -90,15 +90,13 @@ module Pie = struct
     let hover = Options.Hover.make ~animation_duration:0 () in
     let callbacks =
       Options.Tooltips.Callbacks.make
-        ~label:(fun ~item ~data ->
-          let ds_index = item.dataset_index in
-          let data = Data.t_of_js data in
-          let dataset =
-            Pie.Dataset.t_of_js
-            @@ (Data.datasets data).%[ds_index] in
-          let label = Array.String.get_exn (Data.labels data) item.index in
-          let value = Array.Float.get_exn (Pie.Dataset.data dataset) item.index in
-          Printf.sprintf "PID %s: %.3g Мбит/с" label value)
+        (* ~label:(fun ~item ~data ->
+         *   let ds_index = item.dataset_index in
+         *   let data = Data.t_of_js data in
+         *   let dataset = (Data.datasets data).%[ds_index] in
+         *   let label = Array.String.get_exn (Data.labels data) item.index in
+         *   let value = Array.Float.get_exn (Pie.Dataset.data dataset) item.index in
+         *   Printf.sprintf "PID %s: %.3g Мбит/с" label value) *)
         () in
     let tooltips =
       Options.Tooltips.make
@@ -118,11 +116,11 @@ module Pie = struct
       ~hover
       ()
 
-  let make_pie_dataset () : Chartjs.Pie.Dataset.t =
+  let make_pie_dataset () : Chartjs.Pie.Dataset.Float.t =
     let open Chartjs.Pie in
     let background_color =
       List.map Fun.(Color.(string_of_t % of_material % fst)) colors in
-    Dataset.make
+    Dataset.Float.make
       ~background_color
       ~border_width:[0]
       ~data:[]
@@ -166,7 +164,7 @@ module Pie = struct
         super#destroy ();
         title#destroy ();
         box#destroy ();
-        (* pie#destroy () *)
+        Chartjs.destroy pie
 
       method set_hex (x : bool) : unit =
         _hex <- x;
@@ -199,15 +197,16 @@ module Pie = struct
                  if pct >. 1. then (pid, br) :: pids, oth
                  else pids, br :: oth) ([], []) br in
            if Option.is_none _rate
-           then Data.set_datasets data [Pie.Dataset.t_to_js dataset];
+           then Data.set_datasets data [dataset];
            _rate <- Some (pids, oth);
            let data' =
              let pids = List.map snd pids in
              match oth with
              | [] -> pids
              | l  -> pids @ [List.fold_left (+.) 0. l] in
+           ignore data';
            Data.set_labels data (self#make_labels pids oth);
-           Pie.Dataset.set_data dataset data';
+           Pie.Dataset.Float.set_data dataset data';
            update pie None
 
       (* Private methods *)
