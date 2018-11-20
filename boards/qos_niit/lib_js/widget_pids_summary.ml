@@ -86,29 +86,30 @@ module Pie = struct
     ]
 
   let make_pie_options () : Chartjs.Options.t =
-    let open Chartjs.Options in
-    let hover = Hover.make ~animation_duration:0 () in
+    let open Chartjs in
+    let hover = Options.Hover.make ~animation_duration:0 () in
     let callbacks =
-      Tooltips.Callbacks.make
+      Options.Tooltips.Callbacks.make
         ~label:(fun ~item ~data ->
-          let open Chartjs in
           let ds_index = item.dataset_index in
-          let data = Pie.Data.t_of_js data in
-          let dataset = (Pie.Data.datasets data).%[ds_index] in
-          let label = Array.String.get_exn (Pie.Data.labels data) item.index in
+          let data = Data.t_of_js data in
+          let dataset =
+            Pie.Dataset.t_of_js
+            @@ (Data.datasets data).%[ds_index] in
+          let label = Array.String.get_exn (Data.labels data) item.index in
           let value = Array.Float.get_exn (Pie.Dataset.data dataset) item.index in
           Printf.sprintf "PID %s: %.3g Мбит/с" label value)
         () in
     let tooltips =
-      Tooltips.make
+      Options.Tooltips.make
         ~callbacks
         () in
     let legend =
-      Legend.make
+      Options.Legend.make
         ~position:`Left
         ~display:false
         () in
-    make
+    Options.make
       ~responsive:true
       ~maintain_aspect_ratio:true
       ~aspect_ratio:1.0
@@ -131,14 +132,9 @@ module Pie = struct
     let open Chartjs in
     let dataset = make_pie_dataset () in
     let options = make_pie_options () in
-    let data = Pie.Data.make ~datasets:[] ~labels:[] () in
-    let config =
-      make_config
-        ~type_:"pie"
-        ~data:(Pie.Data.t_to_js data)
-        ~options () in
-    let canvas = Dom_html.(createCanvas document) in
-    let chart = new_chart (`Canvas canvas) config in
+    let data = Data.make ~datasets:[] ~labels:[] () in
+    let node = `Canvas Dom_html.(createCanvas document) in
+    let chart = make ~options ~data `Pie node in
     chart, dataset
 
   class t ?(hex = false) () =
@@ -178,20 +174,20 @@ module Pie = struct
         | None -> ()
         | Some (pids, oth) ->
            let open Chartjs in
-           let data = Pie.data pie in
-           Pie.Data.set_labels data (self#make_labels pids oth);
+           let data = data pie in
+           Data.set_labels data (self#make_labels pids oth);
            update pie None
 
       method set_rate : Bitrate.t option -> unit = function
         | None ->
            let open Chartjs in
-           let data = Pie.data pie in
-           Pie.Data.set_datasets data [];
+           let data = data pie in
+           Data.set_datasets data [];
            _rate <- None;
            update pie None
         | Some { total; pids; _ } ->
            let open Chartjs in
-           let data = Pie.data pie in
+           let data = data pie in
            let br =
              List.fold_left (fun acc (pid, br) ->
                  let open Float in
@@ -203,14 +199,14 @@ module Pie = struct
                  if pct >. 1. then (pid, br) :: pids, oth
                  else pids, br :: oth) ([], []) br in
            if Option.is_none _rate
-           then Pie.Data.set_datasets data [dataset];
+           then Data.set_datasets data [Pie.Dataset.t_to_js dataset];
            _rate <- Some (pids, oth);
            let data' =
              let pids = List.map snd pids in
              match oth with
              | [] -> pids
              | l  -> pids @ [List.fold_left (+.) 0. l] in
-           Pie.Data.set_labels data (self#make_labels pids oth);
+           Data.set_labels data (self#make_labels pids oth);
            Pie.Dataset.set_data dataset data';
            update pie None
 

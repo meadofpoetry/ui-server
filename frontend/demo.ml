@@ -559,23 +559,17 @@ let pie_chart_demo () =
       ~data:[10.; 20.; 30.]
       () in
   let data =
-    Pie.Data.make
-      ~datasets:[dataset]
+    Data.make
+      ~datasets:[Pie.Dataset.t_to_js dataset]
       ~labels:["label1"; "label2"; "label3"] () in
-  let config =
-    make_config
-      ~type_:"pie"
-      ~data:(Pie.Data.t_to_js data)
-      ~options
-      () in
-  let chart = new_chart (`Canvas Dom_html.(createCanvas document)) config in
-  let conf = make_api_config () in
+  let node = `Canvas Dom_html.(createCanvas document) in
+  let chart = make ~data ~options `Pie node in
   let button = new Button.t ~label:"update" () in
   button#listen_click_lwt (fun _ _ ->
-      let data = Pie.data chart in
-      let dataset = (Pie.Data.datasets data).%[0] in
+      let data = Chartjs.data chart in
+      let dataset = Pie.Dataset.t_of_js @@ (Data.datasets data).%[0] in
       let points = Pie.Dataset.data dataset in
-      let labels = Pie.Data.labels data in
+      let labels = Data.labels data in
       Array.Float.(points.%[0] <- 50.);
       Array.String.(labels.%[0] <- "updated label");
       ignore @@ Array.Float.push points 10.;
