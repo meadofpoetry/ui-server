@@ -567,14 +567,15 @@ let pie_chart_demo () =
   let button = new Button.t ~label:"update" () in
   button#listen_click_lwt (fun _ _ ->
       let data = Chartjs.data chart in
-      let dataset = (Data.datasets data).%[0] in
-      let points = Pie.Dataset.Int.data dataset in
       let labels = Data.labels data in
-      Pie.Dataset.Int.Array.(points.%[0] <- 50);
-      Array.String.(labels.%[0] <- "updated label");
-      ignore @@ Pie.Dataset.Int.Array.push points 10;
-      ignore @@ Array.String.push labels "new point";
-      ignore @@ Array.Color.push (Pie.Dataset.Int.background_color dataset) "orange";
+      Chartjs_array.(
+        let dataset = Any.((Data.datasets data).%[0]) in
+        let points = Pie.Dataset.Int.data dataset in
+        Int.(points.%[0] <- 50);
+        String.(labels.%[0] <- "updated label");
+        ignore @@ Int.push points 10;
+        ignore @@ String.push labels "new point";
+        ignore @@ Color.push (Pie.Dataset.background_color dataset) "orange");
       update chart None;
       Lwt.return_unit)
   |> Lwt.ignore_result;
