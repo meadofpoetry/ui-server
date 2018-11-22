@@ -58,72 +58,94 @@ let make_settings (settings : widget_settings) =
   in
   box, s
 
-(* let make_x_axis ?(id = "x-axis") (config : widget_config)
- *     : (Time.t, Time.span) Line.Axes.Time.t =
- *   let delta = config.duration in
- *   let axis =
- *     new Line.Axes.Time.t
- *       ~delta
- *       ~id
- *       ~position:`Bottom
- *       ~typ:Ptime
- *       () in
- *   axis#scale_label#set_display true;
- *   axis#scale_label#set_label_string "Время";
- *   axis#time#set_tooltip_format "ll HH:mm:ss";
- *   axis#ticks#set_auto_skip_padding 2;
- *   axis
- * 
- * let make_y_axis ?(id = "y-axis") (config : widget_config) =
- *   let range = get_suggested_range config.typ in
- *   let set_range axis = function
- *     | Some (min, max) ->
- *        axis#ticks#set_min (Some min);
- *        axis#ticks#set_max (Some max)
- *     | None ->
- *        axis#ticks#set_min None;
- *        axis#ticks#set_max None in
- *   let axis, set_range = match config.typ with
- *     | `Ber ->
- *        let axis =
- *          new Chartjs.Line.Axes.Logarithmic.t
- *            ~id
- *            ~position:`Left
- *            ~typ:Float
- *            () in
- *        axis#coerce_common, set_range axis
- *     | _ ->
- *        let axis =
- *          new Chartjs.Line.Axes.Linear.t
- *            ~id:"y-axis"
- *            ~position:`Left
- *            ~typ:Float
- *            () in
- *        axis#ticks#set_suggested_min (fst range);
- *        axis#ticks#set_suggested_max (snd range);
- *        axis#coerce_common, set_range axis in
- *   axis#scale_label#set_display true;
- *   axis#scale_label#set_label_string @@ measure_type_to_unit config.typ;
- *   axis, set_range *)
+let make_x_axis ?(id = "x-axis") (config : widget_config)
+    : Chartjs.Scales.t =
+  let open Chartjs in
+  let open Chartjs_plugin_streaming in
+  let duration =
+    int_of_float
+    @@ Ptime.Span.to_float_s config.duration *. 1000. in
+  let scale_label =
+    Scales.Scale_label.make
+      ~display:true
+      ~label_string:"Время"
+      () in
+  let time =
+    Scales.Cartesian.Time.Time.make
+      ~tooltip_format:"ll HH:mm:ss"
+      () in
+  let ticks =
+    Scales.Cartesian.Time.Ticks.make
+      ~auto_skip_padding:2
+      () in
+  let axis =
+    Scales.Cartesian.Time.make
+      ~id
+      ~scale_label
+      ~ticks
+      ~time
+      ~position:`Bottom
+      ~type_:(`Custom axis_type)
+      () in
+  let streaming = make ~duration () in
+  Per_axis.set_realtime axis streaming;
+  axis
 
-(* let make_options ~x_axes ~y_axes
- *       (config : widget_config) : Line.Options.t =
- *   let deferred =
- *     object%js
- *       val xOffset = 150
- *       val yOffset = Js.string "50%"
- *       val delay = 500
- *     end in
- *   let options = new Line.Options.t ~x_axes ~y_axes () in
- *   (Js.Unsafe.coerce options#get_obj)##.deferred := deferred;
- *   (\* if List.length config.sources < 2
- *    * then options#legend#set_display false; *\)
- *   options#set_maintain_aspect_ratio false;
- *   options#set_responsive true;
- *   (\* options#animation#set_duration 0;
- *    * options#hover#set_animation_duration 0; *\)
- *   options#set_responsive_animation_duration 0;
- *   options *)
+let make_y_axis ?(id = "y-axis") (config : widget_config) =
+  let open Chartjs.Scales.Cartesian in
+  let range = get_suggested_range config.typ in
+  let scale_label =
+    Scales.Scale_label.make
+      ~display:true
+      ~label_string:(measure_type_to_unit config.typ)
+      () in
+  let position = `Left in
+  let axis, set_range = match config.typ with
+    | `Ber ->
+       let axis = Logarithmic.make ~id ~scale_label ~position () in
+       let set_range = function
+         | None ->
+            let open Logarithmic in
+            let ticks = ticks axis in
+            Ticks.set_min ticks None;
+            Ticks.set_max ticks None
+         | Some (min, max) ->
+            let open Logarithmic in
+            let ticks = ticks axis in
+            Ticks.set_max ticks (Some max);
+            Ticks.set_min ticks (Some min) in
+       axis, set_range
+    | _ ->
+       let ticks =
+         Linear.Ticks.make
+           ~suggested_min:(fst range)
+           ~suggested_max:(snd range)
+           () in
+       let axis = Linear.make ~id ~ticks ~scale_label ~position () in
+       let set_range = function
+         | None ->
+            let open Linear in
+            let ticks = ticks axis in
+            Ticks.set_min ticks None;
+            Ticks.set_max ticks None
+         | Some (min, max) ->
+            let open Linear in
+            let ticks = ticks axis in
+            Ticks.set_max ticks (Some max);
+            Ticks.set_min ticks (Some min) in
+       axis, set_range in
+  axis, set_range
+
+let make_options ~x_axes ~y_axes
+      (config : widget_config) : Chartjs.Options.t =
+  let open Chartjs in
+  let scales = Scales.make ~x_axes ~y_axes () in
+  Options.make
+    ~scales
+    ~maintain_aspect_ratio:false
+    ~responsive:true
+    ~responsive_animation_duration:0
+    ()
 
 (* let make_dataset ~x_axis ~y_axis id src data =
  *   let label = Printf.sprintf "%s" module_name in
@@ -141,9 +163,9 @@ let make_settings (settings : widget_settings) =
  *   ds#set_border_color color;
  *   (\* ds#set_cubic_interpolation_mode `Monotone; *\)
  *   ds#set_fill `Disabled;
- *   src, ds *)
-
-(* let make_datasets ~x_axis ~y_axis
+ *   src, ds
+ * 
+ * let make_datasets ~x_axis ~y_axis
  *       (init : float data)
  *       (sources : Stream.ID.t list)
  *     : (Stream.ID.t * dataset) list =
@@ -154,9 +176,9 @@ let make_settings (settings : widget_settings) =
  *           then Some data else None) init
  *       |> Option.get_or ~default:[] in
  *     make_dataset ~x_axis ~y_axis id src data in
- *   List.mapi map sources *)
-
-(* let to_init (get : Measure.t -> float option)
+ *   List.mapi map sources
+ * 
+ * let to_init (get : Measure.t -> float option)
  *       (init : init) : float data =
  *   List.map (fun ((id : id), meas) ->
  *       let data =
