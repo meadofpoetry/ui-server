@@ -63,7 +63,7 @@ let input topo (input : Topology.topo_input) =
            ; Src "/js/Chart.min.js"
            ; Src "/js/chartjs-plugin-deferred.min.js"
            (* ; Src "/js/chartjs-plugin-streaming.min.js" *)
-           ; Src "/js/Chart.PieceLabel.min.js"
+           ; Src "/js/chartjs-plugin-datalabels.min.js"
            ]
        ; post_scripts = [Src "/js/stream.js"]
        ; stylesheets = []

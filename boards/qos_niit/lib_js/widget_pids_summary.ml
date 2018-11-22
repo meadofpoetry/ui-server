@@ -68,35 +68,79 @@ module Pie = struct
   let colors =
     (* TODO remove text color. Write a function to calc it at runtime *)
     let open Color in
-    [ Red C500, White
-    ; Orange C500, Black
-    ; Yellow C500, Black
-    ; Green C500, White
-    ; Blue C500, White
-    ; Purple C500, White
-    ; Grey C500, White
-    ; Brown C500, White
-    ; Pink C500, Black
-    ; Blue_grey C500, White
-    ; Deep_purple C500, White
-    ; Deep_orange C500, White
-    ; Indigo C500, White
-    ; Amber C500, Black
-    ; Light_blue C500, Black
-    ]
+    [| Red C500, White
+     ; Orange C500, White
+     ; Green C500, White
+     ; Blue C500, White
+     ; Purple C500, White
+     ; Grey C500, White
+     ; Brown C500, White
+     ; Pink C500, White
+     ; Blue_grey C500, White
+     ; Deep_purple C500, White
+     ; Deep_orange C500, White
+     ; Indigo C500, White
+     ; Amber C500, White
+     ; Light_blue C500, Black
+    |]
+
+  let make_pie_datalabels () : Chartjs_plugin_datalabels.t =
+    let open Chartjs in
+    let open Chartjs_plugin_datalabels in
+    let bg_color = fun context ->
+      let open Chartjs_option_types.Option_context in
+      let ds = dataset context in
+      let index = data_index context in
+      Chartjs_array.Color.(
+        (Pie.Dataset.background_color ds).%[index]) in
+    let color = fun context ->
+      let open Chartjs_option_types.Option_context in
+      let index = data_index context in
+      let color = snd @@ colors.(index) in
+      Color.string_of_name color in
+    let display = fun context ->
+      let open Chartjs_option_types.Option_context in
+      let index = data_index context in
+      let value = Chartjs_array.Float.(
+          let data = Pie.Dataset.Float.data (dataset context) in
+          let sum = reduce' (fun acc x _ _ -> acc +. x) data in
+          let v = data.%[index] in
+          (v *. 100.) /. sum) in
+      value >. 10. in
+    let font =
+      Chartjs_plugin_datalabels.Font.make
+        ~weight:"bold"
+        () in
+    Chartjs_plugin_datalabels.make
+      ~formatter:(fun _ context ->
+        let open Chartjs_option_types.Option_context in
+        let index = data_index context in
+        let data = data (chart context) in
+        Chartjs_array.String.((Data.labels data).%[index]))
+      ~color:(`Fun color)
+      ~border_radius:(`Single 25)
+      ~border_width:(`Single 2.)
+      ~background_color:(`Fun bg_color)
+      ~border_color:(`Fun color)
+      ~display:(`Fun display)
+      ~align:(`Single `Start)
+      ~offset:(`Single (-50))
+      ~clip:(`Single true)
+      ~font:(`Single font)
+      ()
 
   let make_pie_options () : Chartjs.Options.t =
     let open Chartjs in
     let hover = Options.Hover.make ~animation_duration:0 () in
     let callbacks =
       Options.Tooltips.Callbacks.make
-        (* ~label:(fun ~item ~data ->
-         *   let ds_index = item.dataset_index in
-         *   let data = Data.t_of_js data in
-         *   let dataset = (Data.datasets data).%[ds_index] in
-         *   let label = Array.String.get_exn (Data.labels data) item.index in
-         *   let value = Array.Float.get_exn (Pie.Dataset.data dataset) item.index in
-         *   Printf.sprintf "PID %s: %.3g Мбит/с" label value) *)
+        ~label:(fun item data ->
+          let ds_index = item.dataset_index in
+          Chartjs_array.(
+            let dataset = Any.((Data.datasets data).%[ds_index]) in
+            let label = String.((Data.labels data).%[item.index]) in
+            let value = Float.((Pie.Dataset.Float.data dataset).%[item.index]) in
+            Printf.sprintf "PID %s: %.3g Мбит/с" label value))
         () in
     let tooltips =
       Options.Tooltips.make
@@ -107,6 +151,11 @@ module Pie = struct
         ~position:`Left
         ~display:false
         () in
+    let datalabels = make_pie_datalabels () in
+    let plugins = Options.Plugins.make () in
+    Chartjs_plugin_datalabels.Per_chart.set_datalabels
+      plugins
+      (Some datalabels);
     Options.make
       ~responsive:true
       ~maintain_aspect_ratio:true
@@ -114,12 +163,14 @@ module Pie = struct
       ~tooltips
       ~legend
       ~hover
+      ~plugins
       ()
 
   let make_pie_dataset () : Chartjs.Pie.Dataset.Float.t =
     let open Chartjs.Pie in
     let background_color =
-      List.map Fun.(Color.(string_of_t % of_material % fst)) colors in
+      Array.map Fun.(Color.(string_of_t % of_material % fst)) colors
+      |> Array.to_list in
     Dataset.Float.make
       ~background_color
       ~border_width:[0]
@@ -463,6 +514,7 @@ class t ?(settings : Settings.t option)
          self#add_class no_response_class
 
     method set_hex (x : bool) : unit =
+      Printf.printf "set settings: %b\n" x;
       pie#set_hex x;
       info#set_hex x
 
@@ -486,7 +538,9 @@ let make_dashboard_item ?settings init : 'a Dashboard.Item.item =
   let (settings : Dashboard.Item.settings) =
     { widget = settings#widget
     ; ready = React.S.const true
-    ; set = (fun () -> Lwt_result.return @@ w#set_settings @@ React.S.value s)
+    ; set = (fun () ->
+      settings#apply ();
+      Lwt_result.return @@ w#set_settings @@ React.S.value s)
     } in
   let tz_offset_s = Ptime_clock.current_tz_offset_s () in
   let timestamp =
