@@ -87,12 +87,6 @@ module Pie = struct
   let make_pie_datalabels () : Chartjs_plugin_datalabels.t =
     let open Chartjs in
     let open Chartjs_plugin_datalabels in
-    let bg_color = fun context ->
-      let open Chartjs_option_types.Option_context in
-      let ds = dataset context in
-      let index = data_index context in
-      Chartjs_array.Color.(
-        (Pie.Dataset.background_color ds).%[index]) in
     let color = fun context ->
       let open Chartjs_option_types.Option_context in
       let index = data_index context in
@@ -107,10 +101,7 @@ module Pie = struct
           let v = data.%[index] in
           (v *. 100.) /. sum) in
       value >. 10. in
-    let font =
-      Chartjs_plugin_datalabels.Font.make
-        ~weight:"bold"
-        () in
+    let font = Chartjs_plugin_datalabels.Font.make ~weight:"bold" () in
     Chartjs_plugin_datalabels.make
       ~formatter:(fun _ context ->
         let open Chartjs_option_types.Option_context in
@@ -118,10 +109,6 @@ module Pie = struct
         let data = data (chart context) in
         Chartjs_array.String.((Data.labels data).%[index]))
       ~color:(`Fun color)
-      ~border_radius:(`Single 25)
-      ~border_width:(`Single 2.)
-      ~background_color:(`Fun bg_color)
-      ~border_color:(`Fun color)
       ~display:(`Fun display)
       ~align:(`Single `Start)
       ~offset:(`Single (-50))
