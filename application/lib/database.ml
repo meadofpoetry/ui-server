@@ -61,7 +61,7 @@ module Model = struct
                    ; "input_type", key "INTEGER"
                    ; "stream", key "INTEGER"
                    ; "pid", key "INTEGER"
-                   ; "service", key "SERVICE"
+                   ; "service", key "VARCHAR(256)" (* TODO define length *)
                    ]
 
   let tables () =

@@ -1,5 +1,6 @@
 open Containers
 open Components
+open Lwt_result
 open Common
 
 let ( % ) = Fun.( % )
@@ -90,12 +91,16 @@ let () =
     @@ Js_of_ocaml.Json.output @@ Js.Unsafe.global##.cpu
     |> cpu_of_yojson
     |> Result.get_exn in
-  let stream =
+  let stream_id =
     Uri.Path.Format.scan_unsafe (Uri.Path.of_string uri)
       fmt (fun _ _ c -> c) in
-  let w = Widget.create_div () in
-  let page = new Ui_templates.Page.t (`Dynamic (make_tabs stream input boards cpu)) () in
-  let info = "" in
-  let title = page#title ^ " / " ^ info in
-  page#set_title title;
-  ()
+  Application_js.Requests.HTTP.get_stream_source ~stream_id ()
+  >>= (fun source ->
+    let info = Stream.Source.to_string source.info in
+    let w = Widget.create_div () in
+    let tabs = make_tabs stream_id input boards cpu in
+    let page = new Ui_templates.Page.t (`Dynamic tabs) () in
+    let title = page#title ^ " / " ^ info in
+    page#set_title title;
+    Lwt_result.return ())
+  |> Lwt.ignore_result

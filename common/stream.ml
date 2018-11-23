@@ -451,6 +451,6 @@ module Log_message = struct
            ; service : string option
            } [@@deriving eq, yojson]
 
-  type source = [`All | `Id of ID.t] -> t React.event
+  type source = [`All | `Id of ID.t] -> t list React.event
     
 end

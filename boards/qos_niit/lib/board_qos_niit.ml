@@ -224,6 +224,10 @@ let get_ports_active prefix input ports =
       |> fun x -> Board.Ports.add p.port x acc)
     Board.Ports.empty ports
 
+let make_log_event (_ : Stream.Log_message.source)
+      (events : events) : Stream.Log_message.t list React.event =
+  React.E.map (fun _ -> []) events.ts.errors
+
 let create (b : Topology.topo_board) _ convert_streams send
       db_conf base step : Board.t =
   let open DB_handler in
@@ -284,7 +288,8 @@ let create (b : Topology.topo_board) _ convert_streams send
   { handlers = handlers
   ; control = b.control
   ; streams_signal = events.streams
-  ; log_source = (fun _ -> React.E.never) (* TODO implement source *)
+  ; log_source = (fun _ ->
+    React.E.never) (* TODO implement source *)
   ; step
   ; connection = events.device.state
   ; ports_sync =

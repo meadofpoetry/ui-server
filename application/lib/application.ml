@@ -63,8 +63,8 @@ let create config db =
   |> List.append (Option.map_or ~default:[] (fun p -> [p#log_source `All])
                     proc)
   |> Storage.Database.aggregate 1.0
-  |> Lwt_react.E.map_p (Database.Log.insert db)
-  |> Lwt_react.E.keep;
+  |> E.map_p (fun x -> Database.Log.insert db @@ List.concat x)
+  |> E.keep;
 
   { users; proc; network; hw; db; topo = hw.topo }, loop
 
@@ -123,6 +123,7 @@ let log_for_input app input stream_id =
                            app.proc)
          (* Merge *)
          |> Storage.Database.aggregate 0.5 (* TODO replace by something without sleep *)
+         |> E.map List.concat
          |> Result.return
      with Not_found -> Error "internal topology error"
   
