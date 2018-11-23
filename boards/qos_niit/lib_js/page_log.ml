@@ -27,7 +27,7 @@ let make_overview init e_errors stream control =
 
 let make (id : Stream.ID.t) control =
   let init =
-    Requests.History.HTTP.Errors.get ~ids:[id] control
+    Requests.History.HTTP.Errors.get ~limit:50 ~ids:[id] control
     >>= (function
          | Raw s -> Lwt_result.return s.data
          | _ -> Lwt.fail_with "got compressed")

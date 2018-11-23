@@ -4,27 +4,38 @@ open Widget_types
 open Board_types
 open Common
 
-type 'a point = (Time.t, 'a) Chartjs.Line.point
-type 'a data = (Stream.ID.t * ('a point list)) list
+module Point = struct
+  open Chartjs_types
+  include Chartjs.Line.Dataset.Make_point(Time)(Float)
+end
+module Dataset = Chartjs.Line.Dataset.Make(Point)
 
-type settings =
-  { range : (float * float) option
-  } [@@deriving yojson, eq]
+type data = (Stream.ID.t * Point.t list) list
 
-type config =
-  { ids : Stream.ID.t list
+type init = (id * Measure.t Time.timestamped list) list
+
+type event = (id * Measure.t Time.timestamped) list React.event
+
+type widget_config =
+  { sources : data_source list
   ; typ : measure_type
   ; duration : Time.Period.t
-  ; settings : settings option
-  } [@@deriving yojson]
+  ; settings : widget_settings option
+  }
+and widget_settings =
+  { range : (float * float) option
+  }
+and data_source = Stream.ID.t [@@deriving yojson, eq]
 
 let base_class = "dvb-niit-measures-line-chart"
 
 let colors =
-  Color.[ Indigo C500
-        ; Amber C500
-        ; Green C500
-        ; Cyan C500 ]
+  Random.init 255;
+  let st = Random.get_state () in
+  Array.init 100 (fun _ ->
+      Random.run ~st (Random.int 255),
+      Random.run ~st (Random.int 255),
+      Random.run ~st (Random.int 255))
 
 let get_suggested_range = function
   | `Power -> (-70.0, 0.0)
@@ -33,7 +44,7 @@ let get_suggested_range = function
   | `Freq -> (-10.0, 10.0)
   | `Bitrate -> (0.0, 1.0)
 
-let make_settings (settings : settings) =
+let make_settings (settings : widget_settings) =
   let range_min =
     new Textfield.t
       ~label:"Min"
@@ -46,7 +57,7 @@ let make_settings (settings : settings) =
       () in
   let box = new Hbox.t ~widgets:[range_min;range_max] () in
   let s =
-    React.S.l2 ~eq:(Equal.option equal_settings)
+    React.S.l2 ~eq:(Equal.option equal_widget_settings)
       (fun min max ->
         match min, max with
         | Some min, Some max -> Some { range = Some (min, max) }
@@ -54,187 +65,246 @@ let make_settings (settings : settings) =
   in
   box, s
 
-(* FIXME declare class instead *)
-let make_chart_base ~(config : config)
-      ~(init : float data)
-      ~(event : float data React.event)
-      () : 'a Dashboard.Item.item =
-  let settings, s_settings = make_settings { range = None } in
-  let range = get_suggested_range config.typ in
-  let init = List.map (fun x ->
-                 match List.Assoc.get ~eq:Stream.ID.equal x init with
-                 | Some i -> x, i
-                 | None   -> x, []) config.ids in
-  let delta = config.duration in
-  let x_axis =
-    new Chartjs.Line.Axes.Time.t
-      ~delta
-      ~id:"x-axis"
+let make_x_axis ?(id = "x-axis") (config : widget_config)
+    : Chartjs.Scales.t =
+  let open Chartjs in
+  let open Chartjs_plugin_streaming in
+  let duration =
+    int_of_float
+    @@ Ptime.Span.to_float_s config.duration *. 1000. in
+  let scale_label =
+    Scales.Scale_label.make
+      ~display:true
+      ~label_string:"Время"
+      () in
+  let display_formats =
+    Scales.Cartesian.Time.Time.Display_formats.make
+      ~minute:"HH:mm:ss"
+      ~second:"HH:mm:ss"
+      ~hour:"HH:mm:ss"
+      () in
+  let time =
+    Scales.Cartesian.Time.Time.make
+      ~iso_weekday:true
+      ~display_formats
+      ~tooltip_format:"ll HH:mm:ss"
+      () in
+  let ticks =
+    Scales.Cartesian.Time.Ticks.make
+      ~auto_skip_padding:2
+      () in
+  let axis =
+    Scales.Cartesian.Time.make
+      ~id
+      ~scale_label
+      ~ticks
+      ~time
       ~position:`Bottom
-      ~typ:Ptime
+      ~type_:(`Custom axis_type)
       () in
-  let f axis = function
-    | Some (min, max) ->
-       axis#ticks#set_min (Some min);
-       axis#ticks#set_max (Some max)
-    | None ->
-       axis#ticks#set_min None;
-       axis#ticks#set_max None in
-  let y_axis,f = match config.typ with
-    | `Ber ->
-       let axis =
-         new Chartjs.Line.Axes.Logarithmic.t
-           ~id:"y-axis"
-           ~position:`Left
-           ~typ:Float
-           () in
-       axis#coerce_common,f axis
-    | _ ->
-       let axis =
-         new Chartjs.Line.Axes.Linear.t
-           ~id:"y-axis"
-           ~position:`Left
-           ~typ:Float
-           () in
-       axis#ticks#set_suggested_min (fst range);
-       axis#ticks#set_suggested_max (snd range);
-       axis#coerce_common, f axis in
-  let options =
-    new Chartjs.Line.Options.t
-      ~x_axes:[x_axis]
-      ~y_axes:[y_axis]
-      () in
-  let datasets =
-    List.map (fun (_, data) ->
-        let label = Printf.sprintf "%s" module_name in
-        new Chartjs.Line.Dataset.t ~label ~data ~x_axis ~y_axis ())
-      init in
-  List.iteri (fun i x ->
-      let clr = Option.get_or ~default:(Color.Red C500)
-                @@ List.get_at_idx i colors in
-      x#set_bg_color @@ Color.(RGB (rgb_of_material clr));
-      x#set_border_color @@ Color.(RGB (rgb_of_material clr));
-      x#set_cubic_interpolation_mode `Monotone;
-      x#set_fill `Disabled)
-    datasets;
-  if List.length config.ids < 2
-  then options#legend#set_display false;
-  x_axis#ticks#set_auto_skip_padding 2;
-  x_axis#scale_label#set_display true;
-  x_axis#scale_label#set_label_string "Время";
-  x_axis#time#set_tooltip_format "ll HH:mm:ss";
-  (* x_axis#time#set_unit (Some `Second); *)
-  y_axis#scale_label#set_display true;
-  y_axis#scale_label#set_label_string @@ measure_type_to_unit config.typ;
-  options#set_maintain_aspect_ratio false;
-  let chart = new Chartjs.Line.t ~options ~datasets () in
-  let set = fun ds data ->
-    List.iter (fun point -> ds#push point) data;
-    chart#update None in
-  let _e =
-    React.E.map (fun d ->
-        List.iter (fun (_, data) ->
-            Option.iter (fun ds -> set ds data)
-            @@ List.head_opt datasets) d)
-      event in
-  let box = Widget.create_div () in
-  box#add_class base_class;
-  box#append_child chart;
-  box#set_on_destroy @@ Some (fun () -> React.E.stop ~strong:true _e);
-  Dashboard.Item.make_item
-    ~name:(measure_type_to_string config.typ)
-    ~settings:{ widget = settings#widget
-              ; ready = React.S.map ~eq:Equal.bool Option.is_some s_settings
-              ; set = fun () ->
-                      match React.S.value s_settings with
-                      | Some s ->
-                         f s.range;
-                         chart#update None;
-                         Lwt_result.return ()
-                      | None ->
-                         Lwt_result.fail "no settings available" }
-    box
+  let streaming = make ~duration () in
+  Per_axis.set_realtime axis streaming;
+  axis
 
-type event = (Stream.t * Measure.t Time.timestamped) React.event
+let make_y_axis ?(id = "y-axis") (config : widget_config) =
+  let open Chartjs in
+  let open Chartjs.Scales.Cartesian in
+  let range = get_suggested_range config.typ in
+  let scale_label =
+    Scales.Scale_label.make
+      ~display:true
+      ~label_string:(measure_type_to_unit config.typ)
+      () in
+  let position = `Left in
+  let axis, set_range = match config.typ with
+    | `Ber ->
+       let axis = Logarithmic.make ~id ~scale_label ~position () in
+       let set_range = function
+         | None ->
+            let open Logarithmic in
+            let ticks = ticks axis in
+            Ticks.set_min ticks None;
+            Ticks.set_max ticks None
+         | Some (min, max) ->
+            let open Logarithmic in
+            let ticks = ticks axis in
+            Ticks.set_max ticks (Some max);
+            Ticks.set_min ticks (Some min) in
+       axis, set_range
+    | _ ->
+       let ticks =
+         Linear.Ticks.make
+           ~suggested_min:(fst range)
+           ~suggested_max:(snd range)
+           () in
+       let axis = Linear.make ~id ~ticks ~scale_label ~position () in
+       let set_range = function
+         | None ->
+            let open Linear in
+            let ticks = ticks axis in
+            Ticks.set_min ticks None;
+            Ticks.set_max ticks None
+         | Some (min, max) ->
+            let open Linear in
+            let ticks = ticks axis in
+            Ticks.set_max ticks (Some max);
+            Ticks.set_min ticks (Some min) in
+       axis, set_range in
+  axis, set_range
+
+let format_value (v : float) (config : widget_config) : string =
+  let unit = measure_type_to_unit config.typ in
+  let v = match config.typ with
+    | `Power -> Printf.sprintf "%g" v
+    | `Ber -> Printf.sprintf "%0.3e" v
+    | `Mer -> Printf.sprintf "%g" v
+    | `Freq -> Printf.sprintf "%g" v
+    | `Bitrate -> Printf.sprintf "%g" v in
+  Printf.sprintf "%s %s" v unit
+
+let make_options ~x_axes ~y_axes
+      (config : widget_config) : Chartjs.Options.t =
+  let open Chartjs in
+  let scales = Scales.make ~x_axes ~y_axes () in
+  let legend = Options.Legend.make ~display:false () in
+  let plugins = Options.Plugins.make () in
+  let callbacks =
+    Options.Tooltips.Callbacks.make
+      ~label:(fun item data ->
+        let ds_index = item.dataset_index in
+        Chartjs_array.(
+          let dataset = Any.((Data.datasets data).%[ds_index]) in
+          let label = Dataset.label dataset in
+          let data = Dataset.data dataset in
+          let value = Dataset.A.(data.%[item.index]) in
+          Printf.sprintf "%s: %s" label (format_value value.y config)
+        ))
+      () in
+  let tooltips =
+    Options.Tooltips.make
+      ~callbacks
+      ~mode:`Index
+      ~intersect:false
+      () in
+  Chartjs_plugin_datalabels.Per_chart.set_datalabels plugins None;
+  Options.make
+    ~scales
+    ~plugins
+    ~legend
+    ~tooltips
+    ~maintain_aspect_ratio:false
+    ~responsive:true
+    ~responsive_animation_duration:0
+    ()
+
+let make_dataset id src (data : Point.t list) =
+  let data = List.sort (fun (a : Point.t) b -> Ptime.compare a.x b.x) data in
+  let label = Printf.sprintf "%s" module_name in
+  let (r, g, b) = colors.(id) in
+  let color = Color.string_of_t @@ Color.rgb r g b in
+  let ds =
+    Dataset.make
+      ~data
+      ~label
+      ~fill:`Off
+      ~point_radius:(`Single 2)
+      ~line_tension:0.
+      ~background_color:color
+      ~border_color:color
+      ~cubic_interpolation_mode:`Monotone
+      () in
+  src, ds
+
+let make_datasets (init : data)
+      (sources : Stream.ID.t list) =
+  let map id (src : Stream.ID.t) =
+    let data =
+      List.find_map (fun (src', data) ->
+          if Stream.ID.equal src src'
+          then Some data else None) init
+      |> Option.get_or ~default:[] in
+    make_dataset id src data in
+  List.mapi map sources
+
+let to_init (get : Measure.t -> float option)
+      (init : init) : data =
+  List.map (fun ((id : id), meas) ->
+      let data =
+        List.map (fun Time.{ data; timestamp } ->
+            let y = Option.get_or ~default:nan (get data) in
+            ({ x = timestamp; y } : Point.t)) meas in
+      id.stream, data) init
 
 let to_event (get : Measure.t -> float option)
-      (event : event) : float data React.event =
-  React.E.map (fun ((s : Stream.t), Time.{ data; timestamp }) ->
-      let y = Option.get_or ~default:nan (get data) in
-      [ s.id, List.return ({ x = timestamp; y } : 'a point) ])
+      (event : event) : data React.event =
+  React.E.map (
+      List.map (fun ((id : id), Time.{ data; timestamp }) ->
+          let y = Option.get_or ~default:nan (get data) in
+          id.stream, List.return ({ x = timestamp; y } : Point.t)))
     event
 
-let to_power_event (event : event) =
-  to_event (fun m -> m.power) event
-let to_mer_event (event : event) =
-  to_event (fun m -> m.mer) event
-let to_ber_event (event : event) =
-  to_event (fun m -> m.ber) event
-let to_freq_event (event : event) =
-  to_event (fun m -> Option.map float_of_int m.freq) event
-let to_bitrate_event (event:event) =
-  to_event (fun m ->
-      Option.map (fun b -> float_of_int b /. 1_000_000.) m.bitrate) event
+let get_power (m : Measure.t) = m.power
+let get_mer (m : Measure.t) = m.mer
+let get_ber (m : Measure.t) = m.ber
+let get_freq (m : Measure.t) =
+  Option.map float_of_int m.freq
+let get_bitrate (m : Measure.t) =
+  Option.map (fun b -> float_of_int b /. 1_000_000.) m.bitrate
 
-module type M = sig
-  type t
-  val to_float : t -> float
-end
-
-module Make(M : M) = struct
-
-  let make ~(init : M.t data)
+class t ~(init : init)
         ~(event : event)
-        (config : config) =
-    let conv =
-      List.map (fun (id,data) ->
-          id, List.map (fun (x : M.t point) ->
-                  ({ x with y = M.to_float x.y } : float point)) data) in
-    let init = conv init in
-    match config.typ with
-    | `Power ->
-       let event = to_power_event event in
-       make_chart_base ~init ~event ~config ()
-    | `Mer ->
-       let event = to_mer_event event in
-       make_chart_base ~init ~event ~config ()
-    | `Ber ->
-       let event = to_ber_event event in
-       make_chart_base ~init ~event ~config ()
-    | `Freq ->
-       let event = to_freq_event event in
-       make_chart_base ~init ~event ~config ()
-    | `Bitrate ->
-       let event = to_bitrate_event event in
-       make_chart_base ~init ~event ~config ()
+        (widget_config : widget_config)
+        () =
+  let getter = match widget_config.typ with
+    | `Power -> get_power
+    | `Mer -> get_mer
+    | `Ber -> get_ber
+    | `Freq -> get_freq
+    | `Bitrate -> get_bitrate in
+  let init = to_init getter init in
+  let x_axis = make_x_axis widget_config in
+  let y_axis, set_range = make_y_axis widget_config in
+  let (event : data React.event) = to_event getter event in
+  let (options : Chartjs.Options.t) =
+    make_options ~x_axes:[x_axis] ~y_axes:[y_axis] widget_config in
+  let datasets = make_datasets init widget_config.sources in
+  let data = Chartjs.Data.make ~datasets:(List.map snd datasets) () in
+  let canvas = Dom_html.(createCanvas document) in
+  let line = Chartjs.make ~options ~data `Line (`Canvas canvas) in
+  let box = Dom_html.(createDiv document) in
+  object(self)
 
-end
+    val mutable _datasets = datasets
 
-module Float = struct
-  type t = float
-  let to_float t = t
-end
-module Int = struct
-  type t = int
-  let to_float = float_of_int
-end
+    inherit Widget.t box () as super
 
-module Power = Make(Float)
-module Mer = Make(Float)
-module Ber = Make(Float)
-module Freq = Make(Int)
-module Bitrate = Make(Float)
+    method init () : unit =
+      super#init ();
+      super#append_child @@ Widget.create canvas;
+      super#add_class base_class;
+      React.E.map (fun d ->
+          List.iter (fun ((s : Stream.ID.t), data) ->
+              match List.Assoc.get ~eq:equal_data_source s datasets with
+              | None -> ()
+              | Some ds ->
+                 let push v = ignore @@ Dataset.A.push (Dataset.data ds) v in
+                 List.iter push data;
+                 Chartjs.update line None) d)
+        event
+      |> self#_keep_e
 
-let make ~(measures : (Stream.t * Measure.t Time.timestamped) React.event)
-      (config : config) =
-  let event = match config.ids with
+  end
+
+let make ~(init : init)
+      ~(measures : event)
+      (widget_config : widget_config) =
+  let event = match widget_config.sources with
     | [] -> measures
     | ids ->
-       React.E.filter (fun ((s : Stream.t), _) ->
-           List.mem ~eq:Stream.ID.equal s.id ids) measures in
-  (match config.typ with
-   | `Power -> Power.make ~init:[] ~event config
-   | `Mer -> Mer.make ~init:[] ~event config
-   | `Ber -> Ber.make ~init:[] ~event config
-   | `Freq -> Freq.make ~init:[] ~event config
-   | `Bitrate -> Freq.make  ~init:[] ~event config)
+       React.E.fmap (fun l ->
+           List.filter (fun ((id : id), _) ->
+               List.mem ~eq:Stream.ID.equal id.stream ids) l
+           |> function
+             | [] -> None
+             | l -> Some l) measures in
+  new t ~init ~event widget_config ()

@@ -5,7 +5,7 @@ module Markup = Components_markup.Checkbox.Make(Xml)(Svg)(Html)
 
 class t ?(ripple = true) ?state ?on_change ?input_id () =
 
-  let elt = Markup.create ?input_id () |> Tyxml_js.To_dom.of_div in
+  let elt = Markup.create ?input_id () |> To_dom.of_div in
   let input_elt =
     elt##querySelector (Js.string ("." ^ Markup.native_control_class))
     |> Js.Opt.to_option |> Option.get_exn |> Js.Unsafe.coerce in
@@ -21,22 +21,9 @@ class t ?(ripple = true) ?state ?on_change ?input_id () =
     method indeterminate : bool =
       Js.to_bool (Js.Unsafe.coerce input_elt)##.indeterminate
 
-    method layout () : unit =
-      super#layout ();
-      Option.iter (fun r -> r#layout ()) _ripple
-
-    method destroy () : unit =
-      super#destroy ();
-      Option.iter (fun r -> r#destroy ()) _ripple;
-      _ripple <- None
-
-    method set_disabled (x : bool) : unit =
-      super#set_disabled x;
-      super#add_or_remove_class x Markup.disabled_class
-
-    initializer
-      if ripple
-      then
+    method! init () : unit =
+      super#init ();
+      if ripple then
         let adapter = Ripple.make_default_adapter (self :> Widget.t) in
         let is_unbounded = fun () -> true in
         let is_surface_active = fun () ->
@@ -50,4 +37,18 @@ class t ?(ripple = true) ?state ?on_change ?input_id () =
                        ; register_handler } in
         let ripple = new Ripple.t adapter () in
         _ripple <- Some ripple;
+
+    method! layout () : unit =
+      super#layout ();
+      Option.iter (fun r -> r#layout ()) _ripple
+
+    method! destroy () : unit =
+      super#destroy ();
+      Option.iter (fun r -> r#destroy ()) _ripple;
+      _ripple <- None
+
+    method! set_disabled (x : bool) : unit =
+      super#set_disabled x;
+      super#add_or_remove_class x Markup.disabled_class
+
   end

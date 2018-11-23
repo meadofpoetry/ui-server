@@ -5,31 +5,47 @@ module Markup = Components_markup.Select.Make(Xml)(Svg)(Html)
 
 module Item = struct
   class ['a] t ?selected ?disabled ~(value : 'a) ~text () =
-    let elt = Markup.Item.create ?disabled ~text ()
-              |> Tyxml_js.To_dom.of_option in
+    let elt =
+      Markup.Item.create ?disabled ~text ()
+      |> To_dom.of_option in
     object(self)
 
       val mutable _value = value
 
       inherit Widget.t elt () as super
 
-      method init () : unit =
+      method! init () : unit =
         super#init ();
         Option.iter self#set_selected selected
 
-      method value = _value
-      method set_value (x : 'a) = _value <- x
+      method value : 'a =
 
-      method text = Js.to_string self#option_element##.text
-      method index = self#option_element##.index
+        _value
+      method set_value (x : 'a) : unit =
+        _value <- x
 
-      method selected = Js.to_bool self#option_element##.selected
-      method set_selected x = self#option_element##.selected := Js.bool x
+      method text : string =
+        Js.to_string self#option_element##.text
 
-      method disabled = Js.to_bool self#option_element##.disabled
-      method set_disabled x = self#option_element##.disabled := Js.bool x
+      method index : int =
+        self#option_element##.index
 
-      method private option_element = elt
+      method selected : bool =
+        Js.to_bool self#option_element##.selected
+
+      method set_selected (x : bool) : unit =
+        self#option_element##.selected := Js.bool x
+
+      method disabled : bool =
+        Js.to_bool self#option_element##.disabled
+
+      method set_disabled (x : bool) : unit =
+        self#option_element##.disabled := Js.bool x
+
+      (* Private methods *)
+
+      method private option_element : Dom_html.optionElement Js.t =
+        elt
 
     end
 end
@@ -38,11 +54,11 @@ module Group = struct
   class ['a] t ~label ~(items : 'a Item.t list) () =
 
     let item_elts =
-      List.map (fun x -> Tyxml_js.Of_dom.of_option (Js.Unsafe.coerce x#root))
+      List.map (fun x -> Of_dom.of_option (Js.Unsafe.coerce x#root))
         items in
     let elt =
       Markup.Item.create_group ~label ~items:item_elts ()
-      |> Tyxml_js.To_dom.of_optgroup in
+      |> To_dom.of_optgroup in
 
     object(self)
 
@@ -50,16 +66,18 @@ module Group = struct
 
       inherit Widget.t elt () as super
 
-      method destroy () : unit =
+      method! destroy () : unit =
         super#destroy ();
         List.iter (fun i ->
             self#remove_child i;
             i#destroy ()) _items;
         _items <- []
 
-      method opt_group_element = elt
+      method opt_group_element : Dom_html.optGroupElement Js.t =
+        elt
 
-      method items = _items
+      method items : 'a Item.t list =
+        _items
 
       method label : string =
         Js.to_string self#opt_group_element##.label
@@ -122,6 +140,7 @@ class ['a] t ?(disabled = false)
 
     method value : 'a option =
       Option.map (fun (x : 'a Item.t) -> x#value) self#selected_item
+
     method items : 'a Item.t list =
       List.fold_left (fun acc -> function
           | `Group g -> g#items @ acc
@@ -129,7 +148,8 @@ class ['a] t ?(disabled = false)
 
     method length : int =
       self#_native_select##.length
-    method item n : 'a Item.t option =
+
+    method item (n : int) : 'a Item.t option =
       List.get_at_idx n self#items
 
     method! set_empty () =
@@ -143,7 +163,7 @@ class ['a] t ?(disabled = false)
       _items <- [];
       push None
 
-    method remove_item (i : 'a Item.t) =
+    method remove_item (i : 'a Item.t) : unit =
       _items <- List.remove ~eq:(fun a b ->
                     match a, b with
                     | `Item a, `Item b -> Widget.equal a b
@@ -155,11 +175,11 @@ class ['a] t ?(disabled = false)
          if Widget.equal i x
          then push None
 
-    method append_item (i : 'a Item.t) =
+    method append_item (i : 'a Item.t) : unit =
       _items <- `Item i :: _items;
       self#select#append_child i
 
-    method append_group (g : 'a Group.t) =
+    method append_group (g : 'a Group.t) : unit =
       _items <- `Group g :: _items;
       self#select#append_child g
 
@@ -173,7 +193,7 @@ class ['a] t ?(disabled = false)
             self#items)
         self#selected_index
 
-    method set_selected_index i =
+    method set_selected_index (i : int) : unit =
       self#_native_select##.selectedIndex := i;
       self#add_class Markup.is_changing_class;
       Dom_html.setTimeout (fun () ->
@@ -182,13 +202,17 @@ class ['a] t ?(disabled = false)
       let res = List.find_opt (fun x -> x#index = i) self#items in
       push res
 
-    method set_selected_value ~(eq : 'a -> 'a -> bool) (v : 'a) =
+    method set_selected_value ~(eq : 'a -> 'a -> bool)
+             (v : 'a) : ('a Item.t, string) result =
       match List.find_opt (fun (x : 'a Item.t) -> eq x#value v) self#items with
       | Some i -> self#set_selected_index i#index; Ok i
       | None -> Error "item not found"
 
-    method s_selected_item : 'a Item.t option React.signal = s
-    method s_selected_value : 'a option React.signal = s_value
+    method s_selected_item : 'a Item.t option React.signal =
+      s
+
+    method s_selected_value : 'a option React.signal =
+      s_value
 
     method disabled : bool =
       Js.to_bool self#_native_select##.disabled

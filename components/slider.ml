@@ -59,7 +59,7 @@ class t ?discrete ?markers ?step ?(min=0.0) ?(max=100.0) ?value  () =
     method disabled       = Js.to_bool mdc##.disabled
     method set_disabled x = mdc##.disabled := Js.bool x
 
-    method layout ()      = mdc##layout ()
+    method! layout ()      = mdc##layout ()
     method step_down ()   = mdc##stepDown ()
     method step_down_by x = mdc##stepDown_value x
     method step_up ()     = mdc##stepUp ()

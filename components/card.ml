@@ -15,9 +15,10 @@ module Actions = struct
         Markup.Actions.Buttons.create ~children ()
         |> To_dom.of_element in
       object
-        inherit Widget.t elt ()
+        inherit Widget.t elt () as super
 
-        initializer
+        method! init () : unit =
+          super#init ();
           List.iter (fun x ->
               x#add_class Markup.Actions.action_class;
               x#add_class Markup.Actions.action_button_class)
@@ -35,9 +36,10 @@ module Actions = struct
         Markup.Actions.Icons.create ~children ()
         |> To_dom.of_element in
       object
-        inherit Widget.t elt ()
+        inherit Widget.t elt () as super
 
-        initializer
+        method! init () : unit =
+          super#init ();
           List.iter (fun x ->
               x#add_class Markup.Actions.action_class;
               x#add_class Markup.Actions.action_icon_class)
@@ -55,7 +57,7 @@ module Actions = struct
       val mutable widgets : Widget.t list =
         List.map (fun x -> (x :> Widget.t)) widgets
 
-      inherit Widget.t elt () as super
+      inherit Widget.t elt ()
 
       method widgets = widgets
 
@@ -126,9 +128,10 @@ class t ?(outlined = false)
     |> To_dom.of_element in
 
   object(self)
-    inherit Widget.t elt ()
+    inherit Widget.t elt () as super
 
-    method init () : unit =
+    method! init () : unit =
+      super#init ();
       self#set_outlined outlined
 
     method outlined : bool =

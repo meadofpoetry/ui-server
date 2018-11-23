@@ -1,4 +1,3 @@
-open Containers
 open Tyxml_js
 open Lwt.Infix
 
@@ -17,7 +16,13 @@ class t ?(fade = false) ?(active = false) () =
     Markup.create (Widget.to_markup content) ()
     |> To_dom.of_element in
   object(self : 'self)
-    inherit Widget.t elt ()
+    inherit Widget.t elt () as super
+
+    method! init () : unit =
+      super#init ();
+      (* FIXME *)
+      ignore fade;
+      ignore active;
 
     method content = content
 

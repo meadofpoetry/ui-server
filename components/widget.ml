@@ -9,7 +9,7 @@ type rect =
   ; height : float option
   }
 
-let to_rect (x:Dom_html.clientRect Js.t) =
+let to_rect (x : Dom_html.clientRect Js.t) =
   { top = x##.top
   ; right = x##.right
   ; bottom = x##.bottom
@@ -19,6 +19,7 @@ let to_rect (x:Dom_html.clientRect Js.t) =
   }
 
 module Event = struct
+
   include Dom_events.Typ
 
   class type wheelEvent =
@@ -31,6 +32,7 @@ module Event = struct
     end
 
   let wheel : wheelEvent Js.t typ = make "wheel"
+
 end
 
 class t (elt : #Dom_html.element Js.t) () = object(self)
@@ -40,6 +42,7 @@ class t (elt : #Dom_html.element Js.t) () = object(self)
   val mutable _on_unload = None
   val mutable _in_dom = false
   val mutable _observer = None
+  val mutable _listeners_lwt = []
 
   val mutable _e_storage : unit React.event list = []
   val mutable _s_storage : unit React.signal list = []
@@ -68,6 +71,8 @@ class t (elt : #Dom_html.element Js.t) () = object(self)
     List.iter (React.E.stop ~strong:true) _e_storage;
     _s_storage <- [];
     _e_storage <- [];
+    List.iter (fun x -> try Lwt.cancel x with _ -> ()) _listeners_lwt;
+    _listeners_lwt <- [];
     Option.iter (fun f -> f ()) _on_destroy
 
   method layout () = ()
@@ -197,7 +202,9 @@ class t (elt : #Dom_html.element Js.t) () = object(self)
   method append_child : 'a. (< node : Dom.node Js.t;
                              layout : unit -> unit;
                              .. > as 'a) -> unit =
-    fun x -> Dom.appendChild self#root x#node; x#layout ()
+    fun x ->
+    Dom.appendChild self#root x#node;
+    x#layout ()
 
   method insert_child_at_idx : 'a. int ->
                                (< node : Dom.node Js.t; .. > as 'a) -> unit =
@@ -221,22 +228,29 @@ class t (elt : #Dom_html.element Js.t) () = object(self)
     fun ?use_capture x ->
     Lwt_js_events.make_event x ?use_capture self#root
 
-  method listen_lwt : 'a. ?cancel_handler:bool ->
+  method listen_lwt : 'a. ?store:bool ->
+                      ?cancel_handler:bool ->
                       ?use_capture:bool ->
                       (#Dom_html.event as 'a) Js.t Event.typ ->
                       ('a Js.t -> unit Lwt.t -> unit Lwt.t) ->
                       unit Lwt.t =
-    fun ?cancel_handler ?use_capture x ->
-    Lwt_js_events.seq_loop (Lwt_js_events.make_event x)
-      ?cancel_handler ?use_capture self#root
+    fun ?(store = false) ?cancel_handler ?use_capture x f ->
+    let (t : unit Lwt.t) =
+      Lwt_js_events.seq_loop (Lwt_js_events.make_event x)
+        ?cancel_handler ?use_capture self#root f in
+    if store then _listeners_lwt <- t :: _listeners_lwt;
+    t
 
   method listen_click_lwt
-         : ?cancel_handler:bool ->
+         : ?store:bool ->
+           ?cancel_handler:bool ->
            ?use_capture:bool ->
            (Dom_html.mouseEvent Js.t -> unit Lwt.t -> unit Lwt.t) ->
            unit Lwt.t =
-    fun ?cancel_handler ?use_capture f ->
-    self#listen_lwt ?cancel_handler ?use_capture Event.click f
+    fun ?(store = false) ?cancel_handler ?use_capture f ->
+    let t = self#listen_lwt ?cancel_handler ?use_capture Event.click f in
+    if store then _listeners_lwt <- t :: _listeners_lwt;
+    t
 
   method set_empty () =
     Dom.list_of_nodeList @@ self#root##.childNodes

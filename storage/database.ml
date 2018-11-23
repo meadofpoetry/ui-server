@@ -224,7 +224,7 @@ let create config period =
   let settings = Conf.get config in
   let path = Printf.sprintf "postgresql://%s:%s/ats?host=/%s"
                user settings.password settings.socket_path in
-  let db   = match Caqti_lwt.connect_pool ~max_size:50 (Uri.of_string path) with
+  let db   = match Caqti_lwt.connect_pool ~max_size:8 (Uri.of_string path) with
     | Ok db   -> db
     | Error e -> failwith (Printf.sprintf "Db connect failed with an error: %s\n" @@ Caqti_error.show e)
   in

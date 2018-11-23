@@ -1,6 +1,7 @@
 open Topology
 open Containers
 
+(** Main stream ID *)
 module ID : sig
 
   type t

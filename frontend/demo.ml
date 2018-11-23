@@ -3,6 +3,9 @@ open Components
 open Tyxml_js
 open Common
 
+let log (x : 'a) : unit =
+  Js.Unsafe.global##.console##log x
+
 let demo_section ?expanded title content =
   new Expansion_panel.t ?expanded ~title ~content ()
 
@@ -256,7 +259,6 @@ let list_demo () =
                       ~text:("List item " ^ (string_of_int x))
                       ~secondary_text:"some subtext here"
                       ~graphic:(new Avatar.Letter.t ~text:"A" ())
-                      ~ripple:true
                       ~value:()
                       ()))
       (List.range 0 5) in
@@ -548,142 +550,87 @@ let table_demo () =
   let row = table#rows |> List.hd in
   demo_section "Table" [ table#widget ]
 
-let chart_demo () =
-  let open Chartjs.Line in
-  let range = 10 in
-  let x = ref 40 in
-  Random.init (Unix.time () |> int_of_float);
-  let to_data () =
-    List.map (fun x -> { x; y = Random.run (Random.int range) })
-      (List.range_by ~step:2 0 !x) in
-  let x_axis   = new Axes.Linear.t ~id:"x" ~position:`Bottom
-                   ~typ:Int ~delta:!x () in
-  let y_axis   = new Axes.Linear.t ~id:"y" ~position:`Top
-                   ~typ:Int () in
-  let options  = new Options.t ~x_axes:[x_axis] ~y_axes:[y_axis] () in
-  let datasets =
-    List.map (fun x -> new Dataset.t ~x_axis ~y_axis
-                         ~label:x ~data:(to_data ()) ())
-      ["Dataset 1"; "Dataset 2"] in
-  options#hover#set_mode `Index;
-  options#hover#set_axis `X;
-  options#hover#set_intersect true;
-  options#tooltip#set_mode `Index;
-  options#tooltip#set_intersect false;
-  options#elements#line#set_border_width 3;
-  y_axis#ticks#set_suggested_max range;
-  x_axis#scale_label#set_label_string "x axis";
-  x_axis#scale_label#set_display true;
-  List.iter (fun x ->
-      if String.equal x#label "Dataset 1"
-      then x#set_border_color @@ Color.(RGB (rgb_of_material (Lime C500)))
-      else x#set_border_color @@ Color.(RGB (rgb_of_material (Pink C500)));
-      x#set_cubic_interpolation_mode `Monotone;
-      x#set_fill `Disabled) datasets;
-  let update = new Button.t ~label:"update" () in
-  let push = new Button.t ~label:"push" () in
-  let push_less = new Button.t ~label:"push less" () in
-  let append = new Button.t ~label:"append" () in
-  let chart = new Chartjs.Line.t ~options ~datasets () in
-  update#listen_click_lwt (fun _ _ ->
-      List.iter (fun x ->
-          x#set_point_radius (`Fun (fun _ x -> if x.x mod 2 > 0
-                                               then 10 else 5))) datasets;
-      chart#update None;
-      Lwt.return_unit) |> Lwt.ignore_result;
-  push#listen_click_lwt (fun _ _ ->
-      x := !x + 2;
-      List.iter (fun ds ->
-          ds#push { x = !x; y = Random.(run (int range)) }) datasets;
-      chart#update None;
-      Lwt.return_unit) |> Lwt.ignore_result;
-  push_less#listen_click_lwt (fun _ _ ->
-      List.iter (fun ds ->
-          ds#push { x = !x - 1; y = Random.(run (int range)) }) datasets;
-      chart#update None;
-      Lwt.return_unit) |> Lwt.ignore_result;
-  append#listen_click_lwt (fun _ _ ->
-      x := !x + 6;
-      List.iter (fun ds ->
-          ds#append [ { x = !x - 6; y = Random.run (Random.int range) }
-                    ; { x = !x - 4; y = Random.run (Random.int range) }
-                    ; { x = !x - 2; y = Random.run (Random.int range) }
-                    ; { x = !x    ; y = Random.run (Random.int range) } ])
-        datasets;
-      chart#update None;
-      Lwt.return_unit) |> Lwt.ignore_result;
-  let w = Html.div ~a:[ Html.a_style "max-width:700px"]
-            [ Widget.to_markup chart
-            ; Widget.to_markup update
-            ; Widget.to_markup push
-            ; Widget.to_markup push_less
-            ; Widget.to_markup append ]
-          |> To_dom.of_element
-          |> Widget.create
-  in
-  demo_section "Chart (Line)" [w]
+let pie_chart_demo () =
+  let open Chartjs in
+  let options = Options.make () in
+  let dataset =
+    Pie.Dataset.Int.make
+      ~background_color:["blue"; "red"; "indigo"]
+      ~data:[10; 20; 30]
+      () in
+  let data =
+    Data.make
+      ~datasets:[dataset]
+      ~labels:["label1"; "label2"; "label3"] () in
+  let node = `Canvas Dom_html.(createCanvas document) in
+  let chart = make ~data ~options `Pie node in
+  let button = new Button.t ~label:"update" () in
+  button#listen_click_lwt (fun _ _ ->
+      let data = Chartjs.data chart in
+      let labels = Data.labels data in
+      Chartjs_array.(
+        let dataset = Any.((Data.datasets data).%[0]) in
+        let points = Pie.Dataset.Int.data dataset in
+        Int.(points.%[0] <- 50);
+        String.(labels.%[0] <- "updated label");
+        ignore @@ Int.push points 10;
+        ignore @@ String.push labels "new point";
+        ignore @@ Color.push (Pie.Dataset.background_color dataset) "orange");
+      update chart None;
+      Lwt.return_unit)
+  |> Lwt.ignore_result;
+  demo_section "Chart (Pie)" [ Widget.create (canvas chart)
+                             ; button#widget ]
 
-let time_chart_demo () =
-  let range_i = 20 in
-  let range_f = 40. in
-  Random.init (Unix.time () |> int_of_float);
-  let open Chartjs.Line in
-  let delta = Common.Time.Span.of_int_s 40 in
-  let x_axis = new Chartjs.Line.Axes.Time.t ~id:"x" ~position:`Bottom ~typ:Ptime ~delta () in
-  let y_axis = new Chartjs.Line.Axes.Linear.t ~id:"y" ~position:`Left ~typ:Int () in
-  let y2_axis = new Chartjs.Line.Axes.Logarithmic.t ~id:"y2" ~position:`Right ~typ:Float () in
-  let options  =
-    new Chartjs.Line.Options.t
-      ~x_axes:[x_axis]
-      ~y_axes:[ y_axis#coerce_base
-              ; y2_axis#coerce_base
-      ]
-      ()
-  in
-  let dataset1 = new Chartjs.Line.Dataset.t ~x_axis ~y_axis ~label:"Dataset 1" ~data:[] () in
-  let dataset2 = new Chartjs.Line.Dataset.t ~x_axis ~y_axis:y2_axis ~label:"Dataset 2" ~data:[] () in
-  let datasets = [ dataset1#coerce; dataset2#coerce ] in
-  options#hover#set_mode `Index;
-  options#hover#set_axis `X;
-  options#hover#set_intersect true;
-  options#tooltip#set_mode `Index;
-  options#tooltip#set_intersect false;
-  options#elements#line#set_border_width 3;
-  x_axis#scale_label#set_label_string "x axis";
-  x_axis#scale_label#set_display true;
-  x_axis#time#set_min_unit `Second;
-  x_axis#time#set_tooltip_format "ll HH:mm:ss";
-  List.iter (fun x ->
-      if String.equal x#label "Dataset 1"
-      then x#set_bg_color @@ Color.(of_material (Indigo C500))
-      else x#set_bg_color @@ Color.(of_material (Amber C500));
-      if String.equal x#label "Dataset 1"
-      then x#set_border_color @@ Color.(of_material (Indigo C500))
-      else x#set_border_color @@ Color.(of_material (Amber C500));
-      x#set_cubic_interpolation_mode `Monotone;
-      x#set_fill `Disabled) datasets;
-  let chart = new Chartjs.Line.t ~options ~datasets () in
-  let e_update, e_update_push = React.E.create () in
-  React.E.map (fun () ->
-      dataset1#push { x = Common.Time.of_float_s
-                          @@ Unix.gettimeofday () |> Option.get_exn
-                    ; y = Random.run (Random.int range_i) };
-      chart#update None)
-    e_update
-  |> React.E.keep;
-  React.E.map (fun () ->
-      dataset2#push { x = Common.Time.of_float_s
-                          @@ Unix.gettimeofday () |> Option.get_exn
-                    ; y = Random.run (Random.float range_f) };
-      chart#update None)
-    e_update
-  |> React.E.keep;
-  Dom_html.window##setInterval (Js.wrap_callback (fun () -> e_update_push () |> ignore)) 1000. |> ignore;
-  let w = Html.div ~a:[ Html.a_style "max-width:700px"] [ Widget.to_markup chart ]
-          |> To_dom.of_element
-          |> Widget.create
-  in
-  demo_section "Chart (Timeline)" [w]
+let line_chart_demo () =
+  let open Chartjs in
+  let options = Options.make () in
+  let dataset =
+    Line.Dataset.Int.make
+      ~fill:`Off
+      ~label:"Line dataset"
+      ~border_color:"indigo"
+      ~background_color:"indigo"
+      ~data:[1; 9; 3]
+      () in
+  let data =
+    Data.make
+      ~datasets:[dataset]
+      ~labels:["point 1"; "point 2"; "point 3"]
+      () in
+  let node = `Canvas Dom_html.(createCanvas document) in
+  let chart = make ~data ~options `Line node in
+  demo_section "Chart (Line)" [Widget.create (canvas chart)]
+
+let bar_chart_demo () =
+  let open Chartjs in
+  let y_axis =
+    let ticks =
+      Scales.Cartesian.Linear.Ticks.make
+        ~suggested_min:0.
+        ~suggested_max:40.
+        () in
+    Scales.Cartesian.Linear.make
+      ~ticks
+      () in
+  let scales = Scales.make ~y_axes:[y_axis] () in
+  let options = Options.make ~scales () in
+  let dataset =
+    Bar.Dataset.Int.make
+      ~label:"First dataset"
+      ~background_color:(`List [ "rgba(0, 0, 255, 0.5)"
+                               ; "rgba(255, 0, 0, 0.5)"
+                               ; "rgba(0, 255, 0, 0.5)" ])
+      ~data:[99; 24; 36]
+      () in
+  let data =
+    Data.make
+      ~datasets:[dataset]
+      ~labels:["bar1"; "bar2"; "bar3"]
+      () in
+  let node = `Canvas Dom_html.(createCanvas document) in
+  let chart = make ~data ~options `Bar node in
+  demo_section "Chart (Bar)" [Widget.create (canvas chart)]
 
 let dynamic_grid_demo () =
   let (props:Dynamic_grid.grid) =
@@ -810,22 +757,6 @@ let split_demo () =
   el#style##.height := Js.string "300px";
   demo_section "Split" [ el ]
 
-let pie_demo () =
-  let open Chartjs in
-  let options = new Pie.Options.t () in
-  let dataset =
-    new Pie.Dataset.t
-      ~label:"Dataset1"
-      Int
-      Pie.Dataset.[ to_point (Color.of_material (Blue C500)) 3
-                  ; to_point (Color.of_material (Amber C500)) 7
-                  ; to_point (Color.of_material (Deep_orange C500)) 1 ] in
-  let pie =
-    new Pie.t ~options
-      ~labels:["Blue"; "Amber"; "Deep orange"]
-      ~datasets:[dataset] () in
-  demo_section "Chart (Pie)" [pie]
-
 let typography_demo () =
   let open Typography in
   let lorem =
@@ -874,8 +805,9 @@ let onload _ =
               ; dynamic_grid_demo ()
               ; table_demo ()
               ; button_demo ()
-              ; chart_demo ()
-              ; time_chart_demo ()
+              ; line_chart_demo ()
+              ; bar_chart_demo ()
+              ; pie_chart_demo ()
               ; fab_demo ()
               ; fab_speed_dial_demo ()
               ; radio_demo ()
@@ -895,7 +827,6 @@ let onload _ =
               ; tabs_demo ()
               ; hexdump_demo ()
               ; split_demo ()
-              ; pie_demo ()
               ; typography_demo ()
       ] in
   ignore @@ new Ui_templates.Page.t (`Static [Widget.create demos]) ();

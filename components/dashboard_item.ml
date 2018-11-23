@@ -33,7 +33,7 @@ type 'a item =
 type 'a positioned_item =
   { item : 'a
   ; position : Position.t
-  } [@@deriving yojson]
+  } [@@deriving yojson, eq]
 
 let make_timestamp ~time ~to_string () =
   { time; to_string }
@@ -64,7 +64,9 @@ let make_timestamp_string to_string (time : Ptime.t option) : string =
     | Some t -> to_string t in
   prefix ^ suffix
 
-class t ~(item : 'a item) () =
+class t ?(removable = true)
+        ~(item : 'a item)
+        () =
   let title = new Card.Primary.title item.name () in
   let subtitle, _ = match item.subtitle with
     | None -> None, None
@@ -113,26 +115,14 @@ class t ~(item : 'a item) () =
   object(self)
 
     val mutable _editable = false
+    val mutable _removable = removable
+
     inherit Card.t ~widgets:[ heading#widget
                             ; (new Divider.t ())#widget
                             ; content#widget ] () as super
-    method remove = remove
-    method content = content
-    method heading = heading
 
-    method show_settings_button (x : bool) : unit = ()
-
-    method editable : bool  = _editable
-
-    method set_editable (x : bool) : unit =
-      _editable <- x;
-      if x
-      then buttons#append_child remove
-      else buttons#remove_child remove;
-      item.widget#add_or_remove_class x Markup.Item.editing_class;
-      List.iter (fun x -> x#layout ()) icons
-
-    method init () : unit =
+    method! init () : unit =
+      super#init ();
       Option.iter (fun ((settings : #Widget.t), (dialog : Dialog.t)) ->
           let open Lwt.Infix in
           settings#listen_click_lwt (fun _ _ ->
@@ -145,12 +135,27 @@ class t ~(item : 'a item) () =
       heading#add_class Markup.Item.heading_class;
       buttons#add_class Markup.Item.buttons_class
 
-    method destroy () : unit =
+    method! destroy () : unit =
       super#destroy ();
       item.widget#remove_class Markup.Item.widget_class;
       Option.iter (fun (_, dialog) ->
           try Dom.removeChild Dom_html.document##.body dialog#root
           with _ -> ()) sd
+
+    method remove = remove
+
+    method set_removable (x : bool) =
+      if not @@ Equal.bool _removable x
+      then if x then buttons#append_child remove
+           else buttons#remove_child remove;
+      _removable <- x
+
+    method set_editable (x : bool) : unit =
+      _editable <- x;
+      if x && _removable
+      then buttons#append_child remove
+      else buttons#remove_child remove;
+      item.widget#add_or_remove_class x Markup.Item.editing_class
 
   end
 
