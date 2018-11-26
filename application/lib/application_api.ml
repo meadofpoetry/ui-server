@@ -16,8 +16,8 @@ module WS = struct
   let get_streams (app:Application.t) _ body sock_data () =
     Api.Socket.handler socket_table sock_data (React.S.changes app.hw.streams) stream_table_to_yojson body
 
-  let get_log (app:Application.t) input id _ body sock_data () =
-    match Application.log_for_input app input id with
+  let get_log (app : Application.t) inputs streams _ body sock_data () =
+    match Application.log_for_input app inputs streams with
     | Error e  -> respond_not_found ()
     | Ok event ->
        Api.Socket.handler
@@ -55,10 +55,10 @@ module HTTP = struct
     |> Result.map2 source_to_yojson (fun e -> `String e)
     |> respond_result
 
-  let get_log (app:Application.t) input id limit from till duration _ _ () =
+  let get_log (app:Application.t) inputs streams limit from till duration _ _ () =
     match Time.make_interval ?from ?till ?duration () with
     | Ok `Range (from,till) ->
-       Database.Log.select app.db input ?id ?limit ~from ~till
+       Database.Log.select app.db ~inputs ~streams ?limit ~from ~till
        |> Lwt.map (Api.Api_types.rows_to_yojson
                      (Json.List.to_yojson Stream.Log_message.to_yojson)
                      (fun () -> `Null))
@@ -83,12 +83,12 @@ let topo_handler (app:Application.t) =
         (WS.get_streams app)
     ; create_ws_handler ~docstring:"Log for input (and stream)"
         ~path:Path.Format.("log" @/ empty)
-        ~query:Query.["input", (module Single(Show_topo_input));
-                      "stream", (module Option(Stream.ID))]
+        ~query:Query.["input", (module List(Show_topo_input));
+                      "id", (module List(Stream.ID))]
         (WS.get_log app)
     ]
     [ `POST, [ create_handler ~docstring:"Sets streams that are received by PC process"
-                 ~restrict:[ `Guest ]
+                 ~restrict:[`Guest]
                  ~path:Path.Format.("stream_table" @/ empty)
                  ~query:Query.empty
                  (HTTP.set_streams app)
@@ -111,11 +111,11 @@ let topo_handler (app:Application.t) =
                  (HTTP.get_stream_source app)
              ; create_handler ~docstring:"Log for input (and stream)"
                  ~path:Path.Format.("log" @/ empty)
-                 ~query:Query.[ "input",    (module Single(Show_topo_input))
-                              ; "stream",   (module Option(Stream.ID))
-                              ; "limit",    (module Option(Int))
-                              ; "from",     (module Option(Time.Show))
-                              ; "to",       (module Option(Time.Show))
+                 ~query:Query.[ "input", (module List(Show_topo_input))
+                              ; "id", (module List(Stream.ID))
+                              ; "limit", (module Option(Int))
+                              ; "from", (module Option(Time.Show))
+                              ; "to", (module Option(Time.Show))
                               ; "duration", (module Option(Time.Relative)) ]
                  (HTTP.get_log app)
              ]

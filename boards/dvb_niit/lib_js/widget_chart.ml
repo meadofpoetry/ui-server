@@ -183,7 +183,7 @@ let make_options ~x_axes ~y_axes
   let tooltips =
     Options.Tooltips.make
       ~callbacks
-      ~mode:`Index
+      ~mode:`Nearest
       ~intersect:false
       () in
   Chartjs_plugin_datalabels.Per_chart.set_datalabels plugins None;
@@ -201,7 +201,7 @@ let make_dataset id src (data : Point.t list) =
   let data = List.sort (fun (a : Point.t) b -> Ptime.compare a.x b.x) data in
   let label = Printf.sprintf "%s" module_name in
   let (r, g, b) = colors.(id) in
-  let color = Color.string_of_t @@ Color.rgb r g b in
+  let color = Color.to_hexstring @@ Color.of_rgb r g b in
   let ds =
     Dataset.make
       ~data

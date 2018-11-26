@@ -17,6 +17,16 @@ let dummy_tab = fun () ->
   let div = Widget.create_div () in
   Ui_templates.Placeholder.under_development ()
 
+let get_common_tabs (input : Topology.topo_input)
+      (stream : Stream.ID.t) =
+  let log =
+    "Лог",
+    "log",
+    (Application_js.Page_log.make
+       ~inputs:[input]
+       ~streams:[stream]) in
+  [log]
+
 let get_board_tabs (stream : Stream.ID.t)
       (input : Topology.topo_input)
       (control : int)
@@ -24,10 +34,10 @@ let get_board_tabs (stream : Stream.ID.t)
   match name with
   | "TS" ->
      let open Board_qos_niit_js in
-     let log =
-       "QoS",
-       "qos_log",
-       (fun () -> Page_log.make stream control) in
+     (* let log =
+      *   "QoS",
+      *   "qos_log",
+      *   (fun () -> Page_log.make stream control) in *)
      let services =
        "Сервисы",
        "qos_services",
@@ -40,7 +50,7 @@ let get_board_tabs (stream : Stream.ID.t)
        "SI/PSI",
        "qos_tables",
        (fun () -> Page_tables.make stream control) in
-     [services; pids; tables; log]
+     [services; pids; tables]
   | "DVB" ->
      let open Board_dvb_niit_js in
      let measures =
@@ -68,7 +78,8 @@ let make_tabs stream input (boards : (int * string) list) cpu =
     List.flat_map (fun (control, name) ->
         get_board_tabs stream input control name) boards in
   let cpu_tabs = get_cpu_tabs stream input cpu in
-  let tabs = boards_tabs @ cpu_tabs in
+  let common_tabs = get_common_tabs input stream in
+  let tabs = boards_tabs @ cpu_tabs @ common_tabs in
   List.map (fun (name, hash, f) ->
       new Tab.t ~value:(hash, f) ~content:(Text name) ()) tabs
 

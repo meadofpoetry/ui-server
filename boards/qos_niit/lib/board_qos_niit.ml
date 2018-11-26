@@ -4,6 +4,8 @@ open Containers
 open Lwt.Infix
 open Common
 
+let ( % ) = Fun.( % )
+
 module Api_handler = Api.Handler.Make (User)
 
 module Data = struct
@@ -224,9 +226,87 @@ let get_ports_active prefix input ports =
       |> fun x -> Board.Ports.add p.port x acc)
     Board.Ports.empty ports
 
-let make_log_event (_ : Stream.Log_message.source)
-      (events : events) : Stream.Log_message.t list React.event =
-  React.E.map (fun _ -> []) events.ts.errors
+let log_of_errors event source
+    : Stream.Log_message.t list React.event =
+  let open Stream.Log_message in
+  let filter l =
+    List.filter (fun (id, _) ->
+        match source with
+        | `All -> true
+        | `Id ids -> List.mem ~eq:Stream.ID.equal id ids) l in
+  let map = fun ((id : Stream.ID.t), (errors : Error.t_ext list)) ->
+    List.map (fun (error : Error.t_ext) ->
+        let num, name = Ts_error.Kind.of_error error in
+        let message = num ^ " " ^ name in
+        let info = Ts_error.Message.of_error error in
+        let service = Option.flat_map (fun (x : Pid.info) -> x.service_name)
+                        (snd error.pid) in
+        let pid =
+          { typ = Option.map (fun (x : Pid.info) ->
+                      Pid.typ_to_string x.typ)
+                    (snd error.pid)
+          ; id = fst error.pid
+          } in
+        { time = error.time
+        ; level = Err
+        ; message
+        ; info
+        ; input = None
+        ; stream = Some id
+        ; pid = Some pid
+        ; service
+      }) errors in
+  React.E.map (List.concat % List.map map % filter) event
+
+let log_of_device (events : device_events) =
+  let state =
+    React.E.map (fun x ->
+        let open Stream.Log_message in
+        let time = Time.Clock.now_s () in
+        let level = if x then Info else Fatal in
+        let message = match x with
+          | false -> "Аппаратный сбой"
+          | true -> "Восстановление после аппаратного сбоя" in
+        { time
+        ; level
+        ; message
+        ; info = ""
+        ; input = None
+        ; stream = None
+        ; pid = None
+        ; service = None }
+        |> List.return)
+    @@ React.E.fmap (function
+           | `No_response -> Some false
+           | `Fine -> Some true
+           | `Init -> None)
+    @@ React.S.changes events.state in
+  let status =
+    React.E.map (fun x ->
+        let open Stream.Log_message in
+        let time = Time.Clock.now_s () in
+        let level = if x then Info else Err in
+        let message = match x with
+          | true -> "Обнаружена синхронизация"
+          | false -> "Пропадание синхронизации" in
+        { time
+        ; level
+        ; message
+        ; info = ""
+        ; input = None
+        ; stream = None
+        ; pid = None
+        ; service = None }
+        |> List.return)
+    @@ React.E.changes ~eq:Equal.bool
+    @@ React.E.map (fun x -> x.has_sync) events.status in
+  React.E.merge (@) [] [state; status]
+
+let make_log_event (events : events) source
+    : Stream.Log_message.t list React.event =
+  let errors = log_of_errors events.ts.errors source in
+  let device = log_of_device events.device in
+  React.E.merge (@) [] [errors; device]
 
 let create (b : Topology.topo_board) _ convert_streams send
       db_conf base step : Board.t =
@@ -278,7 +358,7 @@ let create (b : Topology.topo_board) _ convert_streams send
   Db.T2mi_info.(Coll.handle ~eq:T2mi_info.equal ~insert ~bump db tick t2mi.structures);
   E.(keep @@ map_s (Db.Bitrate.insert db) ts.bitrates);
   E.(keep @@ map_s (Db.Bitrate.insert_pids db) ts.bitrates);
-  E.(keep @@ map_p (Db.Errors.insert ~is_ts:true  db) events.ts.errors);
+  (* E.(keep @@ map_p (Db.Errors.insert ~is_ts:true  db) events.ts.errors); *)
   E.(keep @@ map_p (Db.Errors.insert ~is_ts:false db) events.t2mi.errors);
   let state = (object
                  val db    = db
@@ -288,8 +368,7 @@ let create (b : Topology.topo_board) _ convert_streams send
   { handlers = handlers
   ; control = b.control
   ; streams_signal = events.streams
-  ; log_source = (fun _ ->
-    React.E.never) (* TODO implement source *)
+  ; log_source = make_log_event events
   ; step
   ; connection = events.device.state
   ; ports_sync =

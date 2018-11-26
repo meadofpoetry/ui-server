@@ -102,18 +102,31 @@ let stream_source app stream_id =
       Error "not found"
   with Res src -> Ok src
 
-let log_for_input app input stream_id =
+let log_for_input app inputs stream_ids =
   let open Common in
   let open Boards.Board in
-  let filter = match stream_id with
-    | None -> `All
-    | Some id -> `Id id
+  let filter = match stream_ids with
+    | [] -> `All
+    | ids -> `Id ids
   in
   let topo = S.value app.topo in
-  match Topology.board_list_for_input input topo with
-  | None -> Error "no such input"
-  | Some bs ->
-     try bs
+  let inputs = match inputs with
+    | [] -> Topology.get_inputs topo
+    | l -> l in
+  let boards =
+    let sort_uniq =
+      List.sort_uniq ~cmp:(fun (a : Topology.topo_board) b ->
+          compare a.control b.control) in
+    List.map (fun input ->
+               match Topology.board_list_for_input input topo with
+               | None -> Error "no such input"
+               | Some bs -> Ok bs) inputs
+    |> List.all_ok
+    |> Result.map Fun.(sort_uniq % List.concat) in
+  match boards with
+  | Error e -> Error e
+  | Ok boards ->
+     try boards
          (* Get boards' log events *)
          |> List.map (fun (topo_board : Topology.topo_board) ->
                 let board = Hardware.Map.find topo_board.control app.hw.boards in

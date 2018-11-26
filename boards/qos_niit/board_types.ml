@@ -193,27 +193,23 @@ end
 
 module Pid = struct
 
-  type pes =
-    { stream_type : int
-    ; stream_id : int
-    } [@@deriving yojson, eq, ord]
-
-  type ecm =
-    { ca_sys_id : int
-    } [@@deriving yojson, eq, ord]
-
-  type emm = ecm [@@deriving yojson, eq, ord]
-
-  type typ =
+  type t = id * info
+  and id = int
+  and typ =
     | SEC of int list
     | PES of pes
     | ECM of ecm
     | EMM of emm
     | Private
-    | Null [@@deriving yojson, eq, ord]
-
-  type t = id * info
-  and id = int
+    | Null
+  and emm =
+    { ca_sys_id : int
+    }
+  and ecm = emm
+  and pes =
+    { stream_type : int
+    ; stream_id : int
+    }
   and info =
     { has_pts : bool
     ; has_pcr : bool
@@ -222,7 +218,20 @@ module Pid = struct
     ; service_id : int option
     ; service_name : string option [@default None]
     ; typ : typ [@key "type"]
-    } [@@deriving yojson, eq]
+    } [@@deriving yojson, eq, show, ord]
+
+  let typ_to_string : typ -> string = function
+    | SEC l ->
+       let s = List.map CCFun.(Mpeg_ts.(table_to_string % table_of_int)) l
+               |> String.concat ", " in
+       "SEC -> " ^ s
+    | PES x ->
+       let s = Mpeg_ts.stream_type_to_string x.stream_type in
+       "PES -> " ^ s
+    | ECM x -> "ECM -> " ^ (string_of_int x.ca_sys_id)
+    | EMM x -> "EMM -> " ^ (string_of_int x.ca_sys_id)
+    | Null -> "Null"
+    | Private -> "Private"
 
 end
 
@@ -506,22 +515,22 @@ module Error = struct
     ; no_measure : float
     } [@@deriving yojson]
 
-  type t =
+  type 'a error =
     { count : int
     ; err_code : int
     ; err_ext : int
     ; priority : int
     ; multi_pid : bool
-    ; pid : int
+    ; pid : 'a
     ; packet : int32
     ; service_id : int option
     ; service_name : string option [@default None]
     ; param_1 : int32
     ; param_2 : int32 (* t2mi stream id for t2mi error *)
-    } [@@deriving yojson, eq, show]
-
-  type raw =
-    (Stream.ID.t * t timestamped) list [@@deriving yojson, show]
+    ; time : Time.t
+    }
+  and t = int error [@@deriving yojson, eq, show]
+  and t_ext = (Pid.id * Pid.info option) error
 
   type compressed = percent timespan list
   and percent =
@@ -550,4 +559,4 @@ type sections =
 type t2mi_info =
   (Stream.ID.t * T2mi_info.t list timestamped) list [@@deriving yojson, eq]
 type errors =
-  (Stream.ID.t * (Error.t timestamped list)) list [@@deriving yojson, eq]
+  (Stream.ID.t * (Error.t list)) list [@@deriving yojson, eq]

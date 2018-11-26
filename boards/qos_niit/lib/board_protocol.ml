@@ -121,11 +121,8 @@ module Make(Logs : Logs.LOG) = struct
     | Some x -> raise_notrace (Protocol_invariant (Unexpected_info x))
 
   module Events : sig
-    open Stream
     val partition : Acc.t -> group list * Acc.t
     val get_req_stack : group -> group option -> probe_response probe_request list
-    val to_ts_errors : group -> (Multi_TS_ID.t * Error.t list) list
-    val to_t2mi_errors : group -> (Multi_TS_ID.t * Error.t list) list
     val handle : push_events -> events -> init -> Acc.t -> Acc.t
     val handle_immediate : push_events -> Acc.t -> Acc.t
   end = struct
@@ -217,12 +214,6 @@ module Make(Logs : Logs.LOG) = struct
           | `T2mi_errors x -> Some x
           | _ -> None) g.events
 
-    (* let split_streams streams l =
-     *   List.partition_map (fun (id, x) ->
-     *       match find_stream_by_multi_id id streams with
-     *       | None -> `Left (id, x)
-     *       | Some s -> `Right (s.id, x)) l *)
-
     let merge_streams streams l =
       List.filter_map (fun (id, x) ->
           match Stream.find_by_multi_id id streams with
@@ -275,6 +266,22 @@ module Make(Logs : Logs.LOG) = struct
       pe.t2mi_mode_raw group.status.t2mi_mode;
       acc
 
+    let merge_with_pid ~(eq : 'a -> 'a -> bool)
+          (pids : ('a * (Pid.t list)) list)
+          (errors : ('a * (Error.t list)) list)
+        : ('a * (Error.t_ext list)) list =
+      List.map (fun (id, errors) ->
+          let pids = List.Assoc.get ~eq id pids in
+          let errors =
+            List.map (fun (e : Error.t) ->
+                let pid =
+                  Option.get_or ~default:(e.pid, None)
+                  @@ List.find_map (fun ((id, info) : Pid.t) ->
+                         if e.pid = id then Some (id, Some info) else None)
+                  @@ Option.get_or ~default:[] pids in
+                Error.{ e with pid }) errors in
+          id, errors) errors
+
     let handle (pe : push_events)
           (events : events)
           (sources : init)
@@ -282,6 +289,7 @@ module Make(Logs : Logs.LOG) = struct
       let (({ status = { status; t2mi_mode; streams = ids; input; _ }
             ; _ } : group) as group) =
         Option.get_exn acc.group in
+      let time = status.timestamp in
       let timestamp = status.timestamp in
       let streams = React.S.value events.streams in
       (* Push raw streams *)
@@ -329,6 +337,7 @@ module Make(Logs : Logs.LOG) = struct
                                   make_timestamped timestamp x.tables)) v in
          let srvs = List.map (map2 (fun (x : structure) ->
                                   make_timestamped timestamp x.services)) v in
+         pe.structures x;
          pe.info info;
          pe.pids pids;
          pe.tables tbls;
@@ -338,8 +347,13 @@ module Make(Logs : Logs.LOG) = struct
       begin match to_ts_errors group with
       | [] -> ()
       | v ->
-         merge_streams streams v
-         |> List.map (Pair.map2 (List.map (make_timestamped timestamp)))
+         let open Error in
+         let pids =
+           List.map (fun (id, (x : structure)) -> id, x.pids)
+           @@ React.S.value events.raw.structures in
+         merge_with_pid ~eq:Multi_TS_ID.equal pids v
+         |> merge_streams streams
+         |> List.map (Pair.map2 (List.map (fun (x : 'a error) -> { x with time })))
          |> pe.ts_errors
       end;
       (* Push T2-MI info *)
@@ -355,8 +369,9 @@ module Make(Logs : Logs.LOG) = struct
       begin match to_t2mi_errors group with
       | [] -> ()
       | v ->
+         let open Error in
          merge_streams streams v
-         |> List.map (Pair.map2 (List.map (make_timestamped timestamp)))
+         |> List.map (Pair.map2 (List.map (fun x -> { x with time })))
          |> pe.t2mi_errors
       end;
       { acc with probes = Acc.probes_empty }
@@ -682,6 +697,8 @@ module Make(Logs : Logs.LOG) = struct
     let hw_errors, set_hw_errors = E.create () in
     let raw_streams, set_raw_streams =
       S.create ~eq:(Equal.list Stream.Raw.equal)[] in
+    let structures, set_structures =
+      S.create ~eq:(Equal.list (Equal.pair Multi_TS_ID.equal equal_structure)) [] in
     let ts_info, set_ts_info =
       S.create ~eq:equal_ts_info [] in
     let services, set_services =
@@ -741,10 +758,12 @@ module Make(Logs : Logs.LOG) = struct
       { session = E.changes ~eq:Jitter.equal_session e_pcr_s
       ; jitter = e_pcr
       } in
+    let raw = { structures } in
     let (events : events) =
       { device
       ; ts
       ; t2mi
+      ; raw
       ; streams
       ; jitter
       } in
@@ -766,6 +785,7 @@ module Make(Logs : Logs.LOG) = struct
       ; pids = set_pids
       ; bitrates = set_bitrates
       ; t2mi_info = set_t2mi_info
+      ; structures = set_structures
       ; jitter = pcr_push
       ; jitter_session = pcr_s_push
       }

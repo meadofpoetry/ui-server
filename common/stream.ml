@@ -425,11 +425,11 @@ end
 
 module Log_message = struct
 
-  type level = Low
-             | Normal
-             | High
-             | Urgent
-             [@@deriving eq, enum]
+  type level =
+    | Info
+    | Warn
+    | Err
+    | Fatal [@@deriving eq, enum, ord]
 
   let level_to_yojson l = `Int (level_to_enum l)
 
@@ -440,17 +440,22 @@ module Log_message = struct
         | Some v -> Ok v
       end
     | _ -> Error "level_of_yojson: bad level"
-  
-  type t = { time    : Time.t
-           ; level   : level
-           ; message : string
-           ; info    : string
-           ; input   : topo_input option
-           ; stream  : ID.t option
-           ; pid     : int option
-           ; service : string option
-           } [@@deriving eq, yojson]
 
-  type source = [`All | `Id of ID.t] -> t list React.event
-    
+  type t =
+    { time : Time.t
+    ; level : level
+    ; message : string
+    ; info : string
+    ; input : topo_input option
+    ; stream : ID.t option
+    ; pid : pid option
+    ; service : string option
+    }
+  and pid =
+    { typ : string option
+    ; id : int
+    } [@@deriving eq, yojson]
+
+  type source = [`All | `Id of ID.t list] -> t list React.event
+
 end

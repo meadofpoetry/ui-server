@@ -3,7 +3,7 @@
   ;(public_name components)
   (synopsis    "various js widgets")
   (libraries lwt_react js_of_ocaml ipaddr js_of_ocaml-tyxml js_of_ocaml-lwt
-             vg components_markup ptime)
+             vg components_markup ptime color)
   (flags (:standard -short-paths -strict-sequence -bin-annot
            -w A+1..49+60-4-39-40-41-42-44-45-48))
   (js_of_ocaml  (flags (:standard  --opt 3)))

@@ -2,39 +2,46 @@ open Containers
 open Storage.Database
 open Common.Stream
 open Api.Api_types
-   
 open Lwt.Infix
 
 module SID = struct
 
   type t = ID.t
   let db_type : string = "UUID"
-  let of_stream_id (id:ID.t) =
-    ID.to_string id 
-  let to_stream_id (t:string) =
+  let of_stream_id (id : ID.t) =
+    ID.to_string id
+  let to_stream_id (t : string) =
     ID.of_string t
-  let typ     = Caqti_type.custom
-                  ~encode:(fun x -> Ok (of_stream_id x))
-                  ~decode:(fun x -> try Ok (to_stream_id x) with _ -> Error "Bad SID")
-                  Caqti_type.string
+  let to_value_string x =
+    let s = ID.to_string x in
+    Printf.sprintf "'%s'::%s" s db_type
+  let typ = Caqti_type.custom
+              ~encode:(fun x -> Ok (of_stream_id x))
+              ~decode:(fun x -> try Ok (to_stream_id x) with _ -> Error "Bad SID")
+              Caqti_type.string
 end
 
 let log_entry =
+  let open Log_message in
   Caqti_type.custom
     Caqti_type.(let (&) = tup2 in
                 ptime & int & string & string &
                   (option int) & (option int) &
-                    (option SID.typ) & (option int) & (option string))
-    ~encode:(fun (l : Log_message.t) ->
+                    (option SID.typ) & (option int) &
+                      (option string) & (option string))
+    ~encode:(fun (l : t) ->
       let level = Log_message.level_to_enum l.level in
       let input_id = Option.map (fun i -> Common.Topology.(i.id)) l.input in
       let input_typ = Option.map (fun i -> Common.Topology.(input_to_enum i.input)) l.input in
-      Ok(l.time,(level,(l.message,(l.info,(input_id,(input_typ,(l.stream,(l.pid,(l.service))))))))))
-    ~decode:(fun (time,(level,(message,(info,(input_id,(input_typ,(stream,(pid,(service))))))))) ->
+      let pid = Option.map (fun (x : pid) -> x.id) l.pid in
+      let pid_typ = Option.flat_map (fun (x : pid) -> x.typ) l.pid in
+      Ok(l.time,(level,(l.message,(l.info,(input_id,(input_typ,(l.stream,(pid,(pid_typ,(l.service)))))))))))
+    ~decode:(fun (time,(level,(message,(info,(input_id,(input_typ,(stream,(pid,(pid_typ,(service)))))))))) ->
       let open Common.Topology in
-      let level = Option.get_or ~default:Log_message.Low
-                    (Log_message.level_of_enum level)
-      in
+      let level = Option.get_exn (Log_message.level_of_enum level) in
+      let pid = match pid with
+        | None -> None
+        | Some id -> Some { id; typ = pid_typ } in
       let input = Option.map2 (fun input id -> { input; id })
                     Option.(input_typ >>= input_of_enum)
                     input_id
@@ -59,8 +66,9 @@ module Model = struct
                    ; "info", key "VARCHAR(400)"
                    ; "input_id", key "INTEGER"
                    ; "input_type", key "INTEGER"
-                   ; "stream", key "INTEGER"
+                   ; "stream", key SID.db_type
                    ; "pid", key "INTEGER"
+                   ; "pid_type", key "VARCHAR(256)" (* FIXME length *)
                    ; "service", key "VARCHAR(256)" (* TODO define length *)
                    ]
 
@@ -75,50 +83,60 @@ module Conn = Storage.Database.Make(Model)
 
 module R = Caqti_request
 
+let is_in field to_string = function
+  | [] -> ""
+  | lst -> Printf.sprintf " %s IN (%s) AND "
+             field (String.concat "," @@ List.map to_string lst)
+
+let is_null_or_in field to_string =
+  function
+  | [] -> ""
+  | lst -> Printf.sprintf " %s IS null OR %s IN (%s) AND "
+             field field (String.concat "," @@ List.map to_string lst)
+
 module Log = struct
 
   let insert db entries =
     let open Printf in
     let table = (Conn.names db).log in
-    let insert_row = R.exec log_entry
-                       (sprintf "INSERT INTO %s (date,level,message,info,input_id,input_type,stream,pid,service) VALUES (?,?,?,?,?,?,?,?,?)" table)
-    in Conn.request db Request.(with_trans (entries
-                                            |> List.fold_left (fun acc entry ->
-                                                   acc >>= fun () ->
-                                                   exec insert_row entry)
-                                                 (return ())))
+    let insert_row =
+      R.exec log_entry
+        (sprintf "INSERT INTO %s (date,level,message,info,input_id,input_type,stream,pid,pid_type,service)
+                  VALUES (?,?,?,?,?,?,?,?,?,?)" table)
+    in Conn.request db Request.(
+      with_trans (entries
+                  |> List.fold_left (fun acc entry ->
+                         acc >>= fun () ->
+                         exec insert_row entry)
+                       (return ())))
 
   let max_limit = 500
-            
-  let select db input ?id ?limit ~from ~till =
+
+  let select db ?(inputs = []) ?(streams = []) ?limit ~from ~till =
     let open Printf in
     let open Common.Topology in
-    let table     = (Conn.names db).log in
-    let input_id  = input.id in
-    let input_typ = input_to_enum input.input in
-    let limit     = match limit with
+    let table = (Conn.names db).log in
+    let streams = is_null_or_in "stream" SID.to_value_string streams in
+    let inputs =
+      (* FIXME null or in *)
+      let to_string (i : topo_input) =
+        Printf.sprintf "(%d, %d)" i.id (input_to_enum i.input) in
+      is_in "(input_id, input_type)" to_string inputs in
+    let limit = match limit with
       | None -> max_limit
       | Some l when l > max_limit -> max_limit
-      | Some l -> l
+      | Some l -> l in
+    let select' =
+      R.collect Caqti_type.(tup3 ptime ptime int) log_entry
+        (sprintf {|SELECT date,level,message,info,input_id,input_type,
+                  stream,pid,pid_type,service
+                  FROM %s WHERE %s %s date >= $1 AND date <= $2
+                  ORDER BY date DESC LIMIT $3|} table inputs streams)
     in
-    let select' = R.collect Caqti_type.(tup4 int int ptime (tup2 ptime int)) log_entry
-                    (sprintf {|SELECT date,level,message,info,input_id,input_type,
-                                      stream,pid,service
-                              FROM %s WHERE input_id = $1 AND input_type = $2
-                              AND date >= $3 AND date <= $4
-                              ORDER BY date DESC LIMIT $5|} table)
-    and select_ids' = R.collect Caqti_type.(tup4 int int SID.typ (tup3 ptime ptime int)) log_entry
-                        (sprintf {|SELECT date,level,message,info,input_id,input_type,
-                                          stream,pid,service
-                                  FROM %s WHERE 
-                                  input_id = $1 AND input_type = $2 AND stream = $3
-                                  AND date >= $4 AND date <= $5
-                                  ORDER BY date DESC LIMIT $6|} table)
-    in Conn.request db Request.(begin match id with
-                                | None -> list select' (input_id,input_typ,from,(till,limit))
-                                | Some id -> list select_ids'(input_id,input_typ,id,(from,till,limit))
-                                end >>= fun data ->
-                                return (Raw { data
-                                            ; has_more = (List.length data >= limit)
-                                            ; order = `Desc }))
+    Conn.request db Request.(
+      list select' (from, till, limit)
+      >>= fun data ->
+      return (Raw { data
+                  ; has_more = (List.length data >= limit)
+                  ; order = `Desc }))
 end

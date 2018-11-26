@@ -66,23 +66,21 @@ let no_response_class = Markup.CSS.add_modifier base_class "no-response"
 module Pie = struct
 
   let colors =
-    (* TODO remove text color. Write a function to calc it at runtime *)
-    let open Color in
-    [| Red C500, White
-     ; Orange C500, White
-     ; Green C500, White
-     ; Blue C500, White
-     ; Purple C500, White
-     ; Grey C500, White
-     ; Brown C500, White
-     ; Pink C500, White
-     ; Blue_grey C500, White
-     ; Deep_purple C500, White
-     ; Deep_orange C500, White
-     ; Indigo C500, White
-     ; Amber C500, White
-     ; Light_blue C500, Black
-    |]
+    let open Color_palette in
+    [| Red C500
+     ; Orange C500
+     ; Green C500
+     ; Blue C500
+     ; Purple C500
+     ; Grey C500
+     ; Brown C500
+     ; Pink C500
+     ; Blue_grey C500
+     ; Deep_purple C500
+     ; Deep_orange C500
+     ; Indigo C500
+     ; Amber C500
+     ; Light_blue C500 |]
 
   let make_pie_datalabels () : Chartjs_plugin_datalabels.t =
     let open Chartjs in
@@ -90,8 +88,8 @@ module Pie = struct
     let color = fun context ->
       let open Chartjs_option_types.Option_context in
       let index = data_index context in
-      let color = snd @@ colors.(index) in
-      Color.string_of_name color in
+      let color = colors.(index) in
+      Color.to_css_rgba @@ Color.text_color @@ Color_palette.make color in
     let display = fun context ->
       let open Chartjs_option_types.Option_context in
       let index = data_index context in
@@ -129,6 +127,9 @@ module Pie = struct
             let value = Float.((Pie.Dataset.Float.data dataset).%[item.index]) in
             Printf.sprintf "PID %s: %.3g Мбит/с" label value))
         () in
+    let animation =
+      Options.Animation.make
+        () in
     let tooltips =
       Options.Tooltips.make
         ~callbacks
@@ -147,6 +148,7 @@ module Pie = struct
       ~responsive:true
       ~maintain_aspect_ratio:true
       ~aspect_ratio:1.0
+      ~animation
       ~tooltips
       ~legend
       ~hover
@@ -156,7 +158,7 @@ module Pie = struct
   let make_pie_dataset () : Chartjs.Pie.Dataset.Float.t =
     let open Chartjs.Pie in
     let background_color =
-      Array.map Fun.(Color.(string_of_t % of_material % fst)) colors
+      Array.map Fun.(Color.to_css_rgba % Color_palette.make) colors
       |> Array.to_list in
     Dataset.Float.make
       ~background_color

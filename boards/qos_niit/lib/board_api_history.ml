@@ -129,6 +129,11 @@ module HTTP = struct
 
     open Error
 
+    let raw_to_yojson =
+      Json.(List.to_yojson
+              (Pair.to_yojson Stream.ID.to_yojson
+               @@ List.to_yojson Error.to_yojson))
+
     let errors db streams errors priority pids
           limit desc compress from till duration _ _ () =
       let order = Option.map (function

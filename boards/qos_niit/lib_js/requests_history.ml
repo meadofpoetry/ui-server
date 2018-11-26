@@ -39,22 +39,22 @@ module HTTP = struct
 
     open Error
 
-    let get ?(errors = []) ?(priority = []) ?(pids = []) ?(ids = [])
-          ?limit ?order ?compress ?from ?till ?duration control =
-      let desc = Option.map (function `Asc -> false | `Desc -> true) order in
-      get_result ~from:(rows_of_yojson raw_of_yojson compressed_of_yojson)
-        ~path:Path.Format.(get_base_path () / ("errors" @/ empty))
-        ~query:Query.[ "id", (module List(Stream.ID))
-                     ; "errors", (module List(Int))
-                     ; "priority", (module List(Int))
-                     ; "pid", (module List(Int))
-                     ; "limit", (module Option(Int))
-                     ; "desc", (module Option(Bool))
-                     ; "compress", (module Option(Bool))
-                     ; "from", (module Option(Time.Show))
-                     ; "to", (module Option(Time.Show))
-                     ; "duration", (module Option(Time.Relative)) ]
-        control ids errors priority pids limit desc compress from till duration
+    (* let get ?(errors = []) ?(priority = []) ?(pids = []) ?(ids = [])
+     *       ?limit ?order ?compress ?from ?till ?duration control =
+     *   let desc = Option.map (function `Asc -> false | `Desc -> true) order in
+     *   get_result ~from:(rows_of_yojson raw_of_yojson compressed_of_yojson)
+     *     ~path:Path.Format.(get_base_path () / ("errors" @/ empty))
+     *     ~query:Query.[ "id", (module List(Stream.ID))
+     *                  ; "errors", (module List(Int))
+     *                  ; "priority", (module List(Int))
+     *                  ; "pid", (module List(Int))
+     *                  ; "limit", (module Option(Int))
+     *                  ; "desc", (module Option(Bool))
+     *                  ; "compress", (module Option(Bool))
+     *                  ; "from", (module Option(Time.Show))
+     *                  ; "to", (module Option(Time.Show))
+     *                  ; "duration", (module Option(Time.Relative)) ]
+     *     control ids errors priority pids limit desc compress from till duration *)
 
     let get_percent ?(errors = []) ?(priority = []) ?(pids = []) ?(ids = [])
           ?from ?till ?duration control =

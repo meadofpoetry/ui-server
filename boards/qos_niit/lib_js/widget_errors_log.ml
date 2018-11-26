@@ -59,12 +59,13 @@ module Settings = struct
 end
 
 let get_errors ?from ?till ?duration ?limit ?order ~id control =
-  let open Requests.History.HTTP.Errors in
-  get ?limit ?from ?till ?duration ?order ~ids:[id] control
-  >>* Api_js.Requests.err_to_string
-  >>= function
-  | Raw s -> Lwt_result.return (s.has_more, s.data)
-  | _ -> Lwt.fail_with "got compressed"
+  Lwt.fail_with ""
+  (* let open Requests.History.HTTP.Errors in
+   * get ?limit ?from ?till ?duration ?order ~ids:[id] control
+   * >>* Api_js.Requests.err_to_string
+   * >>= function
+   * | Raw s -> Lwt_result.return (s.has_more, s.data)
+   * | _ -> Lwt.fail_with "got compressed" *)
 
 let get_state ?from ?till ?duration ?limit control =
   let open Requests.Device.HTTP.Archive in
@@ -97,13 +98,13 @@ let make_row_data ({ data = error; timestamp } : Error.t timestamped) =
   let pid = error.pid, error.multi_pid in
   let count = error.count in
   let check =
-    let num, name = Ts_error.to_name error in
+    let num, name = Ts_error.Kind.of_error error in
     num ^ " " ^ name in
-  let extra = Ts_error.Description.of_ts_error error in
+  let extra = Ts_error.Message.of_error error in
   Data.(timestamp :: check :: pid :: service :: count :: extra :: [])
 
 class ['a] t ?(settings : Settings.t option)
-        (init : Error.raw)
+        init
         (stream : Stream.ID.t)
         control
         () =
@@ -201,7 +202,7 @@ class ['a] t ?(settings : Settings.t option)
   end
 
 let make ?(settings : Settings.t option)
-      (init : Error.raw)
+      init
       (stream : Stream.ID.t)
       (control : int) =
   new t ?settings init stream control ()

@@ -18,7 +18,7 @@ module Circular_progress = Circular_progress
 
 module Checkbox = Checkbox
 
-module Color = Color
+module Color_palette = Color_palette
 
 module Dashboard = Dashboard
 

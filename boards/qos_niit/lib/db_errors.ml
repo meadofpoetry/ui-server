@@ -11,7 +11,7 @@ let error =
   Types.custom
     Types.(List.(ID.db & int & int & int & int & bool
                  & int & int32 & int32 & int32 & ptime))
-    ~encode:(fun (id, ({ data = err; timestamp } : Error.t timestamped)) ->
+    ~encode:(fun (id, (err : Error.t)) ->
       Ok (ID.to_db id,
           (err.count,
            (err.err_code,
@@ -21,7 +21,7 @@ let error =
                (err.pid,
                 (err.packet,
                  (err.param_1,
-                  (err.param_2, timestamp)))))))))))
+                  (err.param_2, err.time)))))))))))
     ~decode:(fun (id,
                   (count,
                    (err_code,
@@ -31,7 +31,7 @@ let error =
                        (pid,
                         (packet,
                          (param_1,
-                          (param_2, timestamp)))))))))) ->
+                          (param_2, time)))))))))) ->
       let (error : Error.t) =
         { count
         ; err_code
@@ -44,8 +44,9 @@ let error =
         ; packet
         ; param_1
         ; param_2
+        ; time
         } in
-      Ok (ID.of_db id, { data = error; timestamp }))
+      Ok (ID.of_db id, error))
 
 let insert db ~is_ts errs =
   let table = (Conn.names db).errors in
@@ -133,10 +134,15 @@ let select_errors db ?(streams = [])
   in Conn.request db Request.(
     list select (is_ts, from, till, limit)
     >>= fun data ->
-    let data =
-      List.map (fun ((id, (e : Error.t timestamped)), service_id, service_name) ->
-          let data = { e.data with service_id; service_name } in
-          id, { e with data }) data in
+    let (data : (ID.t * Error.t list) list ) =
+      List.map (fun ((id, (e : Error.t)), service_id, service_name) ->
+          id, { e with service_id; service_name }) data
+      |> List.fold_left (fun acc (id, x) ->
+             List.Assoc.update ~eq:Stream.ID.equal
+               ~f:(function
+                 | None -> Some [x]
+                 | Some l -> Some (x :: l))
+               id acc) [] in
     return (Raw { data
                 ; has_more = List.length data >= limit
                 ; order }))
