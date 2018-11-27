@@ -186,7 +186,7 @@ module Pids = struct
       method update_service (service : Service.t) =
         _service <- service;
         let data = filter_pids service self#pids in
-        self#update { data; timestamp = Time.Clock.now_s () }
+        self#update { data; timestamp = Ptime_clock.now () }
 
       method! update (pids : Pid.t list timestamped) =
         super#update { pids with data = filter_pids _service pids.data }

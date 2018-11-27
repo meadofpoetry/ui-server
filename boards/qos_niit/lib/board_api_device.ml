@@ -9,35 +9,37 @@ type events = device_events
 
 module WS = struct
 
-  let state (events:events) _ body sock_data () =
+  let state (events : events) _ body sock_data () =
     Api.Socket.handler socket_table sock_data (React.S.changes events.state)
       Common.Topology.state_to_yojson body
 
-  let status (events:events) _ body sock_data () =
-    Api.Socket.handler socket_table sock_data events.status status_to_yojson body
+  let status (events : events) _ body sock_data () =
+    let event = React.S.changes events.status in
+    Api.Socket.handler socket_table sock_data event status_to_yojson body
 
-  let errors (events:events) errors _ body sock_data () =
-    let to_yojson = Json.List.to_yojson board_error_to_yojson in
+  let errors (events : events) errors _ body sock_data () =
+    let to_yojson = Json.List.to_yojson Board_error.to_yojson in
     let e = match errors with
       | [] -> events.errors
       | _  ->
          React.E.fmap (fun l ->
-             List.filter (fun (x:board_error) -> List.mem ~eq:(=) x.err_code errors) l
+             List.filter (fun (x : Board_error.t) ->
+                 List.mem ~eq:(=) x.code errors) l
              |> function [] -> None | l -> Some l) events.errors
     in Api.Socket.handler socket_table sock_data e to_yojson body
 
-  let mode mode (events:events) _ body sock_data () =
+  let mode mode (events : events) _ body sock_data () =
     let open React.S in
     let config = events.config in
     let f = fun e conv -> Api.Socket.handler socket_table sock_data e conv body in
     match mode with
     | `T2MI ->
        let eq = Equal.option equal_t2mi_mode in
-       let e = changes @@ map ~eq (fun (x:config) -> x.t2mi_mode) config in
+       let e = changes @@ map ~eq (fun (x : config) -> x.t2mi_mode) config in
        f e (Json.Option.to_yojson t2mi_mode_to_yojson)
     | `JITTER ->
        let eq = Equal.option equal_jitter_mode in
-       let e = changes @@ map ~eq (fun (x:config) -> x.jitter_mode) config in
+       let e = changes @@ map ~eq (fun (x : config) -> x.jitter_mode) config in
        f e (Json.Option.to_yojson jitter_mode_to_yojson)
 
 end

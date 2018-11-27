@@ -188,8 +188,8 @@ type device_events =
   ; jitter_mode : jitter_mode option signal
   ; input : input signal
   ; state : Topology.state signal
-  ; status : status event
-  ; errors : board_error list event
+  ; status : status signal
+  ; errors : Board_error.t list event
   ; info : devinfo option signal
   }
 
@@ -237,7 +237,7 @@ type push_events =
   ; raw_streams : Stream.Raw.t list -> unit
   ; ts_errors : (Stream.ID.t * (Error.t_ext list)) list -> unit
   ; t2mi_errors : errors -> unit
-  ; board_errors : board_error list -> unit
+  ; board_errors : Board_error.t list -> unit
   ; info : ts_info -> unit
   ; services : services -> unit
   ; tables : tables -> unit

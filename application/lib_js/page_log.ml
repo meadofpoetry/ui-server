@@ -5,9 +5,11 @@ open Lwt_result.Infix
 
 let ( % ) = Fun.( % )
 
-let make_overview ?inputs ?streams ~init e_log =
+let make_overview ?boards ?cpu ?inputs ?streams ~init e_log =
   let open React in
-  let item = Widget_log.make_dashboard_item ~init:[] ?streams ?inputs () in
+  let item =
+    Widget_log.make_dashboard_item ~init:[]
+      ?boards ?cpu ?streams ?inputs () in
   let widget = item.widget in
   let thread =
     init
@@ -20,15 +22,16 @@ let make_overview ?inputs ?streams ~init e_log =
   let close = (fun () -> E.stop ~strong:true e_log) in
   Dashboard.Item.make item, close
 
-let make ?inputs ?streams () =
+let make ?boards ?cpu ?inputs ?streams () =
   let init =
-    Requests.HTTP.get_log ~limit:200 ?inputs ?streams ()
+    Requests.HTTP.get_log ~limit:200 ?cpu ?boards ?inputs ?streams ()
     >>= (function
          | Raw s -> Lwt_result.return s.data
          | _ -> Lwt.fail_with "got compressed")
     |> Lwt_result.map_err Api_js.Requests.err_to_string in
   let e_log, log_sock = Requests.WS.get_log ?inputs ?streams () in
-  let overview, overview_close = make_overview ?inputs ?streams ~init e_log in
+  let overview, overview_close =
+    make_overview ?boards ?cpu ?inputs ?streams ~init e_log in
   let box =
     let open Layout_grid in
     let open Typography in

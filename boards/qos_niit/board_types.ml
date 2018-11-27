@@ -88,7 +88,7 @@ let packet_sz_of_yojson = function
                 @@ Yojson.Safe.to_string x)
 
 type status =
-  { timestamp : Time.t
+  { time : Time.t
   ; load : float
   ; reset : bool
   ; ts_num : int
@@ -103,13 +103,22 @@ type reset_ts =
   { timestamp : Time.t
   }
 
-(** Board errors **)
+(** Board errors *)
 
-type board_error =
-  { timestamp : Time.t
-  ; err_code : int
-  ; count : int
-  } [@@deriving yojson, show]
+module Board_error = struct
+
+  type t =
+    { time : Time.t
+    ; code : int
+    ; count : int
+    ; source : source
+    ; param : int option
+    }
+  and source =
+    | Hardware
+    | Protocol [@@deriving yojson]
+
+end
 
 (** Device state *)
 type state =

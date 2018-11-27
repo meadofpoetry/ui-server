@@ -10,7 +10,7 @@ type state = Common.Topology.state
 
 let insert_streams db streams =
   let table = (Conn.names db).streams in
-  let now = Time.Clock.now_s () in
+  let now = Ptime_clock.now () in
   let data =
     List.map (fun (incoming, s) ->
         (Yojson.Safe.to_string @@ Stream.to_yojson s, ID.to_db s.id),
@@ -30,7 +30,7 @@ let insert_streams db streams =
 
 let bump_streams db streams =
   let table = (Conn.names db).streams in
-  let now = Time.Clock.now_s () in
+  let now = Ptime_clock.now () in
   let data = List.map (fun (s:Stream.t) -> ID.to_db s.id, now) streams in
   let update_last =
     R.exec Types.(tup2 ID.db ptime)

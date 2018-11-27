@@ -62,18 +62,21 @@ module HTTP = struct
       ~query:Uri.Query.["id", (module Single(Stream.ID))]
       stream_id
 
-  let get_log ?(inputs = []) ?(streams = []) ?limit ?from ?till ?duration  () =
+  let get_log ?(boards = []) ?(cpu = [])?(inputs = []) ?(streams = [])
+        ?limit ?from ?till ?duration  () =
     get_result ?scheme:None ?host:None ?port:None ?from_err:None
       ~from:(rows_of_yojson
                (Json.List.of_yojson Stream.Log_message.of_yojson)
                (fun _ -> assert false))
       ~path:Uri.Path.Format.("api/topology/log" @/ empty)
-      ~query:Uri.Query.[ "input", (module List(Topology.Show_topo_input))
+      ~query:Uri.Query.[ "board", (module List(Int))
+                       ; "cpu", (module List(String))
+                       ; "input", (module List(Topology.Show_topo_input))
                        ; "id", (module List(Stream.ID))
                        ; "limit", (module Option(Int))
                        ; "from", (module Option(Time.Show))
                        ; "to", (module Option(Time.Show))
                        ; "duration", (module Option(Time.Relative)) ]
-      inputs streams limit from till duration
+      boards cpu inputs streams limit from till duration
 
 end

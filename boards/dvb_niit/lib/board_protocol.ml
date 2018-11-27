@@ -226,7 +226,7 @@ module Make(Logs : Logs.LOG) = struct
 
     let cons_event (t : t) (event : event) : t =
       let stamp : 'a. 'a -> 'a timestamped = fun data ->
-        { timestamp = Time.Clock.now (); data } in
+        { timestamp = Ptime_clock.now (); data } in
       let set id v lst = List.Assoc.set ~eq:(=) id (stamp v) lst in
       let acc = match event with
         | Measures (id, m) ->

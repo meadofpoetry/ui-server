@@ -538,7 +538,7 @@ let table_demo () =
     let inp = Ipaddr.V4.make 224 1 2 (Random.run (Random.int 4)) in
     let err = err.(Random.run (Random.int 2)) in
     table#add_row
-      ((Common.Time.Clock.now ())
+      ((Ptime_clock.now ())
        :: (Ipaddr.V4.to_string inp)
        :: ch
        :: pid

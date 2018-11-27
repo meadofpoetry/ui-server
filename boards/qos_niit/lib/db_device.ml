@@ -19,7 +19,7 @@ let init db =
     R.exec Types.(tup3 int ptime ptime)
       (sprintf "INSERT INTO %s (state,date_start,date_end)
                 VALUES (?,?,?)" table) in
-  let now = Time.Clock.now_s () in
+  let now = Ptime_clock.now () in
   let new_state = state_to_int `No_response in
   Conn.request db Request.(exec insert_new (new_state, now, now))
 
@@ -39,7 +39,7 @@ let bump db state =
     R.exec Types.(tup3 int ptime ptime)
       (sprintf "INSERT INTO %s (state,date_start,date_end)
                 VALUES (?,?,?)" table) in
-  let now = Time.Clock.now_s () in
+  let now = Ptime_clock.now () in
   let new_state = state_to_int state in
   Conn.request db Request.(
     with_trans (find select_last () >>= function

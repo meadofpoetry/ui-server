@@ -441,20 +441,24 @@ module Log_message = struct
       end
     | _ -> Error "level_of_yojson: bad level"
 
+  type node = Board of int
+            | Cpu of string [@@deriving eq, yojson]
+
   type t =
     { time : Time.t
     ; level : level
     ; message : string
     ; info : string
+    ; node : node option
     ; input : topo_input option
-    ; stream : ID.t option
-    ; pid : pid option
+    ; stream: ID.t option
     ; service : string option
+    ; pid : pid option
     }
   and pid =
     { typ : string option
     ; id : int
-    } [@@deriving eq, yojson]
+    } [@@deriving eq, yojson, make]
 
   type source = [`All | `Id of ID.t list] -> t list React.event
 

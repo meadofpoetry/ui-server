@@ -42,6 +42,15 @@ type input =
 
 type board_type = string [@@deriving yojson, show, eq, ord]
 
+(** Returns human-readable names of some known board types *)
+let get_board_name (typ : board_type) =
+  match typ with
+  | "IP2TS" -> "Приёмник TSoIP"
+  | "TS2IP" -> "Передатчик TSoIP"
+  | "TS" -> "Анализатор TS"
+  | "DVB" -> "Приёмник DVB"
+  | s -> s
+
 type process_type = string [@@deriving yojson, show, eq, ord]
 
 let compare_input l r = match l, r with

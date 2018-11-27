@@ -36,7 +36,8 @@ let eq_node_entry (e1 : Topo_node.node_entry) (e2 : Topo_node.node_entry) =
      end
   | _ -> false
 
-let get_board_name (board : Topology.topo_board) = match board.typ with
+let get_board_name (board : Topology.topo_board) =
+  match board.typ with
   | "IP2TS" -> "Приёмник TSoIP"
   | "TS2IP" -> "Передатчик TSoIP"
   | "TS" -> "Анализатор TS"

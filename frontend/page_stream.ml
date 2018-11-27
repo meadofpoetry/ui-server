@@ -17,12 +17,17 @@ let dummy_tab = fun () ->
   let div = Widget.create_div () in
   Ui_templates.Placeholder.under_development ()
 
-let get_common_tabs (input : Topology.topo_input)
+let get_common_tabs
+      ?(cpu : string option)
+      (boards : int list)
+      (input : Topology.topo_input)
       (stream : Stream.ID.t) =
   let log =
     "Лог",
     "log",
     (Application_js.Page_log.make
+       ?cpu:(Option.map List.return cpu)
+       ~boards
        ~inputs:[input]
        ~streams:[stream]) in
   [log]
@@ -78,7 +83,8 @@ let make_tabs stream input (boards : (int * string) list) cpu =
     List.flat_map (fun (control, name) ->
         get_board_tabs stream input control name) boards in
   let cpu_tabs = get_cpu_tabs stream input cpu in
-  let common_tabs = get_common_tabs input stream in
+  let boards' = List.map fst boards in
+  let common_tabs = get_common_tabs ?cpu boards' input stream in
   let tabs = boards_tabs @ cpu_tabs @ common_tabs in
   List.map (fun (name, hash, f) ->
       new Tab.t ~value:(hash, f) ~content:(Text name) ()) tabs

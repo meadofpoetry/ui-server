@@ -42,7 +42,7 @@ module Kind = struct
 
 end
 
-module Message = struct
+module Info = struct
 
   type interval =
     [ `S of float

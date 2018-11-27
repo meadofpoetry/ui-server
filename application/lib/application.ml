@@ -107,8 +107,7 @@ let log_for_input app inputs stream_ids =
   let open Boards.Board in
   let filter = match stream_ids with
     | [] -> `All
-    | ids -> `Id ids
-  in
+    | ids -> `Id ids in
   let topo = S.value app.topo in
   let inputs = match inputs with
     | [] -> Topology.get_inputs topo
@@ -139,7 +138,7 @@ let log_for_input app inputs stream_ids =
          |> E.map List.concat
          |> Result.return
      with Not_found -> Error "internal topology error"
-  
+
 let finalize app =
   Hardware.finalize app.hw;
   Option.iter (fun p -> p#finalize ()) app.proc
