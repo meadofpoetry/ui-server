@@ -5,7 +5,7 @@ open Board_types
 open Common
 
 module Point = struct
-  open Chartjs_types
+  open Chartjs.Types
   include Chartjs.Line.Dataset.Make_point(Time)(Float)
 end
 module Dataset = Chartjs.Line.Dataset.Make(Point)
@@ -68,7 +68,7 @@ let make_settings (settings : widget_settings) =
 let make_x_axis ?(id = "x-axis") (config : widget_config)
     : Chartjs.Scales.t =
   let open Chartjs in
-  let open Chartjs_plugin_streaming in
+  let open Chartjs_streaming in
   let duration =
     int_of_float
     @@ Ptime.Span.to_float_s config.duration *. 1000. in
@@ -100,10 +100,10 @@ let make_x_axis ?(id = "x-axis") (config : widget_config)
       ~ticks
       ~time
       ~position:`Bottom
-      ~type_:(`Custom axis_type)
+      ~type_:axis_type
       () in
   let streaming = make ~duration () in
-  Per_axis.set_realtime axis streaming;
+  Per_axis.set axis streaming;
   axis
 
 let make_y_axis ?(id = "y-axis") (config : widget_config) =
@@ -172,13 +172,12 @@ let make_options ~x_axes ~y_axes
     Options.Tooltips.Callbacks.make
       ~label:(fun item data ->
         let ds_index = item.dataset_index in
-        Chartjs_array.(
-          let dataset = Any.((Data.datasets data).%[ds_index]) in
-          let label = Dataset.label dataset in
-          let data = Dataset.data dataset in
-          let value = Dataset.A.(data.%[item.index]) in
-          Printf.sprintf "%s: %s" label (format_value value.y config)
-        ))
+        let datasets = Data.datasets data in
+        let dataset = Data.Datasets.(datasets.%[ds_index]) in
+        let label = Dataset.label dataset in
+        let data = Dataset.data dataset in
+        let value = Dataset.Values.(data.%[item.index]) in
+        Printf.sprintf "%s: %s" label (format_value value.y config))
       () in
   let tooltips =
     Options.Tooltips.make
@@ -186,7 +185,7 @@ let make_options ~x_axes ~y_axes
       ~mode:`Nearest
       ~intersect:false
       () in
-  Chartjs_plugin_datalabels.Per_chart.set_datalabels plugins None;
+  Chartjs_datalabels.Per_chart.set plugins None;
   Options.make
     ~scales
     ~plugins
@@ -287,8 +286,9 @@ class t ~(init : init)
               match List.Assoc.get ~eq:equal_data_source s datasets with
               | None -> ()
               | Some ds ->
-                 let push v = ignore @@ Dataset.A.push (Dataset.data ds) v in
-                 List.iter push data;
+                 let data' = Dataset.data ds in
+                 let push v = Dataset.(Values.push data' [v]) in
+                 List.iter Fun.(ignore % push) data;
                  Chartjs.update line None) d)
         event
       |> self#_keep_e

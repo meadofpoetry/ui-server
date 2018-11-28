@@ -279,6 +279,7 @@ let log_of_device (control : int) (events : device_events) =
             let info = Printf.sprintf "%s: code = %d, count = %d"
                          prefix e.code e.count in
             let info = match e.param with
+
               | None -> info
               | Some p -> Printf.sprintf "%s, param = %d" info p in
             make ~time:(Ptime_clock.now ())

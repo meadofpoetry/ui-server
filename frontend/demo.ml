@@ -562,24 +562,24 @@ let pie_chart_demo () =
     Data.make
       ~datasets:[dataset]
       ~labels:["label1"; "label2"; "label3"] () in
-  let node = `Canvas Dom_html.(createCanvas document) in
-  let chart = make ~data ~options `Pie node in
+  let canvas = Dom_html.(createCanvas document) in
+  let chart = make ~data ~options `Pie (`Canvas canvas) in
   let button = new Button.t ~label:"update" () in
   button#listen_click_lwt (fun _ _ ->
       let data = Chartjs.data chart in
       let labels = Data.labels data in
-      Chartjs_array.(
-        let dataset = Any.((Data.datasets data).%[0]) in
+      Js_array.(
+        let dataset = Data.Datasets.((Data.datasets data).%[0]) in
         let points = Pie.Dataset.Int.data dataset in
         Int.(points.%[0] <- 50);
         String.(labels.%[0] <- "updated label");
-        ignore @@ Int.push points 10;
-        ignore @@ String.push labels "new point";
-        ignore @@ Color.push (Pie.Dataset.background_color dataset) "orange");
+        ignore @@ Int.push points [10];
+        ignore @@ String.push labels ["new point"];
+        ignore @@ Color.push (Pie.Dataset.background_color dataset) ["orange"]);
       update chart None;
       Lwt.return_unit)
   |> Lwt.ignore_result;
-  demo_section "Chart (Pie)" [ Widget.create (canvas chart)
+  demo_section "Chart (Pie)" [ Widget.create canvas
                              ; button#widget ]
 
 let line_chart_demo () =
@@ -598,9 +598,10 @@ let line_chart_demo () =
       ~datasets:[dataset]
       ~labels:["point 1"; "point 2"; "point 3"]
       () in
-  let node = `Canvas Dom_html.(createCanvas document) in
+  let canvas = Dom_html.(createCanvas document) in
+  let node = `Canvas canvas in
   let chart = make ~data ~options `Line node in
-  demo_section "Chart (Line)" [Widget.create (canvas chart)]
+  demo_section "Chart (Line)" [Widget.create canvas]
 
 let bar_chart_demo () =
   let open Chartjs in
@@ -628,9 +629,10 @@ let bar_chart_demo () =
       ~datasets:[dataset]
       ~labels:["bar1"; "bar2"; "bar3"]
       () in
-  let node = `Canvas Dom_html.(createCanvas document) in
+  let canvas = Dom_html.(createCanvas document) in
+  let node = `Canvas canvas in
   let chart = make ~data ~options `Bar node in
-  demo_section "Chart (Bar)" [Widget.create (canvas chart)]
+  demo_section "Chart (Bar)" [Widget.create canvas]
 
 let dynamic_grid_demo () =
   let (props:Dynamic_grid.grid) =

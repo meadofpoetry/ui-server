@@ -82,30 +82,30 @@ module Pie = struct
      ; Amber C500
      ; Light_blue C500 |]
 
-  let make_pie_datalabels () : Chartjs_plugin_datalabels.t =
+  let make_pie_datalabels () : Chartjs_datalabels.t =
     let open Chartjs in
-    let open Chartjs_plugin_datalabels in
+    let open Chartjs_datalabels in
     let color = fun context ->
-      let open Chartjs_option_types.Option_context in
+      let open Option_types.Option_context in
       let index = data_index context in
       let color = colors.(index) in
       Color.to_css_rgba @@ Color.text_color @@ Color_palette.make color in
     let display = fun context ->
-      let open Chartjs_option_types.Option_context in
+      let open Option_types.Option_context in
       let index = data_index context in
-      let value = Chartjs_array.Float.(
+      let value = Js_array.Float.(
           let data = Pie.Dataset.Float.data (dataset context) in
-          let sum = reduce' (fun acc x _ _ -> acc +. x) data in
+          let sum = reduce' data (fun acc x _ _ -> acc +. x) in
           let v = data.%[index] in
           (v *. 100.) /. sum) in
       value >. 10. in
-    let font = Chartjs_plugin_datalabels.Font.make ~weight:"bold" () in
-    Chartjs_plugin_datalabels.make
+    let font = Font.make ~weight:"bold" () in
+    make
       ~formatter:(fun _ context ->
-        let open Chartjs_option_types.Option_context in
+        let open Chartjs.Option_types.Option_context in
         let index = data_index context in
         let data = data (chart context) in
-        Chartjs_array.String.((Data.labels data).%[index]))
+        Js_array.String.((Data.labels data).%[index]))
       ~color:(`Fun color)
       ~display:(`Fun display)
       ~align:(`Single `Start)
@@ -121,14 +121,12 @@ module Pie = struct
       Options.Tooltips.Callbacks.make
         ~label:(fun item data ->
           let ds_index = item.dataset_index in
-          Chartjs_array.(
-            let dataset = Any.((Data.datasets data).%[ds_index]) in
+          Js_array.(
+            let dataset = Data.Datasets.((Data.datasets data).%[ds_index]) in
             let label = String.((Data.labels data).%[item.index]) in
-            let value = Float.((Pie.Dataset.Float.data dataset).%[item.index]) in
+            let values = Pie.Dataset.Float.data dataset in
+            let value = Float.(values.%[item.index]) in
             Printf.sprintf "PID %s: %.3g Мбит/с" label value))
-        () in
-    let animation =
-      Options.Animation.make
         () in
     let tooltips =
       Options.Tooltips.make
@@ -139,11 +137,11 @@ module Pie = struct
         ~position:`Left
         ~display:false
         () in
+    let animation = Options.Animation.make () in
+    Pie.Options.Animation.set_animate_rotate animation false;
     let datalabels = make_pie_datalabels () in
     let plugins = Options.Plugins.make () in
-    Chartjs_plugin_datalabels.Per_chart.set_datalabels
-      plugins
-      (Some datalabels);
+    Chartjs_datalabels.Per_chart.set plugins (Some datalabels);
     Options.make
       ~responsive:true
       ~maintain_aspect_ratio:true
@@ -193,7 +191,7 @@ module Pie = struct
       method init () : unit =
         super#init ();
         box#add_class box_class;
-        box#append_child @@ Widget.create @@ Chartjs.canvas pie;
+        box#append_child @@ Widget.create @@ Obj.magic @@ Chartjs.canvas pie;
         title#add_class title_class;
         self#set_rate None;
         self#add_class _class;

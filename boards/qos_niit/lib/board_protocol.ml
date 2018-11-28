@@ -840,6 +840,7 @@ module Make(Logs : Logs.LOG) = struct
     let isend = enqueue_instant state imsgs sender in
     { set_input =
         (fun i ->
+          Logs.debug (fun m -> m "setting input: %s" @@ show_input i);
           let eq = equal_input in
           let s = events.device.input in
           let mode = t2mi_mode_to_raw storage#get.t2mi_mode in
