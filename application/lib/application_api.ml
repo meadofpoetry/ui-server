@@ -58,7 +58,7 @@ module HTTP = struct
   let get_log (app : Application.t) boards cpu inputs streams
         limit from till duration _ _ () =
     match Time.make_interval ?from ?till ?duration () with
-    | Ok `Range (from,till) ->
+    | Ok `Range (from, till) ->
        Database.Log.select app.db ~boards ~cpu ~inputs ~streams
          ?limit ~from ~till ()
        |> Lwt.map (Api.Api_types.rows_to_yojson

@@ -522,6 +522,7 @@ let table_demo () =
     let open Table in
     let open Format in
     Table.((   to_column ~sortable:true "Date",     Time None)
+           :: (to_column ~sortable:true "Index",    Int None)
            :: (to_column ~sortable:true "Input",    String None)
            :: (to_column ~sortable:true "Service",  String None)
            :: (to_column ~sortable:true "PID",      Int None)
@@ -529,16 +530,20 @@ let table_demo () =
            :: (to_column ~sortable:true "Check",    String None)
            :: (to_column "Message",                 String None)
            :: []) in
-  let table = new Table.t ~selection:`Multiple ~fmt () in
-  let channels = [| "BBC"; "CNN"; "MTV"; "AnimalPlanet" |] in
-  let err      = [| "1.3.1 PAT error"; "1.4. Continuity count error" |] in
-  let make_row () =
+  let clusterize =
+    Table.{ rows_in_block = 10; blocks_in_cluster = 2 } in
+  let table = new Table.t ~clusterize ~selection:`Multiple ~fmt () in
+  table#content#style##.maxHeight := Js.string "500px";
+  let channels = [|"BBC"; "CNN"; "MTV"; "AnimalPlanet"|] in
+  let err      = [|"1.3.1 PAT error"; "1.4. Continuity count error"|] in
+  let make_row index =
     let pid = Random.run (Random.int 8192) in
     let ch  = channels.(Random.run (Random.int 4)) in
     let inp = Ipaddr.V4.make 224 1 2 (Random.run (Random.int 4)) in
     let err = err.(Random.run (Random.int 2)) in
     table#add_row
       ((Ptime_clock.now ())
+       :: index
        :: (Ipaddr.V4.to_string inp)
        :: ch
        :: pid
@@ -546,7 +551,7 @@ let table_demo () =
        :: err
        :: "Error description here"
        :: []) in
-  List.iter (fun _ -> make_row () |> ignore) @@ List.range' 0 7;
+  List.iter (fun i -> make_row i |> ignore) @@ List.range' 0 10000;
   let row = table#rows |> List.hd in
   demo_section "Table" [ table#widget ]
 
@@ -795,6 +800,28 @@ let typography_demo () =
   List.iter (fun w -> w#style##.marginBottom := Js.string "20px") box#widgets;
   demo_section "Typography" [ box ]
 
+let clusterize_demo () =
+  let items =
+    List.map (fun i ->
+        let text = Printf.sprintf "Item %d" i in
+        new Item_list.Item.t ~text ~value:() ())
+    @@ List.range 0 5000 in
+  let item = `Item (new Item_list.Item.t ~text:"First item" ~value:() ()) in
+  let list = new Item_list.t ~items:[item] () in
+  let div = Widget.create_div ~widgets:[list] () in
+  let clusterize =
+    Clusterize.make
+      ~rows_in_block:50
+      ~scroll_element:div#root
+      ~content_element:list#root
+      ~make_extra_row:(fun () -> Dom_html.(createDiv document))
+      ~rows:(List.map (fun x -> x#root) items)
+      () in
+  div#style##.maxHeight := Js.string "500px";
+  div#style##.overflow := Js.string "auto";
+  div, clusterize
+  (* demo_section "Clusterize" [div] *)
+
 let add_demos demos =
   let demos = CCList.sort (fun x y -> CCString.compare x#title y#title) demos in
   Html.div ~a:[ Html.a_id "demo-div" ]
@@ -802,6 +829,7 @@ let add_demos demos =
   |> To_dom.of_element
 
 let onload _ =
+  let div, clusterize = clusterize_demo () in
   let demos =
     add_demos [ expansion_panel_demo ()
               ; dynamic_grid_demo ()
@@ -831,7 +859,8 @@ let onload _ =
               ; split_demo ()
               ; typography_demo ()
       ] in
-  ignore @@ new Ui_templates.Page.t (`Static [Widget.create demos]) ();
+  ignore @@ new Ui_templates.Page.t (`Static [div; Widget.create demos]) ();
+  Clusterize.refresh clusterize;
   Js._false
 
 let () =

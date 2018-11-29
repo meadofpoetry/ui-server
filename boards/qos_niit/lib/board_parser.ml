@@ -949,8 +949,6 @@ module Ts_errors = struct
         ; priority = prioriry_of_err_code err_code
         ; multi_pid = (pid' land 0x8000) > 0
         ; pid
-        ; service_id = None (* Filled in later *)
-        ; service_name = None (* Filled in later *)
         ; packet = get_ts_error_packet el
         ; param_1 = get_ts_error_param_1 el
         ; param_2 = get_ts_error_param_2 el
@@ -982,8 +980,6 @@ module T2mi_errors = struct
     ; priority = 0
     ; multi_pid = false
     ; pid
-    ; service_id = None
-    ; service_name = None
     ; packet = 0l
     ; param_1
     ; param_2

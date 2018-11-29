@@ -532,8 +532,6 @@ module Error = struct
     ; multi_pid : bool
     ; pid : 'a
     ; packet : int32
-    ; service_id : int option
-    ; service_name : string option [@default None]
     ; param_1 : int32
     ; param_2 : int32 (* t2mi stream id for t2mi error *)
     ; time : Time.t

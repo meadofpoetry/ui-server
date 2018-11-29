@@ -1,0 +1,22 @@
+.mdc-clusterize {
+    &__scroll {
+        overflow: auto;
+    }
+
+    &__extra-row {
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+    }
+    &--keep-parity {
+        display: none;
+    }
+
+    &__content {
+        outline: 0;
+        counter-reset: clusterize-counter;
+    }
+
+    &__no-data td {
+        text-align: center;
+    }
+}

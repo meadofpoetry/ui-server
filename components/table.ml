@@ -3,6 +3,11 @@ open Tyxml_js
 
 module Markup = Components_markup.Table.Make(Xml)(Svg)(Html)
 
+type clusterize =
+  { rows_in_block : int
+  ; blocks_in_cluster : int
+  }
+
 type sort = Asc | Dsc
 
 let sort_to_string = function
@@ -477,14 +482,22 @@ module Body = struct
 
       inherit Widget.t elt () as super
 
-      method prepend_row (row : 'a Row.t) : unit =
+      method prepend_row ?(clusterize : Clusterize.t option)
+               (row : 'a Row.t) : unit =
         s_rows_push (List.cons row self#rows);
-        Dom.insertBefore self#root row#root self#root##.firstChild;
+        begin match clusterize with
+        | None -> self#insert_child_at_idx 0 row
+        | Some c -> Clusterize.prepend c [row#root]
+        end;
         self#layout ();
 
-      method append_row (row : 'a Row.t) : unit =
+      method append_row ?(clusterize : Clusterize.t option)
+               (row : 'a Row.t) : unit =
         s_rows_push (self#rows @ [row]);
-        self#append_child row;
+        begin match clusterize with
+        | None -> self#append_child row;
+        | Some c -> Clusterize.append c [row#root]
+        end;
         self#layout ();
 
       method remove_row (row : 'a Row.t) : unit =
@@ -617,6 +630,7 @@ class ['a] t ?selection
         ?footer
         ?(sticky_header = false)
         ?(dense = false)
+        ?(clusterize : clusterize option)
         ~(fmt : 'a Format.t) () =
   let s_selected, set_selected = React.S.create List.empty in
   let body = new Body.t () in
@@ -633,9 +647,37 @@ class ['a] t ?selection
       ~content:(Widget.to_markup content) ()
     |> To_dom.of_element in
   object(self)
-    inherit Widget.t elt ()
+    inherit Widget.t elt () as super
 
     val mutable _fmt : 'a Format.t = fmt
+    val mutable _clusterize : Clusterize.t option = None
+
+    method! init () : unit =
+      super#init ();
+      self#set_dense dense;
+      self#set_sticky_header sticky_header;
+      React.S.map (function
+          | Some (index, sort) -> self#sort index sort
+          | None -> ()) header#s_sorted
+      |> self#_keep_s;
+      (* Clusterize if needed *)
+      match clusterize with
+      | None -> ()
+      | Some { rows_in_block; blocks_in_cluster } ->
+         let t =
+           Clusterize.make
+             ~rows_in_block
+             ~blocks_in_cluster
+             ~scroll_element:content#root
+             ~content_element:body#root
+             ~make_extra_row:(fun () ->
+               Js.Unsafe.coerce @@ Dom_html.(createTr document))
+             () in
+         _clusterize <- Some t;
+         ()
+
+    method! destroy () : unit =
+      super#destroy ()
 
     method content : Widget.t =
       content
@@ -675,17 +717,17 @@ class ['a] t ?selection
 
     method prepend_row (data : 'a Data.t) : 'a Row.t =
       let row = self#_make_row data in
-      body#prepend_row row;
+      body#prepend_row ?clusterize:_clusterize row;
       row
 
     method append_row (data : 'a Data.t) : 'a Row.t =
       let row = self#_make_row data in
-      body#append_row row;
+      body#append_row ?clusterize:_clusterize row;
       row
 
     method add_row (data : 'a Data.t) : 'a Row.t =
       let row = self#_make_row data in
-      body#append_row row;
+      body#append_row ?clusterize:_clusterize row;
       row
 
     method remove_row (row : 'a Row.t) : unit =
@@ -710,13 +752,5 @@ class ['a] t ?selection
 
     method private _make_row (data : 'a Data.t) : 'a Row.t =
       new Row.t ?selection s_selected set_selected _fmt data ()
-
-    initializer
-      self#set_dense dense;
-      self#set_sticky_header sticky_header;
-      React.S.map (function
-          | Some (index, sort) -> self#sort index sort
-          | None -> ()) header#s_sorted
-      |> self#_keep_s
 
   end

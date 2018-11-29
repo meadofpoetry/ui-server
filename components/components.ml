@@ -16,6 +16,8 @@ module Card = Card
 
 module Circular_progress = Circular_progress
 
+module Clusterize = Clusterize
+
 module Checkbox = Checkbox
 
 module Color_palette = Color_palette
