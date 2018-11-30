@@ -168,7 +168,12 @@ module Cell = struct
       val mutable _value = value
       val mutable _fmt = fmt
 
-      inherit Widget.t elt ()
+      inherit Widget.t elt () as super
+
+      method! init () : unit =
+        super#init ();
+        (* Initialize cell value *)
+        self#set_value ~force:true value
 
       method format : 'a fmt = _fmt
       method set_format : 'a fmt -> unit = fun (x : 'a fmt) ->
@@ -184,27 +189,6 @@ module Cell = struct
       method compare (other : 'self) =
         compare self#format other#value self#value
 
-      initializer
-        (* Initialize cell value *)
-        self#set_value ~force:true value;
-        (* Code to show tooltip if text in a cell overflows *)
-        self#listen_lwt Widget.Event.mouseover (fun _ _ ->
-            let overflow = self#scroll_width > self#client_width in
-            let title =
-              Option.choice [ self#get_attribute "data-title"
-                            ; self#get_attribute "title"
-                            ; self#text_content ]
-              |> Option.flat_map (fun s ->
-                     if String.is_empty s
-                     then None else Some s) in
-            begin match overflow, title with
-            | true, Some title -> self#set_attribute "title" title
-            | _ -> self#remove_attribute "title"
-            end;
-            Lwt.return_unit) |> Lwt.ignore_result;
-        self#listen_lwt Widget.Event.mouseout (fun _ _ ->
-            self#remove_attribute "title";
-            Lwt.return_unit) |> Lwt.ignore_result
     end
 
 end
@@ -298,7 +282,18 @@ module Row = struct
     object(self)
       val mutable _fmt : 'a Format.t = fmt
 
-      inherit Widget.t elt ()
+      inherit Widget.t elt () as super
+
+      method! init () : unit =
+        super#init ();
+        match selection with
+        | None -> ()
+        | Some _ ->
+           (* XXX maybe move listener to body? *)
+           self#listen_lwt Widget.Event.click (fun _ _ ->
+               self#set_selected (not self#selected);
+               Lwt.return_unit)
+           |> Lwt.ignore_result
 
       method set_format (x : 'a Format.t) : unit =
         _fmt <- x;
@@ -363,14 +358,6 @@ module Row = struct
            in set_selected l
         | None -> ()
 
-      initializer
-        match selection with
-        | Some _ ->
-           self#listen_lwt Widget.Event.click (fun _ _ ->
-               self#set_selected (not self#selected);
-               Lwt.return_unit)
-           |> Lwt.ignore_result
-        | _ -> ()
     end
 
 end
@@ -482,6 +469,9 @@ module Body = struct
 
       inherit Widget.t elt () as super
 
+      method! layout () : unit =
+        super#layout ()
+
       method prepend_row ?(clusterize : Clusterize.t option)
                (row : 'a Row.t) : unit =
         s_rows_push (List.cons row self#rows);
@@ -498,7 +488,16 @@ module Body = struct
         | None -> self#append_child row;
         | Some c -> Clusterize.append c [row#root]
         end;
-        self#layout ();
+        self#layout ()
+
+      method append_rows ?(clusterize : Clusterize.t option)
+               (rows : 'a Row.t list) : unit =
+        s_rows_push (self#rows @ rows);
+        begin match clusterize with
+        | None -> List.iter self#append_child rows
+        | Some c -> Clusterize.append c @@ List.map (fun x -> x#root) rows
+        end;
+        self#layout ()
 
       method remove_row (row : 'a Row.t) : unit =
         s_rows_push @@ List.remove ~eq:Widget.equal ~x:row self#rows;
@@ -520,17 +519,6 @@ module Body = struct
         _pagination <- x;
         self#layout ()
 
-      method! layout () =
-        super#layout ();
-        (* match _pagination with
-         * | None ->
-         *    List.iter self#append_child (React.S.value s_rows)
-         * | Some { rpp; offset } ->
-         *    let rows = React.S.value s_rows in
-         *    let prev, visible' = List.take_drop offset rows in
-         *    let visible, next = List.take_drop rpp visible' in
-         *    List.iter self#remove_child (prev @ next);
-         *    List.iter self#append_child visible; *)
     end
 end
 
@@ -609,9 +597,12 @@ module Table = struct
                 ()
               |> To_dom.of_element in
     object
-      inherit Widget.t elt ()
-      initializer
-        body#layout ()
+      inherit Widget.t elt () as super
+
+      method! init () : unit =
+        super#init();
+        body#layout()
+
     end
 end
 
@@ -730,6 +721,14 @@ class ['a] t ?selection
       body#append_row ?clusterize:_clusterize row;
       row
 
+    method add_rows (data : 'a Data.t list) : unit =
+      Utils.time "create_rows";
+      let rows = List.map self#_make_row data in
+      Utils.time_end "create_rows";
+      Utils.time "append_rows";
+      body#append_rows rows;
+      Utils.time_end "append_rows"
+
     method remove_row (row : 'a Row.t) : unit =
       body#remove_row row
 
@@ -737,16 +736,25 @@ class ['a] t ?selection
       body#remove_all_rows ()
 
     method sort index sort =
+      Utils.time "sort";
       let rows =
         List.sort (fun (row_1 : 'a Row.t)
                        (row_2 : 'a Row.t) ->
             match sort, compare index row_1#cells row_2#cells with
             | Asc, x -> x
             | Dsc, x -> ~-x) self#rows in
-      (* FIXME do it in a more smart way. Move only those rows that
+      Utils.time_end "sort";
+      Utils.time "render";
+      begin match _clusterize with
+      | None ->
+         (* FIXME do it in a more smart way. Move only those rows that
          have changed their positions *)
-      body#set_empty ();
-      List.iter body#append_child rows
+         body#set_empty ();
+         List.iter body#append_child rows
+      | Some c ->
+         Clusterize.update c @@ List.map (fun x -> x#root) rows
+      end;
+      Utils.time_end "render"
 
     (* Private methods *)
 

@@ -127,6 +127,8 @@ class t (content:('a,'b) page_content) () =
          @@ Components_markup.CSS.add_modifier main_class "dynamic";
          toolbar#append_child row
 
+    method arbitrary = arbitrary
+
     initializer
       self#add_class main_class;
       toolbar#add_class toolbar_class;

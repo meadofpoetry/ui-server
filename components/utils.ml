@@ -1,5 +1,11 @@
 open Containers
 
+let time name : unit =
+  Js.Unsafe.global##.console##time (Js.string name)
+
+let time_end name : unit =
+  Js.Unsafe.global##.console##timeEnd (Js.string name)
+
 let round x   = (if Float.(x < (floor x +. 0.5)) then floor x else ceil x) |> int_of_float
 let px        = Printf.sprintf "%dpx"
 let translate = Printf.sprintf "translate(%dpx, %dpx)"
