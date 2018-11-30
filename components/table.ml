@@ -1,12 +1,8 @@
 open Containers
 open Tyxml_js
+open Utils
 
 module Markup = Components_markup.Table.Make(Xml)(Svg)(Html)
-
-type clusterize =
-  { rows_in_block : int
-  ; blocks_in_cluster : int
-  }
 
 type sort = Asc | Dsc
 
@@ -33,8 +29,6 @@ type 'a custom_elt =
 let default_time = Format.asprintf "%a" Ptime.pp
 
 let default_float = Printf.sprintf "%f"
-
-let identity : 'a. 'a -> 'a = fun x -> x
 
 type _ fmt =
   | String : (string -> string) option -> string fmt
@@ -65,7 +59,7 @@ let rec to_string : type a. a fmt -> (a -> string) = fun fmt ->
   | Int32 x -> get_or ~default:Int32.to_string x
   | Int64 x -> get_or ~default:Int64.to_string x
   | Float x -> get_or ~default:default_float x
-  | String x -> get_or ~default:identity x
+  | String x -> get_or ~default:Fun.id x
   | Time x -> get_or ~default:default_time x
   | Option (fmt, e) ->
      begin function
@@ -93,7 +87,7 @@ let rec is_numeric : type a. a fmt -> bool = function
   | Custom x -> x.is_numeric
   | Custom_elt x -> x.is_numeric
 
-let rec compare : type a. a fmt -> (a -> a -> int) = fun fmt->
+let rec compare : type a. a fmt -> (a -> a -> int) = fun fmt ->
   match fmt with
   | Int _ -> Int.compare
   | Int32 _ -> Int32.compare
@@ -107,41 +101,63 @@ let rec compare : type a. a fmt -> (a -> a -> int) = fun fmt->
   | Custom x -> x.compare
   | Custom_elt x -> x.compare
 
+let equal : type a. a fmt -> (a -> a -> bool) = fun fmt a b ->
+  0 = compare fmt a b
+
 module Cell = struct
 
-  let rec set_value : type a. a fmt -> bool -> a option -> a -> Widget.t -> bool =
+  let rec make_element : type a. a fmt -> a -> Dom_html.element Js.t =
+    fun fmt v ->
+    let create x =
+      Markup.Cell.create ~is_numeric:(is_numeric fmt) [x] ()
+      |> To_dom.of_element in
+    match fmt with
+    | Option (fmt, e) ->
+       begin match v with
+       | None -> make_element (String None) e
+       | Some x -> make_element fmt x
+       end
+    | Html x ->
+       map_or ~default:Fun.id (fun x -> x.to_elt) x v
+       |> Js.Unsafe.coerce
+       |> Of_dom.of_element
+       |> create
+    | Custom_elt x ->
+       create @@ Of_dom.of_element @@ Js.Unsafe.coerce @@ x.to_elt v
+    | Widget x ->
+       map_or ~default:(fun x -> x#node) (fun x -> x.to_elt) x v
+       |> Js.Unsafe.coerce
+       |> Of_dom.of_element
+       |> create
+    | _ -> create (Html.pcdata (to_string fmt v))
+
+  let rec set_value : type a. a fmt -> bool -> a option -> a -> Widget.t -> unit =
     fun fmt force prev v w ->
-    let f = fun prev -> Int.equal 0 @@ compare fmt prev v in
-    let eq = map_or ~default:false f prev in
-    match force || not eq with
-    | false -> false
-    | true  ->
-       let set_text = w#set_text_content in
-       begin match fmt with
-       | Option (fmt, e) ->
-          begin match v with
-          | None -> ignore @@ set_value (String None) force None e w
-          | Some x ->
-             begin match prev with
-             | Some p -> ignore @@ set_value fmt force p x w
-             | None   -> ignore @@ set_value fmt force None x w
-             end
-          end
-       | Html x   ->
-          let to_elt = map_or ~default:identity (fun x -> x.to_elt) x in
-          w#set_empty ();
-          Dom.appendChild w#root (to_elt v)
-       | Custom_elt x ->
-          w#set_empty ();
-          Dom.appendChild w#root (x.to_elt v)
-       | Widget x ->
-          let to_elt =
-            map_or ~default:(fun x -> x#node) (fun x -> x.to_elt) x in
-          w#set_empty ();
-          Dom.appendChild w#root (to_elt v)
-       | _ -> set_text @@ to_string fmt v
-       end;
-       true
+    let eq = map_or ~default:false (equal fmt v) prev in
+    if force || not eq then
+      match fmt with
+      | Option (fmt, e) ->
+         begin match v with
+         | None -> set_value (String None) force None e w
+         | Some x ->
+            begin match prev with
+            | Some p -> set_value fmt force p x w
+            | None -> set_value fmt force None x w
+            end
+         end
+      | Html x ->
+         let to_elt = map_or ~default:Fun.id (fun x -> x.to_elt) x in
+         w#set_empty ();
+         Dom.appendChild w#root (to_elt v)
+      | Custom_elt x ->
+         w#set_empty ();
+         Dom.appendChild w#root (x.to_elt v)
+      | Widget x ->
+         let to_elt =
+           map_or ~default:(fun x -> x#node) (fun x -> x.to_elt) x in
+         w#set_empty ();
+         Dom.appendChild w#root (to_elt v)
+      | _ -> w#set_text_content @@ to_string fmt v
 
   let rec update : type a. a fmt -> a -> Widget.t -> unit =
     fun fmt v w ->
@@ -153,17 +169,14 @@ module Cell = struct
        | Some v -> update fmt v w
        | None -> update (String None) e w
        end
-    | _ -> ignore @@ set_value fmt true None v w
+    | _ -> set_value fmt true None v w
 
   let wrap_checkbox = function
     | None -> None
-    | Some cb -> Markup.Cell.create [ Widget.to_markup cb ] ()
-                 |> Option.return
+    | Some cb -> Some (Markup.Cell.create [Widget.to_markup cb] ())
 
   class ['a] t ~(value : 'a) (fmt : 'a fmt) () =
-    let is_numeric = is_numeric fmt in
-    let elt = Markup.Cell.create ~is_numeric [] ()
-              |> To_dom.of_element in
+    let elt = make_element fmt value in
     object(self : 'self)
       val mutable _value = value
       val mutable _fmt = fmt
@@ -171,20 +184,19 @@ module Cell = struct
       inherit Widget.t elt () as super
 
       method! init () : unit =
-        super#init ();
-        (* Initialize cell value *)
-        self#set_value ~force:true value
+        super#init ()
 
       method format : 'a fmt = _fmt
+
       method set_format : 'a fmt -> unit = fun (x : 'a fmt) ->
         _fmt <- x;
-        update x _value self#widget
+        (* Force update cell value *)
+        self#set_value ~force:true _value
 
       method value : 'a = _value
-      method set_value ?(force = false) (v : 'a) =
-        match set_value self#format force (Some _value) v self#widget with
-        | false -> ()
-        | true -> _value <- v
+
+      method set_value ?(force = false) (v : 'a) : unit =
+        set_value self#format force (Some _value) v self#widget
 
       method compare (other : 'self) =
         compare self#format other#value self#value
@@ -275,14 +287,14 @@ module Row = struct
       | _ -> None in
     let cells = make_cells fmt data in
     let cells' = cells_to_widgets cells in
-    let elt = Markup.Row.create
-                ~cells:(List.map Widget.to_markup cells'
-                        |> List.cons_maybe (Cell.wrap_checkbox cb)) ()
-              |> To_dom.of_element in
+    let elt =
+      Markup.Row.create
+        ~cells:List.(map Widget.to_markup cells' |> cons_maybe (Cell.wrap_checkbox cb))
+        () in
     object(self)
       val mutable _fmt : 'a Format.t = fmt
 
-      inherit Widget.t elt () as super
+      inherit Widget.t (To_dom.of_element elt) () as super
 
       method! init () : unit =
         super#init ();
@@ -301,8 +313,8 @@ module Row = struct
 
       method checkbox = cb
 
-      method cells = cells
-      method cells_widgets = cells'
+      method cells : 'a cells = cells
+      method cells_widgets : Widget.t list = cells'
 
       method update ?force (data : 'a Data.t) =
         let rec aux : type a. a Data.t -> a cells -> unit =
@@ -492,12 +504,17 @@ module Body = struct
 
       method append_rows ?(clusterize : Clusterize.t option)
                (rows : 'a Row.t list) : unit =
-        s_rows_push (self#rows @ rows);
+        print_endline "before concat";
+        let rows' = self#rows @ rows in
+        print_endline "before push";
+        s_rows_push rows';
+        print_endline "after push";
         begin match clusterize with
         | None -> List.iter self#append_child rows
         | Some c -> Clusterize.append c @@ List.map (fun x -> x#root) rows
         end;
-        self#layout ()
+        print_endline "after append";
+        self#layout ();
 
       method remove_row (row : 'a Row.t) : unit =
         s_rows_push @@ List.remove ~eq:Widget.equal ~x:row self#rows;
@@ -621,7 +638,9 @@ class ['a] t ?selection
         ?footer
         ?(sticky_header = false)
         ?(dense = false)
-        ?(clusterize : clusterize option)
+        ?rows_in_block
+        ?blocks_in_cluster
+        ?clusterize
         ~(fmt : 'a Format.t) () =
   let s_selected, set_selected = React.S.create List.empty in
   let body = new Body.t () in
@@ -632,6 +651,18 @@ class ['a] t ?selection
     Markup.create_content ~table:(Widget.to_markup table) ()
     |> To_dom.of_element
     |> Widget.create in
+  let clusterize = match clusterize with
+    | None | Some false -> None
+    | Some true ->
+       Clusterize.make
+         ?rows_in_block
+         ?blocks_in_cluster
+         ~scroll_element:content#root
+         ~content_element:body#root
+         ~make_extra_row:(fun () ->
+           Js.Unsafe.coerce @@ Dom_html.(createTr document))
+         ()
+       |> Option.return in
   let elt =
     Markup.create ?selection
       ?footer:(Option.map Widget.to_markup footer)
@@ -641,7 +672,6 @@ class ['a] t ?selection
     inherit Widget.t elt () as super
 
     val mutable _fmt : 'a Format.t = fmt
-    val mutable _clusterize : Clusterize.t option = None
 
     method! init () : unit =
       super#init ();
@@ -650,22 +680,7 @@ class ['a] t ?selection
       React.S.map (function
           | Some (index, sort) -> self#sort index sort
           | None -> ()) header#s_sorted
-      |> self#_keep_s;
-      (* Clusterize if needed *)
-      match clusterize with
-      | None -> ()
-      | Some { rows_in_block; blocks_in_cluster } ->
-         let t =
-           Clusterize.make
-             ~rows_in_block
-             ~blocks_in_cluster
-             ~scroll_element:content#root
-             ~content_element:body#root
-             ~make_extra_row:(fun () ->
-               Js.Unsafe.coerce @@ Dom_html.(createTr document))
-             () in
-         _clusterize <- Some t;
-         ()
+      |> self#_keep_s
 
     method! destroy () : unit =
       super#destroy ()
@@ -698,36 +713,31 @@ class ['a] t ?selection
 
     method sticky_header : bool =
       self#has_class Markup.sticky_header_class
+
     method set_sticky_header (x : bool) : unit =
       self#add_or_remove_class x Markup.sticky_header_class
 
     method dense : bool =
       self#has_class Markup.dense_class
-    method set_dense x =
+
+    method set_dense (x : bool) : unit =
       self#add_or_remove_class x Markup.dense_class
 
-    method prepend_row (data : 'a Data.t) : 'a Row.t =
+    method cons (data : 'a Data.t) : 'a Row.t =
       let row = self#_make_row data in
-      body#prepend_row ?clusterize:_clusterize row;
+      body#prepend_row ?clusterize row;
       row
 
-    method append_row (data : 'a Data.t) : 'a Row.t =
+    method push (data : 'a Data.t) : 'a Row.t =
       let row = self#_make_row data in
-      body#append_row ?clusterize:_clusterize row;
+      body#append_row ?clusterize row;
       row
 
-    method add_row (data : 'a Data.t) : 'a Row.t =
-      let row = self#_make_row data in
-      body#append_row ?clusterize:_clusterize row;
-      row
-
-    method add_rows (data : 'a Data.t list) : unit =
-      Utils.time "create_rows";
+    method append (data : 'a Data.t list) : unit =
+      time "create_rows";
       let rows = List.map self#_make_row data in
-      Utils.time_end "create_rows";
-      Utils.time "append_rows";
-      body#append_rows rows;
-      Utils.time_end "append_rows"
+      time_end "create_rows";
+      body#append_rows ?clusterize rows
 
     method remove_row (row : 'a Row.t) : unit =
       body#remove_row row
@@ -736,16 +746,16 @@ class ['a] t ?selection
       body#remove_all_rows ()
 
     method sort index sort =
-      Utils.time "sort";
+      time "sort";
       let rows =
         List.sort (fun (row_1 : 'a Row.t)
                        (row_2 : 'a Row.t) ->
             match sort, compare index row_1#cells row_2#cells with
             | Asc, x -> x
             | Dsc, x -> ~-x) self#rows in
-      Utils.time_end "sort";
-      Utils.time "render";
-      begin match _clusterize with
+      time_end "sort";
+      time "render";
+      begin match clusterize with
       | None ->
          (* FIXME do it in a more smart way. Move only those rows that
          have changed their positions *)
@@ -754,9 +764,12 @@ class ['a] t ?selection
       | Some c ->
          Clusterize.update c @@ List.map (fun x -> x#root) rows
       end;
-      Utils.time_end "render"
+      time_end "render"
 
     (* Private methods *)
+
+    method private append_rows (rows : 'a Row.t list) : unit =
+      body#append_rows ?clusterize rows
 
     method private _make_row (data : 'a Data.t) : 'a Row.t =
       new Row.t ?selection s_selected set_selected _fmt data ()

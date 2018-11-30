@@ -151,7 +151,7 @@ let add_row (table : 'a Table.t) ((pid, info) : Pid.t) =
   let data = Data.(
       pid :: info.typ :: flags :: info.service_name
       :: None :: None :: None :: None :: []) in
-  let row = table#add_row data in
+  let row = table#push data in
   row
 
 class t ?(settings : Settings.t option)

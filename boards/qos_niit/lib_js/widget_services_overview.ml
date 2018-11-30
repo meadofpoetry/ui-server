@@ -170,8 +170,8 @@ let add_row (parent : #Widget.t)
       (set_details : Widget_service_info.t option -> unit)
       ((id, info) : Service.t) =
   let row =
-    table#add_row (id :: info.name :: info.pmt_pid :: info.pcr_pid
-                   :: None :: None :: None :: None :: []) in
+    table#push (id :: info.name :: info.pmt_pid :: info.pcr_pid
+                :: None :: None :: None :: None :: []) in
   row#listen_lwt Widget.Event.click (fun _ _ ->
       let open Lwt.Infix in
       let name, min, max =

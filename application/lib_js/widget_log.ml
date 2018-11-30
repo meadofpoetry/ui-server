@@ -67,8 +67,12 @@ class ['a] t ?boards ?cpu ?inputs ?streams ?(init = []) () =
 
     val mutable _has_more = true
 
-    inherit ['a] Table.t ~sticky_header:true
-              ~dense:true ~fmt () as super
+    inherit ['a] Table.t
+              ~clusterize:true
+              ~sticky_header:true
+              ~dense:true
+              ~fmt
+              () as super
 
     method init () : unit =
       super#init ();
@@ -92,8 +96,9 @@ class ['a] t ?boards ?cpu ?inputs ?streams ?(init = []) () =
              get_log ?till ~limit:200 ~order:`Desc
                ?boards ?cpu ?streams ?inputs ()
              >|= (fun (more, l) -> _has_more <- more; List.rev l)
-             >|= List.iter self#append_item
-             |> Lwt.map ignore
+             >|= (fun l -> print_endline "before append items"; l)
+             >|= self#append_items
+             |> Lwt.map (fun x -> Printf.printf "length: %d\n" @@ List.length self#rows)
           | _ -> Lwt.return_unit
           end)
       |> Lwt.ignore_result;
@@ -104,8 +109,8 @@ class ['a] t ?boards ?cpu ?inputs ?streams ?(init = []) () =
       let el = self#content in
       let top = el#scroll_top in
       let height = el#scroll_height in
-      let row = self#prepend_row (make_row_data e) in
-      self#set_row_priority row e;
+      let row = self#cons (make_row_data e) in
+      self#set_row_priority e row;
       let top' = el#scroll_top in
       if top <> 0 && top' = top
       then begin
@@ -114,13 +119,24 @@ class ['a] t ?boards ?cpu ?inputs ?streams ?(init = []) () =
         end
 
     method append_item (e : Stream.Log_message.t) : unit =
-      let row = self#append_row (make_row_data e) in
-      self#set_row_priority row e
+      let row = self#push (make_row_data e) in
+      ignore @@ self#set_row_priority e row
+
+    method append_items (e : Stream.Log_message.t list) : unit =
+      print_endline "in append items";
+      let rows =
+        List.map (fun i ->
+            let row = self#_make_row @@ make_row_data i in
+            self#set_row_priority i row;
+            row) e in
+      print_endline "in append items - created rows";
+      self#append_rows rows;
+      print_endline "in append items - success"
 
     (* Private methods *)
 
-    method private set_row_priority (row : 'a Table.Row.t)
-                     (i : Stream.Log_message.t) : unit =
+    method private set_row_priority (i : Stream.Log_message.t)
+                     (row : 'a Table.Row.t) : unit =
       let el =
         let open Table in
         match row#cells with

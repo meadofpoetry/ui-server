@@ -1,33 +1,51 @@
 open Containers
 
-let time name : unit =
+(** Tail-recursive append that does not raise stack overflow on lagre lists *)
+let append (a : 'a list) (b : 'a list) : 'a list =
+  List.rev_append (List.rev a) b
+
+let ( @ ) = append
+
+let time (name : string) : unit =
   Js.Unsafe.global##.console##time (Js.string name)
 
-let time_end name : unit =
+let time_end (name : string) : unit =
   Js.Unsafe.global##.console##timeEnd (Js.string name)
 
-let round x   = (if Float.(x < (floor x +. 0.5)) then floor x else ceil x) |> int_of_float
-let px        = Printf.sprintf "%dpx"
+let round (x : float) : int =
+  (if Float.(x < (floor x +. 0.5)) then floor x else ceil x)
+  |> int_of_float
+
+let px : int -> string = Printf.sprintf "%dpx"
+
 let translate = Printf.sprintf "translate(%dpx, %dpx)"
-let (//) x y  = round @@ (float_of_int x) /. (float_of_int y)
+
+let ( // ) x y =
+  round @@ (float_of_int x) /. (float_of_int y)
+
 let rec gcd a b =
   if a <> 0 && b <> 0
-  then let a, b = if a > b then a mod b, b else a, b mod a in gcd a b
+  then
+    let a, b =
+      if a > b then a mod b, b
+      else a, b mod a in gcd a b
   else a + b
+
 let resolution_to_aspect (w,h) =
   let d = gcd w h in w / d, h / d
 
-let sum_scroll_offsets (e:Dom_html.element Js.t) =
+let sum_scroll_offsets (e : Dom_html.element Js.t) =
   let rec aux cur acc_left acc_top =
     match Js.Opt.to_option cur with
-    | None     -> acc_left,acc_top
+    | None -> acc_left, acc_top
     | Some cur ->
-       (match Js.to_string cur##.nodeName with
-        | "BODY" -> acc_left,acc_top
-        | _      ->
-           aux cur##.parentNode
-             (acc_left + (Js.Unsafe.coerce cur)##.scrollLeft)
-             (acc_top  + (Js.Unsafe.coerce cur)##.scrollTop))
+       begin match Js.to_string cur##.nodeName with
+       | "BODY" -> acc_left,acc_top
+       | _ ->
+          aux cur##.parentNode
+            (acc_left + (Js.Unsafe.coerce cur)##.scrollLeft)
+            (acc_top + (Js.Unsafe.coerce cur)##.scrollTop)
+       end
   in
   aux e##.parentNode 0 0
 

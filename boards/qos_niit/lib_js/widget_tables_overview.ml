@@ -77,14 +77,14 @@ let to_table_name ?(is_hex = false) table_id table_id_ext
     match service with
     | Some x -> sprintf "%s (%s)" s x
     | None -> s in
-  let base     = id "table_id" table_id in
+  let base = id "table_id" table_id in
   let specific = match Mpeg_ts.table_of_int table_id with
-    | `PAT -> Some [ id "tsid" table_id_ext ]
-    | `PMT -> Some [ id ?service "program" table_id_ext ]
-    | `NIT _ -> Some [ id "network_id" table_id_ext ]
+    | `PAT -> Some [id "tsid" table_id_ext]
+    | `PMT -> Some [id ?service "program" table_id_ext]
+    | `NIT _ -> Some [id "network_id" table_id_ext]
     | `SDT _ -> Some [ id "tsid" table_id_ext
                      ; id "onid" id_ext_1 ]
-    | `BAT -> Some [ id "bid" table_id_ext ]
+    | `BAT -> Some [id "bid" table_id_ext]
     | `EIT _ -> Some [ id ?service "sid" table_id_ext
                      ; id "tsid" id_ext_1
                      ; id "onid" id_ext_2 ]
@@ -99,16 +99,16 @@ let to_table_extra ?(hex = false) ((id, info) : SI_PSI_table.t) =
     | true  -> Printf.sprintf "0x%02X"
     | false -> Printf.sprintf "%d" in
   let specific = match Mpeg_ts.table_of_int id.table_id with
-    | `PAT   -> Some [ "tsid", id.table_id_ext ]
-    | `PMT   -> Some [ "program", id.table_id_ext ]
-    | `NIT _ -> Some [ "network_id", id.table_id_ext ]
+    | `PAT -> Some ["tsid", id.table_id_ext]
+    | `PMT -> Some ["program", id.table_id_ext]
+    | `NIT _ -> Some ["network_id", id.table_id_ext]
     | `SDT _ -> Some [ "tsid", id.table_id_ext
                      ; "onid", id.id_ext_1 ]
-    | `BAT   -> Some [ "bid", id.table_id_ext ]
+    | `BAT -> Some ["bid", id.table_id_ext]
     | `EIT _ -> Some [ "onid", id.id_ext_1
                      ; "tsid", id.id_ext_2
                      ; "sid",  id.table_id_ext ]
-    | _      -> None in
+    | _ -> None in
   let open Tyxml_js.Html in
   let wrap x =
     List.mapi (fun i (s, v) ->
@@ -221,7 +221,7 @@ let add_row (table : 'a Table.t)
       (control : int)
       (set_dump : ((bool -> unit) * Widget_tables_dump.t) option -> unit)
       ((id, info) : SI_PSI_table.t) =
-  let row = table#add_row (table_info_to_data (id, info)) in
+  let row = table#push (table_info_to_data (id, info)) in
   row#listen_click_lwt (fun _ _ ->
       let open Lwt.Infix in
       let cell =

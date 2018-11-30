@@ -23,12 +23,12 @@ let table_demo timestamp count =
            :: (to_column ~sortable:true "Check",    String None)
            :: (to_column "Message",                 String None)
            :: []) in
-  let clusterize =
-    Table.{ rows_in_block = 10; blocks_in_cluster = 2 } in
   let table =
     new Table.t
       ~sticky_header:true
-      ~clusterize
+      ~clusterize:true
+      ~rows_in_block:10
+      ~blocks_in_cluster:2
       ~fmt
       () in
   table#content#style##.maxHeight := Js.string "500px";
@@ -48,12 +48,8 @@ let table_demo timestamp count =
       :: "Error description here"
       :: []) in
   print_endline "making rows...";
-  time "data";
   let data = List.map make_data @@ List.range' 0 count in
-  time_end "data";
-  time "rows";
   table#add_rows data;
-  time_end "rows";
   table#widget
 
 let onload _ =
@@ -67,12 +63,9 @@ let onload _ =
   page#arbitrary#append_child box;
   btn#listen_click_lwt (fun _ _ ->
       box#set_empty ();
-      print_endline "staring up...";
-      time "table";
       let num = Option.get_or ~default:500 @@ React.S.value text#s_input in
       let table = table_demo timestamp num in
       box#append_child table;
-      time_end "table";
       Lwt.return_unit)
   |> Lwt.ignore_result;
   Js._false

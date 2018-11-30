@@ -1,6 +1,7 @@
 (** Based on Clusterize.js *)
 
 open Containers
+open Utils
 
 type row = Dom_html.element Js.t
 
@@ -204,8 +205,11 @@ let add (t : t) = function
      t.rows <- (rows @ t.rows);
      insert_to_dom t
   | `Append rows ->
+     print_endline "clusterize - before update var";
      t.rows <- (t.rows @ rows);
-     insert_to_dom t
+     print_endline "clusterize - after append var";
+     insert_to_dom t;
+     print_endline "clusterize - after insert to dom"
 
 let update (t : t) (rows : row list) : unit =
   let scroll_top = t.options.scroll_element##.scrollTop in
@@ -292,7 +296,7 @@ let make ?(rows_in_block = 50)
     } in
   let t =
     { rows_in_cluster = 0
-    ; item_height = 48 (* FIXME not set initially *)
+    ; item_height = 32 (* FIXME not set initially *)
     ; cluster_height = 0
     ; block_height = 0
     ; last_cluster = 0
