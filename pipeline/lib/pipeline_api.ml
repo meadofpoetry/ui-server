@@ -9,12 +9,12 @@ open Common
 module WS = struct
 
   open React
-
+(*
   let get_settings (api : api) _ body sock_data () =
     let event = S.changes api.notifs.settings in
     Api.Socket.handler socket_table sock_data event
       Settings.to_yojson body
-
+ *)
   let get_wm (api : api) _ body sock_data () =
     let event = S.changes api.notifs.wm in
     Api.Socket.handler socket_table sock_data event
@@ -40,7 +40,7 @@ module HTTP = struct
     match conv js with
     | Error e -> respond_error e ()
     | Ok x -> apply x >>= function Ok () -> respond_result_unit (Ok ())
-
+(*
   let set_settings (api : api) headers body () =
     set body Settings.of_yojson
       Pipeline_protocol.(fun x -> api.requests.settings.set x)
@@ -72,9 +72,9 @@ module HTTP = struct
                    List.mem ~eq:Stream.ID.equal x.stream ids) l)
     |> Qoe_status.status_list_to_yojson
     |> fun r -> respond_result (Ok r)
-
+ *)
 end
-
+(*
 let settings_handler (api : api) =
   let open Api_handler in
   create_dispatcher "settings"
@@ -95,7 +95,7 @@ let settings_handler (api : api) =
                  (HTTP.set_settings api)
              ]
     ]
-
+ *)
 let wm_handler (api : api) =
   let open Api_handler in
   create_dispatcher "wm"
@@ -103,7 +103,7 @@ let wm_handler (api : api) =
         ~path:Uri.Path.Format.empty
         ~query:Uri.Query.empty
         (WS.get_wm api)
-    ]
+    ] [] (*
     [ `GET, [ create_handler ~docstring:"Wm"
                 ~path:Uri.Path.Format.empty
                 ~query:Uri.Query.empty
@@ -115,8 +115,8 @@ let wm_handler (api : api) =
                  ~query:Uri.Query.empty
                  (HTTP.set_wm api)
              ]
-    ]
-
+    ]*)
+(*
 let status_handler (api : api) =
   let open Api_handler in
   create_dispatcher
@@ -132,12 +132,12 @@ let status_handler (api : api) =
                  (HTTP.get_status api)
              ]
     ]
-
+ *)
 let handlers (api : api) =
   [ Api_handler.add_layer "pipeline"
-      [ settings_handler api
-      ; wm_handler api
-      ; status_handler api
+      [ (*settings_handler api
+      ; *) wm_handler api
+         (*; status_handler api*)
       ; Pipeline_api_structures.handler api
       ; Pipeline_api_measurements.handler api
       ; Pipeline_api_history.handler api

@@ -278,7 +278,7 @@ module Structure = struct
                   ORDER BY date DESC LIMIT $3|} table uris table uris)
     in Conn.request db Request.(list select (from,till,limit) >>= fun l ->
                                 try let data = List.map (fun (s,t) ->
-                                                   match Structure.structure_of_yojson @@ Yojson.Safe.from_string s with
+                                                   match Structure.of_yojson @@ Yojson.Safe.from_string s with
                                                    | Ok v -> v,t
                                                    | Error e -> failwith e) l
                                     in return (Ok (Raw { data; has_more = List.length data >= limit; order = `Desc }))

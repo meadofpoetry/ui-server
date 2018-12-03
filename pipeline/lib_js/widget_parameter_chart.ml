@@ -116,10 +116,10 @@ let convert_audio_data (config : widget_config)
       } in
     [src, [point]]
 
-let data_source_to_string (structures : Structure.t list)
+let data_source_to_string (structures : Structure.packed list)
       (src : data_source) : string =
   let open Structure in
-  match List.find_opt (fun (x : t) ->
+  match List.find_opt (fun (x : packed) ->
             Stream.ID.equal x.source.id src.stream) structures with
   | None -> ""
   | Some { structure = { channels; _ }; source } ->
@@ -221,7 +221,7 @@ let make_dataset ~x_axis ~y_axis id src structures data =
 let make_datasets ~x_axis ~y_axis
       (init : float data)
       (sources : data_source list)
-      (structures : Structure.t list)
+      (structures : Structure.packed list)
     : (data_source * dataset) list =
   let map id (src : data_source) =
     let data =
@@ -233,7 +233,7 @@ let make_datasets ~x_axis ~y_axis
   List.mapi map sources
 
 class t ~(init : float data)
-        ~(structures : Structure.t list React.signal)
+        ~(structures : Structure.packed list React.signal)
         ~(config : widget_config)
         () =
   let x_axis = make_x_axis config in
@@ -283,7 +283,7 @@ class t ~(init : float data)
 
     (* Private methods *)
 
-    method private update_structures (structures : Structure.t list) : unit =
+    method private update_structures (structures : Structure.packed list) : unit =
       List.iter (fun (src, ds) ->
           let label = data_source_to_string structures src in
           ds#set_label label) _datasets

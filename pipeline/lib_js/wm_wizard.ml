@@ -412,7 +412,7 @@ let to_layout ~resolution ~widgets signal =
 
 let to_content (wm : Wm.t) push =
   let open Lwt_result.Infix in
-  Requests_structure.HTTP.get ()
+  Requests_structure.HTTP.get_applied_with_source ()
   >|= (fun init ->
       let open Wm in
       let widgets = List.filter_map (fun (name, (widget : widget)) ->
@@ -421,7 +421,7 @@ let to_content (wm : Wm.t) push =
             Some ((name, widget),
                   ({ stream; channel } : channel))
           | (Nihil : domain) -> None) wm.widgets in
-      let ev, _  = Requests_structure.WS.get () in
+      let ev, _  = Requests_structure.WS.get_applied_with_source () in
       let struct_signal = React.S.hold init ev in
       let checkboxes, tree = Branches.make_streams widgets struct_signal in
       let box = new Vbox.t ~widgets:[tree#widget] () in

@@ -60,7 +60,7 @@ module Acc = struct
       | Some (o : t list) ->
          let n = List.Assoc.set ~eq:equal_id id info o in
          Some n in
-    List.Assoc.update ~eq ~f:(f x) id acc
+    List.Assoc.update ~eq (f x) id acc
 
   let cons (p : probes) = function
     | Board_errors x -> { p with board_errors = Some x }

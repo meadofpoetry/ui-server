@@ -37,7 +37,7 @@ class actions ~(items:Fab.t list) () =
     method remove (x : Fab.t) : unit =
       match List.find_opt (fun a -> Equal.physical x a#fab) self#items with
       | Some a -> (try Dom.removeChild self#root a#root with _ -> ());
-                  _items <- List.remove ~eq:(Equal.physical) ~x:a self#items
+                  _items <- List.remove ~eq:(Equal.physical) a self#items
       | None -> ()
 
     initializer
