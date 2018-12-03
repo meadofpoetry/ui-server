@@ -638,6 +638,7 @@ class ['a] t ?selection
         ?footer
         ?(sticky_header = false)
         ?(dense = false)
+        ?scroll_target
         ?rows_in_block
         ?blocks_in_cluster
         ?clusterize
@@ -651,13 +652,16 @@ class ['a] t ?selection
     Markup.create_content ~table:(Widget.to_markup table) ()
     |> To_dom.of_element
     |> Widget.create in
+  let scroll_target = match scroll_target with
+    | Some x -> x
+    | None -> Clusterize.Scroll_target.element content#root in
   let clusterize = match clusterize with
     | None | Some false -> None
     | Some true ->
        Clusterize.make
          ?rows_in_block
          ?blocks_in_cluster
-         ~scroll_element:content#root
+         ~scroll_target
          ~content_element:body#root
          ~make_extra_row:(fun () ->
            Js.Unsafe.coerce @@ Dom_html.(createTr document))

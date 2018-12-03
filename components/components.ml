@@ -60,6 +60,8 @@ module Layout_grid = Layout_grid
 
 module Item_list = Item_list
 
+module Infinite_scroll = Infinite_scroll
+
 (* TODO remove js dependency *)
 module Menu = Menu
 

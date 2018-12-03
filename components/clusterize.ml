@@ -5,10 +5,34 @@ open Utils
 
 type row = Dom_html.element Js.t
 
+module Scroll_target = struct
+
+  type t =
+    { scroll_top : unit -> int
+    ; set_scroll_top : int -> unit
+    ; target : Dom_html.eventTarget Js.t
+    }
+
+  let window =
+    let w = Dom_html.window in
+    let doc_elt = Dom_html.document##.documentElement in
+    { scroll_top = (fun () -> doc_elt##.scrollTop)
+    ; set_scroll_top = (fun x -> doc_elt##.scrollTop := x)
+    ; target = (w :> Dom_html.eventTarget Js.t)
+    }
+
+  let element (elt : Dom_html.element Js.t) =
+    { scroll_top = (fun () -> elt##.scrollTop)
+    ; set_scroll_top = (fun x -> elt##.scrollTop := x)
+    ; target = (elt :> Dom_html.eventTarget Js.t)
+    }
+
+end
+
 type options =
   { rows_in_block : int
   ; blocks_in_cluster : int
-  ; scroll_element : Dom_html.element Js.t
+  ; scroll_target : Scroll_target.t
   ; content_element : Dom_html.element Js.t
   ; make_empty_row : (unit -> row) option
   ; make_extra_row : (unit -> row)
@@ -86,7 +110,7 @@ let explore_environment (t : t) : unit =
 
 (** Get current cluster number *)
 let get_cluster_num (t : t) : int =
-  t.scroll_top <- t.options.scroll_element##.scrollTop;
+  t.scroll_top <- t.options.scroll_target.scroll_top ();
   let diff = t.cluster_height - t.block_height in
   floor ((float_of_int t.scroll_top) /. (float_of_int diff))
   |> int_of_float
@@ -212,14 +236,14 @@ let add (t : t) = function
      print_endline "clusterize - after insert to dom"
 
 let update (t : t) (rows : row list) : unit =
-  let scroll_top = t.options.scroll_element##.scrollTop in
+  let scroll_top = t.options.scroll_target.scroll_top () in
   t.rows <- rows;
   if List.length rows * t.item_height < scroll_top
   then (
-    t.options.scroll_element##.scrollTop := 0;
+    t.options.scroll_target.set_scroll_top 0;
     t.last_cluster <- 0);
   insert_to_dom t;
-  t.options.scroll_element##.scrollTop := scroll_top
+  t.options.scroll_target.set_scroll_top scroll_top
 
 let refresh ?(force = false) (t : t) : unit =
   if force || get_rows_height t then update t t.rows
@@ -239,7 +263,7 @@ let add_listeners (t : t) : unit =
     let timer = Dom_html.window##setTimeout cb 100. in
     t.resize_debounce <- Some timer;
     true in
-  Dom_events.(listen t.options.scroll_element Typ.scroll scroll_ev)
+  Dom_events.(listen t.options.scroll_target.target Typ.scroll scroll_ev)
   |> (fun l -> t.scroll_listener <- Some l);
   Dom_events.(listen Dom_html.window Typ.resize resize_ev)
   |> (fun l -> t.resize_listener <- Some l)
@@ -274,7 +298,7 @@ let make ?(rows_in_block = 50)
       ?(blocks_in_cluster = 4)
       ?rows
       ?(keep_parity = true)
-      ~scroll_element
+      ~scroll_target
       ~content_element
       ?make_empty_row
       ~make_extra_row
@@ -283,7 +307,7 @@ let make ?(rows_in_block = 50)
     { rows_in_block
     ; blocks_in_cluster
     ; keep_parity
-    ; scroll_element
+    ; scroll_target
     ; content_element
     ; make_empty_row
     ; make_extra_row
@@ -314,8 +338,8 @@ let make ?(rows_in_block = 50)
   let tabindex = Js.string "tabindex" in
   if Js.to_bool @@ content_element##hasAttribute tabindex
   then content_element##setAttribute tabindex (Js.string "0");
-  let scroll_top = scroll_element##.scrollTop in
+  let scroll_top = scroll_target.scroll_top () in
   insert_to_dom t;
-  scroll_element##.scrollTop := scroll_top;
+  scroll_target.set_scroll_top scroll_top;
   add_listeners t;
   t

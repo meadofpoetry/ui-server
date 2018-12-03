@@ -1,5 +1,18 @@
 open Containers
 
+let is_in_viewport (e : Dom_html.element Js.t) : bool =
+  let height =
+    Js.Optdef.get Dom_html.window##.innerHeight
+      (fun () -> Dom_html.document##.documentElement##.clientHeight) in
+  let width =
+    Js.Optdef.get Dom_html.window##.innerWidth
+      (fun () -> Dom_html.document##.documentElement##.clientWidth) in
+  let rect = e##getBoundingClientRect in
+  rect##.top >. 0.
+  && rect##.left >. 0.
+  && rect##.bottom <=. float_of_int height
+  && rect##.right <=. float_of_int width
+
 (** Tail-recursive append that does not raise stack overflow on lagre lists *)
 let append (a : 'a list) (b : 'a list) : 'a list =
   List.rev_append (List.rev a) b

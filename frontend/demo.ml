@@ -25,13 +25,12 @@ let table_demo timestamp count =
            :: []) in
   let table =
     new Table.t
+      ~scroll_target:Clusterize.Scroll_target.window
       ~sticky_header:true
       ~clusterize:true
-      ~rows_in_block:10
-      ~blocks_in_cluster:2
+      ~dense:true
       ~fmt
       () in
-  table#content#style##.maxHeight := Js.string "500px";
   let channels = [|"BBC"; "CNN"; "MTV"; "AnimalPlanet"|] in
   let err = [|"1.3.1 PAT error"; "1.4. Continuity count error"|] in
   let make_data index =
@@ -47,7 +46,6 @@ let table_demo timestamp count =
       :: err
       :: "Error description here"
       :: []) in
-  print_endline "making rows...";
   let data = List.map make_data @@ List.range' 0 count in
   table#append data;
   table#widget

@@ -50,9 +50,12 @@ let log_level_to_color level =
   let Rgba.{ r; g; b; _ } = to_rgba t in
   Color.of_rgba r g b 0.5
 
-class ['a] t ?boards ?cpu ?inputs ?streams ?(init = []) () =
+class ['a] t ?scroll_target ?boards ?cpu ?inputs ?streams ?init () =
   let tz_offset_s = Ptime_clock.current_tz_offset_s () in
   let show_time = Time.to_human_string ?tz_offset_s in
+  let scroll_target = match scroll_target with
+    | Some x -> x
+    | None -> Clusterize.Scroll_target.window in
   let fmt =
     let sortable = false in
     let open Table in
@@ -65,9 +68,10 @@ class ['a] t ?boards ?cpu ?inputs ?streams ?(init = []) () =
     :: [] in
   object(self)
 
-    val mutable _has_more = true
+    val mutable scroll : _ Infinite_scroll.t option = None
 
     inherit ['a] Table.t
+              ~scroll_target
               ~clusterize:true
               ~sticky_header:true
               ~dense:true
@@ -76,62 +80,59 @@ class ['a] t ?boards ?cpu ?inputs ?streams ?(init = []) () =
 
     method init () : unit =
       super#init ();
-      (* FIXME implement infinite scroll *)
-      self#content#listen_lwt Widget.Event.scroll (fun _ _ ->
-          let el = self#content in
-          begin match _has_more,
-                      el#client_height = el#scroll_height - el#scroll_top with
-          | true, true ->
-             let till =
-               List.fold_left (fun acc row ->
-                   let time =
-                     let open Table in
-                     match row#cells with
-                     | t :: _ -> t#value in
-                   match acc with
-                   | None -> Some time
-                   | Some acc ->
-                      if Time.compare time acc >= 0
-                      then Some acc else Some time) None self#rows in
-             get_log ?till ~limit:200 ~order:`Desc
-               ?boards ?cpu ?streams ?inputs ()
-             >|= (fun (more, l) -> _has_more <- more; List.rev l)
-             >|= (fun l -> print_endline "before append items"; l)
-             >|= self#append_items
-             |> Lwt.map (fun x -> Printf.printf "length: %d\n" @@ List.length self#rows)
-          | _ -> Lwt.return_unit
-          end)
-      |> Lwt.ignore_result;
-      List.iter self#prepend_item init;
+      let get (_ : Infinite_scroll.args) =
+        let till =
+          List.fold_left (fun acc row ->
+              let time =
+                let open Table in
+                match row#cells with
+                | t :: _ -> t#value in
+              match acc with
+              | None -> Some time
+              | Some acc ->
+                 if Time.compare time acc >= 0
+                 then Some acc else Some time) None self#rows in
+        get_log ?till ~limit:200 ~order:`Desc
+          ?boards ?cpu ?streams ?inputs () in
+      let scroll' =
+        Infinite_scroll.make
+          ~get
+          ~element:self#content#root
+          ~prefill:(Option.is_none init)
+          ~is_last_page:Fun.(not % fst)
+          ~append:Fun.(self#append_items % List.rev % snd)
+          () in
+      scroll <- Some scroll';
+      Option.iter super#append init;
       self#add_class base_class
 
+    method! destroy () : unit =
+      super#destroy ();
+      Option.iter Infinite_scroll.destroy scroll;
+      scroll <- None
+
     method prepend_item (e : Stream.Log_message.t) : unit =
-      let el = self#content in
-      let top = el#scroll_top in
-      let height = el#scroll_height in
+      let top = scroll_target.scroll_top () in
+      let height = self#content#scroll_height in
       let row = self#cons (make_row_data e) in
       self#set_row_priority e row;
-      let top' = el#scroll_top in
-      if top <> 0 && top' = top
-      then begin
-          let diff = el#scroll_height - height in
-          el#set_scroll_top (el#scroll_top + diff);
-        end
+      let top' = scroll_target.scroll_top () in
+      if not (Utils.is_in_viewport row#root) && top' = top
+      then
+        let diff = self#content#scroll_height - height in
+        scroll_target.set_scroll_top (top' + diff)
 
     method append_item (e : Stream.Log_message.t) : unit =
       let row = self#push (make_row_data e) in
       ignore @@ self#set_row_priority e row
 
     method append_items (e : Stream.Log_message.t list) : unit =
-      print_endline "in append items";
       let rows =
         List.map (fun i ->
             let row = self#_make_row @@ make_row_data i in
             self#set_row_priority i row;
             row) e in
-      print_endline "in append items - created rows";
-      self#append_rows rows;
-      print_endline "in append items - success"
+      self#append_rows rows
 
     (* Private methods *)
 
