@@ -46,7 +46,7 @@ let create ~sock_in ~sock_out =
   in
   let data_chan  = Message.create_channel mutex send in
   
-  { ctx; msg; ev; sock_in; sock_out; ready = ref false; ready_chan; data_chan }
+  { ctx; msg; ev; sock_in; sock_out; ready; ready_chan; data_chan }
 
 let finalize sock =
   (*Zmq.Socket.unsubscribe sock.ev "";*)

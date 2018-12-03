@@ -214,8 +214,10 @@ let reset bin_path bin_name api state (sources : (Url.t * Stream.t) list) =
   let is_ready = Exchange.Ready.is_ready state.ready_e in
   state.proc <- Some (Lwt_process.open_process_none (exec_path, exec_opts));
 
-  Lwt.ignore_result (is_ready
-                     >|= Exchange.on_ready state.socket (fun () -> ()));
+  Lwt.on_termination is_ready (Exchange.on_ready state.socket (fun () -> ()));
+
+  (*Lwt.ignore_result (is_ready
+                     >|= Exchange.on_ready state.socket (fun () -> ()));*)
   (*settings_init typ send state.options)); *)
 
   Model.set_streams api.model (List.map snd sources);
