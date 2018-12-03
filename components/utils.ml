@@ -18,6 +18,9 @@ let round (x : float) : int =
 
 let px : int -> string = Printf.sprintf "%dpx"
 
+let px_js (v : int) : Js.js_string Js.t =
+  Js.string @@ px v
+
 let translate = Printf.sprintf "translate(%dpx, %dpx)"
 
 let ( // ) x y =

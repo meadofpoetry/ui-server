@@ -233,7 +233,6 @@ let add_listeners (t : t) : unit =
     t.last_cluster <- cluster;
     (* TODO Call 'scrolling progress' here *)
     true in
-  (* FIXME calling repeatedly *)
   let resize_ev = fun _ _ ->
     Option.iter (fun x -> Dom_html.window##clearTimeout x) t.resize_debounce;
     let cb = Js.wrap_callback @@ (fun () -> refresh t) in

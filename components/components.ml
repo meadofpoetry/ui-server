@@ -93,7 +93,8 @@ module Tab_bar = Tab_bar
 
 module Textfield = Textfield
 
-module Toolbar = Toolbar
+(* TODO add fixed and short top app bars *)
+module Top_app_bar = Top_app_bar
 
 (* TODO add lines? *)
 module Tree = Tree

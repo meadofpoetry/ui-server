@@ -49,7 +49,7 @@ let table_demo timestamp count =
       :: []) in
   print_endline "making rows...";
   let data = List.map make_data @@ List.range' 0 count in
-  table#add_rows data;
+  table#append data;
   table#widget
 
 let onload _ =

@@ -129,7 +129,3 @@ for(var k=0; k <= lst.length-1; k++)
 {
     tree (lst.item(k), 1);
 };
-
-window.onresize = function () {
-    setTimeout(function () {window.dispatchEvent(new Event('resize'));},250);
-};
