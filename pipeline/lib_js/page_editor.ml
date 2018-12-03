@@ -464,12 +464,12 @@ class t () = object(self)
   inherit Layout_grid.t ~cells:[] () as super
 
   method private on_load () =
-    Requests_wm.HTTP.get ()
+    Requests_wm.HTTP.get_layout ()
     >>= (fun wm ->
       let e_wm, wm_sock = Requests_wm.WS.get () in
       let post = fun w ->
         Lwt.Infix.(
-          Requests_wm.HTTP.set w
+          Requests_wm.HTTP.apply_layout w
           >|= (function
                | Ok () -> ()
                | Error _ -> print_endline @@ "error post wm")) in
