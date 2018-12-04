@@ -65,6 +65,8 @@ let no_response_class = Markup.CSS.add_modifier base_class "no-response"
 (* TODO improve tooltip. add pid type, bitrate units *)
 module Pie = struct
 
+  let other = "Другие"
+
   let colors =
     let open Color_palette in
     [| Red C500
@@ -80,7 +82,8 @@ module Pie = struct
      ; Deep_orange C500
      ; Indigo C500
      ; Amber C500
-     ; Light_blue C500 |]
+     ; Light_blue C500
+    |]
 
   let make_pie_datalabels () : Chartjs_datalabels.t =
     let open Chartjs in
@@ -98,7 +101,7 @@ module Pie = struct
           let sum = reduce' data (fun acc x _ _ -> acc +. x) in
           let v = data.%[index] in
           (v *. 100.) /. sum) in
-      value >. 10. in
+      value >. 5. in
     let font = Font.make ~weight:"bold" () in
     make
       ~formatter:(fun _ context ->
@@ -123,10 +126,12 @@ module Pie = struct
           let ds_index = item.dataset_index in
           Js_array.(
             let dataset = Data.Datasets.((Data.datasets data).%[ds_index]) in
-            let label = String.((Data.labels data).%[item.index]) in
             let values = Pie.Dataset.Float.data dataset in
             let value = Float.(values.%[item.index]) in
-            Printf.sprintf "PID %s: %.3g Мбит/с" label value))
+            let label = match String.((Data.labels data).%[item.index]) with
+              | s when Equal.string s other -> s
+              | s -> Printf.sprintf "PID %s" s in
+            Printf.sprintf "%s: %.3g Мбит/с" label value))
         () in
     let tooltips =
       Options.Tooltips.make
@@ -160,7 +165,7 @@ module Pie = struct
       |> Array.to_list in
     Dataset.Float.make
       ~background_color
-      ~border_width:[0]
+      ~border_color:background_color
       ~data:[]
       ()
 
@@ -253,10 +258,10 @@ module Pie = struct
         let to_string =
           if _hex then PID.to_hex_string
           else PID.to_dec_string in
-        let pids = List.map (fun x -> to_string @@ fst x) pids in
+        let pids = List.map Fun.(to_string % fst) pids in
         match oth with
         | [] -> pids
-        | _  -> pids @ ["Другие"]
+        | _  -> pids @ [other]
 
     end
 

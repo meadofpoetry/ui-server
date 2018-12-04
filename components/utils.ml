@@ -5,6 +5,9 @@ let prevent_scroll = ref false
 let set_timeout (f : unit -> unit) (t : float) : Dom_html.timeout_id_safe =
   Dom_html.setTimeout f t
 
+let clear_timeout (timer : Dom_html.timeout_id_safe) =
+  Dom_html.clearTimeout timer
+
 let is_in_viewport ?(vertical = true) ?(horizontal = true)
       (e : Dom_html.element Js.t) : bool =
   let height =

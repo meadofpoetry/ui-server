@@ -214,9 +214,6 @@ module Standard = struct
         let past_bot =
           cur_scroll_y + self#get_scroller_physical_height ()
           > self#get_scroller_height () in
-        Printf.printf "scr phy height: %d, scr height: %d\n"
-          (self#get_scroller_physical_height ())
-          (self#get_scroller_height ());
         past_top || past_bot
 
       method private tolerance_exceeded (cur_scroll_y : int)

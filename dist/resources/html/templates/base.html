@@ -16,11 +16,7 @@
     <!-- Additional scripts -->
     <script type="text/javascript">var username="{{user}}"</script>
     {{#pre_scripts}}
-    <script {{#src}}src="{{script}}"{{/src}} type="text/javascript">
-     {{^src}}
-     {{{script}}}
-     {{/src}}
-    </script>
+    <script {{#src}}src="{{script}}"{{/src}} type="text/javascript">{{^src}}{{{script}}}{{/src}}</script>
     {{/pre_scripts}}
     <!-- Additional stylesheets -->
     {{#stylesheets}}

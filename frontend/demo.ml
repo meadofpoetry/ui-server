@@ -48,7 +48,7 @@ let table_demo timestamp count =
       :: []) in
   let data = List.map make_data @@ List.range' 0 count in
   table#append data;
-  table#widget
+  table
 
 let onload _ =
   let timestamp = Ptime_clock.now () in
@@ -66,6 +66,7 @@ let onload _ =
       box#append_child table;
       Lwt.return_unit)
   |> Lwt.ignore_result;
+
   Js._false
 
 let () =

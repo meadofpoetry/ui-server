@@ -504,16 +504,12 @@ module Body = struct
 
       method append_rows ?(clusterize : Clusterize.t option)
                (rows : 'a Row.t list) : unit =
-        print_endline "before concat";
         let rows' = self#rows @ rows in
-        print_endline "before push";
         s_rows_push rows';
-        print_endline "after push";
         begin match clusterize with
         | None -> List.iter self#append_child rows
         | Some c -> Clusterize.append c @@ List.map (fun x -> x#root) rows
         end;
-        print_endline "after append";
         self#layout ();
 
       method remove_row (row : 'a Row.t) : unit =
@@ -689,6 +685,10 @@ class ['a] t ?selection
     method! destroy () : unit =
       super#destroy ()
 
+    method! layout () : unit =
+      super#layout ();
+      Option.iter Clusterize.refresh clusterize
+
     method content : Widget.t =
       content
 
@@ -738,9 +738,7 @@ class ['a] t ?selection
       row
 
     method append (data : 'a Data.t list) : unit =
-      time "create_rows";
       let rows = List.map self#_make_row data in
-      time_end "create_rows";
       body#append_rows ?clusterize rows
 
     method remove_row (row : 'a Row.t) : unit =
