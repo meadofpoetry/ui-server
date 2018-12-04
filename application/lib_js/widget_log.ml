@@ -117,9 +117,10 @@ class ['a] t ?scroll_target ?boards ?cpu ?inputs ?streams ?init () =
       let row = self#cons (make_row_data e) in
       self#set_row_priority e row;
       let top' = scroll_target.scroll_top () in
-      if not (Utils.is_in_viewport row#root) && top' = top
+      if not (Utils.is_in_viewport ~horizontal:false row#root) && top' = top
       then
         let diff = self#content#scroll_height - height in
+        Utils.prevent_scroll := true;
         scroll_target.set_scroll_top (top' + diff)
 
     method append_item (e : Stream.Log_message.t) : unit =

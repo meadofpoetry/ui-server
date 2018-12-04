@@ -40,6 +40,13 @@ body {
     z-index: 21;
 }
 #main-toolbar {
+    @include mdc-elevation(2);
+    &.mdc-top-app-bar--unpinned {
+        @include mdc-elevation(0);
+    }
+    .mdc-top-app-bar__row:nth-child(2) .mdc-top-app-bar__section {
+        padding: 0;
+    }
     .mdc-tab-bar {
         .mdc-tab-indicator {
             @include mdc-tab-indicator-underline-color(on-primary);

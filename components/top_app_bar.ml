@@ -101,6 +101,7 @@ module Standard = struct
          else Element (Js.Unsafe.coerce x) in
     object(self)
 
+      val mutable ticking : bool = false
       val mutable offset : int = offset
       val mutable last_scroll_y = 0
       val mutable tolerance : tolerance = tolerance
@@ -138,9 +139,6 @@ module Standard = struct
           super#add_class Markup.unpinned_class;
           super#remove_class Markup.pinned_class)
 
-      method private debouncer () : unit =
-        ()
-
       method private attach_event () : unit =
         last_scroll_y <- self#get_scroll_y ();
         let target = match scroll_target with
@@ -148,7 +146,15 @@ module Standard = struct
           | Element e -> (e :> Dom_html.eventTarget Js.t) in
         let listener =
           Dom_events.listen target Widget.Event.scroll (fun _ _ ->
-              self#debouncer (); self#update (); false) in
+              let open Utils.Animation in
+              if not !Utils.prevent_scroll && not ticking then (
+                let f = fun _ -> self#update (); ticking <- false in
+                ignore @@ request_animation_frame f;
+                ticking <- true)
+              else if !Utils.prevent_scroll then (
+                let f = fun () -> Utils.prevent_scroll := false in
+                ignore @@ Utils.set_timeout f 0.);
+              false) in
         scroll_handler <- Some listener
 
 
@@ -166,8 +172,8 @@ module Standard = struct
 
       (** Returns the height of the viewport *)
       method private get_viewport_height () : int =
-        let wnd = Js.Unsafe.coerce Dom_html.window in
-        Js.Optdef.get wnd##.pageYOffset (fun () ->
+        let wnd = Dom_html.window in
+        Js.Optdef.get wnd##.innerHeight (fun () ->
             Dom_html.document##.documentElement##.clientHeight)
 
       method private get_element_physical_height (elt : Dom_html.element Js.t)
@@ -208,6 +214,9 @@ module Standard = struct
         let past_bot =
           cur_scroll_y + self#get_scroller_physical_height ()
           > self#get_scroller_height () in
+        Printf.printf "scr phy height: %d, scr height: %d\n"
+          (self#get_scroller_physical_height ())
+          (self#get_scroller_height ());
         past_top || past_bot
 
       method private tolerance_exceeded (cur_scroll_y : int)

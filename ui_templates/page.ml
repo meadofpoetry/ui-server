@@ -87,7 +87,7 @@ let get_arbitrary () : container =
 
 let get_toolbar () : Top_app_bar.Standard.t =
   Dom_html.getElementById "main-toolbar"
-  |> Top_app_bar.Standard.attach ~tolerance:{ up = 35; down = 0 }
+  |> Top_app_bar.Standard.attach ~tolerance:{ up = 5; down = 5 }
 
 class t (content:('a,'b) page_content) () =
   let main = Dom_html.getElementById "main-content" in

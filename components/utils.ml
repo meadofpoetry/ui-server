@@ -1,6 +1,12 @@
 open Containers
 
-let is_in_viewport (e : Dom_html.element Js.t) : bool =
+let prevent_scroll = ref false
+
+let set_timeout (f : unit -> unit) (t : float) : Dom_html.timeout_id_safe =
+  Dom_html.setTimeout f t
+
+let is_in_viewport ?(vertical = true) ?(horizontal = true)
+      (e : Dom_html.element Js.t) : bool =
   let height =
     Js.Optdef.get Dom_html.window##.innerHeight
       (fun () -> Dom_html.document##.documentElement##.clientHeight) in
@@ -8,10 +14,13 @@ let is_in_viewport (e : Dom_html.element Js.t) : bool =
     Js.Optdef.get Dom_html.window##.innerWidth
       (fun () -> Dom_html.document##.documentElement##.clientWidth) in
   let rect = e##getBoundingClientRect in
-  rect##.top >. 0.
-  && rect##.left >. 0.
-  && rect##.bottom <=. float_of_int height
-  && rect##.right <=. float_of_int width
+  let vertical =
+    not vertical
+    || (rect##.top >. 0. && rect##.bottom <=. (float_of_int height)) in
+  let horizontal =
+    not horizontal
+    || (rect##.left >. 0. && rect##.right <=. (float_of_int width)) in
+  vertical && horizontal
 
 (** Tail-recursive append that does not raise stack overflow on lagre lists *)
 let append (a : 'a list) (b : 'a list) : 'a list =
@@ -100,6 +109,10 @@ module Animation = struct
     let in_out_sine x =  0.5 *. (1. -. (cos (pi *. x)))
   end
 
+  let request_animation_frame (f : float -> unit)
+      : Dom_html.animation_frame_request_id =
+    Dom_html.window##requestAnimationFrame (Js.wrap_callback f)
+
   let animate ~(timing : float -> float)
         ~(draw : float -> unit)
         ~(duration : float) =
@@ -111,9 +124,8 @@ module Animation = struct
         draw progress;
 
         if Float.(time_fraction < 1.)
-        then
-          ignore @@ Dom_html.window##requestAnimationFrame (Js.wrap_callback cb))
+        then ignore @@ request_animation_frame cb)
     in
-    ignore @@ Dom_html.window##requestAnimationFrame (Js.wrap_callback cb)
+    ignore @@ request_animation_frame cb
 
 end

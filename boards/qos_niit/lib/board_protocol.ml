@@ -369,6 +369,8 @@ module Make(Logs : Logs.LOG) = struct
          merge_with_pid ~eq:Multi_TS_ID.equal pids v
          |> merge_streams streams
          |> List.map (Pair.map2 (List.map (fun (x : 'a error) -> { x with time })))
+         |> List.sort (fun (_, a) (_, b) ->
+                Ord.list (fun a b -> Ptime.compare a.time b.time) a b)
          |> pe.ts_errors
       end;
       (* Push T2-MI info *)
