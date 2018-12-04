@@ -9,7 +9,7 @@ module Make(Xml : Xml_sigs.NoWrap)
   open Html
 
   (** Mandatory. *)
-  let base_class = "mcd-top-app-bar"
+  let base_class = "mdc-top-app-bar"
 
   (** Class used to style the top app bar as a fixed top app bar. *)
   let fixed_class = CSS.add_modifier base_class "fixed"
@@ -50,6 +50,10 @@ module Make(Xml : Xml_sigs.NoWrap)
       to prevent the top app bar from covering it. *)
   let short_fixed_adjust_class =
     CSS.add_modifier base_class "short-fixed-adjust"
+
+  let pinned_class = CSS.add_modifier base_class "pinned"
+
+  let unpinned_class = CSS.add_modifier base_class "unpinned"
 
   let row_class = CSS.add_element base_class "row"
 

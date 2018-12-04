@@ -39,6 +39,8 @@
   box-sizing: border-box;
   width: 100%;
   z-index: 4;
+  transition: transform .25s ease-in-out;
+  will-change: transform;
 
   &__row {
     display: flex;
@@ -200,6 +202,14 @@
   }
 }
 // stylelint-enable plugin/selector-bem-pattern
+
+.mdc-top-app-bar--pinned {
+    transform: translateY(0);
+}
+
+.mdc-top-app-bar--unpinned {
+    transform: translateY(-100%);
+}
 
 .mdc-top-app-bar--fixed-adjust {
   padding-top: $mdc-top-app-bar-row-height;

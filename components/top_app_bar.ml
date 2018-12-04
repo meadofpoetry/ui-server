@@ -77,15 +77,20 @@ end
 
 module Standard = struct
 
-  let max_height = 128
+  type tolerance =
+    { up : int
+    ; down : int
+    }
 
-  let debounce_throttle_resize = 100. (* ms *)
+  type dir = [`Up | `Down]
 
   type scroll_target =
     | Window of Dom_html.window Js.t
     | Element of Dom_html.element Js.t
 
   class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
+          ?(offset = 0)
+          ?(tolerance = { up = 0; down = 0 })
           (elt : #Dom_html.element Js.t)
           () =
     let scroll_target = match scroll_target with
@@ -95,34 +100,12 @@ module Standard = struct
          then Window (Js.Unsafe.coerce x)
          else Element (Js.Unsafe.coerce x) in
     object(self)
-      (** Used for diffs of current scroll position vs previous
-          scroll position. *)
-      val mutable last_scroll_position = 0
 
-      (** Used to verify when the top app bar is completely
-          showing or completely hidden. *)
-      val mutable top_app_bar_height = 0
-
-      (** [was_docked] is used to indicate if the top app bar was docked
-          in the previous scroll handler iteration. *)
-      val mutable was_docked = true
-
-      (** [is_docked_showing] is used to indicate if the top app bar is docked
-          in the fully shown position. *)
-      val mutable is_docked_showing = true
-
-      (** Current scroll position of the top app bar. *)
-      val mutable cur_app_bar_offset_top = 0
-
-      (** Used to prevent the top app bar from being scrolled out
-          of view during resize events. *)
-      val mutable is_currently_being_resized = false
-
-      val mutable resize_throttle_id = None
-      val mutable resize_debounce_id = None
+      val mutable offset : int = offset
+      val mutable last_scroll_y = 0
+      val mutable tolerance : tolerance = tolerance
 
       val mutable scroll_handler = None
-      val mutable resize_handler = None
 
       inherit Widget.t elt () as super
 
@@ -130,122 +113,148 @@ module Standard = struct
 
       method! init () : unit =
         super#init ();
-        last_scroll_position <- self#get_viewport_scroll_y ();
-        top_app_bar_height <- super#offset_height;
-        let target = match scroll_target with
-          | Window w -> (w :> Dom_html.eventTarget Js.t)
-          | Element e -> (e :> Dom_html.eventTarget Js.t) in
-        Dom_events.listen target Widget.Event.scroll (fun _ _ ->
-            self#on_scroll (); true)
-        |> (fun x -> scroll_handler <- Some x);
-        Dom_events.listen Dom_html.window Widget.Event.resize (fun _ _ ->
-            self#on_resize (); true)
-        |> (fun x -> resize_handler <- Some x)
+        self#attach_event ()
 
       method! destroy () : unit =
         super#destroy ();
         Option.iter Dom_events.stop_listen scroll_handler;
-        scroll_handler <- None;
-        Option.iter Dom_events.stop_listen resize_handler;
-        resize_handler <- None
+        scroll_handler <- None
 
       method! layout () : unit =
-        super#layout ();
-        self#on_throttled_resize ()
+        super#layout ()
 
       (* Private methods *)
 
-      method private get_viewport_scroll_y () : int =
+      method private pin () : unit =
+        if super#has_class Markup.unpinned_class
+        then (
+          super#remove_class Markup.unpinned_class;
+          super#add_class Markup.pinned_class)
+
+      method private unpin () : unit =
+        if super#has_class Markup.pinned_class
+          || not (super#has_class Markup.unpinned_class)
+        then (
+          super#add_class Markup.unpinned_class;
+          super#remove_class Markup.pinned_class)
+
+      method private debouncer () : unit =
+        ()
+
+      method private attach_event () : unit =
+        last_scroll_y <- self#get_scroll_y ();
+        let target = match scroll_target with
+          | Window w -> (w :> Dom_html.eventTarget Js.t)
+          | Element e -> (e :> Dom_html.eventTarget Js.t) in
+        let listener =
+          Dom_events.listen target Widget.Event.scroll (fun _ _ ->
+              self#debouncer (); self#update (); false) in
+        scroll_handler <- Some listener
+
+
+      (** Returns the Y scroll position *)
+      method private get_scroll_y () : int =
         match scroll_target with
-        | Window w -> (Js.Unsafe.coerce w)##.pageYOffset
+        | Window w ->
+           Js.Optdef.to_option (Js.Unsafe.coerce w)##.pageYOffset
+           |> (function
+               | Some x -> x
+               | None ->
+                  let doc = Dom_html.document in
+                  doc##.documentElement##.scrollTop)
         | Element e -> e##.scrollTop
 
-      method private check_for_update () : bool =
-        let offscreen_boundary_top = -top_app_bar_height in
-        let has_any_pixels_offscreen = cur_app_bar_offset_top < 0 in
-        let has_any_pixels_onscreen =
-          cur_app_bar_offset_top > offscreen_boundary_top in
-        let partially_showing =
-          has_any_pixels_onscreen && has_any_pixels_offscreen in
-        let ( <> ) a b = not @@ Equal.bool a b in
-        if partially_showing
-        then (was_docked <- false; partially_showing)
-        else
-          if not was_docked
-          then (was_docked <- true; true)
-          else if is_docked_showing <> has_any_pixels_onscreen
-          then (is_docked_showing <- has_any_pixels_onscreen; true)
-          else partially_showing
+      (** Returns the height of the viewport *)
+      method private get_viewport_height () : int =
+        let wnd = Js.Unsafe.coerce Dom_html.window in
+        Js.Optdef.get wnd##.pageYOffset (fun () ->
+            Dom_html.document##.documentElement##.clientHeight)
 
-      method private move_top_app_bar () =
-        if self#check_for_update ()
-        then
-          let offset = cur_app_bar_offset_top in
-          let offset =
-            if abs offset >= top_app_bar_height
-            then offset - max_height else offset in
-          super#style##.top := Utils.px_js offset
+      method private get_element_physical_height (elt : Dom_html.element Js.t)
+                     : int =
+        max elt##.offsetHeight elt##.clientHeight
 
-      method private on_scroll () : unit =
-        let cur_scroll_position = max (self#get_viewport_scroll_y ()) 0 in
-        let diff = cur_scroll_position - last_scroll_position in
-        last_scroll_position <- cur_scroll_position;
-        if not is_currently_being_resized
+      method private get_scroller_physical_height () : int =
+        match scroll_target with
+        | Window _ -> self#get_viewport_height ()
+        | Element e -> self#get_element_physical_height e
+
+      method private get_document_height () : int =
+        let body = Dom_html.document##.body in
+        let doc_elt = Dom_html.document##.documentElement in
+        List.fold_left max 0
+          [ body##.scrollHeight
+          ; doc_elt##.scrollHeight
+          ; body##.offsetHeight
+          ; doc_elt##.offsetHeight
+          ; body##.clientHeight
+          ; doc_elt##.clientHeight
+          ]
+
+      method private get_element_height (elt : Dom_html.element Js.t) : int =
+        List.fold_left max 0
+          [ elt##.scrollHeight
+          ; elt##.offsetHeight
+          ; elt##.clientHeight
+          ]
+
+      method private get_scroller_height () : int =
+        match scroll_target with
+        | Window _ -> self#get_document_height ()
+        | Element e -> self#get_element_height e
+
+      method private is_out_of_bounds (cur_scroll_y : int) : bool =
+        let past_top = cur_scroll_y < 0 in
+        let past_bot =
+          cur_scroll_y + self#get_scroller_physical_height ()
+          > self#get_scroller_height () in
+        past_top || past_bot
+
+      method private tolerance_exceeded (cur_scroll_y : int)
+                       (dir : dir) : bool =
+        let tol = match dir with
+          | `Up -> tolerance.up
+          | `Down -> tolerance.down in
+        abs (cur_scroll_y - last_scroll_y) >= tol
+
+      method private should_unpin (cur_scroll_y : int)
+                       (dir : dir) (exceeded : bool) : bool =
+        match dir with
+        | `Up -> false
+        | `Down -> exceeded && (cur_scroll_y > offset)
+
+      method private should_pin (cur_scroll_y : int)
+                       (dir : dir) (exceeded : bool) : bool =
+        match dir with
+        | `Down -> false
+        | `Up -> exceeded || (cur_scroll_y <= offset)
+
+      method private update () : unit =
+        let cur_scroll_y = self#get_scroll_y () in
+        let dir = if cur_scroll_y > last_scroll_y
+                  then `Down else `Up in
+        let exceeded = self#tolerance_exceeded cur_scroll_y dir in
+        if not (self#is_out_of_bounds cur_scroll_y)
         then (
-          cur_app_bar_offset_top <- cur_app_bar_offset_top - diff;
-          if cur_app_bar_offset_top > 0
-          then cur_app_bar_offset_top <- 0
-          else if (abs cur_app_bar_offset_top) > top_app_bar_height
-          then cur_app_bar_offset_top <- - top_app_bar_height);
-        self#move_top_app_bar ()
-
-      method private on_throttled_resize () : unit =
-        let cur_height = super#offset_height in
-        if top_app_bar_height <> cur_height
-        then (
-          was_docked <- false;
-          let offset = match cur_app_bar_offset_top with
-            | 0 -> 0
-            | offset -> top_app_bar_height - cur_height
-                        |> (fun x -> offset - x)
-                        |> min 0 in
-          cur_app_bar_offset_top <- offset;
-          top_app_bar_height <- cur_height);
-        self#on_scroll ()
-
-      method private on_resize () : unit =
-        begin match resize_throttle_id with
-        | None ->
-           let timer =
-             Dom_html.setTimeout (fun () ->
-                 resize_throttle_id <- None;
-                 self#on_throttled_resize ())
-               debounce_throttle_resize in
-           resize_throttle_id <- Some timer
-        | Some _ -> ()
-        end;
-        is_currently_being_resized <- true;
-        Option.iter Dom_html.clearTimeout resize_debounce_id;
-        let (timer : Dom_html.timeout_id_safe) =
-          Dom_html.setTimeout (fun () ->
-              self#on_scroll ();
-              is_currently_being_resized <- false;
-              resize_debounce_id <- None)
-            debounce_throttle_resize in
-        resize_debounce_id <- Some timer
+          if self#should_unpin cur_scroll_y dir exceeded
+          then self#unpin ()
+          else if self#should_pin cur_scroll_y dir exceeded
+          then self#pin ();
+          last_scroll_y <- cur_scroll_y)
 
     end
 
-  let make ?scroll_target ?(rows = []) () : t =
+  let make ?scroll_target ?offset ?tolerance ?(rows = []) () : t =
     let elt =
       Markup.create
         ~rows:(List.map Widget.to_markup rows)
         ()
       |> To_dom.of_element in
-    new t ?scroll_target elt ()
+    new t ?offset ?tolerance ?scroll_target elt ()
 
-  let attach ?scroll_target (elt : Dom_html.element Js.t) : t =
-    new t ?scroll_target elt ()
+  let attach ?scroll_target ?offset ?tolerance
+        (elt : Dom_html.element Js.t) : t =
+    new t ?scroll_target ?offset ?tolerance elt ()
 
 end
 

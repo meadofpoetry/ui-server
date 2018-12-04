@@ -79,7 +79,7 @@ body {
 }
 #main-toolbar, #main-content {
     left: 0px;
-    transition: width 0.225s, left 0.225s;
+    transition: transform 0.25s ease-in-out, width 0.225s, left 0.225s;
 }
 @media (min-width: 1200px)
 {
