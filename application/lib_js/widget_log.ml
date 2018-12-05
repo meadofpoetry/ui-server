@@ -157,4 +157,4 @@ let make_dashboard_item ?settings ?init
       ?boards ?cpu ?inputs ?streams ()
     : 'a Dashboard.Item.item =
   let w = make ?init ?boards ?cpu ?inputs ?streams () in
-  Dashboard.Item.make_item ~name:"Обзор" w
+  Dashboard.Item.make_item ~name:"Лог" w

@@ -2,6 +2,10 @@ open Containers
 open Tyxml_js
 open Utils
 
+(** TODO
+    1. Using Infinite Scroll, there is no way to scroll horizontally on desktop
+    until the end of a table is reached *)
+
 module Markup = Components_markup.Table.Make(Xml)(Svg)(Html)
 
 type sort = Asc | Dsc
@@ -106,16 +110,18 @@ let equal : type a. a fmt -> (a -> a -> bool) = fun fmt a b ->
 
 module Cell = struct
 
-  let rec make_element : type a. a fmt -> a -> Dom_html.element Js.t =
-    fun fmt v ->
+  let make_element fmt v =
+    let is_numeric = is_numeric fmt in
     let create x =
-      Markup.Cell.create ~is_numeric:(is_numeric fmt) [x] ()
+      Markup.Cell.create ~is_numeric [x] ()
       |> To_dom.of_element in
+    let rec aux : type a. a fmt -> a -> Dom_html.element Js.t =
+    fun fmt v ->
     match fmt with
     | Option (fmt, e) ->
        begin match v with
-       | None -> make_element (String None) e
-       | Some x -> make_element fmt x
+       | None -> aux (String None) e
+       | Some x -> aux fmt x
        end
     | Html x ->
        map_or ~default:Fun.id (fun x -> x.to_elt) x v
@@ -123,13 +129,15 @@ module Cell = struct
        |> Of_dom.of_element
        |> create
     | Custom_elt x ->
-       create @@ Of_dom.of_element @@ Js.Unsafe.coerce @@ x.to_elt v
+       Of_dom.of_element @@ Js.Unsafe.coerce @@ x.to_elt v
+       |> create
     | Widget x ->
        map_or ~default:(fun x -> x#node) (fun x -> x.to_elt) x v
        |> Js.Unsafe.coerce
        |> Of_dom.of_element
        |> create
-    | _ -> create (Html.pcdata (to_string fmt v))
+    | _ -> create (Html.pcdata (to_string fmt v)) in
+    aux fmt v
 
   let rec set_value : type a. a fmt -> bool -> a option -> a -> Widget.t -> unit =
     fun fmt force prev v w ->

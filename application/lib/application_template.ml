@@ -61,7 +61,6 @@ let input topo (input : Topology.topo_input) =
                     input_string boards cpu)
            ; Src "/js/moment.min.js"
            ; Src "/js/Chart.min.js"
-           ; Src "/js/chartjs-plugin-deferred.min.js"
            ; Src "/js/chartjs-plugin-streaming.min.js"
            ; Src "/js/chartjs-plugin-datalabels.min.js"
            ]
@@ -93,8 +92,6 @@ let create (app : Application.t)
     ; pre_scripts =
         [ Src "/js/moment.min.js"
         ; Src "/js/Chart.min.js"
-        ; Src "/js/chartjs-plugin-deferred.min.js"
-        (* ; Src "/js/chartjs-plugin-streaming.min.js" *)
         ]
     ; post_scripts = [Src "/js/demo.js"]
     ; stylesheets = ["/css/demo.min.css"]
@@ -103,8 +100,7 @@ let create (app : Application.t)
   let sandbox =
     { title = Some "Песочница"
     ; pre_scripts = [ Src "/js/moment.min.js"
-                    ; Src "/js/Chart.min.js"
-                    ; Src "/js/chartjs-plugin-deferred.min.js" ]
+                    ; Src "/js/Chart.min.js" ]
     ; post_scripts = [Src "/js/sandbox.js"]
     ; stylesheets = ["/css/sandbox.min.css"]
     ; content = []

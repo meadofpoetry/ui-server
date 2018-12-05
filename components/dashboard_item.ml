@@ -2,8 +2,15 @@ open Containers
 open Dynamic_grid
 open Dashboard_common
 
+class type settings_view =
+  object
+    inherit Widget.t
+    method apply : unit -> unit
+    method reset : unit -> unit
+  end
+
 type settings =
-  { widget : Widget.t
+  { widget : settings_view
   ; ready : bool React.signal
   ; set : unit -> (unit, string) Lwt_result.t
   }
@@ -38,6 +45,10 @@ type 'a positioned_item =
 let make_timestamp ~time ~to_string () =
   { time; to_string }
 
+let make_settings ?(ready = React.S.const true)
+      ~(widget : #settings_view) ~set () =
+  { widget = (widget :> settings_view); ready; set }
+
 let make_info ?(description = "") ?(thumbnail = `Icon "help")
       ~(serialized : Yojson.Safe.json) ~(title : string) () =
   { title; thumbnail; description; serialized }
@@ -47,15 +58,6 @@ let make_item ?settings
       ~(name : string)
       (widget : #Widget.t) =
   { name; subtitle; settings; widget }
-
-let connect_apply (b : #Button.t) (settings : settings) =
-  let s = React.S.map (fun x -> b#set_disabled @@ not x) settings.ready in
-  b#listen_lwt Widget.Event.click (fun _ _ ->
-      (match React.S.value settings.ready with
-       | true -> settings.set ()
-       | false -> Lwt_result.fail "no settings available")
-      |> Lwt.map ignore) |> Lwt.ignore_result;
-  s
 
 let make_timestamp_string to_string (time : Ptime.t option) : string =
   let prefix = "Последнее обновление: " in
@@ -85,25 +87,25 @@ class t ?(removable = true)
     let icon = Icon.SVG.(create_simple Path.close) in
     new Icon_button.t ~icon () in
   let sd =
-    Option.map (fun (s : settings) ->
+    Option.map (fun (settings : settings) ->
         let icon = Icon.SVG.(create_simple Path.settings) in
-        let settings = new Icon_button.t ~icon () in
+        let icon_button = new Icon_button.t ~icon () in
         let cancel_button = new Button.t ~label:"Отмена" () in
         let apply_button = new Button.t ~label:"ОК" () in
+        let s = React.S.map Fun.(apply_button#set_disabled % not)
+                  settings.ready in
         let cancel = Dialog.Action.make ~typ:`Cancel cancel_button in
         let apply = Dialog.Action.make ~typ:`Accept apply_button in
         let dialog =
           new Dialog.t
             ~title:(Printf.sprintf "Настройки. %s" item.name)
-            ~content:(`Widgets [s.widget])
+            ~content:(`Widgets [settings.widget])
             ~actions:[cancel; apply]
             () in
-        (* FIXME *)
-        let _ = connect_apply apply_button s in
-        settings, dialog)
+        icon_button, dialog, s)
       item.settings in
   let icons = match sd with
-    | Some (s, _) -> [s#widget]
+    | Some (icon, _, _) -> [icon#widget]
     | None -> [] in
   let buttons = new Card.Actions.Icons.t ~widgets:icons () in
   let actions = new Card.Actions.t ~widgets:[buttons] () in
@@ -114,6 +116,7 @@ class t ?(removable = true)
   let content = new Card.Media.t ~widgets:[item.widget] () in
   object(self)
 
+    val mutable _listener = None
     val mutable _editable = false
     val mutable _removable = removable
 
@@ -123,11 +126,30 @@ class t ?(removable = true)
 
     method! init () : unit =
       super#init ();
-      Option.iter (fun ((settings : #Widget.t), (dialog : Dialog.t)) ->
-          let open Lwt.Infix in
-          settings#listen_click_lwt (fun _ _ ->
-              dialog#show_await () >|= ignore) |> Lwt.ignore_result;
-          Dom.appendChild Dom_html.document##.body dialog#root) sd;
+      let listener =
+        Option.map (fun ((s : Icon_button.t), (dialog : Dialog.t), _) ->
+            let open Lwt.Infix in
+            let listener =
+              s#listen_click_lwt (fun _ _ ->
+                  dialog#show_await ()
+                  >>= function
+                  | `Cancel ->
+                     Option.iter (fun (x : settings) ->
+                         x.widget#reset ())
+                       item.settings;
+                     Lwt.return_unit
+                  | `Accept ->
+                     begin match item.settings with
+                     | None -> Lwt.return_unit
+                     | Some (s : settings) ->
+                        if React.S.value s.ready
+                        then (s.widget#apply ();
+                              s.set () >|= function _ -> ())
+                        else Lwt.return_unit
+                     end) in
+            Dom.appendChild Dom_html.document##.body dialog#root;
+            listener) sd in
+      _listener <- listener;
       self#add_class Markup.Item._class;
       title_box#add_class Markup.Item.title_class;
       content#add_class Markup.Item.content_class;
@@ -138,9 +160,14 @@ class t ?(removable = true)
     method! destroy () : unit =
       super#destroy ();
       item.widget#remove_class Markup.Item.widget_class;
-      Option.iter (fun (_, dialog) ->
-          try Dom.removeChild Dom_html.document##.body dialog#root
-          with _ -> ()) sd
+      Option.iter Lwt.cancel _listener;
+      _listener <- None;
+      Option.iter (fun (icon, dialog, s) ->
+          (try Dom.removeChild Dom_html.document##.body dialog#root
+           with _ -> ());
+          icon#destroy ();
+          dialog#destroy ();
+          React.S.stop ~strong:true s) sd
 
     method remove = remove
 

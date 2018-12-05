@@ -21,35 +21,26 @@ let ( % ) = Fun.( % )
 
 module Settings = struct
 
-  type t = { hex : bool } [@@deriving eq]
+  type t = { hex : bool }
 
-  let (default : t) = { hex = false (* FIXME *) }
+  let (default : t) = { hex = false }
+
+  let make_hex_switch state =
+    let input = new Switch.t ~state () in
+    new Form_field.t ~input ~align_end:true ~label:"HEX IDs" ()
 
   class view ?(settings = default) () =
-    let hex_switch =
-      new Switch.t
-        ~state:settings.hex
-        () in
-    let hex_form =
-      new Form_field.t
-        ~input:hex_switch
-        ~align_end:true
-        ~label:"HEX IDs"
-        () in
-    let s, set = React.S.create ~eq:equal settings in
+    let hex_switch = make_hex_switch settings.hex in
     object(self)
-      inherit Vbox.t ~widgets:[hex_form] ()
-
+      val mutable value = settings
+      inherit Vbox.t ~widgets:[hex_switch] ()
+      method value : t = value
       method apply () : unit =
-        let hex = hex_switch#checked in
-        set { hex }
-
+        let hex = hex_switch#input_widget#checked in
+        value <- { hex }
       method reset () : unit =
-        let { hex } = React.S.value self#s in
-        hex_switch#set_checked hex
-
-      method s : t React.signal = s
-
+        let { hex } = value in
+        hex_switch#input_widget#set_checked hex
     end
 
   let make ?settings () = new view ?settings ()
@@ -287,12 +278,11 @@ let make ?settings
 let make_dashboard_item ?settings init : 'a Dashboard.Item.item =
   let w = make ?settings init in
   let settings = Settings.make ?settings () in
-  let s = settings#s in
   let (settings : Dashboard.Item.settings) =
-    { widget = settings#widget
-    ; ready = React.S.const true
-    ; set = (fun () -> Lwt_result.return @@ w#set_settings @@ React.S.value s)
-    } in
+    Dashboard.Item.make_settings
+      ~widget:settings
+      ~set:(fun () -> Lwt_result.return @@ w#set_settings settings#value)
+      () in
   let tz_offset_s = Ptime_clock.current_tz_offset_s () in
   let timestamp =
     Dashboard.Item.make_timestamp
@@ -300,7 +290,7 @@ let make_dashboard_item ?settings init : 'a Dashboard.Item.item =
       ~to_string:(Time.to_human_string ?tz_offset_s)
       () in
   Dashboard.Item.make_item
-    ~name:"Обзор"
+    ~name:"Список PID"
     ~subtitle:(Timestamp timestamp)
     ~settings
     w

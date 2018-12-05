@@ -1,9 +1,23 @@
 (** Based on Clusterize.js *)
 
+(** TODO
+    1. Consider using Intersection Observer (and polifyll)
+    2. Do not store DOM nodes in cache, cache data and render rows if necessary
+    3. Combine with Infinite Scroll (?)
+ *)
+
 open Containers
 open Utils
 
 type row = Dom_html.element Js.t
+
+let base_class = "mdc-clusterize"
+let extra_row_class =
+  Components_markup.CSS.add_element base_class "extra-row"
+let top_space_class =
+  Components_markup.CSS.add_modifier base_class "top-space"
+let bottom_space_class =
+  Components_markup.CSS.add_modifier base_class "bottom-space"
 
 let window_scroll_y () =
   Js.Optdef.get (Js.Unsafe.coerce Dom_html.window)##.pageYOffset
@@ -75,8 +89,6 @@ type cluster =
   ; rows : row list
   }
 
-let base_class = "mdc-clusterize"
-
 let get_child_nodes (t : t) : row list =
   let nodes = t.options.content_element##.childNodes in
   let rec aux acc = function
@@ -111,11 +123,9 @@ let get_rows_height (t : t) : bool =
      let (node : Dom_html.element Js.t) =
        Js.Unsafe.coerce
        @@ Js.Opt.get (nodes##item index) (fun () -> raise Not_found) in
-     Printf.printf "row height: %d\n" node##.offsetHeight;
      t.item_height <- node##.offsetHeight;
      (* TODO Consider margins and border spacing *)
      t.block_height <- t.item_height * t.options.rows_in_block;
-     t.rows_in_cluster <- t.options.blocks_in_cluster * t.options.rows_in_block;
      t.cluster_height <- t.options.blocks_in_cluster * t.block_height;
      prev_item_height <> t.item_height
 
@@ -176,10 +186,7 @@ let check_changes typ (cache : cache) : bool =
   let changed = match typ with
     | `Top x -> cache.top <> x
     | `Bottom x -> cache.bottom <> x
-    | `Data x ->
-       Printf.printf "checking data changes: old = %d, new = %d\n"
-         (List.length cache.data) (List.length x);
-       not @@ List.equal Equal.physical x cache.data in
+    | `Data x -> not Equal.(list physical x cache.data) in
   let set = function
     | `Top x -> cache.top <- x
     | `Bottom x -> cache.bottom <- x
@@ -188,14 +195,9 @@ let check_changes typ (cache : cache) : bool =
   changed
 
 let render_extra_row ?height  (t : t) (modifier_class : string) : row =
-  let classes =
-    Components_markup.CSS.(
-      [ add_element base_class "extra-row"
-      ; add_modifier base_class modifier_class
-      ]
-    ) in
   let row = t.options.make_extra_row () in
-  List.iter (fun c -> row##.classList##add (Js.string c)) classes;
+  List.iter (fun c -> row##.classList##add (Js.string c))
+    [extra_row_class; modifier_class];
   Option.iter (fun height ->
       row##.style##.height := Utils.px_js height) height;
   row
@@ -212,8 +214,6 @@ let html (t : t) (rows : row list) : unit =
 let insert_to_dom (t : t) : unit =
   if t.cluster_height = 0 then explore_environment t;
   let data = generate t (get_cluster_num t) in
-  Printf.printf "top offset: %d, bottom offset: %d, rows: %d\n"
-    data.top_offset data.bottom_offset (List.length data.rows);
   let this_cluster_content_changed =
     check_changes (`Data data.rows) t.cache in
   let top_offset_changed =
@@ -222,7 +222,6 @@ let insert_to_dom (t : t) : unit =
     check_changes (`Bottom data.bottom_offset) t.cache in
   if (not this_cluster_content_changed) && top_offset_changed
   then
-    let () = print_endline @@ "first case " ^ string_of_int (List.length t.rows) in
     let first = t.options.content_element##.firstChild in
     begin match Option.map Js.Unsafe.coerce @@ Js.Opt.to_option first with
     | None -> ()
@@ -231,24 +230,18 @@ let insert_to_dom (t : t) : unit =
     end
   else if this_cluster_content_changed || top_offset_changed
   then
-    let () = print_endline @@ "second case " ^ string_of_int (List.length t.rows) in
     let parity =
       if not t.options.keep_parity then None else
         Some (render_extra_row t "keep-parity") in
-    let top = render_extra_row ~height:data.top_offset t "top-space" in
-    let layout = List.cons_maybe parity (top :: data.rows) in
-    let layout = match data.bottom_offset with
-      | x when x <= 0 -> layout
-      | height ->
-         let extra = render_extra_row ~height t "bottom-space" in
-         layout @ [extra] in
+    let top = render_extra_row ~height:data.top_offset t top_space_class in
+    let bot = render_extra_row ~height:data.bottom_offset t bottom_space_class in
+    let layout = (List.cons_maybe parity (top :: data.rows)) @ [bot] in
     (* TODO Call 'cluster will change' here *)
     html t layout;
     (* TODO Call 'cluster changed' here *)
     ()
   else if only_bottom_offset_changed
   then
-    let () = print_endline "third case" in
     let last = t.options.content_element##.lastChild in
     begin match Option.map Js.Unsafe.coerce @@ Js.Opt.to_option last with
     | None -> ()
@@ -346,7 +339,7 @@ let make ?(rows_in_block = 50)
     ; bottom = 0
     } in
   let t =
-    { rows_in_cluster = 0
+    { rows_in_cluster = blocks_in_cluster * rows_in_block
     ; item_height = 0
     ; cluster_height = 0
     ; block_height = 0
