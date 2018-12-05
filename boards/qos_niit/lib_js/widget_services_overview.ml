@@ -265,7 +265,7 @@ class t ?(settings : Settings.t option)
     (** Adds new row to the overview *)
     method add_row (s : Service.t) =
       add_row (self :> Widget.t) table pids rate
-        (fun () -> _settings) self#set_details s
+        (fun () -> self#settings) self#set_details s
 
     (** Updates PID list *)
     method update_pids (pids : Pid.t list timestamped) : unit =
@@ -353,12 +353,15 @@ class t ?(settings : Settings.t option)
          self#remove_class no_sync_class;
          self#add_class no_response_class
 
+    method settings : Settings.t =
+      _settings
+
     method set_settings ({ hex } as s : Settings.t) =
       _settings <- s;
       on_change hex;
-      Option.iter (fun (d : Widget_service_info.t) ->
-          d#set_settings { hex })
-      @@ React.S.value details
+      match React.S.value details with
+      | None -> ()
+      | Some details -> details#set_settings { hex }
 
     (* Private methods *)
 

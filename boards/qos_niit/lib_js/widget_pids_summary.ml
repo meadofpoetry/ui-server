@@ -217,6 +217,7 @@ module Pie = struct
            update pie None
         | Some { total; pids; _ } ->
            let open Chartjs in
+           let pids = List.sort (fun a b -> compare (fst a) (fst b)) pids in
            let data = data pie in
            let br =
              List.fold_left (fun acc (pid, br) ->

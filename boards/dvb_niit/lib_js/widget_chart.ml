@@ -4,6 +4,10 @@ open Widget_types
 open Board_types
 open Common
 
+(* TODO
+   1. Make data units configurable, if possible (e.g. for power chart)
+ *)
+
 module Point = struct
   open Chartjs.Types
   include Chartjs.Line.Dataset.Make_point(Time)(Float)

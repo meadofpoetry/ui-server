@@ -198,16 +198,21 @@ module Pids = struct
           List.mem ~eq:(=) pid service_pids)
         pids
 
-  class t (service : Service.t)
+  class t ?(settings : Settings.t option)
+          (service : Service.t)
           (init : Pid.t list timestamped option)
           () =
     let init = match init with
       | None -> None
       | Some x -> Some { x with data = filter_pids service x.data } in
+    let (settings : Widget_pids_overview.Settings.t option) =
+      match settings with
+      | None -> None
+      | Some { hex } -> Some { hex } in
     object(self)
       val mutable _service : Service.t = service
 
-      inherit Widget_pids_overview.t init () as super
+      inherit Widget_pids_overview.t ?settings init () as super
 
       method update_service (service : Service.t) =
         _service <- service;
@@ -230,7 +235,7 @@ class t ?(settings : Settings.t option)
         (pids : Pid.t list timestamped option)
         () =
   let info, set_info, set_rate, set_min, set_max = make_description () in
-  let pids = new Pids.t init pids () in
+  let pids = new Pids.t ?settings init pids () in
   let table = pids in
   let tabs =
     let info_icon =
@@ -277,8 +282,10 @@ class t ?(settings : Settings.t option)
     method settings : Settings.t =
       _settings
 
-    method set_settings (s : Settings.t) : unit =
-      self#set_hex s.hex
+    method set_settings ({ hex } : Settings.t) : unit =
+      let pids_settings = { pids#settings with hex } in
+      set_info ~hex _info;
+      pids#set_settings pids_settings
 
     (** Updates the description *)
     method update (x : Service.t) =
@@ -307,8 +314,7 @@ class t ?(settings : Settings.t option)
     (* Private methods *)
 
     method private set_hex (x : bool) : unit =
-      set_info ~hex:x _info;
-      pids#set_hex x
+      set_info ~hex:x _info
 
     method private _set_min x =
       let eq = match _min, x with
