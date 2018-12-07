@@ -41,7 +41,7 @@ type status_versions =
   } [@@deriving show, eq]
 
 type status_raw =
-  { status : status
+  { basic : status
   ; input : input
   ; t2mi_mode : t2mi_mode_raw
   ; jitter_mode : jitter_mode option
@@ -186,8 +186,8 @@ type device_events =
   ; t2mi_mode : t2mi_mode option signal
   ; t2mi_mode_raw : t2mi_mode_raw event
   ; jitter_mode : jitter_mode option signal
-  ; input : input signal
   ; state : Topology.state signal
+  ; input : input signal
   ; status : status signal
   ; errors : Board_error.t list event
   ; info : devinfo option signal
@@ -228,8 +228,8 @@ type events =
 
 type push_events =
   { devinfo : devinfo option -> unit
-  ; input : input -> unit
   ; status : status -> unit
+  ; input : input -> unit
   ; state : Topology.state -> unit
   ; t2mi_mode_raw : t2mi_mode_raw -> unit
   ; t2mi_mode : t2mi_mode option -> unit

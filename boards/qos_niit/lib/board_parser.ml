@@ -855,7 +855,7 @@ module Status = struct
       to_mode_exn (get_status_mode msg)
         (get_status_t2mi_pid msg)
         (Multi_TS_ID.of_int32_pure @@ get_status_t2mi_stream_id msg) in
-    { status =
+    { basic =
         { time
         ; load = (float_of_int ((get_status_load msg) * 100)) /. 255.
         ; reset = flags2 land 0x02 <> 0

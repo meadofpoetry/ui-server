@@ -92,8 +92,9 @@ let make_tabs stream input (boards : (int * string) list) cpu =
 
 let () =
   let open Stream in
-  let uri = Dom_html.window##.location##.pathname
-            |> Js.to_string in
+  let (uri : string) =
+    Dom_html.window##.location##.pathname
+    |> Js.to_string in
   let fmt = Uri.Path.Format.("input" @/ String ^/ Int ^/ ID.fmt ^/ empty) in
   let (input : Topology.topo_input) =
     Js.Unsafe.global##.input

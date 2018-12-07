@@ -95,7 +95,14 @@ module Acc = struct
 
 end
 
-module Make(Logs : Logs.LOG) = struct
+module Make(Logs : Logs.LOG) : sig
+  val create : init ->
+               (Cstruct.t -> unit Lwt.t) ->
+               config storage ->
+               float ->
+               (Stream.Raw.t list React.signal -> Stream.t list React.signal) ->
+               events * api * ([`Continue of Cstruct.t list -> 'a ] as 'a)
+end = struct
 
   type protocol_error =
     | Unexpected_info of devinfo
@@ -175,7 +182,7 @@ module Make(Logs : Logs.LOG) = struct
     let get_req_stack ({ status; _ } : group) (prev_t : group option)
         : probe_response probe_request list =
       let bitrate =
-        if not status.status.has_sync then None else
+        if not status.basic.has_sync then None else
           Some (Get_bitrates (get_id ())) in
       let jitter = match status.jitter_mode with
         | None -> None
@@ -274,12 +281,13 @@ module Make(Logs : Logs.LOG) = struct
 
     let handle_immediate (pe : push_events)
           (acc : Acc.t) : Acc.t =
-      let (({ status = { status; input; _ }; _ } : group) as group) =
-        Option.get_exn acc.group in
-      pe.input input;
-      pe.status status;
-      pe.t2mi_mode_raw group.status.t2mi_mode;
-      acc
+      match acc.group with
+      | None -> acc
+      | Some ({ status = { basic; t2mi_mode; input; _ }; _ } : group) ->
+         pe.input input;
+         pe.status basic;
+         pe.t2mi_mode_raw t2mi_mode;
+         acc
 
     let merge_with_pid ~(eq : 'a -> 'a -> bool)
           (pids : ('a * (Pid.t list)) list)
@@ -301,11 +309,11 @@ module Make(Logs : Logs.LOG) = struct
           (events : events)
           (sources : init)
           (acc : Acc.t) =
-      let (({ status = { status; t2mi_mode; streams = ids; input; _ }
+      let (({ status = { basic; t2mi_mode; input; streams = ids; _ }
             ; _ } : group) as group) =
         Option.get_exn acc.group in
-      let time = status.time in
-      let timestamp = status.time in
+      let time = basic.time in
+      let timestamp = basic.time in
       let streams = React.S.value events.streams in
       (* Push raw streams *)
       pe.raw_streams
@@ -575,7 +583,7 @@ module Make(Logs : Logs.LOG) = struct
            then (Logs.info (fun m -> m "initialization done!");
                  push_state pe `Fine);
            Logs.debug (fun m ->
-               m "received group: load=%g%%" group.status.status.load);
+               m "received group: load=%g%%" group.status.basic.load);
            let stack = Events.get_req_stack group acc.group in
            let exn = Protocol_invariant (Probes_timeout probes_timeout) in
            let pool =
@@ -663,20 +671,20 @@ module Make(Logs : Logs.LOG) = struct
 
   (* T2-MI mode signal, contains value to apply to the board *)
   (* FIXME check this *)
-  let to_t2mi_locker
-        (mode : t2mi_mode option signal)
-        (streams : Stream.t list signal) =
-    let find (streams : Stream.t list) = function
-      | None -> None
-      | Some (stream : Stream.t) ->
-         List.find_opt (fun (s : Stream.t) ->
-             not @@ Stream.ID.equal s.id stream.id
-             && Stream.equal_container_id s.orig_id stream.orig_id) streams in
-    React.S.l2 ~eq:Equal.bool (fun streams (mode : t2mi_mode option) ->
-        let stream = Option.map (fun (x : t2mi_mode) -> x.stream) mode in
-        match find streams stream with
-        | None -> false
-        | Some _ -> true) streams mode
+  (* let to_t2mi_locker
+   *       (mode : t2mi_mode option signal)
+   *       (streams : Stream.t list signal) =
+   *   let find (streams : Stream.t list) = function
+   *     | None -> None
+   *     | Some (stream : Stream.t) ->
+   *        List.find_opt (fun (s : Stream.t) ->
+   *            not @@ Stream.ID.equal s.id stream.id
+   *            && Stream.equal_container_id s.orig_id stream.orig_id) streams in
+   *   React.S.l2 ~eq:Equal.bool (fun streams (mode : t2mi_mode option) ->
+   *       let stream = Option.map (fun (x : t2mi_mode) -> x.stream) mode in
+   *       match find streams stream with
+   *       | None -> false
+   *       | Some _ -> true) streams mode *)
 
   (* Map SI/PSI tables to separate SI/PSI sections *)
   let to_sections (tables : SI_PSI_table.t list) : SI_PSI_section.t list =
@@ -706,6 +714,8 @@ module Make(Logs : Logs.LOG) = struct
   let create_events (storage : config storage) streams_conv =
     let state, set_state =
       S.create ~eq:Topology.equal_state `No_response in
+    let input, set_input =
+      S.create ~eq:equal_input storage#get.input in
     let devinfo, set_devinfo =
       S.create ~eq:(Equal.option equal_devinfo) None in
     let status, set_status =
@@ -720,12 +730,6 @@ module Make(Logs : Logs.LOG) = struct
         ; has_sync = false
         ; has_stream = false
         } in
-    let input, set_input =
-      let i, s = S.create ~eq:equal_input storage#get.input in
-      let set i =
-        Logs.info (fun m -> m "setting signal: %s" @@ input_to_string i);
-        s i in
-      i, set in
     let hw_errors, set_hw_errors = E.create () in
     let raw_streams, set_raw_streams =
       S.create ~eq:(Equal.list Stream.Raw.equal)[] in
@@ -753,7 +757,8 @@ module Make(Logs : Logs.LOG) = struct
       S.l3 ~eq:equal_config (fun input t2mi_mode jitter_mode ->
           let config = { input; t2mi_mode; jitter_mode } in
           storage#store config;
-          config) input t2mi_mode jitter_mode in
+          config)
+        input t2mi_mode jitter_mode in
     let e_pcr, pcr_push = E.create () in
     let e_pcr_s, pcr_s_push = E.create () in
 
@@ -764,12 +769,12 @@ module Make(Logs : Logs.LOG) = struct
              id, { timestamp; data = to_sections data })) tables in
     let device =
       { state
+      ; input
       ; info = devinfo
       ; t2mi_mode
       ; jitter_mode
       ; config
       ; t2mi_mode_raw
-      ; input
       ; status
       ; errors = hw_errors
       } in
@@ -824,18 +829,14 @@ module Make(Logs : Logs.LOG) = struct
     in
     events, push_events
 
-  let wait = fun ~eq t s v ->
-    let open Lwt.Infix in
-    if eq (S.value s) v then Lwt.return v else
-      t ()
-      >>= (fun () ->
-      if eq (S.value s) v then Lwt.return v
-      else Lwt.pick [ E.next @@ S.changes s
-                    ; Lwt_unix.timeout status_timeout])
-      >>= (fun x  ->
-      React.S.stop s;
-      if eq x v then Lwt.return x
-      else Lwt.fail @@ Failure "got unexpected value")
+  let wait = fun ~eq cur req e ->
+    (* TODO rewrite next to wait for expected value *)
+    Lwt.(
+      req ()
+      >>= (fun () -> Lwt.pick [E.next e; Lwt_unix.timeout status_timeout])
+      >>= (fun x ->
+        if eq x cur then Lwt.return x
+        else fail @@ Failure "got unexpected value"))
 
   let create_api sources sender step_duration
         (storage : config storage) events (push_events : push_events) =
@@ -845,34 +846,35 @@ module Make(Logs : Logs.LOG) = struct
     let imsgs = ref (Queue.create []) in
     let isend = enqueue_instant state imsgs sender in
     { set_input =
-        (fun i ->
-          Logs.info (fun m -> m "setting input: %s" @@ show_input i);
+        (fun cur ->
           let eq = equal_input in
-          let s = events.device.input in
-          let mode = t2mi_mode_to_raw storage#get.t2mi_mode in
-          let t () = isend (Set_board_mode (i, mode)) in
-          wait ~eq t s i)
+          let old = S.value events.device.input in
+          if eq old cur then Lwt.return cur else
+            let e = S.changes events.device.input in
+            let mode = t2mi_mode_to_raw storage#get.t2mi_mode in
+            let req () = isend (Set_board_mode (cur, mode)) in
+            wait ~eq cur req e)
     ; set_t2mi_mode =
         (fun mode ->
+          let cur = t2mi_mode_to_raw mode in
+          let old = t2mi_mode_to_raw @@ (S.value events.device.t2mi_mode) in
           let eq = equal_t2mi_mode_raw in
-          (* current value *)
-          let v = t2mi_mode_to_raw @@ (S.value events.device.t2mi_mode) in
-          let s = S.hold ~eq:equal_t2mi_mode_raw v
-                  @@ events.device.t2mi_mode_raw in
-          let raw = t2mi_mode_to_raw mode in
-          let t () = isend (Set_board_mode (storage#get.input, raw)) in
-          wait ~eq t s raw
-          >|= (fun _ -> push_events.t2mi_mode mode)
-          >|= (fun () -> mode))
+          if eq old cur then Lwt.return mode else
+            let e = events.device.t2mi_mode_raw in
+            let req () = isend (Set_board_mode (storage#get.input, cur)) in
+            wait ~eq cur req e
+            >|= (fun _ -> push_events.t2mi_mode mode)
+            >|= (fun () -> mode))
     ; set_jitter_mode =
-        (fun mode ->
+        (fun cur ->
           let eq = Equal.option equal_jitter_mode in
-          let s = S.map ~eq:(Equal.option equal_jitter_mode)
-                    (fun (c : config) -> c.jitter_mode) config in
-          let t () = isend (Set_jitter_mode mode) in
-          wait ~eq t s mode
-          >|= (fun _ -> push_events.jitter_mode mode)
-          >|= (fun () -> mode))
+          let old = (S.value config).jitter_mode in
+          if eq old cur then Lwt.return cur else
+            let e = E.map (fun (c : config) -> c.jitter_mode)
+                    @@ S.changes config in
+            let req () = isend (Set_jitter_mode cur) in
+            wait ~eq cur req e
+            >|= Fun.(tap push_events.jitter_mode))
     ; reset = (fun () -> isend Reset)
     ; get_section =
         (fun ?section ?table_id_ext ?id_ext_1 ?id_ext_2
@@ -950,19 +952,19 @@ module Make(Logs : Logs.LOG) = struct
       create_events storage streams_conv in
     let api, msgs, imsgs =
       create_api sources sender step_duration storage events push_events in
-    let t2mi_locker = to_t2mi_locker events.device.t2mi_mode events.streams in
-    E.keep
-    @@ E.map (fun (lock : bool) ->
-           let state = events.device.state in
-           let req x = Set_board_mode (storage#get.input, x) in
-           if lock
-           then (
-             let def = t2mi_mode_raw_default in
-             enqueue_instant state imsgs sender (req def))
-           else (
-             let raw = t2mi_mode_to_raw @@ (S.value events.device.t2mi_mode) in
-             enqueue_instant state imsgs sender (req raw)))
-    @@ React.S.changes t2mi_locker;
+    (* let t2mi_locker = to_t2mi_locker events.device.t2mi_mode events.streams in *)
+    (* E.keep
+     * @@ E.map (fun (lock : bool) ->
+     *        let state = events.device.state in
+     *        let req x = Set_board_mode (storage#get.input, x) in
+     *        if lock
+     *        then (
+     *          let def = t2mi_mode_raw_default in
+     *          enqueue_instant state imsgs sender (req def))
+     *        else (
+     *          let raw = t2mi_mode_to_raw @@ (S.value events.device.t2mi_mode) in
+     *          enqueue_instant state imsgs sender (req raw)))
+     * @@ React.S.changes t2mi_locker; *)
     events,
     api,
     step sources msgs imsgs sender storage
