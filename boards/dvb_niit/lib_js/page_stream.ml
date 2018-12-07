@@ -2,6 +2,9 @@ open Containers
 open Components
 open Common
 
+(* TODO
+   1. Fetch data once, not for every chart, except when periods differ *)
+
 module Storage = Ui_templates.Storage.Local_storage
 
 let (key : string) =

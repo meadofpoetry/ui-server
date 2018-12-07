@@ -140,7 +140,7 @@ $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #
 }
 
 .topology__block {
-    margin: 20px;
+    margin: 40px;
     max-width: 250px;
 
     &--fail {

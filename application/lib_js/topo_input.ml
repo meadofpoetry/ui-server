@@ -9,19 +9,21 @@ let input_to_string : Common.Topology.input -> string = function
 let circle_markup text =
   let open Tyxml_js.Html in
   span ~a:[a_class ["topology__input__circle"]]
-       [pcdata text]
+       [txt text]
 
 let label_markup text =
   let open Tyxml_js.Html in
   span ~a:[a_class ["topology__input__label"]]
-       [pcdata text]
+       [txt text]
 
-let markup (input:Common.Topology.topo_input) =
+let markup (input : Common.Topology.topo_input) =
+  (* FIXME migrate to svg icon *)
   let name = Common.Topology.get_input_name input in
   let open Tyxml_js.Html in
   div ~a:[a_class ["mdc-chip"; "topology__input"]]
-      [ div ~a:[a_class ["mdc-chip__text"]] [pcdata name]
-      ; i ~a:[a_class ["material-icons mdc-chip__icon mdc-chip__icon--trailing"]] [ pcdata "arrow_forward" ]]
+    [ div ~a:[a_class ["mdc-chip__text"]] [txt name]
+    ; i ~a:[a_class ["material-icons mdc-chip__icon mdc-chip__icon--trailing"]]
+        [txt "arrow_forward"]]
 
 
 class t ~input () =

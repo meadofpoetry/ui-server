@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Components
 open Wm_types
@@ -116,7 +117,7 @@ module Make(I : Item) = struct
         set_grid grid;
         let grouped =
           List.fold_left (fun acc (x:I.t) ->
-              List.Assoc.update ~eq:(=) ~f:(function
+              List.Assoc.update ~eq:(=) (function
                   | Some l -> Some (x :: l)
                   | None -> Some [x]) (I.layer_of_t x) acc)
             [] items in

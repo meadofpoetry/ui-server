@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 
 type user = [ `Root | `Operator | `Guest ]

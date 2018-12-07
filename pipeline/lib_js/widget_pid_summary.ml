@@ -18,7 +18,7 @@ module Pids = struct
   class pid ?(hex = false) (state : t) () =
   object(self)
 
-    inherit Widget.t Dom_html.(createSpan document) () as super
+    inherit Widget.t Js_of_ocaml.Dom_html.(createSpan document) () as super
 
     method init () : unit =
       super#init ();
@@ -95,7 +95,7 @@ module Pids = struct
         | Some cell ->
            pids_box#remove_child cell;
            cell#destroy ();
-           _pids <- List.remove ~eq:Widget.equal ~x:cell _pids
+           _pids <- List.remove ~eq:Widget.equal cell _pids
 
     end
 

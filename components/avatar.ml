@@ -13,7 +13,7 @@ end
 module Letter = struct
 
   class t ~text () =
-    let elt = Markup.Letter.create ~text () |> Tyxml_js.To_dom.of_div in
+    let elt = Markup.Letter.create ~text () |> To_dom.of_div in
     object
       inherit Widget.t elt () as super
 

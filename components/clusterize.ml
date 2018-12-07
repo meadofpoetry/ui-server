@@ -6,6 +6,7 @@
     3. Combine with Infinite Scroll (?)
  *)
 
+open Js_of_ocaml
 open Containers
 open Utils
 

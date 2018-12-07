@@ -81,7 +81,7 @@ let grid_template_areas t =
 let wrap area elt =
   let div = Widget.create_div () in
   div#add_class @@ Markup.CSS.add_element _class "node-wrapper";
-  div#style##.cssText := Js.string @@ "grid-area: " ^ area ^ ";";
+  div#style##.cssText := Js_of_ocaml.Js.string @@ "grid-area: " ^ area ^ ";";
   div#append_child elt;
   div
 
@@ -185,9 +185,9 @@ let create ~(parent : #Widget.t)
       >|= (fun () -> widget#destroy ())) in
   iter_paths (fun _ x ->
       Option.iter (fun sw -> parent#append_child sw) x#switch;
-      Dom.appendChild svg x#root) nodes;
-  Dom.appendChild Dom_html.document##.body drawer#root;
-  Dom.appendChild parent#root svg;
+      Js_of_ocaml.Dom.appendChild svg x#root) nodes;
+  Widget.append_to_body drawer;
+  Js_of_ocaml.Dom.appendChild parent#root svg;
   List.iter (fun x -> let node = to_topo_node x in
                       let w = wrap node#area node in
                       parent#append_child w) nodes;
@@ -201,5 +201,5 @@ let create ~(parent : #Widget.t)
   |> React.E.map_s on_settings
   |> React.E.keep;
   React.(E.keep @@ E.map (update_nodes nodes) event);
-  parent#style##.cssText := Js.string gta;
+  parent#style##.cssText := Js_of_ocaml.Js.string gta;
   nodes

@@ -73,7 +73,7 @@ let input_to_yojson x = `String (input_to_string x)
 
 let input_of_yojson = function
   | `String s -> input_of_string s
-  | _ as e    -> Error ("input_of_yojson: unknown value: " ^ (Yojson.Safe.to_string e))
+  | _ as e -> Error ("input_of_yojson: unknown value: " ^ (Yojson.Safe.to_string e))
 
 type boards = (int * board_type) list [@@deriving yojson, eq]
 

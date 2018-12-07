@@ -1,18 +1,18 @@
+open Js_of_ocaml
 open Tyxml_js
 open Lwt.Infix
 
 module Markup = Components_markup.Tab_indicator.Make(Xml)(Svg)(Html)
 
-
 let sliding_activate_class =
   Components_markup.CSS.add_modifier Markup.base_class "sliding-activate"
 
 class t ?(fade = false) ?(active = false) () =
-  let content =
+  let (content : Widget.t) =
     Markup.create_content ()
     |> To_dom.of_element
     |> Widget.create in
-  let elt =
+  let (elt : Dom_html.element Js.t) =
     Markup.create (Widget.to_markup content) ()
     |> To_dom.of_element in
   object(self : 'self)
@@ -54,7 +54,7 @@ class t ?(fade = false) ?(active = false) () =
       | None -> ()
       | Some prev ->
          let prev_rect = prev#content#bounding_client_rect in
-         let cur_rect  = self#content#bounding_client_rect in
+         let cur_rect = self#content#bounding_client_rect in
          let width_delta = match prev_rect.width, cur_rect.width with
            | Some pw, Some cw -> pw /. cw
            | _ -> 1. (* FIXME*) in

@@ -13,9 +13,8 @@ module Make(Xml : Xml_sigs.NoWrap)
   let on_class = CSS.add_modifier base_class "on"
   let icon_on_class = CSS.add_modifier icon_class "on"
 
-  let create ?(classes = []) ?attrs ?on_icon icon () =
-    button ~a:([ a_class (base_class :: classes) ]
-               <@> attrs)
+  let create ?(classes = []) ?attrs ?on_icon icon () : 'a elt =
+    button ~a:([a_class (base_class :: classes)] <@> attrs)
       (on_icon ^:: icon :: [])
 
 end

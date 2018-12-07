@@ -13,16 +13,16 @@ module Make(Xml : Xml_sigs.NoWrap)
   let path_class = CSS.add_element base_class "path"
   let idle_class = CSS.add_element base_class "idle"
 
-  let create_path ?(classes = []) ?attrs () =
+  let create_path ?(classes = []) ?attrs () : 'a Svg.elt =
     Svg.path ~a:([Svg.a_class (path_class :: classes)] <@> attrs) []
 
-  let create_svg ?(classes = []) ?attrs path () =
+  let create_svg ?(classes = []) ?attrs path () : 'a elt =
     svg ~a:([Svg.a_class classes] <@> attrs) [path]
 
-  let create_idle ?(classes = []) ?attrs () =
+  let create_idle ?(classes = []) ?attrs () : 'a elt =
     div ~a:([a_class (idle_class :: classes)] <@> attrs) []
 
-  let create ?(classes = []) ?attrs svg () =
+  let create ?(classes = []) ?attrs svg () : 'a elt =
     div ~a:([ a_class (base_class :: classes) ] <@> attrs) [svg]
 
 end

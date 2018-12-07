@@ -163,7 +163,7 @@ module Pie = struct
     let dataset = make_pie_dataset () in
     let options = make_pie_options () in
     let data = Data.make ~datasets:[] ~labels:[] () in
-    let node = `Canvas Dom_html.(createCanvas document) in
+    let node = `Canvas Js_of_ocaml.Dom_html.(createCanvas document) in
     let chart = make ~options ~data `Pie node in
     chart, dataset
 
@@ -180,7 +180,7 @@ module Pie = struct
       val mutable _hex = hex
       val mutable _rate = None
 
-      inherit Widget.t Dom_html.(createDiv document) () as super
+      inherit Widget.t Js_of_ocaml.Dom_html.(createDiv document) () as super
 
       method init () : unit =
         super#init ();
@@ -217,6 +217,7 @@ module Pie = struct
            update pie None
         | Some { total; pids; _ } ->
            let open Chartjs in
+           let pids = List.sort (fun a b -> compare (fst a) (fst b)) pids in
            let data = data pie in
            let br =
              List.fold_left (fun acc (pid, br) ->
@@ -308,7 +309,7 @@ module Info = struct
 
     let make_pid ?(hex = false) ((pid, info) : Pid.t) =
       object(self)
-        inherit Widget.t Dom_html.(createSpan document) () as super
+        inherit Widget.t Js_of_ocaml.Dom_html.(createSpan document) () as super
 
         method init () : unit  =
           super#init ();
@@ -386,7 +387,7 @@ module Info = struct
           | Some cell ->
              pids_box#remove_child cell;
              cell#destroy ();
-             _pids <- List.remove ~eq:Widget.equal ~x:cell _pids
+             _pids <- List.remove ~eq:Widget.equal cell _pids
 
       end
 
@@ -450,7 +451,7 @@ class t ?(settings : Settings.t option)
 
     val mutable _data : Set.t = Set.of_list init
 
-    inherit Widget.t Dom_html.(createDiv document) () as super
+    inherit Widget.t Js_of_ocaml.Dom_html.(createDiv document) () as super
 
     method init () : unit =
       super#init ();

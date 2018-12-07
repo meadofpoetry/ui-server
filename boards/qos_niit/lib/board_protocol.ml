@@ -60,7 +60,7 @@ module Acc = struct
       | Some (o : t list) ->
          let n = List.Assoc.set ~eq:equal_id id info o in
          Some n in
-    List.Assoc.update ~eq ~f:(f x) id acc
+    List.Assoc.update ~eq (f x) id acc
 
   let cons (p : probes) = function
     | Board_errors x -> { p with board_errors = Some x }
@@ -721,7 +721,11 @@ module Make(Logs : Logs.LOG) = struct
         ; has_stream = false
         } in
     let input, set_input =
-      S.create ~eq:equal_input storage#get.input in
+      let i, s = S.create ~eq:equal_input storage#get.input in
+      let set i =
+        Logs.info (fun m -> m "setting signal: %s" @@ input_to_string i);
+        s i in
+      i, set in
     let hw_errors, set_hw_errors = E.create () in
     let raw_streams, set_raw_streams =
       S.create ~eq:(Equal.list Stream.Raw.equal)[] in
@@ -842,7 +846,7 @@ module Make(Logs : Logs.LOG) = struct
     let isend = enqueue_instant state imsgs sender in
     { set_input =
         (fun i ->
-          Logs.debug (fun m -> m "setting input: %s" @@ show_input i);
+          Logs.info (fun m -> m "setting input: %s" @@ show_input i);
           let eq = equal_input in
           let s = events.device.input in
           let mode = t2mi_mode_to_raw storage#get.t2mi_mode in

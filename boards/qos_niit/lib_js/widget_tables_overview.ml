@@ -103,9 +103,9 @@ let to_table_extra ?(hex = false) ((id, info) : SI_PSI_table.t) =
     List.mapi (fun i (s, v) ->
         let v = to_id_string v in
         let v = if i = pred @@ List.length x then v else v ^ ", " in
-        span [ span ~a:[ a_class [ Typography.Markup.subtitle2_class ]]
-                 [pcdata (s ^ ": ")]
-             ; pcdata v ]) x
+        span [ span ~a:[a_class [ Typography.Markup.subtitle2_class]]
+                 [txt (s ^ ": ")]
+             ; txt v ]) x
     |> fun x -> span x in
   (match specific with
    | Some l -> wrap l
@@ -288,7 +288,7 @@ class t ?(settings : Settings.t option)
     val mutable _data : Set.t = Set.of_list init
     val media = new Card.Media.t ~widgets:[table] ()
 
-    inherit Widget.t Dom_html.(createDiv document) ()
+    inherit Widget.t Js_of_ocaml.Dom_html.(createDiv document) ()
 
     method s_timestamp : Time.t option React.signal =
       s_time
@@ -364,7 +364,7 @@ class t ?(settings : Settings.t option)
               | None -> max'#set_value (Some br)
               | Some v -> if br >. v then max'#set_value (Some br)
               end;
-              let rows = List.remove ~eq:Widget.equal ~x:row rows in
+              let rows = List.remove ~eq:Widget.equal row rows in
               aux (tl, rows)
       in
       aux (x.tables, table#rows)

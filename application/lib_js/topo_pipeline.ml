@@ -10,10 +10,9 @@ let make_streams (cpu : Topology.topo_cpu) () =
   >>= (fun init ->
     let event, sock = Requests.WS.get_streams () in
     let box = Streams_selector.make ~init ~event cpu () in
-    box#set_on_destroy
-    @@ Some (fun () ->
-           React.E.stop ~strong:true event;
-           sock##close);
+    box#set_on_destroy (fun () ->
+        React.E.stop ~strong:true event;
+        sock##close);
     Lwt_result.return box#widget)
   |> Lwt_result.map_err Api_js.Requests.err_to_string
 
@@ -26,10 +25,9 @@ let make_structure () =
     let buttons = new Card.Actions.Buttons.t ~widgets:[apply] () in
     let actions = new Card.Actions.t ~widgets:[buttons] () in
     let box = new Vbox.t ~widgets:[w; actions#widget] () in
-    box#set_on_destroy
-    @@ Some (fun () ->
-           React.E.stop ~strong:true event;
-           sock##close);
+    box#set_on_destroy (fun () ->
+        React.E.stop ~strong:true event;
+        sock##close);
     Lwt_result.return box#widget)
   |> Lwt_result.map_err Api_js.Requests.err_to_string
 
@@ -42,10 +40,9 @@ let make_settings () =
     let buttons = new Card.Actions.Buttons.t ~widgets:[apply] () in
     let actions = new Card.Actions.t ~widgets:[buttons] () in
     let box = new Vbox.t ~widgets:[w; actions#widget] () in
-    box#set_on_destroy
-    @@ Some (fun () ->
-           React.E.stop ~strong:true event;
-           sock##close);
+    box#set_on_destroy (fun () ->
+        React.E.stop ~strong:true event;
+        sock##close);
     Lwt_result.return box#widget)
   |> Lwt_result.map_err Api_js.Requests.err_to_string
 

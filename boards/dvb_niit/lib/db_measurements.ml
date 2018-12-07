@@ -65,7 +65,7 @@ let select db ?(streams = []) ?(tuners = []) ?(limit = 500) ?(order = `Desc)
       | (id, m) :: tl ->
          let acc =
            List.Assoc.update ~eq:equal_id
-             ~f:(function None -> Some [m] | Some l -> Some (m :: l))
+             (function None -> Some [m] | Some l -> Some (m :: l))
              id acc in
          aux acc tl in
     return (Raw { data = aux [] data

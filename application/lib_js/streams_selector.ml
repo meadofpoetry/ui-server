@@ -120,12 +120,11 @@ module Board = struct
           if not present then super#add_class lost_class;
           let l =
             super#listen_click_lwt (fun e _ ->
-                let target = Js.Opt.to_option e##.target in
+                let target = Js_of_ocaml.Js.Opt.to_option e##.target in
                 let is_checkbox =
                   Option.map_or ~default:false
                     (fun e ->
-                      let open Dom_html in
-                      let elt = (checkbox#input_element :> element Js.t) in
+                      let elt = (checkbox#input_element :> Widget.element) in
                       Equal.physical e elt)
                     target in
                 if not is_checkbox
@@ -413,11 +412,11 @@ module Input = struct
         empty#add_class empty_placeholder_class;
         React.S.map ~eq:Equal.unit self#check_empty list#s_items
         |> self#_keep_s;
-        Dom.appendChild Dom_html.document##.body dialog.dialog#root
+        Widget.append_to_body dialog.dialog
 
       method destroy () : unit =
         super#destroy ();
-        Dom.removeChild Dom_html.document##.body dialog.dialog#root;
+        Widget.remove_from_body dialog.dialog;
         React.S.stop ~strong:true settings
 
       method settings = settings
@@ -458,9 +457,8 @@ let make_table cpu (table : stream_table) =
   let widgets, signals = List.split @@ List.map (make_entry cpu) table in
   let widgets = List.concat widgets in
   let list = new Vbox.t ~widgets () in
-  list#set_on_destroy
-  @@ Some (fun () ->
-         List.iter (fun w -> w#destroy ()) widgets);
+  list#set_on_destroy (fun () ->
+      List.iter (fun w -> w#destroy ()) widgets);
   list, React.S.map ~eq:(Equal.option equal_stream_setting) Option.return
           (React.S.merge ~eq:equal_stream_setting (fun acc v -> v :: acc)
              [] signals)
@@ -494,7 +492,7 @@ class t ~(init : stream_table)
          (fun n ->
            div#set_empty ();
            let w, n_s = n in
-           Dom.appendChild div#root w#root;
+           div#append_child w;
            n_s) s_div) in
   let apply = new Ui_templates.Buttons.Set.t s post () in
   let buttons = new Card.Actions.Buttons.t ~widgets:[apply] () in

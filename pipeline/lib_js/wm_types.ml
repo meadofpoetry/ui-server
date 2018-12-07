@@ -7,12 +7,13 @@ let icon_to_yojson w =
   `String w#outer_html
 let icon_of_yojson = function
   | `String s ->
-     let div = Dom_html.createDiv Dom_html.document in
-     div##.innerHTML := Js.string s;
-     let elt : Dom_html.element Js.t =
-       Js.Opt.get div##.firstChild (fun () -> assert false)
-       |> Js.Unsafe.coerce in
-     Ok (Widget.create elt)
+     Js_of_ocaml.(
+      let div = Dom_html.(createDiv document) in
+      div##.innerHTML := Js.string s;
+      let elt : Dom_html.element Js.t =
+        Js.Opt.get div##.firstChild (fun () -> assert false)
+        |> Js.Unsafe.coerce in
+      Ok (Widget.create elt))
   | _ -> Error "bad json"
 let equal_icon x y =
   Equal.physical x#root y#root

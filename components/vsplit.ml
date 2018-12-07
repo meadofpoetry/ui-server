@@ -1,3 +1,5 @@
+open Js_of_ocaml
+   
 module Markup = Split.Markup
 
 class t panel1 panel2 () =

@@ -1,3 +1,5 @@
+open Js_of_ocaml
+
 type args =
   { load_count : int
   ; page_index : int

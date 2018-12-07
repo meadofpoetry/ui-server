@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Components
 open Lwt.Infix
@@ -18,28 +19,10 @@ object(self)
   val progress = Placeholder.create_progress ?text ()
   val mutable _on_success = on_success
   val mutable _on_error = on_error
-  inherit Widget.t Dom_html.(createDiv document) ()
+  inherit Widget.t Dom_html.(createDiv document) () as super
 
-  method progress = progress
-  method thread = t
-  method iter f =
-    Lwt_result.Infix.(
-      t >>= (fun x -> f x; Lwt_result.return ())
-      |> Lwt.ignore_result)
-  method set_on_success x = _on_success <- x
-  method set_on_error x = _on_error <- x
-
-  method private _on_error e =
-    Option.iter (fun f -> f (self :> 'a loader) e) _on_error;
-    let s = match error_prefix with
-      | Some pfx -> Printf.sprintf "%s:\n %s" pfx e
-      | None -> e in
-    let error = Placeholder.create_with_error
-                  ?icon:error_icon ~text:s () in
-    self#append_child error;
-    Lwt.return_unit
-
-  initializer
+  method! init () : unit =
+    super#init ();
     self#add_class base_class;
     let sleep =
       Lwt_js.sleep timeout
@@ -60,6 +43,25 @@ object(self)
         self#_on_error @@ Printexc.to_string e)
     |> Lwt.ignore_result
 
+  method progress = progress
+  method thread = t
+  method iter f =
+    Lwt_result.Infix.(
+      t >>= (fun x -> f x; Lwt_result.return ())
+      |> Lwt.ignore_result)
+  method set_on_success x = _on_success <- x
+  method set_on_error x = _on_error <- x
+
+  method private _on_error e =
+    Option.iter (fun f -> f (self :> 'a loader) e) _on_error;
+    let s = match error_prefix with
+      | Some pfx -> Printf.sprintf "%s:\n %s" pfx e
+      | None -> e in
+    let error = Placeholder.create_with_error
+                  ?icon:error_icon ~text:s () in
+    self#append_child error;
+    Lwt.return_unit
+
 end
 
 (* TODO add loader to DOM only after certain timeout *)
@@ -69,23 +71,23 @@ class ['a] widget_loader ?text ?error_icon ?error_prefix
 object(self)
   inherit ['a] loader ?text ?error_icon ?error_prefix t () as super
 
-  method destroy () : unit =
-    let open Lwt_result in
-    super#destroy ();
-    self#thread >|= (fun w -> w#destroy ())
-    |> Lwt.ignore_result
-
-  initializer
+  method! init () : unit =
+    super#init ();
     Lwt_result.Infix.(
-    self#thread
-    >|= (fun (w : #Widget.t) ->
-      (match parent with
-       | Some p -> p#append_child w;
-                   p#remove_child (self :> Widget.t)
-       | None -> self#append_child w)))
+      self#thread
+      >|= (fun (w : #Widget.t) ->
+        (match parent with
+         | Some p -> p#append_child w;
+                     p#remove_child (self :> Widget.t)
+         | None -> self#append_child w)))
     |> Lwt.ignore_result;
     Option.iter (fun (p : #Widget.t) ->
         p#append_child (self :> Widget.t)) parent
+
+  method destroy () : unit =
+    super#destroy ();
+    Lwt_result.(self#thread >|= (fun w -> w#destroy ()))
+    |> Lwt.ignore_result
 end
 
 let create_loader ?text ?error_icon ?error_prefix ?on_error ?on_success t =

@@ -48,7 +48,7 @@ module Body = struct
   let _class = Markup.CSS.add_element base_class "body"
 
   class t n () =
-    let elt = Dom_html.createDiv Dom_html.document in
+    let elt = Js_of_ocaml.Dom_html.(createDiv document) in
     object(self)
       inherit Widget.t elt () as super
 
@@ -58,7 +58,7 @@ module Body = struct
         self#add_class _class;
 
       method set_n n =
-        self#style##.height := Js.string @@ Utils.px (n * port_section_height)
+        self#style##.height := Utils.px_js (n * port_section_height)
 
     end
 

@@ -96,7 +96,7 @@ module Make(M : M) = struct
     let _e = React.E.map (fun v -> value#set_text @@ value_to_string config v) event in
     let inner = Widget.create_div () in
     object(self)
-      inherit Widget.t Dom_html.(createDiv document) () as super
+      inherit Widget.t Js_of_ocaml.Dom_html.(createDiv document) () as super
 
       method destroy () : unit =
         super#destroy ();

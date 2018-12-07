@@ -46,17 +46,15 @@ let make_timestamp ~time ~to_string () =
   { time; to_string }
 
 let make_settings ?(ready = React.S.const true)
-      ~(widget : #settings_view) ~set () =
+      ~(widget : #settings_view) ~set () : settings =
   { widget = (widget :> settings_view); ready; set }
 
 let make_info ?(description = "") ?(thumbnail = `Icon "help")
-      ~(serialized : Yojson.Safe.json) ~(title : string) () =
+      ~(serialized : Yojson.Safe.json) ~(title : string) () : info =
   { title; thumbnail; description; serialized }
 
-let make_item ?settings
-      ?subtitle
-      ~(name : string)
-      (widget : #Widget.t) =
+let make_item ?settings ?subtitle ~(name : string)
+      (widget : #Widget.t) : 'a item =
   { name; subtitle; settings; widget }
 
 let make_timestamp_string to_string (time : Ptime.t option) : string =
@@ -65,6 +63,44 @@ let make_timestamp_string to_string (time : Ptime.t option) : string =
     | None -> "-"
     | Some t -> to_string t in
   prefix ^ suffix
+
+(** Creates settings dialog *)
+let make_dialog (item : 'a item) (settings : settings) : Dialog.t =
+  let cancel_button = new Button.t ~label:"Отмена" () in
+  let apply_button = new Button.t ~label:"ОК" () in
+  let s = React.S.map Fun.(apply_button#set_disabled % not)
+            settings.ready in
+  let cancel = Dialog.Action.make ~typ:`Cancel cancel_button in
+  let apply = Dialog.Action.make ~typ:`Accept apply_button in
+  let dialog =
+    new Dialog.t
+      ~title:(Printf.sprintf "Настройки. %s" item.name)
+      ~content:(`Widgets [settings.widget])
+      ~actions:[cancel; apply]
+      () in
+  dialog#set_on_destroy (fun () ->
+      React.S.stop ~strong:true s);
+  dialog
+
+(** Shows the settings dialog *)
+let show_dialog (item : 'a item) (dialog : Dialog.t) : unit Lwt.t =
+  let open Lwt.Infix in
+  dialog#show_await ()
+  >>= function
+  | `Cancel ->
+     Option.iter (fun (x : settings) ->
+         x.widget#reset ())
+       item.settings;
+     Lwt.return_unit
+  | `Accept ->
+     begin match item.settings with
+     | None -> Lwt.return_unit
+     | Some (s : settings) ->
+        if React.S.value s.ready
+        then (s.widget#apply ();
+              s.set () >|= function _ -> ())
+        else Lwt.return_unit
+     end
 
 class t ?(removable = true)
         ~(item : 'a item)
@@ -86,26 +122,15 @@ class t ?(removable = true)
   let remove =
     let icon = Icon.SVG.(create_simple Path.close) in
     new Icon_button.t ~icon () in
-  let sd =
+  let settings_icon, dialog =
     Option.map (fun (settings : settings) ->
         let icon = Icon.SVG.(create_simple Path.settings) in
         let icon_button = new Icon_button.t ~icon () in
-        let cancel_button = new Button.t ~label:"Отмена" () in
-        let apply_button = new Button.t ~label:"ОК" () in
-        let s = React.S.map Fun.(apply_button#set_disabled % not)
-                  settings.ready in
-        let cancel = Dialog.Action.make ~typ:`Cancel cancel_button in
-        let apply = Dialog.Action.make ~typ:`Accept apply_button in
-        let dialog =
-          new Dialog.t
-            ~title:(Printf.sprintf "Настройки. %s" item.name)
-            ~content:(`Widgets [settings.widget])
-            ~actions:[cancel; apply]
-            () in
-        icon_button, dialog, s)
-      item.settings in
-  let icons = match sd with
-    | Some (icon, _, _) -> [icon#widget]
+        let dialog = make_dialog item settings in
+        icon_button, dialog) item.settings
+    |> function Some (i, d) -> Some i, Some d | None -> None, None in
+  let icons = match settings_icon with
+    | Some icon -> [icon#widget]
     | None -> [] in
   let buttons = new Card.Actions.Icons.t ~widgets:icons () in
   let actions = new Card.Actions.t ~widgets:[buttons] () in
@@ -126,30 +151,13 @@ class t ?(removable = true)
 
     method! init () : unit =
       super#init ();
-      let listener =
-        Option.map (fun ((s : Icon_button.t), (dialog : Dialog.t), _) ->
-            let open Lwt.Infix in
-            let listener =
-              s#listen_click_lwt (fun _ _ ->
-                  dialog#show_await ()
-                  >>= function
-                  | `Cancel ->
-                     Option.iter (fun (x : settings) ->
-                         x.widget#reset ())
-                       item.settings;
-                     Lwt.return_unit
-                  | `Accept ->
-                     begin match item.settings with
-                     | None -> Lwt.return_unit
-                     | Some (s : settings) ->
-                        if React.S.value s.ready
-                        then (s.widget#apply ();
-                              s.set () >|= function _ -> ())
-                        else Lwt.return_unit
-                     end) in
-            Dom.appendChild Dom_html.document##.body dialog#root;
-            listener) sd in
-      _listener <- listener;
+      begin match settings_icon, dialog with
+      | None, _ | _, None -> ()
+      | Some btn, Some dlg ->
+         btn#listen_click_lwt (fun _ _ -> show_dialog item dlg)
+         |> (fun l -> _listener <- Some l);
+         Widget.append_to_body dlg
+      end;
       self#add_class Markup.Item._class;
       title_box#add_class Markup.Item.title_class;
       content#add_class Markup.Item.content_class;
@@ -162,12 +170,8 @@ class t ?(removable = true)
       item.widget#remove_class Markup.Item.widget_class;
       Option.iter Lwt.cancel _listener;
       _listener <- None;
-      Option.iter (fun (icon, dialog, s) ->
-          (try Dom.removeChild Dom_html.document##.body dialog#root
-           with _ -> ());
-          icon#destroy ();
-          dialog#destroy ();
-          React.S.stop ~strong:true s) sd
+      Option.iter Widget.destroy settings_icon;
+      Option.iter Fun.(Widget.(destroy % tap remove_from_body)) dialog
 
     method remove = remove
 

@@ -65,10 +65,10 @@ let select_has_any db ?(streams = [])
       ?(priority = []) ?(pids = [])
       ?(errors = []) ~is_ts ~from ~till () =
   let table = (Conn.names db).errors in
-  let streams  = is_in "stream" ID.to_value_string streams in
+  let streams = is_in "stream" ID.to_value_string streams in
   let priority = is_in "priority" string_of_int priority in
-  let pids     = is_in "pid" string_of_int pids in
-  let errors   = is_in "err_code"  string_of_int errors in
+  let pids = is_in "pid" string_of_int pids in
+  let errors = is_in "err_code"  string_of_int errors in
   let select =
     R.find Types.(tup3 bool ptime ptime) Types.bool
       (sprintf {|SELECT EXISTS (SELECT 1 FROM %s
@@ -83,10 +83,10 @@ let select_percent db ?(streams = [])
       ?(priority = []) ?(pids = [])
       ?(errors = []) ~is_ts ~from ~till () =
   let table = (Conn.names db).errors in
-  let streams  = is_in "stream" ID.to_value_string streams in
+  let streams = is_in "stream" ID.to_value_string streams in
   let priority = is_in "priority" string_of_int priority in
-  let pids     = is_in "pid" string_of_int pids in
-  let errors   = is_in "err_code"  string_of_int errors in
+  let pids = is_in "pid" string_of_int pids in
+  let errors = is_in "err_code"  string_of_int errors in
   let span = Time.(Period.to_float_s @@ diff till from) in
   let select =
     R.find Types.(tup3 bool ptime ptime) Types.int
@@ -123,9 +123,9 @@ let select_errors db ?(streams = [])
     let (data : (ID.t * Error.t list) list ) =
       List.fold_left (fun acc (id, x) ->
           List.Assoc.update ~eq:Stream.ID.equal
-            ~f:(function
-              | None -> Some [x]
-              | Some l -> Some (x :: l))
+            (function
+             | None -> Some [x]
+             | Some l -> Some (x :: l))
             id acc) [] data in
     return (Raw { data
                 ; has_more = List.length data >= limit

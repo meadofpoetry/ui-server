@@ -1,7 +1,8 @@
+open Js_of_ocaml
 open Lwt.Infix
 open Common
 
-let code_to_string = function
+let code_to_string : int -> string = function
   | 100 -> "Continue"
   | 101 -> "Switching Protocols"
   | 200 -> "OK"
@@ -42,47 +43,57 @@ let code_to_string = function
   | 503 -> "Service Unavailable"
   | 504 -> "Gateway Time-out"
   | 505 -> "HTTP Version not supported"
-  | x   -> Printf.sprintf "Unknown HTTP status code: %d" x
+  | x -> Printf.sprintf "Unknown HTTP status code: %d" x
 
 
 type 'a err =
-  { code  : int
+  { code : int
   ; error : string option
-  ; data  : 'a option
+  ; data : 'a option
   }
-type json        = Yojson.Safe.json
-type 'a contents = [ `Blob of (#File.blob Js.t as 'a)
-                   | `Form_contents of Form.form_contents
-                   | `POST_form of (string * Form.form_elt) list
-                   | `String of string
-                   ]
 
-let err_to_string : 'a. ?to_string:('a -> string) -> 'a err -> string = fun ?to_string err ->
+type json = Yojson.Safe.json
+
+type 'a contents =
+  [ `Blob of (#File.blob Js.t as 'a)
+  | `Form_contents of Form.form_contents
+  | `POST_form of (string * Form.form_elt) list
+  | `String of string
+  ]
+
+let err_to_string : 'a. ?to_string:('a -> string) -> 'a err -> string =
+  fun ?to_string err ->
   let base = Printf.sprintf "%d %s" err.code (code_to_string err.code) in
   match err.data with
-  | Some a -> (match to_string with
-               | Some f -> base ^ Printf.sprintf ".\n%s" (f a)
-               | None   -> base)
-  | None   -> (match err.error with
-               | Some e -> base ^ Printf.sprintf ".\n%s" e
-               | None   -> base)
+  | Some a ->
+     begin match to_string with
+     | None -> base
+     | Some f -> base ^ Printf.sprintf ".\n%s" (f a)
+     end
+  | None ->
+     begin match err.error with
+     | None -> base
+     | Some e -> base ^ Printf.sprintf ".\n%s" e
+     end
 
 module type Req = sig
+  open WebSockets
 
   type t
   type response
 
-  val content_type     : string
-  val accept           : string
-  val response_type    : response XmlHttpRequest.response
+  val content_type : string
+  val accept : string
+  val response_type : response XmlHttpRequest.response
   val to_error_message : response -> string option
-  val parse            : response -> t
-  val to_contents      : t -> 'a contents
-  val of_socket_msg    : WebSockets.webSocket WebSockets.messageEvent Js.t -> t
+  val parse : response -> t
+  val to_contents : t -> 'a contents
+  val of_socket_msg : webSocket messageEvent Js.t -> t
 
 end
 
 module type WS = sig
+  open WebSockets
 
   type t
 
@@ -90,7 +101,7 @@ module type WS = sig
     ?secure:bool ->
     ?host:string ->
     ?port:int ->
-    f:(WebSockets.webSocket Js.t -> 'a) ->
+    f:(webSocket Js.t -> 'a) ->
     path:('b, 'c) Uri.Path.Format.t ->
     query:('c, 'a) Uri.Query.compose -> 'b
   val create :
@@ -98,15 +109,14 @@ module type WS = sig
     ?host:string ->
     ?port:int ->
     path:('a, 'b) Uri.Path.Format.t ->
-    query:('b, WebSockets.webSocket Js.t) Uri.Query.compose -> 'a
+    query:('b, webSocket Js.t) Uri.Query.compose -> 'a
   val get :
     ?secure:bool ->
     ?host:string ->
     ?port:int ->
     from:(t -> ('c, string) result) ->
     path:('a, 'b) Uri.Path.Format.t ->
-    query:('b, 'c React.event * WebSockets.webSocket Js.t)
-          Uri.Query.compose -> 'a
+    query:('b, 'c React.event * webSocket Js.t)  Uri.Query.compose -> 'a
 
 end
 
@@ -196,133 +206,145 @@ module type Request = sig
 
 end
 
-module Make(M:Req) : (Request with type t = M.t and type response = M.response) = struct
+module Make(M : Req) : (Request with type t = M.t and type response = M.response) = struct
 
-  type t        = M.t
+  type t = M.t
   type response = M.response
 
-  type frame    = response Lwt_xmlHttpRequest.generic_http_frame
+  type frame = response Lwt_xmlHttpRequest.generic_http_frame
 
   module Default = struct
-    let host ()   = Js.to_string @@ Dom_html.window##.location##.hostname
-    let path ()   = ""
-    let scheme () = Js.to_string @@ Dom_html.window##.location##.protocol
-                    |> CCString.rdrop_while (Char.equal ':')
-    let port ()   = Js.to_string @@ Dom_html.window##.location##.port
-                    |> int_of_string_opt
+    let host () : string =
+      Js.to_string @@ Dom_html.window##.location##.hostname
+
+    let path () : string = ""
+
+    let scheme () : string =
+      Js.to_string @@ Dom_html.window##.location##.protocol
+      |> CCString.rdrop_while (Char.equal ':')
+
+    let port () : int option =
+      Js.to_string @@ Dom_html.window##.location##.port
+      |> int_of_string_opt
   end
 
-  let make_uri ?(scheme=Default.scheme ()) ?(host=Default.host ())
+  let make_uri ?(scheme = Default.scheme ()) ?(host = Default.host ())
         ?port ~f ~path ~query =
     let port = match port with
-      | None   -> Default.port ()
-      | Some p -> Some p
-    in
-    Uri.kconstruct ~scheme ~host ?port ~f:(fun u -> Uri.to_string u
-                                                    |> Uri.pct_decode
-                                                    |> f) ~path ~query
+      | None -> Default.port ()
+      | Some p -> Some p in
+    Uri.kconstruct ~scheme ~host ?port
+      ~f:CCFun.(f % Uri.pct_decode % Uri.to_string) ~path ~query
 
-  let to_err ?data ?error (frame:frame) =
-    { code  = frame.code
-    ; error = CCOpt.choice [ error
-                           ; M.to_error_message frame.content ]
+  let to_err ?data ?error (frame : frame) =
+    { code = frame.code
+    ; error = CCOpt.choice [error; M.to_error_message frame.content]
     ; data
     }
 
   let get_raw' ?scheme ?host ?port ~f ~path ~query =
-    let f = fun uri -> Lwt_xmlHttpRequest.perform_raw
-                         ~response_type:M.response_type uri >|= f in
+    let f uri = M.(Lwt_xmlHttpRequest.perform_raw ~response_type uri) >|= f in
     make_uri ?scheme ?host ?port ~f ~path ~query
 
   let get_raw ?scheme ?host ?port ~path ~query =
     get_raw' ?scheme ?host ?port ~f:(fun x -> x) ~path ~query
 
   let get ?scheme ?host ?port ~path ~query =
-    let f = fun (frame:frame) ->
+    let f = fun (frame : frame) ->
       if frame.code = 200
       then Ok (M.parse frame.content)
       else Error frame.code
-    in get_raw' ?scheme ?host ?port ~f ~path ~query
+    in
+    get_raw' ?scheme ?host ?port ~f ~path ~query
 
   let get_result ?scheme ?host ?port ?from_err ~from ~path ~query =
-    let f = fun (frame:frame) ->
+    let f = fun (frame : frame) ->
       if frame.code = 200
-      then match (from @@ M.parse frame.content) with
+      then match from @@ M.parse frame.content with
            | Ok _ as v -> v
-           | Error s   -> Error (to_err ~error:s frame)
+           | Error s -> Error (to_err ~error:s frame)
       else match from_err with
-           | Some f -> (match (f @@ M.parse frame.content) with
-                        | Ok data -> Error (to_err ~data frame)
-                        | Error _ -> Error (to_err frame))
-           | None   -> Error (to_err frame)
-    in get_raw' ?scheme ?host ?port ~f ~path ~query
+           | None -> Error (to_err frame)
+           | Some f ->
+              begin match f @@ M.parse frame.content with
+              | Ok data -> Error (to_err ~data frame)
+              | Error _ -> Error (to_err frame)
+              end
+    in
+    get_raw' ?scheme ?host ?port ~f ~path ~query
 
   let post_raw' ?scheme ?host ?port ?contents ~f ~path ~query =
     let contents = match contents with
-      | None   -> None
-      | Some x -> Some (M.to_contents x)
-    in
+      | None -> None
+      | Some x -> Some (M.to_contents x) in
     let f = fun uri ->
-      Lwt_xmlHttpRequest.perform_raw
-        ~content_type:M.content_type
-        ~headers:[ ("Accept", M.accept); ("X-Requested-With", "XMLHttpRequest") ]
-        ~override_method:`POST
-        ?contents
-        ~response_type:M.response_type
-        uri
+      M.(Lwt_xmlHttpRequest.perform_raw
+           ~content_type
+           ~headers:[("Accept", accept); ("X-Requested-With", "XMLHttpRequest") ]
+           ~override_method:`POST
+           ?contents
+           ~response_type
+           uri)
       >|= f
-    in make_uri ?scheme ?host ?port ~f ~path ~query
+    in
+    make_uri ?scheme ?host ?port ~f ~path ~query
 
   let post_raw ?scheme ?host ?port ?contents ~path ~query =
     post_raw' ?scheme ?host ?port ?contents ~f:(fun x -> x) ~path ~query
 
   let post ?scheme ?host ?port ?contents ~path ~query =
-    let f = fun (frame:frame) ->
-      if frame.code = 200
-      then Ok (M.parse frame.content)
-      else Error frame.code
-    in post_raw' ?scheme ?host ?port ?contents ~f ~path ~query
+    let f = fun (frame : frame) ->
+      if frame.code <> 200 then Error frame.code
+      else Ok (M.parse frame.content)
+    in
+    post_raw' ?scheme ?host ?port ?contents ~f ~path ~query
 
   let post_result ?scheme ?host ?port ?contents ?from_err ~from ~path ~query =
-    let f = fun (frame:frame) ->
+    let f = fun (frame : frame) ->
       if frame.code = 200
-      then match (from @@ M.parse frame.content) with
+      then match from @@ M.parse frame.content with
            | Ok _ as v -> v
-           | Error s   -> Error (to_err ~error:s frame)
+           | Error s -> Error (to_err ~error:s frame)
       else match from_err with
-           | Some f -> (match (f @@ M.parse frame.content) with
-                        | Ok data -> Error (to_err ~data frame)
-                        | Error _ -> Error (to_err frame))
-           | None   -> Error (to_err frame)
-    in post_raw' ?scheme ?host ?port ?contents ~f ~path ~query
+           | None -> Error (to_err frame)
+           | Some f ->
+              begin match f @@ M.parse frame.content with
+              | Ok data -> Error (to_err ~data frame)
+              | Error _ -> Error (to_err frame)
+              end
+    in
+    post_raw' ?scheme ?host ?port ?contents ~f ~path ~query
 
   let post_result_unit ?scheme ?host ?port ?contents ?from_err ~path ~query =
-    post_result ?scheme ?host ?port ?contents ?from_err ~from:(fun _ -> Ok ()) ~path ~query
+    post_result ?scheme ?host ?port ?contents ?from_err
+      ~from:(fun _ -> Ok ()) ~path ~query
 
   module WS = struct
 
-    let scheme secure = if secure then Uri.Scheme.wss else Uri.Scheme.ws
+    let scheme (secure : bool) : string =
+      Uri.Scheme.(if secure then wss else ws)
 
-    let create' ?(secure=false) ?host ?port ~f ~path ~query =
+    let create' ?(secure = false) ?host ?port ~f ~path ~query =
       let scheme = scheme secure in
-      let f = fun uri ->
-        new%js WebSockets.webSocket (Js.string uri)
-        |> f
-      in make_uri ~scheme ?host ?port ~f ~path ~query
+      let f uri = f @@ new%js WebSockets.webSocket (Js.string uri) in
+      make_uri ~scheme ?host ?port ~f ~path ~query
 
     let create ?secure ?host ?port ~path ~query =
       create' ?secure ?host ?port ~f:(fun x -> x) ~path ~query
 
     let get ?secure ?host ?port ~from ~path ~query =
       let f = fun sock ->
+        let open WebSockets in
         let ev, push = React.E.create () in
-        sock##.onmessage := Dom.handler (fun (msg : WebSockets.webSocket WebSockets.messageEvent Js.t)
-                                         -> M.of_socket_msg msg
-                                            |> from
-                                            |> (function Ok msg -> push msg | Error _ -> ());
-                                            Js.bool true);
-        ev,sock
-      in create' ?secure ?host ?port ~f ~path ~query
+        let handler = fun (msg : webSocket messageEvent Js.t) ->
+          M.of_socket_msg msg
+          |> from
+          |> (function Ok msg -> push msg | Error _ -> ());
+          Js._true in
+        sock##.onmessage := Dom.handler handler;
+        ev, sock
+      in
+      create' ?secure ?host ?port ~f ~path ~query
 
   end
 
@@ -330,12 +352,13 @@ end
 
 module Json_req : (Req with type t = json and type response = Js.js_string Js.t) = struct
 
-  type t        = json
+  type t = json
   type response = Js.js_string Js.t
 
-  let content_type     = "application/json; charset=UTF-8"
-  let accept           = "application/json, text/javascript, */*; q=0.01"
-  let response_type    = XmlHttpRequest.Text
+  let content_type = "application/json; charset=UTF-8"
+  let accept = "application/json, text/javascript, */*; q=0.01"
+  let response_type = XmlHttpRequest.Text
+
   let parse x =
     let s = Uri.pct_decode @@ Js.to_string x in
     (try Yojson.Safe.from_string s
@@ -345,9 +368,10 @@ module Json_req : (Req with type t = json and type response = Js.js_string Js.t)
       | `String s -> s
       | _ -> Js.to_string s in
     if CCString.is_empty s then None else Some s
-  let to_contents x    = (`String (Yojson.Safe.to_string x) : 'a contents)
-  let of_socket_msg m  = Js.to_string m##.data |> Yojson.Safe.from_string
+  let to_contents x = (`String (Yojson.Safe.to_string x) : 'a contents)
+  let of_socket_msg m = Js.to_string m##.data |> Yojson.Safe.from_string
 
 end
 
-module Json_request : (Request with type t := json and type response := Js.js_string Js.t) = Make(Json_req)
+module Json_request : (Request with type t := json
+                                and type response := Js.js_string Js.t) = Make(Json_req)

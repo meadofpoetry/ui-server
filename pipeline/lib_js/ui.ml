@@ -99,7 +99,7 @@ module Structure = struct
         (React.S.map ~eq:eq_s (fun n ->
              div#set_empty ();
              let tree, n_s = n in
-             Dom.appendChild div#root tree#root;
+             div#append_child tree;
              n_s) s_div)
     in
     let post = Requests_structure.HTTP.set in
@@ -110,8 +110,8 @@ end
 module Settings = struct
 
   let make_setting h (s : Settings.setting) =
-    let header             = Dom_html.createH5 Dom_html.document in
-    header##.textContent   := Js.some @@ Js.string h;
+    let header = Js_of_ocaml.Dom_html.(createH5 document) in
+    header##.textContent := Js_of_ocaml.Js.(some @@ string h);
     let peak_en_chck       = new Checkbox.t () in
     let peak_en_field      = new Form_field.t ~label:"Пиковая ошибка" ~input:peak_en_chck () in
     let peak_field         = new Textfield.t
@@ -153,8 +153,8 @@ module Settings = struct
     box, signal
 
   let make_black (b : Settings.black) =
-    let header = Dom_html.createH5 Dom_html.document in
-    header##.textContent := Js.some @@ Js.string "Чёрный кадр";
+    let header = Js_of_ocaml.Dom_html.(createH5 document) in
+    header##.textContent := Js_of_ocaml.Js.(some @@ string "Чёрный кадр");
     let black_w, black_s = make_setting "Доля чёрных пикселей" b.black in
     let luma_w, luma_s = make_setting "Средняя яркость" b.luma in
     let bpixel_field =
@@ -176,8 +176,8 @@ module Settings = struct
     box, signal
 
   let make_freeze (f : Settings.freeze) =
-    let header = Dom_html.createH5 Dom_html.document in
-    header##.textContent := Js.some @@ Js.string "Заморозка видео";
+    let header = Js_of_ocaml.Dom_html.(createH5 document) in
+    header##.textContent := Js_of_ocaml.Js.(some @@ string "Заморозка видео");
     let freeze_w, freeze_s = make_setting "Доля идентичных пикселей" f.freeze in
     let diff_w, diff_s = make_setting "Средняя разность" f.diff in
     let pixeld_field =
@@ -199,8 +199,8 @@ module Settings = struct
     box, signal
 
   let make_blocky (b : Settings.blocky) =
-    let header = Dom_html.createH5 Dom_html.document in
-    header##.textContent := Js.some @@ Js.string "Блочность";
+    let header = Js_of_ocaml.Dom_html.(createH5 document) in
+    header##.textContent := Js_of_ocaml.Js.(some @@ string "Блочность");
     let blocky_w, blocky_s = make_setting "Блочность" b.blocky in
     let box = new Vbox.t ~widgets:[(Widget.create header);
                                    blocky_w#widget] () in
@@ -211,8 +211,8 @@ module Settings = struct
     box, signal
 
   let make_video (v : Settings.video) =
-    let header = Dom_html.createH5 Dom_html.document in
-    header##.textContent := Js.some @@ Js.string "Видео";
+    let header = Js_of_ocaml.Dom_html.(createH5 document) in
+    header##.textContent := Js_of_ocaml.Js.(some @@ string "Видео");
     let loss_field =
       new Textfield.t
         ~label:"Пропадание видео"
@@ -236,8 +236,8 @@ module Settings = struct
     box, signal
 
   let make_silence (s : Settings.silence) =
-    let header = Dom_html.createH5 Dom_html.document in
-    header##.textContent := Js.some @@ Js.string "Тишина";
+    let header = Js_of_ocaml.Dom_html.(createH5 document) in
+    header##.textContent := Js_of_ocaml.Js.(some @@ string "Тишина");
     let sil_w, sil_s = make_setting "Громкость" s.silence in
     let box = new Vbox.t ~widgets:[(Widget.create header); sil_w#widget] () in
     let signal =
@@ -246,8 +246,8 @@ module Settings = struct
     box, signal
 
   let make_loudness (s : Settings.loudness) =
-    let header = Dom_html.createH5 Dom_html.document in
-    header##.textContent := Js.some @@ Js.string "Перегрузка звука";
+    let header = Js_of_ocaml.Dom_html.(createH5 document) in
+    header##.textContent := Js_of_ocaml.Js.(some @@ string "Перегрузка звука");
     let sil_w, sil_s = make_setting "Громкость" s.loudness in
     let box = new Vbox.t ~widgets:[(Widget.create header); sil_w#widget] () in
     let signal =
@@ -256,8 +256,8 @@ module Settings = struct
     box, signal
 
   let make_adv (s : Settings.adv) =
-    let header = Dom_html.createH5 Dom_html.document in
-    header##.textContent := Js.some @@ Js.string "Рекламные вставки";
+    let header = Js_of_ocaml.Dom_html.(createH5 document) in
+    header##.textContent := Js_of_ocaml.Js.(some @@ string "Рекламные вставки");
     let diff =
       new Textfield.t
         ~label:"diff"
@@ -282,8 +282,8 @@ module Settings = struct
     box, signal
 
   let make_audio (a : Settings.audio) =
-    let header = Dom_html.createH5 Dom_html.document in
-    header##.textContent := Js.some @@ Js.string "Аудио";
+    let header = Js_of_ocaml.Dom_html.(createH5 document) in
+    header##.textContent := Js_of_ocaml.Js.(some @@ string "Аудио");
     let loss_field =
       new Textfield.t
         ~label:"Пропадание аудио"
@@ -307,8 +307,8 @@ module Settings = struct
     box, signal
 
   let make_layout (s : Settings.t) =
-    let header = Dom_html.createH5 Dom_html.document in
-    header##.textContent := Js.some @@ Js.string "Настройки";
+    let header = Js_of_ocaml.Dom_html.(createH5 document) in
+    header##.textContent := Js_of_ocaml.Js.(some @@ string "Настройки");
     let v, v_s = make_video s.video in
     let a, a_s = make_audio s.audio in
     let s =
@@ -342,7 +342,7 @@ module Settings = struct
            (fun n ->
              div#set_empty ();
              let w, n_s = n in
-             Dom.appendChild div#root w#root;
+             div#append_child w;
              n_s) s_div)
     in
     let post = Requests_settings.HTTP.set in

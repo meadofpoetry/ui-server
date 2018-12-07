@@ -12,9 +12,9 @@ module Make(Xml : Xml_sigs.NoWrap)
   let float_above_class = CSS.add_modifier base_class "float-above"
   let shake_class = CSS.add_modifier base_class "shake"
 
-  let create ?(classes = []) ?attrs ?for_ text () =
-    label ~a:([ a_class (base_class :: classes) ]
+  let create ?(classes = []) ?attrs ?for_ text () : 'a elt =
+    label ~a:([a_class (base_class :: classes)]
               |> map_cons_option a_label_for for_
-              <@> attrs) [pcdata text]
+              <@> attrs) [txt text]
 
 end

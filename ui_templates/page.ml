@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Components
 open Tabs
@@ -17,8 +18,8 @@ type 'a value = string * (unit -> (#Widget.t as 'a))
 
 type ('a, 'b) tab = ('a, 'b value) Tab.t
 
-type ('a,'b) page_content =
-  [ `Static  of (#Widget.t as 'b) list
+type ('a, 'b) page_content =
+  [ `Static of (#Widget.t as 'b) list
   | `Dynamic of ('a, 'b) tab list
   ]
 
@@ -101,7 +102,13 @@ class t (content:('a,'b) page_content) () =
     val mutable _previous_toolbar = None
     val mutable _previous_content = None
 
-    inherit Widget.t main ()
+    inherit Widget.t main () as super
+
+    method! init () : unit =
+      super#init ();
+      self#add_class main_class;
+      toolbar#add_class toolbar_class;
+      self#set ()
 
     method title : string =
       Js.to_string Dom_html.document##.title
@@ -129,9 +136,4 @@ class t (content:('a,'b) page_content) () =
          toolbar#layout ()
 
     method arbitrary = arbitrary
-
-    initializer
-      self#add_class main_class;
-      toolbar#add_class toolbar_class;
-      self#set ()
   end

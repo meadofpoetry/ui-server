@@ -4,6 +4,10 @@ open Widget_types
 open Board_types
 open Common
 
+(* TODO
+   1. Make data units configurable, if possible (e.g. for power chart)
+ *)
+
 module Point = struct
   open Chartjs.Types
   include Chartjs.Line.Dataset.Make_point(Time)(Float)
@@ -268,9 +272,9 @@ class t ~(init : init)
     make_options ~x_axes:[x_axis] ~y_axes:[y_axis] widget_config in
   let datasets = make_datasets init widget_config.sources in
   let data = Chartjs.Data.make ~datasets:(List.map snd datasets) () in
-  let canvas = Dom_html.(createCanvas document) in
+  let canvas = Js_of_ocaml.Dom_html.(createCanvas document) in
   let line = Chartjs.make ~options ~data `Line (`Canvas canvas) in
-  let box = Dom_html.(createDiv document) in
+  let box = Js_of_ocaml.Dom_html.(createDiv document) in
   object(self)
 
     val mutable _datasets = datasets

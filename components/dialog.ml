@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Tyxml_js
 
@@ -62,7 +63,7 @@ module Content = struct
 
   class t ~(content : 'a content) () =
     let content = match content with
-      | `String s -> [Html.pcdata s]
+      | `String s -> [Html.txt s]
       | `Widgets w -> List.map Widget.to_markup w in
     let elt = Markup.Content.create ~content ()
               |> To_dom.of_element in

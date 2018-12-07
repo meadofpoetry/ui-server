@@ -157,16 +157,19 @@ module Sequence = struct
         self#_show_placeholder ()
 
       method private _hide_all () =
-        ph#style##.display := Js.string "none";
-        table#style##.display := Js.string "none"
+        Js_of_ocaml.(
+          ph#style##.display := Js.string "none";
+          table#style##.display := Js.string "none")
 
       method private _hide_placeholder () =
-        ph#style##.display := Js.string "none";
-        table#style##.display := Js.string ""
+        Js_of_ocaml.(
+          ph#style##.display := Js.string "none";
+          table#style##.display := Js.string "")
 
       method private _show_placeholder () =
-        ph#style##.display := Js.string "";
-        table#style##.display := Js.string "none"
+        Js_of_ocaml.(
+          ph#style##.display := Js.string "";
+          table#style##.display := Js.string "none")
 
       method private _add_row (i : item) : unit =
         let open Table.Data in

@@ -10,9 +10,8 @@ module Make
 
   let base_class = "mdc-tab-bar"
 
-  let create ?(classes=[]) ?attrs ~scroller () =
+  let create ?(classes = []) ?attrs ~scroller () : 'a elt =
     div ~a:([ a_class (base_class :: classes)
-            ; a_role  ["tablist"]] <@> attrs)
-      [ scroller ]
+            ; a_role  ["tablist"]] <@> attrs) [scroller]
 
 end

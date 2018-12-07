@@ -87,7 +87,7 @@ let make_stream_select (streams : Stream.t list React.signal)
     | Some (x : t2mi_mode) ->
        ignore @@ select#set_selected_value ~eq:Stream.equal x.stream
     | None -> select#set_selected_index 0 in
-  select#set_on_destroy @@ Some (fun () -> React.S.stop ~strong:true _s);
+  select#set_on_destroy (fun () -> React.S.stop ~strong:true _s);
   select#widget,
   set,
   select#s_selected_value,
@@ -136,8 +136,7 @@ let make ~(state : Topology.state React.signal)
   let actions = new Card.Actions.t ~widgets:[buttons] () in
   let box = new Vbox.t ~widgets:[en; ss; pid; sid; actions#widget] () in
   box#add_class base_class;
-  box#set_on_destroy
-  @@ Some (fun () ->
-         React.S.stop ~strong:true s_dis;
-         React.S.stop ~strong:true s_set);
+  box#set_on_destroy (fun () ->
+      React.S.stop ~strong:true s_dis;
+      React.S.stop ~strong:true s_set);
   box#widget

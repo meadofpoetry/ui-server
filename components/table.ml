@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Tyxml_js
 open Utils
@@ -136,7 +137,7 @@ module Cell = struct
        |> Js.Unsafe.coerce
        |> Of_dom.of_element
        |> create
-    | _ -> create (Html.pcdata (to_string fmt v)) in
+    | _ -> create (Html.txt (to_string fmt v)) in
     aux fmt v
 
   let rec set_value : type a. a fmt -> bool -> a option -> a -> Widget.t -> unit =
@@ -223,16 +224,16 @@ module Column = struct
 
   class t i push ({ sortable; title = text; _ } : column) (fmt : 'a fmt) () =
     let is_numeric = is_numeric fmt in
-    let content = Html.(pcdata text) in
+    let content = Html.(txt text) in
     let elt = Markup.Column.create ~sortable
                 ~is_numeric content ()
               |> To_dom.of_element in
     object(self)
-      inherit Widget.t elt ()
+      inherit Widget.t elt () as super
 
-      method index : int = i
-
-      initializer
+      method! init () : unit =
+        super#init ();
+        (* FIXME keep *)
         if sortable then
           self#listen_lwt Widget.Event.click (fun _ _ ->
               let order = self#get_attribute "aria-sort" in
@@ -240,6 +241,8 @@ module Column = struct
                | Some Dsc -> push (Some (self#index, Asc))
                | _ -> push (Some (self#index, Dsc)));
               Lwt.return_unit) |> Lwt.ignore_result
+
+      method index : int = i
     end
 end
 
@@ -364,17 +367,14 @@ module Row = struct
            else
              begin match React.S.value s_selected with
              | [] -> ()
-             | l -> List.remove ~eq:Equal.physical ~x:v l
-                    |> set_selected
+             | l -> set_selected @@ List.remove ~eq:Equal.physical v l
              end
         | Some `Multiple ->
            let l =
              if x
-             then List.add_nodup ~eq:Equal.physical
-                    (self :> 'a t)
+             then List.add_nodup ~eq:Equal.physical (self :> 'a t)
                     (React.S.value s_selected)
-             else List.remove ~eq:Equal.physical ~x:v
-                    (React.S.value s_selected)
+             else List.remove ~eq:Equal.physical v (React.S.value s_selected)
            in set_selected l
         | None -> ()
 
@@ -421,20 +421,11 @@ module Header = struct
               |> To_dom.of_element in
     object(self)
       val _columns = columns
-      inherit Widget.t elt ()
+      inherit Widget.t elt () as super
 
-      method checkbox = row#checkbox
-      method columns = _columns
-      method s_sorted = s_sorted
-
-      method select_all () =
-        List.iter (fun (r : 'a Row.t) -> r#set_selected true) self#_rows
-      method unselect_all () =
-        List.iter (fun (r : 'a Row.t) -> r#set_selected false) self#_rows
-
-      method private _rows = React.S.value s_rows
-
-      initializer
+      method! init () : unit =
+        super#init ();
+        (* FIXME keep signals *)
         iter (fun (cb : #Widget.t) ->
             cb#listen_lwt Widget.Event.change (fun _ _ ->
                 if cb#checked
@@ -469,6 +460,17 @@ module Header = struct
                List.iter (fun x -> x#remove_attribute "aria-sort")
                  _columns)
           s_sorted |> self#_keep_s
+
+      method checkbox = row#checkbox
+      method columns = _columns
+      method s_sorted = s_sorted
+
+      method select_all () =
+        List.iter (fun (r : 'a Row.t) -> r#set_selected true) self#_rows
+      method unselect_all () =
+        List.iter (fun (r : 'a Row.t) -> r#set_selected false) self#_rows
+
+      method private _rows = React.S.value s_rows
     end
 end
 
@@ -521,7 +523,7 @@ module Body = struct
         self#layout ();
 
       method remove_row (row : 'a Row.t) : unit =
-        s_rows_push @@ List.remove ~eq:Widget.equal ~x:row self#rows;
+        s_rows_push @@ List.remove ~eq:Widget.equal row self#rows;
         self#remove_child row;
         self#layout ();
 

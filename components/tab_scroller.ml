@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Tyxml_js
 
@@ -85,7 +86,7 @@ class ['a, 'b] t ?align
       | None -> ()
       | Some tab ->
          self#remove_child tab;
-         _tabs <- List.remove ~eq ~x:tab self#tabs;
+         _tabs <- List.remove ~eq tab self#tabs;
          self#layout ()
 
     method append_tab (tab : ('a, 'b) Tab.t) : unit =

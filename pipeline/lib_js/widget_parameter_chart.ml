@@ -259,7 +259,7 @@ class t ~(init : 'a list)
 
     val mutable _datasets = datasets
 
-    inherit Widget.t Dom_html.(createDiv document) () as super
+    inherit Widget.t Js_of_ocaml.Dom_html.(createDiv document) () as super
 
     method init () : unit =
       super#init ();

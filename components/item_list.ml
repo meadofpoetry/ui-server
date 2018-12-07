@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Tyxml_js
 
@@ -5,7 +6,8 @@ module Markup = Components_markup.Item_list.Make(Xml)(Svg)(Html)
 
 type selection =
   [ `Single
-  | `Multiple ]
+  | `Multiple
+  ]
 
 module Item = struct
 
@@ -20,11 +22,11 @@ module Item = struct
       | Some st ->
          let primary =
            Markup.Item.create_primary_text text ()
-           |> Tyxml_js.To_dom.of_element
+           |> To_dom.of_element
            |> Widget.create in
          let secondary =
            Markup.Item.create_secondary_text st ()
-           |> Tyxml_js.To_dom.of_element
+           |> To_dom.of_element
            |> Widget.create in
          let w =
            Markup.Item.create_text
@@ -112,18 +114,19 @@ class ['a] t ?avatar
         ~(items : 'a item list) () =
   let two_line = match two_line with
     | Some x -> x
-    | None   ->
+    | None ->
        List.find_pred (function
            | `Divider _ -> false
-           | `Item x    -> Option.is_some x#secondary_text)
+           | `Item x -> Option.is_some x#secondary_text)
          items
        |> Option.is_some in
-  let elt = Markup.create ?avatar ~two_line
-              ~items:(List.map (function
-                          | `Divider x -> Widget.to_markup x
-                          | `Item x    -> Widget.to_markup x)
-                        items) ()
-            |> Tyxml_js.To_dom.of_element in
+  let (elt : Dom_html.element Js.t) =
+    Markup.create ?avatar ~two_line
+      ~items:(List.map (function
+                  | `Divider x -> Widget.to_markup x
+                  | `Item x -> Widget.to_markup x)
+                items) ()
+    |> To_dom.of_element in
   let s_items, set_items = React.S.create items in
   let s_selected, set_selected = React.S.create [] in
   let s_active, set_active = React.S.create None in
@@ -210,12 +213,12 @@ module List_group = struct
 
   type group =
     { subheader : Typography.Text.t option
-    ; list      : base
+    ; list : base
     }
 
   let rec add_dividers acc l =
     match l with
-    | []       -> acc
+    | [] -> acc
     | hd :: [] -> List.rev @@ hd :: acc
     | hd :: tl ->
        add_dividers ((hd @ [Widget.to_markup @@ new Divider.t ()])

@@ -69,7 +69,7 @@ let make_board_page (board : Topology.topo_board) =
      let getter = fun () ->
        let factory = new Widget_factory.t board.control () in
        let ({ widget; _ } : 'a Dashboard.Item.item) = factory#create Settings in
-       widget#set_on_destroy @@ Some factory#destroy;
+       widget#set_on_destroy factory#destroy;
        widget#widget in
      Some getter
   | "TS2IP", "ts2ip", "niitv", 1 ->
@@ -80,7 +80,7 @@ let make_board_page (board : Topology.topo_board) =
        let factory = new Widget_factory.t board.control () in
        let ({ widget; _ } : 'a Dashboard.Item.item) =
          factory#create @@ Settings None in
-       widget#set_on_destroy @@ Some factory#destroy;
+       widget#set_on_destroy factory#destroy;
        widget#widget in
      Some getter
   | _ -> None
@@ -91,7 +91,6 @@ module Header = struct
           (board : Topology.topo_board) () =
     let _class = Markup.CSS.add_element base_class "header" in
     let title = get_board_name board in
-    (* let subtitle = Printf.sprintf "%s" board.model in *)
     let settings = match has_settings_button with
       | false -> None
       | true ->
@@ -101,36 +100,36 @@ module Header = struct
     object(self)
       inherit Topo_block.Header.t ?action:settings ~title () as super
 
-      method init () : unit =
+      method! init () : unit =
         super#init ();
         self#add_class _class
 
-      method settings_icon =
-        settings
-
-      method layout () : unit =
+      method! layout () : unit =
         super#layout ();
         Option.iter (fun x -> x#layout ()) self#settings_icon
 
+      method settings_icon =
+        settings
     end
 
-  let create (has_settings_button : bool)
-        (board : Topology.topo_board) =
+  let create (has_settings_button : bool) (board : Topology.topo_board) : t =
     new t has_settings_button board ()
 
 end
 
 module Body = struct
 
-  class t (board : Topology.topo_board) () =
-    let _class = Markup.CSS.add_element base_class "body" in
-    object(self)
-      inherit Topo_block.Body.t (List.length board.ports) ()
-      initializer
-        self#add_class _class
-    end
+  let _class = Markup.CSS.add_element base_class "body"
 
-  let create (board : Topology.topo_board) =
+  class t (board : Topology.topo_board) () =
+  object
+    inherit Topo_block.Body.t (List.length board.ports) () as super
+    method! init () : unit =
+      super#init ();
+      super#add_class _class
+  end
+
+  let create (board : Topology.topo_board) : t =
     new t board ()
 
 end
@@ -153,12 +152,12 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
               ~node:(`Entry (Board board))
               ~connections ~header ~body () as super
 
-    method init () : unit =
+    method! init () : unit =
       super#init ();
       self#set_board _board;
-      self#add_class base_class;
-      self#set_attribute "data-board" _board.typ;
-      Option.iter (fun (w : #Widget.t) ->
+      super#add_class base_class;
+      super#set_attribute "data-board" _board.typ;
+      Option.iter (fun (w : Icon_button.t) ->
           let listener =
             w#listen_click_lwt (fun _ _ ->
                 let name = get_board_name self#board in
@@ -168,30 +167,25 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
           _click_listener <- Some listener)
         header#settings_icon
 
-    method destroy () : unit =
+    method! destroy () : unit =
       super#destroy ();
       Option.iter Lwt.cancel _click_listener;
       _click_listener <- None
 
-    method layout () :unit =
+    method! layout () : unit =
       super#layout ();
       header#layout ()
 
-    method settings_event : (Widget.t * string) React.event =
-      e_settings
-
-    method s_state = s
-
-    method board = _board
-
-    method set_board x =
+    method settings_event : (Widget.t * string) React.event = e_settings
+    method s_state : Topology.state React.signal = s
+    method board : Topology.topo_board = _board
+    method set_board (x : Topology.topo_board) : unit =
       _board <- x;
       push x.connection;
       super#set_state x.connection;
       match x.connection with
       | `Fine -> self#set_ports x.ports;
-      | _ -> List.iter (fun p -> p#set_state `Unavailable)
-               self#paths
+      | _ -> List.iter (fun p -> p#set_state `Unavailable) self#paths
 
     (* Private methods *)
 
@@ -207,17 +201,21 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
          ph#widget
       | Some make -> make ()
 
-    method private set_ports l  =
+    method private set_ports (l : Topology.topo_port list) : unit =
+      let find (port : Topology.topo_port) (p : Topo_path.t) : bool =
+        eq_node_entry p#left_node (`Entry port.child) in
       List.iter (fun (x : Topology.topo_port) ->
-          match List.find_opt (fun p -> eq_node_entry p#left_node
-                                          (`Entry x.child)) self#paths with
+          if board.control = 1 then
+            Printf.printf "board: %d, port: %d, listening: %b, sync: %b\n"
+              board.control x.port x.listening x.has_sync;
+          match List.find_opt (find x) self#paths with
+          | None -> ()
           | Some path ->
              let state = match x.has_sync, x.listening with
-               | true, _ -> `Sync
-               | _, true -> `Sync_lost
-               | _, _    -> `Muted in
-             path#set_state state
-          | None      -> ()) l
+               | true, true -> `Sync
+               | false, true -> `Sync_lost
+               | _, _ -> `Muted in
+             path#set_state state) l
   end
 
 let create ~connections (board : Topology.topo_board) =

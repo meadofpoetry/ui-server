@@ -12,7 +12,7 @@ class title ~title ~widget () =
 
     method set_active x =
       self#add_or_remove_class x active_class;
-      widget#style##.display := Js.string (if x then "" else "none")
+      widget#style##.display := Js_of_ocaml.Js.string (if x then "" else "none")
 
     method get_title = title
 
@@ -29,7 +29,7 @@ class t titles () =
     inherit Hbox.t ~widgets:titles ()
 
     method titles : title list = titles
-    method select (w:title) =
+    method select (w : title) =
       List.iter (fun x -> if not @@ Equal.physical x#root w#root then x#set_active false) titles;
       w#set_active true
     method select_by_name n =
@@ -39,10 +39,12 @@ class t titles () =
 
     initializer
       self#add_class base_class;
-      let open Dom_events in
-      let _ = List.map (fun w -> listen w#root Typ.click (fun _ _ -> self#select w; false)) self#titles in
+      let _ =
+        List.map (fun (w : #Widget.t) ->
+            w#listen_click_lwt (fun _ _ -> self#select w; Lwt.return_unit))
+          self#titles in
       match self#titles with
-      | []           -> failwith "Titles must not be empty"
+      | [] -> failwith "Titles must not be empty"
       | [x] | x :: _ -> self#select x
 
   end

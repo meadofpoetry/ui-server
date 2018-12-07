@@ -200,16 +200,17 @@ let invalid_port prefix x =
 
 let get_ports_sync prefix streams input ports =
   let open React in
+  let eq = Equal.bool in
   List.fold_left (fun acc (p : Topology.topo_port) ->
       begin match p.port with
-      | 0 -> S.l2 ~eq:Equal.bool
-               (fun i s -> match i, s with
-                           | SPI, _ :: _ -> true
-                           | _ -> false) input streams
-      | 1 -> S.l2 ~eq:Equal.bool
-               (fun i s -> match i, s with
-                           | ASI, _ :: _ -> true
-                           | _ -> false) input streams
+      | 0 -> S.l2 ~eq (fun i s ->
+                 match i, s with
+                 | ASI, _ | SPI, [] -> false
+                 | _ -> true) input streams
+      | 1 -> S.l2 ~eq (fun i s ->
+                 match i, s with
+                 | SPI, _ | ASI, [] -> false
+                 | _ -> true) input streams
       | x -> invalid_port prefix x
       end
       |> fun x -> Board.Ports.add p.port x acc)
@@ -217,10 +218,13 @@ let get_ports_sync prefix streams input ports =
 
 let get_ports_active prefix input ports =
   let open React in
+  let eq = Equal.bool in
   List.fold_left (fun acc (p : Topology.topo_port) ->
       begin match p.port with
-      | 0 -> S.map ~eq:Equal.bool (function SPI -> true | _ -> false) input
-      | 1 -> S.map ~eq:Equal.bool (function ASI -> true | _ -> false) input
+      | 0 -> S.with_finaliser
+               (fun () -> Logs.info (fun m -> m "!!! finalized !!!"))
+               @@ S.map ~eq (function SPI -> Logs.info (fun m -> m "spi true"); true | ASI -> false) input
+      | 1 -> S.map ~eq (function ASI -> Logs.info (fun m -> m "asi true"); true | SPI -> false) input
       | x -> invalid_port prefix x
       end
       |> fun x -> Board.Ports.add p.port x acc)

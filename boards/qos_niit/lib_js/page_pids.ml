@@ -91,15 +91,14 @@ let make (id : Stream.ID.t) control =
       [ summary_cell
       ; overview_cell ] in
     new t ~cells () in
-  box#set_on_destroy
-  @@ Some (fun () ->
-         state >|= (fun (_, f) -> f ()) |> Lwt.ignore_result;
-         summary#destroy ();
-         overview#destroy ();
-         summary_close ();
-         overview_close ();
-         React.E.stop ~strong:true rate;
-         React.E.stop ~strong:true pids;
-         rate_sock##close;
-         pids_sock##close);
+  box#set_on_destroy (fun () ->
+      state >|= (fun (_, f) -> f ()) |> Lwt.ignore_result;
+      summary#destroy ();
+      overview#destroy ();
+      summary_close ();
+      overview_close ();
+      React.E.stop ~strong:true rate;
+      React.E.stop ~strong:true pids;
+      rate_sock##close;
+      pids_sock##close);
   box#widget

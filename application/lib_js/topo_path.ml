@@ -1,53 +1,40 @@
+open Js_of_ocaml
 open Containers
 open Components
 open Topo_types
-open Common.Topology
 open Lwt.Infix
+open Common
 
-let get_output_point (elt:#Dom_html.element Js.t) =
+let get_output_point (elt : #Dom_html.element Js.t) : point =
   { x = elt##.offsetLeft + elt##.offsetWidth
   ; y = elt##.offsetTop + (elt##.offsetHeight / 2)
   }
 
-let get_input_point ~num i (elt:#Dom_html.element Js.t) =
+let get_input_point ~num i (elt : #Dom_html.element Js.t) : point =
   let h = elt##.offsetHeight / num in
   let x = elt##.offsetLeft in
   let y = elt##.offsetTop + (i * h) + (h / 2) in
   { x; y }
 
-class switch (node:node_entry) (port:Common.Topology.topo_port) setter () =
+class switch (node : node_entry)
+        (port : Topology.topo_port)
+        setter
+        () =
   let _class = "topology__switch" in
-  let s,push = React.S.create false in
+  let s, push = React.S.create ~eq:Equal.bool false in
   object(self)
 
-    inherit Switch.t ()
+    inherit Switch.t () as super
 
     val mutable _state = `Unavailable
-    method port        = port
-    method s_changing  = s
 
-    method set_state x =
-      _state <- x;
-      match (x:connection_state) with
-      | `Active | `Sync | `Sync_lost ->
-         self#set_disabled false;
-         self#set_checked true
-      | `Muted ->
-         self#set_disabled false;
-         self#set_checked false
-      | `Unavailable ->
-         self#set_disabled true
-
-    method set_changing x =
-      if x then self#set_disabled true
-      else (match _state with `Unavailable -> () | _ -> self#set_disabled false)
-
-    initializer
-      Dom_events.listen self#input_element Dom_events.Typ.change (fun _ _ ->
+    method! init () : unit =
+      super#init ();
+      Dom_events.listen super#input_element Widget.Event.change (fun _ _ ->
           push true;
-          setter port.port self#checked
+          setter port.port super#checked
           >>= (function
-               | Ok _    -> push false; Lwt.return_unit
+               | Ok _ -> push false; Lwt.return_unit
                | Error _ ->
                   push false;
                   (* return current state back *)
@@ -56,22 +43,45 @@ class switch (node:node_entry) (port:Common.Topology.topo_port) setter () =
           |> Lwt.ignore_result;
           true)
       |> ignore;
-      self#set_disabled true;
-      self#add_class _class
+      super#set_disabled true;
+      super#add_class _class
+
+    method port : Topology.topo_port = port
+    method s_changing : bool React.signal = s
+    method set_state (x : connection_state) : unit =
+      _state <- x;
+      match x with
+      | `Active | `Sync | `Sync_lost ->
+         super#set_checked true;
+         super#set_disabled false
+      | `Muted ->
+         super#set_disabled false;
+         super#set_checked false
+      | `Unavailable ->
+         super#set_disabled true
+
+    method set_changing : bool -> unit = function
+      | true -> super#set_disabled true
+      | false ->
+         match _state with
+         | `Unavailable -> ()
+         | _ -> super#set_disabled false
+
   end
 
-class t ~(left_node:node_entry)
-        ~(right_node:node_entry)
-        ~(right_point:connection_point)
-        ~(f_lp:unit->point)
-        ~(f_rp:unit -> point)
+let _class = "topology__path"
+let active_class = Markup.CSS.add_modifier _class "active"
+let muted_class = Markup.CSS.add_modifier _class "muted"
+let sync_class = Markup.CSS.add_modifier _class "sync"
+let no_sync_class = Markup.CSS.add_modifier _class "no-sync"
+
+class t ~(left_node : node_entry)
+        ~(right_node : node_entry)
+        ~(right_point : connection_point)
+        ~(f_lp : unit -> point)
+        ~(f_rp : unit -> point)
         ~port_setter
         () =
-  let _class        = "topology__path" in
-  let active_class  = Markup.CSS.add_modifier _class "active"  in
-  let muted_class   = Markup.CSS.add_modifier _class "muted"   in
-  let sync_class    = Markup.CSS.add_modifier _class "sync"    in
-  let no_sync_class = Markup.CSS.add_modifier _class "no-sync" in
   let switch = match right_point with
     | `Iface _ -> None
     | `Port p  ->
@@ -84,57 +94,58 @@ class t ~(left_node:node_entry)
       |> toelt) |> Js.Unsafe.coerce in
   object(self)
 
-    inherit Widget.t elt ()
+    inherit Widget.t elt () as super
 
-    val mutable state = `Muted
+    val mutable state : connection_state = `Muted
 
-    method left_node = left_node
-    method switch    = switch
-    method set_state (x:connection_state) =
+    method! init () : unit =
+      super#init ();
+      super#add_class _class;
+      self#set_state state
+
+    method left_node : node_entry = left_node
+    method switch : switch option = switch
+    method set_state (x : connection_state) : unit =
       state <- x;
-      Option.iter (fun sw -> sw#set_state x) self#switch;
+      Option.iter (fun sw -> sw#set_state x) switch;
       match state with
       | `Muted | `Unavailable ->
-         self#add_class muted_class;
-         self#remove_class active_class;
-         self#remove_class sync_class;
-         self#remove_class no_sync_class;
+         super#add_class muted_class;
+         super#remove_class active_class;
+         super#remove_class sync_class;
+         super#remove_class no_sync_class;
       | `Active ->
-         self#add_class active_class;
-         self#remove_class muted_class;
-         self#remove_class sync_class;
-         self#remove_class no_sync_class;
+         super#add_class active_class;
+         super#remove_class muted_class;
+         super#remove_class sync_class;
+         super#remove_class no_sync_class;
       | `Sync ->
-         self#add_class sync_class;
-         self#remove_class active_class;
-         self#remove_class muted_class;
-         self#remove_class no_sync_class;
+         super#add_class sync_class;
+         super#remove_class active_class;
+         super#remove_class muted_class;
+         super#remove_class no_sync_class;
       | `Sync_lost ->
-         self#add_class no_sync_class;
-         self#remove_class active_class;
-         self#remove_class muted_class;
-         self#remove_class sync_class
+         super#add_class no_sync_class;
+         super#remove_class active_class;
+         super#remove_class muted_class;
+         super#remove_class sync_class
 
-    method layout () =
-    (*  let depth  = elt##id |> Js.to_string |> int_of_string in
-      let full_w = elt##offsetWidth in*)
-      let step   = 80 in
-      let left   = f_lp () in
-      let right  = f_rp () in
-      let top,height =
+    method! layout () : unit =
+      super#layout ();
+      let step = 80 in
+      let left = f_lp () in
+      let right = f_rp () in
+      let top, height =
         if left.y > right.y
-        then left.y,  left.y  - right.y
+        then left.y, left.y  - right.y
         else right.y, right.y - left.y in
-      let () =
-        Option.iter (fun sw ->
-            let sw_pos = { right with y = right.y - (sw#offset_height / 2)
-                                    ; x = right.x + 15 } in
-            let top  = Printf.sprintf "%dpx" sw_pos.y in
-            let left = Printf.sprintf "%dpx" sw_pos.x in
-            sw#style##.top  := Js.string top;
-            sw#style##.left := Js.string left) self#switch in
+      Option.iter (fun sw ->
+          let x = right.x + 15 in
+          let y = right.y - (sw#offset_height / 2) in
+          sw#style##.top := Utils.px_js y;
+          sw#style##.left := Utils.px_js x) switch;
       let width = right.x - left.x in
-      let path  =
+      let path =
         if abs (left.y - right.y) < 4
         then Printf.sprintf "M %d %d L %d %d" left.x left.y right.x left.y
         else
@@ -161,8 +172,4 @@ class t ~(left_node:node_entry)
 
     method private _make_curved_path =
       Printf.sprintf "M %d %d L %d %d C %d %d %d %d %d %d C %d %d %d %d %d %d"
-
-    initializer
-      self#add_class _class;
-      self#set_state state
   end

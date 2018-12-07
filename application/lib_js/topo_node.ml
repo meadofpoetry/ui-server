@@ -1,5 +1,6 @@
 open Containers
 open Components
+open Js_of_ocaml
 open Topo_types
 open Common
 

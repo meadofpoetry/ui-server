@@ -43,8 +43,8 @@ let make_bw (standard : standard option React.signal) () =
       ~items () in
   let s_hide =
     React.S.map ~eq:Equal.unit (function
-        | None -> bw#style##.display := Js.string "none"
-        | Some _ -> bw#style##.display := Js.string "") standard in
+        | None -> bw#style##.display := Js_of_ocaml.Js.string "none"
+        | Some _ -> bw#style##.display := Js_of_ocaml.Js.string "") standard in
   let set = function
     | None -> bw#set_selected_index 0
     | Some x -> bw#set_selected_value ~eq:equal_bw x.channel.bw |> ignore in
@@ -67,8 +67,8 @@ let make_freq ?(terrestrial = true)
     React.S.map ~eq:Equal.unit (fun x ->
         match x, terrestrial with
         | (Some T, true) | (Some T2, true) | (Some C, false) ->
-           freq#style##.display := Js.string ""
-        | _ -> freq#style##.display := Js.string "none") standard in
+           freq#style##.display := Js_of_ocaml.Js.string ""
+        | _ -> freq#style##.display := Js_of_ocaml.Js.string "none") standard in
   let set = function
     | None -> freq#set_selected_index 0
     | Some x ->
@@ -88,8 +88,8 @@ let make_plp (standard : standard option React.signal) () =
   plp#set_required true;
   let s_hide =
     React.S.map ~eq:Equal.unit (function
-        | Some T2 -> plp#style##.display := Js.string ""
-        | _ -> plp#style##.display := Js.string "none") standard in
+        | Some T2 -> plp#style##.display := Js_of_ocaml.Js.string ""
+        | _ -> plp#style##.display := Js_of_ocaml.Js.string "none") standard in
   let set = function
     | None -> plp#clear ()
     | Some x -> plp#set_value x.channel.plp in
@@ -190,5 +190,5 @@ let make ~(state : Common.Topology.state React.signal)
   let actions = new Card.Actions.t ~widgets:[buttons] () in
   let box = new Vbox.t ~widgets:[w#widget; actions#widget] () in
   box#add_class base_class;
-  box#set_on_destroy @@ Some close;
+  box#set_on_destroy close;
   box#widget

@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Tyxml_js
 
@@ -6,7 +7,7 @@ module Markup = Components_markup.Floating_label.Make(Xml)(Svg)(Html)
 type event = Dom_html.animationEvent Js.t
 
 class t ?(for_ : string option) (label : string) () =
-  let elt = Markup.create ?for_ label () |> To_dom.of_element in
+  let elt = To_dom.of_element @@ Markup.create ?for_ label () in
   object(self)
 
     val mutable _listener = None

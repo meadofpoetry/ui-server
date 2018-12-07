@@ -60,13 +60,12 @@ let make (id : Stream.ID.t) control =
     let overview_cell = new Cell.t ~span ~widgets:[overview] () in
     let cells = [overview_cell] in
     new t ~cells () in
-  box#set_on_destroy
-  @@ Some (fun () ->
-         overview#destroy ();
-         overview_close ();
-         state >|= (fun (_, f) -> f ()) |> Lwt.ignore_result;
-         React.E.stop ~strong:true e_tables;
-         React.E.stop ~strong:true e_rate;
-         tables_sock##close;
-         rate_sock##close);
+  box#set_on_destroy (fun () ->
+      overview#destroy ();
+      overview_close ();
+      state >|= (fun (_, f) -> f ()) |> Lwt.ignore_result;
+      React.E.stop ~strong:true e_tables;
+      React.E.stop ~strong:true e_rate;
+      tables_sock##close;
+      rate_sock##close);
   box#widget

@@ -8,40 +8,31 @@ type config = unit [@@deriving yojson]
 let base_class = "ip-dektec-network-settings"
 
 let make_ip () =
-  (* let help_text : Textfield.Help_text.helptext =
-   *   { validation=true;persistent=false;text=None} in *)
   let ip =
     new Textfield.t
       ~input_id:"ip"
       ~input_type:IPV4
-      (* ~help_text *)
       ~label:"IP адрес" () in
-  let set (x:nw) = ip#set_value x.ip in
-  ip#widget,set,ip#s_input,ip#set_disabled
+  let set (x : nw) = ip#set_value x.ip in
+  ip#widget, set, ip#s_input, ip#set_disabled
 
 let make_mask () =
-  (* let help_text : Textfield.Help_text.helptext =
-   *   { validation=true;persistent=false;text=None} in *)
   let mask =
     new Textfield.t
       ~input_id:"mask"
       ~input_type:IPV4
-      (* ~help_text *)
       ~label:"Маска подсети" () in
-  let set (x:nw) = mask#set_value x.mask in
-  mask#widget,set,mask#s_input,mask#set_disabled
+  let set (x : nw) = mask#set_value x.mask in
+  mask#widget, set, mask#s_input, mask#set_disabled
 
 let make_gateway () =
-  (* let help_text : Textfield.Help_text.helptext =
-   *   { validation=true;persistent=false;text=None} in *)
   let gw =
     new Textfield.t
       ~input_id:"gw"
       ~input_type:IPV4
-      (* ~help_text *)
       ~label:"Шлюз" () in
-  let set (x:nw) = gw#set_value x.gateway in
-  gw#widget,set,gw#s_input,gw#set_disabled
+  let set (x : nw) = gw#set_value x.gateway in
+  gw#widget, set, gw#s_input, gw#set_disabled
 
 let make_dhcp () =
   let dhcp  = new Switch.t () in
@@ -56,15 +47,15 @@ let make_dhcp () =
 let name     = "Настройки. Сеть"
 let settings = None
 
-let make ~(state: Topology.state React.signal)
-         ~(mode:  nw React.signal)
-         (_:   config option)
+let make ~(state : Topology.state React.signal)
+         ~(mode : nw React.signal)
+         (_ : config option)
          control =
-  let ip,set_ip,s_ip,dis_ip         = make_ip () in
-  let mask,set_mask,s_mask,dis_mask = make_mask () in
-  let gw,set_gw,s_gw,dis_gw         = make_gateway () in
-  let dhcp,set_dhcp,s_dhcp,dis_dhcp = make_dhcp () in
-  let s : nw option React.signal =
+  let ip, set_ip, s_ip, dis_ip = make_ip () in
+  let mask, set_mask, s_mask, dis_mask = make_mask () in
+  let gw, set_gw, s_gw, dis_gw = make_gateway () in
+  let dhcp, set_dhcp, s_dhcp, dis_dhcp = make_dhcp () in
+  let (s : nw option React.signal) =
     React.S.l5 ~eq:(Equal.option equal_nw)
       (fun ip mask gw dhcp state ->
         match ip, mask, gw, state with
@@ -73,25 +64,24 @@ let make ~(state: Topology.state React.signal)
         | _ -> None)
       s_ip s_mask s_gw s_dhcp state in
   let s_set =
-    React.S.map ~eq:Equal.unit
-      (fun x -> List.iter (fun f -> f x)
-                  [set_dhcp; set_ip; set_mask; set_gw]) mode in
+    React.S.map ~eq:Equal.unit (fun x ->
+        List.iter (fun f -> f x)
+          [set_dhcp; set_ip; set_mask; set_gw]) mode in
   let s_dis =
     React.S.l2 ~eq:Equal.unit (fun state dhcp ->
         let is_disabled = match state,dhcp with
-          | `Fine,false -> false
-          | _           -> true
-        in
-        List.iter (fun f -> f is_disabled) [dis_ip;dis_mask;dis_gw];
+          | `Fine, false -> false
+          | _ -> true in
+        List.iter (fun f -> f is_disabled) [dis_ip; dis_mask; dis_gw];
         dis_dhcp (match state with `Fine -> false | _ -> true))
       state s_dhcp in
   let submit = fun x -> Requests.Device.HTTP.set_mode x control in
   let apply = new Ui_templates.Buttons.Set.t s submit () in
   let buttons = new Card.Actions.Buttons.t ~widgets:[apply] () in
   let actions = new Card.Actions.t ~widgets:[buttons] () in
-  let box = new Vbox.t ~widgets:[ dhcp; ip; mask; gw; actions#widget ] () in
-  box#set_on_destroy
-  @@ Some (fun () -> React.S.stop ~strong:true s_set;
-                     React.S.stop ~strong:true s_dis);
+  let box = new Vbox.t ~widgets:[dhcp; ip; mask; gw; actions#widget] () in
+  box#set_on_destroy (fun () ->
+      React.S.stop ~strong:true s_set;
+      React.S.stop ~strong:true s_dis);
   box#add_class base_class;
   box#widget

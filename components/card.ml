@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Tyxml_js
 
@@ -10,8 +11,8 @@ module Actions = struct
   module Buttons = struct
 
     class t ~(widgets : #Widget.t list) () =
-      let children = List.map (fun x -> Widget.to_markup x#widget) widgets in
-      let elt =
+      let children = List.map Widget.to_markup widgets in
+      let (elt : Dom_html.element Js.t) =
         Markup.Actions.Buttons.create ~children ()
         |> To_dom.of_element in
       object
@@ -31,8 +32,8 @@ module Actions = struct
   module Icons = struct
 
     class t ~(widgets : #Widget.t list) () =
-      let children = List.map (fun x -> Widget.to_markup x#widget) widgets in
-      let elt =
+      let children = List.map Widget.to_markup widgets in
+      let (elt : Dom_html.element Js.t) =
         Markup.Actions.Icons.create ~children ()
         |> To_dom.of_element in
       object
@@ -50,12 +51,11 @@ module Actions = struct
   end
 
   class t ~(widgets : #Widget.t list) () =
-    let elt =
+    let (elt : Dom_html.element Js.t) =
       Markup.Actions.create ~children:(List.map Widget.to_markup widgets) ()
       |> To_dom.of_section in
     object
-      val mutable widgets : Widget.t list =
-        List.map (fun x -> (x :> Widget.t)) widgets
+      val mutable widgets : Widget.t list = List.map Widget.coerce widgets
 
       inherit Widget.t elt ()
 
@@ -67,32 +67,32 @@ end
 
 module Primary = struct
 
-  class overline text () =
-    let elt =
+  class overline (text : string) () =
+    let (elt : Dom_html.element Js.t) =
       Markup.Primary.create_overline ~text ()
       |> To_dom.of_element in
     object
       inherit Widget.t elt ()
     end
 
-  class title ?large text () =
-    let elt =
+  class title ?large (text : string) () =
+    let (elt : Dom_html.element Js.t) =
       Markup.Primary.create_title ?large ~title:text ()
       |> To_dom.of_element in
     object
       inherit Widget.t elt ()
     end
 
-  class subtitle text () =
-    let elt =
+  class subtitle (text : string) () =
+    let (elt : Dom_html.element Js.t) =
       Markup.Primary.create_subtitle ~subtitle:text ()
       |> To_dom.of_element in
     object
       inherit Widget.t elt ()
     end
 
-  class t ~(widgets:#Widget.t list) () =
-    let elt =
+  class t ~(widgets : #Widget.t list) () =
+    let (elt : Dom_html.element Js.t) =
       Markup.Primary.create ~children:(List.map Widget.to_markup widgets) ()
       |> To_dom.of_element in
     object
@@ -108,8 +108,7 @@ module Media = struct
       Markup.Media.create ~children:(List.map Widget.to_markup widgets) ()
       |> To_dom.of_section in
     object
-      val mutable widgets : Widget.t list =
-        List.map (fun x -> (x :> Widget.t)) widgets
+      val mutable widgets : Widget.t list = List.map Widget.coerce widgets
 
       inherit Widget.t elt ()
 

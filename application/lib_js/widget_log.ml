@@ -145,8 +145,9 @@ class ['a] t ?scroll_target ?boards ?cpu ?inputs ?streams ?init () =
         | _ :: cell :: _ -> cell in
       let bg_color = log_level_to_color i.level in
       let color = Color.text_color bg_color in
-      el#style##.backgroundColor := (Js.string @@ Color.to_css_rgba bg_color);
-      el#style##.color := (Js.string @@ Color.to_css_rgba color)
+      Js_of_ocaml.(
+        el#style##.backgroundColor := (Js.string @@ Color.to_css_rgba bg_color);
+        el#style##.color := (Js.string @@ Color.to_css_rgba color))
 
   end
 

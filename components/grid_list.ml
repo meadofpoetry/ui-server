@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Tyxml_js
 
@@ -9,10 +10,12 @@ module Tile = struct
 
     class t ?src ?alt ?(is_div=false) () =
 
-      let content = new Widget.t (Markup.Tile.Primary.create_content ?src ?alt ~is_div ()
-                                       |> Tyxml_js.To_dom.of_element) () in
-      let elt     = Markup.Tile.Primary.create ~content:(Widget.to_markup content) ()
-                    |> Tyxml_js.To_dom.of_div in
+      let content =
+        new Widget.t (Markup.Tile.Primary.create_content ?src ?alt ~is_div ()
+                      |> To_dom.of_element) () in
+      let (elt : Dom_html.element Js.t) =
+        Markup.Tile.Primary.create ~content:(Widget.to_markup content) ()
+        |> To_dom.of_div in
       object
 
         val content_widget = content
@@ -36,61 +39,69 @@ module Tile = struct
 
     class title ~title () = object
       inherit Widget.t (Markup.Tile.Caption.create_title ~text:title ()
-                             |> Tyxml_js.To_dom.of_element) () as super
-      method text       = super#text_content |> Option.get_or ~default:""
+                        |> To_dom.of_element) () as super
+
+      method text = super#text_content |> Option.get_or ~default:""
       method set_text s = super#set_text_content s
     end
 
     class support_text ~support_text () = object
       inherit Widget.t (Markup.Tile.Caption.create_support_text ~text:support_text ()
-                             |> Tyxml_js.To_dom.of_element) () as super
-      method text       = super#text_content |> Option.get_or ~default:""
+                        |> To_dom.of_element) () as super
+      method text = super#text_content |> Option.get_or ~default:""
       method set_text s = super#set_text_content s
     end
 
     class t ?title ?support_text ?icon () =
-
       let title_widget = Option.map (fun x -> new title ~title:x ()) title in
-      let support_text_widget = Option.map (fun x -> new support_text ~support_text:x ()) support_text in
-      let elt = Markup.Tile.Caption.create
-                  ?title:(Option.map Widget.to_markup title_widget)
-                  ?support_text:(Option.map Widget.to_markup support_text_widget)
-                  ?icon:(Option.map Widget.to_markup icon)
-                  ()
-                |> Tyxml_js.To_dom.of_element in
+      let support_text_widget =
+        Option.map (fun x -> new support_text ~support_text:x ()) support_text in
+      let (elt : Dom_html.element Js.t) =
+        Markup.Tile.Caption.create
+          ?title:(Option.map Widget.to_markup title_widget)
+          ?support_text:(Option.map Widget.to_markup support_text_widget)
+          ?icon:(Option.map Widget.to_markup icon)
+          ()
+        |> To_dom.of_element in
 
       object(self)
 
-        val title_widget        = title_widget
+        val title_widget = title_widget
         val support_text_widget = support_text_widget
 
-        inherit Widget.t elt ()
+        inherit Widget.t elt () as super
 
-        method title_widget        = title_widget
+        method! init () : unit =
+          super#init ();
+          Option.iter (fun x -> x#add_class Markup.Tile.Caption.icon_class) icon
+
+        method title_widget = title_widget
         method support_text_widget = support_text_widget
 
-        method support_text       = Option.map (fun x -> x#text) self#support_text_widget
-        method set_support_text s = Option.iter (fun x -> x#set_text s) self#support_text_widget
+        method support_text : string option =
+          Option.map (fun x -> x#text) self#support_text_widget
+        method set_support_text (s : string) : unit =
+          Option.iter (fun x -> x#set_text s) self#support_text_widget
 
-        method title       = Option.map (fun x -> x#text) self#title_widget
-        method set_title s = Option.iter (fun x -> x#set_text s) self#title_widget
-
-        initializer
-          Option.iter (fun x -> x#add_class Markup.Tile.Caption.icon_class) icon
+        method title : string option =
+          Option.map (fun x -> x#text) self#title_widget
+        method set_title (s : string) : unit =
+          Option.iter (fun x -> x#set_text s) self#title_widget
       end
 
   end
 
   class t ?src ?icon ?title ?support_text () =
 
-    let caption_widget = (match icon,title,support_text with
-                          | None,None,None -> None
-                          | _              -> Some (new Caption.t ?title ?support_text ?icon ())) in
+    let caption_widget = match icon,title,support_text with
+      | None, None, None -> None
+      | _ -> Some (new Caption.t ?title ?support_text ?icon ()) in
     let primary_widget = new Primary.t ~is_div:true ?src () in
-    let elt = Markup.Tile.create ~primary:(Widget.to_markup primary_widget)
-                ?caption:(Option.map Widget.to_markup caption_widget)
-                ()
-              |> Tyxml_js.To_dom.of_element in
+    let (elt : Dom_html.element Js.t) =
+      Markup.Tile.create ~primary:(Widget.to_markup primary_widget)
+        ?caption:(Option.map Widget.to_markup caption_widget)
+        ()
+      |> To_dom.of_element in
 
     object
 
@@ -108,12 +119,17 @@ end
 
 type ar = [ `AR_1_1 | `AR_16_9 | `AR_2_3 | `AR_3_2 | `AR_4_3 | `AR_3_4 ]
 
-class t ~(tiles:Tile.t list) () =
+class t ~(tiles : Tile.t list) () =
 
-  let twoline = List.find_pred (fun x -> match x#caption_widget with
-                                         | Some c -> Option.is_some c#support_text_widget
-                                         | None   -> false) tiles |> Option.is_some in
-  let elt = Markup.create ~tiles:(List.map Widget.to_markup tiles) () |> Tyxml_js.To_dom.of_div in
+  let (twoline : bool) =
+    List.find_pred (fun x ->
+        match x#caption_widget with
+        | None -> false
+        | Some c -> Option.is_some c#support_text_widget) tiles
+    |> Option.is_some in
+  let (elt : Dom_html.element Js.t) =
+    Markup.create ~tiles:(List.map Widget.to_markup tiles) ()
+    |> To_dom.of_div in
 
   object(self)
 
@@ -122,20 +138,30 @@ class t ~(tiles:Tile.t list) () =
 
     inherit Widget.t elt () as super
 
+    method! init () : unit =
+      super#init ();
+      if twoline then super#add_class Markup.twoline_caption_class
+
     method tiles = tiles
 
     method ar = ar
     method set_ar : ar option -> unit = function
-      | Some ar -> self#set_ar None; super#add_class @@ Markup.ar_to_class ar
-      | None    -> Option.iter (fun x -> super#remove_class @@ Markup.ar_to_class x) ar
+      | Some ar ->
+         self#set_ar None;
+         super#add_class @@ Markup.ar_to_class ar
+      | None -> Option.iter Fun.(super#remove_class % Markup.ar_to_class) ar
 
-    method set_one_px_gutter x         = self#add_or_remove_class x Markup.tile_gutter_1_class
-    method set_caption_as_header x     = self#add_or_remove_class x Markup.header_caption_class
-    method set_icon_align_start ()     = super#remove_class Markup.icon_align_end_class;
-                                         super#add_class Markup.icon_align_start_class
-    method set_icon_align_end ()       = super#remove_class Markup.icon_align_start_class;
-                                         super#add_class Markup.icon_align_end_class
-    initializer
-      if twoline then super#add_class Markup.twoline_caption_class
+    method set_one_px_gutter (x : bool) : unit =
+      self#add_or_remove_class x Markup.tile_gutter_1_class
 
+    method set_caption_as_header (x : bool) : unit =
+      self#add_or_remove_class x Markup.header_caption_class
+
+    method set_icon_align_start () : unit =
+      super#remove_class Markup.icon_align_end_class;
+      super#add_class Markup.icon_align_start_class
+
+    method set_icon_align_end () : unit =
+      super#remove_class Markup.icon_align_start_class;
+      super#add_class Markup.icon_align_end_class
   end

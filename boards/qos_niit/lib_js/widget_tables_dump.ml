@@ -164,15 +164,14 @@ let make_hexdump_options hexdump =
         | Some x -> hexdump#set_base x
         | None -> ()) base#s_selected_value in
   options#add_class base_class;
-  options#set_on_destroy
-  @@ Some (fun () ->
-         React.S.stop ~strong:true s_line_num;
-         React.S.stop ~strong:true s_width;
-         React.S.stop ~strong:true s_base);
+  options#set_on_destroy (fun () ->
+      React.S.stop ~strong:true s_line_num;
+      React.S.stop ~strong:true s_width;
+      React.S.stop ~strong:true s_base);
   options#widget
 
 let make_hexdump () =
-  let config = Hexdump.to_config ~width:16 () in
+  let config = Hexdump.make_config ~width:16 () in
   let hexdump = new Hexdump.t ~interactive:false ~config "" () in
   hexdump, hexdump#set_bytes
 
@@ -372,7 +371,7 @@ let make_dump
                        upd (Some dump);
                     | Error s ->
                        parsed#set_empty ();
-                       Dom.appendChild parsed#root (err s)#root))
+                       parsed#append_child (err s)))
              (fun e ->
                parsed#set_empty ();
                parsed#append_child (err @@ Printexc.to_string e);

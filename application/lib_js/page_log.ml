@@ -26,10 +26,9 @@ let make ?boards ?cpu ?inputs ?streams () =
     let overview_cell = new Cell.t ~span ~widgets:[overview] () in
     let cells = [overview_cell] in
     new t ~cells () in
-  box#set_on_destroy
-  @@ Some (fun () ->
-         overview#destroy ();
-         overview_close ();
-         React.E.stop ~strong:true e_log;
-         log_sock##close);
+  box#set_on_destroy (fun () ->
+      overview#destroy ();
+      overview_close ();
+      React.E.stop ~strong:true e_log;
+      log_sock##close);
   box#widget

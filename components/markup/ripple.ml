@@ -29,6 +29,6 @@ module Make(Xml : Xml_sigs.NoWrap)
     ; var_fg_translate_end
     ]
 
-  let unbounded_attr  = a_user_data "mdc-ripple-is-unbounded" ""
+  let unbounded_attr = a_user_data "mdc-ripple-is-unbounded" ""
 
 end

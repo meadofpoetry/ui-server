@@ -69,20 +69,20 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   let title_class = CSS.add_element base_class "title"
 
-  let create_title ?(classes = []) ?attrs ~content () =
+  let create_title ?(classes = []) ?attrs ~content () : 'a elt =
     span ~a:([a_class (title_class :: classes)] <@> attrs) content
 
-  let create_section ?(classes = []) ?attrs ?align ~content () =
+  let create_section ?(classes = []) ?attrs ?align ~content () : 'a elt =
     let classes = match align with
       | None -> classes
       | Some `Start -> section_align_start_class :: classes
       | Some `End -> section_align_end_class :: classes in
     section ~a:([a_class (section_class :: classes)] <@> attrs) content
 
-  let create_row ?(classes = []) ?attrs ~sections () =
+  let create_row ?(classes = []) ?attrs ~sections () : 'a elt =
     div ~a:([a_class (row_class :: classes)] <@> attrs) sections
 
-  let create ?(classes = []) ?attrs ~rows () =
+  let create ?(classes = []) ?attrs ~rows () : 'a elt =
     header ~a:([a_class (base_class :: classes)] <@> attrs) rows
 
 end

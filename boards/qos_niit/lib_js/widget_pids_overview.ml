@@ -153,7 +153,8 @@ class t ?(settings : Settings.t option)
     | Some { data; timestamp } -> data, Some timestamp in
   let s_time, set_time =
     React.S.create ~eq:(Equal.option Time.equal) timestamp in
-  let fmt = make_table_fmt init in
+  let is_hex = Option.map (fun (x : Settings.t) -> x.hex) settings in
+  let fmt = make_table_fmt ?is_hex init in
   let table = new Table.t ~sticky_header:true ~dense:true ~fmt () in
   let empty =
     Ui_templates.Placeholder.create_with_icon
@@ -162,19 +163,21 @@ class t ?(settings : Settings.t option)
       () in
   object(self)
 
+    val mutable _settings : Settings.t =
+      Option.get_or ~default:Settings.default settings
     val mutable _data : Set.t = Set.of_list init
 
-    inherit Widget.t Dom_html.(createDiv document) () as super
+    inherit Widget.t Js_of_ocaml.Dom_html.(createDiv document) () as super
 
     method init () : unit =
       super#init ();
-      Option.iter self#set_settings settings;
       self#append_child table;
       React.S.map ~eq:Equal.unit (function
           | [] -> self#append_child empty
           | _ -> self#remove_child empty) table#s_rows
       |> self#_keep_s;
       List.iter Fun.(ignore % add_row table) init;
+      Option.iter self#set_settings settings;
       self#add_class base_class
 
     method destroy () : unit =
@@ -184,7 +187,10 @@ class t ?(settings : Settings.t option)
 
     method pids = Set.to_list _data
 
-    method set_settings ({ hex } : Settings.t) =
+    method settings : Settings.t = _settings
+
+    method set_settings ({ hex } as s : Settings.t) =
+      _settings <- s;
       self#set_hex hex
 
     method s_timestamp : Time.t option React.signal =
@@ -244,20 +250,19 @@ class t ?(settings : Settings.t option)
                        cell#value = pid) rows with
              | Some x ->
                 update_row x total br pid |> ignore;
-                List.remove ~eq:Equal.physical ~x rows
+                List.remove ~eq:Equal.physical x rows
              | None -> rows) table#rows pids
          |> ignore
 
-    (** Sets ID display format to dec or hex *)
-    method set_hex (x : bool) : unit =
-    List.iter (fun row ->
-        let open Table in
-        match row#cells with
-        | pid :: _ ->
-           pid#set_format (if x then hex_pid_fmt else dec_pid_fmt))
-      table#rows
-
     (* Private methods *)
+
+    method private set_hex (x : bool) : unit =
+      List.iter (fun row ->
+          let open Table in
+          match row#cells with
+          | pid :: _ ->
+             pid#set_format (if x then hex_pid_fmt else dec_pid_fmt))
+        table#rows
 
     method private _update_row (row : 'a Table.Row.t) ((pid, info) : Pid.t) =
       let open Table in

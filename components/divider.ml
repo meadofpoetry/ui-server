@@ -4,7 +4,7 @@ open Tyxml_js
 module Markup = Components_markup.Divider.Make(Xml)(Svg)(Html)
 
 class t ?inset () =
-  let elt = Markup.create () |> To_dom.of_element in
+  let elt = To_dom.of_element @@ Markup.create () in
   object(self)
 
     inherit Widget.t elt () as super
