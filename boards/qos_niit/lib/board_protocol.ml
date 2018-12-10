@@ -30,71 +30,6 @@ let t2mi_mode_to_raw (mode : t2mi_mode option) =
      | _ -> t2mi_mode_raw_default (* XXX maybe throw an exn here? *)
      end
 
-module Acc = struct
-
-  type probes =
-    { board_errors : Board_error.t list option
-    ; bitrate : (Multi_TS_ID.t * Bitrate.t) list option
-    ; ts_structs : (Multi_TS_ID.t * structure) list option
-    ; t2mi_info : (Multi_TS_ID.t * T2mi_info.t list) list option
-    ; jitter : jitter_raw option
-    }
-
-  let probes_empty =
-    { board_errors = None
-    ; bitrate = None
-    ; ts_structs = None
-    ; t2mi_info = None
-    ; jitter = None
-    }
-
-  let merge_ts_probes ?(acc = []) l =
-    List.fold_left (fun acc (id, x) ->
-        List.Assoc.set ~eq:Multi_TS_ID.equal id x acc) acc l
-
-  let merge_t2mi_info ?(acc = []) (id, x) =
-    let open T2mi_info in
-    let eq = Multi_TS_ID.equal in
-    let f ((id, info) : t) = function
-      | None -> Some [(id, info)]
-      | Some (o : t list) ->
-         let n = List.Assoc.set ~eq:equal_id id info o in
-         Some n in
-    List.Assoc.update ~eq (f x) id acc
-
-  let cons (p : probes) = function
-    | Board_errors x -> { p with board_errors = Some x }
-    | Bitrate x ->
-       let bitrate = Some (merge_ts_probes ?acc:p.bitrate x) in
-       { p with bitrate }
-    | Struct x ->
-       let ts_structs = Some (merge_ts_probes ?acc:p.ts_structs x) in
-       { p with ts_structs  }
-    | T2mi_info x ->
-       let t2mi_info = Some (merge_t2mi_info ?acc:p.t2mi_info x) in
-       { p with t2mi_info }
-    | Jitter x -> { p with jitter = Some x }
-
-  type t =
-    { group : group option
-    ; events : board_event list
-    ; probes : probes
-    ; parts : (int * int, part list) List.Assoc.t
-    ; bytes : Cstruct.t option
-    }
-
-  let empty =
-    { group = None
-    ; events = []
-    ; probes = probes_empty
-    ; parts = []
-    ; bytes = None }
-
-  let cons_probe (acc : t) x =
-    { acc with probes = cons acc.probes x }
-
-end
-
 module Make(Logs : Logs.LOG) : sig
   val create : init ->
                (Cstruct.t -> unit Lwt.t) ->
@@ -126,16 +61,12 @@ end = struct
     ; param = None
     }
 
+  module Serializer = Board_serializer.Make(Logs)
   module Parser = Board_parser.Make(Logs)
-
-  let request_id = ref (-1)
-  let jitter_ptr = ref (-1l)
+  module Events = Board_event_handler.Make(Logs)
+  module Acc = Board_event_handler.Acc
 
   exception Protocol_invariant of protocol_error
-
-  let get_id () =
-    incr request_id;
-    !request_id
 
   let wakeup_timeout (_, t) =
     t.pred `Timeout |> ignore
@@ -144,358 +75,6 @@ end = struct
     match List.find_map (Parser.is_response Get_board_info) rsps with
     | None -> ()
     | Some x -> raise_notrace (Protocol_invariant (Unexpected_info x))
-
-  module Events : sig
-    val partition : Acc.t -> group list * Acc.t
-    val get_req_stack : group -> group option -> probe_response probe_request list
-    val handle : push_events -> events -> init -> Acc.t -> Acc.t
-    val handle_immediate : push_events -> Acc.t -> Acc.t
-  end = struct
-
-    let split_by l sep =
-      let res, acc =
-        List.fold_left (fun (res, acc) x ->
-            if equal_board_event x sep
-            then ((List.rev acc) :: res), [ ]
-            else res, (x :: acc))
-          ([ ], [ ]) l
-      in (List.rev res), (List.rev acc)
-
-    (** Returns merged groups and accumulator. Last group received is head of list *)
-    let partition (acc : Acc.t) =
-      let groups, rest = split_by acc.events `End_of_transmission in
-      let groups =
-        List.filter (function
-            | `Status _ :: `Streams_event _ :: _ -> true
-            | _ -> false) groups
-        |> List.fold_left (fun (gps : group list) (x : board_event list) ->
-               let prev_status = match gps with
-                 | [ ] -> Option.(acc.group >|= (fun x -> x.status))
-                 | x :: _ -> Some x.status in
-               match x with
-               | `Status status :: `Streams_event streams :: events ->
-                  let status = { status with streams } in
-                  ({ status; prev_status; events } : group) :: gps
-               | _ -> assert false) []
-      in groups, { acc with events = rest}
-
-    let get_req_stack ({ status; _ } : group) (prev_t : group option)
-        : probe_response probe_request list =
-      let bitrate =
-        if not status.basic.has_sync then None else
-          Some (Get_bitrates (get_id ())) in
-      let jitter = match status.jitter_mode with
-        | None -> None
-        | Some m ->
-           (* request for jitter only if required stream is present *)
-           let eq = Stream.Multi_TS_ID.equal in
-           if not @@ List.mem ~eq m.stream status.streams then None else
-             Some (Get_jitter { request_id = get_id ()
-                              ; pointer = !jitter_ptr }) in
-      let errors =
-        if not status.errors then None else
-          Some (Get_board_errors (get_id ())) in
-      let ts_structs =
-        let req = Get_ts_struct { stream = `All; request_id = get_id () } in
-        match prev_t with
-        | None -> Some req
-        | Some (old : group) ->
-           let old = old.status.versions.ts_ver_com in
-           let cur = status.versions.ts_ver_com in
-           if old = cur then None else Some req in
-      let t2mi_structs =
-        let make_req stream_id =
-          Get_t2mi_info { request_id = get_id ()
-                        ; stream = status.t2mi_mode.stream
-                        ; stream_id } in
-        match status.t2mi_sync, prev_t with
-        | [], _ -> []
-        | sync, None -> List.map make_req sync
-        | sync, Some prev ->
-           (* XXX maybe we should request only those structures that really changed *)
-           let old = prev.status.versions.t2mi_ver_lst in
-           let cur = status.versions.t2mi_ver_lst in
-           let eq = Equal.list (=) in
-           begin match eq old cur with
-           | true -> []
-           | false -> List.map make_req sync
-           end in
-      List.(t2mi_structs
-            |> cons_maybe ts_structs
-            |> cons_maybe bitrate
-            |> cons_maybe jitter
-            |> cons_maybe errors)
-
-    let to_ts_errors (g : group) =
-      List.filter_map (function
-          | `Ts_errors x -> Some x
-          | _ -> None) g.events
-
-    let to_t2mi_errors (g : group) =
-      List.filter_map (function
-          | `T2mi_errors x -> Some x
-          | _ -> None) g.events
-
-    let merge_streams streams l =
-      List.filter_map (fun (id, x) ->
-          match Stream.find_by_multi_id id streams with
-          | None ->
-             Logs.err (fun m -> m "Not found a stream for data!");
-             None
-          | Some s -> Some (s.id, x)) l
-
-    let to_raw_stream ({ input; t2mi } : init)
-          (mode : t2mi_mode_raw)
-          (i : input) (id : Multi_TS_ID.t) =
-      let open Stream.Source in
-      let open Stream.Raw in
-      let source_id = Multi_TS_ID.source_id id in
-      let stream_id = Multi_TS_ID.stream_id id in
-      let spi_id = input_to_int SPI in
-      let asi_id = input_to_int ASI in
-      let src = match source_id, stream_id with
-        | src, id when src = input && id = spi_id -> `Spi
-        | src, id when src = input && id = asi_id -> `Asi
-        | src, id when src = t2mi -> `T2mi id
-        | _ -> begin match i with SPI -> `Spi | ASI -> `Asi end in
-      let source = match src, mode with
-        | `T2mi plp, { stream
-                     ; t2mi_stream_id = stream_id
-                     ; enabled = true
-                     ; _ } ->
-           let node = Stream (TS_multi stream) in
-           let info = T2MI { stream_id; plp } in
-           Some { node; info }
-        | `T2mi _, _ -> None
-        | `Spi, _ -> Some { node = Port spi_id; info = SPI }
-        | `Asi, _ -> Some { node = Port asi_id; info = ASI }
-        | `Unknown, _ -> None
-      in
-      match source with
-      | None -> None
-      | Some source ->
-         let (typ : Stream.stream_type) =
-           if Multi_TS_ID.equal id mode.stream && mode.enabled
-           then T2MI else TS in
-         Some { id = TS_multi id; source; typ }
-
-    let handle_immediate (pe : push_events)
-          (acc : Acc.t) : Acc.t =
-      match acc.group with
-      | None -> acc
-      | Some ({ status = { basic; t2mi_mode; input; _ }; _ } : group) ->
-         pe.input input;
-         pe.status basic;
-         pe.t2mi_mode_raw t2mi_mode;
-         acc
-
-    let merge_with_pid ~(eq : 'a -> 'a -> bool)
-          (pids : ('a * (Pid.t list)) list)
-          (errors : ('a * (Error.t list)) list)
-        : ('a * (Error.t_ext list)) list =
-      List.map (fun (id, errors) ->
-          let pids = List.Assoc.get ~eq id pids in
-          let errors =
-            List.map (fun (e : Error.t) ->
-                let pid =
-                  Option.get_or ~default:(e.pid, None)
-                  @@ List.find_map (fun ((id, info) : Pid.t) ->
-                         if e.pid = id then Some (id, Some info) else None)
-                  @@ Option.get_or ~default:[] pids in
-                Error.{ e with pid }) errors in
-          id, errors) errors
-
-    let handle (pe : push_events)
-          (events : events)
-          (sources : init)
-          (acc : Acc.t) =
-      let (({ status = { basic; t2mi_mode; input; streams = ids; _ }
-            ; _ } : group) as group) =
-        Option.get_exn acc.group in
-      let time = basic.time in
-      let timestamp = basic.time in
-      let streams = React.S.value events.streams in
-      (* Push raw streams *)
-      pe.raw_streams
-      @@ List.filter_map (to_raw_stream sources t2mi_mode input) ids;
-      (* Push board errors *)
-      begin match acc.probes.board_errors with
-      | None -> ()
-      | Some x ->
-         Logs.warn (fun m ->
-             m "got board errors: [%s]"
-             @@ String.concat "; "
-             @@ List.map (fun ({ code; count; _ } : Board_error.t) ->
-                    Printf.sprintf "%d: %d" code count) x);
-         pe.board_errors x
-      end;
-      (* Push jitter *)
-      begin match acc.probes.jitter with
-      | None -> ()
-      | Some x ->
-         jitter_ptr := x.next_ptr;
-         pe.jitter x.measures
-      end;
-      (* Stream dependent events *)
-      (* Push TS bitrates *)
-      begin match acc.probes.bitrate with
-      | None -> ()
-      | Some x ->
-         let v = merge_streams streams x in
-         List.map (Pair.map2 (make_timestamped timestamp)) v
-         |> pe.bitrates
-      end;
-      (* Push TS structures *)
-      (* FIXME do smth if corresponding stream is not found *)
-      begin match acc.probes.ts_structs with
-      | None -> ()
-      | Some x ->
-         let v = merge_streams streams x in
-         let map2 = Pair.map2 in
-         let info = List.map (map2 (fun (x : structure) ->
-                                  make_timestamped timestamp x.info)) v in
-         let pids = List.map (map2 (fun (x : structure) ->
-                                  make_timestamped timestamp x.pids)) v in
-         let tbls = List.map (map2 (fun (x : structure) ->
-                                  make_timestamped timestamp x.tables)) v in
-         let srvs = List.map (map2 (fun (x : structure) ->
-                                  make_timestamped timestamp x.services)) v in
-         pe.structures x;
-         pe.info info;
-         pe.pids pids;
-         pe.tables tbls;
-         pe.services srvs;
-      end;
-      (* Push TS errors *)
-      begin match to_ts_errors group with
-      | [] -> ()
-      | v ->
-         let open Error in
-         let pids =
-           List.map (fun (id, (x : structure)) -> id, x.pids)
-           @@ React.S.value events.raw.structures in
-         merge_with_pid ~eq:Multi_TS_ID.equal pids v
-         |> merge_streams streams
-         |> List.map (Pair.map2 (List.map (fun (x : 'a error) -> { x with time })))
-         |> List.sort (fun (_, a) (_, b) ->
-                Ord.list (fun a b -> Ptime.compare a.time b.time) a b)
-         |> pe.ts_errors
-      end;
-      (* Push T2-MI info *)
-      (* FIXME do smth if corresponding stream is not found *)
-      begin match acc.probes.t2mi_info with
-      | None -> ()
-      | Some x ->
-         merge_streams streams x
-         |> List.map (Pair.map2 (make_timestamped timestamp))
-         |> pe.t2mi_info
-      end;
-      (* Push T2-MI errors *)
-      begin match to_t2mi_errors group with
-      | [] -> ()
-      | v ->
-         let open Error in
-         merge_streams streams v
-         |> List.map (Pair.map2 (List.map (fun x -> { x with time })))
-         |> pe.t2mi_errors
-      end;
-      { acc with probes = Acc.probes_empty }
-
-  end
-
-  let probe_req_to_string = function
-    | Get_board_errors _ -> "Board errors"
-    | Get_jitter _ -> "Jitter"
-    | Get_ts_struct _ -> "TS structure"
-    | Get_bitrates _ -> "TS bitrates"
-    | Get_t2mi_info _ -> "T2-MI info"
-
-  let probe_rsp_to_string = function
-    | Board_errors _ -> "Board errors"
-    | Bitrate _ -> "TS bitrates"
-    | Struct _ -> "TS structures"
-    | T2mi_info _ -> "T2-MI info"
-    | Jitter _ -> "Jitter"
-
-  let send_msg (type a) sender (msg : a request) : unit Lwt.t =
-    (match msg with
-     | Get_board_info ->
-        Logs.debug (fun m -> m "requesting board info");
-        Parser.Get_board_info.serialize ()
-     | Get_board_mode ->
-        Logs.debug (fun m -> m "requesting board mode");
-        Parser.Get_board_mode.serialize ()
-     | Get_t2mi_frame_seq x ->
-        Logs.debug (fun m -> m "requesting t2mi frame sequence: %s"
-                             @@ show_t2mi_frame_seq_req x);
-        Parser.Get_t2mi_frame_seq.serialize x
-     | Get_section x ->
-        Logs.debug (fun m -> m "requesting section: %s" @@ show_section_req x);
-        Parser.Get_section.serialize x)
-    |> sender
-
-  let send_event (type a) sender (msg : a probe_request) : unit Lwt.t =
-    (match msg with
-     | Get_board_errors id ->
-        Logs.debug (fun m -> m "requesting board errors");
-        Parser.Get_board_errors.serialize id
-     | Get_jitter req ->
-        Logs.debug (fun m -> m "requesting jitter: %s"
-                             @@ show_jitter_req req);
-        Parser.Get_jitter.serialize req
-     | Get_ts_struct req ->
-        Logs.debug (fun m -> m "requesting ts structs: %s"
-                             @@ show_ts_struct_req req);
-        Parser.Get_ts_structs.serialize req
-     | Get_bitrates req ->
-        Logs.debug (fun m -> m "requesting bitrates");
-        Parser.Get_bitrates.serialize req
-     | Get_t2mi_info req ->
-        Logs.debug (fun m -> m "requesting t2mi info: %s"
-                             @@ show_t2mi_info_req req);
-        Parser.Get_t2mi_info.serialize req)
-    |> sender
-
-  let send_instant (type a) sender (msg : a instant_request) : unit Lwt.t =
-    (match msg with
-     | Reset ->
-        Logs.debug (fun m -> m "requesting reset");
-        to_complex_req ~msg_code:0x0111 ~body:Cstruct.empty ()
-     | Set_board_init x ->
-        Logs.debug (fun m -> m "requesting board init");
-        to_set_board_init_req x
-     | Set_board_mode (i, m) ->
-        Logs.debug (fun m -> m "requesting board mode setup");
-        to_set_board_mode_req (i, m)
-     | Set_jitter_mode x ->
-        Logs.debug (fun m -> m "requesting set jitter mode setup");
-        to_set_jitter_mode_req x)
-    |> sender
-
-  let enqueue (type a) state msgs sender (msg : a request) timeout exn : a Lwt.t =
-    (* no instant msgs *)
-    match React.S.value state with
-    | `Fine ->
-       let t, w = Lwt.wait () in
-       let pred = function
-         | `Timeout -> Lwt.wakeup_exn w (Failure "msg timeout"); None
-         | l  -> Option.(Parser.is_response msg l >|= Lwt.wakeup w) in
-       let send = fun () -> send_msg sender msg in
-       msgs := Await_queue.append !msgs { send; pred; timeout; exn };
-       t
-    | _ -> Lwt.fail (Failure "board is not responding")
-
-  let enqueue_instant (type a) state msgs sender (msg : a instant_request) : unit Lwt.t =
-    let open Lwt.Infix in
-    match React.S.value state with
-    | `Fine ->
-       let t, w = Lwt.wait () in
-       let send = fun () -> (send_instant sender msg)
-                            >>= (fun x -> Lwt.return @@ Lwt.wakeup w x) in
-       let pred = fun _ -> Some () in
-       msgs := Queue.append !msgs { send; pred; timeout = 0; exn = None };
-       t
-    | _ -> Lwt.fail (Failure "board is not responding")
 
   let push_state (pe : push_events) state =
     pe.bitrates [];
@@ -537,7 +116,7 @@ end = struct
       msgs := Await_queue.create [];
       imsgs := Queue.create [];
       push_state pe `No_response;
-      send_msg sender Get_board_info |> Lwt.ignore_result;
+      Serializer.send_msg sender Get_board_info |> Lwt.ignore_result;
       `Continue (step_detect (Timer.create ~step_duration detect_timeout) Acc.empty)
 
     and step_detect (timer : Timer.t) (acc : Acc.t) recvd =
@@ -556,12 +135,12 @@ end = struct
       push_state pe `Init;
       pe.devinfo (Some devinfo);
       let { t2mi_mode; input; jitter_mode } : config = storage#get in
-      send_instant sender (Set_board_init sources)
-      |> Lwt.ignore_result;
       let t2mi_mode_raw = t2mi_mode_to_raw t2mi_mode in
-      send_instant sender (Set_board_mode (input, t2mi_mode_raw))
+      Serializer.send_instant sender (Set_board_init sources)
       |> Lwt.ignore_result;
-      send_instant sender (Set_jitter_mode jitter_mode)
+      Serializer.send_instant sender (Set_board_mode (input, t2mi_mode_raw))
+      |> Lwt.ignore_result;
+      Serializer.send_instant sender (Set_jitter_mode jitter_mode)
       |> Lwt.ignore_result;
       Logs.info (fun m -> m "connection established, waiting \
                              for 'status' message");
@@ -588,15 +167,16 @@ end = struct
            let exn = Protocol_invariant (Probes_timeout probes_timeout) in
            let pool =
              List.map (fun req ->
-                 { send = (fun () -> send_event sender req)
+                 { send = (fun () -> Serializer.send_event sender req)
                  ; pred = Parser.is_probe_response req
                  ; timeout = Timer.steps ~step_duration probes_timeout
                  ; exn = Some exn }) stack
              |> Pool.create in
            Logs.debug (fun m ->
                let pre = "prepared stack of probe requests" in
-               let stk = String.concat "; "
-                         @@ List.map probe_req_to_string stack in
+               let stk =
+                 String.concat "; "
+                 @@ List.map Serializer.probe_req_to_string stack in
                m "%s: [%s]" pre stk);
            let acc = { acc with group = Some group } in
            let acc = Events.handle_immediate pe acc in
@@ -627,7 +207,8 @@ end = struct
         | None -> `Continue (step_ok_probes_wait (Pool.step pool) timer acc)
         | Some x ->
            Logs.debug (fun m ->
-               m "got probe response: '%s'" @@ probe_rsp_to_string x);
+               m "got probe response: '%s'"
+               @@ Serializer.probe_rsp_to_string x);
            let acc = Acc.cons_probe acc x in
            begin match Pool.last pool with
            | true ->
@@ -768,75 +349,37 @@ end = struct
         (List.map (fun (id, { timestamp; data }) ->
              id, { timestamp; data = to_sections data })) tables in
     let device =
-      { state
-      ; input
-      ; info = devinfo
-      ; t2mi_mode
-      ; jitter_mode
-      ; config
-      ; t2mi_mode_raw
-      ; status
-      ; errors = hw_errors
-      } in
+      { state; input; info = devinfo; t2mi_mode; jitter_mode; config;
+        status; errors = hw_errors } in
     let ts =
-      { info = ts_info
-      ; services
-      ; sections
-      ; tables
-      ; pids
-      ; bitrates
-      ; errors = ts_errors
-      } in
+      { info = ts_info; services; sections; tables; pids;
+        bitrates; errors = ts_errors } in
     let t2mi =
-      { structures = t2mi_info
-      ; errors = t2mi_errors
-      } in
+      { structures = t2mi_info; errors = t2mi_errors } in
     let jitter =
       { session = E.changes ~eq:Jitter.equal_session e_pcr_s
-      ; jitter = e_pcr
-      } in
-    let raw = { structures } in
+      ; jitter = e_pcr } in
+    let raw =
+      { structures; t2mi_mode_raw } in
     let (events : events) =
-      { device
-      ; ts
-      ; t2mi
-      ; raw
-      ; streams
-      ; jitter
-      } in
+      { device; ts; t2mi; raw; streams; jitter } in
     let (push_events : push_events) =
-      { devinfo = set_devinfo
-      ; input = set_input
-      ; status = set_status
-      ; t2mi_mode_raw = set_t2mi_mode_raw
-      ; t2mi_mode = set_t2mi_mode
-      ; jitter_mode = set_jitter_mode
-      ; state = set_state
-      ; raw_streams = set_raw_streams
-      ; ts_errors = set_ts_errors
-      ; t2mi_errors = set_t2mi_errors
-      ; board_errors = set_hw_errors
-      ; info = set_ts_info
-      ; services = set_services
-      ; tables = set_tables
-      ; pids = set_pids
-      ; bitrates = set_bitrates
-      ; t2mi_info = set_t2mi_info
-      ; structures = set_structures
-      ; jitter = pcr_push
-      ; jitter_session = pcr_s_push
-      }
-    in
+      { devinfo = set_devinfo; input = set_input; status = set_status;
+        t2mi_mode_raw = set_t2mi_mode_raw; t2mi_mode = set_t2mi_mode;
+        jitter_mode = set_jitter_mode; state = set_state;
+        raw_streams = set_raw_streams; ts_errors = set_ts_errors;
+        t2mi_errors = set_t2mi_errors; board_errors = set_hw_errors;
+        info = set_ts_info; services = set_services; tables = set_tables;
+        pids = set_pids; bitrates = set_bitrates; t2mi_info = set_t2mi_info;
+        structures = set_structures; jitter = pcr_push;
+        jitter_session = pcr_s_push } in
     events, push_events
 
-  let wait = fun ~eq cur req e ->
-    (* TODO rewrite next to wait for expected value *)
-    Lwt.(
-      req ()
-      >>= (fun () -> Lwt.pick [E.next e; Lwt_unix.timeout status_timeout])
-      >>= (fun x ->
-        if eq x cur then Lwt.return x
-        else fail @@ Failure "got unexpected value"))
+  let wait = fun ~eq cur req event ->
+    Lwt.(req ()
+         >>= fun () ->
+         Lwt.pick [ E.next (E.filter (eq cur) event)
+                  ; Lwt_unix.timeout status_timeout ])
 
   let create_api sources sender step_duration
         (storage : config storage) events (push_events : push_events) =
@@ -844,7 +387,7 @@ end = struct
     let { device = { config; state; _ }; _ }  = events in
     let msgs = ref (Await_queue.create []) in
     let imsgs = ref (Queue.create []) in
-    let isend = enqueue_instant state imsgs sender in
+    let isend = Serializer.enqueue_instant state imsgs sender in
     { set_input =
         (fun cur ->
           let eq = equal_input in
@@ -860,7 +403,7 @@ end = struct
           let old = t2mi_mode_to_raw @@ (S.value events.device.t2mi_mode) in
           let eq = equal_t2mi_mode_raw in
           if eq old cur then Lwt.return mode else
-            let e = events.device.t2mi_mode_raw in
+            let e = events.raw.t2mi_mode_raw in
             let req () = isend (Set_board_mode (storage#get.input, cur)) in
             wait ~eq cur req e
             >|= (fun _ -> push_events.t2mi_mode mode)
@@ -893,18 +436,20 @@ end = struct
                   ; id_ext_1
                   ; id_ext_2
                   } in
-                let req = Get_section { request_id = get_id (); params } in
+                let req = Get_section { request_id = Board_serializer.get_id ()
+                                      ; params } in
                 let timer = Timer.steps ~step_duration 125. in
-                enqueue state msgs sender req timer None
+                Serializer.enqueue Parser.is_response state msgs sender req timer None
              (* XXX maybe other error here *)
              | _ -> Lwt_result.fail Stream_not_found
              end)
     ; get_t2mi_seq =
         (fun params ->
-          let req = Get_t2mi_frame_seq { request_id = get_id (); params } in
+          let req = Get_t2mi_frame_seq { request_id = Board_serializer.get_id ()
+                                       ; params } in
           let timer = Timer.steps ~step_duration
                       @@ float_of_int (params.seconds + 10) in
-          enqueue state msgs sender req timer None)
+          Serializer.enqueue Parser.is_response state msgs sender req timer None)
     ; config =
         (fun () -> storage#get)
     ; get_devinfo =

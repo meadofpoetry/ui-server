@@ -184,7 +184,6 @@ type api =
 type device_events =
   { config : config signal
   ; t2mi_mode : t2mi_mode option signal
-  ; t2mi_mode_raw : t2mi_mode_raw event
   ; jitter_mode : jitter_mode option signal
   ; state : Topology.state signal
   ; input : input signal
@@ -215,6 +214,7 @@ type jitter_events =
 
 type raw_events =
   { structures : (Stream.Multi_TS_ID.t * structure) list signal
+  ; t2mi_mode_raw : t2mi_mode_raw event
   }
 
 type events =
@@ -248,3 +248,33 @@ type push_events =
   ; jitter : Jitter.measures -> unit
   ; jitter_session : Jitter.session -> unit
   }
+
+(** Protocol messages *)
+
+type _ instant_request =
+  | Set_board_init : init -> unit instant_request
+  | Set_board_mode : input * t2mi_mode_raw -> unit instant_request
+  | Set_jitter_mode : jitter_mode option -> unit instant_request
+  | Reset : unit instant_request
+
+type probe_response =
+  | Board_errors of Board_error.t list
+  | Bitrate of (Stream.Multi_TS_ID.t * Bitrate.t) list
+  | Struct of (Stream.Multi_TS_ID.t * structure) list
+  | T2mi_info of (Stream.Multi_TS_ID.t * T2mi_info.t)
+  | Jitter of jitter_raw
+
+type _ probe_request =
+  | Get_board_errors : int -> probe_response probe_request
+  | Get_jitter : jitter_req -> probe_response probe_request
+  | Get_ts_struct : ts_struct_req -> probe_response probe_request
+  | Get_bitrates : int -> probe_response probe_request
+  | Get_t2mi_info : t2mi_info_req -> probe_response probe_request
+
+type _ request =
+  | Get_board_info : devinfo request
+  | Get_board_mode : (input * t2mi_mode_raw) request
+  | Get_t2mi_frame_seq : t2mi_frame_seq_req -> T2mi_sequence.t timestamped request
+  | Get_section : section_req ->
+                  (SI_PSI_section.Dump.t timestamped,
+                   SI_PSI_section.Dump.error) result request
