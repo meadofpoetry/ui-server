@@ -494,7 +494,7 @@ module Make(Logs:Logs.LOG) = struct
       let emm = of_emm_block acc.emm in
       let pids = List.map (update_pid elements tables emm)
                  @@ of_pids_block acc.pids in
-      { info; services; tables; pids }
+      { info; services; tables; pids; time = Time.epoch }
 
     let of_ts_struct msg : (Multi_TS_ID.t * structure) * Cstruct.t option =
       let hdr, rest = Cstruct.split msg sizeof_ts_struct in

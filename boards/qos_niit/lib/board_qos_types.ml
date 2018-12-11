@@ -89,6 +89,7 @@ type structure =
   ; services : Service.t list
   ; tables : SI_PSI_table.t list
   ; pids : Pid.t list
+  ; time : Time.t
   } [@@deriving yojson, eq]
 
 (** Event group *)
@@ -238,10 +239,6 @@ type push_events =
   ; ts_errors : (Stream.ID.t * (Error.t_ext list)) list -> unit
   ; t2mi_errors : errors -> unit
   ; board_errors : Board_error.t list -> unit
-  ; info : ts_info -> unit
-  ; services : services -> unit
-  ; tables : tables -> unit
-  ; pids : pids -> unit
   ; bitrates : bitrates -> unit
   ; t2mi_info : t2mi_info -> unit
   ; structures : (Stream.Multi_TS_ID.t * structure) list -> unit

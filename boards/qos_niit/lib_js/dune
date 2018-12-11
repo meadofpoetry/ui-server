@@ -5,7 +5,7 @@
   (libraries   containers common api_js components gen_js_api boards_js ui_templates
                chartjs chartjs.datalabels ptime.clock.jsoo)
   (flags      (:standard -short-paths -strict-sequence -bin-annot
-               -w A+1..49+60-4-7-23-27-33-39-40-41-42-44-45-48))
+               -w A+1..49+60-4-39-40-41-42-44-45-48))
   (js_of_ocaml (flags (:standard )))
   (preprocess  (pps ppx_deriving_yojson ppx_deriving.eq ppx_deriving.show ppx_deriving.ord
                     js_of_ocaml-ppx)))

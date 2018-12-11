@@ -30,6 +30,17 @@ let t2mi_mode_to_raw (mode : t2mi_mode option) =
      | _ -> t2mi_mode_raw_default (* XXX maybe throw an exn here? *)
      end
 
+let merge (f : 'a -> 'b)
+      (streams : Stream.t list React.signal)
+      (data : (Multi_TS_ID.t, 'a) List.Assoc.t React.signal)
+    : (Stream.ID.t, 'b) List.Assoc.t React.signal =
+  React.S.l2 ~eq:(Equal.physical) (fun streams data ->
+      List.filter_map (fun (id, x) ->
+          match Stream.find_by_multi_id id streams with
+          | None -> None
+          | Some s -> Some (s.id, f x)) data)
+    streams data
+
 module Make(Logs : Logs.LOG) : sig
   val create : init ->
                (Cstruct.t -> unit Lwt.t) ->
@@ -314,16 +325,16 @@ end = struct
     let hw_errors, set_hw_errors = E.create () in
     let raw_streams, set_raw_streams =
       S.create ~eq:(Equal.list Stream.Raw.equal)[] in
+    let streams = streams_conv raw_streams in
     let structures, set_structures =
       S.create ~eq:(Equal.list (Equal.pair Multi_TS_ID.equal equal_structure)) [] in
-    let ts_info, set_ts_info =
-      S.create ~eq:equal_ts_info [] in
-    let services, set_services =
-      S.create ~eq:equal_services [] in
-    let tables, set_tables =
-      S.create ~eq:equal_tables [] in
-    let pids, set_pids =
-      S.create ~eq:equal_pids [] in
+    let map_struct f =
+      merge (fun (x : structure) -> { data = f x; timestamp = x.time })
+        streams structures in
+    let ts_info = map_struct (fun x -> x.info) in
+    let services = map_struct (fun x -> x.services) in
+    let tables = map_struct (fun x -> x.tables) in
+    let pids = map_struct (fun x -> x.pids) in
     let bitrates, set_bitrates = E.create () in
     let t2mi_info, set_t2mi_info =
       S.create ~eq:equal_t2mi_info [] in
@@ -342,8 +353,6 @@ end = struct
         input t2mi_mode jitter_mode in
     let e_pcr, pcr_push = E.create () in
     let e_pcr_s, pcr_s_push = E.create () in
-
-    let streams = streams_conv raw_streams in
     let sections =
       S.map ~eq:equal_sections
         (List.map (fun (id, { timestamp; data }) ->
@@ -369,8 +378,7 @@ end = struct
         jitter_mode = set_jitter_mode; state = set_state;
         raw_streams = set_raw_streams; ts_errors = set_ts_errors;
         t2mi_errors = set_t2mi_errors; board_errors = set_hw_errors;
-        info = set_ts_info; services = set_services; tables = set_tables;
-        pids = set_pids; bitrates = set_bitrates; t2mi_info = set_t2mi_info;
+        bitrates = set_bitrates; t2mi_info = set_t2mi_info;
         structures = set_structures; jitter = pcr_push;
         jitter_session = pcr_s_push } in
     events, push_events
@@ -436,8 +444,8 @@ end = struct
                   ; id_ext_1
                   ; id_ext_2
                   } in
-                let req = Get_section { request_id = Board_serializer.get_id ()
-                                      ; params } in
+                let request_id = Board_serializer.get_request_id () in
+                let req = Get_section { request_id; params } in
                 let timer = Timer.steps ~step_duration 125. in
                 Serializer.enqueue Parser.is_response state msgs sender req timer None
              (* XXX maybe other error here *)
@@ -445,8 +453,8 @@ end = struct
              end)
     ; get_t2mi_seq =
         (fun params ->
-          let req = Get_t2mi_frame_seq { request_id = Board_serializer.get_id ()
-                                       ; params } in
+          let request_id = Board_serializer.get_request_id () in
+          let req = Get_t2mi_frame_seq { request_id; params } in
           let timer = Timer.steps ~step_duration
                       @@ float_of_int (params.seconds + 10) in
           Serializer.enqueue Parser.is_response state msgs sender req timer None)

@@ -69,7 +69,7 @@ module Section = struct
     let to_primary = Printf.sprintf "ID: %d" in
     let update_primary =
       { get = (fun (x : model) -> (fst x).section)
-      ; eq = (=)
+      ; eq = ( = )
       ; upd = (fun id ->
         let s = to_primary id in
         leaf#set_text s)
@@ -79,7 +79,7 @@ module Section = struct
       setter ?previous model update_primary;
       setter ?previous model update_bytes in
     update init;
-    leaf, fun x -> update ~previous:!prev x
+    leaf, update ~previous:!prev
 
 end
 
@@ -127,7 +127,6 @@ let make_parsed () =
   body#add_class base_class;
   body
 
-(* FIXME declare class instead *)
 let make_hexdump_options hexdump =
   let base_class = Markup.CSS.add_element base_class "hexdump-options" in
   let base =
@@ -145,24 +144,31 @@ let make_hexdump_options hexdump =
              ; `Item (new Select.Item.t ~value:16 ~text:"16" ())
              ; `Item (new Select.Item.t ~value:32 ~text:"32" ()) ]
       () in
-  let line_numbers = new Switch.t ~state:true () in
-  let line_numbers' = new Form_field.t ~input:line_numbers
-                        ~label:"Номера" () in
-  let options = new Hbox.t
-                  ~widgets:[ base#widget
-                           ; width#widget
-                           ; line_numbers'#widget ] () in
+  let line_numbers =
+    new Form_field.t
+      ~input:(new Switch.t ~state:true ())
+      ~label:"Номера"
+      () in
+  let options =
+    new Hbox.t
+      ~widgets:[ base#widget
+               ; width#widget
+               ; line_numbers#widget ]
+      () in
   let s_line_num =
-    React.S.map ~eq:Equal.unit hexdump#set_line_numbers
-      line_numbers#s_state in
+    React.S.map ~eq:Equal.unit
+      hexdump#set_line_numbers
+      line_numbers#input_widget#s_state in
   let s_width =
     React.S.map ~eq:Equal.unit (function
-        | Some x -> hexdump#set_width x
-        | None -> ()) width#s_selected_value in
+        | None -> ()
+        | Some x -> hexdump#set_width x)
+      width#s_selected_value in
   let s_base =
     React.S.map ~eq:Equal.unit (function
-        | Some x -> hexdump#set_base x
-        | None -> ()) base#s_selected_value in
+        | None -> ()
+        | Some x -> hexdump#set_base x)
+      base#s_selected_value in
   options#add_class base_class;
   options#set_on_destroy (fun () ->
       React.S.stop ~strong:true s_line_num;
@@ -184,25 +190,30 @@ let make_dump_header base_class () =
   let title =
     new Typography.Text.t
       ~adjust_margin:false
-      ~text:"Выберите секцию для захвата" () in
+      ~text:"Выберите секцию для захвата"
+      () in
   let subtitle =
     new Typography.Text.t
       ~adjust_margin:false
       ~split:true
-      ~text:"" () in
+      ~text:""
+      () in
   let button =
     new Ui_templates.Buttons.Get.t
       ~style:`Raised
-      ~label:"Загрузить" () in
+      ~label:"Загрузить"
+      () in
   let title_box =
     new Vbox.t
       ~widgets:[ title#widget
-               ; subtitle#widget ] () in
+               ; subtitle#widget ]
+      () in
   let header =
     new Hbox.t
       ~halign:`Space_between
       ~widgets:[ title_box#widget
-               ; button#widget ] () in
+               ; button#widget ]
+      () in
   (* CSS classes setup *)
   title#add_class title_class;
   subtitle#add_class subtitle_class;
@@ -300,7 +311,8 @@ let make_dump
               ~widgets:[ header
                        ; vsplit#widget
                        ; (new Divider.t ())#widget
-                       ; options#widget ] () as super
+                       ; options#widget ]
+              () as super
 
     method button = button
 
@@ -413,6 +425,17 @@ class t ~(stream : Stream.ID.t)
   object(self)
     inherit Hbox.t ~widgets:[box#widget; dump#widget] () as super
 
+    method! init () : unit =
+      super#init ();
+      box#add_class stream_panel_class;
+      self#add_class base_class
+
+    method! destroy () : unit =
+      super#destroy ();
+      dump#destroy ();
+      list#destroy ();
+      box#destroy ();
+
     method list = list
 
     method dump = dump
@@ -428,17 +451,4 @@ class t ~(stream : Stream.ID.t)
             let dump = Option.flatten @@ List.Assoc.get ~eq x items in
             x, dump) data in
       update_list data
-
-    method init () : unit =
-      super#init ();
-      box#add_class stream_panel_class;
-      self#add_class base_class
-
-    method destroy () : unit =
-      super#destroy ();
-      dump#destroy ();
-      list#destroy ();
-      box#destroy ();
-
-
   end

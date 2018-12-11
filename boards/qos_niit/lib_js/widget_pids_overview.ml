@@ -31,7 +31,7 @@ module Settings = struct
 
   class view ?(settings = default) () =
     let hex_switch = make_hex_switch settings.hex in
-    object(self)
+    object
       val mutable value = settings
       inherit Vbox.t ~widgets:[hex_switch] ()
       method value : t = value
@@ -68,7 +68,7 @@ let to_pid_flags { has_pcr; scrambled } =
   let widgets = List.(cons_maybe pcr (cons_maybe scr [])) in
   (new Hbox.t ~widgets ())#node
 
-let update_row row total br pid =
+let update_row row total br =
   let cur, per, min, max =
     let open Table in
     match row#cells with
@@ -116,14 +116,13 @@ let dec_pid_fmt = Table.(Int None)
 let hex_pid_fmt = Table.(Int (Some (Printf.sprintf "0x%04X")))
 
 (* TODO add table empty state *)
-let make_table_fmt ?(is_hex = false)
-      (init : Pid.t list) =
+let make_table_fmt ?(is_hex = false) () =
   let open Table in
   let open Format in
   let br_fmt = Option (Float None, "-") in
   let pct_fmt = Option (Float (Some (Printf.sprintf "%.2f")), "-") in
   let to_sort_column = to_column ~sortable:true in
-    (to_sort_column "PID", dec_pid_fmt)
+    (to_sort_column "PID", if is_hex then hex_pid_fmt else dec_pid_fmt)
     :: (to_sort_column "Тип", Custom pid_type_fmt)
     :: (to_column "Доп. инфо", Custom_elt pid_flags_fmt)
     :: (to_sort_column "Сервис", Option (String None, ""))
@@ -154,7 +153,7 @@ class t ?(settings : Settings.t option)
   let s_time, set_time =
     React.S.create ~eq:(Equal.option Time.equal) timestamp in
   let is_hex = Option.map (fun (x : Settings.t) -> x.hex) settings in
-  let fmt = make_table_fmt ?is_hex init in
+  let fmt = make_table_fmt ?is_hex () in
   let table = new Table.t ~sticky_header:true ~dense:true ~fmt () in
   let empty =
     Ui_templates.Placeholder.create_with_icon
@@ -169,7 +168,7 @@ class t ?(settings : Settings.t option)
 
     inherit Widget.t Js_of_ocaml.Dom_html.(createDiv document) () as super
 
-    method init () : unit =
+    method! init () : unit =
       super#init ();
       self#append_child table;
       React.S.map ~eq:Equal.unit (function
@@ -180,7 +179,7 @@ class t ?(settings : Settings.t option)
       Option.iter self#set_settings settings;
       self#add_class base_class
 
-    method destroy () : unit =
+    method! destroy () : unit =
       super#destroy ();
       table#destroy ();
       empty#destroy ();
@@ -249,8 +248,8 @@ class t ?(settings : Settings.t option)
                        let cell = match row#cells with a :: _ -> a in
                        cell#value = pid) rows with
              | Some x ->
-                update_row x total br pid |> ignore;
-                List.remove ~eq:Equal.physical x rows
+                ignore @@ update_row x total br;
+                List.remove ~eq:Widget.equal x rows
              | None -> rows) table#rows pids
          |> ignore
 

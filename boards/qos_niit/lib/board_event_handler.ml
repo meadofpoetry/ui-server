@@ -12,7 +12,7 @@ module Acc = struct
     ; jitter : jitter_raw option
     }
 
-  let probes_empty =
+  let (probes_empty : probes) =
     { board_errors = None
     ; bitrate = None
     ; ts_structs = None
@@ -34,7 +34,7 @@ module Acc = struct
          Some n in
     List.Assoc.update ~eq (f x) id acc
 
-  let cons (p : probes) = function
+  let cons (p : probes) : probe_response -> probes = function
     | Board_errors x -> { p with board_errors = Some x }
     | Bitrate x ->
        let bitrate = Some (merge_ts_probes ?acc:p.bitrate x) in
@@ -55,14 +55,14 @@ module Acc = struct
     ; bytes : Cstruct.t option
     }
 
-  let empty =
+  let (empty : t) =
     { group = None
     ; events = []
     ; probes = probes_empty
     ; parts = []
     ; bytes = None }
 
-  let cons_probe (acc : t) x =
+  let cons_probe (acc : t) (x : probe_response) : t =
     { acc with probes = cons acc.probes x }
 
 end
@@ -105,24 +105,25 @@ end = struct
 
   let get_req_stack ({ status; _ } : group) (prev_t : group option)
       : probe_response probe_request list =
+    let open Board_serializer in
     let bitrate =
       if not status.basic.has_sync then None else
-        Some (Get_bitrates (Board_serializer.get_id ())) in
+        Some (Get_bitrates (Board_serializer.get_request_id ())) in
     let jitter = match status.jitter_mode with
       | None -> None
       | Some m ->
          (* request for jitter only if required stream is present *)
          let eq = Stream.Multi_TS_ID.equal in
          if not @@ List.mem ~eq m.stream status.streams then None else
-           Some (Get_jitter { request_id = Board_serializer.get_id ()
+           Some (Get_jitter { request_id = get_request_id ()
                             ; pointer = !jitter_ptr }) in
     let errors =
       if not status.errors then None else
-        Some (Get_board_errors (Board_serializer.get_id ())) in
+        Some (Get_board_errors (get_request_id ())) in
     let ts_structs =
       let req =
-        Get_ts_struct { stream = `All
-                      ; request_id = Board_serializer.get_id () } in
+        Get_ts_struct { request_id = get_request_id ()
+                      ; stream = `All } in
       match prev_t with
       | None -> Some req
       | Some (old : group) ->
@@ -131,7 +132,7 @@ end = struct
          if old = cur then None else Some req in
     let t2mi_structs =
       let make_req stream_id =
-        Get_t2mi_info { request_id = Board_serializer.get_id ()
+        Get_t2mi_info { request_id = get_request_id ()
                       ; stream = status.t2mi_mode.stream
                       ; stream_id } in
       match status.t2mi_sync, prev_t with
@@ -265,25 +266,11 @@ end = struct
        |> pe.bitrates
     end;
     (* Push TS structures *)
-    (* FIXME do smth if corresponding stream is not found *)
     begin match acc.probes.ts_structs with
     | None -> ()
     | Some x ->
-       let v = merge_streams streams x in
-       let map2 = Pair.map2 in
-       let info = List.map (map2 (fun (x : structure) ->
-                                make_timestamped timestamp x.info)) v in
-       let pids = List.map (map2 (fun (x : structure) ->
-                                make_timestamped timestamp x.pids)) v in
-       let tbls = List.map (map2 (fun (x : structure) ->
-                                make_timestamped timestamp x.tables)) v in
-       let srvs = List.map (map2 (fun (x : structure) ->
-                                make_timestamped timestamp x.services)) v in
-       pe.structures x;
-       pe.info info;
-       pe.pids pids;
-       pe.tables tbls;
-       pe.services srvs;
+       let structures = List.map (Pair.map2 (fun x -> { x with time })) x in
+       pe.structures structures;
     end;
     (* Push TS errors *)
     begin match to_ts_errors group with

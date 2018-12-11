@@ -1,8 +1,6 @@
 open Containers
 open Components
 open Common
-open Lwt_result.Infix
-open Api_js.Api_types
 open Widget_common
 open Board_types
 
@@ -182,7 +180,7 @@ module Pie = struct
 
       inherit Widget.t Js_of_ocaml.Dom_html.(createDiv document) () as super
 
-      method init () : unit =
+      method! init () : unit =
         super#init ();
         box#add_class box_class;
         box#append_child @@ Widget.create @@ Obj.magic @@ Chartjs.canvas pie;
@@ -192,7 +190,7 @@ module Pie = struct
         self#append_child title;
         self#append_child box;
 
-      method destroy () : unit =
+      method! destroy () : unit =
         super#destroy ();
         title#destroy ();
         box#destroy ();
@@ -311,7 +309,7 @@ module Info = struct
       object(self)
         inherit Widget.t Js_of_ocaml.Dom_html.(createSpan document) () as super
 
-        method init () : unit  =
+        method! init () : unit  =
           super#init ();
           self#update info;
           self#add_class pid_class;
@@ -342,7 +340,7 @@ module Info = struct
                   ~widgets:[ title#widget
                            ; pids_box#widget] () as super
 
-        method init () : unit =
+        method! init () : unit =
           super#init ();
           _pids <- List.map (make_pid ?hex) init;
           List.iter pids_box#append_child _pids;
@@ -350,7 +348,7 @@ module Info = struct
           title#add_class title_class;
           pids_box#add_class box_class;
 
-        method destroy () : unit =
+        method! destroy () : unit =
           super#destroy ();
           title#destroy ();
           pids_box#destroy ();
@@ -380,7 +378,7 @@ module Info = struct
           (* FIXME sort? *)
           pids_box#append_child pid
 
-        method private remove_pid ((pid, info) : Pid.t) : unit =
+        method private remove_pid ((pid, _) : Pid.t) : unit =
           match List.find_opt (fun cell ->
                     cell#pid = pid) _pids with
           | None -> ()
@@ -405,11 +403,11 @@ module Info = struct
                          ; (new Divider.t ())#widget
                          ; pids#widget ] () as super
 
-      method init () : unit =
+      method! init () : unit =
         super#init ();
         self#add_class _class
 
-      method destroy () : unit =
+      method! destroy () : unit =
         super#destroy ();
         pids#destroy ();
         rate#destroy ()
@@ -453,14 +451,14 @@ class t ?(settings : Settings.t option)
 
     inherit Widget.t Js_of_ocaml.Dom_html.(createDiv document) () as super
 
-    method init () : unit =
+    method! init () : unit =
       super#init ();
       Option.iter self#set_settings settings;
       self#add_class base_class;
       self#append_child pie;
       self#append_child info
 
-    method destroy () : unit =
+    method! destroy () : unit =
       super#destroy ();
       pie#destroy ();
       info#destroy ();

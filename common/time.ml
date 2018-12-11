@@ -61,7 +61,7 @@ type 'a timestamped =
   ; data : 'a
   } [@@deriving yojson, eq, show]
 
-let make_timestamped timestamp data =
+let stamp timestamp data =
   { timestamp; data }
 
 type 'a timespan =

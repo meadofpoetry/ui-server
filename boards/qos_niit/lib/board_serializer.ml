@@ -8,7 +8,7 @@ type sender = Cstruct.t -> unit Lwt.t
 
 let request_id = ref (-1)
 
-let get_id () =
+let get_request_id () =
   incr request_id;
   !request_id
 
