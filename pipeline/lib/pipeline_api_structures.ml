@@ -142,7 +142,8 @@ module HTTP = struct
     match Json.List.of_yojson Structure.of_yojson js with
     | Error e -> respond_error e ()
     | Ok x ->
-       Message.Protocol.graph_apply_structure api.channel x
+       Message.Protocol.graph_apply_structure
+         ~options:api.options.structures api.channel x
        >>= function Ok () -> respond_result_unit (Ok ())
     
 end

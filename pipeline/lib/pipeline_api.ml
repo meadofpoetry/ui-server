@@ -54,7 +54,8 @@ module HTTP = struct
  *)
   let apply_wm_layout (api : api) _ body () =
     set body Wm.of_yojson
-      Pipeline_protocol.(fun x -> Message.Protocol.wm_apply_layout api.channel x)
+      Pipeline_protocol.(fun x ->
+      Message.Protocol.wm_apply_layout ~options:api.options.wm api.channel x)
 
   let get_wm_layout (api : api) _ body () =
     Message.Protocol.wm_get_layout api.channel ()
