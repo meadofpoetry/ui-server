@@ -139,9 +139,10 @@ let combine ~(set : t list) (applied, strs) =
               let applied = unwrap (fun x -> x.channels) applied in
               combine_structure ~changed ~set ~applied stream)
       strs
-  in match !changed  with
-     | true -> `Changed res
-     | _    -> `Kept applied
+  in
+  if !changed
+  then `Changed res
+  else `Kept applied
 
 (*
 module Streams = struct

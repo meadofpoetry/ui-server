@@ -134,16 +134,16 @@ let create_notifications (options : options) channel =
   let vdata  = add_event ~name:"video_data" Qoe_errors.Video_data.of_yojson in
   let adata  = add_event ~name:"audio_data" Qoe_errors.Audio_data.of_yojson in
   let wm     = add_signal ~name:"wm" ~eq:Wm.equal ~init:Wm.default Wm.of_yojson in
-  let streams = add_signal ~name:"stream_parser" ~eq:Equal.poly ~init:[]
+  let streams = add_signal ~name:"stream_parser" ~eq:(fun _ _ -> false) ~init:[]
                   Structure.Many.of_yojson in
-  let applied_structs = add_signal ~name:"applied_streams" ~eq:Equal.poly ~init:[]
+  let applied_structs = add_signal ~name:"applied_streams" ~eq:(fun _ _ -> false) ~init:[]
                           Structure.Many.of_yojson in
-  
+
   let applied_structs = notification_attach_setter
                           ~combine:Structure.combine
                           ~set:(Message.Protocol.graph_apply_structure channel)
                           ~options:(options.structures)
-                          ~signal:(React.S.l2 ~eq:Pervasives.(=) Pair.make
+                          ~signal:(React.S.l2 ~eq:(fun _ _ -> false) Pair.make
                                      applied_structs
                                      streams)
   in
