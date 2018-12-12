@@ -3,7 +3,6 @@ open Components
 open Common
 open Board_types
 open Lwt_result.Infix
-open Ui_templates.Factory
 
 (* Widget type *)
 type item =

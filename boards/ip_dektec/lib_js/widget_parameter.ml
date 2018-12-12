@@ -93,21 +93,20 @@ module Make(M : M) = struct
         ~font:Headline_5
         ~text:(value_to_string config None)
         () in
-    let _e = React.E.map (fun v -> value#set_text @@ value_to_string config v) event in
+    let _e = React.E.map Fun.(value#set_text % value_to_string config) event in
     let inner = Widget.create_div () in
-    object(self)
+    object
       inherit Widget.t Js_of_ocaml.Dom_html.(createDiv document) () as super
 
-      method destroy () : unit =
-        super#destroy ();
-        React.E.stop ~strong:true _e
-
-      method init () : unit =
+      method! init () : unit =
         inner#add_class inner_class;
         inner#append_child value;
-        self#append_child inner;
-        self#add_class base_class
+        super#append_child inner;
+        super#add_class base_class
 
+      method! destroy () : unit =
+        super#destroy ();
+        React.E.stop ~strong:true _e
     end
 
   let make (event : event) (config : config) : 'a Dashboard.Item.item =

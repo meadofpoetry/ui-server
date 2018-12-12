@@ -1,5 +1,4 @@
 open Board_types
-open Containers
 open Components
 open Common
 

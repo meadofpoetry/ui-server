@@ -1,9 +1,10 @@
-open Containers
 open Board_types
 open Api_js.Requests.Json_request
 open Common
 
-let get_base_path () = Uri.Path.Format.(Boards_js.Requests.get_board_path () / ("transmitter" @/ empty))
+let get_base_path () =
+  Uri.Path.Format.(Boards_js.Requests.get_board_path ()
+                   / ("transmitter" @/ empty))
 
 module WS = struct
 

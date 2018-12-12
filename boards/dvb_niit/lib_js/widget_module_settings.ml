@@ -99,7 +99,7 @@ let make_mode_box ~(id : int)
       ~(init : mode option)
       ~(event : mode option React.event)
       ~(state : Common.Topology.state React.signal)
-      control
+      (control : int)
       () =
   let std, set_std = make_standard () in
   let t_freq, set_t_freq, t_freq_close =
@@ -138,12 +138,12 @@ let make_mode_box ~(id : int)
   let s_set =
     React.S.hold init ~eq:(Equal.option equal_mode) event
     |> React.S.map ~eq:Equal.unit (fun (m : mode option) ->
-        (* NOTE standard should be updated first *)
-        set_std m;
-        set_t_freq m;
-        set_c_freq m;
-        set_bw m;
-        set_plp m) in
+           (* NOTE standard should be updated first *)
+           set_std m;
+           set_t_freq m;
+           set_c_freq m;
+           set_bw m;
+           set_plp m) in
   let s_dis =
     React.S.map ~eq:Equal.unit (fun x ->
         let is_disabled = match x with
@@ -154,17 +154,21 @@ let make_mode_box ~(id : int)
         c_freq#set_disabled is_disabled;
         bw#set_disabled is_disabled;
         plp#set_disabled is_disabled)
-      state
-  in
+      state in
   let submit = fun (id, m) ->
-    Requests.Device.HTTP.set_mode ~id m control >|= (fun _ -> ()) in
+    Requests.Device.HTTP.set_mode ~id m control
+    >|= (fun _ -> ()) in
   box, s, submit, (fun () ->
+    t_freq_close ();
+    c_freq_close ();
+    bw_close ();
+    plp_close ();
     React.S.stop ~strong:true s_set;
     React.S.stop ~strong:true s_dis)
 
 let default_config = { id = 0 }
 
-let name conf =
+let name conf : string =
   Printf.sprintf "Модуль %d. Настройки"
     (succ (Option.get_or ~default:default_config conf).id)
 

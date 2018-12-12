@@ -31,7 +31,7 @@ module Make(M:sig type t val to_string : t -> string end) = struct
                                       @@ value_to_string config v) event in
     let inner = Widget.create_div () in
     object(self)
-      inherit Widget.t Js_of_ocaml.Dom_html.(createDiv document) () as super
+      inherit Widget.t Js_of_ocaml.Dom_html.(createDiv document) ()
       initializer
         self#_keep_e _e;
         self#append_child inner;

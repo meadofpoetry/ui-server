@@ -1,14 +1,11 @@
-open Containers
-open Board_types
 open Components
-open Common
 
 class settings control () =
 object
 
   inherit Widget.t Js_of_ocaml.Dom_html.(createDiv document) () as super
 
-  method init () : unit =
+  method! init () : unit =
     super#init ();
     ignore control
 

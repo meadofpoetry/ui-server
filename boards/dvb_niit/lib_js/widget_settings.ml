@@ -1,6 +1,5 @@
 open Containers
 open Components
-open Lwt_result.Infix
 open Widget_types
 
 let name = "Настройки"

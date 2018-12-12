@@ -48,7 +48,7 @@ let get_suggested_range = function
   | `Freq -> (-10.0, 10.0)
   | `Bitrate -> (0.0, 1.0)
 
-let make_settings (settings : widget_settings) =
+let make_settings (_ : widget_settings) =
   let range_min =
     new Textfield.t
       ~label:"Min"
@@ -59,7 +59,7 @@ let make_settings (settings : widget_settings) =
       ~label:"Max"
       ~input_type:(Float (None, None))
       () in
-  let box = new Hbox.t ~widgets:[range_min;range_max] () in
+  let box = new Hbox.t ~widgets:[range_min; range_max] () in
   let s =
     React.S.l2 ~eq:(Equal.option equal_widget_settings)
       (fun min max ->
@@ -266,7 +266,7 @@ class t ~(init : init)
     | `Bitrate -> get_bitrate in
   let init = to_init getter init in
   let x_axis = make_x_axis widget_config in
-  let y_axis, set_range = make_y_axis widget_config in
+  let y_axis, _ = make_y_axis widget_config in
   let (event : data React.event) = to_event getter event in
   let (options : Chartjs.Options.t) =
     make_options ~x_axes:[x_axis] ~y_axes:[y_axis] widget_config in
@@ -281,7 +281,7 @@ class t ~(init : init)
 
     inherit Widget.t box () as super
 
-    method init () : unit =
+    method! init () : unit =
       super#init ();
       super#append_child @@ Widget.create canvas;
       super#add_class base_class;
