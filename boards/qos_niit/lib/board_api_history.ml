@@ -92,7 +92,7 @@ module HTTP = struct
   module Ts_info = struct
 
     let to_yojson =
-      let f = timespan_to_yojson Ts_info.to_yojson in
+      let f = Time.timespan_to_yojson Ts_info.to_yojson in
       Api.Api_types.rows_to_yojson
         (stream_assoc_to_yojson f)
         (fun () -> `Null)

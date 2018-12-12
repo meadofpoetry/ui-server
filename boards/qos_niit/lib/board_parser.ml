@@ -90,7 +90,7 @@ module Make(Logs:Logs.LOG) = struct
     let code = 0x0302
 
     let parse ({ params; _ } : section_req)
-          (msg : Cstruct.t) : (t timestamped, error) result =
+          (msg : Cstruct.t) : (t Time.timestamped, error) result =
       let hdr, bdy = Cstruct.split msg sizeof_section in
       let length = get_section_length hdr in
       let result = get_section_result hdr in
@@ -121,7 +121,7 @@ module Make(Logs:Logs.LOG) = struct
 
     let code = 0x0306
 
-    let parse _ msg : t timestamped =
+    let parse _ msg : t Time.timestamped =
       let iter = Cstruct.iter (fun _ -> Some sizeof_t2mi_frame_seq_item)
                    (fun buf -> buf) msg in
       let items =

@@ -2,6 +2,7 @@ open Containers
 open Storage.Database
 open Board_qos_types
 open Printf
+open Common
 
 include Db_common
 
@@ -20,7 +21,7 @@ module Bitrate = struct
   let insert db (data : bitrates) =
     let table = (Conn.names db).bitrate in
     let data =
-      List.map (fun (id, ({ data; timestamp } : t timestamped)) ->
+      List.map (fun (id, ({ data; timestamp } : t Time.timestamped)) ->
           ID.to_db id, data.total, timestamp) data in
     let insert =
       R.exec Types.(tup3 ID.db int ptime)
@@ -35,7 +36,7 @@ module Bitrate = struct
   let insert_pids db (data : bitrates) =
     let table = (Conn.names db).pids_bitrate in
     let data =
-      List.map (fun (id, ({ data; timestamp } : t timestamped)) ->
+      List.map (fun (id, ({ data; timestamp } : t Time.timestamped)) ->
           List.map (fun (pid, rate) ->
               ID.to_db id, pid, rate, timestamp) data.pids) data
       |> List.concat in
@@ -54,6 +55,7 @@ end
 
 module Data_handler = struct
   open Common
+  open Time
   open Lwt.Infix
 
   module Coll = struct

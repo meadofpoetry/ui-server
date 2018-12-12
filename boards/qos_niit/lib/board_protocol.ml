@@ -30,11 +30,13 @@ let t2mi_mode_to_raw (mode : t2mi_mode option) =
      | _ -> t2mi_mode_raw_default (* XXX maybe throw an exn here? *)
      end
 
-let merge (f : 'a -> 'b)
+let merge ~(eq:'b -> 'b -> bool)
+      (f : 'a -> 'b)
       (streams : Stream.t list React.signal)
       (data : (Multi_TS_ID.t, 'a) List.Assoc.t React.signal)
     : (Stream.ID.t, 'b) List.Assoc.t React.signal =
-  React.S.l2 ~eq:(Equal.physical) (fun streams data ->
+  let eq = List.equal (Pair.equal Stream.ID.equal eq) in
+  React.S.l2 ~eq (fun streams data ->
       List.filter_map (fun (id, x) ->
           match Stream.find_by_multi_id id streams with
           | None -> None
@@ -328,13 +330,15 @@ end = struct
     let streams = streams_conv raw_streams in
     let structures, set_structures =
       S.create ~eq:(Equal.list (Equal.pair Multi_TS_ID.equal equal_structure)) [] in
-    let map_struct f =
-      merge (fun (x : structure) -> { data = f x; timestamp = x.time })
+    let map_struct ~eq f =
+      let eq = Time.equal_timestamped eq in
+      merge ~eq (fun (x : structure) -> Time.stamp x.time (f x))
         streams structures in
-    let ts_info = map_struct (fun x -> x.info) in
-    let services = map_struct (fun x -> x.services) in
-    let tables = map_struct (fun x -> x.tables) in
-    let pids = map_struct (fun x -> x.pids) in
+    let ts_info =
+      map_struct ~eq:Ts_info.equal (fun x -> x.info) in
+    let tables =
+      let eq = List.equal SI_PSI_table.equal in
+      map_struct ~eq (fun x -> x.tables) in
     let bitrates, set_bitrates = E.create () in
     let t2mi_info, set_t2mi_info =
       S.create ~eq:equal_t2mi_info [] in
@@ -355,14 +359,24 @@ end = struct
     let e_pcr_s, pcr_s_push = E.create () in
     let sections =
       S.map ~eq:equal_sections
-        (List.map (fun (id, { timestamp; data }) ->
-             id, { timestamp; data = to_sections data })) tables in
+        (List.map (fun (id, Time.{ timestamp; data }) ->
+             id, Time.{ timestamp; data = to_sections data })) tables in
     let device =
       { state; input; info = devinfo; t2mi_mode; jitter_mode; config;
         status; errors = hw_errors } in
     let ts =
-      { info = ts_info; services; sections; tables; pids;
-        bitrates; errors = ts_errors } in
+      { info = ts_info
+      ; services =
+          (let eq = List.equal Service.equal in
+           map_struct ~eq (fun x -> x.services))
+      ; sections
+      ; tables
+      ; pids =
+          (let eq = List.equal Pid.equal in
+           map_struct ~eq (fun x -> x.pids))
+      ; bitrates
+      ; errors = ts_errors
+      } in
     let t2mi =
       { structures = t2mi_info; errors = t2mi_errors } in
     let jitter =

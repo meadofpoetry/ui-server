@@ -34,7 +34,7 @@ let settings = None
 
 let make ~(state : Topology.state React.signal)
       ~(mode : jitter_mode option React.signal)
-      (conf : config option)
+      (_ : config option)
       control : Widget.t =
   let en, set_en, s_en, dis_en = make_enabled () in
   let pid, set_pid, s_pid, dis_pid = make_pid () in

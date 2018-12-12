@@ -91,7 +91,7 @@ module WS = struct
     let filter_t2mi_ids x = match t2mi_stream_ids with
       | [] -> x
       | l ->
-         List.filter_map (fun (id, (x : t list timestamped)) ->
+         List.filter_map (fun (id, (x : t list Time.timestamped)) ->
              List.filter (fun (sid, _) -> List.mem ~eq:equal_id sid l) x.data
              |> function [] -> None | l -> Some (id, { x with data = l })) x in
     let e =
@@ -196,7 +196,7 @@ module HTTP = struct
     api.get_section ?section ?table_id_ext ?id_ext_1 ?id_ext_2
       ~id ~table_id ()
     >|= (function
-         | Ok x -> Ok ((timestamped_to_yojson to_yojson) x)
+         | Ok x -> Ok ((Time.timestamped_to_yojson to_yojson) x)
          | Error e -> Error (error_to_yojson e))
     >>= respond_result
 
@@ -206,13 +206,13 @@ module HTTP = struct
       Option.flat_map Time.Relative.to_int_s duration
       |> Option.get_or ~default:5 in
     api.get_t2mi_seq { stream = id; seconds }
-    >|= (fun (x : T2mi_sequence.t timestamped) ->
+    >|= (fun (x : T2mi_sequence.t Time.timestamped) ->
       List.filter (fun (x : T2mi_sequence.item) ->
           match stream_ids with
           | [] -> true
           | l -> List.mem ~eq:(=) x.stream_id l) x.data
       |> (fun items -> { x with data = items })
-      |> (timestamped_to_yojson T2mi_sequence.to_yojson)
+      |> (Time.timestamped_to_yojson T2mi_sequence.to_yojson)
       |> Result.return)
     >>= respond_result
 

@@ -262,7 +262,7 @@ end = struct
     | None -> ()
     | Some x ->
        let v = merge_streams streams x in
-       List.map (Pair.map2 (make_timestamped timestamp)) v
+       List.map (Pair.map2 (Time.stamp timestamp)) v
        |> pe.bitrates
     end;
     (* Push TS structures *)
@@ -293,7 +293,7 @@ end = struct
     | None -> ()
     | Some x ->
        merge_streams streams x
-       |> List.map (Pair.map2 (make_timestamped timestamp))
+       |> List.map (Pair.map2 (Time.stamp timestamp))
        |> pe.t2mi_info
     end;
     (* Push T2-MI errors *)

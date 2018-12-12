@@ -1,5 +1,4 @@
 open Storage.Database
-open Board_qos_types
 open Db_common
 open Printf
 open Containers
@@ -7,11 +6,11 @@ open Board_types.Ts_info
 open Common
 open Api.Api_types
 
-let typ : (ID.t * t timespan) Caqti_type.t =
+let typ : (ID.t * t Time.timespan) Caqti_type.t =
   Types.custom
     Types.(List.(ID.db & bool & int & int & int & int
                  & int & string & string & ptime & ptime))
-    ~encode:(fun (id, ({ from; till; data } : t timespan)) ->
+    ~encode:(fun (id, ({ from; till; data } : t Time.timespan)) ->
       Ok (ID.to_db id,
           (data.complete,
            (data.services_num,
@@ -44,7 +43,7 @@ let typ : (ID.t * t timespan) Caqti_type.t =
             } in
           ID.of_db id, { from; till; data }))
 
-let insert db (info : (Stream.ID.t * t timespan) list) =
+let insert db (info : (Stream.ID.t * t Time.timespan) list) =
   let table = (Conn.names db).ts_info in
   let insert =
     R.exec typ
@@ -58,10 +57,10 @@ let insert db (info : (Stream.ID.t * t timespan) list) =
                     acc >>= fun () -> exec insert (id, info))
                   (return ()) info))
 
-let bump db (info : (Stream.ID.t * t timespan) list) =
+let bump db (info : (Stream.ID.t * t Time.timespan) list) =
   let table = (Conn.names db).ts_info in
   let data =
-    List.map (fun (id, ({ till; _ } : t timespan)) ->
+    List.map (fun (id, ({ till; _ } : t Time.timespan)) ->
         ID.to_db id, till) info in
   let update_last =
     R.exec Types.(tup2 ID.db ptime)

@@ -1,9 +1,6 @@
-open Containers
 open Board_types
 open Api_js.Requests.Json_request
-open Api_js.Api_types
 open Common
-open Lwt_result.Infix
 
 let get_base_path () = Uri.Path.Format.(
     Boards_js.Requests.get_board_path () / ("history" @/ empty))
@@ -11,7 +8,6 @@ let get_base_path () = Uri.Path.Format.(
 module HTTP = struct
 
   open Common.Uri
-  open Stream
 
   module Streams = struct
 
@@ -37,7 +33,7 @@ module HTTP = struct
 
   module Errors = struct
 
-    open Error
+    (* open Error *)
 
     (* let get ?(errors = []) ?(priority = []) ?(pids = []) ?(ids = [])
      *       ?limit ?order ?compress ?from ?till ?duration control =

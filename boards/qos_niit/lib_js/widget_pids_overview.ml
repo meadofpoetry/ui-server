@@ -1,7 +1,5 @@
 open Containers
 open Components
-open Lwt_result.Infix
-open Api_js.Api_types
 open Widget_common
 open Board_types
 open Common
@@ -145,7 +143,7 @@ let add_row (table : 'a Table.t) ((pid, info) : Pid.t) =
   row
 
 class t ?(settings : Settings.t option)
-        (init : Pid.t list timestamped option)
+        (init : Pid.t list Time.timestamped option)
         () =
   let init, timestamp = match init with
     | None -> [], None
@@ -212,7 +210,7 @@ class t ?(settings : Settings.t option)
       add_row table x
 
     (** Updates the overview *)
-    method update ({ timestamp; data } : Pid.t list timestamped) =
+    method update ({ timestamp; data } : Pid.t list Time.timestamped) =
       set_time @@ Some timestamp;
       (* Manage found, lost and updated items *)
       let prev = _data in
@@ -276,7 +274,7 @@ class t ?(settings : Settings.t option)
   end
 
 let make ?settings
-      (init : Pid.t list timestamped option) =
+      (init : Pid.t list Time.timestamped option) =
   new t ?settings init ()
 
 let make_dashboard_item ?settings init : 'a Dashboard.Item.item =

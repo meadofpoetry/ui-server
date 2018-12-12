@@ -1,8 +1,6 @@
 open Containers
 open Components
 open Board_types
-open Lwt_result.Infix
-open Api_js.Api_types
 open Widget_common
 open Common
 
@@ -79,7 +77,7 @@ let to_table_name ?(is_hex = false) table_id table_id_ext
   name, String.concat divider (base :: specific)
 
 (** Returns HTML element to insert into 'Extra' table column *)
-let to_table_extra ?(hex = false) ((id, info) : SI_PSI_table.t) =
+let to_table_extra ?(hex = false) ((id, _) : SI_PSI_table.t) =
   let to_id_string = match hex with
     | true  -> Printf.sprintf "0x%02X"
     | false -> Printf.sprintf "%d" in
@@ -121,8 +119,7 @@ let section_fmt : 'a. unit -> 'a list Components.Table.custom =
   ; to_string = Fun.(string_of_int % List.length)
   }
 
-let make_table ?(is_hex = false)
-      (init : SI_PSI_table.t list) =
+let make_table ?(is_hex = false) () =
   let open Table in
   let dec_ext_fmt =
     Custom_elt { is_numeric = false
@@ -135,7 +132,7 @@ let make_table ?(is_hex = false)
   let dec_pid_fmt = Int (Some (Printf.sprintf "%d")) in
   let hex_pid_fmt = Int (Some (Printf.sprintf "0x%04X")) in
   let hex_tid_fmt = Int (Some (Printf.sprintf "0x%02X")) in
-  let br_fmt = Table.(Option (Float None, "-")) in
+  let br_fmt = Option (Float None, "-") in
   let pct_fmt = Option (Float (Some (Printf.sprintf "%.2f")), "-") in
   let fmt =
     let open Format in
@@ -262,7 +259,7 @@ let add_row (table : 'a Table.t)
   row
 
 class t ?(settings : Settings.t option)
-        (init : SI_PSI_table.t list timestamped option)
+        (init : SI_PSI_table.t list Time.timestamped option)
         (stream : Stream.ID.t)
         (control : int)
         () =
@@ -271,7 +268,7 @@ class t ?(settings : Settings.t option)
     | Some { data; timestamp } -> data, Some timestamp in
   let s_time, set_time =
     React.S.create ~eq:(Equal.option Time.equal) timestamp in
-  let table, on_change = make_table init in
+  let table, on_change = make_table () in
   let dump, set_dump =
     let eq = fun (_, w1) (_, w2) -> Widget.equal w1 w2 in
     React.S.create ~eq:(Equal.option eq) None in
@@ -310,7 +307,7 @@ class t ?(settings : Settings.t option)
     (** Updates widget state *)
     method set_state (x : widget_state) : unit =
       begin match React.S.value dump with
-      | Some dump -> ()
+      | Some _ -> () (* FIXME !!!!!!!! set state *)
       | None -> ()
       end;
       match x with
@@ -345,7 +342,7 @@ class t ?(settings : Settings.t option)
         | _, [] -> ()
         | (rate : Bitrate.table) :: tl, rows ->
            let find (row : 'a Table.Row.t) =
-             let ((id, info) : SI_PSI_table.t) = self#_row_to_table_info row in
+             let ((id, _) : SI_PSI_table.t) = self#_row_to_table_info row in
              id.table_id = rate.table_id
              && id.table_id_ext = rate.table_id_ext
              && id.id_ext_1 = rate.id_ext_1
@@ -379,7 +376,7 @@ class t ?(settings : Settings.t option)
       aux (x.tables, table#rows)
 
     (** Updates the overview *)
-    method update ({ timestamp; data } : SI_PSI_table.t list timestamped) =
+    method update ({ timestamp; data } : SI_PSI_table.t list Time.timestamped) =
       let open SI_PSI_table in
       (* Update timestamp *)
       set_time @@ Some timestamp;
@@ -392,7 +389,6 @@ class t ?(settings : Settings.t option)
       let upd = Set.filter (fun ((_, info) : t) ->
                     List.mem ~eq:equal_info info @@ List.map snd data) inter in
       let find = fun (table : t) (row : 'a Table.Row.t) ->
-        let open Table in
         let info = self#_row_to_table_info row in
         Table_info.equal table info in
       Set.iter (fun (info : t) ->
@@ -407,7 +403,7 @@ class t ?(settings : Settings.t option)
 
     (* Private methods *)
 
-    method private _update_row (row : 'a Table.Row.t) ((id, info) : SI_PSI_table.t) =
+    method private _update_row (row : 'a Table.Row.t) ((_, info) : SI_PSI_table.t) =
       let open Table in
       let open SI_PSI_table in
       begin match row#cells with
@@ -431,7 +427,7 @@ class t ?(settings : Settings.t option)
   end
 
 let make ?(settings : Settings.t option)
-      (init : SI_PSI_table.t list timestamped option)
+      (init : SI_PSI_table.t list Time.timestamped option)
       (stream : Stream.ID.t)
       control =
   new t ?settings init stream control ()

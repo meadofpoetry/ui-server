@@ -2,8 +2,6 @@ open Containers
 open Components
 open Board_types
 open Board_types.SI_PSI_section
-open Lwt_result.Infix
-open Api_js.Api_types
 open Ui_templates.Sdom
 open Common
 
@@ -12,8 +10,6 @@ let name = "Таблицы"
 let settings = None
 
 let base_class = "qos-niit-tables"
-
-let ( % ) = Fun.( % )
 
 let req_of_table table_id table_id_ext id_ext_1 id_ext_2 section =
   let r = Requests.Streams.HTTP.get_si_psi_section
@@ -40,8 +36,8 @@ module Section = struct
 
   module Id = Int
 
-  type model  = section_info * Dump.t timestamped option
-  type widget = (section_info * Dump.t timestamped option) Item_list.Item.t
+  type model  = section_info * Dump.t Time.timestamped option
+  type widget = (section_info * Dump.t Time.timestamped option) Item_list.Item.t
 
   let equal_model (a : model) (b : model) =
     equal_section_info (fst a) (fst b)
@@ -59,7 +55,7 @@ module Section = struct
       let w = new Typography.Text.t ~text:"" () in
       let v = { get = (fun (x : model) -> (fst x).length)
               ; eq  = Int.equal
-              ; upd = (w#set_text % to_string) } in
+              ; upd = Fun.(w#set_text % to_string) } in
       w, v in
     let prev = ref init in
     let leaf = new Item_list.Item.t
@@ -89,7 +85,7 @@ module Sections =
 
       module Node = Section
 
-      type widget = (section_info * Dump.t timestamped option) Item_list.t
+      type widget = (section_info * Dump.t Time.timestamped option) Item_list.t
 
       let root (w : widget) = w#root
 
@@ -115,8 +111,7 @@ module Sections =
     end)
 
 let make_list
-      (sections : (SI_PSI_table.section_info * Dump.t timestamped option) list)
-      (control : int) =
+      (sections : (SI_PSI_table.section_info * Dump.t Time.timestamped option) list) =
   let list, update_list = Sections.make sections in
   list#set_dense true;
   list, update_list
@@ -297,7 +292,7 @@ let make_dump
       ~(id_ext_1 : int)
       ~(id_ext_2 : int)
       (stream : Stream.ID.t)
-      (list : (SI_PSI_table.section_info * Dump.t timestamped option) Item_list.t)
+      (list : (SI_PSI_table.section_info * Dump.t Time.timestamped option) Item_list.t)
       (control : int) =
   let open SI_PSI_table in
   let base_class = Markup.CSS.add_element base_class "dump" in
@@ -314,6 +309,12 @@ let make_dump
                        ; options#widget ]
               () as super
 
+    method! init () : unit =
+      super#init ();
+      self#add_class base_class;
+      React.S.map ~eq:(fun _ _ -> false) self#on_active_change list#s_active
+      |> self#_keep_s
+
     method button = button
 
     method on_active_change = function
@@ -329,7 +330,7 @@ let make_dump
              ~text:x () in
          let tz_offset_s = Ptime_clock.current_tz_offset_s () in
          let fmt_time = Time.to_human_string ?tz_offset_s in
-         let upd : Dump.t timestamped option -> unit = function
+         let upd : Dump.t Time.timestamped option -> unit = function
            | Some { timestamp; data = { section; content = Some x; _ } } ->
               parsed#set_empty ();
               subtitle#set_text @@ fmt_time timestamp;
@@ -394,12 +395,6 @@ let make_dump
          button#set_disabled false;
          ()
 
-    method init () : unit =
-      super#init ();
-      self#add_class base_class;
-      React.S.map ~eq:(fun _ _ -> false) self#on_active_change list#s_active
-      |> self#_keep_s
-
   end
 
 class t ~(stream : Stream.ID.t)
@@ -407,11 +402,11 @@ class t ~(stream : Stream.ID.t)
         ~(table_id_ext : int)
         ~(id_ext_1 : int)
         ~(id_ext_2 : int)
-        ~(sections : (SI_PSI_table.section_info * Dump.t timestamped option) list)
+        ~(sections : (SI_PSI_table.section_info * Dump.t Time.timestamped option) list)
         (control : int)
         () =
   let stream_panel_class = Markup.CSS.add_element base_class "list" in
-  let list, update_list = make_list sections control in
+  let list, update_list = make_list sections in
   let dump = make_dump ~table_id ~table_id_ext
                ~id_ext_1 ~id_ext_2 stream list control in
   let list_name =

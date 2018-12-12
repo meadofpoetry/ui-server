@@ -25,7 +25,7 @@ let make_overview init e_tables e_rate state stream control =
         | _ -> ()) e_tables in
   let e_rate =
     E.map (function
-        | [(_, (x : Bitrate.t timestamped))] -> widget#set_rate x.data
+        | [(_, (x : Bitrate.t Time.timestamped))] -> widget#set_rate x.data
         | _ -> ()) e_rate in
   let state = state >|= S.map ~eq:Equal.unit widget#set_state in
   let close = (fun () ->
@@ -55,7 +55,6 @@ let make (id : Stream.ID.t) control =
     make_overview init e_tables e_rate state' id control in
   let box =
     let open Layout_grid in
-    let open Typography in
     let span = 12 in
     let overview_cell = new Cell.t ~span ~widgets:[overview] () in
     let cells = [overview_cell] in

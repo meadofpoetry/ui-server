@@ -164,6 +164,6 @@ let select_errors_compressed db ?(streams = [])
          let data =
            Error.{ errors = 100. *. p /. fine
                  ; no_stream = 100. -. fine } in
-         Lwt.return ({ from; till; data } :: acc))
+         Lwt.return (Time.{ from; till; data } :: acc))
        (Lwt.return []) l
      >|= fun data -> Compressed { data }

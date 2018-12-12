@@ -1,10 +1,6 @@
-open Containers
 open Board_types
 open Api_js.Requests.Json_request
-open Api_js.Api_types
 open Common
-open Requests_common
-open Lwt_result.Infix
 
 let get_base_path () = Uri.Path.Format.(
     Boards_js.Requests.get_board_path () / ("streams" @/ empty))
@@ -16,7 +12,7 @@ module WS = struct
 
   let get_streams ?(inputs = []) ?(ids = []) ?incoming control =
     WS.get ~from:(Json.List.of_yojson of_yojson)
-      ~path:Path.Format.(get_base_path ())
+      ~path:(get_base_path ())
       ~query:Query.[ "id", (module List(ID))
                    ; "input", (module List(Topology.Show_topo_input))
                    ; "incoming", (module Option(Bool)) ]
@@ -67,7 +63,6 @@ module WS = struct
 
   let get_errors ?(errors = []) ?(priority = []) ?(pids = [])
         ?(ids = []) control =
-    let open Error in
     WS.get ~from:errors_of_yojson
       ~path:Path.Format.(get_base_path () / ("errors" @/ empty))
       ~query:Query.[ "ids", (module List(Stream.ID))
@@ -122,7 +117,6 @@ module HTTP = struct
       control ids
 
   let get_t2mi_info ?(ids = []) control =
-    let open T2mi_info in
     get_result ~from:t2mi_info_of_yojson
       ~path:Path.Format.(get_base_path () / ("t2mi-info" @/ empty))
       ~query:Query.["id", (module List(Stream.ID))]
@@ -131,7 +125,7 @@ module HTTP = struct
   let get_si_psi_section ?section ?table_id_ext ?id_ext_1 ?id_ext_2
         ~id ~table_id control =
     let open SI_PSI_section.Dump in
-    get_result ~from:(timestamped_of_yojson of_yojson)
+    get_result ~from:(Time.timestamped_of_yojson of_yojson)
       ~from_err:error_of_yojson
       ~path:Path.Format.(get_base_path () / ("dump/si-psi-section"
                                              @/ ID.fmt ^/ Int ^/ empty))
@@ -143,7 +137,7 @@ module HTTP = struct
 
   let get_t2mi_sequence ?duration ~id control =
     let open T2mi_sequence in
-    get_result ~from:(timestamped_of_yojson of_yojson)
+    get_result ~from:(Time.timestamped_of_yojson of_yojson)
       ~path:Path.Format.(get_base_path () / (ID.fmt ^/ "dump/t2mi-sequence" @/ empty))
       ~query:Query.[ "duration", (module Option(Time.Relative)) ]
       control id duration

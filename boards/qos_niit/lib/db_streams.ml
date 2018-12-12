@@ -1,5 +1,4 @@
 open Storage.Database
-open Board_qos_types
 open Db_common
 open Printf
 open Containers
@@ -106,12 +105,12 @@ let select_streams ?(limit = 500) ?(ids = []) ?(inputs = []) ?incoming
   Conn.request db Request.(
     list select (from, till, limit) >>= fun l ->
     try let data =
-          List.map (fun (s,f,t) ->
-              { data = Result.get_exn
-                       @@ Common.Stream.of_yojson
-                       @@ Yojson.Safe.from_string s
-              ; from = f
-              ; till = t }) l
+          List.map (fun (s, f, t) ->
+              Time.{ data = Result.get_exn
+                            @@ Common.Stream.of_yojson
+                            @@ Yojson.Safe.from_string s
+                   ; from = f
+                   ; till = t }) l
         in return @@ Ok (Raw { data
                              ; has_more = List.length data >= limit
                              ; order = `Desc })

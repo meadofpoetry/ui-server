@@ -153,7 +153,7 @@ type api =
   ; set_input : input -> input Lwt.t
   ; set_t2mi_mode : t2mi_mode option -> t2mi_mode option Lwt.t
   ; set_jitter_mode : jitter_mode option -> jitter_mode option Lwt.t
-  ; get_t2mi_seq : frame_seq_params -> T2mi_sequence.t timestamped Lwt.t
+  ; get_t2mi_seq : frame_seq_params -> T2mi_sequence.t Time.timestamped Lwt.t
   ; get_section :
       ?section:int ->
       ?table_id_ext:int ->
@@ -162,7 +162,7 @@ type api =
       id:Stream.ID.t ->
       table_id:int ->
       unit ->
-      (SI_PSI_section.Dump.t timestamped,
+      (SI_PSI_section.Dump.t Time.timestamped,
        SI_PSI_section.Dump.error) Lwt_result.t
   ; reset : unit -> unit Lwt.t
   ; config : unit -> config
@@ -271,7 +271,7 @@ type _ probe_request =
 type _ request =
   | Get_board_info : devinfo request
   | Get_board_mode : (input * t2mi_mode_raw) request
-  | Get_t2mi_frame_seq : t2mi_frame_seq_req -> T2mi_sequence.t timestamped request
+  | Get_t2mi_frame_seq : t2mi_frame_seq_req -> T2mi_sequence.t Time.timestamped request
   | Get_section : section_req ->
-                  (SI_PSI_section.Dump.t timestamped,
+                  (SI_PSI_section.Dump.t Time.timestamped,
                    SI_PSI_section.Dump.error) result request

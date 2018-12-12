@@ -2,7 +2,6 @@ open Containers
 open Components
 open Common
 open Board_types
-open Lwt_result.Infix
 open Widget_common
 
 let base_class = "qos-niit-service-info"
@@ -200,7 +199,7 @@ module Pids = struct
 
   class t ?(settings : Settings.t option)
           (service : Service.t)
-          (init : Pid.t list timestamped option)
+          (init : Pid.t list Time.timestamped option)
           () =
     let init = match init with
       | None -> None
@@ -219,7 +218,7 @@ module Pids = struct
         let data = filter_pids service self#pids in
         self#update { data; timestamp = Ptime_clock.now () }
 
-      method! update (pids : Pid.t list timestamped) =
+      method! update (pids : Pid.t list Time.timestamped) =
         super#update { pids with data = filter_pids _service pids.data }
 
       initializer
@@ -232,7 +231,7 @@ class t ?(settings : Settings.t option)
         ?(rate : Bitrate.t option)
         ?min ?max
         (init : Service.t)
-        (pids : Pid.t list timestamped option)
+        (pids : Pid.t list Time.timestamped option)
         () =
   let info, set_info, set_rate, set_min, set_max = make_description () in
   let pids = new Pids.t ?settings init pids () in
@@ -283,7 +282,7 @@ class t ?(settings : Settings.t option)
       _settings
 
     method set_settings ({ hex } : Settings.t) : unit =
-      let pids_settings = { pids#settings with hex } in
+      let pids_settings = Widget_pids_overview.Settings.{ hex } in
       set_info ~hex _info;
       pids#set_settings pids_settings
 
@@ -293,7 +292,7 @@ class t ?(settings : Settings.t option)
       pids#update_service x;
       set_info ~hex:_settings.hex x
 
-    method update_pids (x : Pid.t list timestamped) : unit =
+    method update_pids (x : Pid.t list Time.timestamped) : unit =
       pids#update x
 
     (** Updates bitrate values *)
@@ -342,5 +341,5 @@ class t ?(settings : Settings.t option)
 
 let make ?rate ?min ?max ?settings
       (init : Service.t)
-      (pids : Pid.t list timestamped option) =
+      (pids : Pid.t list Time.timestamped option) =
   new t ?rate ?min ?max ?settings init pids ()

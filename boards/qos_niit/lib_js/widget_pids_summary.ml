@@ -437,7 +437,7 @@ module Info = struct
 end
 
 class t ?(settings : Settings.t option)
-        (init : Pid.t list timestamped option) () =
+        (init : Pid.t list Time.timestamped option) () =
   let init, timestamp = match init with
     | None -> [], None
     | Some { data; timestamp } -> data, Some timestamp in
@@ -467,7 +467,7 @@ class t ?(settings : Settings.t option)
     method s_timestamp : Time.t option React.signal =
       s_time
 
-    method update ({ timestamp; data } : Pid.t list timestamped) =
+    method update ({ timestamp; data } : Pid.t list Time.timestamped) =
       (* Update timestamp *)
       set_time @@ Some timestamp;
       (* Manage found, lost and updated items *)
@@ -507,7 +507,7 @@ class t ?(settings : Settings.t option)
   end
 
 let make ?(settings : Settings.t option)
-      (init : Pid.t list timestamped option) =
+      (init : Pid.t list Time.timestamped option) =
   new t ?settings init ()
 
 let make_dashboard_item ?settings init : 'a Dashboard.Item.item =

@@ -2,7 +2,6 @@ open Containers
 open Components
 open Common
 open Lwt_result.Infix
-open Board_types
 open Page_common
 
 let l3 a b c = a >>= fun a -> b >>= fun b -> c >|= fun c -> a, b, c
@@ -30,7 +29,7 @@ let make_overview init pids e_services e_pids e_rate state =
         | _ -> ()) e_pids in
   let e_rate =
     E.map (function
-        | [(_, (x : 'a timestamped))] ->
+        | [(_, (x : 'a Time.timestamped))] ->
            widget#set_rate @@ Option.return x.data
         | _ -> ()) e_rate in
   let state = state >|= S.map ~eq:Equal.unit widget#set_state in
@@ -74,7 +73,6 @@ let make (id : Stream.ID.t) control =
     make_overview init pids e_services e_pids e_rate state' in
   let box =
     let open Layout_grid in
-    let open Typography in
     let span = 12 in
     let overview_cell = new Cell.t ~span ~widgets:[overview] () in
     let cells = [overview_cell] in
