@@ -74,7 +74,6 @@ let make_layer_item s_layers push layer =
   item, vis#s_state
 
 let on_add grid push =
-  let open Dynamic_grid.Position in
   let f layer =
     let i, s = make_layer_item grid#s_items push layer in
     (match grid#add i with
@@ -231,15 +230,13 @@ let make_layers_actions max layers_grid push =
 let make ~init ~max =
   let _class = "wm-layers-card"  in
   let wrapper_class = "wm-layers-grid-wrapper" in
-
-  let open Dynamic_grid.Position in
   let layers = Widget.create_div () in
   let grid = make_layers_grid ~init in
   let actions = new Card.Actions.t ~widgets:[(make_layers_actions max grid grid#e_layer_push)#widget] () in
   let card = new Card.t ~widgets:[layers#widget;actions#widget] () in
+  let title = Wm_selectable_title.make [("Слои", card)] in
+  let box = new Vbox.t ~widgets:[title#widget; card#widget] () in
   layers#add_class wrapper_class;
   layers#append_child grid;
   card#add_class _class;
-  let title = Wm_selectable_title.make [("Слои", card)] in
-  let box = new Vbox.t ~widgets:[title#widget; card#widget] () in
-  box,grid
+  box, grid

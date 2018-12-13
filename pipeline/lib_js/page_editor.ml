@@ -98,7 +98,7 @@ let resize_container (p : Wm.position) (t : Wm.container wm_item) =
       ~f:(fun pos (s, (x : Wm.widget)) -> s, { x with position = pos })
       t.item.widgets
   in
-  { t with item = { t.item with position = p; widgets }}
+  { t with item = Wm.{ position = p; widgets }}
 
 let resize_layout ~(resolution : int * int) (l : Wm.container wm_item list) =
   let containers =
@@ -350,7 +350,6 @@ let create ~(init: Wm.t)
   let s_state, s_state_push = React.S.create `Container in
   let title = "Контейнеры" in
   let open Wm_left_toolbar in
-  let open Icon.SVG in
   let wizard =
     make_action
       { icon = Icon.SVG.(create_simple Path.auto_fix)#widget

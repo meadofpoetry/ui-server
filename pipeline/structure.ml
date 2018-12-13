@@ -130,7 +130,7 @@ module Streams = struct
   let default : t = []
 
   let unwrap : t -> structure list =
-    List.map (fun { source; structure } -> structure )
+    List.map (fun { structure; _ } -> structure )
 end
 
 let active_pids str =

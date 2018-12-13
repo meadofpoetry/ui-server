@@ -97,7 +97,7 @@ let resize_container (p : Wm.position) (t : Wm.container wm_item) =
       ~f:(fun pos (s, (x : Wm.widget)) -> s, { x with position = pos })
       t.item.widgets
   in
-  { t with item = { t.item with position = p; widgets }}
+  { t with item = Wm.{ position = p; widgets }}
 
 let resize_layout ~(resolution : int * int) (l : Wm.container wm_item list) =
   let containers =

@@ -1,17 +1,15 @@
-open Containers
 open Components
-open Wm_types
 
-let base_class   = "wm-left-toolbar"
+let base_class = "wm-left-toolbar"
 let action_class = Markup.CSS.add_element base_class "action"
 
-let make_action (action : action) =
-  let w  = new Fab.t ~mini:true ~icon:action.icon () in
-  let () = w#add_class action_class in
-  let () = w#set_attribute "title" action.name in
+let make_action (action : Wm_types.action) =
+  let w = new Fab.t ~mini:true ~icon:action.icon () in
+  w#add_class action_class;
+  w#set_attribute "title" action.name;
   w
 
 let make widgets =
   let box = new Vbox.t ~widgets () in
-  let ()  = box#add_class base_class in
+  box#add_class base_class;
   box

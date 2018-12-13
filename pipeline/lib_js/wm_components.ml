@@ -68,7 +68,7 @@ module Text_row = struct
       | None -> let text = Option.get_or ~default:"-" text in
                 (new Typography.Text.t ~text ())#widget
     in
-    object(self)
+    object
       inherit Hbox.t ~halign:`Space_between
                 ~widgets:[Widget.coerce nw; Widget.coerce vw]
                 () as super

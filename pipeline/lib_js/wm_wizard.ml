@@ -150,12 +150,13 @@ module Positioning = struct
       if new_w > 0 && new_w <= w
          && new_h > 0 && new_h <= h then
         let left = pos.left + (w - new_w) / 2 in
-        let top  = pos.top + (h - new_h) / 2 in
-        let position  = { pos with left
-                                 ; top
-                                 ; right = left + new_w
-                                 ; bottom = top + new_h
-                        } in
+        let top = pos.top + (h - new_h) / 2 in
+        let position =
+          Wm.{ left
+             ; top
+             ; right = left + new_w
+             ; bottom = top + new_h
+          } in
         { widget with position }
       else
         widget
@@ -295,7 +296,7 @@ module Create = struct
       ~(audio : ((string * Wm.widget) * channel) option)
       cont_pos =
     match video with
-    | Some (video, channel) ->
+    | Some (video, _) ->
       let video_pos =
         match audio with
         | Some _ -> Positioning.video_position ~audio:`With_audio ~cont_pos
@@ -311,7 +312,7 @@ module Create = struct
       ~(audio : ((string * Wm.widget) * channel) option)
       cont_pos =
     match audio with
-    | Some (audio, channel) ->
+    | Some (audio, _) ->
       let audio_pos =
         match video with
         | Some _ -> Positioning.audio_position ~video:`With_video ~cont_pos
@@ -410,7 +411,7 @@ let to_layout ~resolution ~widgets signal =
  * all with checkboxes.
  * it returns dialog, react event and a fun showing dialog *)
 
-let to_content (wm : Wm.t) push =
+let to_content (wm : Wm.t) =
   let open Lwt_result.Infix in
   Requests_structure.HTTP.get ()
   >|= (fun init ->
@@ -452,7 +453,7 @@ let to_content (wm : Wm.t) push =
   |> Lwt_result.map_err Api_js.Requests.err_to_string
 
 let to_dialog (wm : Wm.t) push =
-  let thread = to_content wm push in
+  let thread = to_content wm in
   let content =
     Ui_templates.Loader.create_widget_loader
     @@ Lwt_result.map fst thread in

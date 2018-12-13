@@ -1,6 +1,5 @@
 open Containers
 open Components
-open Qoe_errors
 open Common
 
 module Structure = struct
@@ -291,7 +290,7 @@ module Settings = struct
     loss_field#set_value a.loss;
     let silence_w, sil_s = make_silence  a.silence in
     let loudness_w, loud_s = make_loudness a.loudness in
-    let adv_w, adv_s = make_adv      a.adv in
+    let _, adv_s = make_adv a.adv in
     let box =
       new Vbox.t ~widgets:[(Widget.create header);
                            loss_field#widget;
