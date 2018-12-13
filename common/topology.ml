@@ -42,15 +42,6 @@ type input =
 
 type board_type = string [@@deriving yojson, show, eq, ord]
 
-(** Returns human-readable names of some known board types *)
-let get_board_name (typ : board_type) =
-  match typ with
-  | "IP2TS" -> "Приёмник TSoIP"
-  | "TS2IP" -> "Передатчик TSoIP"
-  | "TS" -> "Анализатор TS"
-  | "DVB" -> "Приёмник DVB"
-  | s -> s
-
 type process_type = string [@@deriving yojson, show, eq, ord]
 
 let compare_input l r = match l, r with
@@ -144,6 +135,15 @@ and topo_interface =
   ; conn : topo_entry
   }
 
+(** Returns human-readable names of some known board types *)
+let get_board_name (board : topo_board) =
+  match board.typ with
+  | "IP2TS" -> "Приёмник TSoIP"
+  | "TS2IP" -> "Передатчик TSoIP"
+  | "TS" -> "Анализатор TS"
+  | "DVB" -> "Приёмник DVB"
+  | s -> s
+
 module Show_topo_input = struct
   type t = topo_input
   let typ = "topo input"
@@ -190,9 +190,6 @@ let get_input_name (i : topo_input) =
   | RF -> to_string "RF"
   | TSOIP -> to_string "TSoIP"
   | ASI -> to_string "ASI"
-
-let get_board_name (b : topo_board) =
-  Printf.sprintf "%s. %s" b.manufacturer b.model
 
 let get_inputs t =
   let rec get acc = function

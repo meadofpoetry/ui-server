@@ -4,8 +4,6 @@ open Components
 open Lwt_result
 open Common
 
-let ( % ) = Fun.( % )
-
 let cpu_of_yojson =
   Common.Json.(
     Option.of_yojson String.of_yojson)
@@ -15,7 +13,6 @@ let boards_of_yojson =
     List.of_yojson @@ Pair.of_yojson Int.of_yojson String.of_yojson)
 
 let dummy_tab = fun () ->
-  let div = Widget.create_div () in
   Ui_templates.Placeholder.under_development ()
 
 let get_common_tabs
@@ -34,7 +31,6 @@ let get_common_tabs
   [log]
 
 let get_board_tabs (stream : Stream.ID.t)
-      (input : Topology.topo_input)
       (control : int)
       (name : string) =
   match name with
@@ -62,12 +58,11 @@ let get_board_tabs (stream : Stream.ID.t)
      let measures =
        "RF",
        "rf",
-       Widget.coerce % fun () -> Page_stream.make stream control in
+       Fun.(Widget.coerce % fun () -> Page_stream.make stream control) in
      [measures]
   | _ -> []
 
 let get_cpu_tabs (stream : Stream.ID.t)
-      (input : Topology.topo_input)
       (name : string option) =
   match name with
   | Some "pipeline" ->
@@ -75,15 +70,15 @@ let get_cpu_tabs (stream : Stream.ID.t)
      let log =
        "QoE",
        "qoe_log",
-       Widget.coerce % Page_channels.make stream in
+       Fun.(Widget.coerce % Page_channels.make stream) in
      [log]
   | _ -> []
 
 let make_tabs stream input (boards : (int * string) list) cpu =
   let boards_tabs =
     List.flat_map (fun (control, name) ->
-        get_board_tabs stream input control name) boards in
-  let cpu_tabs = get_cpu_tabs stream input cpu in
+        get_board_tabs stream control name) boards in
+  let cpu_tabs = get_cpu_tabs stream cpu in
   let boards' = List.map fst boards in
   let common_tabs = get_common_tabs ?cpu boards' input stream in
   let tabs = boards_tabs @ cpu_tabs @ common_tabs in
@@ -116,7 +111,6 @@ let () =
   Application_js.Requests.HTTP.get_stream_source ~stream_id ()
   >>= (fun source ->
     let info = Stream.Source.to_string source.info in
-    let w = Widget.create_div () in
     let tabs = make_tabs stream_id input boards cpu in
     let page = new Ui_templates.Page.t (`Dynamic tabs) () in
     let title = page#title ^ " / " ^ info in

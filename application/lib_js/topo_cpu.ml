@@ -1,7 +1,6 @@
 open Containers
 open Components
 open Topo_types
-open Lwt_result.Infix
 open Common
 
 let base_class = "topology__cpu"
@@ -18,7 +17,7 @@ let make_cpu_page (cpu : Topology.topo_cpu) =
        |> Ui_templates.Loader.create_widget_loader
        |> Widget.coerce in
      Some getter
-  | s -> None
+  | _ -> None
 
 module Header = struct
 
@@ -37,11 +36,11 @@ module Header = struct
 
       method settings_icon = settings
 
-      method init () : unit =
+      method! init () : unit =
         super#init ();
         self#add_class _class
 
-      method layout () : unit =
+      method! layout () : unit =
         super#layout ();
         Option.iter (fun x -> x#layout ()) self#settings_icon
 
@@ -86,7 +85,7 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
               ~body
               () as super
 
-    method init () : unit =
+    method! init () : unit =
       super#init ();
       List.iter (fun p -> p#set_state `Active) self#paths;
       self#add_class base_class;
@@ -101,12 +100,12 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
           _click_listener <- Some listener)
         header#settings_icon
 
-    method destroy () : unit =
+    method! destroy () : unit =
       super#destroy ();
       Option.iter Lwt.cancel _click_listener;
       _click_listener <- None
 
-    method layout () : unit =
+    method! layout () : unit =
       super#layout ();
       header#layout ()
 

@@ -1,4 +1,3 @@
-open Pc_control_js.Network
 open Lwt.Infix
 
 let () =

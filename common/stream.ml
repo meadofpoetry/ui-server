@@ -177,6 +177,7 @@ module Multi_TS_ID : sig
 
 end = struct
 
+  [@@@ocaml.warning "-32"]
   type t =
     | Parsed of parsed
     | Raw of int32
@@ -185,6 +186,7 @@ end = struct
     { source_id : int
     ; stream_id : int
     } [@@deriving eq, ord]
+  [@@@ocaml.warning "+32"]
 
   let parse_pure (i : int32) : parsed =
     let open Int32 in

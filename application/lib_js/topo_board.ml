@@ -1,7 +1,6 @@
 open Containers
 open Components
 open Topo_types
-open Lwt_result.Infix
 open Common
 
 let base_class = "topology__board"
@@ -12,7 +11,7 @@ let rec eq_port p1 p2 =
   && (match p1.child,p2.child with
       | Input i1, Input i2 -> equal_topo_input i1 i2
       | Board b1, Board b2 -> eq_board b1 b2
-      | _                  -> false)
+      | _, _ -> false)
 
 and eq_board b1 b2 =
   let open Topology in

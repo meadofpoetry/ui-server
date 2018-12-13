@@ -115,14 +115,14 @@ end = struct
 
     let rec scan_unsafe : type a b. string list -> (a,b) t -> a -> b = fun path fmt f ->
       match path, fmt with
-      | _ :: tl, S (_,fmt)       -> scan_unsafe tl fmt f
+      | _ :: tl, S (_, fmt) -> scan_unsafe tl fmt f
       | h :: tl, F (String, fmt) -> scan_unsafe tl fmt (f h)
-      | h :: tl, F (Int, fmt)    -> scan_unsafe tl fmt (f @@ int_of_string h)
-      | h :: tl, F (Int32, fmt)  -> scan_unsafe tl fmt (f @@ Int32.of_string h)
-      | h :: tl, F (Uuid, fmt)   -> scan_unsafe tl fmt (f @@ CCOpt.get_exn @@ Uuidm.of_string h)
-      | h :: tl, F (Bool, fmt)   -> scan_unsafe tl fmt (f @@ bool_of_string h)
-      | [], E                  -> f
-      | _                      -> failwith "bad path"
+      | h :: tl, F (Int, fmt) -> scan_unsafe tl fmt (f @@ int_of_string h)
+      | h :: tl, F (Int32, fmt) -> scan_unsafe tl fmt (f @@ Int32.of_string h)
+      | h :: tl, F (Uuid, fmt) -> scan_unsafe tl fmt (f @@ CCOpt.get_exn @@ Uuidm.of_string h)
+      | h :: tl, F (Bool, fmt) -> scan_unsafe tl fmt (f @@ bool_of_string h)
+      | [], E -> f
+      | _ -> failwith "bad path"
 
     let rec kprint : type a b. (string list -> b) -> (a, b) t -> a =
       fun k ->
@@ -158,8 +158,6 @@ module Query = struct
   exception Key_not_found_exn of string
   
   type t = (string * string list) list [@@deriving yojson]
-
-  let empty = []
 
   let err_to_string = function
     | Key_not_found s -> s

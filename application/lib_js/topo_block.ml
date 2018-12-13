@@ -34,7 +34,7 @@ module Header = struct
 
       inherit Card.Primary.t ~widgets () as super
 
-      method init () : unit =
+      method! init () : unit =
         super#init ();
         Option.iter (fun a -> a#add_class action_class) action;
         self#add_class _class
@@ -52,7 +52,7 @@ module Body = struct
     object(self)
       inherit Widget.t elt () as super
 
-      method init () : unit =
+      method! init () : unit =
         super#init ();
         self#set_n n;
         self#add_class _class;
@@ -79,6 +79,11 @@ class virtual t ~port_setter
               ~body:body#root
               card#root () as super
 
+    method! init () : unit =
+      super#init ();
+      body#set_n @@ List.length connections;
+      self#add_class base_class
+
     method virtual settings_event : (Widget.t * string) React.event
 
     method private set_state : Topology.state -> unit = function
@@ -94,10 +99,4 @@ class virtual t ~port_setter
          self#add_class fail_class;
          self#remove_class init_class;
          self#remove_class fine_class
-
-    method init () : unit =
-      super#init ();
-      body#set_n @@ List.length connections;
-      self#add_class base_class
-
   end

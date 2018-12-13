@@ -92,7 +92,6 @@ let make_card user =
     old_textfield#set_valid false;
     old_helper_text#set_content s in
   let set (pass : User.pass_change) =
-    let open Lwt.Infix in
     let f () =
       post_result
         ?scheme:None ?host:None ?port:None ?from_err:None
@@ -126,7 +125,6 @@ let make_card user =
     ()
 
 let () =
-  let user = Js_of_ocaml.(Js.to_string @@ Js.Unsafe.global##.username) in
   let root_card = make_card `Root in
   let operator_card = make_card `Operator in
   let guest_card = make_card `Guest in

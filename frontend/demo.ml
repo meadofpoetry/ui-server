@@ -13,17 +13,17 @@ let time_end name : unit =
 
 let table_demo timestamp count =
   print_endline "started building table...";
-  let fmt   =
+  let fmt =
     let open Table in
     let open Format in
-    Table.((   to_column ~sortable:true "Date",     Time None)
-           :: (to_column ~sortable:true "Input",    String None)
-           :: (to_column ~sortable:true "Service",  String None)
-           :: (to_column ~sortable:true "PID",      Int None)
-           :: (to_column ~sortable:true "Severity", Option (String None,""))
-           :: (to_column ~sortable:true "Check",    String None)
-           :: (to_column "Message",                 String None)
-           :: []) in
+    (to_column ~sortable:true "Date",     Time None)
+    :: (to_column ~sortable:true "Input",    String None)
+    :: (to_column ~sortable:true "Service",  String None)
+    :: (to_column ~sortable:true "PID",      Int None)
+    :: (to_column ~sortable:true "Severity", Option (String None,""))
+    :: (to_column ~sortable:true "Check",    String None)
+    :: (to_column "Message",                 String None)
+    :: [] in
   let table =
     new Table.t
       ~scroll_target:Clusterize.Scroll_target.window

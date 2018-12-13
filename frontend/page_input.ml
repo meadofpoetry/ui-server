@@ -1,7 +1,6 @@
 open Js_of_ocaml
 open Containers
 open Components
-open Api_js.Requests
 open Api_js.Api_types
 open Lwt_result.Infix
 open Common
@@ -126,15 +125,13 @@ module Stream_item = struct
 
       inherit Card.t ~widgets:[ primary#widget
                               ; (new Divider.t ())#widget
-                              ; media#widget ] ()
+                              ; media#widget ] () as super
 
-      method stream = stream
-      method time   = _time
-
-      initializer
-        self#add_class base_class;
-        self#listen_lwt Widget.Event.click (fun _ _ ->
-            let id = Stream.ID.to_string self#stream.id in
+      method! init () : unit =
+        super#init ();
+        super#add_class base_class;
+        super#listen_lwt Widget.Event.click (fun _ _ ->
+            let id = Stream.ID.to_string stream.id in
             let input_name = Topology.input_to_string input.input in
             let url = Printf.sprintf "/input/%s/%d/%s"
                         input_name input.id id in
@@ -143,21 +140,24 @@ module Stream_item = struct
         React.E.map (function
             | Some _ ->
                on_found self;
-               self#remove_class lost_class;
+               super#remove_class lost_class;
                _time <- `Now;
                timestamp#set_text_content @@ time_to_string `Now;
             | None   ->
                on_lost self;
-               self#add_class lost_class;
+               super#add_class lost_class;
                (* This time may differ from the time detected on a server-side.
                   Maybe do a request? *)
                let time = `Last (Ptime_clock.now ()) in
                _time <- time;
                timestamp#set_text_content @@ time_to_string time) event
-        |> self#_keep_e;
-        (match time with
-         | `Last _ -> self#add_class lost_class
-         | _ -> ())
+        |> super#_keep_e;
+        match time with
+        | `Last _ -> super#add_class lost_class
+        | _ -> ()
+
+      method stream = stream
+      method time = _time
     end
 
 end
@@ -182,10 +182,10 @@ module Stream_grid = struct
         ~icon:Icon.SVG.(create_simple Path.information)
         ~text:"Не найдено ни одного потока"
         () in
-    let title         = new Typography.Text.t ~text:"Текущие потоки" () in
-    let grid          = new Layout_grid.t ~cells:[] () in
+    let title = new Typography.Text.t ~text:"Текущие потоки" () in
+    let grid = new Layout_grid.t ~cells:[] () in
     let archive_title = new Typography.Text.t ~text:"Архив потоков" () in
-    let archive_grid  = new Layout_grid.t ~cells:[] () in
+    let archive_grid = new Layout_grid.t ~cells:[] () in
     object(self)
 
       val mutable _streams : Stream_item.t list = []
@@ -193,9 +193,25 @@ module Stream_grid = struct
       inherit Vbox.t ~widgets:[ title#widget
                               ; grid#widget
                               ; archive_title#widget
-                              ; archive_grid#widget ] ()
+                              ; archive_grid#widget ] () as super
 
-      method cells   = archive_grid#cells @ grid#cells
+      method! init () : unit =
+        super#init ();
+        self#add_class base_class;
+        if List.is_empty init
+        then self#append_child ph
+        else List.iter (fun (s, time) -> self#add_stream ~time s)
+             @@ List.sort (Ord.pair Stream.compare compare_time) init;
+        self#_check_and_rm_current ();
+        self#_check_and_rm_archive ();
+        React.E.map (fun l ->
+            let added =
+              List.filter (fun x ->
+                  not @@ List.mem ~eq:Stream.equal x self#streams) l in
+            List.iter self#add_stream added) event
+        |> self#_keep_e
+
+      method cells = archive_grid#cells @ grid#cells
       method streams = List.map (fun x -> x#stream) _streams
 
       method add_stream ?(time = `Now) (stream : Stream.t) =
@@ -256,21 +272,6 @@ module Stream_grid = struct
            grid#insert_cell_at_idx 0 cell;
            self#_check_and_rm_archive ()
         | _ -> ()
-
-      initializer
-        self#add_class base_class;
-        if List.is_empty init
-        then self#append_child ph
-        else List.iter (fun (s, time) -> self#add_stream ~time s)
-             @@ List.sort (Ord.pair Stream.compare compare_time) init;
-        self#_check_and_rm_current ();
-        self#_check_and_rm_archive ();
-        React.E.map (fun l ->
-            let added =
-              List.filter (fun x ->
-                  not @@ List.mem ~eq:Stream.equal x self#streams) l in
-            List.iter self#add_stream added) event
-        |> self#_keep_e
     end
 
 end
@@ -331,9 +332,9 @@ let make () =
       let event, close =
         get_streams_ws input cpu boards in
       let grid = new Stream_grid.t input streams event () in
+      grid#set_on_destroy close;
       grid#widget)
-    |> Ui_templates.Loader.create_widget_loader
-    |> Widget.coerce in
+    |> Ui_templates.Loader.create_widget_loader in
   ignore @@ new Ui_templates.Page.t (`Static [w]) ()
 
 let () = make ()

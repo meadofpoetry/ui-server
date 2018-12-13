@@ -40,7 +40,7 @@ class base ?actions ~body
   let title = new Card.Primary.title title () in
   let subtitle = match left with
     | None -> None
-    | Some x -> Some (new Card.Primary.subtitle "" ()) in
+    | Some _ -> Some (new Card.Primary.subtitle "" ()) in
   let primary_widgets = match subtitle with
     | None -> [title]
     | Some st -> [title; st] in
@@ -69,7 +69,7 @@ class base ?actions ~body
               ~widgets
               () as super
 
-    method init () : unit =
+    method! init () : unit =
       super#init ();
       super#add_class block_class;
       begin match state with
@@ -77,7 +77,7 @@ class base ?actions ~body
       | _ -> ()
       end
 
-    method destroy () : unit =
+    method! destroy () : unit =
       super#destroy ();
       React.S.stop ~strong:true s
 
@@ -114,7 +114,7 @@ module Board = struct
                   ~value:()
                   () as super
 
-        method init () : unit =
+        method! init () : unit =
           super#init ();
           super#add_class stream_class;
           if not present then super#add_class lost_class;
@@ -134,7 +134,7 @@ module Board = struct
                 Lwt.return_unit) in
           _click_listener <- Some l
 
-        method destroy () : unit =
+        method! destroy () : unit =
           super#destroy ();
           Option.iter Lwt.cancel _click_listener;
           _click_listener <- None;
@@ -191,13 +191,13 @@ module Board = struct
 
       inherit base ?left ~body ~entry ~state () as super
 
-      method init () : unit =
+      method! init () : unit =
         super#init ();
         empty#add_class empty_placeholder_class;
         React.S.map ~eq:Equal.unit self#check_empty list#s_items
         |> super#_keep_s
 
-      method destroy () : unit =
+      method! destroy () : unit =
         super#destroy ();
         React.S.stop ~strong:true counter;
         React.S.stop ~strong:true settings;
@@ -213,7 +213,6 @@ module Board = struct
     end
 
   let make_entry state counter counter_push left stream_list input =
-    let open Stream.Table in
     let list, settings = make_list state counter counter_push stream_list in
     let w = new t state list settings counter left (Topology.Input input) () in
     w#widget, settings
@@ -309,7 +308,6 @@ module Input = struct
       { dialog; show; result }
 
     let show dialog streams =
-      let open Topology in
       dialog.show ()
       >>= function
       | `Cancel -> Lwt.return_error "dialog was canceled"
@@ -364,7 +362,6 @@ module Input = struct
     signal, list, add
 
   class t ((iid, state, stream_list) : stream_table_row) () =
-    let open Item_list.List_group in
     let open Stream.Table in
     let input, id = match iid with
       | `Input (inp, id) -> inp, id
@@ -407,14 +404,14 @@ module Input = struct
                 ~entry:(Input topo_input)
                 () as super
 
-      method init () : unit =
+      method! init () : unit =
         super#init ();
         empty#add_class empty_placeholder_class;
         React.S.map ~eq:Equal.unit self#check_empty list#s_items
         |> self#_keep_s;
         Widget.append_to_body dialog.dialog
 
-      method destroy () : unit =
+      method! destroy () : unit =
         super#destroy ();
         Widget.remove_from_body dialog.dialog;
         React.S.stop ~strong:true settings
@@ -501,12 +498,12 @@ class t ~(init : stream_table)
 
     inherit Vbox.t ~widgets:[div; actions#widget] () as super
 
-    method init () : unit =
+    method! init () : unit =
       super#init ();
       div#add_class inputs_class;
       self#add_class base_class;
 
-    method destroy () : unit =
+    method! destroy () : unit =
       super#destroy ();
       apply#destroy ();
       actions#destroy ();

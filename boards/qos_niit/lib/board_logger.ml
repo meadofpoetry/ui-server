@@ -102,8 +102,8 @@ module Make(Logs : Logs.LOG) = struct
   let make_event (control : int) (events : events) source
       : Stream.Log_message.t list React.event =
     let errors = log_of_errors events.ts.errors source in
-    let device = log_of_device control events.device in
+    (* let device = log_of_device control events.device in *)
     let streams = log_of_streams control events.streams source in
-    React.E.merge (@) [] [errors; device; streams]
+    React.E.merge (@) [] [errors; (* device; *) streams]
 
 end

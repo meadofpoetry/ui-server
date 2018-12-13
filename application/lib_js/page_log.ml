@@ -1,9 +1,6 @@
 open Containers
 open Common
 open Components
-open Lwt_result.Infix
-
-let ( % ) = Fun.( % )
 
 let make_overview ?boards ?cpu ?inputs ?streams e_log =
   let open React in
@@ -21,7 +18,6 @@ let make ?boards ?cpu ?inputs ?streams () =
     make_overview ?boards ?cpu ?inputs ?streams e_log in
   let box =
     let open Layout_grid in
-    let open Typography in
     let span = 12 in
     let overview_cell = new Cell.t ~span ~widgets:[overview] () in
     let cells = [overview_cell] in

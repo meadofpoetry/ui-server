@@ -16,10 +16,7 @@ let get_input_point ~num i (elt : #Dom_html.element Js.t) : point =
   let y = elt##.offsetTop + (i * h) + (h / 2) in
   { x; y }
 
-class switch (node : node_entry)
-        (port : Topology.topo_port)
-        setter
-        () =
+class switch (port : Topology.topo_port) setter () =
   let _class = "topology__switch" in
   let s, push = React.S.create ~eq:Equal.bool false in
   object(self)
@@ -76,7 +73,6 @@ let sync_class = Markup.CSS.add_modifier _class "sync"
 let no_sync_class = Markup.CSS.add_modifier _class "no-sync"
 
 class t ~(left_node : node_entry)
-        ~(right_node : node_entry)
         ~(right_point : connection_point)
         ~(f_lp : unit -> point)
         ~(f_rp : unit -> point)
@@ -86,7 +82,7 @@ class t ~(left_node : node_entry)
     | `Iface _ -> None
     | `Port p  ->
        if not p.switchable then None
-       else Some (new switch right_node p port_setter ()) in
+       else Some (new switch p port_setter ()) in
   let elt = Tyxml_js.Svg.(
       path ~a:([ a_fill `None
                ; a_stroke (`Color ("white",None))

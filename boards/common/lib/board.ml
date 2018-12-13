@@ -1,6 +1,5 @@
 open Containers
 open Storage.Options
-open Lwt.Infix
 open Api.Template
 open Common
 
@@ -72,7 +71,7 @@ let get_streams (boards : t Map.t)
     | [] -> acc
     | (h : Topology.topo_port) :: tl ->
        begin match h.child with
-       | Topology.Input i -> get_streams' acc tl
+       | Topology.Input _ -> get_streams' acc tl
        | Topology.Board b ->
           begin match Map.get b.control boards with
           | Some b ->
@@ -88,7 +87,6 @@ let merge_streams (boards : t Map.t)
       (raw_streams : Stream.Raw.t list React.signal)
       (topo : Topology.topo_board)
     : Stream.t list React.signal =
-  let open Option in
   let open Topology in
   let open Stream in
   let ports =
@@ -121,8 +119,7 @@ let merge_streams (boards : t Map.t)
   let find_cor_stream (s : Raw.t) (lst : Stream.t list React.signal) = (* use S.fmap `None*)
     let map (s : Raw.t) prev = match prev.orig_id, s.id with
       | TS_raw, (TS_multi _ as id) ->
-         Some { prev with orig_id = id
-                        ; typ = s.typ }
+         Some { prev with orig_id = id; typ = s.typ }
       | id, sid ->
          if equal_container_id id sid
          then Some { prev with typ = s.typ }

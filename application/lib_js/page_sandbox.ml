@@ -1,11 +1,10 @@
-open Containers
 open Components
 open Common
 
-let make_factory (topology : Topology.t) : 'a #Dashboard.factory =
+let make_factory (_ : Topology.t) : 'a #Dashboard.factory =
   object
 
-    method create (x : 'a) : Widget.t Dashboard.Item.item =
+    method create (_ : 'a) : Widget.t Dashboard.Item.item =
       failwith ""
 
     method destroy () : unit =
@@ -14,10 +13,10 @@ let make_factory (topology : Topology.t) : 'a #Dashboard.factory =
     method available =
       `List []
 
-    method serialize (x : 'a) : Yojson.Safe.json =
+    method serialize (_ : 'a) : Yojson.Safe.json =
       `List []
 
-    method deserialize (json : Yojson.Safe.json) : ('a, string) result =
+    method deserialize (_ : Yojson.Safe.json) : ('a, string) result =
       Error ""
 
   end
