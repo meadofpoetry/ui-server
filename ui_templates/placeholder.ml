@@ -13,15 +13,15 @@ let with_error_class = Markup.CSS.add_modifier base_class "error"
 module Base = struct
   class t ~widget ~text () =
     let box = new Vbox.t ~widgets:[widget#widget; text#widget] () in
-    object(self)
-      inherit Widget.t Dom_html.(createDiv document) ()
-
-      initializer
+    object
+      inherit Widget.t Dom_html.(createDiv document) () as super
+      method! init () : unit =
+        super#init ();
         widget#add_class widget_class;
         text#add_class text_class;
         box#add_class content_class;
-        self#add_class base_class;
-        self#append_child box
+        super#add_class base_class;
+        super#append_child box
     end
 end
 
@@ -39,14 +39,15 @@ module With_icon = struct
         ~split:true
         ~adjust_margin:false
         ~text () in
-    object(self)
-      inherit Base.t ~widget:ico ~text ()
+    object
+      inherit Base.t ~widget:ico ~text () as super
+      method! init () : unit =
+        super#init ();
+        super#add_class with_icon_class
       method text_widget = text
       method icon : 'a = icon
       method set_text (s : string) : unit =
         text#set_text s
-      initializer
-        self#add_class with_icon_class
     end
 end
 
@@ -67,13 +68,12 @@ module With_progress = struct
   class t ?(indeterminate = true) ?(text = "Загрузка") () =
     let w = new Circular_progress.t ~indeterminate () in
     let p = create_text text in
-    object(self)
-      inherit Base.t ~widget:w ~text:p ()
-
+    object
+      inherit Base.t ~widget:w ~text:p () as super
+      method! init () : unit =
+        super#init ();
+        super#add_class with_progress_class
       method progress = w
-
-      initializer
-        self#add_class with_progress_class
     end
 end
 

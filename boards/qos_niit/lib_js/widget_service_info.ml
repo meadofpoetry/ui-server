@@ -213,16 +213,16 @@ module Pids = struct
 
       inherit Widget_pids_overview.t ?settings init () as super
 
-      method update_service (service : Service.t) =
-        _service <- service;
-        let data = filter_pids service self#pids in
-        self#update { data; timestamp = Ptime_clock.now () }
+      method! init () : unit =
+        super#add_class _class
 
       method! update (pids : Pid.t list Time.timestamped) =
         super#update { pids with data = filter_pids _service pids.data }
 
-      initializer
-        self#add_class _class
+      method update_service (service : Service.t) =
+        _service <- service;
+        let data = filter_pids service self#pids in
+        self#update { data; timestamp = Ptime_clock.now () }
     end
 
 end
@@ -248,11 +248,19 @@ class t ?(settings : Settings.t option)
   object(self)
     inherit Vbox.t ~widgets:[ bar#widget
                             ; (new Divider.t ())#widget
-                            ; div ] ()
+                            ; div ] () as super
     val mutable _settings = Option.get_or ~default:Settings.default settings
     val mutable _info = init
     val mutable _min = Option.map sum_bitrate min
     val mutable _max = Option.map sum_bitrate max
+
+    method! init () : unit =
+      super#init ();
+      self#update _info;
+      pids#set_rate rate;
+      set_rate @@ Option.map (fun (x : Bitrate.t) -> sum_bitrate x.pids) rate;
+      set_min _min;
+      set_max _max;
 
     method info : Service.t =
       _info
@@ -330,13 +338,6 @@ class t ?(settings : Settings.t option)
         | Some p, Some c -> p >= c
         | Some _, None   -> false in
       if not eq then (_max <- x; set_max x)
-
-    initializer
-      self#update _info;
-      pids#set_rate rate;
-      set_rate @@ Option.map (fun (x : Bitrate.t) -> sum_bitrate x.pids) rate;
-      set_min _min;
-      set_max _max;
   end
 
 let make ?rate ?min ?max ?settings

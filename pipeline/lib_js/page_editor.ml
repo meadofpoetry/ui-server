@@ -32,10 +32,7 @@ let pos_relative_to_absolute
 let get_bounding_rect (positions : Wm.position list) : Wm.position =
   let open Wm in
   match positions with
-  | [] -> { left = 0
-          ; right = 0
-          ; top = 0
-          ; bottom = 0 }
+  | [] -> { left = 0; right = 0; top = 0; bottom = 0 }
   | hd :: tl ->
      List.fold_left (fun acc (x : Wm.position) ->
          let { left; top; bottom; right } = x in
@@ -45,13 +42,14 @@ let get_bounding_rect (positions : Wm.position list) : Wm.position =
          let right = max acc.right right in
          { left; top; right; bottom}) hd tl
 
-let get_bounding_rect_and_grids (positions:Wm.position list) =
-  let rect       = get_bounding_rect positions in
+let get_bounding_rect_and_grids (positions : Wm.position list) =
+  let rect = get_bounding_rect positions in
   let resolution = rect.right - rect.left, rect.bottom - rect.top in
   let positions  =
     List.map (fun x -> pos_absolute_to_relative x rect) positions in
   { rect
-  ; grids = Utils.get_grids ~resolution ~positions () }
+  ; grids = Utils.get_grids ~resolution ~positions ()
+  }
 
 let resize ~(resolution : int * int)
       ~(to_position : 'a -> Wm.position)
@@ -464,6 +462,12 @@ class t () = object(self)
   val mutable sock : WebSockets.webSocket Js.t option = None
   inherit Layout_grid.t ~cells:[] () as super
 
+  method! init () : unit =
+    super#init ();
+    super#add_class "wm";
+    self#set_on_load @@ Some self#on_load;
+    self#set_on_unload @@ Some self#on_unload;
+
   method private on_load () =
     Requests_wm.HTTP.get ()
     >>= (fun wm ->
@@ -471,9 +475,9 @@ class t () = object(self)
       let post = fun w ->
         Lwt.Infix.(
           Requests_wm.HTTP.set w
-          >|= (function
-               | Ok () -> ()
-               | Error _ -> print_endline @@ "error post wm")) in
+          >|= function
+          | Ok () -> ()
+          | Error _ -> print_endline @@ "error post wm") in
       let _ =
         React.S.map (fun (s : Wm.t) ->
             self#inner#set_empty ();
@@ -486,11 +490,6 @@ class t () = object(self)
 
   method private on_unload () =
     Option.iter (fun x -> x##close; sock <- None) sock
-
-  initializer
-    self#set_on_load @@ Some self#on_load;
-    self#set_on_unload @@ Some self#on_unload;
-    self#add_class "wm";
 end
 
 let page () = new t ()

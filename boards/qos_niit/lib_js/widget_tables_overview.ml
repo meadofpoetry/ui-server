@@ -182,17 +182,18 @@ module Heading = struct
     let box = Widget.create_div ~widgets:[title'; subtitle'] () in
     let widgets = List.cons_maybe meta [box] in
     object(self)
-      inherit Card.Primary.t ~widgets ()
+      inherit Card.Primary.t ~widgets () as super
+
+      method! init () : unit =
+        super#init ();
+        Option.iter self#set_title title;
+        Option.iter self#set_subtitle subtitle;
 
       method set_title (s : string) : unit =
         title'#set_text_content s
 
       method set_subtitle (s : string) : unit =
         subtitle'#set_text_content s
-
-      initializer
-        Option.iter self#set_title title;
-        Option.iter self#set_subtitle subtitle;
     end
 
 end
