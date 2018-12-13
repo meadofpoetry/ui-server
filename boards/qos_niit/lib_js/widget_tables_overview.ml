@@ -385,9 +385,12 @@ class t ?(settings : Settings.t option)
       _data <- Set.of_list data;
       let lost = Set.diff prev _data in
       let found = Set.diff _data prev in
-      let inter = Set.inter prev _data in
-      let upd = Set.filter (fun ((_, info) : t) ->
-                    List.mem ~eq:equal_info info @@ List.map snd data) inter in
+      let inter = Set.inter _data prev in
+      let upd =
+        Set.filter (fun (t : SI_PSI_table.t) ->
+            let (_, i) = Set.find t prev in
+            not @@ SI_PSI_table.equal_info (snd t) i)
+          inter in
       let find = fun (table : t) (row : 'a Table.Row.t) ->
         let info = self#_row_to_table_info row in
         Table_info.equal table info in

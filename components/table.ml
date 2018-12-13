@@ -140,45 +140,27 @@ module Cell = struct
     | _ -> create (Html.txt (to_string fmt v)) in
     aux fmt v
 
-  let rec set_value : type a. a fmt -> bool -> a option -> a -> Widget.t -> unit =
-    fun fmt force prev v w ->
-    let eq = map_or ~default:false (equal fmt v) prev in
-    if force || not eq then
-      match fmt with
-      | Option (fmt, e) ->
-         begin match v with
-         | None -> set_value (String None) force None e w
-         | Some x ->
-            begin match prev with
-            | Some p -> set_value fmt force p x w
-            | None -> set_value fmt force None x w
-            end
-         end
-      | Html x ->
-         let to_elt = map_or ~default:Fun.id (fun x -> x.to_elt) x in
-         w#set_empty ();
-         Dom.appendChild w#root (to_elt v)
-      | Custom_elt x ->
-         w#set_empty ();
-         Dom.appendChild w#root (x.to_elt v)
-      | Widget x ->
-         let to_elt =
-           map_or ~default:(fun x -> x#node) (fun x -> x.to_elt) x in
-         w#set_empty ();
-         Dom.appendChild w#root (to_elt v)
-      | _ -> w#set_text_content @@ to_string fmt v
-
-  let rec update : type a. a fmt -> a -> Widget.t -> unit =
+  let rec set_value : type a. a fmt -> a -> Widget.t -> unit =
     fun fmt v w ->
     match fmt with
-    | Html _ -> ()
-    | Widget _ -> ()
     | Option (fmt, e) ->
        begin match v with
-       | Some v -> update fmt v w
-       | None -> update (String None) e w
+       | None -> set_value (String None) e w
+       | Some x -> set_value fmt x w
        end
-    | _ -> set_value fmt true None v w
+    | Html x ->
+       let to_elt = map_or ~default:Fun.id (fun x -> x.to_elt) x in
+       w#set_empty ();
+       Dom.appendChild w#root (to_elt v)
+    | Custom_elt x ->
+       w#set_empty ();
+       Dom.appendChild w#root (x.to_elt v)
+    | Widget x ->
+       let to_elt =
+         map_or ~default:(fun x -> x#node) (fun x -> x.to_elt) x in
+       w#set_empty ();
+       Dom.appendChild w#root (to_elt v)
+    | _ -> w#set_text_content @@ to_string fmt v
 
   let wrap_checkbox = function
     | None -> None
@@ -205,7 +187,9 @@ module Cell = struct
       method value : 'a = _value
 
       method set_value ?(force = false) (v : 'a) : unit =
-        set_value self#format force (Some _value) v self#widget
+        if force || not (equal fmt _value v)
+        then (set_value self#format v self#widget;
+              _value <- v)
 
       method compare (other : 'self) =
         compare self#format other#value self#value

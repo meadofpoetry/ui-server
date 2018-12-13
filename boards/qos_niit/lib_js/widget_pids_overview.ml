@@ -62,7 +62,7 @@ let to_pid_flags { has_pcr; scrambled } =
   let scr = match scrambled with
     | false -> None
     | true ->
-       Some Icon.SVG.(new t ~paths:Path.[ new t lock () ] ()) in
+       Some Icon.SVG.(new t ~paths:Path.[new t lock ()] ()) in
   let widgets = List.(cons_maybe pcr (cons_maybe scr [])) in
   (new Hbox.t ~widgets ())#node
 
@@ -217,15 +217,14 @@ class t ?(settings : Settings.t option)
       _data <- Set.of_list data;
       let lost = Set.diff prev _data in
       let found = Set.diff _data prev in
-      let inter = Set.inter prev _data in
+      let inter = Set.inter _data prev in
       let upd =
-        Set.filter (fun ((_, info) : Pid.t) ->
-            List.mem ~eq:Pid.equal_info info @@ List.map snd data) inter in
+        Set.filter (fun (p : Pid.t) ->
+            let (_, i) = Set.find p prev in
+            not @@ Pid.equal_info (snd p) i)
+          inter in
       let find = fun ((pid, _) : Pid.t) (row : 'a Table.Row.t) ->
-        let open Table in
-        let pid' = match row#cells with
-          | x :: _ -> x#value in
-        pid = pid' in
+        pid = Table.(match row#cells with x :: _ -> x#value) in
       Set.iter (fun (pid : Pid.t) ->
           match List.find_opt (find pid) table#rows with
           | None -> ()
@@ -254,22 +253,19 @@ class t ?(settings : Settings.t option)
     (* Private methods *)
 
     method private set_hex (x : bool) : unit =
-      List.iter (fun row ->
-          let open Table in
-          match row#cells with
-          | pid :: _ ->
-             pid#set_format (if x then hex_pid_fmt else dec_pid_fmt))
-        table#rows
+      let fmt = if x then hex_pid_fmt else dec_pid_fmt in
+      let iter = function
+        | Table.(pid :: _) -> pid#set_format fmt in
+      List.iter (fun row -> iter row#cells) table#rows
 
     method private _update_row (row : 'a Table.Row.t) ((pid, info) : Pid.t) =
-      let open Table in
-      match row#cells with
-      | pid' :: typ :: flags :: service :: _ ->
-         pid'#set_value pid;
-         typ#set_value info.typ;
-         flags#set_value { has_pcr = info.has_pcr
-                         ; scrambled = info.scrambled };
-         service#set_value info.service_name;
+      Table.(match row#cells with
+             | pid' :: typ :: flags :: service :: _ ->
+                pid'#set_value pid;
+                typ#set_value info.typ;
+                flags#set_value { has_pcr = info.has_pcr
+                                ; scrambled = info.scrambled };
+                service#set_value info.service_name)
 
   end
 

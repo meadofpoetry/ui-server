@@ -278,15 +278,14 @@ class t ?(settings : Settings.t option)
       _data <- Set.of_list data;
       let lost = Set.diff prev _data in
       let found = Set.diff _data prev in
-      let inter = Set.inter prev _data in
+      let inter = Set.inter _data prev in
       let upd =
-        Set.filter (fun ((_, info) : Service.t) ->
-            List.mem ~eq:Service.equal_info info @@ List.map snd data) inter in
+        Set.filter (fun (s : Service.t) ->
+            let (_, i) = Set.find s prev in
+            not @@ Service.equal_info (snd s) i)
+          inter in
       let find = fun ((id, _) : Service.t) (row : 'a Table.Row.t) ->
-        let open Table in
-        let id' = match row#cells with
-          | x :: _ -> x#value in
-        id' = id in
+        id = Table.(match row#cells with x :: _ -> x#value) in
       Set.iter (fun (info : Service.t) ->
           (* TODO update details somehow to show that the service is lost *)
           begin match map_details details info with
@@ -373,7 +372,6 @@ class t ?(settings : Settings.t option)
             @@ Set.to_list _data with
       | None -> ()
       | Some info ->
-         let open Option in
          let lst = get_service_bitrate rate.pids info in
          let _, _, pct = acc_bitrate rate.total lst in
          let details = map_details details info in
@@ -381,16 +379,17 @@ class t ?(settings : Settings.t option)
          per#set_value @@ Some pct;
          min#set_value @@ Some lst;
          max#set_value @@ Some lst;
-         iter (fun x -> x#set_rate @@ Some { rate with pids = lst }) details
+         match details with
+         | None -> ()
+         | Some d -> d#set_rate @@ Some { rate with pids = lst }
 
     method private _update_row (row : 'a Table.Row.t) ((id, info) : Service.t) =
-      let open Table in
-      match row#cells with
-      | id' :: name :: pmt :: pcr :: _ ->
-         id'#set_value id;
-         name#set_value info.name;
-         pmt#set_value info.pmt_pid;
-         pcr#set_value info.pcr_pid
+      Table.(match row#cells with
+             | id' :: name :: pmt :: pcr :: _ ->
+                id'#set_value id;
+                name#set_value info.name;
+                pmt#set_value info.pmt_pid;
+                pcr#set_value info.pcr_pid)
 
   end
 

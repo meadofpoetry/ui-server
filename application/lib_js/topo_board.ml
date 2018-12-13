@@ -204,9 +204,6 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
       let find (port : Topology.topo_port) (p : Topo_path.t) : bool =
         eq_node_entry p#left_node (`Entry port.child) in
       List.iter (fun (x : Topology.topo_port) ->
-          if board.control = 1 then
-            Printf.printf "board: %d, port: %d, listening: %b, sync: %b\n"
-              board.control x.port x.listening x.has_sync;
           match List.find_opt (find x) self#paths with
           | None -> ()
           | Some path ->

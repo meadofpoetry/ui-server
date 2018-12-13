@@ -168,7 +168,8 @@ end = struct
 
   let to_raw_stream ({ input; t2mi } : init)
         (mode : t2mi_mode_raw)
-        (i : input) (id : Stream.Multi_TS_ID.t) =
+        (i : input)
+        (id : Stream.Multi_TS_ID.t) =
     let open Stream.Source in
     let open Stream.Raw in
     let source_id = Stream.Multi_TS_ID.source_id id in
