@@ -167,7 +167,7 @@ class ['a] t ?(disabled = false)
       _items <- List.remove ~eq:(fun a b ->
                     match a, b with
                     | `Item a, `Item b -> Widget.equal a b
-                    | _ -> false) ~x:(`Item i) _items;
+                    | _ -> false) (`Item i) _items;
       self#select#remove_child i;
       match self#selected_item with
       | None -> ()

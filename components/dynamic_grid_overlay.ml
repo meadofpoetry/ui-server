@@ -138,7 +138,8 @@ class overlay_grid ~parent ~s_col_w ~s_row_h ~s_cols ~s_rows ~s_im () =
         | Column -> P2.v 0. (1. -. pos *. num), P2.v 1. (1. -. pos *. num) in
       let path = P.empty
                  |> P.sub starting
-                 |> P.line ending in
+                 |> P.line ending
+      in
       I.const self#grid_color |> I.cut ~area path
 
   end

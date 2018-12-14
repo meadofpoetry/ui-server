@@ -3,7 +3,7 @@ open Common
  
 let match_streams
       (sources : (Url.t * Stream.t) list ref)
-      (sl : Structure.structure list) : Structure.t list =
+      (sl : Structure.t list) : Structure.packed list =
   let open Structure in
   let rec merge (sources : (Url.t * Stream.t) list) structure =
     match sources with
@@ -13,10 +13,10 @@ let match_streams
        then Some { source = s; structure }
        else merge ss structure
   in
-  List.filter_map (merge !sources) sl
+  CCList.filter_map (merge !sources) sl
 
-let dump_structures (entries : Structure.t list) =
-  List.map (fun (x : Structure.t) ->
+let dump_structures (entries : Structure.packed list) =
+  List.map (fun (x : Structure.packed) ->
       (Yojson.Safe.to_string @@ Stream.ID.to_yojson x.source.id),
-      (Yojson.Safe.to_string @@ Structure.structure_to_yojson x.structure))
+      (Yojson.Safe.to_string @@ Structure.to_yojson x.structure))
     entries

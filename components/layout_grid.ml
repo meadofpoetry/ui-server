@@ -137,7 +137,7 @@ class t ?align ~(cells:Cell.t list) () =
       self#inner#append_child x
 
     method remove_cell (x:Cell.t) =
-      _cells <- List.remove ~eq ~x _cells;
+      _cells <- List.remove ~eq x _cells;
       self#inner#remove_child x
 
     method align = _align

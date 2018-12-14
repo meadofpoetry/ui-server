@@ -281,7 +281,7 @@ class t ?(interactive=true)
                                 (self#_get_hex_id x))
         self#_char_items
       |> Option.iter self#_rm_char_selected;
-      _selected <- List.remove ~eq:Equal.physical ~x _selected;
+      _selected <- List.remove ~eq:Equal.physical x _selected;
       self#_rm_hex_selected x
 
     method private _select x =
@@ -306,7 +306,7 @@ class t ?(interactive=true)
            (match List.find_opt (eq e) _selected with
             | Some x ->
                if not ctrl
-               then List.iter self#_unselect (List.remove ~eq ~x _selected)
+               then List.iter self#_unselect (List.remove ~eq x _selected)
                else self#_unselect x
             | None ->
                if not ctrl then List.iter self#_unselect _selected;

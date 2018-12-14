@@ -20,6 +20,7 @@ let create db_conf s_struct s_status e_video e_audio =
   let db = Result.get_exn @@ Db.Conn.create db_conf () in
   let tick, loop = tick () in
   (* Pids *)
+  (*
   let strip = let open Structure in List.map (fun s -> s.structure) in
   let pids =
     let open Structure in
@@ -74,6 +75,7 @@ let create db_conf s_struct s_status e_video e_audio =
          | `Bump pids -> Db.Stream_status.bump db pids
          | `Lost pids -> Db.Stream_status.init db pids)
   @@ React.E.select [stream_status; stream_status_diff];
+   *)
   (* Errors *)
   React.E.keep
   @@ React.E.map_p (fun x -> Lwt.catch (fun () -> Db.Errors.insert_video db x)

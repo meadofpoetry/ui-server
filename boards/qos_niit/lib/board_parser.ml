@@ -1279,10 +1279,12 @@ let is_probe_response (type a) (req : a probe_request) msg : a option =
                 length: %d, param: %ld)"
                first code parity req_id (Cstruct.len data) param);
          let part = { data; first; param } in
-         `P (List.Assoc.update (code, req_id) ~eq:(Pair.equal (=) (=))
-               ~f:(function
-                 | Some x -> Some (part :: x)
-                 | None   -> Some [ part ])
+         `P (List.Assoc.update
+               ~eq:(Pair.equal (=) (=))
+               (function
+                | Some x -> Some (part :: x)
+                | None   -> Some [ part ])
+               (code, req_id) 
                parts)
       | _ -> Logs.debug (fun m ->
                  m "deserializer - unknown simple message code: 0x%x" code);
