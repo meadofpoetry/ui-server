@@ -16,4 +16,8 @@
   (deps    (:x ../board_types.ml))
   (action  (copy %{x} %{targets})))
 
+(rule
+  (targets ts_error.ml)
+  (deps    (:x ../ts_error.ml))
+  (action  (copy %{x} %{targets})))
 

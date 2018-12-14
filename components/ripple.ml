@@ -51,8 +51,10 @@ module Util = struct
 
   let suppots_css_variables_ : bool option ref = ref None
 
+  (* FIXME implement *)
   let apply_passive ?(global_obj = Dom_html.window)
         ?(force_refresh = false) () =
+    ignore global_obj;
     match !supports_passive, force_refresh with
     | None, _ | _, true ->
        (try ()
@@ -341,7 +343,7 @@ object(self)
     let has_activated_child () =
       match event with
       | None -> false
-      | Some e ->
+      | Some _ ->
          List.find_opt adapter.contains_event_target _activated_targets
          |> Option.is_some in
     try

@@ -1,5 +1,10 @@
 open Containers
 open Tyxml_js
+open Utils
+
+(** TODO
+    1. Using Infinite Scroll, there is no way to scroll horizontally on desktop
+    until the end of a table is reached *)
 
 module Markup = Components_markup.Table.Make(Xml)(Svg)(Html)
 
@@ -28,8 +33,6 @@ type 'a custom_elt =
 let default_time = Format.asprintf "%a" Ptime.pp
 
 let default_float = Printf.sprintf "%f"
-
-let identity : 'a. 'a -> 'a = fun x -> x
 
 type _ fmt =
   | String : (string -> string) option -> string fmt
@@ -60,7 +63,7 @@ let rec to_string : type a. a fmt -> (a -> string) = fun fmt ->
   | Int32 x -> get_or ~default:Int32.to_string x
   | Int64 x -> get_or ~default:Int64.to_string x
   | Float x -> get_or ~default:default_float x
-  | String x -> get_or ~default:identity x
+  | String x -> get_or ~default:Fun.id x
   | Time x -> get_or ~default:default_time x
   | Option (fmt, e) ->
      begin function
@@ -88,7 +91,7 @@ let rec is_numeric : type a. a fmt -> bool = function
   | Custom x -> x.is_numeric
   | Custom_elt x -> x.is_numeric
 
-let rec compare : type a. a fmt -> (a -> a -> int) = fun fmt->
+let rec compare : type a. a fmt -> (a -> a -> int) = fun fmt ->
   match fmt with
   | Int _ -> Int.compare
   | Int32 _ -> Int32.compare
@@ -102,41 +105,67 @@ let rec compare : type a. a fmt -> (a -> a -> int) = fun fmt->
   | Custom x -> x.compare
   | Custom_elt x -> x.compare
 
+let equal : type a. a fmt -> (a -> a -> bool) = fun fmt a b ->
+  0 = compare fmt a b
+
 module Cell = struct
 
-  let rec set_value : type a. a fmt -> bool -> a option -> a -> Widget.t -> bool =
+  let make_element fmt v =
+    let is_numeric = is_numeric fmt in
+    let create x =
+      Markup.Cell.create ~is_numeric [x] ()
+      |> To_dom.of_element in
+    let rec aux : type a. a fmt -> a -> Dom_html.element Js.t =
+    fun fmt v ->
+    match fmt with
+    | Option (fmt, e) ->
+       begin match v with
+       | None -> aux (String None) e
+       | Some x -> aux fmt x
+       end
+    | Html x ->
+       map_or ~default:Fun.id (fun x -> x.to_elt) x v
+       |> Js.Unsafe.coerce
+       |> Of_dom.of_element
+       |> create
+    | Custom_elt x ->
+       Of_dom.of_element @@ Js.Unsafe.coerce @@ x.to_elt v
+       |> create
+    | Widget x ->
+       map_or ~default:(fun x -> x#node) (fun x -> x.to_elt) x v
+       |> Js.Unsafe.coerce
+       |> Of_dom.of_element
+       |> create
+    | _ -> create (Html.pcdata (to_string fmt v)) in
+    aux fmt v
+
+  let rec set_value : type a. a fmt -> bool -> a option -> a -> Widget.t -> unit =
     fun fmt force prev v w ->
-    let f = fun prev -> Int.equal 0 @@ compare fmt prev v in
-    let eq = map_or ~default:false f prev in
-    match force || not eq with
-    | false -> false
-    | true  ->
-       let set_text = w#set_text_content in
-       begin match fmt with
-       | Option (fmt, e) ->
-          begin match v with
-          | None -> ignore @@ set_value (String None) force None e w
-          | Some x ->
-             begin match prev with
-             | Some p -> ignore @@ set_value fmt force p x w
-             | None   -> ignore @@ set_value fmt force None x w
-             end
-          end
-       | Html x   ->
-          let to_elt = map_or ~default:identity (fun x -> x.to_elt) x in
-          w#set_empty ();
-          Dom.appendChild w#root (to_elt v)
-       | Custom_elt x ->
-          w#set_empty ();
-          Dom.appendChild w#root (x.to_elt v)
-       | Widget x ->
-          let to_elt =
-            map_or ~default:(fun x -> x#node) (fun x -> x.to_elt) x in
-          w#set_empty ();
-          Dom.appendChild w#root (to_elt v)
-       | _ -> set_text @@ to_string fmt v
-       end;
-       true
+    let eq = map_or ~default:false (equal fmt v) prev in
+    if force || not eq then
+      match fmt with
+      | Option (fmt, e) ->
+         begin match v with
+         | None -> set_value (String None) force None e w
+         | Some x ->
+            begin match prev with
+            | Some p -> set_value fmt force p x w
+            | None -> set_value fmt force None x w
+            end
+         end
+      | Html x ->
+         let to_elt = map_or ~default:Fun.id (fun x -> x.to_elt) x in
+         w#set_empty ();
+         Dom.appendChild w#root (to_elt v)
+      | Custom_elt x ->
+         w#set_empty ();
+         Dom.appendChild w#root (x.to_elt v)
+      | Widget x ->
+         let to_elt =
+           map_or ~default:(fun x -> x#node) (fun x -> x.to_elt) x in
+         w#set_empty ();
+         Dom.appendChild w#root (to_elt v)
+      | _ -> w#set_text_content @@ to_string fmt v
 
   let rec update : type a. a fmt -> a -> Widget.t -> unit =
     fun fmt v w ->
@@ -148,58 +177,38 @@ module Cell = struct
        | Some v -> update fmt v w
        | None -> update (String None) e w
        end
-    | _ -> ignore @@ set_value fmt true None v w
+    | _ -> set_value fmt true None v w
 
   let wrap_checkbox = function
     | None -> None
-    | Some cb -> Markup.Cell.create [ Widget.to_markup cb ] ()
-                 |> Option.return
+    | Some cb -> Some (Markup.Cell.create [Widget.to_markup cb] ())
 
   class ['a] t ~(value : 'a) (fmt : 'a fmt) () =
-    let is_numeric = is_numeric fmt in
-    let elt = Markup.Cell.create ~is_numeric [] ()
-              |> To_dom.of_element in
+    let elt = make_element fmt value in
     object(self : 'self)
       val mutable _value = value
       val mutable _fmt = fmt
 
-      inherit Widget.t elt ()
+      inherit Widget.t elt () as super
+
+      method! init () : unit =
+        super#init ()
 
       method format : 'a fmt = _fmt
+
       method set_format : 'a fmt -> unit = fun (x : 'a fmt) ->
         _fmt <- x;
-        update x _value self#widget
+        (* Force update cell value *)
+        self#set_value ~force:true _value
 
       method value : 'a = _value
-      method set_value ?(force = false) (v : 'a) =
-        match set_value self#format force (Some _value) v self#widget with
-        | false -> ()
-        | true -> _value <- v
+
+      method set_value ?(force = false) (v : 'a) : unit =
+        set_value self#format force (Some _value) v self#widget
 
       method compare (other : 'self) =
         compare self#format other#value self#value
 
-      initializer
-        (* Initialize cell value *)
-        self#set_value ~force:true value;
-        (* Code to show tooltip if text in a cell overflows *)
-        self#listen_lwt Widget.Event.mouseover (fun _ _ ->
-            let overflow = self#scroll_width > self#client_width in
-            let title =
-              Option.choice [ self#get_attribute "data-title"
-                            ; self#get_attribute "title"
-                            ; self#text_content ]
-              |> Option.flat_map (fun s ->
-                     if String.is_empty s
-                     then None else Some s) in
-            begin match overflow, title with
-            | true, Some title -> self#set_attribute "title" title
-            | _ -> self#remove_attribute "title"
-            end;
-            Lwt.return_unit) |> Lwt.ignore_result;
-        self#listen_lwt Widget.Event.mouseout (fun _ _ ->
-            self#remove_attribute "title";
-            Lwt.return_unit) |> Lwt.ignore_result
     end
 
 end
@@ -286,14 +295,25 @@ module Row = struct
       | _ -> None in
     let cells = make_cells fmt data in
     let cells' = cells_to_widgets cells in
-    let elt = Markup.Row.create
-                ~cells:(List.map Widget.to_markup cells'
-                        |> List.cons_maybe (Cell.wrap_checkbox cb)) ()
-              |> To_dom.of_element in
+    let elt =
+      Markup.Row.create
+        ~cells:List.(map Widget.to_markup cells' |> cons_maybe (Cell.wrap_checkbox cb))
+        () in
     object(self)
       val mutable _fmt : 'a Format.t = fmt
 
-      inherit Widget.t elt ()
+      inherit Widget.t (To_dom.of_element elt) () as super
+
+      method! init () : unit =
+        super#init ();
+        match selection with
+        | None -> ()
+        | Some _ ->
+           (* XXX maybe move listener to body? *)
+           self#listen_lwt Widget.Event.click (fun _ _ ->
+               self#set_selected (not self#selected);
+               Lwt.return_unit)
+           |> Lwt.ignore_result
 
       method set_format (x : 'a Format.t) : unit =
         _fmt <- x;
@@ -301,14 +321,14 @@ module Row = struct
 
       method checkbox = cb
 
-      method cells = cells
-      method cells_widgets = cells'
+      method cells : 'a cells = cells
+      method cells_widgets : Widget.t list = cells'
 
       method update ?force (data : 'a Data.t) =
         let rec aux : type a. a Data.t -> a cells -> unit =
           fun data cells ->
           match data, cells with
-          | Data.[], Cell.[] -> ()
+          | Data.[], [] -> ()
           | Data.(::) (x, l1), cell :: l2 ->
              cell#set_value ?force x;
              aux l1 l2 in
@@ -358,14 +378,6 @@ module Row = struct
            in set_selected l
         | None -> ()
 
-      initializer
-        match selection with
-        | Some _ ->
-           self#listen_lwt Widget.Event.click (fun _ _ ->
-               self#set_selected (not self#selected);
-               Lwt.return_unit)
-           |> Lwt.ignore_result
-        | _ -> ()
     end
 
 end
@@ -467,7 +479,7 @@ module Body = struct
     ; offset : int
     }
 
-  class ['a] t ?selection () =
+  class ['a] t () =
     let elt = Markup.Body.create ~rows:[] ()
               |> To_dom.of_element in
     let s_rows, s_rows_push = React.S.create List.empty in
@@ -477,14 +489,35 @@ module Body = struct
 
       inherit Widget.t elt () as super
 
-      method prepend_row (row : 'a Row.t) : unit =
+      method! layout () : unit =
+        super#layout ()
+
+      method prepend_row ?(clusterize : Clusterize.t option)
+               (row : 'a Row.t) : unit =
         s_rows_push (List.cons row self#rows);
-        Dom.insertBefore self#root row#root self#root##.firstChild;
+        begin match clusterize with
+        | None -> self#insert_child_at_idx 0 row
+        | Some c -> Clusterize.prepend c [row#root]
+        end;
         self#layout ();
 
-      method append_row (row : 'a Row.t) : unit =
+      method append_row ?(clusterize : Clusterize.t option)
+               (row : 'a Row.t) : unit =
         s_rows_push (self#rows @ [row]);
-        self#append_child row;
+        begin match clusterize with
+        | None -> self#append_child row;
+        | Some c -> Clusterize.append c [row#root]
+        end;
+        self#layout ()
+
+      method append_rows ?(clusterize : Clusterize.t option)
+               (rows : 'a Row.t list) : unit =
+        let rows' = self#rows @ rows in
+        s_rows_push rows';
+        begin match clusterize with
+        | None -> List.iter self#append_child rows
+        | Some c -> Clusterize.append c @@ List.map (fun x -> x#root) rows
+        end;
         self#layout ();
 
       method remove_row (row : 'a Row.t) : unit =
@@ -507,17 +540,6 @@ module Body = struct
         _pagination <- x;
         self#layout ()
 
-      method! layout () =
-        super#layout ();
-        (* match _pagination with
-         * | None ->
-         *    List.iter self#append_child (React.S.value s_rows)
-         * | Some { rpp; offset } ->
-         *    let rows = React.S.value s_rows in
-         *    let prev, visible' = List.take_drop offset rows in
-         *    let visible, next = List.take_drop rpp visible' in
-         *    List.iter self#remove_child (prev @ next);
-         *    List.iter self#append_child visible; *)
     end
 end
 
@@ -569,19 +591,19 @@ module Footer = struct
     let spacer = match spacer with
       | false -> None
       | true -> Option.return @@ Markup.Footer.create_spacer () in
-    let rpp : 'a list = match rows_per_page with
+    let (rpp : 'a list) = match rows_per_page with
       | Some (s, select) ->
          let caption = Markup.Footer.create_caption s () in
          [ caption; Widget.to_markup select ]
       | None -> [] in
-    let actions : 'a list = match actions with
+    let (actions : 'a list) = match actions with
       | [] -> []
       | l -> let actions = List.map Widget.to_markup l in
              [ Markup.Footer.create_actions actions () ] in
     let content = List.cons_maybe spacer rpp @ actions in
     let elt = Markup.Footer.create_toolbar content ()
               |> To_dom.of_element in
-    object(self)
+    object
       inherit Widget.t elt ()
     end
 
@@ -596,9 +618,12 @@ module Table = struct
                 ()
               |> To_dom.of_element in
     object
-      inherit Widget.t elt ()
-      initializer
-        body#layout ()
+      inherit Widget.t elt () as super
+
+      method! init () : unit =
+        super#init();
+        body#layout()
+
     end
 end
 
@@ -606,7 +631,6 @@ let rec compare : type a. int ->
                        a cells ->
                        a cells -> int =
   fun index cells1 cells2 ->
-  let open Cell in
   match cells1, cells2 with
   | [], [] -> 0
   | x1 :: rest1, x2 :: rest2 ->
@@ -618,9 +642,13 @@ class ['a] t ?selection
         ?footer
         ?(sticky_header = false)
         ?(dense = false)
+        ?scroll_target
+        ?rows_in_block
+        ?blocks_in_cluster
+        ?clusterize
         ~(fmt : 'a Format.t) () =
   let s_selected, set_selected = React.S.create List.empty in
-  let body = new Body.t ?selection () in
+  let body = new Body.t () in
   let header = new Header.t ?selection s_selected
                  set_selected body#s_rows fmt () in
   let table = new Table.t ~header ~body () in
@@ -628,15 +656,46 @@ class ['a] t ?selection
     Markup.create_content ~table:(Widget.to_markup table) ()
     |> To_dom.of_element
     |> Widget.create in
+  let scroll_target = match scroll_target with
+    | Some x -> x
+    | None -> Clusterize.Scroll_target.element content#root in
+  let clusterize = match clusterize with
+    | None | Some false -> None
+    | Some true ->
+       Clusterize.make
+         ?rows_in_block
+         ?blocks_in_cluster
+         ~scroll_target
+         ~content_element:body#root
+         ~make_extra_row:(fun () ->
+           Js.Unsafe.coerce @@ Dom_html.(createTr document))
+         ()
+       |> Option.return in
   let elt =
     Markup.create ?selection
       ?footer:(Option.map Widget.to_markup footer)
       ~content:(Widget.to_markup content) ()
     |> To_dom.of_element in
   object(self)
-    inherit Widget.t elt ()
+    inherit Widget.t elt () as super
 
     val mutable _fmt : 'a Format.t = fmt
+
+    method! init () : unit =
+      super#init ();
+      self#set_dense dense;
+      self#set_sticky_header sticky_header;
+      React.S.map (function
+          | Some (index, sort) -> self#sort index sort
+          | None -> ()) header#s_sorted
+      |> self#_keep_s
+
+    method! destroy () : unit =
+      super#destroy ()
+
+    method! layout () : unit =
+      super#layout ();
+      Option.iter Clusterize.refresh clusterize
 
     method content : Widget.t =
       content
@@ -666,28 +725,29 @@ class ['a] t ?selection
 
     method sticky_header : bool =
       self#has_class Markup.sticky_header_class
+
     method set_sticky_header (x : bool) : unit =
       self#add_or_remove_class x Markup.sticky_header_class
 
     method dense : bool =
       self#has_class Markup.dense_class
-    method set_dense x =
+
+    method set_dense (x : bool) : unit =
       self#add_or_remove_class x Markup.dense_class
 
-    method prepend_row (data : 'a Data.t) : 'a Row.t =
+    method cons (data : 'a Data.t) : 'a Row.t =
       let row = self#_make_row data in
-      body#prepend_row row;
+      body#prepend_row ?clusterize row;
       row
 
-    method append_row (data : 'a Data.t) : 'a Row.t =
+    method push (data : 'a Data.t) : 'a Row.t =
       let row = self#_make_row data in
-      body#append_row row;
+      body#append_row ?clusterize row;
       row
 
-    method add_row (data : 'a Data.t) : 'a Row.t =
-      let row = self#_make_row data in
-      body#append_row row;
-      row
+    method append (data : 'a Data.t list) : unit =
+      let rows = List.map self#_make_row data in
+      body#append_rows ?clusterize rows
 
     method remove_row (row : 'a Row.t) : unit =
       body#remove_row row
@@ -696,28 +756,32 @@ class ['a] t ?selection
       body#remove_all_rows ()
 
     method sort index sort =
+      time "sort";
       let rows =
         List.sort (fun (row_1 : 'a Row.t)
                        (row_2 : 'a Row.t) ->
             match sort, compare index row_1#cells row_2#cells with
             | Asc, x -> x
             | Dsc, x -> ~-x) self#rows in
-      (* FIXME do it in a more smart way. Move only those rows that
+      time_end "sort";
+      time "render";
+      begin match clusterize with
+      | None ->
+         (* FIXME do it in a more smart way. Move only those rows that
          have changed their positions *)
-      body#set_empty ();
-      List.iter body#append_child rows
+         body#set_empty ();
+         List.iter body#append_child rows
+      | Some c ->
+         Clusterize.update c @@ List.map (fun x -> x#root) rows
+      end;
+      time_end "render"
 
     (* Private methods *)
 
+    method private append_rows (rows : 'a Row.t list) : unit =
+      body#append_rows ?clusterize rows
+
     method private _make_row (data : 'a Data.t) : 'a Row.t =
       new Row.t ?selection s_selected set_selected _fmt data ()
-
-    initializer
-      self#set_dense dense;
-      self#set_sticky_header sticky_header;
-      React.S.map (function
-          | Some (index, sort) -> self#sort index sort
-          | None -> ()) header#s_sorted
-      |> self#_keep_s
 
   end

@@ -1,6 +1,4 @@
 open Containers
-open Common.Time
-open Common.Stream
 open Board_msg_formats
 
 let tag_start = 0x55AA
@@ -19,26 +17,23 @@ module type Src = sig
   val source_id : int
 end
 
-module Make(Logs : Logs.LOG)(Src : Src) = struct
+module Make(Logs : Logs.LOG) = struct
 
   type _ request =
     | Get_devinfo : Device.devinfo request
     | Reset : unit request
-    | Set_src_id : unit -> int request
+    | Set_src_id : int -> int request
     | Set_mode : (int * Device.mode) -> (int * Device.mode_rsp) request
 
   type event =
-    | Measures of (Multi_TS_ID.t * Measure.t timestamped)
-    | Params of (Multi_TS_ID.t * Params.t timestamped)
-    | Plp_list of (Multi_TS_ID.t * Plp_list.t timestamped) [@@deriving show]
+    | Measures of (int * Measure.t)
+    | Params of (int * Params.t)
+    | Plp_list of (int * Plp_list.t) [@@deriving show]
 
   type _ event_request =
     | Get_measure : int -> event event_request
     | Get_params : int -> event event_request
     | Get_plp_list : int -> event event_request
-
-  let make_id (id : int) : Multi_TS_ID.t =
-    Multi_TS_ID.make ~source_id:Src.source_id ~stream_id:id
 
   (* Helper functions *)
 
@@ -79,9 +74,9 @@ module Make(Logs : Logs.LOG)(Src : Src) = struct
 
   (* Src id *)
 
-  let to_src_id_req () =
+  let to_src_id_req (source_id : int) =
     let body = Cstruct.create sizeof_cmd_src_id in
-    set_cmd_src_id_source_id body Src.source_id;
+    set_cmd_src_id_source_id body source_id;
     to_msg ~msg_code:0xD0 ~body
 
   let parse_src_id_rsp_exn msg =
@@ -151,7 +146,7 @@ module Make(Logs : Logs.LOG)(Src : Src) = struct
   let to_measure_req id =
     to_empty_msg ~msg_code:(0x30 lor id)
 
-  let parse_measures_rsp_exn id msg : Multi_TS_ID.t * Measure.t timestamped =
+  let parse_measures_rsp_exn id msg : int * Measure.t =
     let int_to_opt x = if Int.equal x max_uint16 then None else Some x in
     let int32_to_opt x = if Int32.equal x max_uint32 then None else Some x in
     try
@@ -175,7 +170,7 @@ module Make(Logs : Logs.LOG)(Src : Src) = struct
         |> Option.map Int32.to_int in
       let (data : Measure.t) =
         { lock; power; mer; ber; freq; bitrate } in
-      make_id id, { timestamp = Clock.now (); data }
+      id, data
     with _ -> raise Parse_error
 
   (* Params *)
@@ -183,7 +178,7 @@ module Make(Logs : Logs.LOG)(Src : Src) = struct
   let to_params_req id =
     to_empty_msg ~msg_code:(0x40 lor id)
 
-  let parse_params_rsp_exn id msg : Multi_TS_ID.t * Params.t timestamped =
+  let parse_params_rsp_exn id msg : int * Params.t =
     let bool_of_int x = x <> 0 in
     try
       let lock =
@@ -222,7 +217,7 @@ module Make(Logs : Logs.LOG)(Src : Src) = struct
         ; in_band_flag = get_rsp_params_in_band_flag msg |> bool_of_int
         }
       in
-      make_id id, { timestamp = Clock.now_s (); data }
+      id, data
     with _ -> raise Parse_error
 
   (* PLP list *)
@@ -230,7 +225,7 @@ module Make(Logs : Logs.LOG)(Src : Src) = struct
   let to_plp_list_req id =
     to_empty_msg ~msg_code:(0x50 lor id)
 
-  let parse_plp_list_rsp_exn id msg : Multi_TS_ID.t * Plp_list.t timestamped =
+  let parse_plp_list_rsp_exn id msg : int * Plp_list.t =
     try
       let plp_num =
         Cstruct.get_uint8 msg 1
@@ -248,7 +243,7 @@ module Make(Logs : Logs.LOG)(Src : Src) = struct
                (Cstruct.shift msg 2) in
            Cstruct.fold (fun acc el -> el :: acc) iter []
            |> List.sort Int.compare in
-      make_id id, { timestamp = Clock.now_s (); data = plps }
+      id, plps
     with _ -> raise Parse_error
 
   type parsed =

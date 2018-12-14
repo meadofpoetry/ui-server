@@ -31,5 +31,6 @@ let create (config:Storage.Config.config) (db_conf:Storage.Database.t) =
     method reset ss = reset api state ss
     method handlers () = Pipeline_api.handlers api
     method template () = Pipeline_template.create ()
+    method log_source  = (fun _ -> React.E.never) (* TODO implement source *)
     method finalize () = Pipeline_protocol.finalize state
   end

@@ -63,8 +63,8 @@ let create_tab_row (container : container) (tabs : ('a, 'b) tab list) =
   let open Tabs in
   let bar = new Tab_bar.t ~align:Start ~tabs () in
   set_active_page container bar;
-  let section = new Toolbar.Row.Section.t ~align:`Start ~widgets:[bar] () in
-  let row = new Toolbar.Row.t ~sections:[section] () in
+  let section = new Top_app_bar.Section.t ~align:`Start ~widgets:[bar] () in
+  let row = new Top_app_bar.Row.t ~sections:[section] () in
   row#set_id row_id;
   row, switch_tab container bar
 
@@ -85,9 +85,9 @@ let get_arbitrary () : container =
       w#layout ()
   end
 
-let get_toolbar () =
+let get_toolbar () : Top_app_bar.Standard.t =
   Dom_html.getElementById "main-toolbar"
-  |> Widget.create
+  |> Top_app_bar.Standard.attach ~tolerance:{ up = 5; down = 5 }
 
 class t (content:('a,'b) page_content) () =
   let main = Dom_html.getElementById "main-content" in
@@ -121,11 +121,14 @@ class t (content:('a,'b) page_content) () =
          (try
             let elt = Dom_html.getElementById row_id in
             _previous_toolbar <- Some elt;
-            Dom.removeChild toolbar#root elt
+            Dom.removeChild toolbar#root elt;
           with _ -> ());
          self#add_class
          @@ Components_markup.CSS.add_modifier main_class "dynamic";
-         toolbar#append_child row
+         toolbar#append_child row;
+         toolbar#layout ()
+
+    method arbitrary = arbitrary
 
     initializer
       self#add_class main_class;

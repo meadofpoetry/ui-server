@@ -7,7 +7,7 @@ open Ui_templates.Factory
 
 (* Widget type *)
 type item =
-  | Stream_chart of Widget_chart.config option
+  | Stream_chart of Widget_chart.widget_config option
   | Settings [@@deriving yojson]
 
 let item_to_info : item -> Dashboard.Item.info = fun item ->
@@ -33,7 +33,7 @@ let return = Lwt_result.return
 let map_err : 'a 'b. ('b,'a Api_js.Requests.err) Lwt_result.t -> ('b,string) Lwt_result.t =
   fun x -> Lwt_result.map_err (fun e -> Api_js.Requests.err_to_string ?to_string:None e) x
 
-type measures = Stream.t * (Measure.t Time.timestamped)
+type measures = (id * Measure.t Time.timestamped) list
 
 (* Widget factory *)
 class t (control : int) () =
@@ -51,7 +51,7 @@ class t (control : int) () =
       | Stream_chart conf -> self#_create_chart conf
       | Settings -> self#_create_settings ()
 
-    method destroy () =
+    method destroy () : unit =
       Option.iter State.finalize _state;
       Option.iter State.finalize _config;
       Option.iter State.finalize _receivers;
@@ -67,7 +67,7 @@ class t (control : int) () =
     method deserialize (json : Yojson.Safe.json) : (item, string) result =
       item_of_yojson json
 
-    (** Private methods **)
+    (** Private methods *)
 
     method private _create_settings () =
       (fun s c r ->
@@ -80,8 +80,21 @@ class t (control : int) () =
 
     method private _create_chart conf =
       (* FIXME conf should not be an option *)
-      Widget_chart.make ~measures:self#_measures @@ Option.get_exn conf
-      |> fun x -> { x with widget = x.widget#widget }
+      let conf = Option.get_exn conf in
+      let init =
+        Requests.History.HTTP.Measurements.get
+          ~ids:conf.sources
+          ~duration:(conf.duration)
+          control
+        |> Lwt_result.map (function Api_js.Api_types.Raw x -> x.data
+                                  | _ -> assert false)
+        |> Lwt_result.map_err Api_js.Requests.err_to_string in
+      init
+      >|= (fun init -> Widget_chart.make ~init ~measures:self#_measures conf)
+      |> Ui_templates.Loader.create_widget_loader
+      |> Widget.coerce
+      |> Dashboard.Item.make_item
+           ~name:(Widget_types.measure_type_to_string conf.typ)
 
     method private _state = match _state with
       | Some state -> state.value

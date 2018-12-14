@@ -25,7 +25,7 @@ class t (info : info) () =
     inherit Widget.t box#root () as super
     inherit Touch_draggable.t ~data ~typ box#root ()
 
-    method init () : unit =
+    method! init () : unit =
       super#init ();
       self#listen Widget.Event.dragstart (fun _ e ->
           push true;
@@ -33,7 +33,7 @@ class t (info : info) () =
           e##.dataTransfer##setData (Js.string typ) data;
           true)
       |> (fun x -> _dragstart_listener <- Some x);
-      self#listen Widget.Event.dragend (fun _ e ->
+      self#listen Widget.Event.dragend (fun _ _ ->
           push false;
           (* let drop_effect = e##.dataTransfer##.dropEffect |> Js.to_string in *)
           self#remove_class Markup.Add_item.dragging_class;
@@ -46,7 +46,7 @@ class t (info : info) () =
       thumbnail#add_class Markup.Add_item.thumbnail_class;
       self#add_class Markup.Add_item._class
 
-    method destroy () : unit =
+    method! destroy () : unit =
       super#destroy ();
       React.S.stop ~strong:true s;
       Option.iter Dom_events.stop_listen _dragstart_listener;

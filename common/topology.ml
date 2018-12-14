@@ -42,6 +42,15 @@ type input =
 
 type board_type = string [@@deriving yojson, show, eq, ord]
 
+(** Returns human-readable names of some known board types *)
+let get_board_name (typ : board_type) =
+  match typ with
+  | "IP2TS" -> "Приёмник TSoIP"
+  | "TS2IP" -> "Передатчик TSoIP"
+  | "TS" -> "Анализатор TS"
+  | "DVB" -> "Приёмник DVB"
+  | s -> s
+
 type process_type = string [@@deriving yojson, show, eq, ord]
 
 let compare_input l r = match l, r with
@@ -152,6 +161,19 @@ module Show_topo_input = struct
         | _ -> failwith "bad input string")
 end
 
+let iter_boards f =
+  let rec iter_entry f = function
+    | Input _ -> ()
+    | Board b -> iter_board f b
+  and iter_board f b =
+    f b;
+    List.iter (fun port -> iter_entry f port.child) b.ports
+  and iter_cpu f c =
+    List.iter (fun iface -> iter_entry f iface.conn) c.ifaces
+  in function
+  | `CPU c -> iter_cpu f c
+  | `Boards bs -> List.iter (iter_board f) bs
+                       
 let cpu_subbranches = function
   | `Boards _ -> `No_cpu
   | `CPU c -> `Branches (List.map (fun i -> i.conn) c.ifaces)
@@ -211,47 +233,25 @@ let get_paths t =
      |> List.concat
   | `CPU c     ->
      List.map (add_cpu (Some c)) @@ topo_paths [] @@ List.map (fun p -> p.conn) c.ifaces
-                                                 
-(*
 
-let topo_boards =
-  let rec f acc = (function
-                   | Board b -> List.fold_left (fun a x -> f a x.child) (b :: acc) b.ports
-                   | Input _ -> acc) in
-  List.fold_left f []
-
-let topo_paths =
-  let rec add_node acc paths = function
-    | Input i -> (i,acc) :: paths
-    | Board b -> (let ports = List.map (fun x -> x.child) b.ports in
-                  match ports with
-                  | [] -> paths
-                  | l  -> List.fold_left (fun a x -> add_node (b :: acc) a x) paths l)
+let board_list_for_input input : t -> 'a =
+  let rec fmap_first f = function
+    | [] -> None
+    | h::tl ->
+       match f h with
+       | Some _ as res -> res
+       | None -> fmap_first f tl
   in
-  List.fold_left (fun a x -> add_node [] a x) []
-
-let rec sub topo id =
-  let rec sub_port ports id =
-    match ports with
-    | []    -> None
-    | x::tl ->
-       let b = x.child in
-       match got_it b id with
-       | Some b -> Some b
-       | None   -> sub_port tl id
-  and got_it board id =
-     match board with
-     | Input _ -> None
-     | Board b -> 
-        if b.control = id
-        then Some (Board b)
-        else (sub_port b.ports id)
-  in
-  match topo with
-  | []    -> None
-  | x::tl ->
-     match got_it x id with
-     | Some b -> Some [b]
-     | None   -> sub tl id
-       
- *)
+  let rec traverse acc = function
+    | Input i when equal_topo_input i input -> Some (List.rev acc)
+    | Input _ -> None
+    | Board b ->
+       b.ports
+       |> fmap_first (fun port -> (traverse (b::acc)) port.child)
+  in function
+  | `CPU c ->
+     fmap_first (fun iface -> traverse [] iface.conn) c.ifaces
+  | `Boards bs ->
+     fmap_first (fun board ->
+         fmap_first (fun port -> traverse [] port.child) board.ports)
+       bs

@@ -53,11 +53,11 @@ module HTTP = struct
        Board_qos_niit_js.Requests.Streams.HTTP.get_streams
          ~inputs:[input]
          control
-   (* | `Cpu (Some "pipeline") ->
-       let open Pipeline_js in
-       Requests_structure.HTTP.get_streams
-         ~inputs:[input]
-         () *)
+    (* | `Cpu (Some "pipeline") ->
+     *    let open Pipeline_js in
+     *    Requests_structure.HTTP.get_streams
+     *      ~inputs:[input]
+     *      () *)
     | _ -> Lwt_result.return []
 
 end
@@ -150,7 +150,7 @@ module Stream_item = struct
                self#add_class lost_class;
                (* This time may differ from the time detected on a server-side.
                   Maybe do a request? *)
-               let time = `Last (Time.Clock.now_s ()) in
+               let time = `Last (Ptime_clock.now ()) in
                _time <- time;
                timestamp#set_text_content @@ time_to_string time) event
         |> self#_keep_e;

@@ -177,7 +177,7 @@ module Sequence = struct
         let data =
           i.typ :: i.count :: i.stream_id
           :: frame :: i.super_frame :: i :: [] in
-        table#add_row data |> ignore
+        table#push data |> ignore
 
       initializer
         self#append_child ph;

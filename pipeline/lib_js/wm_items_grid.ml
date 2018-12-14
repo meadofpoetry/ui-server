@@ -53,7 +53,7 @@ module Make(I : Item) = struct
                                      ; icons#widget ] () in
     object(self)
 
-      inherit Vbox.t ~widgets:[ header#widget; wrapper#widget ] ()
+      inherit Vbox.t ~widgets:[header#widget; wrapper#widget] ()
 
       val s_sel =
         let eq = fun _ _ -> false in
@@ -102,7 +102,10 @@ module Make(I : Item) = struct
             item#set_min_h @@ Some (div (snd sz) rh));
         item#set_value t
 
-      method clear () = List.iter (fun x -> x#remove ()) self#wdgs
+      method clear () =
+        List.iter (fun x -> x#remove_all ())
+        @@ React.S.value s_layers
+
       method initialize resolution items =
         self#clear ();
         set_resolution resolution;

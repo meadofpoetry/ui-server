@@ -2,18 +2,6 @@ open Containers
 
 include Ptime
 
-module Clock = struct
-
-  let now () = match of_float_s @@ Unix.gettimeofday () with
-    | Some x -> x
-    | None -> assert false
-
-  let now_s () = match of_float_s @@ Unix.time () with
-    | Some x -> x
-    | None -> assert false
-
-end
-
 let to_human_string ?tz_offset_s (t : t) =
   let (y, m, d), ((h, min, s), _) = to_date_time ?tz_offset_s t in
   Printf.sprintf "%02d.%02d.%04d %02d:%02d:%02d" d m y h min s
@@ -158,7 +146,9 @@ let make_interval ?(from : t option)
      end
   | None, Some e, None -> ok (`Range (epoch, e))
   | None, None, Some d ->
-     let e = Clock.now () in
+     let e = match of_float_s @@ Unix.gettimeofday () with
+       | None -> assert false
+       | Some x -> x in
      begin match sub_span e d with
      | Some s -> ok (`Range (s, e))
      | None -> err "time range exceeded"

@@ -18,4 +18,4 @@ let make (control : int) =
       ; position = { x=1;y=1;w=1;h=1} }
     ]
   in
-  new Dashboard.t ~items factory ()
+  new Dashboard.t ~init:(Items items) factory ()

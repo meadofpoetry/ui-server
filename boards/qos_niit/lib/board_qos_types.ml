@@ -89,7 +89,7 @@ type structure =
   ; services : Service.t list
   ; tables : SI_PSI_table.t list
   ; pids : Pid.t list
-  } [@@deriving yojson]
+  } [@@deriving yojson, eq]
 
 (** Event group *)
 
@@ -188,8 +188,8 @@ type device_events =
   ; jitter_mode : jitter_mode option signal
   ; input : input signal
   ; state : Topology.state signal
-  ; status : status event
-  ; errors : board_error list event
+  ; status : status signal
+  ; errors : Board_error.t list event
   ; info : devinfo option signal
   }
 
@@ -200,7 +200,7 @@ type ts_events =
   ; sections : sections signal
   ; pids : pids signal
   ; bitrates : bitrates event
-  ; errors : errors event
+  ; errors : (Stream.ID.t * (Error.t_ext list)) list event
   }
 
 type t2mi_events =
@@ -213,11 +213,16 @@ type jitter_events =
   ; jitter : Jitter.measures event
   }
 
+type raw_events =
+  { structures : (Stream.Multi_TS_ID.t * structure) list signal
+  }
+
 type events =
   { device : device_events
   ; streams : Stream.t list signal
   ; ts : ts_events
   ; t2mi : t2mi_events
+  ; raw : raw_events
   ; jitter : jitter_events
   }
 
@@ -230,15 +235,16 @@ type push_events =
   ; t2mi_mode : t2mi_mode option -> unit
   ; jitter_mode : jitter_mode option -> unit
   ; raw_streams : Stream.Raw.t list -> unit
-  ; ts_errors : errors -> unit
+  ; ts_errors : (Stream.ID.t * (Error.t_ext list)) list -> unit
   ; t2mi_errors : errors -> unit
-  ; board_errors : board_error list -> unit
+  ; board_errors : Board_error.t list -> unit
   ; info : ts_info -> unit
   ; services : services -> unit
   ; tables : tables -> unit
   ; pids : pids -> unit
   ; bitrates : bitrates -> unit
   ; t2mi_info : t2mi_info -> unit
+  ; structures : (Stream.Multi_TS_ID.t * structure) list -> unit
   ; jitter : Jitter.measures -> unit
   ; jitter_session : Jitter.session -> unit
   }

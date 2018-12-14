@@ -10,6 +10,32 @@ let no_sync_class = Markup.CSS.add_modifier base_class "no-sync"
 let no_response_class = Markup.CSS.add_modifier base_class "no-response"
 let not_available_class = Markup.CSS.add_modifier base_class "not-available"
 
+module Settings = struct
+  type t = { hex : bool } [@@deriving eq]
+
+  let (default : t) = { hex = false }
+
+  let make_hex_switch state =
+    let input = new Switch.t ~state () in
+    new Form_field.t ~input ~align_end:true ~label:"HEX IDs" ()
+
+  class view ?(settings = default) () =
+    let hex_switch = make_hex_switch settings.hex in
+    object
+      val mutable value = settings
+      inherit Vbox.t ~widgets:[hex_switch] ()
+      method value = value
+      method apply () : unit =
+        let hex = hex_switch#input_widget#checked in
+        value <- { hex }
+      method reset () : unit =
+        let { hex } = value in
+        hex_switch#input_widget#set_checked hex
+    end
+
+  let make ?settings () = new view ?settings ()
+end
+
 let sum_bitrate : (int * int) list -> int =
   List.fold_left (fun acc (_, x) -> acc + x) 0
 
@@ -172,21 +198,26 @@ module Pids = struct
           List.mem ~eq:(=) pid service_pids)
         pids
 
-  class t (service : Service.t)
+  class t ?(settings : Settings.t option)
+          (service : Service.t)
           (init : Pid.t list timestamped option)
           () =
     let init = match init with
       | None -> None
       | Some x -> Some { x with data = filter_pids service x.data } in
+    let (settings : Widget_pids_overview.Settings.t option) =
+      match settings with
+      | None -> None
+      | Some { hex } -> Some { hex } in
     object(self)
       val mutable _service : Service.t = service
 
-      inherit Widget_pids_overview.t init () as super
+      inherit Widget_pids_overview.t ?settings init () as super
 
       method update_service (service : Service.t) =
         _service <- service;
         let data = filter_pids service self#pids in
-        self#update { data; timestamp = Time.Clock.now_s () }
+        self#update { data; timestamp = Ptime_clock.now () }
 
       method! update (pids : Pid.t list timestamped) =
         super#update { pids with data = filter_pids _service pids.data }
@@ -197,13 +228,14 @@ module Pids = struct
 
 end
 
-class t ?(rate : Bitrate.t option)
+class t ?(settings : Settings.t option)
+        ?(rate : Bitrate.t option)
         ?min ?max
         (init : Service.t)
         (pids : Pid.t list timestamped option)
         () =
   let info, set_info, set_rate, set_min, set_max = make_description () in
-  let pids = new Pids.t init pids () in
+  let pids = new Pids.t ?settings init pids () in
   let table = pids in
   let tabs =
     let info_icon =
@@ -218,7 +250,7 @@ class t ?(rate : Bitrate.t option)
     inherit Vbox.t ~widgets:[ bar#widget
                             ; (new Divider.t ())#widget
                             ; div ] ()
-    val mutable _hex = false (* FIXME init value *)
+    val mutable _settings = Option.get_or ~default:Settings.default settings
     val mutable _info = init
     val mutable _min = Option.map sum_bitrate min
     val mutable _max = Option.map sum_bitrate max
@@ -247,17 +279,19 @@ class t ?(rate : Bitrate.t option)
          self#remove_class no_sync_class;
          self#add_class no_response_class
 
-    (** Sets IDs to hex(true) or decimal(false) view *)
-    method set_hex (x : bool) : unit =
-      _hex <- x;
-      set_info ~hex:x _info;
-      pids#set_hex x
+    method settings : Settings.t =
+      _settings
+
+    method set_settings ({ hex } : Settings.t) : unit =
+      let pids_settings = { pids#settings with hex } in
+      set_info ~hex _info;
+      pids#set_settings pids_settings
 
     (** Updates the description *)
     method update (x : Service.t) =
       _info <- x;
       pids#update_service x;
-      set_info ~hex:_hex x
+      set_info ~hex:_settings.hex x
 
     method update_pids (x : Pid.t list timestamped) : unit =
       pids#update x
@@ -278,6 +312,9 @@ class t ?(rate : Bitrate.t option)
          set_rate @@ Some sum
 
     (* Private methods *)
+
+    method private set_hex (x : bool) : unit =
+      set_info ~hex:x _info
 
     method private _set_min x =
       let eq = match _min, x with
@@ -303,7 +340,7 @@ class t ?(rate : Bitrate.t option)
       set_max _max;
   end
 
-let make ?rate ?min ?max
+let make ?rate ?min ?max ?settings
       (init : Service.t)
       (pids : Pid.t list timestamped option) =
-  new t ?rate ?min ?max init pids ()
+  new t ?rate ?min ?max ?settings init pids ()

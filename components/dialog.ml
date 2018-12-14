@@ -91,7 +91,7 @@ module Actions = struct
       val mutable _actions = actions
       inherit Widget.t elt () as super
 
-      method destroy () : unit =
+      method! destroy () : unit =
         super#destroy ();
         List.iter (fun (x : Action.t) ->
             x.button#destroy ()) _actions
@@ -148,7 +148,7 @@ class t ?scrollable
 
     inherit Widget.t elt () as super
 
-    method init () : unit =
+    method! init () : unit =
       Option.iter self#set_scrollable scrollable;
       List.iter (fun (a : Action.t) ->
           match a.typ with
@@ -164,7 +164,7 @@ class t ?scrollable
              _action_listeners <- l :: _action_listeners)
       @@ Option.get_or ~default:[] actions
 
-    method destroy () : unit =
+    method! destroy () : unit =
       super#destroy ();
       Option.iter (fun x -> x#destroy ()) header_widget;
       body_widget#destroy ();

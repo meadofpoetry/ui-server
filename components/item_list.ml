@@ -9,12 +9,12 @@ type selection =
 
 module Item = struct
 
-  class ['a] t ?(ripple=false)
+  class ['a] t
           ?secondary_text
           ?graphic
           ?meta
           ?tag
-          ~(value:'a)
+          ~(value : 'a)
           ~text () =
     let text_elt, set_primary, set_secondary = match secondary_text with
       | Some st ->
@@ -26,42 +26,59 @@ module Item = struct
            Markup.Item.create_secondary_text st ()
            |> Tyxml_js.To_dom.of_element
            |> Widget.create in
-         let w = Markup.Item.create_text
-                   ~primary:(Widget.to_markup primary)
-                   ~secondary:(Widget.to_markup secondary) ()
-                 |> Tyxml_js.To_dom.of_element
-                 |> Widget.create in
+         let w =
+           Markup.Item.create_text
+             ~primary:(Widget.to_markup primary)
+             ~secondary:(Widget.to_markup secondary) ()
+           |> To_dom.of_element
+           |> Widget.create in
          let set_primary x = primary#set_text_content x in
          let set_secondary x = secondary#set_text_content x in
          w, set_primary, set_secondary
       | None ->
-         let primary = Markup.Item.create_text_simple text ()
-                       |> Tyxml_js.To_dom.of_element
-                       |> Widget.create in
+         let primary =
+           Markup.Item.create_text_simple text ()
+           |> To_dom.of_element
+           |> Widget.create in
          let set_primary x   = primary#set_text_content x in
-         let set_secondary x = failwith "single-line list!" in
+         let set_secondary (_ : string) = failwith "single-line list!" in
          primary, set_primary, set_secondary
     in
-    let elt = Markup.Item.create
-                ?graphic:(Option.map Widget.to_markup graphic)
-                ?meta:(Option.map Widget.to_markup meta)
-                ?tag (Widget.to_markup text_elt) ()
-              |> Tyxml_js.To_dom.of_element in
+    let elt =
+      Markup.Item.create
+        ?graphic:(Option.map Widget.to_markup graphic)
+        ?meta:(Option.map Widget.to_markup meta)
+        ?tag (Widget.to_markup text_elt) ()
+      |> To_dom.of_element in
 
     object(self)
       val mutable _v = value
-      inherit Widget.t elt ()
+      inherit Widget.t elt () as super
 
-      method set_text (x:string) = set_primary x
-      method set_secondary_text (x:string) =
-        set_secondary x
+      method! init () : unit =
+        super#init ();
+        (* if ripple then Ripple.attach self |> ignore; *)
+        Option.iter (fun x -> x#add_class Markup.Item.graphic_class) graphic;
+        Option.iter (fun x -> x#add_class Markup.Item.meta_class) meta
+
+      method set_text (s : string) : unit =
+        set_primary s
+
+      method set_secondary_text (s : string) : unit =
+        set_secondary s
 
       (* TODO add setters, real getters *)
-      method text           = text
-      method secondary_text = secondary_text
+      method text : string =
+        text
 
-      method value = _v
-      method set_value (v:'a) = _v <- v
+      method secondary_text : string option =
+        secondary_text
+
+      method value : 'a =
+        _v
+
+      method set_value (v : 'a) =
+        _v <- v
 
       method activated : bool =
         self#has_class Markup.Item.activated_class
@@ -69,10 +86,6 @@ module Item = struct
       method selected : bool =
         self#has_class Markup.Item.selected_class
 
-      initializer
-        (* if ripple then Ripple.attach self |> ignore; *)
-        Option.iter (fun x -> x#add_class Markup.Item.graphic_class) graphic;
-        Option.iter (fun x -> x#add_class Markup.Item.meta_class) meta
     end
 
 end
@@ -81,7 +94,8 @@ class base elt () =
 object(self)
   inherit Widget.t elt ()
 
-  method set_dense x = self#add_or_remove_class x Markup.dense_class
+  method set_dense (x : bool) : unit =
+    self#add_or_remove_class x Markup.dense_class
 
 end
 
@@ -115,7 +129,12 @@ class ['a] t ?avatar
   let s_active, set_active = React.S.create None in
   object(self)
 
-    inherit base elt ()
+    inherit base elt () as super
+
+    method! init () : unit =
+      super#init ();
+      self#set_non_interactive non_interactive;
+      self#set_dense dense
 
     method items' : 'a item list = React.S.value s_items
     method items  = List.filter_map (function
@@ -159,7 +178,8 @@ class ['a] t ?avatar
 
     method dense : bool =
       self#has_class Markup.dense_class
-    method set_dense (x:bool) : unit =
+
+    method! set_dense (x:bool) : unit =
       self#add_or_remove_class x Markup.dense_class
 
     method append_item (x : 'a Item.t) =
@@ -184,9 +204,6 @@ class ['a] t ?avatar
          set_items @@ List.remove_at_idx i self#items'
       | Some _ | None  -> ()
 
-    initializer
-      self#set_non_interactive non_interactive;
-      self#set_dense dense
   end
 
 module List_group = struct

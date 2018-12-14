@@ -20,6 +20,7 @@ class ['a] t ?align_end ~(input : 'a) ~label () =
 
   object(self)
     inherit Widget.t elt ()
+
     method label_widget = label
     method input_widget : 'a = input
 

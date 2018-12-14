@@ -10,37 +10,26 @@ open Widget_common
 let ( % ) = Fun.( % )
 
 module Settings = struct
-
   type t = { hex : bool } [@@deriving eq]
 
-  let (default : t) = { hex = false (* FIXME *) }
+  let (default : t) = { hex = false }
+
+  let make_hex_swith state =
+    let input = new Switch.t ~state () in
+    new Form_field.t ~input ~align_end:true ~label:"HEX IDs" ()
 
   class view ?(settings = default) () =
-    let hex_switch =
-      new Switch.t
-        ~state:settings.hex
-        () in
-    let hex_form =
-      new Form_field.t
-        ~align_end:true
-        ~input:hex_switch
-        ~label:"HEX IDs"
-        () in
-    let s, set = React.S.create ~eq:equal settings in
-    object(self)
-
-      inherit Vbox.t ~widgets:[hex_form] ()
-
+    let hex_switch = make_hex_swith settings.hex in
+    object
+      val mutable value = settings
+      inherit Vbox.t ~widgets:[hex_switch] ()
+      method value : t = value
       method apply () : unit =
-        let hex = hex_switch#checked in
-        set { hex }
-
+        let hex = hex_switch#input_widget#checked in
+        value <- { hex }
       method reset () : unit =
-        let { hex } = React.S.value self#s in
-        hex_switch#set_checked hex
-
-      method s : t React.signal = s
-
+        let { hex } = value in
+        hex_switch#input_widget#set_checked hex
     end
 
   let make ?settings () = new view ?settings ()
@@ -167,11 +156,12 @@ let add_row (parent : #Widget.t)
       (table : 'a Table.t)
       (pids : Pid.t list timestamped option React.signal)
       (rate : Bitrate.t option React.signal)
+      (get_settings : unit -> Settings.t)
       (set_details : Widget_service_info.t option -> unit)
       ((id, info) : Service.t) =
   let row =
-    table#add_row (id :: info.name :: info.pmt_pid :: info.pcr_pid
-                   :: None :: None :: None :: None :: []) in
+    table#push (id :: info.name :: info.pmt_pid :: info.pcr_pid
+                :: None :: None :: None :: None :: []) in
   row#listen_lwt Widget.Event.click (fun _ _ ->
       let open Lwt.Infix in
       let name, min, max =
@@ -188,7 +178,9 @@ let add_row (parent : #Widget.t)
           ~widgets:[ back#widget; title]
           () in
       let details =
-        Widget_service_info.make ?rate ?min ?max (id, info) pids in
+        let ({ hex } : Settings.t) = get_settings () in
+        let (settings : Widget_service_info.Settings.t) = { hex } in
+        Widget_service_info.make ?rate ?min ?max ~settings (id, info) pids in
       let box =
         new Vbox.t
           ~widgets:[ primary
@@ -241,6 +233,8 @@ class t ?(settings : Settings.t option)
       () in
   object(self)
 
+    val mutable _settings : Settings.t =
+      Option.get_or ~default:Settings.default settings
     val mutable _data : Set.t = Set.of_list init
 
     inherit Widget.t Dom_html.(createDiv document) () as super
@@ -270,7 +264,8 @@ class t ?(settings : Settings.t option)
 
     (** Adds new row to the overview *)
     method add_row (s : Service.t) =
-      add_row (self :> Widget.t) table pids rate self#set_details s
+      add_row (self :> Widget.t) table pids rate
+        (fun () -> self#settings) self#set_details s
 
     (** Updates PID list *)
     method update_pids (pids : Pid.t list timestamped) : unit =
@@ -335,11 +330,6 @@ class t ?(settings : Settings.t option)
       | Some rate ->
          List.iter (self#_update_row_rate rate) table#rows
 
-    (** Sets identifiers to hex or decimal view *)
-    method set_hex (x : bool) : unit =
-      Option.iter (fun d -> d#set_hex x) @@ React.S.value details;
-      on_change x
-
     (** Returns widget state *)
     method state : widget_state =
       if self#has_class no_response_class then No_response
@@ -363,8 +353,15 @@ class t ?(settings : Settings.t option)
          self#remove_class no_sync_class;
          self#add_class no_response_class
 
-    method set_settings (x : Settings.t) =
-      self#set_hex x.hex
+    method settings : Settings.t =
+      _settings
+
+    method set_settings ({ hex } as s : Settings.t) =
+      _settings <- s;
+      on_change hex;
+      match React.S.value details with
+      | None -> ()
+      | Some details -> details#set_settings { hex }
 
     (* Private methods *)
 
@@ -410,12 +407,11 @@ let make ?(settings : Settings.t option)
 let make_dashboard_item ?settings init pids =
   let w = make ?settings init pids in
   let settings = Settings.make ?settings () in
-  let s = settings#s in
   let (settings : Dashboard.Item.settings) =
-    { widget = settings#widget
-    ; ready = React.S.const true
-    ; set = (fun () -> Lwt_result.return @@ w#set_settings @@ React.S.value s)
-    } in
+    Dashboard.Item.make_settings
+      ~widget:settings
+      ~set:(fun () -> Lwt_result.return @@ w#set_settings settings#value)
+      () in
   let tz_offset_s = Ptime_clock.current_tz_offset_s () in
   let timestamp =
     Dashboard.Item.make_timestamp
@@ -423,7 +419,7 @@ let make_dashboard_item ?settings init pids =
       ~to_string:(Time.to_human_string ?tz_offset_s)
       () in
   Dashboard.Item.make_item
-    ~name:"Обзор"
+    ~name:"Список сервисов"
     ~subtitle:(Timestamp timestamp)
     ~settings
     w

@@ -39,7 +39,7 @@ module SVG = struct
     include Markup.Path
 
     class t ?(fill : Color.t option) path () =
-      let fill = Option.map Color.string_of_t fill in
+      let fill = Option.map Color.to_css_rgba fill in
       let elt  = Markup.create_path ?fill path ()
                  |> To_dom.of_element in
       object(self)

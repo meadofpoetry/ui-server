@@ -8,7 +8,7 @@ open Common
 let ( % ) = Fun.( % )
 
 type item =
-  | Chart of Widget_parameter_chart.widget_config option
+  | Chart of Widget_parameter_chart.widget_config option [@@deriving yojson]
 
 class t () =
 object(self)
@@ -26,20 +26,20 @@ object(self)
          structures
          >|= (fun structures ->
            let chart = new t ~init:[] ~structures ~config () in
-           begin match typ_to_content config.typ with
-           | `Video ->
-              let video_data = self#get_video_data () in
-              React.E.map (fun data ->
-                  let data = convert_video_data config data in
-                  chart#append_data data) video_data
-              |> React.E.keep;
-           | `Audio ->
-              let audio_data = self#get_audio_data () in
-              React.E.map (fun data ->
-                  let data = convert_audio_data config data in
-                  chart#append_data data) audio_data
-              |> React.E.keep;
-           end;
+           (* begin match typ_to_content config.typ with
+            * | `Video ->
+            *    let video_data = self#get_video_data () in
+            *    React.E.map (fun data ->
+            *        let data = convert_video_data config data in
+            *        chart#append_data data) video_data
+            *    |> React.E.keep;
+            * | `Audio ->
+            *    let audio_data = self#get_audio_data () in
+            *    React.E.map (fun data ->
+            *        let data = convert_audio_data config data in
+            *        chart#append_data data) audio_data
+            *    |> React.E.keep;
+            * end; *)
            chart) in
        let w = Ui_templates.Loader.create_widget_loader t in
        Dashboard.Item.make_item
@@ -55,11 +55,11 @@ object(self)
     `List []
 
   method serialize (x : item) : Yojson.Safe.json =
-    `Null
+    item_to_yojson x
 
   method deserialize (json : Yojson.Safe.json)
          : (item, string) result =
-    Ok (Chart None)
+    item_of_yojson json
 
   (* Private methods *)
 

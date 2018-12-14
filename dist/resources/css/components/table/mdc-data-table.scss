@@ -37,7 +37,7 @@
   }
 
   &__content {
-    overflow-x: auto;
+    overflow: auto;
   }
 
   &__table {
@@ -57,14 +57,13 @@
     box-sizing: border-box;
     vertical-align: middle;
     @include mdc-typography-overflow-ellipsis;
-    
+
     &--numeric {
       text-align: right;
     }
 
     &:first-of-type {
       padding-left: 24px;
-      
       border-right: 1px solid;
       @include mdc-theme-prop-alpha(border-color, $mdc-theme-background, .12);
     }

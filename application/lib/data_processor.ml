@@ -5,10 +5,13 @@ type url = Common.Url.t
 
 module Api_handler = Api.Handler.Make(Common.User)
 
-type t = < reset    : (url * Common.Stream.t) list -> unit
-         ; handlers : unit -> (module Api_handler.HANDLER) list
-         ; template : unit -> Api.Template.upper Api.Template.ordered_item list Common.User.user_table
-         ; finalize : unit -> unit >
+type t =
+  < reset    : (url * Common.Stream.t) list -> unit
+  ; handlers : unit -> (module Api_handler.HANDLER) list
+  ; template :
+      unit -> Api.Template.upper Api.Template.ordered_item list Common.User.user_table
+  ; log_source : Common.Stream.Log_message.source
+  ; finalize : unit -> unit >
                    
 module type PROCESS = sig
   val typ    : string
