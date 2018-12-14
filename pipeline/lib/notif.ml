@@ -1,40 +1,34 @@
 open Containers
-open Msg_conv
-open Interop_json
 open Common
+open React
 
-module type NOTIF = sig
-  type t
-  val name : string
-  val of_yojson : Yojson.Safe.json -> (t,string) result
-end
+let table = Hashtbl.create 10
+   
+let dispatch = function
+  | `Assoc ["name", `String name; "data", data] -> begin
+      match Hashtbl.find_opt table name with
+      | None -> ()
+      | Some f -> f data
+    end
+  | m -> Yojson.Safe.pretty_to_string m
+         |> Lwt_io.printf "UNKNOWN MSG %s\n"
+         |> Lwt.ignore_result;
+         ()
+                     
+let wrap push of_yojson = fun x ->
+  match of_yojson x with
+  | Ok x -> push x
+  | Error e -> Logs.err (fun m -> m "Notification error: %s" e)
 
-module Make(N: NOTIF) = struct
-  type t = N.t
-  let create : type a. a typ -> ((t, string) result -> unit) -> (string * (a -> unit)) = function
-    | Json    -> fun pus -> N.name, (fun v -> pus @@ N.of_yojson v)
-    | Msgpack -> failwith "not implemented"
-end
+let add_event ~name of_yojson =
+  let event, push = E.create () in
+  let f = wrap push of_yojson in
+  Hashtbl.add table name f;
+  event
 
-let dispatch : type a. a typ -> (string, (a -> unit)) Hashtbl.t -> a -> unit = function
-  | Json    -> Interop_json.dispatch
-  | Msgpack -> failwith "not implemented"
+let add_signal ~name ~eq ~init of_yojson =
+  let signal, push = S.create ~eq init in
+  let f = wrap push of_yojson in
+  Hashtbl.add table name f;
+  signal
 
-module Ready =
-  Make(struct
-      type t = unit
-      let name = "backend"
-      let of_yojson = function
-        | `String "Ready" -> Ok ()
-        | _               -> Error "notification Ready: bad value"
-    end)
-
-let _ready_ev = ref None
-
-let next ev =
-  let waiter, wakener = Lwt.task () in
-  _ready_ev := Some (React.E.map (fun x -> Lwt.wakeup_later wakener x) (React.E.once ev));
-  Lwt.on_cancel waiter (fun () -> match !_ready_ev with None -> () | Some ev -> React.E.stop ev);
-  waiter
-
-let is_ready ev = next ev

@@ -68,10 +68,10 @@ object(self)
     | None ->
        let state =
          let get () =
-           Requests_structure.HTTP.get ()
+           Requests_structure.HTTP.get_applied_with_source ()
            |> Lwt_result.map_err Api_js.Requests.err_to_string in
          Signal.make_state ~get
-           ~get_socket:Requests_structure.WS.get in
+           ~get_socket:Requests_structure.WS.get_applied_with_source in
        _structures <- Some state;
        state.value
 
