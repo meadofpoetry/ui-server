@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Tyxml_js
 
@@ -132,7 +133,25 @@ class ['a] t ?(disabled = false)
     |> Tyxml_js.To_dom.of_div in
   object(self)
     val mutable _items = items
-    inherit Widget.t elt ()
+    inherit Widget.t elt () as super
+
+    method! init () : unit =
+      super#init ();
+      push self#selected_item;
+      (* FIXME keep all *)
+      React.S.map (fun v ->
+          Option.iter (fun x -> x#float @@ Option.is_some v) label) self#s_selected_item
+      |> self#_keep_s;
+      select#listen_lwt Widget.Event.focus (fun _ _ ->
+          Option.iter (fun x -> x#activate ()) self#bottom_line;
+          Lwt.return_unit) |> Lwt.ignore_result;
+      select#listen_lwt Widget.Event.blur (fun _ _ ->
+          Option.iter (fun x -> x#deactivate ()) self#bottom_line;
+          Lwt.return_unit) |> Lwt.ignore_result;
+      select#listen_lwt Widget.Event.change (fun _ _ ->
+          Option.iter self#set_selected_index self#selected_index;
+          Lwt.return_unit) |> Lwt.ignore_result;
+      self#set_disabled disabled
 
     method select = select
     method bottom_line = bottom_line
@@ -225,22 +244,6 @@ class ['a] t ?(disabled = false)
 
     method private _native_select : Dom_html.selectElement Js.t =
       Js.Unsafe.coerce select#root
-
-    initializer
-      push self#selected_item;
-      React.S.map (fun v ->
-          Option.iter (fun x -> x#float @@ Option.is_some v) label) self#s_selected_item
-      |> self#_keep_s;
-      select#listen_lwt Widget.Event.focus (fun _ _ ->
-          Option.iter (fun x -> x#activate ()) self#bottom_line;
-          Lwt.return_unit) |> Lwt.ignore_result;
-      select#listen_lwt Widget.Event.blur (fun _ _ ->
-          Option.iter (fun x -> x#deactivate ()) self#bottom_line;
-          Lwt.return_unit) |> Lwt.ignore_result;
-      select#listen_lwt Widget.Event.change (fun _ _ ->
-          Option.iter self#set_selected_index self#selected_index;
-          Lwt.return_unit) |> Lwt.ignore_result;
-      self#set_disabled disabled
 
   end
 

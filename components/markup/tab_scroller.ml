@@ -18,19 +18,13 @@ module Make
   let align_center_class = CSS.add_modifier base_class "align-center"
   let animating_class = CSS.add_modifier base_class "animating"
 
-  let create_scroll_content ?(classes=[]) ?attrs tabs () =
-    div ~a:([ a_class (scroll_content_class :: classes) ]
-            <@> attrs)
-      tabs
+  let create_scroll_content ?(classes = []) ?attrs tabs () : 'a elt =
+    div ~a:([a_class (scroll_content_class :: classes)] <@> attrs) tabs
 
-  let create_scroll_area ?(classes=[]) ?attrs ~content () =
-    div ~a:([ a_class (scroll_area_class :: classes) ]
-            <@> attrs)
-      [ content ]
+  let create_scroll_area ?(classes = []) ?attrs ~content () : 'a elt =
+    div ~a:([a_class (scroll_area_class :: classes)] <@> attrs) [content]
 
-  let create ?(classes=[]) ?attrs ~scroll_area () =
-    div ~a:([ a_class (base_class :: classes) ]
-            <@> attrs)
-      [ scroll_area ]
+  let create ?(classes = []) ?attrs ~scroll_area () : 'a elt =
+    div ~a:([a_class (base_class :: classes)] <@> attrs) [scroll_area]
 
 end

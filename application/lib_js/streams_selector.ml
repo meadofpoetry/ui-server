@@ -40,7 +40,7 @@ class base ?actions ~body
   let title = new Card.Primary.title title () in
   let subtitle = match left with
     | None -> None
-    | Some x -> Some (new Card.Primary.subtitle "" ()) in
+    | Some _ -> Some (new Card.Primary.subtitle "" ()) in
   let primary_widgets = match subtitle with
     | None -> [title]
     | Some st -> [title; st] in
@@ -69,7 +69,7 @@ class base ?actions ~body
               ~widgets
               () as super
 
-    method init () : unit =
+    method! init () : unit =
       super#init ();
       super#add_class block_class;
       begin match state with
@@ -77,7 +77,7 @@ class base ?actions ~body
       | _ -> ()
       end
 
-    method destroy () : unit =
+    method! destroy () : unit =
       super#destroy ();
       React.S.stop ~strong:true s
 
@@ -114,18 +114,17 @@ module Board = struct
                   ~value:()
                   () as super
 
-        method init () : unit =
+        method! init () : unit =
           super#init ();
           super#add_class stream_class;
           if not present then super#add_class lost_class;
           let l =
             super#listen_click_lwt (fun e _ ->
-                let target = Js.Opt.to_option e##.target in
+                let target = Js_of_ocaml.Js.Opt.to_option e##.target in
                 let is_checkbox =
                   Option.map_or ~default:false
                     (fun e ->
-                      let open Dom_html in
-                      let elt = (checkbox#input_element :> element Js.t) in
+                      let elt = (checkbox#input_element :> Widget.element) in
                       Equal.physical e elt)
                     target in
                 if not is_checkbox
@@ -135,7 +134,7 @@ module Board = struct
                 Lwt.return_unit) in
           _click_listener <- Some l
 
-        method destroy () : unit =
+        method! destroy () : unit =
           super#destroy ();
           Option.iter Lwt.cancel _click_listener;
           _click_listener <- None;
@@ -192,13 +191,13 @@ module Board = struct
 
       inherit base ?left ~body ~entry ~state () as super
 
-      method init () : unit =
+      method! init () : unit =
         super#init ();
         empty#add_class empty_placeholder_class;
         React.S.map ~eq:Equal.unit self#check_empty list#s_items
         |> super#_keep_s
 
-      method destroy () : unit =
+      method! destroy () : unit =
         super#destroy ();
         React.S.stop ~strong:true counter;
         React.S.stop ~strong:true settings;
@@ -214,7 +213,6 @@ module Board = struct
     end
 
   let make_entry state counter counter_push left stream_list input =
-    let open Stream.Table in
     let list, settings = make_list state counter counter_push stream_list in
     let w = new t state list settings counter left (Topology.Input input) () in
     w#widget, settings
@@ -310,7 +308,6 @@ module Input = struct
       { dialog; show; result }
 
     let show dialog streams =
-      let open Topology in
       dialog.show ()
       >>= function
       | `Cancel -> Lwt.return_error "dialog was canceled"
@@ -365,7 +362,6 @@ module Input = struct
     signal, list, add
 
   class t ((iid, state, stream_list) : stream_table_row) () =
-    let open Item_list.List_group in
     let open Stream.Table in
     let input, id = match iid with
       | `Input (inp, id) -> inp, id
@@ -408,16 +404,16 @@ module Input = struct
                 ~entry:(Input topo_input)
                 () as super
 
-      method init () : unit =
+      method! init () : unit =
         super#init ();
         empty#add_class empty_placeholder_class;
         React.S.map ~eq:Equal.unit self#check_empty list#s_items
         |> self#_keep_s;
-        Dom.appendChild Dom_html.document##.body dialog.dialog#root
+        Widget.append_to_body dialog.dialog
 
-      method destroy () : unit =
+      method! destroy () : unit =
         super#destroy ();
-        Dom.removeChild Dom_html.document##.body dialog.dialog#root;
+        Widget.remove_from_body dialog.dialog;
         React.S.stop ~strong:true settings
 
       method settings = settings
@@ -458,9 +454,8 @@ let make_table cpu (table : stream_table) =
   let widgets, signals = List.split @@ List.map (make_entry cpu) table in
   let widgets = List.concat widgets in
   let list = new Vbox.t ~widgets () in
-  list#set_on_destroy
-  @@ Some (fun () ->
-         List.iter (fun w -> w#destroy ()) widgets);
+  list#set_on_destroy (fun () ->
+      List.iter (fun w -> w#destroy ()) widgets);
   list, React.S.map ~eq:(Equal.option equal_stream_setting) Option.return
           (React.S.merge ~eq:equal_stream_setting (fun acc v -> v :: acc)
              [] signals)
@@ -494,7 +489,7 @@ class t ~(init : stream_table)
          (fun n ->
            div#set_empty ();
            let w, n_s = n in
-           Dom.appendChild div#root w#root;
+           div#append_child w;
            n_s) s_div) in
   let apply = new Ui_templates.Buttons.Set.t s post () in
   let buttons = new Card.Actions.Buttons.t ~widgets:[apply] () in
@@ -503,12 +498,12 @@ class t ~(init : stream_table)
 
     inherit Vbox.t ~widgets:[div; actions#widget] () as super
 
-    method init () : unit =
+    method! init () : unit =
       super#init ();
       div#add_class inputs_class;
       self#add_class base_class;
 
-    method destroy () : unit =
+    method! destroy () : unit =
       super#destroy ();
       apply#destroy ();
       actions#destroy ();

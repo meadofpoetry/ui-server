@@ -10,7 +10,7 @@ let base_class = "application-log"
 let ( >>* ) x f = Lwt_result.map_err f x
 let ( % ) = Fun.( % )
 
-let get_log ?from ?till ?duration ?limit ?order
+let get_log ?from ?till ?duration ?limit
       ?boards ?cpu ?streams ?inputs () =
   let open Requests.HTTP in
   get_log ?limit ?from ?till ?duration
@@ -78,7 +78,7 @@ class ['a] t ?scroll_target ?boards ?cpu ?inputs ?streams ?init () =
               ~fmt
               () as super
 
-    method init () : unit =
+    method! init () : unit =
       super#init ();
       let get (_ : Infinite_scroll.args) =
         let till =
@@ -92,8 +92,7 @@ class ['a] t ?scroll_target ?boards ?cpu ?inputs ?streams ?init () =
               | Some acc ->
                  if Time.compare time acc >= 0
                  then Some acc else Some time) None self#rows in
-        get_log ?till ~limit:200 ~order:`Desc
-          ?boards ?cpu ?streams ?inputs () in
+        get_log ?till ~limit:200 ?boards ?cpu ?streams ?inputs () in
       let scroll' =
         Infinite_scroll.make
           ~get
@@ -145,8 +144,9 @@ class ['a] t ?scroll_target ?boards ?cpu ?inputs ?streams ?init () =
         | _ :: cell :: _ -> cell in
       let bg_color = log_level_to_color i.level in
       let color = Color.text_color bg_color in
-      el#style##.backgroundColor := (Js.string @@ Color.to_css_rgba bg_color);
-      el#style##.color := (Js.string @@ Color.to_css_rgba color)
+      Js_of_ocaml.(
+        el#style##.backgroundColor := (Js.string @@ Color.to_css_rgba bg_color);
+        el#style##.color := (Js.string @@ Color.to_css_rgba color))
 
   end
 
@@ -157,4 +157,4 @@ let make_dashboard_item ?settings ?init
       ?boards ?cpu ?inputs ?streams ()
     : 'a Dashboard.Item.item =
   let w = make ?init ?boards ?cpu ?inputs ?streams () in
-  Dashboard.Item.make_item ~name:"Лог" w
+  Dashboard.Item.make_item ?settings ~name:"Лог" w

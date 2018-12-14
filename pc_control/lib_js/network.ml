@@ -45,7 +45,7 @@ let make_eth (eth : Network_config.ethernet_conf) =
   let set (eth : Network_config.ethernet_conf) = address#set_value eth.mac_address in
 
   let media      = new Card.Media.t ~widgets:[new Vbox.t ~widgets:[ address#widget ] ()] () in
-  media#style##.margin := Js.string "15px";
+  media#style##.margin := Utils.px_js 15;
   let eth_sets  = new Card.t ~widgets:[ eth_head#widget; media#widget ] () in
   
   let signal =
@@ -240,7 +240,7 @@ let make_ipv4 (ipv4 : Network_config.ipv4_conf) =
                                     ; dns#widget
                                     ; routes#widget ] ()]
       () in
-  media#style##.margin := Js.string "15px";
+  media#style##.margin := Utils.px_js 15;
   let ipv4_sets =
     new Card.t
       ~widgets:[ ipv4_head#widget
@@ -280,7 +280,7 @@ let make_card is_root post (config : Network_config.t) =
       ~content:(`String "Применение настроек может привести к разрыву соединения. \
                          Вы уверены, что хотите применить данные настройки?") ()
   in
-  Dom.appendChild Dom_html.document##.body warning#root;
+  Widget.append_to_body warning;
 
   let eth_sets, eth_s, eth_set = make_eth config.ethernet in
   let ipv4_sets, ipv4_s, ipv4_set  = make_ipv4 config.ipv4 in
@@ -312,7 +312,7 @@ let make_card is_root post (config : Network_config.t) =
       | `Cancel -> Lwt.return_unit) |> Lwt.ignore_result;
 
   let box = new Vbox.t ~widgets:[eth_sets#widget; ipv4_sets#widget; apply#widget] () in
-  List.iter (fun card -> card#style##.marginBottom := Js.string "15px") box#widgets;
+  List.iter (fun card -> card#style##.marginBottom := Utils.px_js 15) box#widgets;
   box, set
 
 let page user =

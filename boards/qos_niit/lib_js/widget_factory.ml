@@ -1,9 +1,5 @@
 open Containers
 open Components
-open Board_types
-open Lwt_result.Infix
-open Ui_templates.Factory
-open Common.Topology
 open Common
 
 type item =

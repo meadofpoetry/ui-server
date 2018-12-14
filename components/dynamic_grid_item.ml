@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Dynamic_grid_types
 open Dom_events

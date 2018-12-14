@@ -28,13 +28,15 @@ module Make(Xml : Xml_sigs.NoWrap)
     let validation_msg_class = CSS.add_modifier _class "validation-msg"
 
     let create ?(classes = []) ?attrs
-          ?(persistent = false) ?(validation = false) ?text () =
-      p ~a:([ a_class (classes
-                       |> cons_if validation validation_msg_class
-                       |> cons_if persistent persistent_class
-                       |> List.cons _class) ]
+          ?(persistent = false) ?(validation = false) ?text () : 'a elt =
+      let classes =
+        classes
+        |> cons_if validation validation_msg_class
+        |> cons_if persistent persistent_class
+        |> List.cons _class in
+      p ~a:([a_class classes]
             |> cons_if (not persistent) @@ a_aria "hidden" ["true"]
-            <@> attrs) [pcdata @@ Option.get_or ~default:"" text]
+            <@> attrs) [txt @@ Option.get_or ~default:"" text]
   end
 
   module Icon = struct
@@ -44,7 +46,8 @@ module Make(Xml : Xml_sigs.NoWrap)
   end
 
   let create_input ?(classes = []) ?attrs ?input_id
-        ?value ?placeholder ?(required = false) ?(input_type = `Text) () =
+        ?value ?placeholder ?(required = false)
+        ?(input_type = `Text) () : 'a elt =
     input ~a:([ a_class (input_class :: classes)
               ; a_input_type input_type ]
               |> map_cons_option a_id input_id
@@ -55,7 +58,7 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   let create_textarea ?(classes = []) ?attrs ?input_id
         ?value ?placeholder ?(required = false)
-        ?rows ?cols () =
+        ?rows ?cols () : 'a elt =
     textarea ~a:([a_class (input_class :: classes)]
                  |> map_cons_option a_id input_id
                  |> cons_if required @@ a_required ()
@@ -63,15 +66,13 @@ module Make(Xml : Xml_sigs.NoWrap)
                  |> map_cons_option a_rows rows
                  |> map_cons_option a_cols cols
                  <@> attrs)
-      (pcdata @@ Option.get_or ~default:"" value)
-
-  let ( ^:: ) = List.cons_maybe
+      (txt @@ Option.get_or ~default:"" value)
 
   let create ?(classes = []) ?attrs ?(disabled = false)
         ?leading_icon ?trailing_icon
         ?(full_width = false) ?(dense = false)
         ?(textarea = false)  ?(focused = false)
-        ?line_ripple ?label ?outline ~input () =
+        ?line_ripple ?label ?outline ~input () : 'a elt =
     let classes =
       classes
       |> cons_if textarea textarea_class

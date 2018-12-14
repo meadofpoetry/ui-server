@@ -5,7 +5,7 @@
   (libraries  yojson ptime uri ipaddr ppx_deriving_yojson.runtime
               tyxml fmt containers angstrom uuidm cstruct logs lwt_react color)
   (flags          (:standard -short-paths -strict-sequence -bin-annot
-                   -w A+1..49+60-4-7-23-27-32-33-34-39-40-41-42-44-45-48))
+                   -w A+1..49+60-4-39-40-41-42-44-45-48))
   (ocamlopt_flags (:standard -O3 -unbox-closures))
   (js_of_ocaml (flags (:standard  --disable genprim --opt 3)))
   (preprocess (pps ppx_deriving_yojson ppx_deriving.show ppx_deriving.eq

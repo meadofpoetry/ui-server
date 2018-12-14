@@ -1,4 +1,3 @@
-open Containers
 open Board_types
 open Api_js.Requests.Json_request
 open Common
@@ -11,7 +10,7 @@ module WS = struct
 
   include Boards_js.Requests.Device.WS
 
-  let get_mode control =
+  let get_mode (control : int) =
     WS.get ~from:nw_settings_of_yojson
       ~path:Path.Format.(get_base_path () / ("mode" @/ empty))
       ~query:Query.empty
@@ -27,7 +26,7 @@ module HTTP = struct
            module type of Boards_js.Requests.Device.HTTP
                           with module Archive := Boards_js.Requests.Device.HTTP.Archive)
 
-  let set_mode (mode:nw_settings) control =
+  let set_mode (mode : nw_settings) control =
     post_result_unit ~contents:(nw_settings_to_yojson mode)
       ~path:Path.Format.(get_base_path () / ("mode" @/ empty))
       ~query:Query.empty

@@ -1,7 +1,7 @@
 open Containers
 open Components
 open Common
-open Chartjs
+(* open Chartjs *)
 open Qoe_errors
 
 let base_class = "pipeline-chart"
@@ -59,7 +59,7 @@ let filter (src : data_source) (filter : data_filter list) : bool =
   let check_service service pid = function
     | [] -> true
     | services ->
-       List.fold_while (fun acc (x : service_filter) ->
+       List.fold_while (fun _ (x : service_filter) ->
            if service = x.service_id
            then check_pid pid x.pids, `Stop
            else false, `Continue) false services in
@@ -122,7 +122,7 @@ let data_source_to_string (structures : Structure.packed list)
   match List.find_opt (fun (x : packed) ->
             Stream.ID.equal x.source.id src.stream) structures with
   | None -> ""
-  | Some { structure = { channels; _ }; source } ->
+  | Some { structure = { channels; _ }; _ } ->
      begin match List.find_opt (fun (x : channel) ->
                      src.service = x.number) channels with
      | None -> ""
@@ -259,9 +259,11 @@ class t ~(init : 'a list)
 
     val mutable _datasets = datasets
 
-    inherit Widget.t Dom_html.(createDiv document) () as super
+    inherit Widget.t Js_of_ocaml.Dom_html.(createDiv document) () as super
 
-    method init () : unit =
+    method! init () : unit =
+      ignore init;
+      ignore config;
       super#init ();
       super#add_class base_class;
       super#append_child chart;

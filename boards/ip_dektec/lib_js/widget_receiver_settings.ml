@@ -91,8 +91,7 @@ let make ~(state : Topology.state React.signal)
                  ; port
                  ; rate_mode } : ip)
         | _ -> None)
-      s_en s_fec s_meth s_port s_mcast state
-  in
+      s_en s_fec s_meth s_port s_mcast state in
   let s_dis =
     React.S.l2 ~eq:Equal.unit (fun mcast_en state ->
         let is_disabled = match state with
@@ -113,8 +112,7 @@ let make ~(state : Topology.state React.signal)
   let widgets = [en; fec; meth; mcast; port; actions#widget] in
   let box = new Vbox.t ~widgets () in
   box#add_class base_class;
-  box#set_on_destroy
-  @@ Some (fun () ->
-         React.S.stop ~strong:true s_dis;
-         React.S.stop ~strong:true s_set);
+  box#set_on_destroy (fun () ->
+      React.S.stop ~strong:true s_dis;
+      React.S.stop ~strong:true s_set);
   box#widget

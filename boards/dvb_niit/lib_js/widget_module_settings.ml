@@ -43,8 +43,8 @@ let make_bw (standard : standard option React.signal) () =
       ~items () in
   let s_hide =
     React.S.map ~eq:Equal.unit (function
-        | None -> bw#style##.display := Js.string "none"
-        | Some _ -> bw#style##.display := Js.string "") standard in
+        | None -> bw#style##.display := Js_of_ocaml.Js.string "none"
+        | Some _ -> bw#style##.display := Js_of_ocaml.Js.string "") standard in
   let set = function
     | None -> bw#set_selected_index 0
     | Some x -> bw#set_selected_value ~eq:equal_bw x.channel.bw |> ignore in
@@ -67,8 +67,8 @@ let make_freq ?(terrestrial = true)
     React.S.map ~eq:Equal.unit (fun x ->
         match x, terrestrial with
         | (Some T, true) | (Some T2, true) | (Some C, false) ->
-           freq#style##.display := Js.string ""
-        | _ -> freq#style##.display := Js.string "none") standard in
+           freq#style##.display := Js_of_ocaml.Js.string ""
+        | _ -> freq#style##.display := Js_of_ocaml.Js.string "none") standard in
   let set = function
     | None -> freq#set_selected_index 0
     | Some x ->
@@ -88,8 +88,8 @@ let make_plp (standard : standard option React.signal) () =
   plp#set_required true;
   let s_hide =
     React.S.map ~eq:Equal.unit (function
-        | Some T2 -> plp#style##.display := Js.string ""
-        | _ -> plp#style##.display := Js.string "none") standard in
+        | Some T2 -> plp#style##.display := Js_of_ocaml.Js.string ""
+        | _ -> plp#style##.display := Js_of_ocaml.Js.string "none") standard in
   let set = function
     | None -> plp#clear ()
     | Some x -> plp#set_value x.channel.plp in
@@ -99,7 +99,7 @@ let make_mode_box ~(id : int)
       ~(init : mode option)
       ~(event : mode option React.event)
       ~(state : Common.Topology.state React.signal)
-      control
+      (control : int)
       () =
   let std, set_std = make_standard () in
   let t_freq, set_t_freq, t_freq_close =
@@ -138,12 +138,12 @@ let make_mode_box ~(id : int)
   let s_set =
     React.S.hold init ~eq:(Equal.option equal_mode) event
     |> React.S.map ~eq:Equal.unit (fun (m : mode option) ->
-        (* NOTE standard should be updated first *)
-        set_std m;
-        set_t_freq m;
-        set_c_freq m;
-        set_bw m;
-        set_plp m) in
+           (* NOTE standard should be updated first *)
+           set_std m;
+           set_t_freq m;
+           set_c_freq m;
+           set_bw m;
+           set_plp m) in
   let s_dis =
     React.S.map ~eq:Equal.unit (fun x ->
         let is_disabled = match x with
@@ -154,17 +154,21 @@ let make_mode_box ~(id : int)
         c_freq#set_disabled is_disabled;
         bw#set_disabled is_disabled;
         plp#set_disabled is_disabled)
-      state
-  in
+      state in
   let submit = fun (id, m) ->
-    Requests.Device.HTTP.set_mode ~id m control >|= (fun _ -> ()) in
+    Requests.Device.HTTP.set_mode ~id m control
+    >|= (fun _ -> ()) in
   box, s, submit, (fun () ->
+    t_freq_close ();
+    c_freq_close ();
+    bw_close ();
+    plp_close ();
     React.S.stop ~strong:true s_set;
     React.S.stop ~strong:true s_dis)
 
 let default_config = { id = 0 }
 
-let name conf =
+let name conf : string =
   Printf.sprintf "Модуль %d. Настройки"
     (succ (Option.get_or ~default:default_config conf).id)
 
@@ -190,5 +194,5 @@ let make ~(state : Common.Topology.state React.signal)
   let actions = new Card.Actions.t ~widgets:[buttons] () in
   let box = new Vbox.t ~widgets:[w#widget; actions#widget] () in
   box#add_class base_class;
-  box#set_on_destroy @@ Some close;
+  box#set_on_destroy close;
   box#widget

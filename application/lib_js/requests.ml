@@ -1,4 +1,3 @@
-open Containers
 open Api_js.Requests.Json_request
 open Api_js.Api_types
 open Application_types
@@ -25,7 +24,7 @@ module WS = struct
       ~query:Uri.Query.["input", (module List(Topology.Show_topo_input));
                         "id", (module List(Stream.ID))]
       inputs streams
-    
+
 end
 
 module HTTP = struct

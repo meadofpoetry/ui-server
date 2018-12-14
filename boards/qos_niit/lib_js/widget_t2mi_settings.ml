@@ -1,10 +1,7 @@
 open Board_types
 open Containers
 open Components
-open Lwt_result.Infix
 open Common
-
-let ( % ) = Fun.( % )
 
 type config = unit [@@deriving yojson]
 
@@ -81,13 +78,13 @@ let make_stream_select (streams : Stream.t list React.signal)
         let items = make_items sms in
         select#set_empty ();
         List.iter select#append_item items;
-        Option.iter (ignore % select#set_selected_value ~eq) value)
+        Option.iter Fun.(ignore % select#set_selected_value ~eq) value)
       streams in
   let set x = match x with
     | Some (x : t2mi_mode) ->
        ignore @@ select#set_selected_value ~eq:Stream.equal x.stream
     | None -> select#set_selected_index 0 in
-  select#set_on_destroy @@ Some (fun () -> React.S.stop ~strong:true _s);
+  select#set_on_destroy (fun () -> React.S.stop ~strong:true _s);
   select#widget,
   set,
   select#s_selected_value,
@@ -99,7 +96,7 @@ let settings = None
 let make ~(state : Topology.state React.signal)
       ~(mode : t2mi_mode option React.signal)
       ~(streams : Stream.t list React.signal)
-      (conf : config option)
+      (_ : config option)
       (control : int) =
   let en, set_en, s_en, dis_en = make_enabled () in
   let pid, set_pid, s_pid, dis_pid = make_pid () in
@@ -136,8 +133,7 @@ let make ~(state : Topology.state React.signal)
   let actions = new Card.Actions.t ~widgets:[buttons] () in
   let box = new Vbox.t ~widgets:[en; ss; pid; sid; actions#widget] () in
   box#add_class base_class;
-  box#set_on_destroy
-  @@ Some (fun () ->
-         React.S.stop ~strong:true s_dis;
-         React.S.stop ~strong:true s_set);
+  box#set_on_destroy (fun () ->
+      React.S.stop ~strong:true s_dis;
+      React.S.stop ~strong:true s_set);
   box#widget

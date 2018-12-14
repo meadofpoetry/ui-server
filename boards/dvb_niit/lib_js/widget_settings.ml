@@ -1,6 +1,5 @@
 open Containers
 open Components
-open Lwt_result.Infix
 open Widget_types
 
 let name = "Настройки"
@@ -47,6 +46,6 @@ let make ~(state : Common.Topology.state React.signal)
       control =
   let w = Widget.create_div () in
   let _s = React.S.map (make_inner w state config control) receivers in
-  w#set_on_destroy @@ Some (fun () -> React.S.stop ~strong:true _s);
+  w#set_on_destroy (fun () -> React.S.stop ~strong:true _s);
   w#add_class base_class;
   w

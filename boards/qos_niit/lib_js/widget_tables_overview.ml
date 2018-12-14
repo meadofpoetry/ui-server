@@ -1,12 +1,8 @@
 open Containers
 open Components
 open Board_types
-open Lwt_result.Infix
-open Api_js.Api_types
 open Widget_common
 open Common
-
-let ( % ) = Fun.( % )
 
 let name = "Обзор таблиц"
 let base_class = "qos-niit-table-overview"
@@ -64,26 +60,24 @@ let to_table_name ?(is_hex = false) table_id table_id_ext
     let s = if is_hex then sprintf "%s=0x%02X" s x
             else sprintf "%s=%02d" s x in
     match service with
-    | Some x -> sprintf "%s (%s)" s x
-    | None -> s in
+    | None -> s
+    | Some x -> sprintf "%s (%s)" s x in
   let base = id "table_id" table_id in
   let specific = match Mpeg_ts.table_of_int table_id with
-    | `PAT -> Some [id "tsid" table_id_ext]
-    | `PMT -> Some [id ?service "program" table_id_ext]
-    | `NIT _ -> Some [id "network_id" table_id_ext]
-    | `SDT _ -> Some [ id "tsid" table_id_ext
-                     ; id "onid" id_ext_1 ]
-    | `BAT -> Some [id "bid" table_id_ext]
-    | `EIT _ -> Some [ id ?service "sid" table_id_ext
-                     ; id "tsid" id_ext_1
-                     ; id "onid" id_ext_2 ]
-    | _ -> None in
-  match specific with
-  | Some l -> name, String.concat divider (base :: l)
-  | None -> name, base
+    | `PAT -> [id "tsid" table_id_ext]
+    | `PMT -> [id ?service "program" table_id_ext]
+    | `NIT _ -> [id "network_id" table_id_ext]
+    | `SDT _ -> [ id "tsid" table_id_ext
+                ; id "onid" id_ext_1 ]
+    | `BAT -> [id "bid" table_id_ext]
+    | `EIT _ -> [ id ?service "sid" table_id_ext
+                ; id "tsid" id_ext_1
+                ; id "onid" id_ext_2 ]
+    | _ -> [] in
+  name, String.concat divider (base :: specific)
 
 (** Returns HTML element to insert into 'Extra' table column *)
-let to_table_extra ?(hex = false) ((id, info) : SI_PSI_table.t) =
+let to_table_extra ?(hex = false) ((id, _) : SI_PSI_table.t) =
   let to_id_string = match hex with
     | true  -> Printf.sprintf "0x%02X"
     | false -> Printf.sprintf "%d" in
@@ -98,34 +92,34 @@ let to_table_extra ?(hex = false) ((id, info) : SI_PSI_table.t) =
                      ; "tsid", id.id_ext_2
                      ; "sid",  id.table_id_ext ]
     | _ -> None in
-  let open Tyxml_js.Html in
-  let wrap x =
-    List.mapi (fun i (s, v) ->
-        let v = to_id_string v in
-        let v = if i = pred @@ List.length x then v else v ^ ", " in
-        span [ span ~a:[ a_class [ Typography.Markup.subtitle2_class ]]
-                 [pcdata (s ^ ": ")]
-             ; pcdata v ]) x
-    |> fun x -> span x in
-  (match specific with
-   | Some l -> wrap l
-   | None -> span [])
-  |> toelt
+  Tyxml_js.Html.(
+    let wrap x =
+      List.mapi (fun i (s, v) ->
+          let v = to_id_string v in
+          let v = if i = pred @@ List.length x then v else v ^ ", " in
+          span [ span ~a:[a_class [ Typography.Markup.subtitle2_class]]
+                   [txt (s ^ ": ")]
+               ; txt v ]) x
+      |> span in
+    toelt @@ match specific with
+             | None -> span []
+             | Some l -> wrap l)
 
 (** Returns 'back' action element *)
 let make_back () =
-  let back =
-    new Icon_button.t ~icon:Icon.SVG.(create_simple Path.arrow_left) () in
+  let icon = Icon.SVG.(create_simple Path.arrow_left) in
+  let back = new Icon_button.t ~icon () in
   back#add_class @@ Markup.CSS.add_element base_class "back";
   back
 
-let section_fmt : 'a. unit -> 'a list Components.Table.custom = fun () -> 
+let section_fmt : 'a. unit -> 'a list Components.Table.custom =
+  fun () ->
   { is_numeric = true
-  ; compare = (fun x y -> Int.compare (List.length x) (List.length y))
-  ; to_string = Fun.(string_of_int % List.length) }
+  ; compare = (fun x y -> List.(Int.compare (length x) (length y)))
+  ; to_string = Fun.(string_of_int % List.length)
+  }
 
-let make_table ?(is_hex = false)
-      (init : SI_PSI_table.t list) =
+let make_table ?(is_hex = false) () =
   let open Table in
   let dec_ext_fmt =
     Custom_elt { is_numeric = false
@@ -138,7 +132,7 @@ let make_table ?(is_hex = false)
   let dec_pid_fmt = Int (Some (Printf.sprintf "%d")) in
   let hex_pid_fmt = Int (Some (Printf.sprintf "0x%04X")) in
   let hex_tid_fmt = Int (Some (Printf.sprintf "0x%02X")) in
-  let br_fmt = Table.(Option (Float None, "-")) in
+  let br_fmt = Option (Float None, "-") in
   let pct_fmt = Option (Float (Some (Printf.sprintf "%.2f")), "-") in
   let fmt =
     let open Format in
@@ -188,17 +182,18 @@ module Heading = struct
     let box = Widget.create_div ~widgets:[title'; subtitle'] () in
     let widgets = List.cons_maybe meta [box] in
     object(self)
-      inherit Card.Primary.t ~widgets ()
+      inherit Card.Primary.t ~widgets () as super
+
+      method! init () : unit =
+        super#init ();
+        Option.iter self#set_title title;
+        Option.iter self#set_subtitle subtitle;
 
       method set_title (s : string) : unit =
         title'#set_text_content s
 
       method set_subtitle (s : string) : unit =
         subtitle'#set_text_content s
-
-      initializer
-        Option.iter self#set_title title;
-        Option.iter self#set_subtitle subtitle;
     end
 
 end
@@ -211,59 +206,61 @@ let add_row (table : 'a Table.t)
       (set_dump : ((bool -> unit) * Widget_tables_dump.t) option -> unit)
       ((id, info) : SI_PSI_table.t) =
   let row = table#push (table_info_to_data (id, info)) in
-  row#listen_click_lwt (fun _ _ ->
-      let open Lwt.Infix in
-      let cell =
-        let open Table in
-        match row#cells with
-        | _ :: _ :: _ :: _ :: _ :: _ :: x :: _ -> x in
-      let back = make_back () in
-      let title, subtitle = make_dump_title ~is_hex (id, info) in
-      let heading = new Heading.t ~meta:back#widget ~title ~subtitle () in
-      let dump =
-        new Widget_tables_dump.t
-          ~stream
-          ~sections:cell#value
-          ~table_id:id.table_id
-          ~table_id_ext:id.table_id_ext
-          ~id_ext_1:id.id_ext_1
-          ~id_ext_2:id.id_ext_2
-          control () in
-      let set_hex (x : bool) =
-        let title, subtitle = make_dump_title (id, info) in
-        heading#set_title title;
-        heading#set_subtitle subtitle;
-        dump#set_hex x in
-      let box =
-        new Vbox.t
-          ~widgets:[ heading#widget
-                   ; (new Divider.t ())#widget
-                   ; dump#widget ]
-          () in
-      dump#set_hex is_hex;
-      set_dump @@ Some (set_hex, dump);
-      back#listen_once_lwt Widget.Event.click
-      >|= (fun _ ->
-        let sections = List.map (fun i -> i#value) dump#list#items in
-        cell#set_value ~force:true sections;
-        parent#remove_child box;
-        parent#append_child table;
-        set_dump None;
-        dump#destroy ();
-        back#destroy ())
-      |> Lwt.ignore_result;
-      begin match dump#list#items with
-      | hd :: _ -> dump#list#set_active hd
-      | _ -> ()
-      end;
-      parent#remove_child table;
-      parent#append_child box;
-      Lwt.return_unit)
-  |> Lwt.ignore_result;
+  let listener =
+    row#listen_click_lwt (fun _ _ ->
+        let open Lwt.Infix in
+        let cell =
+          let open Table in
+          match row#cells with
+          | _ :: _ :: _ :: _ :: _ :: _ :: x :: _ -> x in
+        let back = make_back () in
+        let title, subtitle = make_dump_title ~is_hex (id, info) in
+        let heading = new Heading.t ~meta:back#widget ~title ~subtitle () in
+        let dump =
+          new Widget_tables_dump.t
+            ~stream
+            ~sections:cell#value
+            ~table_id:id.table_id
+            ~table_id_ext:id.table_id_ext
+            ~id_ext_1:id.id_ext_1
+            ~id_ext_2:id.id_ext_2
+            control () in
+        let set_hex (x : bool) =
+          let title, subtitle = make_dump_title (id, info) in
+          heading#set_title title;
+          heading#set_subtitle subtitle;
+          dump#set_hex x in
+        let box =
+          new Vbox.t
+            ~widgets:[ heading#widget
+                     ; (new Divider.t ())#widget
+                     ; dump#widget ]
+            () in
+        dump#set_hex is_hex;
+        set_dump @@ Some (set_hex, dump);
+        back#listen_once_lwt Widget.Event.click
+        >|= (fun _ ->
+          let sections = List.map (fun i -> i#value) dump#list#items in
+          Printf.printf "got %d dumped\n" @@ List.length @@ List.filter (fun (_, d) -> Option.is_some d) sections;
+          cell#set_value ~force:true sections;
+          parent#remove_child box;
+          parent#append_child table;
+          set_dump None;
+          dump#destroy ();
+          back#destroy ())
+        |> Lwt.ignore_result;
+        begin match dump#list#items with
+        | [] -> ()
+        | hd :: _ -> dump#list#set_active hd
+        end;
+        parent#remove_child table;
+        parent#append_child box;
+        Lwt.return_unit) in
+  row#set_on_destroy (fun () -> Lwt.cancel listener);
   row
 
 class t ?(settings : Settings.t option)
-        (init : SI_PSI_table.t list timestamped option)
+        (init : SI_PSI_table.t list Time.timestamped option)
         (stream : Stream.ID.t)
         (control : int)
         () =
@@ -272,7 +269,7 @@ class t ?(settings : Settings.t option)
     | Some { data; timestamp } -> data, Some timestamp in
   let s_time, set_time =
     React.S.create ~eq:(Equal.option Time.equal) timestamp in
-  let table, on_change = make_table init in
+  let table, on_change = make_table () in
   let dump, set_dump =
     let eq = fun (_, w1) (_, w2) -> Widget.equal w1 w2 in
     React.S.create ~eq:(Equal.option eq) None in
@@ -288,20 +285,30 @@ class t ?(settings : Settings.t option)
     val mutable _data : Set.t = Set.of_list init
     val media = new Card.Media.t ~widgets:[table] ()
 
-    inherit Widget.t Dom_html.(createDiv document) ()
+    inherit Widget.t Js_of_ocaml.Dom_html.(createDiv document) () as super
+
+    method! init () : unit =
+      super#init ();
+      Option.iter self#set_settings settings;
+      self#append_child table;
+      React.S.map ~eq:Equal.unit (function
+          | [] -> self#append_child empty
+          | _ -> self#remove_child empty) table#s_rows
+      |> self#_keep_s;
+      Set.iter Fun.(ignore % self#add_row) _data;
+      self#add_class base_class
 
     method s_timestamp : Time.t option React.signal =
       s_time
 
     (** Adds new row to the overview *)
-    method add_row (t : SI_PSI_table.t) =
-      add_row table self#hex stream
-        (self :> Widget.t) control set_dump t
+    method add_row (t : SI_PSI_table.t) : unit =
+      ignore @@ add_row table self#hex stream self#widget control set_dump t
 
     (** Updates widget state *)
     method set_state (x : widget_state) : unit =
       begin match React.S.value dump with
-      | Some dump -> ()
+      | Some _ -> () (* FIXME !!!!!!!! set state *)
       | None -> ()
       end;
       match x with
@@ -336,7 +343,7 @@ class t ?(settings : Settings.t option)
         | _, [] -> ()
         | (rate : Bitrate.table) :: tl, rows ->
            let find (row : 'a Table.Row.t) =
-             let ((id, info) : SI_PSI_table.t) = self#_row_to_table_info row in
+             let ((id, _) : SI_PSI_table.t) = self#_row_to_table_info row in
              id.table_id = rate.table_id
              && id.table_id_ext = rate.table_id_ext
              && id.id_ext_1 = rate.id_ext_1
@@ -370,7 +377,7 @@ class t ?(settings : Settings.t option)
       aux (x.tables, table#rows)
 
     (** Updates the overview *)
-    method update ({ timestamp; data } : SI_PSI_table.t list timestamped) =
+    method update ({ timestamp; data } : SI_PSI_table.t list Time.timestamped) =
       let open SI_PSI_table in
       (* Update timestamp *)
       set_time @@ Some timestamp;
@@ -379,11 +386,13 @@ class t ?(settings : Settings.t option)
       _data <- Set.of_list data;
       let lost = Set.diff prev _data in
       let found = Set.diff _data prev in
-      let inter = Set.inter prev _data in
-      let upd = Set.filter (fun ((_, info) : t) ->
-                    List.mem ~eq:equal_info info @@ List.map snd data) inter in
+      let inter = Set.inter _data prev in
+      let upd =
+        Set.filter (fun (t : SI_PSI_table.t) ->
+            let (_, i) = Set.find t prev in
+            not @@ SI_PSI_table.equal_info (snd t) i)
+          inter in
       let find = fun (table : t) (row : 'a Table.Row.t) ->
-        let open Table in
         let info = self#_row_to_table_info row in
         Table_info.equal table info in
       Set.iter (fun (info : t) ->
@@ -394,22 +403,21 @@ class t ?(settings : Settings.t option)
           match List.find_opt (find info) table#rows with
           | None -> ()
           | Some row -> self#_update_row row info) upd;
-      Set.iter (ignore % self#add_row) found
+      Set.iter self#add_row found
 
     (* Private methods *)
 
-    method private _update_row (row : 'a Table.Row.t) ((id, info) : SI_PSI_table.t) =
+    method private _update_row (row : 'a Table.Row.t) ((_, info) : SI_PSI_table.t) =
       let open Table in
       let open SI_PSI_table in
       begin match row#cells with
       | _ :: _ :: _ :: _ :: ver :: serv :: sect :: lsn :: _ ->
          let sections =
            List.map (fun x ->
-               let res = List.find_opt (equal_section_info x % fst)
-                           sect#value in
-               match  res with
-               | Some (_, dump) -> x, dump
-               | None -> x, None) info.sections in
+               List.find_opt Fun.(equal_section_info x % fst) sect#value
+               |> function
+                 | Some (_, dump) -> x, dump
+                 | None -> x, None) info.sections in
          ver#set_value info.version;
          serv#set_value info.service_name;
          sect#set_value sections;
@@ -420,20 +428,10 @@ class t ?(settings : Settings.t option)
       let open Table in
       match row#cells with
       | _ :: _ :: _ :: x :: _ -> x#value
-
-    initializer
-      Option.iter self#set_settings settings;
-      self#append_child table;
-      React.S.map ~eq:Equal.unit (function
-          | [] -> self#append_child empty
-          | _ -> self#remove_child empty) table#s_rows
-      |> self#_keep_s;
-      Set.iter (ignore % self#add_row) _data;
-      self#add_class base_class;
   end
 
 let make ?(settings : Settings.t option)
-      (init : SI_PSI_table.t list timestamped option)
+      (init : SI_PSI_table.t list Time.timestamped option)
       (stream : Stream.ID.t)
       control =
   new t ?settings init stream control ()

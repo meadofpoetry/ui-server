@@ -60,8 +60,6 @@ module S : sig
 
   val switch : eq:('a -> 'a -> bool) -> 'a signal signal -> 'a signal
 
-  val bind : eq:('b -> 'b -> bool) -> 'a signal -> ('a -> 'b signal) ->
-             'b signal
   val fix : eq:('a -> 'a -> bool) -> 'a -> ('a signal -> 'a signal * 'b) -> 'b
 
   val l1 : eq:('b -> 'b -> bool) -> ('a -> 'b) -> ('a signal -> 'b signal)
@@ -166,8 +164,6 @@ end = struct
   let merge ~eq = merge ~eq
 
   let switch ~eq = switch ~eq
-
-  let bind ~eq = bind ~eq
 
   let fix ~eq = fix ~eq
 

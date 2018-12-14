@@ -1,8 +1,6 @@
 open Containers
 open Components
 open Common
-open Lwt_result.Infix
-open Api_js.Api_types
 open Widget_common
 open Board_types
 
@@ -163,7 +161,7 @@ module Pie = struct
     let dataset = make_pie_dataset () in
     let options = make_pie_options () in
     let data = Data.make ~datasets:[] ~labels:[] () in
-    let node = `Canvas Dom_html.(createCanvas document) in
+    let node = `Canvas Js_of_ocaml.Dom_html.(createCanvas document) in
     let chart = make ~options ~data `Pie node in
     chart, dataset
 
@@ -180,9 +178,9 @@ module Pie = struct
       val mutable _hex = hex
       val mutable _rate = None
 
-      inherit Widget.t Dom_html.(createDiv document) () as super
+      inherit Widget.t Js_of_ocaml.Dom_html.(createDiv document) () as super
 
-      method init () : unit =
+      method! init () : unit =
         super#init ();
         box#add_class box_class;
         box#append_child @@ Widget.create @@ Obj.magic @@ Chartjs.canvas pie;
@@ -192,7 +190,7 @@ module Pie = struct
         self#append_child title;
         self#append_child box;
 
-      method destroy () : unit =
+      method! destroy () : unit =
         super#destroy ();
         title#destroy ();
         box#destroy ();
@@ -309,9 +307,9 @@ module Info = struct
 
     let make_pid ?(hex = false) ((pid, info) : Pid.t) =
       object(self)
-        inherit Widget.t Dom_html.(createSpan document) () as super
+        inherit Widget.t Js_of_ocaml.Dom_html.(createSpan document) () as super
 
-        method init () : unit  =
+        method! init () : unit  =
           super#init ();
           self#update info;
           self#add_class pid_class;
@@ -342,7 +340,7 @@ module Info = struct
                   ~widgets:[ title#widget
                            ; pids_box#widget] () as super
 
-        method init () : unit =
+        method! init () : unit =
           super#init ();
           _pids <- List.map (make_pid ?hex) init;
           List.iter pids_box#append_child _pids;
@@ -350,7 +348,7 @@ module Info = struct
           title#add_class title_class;
           pids_box#add_class box_class;
 
-        method destroy () : unit =
+        method! destroy () : unit =
           super#destroy ();
           title#destroy ();
           pids_box#destroy ();
@@ -380,7 +378,7 @@ module Info = struct
           (* FIXME sort? *)
           pids_box#append_child pid
 
-        method private remove_pid ((pid, info) : Pid.t) : unit =
+        method private remove_pid ((pid, _) : Pid.t) : unit =
           match List.find_opt (fun cell ->
                     cell#pid = pid) _pids with
           | None -> ()
@@ -405,11 +403,11 @@ module Info = struct
                          ; (new Divider.t ())#widget
                          ; pids#widget ] () as super
 
-      method init () : unit =
+      method! init () : unit =
         super#init ();
         self#add_class _class
 
-      method destroy () : unit =
+      method! destroy () : unit =
         super#destroy ();
         pids#destroy ();
         rate#destroy ()
@@ -439,7 +437,7 @@ module Info = struct
 end
 
 class t ?(settings : Settings.t option)
-        (init : Pid.t list timestamped option) () =
+        (init : Pid.t list Time.timestamped option) () =
   let init, timestamp = match init with
     | None -> [], None
     | Some { data; timestamp } -> data, Some timestamp in
@@ -451,16 +449,16 @@ class t ?(settings : Settings.t option)
 
     val mutable _data : Set.t = Set.of_list init
 
-    inherit Widget.t Dom_html.(createDiv document) () as super
+    inherit Widget.t Js_of_ocaml.Dom_html.(createDiv document) () as super
 
-    method init () : unit =
+    method! init () : unit =
       super#init ();
       Option.iter self#set_settings settings;
       self#add_class base_class;
       self#append_child pie;
       self#append_child info
 
-    method destroy () : unit =
+    method! destroy () : unit =
       super#destroy ();
       pie#destroy ();
       info#destroy ();
@@ -469,7 +467,7 @@ class t ?(settings : Settings.t option)
     method s_timestamp : Time.t option React.signal =
       s_time
 
-    method update ({ timestamp; data } : Pid.t list timestamped) =
+    method update ({ timestamp; data } : Pid.t list Time.timestamped) =
       (* Update timestamp *)
       set_time @@ Some timestamp;
       (* Manage found, lost and updated items *)
@@ -509,7 +507,7 @@ class t ?(settings : Settings.t option)
   end
 
 let make ?(settings : Settings.t option)
-      (init : Pid.t list timestamped option) =
+      (init : Pid.t list Time.timestamped option) =
   new t ?settings init ()
 
 let make_dashboard_item ?settings init : 'a Dashboard.Item.item =

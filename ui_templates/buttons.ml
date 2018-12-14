@@ -9,8 +9,8 @@ module Set = struct
   let busy_class = Markup.CSS.add_modifier base_class "busy"
 
   class t ?typ ?style ?icon ?dense ?compact ?ripple ?(label = "Применить")
-          (signal:'a option React.signal)
-          (setter:('a -> 'b Lwt.t)) () =
+          (signal : 'a option React.signal)
+          (setter : ('a -> 'b Lwt.t)) () =
   object(self)
 
     val _loader = new Circular_progress.t ~size:25 ~indeterminate:true ()
@@ -19,7 +19,7 @@ module Set = struct
     inherit Button.t ?typ ?style ?icon ?dense
               ?compact ?ripple ~label () as super
 
-    method init () : unit =
+    method! init () : unit =
       super#init ();
       self#add_class base_class;
       React.S.map (function Some _ -> self#set_disabled false
@@ -30,7 +30,7 @@ module Set = struct
             match React.S.value signal with
             | Some v ->
                self#add_class busy_class;
-               Dom.appendChild self#root _loader#root;
+               self#append_child _loader;
                Lwt.try_bind
                  (fun () -> setter v)
                  (fun _ -> self#finalize ())
@@ -59,15 +59,28 @@ module Get = struct
           ~label () =
   object(self)
 
-    inherit Button.t ?typ ?style ?icon ?dense ?compact ?ripple ~label ()
+    inherit Button.t ?typ ?style ?icon ?dense ?compact ?ripple ~label () as super
 
     val _loader = new Circular_progress.t ~size:25 ()
     val! mutable _listener = None
     val mutable _getter = None
     val mutable _prev : 'a option = None
-    val mutable _timer : Dom_html.interval_id option = None
+    val mutable _timer : Utils.interval_id option = None
     val mutable _timeout = timeout
     val _period = 250.
+
+    method! init () : unit =
+      super#init ();
+      self#set_timeout timeout;
+      self#add_class base_class;
+      self#set_getter getter;
+      match _getter with
+      | None -> self#set_disabled true
+      | Some _ -> self#set_disabled false
+
+    method! destroy () : unit =
+      super#destroy ();
+      self#_stop_listen ()
 
     method progress = _loader
 
@@ -87,8 +100,7 @@ module Get = struct
     method set_timeout (x : float option) =
       _timeout <- x;
       match x with
-      | None ->
-         _loader#set_indeterminate true
+      | None ->  _loader#set_indeterminate true
       | Some x ->
          _loader#set_max (x *. 1000.);
          _loader#set_indeterminate false
@@ -102,10 +114,10 @@ module Get = struct
       self#remove_class busy_class;
       self#remove_child _loader;
       match _timer with
-      | Some x ->
-         Dom_html.window##clearInterval x;
-         _timer <- None
       | None -> ()
+      | Some x ->
+         Utils.clear_interval x;
+         _timer <- None
 
     method private _stop_listen () = match _listener with
       | None -> ()
@@ -124,10 +136,9 @@ module Get = struct
               | Some _ ->
                  _loader#set_progress 0.;
                  let timer =
-                   Dom_html.window##setInterval
-                     (Js.wrap_callback (fun () ->
-                          let cur = _loader#progress in
-                          _loader#set_progress (cur +. _period)))
+                   Utils.set_interval (fun () ->
+                       let cur = _loader#progress in
+                       _loader#set_progress (cur +. _period))
                      _period in
                  _timer <- Some timer;
               end;
@@ -138,14 +149,6 @@ module Get = struct
             (fun _ ->
               self#_finalize ()))
       |> fun t -> _listener <- Some t
-
-    initializer
-      self#set_timeout timeout;
-      self#add_class base_class;
-      self#set_getter getter;
-      match _getter with
-      | None -> self#set_disabled true
-      | Some _ -> self#set_disabled false
   end
 
 end

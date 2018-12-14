@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Tyxml_js
 open Utils
@@ -136,48 +137,30 @@ module Cell = struct
        |> Js.Unsafe.coerce
        |> Of_dom.of_element
        |> create
-    | _ -> create (Html.pcdata (to_string fmt v)) in
+    | _ -> create (Html.txt (to_string fmt v)) in
     aux fmt v
 
-  let rec set_value : type a. a fmt -> bool -> a option -> a -> Widget.t -> unit =
-    fun fmt force prev v w ->
-    let eq = map_or ~default:false (equal fmt v) prev in
-    if force || not eq then
-      match fmt with
-      | Option (fmt, e) ->
-         begin match v with
-         | None -> set_value (String None) force None e w
-         | Some x ->
-            begin match prev with
-            | Some p -> set_value fmt force p x w
-            | None -> set_value fmt force None x w
-            end
-         end
-      | Html x ->
-         let to_elt = map_or ~default:Fun.id (fun x -> x.to_elt) x in
-         w#set_empty ();
-         Dom.appendChild w#root (to_elt v)
-      | Custom_elt x ->
-         w#set_empty ();
-         Dom.appendChild w#root (x.to_elt v)
-      | Widget x ->
-         let to_elt =
-           map_or ~default:(fun x -> x#node) (fun x -> x.to_elt) x in
-         w#set_empty ();
-         Dom.appendChild w#root (to_elt v)
-      | _ -> w#set_text_content @@ to_string fmt v
-
-  let rec update : type a. a fmt -> a -> Widget.t -> unit =
+  let rec set_value : type a. a fmt -> a -> Widget.t -> unit =
     fun fmt v w ->
     match fmt with
-    | Html _ -> ()
-    | Widget _ -> ()
     | Option (fmt, e) ->
        begin match v with
-       | Some v -> update fmt v w
-       | None -> update (String None) e w
+       | None -> set_value (String None) e w
+       | Some x -> set_value fmt x w
        end
-    | _ -> set_value fmt true None v w
+    | Html x ->
+       let to_elt = map_or ~default:Fun.id (fun x -> x.to_elt) x in
+       w#set_empty ();
+       Dom.appendChild w#root (to_elt v)
+    | Custom_elt x ->
+       w#set_empty ();
+       Dom.appendChild w#root (x.to_elt v)
+    | Widget x ->
+       let to_elt =
+         map_or ~default:(fun x -> x#node) (fun x -> x.to_elt) x in
+       w#set_empty ();
+       Dom.appendChild w#root (to_elt v)
+    | _ -> w#set_text_content @@ to_string fmt v
 
   let wrap_checkbox = function
     | None -> None
@@ -204,7 +187,9 @@ module Cell = struct
       method value : 'a = _value
 
       method set_value ?(force = false) (v : 'a) : unit =
-        set_value self#format force (Some _value) v self#widget
+        if force || not (equal fmt _value v)
+        then (set_value self#format v self#widget;
+              _value <- v)
 
       method compare (other : 'self) =
         compare self#format other#value self#value
@@ -223,16 +208,16 @@ module Column = struct
 
   class t i push ({ sortable; title = text; _ } : column) (fmt : 'a fmt) () =
     let is_numeric = is_numeric fmt in
-    let content = Html.(pcdata text) in
+    let content = Html.(txt text) in
     let elt = Markup.Column.create ~sortable
                 ~is_numeric content ()
               |> To_dom.of_element in
     object(self)
-      inherit Widget.t elt ()
+      inherit Widget.t elt () as super
 
-      method index : int = i
-
-      initializer
+      method! init () : unit =
+        super#init ();
+        (* FIXME keep *)
         if sortable then
           self#listen_lwt Widget.Event.click (fun _ _ ->
               let order = self#get_attribute "aria-sort" in
@@ -240,6 +225,8 @@ module Column = struct
                | Some Dsc -> push (Some (self#index, Asc))
                | _ -> push (Some (self#index, Dsc)));
               Lwt.return_unit) |> Lwt.ignore_result
+
+      method index : int = i
     end
 end
 
@@ -364,17 +351,14 @@ module Row = struct
            else
              begin match React.S.value s_selected with
              | [] -> ()
-             | l -> List.remove ~eq:Equal.physical v l
-                    |> set_selected
+             | l -> set_selected @@ List.remove ~eq:Widget.equal v l
              end
         | Some `Multiple ->
            let l =
              if x
-             then List.add_nodup ~eq:Equal.physical
-                    (self :> 'a t)
+             then List.add_nodup ~eq:Widget.equal (self :> 'a t)
                     (React.S.value s_selected)
-             else List.remove ~eq:Equal.physical v
-                    (React.S.value s_selected)
+             else List.remove ~eq:Widget.equal v (React.S.value s_selected)
            in set_selected l
         | None -> ()
 
@@ -421,20 +405,11 @@ module Header = struct
               |> To_dom.of_element in
     object(self)
       val _columns = columns
-      inherit Widget.t elt ()
+      inherit Widget.t elt () as super
 
-      method checkbox = row#checkbox
-      method columns = _columns
-      method s_sorted = s_sorted
-
-      method select_all () =
-        List.iter (fun (r : 'a Row.t) -> r#set_selected true) self#_rows
-      method unselect_all () =
-        List.iter (fun (r : 'a Row.t) -> r#set_selected false) self#_rows
-
-      method private _rows = React.S.value s_rows
-
-      initializer
+      method! init () : unit =
+        super#init ();
+        (* FIXME keep signals *)
         iter (fun (cb : #Widget.t) ->
             cb#listen_lwt Widget.Event.change (fun _ _ ->
                 if cb#checked
@@ -469,6 +444,17 @@ module Header = struct
                List.iter (fun x -> x#remove_attribute "aria-sort")
                  _columns)
           s_sorted |> self#_keep_s
+
+      method checkbox = row#checkbox
+      method columns = _columns
+      method s_sorted = s_sorted
+
+      method select_all () =
+        List.iter (fun (r : 'a Row.t) -> r#set_selected true) self#_rows
+      method unselect_all () =
+        List.iter (fun (r : 'a Row.t) -> r#set_selected false) self#_rows
+
+      method private _rows = React.S.value s_rows
     end
 end
 

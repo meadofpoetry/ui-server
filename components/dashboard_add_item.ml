@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Dashboard_common
 open Dashboard_item

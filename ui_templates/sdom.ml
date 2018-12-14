@@ -47,7 +47,7 @@ module type Array_root_node = sig
   type widget
 
   val make : Node.model list -> widget * (Node.model list -> unit)
-  val root : widget -> Dom_html.element Js.t
+  val root : widget -> Widget.element
   val append_child : widget -> Node.widget -> unit
   val insert_child_at_idx : widget -> int -> Node.widget -> unit
   val remove_child : widget -> Node.widget -> unit

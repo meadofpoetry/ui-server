@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Tyxml_js
 open Fun
@@ -10,13 +11,13 @@ module Cell = struct
 
   let iter = Option.iter
 
-  class t
-          ?span ?span_phone ?span_tablet ?span_desktop
-          ~(widgets:#Widget.t list)
+  class t ?span ?span_phone ?span_tablet ?span_desktop
+          ~(widgets : #Widget.t list)
           () =
 
-    let elt = create ~content:(List.map Widget.to_markup widgets) ()
-              |> To_dom.of_div in
+    let (elt : Dom_html.element Js.t) =
+      create ~content:(List.map Widget.to_markup widgets) ()
+      |> To_dom.of_div in
 
     object(self)
 
@@ -25,16 +26,20 @@ module Cell = struct
       val mutable widgets : Widget.t list =
         List.map Widget.coerce widgets
 
-      val mutable _span         : int option = span
-      val mutable _span_phone   : int option = span_phone
-      val mutable _span_tablet  : int option = span_tablet
+      val mutable _span : int option = span
+      val mutable _span_phone : int option = span_phone
+      val mutable _span_tablet : int option = span_tablet
       val mutable _span_desktop : int option = span_desktop
 
-      val mutable align        : [`Top | `Middle | `Bottom ] option = None
-      val mutable order        : int option = None
+      val mutable align : [`Top | `Middle | `Bottom ] option = None
+      val mutable order : int option = None
 
-      method private rm_span ?dt x =
-        super#remove_class @@ get_cell_span ?device_type:dt x
+      method! init () : unit =
+        super#init ();
+        self#set_span _span;
+        self#set_span_phone _span_phone;
+        self#set_span_tablet _span_tablet;
+        self#set_span_desktop _span_desktop;
 
       method span = _span
       method set_span = function
@@ -98,25 +103,21 @@ module Cell = struct
 
       method widgets = widgets
 
-      initializer
-        self#set_span _span;
-        self#set_span_phone _span_phone;
-        self#set_span_tablet _span_tablet;
-        self#set_span_desktop _span_desktop;
+      method private rm_span ?dt x =
+        super#remove_class @@ get_cell_span ?device_type:dt x
 
     end
 
 end
 
-let eq x y = Equal.physical x#root y#root
-
-class t ?align ~(cells:Cell.t list) () =
-
-  let inner = Markup.create_inner ~cells:(List.map Widget.to_markup cells) ()
-              |> To_dom.of_div
-              |> Widget.create in
-  let elt   = Markup.create ~content:[Widget.to_markup inner] ()
-              |> To_dom.of_div in
+class t ?align ~(cells : Cell.t list) () =
+  let inner =
+    Markup.create_inner ~cells:(List.map Widget.to_markup cells) ()
+    |> To_dom.of_div
+    |> Widget.create in
+  let (elt : Dom_html.element Js.t) =
+    Markup.create ~content:[Widget.to_markup inner] ()
+    |> To_dom.of_div in
 
   object(self)
     inherit Widget.t elt () as super
@@ -128,16 +129,16 @@ class t ?align ~(cells:Cell.t list) () =
     method inner = inner
     method cells = _cells
 
-    method insert_cell_at_idx (i:int) (x:Cell.t) =
-      _cells <- List.add_nodup ~eq x _cells;
+    method insert_cell_at_idx (i : int) (x : Cell.t) =
+      _cells <- List.add_nodup ~eq:Widget.equal x _cells;
       self#inner#insert_child_at_idx i x
 
-    method append_cell (x:Cell.t) =
-      _cells <- List.add_nodup ~eq x _cells;
+    method append_cell (x : Cell.t) =
+      _cells <- List.add_nodup ~eq:Widget.equal x _cells;
       self#inner#append_child x
 
-    method remove_cell (x:Cell.t) =
-      _cells <- List.remove ~eq x _cells;
+    method remove_cell (x : Cell.t) =
+      _cells <- List.remove ~eq:Widget.equal x _cells;
       self#inner#remove_child x
 
     method align = _align

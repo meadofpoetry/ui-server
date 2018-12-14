@@ -48,6 +48,10 @@ let create_board db usb (b : Topology.topo_board) boards path step_duration =
 (* TODO do some refactoring later on *)
 let topo_to_signal topo (boards : Board.t Map.t) : Topology.t React.signal =
   let open Topology in
+  let cons l v = (Fun.flip List.cons) l v in
+  let get_port m p = match Board.Ports.get p m with
+    | None -> raise Not_found
+    | Some p -> p in
   let build_board b connection ports =
     let eq = equal_topo_entry in
     React.S.l2 ~eq (fun a p -> Board { b with connection = a; ports = p })
@@ -57,27 +61,21 @@ let topo_to_signal topo (boards : Board.t Map.t) : Topology.t React.signal =
     List.map (fun (port, sw, list, sync, child) ->
         React.S.l3 ~eq (fun l s c ->
             { port
-            ; listening  = l
-            ; has_sync   = s
-            ; child      = c
+            ; listening = l
+            ; has_sync = s
+            ; child = c
             ; switchable = sw }) list sync child) lst
-    |> React.S.merge ~eq:(Equal.list eq) (fun acc h -> h :: acc) [] in
+    |> React.S.merge ~eq:(Equal.list eq) cons [] in
   let rec entry_to_signal = function
     | Input _ as i -> React.S.const i
     | Board b ->
-       let bstate = Map.get b.control boards in
        let connection, port_list, sync_list =
-         match bstate with
-         | None       ->
-            React.S.const `No_response,
-            (fun _ -> React.S.const false),
-            (fun _ -> React.S.const false)
+         match Map.get b.control boards with
+         | None -> raise Not_found
          | Some state ->
             state.connection,
-            (fun p -> Board.Ports.get_or p state.ports_active
-                        ~default:(React.S.const false)),
-            (fun p -> Board.Ports.get_or p state.ports_sync
-                        ~default:(React.S.const false)) in
+            (get_port state.ports_active),
+            (get_port state.ports_sync) in
        let ports = merge_ports @@
                      List.map (fun p -> p.port,
                                         p.switchable,
@@ -89,7 +87,7 @@ let topo_to_signal topo (boards : Board.t Map.t) : Topology.t React.signal =
   in
   let merge_entries l =
     let eq = Equal.list equal_topo_entry in
-    React.S.merge ~eq (fun acc h -> h :: acc) []
+    React.S.merge ~eq cons []
     @@ List.map entry_to_signal l in
   let interface_to_signal i =
     React.S.map ~eq:equal_topo_interface (fun conn -> { i with conn })
@@ -98,7 +96,7 @@ let topo_to_signal topo (boards : Board.t Map.t) : Topology.t React.signal =
     let eq = Equal.list equal_topo_interface in
     c.ifaces
     |> List.map interface_to_signal
-    |> React.S.merge ~eq (fun acc h -> h :: acc) []
+    |> React.S.merge ~eq cons []
     |> React.S.map ~eq:equal_topo_cpu (fun ifaces -> { c with ifaces })
   in
   match topo with

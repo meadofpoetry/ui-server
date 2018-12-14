@@ -7,14 +7,14 @@ open Printf
 
 let ( % ) = Fun.( % )
 
-let typ : (ID.t * T2mi_info.t timespan) Caqti_type.t =
+let typ : (ID.t * T2mi_info.t Time.timespan) Caqti_type.t =
   let open T2mi_info in
   Types.custom
     Types.(List.(ID.db & option int & int & string & option string
                  & option string & bool & bool & ptime & ptime))
     ~encode:(fun (id, ({ from
                        ; till
-                       ; data = (sid, data) } : t timespan)) ->
+                       ; data = (sid, data) } : t Time.timespan)) ->
       let packets =
         Json.(List.to_yojson Int.to_yojson) data.packets
         |> Yojson.Safe.to_string in
@@ -61,7 +61,7 @@ let typ : (ID.t * T2mi_info.t timespan) Caqti_type.t =
          Ok (ID.of_db id, { from; till; data = (sid, data) })
       | _ -> Error "json parse error")
 
-let insert db (data : (ID.t * T2mi_info.t timespan list) list) =
+let insert db (data : (ID.t * T2mi_info.t Time.timespan list) list) =
   let table = (Conn.names db).t2mi_info in
   let data =
     List.map (fun (id, x) -> List.map (Pair.make id) x) data
@@ -79,11 +79,11 @@ let insert db (data : (ID.t * T2mi_info.t timespan list) list) =
                     acc >>= fun () -> exec insert v)
                   (return ()) data))
 
-let bump db (data : (ID.t * T2mi_info.t timespan list) list) =
+let bump db (data : (ID.t * T2mi_info.t Time.timespan list) list) =
   let table = (Conn.names db).t2mi_info in
   let data =
     List.map (fun (id, x) ->
-        List.map (fun ({ data = (sid, _); till; _ } : T2mi_info.t timespan) ->
+        List.map (fun ({ data = (sid, _); till; _ } : T2mi_info.t Time.timespan) ->
             ID.to_db id, sid, till) x) data
     |> List.concat in
   let update_last =

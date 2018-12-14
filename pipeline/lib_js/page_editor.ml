@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Components
 open Lwt_result.Infix
@@ -31,10 +32,7 @@ let pos_relative_to_absolute
 let get_bounding_rect (positions : Wm.position list) : Wm.position =
   let open Wm in
   match positions with
-  | [] -> { left = 0
-          ; right = 0
-          ; top = 0
-          ; bottom = 0 }
+  | [] -> { left = 0; right = 0; top = 0; bottom = 0 }
   | hd :: tl ->
      List.fold_left (fun acc (x : Wm.position) ->
          let { left; top; bottom; right } = x in
@@ -44,13 +42,14 @@ let get_bounding_rect (positions : Wm.position list) : Wm.position =
          let right = max acc.right right in
          { left; top; right; bottom}) hd tl
 
-let get_bounding_rect_and_grids (positions:Wm.position list) =
-  let rect       = get_bounding_rect positions in
+let get_bounding_rect_and_grids (positions : Wm.position list) =
+  let rect = get_bounding_rect positions in
   let resolution = rect.right - rect.left, rect.bottom - rect.top in
   let positions  =
     List.map (fun x -> pos_absolute_to_relative x rect) positions in
   { rect
-  ; grids = Utils.get_grids ~resolution ~positions () }
+  ; grids = Utils.get_grids ~resolution ~positions ()
+  }
 
 let resize ~(resolution : int * int)
       ~(to_position : 'a -> Wm.position)
@@ -100,7 +99,7 @@ let resize_container (p : Wm.position) (t : Wm.container wm_item) =
       (List.filter (fun (_, (w : Wm.widget)) -> Option.is_some w.position) t.item.widgets)
       (* TODO cleanup the the mess induced by relative widget position *)
   in
-  { t with item = { t.item with position = p; widgets }}
+  { t with item = Wm.{ position = p; widgets }}
 
 let resize_layout ~(resolution : int * int) (l : Wm.container wm_item list) =
   let containers =
@@ -346,7 +345,6 @@ let create ~(init: Wm.t)
   let s_state, s_state_push = React.S.create `Container in
   let title = "Контейнеры" in
   let open Wm_left_toolbar in
-  let open Icon.SVG in
   let wizard =
     make_action
       { icon = Icon.SVG.(create_simple Path.auto_fix)#widget
@@ -454,6 +452,12 @@ class t () = object(self)
   val mutable sock : WebSockets.webSocket Js.t option = None
   inherit Layout_grid.t ~cells:[] () as super
 
+  method! init () : unit =
+    super#init ();
+    super#add_class "wm";
+    self#set_on_load @@ Some self#on_load;
+    self#set_on_unload @@ Some self#on_unload;
+
   method private on_load () =
     Requests_wm.HTTP.get_layout ()
     >>= (fun wm ->
@@ -476,11 +480,6 @@ class t () = object(self)
 
   method private on_unload () =
     Option.iter (fun x -> x##close; sock <- None) sock
-
-  initializer
-    self#set_on_load @@ Some self#on_load;
-    self#set_on_unload @@ Some self#on_unload;
-    self#add_class "wm";
 end
 
 let page () = new t ()

@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Tyxml_js
 
@@ -103,24 +104,24 @@ end
 
 type selection =
   [ `Single
-  | `Multiple ]
+  | `Multiple
+  ]
 
 class ['a] t
-        ?(selection:selection option)
+        ?(selection : selection option)
         ?level
         ?two_line
-        ?(dense=false)
-        ~(items:('a,'a t) Item.t list) () =
+        ?(dense = false)
+        ~(items : ('a, 'a t) Item.t list) () =
   let two_line = match two_line with
     | Some x -> x
-    | None   ->
+    | None ->
        List.find_pred (fun x -> Option.is_some x#item#secondary_text) items
        |> Option.is_some in
-  let elt = Markup.create ~two_line
-              ~items:(List.map Widget.to_markup items) ()
-            |> Tyxml_js.To_dom.of_element in
+  let elt = Markup.create ~two_line ~items:(List.map Widget.to_markup items) ()
+            |> To_dom.of_element in
   let s_selected, set_selected = React.S.create [] in
-  let s_active,   set_active = React.S.create None in
+  let s_active, set_active = React.S.create None in
   object(self)
 
     val mutable _items = items
@@ -131,16 +132,18 @@ class ['a] t
       super#init ();
       self#set_dense dense;
       match level with
-      | Some l -> self#set_attribute "data-level" @@ string_of_int l
       | None -> self#_padding ()
+      | Some l -> self#set_attribute "data-level" @@ string_of_int l
 
     method items = _items
 
     method active : ('a, 'a t) Item.t option =
       React.S.value s_active
+
     method s_active : ('a, 'a t) Item.t option React.signal =
       s_active
-    method set_active (item:('a, 'a t) Item.t) =
+
+    method set_active (item : ('a, 'a t) Item.t) =
       Option.iter (fun x ->
           x#item#remove_class Markup.Item_list.Item.activated_class) self#active;
       item#item#add_class Markup.Item_list.Item.activated_class;
@@ -150,8 +153,9 @@ class ['a] t
       React.S.value s_selected
     method s_selected : ('a, 'a t) Item.t list React.signal =
       s_selected
-    method set_selected (item:('a, 'a t) Item.t) =
+    method set_selected (item : ('a, 'a t) Item.t) =
       match selection with
+      | None -> ()
       | Some `Single ->
          List.iter (fun i ->
              i#item#remove_class Markup.Item_list.Item.selected_class) self#selected;
@@ -160,26 +164,26 @@ class ['a] t
       | Some `Multiple ->
          item#item#add_class Markup.Item_list.Item.selected_class;
          set_selected @@ item :: self#selected
-      | None -> ()
 
     method dense : bool =
       self#has_class Markup.dense_class
-    method set_dense x =
+    method set_dense (x : bool) : unit =
       self#add_or_remove_class x Markup.dense_class;
-      self#iter (fun (i:('a,'a t) Item.t) ->
-          Option.iter (fun (t:'a t) -> t#set_dense x)
+      self#iter (fun (i : ('a, 'a t) Item.t) ->
+          Option.iter (fun (t : 'a t) -> t#set_dense x)
             i#nested_tree)
 
-    method append_item (x: ('a, 'a t) Item.t) =
-      _items <- _items @ [ x ];
+    method append_item (x : ('a, 'a t) Item.t) =
+      _items <- _items @ [x];
       self#append_child x
 
     method private iter f =
-      let rec iter l = List.iter (fun (x : ('a,'a t) Item.t) ->
-                           f x;
-                           match x#nested_tree with
-                           | Some n -> iter n#items
-                           | None   -> ()) l in
+      let rec iter l =
+        List.iter (fun (x : ('a, 'a t) Item.t) ->
+            f x;
+            match x#nested_tree with
+            | None -> ()
+            | Some n -> iter n#items) l in
       iter self#items
 
     method private _padding () =
@@ -188,8 +192,8 @@ class ['a] t
             let item = (Js.Unsafe.coerce x#root)##querySelector (Js.string ".mdc-list-item") in
             item##.style##.paddingLeft := Js.string @@ (string_of_int (n*16))^"px";
             match x#nested_tree with
-            | Some el -> iter el#items (n+1)
-            | None   -> ()) l in
+            | None -> ()
+            | Some el -> iter el#items (n+1)) l in
       iter self#items 1
 
   end

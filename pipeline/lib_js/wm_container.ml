@@ -98,7 +98,7 @@ let resize_container (p : Wm.position) (t : Wm.container wm_item) =
       (List.filter (fun (_, (w : Wm.widget)) -> Option.is_some w.position) t.item.widgets)
       (* TODO cleanup the the mess induced by relative widget position *)
   in
-  { t with item = { t.item with position = p; widgets }}
+  { t with item = Wm.{ position = p; widgets }}
 
 let resize_layout ~(resolution : int * int) (l : Wm.container wm_item list) =
   let containers =

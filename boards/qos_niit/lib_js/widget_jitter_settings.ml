@@ -15,26 +15,26 @@ let make_enabled () =
       ~label:"Включить"
       ~align_end:true () in
   let set x   = enabled#set_checked @@ Option.is_some x in
-  form#widget,set,enabled#s_state,enabled#set_disabled
+  form#widget, set, enabled#s_state, enabled#set_disabled
 
 let make_pid () =
   let pid =
     new Textfield.t
-      ~input_type:(Integer ((Some 0),(Some 8192)))
+      ~input_type:(Integer (Some 0, Some 8192))
       ~label:"PID"
       () in
   let set x = match x with
     | Some (x : jitter_mode) -> pid#set_value x.pid
     | None -> pid#clear () in
   pid#set_required true;
-  pid#widget,set,pid#s_input,pid#set_disabled
+  pid#widget, set, pid#s_input, pid#set_disabled
 
 let name = "Настройки. Джиттер"
 let settings = None
 
 let make ~(state : Topology.state React.signal)
       ~(mode : jitter_mode option React.signal)
-      (conf : config option)
+      (_ : config option)
       control : Widget.t =
   let en, set_en, s_en, dis_en = make_enabled () in
   let pid, set_pid, s_pid, dis_pid = make_pid () in
@@ -46,8 +46,7 @@ let make ~(state : Topology.state React.signal)
         dis_en is_disabled;
         List.iter (fun f -> f (if is_disabled then true else not en))
           [dis_pid])
-      state s_en
-  in
+      state s_en in
   let s_set =
     React.S.map ~eq:Equal.unit
       (fun x -> List.iter (fun f -> f x) [set_en; set_pid]) mode in
@@ -67,8 +66,7 @@ let make ~(state : Topology.state React.signal)
   let actions = new Card.Actions.t ~widgets:[buttons] () in
   let box = new Vbox.t ~widgets:[en; pid; actions#widget] () in
   box#add_class base_class;
-  box#set_on_destroy
-  @@ Some (fun () ->
-         React.S.stop ~strong:true s_set;
-         React.S.stop ~strong:true s_dis);
+  box#set_on_destroy (fun () ->
+      React.S.stop ~strong:true s_set;
+      React.S.stop ~strong:true s_dis);
   box#widget

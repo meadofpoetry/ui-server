@@ -1,7 +1,5 @@
 open Containers
 open Components
-open Lwt_result.Infix
-open Api_js.Api_types
 open Widget_common
 open Board_types
 open Common
@@ -31,7 +29,7 @@ module Settings = struct
 
   class view ?(settings = default) () =
     let hex_switch = make_hex_switch settings.hex in
-    object(self)
+    object
       val mutable value = settings
       inherit Vbox.t ~widgets:[hex_switch] ()
       method value : t = value
@@ -64,11 +62,11 @@ let to_pid_flags { has_pcr; scrambled } =
   let scr = match scrambled with
     | false -> None
     | true ->
-       Some Icon.SVG.(new t ~paths:Path.[ new t lock () ] ()) in
+       Some Icon.SVG.(new t ~paths:Path.[new t lock ()] ()) in
   let widgets = List.(cons_maybe pcr (cons_maybe scr [])) in
   (new Hbox.t ~widgets ())#node
 
-let update_row row total br pid =
+let update_row row total br =
   let cur, per, min, max =
     let open Table in
     match row#cells with
@@ -116,14 +114,13 @@ let dec_pid_fmt = Table.(Int None)
 let hex_pid_fmt = Table.(Int (Some (Printf.sprintf "0x%04X")))
 
 (* TODO add table empty state *)
-let make_table_fmt ?(is_hex = false)
-      (init : Pid.t list) =
+let make_table_fmt ?(is_hex = false) () =
   let open Table in
   let open Format in
   let br_fmt = Option (Float None, "-") in
   let pct_fmt = Option (Float (Some (Printf.sprintf "%.2f")), "-") in
   let to_sort_column = to_column ~sortable:true in
-    (to_sort_column "PID", dec_pid_fmt)
+    (to_sort_column "PID", if is_hex then hex_pid_fmt else dec_pid_fmt)
     :: (to_sort_column "Тип", Custom pid_type_fmt)
     :: (to_column "Доп. инфо", Custom_elt pid_flags_fmt)
     :: (to_sort_column "Сервис", Option (String None, ""))
@@ -146,7 +143,7 @@ let add_row (table : 'a Table.t) ((pid, info) : Pid.t) =
   row
 
 class t ?(settings : Settings.t option)
-        (init : Pid.t list timestamped option)
+        (init : Pid.t list Time.timestamped option)
         () =
   let init, timestamp = match init with
     | None -> [], None
@@ -154,7 +151,7 @@ class t ?(settings : Settings.t option)
   let s_time, set_time =
     React.S.create ~eq:(Equal.option Time.equal) timestamp in
   let is_hex = Option.map (fun (x : Settings.t) -> x.hex) settings in
-  let fmt = make_table_fmt ?is_hex init in
+  let fmt = make_table_fmt ?is_hex () in
   let table = new Table.t ~sticky_header:true ~dense:true ~fmt () in
   let empty =
     Ui_templates.Placeholder.create_with_icon
@@ -167,9 +164,9 @@ class t ?(settings : Settings.t option)
       Option.get_or ~default:Settings.default settings
     val mutable _data : Set.t = Set.of_list init
 
-    inherit Widget.t Dom_html.(createDiv document) () as super
+    inherit Widget.t Js_of_ocaml.Dom_html.(createDiv document) () as super
 
-    method init () : unit =
+    method! init () : unit =
       super#init ();
       self#append_child table;
       React.S.map ~eq:Equal.unit (function
@@ -180,7 +177,7 @@ class t ?(settings : Settings.t option)
       Option.iter self#set_settings settings;
       self#add_class base_class
 
-    method destroy () : unit =
+    method! destroy () : unit =
       super#destroy ();
       table#destroy ();
       empty#destroy ();
@@ -213,22 +210,21 @@ class t ?(settings : Settings.t option)
       add_row table x
 
     (** Updates the overview *)
-    method update ({ timestamp; data } : Pid.t list timestamped) =
+    method update ({ timestamp; data } : Pid.t list Time.timestamped) =
       set_time @@ Some timestamp;
       (* Manage found, lost and updated items *)
       let prev = _data in
       _data <- Set.of_list data;
       let lost = Set.diff prev _data in
       let found = Set.diff _data prev in
-      let inter = Set.inter prev _data in
+      let inter = Set.inter _data prev in
       let upd =
-        Set.filter (fun ((_, info) : Pid.t) ->
-            List.mem ~eq:Pid.equal_info info @@ List.map snd data) inter in
+        Set.filter (fun (p : Pid.t) ->
+            let (_, i) = Set.find p prev in
+            not @@ Pid.equal_info (snd p) i)
+          inter in
       let find = fun ((pid, _) : Pid.t) (row : 'a Table.Row.t) ->
-        let open Table in
-        let pid' = match row#cells with
-          | x :: _ -> x#value in
-        pid = pid' in
+        pid = Table.(match row#cells with x :: _ -> x#value) in
       Set.iter (fun (pid : Pid.t) ->
           match List.find_opt (find pid) table#rows with
           | None -> ()
@@ -249,35 +245,32 @@ class t ?(settings : Settings.t option)
                        let cell = match row#cells with a :: _ -> a in
                        cell#value = pid) rows with
              | Some x ->
-                update_row x total br pid |> ignore;
-                List.remove ~eq:Equal.physical x rows
+                ignore @@ update_row x total br;
+                List.remove ~eq:Widget.equal x rows
              | None -> rows) table#rows pids
          |> ignore
 
     (* Private methods *)
 
     method private set_hex (x : bool) : unit =
-      List.iter (fun row ->
-          let open Table in
-          match row#cells with
-          | pid :: _ ->
-             pid#set_format (if x then hex_pid_fmt else dec_pid_fmt))
-        table#rows
+      let fmt = if x then hex_pid_fmt else dec_pid_fmt in
+      let iter = function
+        | Table.(pid :: _) -> pid#set_format fmt in
+      List.iter (fun row -> iter row#cells) table#rows
 
     method private _update_row (row : 'a Table.Row.t) ((pid, info) : Pid.t) =
-      let open Table in
-      match row#cells with
-      | pid' :: typ :: flags :: service :: _ ->
-         pid'#set_value pid;
-         typ#set_value info.typ;
-         flags#set_value { has_pcr = info.has_pcr
-                         ; scrambled = info.scrambled };
-         service#set_value info.service_name;
+      Table.(match row#cells with
+             | pid' :: typ :: flags :: service :: _ ->
+                pid'#set_value pid;
+                typ#set_value info.typ;
+                flags#set_value { has_pcr = info.has_pcr
+                                ; scrambled = info.scrambled };
+                service#set_value info.service_name)
 
   end
 
 let make ?settings
-      (init : Pid.t list timestamped option) =
+      (init : Pid.t list Time.timestamped option) =
   new t ?settings init ()
 
 let make_dashboard_item ?settings init : 'a Dashboard.Item.item =

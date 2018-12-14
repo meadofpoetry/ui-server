@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Tyxml_js
 
@@ -18,7 +19,7 @@ module Title = struct
 
   class t (content : 'a content) () =
     let content' = match content with
-      | `Text x -> [Html.pcdata x]
+      | `Text x -> [Html.txt x]
       | `Widgets x -> List.map Widget.to_markup x in
     let elt =
       Markup.create_title ~content:content' ()
@@ -31,21 +32,16 @@ end
 
 module Section = struct
 
-  class t ?(align : align option)  ~(widgets : #Widget.t list) () =
+  class t ?(align : align option) ~(widgets : #Widget.t list) () =
     let content = List.map Widget.to_markup widgets in
-    let elt = Markup.create_section ?align ~content ()
-              |> To_dom.of_element in
+    let (elt : Dom_html.element Js.t) =
+      Markup.create_section ?align ~content ()
+      |> To_dom.of_element in
     object
       val mutable align : align option = align
-
       inherit Widget.t elt () as super
 
-      method! init () : unit =
-        super#init ()
-
-      method align : align option =
-        align
-
+      method align : align option = align
       method set_align (x : align option) : unit =
         if not @@ (Equal.option equal_align) align x then
           (Option.iter Fun.(super#remove_class % align_to_class) align;
@@ -59,18 +55,12 @@ end
 module Row = struct
 
   class t ~(sections : Section.t list) () =
-    let elt =
-      Markup.create_row
-        ~sections:(List.map Widget.to_markup sections)
-        ()
+    let (elt : Dom_html.element Js.t) =
+      Markup.create_row ~sections:(List.map Widget.to_markup sections) ()
       |> To_dom.of_element in
     object
-
       inherit Widget.t elt () as super
-
-      method! init () : unit =
-        super#init ()
-
+      method! init () : unit = super#init ()
     end
 
 end
