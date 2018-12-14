@@ -571,7 +571,7 @@ module Make(Logs : Logs.LOG)(Src : Board_parser.Src) = struct
         | _ -> `Lost s) e
     |> React.S.fold ~eq:(Equal.list Stream.equal) (fun acc -> function
            | `Found x -> List.add_nodup ~eq x acc
-           | `Lost x -> List.remove ~eq ~x acc) []
+           | `Lost x -> List.remove ~eq x acc) []
 
   let create sender streams_conv
         (storage : Device.config storage) step_duration =

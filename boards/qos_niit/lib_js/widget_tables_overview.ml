@@ -375,7 +375,7 @@ class t ?(settings : Settings.t option)
               | None -> max'#set_value (Some br)
               | Some v -> if br >. v then max'#set_value (Some br)
               end;
-              let rows = List.remove ~eq:Widget.equal ~x:row rows in
+              let rows = List.remove ~eq:Widget.equal row rows in
               aux (tl, rows)
       in
       aux (x.tables, table#rows)

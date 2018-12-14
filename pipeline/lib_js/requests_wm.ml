@@ -16,14 +16,14 @@ module HTTP = struct
 
   open Common.Uri
 
-  let set wm =
+  let apply_layout wm =
     post_result ?scheme:None ?from_err:None ?host:None ?port:None
       ~path:Path.Format.("api/pipeline/wm" @/ empty)
       ~query:Query.empty
       ~contents:(Wm.to_yojson wm)
       ~from:(fun _ -> Ok ())
 
-  let get () =
+  let get_layout () =
     get_result ?scheme:None ?from_err:None ?host:None ?port:None
       ~path:Path.Format.("api/pipeline/wm" @/ empty)
       ~query:Query.empty

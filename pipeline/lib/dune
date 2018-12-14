@@ -23,11 +23,6 @@
   (action  (copy %{x} %{targets})))
 
 (rule
-  (targets graph.ml)
-  (deps    (:x ../graph.ml))
-  (action  (copy %{x} %{targets})))
-
-(rule
   (targets opt_update.ml)
   (deps    (:x ../opt_update.ml))
   (action  (copy %{x} %{targets})))

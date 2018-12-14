@@ -344,7 +344,7 @@ module Row = struct
            else
              begin match React.S.value s_selected with
              | [] -> ()
-             | l -> List.remove ~eq:Equal.physical ~x:v l
+             | l -> List.remove ~eq:Equal.physical v l
                     |> set_selected
              end
         | Some `Multiple ->
@@ -353,7 +353,7 @@ module Row = struct
              then List.add_nodup ~eq:Equal.physical
                     (self :> 'a t)
                     (React.S.value s_selected)
-             else List.remove ~eq:Equal.physical ~x:v
+             else List.remove ~eq:Equal.physical v
                     (React.S.value s_selected)
            in set_selected l
         | None -> ()
@@ -488,7 +488,7 @@ module Body = struct
         self#layout ();
 
       method remove_row (row : 'a Row.t) : unit =
-        s_rows_push @@ List.remove ~eq:Widget.equal ~x:row self#rows;
+        s_rows_push @@ List.remove ~eq:Widget.equal row self#rows;
         self#remove_child row;
         self#layout ();
 
