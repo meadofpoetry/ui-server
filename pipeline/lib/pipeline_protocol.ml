@@ -23,6 +23,7 @@ type notifs =
   ; wm : Wm.t React.signal
   ; applied_structs : Structure.t list React.signal
   ; status : Qoe_status.t list React.signal
+  ; status_raw : Qoe_status.t React.event
   ; vdata : Video_data.t React.event (* TODO to be split by purpose later *)
   ; adata : Audio_data.t React.event
   }
@@ -130,7 +131,7 @@ let create_notifications (options : options) channel =
   let open Notif in
   let ready  = add_event ~name:Exchange.Ready.name Exchange.Ready.ready_of_yojson in
   (* TODO remove Equal.poly *)
-  let status = add_event ~name:"stream_lost" Qoe_status.of_yojson in
+  let status_raw = add_event ~name:"stream_lost" Qoe_status.of_yojson in
   let vdata  = add_event ~name:"video_data" Qoe_errors.Video_data.of_yojson in
   let adata  = add_event ~name:"audio_data" Qoe_errors.Audio_data.of_yojson in
   let wm     = add_signal ~name:"wm" ~eq:Wm.equal ~init:Wm.default Wm.of_yojson in
@@ -161,11 +162,11 @@ let create_notifications (options : options) channel =
   in
   
   let status =
-    React.E.select [pids_diff; React.E.map (fun x -> `Status x) status]
+    React.E.select [pids_diff; React.E.map (fun x -> `Status x) status_raw]
     |> React.S.fold ~eq:(fun _ _ -> false) update_status []
   in
   
-  let notifs = { streams; applied_structs; wm; vdata; adata; status } in 
+  let notifs = { streams; applied_structs; wm; vdata; adata; status; status_raw } in 
   ready, notifs
   
 let create db_conf config sock_in sock_out =
