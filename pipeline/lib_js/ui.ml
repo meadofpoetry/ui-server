@@ -5,7 +5,7 @@ open Common
 
 module Structure = struct
 
-  let make_pid (pid : Structure.pid) =
+  let make_pid ?(applied : Structure.pid option) (pid : Structure.pid) =
     let text, stext =
       match pid.content with
       | Empty ->
@@ -19,11 +19,12 @@ module Structure = struct
            v.codec (fst v.resolution) (snd v.resolution)
     in
     let checkbox = new Checkbox.t ~ripple:false () in
-    checkbox#set_checked pid.to_be_analyzed;
-    let s, push = React.S.create ~eq:Equal.bool pid.to_be_analyzed in
-    let pid_s =
-      React.S.map ~eq:Structure.equal_pid
-        (fun b -> { pid with to_be_analyzed = b }) s in
+    checkbox#set_checked (Option.is_some applied);
+    let signal, push = React.S.create ~eq:Equal.bool (Option.is_some applied) in
+    let pid_s = React.S.map ~eq:(Option.equal Structure.equal_pid)
+                  (fun b -> if b then Some pid else None)
+                  signal
+    in
     React.S.map ~eq:Equal.unit push checkbox#s_state
     |> React.S.keep;
     let item =
@@ -35,35 +36,52 @@ module Structure = struct
         () in
     item, pid_s
 
-  let make_channel (ch : Structure.channel) =
+  let make_channel ?(applied : Structure.channel option) (ch : Structure.channel) =
+    let make (pid : Structure.pid) =
+      let applied =
+        let open Option in
+        applied >>= fun v ->
+        List.find_opt (fun (x : Structure.pid) -> x.pid = pid.pid) v.pids
+      in make_pid ?applied pid
+    in
     let text, stext =
       Printf.sprintf "%s" ch.service_name,
       Printf.sprintf "Провайдер: %s"  ch.provider_name in
-    let wl, sl = List.split @@ List.map make_pid ch.pids in
+    let wl, sl = List.split @@ List.map make ch.pids in
     let ch_s =
-      React.S.merge ~eq:(Equal.list Structure.equal_pid)
-        (fun a p -> p :: a) [] sl
+      sl
+      |> React.S.merge ~eq:(Equal.list Structure.equal_pid)
+           (fun a p -> match p with None -> a | Some p -> p :: a) []
+      (* TODO clear this abominable mess *)
       |> React.S.map ~eq:Structure.equal_channel
            (fun pl -> { ch with pids = pl }) in
     let nested = new Tree.t ~items:wl () in
     let e = new Tree.Item.t ~text ~secondary_text:stext ~nested ~value:() ()
     in e, ch_s
 
-  let make_structure (s : Structure.t) =
+  let make_structure ?(applied : Structure.t option) (s : Structure.packed) =
+    let make (chan : Structure.channel) =
+      let applied =
+        let open Option in
+        applied >>= fun v ->
+        List.find_opt (fun (c : Structure.channel) -> c.number = chan.number) v.channels 
+      in make_channel ?applied chan
+    in
     let text, stext =
       let h = Printf.sprintf "Поток: %s" (Stream.Source.to_string s.source.source.info)
       in h, (Printf.sprintf "ip: %s" @@ Url.to_string s.structure.uri) in
-    let wl, cl = List.split @@ List.map make_channel s.structure.channels in
+    let wl, cl = List.split @@ List.map make s.structure.channels in
     let st_s =
-      React.S.merge ~eq:(Equal.list Structure.equal_channel)
-        (fun a p -> p :: a) [] cl
-      |> React.S.map ~eq:Structure.equal_packed
-           (fun chl -> { s with structure = {s.structure with channels = chl }}) in
+      cl
+      |> React.S.merge ~eq:(Equal.list Structure.equal_channel)
+           (fun a p -> p :: a) []
+      |> React.S.map ~eq:Structure.equal
+           (fun chl -> { s.structure with channels = chl }) in
     let nested = new Tree.t ~items:wl () in
     let e = new Tree.Item.t ~text ~secondary_text:stext ~nested ~value:() ()
     in e, st_s
 
-  let make_structure_list (sl : Structure.t list) =
+  let make_structure_list (applied : Structure.t list) (sl : Structure.packed list) =
     match sl with
     | [] ->
        let ph =
@@ -72,28 +90,37 @@ module Structure = struct
            ~icon:Icon.SVG.(create_simple Path.information) () in
        ph#widget, React.S.const None
     | sl ->
+       let make (s : Structure.packed) =
+         let open Structure in
+         make_structure s
+           ?applied:(List.find_opt (fun x -> Url.equal x.uri s.structure.uri) applied)
+       in
        let eq = Equal.list Structure.equal in
-       let wl, sl = List.split @@ List.map make_structure sl in
+       let wl, sl = List.split @@ List.map make sl in
        let sl_s = React.S.merge ~eq (fun a p -> p :: a) [] sl in
        let lst = new Tree.t ~items:wl () in
        lst#widget, React.S.map ~eq:(Equal.option eq) Option.return sl_s
 
-  let make ~(init : Structure.t list)
-           ~(event : Structure.t list React.event)
-           () : (Structure.t list, unit) Ui_templates.Types.settings_block =
+  let make
+        ~(init_applied : Structure.t list)
+        ~(init : Structure.packed list)
+        ~(event_applied : Structure.t list React.event)
+        ~(event : Structure.packed list React.event)
+        () : (Structure.t list, unit) Ui_templates.Types.settings_block =
     let div = Widget.create_div () in
-    let make (str : Structure.t list) =
-      let dis, s = make_structure_list str in
+    let make (applied : Structure.t list) (str : Structure.packed list) =
+      let dis, s = make_structure_list applied str in
       let place = dis in
       place, s in
-    let s_in = React.S.hold ~eq:(Equal.list Structure.equal) init event in
+    let s_applied = React.S.hold ~eq:(Equal.list Structure.equal) init_applied event_applied in
+    let s_in      = React.S.hold ~eq:(Equal.list Structure.equal_packed) init event in
     let eq_s =
-      let eq = Equal.option @@ Equal.list Structure.equal_packed in
+      let eq = Equal.option @@ Equal.list Structure.equal in
       React.S.equal ~eq in
     let s_div =
-      React.S.map ~eq:(fun (w1, s1) (w2, s2) ->
+      React.S.l2 ~eq:(fun (w1, s1) (w2, s2) ->
           Widget.equal w1 w2 && eq_s s1 s2)
-        (fun s -> make s) s_in in
+        (fun applied s -> make applied s) s_applied s_in in
     let s =
       React.S.switch ~eq:(Equal.option @@ Equal.list Structure.equal)
         (React.S.map ~eq:eq_s (fun n ->
@@ -102,7 +129,7 @@ module Structure = struct
              div#append_child tree;
              n_s) s_div)
     in
-    let post = Requests_structure.HTTP.set in
+    let post = Requests_structure.HTTP.apply_streams in
     div, s, post
 
 end

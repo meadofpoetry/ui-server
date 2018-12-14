@@ -23,13 +23,13 @@ module WS = struct
          control
        |> fun (e, s) ->
           Some { event = e; close = fun () -> s##close }
-    (* | `Cpu (Some "pipeline") ->
-     *    let open Pipeline_js in
-     *    Requests_structure.WS.get_streams
-     *      ~inputs:[input]
-     *      ()
-     *    |> fun (e, s) ->
-     *       Some { event = e; close = fun () -> s##close } *)
+   (* | `Cpu (Some "pipeline") ->
+       let open Pipeline_js in
+       Requests_structure.WS.get_streams_with_source
+         ~inputs:[input]
+         ()
+       |> fun (e, s) ->
+          Some { event = e; close = fun () -> s##close }*)
     | _ -> None
 
 end

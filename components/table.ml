@@ -367,14 +367,14 @@ module Row = struct
            else
              begin match React.S.value s_selected with
              | [] -> ()
-             | l -> set_selected @@ List.remove ~eq:Equal.physical v l
+             | l -> set_selected @@ List.remove ~eq:Widget.equal v l
              end
         | Some `Multiple ->
            let l =
              if x
-             then List.add_nodup ~eq:Equal.physical (self :> 'a t)
+             then List.add_nodup ~eq:Widget.equal (self :> 'a t)
                     (React.S.value s_selected)
-             else List.remove ~eq:Equal.physical v (React.S.value s_selected)
+             else List.remove ~eq:Widget.equal v (React.S.value s_selected)
            in set_selected l
         | None -> ()
 

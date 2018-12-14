@@ -34,7 +34,6 @@ let pid_content_of_yojson = function
 
 type pid =
   { pid              : int
-  ; to_be_analyzed   : bool
   ; content          : pid_content
   ; stream_type      : int
   ; stream_type_name : string
@@ -47,83 +46,105 @@ type channel =
   ; pids          : pid list
   } [@@deriving yojson,eq]
 
-type structure =
+type t =
   { id       : Common.Stream.ID.t
   ; uri      : Common.Url.t
   ; channels : channel list
   } [@@deriving yojson,eq]
 
 type packed = { source    : Common.Stream.t
-              ; structure : structure
+              ; structure : t
               } [@@deriving yojson,eq]
-type t = packed [@@deriving eq]
 
-module Structures = struct
-  type t   = structure list [@@deriving yojson]
-  let name = "structures"
-  let default : t = []
-  let dump w = Yojson.Safe.to_string (to_yojson w)
-  let restore s = of_yojson (Yojson.Safe.from_string s)
+let pids =
+  List.fold_left (fun acc (s : t) ->
+      let channels = List.fold_left (fun acc c ->
+                         let pids = List.fold_left (fun acc p ->
+                                        (s.id, c.number, p.pid)::acc)
+                                      [] c.pids
+                         in pids @ acc)
+                       [] s.channels
+      in channels @ acc)
+    []
 
-  let rec find_list p = function
-    | [] -> []
-    | h::tl -> match p h with
-               | Some h -> h
-               | None -> find_list p tl
-                
-  let combine_pid ~changed ~updated ~applied ~set x =
-    match applied with
-    | None ->
-       if x.to_be_analyzed <> set.to_be_analyzed
-       then changed := true;
-       { x with to_be_analyzed = set.to_be_analyzed }
-    | Some applied ->
-       if applied.to_be_analyzed <> set.to_be_analyzed
-       then updated := true;
-       applied
+let unwrap f = function
+  | None -> []
+  | Some x -> f x
 
-  let combine_channel ~changed ~updated ~applied ~set x =
-    let rec combine_pids set_pids = function
-      | []    -> []
-      | h::tl ->
-         match List.find_opt (fun p -> h.pid = p.pid) set_pids with
-         | None   -> h :: (combine_pids set_pids tl)
-         | Some set ->
-            let applied = List.find_opt (fun p -> h.pid = p.pid) applied in
-            (combine_pid ~changed ~updated ~applied ~set h) :: (combine_pids set_pids tl)
-    in { x with pids = combine_pids set.pids x.pids }
+let filter_map f lst =
+  let rec fmap acc = function
+    | [] -> List.rev acc
+    | h::tl -> match f h with
+               | None -> fmap acc tl
+               | Some x -> fmap (x::acc) tl
+  in fmap [] lst
 
-  let combine_structure ~changed ~updated ~applied ~set x =
-    let rec combine_channels set_chans = function
-      | []    -> []
-      | h::tl ->
-         match List.find_opt (fun c -> h.number = c.number) set_chans with
-         | None -> h :: (combine_channels set_chans tl)
-         | Some set ->
-            let applied =
-              find_list (fun x -> if x.number = h.number then Some x.pids else None) applied
-            in
-            (combine_channel ~changed ~updated ~applied ~set h) :: (combine_channels set_chans tl)
-    in { x with channels = combine_channels set.channels x.channels }
+let cons_opt h tl = match h with
+  | Some h -> h::tl
+  | None -> tl
+
+let combine_pid ~changed ~applied ~set =
+  match applied with
+  | Some s -> s
+  | None ->
+     changed := true;
+     set
      
-  let combine ~set (applied, strs) =
-    let changed = ref false in
-    let updated = ref false in
-    let res = List.map (fun s -> match List.find_opt (fun x -> Common.Stream.ID.equal x.id s.id) set with
-                                 | None -> s
-                                 | Some set ->
-                                    let applied =
-                                      find_list (fun appl -> if Common.Stream.ID.equal appl.id s.id
-                                                             then Some appl.channels else None) applied
-                                    in
-                                    combine_structure ~changed ~updated ~applied ~set s)
-                strs
-    in match !changed, !updated with
-       | true, _ -> `Changed res
-       | _, true -> `Updated res
-       | _       -> `Kept strs
-end
-       
+let combine_channel ~changed ~applied ~set x =
+  let rec combine_pids set_pids = function
+    | []    -> []
+    | h::tl ->
+       let applied = List.find_opt (fun p -> h.pid = p.pid) applied in
+       match List.find_opt (fun p -> h.pid = p.pid) set_pids with
+       | None   -> cons_opt applied (combine_pids set_pids tl)
+       | Some set ->
+          (combine_pid ~changed ~applied ~set)
+          :: (combine_pids set_pids tl)
+  in match combine_pids set.pids x.pids with
+     | [] -> None
+     | p  -> Some { x with pids = p }
+   
+let combine_structure ~changed ~set ~applied x =
+  let get_settings_opt chan = List.find_opt (fun c -> chan.number = c.number) in
+  let rec combine_channels set_chans = function
+    | []    -> []
+    | h::tl ->
+       let applied =
+         List.find_opt (fun x -> x.number = h.number) applied
+       in
+       match get_settings_opt h set_chans with
+       | None -> cons_opt applied (combine_channels set_chans tl)
+       | Some set ->
+          let applied = unwrap (fun x -> x.pids) applied in
+          cons_opt
+            (combine_channel ~changed ~applied ~set h)
+            (combine_channels set_chans tl)
+  in match combine_channels set.channels x.channels with
+     | [] -> None
+     | c  -> Some { x with channels = c }
+
+let combine ~(set : t list) (applied, strs) =
+  let changed = ref false in
+  let get_settings_opt stream =
+    List.find_opt (fun x -> Common.Stream.ID.equal x.id stream.id)
+  in
+  let res =
+    filter_map (fun stream ->
+           let applied =
+             List.find_opt (fun appl -> Common.Stream.ID.equal appl.id stream.id) applied
+           in
+           match get_settings_opt stream set with
+           | None -> applied
+           | Some set ->
+              let applied = unwrap (fun x -> x.channels) applied in
+              combine_structure ~changed ~set ~applied stream)
+      strs
+  in
+  if !changed
+  then `Changed res
+  else `Kept applied
+
+(*
 module Streams = struct
   type t   = packed list [@@deriving yojson]
   let name = "streams"
@@ -132,23 +153,7 @@ module Streams = struct
   let unwrap : t -> structure list =
     List.map (fun { source; structure } -> structure )
 end
-
-let active_pids str =
-  let flat_filter (sl : structure list) =
-    List.fold_left (fun acc s ->
-        let l = List.fold_left (fun acc c ->
-                    let channel = c.number in
-                    let l = List.fold_left (fun acc p ->
-                                if p.to_be_analyzed
-                                then (s.id, channel, p.pid, p.to_be_analyzed)::acc
-                                else acc)
-                              [] c.pids in
-                    l @ acc)
-                  [] s.channels in
-        l @ acc) [] sl
-  in
-  flat_filter str
-
+ 
 let appeared_pids ~past ~pres =
   let flat (sl : structure list) =
     List.fold_left (fun acc s ->
@@ -175,3 +180,19 @@ let appeared_pids ~past ~pres =
                      if tba && not_in_or_diff pres past
                      then pres::acc else acc) [] pres in
   appeared
+ *)
+
+                
+module Many = struct
+  type nonrec t = t list
+  let name = "structures"
+  let default : t = []
+  let to_yojson l = `List (List.map to_yojson l)
+  let of_yojson = function
+    | `List l -> begin try Ok (List.map (fun x -> let [@warning "-8"] Ok res = of_yojson x in res) l)
+                       with _ -> Error "Structure.List.of_yojson"
+                 end
+    | _ -> Error "Structure.List.of_yojson"
+  let dump w = Yojson.Safe.to_string (to_yojson w)
+  let restore s = of_yojson (Yojson.Safe.from_string s)
+end

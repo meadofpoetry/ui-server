@@ -116,10 +116,10 @@ let filter (src : data_source) (filter : data_filter list) : bool =
  *       } in
  *     [src, [point]] *)
 
-let data_source_to_string (structures : Structure.t list)
+let data_source_to_string (structures : Structure.packed list)
       (src : data_source) : string =
   let open Structure in
-  match List.find_opt (fun (x : t) ->
+  match List.find_opt (fun (x : packed) ->
             Stream.ID.equal x.source.id src.stream) structures with
   | None -> ""
   | Some { structure = { channels; _ }; source } ->
@@ -240,7 +240,7 @@ let typ_to_unit_string : labels -> string = function
  *   List.mapi map sources *)
 
 class t ~(init : 'a list)
-        ~(structures : Structure.t list React.signal)
+        ~(structures : Structure.packed list React.signal)
         ~(config : widget_config)
         () =
   (* let x_axis = make_x_axis config in
@@ -291,7 +291,7 @@ class t ~(init : 'a list)
 
     (* Private methods *)
 
-    method private update_structures (structures : Structure.t list) : unit =
+    method private update_structures (structures : Structure.packed list) : unit =
       List.iter (fun (src, ds) ->
           let label = data_source_to_string structures src in
           ds#set_label label) _datasets

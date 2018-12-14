@@ -17,18 +17,22 @@ let make_streams (cpu : Topology.topo_cpu) () =
   |> Lwt_result.map_err Api_js.Requests.err_to_string
 
 let make_structure () =
-  Pipeline_js.Requests_structure.HTTP.get ()
+  Pipeline_js.Requests_structure.HTTP.get_streams_with_source ()
   >>= (fun init ->
-    let event, sock = Pipeline_js.Requests_structure.WS.get () in
-    let w, s, set = Pipeline_js.Ui.Structure.make ~init ~event () in
-    let apply = new Ui_templates.Buttons.Set.t s set () in
-    let buttons = new Card.Actions.Buttons.t ~widgets:[apply] () in
-    let actions = new Card.Actions.t ~widgets:[buttons] () in
-    let box = new Vbox.t ~widgets:[w; actions#widget] () in
-    box#set_on_destroy (fun () ->
-        React.E.stop ~strong:true event;
-        sock##close);
-    Lwt_result.return box#widget)
+    Pipeline_js.Requests_structure.HTTP.get_applied () >>= (fun init_applied ->
+         let event, sock = Pipeline_js.Requests_structure.WS.get_streams_with_source () in
+         let event_applied, sock_applied =  Pipeline_js.Requests_structure.WS.get_applied () in
+         let w, s, set = Pipeline_js.Ui.Structure.make
+                           ~init ~init_applied ~event ~event_applied () in
+         let apply = new Ui_templates.Buttons.Set.t s set () in
+         let buttons = new Card.Actions.Buttons.t ~widgets:[apply] () in
+         let actions = new Card.Actions.t ~widgets:[buttons] () in
+         let box = new Vbox.t ~widgets:[w; actions#widget] () in
+         box#set_on_destroy (fun () ->
+             React.E.stop ~strong:true event;
+             sock_applied##close;
+             sock##close);
+         Lwt_result.return box#widget))
   |> Lwt_result.map_err Api_js.Requests.err_to_string
 
 let make_settings () =

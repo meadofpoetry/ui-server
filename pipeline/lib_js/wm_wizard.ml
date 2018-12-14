@@ -61,31 +61,31 @@ module Positioning = struct
   let video_position ~(cont_pos : Wm.position) ~audio : Wm.position =
     match audio with
     | `With_audio ->
-      { left   = cont_pos.left
-      ; top    = cont_pos.top
-      ; right  = cont_pos.right - soundbar_ch_w * channels
-      ; bottom = cont_pos.bottom
+      { left   = 0
+      ; top    = 0
+      ; right  = cont_pos.right - cont_pos.left - soundbar_ch_w * channels
+      ; bottom = cont_pos.bottom - cont_pos.top
       }
     | `Without_audio ->
-      { left   = cont_pos.left
-      ; top    = cont_pos.top
-      ; right  = cont_pos.right
-      ; bottom = cont_pos.bottom
+      { left   = 0
+      ; top    = 0
+      ; right  = cont_pos.right - cont_pos.left
+      ; bottom = cont_pos.bottom - cont_pos.top
       }
 
   let audio_position ~(cont_pos : Wm.position) ~video : Wm.position =
     match video with
     | `With_video ->
-      { left   = cont_pos.right - soundbar_ch_w * channels
-      ; top    = cont_pos.top
-      ; right  = cont_pos.right
-      ; bottom = cont_pos.bottom
+      { left   = cont_pos.right - cont_pos.left - soundbar_ch_w * channels
+      ; top    = 0
+      ; right  = cont_pos.right - cont_pos.left
+      ; bottom = cont_pos.bottom - cont_pos.top
       }
     | `Without_video ->
-      { left   = cont_pos.left
-      ; top    = cont_pos.top
-      ; right  = cont_pos.right
-      ; bottom = cont_pos.bottom
+      { left   = 0
+      ; top    = 0
+      ; right  = cont_pos.right - cont_pos.left
+      ; bottom = cont_pos.bottom - cont_pos.top
       }
 
   let get_items_in_row ~(resolution : int * int) ~(item_ar : int * int) num =
@@ -156,7 +156,7 @@ module Positioning = struct
                                  ; right = left + new_w
                                  ; bottom = top + new_h
                         } in
-        { widget with position }
+        { widget with position = Some position }
       else
         widget
     | None -> widget
@@ -174,7 +174,7 @@ module Positioning = struct
     let y    = cpos.y + ((cpos.h - wpos.h) / 2) in
     let pos  = { wpos with x ; y }
                |> Utils.of_grid_position in
-    { widget with position = pos }
+    { widget with position = Some pos }
 
 end
 
@@ -316,7 +316,7 @@ module Create = struct
         match video with
         | Some _ -> Positioning.audio_position ~video:`With_video ~cont_pos
         | None   -> Positioning.audio_position ~video:`Without_video ~cont_pos in
-      Some (fst audio, {(snd audio) with position = audio_pos})
+      Some (fst audio, {(snd audio) with position = Some audio_pos})
     | None -> None
 
 end
@@ -412,7 +412,7 @@ let to_layout ~resolution ~widgets signal =
 
 let to_content (wm : Wm.t) push =
   let open Lwt_result.Infix in
-  Requests_structure.HTTP.get ()
+  Requests_structure.HTTP.get_applied_with_source ()
   >|= (fun init ->
       let open Wm in
       let widgets = List.filter_map (fun (name, (widget : widget)) ->
@@ -421,7 +421,7 @@ let to_content (wm : Wm.t) push =
             Some ((name, widget),
                   ({ stream; channel } : channel))
           | (Nihil : domain) -> None) wm.widgets in
-      let ev, _  = Requests_structure.WS.get () in
+      let ev, _  = Requests_structure.WS.get_applied_with_source () in
       let struct_signal = React.S.hold init ev in
       let checkboxes, tree = Branches.make_streams widgets struct_signal in
       let box = new Vbox.t ~widgets:[tree#widget] () in

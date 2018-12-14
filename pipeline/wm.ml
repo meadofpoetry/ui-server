@@ -68,7 +68,7 @@ type widget =
   { type_       : widget_type [@key "type"]
   ; domain      : domain
   ; pid         : int option
-  ; position    : position
+  ; position    : position option
   ; layer       : int
   ; aspect      : ((int * int) option [@default None])
   ; description : string
@@ -85,12 +85,19 @@ type t =
   ; layout     : (string * container) list
   } [@@deriving yojson, eq]
 
-let update _ b = b
+type annotated =
+  { resolution : int * int
+  ; widgets    : (string * state * widget) list
+  ; layout     : (string * state * container) list
+  } [@@deriving yojson, eq]
+and state = [`Absent | `Presented]
+  
+let update _ (b : t) = b
 
-let default = { resolution = 1280, 720
-              ; widgets   = []
-              ; layout    = []
-              }
+let default : t = { resolution = 1280, 720
+                  ; widgets   = []
+                  ; layout    = []
+                  }
 
 let aspect_to_string = function
   | None -> "none"
@@ -100,7 +107,7 @@ let dump w = Yojson.Safe.to_string (to_yojson w)
 
 let restore s = of_yojson (Yojson.Safe.from_string s)
 
-let combine ~set wm =
+let combine ~(set : t) (wm : t) =
   let changed = ref false in
   let rec filter_container = function
     | []        -> []
