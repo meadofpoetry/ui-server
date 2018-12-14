@@ -95,7 +95,7 @@ module Pids = struct
         | Some cell ->
            pids_box#remove_child cell;
            cell#destroy ();
-           _pids <- List.remove ~eq:Widget.equal cell _pids
+           _pids <- List.remove ~eq:Widget.equal ~x:cell _pids
 
     end
 

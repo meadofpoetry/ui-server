@@ -9,7 +9,7 @@ type container_grids =
   { rect : Wm.position
   ; grids : (int * int) list
   }
-(*
+
 let pos_absolute_to_relative
       (pos : Wm.position)
       (cont_pos : Wm.position) : Wm.position =
@@ -27,7 +27,7 @@ let pos_relative_to_absolute
   ; top = pos.top + cont_pos.top
   ; bottom = pos.bottom + cont_pos.top
   }
- *)
+
 let get_bounding_rect (positions : Wm.position list) : Wm.position =
   let open Wm in
   match positions with
@@ -95,10 +95,9 @@ let resize_container (p : Wm.position) (t : Wm.container wm_item) =
   let resolution = p.right - p.left, p.bottom - p.top in
   let widgets =
     resize ~resolution
-      ~to_position:(fun (_, (x : Wm.widget)) -> Option.get_exn x.position)
-      ~f:(fun pos (s, (x : Wm.widget)) -> s, { x with position = Some pos })
-      (List.filter (fun (_, (w : Wm.widget)) -> Option.is_some w.position) t.item.widgets)
-      (* TODO cleanup the the mess induced by relative widget position *)
+      ~to_position:(fun (_, (x : Wm.widget)) -> x.position)
+      ~f:(fun pos (s, (x : Wm.widget)) -> s, { x with position = pos })
+      t.item.widgets
   in
   { t with item = { t.item with position = p; widgets }}
 
@@ -160,14 +159,13 @@ module Widget_item : Item with type item = Wm.widget = struct
     |> List.sort compare
     |> (fun l -> if List.is_empty l then [0] else l)
 
-  (* TODO check if this invarian always holds *)
-  let position_of_t (t : t) = Option.get_exn t.item.position
+  let position_of_t (t : t) = t.item.position
 
   let update_layer (t : t) (layer : int) =
     { t with item = { t.item with layer } }
 
   let update_position (t : t) (p : Wm.position) =
-    { t with item = { t.item with position = Some p }}
+    { t with item = { t.item with position = p }}
 
   let make_item_name (t : t) _ =
     let typ =
@@ -185,17 +183,17 @@ end
 
 module Cont = Wm_editor.Make(Wm_container.Container_item)
 module Widg = Wm_editor.Make(Widget_item)
-(*
+
 let serialize ~(cont : Cont.t) () : (string * Wm.container) list =
   List.map (fun (n, (v : Wm.container)) ->
       let widgets =
         List.map (fun (s,(w:Wm.widget)) ->
             let position = pos_relative_to_absolute w.position v.position in
-            let nw = { w with position = Some position } in
+            let nw = { w with position } in
             s, nw) v.widgets in
       n, { v with widgets })
     cont.ig#layout_items
- *)
+
 let get_free_widgets containers widgets =
   let used = List.fold_left (fun acc (_, (x : Wm.container)) ->
                  x.widgets @ acc) [] containers in
@@ -319,6 +317,13 @@ let create ~(init: Wm.t)
    * let row = new Toolbar.Row.t ~sections:[ actions ] () in
    * toolbar#append_child row; *)
   (* Convert widgets positions to relative *)
+  let conv p =
+    List.map (fun (n,(v:Wm.widget)) ->
+        n, { v with position = pos_absolute_to_relative v.position p }) in
+  let layout =
+    List.map (fun (n,(v:Wm.container)) ->
+        let widgets = conv v.position v.widgets in
+        n, { v with widgets }) init.layout in
   let wc =
     List.map Widget_item.t_of_layout_item
     @@ get_free_widgets init.layout init.widgets in
@@ -371,7 +376,7 @@ let create ~(init: Wm.t)
     List.iter (fun x -> Wm_editor.remove ~eq s_wc s_wc_push x) ws in
   let cont =
     Cont.make ~title
-      ~init:(List.map Container_item.t_of_layout_item init.layout)
+      ~init:(List.map Container_item.t_of_layout_item layout)
       ~candidates:s_cc
       ~set_candidates:s_cc_push
       ~resolution
@@ -400,7 +405,7 @@ let create ~(init: Wm.t)
   save#listen_click_lwt (fun _ _ ->
       post { resolution = cont.ig#resolution
            ; widgets = init.widgets
-           ; layout = cont.ig#layout_items (*serialize ~cont ()*) })
+           ; layout = serialize ~cont () })
   |> Lwt.ignore_result;
   (* size#listen_click_lwt (fun _ _ ->
    *     let open Lwt.Infix in
@@ -413,14 +418,18 @@ let create ~(init: Wm.t)
    * |> Lwt.ignore_result; *)
   let _ =
     React.E.map (fun l ->
+        let layout =
+          List.map (fun (n, (v : Wm.container)) ->
+              let widgets = conv v.position v.widgets in
+              n, { v with widgets }) l in
         let layers = Container_item.layers_of_t_list
-                     @@ List.map Container_item.t_of_layout_item l in
+                     @@ List.map Container_item.t_of_layout_item layout in
         cont.rt#initialize_layers layers;
         s_wc_push
         @@ List.map Widget_item.t_of_layout_item
-        @@ get_free_widgets l init.widgets;
+        @@ get_free_widgets layout init.widgets;
         cont.ig#initialize init.resolution
-        @@ List.map Container_item.t_of_layout_item l) wz_e in
+        @@ List.map Container_item.t_of_layout_item layout) wz_e in
   let open Layout_grid in
   let lc = new Cell.t
              ~span_desktop:1
@@ -455,12 +464,12 @@ class t () = object(self)
   inherit Layout_grid.t ~cells:[] () as super
 
   method private on_load () =
-    Requests_wm.HTTP.get_layout ()
+    Requests_wm.HTTP.get ()
     >>= (fun wm ->
       let e_wm, wm_sock = Requests_wm.WS.get () in
       let post = fun w ->
         Lwt.Infix.(
-          Requests_wm.HTTP.apply_layout w
+          Requests_wm.HTTP.set w
           >|= (function
                | Ok () -> ()
                | Error _ -> print_endline @@ "error post wm")) in

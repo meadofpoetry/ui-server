@@ -253,7 +253,7 @@ class t ?(settings : Settings.t option)
                        cell#value = pid) rows with
              | Some x ->
                 update_row x total br pid |> ignore;
-                List.remove ~eq:Equal.physical x rows
+                List.remove ~eq:Equal.physical ~x rows
              | None -> rows) table#rows pids
          |> ignore
 
