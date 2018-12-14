@@ -240,7 +240,7 @@ let typ_to_unit_string : labels -> string = function
  *   List.mapi map sources *)
 
 class t ~(init : 'a list)
-        ~(structures : Structure.t list React.signal)
+        ~(structures : Structure.packed list React.signal)
         ~(config : widget_config)
         () =
   (* let x_axis = make_x_axis config in

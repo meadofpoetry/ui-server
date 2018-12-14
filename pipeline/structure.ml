@@ -189,7 +189,7 @@ module Many = struct
   let default : t = []
   let to_yojson l = `List (List.map to_yojson l)
   let of_yojson = function
-    | `List l -> begin try Ok (List.map (fun x -> let Ok res = of_yojson x in res) l)
+    | `List l -> begin try Ok (List.map (fun x -> let [@warning "-8"] Ok res = of_yojson x in res) l)
                        with _ -> Error "Structure.List.of_yojson"
                  end
     | _ -> Error "Structure.List.of_yojson"

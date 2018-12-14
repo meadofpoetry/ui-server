@@ -60,7 +60,7 @@ class actions ~(items : Fab.t list) () =
       | None -> ()
       | Some x ->
          self#remove_child x;
-         _items <- List.remove ~eq:Widget.equal ~x self#items
+         _items <- List.remove ~eq:Widget.equal x self#items
 
     method private wrap_action (x : Fab.t) : action =
       x#set_mini true;

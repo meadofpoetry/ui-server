@@ -123,9 +123,9 @@ let select_errors db ?(streams = [])
     let (data : (ID.t * Error.t list) list ) =
       List.fold_left (fun acc (id, x) ->
           List.Assoc.update ~eq:Stream.ID.equal
-            ~f:(function
-              | None -> Some [x]
-              | Some l -> Some (x :: l))
+            (function
+             | None -> Some [x]
+             | Some l -> Some (x :: l))
             id acc) [] data in
     return (Raw { data
                 ; has_more = List.length data >= limit
