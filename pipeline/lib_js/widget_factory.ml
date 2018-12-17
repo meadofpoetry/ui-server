@@ -26,20 +26,20 @@ object(self)
          structures
          >|= (fun structures ->
            let chart = new t ~init:[] ~structures ~config () in
-           (* begin match typ_to_content config.typ with
-            * | `Video ->
-            *    let video_data = self#get_video_data () in
-            *    React.E.map (fun data ->
-            *        let data = convert_video_data config data in
-            *        chart#append_data data) video_data
-            *    |> React.E.keep;
-            * | `Audio ->
-            *    let audio_data = self#get_audio_data () in
-            *    React.E.map (fun data ->
-            *        let data = convert_audio_data config data in
-            *        chart#append_data data) audio_data
-            *    |> React.E.keep;
-            * end; *)
+           begin match typ_to_content config.typ with
+           | `Video ->
+              let video_data = self#get_video_data () in
+              React.E.map (fun data ->
+                  let data = convert_video_data config data in
+                  chart#append_data data) video_data
+              |> React.E.keep;
+           | `Audio ->
+              let audio_data = self#get_audio_data () in
+              React.E.map (fun data ->
+                  let data = convert_audio_data config data in
+                  chart#append_data data) audio_data
+              |> React.E.keep;
+           end;
            chart) in
        let w = Ui_templates.Loader.create_widget_loader t in
        Dashboard.Item.make_item
