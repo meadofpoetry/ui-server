@@ -224,12 +224,15 @@ let make_y_axis ?(id = "y-axis") (config : widget_config) : Chartjs.Scales.t =
 
 let make_options ~x_axes ~y_axes : Chartjs.Options.t =
   let scales = Chartjs.Scales.make ~x_axes ~y_axes () in
+  let plugins = Chartjs.Options.Plugins.make () in
+  Chartjs_datalabels.Per_chart.set plugins None;
   let options =
     Chartjs.Options.make
       ~scales
       ~responsive_animation_duration:0
       ~maintain_aspect_ratio:false
       ~responsive:true
+      ~plugins
       () in
   (* options#animation#set_duration 0;
    * options#hover#set_animation_duration 0; *)
@@ -295,6 +298,8 @@ class t ~(init : 'a list)
 
     method append_data (data : data) : unit =
       List.iter (fun (src, (data : Point.t list)) ->
+          let data = List.sort (fun (a : Point.t) (b : Point.t) ->
+                         Ptime.compare a.x b.x) data in
           match List.Assoc.get ~eq:equal_data_source src _datasets with
           | None ->
              begin match config.sources with
@@ -310,9 +315,9 @@ class t ~(init : 'a list)
              | _ -> ()
              end
           | Some (ds : Dataset.t) ->
+             let data' = Dataset.data ds in
              List.iter (fun (point : Point.t) ->
-                 let data = Dataset.data ds in
-                 let (_ : int) = Dataset.Values.push data [point] in
+                 let (_ : int) = Dataset.Values.push data' [point] in
                  ()) data;
              Chartjs.update chart None) data
 
