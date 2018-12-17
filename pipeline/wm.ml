@@ -58,9 +58,9 @@ type background = (* NOTE incomplete *)
   { color : int } [@@deriving yojson]
 
 type position =
-  { left   : int
-  ; top    : int
-  ; right  : int
+  { left : int
+  ; top : int
+  ; right : int
   ; bottom : int
   } [@@deriving yojson, eq]
 

@@ -2,7 +2,8 @@
   (name        pipeline_js)
   ;(public_name pipeline_js)
   (synopsis    "pipeline js api")
-  (libraries   containers yojson api_js common components janus chartjs ui_templates)
+  (libraries   containers yojson api_js common components janus ui_templates
+               chartjs chartjs.streaming)
   (flags      (:standard -short-paths -strict-sequence -bin-annot
                -w A+1..49+60-4-39-40-41-42-44-45-48))
   (js_of_ocaml (flags (:standard --opt 3)))

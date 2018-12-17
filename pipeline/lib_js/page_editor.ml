@@ -308,15 +308,12 @@ let switch ~grid
  *            ; widgets
  *            }
  *        } : t)
- *     ) domains *)
+ *     ) domains
+ *)
 
-let create ~(init: Wm.t)
-      ~(post: Wm.t -> unit Lwt.t)
+let create ~(init : Wm.t)
+      ~(post : Wm.t -> unit Lwt.t)
       () =
-  (* let toolbar = Ui_templates.Page.get_toolbar () in
-   * let actions = new Toolbar.Row.Section.t ~align:`Start ~widgets:[] () in
-   * let row = new Toolbar.Row.t ~sections:[ actions ] () in
-   * toolbar#append_child row; *)
   (* Convert widgets positions to relative *)
   let wc =
     List.map Widget_item.t_of_layout_item
@@ -330,40 +327,30 @@ let create ~(init: Wm.t)
      ; min_size = None
      ; item =
          { position = { left = 0; right = 0; top = 0; bottom = 0 }
-         ; widgets  = []
+         ; widgets = []
          }
      } : Container_item.t) in
   let containers = [new_cont] in
-    (* match make_containers init.widgets with
-     * | [] -> [new_cont]
-     * | l  -> new_cont ::
-       l in *)
   let s_cc, s_cc_push = React.S.create containers in
   let wz_e, wz_push = React.E.create () in
   let wz_dlg, wz_show = Wm_wizard.to_dialog init wz_push in
   let resolution = init.resolution in
   let s_state, s_state_push = React.S.create `Container in
   let title = "Контейнеры" in
-  let open Wm_left_toolbar in
   let wizard =
-    make_action
+    Wm_left_toolbar.make_action
       { icon = Icon.SVG.(create_simple Path.auto_fix)#widget
       ; name = "Авто" } in
   let edit =
-    make_action
+    Wm_left_toolbar.make_action
       { icon = Icon.SVG.(create_simple Path.pencil)#widget
       ; name = "Редактировать" } in
   let save =
-    make_action
+    Wm_left_toolbar.make_action
       { icon = Icon.SVG.(create_simple Path.content_save)#widget
       ; name = "Сохранить" } in
-  (* let size =
-   *   make_action
-   *     { icon = Icon.SVG.(create_simple Path.aspect_ratio)#widget
-   *     ; name = "Разрешение" } in *)
   wizard#listen_click_lwt (fun _ _ -> wz_show ()) |> Lwt.ignore_result;
-  let size_dlg = Wm_resolution_dialog.make () in
-  let on_remove = fun (t:Wm.container wm_item) ->
+  let on_remove = fun (t : Wm.container wm_item) ->
     let eq = Widget_item.equal in
     let ws = List.map Widget_item.t_of_layout_item t.item.widgets in
     List.iter (fun x -> Wm_editor.remove ~eq s_wc s_wc_push x) ws in
@@ -374,7 +361,7 @@ let create ~(init: Wm.t)
       ~set_candidates:s_cc_push
       ~resolution
       ~on_remove
-      ~actions:[save; wizard;(* size;*) edit]
+      ~actions:[save; wizard; edit]
       () in
   (* FIXME store events and signals *)
   let _ =
@@ -400,15 +387,6 @@ let create ~(init: Wm.t)
            ; widgets = init.widgets
            ; layout = cont.ig#layout_items (*serialize ~cont ()*) })
   |> Lwt.ignore_result;
-  (* size#listen_click_lwt (fun _ _ ->
-   *     let open Lwt.Infix in
-   *     size_dlg#show_await_resolution cont.ig#resolution
-   *     >|= function
-   *     | None -> ()
-   *     | Some r ->
-   *        let new_layout = resize_layout ~resolution:r cont.ig#items in
-   *        cont.ig#initialize r new_layout)
-   * |> Lwt.ignore_result; *)
   let _ =
     React.E.map (fun l ->
         let layers = Container_item.layers_of_t_list
@@ -419,22 +397,27 @@ let create ~(init: Wm.t)
         @@ get_free_widgets l init.widgets;
         cont.ig#initialize init.resolution
         @@ List.map Container_item.t_of_layout_item l) wz_e in
-  let open Layout_grid in
-  let lc = new Cell.t
-             ~span_desktop:1
-             ~span_tablet:1
-             ~span_phone:4
-             ~widgets:[] () in
-  let mc = new Cell.t
-             ~span_desktop:8
-             ~span_tablet:7
-             ~span_phone:4
-             ~widgets:[] () in
-  let rc = new Cell.t
-             ~span_desktop:3
-             ~span_tablet:8
-             ~span_phone:4
-             ~widgets:[] () in
+  let lc =
+    new Layout_grid.Cell.t
+      ~span_desktop:1
+      ~span_tablet:1
+      ~span_phone:4
+      ~widgets:[]
+      () in
+  let mc =
+    new Layout_grid.Cell.t
+      ~span_desktop:8
+      ~span_tablet:7
+      ~span_phone:4
+      ~widgets:[]
+      () in
+  let rc =
+    new Layout_grid.Cell.t
+      ~span_desktop:3
+      ~span_tablet:8
+      ~span_phone:4
+      ~widgets:[]
+      () in
   let add_to_view lt ig rt =
     lc#set_empty (); lc#append_child lt;
     mc#set_empty (); mc#append_child ig;
@@ -445,7 +428,6 @@ let create ~(init: Wm.t)
         | `Container -> add_to_view cont.lt cont.ig cont.rt)
       s_state in
   cont.ig#append_child wz_dlg;
-  cont.ig#append_child size_dlg;
   [lc; mc; rc]
 
 class t () = object(self)
@@ -471,7 +453,12 @@ class t () = object(self)
       let _ =
         React.S.map (fun (s : Wm.t) ->
             self#inner#set_empty ();
-            let cells = create ~init:s ~post () in
+            let cells =
+              try
+                create ~init:s ~post ()
+              with e ->
+                Printf.printf "error: %s\n" @@ Printexc.to_string e;
+                [] in
             List.iter self#inner#append_child cells)
           (React.S.hold wm e_wm) in
       sock <- Some wm_sock;

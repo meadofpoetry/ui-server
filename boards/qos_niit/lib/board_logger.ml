@@ -19,7 +19,7 @@ module Make(Logs : Logs.LOG) = struct
                           (snd error.pid) in
           let pid =
             { typ = Option.map (fun (x : Pid.info) ->
-                        Pid.typ_to_string x.typ)
+                        Mpeg_ts.Pid.Type.to_string x.typ)
                       (snd error.pid)
             ; id = fst error.pid
             } in

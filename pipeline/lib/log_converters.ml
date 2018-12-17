@@ -18,7 +18,7 @@ module Video = struct
     in
     let input     = Common.Stream.get_input stream in
     let stream    = Some x.stream in
-    let service   =
+    let info      =
       let open Option.Infix in
       let open Structure in
       React.S.value structures
@@ -26,10 +26,18 @@ module Video = struct
       >>= fun s ->
       List.find_opt (fun channel -> channel.number = x.channel) s.channels
       >>= fun ch ->
-      Some ch.service_name
+      let service_name = ch.service_name in
+      List.find_opt (fun (pid : pid) -> pid.pid = x.pid) ch.pids
+      >>= fun pid -> Some (service_name, pid.stream_type)
     in
-    let pid       = Some { typ = Some (Printf.sprintf "%d-PES" x.pid)
-                         ; id  = x.pid } in
+    let service = Option.map fst info in
+    let stream_type = Option.map snd info in
+    let typ       = Option.map (fun x ->
+                        Common.Mpeg_ts.Pid.Type.to_string
+                        @@ PES { stream_type = x
+                               ; stream_id = 0 })
+                      stream_type in
+    let pid       = Some { typ; id  = x.pid } in
     let node      = Some (Cpu "Анализатор QoE") in
     let level     = Err in
     let info      = "" in
@@ -81,7 +89,7 @@ module Audio = struct
     in
     let input     = Common.Stream.get_input stream in
     let stream    = Some x.stream in
-    let service   =
+    let info      =
       let open Option.Infix in
       let open Structure in
       React.S.value structures
@@ -89,10 +97,18 @@ module Audio = struct
       >>= fun s ->
       List.find_opt (fun channel -> channel.number = x.channel) s.channels
       >>= fun ch ->
-      Some ch.service_name
+      let service_name = ch.service_name in
+      List.find_opt (fun (pid : pid) -> pid.pid = x.pid) ch.pids
+      >>= fun pid -> Some (service_name, pid.stream_type)
     in
-    let pid       = Some { typ = Some (Printf.sprintf "%d-PES" x.pid)
-                         ; id  = x.pid } in
+    let service = Option.map fst info in
+    let stream_type = Option.map snd info in
+    let typ       = Option.map (fun x ->
+                        Common.Mpeg_ts.Pid.Type.to_string
+                        @@ PES { stream_type = x
+                               ; stream_id = 0 })
+                      stream_type in
+    let pid       = Some { typ; id  = x.pid } in
     let node      = Some (Cpu "Анализатор QoE") in
     let level     = Err in
     let info      = "" in

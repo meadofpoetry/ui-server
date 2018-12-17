@@ -277,21 +277,20 @@ module Make(Logs:Logs.LOG) = struct
     let of_es_block (msg : Cstruct.t) : Service.element list =
       let iter = Cstruct.iter (fun _ -> Some 4) (fun buf -> buf) msg in
       Cstruct.fold (fun acc x ->
-          let open Pid in
           let pid = (get_es_struct_block_pid x) land 0x1FFF in
           let info =
-            PES { stream_type = get_es_struct_block_es_type x
-                ; stream_id = get_es_struct_block_es_stream_id x } in
+            Mpeg_ts.Pid.Type.PES
+              { stream_type = get_es_struct_block_es_type x
+              ; stream_id = get_es_struct_block_es_stream_id x } in
           (pid, info) :: acc) iter []
       |> List.rev
 
     let of_ecm_block (msg : Cstruct.t) : Service.element list =
       let iter = Cstruct.iter (fun _ -> Some 4) (fun buf -> buf) msg in
       Cstruct.fold (fun acc x ->
-          let open Pid in
           let pid = (get_ecm_struct_block_pid x) land 0x1FFF in
           let ca_sys_id = get_ecm_struct_block_ca_system_id x in
-          let info = ECM { ca_sys_id } in
+          let info = Mpeg_ts.Pid.Type.ECM { ca_sys_id } in
           (pid, info) :: acc)
         iter []
       |> List.rev
@@ -394,7 +393,7 @@ module Make(Logs:Logs.LOG) = struct
       then Some (pid, { info with typ = Null }) else None
 
     let find_in_elements ((pid, _) : Pid.t)
-          (elements : Service.element list) : Pid.typ option =
+          (elements : Service.element list) : Mpeg_ts.Pid.Type.t option =
       List.find_map (fun ((pid', info) : Service.element) ->
           if pid' = pid then Some info else None)
         elements
@@ -428,7 +427,7 @@ module Make(Logs:Logs.LOG) = struct
       |> (function
           | [ ] -> None
           | [(id, info)] ->
-             let open Pid in
+             let open Mpeg_ts.Pid.Type in
              begin match Mpeg_ts.table_of_int id.table_id with
              | `PMT -> Some (info.service_id, info.service_name, SEC [id.table_id])
              | _ -> Some (None, None, SEC [id.table_id])

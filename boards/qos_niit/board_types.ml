@@ -185,21 +185,6 @@ module Pid = struct
 
   type t = id * info
   and id = int
-  and typ =
-    | SEC of int list
-    | PES of pes
-    | ECM of ecm
-    | EMM of emm
-    | Private
-    | Null
-  and emm =
-    { ca_sys_id : int
-    }
-  and ecm = emm
-  and pes =
-    { stream_type : int
-    ; stream_id : int
-    }
   and info =
     { has_pts : bool
     ; has_pcr : bool
@@ -207,27 +192,14 @@ module Pid = struct
     ; present : bool
     ; service_id : int option
     ; service_name : string option [@default None]
-    ; typ : typ [@key "type"]
+    ; typ : Mpeg_ts.Pid.Type.t [@key "type"]
     } [@@deriving yojson, eq, show, ord]
-
-  let typ_to_string : typ -> string = function
-    | SEC l ->
-       let s = List.map CCFun.(Mpeg_ts.(table_to_string % table_of_int)) l
-               |> String.concat ", " in
-       "SEC -> " ^ s
-    | PES x ->
-       let s = Mpeg_ts.stream_type_to_string x.stream_type in
-       "PES -> " ^ s
-    | ECM x -> "ECM -> " ^ (string_of_int x.ca_sys_id)
-    | EMM x -> "EMM -> " ^ (string_of_int x.ca_sys_id)
-    | Null -> "Null"
-    | Private -> "Private"
 
 end
 
 module Service = struct
 
-  type element = int * Pid.typ [@@deriving yojson, eq]
+  type element = int * Mpeg_ts.Pid.Type.t [@@deriving yojson, eq]
 
   type t = id * info
   and id = int
@@ -539,7 +511,7 @@ type pids =
 type services =
   (Stream.ID.t * (Service.t list Time.timestamped)) list [@@deriving yojson, eq]
 type elements =
-  (Stream.ID.t * ((int * int) * Pid.typ) list Time.timestamped) list [@@deriving yojson, eq]
+  (Stream.ID.t * ((int * int) * Mpeg_ts.Pid.Type.t) list Time.timestamped) list [@@deriving yojson, eq]
 type tables =
   (Stream.ID.t * (SI_PSI_table.t list Time.timestamped)) list [@@deriving yojson, eq]
 type sections =

@@ -11,7 +11,7 @@ let typ : (ID.t * Pid.t Time.timespan) Caqti_type.t =
                  & bool & bool & bool & bool
                  & ptime & ptime))
     ~encode:(fun (id, ({ from; till; data = (pid, data) } : Pid.t Time.timespan)) ->
-      let typ = Pid.typ_to_yojson data.typ |> Yojson.Safe.to_string in
+      let typ = Mpeg_ts.Pid.Type.to_yojson data.typ |> Yojson.Safe.to_string in
       Ok (ID.to_db id,
           (pid,
            (data.service_id,
@@ -30,7 +30,7 @@ let typ : (ID.t * Pid.t Time.timespan) Caqti_type.t =
                        (scrambled,
                         (present,
                          (from, till))))))))) ->
-      match Pid.typ_of_yojson @@ Yojson.Safe.from_string typ with
+      match Mpeg_ts.Pid.Type.of_yojson @@ Yojson.Safe.from_string typ with
       | Error e -> Error e
       | Ok typ ->
          Ok (let (data : Pid.info) =

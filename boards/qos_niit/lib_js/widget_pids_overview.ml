@@ -85,24 +85,10 @@ let update_row row total br =
    | Some v -> if br >. v then max#set_value (Some br));
   br, pct
 
-let pid_type_to_string : Pid.typ -> string = function
-  | SEC l ->
-     let s = List.map Fun.(Mpeg_ts.(table_to_string % table_of_int)) l
-             |> String.concat ", " in
-     "SEC -> " ^ s
-  | PES x ->
-     let s = Mpeg_ts.stream_type_to_string x.stream_type in
-     "PES -> " ^ s
-  | ECM x -> "ECM -> " ^ (string_of_int x.ca_sys_id)
-  | EMM x -> "EMM -> " ^ (string_of_int x.ca_sys_id)
-  | Null -> "Null"
-  | Private -> "Private"
-
-let pid_type_fmt : Pid.typ Table.custom =
-  { to_string = pid_type_to_string
-  ; compare = Pid.compare_typ
-  ; is_numeric = false
-  }
+let pid_type_fmt : Mpeg_ts.Pid.Type.t Table.custom =
+  Mpeg_ts.Pid.Type.{ to_string
+                   ; compare
+                   ; is_numeric = false }
 
 let pid_flags_fmt : pid_flags Table.custom_elt =
   { to_elt = to_pid_flags
