@@ -77,46 +77,53 @@ let filter (src : data_source) (filter : data_filter list) : bool =
   | filter -> aux filter
 
 let convert_video_data (config : widget_config)
-      (d : Video_data.t) : data =
-  let (src : data_source) =
-    { stream = d.stream
-    ; service = d.channel
-    ; pid = d.pid
-    } in
-  if not (filter src config.filter) then [] else
-    let (error : error) = match config.typ with
-      | `Black -> d.errors.black
-      | `Luma -> d.errors.luma
-      | `Freeze -> d.errors.freeze
-      | `Diff -> d.errors.diff
-      | `Blocky -> d.errors.blocky
-      | `Silence_shortt | `Silence_moment | `Loudness_shortt | `Loudness_moment ->
-         failwith "not a video chart" in
-    let (point : Point.t) =
-      { x = error.timestamp
-      ; y = error.params.avg
-      } in
-    [src, [point]]
+      (d : Video_data.t list) : data =
+  List.fold_left (fun acc (point : Video_data.t) ->
+      let (src : data_source) =
+        { stream = point.stream
+        ; service = point.channel
+        ; pid = point.pid
+        } in
+      if not (filter src config.filter) then [] else
+        let (error : error) = match config.typ with
+          | `Black -> point.errors.black
+          | `Luma -> point.errors.luma
+          | `Freeze -> point.errors.freeze
+          | `Diff -> point.errors.diff
+          | `Blocky -> point.errors.blocky
+          | (`Silence_shortt | `Silence_moment
+            | `Loudness_shortt | `Loudness_moment) ->
+             failwith "not a video chart" in
+        let (point : Point.t) =
+          { x = error.timestamp
+          ; y = error.params.avg
+          } in
+        List.Assoc.update ~eq:equal_data_source
+          (function None -> Some [point] | Some l -> Some (point :: l))
+          src acc) [] d
 
 let convert_audio_data (config : widget_config)
-      (d : Audio_data.t) : data =
-  let (src : data_source) =
-    { stream = d.stream
-    ; service = d.channel
-    ; pid = d.pid
-    } in
-  if not (filter src config.filter) then [] else
-    let (error : error) = match config.typ with
-      | `Silence_shortt -> d.errors.silence_shortt
-      | `Silence_moment -> d.errors.silence_moment
-      | `Loudness_shortt -> d.errors.loudness_shortt
-      | `Loudness_moment -> d.errors.loudness_moment
-      | _ -> failwith "not an audio chart" in
-    let (point : Point.t) =
-      { x = error.timestamp
-      ; y = error.params.avg
-      } in
-    [src, [point]]
+      (d : Audio_data.t list) : data =
+  List.fold_left (fun acc (point : Audio_data.t) ->
+      let (src : data_source) =
+        { stream = point.stream
+        ; service = point.channel
+        ; pid = point.pid
+        } in
+      if not (filter src config.filter) then [] else
+        let (error : error) = match config.typ with
+          | `Silence_shortt -> point.errors.silence_shortt
+          | `Silence_moment -> point.errors.silence_moment
+          | `Loudness_shortt -> point.errors.loudness_shortt
+          | `Loudness_moment -> point.errors.loudness_moment
+          | _ -> failwith "not an audio chart" in
+        let (point : Point.t) =
+          { x = error.timestamp
+          ; y = error.params.avg
+          } in
+        List.Assoc.update ~eq:equal_data_source
+          (function None -> Some [point] | Some l -> Some (point :: l))
+          src acc) [] d
 
 let data_source_to_string (structures : Structure.packed list)
       (src : data_source) : string =

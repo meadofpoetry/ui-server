@@ -15,7 +15,7 @@ object(self)
 
   val mutable _structures = None
   val mutable _audio_data = None
-  val mutable _video_data : Video_data.t React.event State.t option = None
+  val mutable _video_data : Video_data.t list React.event State.t option = None
 
   method create : item -> Widget.t Dashboard.Item.item = function
     | Chart cfg ->
@@ -29,13 +29,13 @@ object(self)
            begin match typ_to_content config.typ with
            | `Video ->
               let video_data = self#get_video_data () in
-              React.E.map (fun data ->
+              React.E.map (fun (data : Video_data.t list) ->
                   let data = convert_video_data config data in
                   chart#append_data data) video_data
               |> React.E.keep;
            | `Audio ->
               let audio_data = self#get_audio_data () in
-              React.E.map (fun data ->
+              React.E.map (fun (data : Audio_data.t list) ->
                   let data = convert_audio_data config data in
                   chart#append_data data) audio_data
               |> React.E.keep;
