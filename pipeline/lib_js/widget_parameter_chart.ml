@@ -158,8 +158,8 @@ let typ_to_string : labels -> string = function
 let typ_to_unit_string : labels -> string = function
   | `Black | `Freeze | `Blocky -> "%"
   | `Luma | `Diff -> ""
-  | (`Silence_shortt | `Silence_moment
-    | `Loudness_shortt | `Loudness_moment) -> "LUFS"
+  | `Silence_shortt | `Silence_moment | `Loudness_shortt | `Loudness_moment ->
+     "LUFS"
 
 let make_x_axis ?(id = "x-axis") (config : widget_config) : Chartjs.Scales.t =
   let open Chartjs in

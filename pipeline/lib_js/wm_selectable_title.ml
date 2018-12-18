@@ -4,7 +4,7 @@ open Components
 let base_class = "wm-selectable-title"
 
 class title ~title ~widget () =
-  let title_class  = Markup.CSS.add_element  base_class  "title"  in
+  let title_class = Markup.CSS.add_element base_class  "title" in
   let active_class = Markup.CSS.add_modifier title_class "active" in
   object
 
@@ -15,6 +15,7 @@ class title ~title ~widget () =
               () as super
 
     method! init () : unit =
+      super#init ();
       super#add_class title_class
 
     method set_active (x : bool) : unit =
@@ -27,7 +28,8 @@ class title ~title ~widget () =
 
 class t titles () =
   let (titles : title list) =
-    List.map (fun (title,widget) -> new title ~title ~widget ()) titles in
+    List.map (fun (title, widget) ->
+        new title ~title ~widget ()) titles in
   object(self)
 
     inherit Hbox.t ~widgets:titles () as super
@@ -41,7 +43,7 @@ class t titles () =
           self#titles in
       match self#titles with
       | [] -> failwith "Titles must not be empty"
-      | [x] | x :: _ -> self#select x
+      | x :: _ -> self#select x
 
     method titles : title list = titles
 

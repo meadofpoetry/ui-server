@@ -22,9 +22,9 @@ module Make(I : Item) = struct
                  |> Js.string in
       let wh = match I.size_of_t candidate with
         | Some w, Some h -> string_of_int w ^ ":" ^ string_of_int h
-        | Some w, None   -> string_of_int w ^ ":" ^ "null"
-        | None, Some h   -> "null" ^ ":" ^ string_of_int h
-        | None, None     -> "null:null" in
+        | Some w, None -> string_of_int w ^ ":" ^ "null"
+        | None, Some h -> "null" ^ ":" ^ string_of_int h
+        | None, None -> "null:null" in
       let typ = drag_type_prefix ^ wh in
       let box = new Hbox.t ~widgets () in
       object
@@ -88,7 +88,7 @@ module Make(I : Item) = struct
                     |> Tyxml_js.To_dom.of_element
                     |> Widget.create  in
       let card = new Card.t ~widgets:[wrapper] () in
-      let () = card#add_class base_class in
+      card#add_class base_class;
       let _ =
         React.S.map (function
             | [] -> wrapper#set_empty ();
@@ -109,7 +109,8 @@ module Make(I : Item) = struct
     let make widgets (s : I.t Dynamic_grid.Item.t option React.signal) =
       let ph = Placeholder.make
                  ~text:"Выберите элемент в раскладке"
-                 ~icon:Icon.SVG.(create_simple Path.gesture_tap) () in
+                 ~icon:Icon.SVG.(create_simple Path.gesture_tap)
+                 () in
       let card = new Card.t ~widgets:[] () in
       let id = "wm-item-properties" in
       let actions_id = "wm-item-properties-actions" in
@@ -150,12 +151,12 @@ module Make(I : Item) = struct
     let props = Properties.make [] selected in
     let title = Wm_selectable_title.make [ add_title, add
                                          ; props_title, props ] in
-    let box = new Vbox.t ~widgets:[ add#widget; props#widget ] () in
-    let box = new Vbox.t ~widgets:[ title#widget; box#widget ] () in
+    let content = new Vbox.t ~widgets:[add#widget; props#widget] () in
+    let box = new Vbox.t ~widgets:[title#widget; content#widget] () in
+    content#add_class base_class;
     let sel = function
       | `Add -> title#select_by_name add_title
       | `Props -> title#select_by_name props_title in
-    box#add_class base_class;
     box, sel
 
 end

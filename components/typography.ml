@@ -80,7 +80,7 @@ module Text = struct
 
       (* Private methods *)
 
-      method _to_inner_html text =
+      method private _to_inner_html text =
         let open Tyxml.Html in
         let inner =
           if split

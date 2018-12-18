@@ -39,17 +39,17 @@ module Make(I : Item) = struct
         ~on_icon:grid_on
         ~icon:grid_off
         () in
-    let menu = new Menu.t ~items:[] () in
-    let menu_text = new Typography.Text.t ~text:"Сетка:" () in
-    let menu_sel = new Typography.Text.t ~text:"" () in
-    let menu_ico = new Icon.Font.t ~icon:"arrow_drop_down" () in
-    let anchor = new Hbox.t ~widgets:[ menu_sel#widget
-                                     ; menu_ico#widget ] () in
-    let menu_wrap = new Menu.Wrapper.t ~anchor ~menu () in
-    let menu_block = new Hbox.t ~widgets:[ menu_text#widget
-                                         ; menu_wrap#widget ] () in
+    (* let menu = new Menu.t ~items:[] () in
+     * let menu_text = new Typography.Text.t ~text:"Сетка:" () in
+     * let menu_sel = new Typography.Text.t ~text:"" () in
+     * let menu_ico = new Icon.Font.t ~icon:"arrow_drop_down" () in
+     * let anchor = new Hbox.t ~widgets:[ menu_sel#widget
+     *                                  ; menu_ico#widget ] () in
+     * let menu_wrap = new Menu.Wrapper.t ~anchor ~menu () in
+     * let menu_block = new Hbox.t ~widgets:[ menu_text#widget
+     *                                      ; menu_wrap#widget ] () in *)
     let icons = new Hbox.t ~widgets:[ grid_icon#widget
-                                    ; menu_block#widget ] () in
+                                    (* ; menu_block#widget *) ] () in
     let header = new Hbox.t ~widgets:[ title#widget
                                      ; icons#widget ] () in
     object(self)
@@ -84,34 +84,34 @@ module Make(I : Item) = struct
             let grids = Utils.get_grids ~resolution:self#resolution ~positions () in
             set_grids grids) @@ React.S.changes s |> ignore;
         (* update selected grid *)
-        React.E.map (fun (_, i) ->
-            let s = i##.textContent
-                    |> Js.Opt.to_option
-                    |> Option.get_exn
-                    |> Js.to_string in
-            match String.split_on_char 'x' s with
-            | [w; h] ->
-               (match Int.of_string w, Int.of_string h with
-                | Some w, Some h -> set_grid (w, h)
-                | _              -> ())
-            | _ -> ()) menu#e_selected |> ignore;
-        React.S.map (fun x ->
-            menu_sel#set_text_content @@ grid_to_string x;
-            self#update_items_min_size) s_grid
-        |> ignore;
+        (* React.E.map (fun (_, i) ->
+         *     let s = i##.textContent
+         *             |> Js.Opt.to_option
+         *             |> Option.get_exn
+         *             |> Js.to_string in
+         *     match String.split_on_char 'x' s with
+         *     | [w; h] ->
+         *        (match Int.of_string w, Int.of_string h with
+         *         | Some w, Some h -> set_grid (w, h)
+         *         | _ -> ())
+         *     | _ -> ()) menu#e_selected |> ignore; *)
+        (* React.S.map (fun x ->
+         *     menu_sel#set_text_content @@ grid_to_string x;
+         *     self#update_items_min_size) s_grid
+         * |> ignore; *)
         (* show grid menu *)
-        anchor#listen_lwt Widget.Event.click (fun _ _ ->
-            let item text = new Menu.Item.t ~text ~value:() () in
-            let items = List.map (fun (w, h) ->
-                            let text = grid_to_string (w, h) in
-                            item text) @@ React.S.value s_grids in
-            menu#list#set_empty ();
-            List.iter menu#list#append_child items;
-            menu#show ();
-            Lwt.return_unit) |> Lwt.ignore_result;
-        anchor#set_align_items `Center;
+        (* anchor#listen_lwt Widget.Event.click (fun _ _ ->
+         *     let item text = new Menu.Item.t ~text ~value:() () in
+         *     let items = List.map (fun (w, h) ->
+         *                     let text = grid_to_string (w, h) in
+         *                     item text) @@ React.S.value s_grids in
+         *     menu#list#set_empty ();
+         *     List.iter menu#list#append_child items;
+         *     menu#show ();
+         *     Lwt.return_unit) |> Lwt.ignore_result; *)
+        (* anchor#set_align_items `Center; *)
         title#add_class @@ Markup.CSS.add_element base_class "title";
-        menu_block#add_class @@ Markup.CSS.add_element base_class "grid-select";
+        (* menu_block#add_class @@ Markup.CSS.add_element base_class "grid-select"; *)
         icons#add_class @@ Markup.CSS.add_element base_class "right-menu";
         grid_icon#add_class  @@ Markup.CSS.add_element base_class "menu";
         header#add_class @@ Markup.CSS.add_element base_class "header";

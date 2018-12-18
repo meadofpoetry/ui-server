@@ -265,7 +265,7 @@ let create_widgets_grid
   w
 
 let switch ~grid
-      ~(selected:Container_item.t Dynamic_grid.Item.t)
+      ~(selected : Container_item.t Dynamic_grid.Item.t)
       ~s_state_push
       ~candidates
       ~set_candidates () =
@@ -311,6 +311,50 @@ let switch ~grid
  *     ) domains
  *)
 
+let create_icons wz_show =
+  let wizard =
+    Wm_left_toolbar.make_action
+      { icon = Icon.SVG.(create_simple Path.auto_fix)#widget
+      ; name = "Авто"
+      } in
+  let edit =
+    Wm_left_toolbar.make_action
+      { icon = Icon.SVG.(create_simple Path.pencil)#widget
+      ; name = "Редактировать"
+      } in
+  let save =
+    Wm_left_toolbar.make_action
+      { icon = Icon.SVG.(create_simple Path.content_save)#widget
+      ; name = "Сохранить"
+      } in
+  let wz = wizard#listen_click_lwt (fun _ _ -> wz_show ()) in
+  wizard#set_on_destroy (fun () -> Lwt.cancel wz);
+  wizard, edit, save
+
+let create_cells () =
+  let lc =
+    new Layout_grid.Cell.t
+      ~span_desktop:1
+      ~span_tablet:1
+      ~span_phone:4
+      ~widgets:[]
+      () in
+  let mc =
+    new Layout_grid.Cell.t
+      ~span_desktop:8
+      ~span_tablet:7
+      ~span_phone:4
+      ~widgets:[]
+      () in
+  let rc =
+    new Layout_grid.Cell.t
+      ~span_desktop:3
+      ~span_tablet:8
+      ~span_phone:4
+      ~widgets:[]
+      () in
+  lc, mc, rc
+
 let create ~(init : Wm.t)
       ~(post : Wm.t -> unit Lwt.t)
       () =
@@ -337,19 +381,7 @@ let create ~(init : Wm.t)
   let resolution = init.resolution in
   let s_state, s_state_push = React.S.create `Container in
   let title = "Контейнеры" in
-  let wizard =
-    Wm_left_toolbar.make_action
-      { icon = Icon.SVG.(create_simple Path.auto_fix)#widget
-      ; name = "Авто" } in
-  let edit =
-    Wm_left_toolbar.make_action
-      { icon = Icon.SVG.(create_simple Path.pencil)#widget
-      ; name = "Редактировать" } in
-  let save =
-    Wm_left_toolbar.make_action
-      { icon = Icon.SVG.(create_simple Path.content_save)#widget
-      ; name = "Сохранить" } in
-  wizard#listen_click_lwt (fun _ _ -> wz_show ()) |> Lwt.ignore_result;
+  let wizard, edit, save = create_icons wz_show in
   let on_remove = fun (t : Wm.container wm_item) ->
     let eq = Widget_item.equal in
     let ws = List.map Widget_item.t_of_layout_item t.item.widgets in
@@ -397,27 +429,7 @@ let create ~(init : Wm.t)
         @@ get_free_widgets l init.widgets;
         cont.ig#initialize init.resolution
         @@ List.map Container_item.t_of_layout_item l) wz_e in
-  let lc =
-    new Layout_grid.Cell.t
-      ~span_desktop:1
-      ~span_tablet:1
-      ~span_phone:4
-      ~widgets:[]
-      () in
-  let mc =
-    new Layout_grid.Cell.t
-      ~span_desktop:8
-      ~span_tablet:7
-      ~span_phone:4
-      ~widgets:[]
-      () in
-  let rc =
-    new Layout_grid.Cell.t
-      ~span_desktop:3
-      ~span_tablet:8
-      ~span_phone:4
-      ~widgets:[]
-      () in
+  let lc, mc, rc = create_cells () in
   let add_to_view lt ig rt =
     lc#set_empty (); lc#append_child lt;
     mc#set_empty (); mc#append_child ig;

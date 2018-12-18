@@ -91,7 +91,6 @@ let on_add grid push =
   | [x] -> f (x#value.actual + 1)
   | _ -> ()
 
-
 let remove_layer grid push layer =
   let open Dynamic_grid.Position in
   let layers =
@@ -144,9 +143,10 @@ class t ~init () =
 
   object(self)
 
-    inherit [value] Dynamic_grid.t ~grid ~items:[] ()
+    inherit [value] Dynamic_grid.t ~grid ~items:[] () as super
 
     method! init () : unit =
+      super#init ();
       self#initialize init;
       self#add_class _class;
       self#set_on_load @@ Some self#layout;
