@@ -38,35 +38,53 @@ module Video = struct
                                ; stream_id = 0 })
                       stream_type in
     let pid       = Some { typ; id  = x.pid } in
-    let node      = Some (Cpu "Анализатор QoE") in
+    let node      = Some (Cpu "pipeline") in
     let level     = Err in
-    let info      = "" in
     let create flag time message info =
       if not flag then []
-      else [ { time; input; stream; service; pid; node; level; info; message } ]
+      else [ { time; input; stream; service; pid; node; level; info = info (); message } ]
     in
     let errors = x.errors in
+    let info (params : Qoe_errors.params) typ peak_cont () =
+      match peak_cont with
+      | `Peak -> Printf.sprintf
+                   "Пиковая ошибка, значения: среднее %.3f %s, макс. %.3f %s, мин. %.3f %s"
+                   params.avg typ params.max typ params.min typ
+      | `Cont -> Printf.sprintf
+                   "Продолжительная ошибка, значения: среднее %.3f %s, макс. %.3f %s, мин. %.3f %s"
+                   params.avg typ params.max typ params.min typ
+    in
     List.concat
       [ create errors.black.peak_flag errors.black.timestamp
-          "Черный кадр" info
+          "Черный кадр"
+          (info errors.black.params "%" `Peak)
       ; create errors.black.cont_flag errors.black.timestamp
-          "Черный кадр (Продолжительная)" info
+          "Черный кадр"
+          (info errors.black.params "%" `Cont)
       ; create errors.luma.peak_flag errors.luma.timestamp
-          "Превышено пороговое значение средней яркости" info
+          "Превышено пороговое значение средней яркости"
+          (info errors.luma.params "" `Peak)
       ; create errors.luma.cont_flag errors.luma.timestamp
-          "Превышено пороговое значение средней яркости (Продолжительная)" info
+          "Превышено пороговое значение средней яркости"
+          (info errors.luma.params "" `Cont)
       ; create errors.freeze.peak_flag errors.freeze.timestamp
-          "Заморозка видео" info
+          "Заморозка видео"
+          (info errors.freeze.params "%" `Peak)
       ; create errors.freeze.cont_flag errors.freeze.timestamp
-          "Заморозка видео (Продолжительная)" info
+          "Заморозка видеo"
+          (info errors.freeze.params "%" `Cont)
       ; create errors.diff.peak_flag errors.diff.timestamp
-          "Средняя разность кадров ниже заданного значения" info
+          "Средняя разность кадров ниже заданного значения"
+          (info errors.diff.params "" `Peak)
       ; create errors.diff.cont_flag errors.diff.timestamp
-          "Средняя разность кадров ниже заданного значения (Продолжительная)" info
+          "Средняя разность кадров ниже заданного значения"
+          (info errors.diff.params "" `Cont)
       ; create errors.blocky.peak_flag errors.blocky.timestamp
-          "Блочность" info
+          "Блочность"
+          (info errors.blocky.params "%" `Peak)
       ; create errors.blocky.cont_flag errors.blocky.timestamp
-          "Блочность (Продолжительная)" info
+          "Блочность"
+          (info errors.blocky.params "%" `Cont)
       ]
 
   let to_log_messages sources structures filter x =
@@ -109,23 +127,35 @@ module Audio = struct
                                ; stream_id = 0 })
                       stream_type in
     let pid       = Some { typ; id  = x.pid } in
-    let node      = Some (Cpu "Анализатор QoE") in
+    let node      = Some (Cpu "pipeline") in
     let level     = Err in
-    let info      = "" in
     let create flag time message info =
       if not flag then []
-      else [ { time; input; stream; service; pid; node; level; info; message } ]
+      else [ { time; input; stream; service; pid; node; level; info = info (); message } ]
     in
     let errors = x.errors in
+    let info (params : Qoe_errors.params) cont_peak () =
+      match cont_peak with
+      | `Peak -> Printf.sprintf
+                   "Пиковая ошибка, значения: среднее %.3f LUFS, макс. %.3f LUFS, мин. %.3f LUFS"
+                   params.avg params.max params.min 
+      | `Cont -> Printf.sprintf
+                   "Продолжительная ошибка, значения: среднее %.3f LUFS, макс. %.3f LUFS, мин. %.3f LUFS"
+                   params.avg params.max params.min
+    in
     List.concat
       [ create errors.loudness_shortt.peak_flag errors.loudness_shortt.timestamp
-          "Превышено значение кратковременной громкости" info
+          "Превышено значение кратковременной громкости"
+          (info errors.loudness_shortt.params `Peak)
       ; create errors.loudness_moment.cont_flag errors.loudness_moment.timestamp
-          "Превышено значение моментальной громкости" info
+          "Превышено значение моментальной громкости"
+          (info errors.loudness_moment.params `Peak)
       ; create errors.silence_shortt.peak_flag errors.silence_shortt.timestamp
-          "Кратковременная громкость: тишина" info
+          "Кратковременная громкость: тишина"
+          (info errors.silence_shortt.params `Peak)
       ; create errors.silence_moment.cont_flag errors.silence_moment.timestamp
-          "Моментальная громкость: тишина" info
+          "Моментальная громкость: тишина"
+          (info errors.silence_moment.params `Peak)
       ]
 
   let to_log_messages sources structures filter x =
@@ -159,7 +189,7 @@ module Status = struct
     in
     let pid       = Some { typ = Some (Printf.sprintf "%d-PES" x.pid)
                          ; id  = x.pid } in
-    let node      = Some (Cpu "Анализатор QoE") in
+    let node      = Some (Cpu "pipeline") in
     let info      = "" in
     let time      = Ptime_clock.now () in
     let level, message =
