@@ -363,6 +363,13 @@ $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #
     }
 }
 
+.qos-niit-pids-overview__row--lost {
+    @include mdc-theme-prop(color, error);
+    td {
+        font-weight: 600;
+    }
+}
+
 // T2-MI sequence widget
 
 .qos-niit-t2mi-sequence {

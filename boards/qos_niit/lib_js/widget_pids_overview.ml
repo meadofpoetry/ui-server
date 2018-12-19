@@ -14,6 +14,8 @@ let name = "PIDs"
 let base_class = "qos-niit-pids-overview"
 let no_sync_class = Markup.CSS.add_modifier base_class "no-sync"
 let no_response_class = Markup.CSS.add_modifier base_class "no-response"
+let row_class = Markup.CSS.add_element base_class "row"
+let absent_class = Markup.CSS.add_modifier row_class "lost"
 
 let ( % ) = Fun.( % )
 
@@ -126,6 +128,7 @@ let add_row (table : 'a Table.t) ((pid, info) : Pid.t) =
       pid :: info.typ :: flags :: info.service_name
       :: None :: None :: None :: None :: []) in
   let row = table#push data in
+  if not info.present then row#add_class absent_class;
   row
 
 class t ?(settings : Settings.t option)
@@ -245,6 +248,7 @@ class t ?(settings : Settings.t option)
       List.iter (fun row -> iter row#cells) table#rows
 
     method private _update_row (row : 'a Table.Row.t) ((pid, info) : Pid.t) =
+      row#add_or_remove_class (not info.present) absent_class;
       Table.(match row#cells with
              | pid' :: typ :: flags :: service :: _ ->
                 pid'#set_value pid;

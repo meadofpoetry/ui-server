@@ -93,10 +93,16 @@ let convert_video_data (config : widget_config)
           | `Blocky -> point.errors.blocky
           | (`Silence_shortt | `Silence_moment
             | `Loudness_shortt | `Loudness_moment) ->
-             failwith "not a video chart" in
+             failwith "not an audio chart" in
         let (point : Point.t) =
           { x = error.timestamp
-          ; y = error.params.avg
+          ; y = match config.typ with
+                | `Black -> error.params.max
+                | `Luma -> error.params.min
+                | `Freeze -> error.params.max
+                | `Diff -> error.params.min
+                | `Blocky -> error.params.min
+                | _ -> failwith "not an audio chart"
           } in
         List.Assoc.update ~eq:equal_data_source
           (function None -> Some [point] | Some l -> Some (point :: l))
@@ -318,7 +324,8 @@ class t ~(init : 'a list)
                 let data' = Chartjs.data chart in
                 let datasets = Chartjs.Data.datasets data' in
                 let (_ : int) = Chartjs.Data.Datasets.push datasets [snd ds] in
-                Chartjs.update chart None
+                let config = Chartjs_streaming.make_config ~preservation:true () in
+                Chartjs.update chart (Some config)
              | _ -> ()
              end
           | Some (ds : Dataset.t) ->
@@ -326,7 +333,8 @@ class t ~(init : 'a list)
              List.iter (fun (point : Point.t) ->
                  let (_ : int) = Dataset.Values.push data' [point] in
                  ()) data;
-             Chartjs.update chart None) data
+             let config = Chartjs_streaming.make_config ~preservation:true () in
+             Chartjs.update chart (Some config)) data
 
     (* Private methods *)
 

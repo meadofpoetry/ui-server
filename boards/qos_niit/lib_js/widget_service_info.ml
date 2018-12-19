@@ -214,6 +214,7 @@ module Pids = struct
       inherit Widget_pids_overview.t ?settings init () as super
 
       method! init () : unit =
+        super#init ();
         super#add_class _class
 
       method! update (pids : Pid.t list Time.timestamped) =
