@@ -26,22 +26,14 @@ function toggle () {
     body.classList.toggle(hide);
 }
 
-function resize () {
-    var interval = setInterval(function () {
-        window.dispatchEvent(new Event('resize'));},50);
-    setTimeout(function () {clearInterval(interval);},250);
-}
-
 btn.addEventListener('click', function () {
     toggle ();
-    resize ();
 });
 
 drawerEl.addEventListener('click', function (evt) {
     if (!(evt.target.classList.contains('.mdc-drawer__drawer')))
     {
         toggle ();
-        resize();
     };
 });
 
@@ -80,7 +72,7 @@ window.addEventListener('keyup', function(e) {
             localStorage.setItem('toolbar','');
             drawerEl.classList.remove(open);
             body.classList.remove(hide);
-            resize ();};
+        };
     }
 });
 drawerEl.querySelector('.mdc-drawer__drawer').addEventListener('click', function(event) {

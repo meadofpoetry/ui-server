@@ -57,7 +57,6 @@ module Make(I : Item) = struct
         self#add_class _class;
         self#set_active false;
         self#set_layer layer;
-        self#set_on_load @@ Some self#layout;
         React.S.map self#set_grid s_grid |> ignore;
         React.S.map (function
             | [] -> self#append_child ph

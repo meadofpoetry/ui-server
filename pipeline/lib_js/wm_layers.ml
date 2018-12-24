@@ -149,15 +149,14 @@ class t ~init () =
       super#init ();
       self#initialize init;
       self#add_class _class;
-      self#set_on_load @@ Some self#layout;
       React.S.diff (fun n o ->
           let open Dynamic_grid.Position in
           match n with
           | [x] -> push @@ `Selected x#value.actual
-          | _   ->
+          | _ ->
              begin match o with
              | [x] -> push @@ `Selected x#pos.y
-             | _   -> ()
+             | _ -> ()
              end) self#s_selected
       |> ignore
 

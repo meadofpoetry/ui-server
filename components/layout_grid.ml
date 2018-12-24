@@ -23,9 +23,6 @@ module Cell = struct
 
       inherit Widget.t elt () as super
 
-      val mutable widgets : Widget.t list =
-        List.map Widget.coerce widgets
-
       val mutable _span : int option = span
       val mutable _span_phone : int option = span_phone
       val mutable _span_tablet : int option = span_tablet
@@ -40,6 +37,9 @@ module Cell = struct
         self#set_span_phone _span_phone;
         self#set_span_tablet _span_tablet;
         self#set_span_desktop _span_desktop;
+
+      method! layout () : unit =
+        super#layout ();
 
       method span = _span
       method set_span = function
@@ -101,8 +101,6 @@ module Cell = struct
            iter (super#remove_class % get_cell_align) align;
            align <- None
 
-      method widgets = widgets
-
       method private rm_span ?dt x =
         super#remove_class @@ get_cell_span ?device_type:dt x
 
@@ -125,6 +123,11 @@ class t ?align ~(cells : Cell.t list) () =
     val mutable _cells = cells
 
     val mutable _align : [ `Left | `Right ] option = align
+
+    method! layout () : unit =
+      super#layout ();
+      inner#layout ();
+      List.iter (fun x -> x#layout ()) _cells
 
     method inner = inner
     method cells = _cells

@@ -85,7 +85,6 @@ class ['a] t ?(edit_caps = Absolute)
                      edit_icon#path#set Icon.SVG.Path.pencil)
         fab#s_state |> ignore;
       Dom.appendChild Dom_html.document##.body add_panel#root;
-      self#set_on_load @@ Some (fun () -> self#grid#layout (); fab#hide ());
       fab#add_class Markup.edit_button_class;
       self#add_class Markup.base_class;
       self#grid#set_editable false;

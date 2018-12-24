@@ -40,14 +40,14 @@ module Event = struct
 
 end
 
-class t (elt : #Dom_html.element Js.t) () = object(self)
+class t ?(widgets : #t list option)
+        (elt : #Dom_html.element Js.t) () = object(self)
 
   val mutable _on_destroy = None
-  val mutable _on_load = None
-  val mutable _on_unload = None
-  val mutable _in_dom = false
-  val mutable _observer = None
   val mutable _listeners_lwt = []
+  val mutable _widgets : t list = match widgets with
+    | None -> []
+    | Some w -> List.map (fun x -> (x :> t)) w
 
   val mutable _e_storage : unit React.event list = []
   val mutable _s_storage : unit React.signal list = []
@@ -64,24 +64,27 @@ class t (elt : #Dom_html.element Js.t) () = object(self)
 
   method widget : t = (self :> t)
 
+  method widgets : t list =
+    List.map (fun x -> x#widget) _widgets
+
   method set_on_destroy (f : unit -> unit) : unit =
     _on_destroy <- Some f
 
   method init () : unit =
-    ()
+    List.iter self#append_child _widgets
 
   method destroy () : unit =
-    self#set_on_load None;
-    self#set_on_unload None;
     List.iter (React.S.stop ~strong:true) _s_storage;
     List.iter (React.E.stop ~strong:true) _e_storage;
     _s_storage <- [];
     _e_storage <- [];
+    _widgets <- [];
     List.iter (fun x -> try Lwt.cancel x with _ -> ()) _listeners_lwt;
     _listeners_lwt <- [];
     Option.iter (fun f -> f ()) _on_destroy
 
-  method layout () = ()
+  method layout () =
+    List.iter (fun x -> x#layout ()) _widgets
 
   method get_child_element_by_class x =
     self#root##querySelector (Js.string ("." ^ x))
@@ -206,21 +209,32 @@ class t (elt : #Dom_html.element Js.t) () = object(self)
     self#root##.scrollHeight := x
 
   method append_child : 'a. (< node : node;
+                               widget : t;
                                layout : unit -> unit;
                              .. > as 'a) -> unit =
     fun x ->
     Dom.appendChild self#root x#node;
+    _widgets <- x#widget :: _widgets;
     x#layout ()
 
-  method insert_child_at_idx : 'a. int -> (< node : node; .. > as 'a) -> unit =
+  method insert_child_at_idx : 'a. int -> (< node : node;
+                                           widget : t;
+                                           layout : unit -> unit;
+                                           .. > as 'a) -> unit =
     fun index x ->
     let child = self#root##.childNodes##item index in
-    Dom.insertBefore self#root x#node child
+    Dom.insertBefore self#root x#node child;
+    _widgets <- x#widget :: _widgets;
+    x#layout ()
 
-  method remove_child : 'a. (< node : Dom.node Js.t; .. > as 'a) -> unit =
+  method remove_child : 'a. (< node : Dom.node Js.t;
+                             widget : t;
+                             .. > as 'a) -> unit =
     fun x ->
-    try Dom.removeChild self#root x#node
-    with _ -> ()
+    (try Dom.removeChild self#root x#node
+     with _ -> ());
+    let wdgs = List.remove ~eq:Equal.physical x#widget _widgets in
+    _widgets <- wdgs
 
   method listen : 'a. (#Dom_html.event as 'a) Js.t Event.typ ->
                   (element -> 'a Js.t -> bool) ->
@@ -271,14 +285,6 @@ class t (elt : #Dom_html.element Js.t) () = object(self)
       ; width = Js.Optdef.to_option x##.width
       ; height = Js.Optdef.to_option x##.height })
 
-  method set_on_load (f : (unit -> unit) option) =
-    _on_load <- f;
-    self#_observe_if_needed
-
-  method set_on_unload (f : (unit -> unit) option) =
-    _on_unload <- f;
-    self#_observe_if_needed
-
   method emit ?(should_bubble = false)
            (evt_type : string)
            (evt_data : Js.Unsafe.any) : unit =
@@ -309,27 +315,6 @@ class t (elt : #Dom_html.element Js.t) () = object(self)
 
   method private _keep_e : 'a. 'a React.event -> unit  = fun e ->
     _e_storage <- React.E.map ignore e :: _e_storage
-
-  method private _observe_if_needed =
-    let init () =
-      MutationObserver.observe
-        ~node:Dom_html.document
-        ~f:(fun _ _ ->
-          let in_dom_new =
-            (Js.Unsafe.coerce Dom_html.document)##contains self#root in
-          if _in_dom && (not in_dom_new)
-          then CCOpt.iter (fun f -> f ()) _on_unload
-          else if (not _in_dom) && in_dom_new
-          then CCOpt.iter (fun f -> f ()) _on_load;
-          _in_dom <- in_dom_new)
-        ~child_list:true
-        ~subtree:true
-        ()
-    in
-    match _on_load, _on_unload, _observer with
-    | None, None, Some o -> o##disconnect; _observer <- None
-    | _, _, None -> _observer <- Some (init ())
-    | _ -> ()
 
   initializer
     self#init ()

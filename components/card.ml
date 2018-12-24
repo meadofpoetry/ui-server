@@ -55,12 +55,11 @@ module Actions = struct
       Markup.Actions.create ~children:(List.map Widget.to_markup widgets) ()
       |> To_dom.of_section in
     object
-      val mutable widgets : Widget.t list = List.map Widget.coerce widgets
+      inherit Widget.t elt () as super
 
-      inherit Widget.t elt ()
-
-      method widgets = widgets
-
+      method! init () : unit =
+        super#init ();
+        _widgets <- List.map Widget.coerce widgets
     end
 
 end
@@ -110,9 +109,11 @@ module Media = struct
     object
       val mutable widgets : Widget.t list = List.map Widget.coerce widgets
 
-      inherit Widget.t elt ()
+      inherit Widget.t elt () as super
 
-      method widgets = widgets
+      method! init () : unit =
+        super#init ();
+        _widgets <- List.map Widget.coerce widgets
     end
 
 end

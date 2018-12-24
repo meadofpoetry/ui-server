@@ -23,23 +23,23 @@ class t ?tag ?(gap = 0)
   let elt = To_dom.of_element @@ Markup.create ?tag ~vertical ~content () in
   object(self)
 
-    val mutable _widgets : Widget.t list = List.map Widget.coerce widgets
     val mutable _justify_content : Markup.justify_content = justify_content
     val mutable _align_items : Markup.align_items = align_items
     val mutable _align_content : Markup.align_content = align_content
     val mutable _wrap : Markup.wrap = wrap
     val mutable _gap : int = gap
 
-    inherit Widget.t elt ()
+    inherit Widget.t elt () as super
 
     method! init () : unit =
+      super#init ();
+      _widgets <- List.map Widget.coerce widgets;
       self#set_wrap _wrap;
       self#set_justify_content _justify_content;
       self#set_align_items _align_items;
       self#set_align_content _align_content;
       self#set_gap gap
 
-    method widgets = _widgets
     method set_direction : direction -> unit = function
       | `Row ->
          self#remove_class Markup.vertical_class;

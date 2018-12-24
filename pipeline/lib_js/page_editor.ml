@@ -443,16 +443,13 @@ let create ~(init : Wm.t)
   [lc; mc; rc]
 
 class t () = object(self)
-  val mutable sock : WebSockets.webSocket Js.t option = None
+  val mutable _sock : WebSockets.webSocket Js.t option = None
+
   inherit Layout_grid.t ~cells:[] () as super
 
   method! init () : unit =
     super#init ();
     super#add_class "wm";
-    self#set_on_load @@ Some self#on_load;
-    self#set_on_unload @@ Some self#on_unload;
-
-  method private on_load () =
     Requests_wm.HTTP.get_layout ()
     >>= (fun wm ->
       let e_wm, wm_sock = Requests_wm.WS.get () in
@@ -471,14 +468,17 @@ class t () = object(self)
               with e ->
                 Printf.printf "error: %s\n" @@ Printexc.to_string e;
                 [] in
-            List.iter self#inner#append_child cells)
+            List.iter super#append_cell cells)
           (React.S.hold wm e_wm) in
-      sock <- Some wm_sock;
+      _sock <- Some wm_sock;
       Lwt_result.return ())
     |> Lwt.ignore_result
 
-  method private on_unload () =
-    Option.iter (fun x -> x##close; sock <- None) sock
+  method! destroy () : unit =
+    super#destroy ();
+    Option.iter (fun x -> x##close) _sock;
+    _sock <- None
+
 end
 
 let page () = new t ()
