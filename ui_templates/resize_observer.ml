@@ -16,6 +16,8 @@ class type resizeObserver =
 
 let resizeObserver = Js.Unsafe.global##._ResizeObserver
 
+let is_supported () = Js.Optdef.test resizeObserver
+
 let resizeObserver :
       ((resizeEntry Js.t Js.js_array Js.t -> unit)
          Js.callback -> resizeObserver Js.t) Js.constr =

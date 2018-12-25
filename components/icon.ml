@@ -40,8 +40,8 @@ module SVG = struct
 
     class t ?(fill : Color.t option) path () =
       let fill = Option.map Color.to_css_rgba fill in
-      let elt  = Markup.create_path ?fill path ()
-                 |> To_dom.of_element in
+      let elt = Markup.create_path ?fill path ()
+                |> To_dom.of_element in
       object(self)
         inherit Widget.t elt ()
 
@@ -54,9 +54,9 @@ module SVG = struct
 
   end
 
-  class t ~(paths : Path.t list) () =
+  class t ?size ~(paths : Path.t list) () =
     let paths' = List.map (fun x -> Of_dom.of_element x#root) paths in
-    let elt = Markup.create paths' ()
+    let elt = Markup.create ?size paths' ()
               |> Tyxml_js.To_dom.of_element in
     object(self)
       inherit Widget.button_widget elt ()
@@ -67,8 +67,8 @@ module SVG = struct
         List.hd self#paths
     end
 
-  let create_simple (path : string) : t =
+  let create_simple ?size (path : string) : t =
     let path = new Path.t path () in
-    new t ~paths:[ path ] ()
+    new t ?size ~paths:[ path ] ()
 
 end

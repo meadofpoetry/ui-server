@@ -269,6 +269,61 @@ $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #
 
 /* Pids summary widget */
 
+.qos-niit-pids-summary-info {
+    align-self: stretch;
+    flex-grow: 1;
+    border-left: 1px solid;
+    @include mdc-theme-prop(border-color, $mdc-card-outline-color);
+}
+
+.qos-niit-pids-summary-rate {
+    .mdc-list-item__meta {
+        white-space: nowrap;
+        font-size: 1em;
+        @include mdc-theme-prop(color, text-primary-on-surface);
+    }
+}
+
+.qos-niit-pids-summary-box {
+    align-self: flex-start;
+    margin: 1rem;
+    &__pid {
+        width: 56px;
+        line-height: 2rem;
+        text-align: center;
+    }
+    &__pid--lost {
+        @include mdc-theme-prop(color, error);
+        font-weight: 600;
+    }
+    &__title {
+        padding-bottom: 1rem;
+    }
+    &__content {
+        padding: 1rem;
+        font-size: 13px;
+        align-self: stretch;
+        display: flex;
+        align-items: flex-start;
+        align-content: flex-start;
+        flex-wrap: wrap;
+    }
+    &__content:empty {
+        visibility: hidden;
+    }
+    &__wrapper {
+        @include mdc-card-outline($mdc-card-outline-color);
+        .mdc-button {
+            height: initial;
+            &__icon {
+                width: initial;
+                height: initial;
+                margin-right: 0;
+            }
+        }
+    }
+}
+
 .qos-niit-pids-summary {
 
     display: flex;
@@ -299,49 +354,6 @@ $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #
             position: relative;
             width: 250px;
             height: 250px;
-        }
-    }
-    &__info {
-        align-self: stretch;
-        flex-grow: 1;
-        border-left: 1px solid;
-        @include mdc-theme-prop(border-color, $mdc-card-outline-color);
-    }
-    &__info__rate {
-        .mdc-list-item__meta {
-            white-space: nowrap;
-            font-size: 1em;
-            @include mdc-theme-prop(color, text-primary-on-surface);
-        }
-    }
-
-    &__info__pids {
-        align-self: flex-start;
-        margin: 1rem;
-        &__pid {
-            width: 56px;
-            line-height: 2rem;
-            text-align: center;
-        }
-        &__pid--lost {
-            @include mdc-theme-prop(color, error);
-            font-weight: 600;
-        }
-        &__title {
-            padding-bottom: 1rem;
-        }
-        &__box {
-            @include mdc-card-outline($mdc-card-outline-color);
-            padding: 1rem;
-            font-size: 13px;
-            align-self: stretch;
-            display: flex;
-            align-items: flex-start;
-            align-content: flex-start;
-            flex-wrap: wrap;
-        }
-        &__box:empty {
-            visibility: hidden;
         }
     }
 }

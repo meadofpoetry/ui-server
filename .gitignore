@@ -18,5 +18,6 @@ dist/resources/js/*.js
 !dist/resources/js/adapter.min.js
 !dist/resources/js/janus.nojquery.js
 !dist/resources/js/material-components-web.min.js
+!dist/resources/js/ResizeObserver.js
 dist/backend
 dist/config.json

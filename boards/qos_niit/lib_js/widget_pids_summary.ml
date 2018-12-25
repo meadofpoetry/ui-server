@@ -259,51 +259,62 @@ end
    TODO sort pids by value *)
 module Info = struct
 
-  let _class = Markup.CSS.add_element base_class "info"
-  let rate_class = Markup.CSS.add_element _class "rate"
+  module Rate = struct
 
-  let make_rate () =
-    let na = "n/a" in
-    let to_string = Printf.sprintf "%f Мбит/с" in
-    let set meta = function
-      | None -> meta#set_text na
-      | Some x -> meta#set_text @@ to_string x in
-    let total, set_total =
-      let meta = new Typography.Text.t ~text:na () in
-      let item = new Item_list.Item.t
-                   ~text:"Общий битрейт: "
-                   ~value:None
-                   ~meta
-                   () in
-      item, set meta in
-    let effective, set_effective =
-      let meta = new Typography.Text.t ~text:na () in
-      let item = new Item_list.Item.t
-                   ~text:"Полезный битрейт: "
-                   ~value:None
-                   ~meta
-                   () in
-      item, set meta in
-    let list =
-      new Item_list.t
-        ~dense:true
-        ~non_interactive:true
-        ~items:[ `Item total
-               ; `Item effective ] ()
-    in
-    list#add_class rate_class;
-    list, set_total, set_effective
+    let base_class = "qos-niit-pids-summary-rate"
+
+    let make () =
+      let na = "n/a" in
+      let to_string = Printf.sprintf "%f Мбит/с" in
+      let set meta = function
+        | None -> meta#set_text na
+        | Some x -> meta#set_text @@ to_string x in
+      let total, set_total =
+        let meta = new Typography.Text.t ~text:na () in
+        let item = new Item_list.Item.t
+                     ~text:"Общий битрейт: "
+                     ~value:None
+                     ~meta
+                     () in
+        item, set meta in
+      let effective, set_effective =
+        let meta = new Typography.Text.t ~text:na () in
+        let item = new Item_list.Item.t
+                     ~text:"Полезный битрейт: "
+                     ~value:None
+                     ~meta
+                     () in
+        item, set meta in
+      let list =
+        new Item_list.t
+          ~dense:true
+          ~non_interactive:true
+          ~items:[`Item total; `Item effective]
+          () in
+      list#add_class base_class;
+      list, set_total, set_effective
+
+  end
 
   module Pids = struct
 
-    let _class = Markup.CSS.add_element _class "pids"
-    let box_class = Markup.CSS.add_element _class "box"
-    let pid_class = Markup.CSS.add_element _class "pid"
-    let title_class = Markup.CSS.add_element _class "title"
+    let base_class = "qos-niit-pids-summary-box"
+    let content_class = Markup.CSS.add_element base_class "content"
+    let wrapper_class = Markup.CSS.add_element base_class "wrapper"
+    let pid_class = Markup.CSS.add_element base_class "pid"
+    let title_class = Markup.CSS.add_element base_class "title"
     let lost_class = Markup.CSS.add_modifier pid_class "lost"
 
     let make_title num =
       Printf.sprintf "PIDs (%d)" num
+
+    let make_nav_button dir =
+      let path = match dir with
+        | `Left -> Icon.SVG.Path.chevron_left
+        | `Right -> Icon.SVG.Path.chevron_right in
+      let icon = Icon.SVG.create_simple path in
+      let button = new Button.t ~label:"" ~icon () in
+      button
 
     let make_pid ?(hex = false) ((pid, info) : Pid.t) =
       object(self)
@@ -331,27 +342,35 @@ module Info = struct
     class t ?hex (init : Pid.t list) () =
       let text = make_title @@ List.length init in
       let title = new Typography.Text.t ~font:Caption ~text () in
-      let pids_box = new Hbox.t ~widgets:[] () in
+      let content = Widget.create_div () in
+      let wrapper = new Hbox.t ~widgets:[content] () in
       object(self)
 
+        val mutable _ext = false
         val mutable _pids = []
 
-        inherit Vbox.t
-                  ~widgets:[ title#widget
-                           ; pids_box#widget] () as super
+        inherit Vbox.t ~widgets:[title#widget; wrapper#widget] () as super
 
         method! init () : unit =
           super#init ();
           _pids <- List.map (make_pid ?hex) init;
-          List.iter pids_box#append_child _pids;
-          self#add_class _class;
+          let obs =
+            Ui_templates.Resize_observer.observe
+              ~node:content#root
+              ~f:self#observe
+              () in
+          ignore obs;
+          List.iter content#append_child _pids;
+          self#add_class base_class;
           title#add_class title_class;
-          pids_box#add_class box_class;
+          content#add_class content_class;
+          wrapper#add_class wrapper_class
 
         method! destroy () : unit =
           super#destroy ();
           title#destroy ();
-          pids_box#destroy ();
+          content#destroy ();
+          wrapper#destroy ()
 
         method update ~(lost : Set.t)
                  ~(found : Set.t)
@@ -366,6 +385,28 @@ module Info = struct
 
         (* Private methods *)
 
+        method private observe =
+          let open Js_of_ocaml in
+          let open Ui_templates.Resize_observer in
+          fun (entries : resizeEntry Js.t Js.js_array Js.t) ->
+          let l = Array.to_list @@ Js.to_array entries in
+          List.find_map (fun (x : resizeEntry Js.t) ->
+              if Equal.physical x##.target content#node
+              then Some x##.contentRect else None) l
+          |> function
+            | None -> ()
+            | Some x ->
+               let height = Js.Optdef.get x##.height (fun () -> 0.) in
+               if not _ext && height >. 160.
+               then (
+                 _ext <- true;
+                 print_endline "in setting ext";
+                 let left = make_nav_button `Left in
+                 let right = make_nav_button `Right in
+                 wrapper#insert_child_at_idx 0 left;
+                 wrapper#append_child right);
+               Printf.printf "height: %f\n" height
+
         method private update_pid ((pid, info) : Pid.t) : unit =
           match List.find_opt (fun cell ->
                     cell#pid = pid) _pids with
@@ -376,14 +417,14 @@ module Info = struct
           let pid = make_pid x in
           _pids <- pid :: _pids;
           (* FIXME sort? *)
-          pids_box#append_child pid
+          content#append_child pid
 
         method private remove_pid ((pid, _) : Pid.t) : unit =
           match List.find_opt (fun cell ->
                     cell#pid = pid) _pids with
           | None -> ()
           | Some cell ->
-             pids_box#remove_child cell;
+             content#remove_child cell;
              cell#destroy ();
              _pids <- List.remove ~eq:Widget.equal cell _pids
 
@@ -391,8 +432,10 @@ module Info = struct
 
   end
 
+  let base_class = "qos-niit-pids-summary-info"
+
   class t ?hex (init : Pid.t list) () =
-    let rate, set_total, set_effective = make_rate () in
+    let rate, set_total, set_effective = Rate.make () in
     let pids = new Pids.t ?hex init () in
     object(self)
 
@@ -405,7 +448,7 @@ module Info = struct
 
       method! init () : unit =
         super#init ();
-        self#add_class _class
+        self#add_class base_class
 
       method! destroy () : unit =
         super#destroy ();
