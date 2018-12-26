@@ -6,11 +6,11 @@ module Markup = Components_markup.Button.Make(Xml)(Svg)(Html)
 
 type style = [ `Raised | `Unelevated | `Stroked ]
 
-class t ?typ ?style ?icon ?dense ?compact ?(ripple = true) ~label () =
+class t ?typ ?style ?icon ?dense ?compact ?(ripple = true) ?label () =
   let icon' = Option.map Widget.to_markup icon in
   let (elt : Dom_html.buttonElement Js.t) =
     Markup.create ?button_type:typ ?button_style:style
-      ?dense ?compact ?icon:icon' ~label ()
+      ?dense ?compact ?icon:icon' ?label ()
     |> To_dom.of_button in
 
   object(self)

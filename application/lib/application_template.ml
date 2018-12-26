@@ -112,11 +112,11 @@ let create (app : Application.t)
              ; icon = Some (make_icon Icon.SVG.Path.tournament)
              ; href = Uri.Path.of_string "application"
              ; template = props }
-    (* ; `Index 4,
-     *   Simple  { title = "UI Демо"
-     *           ; icon = Some (make_icon Icon.SVG.Path.material_design)
-     *           ; href = Uri.Path.of_string "demo"
-     *           ; template = demo_props } *)
+    ; `Index 4,
+      Simple  { title = "UI Демо"
+              ; icon = Some (make_icon Icon.SVG.Path.material_design)
+              ; href = Uri.Path.of_string "demo"
+              ; template = demo_props }
     ]
   in
   let proc = match app.proc with

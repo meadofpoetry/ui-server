@@ -65,6 +65,8 @@ module Infinite_scroll = Infinite_scroll
 (* TODO remove js dependency *)
 module Menu = Menu
 
+module Pagination = Pagination
+
 (* TODO add group, fix selection signal *)
 module Radio = Radio
 
