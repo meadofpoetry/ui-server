@@ -11,12 +11,10 @@ module Actions = struct
   module Buttons = struct
 
     class t ~(widgets : #Widget.t list) () =
-      let children = List.map Widget.to_markup widgets in
       let (elt : Dom_html.element Js.t) =
-        Markup.Actions.Buttons.create ~children ()
-        |> To_dom.of_element in
+        To_dom.of_element @@ Markup.Actions.Buttons.create () in
       object
-        inherit Widget.t elt () as super
+        inherit Widget.t elt ~widgets () as super
 
         method! init () : unit =
           super#init ();
@@ -32,12 +30,10 @@ module Actions = struct
   module Icons = struct
 
     class t ~(widgets : #Widget.t list) () =
-      let children = List.map Widget.to_markup widgets in
       let (elt : Dom_html.element Js.t) =
-        Markup.Actions.Icons.create ~children ()
-        |> To_dom.of_element in
+        To_dom.of_element @@ Markup.Actions.Icons.create () in
       object
-        inherit Widget.t elt () as super
+        inherit Widget.t elt ~widgets () as super
 
         method! init () : unit =
           super#init ();
@@ -52,14 +48,9 @@ module Actions = struct
 
   class t ~(widgets : #Widget.t list) () =
     let (elt : Dom_html.element Js.t) =
-      Markup.Actions.create ~children:(List.map Widget.to_markup widgets) ()
-      |> To_dom.of_section in
+      To_dom.of_element @@ Markup.Actions.create () in
     object
-      inherit Widget.t elt () as super
-
-      method! init () : unit =
-        super#init ();
-        _widgets <- List.map Widget.coerce widgets
+      inherit Widget.t elt ~widgets ()
     end
 
 end

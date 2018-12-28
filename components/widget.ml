@@ -40,17 +40,39 @@ module Event = struct
 
 end
 
+let equal (a : < root : element; ..> as 'a) (b : 'a) : bool =
+  Equal.physical a#root b#root
+
 class t ?(widgets : #t list option)
         (elt : #Dom_html.element Js.t) () = object(self)
 
   val mutable _on_destroy = None
   val mutable _listeners_lwt = []
-  val mutable _widgets : t list = match widgets with
-    | None -> []
-    | Some w -> List.map (fun x -> (x :> t)) w
+  val mutable _widgets : t list = []
 
   val mutable _e_storage : unit React.event list = []
   val mutable _s_storage : unit React.signal list = []
+
+  method init () : unit =
+    begin match widgets with
+    | None -> ()
+    | Some w -> _widgets <- List.map (fun (x : #t) -> x#widget) w
+    end;
+    List.iter self#append_child _widgets
+
+  method destroy () : unit =
+    List.iter (React.S.stop ~strong:true) _s_storage;
+    List.iter (React.E.stop ~strong:true) _e_storage;
+    _s_storage <- [];
+    _e_storage <- [];
+    List.iter (fun x -> x#destroy ()) _widgets;
+    _widgets <- [];
+    List.iter (fun x -> try Lwt.cancel x with _ -> ()) _listeners_lwt;
+    _listeners_lwt <- [];
+    Option.iter (fun f -> f ()) _on_destroy
+
+  method layout () : unit =
+    List.iter (fun x -> x#layout ()) _widgets
 
   method root : element =
     (elt :> Dom_html.element Js.t)
@@ -67,24 +89,37 @@ class t ?(widgets : #t list option)
   method widgets : t list =
     List.map (fun x -> x#widget) _widgets
 
+  method append_child : 'a. (< node : node;
+                             widget : t;
+                             layout : unit -> unit;
+                             .. > as 'a) -> unit =
+    fun x ->
+    Dom.appendChild self#root x#node;
+    _widgets <- x#widget :: _widgets;
+    x#layout ()
+
+  method insert_child_at_idx : 'a. int -> (< node : node;
+                                           widget : t;
+                                           layout : unit -> unit;
+                                           .. > as 'a) -> unit =
+    fun index x ->
+    let child = self#root##.childNodes##item index in
+    Dom.insertBefore self#root x#node child;
+    _widgets <- x#widget :: _widgets;
+    x#layout ()
+
+  method remove_child : 'a. (< node : Dom.node Js.t;
+                             widget : t;
+                             .. > as 'a) -> unit =
+    fun x ->
+    try
+      Dom.removeChild self#root x#node;
+      let wdgs = List.remove ~eq:equal x#widget _widgets in
+      _widgets <- wdgs
+    with _ -> ()
+
   method set_on_destroy (f : unit -> unit) : unit =
     _on_destroy <- Some f
-
-  method init () : unit =
-    List.iter self#append_child _widgets
-
-  method destroy () : unit =
-    List.iter (React.S.stop ~strong:true) _s_storage;
-    List.iter (React.E.stop ~strong:true) _e_storage;
-    _s_storage <- [];
-    _e_storage <- [];
-    _widgets <- [];
-    List.iter (fun x -> try Lwt.cancel x with _ -> ()) _listeners_lwt;
-    _listeners_lwt <- [];
-    Option.iter (fun f -> f ()) _on_destroy
-
-  method layout () =
-    List.iter (fun x -> x#layout ()) _widgets
 
   method get_child_element_by_class x =
     self#root##querySelector (Js.string ("." ^ x))
@@ -208,34 +243,6 @@ class t ?(widgets : #t list option)
   method set_scroll_height (x : int) : unit =
     self#root##.scrollHeight := x
 
-  method append_child : 'a. (< node : node;
-                               widget : t;
-                               layout : unit -> unit;
-                             .. > as 'a) -> unit =
-    fun x ->
-    Dom.appendChild self#root x#node;
-    _widgets <- x#widget :: _widgets;
-    x#layout ()
-
-  method insert_child_at_idx : 'a. int -> (< node : node;
-                                           widget : t;
-                                           layout : unit -> unit;
-                                           .. > as 'a) -> unit =
-    fun index x ->
-    let child = self#root##.childNodes##item index in
-    Dom.insertBefore self#root x#node child;
-    _widgets <- x#widget :: _widgets;
-    x#layout ()
-
-  method remove_child : 'a. (< node : Dom.node Js.t;
-                             widget : t;
-                             .. > as 'a) -> unit =
-    fun x ->
-    (try Dom.removeChild self#root x#node
-     with _ -> ());
-    let wdgs = List.remove ~eq:Equal.physical x#widget _widgets in
-    _widgets <- wdgs
-
   method listen : 'a. (#Dom_html.event as 'a) Js.t Event.typ ->
                   (element -> 'a Js.t -> bool) ->
                   Dom_events.listener =
@@ -260,6 +267,16 @@ class t ?(widgets : #t list option)
     if store then _listeners_lwt <- t :: _listeners_lwt;
     t
 
+  method listen_lwt' : 'a. ?cancel_handler:bool ->
+                       ?use_capture:bool ->
+                       (#Dom_html.event as 'a) Js.t Event.typ ->
+                       ('a Js.t -> unit Lwt.t -> unit Lwt.t) ->
+                       unit =
+    fun ?cancel_handler ?use_capture x f ->
+    let (t : unit Lwt.t) =
+      self#listen_lwt ?cancel_handler ?use_capture x f in
+    _listeners_lwt <- t :: _listeners_lwt
+
   method listen_click_lwt
          : ?store:bool ->
            ?cancel_handler:bool ->
@@ -271,9 +288,16 @@ class t ?(widgets : #t list option)
     if store then _listeners_lwt <- t :: _listeners_lwt;
     t
 
-  method set_empty () =
+  method listen_click_lwt' ?cancel_handler ?use_capture f : unit =
+    let (t : unit Lwt.t) =
+      self#listen_click_lwt ?cancel_handler ?use_capture f in
+    _listeners_lwt <- t :: _listeners_lwt
+
+  method set_empty ?(destroy_children = true) () =
     Dom.list_of_nodeList @@ self#root##.childNodes
-    |> List.iter (fun x -> Dom.removeChild self#root x)
+    |> List.iter (fun x -> Dom.removeChild self#root x);
+    if destroy_children then List.iter (fun x -> x#destroy ()) _widgets;
+    _widgets <- []
 
   method bounding_client_rect =
     (self#root##getBoundingClientRect)
@@ -397,8 +421,7 @@ class radio_or_cb_widget ?on_change ?state ~input_elt elt () =
 
   end
 
-let equal (x : (#t as 'a)) (y : 'a) =
-  Equal.physical x#root y#root
+let equal (x : (#t as 'a)) (y : 'a) = equal x y
 
 let coerce (x : #t) = (x :> t)
 
@@ -415,7 +438,7 @@ let remove_from_body (x : #t) =
 
 open Dom_html
 
-let create x = new t x ()
+let create ?widgets x = new t ?widgets x ()
 
 let create_div ?(widgets = []) () =
   let div = create @@ createDiv document in

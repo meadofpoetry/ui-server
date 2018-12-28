@@ -171,14 +171,14 @@ class ['a] t ?(disabled = false)
     method item (n : int) : 'a Item.t option =
       List.get_at_idx n self#items
 
-    method! set_empty () =
+    method! set_empty ?(destroy_children = true) () =
       List.iter (function
           | `Group g ->
              self#select#remove_child g;
-             g#destroy ()
+             if destroy_children then g#destroy ()
           | `Item i ->
              self#select#remove_child i;
-             i#destroy ()) _items;
+             if destroy_children then i#destroy ()) _items;
       _items <- [];
       push None
 

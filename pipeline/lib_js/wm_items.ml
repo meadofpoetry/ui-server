@@ -3,6 +3,7 @@ open Containers
 open Components
 open Wm_types
 open Wm_components
+open Common
 
 let drag_type_prefix = "application/grid_item-"
 
@@ -90,7 +91,7 @@ module Make(I : Item) = struct
       let card = new Card.t ~widgets:[wrapper] () in
       card#add_class base_class;
       let _ =
-        React.S.map (function
+        React.S.map ~eq:Equal.unit (function
             | [] -> wrapper#set_empty ();
                     wrapper#append_child ph
             | l -> wrapper#set_empty ();
@@ -106,41 +107,52 @@ module Make(I : Item) = struct
 
     let base_class = Markup.CSS.add_element base_class "properties"
 
-    let make widgets (s : I.t Dynamic_grid.Item.t option React.signal) =
-      let ph = Placeholder.make
-                 ~text:"Выберите элемент в раскладке"
-                 ~icon:Icon.SVG.(create_simple Path.gesture_tap)
-                 () in
-      let card = new Card.t ~widgets:[] () in
-      let id = "wm-item-properties" in
-      let actions_id = "wm-item-properties-actions" in
-      let _ =
-        React.S.map (fun selected ->
-            (try
-               Dom.removeChild card#root (Dom_html.getElementById id);
-               Dom.removeChild card#root (Dom_html.getElementById actions_id)
-             with _ -> ());
-            (match selected with
-             | Some x ->
-                card#remove_child ph;
-                let w = I.make_item_properties x#s_value x#set_value widgets in
-                let l =
-                  List.map (fun { label; on_click } ->
-                      let b = new Button.t ~label () in
-                      b#listen Widget.Event.click (fun _ _ ->
-                          on_click (); true) |> ignore;
-                      b) w.actions
-                in
-                let buttons = new Card.Actions.Buttons.t ~widgets:l () in
-                let actions = new Card.Actions.t ~widgets:[buttons] () in
-                actions#set_id actions_id;
-                w.widget#set_id id;
-                card#append_child w.widget;
-                card#append_child actions
-             | None -> card#append_child ph))
-          s in
-      card#add_class base_class;
-      card
+    class t widgets (s : I.t Dynamic_grid.Item.t option React.signal) =
+    object(self)
+      val placeholder =
+        Placeholder.make
+          ~text:"Выберите элемент в раскладке"
+          ~icon:Icon.SVG.(create_simple Path.gesture_tap)
+          ()
+      val mutable _state = None
+      inherit Card.t ~widgets:[] () as super
+
+      method! init () : unit =
+        super#init ();
+        super#add_class base_class;
+        let _s = React.S.map ~eq:Equal.unit self#on_change s in
+        _state <- Some _s
+
+      method! destroy () : unit =
+        super#destroy ();
+        placeholder#destroy ();
+        Option.iter (React.S.stop ~strong:true) _state;
+        _state <- None
+
+      (* Private methods *)
+
+      method private on_change (selected : I.t Dynamic_grid.Item.t option) : unit =
+        super#set_empty ();
+        begin match selected with
+        | None -> super#append_child placeholder
+        | Some x ->
+           super#remove_child placeholder;
+           let w = I.make_item_properties x#s_value x#set_value widgets in
+           let l =
+             List.map (fun { label; on_click } ->
+                 let b = new Button.t ~label () in
+                 b#listen_click_lwt' (fun _ _ -> Lwt.return @@ on_click ());
+                 b) w.actions in
+           let buttons = new Card.Actions.Buttons.t ~widgets:l () in
+           let actions = new Card.Actions.t ~widgets:[buttons] () in
+           super#append_child w.widget;
+           super#append_child actions
+        end
+
+    end
+
+    let make widgets s : t =
+      new t widgets s
 
   end
 

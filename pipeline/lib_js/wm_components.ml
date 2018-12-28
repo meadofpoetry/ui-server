@@ -147,10 +147,12 @@ module Item_properties = struct
   let make_container_props (t : t_cont React.signal) =
     let s_name = React.S.map (fun (x : t_cont) -> x.name) t in
     let name = new Text_row.t ~label:"Имя" ~s:s_name () in
-    let s_num = React.S.map (fun (x:t_cont) ->
+    let s_num = React.S.map (fun (x : t_cont) ->
                     string_of_int @@ List.length x.item.widgets) t in
-    let num  = new Text_row.t ~label:"Количество виджетов" ~s:s_num () in
-    let box  = new Vbox.t ~widgets:[name#widget; num#widget] () in
+    let num = new Text_row.t ~label:"Количество виджетов" ~s:s_num () in
+    let box = new Vbox.t ~widgets:[name#widget; num#widget] () in
+    print_endline "property is created";
+    box#set_on_destroy (fun () -> print_endline "property is destroyed");
     Wm_types.{ widget = box#widget; actions = [] }
 
   let make_video_props (t : t_widg React.signal) =

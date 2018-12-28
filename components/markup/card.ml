@@ -32,18 +32,18 @@ module Make(Xml : Xml_sigs.NoWrap)
     module Buttons = struct
       let _class = CSS.add_element base_class "action-buttons"
 
-      let create ?(classes = []) ?attrs ~children () : 'a elt =
+      let create ?(classes = []) ?attrs ?(children = []) () : 'a elt =
         div ~a:([a_class (_class :: classes)] <@> attrs) children
     end
 
     module Icons = struct
       let _class = CSS.add_element base_class "action-icons"
 
-      let create ?(classes = []) ?attrs ~children () : 'a elt =
+      let create ?(classes = []) ?attrs ?(children = []) () : 'a elt =
         div ~a:([a_class (_class :: classes)] <@> attrs) children
     end
 
-    let create ?(classes = []) ?attrs ~children () : 'a elt =
+    let create ?(classes = []) ?attrs ?(children = []) () : 'a elt =
       section ~a:([a_class (_class :: classes)] <@> attrs) children
   end
 
