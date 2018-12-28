@@ -19,19 +19,19 @@ let equal_icon x y =
   Equal.physical x#root y#root
 
 type 'a wm_item =
-  { icon     : icon
-  ; name     : string
-  ; unique   : bool
+  { icon : icon
+  ; name : string
+  ; unique : bool
   ; min_size : (int * int) option
-  ; item     : 'a
+  ; item : 'a
   } [@@deriving yojson, eq]
 
 type item_properties_action =
-  { label    : string
+  { label : string
   ; on_click : unit -> unit
   }
 type item_properties =
-  { widget  : Widget.t
+  { widget : Widget.t
   ; actions : item_properties_action list
   }
 
@@ -40,8 +40,8 @@ type editor_config =
   }
 
 type action =
-  { icon   : Widget.t
-  ; name   : string
+  { icon : Widget.t
+  ; name : string
   }
 
 module type Item = sig
@@ -50,19 +50,19 @@ module type Item = sig
   type layout_item = string * item
   type t = item wm_item [@@deriving yojson, eq]
 
-  val max_layers           : int
+  val max_layers : int
 
-  val t_to_layout_item     : t -> layout_item
-  val t_of_layout_item     : layout_item -> t
-  val to_grid_item         : t -> Dynamic_grid.Position.t -> t Dynamic_grid.item
-  val position_of_t        : t -> Wm.position
-  val layer_of_t           : t -> int
-  val size_of_t            : t -> int option * int option
-  val layers_of_t_list     : t list -> int list
-  val update_position      : t -> Wm.position -> t
-  val update_layer         : t -> int -> t
-  val update_min_size      : t -> t
-  val make_item_name       : t -> t list -> string
-  val make_item_properties : t React.signal -> (t -> unit) -> t list -> item_properties
+  val t_to_layout_item : t -> layout_item
+  val t_of_layout_item : layout_item -> t
+  val to_grid_item : t -> Dynamic_grid.Position.t -> t Dynamic_grid.item
+  val position_of_t : t -> Wm.position
+  val layer_of_t : t -> int
+  val size_of_t : t -> int option * int option
+  val layers_of_t_list : t list -> int list
+  val update_position : t -> Wm.position -> t
+  val update_layer : t -> int -> t
+  val update_min_size : t -> t
+  val make_item_name : t -> t list -> string
+  val make_item_properties : t React.signal -> (t -> unit) -> item_properties
 
 end

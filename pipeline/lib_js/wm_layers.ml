@@ -232,7 +232,7 @@ let make ~init ~max =
   let layers = Widget.create_div () in
   let grid = make_layers_grid ~init in
   let actions = new Card.Actions.t ~widgets:[(make_layers_actions max grid grid#e_layer_push)#widget] () in
-  let card = new Card.t ~widgets:[layers#widget;actions#widget] () in
+  let card = new Card.t ~widgets:[layers#widget; actions#widget] () in
   let title = Wm_selectable_title.make [("Слои", card)] in
   let box = new Vbox.t ~widgets:[title#widget; card#widget] () in
   layers#add_class wrapper_class;

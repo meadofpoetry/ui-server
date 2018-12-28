@@ -174,7 +174,7 @@ module Container_item : Item with type item = Wm.container = struct
     in
     aux 1 other
 
-  let make_item_properties t _ _ =
+  let make_item_properties t _ =
     Item_properties.make_container_props t
 
 end

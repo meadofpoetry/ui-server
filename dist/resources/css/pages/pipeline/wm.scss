@@ -83,6 +83,27 @@ $wm-placeholder-color: text-secondary-on-surface;
 
 // ---- ITEMS ----
 
+.wm-item-properties {
+    position: relative;
+    flex: 1 1 200px;
+
+    &__values {
+        table {
+            table-layout: fixed;
+        }
+        thead {
+            display: none;
+        }
+        td {
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+    }
+    &__actions {
+        margin-top: auto;
+    }
+}
+
 .wm-items {
 
     flex-grow: 2;
@@ -109,20 +130,6 @@ $wm-placeholder-color: text-secondary-on-surface;
         .mdc-icon {
             @include mdc-theme-prop(color, text-secondary-on-surface);
             padding: 12px;
-        }
-    }
-
-    &__properties {
-        position: relative;
-        flex: 1 1 200px;
-
-        #wm-item-properties {
-            padding: 15px;
-            overflow-y: auto;
-        }
-
-        .mdc-card__actions {
-            margin-top: auto;
         }
     }
 }

@@ -99,7 +99,7 @@ class ['a] t ?(disabled = false)
         ?(bottom_line = true)
         ?(default_selected = true)
         ?(label : string option)
-        ~(items : [ `Item of 'a Item.t | `Group of 'a Group.t ] list)
+        ~(items : [`Item of 'a Item.t | `Group of 'a Group.t] list)
         () =
   let make_empty () =
     Markup.Item.create
@@ -171,14 +171,14 @@ class ['a] t ?(disabled = false)
     method item (n : int) : 'a Item.t option =
       List.get_at_idx n self#items
 
-    method! set_empty ?(destroy_children = true) () =
+    method! set_empty ?(hard = true) () =
       List.iter (function
           | `Group g ->
              self#select#remove_child g;
-             if destroy_children then g#destroy ()
+             if hard then g#destroy ()
           | `Item i ->
              self#select#remove_child i;
-             if destroy_children then i#destroy ()) _items;
+             if hard then i#destroy ()) _items;
       _items <- [];
       push None
 

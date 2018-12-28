@@ -31,6 +31,8 @@ type 'a custom_elt =
   ; is_numeric : bool
   }
 
+type selection = [`Single | `Multiple]
+
 let default_time = Format.asprintf "%a" Ptime.pp
 
 let default_float = Printf.sprintf "%f"
@@ -270,16 +272,13 @@ module Row = struct
        x#set_format fmt;
        set_format l1 l2
 
-  class ['a] t
-          ?selection
-          (s_selected : 'a t list React.signal)
-          (set_selected : 'a t list -> unit)
-          (fmt : 'a Format.t)
+  class ['a] t (fmt : 'a Format.t)
           (data : 'a Data.t)
           () =
-    let cb  = match selection with
-      | Some `Multiple -> Some (new Checkbox.t ())
-      | _ -> None in
+    let cb : Checkbox.t option = None in
+    (* let cb  = match selection with
+     *   | Some `Multiple -> Some (new Checkbox.t ())
+     *   | _ -> None in *)
     let cells = make_cells fmt data in
     let cells' = cells_to_widgets cells in
     let elt =
@@ -292,15 +291,7 @@ module Row = struct
       inherit Widget.t (To_dom.of_element elt) () as super
 
       method! init () : unit =
-        super#init ();
-        match selection with
-        | None -> ()
-        | Some _ ->
-           (* XXX maybe move listener to body? *)
-           self#listen_lwt Widget.Event.click (fun _ _ ->
-               self#set_selected (not self#selected);
-               Lwt.return_unit)
-           |> Lwt.ignore_result
+        super#init ()
 
       method set_format (x : 'a Format.t) : unit =
         _fmt <- x;
@@ -328,39 +319,39 @@ module Row = struct
           | cell :: rest -> cell#value :: aux rest in
         aux self#cells
 
-      method s_selected = s_selected
-
-      method selected = self#has_class Markup.Row.selected_class
-
-      method set_selected' x =
-        Option.iter (fun cb -> cb#set_checked x) self#checkbox;
-        self#add_or_remove_class x Markup.Row.selected_class
-
-      method set_selected x  =
-        let v = (self :> 'a t) in
-        self#set_selected' x;
-        match selection with
-        | Some `Single ->
-           if x
-           then
-             begin match React.S.value s_selected with
-             | [] -> set_selected @@ List.pure v
-             | l -> List.iter (fun (t : 'a t) -> t#set_selected' x) l;
-                    set_selected @@ List.pure v
-             end
-           else
-             begin match React.S.value s_selected with
-             | [] -> ()
-             | l -> set_selected @@ List.remove ~eq:Widget.equal v l
-             end
-        | Some `Multiple ->
-           let l =
-             if x
-             then List.add_nodup ~eq:Widget.equal (self :> 'a t)
-                    (React.S.value s_selected)
-             else List.remove ~eq:Widget.equal v (React.S.value s_selected)
-           in set_selected l
-        | None -> ()
+      (* method s_selected = s_selected
+       * 
+       * method selected = self#has_class Markup.Row.selected_class
+       * 
+       * method set_selected' x =
+       *   Option.iter (fun cb -> cb#set_checked x) self#checkbox;
+       *   self#add_or_remove_class x Markup.Row.selected_class
+       * 
+       * method set_selected x  =
+       *   let v = (self :> 'a t) in
+       *   self#set_selected' x;
+       *   match selection with
+       *   | Some `Single ->
+       *      if x
+       *      then
+       *        begin match React.S.value s_selected with
+       *        | [] -> set_selected @@ List.pure v
+       *        | l -> List.iter (fun (t : 'a t) -> t#set_selected' x) l;
+       *               set_selected @@ List.pure v
+       *        end
+       *      else
+       *        begin match React.S.value s_selected with
+       *        | [] -> ()
+       *        | l -> set_selected @@ List.remove ~eq:Widget.equal v l
+       *        end
+       *   | Some `Multiple ->
+       *      let l =
+       *        if x
+       *        then List.add_nodup ~eq:Widget.equal (self :> 'a t)
+       *               (React.S.value s_selected)
+       *        else List.remove ~eq:Widget.equal v (React.S.value s_selected)
+       *      in set_selected l
+       *   | None -> () *)
 
     end
 
@@ -381,7 +372,7 @@ module Header = struct
          (new Column.t i push c fmt ()) :: (loop (succ i) push rest)
     in loop 0 push fmt
 
-  class row ?selection ~(columns:Column.t list) () =
+  class row ?selection ~(columns : Column.t list) () =
     let cb = match selection with
       | Some `Multiple -> Some (new Checkbox.t ())
       | _ -> None in
@@ -397,62 +388,63 @@ module Header = struct
 
   let iter = Option.iter
 
-  class ['a] t ?selection s_selected set_selected s_rows fmt () =
+  class ['a] t ?selection (* s_selected set_selected *) s_rows fmt () =
     let s_sorted, set_sorted = React.S.create None in
     let columns = make_columns set_sorted fmt in
     let row = new row ?selection ~columns () in
     let elt = Markup.Header.create ~row:(Widget.to_markup row) ()
               |> To_dom.of_element in
-    object(self)
+    object(* (self) *)
       val _columns = columns
       inherit Widget.t elt () as super
 
       method! init () : unit =
         super#init ();
         (* FIXME keep signals *)
-        iter (fun (cb : #Widget.t) ->
-            cb#listen_lwt Widget.Event.change (fun _ _ ->
-                if cb#checked
-                then (List.iter (fun r -> r#set_selected' true) self#_rows;
-                      set_selected self#_rows)
-                else (List.iter (fun r -> r#set_selected' false) self#_rows;
-                      set_selected List.empty);
-                Lwt.return_unit)
-            |> Lwt.ignore_result) self#checkbox;
-        React.S.map (fun (x : 'a Row.t list) ->
-            match List.length x with
-            | 0 ->
-               iter (fun cb ->
-                   cb#set_checked false;
-                   cb#set_indeterminate false) self#checkbox
-            | l when l = List.length self#_rows ->
-               iter (fun cb ->
-                   cb#set_checked true;
-                   cb#set_indeterminate false) self#checkbox
-            | _ ->
-               iter (fun cb ->
-                   cb#set_indeterminate true;
-                   cb#set_checked false) self#checkbox) s_selected
-        |> self#_keep_s;
-        React.S.map (function
-            | Some (index, sort) ->
-               List.iter (fun (x : Column.t) ->
-                   if index = x#index
-                   then x#set_attribute "aria-sort" (sort_to_string sort)
-                   else x#remove_attribute "aria-sort") _columns
-            | None ->
-               List.iter (fun x -> x#remove_attribute "aria-sort")
-                 _columns)
-          s_sorted |> self#_keep_s
+        (* iter (fun (cb : #Widget.t) ->
+         *     cb#listen_lwt Widget.Event.change (fun _ _ ->
+         *         if cb#checked
+         *         then (List.iter (fun r -> r#set_selected' true) self#_rows;
+         *               set_selected self#_rows)
+         *         else (List.iter (fun r -> r#set_selected' false) self#_rows;
+         *               set_selected List.empty);
+         *         Lwt.return_unit)
+         *     |> Lwt.ignore_result) self#checkbox;
+         * React.S.map (fun (x : 'a Row.t list) ->
+         *     match List.length x with
+         *     | 0 ->
+         *        iter (fun cb ->
+         *            cb#set_checked false;
+         *            cb#set_indeterminate false) self#checkbox
+         *     | l when l = List.length self#_rows ->
+         *        iter (fun cb ->
+         *            cb#set_checked true;
+         *            cb#set_indeterminate false) self#checkbox
+         *     | _ ->
+         *        iter (fun cb ->
+         *            cb#set_indeterminate true;
+         *            cb#set_checked false) self#checkbox) s_selected
+         * |> self#_keep_s;
+         * React.S.map (function
+         *     | Some (index, sort) ->
+         *        List.iter (fun (x : Column.t) ->
+         *            if index = x#index
+         *            then x#set_attribute "aria-sort" (sort_to_string sort)
+         *            else x#remove_attribute "aria-sort") _columns
+         *     | None ->
+         *        List.iter (fun x -> x#remove_attribute "aria-sort")
+         *          _columns)
+         *   s_sorted |> self#_keep_s *)
 
       method checkbox = row#checkbox
       method columns = _columns
       method s_sorted = s_sorted
 
-      method select_all () =
-        List.iter (fun (r : 'a Row.t) -> r#set_selected true) self#_rows
-      method unselect_all () =
-        List.iter (fun (r : 'a Row.t) -> r#set_selected false) self#_rows
+      (* method select_all () =
+       *   List.iter (fun (r : 'a Row.t) -> r#set_selected true) self#_rows
+       * 
+       * method unselect_all () =
+       *   List.iter (fun (r : 'a Row.t) -> r#set_selected false) self#_rows *)
 
       method private _rows = React.S.value s_rows
     end
@@ -624,7 +616,12 @@ let rec compare : type a. int ->
      then x1#compare x2
      else compare (pred index) rest1 rest2
 
-class ['a] t ?selection
+type 'a init =
+  [ `Data of 'a Data.t list
+  | `Rows of 'a Row.t list
+  ]
+
+class ['a] t ?(selection : selection option)
         ?footer
         ?(sticky_header = false)
         ?(dense = false)
@@ -632,11 +629,13 @@ class ['a] t ?selection
         ?rows_in_block
         ?blocks_in_cluster
         ?clusterize
-        ~(fmt : 'a Format.t) () =
-  let s_selected, set_selected = React.S.create List.empty in
+        ?(init : 'a init option)
+        ~(fmt : 'a Format.t)
+        () =
+  let s_selected, _ (* set_selected *) = React.S.create List.empty in
   let body = new Body.t () in
-  let header = new Header.t ?selection s_selected
-                 set_selected body#s_rows fmt () in
+  let header = new Header.t ?selection (* s_selected
+                  * set_selected *) body#s_rows fmt () in
   let table = new Table.t ~header ~body () in
   let content =
     Markup.create_content ~table:(Widget.to_markup table) ()
@@ -674,7 +673,11 @@ class ['a] t ?selection
       React.S.map (function
           | Some (index, sort) -> self#sort index sort
           | None -> ()) header#s_sorted
-      |> self#_keep_s
+      |> self#_keep_s;
+      match init with
+      | None -> ()
+      | Some (`Rows rows) -> self#append_rows rows
+      | Some (`Data data) -> self#append data
 
     method! destroy () : unit =
       super#destroy ()
@@ -697,6 +700,9 @@ class ['a] t ?selection
 
     method s_rows : 'a Row.t list React.signal =
       body#s_rows
+
+    method selection : selection option =
+      selection
 
     method is_empty : bool = match self#rows with
       | [] -> true
@@ -735,6 +741,15 @@ class ['a] t ?selection
       let rows = List.map self#_make_row data in
       body#append_rows ?clusterize rows
 
+    method push_row (row : 'a Row.t) : unit =
+      body#append_row ?clusterize row
+
+    method cons_row (row : 'a Row.t) : unit =
+      body#prepend_row ?clusterize row
+
+    method append_rows (rows : 'a Row.t list) : unit =
+      body#append_rows ?clusterize rows
+
     method remove_row (row : 'a Row.t) : unit =
       body#remove_row row
 
@@ -764,10 +779,7 @@ class ['a] t ?selection
 
     (* Private methods *)
 
-    method private append_rows (rows : 'a Row.t list) : unit =
-      body#append_rows ?clusterize rows
-
     method private _make_row (data : 'a Data.t) : 'a Row.t =
-      new Row.t ?selection s_selected set_selected _fmt data ()
+      new Row.t (* ?selection s_selected set_selected *) _fmt data ()
 
   end

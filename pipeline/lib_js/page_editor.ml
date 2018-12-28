@@ -177,7 +177,7 @@ module Widget_item : Item with type item = Wm.widget = struct
       | Some pid -> typ ^ "PID:" ^ string_of_int pid
       | None     -> t.name
 
-  let make_item_properties (t : t React.signal) _ _ =
+  let make_item_properties (t : t React.signal) _ =
     Item_properties.make_widget_props t
 
 end
@@ -277,7 +277,7 @@ let switch ~grid
     grid#update_item_min_size selected;
     s_state_push `Container
   in
-  let on_cancel  = fun () -> s_state_push `Container in
+  let on_cancel = fun () -> s_state_push `Container in
   let w = create_widgets_grid
             ~container:selected#value
             ~candidates

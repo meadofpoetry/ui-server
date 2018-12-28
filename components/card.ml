@@ -114,12 +114,10 @@ class t ?(outlined = false)
         ~(widgets : #Widget.t list)
         () =
   let tag = if form then Some Html.form else None in
-  let elt =
-    Markup.create ?tag ~sections:(List.map Widget.to_markup widgets) ()
-    |> To_dom.of_element in
+  let elt = To_dom.of_element @@ Markup.create ?tag () in
 
   object(self)
-    inherit Widget.t elt () as super
+    inherit Widget.t elt ~widgets () as super
 
     method! init () : unit =
       super#init ();

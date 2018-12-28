@@ -105,9 +105,11 @@ module Make(I : Item) = struct
 
   module Properties = struct
 
-    let base_class = Markup.CSS.add_element base_class "properties"
+    let base_class = "wm-item-properties"
+    let values_class = Markup.CSS.add_element base_class "values"
+    let actions_class = Markup.CSS.add_element base_class "actions"
 
-    class t widgets (s : I.t Dynamic_grid.Item.t option React.signal) =
+    class t (s : I.t Dynamic_grid.Item.t option React.signal) =
     object(self)
       val placeholder =
         Placeholder.make
@@ -137,7 +139,7 @@ module Make(I : Item) = struct
         | None -> super#append_child placeholder
         | Some x ->
            super#remove_child placeholder;
-           let w = I.make_item_properties x#s_value x#set_value widgets in
+           let w = I.make_item_properties x#s_value x#set_value in
            let l =
              List.map (fun { label; on_click } ->
                  let b = new Button.t ~label () in
@@ -145,14 +147,16 @@ module Make(I : Item) = struct
                  b) w.actions in
            let buttons = new Card.Actions.Buttons.t ~widgets:l () in
            let actions = new Card.Actions.t ~widgets:[buttons] () in
+           w.widget#add_class values_class;
+           actions#add_class actions_class;
            super#append_child w.widget;
            super#append_child actions
         end
 
     end
 
-    let make widgets s : t =
-      new t widgets s
+    let make s : t =
+      new t s
 
   end
 
@@ -160,7 +164,7 @@ module Make(I : Item) = struct
     let add_title = "Добавить" in
     let props_title = "Свойства" in
     let add = Add.make ~candidates ~set_candidates () in
-    let props = Properties.make [] selected in
+    let props = Properties.make selected in
     let title = Wm_selectable_title.make [ add_title, add
                                          ; props_title, props ] in
     let content = new Vbox.t ~widgets:[add#widget; props#widget] () in

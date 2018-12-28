@@ -74,7 +74,7 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   end
 
-  let create ?(classes=[]) ?attrs ?tag ~sections () : 'a elt =
+  let create ?(classes=[]) ?attrs ?tag ?(sections = []) () : 'a elt =
     let tag = Option.get_or ~default:div tag in
     tag ~a:([a_class (base_class :: classes)] <@> attrs) sections
 

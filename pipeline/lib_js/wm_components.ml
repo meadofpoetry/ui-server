@@ -144,16 +144,30 @@ module Item_properties = struct
   type t_cont = Wm.container Wm_types.wm_item
   type t_widg = Wm.widget Wm_types.wm_item
 
-  let make_container_props (t : t_cont React.signal) =
-    let s_name = React.S.map (fun (x : t_cont) -> x.name) t in
-    let name = new Text_row.t ~label:"Имя" ~s:s_name () in
-    let s_num = React.S.map (fun (x : t_cont) ->
-                    string_of_int @@ List.length x.item.widgets) t in
-    let num = new Text_row.t ~label:"Количество виджетов" ~s:s_num () in
-    let box = new Vbox.t ~widgets:[name#widget; num#widget] () in
-    print_endline "property is created";
-    box#set_on_destroy (fun () -> print_endline "property is destroyed");
-    Wm_types.{ widget = box#widget; actions = [] }
+  let make_container_props (s : t_cont React.signal) =
+    let fmt =
+      Table.(
+        Format.(
+          (to_column "Тип", String None)
+          :: (to_column "Значение", Widget None)
+          :: [])) in
+    let name = new Typography.Text.t ~text:"" () in
+    let number = new Typography.Text.t ~text:"" () in
+    let name_row =
+      new Table.Row.t fmt
+        Table.Data.("Имя" :: name#widget :: []) () in
+    let number_row =
+      new Table.Row.t fmt
+        Table.Data.("Виджеты" :: number#widget :: []) () in
+    let init = `Rows [name_row; number_row] in
+    let table = new Table.t ~fmt ~init () in
+    let s' =
+      React.S.map (fun (x : t_cont) ->
+          name#set_text x.name;
+          number#set_text @@ string_of_int @@ List.length x.item.widgets)
+        s in
+    table#set_on_destroy (fun () -> React.S.stop ~strong:true s');
+    Wm_types.{ widget = table#widget; actions = [] }
 
   let make_video_props (t : t_widg React.signal) =
     let v = React.S.value t in
