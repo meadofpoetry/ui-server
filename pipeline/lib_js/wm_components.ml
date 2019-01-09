@@ -21,9 +21,9 @@ module Utils = struct
     let grids =
       List.map (fun factor -> let c = w / factor in c, c * ay / ax)
       @@ get_factors (gcd w h)
-      |> List.filter (fun (c,r) ->
+      |> List.filter (fun (c, r) ->
              let cw,rh = w / c, h / r in
-             List.fold_while (fun _ (x:Wm.position) ->
+             List.fold_while (fun _ (x : Wm.position) ->
                  if x.left mod cw = 0 && x.right mod cw = 0
                     && x.top mod rh = 0 && x.bottom mod rh = 0
                  then true,`Continue

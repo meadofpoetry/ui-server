@@ -126,7 +126,8 @@ $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #
     cursor: initial;
     align-items: center;
     @include mdc-theme-prop(background-color, surface);
-    @include mdc-theme-prop(color, text-primary-on-surface);
+    // FIXME surface
+    @include mdc-theme-prop(color, text-primary-on-background);
     &::before { opacity: 0 !important };
     &::after { opacity: 0 !important };
     .mdc-chip__text {
@@ -135,7 +136,8 @@ $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #
         white-space: nowrap;
     }
     .mdc-chip__icon {
-        @include mdc-theme-prop(color, text-icon-on-surface);
+        // FIXME surface
+        @include mdc-theme-prop(color, text-icon-on-background);
     }
 }
 

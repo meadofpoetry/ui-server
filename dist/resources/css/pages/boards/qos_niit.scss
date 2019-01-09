@@ -5,6 +5,7 @@
 @import "../../components/card/_variables";
 @import "../../components/elevation/_mixins";
 
+$border-color: mix(mdc-theme-prop-value(on-surface), mdc-theme-prop-value(surface), 12%);
 $error-surface: $material-color-red-200;
 $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #fff) !default;
 
@@ -13,14 +14,16 @@ $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #
     &__title {
         padding-bottom: 1rem;
         .mdc-icon {
-            @include mdc-theme-prop(color, text-icon-on-surface);
+            // FIXME surface
+            @include mdc-theme-prop(color, text-icon-on-background);
         }
     }
 }
 
 .mdc-list-title {
     @include mdc-typography(caption);
-    @include mdc-theme-prop(color, text-secondary-on-surface);
+    // FIXME surface
+    @include mdc-theme-prop(color, text-secondary-on-background);
     padding: 10px 16px;
 }
 
@@ -51,12 +54,13 @@ $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #
 .qos-niit-tables__list {
     &__title {
         @include mdc-typography(caption);
-        @include mdc-theme-prop(color, text-secondary-on-surface);
+        // FIXME surface
+        @include mdc-theme-prop(color, text-secondary-on-background);
         padding: 10px 16px;
     }
     padding: 1rem;
     border-right: 1px solid;
-    @include mdc-theme-prop-alpha(border-color, $mdc-theme-surface, .12);
+    @include mdc-theme-prop(border-color, $border-color);
     width: 100%;
     overflow-y: auto;
     max-width: 250px;
@@ -118,7 +122,8 @@ $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #
         text-overflow: ellipsis;
         white-space: nowrap;
         font-size: 0.9em;
-        @include mdc-theme-prop(color, text-primary-on-surface);
+        // FIXME surface
+        @include mdc-theme-prop(color, text-primary-on-background);
     }
 }
 
@@ -169,7 +174,8 @@ $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #
         margin-right: 8px;
         cursor: pointer;
         .mdc-icon {
-            @include mdc-theme-prop(color, text-icon-on-surface);
+            // FIXME surface
+            @include mdc-theme-prop(color, text-icon-on-background);
         }
     }
     .mdc-data-table {
@@ -215,7 +221,8 @@ $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #
             cursor: auto !important;
         }
         .mdc-data-table__cell .mdc-icon {
-            @include mdc-theme-prop(fill, text-icon-on-surface);
+            // FIXME surface
+            @include mdc-theme-prop(fill, text-icon-on-background);
         }
         th:nth-of-type(4), td:nth-of-type(4) {
             display: none;
@@ -245,7 +252,8 @@ $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #
         }
         .mdc-list-item__meta.mdc-typography {
             font-size: 0.9em;
-            @include mdc-theme-prop(color, text-primary-on-surface);
+            // FIXME surface
+            @include mdc-theme-prop(color, text-primary-on-background);
         }
     }
 }
@@ -280,7 +288,8 @@ $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #
     .mdc-list-item__meta {
         white-space: nowrap;
         font-size: 1em;
-        @include mdc-theme-prop(color, text-primary-on-surface);
+        // FIXME surface
+        @include mdc-theme-prop(color, text-primary-on-background);
     }
 }
 
@@ -365,7 +374,8 @@ $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #
         max-width: 200px;
     }
     td .mdc-icon {
-        @include mdc-theme-prop(color, text-icon-on-surface);
+        // FIXME surface
+        @include mdc-theme-prop(color, text-icon-on-background);
     }
     &--no-sync, &--no-sync .mdc-data-table {
         @include mdc-theme-prop(background-color, $error-surface, true);

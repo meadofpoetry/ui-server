@@ -65,7 +65,7 @@
 
 .mdc-card__subtitle {
     @include mdc-typography(subtitle2);
-    @include mdc-theme-prop(color, text-secondary-on-surface);
+    @include mdc-theme-prop(color, text-secondary-on-background);
 
     margin: -.063rem 0;
 }
@@ -159,7 +159,7 @@
 }
 
 .mdc-card__action-icons {
-  @include mdc-theme-prop(color, text-icon-on-surface);
+  @include mdc-theme-prop(color, text-icon-on-background);
 
   flex-grow: 1;
   justify-content: flex-end;
@@ -226,7 +226,7 @@
 }
 
 .mdc-card__action--icon:not(:disabled) {
-  @include mdc-theme-prop(color, text-icon-on-surface);
+  @include mdc-theme-prop(color, text-icon-on-background);
 }
 
 // postcss-bem-linter: end

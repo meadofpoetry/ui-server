@@ -1,8 +1,9 @@
 // Taken from @material/theme repository
-@import '../theme/mixins';
-@import '../theme/variables';
-@import '../typography/mixins';
-@import '../typography/variables';
+@import "../theme/mixins";
+@import "../theme/variables";
+@import "../typography/mixins";
+@import "../typography/variables";
+@import "./variables";
 
 .mdc-data-table {
   display: flex;
@@ -11,7 +12,8 @@
   white-space: nowrap;
   font-size: 13px;
   @include mdc-theme-prop(background-color, surface);
-  @include mdc-theme-prop(color, text-primary-on-surface);
+  // FIXME on surface
+  @include mdc-theme-prop(color, text-primary-on-background);
 
   &--select-multiple, &--select {
     tbody .mdc-data-table__row {
@@ -28,7 +30,7 @@
     }
     & .mdc-data-table__cell:nth-child(2), & .mdc-data-table__column:nth-child(2) {
         border-right: 1px solid;
-        @include mdc-theme-prop-alpha(border-color, $mdc-theme-background, .12);
+        @include mdc-theme-prop(border-color, $mdc-data-table-border-color);
         padding-left: 0;
     }
     & .mdc-data-table__cell:nth-child(3), & .mdc-data-table__column:nth-child(3) {
@@ -65,7 +67,7 @@
     &:first-of-type {
       padding-left: 24px;
       border-right: 1px solid;
-      @include mdc-theme-prop-alpha(border-color, $mdc-theme-background, .12);
+      @include mdc-theme-prop(border-color, $mdc-data-table-border-color);
     }
     // &:nth-child(2) {
     //   padding-left: 16px;
@@ -80,7 +82,8 @@
     line-height: 24px;
     letter-spacing: 0;
     font-size: 12px;
-    @include mdc-theme-prop(color, text-secondary-on-surface);
+    // FIXME on surface
+    @include mdc-theme-prop(color, text-secondary-on-background);
 
     &--sortable {
         user-select: none;
@@ -98,11 +101,13 @@
             transition: transform .2s ease;
         }
         &:hover:before {
-            @include mdc-theme-prop(color, text-icon-on-surface);
+            // FIXME on surface
+            @include mdc-theme-prop(color, text-icon-on-background);
         }
 
         &[aria-sort=descending], &[aria-sort=ascending] {
-            @include mdc-theme-prop(color, text-primary-on-surface);
+            // FIXME on surface
+            @include mdc-theme-prop(color, text-primary-on-background);
             &:before {
                 content: 'arrow_upward';
             }
@@ -126,7 +131,7 @@
   th, td {
       border-bottom-width: 1px;
       border-bottom-style: solid;
-      @include mdc-theme-prop-alpha(border-bottom-color, $mdc-theme-background, .12);
+      @include mdc-theme-prop(border-bottom-color, $mdc-data-table-border-color);
   }
 
   // row in table body
@@ -137,7 +142,7 @@
     transition: background-color .15s linear;
 
     &:hover {
-      @include mdc-theme-prop-alpha(background-color, $mdc-theme-background, .07);
+      @include mdc-theme-prop(background-color, $mdc-data-table-hover-color);
     }
     &:last-of-type {
       border-bottom: none;
@@ -147,11 +152,11 @@
       pointer-events: none;
     }
     &--selected, &:active {
-      background-color: rgba($mdc-theme-primary, .07); 
+      background-color: rgba($mdc-theme-primary, .07);
       //@include mdc-theme-prop-alpha(background-color, $mdc-theme-background, .04);
 
       &:hover {
-        background-color: rgba($mdc-theme-primary, .12); 
+        background-color: rgba($mdc-theme-primary, .12);
       }
     }
   }
@@ -160,7 +165,7 @@
 .mdc-data-table--with-footer {
     tbody .mdc-data-table__row:last-of-type {
         border-bottom: 1px solid;
-        @include mdc-theme-prop-alpha(border-color, $mdc-theme-background, .12);
+        @include mdc-theme-prop(border-color, $mdc-data-table-border-color);
     }
 }
 
@@ -184,8 +189,8 @@
         position: relative;
         align-items: center;
         padding-left: 16px;
-
-        @include mdc-theme-prop(color, text-secondary-on-surface);
+        // FIXME
+        @include mdc-theme-prop(color, text-secondary-on-background);
 
 // FIXME add common breakpoints
         @media (min-width: 600px) {
@@ -223,7 +228,8 @@
     }
     &__actions {
         flex-shrink: 0;
-        @include mdc-theme-prop(color, text-icon-on-surface);
+        // FIXME
+        @include mdc-theme-prop(color, text-icon-on-background);
         margin-left: 20px;
     }
 }

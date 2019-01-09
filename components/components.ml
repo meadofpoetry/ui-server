@@ -31,7 +31,6 @@ module Divider = Divider
 
 module Drawer = Drawer
 
-(* TODO fix item move bugs *)
 module Dynamic_grid = Dynamic_grid
 
 module Elevation = Elevation
@@ -44,8 +43,6 @@ module Fab = Fab
 module Fab_speed_dial = Fab_speed_dial
 
 module Form_field = Form_field
-
-module Grid_list = Grid_list
 
 module Hexdump = Hexdump
 

@@ -88,7 +88,7 @@ let wrap area elt =
 let to_topo_node = function
   | `Board x -> (x :> Topo_node.t)
   | `Input x -> (x :> Topo_node.t)
-  | `CPU x   -> (x :> Topo_node.t)
+  | `CPU x -> (x :> Topo_node.t)
 
 let map_cpu_conn (cpu : Topology.topo_cpu) : Topology.topo_cpu =
   let open Topology in
@@ -153,7 +153,7 @@ let make_nodes topology =
 let iter_paths f nodes =
   List.iter (function
       | `Board b -> List.iter (fun p -> f (b :> Topo_node.t) p) b#paths
-      | `CPU c   -> List.iter (fun p -> f (c :> Topo_node.t) p) c#paths
+      | `CPU c -> List.iter (fun p -> f (c :> Topo_node.t) p) c#paths
       | _ -> ()) nodes
 
 let update_nodes nodes (t : Topology.t) =

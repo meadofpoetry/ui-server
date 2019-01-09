@@ -70,37 +70,46 @@ let create_tab_row (container : container) (tabs : ('a, 'b) tab list) =
   row, switch_tab container bar
 
 let get_arbitrary () : container =
-  let elt = Dom_html.getElementById "arbitrary-content" in
-  object(self)
-    val mutable _content = None
-    inherit Widget.t elt ()
+  try
+    let elt = Dom_html.getElementById "arbitrary-content" in
+    object(self)
+      val mutable _content = None
+      inherit Widget.t elt ()
 
-    method content : Widget.t option = _content
-    method set_content (w : Widget.t) =
-      begin match _content with
-      | Some c -> self#remove_child c; c#destroy ()
-      | None -> ()
-      end;
-      _content <- Some w;
-      self#append_child w;
-      w#layout ()
-  end
+      method content : Widget.t option = _content
+      method set_content (w : Widget.t) =
+        begin match _content with
+        | Some c -> self#remove_child c; c#destroy ()
+        | None -> ()
+        end;
+        _content <- Some w;
+        self#append_child w;
+        w#layout ()
+    end
+  with e -> print_endline "no arbitrary"; raise e
+
+let get_sidebar () : Drawer.t =
+  try Drawer.attach @@ Dom_html.getElementById "main-drawer"
+  with e -> print_endline "no sidebar"; raise e
 
 let get_toolbar () : Top_app_bar.Standard.t =
-  Dom_html.getElementById "main-toolbar"
-  |> Top_app_bar.Standard.attach ~tolerance:{ up = 5; down = 5 }
+  try
+    Dom_html.getElementById "main-top-app-bar"
+    |> Top_app_bar.Standard.attach ~tolerance:{ up = 5; down = 5 }
+  with e -> print_endline "no toolbar"; raise e
 
-class t (content:('a,'b) page_content) () =
-  let main = Dom_html.getElementById "main-content" in
+class t (content : ('a, 'b) page_content) () =
+  let main = try Dom_html.getElementById "main-content" with e -> print_endline "no main"; raise e in
   let arbitrary = get_arbitrary () in
   let toolbar = get_toolbar () in
+  (* let sidebar = get_sidebar () in *)
   let title = toolbar#get_child_element_by_id "page-title"
               |> Option.get_exn
               |> Widget.create in
+  let menu = Dom_html.getElementById "main-menu" in
   object(self)
 
-    val mutable _previous_toolbar = None
-    val mutable _previous_content = None
+    val mutable menu_click_listener = None
 
     inherit Widget.t main () as super
 
@@ -108,7 +117,15 @@ class t (content:('a,'b) page_content) () =
       super#init ();
       self#add_class main_class;
       toolbar#add_class toolbar_class;
+      Dom_events.listen menu Dom_events.Typ.click (fun _ _ ->
+          (* sidebar#toggle (); *) true)
+      |> (fun x -> menu_click_listener <- Some x);
       self#set ()
+
+    method! destroy () : unit =
+      super#destroy ();
+      Option.iter Dom_events.stop_listen menu_click_listener;
+      menu_click_listener <- None
 
     method title : string =
       Js.to_string Dom_html.document##.title
@@ -117,23 +134,17 @@ class t (content:('a,'b) page_content) () =
       Dom_html.document##.title := Js.string x;
       title#set_text_content x
 
-    method set () =
-      _previous_content <- Some arbitrary#root##.childNodes;
+    method arbitrary = arbitrary
+
+    method private set () =
       arbitrary#set_empty ();
       match content with
       | `Static widgets -> List.iter arbitrary#append_child widgets
       | `Dynamic tabs   ->
          let row, e = create_tab_row arbitrary tabs in
          self#_keep_e e;
-         (try
-            let elt = Dom_html.getElementById row_id in
-            _previous_toolbar <- Some elt;
-            Dom.removeChild toolbar#root elt;
-          with _ -> ());
          self#add_class
          @@ Components_markup.CSS.add_modifier main_class "dynamic";
          toolbar#append_child row;
          toolbar#layout ()
-
-    method arbitrary = arbitrary
   end

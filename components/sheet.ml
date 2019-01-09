@@ -4,7 +4,7 @@ open Tyxml_js
 
 module Markup = Components_markup.Drawer.Make(Xml)(Svg)(Html)
 
-type anchor = [ `Left | `Right | `Top | `Bottom ]
+type anchor = [`Left | `Right | `Top | `Bottom]
 
 let get_anchor (w : #Widget.t) : anchor =
   if w#has_class Markup.anchor_left_class
@@ -260,7 +260,7 @@ class t ?anchor ?animating ~content () =
 let make ?anchor ?animating ~(content : #Widget.t list) () : t =
   new t ?anchor ?animating ~content ()
 
-let attach ?anchor ?animating (elt : Dom_html.element Js.t) : t =
+let attach ?anchor ?animating (elt : #Dom_html.element Js.t) : t =
   let selector = Js.string ("." ^ Markup.drawer_class) in
   let drawer = match Js.Opt.to_option @@ elt##querySelector selector with
     | Some x -> x

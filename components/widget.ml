@@ -44,7 +44,8 @@ let equal (a : < root : element; ..> as 'a) (b : 'a) : bool =
   Equal.physical a#root b#root
 
 class t ?(widgets : #t list option)
-        (elt : #Dom_html.element Js.t) () = object(self)
+        (elt : #Dom_html.element Js.t)
+        () = object(self)
 
   val mutable _on_destroy = None
   val mutable _listeners_lwt = []

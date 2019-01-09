@@ -140,7 +140,7 @@ $mdc-fab-extended-height_: 48px;
   &:disabled {
       cursor: default;
       pointer-events: none;
-      @include mdc-theme-prop(background-color, rgba(mdc-theme-prop-value(text-primary-on-surface), .12));
+      @include mdc-theme-prop(background-color, rgba(mdc-theme-prop-value(text-primary-on-background), .12));
       @include mdc-theme-prop(color, text-disabled-on-light);
       @include mdc-elevation(0);
   }

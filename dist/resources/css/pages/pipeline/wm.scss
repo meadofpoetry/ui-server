@@ -128,7 +128,8 @@ $wm-placeholder-color: text-secondary-on-surface;
         cursor: pointer;
 
         .mdc-icon {
-            @include mdc-theme-prop(color, text-secondary-on-surface);
+            // FIXME surface
+            @include mdc-theme-prop(color, text-secondary-on-background);
             padding: 12px;
         }
     }
@@ -147,11 +148,13 @@ $wm-placeholder-color: text-secondary-on-surface;
     border-bottom: 1px solid rgba(0,0,0,.12);
 
     &__drag-handle {
-        @include mdc-theme-prop(color, text-icon-on-surface);
+        // FIXME surface
+        @include mdc-theme-prop(color, text-icon-on-background);
         padding: 12px;
     }
     &__visibility {
-        @include mdc-theme-prop(color, text-icon-on-surface);
+        // FIXME surface
+        @include mdc-theme-prop(color, text-icon-on-background);
         margin-right: 5px;
     }
     &__color-indicator {

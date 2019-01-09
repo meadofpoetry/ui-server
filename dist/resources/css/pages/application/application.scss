@@ -15,10 +15,12 @@
     }
 
     &--forbidden {
-        @include mdc-theme-prop(color, text-disabled-on-surface, true);
+        // FIXME surface
+        @include mdc-theme-prop(color, text-disabled-on-background, true);
         .mdc-list-item,
         .application-stream-selector__empty-placeholder {
-            @include mdc-theme-prop(color, text-disabled-on-surface);
+            // FIXME surface
+            @include mdc-theme-prop(color, text-disabled-on-background);
         }
     }
 }
@@ -40,7 +42,8 @@
 
 .application-stream-selector__empty-placeholder {
     @include mdc-typography(body2);
-    @include mdc-theme-prop(color, text-secondary-on-surface);
+    // FIXME surface
+    @include mdc-theme-prop(color, text-secondary-on-background);
     padding: 1rem;
     display: flex;
     justify-content: center;

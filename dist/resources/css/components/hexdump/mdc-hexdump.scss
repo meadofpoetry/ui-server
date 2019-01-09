@@ -1,5 +1,6 @@
-@import '../theme/mixins';
-@import '../theme/variables';
+@import "../theme/mixins";
+@import "../theme/variables";
+@import "./variables";
 
 .mdc-hexdump {
     overflow: auto;
@@ -38,12 +39,12 @@
     overflow: visible;
     border-right: 1px solid;
     @include mdc-theme-prop(background-color, surface);
-    @include mdc-theme-prop-alpha(border-color, $mdc-theme-surface, .12);
+    @include mdc-theme-prop(border-color, $mdc-hexdump-outline-color);
 }
 
 .mdc-hexdump__block--chars {
     border-left: 1px solid;
-    @include mdc-theme-prop-alpha(border-color, $mdc-theme-surface, .12);
+    @include mdc-theme-prop(border-color, $mdc-hexdump-outline-color);
 }
 
 .mdc-hexdump__block[unselectable="on"] {

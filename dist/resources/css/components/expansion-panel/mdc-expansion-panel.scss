@@ -96,7 +96,7 @@
         }
 
         .mdc-expansion-panel__details {
-            @include mdc-theme-prop(color, text-secondary-on-surface);
+            @include mdc-theme-prop(color, text-secondary-on-background);
 
             justify-content: flex-start;
             display: flex;
@@ -113,7 +113,7 @@
     }
 
     .mdc-expansion-panel__icon {
-        @include mdc-theme-prop(color, text-icon-on-surface);
+        @include mdc-theme-prop(color, text-icon-on-background);
         outline: none;
         width:  48px;
         height: 48px;

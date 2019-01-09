@@ -34,6 +34,6 @@
         flex: 0 0 11px;
         justify-content: center;
         align-items: center;
-        @include mdc-theme-prop-alpha(background-color, $mdc-theme-background, 0.12);
+        @include mdc-theme-prop(background-color, $mdc-split-outline-color);
     }
 }

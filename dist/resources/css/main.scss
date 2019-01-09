@@ -1,7 +1,6 @@
 @import './components/tab/_mixins';
 @import './components/tab-indicator/_mixins';
 @import './components/ripple/_mixins';
-@import './sidebar_drawer';
 @import './templates/templates';
 
 @import './pages/application/application';
@@ -23,6 +22,8 @@ $large-1440: 1440px;
 $large-1600: 1580px;
 $xlarge: 1900px;
 
+$mdc-persistent-drawer-width: 280px;
+
 :root { --mdc-box-margin: 0px; }
 html {
     box-sizing: border-box;
@@ -33,12 +34,36 @@ body {
     margin: 0;
     background-color: #ececec;
 }
-.material-icons {
-    user-select: none;
+
+.main-page-container {
+    position: relative;
 }
-#main-drawer {
-    z-index: 21;
+
+.main-panel {
+    display: flex;
+    position: relative;
+    height: 100vh;
+    overflow: hidden;
 }
+
+.mdc-drawer--dismissible.demo-drawer {
+    z-index: 1;
+}
+
+.main-content {
+    height: 100%;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    padding: 40px 16px 100px;
+    transition: 200ms transform cubic-bezier(.4, 0, .2, 1) 50ms;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+}
+
 #main-toolbar {
     @include mdc-elevation(2);
     &.mdc-top-app-bar--unpinned {
