@@ -1,5 +1,6 @@
 open Containers
 open Components
+open Js_of_ocaml
 open Topo_types
 open Common
 
@@ -25,9 +26,8 @@ class t ~node ~body elt () =
 object
   val area = node_entry_to_area node
   inherit Widget.t elt ()
-  method area : string     = area
+  method area : string = area
   method node_entry : node_entry = node
-  method layout () : unit  = ()
   method output_point = Topo_path.get_output_point body
 end
 
@@ -43,7 +43,6 @@ class parent ~port_setter
         let f_rp = fun () -> Topo_path.get_input_point ~num i body in
         new Topo_path.t
           ~left_node:x#node_entry
-          ~right_node:node
           ~right_point:p
           ~f_lp ~f_rp ~port_setter ()) connections
   in
@@ -56,14 +55,14 @@ class parent ~port_setter
   object(self)
     inherit t ~node ~body elt () as super
 
-    method init () : unit =
+    method! init () : unit =
       super#init ();
       React.S.map ~eq:Equal.unit
         (fun x -> List.iter (fun s -> s#set_changing x) switches)
         s_switch_changing
       |> self#_keep_s;
 
-    method layout () : unit =
+    method! layout () : unit =
       super#layout ();
       List.iter (fun p -> p#layout ()) paths
 

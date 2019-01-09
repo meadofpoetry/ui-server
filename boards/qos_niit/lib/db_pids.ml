@@ -3,14 +3,15 @@ open Board_qos_types
 open Db_common
 open Printf
 open Containers
+open Common
 
-let typ : (ID.t * Pid.t timespan) Caqti_type.t =
+let typ : (ID.t * Pid.t Time.timespan) Caqti_type.t =
   Types.custom
     Types.(List.(ID.db & int & option int & string
                  & bool & bool & bool & bool
                  & ptime & ptime))
-    ~encode:(fun (id, ({ from; till; data = (pid, data) } : Pid.t timespan)) ->
-      let typ = Pid.typ_to_yojson data.typ |> Yojson.Safe.to_string in
+    ~encode:(fun (id, ({ from; till; data = (pid, data) } : Pid.t Time.timespan)) ->
+      let typ = Mpeg_ts.Pid.Type.to_yojson data.typ |> Yojson.Safe.to_string in
       Ok (ID.to_db id,
           (pid,
            (data.service_id,
@@ -29,7 +30,7 @@ let typ : (ID.t * Pid.t timespan) Caqti_type.t =
                        (scrambled,
                         (present,
                          (from, till))))))))) ->
-      match Pid.typ_of_yojson @@ Yojson.Safe.from_string typ with
+      match Mpeg_ts.Pid.Type.of_yojson @@ Yojson.Safe.from_string typ with
       | Error e -> Error e
       | Ok typ ->
          Ok (let (data : Pid.info) =
@@ -43,7 +44,7 @@ let typ : (ID.t * Pid.t timespan) Caqti_type.t =
                } in
              (ID.of_db id, { from; till; data = (pid, data) })))
 
-let insert db (pids : (ID.t * Pid.t timespan list) list) =
+let insert db (pids : (ID.t * Pid.t Time.timespan list) list) =
   let table = (Conn.names db).pids in
   let pids =
     List.map (fun (id, pids) -> List.map (Pair.make id) pids) pids
@@ -59,11 +60,11 @@ let insert db (pids : (ID.t * Pid.t timespan list) list) =
     with_trans (List.fold_left (fun acc v ->
                     acc >>= fun () -> exec insert v) (return ()) pids))
 
-let bump db (pids : (ID.t * Pid.t timespan list) list) =
+let bump db (pids : (ID.t * Pid.t Time.timespan list) list) =
   let table = (Conn.names db).pids in
   let data =
     List.map (fun (id, pids) ->
-        List.map (fun ({ data = (pid, _); till; _ } : Pid.t timespan) ->
+        List.map (fun ({ data = (pid, _); till; _ } : Pid.t Time.timespan) ->
             ID.to_db id, pid, till) pids) pids
     |> List.concat in
   let update_last =

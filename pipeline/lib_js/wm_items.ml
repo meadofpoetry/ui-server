@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Components
 open Wm_types
@@ -11,8 +12,8 @@ module Make(I : Item) = struct
 
   module Add = struct
 
-    let base_class    = Markup.CSS.add_element base_class "add"
-    let item_class    = Markup.CSS.add_element base_class "item"
+    let base_class = Markup.CSS.add_element base_class "add"
+    let item_class = Markup.CSS.add_element base_class "item"
     let wrapper_class = Markup.CSS.add_element base_class "wrapper"
 
     class item ~candidate ~candidates ~set_candidates ~widgets () =
@@ -21,26 +22,31 @@ module Make(I : Item) = struct
                  |> Js.string in
       let wh = match I.size_of_t candidate with
         | Some w, Some h -> string_of_int w ^ ":" ^ string_of_int h
-        | Some w, None   -> string_of_int w ^ ":" ^ "null"
-        | None, Some h   -> "null" ^ ":" ^ string_of_int h
-        | None, None     -> "null:null" in
+        | Some w, None -> string_of_int w ^ ":" ^ "null"
+        | None, Some h -> "null" ^ ":" ^ string_of_int h
+        | None, None -> "null:null" in
       let typ = drag_type_prefix ^ wh in
       let box = new Hbox.t ~widgets () in
-      object(self)
-        inherit Widget.t box#root ()
+      object
+        inherit Widget.t box#root () as super
         inherit Touch_draggable.t ~data ~typ box#root ()
 
-        initializer
-          self#set_attribute "draggable" "true";
-          self#add_class item_class;
+        val mutable _dragstart = None
+        val mutable _dragend = None
 
-          self#listen Widget.Event.dragstart (fun _ e ->
-              self#style##.opacity := Js.def @@ Js.string "0.5";
-              self#style##.zIndex  := Js.string "5";
-              e##.dataTransfer##setData (Js.string typ) data;
-              true) |> ignore;
+        method! init () : unit =
+          super#init ();
+          super#set_attribute "draggable" "true";
+          super#add_class item_class;
 
-          self#listen Widget.Event.dragend (fun _ e ->
+          let dragstart =
+            super#listen Widget.Event.dragstart (fun _ e ->
+                super#style##.opacity := Js.def @@ Js.string "0.5";
+                super#style##.zIndex  := Js.string "5";
+                e##.dataTransfer##setData (Js.string typ) data;
+                true) in
+          let dragend =
+            super#listen Widget.Event.dragend (fun _ e ->
               let res = e##.dataTransfer##.dropEffect |> Js.to_string in
               if (not @@ String.equal res "none") && candidate.unique
               then (let cs = React.S.value candidates in
@@ -49,7 +55,16 @@ module Make(I : Item) = struct
                     set_candidates c);
               box#style##.opacity := Js.def @@ Js.string "";
               box#style##.zIndex  := Js.string "";
-              false) |> ignore;
+              false) in
+          _dragstart <- Some dragstart;
+          _dragend <- Some dragend
+
+        method! destroy () : unit =
+          super#destroy ();
+          Option.iter Dom_events.stop_listen _dragstart;
+          _dragstart <- None;
+          Option.iter Dom_events.stop_listen _dragend;
+          _dragend <- None
       end
 
     let make_item candidates set_candidates (candidate : I.t) =
@@ -73,7 +88,7 @@ module Make(I : Item) = struct
                     |> Tyxml_js.To_dom.of_element
                     |> Widget.create  in
       let card = new Card.t ~widgets:[wrapper] () in
-      let () = card#add_class base_class in
+      card#add_class base_class;
       let _ =
         React.S.map (function
             | [] -> wrapper#set_empty ();
@@ -94,11 +109,11 @@ module Make(I : Item) = struct
     let make widgets (s : I.t Dynamic_grid.Item.t option React.signal) =
       let ph = Placeholder.make
                  ~text:"Выберите элемент в раскладке"
-                 ~icon:Icon.SVG.(create_simple Path.gesture_tap) () in
+                 ~icon:Icon.SVG.(create_simple Path.gesture_tap)
+                 () in
       let card = new Card.t ~widgets:[] () in
       let id = "wm-item-properties" in
       let actions_id = "wm-item-properties-actions" in
-      let () = card#add_class base_class in
       let _ =
         React.S.map (fun selected ->
             (try
@@ -123,8 +138,8 @@ module Make(I : Item) = struct
                 card#append_child w.widget;
                 card#append_child actions
              | None -> card#append_child ph))
-          s
-      in
+          s in
+      card#add_class base_class;
       card
 
   end
@@ -136,13 +151,12 @@ module Make(I : Item) = struct
     let props = Properties.make [] selected in
     let title = Wm_selectable_title.make [ add_title, add
                                          ; props_title, props ] in
-    let box = new Vbox.t ~widgets:[ add#widget; props#widget ] () in
-    let () = box#add_class base_class in
-    let box = new Vbox.t ~widgets:[ title#widget; box#widget ] () in
+    let content = new Vbox.t ~widgets:[add#widget; props#widget] () in
+    let box = new Vbox.t ~widgets:[title#widget; content#widget] () in
+    content#add_class base_class;
     let sel = function
       | `Add -> title#select_by_name add_title
-      | `Props -> title#select_by_name props_title
-    in
+      | `Props -> title#select_by_name props_title in
     box, sel
 
 end

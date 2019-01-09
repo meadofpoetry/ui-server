@@ -1,4 +1,3 @@
-open Components
 open Lwt_result.Infix
 
 let get_board_state control =

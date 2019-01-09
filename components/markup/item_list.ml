@@ -27,52 +27,59 @@ module Make(Xml : Xml_sigs.NoWrap)
     let selected_class = CSS.add_modifier _class "selected"
     let activated_class = CSS.add_modifier _class "activated"
 
-    let create_divider ?(classes=[]) ?attrs ?(tag=div) ?(inset=false) () =
-      tag ~a:([ a_class (classes
-                         |> cons_if inset @@ CSS.add_modifier divider_class "inset"
-                         |> List.cons divider_class)
-              ; a_role ["separator"] ] <@> attrs) []
+    let create_divider ?(classes = []) ?attrs
+          ?(tag = div) ?(inset = false) () : 'a elt =
+      let (classes : string list) =
+        classes
+        |> cons_if inset @@ CSS.add_modifier divider_class "inset"
+        |> List.cons divider_class in
+      tag ~a:([ a_class classes
+              ; a_role ["separator"]] <@> attrs) []
 
-    let create_primary_text ?(classes=[]) ?attrs text () =
-      span ~a:([ a_class (primary_text_class :: classes)] <@> attrs)
-        [ pcdata text ]
+    let create_primary_text ?(classes = []) ?attrs text () : 'a elt =
+      span ~a:([a_class (primary_text_class :: classes)] <@> attrs)
+        [txt text]
 
-    let create_secondary_text ?(classes=[]) ?attrs text () =
-      span ~a:([ a_class (secondary_text_class :: classes)] <@> attrs)
-        [ pcdata text ]
+    let create_secondary_text ?(classes = []) ?attrs text () : 'a elt =
+      span ~a:([a_class (secondary_text_class :: classes)] <@> attrs)
+        [txt text]
 
-    let create_text ?(classes=[]) ?attrs ~primary ~secondary () =
+    let create_text ?(classes = []) ?attrs ~primary ~secondary () : 'a elt =
       span ~a:([ a_class (text_class :: classes)] <@> attrs)
-        [ primary; secondary ]
+        [primary; secondary]
 
-    let create_text_simple text () =
-      pcdata text
+    let create_text_simple text () : 'a elt =
+      txt text
 
-    let create ?(classes=[]) ?attrs ?(tag=div) ?graphic ?meta text () =
-      tag ~a:([ a_class (_class :: classes)] <@> attrs)
+    let create ?(classes = []) ?attrs
+          ?(tag = div) ?graphic ?meta text () : 'a elt =
+      tag ~a:([a_class (_class :: classes)] <@> attrs)
         (graphic ^:: (text :: (meta ^:: [])))
 
   end
 
   module List_group = struct
 
-    let _class          = "mdc-list-group"
+    let _class = "mdc-list-group"
     let subheader_class = CSS.add_element _class "subheader"
 
-    let create_subheader ?(classes=[]) ?attrs ?(tag=h3) ~text () =
-      tag ~a:([ a_class (subheader_class :: classes) ] <@> attrs) [pcdata text]
+    let create_subheader ?(classes = []) ?attrs ?(tag = h3) ~text () : 'a elt =
+      tag ~a:([a_class (subheader_class :: classes)] <@> attrs) [txt text]
 
-    let create ?(classes=[]) ?attrs ~content () =
+    let create ?(classes = []) ?attrs ~content () =
       div ~a:([ a_class (_class :: classes)] <@> attrs) content
 
   end
 
-  let create ?(classes=[]) ?(tag=div) ?attrs
-        ?(avatar=false) ?(dense=false) ?(two_line=false) ~items () =
-    tag ~a:([ a_class (classes
-                       |> cons_if dense    dense_class
-                       |> cons_if two_line two_line_class
-                       |> cons_if avatar   avatar_class
-                       |> List.cons base_class) ] <@> attrs) items
+  let create ?(classes = []) ?(tag = div) ?attrs
+        ?(avatar = false) ?(dense = false) ?(two_line = false)
+        ~items () : 'a elt =
+    let classes =
+      classes
+      |> cons_if dense dense_class
+      |> cons_if two_line two_line_class
+      |> cons_if avatar avatar_class
+      |> List.cons base_class in
+    tag ~a:([a_class classes] <@> attrs) items
 
 end

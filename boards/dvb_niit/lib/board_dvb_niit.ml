@@ -26,8 +26,15 @@ let invalid_port prefix port =
   let s = prefix ^ ": invalid port " ^ (string_of_int port) in
   raise (Board.Invalid_port s)
 
+let rec has_sync = function
+  | [] -> false
+  | (_, ({ data; _ } : Measure.t Time.timestamped)) :: tl ->
+     match data.lock, data.bitrate with
+     | true, Some x when x > 0 -> true
+     | _ -> has_sync tl
+
 let create (b : Topology.topo_board) _ convert_streams send
-      _ (* db_conf*) base step : Board.t =
+      db_conf base step : Board.t =
   let log_name = Boards.Board.log_name b in
   let source_id = match b.sources with
     | None ->
@@ -42,26 +49,28 @@ let create (b : Topology.topo_board) _ convert_streams send
   Option.iter (fun x -> Logs.Src.set_level log_src @@ Some x) b.logs;
   let (module Logs : Logs.LOG) = Logs.src_log log_src in
   let module SM =
-    Board_protocol.Make(Logs)
-      (struct let source_id = source_id end) in
+    Board_protocol.Make(Logs) in
   let storage = Config_storage.create base
                   ["board"; (string_of_int b.control)] in
+  let db = Result.get_exn @@ Db.Conn.create db_conf b.control in
   let events, api, step =
-    SM.create send (fun x -> convert_streams x b) storage step in
-  let handlers = Board_api.handlers b.control api events in
+    SM.create send (fun x -> convert_streams x b) source_id storage step in
+  let handlers = Board_api.handlers b.control db api events in
+  React.E.(keep @@ map_s (Db.Measurements.insert db) events.measures);
   let state = object
       method finalize () = ()
     end in
   { handlers
   ; control = b.control
   ; streams_signal = events.streams
+  ; log_source = (fun _ -> React.E.never) (* TODO implement source *)
   ; step
   ; connection = events.state
   ; ports_sync =
       List.fold_left (fun acc (p : Topology.topo_port) ->
           (match p.port with
-           | 0 -> React.S.map ~eq:Equal.bool
-                    (not % List.is_empty) events.available_streams
+           | 0 -> React.E.map has_sync events.measures
+                  |> React.S.hold ~eq:Equal.bool false
            | x -> invalid_port log_name x)
           |> fun x -> Board.Ports.add p.port x acc)
         Board.Ports.empty b.ports

@@ -24,7 +24,7 @@ let make_summary init pids rate state =
         | _ -> ()) pids in
   let rate =
     E.map (function
-        | [(_, (x : Bitrate.t timestamped))] ->
+        | [(_, (x : Bitrate.t Time.timestamped))] ->
            widget#set_rate @@ Option.return x.data
         | _ -> ()) rate in
   let state = state >|= (fun s -> S.map ~eq:Equal.unit widget#set_state s) in
@@ -54,7 +54,7 @@ let make_overview init pids rate state =
         | _ -> ()) pids in
   let rate =
     E.map (function
-        | [(_, (x : Bitrate.t timestamped))] ->
+        | [(_, (x : Bitrate.t Time.timestamped))] ->
            widget#set_rate @@ Option.return x.data
         | _ -> ()) rate in
   let state = state >|= (fun s -> S.map ~eq:Equal.unit widget#set_state s) in
@@ -83,7 +83,6 @@ let make (id : Stream.ID.t) control =
   let overview, overview_close = make_overview init pids rate state' in
   let box =
     let open Layout_grid in
-    let open Typography in
     let span = 12 in
     let summary_cell = new Cell.t ~span ~widgets:[summary] () in
     let overview_cell = new Cell.t ~span ~widgets:[overview] () in
@@ -91,15 +90,14 @@ let make (id : Stream.ID.t) control =
       [ summary_cell
       ; overview_cell ] in
     new t ~cells () in
-  box#set_on_destroy
-  @@ Some (fun () ->
-         state >|= (fun (_, f) -> f ()) |> Lwt.ignore_result;
-         summary#destroy ();
-         overview#destroy ();
-         summary_close ();
-         overview_close ();
-         React.E.stop ~strong:true rate;
-         React.E.stop ~strong:true pids;
-         rate_sock##close;
-         pids_sock##close);
+  box#set_on_destroy (fun () ->
+      state >|= (fun (_, f) -> f ()) |> Lwt.ignore_result;
+      summary#destroy ();
+      overview#destroy ();
+      summary_close ();
+      overview_close ();
+      React.E.stop ~strong:true rate;
+      React.E.stop ~strong:true pids;
+      rate_sock##close;
+      pids_sock##close);
   box#widget

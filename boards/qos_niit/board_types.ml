@@ -1,24 +1,5 @@
 open Common
 
-(** Misc *)
-
-type 'a timestamped =
-  { timestamp : Time.t
-  ; data : 'a
-  } [@@deriving yojson, eq, show]
-
-let make_timestamped timestamp data =
-  { timestamp; data }
-
-type 'a timespan =
-  { from : Time.t
-  ; till : Time.t
-  ; data : 'a
-  } [@@deriving yojson, eq]
-
-let make_timespan ~from ~till data =
-  { from; till; data }
-
 (** Board info *)
 
 type devinfo =
@@ -88,7 +69,7 @@ let packet_sz_of_yojson = function
                 @@ Yojson.Safe.to_string x)
 
 type status =
-  { timestamp : Time.t
+  { time : Time.t
   ; load : float
   ; reset : bool
   ; ts_num : int
@@ -103,13 +84,22 @@ type reset_ts =
   { timestamp : Time.t
   }
 
-(** Board errors **)
+(** Board errors *)
 
-type board_error =
-  { timestamp : Time.t
-  ; err_code : int
-  ; count : int
-  } [@@deriving yojson, show]
+module Board_error = struct
+
+  type t =
+    { time : Time.t
+    ; code : int
+    ; count : int
+    ; source : source
+    ; param : int option
+    }
+  and source =
+    | Hardware
+    | Protocol [@@deriving yojson]
+
+end
 
 (** Device state *)
 type state =
@@ -193,25 +183,6 @@ end
 
 module Pid = struct
 
-  type pes =
-    { stream_type : int
-    ; stream_id : int
-    } [@@deriving yojson, eq, ord]
-
-  type ecm =
-    { ca_sys_id : int
-    } [@@deriving yojson, eq, ord]
-
-  type emm = ecm [@@deriving yojson, eq, ord]
-
-  type typ =
-    | SEC of int list
-    | PES of pes
-    | ECM of ecm
-    | EMM of emm
-    | Private
-    | Null [@@deriving yojson, eq, ord]
-
   type t = id * info
   and id = int
   and info =
@@ -221,14 +192,14 @@ module Pid = struct
     ; present : bool
     ; service_id : int option
     ; service_name : string option [@default None]
-    ; typ : typ [@key "type"]
-    } [@@deriving yojson, eq]
+    ; typ : Mpeg_ts.Pid.Type.t [@key "type"]
+    } [@@deriving yojson, eq, show, ord]
 
 end
 
 module Service = struct
 
-  type element = int * Pid.typ [@@deriving yojson, eq]
+  type element = int * Mpeg_ts.Pid.Type.t [@@deriving yojson, eq]
 
   type t = id * info
   and id = int
@@ -491,7 +462,7 @@ end
 module Streams = struct
 
   type streams_states =
-    (Stream.t timespan) list [@@deriving yojson]
+    (Stream.t Time.timespan) list [@@deriving yojson]
 
   type streams_unique =
     (Stream.t * [`Now | `Last of Time.t]) list [@@deriving yojson]
@@ -506,24 +477,22 @@ module Error = struct
     ; no_measure : float
     } [@@deriving yojson]
 
-  type t =
+  type 'a error =
     { count : int
     ; err_code : int
     ; err_ext : int
     ; priority : int
     ; multi_pid : bool
-    ; pid : int
+    ; pid : 'a
     ; packet : int32
-    ; service_id : int option
-    ; service_name : string option [@default None]
     ; param_1 : int32
     ; param_2 : int32 (* t2mi stream id for t2mi error *)
-    } [@@deriving yojson, eq, show]
+    ; time : Time.t
+    }
+  and t = int error [@@deriving yojson, eq, show]
+  and t_ext = (Pid.id * Pid.info option) error
 
-  type raw =
-    (Stream.ID.t * t timestamped) list [@@deriving yojson, show]
-
-  type compressed = percent timespan list
+  type compressed = percent Time.timespan list
   and percent =
     { errors : float
     ; no_stream : float
@@ -534,20 +503,20 @@ end
 (* Helper types *)
 
 type bitrates =
-  (Stream.ID.t * Bitrate.t timestamped) list [@@deriving yojson, eq]
+  (Stream.ID.t * Bitrate.t Time.timestamped) list [@@deriving yojson, eq]
 type ts_info =
-  (Stream.ID.t * Ts_info.t timestamped) list [@@deriving yojson, eq]
+  (Stream.ID.t * Ts_info.t Time.timestamped) list [@@deriving yojson, eq]
 type pids =
-  (Stream.ID.t * Pid.t list timestamped) list [@@deriving yojson, eq]
+  (Stream.ID.t * Pid.t list Time.timestamped) list [@@deriving yojson, eq]
 type services =
-  (Stream.ID.t * (Service.t list timestamped)) list [@@deriving yojson, eq]
+  (Stream.ID.t * (Service.t list Time.timestamped)) list [@@deriving yojson, eq]
 type elements =
-  (Stream.ID.t * ((int * int) * Pid.typ) list timestamped) list [@@deriving yojson, eq]
+  (Stream.ID.t * ((int * int) * Mpeg_ts.Pid.Type.t) list Time.timestamped) list [@@deriving yojson, eq]
 type tables =
-  (Stream.ID.t * (SI_PSI_table.t list timestamped)) list [@@deriving yojson, eq]
+  (Stream.ID.t * (SI_PSI_table.t list Time.timestamped)) list [@@deriving yojson, eq]
 type sections =
-  (Stream.ID.t * (SI_PSI_section.t list timestamped)) list [@@deriving yojson, eq]
+  (Stream.ID.t * (SI_PSI_section.t list Time.timestamped)) list [@@deriving yojson, eq]
 type t2mi_info =
-  (Stream.ID.t * T2mi_info.t list timestamped) list [@@deriving yojson, eq]
+  (Stream.ID.t * T2mi_info.t list Time.timestamped) list [@@deriving yojson, eq]
 type errors =
-  (Stream.ID.t * (Error.t timestamped list)) list [@@deriving yojson, eq]
+  (Stream.ID.t * (Error.t list)) list [@@deriving yojson, eq]

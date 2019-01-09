@@ -1,7 +1,6 @@
 open Containers
 open Lwt.Infix
 open Containers
-open Msg_conv
 open Pipeline_protocol
 
 let (%) = Fun.(%)
@@ -17,17 +16,8 @@ let typ = "pipeline"
   
 let create (config:Storage.Config.config) (db_conf:Storage.Database.t) =
   let cfg = Conf.get config in
-  let api, state, recv, reset =
-    match cfg.msg_fmt with
-    | `Json    ->
-       let api, state, recv, send = Pipeline_protocol.create Json db_conf config cfg.sock_in cfg.sock_out in
-       let reset = Pipeline_protocol.reset Json send cfg.bin_path cfg.bin_name cfg.msg_fmt in
-       api, state, recv, reset
-    | `Msgpack ->
-       let api, state, recv, send = Pipeline_protocol.create Msgpack db_conf config cfg.sock_in cfg.sock_out in
-       let reset = Pipeline_protocol.reset Msgpack send cfg.bin_path cfg.bin_name cfg.msg_fmt in
-       api, state, recv, reset
-  in
+  let api, state, recv = Pipeline_protocol.create db_conf config cfg.sock_in cfg.sock_out in
+  let reset = Pipeline_protocol.reset cfg.bin_path cfg.bin_name in
   (*React.E.keep @@ connect_db (S.changes api.streams) dbs;*)
   (* polling loop *)
   let rec loop () =
@@ -42,4 +32,16 @@ let create (config:Storage.Config.config) (db_conf:Storage.Database.t) =
     method handlers () = Pipeline_api.handlers api
     method template () = Pipeline_template.create ()
     method finalize () = Pipeline_protocol.finalize state
+    method log_source  = (fun filter ->
+      let sf =
+        Log_converters.Status.to_log_messages api.sources api.notifs.applied_structs filter in
+      let vf =
+        Log_converters.Video.to_log_messages api.sources api.notifs.applied_structs filter in
+      let af =
+        Log_converters.Audio.to_log_messages api.sources api.notifs.applied_structs filter in
+      Storage.Database.aggregate_merge ~merge:(fun acc x -> x @ acc) 1.0
+        [ React.E.map vf api.notifs.vdata
+        ; React.E.map af api.notifs.adata
+        ; React.E.map sf api.notifs.status_raw
+        ])
   end

@@ -1,3 +1,5 @@
+let prefix = 0x55AA
+
 [@@@ocaml.warning "-32"]
 
 [%%cstruct

@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Tyxml_js
 
@@ -62,7 +63,7 @@ module Content = struct
 
   class t ~(content : 'a content) () =
     let content = match content with
-      | `String s -> [Html.pcdata s]
+      | `String s -> [Html.txt s]
       | `Widgets w -> List.map Widget.to_markup w in
     let elt = Markup.Content.create ~content ()
               |> To_dom.of_element in
@@ -91,7 +92,7 @@ module Actions = struct
       val mutable _actions = actions
       inherit Widget.t elt () as super
 
-      method destroy () : unit =
+      method! destroy () : unit =
         super#destroy ();
         List.iter (fun (x : Action.t) ->
             x.button#destroy ()) _actions
@@ -148,7 +149,7 @@ class t ?scrollable
 
     inherit Widget.t elt () as super
 
-    method init () : unit =
+    method! init () : unit =
       Option.iter self#set_scrollable scrollable;
       List.iter (fun (a : Action.t) ->
           match a.typ with
@@ -164,7 +165,7 @@ class t ?scrollable
              _action_listeners <- l :: _action_listeners)
       @@ Option.get_or ~default:[] actions
 
-    method destroy () : unit =
+    method! destroy () : unit =
       super#destroy ();
       Option.iter (fun x -> x#destroy ()) header_widget;
       body_widget#destroy ();

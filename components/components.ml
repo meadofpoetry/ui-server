@@ -16,9 +16,11 @@ module Card = Card
 
 module Circular_progress = Circular_progress
 
+module Clusterize = Clusterize
+
 module Checkbox = Checkbox
 
-module Color = Color
+module Color_palette = Color_palette
 
 module Dashboard = Dashboard
 
@@ -58,6 +60,8 @@ module Layout_grid = Layout_grid
 
 module Item_list = Item_list
 
+module Infinite_scroll = Infinite_scroll
+
 (* TODO remove js dependency *)
 module Menu = Menu
 
@@ -91,7 +95,8 @@ module Tab_bar = Tab_bar
 
 module Textfield = Textfield
 
-module Toolbar = Toolbar
+(* TODO add fixed and short top app bars *)
+module Top_app_bar = Top_app_bar
 
 (* TODO add lines? *)
 module Tree = Tree

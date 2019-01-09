@@ -3,8 +3,9 @@ open Storage.Database
 open Board_qos_types
 open Printf
 open Db_common
+open Common
 
-let (typ : (ID.t * Service.t timespan) Caqti_type.t) =
+let (typ : (ID.t * Service.t Time.timespan) Caqti_type.t) =
   Types.custom
     Types.(tup2
              (tup3 (tup2 ID.db int)
@@ -13,7 +14,7 @@ let (typ : (ID.t * Service.t timespan) Caqti_type.t) =
              (tup3 (tup4 bool bool bool bool)
                 (tup4 bool int int int)
                 (tup3 string ptime ptime)))
-    ~encode:(fun (id, ({ from; till; data = (sid, data) } : Service.t timespan)) ->
+    ~encode:(fun (id, ({ from; till; data = (sid, data) } : Service.t Time.timespan)) ->
       let elements =
         Common.Json.(List.to_yojson Int.to_yojson) data.elements
         |> Yojson.Safe.to_string in
@@ -53,7 +54,7 @@ let (typ : (ID.t * Service.t timespan) Caqti_type.t) =
                } in
              (ID.of_db id, { from; till; data = (sid, data) })))
 
-let insert db (data : (ID.t * Service.t timespan list) list) =
+let insert db (data : (ID.t * Service.t Time.timespan list) list) =
   let table = (Conn.names db).services in
   let data =
     List.map (fun (id, services) -> List.map (Pair.make id) services) data
@@ -71,11 +72,11 @@ let insert db (data : (ID.t * Service.t timespan list) list) =
     with_trans (List.fold_left (fun acc v ->
                     acc >>= fun () -> exec insert v) (return ()) data))
 
-let bump db (data : (ID.t * Service.t timespan list) list) =
+let bump db (data : (ID.t * Service.t Time.timespan list) list) =
   let table = (Conn.names db).services in
   let data =
     List.map (fun (id, services) ->
-        List.map (fun ({ data = (sid, _); till; _ } : Service.t timespan) ->
+        List.map (fun ({ data = (sid, _); till; _ } : Service.t Time.timespan) ->
             ID.to_db id, sid, till) services) data
     |> List.concat in
   let update_last =

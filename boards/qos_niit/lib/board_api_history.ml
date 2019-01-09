@@ -92,7 +92,7 @@ module HTTP = struct
   module Ts_info = struct
 
     let to_yojson =
-      let f = timespan_to_yojson Ts_info.to_yojson in
+      let f = Time.timespan_to_yojson Ts_info.to_yojson in
       Api.Api_types.rows_to_yojson
         (stream_assoc_to_yojson f)
         (fun () -> `Null)
@@ -128,6 +128,11 @@ module HTTP = struct
   module Errors = struct
 
     open Error
+
+    let raw_to_yojson =
+      Json.(List.to_yojson
+              (Pair.to_yojson Stream.ID.to_yojson
+               @@ List.to_yojson Error.to_yojson))
 
     let errors db streams errors priority pids
           limit desc compress from till duration _ _ () =

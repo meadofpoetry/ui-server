@@ -9,13 +9,13 @@ open Common
 module WS = struct
 
   open React
-
+(*
   let get_settings (api : api) _ body sock_data () =
     let event = S.changes api.notifs.settings in
     Api.Socket.handler socket_table sock_data event
       Settings.to_yojson body
-
-  let get_wm (api : api) _ body sock_data () =
+ *)
+  let get_wm_layout (api : api) _ body sock_data () =
     let event = S.changes api.notifs.wm in
     Api.Socket.handler socket_table sock_data event
       Wm.to_yojson body
@@ -40,14 +40,10 @@ module HTTP = struct
     match conv js with
     | Error e -> respond_error e ()
     | Ok x -> apply x >>= function Ok () -> respond_result_unit (Ok ())
-
+(*
   let set_settings (api : api) headers body () =
     set body Settings.of_yojson
       Pipeline_protocol.(fun x -> api.requests.settings.set x)
-
-  let set_wm (api : api) _ body () =
-    set body Wm.of_yojson
-      Pipeline_protocol.(fun x -> api.requests.wm.set x)
 
   let get_settings (api : api) headers body () =
     api.requests.settings.get ()
@@ -55,9 +51,14 @@ module HTTP = struct
          | Error e -> Error (Json.String.to_yojson e)
          | Ok v -> Ok (Settings.to_yojson v))
     >>= respond_result
+ *)
+  let apply_wm_layout (api : api) _ body () =
+    set body Wm.of_yojson
+      Pipeline_protocol.(fun x ->
+      Message.Protocol.wm_apply_layout ~options:api.options.wm api.channel x)
 
-  let get_wm (api : api) _ body () =
-    api.requests.wm.get ()
+  let get_wm_layout (api : api) _ body () =
+    Message.Protocol.wm_get_layout api.channel ()
     >|= (function
          | Error e -> Error (Json.String.to_yojson e)
          | Ok v -> Ok (Wm.to_yojson v))
@@ -74,7 +75,7 @@ module HTTP = struct
     |> fun r -> respond_result (Ok r)
 
 end
-
+(*
 let settings_handler (api : api) =
   let open Api_handler in
   create_dispatcher "settings"
@@ -95,25 +96,25 @@ let settings_handler (api : api) =
                  (HTTP.set_settings api)
              ]
     ]
-
+ *)
 let wm_handler (api : api) =
   let open Api_handler in
   create_dispatcher "wm"
     [ create_ws_handler ~docstring:"WM socket"
         ~path:Uri.Path.Format.empty
         ~query:Uri.Query.empty
-        (WS.get_wm api)
+        (WS.get_wm_layout api)
     ]
     [ `GET, [ create_handler ~docstring:"Wm"
                 ~path:Uri.Path.Format.empty
                 ~query:Uri.Query.empty
-                (HTTP.get_wm api)
+                (HTTP.get_wm_layout api)
             ]
     ; `POST, [ create_handler ~docstring:"Post wm"
                  ~restrict:[`Guest]
                  ~path:Uri.Path.Format.empty
                  ~query:Uri.Query.empty
-                 (HTTP.set_wm api)
+                 (HTTP.apply_wm_layout api)
              ]
     ]
 
@@ -135,8 +136,8 @@ let status_handler (api : api) =
 
 let handlers (api : api) =
   [ Api_handler.add_layer "pipeline"
-      [ settings_handler api
-      ; wm_handler api
+      [ wm_handler api
+      (*; settings_handler api *)
       ; status_handler api
       ; Pipeline_api_structures.handler api
       ; Pipeline_api_measurements.handler api

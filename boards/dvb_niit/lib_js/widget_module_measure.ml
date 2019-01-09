@@ -16,32 +16,32 @@ module Make(M:sig type t val to_string : t -> string end) = struct
 
   let inner_class = Markup.CSS.add_element base_class "inner"
 
-  let value_to_string (config:config) = function
+  let value_to_string (config : config) = function
+    | None -> "-"
     | Some v -> Printf.sprintf "%s %s" (M.to_string v) (measure_type_to_unit config.typ)
-    | None   -> "-"
 
-  class t (event:event) (config:config) () =
+  class t (event : event) (config : config) () =
     let value =
       new Typography.Text.t
         ~adjust_margin:false
         ~font:Headline_5
         ~text:(value_to_string config None)
         () in
-    let _e    = React.E.map (fun v -> value#set_text
-                                      @@ value_to_string config v) event in
+    let _e = React.E.map Fun.(value#set_text % value_to_string config) event in
     let inner = Widget.create_div () in
-    object(self)
-      inherit Widget.t Dom_html.(createDiv document) () as super
-      initializer
-        self#_keep_e _e;
-        self#append_child inner;
-        self#add_class base_class;
+    object
+      inherit Widget.t Js_of_ocaml.Dom_html.(createDiv document) () as super
+      method! init () : unit =
+        super#init ();
+        super#_keep_e _e;
+        super#append_child inner;
+        super#add_class base_class;
         inner#append_child value;
         inner#add_class inner_class;
     end
 
-  let make (event:event) (config:config) =
-    new t event config () |> Widget.coerce
+  let make (event : event) (config : config) =
+    Widget.coerce @@ new t event config ()
 
 end
 

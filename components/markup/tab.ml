@@ -17,23 +17,22 @@ module Make
   let stacked_class = CSS.add_modifier base_class "stacked"
   let min_width_class = CSS.add_modifier base_class "min-width"
 
-  let create_text_label ?(classes = []) ?attrs text () =
-    span ~a:([ a_class (text_label_class :: classes) ] <@> attrs)
-      [pcdata text]
+  let create_text_label ?(classes = []) ?attrs text () : 'a elt =
+    span ~a:([a_class (text_label_class :: classes)] <@> attrs)
+      [txt text]
 
-  let create_content ?(classes = []) ?attrs content () =
-    span ~a:([a_class (content_class :: classes)] <@> attrs)
-      content
+  let create_content ?(classes = []) ?attrs content () : 'a elt =
+    span ~a:([a_class (content_class :: classes)] <@> attrs) content
 
   let create ?(classes = []) ?attrs ?(active = false) ?(stacked = false)
-        ?(min_width = false) content indicator () =
-    button ~a:([ a_class (classes
-                          |> cons_if active active_class
-                          |> cons_if stacked stacked_class
-                          |> cons_if min_width min_width_class
-                          |> List.cons base_class)
-               ; a_role ["tab"]]
-               <@> attrs)
+        ?(min_width = false) content indicator () : 'a elt =
+    let classes =
+      classes
+      |> cons_if active active_class
+      |> cons_if stacked stacked_class
+      |> cons_if min_width min_width_class
+      |> List.cons base_class in
+    button ~a:([a_class classes; a_role ["tab"]] <@> attrs)
       [ content
       ; indicator
       ; span ~a:[a_class [ripple_class]] []

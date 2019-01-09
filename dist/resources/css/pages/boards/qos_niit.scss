@@ -135,7 +135,7 @@ $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #
         margin-right: 0;
     }
     .mdc-select {
-        min-width: 75px;
+        min-width: 100px;
     }
 }
 
@@ -360,6 +360,13 @@ $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #
     }
     &--no-response, &--no-response .mdc-data-table {
         @include mdc-theme-prop(background-color, $error-surface, true);
+    }
+}
+
+.qos-niit-pids-overview__row--lost {
+    @include mdc-theme-prop(color, error);
+    td {
+        font-weight: 600;
     }
 }
 

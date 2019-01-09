@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Tyxml_js
 
@@ -13,7 +14,7 @@ class t ?(max = 1.) ?(min = 0.) ?(value = 0.)
             |> Tyxml_js.To_dom.of_element in
   object(self)
 
-    inherit Widget.t elt ()
+    inherit Widget.t elt () as super
 
     val circle =
       elt##querySelector (Js.string ("." ^ Markup.circle_class))
@@ -21,6 +22,13 @@ class t ?(max = 1.) ?(min = 0.) ?(value = 0.)
 
     val mutable min : float = min
     val mutable max : float = max
+
+    method! init () : unit =
+      super#init ();
+      self#set_min min;
+      self#set_max max;
+      self#set_progress value;
+      self#set_indeterminate indeterminate
 
     method min : float = min
 
@@ -74,11 +82,5 @@ class t ?(max = 1.) ?(min = 0.) ?(value = 0.)
       self#style##.display := Js.string ""
     method hide () : unit =
       self#style##.display := Js.string "none"
-
-    initializer
-      self#set_min min;
-      self#set_max max;
-      self#set_progress value;
-      self#set_indeterminate indeterminate
 
   end

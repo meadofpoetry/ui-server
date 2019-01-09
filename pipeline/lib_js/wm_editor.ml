@@ -2,8 +2,9 @@ open Containers
 open Components
 open Wm_types
 
-let remove ~eq cs set (t:'a wm_item) =
-  if t.unique then set @@ t :: (List.filter (fun x -> not @@ eq t x) @@ React.S.value cs)
+let remove ~eq cs set (t : 'a wm_item) =
+  if t.unique then
+    set @@ t :: (List.filter Fun.(not % eq t) @@ React.S.value cs)
 
 module Make(I : Item) = struct
 
@@ -26,9 +27,10 @@ module Make(I : Item) = struct
            () =
     let rm =
       Wm_left_toolbar.make_action
-        { icon = Icon.SVG.(new t ~paths:Path.[ new t delete ()] ())#widget
-        ; name = "Удалить" } in
-    let layers = I.layers_of_t_list init |> List.sort compare in
+        { icon = Icon.SVG.(new t ~paths:Path.[new t delete ()] ())#widget
+        ; name = "Удалить"
+        } in
+    let layers = List.sort compare @@ I.layers_of_t_list init in
     (* fix layers indexes to be from 0 to n *)
     let init = List.foldi (fun acc i layer ->
                    List.map (fun x -> if I.layer_of_t x = layer
@@ -39,7 +41,7 @@ module Make(I : Item) = struct
     let ig = IG.make ~title ~resolution ~init ~e_layers:rt#e_layers_action () in
     let lt = Wm_left_toolbar.make (actions @ [ rm ]) in
 
-    let _ = React.S.map (fun x -> selected_push x) ig#s_selected in
+    let _ = React.S.map selected_push ig#s_selected in
     let _ = React.S.diff (fun n o ->
                 let eq = fun x1 x2 -> Equal.physical x1#root x2#root in
                 let rm = List.filter_map (fun x -> if not @@ List.mem ~eq x n

@@ -93,11 +93,12 @@ let resize_container (p : Wm.position) (t : Wm.container wm_item) =
   let resolution = p.right - p.left, p.bottom - p.top in
   let widgets =
     resize ~resolution
-      ~to_position:(fun (_, (x : Wm.widget)) -> x.position)
-      ~f:(fun pos (s, (x : Wm.widget)) -> s, { x with position = pos })
-      t.item.widgets
+      ~to_position:(fun (_, (x : Wm.widget)) -> Option.get_exn x.position)
+      ~f:(fun pos (s, (x : Wm.widget)) -> s, { x with position = Some pos })
+      (List.filter (fun (_, (w : Wm.widget)) -> Option.is_some w.position) t.item.widgets)
+      (* TODO cleanup the the mess induced by relative widget position *)
   in
-  { t with item = { t.item with position = p; widgets }}
+  { t with item = Wm.{ position = p; widgets }}
 
 let resize_layout ~(resolution : int * int) (l : Wm.container wm_item list) =
   let containers =
@@ -122,7 +123,7 @@ module Container_item : Item with type item = Wm.container = struct
     let min_size = match t.item.widgets with
       | [] -> None
       | _  ->
-         let positions = List.map (fun (_, (x : Wm.widget)) -> x.position)
+         let positions = List.filter_map (fun (_, (x : Wm.widget)) -> x.position)
                            t.item.widgets in
          let w, h = List.hd (get_bounding_rect_and_grids positions).grids in
          Some (w, h) in

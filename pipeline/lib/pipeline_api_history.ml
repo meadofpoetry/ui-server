@@ -8,7 +8,7 @@ module HTTP = struct
 
   type res = (Stream.t * Time.t * Time.t) list [@@deriving yojson]
 
-  type res_struct = (Structure.structure * Time.t) list [@@deriving yojson]
+  type res_struct = (Structure.t * Time.t) list [@@deriving yojson]
 
   let get_streams db limit from till duration _ _ () =
     match Time.make_interval ?from ?till ?duration () with

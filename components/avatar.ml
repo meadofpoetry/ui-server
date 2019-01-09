@@ -13,12 +13,16 @@ end
 module Letter = struct
 
   class t ~text () =
-    let elt = Markup.Letter.create ~text () |> Tyxml_js.To_dom.of_div in
-    object(self)
+    let elt = Markup.Letter.create ~text () |> To_dom.of_div in
+    object
       inherit Widget.t elt () as super
 
-      method dense       = self#has_class Markup.dense_class
-      method set_dense x = self#add_or_remove_class x Markup.dense_class
+      method dense : bool =
+        super#has_class Markup.dense_class
+
+      method set_dense (x : bool) : unit =
+        super#add_or_remove_class x Markup.dense_class
+
     end
 
 end

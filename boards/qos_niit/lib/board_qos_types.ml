@@ -41,7 +41,7 @@ type status_versions =
   } [@@deriving show, eq]
 
 type status_raw =
-  { status : status
+  { basic : status
   ; input : input
   ; t2mi_mode : t2mi_mode_raw
   ; jitter_mode : jitter_mode option
@@ -89,7 +89,8 @@ type structure =
   ; services : Service.t list
   ; tables : SI_PSI_table.t list
   ; pids : Pid.t list
-  } [@@deriving yojson]
+  ; time : Time.t
+  } [@@deriving yojson, eq]
 
 (** Event group *)
 
@@ -152,7 +153,7 @@ type api =
   ; set_input : input -> input Lwt.t
   ; set_t2mi_mode : t2mi_mode option -> t2mi_mode option Lwt.t
   ; set_jitter_mode : jitter_mode option -> jitter_mode option Lwt.t
-  ; get_t2mi_seq : frame_seq_params -> T2mi_sequence.t timestamped Lwt.t
+  ; get_t2mi_seq : frame_seq_params -> T2mi_sequence.t Time.timestamped Lwt.t
   ; get_section :
       ?section:int ->
       ?table_id_ext:int ->
@@ -161,7 +162,7 @@ type api =
       id:Stream.ID.t ->
       table_id:int ->
       unit ->
-      (SI_PSI_section.Dump.t timestamped,
+      (SI_PSI_section.Dump.t Time.timestamped,
        SI_PSI_section.Dump.error) Lwt_result.t
   ; reset : unit -> unit Lwt.t
   ; config : unit -> config
@@ -184,12 +185,11 @@ type api =
 type device_events =
   { config : config signal
   ; t2mi_mode : t2mi_mode option signal
-  ; t2mi_mode_raw : t2mi_mode_raw event
   ; jitter_mode : jitter_mode option signal
-  ; input : input signal
   ; state : Topology.state signal
-  ; status : status event
-  ; errors : board_error list event
+  ; input : input signal
+  ; status : status signal
+  ; errors : Board_error.t list event
   ; info : devinfo option signal
   }
 
@@ -200,7 +200,7 @@ type ts_events =
   ; sections : sections signal
   ; pids : pids signal
   ; bitrates : bitrates event
-  ; errors : errors event
+  ; errors : (Stream.ID.t * (Error.t_ext list)) list event
   }
 
 type t2mi_events =
@@ -213,32 +213,65 @@ type jitter_events =
   ; jitter : Jitter.measures event
   }
 
+type raw_events =
+  { structures : (Stream.Multi_TS_ID.t * structure) list signal
+  ; t2mi_mode_raw : t2mi_mode_raw event
+  }
+
 type events =
   { device : device_events
   ; streams : Stream.t list signal
   ; ts : ts_events
   ; t2mi : t2mi_events
+  ; raw : raw_events
   ; jitter : jitter_events
   }
 
 type push_events =
   { devinfo : devinfo option -> unit
-  ; input : input -> unit
   ; status : status -> unit
+  ; input : input -> unit
   ; state : Topology.state -> unit
   ; t2mi_mode_raw : t2mi_mode_raw -> unit
   ; t2mi_mode : t2mi_mode option -> unit
   ; jitter_mode : jitter_mode option -> unit
   ; raw_streams : Stream.Raw.t list -> unit
-  ; ts_errors : errors -> unit
+  ; ts_errors : (Stream.ID.t * (Error.t_ext list)) list -> unit
   ; t2mi_errors : errors -> unit
-  ; board_errors : board_error list -> unit
-  ; info : ts_info -> unit
-  ; services : services -> unit
-  ; tables : tables -> unit
-  ; pids : pids -> unit
+  ; board_errors : Board_error.t list -> unit
   ; bitrates : bitrates -> unit
   ; t2mi_info : t2mi_info -> unit
+  ; structures : (Stream.Multi_TS_ID.t * structure) list -> unit
   ; jitter : Jitter.measures -> unit
   ; jitter_session : Jitter.session -> unit
   }
+
+(** Protocol messages *)
+
+type _ instant_request =
+  | Set_board_init : init -> unit instant_request
+  | Set_board_mode : input * t2mi_mode_raw -> unit instant_request
+  | Set_jitter_mode : jitter_mode option -> unit instant_request
+  | Reset : unit instant_request
+
+type probe_response =
+  | Board_errors of Board_error.t list
+  | Bitrate of (Stream.Multi_TS_ID.t * Bitrate.t) list
+  | Struct of (Stream.Multi_TS_ID.t * structure) list
+  | T2mi_info of (Stream.Multi_TS_ID.t * T2mi_info.t)
+  | Jitter of jitter_raw
+
+type _ probe_request =
+  | Get_board_errors : int -> probe_response probe_request
+  | Get_jitter : jitter_req -> probe_response probe_request
+  | Get_ts_struct : ts_struct_req -> probe_response probe_request
+  | Get_bitrates : int -> probe_response probe_request
+  | Get_t2mi_info : t2mi_info_req -> probe_response probe_request
+
+type _ request =
+  | Get_board_info : devinfo request
+  | Get_board_mode : (input * t2mi_mode_raw) request
+  | Get_t2mi_frame_seq : t2mi_frame_seq_req -> T2mi_sequence.t Time.timestamped request
+  | Get_section : section_req ->
+                  (SI_PSI_section.Dump.t Time.timestamped,
+                   SI_PSI_section.Dump.error) result request

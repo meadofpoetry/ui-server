@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Tyxml_js
 
@@ -15,21 +16,15 @@ class ['a] t ?(ripple = true) ?input_id ~name ~(value : 'a) () =
 
     val mutable value : 'a = value
 
-    method set_value (x : 'a) = value <- x
-    method value : 'a = value
+    method set_value (x : 'a) : unit =
+      value <- x
 
-    method layout () : unit =
-      super#layout ();
-      Option.iter (fun r -> r#layout ()) _ripple
+    method value : 'a =
+      value
 
-    method destroy () : unit =
-      super#destroy ();
-      Option.iter (fun r -> r#destroy ()) _ripple;
-      _ripple <- None
-
-    initializer
-      if ripple
-      then
+    method! init () : unit =
+      super#init ();
+      if ripple then
         let adapter = Ripple.make_default_adapter (self :> Widget.t) in
         let is_unbounded = fun () -> true in
         let is_surface_active = fun () -> false in
@@ -42,4 +37,14 @@ class ['a] t ?(ripple = true) ?input_id ~name ~(value : 'a) () =
                        ; register_handler } in
         let ripple = new Ripple.t adapter () in
         _ripple <- Some ripple
+
+    method! layout () : unit =
+      super#layout ();
+      Option.iter (fun r -> r#layout ()) _ripple
+
+    method! destroy () : unit =
+      super#destroy ();
+      Option.iter (fun r -> r#destroy ()) _ripple;
+      _ripple <- None
+
   end

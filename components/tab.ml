@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Tyxml_js
 
@@ -52,7 +53,7 @@ class ['a, 'b] t
         ~(content : 'a content)
         () =
   let indicator = new Tab_indicator.t () in
-  let elt, elts = content_to_elt content indicator in
+  let elt, _ = content_to_elt content indicator in
   let elt = To_dom.of_element elt in
 
   object(self : 'self)
@@ -63,12 +64,57 @@ class ['a, 'b] t
     val mutable _value : 'b = value
     val mutable _click_listener = None
 
-    method indicator = indicator
+    method! init () : unit =
+      super#init ();
+      if min_width then self#add_class Markup.min_width_class;
+      self#set_active active;
+      self#set_disabled disabled;
+      self#listen Widget.Event.click (fun _ _ ->
+          self#emit ~should_bubble:true
+            interacted_event
+            (Js.Unsafe.inject self#root);
+          false)
+      |> (fun x -> _click_listener <- Some x);
+      let ripple_surface = self#ripple_element in
+      let adapter = Ripple.make_default_adapter (self :> Widget.t) in
+      let add_class = fun s ->
+        ripple_surface##.classList##add (Js.string s) in
+      let remove_class = fun s ->
+        ripple_surface##.classList##remove (Js.string s) in
+      let update_css_variable = fun name value ->
+        Ripple.update_css_variable ripple_surface name value in
+      let is_surface_disabled = fun () ->
+        self#disabled in
+      let adapter =
+        { adapter with add_class
+                     ; remove_class
+                     ; update_css_variable
+                     ; is_surface_disabled } in
+      let ripple = new Ripple.t adapter () in
+      _ripple <- Some ripple
 
-    method value : 'b       = _value
-    method set_value (x : 'b) = _value <- x
+    method! layout () : unit =
+      super#layout ();
+      Option.iter (fun r -> r#layout ()) _ripple
 
-    method content : 'a content = content
+    method! destroy () : unit =
+      super#destroy ();
+      Option.iter Dom_events.stop_listen _click_listener;
+      _click_listener <- None;
+      Option.iter (fun r -> r#destroy ()) _ripple;
+      _ripple <- None
+
+    method indicator : Tab_indicator.t =
+      indicator
+
+    method value : 'b =
+      _value
+
+    method set_value (x : 'b) : unit =
+      _value <- x
+
+    method content : 'a content =
+      content
 
     method disabled : bool =
       self#has_attribute "disabled"
@@ -110,8 +156,11 @@ class ['a, 'b] t
         | Some x -> aux (succ i) x in
       aux 0 self#node
 
-    method width : int = self#offset_width
-    method left : int = self#offset_left
+    method width : int =
+      self#offset_width
+
+    method left : int =
+      self#offset_left
 
     (* Private methods *)
 
@@ -120,44 +169,5 @@ class ['a, 'b] t
 
     method private content_element =
       Option.get_exn @@ self#get_child_element_by_class Markup.content_class
-
-    method layout () : unit =
-      super#layout ();
-      Option.iter (fun r -> r#layout ()) _ripple
-
-    method destroy () : unit =
-      super#destroy ();
-      Option.iter Dom_events.stop_listen _click_listener;
-      _click_listener <- None;
-      Option.iter (fun r -> r#destroy ()) _ripple;
-      _ripple <- None
-
-    initializer
-      if min_width then self#add_class Markup.min_width_class;
-      self#set_active active;
-      self#set_disabled disabled;
-      self#listen Widget.Event.click (fun _ _ ->
-          self#emit ~should_bubble:true
-            interacted_event
-            (Js.Unsafe.inject self#root);
-          false)
-      |> (fun x -> _click_listener <- Some x);
-      let ripple_surface = self#ripple_element in
-      let adapter = Ripple.make_default_adapter (self :> Widget.t) in
-      let add_class = fun s ->
-        ripple_surface##.classList##add (Js.string s) in
-      let remove_class = fun s ->
-        ripple_surface##.classList##remove (Js.string s) in
-      let update_css_variable = fun name value ->
-        Ripple.update_css_variable ripple_surface name value in
-      let is_surface_disabled = fun () ->
-        self#disabled in
-      let adapter =
-        { adapter with add_class
-                     ; remove_class
-                     ; update_css_variable
-                     ; is_surface_disabled } in
-      let ripple = new Ripple.t adapter () in
-      _ripple <- Some ripple
 
   end

@@ -13,24 +13,25 @@ module Make(Xml : Xml_sigs.NoWrap)
   let disabled_class = CSS.add_modifier base_class "disabled"
 
   module Item = struct
-    let create ?(classes=[]) ?attrs ?(disabled=false) ?(selected=false) ~text () =
-      option ~a:([ a_class classes ]
+    let create ?(classes = []) ?attrs ?(disabled = false)
+          ?(selected = false) ~text () : 'a elt =
+      option ~a:([a_class classes]
                  |> cons_if disabled @@ a_disabled ()
                  |> cons_if selected @@ a_selected () <@> attrs)
-        (pcdata text)
+        (txt text)
 
-    let create_group ?(classes=[]) ?attrs ~label ~items () =
-      optgroup ~a:([ a_class classes ] <@> attrs) ~label items
+    let create_group ?(classes = []) ?attrs ~label ~items () : 'a elt =
+      optgroup ~a:([a_class classes] <@> attrs) ~label items
   end
 
-  let create_select ?(classes=[]) ?attrs ?(disabled=false) ~items () =
-    select ~a:([ a_class (native_control_class::classes) ]
+  let create_select ?(classes = []) ?attrs
+        ?(disabled = false) ~items () : 'a elt =
+    select ~a:([a_class (native_control_class::classes)]
                |> cons_if disabled @@ a_disabled ()
                <@> attrs) items
 
-  let create ?(classes=[]) ?attrs ?label ?bottom_line ~select () =
+  let create ?(classes=[]) ?attrs ?label ?bottom_line ~select () : 'a elt =
     let opt = label ^:: bottom_line ^:: [] in
-    div ~a:([ a_class (base_class :: classes)] <@> attrs)
-      (select :: opt)
+    div ~a:([a_class (base_class :: classes)] <@> attrs) (select :: opt)
 
 end

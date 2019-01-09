@@ -164,3 +164,38 @@ let service_type_to_string = function
   | x when x >= 0x20 && x <= 0x7F -> "rfu"
   | x when x >= 0x80 && x <= 0xFE -> "user defined"
   | _    -> "rfu"
+
+module Pid = struct
+
+  module Type = struct
+    type t =
+      | SEC of int list
+      | PES of pes
+      | ECM of ecm
+      | EMM of emm
+      | Private
+      | Null
+    and emm =
+      { ca_sys_id : int
+      }
+    and ecm = emm
+    and pes =
+      { stream_type : int
+      ; stream_id : int
+      } [@@deriving yojson, eq, show, ord]
+
+    let to_string : t -> string = function
+      | SEC l ->
+         let s = List.map CCFun.(table_to_string % table_of_int) l
+                 |> String.concat ", " in
+         "SEC -> " ^ s
+      | PES x ->
+         let s = stream_type_to_string x.stream_type in
+         "PES -> " ^ s
+      | ECM x -> "ECM -> " ^ (string_of_int x.ca_sys_id)
+      | EMM x -> "EMM -> " ^ (string_of_int x.ca_sys_id)
+      | Null -> "Null"
+      | Private -> "Private"
+
+  end
+end

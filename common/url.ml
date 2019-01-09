@@ -1,7 +1,7 @@
 open Containers
    
 type ip   = Ipaddr.V4.t
-let pp_ip = Ipaddr.V4.pp_hum
+let pp_ip = Ipaddr.V4.pp
 let ip_to_yojson ip =
   Ipaddr.V4.to_string ip
   |> fun s -> `String s

@@ -2,11 +2,11 @@
   (name        pipeline_js)
   ;(public_name pipeline_js)
   (synopsis    "pipeline js api")
-  (libraries   containers yojson ppx_deriving_yojson.runtime
-               api_js common components janus chartjs ui_templates)
+  (libraries   containers yojson api_js common components janus ui_templates
+               chartjs chartjs.streaming chartjs.datalabels)
   (flags      (:standard -short-paths -strict-sequence -bin-annot
-               -w A+1..49+60-4-7-23-27-33-36-39-40-41-42-44-45-48))
-  (js_of_ocaml (flags (:standard  --opt 3)))
+               -w A+1..49+60-4-39-40-41-42-44-45-48))
+  (js_of_ocaml (flags (:standard --opt 3)))
   (preprocess  (pps js_of_ocaml-ppx ppx_deriving_yojson ppx_deriving.eq ppx_deriving.ord)))
 
 (rule
@@ -17,11 +17,6 @@
 (rule
   (targets qoe_status.ml)
   (deps    (:x ../qoe_status.ml))
-  (action  (copy %{x} %{targets})))
-
-(rule
-  (targets graph.ml)
-  (deps    (:x ../graph.ml))
   (action  (copy %{x} %{targets})))
 
 (rule

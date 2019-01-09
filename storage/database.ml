@@ -201,8 +201,28 @@ end
                                
 type t = state
 
+(* TODO move this to an appropriate place *)
+       
 let aggregate t es =
   let merged = React.E.merge (fun acc x -> x::acc) [] es in
+  let tm = ref Lwt.return_unit in
+  let result = ref [] in
+  let event, epush = React.E.create () in
+  let iter = React.E.fmap (fun l ->
+                 if Lwt.is_sleeping !tm then begin
+                     result := l @ !result;
+                     None
+                   end else begin
+                     tm := Lwt_unix.sleep t;
+                     result := l @ !result;
+                     Lwt.on_success !tm (fun () -> epush !result; result := []);
+                     None
+                   end) merged
+  in
+  React.E.select [iter; event]
+
+let aggregate_merge ~merge t es =
+  let merged = React.E.merge merge [] es in
   let tm = ref Lwt.return_unit in
   let result = ref [] in
   let event, epush = React.E.create () in
@@ -224,7 +244,7 @@ let create config period =
   let settings = Conf.get config in
   let path = Printf.sprintf "postgresql://%s:%s/ats?host=/%s"
                user settings.password settings.socket_path in
-  let db   = match Caqti_lwt.connect_pool ~max_size:50 (Uri.of_string path) with
+  let db   = match Caqti_lwt.connect_pool ~max_size:8 (Uri.of_string path) with
     | Ok db   -> db
     | Error e -> failwith (Printf.sprintf "Db connect failed with an error: %s\n" @@ Caqti_error.show e)
   in

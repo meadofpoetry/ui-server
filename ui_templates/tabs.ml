@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Components
 
@@ -35,9 +36,7 @@ let create_dynamic ?body (tabs : ('a, 'b dynamic_value) Tab.t list) =
   React.S.diff (fun n o ->
       Option.iter (fun n -> n#layout (); body#append_child n) n;
       Option.iter (fun o -> o#destroy (); body#remove_child o) o) s
-  |> (fun e ->
-    body#set_on_destroy
-    @@ Some (fun () -> React.E.stop ~strong:true e));
+  |> (fun e -> body#set_on_destroy (fun () -> React.E.stop ~strong:true e));
   Option.iter (fun w -> w#layout (); body#append_child w) @@ React.S.value s;
   bar, body
 

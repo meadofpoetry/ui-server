@@ -6,149 +6,197 @@ open Api.Interaction.Json
 open Common
 
 let filter_by_input (inputs : Topology.topo_input list)
-      (streams : Structure.Streams.t) =
+      (streams : (Url.t * Stream.t) list) =
   match inputs with
   | [] -> streams
   | inputs ->
-     List.filter (fun ({ source; _ } : Structure.t) ->
-         match Stream.get_input source with
+     List.filter (fun (_, stream) ->
+         match Stream.get_input stream with
          | None -> false
          | Some input ->
             List.mem ~eq:Topology.equal_topo_input input inputs)
        streams
 
 let filter_by_stream_id (ids : Stream.ID.t list)
-      (streams : Structure.Streams.t) =
+      (streams : (Url.t * Stream.t) list) =
   match ids with
   | [] -> streams
   | ids ->
-     List.filter (fun ({ source; _ } : Structure.t) ->
-         List.mem ~eq:Stream.ID.equal source.id ids)
+     List.filter (fun (_, (stream : Stream.t)) ->
+         List.mem ~eq:Stream.ID.equal stream.id ids)
        streams
 
-let filter_by_analyzed (to_be_analyzed : bool option)
-      (streams : Structure.Streams.t) =
-  let open Structure in
-  match to_be_analyzed with
-  | None -> streams
-  | Some to_be_analyzed ->
-     List.filter_map (fun (({ structure; _ } as t): t) ->
-         let ({ channels; _ } : structure) = structure in
-         let channels =
-           List.filter_map (fun (c : channel) ->
-               let pids =
-                 List.filter (fun (p : pid) ->
-                     Bool.equal to_be_analyzed p.to_be_analyzed)
-                   c.pids in
-               match pids with
-               | [] -> None
-               | pids -> Some { c with pids }) channels in
-         match channels with
-         | [] -> None
-         | channels ->
-            let structure = { structure with channels } in
-            Some { t with structure }) streams
+let uris = List.map fst
 
+let filter_by_uris (uris : Url.t list)
+    : Structure.t list -> Structure.t list =
+  List.filter (fun (stream : Structure.t) ->
+      List.exists (fun uri -> Url.equal uri stream.uri) uris)
+    
 module WS = struct
 
   open React
 
-  let get_event api ids inputs analyzed =
-    let event = S.changes api.notifs.streams in
-    match ids, inputs, analyzed with
-    | [], [], None -> event
+  let filter_event ids inputs streams event =
+    match ids, inputs with
+    | [], [] -> event
     | _ ->
-       E.map (filter_by_input inputs
-              % filter_by_stream_id ids
-              % filter_by_analyzed analyzed) event
-       |> E.fmap (function [] -> None | l -> Some l)
+       let uris = streams
+                  |> filter_by_stream_id ids
+                  |> filter_by_input inputs
+                  |> uris
+       in E.map (filter_by_uris uris) event
 
-  let get (api : api) ids inputs analyzed _ body sock_data () =
-    let open Structure in
-    let event = get_event api ids inputs analyzed in
-    Api.Socket.handler socket_table sock_data event
-      Structure.Streams.to_yojson body
+  let filter_map_event ids inputs f streams event =
+    match ids, inputs with
+    | [], [] -> E.map f event
+    | _ ->
+       let uris = streams
+                  |> filter_by_stream_id ids
+                  |> filter_by_input inputs
+                  |> uris
+       in E.map (f % filter_by_uris uris) event
 
-  let get_streams (api : api) ids inputs analyzed _ body sock_data () =
+  let get_streams (api : api) ids inputs _ body sock_data () =
     let open Structure in
-    let event = get_event api ids inputs analyzed in
-    let event = React.E.map (List.map (fun (x : t) -> x.source)) event in
+    let event = filter_event ids inputs !(api.sources)
+                  (S.changes api.notifs.streams) in
     Api.Socket.handler socket_table sock_data event
-      (Json.List.to_yojson Stream.to_yojson) body
+      (Json.List.to_yojson to_yojson) body
+
+  let get_applied (api : api) ids inputs _ body sock_data () =
+    let open Structure in
+    let event = filter_event ids inputs !(api.sources)
+                  (S.changes api.notifs.applied_structs) in
+    Api.Socket.handler socket_table sock_data event
+      (Json.List.to_yojson to_yojson) body
+
+  let get_streams_packed (api : api) ids inputs _ body sock_data () =
+    let open Structure in
+    let event = filter_map_event ids inputs
+                  (Structure_conv.match_streams api.sources)
+                  !(api.sources)
+                  (S.changes api.notifs.streams) in
+    Api.Socket.handler socket_table sock_data event
+      (Json.List.to_yojson packed_to_yojson) body
+
+  let get_applied_packed (api : api) ids inputs _ body sock_data () =
+    let open Structure in
+    let event = filter_map_event ids inputs
+                  (Structure_conv.match_streams api.sources)
+                  !(api.sources)
+                  (S.changes api.notifs.applied_structs) in
+    Api.Socket.handler socket_table sock_data event
+      (Json.List.to_yojson packed_to_yojson) body
 
 end
 
 module HTTP = struct
 
-  let set (api : api) headers body () =
+  let filter_data ids inputs streams data =
+    match ids, inputs with
+    | [], [] -> data
+    | _ ->
+       let uris = streams
+                  |> filter_by_stream_id ids
+                  |> filter_by_input inputs
+                  |> uris
+       in filter_by_uris uris data
+  
+  let get_streams (api : api) ids inputs headers body () =
+    let open Structure in
+    Message.Protocol.stream_parser_get api.channel ()
+    |> Lwt_result.map (Json.List.to_yojson Structure.to_yojson
+                       % filter_data ids inputs !(api.sources))
+    |> Lwt_result.map_err (fun x -> `String x)
+    >>= respond_result
+
+  let get_streams_applied (api : api) ids inputs headers body () =
+    let open Structure in
+    Message.Protocol.graph_get_structure api.channel ()
+    |> Lwt_result.map (Json.List.to_yojson Structure.to_yojson
+                       % filter_data ids inputs !(api.sources))
+    |> Lwt_result.map_err (fun x -> `String x)
+    >>= respond_result
+
+  let get_streams_with_source (api : api) ids inputs headers body () =
+    let open Structure in
+    Message.Protocol.stream_parser_get api.channel ()
+    |> Lwt_result.map (Json.List.to_yojson Structure.packed_to_yojson
+                       % Structure_conv.match_streams api.sources
+                       % filter_data ids inputs !(api.sources))
+    |> Lwt_result.map_err (fun x -> `String x)
+    >>= respond_result
+
+  let get_streams_applied_with_source (api : api) ids inputs headers body () =
+    let open Structure in
+    Message.Protocol.graph_get_structure api.channel ()
+    |> Lwt_result.map (Json.List.to_yojson Structure.packed_to_yojson
+                       % Structure_conv.match_streams api.sources
+                       % filter_data ids inputs !(api.sources))
+    |> Lwt_result.map_err (fun x -> `String x)
+    >>= respond_result
+
+  let apply_streams (api : api) headers body () =
     of_body body >>= fun js ->
-    match Structure.Streams.of_yojson js with
+    match Json.List.of_yojson Structure.of_yojson js with
     | Error e -> respond_error e ()
     | Ok x ->
-       api.requests.streams.set x
+       Message.Protocol.graph_apply_structure
+         ~options:api.options.structures api.channel x
        >>= function Ok () -> respond_result_unit (Ok ())
-
-  let get (api : api) ids inputs analyzed headers body () =
-    api.requests.streams.get ()
-    >|= (function
-         | Error e -> Error (Json.String.to_yojson e)
-         | Ok v ->
-            let v =
-              filter_by_input inputs v
-              |> filter_by_stream_id ids
-              |> filter_by_analyzed analyzed in
-            Ok (Structure.Streams.to_yojson v))
-    >>= respond_result
-
-  let get_streams (api : api) ids inputs analyzed headers body () =
-    let open Structure in
-    api.requests.streams.get ()
-    >|= (function
-         | Error e -> Error (Json.String.to_yojson e)
-         | Ok v ->
-            let v =
-              filter_by_input inputs v
-              |> filter_by_stream_id ids
-              |> filter_by_analyzed analyzed
-              |> List.map (fun (x : t) -> x.source) in
-            Ok ((Json.List.to_yojson Stream.to_yojson) v))
-    >>= respond_result
-
+    
 end
 
 let handler (api : api) =
   let open Api_handler in
-  create_dispatcher "structure"
-    [ create_ws_handler ~docstring:"Structure websocket"
+  create_dispatcher "streams"
+    [ create_ws_handler ~docstring:"Streams websocket"
         ~path:Uri.Path.Format.empty
         ~query:Uri.Query.[ "id", (module List(Stream.ID))
-                         ; "input", (module List(Topology.Show_topo_input))
-                         ; "analyzed", (module Option(Bool)) ]
-        (WS.get api)
-    ; create_ws_handler ~docstring:"Streams websocket"
-        ~path:Uri.Path.Format.("streams" @/ empty)
-        ~query:Uri.Query.[ "id", (module List(Stream.ID))
-                         ; "input", (module List(Topology.Show_topo_input))
-                         ; "analyzed", (module Option(Bool)) ]
+                         ; "input", (module List(Topology.Show_topo_input)) ]
         (WS.get_streams api)
+    ; create_ws_handler ~docstring:"Applied streams websocket"
+        ~path:Uri.Path.Format.("applied" @/ empty)
+        ~query:Uri.Query.[ "id",    (module List(Stream.ID))
+                         ; "input", (module List(Topology.Show_topo_input)) ]
+        (WS.get_applied api)
+    ; create_ws_handler ~docstring:"Streams with source websocket"
+        ~path:Uri.Path.Format.("with_source" @/ empty)
+        ~query:Uri.Query.[ "id",    (module List(Stream.ID))
+                         ; "input", (module List(Topology.Show_topo_input)) ]
+        (WS.get_streams_packed api)
+    ; create_ws_handler ~docstring:"Applied streams with source websocket"
+        ~path:Uri.Path.Format.("applied_with_source" @/ empty)
+        ~query:Uri.Query.[ "id",    (module List(Stream.ID))
+                         ; "input", (module List(Topology.Show_topo_input)) ]
+        (WS.get_streams_packed api)
     ]
-    [ `GET, [ create_handler ~docstring:"Structure"
+    [ `GET, [ create_handler ~docstring:"Streams"
                 ~path:Uri.Path.Format.empty
                 ~query:Uri.Query.[ "id", (module List(Stream.ID))
-                                 ; "input", (module List(Topology.Show_topo_input))
-                                 ; "analyzed", (module Option(Bool)) ]
-                (HTTP.get api)
-            ; create_handler ~docstring:"Streams"
-                ~path:Uri.Path.Format.("streams" @/ empty)
-                ~query:Uri.Query.[ "id", (module List(Stream.ID))
-                                 ; "input", (module List(Topology.Show_topo_input))
-                                 ; "analyzed", (module Option(Bool)) ]
+                                 ; "input", (module List(Topology.Show_topo_input))  ]
                 (HTTP.get_streams api)
+            ; create_handler ~docstring:"Applied streams"
+                ~path:Uri.Path.Format.("applied" @/ empty)
+                ~query:Uri.Query.[ "id", (module List(Stream.ID))
+                                 ; "input", (module List(Topology.Show_topo_input)) ]
+                (HTTP.get_streams_applied api)
+            ; create_handler ~docstring:"Streams with source"
+                ~path:Uri.Path.Format.("with_source" @/ empty)
+                ~query:Uri.Query.[ "id", (module List(Stream.ID))
+                                 ; "input", (module List(Topology.Show_topo_input))  ]
+                (HTTP.get_streams_with_source api)
+            ; create_handler ~docstring:"Applied streams with source"
+                ~path:Uri.Path.Format.("applied_with_source" @/ empty)
+                ~query:Uri.Query.[ "id", (module List(Stream.ID))
+                                 ; "input", (module List(Topology.Show_topo_input)) ]
+                (HTTP.get_streams_applied_with_source api)
             ]
-    ; `POST, [ create_handler ~docstring:"Post structure"
+    ; `POST, [ create_handler ~docstring:"Apply streams"
                  ~restrict:[`Guest]
                  ~path:Uri.Path.Format.empty
                  ~query:Uri.Query.empty
-                 (HTTP.set api)
+                 (HTTP.apply_streams api)
              ]
     ]

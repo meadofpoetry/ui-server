@@ -1,9 +1,9 @@
+open Js_of_ocaml
 open Containers
 open Components
-open Lwt_result.Infix
 
 class t () =
-object(self)
+object
   val mutable sock : (WebSockets.webSocket Js.t * WebSockets.webSocket Js.t) option = None
   inherit Widget.t (Dom_html.createDiv Dom_html.document) ()
 

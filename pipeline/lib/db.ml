@@ -145,7 +145,7 @@ module Streams = struct
     let table = (Conn.names db).streams in
     let insert_new = R.exec Types.(tup3 string ptime ptime)
                        (sprintf "INSERT INTO %s (streams,date_start,date_end) VALUES (?,?,?)" table) in
-    let now = Time.Clock.now_s () in
+    let now = Ptime_clock.now () in
     let streams = Yojson.Safe.to_string @@ Common.(Json.List.to_yojson Stream.to_yojson streams) in
     Conn.request db Request.(exec insert_new (streams,now,now))
 
@@ -157,7 +157,7 @@ module Streams = struct
                                   date_start = (SELECT date_start FROM %s ORDER BY date_start DESC LIMIT 1)|}
                            table table)
     (* TODO optimize out*) in
-    let now = Time.Clock.now_s () in
+    let now = Ptime_clock.now () in
     Conn.request db Request.(exec update_last now)
 
   let select_streams db ?(limit = 500) ~from ~till =
@@ -186,7 +186,7 @@ module Pid_state = struct
     let table = (Conn.names db).pid_state in
     let insert_new = R.exec Types.(tup4 SID.typ int int (tup2 ptime ptime))
                        (sprintf "INSERT INTO %s (stream,channel,pid,date_start,date_end) VALUES (?,?,?,?,?)" table) in
-    let now = Time.Clock.now_s () in
+    let now = Ptime_clock.now () in
     Logs.err (fun m -> m "DB pids len: %d" @@ List.length pids);
     Conn.request db Request.(with_trans (List.fold_left (fun acc (s,c,p,_) ->
                                              acc >>= fun () -> exec insert_new (s,c,p,(now,now)))
@@ -203,7 +203,7 @@ module Pid_state = struct
                                                      ORDER BY date_start DESC LIMIT 1)|}
                             table table)
      in
-     let now = Time.Clock.now_s () in
+     let now = Ptime_clock.now () in
      Conn.request db Request.(with_trans (List.fold_left (fun acc (s,c,p,_) ->
                                               acc >>= fun () -> exec update_last (s,c,p,now))
                                             (return ()) pids))
@@ -278,7 +278,7 @@ module Structure = struct
                   ORDER BY date DESC LIMIT $3|} table uris table uris)
     in Conn.request db Request.(list select (from,till,limit) >>= fun l ->
                                 try let data = List.map (fun (s,t) ->
-                                                   match Structure.structure_of_yojson @@ Yojson.Safe.from_string s with
+                                                   match Structure.of_yojson @@ Yojson.Safe.from_string s with
                                                    | Ok v -> v,t
                                                    | Error e -> failwith e) l
                                     in return (Ok (Raw { data; has_more = List.length data >= limit; order = `Desc }))
@@ -294,7 +294,7 @@ module Stream_status = struct
     let table = (Conn.names db).stream_loss in
     let insert_new = R.exec Types.(tup4 SID.typ int int (tup2 ptime ptime))
                        (sprintf "INSERT INTO %s (stream,channel,pid,date_start,date_end) VALUES (?,?,?,?,?)" table) in
-    let now = Time.Clock.now_s () in
+    let now = Ptime_clock.now () in
     Logs.err (fun m -> m "DB pids len: %d" @@ List.length pids);
     Conn.request db Request.(with_trans (List.fold_left (fun acc {stream;channel;pid;_} ->
                                              acc >>= fun () ->
@@ -313,7 +313,7 @@ module Stream_status = struct
                                   ORDER BY date_start DESC LIMIT 1)|}
                            table table)
     in
-    let now = Time.Clock.now_s () in
+    let now = Ptime_clock.now () in
     Conn.request db Request.(with_trans (List.fold_left (fun acc {stream;channel;pid;_} ->
                                              acc >>= fun () ->
                                              exec update_last (stream,channel,pid,now))

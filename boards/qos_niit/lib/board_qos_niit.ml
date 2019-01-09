@@ -4,6 +4,8 @@ open Containers
 open Lwt.Infix
 open Common
 
+let ( % ) = Fun.( % )
+
 module Api_handler = Api.Handler.Make (User)
 
 module Data = struct
@@ -28,153 +30,6 @@ let tick tm =
   in
   e, loop
 
-module DB_handler = struct
-
-  module Coll = struct
-
-    type 'a coll = 'a list timestamped
-    type 'a flat = 'a timespan list
-    type 'a t =
-      { lost : (Stream.ID.t * 'a flat) list
-      ; found : (Stream.ID.t * 'a flat) list
-      ; upd : (Stream.ID.t * 'a flat) list
-      }
-
-    module I = struct
-
-      type 'a t =
-        { lost : 'a flat
-        ; found : 'a flat
-        ; upd : 'a flat
-        }
-
-      let flatten ?till (c : 'a coll) : 'a flat =
-        let till = match till with
-          | Some x -> x
-          | None -> c.timestamp in
-        List.map (make_timespan ~from:c.timestamp ~till) c.data
-
-      let split ~(eq : 'a -> 'a -> bool)
-            (past : (Stream.ID.t * 'a flat) list)
-            (id, (data : 'a coll)) =
-        match List.Assoc.get ~eq:Stream.ID.equal id past with
-        | None -> id, { lost = []; upd = []; found = flatten data }
-        | Some past_data ->
-           let (lost : 'a flat) =
-             List.filter_map (fun (x : 'a timespan) ->
-                 if List.mem ~eq x.data data.data then None else
-                   Some { x with till = data.timestamp }) past_data in
-           let (found : 'a flat), (upd : 'a flat) =
-             List.fold_left (fun (acc_new, acc_upd) (x : 'a) ->
-                 match List.find_opt (fun (i : 'a timespan) -> eq x i.data)
-                         past_data with
-                 | Some p ->
-                    let i = { p with till = data.timestamp } in
-                    (acc_new, i :: acc_upd)
-                 | None ->
-                    let till = data.timestamp in
-                    let from = data.timestamp in
-                    let i = make_timespan ~from ~till x in
-                    (i :: acc_new, acc_upd)) ([], []) data.data in
-           (id, { lost; found; upd })
-
-    end
-
-    let empty =
-      { lost = []; found = []; upd = [] }
-
-    let flatten ?till x =
-      List.map (fun (id, x) ->
-          id, I.flatten ?till x) x
-
-    let split ~(eq : 'a -> 'a -> bool)
-          (pres : (Stream.ID.t * 'a coll) list)
-          (past : (Stream.ID.t * 'a flat) list) : 'a t =
-      let (l : (Stream.ID.t * 'a I.t) list) =
-        List.map (I.split ~eq past) pres in
-      let lost, upd, found =
-        List.fold_left (fun (lost_acc, found_acc, upd_acc)
-                            (id, ({ lost; found; upd } : 'a I.t)) ->
-            let lost = match lost with
-              | [] -> lost_acc
-              | x -> (id, x) :: lost_acc in
-            let found = match found with
-              | [] -> found_acc
-              | x -> (id, x) :: found_acc in
-            let upd = match upd with
-              | [] -> upd_acc
-              | x -> (id, x) :: upd_acc in
-            (lost, upd, found)) ([], [], []) l
-      in
-      { lost; found; upd }
-
-    let handle ~eq ~insert ~bump db tick s =
-      let open React in
-      let open E in
-      S.changes s
-      |> fold (fun { upd; found; _ } n ->
-             split ~eq n (upd @ found)) empty
-      |> (fun e ->
-        select [e; S.sample (fun () e ->
-                       let upd = flatten ~till:(Time.Clock.now_s ()) e in
-                       { upd; lost = []; found = [] }) tick s])
-      |> map_s (fun { lost; upd; found } ->
-             let t = if List.is_empty lost then Lwt.return_unit
-                     else bump db lost in
-             t
-             >>= (fun () ->
-               if List.is_empty upd then Lwt.return_unit
-               else bump db upd)
-             >>= (fun () ->
-               if List.is_empty found then Lwt.return_unit
-               else insert db found))
-      |> keep
-
-  end
-
-  module Single = struct
-
-    type 'a t =
-      { lost : (Stream.ID.t * 'a timespan) list
-      ; found : (Stream.ID.t * 'a timespan) list
-      ; upd : (Stream.ID.t * 'a timespan) list
-      }
-
-    let empty =
-      { lost = []; found = []; upd = [] }
-
-    let split ~(eq : 'a -> 'a -> bool)
-          (pres : (Stream.ID.t * 'a timestamped) list)
-          (past : (Stream.ID.t * 'a timespan) list) : 'a t =
-      let _ = eq in
-      ignore pres; ignore past;
-      empty
-
-    let handle ~eq ~insert ~bump db tick s =
-      let _ = tick in
-      let _ = eq in
-      let open React in
-      let open E in
-      S.changes s
-      |> fold (fun { upd; found; _ } n ->
-             split ~eq:Ts_info.equal n (upd @ found)) empty
-      |> (fun e -> select [e; e])
-      |> map_s (fun { lost; upd; found } ->
-             let t = if List.is_empty lost then Lwt.return_unit
-                     else bump db lost in
-             t
-             >>= (fun () ->
-               if List.is_empty upd then Lwt.return_unit
-               else bump db upd)
-             >>= (fun () ->
-               if List.is_empty found then Lwt.return_unit
-               else insert db found))
-      |> keep
-
-  end
-
-end
-
 let appeared_streams
       sources
       ~(past : Stream.t list)
@@ -192,46 +47,16 @@ let appeared_streams
         else acc) [] pres in
   appeared
 
-let invalid_port prefix x =
-  let s = prefix ^ ": invalid port " ^ (string_of_int x) in
-  raise (Board.Invalid_port s)
-
-let get_ports_sync prefix streams input ports =
-  let open React in
-  List.fold_left (fun acc (p : Topology.topo_port) ->
-      begin match p.port with
-      | 0 -> S.l2 ~eq:Equal.bool
-               (fun i s -> match i, s with
-                           | SPI, _ :: _ -> true
-                           | _ -> false) input streams
-      | 1 -> S.l2 ~eq:Equal.bool
-               (fun i s -> match i, s with
-                           | ASI, _ :: _ -> true
-                           | _ -> false) input streams
-      | x -> invalid_port prefix x
-      end
-      |> fun x -> Board.Ports.add p.port x acc)
-    Board.Ports.empty ports
-
-let get_ports_active prefix input ports =
-  let open React in
-  List.fold_left (fun acc (p : Topology.topo_port) ->
-      begin match p.port with
-      | 0 -> S.map ~eq:Equal.bool (function SPI -> true | _ -> false) input
-      | 1 -> S.map ~eq:Equal.bool (function ASI -> true | _ -> false) input
-      | x -> invalid_port prefix x
-      end
-      |> fun x -> Board.Ports.add p.port x acc)
-    Board.Ports.empty ports
-
 let create (b : Topology.topo_board) _ convert_streams send
       db_conf base step : Board.t =
-  let open DB_handler in
+  let open Db.Data_handler in
   let log_name = Boards.Board.log_name b in
   let log_src = Logs.Src.create log_name in
   Option.iter (fun x -> Logs.Src.set_level log_src @@ Some x) b.logs;
   let (module Logs : Logs.LOG) = Logs.src_log log_src in
   let module SM = Board_protocol.Make(Logs) in
+  let module Logger = Board_logger.Make(Logs) in
+  let module Ports = Board_ports.Make(Logs) in
   let sources = match b.sources with
     | None ->
        let s = log_name ^ ": no sources provided!" in
@@ -274,27 +99,24 @@ let create (b : Topology.topo_board) _ convert_streams send
   Db.T2mi_info.(Coll.handle ~eq:T2mi_info.equal ~insert ~bump db tick t2mi.structures);
   E.(keep @@ map_s (Db.Bitrate.insert db) ts.bitrates);
   E.(keep @@ map_s (Db.Bitrate.insert_pids db) ts.bitrates);
-  E.(keep @@ map_p (Db.Errors.insert ~is_ts:true  db) events.ts.errors);
+  (* E.(keep @@ map_p (Db.Errors.insert ~is_ts:true  db) events.ts.errors); *)
   E.(keep @@ map_p (Db.Errors.insert ~is_ts:false db) events.t2mi.errors);
+  let ports_sync = Ports.sync b events in
+  let ports_active = Ports.active b events in
   let state = (object
-                 val db    = db
+                 val events = events
+                 val db = db
                  val _tick = tick_loop ()
                  method finalize () = ()
                end) in (* TODO fix finalize *)
   { handlers = handlers
   ; control = b.control
   ; streams_signal = events.streams
+  ; log_source = Logger.make_event b.control events
   ; step
   ; connection = events.device.state
-  ; ports_sync =
-      get_ports_sync log_name
-        events.streams
-        events.device.input
-        b.ports
-  ; ports_active =
-      get_ports_active log_name
-        events.device.input
-        b.ports
+  ; ports_sync
+  ; ports_active
   ; stream_handler = None
   ; state = (state :> < finalize : unit -> unit >)
   ; templates = None

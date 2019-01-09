@@ -1,11 +1,13 @@
+open Js_of_ocaml
 open Containers
 
 include Dynamic_grid_types
 include Dynamic_grid_overlay
 module Item = Dynamic_grid_item
 
-
 type add_error = Collides of Position.t list
+
+let ( % ) = Fun.( % )
 
 let to_grid ?max_col_width ?(min_col_width = 1)
       ?rows ?row_height
@@ -28,7 +30,10 @@ let to_grid ?max_col_width ?(min_col_width = 1)
   ; selectable
   }
 
-class ['a,'b,'c] t ~grid ~(get:'c -> 'a item) ~(items:'a item list) () =
+class ['a, 'b, 'c] t ~grid
+        ~(get : 'c -> 'a item)
+        ~(items : 'a item list)
+        () =
   let e_modify, e_modify_push = React.E.create () in
   let s_selected, s_selected_push = React.S.create ~eq:(fun _ _ -> false) [] in
   let s_col_w, s_col_w_push = React.S.create grid.min_col_width in
@@ -39,10 +44,10 @@ class ['a,'b,'c] t ~grid ~(get:'c -> 'a item) ~(items:'a item list) () =
   let s_items =
     React.S.fold (fun acc -> function
         | `Add x -> x :: acc
-        | `Remove x -> List.filter Fun.(Item.eq x %> not) acc)
+        | `Remove x -> List.filter Fun.(not % Widget.equal x) acc)
       [] e_modify in
   let new_item item =
-    new Item.t ~s_grid ~s_items ~e_modify_push ~s_selected ~s_selected_push
+    new Item.t ~s_grid ~s_items ~s_selected ~s_selected_push
       ~s_col_w ~s_row_h ~item () in
   let items = List.map (fun item -> new_item item) items in
   let s_change =
@@ -86,60 +91,56 @@ class ['a,'b,'c] t ~grid ~(get:'c -> 'a item) ~(items:'a item list) () =
     val _s_selected = React.S.map (fun x -> x) s_selected
     val _e_selected = React.S.changes s_selected
 
-    (** API **)
+    (** API *)
 
-    method s_changing = s_changing
-    method s_change   = s_change
-    method s_items : 'b list React.signal = s_items
+    method! init () : unit =
+      (* FIXME save state *)
+      super#init ();
+      let remove_event = Widget.Event.make Item.remove_event in
+      let remove_listener =
+        self#listen_lwt remove_event (fun e _ ->
+            let eq = Equal.physical in
+            let item = (Js.Unsafe.coerce e)##.detail in
+            begin match List.find_opt (fun x -> eq x#root item) self#items with
+            | None -> ()
+            | Some i -> e_modify_push (`Remove i)
+            end;
+            Lwt.return_unit) in
+      Lwt.ignore_result remove_listener;
+      React.S.map (fun _ -> self#layout ()) s_grid |> ignore;
+      (* add item add/remove listener *)
+      React.E.map (fun action ->
+          (match action with
+           | `Add (x : 'b) -> self#append_child x
+           | `Remove x -> self#remove_child x);
+          (* FIXME make vertical compact variable *)
+          if self#grid.vertical_compact then self#compact ()) e_modify
+      |> ignore;
+      (* add initial items *)
+      List.iter (fun x -> e_modify_push (`Add x)) items;
+      (* add min/max width update listener *)
+      React.S.map (fun (grid : grid) ->
+          let m_top = snd grid.items_margin in
+          self#style##.minWidth := Js.string @@ Utils.px (grid.cols * grid.min_col_width + m_top);
+          Option.iter (fun x -> self#style##.maxWidth := Js.string @@ Utils.px @@ grid.cols * x + m_top)
+            grid.max_col_width)
+        s_grid
+      |> ignore;
+      (* add height update listener *)
+      React.S.l3 (fun h row_h grid ->
+          let my = snd grid.items_margin in
+          self#style##.height := Js.string @@ Utils.px (h * row_h + my))
+        s_rows s_row_h s_grid
+      |> ignore;
+      Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ ->
+          self#layout (); true) |> ignore;
 
-    method s_selected : 'b list React.signal = _s_selected
-    method e_selected : 'b list React.event  = _e_selected
-
-    method grid = React.S.value s_grid
-    method items : 'b list = Position.sort_by_y ~f:(fun x -> x#pos) @@ React.S.value s_items
-    method positions = React.S.value s_change
-
-    method item_margin = self#grid.items_margin
-    method set_item_margin x = s_grid_push { self#grid with items_margin = x }
-
-    method overlay_grid = _overlay_grid
-
-    method add (x : 'c) =
-      let (x : 'a item) = get x in
-      let items = List.map (fun x -> x#pos) (React.S.value s_items) in
-      match Position.get_all_collisions ~f:(fun x -> x) x.pos items with
-      | [] -> let item = new_item x in
-              e_modify_push (`Add item);
-              Dom.appendChild self#root item#root;
-              Ok item
-      | l  -> Error (Collides l)
-
-    method draggable : bool option =
-      self#grid.draggable
-    method set_draggable (x : bool option) =
-      s_grid_push { self#grid with draggable = x }
-
-    method resizable : bool option =
-      self#grid.resizable
-    method set_resizable (x : bool option) =
-      s_grid_push { self#grid with resizable = x }
-
-    method selectable : bool option =
-      self#grid.selectable
-    method set_selectable (x : bool option) =
-      s_grid_push { self#grid with selectable = x }
-
-    method remove (x : 'b) =
-      x#remove ()
-    method remove_all () =
-      List.iter (fun x -> self#remove x) self#items
-
-    method destroy () : unit =
+    method! destroy () : unit =
       super#destroy ();
       List.iter (fun x -> x#destroy ()) self#items;
       self#remove_all ()
 
-    method layout () : unit =
+    method! layout () : unit =
       super#layout ();
       (match Js.Opt.to_option @@ self#root##.parentNode with
        | None -> ()
@@ -151,10 +152,82 @@ class ['a,'b,'c] t ~grid ~(get:'c -> 'a item) ~(items:'a item list) () =
           let col = if col < mx + 1 then mx + 1 else col in
           s_col_w_push col;
           self#style##.width := Js.string @@ Printf.sprintf "%dpx" (col * self#grid.cols + mx);
-          _overlay_grid#show_dividers;
+          _overlay_grid#show_dividers ();
           _overlay_grid#layout ())
 
-    (** Private methods **)
+    method s_changing : Position.t list React.signal =
+      s_changing
+
+    method s_change : Position.t list React.signal =
+      s_change
+
+    method s_items : 'b list React.signal =
+      s_items
+
+    method s_selected : 'b list React.signal =
+      _s_selected
+
+    method e_selected : 'b list React.event  =
+      _e_selected
+
+    method grid : grid =
+      React.S.value s_grid
+
+    method items : 'b list =
+      Position.sort_by_y ~f:(fun x -> x#pos) @@ React.S.value s_items
+
+    method positions : Position.t list =
+      React.S.value s_change
+
+    method item_margin : int * int =
+      self#grid.items_margin
+
+    method set_item_margin (x : int * int) =
+      s_grid_push { self#grid with items_margin = x }
+
+    method overlay_grid : Dynamic_grid_overlay.overlay_grid =
+      _overlay_grid
+
+    method add (x : 'c) : ('a Item.t, add_error) result =
+      let (x : 'a item) = get x in
+      let items = List.map (fun x -> x#pos) (React.S.value s_items) in
+      match Position.get_all_collisions ~f:(fun x -> x) x.pos items with
+      | [] ->
+         let item = new_item x in
+         e_modify_push (`Add item);
+         Ok item
+      | l -> print_endline "error: collides"; Error (Collides l)
+
+    method draggable : bool option =
+      self#grid.draggable
+
+    method set_draggable (x : bool option) : unit =
+      s_grid_push { self#grid with draggable = x }
+
+    method resizable : bool option =
+      self#grid.resizable
+
+    method set_resizable (x : bool option) : unit =
+      s_grid_push { self#grid with resizable = x }
+
+    method selectable : bool option =
+      self#grid.selectable
+
+    method set_selectable (x : bool option) : unit =
+      s_grid_push { self#grid with selectable = x }
+
+    method remove (item : 'b) : unit =
+      match List.find_opt (Widget.equal item) self#items with
+      | None -> ()
+      | Some x ->
+         x#set_selected false;
+         self#remove_child x;
+         x#destroy ()
+
+    method remove_all () : unit =
+      List.iter (fun x -> e_modify_push (`Remove x)) self#items
+
+    (* Private methods *)
 
     method private s_grid = s_grid
     method private s_col_w = s_col_w
@@ -171,37 +244,12 @@ class ['a,'b,'c] t ~grid ~(get:'c -> 'a item) ~(items:'a item list) () =
       if x <= self#offset_width && x >= 0 && y <= self#offset_height && y >= 0
       then Some { x; y; w = 1; h = 1 } else None
 
-    method private compact =
-      let other i = List.filter (fun x -> not @@ Equal.physical x#root i#root) self#items in
-      List.iter (fun x -> x#set_pos @@ Position.compact ~f:(fun x -> x#pos) x#pos (other x)) self#items
-
-    initializer
-      React.S.map (fun _ -> self#layout ()) s_grid |> ignore;
-      (* add item add/remove listener *)
-      React.E.map (fun action ->
-          (match action with
-           | `Add (x:'b) -> Dom.appendChild self#root x#root
-           | `Remove x -> Dom.removeChild self#root x#root);
-          (* FIXME make vertical compact variable *)
-          if self#grid.vertical_compact then self#compact) e_modify
-      |> ignore;
-      (* add initial items *)
-      List.iter (fun x -> e_modify_push (`Add x)) items;
-      (* add min/max width update listener *)
-      React.S.map (fun (grid:grid) ->
-          let m_top = snd grid.items_margin in
-          self#style##.minWidth := Js.string @@ Utils.px (grid.cols * grid.min_col_width + m_top);
-          Option.iter (fun x -> self#style##.maxWidth := Js.string @@ Utils.px @@ grid.cols * x + m_top)
-            grid.max_col_width)
-        s_grid
-      |> ignore;
-      (* add height update listener *)
-      React.S.l3 (fun h row_h grid ->
-          let my = snd grid.items_margin in
-          self#style##.height := Js.string @@ Utils.px (h * row_h + my))
-        s_rows s_row_h s_grid
-      |> ignore;
-      Dom_events.listen Dom_html.window Dom_events.Typ.resize (fun _ _ ->
-          self#layout (); true) |> ignore;
+    method private compact () : unit =
+      let other i = List.filter (not % Widget.equal i) self#items in
+      List.iter (fun x ->
+          x#set_pos
+          @@ Position.compact ~f:(fun x -> x#pos)
+               x#pos
+               (other x)) self#items
 
   end

@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Tyxml_js
 
@@ -36,23 +37,16 @@ let default_activation_state =
   ; is_programmatic = false
   }
 
-let request_animation_frame f =
-  let cb = Js.wrap_callback f in
-  Dom_html.window##requestAnimationFrame cb
-
-let cancel_animation_frame x =
-  Dom_html.window##cancelAnimationFrame x
-
-let set_timeout f d = Dom_html.setTimeout f d
-
 module Util = struct
 
   let supports_passive : bool option ref = ref None
 
   let suppots_css_variables_ : bool option ref = ref None
 
+  (* FIXME implement *)
   let apply_passive ?(global_obj = Dom_html.window)
         ?(force_refresh = false) () =
+    ignore global_obj;
     match !supports_passive, force_refresh with
     | None, _ | _, true ->
        (try ()
@@ -231,11 +225,11 @@ object(self)
     self#deactivate_ ()
 
   method layout () : unit =
-    Option.iter cancel_animation_frame _layout_frame;
+    Option.iter Utils.Animation.cancel_animation_frame _layout_frame;
     let f = fun _ ->
       self#layout_internal ();
       _layout_frame <- None in
-    _layout_frame <- Some (request_animation_frame f)
+    _layout_frame <- Some (Utils.Animation.request_animation_frame f)
 
   (* Private methods *)
 
@@ -250,7 +244,7 @@ object(self)
           if adapter.is_unbounded ()
           then (adapter.add_class Markup.unbounded_class;
                 self#layout_internal ()) in
-        ignore @@ request_animation_frame f
+        ignore @@ Utils.Animation.request_animation_frame f
       end
 
   method destroy () =
@@ -274,7 +268,7 @@ object(self)
          adapter.remove_class Markup.base_class;
          adapter.remove_class Markup.unbounded_class;
          self#remove_css_vars () in
-       ignore @@ request_animation_frame f)
+       ignore @@ Utils.Animation.request_animation_frame f)
     else
       (self#deregister_root_handlers ();
        self#deregister_deactivation_handlers ())
@@ -341,7 +335,7 @@ object(self)
     let has_activated_child () =
       match event with
       | None -> false
-      | Some e ->
+      | Some _ ->
          List.find_opt adapter.contains_event_target _activated_targets
          |> Option.is_some in
     try
@@ -374,7 +368,7 @@ object(self)
                                          ; was_activated_by_pointer } in
       _activation_state <- state;
       if was_element_made_active then self#animate_activation ();
-      request_animation_frame (fun _ ->
+      Utils.Animation.request_animation_frame (fun _ ->
           _activated_targets <- [];
           if (not was_element_made_active)
              && Option.map_or ~default:false (fun e ->
@@ -432,7 +426,7 @@ object(self)
     adapter.add_class Markup.fg_activation_class;
     let cb = self#activation_timer_callback in
     let timeout = deactivation_timeout_ms in
-    _activation_timer <- Some (set_timeout cb timeout)
+    _activation_timer <- Some (Utils.set_timeout cb timeout)
 
   method private get_fg_translation_coordinates () : point * point =
     let start_point = match _activation_state.was_activated_by_pointer with
@@ -469,7 +463,8 @@ object(self)
     then
       (self#rm_bounded_activation_classes ();
        adapter.add_class Markup.fg_deactivation_class;
-       set_timeout (fun () -> adapter.remove_class Markup.fg_deactivation_class)
+       Utils.set_timeout (fun () ->
+           adapter.remove_class Markup.fg_deactivation_class)
          fg_deactivation_ms
        |> fun timer_id -> _fg_deactivation_removal_timer <- Some timer_id)
 
@@ -486,15 +481,16 @@ object(self)
      * event until it's safe to assume that subsequent events are
      *  for new interactions.
      *)
-    set_timeout (fun () -> _previous_activation_event <- None) tap_delay_ms
-    |> ignore
+    let cb = fun () -> _previous_activation_event <- None in
+    ignore @@ Utils.set_timeout cb tap_delay_ms
 
   method private deactivate_ () : unit =
     let ({ is_activated; is_programmatic; _ } as state) = _activation_state in
     match is_activated, is_programmatic with
     | false, _ -> ()
     | _, true ->
-       ignore @@ request_animation_frame (fun _ -> self#animate_deactivation state);
+       let cb = fun _ -> self#animate_deactivation state in
+       ignore @@ Utils.Animation.request_animation_frame cb;
        self#reset_activation_state ()
     | _, false ->
        self#deregister_deactivation_handlers ();
@@ -503,7 +499,7 @@ object(self)
          _activation_state <- state;
          self#animate_deactivation state;
          self#reset_activation_state () in
-       ignore @@ request_animation_frame f
+       ignore @@ Utils.Animation.request_animation_frame f
 
   method private animate_deactivation (a : activation_state) =
     if a.was_activated_by_pointer || a.was_element_made_active
@@ -543,14 +539,12 @@ object(self)
          (Some (Printf.sprintf "%gpx" top)))
 
   method private handle_focus () : unit =
-    (fun _ -> adapter.add_class Markup.bg_focused_class)
-    request_animation_frame
-    |> ignore
+    let cb = fun _ -> adapter.add_class Markup.bg_focused_class in
+    ignore @@ Utils.Animation.request_animation_frame cb
 
   method private handle_blur () : unit =
-    (fun _ -> adapter.remove_class Markup.bg_focused_class)
-    request_animation_frame
-    |> ignore
+    let cb = fun _ -> adapter.remove_class Markup.bg_focused_class in
+    ignore @@ Utils.Animation.request_animation_frame cb
 
   initializer
     self#set_unbounded @@ adapter.is_unbounded ();

@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Components
 open Lwt_result.Infix

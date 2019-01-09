@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Tyxml_js
 
@@ -9,9 +10,9 @@ class t () =
   let elt = Markup.create svg () |> To_dom.of_element in
   object(self)
 
-    inherit Widget.t elt () as super
+    inherit Widget.t elt ()
 
-    (* Adds the outline notched selector and updates the notch width
+    (** Adds the outline notched selector and updates the notch width
      * calculated based off of notch_width
      *)
     method notch (notch_width : float) : unit =
@@ -23,7 +24,7 @@ class t () =
 
     (* Private methods *)
 
-    (* Updates the SVG path of the focus outline element based on the notchWidth
+    (** Updates the SVG path of the focus outline element based on the notchWidth
      * and the RTL context.
      *)
     method private update_svg_path (notch_width : float) : unit =

@@ -16,6 +16,10 @@ type stream_table_row =
 type stream_table =
    stream_table_row list [@@deriving yojson ,eq]
 
+type stream_list =
+  (board_num * Stream.t list) list
+and board_num = int [@@deriving yojson, eq]
+  
 let set_error_to_string : Stream.Table.set_error -> string =
   function
   | `Not_in_range -> "Not in range"

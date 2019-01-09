@@ -23,17 +23,17 @@ module Make(Xml : Xml_sigs.NoWrap)
   end
 
   module Add_item = struct
-    let _class               = CSS.add_element base_class "add-item"
-    let thumbnail_class      = CSS.add_element _class "thumbnail"
+    let _class = CSS.add_element base_class "add-item"
+    let thumbnail_class = CSS.add_element _class "thumbnail"
     let thumbnail_icon_class = CSS.add_modifier thumbnail_class "icon"
-    let text_box_class       = CSS.add_element _class "text-box"
-    let title_class          = CSS.add_element _class "title"
-    let description_class    = CSS.add_element _class "description"
-    let dragging_class       = CSS.add_modifier _class "dragging"
+    let text_box_class = CSS.add_element _class "text-box"
+    let title_class = CSS.add_element _class "title"
+    let description_class = CSS.add_element _class "description"
+    let dragging_class = CSS.add_modifier _class "dragging"
   end
 
   module Panel = struct
-    let _class      = CSS.add_element base_class "panel"
+    let _class = CSS.add_element base_class "panel"
     let title_class = CSS.add_element _class "title"
   end
 

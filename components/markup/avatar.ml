@@ -7,11 +7,11 @@ module Make(Xml : Xml_sigs.NoWrap)
            and module Svg := Svg) = struct
   open Html
 
-  let base_class  = "mdc-avatar"
+  let base_class = "mdc-avatar"
   let dense_class = CSS.add_modifier base_class "dense"
 
   module Image = struct
-    let create ?(classes=[]) ?attrs ?(dense=false) ~src () =
+    let create ?(classes = []) ?attrs ?(dense = false) ~src () =
       img ~a:([ a_class (classes
                          |> cons_if dense dense_class
                          |> List.cons base_class) ] <@> attrs)
@@ -22,7 +22,7 @@ module Make(Xml : Xml_sigs.NoWrap)
   module Font_icon = struct
     let icon_class = CSS.add_modifier base_class "icon"
 
-    let create ?(classes=[]) ?attrs ?(dense=false) ~icon () =
+    let create ?(classes = []) ?attrs ?(dense = false) ~icon () =
       div ~a:([ a_class (classes
                          |> cons_if dense dense_class
                          |> List.cons base_class)] <@> attrs)
@@ -32,12 +32,12 @@ module Make(Xml : Xml_sigs.NoWrap)
   module Letter = struct
     let letter_class = CSS.add_modifier base_class "letter"
 
-    let create ?(classes=[]) ?attrs ?(dense=false) ~text () =
+    let create ?(classes = []) ?attrs ?(dense = false) ~text () =
       div ~a:([ a_class (classes
                          |> cons_if dense dense_class
                          |> List.cons letter_class
                          |> List.cons base_class)] <@> attrs)
-        [pcdata text]
+        [txt text]
   end
 
 end

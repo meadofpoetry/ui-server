@@ -1,7 +1,6 @@
 open Containers
 open Components
 open Board_types
-open Lwt_result
 open Common
 
 type item =

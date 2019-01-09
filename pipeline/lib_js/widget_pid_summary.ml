@@ -1,7 +1,6 @@
 open Containers
 open Components
 open Qoe_status
-open Common
 
 let base_class = "pipeline-pids-summary"
 
@@ -18,9 +17,10 @@ module Pids = struct
   class pid ?(hex = false) (state : t) () =
   object(self)
 
-    inherit Widget.t Dom_html.(createSpan document) () as super
+    inherit Widget.t Js_of_ocaml.Dom_html.(createSpan document) () as super
 
-    method init () : unit =
+    method! init () : unit =
+      ignore hex;
       super#init ();
       self#add_class pid_class
 
@@ -51,7 +51,7 @@ module Pids = struct
                 ~widgets:[ title#widget
                          ; pids_box#widget ] () as super
 
-      method init () : unit =
+      method! init () : unit =
         super#init ();
         _pids <- List.map (make_pid ?hex) init;
         List.iter pids_box#append_child _pids;
@@ -59,7 +59,7 @@ module Pids = struct
         title#add_class title_class;
         pids_box#add_class box_class
 
-      method destroy () : unit =
+      method! destroy () : unit =
         super#destroy ();
         title#destroy ();
         pids_box#destroy ()
@@ -95,7 +95,7 @@ module Pids = struct
         | Some cell ->
            pids_box#remove_child cell;
            cell#destroy ();
-           _pids <- List.remove ~eq:Widget.equal ~x:cell _pids
+           _pids <- List.remove ~eq:Widget.equal cell _pids
 
     end
 

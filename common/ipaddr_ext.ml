@@ -1,8 +1,6 @@
 module V4 = struct
   include Ipaddr.V4
 
-  let pp = pp_hum
-
   let equal (t1:t) (t2:t) =
     Int32.equal (to_int32 t1) (to_int32 t2)
 
@@ -18,8 +16,6 @@ end
 
 module V6 = struct
   include Ipaddr.V6
-
-  let pp = pp_hum
 
   let equal (t1:t) (t2:t) =
     let eq = CCEqual.pair Int64.equal Int64.equal in

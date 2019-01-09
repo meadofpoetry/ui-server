@@ -1,4 +1,3 @@
-open Containers
 open Board_types
 open Api_js.Requests.Json_request
 open Common
@@ -15,8 +14,8 @@ module WS = struct
     let path = Path.Format.(get_base_path () / ("status" @/ empty)) in
     WS.get ~from:status_of_yojson ~path ~query:Query.empty control
 
-  let get_errors ?(errors=[]) control =
-    WS.get ~from:(Json.List.of_yojson board_error_of_yojson)
+  let get_errors ?(errors = []) control =
+    WS.get ~from:(Json.List.of_yojson Board_error.of_yojson)
       ~path:Path.Format.(get_base_path () / ("errors" @/ empty))
       ~query:Query.["errors", (module List(Int))]
       control errors

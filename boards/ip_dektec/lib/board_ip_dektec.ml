@@ -56,6 +56,7 @@ let create (({ control; ports; _ } as b) : Topology.topo_board) _
   { handlers
   ; control
   ; streams_signal = streams
+  ; log_source = (fun _ -> React.E.never) (* TODO implement source *)
   ; step
   ; connection = events.state
   ; ports_sync = get_sync_ports log_name streams ports

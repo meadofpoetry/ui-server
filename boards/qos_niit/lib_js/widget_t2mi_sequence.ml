@@ -15,17 +15,18 @@ module Heading = struct
     let subtitle' = new Card.Primary.subtitle "" () in
     let box = Widget.create_div ~widgets:[title'; subtitle'] () in
     object(self)
-      inherit Card.Primary.t ~widgets:[box] ()
+      inherit Card.Primary.t ~widgets:[box] () as super
+
+      method! init () : unit =
+        super#init ();
+        Option.iter self#set_title title;
+        Option.iter self#set_subtitle subtitle;
 
       method set_title (s : string) : unit =
         title'#set_text_content s
 
       method set_subtitle (s : string) : unit =
         subtitle'#set_text_content s
-
-      initializer
-        Option.iter self#set_title title;
-        Option.iter self#set_subtitle subtitle;
     end
 
 end
@@ -109,7 +110,12 @@ module Sequence = struct
 
       val mutable _is_hex = is_hex
 
-      inherit Card.Media.t ~widgets:[table] ()
+      inherit Card.Media.t ~widgets:[table] () as super
+
+      method! init () : unit =
+        super#init ();
+        super#append_child ph;
+        if table#is_empty then self#_show_placeholder ()
 
       method set_hex (x : bool) : unit =
         _is_hex <- x;
@@ -157,16 +163,19 @@ module Sequence = struct
         self#_show_placeholder ()
 
       method private _hide_all () =
-        ph#style##.display := Js.string "none";
-        table#style##.display := Js.string "none"
+        Js_of_ocaml.(
+          ph#style##.display := Js.string "none";
+          table#style##.display := Js.string "none")
 
       method private _hide_placeholder () =
-        ph#style##.display := Js.string "none";
-        table#style##.display := Js.string ""
+        Js_of_ocaml.(
+          ph#style##.display := Js.string "none";
+          table#style##.display := Js.string "")
 
       method private _show_placeholder () =
-        ph#style##.display := Js.string "";
-        table#style##.display := Js.string "none"
+        Js_of_ocaml.(
+          ph#style##.display := Js.string "";
+          table#style##.display := Js.string "none")
 
       method private _add_row (i : item) : unit =
         let open Table.Data in
@@ -177,12 +186,7 @@ module Sequence = struct
         let data =
           i.typ :: i.count :: i.stream_id
           :: frame :: i.super_frame :: i :: [] in
-        table#add_row data |> ignore
-
-      initializer
-        self#append_child ph;
-        if table#is_empty then self#_show_placeholder ()
-
+        table#push data |> ignore
     end
 
 end
@@ -245,22 +249,23 @@ class t (stream : Stream.t) (control : int) () =
       ~input:switch
       ~label:"HEX IDs"
       () in
-  object(self)
+  object
 
-    inherit Card.t ~widgets:[] ()
+    inherit Card.t ~widgets:[] () as super
 
-    initializer
-      self#_keep_s
+    method! init () : unit =
+      super#init ();
+      super#_keep_s
       @@ React.S.map ~eq:Equal.unit button#set_timeout
       @@ select#s_selected_value;
       button#set_getter @@ Some getter;
       primary#append_child hex;
-      self#add_class base_class;
-      self#append_child primary;
-      self#append_child @@ new Divider.t ();
-      self#append_child actions;
-      self#append_child @@ new Divider.t ();
-      self#append_child sequence;
+      super#add_class base_class;
+      super#append_child primary;
+      super#append_child @@ new Divider.t ();
+      super#append_child actions;
+      super#append_child @@ new Divider.t ();
+      super#append_child sequence;
 
   end
 

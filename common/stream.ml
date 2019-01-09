@@ -1,6 +1,7 @@
 open Topology
 open Containers
 
+(** Main stream ID *)
 module ID : sig
 
   type t
@@ -176,6 +177,7 @@ module Multi_TS_ID : sig
 
 end = struct
 
+  [@@@ocaml.warning "-32"]
   type t =
     | Parsed of parsed
     | Raw of int32
@@ -184,6 +186,7 @@ end = struct
     { source_id : int
     ; stream_id : int
     } [@@deriving eq, ord]
+  [@@@ocaml.warning "+32"]
 
   let parse_pure (i : int32) : parsed =
     let open Int32 in
@@ -419,5 +422,46 @@ module Table = struct
     { url : Url.t
     ; stream : t
     } [@@deriving yojson, eq]
+
+end
+
+module Log_message = struct
+
+  type level =
+    | Info
+    | Warn
+    | Err
+    | Fatal [@@deriving eq, enum, ord]
+
+  let level_to_yojson l = `Int (level_to_enum l)
+
+  let level_of_yojson = function
+    | `Int i -> begin
+        match level_of_enum i with
+        | None -> Error "level_of_yojson: bad level"
+        | Some v -> Ok v
+      end
+    | _ -> Error "level_of_yojson: bad level"
+
+  type node = Board of int
+            | Cpu of string [@@deriving eq, yojson]
+
+  type t =
+    { time : Time.t
+    ; level : level
+    ; message : string
+    ; info : string
+    ; node : node option
+    ; input : topo_input option
+    ; stream: ID.t option
+    ; service : string option
+    ; pid : pid option
+    }
+  and pid =
+    { typ : string option
+    ; id : int
+    } [@@deriving eq, yojson, make]
+
+  type source = [`All | `Id of ID.t list] -> t list React.event
 
 end

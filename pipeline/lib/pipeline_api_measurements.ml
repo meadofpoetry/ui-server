@@ -16,24 +16,28 @@ module WS = struct
          && x.channel = c
          && Stream.ID.equal x.stream s in
        let event = React.E.filter pred api.notifs.vdata in
+       let event = Storage.Database.aggregate 1.0 [event] in
        Api.Socket.handler socket_table sock_data event
-         Video_data.to_yojson body
+         (Json.List.to_yojson Video_data.to_yojson) body
     | Some s, Some c, _ ->
        let pred (x : Video_data.t) =
          x.channel = c
          && Stream.ID.equal x.stream s in
        let event = React.E.filter pred api.notifs.vdata in
+       let event = Storage.Database.aggregate 1.0 [event] in
        Api.Socket.handler socket_table sock_data event
-         Video_data.to_yojson body
+         (Json.List.to_yojson Video_data.to_yojson) body
     | Some s, _, _ ->
        let pred (x : Video_data.t) = Stream.ID.equal x.stream s in
        let event = React.E.filter pred api.notifs.vdata in
+       let event = Storage.Database.aggregate 1.0 [event] in
        Api.Socket.handler socket_table sock_data event
-         Video_data.to_yojson body
+         (Json.List.to_yojson Video_data.to_yojson) body
     | _ ->
        let event = api.notifs.vdata in
+       let event = Storage.Database.aggregate 1.0 [event] in
        Api.Socket.handler socket_table sock_data event
-         Video_data.to_yojson body
+         (Json.List.to_yojson Video_data.to_yojson) body
 
   let get_audio (api : api) stream channel pid _ body sock_data () =
     match stream, channel, pid with
@@ -43,24 +47,28 @@ module WS = struct
          && x.channel = c
          && Stream.ID.equal x.stream s in
        let event = React.E.filter pred api.notifs.adata in
+       let event = Storage.Database.aggregate 1.0 [event] in
        Api.Socket.handler socket_table sock_data event
-         Audio_data.to_yojson body
+         (Json.List.to_yojson Audio_data.to_yojson) body
     | Some s, Some c, _ ->
        let pred (x : Audio_data.t) =
          x.channel = c
          && Stream.ID.equal x.stream s in
        let event = React.E.filter pred api.notifs.adata in
+       let event = Storage.Database.aggregate 1.0 [event] in
        Api.Socket.handler socket_table sock_data event
-         Audio_data.to_yojson body
+         (Json.List.to_yojson Audio_data.to_yojson) body
     | Some s, _, _ ->
        let pred (x : Audio_data.t) = Stream.ID.equal x.stream s in
        let event = React.E.filter pred api.notifs.adata in
+       let event = Storage.Database.aggregate 1.0 [event] in
        Api.Socket.handler socket_table sock_data event
-         Audio_data.to_yojson body
+         (Json.List.to_yojson Audio_data.to_yojson) body
     | _ ->
        let event = api.notifs.adata in
+       let event = Storage.Database.aggregate 1.0 [event] in
        Api.Socket.handler socket_table sock_data event
-         Audio_data.to_yojson body
+         (Json.List.to_yojson Audio_data.to_yojson) body
 
 end
 

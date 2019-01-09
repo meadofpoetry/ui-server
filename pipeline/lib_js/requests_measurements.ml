@@ -10,7 +10,7 @@ module WS = struct
       ~query:Query.[ "stream", (module Option(Stream.ID))
                    ; "channel", (module Option(Int))
                    ; "pid", (module Option(Int)) ]
-      ~from:Qoe_errors.Video_data.of_yojson
+      ~from:(Json.List.of_yojson Qoe_errors.Video_data.of_yojson)
       stream channel pid
 
   let get_audio ?stream ?channel ?pid () =
@@ -18,7 +18,7 @@ module WS = struct
       ~query:Query.[ "stream", (module Option(Stream.ID))
                    ; "channel", (module Option(Int))
                    ; "pid", (module Option(Int)) ]
-      ~from:Qoe_errors.Audio_data.of_yojson
+      ~from:(Json.List.of_yojson Qoe_errors.Audio_data.of_yojson)
       stream channel pid
 
 end

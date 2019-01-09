@@ -1,7 +1,5 @@
 open Containers
 open Components
-open Lwt_result.Infix
-open Api_js.Api_types
 open Widget_common
 open Board_types
 open Common
@@ -16,40 +14,33 @@ let name = "PIDs"
 let base_class = "qos-niit-pids-overview"
 let no_sync_class = Markup.CSS.add_modifier base_class "no-sync"
 let no_response_class = Markup.CSS.add_modifier base_class "no-response"
+let row_class = Markup.CSS.add_element base_class "row"
+let absent_class = Markup.CSS.add_modifier row_class "lost"
 
 let ( % ) = Fun.( % )
 
 module Settings = struct
 
-  type t = { hex : bool } [@@deriving eq]
+  type t = { hex : bool }
 
-  let (default : t) = { hex = false (* FIXME *) }
+  let (default : t) = { hex = false }
+
+  let make_hex_switch state =
+    let input = new Switch.t ~state () in
+    new Form_field.t ~input ~align_end:true ~label:"HEX IDs" ()
 
   class view ?(settings = default) () =
-    let hex_switch =
-      new Switch.t
-        ~state:settings.hex
-        () in
-    let hex_form =
-      new Form_field.t
-        ~input:hex_switch
-        ~align_end:true
-        ~label:"HEX IDs"
-        () in
-    let s, set = React.S.create ~eq:equal settings in
-    object(self)
-      inherit Vbox.t ~widgets:[hex_form] ()
-
+    let hex_switch = make_hex_switch settings.hex in
+    object
+      val mutable value = settings
+      inherit Vbox.t ~widgets:[hex_switch] ()
+      method value : t = value
       method apply () : unit =
-        let hex = hex_switch#checked in
-        set { hex }
-
+        let hex = hex_switch#input_widget#checked in
+        value <- { hex }
       method reset () : unit =
-        let { hex } = React.S.value self#s in
-        hex_switch#set_checked hex
-
-      method s : t React.signal = s
-
+        let { hex } = value in
+        hex_switch#input_widget#set_checked hex
     end
 
   let make ?settings () = new view ?settings ()
@@ -73,11 +64,11 @@ let to_pid_flags { has_pcr; scrambled } =
   let scr = match scrambled with
     | false -> None
     | true ->
-       Some Icon.SVG.(new t ~paths:Path.[ new t lock () ] ()) in
+       Some Icon.SVG.(new t ~paths:Path.[new t lock ()] ()) in
   let widgets = List.(cons_maybe pcr (cons_maybe scr [])) in
   (new Hbox.t ~widgets ())#node
 
-let update_row row total br pid =
+let update_row row total br =
   let cur, per, min, max =
     let open Table in
     match row#cells with
@@ -96,24 +87,10 @@ let update_row row total br pid =
    | Some v -> if br >. v then max#set_value (Some br));
   br, pct
 
-let pid_type_to_string : Pid.typ -> string = function
-  | SEC l ->
-     let s = List.map Fun.(Mpeg_ts.(table_to_string % table_of_int)) l
-             |> String.concat ", " in
-     "SEC -> " ^ s
-  | PES x ->
-     let s = Mpeg_ts.stream_type_to_string x.stream_type in
-     "PES -> " ^ s
-  | ECM x -> "ECM -> " ^ (string_of_int x.ca_sys_id)
-  | EMM x -> "EMM -> " ^ (string_of_int x.ca_sys_id)
-  | Null -> "Null"
-  | Private -> "Private"
-
-let pid_type_fmt : Pid.typ Table.custom =
-  { to_string = pid_type_to_string
-  ; compare = Pid.compare_typ
-  ; is_numeric = false
-  }
+let pid_type_fmt : Mpeg_ts.Pid.Type.t Table.custom =
+  Mpeg_ts.Pid.Type.{ to_string
+                   ; compare
+                   ; is_numeric = false }
 
 let pid_flags_fmt : pid_flags Table.custom_elt =
   { to_elt = to_pid_flags
@@ -125,14 +102,13 @@ let dec_pid_fmt = Table.(Int None)
 let hex_pid_fmt = Table.(Int (Some (Printf.sprintf "0x%04X")))
 
 (* TODO add table empty state *)
-let make_table_fmt ?(is_hex = false)
-      (init : Pid.t list) =
+let make_table_fmt ?(is_hex = false) () =
   let open Table in
   let open Format in
   let br_fmt = Option (Float None, "-") in
   let pct_fmt = Option (Float (Some (Printf.sprintf "%.2f")), "-") in
   let to_sort_column = to_column ~sortable:true in
-    (to_sort_column "PID", dec_pid_fmt)
+    (to_sort_column "PID", if is_hex then hex_pid_fmt else dec_pid_fmt)
     :: (to_sort_column "Тип", Custom pid_type_fmt)
     :: (to_column "Доп. инфо", Custom_elt pid_flags_fmt)
     :: (to_sort_column "Сервис", Option (String None, ""))
@@ -151,18 +127,20 @@ let add_row (table : 'a Table.t) ((pid, info) : Pid.t) =
   let data = Data.(
       pid :: info.typ :: flags :: info.service_name
       :: None :: None :: None :: None :: []) in
-  let row = table#add_row data in
+  let row = table#push data in
+  if not info.present then row#add_class absent_class;
   row
 
 class t ?(settings : Settings.t option)
-        (init : Pid.t list timestamped option)
+        (init : Pid.t list Time.timestamped option)
         () =
   let init, timestamp = match init with
     | None -> [], None
     | Some { data; timestamp } -> data, Some timestamp in
   let s_time, set_time =
     React.S.create ~eq:(Equal.option Time.equal) timestamp in
-  let fmt = make_table_fmt init in
+  let is_hex = Option.map (fun (x : Settings.t) -> x.hex) settings in
+  let fmt = make_table_fmt ?is_hex () in
   let table = new Table.t ~sticky_header:true ~dense:true ~fmt () in
   let empty =
     Ui_templates.Placeholder.create_with_icon
@@ -171,29 +149,34 @@ class t ?(settings : Settings.t option)
       () in
   object(self)
 
+    val mutable _settings : Settings.t =
+      Option.get_or ~default:Settings.default settings
     val mutable _data : Set.t = Set.of_list init
 
-    inherit Widget.t Dom_html.(createDiv document) () as super
+    inherit Widget.t Js_of_ocaml.Dom_html.(createDiv document) () as super
 
-    method init () : unit =
+    method! init () : unit =
       super#init ();
-      Option.iter self#set_settings settings;
       self#append_child table;
       React.S.map ~eq:Equal.unit (function
           | [] -> self#append_child empty
           | _ -> self#remove_child empty) table#s_rows
       |> self#_keep_s;
       List.iter Fun.(ignore % add_row table) init;
+      Option.iter self#set_settings settings;
       self#add_class base_class
 
-    method destroy () : unit =
+    method! destroy () : unit =
       super#destroy ();
       table#destroy ();
       empty#destroy ();
 
     method pids = Set.to_list _data
 
-    method set_settings ({ hex } : Settings.t) =
+    method settings : Settings.t = _settings
+
+    method set_settings ({ hex } as s : Settings.t) =
+      _settings <- s;
       self#set_hex hex
 
     method s_timestamp : Time.t option React.signal =
@@ -216,22 +199,21 @@ class t ?(settings : Settings.t option)
       add_row table x
 
     (** Updates the overview *)
-    method update ({ timestamp; data } : Pid.t list timestamped) =
+    method update ({ timestamp; data } : Pid.t list Time.timestamped) =
       set_time @@ Some timestamp;
       (* Manage found, lost and updated items *)
       let prev = _data in
       _data <- Set.of_list data;
       let lost = Set.diff prev _data in
       let found = Set.diff _data prev in
-      let inter = Set.inter prev _data in
+      let inter = Set.inter _data prev in
       let upd =
-        Set.filter (fun ((_, info) : Pid.t) ->
-            List.mem ~eq:Pid.equal_info info @@ List.map snd data) inter in
+        Set.filter (fun (p : Pid.t) ->
+            let (_, i) = Set.find p prev in
+            not @@ Pid.equal_info (snd p) i)
+          inter in
       let find = fun ((pid, _) : Pid.t) (row : 'a Table.Row.t) ->
-        let open Table in
-        let pid' = match row#cells with
-          | x :: _ -> x#value in
-        pid = pid' in
+        pid = Table.(match row#cells with x :: _ -> x#value) in
       Set.iter (fun (pid : Pid.t) ->
           match List.find_opt (find pid) table#rows with
           | None -> ()
@@ -252,47 +234,43 @@ class t ?(settings : Settings.t option)
                        let cell = match row#cells with a :: _ -> a in
                        cell#value = pid) rows with
              | Some x ->
-                update_row x total br pid |> ignore;
-                List.remove ~eq:Equal.physical ~x rows
+                ignore @@ update_row x total br;
+                List.remove ~eq:Widget.equal x rows
              | None -> rows) table#rows pids
          |> ignore
 
-    (** Sets ID display format to dec or hex *)
-    method set_hex (x : bool) : unit =
-    List.iter (fun row ->
-        let open Table in
-        match row#cells with
-        | pid :: _ ->
-           pid#set_format (if x then hex_pid_fmt else dec_pid_fmt))
-      table#rows
-
     (* Private methods *)
 
+    method private set_hex (x : bool) : unit =
+      let fmt = if x then hex_pid_fmt else dec_pid_fmt in
+      let iter = function
+        | Table.(pid :: _) -> pid#set_format fmt in
+      List.iter (fun row -> iter row#cells) table#rows
+
     method private _update_row (row : 'a Table.Row.t) ((pid, info) : Pid.t) =
-      let open Table in
-      match row#cells with
-      | pid' :: typ :: flags :: service :: _ ->
-         pid'#set_value pid;
-         typ#set_value info.typ;
-         flags#set_value { has_pcr = info.has_pcr
-                         ; scrambled = info.scrambled };
-         service#set_value info.service_name;
+      row#add_or_remove_class (not info.present) absent_class;
+      Table.(match row#cells with
+             | pid' :: typ :: flags :: service :: _ ->
+                pid'#set_value pid;
+                typ#set_value info.typ;
+                flags#set_value { has_pcr = info.has_pcr
+                                ; scrambled = info.scrambled };
+                service#set_value info.service_name)
 
   end
 
 let make ?settings
-      (init : Pid.t list timestamped option) =
+      (init : Pid.t list Time.timestamped option) =
   new t ?settings init ()
 
 let make_dashboard_item ?settings init : 'a Dashboard.Item.item =
   let w = make ?settings init in
   let settings = Settings.make ?settings () in
-  let s = settings#s in
   let (settings : Dashboard.Item.settings) =
-    { widget = settings#widget
-    ; ready = React.S.const true
-    ; set = (fun () -> Lwt_result.return @@ w#set_settings @@ React.S.value s)
-    } in
+    Dashboard.Item.make_settings
+      ~widget:settings
+      ~set:(fun () -> Lwt_result.return @@ w#set_settings settings#value)
+      () in
   let tz_offset_s = Ptime_clock.current_tz_offset_s () in
   let timestamp =
     Dashboard.Item.make_timestamp
@@ -300,7 +278,7 @@ let make_dashboard_item ?settings init : 'a Dashboard.Item.item =
       ~to_string:(Time.to_human_string ?tz_offset_s)
       () in
   Dashboard.Item.make_item
-    ~name:"Обзор"
+    ~name:"Список PID"
     ~subtitle:(Timestamp timestamp)
     ~settings
     w

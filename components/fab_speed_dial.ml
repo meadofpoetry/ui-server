@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Tyxml_js
 
@@ -8,46 +9,69 @@ type direction = [`Up | `Down | `Left | `Right]
 
 let item_delay = 65
 
-class action ~(z_index:int) (fab:Fab.t) () =
-object(self)
-  inherit Widget.t (Dom_html.createDiv Dom_html.document) ()
-  method fab = fab
-  method z_index = z_index
-  initializer
-    self#add_class Markup.action_class;
-    self#style##.zIndex := (Js.string (string_of_int self#z_index));
-    Dom.appendChild self#root fab#root
+class action ~(z_index : int) (fab : Fab.t) () =
+object
+
+  inherit Widget.t Dom_html.(createDiv document) () as super
+
+  method! init () : unit =
+    super#init ();
+    super#add_class Markup.action_class;
+    super#style##.zIndex := (Js.string (string_of_int z_index));
+    super#append_child fab
+
+  method fab : Fab.t =
+    fab
+
+  method z_index : int =
+    z_index
+
 end
 
-class actions ~(items:Fab.t list) () =
-  let z     = 20 in
+class actions ~(items : Fab.t list) () =
+  let z = 20 in
   let items = List.mapi (fun i x -> new action ~z_index:(z + i) x ()) items in
   object(self)
     val mutable _items = items
-    inherit Vbox.t ~widgets:items ()
+    inherit Vbox.t ~widgets:items () as super
+
+    method! init () : unit =
+      super#init ();
+      super#add_class Markup.actions_class
 
     method items = _items
 
-    method add (x : Fab.t) : unit =
-      x#set_mini true;
-      let action = new action ~z_index:(List.length self#items + z) x () in
-      Dom.appendChild self#root action#root;
+    method prepend (x : Fab.t) : unit =
+      let action = self#wrap_action x in
+      super#insert_child_at_idx 0 action;
       _items <- action :: self#items
 
-    method remove (x : Fab.t) : unit =
-      match List.find_opt (fun a -> Equal.physical x a#fab) self#items with
-      | Some a -> (try Dom.removeChild self#root a#root with _ -> ());
-                  _items <- List.remove ~eq:(Equal.physical) ~x:a self#items
-      | None -> ()
+    method append (x : Fab.t) : unit =
+      let action = self#wrap_action x in
+      super#append_child action;
+      _items <- self#items @ [action]
 
-    initializer
-      self#add_class Markup.actions_class
+    method insert_at_index (idx : int) (x : Fab.t) : unit =
+      let action = self#wrap_action x in
+      super#insert_child_at_idx idx action;
+      _items <- List.insert_at_idx idx action _items
+
+    method remove (fab : Fab.t) : unit =
+      match List.find_opt (fun a -> Equal.physical fab a#fab) self#items with
+      | None -> ()
+      | Some x ->
+         self#remove_child x;
+         _items <- List.remove ~eq:Widget.equal x self#items
+
+    method private wrap_action (x : Fab.t) : action =
+      x#set_mini true;
+      new action ~z_index:(List.length self#items + z) x ()
+
   end
 
 class t ?(animation = `Scale) ?(direction = `Up) ~icon ~items () =
   let main = new Fab.t ~icon () in
-  let main_wrapper = Dom_html.createDiv Dom_html.document |> Widget.create in
-  let () = Dom.appendChild main_wrapper#root main#root in
+  let main_wrapper = Widget.create_div () in
   let actions = new actions ~items () in
   let s, push = React.S.create false in
   let box = new Vbox.t ~widgets:[main_wrapper#widget; actions#widget] () in
@@ -55,9 +79,36 @@ class t ?(animation = `Scale) ?(direction = `Up) ~icon ~items () =
 
     inherit Widget.t box#root () as super
 
+    val mutable _keydown_listener = None
     val mutable _animation = animation
     val mutable _direction = direction
     val mutable _items = items
+
+    method! init () : unit =
+      super#init ();
+      main_wrapper#append_child main;
+      self#_set_main_z_index ();
+      let listener =
+        self#listen_lwt Widget.Event.keydown (fun e _ ->
+            match Utils.Keyboard_event.event_to_key e with
+            | `Escape -> Lwt.return @@ self#hide ()
+            | _ -> Lwt.return ()) in
+      _keydown_listener <- Some listener;
+      List.iter (fun x -> x#set_mini true) self#items;
+      self#hide (); (* FIXME not working for `Fling cause can't get dimensions *)
+      self#set_animation animation;
+      self#set_direction direction;
+      main_wrapper#add_class Markup.main_class;
+      self#add_class Markup.base_class
+
+    method! layout () : unit =
+      super#layout ();
+      List.iter (fun x -> x#layout ()) self#items
+
+    method! destroy () : unit =
+      super#destroy ();
+      Option.iter Lwt.cancel _keydown_listener;
+      _keydown_listener <- None
 
     method s_state = s
 
@@ -66,34 +117,48 @@ class t ?(animation = `Scale) ?(direction = `Up) ~icon ~items () =
     method items =
       List.map (fun x -> x#fab) self#actions#items
 
-    method add (x : Fab.t) : unit =
-      self#actions#add x; self#_set_main_z_index ()
+    method append (x : Fab.t) : unit =
+      self#actions#append x;
+      self#_set_main_z_index ()
+
+    method prepend (x : Fab.t) : unit =
+      self#actions#prepend x;
+      self#_set_main_z_index ()
+
+    method insert_at_index (idx : int) (x : Fab.t) : unit =
+      self#actions#insert_at_index idx x;
+      self#_set_main_z_index ()
+
     method remove (x : Fab.t) : unit =
       self#actions#remove x
 
-    method animation : animation = _animation
-    method set_animation (x : animation) =
+    method animation : animation =
+      _animation
+
+    method set_animation (x : animation) : unit =
       self#remove_class (self#_animation_to_class self#animation);
       self#add_class (self#_animation_to_class x);
       _animation <- x
 
-    method direction : direction = _direction
-    method set_direction (x : direction) =
+    method direction : direction =
+      _direction
+
+    method set_direction (x : direction) : unit =
       self#remove_class (self#_direction_to_class self#direction);
       self#add_class (self#_direction_to_class x);
       _direction <- x
 
-    method layout () =
-      super#layout ();
-      List.iter (fun x -> x#layout ()) self#items
+    method opened : bool =
+      React.S.value self#s_state
 
-    method opened  = React.S.value self#s_state
-    method show () =
+    method show () : unit =
       List.iteri (fun i x -> self#_transform_show i x) self#actions#items;
       Dom_html.setTimeout self#layout
                           (float_of_int (150 + (List.length self#items * item_delay))) |> ignore;
-      self#add_class Markup.opened_class; push true
-    method hide () =
+      self#add_class Markup.opened_class;
+      push true
+
+    method hide () : unit =
       List.iteri (fun i x -> self#_transform_hide i x) self#actions#items;
       self#remove_class Markup.opened_class; push false
 
@@ -157,19 +222,5 @@ class t ?(animation = `Scale) ?(direction = `Up) ~icon ~items () =
       main_wrapper#style##.zIndex := Js.string @@ string_of_int @@ succ z
 
     method private actions = actions
-
-    initializer
-      self#_set_main_z_index ();
-      self#listen_lwt Widget.Event.keydown (fun e _ ->
-          match Utils.Keyboard_event.event_to_key e with
-          | `Escape -> Lwt.return @@ self#hide ()
-          | _ -> Lwt.return ())
-      |> Lwt.ignore_result;
-      List.iter (fun x -> x#set_mini true) self#items;
-      self#hide (); (* FIXME not working for `Fling cause can't get dimensions *)
-      self#set_animation animation;
-      self#set_direction direction;
-      main_wrapper#add_class Markup.main_class;
-      self#add_class Markup.base_class
 
   end

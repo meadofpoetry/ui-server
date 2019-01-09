@@ -20,8 +20,8 @@ module Make(Xml : Xml_sigs.NoWrap)
 
     let _class = CSS.add_element base_class "title"
 
-    let create ?(classes = []) ?attrs ~title () =
-      h2 ~a:([a_class (_class :: classes)] <@> attrs) [pcdata title]
+    let create ?(classes = []) ?attrs ~title () : 'a elt =
+      h2 ~a:([a_class (_class :: classes)] <@> attrs) [txt title]
 
   end
 
@@ -29,10 +29,8 @@ module Make(Xml : Xml_sigs.NoWrap)
 
     let _class = CSS.add_element base_class "content"
 
-    let create ?(classes = []) ?attrs ~content () =
-      section ~a:([ a_class (classes
-                             |> List.cons _class) ] <@> attrs)
-        content
+    let create ?(classes = []) ?attrs ~content () : 'a elt =
+      section ~a:([a_class (_class :: classes)] <@> attrs) content
 
   end
 
@@ -44,29 +42,30 @@ module Make(Xml : Xml_sigs.NoWrap)
     let accept_button_class = CSS.add_modifier button_class "accept"
     let cancel_button_class = CSS.add_modifier button_class "cancel"
 
-    let create ?(classes = []) ?attrs ~children () =
+    let create ?(classes = []) ?attrs ~children () : 'a elt =
       footer ~a:([ a_class (_class :: classes)] <@> attrs) children
 
   end
 
-  let create_container ?(classes = []) ?attrs surface () =
+  let create_container ?(classes = []) ?attrs surface () : 'a elt =
     div ~a:([a_class (container_class :: classes)] <@> attrs) [surface]
 
-  let create_surface ?(classes = []) ?attrs content () =
+  let create_surface ?(classes = []) ?attrs content () : 'a elt =
     div ~a:([a_class (surface_class :: classes)] <@> attrs) content
 
-  let create_scrim ?(classes = []) ?attrs () =
+  let create_scrim ?(classes = []) ?attrs () : 'a elt =
     div ~a:([a_class (scrim_class :: classes)] <@> attrs) []
 
   let create ?(classes = []) ?attrs ?label_id ?description_id
-        ?(scrollable = false) ~scrim ~container () =
+        ?(scrollable = false) ~scrim ~container () : 'a elt =
+    let aria n v = a_aria n [v] in
     div ~a:([ a_class (classes
                        |> cons_if scrollable scrollable_class
                        |> List.cons base_class)
             ; a_role ["alertdialog"]
             ; a_aria "modal" ["true"]]
-            |> map_cons_option (fun x -> a_aria "labelledby" [x]) label_id
-            |> map_cons_option (fun x -> a_aria "describedby" [x]) description_id
+            |> map_cons_option (aria "labelledby") label_id
+            |> map_cons_option (aria "describedby") description_id
             <@> attrs)
       [container; scrim]
 

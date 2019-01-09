@@ -1,8 +1,6 @@
 open Containers
 open Components
 open Common
-open Lwt_result.Infix
-open Api_js.Api_types
 open Widget_common
 open Board_types
 
@@ -11,37 +9,26 @@ type config =
   } [@@deriving yojson]
 
 module Settings = struct
-
   type t = { hex : bool } [@@deriving eq]
 
-  let (default : t) = { hex = false (* FIXME *) }
+  let (default : t) = { hex = false }
+
+  let make_hex_swith state =
+    let input = new Switch.t ~state () in
+    new Form_field.t ~input ~align_end:true ~label:"HEX IDs" ()
 
   class view ?(settings = default) () =
-    let hex_switch =
-      new Switch.t
-        ~state:settings.hex
-        () in
-    let hex_form =
-      new Form_field.t
-        ~input:hex_switch
-        ~align_end:true
-        ~label:"HEX IDs"
-        () in
-    let s, set = React.S.create ~eq:equal settings in
-    object(self)
-
-      inherit Vbox.t ~widgets:[hex_form] ()
-
+    let hex_switch = make_hex_swith settings.hex in
+    object
+      val mutable value = settings
+      inherit Vbox.t ~widgets:[hex_switch] ()
+      method value : t = value
       method apply () : unit =
-        let hex = hex_switch#checked in
-        set { hex }
-
+        let hex = hex_switch#input_widget#checked in
+        value <- { hex }
       method reset () : unit =
-        let { hex } = React.S.value self#s in
-        hex_switch#set_checked hex
-
-      method s : t React.signal = s
-
+        let { hex } = value in
+        hex_switch#input_widget#set_checked hex
     end
 
   let make ?settings () = new view ?settings ()
@@ -65,50 +52,118 @@ let no_response_class = Markup.CSS.add_modifier base_class "no-response"
 (* TODO improve tooltip. add pid type, bitrate units *)
 module Pie = struct
 
+  let other = "Другие"
+
   let colors =
-    (* TODO remove text color. Write a function to calc it at runtime *)
-    let open Color in
-    [ Red C500, White
-    ; Orange C500, Black
-    ; Yellow C500, Black
-    ; Green C500, White
-    ; Blue C500, White
-    ; Purple C500, White
-    ; Grey C500, White
-    ; Brown C500, White
-    ; Pink C500, Black
-    ; Blue_grey C500, White
-    ; Deep_purple C500, White
-    ; Deep_orange C500, White
-    ; Indigo C500, White
-    ; Amber C500, Black
-    ; Light_blue C500, Black
-    ]
+    let open Color_palette in
+    [| Red C500
+     ; Orange C500
+     ; Green C500
+     ; Blue C500
+     ; Purple C500
+     ; Grey C500
+     ; Brown C500
+     ; Pink C500
+     ; Blue_grey C500
+     ; Deep_purple C500
+     ; Deep_orange C500
+     ; Indigo C500
+     ; Amber C500
+     ; Light_blue C500
+    |]
+
+  let make_pie_datalabels () : Chartjs_datalabels.t =
+    let open Chartjs in
+    let open Chartjs_datalabels in
+    let color = fun context ->
+      let open Option_types.Option_context in
+      let index = data_index context in
+      let color = colors.(index) in
+      Color.to_css_rgba @@ Color.text_color @@ Color_palette.make color in
+    let display = fun context ->
+      let open Option_types.Option_context in
+      let index = data_index context in
+      let value = Js_array.Float.(
+          let data = Pie.Dataset.Float.data (dataset context) in
+          let sum = reduce' data (fun acc x _ _ -> acc +. x) in
+          let v = data.%[index] in
+          (v *. 100.) /. sum) in
+      value >. 5. in
+    let font = Font.make ~weight:"bold" () in
+    make
+      ~formatter:(fun _ context ->
+        let open Chartjs.Option_types.Option_context in
+        let index = data_index context in
+        let data = data (chart context) in
+        Js_array.String.((Data.labels data).%[index]))
+      ~color:(`Fun color)
+      ~display:(`Fun display)
+      ~align:(`Single `Start)
+      ~offset:(`Single (-50))
+      ~clip:(`Single true)
+      ~font:(`Single font)
+      ()
+
+  let make_pie_options () : Chartjs.Options.t =
+    let open Chartjs in
+    let hover = Options.Hover.make ~animation_duration:0 () in
+    let callbacks =
+      Options.Tooltips.Callbacks.make
+        ~label:(fun item data ->
+          let ds_index = item.dataset_index in
+          Js_array.(
+            let dataset = Data.Datasets.((Data.datasets data).%[ds_index]) in
+            let values = Pie.Dataset.Float.data dataset in
+            let value = Float.(values.%[item.index]) in
+            let label = match String.((Data.labels data).%[item.index]) with
+              | s when Equal.string s other -> s
+              | s -> Printf.sprintf "PID %s" s in
+            Printf.sprintf "%s: %.3g Мбит/с" label value))
+        () in
+    let tooltips =
+      Options.Tooltips.make
+        ~callbacks
+        () in
+    let legend =
+      Options.Legend.make
+        ~position:`Left
+        ~display:false
+        () in
+    let animation = Options.Animation.make () in
+    Pie.Options.Animation.set_animate_rotate animation false;
+    let datalabels = make_pie_datalabels () in
+    let plugins = Options.Plugins.make () in
+    Chartjs_datalabels.Per_chart.set plugins (Some datalabels);
+    Options.make
+      ~responsive:true
+      ~maintain_aspect_ratio:true
+      ~aspect_ratio:1.0
+      ~animation
+      ~tooltips
+      ~legend
+      ~hover
+      ~plugins
+      ()
+
+  let make_pie_dataset () : Chartjs.Pie.Dataset.Float.t =
+    let open Chartjs.Pie in
+    let background_color =
+      Array.map Fun.(Color.to_css_rgba % Color_palette.make) colors
+      |> Array.to_list in
+    Dataset.Float.make
+      ~background_color
+      ~border_color:background_color
+      ~data:[]
+      ()
 
   let make_pie () =
-    let open Chartjs.Pie in
-    Chartjs.register_empty_state_plugin "Нет данных";
-    let dataset = new Dataset.t ~label:"dataset" Float [  ] in
-    let piece_label = new Options.Piece_label.t () in
-    let options = new Options.t ~piece_label () in
-    dataset#set_border_width [0.];
-    dataset#set_bg_color
-    @@ List.map Fun.(Color.of_material % fst) colors;
-    piece_label#set_font_color
-    @@ List.map (fun x -> Color.Name (snd x)) colors;
-    piece_label#set_render `Label;
-    piece_label#set_position `Border;
-    options#set_responsive true;
-    options#set_maintain_aspect_ratio true;
-    options#legend#set_position `Left;
-    options#legend#set_display false;
-    let pie =
-      new t ~options
-        ~width:250 ~height:250
-        ~labels:[]
-        ~datasets:[] ()
-    in
-    pie, dataset
+    let open Chartjs in
+    let dataset = make_pie_dataset () in
+    let options = make_pie_options () in
+    let data = Data.make ~datasets:[] ~labels:[] () in
+    let node = `Canvas Js_of_ocaml.Dom_html.(createCanvas document) in
+    let chart = make ~options ~data `Pie node in
+    chart, dataset
 
   class t ?(hex = false) () =
     let _class = Markup.CSS.add_element base_class "pie" in
@@ -123,38 +178,45 @@ module Pie = struct
       val mutable _hex = hex
       val mutable _rate = None
 
-      inherit Widget.t Dom_html.(createDiv document) () as super
+      inherit Widget.t Js_of_ocaml.Dom_html.(createDiv document) () as super
 
-      method init () : unit =
+      method! init () : unit =
         super#init ();
         box#add_class box_class;
-        box#append_child pie;
+        box#append_child @@ Widget.create @@ Obj.magic @@ Chartjs.canvas pie;
         title#add_class title_class;
         self#set_rate None;
         self#add_class _class;
         self#append_child title;
         self#append_child box;
 
-      method destroy () : unit =
+      method! destroy () : unit =
         super#destroy ();
         title#destroy ();
         box#destroy ();
-        pie#destroy ()
+        Chartjs.destroy pie
 
       method set_hex (x : bool) : unit =
         _hex <- x;
         match _rate with
         | None -> ()
         | Some (pids, oth) ->
-           pie#set_labels @@ self#make_labels pids oth;
-           pie#update None;
+           let open Chartjs in
+           let data = data pie in
+           Data.set_labels data (self#make_labels pids oth);
+           update pie None
 
       method set_rate : Bitrate.t option -> unit = function
         | None ->
-           pie#set_datasets [];
+           let open Chartjs in
+           let data = data pie in
+           Data.set_datasets data [];
            _rate <- None;
-           pie#update None
+           update pie None
         | Some { total; pids; _ } ->
+           let open Chartjs in
+           let pids = List.sort (fun a b -> compare (fst a) (fst b)) pids in
+           let data = data pie in
            let br =
              List.fold_left (fun acc (pid, br) ->
                  let open Float in
@@ -165,18 +227,18 @@ module Pie = struct
              List.fold_left (fun (pids, oth) (pid, (br, pct)) ->
                  if pct >. 1. then (pid, br) :: pids, oth
                  else pids, br :: oth) ([], []) br in
-           let labels = self#make_labels pids oth in
            if Option.is_none _rate
-           then pie#set_datasets [dataset];
+           then Data.set_datasets data [dataset];
            _rate <- Some (pids, oth);
-           let data =
+           let data' =
              let pids = List.map snd pids in
              match oth with
              | [] -> pids
              | l  -> pids @ [List.fold_left (+.) 0. l] in
-           pie#set_labels labels;
-           dataset#set_data data;
-           pie#update None
+           ignore data';
+           Data.set_labels data (self#make_labels pids oth);
+           Pie.Dataset.Float.set_data dataset data';
+           update pie None
 
       (* Private methods *)
 
@@ -184,10 +246,10 @@ module Pie = struct
         let to_string =
           if _hex then PID.to_hex_string
           else PID.to_dec_string in
-        let pids = List.map (fun x -> to_string @@ fst x) pids in
+        let pids = List.map Fun.(to_string % fst) pids in
         match oth with
         | [] -> pids
-        | _  -> pids @ ["Другие"]
+        | _  -> pids @ [other]
 
     end
 
@@ -245,9 +307,9 @@ module Info = struct
 
     let make_pid ?(hex = false) ((pid, info) : Pid.t) =
       object(self)
-        inherit Widget.t Dom_html.(createSpan document) () as super
+        inherit Widget.t Js_of_ocaml.Dom_html.(createSpan document) () as super
 
-        method init () : unit  =
+        method! init () : unit  =
           super#init ();
           self#update info;
           self#add_class pid_class;
@@ -278,7 +340,7 @@ module Info = struct
                   ~widgets:[ title#widget
                            ; pids_box#widget] () as super
 
-        method init () : unit =
+        method! init () : unit =
           super#init ();
           _pids <- List.map (make_pid ?hex) init;
           List.iter pids_box#append_child _pids;
@@ -286,7 +348,7 @@ module Info = struct
           title#add_class title_class;
           pids_box#add_class box_class;
 
-        method destroy () : unit =
+        method! destroy () : unit =
           super#destroy ();
           title#destroy ();
           pids_box#destroy ();
@@ -316,14 +378,14 @@ module Info = struct
           (* FIXME sort? *)
           pids_box#append_child pid
 
-        method private remove_pid ((pid, info) : Pid.t) : unit =
+        method private remove_pid ((pid, _) : Pid.t) : unit =
           match List.find_opt (fun cell ->
                     cell#pid = pid) _pids with
           | None -> ()
           | Some cell ->
              pids_box#remove_child cell;
              cell#destroy ();
-             _pids <- List.remove ~eq:Widget.equal ~x:cell _pids
+             _pids <- List.remove ~eq:Widget.equal cell _pids
 
       end
 
@@ -341,11 +403,11 @@ module Info = struct
                          ; (new Divider.t ())#widget
                          ; pids#widget ] () as super
 
-      method init () : unit =
+      method! init () : unit =
         super#init ();
         self#add_class _class
 
-      method destroy () : unit =
+      method! destroy () : unit =
         super#destroy ();
         pids#destroy ();
         rate#destroy ()
@@ -375,7 +437,7 @@ module Info = struct
 end
 
 class t ?(settings : Settings.t option)
-        (init : Pid.t list timestamped option) () =
+        (init : Pid.t list Time.timestamped option) () =
   let init, timestamp = match init with
     | None -> [], None
     | Some { data; timestamp } -> data, Some timestamp in
@@ -387,16 +449,16 @@ class t ?(settings : Settings.t option)
 
     val mutable _data : Set.t = Set.of_list init
 
-    inherit Widget.t Dom_html.(createDiv document) () as super
+    inherit Widget.t Js_of_ocaml.Dom_html.(createDiv document) () as super
 
-    method init () : unit =
+    method! init () : unit =
       super#init ();
       Option.iter self#set_settings settings;
       self#add_class base_class;
       self#append_child pie;
       self#append_child info
 
-    method destroy () : unit =
+    method! destroy () : unit =
       super#destroy ();
       pie#destroy ();
       info#destroy ();
@@ -405,7 +467,7 @@ class t ?(settings : Settings.t option)
     method s_timestamp : Time.t option React.signal =
       s_time
 
-    method update ({ timestamp; data } : Pid.t list timestamped) =
+    method update ({ timestamp; data } : Pid.t list Time.timestamped) =
       (* Update timestamp *)
       set_time @@ Some timestamp;
       (* Manage found, lost and updated items *)
@@ -445,18 +507,17 @@ class t ?(settings : Settings.t option)
   end
 
 let make ?(settings : Settings.t option)
-      (init : Pid.t list timestamped option) =
+      (init : Pid.t list Time.timestamped option) =
   new t ?settings init ()
 
 let make_dashboard_item ?settings init : 'a Dashboard.Item.item =
   let w = make ?settings init in
   let settings = Settings.make ?settings () in
-  let s = settings#s in
   let (settings : Dashboard.Item.settings) =
-    { widget = settings#widget
-    ; ready = React.S.const true
-    ; set = (fun () -> Lwt_result.return @@ w#set_settings @@ React.S.value s)
-    } in
+    Dashboard.Item.make_settings
+      ~widget:settings
+      ~set:(fun () -> Lwt_result.return @@ w#set_settings settings#value)
+      () in
   let tz_offset_s = Ptime_clock.current_tz_offset_s () in
   let timestamp =
     Dashboard.Item.make_timestamp
@@ -464,7 +525,7 @@ let make_dashboard_item ?settings init : 'a Dashboard.Item.item =
       ~to_string:(Time.to_human_string ?tz_offset_s)
       () in
   Dashboard.Item.make_item
-    ~name:"Сводка"
+    ~name:"Сводка PID"
     ~subtitle:(Timestamp timestamp)
     ~settings
     w

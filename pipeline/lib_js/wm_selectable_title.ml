@@ -4,46 +4,59 @@ open Components
 let base_class = "wm-selectable-title"
 
 class title ~title ~widget () =
-  let title_class  = Markup.CSS.add_element  base_class  "title"  in
+  let title_class = Markup.CSS.add_element base_class  "title" in
   let active_class = Markup.CSS.add_modifier title_class "active" in
-  object(self)
+  object
 
-    inherit Typography.Text.t ~adjust_margin:false ~text:title ~font:Subtitle_2 ()
+    inherit Typography.Text.t
+              ~adjust_margin:false
+              ~text:title
+              ~font:Subtitle_2
+              () as super
 
-    method set_active x =
-      self#add_or_remove_class x active_class;
-      widget#style##.display := Js.string (if x then "" else "none")
+    method! init () : unit =
+      super#init ();
+      super#add_class title_class
 
-    method get_title = title
+    method set_active (x : bool) : unit =
+      super#add_or_remove_class x active_class;
+      widget#style##.display := Js_of_ocaml.Js.string (if x then "" else "none")
 
-    initializer
-      self#add_class title_class
+    method get_title : string = title
 
   end
 
 class t titles () =
   let (titles : title list) =
-    List.map (fun (title,widget) -> new title ~title ~widget ()) titles in
+    List.map (fun (title, widget) ->
+        new title ~title ~widget ()) titles in
   object(self)
 
-    inherit Hbox.t ~widgets:titles ()
+    inherit Hbox.t ~widgets:titles () as super
+
+    method! init () : unit =
+      super#init ();
+      super#add_class base_class;
+      let _ =
+        List.map (fun (w : #Widget.t) ->
+            w#listen_click_lwt (fun _ _ -> self#select w; Lwt.return_unit))
+          self#titles in
+      match self#titles with
+      | [] -> failwith "Titles must not be empty"
+      | x :: _ -> self#select x
 
     method titles : title list = titles
-    method select (w:title) =
-      List.iter (fun x -> if not @@ Equal.physical x#root w#root then x#set_active false) titles;
-      w#set_active true
-    method select_by_name n =
-      match List.find_opt (fun x -> String.equal x#get_title n) self#titles with
-      | None   -> ()
-      | Some x -> self#select x
 
-    initializer
-      self#add_class base_class;
-      let open Dom_events in
-      let _ = List.map (fun w -> listen w#root Typ.click (fun _ _ -> self#select w; false)) self#titles in
-      match self#titles with
-      | []           -> failwith "Titles must not be empty"
-      | [x] | x :: _ -> self#select x
+    method select (w : title) : unit =
+      List.iter (fun (x : title) ->
+          if not @@ Widget.equal x w
+          then x#set_active false) titles;
+      w#set_active true
+
+    method select_by_name (n : string) : unit =
+      match List.find_opt (fun x -> String.equal x#get_title n) self#titles with
+      | None -> ()
+      | Some x -> self#select x
 
   end
 

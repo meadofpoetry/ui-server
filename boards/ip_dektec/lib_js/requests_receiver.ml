@@ -1,4 +1,3 @@
-open Containers
 open Board_types
 open Api_js.Requests.Json_request
 open Common
@@ -104,12 +103,12 @@ module HTTP = struct
       ~query:Query.empty
       control
 
-  let set_delay delay control =
-    post_result ~from:Json.Int.of_yojson
-      ~contents:(Json.Int.to_yojson delay)
-      ~path:Path.Format.(get_base_path () / ("delay" @/ empty))
-      ~query:Query.empty
-      control
+  (* let set_delay delay control =
+   *   post_result ~from:Json.Int.of_yojson
+   *     ~contents:(Json.Int.to_yojson delay)
+   *     ~path:Path.Format.(get_base_path () / ("delay" @/ empty))
+   *     ~query:Query.empty
+   *     control *)
 
   let set_rate_mode rate_mode control =
     post_result ~from:rate_mode_of_yojson
@@ -180,26 +179,24 @@ module HTTP = struct
       control
 
   module Archive = struct
-
     let get_status ?limit ?compress ?from ?till ?duration control =
       get_result ~from:(fun _ -> Error "not implemented")
         ~path:Path.Format.(get_base_path () / ("status/archive" @/ empty))
-        ~query:Query.[ "limit",    (module Option(Int))
+        ~query:Query.[ "limit", (module Option(Int))
                      ; "compress", (module Option(Bool))
-                     ; "from",     (module Option(Time.Show))
-                     ; "to",       (module Option(Time.Show))
+                     ; "from", (module Option(Time.Show))
+                     ; "to", (module Option(Time.Show))
                      ; "duration", (module Option(Time.Relative)) ]
         control limit compress from till duration
 
     let get_mode ?limit ?from ?till ?duration control =
       get_result ~from:(fun _ -> Error "not implemented")
         ~path:Path.Format.(get_base_path () / ("mode/archive" @/ empty))
-        ~query:Query.[ "limit",    (module Option(Int))
-                     ; "from",     (module Option(Time.Show))
-                     ; "to",       (module Option(Time.Show))
+        ~query:Query.[ "limit", (module Option(Int))
+                     ; "from", (module Option(Time.Show))
+                     ; "to", (module Option(Time.Show))
                      ; "duration", (module Option(Time.Relative)) ]
         control limit from till duration
-
   end
 
 end

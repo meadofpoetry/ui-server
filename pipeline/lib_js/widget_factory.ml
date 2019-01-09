@@ -8,14 +8,14 @@ open Common
 let ( % ) = Fun.( % )
 
 type item =
-  | Chart of Widget_parameter_chart.widget_config option
+  | Chart of Widget_parameter_chart.widget_config option [@@deriving yojson]
 
 class t () =
 object(self)
 
   val mutable _structures = None
   val mutable _audio_data = None
-  val mutable _video_data : Video_data.t React.event State.t option = None
+  val mutable _video_data : Video_data.t list React.event State.t option = None
 
   method create : item -> Widget.t Dashboard.Item.item = function
     | Chart cfg ->
@@ -29,13 +29,13 @@ object(self)
            begin match typ_to_content config.typ with
            | `Video ->
               let video_data = self#get_video_data () in
-              React.E.map (fun data ->
+              React.E.map (fun (data : Video_data.t list) ->
                   let data = convert_video_data config data in
                   chart#append_data data) video_data
               |> React.E.keep;
            | `Audio ->
               let audio_data = self#get_audio_data () in
-              React.E.map (fun data ->
+              React.E.map (fun (data : Audio_data.t list) ->
                   let data = convert_audio_data config data in
                   chart#append_data data) audio_data
               |> React.E.keep;
@@ -55,11 +55,11 @@ object(self)
     `List []
 
   method serialize (x : item) : Yojson.Safe.json =
-    `Null
+    item_to_yojson x
 
   method deserialize (json : Yojson.Safe.json)
          : (item, string) result =
-    Ok (Chart None)
+    item_of_yojson json
 
   (* Private methods *)
 
@@ -68,10 +68,10 @@ object(self)
     | None ->
        let state =
          let get () =
-           Requests_structure.HTTP.get ()
+           Requests_structure.HTTP.get_applied_with_source ()
            |> Lwt_result.map_err Api_js.Requests.err_to_string in
          Signal.make_state ~get
-           ~get_socket:Requests_structure.WS.get in
+           ~get_socket:Requests_structure.WS.get_applied_with_source in
        _structures <- Some state;
        state.value
 

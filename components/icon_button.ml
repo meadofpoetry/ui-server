@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Tyxml_js
 
@@ -14,6 +15,35 @@ class t ?(on = false) ?(ripple = true) ?on_change ?on_icon ?disabled ~icon () =
     val mutable _ripple : Ripple.t option = None
 
     inherit Widget.t elt () as super
+
+    method! init () : unit =
+      super#init ();
+      Option.iter self#set_disabled disabled;
+      if on then self#set_on true;
+      if ripple
+      then
+        (let ripple = Ripple.attach_to ~unbounded:true (self :> Widget.t) in
+         _ripple <- Some ripple);
+      Option.iter (fun i ->
+          i#add_class Markup.icon_class;
+          i#add_class Markup.icon_on_class) on_icon;
+      icon#add_class Markup.icon_class;
+      match on_icon with
+      | None -> ()
+      | Some _ ->
+         (* FIXME keep *)
+         self#listen_lwt Widget.Event.click (fun _ _ ->
+             self#toggle ();
+             Lwt.return_unit) |> Lwt.ignore_result
+
+    method! layout () : unit =
+      super#layout ();
+      Option.iter (fun r -> r#layout ()) _ripple
+
+    method! destroy () : unit =
+      super#destroy ();
+      Option.iter (fun r -> r#destroy ()) _ripple;
+      _ripple <- None
 
     method disabled : bool =
       Js.to_bool elt##.disabled
@@ -34,32 +64,5 @@ class t ?(on = false) ?(ripple = true) ?on_change ?on_icon ?disabled ~icon () =
       then Option.iter (fun f -> f x) on_change;
       set_state x;
       self#add_or_remove_class x Markup.on_class
-
-    method! layout () : unit =
-      super#layout ();
-      Option.iter (fun r -> r#layout ()) _ripple
-
-    method! destroy () : unit =
-      super#destroy ();
-      Option.iter (fun r -> r#destroy ()) _ripple;
-      _ripple <- None
-
-    initializer
-      Option.iter self#set_disabled disabled;
-      if on then self#set_on true;
-      if ripple
-      then
-        (let ripple = Ripple.attach_to ~unbounded:true (self :> Widget.t) in
-         _ripple <- Some ripple);
-      Option.iter (fun i ->
-          i#add_class Markup.icon_class;
-          i#add_class Markup.icon_on_class) on_icon;
-      icon#add_class Markup.icon_class;
-      match on_icon with
-      | None -> ()
-      | Some _ ->
-         self#listen_lwt Widget.Event.click (fun _ _ ->
-             self#toggle ();
-             Lwt.return_unit) |> Lwt.ignore_result
 
 end

@@ -2,8 +2,6 @@ open Containers
 open Components
 open Board_types
 open Board_types.SI_PSI_section
-open Lwt_result.Infix
-open Api_js.Api_types
 open Ui_templates.Sdom
 open Common
 
@@ -12,8 +10,6 @@ let name = "Таблицы"
 let settings = None
 
 let base_class = "qos-niit-tables"
-
-let ( % ) = Fun.( % )
 
 let req_of_table table_id table_id_ext id_ext_1 id_ext_2 section =
   let r = Requests.Streams.HTTP.get_si_psi_section
@@ -40,8 +36,8 @@ module Section = struct
 
   module Id = Int
 
-  type model  = section_info * Dump.t timestamped option
-  type widget = (section_info * Dump.t timestamped option) Item_list.Item.t
+  type model  = section_info * Dump.t Time.timestamped option
+  type widget = (section_info * Dump.t Time.timestamped option) Item_list.Item.t
 
   let equal_model (a : model) (b : model) =
     equal_section_info (fst a) (fst b)
@@ -59,7 +55,7 @@ module Section = struct
       let w = new Typography.Text.t ~text:"" () in
       let v = { get = (fun (x : model) -> (fst x).length)
               ; eq  = Int.equal
-              ; upd = (w#set_text % to_string) } in
+              ; upd = Fun.(w#set_text % to_string) } in
       w, v in
     let prev = ref init in
     let leaf = new Item_list.Item.t
@@ -69,7 +65,7 @@ module Section = struct
     let to_primary = Printf.sprintf "ID: %d" in
     let update_primary =
       { get = (fun (x : model) -> (fst x).section)
-      ; eq = (=)
+      ; eq = ( = )
       ; upd = (fun id ->
         let s = to_primary id in
         leaf#set_text s)
@@ -79,7 +75,7 @@ module Section = struct
       setter ?previous model update_primary;
       setter ?previous model update_bytes in
     update init;
-    leaf, fun x -> update ~previous:!prev x
+    leaf, update ~previous:!prev
 
 end
 
@@ -89,7 +85,7 @@ module Sections =
 
       module Node = Section
 
-      type widget = (section_info * Dump.t timestamped option) Item_list.t
+      type widget = (section_info * Dump.t Time.timestamped option) Item_list.t
 
       let root (w : widget) = w#root
 
@@ -115,8 +111,7 @@ module Sections =
     end)
 
 let make_list
-      (sections : (SI_PSI_table.section_info * Dump.t timestamped option) list)
-      (control : int) =
+      (sections : (SI_PSI_table.section_info * Dump.t Time.timestamped option) list) =
   let list, update_list = Sections.make sections in
   list#set_dense true;
   list, update_list
@@ -127,7 +122,6 @@ let make_parsed () =
   body#add_class base_class;
   body
 
-(* FIXME declare class instead *)
 let make_hexdump_options hexdump =
   let base_class = Markup.CSS.add_element base_class "hexdump-options" in
   let base =
@@ -145,34 +139,40 @@ let make_hexdump_options hexdump =
              ; `Item (new Select.Item.t ~value:16 ~text:"16" ())
              ; `Item (new Select.Item.t ~value:32 ~text:"32" ()) ]
       () in
-  let line_numbers = new Switch.t ~state:true () in
-  let line_numbers' = new Form_field.t ~input:line_numbers
-                        ~label:"Номера" () in
-  let options = new Hbox.t
-                  ~widgets:[ base#widget
-                           ; width#widget
-                           ; line_numbers'#widget ] () in
+  let line_numbers =
+    new Form_field.t
+      ~input:(new Switch.t ~state:true ())
+      ~label:"Номера"
+      () in
+  let options =
+    new Hbox.t
+      ~widgets:[ base#widget
+               ; width#widget
+               ; line_numbers#widget ]
+      () in
   let s_line_num =
-    React.S.map ~eq:Equal.unit hexdump#set_line_numbers
-      line_numbers#s_state in
+    React.S.map ~eq:Equal.unit
+      hexdump#set_line_numbers
+      line_numbers#input_widget#s_state in
   let s_width =
     React.S.map ~eq:Equal.unit (function
-        | Some x -> hexdump#set_width x
-        | None -> ()) width#s_selected_value in
+        | None -> ()
+        | Some x -> hexdump#set_width x)
+      width#s_selected_value in
   let s_base =
     React.S.map ~eq:Equal.unit (function
-        | Some x -> hexdump#set_base x
-        | None -> ()) base#s_selected_value in
+        | None -> ()
+        | Some x -> hexdump#set_base x)
+      base#s_selected_value in
   options#add_class base_class;
-  options#set_on_destroy
-  @@ Some (fun () ->
-         React.S.stop ~strong:true s_line_num;
-         React.S.stop ~strong:true s_width;
-         React.S.stop ~strong:true s_base);
+  options#set_on_destroy (fun () ->
+      React.S.stop ~strong:true s_line_num;
+      React.S.stop ~strong:true s_width;
+      React.S.stop ~strong:true s_base);
   options#widget
 
 let make_hexdump () =
-  let config = Hexdump.to_config ~width:16 () in
+  let config = Hexdump.make_config ~width:16 () in
   let hexdump = new Hexdump.t ~interactive:false ~config "" () in
   hexdump, hexdump#set_bytes
 
@@ -185,25 +185,30 @@ let make_dump_header base_class () =
   let title =
     new Typography.Text.t
       ~adjust_margin:false
-      ~text:"Выберите секцию для захвата" () in
+      ~text:"Выберите секцию для захвата"
+      () in
   let subtitle =
     new Typography.Text.t
       ~adjust_margin:false
       ~split:true
-      ~text:"" () in
+      ~text:""
+      () in
   let button =
     new Ui_templates.Buttons.Get.t
       ~style:`Raised
-      ~label:"Загрузить" () in
+      ~label:"Загрузить"
+      () in
   let title_box =
     new Vbox.t
       ~widgets:[ title#widget
-               ; subtitle#widget ] () in
+               ; subtitle#widget ]
+      () in
   let header =
     new Hbox.t
       ~halign:`Space_between
       ~widgets:[ title_box#widget
-               ; button#widget ] () in
+               ; button#widget ]
+      () in
   (* CSS classes setup *)
   title#add_class title_class;
   subtitle#add_class subtitle_class;
@@ -287,7 +292,7 @@ let make_dump
       ~(id_ext_1 : int)
       ~(id_ext_2 : int)
       (stream : Stream.ID.t)
-      (list : (SI_PSI_table.section_info * Dump.t timestamped option) Item_list.t)
+      (list : (SI_PSI_table.section_info * Dump.t Time.timestamped option) Item_list.t)
       (control : int) =
   let open SI_PSI_table in
   let base_class = Markup.CSS.add_element base_class "dump" in
@@ -301,7 +306,14 @@ let make_dump
               ~widgets:[ header
                        ; vsplit#widget
                        ; (new Divider.t ())#widget
-                       ; options#widget ] () as super
+                       ; options#widget ]
+              () as super
+
+    method! init () : unit =
+      super#init ();
+      self#add_class base_class;
+      React.S.map ~eq:(fun _ _ -> false) self#on_active_change list#s_active
+      |> self#_keep_s
 
     method button = button
 
@@ -318,7 +330,7 @@ let make_dump
              ~text:x () in
          let tz_offset_s = Ptime_clock.current_tz_offset_s () in
          let fmt_time = Time.to_human_string ?tz_offset_s in
-         let upd : Dump.t timestamped option -> unit = function
+         let upd : Dump.t Time.timestamped option -> unit = function
            | Some { timestamp; data = { section; content = Some x; _ } } ->
               parsed#set_empty ();
               subtitle#set_text @@ fmt_time timestamp;
@@ -372,7 +384,7 @@ let make_dump
                        upd (Some dump);
                     | Error s ->
                        parsed#set_empty ();
-                       Dom.appendChild parsed#root (err s)#root))
+                       parsed#append_child (err s)))
              (fun e ->
                parsed#set_empty ();
                parsed#append_child (err @@ Printexc.to_string e);
@@ -383,12 +395,6 @@ let make_dump
          button#set_disabled false;
          ()
 
-    method init () : unit =
-      super#init ();
-      self#add_class base_class;
-      React.S.map ~eq:(fun _ _ -> false) self#on_active_change list#s_active
-      |> self#_keep_s
-
   end
 
 class t ~(stream : Stream.ID.t)
@@ -396,11 +402,11 @@ class t ~(stream : Stream.ID.t)
         ~(table_id_ext : int)
         ~(id_ext_1 : int)
         ~(id_ext_2 : int)
-        ~(sections : (SI_PSI_table.section_info * Dump.t timestamped option) list)
+        ~(sections : (SI_PSI_table.section_info * Dump.t Time.timestamped option) list)
         (control : int)
         () =
   let stream_panel_class = Markup.CSS.add_element base_class "list" in
-  let list, update_list = make_list sections control in
+  let list, update_list = make_list sections in
   let dump = make_dump ~table_id ~table_id_ext
                ~id_ext_1 ~id_ext_2 stream list control in
   let list_name =
@@ -413,6 +419,17 @@ class t ~(stream : Stream.ID.t)
   let box = Widget.create_div ~widgets:[list_box] () in
   object(self)
     inherit Hbox.t ~widgets:[box#widget; dump#widget] () as super
+
+    method! init () : unit =
+      super#init ();
+      box#add_class stream_panel_class;
+      self#add_class base_class
+
+    method! destroy () : unit =
+      super#destroy ();
+      dump#destroy ();
+      list#destroy ();
+      box#destroy ();
 
     method list = list
 
@@ -429,17 +446,4 @@ class t ~(stream : Stream.ID.t)
             let dump = Option.flatten @@ List.Assoc.get ~eq x items in
             x, dump) data in
       update_list data
-
-    method init () : unit =
-      super#init ();
-      box#add_class stream_panel_class;
-      self#add_class base_class
-
-    method destroy () : unit =
-      super#destroy ();
-      dump#destroy ();
-      list#destroy ();
-      box#destroy ();
-
-
   end

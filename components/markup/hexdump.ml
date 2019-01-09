@@ -19,18 +19,18 @@ module Make(Xml : Xml_sigs.NoWrap)
   end
 
   module Hex = struct
-    let _class         = CSS.add_element base_class "hex"
-    let empty_class    = CSS.add_element base_class "hex-empty"
+    let _class = CSS.add_element base_class "hex"
+    let empty_class = CSS.add_element base_class "hex-empty"
     let selected_class = CSS.add_modifier _class "selected"
   end
 
   module Char = struct
-    let _class         = CSS.add_element base_class "char"
-    let empty_class    = CSS.add_element base_class "char-empty"
+    let _class = CSS.add_element base_class "char"
+    let empty_class = CSS.add_element base_class "char-empty"
     let selected_class = CSS.add_modifier _class "selected"
   end
 
-  let create_block ?(classes=[]) ?attrs () =
-    pre ~a:([ a_class (block_class :: classes)] <@> attrs) []
+  let create_block ?(classes = []) ?attrs () : 'a elt =
+    pre ~a:([a_class (block_class :: classes)] <@> attrs) []
 
 end

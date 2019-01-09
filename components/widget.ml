@@ -1,4 +1,9 @@
+open Js_of_ocaml
 open Containers
+
+type element = Dom_html.element Js.t
+
+type node = Dom.node Js.t
 
 type rect =
   { top : float
@@ -9,7 +14,7 @@ type rect =
   ; height : float option
   }
 
-let to_rect (x:Dom_html.clientRect Js.t) =
+let to_rect (x : Dom_html.clientRect Js.t) =
   { top = x##.top
   ; right = x##.right
   ; bottom = x##.bottom
@@ -19,6 +24,7 @@ let to_rect (x:Dom_html.clientRect Js.t) =
   }
 
 module Event = struct
+
   include Dom_events.Typ
 
   class type wheelEvent =
@@ -31,6 +37,7 @@ module Event = struct
     end
 
   let wheel : wheelEvent Js.t typ = make "wheel"
+
 end
 
 class t (elt : #Dom_html.element Js.t) () = object(self)
@@ -40,14 +47,15 @@ class t (elt : #Dom_html.element Js.t) () = object(self)
   val mutable _on_unload = None
   val mutable _in_dom = false
   val mutable _observer = None
+  val mutable _listeners_lwt = []
 
   val mutable _e_storage : unit React.event list = []
   val mutable _s_storage : unit React.signal list = []
 
-  method root : Dom_html.element Js.t =
+  method root : element =
     (elt :> Dom_html.element Js.t)
 
-  method node : Dom.node Js.t =
+  method node : node =
     (elt :> Dom.node Js.t)
 
   method markup : Tyxml_js.Xml.elt =
@@ -56,7 +64,8 @@ class t (elt : #Dom_html.element Js.t) () = object(self)
 
   method widget : t = (self :> t)
 
-  method set_on_destroy f = _on_destroy <- f
+  method set_on_destroy (f : unit -> unit) : unit =
+    _on_destroy <- Some f
 
   method init () : unit =
     ()
@@ -68,6 +77,8 @@ class t (elt : #Dom_html.element Js.t) () = object(self)
     List.iter (React.E.stop ~strong:true) _e_storage;
     _s_storage <- [];
     _e_storage <- [];
+    List.iter (fun x -> try Lwt.cancel x with _ -> ()) _listeners_lwt;
+    _listeners_lwt <- [];
     Option.iter (fun f -> f ()) _on_destroy
 
   method layout () = ()
@@ -194,13 +205,14 @@ class t (elt : #Dom_html.element Js.t) () = object(self)
   method set_scroll_height (x : int) : unit =
     self#root##.scrollHeight := x
 
-  method append_child : 'a. (< node : Dom.node Js.t;
-                             layout : unit -> unit;
+  method append_child : 'a. (< node : node;
+                               layout : unit -> unit;
                              .. > as 'a) -> unit =
-    fun x -> Dom.appendChild self#root x#node; x#layout ()
+    fun x ->
+    Dom.appendChild self#root x#node;
+    x#layout ()
 
-  method insert_child_at_idx : 'a. int ->
-                               (< node : Dom.node Js.t; .. > as 'a) -> unit =
+  method insert_child_at_idx : 'a. int -> (< node : node; .. > as 'a) -> unit =
     fun index x ->
     let child = self#root##.childNodes##item index in
     Dom.insertBefore self#root x#node child
@@ -211,7 +223,7 @@ class t (elt : #Dom_html.element Js.t) () = object(self)
     with _ -> ()
 
   method listen : 'a. (#Dom_html.event as 'a) Js.t Event.typ ->
-                  (Dom_html.element Js.t -> 'a Js.t -> bool) ->
+                  (element -> 'a Js.t -> bool) ->
                   Dom_events.listener =
     Dom_events.listen self#root
 
@@ -221,22 +233,29 @@ class t (elt : #Dom_html.element Js.t) () = object(self)
     fun ?use_capture x ->
     Lwt_js_events.make_event x ?use_capture self#root
 
-  method listen_lwt : 'a. ?cancel_handler:bool ->
+  method listen_lwt : 'a. ?store:bool ->
+                      ?cancel_handler:bool ->
                       ?use_capture:bool ->
                       (#Dom_html.event as 'a) Js.t Event.typ ->
                       ('a Js.t -> unit Lwt.t -> unit Lwt.t) ->
                       unit Lwt.t =
-    fun ?cancel_handler ?use_capture x ->
-    Lwt_js_events.seq_loop (Lwt_js_events.make_event x)
-      ?cancel_handler ?use_capture self#root
+    fun ?(store = false) ?cancel_handler ?use_capture x f ->
+    let (t : unit Lwt.t) =
+      Lwt_js_events.seq_loop (Lwt_js_events.make_event x)
+        ?cancel_handler ?use_capture self#root f in
+    if store then _listeners_lwt <- t :: _listeners_lwt;
+    t
 
   method listen_click_lwt
-         : ?cancel_handler:bool ->
+         : ?store:bool ->
+           ?cancel_handler:bool ->
            ?use_capture:bool ->
            (Dom_html.mouseEvent Js.t -> unit Lwt.t -> unit Lwt.t) ->
            unit Lwt.t =
-    fun ?cancel_handler ?use_capture f ->
-    self#listen_lwt ?cancel_handler ?use_capture Event.click f
+    fun ?(store = false) ?cancel_handler ?use_capture f ->
+    let t = self#listen_lwt ?cancel_handler ?use_capture Event.click f in
+    if store then _listeners_lwt <- t :: _listeners_lwt;
+    t
 
   method set_empty () =
     Dom.list_of_nodeList @@ self#root##.childNodes
@@ -318,14 +337,15 @@ class t (elt : #Dom_html.element Js.t) () = object(self)
 end
 
 class button_widget ?on_click elt () =
-object(self)
+object
   val mutable _listener = None
-  inherit t elt ()
+  inherit t elt () as super
 
-  initializer
+  method! init () : unit =
+    super#init ();
     match on_click with
     | None -> ()
-    | Some f -> self#listen_lwt Event.click (fun e _ -> f e)
+    | Some f -> super#listen_lwt Event.click (fun e _ -> f e)
                 |> fun l -> _listener <- Some l
 end
 
@@ -343,7 +363,7 @@ class input_widget ~(input_elt : Dom_html.inputElement Js.t) elt () =
 
     method input_id = match Js.to_string input_elt##.id with
       | "" -> None
-      | s  -> Some s
+      | s -> Some s
     method set_input_id x =
       input_elt##.id := Js.string x
 
@@ -359,17 +379,23 @@ class input_widget ~(input_elt : Dom_html.inputElement Js.t) elt () =
   end
 
 class radio_or_cb_widget ?on_change ?state ~input_elt elt () =
-  let () = match state with
-    | Some true ->
-       input_elt##.checked := Js.bool true
-    | Some false | None -> () in
   let s_state, s_state_push =
     React.S.create ~eq:Equal.bool @@ Option.get_or ~default:false state in
   object(self)
 
     val _on_change : (bool -> unit) option = on_change
 
-    inherit input_widget ~input_elt elt ()
+    inherit input_widget ~input_elt elt () as super
+
+    method! init () : unit =
+      super#init ();
+      begin match state with
+      | Some true -> input_elt##.checked := Js._true
+      | Some false | None -> ()
+      end;
+      Dom_events.listen input_elt Event.change (fun _ _ ->
+          Option.iter (fun f -> f self#checked) _on_change;
+          s_state_push self#checked; false) |> ignore;
 
     method set_checked (x : bool) : unit =
       input_elt##.checked := Js.bool x;
@@ -384,11 +410,6 @@ class radio_or_cb_widget ?on_change ?state ~input_elt elt () =
 
     method s_state = s_state
 
-    initializer
-      Dom_events.listen input_elt Event.change (fun _ _ ->
-          Option.iter (fun f -> f self#checked) _on_change;
-          s_state_push self#checked; false) |> ignore;
-
   end
 
 let equal (x : (#t as 'a)) (y : 'a) =
@@ -396,7 +417,16 @@ let equal (x : (#t as 'a)) (y : 'a) =
 
 let coerce (x : #t) = (x :> t)
 
+let destroy (x : #t) = x#destroy ()
+
 let to_markup (x : #t) = Tyxml_js.Of_dom.of_element x#root
+
+let append_to_body (x : #t) =
+  Dom.appendChild Dom_html.document##.body x#root
+
+let remove_from_body (x : #t) =
+  try Dom.removeChild Dom_html.document##.body x#root
+  with _ -> ()
 
 open Dom_html
 

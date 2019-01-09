@@ -1,5 +1,5 @@
+open Js_of_ocaml
 open Containers
-open Lwt_result.Infix
 open Application_js
 open Components
 
@@ -10,7 +10,7 @@ class t () = object(self)
                        | `Input of Topo_input.t ] list = []
   inherit Widget.t Dom_html.(createDiv document) () as super
 
-  method init () : unit =
+  method! init () : unit =
     super#init ();
     self#add_class Page_topology._class;
     Dom_events.listen
@@ -24,7 +24,7 @@ class t () = object(self)
     @@ Some (fun () -> self#on_load);
 
   (* FIXME hack, need to handle resize of total element *)
-  method layout () : unit =
+  method! layout () : unit =
     super#layout ();
     List.iter (function
         | `Board b -> b#layout ()

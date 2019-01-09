@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Tyxml_js
 open Utils.Keyboard_event
@@ -11,21 +12,38 @@ let ( % ) = Fun.( % )
 let eq = Widget.equal
 
 class ['a, 'b] t ?(auto_activation = false)
-        ?on_change
         ?align
         ~(tabs : ('a, 'b) Tab.t list)
         () =
-  let scroller = new Tab_scroller.t ?on_change ?align ~tabs () in
+  let scroller = new Tab_scroller.t ?align ~tabs () in
   let elt = Markup.create ~scroller:(Widget.to_markup scroller) ()
             |> To_dom.of_element in
 
   object(self)
 
-    inherit Widget.t elt ()
+    inherit Widget.t elt () as super
 
     val mutable _auto_activation = auto_activation
     val mutable _keydown_listener = None
     val mutable _interaction_listener = None
+
+    method! init () : unit =
+      super#init ();
+      begin match self#active_tab_index with
+      | Some i -> self#scroll_into_view i
+      | None -> Option.iter self#set_active_tab (List.head_opt self#tabs)
+      end;
+      React.S.diff (fun _ o -> o) self#s_active_tab
+      |> React.E.fmap Fun.id
+      |> React.E.map (fun x -> x#set_active ?previous:self#active_tab false)
+      |> self#_keep_e;
+      self#listen_lwt (Widget.Event.make Tab.interacted_event) (fun e _ ->
+          Lwt.return @@ self#handle_tab_interaction e)
+      |> (fun x -> _interaction_listener <- Some x);
+      self#listen_lwt Widget.Event.keydown (fun e _ ->
+          self#handle_key_down e;
+          Lwt.return_unit)
+      |> (fun x -> _keydown_listener <- Some x)
 
     method auto_activation : bool =
       _auto_activation
@@ -271,22 +289,5 @@ class ['a, 'b] t ?(auto_activation = false)
 
     method private focus_tab_at_index (i : int) : unit =
       Option.iter (fun tab -> tab#focus ()) @@ self#get_tab_at_index i
-
-    initializer
-      begin match self#active_tab_index with
-      | Some i -> self#scroll_into_view i
-      | None -> Option.iter self#set_active_tab (List.head_opt self#tabs)
-      end;
-      React.S.diff (fun _ o -> o) self#s_active_tab
-      |> React.E.fmap Fun.id
-      |> React.E.map (fun x -> x#set_active ?previous:self#active_tab false)
-      |> self#_keep_e;
-      self#listen_lwt (Widget.Event.make Tab.interacted_event) (fun e _ ->
-          Lwt.return @@ self#handle_tab_interaction e)
-      |> (fun x -> _interaction_listener <- Some x);
-      self#listen_lwt Widget.Event.keydown (fun e _ ->
-          self#handle_key_down e;
-          Lwt.return_unit)
-      |> (fun x -> _keydown_listener <- Some x)
 
   end
