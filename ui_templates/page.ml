@@ -102,7 +102,7 @@ class t (content : ('a, 'b) page_content) () =
   let main = try Dom_html.getElementById "main-content" with e -> print_endline "no main"; raise e in
   let arbitrary = get_arbitrary () in
   let toolbar = get_toolbar () in
-  (* let sidebar = get_sidebar () in *)
+  let sidebar = get_sidebar () in
   let title = toolbar#get_child_element_by_id "page-title"
               |> Option.get_exn
               |> Widget.create in
@@ -118,7 +118,7 @@ class t (content : ('a, 'b) page_content) () =
       self#add_class main_class;
       toolbar#add_class toolbar_class;
       Dom_events.listen menu Dom_events.Typ.click (fun _ _ ->
-          (* sidebar#toggle (); *) true)
+          sidebar#toggle (); true)
       |> (fun x -> menu_click_listener <- Some x);
       self#set ()
 

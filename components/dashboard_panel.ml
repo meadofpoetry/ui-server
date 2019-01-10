@@ -3,10 +3,9 @@ open Dashboard_common
 
 class t ~(title : string) ~widgets () =
   let title = new Typography.Text.t ~adjust_margin:false ~text:title () in
+  let content = title#widget :: List.map Widget.coerce widgets in
   object
-    inherit Drawer.t ~anchor:`Right
-              ~content:(title#widget :: List.map Widget.coerce widgets)
-              () as super
+    inherit Side_sheet.t  (`Content content) () as super
 
     method! init () : unit =
       super#init ();

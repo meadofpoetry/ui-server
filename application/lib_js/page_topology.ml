@@ -186,7 +186,7 @@ let create ~(parent : #Widget.t)
   iter_paths (fun _ x ->
       Option.iter (fun sw -> parent#append_child sw) x#switch;
       Js_of_ocaml.Dom.appendChild svg x#root) nodes;
-  Widget.append_to_body drawer;
+  (* Widget.append_to_body drawer; *)
   Js_of_ocaml.Dom.appendChild parent#root svg;
   List.iter (fun x -> let node = to_topo_node x in
                       let w = wrap node#area node in

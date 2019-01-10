@@ -72,6 +72,8 @@ module Ripple = Ripple
 (* TODO update styles *)
 module Select = Select
 
+module Side_sheet = Side_sheet
+
 (* TODO remove js dependency *)
 (* module Slider = Slider *)
 

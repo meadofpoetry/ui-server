@@ -40,6 +40,15 @@ module Event = struct
 
 end
 
+module Element = struct
+
+  type t = Dom_html.element Js.t
+
+  let coerce (elt : #Dom_html.element Js.t) : t =
+    (elt :> t)
+
+end
+
 let equal (a : < root : element; ..> as 'a) (b : 'a) : bool =
   Equal.physical a#root b#root
 
