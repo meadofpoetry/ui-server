@@ -9,7 +9,7 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   module CSS = struct
     include CSS
-    let base = "mdc-drawer"
+    let base = "mdc-side-sheet"
     let dismissible = add_modifier base "dismissible"
     let modal = add_modifier base "modal"
     let open_ = add_modifier base "open"
