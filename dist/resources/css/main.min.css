@@ -626,11 +626,7 @@
 .ip-dektec-network-settings .mdc-apply-button, .ip-dektec-receiver-settings .mdc-apply-button {
   align-self: flex-start; }
 
-:root {
-  --mdc-box-margin: 0px; }
-
 html {
-  box-sizing: border-box;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale; }
 
@@ -647,7 +643,7 @@ body {
   height: 100vh;
   overflow: hidden; }
 
-.mdc-drawer--dismissible.demo-drawer {
+.mdc-drawer--dismissible.main-drawer {
   z-index: 1; }
 
 .main-content {
@@ -658,10 +654,10 @@ body {
   padding: 40px 16px 100px;
   transition: 200ms transform cubic-bezier(0.4, 0, 0.2, 1) 50ms;
   overflow: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start; }
+  display: flex; }
+
+#arbitrary-content {
+  flex-grow: 1; }
 
 .main-top-app-bar {
   box-shadow: 0px 3px 1px -2px rgba(0, 0, 0, 0.2), 0px 2px 2px 0px rgba(0, 0, 0, 0.14), 0px 1px 5px 0px rgba(0, 0, 0, 0.12);
@@ -707,6 +703,9 @@ body {
   .main-top-app-bar .mdc-top-app-bar__title {
     font-weight: 300;
     font-size: 24px; }
+
+.main-top-app-bar.main-top-app-bar--dynamic ~ .main-panel .mdc-top-app-bar--fixed-adjust {
+  padding-top: 128px; }
 
 /* #arbitrary-content { */
 /*     flex-grow: 2; */

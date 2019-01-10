@@ -1,11 +1,4 @@
 @import "./mosaic";
 @import "./wm";
 
-#main-content {
-    display: flex;
-    align-items: stretch;
-    justify-content: center;
-    & > * {
-        flex-grow: 1;
-    }
-}
+

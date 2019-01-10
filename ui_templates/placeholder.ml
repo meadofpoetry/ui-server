@@ -12,7 +12,9 @@ let with_error_class = Markup.CSS.add_modifier base_class "error"
 
 module Base = struct
   class t ~widget ~text () =
-    let box = new Vbox.t ~widgets:[widget#widget; text#widget] () in
+    let box = new Vbox.t
+                ~halign:`Center
+                ~widgets:[widget#widget; text#widget] () in
     object
       inherit Widget.t Dom_html.(createDiv document) () as super
       method! init () : unit =

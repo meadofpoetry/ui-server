@@ -4,7 +4,7 @@ open Components
 open Tabs
 
 let main_class = "main-content"
-let toolbar_class = "main-toolbar"
+let main_top_app_bar_class = "main-top-app-bar"
 let row_id = "main-toolbar__tabs"
 
 class type container =
@@ -22,8 +22,6 @@ type ('a, 'b) page_content =
   [ `Static of (#Widget.t as 'b) list
   | `Dynamic of ('a, 'b) tab list
   ]
-
-let ( % ) = Fun.( % )
 
 let hash_of_tab (tab : ('a, 'b) tab) : string =
   fst @@ tab#value
@@ -56,7 +54,7 @@ let set_hash container tab_bar hash =
   set_active_page container tab_bar
 
 let switch_tab container tab_bar =
-  React.E.map (set_hash container tab_bar % hash_of_tab)
+  React.E.map Fun.(set_hash container tab_bar % hash_of_tab)
   @@ React.E.fmap Fun.id
   @@ React.S.changes tab_bar#s_active_tab
 
@@ -99,7 +97,9 @@ let get_toolbar () : Top_app_bar.Standard.t =
   with e -> print_endline "no toolbar"; raise e
 
 class t (content : ('a, 'b) page_content) () =
-  let main = try Dom_html.getElementById "main-content" with e -> print_endline "no main"; raise e in
+  let main =
+    try Dom_html.getElementById "main-content"
+    with e -> print_endline "no main"; raise e in
   let arbitrary = get_arbitrary () in
   let toolbar = get_toolbar () in
   let sidebar = get_sidebar () in
@@ -116,8 +116,9 @@ class t (content : ('a, 'b) page_content) () =
     method! init () : unit =
       super#init ();
       self#add_class main_class;
-      toolbar#add_class toolbar_class;
+      print_endline "listening to menu click";
       Dom_events.listen menu Dom_events.Typ.click (fun _ _ ->
+          print_endline "menu clicked";
           sidebar#toggle (); true)
       |> (fun x -> menu_click_listener <- Some x);
       self#set ()
@@ -139,8 +140,14 @@ class t (content : ('a, 'b) page_content) () =
     method private set () =
       arbitrary#set_empty ();
       match content with
-      | `Static widgets -> List.iter arbitrary#append_child widgets
-      | `Dynamic tabs   ->
+      | `Static widgets ->
+         List.iter arbitrary#append_child widgets
+      | `Dynamic tabs ->
+         let dynamic_class =
+           Components_markup.CSS.add_modifier
+             main_top_app_bar_class
+             "dynamic" in
+         toolbar#add_class dynamic_class;
          let row, e = create_tab_row arbitrary tabs in
          self#_keep_e e;
          self#add_class

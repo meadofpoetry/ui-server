@@ -10,7 +10,6 @@ let pagination () =
 let onload _ =
   let page = new Ui_templates.Page.t (`Static []) () in
   let div = pagination () in
-  Lwt_react.S.keep @@ React.S.map (fun i -> Printf.printf "current is %d\n" i) div#s_active;
   page#arbitrary#append_child div;
   Js._false
 

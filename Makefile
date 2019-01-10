@@ -20,8 +20,8 @@ pipeline:
 	cp _build/default/frontend/page_mosaic.bc.js dist/resources/js/page_mosaic.js
 
 hardware:
-	$(BUILD) frontend/topology.bc.js
-	cp _build/default/frontend/topology.bc.js dist/resources/js/topology.js
+	$(BUILD) frontend/page_topology.bc.js
+	cp _build/default/frontend/page_topology.bc.js dist/resources/js/page_topology.js
 
 user:
 	$(BUILD) frontend/user.bc.js

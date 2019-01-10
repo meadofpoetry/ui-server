@@ -49,43 +49,26 @@
                             <nav class="mdc-list">
                                 {{#navigation}}
                                 {{#simple}}
-                                <div class="mdc-tree">
-                                    <a href="{{href}}" class="mdc-list-item">
-                                        {{#icon}}
-                                        <div class="mdc-list-item__graphic">
-                                            {{{value}}}
-                                        </div>
-                                        {{/icon}}
-                                        {{title}}
-                                    </a>
-                                </div>
+                                <a href="{{href}}" class="mdc-list-item">
+                                    {{#icon}}
+                                    <div class="mdc-list-item__graphic">{{{value}}}</div>
+                                    {{/icon}}
+                                    {{title}}
+                                </a>
                                 {{/simple}}
                                 {{^simple}}
-                                <div class="mdc-tree mdc-tree__item">
-                                    <div class="mdc-list-item">
-                                        {{#icon}}
-                                        <div class="mdc-list-item__graphic">
-                                            {{{value}}}
-                                        </div>
-                                        {{/icon}}
-                                        {{title}}
-                                        <i class="material-icons mdc-icon mdc-list-item__meta dropdown">
-                                            arrow_drop_down
-                                        </i>
+                                <hr class="mdc-list-divider">
+                                <h6 class="mdc-list-group__subheader">{{title}}</h6>
+                                {{#subtree}}
+                                <a href="{{href}}" class="mdc-list-item">
+                                    {{#icon}}
+                                    <div class="mdc-list-item__graphic">
+                                        {{{value}}}
                                     </div>
-                                    <div class="mdc-tree__list">
-                                        {{#subtree}}
-                                        <a href="{{href}}" class="mdc-list-item">
-                                            {{#icon}}
-                                            <div class="mdc-list-item__graphic">
-                                                {{{value}}}
-                                            </div>
-                                            {{/icon}}
-                                            {{title}}
-                                        </a>
-                                        {{/subtree}}
-                                    </div>
-                                </div>
+                                    {{/icon}}
+                                    {{title}}
+                                </a>
+                                {{/subtree}}
                                 {{/simple}}
                                 {{/navigation}}
                             </nav>
@@ -103,11 +86,7 @@
         </div>
         <!-- Additional post scripts -->
         {{#post_scripts}}
-        <script {{#src}}src="{{script}}"{{/src}} type="text/javascript">
-         {{^src}}
-         {{{script}}}
-         {{/src}}
-        </script>
+        <script {{#src}}src="{{script}}"{{/src}} type="text/javascript">{{^src}}{{{script}}}{{/src}}</script>
         {{/post_scripts}}
     </body>
 </html>

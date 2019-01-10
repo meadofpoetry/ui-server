@@ -5,6 +5,8 @@ open Api_js.Api_types
 open Lwt_result.Infix
 open Common
 
+let () = print_endline "loaded page"
+
 type time = [ `Now | `Last of Time.t ]
 
 module WS = struct
@@ -85,7 +87,7 @@ module Stream_item = struct
 
   let source_to_string (source : Stream.source) : string =
     let rec aux acc (source : Stream.source) =
-      let open Topology in
+      let open Common.Topology in
       match source.node with
       | Entry (Input i) -> ("Вход "  ^ Topology.get_input_name i) :: acc
       | Entry (Board b) -> ("Плата " ^ b.model) :: acc
@@ -325,16 +327,16 @@ let make () =
   let streams =
     get_streams input cpu boards
     |> Lwt_result.map_err Api_js.Requests.err_to_string in
-  let w =
-    streams
-    >|= (fun streams ->
-      let streams = List.map (fun x -> x, `Now) streams in
-      let event, close =
-        get_streams_ws input cpu boards in
-      let grid = new Stream_grid.t input streams event () in
-      grid#set_on_destroy close;
-      grid#widget)
-    |> Ui_templates.Loader.create_widget_loader in
-  ignore @@ new Ui_templates.Page.t (`Static [w]) ()
+  streams
+  >|= (fun streams ->
+    let streams = List.map (fun x -> x, `Now) streams in
+    let event, close =
+      get_streams_ws input cpu boards in
+    let grid = new Stream_grid.t input streams event () in
+    grid#set_on_destroy close;
+    grid#widget)
+  |> Ui_templates.Loader.create_widget_loader
 
-let () = make ()
+let () =
+  let elt = make () in
+  ignore @@ new Ui_templates.Page.t (`Static [elt]) ()

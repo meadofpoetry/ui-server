@@ -1,6 +1,7 @@
 @import './components/tab/_mixins';
 @import './components/tab-indicator/_mixins';
 @import './components/ripple/_mixins';
+@import "./components/top-app-bar/_variables.scss";
 @import './templates/templates';
 
 @import './pages/application/application';
@@ -22,11 +23,7 @@ $large-1440: 1440px;
 $large-1600: 1580px;
 $xlarge: 1900px;
 
-$mdc-persistent-drawer-width: 280px;
-
-:root { --mdc-box-margin: 0px; }
 html {
-    box-sizing: border-box;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
@@ -46,7 +43,7 @@ body {
     overflow: hidden;
 }
 
-.mdc-drawer--dismissible.demo-drawer {
+.mdc-drawer--dismissible.main-drawer {
     z-index: 1;
 }
 
@@ -59,9 +56,10 @@ body {
     transition: 200ms transform cubic-bezier(.4, 0, .2, 1) 50ms;
     overflow: auto;
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
+}
+
+#arbitrary-content {
+    flex-grow: 1;
 }
 
 .main-top-app-bar {
@@ -94,6 +92,13 @@ body {
         font-size: 24px;
     }
 }
+
+.main-top-app-bar.main-top-app-bar--dynamic ~ .main-panel {
+    .mdc-top-app-bar--fixed-adjust {
+        padding-top: $mdc-top-app-bar-row-height * 2;
+    }
+}
+
 /* #arbitrary-content { */
 /*     flex-grow: 2; */
 

@@ -48,7 +48,7 @@ let input topo (input : Topology.topo_input) =
      let input_page =
        `Index input.id,
        Simple { title
-              ; icon = None
+              ; icon = Some (make_icon Icon.SVG.Path.arrow_right_box)
               ; href = Uri.Path.of_string @@ get_input_href input
               ; template = input_template } in
      let pre = "input/" ^ get_input_href input in
@@ -83,7 +83,7 @@ let create (app : Application.t)
   let props =
     { title = Some "Конфигурация"
     ; pre_scripts = []
-    ; post_scripts = [Src "js/topology.js"]
+    ; post_scripts = [Src "js/page_topology.js"]
     ; stylesheets = ["/css/topology.min.css"]
     ; content = []
     } in
@@ -102,17 +102,17 @@ let create (app : Application.t)
     List.map (input topo) inputs
     |> List.split in
   let app_template =
-    [ `Index 2,
+    [ `Index 4,
       Subtree { title = "Входы"
               ; icon = Some (make_icon Icon.SVG.Path.arrow_right_box)
               ; href = Uri.Path.of_string "input"
               ; templates = input_templates }
-    ; `Index 3,
+    ; `Index 2,
       Simple { title = "Конфигурация"
              ; icon = Some (make_icon Icon.SVG.Path.tournament)
              ; href = Uri.Path.of_string "application"
              ; template = props }
-    ; `Index 4,
+    ; `Index 3,
       Simple  { title = "UI Демо"
               ; icon = Some (make_icon Icon.SVG.Path.material_design)
               ; href = Uri.Path.of_string "demo"

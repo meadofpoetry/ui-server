@@ -12,15 +12,6 @@ $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #
     @include topology-board-type(nth($boards,$i));
 }
 
-#main-content {
-    display: flex;
-    align-items: stretch;
-    overflow-x: auto;
-    > * {
-        flex-grow: 1;
-    }
-}
-
 .topology {
     display: grid;
     height: 100%;

@@ -112,7 +112,8 @@ class ['a] t
         ?level
         ?two_line
         ?(dense = false)
-        ~(items : ('a, 'a t) Item.t list) () =
+        ~(items : ('a, 'a t) Item.t list)
+        () =
   let two_line = match two_line with
     | Some x -> x
     | None ->
@@ -197,3 +198,11 @@ class ['a] t
       iter self#items 1
 
   end
+
+(** Create new widget from scratch *)
+let make ?(selection : selection option) ?level ?two_line ?dense
+      ~(items : ('a, 'a t) Item.t list) () : 'a t =
+  new t ?selection ?level ?two_line ?dense ~items ()
+
+(* let attach (elt : Dom_html.element Js.t) : 'a t =
+ *   failwith "" *)
