@@ -188,9 +188,8 @@ module Make_parent(M : M) = struct
 
       method private on_touchstart (e : Dom_html.touchEvent Js.t) : unit Lwt.t =
         let touch = get_touch e in
-        let target = get_target e in
         if self#is_open
-           && not (target##.scrollWidth > target##.offsetWidth) then
+           && not (self#scroll_width > self#offset_width) then
           begin
             start_x <- touch##.clientX;
             self#listen_lwt Widget.Event.touchmove

@@ -256,7 +256,7 @@ $wm-placeholder-color: text-secondary-on-surface;
     height: 100%;
 
     .wm-placeholder {
-        z-index: 12;
+        z-index: 4;
         .mdc-placeholder__content {
             @include mdc-theme-prop(background-color, surface);
             border-radius: 4px;

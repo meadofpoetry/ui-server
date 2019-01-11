@@ -3,9 +3,9 @@ open Containers
 open Components
 open Tabs
 
-let main_class = "main-content"
+let screen_width_breakpoint = 1160
+
 let main_top_app_bar_class = "main-top-app-bar"
-let row_id = "main-toolbar__tabs"
 
 class type container =
   object
@@ -64,7 +64,6 @@ let create_tab_row (container : container) (tabs : ('a, 'b) tab list) =
   set_active_page container bar;
   let section = new Top_app_bar.Section.t ~align:`Start ~widgets:[bar] () in
   let row = new Top_app_bar.Row.t ~sections:[section] () in
-  row#set_id row_id;
   row, switch_tab container bar
 
 let get_arbitrary () : container =
@@ -97,6 +96,11 @@ let get_toolbar () : Top_app_bar.Standard.t =
   with e -> print_endline "no toolbar"; raise e
 
 class t (content : ('a, 'b) page_content) () =
+  let s_nav_drawer_class, set_nav_drawer_class =
+    Drawer.Markup.CSS.(
+      if Dom_html.document##.body##.offsetWidth > screen_width_breakpoint
+      then dismissible else modal)
+    |> React.S.create in
   let main =
     try Dom_html.getElementById "main-content"
     with e -> print_endline "no main"; raise e in
@@ -108,20 +112,39 @@ class t (content : ('a, 'b) page_content) () =
               |> Widget.create in
   object(self)
 
+    val mutable scrim = None
+
+    (* Timers *)
+    val mutable debounce_timer = None
+
+    (* Event listeners *)
     val mutable menu_click_listener = None
+    val mutable resize_listener = None
+
+    (* Signals *)
+    val mutable s_state = None
 
     inherit Widget.t main () as super
 
     method! init () : unit =
       super#init ();
-      self#add_class main_class;
       self#init_navigation_drawer ();
-      self#set ()
+      self#set ();
+      Dom_events.listen Dom_html.window Widget.Event.resize (fun _ _ ->
+          self#debounce_resize (); true)
+      |> (fun x -> resize_listener <- Some x);
+      React.S.map self#render_drawer s_nav_drawer_class
+      |> (fun x -> s_state <- Some x)
 
     method! destroy () : unit =
       super#destroy ();
       Option.iter Dom_events.stop_listen menu_click_listener;
-      menu_click_listener <- None
+      menu_click_listener <- None;
+      Option.iter Dom_events.stop_listen resize_listener;
+      resize_listener <- None;
+      Option.iter (React.S.stop ~strong:true) s_state;
+      s_state <- None;
+      React.S.stop ~strong:true s_nav_drawer_class
 
     method title : string =
       Js.to_string Dom_html.document##.title
@@ -133,6 +156,53 @@ class t (content : ('a, 'b) page_content) () =
     method arbitrary = arbitrary
 
     (* Private methods *)
+
+    method private render_drawer (class' : string) : unit =
+      let open Drawer.Markup.CSS in
+      navigation_drawer#add_class class';
+      let parent = Dom_html.getElementById "main-panel" in
+      match class' with
+      | s when String.equal s modal ->
+         navigation_drawer#remove_class dismissible;
+         let scrim = Drawer.Scrim.make () in
+         let widgets = [navigation_drawer#widget; scrim#widget] in
+         let div = Widget.create_div ~widgets () in
+         print_endline "adding div";
+         Dom.insertBefore parent div#root parent##.firstChild;
+      | s when String.equal s dismissible ->
+         navigation_drawer#remove_class modal;
+         (* Remove first child (div with drawer) *)
+         let first_child = parent##.firstChild in
+         Js.Opt.iter first_child (Dom.removeChild parent);
+         (* Insert drawer before content *)
+         Dom.insertBefore parent navigation_drawer#root parent##.firstChild;
+      | _ -> ()
+
+    method private handle_resize () : unit =
+      let modal, dismissible = Drawer.Markup.CSS.(modal, dismissible) in
+      let value = React.S.value s_nav_drawer_class in
+      let screen_width = Dom_html.document##.body##.offsetWidth in
+      if screen_width <= screen_width_breakpoint
+         && String.equal value dismissible
+      then (
+        if navigation_drawer#is_open
+        then navigation_drawer#hide ();
+        ignore @@ Utils.set_timeout (fun () ->
+                      set_nav_drawer_class modal) 225.
+      )
+      else if screen_width > screen_width_breakpoint
+              && String.equal value modal
+      then (
+        if navigation_drawer#is_open
+        then navigation_drawer#hide ();
+        ignore @@ Utils.set_timeout (fun () ->
+                      set_nav_drawer_class dismissible) 225.
+      )
+
+    method private debounce_resize () : unit =
+      Option.iter Utils.clear_timeout debounce_timer;
+      let timer = Utils.set_timeout self#handle_resize 50. in
+      debounce_timer <- Some timer
 
     method private init_navigation_drawer () : unit =
       let href = Js.to_string @@ Dom_html.window##.location##.pathname in
@@ -179,8 +249,6 @@ class t (content : ('a, 'b) page_content) () =
          toolbar#add_class dynamic_class;
          let row, e = create_tab_row arbitrary tabs in
          self#_keep_e e;
-         self#add_class
-         @@ Components_markup.CSS.add_modifier main_class "dynamic";
          toolbar#append_child row;
          toolbar#layout ()
   end

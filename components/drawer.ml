@@ -15,6 +15,26 @@ module Parent =
       let slide = `Leading
     end)
 
+module Scrim = struct
+
+  class t ?elt () =
+    let elt = match elt with
+      | Some elt -> elt
+      | None -> To_dom.of_element @@ Markup.create_scrim () in
+    object
+      inherit Widget.t elt ()
+    end
+
+  (** Creates new widget from scratch *)
+  let make () : t =
+    new t ()
+
+  (** Attach widget to existing element *)
+  let attach (elt : #Dom_html.element Js.t) : t =
+    new t ~elt ()
+
+end
+
 class t (elt : elt) () =
   let elt = match elt with
     | `Elt elt -> elt

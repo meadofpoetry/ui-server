@@ -81,11 +81,11 @@ body {
         @include mdc-states(on-primary);
     }
     z-index: 20;
-    #main-toolbar__tabs {
+    .mdc-top-app-bar__row:nth-child(2) {
         align-items: flex-end;
-    }
-    #main-toolbar__tabs .mdc-top-app-bar__section {
-        align-items: flex-end;
+        .mdc-top-app-bar__section {
+            align-items: flex-end;
+        }
     }
     .mdc-top-app-bar__title {
         font-weight: 300;
@@ -93,26 +93,20 @@ body {
     }
 }
 
+.main-drawer.mdc-drawer--modal.mdc-top-app-bar--fixed-adjust {
+    padding-top: 0;
+}
+
 .main-top-app-bar.main-top-app-bar--dynamic ~ .main-panel {
-    .mdc-top-app-bar--fixed-adjust {
+    .mdc-top-app-bar--fixed-adjust:not(.mdc-drawer--modal) {
         padding-top: $mdc-top-app-bar-row-height * 2;
     }
 }
 
-/* #arbitrary-content { */
-/*     flex-grow: 2; */
-
-/*     @each $size in map-keys($mdc-layout-grid-columns) { */
-/*         @include mdc-layout-grid-media-query_($size) { */
-/*             $margin: map-get($mdc-layout-grid-default-margin, $size); */
-
-/*             @include mdc-layout-grid($size, $margin, $mdc-layout-grid-max-width); */
-/*         } */
-/*     } */
-
-/*     > .mdc-layout-grid { */
-/*         --mdc-layout-grid-margin-desktop: 0px; */
-/*         --mdc-layout-grid-margin-tablet: 0px; */
-/*         --mdc-layout-grid-margin-phone: 0px; */
-/*     } */
-/* } */
+@media (max-width: $mdc-top-app-bar-mobile-breakpoint) {
+    .main-top-app-bar.main-top-app-bar--dynamic ~.main-panel {
+        .mdc-top-app-bar--fixed-adjust:not(.mdc-drawer--modal) {
+            padding-top: $mdc-top-app-bar-mobile-row-height * 2;
+        }
+    }
+}
