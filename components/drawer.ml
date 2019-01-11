@@ -23,7 +23,12 @@ class t (elt : elt) () =
          Markup.create_content (List.map Widget.to_markup cnt) () in
        To_dom.of_element @@ Markup.create content_wrapper () in
   object
-    inherit Parent.t elt ()
+    inherit Parent.t elt () as super
+
+    method! private focus_active_navigation_item () : unit =
+      let query = Js.string @@ Item_list.Markup.Item.activated_class in
+      Js.Opt.iter (super#root##querySelector query) (fun e -> e##focus)
+
   end
 
 (** Creates new widget from scratch *)

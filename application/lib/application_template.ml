@@ -76,7 +76,7 @@ let input topo (input : Topology.topo_input) =
 
 let create (app : Application.t)
     : upper ordered_item list User.user_table =
-  let topo  = React.S.value app.topo in
+  let topo = React.S.value app.topo in
   let hw_templates =
     Hardware.Map.fold (fun _ (x : Boards.Board.t) acc ->
         List.cons_maybe x.templates acc) app.hw.boards [] in
@@ -102,12 +102,7 @@ let create (app : Application.t)
     List.map (input topo) inputs
     |> List.split in
   let app_template =
-    [ `Index 4,
-      Subtree { title = "Входы"
-              ; icon = Some (make_icon Icon.SVG.Path.arrow_right_box)
-              ; href = Uri.Path.of_string "input"
-              ; templates = input_templates }
-    ; `Index 2,
+    [ `Index 2,
       Simple { title = "Конфигурация"
              ; icon = Some (make_icon Icon.SVG.Path.tournament)
              ; href = Uri.Path.of_string "application"
@@ -117,12 +112,15 @@ let create (app : Application.t)
               ; icon = Some (make_icon Icon.SVG.Path.material_design)
               ; href = Uri.Path.of_string "demo"
               ; template = demo_props }
-    ]
-  in
+    ; `Index 4,
+      Subtree { title = "Входы"
+              ; icon = Some (make_icon Icon.SVG.Path.arrow_right_box)
+              ; href = Uri.Path.of_string "input"
+              ; templates = input_templates }
+    ] in
   let proc = match app.proc with
     | None -> Common.User.empty_table
-    | Some p -> p#template ()
-  in
+    | Some p -> p#template () in
   Common.User.concat_table
     ([ Responses.home_template ()
      ; User_template.create ()

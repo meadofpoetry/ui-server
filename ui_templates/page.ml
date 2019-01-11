@@ -86,7 +86,7 @@ let get_arbitrary () : container =
     end
   with e -> print_endline "no arbitrary"; raise e
 
-let get_sidebar () : Drawer.t =
+let get_navigation_drawer () : Drawer.t =
   try Drawer.attach @@ Dom_html.getElementById "main-drawer"
   with e -> print_endline "no sidebar"; raise e
 
@@ -102,11 +102,10 @@ class t (content : ('a, 'b) page_content) () =
     with e -> print_endline "no main"; raise e in
   let arbitrary = get_arbitrary () in
   let toolbar = get_toolbar () in
-  let sidebar = get_sidebar () in
+  let navigation_drawer = get_navigation_drawer () in
   let title = toolbar#get_child_element_by_id "page-title"
               |> Option.get_exn
               |> Widget.create in
-  let menu = Dom_html.getElementById "main-menu" in
   object(self)
 
     val mutable menu_click_listener = None
@@ -116,11 +115,7 @@ class t (content : ('a, 'b) page_content) () =
     method! init () : unit =
       super#init ();
       self#add_class main_class;
-      print_endline "listening to menu click";
-      Dom_events.listen menu Dom_events.Typ.click (fun _ _ ->
-          print_endline "menu clicked";
-          sidebar#toggle (); true)
-      |> (fun x -> menu_click_listener <- Some x);
+      self#init_navigation_drawer ();
       self#set ()
 
     method! destroy () : unit =
@@ -136,6 +131,40 @@ class t (content : ('a, 'b) page_content) () =
       title#set_text_content x
 
     method arbitrary = arbitrary
+
+    (* Private methods *)
+
+    method private init_navigation_drawer () : unit =
+      let href = Js.to_string @@ Dom_html.window##.location##.pathname in
+      let list_class = Item_list.Markup.base_class in
+      let list =
+        Option.get_exn
+        @@ navigation_drawer#get_child_element_by_class list_class in
+      let items = Dom.list_of_nodeList @@ list##.childNodes in
+      let (item : Dom_html.element Js.t option) =
+        List.find_map (fun (item : Dom.node Js.t) ->
+            match item##.nodeType with
+            | ELEMENT ->
+               let (item : Dom_html.element Js.t) = Js.Unsafe.coerce item in
+               let href' =
+                 Option.map Js.to_string
+                 @@ Js.Opt.to_option
+                 @@ item##getAttribute (Js.string "href") in
+               begin match href' with
+               | None -> None
+               | Some href' ->
+                  if String.equal href' href
+                  then Some item else None
+               end
+            | _ -> None) items in
+      Option.iter (fun i ->
+          let class' = Js.string Item_list.Markup.Item.activated_class in
+          i##.classList##add class')
+        item;
+      let menu = Dom_html.getElementById "main-menu" in
+      Dom_events.listen menu Dom_events.Typ.click (fun _ _ ->
+          navigation_drawer#toggle (); true)
+      |> (fun x -> menu_click_listener <- Some x);
 
     method private set () =
       arbitrary#set_empty ();
