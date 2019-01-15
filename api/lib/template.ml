@@ -188,12 +188,32 @@ let make_node path tmpl : 'a Uri.Dispatcher.node =
   ; handler = fun _ -> respond_string tmpl ()
   }
 
+module Icon = Components_markup.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
+
+let make_account_color (user : User.t) : string =
+  Components_markup.Material_color_palette.(
+    let fill = match user with
+      | `Root -> Red C500
+      | `Operator -> Orange C500
+      | `Guest -> Light_green C500 in
+    Color.to_css_rgba
+    @@ Components_markup.Material_color_palette.make fill)
+
+let make_account_icon (user : User.t) : string =
+  let path' = Icon.SVG.Path.account in
+  let path = Icon.SVG.create_path path' () in
+  let icon = Icon.SVG.create [path] () in
+  Format.asprintf "%a" (Tyxml.Html.pp_elt ()) icon
+
 let build_templates ?(href_base = "") mustache_tmpl user
       (vals : upper ordered_item list) =
   let vals = sort_items @@ merge_subtree vals in
   let mustache_tmpl = Mustache.of_string mustache_tmpl in
   let items =
-    [ "user", `String user
+    [ "user", `String (User.to_string user)
+    ; "username", `String (User.to_human_string user)
+    ; "usericon", `String (make_account_icon user)
+    ; "usercolor", `String (make_account_color user)
     ; "navigation",
       `A (List.fold_left
             (fun acc v ->
@@ -233,8 +253,7 @@ let build_templates ?(href_base = "") mustache_tmpl user
   in
   List.fold_left (fun acc v -> (fill_in v) @ acc) [] vals
 
-let build_route_table ?(href_base="") template user vals =
-  let user = Common.User.to_string user in
+let build_route_table ?(href_base="") template (user : User.t) vals =
   let pages = build_templates ~href_base template user vals in
   let empty = Uri.Dispatcher.empty in
   let tbl = List.fold_left Uri.Dispatcher.add empty pages in

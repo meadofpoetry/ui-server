@@ -2,11 +2,11 @@
   (name        components_markup)
   ;(public_name components-markup)
   (synopsis "skeletons of web ui components")
-  (libraries yojson ppx_deriving_yojson.runtime tyxml containers)
+  (libraries yojson tyxml containers color)
   (flags (:standard -short-paths -strict-sequence -bin-annot
           -thread -w "+1..49+60" -w "+a-4-7-23-33-39-40-41-42-44-45-48"))
   (ocamlopt_flags (:standard -short-paths -strict-sequence -bin-annot
                    -thread -w "+1..49+60" -w "+a-4-7-23-33-39-40-41-42-44-45-48"
                    -O3 -unbox-closures))
   (js_of_ocaml (flags (:standard --opt 3)))
-  (preprocess (pps ppx_deriving_yojson ppx_deriving.show ppx_deriving.eq)))
+  (preprocess (pps ppx_derivingyojson ppx_deriving.show ppx_deriving.eq)))

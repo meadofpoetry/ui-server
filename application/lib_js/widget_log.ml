@@ -42,11 +42,12 @@ let make_row_data (item : Stream.Log_message.t) =
 let log_level_to_color level =
   let open Color in
   let open Stream.Log_message in
+  let open Material_color_palette in
   let t = match level with
-    | Info -> Color_palette.(make @@ Light_green C500)
-    | Warn -> Color_palette.(make @@ Yellow C500)
-    | Err -> Color_palette.(make @@ Orange C500)
-    | Fatal -> Color_palette.(make @@ Red C900) in
+    | Info -> make @@ Light_green C500
+    | Warn -> make @@ Yellow C500
+    | Err -> make @@ Orange C500
+    | Fatal -> make @@ Red C900 in
   let Rgba.{ r; g; b; _ } = to_rgba t in
   Color.of_rgba r g b 0.5
 

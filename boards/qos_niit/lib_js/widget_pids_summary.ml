@@ -55,7 +55,7 @@ module Pie = struct
   let other = "Другие"
 
   let colors =
-    let open Color_palette in
+    let open Material_color_palette in
     [| Red C500
      ; Orange C500
      ; Green C500
@@ -79,7 +79,9 @@ module Pie = struct
       let open Option_types.Option_context in
       let index = data_index context in
       let color = colors.(index) in
-      Color.to_css_rgba @@ Color.text_color @@ Color_palette.make color in
+      Color.to_css_rgba
+      @@ Color.text_color
+      @@ Material_color_palette.make color in
     let display = fun context ->
       let open Option_types.Option_context in
       let index = data_index context in
@@ -148,7 +150,7 @@ module Pie = struct
   let make_pie_dataset () : Chartjs.Pie.Dataset.Float.t =
     let open Chartjs.Pie in
     let background_color =
-      Array.map Fun.(Color.to_css_rgba % Color_palette.make) colors
+      Array.map Fun.(Color.to_css_rgba % Material_color_palette.make) colors
       |> Array.to_list in
     Dataset.Float.make
       ~background_color

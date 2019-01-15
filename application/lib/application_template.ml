@@ -4,10 +4,17 @@ open Common
 
 module Icon = Components_markup.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
-let make_icon path =
+let make_icon ?rotate path =
   let open Icon.SVG in
+  let attrs = match rotate with
+    | None -> None
+    | Some x ->
+       Printf.sprintf "transform: rotate(%ddeg)" x
+       |> Tyxml.Svg.a_style
+       |> List.pure
+       |> Option.return in
   let path = create_path path () in
-  let icon = create [path] () in
+  let icon = create ?attrs [path] () in
   Tyxml.Html.toelt icon
 
 let get_input_href (x : Topology.topo_input) =
@@ -106,7 +113,7 @@ let create (app : Application.t)
   let app_template =
     [ `Index 2,
       Simple { title = "Конфигурация"
-             ; icon = Some (make_icon Icon.SVG.Path.tournament)
+             ; icon = Some (make_icon ~rotate:90 Icon.SVG.Path.sitemap)
              ; href = Uri.Path.of_string "application"
              ; template = props }
     ; `Index 3,

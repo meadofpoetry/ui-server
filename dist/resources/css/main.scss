@@ -93,6 +93,24 @@ body {
     }
 }
 
+.main-drawer .mdc-drawer__header {
+    display: flex;
+    padding: 16px;
+    align-items: center;
+    .mdc-avatar {
+        color: #fff;
+        flex: 0 0 auto;
+        margin-right: 16px;
+    }
+    .mdc-drawer__title {
+        align-items: center;
+        font-size: 0.875rem;
+        font-weight: 400;
+        line-height: 1.5;
+        margin: 0;
+    }
+}
+
 .main-drawer.mdc-drawer--modal.mdc-top-app-bar--fixed-adjust {
     padding-top: 0;
 }

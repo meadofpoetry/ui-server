@@ -20,7 +20,7 @@ module Clusterize = Clusterize
 
 module Checkbox = Checkbox
 
-module Color_palette = Color_palette
+module Material_color_palette = Components_markup.Material_color_palette
 
 module Dashboard = Dashboard
 
