@@ -46,8 +46,10 @@ class t (elt : elt) () =
     inherit Parent.t elt () as super
 
     method! private focus_active_navigation_item () : unit =
-      let query = Js.string @@ Item_list.Markup.Item.activated_class in
-      Js.Opt.iter (super#root##querySelector query) (fun e -> e##focus)
+      "." ^ Item_list.Markup.Item.activated_class
+      |> Js.string
+      |> (fun s -> super#root##querySelector s)
+      |> (fun i -> Js.Opt.iter i (fun e -> e##focus))
 
   end
 

@@ -1,4 +1,5 @@
 open Js_of_ocaml
+open Js_of_ocaml_lwt
 open Containers
 open Components
 open Tabs
@@ -95,11 +96,17 @@ let get_toolbar () : Top_app_bar.Standard.t =
     |> Top_app_bar.Standard.attach ~tolerance:{ up = 5; down = 5 }
   with e -> print_endline "no toolbar"; raise e
 
+type drawer_type = Modal | Dismissible
+
+let equal_drawer_type (a : drawer_type as 'a) (b : 'a) : bool =
+  match a, b with
+  | Modal, Modal | Dismissible, Dismissible -> true
+  | _ -> false
+
 class t (content : ('a, 'b) page_content) () =
   let s_nav_drawer_class, set_nav_drawer_class =
-    Drawer.Markup.CSS.(
-      if Dom_html.document##.body##.offsetWidth > screen_width_breakpoint
-      then dismissible else modal)
+    (if Dom_html.document##.body##.offsetWidth > screen_width_breakpoint
+     then Dismissible else Modal)
     |> React.S.create in
   let main =
     try Dom_html.getElementById "main-content"
@@ -114,9 +121,6 @@ class t (content : ('a, 'b) page_content) () =
 
     val mutable scrim = None
 
-    (* Timers *)
-    val mutable debounce_timer = None
-
     (* Event listeners *)
     val mutable menu_click_listener = None
     val mutable resize_listener = None
@@ -128,11 +132,20 @@ class t (content : ('a, 'b) page_content) () =
 
     method! init () : unit =
       super#init ();
-      self#init_navigation_drawer ();
+      (* Init drawer navigation menu *)
+      self#init_drawer_navigation_menu ();
+      (* Init toolbar menu button *)
+      let menu = Dom_html.getElementById "main-menu" in
+      Dom_events.listen menu Dom_events.Typ.click (fun _ _ ->
+          navigation_drawer#toggle (); true)
+      |> (fun x -> menu_click_listener <- Some x);
+      (* Set page content *)
       self#set ();
-      Dom_events.listen Dom_html.window Widget.Event.resize (fun _ _ ->
-          self#debounce_resize (); true)
+      (* Handle window resize *)
+      Lwt_js_events.limited_onresizes ~elapsed_time:0.05
+        (fun _ _ -> self#handle_resize ())
       |> (fun x -> resize_listener <- Some x);
+      (* Handle modal/dismissible drawer state change *)
       React.S.map self#render_drawer s_nav_drawer_class
       |> (fun x -> s_state <- Some x)
 
@@ -140,7 +153,7 @@ class t (content : ('a, 'b) page_content) () =
       super#destroy ();
       Option.iter Dom_events.stop_listen menu_click_listener;
       menu_click_listener <- None;
-      Option.iter Dom_events.stop_listen resize_listener;
+      Option.iter Lwt.cancel resize_listener;
       resize_listener <- None;
       Option.iter (React.S.stop ~strong:true) s_state;
       s_state <- None;
@@ -157,60 +170,49 @@ class t (content : ('a, 'b) page_content) () =
 
     (* Private methods *)
 
-    method private render_drawer (class' : string) : unit =
-      let open Drawer.Markup.CSS in
-      navigation_drawer#add_class class';
+    method private render_drawer (typ : drawer_type) : unit =
       let parent = Dom_html.getElementById "main-panel" in
-      match class' with
-      | s when String.equal s modal ->
-         navigation_drawer#remove_class dismissible;
-         let scrim = Drawer.Scrim.make () in
-         let widgets = [navigation_drawer#widget; scrim#widget] in
-         let div = Widget.create_div ~widgets () in
-         print_endline "adding div";
-         Dom.insertBefore parent div#root parent##.firstChild;
-      | s when String.equal s dismissible ->
-         navigation_drawer#remove_class modal;
+      match typ with
+      | Modal ->
+         let div =
+           Tyxml_js.Html.(
+             div [ Tyxml_js.Of_dom.of_element navigation_drawer#root
+                 ; Drawer.Markup.create_scrim () ]) in
+         Dom.insertBefore parent
+           (Tyxml_js.To_dom.of_element div)
+           parent##.firstChild;
+         navigation_drawer#set_modal ();
+      | Dismissible ->
          (* Remove first child (div with drawer) *)
          let first_child = parent##.firstChild in
          Js.Opt.iter first_child (Dom.removeChild parent);
          (* Insert drawer before content *)
          Dom.insertBefore parent navigation_drawer#root parent##.firstChild;
-      | _ -> ()
+         navigation_drawer#set_dismissible ();
 
-    method private handle_resize () : unit =
-      let modal, dismissible = Drawer.Markup.CSS.(modal, dismissible) in
+    method private handle_resize () : unit Lwt.t =
       let value = React.S.value s_nav_drawer_class in
       let screen_width = Dom_html.document##.body##.offsetWidth in
-      if screen_width <= screen_width_breakpoint
-         && String.equal value dismissible
-      then (
-        if navigation_drawer#is_open
-        then navigation_drawer#hide ();
-        ignore @@ Utils.set_timeout (fun () ->
-                      set_nav_drawer_class modal) 225.
-      )
-      else if screen_width > screen_width_breakpoint
-              && String.equal value modal
-      then (
-        if navigation_drawer#is_open
-        then navigation_drawer#hide ();
-        ignore @@ Utils.set_timeout (fun () ->
-                      set_nav_drawer_class dismissible) 225.
-      )
+      match value, screen_width with
+      | Dismissible, x when x <= screen_width_breakpoint ->
+         Lwt.Infix.(
+          navigation_drawer#hide_await ()
+          >|= (fun () -> set_nav_drawer_class Modal))
+      | Modal, x when x > screen_width_breakpoint ->
+         Lwt.Infix.(
+          navigation_drawer#hide_await ()
+          >|= (fun () -> set_nav_drawer_class Dismissible))
+      | _ -> Lwt.return_unit
 
-    method private debounce_resize () : unit =
-      Option.iter Utils.clear_timeout debounce_timer;
-      let timer = Utils.set_timeout self#handle_resize 50. in
-      debounce_timer <- Some timer
-
-    method private init_navigation_drawer () : unit =
+    (** Initialize navigation links *)
+    method private init_drawer_navigation_menu () : unit =
       let href = Js.to_string @@ Dom_html.window##.location##.pathname in
       let list_class = Item_list.Markup.base_class in
       let list =
         Option.get_exn
         @@ navigation_drawer#get_child_element_by_class list_class in
       let items = Dom.list_of_nodeList @@ list##.childNodes in
+      (* Currently active item *)
       let (item : Dom_html.element Js.t option) =
         List.find_map (fun (item : Dom.node Js.t) ->
             match item##.nodeType with
@@ -227,14 +229,11 @@ class t (content : ('a, 'b) page_content) () =
                   then Some item else None
                end
             | _ -> None) items in
+      (* Style currently active item *)
       Option.iter (fun i ->
           let class' = Js.string Item_list.Markup.Item.activated_class in
           i##.classList##add class')
-        item;
-      let menu = Dom_html.getElementById "main-menu" in
-      Dom_events.listen menu Dom_events.Typ.click (fun _ _ ->
-          navigation_drawer#toggle (); true)
-      |> (fun x -> menu_click_listener <- Some x);
+        item
 
     method private set () =
       arbitrary#set_empty ();

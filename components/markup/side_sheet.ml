@@ -9,6 +9,7 @@ module type Common_css = sig
   val closing : string
   val animate : string
   val content : string
+  val scrim : string
 end
 
 module Make_css(M : sig val root : string end) : sig

@@ -4,6 +4,28 @@ open Tyxml_js
 
 type slide = [`Leading | `Trailing] [@@deriving eq]
 
+module Markup = Components_markup.Side_sheet.Make(Xml)(Svg)(Html)
+
+module Scrim = struct
+
+  class t ?elt () =
+    let elt = match elt with
+      | Some elt -> elt
+      | None -> To_dom.of_element @@ Markup.create_scrim () in
+    object
+      inherit Widget.t elt ()
+    end
+
+  (** Creates new widget from scratch *)
+  let make () : t =
+    new t ()
+
+  (** Attach widget to existing element *)
+  let attach (elt : #Dom_html.element Js.t) : t =
+    new t ~elt ()
+
+end
+
 module type M = sig
   include Components_markup.Side_sheet.Common_css
   val slide : slide
@@ -18,7 +40,8 @@ module Make_parent(M : M) = struct
     Js.Optdef.get (e##.changedTouches##item 0)
       (fun () -> raise Not_found)
 
-  class t (elt : #Dom_html.element Js.t) () =
+  class t ?(scrim : Scrim.t option) ?(modal = false)
+          (elt : #Dom_html.element Js.t) () =
     let state, set_state = React.S.create false in
     object(self)
       val mutable previous_focus = None
@@ -39,18 +62,20 @@ module Make_parent(M : M) = struct
       (* Other event listeners *)
       val mutable transitionend_listener = None
       val mutable keydown_listener = None
+      val mutable scrim_click_listener = None
 
       inherit Widget.t elt () as super
 
       method! init () : unit =
         super#init ();
+        if modal then self#set_modal ?scrim ();
         (* Connect event listeners *)
-        self#listen_lwt Widget.Event.touchstart (fun e _ -> self#on_touchstart e)
+        super#listen_lwt Widget.Event.touchstart (fun e _ -> self#on_touchstart e)
         |> (fun x -> touchstart_listener <- Some x);
         Dom_events.listen Dom_html.window Widget.Event.keydown
           (fun _ e -> self#on_keydown e)
         |> (fun x -> keydown_listener <- Some x);
-        self#listen_lwt (Dom_events.Typ.make "transitionend") (fun e _ ->
+        super#listen_lwt (Dom_events.Typ.make "transitionend") (fun e _ ->
             self#handle_transition_end e; Lwt.return_unit)
         |> (fun x -> transitionend_listener <- Some x)
 
@@ -69,11 +94,47 @@ module Make_parent(M : M) = struct
         keydown_listener <- None;
         Option.iter Lwt.cancel transitionend_listener;
         transitionend_listener <- None;
+        Option.iter Lwt.cancel scrim_click_listener;
+        scrim_click_listener <- None;
         (* Clear animation *)
         Option.iter Utils.Animation.cancel_animation_frame animation_frame;
         animation_frame <- None;
         Option.iter Utils.clear_timeout animation_timer;
-        animation_timer <- None
+        animation_timer <- None;
+        (* Clear classes *)
+        super#remove_class M.animate;
+        super#remove_class M.closing;
+        super#remove_class M.opening;
+
+      method set_dismissible () : unit =
+        super#remove_class M.modal;
+        super#add_class M.dismissible;
+        Option.iter Lwt.cancel scrim_click_listener;
+        scrim_click_listener <- None
+
+      method set_modal ?scrim () : unit =
+        super#remove_class M.dismissible;
+        super#add_class M.modal;
+        let scrim = match scrim with
+          | Some x -> Some x
+          | None ->
+             let class' = Js.string @@ "." ^ M.scrim in
+             let parent = elt##.parentNode in
+             let scrim' =
+               Js.Opt.to_option
+               @@ Js.Opt.bind parent (fun (p : Dom.node Js.t) ->
+                      match p##.nodeType with
+                      | ELEMENT ->
+                         let (p : Dom_html.element Js.t) = Js.Unsafe.coerce p in
+                         p##querySelector class'
+                      | _ -> Js.null) in
+             Option.map Scrim.attach scrim' in
+        match scrim with
+        | None -> ()
+        | Some scrim ->
+           scrim#listen_click_lwt (fun _ _ ->
+               self#handle_scrim_click (); Lwt.return_unit)
+           |> (fun x -> scrim_click_listener <- Some x)
 
       method show () : unit =
         if not self#is_open && not self#is_opening && not self#is_closing
@@ -98,6 +159,15 @@ module Make_parent(M : M) = struct
         if self#is_open && not self#is_opening && not self#is_closing
         then super#add_class M.closing
 
+      method hide_await () : unit Lwt.t =
+        match self#is_open with
+        | false -> Lwt.return_unit
+        | true ->
+           let open Lwt.Infix in
+           self#hide ();
+           Lwt_react.E.next (React.S.changes self#s_open)
+           >|= ignore
+
       method toggle () : unit =
         if self#is_open then self#hide () else self#show ()
 
@@ -107,6 +177,9 @@ module Make_parent(M : M) = struct
       method s_open : bool React.signal = state
 
       (* Private methods *)
+
+      method private handle_scrim_click () : unit =
+        self#hide ()
 
       method private save_focus () : unit =
         previous_focus <- Js.Opt.to_option Dom_html.document##.activeElement
@@ -150,11 +223,11 @@ module Make_parent(M : M) = struct
                     self#restore_focus ();
                     set_state false)
               else (self#focus_active_navigation_item ();
-                    set_state true)
+                    set_state true);
+              super#remove_class M.animate;
+              super#remove_class M.opening;
+              super#remove_class M.closing;
             end;
-          super#remove_class M.animate;
-          super#remove_class M.opening;
-          super#remove_class M.closing;
         with Not_found -> ()
 
       method private get_delta ~x ~touch =
@@ -228,33 +301,11 @@ module Make_parent(M : M) = struct
 
 end
 
-module Markup = Components_markup.Side_sheet.Make(Xml)(Svg)(Html)
-
 module Parent =
   Make_parent(struct
       include Markup.CSS
       let slide = `Trailing
     end)
-
-module Scrim = struct
-
-  class t ?elt () =
-    let elt = match elt with
-      | Some elt -> elt
-      | None -> To_dom.of_element @@ Markup.create_scrim () in
-    object
-      inherit Widget.t elt ()
-    end
-
-  (** Creates new widget from scratch *)
-  let make () : t =
-    new t ()
-
-  (** Attach widget to existing element *)
-  let attach (elt : #Dom_html.element Js.t) : t =
-    new t ~elt ()
-
-end
 
 type elt =
   [ `Elt of Dom_html.element Js.t
@@ -274,7 +325,9 @@ class t (elt : elt) () =
 
 (** Creates new widget from scratch *)
 let make ~(content : #Widget.t list) () : t =
-  new t (`Content (List.map Widget.coerce content)) ()
+  let t = new t (`Content (List.map Widget.coerce content)) () in
+  t#add_class Markup.CSS.root;
+  t
 
 (** Attach widget to existing element *)
 let attach (elt : #Dom_html.element Js.t) : t =

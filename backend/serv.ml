@@ -66,9 +66,8 @@ let create config auth_filter routes templates =
   let tmpl = Filename.concat settings.path "html/templates/base.html"
              |> Containers.IO.File.read_exn (* FIXME *) in
   let pages = Common.User.map_table
-                (fun u ts -> Api.Template.build_route_table tmpl (Common.User.to_string u) ts)
-                templates
-  in
+                (Api.Template.build_route_table tmpl)
+                templates in
   let handler  = get_handler ~settings ~auth_filter ~routes ~pages in
   Cohttp_lwt_unix.Server.create
     ~mode:(`TCP (`Port settings.port))

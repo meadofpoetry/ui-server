@@ -13,9 +13,8 @@
     <link rel="stylesheet" href="/css/normalize.css" type="text/css">
     <link rel="stylesheet" href="/css/main.min.css" type="text/css">
     <link rel="stylesheet" href="/css/components.min.css">
-    <!-- Additional scripts -->
-    <script type="text/javascript" src="/js/ResizeObserver.js"></script>
     <script type="text/javascript">var username="{{user}}"</script>
+    <!-- Additional scripts -->
     {{#pre_scripts}}
     <script {{#src}}src="{{script}}"{{/src}} type="text/javascript">{{^src}}{{{script}}}{{/src}}</script>
     {{/pre_scripts}}
@@ -45,6 +44,9 @@
                 </header>
                 <div id="main-panel" class="main-panel">
                     <aside id="main-drawer" class="mdc-drawer mdc-drawer--dismissible main-drawer mdc-top-app-bar--fixed-adjust">
+                        <div class="mdc-drawer__header">
+                        </div>
+                        <hr class="mdc-list-divider">
                         <div class="mdc-drawer__content">
                             <nav class="mdc-list">
                                 {{#navigation}}

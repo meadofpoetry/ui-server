@@ -83,7 +83,9 @@ let create (app : Application.t)
   let props =
     { title = Some "Конфигурация"
     ; pre_scripts = []
-    ; post_scripts = [Src "js/page_topology.js"]
+    ; post_scripts = [ Src "/js/ResizeObserver.js"
+                     ; Src "js/page_topology.js"
+                     ]
     ; stylesheets = ["/css/topology.min.css"]
     ; content = []
     } in

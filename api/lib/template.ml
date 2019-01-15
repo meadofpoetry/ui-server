@@ -234,6 +234,7 @@ let build_templates ?(href_base = "") mustache_tmpl user
   List.fold_left (fun acc v -> (fill_in v) @ acc) [] vals
 
 let build_route_table ?(href_base="") template user vals =
+  let user = Common.User.to_string user in
   let pages = build_templates ~href_base template user vals in
   let empty = Uri.Dispatcher.empty in
   let tbl = List.fold_left Uri.Dispatcher.add empty pages in
