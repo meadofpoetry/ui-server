@@ -55,7 +55,7 @@
                             <nav class="mdc-list">
                                 {{#navigation}}
                                 {{#simple}}
-                                <a href="{{href}}" class="mdc-list-item">
+                                <a href="{{href}}" class="mdc-list-item{{#active}} mdc-list-item--activated{{/active}}">
                                     {{#icon}}
                                     <div class="mdc-list-item__graphic">{{{value}}}</div>
                                     {{/icon}}
@@ -66,7 +66,7 @@
                                 <hr class="mdc-list-divider">
                                 <h6 class="mdc-list-group__subheader">{{title}}</h6>
                                 {{#subtree}}
-                                <a href="{{href}}" class="mdc-list-item">
+                                <a href="{{href}}" class="mdc-list-item{{#active}} mdc-list-item--activated{{/active}}">
                                     {{#icon}}
                                     <div class="mdc-list-item__graphic">
                                         {{{value}}}

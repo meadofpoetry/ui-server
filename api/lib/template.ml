@@ -45,7 +45,9 @@ type script = Src of string
             | Raw of string
 
 type tmpl_props =
-  { title : string option
+  { id : string option (* to find correspondence between a page
+                          and a navigation item *)
+  ; title : string option
   ; pre_scripts : script list
   ; post_scripts : script list
   ; stylesheets : string list
@@ -69,20 +71,33 @@ end
 type upper = Loc_upper
 type inner = Loc_inner
 
+type ('a, 'b) pure =
+  { path : ('a, 'b) Uri.Path.Format.t
+  ; template : tmpl_props
+  }
+
+type reference =
+  { title : string
+  ; href : Uri.Path.t
+  ; absolute : bool
+  }
+
+type simple =
+  { id : string
+  ; title : string
+  ; icon : Tyxml.Xml.elt option
+  ; href : Uri.Path.t
+  ; template : tmpl_props
+  }
+
 type _ item =
-  | Home    : tmpl_props -> upper item
-  | Pure    : { path : ('a,'b) Common.Uri.Path.Format.t
-              ; template : tmpl_props } -> upper item
-  | Ref     : { title : string
-              ; href  : Common.Uri.Path.t
-              ; absolute : bool } -> _ item
-  | Simple  : { title : string
-              ; icon  : Tyxml.Xml.elt option
-              ; href  : Common.Uri.Path.t
-              ; template : tmpl_props } -> _ item
+  | Home : tmpl_props -> upper item
+  | Pure : _ pure -> upper item
+  | Ref : reference -> _ item
+  | Simple : simple -> _ item
   | Subtree : { title : string
-              ; icon  : Tyxml.Xml.elt option
-              ; href  : Common.Uri.Path.t
+              ; icon : Tyxml.Xml.elt option
+              ; href : Uri.Path.t
               ; templates : inner ordered_item list } -> upper item
 and 'a ordered_item = (priority * 'a item)
 
@@ -97,73 +112,25 @@ let rec merge_subtree items =
     | (_, Subtree { templates = ts; _ }) -> ts @ acc
     | _ -> failwith "merge_subtree: invariant broken" in
   match items with
-  | []              -> []
+  | [] -> []
   | (p, Subtree { title; icon; href; templates })::tl ->
      let related, rest = List.partition (subtree_eq p title href) tl in
-     let templates = List.fold_left subtree_merge templates related
-     in
+     let templates = List.fold_left subtree_merge templates related in
      (p, Subtree { title; icon; href; templates }) :: (merge_subtree rest)
   | h :: tl -> h :: (merge_subtree tl)
 
 let make_template (props : tmpl_props) =
   let script_to_object = function
-    | Raw s -> `O [ "script", `String s; "src", `Bool false ]
-    | Src s -> `O [ "script", `String s; "src", `Bool true  ] in
-  [ "title",        `String (match props.title with
-                             | None   -> "АТС-3"
-                             | Some t -> t)
-  ; "pre_scripts",  `A (List.map script_to_object props.pre_scripts)
+    | Raw s -> `O ["script", `String s; "src", `Bool false]
+    | Src s -> `O ["script", `String s; "src", `Bool true] in
+  [ "title", `String (match props.title with
+                      | None -> "АТС-3"
+                      | Some t -> t)
+  ; "pre_scripts", `A (List.map script_to_object props.pre_scripts)
   ; "post_scripts", `A (List.map script_to_object props.post_scripts)
-  ; "stylesheets",  `A (List.map (fun x -> `O ["stylesheet", `String x]) props.stylesheets)
-  ; "content",      `A (List.map (fun x -> `O ["element", `String x]) props.content) ]
-
-let make_subtree href (subitems : inner ordered_item list) =
-  let make_ref (_,v) =
-    match v with
-    | Simple x ->
-       `O [ "title", `String x.title
-          ; "icon", (match x.icon with
-                     | Some e -> `O ["value", `String (elt_to_string e)]
-                     | None -> `Null)
-          ; "href",  `String (Uri.Path.to_string @@ make_absolute (href :: x.href)) ]
-    | Ref x ->
-       `O [ "title", `String x.title
-          ; "href", `String (if x.absolute
-                             then Uri.Path.to_string @@ make_absolute_ref x.href
-                             else Uri.Path.to_string @@ make_absolute x.href) ]
-    | _ -> `Null
-  in List.map make_ref subitems
-
-let make_item (_, v) =
-  match v with
-  | Home _ -> None
-  | Pure _ -> None
-  | Ref r ->
-     let href =
-       if r.absolute
-       then Uri.Path.to_string @@ make_absolute_ref r.href
-       else Uri.Path.to_string @@ make_absolute r.href in
-     Some (`O [ "title", `String r.title
-              ; "href", `String href
-              ; "simple", `Bool true ])
-  | Simple s ->
-     let icon = match s.icon with
-       | Some e -> `O ["value", `String (elt_to_string e)]
-       | None   -> `Null in
-     Some (`O [ "title", `String s.title
-              ; "icon", icon
-              ; "href", `String (Uri.Path.to_string @@ make_absolute s.href)
-              ; "simple", `Bool true ])
-  | Subtree s ->
-     let icon = match s.icon with
-       | Some e -> `O ["value", `String (elt_to_string e)]
-       | None   -> `Null in
-     let subtree = make_subtree (Uri.Path.to_string s.href) s.templates in
-     Some (`O [ "title", `String s.title
-              ; "icon", icon
-              ; "href", `Null
-              ; "subtree", `A subtree
-              ; "simple", `Bool false])
+  ; "stylesheets", `A (List.map (fun x -> `O ["stylesheet", `String x]) props.stylesheets)
+  ; "content", `A (List.map (fun x -> `O ["element", `String x]) props.content)
+  ]
 
 let sort_items items =
   let compare : type a. a ordered_item -> a ordered_item -> int =
@@ -175,7 +142,8 @@ let sort_items items =
            (p, Subtree { s with templates })
         | x -> x)
       items
-  in List.sort compare subsorted
+  in
+  List.sort compare subsorted
 
 let make_node path tmpl : 'a Uri.Dispatcher.node =
   let templ, doc = match path with
@@ -187,6 +155,67 @@ let make_node path tmpl : 'a Uri.Dispatcher.node =
   ; query_typ = []
   ; handler = fun _ -> respond_string tmpl ()
   }
+
+let make_reference (r : reference) =
+  let href =
+    if r.absolute
+    then Uri.Path.to_string @@ make_absolute_ref r.href
+    else Uri.Path.to_string @@ make_absolute r.href in
+  `O [ "title", `String r.title
+     ; "active", `Bool false
+     ; "href", `String href
+     ; "simple", `Bool true ]
+
+let make_simple ?(id : string option) ?href (s : simple) =
+  let active = match id with
+    | None -> false
+    | Some id -> String.equal id s.id in
+  let icon = match s.icon with
+    | None -> `Null
+    | Some e -> `O ["value", `String (elt_to_string e)] in
+  let href =
+    Uri.Path.to_string
+    @@ make_absolute
+    @@ begin match href with
+       | None -> make_absolute s.href
+       | Some h -> h :: s.href
+       end in
+  `O [ "title", `String s.title
+     ; "icon", icon
+     ; "active", `Bool active
+     ; "href", `String href
+     ; "simple", `Bool true ]
+
+let make_subtree ?id href (subitems : inner ordered_item list) =
+  let make_ref (_, v) =
+    match v with
+    | Simple x -> make_simple ?id ~href x
+    | Ref x -> make_reference x
+    | _ -> `Null
+  in List.map make_ref subitems
+
+let make_item ?(id : string option) (_, (v : upper item)) =
+  match v with
+  | Home _ -> None
+  | Pure _ -> None
+  | Ref r ->
+     Some (make_reference r)
+  | Simple s -> Some (make_simple ?id s)
+  | Subtree s ->
+     let icon = match s.icon with
+       | Some e -> `O ["value", `String (elt_to_string e)]
+       | None -> `Null in
+     let subtree = make_subtree ?id (Uri.Path.to_string s.href) s.templates in
+     Some (`O [ "title", `String s.title
+              ; "icon", icon
+              ; "href", `Null
+              ; "subtree", `A subtree
+              ; "simple", `Bool false])
+
+let make_navigation ?(id : string option) (vals : ('a * upper item) list) =
+  let f acc v = List.cons_maybe (make_item ?id v) acc in
+  let items = List.(rev @@ fold_left f [] vals) in
+  ["navigation", `A items]
 
 module Icon = Components_markup.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
@@ -214,13 +243,7 @@ let build_templates ?(href_base = "") mustache_tmpl user
     ; "username", `String (User.to_human_string user)
     ; "usericon", `String (make_account_icon user)
     ; "usercolor", `String (make_account_color user)
-    ; "navigation",
-      `A (List.fold_left
-            (fun acc v ->
-              match make_item v with
-              | None -> acc
-              | Some v -> v :: acc) [] vals
-          |> List.rev) ] in
+    ] in
   let fill_in_sub base_title base_href = function
     | _, Simple { title; href; template; _ } ->
        let path = base_href @ href in
@@ -229,23 +252,27 @@ let build_templates ?(href_base = "") mustache_tmpl user
          | Some t ->
             let title = base_title ^ " / " ^ t in
             { template with title = Some title } in
-       Mustache.render mustache_tmpl (`O (items @ make_template template))
+       let nav = make_navigation ?id:template.id vals in
+       Mustache.render mustache_tmpl (`O (items @ nav @ make_template template))
        |> make_node (`Path path)
        |> Option.return
     | _ -> None in
   let fill_in (_, v) =
     match v with
-    | Ref r -> [ ]
+    | Ref r -> []
     | Home t ->
-       Mustache.render mustache_tmpl (`O (items @ make_template t))
+       let nav = make_navigation vals in
+       Mustache.render mustache_tmpl (`O (items @ nav @ make_template t))
        |> make_node (`Path Uri.Path.empty)
        |> List.pure
     | Pure s ->
-       Mustache.render mustache_tmpl (`O (items @ make_template s.template))
+       let nav = make_navigation ?id:s.template.id vals in
+       Mustache.render mustache_tmpl (`O (items @ nav @ make_template s.template))
        |> make_node (`Fmt s.path)
        |> List.pure
     | Simple s ->
-       Mustache.render mustache_tmpl (`O (items @ make_template s.template))
+       let nav = make_navigation ?id:s.template.id vals in
+       Mustache.render mustache_tmpl (`O (items @ nav @ make_template s.template))
        |> make_node (`Path s.href)
        |> List.pure
     | Subtree s ->

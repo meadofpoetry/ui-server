@@ -15,57 +15,61 @@ class type container =
     method set_content : Widget.t -> unit
   end
 
-type 'a value = string * (unit -> (#Widget.t as 'a))
+module Top_app_bar_tabs = struct
 
-type ('a, 'b) tab = ('a, 'b value) Tab.t
+  type 'a value = string * (unit -> (#Widget.t as 'a))
 
-type ('a, 'b) page_content =
-  [ `Static of (#Widget.t as 'b) list
-  | `Dynamic of ('a, 'b) tab list
-  ]
+  type ('a, 'b) tab = ('a, 'b value) Tab.t
 
-let hash_of_tab (tab : ('a, 'b) tab) : string =
-  fst @@ tab#value
+  type ('a, 'b) page_content =
+    [ `Static of (#Widget.t as 'b) list
+    | `Dynamic of ('a, 'b) tab list
+    ]
 
-let widget_of_tab (tab : ('a, 'b) tab) : Widget.t =
-  Widget.coerce @@ (snd tab#value) ()
+  let hash_of_tab (tab : ('a, 'b) tab) : string =
+    fst @@ tab#value
 
-let set_active_page container tab_bar =
-  let hash =
-    Dom_html.window##.location##.hash
-    |> Js.to_string
-    |> String.drop 1 in
-  let default = List.head_opt tab_bar#tabs in
-  let active : ('a, 'b) tab option =
-    List.find_opt (fun (tab : ('a, 'b) tab) ->
-        String.equal hash @@ hash_of_tab tab) tab_bar#tabs
-    |> fun x -> Option.choice [ x; default ] in
-  begin match active with
-  | None -> ()
-  | Some tab ->
-     container#set_content @@ widget_of_tab tab;
-     if not tab#active
-     then tab_bar#set_active_tab tab |> ignore
-  end
+  let widget_of_tab (tab : ('a, 'b) tab) : Widget.t =
+    Widget.coerce @@ (snd tab#value) ()
 
-let set_hash container tab_bar hash =
-  let history = Dom_html.window##.history in
-  let hash = "#" ^ hash in
-  history##replaceState Js.undefined (Js.string "") (Js.some @@ Js.string hash);
-  set_active_page container tab_bar
+  let set_active_page container tab_bar =
+    let hash =
+      Dom_html.window##.location##.hash
+      |> Js.to_string
+      |> String.drop 1 in
+    let default = List.head_opt tab_bar#tabs in
+    let active : ('a, 'b) tab option =
+      List.find_opt (fun (tab : ('a, 'b) tab) ->
+          String.equal hash @@ hash_of_tab tab) tab_bar#tabs
+      |> fun x -> Option.choice [ x; default ] in
+    begin match active with
+    | None -> ()
+    | Some tab ->
+       container#set_content @@ widget_of_tab tab;
+       if not tab#active
+       then tab_bar#set_active_tab tab |> ignore
+    end
 
-let switch_tab container tab_bar =
-  React.E.map Fun.(set_hash container tab_bar % hash_of_tab)
-  @@ React.E.fmap Fun.id
-  @@ React.S.changes tab_bar#s_active_tab
+  let set_hash container tab_bar hash =
+    let history = Dom_html.window##.history in
+    let hash = "#" ^ hash in
+    history##replaceState Js.undefined (Js.string "") (Js.some @@ Js.string hash);
+    set_active_page container tab_bar
 
-let create_tab_row (container : container) (tabs : ('a, 'b) tab list) =
-  let open Tabs in
-  let bar = new Tab_bar.t ~align:Start ~tabs () in
-  set_active_page container bar;
-  let section = new Top_app_bar.Section.t ~align:`Start ~widgets:[bar] () in
-  let row = new Top_app_bar.Row.t ~sections:[section] () in
-  row, switch_tab container bar
+  let switch_tab container tab_bar =
+    React.E.map Fun.(set_hash container tab_bar % hash_of_tab)
+    @@ React.E.fmap Fun.id
+    @@ React.S.changes tab_bar#s_active_tab
+
+  let create_tab_row (container : container) (tabs : ('a, 'b) tab list) =
+    let open Tabs in
+    let bar = new Tab_bar.t ~align:Start ~tabs () in
+    set_active_page container bar;
+    let section = new Top_app_bar.Section.t ~align:`Start ~widgets:[bar] () in
+    let row = new Top_app_bar.Row.t ~sections:[section] () in
+    row, switch_tab container bar
+
+end
 
 let get_arbitrary () : container =
   try
@@ -103,7 +107,37 @@ let equal_drawer_type (a : drawer_type as 'a) (b : 'a) : bool =
   | Modal, Modal | Dismissible, Dismissible -> true
   | _ -> false
 
-class t (content : ('a, 'b) page_content) () =
+module Navigation_drawer = struct
+
+  let init_navigation_menu (list : Dom_html.element Js.t) =
+    let href = Js.to_string @@ Dom_html.window##.location##.pathname in
+    let items = Dom.list_of_nodeList @@ list##.childNodes in
+    (* Currently active item *)
+    let (item : Dom_html.element Js.t option) =
+      List.find_map (fun (item : Dom.node Js.t) ->
+          match item##.nodeType with
+          | ELEMENT ->
+             let (item : Dom_html.element Js.t) = Js.Unsafe.coerce item in
+             let href' =
+               Option.map Js.to_string
+               @@ Js.Opt.to_option
+               @@ item##getAttribute (Js.string "href") in
+             begin match href' with
+             | None -> None
+             | Some href' ->
+                if String.equal href' href
+                then Some item else None
+             end
+          | _ -> None) items in
+    (* Style currently active item *)
+    Option.iter (fun i ->
+        let class' = Js.string Item_list.Markup.Item.activated_class in
+        i##.classList##add class')
+      item
+
+end
+
+class t (content : ('a, 'b) Top_app_bar_tabs.page_content) () =
   let s_nav_drawer_class, set_nav_drawer_class =
     (if Dom_html.document##.body##.offsetWidth > screen_width_breakpoint
      then Dismissible else Modal)
@@ -132,6 +166,8 @@ class t (content : ('a, 'b) page_content) () =
 
     method! init () : unit =
       super#init ();
+      (* Init drawer navigation menu *)
+      self#init_drawer_navigation_menu ();
       (* Init toolbar menu button *)
       let menu = Dom_html.getElementById "main-menu" in
       Dom_events.listen menu Dom_events.Typ.click (fun _ _ ->
@@ -202,19 +238,67 @@ class t (content : ('a, 'b) page_content) () =
           >|= (fun () -> set_nav_drawer_class Dismissible))
       | _ -> Lwt.return_unit
 
+    (** Initialize navigation links *)
+    method private init_drawer_navigation_menu () : unit =
+      let href = Js.to_string @@ Dom_html.window##.location##.pathname in
+      let list_class = Item_list.Markup.base_class in
+      let list =
+        Option.get_exn
+        @@ navigation_drawer#get_child_element_by_class list_class in
+      let items = Dom.list_of_nodeList @@ list##.childNodes in
+      (* Currently active item *)
+      let (item : Dom_html.element Js.t option) =
+        List.find_map (fun (item : Dom.node Js.t) ->
+            match item##.nodeType with
+            | ELEMENT ->
+               let (item : Dom_html.element Js.t) = Js.Unsafe.coerce item in
+               let href' =
+                 Option.map Js.to_string
+                 @@ Js.Opt.to_option
+                 @@ item##getAttribute (Js.string "href") in
+               begin match href' with
+               | None -> None
+               | Some href' ->
+                  if String.equal href' href
+                  then Some item else None
+               end
+            | _ -> None) items in
+      (* Style currently active item *)
+      Option.iter (fun i ->
+          let class' = Js.string Item_list.Markup.Item.activated_class in
+          i##.classList##add class')
+        item
+
     method private set () =
       arbitrary#set_empty ();
       match content with
       | `Static widgets ->
          List.iter arbitrary#append_child widgets
-      | `Dynamic tabs ->
+      | `Dynamic _ ->
          let dynamic_class =
            Components_markup.CSS.add_modifier
              main_top_app_bar_class
              "dynamic" in
          toolbar#add_class dynamic_class;
-         let row, e = create_tab_row arbitrary tabs in
-         self#_keep_e e;
-         toolbar#append_child row;
+         (* let row, e = create_tab_row arbitrary tabs in *)
+         (* self#_keep_e e; *)
+         (* toolbar#append_child row; *)
          toolbar#layout ()
   end
+
+(** Create new scaffold from scratch *)
+let make ?(top_app_bar : #Top_app_bar.t option)
+      ?(body : #Widget.t option)
+      ?snackbar
+      ?(fab : #Fab.t option)
+      () : t =
+  ignore top_app_bar;
+  ignore body;
+  ignore snackbar;
+  ignore fab;
+  failwith "Not implemented"
+
+(** Attach scaffold widget to existing element *)
+let attach (elt : #Dom_html.element Js.t) : t =
+  ignore elt;
+  failwith "Not implemented"

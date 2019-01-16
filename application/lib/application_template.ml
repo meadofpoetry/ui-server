@@ -29,7 +29,7 @@ let input topo (input : Topology.topo_input) =
         then Some (p, c) else None)
       (Topology.get_paths topo) in
   match path with
-  | None              -> failwith "input not found"
+  | None -> failwith "input not found"
   | Some (boards, cpu) ->
      let title = Topology.get_input_name input in
      let boards =
@@ -42,7 +42,8 @@ let input topo (input : Topology.topo_input) =
        |> Yojson.Safe.to_string in
      let input_string = Topology.Show_topo_input.to_string input in
      let input_template =
-       { title = Some title
+       { id = Some input_string
+       ; title = Some title
        ; pre_scripts  =
            [ Raw (Printf.sprintf "var input = \"%s\";\
                                   var boards = %s;\
@@ -54,13 +55,15 @@ let input topo (input : Topology.topo_input) =
        } in
      let input_page =
        `Index input.id,
-       Simple { title
+       Simple { id = input_string
+              ; title
               ; icon = Some (make_icon Icon.SVG.Path.arrow_right_box)
               ; href = Uri.Path.of_string @@ get_input_href input
               ; template = input_template } in
      let pre = "input/" ^ get_input_href input in
      let stream_template =
-       { title = Some ("Входы / " ^ title)
+       { id = Some input_string
+       ; title = Some ("Входы / " ^ title)
        ; pre_scripts =
            [ Raw (Printf.sprintf "var input = \"%s\";\
                                   var boards = %s;\
@@ -81,14 +84,12 @@ let input topo (input : Topology.topo_input) =
             ; template = stream_template } in
      input_page, stream_page
 
-let create (app : Application.t)
-    : upper ordered_item list User.user_table =
-  let topo = React.S.value app.topo in
-  let hw_templates =
-    Hardware.Map.fold (fun _ (x : Boards.Board.t) acc ->
-        List.cons_maybe x.templates acc) app.hw.boards [] in
-  let props =
-    { title = Some "Конфигурация"
+let create_topology () =
+  let id = "topology" in
+  let icon = make_icon ~rotate:90 Icon.SVG.Path.sitemap in
+  let template =
+    { id = Some "topology"
+    ; title = Some "Конфигурация"
     ; pre_scripts = []
     ; post_scripts = [ Src "/js/ResizeObserver.js"
                      ; Src "js/page_topology.js"
@@ -96,8 +97,17 @@ let create (app : Application.t)
     ; stylesheets = ["/css/topology.min.css"]
     ; content = []
     } in
-  let demo_props =
-    { title = Some "UI Демо"
+  Simple { id
+         ; title = "Конфигурация"
+         ; icon = Some icon
+         ; href = Uri.Path.of_string "application"
+         ; template }
+
+let create_demo () =
+  let id = "ui-demo" in
+  let template =
+    { id = Some id
+    ; title = Some "UI Демо"
     ; pre_scripts =
         [ Src "/js/moment.min.js"
         ; Src "/js/Chart.min.js"
@@ -106,21 +116,25 @@ let create (app : Application.t)
     ; stylesheets = ["/css/demo.min.css"]
     ; content = []
     } in
+  Simple { id
+         ; title = "UI Демо"
+         ; icon = Some (make_icon Icon.SVG.Path.material_design)
+         ; href = Uri.Path.of_string "demo"
+         ; template }
+
+let create (app : Application.t)
+    : upper ordered_item list User.user_table =
+  let topo = React.S.value app.topo in
+  let hw_templates =
+    Hardware.Map.fold (fun _ (x : Boards.Board.t) acc ->
+        List.cons_maybe x.templates acc) app.hw.boards [] in
   let inputs = Topology.get_inputs topo in
   let input_templates, stream_templates =
     List.map (input topo) inputs
     |> List.split in
   let app_template =
-    [ `Index 2,
-      Simple { title = "Конфигурация"
-             ; icon = Some (make_icon ~rotate:90 Icon.SVG.Path.sitemap)
-             ; href = Uri.Path.of_string "application"
-             ; template = props }
-    ; `Index 3,
-      Simple  { title = "UI Демо"
-              ; icon = Some (make_icon Icon.SVG.Path.material_design)
-              ; href = Uri.Path.of_string "demo"
-              ; template = demo_props }
+    [ `Index 2, create_topology ()
+    ; `Index 3, create_demo ()
     ; `Index 4,
       Subtree { title = "Входы"
               ; icon = Some (make_icon Icon.SVG.Path.arrow_right_box)

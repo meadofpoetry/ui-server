@@ -4,7 +4,8 @@ open Api
 
 let home_template () : upper ordered_item list user_table =
   let props =
-    { title = None
+    { id = None
+    ; title = None
     ; pre_scripts = []
     ; post_scripts = [Src "/js/home.js"]
     ; stylesheets = []

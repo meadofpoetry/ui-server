@@ -3,14 +3,14 @@ open Containers
 open Application_js
 open Components
 
-class ['a] t ~init () = object(self)
+class t () = object(self)
   val mutable _sock : WebSockets.webSocket Js.t option = None
   val mutable _nodes : [ `CPU of Topo_cpu.t
                        | `Board of Topo_board.t
                        | `Input of Topo_input.t ] list = []
   val mutable _resize_observer = None
 
-  inherit ['a] Ui_templates.Loader.widget_loader init () as super
+  inherit Widget.t Dom_html.(createDiv document) () as super
 
   method! init () : unit =
     super#init ();
@@ -48,8 +48,5 @@ class ['a] t ~init () = object(self)
 end
 
 let () =
-  let init =
-    Requests.HTTP.get_topology ()
-    |> Lwt_result.map_err Api_js.Requests.err_to_string in
-  let elt = new t ~init () in
+  let elt = new t () in
   ignore @@ new Ui_templates.Page.t (`Static [elt#widget]) ()

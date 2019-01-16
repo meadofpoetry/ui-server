@@ -12,8 +12,10 @@ let make_icon path =
   Tyxml.Html.toelt icon
 
 let create () : upper ordered_item list user_table =
+  let id = "mosaic" in
   let template =
-    { title = Some "Мозаика"
+    { id = Some id
+    ; title = Some "Мозаика"
     ; pre_scripts = [ Src "/js/janus.nojquery.js"
                     ; Src "/js/adapter.min.js"
                     ]
@@ -23,7 +25,8 @@ let create () : upper ordered_item list user_table =
     } in
   let rval =
     [`Index 1,
-     Simple { title = "Мозаика"
+     Simple { id
+            ; title = "Мозаика"
             ; icon = Some (make_icon Icon.SVG.Path.collage)
             ; href = Path.of_string "pipeline"
             ; template }
