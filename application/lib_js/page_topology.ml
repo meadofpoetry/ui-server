@@ -44,16 +44,14 @@ let get_node_depth t =
           ) x)
      |> succ
 
-let concat (l : string list) : string =
-  List.fold_left (fun acc x -> x ^ " " ^ acc) "" l
-
 let grid_template_areas t =
   let depth = get_node_depth t in
+  let concat = List.fold_left (fun acc x -> x ^ " " ^ acc) "" in
   let rec get_entry_areas acc count = function
     | Topology.Input x ->
        if (count + 1) < depth
        then let inp  = "\"" ^ (Topo_node.input_to_area x) in
-            let list = List.range 1 @@ (depth-count - 1) * 2 in
+            let list = List.range 1 @@ (depth - count - 1) * 2 in
             (List.fold_left (fun acc _ -> acc ^ " . ") inp list) ^ acc ^ "\""
        else "\"" ^ (Topo_node.input_to_area x) ^ " " ^ acc ^ "\""
     | Topology.Board x ->
@@ -62,21 +60,15 @@ let grid_template_areas t =
        let str = ". " ^ (Topo_node.board_to_area x) ^ " " in
        match ports with
        | [] -> str ^ " " ^ acc
-       | l -> concat (List.map (get_entry_areas (str ^ acc) (count + 1)) l)
-  in
+       | l -> concat @@ List.map (get_entry_areas (str ^ acc) (count + 1)) l in
   match t with
   | `CPU (x : Topology.topo_cpu) ->
-     List.map (fun (x : Topology.topo_interface) ->
-         get_entry_areas ". CPU" 1 x.conn) x.ifaces
-     |> concat
+     concat @@ List.map (fun (x : Topology.topo_interface) ->
+                   get_entry_areas ". CPU" 1 x.conn) x.ifaces
   | `Boards x ->
-     let map board =
-       get_entry_areas (". " ^ (Topo_node.board_to_area board)) 1 in
-     List.map (fun board ->
-         List.map (fun (x : Topology.topo_port) -> map board x.child)
-           board.ports
-         |> concat) x
-     |> concat
+     let map (b : Topology.topo_board) (p : Topology.topo_port) : string =
+       get_entry_areas (". " ^ (Topo_node.board_to_area b)) 1 p.child in
+     concat @@ List.map (fun b -> concat @@ List.map (map b) b.ports) x
 
 let wrap area elt =
   let div = Widget.create_div () in
@@ -141,14 +133,13 @@ let make_nodes topology =
      let cpu_el = create_element ~element:(`CPU cpu) ~connections in
      cpu_el :: acc
   | `Boards x ->
-     List.map (fun board ->
+     List.flat_map (fun board ->
          let connections, acc =
            List.fold_left (fun (conn, total) x ->
                let e, acc = get_boards [] x.child in
-               (e, `Port x) :: conn, acc @ total) ([],[]) board.ports in
+               (e, `Port x) :: conn, acc @ total) ([], []) board.ports in
          let b = create_element ~element:(`Entry (Board board)) ~connections in
          b :: acc) x
-     |> List.flatten
 
 let iter_paths f nodes =
   List.iter (function
@@ -186,6 +177,10 @@ let create ~(parent : #Widget.t)
   iter_paths (fun _ x ->
       Option.iter (fun sw -> parent#append_child sw) x#switch;
       Js_of_ocaml.Dom.appendChild svg x#root) nodes;
+  Js_of_ocaml.(
+    let main_panel = Dom_html.getElementById "main-panel" in
+    let main_content = Dom_html.getElementById "main-content" in
+    Dom.insertBefore main_panel drawer#root (Js.some main_content));
   (* Widget.append_to_body drawer; *)
   Js_of_ocaml.Dom.appendChild parent#root svg;
   List.iter (fun x -> let node = to_topo_node x in

@@ -3,23 +3,21 @@ open Containers
 open Application_js
 open Components
 
-class t () = object(self)
+class ['a] t ~init () = object(self)
   val mutable _sock : WebSockets.webSocket Js.t option = None
   val mutable _nodes : [ `CPU of Topo_cpu.t
                        | `Board of Topo_board.t
                        | `Input of Topo_input.t ] list = []
   val mutable _resize_observer = None
 
-  inherit Widget.t Dom_html.(createDiv document) () as super
+  inherit ['a] Ui_templates.Loader.widget_loader init () as super
 
   method! init () : unit =
     super#init ();
-    self#add_class Page_topology._class;
+    super#add_class Page_topology._class;
     let obs =
       Ui_templates.Resize_observer.observe ~node:self#root
-        ~f:(fun _ ->
-          self#layout ())
-        () in
+        ~f:(fun _ -> self#layout ()) () in
     _resize_observer <- Some obs;
     let open Lwt_result.Infix in
     Requests.HTTP.get_topology ()
@@ -50,5 +48,8 @@ class t () = object(self)
 end
 
 let () =
-  let elt = new t () in
+  let init =
+    Requests.HTTP.get_topology ()
+    |> Lwt_result.map_err Api_js.Requests.err_to_string in
+  let elt = new t ~init () in
   ignore @@ new Ui_templates.Page.t (`Static [elt#widget]) ()

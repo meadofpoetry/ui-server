@@ -7,8 +7,11 @@ dist/db
 *.merlin
 tmp
 .sass-cache/*
-dist/resources/css/table.css
 dist/resources/css/*.map
+dist/backend
+dist/config.json
+
+# Ignore .js files except some external ones 
 dist/resources/js/*.js
 !dist/resources/js/moment.min.js
 !dist/resources/js/chartjs-plugin-deferred.min.js
@@ -17,7 +20,4 @@ dist/resources/js/*.js
 !dist/resources/js/Chart.min.js
 !dist/resources/js/adapter.min.js
 !dist/resources/js/janus.nojquery.js
-!dist/resources/js/material-components-web.min.js
 !dist/resources/js/ResizeObserver.js
-dist/backend
-dist/config.json
