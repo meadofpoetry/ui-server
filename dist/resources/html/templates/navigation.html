@@ -1,0 +1,37 @@
+<aside id="main-drawer" class="mdc-drawer mdc-drawer--dismissible main-drawer">
+    <div class="mdc-drawer__header">
+        <div class="mdc-avatar" style="background-color: {{usercolor}}">
+            {{{usericon}}}
+        </div>
+        <div class="mdc-drawer__title">{{username}}</div>
+    </div>
+    <hr class="mdc-list-divider">
+    <div class="mdc-drawer__content">
+        <nav class="mdc-list">
+            {{#navigation}}
+            {{#simple}}
+            <a href="{{href}}" class="mdc-list-item{{#active}} mdc-list-item--activated{{/active}}">
+                {{#icon}}
+                <div class="mdc-list-item__graphic">{{{value}}}</div>
+                {{/icon}}
+                {{title}}
+            </a>
+            {{/simple}}
+            {{^simple}}
+            <hr class="mdc-list-divider">
+            <h6 class="mdc-list-group__subheader">{{title}}</h6>
+            {{#subtree}}
+            <a href="{{href}}" class="mdc-list-item{{#active}} mdc-list-item--activated{{/active}}">
+                {{#icon}}
+                <div class="mdc-list-item__graphic">
+                    {{{value}}}
+                </div>
+                {{/icon}}
+                {{title}}
+            </a>
+            {{/subtree}}
+            {{/simple}}
+            {{/navigation}}
+        </nav>
+    </div>
+</aside>

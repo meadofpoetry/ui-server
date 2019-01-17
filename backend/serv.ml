@@ -63,12 +63,16 @@ let get_handler ~settings
 
 let create config auth_filter routes templates =
   let settings = Conf.get config in
-  let tmpl = Filename.concat settings.path "html/templates/base.html"
-             |> Containers.IO.File.read_exn (* FIXME *) in
+  let base_tmpl =
+    Filename.concat settings.path "html/templates/base.html"
+    |> Containers.IO.File.read_exn (* FIXME *) in
+  let nav_tmpl =
+    Filename.concat settings.path "html/templates/navigation.html"
+    |> Containers.IO.File.read_exn in
   let pages = Common.User.map_table
-                (Api.Template.build_route_table tmpl)
+                (Api.Template.build_route_table base_tmpl nav_tmpl)
                 templates in
-  let handler  = get_handler ~settings ~auth_filter ~routes ~pages in
+  let handler = get_handler ~settings ~auth_filter ~routes ~pages in
   Cohttp_lwt_unix.Server.create
     ~mode:(`TCP (`Port settings.port))
     ~on_exn:(fun e -> Logs.err (fun m -> m "(Server) Exception: %s" (Printexc.to_string e)))

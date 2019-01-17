@@ -168,25 +168,25 @@ class t (content : ('a, 'b) page_content) () =
 
     (* Private methods *)
 
-    method private render_drawer (typ : drawer_type) : unit =
-      let parent = Dom_html.getElementById "main-panel" in
-      match typ with
-      | Modal ->
-         let div =
-           Tyxml_js.Html.(
-             div [ Tyxml_js.Of_dom.of_element navigation_drawer#root
-                 ; Drawer.Markup.create_scrim () ]) in
-         Dom.insertBefore parent
-           (Tyxml_js.To_dom.of_element div)
-           parent##.firstChild;
-         navigation_drawer#set_modal ();
-      | Dismissible ->
-         (* Remove first child (div with drawer) *)
-         let first_child = parent##.firstChild in
-         Js.Opt.iter first_child (Dom.removeChild parent);
-         (* Insert drawer before content *)
-         Dom.insertBefore parent navigation_drawer#root parent##.firstChild;
-         navigation_drawer#set_dismissible ();
+    method private render_drawer (_ : drawer_type) : unit = ()
+      (* let parent = Dom_html.getElementById "main-panel" in
+       * match typ with
+       * | Modal ->
+       *    let div =
+       *      Tyxml_js.Html.(
+       *        div [ Tyxml_js.Of_dom.of_element navigation_drawer#root
+       *            ; Drawer.Markup.create_scrim () ]) in
+       *    Dom.insertBefore parent
+       *      (Tyxml_js.To_dom.of_element div)
+       *      parent##.firstChild;
+       *    navigation_drawer#set_modal ();
+       * | Dismissible ->
+       *    (\* Remove first child (div with drawer) *\)
+       *    let first_child = parent##.firstChild in
+       *    Js.Opt.iter first_child (Dom.removeChild parent);
+       *    (\* Insert drawer before content *\)
+       *    Dom.insertBefore parent navigation_drawer#root parent##.firstChild;
+       *    navigation_drawer#set_dismissible (); *)
 
     method private handle_resize () : unit Lwt.t =
       let value = React.S.value s_nav_drawer_class in

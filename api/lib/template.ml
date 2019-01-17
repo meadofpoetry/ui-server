@@ -212,11 +212,6 @@ let make_item ?(id : string option) (_, (v : upper item)) =
               ; "subtree", `A subtree
               ; "simple", `Bool false])
 
-let make_navigation ?(id : string option) (vals : ('a * upper item) list) =
-  let f acc v = List.cons_maybe (make_item ?id v) acc in
-  let items = List.(rev @@ fold_left f [] vals) in
-  ["navigation", `A items]
-
 module Icon = Components_markup.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
 let make_account_color (user : User.t) : string =
@@ -234,16 +229,30 @@ let make_account_icon (user : User.t) : string =
   let icon = Icon.SVG.create [path] () in
   Format.asprintf "%a" (Tyxml.Html.pp_elt ()) icon
 
-let build_templates ?(href_base = "") mustache_tmpl user
+let make_navigation ?(id : string option) user (vals : ('a * upper item) list) =
+  let f acc v = List.cons_maybe (make_item ?id v) acc in
+  let items = List.(rev @@ fold_left f [] vals) in
+  [ "navigation", `A items
+  ; "username", `String (User.to_human_string user)
+  ; "usericon", `String (make_account_icon user)
+  ; "usercolor", `String (make_account_color user)
+  ]
+
+let make_json nav_tmpl (template : tmpl_props) user vals =
+  let nav = `O (make_navigation ?id:template.id user vals)
+            |> Mustache.render nav_tmpl in
+  `O ([ "user", `String (User.to_string user)
+      ; "navigation", `String nav]
+      @ (make_template template))
+
+let build_templates ?(href_base = "")
+      (base_tmpl : string)
+      (nav_tmpl : string)
+      (user : User.t)
       (vals : upper ordered_item list) =
   let vals = sort_items @@ merge_subtree vals in
-  let mustache_tmpl = Mustache.of_string mustache_tmpl in
-  let items =
-    [ "user", `String (User.to_string user)
-    ; "username", `String (User.to_human_string user)
-    ; "usericon", `String (make_account_icon user)
-    ; "usercolor", `String (make_account_color user)
-    ] in
+  let base = Mustache.of_string base_tmpl in
+  let nav = Mustache.of_string nav_tmpl in
   let fill_in_sub base_title base_href = function
     | _, Simple { title; href; template; _ } ->
        let path = base_href @ href in
@@ -252,8 +261,7 @@ let build_templates ?(href_base = "") mustache_tmpl user
          | Some t ->
             let title = base_title ^ " / " ^ t in
             { template with title = Some title } in
-       let nav = make_navigation ?id:template.id vals in
-       Mustache.render mustache_tmpl (`O (items @ nav @ make_template template))
+       Mustache.render base (make_json nav template user vals)
        |> make_node (`Path path)
        |> Option.return
     | _ -> None in
@@ -261,18 +269,15 @@ let build_templates ?(href_base = "") mustache_tmpl user
     match v with
     | Ref r -> []
     | Home t ->
-       let nav = make_navigation vals in
-       Mustache.render mustache_tmpl (`O (items @ nav @ make_template t))
+       Mustache.render base (make_json nav t user vals)
        |> make_node (`Path Uri.Path.empty)
        |> List.pure
     | Pure s ->
-       let nav = make_navigation ?id:s.template.id vals in
-       Mustache.render mustache_tmpl (`O (items @ nav @ make_template s.template))
+       Mustache.render base (make_json nav s.template user vals)
        |> make_node (`Fmt s.path)
        |> List.pure
     | Simple s ->
-       let nav = make_navigation ?id:s.template.id vals in
-       Mustache.render mustache_tmpl (`O (items @ nav @ make_template s.template))
+       Mustache.render base (make_json nav s.template user vals)
        |> make_node (`Path s.href)
        |> List.pure
     | Subtree s ->
@@ -280,8 +285,12 @@ let build_templates ?(href_base = "") mustache_tmpl user
   in
   List.fold_left (fun acc v -> (fill_in v) @ acc) [] vals
 
-let build_route_table ?(href_base="") template (user : User.t) vals =
-  let pages = build_templates ~href_base template user vals in
+let build_route_table ?(href_base = "")
+      (base_tmpl : string)
+      (nav_tmpl : string)
+      (user : User.t)
+      vals =
+  let pages = build_templates ~href_base base_tmpl nav_tmpl user vals in
   let empty = Uri.Dispatcher.empty in
   let tbl = List.fold_left Uri.Dispatcher.add empty pages in
   tbl

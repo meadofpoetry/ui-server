@@ -23,23 +23,35 @@ $large-1440: 1440px;
 $large-1600: 1580px;
 $xlarge: 1900px;
 
+:root {
+    --mdc-theme-background: #ececec;
+}
+
 html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
-body {
-    margin: 0;
-    background-color: #ececec;
-}
 
 .main-page-container {
-    position: relative;
+    height: 100%;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    transition: 200ms margin cubic-bezier(.4, 0, .2, 1) 50ms;
+    overflow: auto;
+    display: flex;
+}
+
+.drawer-frame-root {
+    display: flex;
+    height: 100vh;
 }
 
 .main-panel {
     display: flex;
     position: relative;
     height: 100vh;
+    width: 100vw;
     overflow: hidden;
 }
 
@@ -53,7 +65,7 @@ body {
     width: 100%;
     max-width: 100%;
     padding: 40px 16px 100px;
-    transition: 200ms transform cubic-bezier(.4, 0, .2, 1) 50ms;
+    transition: 200ms margin cubic-bezier(.4, 0, .2, 1) 50ms;
     overflow: auto;
     display: flex;
 }

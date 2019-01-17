@@ -11,8 +11,8 @@
     <link rel="stylesheet" href="/fonts/robotomono/robotomono.css">
     <link rel="stylesheet" href="/fonts/opensans/opensans.css">
     <link rel="stylesheet" href="/css/normalize.css" type="text/css">
-    <link rel="stylesheet" href="/css/main.min.css" type="text/css">
     <link rel="stylesheet" href="/css/components.min.css">
+    <link rel="stylesheet" href="/css/main.min.css" type="text/css">
     <script type="text/javascript">var username="{{user}}"</script>
     <!-- Additional scripts -->
     {{#pre_scripts}}
@@ -24,65 +24,31 @@
     {{/stylesheets}}
     </head>
     <body class="mdc-typography">
-        <div id="root">
-            <div class="main-page-container">
-                <header id="main-top-app-bar" class="mdc-top-app-bar main-top-app-bar">
-                    <div class="mdc-top-app-bar__row">
-                        <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
-                            <button id="main-menu" class="main-menu material-icons mdc-top-app-bar__navigation-icon"
-                                    style="outline: none;">
-                                <svg xmlns="http://www.w3.org/2000/svg"
-                                     xmlns:xlink="http://www.w3.org/1999/xlink"
-                                     class="mdc-icon" style="width:24px;height:24px"
-                                     viewBox="0 0 24 24">
-                                    <path class="" d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z"></path>
-                                </svg>
-                            </button>
-                            <span id="page-title" class="mdc-top-app-bar__title">{{title}}</span>
-                        </section>
+        <div id="root" class="mdc-scaffold">
+            <div class="mdc-scaffold__drawer-frame">
+                {{{navigation}}}
+                <div class="mdc-scaffold__app-content">
+                    <header id="main-top-app-bar" class="mdc-top-app-bar main-top-app-bar">
+                        <div class="mdc-top-app-bar__row">
+                            <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
+                                <button id="main-menu" class="main-menu material-icons mdc-top-app-bar__navigation-icon"
+                                        style="outline: none;">
+                                    <svg xmlns="http://www.w3.org/2000/svg"
+                                         xmlns:xlink="http://www.w3.org/1999/xlink"
+                                         class="mdc-icon" style="width:24px;height:24px"
+                                         viewBox="0 0 24 24">
+                                        <path class="" d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z"></path>
+                                    </svg>
+                                </button>
+                                <span id="page-title" class="mdc-top-app-bar__title">{{title}}</span>
+                            </section>
+                        </div>
+                    </header>
+                    <div id="main-panel" class="mdc-scaffold__drawer-frame">
+                        <main id="main-content" class="mdc-scaffold__app-content mdc-top-app-bar--fixed-adjust">
+                            <section id="arbitrary-content">{{#content}}{{{element}}}{{/content}}</section>
+                        </main>
                     </div>
-                </header>
-                <div id="main-panel" class="main-panel">
-                    <aside id="main-drawer" class="mdc-drawer mdc-drawer--dismissible main-drawer mdc-top-app-bar--fixed-adjust">
-                        <div class="mdc-drawer__header">
-                            <div class="mdc-avatar" style="background-color: {{usercolor}}">
-                                {{{usericon}}}
-                            </div>
-                            <div class="mdc-drawer__title">{{username}}</div>
-                        </div>
-                        <hr class="mdc-list-divider">
-                        <div class="mdc-drawer__content">
-                            <nav class="mdc-list">
-                                {{#navigation}}
-                                {{#simple}}
-                                <a href="{{href}}" class="mdc-list-item{{#active}} mdc-list-item--activated{{/active}}">
-                                    {{#icon}}
-                                    <div class="mdc-list-item__graphic">{{{value}}}</div>
-                                    {{/icon}}
-                                    {{title}}
-                                </a>
-                                {{/simple}}
-                                {{^simple}}
-                                <hr class="mdc-list-divider">
-                                <h6 class="mdc-list-group__subheader">{{title}}</h6>
-                                {{#subtree}}
-                                <a href="{{href}}" class="mdc-list-item{{#active}} mdc-list-item--activated{{/active}}">
-                                    {{#icon}}
-                                    <div class="mdc-list-item__graphic">
-                                        {{{value}}}
-                                    </div>
-                                    {{/icon}}
-                                    {{title}}
-                                </a>
-                                {{/subtree}}
-                                {{/simple}}
-                                {{/navigation}}
-                            </nav>
-                        </div>
-                    </aside>
-                    <main id="main-content" class="main-content mdc-side-sheet-app-content mdc-top-app-bar--fixed-adjust">
-                        <section id="arbitrary-content">{{#content}}{{{element}}}{{/content}}</section>
-                    </main>
                 </div>
             </div>
         </div>

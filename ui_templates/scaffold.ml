@@ -71,8 +71,35 @@ module Top_app_bar_tabs = struct
 
 end
 
-let get_arbitrary () : container =
-  try
+type drawer_type = Modal | Dismissible | Permanent
+
+let equal_drawer_type (a : drawer_type as 'a) (b : 'a) : bool =
+  match a, b with
+  | Modal, Modal | Dismissible, Dismissible | Permanent, Permanent -> true
+  | _ -> false
+
+module App_bar = struct
+
+  let attach () : Top_app_bar.t =
+    Dom_html.getElementById "main-top-app-bar"
+    |> Top_app_bar.attach ~tolerance:{ up = 5; down = 5 }
+
+end
+
+module Leading_drawer = struct
+
+  let attach () : Drawer.t =
+    Drawer.attach @@ Dom_html.getElementById "main-drawer"
+
+end
+
+module Trailing_drawer = struct
+
+end
+
+module Body = struct
+
+  let attach () : container =
     let elt = Dom_html.getElementById "arbitrary-content" in
     object(self)
       val mutable _content = None
@@ -88,52 +115,6 @@ let get_arbitrary () : container =
         self#append_child w;
         w#layout ()
     end
-  with e -> print_endline "no arbitrary"; raise e
-
-let get_navigation_drawer () : Drawer.t =
-  try Drawer.attach @@ Dom_html.getElementById "main-drawer"
-  with e -> print_endline "no sidebar"; raise e
-
-let get_toolbar () : Top_app_bar.t =
-  try
-    Dom_html.getElementById "main-top-app-bar"
-    |> Top_app_bar.attach ~tolerance:{ up = 5; down = 5 }
-  with e -> print_endline "no toolbar"; raise e
-
-type drawer_type = Modal | Dismissible
-
-let equal_drawer_type (a : drawer_type as 'a) (b : 'a) : bool =
-  match a, b with
-  | Modal, Modal | Dismissible, Dismissible -> true
-  | _ -> false
-
-module Navigation_drawer = struct
-
-  let init_navigation_menu (list : Dom_html.element Js.t) =
-    let href = Js.to_string @@ Dom_html.window##.location##.pathname in
-    let items = Dom.list_of_nodeList @@ list##.childNodes in
-    (* Currently active item *)
-    let (item : Dom_html.element Js.t option) =
-      List.find_map (fun (item : Dom.node Js.t) ->
-          match item##.nodeType with
-          | ELEMENT ->
-             let (item : Dom_html.element Js.t) = Js.Unsafe.coerce item in
-             let href' =
-               Option.map Js.to_string
-               @@ Js.Opt.to_option
-               @@ item##getAttribute (Js.string "href") in
-             begin match href' with
-             | None -> None
-             | Some href' ->
-                if String.equal href' href
-                then Some item else None
-             end
-          | _ -> None) items in
-    (* Style currently active item *)
-    Option.iter (fun i ->
-        let class' = Js.string Item_list.Markup.Item.activated_class in
-        i##.classList##add class')
-      item
 
 end
 
@@ -145,9 +126,9 @@ class t (content : ('a, 'b) Top_app_bar_tabs.page_content) () =
   let main =
     try Dom_html.getElementById "main-content"
     with e -> print_endline "no main"; raise e in
-  let arbitrary = get_arbitrary () in
-  let toolbar = get_toolbar () in
-  let navigation_drawer = get_navigation_drawer () in
+  let arbitrary = Body.attach () in
+  let toolbar = App_bar.attach () in
+  let navigation_drawer = Leading_drawer.attach () in
   let title = toolbar#get_child_element_by_id "page-title"
               |> Option.get_exn
               |> Widget.create in
@@ -166,8 +147,6 @@ class t (content : ('a, 'b) Top_app_bar_tabs.page_content) () =
 
     method! init () : unit =
       super#init ();
-      (* Init drawer navigation menu *)
-      self#init_drawer_navigation_menu ();
       (* Init toolbar menu button *)
       let menu = Dom_html.getElementById "main-menu" in
       Dom_events.listen menu Dom_events.Typ.click (fun _ _ ->
@@ -222,7 +201,8 @@ class t (content : ('a, 'b) Top_app_bar_tabs.page_content) () =
          Js.Opt.iter first_child (Dom.removeChild parent);
          (* Insert drawer before content *)
          Dom.insertBefore parent navigation_drawer#root parent##.firstChild;
-         navigation_drawer#set_dismissible ();
+         navigation_drawer#set_dismissible ()
+      | Permanent -> ();
 
     method private handle_resize () : unit Lwt.t =
       let value = React.S.value s_nav_drawer_class in
@@ -237,37 +217,6 @@ class t (content : ('a, 'b) Top_app_bar_tabs.page_content) () =
           navigation_drawer#hide_await ()
           >|= (fun () -> set_nav_drawer_class Dismissible))
       | _ -> Lwt.return_unit
-
-    (** Initialize navigation links *)
-    method private init_drawer_navigation_menu () : unit =
-      let href = Js.to_string @@ Dom_html.window##.location##.pathname in
-      let list_class = Item_list.Markup.base_class in
-      let list =
-        Option.get_exn
-        @@ navigation_drawer#get_child_element_by_class list_class in
-      let items = Dom.list_of_nodeList @@ list##.childNodes in
-      (* Currently active item *)
-      let (item : Dom_html.element Js.t option) =
-        List.find_map (fun (item : Dom.node Js.t) ->
-            match item##.nodeType with
-            | ELEMENT ->
-               let (item : Dom_html.element Js.t) = Js.Unsafe.coerce item in
-               let href' =
-                 Option.map Js.to_string
-                 @@ Js.Opt.to_option
-                 @@ item##getAttribute (Js.string "href") in
-               begin match href' with
-               | None -> None
-               | Some href' ->
-                  if String.equal href' href
-                  then Some item else None
-               end
-            | _ -> None) items in
-      (* Style currently active item *)
-      Option.iter (fun i ->
-          let class' = Js.string Item_list.Markup.Item.activated_class in
-          i##.classList##add class')
-        item
 
     method private set () =
       arbitrary#set_empty ();
