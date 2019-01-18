@@ -30,11 +30,11 @@ let content_to_elt : type a. a content ->
        |> To_dom.of_element
        |> Widget.create in
      let content = Markup.create_content [Widget.to_markup text] () in
-     Markup.create content indicator (), text
+     Markup.create ~indicator content (), text
   | Icon icon ->
      icon#add_class Markup.icon_class;
      let content = Markup.create_content [Widget.to_markup icon] () in
-     Markup.create content indicator (), icon
+     Markup.create ~indicator content (), icon
   | Both (text, icon) ->
      icon#add_class Markup.icon_class;
      let text =
@@ -43,13 +43,13 @@ let content_to_elt : type a. a content ->
        |> Widget.create in
      let content = Markup.create_content [ Widget.to_markup icon
                                          ; Widget.to_markup text ] () in
-     Markup.create content indicator (), (text, icon)
+     Markup.create ~indicator content (), (text, icon)
 
 class ['a, 'b] t
         ?(min_width = false)
         ?(disabled = false)
         ?(active = false)
-        ~(value : 'b)
+        ?(value : 'b option)
         ~(content : 'a content)
         () =
   let indicator = new Tab_indicator.t () in
@@ -61,7 +61,7 @@ class ['a, 'b] t
     inherit Widget.t elt () as super
 
     val mutable _ripple : Ripple.t option = None
-    val mutable _value : 'b = value
+    val mutable _value : 'b option = value
     val mutable _click_listener = None
 
     method! init () : unit =
@@ -107,11 +107,16 @@ class ['a, 'b] t
     method indicator : Tab_indicator.t =
       indicator
 
-    method value : 'b =
+    method value_opt : 'b option =
       _value
 
+    method value : 'b =
+      match _value with
+      | None -> raise Not_found
+      | Some x -> x
+
     method set_value (x : 'b) : unit =
-      _value <- x
+      _value <- Some x
 
     method content : 'a content =
       content
@@ -171,3 +176,6 @@ class ['a, 'b] t
       Option.get_exn @@ self#get_child_element_by_class Markup.content_class
 
   end
+
+let make ?min_width ?disabled ?active ?value ~content () : ('a, 'b) t =
+  new t ?min_width ?disabled ?active ?value ~content ()

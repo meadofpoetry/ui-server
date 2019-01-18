@@ -41,10 +41,9 @@ let get_handler ~settings
     let resource_path = Common.Uri.(Path.to_string uri.path) in
     let respond_page path id =
       let tbl = match id with
-        | `Root     -> pages.root
+        | `Root -> pages.root
         | `Operator -> pages.operator
-        | `Guest    -> pages.guest
-      in
+        | `Guest -> pages.guest in
       (try Dispatcher.dispatch tbl path
        with _ -> resource settings.path resource_path)
     in
@@ -63,15 +62,19 @@ let get_handler ~settings
 
 let create config auth_filter routes templates =
   let settings = Conf.get config in
-  let base_tmpl =
-    Filename.concat settings.path "html/templates/base.html"
-    |> Containers.IO.File.read_exn (* FIXME *) in
-  let nav_tmpl =
-    Filename.concat settings.path "html/templates/navigation.html"
+  let read_file (name : string) =
+    Filename.concat "html/templates" name
+    |> Filename.concat settings.path
     |> Containers.IO.File.read_exn in
-  let pages = Common.User.map_table
-                (Api.Template.build_route_table base_tmpl nav_tmpl)
-                templates in
+  let (files : Api.Template.template_files) =
+    { base = read_file "base.html"
+    ; nav = read_file "navigation.html"
+    ; app_bar = read_file "app_bar.html"
+    } in
+  let pages =
+    Common.User.map_table
+      (Api.Template.build_route_table files)
+      templates in
   let handler = get_handler ~settings ~auth_filter ~routes ~pages in
   Cohttp_lwt_unix.Server.create
     ~mode:(`TCP (`Port settings.port))

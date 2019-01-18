@@ -1,50 +1,34 @@
-
 <!DOCTYPE html>
 <html lang="ru">
     <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="">
-    <title>{{title}}</title>
-    <link rel="stylesheet" href="/css/icon.css">
-    <link rel="stylesheet" href="/fonts/roboto/roboto.css">
-    <link rel="stylesheet" href="/fonts/robotomono/robotomono.css">
-    <link rel="stylesheet" href="/fonts/opensans/opensans.css">
-    <link rel="stylesheet" href="/css/normalize.css" type="text/css">
-    <link rel="stylesheet" href="/css/components.min.css">
-    <link rel="stylesheet" href="/css/main.min.css" type="text/css">
-    <script type="text/javascript">var username="{{user}}"</script>
-    <!-- Additional scripts -->
-    {{#pre_scripts}}
-    <script {{#src}}src="{{script}}"{{/src}} type="text/javascript">{{^src}}{{{script}}}{{/src}}</script>
-    {{/pre_scripts}}
-    <!-- Additional stylesheets -->
-    {{#stylesheets}}
-    <link rel="stylesheet" href={{stylesheet}} type="text/css">
-    {{/stylesheets}}
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="">
+        <title>{{title}}</title>
+        <link rel="stylesheet" href="/css/icon.css">
+        <link rel="stylesheet" href="/fonts/roboto/roboto.css">
+        <link rel="stylesheet" href="/fonts/robotomono/robotomono.css">
+        <link rel="stylesheet" href="/fonts/opensans/opensans.css">
+        <link rel="stylesheet" href="/css/normalize.css" type="text/css">
+        <link rel="stylesheet" href="/css/components.min.css">
+        <link rel="stylesheet" href="/css/main.min.css" type="text/css">
+        <script type="text/javascript">var username="{{user}}"</script>
+        <!-- Additional scripts -->
+        {{#pre_scripts}}
+        <script {{#src}}src="{{script}}"{{/src}} type="text/javascript">{{^src}}{{{script}}}{{/src}}</script>
+        {{/pre_scripts}}
+        <!-- Additional stylesheets -->
+        {{#stylesheets}}
+        <link rel="stylesheet" href={{stylesheet}} type="text/css">
+        {{/stylesheets}}
     </head>
     <body class="mdc-typography">
         <div id="root" class="mdc-scaffold">
             <div class="mdc-scaffold__drawer-frame">
-                {{{navigation}}}
                 <div class="mdc-scaffold__app-content">
-                    <header id="main-top-app-bar" class="mdc-top-app-bar main-top-app-bar">
-                        <div class="mdc-top-app-bar__row">
-                            <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
-                                <button id="main-menu" class="main-menu material-icons mdc-top-app-bar__navigation-icon"
-                                        style="outline: none;">
-                                    <svg xmlns="http://www.w3.org/2000/svg"
-                                         xmlns:xlink="http://www.w3.org/1999/xlink"
-                                         class="mdc-icon" style="width:24px;height:24px"
-                                         viewBox="0 0 24 24">
-                                        <path class="" d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z"></path>
-                                    </svg>
-                                </button>
-                                <span id="page-title" class="mdc-top-app-bar__title">{{title}}</span>
-                            </section>
-                        </div>
-                    </header>
+                    {{{app_bar}}}
                     <div id="main-panel" class="mdc-scaffold__drawer-frame">
+                        {{{navigation}}}
                         <main id="main-content" class="mdc-scaffold__app-content mdc-top-app-bar--fixed-adjust">
                             <section id="arbitrary-content">{{#content}}{{{element}}}{{/content}}</section>
                         </main>

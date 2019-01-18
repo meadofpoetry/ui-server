@@ -133,7 +133,10 @@ class t (content : ('a, 'b) page_content) () =
     method! init () : unit =
       super#init ();
       (* Init toolbar menu button *)
-      let menu = Dom_html.getElementById "main-menu" in
+      let menu =
+        toolbar#get_child_element_by_class
+          Top_app_bar.Markup.navigation_icon_class
+        |> Option.get_exn in
       Dom_events.listen menu Dom_events.Typ.click (fun _ _ ->
           navigation_drawer#toggle (); true)
       |> (fun x -> menu_click_listener <- Some x);

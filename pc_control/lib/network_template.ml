@@ -8,13 +8,10 @@ module Icon = Components_markup.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 let create () : upper ordered_item list user_table =
   let id = "network-settings" in
   let props =
-    { id = Some id
-    ; title = Some "Сеть"
-    ; pre_scripts = []
-    ; post_scripts = [ Src "/js/network.js" ]
-    ; stylesheets = []
-    ; content = []
-    } in
+    make_tmpl_props ~id
+      ~app_bar:(make_app_bar_props ~title:"Сеть" ())
+      ~post_scripts:[Src "/js/network.js"]
+      () in
   let icon x =
     let open Icon.SVG in
     let path = create_path x () in

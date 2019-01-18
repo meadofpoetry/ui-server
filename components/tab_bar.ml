@@ -79,7 +79,7 @@ class ['a, 'b] t ?(auto_activation = false)
                   |> Option.map fst
 
     method active_tab_value : 'b option =
-      Option.map (fun x -> x#value) @@ self#active_tab
+      Option.flat_map (fun x -> x#value_opt) @@ self#active_tab
 
     method set_active_tab (tab : ('a, 'b) Tab.t) : unit =
       match List.find_idx (eq tab) self#tabs with

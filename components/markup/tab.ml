@@ -25,7 +25,7 @@ module Make
     span ~a:([a_class (content_class :: classes)] <@> attrs) content
 
   let create ?(classes = []) ?attrs ?(active = false) ?(stacked = false)
-        ?(min_width = false) content indicator () : 'a elt =
+        ?(min_width = false) ~indicator content () : 'a elt =
     let classes =
       classes
       |> cons_if active active_class

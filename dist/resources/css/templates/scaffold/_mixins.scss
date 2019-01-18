@@ -17,6 +17,9 @@
 
 @mixin mdc-scaffold-base_() {
     @include mdc-typography-base;
+    .mdc-top-app-bar {
+        position: absolute;
+    }
     .mdc-drawer--open:not(.mdc-drawer--closing) ~ &__app-content {
         @include mdc-side-sheet-app-content-margin_($mdc-side-sheet-width, leading);
     }

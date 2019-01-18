@@ -1,0 +1,28 @@
+<header id="main-top-app-bar" class="mdc-top-app-bar main-top-app-bar">
+    <div class="mdc-top-app-bar__row">
+        <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
+            <button class="mdc-top-app-bar__navigation-icon"
+                    style="outline: none;">
+                {{#custom_leading}}
+                {{{leading}}}
+                {{/custom_leading}}
+                {{^custom_leading}}
+                <svg xmlns="http://www.w3.org/2000/svg"
+                     xmlns:xlink="http://www.w3.org/1999/xlink"
+                     class="mdc-icon"
+                     style="width:24px;height:24px"
+                     viewBox="0 0 24 24">
+                    <path d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z"></path>
+                </svg>
+                {{/custom_leading}}
+            </button>
+            <span id="page-title" class="mdc-top-app-bar__title">{{title}}</span>
+        </section>
+        {{#has_actions}}
+        <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
+            {{#actions}}{{{action}}}{{/actions}}
+        </section>
+        {{/has_actions}}
+    </div>
+    {{#has_bottom}}{{{bottom}}}{{/has_bottom}}
+</header>

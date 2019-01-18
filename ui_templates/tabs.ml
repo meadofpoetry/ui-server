@@ -10,7 +10,7 @@ let create_simple ?body (tabs : ('a, Widget.t) Tab.t list) =
   let hide = fun w -> w#style##.display := Js.string "none" in
   let show = fun w -> w#style##.display := Js.string "" in
   let bar = new Tab_bar.t ~tabs () in
-  List.iter (fun t -> hide t#value) bar#tabs;
+  List.iter (fun t -> Option.iter hide t#value_opt) bar#tabs;
   let body = match body with
     | Some x -> x
     | None -> Widget.create_div () in

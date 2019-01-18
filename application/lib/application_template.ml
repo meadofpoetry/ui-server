@@ -42,17 +42,14 @@ let input topo (input : Topology.topo_input) =
        |> Yojson.Safe.to_string in
      let input_string = Topology.Show_topo_input.to_string input in
      let input_template =
-       { id = Some input_string
-       ; title = Some title
-       ; pre_scripts  =
-           [ Raw (Printf.sprintf "var input = \"%s\";\
-                                  var boards = %s;\
-                                  var cpu = %s;"
-                    input_string boards cpu)]
-       ; post_scripts = [Src "/js/input.js"]
-       ; stylesheets = []
-       ; content = []
-       } in
+       make_tmpl_props ~id:input_string
+         ~app_bar:(make_app_bar_props ~title ())
+         ~pre_scripts:[Raw (Printf.sprintf "var input = \"%s\";\
+                                            var boards = %s;\
+                                            var cpu = %s;"
+                              input_string boards cpu)]
+         ~post_scripts:[Src "/js/input.js"]
+         () in
      let input_page =
        `Index input.id,
        Simple { id = input_string
@@ -62,22 +59,18 @@ let input topo (input : Topology.topo_input) =
               ; template = input_template } in
      let pre = "input/" ^ get_input_href input in
      let stream_template =
-       { id = Some input_string
-       ; title = Some ("Входы / " ^ title)
-       ; pre_scripts =
-           [ Raw (Printf.sprintf "var input = \"%s\";\
-                                  var boards = %s;\
-                                  var cpu = %s;"
-                    input_string boards cpu)
-           ; Src "/js/moment.min.js"
-           ; Src "/js/Chart.min.js"
-           ; Src "/js/chartjs-plugin-streaming.min.js"
-           ; Src "/js/chartjs-plugin-datalabels.min.js"
-           ]
-       ; post_scripts = [Src "/js/stream.js"]
-       ; stylesheets = []
-       ; content = []
-       } in
+       make_tmpl_props ~id:input_string
+         ~app_bar:(make_app_bar_props ~title:("Входы / " ^ title) ())
+         ~pre_scripts:[ Raw (Printf.sprintf "var input = \"%s\";\
+                                             var boards = %s;\
+                                             var cpu = %s;"
+                               input_string boards cpu)
+                      ; Src "/js/moment.min.js"
+                      ; Src "/js/Chart.min.js"
+                      ; Src "/js/chartjs-plugin-streaming.min.js"
+                      ; Src "/js/chartjs-plugin-datalabels.min.js" ]
+         ~post_scripts:[Src "/js/stream.js"]
+         () in
      let stream_page =
        `Index input.id,
        Pure { path = Uri.Path.Format.(pre @/ Stream.ID.fmt ^/ empty)
@@ -88,15 +81,12 @@ let create_topology () =
   let id = "topology" in
   let icon = make_icon ~rotate:90 Icon.SVG.Path.sitemap in
   let template =
-    { id = Some "topology"
-    ; title = Some "Конфигурация"
-    ; pre_scripts = []
-    ; post_scripts = [ Src "/js/ResizeObserver.js"
-                     ; Src "js/page_topology.js"
-                     ]
-    ; stylesheets = ["/css/topology.min.css"]
-    ; content = []
-    } in
+    make_tmpl_props ~id
+      ~app_bar:(make_app_bar_props ~title:"Конфигурация" ())
+      ~post_scripts:[ Src "/js/ResizeObserver.js"
+                    ; Src "js/page_topology.js" ]
+      ~stylesheets:["/css/topology.min.css"]
+      () in
   Simple { id
          ; title = "Конфигурация"
          ; icon = Some icon
@@ -106,16 +96,13 @@ let create_topology () =
 let create_demo () =
   let id = "ui-demo" in
   let template =
-    { id = Some id
-    ; title = Some "UI Демо"
-    ; pre_scripts =
-        [ Src "/js/moment.min.js"
-        ; Src "/js/Chart.min.js"
-        ]
-    ; post_scripts = [Src "/js/demo.js"]
-    ; stylesheets = ["/css/demo.min.css"]
-    ; content = []
-    } in
+    make_tmpl_props ~id
+      ~app_bar:(make_app_bar_props ~title:"UI Демо" ())
+      ~pre_scripts:[ Src "/js/moment.min.js"
+                   ; Src "/js/Chart.min.js" ]
+      ~post_scripts:[Src "/js/demo.js"]
+      ~stylesheets:["/css/demo.min.css"]
+      () in
   Simple { id
          ; title = "UI Демо"
          ; icon = Some (make_icon Icon.SVG.Path.material_design)
