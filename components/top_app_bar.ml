@@ -25,8 +25,11 @@ module Title = struct
       Markup.create_title ~content:content' ()
       |> To_dom.of_element in
     object
-    inherit Widget.t elt ()
-  end
+      inherit Widget.t elt ()
+    end
+
+  let make (content : 'a content) : t =
+    new t content ()
 
 end
 
@@ -50,6 +53,9 @@ module Section = struct
 
     end
 
+  let make ?align ~widgets () : t =
+    new t ?align ~widgets ()
+
 end
 
 module Row = struct
@@ -62,6 +68,9 @@ module Row = struct
       inherit Widget.t elt () as super
       method! init () : unit = super#init ()
     end
+
+  let make ~sections () : t =
+    new t ~sections ()
 
 end
 
@@ -79,6 +88,7 @@ type scroll_target =
 class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
         ?(offset = 0)
         ?(tolerance = { up = 0; down = 0 })
+        ?(imply_leading = true)
         (elt : #Dom_html.element Js.t)
         () =
   let scroll_target = match scroll_target with
@@ -96,6 +106,10 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
 
     val mutable scroll_handler = None
 
+    val mutable leading : Widget.t option = None
+    val mutable actions : Widget.t list option = None
+    val mutable imply_leading : bool = imply_leading
+
     inherit Widget.t elt () as super
 
     (* API *)
@@ -111,6 +125,77 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
 
     method! layout () : unit =
       super#layout ()
+
+    (** Returns leading widget, if any *)
+    method leading : Widget.t option =
+      match leading with
+      | Some w -> Some w
+      | None ->
+         let class' = Markup.navigation_icon_class in
+         match super#get_child_element_by_class class' with
+         | None -> print_endline "no nav icon"; None
+         | Some elt ->
+            let w = Widget.create elt in
+            leading <- Some w;
+            Some w
+
+    method hide_leading () : unit =
+      match self#leading with
+      | None -> print_endline "no leading"; ()
+      | Some x ->
+         print_endline "found leading";
+         x#style##.display := Js.string "none"
+
+    method show_leading () : unit =
+      match self#leading with
+      | None -> ()
+      | Some x -> x#style##.display := Js.string ""
+
+    method remove_leading ?(hard = false) () : unit =
+      print_endline "remove leading";
+      match self#leading with
+      | None -> ()
+      | Some x ->
+         Js.Opt.iter x#root##.parentNode (fun p ->
+             Dom.removeChild p x#root);
+         leading <- None;
+         if hard then x#destroy ()
+
+    method set_leading : 'a. ?hard:bool -> (#Widget.t as 'a) -> unit =
+      fun ?hard (w : #Widget.t) ->
+      let class' = Markup.section_align_start_class in
+      match super#get_child_element_by_class class' with
+      | None -> failwith "mdc-top-app-bar: no section found"
+      | Some section ->
+         (* Remove previous leading *)
+         self#remove_leading ?hard ();
+         (* Insert the new one *)
+         Widget.Element.insert_child_at_index section 0 w#root;
+         leading <- Some w#widget;
+
+    (** Returns trailing actions widgets, if any *)
+    method actions : Widget.t list =
+      match actions with
+      | Some l -> l
+      | None ->
+         let class' = Markup.action_item_class in
+         let l =
+           super#root##querySelectorAll (Js.string class')
+           |> Dom.list_of_nodeList
+           |> List.map (fun (elt : Dom_html.element Js.t) ->
+                  Widget.create elt) in
+         actions <- Some l;
+         l
+
+    (**
+     * Controls whether leading widget should be inserted when
+     * the `top app bar` is used inside the `scaffold` widget
+     *)
+    method imply_leading : bool =
+      imply_leading
+
+    method set_imply_leading (x : bool) : unit =
+      imply_leading <- x
 
     (* Private methods *)
 
@@ -144,7 +229,6 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
               ignore @@ Utils.set_timeout f 0.);
             false) in
       scroll_handler <- Some listener
-
 
     (** Returns the Y scroll position *)
     method private get_scroll_y () : int =
@@ -239,13 +323,31 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
   end
 
 (** Create new top app bar from scratch *)
-let make ?scroll_target ?offset ?tolerance ?(rows = []) () : t =
+let make' ?scroll_target ?offset ?tolerance ?imply_leading
+      ?(rows = []) () : t =
   let elt =
     Markup.create
       ~rows:(List.map Widget.to_markup rows)
       ()
     |> To_dom.of_element in
-  new t ?offset ?tolerance ?scroll_target elt ()
+  new t ?offset ?tolerance ?scroll_target ?imply_leading elt ()
+
+let make ?scroll_target ?offset ?tolerance
+      ?leading ?imply_leading ?title ?actions
+      ?bottom () =
+  ignore bottom;
+  let ( ^:: ) = List.cons_maybe in
+  let start_section =
+    Section.make ~align:`Start ~widgets:(leading ^:: title ^:: []) () in
+  let end_section = match actions with
+    | None -> None
+    | Some widgets -> Some (Section.make ~align:`End ~widgets ()) in
+  let sections = match end_section with
+    | None -> [start_section]
+    | Some s -> [start_section; s] in
+  let upper_row = Row.make ~sections () in
+  make' ?scroll_target ?offset ?tolerance ?imply_leading
+    ~rows:[upper_row] ()
 
 (** Attach top app bar widget to existing element *)
 let attach ?scroll_target ?offset ?tolerance

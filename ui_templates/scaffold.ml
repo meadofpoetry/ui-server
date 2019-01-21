@@ -3,69 +3,9 @@ open Js_of_ocaml_lwt
 open Containers
 open Components
 open Tabs
+open Tyxml_js
 
-class type container =
-  object
-    inherit Widget.t
-    method content : Widget.t option
-    method set_content : Widget.t -> unit
-  end
-
-module Top_app_bar_tabs = struct
-
-  type 'a value = string * (unit -> (#Widget.t as 'a))
-
-  type ('a, 'b) tab = ('a, 'b value) Tab.t
-
-  type ('a, 'b) page_content =
-    [ `Static of (#Widget.t as 'b) list
-    | `Dynamic of ('a, 'b) tab list
-    ]
-
-  let hash_of_tab (tab : ('a, 'b) tab) : string =
-    fst @@ tab#value
-
-  let widget_of_tab (tab : ('a, 'b) tab) : Widget.t =
-    Widget.coerce @@ (snd tab#value) ()
-
-  let set_active_page container tab_bar =
-    let hash =
-      Dom_html.window##.location##.hash
-      |> Js.to_string
-      |> String.drop 1 in
-    let default = List.head_opt tab_bar#tabs in
-    let active : ('a, 'b) tab option =
-      List.find_opt (fun (tab : ('a, 'b) tab) ->
-          String.equal hash @@ hash_of_tab tab) tab_bar#tabs
-      |> fun x -> Option.choice [ x; default ] in
-    begin match active with
-    | None -> ()
-    | Some tab ->
-       container#set_content @@ widget_of_tab tab;
-       if not tab#active
-       then tab_bar#set_active_tab tab |> ignore
-    end
-
-  let set_hash container tab_bar hash =
-    let history = Dom_html.window##.history in
-    let hash = "#" ^ hash in
-    history##replaceState Js.undefined (Js.string "") (Js.some @@ Js.string hash);
-    set_active_page container tab_bar
-
-  let switch_tab container tab_bar =
-    React.E.map Fun.(set_hash container tab_bar % hash_of_tab)
-    @@ React.E.fmap Fun.id
-    @@ React.S.changes tab_bar#s_active_tab
-
-  let create_tab_row (container : container) (tabs : ('a, 'b) tab list) =
-    let open Tabs in
-    let bar = new Tab_bar.t ~align:Start ~tabs () in
-    set_active_page container bar;
-    let section = new Top_app_bar.Section.t ~align:`Start ~widgets:[bar] () in
-    let row = new Top_app_bar.Row.t ~sections:[section] () in
-    row, switch_tab container bar
-
-end
+module Markup = Components_markup.Scaffold.Make(Xml)(Svg)(Html)
 
 module App_bar = struct
 
@@ -75,26 +15,9 @@ module App_bar = struct
 
 end
 
-module Body = struct
-
-  let attach () : container =
-    let elt = Dom_html.getElementById "arbitrary-content" in
-    object(self)
-      val mutable _content = None
-      inherit Widget.t elt ()
-
-      method content : Widget.t option = _content
-      method set_content (w : Widget.t) =
-        begin match _content with
-        | Some c -> self#remove_child c; c#destroy ()
-        | None -> ()
-        end;
-        _content <- Some w;
-        self#append_child w;
-        w#layout ()
-    end
-
-end
+type drawer_elevation =
+  | Full_height
+  | Clipped
 
 type drawer_breakpoint =
   int * drawer_type
@@ -102,10 +25,6 @@ and drawer_type =
   | Modal
   | Dismissible
   | Permanent
-
-type drawer_elevation =
-  | Full_height
-  | Clipped
 
 let drawer_type_to_enum = function
   | Modal -> 0
@@ -120,112 +39,170 @@ let mobile_breakpoint = 1160
 let default_breakpoints : drawer_breakpoint list =
   [(mobile_breakpoint, Modal)]
 
-class t (* ?(drawer_elevation = Clipped)
-         * ?(drawer : #Side_sheet.Parent.t)
-         * ?(side_sheet_elevation = Clipped)
-         * ?(side_sheet : #Side_sheet.Parent.t)
-         * ?(drawer_breakpoints = default_breakpoints)
-         * ?(top_app_bar : #Top_app_bar.t option)
-         * ?(body : #Widget.t option) *)
+module Selector = struct
+  open Markup.CSS
+
+  let not_found (name : string) : string =
+    Printf.sprintf "%s: %s not found" root name
+
+  let by_class (elt : Dom_html.element Js.t) (c : string)
+      : Dom_html.element Js.t =
+    elt##querySelector (Js.string ("." ^ c))
+    |> (fun x -> Js.Opt.get x (fun () -> failwith (not_found c)))
+
+end
+
+class t ?(drawer : #Drawer.t option)
+        ?(drawer_elevation : drawer_elevation option)
+        ?(drawer_breakpoints = Modal, [])
+        ?(top_app_bar : #Top_app_bar.t option)
+         (* ?(body : #Widget.t option) *)
         (elt : #Dom_html.element Js.t)
         () =
-  (* let s_nav_drawer_class, set_nav_drawer_class =
-   *   (if Dom_html.document##.body##.offsetWidth > screen_width_breakpoint
-   *    then Dismissible else Modal)
-   *   |> React.S.create in *)
-  object
+  let drawer, setup_drawer_elevation =
+    match drawer with
+    | Some d ->
+       Some d, (match drawer_elevation with
+                | None -> Some Clipped
+                | Some x -> Some x)
+    | None ->
+       let drawer =
+         Js.string ("." ^ Drawer.Markup.CSS.root)
+         |> (fun s -> elt##querySelector s)
+         |> Js.Opt.to_option
+         |> Option.map Drawer.attach in
+       drawer, None in
+  let drawer_frame_full_height =
+    Selector.by_class elt Markup.CSS.drawer_frame_full_height in
+  let drawer_frame_clipped =
+    Selector.by_class elt Markup.CSS.drawer_frame_clipped in
+  let app_content_inner =
+    Selector.by_class elt Markup.CSS.app_content_inner in
+  object(self)
 
-    val mutable scrim = None
+    (* Nodes *)
+    val mutable modal_drawer_wrapper = None
 
     (* Event listeners *)
     val mutable menu_click_listener = None
     val mutable resize_listener = None
 
-    (* Signals *)
-    val mutable s_state = None
+    val mutable drawer_type = fst drawer_breakpoints
 
     inherit Widget.t elt () as super
 
     method! init () : unit =
       super#init ();
-      (* (\* Init toolbar menu button *\)
-       * let menu = Dom_html.getElementById "main-menu" in
-       * Dom_events.listen menu Dom_events.Typ.click (fun _ _ ->
-       *     navigation_drawer#toggle (); true)
-       * |> (fun x -> menu_click_listener <- Some x);
-       * (\* Set page content *\)
-       * self#set ();
-       * (\* Handle window resize *\)
-       * Lwt_js_events.limited_onresizes ~elapsed_time:0.05
-       *   (fun _ _ -> self#handle_resize ())
-       * |> (fun x -> resize_listener <- Some x);
-       * (\* Handle modal/dismissible drawer state change *\)
-       * React.S.map self#render_drawer s_nav_drawer_class
-       * |> (fun x -> s_state <- Some x) *)
+      begin match setup_drawer_elevation with
+      | None -> ()
+      | Some e -> Option.iter (self#setup_drawer e) drawer
+      end;
+      Option.iter self#setup_app_bar top_app_bar;
+      ignore drawer_breakpoints;
 
     method! destroy () : unit =
-      super#destroy ();
-      (* Option.iter Dom_events.stop_listen menu_click_listener;
-       * menu_click_listener <- None;
-       * Option.iter Lwt.cancel resize_listener;
-       * resize_listener <- None;
-       * Option.iter (React.S.stop ~strong:true) s_state;
-       * s_state <- None;
-       * React.S.stop ~strong:true s_nav_drawer_class *)
+      super#destroy ()
+
+    (** Returns current drawer elevation *)
+    method drawer_elevation : drawer_elevation option =
+      Option.map (fun (d : #Drawer.t) ->
+          match d#parent_element with
+          | None -> assert false
+          | Some p ->
+             let has_class s = Js.(to_bool @@ p##.classList##contains (string s)) in
+             Markup.CSS.(
+               if has_class drawer_frame_full_height
+               then Full_height
+               else if has_class drawer_frame_clipped
+               then Clipped
+               else failwith "mdc-scaffold: bad drawer parent"))
+        drawer
+
+    method set_drawer_elevation (e : drawer_elevation) : unit =
+      Option.iter (self#setup_drawer e) drawer
 
     (* Private methods *)
 
-    (* method private render_drawer (typ : drawer_type) : unit =
-     *   let parent = Dom_html.getElementById "main-panel" in
-     *   match typ with
-     *   | Modal ->
-     *      let div =
-     *        Tyxml_js.Html.(
-     *          div [ Tyxml_js.Of_dom.of_element navigation_drawer#root
-     *              ; Drawer.Markup.create_scrim () ]) in
-     *      Dom.insertBefore parent
-     *        (Tyxml_js.To_dom.of_element div)
-     *        parent##.firstChild;
-     *      navigation_drawer#set_modal ();
-     *   | Dismissible ->
-     *      (\* Remove first child (div with drawer) *\)
-     *      let first_child = parent##.firstChild in
-     *      Js.Opt.iter first_child (Dom.removeChild parent);
-     *      (\* Insert drawer before content *\)
-     *      Dom.insertBefore parent navigation_drawer#root parent##.firstChild;
-     *      navigation_drawer#set_dismissible ()
-     *   | Permanent -> ();
-     * 
-     * method private handle_resize () : unit Lwt.t =
-     *   let value = React.S.value s_nav_drawer_class in
-     *   let screen_width = Dom_html.document##.body##.offsetWidth in
-     *   match value, screen_width with
-     *   | Dismissible, x when x <= screen_width_breakpoint ->
-     *      Lwt.Infix.(
-     *       navigation_drawer#hide_await ()
-     *       >|= (fun () -> set_nav_drawer_class Modal))
-     *   | Modal, x when x > screen_width_breakpoint ->
-     *      Lwt.Infix.(
-     *       navigation_drawer#hide_await ()
-     *       >|= (fun () -> set_nav_drawer_class Dismissible))
-     *   | _ -> Lwt.return_unit
-     * 
-     * method private set () =
-     *   arbitrary#set_empty ();
-     *   match content with
-     *   | `Static widgets ->
-     *      List.iter arbitrary#append_child widgets
-     *   | `Dynamic _ ->
-     *      (\* let dynamic_class =
-     *       *   Components_markup.CSS.add_modifier
-     *       *     main_top_app_bar_class
-     *       *     "dynamic" in
-     *       * toolbar#add_class dynamic_class; *\)
-     *      (\* let row, e = create_tab_row arbitrary tabs in *\)
-     *      (\* self#_keep_e e; *\)
-     *      (\* toolbar#append_child row; *\)
-     *      toolbar#layout () *)
+    method private setup_app_bar (app_bar : #Top_app_bar.t) : unit =
+      let leading = match app_bar#leading, drawer with
+        | None, Some _ ->
+           let icon = Icon.SVG.(create_simple Path.menu) in
+           let w = new Icon_button.t ~icon () in
+           w#add_class Top_app_bar.Markup.navigation_icon_class;
+           Some w
+        | _ -> None in
+      Option.iter app_bar#set_leading leading;
+      begin match app_bar#leading, drawer with
+      | Some l, Some d ->
+         let listener = l#listen_click_lwt (fun _ _ -> d#toggle_await ()) in
+         menu_click_listener <- Some listener;
+      | _ -> ()
+      end;
+      let insert = Widget.Element.insert_child_at_index in
+      insert app_content_inner 0 app_bar#root
+
+    method private place_drawer
+                     (drawer : #Side_sheet.Parent.t)
+                     (elevation : drawer_elevation)
+                     (typ : drawer_type) : unit =
+      let parent = match elevation with
+        | Clipped -> drawer_frame_clipped
+        | Full_height -> drawer_frame_full_height in
+      match typ with
+      | Permanent | Dismissible ->
+         Option.iter (fun div ->
+             Js.Opt.iter div##.parentNode (fun x -> Dom.removeChild x div);
+             modal_drawer_wrapper <- None)
+           modal_drawer_wrapper;
+         Dom.insertBefore parent drawer#root parent##.firstChild;
+      | Modal ->
+         let div =
+           Html.(div [ Of_dom.of_element drawer#root
+                     ; Drawer.Markup.create_scrim () ])
+           |> To_dom.of_element in
+         modal_drawer_wrapper <- Some div;
+         Dom.insertBefore parent div parent##.firstChild
+
+    method private set_drawer_type_
+                     (elevation : drawer_elevation)
+                     (drawer : #Side_sheet.Parent.t) = function
+      | Permanent ->
+         Option.iter (fun x -> x#hide_leading ()) top_app_bar;
+         drawer#set_permanent ();
+         self#place_drawer drawer elevation Permanent;
+      | Dismissible ->
+         Option.iter (fun x -> x#show_leading ()) top_app_bar;
+         drawer#set_dismissible ();
+         self#place_drawer drawer elevation Dismissible;
+      | Modal ->
+         self#place_drawer drawer elevation Modal;
+         Option.iter (fun x -> x#show_leading ()) top_app_bar;
+         drawer#set_modal ()
+
+    method private setup_drawer (elevation : drawer_elevation)
+                     (drawer : #Side_sheet.Parent.t) : unit =
+      self#set_drawer_type_ elevation drawer drawer_type
+
   end
+
+(** Create new scaffold widget from scratch *)
+let make ?drawer ?drawer_elevation ?drawer_breakpoints
+      ?(top_app_bar : #Top_app_bar.t option)
+      (* ?(body : #Widget.t option) *)
+      () =
+  let elt =
+    Markup.(
+      create
+        [create_drawer_frame ~full_height:true
+           [create_app_content ~outer:true
+              [create_drawer_frame ~clipped:true
+                 [create_app_content ~inner:true [] ()] ()]
+              ()]
+           ()]
+        ())
+    |> To_dom.of_element in
+  new t ?drawer ?drawer_elevation ?drawer_breakpoints
+    ?top_app_bar elt ()
 
 (** Attach scaffold widget to existing element *)
 let attach (elt : #Dom_html.element Js.t) : t =

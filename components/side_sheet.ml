@@ -4,6 +4,10 @@ open Tyxml_js
 
 type slide = [`Leading | `Trailing] [@@deriving eq]
 
+type elevation =
+  | Clipped
+  | Full_height
+
 module Markup = Components_markup.Side_sheet.Make(Xml)(Svg)(Html)
 
 module Scrim = struct
@@ -106,6 +110,13 @@ module Make_parent(M : M) = struct
         super#remove_class M.closing;
         super#remove_class M.opening;
 
+      method set_permanent () : unit =
+        super#remove_class M.modal;
+        super#remove_class M.dismissible;
+        self#show ();
+        Option.iter Lwt.cancel scrim_click_listener;
+        scrim_click_listener <- None
+
       method set_dismissible () : unit =
         super#remove_class M.modal;
         super#add_class M.dismissible;
@@ -170,6 +181,9 @@ module Make_parent(M : M) = struct
 
       method toggle () : unit =
         if self#is_open then self#hide () else self#show ()
+
+      method toggle_await () : unit Lwt.t =
+        if self#is_open then self#hide_await () else self#show_await ()
 
       method is_open : bool =
         super#has_class M.open_

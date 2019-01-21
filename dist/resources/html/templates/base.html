@@ -24,13 +24,22 @@
     </head>
     <body class="mdc-typography">
         <div id="root" class="mdc-scaffold">
-            <div class="mdc-scaffold__drawer-frame">
-                <div class="mdc-scaffold__app-content">
+            <div class="mdc-scaffold__drawer-frame
+                        mdc-scaffold__drawer-frame--full-height">
+                <div class="mdc-scaffold__app-content
+                            mdc-scaffold__app-content--outer">
                     {{{app_bar}}}
-                    <div id="main-panel" class="mdc-scaffold__drawer-frame">
+                    <div class="mdc-scaffold__drawer-frame
+                                mdc-scaffold__drawer-frame--clipped">
                         {{{navigation}}}
-                        <main id="main-content" class="mdc-scaffold__app-content mdc-top-app-bar--fixed-adjust">
-                            <section id="arbitrary-content">{{#content}}{{{element}}}{{/content}}</section>
+                        <main class="mdc-scaffold__app-content
+                                     mdc-scaffold__app-content--inner
+                                     mdc-top-app-bar--fixed-adjust">
+                            <section id="arbitrary-content">
+                                {{#content}}
+                                {{{element}}}
+                                {{/content}}
+                            </section>
                         </main>
                     </div>
                 </div>

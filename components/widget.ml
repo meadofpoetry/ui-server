@@ -47,6 +47,11 @@ module Element = struct
   let coerce (elt : #Dom_html.element Js.t) : t =
     (elt :> t)
 
+  let insert_child_at_index (parent : #Dom.node Js.t)
+        (index : int) (child : #Dom.node Js.t) =
+    let sibling = parent##.childNodes##item index in
+    Dom.insertBefore parent child sibling
+
 end
 
 let equal (a : < root : element; ..> as 'a) (b : 'a) : bool =
@@ -84,6 +89,13 @@ class t ?(widgets : #t list option)
   method node : node =
     (elt :> Dom.node Js.t)
 
+  method parent_element : Element.t option =
+    match Js.Opt.to_option self#root##.parentNode with
+    | None -> None
+    | Some p -> match p##.nodeType with
+                | ELEMENT -> Some (Js.Unsafe.coerce p)
+                | _ -> None
+
   method markup : Tyxml_js.Xml.elt =
     Tyxml_js.Of_dom.of_element self#root
     |> Tyxml_js.Html.toelt
@@ -107,8 +119,7 @@ class t ?(widgets : #t list option)
                                            layout : unit -> unit;
                                            .. > as 'a) -> unit =
     fun index x ->
-    let child = self#root##.childNodes##item index in
-    Dom.insertBefore self#root x#node child;
+    Element.insert_child_at_index self#root index x#node;
     _widgets <- x#widget :: _widgets;
     if self#in_dom then self#layout ()
 

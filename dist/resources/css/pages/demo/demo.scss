@@ -1,27 +1,15 @@
-@import "../../components/ripple/_mixins";
-
-.demo-ripple-box {
-    @include mdc-ripple-surface;
-    @include mdc-ripple-radius-bounded;
-    @include mdc-states;
-
+.demo-frame {
+    border: 1px solid lightgrey;
+    width: 700px;
+    height: 700px;
     position: relative;
     overflow: hidden;
-    outline: none;
-
-    height: 100px;
-    width: 200px;
-    padding: 1rem;
-}
-
-.demo-ripple-unbounded {
-    @include mdc-ripple-surface;
-    @include mdc-ripple-radius-unbounded;
-    @include mdc-states;
-    position: relative;
-    outline: none;
-
-    width: 24px;
-    height: 24px;
-    padding: 12px;
+    .mdc-scaffold {
+        max-height: 700px;
+        .mdc-drawer, .mdc-drawer-scrim {
+            position: absolute;
+        }
+    }
+    margin: 30px;
+    z-index: 2;
 }
