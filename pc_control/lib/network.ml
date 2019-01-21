@@ -88,7 +88,7 @@ module Nm = struct
       let open OBus_value in
       
       let of_eth opts =
-        opts.%{"mac-address"} --> unwrap_bytes >>= fun x -> Macaddr.of_bytes @@ Bytes.to_string x
+        opts.%{"mac-address"} --> unwrap_bytes >>= fun x -> Result.to_opt @@ Macaddr.of_bytes @@ Bytes.to_string x
         >>= fun mac_address -> Some { mac_address }
       in
       
@@ -107,7 +107,7 @@ module Nm = struct
       let of_ipv4 opts =
         let gateway =
           opts.%{"gateway"} --> unwrap_string
-          >>= Ipaddr.V4.of_string
+          >>= fun x -> Result.to_opt @@ Ipaddr.V4.of_string x
         in
         let static =
           opts.%{"routes"} --> unwrap_address_list |> function Some l -> l | None -> []

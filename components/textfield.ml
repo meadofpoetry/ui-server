@@ -206,10 +206,12 @@ let parse_valid (type a) (v : a validation)
      | None, Some max -> if num <= max then Some num else None
      end
   | Text -> Some s
-  | IPV4 -> Ipaddr.V4.of_string s
+  | IPV4 -> Result.to_opt (Ipaddr.V4.of_string s)
   | MulticastV4 ->
-     Option.(Ipaddr.V4.of_string s >>= (fun x ->
-               if Ipaddr.V4.is_multicast x then Some x else None))
+     Option.(Ipaddr.V4.of_string s
+             |> Result.to_opt (* TODO Reconsider types *)
+             >>= fun x ->
+             if Ipaddr.V4.is_multicast x then Some x else None)
   | Password vf  ->
      begin match vf s with
       | Ok () -> Some s

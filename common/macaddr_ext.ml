@@ -7,6 +7,6 @@ let to_yojson (t:t) : Yojson.Safe.json =
 
 let of_yojson : Yojson.Safe.json -> (t,string) result = function
   | `String s -> (match of_string s with
-                  | Some m -> Ok m
-                  | None   -> Error ("bad mac: " ^ s))
+                  | Ok _ as m -> m
+                  | Error (`Msg m) -> Error ("bad mac: " ^ m))
   | _         -> Error "not a mac address"

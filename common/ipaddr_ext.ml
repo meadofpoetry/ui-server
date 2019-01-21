@@ -9,8 +9,8 @@ module V4 = struct
 
   let of_yojson : Yojson.Safe.json -> (t,string) result = function
     | `String s -> (match of_string s with
-                    | Some a -> Ok a
-                    | None -> Error ("bad address: " ^ s))
+                    | Ok _ as a -> a
+                    | Error (`Msg m) -> Error ("bad address: " ^ m))
     | _ -> Error "not an ipv4 addr"
 end
 
@@ -26,8 +26,8 @@ module V6 = struct
 
   let of_yojson : Yojson.Safe.json -> (t,string) result = function
     | `String s -> (match of_string s with
-                    | Some a -> Ok a
-                    | None -> Error ("bad address: " ^ s))
+                    | Ok _ as a -> a
+                    | Error (`Msg m) -> Error ("bad address: " ^ m))
     | _ -> Error "not an ipv6 addr"
 
 end

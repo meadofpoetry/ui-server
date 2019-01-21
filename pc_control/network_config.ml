@@ -3,6 +3,10 @@ let (>>=) v f =
   | None -> None
   | Some x -> f x
 
+let result_to_opt = function
+  | Ok v -> Some v
+  | _ -> None
+
 type v4 = Ipaddr.V4.t
 
 let v4_to_yojson v = `String (Ipaddr.V4.to_string v)
@@ -10,8 +14,8 @@ let v4_to_yojson v = `String (Ipaddr.V4.to_string v)
 let v4_of_yojson = function
   | `String v -> begin
       match Ipaddr.V4.of_string v with
-      | None    -> Error "ip parsing failure"
-      | Some ip -> Ok ip
+      | Error (`Msg m) -> Error ("ip parsing failure: " ^ m)
+      | Ok _ as ip -> ip
     end
   | _ -> Error "string expected"
 
@@ -41,6 +45,7 @@ let address_to_string (a,m) =
 let address_of_string s =
   match String.split_on_char '/' s with
   | [a;m] -> Ipaddr.V4.of_string a
+             |> result_to_opt
              >>= fun a ->
              Int32.of_string_opt m
              >>= fun m ->
@@ -53,8 +58,8 @@ module Macaddr = struct
   let to_yojson x = `String (Macaddr.to_string x)
   let of_yojson = function
     | `String s -> (match Macaddr.of_string s with
-                    | Some m -> Ok m
-                    | None   -> Error ("bad mac: " ^ s))
+                    | Ok _ as m -> m
+                    | Error (`Msg m) -> Error ("bad mac: " ^ m))
     | x         -> Error ("not a mac addr: " ^ (Yojson.Safe.to_string x))
 end
        

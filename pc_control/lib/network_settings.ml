@@ -15,7 +15,7 @@ let default = { intern = { interface   = "eno1"
                          ; mac_address = None
                          ; address     = (Ipaddr.V4.of_string_exn "192.168.1.100", 24l)
                          ; routes      = { static  = []
-                                         ; gateway = Ipaddr.V4.of_string "192.168.1.1"
+                                         ; gateway = Some (Ipaddr.V4.of_string_exn "192.168.1.1")
                                          }
                          }
               ; extern = None
