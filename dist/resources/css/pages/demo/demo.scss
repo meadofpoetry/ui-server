@@ -6,7 +6,10 @@
     overflow: hidden;
     .mdc-scaffold {
         max-height: 700px;
-        .mdc-drawer, .mdc-drawer-scrim {
+        .mdc-drawer--modal,
+        .mdc-side-sheet--modal,
+        .mdc-drawer-scrim,
+        .mdc-side-sheet-scrim {
             position: absolute;
         }
     }

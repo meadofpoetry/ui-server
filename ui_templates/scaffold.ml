@@ -45,18 +45,27 @@ module Selector = struct
   let not_found (name : string) : string =
     Printf.sprintf "%s: %s not found" root name
 
+  let by_class_opt (elt : Dom_html.element Js.t) (c : string)
+      : Dom_html.element Js.t option =
+    elt##querySelector (Js.string ("." ^ c))
+    |> Js.Opt.to_option
+
   let by_class (elt : Dom_html.element Js.t) (c : string)
       : Dom_html.element Js.t =
-    elt##querySelector (Js.string ("." ^ c))
-    |> (fun x -> Js.Opt.get x (fun () -> failwith (not_found c)))
+    match by_class_opt elt c with
+    | Some x -> x
+    | None -> failwith (not_found c)
 
 end
 
 class t ?(drawer : #Drawer.t option)
         ?(drawer_elevation : drawer_elevation option)
         ?(drawer_breakpoints = Modal, [])
+        ?(side_sheet : #Side_sheet.t option)
+        ?(side_sheet_elevation : drawer_elevation option)
+        ?(side_sheet_breakpoints = Modal, [])
         ?(top_app_bar : #Top_app_bar.t option)
-         (* ?(body : #Widget.t option) *)
+        (* ?(body : #Widget.t option) *)
         (elt : #Dom_html.element Js.t)
         () =
   let drawer, setup_drawer_elevation =
@@ -67,17 +76,33 @@ class t ?(drawer : #Drawer.t option)
                 | Some x -> Some x)
     | None ->
        let drawer =
-         Js.string ("." ^ Drawer.Markup.CSS.root)
-         |> (fun s -> elt##querySelector s)
-         |> Js.Opt.to_option
+         Selector.by_class_opt elt Drawer.Markup.CSS.root
          |> Option.map Drawer.attach in
        drawer, None in
+  let side_sheet, setup_side_sheet_elevation =
+    match side_sheet with
+    | Some d ->
+       Some d, (match side_sheet_elevation with
+                | None -> Some Clipped
+                | Some x -> Some x)
+    | None ->
+       let side_sheet =
+         Selector.by_class_opt elt Side_sheet.Markup.CSS.root
+         |> Option.map Side_sheet.attach in
+       side_sheet, None in
+  let top_app_bar = match top_app_bar with
+    | Some bar -> Some bar
+    | None ->
+       Selector.by_class_opt elt Top_app_bar.Markup.CSS.root
+       |> Option.map Top_app_bar.attach in
   let drawer_frame_full_height =
     Selector.by_class elt Markup.CSS.drawer_frame_full_height in
   let drawer_frame_clipped =
     Selector.by_class elt Markup.CSS.drawer_frame_clipped in
-  let app_content_inner =
-    Selector.by_class elt Markup.CSS.app_content_inner in
+  let app_content_outer =
+    Selector.by_class elt Markup.CSS.app_content_outer in
+  (* let app_content_inner =
+   *   Selector.by_class elt Markup.CSS.app_content_inner in *)
   object(self)
 
     (* Nodes *)
@@ -88,17 +113,36 @@ class t ?(drawer : #Drawer.t option)
     val mutable resize_listener = None
 
     val mutable drawer_type = fst drawer_breakpoints
+    val mutable side_sheet_type = fst side_sheet_breakpoints
 
     inherit Widget.t elt () as super
 
     method! init () : unit =
       super#init ();
+      (* Setup top app bar *)
+      Option.iter self#setup_app_bar top_app_bar;
+      (* Setup drawer *)
       begin match setup_drawer_elevation with
       | None -> ()
-      | Some e -> Option.iter (self#setup_drawer e) drawer
+      | Some e ->
+         match drawer with
+         | None -> ()
+         | Some w ->
+            let typ = drawer_type in
+            self#set_drawer_type_ ~is_leading:true e w typ
       end;
-      Option.iter self#setup_app_bar top_app_bar;
+      (* Setup side sheet *)
+      begin match setup_side_sheet_elevation with
+      | None -> ()
+      | Some e ->
+         match side_sheet with
+         | None -> ()
+         | Some w ->
+            let typ = side_sheet_type in
+            self#set_drawer_type_ ~is_leading:false e w typ
+      end;
       ignore drawer_breakpoints;
+      ignore side_sheet_breakpoints
 
     method! destroy () : unit =
       super#destroy ()
@@ -118,30 +162,30 @@ class t ?(drawer : #Drawer.t option)
                else failwith "mdc-scaffold: bad drawer parent"))
         drawer
 
-    method set_drawer_elevation (e : drawer_elevation) : unit =
-      Option.iter (self#setup_drawer e) drawer
-
     (* Private methods *)
 
     method private setup_app_bar (app_bar : #Top_app_bar.t) : unit =
+      print_endline "SETTING UP APP BAR";
       let leading = match app_bar#leading, drawer with
         | None, Some _ ->
            let icon = Icon.SVG.(create_simple Path.menu) in
            let w = new Icon_button.t ~icon () in
-           w#add_class Top_app_bar.Markup.navigation_icon_class;
+           w#add_class Top_app_bar.Markup.CSS.navigation_icon;
            Some w
         | _ -> None in
       Option.iter app_bar#set_leading leading;
       begin match app_bar#leading, drawer with
       | Some l, Some d ->
+         print_endline "has leading, has drawer";
          let listener = l#listen_click_lwt (fun _ _ -> d#toggle_await ()) in
          menu_click_listener <- Some listener;
-      | _ -> ()
+      | _ -> print_endline "no leading or drawer"; ()
       end;
       let insert = Widget.Element.insert_child_at_index in
-      insert app_content_inner 0 app_bar#root
+      insert app_content_outer 0 app_bar#root
 
     method private place_drawer
+                     ?(is_leading = false)
                      (drawer : #Side_sheet.Parent.t)
                      (elevation : drawer_elevation)
                      (typ : drawer_type) : unit =
@@ -156,37 +200,46 @@ class t ?(drawer : #Drawer.t option)
            modal_drawer_wrapper;
          Dom.insertBefore parent drawer#root parent##.firstChild;
       | Modal ->
+         let scrim =
+           if is_leading
+           then Drawer.Markup.create_scrim ()
+           else Side_sheet.Markup.create_scrim () in
          let div =
-           Html.(div [ Of_dom.of_element drawer#root
-                     ; Drawer.Markup.create_scrim () ])
+           Html.(div [Of_dom.of_element drawer#root; scrim])
            |> To_dom.of_element in
          modal_drawer_wrapper <- Some div;
          Dom.insertBefore parent div parent##.firstChild
 
     method private set_drawer_type_
+                     ?(is_leading = false)
                      (elevation : drawer_elevation)
-                     (drawer : #Side_sheet.Parent.t) = function
+                     (drawer : #Side_sheet.Parent.t)
+                     (typ : drawer_type) : unit =
+      match typ with
       | Permanent ->
-         Option.iter (fun x -> x#hide_leading ()) top_app_bar;
          drawer#set_permanent ();
-         self#place_drawer drawer elevation Permanent;
+         self#place_drawer ~is_leading drawer elevation Permanent;
+         if is_leading then
+           Option.iter (fun x -> x#hide_leading ()) top_app_bar;
       | Dismissible ->
-         Option.iter (fun x -> x#show_leading ()) top_app_bar;
          drawer#set_dismissible ();
-         self#place_drawer drawer elevation Dismissible;
+         self#place_drawer ~is_leading drawer elevation Dismissible;
+         if is_leading then
+           Option.iter (fun x -> x#show_leading ()) top_app_bar;
       | Modal ->
-         self#place_drawer drawer elevation Modal;
-         Option.iter (fun x -> x#show_leading ()) top_app_bar;
-         drawer#set_modal ()
+         self#place_drawer ~is_leading drawer elevation Modal;
+         drawer#set_modal ();
+         if is_leading then
+           Option.iter (fun x -> x#show_leading ()) top_app_bar;
 
-    method private setup_drawer (elevation : drawer_elevation)
-                     (drawer : #Side_sheet.Parent.t) : unit =
-      self#set_drawer_type_ elevation drawer drawer_type
+    method private handle_resize () : unit Lwt.t =
+      Lwt.return_unit
 
   end
 
 (** Create new scaffold widget from scratch *)
 let make ?drawer ?drawer_elevation ?drawer_breakpoints
+      ?side_sheet ?side_sheet_elevation ?side_sheet_breakpoints
       ?(top_app_bar : #Top_app_bar.t option)
       (* ?(body : #Widget.t option) *)
       () =
@@ -202,6 +255,7 @@ let make ?drawer ?drawer_elevation ?drawer_breakpoints
         ())
     |> To_dom.of_element in
   new t ?drawer ?drawer_elevation ?drawer_breakpoints
+    ?side_sheet ?side_sheet_elevation ?side_sheet_breakpoints
     ?top_app_bar elt ()
 
 (** Attach scaffold widget to existing element *)

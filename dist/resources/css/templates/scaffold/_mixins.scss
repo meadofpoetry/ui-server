@@ -2,6 +2,8 @@
 @import "../../components/theme/mixins";
 @import "../../components/typography/mixins";
 @import "../../components/animation/functions";
+@import "../../components/drawer/mixins";
+@import "../../components/side-sheet/mixins";
 
 //
 // Public
@@ -17,6 +19,12 @@
 
 @mixin mdc-scaffold-base_() {
     @include mdc-typography-base;
+    .mdc-drawer:not(.mdc-drawer--modal) {
+        @include mdc-drawer-z-index(1);
+    }
+    .mdc-side-sheet:not(.mdc-side-sheet--modal) {
+        @include mdc-side-sheet-z-index(1);
+    }
     .mdc-top-app-bar {
         position: absolute;
     }

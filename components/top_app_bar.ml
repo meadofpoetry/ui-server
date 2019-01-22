@@ -7,8 +7,8 @@ module Markup = Components_markup.Top_app_bar.Make(Xml)(Svg)(Html)
 type align = [`Start | `End] [@@deriving eq]
 
 let align_to_class : align -> string = function
-  | `Start -> Markup.section_align_start_class
-  | `End -> Markup.section_align_end_class
+  | `Start -> Markup.CSS.section_align_start
+  | `End -> Markup.CSS.section_align_end
 
 module Title = struct
 
@@ -131,7 +131,7 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
       match leading with
       | Some w -> Some w
       | None ->
-         let class' = Markup.navigation_icon_class in
+         let class' = Markup.CSS.navigation_icon in
          match super#get_child_element_by_class class' with
          | None -> print_endline "no nav icon"; None
          | Some elt ->
@@ -140,6 +140,7 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
             Some w
 
     method hide_leading () : unit =
+      print_endline "hiding leading";
       match self#leading with
       | None -> print_endline "no leading"; ()
       | Some x ->
@@ -163,14 +164,17 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
 
     method set_leading : 'a. ?hard:bool -> (#Widget.t as 'a) -> unit =
       fun ?hard (w : #Widget.t) ->
-      let class' = Markup.section_align_start_class in
+      print_endline "setting leading";
+      let class' = Markup.CSS.section_align_start in
       match super#get_child_element_by_class class' with
       | None -> failwith "mdc-top-app-bar: no section found"
       | Some section ->
          (* Remove previous leading *)
+         print_endline "removing previous leading";
          self#remove_leading ?hard ();
          (* Insert the new one *)
          Widget.Element.insert_child_at_index section 0 w#root;
+         print_endline "setting current leading";
          leading <- Some w#widget;
 
     (** Returns trailing actions widgets, if any *)
@@ -178,7 +182,7 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
       match actions with
       | Some l -> l
       | None ->
-         let class' = Markup.action_item_class in
+         let class' = Markup.CSS.action_item in
          let l =
            super#root##querySelectorAll (Js.string class')
            |> Dom.list_of_nodeList
@@ -200,17 +204,17 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
     (* Private methods *)
 
     method private pin () : unit =
-      if super#has_class Markup.unpinned_class
+      if super#has_class Markup.CSS.unpinned
       then (
-        super#remove_class Markup.unpinned_class;
-        super#add_class Markup.pinned_class)
+        super#remove_class Markup.CSS.unpinned;
+        super#add_class Markup.CSS.pinned)
 
     method private unpin () : unit =
-      if super#has_class Markup.pinned_class
-         || not (super#has_class Markup.unpinned_class)
+      if super#has_class Markup.CSS.pinned
+         || not (super#has_class Markup.CSS.unpinned)
       then (
-        super#add_class Markup.unpinned_class;
-        super#remove_class Markup.pinned_class)
+        super#add_class Markup.CSS.unpinned;
+        super#remove_class Markup.CSS.pinned)
 
     method private attach_event () : unit =
       last_scroll_y <- self#get_scroll_y ();

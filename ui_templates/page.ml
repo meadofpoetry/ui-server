@@ -109,7 +109,9 @@ class t (content : ('a, 'b) page_content) () =
      then Dismissible else Modal)
     |> React.S.create in
   let main =
-    try Dom_html.getElementById "main-content"
+    try Dom_html.document##querySelector (Js.string ".mdc-scaffold__app-content--inner")
+        |> Js.Opt.to_option
+        |> Option.get_exn
     with e -> print_endline "no main"; raise e in
   let arbitrary = get_arbitrary () in
   let toolbar = get_toolbar () in
@@ -135,7 +137,7 @@ class t (content : ('a, 'b) page_content) () =
       (* Init toolbar menu button *)
       let menu =
         toolbar#get_child_element_by_class
-          Top_app_bar.Markup.navigation_icon_class
+          Top_app_bar.Markup.CSS.navigation_icon
         |> Option.get_exn in
       Dom_events.listen menu Dom_events.Typ.click (fun _ _ ->
           navigation_drawer#toggle (); true)

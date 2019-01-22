@@ -110,10 +110,15 @@ module Make_parent(M : M) = struct
         super#remove_class M.closing;
         super#remove_class M.opening;
 
+      method permanent : bool =
+        not (super#has_class M.modal || super#has_class M.dismissible)
+
       method set_permanent () : unit =
         super#remove_class M.modal;
         super#remove_class M.dismissible;
-        self#show ();
+        super#remove_class M.animate;
+        super#remove_class M.closing;
+        super#remove_class M.opening;
         Option.iter Lwt.cancel scrim_click_listener;
         scrim_click_listener <- None
 
@@ -151,10 +156,11 @@ module Make_parent(M : M) = struct
         if not self#is_open && not self#is_opening && not self#is_closing
         then begin
             super#add_class M.open_;
-            super#add_class M.animate;
-            self#run_next_animation_frame (fun () ->
-                super#add_class M.opening);
-            self#save_focus ()
+            if not self#permanent then
+              (super#add_class M.animate;
+               self#run_next_animation_frame (fun () ->
+                   super#add_class M.opening);
+               self#save_focus ());
           end
 
       method show_await () : unit Lwt.t =
@@ -167,23 +173,28 @@ module Make_parent(M : M) = struct
            >|= ignore
 
       method hide () : unit =
-        if self#is_open && not self#is_opening && not self#is_closing
+        if not self#permanent
+           && self#is_open
+           && not self#is_opening
+           && not self#is_closing
         then super#add_class M.closing
 
       method hide_await () : unit Lwt.t =
-        match self#is_open with
-        | false -> Lwt.return_unit
-        | true ->
+        match self#is_open, self#permanent with
+        | true, false ->
            let open Lwt.Infix in
            self#hide ();
            Lwt_react.E.next (React.S.changes self#s_open)
            >|= ignore
+        | _ -> Lwt.return_unit
 
       method toggle () : unit =
         if self#is_open then self#hide () else self#show ()
 
       method toggle_await () : unit Lwt.t =
-        if self#is_open then self#hide_await () else self#show_await ()
+        if self#is_open
+        then self#hide_await ()
+        else self#show_await ()
 
       method is_open : bool =
         super#has_class M.open_

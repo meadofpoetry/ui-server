@@ -1,2 +1,2 @@
-.demo-frame{border:1px solid lightgrey;width:700px;height:700px;position:relative;overflow:hidden;margin:30px;z-index:2}.demo-frame .mdc-scaffold{max-height:700px}.demo-frame .mdc-scaffold .mdc-drawer,.demo-frame .mdc-scaffold .mdc-drawer-scrim{position:absolute}
+.demo-frame{border:1px solid lightgrey;width:700px;height:700px;position:relative;overflow:hidden;margin:30px;z-index:2}.demo-frame .mdc-scaffold{max-height:700px}.demo-frame .mdc-scaffold .mdc-drawer--modal,.demo-frame .mdc-scaffold .mdc-side-sheet--modal,.demo-frame .mdc-scaffold .mdc-drawer-scrim,.demo-frame .mdc-scaffold .mdc-side-sheet-scrim{position:absolute}
 /*# sourceMappingURL=demo.min.css.map */
