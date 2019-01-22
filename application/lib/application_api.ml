@@ -18,7 +18,7 @@ module WS = struct
 
   let get_log (app : Application.t) inputs streams _ body sock_data () =
     match Application.log_for_input app inputs streams with
-    | Error e  -> respond_not_found ()
+    | Error _  -> respond_not_found ()
     | Ok event ->
        Api.Socket.handler
          socket_table sock_data

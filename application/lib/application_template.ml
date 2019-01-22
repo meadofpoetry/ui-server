@@ -87,7 +87,7 @@ let create (app : Application.t)
     ; stylesheets = ["/css/topology.min.css"]
     ; content = []
     } in
-  let demo_props =
+  let _demo_props = (* TODO *)
     { title = Some "UI Демо"
     ; pre_scripts =
         [ Src "/js/moment.min.js"

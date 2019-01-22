@@ -1,5 +1,4 @@
 open Containers
-open Api.Interaction
 
 type url = Common.Url.t
 

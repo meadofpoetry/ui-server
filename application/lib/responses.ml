@@ -1,6 +1,5 @@
 open Common.User
 open Api.Template
-open Api
    
 let home_template () : upper ordered_item list user_table =
   let content = Tyxml.Html.(
