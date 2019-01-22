@@ -1,4 +1,4 @@
-BUILD   = dune build
+BUILD   = dune build --profile release
 CLEAN   = dune clean
 CSS     = scss --style compressed
 CSS_DIR = dist/resources/css
@@ -47,14 +47,16 @@ css-pages:
 
 css: css-components css-pages
 
-frontend: home pipeline hardware user network demo input stream
-
 backend:
 	$(BUILD) backend/backend.exe
 	cp _build/default/backend/backend.exe dist/backend
 
 
-build: backend frontend
+build: backend home pipeline hardware user network demo input stream
+	@echo "Done"
+
+dev: BUILD = dune build
+dev: backend home pipeline hardware user network demo input stream
 	@echo "Done"
 
 doc:

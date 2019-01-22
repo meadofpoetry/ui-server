@@ -368,7 +368,7 @@ end
 
 module Header = struct
 
-  let rec make_columns : type a. ((int * sort) option -> unit) ->
+  let make_columns : type a. ((int * sort) option -> unit) ->
                               a Format.t -> Column.t list =
     fun push fmt ->
     let rec loop : type a. int -> ((int * sort) option -> unit) ->

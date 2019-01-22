@@ -6,7 +6,5 @@
               yojson ppx_deriving_yojson.runtime
               common storage cstruct sender
               application nocrypto nocrypto.lwt)
-  (flags      (:standard -cclib -lcyusb -short-paths -bin-annot
-               -w A+1..49+60-4-7-23-33-39-40-41-42-44-45-48))
-  (ocamlopt_flags (:standard -O3 -unbox-closures))
+  (flags      (:standard -cclib -lcyusb))
   (preprocess (pps ppx_deriving_yojson)))

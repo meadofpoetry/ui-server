@@ -1,5 +1,4 @@
 open Containers
-open Qoe_errors
 open Pipeline_protocol
 open Pipeline_api_common
 open Api.Interaction
@@ -39,7 +38,9 @@ module HTTP = struct
     of_body body >>= fun js ->
     match conv js with
     | Error e -> respond_error e ()
-    | Ok x -> apply x >>= function Ok () -> respond_result_unit (Ok ())
+    | Ok x -> apply x
+              >>= function Ok () -> respond_result_unit (Ok ())
+                         | Error e -> respond_error e () (* TODO respond result *)
 (*
   let set_settings (api : api) headers body () =
     set body Settings.of_yojson
@@ -57,14 +58,14 @@ module HTTP = struct
       Pipeline_protocol.(fun x ->
       Message.Protocol.wm_apply_layout ~options:api.options.wm api.channel x)
 
-  let get_wm_layout (api : api) _ body () =
+  let get_wm_layout (api : api) _ _body () =
     Message.Protocol.wm_get_layout api.channel ()
     >|= (function
          | Error e -> Error (Json.String.to_yojson e)
          | Ok v -> Ok (Wm.to_yojson v))
     >>= respond_result
 
-  let get_status (api : api) ids _ body () =
+  let get_status (api : api) ids _ _body () =
     React.S.value api.notifs.status
     |> (fun l ->
       match ids with

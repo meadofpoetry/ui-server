@@ -1,5 +1,4 @@
 open Containers
-open Qoe_errors
 open Lwt.Infix
 open Common
 
@@ -16,7 +15,7 @@ let tick () =
   in
   e, loop
        
-let create db_conf s_struct s_status e_video e_audio =
+let create db_conf _s_struct _s_status e_video e_audio =
   let db = Result.get_exn @@ Db.Conn.create db_conf () in
   let tick, loop = tick () in
   (* Pids *)
@@ -77,12 +76,19 @@ let create db_conf s_struct s_status e_video e_audio =
   @@ React.E.select [stream_status; stream_status_diff];
    *)
   (* Errors *)
-  React.E.keep
-  @@ React.E.map_p (fun x -> Lwt.catch (fun () -> Db.Errors.insert_video db x)
-                                  (function Failure e -> Lwt_io.printf "vdata error: %s\n" e)) e_video;
-  React.E.keep
-  @@ React.E.map_p (fun x -> Lwt.catch (fun () -> Db.Errors.insert_audio db x)
-                                  (function Failure e -> Lwt_io.printf "adata error: %s\n" e)) e_audio;
+  e_video
+  |> React.E.map_p (fun x -> Lwt.catch
+                               (fun () -> Db.Errors.insert_video db x)
+                               (function Failure e -> Lwt_io.printf "vdata error: %s\n" e
+                                       | _ -> Lwt_io.printf "vdata error: UNKNOWN\n"))
+  |> React.E.keep;
+
+  e_audio
+  |> React.E.map_p (fun x -> Lwt.catch (fun () -> Db.Errors.insert_audio db x)
+                               (function Failure e -> Lwt_io.printf "adata error: %s\n" e
+                                       | _ -> Lwt_io.printf "adata error: UNKNOWN\n"))
+  |> React.E.keep;
+       
   { db; tick; _loop = loop () }
   
 let set_streams model streams =

@@ -152,7 +152,7 @@ module Set_board_mode
       let hd, tl = List.take_drop main_packers_num packers in
       hd, List.take rest_msgs_num
           @@ List.sublists_of_len ~last:Option.return rest_packers_num tl in
-    let rec add_dummy acc =
+    let add_dummy acc =
       if List.length acc >= rest_msgs_num
       then acc else [] :: acc in
     let rest_pkrs = add_dummy (List.rev rest_pkrs) |> List.rev in

@@ -1,4 +1,3 @@
-open Containers
 open Lwt.Infix
 open Containers
 open Pipeline_protocol

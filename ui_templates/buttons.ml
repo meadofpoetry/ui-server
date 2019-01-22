@@ -1,9 +1,6 @@
-open Containers
 open Components
 
 module Set = struct
-
-  open Lwt.Infix
 
   let base_class = "mdc-apply-button"
   let busy_class = Markup.CSS.add_modifier base_class "busy"

@@ -1,7 +1,4 @@
-open Containers
 open Api.Interaction
-open Api.Redirect
-open Lwt.Infix
 
 let set_config (network : Network.t) _ body () =
   let open Json in
@@ -15,7 +12,7 @@ let set_config (network : Network.t) _ body () =
        | Ok _ as ok -> respond_result_unit ok
        | Error e    -> respond_result_unit (Error (`String e))
 
-let get_config (network : Network.t) _ body () =
+let get_config (network : Network.t) _ _body () =
   let open Json in
   Network.get_ext_settings network >>= function
   | Error e -> Json.respond_result (Error (`String e))

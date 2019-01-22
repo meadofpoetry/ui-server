@@ -1,11 +1,10 @@
 (executables
-  (names       home topology user network demo page_mosaic
+  (names       home topology user
+               network demo page_mosaic
                page_input page_stream)
-  (libraries   js_of_ocaml
+  (libraries   js_of_ocaml js_of_ocaml.weak
                gg vg vg.htmlc js_of_ocaml-tyxml common
                components pipeline_js application_js pc_control_js
-               board_ip_dektec_js board_dvb_niit_js board_ts2ip_niit_js chartjs)
-  (flags (:standard -short-paths -strict-sequence -bin-annot -g
-          -w A+1..49+60-4-39-40-41-42-44-45-48))
-  (js_of_ocaml (flags (:standard --disable genprim --opt 3)))
+               board_ip_dektec_js board_dvb_niit_js board_ts2ip_niit_js
+               chartjs)
   (preprocess  (pps ppx_deriving_yojson js_of_ocaml-ppx)))
