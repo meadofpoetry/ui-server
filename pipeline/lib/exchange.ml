@@ -1,4 +1,3 @@
-open Containers
 open Zmq_lwt
 open Lwt.Infix
    

@@ -32,12 +32,12 @@ let create config db =
     | Some t -> t
   in
   let users = User.create config in
-  let options = Storage.Options.Conf.get config in
+  let _options = Storage.Options.Conf.get config in (* TODO *)
   let network = match Pc_control.Network.create config with
     | Ok net -> net
     | Error e -> failwith ("bad network config: " ^ e) in
   let proc = match topology with
-    | `Boards bs -> None
+    | `Boards _ -> None
     | `CPU c -> Data_processor.create proc_table c.process config db in
   let hw, loop = Hardware.create config db topology in
   let db = Result.get_exn @@ Database.Conn.create db () in

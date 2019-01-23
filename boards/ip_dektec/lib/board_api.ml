@@ -1,6 +1,4 @@
-open Board_protocol
 open Boards.Board
-open Common
 
 let handle api events =
   [ Board_api_device.handler api events

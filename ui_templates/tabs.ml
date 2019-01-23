@@ -44,12 +44,12 @@ let wrap (bar : ('a, 'b) Tab_bar.t) body =
   object(self)
     inherit Widget.t Dom_html.(createDiv document) () as super
 
-    method init () : unit =
+    method! init () : unit =
       super#init ();
       self#append_child bar;
       self#append_child body
 
-    method destroy () : unit =
+    method! destroy () : unit =
       super#destroy ();
       bar#destroy ();
       body#destroy ()

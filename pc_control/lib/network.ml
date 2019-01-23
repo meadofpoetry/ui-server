@@ -14,7 +14,6 @@ let properties_changed interface =
 
 let monitor proxy interface switch =
   let open React in
-  let open OBus_value in
   OBus_signal.connect ~switch
     (OBus_signal.with_context
        (OBus_signal.make (properties_changed interface) proxy))
@@ -76,7 +75,7 @@ module Nm = struct
          in
          Some (Bytes.of_string s)
       | OBus_value.V.Byte_array s -> Some (Bytes.of_string s)
-      | x -> None
+      | _ -> None
 
     let unwrap_autoconnect (flag, prior) = match (flag --> unwrap_bool), (prior --> unwrap_int) with
       | Some false, _ -> Some False
@@ -85,10 +84,9 @@ module Nm = struct
 
     let of_dbus d =
       let open Option.Infix in
-      let open OBus_value in
-      
+
       let of_eth opts =
-        opts.%{"mac-address"} --> unwrap_bytes >>= fun x -> Macaddr.of_bytes @@ Bytes.to_string x
+        opts.%{"mac-address"} --> unwrap_bytes >>= fun x -> Result.to_opt @@ Macaddr.of_bytes @@ Bytes.to_string x
         >>= fun mac_address -> Some { mac_address }
       in
       
@@ -107,7 +105,7 @@ module Nm = struct
       let of_ipv4 opts =
         let gateway =
           opts.%{"gateway"} --> unwrap_string
-          >>= Ipaddr.V4.of_string
+          >>= fun x -> Result.to_opt @@ Ipaddr.V4.of_string x
         in
         let static =
           opts.%{"routes"} --> unwrap_address_list |> function Some l -> l | None -> []
@@ -166,7 +164,6 @@ module Nm = struct
       |> V.array (T.Dict (T.String, T.Variant))
                 
     let to_dbus c =
-      let open OBus_value in
       let eth  = [ "mac-address", wrap_bytes @@ Bytes.of_string @@ Macaddr.to_bytes c.ethernet.mac_address] in
       let conn = [ "id",   wrap_string c.connection.id
                  ; "uuid", wrap_string c.connection.uuid ]
@@ -199,7 +196,7 @@ module Nm = struct
        
     let make bus path =
       OBus_proxy.make
-        ~peer:(OBus_peer.make bus "org.freedesktop.NetworkManager")
+        ~peer:(OBus_peer.make ~connection:bus ~name:"org.freedesktop.NetworkManager")
         ~path
       
     let type_ethernet = 1l
@@ -228,7 +225,7 @@ module Nm = struct
        
     let make bus path =
       OBus_proxy.make
-        ~peer:(OBus_peer.make bus "org.freedesktop.NetworkManager")
+        ~peer:(OBus_peer.make ~connection:bus ~name:"org.freedesktop.NetworkManager")
         ~path
 
     let settings_prop proxy =
@@ -242,7 +239,7 @@ module Nm = struct
 
     let make bus path =
       OBus_proxy.make
-        ~peer:(OBus_peer.make bus "org.freedesktop.NetworkManager")
+        ~peer:(OBus_peer.make ~connection:bus ~name:"org.freedesktop.NetworkManager")
         ~path
 
     let get_settings proxy =
@@ -261,7 +258,7 @@ module Nm = struct
 
   let make bus =
     OBus_proxy.make
-      ~peer:(OBus_peer.make bus "org.freedesktop.NetworkManager")
+      ~peer:(OBus_peer.make ~connection:bus ~name:"org.freedesktop.NetworkManager")
       ~path:[ "org"; "freedesktop"; "NetworkManager" ]
     
   let devices_prop proxy =
@@ -305,7 +302,7 @@ class eth_connection ?defaults bus nm name device =
     Lwt_main.run @@ OBus_property.get @@ Nm.Connection.settings_prop connection
     |> fun set_path ->
        try  Nm.Settings.make bus set_path
-       with e -> failwith ("could not create a settings instance for " ^ name)
+       with _ -> failwith ("could not create a settings instance for " ^ name)
   in
   object
     val nm       = nm
@@ -351,7 +348,7 @@ let init base_dir (config : Network_settings.t) : t =
                        with _ -> [])
           |> Lwt_list.map_p (fun x -> x)))
   in
-  let interior = Option.(List.find_opt (fun (typ, name, proxy) ->
+  let interior = Option.(List.find_opt (fun (typ, name, _proxy) ->
                              Int32.equal Nm.Device.type_ethernet typ
                              && String.equal config.intern.interface name)
                            devices
@@ -362,7 +359,7 @@ let init base_dir (config : Network_settings.t) : t =
   in
   let exterior = Option.(config.extern
                          >>= fun conf ->
-                         List.find_opt (fun (typ, name, proxy) ->
+                         List.find_opt (fun (typ, name, _proxy) ->
                              Int32.equal Nm.Device.type_ethernet typ
                              && String.equal conf.interface name)
                            devices
@@ -439,7 +436,7 @@ let create config : (t, string) result =
 let get_ext_settings net =
   match net.extern with
   | None -> Lwt.return_error "No external iface available"
-  | Some (ext, ext_opts) -> Lwt.return_ok ext_opts#get (* ext#get_config () *)
+  | Some (_ext, ext_opts) -> Lwt.return_ok ext_opts#get (* ext#get_config () *)
 
 let apply_ext_settings (net : t) sets =
   match net.extern with

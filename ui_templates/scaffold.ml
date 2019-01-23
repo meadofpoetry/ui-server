@@ -1,8 +1,6 @@
 open Js_of_ocaml
-open Js_of_ocaml_lwt
 open Containers
 open Components
-open Tabs
 open Tyxml_js
 
 module Markup = Components_markup.Scaffold.Make(Xml)(Svg)(Html)

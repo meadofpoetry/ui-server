@@ -45,7 +45,7 @@ object(self)
 
   method progress = progress
   method thread = t
-  method iter f =
+  method iter (f : 'a -> unit) =
     Lwt_result.Infix.(
       t >>= (fun x -> f x; Lwt_result.return ())
       |> Lwt.ignore_result)
@@ -84,7 +84,7 @@ object(self)
     Option.iter (fun (p : #Widget.t) ->
         p#append_child (self :> Widget.t)) parent
 
-  method destroy () : unit =
+  method! destroy () : unit =
     super#destroy ();
     Lwt_result.(self#thread >|= (fun w -> w#destroy ()))
     |> Lwt.ignore_result

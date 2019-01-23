@@ -1,6 +1,5 @@
 open Containers
 open Lwt.Infix
-open Boards
        
 [@@@ocaml.warning "-32"]
 
@@ -95,7 +94,7 @@ let deserialize acc buf =
           | Ok (msg,rest) -> f (msg :: acc) rest
           | Error e       -> (match e with
                               | Insufficient_payload b -> acc, b
-                              | e                      -> f acc (Cstruct.shift b 1)))
+                              | _e                     -> f acc (Cstruct.shift b 1)))
     else acc,b in
   let msgs,new_acc = f [] buf in
   (if Cstruct.len new_acc > 0 then Some new_acc else None), msgs

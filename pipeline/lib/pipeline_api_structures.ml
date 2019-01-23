@@ -103,24 +103,21 @@ module HTTP = struct
                   |> uris
        in filter_by_uris uris data
   
-  let get_streams (api : api) ids inputs headers body () =
-    let open Structure in
+  let get_streams (api : api) ids inputs _headers _body () =
     Message.Protocol.stream_parser_get api.channel ()
     |> Lwt_result.map (Json.List.to_yojson Structure.to_yojson
                        % filter_data ids inputs !(api.sources))
     |> Lwt_result.map_err (fun x -> `String x)
     >>= respond_result
 
-  let get_streams_applied (api : api) ids inputs headers body () =
-    let open Structure in
+  let get_streams_applied (api : api) ids inputs _headers _body () =
     Message.Protocol.graph_get_structure api.channel ()
     |> Lwt_result.map (Json.List.to_yojson Structure.to_yojson
                        % filter_data ids inputs !(api.sources))
     |> Lwt_result.map_err (fun x -> `String x)
     >>= respond_result
 
-  let get_streams_with_source (api : api) ids inputs headers body () =
-    let open Structure in
+  let get_streams_with_source (api : api) ids inputs _headers _body () =
     Message.Protocol.stream_parser_get api.channel ()
     |> Lwt_result.map (Json.List.to_yojson Structure.packed_to_yojson
                        % Structure_conv.match_streams api.sources
@@ -128,8 +125,7 @@ module HTTP = struct
     |> Lwt_result.map_err (fun x -> `String x)
     >>= respond_result
 
-  let get_streams_applied_with_source (api : api) ids inputs headers body () =
-    let open Structure in
+  let get_streams_applied_with_source (api : api) ids inputs _headers _body () =
     Message.Protocol.graph_get_structure api.channel ()
     |> Lwt_result.map (Json.List.to_yojson Structure.packed_to_yojson
                        % Structure_conv.match_streams api.sources
@@ -137,7 +133,7 @@ module HTTP = struct
     |> Lwt_result.map_err (fun x -> `String x)
     >>= respond_result
 
-  let apply_streams (api : api) headers body () =
+  let apply_streams (api : api) _headers body () =
     of_body body >>= fun js ->
     match Json.List.of_yojson Structure.of_yojson js with
     | Error e -> respond_error e ()
@@ -145,6 +141,7 @@ module HTTP = struct
        Message.Protocol.graph_apply_structure
          ~options:api.options.structures api.channel x
        >>= function Ok () -> respond_result_unit (Ok ())
+                  | Error e -> respond_error e ()
     
 end
 

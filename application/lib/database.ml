@@ -2,7 +2,6 @@ open Containers
 open Storage.Database
 open Common.Stream
 open Api.Api_types
-open Lwt.Infix
 
 module SID = struct
 

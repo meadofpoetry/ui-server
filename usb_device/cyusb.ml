@@ -1,5 +1,3 @@
-open Cyusb_raw
-
 let in_point = 0x86
 
 let out_point = 0x02

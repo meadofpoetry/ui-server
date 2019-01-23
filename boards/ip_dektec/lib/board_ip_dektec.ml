@@ -1,6 +1,5 @@
 open Containers
 open Boards
-open Board_types
 open Common
 
 let ( % ) = Fun.( % )
@@ -37,7 +36,7 @@ let get_active_ports prefix (ports : Topology.topo_port list) =
 let log_prefix control = Printf.sprintf "(Board IP2TS: %d) " control
 
 let create (({ control; ports; _ } as b) : Topology.topo_board) _
-      convert_streams send db_conf base step : Board.t =
+      convert_streams send _db_conf base step : Board.t =
   let log_name = Boards.Board.log_name b in
   let log_src = Logs.Src.create log_name in
   let () = Option.iter (fun x -> Logs.Src.set_level log_src

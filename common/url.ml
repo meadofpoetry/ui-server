@@ -7,7 +7,8 @@ let ip_to_yojson ip =
   |> fun s -> `String s
 let ip_of_yojson = function
   | `String s -> Ipaddr.V4.of_string s
-                 |> (function Some ip -> Ok ip | None -> Error ("ip_of_yojson: bad ip: " ^ s))
+                 |> (function Ok _ as ip -> ip
+                            | Error (`Msg m) -> Error ("ip_of_yojson: bad ip: " ^ m))
   | _ -> Error "ip_of_yojson: bad js"
 let equal_ip a1 a2 = Int32.equal (Ipaddr.V4.to_int32 a1) (Ipaddr.V4.to_int32 a2)
 
@@ -19,6 +20,7 @@ let compare (t1:t) (t2:t) =
   let c = Ipaddr.V4.compare t1.ip t2.ip in
   if c <> 0 then c else compare t1.port t2.port
 
+
 let to_string t = Printf.sprintf "udp://%s:%d" (Ipaddr.V4.to_string t.ip) t.port
 let of_string s =
   let open Angstrom in
@@ -27,6 +29,7 @@ let of_string s =
   let number   =
     take_while1 (function '0'..'9' -> true | _ -> false)
     >>| int_of_string
+
   in
   let digit    =
     number >>= fun x ->

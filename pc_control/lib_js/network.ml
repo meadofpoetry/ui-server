@@ -30,8 +30,8 @@ let make_eth (eth : Network_config.ethernet_conf) =
   let eth_head  = new Card.Primary.t ~widgets:[new Card.Primary.title "Настройки устройства" ()] () in
 
   let of_string x = match Macaddr.of_string x with
-    | Some v -> Ok v
-    | None   -> Error "Неверный мак адрес"
+    | Ok _ as v -> v
+    | Error (`Msg m) -> Error ("Неверный мак адрес " ^ m)
   in
   let to_string x = Macaddr.to_string x in
   let address =

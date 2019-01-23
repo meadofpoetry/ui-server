@@ -55,12 +55,11 @@ let lwt_reporter ppf =
   { Logs.report = report }
   
 let main log_level config =
-  let open Application in
   Nocrypto_entropy_lwt.initialize () |> ignore;
   Logs.set_reporter (lwt_reporter (Format.std_formatter));
   Logs.set_level (Some log_level);
   
-  let rec mainloop () =
+  let mainloop () =
     print_endline "Started.";
     (* State *)
     let db             = Storage.Database.create config (4. *. 3600.0) in (* 60 seconds is for debug purpose only, need a bigger interval *)

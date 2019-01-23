@@ -1,6 +1,5 @@
 open Containers
 open Board_types
-open Lwt.Infix
 open Storage.Options
 open Boards
 open Boards.Board

@@ -76,7 +76,7 @@ end = struct
     | _, [] -> 1
     | [], _ -> -1
     
-  let rec next = function
+  let next = function
     | [] as l -> None, l
     | h::tl   -> Some h, tl
 

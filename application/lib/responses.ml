@@ -1,6 +1,5 @@
 open Common.User
 open Api.Template
-open Api
 
 let home_template () : upper ordered_item list user_table =
   let props = make_tmpl_props ~post_scripts:[Src "/js/home.js"] () in

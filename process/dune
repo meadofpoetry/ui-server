@@ -3,7 +3,4 @@
   ;(public_name process)
   (modes       native)
   (wrapped     false)
-  (libraries   lwt lwt.unix)
-  (flags          (:standard -short-paths -bin-annot
-                   -w A+1..49+60-4-7-23-33-34-39-40-41-42-44-45-48))
-  (ocamlopt_flags (-O3 -unbox-closures)))
+  (libraries   lwt lwt.unix))

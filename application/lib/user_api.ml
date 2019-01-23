@@ -15,7 +15,7 @@ let set_password (users:User.entries) _ body () =
          else respond_error "bad pass" ()
      with _ -> respond_error "pass db err" ()
 
-let logout headers body () =
+let logout headers _body () =
   respond_need_auth ~headers:headers ~auth:(`Basic "User Visible Realm") ()
 
 let handlers users =

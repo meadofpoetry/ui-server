@@ -1,7 +1,4 @@
 open Containers
-open Lwt.Infix
-open Message
-open Notif
 open Qoe_errors
 open Common
 
@@ -113,7 +110,7 @@ let notification_attach_setter
     | `Changed v -> Lwt.try_bind (fun () -> set v)
                       (function Ok () -> Lwt.return_some v
                               | Error _e -> Lwt.return_none (* TODO add log *))
-                      (function Failure _e -> Lwt.return_none)
+                      (function _ -> Lwt.return_none)
   in                   
   let signal_add_setter signal default setter =
     let signal = limit_inert ~eq:Pervasives.(=) 2.0 signal in

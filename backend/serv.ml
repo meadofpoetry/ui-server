@@ -3,8 +3,6 @@ open Cohttp_lwt_unix
 open Common.User
 open Api.Redirect
 open Api.Interaction
-open Api.Template
-open Api
 open Common.Uri
 
 module Api_handler = Api.Handler.Make(Common.User)

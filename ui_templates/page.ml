@@ -2,7 +2,6 @@ open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Containers
 open Components
-open Tabs
 
 let screen_width_breakpoint = 1160
 
@@ -60,7 +59,6 @@ let switch_tab container tab_bar =
   @@ React.S.changes tab_bar#s_active_tab
 
 let create_tab_row (container : container) (tabs : ('a, 'b) tab list) =
-  let open Tabs in
   let bar = new Tab_bar.t ~align:Start ~tabs () in
   set_active_page container bar;
   let section = new Top_app_bar.Section.t ~align:`Start ~widgets:[bar] () in

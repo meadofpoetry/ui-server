@@ -4,8 +4,6 @@ open Common
 open Qoe_errors
 open Api.Api_types
    
-open Lwt.Infix
-
 module SID = struct
 
   type t = Stream.ID.t

@@ -2,8 +2,6 @@ open Containers
 open Qoe_errors
 open Pipeline_protocol
 open Pipeline_api_common
-open Api.Interaction
-open Api.Interaction.Json
 open Common
 
 module WS = struct

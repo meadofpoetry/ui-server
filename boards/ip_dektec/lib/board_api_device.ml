@@ -2,7 +2,6 @@ open Containers
 open Board_types
 open Board_protocol
 open Board_api_common
-open Api.Interaction
 open Api.Interaction.Json
 open Api.Redirect
 open Common
@@ -84,10 +83,10 @@ module HTTP = struct
 
   module Archive = struct
 
-    let get_state limit compress from till duration _ _ () =
+    let get_state _limit _compress _from _till _duration _ _ () =
       not_found ()
 
-    let get_mode limit from till duration _ _ () =
+    let get_mode _limit _from _till _duration _ _ () =
       not_found ()
 
   end

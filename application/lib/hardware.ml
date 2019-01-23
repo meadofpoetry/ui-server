@@ -240,7 +240,7 @@ let set_stream hw (ss : stream_setting) =
                 then `Left { url = buri; stream = bs }
                 else `Right v) streams in
          rebuild_boards ((`Board id, same) :: acc) rest tl in
-    let rec input_add_uri (`Input i, sl) =
+    let input_add_uri (`Input i, sl) =
       let open Stream in
       let s_to_uri s = match s.orig_id with
         | TSoIP x ->
@@ -291,7 +291,7 @@ let set_stream hw (ss : stream_setting) =
              if not @@ List.exists (fun r -> Url.in_range r url) range
              then raise_notrace (Constraints `Not_in_range)) streams
   in
-  let rec loop l res = match l with
+  let rec loop l _res = match l with
     | [] -> Lwt.return_ok ()
     | (`Input k, streams)::tl -> begin
         try let p = Input_map.find k hw.sources.inputs in

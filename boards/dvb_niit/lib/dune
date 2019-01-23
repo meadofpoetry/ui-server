@@ -1,11 +1,8 @@
 (library
   (name        board_dvb_niit)
-  ;(public_name board_dvb_niit)
   (synopsis    "dvb board implementation")
-  (libraries   containers websocket-lwt.cohttp common storage boards api ptime.clock.os)
-  (flags          (:standard -short-paths -bin-annot
-                   -w A+1..49+60-4-39-40-41-42-44-45-48))
-  (ocamlopt_flags (-O3 -unbox-closures))
+  (libraries   containers websocket-lwt.cohttp common
+               storage boards api ptime.clock.os)
   (preprocess (pps ppx_cstruct ppx_deriving_yojson ppx_deriving.eq
                ppx_deriving.show ppx_deriving.enum)))
 

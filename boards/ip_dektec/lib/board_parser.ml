@@ -588,7 +588,9 @@ let is_response (type a) (req : a request) m : a option =
                        match String.take_drop 2 s with
                        | (x,"")  -> (acc ^ x)
                        | (x,res) -> f (acc ^ x ^ ":") res in
-                     Macaddr.of_string (f "" (Cstruct.to_string b))
+                     (f "" (Cstruct.to_string b))
+                     |> Macaddr.of_string
+                     |> Result.to_opt
         | Set_ip _ -> Ipaddr.get b
         | Set_mask _ -> Ipaddr.get b
         | Set_gateway _ -> Ipaddr.get b

@@ -55,7 +55,6 @@ let call ~name ~meth
      Lwt.return res.content)
     
 let create_channel mutex send =
-  let open Lwt.Infix in
   let send x =
     Lwt_mutex.with_lock mutex (fun () -> send x)
   in { send }

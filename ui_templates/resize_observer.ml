@@ -1,5 +1,4 @@
 open Js_of_ocaml
-open Components
 
 class type resizeEntry =
   object
