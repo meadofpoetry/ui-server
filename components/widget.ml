@@ -47,6 +47,10 @@ module Element = struct
   let coerce (elt : #Dom_html.element Js.t) : t =
     (elt :> t)
 
+  let remove_children (elt : #Dom_html.element Js.t) =
+    Dom.list_of_nodeList @@ elt##.childNodes
+    |> List.iter (fun x -> Dom.removeChild elt x)
+
   let insert_child_at_index (parent : #Dom.node Js.t)
         (index : int) (child : #Dom.node Js.t) =
     let sibling = parent##.childNodes##item index in
@@ -137,8 +141,7 @@ class t ?(widgets : #t list option)
   (** Removes all children from a widget.
       If [hard] = [true], then all child widgets are destroyed. *)
   method set_empty ?(hard = false) () : unit =
-    Dom.list_of_nodeList @@ self#root##.childNodes
-    |> List.iter (fun x -> Dom.removeChild self#root x);
+    Element.remove_children self#root;
     if hard then List.iter (fun x -> x#destroy ()) _widgets;
     _widgets <- []
 

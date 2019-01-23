@@ -3,10 +3,10 @@ open Containers
 open Tyxml_js
 
 type slide = [`Leading | `Trailing] [@@deriving eq]
-
-type elevation =
-  | Clipped
-  | Full_height
+type typ =
+  | Modal
+  | Dismissible
+  | Permanent
 
 module Markup = Components_markup.Side_sheet.Make(Xml)(Svg)(Html)
 
@@ -44,8 +44,7 @@ module Make_parent(M : M) = struct
     Js.Optdef.get (e##.changedTouches##item 0)
       (fun () -> raise Not_found)
 
-  class t ?(scrim : Scrim.t option) ?(modal = false)
-          (elt : #Dom_html.element Js.t) () =
+  class t ?(scrim : Scrim.t option) (elt : #Dom_html.element Js.t) () =
     let state, set_state = React.S.create false in
     object(self)
       val mutable previous_focus = None
@@ -72,13 +71,20 @@ module Make_parent(M : M) = struct
 
       method! init () : unit =
         super#init ();
-        if modal then self#set_modal ?scrim ();
+        let typ =
+          if self#modal
+          then Modal
+          else if self#dismissible
+          then Dismissible
+          else Permanent in
+        begin match typ with
+        | Modal -> self#set_modal ?scrim ()
+        | Permanent -> self#set_permanent ()
+        | Dismissible -> self#set_dismissible ()
+        end;
         (* Connect event listeners *)
         super#listen_lwt Widget.Event.touchstart (fun e _ -> self#on_touchstart e)
         |> (fun x -> touchstart_listener <- Some x);
-        Dom_events.listen Dom_html.window Widget.Event.keydown
-          (fun _ e -> self#on_keydown e)
-        |> (fun x -> keydown_listener <- Some x);
         super#listen_lwt (Dom_events.Typ.make "transitionend") (fun e _ ->
             self#handle_transition_end e; Lwt.return_unit)
         |> (fun x -> transitionend_listener <- Some x)
@@ -119,18 +125,31 @@ module Make_parent(M : M) = struct
         super#remove_class M.animate;
         super#remove_class M.closing;
         super#remove_class M.opening;
+        Option.iter Dom_events.stop_listen keydown_listener;
+        keydown_listener <- None;
         Option.iter Lwt.cancel scrim_click_listener;
         scrim_click_listener <- None
+
+      method dismissible : bool =
+        super#has_class M.dismissible
 
       method set_dismissible () : unit =
         super#remove_class M.modal;
         super#add_class M.dismissible;
+        Option.iter Dom_events.stop_listen keydown_listener;
+        keydown_listener <- None;
         Option.iter Lwt.cancel scrim_click_listener;
         scrim_click_listener <- None
+
+      method modal : bool =
+        super#has_class M.modal
 
       method set_modal ?scrim () : unit =
         super#remove_class M.dismissible;
         super#add_class M.modal;
+        Dom_events.listen Dom_html.window Widget.Event.keydown
+          (fun _ e -> self#on_keydown e)
+        |> (fun x -> keydown_listener <- Some x);
         let scrim = match scrim with
           | Some x -> Some x
           | None ->

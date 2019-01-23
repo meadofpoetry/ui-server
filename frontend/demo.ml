@@ -19,14 +19,8 @@ let make_top_app_bar () =
   Top_app_bar.make ~title ~actions:[action] (), action
 
 let onload _ =
-  let page = new Ui_templates.Page.t (`Static []) () in
-  (* let root = Dom_html.getElementById "root" in
-   * let page = Ui_templates.Scaffold.attach root in
-   * begin match page#drawer_elevation with
-   * | None -> print_endline "no drawer found!!!"
-   * | Some Full_height -> print_endline "drawer is full-height"
-   * | Some Clipped -> print_endline "drawer is clipped"
-   * end; *)
+  let root = Dom_html.getElementById "root" in
+  let _ = Ui_templates.Scaffold.attach root in
   let top_app_bar, action = make_top_app_bar () in
   let drawer = make_drawer () in
   let side_sheet = make_side_sheet () in
@@ -34,7 +28,7 @@ let onload _ =
     Ui_templates.Scaffold.make
       ~top_app_bar
       ~drawer
-      ~drawer_breakpoints:(Permanent, [])
+      ~drawer_breakpoints:(Dismissible, [])
       ~drawer_elevation:Full_height
       ~side_sheet
       ~side_sheet_elevation:Clipped
@@ -43,7 +37,7 @@ let onload _ =
   action#listen_click_lwt' (fun _ _ -> side_sheet#toggle_await ());
   let div = Widget.create_div ~widgets:[scaffold] () in
   div#add_class "demo-frame";
-  page#arbitrary#append_child div;
+  (* page#arbitrary#append_child div; *)
   Js._false
 
 let () =
