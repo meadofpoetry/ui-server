@@ -9,6 +9,10 @@ all: build
 clean:
 	$(CLEAN)
 
+testpage:
+	$(BUILD) page/test.bc.js
+	cp _build/default/page/test.bc.js dist/resources/js/test.js
+
 home:
 	$(BUILD) frontend/home.bc.js
 	cp _build/default/frontend/home.bc.js dist/resources/js/home.js

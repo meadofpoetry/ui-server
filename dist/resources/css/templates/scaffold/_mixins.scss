@@ -43,6 +43,12 @@
     .mdc-drawer.mdc-drawer--closing ~ &__app-content {
         transition: mdc-animation-standard(margin, $mdc-side-sheet-animation-exit);
     }
+    .mdc-side-sheet.mdc-side-sheet--open:not(.mdc-side-sheet--closing) ~ &__app-content {
+        transition: mdc-animation-standard(margin, $mdc-side-sheet-animation-enter);
+    }
+    .mdc-side-sheet.mdc-side-sheet--closing ~ &__app-content {
+        transition: mdc-animation-standard(margin, $mdc-side-sheet-animation-exit);
+    }
 }
 
 @mixin mdc-scaffold-drawer-frame_() {

@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Containers
 open Components
 open Common
@@ -159,42 +160,64 @@ let update_nodes nodes (t : Topology.t) =
          end
       | _ -> ()) nodes
 
-let create ~(parent : #Widget.t)
-      ~(init : Topology.t)
-      ~(event : Topology.t React.event)
-      () =
+let create (init : Topology.t) =
+  let event, sock = Requests.WS.get_topology () in
   let svg = Tyxml_js.Svg.(
-      svg ~a:[a_class [Markup.CSS.add_element _class "paths"]] [] |> toelt) in
+      svg ~a:[a_class [Markup.CSS.add_element _class "paths"]] []
+      |> toelt
+      |> Js.Unsafe.coerce
+      |> Widget.create) in
   let nodes = make_nodes init in
-  let drawer, drawer_box, set_drawer_title = Topo_drawer.make ~title:"" () in
-  let on_settings = fun ((widget : Widget.t), (name : string)) ->
-    drawer_box#set_empty ();
-    drawer_box#append_child widget;
-    set_drawer_title name;
-    Lwt.Infix.(
-      drawer#show_await ()
-      >|= (fun () -> widget#destroy ())) in
-  iter_paths (fun _ x ->
-      Option.iter (fun sw -> parent#append_child sw) x#switch;
-      Js_of_ocaml.Dom.appendChild svg x#root) nodes;
-  (* Js_of_ocaml.(
-   *   let main_panel = Dom_html.getElementById "main-panel" in
-   *   let main_content = Dom_html.getElementById "main-content" in
-   *   Dom.insertBefore main_panel drawer#root (Js.some main_content)); *)
-  (* Widget.append_to_body drawer; *)
-  Js_of_ocaml.Dom.appendChild parent#root svg;
-  List.iter (fun x -> let node = to_topo_node x in
-                      let w = wrap node#area node in
-                      parent#append_child w) nodes;
-  let gta = "grid-template-areas: " ^ (grid_template_areas init) ^ ";" in
-  (* FIXME store events? *)
-  List.filter_map (function
-      | `Board (b : Topo_board.t) -> Some b#settings_event
-      | `CPU (c : Topo_cpu.t) -> Some c#settings_event
-      | `Input _ -> None) nodes
-  |> React.E.select
-  |> React.E.map_s on_settings
-  |> React.E.keep;
-  React.(E.keep @@ E.map (update_nodes nodes) event);
-  parent#style##.cssText := Js_of_ocaml.Js.string gta;
-  nodes
+  let gta =
+    Printf.sprintf "grid-template-areas: %s;"
+      (grid_template_areas init) in
+  let e_settings =
+    List.filter_map (function
+        | `Board (b : Topo_board.t) -> Some b#settings_event
+        | `CPU (c : Topo_cpu.t) -> Some c#settings_event
+        | `Input _ -> None) nodes
+    |> React.E.select in
+  object(self)
+    val mutable e_upd = None
+    val mutable _resize_observer = None
+
+    inherit Widget.t Dom_html.(createDiv document) () as super
+
+    method! init () : unit =
+      super#init ();
+      super#add_class _class;
+      iter_paths (fun _ x ->
+          Option.iter super#append_child x#switch;
+          svg#append_child x) nodes;
+      super#append_child svg;
+      List.iter (fun x ->
+          let node = to_topo_node x in
+          let w = wrap node#area node in
+          super#append_child w) nodes;
+      super#style##.cssText := Js.string gta;
+      let e' = React.E.map (update_nodes nodes) event in
+      e_upd <- Some e';
+      let obs =
+        Ui_templates.Resize_observer.observe ~node:super#root
+          ~f:(fun _ -> self#layout ()) () in
+      _resize_observer <- Some obs;
+
+    method! destroy () : unit =
+      super#destroy ();
+      React.E.stop ~strong:true event;
+      sock##close;
+      Option.iter (React.E.stop ~strong:true) e_upd;
+      e_upd <- None;
+      Option.iter Ui_templates.Resize_observer.disconnect _resize_observer;
+      _resize_observer <- None
+
+    method! layout () : unit =
+      super#layout ();
+      List.iter (function
+          | `Board b -> b#layout ()
+          | `Input i -> i#layout ()
+          | `CPU c -> c#layout ()) nodes
+
+    method e_settings = e_settings
+
+  end

@@ -69,6 +69,8 @@ module Radio = Radio
 
 module Ripple = Ripple
 
+module Scaffold = Scaffold
+
 (* TODO update styles *)
 module Select = Select
 

@@ -20,12 +20,11 @@ let make_top_app_bar () =
 
 let onload _ =
   let root = Dom_html.getElementById "root" in
-  let _ = Ui_templates.Scaffold.attach root in
   let top_app_bar, action = make_top_app_bar () in
   let drawer = make_drawer () in
   let side_sheet = make_side_sheet () in
   let scaffold =
-    Ui_templates.Scaffold.make
+    Scaffold.make
       ~top_app_bar
       ~drawer
       ~drawer_breakpoints:(Dismissible, [])
@@ -37,7 +36,8 @@ let onload _ =
   action#listen_click_lwt' (fun _ _ -> side_sheet#toggle_await ());
   let div = Widget.create_div ~widgets:[scaffold] () in
   div#add_class "demo-frame";
-  (* page#arbitrary#append_child div; *)
+  let page = Scaffold.attach root in
+  page#set_body div;
   Js._false
 
 let () =

@@ -1,3 +1,6 @@
+open Js_of_ocaml
+open Components
+
 let () =
-  print_endline "making home page";
-  ignore @@ (new Ui_templates.Page.t (`Static []) () : Ui_templates.Page.t)
+  let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
+  ignore scaffold

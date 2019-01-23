@@ -338,5 +338,5 @@ let make () =
   |> Ui_templates.Loader.create_widget_loader
 
 let () =
-  let elt = make () in
-  ignore @@ new Ui_templates.Page.t (`Static [elt]) ()
+  let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
+  scaffold#set_body (make ())

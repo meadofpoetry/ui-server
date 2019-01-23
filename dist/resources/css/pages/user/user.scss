@@ -1,4 +1,8 @@
-.mdc-card {
+.page-user {
+    flex-grow: 1;
+}
+
+.page-user .mdc-card {
     overflow: hidden;
     &__media {
         padding: 1rem;

@@ -1,52 +1,35 @@
 open Js_of_ocaml
-open Containers
 open Application_js
 open Components
+open Lwt_result.Infix
 
-class t () = object(self)
-  val mutable _sock : WebSockets.webSocket Js.t option = None
-  val mutable _nodes : [ `CPU of Topo_cpu.t
-                       | `Board of Topo_board.t
-                       | `Input of Topo_input.t ] list = []
-  val mutable _resize_observer = None
-
-  inherit Widget.t Dom_html.(createDiv document) () as super
-
-  method! init () : unit =
-    super#init ();
-    super#add_class Page_topology._class;
-    let obs =
-      Ui_templates.Resize_observer.observe ~node:self#root
-        ~f:(fun _ -> self#layout ()) () in
-    _resize_observer <- Some obs;
-    let open Lwt_result.Infix in
-    Requests.HTTP.get_topology ()
-    >>= (fun init ->
-      let event, sock = Requests.WS.get_topology () in
-      let nodes = Page_topology.create ~parent:self ~init ~event () in
-      _nodes <- nodes;
-      _sock <- Some sock;
-      self#layout ();
-      Lwt_result.return ())
-    |> Lwt.ignore_result
-
-  method! destroy () : unit =
-    super#destroy ();
-    Option.iter (fun x -> x##close) _sock;
-    _sock <- None;
-    Option.iter Ui_templates.Resize_observer.disconnect _resize_observer;
-    _resize_observer <- None
-
-  (* FIXME hack, need to handle resize of total element *)
-  method! layout () : unit =
-    super#layout ();
-    List.iter (function
-        | `Board b -> b#layout ()
-        | `Input i -> i#layout ()
-        | `CPU c -> c#layout ()) _nodes
-
-end
+let on_settings (side_sheet : #Side_sheet.Parent.t)
+      (content : #Widget.t)
+      (set_title : string -> unit) =
+  fun ((widget : Widget.t), (name : string)) ->
+  content#set_empty ();
+  content#append_child widget;
+  set_title name;
+  Lwt.Infix.(
+    side_sheet#toggle_await ()
+    >|= (fun () -> if not side_sheet#is_open then widget#destroy ()))
 
 let () =
-  let elt = new t () in
-  ignore @@ new Ui_templates.Page.t (`Static [elt#widget]) ()
+  let side_sheet, side_sheet_content, set_side_sheet_title =
+    Topo_drawer.make ~title:"" () in
+  let on_settings =
+    on_settings side_sheet side_sheet_content set_side_sheet_title in
+  let body =
+    Ui_templates.Loader.create_widget_loader
+      (Requests.HTTP.get_topology ()
+       >|= (fun init ->
+         let page = Page_topology.create init in
+         Lwt_react.(E.keep @@ E.map on_settings page#e_settings);
+         page)
+       |> Lwt_result.map_err Api_js.Requests.err_to_string) in
+  let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
+  scaffold#set_side_sheet
+    ~typ:Dismissible
+    ~elevation:Full_height
+    side_sheet;
+  scaffold#set_body body

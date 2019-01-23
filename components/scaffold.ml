@@ -1,7 +1,6 @@
 open Js_of_ocaml
-open Containers
-open Components
 open Tyxml_js
+open Containers
 
 module Markup = Components_markup.Scaffold.Make(Xml)(Svg)(Html)
 
@@ -79,30 +78,36 @@ class t ?(drawer : #Drawer.t option)
         ?(body : #Widget.t option)
         (elt : #Dom_html.element Js.t)
         () =
-  (* Get basic scaffold frames *)
-  let (drawer_frame_full_height, drawer_frame_clipped,
-       app_content_outer, app_content_inner) =
-    Selector.(
-      by_class elt Markup.CSS.drawer_frame_full_height,
-      by_class elt Markup.CSS.drawer_frame_clipped,
-      by_class elt Markup.CSS.app_content_outer,
-      by_class elt Markup.CSS.app_content_inner) in
-  (* Attach top app bar *)
-  let top_app_bar =
-    Option.or_lazy ~else_:(attach_top_app_bar elt) top_app_bar in
-  (* Attach drawer *)
-  let drawer =
-    Option.or_lazy ~else_:(attach_drawer elt) drawer in
-  (* Attach side sheet *)
-  let side_sheet =
-    Option.or_lazy ~else_:(attach_side_sheet elt) side_sheet in
-  (* Attach body *)
-  let body =
-    Option.or_lazy ~else_:(attach_body app_content_inner) body in
+  let drawer_frame_full_height =
+    Selector.by_class elt Markup.CSS.drawer_frame_full_height in
+  let drawer_frame_clipped =
+    Selector.by_class elt Markup.CSS.drawer_frame_clipped in
+  let app_content_outer =
+    Selector.by_class elt Markup.CSS.app_content_outer in
+  let app_content_inner =
+    Selector.by_class elt Markup.CSS.app_content_inner in
   object(self)
 
     (* Nodes *)
+
     val mutable modal_drawer_wrapper = None
+
+    val mutable top_app_bar =
+      Option.or_lazy
+        ~else_:(attach_top_app_bar elt)
+        top_app_bar
+    val mutable drawer =
+      Option.or_lazy
+        ~else_:(attach_drawer elt)
+        drawer
+    val mutable side_sheet =
+      Option.or_lazy
+        ~else_:(attach_side_sheet elt)
+        side_sheet
+    val mutable body =
+      Option.or_lazy
+        ~else_:(attach_body app_content_inner)
+        body
 
     (* Event listeners *)
     val mutable menu_click_listener = None
@@ -162,10 +167,21 @@ class t ?(drawer : #Drawer.t option)
     method side_sheet : Side_sheet.t option =
       side_sheet
 
+    method set_side_sheet : 'a. ?typ:Side_sheet.typ ->
+                            ?elevation:drawer_elevation ->
+                            (#Side_sheet.Parent.t as 'a) ->
+                            unit =
+      fun ?typ ?elevation (side_sheet : #Side_sheet.Parent.t) ->
+      let side_sheet = (side_sheet :> Side_sheet.Parent.t) in
+      let typ = Option.get_or ~default:side_sheet_type typ in
+      let elevation = Option.get_or ~default:Clipped elevation in
+      self#set_drawer_type_ ~is_leading:false elevation side_sheet typ
+
     method body : Widget.t option =
       body
 
-    method set_body (body : #Widget.t) : unit =
+    method set_body : 'a. (#Widget.t as 'a) -> unit =
+      fun (body : #Widget.t) ->
       Widget.Element.remove_children app_content_inner;
       Dom.appendChild app_content_inner body#root
 
@@ -179,17 +195,17 @@ class t ?(drawer : #Drawer.t option)
 
     method drawer_elevation_ (drawer : #Side_sheet.Parent.t option)
            : drawer_elevation option =
-      Option.map (fun (d : #Side_sheet.Parent.t) ->
+      Option.flat_map (fun (d : #Side_sheet.Parent.t) ->
           match d#parent_element with
-          | None -> assert false
+          | None -> None
           | Some p ->
              let has_class s = Js.(to_bool @@ p##.classList##contains (string s)) in
              Markup.CSS.(
                if has_class drawer_frame_full_height
-               then Full_height
+               then Some Full_height
                else if has_class drawer_frame_clipped
-               then Clipped
-               else failwith "mdc-scaffold: bad drawer parent"))
+               then Some Clipped
+               else None))
         drawer
 
     method private setup_app_bar (app_bar : #Top_app_bar.t) : unit =

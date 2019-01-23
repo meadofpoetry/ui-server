@@ -1,7 +1,12 @@
+open Js_of_ocaml
 open Components
 open Api_js.Requests.Json_request
 open Containers
 open Common
+
+module CSS = struct
+  let root = "page-user"
+end
 
 let make_card user =
   let username = match user with
@@ -134,4 +139,6 @@ let () =
              ; new Layout_grid.Cell.t ~widgets:[operator_card] ()
              ; new Layout_grid.Cell.t ~widgets:[guest_card] () ]
       () in
-  ignore @@ new Ui_templates.Page.t (`Static [box#widget]) ()
+  box#add_class CSS.root;
+  let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
+  scaffold#set_body box

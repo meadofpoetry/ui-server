@@ -42,9 +42,6 @@ html {
 
 .main-top-app-bar {
     @include mdc-elevation(2);
-
-    z-index: 20;
-
     &.mdc-top-app-bar--unpinned {
         @include mdc-elevation(0);
     }
