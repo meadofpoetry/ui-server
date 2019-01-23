@@ -1,7 +1,13 @@
-BUILD   = dune build --profile release
+PROFILE ?= release
+BUILD   = dune build --profile $(PROFILE)
 CLEAN   = dune clean
 CSS     = scss --style compressed
 CSS_DIR = dist/resources/css
+
+all: build
+
+clean:
+	$(CLEAN)
 
 home:
 	$(BUILD) frontend/home.bc.js
@@ -51,23 +57,18 @@ backend:
 	$(BUILD) backend/backend.exe
 	cp _build/default/backend/backend.exe dist/backend
 
-
 build: backend home pipeline hardware user network demo input stream
 	@echo "Done"
 
-dev: BUILD = dune build
+dev: PROFILE = dev
 dev: backend home pipeline hardware user network demo input stream
 	@echo "Done"
 
 doc:
-	echo "not implemented"
+	odig odoc
+	odig doc
 
 test:
-	echo "not implemented"
+	dune runtest
 
-all: build
-
-clean:
-	$(CLEAN)
-
-.PHONY: build doc test all frontend backend pipeline hardware clean
+.PHONY: build doc test all clean backend home pipeline hardware user network demo input stream
