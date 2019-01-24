@@ -3,17 +3,24 @@
 @import '../../components/typography/_mixins';
 @import './_mixins';
 @import '../boards/dvb_niit';
+@import '../../components/side-sheet/mixins';
 
 $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
 $error-surface: $material-color-red-200;
 $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #fff) !default;
+$side-sheet-width: 400px;
 
 @for $i from 1 through length($boards) {
     @include topology-board-type(nth($boards,$i));
 }
 
+.mdc-side-sheet {
+    @include mdc-side-sheet-width($side-sheet-width);
+}
+
 .topology-loader {
     display: flex;
+    flex: 1;
 }
 
 .topology {
@@ -27,15 +34,10 @@ $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #
     position: absolute;
 }
 
-.mdc-side-sheet--open:not(.mdc-side-sheet--closing) ~ .mdc-scaffold__app-content {
-    margin-left: 0;
-    margin-right: 500px;
-}
-
 .topology__drawer {
-    min-width: 500px;
+    min-width: $side-sheet-width;
     max-width: 100vw;
-    @media screen and (max-width: 500px) {
+    @media screen and (max-width: 599px) {
         width: 100vw;
         min-width: initial;
     }

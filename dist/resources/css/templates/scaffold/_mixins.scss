@@ -19,6 +19,8 @@
 
 @mixin mdc-scaffold-base_() {
     @include mdc-typography-base;
+
+    height: 100%;
     .mdc-drawer:not(.mdc-drawer--modal) {
         @include mdc-drawer-z-index(1);
     }
@@ -27,12 +29,6 @@
     }
     .mdc-top-app-bar {
         position: absolute;
-    }
-    .mdc-drawer--open:not(.mdc-drawer--closing) ~ &__app-content {
-        @include mdc-side-sheet-app-content-margin_($mdc-side-sheet-width, leading);
-    }
-    .mdc-side-sheet--open:not(.mdc-side-sheet--closing) ~ &__app-content {
-        @include mdc-side-sheet-app-content-margin_($mdc-side-sheet-width, trailing);
     }
 }
 
@@ -53,14 +49,15 @@
 
 @mixin mdc-scaffold-drawer-frame_() {
     display: flex;
-    height: 100vh;
+    overflow: hidden;
+    // height: 100%;
+    // min-height: 100%;
     width: 100%;
     position: relative;
-    overflow: hidden;
 }
 
 @mixin mdc-scaffold-app-content_() {
-    display: flex;
+    // display: flex;
     overflow: auto;
     transition-property: margin;
     transition-timing-function: $mdc-animation-standard-curve-timing-function;

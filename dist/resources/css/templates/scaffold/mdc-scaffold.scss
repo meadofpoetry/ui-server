@@ -17,3 +17,7 @@
 .mdc-scaffold__drawer-frame {
     @include mdc-scaffold-drawer-frame_;
 }
+
+.mdc-scaffold__app-content--inner {
+    flex-direction: column;
+}

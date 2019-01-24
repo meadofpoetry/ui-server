@@ -39,4 +39,5 @@ let () =
     ~typ:Dismissible
     ~elevation:Full_height
     side_sheet;
+  scaffold#set_side_sheet_breakpoints (Dismissible, [1160, Modal]);
   scaffold#set_body body

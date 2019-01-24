@@ -128,7 +128,7 @@
 @mixin mdc-drawer-width($width) {
   width: $width;
 
-  &.mdc-drawer--open:not(&--closing) ~ .mdc-side-sheet-app-content {
+  &.mdc-drawer--open:not(&--closing):not(&--modal) ~ .mdc-side-sheet-app-content {
     @include mdc-side-sheet-app-content-margin_($width, leading);
   }
 }

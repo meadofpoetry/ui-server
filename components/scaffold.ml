@@ -13,8 +13,25 @@ let equal_drawer_elevation (a : drawer_elevation as 'a) (b : 'a) =
   | Full_height, Full_height | Clipped, Clipped -> true
   | _ -> false
 
-type drawer_breakpoint =
-  int * Side_sheet.typ
+module Breakpoint = struct
+
+  type 'a v = int * 'a
+
+  type 'a t = 'a * ('a v list)
+
+  let get_current (screen : int)
+        (breakpoints : 'a t) : 'a =
+    let hd, rest = breakpoints in
+    let rest = List.sort (fun (a, _) (b, _) -> compare b a) rest in
+    let rec aux acc = function
+      | [] -> acc
+      | [i, v] -> if screen <= i then v else acc
+      | (i1, v1) :: (i2, v2) :: tl ->
+         if screen > i2 && screen <= i1
+         then v1 else aux acc ((i2, v2) :: tl) in
+    aux hd rest
+
+end
 
 let drawer_type_to_enum : Side_sheet.typ -> int = function
   | Modal -> 0
@@ -23,11 +40,6 @@ let drawer_type_to_enum : Side_sheet.typ -> int = function
 
 let equal_drawer_type (a : Side_sheet.typ as 'a) (b : 'a) : bool =
   (drawer_type_to_enum a) = (drawer_type_to_enum b)
-
-let mobile_breakpoint = 1160
-
-let default_breakpoints : drawer_breakpoint list =
-  [(mobile_breakpoint, Modal)]
 
 module Selector = struct
   open Markup.CSS
@@ -116,6 +128,9 @@ class t ?(drawer : #Drawer.t option)
     val mutable drawer_type = fst drawer_breakpoints
     val mutable side_sheet_type = fst side_sheet_breakpoints
 
+    val mutable side_sheet_breakpoints = side_sheet_breakpoints
+    val mutable drawer_breakpoints = drawer_breakpoints
+
     inherit Widget.t elt () as super
 
     method! init () : unit =
@@ -130,11 +145,11 @@ class t ?(drawer : #Drawer.t option)
       | Some w, init, None ->
          let typ = drawer_type in
          let init = Option.get_or ~default:Clipped init in
-         self#set_drawer_type_ ~is_leading:true init w typ
+         self#set_drawer_properties_ ~is_leading:true typ init w
       | Some w, Some init, Some cur ->
          let typ = drawer_type in
          if not (equal_drawer_elevation init cur)
-         then self#set_drawer_type_ ~is_leading:true init w typ
+         then self#set_drawer_properties_ ~is_leading:true typ init w
       end;
       (* Setup side sheet *)
       begin match side_sheet,
@@ -144,17 +159,24 @@ class t ?(drawer : #Drawer.t option)
       | Some w, init, None ->
          let typ = side_sheet_type in
          let init = Option.get_or ~default:Clipped init in
-         self#set_drawer_type_ ~is_leading:false init w typ
+         self#set_drawer_properties_ ~is_leading:false typ init w
       | Some w, Some init, Some cur ->
          let typ = side_sheet_type in
          if not (equal_drawer_elevation init cur)
-         then self#set_drawer_type_ ~is_leading:false init w typ
+         then self#set_drawer_properties_ ~is_leading:false typ init w
       end;
       (* Setup body *)
-      Option.iter self#set_body body
+      Option.iter self#set_body body;
+      (* Handle window resize *)
+      Lwt_js_events.limited_onresizes ~elapsed_time:0.05
+        (fun _ _ -> self#handle_resize ())
+      |> (fun x -> resize_listener <- Some x);
 
     method! destroy () : unit =
-      super#destroy ()
+      super#destroy ();
+      (* Stop window resize listener *)
+      Option.iter Lwt.cancel resize_listener;
+      resize_listener <- None;
 
     (* Widgets *)
 
@@ -171,11 +193,19 @@ class t ?(drawer : #Drawer.t option)
                             ?elevation:drawer_elevation ->
                             (#Side_sheet.Parent.t as 'a) ->
                             unit =
-      fun ?typ ?elevation (side_sheet : #Side_sheet.Parent.t) ->
-      let side_sheet = (side_sheet :> Side_sheet.Parent.t) in
+      fun ?typ ?elevation (w : #Side_sheet.Parent.t) ->
+      let w = (w :> Side_sheet.Parent.t) in
       let typ = Option.get_or ~default:side_sheet_type typ in
       let elevation = Option.get_or ~default:Clipped elevation in
-      self#set_drawer_type_ ~is_leading:false elevation side_sheet typ
+      self#set_drawer_properties_ ~is_leading:false typ elevation w;
+      side_sheet <- Some w
+
+    method set_side_sheet_breakpoints (bp : Side_sheet.typ Breakpoint.t)
+           : unit =
+      side_sheet_breakpoints <- bp
+
+    method set_drawer_breakpoints (bp : Side_sheet.typ Breakpoint.t) : unit =
+      drawer_breakpoints <- bp
 
     method body : Widget.t option =
       body
@@ -192,22 +222,6 @@ class t ?(drawer : #Drawer.t option)
       self#drawer_elevation_ self#side_sheet
 
     (* Private methods *)
-
-    (** Determines drawer or side sheet elevation *)
-    method drawer_elevation_ (drawer : #Side_sheet.Parent.t option)
-           : drawer_elevation option =
-      Option.flat_map (fun (d : #Side_sheet.Parent.t) ->
-          match d#parent_element with
-          | None -> None
-          | Some p ->
-             let has_class s = Js.(to_bool @@ p##.classList##contains (string s)) in
-             Markup.CSS.(
-               if has_class drawer_frame_full_height
-               then Some Full_height
-               else if has_class drawer_frame_clipped
-               then Some Clipped
-               else None))
-        drawer
 
     method private setup_app_bar (app_bar : #Top_app_bar.t) : unit =
       let leading = match app_bar#leading, drawer with
@@ -227,56 +241,117 @@ class t ?(drawer : #Drawer.t option)
       let insert = Widget.Element.insert_child_at_index in
       insert app_content_outer 0 app_bar#root
 
-    method private place_drawer
+    (** Determines drawer or side sheet elevation *)
+    method drawer_elevation_ (drawer : #Side_sheet.Parent.t option)
+           : drawer_elevation option =
+      Option.flat_map (fun (d : #Side_sheet.Parent.t) ->
+          match d#parent_element with
+          | None -> None
+          | Some p ->
+             let has_class s = Js.(to_bool @@ p##.classList##contains (string s)) in
+             Markup.CSS.(
+               if has_class drawer_frame_full_height
+               then Some Full_height
+               else if has_class drawer_frame_clipped
+               then Some Clipped
+               else None))
+        drawer
+
+    method private render_drawer_
                      ?(is_leading = false)
-                     (drawer : #Side_sheet.Parent.t)
+                     (typ : Side_sheet.typ)
                      (elevation : drawer_elevation)
-                     (typ : Side_sheet.typ) : unit =
+                     (drawer : #Side_sheet.Parent.t) : unit =
+      let create_scrim, scrim_class =
+        if is_leading
+        then Drawer.Markup.(create_scrim, CSS.scrim)
+        else Side_sheet.Markup.(create_scrim, CSS.scrim) in
+      (* Where to place drawer *)
       let parent = match elevation with
         | Clipped -> drawer_frame_clipped
         | Full_height -> drawer_frame_full_height in
-      match typ with
+      (* How to render drawer *)
+      begin match typ with
       | Permanent | Dismissible ->
-         Option.iter (fun div ->
-             Js.Opt.iter div##.parentNode (fun x -> Dom.removeChild x div);
-             modal_drawer_wrapper <- None)
-           modal_drawer_wrapper;
-         Dom.insertBefore parent drawer#root parent##.firstChild;
+         (* Remove scrim *)
+         let scrim = Selector.by_class_opt parent scrim_class in
+         Option.iter (Dom.removeChild parent) scrim;
       | Modal ->
-         let scrim =
-           if is_leading
-           then Drawer.Markup.create_scrim ()
-           else Side_sheet.Markup.create_scrim () in
-         let div =
-           Html.(div [Of_dom.of_element drawer#root; scrim])
-           |> To_dom.of_element in
-         modal_drawer_wrapper <- Some div;
-         Dom.insertBefore parent div parent##.firstChild
+         let scrim = To_dom.of_element @@ create_scrim () in
+         Dom.insertBefore parent scrim drawer#root##.nextSibling
+      end;
+      let need_insert = match drawer#parent_element with
+        | None -> true
+        | Some p when not (Equal.physical p parent) -> true
+        | _ -> false in
+      if need_insert then
+        Dom.insertBefore parent drawer#root parent##.firstChild
 
-    method private set_drawer_type_
+    method private set_drawer_properties_
                      ?(is_leading = false)
+                     (typ : Side_sheet.typ)
                      (elevation : drawer_elevation)
-                     (drawer : #Side_sheet.Parent.t)
-                     (typ : Side_sheet.typ) : unit =
+                     (drawer : #Side_sheet.Parent.t) : unit =
       match typ with
       | Permanent ->
+         self#render_drawer_ ~is_leading typ elevation drawer;
          drawer#set_permanent ();
-         self#place_drawer ~is_leading drawer elevation Permanent;
          if is_leading then
            Option.iter (fun x -> x#hide_leading ()) top_app_bar;
       | Dismissible ->
+         self#render_drawer_ ~is_leading typ elevation drawer;
          drawer#set_dismissible ();
-         self#place_drawer ~is_leading drawer elevation Dismissible;
          if is_leading then
            Option.iter (fun x -> x#show_leading ()) top_app_bar;
       | Modal ->
-         self#place_drawer ~is_leading drawer elevation Modal;
+         self#render_drawer_ ~is_leading typ elevation drawer;
          drawer#set_modal ();
          if is_leading then
            Option.iter (fun x -> x#show_leading ()) top_app_bar;
 
+    method private handle_drawer_resize_
+                     ?(is_leading = false)
+                     (screen : int)
+                     (elevation : drawer_elevation)
+                     (drawer : #Side_sheet.Parent.t)
+                   : unit Lwt.t =
+      let typ, breakpoints =
+        if is_leading
+        then drawer_type, drawer_breakpoints
+        else side_sheet_type, side_sheet_breakpoints in
+      let cur = Breakpoint.get_current screen breakpoints in
+      let typ_to_string = function
+        | Side_sheet.Modal -> "modal"
+        | Dismissible -> "dismissible"
+        | Permanent -> "permanent" in
+      let name = if is_leading then "drawer" else "side sheet" in
+      Printf.printf "handle %s resize: screen = %d, typ = %s, cur = %s\n"
+        name screen (typ_to_string typ) (typ_to_string cur);
+      if equal_drawer_type typ cur then Lwt.return_unit else
+        Lwt.Infix.(
+        drawer#hide_await ()
+        >|= (fun () ->
+          Printf.printf "setting %s\n" name;
+          self#set_drawer_properties_ ~is_leading cur elevation drawer;
+          if is_leading
+          then drawer_type <- cur
+          else side_sheet_type <- cur))
+
     method private handle_resize () : unit Lwt.t =
-      Lwt.return_unit
+      let screen = Dom_html.document##.body##.offsetWidth in
+      let drawer_lwt =
+        match self#drawer, self#drawer_elevation_ self#drawer with
+        | Some drawer, Some elevation ->
+           self#handle_drawer_resize_ ~is_leading:true
+             screen elevation drawer
+        | _ -> Lwt.return_unit in
+      let side_sheet_lwt =
+        match self#side_sheet, self#drawer_elevation_ self#side_sheet with
+        | Some side_sheet, Some elevation ->
+           self#handle_drawer_resize_ ~is_leading:false
+             screen elevation side_sheet
+        | _ -> Lwt.return_unit in
+      Lwt.join [drawer_lwt; side_sheet_lwt]
 
   end
 

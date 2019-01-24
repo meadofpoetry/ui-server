@@ -32,6 +32,10 @@ html {
     -moz-osx-font-smoothing: grayscale;
 }
 
+#root.mdc-scaffold {
+    height: 100vh;
+}
+
 .main-top-app-bar {
     /* @include mdc-elevation(2); */
     &.mdc-top-app-bar--unpinned {

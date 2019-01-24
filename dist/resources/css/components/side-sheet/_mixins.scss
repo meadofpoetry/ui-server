@@ -97,7 +97,7 @@
 @mixin mdc-side-sheet-width($width, $side: trailing) {
   width: $width;
 
-  &.mdc-side-sheet--open:not(&--closing) ~ .mdc-side-sheet-app-content {
+  &.mdc-side-sheet--open:not(&--closing):not(&--modal) ~ .mdc-side-sheet-app-content {
     @include mdc-side-sheet-app-content-margin_($width, $side);
   }
 }
