@@ -193,6 +193,7 @@ class t ?(drawer : #Drawer.t option)
 
     (* Private methods *)
 
+    (** Determines drawer or side sheet elevation *)
     method drawer_elevation_ (drawer : #Side_sheet.Parent.t option)
            : drawer_elevation option =
       Option.flat_map (fun (d : #Side_sheet.Parent.t) ->
@@ -283,7 +284,7 @@ class t ?(drawer : #Drawer.t option)
 let make ?drawer ?drawer_elevation ?drawer_breakpoints
       ?side_sheet ?side_sheet_elevation ?side_sheet_breakpoints
       ?(top_app_bar : #Top_app_bar.t option)
-      (* ?(body : #Widget.t option) *)
+      ?(body : #Widget.t option)
       () =
   let elt =
     Markup.(
@@ -298,7 +299,7 @@ let make ?drawer ?drawer_elevation ?drawer_breakpoints
     |> To_dom.of_element in
   new t ?drawer ?drawer_elevation ?drawer_breakpoints
     ?side_sheet ?side_sheet_elevation ?side_sheet_breakpoints
-    ?top_app_bar elt ()
+    ?top_app_bar ?body elt ()
 
 (** Attach scaffold widget to existing element *)
 let attach (elt : #Dom_html.element Js.t) : t =

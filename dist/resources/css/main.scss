@@ -32,16 +32,8 @@ html {
     -moz-osx-font-smoothing: grayscale;
 }
 
-.mdc-drawer--dismissible.main-drawer {
-    z-index: 1;
-}
-
-#arbitrary-content {
-    flex-grow: 1;
-}
-
 .main-top-app-bar {
-    @include mdc-elevation(2);
+    /* @include mdc-elevation(2); */
     &.mdc-top-app-bar--unpinned {
         @include mdc-elevation(0);
     }
@@ -70,7 +62,7 @@ html {
     }
 }
 
-.main-drawer .mdc-drawer__header {
+.mdc-drawer .mdc-drawer__header {
     display: flex;
     padding: 16px;
     align-items: center;
