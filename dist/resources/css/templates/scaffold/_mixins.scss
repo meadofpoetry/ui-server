@@ -19,8 +19,6 @@
 
 @mixin mdc-scaffold-base_() {
     @include mdc-typography-base;
-
-    height: 100%;
     .mdc-drawer:not(.mdc-drawer--modal) {
         @include mdc-drawer-z-index(1);
     }
@@ -50,20 +48,16 @@
 @mixin mdc-scaffold-drawer-frame_() {
     display: flex;
     overflow: hidden;
-    // height: 100%;
-    // min-height: 100%;
     width: 100%;
     position: relative;
 }
 
 @mixin mdc-scaffold-app-content_() {
-    // display: flex;
+    display: flex;
     overflow: auto;
     transition-property: margin;
     transition-timing-function: $mdc-animation-standard-curve-timing-function;
-    height: 100%;
     width: 100%;
-    max-width: 100%;
     box-sizing: border-box;
     position: relative;
     margin-left: 0;

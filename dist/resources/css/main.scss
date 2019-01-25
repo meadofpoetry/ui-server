@@ -14,15 +14,6 @@
 @import './components/layout-grid/variables';
 @import './components/layout-grid/mixins';
 
-$xsmall: 480px;
-$small: 600px;
-$small-840: 840px;
-$medium: 960px;
-$large: 1240px;
-$large-1440: 1440px;
-$large-1600: 1580px;
-$xlarge: 1900px;
-
 :root {
     --mdc-theme-background: #ececec;
 }
@@ -32,8 +23,15 @@ html {
     -moz-osx-font-smoothing: grayscale;
 }
 
-#root.mdc-scaffold {
-    height: 100vh;
+html, body {
+    min-height: 100vh;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+.mdc-scaffold__drawer-frame--full-height {
+    min-height: 100vh;
 }
 
 .main-top-app-bar {

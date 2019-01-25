@@ -22,8 +22,7 @@
         <link rel="stylesheet" href={{stylesheet}} type="text/css">
         {{/stylesheets}}
     </head>
-    <body class="mdc-typography">
-        <div id="root" class="mdc-scaffold">
+    <body id="root" class="mdc-typography mdc-scaffold">
             <div class="mdc-scaffold__drawer-frame
                         mdc-scaffold__drawer-frame--full-height">
                 <div class="mdc-scaffold__app-content
@@ -44,7 +43,6 @@
                     </div>
                 </div>
             </div>
-        </div>
         <!-- Additional post scripts -->
         {{#post_scripts}}
         <script {{#src}}src="{{script}}"{{/src}} type="text/javascript">{{^src}}{{{script}}}{{/src}}</script>
