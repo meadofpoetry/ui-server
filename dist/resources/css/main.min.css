@@ -209,10 +209,12 @@
 
 .mdc-scaffold__app-content {
   display: flex;
+  flex-direction: column;
   overflow: auto;
   transition-property: margin;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   width: 100%;
+  min-height: 100%;
   box-sizing: border-box;
   position: relative;
   margin-left: 0;
@@ -222,6 +224,7 @@
   display: flex;
   overflow: hidden;
   width: 100%;
+  min-height: 100%;
   position: relative; }
 
 .mdc-scaffold__app-content--inner {
@@ -761,12 +764,6 @@
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale; }
-
-html, body {
-  min-height: 100vh;
-  width: 100%;
-  margin: 0;
-  padding: 0; }
 
 .mdc-scaffold__drawer-frame--full-height {
   min-height: 100vh; }

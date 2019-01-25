@@ -9,10 +9,6 @@ all: build
 clean:
 	$(CLEAN)
 
-testpage:
-	$(BUILD) page/test.bc.js
-	cp _build/default/page/test.bc.js dist/resources/js/test.js
-
 home:
 	$(BUILD) frontend/home.bc.js
 	cp _build/default/frontend/home.bc.js dist/resources/js/home.js
@@ -61,11 +57,13 @@ backend:
 	$(BUILD) backend/backend.exe
 	cp _build/default/backend/backend.exe dist/backend
 
-build: backend home pipeline hardware user network demo input stream
+frontend: home input stream pipeline hardware user network demo
+
+build: backend frontend
 	@echo "Done"
 
 dev: PROFILE = dev
-dev: backend home pipeline hardware user network demo input stream
+dev: backend home frontend
 	@echo "Done"
 
 doc:

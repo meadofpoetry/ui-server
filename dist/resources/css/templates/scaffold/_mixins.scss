@@ -49,15 +49,18 @@
     display: flex;
     overflow: hidden;
     width: 100%;
+    min-height: 100%;
     position: relative;
 }
 
 @mixin mdc-scaffold-app-content_() {
     display: flex;
+    flex-direction: column;
     overflow: auto;
     transition-property: margin;
     transition-timing-function: $mdc-animation-standard-curve-timing-function;
     width: 100%;
+    min-height: 100%;
     box-sizing: border-box;
     position: relative;
     margin-left: 0;

@@ -8,6 +8,11 @@ type typ =
   | Dismissible
   | Permanent
 
+let typ_to_string = function
+  | Modal -> "modal"
+  | Dismissible -> "dismissible"
+  | Permanent -> "permanent"
+
 module Markup = Components_markup.Side_sheet.Make(Xml)(Svg)(Html)
 
 module Scrim = struct
