@@ -1,27 +1,39 @@
 * Project goals
 
-** TODO Pre-alpha goals [3/9]:
-- [ ] Api list
-- [ ] DB tables frameworks
-- [ ] UI template
-- [-] Configs and command line arguments
-  - [X] Config parser
-  - [ ] Command line parser (via Commandliner)
-- [ ] Add database maintainance loop
-- [X] Replace Cryptokit with nocrypt
-- [X] Replace Sqlite3 with sqlexpr
-
-** TODO Alpha goals [0/2]:
-- [-] Interaction with the Qoe analyser
-  - [X] Data representation
-    - [X] json
-    - [X] msgpack
-  - [ ] Error storage
+** TODO Alpha goals [0/6]:
+- [ ] Rearrange project libraries
+  - [ ] Separate utility libraries
+  - [ ] Functorize everything with stuff like users, db, streams, topologies etc as it is done in mirage
+    - [ ] Common timer loop
+    - [ ] DB, KV, Boards resources
+    - [ ] Streams, Topo, Users types
+- [ ] Wrap caqti interface with a adaptor
+- [ ] Fix db leaks
+- [ ] User password encryption
+- [ ] Refactor Api.Socket interaction layer
+- [ ] Refactor Pipeline types to support saved settings alteration
+- [ ] Interaction with the Qoe analyser
   - [ ] Settings api
-- [ ] Interaction with QoS via usb 
-  - [ ] USB control
-- [ ] Simple frontend
-  - [ ] Qoe settings
-  - [ ] Video frame
-  - [ ] Video frame layout control
-  - [ ] Error indicating elements
+  - [ ] Integrate glsoundbar into the ats3-backend
+  - [ ] Implement audio settings
+  - [ ] Audio stream channels control
+- [ ] Switch to ocaml-4.08 monadic let operators
+
+** TODO Beta goals [0/2]:
+- [ ] QoE storage
+  - [ ] Consider using min/max + deviation + avg instead of min + max + avg
+  - [ ] DB aggregator refactoring
+  - [ ] QoE storage for all errors and data
+  - [ ] QoE plots
+  - [ ] QoE storage api
+  - [ ] QoE proper plots with deviation
+- [ ] Interaction with the Qoe analyser
+  - [ ] Send QoS errors to pipeline
+  - [ ] Integrate glerror into the ats3-backend
+
+
+** TODO Release candidate [0/1]:
+- [ ] Data server interaction
+  - [ ] Send-dependency graph
+  - [ ] Shared resources sending
+  - [ ] Sender implementation
