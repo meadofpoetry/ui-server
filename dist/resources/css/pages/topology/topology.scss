@@ -18,16 +18,14 @@ $side-sheet-width: 400px;
     @include mdc-side-sheet-width($side-sheet-width);
 }
 
-.topology-loader {
-    display: flex;
-    flex: 1;
-}
-
 .topology {
-    display: grid;
-    height: 100%;
     position: relative;
-    flex-grow: 1;
+    height: 100%;
+    grid-template-columns: none !important;
+
+    svg {
+        overflow: visible;
+    }
 }
 
 .topology__switch {
@@ -124,6 +122,7 @@ $side-sheet-width: 400px;
     user-select: none;
     cursor: initial;
     align-items: center;
+    margin: 24px 0;
     @include mdc-theme-prop(background-color, surface);
     // FIXME surface
     @include mdc-theme-prop(color, text-primary-on-background);

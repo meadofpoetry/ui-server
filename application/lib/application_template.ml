@@ -94,20 +94,16 @@ let create_topology () =
          ; template }
 
 let create_demo () =
-  let id = "ui-demo" in
+  let path = Uri.Path.Format.("demo" @/ empty) in
   let template =
-    make_tmpl_props ~id
+    make_tmpl_props
       ~app_bar:(make_app_bar_props ~title:"UI Демо" ())
       ~pre_scripts:[ Src "/js/moment.min.js"
                    ; Src "/js/Chart.min.js" ]
       ~post_scripts:[Src "/js/demo.js"]
       ~stylesheets:["/css/demo.min.css"]
       () in
-  Simple { id
-         ; title = "UI Демо"
-         ; icon = Some (make_icon Icon.SVG.Path.material_design)
-         ; href = Uri.Path.of_string "demo"
-         ; template }
+  Pure { path; template }
 
 let create (app : Application.t)
     : upper ordered_item list User.user_table =

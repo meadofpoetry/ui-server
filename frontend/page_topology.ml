@@ -33,7 +33,6 @@ let () =
          page)
        |> Lwt_result.map_err Api_js.Requests.err_to_string) in
   body#add_class Layout_grid.Markup.base_class;
-  body#add_class "topology-loader";
   let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
   scaffold#set_side_sheet ~elevation:Full_height side_sheet;
   scaffold#set_body body

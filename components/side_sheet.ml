@@ -88,8 +88,8 @@ module Make_parent(M : M) = struct
         | Dismissible -> self#set_dismissible ()
         end;
         (* Connect event listeners *)
-        super#listen_lwt Widget.Event.touchstart (fun e _ -> self#on_touchstart e)
-        |> (fun x -> touchstart_listener <- Some x);
+        (* super#listen_lwt Widget.Event.touchstart (fun e _ -> self#on_touchstart e)
+         * |> (fun x -> touchstart_listener <- Some x); *)
         super#listen_lwt (Dom_events.Typ.make "transitionend") (fun e _ ->
             self#handle_transition_end e; Lwt.return_unit)
         |> (fun x -> transitionend_listener <- Some x)

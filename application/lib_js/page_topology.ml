@@ -185,6 +185,7 @@ let create (init : Topology.t) =
 
     method! init () : unit =
       super#init ();
+      super#add_class Layout_grid.Markup.inner_class;
       super#add_class _class;
       iter_paths (fun _ x ->
           Option.iter super#append_child x#switch;
@@ -199,7 +200,14 @@ let create (init : Topology.t) =
       e_upd <- Some e';
       let obs =
         Ui_templates.Resize_observer.observe ~node:super#root
-          ~f:(fun _ -> self#layout ()) () in
+          ~f:(fun a ->
+            let rect =
+              Js.array_get a 0
+              |> Js.Optdef.to_option
+              |> Option.get_exn
+              |> (fun e -> e##.contentRect) in
+            Js.Unsafe.global##.console##log rect |> ignore;
+            self#layout ()) () in
       _resize_observer <- Some obs;
 
     method! destroy () : unit =
