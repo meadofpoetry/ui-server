@@ -94,7 +94,7 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
   let scroll_target = match scroll_target with
     | None -> Window Dom_html.window
     | Some x ->
-       if Equal.physical Dom_html.window x
+       if Equal.physical (Js.Unsafe.coerce Dom_html.window) x
        then Window (Js.Unsafe.coerce x)
        else Element (Js.Unsafe.coerce x) in
   object(self)
@@ -327,7 +327,8 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
   end
 
 (** Create new top app bar from scratch *)
-let make' ?scroll_target ?offset ?tolerance ?imply_leading
+let make' ?(scroll_target : #Dom_html.eventTarget Js.t option)
+      ?offset ?tolerance ?imply_leading
       ?(rows = []) () : t =
   let elt =
     Markup.create

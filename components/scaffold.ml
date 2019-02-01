@@ -69,9 +69,9 @@ module Selector = struct
 
 end
 
-let attach_top_app_bar (elt : Dom_html.element Js.t) () =
+let attach_top_app_bar ?scroll_target (elt : Dom_html.element Js.t) () =
   Selector.by_class_opt elt Top_app_bar.Markup.CSS.root
-  |> Option.map Top_app_bar.attach
+  |> Option.map (Top_app_bar.attach ?scroll_target)
 
 let attach_drawer (elt : Dom_html.element Js.t) () =
   Selector.by_class_opt elt Drawer.Markup.CSS.root
@@ -112,7 +112,7 @@ class t ?(drawer : #Drawer.t option)
     (* Nodes *)
     val mutable top_app_bar =
       Option.or_lazy
-        ~else_:(attach_top_app_bar elt)
+        ~else_:(attach_top_app_bar ~scroll_target:app_content_inner elt)
         top_app_bar
     val mutable drawer =
       Option.or_lazy
