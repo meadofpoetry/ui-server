@@ -73,7 +73,7 @@ let compare_time (x : time) (y : time) = match x, y with
 module Stream_item = struct
 
   let base_class = "qos-niit-stream-grid-item"
-  let lost_class = Markup.CSS.add_modifier base_class "lost"
+  let lost_class = CSS.add_modifier base_class "lost"
 
   let time_to_string = function
     | `Now -> "Активен"

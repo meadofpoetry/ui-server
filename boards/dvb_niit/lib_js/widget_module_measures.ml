@@ -18,7 +18,7 @@ end
 module Row = struct
 
   module Make(M : M) = struct
-    let _class = Markup.CSS.add_element base_class "row"
+    let _class = CSS.add_element base_class "row"
     class t ~(s_value : M.t option React.signal) () =
       let meta =
         new Typography.Text.t

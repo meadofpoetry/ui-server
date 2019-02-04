@@ -42,9 +42,9 @@ let make_show_toggle () =
 let make_layer_item s_layers push layer =
   let open Dynamic_grid.Position in
   let _class = "wm-layer-item" in
-  let drag_handle_class = Markup.CSS.add_element _class "drag-handle" in
-  let show_icon_class = Markup.CSS.add_element _class "visibility" in
-  let color_class = Markup.CSS.add_element _class "color-indicator" in
+  let drag_handle_class = CSS.add_element _class "drag-handle" in
+  let show_icon_class = CSS.add_element _class "visibility" in
+  let color_class = CSS.add_element _class "color-indicator" in
 
   let layers = React.S.value s_layers in
   let drag = new Icon.Font.t ~icon:"drag_handle" () in

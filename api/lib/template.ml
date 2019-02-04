@@ -254,16 +254,16 @@ let make_item ?(id : string option) (_, (v : upper item))
               ; "subtree", `A subtree
               ; "simple", `Bool false])
 
-module Icon = Components_markup.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
+module Icon = Components_tyxml.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
 let make_account_color (user : User.t) : string =
-  Components_markup.Material_color_palette.(
+  Components_tyxml.Material_color_palette.(
     let fill = match user with
       | `Root -> Red C500
       | `Operator -> Orange C500
       | `Guest -> Light_green C500 in
     Color.to_css_rgba
-    @@ Components_markup.Material_color_palette.make fill)
+    @@ make fill)
 
 let make_account_icon (user : User.t) : string =
   let path' = Icon.SVG.Path.account in
@@ -335,15 +335,15 @@ let build_templates ?(href_base = "")
   let fill_in_sub base_title base_href = function
     | _, Simple { title; href; template; _ } ->
        let path = base_href @ href in
-       let template = match template.app_bar with
-         | None -> template
-         | Some app_bar ->
-            match app_bar.title with
-            | None -> template
-            | Some t ->
-               let title = Some (base_title ^ " / " ^ t) in
-               let app_bar = Some { app_bar with title } in
-               { template with app_bar } in
+       (* let template = match template.app_bar with
+        *   | None -> template
+        *   | Some app_bar ->
+        *      match app_bar.title with
+        *      | None -> template
+        *      | Some t ->
+        *         let title = Some (base_title ^ " / " ^ t) in
+        *         let app_bar = Some { app_bar with title } in
+        *         { template with app_bar } in *)
        render files template user vals
        |> make_node (`Path path)
        |> Option.return

@@ -2,8 +2,6 @@ open Js_of_ocaml
 open Containers
 open Components
 
-module Markup = Components_markup
-
 type 'a dynamic_value = (unit -> #Widget.t as 'a)
 
 let create_simple ?body (tabs : ('a, Widget.t) Tab.t list) =

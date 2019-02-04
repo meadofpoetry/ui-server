@@ -5,14 +5,14 @@ open Common
 
 let port_section_height = 50
 let base_class = "topology__block"
-let fine_class = Markup.CSS.add_modifier base_class "fine"
-let init_class = Markup.CSS.add_modifier base_class "init"
-let fail_class = Markup.CSS.add_modifier base_class "fail"
+let fine_class = CSS.add_modifier base_class "fine"
+let init_class = CSS.add_modifier base_class "init"
+let fail_class = CSS.add_modifier base_class "fail"
 
 module Header = struct
 
-  let _class = Markup.CSS.add_element base_class "header"
-  let action_class = Markup.CSS.add_element _class "action"
+  let _class = CSS.add_element base_class "header"
+  let action_class = CSS.add_element _class "action"
 
   class t ?action ?subtitle ~title () =
     let title_w = new Card.Primary.title title () in
@@ -45,7 +45,7 @@ end
 
 module Body = struct
 
-  let _class = Markup.CSS.add_element base_class "body"
+  let _class = CSS.add_element base_class "body"
 
   class t n () =
     let elt = Js_of_ocaml.Dom_html.(createDiv document) in

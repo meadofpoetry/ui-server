@@ -5,9 +5,9 @@ open Board_types
 open Widget_common
 
 let base_class = "qos-niit-service-info"
-let no_sync_class = Markup.CSS.add_modifier base_class "no-sync"
-let no_response_class = Markup.CSS.add_modifier base_class "no-response"
-let not_available_class = Markup.CSS.add_modifier base_class "not-available"
+let no_sync_class = CSS.add_modifier base_class "no-sync"
+let no_response_class = CSS.add_modifier base_class "no-response"
+let not_available_class = CSS.add_modifier base_class "not-available"
 
 module Settings = struct
   type t = { hex : bool } [@@deriving eq]
@@ -86,8 +86,8 @@ let make_general_info () =
 
 let make_sdt_info () =
   let open Item_list in
-  let ok_class = Components_markup.CSS.add_modifier "mdc-icon" "ok" in
-  let err_class = Components_markup.CSS.add_modifier "mdc-icon" "error" in
+  let ok_class = CSS.add_modifier "mdc-icon" "ok" in
+  let err_class = CSS.add_modifier "mdc-icon" "error" in
   let name, set_name =
     let meta = new Typography.Text.t ~text:"" () in
     let item = new Item.t ~value:() ~text:"Имя" ~meta () in
@@ -156,7 +156,7 @@ let make_sdt_info () =
         set_running_status info.running_status
 
 let make_description () =
-  let _class = Markup.CSS.add_element base_class "description" in
+  let _class = CSS.add_element base_class "description" in
   let main, set_main, set_rate, set_min, set_max = make_general_info () in
   let sdt, set_sdt = make_sdt_info () in
   let main_title = new Card.Primary.title "Общая информация" () in
@@ -184,7 +184,7 @@ let make_description () =
 
 module Pids = struct
 
-  let _class = Markup.CSS.add_element base_class "pids"
+  let _class = CSS.add_element base_class "pids"
 
   let get_service_pids ((_, info) : Service.t) =
     let pmt = if info.has_pmt then Some info.pmt_pid else None in

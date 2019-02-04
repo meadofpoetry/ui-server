@@ -46,8 +46,8 @@ end
 module Set = Set.Make(Pid_info)
 
 let base_class = "qos-niit-pids-summary"
-let no_sync_class = Markup.CSS.add_modifier base_class "no-sync"
-let no_response_class = Markup.CSS.add_modifier base_class "no-response"
+let no_sync_class = CSS.add_modifier base_class "no-sync"
+let no_response_class = CSS.add_modifier base_class "no-response"
 
 (* TODO improve tooltip. add pid type, bitrate units *)
 module Pie = struct
@@ -168,9 +168,9 @@ module Pie = struct
     chart, dataset
 
   class t ?(hex = false) () =
-    let _class = Markup.CSS.add_element base_class "pie" in
-    let box_class = Markup.CSS.add_element _class "wrapper" in
-    let title_class = Markup.CSS.add_element _class "title" in
+    let _class = CSS.add_element base_class "pie" in
+    let box_class = CSS.add_element _class "wrapper" in
+    let title_class = CSS.add_element _class "title" in
     let text = "Битрейт" in
     let title = new Typography.Text.t ~font:Caption ~text () in
     let box = Widget.create_div () in
@@ -301,11 +301,11 @@ module Info = struct
   module Pids = struct
 
     let base_class = "qos-niit-pids-summary-box"
-    let content_class = Markup.CSS.add_element base_class "content"
-    let wrapper_class = Markup.CSS.add_element base_class "wrapper"
-    let pid_class = Markup.CSS.add_element base_class "pid"
-    let title_class = Markup.CSS.add_element base_class "title"
-    let lost_class = Markup.CSS.add_modifier pid_class "lost"
+    let content_class = CSS.add_element base_class "content"
+    let wrapper_class = CSS.add_element base_class "wrapper"
+    let pid_class = CSS.add_element base_class "pid"
+    let title_class = CSS.add_element base_class "title"
+    let lost_class = CSS.add_modifier pid_class "lost"
 
     let make_title num =
       Printf.sprintf "PIDs (%d)" num

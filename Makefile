@@ -22,8 +22,10 @@ stream:
 	cp _build/default/frontend/page_stream.bc.js dist/resources/js/stream.js
 
 pipeline:
-	$(BUILD) frontend/page_mosaic.bc.js
-	cp _build/default/frontend/page_mosaic.bc.js dist/resources/js/page_mosaic.js
+	$(BUILD) frontend/page_mosaic_video.bc.js
+	cp _build/default/frontend/page_mosaic_video.bc.js dist/resources/js/page_mosaic_video.js
+	$(BUILD) frontend/page_mosaic_editor.bc.js
+	cp _build/default/frontend/page_mosaic_editor.bc.js dist/resources/js/page_mosaic_editor.js
 
 hardware:
 	$(BUILD) frontend/page_topology.bc.js

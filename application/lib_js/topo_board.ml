@@ -88,7 +88,7 @@ module Header = struct
 
   class t (has_settings_button : bool)
           (board : Topology.topo_board) () =
-    let _class = Markup.CSS.add_element base_class "header" in
+    let _class = CSS.add_element base_class "header" in
     let title = get_board_name board in
     let settings = match has_settings_button with
       | false -> None
@@ -118,7 +118,7 @@ end
 
 module Body = struct
 
-  let _class = Markup.CSS.add_element base_class "body"
+  let _class = CSS.add_element base_class "body"
 
   class t (board : Topology.topo_board) () =
   object

@@ -8,11 +8,11 @@ module Set = Set.Make(Qoe_status)
 
 module Pids = struct
 
-  let _class = Markup.CSS.add_element base_class "pids"
-  let pid_class = Markup.CSS.add_element _class "pid"
-  let title_class = Markup.CSS.add_element _class "title"
-  let box_class = Markup.CSS.add_element _class "wrapper"
-  let lost_class = Markup.CSS.add_modifier pid_class "lost"
+  let _class = CSS.add_element base_class "pids"
+  let pid_class = CSS.add_element _class "pid"
+  let title_class = CSS.add_element _class "title"
+  let box_class = CSS.add_element _class "wrapper"
+  let lost_class = CSS.add_modifier pid_class "lost"
 
   class pid ?(hex = false) (state : t) () =
   object(self)

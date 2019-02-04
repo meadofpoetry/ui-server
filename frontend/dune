@@ -1,7 +1,7 @@
 (executables
   (names       home page_topology user
-               network demo page_mosaic
-               page_input page_stream)
+               network demo page_input page_stream
+               page_mosaic_video page_mosaic_editor)
   (libraries   js_of_ocaml js_of_ocaml.weak
                vg vg.htmlc js_of_ocaml-tyxml common
                components pipeline_js application_js pc_control_js

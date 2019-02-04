@@ -117,13 +117,13 @@ let make_list
   list, update_list
 
 let make_parsed () =
-  let base_class = Markup.CSS.add_element base_class "parsed" in
+  let base_class = CSS.add_element base_class "parsed" in
   let body = Widget.create_div () in
   body#add_class base_class;
   body
 
 let make_hexdump_options hexdump =
-  let base_class = Markup.CSS.add_element base_class "hexdump-options" in
+  let base_class = CSS.add_element base_class "hexdump-options" in
   let base =
     new Select.t
       ~label:"Основание"
@@ -178,9 +178,9 @@ let make_hexdump () =
 
 let make_dump_header base_class () =
   (* CSS classes *)
-  let header_class = Markup.CSS.add_element base_class "header" in
-  let title_class = Markup.CSS.add_element base_class "title" in
-  let subtitle_class = Markup.CSS.add_element base_class "subtitle" in
+  let header_class = CSS.add_element base_class "header" in
+  let title_class = CSS.add_element base_class "title" in
+  let subtitle_class = CSS.add_element base_class "subtitle" in
   (* Elements *)
   let title =
     new Typography.Text.t
@@ -295,7 +295,7 @@ let make_dump
       (list : (SI_PSI_table.section_info * Dump.t Time.timestamped option) Item_list.t)
       (control : int) =
   let open SI_PSI_table in
-  let base_class = Markup.CSS.add_element base_class "dump" in
+  let base_class = CSS.add_element base_class "dump" in
   let header, title, subtitle, button = make_dump_header base_class () in
   let hexdump, set_hexdump = make_hexdump () in
   let parsed = make_parsed () in
@@ -405,12 +405,12 @@ class t ~(stream : Stream.ID.t)
         ~(sections : (SI_PSI_table.section_info * Dump.t Time.timestamped option) list)
         (control : int)
         () =
-  let stream_panel_class = Markup.CSS.add_element base_class "list" in
+  let stream_panel_class = CSS.add_element base_class "list" in
   let list, update_list = make_list sections in
   let dump = make_dump ~table_id ~table_id_ext
                ~id_ext_1 ~id_ext_2 stream list control in
   let list_name =
-    let _class = Markup.CSS.add_element stream_panel_class "title" in
+    let _class = CSS.add_element stream_panel_class "title" in
     let w = new Typography.Text.t ~text:"Секции" () in
     w#add_class _class;
     w in

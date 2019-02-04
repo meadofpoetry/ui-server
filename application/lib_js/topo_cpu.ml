@@ -23,7 +23,7 @@ module Header = struct
 
   class t (has_settings_button : bool)
           (cpu : Topology.topo_cpu) () =
-    let _class = Markup.CSS.add_element base_class "header" in
+    let _class = CSS.add_element base_class "header" in
     let title = get_cpu_name cpu in
     let settings = match has_settings_button with
       | false -> None

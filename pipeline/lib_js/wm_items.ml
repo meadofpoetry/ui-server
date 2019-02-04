@@ -13,9 +13,9 @@ module Make(I : Item) = struct
 
   module Add = struct
 
-    let base_class = Markup.CSS.add_element base_class "add"
-    let item_class = Markup.CSS.add_element base_class "item"
-    let wrapper_class = Markup.CSS.add_element base_class "wrapper"
+    let base_class = CSS.add_element base_class "add"
+    let item_class = CSS.add_element base_class "item"
+    let wrapper_class = CSS.add_element base_class "wrapper"
 
     class item ~candidate ~candidates ~set_candidates ~widgets () =
       let data = I.to_yojson candidate
@@ -106,8 +106,8 @@ module Make(I : Item) = struct
   module Properties = struct
 
     let base_class = "wm-item-properties"
-    let values_class = Markup.CSS.add_element base_class "values"
-    let actions_class = Markup.CSS.add_element base_class "actions"
+    let values_class = CSS.add_element base_class "values"
+    let actions_class = CSS.add_element base_class "actions"
 
     class t (s : I.t Dynamic_grid.Item.t option React.signal) =
     object(self)

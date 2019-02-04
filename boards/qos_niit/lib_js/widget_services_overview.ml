@@ -43,8 +43,8 @@ end
 module Set = Set.Make(Service_info)
 
 let base_class = "qos-niit-services-overview"
-let no_sync_class = Markup.CSS.add_modifier base_class "no-sync"
-let no_response_class = Markup.CSS.add_modifier base_class "no-response"
+let no_sync_class = CSS.add_modifier base_class "no-sync"
+let no_response_class = CSS.add_modifier base_class "no-response"
 
 let get_service_bitrate (br : (int * int) list) ((_, info) : Service.t) =
   let elts =
@@ -72,7 +72,7 @@ let acc_bitrate total rate =
 let make_back () =
   let icon = Icon.SVG.(create_simple Path.arrow_left) in
   let back = new Icon_button.t ~icon () in
-  back#add_class @@ Markup.CSS.add_element base_class "back";
+  back#add_class @@ CSS.add_element base_class "back";
   back
 
 let br_to_string = function

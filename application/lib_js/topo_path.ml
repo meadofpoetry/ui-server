@@ -67,10 +67,10 @@ class switch (port : Topology.topo_port) setter () =
   end
 
 let _class = "topology__path"
-let active_class = Markup.CSS.add_modifier _class "active"
-let muted_class = Markup.CSS.add_modifier _class "muted"
-let sync_class = Markup.CSS.add_modifier _class "sync"
-let no_sync_class = Markup.CSS.add_modifier _class "no-sync"
+let active_class = CSS.add_modifier _class "active"
+let muted_class = CSS.add_modifier _class "muted"
+let sync_class = CSS.add_modifier _class "sync"
+let no_sync_class = CSS.add_modifier _class "no-sync"
 
 class t ~(left_node : node_entry)
         ~(right_point : connection_point)

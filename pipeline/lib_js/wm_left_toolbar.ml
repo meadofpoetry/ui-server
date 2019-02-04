@@ -1,7 +1,7 @@
 open Components
 
 let base_class = "wm-left-toolbar"
-let action_class = Markup.CSS.add_element base_class "action"
+let action_class = CSS.add_element base_class "action"
 
 let make_action (action : Wm_types.action) =
   let w = new Fab.t ~mini:true ~icon:action.icon () in

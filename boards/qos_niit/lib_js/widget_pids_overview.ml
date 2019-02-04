@@ -12,10 +12,10 @@ type pid_flags =
 let name = "PIDs"
 
 let base_class = "qos-niit-pids-overview"
-let no_sync_class = Markup.CSS.add_modifier base_class "no-sync"
-let no_response_class = Markup.CSS.add_modifier base_class "no-response"
-let row_class = Markup.CSS.add_element base_class "row"
-let absent_class = Markup.CSS.add_modifier row_class "lost"
+let no_sync_class = CSS.add_modifier base_class "no-sync"
+let no_response_class = CSS.add_modifier base_class "no-response"
+let row_class = CSS.add_element base_class "row"
+let absent_class = CSS.add_modifier row_class "lost"
 
 let ( % ) = Fun.( % )
 

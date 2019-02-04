@@ -76,8 +76,8 @@ module Text_row = struct
       method! init () : unit =
         super#init ();
         super#add_class _class;
-        vw#add_class @@ Markup.CSS.add_element _class "value";
-        nw#add_class @@ Markup.CSS.add_element _class "label";
+        vw#add_class @@ CSS.add_element _class "value";
+        nw#add_class @@ CSS.add_element _class "label";
         match s with
         | None -> ()
         | Some s -> _s <- Some (React.S.map (fun x -> vw#set_text_content x) s)
@@ -94,8 +94,8 @@ end
 
 module Item_info = struct
 
-  let _class     = "wm-grid-item__info"
-  let line_class = Markup.CSS.add_element _class "line"
+  let _class = "wm-grid-item__info"
+  let line_class = CSS.add_element _class "line"
 
   let make_info icon info =
     let icon = new Icon.Font.t ~icon () in
@@ -111,8 +111,7 @@ module Item_info = struct
                    ~widgets:[item.icon; text#widget] () in
     let lines = [line_1#widget] in
     let box = new Vbox.t ~widgets:lines () in
-    line_1#add_class
-    @@ Markup.CSS.add_modifier line_class "with-icon";
+    line_1#add_class @@ CSS.add_modifier line_class "with-icon";
     List.iter (fun x -> x#add_class line_class) lines;
     box#add_class _class;
     box#widget
@@ -130,8 +129,7 @@ module Item_info = struct
     (* let line_3 = new Typography.Text.t ~text:item.item.description () in *)
     let lines = [line_2#widget] in
     let box = new Vbox.t ~widgets:lines () in
-    line_2#add_class
-    @@ Markup.CSS.add_modifier line_class "with-icon";
+    line_2#add_class @@ CSS.add_modifier line_class "with-icon";
     List.iter (fun x -> x#add_class line_class) lines;
     box#add_class _class;
     box#widget

@@ -4,8 +4,8 @@ open Components
 let base_class = "wm-selectable-title"
 
 class title ~title ~widget () =
-  let title_class = Markup.CSS.add_element base_class  "title" in
-  let active_class = Markup.CSS.add_modifier title_class "active" in
+  let title_class = CSS.add_element base_class  "title" in
+  let active_class = CSS.add_modifier title_class "active" in
   object
 
     inherit Typography.Text.t

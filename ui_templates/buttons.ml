@@ -3,7 +3,7 @@ open Components
 module Set = struct
 
   let base_class = "mdc-apply-button"
-  let busy_class = Markup.CSS.add_modifier base_class "busy"
+  let busy_class = CSS.add_modifier base_class "busy"
 
   class t ?typ ?style ?icon ?dense ?compact ?ripple ?(label = "Применить")
           (signal : 'a option React.signal)
@@ -49,7 +49,7 @@ module Get = struct
   open Lwt.Infix
 
   let base_class = "mdc-get-button"
-  let busy_class = Markup.CSS.add_modifier base_class "busy"
+  let busy_class = CSS.add_modifier base_class "busy"
 
   class ['a] t ?typ ?style ?icon ?dense ?compact ?ripple
           ?timeout ?(getter : (unit -> 'a Lwt.t) option)

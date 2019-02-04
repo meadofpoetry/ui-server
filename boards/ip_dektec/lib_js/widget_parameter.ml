@@ -74,7 +74,7 @@ module Make(M : M) = struct
 
   type event = M.t option React.event
 
-  let inner_class = Markup.CSS.add_element base_class "inner"
+  let inner_class = CSS.add_element base_class "inner"
 
   let value_to_string (config : config) = function
     | Some v ->

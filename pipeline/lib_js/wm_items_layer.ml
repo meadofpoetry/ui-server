@@ -35,7 +35,7 @@ module Make(I : Item) = struct
     let c, r = React.S.value s_grid in
     let e_dblclick, e_dblclick_push = React.E.create () in
     let e_delete, e_delete_push = React.E.create () in
-    let _class = Components_markup.CSS.add_element base_class "grid" in
+    let _class = CSS.add_element base_class "grid" in
     let ph =
       Placeholder.make
         ~text:"Добавьте элементы в раскладку"
@@ -135,11 +135,11 @@ module Make(I : Item) = struct
 
       method set_active x =
         self#add_or_remove_class (not x)
-        @@ Components_markup.CSS.add_modifier _class "background"
+        @@ CSS.add_modifier _class "background"
 
       method set_visible x =
         self#add_or_remove_class (not x)
-        @@ Components_markup.CSS.add_modifier _class "invisible"
+        @@ CSS.add_modifier _class "invisible"
 
       method layer : int =
         layer

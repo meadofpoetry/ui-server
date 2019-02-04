@@ -14,7 +14,7 @@ let base_class = "dvb-niit-module-measure"
 module Make(M:sig type t val to_string : t -> string end) = struct
   type event  = M.t option React.event
 
-  let inner_class = Markup.CSS.add_element base_class "inner"
+  let inner_class = CSS.add_element base_class "inner"
 
   let value_to_string (config : config) = function
     | None -> "-"

@@ -6,8 +6,8 @@ open Common
 
 let name = "Обзор таблиц"
 let base_class = "qos-niit-table-overview"
-let no_sync_class = Markup.CSS.add_modifier base_class "no-sync"
-let no_response_class = Markup.CSS.add_modifier base_class "no-response"
+let no_sync_class = CSS.add_modifier base_class "no-sync"
+let no_response_class = CSS.add_modifier base_class "no-response"
 
 module Settings = struct
   type t = { hex : bool } [@@deriving eq]
@@ -109,7 +109,7 @@ let to_table_extra ?(hex = false) ((id, _) : SI_PSI_table.t) =
 let make_back () =
   let icon = Icon.SVG.(create_simple Path.arrow_left) in
   let back = new Icon_button.t ~icon () in
-  back#add_class @@ Markup.CSS.add_element base_class "back";
+  back#add_class @@ CSS.add_element base_class "back";
   back
 
 let section_fmt : 'a. unit -> 'a list Components.Table.custom =

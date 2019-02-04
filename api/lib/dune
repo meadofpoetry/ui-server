@@ -3,8 +3,8 @@
   (synopsis   "api framework")
   (modes       native)
   (libraries   common containers cohttp cohttp.lwt tyxml yojson mustache
-               msgpck ppx_deriving_yojson.runtime components_markup
-               websocket-lwt.cohttp react)
+               msgpck ppx_deriving_yojson.runtime websocket-lwt.cohttp
+               components_tyxml)
   (flags          (:standard -short-paths -strict-sequence -bin-annot
                    -w A+1..49+60-4-7-23-27-33-34-39-40-41-42-44-45-48))
   (ocamlopt_flags (:standard -O3 -unbox-closures))

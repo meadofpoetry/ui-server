@@ -62,6 +62,6 @@ let make (cpu : Topology.topo_cpu) () : (#Widget.t,string) Lwt_result.t =
     ] in
   let bar, body = Ui_templates.Tabs.create_dynamic tabs in
   let box = Ui_templates.Tabs.wrap bar body in
-  body#add_class @@ Markup.CSS.add_element base_class "body";
+  body#add_class @@ CSS.add_element base_class "body";
   box#add_class base_class;
   Lwt_result.return box

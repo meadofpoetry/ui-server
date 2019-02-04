@@ -2,7 +2,7 @@ open Containers
 open Api.Template
 open Common
 
-module Icon = Components_markup.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
+module Icon = Components_tyxml.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
 let make_icon ?rotate path =
   let open Icon.SVG in

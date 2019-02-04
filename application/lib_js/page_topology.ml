@@ -73,7 +73,7 @@ let grid_template_areas t =
 
 let wrap area elt =
   let div = Widget.create_div () in
-  div#add_class @@ Markup.CSS.add_element _class "node-wrapper";
+  div#add_class @@ CSS.add_element _class "node-wrapper";
   div#style##.cssText := Js_of_ocaml.Js.string @@ "grid-area: " ^ area ^ ";";
   div#append_child elt;
   div
@@ -163,7 +163,7 @@ let update_nodes nodes (t : Topology.t) =
 let create (init : Topology.t) =
   let event, sock = Requests.WS.get_topology () in
   let svg = Tyxml_js.Svg.(
-      svg ~a:[a_class [Markup.CSS.add_element _class "paths"]] []
+      svg ~a:[a_class [CSS.add_element _class "paths"]] []
       |> toelt
       |> Js.Unsafe.coerce
       |> Widget.create) in

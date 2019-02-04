@@ -3,12 +3,12 @@ open Containers
 open Components
 
 let base_class = "mdc-placeholder"
-let content_class = Markup.CSS.add_element base_class "content"
-let widget_class = Markup.CSS.add_element base_class "widget"
-let text_class = Markup.CSS.add_element base_class "text"
-let with_icon_class = Markup.CSS.add_modifier base_class "icon"
-let with_progress_class = Markup.CSS.add_modifier base_class "progress"
-let with_error_class = Markup.CSS.add_modifier base_class "error"
+let content_class = CSS.add_element base_class "content"
+let widget_class = CSS.add_element base_class "widget"
+let text_class = CSS.add_element base_class "text"
+let with_icon_class = CSS.add_modifier base_class "icon"
+let with_progress_class = CSS.add_modifier base_class "progress"
+let with_error_class = CSS.add_modifier base_class "error"
 
 module Base = struct
   class t ~widget ~text () =

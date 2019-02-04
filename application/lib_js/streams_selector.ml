@@ -7,13 +7,13 @@ open Common
 let dense = false
 
 let base_class = "application-stream-selector"
-let inputs_class = Markup.CSS.add_element base_class "inputs"
-let stream_class = Markup.CSS.add_element base_class "stream"
-let lost_class = Markup.CSS.add_modifier stream_class "lost"
-let block_class = Markup.CSS.add_element base_class "block"
-let forbidden_class = Markup.CSS.add_modifier block_class "forbidden"
-let dialog_class = Markup.CSS.add_element base_class "dialog"
-let empty_placeholder_class = Markup.CSS.add_element base_class "empty-placeholder"
+let inputs_class = CSS.add_element base_class "inputs"
+let stream_class = CSS.add_element base_class "stream"
+let lost_class = CSS.add_modifier stream_class "lost"
+let block_class = CSS.add_element base_class "block"
+let forbidden_class = CSS.add_modifier block_class "forbidden"
+let dialog_class = CSS.add_element base_class "dialog"
+let empty_placeholder_class = CSS.add_element base_class "empty-placeholder"
 
 type check =
   { avail : bool React.signal

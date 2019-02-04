@@ -110,11 +110,11 @@ module Make(I : Item) = struct
          *     menu#show ();
          *     Lwt.return_unit) |> Lwt.ignore_result; *)
         (* anchor#set_align_items `Center; *)
-        title#add_class @@ Markup.CSS.add_element base_class "title";
+        title#add_class @@ CSS.add_element base_class "title";
         (* menu_block#add_class @@ Markup.CSS.add_element base_class "grid-select"; *)
-        icons#add_class @@ Markup.CSS.add_element base_class "right-menu";
-        grid_icon#add_class  @@ Markup.CSS.add_element base_class "menu";
-        header#add_class @@ Markup.CSS.add_element base_class "header";
+        icons#add_class @@ CSS.add_element base_class "right-menu";
+        grid_icon#add_class  @@ CSS.add_element base_class "menu";
+        header#add_class @@ CSS.add_element base_class "header";
         React.S.l2 (fun conf grid ->
             let value = if conf
                         then (grid#overlay_grid#show ();
@@ -156,7 +156,7 @@ module Make(I : Item) = struct
           e_layers |> ignore;
         super#add_class base_class;
         super#set_justify_content `Center;
-        wrapper#add_class @@ Markup.CSS.add_element base_class "wrapper"
+        wrapper#add_class @@ CSS.add_element base_class "wrapper"
 
       method e_item_dblclick = e_dblclick
       method e_item_delete = e_delete

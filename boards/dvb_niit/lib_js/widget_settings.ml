@@ -6,7 +6,7 @@ let name = "Настройки"
 let settings = None
 
 let base_class = "dvb-niit-settings"
-let body_class = Markup.CSS.add_element base_class "body"
+let body_class = CSS.add_element base_class "body"
 
 let make_inner (parent : #Widget.t) state config control receivers =
   let w = match receivers with

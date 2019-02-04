@@ -110,10 +110,14 @@ let () =
       fmt (fun _ _ c -> c) in
   Application_js.Requests.HTTP.get_stream_source ~stream_id ()
   >>= (fun source ->
-    let info = Stream.Source.to_string source.info in
-    let tabs = make_tabs stream_id input boards cpu in
-    let page = new Ui_templates.Page.t (`Dynamic tabs) () in
-    let title = page#title ^ " / " ^ info in
-    page#set_title title;
+    ignore input;
+    ignore boards;
+    ignore cpu;
+    ignore source;
+    (* let info = Stream.Source.to_string source.info in
+     * let tabs = make_tabs stream_id input boards cpu in *)
+    (* let page = new Ui_templates.Page.t (`Dynamic tabs) () in
+     * let title = page#title ^ " / " ^ info in
+     * page#set_title title; *)
     Lwt_result.return ())
   |> Lwt.ignore_result

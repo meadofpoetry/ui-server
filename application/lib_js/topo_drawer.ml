@@ -8,9 +8,9 @@ let make_header text =
   let font = Typography.Headline_5 in
   let title = new Typography.Text.t ~adjust_margin:false ~font ~text () in
   let box = new Hbox.t ~widgets:[title#widget; close#widget] () in
-  box#add_class @@ Markup.CSS.add_element base_class "header";
-  title#add_class @@ Markup.CSS.add_element base_class "title";
-  close#add_class @@ Markup.CSS.add_element base_class "close";
+  box#add_class @@ CSS.add_element base_class "header";
+  title#add_class @@ CSS.add_element base_class "title";
+  close#add_class @@ CSS.add_element base_class "close";
   box, close, title#set_text
 
 let make ~title () =
@@ -22,5 +22,5 @@ let make ~title () =
   close#listen_lwt' Widget.Event.click (fun _ _ ->
       drawer#hide (); Lwt.return_unit);
   drawer#add_class base_class;
-  box#add_class @@ Markup.CSS.add_element base_class "body";
+  box#add_class @@ CSS.add_element base_class "body";
   drawer, box, set_title

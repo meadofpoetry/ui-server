@@ -27,7 +27,7 @@ let make_standard () =
     | None -> mode#set_selected_index 0
     | Some x ->
        mode#set_selected_value ~eq:equal_standard x.standard |> ignore in
-  mode#add_class @@ Markup.CSS.add_element base_class "mode";
+  mode#add_class @@ CSS.add_element base_class "mode";
   mode, set
 
 let make_bw (standard : standard option React.signal) () =
