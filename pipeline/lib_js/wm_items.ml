@@ -69,22 +69,24 @@ module Make(I : Item) = struct
       end
 
     let make_item candidates set_candidates (candidate : I.t) =
-
-      let text = new Typography.Text.t
-                   ~adjust_margin:false
-                   ~text:candidate.name () in
-      let box  = new item
-                   ~candidate
-                   ~candidates
-                   ~set_candidates
-                   ~widgets:[candidate.icon; text#widget] () in
-      box
+      let text =
+        new Typography.Text.t
+          ~adjust_margin:false
+          ~text:candidate.name
+          () in
+      new item
+        ~candidate
+        ~candidates
+        ~set_candidates
+        ~widgets:[candidate.icon; text#widget]
+        ()
 
     let make ~candidates ~set_candidates () =
       let ph =
         Placeholder.make
           ~text:"Нет доступных виджетов"
-          ~icon:Icon.SVG.(create_simple Path.information) () in
+          ~icon:Icon.SVG.(create_simple Path.information)
+          () in
       let wrapper = Tyxml_js.Html.(div ~a:[a_class [wrapper_class]] [])
                     |> Tyxml_js.To_dom.of_element
                     |> Widget.create  in

@@ -335,15 +335,6 @@ let build_templates ?(href_base = "")
   let fill_in_sub base_title base_href = function
     | _, Simple { title; href; template; _ } ->
        let path = base_href @ href in
-       (* let template = match template.app_bar with
-        *   | None -> template
-        *   | Some app_bar ->
-        *      match app_bar.title with
-        *      | None -> template
-        *      | Some t ->
-        *         let title = Some (base_title ^ " / " ^ t) in
-        *         let app_bar = Some { app_bar with title } in
-        *         { template with app_bar } in *)
        render files template user vals
        |> make_node (`Path path)
        |> Option.return
