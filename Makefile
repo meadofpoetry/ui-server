@@ -1,4 +1,4 @@
-PROFILE ?= release
+PROFILE ?= dev
 BUILD   = dune build --profile $(PROFILE)
 CLEAN   = dune clean
 CSS     = scss --style compressed

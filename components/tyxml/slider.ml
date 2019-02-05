@@ -8,18 +8,26 @@ module Make
            and module Svg := Svg) = struct
   open Html
 
-  let base_class = "mdc-slider"
-  let track_container_class = CSS.add_element base_class "track-container"
-  let track_class = CSS.add_element base_class "track"
-  let track_marker_container_class = CSS.add_element base_class "track-marker-container"
-  let thumb_container_class = CSS.add_element base_class "thumb-container"
-  let thumb_class = CSS.add_element base_class "thumb"
-  let focus_ring_class = CSS.add_element base_class "focus-ring"
-  let pin_class = CSS.add_element base_class "pin"
-  let pin_value_marker_class = CSS.add_element base_class "pin-value-marker"
+  module CSS = struct
+    include CSS
 
-  let display_markers_class = CSS.add_modifier base_class "display-markers"
-  let discrete_class = CSS.add_modifier base_class "discrete"
+    let root = "mdc-slider"
+    let track_container = add_element root "track-container"
+    let track = add_element root "track"
+    let track_marker_container = add_element root "track-marker-container"
+    let thumb_container = add_element root "thumb-container"
+    let thumb = add_element root "thumb"
+    let focus_ring = add_element root "focus-ring"
+    let pin = add_element root "pin"
+    let pin_value_marker = add_element root "pin-value-marker"
+
+    let active = add_modifier root "active"
+    let disabled = add_modifier root "disabled"
+    let discrete = add_modifier root "discrete"
+    let focus = add_modifier root "focus"
+    let in_transit = add_modifier root "in-transit"
+    let display_markers = add_modifier root "display-markers"
+  end
 
   let create ?(classes = []) ?attrs ?(discrete = false)
         ?(markers = false) ?(disabled = false)
@@ -27,9 +35,9 @@ module Make
     let discrete = if markers then true else discrete in
     let classes =
       classes
-      |> cons_if discrete discrete_class
-      |> cons_if (discrete && markers) display_markers_class
-      |> List.cons base_class in
+      |> cons_if discrete CSS.discrete
+      |> cons_if (discrete && markers) CSS.display_markers
+      |> List.cons CSS.root in
     div ~a:([ a_class classes
             ; a_tabindex 0
             ; a_role ["slider"]
@@ -40,21 +48,21 @@ module Make
             |> map_cons_option CCFun.(a_user_data "step" % string_of_float) step
             |> cons_if disabled @@ a_aria "disabled" ["true"]
             <@> attrs)
-      [div ~a:[a_class [track_container_class]]
+      [div ~a:[a_class [CSS.track_container]]
          (cons_if (discrete && markers)
-            (div ~a:[a_class [track_marker_container_class]] []) []
-          |> List.cons @@ div ~a:[a_class [track_class]] [])
-      ; div ~a:([a_class [thumb_container_class]])
-          ([ svg ~a:Svg.[ a_class [thumb_class]
+            (div ~a:[a_class [CSS.track_marker_container]] []) []
+          |> List.cons @@ div ~a:[a_class [CSS.track]] [])
+      ; div ~a:([a_class [CSS.thumb_container]])
+          ([ svg ~a:Svg.[ a_class [CSS.thumb]
                         ; a_width (21., None)
                         ; a_height (21., None)]
                Svg.[circle ~a:[ a_cx (10.5, None)
                               ; a_cy (10.5, None)
                               ; a_r (7.875, None)] []]
-           ; div ~a:[a_class [focus_ring_class]] []]
+           ; div ~a:[a_class [CSS.focus_ring]] []]
            |> cons_if discrete
-                (div ~a:[a_class [pin_class]]
-                   [span ~a:[a_class [pin_value_marker_class]] []]))
+                (div ~a:[a_class [CSS.pin]]
+                   [span ~a:[a_class [CSS.pin_value_marker]] []]))
       ]
 
 end

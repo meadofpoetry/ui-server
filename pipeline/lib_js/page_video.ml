@@ -10,6 +10,8 @@ module CSS = struct
 
   let video = CSS.add_element root "video"
   let audio = CSS.add_element root "audio"
+  let video_container = root ^ "-container"
+  let theater_container = CSS.add_modifier video_container "theater"
 
 end
 
@@ -138,7 +140,7 @@ let make_video () =
   let video = Dom_html.(createVideo document) in
   video##setAttribute (Js.string "playsinline") (Js.string "true");
   video##setAttribute (Js.string "autoplay") (Js.string "true");
-  video##setAttribute (Js.string "controls") (Js.string "true");
+  video##setAttribute (Js.string "controls") (Js.string "false");
   video##.classList##add (Js.string CSS.video);
   video
 
@@ -182,5 +184,6 @@ let page () =
       let v = Widget.create video in
       let a = Widget.create audio in
       let root = Widget.create_div ~widgets:[v; a] () in
+      root#add_class CSS.theater_container;
       root#add_class CSS.root;
       root))

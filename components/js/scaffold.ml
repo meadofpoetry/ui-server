@@ -356,6 +356,7 @@ class t ?(drawer : #Drawer.t option)
           else side_sheet_type <- cur))
 
     method private handle_resize () : unit Lwt.t =
+      print_endline "resize called!";
       let screen = Breakpoint.get_screen_width () in
       let drawer_lwt =
         match self#drawer, self#drawer_elevation_ self#drawer with

@@ -19,6 +19,7 @@
 
 @mixin mdc-scaffold-base_() {
     @include mdc-typography-base;
+    position: relative;
     .mdc-drawer:not(.mdc-drawer--modal) {
         @include mdc-drawer-z-index(1);
     }
@@ -50,6 +51,7 @@
     overflow: hidden;
     width: 100%;
     min-height: 100%;
+    height: 100%;
     position: relative;
 }
 
@@ -61,6 +63,7 @@
     transition-timing-function: $mdc-animation-standard-curve-timing-function;
     width: 100%;
     min-height: 100%;
+    height: 100%;
     box-sizing: border-box;
     position: relative;
     margin-left: 0;

@@ -99,7 +99,11 @@ module Keyboard_event = struct
     | `Home
     | `Arrow_left
     | `Arrow_right
+    | `Arrow_up
+    | `Arrow_down
     | `Delete
+    | `Page_up
+    | `Page_down
     | `Unknown
     ]
 
@@ -113,7 +117,11 @@ module Keyboard_event = struct
      | Some "Home", _ | _, 36 -> `Home
      | Some "ArrowLeft", _ | _, 37 -> `Arrow_left
      | Some "ArrowRight", _ | _, 39 -> `Arrow_right
+     | Some "ArrowUp", _ | _, 38 -> `Arrow_up
+     | Some "ArrowDown", _ | _, 40 -> `Arrow_down
      | Some "Delete", _ | _, 46 -> `Delete
+     | Some "PageUp", _ | _, 33 -> `Page_up
+     | Some "PageDown", _ | _, 34 -> `Page_down
      | _ -> `Unknown)
 
 end
