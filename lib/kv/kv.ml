@@ -1,7 +1,25 @@
 type key = string
 
+module KMap = Map.Make(struct
+                  type t = key list
+                  let rec compare l r =
+                    match l, r with
+                    | [], [] -> 0
+                    | [], _  -> -1
+                    | _ , [] -> 1
+                    | x::l', y::r' ->
+                       let c = String.compare x y in
+                       if c <> 0 then c
+                       else compare l' r'
+                end)
+
+type watcher = string option -> string -> unit Lwt.t
+            
 type t =
-  { cached    : (string list, string) Hashtbl.t
+  { cached_lock : Lwt_mutex.t
+  ; mutable cached   : string KMap.t
+  ; watchers_lock : Lwt_mutex.t
+  ; mutable watchers : watcher KMap.t
   ; base_path : Futil.Path.t
   }
 
@@ -49,15 +67,19 @@ let create ?(create = false) ~path =
      then Error `Not_directory
      else if (Info.unix_perm info land 0o300) = 0
      then Error `Access_denied
-     else Ok { cached = Hashtbl.create 100
+     else Ok { cached_lock = Lwt_mutex.create ()
+             ; cached = KMap.empty
+             ; watchers_lock = Lwt_mutex.create ()
+             ; watchers = KMap.empty
              ; base_path = path'
             }
         
-  
 let read kv keys =
   let open Lwt.Infix in
   let open Futil_lwt in
-  match Hashtbl.find_opt kv.cached keys with
+  Lwt_mutex.with_lock kv.cached_lock
+    (fun () -> Lwt.return @@ KMap.find_opt keys kv.cached)
+  >>= function
   | Some v -> Lwt.return_ok v
   | None ->
      let path = Path.append kv.base_path keys in
@@ -68,7 +90,10 @@ let read kv keys =
      | Error _ as e ->
         Lwt.return e
      | Ok data ->
-        Hashtbl.add kv.cached keys data;
+        Lwt_mutex.with_lock kv.cached_lock
+          (fun () ->
+            Lwt.return (kv.cached <- KMap.update keys (fun _ -> Some data) kv.cached))
+        >>= fun () ->
         Lwt.return_ok data
 
 let read_opt kv keys =
@@ -78,15 +103,37 @@ let read_opt kv keys =
   | Error _ -> Lwt.return_none
 
 let write kv keys data =
-  let open Lwt_result.Infix in
+  let open Lwt.Infix in
   let open Futil_lwt in
-  match Hashtbl.find_opt kv.cached keys with
+  Lwt_mutex.with_lock kv.cached_lock
+    (fun () -> Lwt.return @@ KMap.find_opt keys kv.cached)
+  >>= function
   | Some cached when String.equal data cached ->
      Lwt.return_ok ()
-  | _ ->
+  | _ as old ->
+     let open Lwt_result.Infix in
      let path = Path.append kv.base_path keys in
      File.write path data
      >>= fun () ->
-     Hashtbl.add kv.cached keys data;
-     Lwt.return_ok ()
+     let open Lwt.Infix in
+     Lwt_mutex.with_lock kv.cached_lock
+       (fun () -> Lwt.return @@ kv.cached <- KMap.update keys (fun _ -> Some data) kv.cached)
+     >>= fun () ->
+     Lwt_mutex.with_lock kv.watchers_lock
+       (fun () -> Lwt.return @@ KMap.find_opt keys kv.watchers)
+     >>= function
+     | None   -> Lwt.return_ok ()
+     | Some w ->
+        let open Lwt.Infix in
+        w old data
+        >>= Lwt.return_ok
      
+let watch kv keys watcher =
+  Lwt_mutex.with_lock kv.watchers_lock
+    (fun _ -> Lwt.return @@
+                kv.watchers <- KMap.update keys (fun _ -> Some watcher) kv.watchers)
+
+let unwatch kv keys =
+  Lwt_mutex.with_lock kv.watchers_lock
+    (fun _ -> Lwt.return @@
+                kv.watchers <- KMap.remove keys kv.watchers)

@@ -15,6 +15,8 @@ type read_error = [
   
 type t
 
+type watcher = string option -> string -> unit Lwt.t
+
 val pp_error : error Fmt.t
 
 val pp_write_error : write_error Fmt.t
@@ -28,3 +30,7 @@ val read : t -> key list -> (string, [> read_error ]) Lwt_result.t
 val read_opt : t -> key list -> string option Lwt.t
 
 val write : t -> key list -> string -> (unit, [> write_error ]) Lwt_result.t
+
+val watch : t -> key list -> watcher -> unit Lwt.t
+
+val unwatch : t -> key list -> unit Lwt.t
