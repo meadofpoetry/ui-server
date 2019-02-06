@@ -1,0 +1,3 @@
+(library
+  (name      futil_lwt)
+  (libraries futil fmt lwt.unix))
