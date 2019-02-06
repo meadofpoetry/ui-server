@@ -59,4 +59,4 @@ let make ~(content : #Widget.t list) () : t =
 
 (** Attach widget to existing element *)
 let attach (elt : #Dom_html.element Js.t) : t =
-  new t (`Elt (Widget.Element.coerce elt)) ()
+  new t (`Elt (Element.coerce elt)) ()

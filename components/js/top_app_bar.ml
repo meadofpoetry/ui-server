@@ -173,7 +173,7 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
          print_endline "removing previous leading";
          self#remove_leading ?hard ();
          (* Insert the new one *)
-         Widget.Element.insert_child_at_index section 0 w#root;
+         Element.insert_child_at_index section 0 w#root;
          print_endline "setting current leading";
          leading <- Some w#widget;
 

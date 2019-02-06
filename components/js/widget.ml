@@ -40,24 +40,6 @@ module Event = struct
 
 end
 
-module Element = struct
-
-  type t = Dom_html.element Js.t
-
-  let coerce (elt : #Dom_html.element Js.t) : t =
-    (elt :> t)
-
-  let remove_children (elt : #Dom_html.element Js.t) =
-    Dom.list_of_nodeList @@ elt##.childNodes
-    |> List.iter (fun x -> Dom.removeChild elt x)
-
-  let insert_child_at_index (parent : #Dom.node Js.t)
-        (index : int) (child : #Dom.node Js.t) =
-    let sibling = parent##.childNodes##item index in
-    Dom.insertBefore parent child sibling
-
-end
-
 let equal (a : < root : element; ..> as 'a) (b : 'a) : bool =
   Equal.physical a#root b#root
 
@@ -168,13 +150,11 @@ class t ?(widgets : #t list option)
     self#root##querySelector (Js.string ("#" ^ x))
     |> Js.Opt.to_option
 
-  method get_attribute a =
-    self#root##getAttribute (Js.string a)
-    |> Js.Opt.to_option
-    |> Option.map Js.to_string
+  method get_attribute (a : string) =
+    Element.get_attribute self#root a
 
-  method set_attribute a v =
-    self#root##setAttribute (Js.string a) (Js.string v)
+  method set_attribute (a : string) (v : string) =
+    Element.set_attribute self#root a v
 
   method remove_attribute a =
     self#root##removeAttribute (Js.string a)
@@ -281,6 +261,17 @@ class t ?(widgets : #t list option)
 
   method set_scroll_height (x : int) : unit =
     self#root##.scrollHeight := x
+
+  method is_rtl () : bool =
+    let style = (Dom_html.window##getComputedStyle self#root) in
+    let dir = Js.to_string style##.direction in
+    String.equal dir "rtl"
+
+  method tab_index : int =
+    (Js.Unsafe.coerce self#root)##.tabIndex
+
+  method set_tab_index (v : int) : unit =
+    (Js.Unsafe.coerce self#root)##.tabIndex := v
 
   method listen : 'a. (#Dom_html.event as 'a) Js.t Event.typ ->
                   (element -> 'a Js.t -> bool) ->

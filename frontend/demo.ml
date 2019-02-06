@@ -20,24 +20,12 @@ let make_top_app_bar () =
 
 let onload _ =
   let root = Dom_html.getElementById "root" in
-  let top_app_bar, action = make_top_app_bar () in
-  let drawer = make_drawer () in
-  let side_sheet = make_side_sheet () in
-  let scaffold =
-    Scaffold.make
-      ~top_app_bar
-      ~drawer
-      ~drawer_breakpoints:(Dismissible, [])
-      ~drawer_elevation:Full_height
-      ~side_sheet
-      ~side_sheet_elevation:Clipped
-      ~side_sheet_breakpoints:(Dismissible, [])
-      () in
-  action#listen_click_lwt' (fun _ _ -> side_sheet#toggle_await ());
-  let div = Widget.create_div ~widgets:[scaffold] () in
-  div#add_class "demo-frame";
+  let slider = Slider.make ~discrete:true ~step:5. ~markers:true () in
+  let div = Widget.create_div ~widgets:[slider] () in
+  div#add_class "slider-wrapper";
   let page = Scaffold.attach root in
   page#set_body div;
+  slider#layout ();
   Js._false
 
 let () =

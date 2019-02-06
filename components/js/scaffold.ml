@@ -225,7 +225,7 @@ class t ?(drawer : #Drawer.t option)
 
     method set_body : 'a. (#Widget.t as 'a) -> unit =
       fun (body : #Widget.t) ->
-      Widget.Element.remove_children app_content_inner;
+      Element.remove_children app_content_inner;
       Dom.appendChild app_content_inner body#root
 
     method drawer_elevation : drawer_elevation option =
@@ -257,7 +257,7 @@ class t ?(drawer : #Drawer.t option)
          menu_click_listener <- Some listener;
       | _ -> ()
       end;
-      let insert = Widget.Element.insert_child_at_index in
+      let insert = Element.insert_child_at_index in
       insert app_content_outer 0 app_bar#root
 
     (** Determines drawer or side sheet elevation *)
@@ -356,7 +356,6 @@ class t ?(drawer : #Drawer.t option)
           else side_sheet_type <- cur))
 
     method private handle_resize () : unit Lwt.t =
-      print_endline "resize called!";
       let screen = Breakpoint.get_screen_width () in
       let drawer_lwt =
         match self#drawer, self#drawer_elevation_ self#drawer with

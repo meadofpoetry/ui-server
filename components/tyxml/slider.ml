@@ -15,6 +15,7 @@ module Make
     let track_container = add_element root "track-container"
     let track = add_element root "track"
     let track_marker_container = add_element root "track-marker-container"
+    let track_marker = add_element root "track-marker"
     let thumb_container = add_element root "thumb-container"
     let thumb = add_element root "thumb"
     let focus_ring = add_element root "focus-ring"
@@ -28,6 +29,9 @@ module Make
     let in_transit = add_modifier root "in-transit"
     let display_markers = add_modifier root "display-markers"
   end
+
+  let string_of_float (f : float) : string =
+    Printf.sprintf "%g" f
 
   let create ?(classes = []) ?attrs ?(discrete = false)
         ?(markers = false) ?(disabled = false)
