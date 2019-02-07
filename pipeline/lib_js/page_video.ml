@@ -145,7 +145,11 @@ let make_audio () =
   audio
 
 let page () =
-  let video = Ui_templates.Video_player.make () in
+  let video =
+    Ui_templates.Video_player.make
+      ~theater_mode:true
+      ~autoplay:true
+      () in
   let audio = make_audio () in
   let janus_lwt =
     Lwt.catch

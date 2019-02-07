@@ -36,7 +36,11 @@ module Event = struct
       method deltaMode : int
     end
 
-  let wheel : wheelEvent Js.t typ = make "wheel"
+  let (wheel : wheelEvent Js.t typ) =
+    make "wheel"
+
+  let (fullscreenchange : Dom_html.event Js.t typ) =
+    make "fullscreenchange"
 
 end
 

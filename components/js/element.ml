@@ -2,6 +2,9 @@ open Js_of_ocaml
 
 type t = Dom_html.element Js.t
 
+let equal (a : #Dom_html.element Js.t as 'a) (b : 'a) : bool =
+  CCEqual.physical a b
+
 let coerce (elt : #Dom_html.element Js.t) : t =
   (elt :> t)
 

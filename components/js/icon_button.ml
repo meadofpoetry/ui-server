@@ -64,12 +64,15 @@ class t ?(on = false) ?(ripple = true) ?on_change ?on_icon ?disabled ~icon () =
 
     method set_on (x : bool) : unit =
       if not @@ Equal.bool self#on x
-      then Option.iter (fun f -> f x) on_change;
-      set_state x;
-      super#toggle_class ~force:x Markup.on_class
+      then (
+        Option.iter (fun f -> f x) on_change;
+        set_state x;
+        super#toggle_class ~force:x Markup.on_class)
 
   end
 
 (** Create new icon button widget from scratch *)
 let make ?on ?ripple ?on_change ?on_icon ?disabled ~icon () : t =
+  let elt = To_dom.of_button @@ Markup.create ?on_icon icon () in
+  Element.(To_dom.of_element icon)
   new t ?on ?ripple ?on_change ?on_icon ?disabled ~icon ()

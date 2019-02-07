@@ -44,10 +44,6 @@
     display: flex;
     flex-direction: row;
 
-    .mdc-icon-button {
-        @include mdc-icon-button-ink-color(#fff);
-    }
-
     &__section {
         display: inline-flex;
         flex: 1 1 auto;
@@ -64,6 +60,11 @@
             justify-content: flex-end;
             order: 1;
         }
+    }
+
+    &__action {
+        @include mdc-icon-button-ink-color(#eee);
+        opacity: 0.9;
     }
 }
 
