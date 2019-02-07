@@ -1,0 +1,3 @@
+(library
+  (name      kv)
+  (libraries fmt futil futil_lwt))
