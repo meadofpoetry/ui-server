@@ -61,6 +61,24 @@ class t ?(widgets : #t list option)
     end;
     List.iter self#append_child _widgets
 
+  (** Initial synchronization with host DOM element,
+      e.g. reading element's properties or attributes *)
+  method initial_sync_with_dom () : unit =
+    ()
+
+  (** Destroys a widget and its children *)
+  method destroy () : unit =
+    List.iter (React.S.stop ~strong:true) _s_storage;
+    List.iter (React.E.stop ~strong:true) _e_storage;
+    _s_storage <- [];
+    _e_storage <- [];
+    List.iter (fun x -> x#destroy ()) _widgets;
+    _widgets <- [];
+    List.iter (fun x -> try Lwt.cancel x with _ -> ()) _listeners_lwt;
+    _listeners_lwt <- [];
+    Option.iter (fun f -> f ()) _on_destroy
+
+  (** Layout widget in DOM *)
   method layout () : unit =
     List.iter (fun x -> x#layout ()) _widgets
 
@@ -126,18 +144,6 @@ class t ?(widgets : #t list option)
     Element.remove_children self#root;
     if hard then List.iter (fun x -> x#destroy ()) _widgets;
     _widgets <- []
-
-  (** Destroy a widget and its children *)
-  method destroy () : unit =
-    List.iter (React.S.stop ~strong:true) _s_storage;
-    List.iter (React.E.stop ~strong:true) _e_storage;
-    _s_storage <- [];
-    _e_storage <- [];
-    List.iter (fun x -> x#destroy ()) _widgets;
-    _widgets <- [];
-    List.iter (fun x -> try Lwt.cancel x with _ -> ()) _listeners_lwt;
-    _listeners_lwt <- [];
-    Option.iter (fun f -> f ()) _on_destroy
 
   method set_on_destroy (f : unit -> unit) : unit =
     _on_destroy <- Some f
@@ -365,7 +371,8 @@ class t ?(widgets : #t list option)
     _e_storage <- React.E.map ignore e :: _e_storage
 
   initializer
-    self#init ()
+    self#init ();
+    self#initial_sync_with_dom ()
 
 end
 

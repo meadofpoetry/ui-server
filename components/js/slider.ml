@@ -17,8 +17,8 @@ let wrap_touch e = Touch e
 let page_factor = 4.
 
 let quantize ~(step : float) (v : float) : float =
-  let steps = Float.round (v /. step) in
-  steps *. step
+  let steps = int_of_float @@ Js.math##round (v /. step) in
+  (float_of_int steps) *. step
 
 let move_event_map =
   [ "mousedown", "mousemove"
@@ -42,6 +42,8 @@ let string_of_float (f : float) : string =
   Markup.string_of_float f
 
 class t (elt : #Dom_html.element Js.t) () =
+  let e_input, set_input = React.E.create () in
+  let e_change, set_change = React.E.create () in
   object(self)
 
     inherit Widget.t elt () as super
@@ -70,6 +72,8 @@ class t (elt : #Dom_html.element Js.t) () =
     val mutable transitionend_handler = None
     val mutable resize_handler = None
 
+    val mutable s_input = None
+
     val mutable saved_tab_index = None
     val mutable active = false
     val mutable in_transit = false
@@ -86,32 +90,6 @@ class t (elt : #Dom_html.element Js.t) () =
 
     method! init () : unit =
       super#init ();
-      let value' =
-        Option.get_or ~default:value
-        @@ Option.flat_map float_of_string_opt
-        @@ super#get_attribute Attr.now in
-      let min' =
-        Option.get_or ~default:min
-        @@ Option.flat_map float_of_string_opt
-        @@ super#get_attribute Attr.min in
-      let max' =
-        Option.get_or ~default:max
-        @@ Option.flat_map float_of_string_opt
-        @@ Element.get_attribute elt Attr.max in
-      let step' =
-        Option.get_or ~default:step
-        @@ Option.flat_map float_of_string_opt
-        @@ Element.get_attribute elt Attr.step in
-      let disabled' = match super#get_attribute Attr.disabled with
-        | Some "true" -> true
-        | _ -> false in
-      disabled <- disabled';
-      self#setup_track_marker ();
-      if min' >=. max
-      then (self#set_max max'; self#set_min min')
-      else (self#set_min min'; self#set_max max');
-      step <- step';
-      value <- value';
       (* Register event handlers *)
       let down =
         Widget.Event.(
@@ -151,8 +129,38 @@ class t (elt : #Dom_html.element Js.t) () =
       if self#discrete && self#step =. 0.
       then step <- 1.
 
+    method! initial_sync_with_dom () : unit =
+      super#initial_sync_with_dom ();
+      let min' =
+        Option.get_or ~default:min
+        @@ Option.flat_map float_of_string_opt
+        @@ super#get_attribute Attr.min in
+      let max' =
+        Option.get_or ~default:max
+        @@ Option.flat_map float_of_string_opt
+        @@ Element.get_attribute elt Attr.max in
+      if min' >=. self#max
+      then (self#set_max max'; self#set_min min')
+      else (self#set_min min'; self#set_max max');
+      disabled <- (match super#get_attribute Attr.disabled with
+                   | Some "true" -> true
+                   | _ -> false);
+      step <- (Option.get_or ~default:step
+               @@ Option.flat_map float_of_string_opt
+               @@ Element.get_attribute elt Attr.step);
+      value <- (Option.get_or ~default:value
+                @@ Option.flat_map float_of_string_opt
+                @@ super#get_attribute Attr.now);
+      self#setup_track_marker ()
+
     method! destroy () : unit =
       super#destroy ();
+      (* Stop reactive events *)
+      React.E.stop ~strong:true e_input;
+      React.E.stop ~strong:true e_change;
+      Option.iter (React.S.stop ~strong:true) s_input;
+      s_input <- None;
+      (* Detach event handles *)
       List.iter Lwt.cancel down_handlers;
       Option.iter Lwt.cancel keydown_handler;
       Option.iter Lwt.cancel focus_handler;
@@ -168,6 +176,20 @@ class t (elt : #Dom_html.element Js.t) () =
       super#layout ();
       rect <- Some super#bounding_client_rect;
       self#update_ui_for_current_value ()
+
+    method s_input : float React.signal =
+      match s_input with
+      | Some s -> s
+      | None ->
+         let s = React.S.hold ~eq:Float.equal self#value e_input in
+         s_input <- Some s;
+         s
+
+    method e_input : float React.event =
+      e_input
+
+    method e_change : float React.event =
+      e_change
 
     method discrete : bool =
       super#has_class Markup.CSS.discrete
@@ -214,6 +236,7 @@ class t (elt : #Dom_html.element Js.t) () =
       else (
         let v = if self#discrete && v <. 1. then 1. else v in
         step <- v;
+        super#set_attribute Attr.step (string_of_float v);
         self#set_value_ ~fire_input:false ~force:true self#value;
         self#setup_track_marker ())
 
@@ -298,7 +321,7 @@ class t (elt : #Dom_html.element Js.t) () =
         | 0. -> (max -. min) /. 100.
         | x -> x in
       let delta = match key, super#is_rtl () with
-        | _, true | `Arrow_left, _ | `Arrow_right, _ -> -.delta
+        | `Arrow_left, true | `Arrow_right, true -> -.delta
         | _ -> delta in
       let value = match key with
         | `Arrow_left | `Arrow_down -> Some (value -. delta)
@@ -412,15 +435,16 @@ class t (elt : #Dom_html.element Js.t) () =
                |> Printf.sprintf "scaleX(%g)"
                |> Element.set_style_property elt transform
             end) in
-      update_ui_frame <- Some frame;
-      ()
+      update_ui_frame <- Some frame
 
     method private notify_change () : unit =
-      (* FIXME implement *)
+      (* FIXME implement DOM event *)
+      set_change self#value;
       ()
 
     method private notify_input () : unit =
-      (* FIXME implement *)
+      (* FIXME implement DOM event *)
+      set_input self#value;
       ()
 
     method private set_marker_value (v : float) : unit =
@@ -434,12 +458,9 @@ class t (elt : #Dom_html.element Js.t) () =
       super#add_or_remove_class x Markup.CSS.in_transit
 
     method private setup_track_marker () : unit =
-      Printf.printf "discrete: %b, marker: %b, step: %g\n"
-        self#discrete self#has_track_marker self#step;
       let step = self#step in
       if self#discrete && self#has_track_marker && step <>. 0.
       then (
-        print_endline "setting track markers";
         let markers' = (self#max -. self#min) /. step in
         let markers = ceil markers' in
         self#remove_track_markers ();
@@ -464,16 +485,16 @@ class t (elt : #Dom_html.element Js.t) () =
 
     method private set_value_ ?(force = false) ?(fire_input = false)
                      (v : float) : unit =
+      Printf.printf "setting value: %g\n" v;
       if force || not (Float.equal v self#value)
       then
-        let min = self#min in
-        let max = self#max in
-        let step = self#step in
-        let is_boundary = Float.(v = self#min || v = self#max) in
+        let min, max, step = self#min, self#max, self#step in
+        let is_boundary = v =. min || v =. max in
         let v =
           if is_boundary || Float.equal step 0. then v
           else quantize ~step v in
         let v = if v <. min then min else if v >. max then max else v in
+        Printf.printf "updated value: %g. min is %g\n" v min;
         value <- v;
         super#set_attribute Attr.now (string_of_float v);
         self#update_ui_for_current_value ();

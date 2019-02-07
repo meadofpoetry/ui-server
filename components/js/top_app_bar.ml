@@ -133,19 +133,16 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
       | None ->
          let class' = Markup.CSS.navigation_icon in
          match super#get_child_element_by_class class' with
-         | None -> print_endline "no nav icon"; None
+         | None -> None
          | Some elt ->
             let w = Widget.create elt in
             leading <- Some w;
             Some w
 
     method hide_leading () : unit =
-      print_endline "hiding leading";
       match self#leading with
-      | None -> print_endline "no leading"; ()
-      | Some x ->
-         print_endline "found leading";
-         x#style##.display := Js.string "none"
+      | None -> ()
+      | Some x -> x#style##.display := Js.string "none"
 
     method show_leading () : unit =
       match self#leading with
@@ -153,7 +150,6 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
       | Some x -> x#style##.display := Js.string ""
 
     method remove_leading ?(hard = false) () : unit =
-      print_endline "remove leading";
       match self#leading with
       | None -> ()
       | Some x ->
@@ -164,17 +160,14 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
 
     method set_leading : 'a. ?hard:bool -> (#Widget.t as 'a) -> unit =
       fun ?hard (w : #Widget.t) ->
-      print_endline "setting leading";
       let class' = Markup.CSS.section_align_start in
       match super#get_child_element_by_class class' with
       | None -> failwith "mdc-top-app-bar: no section found"
       | Some section ->
          (* Remove previous leading *)
-         print_endline "removing previous leading";
          self#remove_leading ?hard ();
          (* Insert the new one *)
          Element.insert_child_at_index section 0 w#root;
-         print_endline "setting current leading";
          leading <- Some w#widget;
 
     (** Returns trailing actions widgets, if any *)

@@ -20,7 +20,7 @@ let make_top_app_bar () =
 
 let onload _ =
   let root = Dom_html.getElementById "root" in
-  let slider = Slider.make ~discrete:true ~step:5. ~markers:true () in
+  let slider = Slider.make ~discrete:true ~markers:true ~step:5. () in
   let div = Widget.create_div ~widgets:[slider] () in
   div#add_class "slider-wrapper";
   let page = Scaffold.attach root in
