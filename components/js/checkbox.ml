@@ -50,6 +50,6 @@ class t ?(ripple = true) ?state ?on_change ?input_id () =
 
     method! set_disabled (x : bool) : unit =
       super#set_disabled x;
-      super#add_or_remove_class x Markup.disabled_class
+      super#toggle_class ~force:x Markup.disabled_class
 
   end

@@ -248,7 +248,7 @@ class t ?(settings : Settings.t option)
       List.iter (fun row -> iter row#cells) table#rows
 
     method private _update_row (row : 'a Table.Row.t) ((pid, info) : Pid.t) =
-      row#add_or_remove_class (not info.present) absent_class;
+      row#toggle_class ~force:(not info.present) absent_class;
       Table.(match row#cells with
              | pid' :: typ :: flags :: service :: _ ->
                 pid'#set_value pid;

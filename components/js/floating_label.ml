@@ -16,7 +16,7 @@ class t ?(for_ : string option) (label : string) () =
 
     method! init () : unit =
       super#init ();
-      self#listen_lwt Widget.Event.animationend (fun e _ ->
+      super#listen_lwt Widget.Event.animationend (fun e _ ->
           Lwt.return @@ self#shake_animation_end_handler e)
       |> fun x -> _listener <- Some x
 
@@ -26,20 +26,20 @@ class t ?(for_ : string option) (label : string) () =
       _listener <- None
 
     method shake (should_shake : bool) : unit =
-      self#add_or_remove_class should_shake Markup.shake_class
+      super#toggle_class ~force:should_shake Markup.shake_class
 
     method float (should_float : bool) : unit =
       if should_float
-      then self#add_class Markup.float_above_class
-      else (self#remove_class Markup.float_above_class;
-            self#remove_class Markup.shake_class)
+      then super#add_class Markup.float_above_class
+      else (super#remove_class Markup.float_above_class;
+            super#remove_class Markup.shake_class)
 
     method width : int =
-      self#offset_width
+      super#offset_width
 
     (* Private methods *)
 
     method private shake_animation_end_handler (_ : event) : unit =
-      self#remove_class Markup.shake_class
+      super#remove_class Markup.shake_class
 
   end

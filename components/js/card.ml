@@ -124,9 +124,9 @@ class t ?(outlined = false)
       self#set_outlined outlined
 
     method outlined : bool =
-      self#has_class Markup.outlined_class
+      super#has_class Markup.outlined_class
 
     method set_outlined (x : bool) : unit =
-      self#add_or_remove_class x Markup.outlined_class
+      super#toggle_class ~force:x Markup.outlined_class
 
   end

@@ -245,7 +245,7 @@ class t (elt : #Dom_html.element Js.t) () =
 
     method set_disabled (x : bool) : unit =
       disabled <- x;
-      self#add_or_remove_class x Markup.CSS.disabled;
+      super#toggle_class ~force:x Markup.CSS.disabled;
       if x
       then (
         saved_tab_index <- Some super#tab_index;
@@ -455,7 +455,7 @@ class t (elt : #Dom_html.element Js.t) () =
 
     method private set_in_transit (x : bool) : unit =
       in_transit <- x;
-      super#add_or_remove_class x Markup.CSS.in_transit
+      super#toggle_class ~force:x Markup.CSS.in_transit
 
     method private setup_track_marker () : unit =
       let step = self#step in
@@ -481,7 +481,7 @@ class t (elt : #Dom_html.element Js.t) () =
 
     method private set_active (x : bool) : unit =
       active <- x;
-      super#add_or_remove_class x Markup.CSS.active
+      super#toggle_class ~force:x Markup.CSS.active
 
     method private set_value_ ?(force = false) ?(fire_input = false)
                      (v : float) : unit =

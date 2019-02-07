@@ -36,7 +36,7 @@ class t ?(max = 1.) ?(min = 0.) ?(value = 0.)
       min <- x;
       self#set_progress self#progress;
       if not self#indeterminate
-      then self#set_attribute "aria-valuemin" (Printf.sprintf "%f" x)
+      then super#set_attribute "aria-valuemin" (Printf.sprintf "%f" x)
 
     method max : float = max
 
@@ -44,17 +44,17 @@ class t ?(max = 1.) ?(min = 0.) ?(value = 0.)
       max <- x;
       self#set_progress self#progress;
       if not self#indeterminate
-      then self#set_attribute "aria-valuemax" (Printf.sprintf "%f" x)
+      then super#set_attribute "aria-valuemax" (Printf.sprintf "%f" x)
 
     method set_indeterminate (x : bool) : unit =
-      self#add_or_remove_class x Markup.indeterminate_class;
+      super#toggle_class ~force:x Markup.indeterminate_class;
       if x
       then (circle##.style##.strokeDashoffset := Js.string "";
             circle##.style##.strokeDasharray  := Js.string "")
       else (self#set_min min; self#set_max max; self#set_progress self#progress)
 
     method indeterminate : bool =
-      self#has_class Markup.indeterminate_class
+      super#has_class Markup.indeterminate_class
 
     method set_progress (v : float) : unit =
       let v = if Float.(<) v min then min
@@ -70,7 +70,7 @@ class t ?(max = 1.) ?(min = 0.) ?(value = 0.)
       circle##.style##.strokeDashoffset := Js.string (Printf.sprintf "%fpx" dash_offset);
       circle##.style##.strokeDasharray := Js.string (Printf.sprintf "%f" dash_array);
       if not self#indeterminate
-      then self#set_attribute "aria-valuenow" (Printf.sprintf "%f" v)
+      then super#set_attribute "aria-valuenow" (Printf.sprintf "%f" v)
 
     method progress : float =
       React.S.value s_progress
@@ -79,8 +79,8 @@ class t ?(max = 1.) ?(min = 0.) ?(value = 0.)
       s_progress
 
     method show () : unit =
-      self#style##.display := Js.string ""
+      super#style##.display := Js.string ""
     method hide () : unit =
-      self#style##.display := Js.string "none"
+      super#style##.display := Js.string "none"
 
   end

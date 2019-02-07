@@ -192,15 +192,15 @@ class ['a] t ~s_grid (* grid props *)
          selected <- true
       | false ->
          if self#selected
-         then (self#remove_class Markup.Item.selected_class;
+         then (super#remove_class Markup.Item.selected_class;
                selected <- false;
                s_selected_push
                @@ List.filter (not % Widget.equal (self :> 'a t)) o)
 
     method remove () : unit =
       self#set_selected false;
-      self#emit ~should_bubble:true
-        remove_event (Js.Unsafe.inject self#root)
+      super#emit ~should_bubble:true
+        remove_event (Js.Unsafe.inject super#root)
 
     (** Private methods *)
 
@@ -208,25 +208,25 @@ class ['a] t ~s_grid (* grid props *)
       (match x with
        | true  -> self#add_move_listener ()
        | false -> self#stop_move_listener ());
-      self#get_drag_target#add_or_remove_class x Markup.Item.drag_handle_class
+      self#get_drag_target#toggle_class ~force:x Markup.Item.drag_handle_class
 
     method private _set_resizable x =
       (match x with
        | true  -> self#add_resize_listener ()
        | false -> self#stop_resize_listener ());
-      if x then self#append_child resize_button
-      else self#remove_child resize_button
+      if x then super#append_child resize_button
+      else super#remove_child resize_button
 
     method private _set_selectable x =
       (match x with
        | true  ->
           self#add_select_listener ();
-          self#set_attribute "tabindex" "0"
+          super#set_attribute "tabindex" "0"
        | false ->
           self#stop_select_listener ();
-          self#set_attribute "tabindex" "-1";
+          super#set_attribute "tabindex" "-1";
           self#set_selected false);
-      self#add_or_remove_class x Markup.Item.select_handle_class
+      super#toggle_class ~force:x Markup.Item.select_handle_class
 
     method private grid : grid =
       React.S.value s_grid
@@ -240,15 +240,8 @@ class ['a] t ~s_grid (* grid props *)
       React.S.value s_items
 
     method private has_collision (pos : Position.t) : bool =
-      Position.has_collision
-        ~f:(fun x -> x#pos)
-        pos
+      Position.has_collision ~f:(fun x -> x#pos) pos
         (List.filter (not % Widget.equal (self :> 'a t)) self#items)
-
-    method private get_parent : Dom_html.element Js.t =
-      Js.Opt.to_option self#root##.parentNode
-      |> Option.map Js.Unsafe.coerce
-      |> Option.get_exn
 
     method private mouse_action meth ghost ev =
       let init_pos = px_pos in
@@ -385,7 +378,8 @@ class ['a] t ~s_grid (* grid props *)
          ghost#style##.zIndex := Js.string "1";
          self#style##.zIndex := Js.string "3";
          (* add ghost item to dom to show possible element position *)
-         Dom.appendChild self#get_parent ghost#root;
+         Option.iter (fun x -> Dom.appendChild x ghost#root)
+           super#parent_element;
          match ev with
          | Mouse ev -> self#mouse_action self#apply_position ghost ev
          | Touch ev -> self#touch_action self#apply_position ghost ev)
@@ -395,7 +389,8 @@ class ['a] t ~s_grid (* grid props *)
       then (let ghost = self#make_ghost () in
             ghost#style##.zIndex := Js.string "4";
             self#style##.zIndex := Js.string "3";
-            Dom.appendChild self#get_parent ghost#root;
+            Option.iter (fun x -> Dom.appendChild x ghost#root)
+              super#parent_element;
             (* add resize/stop resize event listeners *)
             match ev with
             | Mouse ev ->
@@ -444,7 +439,8 @@ class ['a] t ~s_grid (* grid props *)
             self#set_x @@ React.S.value s_col_w * ghost#pos.x;
             self#set_y @@ React.S.value s_row_h * ghost#pos.y;
             self#set_pos ghost#pos;
-            Dom.removeChild self#get_parent ghost#root;
+            Option.iter (fun x -> try Dom.removeChild x ghost#root with _ -> ())
+              super#parent_element;
             ghost#destroy ();
             if self#grid.vertical_compact
             then List.iter (fun x ->
@@ -501,7 +497,8 @@ class ['a] t ~s_grid (* grid props *)
          self#set_w @@ React.S.value s_col_w * ghost#pos.w;
          self#set_h @@ React.S.value s_row_h * ghost#pos.h;
          self#set_pos ghost#pos;
-         Dom.removeChild self#get_parent ghost#root;
+         Option.iter (fun x -> try Dom.removeChild x ghost#root with _ -> ())
+           super#parent_element;
          ghost#destroy ();
          if self#grid.vertical_compact
          then List.iter (fun x ->
@@ -614,7 +611,7 @@ class ['a] t ~s_grid (* grid props *)
     method private add_select_listener () =
       self#stop_select_listener ();
       listen ~save:(fun l -> _main_select_listener <- l)
-        self#root Typ.focus (fun _ _ ->
+        super#root Typ.focus (fun _ _ ->
           if self#selectable && not self#grid.multi_select
           then self#set_selected true; true);
 

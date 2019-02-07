@@ -92,11 +92,9 @@ module Item = struct
       method toggle () : unit =
         let open_class = Markup.Item.item_open_class in
         let open_list  = Markup.Item.list_open_class in
-        Option.iter (fun x ->
-            x#toggle_class open_list
-            |> ignore)
+        Option.iter (fun (x : #Widget.t) -> x#toggle_class open_list)
           self#nested_tree;
-        self#toggle_class open_class |> s_push
+        self#toggle_class' open_class |> s_push
 
     end
 
@@ -167,9 +165,9 @@ class ['a] t
          set_selected @@ item :: self#selected
 
     method dense : bool =
-      self#has_class Markup.dense_class
+      super#has_class Markup.dense_class
     method set_dense (x : bool) : unit =
-      self#add_or_remove_class x Markup.dense_class;
+      super#toggle_class ~force:x Markup.dense_class;
       self#iter (fun (i : ('a, 'a t) Item.t) ->
           Option.iter (fun (t : 'a t) -> t#set_dense x)
             i#nested_tree)

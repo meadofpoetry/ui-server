@@ -136,9 +136,9 @@ class ['a, 'b] t
       self#has_class Markup.active_class
 
     method set_active ?(previous : 'self option) (x : bool) : unit =
-      self#add_or_remove_class x Markup.active_class;
-      self#set_attribute "aria-selected" @@ string_of_bool x;
-      self#set_attribute "tabindex" (if x then "0" else "-1");
+      super#toggle_class ~force:x Markup.active_class;
+      super#set_attribute "aria-selected" @@ string_of_bool x;
+      super#set_attribute "tabindex" (if x then "0" else "-1");
       let prev_indicator = Option.map (fun x -> x#indicator) previous in
       indicator#set_active ?previous:prev_indicator x;
       if x then self#focus ()

@@ -190,9 +190,7 @@ class ['a] t ?(disabled = false)
       self#select#remove_child i;
       match self#selected_item with
       | None -> ()
-      | Some x ->
-         if Widget.equal i x
-         then push None
+      | Some x -> if Widget.equal i x then push None
 
     method append_item (i : 'a Item.t) : unit =
       _items <- `Item i :: _items;
@@ -215,8 +213,8 @@ class ['a] t ?(disabled = false)
     method set_selected_index (i : int) : unit =
       self#_native_select##.selectedIndex := i;
       self#add_class Markup.is_changing_class;
-      Dom_html.setTimeout (fun () ->
-          self#remove_class Markup.is_changing_class) 125.0
+      Utils.set_timeout (fun () ->
+          super#remove_class Markup.is_changing_class) 125.0
       |> ignore;
       let res = List.find_opt (fun x -> x#index = i) self#items in
       push res
@@ -237,7 +235,7 @@ class ['a] t ?(disabled = false)
       Js.to_bool self#_native_select##.disabled
 
     method set_disabled (x : bool) : unit =
-      self#add_or_remove_class x Markup.disabled_class;
+      super#toggle_class ~force:x Markup.disabled_class;
       self#_native_select##.disabled := Js.bool x
 
     (* Private methods *)

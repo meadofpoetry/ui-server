@@ -67,7 +67,7 @@ class t ?start_aligned ?action ~message () =
     method show () = mdc##show data_obj
 
     method set_start_aligned x =
-      self#add_or_remove_class x Markup.align_start_class
+      self#toggle_class ~force:x Markup.align_start_class
 
     method dismiss_on_action  = Js.to_bool mdc##.dismissesOnAction
     method set_dismiss_on_action x = mdc##.dismissesOnAction := Js.bool x

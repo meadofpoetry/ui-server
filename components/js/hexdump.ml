@@ -216,10 +216,10 @@ class t ?(interactive = true)
         List.iter (self#select ~flush:false) (List.range from till)
 
     method interactive : bool =
-      self#has_class Markup.interactive_class
+      super#has_class Markup.interactive_class
 
     method set_interactive (x : bool) : unit =
-      self#add_or_remove_class x Markup.interactive_class;
+      super#toggle_class ~force:x Markup.interactive_class;
       match x, _listener with
       | true, None   ->
          _listener <- Some (self#listen_lwt Widget.Event.click self#_on_click)

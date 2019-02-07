@@ -25,7 +25,7 @@ module Pids = struct
       self#add_class pid_class
 
     method update (x : t) =
-      self#add_or_remove_class x.playing lost_class
+      super#toggle_class ~force:x.playing lost_class
 
     method pid : int =
       state.pid

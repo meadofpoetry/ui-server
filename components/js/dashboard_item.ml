@@ -186,7 +186,7 @@ class t ?(removable = true)
       if x && _removable
       then buttons#append_child remove
       else buttons#remove_child remove;
-      item.widget#add_or_remove_class x Markup.Item.editing_class
+      item.widget#toggle_class ~force:x Markup.Item.editing_class
 
   end
 

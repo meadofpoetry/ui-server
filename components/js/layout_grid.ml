@@ -155,6 +155,6 @@ class t ?align ~(cells : Cell.t list) () =
          _align <- None
 
     method set_fixed_column_width x =
-      super#add_or_remove_class x Markup.fixed_column_width_class
+      super#toggle_class ~force:x Markup.fixed_column_width_class
 
   end

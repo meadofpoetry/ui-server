@@ -181,7 +181,7 @@ class t ?scrollable
       _keydown <- None
 
     method set_scrollable (x : bool) : unit =
-      super#add_or_remove_class x Markup.scrollable_class
+      super#toggle_class ~force:x Markup.scrollable_class
 
     method opened : bool =
       _opened

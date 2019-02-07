@@ -19,7 +19,7 @@ class title ~title ~widget () =
       super#add_class title_class
 
     method set_active (x : bool) : unit =
-      super#add_or_remove_class x active_class;
+      super#toggle_class ~force:x active_class;
       widget#style##.display := Js_of_ocaml.Js.string (if x then "" else "none")
 
     method get_title : string = title

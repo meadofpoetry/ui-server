@@ -87,28 +87,28 @@ module Helper_text = struct
         Option.iter self#set_content content
 
       method set_content (s : string) : unit =
-        self#set_text_content s
+        super#set_text_content s
 
       method persistent : bool =
-        self#has_class Markup.persistent_class
+        super#has_class Markup.persistent_class
 
-      method set_persistent (is_persistent : bool) : unit =
-        self#add_or_remove_class is_persistent Markup.persistent_class
+      method set_persistent (x : bool) : unit =
+        super#toggle_class ~force:x Markup.persistent_class
 
       method validation : bool =
-        self#has_class Markup.validation_msg_class
+        super#has_class Markup.validation_msg_class
 
-      method set_validation (is_validation : bool) : unit =
-        self#add_or_remove_class is_validation Markup.validation_msg_class
+      method set_validation (x : bool) : unit =
+        super#toggle_class ~force:x Markup.validation_msg_class
 
       method show_to_screen_reader () : unit =
-        self#remove_attribute "aria-hidden"
+        super#remove_attribute "aria-hidden"
 
       method set_validity (is_valid : bool) : unit =
         let needs_display = self#validation && not is_valid in
         if needs_display
-        then self#set_attribute "role" "alert"
-        else self#remove_attribute "role";
+        then super#set_attribute "role" "alert"
+        else super#remove_attribute "role";
         if not self#persistent && not needs_display
         then self#hide ()
 
@@ -121,7 +121,7 @@ module Helper_text = struct
       (* Private methods *)
 
       method private hide () : unit =
-        self#set_attribute "aria-hidden" "true"
+        super#set_attribute "aria-hidden" "true"
 
     end
 
@@ -382,10 +382,10 @@ class ['a] t ?input_id
           l#shake self#should_shake) floating_label
 
     method dense : bool =
-      self#has_class Markup.dense_class
+      super#has_class Markup.dense_class
 
     method set_dense (x : bool) : unit =
-      self#add_or_remove_class x Markup.dense_class
+      super#toggle_class ~force:x Markup.dense_class
 
     method validation_message : string =
       Js.to_string (Js.Unsafe.coerce input_elt)##.validationMessage
@@ -484,20 +484,20 @@ class ['a] t ?input_id
       Js.to_bool validity##.valid
 
     method private style_validity (is_valid : bool) : unit =
-      self#add_or_remove_class (not is_valid) Markup.invalid_class;
+      super#toggle_class ~force:(not is_valid) Markup.invalid_class;
       Option.iter (fun x ->
           x#set_validity is_valid;
           if x#auto_validation_message
           then x#set_content self#validation_message) helper_text
 
     method private style_focused (is_focused : bool) : unit =
-      self#add_or_remove_class is_focused Markup.focused_class
+      super#toggle_class ~force:is_focused Markup.focused_class
 
     method private style_disabled (is_disabled : bool) : unit =
       if is_disabled
-      then (self#add_class Markup.disabled_class;
-            self#remove_class Markup.invalid_class)
-      else self#remove_class Markup.disabled_class;
+      then (super#add_class Markup.disabled_class;
+            super#remove_class Markup.invalid_class)
+      else super#remove_class Markup.disabled_class;
       Option.iter (fun x -> Icon.set_disabled x is_disabled) leading_icon;
       Option.iter (fun x -> Icon.set_disabled x is_disabled) trailing_icon;
 
@@ -600,7 +600,7 @@ class ['a] t ?input_id
           ["mousedown"; "touchstart"] in
       let click_keydown =
         List.map (fun x ->
-            self#listen_lwt (Widget.Event.make x) (fun _ _ ->
+            super#listen_lwt (Widget.Event.make x) (fun _ _ ->
                 Lwt.return @@ self#handle_text_field_interaction ()))
           ["click"; "keydown"] in
       let observer =
@@ -608,8 +608,8 @@ class ['a] t ?input_id
         self#register_validation_handler handler in
       _listeners <- _listeners @ [focus; blur; input] @ ptr @ click_keydown;
       _validation_observer <- Some observer;
-      if not (self#has_class Markup.textarea_class)
-         && not (self#has_class Markup.outlined_class)
+      if not (super#has_class Markup.textarea_class)
+         && not (super#has_class Markup.outlined_class)
       then
         let adapter = Ripple.make_default_adapter (self :> Widget.t) in
         let is_surface_disabled = fun () -> self#disabled in

@@ -2,8 +2,11 @@ open Containers
 
 let ( ^:: ) = List.cons_maybe
 
-let cons_if case x l =
+let cons_if (case : bool) (x : 'a) (l : 'a list) : 'a list =
   if case then x :: l else l
+
+let cons_if_lazy (case : bool) (f : unit -> 'a) (l : 'a list) : 'a list =
+  if case then (f ()) :: l else l
 
 let cons_option = List.cons_maybe
 

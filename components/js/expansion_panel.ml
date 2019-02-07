@@ -74,24 +74,23 @@ class t ?(expanded = false)
       super#init ();
       self#set_elevation elevation;
       self#set_expanded expanded;
-      (* FIXME keep events *)
-      primary#listen_click_lwt (fun _ _ ->
+      primary#listen_click_lwt' (fun _ _ ->
           self#set_expanded (not self#expanded);
-          Lwt.return_unit) |> ignore;
-      primary#listen_lwt Widget.Event.keydown (fun e _ ->
+          Lwt.return_unit);
+      primary#listen_lwt' Widget.Event.keydown (fun e _ ->
           match Utils.Keyboard_event.event_to_key e with
           | `Enter ->
              Dom.preventDefault e;
              self#set_expanded (not self#expanded);
              Lwt.return_unit
-          | _ -> Lwt.return_unit) |> ignore
+          | _ -> Lwt.return_unit)
 
     method s_expanded =
       s_expanded
 
     method expanded = React.S.value s_expanded
     method set_expanded x =
-      self#add_or_remove_class x Markup.expanded_class;
+      super#toggle_class ~force:x Markup.expanded_class;
       if not x
       then wrapper#style##.display := Js.string "none"
       else wrapper#style##.display := Js.string "";
@@ -101,7 +100,7 @@ class t ?(expanded = false)
       elevation
     method set_elevation x =
       Elevation.remove_elevation self;
-      self#add_class @@ Elevation.Markup.get_elevation_class x
+      super#add_class @@ Elevation.Markup.get_elevation_class x
 
     method title = title
     method details = List.map Widget.coerce details

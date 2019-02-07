@@ -558,3 +558,7 @@ let attach_to ?unbounded (w : #Widget.t) : t =
     | None -> adapter
     | Some x -> { adapter with is_unbounded = (fun () -> x) } in
   new t adapter ()
+
+let destroy (r : #t) : unit = r#destroy ()
+
+let layout (r : #t) : unit = r#layout ()

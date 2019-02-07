@@ -134,11 +134,11 @@ module Make(I : Item) = struct
         |> Lwt.ignore_result
 
       method set_active x =
-        self#add_or_remove_class (not x)
+        super#toggle_class ~force:(not x)
         @@ CSS.add_modifier _class "background"
 
       method set_visible x =
-        self#add_or_remove_class (not x)
+        super#toggle_class ~force:(not x)
         @@ CSS.add_modifier _class "invisible"
 
       method layer : int =

@@ -21,7 +21,7 @@ module Letter = struct
         super#has_class Markup.dense_class
 
       method set_dense (x : bool) : unit =
-        super#add_or_remove_class x Markup.dense_class
+        super#toggle_class ~force:x Markup.dense_class
 
     end
 

@@ -270,22 +270,22 @@ class t ?(settings : Settings.t option)
       fst _info
 
     method not_available : bool =
-      self#has_class not_available_class
+      super#has_class not_available_class
 
     method set_not_available (x : bool) : unit =
-      self#add_or_remove_class x not_available_class
+      super#toggle_class ~force:x not_available_class
 
     (** Updates widget state *)
     method set_state = function
       | Fine ->
-         self#remove_class no_response_class;
-         self#remove_class no_sync_class
+         super#remove_class no_response_class;
+         super#remove_class no_sync_class
       | No_sync ->
-         self#remove_class no_response_class;
-         self#add_class no_sync_class
+         super#remove_class no_response_class;
+         super#add_class no_sync_class
       | No_response ->
-         self#remove_class no_sync_class;
-         self#add_class no_response_class
+         super#remove_class no_sync_class;
+         super#add_class no_response_class
 
     method settings : Settings.t =
       _settings

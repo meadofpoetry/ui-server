@@ -136,14 +136,6 @@ module Janus = struct
 
 end
 
-let make_video () =
-  let video = Dom_html.(createVideo document) in
-  video##setAttribute (Js.string "playsinline") (Js.string "true");
-  video##setAttribute (Js.string "autoplay") (Js.string "true");
-  video##setAttribute (Js.string "controls") (Js.string "false");
-  video##.classList##add (Js.string CSS.video);
-  video
-
 let make_audio () =
   let audio = Dom_html.(createAudio document) in
   audio##setAttribute (Js.string "playsinline") (Js.string "true");
@@ -153,7 +145,7 @@ let make_audio () =
   audio
 
 let page () =
-  let video = make_video () in
+  let video = Ui_templates.Video_player.make () in
   let audio = make_audio () in
   let janus_lwt =
     Lwt.catch
@@ -162,7 +154,7 @@ let page () =
         >>= (fun s ->
          Janus.plugin ~tracks:[Janus.main]
            ~selected:(React.S.const Janus.main)
-           ~target:video
+           ~target:video#video_element
            s
          |> ignore;
          Janus.plugin ~tracks:[Janus.opt]
@@ -176,14 +168,13 @@ let page () =
           | Janus_static.Not_created s ->
              Printf.sprintf "WebRTC session not created:\n %s" s
           | e -> Printexc.to_string e in
-       Lwt.return_error err) in
+        Lwt.return_error err) in
   Ui_templates.Loader.create_widget_loader
     Lwt_result.(
     janus_lwt
     >|= (fun () ->
-      let v = Widget.create video in
       let a = Widget.create audio in
-      let root = Widget.create_div ~widgets:[v; a] () in
+      let root = Widget.create_div ~widgets:[video#widget; a] () in
       root#add_class CSS.theater_container;
       root#add_class CSS.root;
       root))

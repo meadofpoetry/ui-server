@@ -36,7 +36,7 @@ class t ?(ripple = true) ?(mini = false) ~icon () =
       super#has_class Markup.mini_class
 
     method set_mini (x : bool) : unit =
-      super#add_or_remove_class x Markup.mini_class
+      super#toggle_class ~force:x Markup.mini_class
 
     method disabled : bool =
       Js.to_bool self#button_element##.disabled

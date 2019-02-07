@@ -14,7 +14,7 @@ class t ?inset () =
       Option.iter self#set_inset inset
 
     method set_inset (x : bool) : unit =
-      self#add_or_remove_class x Markup.inset_class
+      self#toggle_class ~force:x Markup.inset_class
 
     method inset : bool =
       self#has_class Markup.inset_class

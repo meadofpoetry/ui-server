@@ -325,7 +325,7 @@ module Row = struct
        * 
        * method set_selected' x =
        *   Option.iter (fun cb -> cb#set_checked x) self#checkbox;
-       *   self#add_or_remove_class x Markup.Row.selected_class
+       *   super#toggle_class ~force:x Markup.Row.selected_class
        * 
        * method set_selected x  =
        *   let v = (self :> 'a t) in
@@ -716,16 +716,16 @@ class ['a] t ?(selection : selection option)
       s_selected
 
     method sticky_header : bool =
-      self#has_class Markup.sticky_header_class
+      super#has_class Markup.sticky_header_class
 
     method set_sticky_header (x : bool) : unit =
-      self#add_or_remove_class x Markup.sticky_header_class
+      super#toggle_class ~force:x Markup.sticky_header_class
 
     method dense : bool =
-      self#has_class Markup.dense_class
+      super#has_class Markup.dense_class
 
     method set_dense (x : bool) : unit =
-      self#add_or_remove_class x Markup.dense_class
+      super#toggle_class ~force:x Markup.dense_class
 
     method cons (data : 'a Data.t) : 'a Row.t =
       let row = self#_make_row data in
@@ -757,15 +757,12 @@ class ['a] t ?(selection : selection option)
       body#remove_all_rows ()
 
     method sort index sort =
-      time "sort";
       let rows =
         List.sort (fun (row_1 : 'a Row.t)
                        (row_2 : 'a Row.t) ->
             match sort, compare index row_1#cells row_2#cells with
             | Asc, x -> x
             | Dsc, x -> ~-x) self#rows in
-      time_end "sort";
-      time "render";
       begin match clusterize with
       | None ->
          (* FIXME do it in a more smart way. Move only those rows that
@@ -774,8 +771,7 @@ class ['a] t ?(selection : selection option)
          List.iter body#append_child rows
       | Some c ->
          Clusterize.update c @@ List.map (fun x -> x#root) rows
-      end;
-      time_end "render"
+      end
 
     (* Private methods *)
 

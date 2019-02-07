@@ -324,18 +324,18 @@ module Info = struct
 
         method! init () : unit  =
           super#init ();
+          super#add_class pid_class;
           self#update info;
-          self#add_class pid_class;
           self#set_hex hex
 
         method update (info : Pid.info) : unit =
-          self#add_or_remove_class (not info.present) lost_class
+          super#toggle_class ~force:(not info.present) lost_class
 
         method set_hex (x : bool) : unit =
           let s = match x with
             | true -> PID.to_hex_string self#pid
             | false -> PID.to_dec_string self#pid in
-          self#set_text_content s
+          super#set_text_content s
 
         method pid : int = pid
 

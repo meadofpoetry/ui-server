@@ -206,19 +206,20 @@ class t ?(widgets : #t list option)
   method remove_class _class =
     self#root##.classList##remove (Js.string _class)
 
-  method toggle_class _class =
-    self#root##.classList##toggle (Js.string _class)
-    |> Js.to_bool
+  method toggle_class' ?force (_class : string) : bool =
+    match force with
+    | None -> Js.to_bool @@ self#root##.classList##toggle (Js.string _class)
+    | Some true -> self#add_class _class; true
+    | Some false -> self#remove_class _class; false
+
+  method toggle_class ?force (_class : string) : unit =
+    ignore @@ self#toggle_class' ?force _class
 
   method has_class _class =
     Js.to_bool (self#root##.classList##contains (Js.string _class))
 
   method find_classes pre =
     List.find_all (String.prefix ~pre) self#classes
-
-  method add_or_remove_class x _class =
-    if x then self#add_class _class
-    else self#remove_class _class
 
   method client_left : int =
     self#root##.clientLeft
@@ -455,6 +456,8 @@ class radio_or_cb_widget ?on_change ?state ~input_elt elt () =
 let equal (x : (#t as 'a)) (y : 'a) = equal x y
 
 let coerce (x : #t) = (x :> t)
+
+let layout (widget : #t) : unit = widget#layout ()
 
 let destroy (x : #t) = x#destroy ()
 

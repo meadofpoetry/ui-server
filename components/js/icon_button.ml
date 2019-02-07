@@ -12,6 +12,7 @@ class t ?(on = false) ?(ripple = true) ?on_change ?on_icon ?disabled ~icon () =
             |> To_dom.of_button in
   object(self)
 
+    val mutable on_change = on_change
     val mutable _ripple : Ripple.t option = None
 
     inherit Widget.t elt () as super
@@ -21,9 +22,8 @@ class t ?(on = false) ?(ripple = true) ?on_change ?on_icon ?disabled ~icon () =
       Option.iter self#set_disabled disabled;
       if on then self#set_on true;
       if ripple
-      then
-        (let ripple = Ripple.attach_to ~unbounded:true (self :> Widget.t) in
-         _ripple <- Some ripple);
+      then let ripple = Ripple.attach_to ~unbounded:true super#widget in
+           _ripple <- Some ripple;
       Option.iter (fun i ->
           i#add_class Markup.icon_class;
           i#add_class Markup.icon_on_class) on_icon;
@@ -31,22 +31,24 @@ class t ?(on = false) ?(ripple = true) ?on_change ?on_icon ?disabled ~icon () =
       match on_icon with
       | None -> ()
       | Some _ ->
-         (* FIXME keep *)
-         self#listen_lwt Widget.Event.click (fun _ _ ->
-             self#toggle ();
-             Lwt.return_unit) |> Lwt.ignore_result
+         super#listen_lwt' Widget.Event.click (fun _ _ ->
+             self#toggle (); Lwt.return_unit)
 
     method! layout () : unit =
       super#layout ();
-      Option.iter (fun r -> r#layout ()) _ripple
+      Option.iter Ripple.layout _ripple
 
     method! destroy () : unit =
       super#destroy ();
-      Option.iter (fun r -> r#destroy ()) _ripple;
+      Option.iter Ripple.destroy _ripple;
       _ripple <- None
+
+    method set_on_change (f : bool -> unit) : unit =
+      on_change <- Some f
 
     method disabled : bool =
       Js.to_bool elt##.disabled
+
     method set_disabled (x : bool) : unit =
       elt##.disabled := Js.bool x
 
@@ -58,11 +60,16 @@ class t ?(on = false) ?(ripple = true) ?on_change ?on_icon ?disabled ~icon () =
     method s_state : bool React.signal = state
 
     method on : bool =
-      self#has_class Markup.on_class
+      super#has_class Markup.on_class
+
     method set_on (x : bool) : unit =
       if not @@ Equal.bool self#on x
       then Option.iter (fun f -> f x) on_change;
       set_state x;
-      self#add_or_remove_class x Markup.on_class
+      super#toggle_class ~force:x Markup.on_class
 
-end
+  end
+
+(** Create new icon button widget from scratch *)
+let make ?on ?ripple ?on_change ?on_icon ?disabled ~icon () : t =
+  new t ?on ?ripple ?on_change ?on_icon ?disabled ~icon ()

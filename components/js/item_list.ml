@@ -97,7 +97,7 @@ object(self)
   inherit Widget.t elt ()
 
   method set_dense (x : bool) : unit =
-    self#add_or_remove_class x Markup.dense_class
+    self#toggle_class ~force:x Markup.dense_class
 
 end
 
@@ -147,9 +147,9 @@ class ['a] t ?avatar
     method s_items = s_items
 
     method non_interactive : bool =
-      self#has_class Markup.non_interactive_class
+      super#has_class Markup.non_interactive_class
     method set_non_interactive (x:bool) : unit =
-      self#add_or_remove_class x Markup.non_interactive_class
+      super#toggle_class ~force:x Markup.non_interactive_class
 
     method active : 'a Item.t option =
       React.S.value s_active
@@ -180,30 +180,29 @@ class ['a] t ?avatar
       | None -> ()
 
     method dense : bool =
-      self#has_class Markup.dense_class
+      super#has_class Markup.dense_class
 
-    method! set_dense (x:bool) : unit =
-      self#add_or_remove_class x Markup.dense_class
+    method! set_dense (x : bool) : unit =
+      super#toggle_class ~force:x Markup.dense_class
 
     method append_item (x : 'a Item.t) =
       set_items (self#items' @ [ `Item x]);
-      Dom.appendChild self#root x#root
+      super#append_child x
 
     method cons_item (x : 'a Item.t) =
       set_items ((`Item x) :: self#items');
-      Dom.insertBefore self#root x#root self#node##.firstChild
+      super#insert_child_at_idx 0 x
 
-    method insert_item_at_idx (index:int) (x : 'a Item.t) =
+    method insert_item_at_idx (index : int) (x : 'a Item.t) =
       set_items @@ List.insert_at_idx index (`Item x) self#items';
-      let child = self#root##.childNodes##item index in
-      Dom.insertBefore self#root x#root child
+      super#insert_child_at_idx index x
 
     method remove_item (x : 'a Item.t) =
       match List.find_idx (function
-                | `Item i -> Equal.physical i x
-                | _       -> false) self#items' with
+                | `Item i -> Widget.equal i x
+                | _ -> false) self#items' with
       | Some (i, (`Item x)) ->
-         Dom.removeChild self#root x#root;
+         super#remove_child x;
          set_items @@ List.remove_at_idx i self#items'
       | Some _ | None  -> ()
 

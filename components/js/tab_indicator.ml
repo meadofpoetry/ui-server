@@ -27,12 +27,12 @@ class t ?(fade = false) ?(active = false) () =
     method content = content
 
     method fade : bool =
-      self#has_class Markup.fade_class
+      super#has_class Markup.fade_class
     method set_fade (x : bool) : unit =
-      self#add_or_remove_class x Markup.fade_class
+      super#toggle_class ~force:x Markup.fade_class
 
     method active : bool =
-      self#has_class Markup.active_class
+      super#has_class Markup.active_class
     method set_active ?(previous : 'self option) (x : bool) : unit =
       if x
       then (if self#fade
