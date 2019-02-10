@@ -1,4 +1,3 @@
-open Js_of_ocaml
 open Containers
 open Tyxml_js
 
@@ -17,7 +16,7 @@ class t ?(ripple = true) ?(mini = false) ~icon () =
       icon#add_class Markup.icon_class;
       self#set_mini mini;
       if ripple then
-        let ripple = Ripple.attach_to (self :> Widget.t) in
+        let ripple = Ripple.attach super#root in
         _ripple <- Some ripple
 
     method! layout () : unit =
@@ -29,19 +28,10 @@ class t ?(ripple = true) ?(mini = false) ~icon () =
       Option.iter (fun r -> r#destroy ()) _ripple;
       _ripple <- None
 
-    method button_element : Dom_html.buttonElement Js.t =
-      elt
-
     method mini : bool =
       super#has_class Markup.mini_class
 
     method set_mini (x : bool) : unit =
       super#toggle_class ~force:x Markup.mini_class
-
-    method disabled : bool =
-      Js.to_bool self#button_element##.disabled
-
-    method set_disabled (x : bool) : unit =
-      self#button_element##.disabled := Js.bool x
 
   end

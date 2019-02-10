@@ -82,12 +82,10 @@ let attach_side_sheet (elt : Dom_html.element Js.t) () =
   |> Option.map Side_sheet.attach
 
 let attach_body (app_content_inner : Dom_html.element Js.t) () =
-  match Js.Opt.to_option app_content_inner##.firstChild with
+  let elt = (Js.Unsafe.coerce app_content_inner)##.firstElementChild in
+  match Js.Opt.to_option elt with
   | None -> None
-  | Some node ->
-     match node##.nodeType with
-     | ELEMENT -> Some (Widget.create (Js.Unsafe.coerce node))
-     | _ -> None
+  | Some (node : Dom_html.element Js.t) -> Some (Widget.create node)
 
 class t ?(drawer : #Drawer.t option)
         ?(drawer_elevation : drawer_elevation option)
@@ -246,7 +244,7 @@ class t ?(drawer : #Drawer.t option)
       let leading = match app_bar#leading, drawer with
         | None, Some _ ->
            let icon = Icon.SVG.(create_simple Path.menu) in
-           let w = new Icon_button.t ~icon () in
+           let w = Icon_button.make ~icon () in
            w#add_class Top_app_bar.Markup.CSS.navigation_icon;
            Some w
         | _ -> None in

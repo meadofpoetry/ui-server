@@ -1,0 +1,4 @@
+(executable
+  (name index)
+  (libraries js_of_ocaml components ui_templates common pc_control_js)
+  (preprocess (pps js_of_ocaml-ppx)))

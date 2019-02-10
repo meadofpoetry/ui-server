@@ -611,7 +611,7 @@ class ['a] t ?input_id
       if not (super#has_class Markup.textarea_class)
          && not (super#has_class Markup.outlined_class)
       then
-        let adapter = Ripple.make_default_adapter (self :> Widget.t) in
+        let adapter = Ripple.make_default_adapter self#root in
         let is_surface_disabled = fun () -> self#disabled in
         let is_surface_active = fun () ->
           Ripple.Util.get_matches_property input_widget#root ":active" in

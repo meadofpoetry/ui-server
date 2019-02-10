@@ -84,7 +84,7 @@ let create_topology () =
     make_tmpl_props ~id
       ~app_bar:(make_app_bar_props ~title:"Конфигурация" ())
       ~post_scripts:[ Src "/js/ResizeObserver.js"
-                    ; Src "js/page_topology.js" ]
+                    ; Src "js/topology.js" ]
       ~stylesheets:["/css/topology.min.css"]
       () in
   Simple { id

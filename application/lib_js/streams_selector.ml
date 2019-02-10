@@ -324,7 +324,7 @@ module Input = struct
     let make_board_stream_entry del_item del_stream (stream : Stream.t) =
       let text = Stream.Source.to_string stream.source.info in
       let icon = Icon.SVG.(create_simple Path.delete) in
-      let del_button = new Icon_button.t ~ripple:false ~icon () in
+      let del_button = Icon_button.make ~ripple:false ~icon () in
       let item =
         new Item_list.Item.t
           ~text

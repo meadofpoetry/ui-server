@@ -10,10 +10,11 @@ module Font = struct
   class t ~icon () =
     let elt = Markup.create ~icon () |> Tyxml_js.To_dom.of_i in
     object
-      inherit Widget.button_widget elt () as super
+      inherit Widget.t elt () as super
 
       method icon : string =
         super#text_content |> Option.get_or ~default:""
+
       method set_icon (i : string) : unit =
         super#set_text_content i
     end
@@ -59,10 +60,11 @@ module SVG = struct
     let elt = Markup.create ?size paths' ()
               |> Tyxml_js.To_dom.of_element in
     object(self)
-      inherit Widget.button_widget elt ()
+      inherit Widget.t elt ()
 
       method paths : Path.t list =
         paths
+        
       method path : Path.t =
         List.hd self#paths
     end

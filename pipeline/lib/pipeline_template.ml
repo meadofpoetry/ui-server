@@ -3,34 +3,58 @@ open Api.Template
 open Tyxml
 
 module Markup = Components_tyxml.Make(Xml)(Svg)(Html)
+module Player = Page_mosaic_video_tyxml.Player.Make(Xml)(Svg)(Html)
 
-let make_icon path =
+let make_icon ?classes path =
   let open Markup.Icon.SVG in
   let path = create_path path () in
-  let icon = create [path] () in
-  Tyxml.Html.toelt icon
+  create ?classes [path] ()
 
 let make_icon_button path =
   let path = Markup.Icon.SVG.create_path path () in
   let icon = Markup.Icon.SVG.create [path] () in
-  Markup.Icon_button.create icon ()
+  Markup.Icon_button.create ~icon ()
 
-(* let create_tab ?(active = false) (label : string) =
- *   let text = Tab.create_text_label label () in
- *   let content = Tab.create_content [text] () in
- *   let indicator = Tab_indicator.(create ~active (create_content ()) ()) in
- *   Tab.create ~active ~indicator content ()
- * 
- * let create_scroller tabs =
- *   let content = Tab_scroller.create_scroll_content tabs () in
- *   let scroll_area = Tab_scroller.create_scroll_area ~content () in
- *   Tab_scroller.create ~scroll_area ()
- * 
- * let make_tab_bar () =
- *   let video = create_tab ~active:true "Видео" in
- *   let editor = create_tab "Редактор" in
- *   let scroller = create_scroller [video; editor] in
- *   Tyxml.Html.toelt @@ Tab_bar.create ~scroller () *)
+let make_player_action ?classes ~on_path path =
+  let make_icon ?(on = false) path =
+    let classes =
+      [Markup.Icon_button.CSS.icon]
+      |> Markup.Utils.cons_if on Markup.Icon_button.CSS.icon_on in
+    make_icon ~classes path in
+  Player.Controls.(
+    create_action
+      ?classes
+      ~icon:(make_icon path)
+      ~on_icon:(make_icon ~on:true on_path)
+      ())
+
+let make_player_controls () =
+  let open Icon.SVG in
+  Player.Controls.(
+    let play =
+      make_player_action
+        ~classes:[Player.CSS.Controls.action_play]
+        ~on_path:Path.pause
+        Path.play in
+    let fullscreen =
+      make_player_action
+        ~classes:[Player.CSS.Controls.action_fullscreen]
+        ~on_path:Path.fullscreen_exit
+        Path.fullscreen in
+    let section_left = create_section ~align:`Start [play] () in
+    let section_right = create_section ~align:`End [fullscreen] () in
+    create [section_left; section_right] ())
+
+let make_player () : 'a Html.elt =
+  let video =
+    Player.create_video
+      ~autoplay:true
+      ~controls:false
+      ~playsinline:true
+      () in
+  let gradient = Player.create_gradient () in
+  let controls = make_player_controls () in
+  Player.create ~theater_mode:true ~video ~controls ~gradient ()
 
 let create_video () : 'a item =
   let id = "mosaic-video" in
@@ -39,12 +63,13 @@ let create_video () : 'a item =
     make_tmpl_props ~id ~app_bar
       ~pre_scripts:[ Src "/js/janus.nojquery.js"
                    ; Src "/js/adapter.min.js" ]
-      ~post_scripts:[Src "/js/page_mosaic_video.js"]
+      ~post_scripts:[Src "/js/mosaic_video.js"]
       ~stylesheets:["/css/pipeline.min.css"]
+      ~content:[Html.toelt @@ make_player ()]
       () in
   Simple { id
          ; title = "Видео"
-         ; icon = Some (make_icon Icon.SVG.Path.video)
+         ; icon = Some (Html.toelt @@ make_icon Icon.SVG.Path.video)
          ; href = Common.Uri.Path.of_string "video"
          ; template }
 
@@ -53,12 +78,12 @@ let create_editor () : 'a item =
   let app_bar = make_app_bar_props ~title:"Редактор мозаики" () in
   let template =
     make_tmpl_props ~id ~app_bar
-      ~post_scripts:[Src "/js/page_mosaic_editor.js"]
+      ~post_scripts:[Src "/js/mosaic_editor.js"]
       ~stylesheets:["/css/pipeline.min.css"]
       () in
   Simple { id
          ; title = "Редактор"
-         ; icon = Some (make_icon Icon.SVG.Path.view_dashboard)
+         ; icon = Some (Html.toelt @@ make_icon Icon.SVG.Path.view_dashboard)
          ; href = Common.Uri.Path.of_string "editor"
          ; template }
 

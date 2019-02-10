@@ -1,47 +1,19 @@
-PROFILE ?= dev
-BUILD   = dune build --profile $(PROFILE)
-CLEAN   = dune clean
-CSS     = scss --style compressed
-CSS_DIR = dist/resources/css
+PROFILE    ?= dev
+BUILD      = dune build --profile $(PROFILE)
+CLEAN      = dune clean
+CSS        = scss --style compressed
+CSS_DIR    = dist/resources/css
+JS_TARGETS = home input stream mosaic_video mosaic_editor \
+					   topology demo settings_user settings_network
 
 all: build
 
+$(JS_TARGETS):
+	$(BUILD) frontend/$@/js/index.bc.js
+	cp _build/default/frontend/$@/js/index.bc.js dist/resources/js/$@.js
+
 clean:
 	$(CLEAN)
-
-home:
-	$(BUILD) frontend/home.bc.js
-	cp _build/default/frontend/home.bc.js dist/resources/js/home.js
-
-input:
-	$(BUILD) frontend/page_input.bc.js
-	cp _build/default/frontend/page_input.bc.js dist/resources/js/input.js
-
-stream:
-	$(BUILD) frontend/page_stream.bc.js
-	cp _build/default/frontend/page_stream.bc.js dist/resources/js/stream.js
-
-pipeline:
-	$(BUILD) frontend/page_mosaic_video.bc.js
-	cp _build/default/frontend/page_mosaic_video.bc.js dist/resources/js/page_mosaic_video.js
-	$(BUILD) frontend/page_mosaic_editor.bc.js
-	cp _build/default/frontend/page_mosaic_editor.bc.js dist/resources/js/page_mosaic_editor.js
-
-hardware:
-	$(BUILD) frontend/page_topology.bc.js
-	cp _build/default/frontend/page_topology.bc.js dist/resources/js/page_topology.js
-
-user:
-	$(BUILD) frontend/user.bc.js
-	cp _build/default/frontend/user.bc.js dist/resources/js/user.js
-
-network:
-	$(BUILD) frontend/network.bc.js
-	cp _build/default/frontend/network.bc.js dist/resources/js/network.js
-
-demo:
-	$(BUILD) frontend/demo.bc.js
-	cp _build/default/frontend/demo.bc.js dist/resources/js/demo.js
 
 css-components:
 	$(CSS) $(CSS_DIR)/components/components.scss $(CSS_DIR)/components.min.css
@@ -59,7 +31,7 @@ backend:
 	$(BUILD) backend/backend.exe
 	cp _build/default/backend/backend.exe dist/backend
 
-frontend: home input stream pipeline hardware user network demo
+frontend: $(JS_TARGETS)
 
 build: backend frontend
 	@echo "Done"
@@ -75,4 +47,4 @@ doc:
 test:
 	dune runtest
 
-.PHONY: build doc test all clean backend home pipeline hardware user network demo input stream
+.PHONY: build doc test all clean backend $(JS_TARGETS)

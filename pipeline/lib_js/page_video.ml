@@ -146,10 +146,15 @@ let make_audio () =
 
 let page () =
   let video =
-    Ui_templates.Video_player.make
-      ~theater_mode:true
-      ~autoplay:true
-      () in
+    object
+      inherit Widget.t Dom_html.(createDiv document) ()
+      method video_element =
+        Dom_html.(createVideo document)
+    end in
+    (* Ui_templates.Video_player.make
+     *   ~theater_mode:true
+     *   ~autoplay:true
+     *   () in *)
   let audio = make_audio () in
   let janus_lwt =
     Lwt.catch

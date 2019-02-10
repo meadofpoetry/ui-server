@@ -1,0 +1,4 @@
+(executable
+  (name index)
+  (libraries js_of_ocaml components api_js board_qos_niit_js)
+  (preprocess (pps js_of_ocaml-ppx)))

@@ -1,0 +1,6 @@
+(executable
+  (name index)
+  (libraries js_of_ocaml components ui_templates
+             board_ip_dektec_js board_dvb_niit_js board_ts2ip_niit_js
+             pipeline_js application_js pc_control_js)
+  (preprocess (pps js_of_ocaml-ppx)))

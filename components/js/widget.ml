@@ -198,29 +198,26 @@ class t ?(widgets : #t list option)
 
   method style = self#root##.style
 
-  method class_string =
+  method class_string : string =
     Js.to_string @@ self#root##.className
 
-  method classes =
+  method classes : string list =
     String.split_on_char ' ' @@ self#class_string
 
-  method add_class _class =
-    self#root##.classList##add (Js.string _class)
+  method add_class (_class : string) : unit =
+    Element.add_class self#root _class
 
-  method remove_class _class =
-    self#root##.classList##remove (Js.string _class)
+  method remove_class (_class : string) : unit =
+    Element.remove_class self#root _class
 
-  method toggle_class' ?force (_class : string) : bool =
-    match force with
-    | None -> Js.to_bool @@ self#root##.classList##toggle (Js.string _class)
-    | Some true -> self#add_class _class; true
-    | Some false -> self#remove_class _class; false
+  method toggle_class' ?(force : bool option) (_class : string) : bool =
+    Element.toggle_class ?force self#root _class
 
-  method toggle_class ?force (_class : string) : unit =
+  method toggle_class ?(force : bool option) (_class : string) : unit =
     ignore @@ self#toggle_class' ?force _class
 
-  method has_class _class =
-    Js.to_bool (self#root##.classList##contains (Js.string _class))
+  method has_class (_class : string) : bool =
+    Element.has_class self#root _class
 
   method find_classes pre =
     List.find_all (String.prefix ~pre) self#classes
@@ -381,7 +378,7 @@ class t ?(widgets : #t list option)
 
 end
 
-class button_widget ?on_click elt () =
+class button_widget ?on_click (elt : #Dom_html.buttonElement Js.t) () =
 object
   val mutable _listener = None
   inherit t elt () as super
@@ -392,6 +389,16 @@ object
     | None -> ()
     | Some f -> super#listen_lwt Event.click (fun e _ -> f e)
                 |> fun l -> _listener <- Some l
+
+  method private button_element : Dom_html.buttonElement Js.t =
+    (elt :> Dom_html.buttonElement Js.t)
+
+  method disabled : bool =
+    Js.to_bool elt##.disabled
+
+  method set_disabled (x : bool) : unit =
+    elt##.disabled := Js.bool x
+
 end
 
 class input_widget ~(input_elt : Dom_html.inputElement Js.t) elt () =

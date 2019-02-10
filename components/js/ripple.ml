@@ -156,26 +156,27 @@ let update_css_variable = fun node name value ->
     (Js.string name)
     (Js.string @@ Option.get_or ~default:"" value)
 
-let make_default_adapter (w : #Widget.t) : adapter =
-  { add_class = w#add_class
-  ; remove_class = w#remove_class
+let make_default_adapter (elt : #Dom_html.element Js.t) : adapter =
+  let elt = Element.coerce elt in
+  { add_class = Element.add_class elt
+  ; remove_class = Element.remove_class elt
   ; is_unbounded = (fun () -> false)
   ; is_surface_active = (fun () ->
-    Util.get_matches_property w#root ":active"
-    |> Js.to_bool)
+    Js.to_bool @@ Util.get_matches_property elt ":active")
   ; is_surface_disabled = (fun () ->
-    if Js.Optdef.test (Js.Unsafe.coerce w#root)##.disabled
-    then Js.to_bool (Js.Unsafe.coerce w#root)##.disabled else false)
+    if Js.Optdef.test (Js.Unsafe.coerce elt)##.disabled
+    then Js.to_bool (Js.Unsafe.coerce elt)##.disabled else false)
   ; register_handler = (fun typ f ->
-    w#listen (Widget.Event.make typ) (fun _ e ->
+    Dom_events.listen elt (Widget.Event.make typ) (fun _ e ->
         f (e :> Dom_html.event Js.t); true))
   ; deregister_handler = (fun x ->
     Dom_events.stop_listen x)
   ; contains_event_target = (fun target ->
-    (Js.Unsafe.coerce w#root)##contains target |> Js.to_bool)
+    (Js.Unsafe.coerce elt)##contains target |> Js.to_bool)
   ; update_css_variable = (fun name value ->
-    update_css_variable w#root name value)
-  ; compute_bounding_rect = (fun () -> w#bounding_client_rect)
+    update_css_variable elt name value)
+  ; compute_bounding_rect = (fun () ->
+    Widget.to_rect elt##getBoundingClientRect)
   }
 
 let padding = 20
@@ -552,8 +553,8 @@ object(self)
 
 end
 
-let attach_to ?unbounded (w : #Widget.t) : t =
-  let adapter = make_default_adapter w in
+let attach ?unbounded (elt : #Dom_html.element Js.t) : t =
+  let adapter = make_default_adapter elt in
   let adapter = match unbounded with
     | None -> adapter
     | Some x -> { adapter with is_unbounded = (fun () -> x) } in

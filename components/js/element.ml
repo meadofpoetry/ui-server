@@ -8,6 +8,22 @@ let equal (a : #Dom_html.element Js.t as 'a) (b : 'a) : bool =
 let coerce (elt : #Dom_html.element Js.t) : t =
   (elt :> t)
 
+let add_class (elt : #Dom_html.element Js.t) (_class : string) : unit =
+  elt##.classList##add (Js.string _class)
+
+let remove_class (elt : #Dom_html.element Js.t) (_class : string) : unit =
+  elt##.classList##remove (Js.string _class)
+
+let toggle_class ?(force : bool option)
+      (elt : #Dom_html.element Js.t) (_class : string) : bool =
+  match force with
+  | None -> Js.to_bool @@ elt##.classList##toggle (Js.string _class)
+  | Some true -> add_class elt _class; true
+  | Some false -> remove_class elt _class; false
+
+let has_class (elt : #Dom_html.element Js.t) (_class : string) : bool =
+  Js.to_bool @@ elt##.classList##contains (Js.string _class)
+
 let query_selector (elt : #Dom_html.element Js.t)
       (selector : string) : t option =
   Js.Opt.to_option @@ elt##querySelector (Js.string selector)

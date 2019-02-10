@@ -1,0 +1,4 @@
+(executable
+  (name index)
+  (libraries js_of_ocaml components pipeline_js page_mosaic_video_tyxml)
+  (preprocess (pps js_of_ocaml-ppx)))

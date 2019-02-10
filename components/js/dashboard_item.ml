@@ -121,11 +121,11 @@ class t ?(removable = true)
       () in
   let remove =
     let icon = Icon.SVG.(create_simple Path.close) in
-    new Icon_button.t ~icon () in
+    Icon_button.make ~icon () in
   let settings_icon, dialog =
     Option.map (fun (settings : settings) ->
         let icon = Icon.SVG.(create_simple Path.settings) in
-        let icon_button = new Icon_button.t ~icon () in
+        let icon_button = Icon_button.make ~icon () in
         let dialog = make_dialog item settings in
         icon_button, dialog) item.settings
     |> function Some (i, d) -> Some i, Some d | None -> None, None in

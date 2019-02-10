@@ -9,7 +9,7 @@ class ['a] t ?(ripple = true) ?input_id ~name ~(value : 'a) () =
   let input_elt =
     elt##querySelector (Js.string ("." ^ Markup.native_control_class))
     |> Js.Opt.to_option |> Option.get_exn |> Js.Unsafe.coerce in
-  object(self)
+  object
     val mutable _ripple : Ripple.t option = None
 
     inherit Widget.radio_or_cb_widget ~input_elt elt () as super
@@ -25,7 +25,7 @@ class ['a] t ?(ripple = true) ?input_id ~name ~(value : 'a) () =
     method! init () : unit =
       super#init ();
       if ripple then
-        let adapter = Ripple.make_default_adapter (self :> Widget.t) in
+        let adapter = Ripple.make_default_adapter super#root in
         let is_unbounded = fun () -> true in
         let is_surface_active = fun () -> false in
         let register_handler = fun typ f ->

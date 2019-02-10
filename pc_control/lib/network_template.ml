@@ -9,7 +9,7 @@ let create () : upper ordered_item list user_table =
   let props =
     make_tmpl_props ~id
       ~app_bar:(make_app_bar_props ~title:"Сеть" ())
-      ~post_scripts:[Src "/js/network.js"]
+      ~post_scripts:[Src "/js/settings_network.js"]
       () in
   let icon x =
     let open Icon.SVG in

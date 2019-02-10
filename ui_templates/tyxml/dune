@@ -1,0 +1,5 @@
+(library
+  (name ui_templates_tyxml)
+  ;(public_name ui_templates)
+  (synopsis    "common templates for building ui")
+  (libraries   containers components_tyxml))

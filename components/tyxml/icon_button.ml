@@ -8,13 +8,26 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   open Html
 
-  let base_class = "mdc-icon-button"
-  let icon_class = CSS.add_element base_class "icon"
-  let on_class = CSS.add_modifier base_class "on"
-  let icon_on_class = CSS.add_modifier icon_class "on"
+  module CSS = struct
 
-  let create ?(classes = []) ?attrs ?on_icon icon () : 'a elt =
-    button ~a:([a_class (base_class :: classes)] <@> attrs)
+    let root = "mdc-icon-button"
+    let icon = CSS.add_element root "icon"
+    let on = CSS.add_modifier root "on"
+    let icon_on = CSS.add_modifier icon "on"
+
+  end
+
+  let create ?(classes = []) ?attrs ?(ripple = true)
+        ?(on = false) ?(disabled = false) ?on_icon ~icon
+        () : 'a elt =
+    let classes =
+      classes
+      |> cons_if on CSS.on
+      |> List.cons CSS.root in
+    button ~a:([a_class classes]
+               |> cons_if_lazy ripple (fun () -> a_user_data "ripple" "true")
+               |> cons_if_lazy disabled a_disabled
+               <@> attrs)
       (on_icon ^:: icon :: [])
 
 end

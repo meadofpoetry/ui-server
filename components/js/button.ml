@@ -13,7 +13,7 @@ class t ?typ ?style ?icon ?dense ?compact ?(ripple = true) ?label () =
       ?dense ?compact ?icon:icon' ?label ()
     |> To_dom.of_button in
 
-  object(self)
+  object
 
     val mutable _ripple : Ripple.t option = None
 
@@ -23,7 +23,7 @@ class t ?typ ?style ?icon ?dense ?compact ?(ripple = true) ?label () =
       super#init ();
       Option.iter (fun x -> x#add_class Markup.icon_class) icon;
       if ripple then
-        let ripple = Ripple.attach_to (self :> Widget.t) in
+        let ripple = Ripple.attach super#root in
         _ripple <- Some ripple
 
     method! layout () : unit =
@@ -34,14 +34,5 @@ class t ?typ ?style ?icon ?dense ?compact ?(ripple = true) ?label () =
       super#destroy ();
       Option.iter (fun x -> x#destroy ()) _ripple;
       _ripple <- None
-
-    method button_element : Dom_html.buttonElement Js.t =
-      elt
-
-    method disabled : bool =
-      Js.to_bool self#button_element##.disabled
-
-    method set_disabled (x : bool) : unit =
-      self#button_element##.disabled := Js.bool x
 
   end

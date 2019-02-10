@@ -71,7 +71,7 @@ let acc_bitrate total rate =
 (** Returns 'back' action element *)
 let make_back () =
   let icon = Icon.SVG.(create_simple Path.arrow_left) in
-  let back = new Icon_button.t ~icon () in
+  let back = Icon_button.make ~icon () in
   back#add_class @@ CSS.add_element base_class "back";
   back
 

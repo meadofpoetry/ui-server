@@ -76,7 +76,7 @@ class ['a, 'b] t
           false)
       |> (fun x -> _click_listener <- Some x);
       let ripple_surface = self#ripple_element in
-      let adapter = Ripple.make_default_adapter (self :> Widget.t) in
+      let adapter = Ripple.make_default_adapter super#root in
       let add_class = fun s ->
         ripple_surface##.classList##add (Js.string s) in
       let remove_class = fun s ->

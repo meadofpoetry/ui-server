@@ -4,31 +4,26 @@ open Tyxml_js
 
 module Markup = Components_tyxml.Icon_button.Make(Xml)(Svg)(Html)
 
-class t ?(on = false) ?(ripple = true) ?on_change ?on_icon ?disabled ~icon () =
-  let state, set_state = React.S.create on in
-  let elt = Markup.create
-              ?on_icon:(Option.map Widget.to_markup on_icon)
-              (Widget.to_markup icon) ()
-            |> To_dom.of_button in
+class t (elt : #Dom_html.buttonElement Js.t) () =
+  let e_state, set_state = React.E.create () in
   object(self)
 
-    val mutable on_change = on_change
+    val mutable s_state = None
+    val mutable on_change = None
     val mutable _ripple : Ripple.t option = None
 
     inherit Widget.t elt () as super
 
     method! init () : unit =
-      super#init ();
-      Option.iter self#set_disabled disabled;
-      if on then self#set_on true;
+      super#init ()
+
+    method! initial_sync_with_dom () : unit =
+      super#initial_sync_with_dom ();
+      let ripple = match Element.get_attribute elt "data-ripple" with
+        | Some "true" -> true | _ -> false in
       if ripple
-      then let ripple = Ripple.attach_to ~unbounded:true super#widget in
-           _ripple <- Some ripple;
-      Option.iter (fun i ->
-          i#add_class Markup.icon_class;
-          i#add_class Markup.icon_on_class) on_icon;
-      icon#add_class Markup.icon_class;
-      match on_icon with
+      then _ripple <- Some (Ripple.attach ~unbounded:true elt);
+      match Element.query_selector elt ("." ^ Markup.CSS.icon_on) with
       | None -> ()
       | Some _ ->
          super#listen_lwt' Widget.Event.click (fun _ _ ->
@@ -41,7 +36,10 @@ class t ?(on = false) ?(ripple = true) ?on_change ?on_icon ?disabled ~icon () =
     method! destroy () : unit =
       super#destroy ();
       Option.iter Ripple.destroy _ripple;
-      _ripple <- None
+      _ripple <- None;
+      Option.iter (React.S.stop ~strong:true) s_state;
+      s_state <- None;
+      React.E.stop ~strong:true e_state
 
     method set_on_change (f : bool -> unit) : unit =
       on_change <- Some f
@@ -57,22 +55,47 @@ class t ?(on = false) ?(ripple = true) ?on_change ?on_icon ?disabled ~icon () =
       set_state self#on;
       Option.iter (fun f -> f self#on) on_change
 
-    method s_state : bool React.signal = state
+    method e_state : bool React.event =
+      e_state
+
+    method s_state : bool React.signal =
+      match s_state with
+      | Some s -> s
+      | None ->
+         let s = React.S.hold ~eq:Equal.bool self#on e_state in
+         s_state <- Some s;
+         s
 
     method on : bool =
-      super#has_class Markup.on_class
+      super#has_class Markup.CSS.on
 
     method set_on (x : bool) : unit =
       if not @@ Equal.bool self#on x
       then (
         Option.iter (fun f -> f x) on_change;
         set_state x;
-        super#toggle_class ~force:x Markup.on_class)
+        super#toggle_class ~force:x Markup.CSS.on)
 
   end
 
 (** Create new icon button widget from scratch *)
 let make ?on ?ripple ?on_change ?on_icon ?disabled ~icon () : t =
-  let elt = To_dom.of_button @@ Markup.create ?on_icon icon () in
-  Element.(To_dom.of_element icon)
-  new t ?on ?ripple ?on_change ?on_icon ?disabled ~icon ()
+  Option.iter (fun i ->
+      i#add_class Markup.CSS.icon;
+      i#add_class Markup.CSS.icon_on) on_icon;
+  icon#add_class Markup.CSS.icon;
+  let elt =
+    To_dom.of_button
+    @@ Markup.create ?ripple ?on ?disabled
+         ?on_icon:(Option.map Widget.to_markup on_icon)
+         ~icon:(Widget.to_markup icon)
+         () in
+  let t = new t elt () in
+  Option.iter t#set_on_change on_change;
+  t
+
+(** Attach icon button widget to existing DOM element *)
+let attach (elt : #Dom_html.element Js.t) : t =
+  match Js.to_string elt##.tagName with
+  | "BUTTON" -> new t (Js.Unsafe.coerce elt) ()
+  | _ -> failwith "Icon button: host element must have a `button` tag"

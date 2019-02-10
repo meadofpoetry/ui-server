@@ -9,7 +9,7 @@ let create () : upper ordered_item list user_table =
   let props =
     make_tmpl_props ~id
       ~app_bar:(make_app_bar_props ~title:"Пользователи" ())
-      ~post_scripts:[Src "/js/user.js"]
+      ~post_scripts:[Src "/js/settings_user.js"]
       ~stylesheets:["/css/user.min.css"]
       () in
   let icon x =
