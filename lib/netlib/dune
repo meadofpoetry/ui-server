@@ -1,0 +1,3 @@
+(library
+  (name      netlib)
+  (libraries uuidm yojson uri ipaddr macaddr))
