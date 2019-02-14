@@ -1,0 +1,3 @@
+(executable
+  (name  cyusb_bindgen)
+  (libraries ctypes.stubs ctypes cyusb_bindings))
