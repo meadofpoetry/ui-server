@@ -1,16 +1,6 @@
-(rule
-  (targets cyusb_generated.ml)
-  (deps stubgen/cyusb_bindgen.exe)
-  (action (with-stdout-to %{targets} (run %{deps} -ml))))
-
-(rule
-  (targets cyusb_stubs.c)
-  (deps (:bindgen stubgen/cyusb_bindgen.exe) cyusb_iface.h)
-  (action (with-stdout-to %{targets} (run %{bindgen} -c))))
-
 (library
   (name    cyusb)
-  (modules cyusb cyusb_generated)
-  (c_names cyusb_iface cyusb_stubs)
-  (c_flags (:standard -lcyusb))
-  (libraries cyusb_bindings lwt lwt.unix ctypes ctypes.stubs))
+  (modules cyusb)
+  (c_names cyusb_iface)
+  (flags (:standard -cclib -lcyusb))
+  (libraries lwt lwt.unix))
