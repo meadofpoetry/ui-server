@@ -1,18 +1,25 @@
 * Project goals
 
-** TODO Alpha goals [0/6]:
-- [ ] Rearrange project libraries
-  - [ ] Separate utility libraries
-  - [ ] Functorize everything with stuff like users, db, streams, topologies etc as it is done in mirage
+** TODO Alpha goals [0/7]:
+- [-] Rearrange project libraries
+  - [X] Separate utility libraries
+    - [X] Netlib
+  - [-] Functorize everything with stuff like users, db, streams, topologies etc as it is done in mirage
     - [ ] Common timer loop
-    - [ ] DB, KV, Boards resources
-    - [ ] Streams, Topo, Users types
-- [ ] Wrap caqti interface with a adaptor
+    - [X] KV
+    - [ ] DB 
+      - [ ] Wrap caqti interface with a adaptor
+    - [ ] Server
+      - [ ] Refactor Api.Socket interaction layer
+      - [ ] Refactor Api interaction layer
+    - [ ] Boards
+    - [ ] Streams, Topo, Users application types
+- [ ] Non-blocking usb interaction
 - [ ] Fix db leaks
 - [ ] User password encryption
-- [ ] Refactor Api.Socket interaction layer
 - [ ] Refactor Pipeline types to support saved settings alteration
 - [ ] Interaction with the Qoe analyser
+  - [ ] Consider h264 streaming option
   - [ ] Settings api
   - [ ] Integrate glsoundbar into the ats3-backend
   - [ ] Implement audio settings
@@ -30,7 +37,6 @@
 - [ ] Interaction with the Qoe analyser
   - [ ] Send QoS errors to pipeline
   - [ ] Integrate glerror into the ats3-backend
-
 
 ** TODO Release candidate [0/1]:
 - [ ] Data server interaction
