@@ -39,7 +39,7 @@ value caml_cyusb_conn_num (value Unit) {
         if (n < 0)
                 caml_failwith ("Error in claiming interface");
 
-        return Int_val (n);
+        return Val_int (n);
 }
         
 
@@ -55,7 +55,7 @@ value caml_cyusb_open (value n) {
 
         desc = cyusb_open();
 
-        if ( desc < 0 || desc > num) { // TODO >=
+        if ( desc < 0 || desc < num) { // TODO >=
                 cyusb_close ();
                 caml_failwith ("No such device num");
         };
