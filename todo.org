@@ -1,6 +1,6 @@
 * Project goals
 
-** TODO Alpha goals [0/7]:
+** TODO Alpha goals [1/7]:
 - [-] Rearrange project libraries
   - [X] Separate utility libraries
     - [X] Netlib
@@ -14,7 +14,7 @@
       - [ ] Refactor Api interaction layer
     - [ ] Boards
     - [ ] Streams, Topo, Users application types
-- [ ] Non-blocking usb interaction
+- [X] Non-blocking usb interaction
 - [ ] Fix db leaks
 - [ ] User password encryption
 - [ ] Refactor Pipeline types to support saved settings alteration

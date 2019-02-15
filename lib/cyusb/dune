@@ -1,6 +1,6 @@
 (library
   (name    cyusb)
   (modules cyusb)
-  (c_names cyusb_iface)
+  (c_names cyusb_stubs)
   (flags (:standard -cclib -lcyusb))
   (libraries lwt lwt.unix))

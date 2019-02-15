@@ -9,12 +9,15 @@ type t = { handle    : cyusb_handle
          ; devaddr   : int
          }
 
-external connected_num : unit -> int = "caml_cyusb_conn_num"
+type buf = (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
 
-external create : int -> t = "caml_cyusb_open"
+(** raises Failure on error *)
+external create : unit -> t = "caml_cyusb_open"
 
-external close : unit -> unit = "caml_cyusb_close"
+external close : t -> unit = "caml_cyusb_close"
 
-external test_fun : int ->
-                    (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
-  = "caml_test_fun"
+(** raises Failure on error *)
+external send : t -> buf -> unit = "caml_cyusb_send"
+
+(** raises Failure on error *)
+external recv : t -> buf = "caml_cyusb_recv"
