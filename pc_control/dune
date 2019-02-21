@@ -1,0 +1,4 @@
+(executable
+ (name demo)
+ (modes native)
+ (libraries pc_control lwt))

@@ -1,13 +1,24 @@
-open Containers
 include Yojson.Safe
 
 type 'a res = ('a, string) result
 
 type t = Yojson.Safe.json
 
-let equal x y = Equal.physical x y
+let all_ok l =
+  let rec loop acc = function
+    | [] -> Ok (List.rev acc)
+    | (Ok x)::tl -> loop (x::acc) tl
+    | (Error _ as e)::_ -> e
+  in loop [] l
 
-let compare x y = Ord.compare x y
+(* TODO remove in 4.08 *)
+let (>>=) m f = match m with
+  | Ok v -> f v
+  | Error _ as e -> e
+
+let equal (x : t) y = x = y
+
+let compare (x : t) y = compare x y
 
 let pp ppf t =
   Format.fprintf ppf "%s" (Yojson.Safe.pretty_to_string t)
@@ -47,7 +58,7 @@ module Int32 = struct
   let of_yojson : json -> t res = function
     | `Int x -> Ok (Int32.of_int x)
     | `Intlit x -> begin
-        match Int32.of_string x with
+        match Int32.of_string_opt x with
         | Some x -> Ok x
         | None -> Error "int32_of_yojson: bad value"
       end
@@ -59,7 +70,7 @@ module Int64 = struct
   let to_yojson (x:t) : json = `Intlit (Int64.to_string x)
   let of_yojson : json -> t res = function
     | `Int x -> Ok (Int64.of_int x)
-    | `Intlit x -> (try Ok (Int64.of_string_exn x) with _ -> Error "Int64.of_yojson: bad int")
+    | `Intlit x -> (try Ok (Int64.of_string x) with _ -> Error "Int64.of_yojson: bad int")
     | _      -> Error "not an int64"
 end
 
@@ -68,7 +79,7 @@ module List = struct
   let to_yojson (f:'a -> json) (l:'a t) : json =
     `List (List.map f l)
   let of_yojson (f:json -> 'a res) = function
-    | `List l -> List.map f l |> List.all_ok
+    | `List l -> all_ok @@ List.map f l
     | _       -> Error "not a list"
 end
 
@@ -79,7 +90,10 @@ module Option = struct
     | Some v -> f v
   let of_yojson (f:json -> 'a res) = function
     | `Null -> Ok None
-    | json  -> Result.map Option.return @@ f json
+    | json  ->
+       match f json with
+       | Ok v -> Ok (Some v)
+       | Error _ as e -> e
 end
 
 module String = struct
@@ -97,7 +111,10 @@ module Pair = struct
     let j2 = f2 @@ snd t in
     `List [j1; j2]
   let of_yojson (f1 : json -> 'a res) (f2 : json -> 'b res) = function
-    | `List [x; y] -> Result.(f1 x >>= fun v1 -> f2 y >|= fun v2 -> v1, v2)
+    | `List [x; y] ->
+       f1 x >>= fun x' ->
+       f2 y >>= fun y' ->
+       Ok (x', y')
     | _ -> Error "not a pair"
 end
 
