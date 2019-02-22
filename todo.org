@@ -1,14 +1,14 @@
 * Project goals
 
-** TODO Alpha goals [1/7]:
+** TODO Alpha goals [1/22]:
 - [-] Rearrange project libraries
   - [X] Separate utility libraries
     - [X] Netlib
   - [-] Functorize everything with stuff like users, db, streams, topologies etc as it is done in mirage
     - [ ] Common timer loop
     - [X] KV
-    - [ ] DB 
-      - [ ] Wrap caqti interface with a adaptor
+    - [X] DB 
+      - [X] Wrap caqti interface with an adaptor
     - [ ] Server
       - [ ] Refactor Api.Socket interaction layer
       - [ ] Refactor Api interaction layer

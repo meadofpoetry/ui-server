@@ -186,7 +186,7 @@ module Pid = struct
 
     let to_string : t -> string = function
       | SEC l ->
-         let s = List.map CCFun.(table_to_string % table_of_int) l
+         let s = List.map (fun x -> table_to_string @@ table_of_int x) l
                  |> String.concat ", " in
          "SEC -> " ^ s
       | PES x ->

@@ -1,7 +1,6 @@
-open Containers
 open Lwt.Infix
-open Common
-   
+(*open Common*)
+(*   
 module Settings = struct
   type t = { socket_path : string; cleanup : Time.Period.Hours.t; password : string } [@@deriving yojson]
   let default   = { socket_path = "/tmp"; cleanup = Time.Period.Hours.of_int 1; password = "ats3" }
@@ -9,10 +8,20 @@ module Settings = struct
 end
                 
 module Conf = Config.Make(Settings)
+ *)
 
+(* TODO remove after 4.08 *)
+let filter_map f l =
+  let rec loop acc = function
+    | [] -> List.rev acc
+    | h::tl -> match f h with
+               | None -> loop acc tl
+               | Some v -> loop (v::acc) tl
+  in loop [] l
+  (* 
 let error s e =
   Printf.sprintf s (Caqti_error.show e)
-            
+   *)        
 let pool_use p f =
   Caqti_lwt.Pool.use (fun c -> f c >>= Lwt.return_ok) p >>= function
   | Error e -> Lwt.fail_with (Caqti_error.show e)
@@ -25,16 +34,18 @@ type state = { period  : float
              ; db      : ((module Caqti_lwt.CONNECTION), Caqti_error.connect) Caqti_lwt.Pool.t
              }
 
-module Request : sig
-  type ('a, 'typ) t
-  val (>>=) : ('a, 'typ) t -> ('a -> ('b, 'typ) t) -> ('b, 'typ) t
-  val return : 'a -> ('a, [> `Simple]) t
-  val exec : ('a, unit, [`Zero]) Caqti_request.t -> 'a -> (unit, [> `Simple]) t
-  val find : ('a, 'b, [`One | `Zero]) Caqti_request.t -> 'a -> ('b option, [> `Simple]) t
-  val list : ('a, 'b, [`Many | `One | `Zero]) Caqti_request.t -> 'a -> ('b list, [> `Simple]) t
-  val with_trans : ('a, [`Simple]) t -> ('a, [> `Trans]) t
-  val run : (module Caqti_lwt.CONNECTION) -> ('a, 'typ) t -> 'a Lwt.t
-end = struct
+module Types = struct
+  include Caqti_type
+
+  module List = struct
+    type _ t = [] : unit t | (::) : 'a * 'b t -> ('a * 'b) t
+
+    let (&) = Caqti_type.tup2
+  end
+              
+end
+
+module Request  = struct
   type ('a,_) t = (module Caqti_lwt.CONNECTION) -> 'a Lwt.t
 
   let return x = fun _ -> Lwt.return x
@@ -58,19 +69,13 @@ end = struct
 
 end
 
-module Key_t : sig
-  type t
-  val key : ?default:string -> ?primary:bool -> string -> t
-  val is_primary : t -> bool
-  val typ : t -> string
-  val to_string : t -> string
-end = struct
+module Key = struct
   type t =
     { typ : string
     ; default : string option
     ; primary : bool
     }
-  let key ?default ?(primary = false) (typ : string) : t =
+  let key ?default ?(primary = false) ~(typ : string) : t =
     { typ; default; primary }
   let typ (t : t) = t.typ
   let is_primary (t : t) = t.primary
@@ -80,7 +85,7 @@ end = struct
 end
 
 type keys =
-  { columns  : (string * Key_t.t) list
+  { columns  : (string * Key.t) list
   ; time_key : string option
   }
 
@@ -113,12 +118,12 @@ module Make (M : MODEL) : (CONN with type init := M.init and type names := M.nam
 
   let make_init_query name keys =
     let primary =
-      List.filter_map (fun (k, t) ->
-          if Key_t.is_primary t then Some k else None) keys
+      filter_map (fun (k, t) ->
+          if Key.is_primary t then Some k else None) keys
       |> function
         | [] -> None
         | s -> Some (Printf.sprintf "PRIMARY KEY (%s)" @@ String.concat "," s) in
-    let cols = String.concat ", " (List.map (fun (k,t) -> k ^ " " ^ (Key_t.to_string t)) keys) in
+    let cols = String.concat ", " (List.map (fun (k,t) -> k ^ " " ^ (Key.to_string t)) keys) in
     let cols = match primary with
       | None -> cols
       | Some s -> cols ^ ", " ^ s in
@@ -132,7 +137,7 @@ module Make (M : MODEL) : (CONN with type init := M.init and type names := M.nam
 
   let workers_trans tables =
     let open Request in
-    List.filter_map (fun (_,_,w) -> w) tables
+    filter_map (fun (_,_,w) -> w) tables
     |> function [] -> None
               | lst -> Some (with_trans (List.fold_left (fun acc m -> acc >>= fun () -> m) (return ()) lst))
 
@@ -188,67 +193,16 @@ module Make (M : MODEL) : (CONN with type init := M.init and type names := M.nam
 
 end
 
-module Types = struct
-  include Caqti_type
-
-  module List = struct
-    type _ t = [] : unit t | (::) : 'a * 'b t -> ('a * 'b) t
-
-    let (&) = Caqti_type.tup2
-  end
-              
-end
-                               
-type t = state
-
-(* TODO move this to an appropriate place *)
-       
-let aggregate t es =
-  let merged = React.E.merge (fun acc x -> x::acc) [] es in
-  let tm = ref Lwt.return_unit in
-  let result = ref [] in
-  let event, epush = React.E.create () in
-  let iter = React.E.fmap (fun l ->
-                 if Lwt.is_sleeping !tm then begin
-                     result := l @ !result;
-                     None
-                   end else begin
-                     tm := Lwt_unix.sleep t;
-                     result := l @ !result;
-                     Lwt.on_success !tm (fun () -> epush !result; result := []);
-                     None
-                   end) merged
-  in
-  React.E.select [iter; event]
-
-let aggregate_merge ~merge t es =
-  let merged = React.E.merge merge [] es in
-  let tm = ref Lwt.return_unit in
-  let result = ref [] in
-  let event, epush = React.E.create () in
-  let iter = React.E.fmap (fun l ->
-                 if Lwt.is_sleeping !tm then begin
-                     result := l @ !result;
-                     None
-                   end else begin
-                     tm := Lwt_unix.sleep t;
-                     result := l @ !result;
-                     Lwt.on_success !tm (fun () -> epush !result; result := []);
-                     None
-                   end) merged
-  in
-  React.E.select [iter; event]
-       
-let create config period =   
-  let user = Sys.getenv "USER" in
-  let settings = Conf.get config in
+let create ~role ~password ~socket_path ~maintain ~cleanup =   
+  (* let user = Sys.getenv "USER" in*)
+  (* let settings = Conf.get config in*)
   let path = Printf.sprintf "postgresql://%s:%s/ats?host=/%s"
-               user settings.password settings.socket_path in
+               role password socket_path in
   let db   = match Caqti_lwt.connect_pool ~max_size:8 (Uri.of_string path) with
     | Ok db   -> db
     | Error e -> failwith (Printf.sprintf "Db connect failed with an error: %s\n" @@ Caqti_error.show e)
   in
-  { db; period; cleanup = settings.cleanup }
+  { db; period = Time.Period.to_float_s maintain; cleanup }
   
 let finalize v =
   Lwt_main.run @@ Caqti_lwt.Pool.drain v.db

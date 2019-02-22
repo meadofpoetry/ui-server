@@ -1,0 +1,6 @@
+(library
+  (name       application_types)
+  (synopsis   "global types shared between frontend and backend")
+  (libraries  netlib time util_json react ppx_deriving_yojson.runtime)
+  (preprocess (pps ppx_deriving_yojson ppx_deriving.show ppx_deriving.eq
+               ppx_deriving.ord ppx_deriving.enum ppx_deriving.make)))

@@ -134,9 +134,13 @@ module Dispatcher : sig
 
 end
 
-val path_v4 : t -> Ipaddr.V4.t option
+val to_yojson : t -> Yojson.Safe.json
 
-val with_path_v4 : t -> Ipaddr.V4.t -> t
+val of_yojson : Yojson.Safe.json -> (t, string) result
+     
+val path_v4 : t -> Ipaddr_ext.V4.t option
+
+val with_path_v4 : t -> Ipaddr_ext.V4.t -> t
 
 val construct : ?scheme:Scheme.t
                 -> ?host:string

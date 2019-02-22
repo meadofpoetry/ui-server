@@ -387,12 +387,18 @@ module Dispatcher = struct
 
 end
 
+let to_yojson x = `String (Uri.to_string x)
+
+let of_yojson = function
+  | `String s -> Ok (Uri.of_string s)
+  | _ -> Error "Netlib.Uri.of_yojson"
+                  
 let path_v4 uri =
-  try Some (Ipaddr.V4.of_string_exn @@ path uri)
+  try Some (Ipaddr_ext.V4.of_string_exn @@ path uri)
   with _ -> None
 
 let with_path_v4 uri ip =
-  with_path uri @@ Ipaddr.V4.to_string ip
+  with_path uri @@ Ipaddr_ext.V4.to_string ip
                   
 let construct ?scheme ?host ?port ~path ~query =
   Path.Format.kprint (fun p ->
