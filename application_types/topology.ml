@@ -15,26 +15,6 @@ let state_of_string = function
   | "init" -> Some `Init
   | _ -> None
 
-type log_level = Logs.level
-
-let log_level_to_yojson x =
-  `String (Logs.level_to_string @@ Some x)
-let log_level_of_yojson = function
-  | `String s ->
-     begin match Logs.level_of_string s with
-     | Ok (Some x) -> Ok x
-     | Ok None -> Error "log_level_of_yojson: bad json"
-     | Error (`Msg s) -> Error s
-     end
-  | _ -> Error "log_level_of_yojson: bad json"
-
-let pp_log_level = Logs.pp_level
-let compare_log_level x y =
-  let x = Logs.level_to_string @@ Some x in
-  let y = Logs.level_to_string @@ Some y in
-  String.compare x y
-let equal_log_level x y = 0 = compare_log_level x y
-
 type input =
   | RF
   | TSOIP
@@ -72,22 +52,25 @@ type version = int [@@deriving yojson, show, eq, ord]
 
 type id = int [@@deriving yojson, show, eq, ord]
 
-module Env = CCMap.Make(String)
+module Env = Map.Make(String)
+           
 type env = string Env.t [@@deriving ord]
+         
 let env_to_yojson e : Yojson.Safe.json =
   `Assoc (Env.fold (fun k v a -> (k, `String v)::a) e [])
 let env_of_yojson : Yojson.Safe.json -> (env, string) result = function
   | `Assoc ls -> begin
-      let open Containers in
       try ls
           |> List.map (function (k, `String v) -> (k, v)
                               | _ -> raise_notrace (Failure "env_of_yojson :value should be string"))
-          |> Env.add_list Env.empty
-          |> Result.return
+          |> List.fold_left (fun env (k,v) -> Env.add k v env) Env.empty
+          |> fun x -> Ok x
       with Failure e -> Error e
     end
   | _ -> Error "env_of_yojson"
-let pp_env = Env.pp CCString.pp CCString.pp
+
+(* TODO proper pp *)
+let pp_env _ppf _ = () (* Format. Env. String.pp String.pp*)
 let equal_env = Env.equal String.equal
 
 type t =
@@ -111,10 +94,10 @@ and topo_board =
   ; version : version
   ; control : int
   ; connection : (state [@default `No_response])
-  ; sources : (Json.t option [@default None])
+  ; sources : (Util_json.t option [@default None])
   ; env : (env [@default Env.empty])
   ; ports : topo_port list
-  ; logs : (log_level option [@default None])
+  ; logs : (string option [@default None])
   }
 
 and topo_port =
@@ -155,7 +138,7 @@ module Show_topo_input = struct
     String.split_on_char '-' s
     |> (function
         | [ input; id ] ->
-           { input = input_of_string input |> CCResult.get_exn
+           { input = (match input_of_string input with Ok v -> v | _ -> failwith "Topo_input")
            ; id    = int_of_string id
            }
         | _ -> failwith "bad input string")

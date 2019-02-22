@@ -1,6 +1,9 @@
 open Topology
-open Containers
 
+let (>>=) m f = match m with
+  | None -> None
+  | Some v -> f v
+   
 (** Main stream ID *)
 module ID : sig
 
@@ -16,26 +19,30 @@ module ID : sig
   val pp : Format.formatter -> t -> unit
   val make : string -> t
   val typ : string
-  val fmt : api_fmt Uri_ext.Path.Format.fmt
+  val fmt : api_fmt Netlib.Uri.Path.Format.fmt
 
 end = struct
+  (* TODO remove in 4.08 *)
+  let get_exn = function Some v -> v | None -> failwith "None"
 
+  let of_opt = function Some v -> Ok v | None -> Error "None"
+                                             
   include Uuidm
 
   type api_fmt = t
 
   let typ = "uuid"
 
-  let fmt = Uri_ext.Path.Format.Uuid
+  let fmt = Netlib.Uri.Path.Format.Uuid
 
   let to_string (x : t) = to_string x
   let of_string_opt (s : string) = of_string s
-  let of_string (s : string) = Option.get_exn @@ of_string_opt s
+  let of_string (s : string) = get_exn @@ of_string_opt s
 
   let to_yojson (x : t) : Yojson.Safe.json =
     `String (Uuidm.to_string x)
   let of_yojson : Yojson.Safe.json -> (t, string) result = function
-    | `String s -> Result.of_opt @@ Uuidm.of_string s
+    | `String s -> of_opt @@ Uuidm.of_string s
     | _ -> Error "uuid_of_yojson: not a string"
 
   let make (s : string) =
@@ -78,7 +85,7 @@ module Source = struct
   (** IP v4 source description *)
   type ipv4 =
     { scheme : string
-    ; addr : Ipaddr_ext.V4.t
+    ; addr : Netlib.Ipaddr.V4.t
     ; port : int
     } [@@deriving yojson, show, eq, ord]
 
@@ -120,7 +127,7 @@ module Source = struct
   let ipv4_to_string (x : ipv4) =
     Uri.make
       ~scheme:x.scheme
-      ~host:(Ipaddr_ext.V4.to_string x.addr)
+      ~host:(Netlib.Ipaddr.V4.to_string x.addr)
       ~port:x.port
       ()
     |> Uri.to_string
@@ -190,37 +197,37 @@ end = struct
 
   let parse_pure (i : int32) : parsed =
     let open Int32 in
-    let src = to_int @@ i land 0xFFl in
-    let num = to_int @@ (i land 0xFFFFF00l) lsr 8 in
+    let src = to_int @@ logand i 0xFFl in
+    let num = to_int @@ Int32.shift_right_logical (logand i 0xFFFFF00l) 8 in
     { source_id = src
     ; stream_id = num
     }
 
   let parse_raw (i : int32) : parsed =
     let open Int32 in
-    let src = to_int @@ (i land 0x1FEl) lsr 1 in
-    let num1 = (i land 0x7F800000l) lsr 11 in
-    let num2 = (i land 0x3FFC00l) lsr 10 in
-    let num = to_int @@ num1 lor num2 in
+    let src = to_int @@ shift_right_logical (logand i 0x1FEl) 1 in
+    let num1 = shift_right_logical (logand i 0x7F800000l) 11 in
+    let num2 = shift_right_logical (logand i 0x3FFC00l) 10 in
+    let num = to_int @@ logor num1 num2 in
     { source_id = src
-    ; stream_id = num
+    ; stream_id = num 
     }
 
   let make_pure (p : parsed) : int32 =
     let open Int32 in
     let src = Int32.of_int p.source_id in
     let num = Int32.of_int p.stream_id in
-    (num lsl 8) lor src
+    logor (shift_left num 8) src
 
   let make_raw (p : parsed) : int32 =
     let open Int32 in
-    let src = (Int32.of_int p.source_id) lsl 1 in
+    let src = shift_left (Int32.of_int p.source_id) 1 in
     let num = Int32.of_int p.stream_id in
-    let num1 = (num land 0xFF000l) lsl 11 in
-    let num2 = (num land 0xFFFl) lsl 10 in
-    ((num1 lor num2) lor src)
-    |> (lor) 0x80000000l   (* ensure ones at right places *)
-    |> (land) 0xFFBFFDFEl  (* ensure zeros at right places *)
+    let num1 = shift_left (logand num 0xFF000l) 11 in
+    let num2 = shift_left (logand num 0xFFFl) 10 in
+    (logor (logor num1 num2) src)
+    |> (logor) 0x80000000l   (* ensure ones at right places *)
+    |> (logand) 0xFFBFFDFEl  (* ensure zeros at right places *)
 
   let make ~source_id ~stream_id : t =
     Parsed { source_id; stream_id }
@@ -264,11 +271,12 @@ end = struct
   let stream_id (t : t) = (parse t).stream_id
 
   let to_yojson (t : t) =
-    Json.Int32.to_yojson (to_int32_pure t)
+    Util_json.Int32.to_yojson (to_int32_pure t)
 
   let of_yojson (json : Yojson.Safe.json) =
-    Json.Int32.of_yojson json
-    |> Result.map of_int32_pure
+    match Util_json.Int32.of_yojson json with
+    | Error _ as e -> e
+    | Ok v -> Ok (of_int32_pure v)
 
 end
 
@@ -277,7 +285,7 @@ type stream_type =
   | T2MI [@@deriving yojson, eq, show, ord]
 
 type tsoip_id =
-  { addr : Ipaddr_ext.V4.t
+  { addr : Netlib.Ipaddr.V4.t
   ; port : int
   } [@@deriving yojson, eq, show, ord]
 
@@ -286,10 +294,11 @@ type container_id =
   | TS_multi of Multi_TS_ID.t
   | TSoIP of tsoip_id [@@deriving yojson, eq, show, ord]
 
-let tsoip_id_of_url (x : Url.t) : tsoip_id =
-  { addr = x.ip
-  ; port = x.port
-  }
+           
+let tsoip_id_of_uri (x : Netlib.Uri.t) : tsoip_id option =
+  Netlib.Uri.path_v4 x >>= fun addr ->
+  Netlib.Uri.port x >>= fun port ->
+  Some { addr; port }
 
 module Raw = struct
 
@@ -378,7 +387,6 @@ let rec get_input (s : t) : topo_input option =
   | Entry Board _ -> None
 
 let to_topo_port (b : topo_board) (t : t) : topo_port option =
-  let input = get_input t in
   let rec get_port input = function
     | [] -> None
     | hd :: tl ->
@@ -393,11 +401,12 @@ let to_topo_port (b : topo_board) (t : t) : topo_port option =
           end
        end
   in
-  Option.flat_map (fun x -> get_port x b.ports) input
+  get_input t >>= fun input ->
+  get_port input b.ports
 
 module Table = struct
 
-  type url = Url.t [@@deriving eq]
+  type url = Netlib.Uri.t [@@deriving eq]
 
   type source_state =
     [ `Forbidden
@@ -413,13 +422,13 @@ module Table = struct
     ] [@@deriving yojson, eq]
 
   type stream =
-    { url : Url.t option (* if None - stream is not selected *)
+    { url : Netlib.Uri.t option (* if None - stream is not selected *)
     ; present : bool
     ; stream : t
     } [@@deriving yojson, eq]
 
   type setting =
-    { url : Url.t
+    { url : Netlib.Uri.t
     ; stream : t
     } [@@deriving yojson, eq]
 
