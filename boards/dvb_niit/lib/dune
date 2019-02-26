@@ -1,8 +1,8 @@
 (library
   (name        board_dvb_niit)
   (synopsis    "dvb board implementation")
-  (libraries   containers websocket-lwt.cohttp common
-               storage boards api ptime.clock.os)
+  (libraries   containers websocket-lwt.cohttp
+               boards api ptime.clock.os)
   (preprocess (pps ppx_cstruct ppx_deriving_yojson ppx_deriving.eq
                ppx_deriving.show ppx_deriving.enum)))
 

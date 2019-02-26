@@ -1,7 +1,7 @@
 (library
   (name        board_ip_dektec)
   (synopsis    "ip board implementation")
-  (libraries   containers websocket-lwt.cohttp common storage boards api)
+  (libraries   containers websocket-lwt.cohttp boards api)
   (preprocess (pps ppx_cstruct ppx_deriving_yojson ppx_deriving.eq ppx_deriving.show)))
 
 (rule

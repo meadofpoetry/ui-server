@@ -1,7 +1,7 @@
 (library
   (name        board_qos_niit)
   (synopsis    "qos board implementation")
-  (libraries   containers websocket-lwt.cohttp common storage
+  (libraries   containers websocket-lwt.cohttp
                boards api bitstring logs ptime.clock.os)
   (flags       (:standard -cclib -lc))
   (preprocess  (pps ppx_cstruct ppx_deriving.eq ppx_deriving.show ppx_deriving.ord

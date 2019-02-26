@@ -37,6 +37,8 @@ end
 
 module Path = struct
 
+  type uri = t
+
   type t = string list
          
   type templ = [ `S of string | `Hole ] list
@@ -59,6 +61,8 @@ module Path = struct
 
   let to_string = merge
 
+  let of_uri uri = of_string @@ path uri
+                
   let to_templ = List.map (fun s -> `S s)
 
   let rec templ_compare l r = match l, r with
@@ -141,6 +145,8 @@ module Path = struct
         | F (Bool, fmt)   -> ":bool" :: (loop fmt)
       in
       merge @@ loop fmt
+
+    let of_string x = x @/ empty
       
   end
 end
@@ -316,22 +322,10 @@ let handle_uri ~path ~query = fun f uri ->
 module Dispatcher = struct
 
   type uri = t
-  
-  type scheme_pat = [`Any | `S of Scheme.t ]
-
-  let scheme_pat_compare l r =
-    match l, r with
-    | `Any, `Any -> 0
-    | `S l', `S r' -> String.compare l' r'
-    | `Any, _ -> -1
-    | _, `Any -> 1
                   
   module M = Map.Make (struct
-                 type t = scheme_pat * Path.templ
-                 let compare (ls,l) (rs,r) =
-                   let c = scheme_pat_compare ls rs in
-                   if c <> 0 then c
-                   else Path.templ_compare l r
+                 type t = Path.templ
+                 let compare = Path.templ_compare
                end)
 
   module P = Path.Format
@@ -339,7 +333,6 @@ module Dispatcher = struct
   module Q = Query
 
   type 'a node = { docstring : string option
-                 ; schemes    : [`Any | `List of Scheme.t list]
                  ; templ     : Path.templ
                  ; path_typ  : string
                  ; query_typ : (string * string) list
@@ -350,33 +343,24 @@ module Dispatcher = struct
 
   let empty : 'a t = M.empty
 
-  let make ?docstring ?(schemes=`Any) ~path ~query handler =
+  let make ?docstring  ~path ~query handler =
     let templ = Path.Format.to_templ path in
     let handler uri = handle_uri ~path ~query handler uri in
     let path_typ = Path.Format.doc path in
     let query_typ = Query.doc query in
-    { schemes; docstring; handler; templ; path_typ; query_typ }
+    { docstring; handler; templ; path_typ; query_typ }
 
   let add (m : 'a t) (node : 'a node) =
-    let add_single m scheme node =
-      try
-        let res = M.find (scheme, node.templ) m in
-        failwith ("API node intersection: '" ^ node.path_typ ^ "' <-> '" ^ res.path_typ ^ "'")
-      with Not_found ->
-            M.add (scheme, node.templ) node m
-    in match node.schemes with
-       | `Any as a -> add_single m a node
-       | `List sl  ->
-          List.fold_left (fun t s -> add_single t (`S s) node) m sl
+    try
+      let res = M.find node.templ m in
+      failwith ("API node intersection: '" ^ node.path_typ ^ "' <-> '" ^ res.path_typ ^ "'")
+    with Not_found ->
+      M.add node.templ node m
 
-  let dispatch ~on_err:erf (m : 'a t) (uri : uri) =
+  let dispatch ~default (m : 'a t) (uri : uri) =
     let templ  = Path.to_templ (Path.of_string @@ path uri) in
-    let scheme = match scheme uri with
-      | None -> `Any
-      | Some s -> `S s
-    in
-    try (M.find (scheme, templ) m).handler uri
-    with _ -> erf ()
+    try (M.find templ m).handler uri
+    with _ -> default
 
   let doc (m : 'a t) : string list =
     let gen node =
@@ -399,6 +383,9 @@ let path_v4 uri =
 
 let with_path_v4 uri ip =
   with_path uri @@ Ipaddr_ext.V4.to_string ip
+
+let with_path_parsed uri p =
+  with_path uri @@ Path.to_string p
                   
 let construct ?scheme ?host ?port ~path ~query =
   Path.Format.kprint (fun p ->

@@ -5,7 +5,7 @@
   (synopsis    "app")
   (libraries   containers yojson caqti-lwt
                lwt websocket-lwt.cohttp
-               api storage common pc_control pipeline usb_device
+               api pc_control pipeline usb_device
                boards board_dvb_niit board_ip_dektec
                board_qos_niit board_ts2ip_niit components_markup)
   (preprocess (pps ppx_deriving_yojson ppx_deriving.eq)))

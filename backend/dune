@@ -1,10 +1,9 @@
 (executable
   (name       backend)
   (modes      native)
-  (libraries  tyxml caqti-lwt lwt logs.lwt logs.fmt
-              containers mustache cohttp-lwt-unix
+  (libraries  application containers tyxml
+              caqti-lwt lwt logs.lwt logs.fmt
+              mustache cohttp-lwt-unix
               yojson ppx_deriving_yojson.runtime
-              common storage cstruct sender
-              application nocrypto nocrypto.lwt)
-  (flags      (:standard -cclib -lcyusb))
+              cstruct nocrypto nocrypto.lwt)
   (preprocess (pps ppx_deriving_yojson)))

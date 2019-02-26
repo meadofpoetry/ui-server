@@ -3,7 +3,7 @@
   (wrapped     true)
   (synopsis    "network interface controls implementation")
   (libraries   containers lwt obus yojson
-               api storage components_markup)
+               api components_markup)
   (preprocess (pps ppx_deriving_yojson ppx_deriving.eq)))
 
 (rule

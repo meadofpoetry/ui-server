@@ -17,6 +17,7 @@ module Scheme : sig
 end
 
 module Path : sig
+  type uri = t
   type t
   (* type templ*)
 
@@ -41,6 +42,8 @@ module Path : sig
     val to_templ : (_,_) t -> templ
  *)
     val doc : ('a, 'b) t -> string
+
+    val of_string : string -> ('a, 'a) t
 (*
     val scan_unsafe : string list -> ('a,'b) t -> 'a -> 'b
       
@@ -58,6 +61,8 @@ module Path : sig
      *)
   val next : t -> string option * t
 
+  val of_uri : uri -> t
+    
   val of_string : string -> t
     
   val to_string : t -> string
@@ -120,7 +125,6 @@ module Dispatcher : sig
   val empty : 'a t
 
   val make : ?docstring:string
-             -> ?schemes:[`Any | `List of Scheme.t list]
              -> path:('a, 'b) Path.Format.t
              -> query:('b, 'c) Query.format
              -> 'a
@@ -128,7 +132,7 @@ module Dispatcher : sig
 
   val add : 'a t -> 'a node -> 'a t
 
-  val dispatch : on_err:(unit -> 'a) -> 'a t -> uri -> 'a
+  val dispatch : default:'a -> 'a t -> uri -> 'a
 
   val doc : 'a t -> string list
 
@@ -141,6 +145,8 @@ val of_yojson : Yojson.Safe.json -> (t, string) result
 val path_v4 : t -> Ipaddr_ext.V4.t option
 
 val with_path_v4 : t -> Ipaddr_ext.V4.t -> t
+
+val with_path_parsed : t -> Path.t -> t
 
 val construct : ?scheme:Scheme.t
                 -> ?host:string
