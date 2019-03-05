@@ -130,9 +130,15 @@ module Dispatcher : sig
              -> 'a
              -> 'c node
 
+  val prepend : Path.t -> 'a node -> 'a node
+    
   val add : 'a t -> 'a node -> 'a t
 
   val merge : 'a t -> (Path.t * 'a t) list -> 'a t
+
+  val merge_unsafe : 'a t list -> 'a t
+
+  val concat : 'a t -> 'a t -> 'a t
 
   val dispatch : default:'a -> 'a t -> uri -> 'a
 

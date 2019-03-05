@@ -22,18 +22,6 @@ module type S = sig
 
   type ws_handler =
     (user -> header -> body -> socket_data -> Interaction.response) Netlib.Uri.Dispatcher.node
-  
-  module type HANDLER = sig
-    val domain : string
-
-    val handle : Netlib.Uri.t
-                 -> user
-                 -> meth
-                 -> header
-                 -> body
-                 -> socket_data
-                 -> Interaction.response
-  end
 
   val create_handler : ?docstring:string
                        -> ?restrict:user list
@@ -56,9 +44,7 @@ module type S = sig
   val create_dispatcher : domain:string
                           -> ws_handler list
                           -> (meth * http_handler list) list
-                          -> (module HANDLER)
-
-  val create : (module HANDLER) list -> t
+                          -> t
 
   val handle : t
                -> ((user -> Interaction.response) -> Interaction.response)
@@ -69,9 +55,11 @@ module type S = sig
                -> socket_data
                -> Interaction.response
 
+  val create : t list -> t
+    
   val add_layer : domain:string
-                  -> (module HANDLER) list
-                  -> (module HANDLER)
+                  -> t list
+                  -> t
     
 end
 

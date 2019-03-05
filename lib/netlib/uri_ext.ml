@@ -341,6 +341,10 @@ module Dispatcher = struct
                
   type 'a t = 'a node M.t
 
+  let prepend prefix node =
+    let templ = (Path.to_templ prefix) @ node.templ in
+    { node with templ }
+
   let empty : 'a t = M.empty
 
   let make ?docstring  ~path ~query handler =
@@ -364,6 +368,25 @@ module Dispatcher = struct
             M.add templ { node with templ } m)
           disp m)
       m lst
+
+  let merge_unsafe lst =
+    let merge_fun _templ l r =
+      match l, r with
+      | None, (Some _ as v)
+        | (Some _ as v), None -> v
+      | _ -> failwith "Netlib.Uri.Dispatcher.merge_unsafe: key exists in several dispatchers"
+    in
+    List.fold_left (fun m disp ->
+        M.merge merge_fun m disp) M.empty lst
+
+  let concat l r =
+    let merge_fun _templ l r =
+      match l, r with
+      | None, (Some _ as v)
+        | (Some _ as v), None -> v
+      | _ -> failwith "Netlib.Uri.Dispatcher.concat: key exists in several dispatchers"
+    in
+    M.merge merge_fun l r
 
   let dispatch ~default (m : 'a t) (uri : uri) =
     let templ  = Path.to_templ (Path.of_string @@ path uri) in
