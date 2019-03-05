@@ -1,5 +1,4 @@
 open Lwt.Infix
-open Containers
 
 type response = (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t
 
@@ -96,10 +95,11 @@ module Make(M : Req) : (Handler with type t := M.t) = struct
     | Error x -> respond ~status:err_status x ()
 
   let ( >>= ) t f =
-    Lwt.try_bind (fun () -> t) f
+    Lwt.try_bind (fun () -> t)
+      f
       (fun exn ->
         M.of_exn exn
-        |> Result.fail
+        |> (fun e -> Error e)
         |> respond_result)
 
 end

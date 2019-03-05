@@ -1,7 +1,3 @@
-type 'a compressed =
-  { data : 'a
-  } [@@deriving yojson]
-
 type 'a raw =
   { data     : 'a
   ; has_more : bool
@@ -9,6 +5,6 @@ type 'a raw =
   } [@@deriving yojson]
 
 type ('a,'b) rows =
-  | Compressed of 'b compressed
+  | Compressed of 'b
   | Raw        of 'a raw
   [@@deriving yojson]

@@ -18,11 +18,14 @@ let redirect_auth validate headers request =
   let open Lwt.Infix in
   Lwt.catch 
     (fun () -> auth validate headers)
-    (fun _  -> Lwt.return Need_auth)
+    (fun _  -> Lwt.return_error `Need_auth)
   >>= function
-    | Id id     -> Lwt.catch (fun () -> request id) (fun e -> error_page e)
-    | Need_auth -> respond_need_auth ~headers:headers ~auth:(`Basic "User Visible Realm") ()
-    | Unknown e -> respond_error e ()
+  | Ok id     ->
+     Lwt.catch (fun () -> request id) (fun e -> error_page e)
+  | Error #Authorize.error ->
+     respond_need_auth ~headers:headers ~auth:(`Basic "User Visible Realm") ()
+  (* TODO proper error *)
+  | Error _ -> respond_error "Unknown error" ()
 (* | Done hd   -> home_page ~headers:hd ()*)
 
 let redirect_if p request =

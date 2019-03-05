@@ -1,7 +1,6 @@
-open Containers
-open Interaction
-open Netlib
-
+(*open Interaction
+open Netlib *)
+   
 let rec filter_map f = function
   | [] -> []
   | x :: xs ->
@@ -35,11 +34,13 @@ let make_absolute_ref : Uri.Path.t -> Uri.Path.t = function
      if is_absolute_ref path
      then path
      else ("//" ^ hd) :: tl
-                         *)
+ *)
+
+                          (*
 let elt_to_string elt =
   Format.asprintf "%a" (Tyxml.Xml.pp ()) elt
 
-module Api_handler = Handler.Make(User)
+(*module Api_handler = Handler.Make(User)*)
 
 type script = Src of string
             | Raw of string
@@ -61,7 +62,7 @@ module Priority = struct
     | `None, `None -> 0
     | `None, _ -> -1
     | _    , `None -> 1
-    | `Index x, `Index y -> Int.compare x y
+    | `Index x, `Index y -> compare x y
   let equal a b =
     0 = compare a b
 end
@@ -183,7 +184,7 @@ let make_node path tmpl : 'a Uri.Dispatcher.node =
     | `Path x -> Uri.Path.(Format.of_string @@ to_string x), Uri.Path.to_string x
   in (* TODO proper doc *)
   let handler _ = respond_string tmpl () in
-  Uri.Dispatcher.make ~path ~query:Uri.Query.empty handler
+  Uri.Dispatcher.make ~docstring:doc ~path ~query:Uri.Query.empty handler
 
 let build_templates ?(href_base = "") mustache_tmpl user
       (vals : upper ordered_item list) =
@@ -235,3 +236,4 @@ let build_route_table ?(href_base="") template user vals =
   let empty = Uri.Dispatcher.empty in
   let tbl = List.fold_left Uri.Dispatcher.add empty pages in
   tbl
+  *)

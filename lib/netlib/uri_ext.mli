@@ -132,6 +132,8 @@ module Dispatcher : sig
 
   val add : 'a t -> 'a node -> 'a t
 
+  val merge : 'a t -> (Path.t * 'a t) list -> 'a t
+
   val dispatch : default:'a -> 'a t -> uri -> 'a
 
   val doc : 'a t -> string list

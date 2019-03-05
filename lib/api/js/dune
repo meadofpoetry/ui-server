@@ -1,14 +1,8 @@
-(library
-  (name        api_js)
-  (modules     requests api_types)
-  (synopsis    "js api framework")
-  (libraries   common react js_of_ocaml js_of_ocaml-lwt yojson)
-  (flags (:standard -short-paths -strict-sequence -bin-annot
-          -w A+1..49+60-4-7-23-32-33-39-40-41-42-44-45-48))
-  (js_of_ocaml (flags (:standard  --opt 3)))
-  (preprocess  (pps js_of_ocaml-ppx ppx_deriving_yojson)))
+;(library
+;  (name        api_js)
+;  (modules     requests api_types)
+;  (synopsis    "js api framework")
+;  (libraries   common react js_of_ocaml js_of_ocaml-lwt yojson)
+;  (preprocess  (pps js_of_ocaml-ppx ppx_deriving_yojson)))
 
-(rule
-  (targets  api_types.ml)
-  (deps     (:x ../api_types.ml))
-  (action   (copy %{x} %{targets})))
+;(copy_files ../api_types.{ml,mli})

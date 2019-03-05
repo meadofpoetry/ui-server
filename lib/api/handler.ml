@@ -1,17 +1,100 @@
-open Containers
 open Redirect
 
-module Make ( User : sig type t val equal : t -> t -> bool end ) = struct
+module type USER = sig
+  type t
+  val equal : t -> t -> bool
+end
 
-  open Netlib
+module type S = sig
   
+  type t
+     
+  type user
+
+  type meth = Cohttp.Code.meth
+
+  type header = Cohttp.Header.t
+
+  type body = Cohttp_lwt.Body.t
+            
   type socket_data = Cohttp_lwt_unix.Request.t * Conduit_lwt_unix.flow
 
-  type http_handler = (User.t -> Cohttp.Header.t -> Cohttp_lwt.Body.t ->
-                       (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t) Uri.Dispatcher.node
+  type http_handler =
+    (user -> header -> body -> Interaction.response) Netlib.Uri.Dispatcher.node
 
-  type ws_handler = (User.t -> Cohttp.Header.t -> Cohttp_lwt.Body.t -> socket_data ->
-                     (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t) Uri.Dispatcher.node
+  type ws_handler =
+    (user -> header -> body -> socket_data -> Interaction.response) Netlib.Uri.Dispatcher.node
+                   
+  module type HANDLER = sig
+    val domain : string
+
+    val handle : Netlib.Uri.t
+                 -> user
+                 -> meth
+                 -> header
+                 -> body
+                 -> socket_data
+                 -> Interaction.response
+  end
+
+                      
+  val create_handler : ?docstring:string
+                       -> ?restrict:user list
+                       -> path:('a -> user -> 'b -> 'c -> Interaction.response, 'd)
+                            Netlib.Uri.Path.Format.t
+                       -> query:('d, user -> header -> body -> Interaction.response)
+                            Netlib.Uri.Query.format
+                       -> ('a -> 'b -> 'c -> unit -> Interaction.response)
+                       -> http_handler
+
+  val create_ws_handler : ?docstring:string
+                          -> ?restrict:user list
+                          -> path:('a -> user -> 'b -> 'c -> 'd -> Interaction.response, 'e)
+                               Netlib.Uri.Path.Format.t
+                          -> query:('e, user -> header -> body -> socket_data -> Interaction.response)
+                               Netlib.Uri.Query.format
+                          -> ('a -> 'b -> 'c -> 'd -> unit -> Interaction.response)
+                          -> ws_handler
+
+  val create_dispatcher : domain:string
+                          -> ws_handler list
+                          -> (meth * http_handler list) list
+                          -> (module HANDLER)
+
+  val create : (module HANDLER) list -> t
+
+  val handle : t
+               -> ((user -> Interaction.response) -> Interaction.response)
+               -> Netlib.Uri.t
+               -> meth
+               -> header
+               -> body
+               -> socket_data
+               -> Interaction.response
+
+  val add_layer : domain:string
+                  -> (module HANDLER) list
+                  -> (module HANDLER)
+                   
+end
+
+module Make ( User : USER ) : S with type user := User.t = struct
+  
+  open Netlib
+
+  type meth = Cohttp.Code.meth
+
+  type header = Cohttp.Header.t
+
+  type body = Cohttp_lwt.Body.t
+     
+  type socket_data = Cohttp_lwt_unix.Request.t * Conduit_lwt_unix.flow
+
+  type http_handler =
+    (User.t -> header -> body -> Interaction.response) Uri.Dispatcher.node
+
+  type ws_handler =
+    (User.t -> header -> body -> socket_data -> Interaction.response) Uri.Dispatcher.node
 
   let wrap api_call uri meth headers body sock_data =
     fun id -> api_call uri id meth headers body sock_data
@@ -23,10 +106,16 @@ module Make ( User : sig type t val equal : t -> t -> bool end ) = struct
                  (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t
   end
 
-  module Handlers = Hashtbl.Make(String)
+  module Handlers = Hashtbl.Make(struct
+                        type t = string
+                        let equal = String.equal
+                        let hash : string -> int = Hashtbl.hash
+                      end)
+
+  type t = (module HANDLER) Handlers.t
 
   let create hndls =
-    let tbl = Handlers.create 50 in
+    let tbl = Handlers.create 100 in
     List.iter (fun ((module H : HANDLER) as handler) ->
         try  ignore @@ Handlers.find tbl H.domain;
              failwith ("Domain " ^ H.domain ^ " already exists")
@@ -42,7 +131,7 @@ module Make ( User : sig type t val equal : t -> t -> bool end ) = struct
                   redir @@ wrap H.handle (Uri.with_path_parsed uri path) meth headers body sock_data
     | _ -> not_found ()
 
-  let add_layer (domain : string) (l : (module HANDLER) list) : (module HANDLER) =
+  let add_layer ~(domain : string) (l : (module HANDLER) list) : (module HANDLER) =
     let tbl = create l in
     (module struct
        let domain = domain
@@ -61,7 +150,7 @@ module Make ( User : sig type t val equal : t -> t -> bool end ) = struct
                         let compare : t -> t -> int = Pervasives.compare
                       end)
 
-  let (%) f g x = f (g x)
+  (* let (%) f g x = f (g x) *)
 
   let create_ws_handler ?docstring ?(restrict = []) ~path ~query handler : ws_handler =
     let not_allowed id = List.exists (User.equal id) restrict in
@@ -77,7 +166,7 @@ module Make ( User : sig type t val equal : t -> t -> bool end ) = struct
     in
     Uri.Dispatcher.make ?docstring ~path ~query handler
 
-  let create_dispatcher (domain : string)
+  let create_dispatcher ~(domain : string)
         (ws_calls : ws_handler list)
         (calls : (Cohttp.Code.meth * http_handler list) list) : (module HANDLER) =
     let open Uri in

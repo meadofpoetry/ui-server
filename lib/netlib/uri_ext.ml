@@ -357,6 +357,14 @@ module Dispatcher = struct
     with Not_found ->
       M.add node.templ node m
 
+  let merge m lst =
+    List.fold_left (fun m (prefix, disp) ->
+        M.fold (fun path node m ->
+            let templ = (Path.to_templ prefix) @ path in
+            M.add templ { node with templ } m)
+          disp m)
+      m lst
+
   let dispatch ~default (m : 'a t) (uri : uri) =
     let templ  = Path.to_templ (Path.of_string @@ path uri) in
     try (M.find templ m).handler uri
