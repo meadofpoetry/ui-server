@@ -8,7 +8,8 @@ let home_page ?headers =
                   
 let login_page = respond_redirect "/login"
 
-let not_found = respond_not_found
+let not_found ?(uri:Netlib.Uri.t option) () : Interaction.response =
+  respond_not_found ?uri ()
 
 let error_page ?(status = `Not_found) = function
   | Failure e -> respond_error ~status e ()

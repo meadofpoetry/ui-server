@@ -1,5 +1,9 @@
 open Redirect
 
+let is_ws headers = match Cohttp.Header.get headers "upgrade" with
+  | Some "websocket" -> true
+  | _                -> false
+
 module type USER = sig
   type t
   val equal : t -> t -> bool
@@ -137,7 +141,7 @@ module Make ( User : USER ) : S with type user := User.t = struct
       not_found ()
     in
     redir @@ (fun id ->
-      if Headers.is_ws headers
+      if is_ws headers
       then Uri.Dispatcher.dispatch ~default:default_ws ws_tbl uri id headers body sock_data
       else let tbl = Meth_map.find meth tbl in
            Uri.Dispatcher.dispatch ~default tbl uri id headers body) 
@@ -148,11 +152,11 @@ module Make ( User : USER ) : S with type user := User.t = struct
       redirect_if (not_allowed id) @@ handler uri headers body sock_data
     in
     Uri.Dispatcher.make ?docstring ~path ~query handler
-
+  
   let create_handler ?docstring ?(restrict = []) ~path ~query handler : http_handler =
     let not_allowed id = List.exists (User.equal id) restrict in
     let handler uri id headers body =
-      redirect_if (not_allowed id) @@ handler uri headers body
+      redirect_if (not_allowed id) @@ handler uri headers body 
     in
     Uri.Dispatcher.make ?docstring ~path ~query handler 
 

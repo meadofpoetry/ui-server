@@ -1,4 +1,4 @@
-include module type of Uri
+include module type of Uri with type t = Uri.t
                      
 module Scheme : sig
   type uri = t
