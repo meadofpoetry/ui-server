@@ -30,6 +30,7 @@ module Path : sig
       | Int32  : int32 fmt
       | Uuid   : Uuidm.t fmt
       | Bool   : bool fmt
+      | Any    : unit fmt
 
     val empty : ('a, 'a) t
 
@@ -66,6 +67,8 @@ module Path : sig
   val of_string : string -> t
     
   val to_string : t -> string
+
+  val concat : t -> t -> t
 end
 
 module Query : sig

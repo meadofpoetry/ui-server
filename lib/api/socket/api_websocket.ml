@@ -1,13 +1,17 @@
 open Websocket_cohttp_lwt
 open Frame
-open Interaction.Json
+open Api_cohttp.Interaction.Json
 
+type id = ..
+   
 (* TODO reason about random key *)
-let () = Random.init (int_of_float @@ Unix.time ())
 let rand_int () = Random.int 10000000
-
-let handler socket_table sock_data (event:'a React.event) (to_yojson:'a -> Yojson.Safe.json) body =
-  let id = rand_int () in
+                
+let socket_table : (id * int, unit React.event) Hashtbl.t =
+  Hashtbl.create 1000
+                
+let handler id sock_data (event:'a React.event) (to_yojson:'a -> Yojson.Safe.json) body =
+  let id = id, rand_int () in
   Cohttp_lwt.Body.drain_body body
   >>= fun () ->
   Websocket_cohttp_lwt.upgrade_connection

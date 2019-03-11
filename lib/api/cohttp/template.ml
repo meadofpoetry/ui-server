@@ -1,42 +1,24 @@
-(*open Interaction
-open Netlib *)
+open Interaction
+open Netlib
+
+(* TODO 4.08 *)
+let option_map f = function
+  | None -> None
+  | Some x -> Some (f x)
+
+let some x = Some x
+
+let list x = [x]
+
+let filter_map f lst =
+  let rec loop acc = function
+    | [] -> List.rev acc
+    | h::tl ->
+       match f h with
+       | None -> loop acc tl
+       | Some x -> loop (x::acc) tl
+  in loop [] lst
    
-let rec filter_map f = function
-  | [] -> []
-  | x :: xs ->
-     match f x with
-     | Some v -> v :: (filter_map f xs)
-     | None -> filter_map f xs
-(*
-let is_absolute : Uri.Path.t -> bool = function
-  | [] -> true
-  | hd :: _ ->
-     try Char.equal String.(get hd 0) '/'
-     with _ -> false
-
-let is_absolute_ref : Uri.Path.t -> bool = function
-  | [] -> true
-  | hd :: _ ->
-     try Char.equal (String.get hd 0) '/'
-         && Char.equal (String.get hd 1) '/'
-     with _ -> false
-
-let make_absolute : Uri.Path.t -> Uri.Path.t = function
-  | [] -> []
-  | (hd :: tl) as path ->
-     if is_absolute path
-     then path
-     else ("/" ^ hd) :: tl
-
-let make_absolute_ref : Uri.Path.t -> Uri.Path.t = function
-  | [] -> []
-  | (hd :: tl) as path ->
-     if is_absolute_ref path
-     then path
-     else ("//" ^ hd) :: tl
- *)
-
-                          (*
 let elt_to_string elt =
   Format.asprintf "%a" (Tyxml.Xml.pp ()) elt
 
@@ -67,26 +49,30 @@ module Priority = struct
     0 = compare a b
 end
 
-type upper = Loc_upper
-type inner = Loc_inner
+type upper
+type inner
 
 type _ item =
   | Home    : tmpl_props -> upper item
-  | Pure    : { path : ('a,'b) Uri.Path.Format.t
-              ; template : tmpl_props } -> upper item
+  | Pure    : { path : (unit -> Interaction.response, Interaction.response) Uri.Path.Format.t
+              ; template : tmpl_props
+              } -> upper item
   | Ref     : { title : string
-              ; href  : Uri.Path.t
-              ; absolute : bool } -> _ item
+              ; href  : Uri.t
+              } -> _ item
   | Simple  : { title : string
               ; icon  : Tyxml.Xml.elt option
               ; href  : Uri.Path.t
-              ; template : tmpl_props } -> _ item
+              ; template : tmpl_props
+              } -> _ item
   | Subtree : { title : string
               ; icon  : Tyxml.Xml.elt option
               ; href  : Uri.Path.t
-              ; templates : inner ordered_item list } -> upper item
+              ; templates : inner ordered_item list
+              } -> upper item
 and 'a ordered_item = (priority * 'a item)
 
+                   
 let rec merge_subtree items =
   let subtree_eq priority title href = function
     | (prior, Subtree { title = name; href = hr; _ })
@@ -126,12 +112,10 @@ let make_subtree href (subitems : inner ordered_item list) =
           ; "icon", (match x.icon with
                      | Some e -> `O ["value", `String (elt_to_string e)]
                      | None -> `Null)
-          ; "href",  `String (Uri.Path.to_string @@ make_absolute (href :: x.href)) ]
+          ; "href",  `String (Uri.Path.(to_string @@ concat href x.href)) ]
     | Ref x ->
        `O [ "title", `String x.title
-          ; "href", `String (if x.absolute
-                             then Uri.Path.to_string @@ make_absolute_ref x.href
-                             else Uri.Path.to_string @@ make_absolute x.href) ]
+          ; "href", `String (Uri.to_string x.href) ]
     | _ -> `Null
   in List.map make_ref subitems
 
@@ -140,10 +124,7 @@ let make_item (_, v) =
   | Home _ -> None
   | Pure _ -> None
   | Ref r ->
-     let href =
-       if r.absolute
-       then Uri.Path.to_string @@ make_absolute_ref r.href
-       else Uri.Path.to_string @@ make_absolute r.href in
+     let href = Uri.to_string r.href in
      Some (`O [ "title", `String r.title
               ; "href", `String href
               ; "simple", `Bool true ])
@@ -153,13 +134,13 @@ let make_item (_, v) =
        | None   -> `Null in
      Some (`O [ "title", `String s.title
               ; "icon", icon
-              ; "href", `String (Uri.Path.to_string @@ make_absolute s.href)
+              ; "href", `String (Uri.Path.to_string s.href)
               ; "simple", `Bool true ])
   | Subtree s ->
      let icon = match s.icon with
        | Some e -> `O ["value", `String (elt_to_string e)]
        | None   -> `Null in
-     let subtree = make_subtree (Uri.Path.to_string s.href) s.templates in
+     let subtree = make_subtree s.href s.templates in
      Some (`O [ "title", `String s.title
               ; "icon", icon
               ; "href", `Null
@@ -179,15 +160,21 @@ let sort_items items =
   in List.sort compare subsorted
 
 let make_node path tmpl : 'a Uri.Dispatcher.node =
-  let path, doc = match path with
-    | `Fmt x -> x, Uri.Path.Format.doc x
-    | `Path x -> Uri.Path.(Format.of_string @@ to_string x), Uri.Path.to_string x
-  in (* TODO proper doc *)
-  let handler _ = respond_string tmpl () in
-  Uri.Dispatcher.make ~docstring:doc ~path ~query:Uri.Query.empty handler
+  match path with
+  | `Path x ->
+     let handler = respond_string tmpl () in
+     let path = Uri.Path.(Format.of_string @@ to_string x) in
+     let doc = Uri.Path.to_string x in
+     Uri.Dispatcher.make ~docstring:doc ~path ~query:Uri.Query.empty handler
+  | `Fmt x ->
+     let handler _ = respond_string tmpl () in
+     let doc = Uri.Path.Format.doc x in
+     Uri.Dispatcher.make ~docstring:doc ~path:x ~query:Uri.Query.empty handler
 
-let build_templates ?(href_base = "") mustache_tmpl user
+[@@@warning "-27"]
+let build_templates ?(uri=Uri.empty) mustache_tmpl user
       (vals : upper ordered_item list) =
+  (*let path = Uri.Path.of_uri uri in*)
   let vals = sort_items @@ merge_subtree vals in
   let mustache_tmpl = Mustache.of_string mustache_tmpl in
   let items =
@@ -200,8 +187,8 @@ let build_templates ?(href_base = "") mustache_tmpl user
               | Some v -> v :: acc) [] vals
           |> List.rev) ] in
   let fill_in_sub base_title base_href = function
-    | _, Simple { title; href; template; _ } ->
-       let path = base_href @ href in
+    | _, Simple { title = _; href; template; _ } ->
+       let path = Uri.Path.concat base_href href in
        let template = match template.title with
          | None -> template
          | Some t ->
@@ -209,31 +196,33 @@ let build_templates ?(href_base = "") mustache_tmpl user
             { template with title = Some title } in
        Mustache.render mustache_tmpl (`O (items @ make_template template))
        |> make_node (`Path path)
-       |> Option.return
+       |> some
     | _ -> None in
   let fill_in (_, v) =
     match v with
-    | Ref r -> [ ]
+    | Ref _r -> [ ]
     | Home t ->
        Mustache.render mustache_tmpl (`O (items @ make_template t))
        |> make_node (`Path Uri.Path.empty)
-       |> List.pure
+       |> list
     | Pure s ->
        Mustache.render mustache_tmpl (`O (items @ make_template s.template))
        |> make_node (`Fmt s.path)
-       |> List.pure
+       |> list
     | Simple s ->
        Mustache.render mustache_tmpl (`O (items @ make_template s.template))
        |> make_node (`Path s.href)
-       |> List.pure
+       |> list
     | Subtree s ->
-       List.filter_map (fill_in_sub s.title s.href) s.templates
+       filter_map (fill_in_sub s.title s.href) s.templates
   in
   List.fold_left (fun acc v -> (fill_in v) @ acc) [] vals
 
-let build_route_table ?(href_base="") template user vals =
-  let pages = build_templates ~href_base template user vals in
+let build_route_table ?href_base ~template ~user vals =
+  let href_base = option_map Uri.of_string href_base in
+  let pages = build_templates ?uri:href_base template user vals in
   let empty = Uri.Dispatcher.empty in
   let tbl = List.fold_left Uri.Dispatcher.add empty pages in
   tbl
-  *)
+
+

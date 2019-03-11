@@ -1,0 +1,3 @@
+(library
+  (name       let)
+  (preprocess future_syntax))

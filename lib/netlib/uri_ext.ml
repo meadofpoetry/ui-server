@@ -65,6 +65,8 @@ module Path = struct
                 
   let to_templ = List.map (fun s -> `S s)
 
+  let concat = (@)
+
   let rec templ_compare l r = match l, r with
     | `S l::ls, `S r::rs -> let c = String.compare l r in
                             if c = 0 then templ_compare ls rs
@@ -85,6 +87,7 @@ module Path = struct
       | Int32  : int32 fmt
       | Uuid   : Uuidm.t fmt
       | Bool   : bool fmt
+      | Any    : unit fmt
     type (_,_) t =
       | S : string * ('a,'b) t -> ('a,'b) t
       | F : 'a fmt * ('b,'c) t -> ('a -> 'b, 'c) t
@@ -119,6 +122,7 @@ module Path = struct
       | h :: tl, F (Int32, fmt) -> scan_unsafe tl fmt (f @@ Int32.of_string h)
       | h :: tl, F (Uuid, fmt) -> scan_unsafe tl fmt (f @@ get_exn @@ Uuidm.of_string h)
       | h :: tl, F (Bool, fmt) -> scan_unsafe tl fmt (f @@ bool_of_string h)
+      | _ :: tl, F (Any, fmt) -> scan_unsafe tl fmt (f ()) 
       | [], E -> f
       | _ -> failwith "bad path"
       | exception _ -> failwith "bad path"
@@ -133,6 +137,7 @@ module Path = struct
       | F (Int32, rest)  -> let f x = kprint (fun lst -> k ((Int32.to_string x) :: lst)) rest in f
       | F (Uuid, rest)   -> let f x = kprint (fun lst -> k ((Uuidm.to_string x) :: lst)) rest in f
       | F (Bool, rest)   -> let f x = kprint (fun lst -> k ((string_of_bool x) :: lst)) rest in f
+      | F (Any, rest) -> let f () = kprint (fun lst -> k ("*" :: lst)) rest in f
 
     let doc : type a b. (a, b) t -> string = fun fmt ->
       let rec loop : type a b. (a, b) t -> string list = function
@@ -143,6 +148,7 @@ module Path = struct
         | F (Int32, fmt)  -> ":int32" :: (loop fmt)
         | F (Uuid, fmt)   -> ":uuid"  :: (loop fmt)
         | F (Bool, fmt)   -> ":bool" :: (loop fmt)
+        | F (Any, fmt)    -> ":any" :: (loop fmt)
       in
       merge @@ loop fmt
 
