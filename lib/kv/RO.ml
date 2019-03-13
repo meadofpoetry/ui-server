@@ -30,7 +30,6 @@ type error = [
 type read_error = [
   | Futil.File.read_error
   | `Not_found
-  | `Parse_error of string
   ]
 
 let pp_error ppf = function
@@ -41,7 +40,6 @@ let pp_error ppf = function
 let pp_read_error ppf = function
   | #Futil.File.read_error as e -> Futil.File.pp_read_error ppf e
   | `Not_found -> Fmt.string ppf "not found"
-  | `Parse_error msg -> Fmt.fmt "value parse error: %s" ppf msg
     
 let (>>=) e f =
   match e with

@@ -162,7 +162,7 @@ let read path =
             assert false (* never reached*)
           with Exit -> Ok (Bytes.sub_string !buf 0 !len))
     with Sys_error e -> Error (`Reading_error e)
-       | Out_of_memory -> Error (`Reading_error "out of memory")
+       | Out_of_memory -> Error (`Reading_error "file is too big")
 
 let delete path =
   try Ok (Sys.remove (Path.to_string path))

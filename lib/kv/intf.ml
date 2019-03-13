@@ -27,7 +27,6 @@ module type RO = sig
   type read_error = private [>
     | Futil.File.read_error
     | `Not_found
-    | `Parse_error of string
     ]    
                           
   val pp_error : error Fmt.t
@@ -51,7 +50,7 @@ module type RW = sig
   type watcher = value option -> value -> unit Lwt.t
                
   type write_error = private [> Futil.File.write_error ]
-                
+
   val pp_write_error : write_error Fmt.t
 
   val create : ?create:bool -> path:string -> (t, error) result
