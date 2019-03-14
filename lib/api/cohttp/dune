@@ -1,4 +1,4 @@
 (library
   (name      api_cohttp)
-  (libraries netlib cohttp.lwt tyxml mustache)
+  (libraries api netlib cohttp.lwt tyxml mustache)
   (preprocess future_syntax))

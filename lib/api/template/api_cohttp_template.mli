@@ -1,3 +1,4 @@
+type resp = (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t
 
 type script = Src of string
             | Raw of string
@@ -20,7 +21,7 @@ type _ item =
   | Home    : tmpl_props
               -> upper item
   
-  | Pure    : { path : (unit -> Interaction.response, Interaction.response) Netlib.Uri.Path.Format.t
+  | Pure    : { path : (unit -> resp, resp) Netlib.Uri.Path.Format.t
               ; template : tmpl_props
               } -> upper item
   
@@ -46,7 +47,7 @@ val build_route_table : ?href_base:string
                         -> template:string
                         -> user:string
                         -> upper ordered_item list
-                        -> Interaction.response Netlib.Uri.Dispatcher.t
+                        -> resp Netlib.Uri.Dispatcher.t
 
 module Priority : sig
   type t = priority

@@ -47,9 +47,9 @@ module Path : sig
     val of_string : string -> ('a, 'a) t
 (*
     val scan_unsafe : string list -> ('a,'b) t -> 'a -> 'b
-      
-    val kprint : (string list -> 'b) -> ('a, 'b) t -> 'a
  *)
+    val kprint : (string list -> 'b) -> ('a, 'b) t -> 'a
+
   end
 
   val empty : t
@@ -132,6 +132,8 @@ module Dispatcher : sig
              -> query:('b, 'c) Query.format
              -> 'a
              -> 'c node
+
+  val map_node : ('a -> 'b) -> 'a node -> 'b node
 
   val prepend : Path.t -> 'a node -> 'a node
     

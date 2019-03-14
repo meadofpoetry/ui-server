@@ -1,6 +1,7 @@
-open Interaction
 open Netlib
 
+type resp = (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t
+          
 (* TODO 4.08 *)
 let option_map f = function
   | None -> None
@@ -22,6 +23,9 @@ let filter_map f lst =
 let elt_to_string elt =
   Format.asprintf "%a" (Tyxml.Xml.pp ()) elt
 
+let respond_string ?(status = `OK) body =
+  Cohttp_lwt_unix.Server.respond_string ~status ~body
+  
 (*module Api_handler = Handler.Make(User)*)
 
 type script = Src of string
@@ -54,7 +58,7 @@ type inner
 
 type _ item =
   | Home    : tmpl_props -> upper item
-  | Pure    : { path : (unit -> Interaction.response, Interaction.response) Uri.Path.Format.t
+  | Pure    : { path : (unit -> resp, resp) Uri.Path.Format.t
               ; template : tmpl_props
               } -> upper item
   | Ref     : { title : string

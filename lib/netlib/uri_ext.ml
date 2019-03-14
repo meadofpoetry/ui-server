@@ -153,7 +153,21 @@ module Path = struct
       merge @@ loop fmt
 
     let of_string x = x @/ empty
-      
+(*
+    let result_conv (type a b c d) (path : (a,b) t) (path2 : (c,d) t) (f : a) (conv : b -> d) : c =
+      let rec loop : type a b c d. a -> (b -> d) -> (a, b) t -> (c, d) t -> c =
+        fun k c l r -> match l, r with
+                       | E, E -> c k
+                       | S (_,fmtl), S (_,fmtr) -> loop k c fmtl fmtr
+                       | F (String, fmtl), F (String, fmtr) -> fun x -> loop (k x) c fmtl fmtr
+                       | F (Int, fmtl), F (Int, fmtr)    -> fun x -> loop (k x) c fmtl fmtr
+                       | F (Int32, fmtl), F (Int32, fmtr)  -> fun x -> loop (k x) c fmtl fmtr
+                       | F (Uuid, fmtl), F (Uuid, fmtr)   -> fun x -> loop (k x) c fmtl fmtr
+                       | F (Bool, fmtl), F (Bool, fmtr)   -> fun x -> loop (k x) c fmtl fmtr
+                       | F (Any, fmtl), F (Any, fmtr)    -> fun x -> loop (k x) c fmtl fmtr
+                       | _ -> assert false
+      in loop f conv path path2
+ *)
   end
 end
 
@@ -359,6 +373,9 @@ module Dispatcher = struct
     let path_typ = Path.Format.doc path in
     let query_typ = Query.doc query in
     { docstring; handler; templ; path_typ; query_typ }
+
+  let map_node f node =
+    { node with handler = (fun uri -> f @@ node.handler uri) }
 
   let add (m : 'a t) (node : 'a node) =
     try
