@@ -32,6 +32,14 @@ module Path : sig
       | Bool   : bool fmt
       | Any    : unit fmt
 
+    type paths
+
+    val templates : unit -> paths
+
+    val store_template : paths -> ('a, 'b) t -> unit
+
+    val has_template : paths -> ('a, 'b) t -> bool
+
     val empty : ('a, 'a) t
 
     val (@/) : string -> ('a,'b) t -> ('a,'b) t

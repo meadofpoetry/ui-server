@@ -150,9 +150,9 @@ end = struct
             respond_need_auth ~auth:(`Basic "User Visible Realm") ()
          | `Instant resp ->
             resp
-         | `Body body ->
+         | `Value body ->
             respond_string (Body.to_string body) ()
-         | `Ok ->
+         | `Unit ->
             respond_string "" () (* TODO there should be something better that string *)
          | `Error e ->
             respond_error e () ) 
@@ -187,7 +187,7 @@ end = struct
   let transform not_allowed f =
     fun user body env state ->
     if not_allowed user
-    then `Error "restricted"
+    then `Error "access denied"
     else f user body env state
     
   let node ?doc ?(restrict=[]) ~meth ~path ~query handler : node =

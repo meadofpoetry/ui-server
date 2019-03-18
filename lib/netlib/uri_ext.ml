@@ -153,6 +153,18 @@ module Path = struct
       merge @@ loop fmt
 
     let of_string x = x @/ empty
+
+    type paths = templ list ref
+
+    let templates () = ref []
+
+    let store_template paths fmt =
+      let templ = to_templ fmt in
+      paths := templ::(!paths)
+
+    let has_template paths fmt =
+      let templ = to_templ fmt in
+      List.exists (fun x -> templ_compare templ x = 0) !paths
 (*
     let result_conv (type a b c d) (path : (a,b) t) (path2 : (c,d) t) (f : a) (conv : b -> d) : c =
       let rec loop : type a b c d. a -> (b -> d) -> (a, b) t -> (c, d) t -> c =

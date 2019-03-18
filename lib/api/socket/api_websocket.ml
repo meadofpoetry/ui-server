@@ -53,7 +53,7 @@ module Make (User : Api.USER) (Body : Api.BODY) = struct
   let transform not_allowed f =
     fun user body env state ->
     if not_allowed user
-    then `Error "restricted"
+    then `Error "access denied"
     else transform_resp @@ f user body env state
 
   let event state ev = `Ev (state, ev)
