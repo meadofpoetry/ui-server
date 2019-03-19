@@ -34,19 +34,16 @@ type state = { period  : float
              ; db      : ((module Caqti_lwt.CONNECTION), Caqti_error.connect) Caqti_lwt.Pool.t
              }
 
-module Types = struct
-  include Caqti_type
+type t = state
 
-  module List = struct
-    type _ t = [] : unit t | (::) : 'a * 'b t -> ('a * 'b) t
-
-    let (&) = Caqti_type.tup2
-  end
+(*let time : Time.t t = ptime*)
               
-end
-
 module Request  = struct
   type ('a,_) t = (module Caqti_lwt.CONNECTION) -> 'a Lwt.t
+
+  type ('a,'b,+'c) request = ('a,'b,'c) Caqti_request.t constraint 'c = [<`Many | `One | `Zero]
+
+  module Build = Caqti_request
 
   let return x = fun _ -> Lwt.return x
 
@@ -75,7 +72,7 @@ module Key = struct
     ; default : string option
     ; primary : bool
     }
-  let key ?default ?(primary = false) ~(typ : string) : t =
+  let key ?default ?(primary = false) (typ : string) : t =
     { typ; default; primary }
   let typ (t : t) = t.typ
   let is_primary (t : t) = t.primary
@@ -192,19 +189,25 @@ module Make (M : MODEL) : (CONN with type init := M.init and type names := M.nam
   let names obj = obj.names
 
 end
+                                                                                    
+type error = [ `Connection_error of string ]
 
 let create ~role ~password ~socket_path ~maintain ~cleanup =   
   (* let user = Sys.getenv "USER" in*)
   (* let settings = Conf.get config in*)
   let path = Printf.sprintf "postgresql://%s:%s/ats?host=/%s"
                role password socket_path in
-  let db   = match Caqti_lwt.connect_pool ~max_size:8 (Uri.of_string path) with
-    | Ok db   -> db
-    | Error e -> failwith (Printf.sprintf "Db connect failed with an error: %s\n" @@ Caqti_error.show e)
-  in
-  { db; period = Time.Period.to_float_s maintain; cleanup }
+  match Caqti_lwt.connect_pool ~max_size:8 (Uri.of_string path) with
+  | Ok db   ->
+     Ok { db; period = Time.Period.to_float_s maintain; cleanup }
+  | Error e ->
+     Error (`Connection_error (Caqti_error.show e))
   
 let finalize v =
   Lwt_main.run @@ Caqti_lwt.Pool.drain v.db
 
-                    
+module List = struct
+  type _ t = [] : unit t | (::) : 'a * 'b t -> ('a * 'b) t
+                         
+  let (&) = Caqti_type.tup2
+end

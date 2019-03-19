@@ -1,43 +1,45 @@
 type state
 
-module Types : sig
-  include module type of Caqti_type
+type t = state
+                       
+module List : sig
+  type _ t = [] : unit t | (::) : 'a * 'b t -> ('a * 'b) t
 
-  module List : sig
-    type _ t = [] : unit t | (::) : 'a * 'b t -> ('a * 'b) t
-
-    val (&) : 'a Caqti_type.t -> 'b Caqti_type.t -> ('a * 'b) Caqti_type.t
-  end
-       
+  val (&) : 'a Caqti_type.t -> 'b Caqti_type.t -> ('a * 'b) Caqti_type.t
 end
 
 module Request : sig
 
   type ('a, 'typ) t
 
+  type ('a,'b,+'c) request constraint 'c = [<`Many | `One | `Zero]
+
+  module Build : module type of Caqti_request
+                                with type ('a,'b,+'c) t := ('a,'b,'c) request
+
   val (>>=) : ('a, 'typ) t -> ('a -> ('b, 'typ) t) -> ('b, 'typ) t
 
   val return : 'a -> ('a, [> `Simple]) t
 
-  val exec : ('a, unit, [`Zero]) Caqti_request.t -> 'a -> (unit, [> `Simple]) t
+  val exec : ('a, unit, [`Zero]) request -> 'a -> (unit, [> `Simple]) t
 
-  val find : ('a, 'b, [`One | `Zero]) Caqti_request.t -> 'a -> ('b option, [> `Simple]) t
+  val find : ('a, 'b, [`One | `Zero]) request -> 'a -> ('b option, [> `Simple]) t
 
-  val list : ('a, 'b, [`Many | `One | `Zero]) Caqti_request.t
+  val list : ('a, 'b, [`Many | `One | `Zero]) request
              -> 'a
              -> ('b list, [> `Simple]) t
 
   val with_trans : ('a, [`Simple]) t -> ('a, [> `Trans]) t
-
+(*
   val run : (module Caqti_lwt.CONNECTION) -> ('a, 'typ) t -> 'a Lwt.t
-
+ *)
 end
 
 module Key : sig
   
   type t
      
-  val key : ?default:string -> ?primary:bool -> typ:string -> t
+  val key : ?default:string -> ?primary:bool -> string -> t
     
   val is_primary : t -> bool
     
@@ -70,11 +72,13 @@ end
 
 module Make (M : MODEL) : (CONN with type init := M.init and type names := M.names)
 
+type error = [ `Connection_error of string ]
+
 val create : role:string
              -> password:string
              -> socket_path:string
              -> maintain:Time.Period.t
              -> cleanup:Time.Period.t
-             -> state
+             -> (state, [> error ]) result
 
 val finalize : state -> unit

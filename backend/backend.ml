@@ -1,5 +1,56 @@
-open Containers
-   
+let tz_offset_s = Ptime_clock.current_tz_offset_s ()
+
+let rfc3339_adjust_tz_offset tz_offset_s =
+  let min = -86340 (* -23h59 in secs *) in
+  let max = +86340 (* +23h59 in secs *) in
+  if min <= tz_offset_s && tz_offset_s <= max && tz_offset_s mod 60 = 0
+  then tz_offset_s
+  else 0 (* UTC *)
+
+let pp_time ?tz_offset_s () ppf t =
+  let tz_offset_s = match tz_offset_s with
+    | Some tz -> rfc3339_adjust_tz_offset tz
+    | None -> 0
+  in
+  let (y, m, d), ((hh, ss, mm), _) =
+    Ptime.to_date_time ~tz_offset_s t in
+  Format.fprintf ppf "[%04d-%02d-%02d %02d:%02d:%02d]" y m d hh ss mm
+
+let lwt_reporter ppf =
+  let buf_fmt ~like =
+    let b = Buffer.create 512 in
+    Fmt.with_buffer ~like b,
+    fun () -> let m = Buffer.contents b in Buffer.reset b; m
+  in
+  let _, app_flush = buf_fmt ~like:Fmt.stdout in
+  let _, dst_flush = buf_fmt ~like:Fmt.stderr in
+  (* let reporter = Logs_fmt.reporter ~app ~dst () in *)
+  let report src level ~over k msgf =
+    let k _ =
+      let write () = match level with
+        | Logs.App -> Lwt_io.write Lwt_io.stdout (app_flush ())
+        | _ -> Lwt_io.write Lwt_io.stderr (dst_flush ())
+      in
+      let unblock () = over (); Lwt.return_unit in
+      Lwt.finalize write unblock |> Lwt.ignore_result;
+      k ()
+    in
+    let with_stamp h _ k ppf fmt =
+      let dt = Ptime_clock.now () in
+      let pp = pp_time ?tz_offset_s () in
+      match Logs.Src.equal src Logs.default with
+      | true ->
+         Format.kfprintf k ppf ("%a %a @[" ^^ fmt ^^ "@]@.")
+           pp dt Logs.pp_header (level, h)
+      | false ->
+         Format.kfprintf k ppf ("%a [%s] %a @[" ^^ fmt ^^ "@]@.")
+           pp dt (Logs.Src.name src) Logs.pp_header (level, h)
+    in
+    msgf @@ fun ?header ?tags fmt -> with_stamp header tags k ppf fmt
+  in
+  { Logs.report = report }
+
+(*
 module Api_handler = Api.Handler.Make(Common.User)
 
 let tz_offset_s = Ptime_clock.current_tz_offset_s ()
@@ -55,7 +106,7 @@ let lwt_reporter ppf =
   { Logs.report = report }
   
 let main log_level config =
-  Nocrypto_entropy_lwt.initialize () |> ignore;
+  ignore (Nocrypto_entropy_lwt.initialize ());
   Logs.set_reporter (lwt_reporter (Format.std_formatter));
   Logs.set_level (Some log_level);
   
@@ -93,15 +144,51 @@ let main log_level config =
   in
   try mainloop ()
   with e -> Printf.printf "Error: %s\n%s\n" (Printexc.get_backtrace ()) (Printexc.to_string e)
+ *)
 
+let (/) = Filename.concat
+
+let (>>=) = Lwt_result.bind
+  
+module Db_key = Kv_v.RW (Db_conf)
+          
+(* TODO let operators *)
+let main () =
+  let config_path = Xdg.config_dir / "ui_server" in
+  (*let persistent  = config_path / "persistent" in*)
+  Lwt.return @@ Kv.RW.create ~create:true ~path:config_path >>= fun config ->
+  Db_key.create ~default:Db_conf.default config ["db"] >>= fun db_conf ->
+  
+  let main_loop () =
+    ignore db_conf;
+    Lwt.return_ok ()
+      
+  in
+  main_loop ()
+  
+               
 let () =
-  Lwt_engine.set ~transfer:true ~destroy:true (new Lwt_engine.libev ~backend:Lwt_engine.Ev_backend.epoll ());
-  let config = Storage.Config.create "./config.json" in
-  let log_level = match Sys.getenv_opt "UI_LOG_LEVEL" with
+  let log_level =
+    match Sys.getenv_opt "UI_LOG_LEVEL" with
     | Some "debug" -> Logs.Debug
     | Some "info" -> Logs.Info
     | Some "warning" -> Logs.Warning
     | Some "error" -> Logs.Error
     | _ -> Logs.Error
   in
-  main log_level config
+  Lwt_engine.set
+    ~transfer:true
+    ~destroy:true
+    (new Lwt_engine.libev ~backend:Lwt_engine.Ev_backend.epoll ());
+  ignore (Nocrypto_entropy_lwt.initialize ());
+  Logs.set_reporter (lwt_reporter (Format.std_formatter));
+  Logs.set_level (Some log_level);
+  match Lwt_main.run (main ()) with
+  | Ok () ->
+     print_endline "Ui Server is done, no error reported"
+  | Error (#Kv.RO.error as e) ->
+     Logs.err (fun m -> m "Terminated with file error %a"
+                          Kv.RO.pp_error e)
+  | Error (#Kv_v.error as e) ->
+     Logs.err (fun m -> m "Terminated with config error %a"
+                          Kv_v.pp_error e)

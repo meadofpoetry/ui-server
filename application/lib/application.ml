@@ -1,27 +1,27 @@
 open Containers
-open Common.React
+open Util_react
 
 module Settings_topology = struct
-  include Common.Topology
+  include Application_types.Topology
   let default = `Boards []
   let domain = "topology"
 end
-
+(*
 module Conf_topology = Storage.Config.Make(Settings_topology)
-
+ *)
 type t =
   { proc : Data_processor.t option
-  ; network : Pc_control.Network.t
+  (* ; network : Pc_control.Network.t *)
   ; users : User.entries
   ; hw : Hardware.t
   ; db : Database.Conn.t
   ; topo : Common.Topology.t signal
   }
 
-let proc_table = Data_processor.create_dispatcher [(module Pipeline)]
+let proc_table = Data_processor.create_dispatcher [] (*(module Pipeline)]*)
 
 let filter_stream_table =
-  let open Common.Stream.Table in
+  let open Application_types.Stream.Table in
   List.filter_map (function
       | ({ url = None; _ } : stream) -> None
       | { url = Some uri; stream; _ } -> Some (uri, stream))
@@ -33,13 +33,13 @@ let create config db =
   in
   let users = User.create config in
   let _options = Storage.Options.Conf.get config in (* TODO *)
-  let network = match Pc_control.Network.create config with
+  (*let network = match Pc_control.Network.create config with
     | Ok net -> net
-    | Error e -> failwith ("bad network config: " ^ e) in
-  let proc = match topology with
+    | Error e -> failwith ("bad network config: " ^ e) in *)
+ (* let proc = match topology with
     | `Boards _ -> None
-    | `CPU c -> Data_processor.create proc_table c.process config db in
-  let hw, loop = Hardware.create config db topology in
+    | `CPU c -> Data_processor.create proc_table c.process config db in *)
+  (* let hw, loop = Hardware.create config db topology in *)
   let db = Result.get_exn @@ Database.Conn.create db () in
   (* Attach the process' reset mechanism to the stream_table signal 
      containing uris of the streams being measured *)
@@ -139,6 +139,6 @@ let log_for_input app inputs stream_ids =
          |> Result.return
      with Not_found -> Error "internal topology error"
 
-let finalize app =
-  Hardware.finalize app.hw;
-  Option.iter (fun p -> p#finalize ()) app.proc
+let finalize app = ()
+  (*Hardware.finalize app.hw;
+  Option.iter (fun p -> p#finalize ()) app.proc *)

@@ -1,7 +1,5 @@
 open Containers
-open Storage.Database
-open Common.Stream
-open Api.Api_types
+open Application_types.Stream
 
 module SID = struct
 
@@ -21,15 +19,15 @@ module SID = struct
 end
 
 let log_entry =
-  let open Common.Topology in
+  let open Application_types.Topology in
   let open Log_message in
   Caqti_type.custom
     Caqti_type.(let (&) = tup2 in
-                ptime & int & string & string &
-                  (option int) & (option string) &
-                    (option int) & (option int) &
-                      (option SID.typ) & (option int) &
-                        (option string) & (option string))
+              ptime & int & string & string &
+                (option int) & (option string) &
+                  (option int) & (option int) &
+                    (option SID.typ) & (option int) &
+                      (option string) & (option string))
     ~encode:(fun (l : t) ->
       let level = level_to_enum l.level in
       let input_id = Option.map (fun (i : topo_input) -> i.id) l.input in
@@ -62,7 +60,7 @@ let log_entry =
                           (pid,
                            (pid_typ,
                             (service)))))))))))) ->
-      let open Common.Topology in
+      let open Application_types.Topology in
       let level = Option.get_exn (Log_message.level_of_enum level) in
       let pid = match pid with
         | None -> None
@@ -78,7 +76,7 @@ let log_entry =
       Ok { time; level; node; input; message; info; stream; pid; service })
 
 module Model = struct
-  open Key_t
+  open Db.Key
 
   type init = ()
 
@@ -86,7 +84,7 @@ module Model = struct
 
   let name = "application"
 
-  let log_keys = make_keys ~time_key:"date"
+  let log_keys = Db.make_keys ~time_key:"date"
                    [ "date", key "TIMESTAMP"
                    ; "level", key "INTEGER"
                    ; "message", key "VARCHAR(80)"
@@ -107,10 +105,10 @@ module Model = struct
     [ names.log, log_keys, None ]
 
 end
+             
+module Conn = Db.Make(Model)
 
-module Conn = Storage.Database.Make(Model)
-
-module R = Caqti_request
+module R = Db.Request.Build
 
 let is_in field to_string = function
   | [] -> ""
@@ -135,7 +133,7 @@ module Log = struct
                   input_id,input_type,stream,pid,
                   pid_type,service)
                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)" table)
-    in Conn.request db Request.(
+    in Conn.request db Db.Request.(
       with_trans (entries
                   |> List.fold_left (fun acc entry ->
                          acc >>= fun () ->
@@ -147,7 +145,7 @@ module Log = struct
   let select db ?(boards = []) ?(cpu = []) ?(inputs = []) ?(streams = [])
         ?limit ~from ~till () =
     let open Printf in
-    let open Common.Topology in
+    let open Application_types.Topology in
     let table = (Conn.names db).log in
     let boards = is_null_or_in "board" string_of_int boards in
     let cpu = is_null_or_in "cpu" (fun x -> Printf.sprintf "'%s'" x) cpu in
@@ -169,10 +167,10 @@ module Log = struct
                   ORDER BY date DESC LIMIT $3|}
            table boards cpu inputs streams)
     in
-    Conn.request db Request.(
+    Conn.request db Db.Request.(
       list select' (from, till, limit)
       >>= fun data ->
-      return (Raw { data
-                  ; has_more = (List.length data >= limit)
-                  ; order = `Desc }))
+      return (Api.Raw { data
+                      ; has_more = (List.length data >= limit)
+                      ; order = `Desc }))
 end

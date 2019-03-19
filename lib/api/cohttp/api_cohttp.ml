@@ -88,7 +88,7 @@ module Make (User : Api.USER) (Body : Api.BODY) : sig
              -> ?restrict:user list
              -> meth:meth
              -> path:('a, 'b) Netlib.Uri.Path.Format.t
-             -> query:('b, user -> body -> env -> state -> answer)
+             -> query:('b, user -> body -> env -> state -> answer Lwt.t)
                   Netlib.Uri.Query.format
              -> 'a
              -> node
@@ -123,21 +123,22 @@ end = struct
     Cohttp.Code.meth * 'a Netlib.Uri.Dispatcher.node
 
   type node =
-    (user -> body -> env -> state -> answer) handler
+    (user -> body -> env -> state -> answer Lwt.t) handler
 
   type t =
-    (user -> body -> env -> state -> answer)
+    (user -> body -> env -> state -> answer Lwt.t)
       Netlib.Uri.Dispatcher.t
       Meth_map.t 
 
-  let handle tbl ~state ?(meth=`GET) ~env ~redir uri body =
+  let handle (tbl : t) ~state ?(meth=`GET) ~env ~redir uri body =
+    let open Lwt.Infix in
     let body = match Body.of_string body with
       | Ok v -> v
       | Error _ -> failwith ""
     in
     let default (user : user) body env state =
       ignore (user, body, env, state); 
-      `Instant (respond_error "bad request" ())
+      Lwt.return (`Error "bad request")
     in
     redir @@ (fun user ->
       let ans = match Meth_map.find_opt meth tbl with
@@ -145,7 +146,9 @@ end = struct
            default user body env state
         | Some tbl ->
            Uri.Dispatcher.dispatch ~default tbl uri user body env state
-      in match ans with (* TODO check resp types *)
+      in ans >>= function (* TODO check resp types *)
+         | `Unknown e ->
+            respond_error e ()
          | #Api.Authorize.error ->
             respond_need_auth ~auth:(`Basic "User Visible Realm") ()
          | `Instant resp ->
@@ -178,7 +181,7 @@ end = struct
       | (Some _ as v), None -> v
       | None, Some h -> Some [h]
       | None, None -> None
-    in
+    in 
     handlers 
     |> List.fold_left (Meth_map.merge flat) Meth_map.empty
     |> Meth_map.map (fun met ->
@@ -187,14 +190,14 @@ end = struct
   let transform not_allowed f =
     fun user body env state ->
     if not_allowed user
-    then `Error "access denied"
+    then Lwt.return (`Error "access denied")
     else f user body env state
     
   let node ?doc ?(restrict=[]) ~meth ~path ~query handler : node =
     let not_allowed id = List.exists (User.equal id) restrict in
     Uri.Dispatcher.make ?docstring:doc ~path ~query handler
     |> Uri.Dispatcher.map_node (transform not_allowed)
-    |> fun node -> meth, node
+    |> fun node -> meth, node 
 
 end
 

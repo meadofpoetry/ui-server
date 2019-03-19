@@ -18,7 +18,7 @@ type 'a response = [ `Value of 'a | `Unit | `Error of string ]
 
 module Authorize = struct
 
-  type error = [`Need_auth | `Wrong_password]
+  type error = [`Need_auth | `Wrong_password | `Unknown of string ]
 
   let auth validate env =
     env.env Auth
@@ -61,7 +61,7 @@ module type S = sig
 
   type 'a handler
 
-  type node = (user -> body -> env -> state -> answer) handler
+  type node = (user -> body -> env -> state -> answer Lwt.t) handler
             
   val merge : domain:string
               -> t list

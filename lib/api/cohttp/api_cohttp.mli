@@ -32,7 +32,7 @@ module Make (User : Api.USER) (Body : Api.BODY) : sig
              -> meth:meth
              -> path:('a, 'b)
                   Netlib.Uri.Path.Format.t
-             -> query:('b, user -> body -> env -> state -> answer)
+             -> query:('b, user -> body -> env -> state -> answer Lwt.t)
                   Netlib.Uri.Query.format
              -> 'a
              -> node

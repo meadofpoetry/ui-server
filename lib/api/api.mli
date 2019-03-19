@@ -33,7 +33,7 @@ type 'a response = [ `Value of 'a | `Unit | `Error of string ]
 
 module Authorize : sig
 
-  type error = [`Need_auth | `Wrong_password]
+  type error = [`Need_auth | `Wrong_password | `Unknown of string ]
 
   val auth : (name:string -> pass:string -> ('id, [> error ] as 'b) Lwt_result.t)
              -> env
@@ -72,7 +72,7 @@ module type S = sig
 
   type 'a handler
 
-  type node = (user -> body -> env -> state -> answer) handler
+  type node = (user -> body -> env -> state -> answer Lwt.t) handler
             
   val merge : domain:string
               -> t list

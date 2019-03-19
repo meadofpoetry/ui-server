@@ -1,5 +1,5 @@
 module String_map = Map.Make(String)
-module React = Common.React
+module React = Util_react
 
 open Containers
 open Lwt.Infix
@@ -327,14 +327,17 @@ class eth_connection ?defaults bus nm name device =
         (fun e -> Lwt.return_error ("apply failed with " ^ (Printexc.to_string e)))
       
   end
-
+(*
 module Conf = Storage.Config.Make(Network_settings)
-
+ *)
+module Net_options = Kv_v.RW (Network_config)
+  
 type t = { intern : eth_connection
-         ; extern : (eth_connection * Network_config.t Storage.Options.storage) option
+         ; extern : (eth_connection * Net_options.t) option
          }
             
-let init base_dir (config : Network_settings.t) : t =
+let init base_dir (config : Kv.RW.t) : t =
+  let conf     
   let bus      = Lwt_main.run @@ OBus_bus.system () in
   let nm_proxy = Nm.make bus in
   let devices  =
@@ -427,7 +430,7 @@ let init base_dir (config : Network_settings.t) : t =
   ; extern = exterior
   }
 
-let create config : (t, string) result =
+let create (config : Kv.RW.t) : (t, string) result =
   try let cfg  = Conf.get config in
       let stor = Storage.Options.Conf.get config in
       Ok (init stor.config_dir cfg)
@@ -445,6 +448,6 @@ let apply_ext_settings (net : t) sets =
      let opts = ext_opts#get in
      if Network_config.equal sets opts
      then Lwt.return_ok ()
-     else (ext_opts#store sets; ext#apply sets)
+     else (ext_opts#set sets; ext#apply sets)
           
 let finalize _ = ()

@@ -1,3 +1,5 @@
+(*
+
 open Containers
 open Application_types
 open Boards
@@ -319,3 +321,5 @@ let set_stream hw (ss : stream_setting) =
 let finalize hw =
   Usb_device.finalize hw.usb;
   Map.iter (fun _ (b : Board.t) -> b.state#finalize ()) hw.boards
+
+  *)

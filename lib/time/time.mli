@@ -1,4 +1,4 @@
-include module type of Ptime
+include module type of Ptime with type t = Ptime.t
 
 val to_human_string : ?tz_offset_s:tz_offset_s -> t -> string
 

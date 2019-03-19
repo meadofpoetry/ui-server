@@ -5,8 +5,3 @@
                api_js common components pipeline_js
                board_ip_dektec_js board_dvb_niit_js board_ts2ip_niit_js)
   (preprocess  (pps js_of_ocaml-ppx ppx_deriving_yojson ppx_deriving.eq)))
-
-(rule
-  (targets application_types.ml)
-  (deps    (:x ../application_types.ml))
-  (action  (copy %{x} %{targets})))

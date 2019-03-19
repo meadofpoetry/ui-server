@@ -19,6 +19,10 @@
 - [ ] User password encryption
 - [ ] Refactor Pipeline types to support saved settings alteration
 - [ ] Make ats-backend a library
+- [ ] HTTP Server refactoring
+  - [ ] Https support
+  - [ ] Flexible configuration and iface
+  - [ ] Swagger like api page
 - [ ] Interaction with the Qoe analyser
   - [ ] Consider h264 streaming option
   - [ ] Settings api

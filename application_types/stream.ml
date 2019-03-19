@@ -474,3 +474,41 @@ module Log_message = struct
   type source = [`All | `Id of ID.t list] -> t list React.event
 
 end
+
+type marker =
+  [ `Input of Topology.input * int
+  | `Board of int
+  ] [@@deriving yojson, eq]
+
+let marker_compare (l : marker) (r : marker) = match l, r with
+  | (`Input (li, lid)), (`Input (ri, rid)) ->
+     let c = Topology.compare_input li ri in
+     if c <> 0 then c
+     else Stdlib.compare lid rid
+  | (`Board l), (`Board r) -> Stdlib.compare l r
+  | (`Board _), (`Input _) -> -1
+  | (`Input _), (`Board _) -> 1
+
+type stream_setting =
+  (marker * t list) list [@@deriving yojson, eq]
+
+type stream_table_row =
+  (marker
+   * Table.source_state
+   * Table.stream list) [@@deriving yojson, eq]
+
+type stream_table =
+  stream_table_row list [@@deriving yojson ,eq]
+
+type stream_list =
+  (board_num * t list) list
+and board_num = int [@@deriving yojson, eq]
+              
+let set_error_to_string : Table.set_error -> string =
+  function
+  | `Not_in_range -> "Not in range"
+  | `Limit_exceeded (exp,got) ->
+     Printf.sprintf "Limit exceeded: got %d streams, \
+                     but only %d is available" got exp
+  | `Forbidden -> "Forbidden"
+  | `Internal_error e -> Printf.sprintf "Internal error: %s" e

@@ -1,31 +1,28 @@
-open Containers
+type url = Netlib.Uri.t
 
-type url = Common.Url.t
-
-module Api_handler = Api.Handler.Make(Common.User)
+module Api_http = Api_cohttp.Make (Application_types.User) (Application_types.Body)
+(*module Api_template = Api_cohttp_template.Make (Application_types.User)*)
 
 type t =
-  < reset    : (url * Common.Stream.t) list -> unit
-  ; handlers : unit -> (module Api_handler.HANDLER) list
+  < reset    : (url * Application_types.Stream.t) list -> unit
+  ; handlers : unit -> Api_http.t list
   ; template :
-      unit -> Api.Template.upper Api.Template.ordered_item list Common.User.user_table
-  ; log_source : Common.Stream.Log_message.source
+      unit -> Api_http.node list
+  ; log_source : Application_types.Stream.Log_message.source
   ; finalize : unit -> unit >
                    
 module type PROCESS = sig
   val typ    : string
-  val create : Storage.Config.config ->
-               Storage.Database.t -> t
+  val create : Kv.RW.t -> Db.t -> t
 end
 
-module Table = Hashtbl.Make(String)
-
 let create_dispatcher l =
-  let tbl = Table.create 10 in
-  List.iter (fun (module P : PROCESS) -> Table.add tbl P.typ (module P : PROCESS)) l;
+  let tbl = Hashtbl.create 10 in
+  List.iter (fun (module P : PROCESS) -> Hashtbl.add tbl P.typ (module P : PROCESS)) l;
   tbl
 
 let create tbl typ config db =
-  let open Option in
-  Table.find_opt tbl typ >|= fun (module P : PROCESS) ->
-  P.create config db
+  match Hashtbl.find_opt tbl typ with
+  | None -> None
+  | Some (module P : PROCESS) ->
+     Some (P.create config db)

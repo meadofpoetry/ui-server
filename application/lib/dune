@@ -3,14 +3,12 @@
   (wrapped     false)
   (modes       native)
   (synopsis    "app")
-  (libraries   containers yojson caqti-lwt
+  (libraries   application_types util_react
+               kv_v db api_cohttp_template
+               containers yojson caqti-lwt
                lwt websocket-lwt.cohttp
-               api pc_control pipeline usb_device
-               boards board_dvb_niit board_ip_dektec
-               board_qos_niit board_ts2ip_niit components_markup)
+               components_markup)
+;;               pc_control pipeline
+;;               boards board_dvb_niit board_ip_dektec
+;;               board_qos_niit board_ts2ip_niit components_markup)
   (preprocess (pps ppx_deriving_yojson ppx_deriving.eq)))
-
-(rule
-  (targets application_types.ml)
-  (deps    (:x ../application_types.ml))
-  (action  (copy %{x} %{targets})))

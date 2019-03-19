@@ -2,8 +2,9 @@
   (name        pc_control)
   (wrapped     true)
   (synopsis    "network interface controls implementation")
-  (libraries   containers lwt obus yojson
-               api components_markup)
+  (libraries   application_types netlib util_react kv_v
+               api_cohttp_template components_markup
+               lwt obus yojson )
   (preprocess (pps ppx_deriving_yojson ppx_deriving.eq)))
 
 (rule
