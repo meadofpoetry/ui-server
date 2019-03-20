@@ -425,12 +425,12 @@ module Table = struct
     { url : Netlib.Uri.t option (* if None - stream is not selected *)
     ; present : bool
     ; stream : t
-    } [@@deriving yojson, eq]
+    } [@@deriving yojson, eq, ord]
 
   type setting =
     { url : Netlib.Uri.t
     ; stream : t
-    } [@@deriving yojson, eq]
+    } [@@deriving yojson, eq, ord]
 
 end
 

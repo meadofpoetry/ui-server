@@ -118,6 +118,15 @@ and topo_interface =
   ; conn : topo_entry
   }
 
+let of_string s =
+  Yojson.Safe.from_string s
+  |> of_yojson
+  |> function Ok v -> v | Error e -> failwith e
+
+let to_string x =
+  to_yojson x
+  |> Yojson.Safe.to_string
+  
 (** Returns human-readable names of some known board types *)
 let get_board_name (board : topo_board) =
   match board.typ with
@@ -235,3 +244,5 @@ let board_list_for_input input : t -> 'a =
      fmap_first (fun board ->
          fmap_first (fun port -> traverse [] port.child) board.ports)
        bs
+
+       

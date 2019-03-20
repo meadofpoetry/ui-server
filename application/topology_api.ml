@@ -1,13 +1,9 @@
-open Containers
-open Api.Interaction
-open Api.Interaction.Json
-open Common.Topology
-open Boards.Board
-open Application_types
-open Common
+module Event = struct
 
-let socket_table = Hashtbl.create 1000
 
+end
+
+(*
 module WS = struct
 
   let get_topology (app : Application.t) _ body sock_data () =
@@ -137,3 +133,4 @@ let handlers (app:Application.t) =
   ; User_api.handlers app.users
   ]
   @ proc_api
+    *)

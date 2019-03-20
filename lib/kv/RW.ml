@@ -141,9 +141,9 @@ let unwatch kv keys =
     (fun _ -> Lwt.return @@
                 kv.watchers <- KMap.remove keys kv.watchers)
 
-let get ?default of_string (v : (value, [> read_error]) Lwt_result.t) =
+let parse ?default of_string kv keys =
   let open Lwt.Infix in
-  v >>= function
+  read kv keys >>= function
   | Error _ as e -> begin
       match default with
       | None -> Lwt.return e

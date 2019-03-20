@@ -1,9 +1,54 @@
-open Containers
-open Api.Template
-open Common
+open Netlib.Uri
+
+module Api_http = Api_cohttp.Make
+                    (Application_types.User)
+                    (Application_types.Body)
+
+module Api_template = Api_cohttp_template.Make
+                        (Application_types.User)
 
 module Icon = Components_markup.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
+                    
+let user_pages =
+  let open Api_template in
+  let props = { title        = Some "Пользователи"
+              ; pre_scripts  = []
+              ; post_scripts = [ Src "/js/user.js" ]
+              ; stylesheets  = [ "/css/user.min.css" ]
+              ; content      = []
+              } in
+  let icon x =
+    let open Icon.SVG in
+    let path = create_path x () in
+    let icon = create [path] () in
+    Tyxml.Html.toelt icon in
+  simple
+    ~restrict:[`Operator; `Guest]
+    ~priority:(`Index 10)
+    ~title:"Пользователи"
+    ~icon:(icon Icon.SVG.Path.settings)
+    ~path:(Path.of_string "settings/user")
+    props
 
+let application_pages (_app : Application.t) = ()
+                
+let user_handlers (users : Application.User_api.t) =
+  let open Api_http in
+  make ~domain:"user"
+    [ node ~doc:"Changes user password"
+        ~restrict:[ `Guest; `Operator ]
+        ~meth:`POST
+        ~path:Path.Format.("password" @/ empty)
+        ~query:Query.empty
+        (Application.User_api.set_password users)
+    ; node ~doc:"Log out from current session"
+        ~meth:`POST
+        ~path:Path.Format.("logout" @/ empty)
+        ~query:Query.empty
+        Application.User_api.logout
+    ]
+
+ (*   
 let make_icon path =
   let open Icon.SVG in
   let path = create_path path () in
@@ -136,3 +181,4 @@ let create (app : Application.t)
        ; guest = stream_templates }
      ]
      @ hw_templates)
+  *)

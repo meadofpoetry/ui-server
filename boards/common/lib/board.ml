@@ -1,9 +1,8 @@
 open Containers
-open Storage.Options
-open Api.Template
-open Common
+open Application_types
 
-module Api_handler = Api.Handler.Make(User)
+module Api_http = Api_cohttp.Make(User)(Body)
+module Api_template = Api_cohttp_template.Make(User)
 
 type 'a cc = [`Continue of 'a]
 
@@ -13,8 +12,10 @@ exception Invalid_port of string
 
 exception Invalid_sources of string
 
+type error = [ `Board_error of string ]
+                           
 type constraints =
-  { range : (Stream.Table.url * Stream.Table.url) list
+  { range : (Netlib.Ipaddr.V4.t * Netlib.Ipaddr.V4.t) list
   ; state : Stream.Table.source_state React.signal
   }
 
@@ -26,7 +27,8 @@ type stream_handler =
   >
 
 type t =
-  { handlers : (module Api_handler.HANDLER) list
+  { http : Api_http.t list
+  ; templates : Api_template.topmost Api_template.item list
   ; control : int
   ; streams_signal : Stream.t list React.signal
   ; log_source : Stream.Log_message.source
@@ -35,7 +37,6 @@ type t =
   ; ports_active : bool React.signal Ports.t
   ; ports_sync : bool React.signal Ports.t
   ; stream_handler : stream_handler option
-  ; templates : upper ordered_item list User.user_table option
   ; state : < finalize : unit -> unit >
   }
 
@@ -47,9 +48,9 @@ module type BOARD = sig
     (Stream.Raw.t list signal -> Topology.topo_board ->
      Stream.t list signal) ->
     (Cstruct.t -> unit Lwt.t) ->
-    Storage.Database.t ->
-    path ->
-    float -> t
+    Db.t ->
+    Kv.RW.t ->
+    float -> (t, [> error]) result
 end
 
 let log_name (b : Topology.topo_board) =

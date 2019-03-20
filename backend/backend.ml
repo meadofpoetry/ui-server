@@ -149,20 +149,28 @@ let main log_level config =
 let (/) = Filename.concat
 
 let (>>=) = Lwt_result.bind
-  
-module Db_key = Kv_v.RW (Db_conf)
-          
+            
 (* TODO let operators *)
 let main () =
   let config_path = Xdg.config_dir / "ui_server" in
   (*let persistent  = config_path / "persistent" in*)
-  Lwt.return @@ Kv.RW.create ~create:true ~path:config_path >>= fun config ->
-  Db_key.create ~default:Db_conf.default config ["db"] >>= fun db_conf ->
+  Lwt.return @@ Kv.RW.create ~create:true ~path:config_path >>= fun kv ->
+  Kv.RW.parse ~default:Db_conf.default Db_conf.of_string kv ["db"] >>= fun db_conf ->
+  (* TODO getenv opt *)
+  Lwt.return @@ Db.create
+    ~role:(Sys.getenv "USER")
+    ~password:db_conf.password
+    ~socket_path:db_conf.socket_path
+    ~cleanup:db_conf.cleanup
+    ~maintain:db_conf.cleanup
+  >>= fun db ->
   
-  let main_loop () =
+  Application.create kv db
+  >>= fun (app, app_loop) ->
+  
+  let main_loop () : (unit, 'a) Lwt_result.t =
     ignore db_conf;
-    Lwt.return_ok ()
-      
+    Lwt.bind (Lwt.pick [app_loop]) Lwt.return_ok
   in
   main_loop ()
   

@@ -1,3 +1,3 @@
 include Intf.RW
 
-val get : ?default:'a -> (value -> 'a) -> (value, [> read_error] as 'b) Lwt_result.t -> ('a, 'b) Lwt_result.t
+val parse : ?default:'a -> (value -> 'a) -> t -> key list -> ('a, [> read_error]) Lwt_result.t

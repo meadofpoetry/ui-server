@@ -1,0 +1,6 @@
+(library
+  (name      application_http)
+  (libraries application
+             api_cohttp
+             api_cohttp_template
+             components_markup))

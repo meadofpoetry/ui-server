@@ -95,12 +95,14 @@ module type MODEL = sig
   val name     : string
   val tables   : init -> names * ((string * keys * (unit, _) Request.t option) list)
 end
+
+type conn_error = [ `Db_connection_error of string ]
            
 module type CONN = sig
   type t
   type init
   type names
-  val create   : state -> init -> (t, string) result
+  val create   : state -> init -> (t, [> conn_error ]) result Lwt.t
   val request  : t -> ('req,_) Request.t -> 'req Lwt.t
   val delete   : t -> unit Lwt.t
   val names    : t -> names
@@ -180,9 +182,9 @@ module Make (M : MODEL) : (CONN with type init := M.init and type names := M.nam
       >>= fun () -> Lwt_unix.sleep obj.state.period
       >>= loop
     in
-    Lwt_main.run (request obj @@ init_trans tables);
+    request obj @@ init_trans tables >>= fun () ->
     Lwt.async loop;
-    Ok obj
+    Lwt.return_ok obj
 
   let delete obj = request obj (delete_trans obj.tables)
 
