@@ -1,10 +1,11 @@
 * Project goals
 
-** TODO Alpha goals [1/14]:
+** TODO Alpha goals [1/16]:
 - [-] Rearrange project libraries
   - [X] Separate utility libraries
     - [X] Netlib
   - [-] Functorize everything with stuff like users, db, streams, topologies etc as it is done in mirage
+    - [ ] Hardware refactoring (the stream api part)
     - [ ] Common timer loop
     - [X] KV
     - [X] DB 
@@ -13,7 +14,7 @@
       - [X] Refactor Api.Socket interaction layer
       - [X] Refactor Api interaction layer
     - [ ] Boards
-    - [ ] Streams, Topo, Users application types
+    - [X] Streams, Topo, Users application types
 - [X] Non-blocking usb interaction
 - [ ] Fix db leaks
 - [ ] User password encryption

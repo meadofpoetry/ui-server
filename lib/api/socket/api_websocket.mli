@@ -13,9 +13,11 @@ module Make (User : Api.USER) (Body : Api.BODY) : sig
 
   type env = Api.env
 
-  type event
+  type event = [ `Ev of state * body React.event
+               | `Error of string
+               ]
 
-  val event : state -> string React.event -> event Lwt.t
+  val event : state -> body React.event -> event Lwt.t
 
   val node : ?doc:string
              -> ?restrict:user list

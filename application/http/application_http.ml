@@ -1,11 +1,11 @@
+open Application_types
 open Netlib.Uri
 
-module Api_http = Api_cohttp.Make
-                    (Application_types.User)
-                    (Application_types.Body)
+module Api_http = Api_cohttp.Make(User)(Body)
 
-module Api_template = Api_cohttp_template.Make
-                        (Application_types.User)
+module Api_template = Api_cohttp_template.Make(User)
+
+module Api_websocket = Api_websocket.Make(User)(Body)
 
 module Icon = Components_markup.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
                     
@@ -46,10 +46,90 @@ let user_handlers (users : Application.User_api.t) =
         Application.User_api.logout
     ]
 
+let application_handlers (app : Application.t) =
+  let open Api_http in
+  make ~domain:"topology" (* TODO change to application *)
+    [ node ~doc:"Sets streams that are received by PC process"
+        ~restrict:[`Guest]
+        ~meth:`POST
+        ~path:Path.Format.("stream_table" @/ empty)
+        ~query:Query.empty
+        (Application_api.set_streams app)
+    ; node ~doc:"Returns device topology"
+        ~meth:`GET
+        ~path:Path.Format.empty
+        ~query:Query.empty
+        (Application_api.get_topology app)
+    ; node ~doc:"Returns stream table"
+        ~meth:`GET
+        ~path:Path.Format.("stream_table" @/ empty)
+        ~query:Query.empty
+        (Application_api.get_streams app)
+    ; node ~doc:"Returns all streams"
+        ~meth:`GET
+        ~path:Path.Format.("streams" @/ empty)
+        ~query:Query.["input", (module Single(Topology.Show_topo_input))]
+        (Application_api.get_all_streams app)
+    ; node ~doc:"Returns the source of a last suitable stream"
+        ~meth:`GET
+        ~path:Path.Format.("source" @/ empty)
+        ~query:Query.["id", (module Single(Stream.ID))]
+        (Application_api.get_stream_source app)
+    ; node ~doc:"Log for input (and stream)"
+        ~meth:`GET
+        ~path:Path.Format.("log" @/ empty)
+        ~query:Query.[ "board", (module List(Int))
+                     ; "cpu", (module List(String))
+                     ; "input", (module List(Topology.Show_topo_input))
+                     ; "id", (module List(Stream.ID))
+                     ; "limit", (module Option(Int))
+                     ; "from", (module Option(Time_uri.Show))
+                     ; "to", (module Option(Time_uri.Show))
+                     ; "duration", (module Option(Time_uri.Show_relative)) ]
+        (Application_api.get_log app)
+    ]
+
+let application_ws (app : Application.t) =
+  let open Api_http in
+  make ~domain:"topology" (* TODO change to application *)
+    [ Api_websocket.node ~doc:"Pushes device topology to the client"
+        ~path:Path.Format.empty
+        ~query:Query.empty
+        (Application_api.Event.get_topology app)
+    ; Api_websocket.node ~doc:"Pushes stream table to the client"
+        ~path:Path.Format.("stream_table" @/ empty)
+        ~query:Query.empty
+        (Application_api.Event.get_streams app)
+    ; Api_websocket.node ~doc:"Log for input (and stream)"
+        ~path:Path.Format.("log" @/ empty)
+        ~query:Query.["input", (module List(Topology.Show_topo_input));
+                      "id", (module List(Stream.ID))]
+        (Application_api.Event.get_log app)
+    ]
+    
+
 let create template (app : Application.t) =
   let templates =
     Pc_control_http.network_pages
     @ user_pages
+  in
+  let application_api = application_handlers app in
+  let board_api =
+    Hardware.Map.fold (fun _ x acc -> x.Boards.Board.http @ acc) app.hw.boards []
+    |> Api_http.merge ~domain:"board"
+  in
+  let proc_api_list = match app.proc with
+    | None -> []
+    | Some proc -> proc#http ()
+  in
+  let application_ws = application_ws app in
+  let board_ws =
+    Hardware.Map.fold (fun _ x acc -> x.Boards.Board.ws @ acc) app.hw.boards []
+    |> Api_http.merge ~domain:"board"
+  in
+  let proc_ws_list = match app.proc with
+    | None -> []
+    | Some proc -> proc#ws ()
   in
   let pages =
     templates
@@ -57,11 +137,18 @@ let create template (app : Application.t) =
     |> Api_http.make ~domain:"/"
   in
   let api = Api_http.merge ~domain:"api"
-              [ user_handlers app.users
-              ; Pc_control_http.network_handlers app.network
-              ]
+              ( user_handlers app.users
+                :: Pc_control_http.network_handlers app.network
+                :: application_api
+                :: board_api
+                :: proc_api_list )
   in
-  Api_http.merge ~domain:"/" [ api; pages ]
+  let ws = Api_http.merge ~domain:"ws"
+              ( application_ws
+                :: board_ws
+                :: proc_ws_list )
+  in
+  Api_http.merge ~domain:"/" [ api; ws; pages ]
      
     
  (*   

@@ -29,7 +29,7 @@ type _ key = Key : string -> string key | Auth : (string * string) key
 type env = { env : 'a. 'a key -> 'a option }
 
 (* TODO elaborate this *)
-type 'a response = [ `Value of 'a | `Unit | `Error of string ]
+type 'a response = [ `Value of 'a | `Unit | `Error of string | `Not_implemented]
 
 module Authorize : sig
 

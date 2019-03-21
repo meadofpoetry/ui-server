@@ -157,6 +157,8 @@ end = struct
             respond_string (Body.to_string body) ()
          | `Unit ->
             respond_string "" () (* TODO there should be something better that string *)
+         | `Not_implemented ->
+            respond_error ~status:`Not_implemented "FIXME" ()
          | `Error e ->
             respond_error e () ) 
 

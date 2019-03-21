@@ -32,6 +32,7 @@ type stream_handler =
 
 type t =
   { http : Api_http.t list
+  ; ws : Api_http.t list
   ; templates : Api_template.topmost Api_template.item list
   ; control : int
   ; streams_signal : Stream.t list React.signal

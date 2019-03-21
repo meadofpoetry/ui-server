@@ -18,7 +18,7 @@ module Make (User : Api.USER) (Body : Api.BODY) = struct
 
   type env = Api.env
 
-  type event = [ `Ev of state * string React.event
+  type event = [ `Ev of state * body React.event
                | `Error of string
                ]
 
@@ -27,7 +27,7 @@ module Make (User : Api.USER) (Body : Api.BODY) = struct
   let socket_table : (int, unit React.event) Hashtbl.t =
     Hashtbl.create 1000
 
-  let to_response sock_data (event:string React.event) =
+  let to_response sock_data (event:body React.event) =
     let id = rand_int () in
     (*Cohttp_lwt.Body.drain_body body
     >>= fun () ->*)
@@ -39,6 +39,7 @@ module Make (User : Api.USER) (Body : Api.BODY) = struct
                 | _ -> ())
     >>= fun (resp, body, frames_out_fn) ->
     let send msg =
+      let msg = Body.to_string msg in
       frames_out_fn @@ Some (Frame.create ~content:msg ())
     in
     let sock_events = React.E.map (fun e -> send e) event in
@@ -56,7 +57,7 @@ module Make (User : Api.USER) (Body : Api.BODY) = struct
     then Lwt.return (`Error "access denied")
     else Lwt.map transform_resp (f user body env state)
 
-  let event state ev = Lwt.return (`Ev (state, ev))
+  let event state ev : event Lwt.t = Lwt.return (`Ev (state, ev))
     
   let node ?doc ?(restrict=[]) ~path ~query handler : node =
     let not_allowed id = List.exists (User.equal id) restrict in
