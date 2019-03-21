@@ -81,8 +81,9 @@ module type S = sig
   val handle : t
                -> state:state
                -> ?meth:meth
+               -> ?default:(unit -> response)
                -> env:env
-               -> redir:((user -> response) -> response)
+               -> redir:(env -> (user, Authorize.error) Lwt_result.t)
                -> path
                -> string
                -> response

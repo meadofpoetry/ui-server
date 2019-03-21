@@ -166,11 +166,17 @@ let main () =
   >>= fun db ->
   
   Application.create kv db
-  >>= fun (_app, app_loop) ->
+  >>= fun (app, app_loop) ->
+
+  let routes      = Application_http.create "need template" app in
+  let auth_filter = Application.redirect_filter app in
+
+  Serv.create kv auth_filter routes
+  >>= fun server ->  
   
   let main_loop () : (unit, 'a) Lwt_result.t =
     ignore db_conf;
-    Lwt.bind (Lwt.pick [app_loop]) Lwt.return_ok
+    Lwt.bind (Lwt.pick [app_loop; server]) Lwt.return_ok
   in
   main_loop ()
   
@@ -210,4 +216,4 @@ let () =
      Logs.err (fun m -> m "Terminated with board error %a"
                           Boards.Board.pp_error e)
   (* TODO remove *)
-  | _ -> Logs.err (fun m -> m "Terminated with an yet unspecified error")
+              (* | _ -> Logs.err (fun m -> m "Terminated with an yet unspecified error")*)

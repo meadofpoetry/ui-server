@@ -27,7 +27,7 @@ module Authorize = struct
          Lwt.return_error `Need_auth
       | Some (name, pass) ->
          validate ~name ~pass
-
+        
 end
                  
 module type USER = sig
@@ -70,8 +70,9 @@ module type S = sig
   val handle : t
                -> state:state
                -> ?meth:meth
+               -> ?default:(unit -> response)
                -> env:env
-               -> redir:((user -> response) -> response)
+               -> redir:(env -> (user, Authorize.error) Lwt_result.t)
                -> path
                -> string
                -> response

@@ -130,37 +130,42 @@ end = struct
       Netlib.Uri.Dispatcher.t
       Meth_map.t 
 
-  let handle (tbl : t) ~state ?(meth=`GET) ~env ~redir uri body =
+  let handle (tbl : t) ~state ?(meth=`GET) ?default ~env ~redir uri body =
     let open Lwt.Infix in
     let body = match Body.of_string body with
       | Ok v -> v
       | Error _ -> failwith ""
     in
-    let default (user : user) body env state =
-      ignore (user, body, env, state); 
-      Lwt.return (`Error "bad request")
+    let default = match default with
+      | None -> fun (_user : user) _body _env _state ->
+                Lwt.return (`Error "bad request")
+      | Some v -> fun (_user : user) _body _env _state ->
+                  Lwt.return (`Instant (v ()))
     in
-    redir @@ (fun user ->
-      let ans = match Meth_map.find_opt meth tbl with
-        | None ->
-           default user body env state
-        | Some tbl ->
-           Uri.Dispatcher.dispatch ~default tbl uri user body env state
-      in ans >>= function (* TODO check resp types *)
-         | `Unknown e ->
-            respond_error e ()
-         | #Api.Authorize.error ->
-            respond_need_auth ~auth:(`Basic "User Visible Realm") ()
-         | `Instant resp ->
-            resp
-         | `Value body ->
-            respond_string (Body.to_string body) ()
-         | `Unit ->
-            respond_string "" () (* TODO there should be something better that string *)
-         | `Not_implemented ->
-            respond_error ~status:`Not_implemented "FIXME" ()
-         | `Error e ->
-            respond_error e () ) 
+    redir env >>= function
+    | Error #Api.Authorize.error ->
+       respond_need_auth ~auth:(`Basic "User Visible Realm") ()
+    | Ok user ->
+       let ans = match Meth_map.find_opt meth tbl with
+         | None ->
+            default user body env state
+         | Some tbl ->
+            Uri.Dispatcher.dispatch ~default tbl uri user body env state
+       in ans >>= function (* TODO check resp types *)
+          | `Unknown e ->
+             respond_error e ()
+          | #Api.Authorize.error -> (* TODO check resp types *)
+             respond_need_auth ~auth:(`Basic "User Visible Realm") ()
+          | `Instant resp ->
+             resp
+          | `Value body ->
+             respond_string (Body.to_string body) ()
+          | `Unit ->
+             respond_string "" () (* TODO there should be something better that string *)
+          | `Not_implemented ->
+             respond_error ~status:`Not_implemented "FIXME" ()
+          | `Error e ->
+             respond_error e ()  
 
   let make ~domain nodes =
     let path = Uri.Path.of_string domain in

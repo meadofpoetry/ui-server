@@ -39,11 +39,12 @@ let create kv db =
 
   Pc_control.Network.create kv
   >>= fun network ->
-(*
+  
   let proc = match topology with
     | `Boards _ -> None
-    | `CPU c -> Data_processor.create proc_table c.process config db in 
- *)
+    | `CPU c -> Data_processor.create proc_table c.process kv db
+  in 
+ 
   Hardware.create kv db topology
   >>= fun (hw, loop) ->
   
@@ -52,30 +53,35 @@ let create kv db =
   
   (* Attach the process' reset mechanism to the stream_table signal 
      containing uris of the streams being measured *)
-(*  Option.iter (fun (proc : Data_processor.t) ->
-      hw.streams
-      |> S.limit ~eq:Application_types.equal_stream_table (fun () ->
-             Lwt_unix.sleep 2.)
-      |> S.map ~eq:Equal.poly (fun (l : Application_types.stream_table) ->
-             let open Common.Stream in
-             List.fold_left (fun acc (_, _, ss) -> (filter_stream_table ss) @ acc) [] l
-             |> List.sort (fun (_,l) (_,r) -> ID.compare l.id r.id))
-      |> S.map ~eq:Equal.poly
-             proc#reset
-      |> S.keep) proc;*)
+  begin match proc with (* TODO iter in 4.08 *)
+  | None -> ()
+  | Some proc ->
+     hw.streams
+     |> S.limit ~eq:Application_types.Stream.equal_stream_table (fun () ->
+            Lwt_unix.sleep 2.)
+     |> S.map ~eq:(=) (*TODO*) (fun (l : Application_types.Stream.stream_table) ->
+            let open Application_types.Stream in
+            List.fold_left (fun acc (_, _, ss) -> (filter_stream_table ss) @ acc) [] l
+            |> List.sort (fun (_,l) (_,r) -> ID.compare l.id r.id))
+     |> S.map ~eq:(=) (* TODO proper eq *)
+          proc#reset
+     |> S.keep
+  end;
+
   (* Attach database to the aggregated log event stream *)
   hw.boards
   |> Hardware.Map.to_list
   (* Get boards' logs *)
   |> List.map (fun (_,b) -> Boards.Board.(b.log_source `All))
   (* Add proc's logs *)
- (* |> List.append (Option.map_or ~default:[] (fun p -> [p#log_source `All])
-                    proc) *)
+  |> (fun logs -> match proc with
+                  | None -> logs
+                  | Some p -> (p#log_source `All)::logs)
   |> Util_react.E.aggregate (fun () -> Lwt_unix.sleep 1.0)
   |> E.map_p (fun x -> Database.Log.insert db @@ List.concat x)
   |> E.keep;
 
-  Lwt.return_ok ({ users; proc = None; (*proc;*) network; hw; db; topo = hw.topo }, loop)
+  Lwt.return_ok ({ users; proc; network; hw; db; topo = hw.topo }, loop)
 
 let redirect_filter app =
   Api.Authorize.auth (User.validate app.users)
@@ -143,8 +149,9 @@ let log_for_input app inputs stream_ids =
                 let board = Hardware.Map.find topo_board.control app.hw.boards in
                 board.log_source filter)
          (* Add proc's log event *)
-       (*  |> List.append (Option.map_or ~default:[] (fun p -> [p#log_source filter])
-                           app.proc) *)
+         |> (fun logs -> match app.proc with
+                         | None -> logs
+                         | Some p -> (p#log_source filter)::logs)
          (* Merge *)
          |> E.aggregate (fun () -> Lwt_unix.sleep 0.5) (* TODO replace by something without sleep *)
          |> E.map List.concat
@@ -152,6 +159,8 @@ let log_for_input app inputs stream_ids =
      with Not_found -> Error "internal topology error"
 
 let finalize app =
-  Hardware.finalize app.hw
-  (*Option.iter (fun p -> p#finalize ()) app.proc *)
+  Hardware.finalize app.hw;
+  match app.proc with (* TODO iter in 4.08 *)
+  | Some p -> p#finalize ()
+  | None -> ()
  
