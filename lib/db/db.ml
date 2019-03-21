@@ -1,14 +1,4 @@
 open Lwt.Infix
-(*open Common*)
-(*   
-module Settings = struct
-  type t = { socket_path : string; cleanup : Time.Period.Hours.t; password : string } [@@deriving yojson]
-  let default   = { socket_path = "/tmp"; cleanup = Time.Period.Hours.of_int 1; password = "ats3" }
-  let domain = "db"
-end
-                
-module Conf = Config.Make(Settings)
- *)
 
 (* TODO remove after 4.08 *)
 let filter_map f l =
@@ -96,7 +86,15 @@ module type MODEL = sig
   val tables   : init -> names * ((string * keys * (unit, _) Request.t option) list)
 end
 
+type error = [ `Db_error of string ]
+
 type conn_error = [ `Db_connection_error of string ]
+
+let pp_error ppf = function
+  | `Db_error e -> Fmt.fmt "Db initialization error: %s" ppf e
+
+let pp_conn_error ppf = function
+  | `Db_connection_error e -> Fmt.fmt "Db connection error: %s" ppf e
            
 module type CONN = sig
   type t
@@ -191,8 +189,6 @@ module Make (M : MODEL) : (CONN with type init := M.init and type names := M.nam
   let names obj = obj.names
 
 end
-                                                                                    
-type error = [ `Connection_error of string ]
 
 let create ~role ~password ~socket_path ~maintain ~cleanup =   
   (* let user = Sys.getenv "USER" in*)
@@ -203,7 +199,7 @@ let create ~role ~password ~socket_path ~maintain ~cleanup =
   | Ok db   ->
      Ok { db; period = Time.Period.to_float_s maintain; cleanup }
   | Error e ->
-     Error (`Connection_error (Caqti_error.show e))
+     Error (`Db_error (Caqti_error.show e))
   
 let finalize v =
   Lwt_main.run @@ Caqti_lwt.Pool.drain v.db

@@ -2,10 +2,6 @@ open Util_react
 
 module User_api = User_api
    
-(*
-module Conf_topology = Storage.Config.Make(Settings_topology)
- *)
-
 let all_ok = List.fold_left (fun acc v ->
                  match acc with
                  | Error _ as e -> e
@@ -17,7 +13,7 @@ let all_ok = List.fold_left (fun acc v ->
                          
 type t =
   { proc : Data_processor.t option
-  (* ; network : Pc_control.Network.t *)
+  ; network : Pc_control.Network.t
   ; users : User.passwd
   ; hw : Hardware.t
   ; db : Database.Conn.t
@@ -40,14 +36,14 @@ let create kv db =
   
   User.create kv
   >>= fun users ->
-  
-  (*let network = match Pc_control.Network.create config with
-    | Ok net -> net
-    | Error e -> failwith ("bad network config: " ^ e) in *)
- (* let proc = match topology with
-    | `Boards _ -> None
-    | `CPU c -> Data_processor.create proc_table c.process config db in *)
 
+  Pc_control.Network.create kv
+  >>= fun network ->
+(*
+  let proc = match topology with
+    | `Boards _ -> None
+    | `CPU c -> Data_processor.create proc_table c.process config db in 
+ *)
   Hardware.create kv db topology
   >>= fun (hw, loop) ->
   
@@ -79,7 +75,7 @@ let create kv db =
   |> E.map_p (fun x -> Database.Log.insert db @@ List.concat x)
   |> E.keep;
 
-  Lwt.return_ok ({ users; proc = None; (*proc; network;*) hw; db; topo = hw.topo }, loop)
+  Lwt.return_ok ({ users; proc = None; (*proc;*) network; hw; db; topo = hw.topo }, loop)
 
 let redirect_filter app =
   Api.Authorize.auth (User.validate app.users)

@@ -1,6 +1,7 @@
 (library
   (name      application_http)
   (libraries application
+             pc_control_http
              api_cohttp
              api_cohttp_template
              components_markup))

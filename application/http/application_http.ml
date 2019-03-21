@@ -9,7 +9,7 @@ module Api_template = Api_cohttp_template.Make
 
 module Icon = Components_markup.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
                     
-let user_pages =
+let user_pages : Api_template.topmost Api_template.item list =
   let open Api_template in
   let props = { title        = Some "Пользователи"
               ; pre_scripts  = []
@@ -29,8 +29,6 @@ let user_pages =
     ~icon:(icon Icon.SVG.Path.settings)
     ~path:(Path.of_string "settings/user")
     props
-
-let application_pages (_app : Application.t) = ()
                 
 let user_handlers (users : Application.User_api.t) =
   let open Api_http in
@@ -48,6 +46,24 @@ let user_handlers (users : Application.User_api.t) =
         Application.User_api.logout
     ]
 
+let create template (app : Application.t) =
+  let templates =
+    Pc_control_http.network_pages
+    @ user_pages
+  in
+  let pages =
+    templates
+    |> Api_template.make ~template
+    |> Api_http.make ~domain:"/"
+  in
+  let api = Api_http.merge ~domain:"api"
+              [ user_handlers app.users
+              ; Pc_control_http.network_handlers app.network
+              ]
+  in
+  Api_http.merge ~domain:"/" [ api; pages ]
+     
+    
  (*   
 let make_icon path =
   let open Icon.SVG in

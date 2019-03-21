@@ -52,6 +52,6 @@ module type S = sig
              -> (Cohttp.Code.meth
                  * (user -> 'a -> 'b -> 'c ->
                     [> `Instant of  (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t
-                    |  `Error of string ]) Netlib.Uri.Dispatcher.node) list
+                    |  `Error of string ] Lwt.t) Netlib.Uri.Dispatcher.node) list
 
 end

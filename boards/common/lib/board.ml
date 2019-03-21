@@ -12,8 +12,12 @@ exception Invalid_port of string
 
 exception Invalid_sources of string
 
+(* TODO better error types *)
 type error = [ `Board_error of string ]
-                           
+
+let pp_error ppf = function
+  | `Board_error e -> Fmt.fmt "Board error %s" ppf e
+           
 type constraints =
   { range : (Netlib.Ipaddr.V4.t * Netlib.Ipaddr.V4.t) list
   ; state : Stream.Table.source_state React.signal

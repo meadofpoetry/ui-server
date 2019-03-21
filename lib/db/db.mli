@@ -60,7 +60,13 @@ module type MODEL = sig
   val tables   : init -> names * ((string * keys * (unit, _) Request.t option) list)
 end
 
+type error = [ `Db_error of string ]
+                  
 type conn_error = [ `Db_connection_error of string ]
+
+val pp_error : error Fmt.t
+
+val pp_conn_error : conn_error Fmt.t
                   
 module type CONN = sig
   type t
@@ -73,8 +79,6 @@ module type CONN = sig
 end
 
 module Make (M : MODEL) : (CONN with type init := M.init and type names := M.names)
-
-type error = [ `Connection_error of string ]
 
 val create : role:string
              -> password:string

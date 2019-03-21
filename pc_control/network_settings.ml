@@ -37,3 +37,7 @@ let apply (c : Network_config.t) (s : iface) : Network_config.t option =
     in Some { c with ipv4; ethernet }
   else None
              
+let of_string s =
+  Yojson.Safe.from_string s
+  |> of_yojson
+  |> function Ok v -> v | Error e -> failwith e

@@ -5,6 +5,7 @@
   (synopsis    "app")
   (libraries   application_types
                boards
+               pc_control
                util_react
                kv_v
                db

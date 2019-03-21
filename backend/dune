@@ -2,7 +2,8 @@
   (name       backend)
   (modes      native)
   (libraries  xdg kv_v
-              db application
+              db
+              application_http
               lwt lwt.unix
               nocrypto.lwt logs.lwt
               ptime.clock.os)

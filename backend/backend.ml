@@ -166,7 +166,7 @@ let main () =
   >>= fun db ->
   
   Application.create kv db
-  >>= fun (app, app_loop) ->
+  >>= fun (_app, app_loop) ->
   
   let main_loop () : (unit, 'a) Lwt_result.t =
     ignore db_conf;
@@ -200,3 +200,14 @@ let () =
   | Error (#Kv_v.error as e) ->
      Logs.err (fun m -> m "Terminated with config error %a"
                           Kv_v.pp_error e)
+  | Error (#Db.error as e) ->
+     Logs.err (fun m -> m "Terminated with database error %a"
+                          Db.pp_error e)
+  | Error (#Db.conn_error as e) ->
+     Logs.err (fun m -> m "Terminated with database error %a"
+                          Db.pp_conn_error e)
+  | Error (#Boards.Board.error as e) ->
+     Logs.err (fun m -> m "Terminated with board error %a"
+                          Boards.Board.pp_error e)
+  (* TODO remove *)
+  | _ -> Logs.err (fun m -> m "Terminated with an yet unspecified error")
