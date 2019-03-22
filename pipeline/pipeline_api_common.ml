@@ -1,3 +1,5 @@
+(*
+
 open Containers
 open Common
 
@@ -9,3 +11,4 @@ let ( >|= ) = Lwt.Infix.( >|= )
 let ( >>= ) = Api.Interaction.Json.( >>= )
 
 let socket_table : (int, unit React.event) Hashtbl.t = Hashtbl.create 1000
+ *)

@@ -11,7 +11,7 @@ module E = struct
   let changes ~(eq:'a -> 'a -> bool) (e : 'a event) : 'a event =
     changes ~eq e
 
-  let aggregate_megre ~merge t es =
+  let aggregate_merge ~merge t es =
     let merged = React.E.merge merge [] es in
     let tm = ref Lwt.return_unit in
     let result = ref [] in
@@ -29,7 +29,7 @@ module E = struct
     in
     React.E.select [iter; event]
 
-  let aggregate t es = aggregate_megre ~merge:(fun acc x -> x::acc) t es
+  let aggregate t es = aggregate_merge ~merge:(fun acc x -> x::acc) t es
 
 end
 

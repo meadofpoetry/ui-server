@@ -10,9 +10,9 @@ end
 
 module Request : sig
 
-  type ('a, 'typ) t
+  type ('a, 'typ) t 
 
-  type ('a,'b,+'c) request constraint 'c = [<`Many | `One | `Zero]
+  type ('a,'b,+'c) request = ('a,'b,'c) Caqti_request.t constraint 'c = [<`Many | `One | `Zero]
 
   module Build : module type of Caqti_request
                                 with type ('a,'b,+'c) t := ('a,'b,'c) request

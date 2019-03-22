@@ -20,7 +20,7 @@ type t =
   ; topo : Application_types.Topology.t signal
   }
 
-let proc_table = Data_processor.create_dispatcher [] (*(module Pipeline)]*)
+let proc_table = Data_processor.create_dispatcher [(module Pipeline)]
 
 let filter_stream_table =
   let open Application_types.Stream.Table in
@@ -29,27 +29,30 @@ let filter_stream_table =
       | { url = Some uri; stream; _ } -> Some (uri, stream))
                
 let create kv db =
-  let (>>=) = Lwt_result.bind in
+  let (>>=?) = Lwt_result.bind in
+  let (>>=) = Lwt.bind in
 
   Kv.RW.parse Application_types.Topology.of_string kv ["topology"]
-  >>= fun topology ->
+  >>=? fun topology ->
   
   User.create kv
-  >>= fun users ->
+  >>=? fun users ->
 
   Pc_control.Network.create kv
-  >>= fun network ->
+  >>=? fun network ->
   
-  let proc = match topology with
-    | `Boards _ -> None
+  begin match topology with
+    | `Boards _ -> Lwt.return_none
     | `CPU c -> Data_processor.create proc_table c.process kv db
-  in 
+  end
+  >>= fun proc ->
+  
  
   Hardware.create kv db topology
-  >>= fun (hw, loop) ->
+  >>=? fun (hw, loop) ->
   
   Database.Conn.create db ()
-  >>= fun db ->
+  >>=? fun db ->
   
   (* Attach the process' reset mechanism to the stream_table signal 
      containing uris of the streams being measured *)

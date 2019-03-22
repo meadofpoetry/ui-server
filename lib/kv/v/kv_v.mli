@@ -12,9 +12,11 @@ module RO (S : sig
              val of_string : string -> t
            end) : RO_V with type value := S.t
 
+type 'value rw = < get : 'value Lwt.t; set : 'value -> unit Lwt.t; s : 'value React.S.t >
+     
 module type RW_V = sig
   type value
-  type t = < get : value Lwt.t; set : value -> unit Lwt.t; s : value React.S.t >
+  type t = value rw
   val create : ?default:value
                -> Kv.RW.t
                -> Kv.RW.key list

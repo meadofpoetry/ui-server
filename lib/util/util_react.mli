@@ -10,7 +10,7 @@ module E : sig
 
   val changes : eq:('a -> 'a -> bool) -> 'a event -> 'a event
 
-  val aggregate_megre : merge:('a list -> 'b -> 'a list)
+  val aggregate_merge : merge:('a list -> 'b -> 'a list)
                         -> (unit -> unit Lwt.t)
                         -> 'b t list
                         -> 'a list t

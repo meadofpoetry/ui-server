@@ -1,9 +1,7 @@
-open Containers
 open Lwt.Infix
-open Common
 
 type t =
-  { db : Db.Conn.t
+  { db : Database.Conn.t
   ; tick  : unit React.event
   ; _loop : unit Lwt.t
   }
@@ -15,8 +13,12 @@ let tick () =
   in
   e, loop
        
-let create db_conf _s_struct _s_status e_video e_audio =
-  let db = Result.get_exn @@ Db.Conn.create db_conf () in
+let create db _s_struct _s_status e_video e_audio =
+  let (>>=) = Lwt_result.bind in
+  
+  Database.Conn.create db ()
+  >>= fun db ->
+  
   let tick, loop = tick () in
   (* Pids *)
   (*
@@ -77,22 +79,23 @@ let create db_conf _s_struct _s_status e_video e_audio =
    *)
   (* Errors *)
   e_video
-  |> React.E.map_p (fun x -> Lwt.catch
-                               (fun () -> Db.Errors.insert_video db x)
+  |> Util_react.E.map_p (fun x -> Lwt.catch
+                               (fun () -> Database.Errors.insert_video db x)
                                (function Failure e -> Lwt_io.printf "vdata error: %s\n" e
                                        | _ -> Lwt_io.printf "vdata error: UNKNOWN\n"))
-  |> React.E.keep;
+  |> Util_react.E.keep;
 
   e_audio
-  |> React.E.map_p (fun x -> Lwt.catch (fun () -> Db.Errors.insert_audio db x)
+  |> Util_react.E.map_p (fun x -> Lwt.catch (fun () -> Database.Errors.insert_audio db x)
                                (function Failure e -> Lwt_io.printf "adata error: %s\n" e
                                        | _ -> Lwt_io.printf "adata error: UNKNOWN\n"))
-  |> React.E.keep;
+  |> Util_react.E.keep;
        
-  { db; tick; _loop = loop () }
+  Lwt.return_ok { db; tick; _loop = loop () }
   
 let set_streams model streams =
   (* Streams *)
   Lwt.ignore_result 
-    (Db.Streams.init model.db streams >|= fun () ->
-     React.E.keep @@ React.E.map_s (fun () -> Db.Streams.bump model.db) model.tick);
+    (Database.Streams.init model.db streams >|= fun () ->
+     Util_react.E.keep
+     @@ Util_react.E.map_s (fun () -> Database.Streams.bump model.db) model.tick);

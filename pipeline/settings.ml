@@ -127,7 +127,10 @@ let default = { video = { loss = 2.0
                         }
               }
 
-let dump s = Yojson.Safe.to_string (to_yojson s)
-let restore s = of_yojson (Yojson.Safe.from_string s)
+let to_string s = Yojson.Safe.to_string (to_yojson s)
+let of_string s =
+  match of_yojson (Yojson.Safe.from_string s) with
+  | Ok v -> v
+  | Error e -> failwith e
 
 let combine ~set x = ignore set; `Kept x

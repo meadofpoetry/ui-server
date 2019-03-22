@@ -1,10 +1,20 @@
-open Containers
-open Common.Stream.Log_message
+open Application_types
+open Application_types.Stream.Log_message
 
+(* TODO remove 4.08 *)
+
+let (>>=) m f = match m with
+  | None -> None
+  | Some x -> f x
+
+let opt_map f m = match m with
+  | None -> None
+  | Some v -> Some (f v)
+   
 (* TODO merge Audio and Video *)
-
+   
 let id_in id list =
-  List.exists (Common.Stream.ID.equal id) list
+  List.exists (Stream.ID.equal id) list
    
 module Video = struct
   open Qoe_errors.Video_data
@@ -13,16 +23,15 @@ module Video = struct
 
   let convert sources structures x =
     let (_, stream) = List.find
-                        (fun (_,s) -> Common.Stream.(ID.equal s.id x.stream))
+                        (fun (_,s) -> Stream.(ID.equal s.id x.stream))
                         !sources
     in
-    let input     = Common.Stream.get_input stream in
+    let input     = Stream.get_input stream in
     let stream    = Some x.stream in
     let info      =
-      let open Option.Infix in
       let open Structure in
       React.S.value structures
-      |> List.find_opt (fun s -> Common.Stream.ID.equal s.id x.stream)
+      |> List.find_opt (fun s -> Stream.ID.equal s.id x.stream)
       >>= fun s ->
       List.find_opt (fun channel -> channel.number = x.channel) s.channels
       >>= fun ch ->
@@ -30,10 +39,10 @@ module Video = struct
       List.find_opt (fun (pid : pid) -> pid.pid = x.pid) ch.pids
       >>= fun pid -> Some (service_name, pid.stream_type)
     in
-    let service = Option.map fst info in
-    let stream_type = Option.map snd info in
-    let typ       = Option.map (fun x ->
-                        Common.Mpeg_ts.Pid.Type.to_string
+    let service = opt_map fst info in
+    let stream_type = opt_map snd info in
+    let typ       = opt_map (fun x ->
+                        Mpeg_ts.Pid.Type.to_string
                         @@ PES { stream_type = x
                                ; stream_id = 0 })
                       stream_type in
@@ -42,7 +51,11 @@ module Video = struct
     let level     = Err in
     let create flag time message info =
       if not flag then []
-      else [ { time; input; stream; service; pid; node; level; info = info (); message } ]
+      else
+        match Time.of_span time with
+        | None -> []
+        | Some time ->
+           [ { time; input; stream; service; pid; node; level; info = info (); message } ]
     in
     let errors = x.errors in
     let info (params : Qoe_errors.params) typ peak_cont () =
@@ -102,16 +115,15 @@ module Audio = struct
   (* *)
   let convert sources structures x =
     let (_, stream) = List.find
-                        (fun (_,s) -> Common.Stream.(ID.equal s.id x.stream))
+                        (fun (_,s) -> Stream.(ID.equal s.id x.stream))
                         !sources
     in
-    let input     = Common.Stream.get_input stream in
+    let input     = Stream.get_input stream in
     let stream    = Some x.stream in
     let info      =
-      let open Option.Infix in
       let open Structure in
       React.S.value structures
-      |> List.find_opt (fun s -> Common.Stream.ID.equal s.id x.stream)
+      |> List.find_opt (fun s -> Stream.ID.equal s.id x.stream)
       >>= fun s ->
       List.find_opt (fun channel -> channel.number = x.channel) s.channels
       >>= fun ch ->
@@ -119,10 +131,10 @@ module Audio = struct
       List.find_opt (fun (pid : pid) -> pid.pid = x.pid) ch.pids
       >>= fun pid -> Some (service_name, pid.stream_type)
     in
-    let service = Option.map fst info in
-    let stream_type = Option.map snd info in
-    let typ       = Option.map (fun x ->
-                        Common.Mpeg_ts.Pid.Type.to_string
+    let service = opt_map fst info in
+    let stream_type = opt_map snd info in
+    let typ       = opt_map (fun x ->
+                        Mpeg_ts.Pid.Type.to_string
                         @@ PES { stream_type = x
                                ; stream_id = 0 })
                       stream_type in
@@ -131,7 +143,11 @@ module Audio = struct
     let level     = Err in
     let create flag time message info =
       if not flag then []
-      else [ { time; input; stream; service; pid; node; level; info = info (); message } ]
+      else
+        match Time.of_span time with
+        | None -> []
+        | Some time ->
+           [ { time; input; stream; service; pid; node; level; info = info (); message } ]
     in
     let errors = x.errors in
     let info (params : Qoe_errors.params) cont_peak () =
@@ -172,16 +188,15 @@ module Status = struct
 
   let convert sources structures x =
     let (_, stream) = List.find
-                        (fun (_,s) -> Common.Stream.(ID.equal s.id x.stream))
+                        (fun (_,s) -> Stream.(ID.equal s.id x.stream))
                         !sources
     in
-    let input     = Common.Stream.get_input stream in
+    let input     = Stream.get_input stream in
     let stream    = Some x.stream in
     let service   =
-      let open Option.Infix in
       let open Structure in
       React.S.value structures
-      |> List.find_opt (fun s -> Common.Stream.ID.equal s.id x.stream)
+      |> List.find_opt (fun s -> Stream.ID.equal s.id x.stream)
       >>= fun s ->
       List.find_opt (fun channel -> channel.number = x.channel) s.channels
       >>= fun ch ->

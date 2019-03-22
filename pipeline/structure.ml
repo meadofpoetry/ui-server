@@ -1,3 +1,5 @@
+open Application_types
+
 type video_pid =
   { codec        : string
   ; resolution   : (int * int)
@@ -47,12 +49,12 @@ type channel =
   } [@@deriving yojson,eq]
 
 type t =
-  { id       : Common.Stream.ID.t
-  ; uri      : Common.Url.t
+  { id       : Stream.ID.t
+  ; uri      : Netlib.Uri.t
   ; channels : channel list
   } [@@deriving yojson,eq]
 
-type packed = { source    : Common.Stream.t
+type packed = { source    : Stream.t
               ; structure : t
               } [@@deriving yojson,eq]
 
@@ -126,12 +128,12 @@ let combine_structure ~changed ~set ~applied x =
 let combine ~(set : t list) (applied, strs) =
   let changed = ref false in
   let get_settings_opt stream =
-    List.find_opt (fun x -> Common.Stream.ID.equal x.id stream.id)
+    List.find_opt (fun x -> Stream.ID.equal x.id stream.id)
   in
   let res =
     filter_map (fun stream ->
            let applied =
-             List.find_opt (fun appl -> Common.Stream.ID.equal appl.id stream.id) applied
+             List.find_opt (fun appl -> Stream.ID.equal appl.id stream.id) applied
            in
            match get_settings_opt stream set with
            | None -> applied
@@ -187,12 +189,26 @@ module Many = struct
   type nonrec t = t list
   let name = "structures"
   let default : t = []
+  (* TODO test this *)
+  let equal l r =
+    try
+      let in_r, not_in_r = List.partition
+                             (fun el -> List.exists (fun er -> equal el er) r) l in
+      if not_in_r <> [] then raise_notrace Not_found;
+      List.iter (fun er -> if not @@ List.exists (fun el -> equal el er) in_r
+                           then raise_notrace Not_found) r;
+      true
+    with Not_found -> false
+    
   let to_yojson l = `List (List.map to_yojson l)
   let of_yojson = function
     | `List l -> begin try Ok (List.map (fun x -> let [@warning "-8"] Ok res = of_yojson x in res) l)
                        with _ -> Error "Structure.List.of_yojson"
                  end
     | _ -> Error "Structure.List.of_yojson"
-  let dump w = Yojson.Safe.to_string (to_yojson w)
-  let restore s = of_yojson (Yojson.Safe.from_string s)
+  let to_string w = Yojson.Safe.to_string (to_yojson w)
+  let of_string s =
+    match of_yojson (Yojson.Safe.from_string s) with
+    | Ok v -> v
+    | Error e -> failwith e
 end

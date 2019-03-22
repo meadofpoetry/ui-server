@@ -1,19 +1,29 @@
-open Containers
-open Common
- 
+open Netlib
+open Application_types
+
+(* TODO remove 4.08 *)
+let filter_map f l =
+  let rec loop acc = function
+    | [] -> List.rev acc
+    | x::tl ->
+       match f x with
+       | None -> loop acc tl
+       | Some v -> loop (v::acc) tl
+  in loop [] l
+   
 let match_streams
-      (sources : (Url.t * Stream.t) list ref)
+      (sources : (Uri.t * Stream.t) list ref)
       (sl : Structure.t list) : Structure.packed list =
   let open Structure in
-  let rec merge (sources : (Url.t * Stream.t) list) structure =
+  let rec merge (sources : (Uri.t * Stream.t) list) structure =
     match sources with
     | [] -> None (* TODO fix merging with unsaved streams *)
     | (uri, s)::ss ->
-       if Common.Url.equal uri structure.uri
+       if Uri.equal uri structure.uri
        then Some { source = s; structure }
        else merge ss structure
   in
-  CCList.filter_map (merge !sources) sl
+  filter_map (merge !sources) sl
 
 let dump_structures (entries : Structure.packed list) =
   List.map (fun (x : Structure.packed) ->

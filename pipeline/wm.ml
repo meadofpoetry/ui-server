@@ -1,3 +1,5 @@
+open Application_types
+
 (* NOTE: just an assumption *)
 (*
 type widget_type = Video
@@ -34,7 +36,7 @@ let widget_type_to_yojson = function
   | Audio -> `String "Audio"
 
 type domain = Nihil : domain
-            | Chan  : { stream  : Common.Stream.ID.t
+            | Chan  : { stream  : Stream.ID.t
                       ; channel : int } -> domain
             [@@deriving eq]
 let domain_of_yojson = function
@@ -42,16 +44,16 @@ let domain_of_yojson = function
   | `Assoc ["Chan",
             `Assoc ["stream", `String id;
                     "channel", `Int channel]] ->
-     Ok(Chan { stream = Common.Stream.ID.of_string id; channel })
+     Ok(Chan { stream = Stream.ID.of_string id; channel })
   | `Assoc ["Chan",
             `Assoc ["stream", `String id;
                     "channel", `Intlit channel]] ->
-     Ok(Chan { stream = Common.Stream.ID.of_string id; channel = int_of_string channel })
+     Ok(Chan { stream = Stream.ID.of_string id; channel = int_of_string channel })
   | _ -> Error "domain_of_yojson: bad json"
 let domain_to_yojson = function
   | Nihil -> `String "Nihil"
   | Chan { stream; channel } ->
-     `Assoc ["Chan", `Assoc ["stream", `String (Common.Stream.ID.to_string stream);
+     `Assoc ["Chan", `Assoc ["stream", `String (Stream.ID.to_string stream);
                              "channel", `Int channel]]
          
 type background = (* NOTE incomplete *)
@@ -103,9 +105,12 @@ let aspect_to_string = function
   | None -> "none"
   | Some (x,y) -> Printf.sprintf "%dx%d" x y
             
-let dump w = Yojson.Safe.to_string (to_yojson w)
+let to_string w = Yojson.Safe.to_string (to_yojson w)
 
-let restore s = of_yojson (Yojson.Safe.from_string s)
+let of_string s =
+  match of_yojson (Yojson.Safe.from_string s) with
+  | Ok v -> v
+  | Error e -> failwith e
 
 let combine ~(set : t) (wm : t) =
   let changed = ref false in

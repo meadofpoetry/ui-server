@@ -1,5 +1,3 @@
-open Containers
-open Common
 open React
 
 let table = Hashtbl.create 10

@@ -1,3 +1,5 @@
+open Application_types
+
 let name = "errors"
 
 type params =
@@ -10,7 +12,7 @@ type error =
   { counter   : int
   ; size      : int
   ; params    : params
-  ; timestamp : Common.Time.Period.Useconds.t (* TODO to seconds *)
+  ; timestamp : Time.Period.Useconds.t (* TODO to seconds & span -> Time.t *)
   ; peak_flag : bool
   ; cont_flag : bool
   } [@@deriving yojson]
@@ -25,7 +27,7 @@ module Video_data = struct
     ; blocky : error
     } [@@deriving yojson]
   type t =
-    { stream     : Common.Stream.ID.t
+    { stream     : Stream.ID.t
     ; channel    : int
     ; pid        : int
     ; errors     : errors
@@ -42,7 +44,7 @@ module Audio_data = struct
     ; loudness_moment : error
     } [@@deriving yojson]
   type t =
-    { stream     : Common.Stream.ID.t
+    { stream     : Stream.ID.t
     ; channel    : int
     ; pid        : int
     ; errors     : errors

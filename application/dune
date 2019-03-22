@@ -1,10 +1,14 @@
 (library
   (name        application)
   (wrapped     false)
-  (modes       native)
   (synopsis    "app")
   (libraries   application_types
                boards
+;;             board_dvb_niit
+;;             board_ip_dektec
+;;             board_qos_niit
+;;             board_ts2ip_niit
+               pipeline
                pc_control
                util_react
                kv_v
@@ -12,7 +16,4 @@
                cyusb
                api_cohttp_template
                caqti-lwt)
-;;               pc_control pipeline
-;;               boards board_dvb_niit board_ip_dektec
-;;               board_qos_niit board_ts2ip_niit components_markup)
   (preprocess (pps ppx_cstruct ppx_deriving_yojson ppx_deriving.eq)))

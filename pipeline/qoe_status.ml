@@ -1,7 +1,9 @@
+open Application_types
+
 let name = "stream_lost"
 
 type t =
-  { stream  : Common.Stream.ID.t
+  { stream  : Stream.ID.t
   ; channel : int
   ; pid     : int
   ; playing : bool

@@ -23,9 +23,11 @@ module RO (S : sig
        with _ -> Lwt.return_none
 end
 
+type 'value rw = < get : 'value Lwt.t; set : 'value -> unit Lwt.t; s : 'value React.S.t >
+  
 module type RW_V = sig
   type value
-  type t = < get : value Lwt.t; set : value -> unit Lwt.t; s : value React.S.t >
+  type t = value rw
   val create : ?default:value
                -> Kv.RW.t
                -> Kv.RW.key list

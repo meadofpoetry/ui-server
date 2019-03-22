@@ -1,4 +1,3 @@
-open Containers
 
 type 'a res = ('a, string) result
 
@@ -17,6 +16,10 @@ type 'a message = { name    : string
                   ; counter : int32
                   ; content : 'a
                   } [@@deriving yojson { strict = false }]
+
+(* TODO remove after 4.08 *)
+
+let is_ok = function Ok _ -> true | _ -> false
 
 type chan =
   { send : Yojson.Safe.json -> (Yojson.Safe.json, exn) result Lwt.t }
@@ -37,7 +40,7 @@ let message name meth content =
 let call ~name ~meth
       (content_to : 'b -> Yojson.Safe.json)
       (content_from : Yojson.Safe.json -> 'a res) chan
-      ?(options : 'b Storage.Options.storage option)
+      ?(options : 'b Kv_v.rw option)
       content =
   (* TODO fix err messages and err evaluation logic *)
   let open Lwt_result.Infix in
@@ -47,12 +50,19 @@ let call ~name ~meth
   |> Lwt_result.map_err Printexc.to_string
   |> (fun js -> Lwt_result.bind_result js (message_of_yojson (res_of_yojson content_from)))
   >>= fun res ->
-  if Int32.(res.counter <> msg.counter)
+  if res.counter <> msg.counter
   then Lwt.return_error "msg order mismatch"
   else
-    (if Result.is_ok res.content
-     then Option.iter (fun o -> o#store content) options;
-     Lwt.return res.content)
+    (if not @@ is_ok res.content
+     then Lwt.return res.content
+     else
+       match options with
+       | None ->
+          Lwt.return res.content
+       | Some options ->
+          Lwt.bind
+            (options#set content)
+            (fun () -> Lwt.return res.content))
     
 let create_channel mutex send =
   let send x =
@@ -71,14 +81,14 @@ module Protocol = struct
 
   let stream_parser_get =  call ~name:"stream_parser" ~meth:"get" ?options:None
                              unit_to_yojson
-                             (Common.Json.List.of_yojson Structure.of_yojson)
+                             (Util_json.List.of_yojson Structure.of_yojson)
 
   let graph_get_structure = call ~name:"graph" ~meth:"get_structure" ?options:None
                               unit_to_yojson
-                              (Common.Json.List.of_yojson Structure.of_yojson)
+                              (Util_json.List.of_yojson Structure.of_yojson)
 
   let graph_apply_structure = call ~name:"graph" ~meth:"apply_structure"
-                                (Common.Json.List.to_yojson Structure.to_yojson)
+                                (Util_json.List.to_yojson Structure.to_yojson)
                                 unit_of_yojson
 
   let wm_get_layout = call ~name:"wm" ~meth:"get_layout" ?options:None
