@@ -9,7 +9,7 @@ module Icon = Components_markup.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
 let network_handlers (network : Pc_control.Network.t) =
   let open Api_http in
-  make ~domain:"network"
+  make ~prefix:"network"
     [ node ~doc:"Network configuration"
         ~meth:`GET
         ~path:Path.Format.("config" @/ empty)

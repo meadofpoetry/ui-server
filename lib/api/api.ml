@@ -62,8 +62,9 @@ module type S = sig
   type 'a handler
 
   type node = (user -> body -> env -> state -> answer Lwt.t) handler
-            
-  val merge : domain:string
+
+  (* raises Ambiguity on ambiguous path *)
+  val merge : ?prefix:string
               -> t list
               -> t
     

@@ -80,7 +80,7 @@ module Make (User : Api.USER) (Body : Api.BODY) : sig
            and type 'a handler =
                       Cohttp.Code.meth * 'a Netlib.Uri.Dispatcher.node
 
-  val make : domain:string
+  val make : ?prefix:string
              -> node list
              -> t
 
@@ -167,21 +167,25 @@ end = struct
           | `Error e ->
              respond_error e ()  
 
-  let make ~domain nodes =
-    let path = Uri.Path.of_string domain in
+  let make ?prefix nodes =
     let add_node map (meth, node) =
+      let node = match prefix with
+        | None -> node
+        | Some prefix ->
+           assert (String.length prefix <> 0);
+           Uri.Dispatcher.prepend (Uri.Path.of_string prefix) node
+      in
       let update = function
         | None ->
-           Some Uri.Dispatcher.(add empty (prepend path node))
+           Some Uri.Dispatcher.(add empty node)
         | Some disp ->
-           Some Uri.Dispatcher.(add disp (prepend path node))
+           Some Uri.Dispatcher.(add disp node)
       in Meth_map.update meth update map
     in 
     nodes
     |> List.fold_left add_node Meth_map.empty
 
-  let merge ~domain handlers =
-    let path = Uri.Path.of_string domain in
+  let merge ?prefix handlers =
     let flat _meth l r =
       match l, r with
       | Some tl, Some h -> Some (h::tl)
@@ -189,10 +193,18 @@ end = struct
       | None, Some h -> Some [h]
       | None, None -> None
     in 
-    handlers 
-    |> List.fold_left (Meth_map.merge flat) Meth_map.empty
-    |> Meth_map.map (fun met ->
-           Uri.Dispatcher.(merge empty (List.map (fun x -> path, x) met)))
+    match prefix with
+    | None ->
+       handlers
+       |> List.fold_left (Meth_map.merge flat) Meth_map.empty
+       |> Meth_map.map Uri.Dispatcher.concat
+    | Some prefix ->
+       assert (String.length prefix <> 0);
+       let path = Uri.Path.of_string prefix in
+       handlers
+       |> List.fold_left (Meth_map.merge flat) Meth_map.empty
+       |> Meth_map.map (fun disps ->
+              Uri.Dispatcher.(merge empty [path, disps]))
 
   let transform not_allowed f =
     fun user body env state ->

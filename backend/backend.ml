@@ -178,6 +178,7 @@ let main () =
     ignore db_conf;
     Lwt.bind (Lwt.pick [app_loop; server]) Lwt.return_ok
   in
+  
   main_loop ()
   
                
@@ -216,4 +217,4 @@ let () =
      Logs.err (fun m -> m "Terminated with board error %a"
                           Boards.Board.pp_error e)
   (* TODO remove *)
-              (* | _ -> Logs.err (fun m -> m "Terminated with an yet unspecified error")*)
+  | _ -> Logs.err (fun m -> m "Terminated with an yet unspecified error")

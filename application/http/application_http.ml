@@ -32,7 +32,7 @@ let user_pages : Api_template.topmost Api_template.item list =
                 
 let user_handlers (users : Application.User_api.t) =
   let open Api_http in
-  make ~domain:"user"
+  make ~prefix:"user"
     [ node ~doc:"Changes user password"
         ~restrict:[ `Guest; `Operator ]
         ~meth:`POST
@@ -48,7 +48,7 @@ let user_handlers (users : Application.User_api.t) =
 
 let application_handlers (app : Application.t) =
   let open Api_http in
-  make ~domain:"topology" (* TODO change to application *)
+  make ~prefix:"topology" (* TODO change to application *)
     [ node ~doc:"Sets streams that are received by PC process"
         ~restrict:[`Guest]
         ~meth:`POST
@@ -91,7 +91,7 @@ let application_handlers (app : Application.t) =
 
 let application_ws (app : Application.t) =
   let open Api_http in
-  make ~domain:"topology" (* TODO change to application *)
+  make ~prefix:"topology" (* TODO change to application *)
     [ Api_websocket.node ~doc:"Pushes device topology to the client"
         ~path:Path.Format.empty
         ~query:Query.empty
@@ -116,7 +116,7 @@ let create template (app : Application.t) =
   let application_api = application_handlers app in
   let board_api =
     Hardware.Map.fold (fun _ x acc -> x.Boards.Board.http @ acc) app.hw.boards []
-    |> Api_http.merge ~domain:"board"
+    |> Api_http.merge ~prefix:"board"
   in
   let proc_api_list = match app.proc with
     | None -> []
@@ -125,7 +125,7 @@ let create template (app : Application.t) =
   let application_ws = application_ws app in
   let board_ws =
     Hardware.Map.fold (fun _ x acc -> x.Boards.Board.ws @ acc) app.hw.boards []
-    |> Api_http.merge ~domain:"board"
+    |> Api_http.merge ~prefix:"board"
   in
   let proc_ws_list = match app.proc with
     | None -> []
@@ -134,21 +134,21 @@ let create template (app : Application.t) =
   let pages =
     templates
     |> Api_template.make ~template
-    |> Api_http.make ~domain:"/"
+    |> Api_http.make
   in
-  let api = Api_http.merge ~domain:"api"
+  let api = Api_http.merge ~prefix:"api"
               ( user_handlers app.users
                 :: Pc_control_http.network_handlers app.network
                 :: application_api
                 :: board_api
                 :: proc_api_list )
   in
-  let ws = Api_http.merge ~domain:"ws"
+  let ws = Api_http.merge ~prefix:"ws"
               ( application_ws
                 :: board_ws
                 :: proc_ws_list )
   in
-  Api_http.merge ~domain:"/" [ api; ws; pages ]
+  Api_http.merge [ api; ws; pages ]
      
     
  (*   

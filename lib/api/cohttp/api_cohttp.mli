@@ -23,7 +23,8 @@ module Make (User : Api.USER) (Body : Api.BODY) : sig
            and type 'a handler =
                       Cohttp.Code.meth * 'a Netlib.Uri.Dispatcher.node
 
-  val make : domain:string
+  (* raises Ambiguity on ambiguous path *)
+  val make : ?prefix:string
              -> node list
              -> t
 

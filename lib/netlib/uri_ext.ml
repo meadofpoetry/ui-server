@@ -65,6 +65,13 @@ module Path = struct
                 
   let to_templ = List.map (fun s -> `S s)
 
+  let templ_to_string t =
+    let rec loop acc = function
+      | [] -> merge @@ List.rev acc
+      | `Hole::tl -> loop (":param:"::acc) tl
+      | `S s::tl -> loop (s::acc) tl
+    in loop [] t
+      
   let concat = (@)
 
   let rec templ_compare l r = match l, r with
@@ -389,21 +396,31 @@ module Dispatcher = struct
   let map_node f node =
     { node with handler = (fun uri -> f @@ node.handler uri) }
 
+  exception Ambiguity of string
+    
   let add (m : 'a t) (node : 'a node) =
     try
-      let res = M.find node.templ m in
-      failwith ("API node intersection: '" ^ node.path_typ ^ "' <-> '" ^ res.path_typ ^ "'")
+      let _ = M.find node.templ m in
+      raise_notrace (Ambiguity (Path.templ_to_string node.templ))
     with Not_found ->
       M.add node.templ node m
-
+         
   let merge m lst =
-    List.fold_left (fun m (prefix, disp) ->
-        M.fold (fun path node m ->
-            let templ = (Path.to_templ prefix) @ path in
-            M.add templ { node with templ } m)
-          disp m)
+    let update_fun templ new_v old =
+      match old with
+      | None -> Some new_v
+      | _ -> raise_notrace (Ambiguity (Path.templ_to_string templ))
+    in
+    List.fold_left (fun m (prefix, disp_list) ->
+        let prefix_templ = Path.to_templ prefix in
+        List.fold_left (fun m disp ->
+            M.fold (fun path node m ->
+                let templ = prefix_templ @ path in
+                M.update templ (update_fun templ { node with templ }) m)
+              disp m)
+          m disp_list)
       m lst
-
+(*
   let merge_unsafe lst =
     let merge_fun _templ l r =
       match l, r with
@@ -413,15 +430,20 @@ module Dispatcher = struct
     in
     List.fold_left (fun m disp ->
         M.merge merge_fun m disp) M.empty lst
-
-  let concat l r =
-    let merge_fun _templ l r =
+ *)
+    
+  let concat (l : 'a t list) =
+    let merge_fun templ l r =
       match l, r with
       | None, (Some _ as v)
         | (Some _ as v), None -> v
-      | _ -> failwith "Netlib.Uri.Dispatcher.concat: key exists in several dispatchers"
+      | _ -> raise_notrace (Ambiguity (Path.templ_to_string templ))
     in
-    M.merge merge_fun l r
+    match l with
+    | [] -> M.empty
+    | [x] -> x
+    | acc::l' ->
+       List.fold_left (M.merge merge_fun) acc l'
 
   let dispatch ~default (m : 'a t) (uri : uri) =
     let templ  = Path.to_templ (Path.of_string @@ path uri) in
