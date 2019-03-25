@@ -1,8 +1,6 @@
 (library
-  (name       pipeline)
-  (libraries  pipeline_protocol
-              pipeline_http
-              application_types
+  (name       pipeline_types)
+  (libraries  application_types
               api
               time
               db

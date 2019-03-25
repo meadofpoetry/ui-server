@@ -1,6 +1,7 @@
 open Application_types
 open Application_types.Stream.Log_message
-
+open Pipeline_types
+   
 (* TODO remove 4.08 *)
 
 let (>>=) m f = match m with

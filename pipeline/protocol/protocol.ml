@@ -1,6 +1,7 @@
 open Application_types
+open Pipeline_types
 open Qoe_errors
-
+   
 type options =
   { wm : Wm.t Kv_v.rw
   ; structures : Structure.t list Kv_v.rw

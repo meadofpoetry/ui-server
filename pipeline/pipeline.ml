@@ -14,10 +14,10 @@ let create kv db =
   Kv.RW.parse ~default:Pipeline_settings.default Pipeline_settings.of_string kv ["pipeline";"settings"]
   >>=? fun cfg ->
 
-  Pipeline_protocol.create db kv cfg.sock_in cfg.sock_out
+  Pipeline_protocol.Protocol.create db kv cfg.sock_in cfg.sock_out
   >>=? fun (api, state, recv) ->
 
-  let reset = Pipeline_protocol.reset cfg.bin_path cfg.bin_name in
+  let reset = Pipeline_protocol.Protocol.reset cfg.bin_path cfg.bin_name in
   (*React.E.keep @@ connect_db (S.changes api.streams) dbs;*)
   (* polling loop *)
   let rec loop () =
@@ -29,10 +29,10 @@ let create kv db =
     val api   = api
     val state = state
     method reset ss = reset api state ss
-    method http () = [] (* Pipeline_api.handlers api*)
-    method ws () = []
-    method pages () = [] (* Pipeline_template.create () *)
-    method finalize () = Pipeline_protocol.finalize state
+    method http () = Pipeline_http.handlers api
+    method ws () = Pipeline_http.ws api
+    method pages () = Pipeline_http.pages ()
+    method finalize () = Pipeline_protocol.Protocol.finalize state
     method log_source  = (fun filter ->
       let sf =
         Log_converters.Status.to_log_messages api.sources api.notifs.applied_structs filter in

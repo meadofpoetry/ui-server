@@ -1,5 +1,6 @@
 open Application_types
-open Qoe_errors
+open Pipeline_types   
+open Pipeline_types.Qoe_errors
 open Api
 
 (* TODO remove 4.08 *)

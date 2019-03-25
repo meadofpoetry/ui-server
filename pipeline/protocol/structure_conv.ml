@@ -1,6 +1,7 @@
 open Netlib
 open Application_types
-
+open Pipeline_types
+   
 (* TODO remove 4.08 *)
 let filter_map f l =
   let rec loop acc = function

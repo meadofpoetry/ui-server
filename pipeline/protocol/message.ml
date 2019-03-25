@@ -1,3 +1,4 @@
+open Pipeline_types
 
 type 'a res = ('a, string) result
 

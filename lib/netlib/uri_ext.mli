@@ -162,6 +162,9 @@ module Dispatcher : sig
 
 end
 
+(* TODO move to a more approp place *)
+val typ : string
+     
 val to_yojson : t -> Yojson.Safe.json
 
 val of_yojson : Yojson.Safe.json -> (t, string) result

@@ -1,7 +1,6 @@
 (library
-  (name       pipeline)
-  (libraries  pipeline_protocol
-              pipeline_http
+  (name       pipeline_protocol)
+  (libraries  pipeline_types
               application_types
               api
               time

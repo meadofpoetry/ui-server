@@ -459,6 +459,8 @@ module Dispatcher = struct
 
 end
 
+let typ = "uri"
+
 let to_yojson x = `String (Uri.to_string x)
 
 let of_yojson = function
