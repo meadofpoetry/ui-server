@@ -14,7 +14,7 @@ open Lwt.Infix
 
 type 'a cc = 'a Boards.Board.cc
 
-type t = { dispatch : (int * (Cstruct.t list -> 'c cc as 'c) cc) list ref
+type t = { dispatch : (int * (Cstruct.t list -> 'c cc Lwt.t as 'c) cc) list ref
          ; send     : int -> Cstruct.t -> unit Lwt.t
          ; usb      : Cyusb.t
          }
@@ -115,14 +115,18 @@ let apply disp msg_list =
     (* TODO opt *)
     let msgs = List.filter_map
                  (fun (i,msg) -> if Int.equal i id then Some msg else None)
-                 msg_list in
-    (id, Boards.Board.apply step msgs)
+                 msg_list
+    in
+    Boards.Board.apply step msgs
+    >>= fun next_step ->
+    Lwt.return (id, next_step)
   in
-  List.map apply' disp
+  Lwt_list.map_p apply' disp
 
 let create ?(sleep = 1.) () =
   let usb      = Cyusb.create () in
-  let dispatch = ref [] in
+  let dispatch = ref []
+  in
   let recv     = recv usb in
   let send     = send usb in
 
@@ -130,7 +134,9 @@ let create ?(sleep = 1.) () =
     Lwt_unix.sleep sleep >>= fun () ->
     recv () >>= fun buf ->
     let new_acc, msgs = deserialize acc buf in
-    dispatch := apply !dispatch msgs;
+    apply !dispatch msgs
+    >>= fun new_dispatch ->
+    dispatch := new_dispatch;
     loop new_acc ()
   in
   { usb; dispatch; send }, (fun () -> loop None ())

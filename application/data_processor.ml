@@ -4,13 +4,12 @@ module Api_http = Api_cohttp.Make (Application_types.User) (Application_types.Bo
 module Api_template = Api_cohttp_template.Make (Application_types.User)
 
 type t =
-  < reset    : (url * Application_types.Stream.t) list -> unit
+  < reset    : (url * Application_types.Stream.t) list -> unit Lwt.t
   ; http : unit -> Api_http.t list
   ; ws : unit -> Api_http.t list
-  ; pages :
-      unit -> Api_template.topmost Api_template.item list
+  ; pages : unit -> Api_template.topmost Api_template.item list
   ; log_source : Application_types.Stream.Log_message.source
-  ; finalize : unit -> unit >
+  ; finalize : unit -> unit Lwt.t >
 
 type error = [ Db.conn_error | Kv.RW.read_error | Kv_v.error ]
                          

@@ -250,7 +250,7 @@ let create kv db (topo : Topology.t) =
                                              child nodes come before parents *)
   |> List.fold_left (fun m b ->
          m >>=? fun m ->
-         Lwt.return @@ create_board db usb b m kv step_duration
+         create_board db usb b m kv step_duration
          >>=? fun board ->
          Usb_device.subscribe usb b.control board.step;
          Lwt.return_ok @@ Board.Ports.add b.control board m)
@@ -384,6 +384,10 @@ let set_stream ?(port=1234) (hw : t) (ss : Stream.stream_setting) =
   with Constraints e -> Lwt.return_error e
 
 let finalize hw =
+  let open Lwt.Infix in
   Usb_device.finalize hw.usb;
-  Board.Ports.iter (fun _ (b : Board.t) -> b.state#finalize ()) hw.boards
+  Board.Ports.fold
+    (fun _ (b : Board.t) acc -> acc >>= b.state#finalize)
+    hw.boards
+    Lwt.return_unit
 

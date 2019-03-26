@@ -255,7 +255,8 @@ let reset bin_path bin_name api state (sources : (Netlib.Uri.t * Stream.t) list)
   (*settings_init typ send state.options)); *)
 
   Model.set_streams api.model (List.map snd sources);
-  Logs.debug (fun m -> m "(Pipeline) reset [%s]" (Array.fold_left (fun acc x -> acc ^ " " ^ x) "" exec_opts))
+  Logs.debug (fun m -> m "(Pipeline) reset [%s]" (Array.fold_left (fun acc x -> acc ^ " " ^ x) "" exec_opts));
+  Lwt.return_unit
 
 let finalize state =
   Exchange.finalize state.socket;
@@ -264,4 +265,5 @@ let finalize state =
   | Some proc -> proc#terminate
   end;
   state.proc <- None;
-  Logs.debug (fun m -> m "(Pipeline) finalize")
+  Logs.debug (fun m -> m "(Pipeline) finalize");
+  Lwt.return_unit

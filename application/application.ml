@@ -162,8 +162,10 @@ let log_for_input app inputs stream_ids =
      with Not_found -> Error "internal topology error"
 
 let finalize app =
-  Hardware.finalize app.hw;
+  let open Lwt.Infix in
+  Hardware.finalize app.hw
+  >>= fun () ->
   match app.proc with (* TODO iter in 4.08 *)
   | Some p -> p#finalize ()
-  | None -> ()
+  | None -> Lwt.return_unit
  
