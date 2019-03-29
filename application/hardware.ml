@@ -7,7 +7,7 @@ open Netlib
 (* TODO rewrite, especially the range constraints part *)
 
 module Map = Board.Ports
-   
+
 module Uri_storage = Kv_v.RW (External_uri_storage)
 (* TODO remove after 4.08 *)
 let flip f x y = f y x
@@ -32,7 +32,7 @@ let filter_map f l =
 let partition_map f l =
   let rec loop accl accr = function
     | [] -> List.rev accl, List.rev accr
-    | h::tl ->
+    | h :: tl ->
        match f h with
        | `Left x -> loop (x::accl) accr tl
        | `Right x -> loop accl (x::accr) tl
@@ -82,9 +82,7 @@ let create_board db usb (b : Topology.topo_board) boards kv step_duration =
 let topo_to_signal topo (boards : Board.t Board.Ports.t) : Topology.t React.signal =
   let open Topology in
   let cons l v = (flip List.cons) l v in
-  let get_port m p = match Board.Ports.get p m with
-    | None -> raise Not_found
-    | Some p -> p in
+  let get_port m p = Board.Ports.find p m in
   let build_board b connection ports =
     let eq = equal_topo_entry in
     S.l2 ~eq (fun a p -> Board { b with connection = a; ports = p })

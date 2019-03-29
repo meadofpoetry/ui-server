@@ -1,3 +1,6 @@
+let tag_start = 0x55AA
+let tag_stop  = 0xFE
+
 [@@@ocaml.warning "-32"]
 
 [%%cenum
@@ -115,3 +118,10 @@ let bool_of_bool8 = function
    } [@@little_endian]]
 
 [@@@ocaml.warning "+32"]
+
+(** Computes checksum for the an arbitrary message. *)
+let calc_crc (msg : Cstruct.t) =
+  Cstruct.split msg (sizeof_prefix - 1)
+  |> snd
+  |> Cstruct.iter (fun _ -> Some 1) (fun buf -> Cstruct.get_uint8 buf 0)
+  |> fun iter -> Cstruct.fold (lxor) iter 0

@@ -6,7 +6,7 @@ let connect_db streams_events dbs =
   E.map_s (fun s -> Storage.request dbs (Storage.Store_structures s)) streams_events
  *)
 let typ = "pipeline"
-  
+
 let create kv db =
   let (>>=) = Lwt.bind in
   let (>>=?) = Lwt_result.bind in

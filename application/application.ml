@@ -73,7 +73,7 @@ let create kv db =
 
   (* Attach database to the aggregated log event stream *)
   hw.boards
-  |> Hardware.Map.to_list
+  |> Hardware.Map.bindings
   (* Get boards' logs *)
   |> List.map (fun (_,b) -> Boards.Board.(b.log_source `All))
   (* Add proc's logs *)

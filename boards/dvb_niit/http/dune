@@ -1,0 +1,7 @@
+(library
+  (name       board_dvb_http)
+  (libraries  board_dvb_protocol
+              api_websocket
+              api_cohttp_template
+              components_markup
+              time_uri))

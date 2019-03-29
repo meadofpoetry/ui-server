@@ -1,5 +1,3 @@
-open Containers
-
 exception Timeout
 
 type ('a, 'b) msg =
@@ -28,7 +26,7 @@ module Pool = struct
     t.reqs.(t.point)
 
   let responsed t =
-    List.find_map (current t).pred
+    Util.List.find_map (current t).pred
 
   let send t =
     (current t).send
@@ -39,7 +37,11 @@ module Pool = struct
   let step t =
     let tmr = succ t.timer in
     if tmr >= (current t).timeout
-    then raise_notrace @@ Option.get_or ~default:Timeout (current t).exn
+    then
+      let exn = match (current t).exn with
+        | None -> Timeout
+        | Some x -> x in
+      raise_notrace exn
     else { t with timer = tmr }
 
   let next t =
@@ -47,7 +49,7 @@ module Pool = struct
            ; timer = 0 }
 
   let last t =
-    Int.equal t.point (Array.length t.reqs - 1)
+    t.point = (Array.length t.reqs - 1)
 
   let map t f =
     Array.map f t.reqs
@@ -72,7 +74,9 @@ module Queue = struct
     CCFQueue.size t.reqs = 0
 
   let responsed t m =
-    Option.(CCFQueue.first t.reqs >>= fun head -> List.find_map head.pred m)
+    match CCFQueue.first t.reqs with
+    | None -> None
+    | Some head -> Util.List.find_map head.pred m
 
   let send t () =
     try (CCFQueue.first_exn t.reqs).send () with _ -> Lwt.return_unit
@@ -83,7 +87,11 @@ module Queue = struct
     | Some head ->
        let tmr = succ t.timer in
        if tmr >= head.timeout
-       then raise_notrace @@ Option.get_or ~default:Timeout head.exn
+       then
+         let exn = match head.exn with
+           | None -> Timeout
+           | Some x -> x in
+         raise_notrace exn
        else { t with timer = tmr }
 
   let next t =
@@ -109,20 +117,18 @@ module Await_queue = struct
   let empty t =
     CCFQueue.size t.reqs = 0
 
-  let has_pending t =
-    not @@ List.is_empty t.pending
+  let has_pending t = match t.pending with [] -> false | _ -> true
 
   let responsed t m  =
     let pending, responses =
-      List.partition_map (fun (timer, req) ->
-          List.find_map req.pred m
+      Util.List.partition_map (fun (timer, req) ->
+          Util.List.find_map req.pred m
           |> function
             (* No response -> retain request *)
             | None -> `Left (timer, req)
             (* Responded -> drop request and return response *)
             | Some resp -> `Right resp)
-        t.pending
-    in
+        t.pending in
     { t with pending }, responses
 
   let send t () =
@@ -133,13 +139,12 @@ module Await_queue = struct
 
   let step t =
     let tout, pending =
-      List.partition_map
+      Util.List.partition_map
         (fun (timer, msg) ->
           if timer > msg.timeout
           then `Left msg
           else `Right (succ timer, msg))
-        t.pending
-    in
+        t.pending in
     { t with pending }, tout
 
   let iter t f = List.iter f t.pending

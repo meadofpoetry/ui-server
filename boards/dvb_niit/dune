@@ -1,0 +1,7 @@
+(library
+  (name board_dvb_niit)
+  (libraries util_json
+             kv_v
+             boards
+             board_dvb_types
+             board_dvb_protocol))

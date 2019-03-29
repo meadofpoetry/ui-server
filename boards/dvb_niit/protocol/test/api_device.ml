@@ -1,23 +1,20 @@
-open Containers
-open Board_types.Device
-open Board_protocol
-open Board_api_common
+open Application_types
+open Board_dvb_types.Device
+open Boards.Util
+open Protocol
 open Api.Interaction.Json
-open Common
 
 module WS = struct
-
-  open Api.Socket
-  open React
+  open Util_react
 
   let get_state (events : events) _ body sock_data () =
     handler socket_table sock_data
       (S.changes events.state) Topology.state_to_yojson body
 
   let get_receivers (events : events) _ body sock_data () =
-    let to_yojson = Json.(Option.to_yojson @@ List.to_yojson Int.to_yojson) in
+    let to_yojson = Util_json.(Option.to_yojson @@ List.to_yojson Int.to_yojson) in
     let e =
-      S.map ~eq:(Equal.option @@ Equal.list Int.equal) (function
+      S.map ~eq:(Option.equal @@ List.equal (=)) (function
           | None -> None
           | Some x -> Some x.receivers) events.devinfo
       |> S.changes in
