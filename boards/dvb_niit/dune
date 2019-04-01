@@ -4,4 +4,5 @@
              kv_v
              boards
              board_dvb_types
-             board_dvb_protocol))
+             board_dvb_protocol
+             board_dvb_http))

@@ -5,25 +5,33 @@ open Application_types
 open Util_react
 open Parser
 
-let ( >>= ) = Lwt.Infix.( >>= )
+let ( >>= ) = Lwt.bind
 
 type notifs =
   { devinfo : Device.info option React.signal
   ; state : Topology.state React.signal
   ; config : Device.config React.signal
   ; mode : (int * Device.mode) React.event
-  ; measures : (id * Measure.t ts) list React.event
-  ; params : (id * Params.t ts) list React.event
-  ; plps : (id * Plp_list.t ts) list React.event
+  ; measures : (int * Measure.t ts) list React.event
+  ; params : (int * Params.t ts) list React.event
+  ; plps : (int * Plp_list.t ts) list React.event
   ; raw_streams : Stream.Raw.t list React.signal
   ; streams : Stream.t list React.signal
   }
 
 type api =
-  { notifs : notifs
-  ; channel : 'a. 'a Parser.request -> 'a Lwt.t
+  { source_id : int
+  ; notifs : notifs
+  ; channel : 'a. 'a Parser.request -> ('a, error) result Lwt.t
   ; loop : (Cstruct.t list -> 'c Board.cc Lwt.t as 'c) Board.cc
   }
+and error =
+  | Not_responding
+  | Timeout
+
+let error_to_string = function
+  | Not_responding -> "Board is not responding"
+  | Timeout -> "Request timed out"
 
 let timeout = 3. (* seconds *)
 
@@ -104,12 +112,12 @@ let send (type a) (src : Logs.src)
       (sender : Cstruct.t -> unit Lwt.t)
       (pe : Probes.push_events)
       (timeout : int)
-      (msg : a request) : a Lwt.t =
+      (msg : a request) : (a, error) result Lwt.t =
   match React.S.value state with
   | `Fine ->
      let t, w = Lwt.wait () in
      let pred = function
-       | `Timeout -> Lwt.wakeup_exn w (Failure "msg timeout"); None
+       | `Timeout -> Lwt.wakeup w (Error Timeout); None
        | l ->
           match is_response msg l with
           | None -> None
@@ -117,11 +125,11 @@ let send (type a) (src : Logs.src)
              (match msg with
               | Set_mode _ -> pe.mode ((fst r), (snd r).mode)
               | _ -> ());
-             Some (Lwt.wakeup w r) in
+             Some (Lwt.wakeup w (Ok r)) in
      let send = fun () -> send_msg src sender msg in
      msgs := Pools.Queue.append !msgs { send; pred; timeout; exn = None };
      t
-  | _ -> Lwt.fail (Failure "board is not responding")
+  | _ -> Lwt.return_error Not_responding
 
 let step (src : Logs.src)
       msgs
@@ -337,7 +345,7 @@ let to_streams_s (source_id : int)
     (List.map (mode_to_stream source_id)) config
 
 (** Converts absolute measured channel frequency value
-      to frequency offset in measurements event. *)
+    to frequency offset in measurements event. *)
 let map_measures (config : Device.config React.signal)
       (e : (int * Measure.t ts) list React.event)
     : (int * Measure.t ts) list React.event =
@@ -355,43 +363,23 @@ let map_measures (config : Device.config React.signal)
              Some (id, data)) l) e config
   |> React.E.fmap (function [] -> None | l -> Some l)
 
-let map_streams (source_id : int)
-      (streams : Stream.t list React.signal)
-      (e : (int * 'a) list React.event) =
-  React.S.sample (fun (data : (int * 'a) list)
-                      (streams : Stream.t list) ->
-      List.filter_map (fun ((id : int), x) ->
-          let multi_id =
-            Stream.Multi_TS_ID.make
-              ~source_id
-              ~stream_id:id in
-          match Stream.find_by_multi_id multi_id streams with
-          | None -> None
-          | Some s ->
-             let id = { tuner = id; stream = s.id } in
-             Some (id, x)) data) e streams
-  |> React.E.fmap (function [] -> None | l -> Some l)
-
 let create (src : Logs.src)
       (sender : Cstruct.t -> unit Lwt.t)
       streams_conv
       (source_id : int)
       (kv : Device.config Kv_v.rw)
-      (step_duration : float) =
+      (step_duration : float)
+      (control : int) =
   let s_devinfo, devinfo_push =
     React.S.create ~eq:(Option.equal Device.equal_info) None in
   let e_mode, mode_push = React.E.create () in
   let e_measures, measures_push = React.E.create () in
-  let e_params, params_push = React.E.create () in
-  let e_plp_list, plp_list_push = React.E.create () in
+  let params, params_push = React.E.create () in
+  let plps, plp_list_push = React.E.create () in
   let s_state, state_push = React.S.create ~eq:Topology.equal_state `No_response in
   let raw_streams = to_streams_s source_id kv#s in
   let streams = streams_conv raw_streams in
-  let measures =
-    map_streams source_id streams
-    @@ map_measures kv#s e_measures in
-  let params = map_streams source_id streams e_params in
-  let plps = map_streams source_id streams e_plp_list in
+  let measures = map_measures kv#s e_measures in
   let (notifs : notifs) =
     { mode = e_mode
     ; measures
@@ -411,19 +399,12 @@ let create (src : Logs.src)
     ; plp_list = plp_list_push
     ; devinfo = devinfo_push
     } in
-  (* let hold_e ~eq e  =
-   *   React.E.fold (fun acc x ->
-   *       merge_assoc ~eq:equal_id ~acc x) [] e
-   *   |> React.S.hold ~eq [] in
-   * let eq f = List.equal @@ Pair.equal equal_id (equal_ts f) in
-   * let s_measures = hold_e ~eq:(eq Measure.equal) events.measures in
-   * let s_params = hold_e ~eq:(eq Params.equal) events.params in
-   * let s_plp_list = hold_e ~eq:(eq Plp_list.equal) events.plps in *)
   let msgs = ref (Pools.Queue.create []) in
   let steps = Boards.Timer.steps ~step_duration timeout in
   let send x = send src s_state msgs sender push_events steps x in
   let loop = step src msgs sender kv#s source_id step_duration push_events in
-  { notifs
+  { source_id
+  ; notifs
   ; loop
   ; channel = send
   }

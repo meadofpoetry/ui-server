@@ -13,7 +13,9 @@ let filter_map f l =
        | None -> loop acc tl
        | Some v -> loop (v::acc) tl
   in loop [] l
-   
+
+(* TODO when used in [is_in], stream id should be wrapped with type signature,
+   like ['550e8400-e29b-41d4-a716-446655440000'::UUID] *)
 module SID = struct
 
   type t = Stream.ID.t

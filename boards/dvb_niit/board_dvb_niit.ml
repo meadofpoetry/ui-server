@@ -46,17 +46,15 @@ let create (b : Topology.topo_board) _ convert_streams
   >>= fun (log_src : Logs.src) -> Lwt.return @@ parse_source_id b
   >>= fun (source_id : int) ->
   let (api : Protocol.api) =
-    Protocol.create log_src send (fun x -> convert_streams x b) source_id cfg step in
-  (* let db = Result.get_exn @@ Db.Conn.create db_conf b.control in
-   * let handlers = Board_api.handlers b.control db api events in
-   * React.E.(keep @@ map_s (Db.Measurements.insert db) api.notifs.measures); *)
+    Protocol.create log_src send (fun x -> convert_streams x b)
+      source_id cfg step b.control in
   let state = object
       method finalize () = Lwt.return ()
     end in
   Lwt.return_ok
   @@ Boards.Board.(
-    { http = []
-    ; ws = []
+    { http = Board_dvb_http.handlers b.control api
+    ; ws = Board_dvb_http.ws b.control api
     ; templates = []
     ; control = b.control
     ; streams_signal = api.notifs.streams
