@@ -23,7 +23,11 @@ exception Invalid_port of string
 exception Invalid_sources of string
 
 (* TODO better error types *)
-type error = [ `Board_error of string ]
+type error =
+  [ Kv_v.error
+  | Db.conn_error
+  | `Unknown_log_level of string
+  | `Board_error of string ]
 
 let pp_error ppf = function
   | `Board_error e -> Fmt.fmt "Board error %s" ppf e
@@ -60,7 +64,8 @@ module type BOARD = sig
   val create :
     Topology.topo_board ->
     Stream.t list signal ->
-    (Stream.Raw.t list signal -> Topology.topo_board ->
+    (Topology.topo_board ->
+     Stream.Raw.t list signal ->
      Stream.t list signal) ->
     (Cstruct.t -> unit Lwt.t) ->
     Db.t ->
@@ -96,8 +101,8 @@ let get_streams (boards : t Map.t) (topo : Topology.topo_board) :
   get_streams' (React.S.const []) topo.ports
 
 let merge_streams (boards : t Map.t)
-      (raw_streams : Stream.Raw.t list React.signal)
       (topo : Topology.topo_board)
+      (raw_streams : Stream.Raw.t list React.signal)
     : Stream.t list React.signal =
   let open Topology in
   let open Stream in

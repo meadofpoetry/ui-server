@@ -6,6 +6,7 @@
                util_react
                db
                kv
+               kv_v
                lwt
                yojson
                cstruct

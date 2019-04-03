@@ -8,8 +8,7 @@ let ( ^:: ) x l = match x with
 
 (* TODO remove from here. *)
 type push_events =
-  { mode : int * Device.mode -> unit
-  ; measure : (int * Measure.t ts) list -> unit
+  { measure : (int * Measure.t ts) list -> unit
   ; params : (int * Params.t ts) list -> unit
   ; plp_list : (int * Plp_list.t ts) list -> unit
   ; state : Topology.state -> unit
@@ -17,8 +16,7 @@ type push_events =
   }
 
 module type M = sig
-  val duration : float
-  val timeout : int
+  val timeout : float
   val send : Parser.event Parser.event_request -> unit Lwt.t
 end
 
@@ -29,17 +27,20 @@ module type Probes = sig
     | `Params of int * Cstruct.t
     | `Plps of int * Cstruct.t
     ]
-  val cons_event : t -> Parser.event -> t
   val handle_events : push_events -> t -> t
-  val wait : t -> t
-  val send : t -> unit Lwt.t
-  val step : t -> t
-  val responsed : t -> event_raw list -> Parser.event option
+  val send : t -> t
+  val apply : t -> event_raw list -> t
   val update_pool : (int * Device.standard) list -> t -> t
-  val empty : t -> bool
-  val last : t -> bool
-  val next : t -> t
+  val is_empty : t -> bool
+  val is_last : t -> bool
   val make : (int * Device.standard) list -> int list -> t
+  val _match :
+    t ->
+    resolved:(t -> Parser.event -> 'a Lwt.t) ->
+    timeout:(t -> 'a Lwt.t) ->
+    pending:(t -> 'a Lwt.t) ->
+    not_sent:(t -> 'a Lwt.t) ->
+    'a Lwt.t
 end
 
 module Make(M : M) : Probes = struct
@@ -50,8 +51,8 @@ module Make(M : M) : Probes = struct
 
     type 'a state =
       { prev : 'a option
-      ; timer : int
-      ; period : int
+      ; timeout : float
+      ; timer : unit Lwt.t
       }
 
     type t =
@@ -60,24 +61,33 @@ module Make(M : M) : Probes = struct
       ; params : Params.t ts state
       }
 
+    let reset (state : 'a state) : 'a state =
+      { state with timer = Lwt_unix.sleep state.timeout }
+
+    let set_prev (prev : 'a) (state : 'a state) : 'a state =
+      { state with prev = Some prev }
+
+    let is_ready (state : 'a state) : bool =
+      match Lwt.state state.timer with
+      | Lwt.Return () -> true
+      | Lwt.Fail exn -> raise exn
+      | Lwt.Sleep -> false
+
     let empty : t =
-      let meas_period = Timer.steps ~step_duration:M.duration 1. in
-      let plps_period = Timer.steps ~step_duration:M.duration 5. in
-      let prms_period = Timer.steps ~step_duration:M.duration 5. in
       { measures =
-          { timer = meas_period
-          ; period = meas_period
-          ; prev = None
+          { prev = None
+          ; timeout = 1.
+          ; timer = Lwt.return ()
           }
       ; plp_list =
-          { timer = plps_period
-          ; period = plps_period
-          ; prev = None
+          { prev = None
+          ; timeout = 5.
+          ; timer = Lwt.return ()
           }
       ; params =
-          { timer = prms_period
-          ; period = prms_period
-          ; prev = None
+          { prev = None
+          ; timeout = 5.
+          ; timer = Lwt.return ()
           }
       }
   end
@@ -107,67 +117,33 @@ module Make(M : M) : Probes = struct
     ; plps = []
     }
 
-  module Timer = struct
-
-    let reset : 'a. 'a States.state -> 'a States.state =
-      fun state -> { state with timer = state.period }
-
-    let set_prev : 'a. 'a States.state -> 'a -> 'a States.state =
-      fun state prev -> { state with prev = Some prev }
-
-  end
-
-  let make_measure_probe id : event_msg =
-    let req = Parser.Get_measure id in
-    { send = (fun () -> M.send req)
-    ; pred = Parser.is_event req
-    ; timeout = M.timeout
-    ; exn = None
-    }
-
-  let make_plp_list_probe id : event_msg =
-    let req = Parser.Get_plp_list id in
-    { send = (fun () -> M.send req)
-    ; pred = Parser.is_event req
-    ; timeout = M.timeout
-    ; exn = None
-    }
-
-  let make_params_probe id : event_msg =
-    let req = Parser.Get_params id in
-    { send = (fun () -> M.send req)
-    ; pred = Parser.is_event req
-    ; timeout = M.timeout
-    ; exn = None
-    }
-
-  let wait (t : t) : t =
-    let pred : 'a. 'a States.state -> 'a States.state = fun x ->
-      if x.timer <= 0
-      then { x with timer = 0 }
-      else { x with timer = x.timer - 1 } in
-    let states =
-      List.map (fun (id, (x : States.t)) ->
-          id, ({ measures = pred x.measures
-               ; plp_list = pred x.plp_list
-               ; params = pred x.params } : States.t)) t.states
-    in
-    { t with states }
+  let make_req req =
+    let ( >>= ) = Lwt.bind in
+    let pred w : 'a Pools.resolver = function
+      | `Tm -> ()
+      | `Msgs msgs ->
+         match Util.List.find_map (Parser.is_event req) msgs with
+         | None -> ()
+         | Some x -> Lwt.wakeup w (`V x) in
+    let send () =
+      let t, w = Lwt.wait () in
+      Lwt.catch (fun () ->
+          M.send req
+          >>= fun () -> Lwt_unix.with_timeout M.timeout (fun () -> t))
+        (function
+         | Lwt_unix.Timeout -> Lwt.return `Tm
+         | exn -> Lwt.fail exn),
+      pred w in
+    send
 
   let cons_event (t : t) (event : Parser.event) : t =
     let stamp : 'a. 'a -> 'a ts = fun data ->
       { timestamp = Ptime_clock.now (); data } in
     let set id v lst = List.Assoc.set ~eq:(=) id (stamp v) lst in
     let acc = match event with
-      | Measures (id, m) ->
-         let measures = set id m t.acc.measures in
-         { t.acc with measures }
-      | Params (id, p) ->
-         let params = set id p t.acc.params in
-         { t.acc with params }
-      | Plp_list (id, p) ->
-         let plps = set id p t.acc.plps in
-         { t.acc with plps } in
+      | Measures (id, m) -> { t.acc with measures = set id m t.acc.measures }
+      | Params (id, p) -> { t.acc with params = set id p t.acc.params }
+      | Plp_list (id, p) -> { t.acc with plps = set id p t.acc.plps } in
     { t with acc }
 
   let handle_measurements (pe : push_events) (t : t) : t =
@@ -178,7 +154,7 @@ module Make(M : M) : Probes = struct
           match List.assoc_opt id states with
           | None -> states
           | Some (tmr : States.t) ->
-             let measures = Timer.(reset @@ set_prev tmr.measures m) in
+             let measures = States.(reset @@ set_prev m tmr.measures) in
              let tmr = { tmr with measures } in
              List.Assoc.set ~eq:(=) id tmr states)
         t.states t.acc.measures in
@@ -192,7 +168,7 @@ module Make(M : M) : Probes = struct
           | None -> states, acc
           | Some (tmr : States.t) ->
              (* collect event only if it is different
-                  from the previous one or it is first *)
+                from the previous one or it is first *)
              let acc = match tmr.params.prev with
                | None -> (id, p) :: acc
                | Some prev ->
@@ -200,7 +176,7 @@ module Make(M : M) : Probes = struct
                   if eq prev.data p.data then acc
                   else (id, p) :: acc in
              (* update previous field *)
-             let params = Timer.(reset @@ set_prev tmr.params p) in
+             let params = States.(reset @@ set_prev p tmr.params) in
              let tmr = { tmr with params } in
              List.Assoc.set ~eq:(=) id tmr t.states, acc)
         (t.states, []) t.acc.params in
@@ -216,7 +192,7 @@ module Make(M : M) : Probes = struct
           | None -> states, acc
           | Some (tmr : States.t) ->
              (* collect event only if it is different
-                  from the previous one or it is first *)
+                from the previous one or it is first *)
              let acc = match tmr.plp_list.prev with
                | None -> (id, p) :: acc
                | Some prev ->
@@ -224,7 +200,7 @@ module Make(M : M) : Probes = struct
                   if eq prev.data p.data then acc
                   else (id, p) :: acc in
              (* update previous field *)
-             let plp_list = Timer.(reset @@ set_prev tmr.plp_list p) in
+             let plp_list = States.(reset @@ set_prev p tmr.plp_list) in
              let tmr = { tmr with plp_list } in
              List.Assoc.set ~eq:(=) id tmr t.states, acc)
         (t.states, []) t.acc.plps in
@@ -247,36 +223,40 @@ module Make(M : M) : Probes = struct
         | Some standard ->
            let is_t2 = Device.equal_standard standard T2 in
            let meas =
-             if tmr.measures.timer = 0
-             then Some (make_measure_probe id) else None in
+             if States.is_ready tmr.measures
+             then Some (make_req (Parser.Get_measure id)) else None in
            let params =
-             if is_t2 && tmr.params.timer = 0
-             then Some (make_params_probe id) else None in
+             if is_t2 && States.is_ready tmr.params
+             then Some (make_req (Parser.Get_params id)) else None in
            let plps =
-             if is_t2 && tmr.plp_list.timer = 0
-             then Some (make_plp_list_probe id) else None in
+             if is_t2 && States.is_ready tmr.plp_list
+             then Some (make_req (Parser.Get_plp_list id)) else None in
            meas ^:: params ^:: plps ^:: acc) [] states
     |> Pools.Pool.create
 
-  let step t = { t with pool = Pools.Pool.step t.pool }
-
-  let responsed t msgs = Pools.Pool.responsed t.pool msgs
-
-  let empty t = Pools.Pool.empty t.pool
+  let is_empty t = Pools.Pool.is_empty t.pool
 
   let update_pool config t =
     let pool = make_pool config t.states in
     { t with pool }
 
-  let last t = Pools.Pool.last t.pool
+  let is_last t = Pools.Pool.is_last t.pool
 
-  let next t = { t with pool = Pools.Pool.next t.pool }
-
-  let send t = Pools.Pool.send t.pool ()
+  let send t = { t with pool = Pools.Pool.send t.pool }
 
   let make (config : (int * Device.standard) list) (receivers : int list) : t =
     let states = List.map (fun id -> id, States.empty) receivers in
     let pool = make_pool config states in
     { states; pool; acc = empty_acc }
+
+  let apply (t : t) m =
+    { t with pool = Pools.Pool.apply t.pool m }
+
+  let _match (t : t) ~resolved ~timeout ~pending ~not_sent =
+    Pools.Pool._match t.pool
+      ~resolved:(fun pool x -> resolved (cons_event { t with pool } x) x)
+      ~pending:(fun pool -> pending { t with pool })
+      ~timeout:(fun pool -> timeout { t with pool })
+      ~not_sent:(fun pool -> not_sent { t with pool })
 
 end

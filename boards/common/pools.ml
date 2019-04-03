@@ -1,153 +1,87 @@
-exception Timeout
-
-type ('a, 'b) msg =
-  { send : (unit -> unit Lwt.t)
-  ; pred : ('a -> 'b option)
-  ; timeout : int
-  ; exn : exn option
-  }
+type 'a rsp = [`V of 'a | `Tm]
+type 'a resolver = [`Tm | `Msgs of 'a list] -> unit
+type ('a, 'b) msg = unit -> ('b rsp Lwt.t * 'a resolver)
 
 module Pool = struct
-  type ('a, 'b) t =
-    { timer : int
-    ; point : int
-    ; reqs : ('a,'b) msg array
+  type ('a, 'b) pending = ['b rsp | `Init] Lwt.t * 'a resolver
+  type ('a, 'b) aux =
+    { curs : int
+    ; reqs : ('a, 'b) msg array
     }
-  let create lst =
-    { timer = 0; point = 0; reqs = Array.of_list lst }
+  type ('a, 'b) t = ('a, 'b) pending * ('a, 'b) aux
 
-  let append t msgs =
-    { t with reqs = Array.append t.reqs msgs }
+  let create l =
+    (Lwt.return `Init, (fun _ -> ())),
+    { curs = 0; reqs = Array.of_list l }
 
-  let empty t =
-    Array.length t.reqs = 0
+  let apply t l =
+    let resolver = snd (fst t) in
+    resolver (`Msgs l);
+    t
 
-  let current t =
-    t.reqs.(t.point)
+  let is_empty (t : ('a, 'b) t) : bool =
+    Array.length (snd t).reqs = 0
 
-  let responsed t =
-    Util.List.find_map (current t).pred
+  let is_last (t : ('a, 'b) t) : bool =
+    (snd t).curs = (Array.length (snd t).reqs) - 1
 
-  let send t =
-    (current t).send
+  let send (t : ('a, 'b) t) : ('a, 'b) t =
+    let v = snd t in
+    (v.reqs.(v.curs) () :> ('a, 'b) pending),
+    { v with curs = (succ v.curs) mod (Array.length v.reqs) }
 
-  let init t =
-    { t with point = 0; timer = 0 }
-
-  let step t =
-    let tmr = succ t.timer in
-    if tmr >= (current t).timeout
-    then
-      let exn = match (current t).exn with
-        | None -> Timeout
-        | Some x -> x in
-      raise_notrace exn
-    else { t with timer = tmr }
-
-  let next t =
-    { t with point = ((succ t.point) mod (Array.length t.reqs))
-           ; timer = 0 }
-
-  let last t =
-    t.point = (Array.length t.reqs - 1)
-
-  let map t f =
-    Array.map f t.reqs
-
-  let iter t f =
-    Array.iter f t.reqs
+  let _match (t : ('a, 'b) t) ~resolved ~timeout ~pending ~not_sent =
+    match Lwt.state (fst (fst t)) with
+    | Lwt.Return `Init -> not_sent t
+    | Lwt.Return `Tm -> timeout t
+    | Lwt.Return `V x -> resolved t x
+    | Lwt.Sleep -> pending t
+    | Lwt.Fail e -> Lwt.fail e
 end
 
 module Queue = struct
-  type ('a, 'b) t =
-    { timer : int
-    ; reqs : ('a,'b) msg CCFQueue.t
-    }
+  type ('a, 'b) pending = ['b rsp | `Init] Lwt.t * 'a resolver
+  type ('a, 'b) t = ('a, 'b) pending * ('a, 'b) msg list
 
-  let create lst =
-    { timer = 0; reqs = CCFQueue.of_list lst }
+  let create l = (Lwt.return `Init, fun _ -> ()), l
 
-  let append t msg =
-    { t with reqs = CCFQueue.snoc t.reqs msg }
+  let apply (t : ('a, 'b) t) (l : 'a list) =
+    (snd (fst t)) (`Msgs l); t
 
-  let empty t =
-    CCFQueue.size t.reqs = 0
+  let append (hd, tl) m : ('a, 'b) t =
+    hd, List.append tl m
 
-  let responsed t m =
-    match CCFQueue.first t.reqs with
-    | None -> None
-    | Some head -> Util.List.find_map head.pred m
+  let is_empty = function _, [] -> true | _ -> false
 
-  let send t () =
-    try (CCFQueue.first_exn t.reqs).send () with _ -> Lwt.return_unit
+  let send (t : ('a, 'b) t) : ('a, 'b) t =
+    match snd t with
+    | [] -> t
+    | f :: tl -> (f () :> ('a, 'b) pending), tl
 
-  let step t =
-    match CCFQueue.first t.reqs with
-    | None -> t
-    | Some head ->
-       let tmr = succ t.timer in
-       if tmr >= head.timeout
-       then
-         let exn = match head.exn with
-           | None -> Timeout
-           | Some x -> x in
-         raise_notrace exn
-       else { t with timer = tmr }
-
-  let next t =
-    { timer = 0; reqs = CCFQueue.tail t.reqs }
-
-  let map t f = CCFQueue.map f t.reqs
-
-  let iter t f = CCFQueue.iter f t.reqs
+  let _match (t : ('a, 'b) t) ~resolved ~timeout ~pending ~not_sent =
+    match Lwt.state (fst (fst t)) with
+    | Lwt.Return `Init -> not_sent t
+    | Lwt.Return `Tm -> timeout t
+    | Lwt.Return `V x -> resolved t x
+    | Lwt.Sleep -> pending t
+    | Lwt.Fail e -> Lwt.fail e
 end
 
 module Await_queue = struct
-  type ('a, 'b) t =
-    { reqs : ('a,'b) msg CCFQueue.t
-    ; pending : (int * ('a,'b) msg) list
-    }
+  type ('a, 'b) pending = ['b rsp | `Init] Lwt.t * 'a resolver
+  type ('a, 'b) t = ('a, 'b) pending list * ('a, 'b) msg list
 
-  let create lst =
-    { reqs = CCFQueue.of_list lst; pending = [] }
+  let is_empty = function _, [] -> true | _ -> false
 
-  let append t msg =
-    { t with reqs = CCFQueue.snoc t.reqs msg }
+  let has_pending = function [], _ -> false | _ -> true
 
-  let empty t =
-    CCFQueue.size t.reqs = 0
+  let create l = [], l
 
-  let has_pending t = match t.pending with [] -> false | _ -> true
+  let apply (t : ('a, 'b) t) (l : 'a list) =
+    List.iter (fun (_, resolve) -> resolve (`Msgs l)) (fst t); t
 
-  let responsed t m  =
-    let pending, responses =
-      Util.List.partition_map (fun (timer, req) ->
-          Util.List.find_map req.pred m
-          |> function
-            (* No response -> retain request *)
-            | None -> `Left (timer, req)
-            (* Responded -> drop request and return response *)
-            | Some resp -> `Right resp)
-        t.pending in
-    { t with pending }, responses
-
-  let send t () =
-    try
-      let msg, reqs = CCFQueue.take_front_exn t.reqs in
-      { reqs; pending = (0 , msg) :: t.pending }, msg.send ()
-    with _ -> t, Lwt.return_unit
-
-  let step t =
-    let tout, pending =
-      Util.List.partition_map
-        (fun (timer, msg) ->
-          if timer > msg.timeout
-          then `Left msg
-          else `Right (succ timer, msg))
-        t.pending in
-    { t with pending }, tout
-
-  let iter t f = List.iter f t.pending
-
-  let map t f = { t with pending = List.map f t.pending }
+  let send (t : ('a, 'b) t) : ('a, 'b) t =
+    match snd t with
+    | [] -> t
+    | f :: tl -> (f () :> ('a, 'b) pending) :: (fst t), tl
 end

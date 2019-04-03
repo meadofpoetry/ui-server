@@ -31,7 +31,7 @@ let get_settings (api : api) _ body sock_data () =
     Lwt.return (`Ev (state, event))
 
 end
-             
+
 let set body conv apply =
   match conv body with
   | Error e -> Lwt.return (`Error e)

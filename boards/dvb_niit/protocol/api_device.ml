@@ -49,7 +49,11 @@ let set_mode (api : Protocol.api) id _user _body _env _state =
   | Ok mode ->
      api.channel (Set_mode (id, mode))
      >>= function
-     | Ok x -> Lwt.return @@ `Value (mode_rsp_to_yojson @@ snd x)
+     | Ok x ->
+        api.kv#get
+        >>= fun config ->
+        api.kv#set @@ Boards.Util.List.Assoc.set ~eq:(=) id mode config
+        >>= fun () -> Lwt.return @@ `Value (mode_rsp_to_yojson @@ snd x)
      | Error e -> Lwt.return @@ `Error (Protocol.error_to_string e)
 
 let get_state (api : Protocol.api) _user _body _env _state =

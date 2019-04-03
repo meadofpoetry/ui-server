@@ -1,3 +1,5 @@
+open Board_dvb_types
+
 let ( >>= ) = Lwt.bind
 
 type t =
@@ -15,8 +17,8 @@ let tick () =
 
 let create (log_src : Logs.src)
       (control : int)
-      (api : Protocol.api)
-      (db : Db.state)=
+      (measures : (int * Measure.t ts) list React.event)
+      (db : Db.state) =
   let ( >>= ) = Lwt_result.bind in
   Database.Conn.create db control
   >>= fun db ->
@@ -32,5 +34,5 @@ let create (log_src : Logs.src)
               Logs_lwt.err ~src:log_src (fun m ->
                   let s = Printexc.to_string exn in
                   m "measures db error: %s" s)))
-      api.notifs.measures in
+      measures in
   Lwt.return_ok { db; tick; loop = loop (); measures }

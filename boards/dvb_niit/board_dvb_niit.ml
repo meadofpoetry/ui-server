@@ -1,6 +1,7 @@
 open Application_types
 open Board_dvb_types
 open Board_dvb_protocol
+open Boards
 
 module Config = Kv_v.RW(Board_settings)
 
@@ -8,7 +9,7 @@ let ( >>= ) = Lwt_result.bind
 
 let invalid_port (src : Logs.src) port =
   let s = (Logs.Src.name src) ^ ": invalid port " ^ (string_of_int port) in
-  raise (Boards.Board.Invalid_port s)
+  raise (Board.Invalid_port s)
 
 let rec has_sync = function
   | [] -> false
@@ -18,7 +19,7 @@ let rec has_sync = function
      | _ -> has_sync tl
 
 let create_logger (b : Topology.topo_board) =
-  let log_name = Boards.Board.log_name b in
+  let log_name = Board.log_name b in
   let log_src = Logs.Src.create log_name in
   match b.logs with
   | None -> Ok log_src
@@ -31,28 +32,31 @@ let create_logger (b : Topology.topo_board) =
 
 let parse_source_id (b : Topology.topo_board) =
   match b.sources with
-  | None -> Error `Source_id_not_found
+  | None -> Error (`Board_error "Source id not found")
   | Some i ->
      match Util_json.Int.of_yojson i with
      | Ok i -> Ok i
-     | Error _ -> Error `Invalid_source_id
+     | Error _ -> Error (`Board_error "Invalid source id")
 
-let create (b : Topology.topo_board) _ convert_streams
+let create ({ control; _ } as b : Topology.topo_board)
+      (_ : Stream.t list React.signal)
+      (convert_streams : Topology.topo_board ->
+                         Stream.Raw.t list React.signal ->
+                         Stream.t list React.signal)
       (send : Cstruct.t -> unit Lwt.t)
+      (db : Db.t)
       (kv : Kv.RW.t)
-      (step : float) =
+      (step : float) : (Board.t, [> Board.error]) Lwt_result.t =
   Config.create ~default:Board_settings.default kv ["board"; (string_of_int b.control)]
-  >>= fun (cfg : Device.config Kv_v.rw) -> Lwt.return @@ create_logger b
-  >>= fun (log_src : Logs.src) -> Lwt.return @@ parse_source_id b
+  >>= fun (cfg : Device.config Kv_v.rw) -> Lwt.return (create_logger b)
+  >>= fun (src : Logs.src) -> Lwt.return (parse_source_id b)
   >>= fun (source_id : int) ->
-  let (api : Protocol.api) =
-    Protocol.create log_src send (fun x -> convert_streams x b)
-      source_id cfg step b.control in
+  Protocol.create src send (convert_streams b) source_id cfg step control db
+  >>= fun (api : Protocol.api) ->
   let state = object
       method finalize () = Lwt.return ()
     end in
-  Lwt.return_ok
-  @@ Boards.Board.(
+  let (board : Board.t) =
     { http = Board_dvb_http.handlers b.control api
     ; ws = Board_dvb_http.ws b.control api
     ; templates = []
@@ -66,15 +70,17 @@ let create (b : Topology.topo_board) _ convert_streams
             (match p.port with
              | 0 -> React.E.map has_sync api.notifs.measures
                     |> React.S.hold ~eq:(=) false
-             | x -> invalid_port log_src x)
-            |> fun x -> Ports.add p.port x acc)
-          Ports.empty b.ports
+             | x -> invalid_port src x)
+            |> fun x -> Board.Ports.add p.port x acc)
+          Board.Ports.empty b.ports
     ; ports_active =
         List.fold_left (fun acc (p : Topology.topo_port) ->
             (match p.port with
              | 0 -> React.S.const true
-             | x -> invalid_port log_src x)
-            |> fun x -> Boards.Board.Ports.add p.port x acc)
-          Ports.empty b.ports
+             | x -> invalid_port src x)
+            |> fun x -> Board.Ports.add p.port x acc)
+          Board.Ports.empty b.ports
     ; stream_handler = None
-    ; state = (state :> < finalize : unit -> unit Lwt.t >) })
+    ; state = (state :> < finalize : unit -> unit Lwt.t >)
+    } in
+  Lwt.return_ok board
