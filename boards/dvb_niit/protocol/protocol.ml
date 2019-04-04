@@ -70,9 +70,6 @@ let init_msgs (send : 'a request -> unit Lwt.t)
   List.map (make_req timeout send is_response)
   @@ List.map (fun x -> Set_mode x) config
 
-(* let wakeup_timeout (t : _ Pools.msg) =
- *   t.pred `Timeout |> ignore *)
-
 let update_config (id : int)
       (mode : Device.mode)
       (config : Device.config) : Device.config =
@@ -111,9 +108,8 @@ let send_event (type a) (src : Logs.src)
       Serializer.make_plp_list_get_req id)
   |> sender
 
-(* TODO do some refactoring later on. *)
 let send (type a) (src : Logs.src)
-      msgs
+      (msgs : (_, unit) Pools.Queue.t ref)
       (kv : Device.config Kv_v.rw)
       (state : Topology.state React.signal)
       (sender : Cstruct.t -> unit Lwt.t)
@@ -122,22 +118,23 @@ let send (type a) (src : Logs.src)
   match React.S.value state with
   | `Init | `No_response -> Lwt.return_error Not_responding
   | `Fine ->
+     (* FIXME looks ugly, do some refactoring later on. *)
      let t, w = Lwt.wait () in
-     let pred w = function
-       | `Tm -> Lwt.wakeup_later w (Error Timeout)
-       | `Msgs msgs ->
-          match Util.List.find_map (is_response req) msgs with
-          | None -> ()
-          | Some x -> Lwt.wakeup_later w (Ok x) in
-     let send () =
-       Lwt.pick
-         [ (t >>= fun _ -> Lwt.return (`V ()))
-         ; Lwt_unix.sleep timeout
-           >>= (fun () -> Lwt.wakeup_later w (Error Timeout); Lwt.return `Tm)
-         ] in
-     let msg = fun () -> send (), pred w in
-     msgs := Pools.Queue.append !msgs [msg];
-     t
+     let msg =
+       Pools.Queue.make_msg
+         ~send:(fun () -> send_msg src sender req)
+         ~timeout:(fun () -> Lwt_unix.sleep timeout)
+         ~resolve:(fun msg ->
+           match is_response req msg with
+           | None -> None
+           | Some x -> Lwt.wakeup_later w (Ok x); Some ())
+         () in
+     let t', msgs' = Pools.Queue.snoc !msgs msg in
+     msgs := (msgs' :> (_, unit) Pools.Queue.t);
+     t' >>= function
+     | Ok () -> t
+     | Error `Timeout -> Lwt.return_error Timeout
+     | Error `Interrupted -> Lwt.return_error Not_responding
 
 let step (src : Logs.src)
       msgs
@@ -146,20 +143,13 @@ let step (src : Logs.src)
       (source_id : int)
       (pe : Probes.push_events) =
 
-  let module Probes =
-    Probes.Make(struct
-        let send = send_event src sender
-        let timeout = timeout
-      end) in
-
   let deserialize acc recvd =
     let recvd = Board.concat_acc acc recvd in
     deserialize src recvd in
 
   let rec first_step () =
     Logs.info ~src (fun m -> m "start of connection establishment...");
-    (* Pools.Queue.iter !msgs wakeup_timeout; *)
-    msgs := Pools.Queue.create [];
+    msgs := Pools.Queue.invalidate !msgs;
     pe.state `No_response;
     let pool = Pools.Pool.create @@ detect_msgs (send_msg src sender) in
     Lwt.return @@ `Continue (step_detect (Pools.Pool.send pool) None)
@@ -205,7 +195,7 @@ let step (src : Logs.src)
     let standards =
       List.map (fun (id, (v : Device.mode)) -> id, v.standard)
       @@ React.S.value config in
-    let probes = Probes.make standards devinfo.receivers in
+    let probes = Probes.make timeout (send_event src sender) standards devinfo.receivers in
     match init_msgs (send_msg src sender) (React.S.value config) devinfo.receivers with
     | [] ->
        Logs.debug ~src (fun m ->
@@ -245,7 +235,7 @@ let step (src : Logs.src)
        let (standards : (int * Device.standard) list) =
          List.map (fun (id, (x : Device.mode)) -> id, x.standard)
          @@ React.S.value config in
-       let probes = Probes.update_pool standards probes in
+       let probes = Probes.update standards probes in
        step_ok_probes_send probes acc recvd
     | false -> step_ok_requests_send probes acc recvd
 
@@ -274,29 +264,35 @@ let step (src : Logs.src)
         Lwt.return @@ `Continue (step_ok_tee probes acc))
 
   and step_ok_requests_send (probes : Probes.t) acc _ =
-    Lwt.return
-    @@ if Pools.Queue.is_empty !msgs
-       then `Continue (step_ok_tee probes acc)
-       else (
-         msgs := Pools.Queue.send !msgs;
-         `Continue (step_ok_requests_wait probes acc))
+    if Pools.Queue.is_empty !msgs
+    then Lwt.return @@ `Continue (step_ok_tee probes acc)
+    else (
+      Pools.Queue.send !msgs
+      >>= fun pool ->
+      msgs := pool;
+      Lwt.return @@ `Continue (step_ok_requests_wait probes acc))
 
   and step_ok_requests_wait (probes : Probes.t) acc recvd =
     let _, responses, acc = deserialize acc recvd in
-    Pools.Queue._match (Pools.Queue.apply !msgs responses)
+    Pools.Queue.apply !msgs responses;
+    Pools.Queue._match !msgs
       ~pending:(fun pool ->
         msgs := pool;
         Lwt.return @@ `Continue (step_ok_requests_wait probes acc))
-      ~resolved:(fun pool () ->
+      ~resolved:(fun pool _ ->
         msgs := pool;
         Lwt.return @@ `Continue (step_ok_requests_send probes acc))
       ~not_sent:(fun pool ->
         msgs := pool;
         Lwt.return @@ `Continue (step_ok_requests_send probes acc))
-      ~timeout:(fun _ ->
-        Logs.warn ~src (fun m ->
-            m "timeout while waiting for client request response, restarting...");
-        first_step ())
+      ~error:(fun pool -> function
+        | `Interrupted ->
+           msgs := pool;
+           Lwt.return @@ `Continue (step_ok_requests_send probes acc)
+        | `Timeout ->
+           Logs.warn ~src (fun m ->
+               m "timeout while waiting for client request response, restarting...");
+           first_step ())
   in
   `Continue (fun _ -> first_step ())
 

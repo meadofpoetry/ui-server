@@ -27,10 +27,14 @@ type error =
   [ Kv_v.error
   | Db.conn_error
   | `Unknown_log_level of string
-  | `Board_error of string ]
+  | `Board_error of string
+  ]
 
-let pp_error ppf = function
+let pp_error ppf : error -> unit = function
   | `Board_error e -> Fmt.fmt "Board error %s" ppf e
+  | `Unknown_log_level s -> Fmt.fmt "Unrecognized log level (%s)" ppf s
+  | (`Db_connection_error _) as e -> Db.pp_conn_error ppf e
+  | (`No_value _) as e -> Kv_v.pp_error ppf e
 
 type constraints =
   { range : (Netlib.Ipaddr.V4.t * Netlib.Ipaddr.V4.t) list

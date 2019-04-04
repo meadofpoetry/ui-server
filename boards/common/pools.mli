@@ -25,22 +25,38 @@ module Pool : sig
 end
 
 module Queue : sig
+  type e = [`Timeout | `Interrupted]
+
+  type ('a, 'b) msg
+
   type ('a, 'b) t
+
+  val make_msg :
+    send:(unit -> unit Lwt.t) ->
+    timeout:(unit -> unit Lwt.t) ->
+    resolve:('a -> 'b option) ->
+    unit -> ('a, 'b) msg
 
   val create : ('a, 'b) msg list -> ('a, 'b) t
 
-  val send : ('a, 'b) t -> ('a, 'b) t
+  val send : ('a, 'b) t -> ('a, 'b) t Lwt.t
 
-  val apply : ('a, 'b) t -> 'a list -> ('a, 'b) t
+  val cons : ('a, 'b) t -> ('a, 'b) msg -> ('b, e) result Lwt.t * ('a, 'b) t
+
+  val snoc : ('a, 'b) t -> ('a, 'b) msg -> ('b, e) result Lwt.t * ('a, 'b) t
 
   val append : ('a, 'b) t -> ('a, 'b) msg list -> ('a, 'b) t
 
+  val apply : ('a, 'b) t -> 'a list -> unit
+
   val is_empty : ('a, 'b) t -> bool
+
+  val invalidate : ('a, 'b) t -> ('a, 'b) t
 
   val _match :
     ('a, 'b) t ->
     resolved:(('a, 'b) t -> 'b -> 'c Lwt.t) ->
-    timeout:(('a, 'b) t -> 'c Lwt.t) ->
+    error:(('a, 'b) t -> e -> 'c Lwt.t) ->
     pending:(('a, 'b) t -> 'c Lwt.t) ->
     not_sent:(('a, 'b) t -> 'c Lwt.t) ->
     'c Lwt.t
