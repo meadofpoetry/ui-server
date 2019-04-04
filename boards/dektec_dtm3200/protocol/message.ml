@@ -41,3 +41,21 @@
    } [@@little_endian]]
 
 [@@@ocaml.warning "+32"]
+
+let stx = 0x02
+let etx = 0x03
+let address = 0x40
+
+type rw = R | W | E
+
+let rw_to_int = function
+  | R -> int_of_char 'R'
+  | W -> int_of_char 'W'
+  | E -> int_of_char 'E'
+
+let rw_of_int x =
+  match char_of_int x with
+  | 'R' | 'r' -> Some R
+  | 'W' | 'w' -> Some W
+  | 'E' | 'e' -> Some E
+  | _ -> None

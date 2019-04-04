@@ -1,11 +1,9 @@
-open Containers
-open Board_types
-open Storage.Options
+open Application_types
+open Board_dektec_dtm3200_types
 open Boards
 open Boards.Board
 open Boards.Pools
 open Board_parser
-open Common
 
 type events =
   { streams : Stream.Raw.t list React.signal
@@ -51,7 +49,7 @@ end
 
 module type Probes = sig
   type t
-  type event_raw = [ `Error of parsed | `Ok of parsed ]
+  type event_raw = [`Error of parsed | `Ok of parsed]
   val handle : push_events -> t -> t
   val ready : t -> bool
   val send : t -> unit Lwt.t
