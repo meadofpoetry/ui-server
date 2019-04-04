@@ -1,4 +1,4 @@
-open Board_dvb_types
+open Board_niitv_dvb_types
 open Application_types
 open Boards.Util
 

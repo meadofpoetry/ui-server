@@ -1,4 +1,4 @@
-open Board_dvb_types.Device
+open Board_niitv_dvb_types.Device
 open Application_types
 
 let ( >>= ) = Lwt.bind

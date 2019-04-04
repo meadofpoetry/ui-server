@@ -1,6 +1,6 @@
 open Application_types
-open Board_dvb_types
-open Board_dvb_protocol
+open Board_niitv_dvb_types
+open Board_niitv_dvb_protocol
 open Boards
 
 module Config = Kv_v.RW(Board_settings)
@@ -57,8 +57,8 @@ let create ({ control; _ } as b : Topology.topo_board)
       method finalize () = Lwt.return ()
     end in
   let (board : Board.t) =
-    { http = Board_dvb_http.handlers b.control api
-    ; ws = Board_dvb_http.ws b.control api
+    { http = Board_niitv_dvb_http.handlers b.control api
+    ; ws = Board_niitv_dvb_http.ws b.control api
     ; templates = []
     ; control = b.control
     ; streams_signal = api.notifs.streams

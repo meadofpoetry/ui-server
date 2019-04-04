@@ -1,5 +1,5 @@
 open Application_types
-open Board_dvb_types
+open Board_niitv_dvb_types
 open Api
 
 module R = Caqti_request

@@ -1,6 +1,6 @@
 open Application_types
 open Netlib.Uri
-open Board_dvb_protocol
+open Board_niitv_dvb_protocol
 
 module Api_http = Api_cohttp.Make(User)(Body)
 

@@ -1,4 +1,4 @@
-open Board_dvb_types
+open Board_niitv_dvb_types
 open Message
 
 let max_uint16 = Unsigned.(UInt16.to_int UInt16.max_int)

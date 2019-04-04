@@ -1,0 +1,8 @@
+(library
+  (name       board_niitv_dvb_types)
+  (libraries  application_types)
+  (preprocess (pps ppx_deriving_yojson
+                   ppx_deriving.show
+                   ppx_deriving.eq
+                   ppx_deriving.ord
+                   ppx_deriving.enum)))
