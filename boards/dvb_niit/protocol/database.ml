@@ -4,23 +4,23 @@ open Api
 
 module R = Caqti_request
 
-module SID = struct
-
-  type t = Stream.ID.t
-  let db_type : string = "UUID"
-  let of_stream_id (id : Stream.ID.t) =
-    Stream.ID.to_string id
-  let to_stream_id (t : string) =
-    Stream.ID.of_string t
-  let to_value_string x =
-    let s = of_stream_id x in
-    Printf.sprintf "'%s'::%s" s db_type
-  let typ =
-    Caqti_type.custom
-      ~encode:(fun x -> Ok (of_stream_id x))
-      ~decode:(fun x -> try Ok (to_stream_id x) with _ -> Error "Bad SID")
-      Caqti_type.string
-end
+(* module SID = struct
+ * 
+ *   type t = Stream.ID.t
+ *   let db_type : string = "UUID"
+ *   let of_stream_id (id : Stream.ID.t) =
+ *     Stream.ID.to_string id
+ *   let to_stream_id (t : string) =
+ *     Stream.ID.of_string t
+ *   let to_value_string x =
+ *     let s = of_stream_id x in
+ *     Printf.sprintf "'%s'::%s" s db_type
+ *   let typ =
+ *     Caqti_type.custom
+ *       ~encode:(fun x -> Ok (of_stream_id x))
+ *       ~decode:(fun x -> try Ok (to_stream_id x) with _ -> Error "Bad SID")
+ *       Caqti_type.string
+ * end *)
 
 module Model = struct
   open Db.Key
@@ -36,7 +36,6 @@ module Model = struct
   let keys_measurements =
     Db.make_keys ~time_key:"date"
       [ "tuner", key ~primary:true "INTEGER"
-      ; "stream", key ~primary:true SID.db_type
       ; "lock", key "BOOL"
       ; "power", key "REAL"
       ; "mer", key "REAL"
@@ -92,28 +91,30 @@ module Measurements = struct
         ~from ~till () =
     let open Printf in
     let table = (Conn.names db).measurements in
-    let streams = is_in "stream" SID.to_value_string streams in
+    (* let streams = is_in "stream" SID.to_value_string streams in *)
     let tuners = is_in "tuner" string_of_int tuners in
     let ord = match order with `Desc -> "DESC" | `Asc -> "ASC" in
     let select =
       R.collect Caqti_type.(tup3 ptime ptime int) typ
-        (sprintf {|SELECT tuner,stream,lock,power,mer,ber,freq,bitrate,date FROM %s
-                  WHERE %s %s date >= $1 AND date <= $2
+        (sprintf {|SELECT tuner,lock,power,mer,ber,freq,bitrate,date FROM %s
+                  WHERE %s date >= $1 AND date <= $2
                   ORDER BY date %s
                   LIMIT $3|}
-           table streams tuners ord) in
+           table (* streams *) tuners ord) in
     Conn.request db Db.Request.(
       list select (from, till, limit)
       >>= fun data ->
-      let rec aux acc = function
-        | [] -> acc
-        | (id, m) :: tl ->
-           let acc =
-             Boards.Util.List.Assoc.update ~eq:(=)
-               (function None -> Some [m] | Some l -> Some (m :: l))
-               id acc in
-           aux acc tl in
-      return (Raw { data = aux [] data
-                  ; has_more = List.length data >= limit
-                  ; order }))
+      try
+        let rec aux acc = function
+          | [] -> acc
+          | (id, m) :: tl ->
+             let acc =
+               Boards.Util.List.Assoc.update ~eq:(=)
+                 (function None -> Some [m] | Some l -> Some (m :: l))
+                 id acc in
+             aux acc tl in
+        return (Ok (Raw { data = aux [] data
+                        ; has_more = List.length data >= limit
+                        ; order }))
+      with Failure e -> return (Error e))
 end

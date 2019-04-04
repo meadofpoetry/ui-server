@@ -43,6 +43,17 @@ let handlers (control : int) (api : Protocol.api) =
               ~query:Query.["id", (module List(Int))]
               (Api_device.get_mode api)
           ]
+      ; make ~prefix:"history"
+          [ node ~doc:"Returns measurement results for the specified time interval"
+              ~meth:`GET
+              ~path:Path.Format.("measurements" @/ empty)
+              ~query:Query.[ "id", (module List(Int))
+                           ; "limit", (module Option(Int))
+                           ; "from", (module Option(Time_uri.Show))
+                           ; "to", (module Option(Time_uri.Show))
+                           ; "duration", (module Option(Time_uri.Show_relative)) ]
+              (Api_history.get_measurements api)
+          ]
       ]
   ]
 
@@ -66,7 +77,7 @@ let ws (control : int) (api : Protocol.api) =
           ]
       ; make ~prefix:"receiver"
           [ node ~doc:"Receiver measures socket"
-              ~path:Path.Format.("measures" @/ empty)
+              ~path:Path.Format.("measurements" @/ empty)
               ~query:Query.["id", (module List(Int))]
               (Api_receiver.Event.get_measures api)
           ; node ~doc:"Receiver parameters socket"
@@ -84,7 +95,7 @@ let ws (control : int) (api : Protocol.api) =
               ~query:Query.["id", (module List(Stream.ID))]
               (Api_stream.Event.get_streams api)
           ; node ~doc:"Stream measures socket"
-              ~path:Path.Format.("measures" @/ empty)
+              ~path:Path.Format.("measurements" @/ empty)
               ~query:Query.["id", (module List(Stream.ID))]
               (Api_stream.Event.get_measures api)
           ; node ~doc:"Stream parameters socket"
