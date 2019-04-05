@@ -121,3 +121,84 @@ let config_default =
       ; rate_mode = On
       }
   }
+
+let mode_to_int = function
+  | ASI2IP -> 0
+  | IP2ASI -> 1
+
+let mode_of_int = function
+  | 0 -> Some ASI2IP
+  | 1 -> Some IP2ASI
+  | _ -> None
+
+let application_to_int = function
+  | Failsafe -> 0
+  | Normal -> 1
+
+let application_of_int = function
+  | 0 -> Some Failsafe
+  | 1 -> Some Normal
+  | _ -> None
+
+let storage_to_int = function
+  | FLASH -> 0
+  | RAM -> 1
+
+let storage_of_int = function
+  | 0 -> Some FLASH
+  | 1 -> Some RAM
+  | _ -> None
+
+let meth_to_int = function
+  | Unicast -> 0
+  | Multicast -> 1
+
+let meth_of_int = function
+  | 0 -> Some Unicast
+  | 1 -> Some Multicast
+  | _ -> None
+
+let rate_mode_to_int = function
+  | On -> 0
+  | Off -> 3
+  | Fixed -> 1
+  | Without_pcr -> 2
+
+let rate_mode_of_int = function
+  | 0 -> Some On
+  | 1 -> Some Fixed
+  | 2 -> Some Without_pcr
+  | 3 -> Some Off
+  | _ -> None
+
+let receiver_status_of_int : int -> receiver_status option = function
+  | 0 -> Some On
+  | 1 -> Some Off
+  | 2 -> Some Fail
+  | _ -> None
+
+let protocol_of_int = function
+  | 0 -> Some UDP
+  | 1 -> Some RTP
+  | _ -> None
+
+let output_of_int = function
+  | 0 -> Some ASI
+  | 1 -> Some SPI
+  | _ -> None
+
+let packet_sz_of_int = function
+  | 0 -> Some TS188
+  | 1 -> Some TS204
+  | _ -> None
+
+let asi_packet_sz_to_int = function
+  | Sz TS188 -> 0
+  | Sz TS204 -> 1
+  | As_is -> 2
+
+let asi_packet_sz_of_int = function
+  | 0 -> Some (Sz TS188)
+  | 1 -> Some (Sz TS204)
+  | 2 -> Some (As_is)
+  | _ -> None

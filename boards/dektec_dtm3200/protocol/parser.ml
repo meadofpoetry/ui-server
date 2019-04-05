@@ -1,88 +1,8 @@
 open Board_dektec_dtm3200_types
+open Request
 open Message
 
 let ( % ) f g x = f (g x)
-
-let mode_to_int = function
-  | ASI2IP -> 0
-  | IP2ASI -> 1
-
-let mode_of_int = function
-  | 0 -> Some ASI2IP
-  | 1 -> Some IP2ASI
-  | _ -> None
-
-let application_to_int = function
-  | Failsafe -> 0
-  | Normal -> 1
-
-let application_of_int = function
-  | 0 -> Some Failsafe
-  | 1 -> Some Normal
-  | _ -> None
-
-let storage_to_int = function
-  | FLASH -> 0
-  | RAM -> 1
-
-let storage_of_int = function
-  | 0 -> Some FLASH
-  | 1 -> Some RAM
-  | _ -> None
-
-let meth_to_int = function
-  | Unicast -> 0
-  | Multicast -> 1
-
-let meth_of_int = function
-  | 0 -> Some Unicast
-  | 1 -> Some Multicast
-  | _ -> None
-
-let rate_mode_to_int = function
-  | On -> 0
-  | Off -> 3
-  | Fixed -> 1
-  | Without_pcr -> 2
-
-let rate_mode_of_int = function
-  | 0 -> Some On
-  | 1 -> Some Fixed
-  | 2 -> Some Without_pcr
-  | 3 -> Some Off
-  | _ -> None
-
-let receiver_status_of_int : int -> receiver_status option = function
-  | 0 -> Some On
-  | 1 -> Some Off
-  | 2 -> Some Fail
-  | _ -> None
-
-let protocol_of_int = function
-  | 0 -> Some UDP
-  | 1 -> Some RTP
-  | _ -> None
-
-let output_of_int = function
-  | 0 -> Some ASI
-  | 1 -> Some SPI
-  | _ -> None
-
-let packet_sz_of_int = function
-  | 0 -> Some TS188
-  | 1 -> Some TS204
-  | _ -> None
-
-let asi_packet_sz_to_int = function
-  | Sz TS188 -> 0
-  | Sz TS204 -> 1
-  | As_is -> 2
-
-let asi_packet_sz_of_int = function
-  | 0 -> Some (Sz TS188)
-  | 1 -> Some (Sz TS204)
-  | 2 -> Some (As_is)
-  | _ -> None
 
 let cat_set_to_data_length = function
   (* Device *)
@@ -117,16 +37,38 @@ let cat_set_to_data_length = function
      | _ -> sizeof_setting32
      end
   | _ -> assert false
-
-(* ------------------- Misc ------------------- *)
+type err =
+  | Bad_stx of int
+  | Bad_etx of int
+  | Bad_length of int
+  | Bad_address of int
+  | Bad_category of int
+  | Bad_setting of int * int
+  | Bad_rw of int
+  | Bad_crc of int * int
+  | Insufficient_payload of Cstruct.t
+  | Unknown of string
 
 type parsed =
   { category : int
   ; setting : int
-  ; rw : rw
+  ; rw : access
   ; body : Cstruct.t
   ; rest : Cstruct.t
   }
+
+type err =
+  | Bad_stx of int
+  | Bad_etx of int
+  | Bad_length of int
+  | Bad_address of int
+  | Bad_category of int
+  | Bad_setting of int * int
+  | Bad_rw of int
+  | Bad_crc of int * int
+  | Bad_value of Cstruct.t
+  | Insufficient_payload of Cstruct.t
+  | Unknown of string
 
 module type Getter = sig
   type t
@@ -197,23 +139,9 @@ end = struct
 
 end
 
-module Make(Logs:Logs.LOG) = struct
-
-  let sprintf = Printf.sprintf
-
-  type err =
-    | Bad_stx              of int
-    | Bad_etx              of int
-    | Bad_length           of int
-    | Bad_address          of int
-    | Bad_category         of int
-    | Bad_setting          of int * int
-    | Bad_rw               of int
-    | Bad_crc              of int * int
-    | Insufficient_payload of Cstruct.t
-    | Unknown              of string
-
-  let err_to_string = function
+let err_to_string error =
+  Printf.(
+    match error with
     | Bad_stx x -> sprintf "incorrect STX: %d" x
     | Bad_etx x -> sprintf "incorrect ETX: %d" x
     | Bad_length x -> sprintf "incorrect length: %d" x
@@ -222,100 +150,107 @@ module Make(Logs:Logs.LOG) = struct
     | Bad_setting (x, y) -> sprintf "incorrect setting: %d, in category %d" y x
     | Bad_rw x -> sprintf "incorrect rw: %d" x
     | Bad_crc (x, y) -> sprintf "incorrect crc, expected %d, got %d" x y
+    | Bad_value x -> sprintf "incorrect value: %s" (Cstruct.to_string x)
     | Insufficient_payload _ -> "insufficient payload"
-    | Unknown s -> s
+    | Unknown s -> s)
 
-  let check_stx buf =
-    let stx' = get_prefix_stx buf in
-    if stx <> stx' then Error (Bad_stx stx') else Ok buf
+let check_stx buf =
+  try match get_prefix_stx buf with
+      | x when x = stx -> Ok buf
+      | x -> Error (Bad_stx x)
+  with Invalid_argument _ -> Error (Insufficient_payload buf)
 
-  let check_address buf =
-    let address' = get_prefix_address buf |> Parse.Int.get_exn in
-    if address' <> address then Error (Bad_address address') else Ok buf
+let check_address ~address buf =
+  try
+    let addr = get_prefix_address buf in
+    match Parse.Int.get addr with
+    | Some x when x = address -> Ok buf
+    | Some x -> Error (Bad_address x)
+    | None -> Error (Bad_value addr)
+  with Invalid_argument _ -> Error (Insufficient_payload buf)
 
-  let check_category buf =
-    let category' = get_prefix_category buf |> Parse.Int.get_exn in
-    match category' with
-    | 0x01 | 0x02 | 0x03 | 0x81 | 0x84 -> Ok (category', buf)
-    | _ -> Error (Bad_category category')
+let check_category buf =
+  try
+    let cat = get_prefix_category buf in
+    match Parse.Int.get cat with
+    | Some x when List.mem x valid_categories -> Ok (x, buf)
+    | Some x -> Error (Bad_category x)
+    | None -> Error (Bad_value cat)
+  with Invalid_argument _ -> Error (Insufficient_payload buf)
 
-  let check_setting (cat,buf) =
-    let setting' = get_prefix_setting buf |> Parse.Int.get_exn in
-    match cat,setting' with
-    | 0x01, x when x > 0 && x <= 0x05 -> Ok (cat, setting', buf)
-    | 0x02, x when x > 0 && x <= 0x03 -> Ok (cat, setting', buf)
-    | 0x03, x when x > 0 && x <= 0x06 -> Ok (cat, setting', buf)
-    | 0x81, x when x > 0 && x <= 0x19 -> Ok (cat, setting', buf)
-    | 0x84, x when x > 0 && x <= 0x03 -> Ok (cat, setting', buf)
-    | _ -> Error (Bad_setting (cat,setting'))
+let check_setting (cat, buf) =
+  try
+    let set = get_prefix_setting buf in
+    match Parse.Int.get set with
+    | None -> Error (Bad_value set)
+    | Some x ->
+       if is_message_valid (cat, x)
+       then Ok (cat, x, buf)
+       else Error (Bad_setting (cat, x))
+  with Invalid_argument _ -> Error (Insufficient_payload buf)
 
-  let check_rw (cat, set, buf) =
-    let rw' = get_prefix_rw buf in
-    match rw_of_int rw' with
+let check_rw (cat, set, buf) =
+  try
+    let rw = get_prefix_rw buf in
+    match access_of_int rw with
     | Some x -> Ok (cat, set, x, buf)
-    | None   -> Error (Bad_rw rw')
+    | None -> Error (Bad_rw rw)
+  with Invalid_argument _ -> Error (Insufficient_payload buf)
 
-  let check_rest (cat, set, rw, buf) =
-    let length = match rw with
-      | Fail -> 0
-      | _ -> cat_set_to_data_length (cat, set) in
-    let pfx_len  =
-      if (cat >= 1 && cat <= 3)
-      then sizeof_prefix
-      else sizeof_prefix + sizeof_setting16  in
-    if Cstruct.len buf < (pfx_len + length + sizeof_suffix)
-    then Error (Insufficient_payload buf)
-    else (
-      let pfx, msg' = Cstruct.split buf pfx_len in
-      let body, rst' = Cstruct.split msg' length in
-      let sfx, rest = Cstruct.split rst' sizeof_suffix in
-      let crc' = get_suffix_crc sfx |> Parse.Int.get_exn in
-      let etx' = get_suffix_etx sfx in
-      let crc  = Request.calc_crc (Cstruct.append pfx body) in
-      if      crc' <> crc then Error (Bad_crc (crc, crc'))
-      else if etx' <> etx then Error (Bad_etx etx')
-      else Ok { category = cat; setting = set; rw; body; rest })
+let check_rest (cat, set, rw, buf) =
+  let length = match rw with
+    | E -> 0
+    | _ -> cat_set_to_data_length (cat, set) in
+  let pfx_len =
+    if List.mem cat [Device.category; Configuration.category; Network.category]
+    then sizeof_prefix
+    else sizeof_prefix + sizeof_setting16 in
+  if Cstruct.len buf < (pfx_len + length + sizeof_suffix)
+  then Error (Insufficient_payload buf)
+  else (
+    let pfx, msg' = Cstruct.split buf pfx_len in
+    let bdy, rst' = Cstruct.split msg' length in
+    let sfx, rest = Cstruct.split rst' sizeof_suffix in
+    (* No need to catch exception here because we've already checked length. *)
+    let crc' = Parse.Int.get_exn @@ get_suffix_crc sfx in
+    let etx' = get_suffix_etx sfx in
+    let crc = Serializer.calc_crc ~pfx ~bdy in
+    if crc' <> crc then Error (Bad_crc (crc, crc'))
+    else if etx' <> etx then Error (Bad_etx etx')
+    else Ok { category = cat; setting = set; rw; body = bdy; rest })
 
-  let get_msg buf =
-    try
-      Result.(
-      check_stx buf
-      >>= check_address
-      >>= check_category
-      >>= check_setting
-      >>= check_rw
-      >>= check_rest)
-    with
-    | Invalid_argument _ -> Error (Insufficient_payload buf)
-    | e -> Error (Unknown (Printexc.to_string e))
+let get_msg ~address buf =
+  let ( >>= ) r f = match r with Error e -> Error e | Ok x -> f x in
+  check_stx buf
+  >>= check_address ~address
+  >>= check_category
+  >>= check_setting
+  >>= check_rw
+  >>= check_rest
 
-  let deserialize buf =
-    let parse x = match x.rw with
-      | Read | Write -> `Ok x
-      | Fail ->
-         Logs.warn (fun m -> m "got error in respose: cat = %d, set = %d"
-                               x.category x.setting);
-         `Error x in
-    let rec f responses b =
-      if Cstruct.len b > (sizeof_prefix + sizeof_suffix)
-      then
-        match get_msg b with
-        | Ok x -> f ((parse x) :: responses) x.rest
-        | Error e ->
-           begin match e with
-           | Insufficient_payload x -> List.rev responses, x
-           | e -> Logs.warn (fun m -> m "parser error: %s" @@ err_to_string e);
-                  f responses (Cstruct.shift b 1)
-           end
-      else List.rev responses, b in
-    let r, res = f [] buf
-    in
-    List.rev r, if Cstruct.len res > 0 then Some res else None
+let deserialize ~address src buf =
+  let parse x = match x.rw with
+    | R | W -> `Ok x
+    | E ->
+       Logs.warn ~src (fun m ->
+           m "got error in respose: cat = %d, set = %d" x.category x.setting);
+       `Error x in
+  let rec f responses b =
+    if Cstruct.len b > (sizeof_prefix + sizeof_suffix)
+    then
+      match get_msg ~address b with
+      | Ok x -> f ((parse x) :: responses) x.rest
+      | Error e ->
+         begin match e with
+         | Insufficient_payload x -> List.rev responses, x
+         | e -> Logs.warn (fun m -> m "parser error: %s" @@ err_to_string e);
+                f responses (Cstruct.shift b 1)
+         end
+    else List.rev responses, b in
+  let r, res = f [] buf in
+  List.rev r, if Cstruct.len res > 0 then Some res else None
 
-end
-
-let is_response (type a) (req : a request) m : a option =
-  let open Parse in
+let is_response (type a) (req : a Request.t) m : a option =
   let c, s = request_to_cat_set req in
   match m with
   | `Ok { category; setting; body = b; _ }
@@ -361,17 +296,17 @@ let is_response (type a) (req : a request) m : a option =
      | Ip x ->
         let open Option.Infix in
         begin match x with
-        | Get_enable          -> Bool.get b
-        | Get_fec_enable      -> Bool.get b
-        | Get_pcr_present     -> Bool.get b  >|= (fun x -> Pcr_present x)
-        | Get_method          -> Int.get b   >>= meth_of_int
-        | Get_fec_delay       -> Int.get b   >|= (fun x -> Fec_delay x)
-        | Get_fec_cols        -> Int.get b   >|= (fun x -> Fec_cols x)
-        | Get_fec_rows        -> Int.get b   >|= (fun x -> Fec_rows x)
-        | Get_jitter_tol      -> Int.get b   >|= (fun x -> Jitter_tol x)
-        | Get_udp_port        -> Int.get b
-        | Get_delay           -> Int.get b
-        | Get_tp_per_ip       -> Int.get b   >|= (fun x -> Tp_per_ip x)
+        | Get_enable -> Bool.get b
+        | Get_fec_enable -> Bool.get b
+        | Get_pcr_present -> Bool.get b >|= (fun x -> Pcr_present x)
+        | Get_method -> Int.get b >>= meth_of_int
+        | Get_fec_delay -> Int.get b >|= (fun x -> Fec_delay x)
+        | Get_fec_cols -> Int.get b >|= (fun x -> Fec_cols x)
+        | Get_fec_rows -> Int.get b >|= (fun x -> Fec_rows x)
+        | Get_jitter_tol -> Int.get b >|= (fun x -> Jitter_tol x)
+        | Get_udp_port -> Int.get b
+        | Get_delay -> Int.get b
+        | Get_tp_per_ip -> Int.get b   >|= (fun x -> Tp_per_ip x)
         | Get_status          -> Int.get b   >>= status_of_int    >|= (fun x -> Status x)
         | Get_protocol        -> Int.get b   >>= protocol_of_int  >|= (fun x -> Protocol x)
         | Get_output          -> Int.get b   >>= output_of_int

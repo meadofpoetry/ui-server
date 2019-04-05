@@ -3,4 +3,7 @@
   (libraries boards
              board_dektec_dtm3200_types
              ptime.clock.os)
-  (preprocess (pps ppx_cstruct ppx_deriving_yojson ppx_deriving.show)))
+  (preprocess (pps ppx_cstruct
+                   ppx_deriving_yojson
+                   ppx_deriving.show
+                   ppx_deriving.enum)))
