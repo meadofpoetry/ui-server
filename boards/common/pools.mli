@@ -1,41 +1,40 @@
-type 'a rsp = [`V of 'a | `Tm]
-type 'a resolver = [`Tm | `Msgs of 'a list] -> unit
-type ('a, 'b) msg = unit -> ('b rsp Lwt.t * 'a resolver)
+type ('a, 'b) msg
+
+val make_msg :
+  send:(unit -> unit Lwt.t) ->
+  timeout:(unit -> unit Lwt.t) ->
+  resolve:('a -> 'b option) ->
+  unit -> ('a, 'b) msg
 
 module Pool : sig
+  type e = [ `Timeout ]
+
   type ('a, 'b) t
 
   val create : ('a, 'b) msg list -> ('a, 'b) t
 
-  val send : ('a, 'b) t -> ('a, 'b) t
+  val apply : ('a, 'b) t -> 'a list -> unit
 
-  val apply : ('a, 'b) t -> 'a list -> ('a, 'b) t
+  val append : ('a, 'b) t -> ('a, 'b) msg list -> ('a, 'b) t
 
   val is_empty : ('a, 'b) t -> bool
 
   val is_last : ('a, 'b) t -> bool
 
+  val send : ('a, 'b) t -> ('a, 'b) t Lwt.t
+
   val _match :
     ('a, 'b) t ->
     resolved:(('a, 'b) t -> 'b -> 'c Lwt.t) ->
-    timeout:(('a, 'b) t -> 'c Lwt.t) ->
+    error:(('a, 'b) t -> e -> 'c Lwt.t) ->
     pending:(('a, 'b) t -> 'c Lwt.t) ->
-    not_sent:(('a, 'b) t -> 'c Lwt.t) ->
-    'c Lwt.t
+    not_sent:(('a, 'b) t -> 'c Lwt.t) -> 'c Lwt.t
 end
 
 module Queue : sig
   type e = [`Timeout | `Interrupted]
 
-  type ('a, 'b) msg
-
   type ('a, 'b) t
-
-  val make_msg :
-    send:(unit -> unit Lwt.t) ->
-    timeout:(unit -> unit Lwt.t) ->
-    resolve:('a -> 'b option) ->
-    unit -> ('a, 'b) msg
 
   val create : ('a, 'b) msg list -> ('a, 'b) t
 
@@ -60,18 +59,4 @@ module Queue : sig
     pending:(('a, 'b) t -> 'c Lwt.t) ->
     not_sent:(('a, 'b) t -> 'c Lwt.t) ->
     'c Lwt.t
-end
-
-module Await_queue : sig
-  type ('a, 'b) t
-
-  val is_empty : ('a, 'b) t -> bool
-
-  val has_pending : ('a, 'b) t -> bool
-
-  val create : ('a, 'b) msg list -> ('a, 'b) t
-
-  val apply : ('a, 'b) t -> 'a list -> ('a, 'b) t
-
-  val send : ('a, 'b) t -> ('a, 'b) t
 end

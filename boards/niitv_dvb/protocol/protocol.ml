@@ -3,7 +3,6 @@ open Boards
 open Boards.Util
 open Application_types
 open Util_react
-open Parser
 
 let ( >>= ) = Lwt.bind
 
@@ -36,39 +35,30 @@ let error_to_string = function
 
 let timeout = 3. (* seconds *)
 
-let make_req (timeout : float) send pred req =
-  let pred w = function
-    | `Tm -> ()
-    | `Msgs msgs ->
-       match Util.List.find_map (pred req) msgs with
-       | None -> ()
-       | Some x -> Lwt.wakeup w (`V x) in
-  let send () =
-    let t, w = Lwt.wait () in
-    Lwt.catch (fun () ->
-        send req
-        >>= fun () -> Lwt_unix.with_timeout timeout (fun () -> t))
-      (function
-       | Lwt_unix.Timeout -> Lwt.return `Tm
-       | exn -> Lwt.fail exn),
-    pred w in
-  send
-
 let rec merge_assoc ~eq ~acc = function
   | [] -> acc
   | (id, x) :: tl ->
      let acc = List.Assoc.set ~eq id x acc in
      merge_assoc ~eq ~acc tl
 
-let detect_msgs (send : 'a request -> unit Lwt.t) =
-  [make_req timeout send is_response Get_devinfo]
+let detect_msgs (send : 'a Parser.request -> unit Lwt.t) =
+  let req = Parser.Get_devinfo in
+  [ Pools.make_msg ~send:(fun () -> send req)
+      ~timeout:(fun () -> Lwt_unix.sleep timeout)
+      ~resolve:(Parser.is_response req)
+      ()
+  ]
 
-let init_msgs (send : 'a request -> unit Lwt.t)
+let init_msgs (send : 'a Parser.request -> unit Lwt.t)
       (config : Device.config)
       (receivers : int list) =
   let config = List.filter (fun (id, _) -> List.mem ~eq:(=) id receivers) config in
-  List.map (make_req timeout send is_response)
-  @@ List.map (fun x -> Set_mode x) config
+  List.map (fun req ->
+      Pools.make_msg ~send:(fun () -> send req)
+        ~timeout:(fun () -> Lwt_unix.sleep timeout)
+        ~resolve:(Parser.is_response req)
+        ())
+  @@ List.map (fun x -> Parser.Set_mode x) config
 
 let update_config (id : int)
       (mode : Device.mode)
@@ -77,7 +67,7 @@ let update_config (id : int)
 
 let send_msg (type a) (src : Logs.src)
       (sender : Cstruct.t -> unit Lwt.t)
-      (msg : a request) : unit Lwt.t =
+      (msg : a Parser.request) : unit Lwt.t =
   (match msg with
    | Get_devinfo ->
       Logs.debug ~src (fun m -> m "requesting devinfo");
@@ -95,7 +85,7 @@ let send_msg (type a) (src : Logs.src)
 
 let send_event (type a) (src : Logs.src)
       (sender : Cstruct.t -> unit Lwt.t)
-      (msg : a event_request) : unit Lwt.t =
+      (msg : a Parser.event_request) : unit Lwt.t =
   (match msg with
    | Get_measure id ->
       Logs.debug ~src (fun m -> m "requesting measures (%d)" id);
@@ -114,18 +104,18 @@ let send (type a) (src : Logs.src)
       (state : Topology.state React.signal)
       (sender : Cstruct.t -> unit Lwt.t)
       (timeout : float)
-      (req : a request) =
+      (req : a Parser.request) =
   match React.S.value state with
   | `Init | `No_response -> Lwt.return_error Not_responding
   | `Fine ->
      (* FIXME looks ugly, do some refactoring later on. *)
      let t, w = Lwt.wait () in
      let msg =
-       Pools.Queue.make_msg
+       Pools.make_msg
          ~send:(fun () -> send_msg src sender req)
          ~timeout:(fun () -> Lwt_unix.sleep timeout)
          ~resolve:(fun msg ->
-           match is_response req msg with
+           match Parser.is_response req msg with
            | None -> None
            | Some x -> Lwt.wakeup_later w (Ok x); Some ())
          () in
@@ -145,36 +135,47 @@ let step (src : Logs.src)
 
   let deserialize acc recvd =
     let recvd = Board.concat_acc acc recvd in
-    deserialize src recvd in
+    Parser.deserialize src recvd in
 
   let rec first_step () =
     Logs.info ~src (fun m -> m "start of connection establishment...");
     msgs := Pools.Queue.invalidate !msgs;
     pe.state `No_response;
     let pool = Pools.Pool.create @@ detect_msgs (send_msg src sender) in
-    Lwt.return @@ `Continue (step_detect (Pools.Pool.send pool) None)
+    Pools.Pool.send pool
+    >>= fun pool ->
+    Lwt.return @@ `Continue (step_detect pool None)
 
   and step_detect pool acc recvd =
     let _, responses, acc = deserialize acc recvd in
-    Pools.Pool._match (Pools.Pool.apply pool responses)
+    Pools.Pool.apply pool responses;
+    Pools.Pool._match pool
       ~pending:(fun pool -> Lwt.return @@ `Continue (step_detect pool acc))
       ~resolved:(fun _ devinfo ->
         Logs.info ~src (fun m ->
             m "connection established, board initialization started...");
-        let req = Set_src_id source_id in
-        let msg = make_req timeout (send_msg src sender) is_response req in
-        let pool = Pools.Pool.send @@ Pools.Pool.create [msg] in
+        let req = Parser.Set_src_id source_id in
+        let msg =
+          Pools.make_msg
+            ~send:(fun () -> send_msg src sender req)
+            ~timeout:(fun () -> Lwt_unix.sleep timeout)
+            ~resolve:(Parser.is_response req)
+            () in
+        Pools.Pool.(send (create [msg]))
+        >>= fun pool ->
         Lwt.return @@ `Continue (step_init_src_id devinfo pool None))
-      ~timeout:(fun _ ->
-        Logs.warn ~src (fun m ->
-            m "connection is not established after %g seconds, \
-               restarting..." timeout);
-        first_step ())
+      ~error:(fun _ ->
+        function `Timeout ->
+          Logs.warn ~src (fun m ->
+              m "connection is not established after %g seconds, \
+                 restarting..." timeout);
+          first_step ())
       ~not_sent:(fun _ -> assert false)
 
   and step_init_src_id devinfo pool acc recvd =
     let _, responses, acc = deserialize acc recvd in
-    Pools.Pool._match (Pools.Pool.apply pool responses)
+    Pools.Pool.apply pool responses;
+    Pools.Pool._match pool
       ~pending:(fun pool -> Lwt.return @@ `Continue (step_init_src_id devinfo pool acc))
       ~resolved:(fun _ -> function
         | id when id = source_id ->
@@ -185,10 +186,11 @@ let step (src : Logs.src)
                m "failed setting up source id! board returned id = %d, \
                   but expected %d" id source_id);
            first_step ())
-      ~timeout:(fun _ ->
-        Logs.warn ~src (fun m ->
-            m "timeout while initializing source id, restarting...");
-        first_step ())
+      ~error:(fun _ ->
+        function `Timeout ->
+          Logs.warn ~src (fun m ->
+              m "timeout while initializing source id, restarting...");
+          first_step ())
       ~not_sent:(fun _ -> assert false)
 
   and step_start_init (devinfo : Device.info) =
@@ -205,12 +207,14 @@ let step (src : Logs.src)
     | l ->
        Logs.debug ~src (fun m ->
            m "found %d receivers to be initialized..."  @@ List.length l);
-       let pool = Pools.Pool.(send @@ create l) in
+       Pools.Pool.(send @@ create l)
+       >>= fun pool ->
        Lwt.return @@ `Continue (step_init devinfo probes pool None)
 
   and step_init devinfo probes pool acc recvd =
     let _, responses, acc = deserialize acc recvd in
-    Pools.Pool._match (Pools.Pool.apply pool responses)
+    Pools.Pool.apply pool responses;
+    Pools.Pool._match pool
       ~pending:(fun pool -> Lwt.return @@ `Continue (step_init devinfo probes pool acc))
       ~resolved:(fun pool (id, mode) ->
         Logs.debug ~src (fun m ->
@@ -222,11 +226,14 @@ let step (src : Logs.src)
           pe.state `Fine;
           Lwt.return @@ `Continue (step_ok_tee probes acc))
         else (
-          Lwt.return @@ `Continue (step_init devinfo probes (Pools.Pool.send pool) acc)))
-      ~timeout:(fun _ ->
-        Logs.warn ~src (fun m ->
-            m "timeout while initializing receivers, restarting...");
-        first_step ())
+          Pools.Pool.send pool
+          >>= fun pool ->
+          Lwt.return @@ `Continue (step_init devinfo probes pool acc)))
+      ~error:(fun _ ->
+        function `Timeout ->
+          Logs.warn ~src (fun m ->
+              m "timeout while initializing receivers, restarting...");
+          first_step ())
       ~not_sent:(fun _ -> assert false)
 
   and step_ok_tee (probes : Probes.t) (acc : Cstruct.t option) recvd =
@@ -240,26 +247,30 @@ let step (src : Logs.src)
     | false -> step_ok_requests_send probes acc recvd
 
   and step_ok_probes_send probes acc _ =
-    Lwt.return
-    @@ if Probes.is_empty probes
-       then `Continue (step_ok_tee probes acc)
-       else `Continue (step_ok_probes_wait (Probes.send probes) acc)
+    if Probes.is_empty probes
+    then Lwt.return @@ `Continue (step_ok_tee probes acc)
+    else
+      Probes.send probes
+      >>= fun probes ->
+      Lwt.return @@ `Continue (step_ok_probes_wait probes acc)
 
   and step_ok_probes_wait probes acc recvd =
     let events, _, acc = deserialize acc recvd in
-    Probes._match (Probes.apply probes events)
+    Probes.apply probes events;
+    Probes._match probes
       ~pending:(fun probes ->
         Lwt.return @@ `Continue (step_ok_probes_wait probes acc))
       ~resolved:(fun probes ev ->
-        Logs.debug ~src (fun m -> m "got probe response: %s" @@ show_event ev);
+        Logs.debug ~src (fun m -> m "got probe response: %s" @@ Parser.show_event ev);
         Lwt.return
         @@ if Probes.is_last probes
            then `Continue (step_ok_tee (Probes.handle_events pe probes) acc)
            else `Continue (step_ok_probes_send probes acc))
-      ~timeout:(fun _ ->
-        Logs.warn ~src (fun m ->
-            m "timeout while waiting for probe response, restarting...");
-        first_step ())
+      ~error:(fun _ ->
+        function `Timeout ->
+          Logs.warn ~src (fun m ->
+              m "timeout while waiting for probe response, restarting...");
+          first_step ())
       ~not_sent:(fun probes ->
         Lwt.return @@ `Continue (step_ok_tee probes acc))
 

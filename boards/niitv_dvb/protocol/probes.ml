@@ -89,25 +89,6 @@ let (empty_acc : acc) =
   ; plps = []
   }
 
-let make_req timeout send req =
-  let ( >>= ) = Lwt.bind in
-  let pred w : 'a Pools.resolver = function
-    | `Tm -> ()
-    | `Msgs msgs ->
-       match Util.List.find_map (Parser.is_event req) msgs with
-       | None -> ()
-       | Some x -> Lwt.wakeup w (`V x) in
-  let send () =
-    let t, w = Lwt.wait () in
-    Lwt.catch (fun () ->
-        send req
-        >>= fun () -> Lwt_unix.with_timeout timeout (fun () -> t))
-      (function
-       | Lwt_unix.Timeout -> Lwt.return `Tm
-       | exn -> Lwt.fail exn),
-    pred w in
-  send
-
 let cons_event (t : t) (event : Parser.event) : t =
   let stamp : 'a. 'a -> 'a ts = fun data ->
     { timestamp = Ptime_clock.now (); data } in
@@ -187,6 +168,13 @@ let handle_events (pe : push_events) (t : t) : t =
   |> handle_plps pe
   |> fun t -> { t with acc = empty_acc }
 
+let make_req timeout send req =
+  Pools.make_msg
+    ~send:(fun () -> send req)
+    ~timeout:(fun () -> Lwt_unix.timeout timeout)
+    ~resolve:(Parser.is_event req)
+    ()
+
 let make_pool (timeout : float)
       (send : Parser.event Parser.event_request -> unit Lwt.t)
       (standards : (int * Device.standard) list)
@@ -198,13 +186,16 @@ let make_pool (timeout : float)
          let is_t2 = Device.equal_standard standard T2 in
          let meas =
            if States.is_ready tmr.measures
-           then Some (make_req timeout send (Parser.Get_measure id)) else None in
+           then Some (make_req timeout send (Parser.Get_measure id))
+           else None in
          let params =
            if is_t2 && States.is_ready tmr.params
-           then Some (make_req timeout send (Parser.Get_params id)) else None in
+           then Some (make_req timeout send (Parser.Get_params id))
+           else None in
          let plps =
            if is_t2 && States.is_ready tmr.plp_list
-           then Some (make_req timeout send (Parser.Get_plp_list id)) else None in
+           then Some (make_req timeout send (Parser.Get_plp_list id))
+           else None in
          meas ^:: params ^:: plps ^:: acc) [] states
   |> Pools.Pool.create
 
@@ -216,7 +207,10 @@ let update config t =
 
 let is_last t = Pools.Pool.is_last t.pool
 
-let send t = { t with pool = Pools.Pool.send t.pool }
+let send t =
+  Lwt.Infix.(
+    Pools.Pool.send t.pool
+    >>= fun pool -> Lwt.return { t with pool })
 
 let make (timeout : float)
       (send : Parser.event Parser.event_request -> unit Lwt.t)
@@ -227,11 +221,11 @@ let make (timeout : float)
   { states; pool; acc = empty_acc; timeout; send }
 
 let apply (t : t) m =
-  { t with pool = Pools.Pool.apply t.pool m }
+  Pools.Pool.apply t.pool m
 
-let _match (t : t) ~resolved ~timeout ~pending ~not_sent =
+let _match (t : t) ~resolved ~error ~pending ~not_sent =
   Pools.Pool._match t.pool
     ~resolved:(fun pool x -> resolved (cons_event { t with pool } x) x)
     ~pending:(fun pool -> pending { t with pool })
-    ~timeout:(fun pool -> timeout { t with pool })
+    ~error:(fun pool e -> error { t with pool } e)
     ~not_sent:(fun pool -> not_sent { t with pool })

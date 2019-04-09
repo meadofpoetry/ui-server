@@ -19,9 +19,9 @@ type event_raw =
 
 val handle_events : push_events -> t -> t
 
-val send : t -> t
+val send : t -> t Lwt.t
 
-val apply : t -> event_raw list -> t
+val apply : t -> event_raw list -> unit
 
 val update : (int * Device.standard) list -> t -> t
 
@@ -38,7 +38,7 @@ val make : float ->
 val _match :
   t ->
   resolved:(t -> Parser.event -> 'a Lwt.t) ->
-  timeout:(t -> 'a Lwt.t) ->
+  error:(t -> Boards.Pools.Pool.e -> 'a Lwt.t) ->
   pending:(t -> 'a Lwt.t) ->
   not_sent:(t -> 'a Lwt.t) ->
   'a Lwt.t
