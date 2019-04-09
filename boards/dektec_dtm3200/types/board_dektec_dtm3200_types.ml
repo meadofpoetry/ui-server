@@ -110,10 +110,10 @@ let config_default =
       { ip = Ipaddr.V4.of_string_exn "192.168.0.1"
       ; mask = Ipaddr.V4.of_string_exn "255.255.255.0"
       ; gateway = Ipaddr.V4.of_string_exn "192.168.0.1"
-      ; dhcp = false
+      ; dhcp = true
       }
   ; ip =
-      { enable = true
+      { enable = false
       ; fec = true
       ; port = 1234
       ; multicast = Some (Ipaddr.V4.of_string_exn "224.1.2.2")
