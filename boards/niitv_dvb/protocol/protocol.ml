@@ -154,6 +154,8 @@ let step (src : Logs.src)
       ~resolved:(fun _ devinfo ->
         Logs.info ~src (fun m ->
             m "connection established, board initialization started...");
+        pe.state `Init;
+        pe.devinfo (Some devinfo);
         let req = Parser.Set_src_id source_id in
         let msg =
           Pools.make_msg
