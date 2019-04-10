@@ -1,3 +1,5 @@
+open Netlib
+
 module type Getter = sig
   type t
   val get : Cstruct.t -> t option

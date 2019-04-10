@@ -76,7 +76,8 @@ module Pool = struct
          | Lwt.Fail e -> Lwt.fail e
          | Lwt.Return _ -> Lwt.return () in
        let pending = Some { m with timer } in
-       Lwt.return { t with pending; current = succ t.current }
+       Lwt.return { t with pending
+                         ; current = (succ t.current) mod (Array.length msgs) }
 
   let _match (t : ('a, 'b) t) ~resolved ~error ~pending ~not_sent =
     match t.pending with
