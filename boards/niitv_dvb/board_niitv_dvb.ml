@@ -45,13 +45,12 @@ let create ({ control; _ } as b : Topology.topo_board)
                          Stream.t list React.signal)
       (send : Cstruct.t -> unit Lwt.t)
       (db : Db.t)
-      (kv : Kv.RW.t)
-      (step : float) : (Board.t, [> Board.error]) Lwt_result.t =
+      (kv : Kv.RW.t) : (Board.t, [> Board.error]) Lwt_result.t =
   Config.create ~default:Board_settings.default kv ["board"; (string_of_int b.control)]
   >>= fun (cfg : Device.config Kv_v.rw) -> Lwt.return (create_logger b)
   >>= fun (src : Logs.src) -> Lwt.return (parse_source_id b)
   >>= fun (source_id : int) ->
-  Protocol.create src send (convert_streams b) source_id cfg step control db
+  Protocol.create src send (convert_streams b) source_id cfg control db
   >>= fun (api : Protocol.api) ->
   let state = object
       method finalize () = Lwt.return ()

@@ -359,7 +359,6 @@ let create (src : Logs.src)
       streams_conv
       (source_id : int)
       (kv : Device.config Kv_v.rw)
-      (step_duration : float)
       (control : int)
       (db : Db.t) =
   let open Util_react in

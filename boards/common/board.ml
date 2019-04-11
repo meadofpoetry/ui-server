@@ -73,8 +73,7 @@ module type BOARD = sig
      Stream.t list signal) ->
     (Cstruct.t -> unit Lwt.t) ->
     Db.t ->
-    Kv.RW.t ->
-    float -> (t, [> error]) Lwt_result.t
+    Kv.RW.t -> (t, [> error]) Lwt_result.t
 end
 
 let log_name (b : Topology.topo_board) =

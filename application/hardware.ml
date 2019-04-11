@@ -64,7 +64,7 @@ type t =
   ; uri_storage : Uri_storage.t
   }
 
-let create_board db usb (b : Topology.topo_board) boards kv step_duration =
+let create_board db usb (b : Topology.topo_board) boards kv =
   let (module B : Board.BOARD) =
     match b.typ, b.model, b.manufacturer, b.version with (* TODO add boards *)
     | "DVB", "rf", "niitv", 1 -> (module Board_niitv_dvb : Board.BOARD)
@@ -76,7 +76,7 @@ let create_board db usb (b : Topology.topo_board) boards kv step_duration =
     (Board.get_streams boards b)
     (Board.merge_streams boards)
     (Usb_device.get_send usb b.control)
-    db kv step_duration
+    db kv
 
 (* TODO do some refactoring later on *)
 let topo_to_signal topo (boards : Board.t Board.Ports.t) : Topology.t React.signal =
