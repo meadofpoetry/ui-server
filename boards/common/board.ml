@@ -55,7 +55,7 @@ type t =
   ; control : int
   ; streams_signal : Stream.t list React.signal
   ; log_source : Stream.Log_message.source
-  ; step : (Cstruct.t list -> 'c cc Lwt.t as 'c) cc
+  ; step : (Cstruct.t option -> 'c cc Lwt.t as 'c) cc
   ; connection : Topology.state React.signal
   ; ports_active : bool React.signal Ports.t
   ; ports_sync : bool React.signal Ports.t
@@ -77,11 +77,12 @@ module type BOARD = sig
 end
 
 let log_name (b : Topology.topo_board) =
-  Printf.sprintf "board.%s_%s.%d" b.manufacturer b.model b.control
+  Printf.sprintf "%s %s (%d)" b.manufacturer b.model b.control
 
-let concat_acc acc recvd = match acc with
-  | Some acc -> Cstruct.append acc (Cstruct.concat (List.rev recvd))
-  | None -> Cstruct.concat (List.rev recvd)
+let concat_acc acc recvd = match acc, recvd with
+  | Some acc, Some recvd -> Some (Cstruct.append acc recvd)
+  | Some x, None | None, Some x -> Some x
+  | None, None -> None
 
 let apply = function `Continue step -> step
 

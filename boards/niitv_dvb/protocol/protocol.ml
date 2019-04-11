@@ -22,7 +22,7 @@ type api =
   ; kv : Device.config Kv_v.rw
   ; notifs : notifs
   ; channel : 'a. 'a Parser.request -> ('a, error) Lwt_result.t
-  ; loop : (Cstruct.t list -> 'c Board.cc Lwt.t as 'c) Board.cc
+  ; loop : (Cstruct.t option -> 'c Board.cc Lwt.t as 'c) Board.cc
   ; model : Model.t
   }
 and error =
@@ -134,8 +134,9 @@ let step (src : Logs.src)
       (pe : Probes.push_events) =
 
   let deserialize acc recvd =
-    let recvd = Board.concat_acc acc recvd in
-    Parser.deserialize src recvd in
+    match Board.concat_acc acc recvd with
+    | None -> [], [], None
+    | Some recvd -> Parser.deserialize src recvd in
 
   let rec first_step () =
     Logs.info ~src (fun m -> m "start of connection establishment...");

@@ -8,9 +8,11 @@ let ( >>= ) = Lwt.bind
 
 let timeout = 3. (* seconds *)
 
+let period = 1. (* seconds *)
+
 let step ~(address : int)
-      ~entry_point
-      ~exit_point
+      ~return
+      ~continue
       (src : Logs.src)
       (sender : Cstruct.t -> unit Lwt.t)
       (pe : Sm_common.push_events) =
@@ -18,8 +20,9 @@ let step ~(address : int)
   let (module Logs : Logs.LOG) = Logs.src_log src in
 
   let deserialize acc recvd =
-    let recvd = Board.concat_acc acc recvd in
-    Parser.deserialize ~address src recvd in
+    match Board.concat_acc acc recvd with
+    | None -> [], None
+    | Some recvd -> Parser.deserialize ~address src recvd in
 
   let make_req (type a) (req : a Request.t) =
     make_msg
@@ -36,7 +39,7 @@ let step ~(address : int)
       ~resolved:(fun _ -> function
         | `Error e ->
            Logs.warn (fun m -> m "probes - error getting %s: %s" name e);
-           entry_point ()
+           return ()
         | `Value x ->
            Logs.debug (fun m -> m "probes - got %s: %s" name (to_string x));
            match next_step x with
@@ -50,7 +53,7 @@ let step ~(address : int)
            Logs.warn (fun m ->
                let err = "timeout" in
                m "probes - error getting %s: %s" name err);
-           entry_point ())
+           return ())
       ~pending:(fun pool -> Lwt.return @@ `Continue (pending pool acc))
       ~not_sent:(fun _ -> assert false) in
 
@@ -167,7 +170,7 @@ let step ~(address : int)
              ; asi_bitrate = x
              } in
         pe.status status;
-        `Next exit_point)
+        `Next continue)
       ("ASI bitrate", string_of_int)
 
   in first_step

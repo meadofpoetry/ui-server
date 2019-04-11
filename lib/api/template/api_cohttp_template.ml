@@ -82,10 +82,13 @@ module Make (User : USER) = struct
   let make_node ~template paths (Item (path, items, cont)) =
     let table = Hashtbl.create 16 in
     (* Check if the same path was added twice *)
-    assert (Uri.Path.Format.has_template paths path);
+    if Uri.Path.Format.has_template paths path
+    then failwith (Printf.sprintf "path '%s' is already present"
+                   @@ Uri.Path.Format.doc path);
     Uri.Path.Format.store_template paths path;
     let generate =
-      let gen_template _args user : Mustache.Json.value option = (* Use args if memoized templates are different *)
+      (* Use args if memoized templates are different *)
+      let gen_template _args user : Mustache.Json.value option =
         match Hashtbl.find_opt table user with
         | Some v -> Some (`String v)
         | None ->

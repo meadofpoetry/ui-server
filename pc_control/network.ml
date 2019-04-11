@@ -2,10 +2,10 @@ open Nm
 
 module String_map = Map.Make(String)
 module React = Util_react
-             
+
 open Containers
 open Lwt.Infix
-   
+
 let properties_changed interface =
   let open OBus_value in
   OBus_member.Signal.make
@@ -287,19 +287,34 @@ let debug_print_settings conf =
 type apply_error = [ `Network_conf_apply of exn]
 
 type get_conf_error = [ `No_network_config of string]
-  
+
+type eth_conn_error =
+  [ `Nm_no_connection of string
+  | `Nm_no_settings of string
+  ]
+
+let pp_apply_error ppf = function
+  | `Network_conf_apply exn ->
+     Fmt.fmt "network config apply error: %s" ppf (Printexc.to_string exn)
+
+let pp_get_conf_error ppf = function
+  | `No_network_config s -> Fmt.fmt "no network config: %s" ppf s
+
+let pp_eth_conn_error ppf = function
+  | `Nm_no_connection s -> Fmt.fmt "no ethernet connection: %s" ppf s
+  | `Nm_no_settings s -> Fmt.fmt "no ethernet settings: %s" ppf s
+
 class virtual eth_connection = object
           method virtual get_config
                          : 'a. unit -> (Network_config.t,[>get_conf_error] as 'a) Lwt_result.t
           method virtual apply
                          : 'a. Network_config.t -> (unit,[>apply_error] as 'a) Lwt_result.t
         end
-                       
-  
+
 let eth_connection ?defaults bus nm name device
-    : (eth_connection, [> `Nm_no_connection of string | `Nm_no_settings of string]) Lwt_result.t =
+    : (eth_connection, [> eth_conn_error ]) Lwt_result.t =
   let (>>=?) = Lwt_result.bind in
-  
+
   OBus_property.get @@ Nm.Device.connection_prop device
   >>= fun conn_path ->
 
@@ -330,7 +345,6 @@ let eth_connection ?defaults bus nm name device
   >>=? fun settings ->
 
   Lwt.return_ok (object
-        
         val nm       = nm
         val name     = name
         val device   = device
@@ -342,7 +356,7 @@ let eth_connection ?defaults bus nm name device
           match Nm.Config.of_dbus conf with
           | None -> Lwt.return_error (`No_network_config name)
           | Some conf -> Lwt.return_ok conf
-                       
+
         method apply new_sets =
           Lwt.catch (fun () ->
               Nm.Settings.update settings (Nm.Config.to_dbus new_sets)
@@ -351,17 +365,29 @@ let eth_connection ?defaults bus nm name device
               Nm.activate_connection nm device settings
               >>= Lwt.return_ok)
             (fun e -> Lwt.return_error (`Network_conf_apply e))
-          
       end)
 (*
 module Conf = Storage.Config.Make(Network_settings)
  *)
 module Net_options = Kv_v.RW (Network_config)
-  
+
 type t = { intern : eth_connection
          ; extern : (eth_connection * Net_options.t) option
          }
-            
+
+type error =
+  [ apply_error
+  | get_conf_error
+  | eth_conn_error
+  | `No_network_device of string
+  ]
+
+let pp_error ppf = function
+  | #apply_error as e -> pp_apply_error ppf e
+  | #get_conf_error as e -> pp_get_conf_error ppf e
+  | #eth_conn_error as e -> pp_eth_conn_error ppf e
+  | `No_network_device s -> Fmt.fmt "no %s network device found" ppf s
+
 let create (kv : Kv.RW.t) =
   let (>>=?) = Lwt_result.bind in
   let settings_path = ["pc"; "network_settings"]

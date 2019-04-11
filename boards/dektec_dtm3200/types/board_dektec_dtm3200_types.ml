@@ -102,26 +102,6 @@ type config =
   ; ip : ip
   } [@@deriving yojson, eq]
 
-let config_to_string c = Yojson.Safe.to_string @@ config_to_yojson c
-let config_of_string s = config_of_yojson @@ Yojson.Safe.from_string s
-
-let config_default =
-  { nw =
-      { ip = Ipaddr.V4.of_string_exn "192.168.0.1"
-      ; mask = Ipaddr.V4.of_string_exn "255.255.255.0"
-      ; gateway = Ipaddr.V4.of_string_exn "192.168.0.1"
-      ; dhcp = true
-      }
-  ; ip =
-      { enable = false
-      ; fec = true
-      ; port = 1234
-      ; multicast = Some (Ipaddr.V4.of_string_exn "224.1.2.2")
-      ; delay = 100
-      ; rate_mode = On
-      }
-  }
-
 let mode_to_int = function
   | ASI2IP -> 0
   | IP2ASI -> 1

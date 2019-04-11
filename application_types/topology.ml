@@ -53,21 +53,25 @@ type version = int [@@deriving yojson, show, eq, ord]
 type id = int [@@deriving yojson, show, eq, ord]
 
 module Env = Map.Make(String)
-           
+
 type env = string Env.t [@@deriving ord]
-         
-let env_to_yojson e : Yojson.Safe.json =
-  `Assoc (Env.fold (fun k v a -> (k, `String v)::a) e [])
+
+let env_to_yojson (e : env) : Yojson.Safe.json =
+  `Assoc (Env.fold (fun k v a -> (k, `String v) :: a) e [])
+
 let env_of_yojson : Yojson.Safe.json -> (env, string) result = function
   | `Assoc ls -> begin
       try ls
-          |> List.map (function (k, `String v) -> (k, v)
-                              | _ -> raise_notrace (Failure "env_of_yojson :value should be string"))
-          |> List.fold_left (fun env (k,v) -> Env.add k v env) Env.empty
+          |> List.map (function
+                 | (k, `String v) -> (k, v)
+                 | _ -> raise_notrace (Failure "env_of_yojson: value should be string"))
+          |> List.fold_left (fun env (k, v) -> Env.add k v env) Env.empty
           |> fun x -> Ok x
       with Failure e -> Error e
     end
-  | _ -> Error "env_of_yojson"
+  | j ->
+     let e = Printf.sprintf "env_of_yojson: got bad value - %s" (Yojson.Safe.to_string j) in
+     Error e
 
 (* TODO proper pp *)
 let pp_env _ppf _ = () (* Format. Env. String.pp String.pp*)

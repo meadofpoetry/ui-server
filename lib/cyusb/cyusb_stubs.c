@@ -42,7 +42,7 @@ enum record_fields
 CAMLprim value caml_cyusb_open (value _unit) {
         CAMLparam0     ();
         CAMLlocal2     (res, handl);
-        
+
         int            desc, max_in, max_out;
         unsigned short vendor, product;
         int            busnumber, devaddr;
@@ -55,7 +55,7 @@ CAMLprim value caml_cyusb_open (value _unit) {
                 cyusb_close ();
                 caml_failwith ("No device attached");
         };
-                
+
         tmp_handle = cyusb_gethandle(0);
 
         if ( cyusb_getvendor(tmp_handle) != 0x04b4 ) {
@@ -84,7 +84,7 @@ CAMLprim value caml_cyusb_open (value _unit) {
 
         max_in = cyusb_get_max_iso_packet_size(tmp_handle, IN_POINT);
         max_out = cyusb_get_max_iso_packet_size(tmp_handle, OUT_POINT);
-        
+
         res = caml_alloc_tuple (Fields_num);
 
         handl = alloc_custom (&cyusb_handle_ops, sizeof(cyusb_handle*), 0, 1);
@@ -104,7 +104,7 @@ CAMLprim value caml_cyusb_open (value _unit) {
 CAMLprim value caml_cyusb_close (value _h) {
          /* since H is unused we could ommit the root */
         CAMLparam0 ();
-        
+
         cyusb_close ();
 
         CAMLreturn(Val_unit);
@@ -125,7 +125,7 @@ CAMLprim value caml_cyusb_send (value h, value ba) {
 
         while (size > 0) {
                 len = size < max_out ? size : max_out;
-                
+
                 if(cyusb_bulk_transfer(handle,
                                        OUT_POINT,
                                        buf,
@@ -138,8 +138,8 @@ CAMLprim value caml_cyusb_send (value h, value ba) {
 
                 size -= transfd;
                 buf  += transfd;
-        }                
-        
+        }
+
 cleanup:
         caml_acquire_runtime_system();
 

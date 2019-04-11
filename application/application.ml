@@ -1,7 +1,7 @@
 open Util_react
 
 module User_api = User_api
-   
+
 let all_ok = List.fold_left (fun acc v ->
                  match acc with
                  | Error _ as e -> e
@@ -10,7 +10,7 @@ let all_ok = List.fold_left (fun acc v ->
                     | Error _ as e -> e
                     | Ok x -> Ok (x::acc))
                (Ok [])
-                         
+
 type t =
   { proc : Data_processor.t option
   ; network : Pc_control.Network.t
@@ -27,34 +27,23 @@ let filter_stream_table =
   Hardware.filter_map (function
       | ({ url = None; _ } : stream) -> None
       | { url = Some uri; stream; _ } -> Some (uri, stream))
-               
+
 let create kv db =
   let (>>=?) = Lwt_result.bind in
   let (>>=) = Lwt.bind in
 
   Kv.RW.parse Application_types.Topology.of_string kv ["topology"]
-  >>=? fun topology ->
-  
-  User.create kv
-  >>=? fun users ->
-
-  Pc_control.Network.create kv
+  >>=? fun topology -> User.create kv
+  >>=? fun users -> Pc_control.Network.create kv
   >>=? fun network ->
-  
   begin match topology with
     | `Boards _ -> Lwt.return_none
     | `CPU c -> Data_processor.create proc_table c.process kv db
   end
-  >>= fun proc ->
-  
- 
-  Hardware.create kv db topology
-  >>=? fun (hw, loop) ->
-  
-  Database.Conn.create db ()
+  >>= fun proc -> Hardware.create kv db topology
+  >>=? fun (hw, loop) -> Database.Conn.create db ()
   >>=? fun db ->
-  
-  (* Attach the process' reset mechanism to the stream_table signal 
+  (* Attach the process' reset mechanism to the stream_table signal
      containing uris of the streams being measured *)
   begin match proc with (* TODO iter in 4.08 *)
   | None -> ()
@@ -103,7 +92,7 @@ let streams_on_input app input =
                 topo_board.control, S.value board.streams_signal)
          |> (fun v -> Ok v)
      with Not_found -> Error "internal topology error"
-  
+
 let stream_source app stream_id =
   let open Application_types in
   let open Boards.Board in

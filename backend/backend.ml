@@ -146,10 +146,10 @@ let main log_level config =
   with e -> Printf.printf "Error: %s\n%s\n" (Printexc.get_backtrace ()) (Printexc.to_string e)
  *)
 
-let (/) = Filename.concat
+let ( / ) = Filename.concat
 
-let (>>=) = Lwt_result.bind
-            
+let ( >>= ) = Lwt_result.bind
+
 (* TODO let operators *)
 let main () =
   let config_path = Xdg.config_dir / "ui_server" in
@@ -164,24 +164,18 @@ let main () =
     ~cleanup:db_conf.cleanup
     ~maintain:db_conf.cleanup
   >>= fun db ->
-  
   Application.create kv db
   >>= fun (app, app_loop) ->
-
-  let routes      = Application_http.create "need template" app in
+  let routes = Application_http.create "need template" app in
   let auth_filter = Application.redirect_filter app in
-
   Serv.create kv auth_filter routes
-  >>= fun server ->  
-  
+  >>= fun server ->
   let main_loop () : (unit, 'a) Lwt_result.t =
     ignore db_conf;
     Lwt.bind (Lwt.pick [app_loop; server]) Lwt.return_ok
   in
-  
   main_loop ()
-  
-               
+
 let () =
   let log_level =
     match Sys.getenv_opt "UI_LOG_LEVEL" with
@@ -202,19 +196,23 @@ let () =
   | Ok () ->
      print_endline "Ui Server is done, no error reported"
   | Error (#Kv.RO.error as e) ->
-     Logs.err (fun m -> m "Terminated with file error %a"
+     Logs.err (fun m -> m "Terminated with file error: %a"
                           Kv.RO.pp_error e)
+  | Error (#Kv.RW.parse_error as e) ->
+     Logs.err (fun m -> m "Terminated with file read error: %a"
+                          Kv.RW.pp_parse_error e)
   | Error (#Kv_v.error as e) ->
-     Logs.err (fun m -> m "Terminated with config error %a"
+     Logs.err (fun m -> m "Terminated with config error: %a"
                           Kv_v.pp_error e)
   | Error (#Db.error as e) ->
-     Logs.err (fun m -> m "Terminated with database error %a"
+     Logs.err (fun m -> m "Terminated with database error: %a"
                           Db.pp_error e)
   | Error (#Db.conn_error as e) ->
-     Logs.err (fun m -> m "Terminated with database error %a"
+     Logs.err (fun m -> m "Terminated with database error: %a"
                           Db.pp_conn_error e)
   | Error (#Boards.Board.error as e) ->
-     Logs.err (fun m -> m "Terminated with board error %a"
+     Logs.err (fun m -> m "Terminated with board error: %a"
                           Boards.Board.pp_error e)
-  (* TODO remove *)
-  | _ -> Logs.err (fun m -> m "Terminated with an yet unspecified error")
+  | Error (#Pc_control.Network.error as e) ->
+     Logs.err (fun m -> m "Terminated with network error: %a"
+                          Pc_control.Network.pp_error e)

@@ -4,5 +4,4 @@ type push_events =
   { state : Application_types.Topology.state -> unit
   ; status : status -> unit
   ; devinfo : devinfo option -> unit
-  ; config : config  -> unit
   }

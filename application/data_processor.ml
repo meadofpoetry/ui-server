@@ -11,7 +11,7 @@ type t =
   ; log_source : Application_types.Stream.Log_message.source
   ; finalize : unit -> unit Lwt.t >
 
-type error = [ Db.conn_error | Kv.RW.read_error | Kv_v.error ]
+type error = [ Db.conn_error | Kv.RW.parse_error | Kv_v.error ]
                          
 module type PROCESS = sig
   val typ    : string
@@ -24,7 +24,7 @@ let create_dispatcher l =
   tbl
 
 let pp_error _ppf = failwith "todo"
-  
+
 let create tbl typ config db =
   let (>>=) = Lwt.bind in
   match Hashtbl.find_opt tbl typ with

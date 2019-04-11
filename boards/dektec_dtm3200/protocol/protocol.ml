@@ -7,10 +7,10 @@ open Netlib
 let ( >>= ) = Lwt.bind
 
 type notifs =
-  { streams : Stream.Raw.t list React.signal
+  { streams : Stream.t list React.signal
   ; state : Topology.state React.signal
   ; status : status React.event
-  ; config : config React.event
+  ; config : config React.signal
   }
 
 type api =
@@ -18,7 +18,7 @@ type api =
   ; kv : config Kv_v.rw
   ; notifs : notifs
   ; channel : 'a. 'a Request.t -> ('a, error) Lwt_result.t
-  ; loop : (Cstruct.t list -> 'c Board.cc Lwt.t as 'c) Board.cc
+  ; loop : (Cstruct.t option -> 'c Board.cc Lwt.t as 'c) Board.cc
   }
 and error =
   | Not_responding
@@ -28,170 +28,110 @@ let step ~(address : int)
       (src : Logs.src)
       msgs
       (sender : Cstruct.t -> unit Lwt.t)
-      (config : config React.signal)
       (pe : Sm_common.push_events) =
 
   let rec first_step () =
     Logs.info ~src (fun m -> m "start of connection establishment...");
     msgs := Pools.Queue.invalidate !msgs;
     pe.state `No_response;
-    Sm_detect.step ~address
-      ~entry_point:first_step
-      ~exit_point:(fun () ->
-        Sm_init.step ~address
-          ~entry_point:first_step
-          ~exit_point:(fun () -> fork None)
-          src sender pe ())
-      src sender pe ()
+    detect_device ()
 
-  and fork acc =
+  and detect_device () =
+    Sm_detect.step ~address ~return:first_step ~continue:init_device src sender pe ()
+
+  and init_device () =
+    Sm_init.step ~address ~return:first_step ~continue:fork src sender pe ()
+
+  and pull_status () =
+    Sm_probes.step ~address ~return:first_step ~continue:fork src sender pe ()
+
+  and fork () =
     match Pools.Queue.is_empty !msgs with
-    | true ->
-       Sm_probes.step
-         ~address
-         ~entry_point:first_step
-         ~exit_point:(fun () -> fork None)
-         src sender pe ()
-    | false -> send_client_request acc
+    | true -> pull_status ()
+    | false -> send_client_request ()
 
-  and send_client_request acc =
+  and send_client_request () =
     if Pools.Queue.is_empty !msgs
-    then fork acc
+    then fork ()
     else (Pools.Queue.send !msgs
           >>= fun msgs' ->
           msgs := msgs';
-          Lwt.return @@ `Continue (wait_client_request acc))
+          Lwt.return @@ `Continue (wait_client_request None))
 
   and wait_client_request acc recvd =
-    let responses, acc =
-      Parser.deserialize ~address src (Board.concat_acc acc recvd) in
+    let responses, acc = match Board.concat_acc acc recvd with
+      | None -> [], None
+      | Some recvd -> Parser.deserialize ~address src recvd in
     Pools.Queue._match !msgs
       ~pending:(fun pool ->
         msgs := pool;
         Lwt.return @@ `Continue (wait_client_request acc))
-      ~resolved:(fun pool _ ->
-        msgs := pool;
-        send_client_request acc)
-      ~not_sent:(fun pool ->
-        msgs := pool;
-        send_client_request acc)
+      ~resolved:(fun pool _ -> msgs := pool; send_client_request ())
+      ~not_sent:(fun pool -> msgs := pool; send_client_request ())
       ~error:(fun pool -> function
-        | `Interrupted ->
-           msgs := pool;
-           send_client_request acc
+        | `Interrupted -> msgs := pool; send_client_request ()
         | `Timeout ->
            Logs.warn ~src (fun m ->
                m "timeout while waiting for client request response, restarting...");
            first_step ())
-
-  in first_step ()
-
-let to_streams_s storage status =
-  React.E.map (fun (x : status) ->
-      let config : config = storage#get in
-      let info =
-        let open Stream.Source in
-        let scheme = match x.protocol with
-          | RTP -> "rtp"
-          | UDP -> "udp" in
-        match config.ip.multicast with
-        | Some x ->
-           { addr = x
-           ; port = config.ip.port
-           ; scheme
-           }
-        | None ->
-           { addr = config.nw.ip
-           ; port = config.ip.port
-           ; scheme
-           } in
-      let (stream : Stream.Raw.t) =
-        { source = { info = IPV4 info; node = Port 0 }
-        ; id = TS_raw
-        ; typ = TS
-        } in
-      if x.asi_bitrate > 0 then [stream] else [])
-  @@ React.E.changes ~eq:equal_status status
-  |> React.S.hold ~eq:(Util.List.equal Stream.Raw.equal) []
-
-let create logs sender storage step_duration =
-  let (module Logs : Logs.LOG) = logs in
-  let eq_state = Topology.equal_state in
-  let state, state_push = React.S.create ~eq:eq_state `No_response in
-  let status, status_push = React.E.create () in
-  let config, config_push = React.E.create () in
-  let eq_devinfo = Equal.option equal_devinfo in
-  let devinfo, devinfo_push = React.S.create ~eq:eq_devinfo None in
-
-  let s_status =
-    React.S.hold ~eq:(Equal.option equal_status) None
-    @@ React.E.map (fun x -> Some x) status in
-  let streams = to_streams_s storage status in
-  let events = { streams; state; status; config } in
-  let (pe : push_events) =
-    { state   = state_push
-    ; status  = status_push
-    ; config  = config_push
-    ; devinfo = devinfo_push
-    } in
-  let msgs = ref (Queue.create []) in
-  let send x = send state msgs sender storage pe
-                 (Boards.Timer.steps ~step_duration 2.) x in
-  let log n s = Logs.info (fun m -> m "got %s set request: %s" n s) in
-  let api =
-    { set_ip =
-        (fun x ->
-          log "ip address" (Ipaddr.V4.to_string x);
-          send (Nw (Set_ip x)))
-    ; set_mask =
-        (fun x ->
-          log "network mask" (Ipaddr.V4.to_string x);
-          send (Nw (Set_mask x)))
-    ; set_gateway =
-        (fun x ->
-          log "gateway" (Ipaddr.V4.to_string x);
-          send (Nw (Set_gateway x)))
-    ; set_dhcp =
-        (fun x ->
-          log "DHCP" (string_of_bool x);
-          send (Nw (Set_dhcp x)))
-    ; set_enable =
-        (fun x ->
-          log "enable" (string_of_bool x);
-          send (Ip (Set_enable x)))
-    ; set_fec =
-        (fun x ->
-          log "FEC enable" (string_of_bool x);
-          send (Ip (Set_fec_enable x)))
-    ; set_port =
-        (fun x ->
-          log "UDP port" (string_of_int x);
-          send (Ip (Set_udp_port x)))
-    ; set_meth =
-        (fun x ->
-          log "method" (show_meth x);
-          send (Ip (Set_method x)))
-    ; set_multicast =
-        (fun x ->
-          log "multicast" (Ipaddr.V4.to_string x);
-          send (Ip (Set_mcast_addr x)))
-    ; set_delay =
-        (fun x ->
-          log "IP-to-output delay" (string_of_int x);
-          send (Ip (Set_delay x)))
-    ; set_rate_mode =
-        (fun x ->
-          log "rate estimation mode" (show_rate_mode x);
-          send (Ip (Set_rate_est_mode x)))
-    ; reset =
-        (fun () ->
-          Logs.info (fun m -> m "got reset request");
-          send (Nw Reboot))
-    ; get_status = (fun () -> React.S.value s_status)
-    ; get_config = (fun () -> storage#get)
-    ; get_devinfo = (fun () -> React.S.value devinfo)
-    }
   in
-  events,
-  api,
-  (step msgs sender storage step_duration pe logs)
+  `Continue (fun _ -> first_step ())
+
+let to_streams_s (config : config signal) (status : status event) =
+  S.hold ~eq:(Util.List.equal Stream.Raw.equal) []
+  @@ S.sample (fun ({ asi_bitrate; protocol; _ } : status)
+                   ({ ip; nw } : config) ->
+         if asi_bitrate <= 0 then [] else (
+           let scheme = match protocol with
+             | RTP -> "rtp"
+             | UDP -> "udp" in
+           let (info : Stream.Source.ipv4) = match ip.multicast with
+             | Some x ->
+                { addr = x
+                ; port = ip.port
+                ; scheme
+                }
+             | None ->
+                { addr = nw.ip
+                ; port = ip.port
+                ; scheme
+                } in
+           let (stream : Stream.Raw.t) =
+             { source = { info = IPV4 info; node = Port 0 }
+             ; id = TS_raw
+             ; typ = TS
+             } in
+           [stream]))
+       status config
+
+let create ~(address : int)
+      (src : Logs.src)
+      (sender : Cstruct.t -> unit Lwt.t)
+      streams_conv
+      (kv : config Kv_v.rw)
+      (control : int)
+      (db : Db.t) =
+  let state, set_state = S.create ~eq:Topology.equal_state `No_response in
+  let status, set_status = E.create () in
+  let devinfo, set_devinfo = S.create ~eq:(Util.Option.equal equal_devinfo) None in
+  let notifs =
+    { streams = streams_conv @@ to_streams_s kv#s status
+    ; state
+    ; status
+    ; config = kv#s
+    } in
+  let (pe : Sm_common.push_events) =
+    { state = set_state
+    ; status = set_status
+    ; devinfo = set_devinfo
+    } in
+  let msgs = ref (Pools.Queue.create []) in
+  let loop = step ~address src msgs sender pe in
+  let (api : api) =
+    { notifs
+    ; address
+    ; loop
+    ; kv
+    ; channel = (fun _ -> assert false)
+    } in
+  Lwt.return_ok api

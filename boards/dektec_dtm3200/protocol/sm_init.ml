@@ -11,8 +11,8 @@ let reboot_steps = 7
 let timeout = 3. (* seconds *)
 
 let step ~(address : int)
-      ~entry_point
-      ~exit_point
+      ~return
+      ~continue
       (src : Logs.src)
       (sender : Cstruct.t -> unit Lwt.t)
       (pe : Sm_common.push_events) =
@@ -27,8 +27,9 @@ let step ~(address : int)
       () in
 
   let deserialize acc recvd =
-    let recvd = Board.concat_acc acc recvd in
-    Parser.deserialize ~address src recvd in
+    match Board.concat_acc acc recvd with
+    | None -> [], None
+    | Some recvd -> Parser.deserialize ~address src recvd in
 
   let wait ~next_step pending log_data pool acc recvd =
     let (name, to_string) = log_data in
@@ -38,7 +39,7 @@ let step ~(address : int)
       ~resolved:(fun _ -> function
         | `Error e ->
            Logs.warn (fun m -> m "init - error getting %s: %s" name e);
-           entry_point ()
+           return ()
         | `Value x ->
            Logs.debug (fun m -> m "init - got %s: %s" name (to_string x));
            match next_step x with
@@ -52,7 +53,7 @@ let step ~(address : int)
            Logs.warn (fun m ->
                let err = "timeout" in
                m "init - error getting %s: %s" name err);
-           entry_point ())
+           return ())
       ~pending:(fun pool -> Lwt.return @@ `Continue (pending pool acc))
       ~not_sent:(fun _ -> assert false) in
 
@@ -69,7 +70,7 @@ let step ~(address : int)
            if steps = 0
            then (
              Logs.warn (fun m -> m "init - device is not responding, restarting...");
-             entry_point ())
+             return ())
            else (
              Pool.send pool
              >>= fun pool ->
@@ -80,7 +81,7 @@ let step ~(address : int)
       ~resolved:(fun pool -> function
         | `Error _ ->
            Logs.warn (fun m -> m "init - device responded with error, restarting...");
-           entry_point ()
+           return ()
         | `Value x ->
            (* Sleep for a while after detection *)
            Lwt_unix.sleep timeout
@@ -189,7 +190,7 @@ let step ~(address : int)
         ignore config;
         Logs.info (fun m -> m "initialization done!");
         pe.state `Fine;
-        `Next exit_point)
+        `Next continue)
       (get_rate_mode racc) ("Rate estimation mode", show_rate_mode)
 
   in first_step

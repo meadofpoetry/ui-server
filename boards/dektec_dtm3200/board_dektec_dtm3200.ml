@@ -1,22 +1,16 @@
-open Application_types
-open Board_niitv_dvb_types
-open Board_niitv_dvb_protocol
 open Boards
+open Util_react
+open Application_types
+open Board_dektec_dtm3200_types
+open Board_dektec_dtm3200_protocol
 
 module Config = Kv_v.RW(Board_settings)
 
 let ( >>= ) = Lwt_result.bind
 
-let invalid_port (src : Logs.src) port =
-  let s = (Logs.Src.name src) ^ ": invalid port " ^ (string_of_int port) in
+let invalid_port (src : Logs.src) x =
+  let s = (Logs.Src.name src) ^ ": invalid_port " ^ (string_of_int x) in
   raise (Board.Invalid_port s)
-
-let rec has_sync = function
-  | [] -> false
-  | (_, ({ data; _ } : Measure.t ts)) :: tl ->
-     match data.lock, data.bitrate with
-     | true, Some x when x > 0 -> true
-     | _ -> has_sync tl
 
 let create_logger (b : Topology.topo_board) =
   let log_name = Board.log_name b in
@@ -30,13 +24,13 @@ let create_logger (b : Topology.topo_board) =
         Ok log_src
      | Error _ -> Error (`Unknown_log_level x)
 
-let parse_source_id (b : Topology.topo_board) =
-  match b.sources with
-  | None -> Error (`Board_error "Source id not found")
-  | Some i ->
-     match Util_json.Int.of_yojson i with
-     | Ok i -> Ok i
-     | Error _ -> Error (`Board_error "Invalid source id")
+let get_address (b : Topology.topo_board) =
+  match Topology.Env.find_opt "address" b.env with
+  | None -> Error (`Board_error "Board address not provided")
+  | Some address ->
+     match int_of_string_opt address with
+     | None -> Error (`Board_error "Invalid board address")
+     | Some x -> Ok x
 
 let create (b : Topology.topo_board)
       (_ : Stream.t list React.signal)
@@ -47,17 +41,17 @@ let create (b : Topology.topo_board)
       (db : Db.t)
       (kv : Kv.RW.t) : (Board.t, [> Board.error]) Lwt_result.t =
   Config.create ~default:Board_settings.default kv ["board"; (string_of_int b.control)]
-  >>= fun (cfg : Device.config Kv_v.rw) -> Lwt.return (create_logger b)
-  >>= fun (src : Logs.src) -> Lwt.return (parse_source_id b)
-  >>= fun (source_id : int) ->
-  Protocol.create src send (convert_streams b) source_id cfg b.control db
+  >>= fun (cfg : config Kv_v.rw) -> Lwt.return (create_logger b)
+  >>= fun (src : Logs.src) -> Lwt.return (get_address b)
+  >>= fun (address : int) ->
+  Protocol.create ~address src send (convert_streams b) cfg b.control db
   >>= fun (api : Protocol.api) ->
   let state = object
       method finalize () = Lwt.return ()
     end in
   let (board : Board.t) =
-    { http = Board_niitv_dvb_http.handlers b.control api
-    ; ws = Board_niitv_dvb_http.ws b.control api
+    { http = []
+    ; ws = []
     ; templates = []
     ; control = b.control
     ; streams_signal = api.notifs.streams
@@ -67,8 +61,8 @@ let create (b : Topology.topo_board)
     ; ports_sync =
         List.fold_left (fun acc (p : Topology.topo_port) ->
             (match p.port with
-             | 0 -> React.E.map has_sync api.notifs.measures
-                    |> React.S.hold ~eq:(=) false
+             | 0 -> React.S.map ~eq:(=) (function [] -> false | _ -> true)
+                      api.notifs.streams
              | x -> invalid_port src x)
             |> fun x -> Board.Ports.add p.port x acc)
           Board.Ports.empty b.ports
