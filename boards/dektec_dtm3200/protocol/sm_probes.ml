@@ -19,11 +19,6 @@ let step ~(address : int)
 
   let (module Logs : Logs.LOG) = Logs.src_log src in
 
-  let deserialize acc recvd =
-    match Board.concat_acc acc recvd with
-    | None -> [], None
-    | Some recvd -> Parser.deserialize ~address src recvd in
-
   let make_req (type a) (req : a Request.t) =
     make_msg
       ~timeout:(fun () -> Lwt_unix.sleep timeout)
@@ -33,7 +28,9 @@ let step ~(address : int)
 
   let wait ~next_step pending log_data pool acc recvd =
     let (name, to_string) = log_data in
-    let responses, acc = deserialize acc recvd in
+    let responses, acc =
+      Parser.deserialize ~address src
+      @@ Board.concat_acc acc recvd in
     Pool.apply pool responses;
     Pool._match pool
       ~resolved:(fun _ -> function
@@ -105,17 +102,17 @@ let step ~(address : int)
   and status racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (IP_receive Protocol, protocol GList.(x :: racc)))
-      (status racc) ("status", show_receiver_status) pool acc recvd
+      (status racc) ("status", receiver_status_to_string) pool acc recvd
 
   and protocol racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (IP_receive Packet_size, packet_size GList.(x :: racc)))
-      (protocol racc) ("protocol", show_protocol) pool acc recvd
+      (protocol racc) ("protocol", protocol_to_string) pool acc recvd
 
   and packet_size racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (IP_receive PCR_present, pcr_present GList.(x :: racc)))
-      (packet_size racc) ("packet size", show_packet_sz) pool acc recvd
+      (packet_size racc) ("packet size", packet_sz_to_string) pool acc recvd
 
   and pcr_present racc pool acc recvd =
     wait ~next_step:(fun x ->

@@ -22,7 +22,7 @@ type api =
   ; kv : Device.config Kv_v.rw
   ; notifs : notifs
   ; channel : 'a. 'a Parser.request -> ('a, error) Lwt_result.t
-  ; loop : (Cstruct.t option -> 'c Board.cc Lwt.t as 'c) Board.cc
+  ; loop : unit -> (Cstruct.t -> 'c Board.cc Lwt.t as 'c) Board.cc Lwt.t
   ; model : Model.t
   }
 and error =
@@ -134,9 +134,7 @@ let step (src : Logs.src)
       (pe : Probes.push_events) =
 
   let deserialize acc recvd =
-    match Board.concat_acc acc recvd with
-    | None -> [], [], None
-    | Some recvd -> Parser.deserialize src recvd in
+    Parser.deserialize src @@ Board.concat_acc acc recvd in
 
   let rec first_step () =
     Logs.info ~src (fun m -> m "start of connection establishment...");
@@ -308,7 +306,7 @@ let step (src : Logs.src)
                m "timeout while waiting for client request response, restarting...");
            first_step ())
   in
-  `Continue (fun _ -> first_step ())
+  first_step
 
 (** Converts tuner mode to raw stream. *)
 let mode_to_stream (source_id : int)

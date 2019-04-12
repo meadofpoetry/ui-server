@@ -17,11 +17,11 @@ type storage =
 type receiver_status =
   | On
   | Off
-  | Fail [@@deriving yojson, eq, enum, show]
+  | Fail [@@deriving yojson, eq, enum]
 
 type protocol =
   | UDP
-  | RTP [@@deriving yojson, eq, enum, show]
+  | RTP [@@deriving yojson, eq, enum]
 
 type meth =
   | Unicast
@@ -33,7 +33,7 @@ type output =
 
 type packet_sz =
   | TS188
-  | TS204 [@@deriving yojson, eq, enum, show]
+  | TS204 [@@deriving yojson, eq, enum]
 
 type rate_mode =
   | On
@@ -73,10 +73,6 @@ type status =
   ; asi_bitrate : int
   } [@@deriving yojson, eq]
 
-let packet_sz_to_string = function
-  | TS188 -> "188"
-  | TS204 -> "204"
-
 type nw =
   { ip : Ipaddr.V4.t
   ; mask : Ipaddr.V4.t
@@ -97,6 +93,10 @@ type config =
   { nw : nw
   ; ip : ip
   } [@@deriving yojson, eq]
+
+let packet_sz_to_string = function
+  | TS188 -> "188"
+  | TS204 -> "204"
 
 let meth_to_string = function
   | Unicast -> "Unicast"
@@ -119,6 +119,15 @@ let rate_mode_to_string = function
   | Off -> "off"
   | Fixed -> "fixed"
   | Without_pcr -> "without PCR"
+
+let receiver_status_to_string : receiver_status -> string = function
+  | On -> "on"
+  | Off -> "off"
+  | Fail -> "fail"
+
+let protocol_to_string = function
+  | UDP -> "UDP"
+  | RTP -> "RTP"
 
 let asi_packet_sz_to_int = function
   | Sz TS188 -> 0

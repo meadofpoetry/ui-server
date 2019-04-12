@@ -26,14 +26,11 @@ let step ~(address : int)
       ~resolve:(Parser.is_response req)
       () in
 
-  let deserialize acc recvd =
-    match Board.concat_acc acc recvd with
-    | None -> [], None
-    | Some recvd -> Parser.deserialize ~address src recvd in
-
   let wait ~next_step pending log_data pool acc recvd =
     let (meth, name, to_string) = log_data in
-    let responses, acc = deserialize acc recvd in
+    let responses, acc =
+      Parser.deserialize ~address src
+      @@ Board.concat_acc acc recvd in
     Pool.apply pool responses;
     Pool._match pool
       ~resolved:(fun _ -> function
@@ -65,7 +62,9 @@ let step ~(address : int)
     Lwt.return @@ `Continue (init_mode pool None)
 
   and detect_device ns steps pool acc recvd =
-    let responses, acc = deserialize acc recvd in
+    let responses, acc =
+      Parser.deserialize ~address src
+      @@ Board.concat_acc acc recvd in
     Pool.apply pool responses;
     Pool._match pool
       ~error:(fun pool -> function

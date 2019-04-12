@@ -99,6 +99,8 @@ module Queue = struct
 
   type ('a, 'b) t =
     { pending : ('a, 'b, e) msg_internal option
+    ; added : unit React.event
+    ; set_added : unit -> unit
     ; msgs : ('a, 'b, e) msg_internal list
     }
 
@@ -111,11 +113,12 @@ module Queue = struct
         match Lwt.state waiter with
         | Lwt.Sleep -> Lwt.wakeup_later wakener (Error `Interrupted)
         | _ -> ());
-    { msgs = []; pending = None }
+    { t with msgs = []; pending = None }
 
   let create l =
+    let added, set_added = React.E.create () in
     let msgs = List.map make_msg_internal l in
-    { pending = None; msgs }
+    { pending = None; msgs; added; set_added }
 
   let apply (t : ('a, 'b) t) (l : 'a list) =
     match t.pending with
@@ -132,14 +135,22 @@ module Queue = struct
 
   let snoc t msg =
     let msg' = make_msg_internal msg in
+    t.set_added ();
     msg'.waiter, { t with msgs = t.msgs @ [msg'] }
 
   let cons t msg =
     let msg' = make_msg_internal msg in
+    t.set_added ();
     msg'.waiter, { t with msgs = msg' :: t.msgs }
+
+  let await_next t =
+    match t.msgs with
+    | [] -> Lwt_react.E.next t.added
+    | _ :: _ -> Lwt.return ()
 
   let append t msgs =
     let msgs' = List.map make_msg_internal msgs in
+    t.set_added ();
     { t with msgs = t.msgs @ msgs' }
 
   let send (t : ('a, 'b) t) : ('a, 'b) t Lwt.t =
@@ -156,7 +167,7 @@ module Queue = struct
          | Lwt.Fail e -> Lwt.fail e
          | Lwt.Return _ -> Lwt.return () in
        let pending = Some { m with timer } in
-       Lwt.return { pending; msgs = tl }
+       Lwt.return { t with pending; msgs = tl }
 
   let _match (t : ('a, 'b) t) ~resolved ~error ~pending ~not_sent =
     match t.pending with

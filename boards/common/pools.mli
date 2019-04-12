@@ -46,6 +46,8 @@ module Queue : sig
 
   val append : ('a, 'b) t -> ('a, 'b) msg list -> ('a, 'b) t
 
+  val await_next : ('a, 'b) t -> unit Lwt.t
+
   val apply : ('a, 'b) t -> 'a list -> unit
 
   val is_empty : ('a, 'b) t -> bool

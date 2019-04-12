@@ -18,7 +18,7 @@ type api =
   ; kv : config Kv_v.rw
   ; notifs : notifs
   ; channel : 'a. 'a Request.t -> ('a, error) Lwt_result.t
-  ; loop : (Cstruct.t option -> 'c Board.cc Lwt.t as 'c) Board.cc
+  ; loop : unit -> (Cstruct.t -> 'c Board.cc Lwt.t as 'c) Board.cc Lwt.t
   }
 and error =
   | Not_responding
@@ -57,31 +57,31 @@ let step ~(address : int)
   and fork ?timer () =
     let timer = match timer with
       | Some x -> x
-      | None -> Lwt_unix.sleep Sm_probes.interval >>= pull_status in
-    Lwt.pick
-      [ timer
-      ; send_client_request timer ()
+      | None -> Lwt_unix.sleep Sm_probes.interval in
+    Lwt.choose
+      [ (Pools.Queue.await_next !msgs >>= fun () -> Lwt.return `Message)
+      ; (timer >>= fun () -> Lwt.return `Timeout)
       ]
+    >>= function
+    | `Message -> send_client_request timer ()
+    | `Timeout -> pull_status ()
 
   and send_client_request timer () =
-    if Pools.Queue.is_empty !msgs
-    then fork ~timer ()
-    else (
-      Pools.Queue.send !msgs
-      >>= fun msgs' ->
-      msgs := msgs';
-      Lwt.return @@ `Continue (wait_client_request timer None))
+    Pools.Queue.send !msgs
+    >>= fun msgs' ->
+    msgs := msgs';
+    Lwt.return @@ `Continue (wait_client_request timer None)
 
   and wait_client_request timer acc recvd =
-    let responses, acc = match Board.concat_acc acc recvd with
-      | None -> [], None
-      | Some recvd -> Parser.deserialize ~address src recvd in
+    let responses, acc =
+      Parser.deserialize ~address src
+      @@ Board.concat_acc acc recvd in
     Pools.Queue._match !msgs
       ~pending:(fun pool ->
         msgs := pool;
         Lwt.return @@ `Continue (wait_client_request timer acc))
       ~resolved:(fun pool _ -> msgs := pool; fork ~timer ())
-      ~not_sent:(fun pool -> msgs := pool; send_client_request timer ())
+      ~not_sent:(fun pool -> msgs := pool; fork ~timer ())
       ~error:(fun pool -> function
         | `Interrupted -> msgs := pool; fork ~timer ()
         | `Timeout ->
@@ -90,7 +90,7 @@ let step ~(address : int)
            Lwt.cancel timer;
            first_step ())
   in
-  `Continue (fun _ -> first_step ())
+  fun () -> first_step ()
 
 let to_streams_s (config : config signal) (status : status event) =
   S.hold ~eq:(Util.List.equal Stream.Raw.equal) []

@@ -1,5 +1,3 @@
-open Lwt.Infix
-
 [@@@ocaml.warning "-32"]
 
 [%%cstruct
@@ -13,108 +11,98 @@ open Lwt.Infix
 
 type 'a cc = 'a Boards.Board.cc
 
+type subscriber = (Cstruct.t -> 'c cc Lwt.t as 'c) cc Lwt.t * Cstruct.t list
+
+module Int = struct
+  type t = int
+  let compare = compare
+end
+
+module Int_map = Map.Make(Int)
+
 type t =
-  { dispatch : (int * (Cstruct.t option -> 'c cc Lwt.t as 'c) cc) list ref
+  { subscribers : subscriber Int_map.t ref
   ; send : int -> Cstruct.t -> unit Lwt.t
   ; usb : Cyusb.t
   }
 
-type header =
-  { len : int
-  ; port : int
-  }
-
-let src = Logs.Src.create "USB parser"
+let src = Logs.Src.create "USB parser" ~doc:"USB device module"
+module Log = (val Logs.src_log src : Logs.LOG)
 
 let prefix = 0x44BB
+let max_length = 256
 
-let to_header port parity length =
-  let hdr = Cstruct.create sizeof_header in
-  set_header_prefix hdr prefix;
-  set_header_port hdr ((if parity then 0x10 else 0) lor (port land 0xF));
-  set_header_length hdr length;
-  hdr
+let ( >>= ) = Lwt.bind
 
-let serialize port buf =
-  let buf_len = Cstruct.len buf in
-  let parity = (buf_len mod 2) <> 0 in
-  let len = (buf_len / 2) + (if parity then 1 else 0) in
-  let buf' = if parity then Cstruct.append buf (Cstruct.create 1) else buf in
-  Cstruct.append (to_header port parity len) buf'
+let serialize port data =
+  let data_length = Cstruct.len data in
+  let parity = (data_length mod 2) <> 0 in
+  let length = (data_length / 2) + (if parity then 1 else 0) in
+  let header = Cstruct.create sizeof_header in
+  set_header_prefix header prefix;
+  set_header_port header ((if parity then 0x10 else 0) lor (port land 0xF));
+  set_header_length header length;
+  if parity
+  then Cstruct.concat [header; data; Cstruct.create 1]
+  else Cstruct.concat [header; data]
 
 type error =
   | Bad_prefix of int
   | Bad_length of int
   | Insufficient_payload of Cstruct.t
-  | No_prefix_after_msg
-  | Unknown_err of string
 
 let pp_error ppf = function
   | Bad_prefix x -> Fmt.fmt "incorrect prefix tag: %d" ppf x
   | Bad_length x -> Fmt.fmt "incorrect length: %d" ppf x
   | Insufficient_payload _ -> Fmt.string ppf "insufficient payload"
-  | No_prefix_after_msg -> Fmt.string ppf "no prefix after message"
-  | Unknown_err s -> Fmt.fmt "unknown error: %s" ppf s
 
 let check_prefix buf =
   let prefix' = get_header_prefix buf in
-  if prefix <> prefix' then Error (Bad_prefix prefix') else Ok buf
+  if prefix = prefix' then Ok buf
+  else Error (Bad_prefix prefix')
 
 let check_length buf =
-  let hdr, buf' = Cstruct.split buf sizeof_header in
-  let length = get_header_length hdr in
-  if length <= 0 || length > 256
+  let header, rest' = Cstruct.split buf sizeof_header in
+  (* Length in 16-bit words. *)
+  let length = get_header_length header in
+  let flags_port = get_header_port header in
+  let port = flags_port land 0xF in
+  if length <= 0 || length > max_length
   then Error (Bad_length length)
-  else let port' = get_header_port hdr in
-       let parity = port' land 0x10 > 0 in
-       let port = port' land 0xF in
-       let len = (length * 2) - (if parity then 1 else 0) in
-       try
-         let msg', rest = Cstruct.split buf' (length * 2) in
-         let msg, _ = Cstruct.split msg' len in
-         Ok ((port, msg), rest)
-       with _ -> Error (Insufficient_payload buf)
-
-let check_next_prefix ((_, rest) as x) =
-  if Cstruct.len rest < sizeof_header then Ok x
-  else match check_prefix rest with
-       | Ok _ -> Ok x
-       | Error _ -> Error (No_prefix_after_msg)
+  else
+    let parity = (flags_port land 0x10) lsr 4 in
+    let byte_length = length * 2 in
+    try
+      let body, rest = Cstruct.split rest' (byte_length - parity) in
+      Ok ((port, body), snd @@ Cstruct.split rest parity)
+    with _ -> Error (Insufficient_payload buf)
 
 let get_msg buf =
   let ( >>= ) x f = match x with Error e -> Error e | Ok x -> f x in
-  try check_prefix buf
-      >>= check_length
-      >>= check_next_prefix
-  with e -> Error (Unknown_err (Printexc.to_string e))
-
-let assoc_set ~eq k (v : Cstruct.t) l =
-  let rec aux acc = function
-    | [] -> (k, v) :: l
-    | ((k', v') as kv) :: tl ->
-       if eq k k'
-       then ((k, Cstruct.append v' v) :: tl) @ acc
-       else aux (kv :: acc) tl in
-  aux [] l
+  check_prefix buf
+  >>= check_length
 
 let deserialize acc buf =
   let buf = match acc with
-    | Some x -> Cstruct.append x buf
-    | None -> buf in
-  let rec f acc b =
+    | None -> buf
+    | Some acc -> Cstruct.append acc buf in
+  let rec aux acc b =
     if Cstruct.len b >= sizeof_header
     then (match get_msg b with
-          | Ok ((k, v), rest) -> f (assoc_set ~eq:(=) k v acc) rest
+          | Ok ((k, v), rest) ->
+             let acc = Int_map.update k (function
+                           | Some l -> Some (v :: l)
+                           | None -> Some [v]) acc in
+             aux acc rest
           | Error e ->
              match e with
              | Insufficient_payload b -> acc, b
              | _e ->
-                Logs.warn ~src (fun m -> m "parser - %a" pp_error _e);
-                f acc (Cstruct.shift b 1))
+                Logs.warn (fun m -> m "%a" pp_error _e);
+                aux acc (Cstruct.shift b 1))
     else acc, b in
-  let msgs, new_acc = f [] buf in
-  (if Cstruct.len new_acc > 0 then Some new_acc else None),
-  msgs
+  let msgs, rest = aux Int_map.empty buf in
+  msgs, (if Cstruct.len rest > 0 then Some rest else None)
 
 let recv usb =
   Lwt_preemptive.detach (fun () ->
@@ -125,18 +113,24 @@ let send usb port data =
       let msg = Cstruct.to_bigarray @@ serialize port data in
       Cyusb.send usb msg) ()
 
-let apply disp (msgs : (int * Cstruct.t) list) =
-  let apply' (id, step) =
-    let msg = List.assoc_opt id msgs in
-    Boards.Board.apply step msg
-    >>= fun next_step ->
-    Lwt.return (id, next_step)
-  in
-  Lwt_list.map_p apply' disp
+let apply (subscribers : subscriber Int_map.t)
+      (msgs : Cstruct.t list Int_map.t) =
+  Int_map.merge (fun _ sub msgs ->
+      match sub, msgs with
+      | None, _ -> None
+      | Some sub, None -> Some sub
+      | Some (sub, acc), Some msgs ->
+         if Lwt.is_sleeping sub
+         then Some (sub, msgs @ acc)
+         else (
+           let msg = Cstruct.concat @@ List.rev (msgs @ acc) in
+           let sub = sub >>= fun s -> Boards.Board.apply s msg in
+           Some (sub, [])))
+    subscribers msgs
 
 let create ?(sleep = 1.) () =
   let usb = Cyusb.create () in
-  let dispatch = ref [] in
+  let subscribers = ref Int_map.empty in
   let recv = recv usb in
   let send = send usb in
 
@@ -144,21 +138,15 @@ let create ?(sleep = 1.) () =
     Lwt_unix.sleep sleep
     >>= fun () -> recv ()
     >>= fun buf ->
-    let new_acc, msgs = deserialize acc buf in
-    apply !dispatch msgs
-    >>= fun new_dispatch ->
-    dispatch := new_dispatch;
-    loop new_acc ()
+    let msgs, rest = deserialize acc buf in
+    subscribers := apply !subscribers msgs;
+    loop rest ()
   in
-  { usb; dispatch; send },
-  (fun () ->
-    apply !dispatch []
-    >>= fun new_dispatch ->
-    dispatch := new_dispatch;
-    loop None ())
+  { usb; subscribers; send },
+  (fun () -> loop None ())
 
-let subscribe obj id step =
-  obj.dispatch := (id, step) :: !(obj.dispatch)
+let subscribe (t : t) id subscriber =
+  t.subscribers := Int_map.add id (subscriber (), []) !(t.subscribers)
 
 let get_send obj id = obj.send id
 
