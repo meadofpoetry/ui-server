@@ -123,7 +123,7 @@ module Device = struct
         | Hardware_version -> get `R `Hardware_version Ascii.Int.get
         | Firmware_version -> get `R `Firmware_version Ascii.Int.get
         | Serial_number -> get `R `Serial_number Ascii.Int.get
-        | Type -> get `R `Serial_number Ascii.Int.get)
+        | Type -> get `R `Type Ascii.Int.get)
     | _ -> None
 end
 
@@ -147,13 +147,13 @@ module Configuration = struct
     let set, rw, data = match x with
       | Mode x ->
          `Mode, access_of_rw x,
-         data_of_rw (fun x -> `I8 (mode_to_int x)) x
+         data_of_rw (fun x -> `I8 (mode_to_enum x)) x
       | Application x ->
          `Application, access_of_rw x,
-         data_of_rw (fun x -> `I8 (application_to_int x)) x
+         data_of_rw (fun x -> `I8 (application_to_enum x)) x
       | Volatile_storage x ->
          `Volatile_storage, access_of_rw x,
-         data_of_rw (fun x -> `I8 (storage_to_int x)) x in
+         data_of_rw (fun x -> `I8 (storage_to_enum x)) x in
     let setting = setting_to_enum set in
     make_cmd ?data ~category:`Configuration ~setting ~rw ()
 
@@ -163,9 +163,9 @@ module Configuration = struct
     match x.category with
     | `Configuration ->
        (match req with
-        | Mode r -> get r `Mode (mode_of_int % Ascii.Int.get)
-        | Application r -> get r `Application (application_of_int % Ascii.Int.get)
-        | Volatile_storage r -> get r `Volatile_storage (storage_of_int % Ascii.Int.get))
+        | Mode r -> get r `Mode (mode_of_enum % Ascii.Int.get)
+        | Application r -> get r `Application (application_of_enum % Ascii.Int.get)
+        | Volatile_storage r -> get r `Volatile_storage (storage_of_enum % Ascii.Int.get))
     | _ -> None
 end
 
@@ -322,7 +322,7 @@ module Ip_receive = struct
     let set, rw, data = match x with
       | Addressing_method x ->
          `Addressing_method, access_of_rw x,
-         data_of_rw (fun x -> `I8 (meth_to_int x)) x
+         data_of_rw (fun x -> `I8 (meth_to_enum x)) x
       | Enable x -> `Enable, access_of_rw x, data_of_rw (fun x -> `B x) x
       | FEC_delay -> `FEC_delay, R, None
       | FEC_enable x -> `FEC_enable, (access_of_rw x), data_of_rw (fun x -> `B x) x
@@ -349,7 +349,7 @@ module Ip_receive = struct
       | Rate_change_counter -> `Rate_change_counter, R, None
       | Rate_estimation_mode x ->
          `Rate_estimation_mode, (access_of_rw x),
-         data_of_rw (fun x -> `I8 (rate_mode_to_int x)) x
+         data_of_rw (fun x -> `I8 (rate_mode_to_enum x)) x
       | Jitter_error_counter -> `Jitter_error_counter, R, None
       | Lock_error_counter -> `Lock_error_counter, R, None
       | Delay_factor -> `Delay_factor, R, None in
@@ -363,7 +363,7 @@ module Ip_receive = struct
     | `IP_receive ->
        (match req with
         | Addressing_method r ->
-           get r `Addressing_method (meth_of_int % Ascii.Int.get)
+           get r `Addressing_method (meth_of_enum % Ascii.Int.get)
         | Enable r -> get r `Enable Ascii.Bool.get
         | FEC_delay -> get `R `FEC_delay Ascii.Int.get
         | FEC_enable r -> get r `FEC_enable Ascii.Bool.get
@@ -373,19 +373,19 @@ module Ip_receive = struct
         | IP_lost_after_FEC -> get `R `IP_lost_after_FEC Ascii.Int64.get
         | IP_lost_before_FEC -> get `R `IP_lost_before_FEC Ascii.Int64.get
         | UDP_port r -> get r `UDP_port Ascii.Int.get
-        | IP_to_output_delay r -> get r `UDP_port Ascii.Int.get
+        | IP_to_output_delay r -> get r `IP_to_output_delay Ascii.Int.get
         | Multicast_address r -> get r `Multicast_address Ascii.Ipaddr.get
         | TP_per_IP -> get `R `TP_per_IP Ascii.Int.get
-        | Status -> get `R `Status (receiver_status_of_int % Ascii.Int.get)
-        | Protocol -> get `R `Protocol (protocol_of_int % Ascii.Int.get)
+        | Status -> get `R `Status (receiver_status_of_enum % Ascii.Int.get)
+        | Protocol -> get `R `Protocol (protocol_of_enum % Ascii.Int.get)
         | Index -> get `R `Index Ascii.Int32.get
-        | Output_type -> get `R `Output_type (output_of_int % Ascii.Int.get)
-        | Packet_size -> get `R `Packet_size (packet_sz_of_int % Ascii.Int.get)
+        | Output_type -> get `R `Output_type (output_of_enum % Ascii.Int.get)
+        | Packet_size -> get `R `Packet_size (packet_sz_of_enum % Ascii.Int.get)
         | Bitrate -> get `R `Bitrate Ascii.Int.get
         | PCR_present -> get `R `PCR_present Ascii.Bool.get
         | Rate_change_counter -> get `R `Rate_change_counter Ascii.Int32.get
         | Rate_estimation_mode r ->
-           get r `Rate_estimation_mode (rate_mode_of_int % Ascii.Int.get)
+           get r `Rate_estimation_mode (rate_mode_of_enum % Ascii.Int.get)
         | Jitter_error_counter -> get `R `Jitter_error_counter Ascii.Int32.get
         | Lock_error_counter -> get `R `Lock_error_counter Ascii.Int32.get
         | Delay_factor -> get `R `Delay_factor Ascii.Int32.get)
@@ -423,7 +423,7 @@ module Asi_output = struct
     let ( % ) f g x = match (g x) with None -> None | Some x -> f x in
     let get r s f = check_cmd equal_setting setting_of_enum x r s f in
     match x.category with
-    | `Configuration ->
+    | `ASI_output ->
        (match req with
         | Packet_size r ->  get r `Packet_size (asi_packet_sz_of_int % Ascii.Int.get)
         | Physical_port -> get `R `Physical_port Ascii.Int.get

@@ -37,42 +37,57 @@ let step ~(address : int)
     detect_device ()
 
   and detect_device () =
-    Sm_detect.step ~address ~return:first_step ~continue:init_device src sender pe ()
+    Sm_detect.step ~address
+      ~return:(fun () -> Lwt_unix.sleep 5. >>= fun () -> first_step ())
+      ~continue:init_device
+      src sender pe ()
 
   and init_device () =
-    Sm_init.step ~address ~return:first_step ~continue:fork src sender pe ()
+    Sm_init.step ~address
+      ~return:(fun () -> Lwt_unix.sleep 5. >>= fun () -> first_step ())
+      ~continue:pull_status
+      src sender pe ()
 
   and pull_status () =
-    Sm_probes.step ~address ~return:first_step ~continue:fork src sender pe ()
+    Sm_probes.step ~address
+      ~return:(fun () -> Lwt_unix.sleep 5. >>= fun () -> first_step ())
+      ~continue:fork
+      src sender pe ()
 
-  and fork () =
-    match Pools.Queue.is_empty !msgs with
-    | true -> pull_status ()
-    | false -> send_client_request ()
+  and fork ?timer () =
+    let timer = match timer with
+      | Some x -> x
+      | None -> Lwt_unix.sleep Sm_probes.interval >>= pull_status in
+    Lwt.pick
+      [ timer
+      ; send_client_request timer ()
+      ]
 
-  and send_client_request () =
+  and send_client_request timer () =
     if Pools.Queue.is_empty !msgs
-    then fork ()
-    else (Pools.Queue.send !msgs
-          >>= fun msgs' ->
-          msgs := msgs';
-          Lwt.return @@ `Continue (wait_client_request None))
+    then fork ~timer ()
+    else (
+      Pools.Queue.send !msgs
+      >>= fun msgs' ->
+      msgs := msgs';
+      Lwt.return @@ `Continue (wait_client_request timer None))
 
-  and wait_client_request acc recvd =
+  and wait_client_request timer acc recvd =
     let responses, acc = match Board.concat_acc acc recvd with
       | None -> [], None
       | Some recvd -> Parser.deserialize ~address src recvd in
     Pools.Queue._match !msgs
       ~pending:(fun pool ->
         msgs := pool;
-        Lwt.return @@ `Continue (wait_client_request acc))
-      ~resolved:(fun pool _ -> msgs := pool; send_client_request ())
-      ~not_sent:(fun pool -> msgs := pool; send_client_request ())
+        Lwt.return @@ `Continue (wait_client_request timer acc))
+      ~resolved:(fun pool _ -> msgs := pool; fork ~timer ())
+      ~not_sent:(fun pool -> msgs := pool; send_client_request timer ())
       ~error:(fun pool -> function
-        | `Interrupted -> msgs := pool; send_client_request ()
+        | `Interrupted -> msgs := pool; fork ~timer ()
         | `Timeout ->
            Logs.warn ~src (fun m ->
                m "timeout while waiting for client request response, restarting...");
+           Lwt.cancel timer;
            first_step ())
   in
   `Continue (fun _ -> first_step ())

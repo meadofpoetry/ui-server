@@ -21,7 +21,7 @@ let step ~(address : int)
 
   let make_req req =
     make_msg
-      ~timeout:(fun () -> Lwt_unix.timeout timeout)
+      ~timeout:(fun () -> Lwt_unix.sleep timeout)
       ~send:(fun () -> sender @@ Serializer.make_req ~address req)
       ~resolve:(Parser.is_response req)
       () in
@@ -32,16 +32,18 @@ let step ~(address : int)
     | Some recvd -> Parser.deserialize ~address src recvd in
 
   let wait ~next_step pending log_data pool acc recvd =
-    let (name, to_string) = log_data in
+    let (meth, name, to_string) = log_data in
     let responses, acc = deserialize acc recvd in
     Pool.apply pool responses;
     Pool._match pool
       ~resolved:(fun _ -> function
         | `Error e ->
-           Logs.warn (fun m -> m "init - error getting %s: %s" name e);
+           let meth = match meth with `Get -> "getting" | `Set -> "setting" in
+           Logs.warn (fun m -> m "init - error %s %s: %s" meth name e);
            return ()
         | `Value x ->
-           Logs.debug (fun m -> m "init - got %s: %s" name (to_string x));
+           let meth = match meth with `Get -> "got" | `Set -> "set" in
+           Logs.debug (fun m -> m "init - %s %s: %s" meth name (to_string x));
            match next_step x with
            | `Next next -> next ()
            | `CC (r, next) ->
@@ -50,9 +52,8 @@ let step ~(address : int)
               Lwt.return @@ `Continue (next pool None))
       ~error:(fun _ -> function
         | `Timeout ->
-           Logs.warn (fun m ->
-               let err = "timeout" in
-               m "init - error getting %s: %s" name err);
+           let meth = match meth with `Get -> "getting" | `Set -> "setting" in
+           Logs.warn (fun m -> m "init - error %s %s: timeout" meth name);
            return ())
       ~pending:(fun pool -> Lwt.return @@ `Continue (pending pool acc))
       ~not_sent:(fun _ -> assert false) in
@@ -64,6 +65,8 @@ let step ~(address : int)
     Lwt.return @@ `Continue (init_mode pool None)
 
   and detect_device ns steps pool acc recvd =
+    let responses, acc = deserialize acc recvd in
+    Pool.apply pool responses;
     Pool._match pool
       ~error:(fun pool -> function
         | `Timeout ->
@@ -72,11 +75,11 @@ let step ~(address : int)
              Logs.warn (fun m -> m "init - device is not responding, restarting...");
              return ())
            else (
-             Pool.send pool
+             Lwt_unix.sleep timeout
+             >>= fun () -> Pool.send pool
              >>= fun pool ->
              Lwt.return @@ `Continue (detect_device ns (pred steps) pool acc)))
-      ~pending:(fun pool ->
-        Lwt.return @@ `Continue (detect_device ns steps pool acc))
+      ~pending:(fun pool -> Lwt.return @@ `Continue (detect_device ns steps pool acc))
       ~not_sent:(fun _ -> assert false)
       ~resolved:(fun pool -> function
         | `Error _ ->
@@ -101,69 +104,75 @@ let step ~(address : int)
   and init_mode pool acc recvd =
     wait ~next_step:(fun _ ->
         `CC (Device FPGA_version, detect_device `Mode reboot_steps))
-      init_mode ("device mode", show_mode) pool acc recvd
+      init_mode (`Set, "device mode", mode_to_string) pool acc recvd
 
   and init_application pool acc recvd =
     wait ~next_step:(fun _ ->
         `CC (Device FPGA_version, detect_device `Application reboot_steps))
-      init_application ("application", show_application) pool acc recvd
+      init_application (`Set, "application", application_to_string) pool acc recvd
 
   and init_storage pool acc recvd =
     wait ~next_step:(fun _ ->
         `CC (Network (IP_address `R), get_ip))
-      init_storage ("volatile storage", show_storage) pool acc recvd
+      init_storage (`Set, "volatile storage", storage_to_string) pool acc recvd
 
   and get_ip pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (Network (Subnet_mask `R), get_subnet_mask GList.(x :: [])))
-      get_ip ("IP address", Ipaddr.V4.to_string) pool acc recvd
+      get_ip (`Get, "IP address", Ipaddr.V4.to_string) pool acc recvd
 
-  and get_subnet_mask racc =
+  and get_subnet_mask racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (Network (Gateway `R), get_gateway GList.(x :: racc)))
-      (get_subnet_mask racc) ("subnet mask", Ipaddr.V4.to_string)
+      (get_subnet_mask racc) (`Get, "subnet mask", Ipaddr.V4.to_string)
+      pool acc recvd
 
-  and get_gateway racc =
+  and get_gateway racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (Network (DHCP `R), get_dhcp GList.(x :: racc)))
-      (get_gateway racc) ("gateway", Ipaddr.V4.to_string)
+      (get_gateway racc) (`Get, "gateway", Ipaddr.V4.to_string) pool acc recvd
 
-  and get_dhcp racc =
+  and get_dhcp racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (IP_receive (Enable `R), get_enable GList.(x :: racc)))
-      (get_dhcp racc) ("DHCP", string_of_bool)
+      (get_dhcp racc) (`Get, "DHCP", string_of_bool) pool acc recvd
 
-  and get_enable racc =
+  and get_enable racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (IP_receive (FEC_enable `R), get_fec GList.(x :: racc)))
-      (get_enable racc) ("receive enable", string_of_bool)
+      (get_enable racc) (`Get, "receive enable", string_of_bool) pool acc recvd
 
-  and get_fec racc =
+  and get_fec racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (IP_receive (UDP_port `R), get_udp_port GList.(x :: racc)))
-      (get_fec racc) ("FEC enable", string_of_bool)
+      (get_fec racc) (`Get, "FEC enable", string_of_bool) pool acc recvd
 
-  and get_udp_port racc =
+  and get_udp_port racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (IP_receive (Multicast_address `R), get_multicast GList.(x :: racc)))
-      (get_udp_port racc) ("UDP port", string_of_int)
+      (get_udp_port racc) (`Get, "UDP port", string_of_int) pool acc recvd
 
-  and get_multicast racc =
+  and get_multicast racc pool acc recvd =
     wait ~next_step:(fun x ->
-        `CC (IP_receive (Addressing_method `R), get_addressing_method GList.(x :: racc)))
-      (get_multicast racc) ("Multicast address", Ipaddr.V4.to_string)
+        `CC (IP_receive (Addressing_method `R),
+             get_addressing_method GList.(x :: racc)))
+      (get_multicast racc) (`Get, "Multicast address", Ipaddr.V4.to_string)
+      pool acc recvd
 
-  and get_addressing_method racc =
+  and get_addressing_method racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (IP_receive (IP_to_output_delay `R), get_delay GList.(x :: racc)))
-      (get_addressing_method racc) ("addressing method", show_meth)
+      (get_addressing_method racc) (`Get, "addressing method", meth_to_string)
+      pool acc recvd
 
-  and get_delay racc =
+  and get_delay racc pool acc recvd =
     wait ~next_step:(fun x ->
-        `CC (IP_receive (Rate_estimation_mode `R), get_rate_mode GList.(x :: racc)))
-      (get_delay racc) ("IP-to-output delay", string_of_int)
+        `CC (IP_receive (Rate_estimation_mode `R),
+             get_rate_mode GList.(x :: racc)))
+      (get_delay racc) (`Get, "IP-to-output delay", string_of_int)
+      pool acc recvd
 
-  and get_rate_mode racc =
+  and get_rate_mode racc pool acc recvd =
     wait ~next_step:(fun rate_mode ->
         let config = match racc with
           | delay :: meth :: multicast :: port :: fec :: enable
@@ -191,6 +200,7 @@ let step ~(address : int)
         Logs.info (fun m -> m "initialization done!");
         pe.state `Fine;
         `Next continue)
-      (get_rate_mode racc) ("Rate estimation mode", show_rate_mode)
+      (get_rate_mode racc) (`Get, "Rate estimation mode", rate_mode_to_string)
+      pool acc recvd
 
   in first_step

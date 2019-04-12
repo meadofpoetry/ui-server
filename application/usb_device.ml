@@ -121,8 +121,9 @@ let recv usb =
       Cstruct.of_bigarray @@ Cyusb.recv usb)
 
 let send usb port data =
-  let msg = Cstruct.to_bigarray @@ serialize port data in
-  Lwt_preemptive.detach (fun () -> Cyusb.send usb msg) ()
+  Lwt_preemptive.detach (fun () ->
+      let msg = Cstruct.to_bigarray @@ serialize port data in
+      Cyusb.send usb msg) ()
 
 let apply disp (msgs : (int * Cstruct.t) list) =
   let apply' (id, step) =

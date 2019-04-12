@@ -43,13 +43,15 @@ module Pool = struct
   let apply (t : ('a, 'b) t) (l : 'a list) =
     match t.pending with
     | None -> ()
-    | Some { waiter; wakener; msg } ->
+    | Some { waiter; wakener; msg; timer } ->
        match Lwt.state waiter with
        | Lwt.Return _ | Lwt.Fail _ -> ()
        | Lwt.Sleep ->
           match Util.List.find_map msg.resolve l with
           | None -> ()
-          | Some x -> Lwt.wakeup_later wakener (Ok x)
+          | Some x ->
+             Lwt.cancel timer;
+             Lwt.wakeup_later wakener (Ok x)
 
   let append t msgs =
     let msgs' = List.map make_msg_internal msgs in

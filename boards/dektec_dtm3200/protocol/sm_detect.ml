@@ -15,9 +15,11 @@ let step ~(address : int)
       (sender : Cstruct.t -> unit Lwt.t)
       (pe : Sm_common.push_events) =
 
+  let (module Logs : Logs.LOG) = Logs.src_log src in
+
   let make_req req =
     make_msg
-      ~timeout:(fun () -> Lwt_unix.timeout timeout)
+      ~timeout:(fun () -> Lwt_unix.sleep timeout)
       ~send:(fun () -> sender @@ Serializer.make_req ~address req)
       ~resolve:(Parser.is_response req)
       () in
@@ -47,8 +49,7 @@ let step ~(address : int)
       ~error:(fun _ -> function
         | `Timeout ->
            Logs.warn (fun m ->
-               let err = "timeout" in
-               m "detect - error getting %s: %s" name err);
+               m "detect - error getting %s: timeout" name);
            return ())
       ~pending:(fun pool -> Lwt.return @@ `Continue (pending pool acc))
       ~not_sent:(fun _ -> assert false) in
@@ -64,27 +65,27 @@ let step ~(address : int)
         `CC (Device Hardware_version, get_hw_ver GList.(x :: [])))
       get_fpga_ver ("FPGA version", string_of_int) pool acc recvd
 
-  and get_hw_ver racc =
+  and get_hw_ver racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (Device Firmware_version, get_fw_ver GList.(x :: racc)))
-      (get_hw_ver racc) ("hardware version", string_of_int)
+      (get_hw_ver racc) ("hardware version", string_of_int) pool acc recvd
 
-  and get_fw_ver racc =
+  and get_fw_ver racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (Device Serial_number, get_serial GList.(x :: racc)))
-      (get_fw_ver racc) ("firmware version", string_of_int)
+      (get_fw_ver racc) ("firmware version", string_of_int) pool acc recvd
 
-  and get_serial racc =
+  and get_serial racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (Device Type, get_type GList.(x :: racc)))
-      (get_serial racc) ("serial number", string_of_int)
+      (get_serial racc) ("serial number", string_of_int) pool acc recvd
 
-  and get_type racc =
+  and get_type racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (Network MAC_address, get_mac GList.(x :: racc)))
-      (get_type racc) ("device type", string_of_int)
+      (get_type racc) ("device type", string_of_int) pool acc recvd
 
-  and get_mac racc =
+  and get_mac racc pool acc recvd =
     wait ~next_step:(fun mac ->
         let devinfo = match racc with
           | typ :: serial :: fw_ver :: hw_ver :: fpga_ver :: [] ->
@@ -98,6 +99,6 @@ let step ~(address : int)
         pe.devinfo (Some devinfo);
         pe.state `Init;
         `Next continue)
-      (get_mac racc) ("MAC address", Macaddr.to_string ?sep:None)
+      (get_mac racc) ("MAC address", Macaddr.to_string ?sep:None) pool acc recvd
 
   in first_step

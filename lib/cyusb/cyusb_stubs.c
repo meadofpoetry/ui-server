@@ -126,15 +126,15 @@ CAMLprim value caml_cyusb_send (value h, value ba) {
         while (size > 0) {
                 len = size < max_out ? size : max_out;
 
-                if(cyusb_bulk_transfer(handle,
+                /* if( */cyusb_bulk_transfer(handle,
                                        OUT_POINT,
                                        buf,
                                        len,
                                        &transfd,
-                                       500)) {
-                        fail = 1;
-                        goto cleanup;
-                }
+                                             500);/* ) { */
+                        /* fail = 1; */
+                /*         goto cleanup; */
+                /* } */
 
                 size -= transfd;
                 buf  += transfd;
@@ -167,27 +167,29 @@ CAMLprim value caml_cyusb_recv (value h) {
         do {
                 len = max_in > MAX_BUF - size ? MAX_BUF - size : max_in;
 
-                if(cyusb_bulk_transfer(handle,
+                fail = cyusb_bulk_transfer(handle,
                                        IN_POINT,
                                        &buf[size],
                                        len,
                                        &transfd,
-                                       500)) {
-                        fail = 1;
-                        goto cleanup;
-                }
+                                       2);
+                  /* if (fail){ */
+                  /*       goto cleanup; */
+                /* } */
 
                 size += transfd;
-                
+
         } while (transfd && size < MAX_BUF);
 
 cleanup:
         caml_acquire_runtime_system();
 
-        if (fail) {
-                free(buf);
-                caml_failwith ("Cyusb: error on recv");
-        }
+        /* if (fail) { */
+        /*         free(buf); */
+        /*         char c [100]; */
+        /*         sprintf(c, "Cyusb: error on recv (%d)", fail); */
+        /*         caml_failwith (c); */
+        /* } */
 
         buf = realloc(buf, size);
 

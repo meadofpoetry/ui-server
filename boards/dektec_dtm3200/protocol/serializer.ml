@@ -37,10 +37,7 @@ let serialize (x : data) =
 let make_req ~address request =
   Message.(
     let { category; setting; rw; data } = Request.to_cmd request in
-    let pfx = match category with
-      | `Device | `Configuration | `Network ->
-         Cstruct.create (sizeof_prefix + sizeof_setting16)
-      | `IP_receive | `ASI_output -> Cstruct.create sizeof_prefix in
+    let pfx = Cstruct.create sizeof_prefix in
     let bdy = match data with
       | None -> Cstruct.create 0
       | Some x -> serialize x in
@@ -50,6 +47,9 @@ let make_req ~address request =
     set_prefix_category (to_hex_string (`I8 (category_to_enum category))) 0 pfx;
     set_prefix_setting (to_hex_string (`I8 setting)) 0 pfx;
     set_prefix_rw pfx (access_to_int rw);
+    let pfx = match category with
+      | `Device | `Configuration | `Network -> pfx
+      | `IP_receive | `ASI_output -> Cstruct.append pfx (serialize (`I16 0)) in
     set_suffix_crc (to_hex_string (`I8 (calc_crc ~pfx ~bdy))) 0 sfx;
     set_suffix_etx sfx etx;
     Cstruct.concat [pfx; bdy; sfx])

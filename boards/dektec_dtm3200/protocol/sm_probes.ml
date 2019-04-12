@@ -8,7 +8,7 @@ let ( >>= ) = Lwt.bind
 
 let timeout = 3. (* seconds *)
 
-let period = 1. (* seconds *)
+let interval = 1. (* seconds *)
 
 let step ~(address : int)
       ~return
@@ -26,7 +26,7 @@ let step ~(address : int)
 
   let make_req (type a) (req : a Request.t) =
     make_msg
-      ~timeout:(fun () -> Lwt_unix.timeout timeout)
+      ~timeout:(fun () -> Lwt_unix.sleep timeout)
       ~send:(fun () -> sender @@ Serializer.make_req ~address req)
       ~resolve:(Parser.is_response req)
       () in
@@ -67,82 +67,88 @@ let step ~(address : int)
         `CC (IP_receive FEC_columns, fec_columns GList.(x :: [])))
       fec_delay ("FEC delay", string_of_int) pool acc recvd
 
-  and fec_columns racc =
+  and fec_columns racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (IP_receive FEC_rows, fec_rows GList.(x :: racc)))
-      (fec_columns racc) ("FEC columns", string_of_int)
+      (fec_columns racc) ("FEC columns", string_of_int) pool acc recvd
 
-  and fec_rows racc =
+  and fec_rows racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (IP_receive IP_jitter_tolerance, jitter_tolerance GList.(x :: racc)))
-      (fec_rows racc) ("FEC rows", string_of_int)
+      (fec_rows racc) ("FEC rows", string_of_int) pool acc recvd
 
-  and jitter_tolerance racc =
+  and jitter_tolerance racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (IP_receive Bitrate, bitrate GList.(x :: racc)))
-      (jitter_tolerance racc) ("IP jitter tolerance", string_of_int)
+      (jitter_tolerance racc) ("IP jitter tolerance", string_of_int) pool acc recvd
 
-  and bitrate racc =
+  and bitrate racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (IP_receive IP_lost_after_FEC, lost_after_fec GList.(x :: racc)))
-      (bitrate racc) ("Bitrate", string_of_int)
+      (bitrate racc) ("Bitrate", string_of_int) pool acc recvd
 
-  and lost_after_fec racc =
+  and lost_after_fec racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (IP_receive IP_lost_before_FEC, lost_before_fec GList.(x :: racc)))
-      (lost_after_fec racc) ("IP lost after FEC", Int64.to_string)
+      (lost_after_fec racc) ("IP lost after FEC", Int64.to_string) pool acc recvd
 
-  and lost_before_fec racc =
+  and lost_before_fec racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (IP_receive TP_per_IP, tp_per_ip GList.(x :: racc)))
-      (lost_before_fec racc) ("IP lost before FEC", Int64.to_string)
+      (lost_before_fec racc) ("IP lost before FEC", Int64.to_string) pool acc recvd
 
-  and tp_per_ip racc =
+  and tp_per_ip racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (IP_receive Status, status GList.(x :: racc)))
-      (tp_per_ip racc) ("TP per IP", string_of_int)
+      (tp_per_ip racc) ("TP per IP", string_of_int) pool acc recvd
 
-  and status racc =
+  and status racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (IP_receive Protocol, protocol GList.(x :: racc)))
-      (status racc) ("status", show_receiver_status)
+      (status racc) ("status", show_receiver_status) pool acc recvd
 
-  and protocol racc =
+  and protocol racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (IP_receive Packet_size, packet_size GList.(x :: racc)))
-      (protocol racc) ("protocol", show_protocol)
+      (protocol racc) ("protocol", show_protocol) pool acc recvd
 
-  and packet_size racc =
+  and packet_size racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (IP_receive PCR_present, pcr_present GList.(x :: racc)))
-      (packet_size racc) ("packet size", show_packet_sz)
+      (packet_size racc) ("packet size", show_packet_sz) pool acc recvd
 
-  and pcr_present racc =
+  and pcr_present racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (IP_receive Rate_change_counter, rate_change_counter GList.(x :: racc)))
-      (pcr_present racc) ("PCR present", string_of_bool)
+      (pcr_present racc) ("PCR present", string_of_bool) pool acc recvd
 
-  and rate_change_counter racc =
+  and rate_change_counter racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (IP_receive Jitter_error_counter, jitter_error_counter GList.(x :: racc)))
-      (rate_change_counter racc) ("rate change counter", Int32.to_string)
+      (rate_change_counter racc)
+      ("rate change counter", Int32.to_string)
+      pool acc recvd
 
-  and jitter_error_counter racc =
+  and jitter_error_counter racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (IP_receive Lock_error_counter, lock_error_counter GList.(x :: racc)))
-      (jitter_error_counter racc) ("jitter error counter", Int32.to_string)
+      (jitter_error_counter racc)
+      ("jitter error counter", Int32.to_string)
+      pool acc recvd
 
-  and lock_error_counter racc =
+  and lock_error_counter racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (IP_receive Delay_factor, delay_factor GList.(x :: racc)))
-      (lock_error_counter racc) ("lock error counter", Int32.to_string)
+      (lock_error_counter racc)
+      ("lock error counter", Int32.to_string)
+      pool acc recvd
 
-  and delay_factor racc =
+  and delay_factor racc pool acc recvd =
     wait ~next_step:(fun x ->
         `CC (ASI_output Bitrate, asi_bitrate GList.(x :: racc)))
-      (delay_factor racc) ("delay factor", Int32.to_string)
+      (delay_factor racc) ("delay factor", Int32.to_string) pool acc recvd
 
-  and asi_bitrate racc =
+  and asi_bitrate racc pool acc recvd =
     wait (asi_bitrate racc)
       ~next_step:(fun x ->
         let status = match racc with
@@ -171,6 +177,6 @@ let step ~(address : int)
              } in
         pe.status status;
         `Next continue)
-      ("ASI bitrate", string_of_int)
+      ("ASI bitrate", string_of_int) pool acc recvd
 
   in first_step
