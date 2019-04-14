@@ -9,10 +9,6 @@
 
 [@@@ocaml.warning "+32"]
 
-type 'a cc = 'a Boards.Board.cc
-
-type subscriber = (Cstruct.t -> 'c cc Lwt.t as 'c) cc Lwt.t * Cstruct.t list
-
 module Int = struct
   type t = int
   let compare = compare
@@ -21,7 +17,7 @@ end
 module Int_map = Map.Make(Int)
 
 type t =
-  { subscribers : subscriber Int_map.t ref
+  { subscribers : ((Cstruct.t -> unit) * unit Lwt.t) Int_map.t ref
   ; send : int -> Cstruct.t -> unit Lwt.t
   ; usb : Cyusb.t
   }
@@ -113,19 +109,16 @@ let send usb port data =
       let msg = Cstruct.to_bigarray @@ serialize port data in
       Cyusb.send usb msg) ()
 
-let apply (subscribers : subscriber Int_map.t)
+let apply (subscribers : ((Cstruct.t -> unit) * unit Lwt.t) Int_map.t)
       (msgs : Cstruct.t list Int_map.t) =
   Int_map.merge (fun _ sub msgs ->
       match sub, msgs with
       | None, _ -> None
       | Some sub, None -> Some sub
-      | Some (sub, acc), Some msgs ->
-         if Lwt.is_sleeping sub
-         then Some (sub, msgs @ acc)
-         else (
-           let msg = Cstruct.concat @@ List.rev (msgs @ acc) in
-           let sub = sub >>= fun s -> Boards.Board.apply s msg in
-           Some (sub, [])))
+      | Some sub, Some msgs ->
+         let msg = Cstruct.concat @@ List.rev msgs in
+         (fst sub) msg;
+         Some sub)
     subscribers msgs
 
 let create ?(sleep = 1.) () =
@@ -145,8 +138,8 @@ let create ?(sleep = 1.) () =
   { usb; subscribers; send },
   (fun () -> loop None ())
 
-let subscribe (t : t) id subscriber =
-  t.subscribers := Int_map.add id (subscriber (), []) !(t.subscribers)
+let subscribe (t : t) id loop push =
+  t.subscribers := Int_map.add id (push, loop ()) !(t.subscribers)
 
 let get_send obj id = obj.send id
 

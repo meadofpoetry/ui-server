@@ -56,7 +56,8 @@ let create (b : Topology.topo_board)
     ; control = b.control
     ; streams_signal = api.notifs.streams
     ; log_source = (fun _ -> React.E.never) (* TODO implement source *)
-    ; step = api.loop
+    ; loop = api.loop
+    ; push_data = api.push_data
     ; connection = api.notifs.state
     ; ports_sync =
         List.fold_left (fun acc (p : Topology.topo_port) ->

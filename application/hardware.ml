@@ -67,7 +67,7 @@ type t =
 let create_board db usb (b : Topology.topo_board) boards kv =
   let (module B : Board.BOARD) =
     match b.typ, b.model, b.manufacturer, b.version with (* TODO add boards *)
-    | "DVB", "DVB4CH", "NIITV", 1 -> (module Board_niitv_dvb : Board.BOARD)
+    (* | "DVB", "DVB4CH", "NIITV", 1 -> (module Board_niitv_dvb : Board.BOARD) *)
     | "IP2TS", "DTM-3200", "DekTec", 1 -> (module Board_dektec_dtm3200 : Board.BOARD)
     (* | "TS", "qos", "niitv", 1 -> (module Board_qos_niit : Board.BOARD)
     | "TS2IP", "ts2ip", "niitv", 1 -> (module Board_ts2ip_niit : Board.BOARD) **)
@@ -247,7 +247,7 @@ let create kv db (topo : Topology.t) =
          | Ok m ->
             create_board db usb b m kv
             >>=? fun (board : Board.t) ->
-            Usb_device.subscribe usb b.control board.step;
+            Usb_device.subscribe usb b.control board.loop board.push_data;
             Lwt.return_ok @@ Board.Map.add b.control board m)
        (Ok Board.Map.empty)
   >>=? fun boards -> uri_storage#get

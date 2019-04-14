@@ -6,6 +6,12 @@ open Netlib
 
 let ( >>= ) = Lwt.bind
 
+type push_events =
+  { state : Application_types.Topology.state -> unit
+  ; status : status -> unit
+  ; devinfo : devinfo option -> unit
+  }
+
 type notifs =
   { streams : Stream.t list React.signal
   ; state : Topology.state React.signal
@@ -18,7 +24,8 @@ type api =
   ; kv : config Kv_v.rw
   ; notifs : notifs
   ; channel : 'a. 'a Request.t -> ('a, error) Lwt_result.t
-  ; loop : unit -> (Cstruct.t -> 'c Board.cc Lwt.t as 'c) Board.cc Lwt.t
+  ; loop : unit -> unit Lwt.t
+  ; push_data : Cstruct.t -> unit
   }
 and error =
   | Not_responding
@@ -28,7 +35,8 @@ let step ~(address : int)
       (src : Logs.src)
       msgs
       (sender : Cstruct.t -> unit Lwt.t)
-      (pe : Sm_common.push_events) =
+      (stream : Cstruct.t Request.cmd Lwt_stream.t)
+      (pe : push_events) =
 
   let rec first_step () =
     Logs.info ~src (fun m -> m "start of connection establishment...");
@@ -37,58 +45,61 @@ let step ~(address : int)
     detect_device ()
 
   and detect_device () =
-    Sm_detect.step ~address
+    Fsm_detect.step ~address
       ~return:(fun () -> Lwt_unix.sleep 5. >>= fun () -> first_step ())
-      ~continue:init_device
-      src sender pe ()
+      ~continue:(fun devinfo ->
+        pe.devinfo @@ Some devinfo;
+        pe.state `Init;
+        Lwt_unix.sleep 5. >>= first_step)
+      src sender stream ()
 
-  and init_device () =
-    Sm_init.step ~address
-      ~return:(fun () -> Lwt_unix.sleep 5. >>= fun () -> first_step ())
-      ~continue:pull_status
-      src sender pe ()
+  (* and init_device () =
+   *   Sm_init.step ~address
+   *     ~return:(fun () -> Lwt_unix.sleep 5. >>= fun () -> first_step ())
+   *     ~continue:pull_status
+   *     src sender pe ()
+   * 
+   * and pull_status () =
+   *   Sm_probes.step ~address
+   *     ~return:(fun () -> Lwt_unix.sleep 5. >>= fun () -> first_step ())
+   *     ~continue:fork
+   *     src sender pe () *)
 
-  and pull_status () =
-    Sm_probes.step ~address
-      ~return:(fun () -> Lwt_unix.sleep 5. >>= fun () -> first_step ())
-      ~continue:fork
-      src sender pe ()
-
-  and fork ?timer () =
-    let timer = match timer with
-      | Some x -> x
-      | None -> Lwt_unix.sleep Sm_probes.interval in
-    Lwt.choose
-      [ (Pools.Queue.await_next !msgs >>= fun () -> Lwt.return `Message)
-      ; (timer >>= fun () -> Lwt.return `Timeout)
-      ]
-    >>= function
-    | `Message -> send_client_request timer ()
-    | `Timeout -> pull_status ()
-
-  and send_client_request timer () =
-    Pools.Queue.send !msgs
-    >>= fun msgs' ->
-    msgs := msgs';
-    Lwt.return @@ `Continue (wait_client_request timer None)
-
-  and wait_client_request timer acc recvd =
-    let responses, acc =
-      Parser.deserialize ~address src
-      @@ Board.concat_acc acc recvd in
-    Pools.Queue._match !msgs
-      ~pending:(fun pool ->
-        msgs := pool;
-        Lwt.return @@ `Continue (wait_client_request timer acc))
-      ~resolved:(fun pool _ -> msgs := pool; fork ~timer ())
-      ~not_sent:(fun pool -> msgs := pool; fork ~timer ())
-      ~error:(fun pool -> function
-        | `Interrupted -> msgs := pool; fork ~timer ()
-        | `Timeout ->
-           Logs.warn ~src (fun m ->
-               m "timeout while waiting for client request response, restarting...");
-           Lwt.cancel timer;
-           first_step ())
+  (* and fork ?timer () =
+   *   let timer = match timer with
+   *     | Some x -> x
+   *     | None -> Lwt_unix.sleep Sm_probes.interval in
+   *   Lwt.choose
+   *     [ (Pools.Queue.await_next !msgs >>= fun () -> Lwt.return `Message)
+   *     ; (timer >>= fun () -> Lwt.return `Timeout)
+   *     ]
+   *   >>= function
+   *   | `Message -> send_client_request timer ()
+   *   | `Timeout -> pull_status ()
+   * 
+   * and send_client_request timer () =
+   *   Pools.Queue.send !msgs
+   *   >>= fun msgs' ->
+   *   msgs := msgs';
+   *   Lwt.return @@ `Continue (wait_client_request timer None)
+   * 
+   * and wait_client_request timer acc recvd =
+   *   let responses, acc =
+   *     Parser.deserialize ~address src
+   *     @@ Board.concat_acc acc recvd in
+   *   Pools.Queue._match !msgs
+   *     ~pending:(fun pool ->
+   *       msgs := pool;
+   *       Lwt.return @@ `Continue (wait_client_request timer acc))
+   *     ~resolved:(fun pool _ -> msgs := pool; fork ~timer ())
+   *     ~not_sent:(fun pool -> msgs := pool; fork ~timer ())
+   *     ~error:(fun pool -> function
+   *       | `Interrupted -> msgs := pool; fork ~timer ()
+   *       | `Timeout ->
+   *          Logs.warn ~src (fun m ->
+   *              m "timeout while waiting for client request response, restarting...");
+   *          Lwt.cancel timer;
+   *          first_step ()) *)
   in
   fun () -> first_step ()
 
@@ -135,17 +146,27 @@ let create ~(address : int)
     ; status
     ; config = kv#s
     } in
-  let (pe : Sm_common.push_events) =
+  let (pe : push_events) =
     { state = set_state
     ; status = set_status
     ; devinfo = set_devinfo
     } in
   let msgs = ref (Pools.Queue.create []) in
-  let loop = step ~address src msgs sender pe in
+  let stream, push = Lwt_stream.create () in
+  let push_data =
+    let acc = ref None in
+    let push (buf : Cstruct.t) =
+      let buf = Board.concat_acc !acc buf in
+      let parsed, new_acc = Parser.deserialize ~address src buf in
+      acc := new_acc;
+      List.iter (fun x -> push @@ Some x) parsed in
+    push in
+  let loop = step ~address src msgs sender stream pe in
   let (api : api) =
     { notifs
     ; address
     ; loop
+    ; push_data
     ; kv
     ; channel = (fun _ -> assert false)
     } in

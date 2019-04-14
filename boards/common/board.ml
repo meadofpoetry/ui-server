@@ -4,8 +4,6 @@ open Util
 module Api_http = Api_cohttp.Make(User)(Body)
 module Api_template = Api_cohttp_template.Make(User)
 
-type 'a cc = [`Continue of 'a]
-
 module Int = struct
   type t = int
 
@@ -55,7 +53,8 @@ type t =
   ; control : int
   ; streams_signal : Stream.t list React.signal
   ; log_source : Stream.Log_message.source
-  ; step : unit -> (Cstruct.t -> 'c cc Lwt.t as 'c) cc Lwt.t
+  ; loop : unit -> unit Lwt.t
+  ; push_data : Cstruct.t -> unit
   ; connection : Topology.state React.signal
   ; ports_active : bool React.signal Ports.t
   ; ports_sync : bool React.signal Ports.t
@@ -82,8 +81,6 @@ let log_name (b : Topology.topo_board) =
 let concat_acc acc recvd = match acc with
   | Some acc -> Cstruct.append acc recvd
   | None -> recvd
-
-let apply = function `Continue step -> step
 
 module Map = Map.Make(Int)
 

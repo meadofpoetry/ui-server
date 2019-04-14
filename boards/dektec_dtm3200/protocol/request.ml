@@ -30,11 +30,6 @@ type 'a cmd =
   ; rw : access
   }
 
-type 'a rsp =
-  [ `Value of 'a
-  | `Error of string
-  ]
-
 let make_cmd ?data ~category ~setting ~rw () =
   { category; setting; rw; data }
 
@@ -70,17 +65,17 @@ let check_cmd (eq : 'a -> 'a -> bool)
       (x : Cstruct.t cmd)
       (r : 'b rw)
       (setting : 'a)
-      (f : Cstruct.t -> 'c option) : 'c rsp option =
+      (f : Cstruct.t -> 'c option) : ('c, string) result option =
   match x.rw, _of x.setting with
-  | E, _ -> Some (`Error "got error response")
+  | E, _ -> Some (Error "got error response")
   | _, None -> None
   | a, Some s when equal_access a (access_of_rw r) && eq s setting ->
      (match f x.data with
-      | Some x -> Some (`Value x)
+      | Some x -> Some (Ok x)
       | None ->
          let e = Printf.sprintf "data field parsing failure (%s)"
                  @@ Cstruct.to_string x.data in
-         Some (`Error e))
+         Some (Error e))
   | _ -> None
 
 module Device = struct
@@ -100,6 +95,13 @@ module Device = struct
     | Serial_number : int t
     | Type : int t
 
+  let to_string (type a) (t : a t) = match t with
+    | FPGA_version -> "FPGA_version"
+    | Hardware_version -> "hardware_version"
+    | Firmware_version -> "firmware_version"
+    | Serial_number -> "serial_number"
+    | Type -> "device_type"
+
   let response_data_size : setting -> int = function
     | `FPGA_version | `Hardware_version -> Message.sizeof_setting8
     | `Firmware_version | `Serial_number | `Type -> Message.sizeof_setting32
@@ -114,7 +116,8 @@ module Device = struct
     let setting = setting_to_enum set in
     make_cmd ?data ~category:`Device ~setting ~rw ()
 
-  let of_cmd : type a. a t -> Cstruct.t cmd -> a rsp option = fun req x ->
+  let of_cmd : type a. a t -> Cstruct.t cmd -> (a, string) result option =
+    fun req x ->
     let get r s f = check_cmd equal_setting setting_of_enum x r s f in
     match x.category with
     | `Device ->
@@ -140,6 +143,11 @@ module Configuration = struct
     | Application : application rw -> application t
     | Volatile_storage : storage rw -> storage t
 
+  let to_string (type a) (t : a t) = match t with
+    | Mode _ -> "mode"
+    | Application _ -> "application"
+    | Volatile_storage _ -> "volatile_storage"
+
   let response_data_size : setting -> int = function
     | `Mode | `Application | `Volatile_storage -> Message.sizeof_setting8
 
@@ -157,7 +165,8 @@ module Configuration = struct
     let setting = setting_to_enum set in
     make_cmd ?data ~category:`Configuration ~setting ~rw ()
 
-  let of_cmd : type a. a t -> Cstruct.t cmd -> a rsp option = fun req x ->
+  let of_cmd : type a. a t -> Cstruct.t cmd -> (a, string) result option =
+    fun req x ->
     let ( % ) f g x = match (g x) with None -> None | Some x -> f x in
     let get r s f = check_cmd equal_setting setting_of_enum x r s f in
     match x.category with
@@ -188,6 +197,14 @@ module Network = struct
     | MAC_address: Macaddr.t t
     | Reboot : unit t
 
+  let to_string (type a) (t : a t) = match t with
+    | IP_address _ -> "IP_address"
+    | Subnet_mask _ -> "subnet_mask"
+    | Gateway _ -> "gateway"
+    | DHCP _ -> "DHCP"
+    | Reboot -> "reboot"
+    | MAC_address -> "MAC_address"
+
   let response_data_size : setting -> int = function
     | `IP_address | `Subnet_mask | `Gateway -> Message.sizeof_setting32
     | `DHCP -> Message.sizeof_setting8
@@ -211,7 +228,8 @@ module Network = struct
     let setting = setting_to_enum set in
     make_cmd ?data ~category:`Network ~setting ~rw ()
 
-  let of_cmd : type a. a t -> Cstruct.t cmd -> a rsp option = fun req x ->
+  let of_cmd : type a. a t -> Cstruct.t cmd -> (a, string) result option =
+    fun req x ->
     let get r s f = check_cmd equal_setting setting_of_enum x r s f in
     match x.category with
     | `Network ->
@@ -291,6 +309,33 @@ module Ip_receive = struct
     | Lock_error_counter : int32 t
     | Delay_factor : int32 t
 
+  let to_string (type a) (t : a t) = match t with
+    | Addressing_method _ -> "addressing method"
+    | Enable _ -> "enable"
+    | FEC_delay -> "FEC_delay"
+    | FEC_enable _ -> "FEC_enable"
+    | FEC_columns -> "FEC_columns"
+    | FEC_rows -> "FEC_rows"
+    | IP_jitter_tolerance -> "IP_jitter_tolerance"
+    | IP_lost_after_FEC -> "IP_lost_after_FEC"
+    | IP_lost_before_FEC -> "IP_lost_before_FEC"
+    | UDP_port _ -> "UDP_port"
+    | IP_to_output_delay _ -> "IP-to-output_delay"
+    | Multicast_address _ -> "multicast_address"
+    | TP_per_IP -> "TP_per_IP"
+    | Status -> "status"
+    | Protocol -> "protocol"
+    | Index -> "index"
+    | Output_type -> "output_type"
+    | Packet_size -> "packet_size"
+    | Bitrate -> "bitrate"
+    | PCR_present -> "PCR_present"
+    | Rate_change_counter -> "rate_change_counter"
+    | Rate_estimation_mode _ -> "rate_estimation_mode"
+    | Jitter_error_counter -> "jitter_error_counter"
+    | Lock_error_counter -> "lock_error_counter"
+    | Delay_factor -> "delay_factor"
+
   let response_data_size : setting -> int = function
     | `Addressing_method -> Message.sizeof_setting8
     | `Enable -> Message.sizeof_setting8
@@ -356,7 +401,8 @@ module Ip_receive = struct
     let setting = setting_to_enum set in
     make_cmd ?data ~category:`IP_receive ~setting ~rw ()
 
-  let of_cmd : type a. a t -> Cstruct.t cmd -> a rsp option = fun req x ->
+  let of_cmd : type a. a t -> Cstruct.t cmd -> (a, string) result option =
+    fun req x ->
     let ( % ) f g x = match (g x) with None -> None | Some x -> f x in
     let get r s f = check_cmd equal_setting setting_of_enum x r s f in
     match x.category with
@@ -405,6 +451,11 @@ module Asi_output = struct
     | Physical_port : int t
     | Bitrate : int t
 
+  let to_string (type a) (t : a t) = match t with
+    | Packet_size _ -> "packet_size"
+    | Physical_port -> "physical_port"
+    | Bitrate -> "bitrate"
+
   let response_data_size : setting -> int = function
     | `Packet_size | `Physical_port -> Message.sizeof_setting8
     | `Bitrate -> Message.sizeof_setting32
@@ -419,7 +470,8 @@ module Asi_output = struct
     let setting = setting_to_enum set in
     make_cmd ?data ~category:`ASI_output ~setting ~rw ()
 
-  let of_cmd : type a. a t -> Cstruct.t cmd -> a rsp option = fun req x ->
+  let of_cmd : type a. a t -> Cstruct.t cmd -> (a, string) result option =
+    fun req x ->
     let ( % ) f g x = match (g x) with None -> None | Some x -> f x in
     let get r s f = check_cmd equal_setting setting_of_enum x r s f in
     match x.category with
@@ -437,6 +489,13 @@ type _ t =
   | Network : 'a Network.t -> 'a t
   | IP_receive : 'a Ip_receive.t -> 'a t
   | ASI_output : 'a Asi_output.t -> 'a t
+
+let to_string (type a) (t : a t) = match t with
+  | Device req -> "device:" ^ Device.to_string req
+  | Configuration req -> "configuration:" ^ Configuration.to_string req
+  | Network req -> "network:" ^ Network.to_string req
+  | IP_receive req -> "IP receive:" ^ Ip_receive.to_string req
+  | ASI_output req -> "ASI output:" ^ Asi_output.to_string req
 
 let equal_access a b = match a, b with
   | R, R | W, W | E, E -> true
