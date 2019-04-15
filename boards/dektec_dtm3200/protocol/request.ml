@@ -41,12 +41,21 @@ let data_of_rw f = function
   | `R -> None
   | `W x -> Some (f x)
 
+let rw_to_string f = function
+  | `R -> "read"
+  | `W x -> Printf.sprintf "write(%s)" (f x)
+
 let category_to_string = function
   | `Device -> "Device"
   | `Configuration -> "Configuration"
   | `Network -> "Network"
   | `IP_receive -> "IP receive"
   | `ASI_output -> "ASI output"
+
+let show_request ?rw name =
+  match rw with
+  | None -> name
+  | Some rw -> Printf.sprintf "%s -> %s" name rw
 
 let take n s =
   if n < String.length s
@@ -96,11 +105,11 @@ module Device = struct
     | Type : int t
 
   let to_string (type a) (t : a t) = match t with
-    | FPGA_version -> "FPGA_version"
-    | Hardware_version -> "hardware_version"
-    | Firmware_version -> "firmware_version"
-    | Serial_number -> "serial_number"
-    | Type -> "device_type"
+    | FPGA_version -> show_request "FPGA version"
+    | Hardware_version -> show_request "hardware version"
+    | Firmware_version -> show_request "firmware version"
+    | Serial_number -> show_request "serial number"
+    | Type -> show_request "device type"
 
   let response_data_size : setting -> int = function
     | `FPGA_version | `Hardware_version -> Message.sizeof_setting8
@@ -144,9 +153,12 @@ module Configuration = struct
     | Volatile_storage : storage rw -> storage t
 
   let to_string (type a) (t : a t) = match t with
-    | Mode _ -> "mode"
-    | Application _ -> "application"
-    | Volatile_storage _ -> "volatile_storage"
+    | Mode x ->
+      show_request ~rw:(rw_to_string mode_to_string x) "mode"
+    | Application x ->
+      show_request ~rw:(rw_to_string application_to_string x) "application"
+    | Volatile_storage x ->
+      show_request ~rw:(rw_to_string storage_to_string x) "volatile storage"
 
   let response_data_size : setting -> int = function
     | `Mode | `Application | `Volatile_storage -> Message.sizeof_setting8
@@ -198,18 +210,22 @@ module Network = struct
     | Reboot : unit t
 
   let to_string (type a) (t : a t) = match t with
-    | IP_address _ -> "IP_address"
-    | Subnet_mask _ -> "subnet_mask"
-    | Gateway _ -> "gateway"
-    | DHCP _ -> "DHCP"
-    | Reboot -> "reboot"
-    | MAC_address -> "MAC_address"
+    | IP_address x ->
+      show_request ~rw:(rw_to_string Ipaddr.V4.to_string x) "IP address"
+    | Subnet_mask x ->
+      show_request ~rw:(rw_to_string Ipaddr.V4.to_string x) "subnet mask"
+    | Gateway x ->
+      show_request ~rw:(rw_to_string Ipaddr.V4.to_string x) "gateway"
+    | DHCP x ->
+      show_request ~rw:(rw_to_string string_of_bool x) "DHCP"
+    | Reboot -> show_request "reboot"
+    | MAC_address -> show_request "MAC address"
 
   let response_data_size : setting -> int = function
     | `IP_address | `Subnet_mask | `Gateway -> Message.sizeof_setting32
     | `DHCP -> Message.sizeof_setting8
     | `MAC_address -> Message.sizeof_setting48
-    | `Reboot -> Message.sizeof_setting8
+    | `Reboot -> 0
 
   let to_cmd : type a. a t -> data option cmd = fun x ->
     let set, rw, data = match x with
@@ -310,31 +326,36 @@ module Ip_receive = struct
     | Delay_factor : int32 t
 
   let to_string (type a) (t : a t) = match t with
-    | Addressing_method _ -> "addressing method"
-    | Enable _ -> "enable"
-    | FEC_delay -> "FEC_delay"
-    | FEC_enable _ -> "FEC_enable"
-    | FEC_columns -> "FEC_columns"
-    | FEC_rows -> "FEC_rows"
-    | IP_jitter_tolerance -> "IP_jitter_tolerance"
-    | IP_lost_after_FEC -> "IP_lost_after_FEC"
-    | IP_lost_before_FEC -> "IP_lost_before_FEC"
-    | UDP_port _ -> "UDP_port"
-    | IP_to_output_delay _ -> "IP-to-output_delay"
-    | Multicast_address _ -> "multicast_address"
-    | TP_per_IP -> "TP_per_IP"
-    | Status -> "status"
-    | Protocol -> "protocol"
-    | Index -> "index"
-    | Output_type -> "output_type"
-    | Packet_size -> "packet_size"
-    | Bitrate -> "bitrate"
-    | PCR_present -> "PCR_present"
-    | Rate_change_counter -> "rate_change_counter"
-    | Rate_estimation_mode _ -> "rate_estimation_mode"
-    | Jitter_error_counter -> "jitter_error_counter"
-    | Lock_error_counter -> "lock_error_counter"
-    | Delay_factor -> "delay_factor"
+    | Addressing_method x ->
+      show_request ~rw:(rw_to_string meth_to_string x) "addressing method"
+    | Enable x ->
+      show_request ~rw:(rw_to_string string_of_bool x) "enable"
+    | FEC_delay -> show_request "FEC delay"
+    | FEC_enable x -> show_request ~rw:(rw_to_string string_of_bool x) "FEC enable"
+    | FEC_columns -> show_request "FEC columns"
+    | FEC_rows -> show_request "FEC rows"
+    | IP_jitter_tolerance -> show_request "IP jitter tolerance"
+    | IP_lost_after_FEC -> show_request "IP lost after FEC"
+    | IP_lost_before_FEC -> show_request "IP lost before FEC"
+    | UDP_port x -> show_request ~rw:(rw_to_string string_of_int x) "UDP port"
+    | IP_to_output_delay x ->
+      show_request ~rw:(rw_to_string string_of_int x) "IP-to-output delay"
+    | Multicast_address x ->
+      show_request ~rw:(rw_to_string Ipaddr.V4.to_string x) "multicast address"
+    | TP_per_IP -> show_request "TP per IP"
+    | Status -> show_request "status"
+    | Protocol -> show_request "protocol"
+    | Index -> show_request "index"
+    | Output_type -> show_request "output type"
+    | Packet_size -> show_request "packet size"
+    | Bitrate -> show_request "bitrate"
+    | PCR_present -> show_request "PCR present"
+    | Rate_change_counter -> show_request "rate change counter"
+    | Rate_estimation_mode x ->
+      show_request ~rw:(rw_to_string rate_mode_to_string x) "rate estimation mode"
+    | Jitter_error_counter -> show_request "jitter error counter"
+    | Lock_error_counter -> show_request "lock error counter"
+    | Delay_factor -> show_request "delay factor"
 
   let response_data_size : setting -> int = function
     | `Addressing_method -> Message.sizeof_setting8
@@ -452,9 +473,10 @@ module Asi_output = struct
     | Bitrate : int t
 
   let to_string (type a) (t : a t) = match t with
-    | Packet_size _ -> "packet_size"
-    | Physical_port -> "physical_port"
-    | Bitrate -> "bitrate"
+    | Packet_size x ->
+      show_request ~rw:(rw_to_string asi_packet_sz_to_string x) "packet_size"
+    | Physical_port -> show_request "physical port"
+    | Bitrate -> show_request "bitrate"
 
   let response_data_size : setting -> int = function
     | `Packet_size | `Physical_port -> Message.sizeof_setting8
@@ -491,11 +513,11 @@ type _ t =
   | ASI_output : 'a Asi_output.t -> 'a t
 
 let to_string (type a) (t : a t) = match t with
-  | Device req -> "device:" ^ Device.to_string req
-  | Configuration req -> "configuration:" ^ Configuration.to_string req
-  | Network req -> "network:" ^ Network.to_string req
-  | IP_receive req -> "IP receive:" ^ Ip_receive.to_string req
-  | ASI_output req -> "ASI output:" ^ Asi_output.to_string req
+  | Device req -> "device -> " ^ Device.to_string req
+  | Configuration req -> "configuration -> " ^ Configuration.to_string req
+  | Network req -> "network -> " ^ Network.to_string req
+  | IP_receive req -> "IP receive -> " ^ Ip_receive.to_string req
+  | ASI_output req -> "ASI output -> " ^ Asi_output.to_string req
 
 let equal_access a b = match a, b with
   | R, R | W, W | E, E -> true

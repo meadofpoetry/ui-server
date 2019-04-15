@@ -91,12 +91,15 @@ let check_rest (category, setting, length, rw, buf) =
     let bdy, rst' = Cstruct.split msg' length in
     let sfx, rest = Cstruct.split rst' sizeof_suffix in
     (* No need to catch exception here because we've already checked length. *)
-    let crc' = Ascii.Int.get_exn @@ get_suffix_crc sfx in
-    let etx' = get_suffix_etx sfx in
-    let crc = Serializer.calc_crc ~pfx ~bdy in
-    if crc' <> crc then Error (Bad_crc (crc, crc'))
-    else if etx' <> etx then Error (Bad_etx etx')
-    else Ok ({ category; setting; rw; data = bdy }, rest))
+    let crc' = get_suffix_crc sfx in
+    match Ascii.Int.get crc' with
+    | None -> Error (Bad_value crc')
+    | Some crc' ->
+      let etx' = get_suffix_etx sfx in
+      let crc = Serializer.calc_crc ~pfx ~bdy in
+      if crc' <> crc then Error (Bad_crc (crc, crc'))
+      else if etx' <> etx then Error (Bad_etx etx')
+      else Ok ({ category; setting; rw; data = bdy }, rest))
 
 let get_msg ~address buf =
   let ( >>= ) r f = match r with Error e -> Error e | Ok x -> f x in

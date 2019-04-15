@@ -1,5 +1,3 @@
-open Boards
-open Boards.Pools
 open Board_dektec_dtm3200_types
 open Request
 open Netlib
@@ -22,8 +20,8 @@ let loop (type a) stream (req : a Request.t) : (a, string) result Lwt.t =
   Lwt_stream.junk_old stream >>= aux
 
 let step ~(address : int)
-      ~return
-      ~continue
+      ~(return : unit -> unit Lwt.t)
+      ~(continue : devinfo -> unit Lwt.t)
       (src : Logs.src)
       (sender : Cstruct.t -> unit Lwt.t)
       (stream : Cstruct.t cmd Lwt_stream.t) =
@@ -32,11 +30,12 @@ let step ~(address : int)
 
   let on_ok (type a) (req : a Request.t) to_string v =
     Logs.debug (fun m ->
-        m "got %s (%s)" (Request.to_string req) (to_string v)) in
+        m "request '%s' accomplished succesfully with response = %s"
+          (Request.to_string req) (to_string v)) in
 
   let on_error (type a) (req : a Request.t) e =
     Logs.warn (fun m ->
-        m "error while getting %s - %s" (to_string req) e) in
+        m "request '%s' failed with error = %s" (to_string req) e) in
 
   let rec fpga_version () =
     let req = Device FPGA_version in

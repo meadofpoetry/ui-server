@@ -3,15 +3,15 @@ open Netlib
 (* Overall types *)
 type mode =
   | ASI2IP
-  | IP2ASI [@@deriving enum]
+  | IP2ASI [@@deriving eq, enum]
 
 type application =
   | Failsafe
-  | Normal [@@deriving enum]
+  | Normal [@@deriving eq, enum]
 
 type storage =
   | FLASH
-  | RAM [@@deriving enum]
+  | RAM [@@deriving eq, enum]
 
 (* Ip types *)
 type receiver_status =
@@ -42,7 +42,7 @@ type rate_mode =
   | Off [@@deriving yojson, eq, enum]
 
 (* ASI types *)
-type asi_packet_sz = Sz of packet_sz | As_is
+type asi_packet_sz = Sz of packet_sz | Copy
 
 type devinfo =
   { fpga_ver : int
@@ -129,13 +129,17 @@ let protocol_to_string = function
   | UDP -> "UDP"
   | RTP -> "RTP"
 
+let asi_packet_sz_to_string = function
+  | Copy -> "copy"
+  | Sz x -> packet_sz_to_string x
+
 let asi_packet_sz_to_int = function
   | Sz TS188 -> 0
   | Sz TS204 -> 1
-  | As_is -> 2
+  | Copy -> 2
 
 let asi_packet_sz_of_int = function
   | 0 -> Some (Sz TS188)
   | 1 -> Some (Sz TS204)
-  | 2 -> Some (As_is)
+  | 2 -> Some Copy
   | _ -> None

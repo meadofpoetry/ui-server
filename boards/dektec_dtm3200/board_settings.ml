@@ -10,10 +10,10 @@ let of_yojson = Board_dektec_dtm3200_types.config_of_yojson
 
 let (default : t) =
   { nw =
-      { ip = Ipaddr.V4.of_string_exn "192.168.0.1"
+      { ip = Ipaddr.V4.of_string_exn "192.168.0.2"
       ; mask = Ipaddr.V4.of_string_exn "255.255.255.0"
       ; gateway = Ipaddr.V4.of_string_exn "192.168.0.1"
-      ; dhcp = true
+      ; dhcp = false
       }
   ; ip =
       { enable = false
