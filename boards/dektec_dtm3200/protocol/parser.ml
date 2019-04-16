@@ -26,8 +26,8 @@ let err_to_string error =
     | Bad_address x -> sprintf "incorrect address: %d" x
     | Bad_category x -> sprintf "incorrect category: %d" x
     | Bad_setting (x, y) ->
-       sprintf "incorrect setting: %d, in category %s(0x%02X)"
-         y (category_to_string x) (category_to_enum x)
+      sprintf "incorrect setting: %d, in category %s(0x%02X)"
+        y (category_to_string x) (category_to_enum x)
     | Bad_rw x -> sprintf "incorrect rw: %d" x
     | Bad_crc (x, y) -> sprintf "incorrect crc, expected %d, got %d" x y
     | Bad_value x -> sprintf "incorrect value: %s" (Cstruct.to_string x)
@@ -36,8 +36,8 @@ let err_to_string error =
 
 let check_stx buf =
   try match get_prefix_stx buf with
-      | x when x = stx -> Ok buf
-      | x -> Error (Bad_stx x)
+    | x when x = stx -> Ok buf
+    | x -> Error (Bad_stx x)
   with Invalid_argument _ -> Error (Insufficient_payload buf)
 
 let check_address ~address buf =

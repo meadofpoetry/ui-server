@@ -1,66 +1,57 @@
 open Board_niitv_dvb_types
 open Message
 
+let ( % ) f g x = f (g x)
+
+type err =
+  | Bad_tag_start of int
+  | Bad_length of int
+  | Bad_msg_code of int
+  | Bad_crc of (int * int)
+  | Bad_tag_stop of int
+  | Insufficient_payload of Cstruct.t
+  | Unknown_err of string
+
+let err_to_string : err -> string = function
+  | Bad_tag_start x -> Printf.sprintf "incorrect start tag: 0x%x" x
+  | Bad_length x -> Printf.sprintf "incorrect length: %d" x
+  | Bad_msg_code x -> Printf.sprintf "incorrect msg code: 0x%x" x
+  | Bad_crc (x,y) -> Printf.sprintf "incorrect crc: expected 0x%x, got 0x%x" x y
+  | Bad_tag_stop x -> Printf.sprintf "incorrect stop tag: 0x%x" x
+  | Insufficient_payload _ -> "insufficient payload"
+  | Unknown_err s -> s
+
 let max_uint16 = Unsigned.(UInt16.to_int UInt16.max_int)
 let max_uint32 = Unsigned.(UInt32.to_int32 UInt32.max_int)
 
-let get_exn = function
-  | None -> raise Not_found
-  | Some x -> x
-
-let ( % ) f g x = f (g x)
-
-let ( >>= ) r f = match r with
-  | Error e -> Error e
-  | Ok x -> f x
-
 exception Parse_error
-
-(* Misc *)
 
 module type Src = sig
   val source_id : int
 end
 
-type _ request =
-  | Get_devinfo : Device.info request
-  | Reset : unit request
-  | Set_src_id : int -> int request
-  | Set_mode : (int * Device.mode) -> (int * Device.mode_rsp) request
-
-type event =
-  | Measures of (int * Measure.t)
-  | Params of (int * Params.t)
-  | Plp_list of (int * Plp_list.t) [@@deriving show]
-
-type _ event_request =
-  | Get_measure : int -> event event_request
-  | Get_params : int -> event event_request
-  | Get_plp_list : int -> event event_request
-
-(* Helper functions *)
-
-let parse_devinfo_rsp_exn msg : Device.info =
+let parse_devinfo (buf : Cstruct.t) : (Device.info, err) result =
   try
-    let hw_cfg = get_rsp_devinfo_hw_config msg in
-    { serial = get_rsp_devinfo_serial msg
-    ; hw_ver = get_rsp_devinfo_hw_ver msg
-    ; fpga_ver = get_rsp_devinfo_fpga_ver msg
-    ; soft_ver = get_rsp_devinfo_soft_ver msg
-    ; asi = if (hw_cfg land 16) > 0 then true else false
-    ; receivers =
-        List.fold_left (fun acc x ->
-            let x' = float_of_int x in
-            if (hw_cfg land (int_of_float (2. ** x'))) > 0
-            then x :: acc
-            else acc) [] [3; 2; 1; 0]
-    }
-  with _ -> raise Parse_error
+    let hw_cfg = get_rsp_devinfo_hw_config buf in
+    let serial = get_rsp_devinfo_serial buf in
+    let hw_ver = get_rsp_devinfo_hw_ver buf in
+    let fpga_ver = get_rsp_devinfo_fpga_ver buf in
+    let soft_ver = get_rsp_devinfo_soft_ver buf in
+    let asi = (hw_cfg land 16) > 0 in
+    let receivers =
+      List.fold_left (fun acc x ->
+          let x' = float_of_int x in
+          if (hw_cfg land (int_of_float (2. ** x'))) > 0
+          then x :: acc
+          else acc) [] [3; 2; 1; 0]
+    in
+    Ok { serial; hw_ver; fpga_ver; soft_ver; asi; receivers }
+  with exn -> Error (Unknown_err (Printexc.to_string exn))
 
-let parse_src_id_rsp_exn msg =
+let parse_source_id (buf : Cstruct.t) =
   try
-    get_rsp_src_id_source_id msg
-  with _ -> raise Parse_error
+    Ok (get_rsp_src_id_source_id buf)
+  with Invalid_argument _ -> Error (Insufficient_payload buf)
 
 let parse_mode_rsp_exn id msg : int * Device.mode_rsp =
   try
@@ -164,12 +155,12 @@ let parse_plp_list_rsp_exn id msg : int * Plp_list.t =
     let plps = match plp_num with
       | None -> []
       | Some _ ->
-         let iter =
-           Cstruct.iter (fun _ -> Some 1)
-             (fun buf -> Cstruct.get_uint8 buf 0)
-             (Cstruct.shift msg 2) in
-         Cstruct.fold (fun acc el -> el :: acc) iter []
-         |> List.sort compare in
+        let iter =
+          Cstruct.iter (fun _ -> Some 1)
+            (fun buf -> Cstruct.get_uint8 buf 0)
+            (Cstruct.shift msg 2) in
+        Cstruct.fold (fun acc el -> el :: acc) iter []
+        |> List.sort compare in
     id, plps
   with _ -> raise Parse_error
 
@@ -178,24 +169,6 @@ type parsed =
   ; body : Cstruct.t
   ; res : Cstruct.t
   }
-
-type err =
-  | Bad_tag_start of int
-  | Bad_length of int
-  | Bad_msg_code of int
-  | Bad_crc of (int * int)
-  | Bad_tag_stop of int
-  | Insufficient_payload of Cstruct.t
-  | Unknown_err of string
-
-let err_to_string : err -> string = function
-  | Bad_tag_start x -> Printf.sprintf "incorrect start tag: 0x%x" x
-  | Bad_length x -> Printf.sprintf "incorrect length: %d" x
-  | Bad_msg_code x -> Printf.sprintf "incorrect msg code: 0x%x" x
-  | Bad_crc (x,y) -> Printf.sprintf "incorrect crc: expected 0x%x, got 0x%x" x y
-  | Bad_tag_stop x -> Printf.sprintf "incorrect stop tag: 0x%x" x
-  | Insufficient_payload _ -> "insufficient payload"
-  | Unknown_err s -> s
 
 let split_code (code : int) =
   code land 0x0F, code lsr 4
@@ -216,10 +189,10 @@ let check_msg_code buf =
   | 0xD0 as x -> Ok (x, buf) (* src id *)
   | 0x10 as x -> Ok (x, buf) (* devinfo *)
   | code -> (* other *)
-     match split_code code with
-     | id, c when (id >= 0 && id < 4) && (c > 1 && c < 7) ->
-        Ok (code, buf)
-     | _ -> Error (Bad_msg_code code)
+    match split_code code with
+    | id, c when (id >= 0 && id < 4) && (c > 1 && c < 7) ->
+      Ok (code, buf)
+    | _ -> Error (Bad_msg_code code)
 
 let check_msg_crc (code, buf) =
   let payload_len = (get_prefix_length buf) - 1 in
@@ -235,47 +208,44 @@ let check_msg_crc (code, buf) =
     else Ok { code; body; res }
 
 let check_msg msg =
-  try
-    check_tag_start msg
-    >>= check_length
-    >>= check_msg_code
-    >>= check_msg_crc
-  with
-  | Invalid_argument _ -> Error (Insufficient_payload msg)
-  | e -> Error (Unknown_err (Printexc.to_string e))
+  let ( >>= ) r f = match r with Ok x -> f x | Error e -> Error e in
+  check_tag_start msg
+  >>= check_length
+  >>= check_msg_code
+  >>= check_msg_crc
 
 let parse_msg (src : Logs.src) = fun { code; body; _ } ->
   match code with
   | 0xEE ->
-     Logs.debug ~src (fun m -> m "deserializer - got ack");
-     `R `Ack
+    Logs.debug ~src (fun m -> m "deserializer - got ack");
+    `R `Ack
   | 0x10 ->
-     Logs.debug ~src (fun m -> m "deserializer - got devinfo");
-     `R (`Devinfo body)
+    Logs.debug ~src (fun m -> m "deserializer - got devinfo");
+    `R (`Devinfo body)
   | 0xD0 ->
-     Logs.debug ~src (fun m -> m "deserializer - got source id");
-     `R (`Src_id body)
+    Logs.debug ~src (fun m -> m "deserializer - got source id");
+    `R (`Src_id body)
   | code ->
-     let id, code' = split_code code in
-     match code' with
-     | 2 ->
-        Logs.debug ~src (fun m -> m "deserializer - got settings (%d)" id);
-        `R (`Settings (id, body))
-     | 3 ->
-        Logs.debug ~src (fun m -> m "deserializer - got measure (%d)" id);
-        `E (`Measure (id, body))
-     | 4 ->
-        Logs.debug ~src (fun m -> m "deserializer - got params (%d)" id);
-        `E (`Params (id, body))
-     | 5 ->
-        Logs.debug ~src (fun m -> m "deserializer - got plp list (%d)" id);
-        `E (`Plps (id, body))
-     | 6 ->
-        Logs.debug ~src (fun m -> m "deserializer - got plp setting (%d)" id);
-        `R (`Plp_setting (id, body))
-     | _ ->
-        Logs.warn ~src (fun m -> m "deserializer - unknown message code 0x%x" code);
-        `N
+    let id, code' = split_code code in
+    match code' with
+    | 2 ->
+      Logs.debug ~src (fun m -> m "deserializer - got settings (%d)" id);
+      `R (`Settings (id, body))
+    | 3 ->
+      Logs.debug ~src (fun m -> m "deserializer - got measure (%d)" id);
+      `E (`Measure (id, body))
+    | 4 ->
+      Logs.debug ~src (fun m -> m "deserializer - got params (%d)" id);
+      `E (`Params (id, body))
+    | 5 ->
+      Logs.debug ~src (fun m -> m "deserializer - got plp list (%d)" id);
+      `E (`Plps (id, body))
+    | 6 ->
+      Logs.debug ~src (fun m -> m "deserializer - got plp setting (%d)" id);
+      `R (`Plp_setting (id, body))
+    | _ ->
+      Logs.warn ~src (fun m -> m "deserializer - unknown message code 0x%x" code);
+      `N
 
 let deserialize (src : Logs.src) buf =
   let rec f events responses b =
@@ -284,67 +254,29 @@ let deserialize (src : Logs.src) buf =
     else
       match check_msg b with
       | Ok x ->
-         parse_msg src x
-         |> (function
-             | `E e -> f (e :: events) responses x.res
-             | `R r -> f events (r :: responses) x.res
-             | `N -> f events responses x.res)
+        parse_msg src x
+        |> (function
+            | `E e -> f (e :: events) responses x.res
+            | `R r -> f events (r :: responses) x.res
+            | `N -> f events responses x.res)
       | Error e ->
-         begin match e with
-         | Insufficient_payload x ->
+        begin match e with
+          | Insufficient_payload x ->
             List.rev events, List.rev responses, x
-         | e ->
+          | e ->
             Logs.warn ~src (fun m ->
                 m "deserializer - parser error: %s" @@ err_to_string e);
             f events responses (Cstruct.shift b 1)
-         end in
+        end in
   let events, responses, res = f [] [] buf in
   events, responses, if Cstruct.len res > 0 then Some res else None
 
-let try_parse f x =
-  try Some (f x) with Parse_error -> None
-
-let parse_src_id_rsp = function
-  | `Src_id buf -> try_parse parse_src_id_rsp_exn buf
-  | _ -> None
-
-let parse_devinfo_rsp = function
-  | `Devinfo buf -> try_parse parse_devinfo_rsp_exn buf
-  | _ -> None
-
-let parse_reset_rsp = function
-  | `Ack -> Some ()
-  | _ -> None
-
-let parse_mode_rsp id = function
-  | `Settings (idx, buf) when idx = id ->
-     try_parse (fun b -> parse_mode_rsp_exn id b) buf
-  | _ -> None
-
-let parse_measures_rsp id = function
-  | `Measure (idx, buf) when idx = id ->
-     try_parse (fun b -> Measures (parse_measures_rsp_exn id b)) buf
-  | _ -> None
-
-let parse_params_rsp id = function
-  | `Params (idx, buf) when idx = id ->
-     try_parse (fun b -> Params (parse_params_rsp_exn id b)) buf
-  | _ -> None
-
-let parse_plp_list_rsp id = function
-  | `Plps (idx, buf) when idx = id ->
-     try_parse (fun b -> Plp_list (parse_plp_list_rsp_exn id b)) buf
-  | _ -> None
-
-let is_response (type a) (req : a request) msg : a option =
+let is_response (type a) (req : a Request.t) msg : a option =
   match req with
-  | Reset -> parse_reset_rsp msg
-  | Set_src_id _ -> parse_src_id_rsp msg
-  | Get_devinfo -> parse_devinfo_rsp msg
-  | Set_mode (id, _) -> parse_mode_rsp id msg
-
-let is_event (type a) (req : a event_request) msg : a option =
-  match req with
-  | Get_measure id -> parse_measures_rsp id msg
-  | Get_params id -> parse_params_rsp   id msg
-  | Get_plp_list id -> parse_plp_list_rsp id msg
+  | Reset -> None
+  | Set_src_id _ -> None
+  | Get_devinfo -> None
+  | Set_mode (id, _) -> None
+  | Get_measure _ -> None
+  | Get_params _ -> None
+  | Get_plp_list _ -> None
