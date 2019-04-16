@@ -21,7 +21,7 @@ type api =
   { source_id : int
   ; kv : Device.config Kv_v.rw
   ; notifs : notifs
-  ; channel : 'a. 'a Parser.request -> ('a, error) Lwt_result.t
+  ; channel : 'a. 'a Request.t -> ('a, error) Lwt_result.t
   ; loop : unit -> unit Lwt.t
   ; model : Model.t
   }
@@ -64,39 +64,6 @@ let update_config (id : int)
     (mode : Device.mode)
     (config : Device.config) : Device.config =
   List.Assoc.set ~eq:(=) id mode config
-
-let send_msg (type a) (src : Logs.src)
-    (sender : Cstruct.t -> unit Lwt.t)
-    (msg : a Parser.request) : unit Lwt.t =
-  (match msg with
-   | Get_devinfo ->
-     Logs.debug ~src (fun m -> m "requesting devinfo");
-     Serializer.make_devinfo_get_req false
-   | Reset ->
-     Logs.debug ~src (fun m -> m "requesting reset");
-     Serializer.make_devinfo_get_req true
-   | Set_src_id id ->
-     Logs.debug ~src (fun m -> m "requesting source id setup (%d)" id);
-     Serializer.make_src_id_set_req id
-   | Set_mode (id, m) ->
-     Logs.debug ~src (fun m -> m "requesting mode setup (%d)" id);
-     Serializer.make_mode_set_req id m)
-  |> sender
-
-let send_event (type a) (src : Logs.src)
-    (sender : Cstruct.t -> unit Lwt.t)
-    (msg : a Parser.event_request) : unit Lwt.t =
-  (match msg with
-   | Get_measure id ->
-     Logs.debug ~src (fun m -> m "requesting measures (%d)" id);
-     Serializer.make_measure_get_req id
-   | Get_params id ->
-     Logs.debug ~src (fun m -> m "requesting params (%d)" id);
-     Serializer.make_params_get_req id
-   | Get_plp_list id ->
-     Logs.debug ~src (fun m -> m "requesting plp list (%d)" id);
-     Serializer.make_plp_list_get_req id)
-  |> sender
 
 let send (type a) (src : Logs.src)
     (msgs : (_, unit) Pools.Queue.t ref)
