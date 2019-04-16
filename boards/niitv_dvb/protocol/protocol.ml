@@ -22,7 +22,7 @@ type api =
   ; kv : Device.config Kv_v.rw
   ; notifs : notifs
   ; channel : 'a. 'a Parser.request -> ('a, error) Lwt_result.t
-  ; loop : unit -> (Cstruct.t -> 'c Board.cc Lwt.t as 'c) Board.cc Lwt.t
+  ; loop : unit -> unit Lwt.t
   ; model : Model.t
   }
 and error =

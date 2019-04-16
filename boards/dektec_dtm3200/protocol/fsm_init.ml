@@ -1,39 +1,11 @@
 open Board_dektec_dtm3200_types
 open Netlib
 open Request
+open Fsm_common
 
 let ( >>= ) = Lwt.bind
 
-let reboot_steps = 10
-
 let timeout = 3. (* seconds *)
-
-let reboot_timeout = 30. (* seconds *)
-
-type error =
-  | Timeout
-  | Not_responding
-  | Fail of string
-
-let error_to_string = function
-  | Fail s -> s
-  | Timeout -> "timeout"
-  | Not_responding ->
-    Printf.sprintf "no response from device after %d attempts" reboot_steps
-
-let sleep timeout =
-  Lwt_unix.sleep timeout
-  >>= fun () -> Lwt.return_error Timeout
-
-let loop (type a) stream (req : a Request.t) : (a, error) result Lwt.t =
-  let rec aux () =
-    Lwt_stream.next stream
-    >>= fun x ->
-    match Parser.is_response req x with
-    | None -> aux ()
-    | Some (Ok x) -> Lwt.return_ok x
-    | Some (Error e) -> Lwt.return_error (Fail e) in
-  Lwt_stream.junk_old stream >>= aux
 
 let step ~(address : int)
     ~(return : unit -> unit Lwt.t)
@@ -45,46 +17,32 @@ let step ~(address : int)
 
   let (module Logs : Logs.LOG) = Logs.src_log src in
 
-  let on_ok (type a) (req : a Request.t) to_string v =
-    Logs.debug (fun m ->
-        m "request '%s' accomplished succesfully with response = %s"
-          (Request.to_string req) (to_string v)) in
-
-  let on_error (type a) (req : a Request.t) (error : error) =
-    Logs.warn (fun m ->
-        m "request '%s' failed with error = %s"
-          (to_string req) (error_to_string error)) in
-
   let rec detect_device req steps =
     sender @@ Serializer.make_req ~address req
     >>= fun () -> Lwt.pick [loop stream req; sleep timeout]
     >>= function
     | Error e ->
-      on_error req e;
+      log_error src req e;
       if steps = 0
       then Lwt.return_error Not_responding
       else (
-        Logs.debug (fun m -> m "no response, retrying...");
+        Logs.debug (fun m -> m "No response, retrying...");
         detect_device req (pred steps))
     | Ok x -> Lwt.return_ok x in
 
   let get_network () =
-    let request (type a) (req : a Request.t) to_string =
+    let request (type a) (req : a Request.t) =
       sender @@ Serializer.make_req ~address req
       >>= fun () -> Lwt.pick [loop stream req; sleep timeout]
       >>= function
-      | Ok x -> on_ok req to_string x; Lwt.return_ok x
-      | Error e -> on_error req e; Lwt.return_error e in
+      | Ok x -> log_ok src req x; Lwt.return_ok x
+      | Error e -> log_error src req e; Lwt.return_error e in
     let ( >>= ) = Lwt_result.( >>= ) in
-    request (Network (IP_address `R)) Ipaddr.V4.to_string
-    >>= fun ip ->
-    request (Network (Subnet_mask `R)) Ipaddr.V4.to_string
-    >>= fun mask ->
-    request (Network (Gateway `R)) Ipaddr.V4.to_string
-    >>= fun gateway ->
-    request (Network (DHCP `R)) string_of_bool
-    >>= fun dhcp ->
-    Lwt.return_ok { ip; mask; gateway; dhcp } in
+    request (Network (IP_address `R))
+    >>= fun ip -> request (Network (Subnet_mask `R))
+    >>= fun mask -> request (Network (Gateway `R))
+    >>= fun gateway -> request (Network (DHCP `R))
+    >>= fun dhcp -> Lwt.return_ok { ip; mask; gateway; dhcp } in
 
   let rec set_mode () =
     let mode = IP2ASI in
@@ -92,9 +50,9 @@ let step ~(address : int)
     sender @@ Serializer.make_req ~address req
     >>= fun () -> Lwt.pick [loop stream req; sleep timeout]
     >>= function
-    | Error e -> on_error req e; return ()
+    | Error e -> log_error src req e; return ()
     | Ok v ->
-      on_ok req mode_to_string v;
+      log_ok src req v;
       detect_device (Configuration (Mode `R)) reboot_steps
       >>= function
       | Error e ->
@@ -104,7 +62,7 @@ let step ~(address : int)
         if equal_mode mode mode' then set_application ()
         else (
           Logs.warn (fun m ->
-              m "failed setting application: expected %s, got %s"
+              m "Failed setting application: expected %s, got %s"
                 (mode_to_string mode) (mode_to_string mode'));
           return ())
 
@@ -114,9 +72,9 @@ let step ~(address : int)
     sender @@ Serializer.make_req ~address req
     >>= fun () -> Lwt.pick [loop stream req; sleep timeout]
     >>= function
-    | Error e -> on_error req e; return ()
+    | Error e -> log_error src req e; return ()
     | Ok v ->
-      on_ok req application_to_string v;
+      log_ok src req v;
       detect_device (Configuration (Application `R)) reboot_steps
       >>= function
       | Error e ->
@@ -125,7 +83,7 @@ let step ~(address : int)
       | Ok (app' : application) ->
         if equal_application app app' then set_storage () else (
           Logs.err (fun m ->
-              m "failed setting application: expected %s, got %s"
+              m "Failed setting application: expected %s, got %s"
                 (application_to_string app) (application_to_string app'));
           return ())
 
@@ -135,14 +93,14 @@ let step ~(address : int)
     sender @@ Serializer.make_req ~address req
     >>= fun () -> Lwt.pick [loop stream req; sleep timeout]
     >>= function
-    | Error e -> on_error req e; return ()
+    | Error e -> log_error src req e; return ()
     | Ok (x : storage) ->
-      on_ok req storage_to_string x;
+      log_ok src req x;
       if equal_storage x v
       then check_network ()
       else (
         Logs.err (fun m ->
-            m "failed setting volatile storage: expected %s, got %s"
+            m "Failed setting volatile storage: expected %s, got %s"
               (storage_to_string x) (storage_to_string v));
         return ())
 
@@ -150,7 +108,7 @@ let step ~(address : int)
     get_network ()
     >>= function
     | Error e ->
-      Logs.err (fun m -> m "error fetching network settings: %s"
+      Logs.err (fun m -> m "Error fetching network settings: %s"
                    (error_to_string e));
       return ()
     | Ok nw' ->
@@ -159,11 +117,11 @@ let step ~(address : int)
          initialization. *)
       if equal_nw nw' nw
       then (
-        Logs.info (fun m -> m "no need to initialize network settings, skipping...");
+        Logs.info (fun m -> m "No need to initialize network settings, skipping...");
         set_enable ())
       (* Otherwise, initialize network settings first. *)
       else (
-        Logs.info (fun m -> m "initializing network settings...");
+        Logs.info (fun m -> m "Initializing network settings...");
         set_ip_address nw')
 
   and set_ip_address nw' =
@@ -174,8 +132,8 @@ let step ~(address : int)
       sender @@ Serializer.make_req ~address req
       >>= fun () -> Lwt.pick [loop stream req; sleep timeout]
       >>= function
-      | Error e -> on_error req e; return ()
-      | Ok v -> on_ok req Ipaddr.V4.to_string v; set_subnet_mask nw'
+      | Error e -> log_error src req e; return ()
+      | Ok v -> log_ok src req v; set_subnet_mask nw'
 
   and set_subnet_mask nw' =
     if Ipaddr.V4.equal nw'.mask nw.mask
@@ -185,8 +143,8 @@ let step ~(address : int)
       sender @@ Serializer.make_req ~address req
       >>= fun () -> Lwt.pick [loop stream req; sleep timeout]
       >>= function
-      | Error e -> on_error req e; return ()
-      | Ok v -> on_ok req Ipaddr.V4.to_string v; set_gateway nw'
+      | Error e -> log_error src req e; return ()
+      | Ok v -> log_ok src req v; set_gateway nw'
 
   and set_gateway nw' =
     if Ipaddr.V4.equal nw'.gateway nw.gateway
@@ -196,8 +154,8 @@ let step ~(address : int)
       sender @@ Serializer.make_req ~address req
       >>= fun () -> Lwt.pick [loop stream req; sleep timeout]
       >>= function
-      | Error e -> on_error req e; return ()
-      | Ok v -> on_ok req Ipaddr.V4.to_string v; set_dhcp nw'
+      | Error e -> log_error src req e; return ()
+      | Ok v -> log_ok src req v; set_dhcp nw'
 
   and set_dhcp nw' =
     if nw'.dhcp = nw.dhcp
@@ -207,8 +165,8 @@ let step ~(address : int)
       sender @@ Serializer.make_req ~address req
       >>= fun () -> Lwt.pick [loop stream req; sleep timeout]
       >>= function
-      | Error e -> on_error req e; return ()
-      | Ok v -> on_ok req string_of_bool v; finalize_network ()
+      | Error e -> log_error src req e; return ()
+      | Ok v -> log_ok src req v; finalize_network ()
 
   (* Reboot device and check if the settings were applied. *)
   and finalize_network () =
@@ -216,42 +174,42 @@ let step ~(address : int)
     sender @@ Serializer.make_req ~address req
     >>= fun () -> Lwt.pick [loop stream req; sleep timeout]
     >>= function
-    | Error e -> on_error req e; return ()
+    | Error e -> log_error src req e; return ()
     | Ok () ->
       detect_device (Device FPGA_version) reboot_steps
       >>= function
-      | Error e -> on_error req e; return ()
+      | Error e -> log_error src req e; return ()
       | Ok _ ->
         get_network ()
         >>= function
         | Error _ -> return ()
         | Ok nw' ->
-          let on_ok () =
-            Logs.info (fun m -> m "network initialization done, \
+          let log_ok src () =
+            Logs.info (fun m -> m "Network initialization done, \
                                    initializing IP receiver...");
             set_enable () in
-          let on_error () =
-            Logs.warn (fun m -> m "network initialization failed, \
+          let log_error src () =
+            Logs.warn (fun m -> m "Network initialization failed, \
                                    restarting...");
             return () in
           (* If DHCP is enabled, check only DHCP equivalence. *)
           if nw.dhcp
           then (
             if nw.dhcp = nw'.dhcp
-            then on_ok ()
-            else on_error ())
+            then log_ok src ()
+            else log_error src ())
           (* Otherwise, check if all network settings are equal to expected. *)
           else if equal_nw nw' nw
-          then on_ok ()
-          else on_error ()
+          then log_ok src ()
+          else log_error src ()
 
   and set_enable () =
     let req = IP_receive (Enable (`W ip.enable)) in
     sender @@ Serializer.make_req ~address req
     >>= fun () -> Lwt.pick [loop stream req; sleep timeout]
     >>= function
-    | Error e -> on_error req e; return ()
-    | Ok v -> on_ok req string_of_bool v; set_fec_enable ()
+    | Error e -> log_error src req e; return ()
+    | Ok v -> log_ok src req v; set_fec_enable ()
 
   and set_fec_enable () =
     let req = IP_receive (FEC_enable (`W ip.fec)) in
@@ -266,9 +224,9 @@ let step ~(address : int)
     sender @@ Serializer.make_req ~address req
     >>= fun () -> Lwt.pick [loop stream req; sleep timeout]
     >>= function
-    | Error e -> on_error req e; return ()
+    | Error e -> log_error src req e; return ()
     | Ok v ->
-      on_ok req string_of_int v;
+      log_ok src req v;
       match ip.multicast with
       | None -> set_addressing_method ()
       | Some x -> set_multicast x
@@ -278,8 +236,8 @@ let step ~(address : int)
     sender @@ Serializer.make_req ~address req
     >>= fun () -> Lwt.pick [loop stream req; sleep timeout]
     >>= function
-    | Error e -> on_error req e; return ()
-    | Ok v -> on_ok req Ipaddr.V4.to_string v; set_addressing_method ()
+    | Error e -> log_error src req e; return ()
+    | Ok v -> log_ok src req v; set_addressing_method ()
 
   and set_addressing_method () =
     let meth = match ip.multicast with
@@ -289,23 +247,23 @@ let step ~(address : int)
     sender @@ Serializer.make_req ~address req
     >>= fun () -> Lwt.pick [loop stream req; sleep timeout]
     >>= function
-    | Error e -> on_error req e; return ()
-    | Ok x -> on_ok req meth_to_string x; set_delay ()
+    | Error e -> log_error src req e; return ()
+    | Ok x -> log_ok src req x; set_delay ()
 
   and set_delay () =
     let req = IP_receive (IP_to_output_delay (`W ip.delay)) in
     sender @@ Serializer.make_req ~address req
     >>= fun () -> Lwt.pick [loop stream req; sleep timeout]
     >>= function
-    | Error e -> on_error req e; return ()
-    | Ok x -> on_ok req string_of_int x; set_rate_mode ()
+    | Error e -> log_error src req e; return ()
+    | Ok x -> log_ok src req x; set_rate_mode ()
 
   and set_rate_mode () =
     let req = IP_receive (Rate_estimation_mode (`W ip.rate_mode)) in
     sender @@ Serializer.make_req ~address req
     >>= fun () -> Lwt.pick [loop stream req; sleep timeout]
     >>= function
-    | Error e -> on_error req e; return ()
-    | Ok x -> on_ok req rate_mode_to_string x; continue ()
-
-  in set_mode
+    | Error e -> log_error src req e; return ()
+    | Ok x -> log_ok src req x; continue ()
+  in
+  set_mode

@@ -94,6 +94,18 @@ type config =
   ; ip : ip
   } [@@deriving yojson, eq]
 
+type error =
+  | Timeout
+  | Not_responding
+  | Queue_overflow
+  | Fail of string
+
+let error_to_string = function
+  | Fail s -> s
+  | Timeout -> "timeout"
+  | Queue_overflow -> "message queue overflow"
+  | Not_responding -> Printf.sprintf "device is not responding"
+
 let packet_sz_to_string = function
   | TS188 -> "188"
   | TS204 -> "204"
@@ -128,6 +140,10 @@ let receiver_status_to_string : receiver_status -> string = function
 let protocol_to_string = function
   | UDP -> "UDP"
   | RTP -> "RTP"
+
+let output_to_string = function
+  | ASI -> "ASI"
+  | SPI -> "SPI"
 
 let asi_packet_sz_to_string = function
   | Copy -> "copy"

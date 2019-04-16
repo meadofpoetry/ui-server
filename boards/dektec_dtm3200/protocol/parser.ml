@@ -115,19 +115,19 @@ let deserialize ~address src buf =
     match Cstruct.len buf with
     | x when x < sizeof_prefix + sizeof_suffix -> acc
     | _ ->
-       match get_msg ~address buf with
-       | Ok (x, rest) -> aux ((x :: responses), rest)
-       | Error e ->
-          match e with
-          | Insufficient_payload x -> responses, x
-          | e -> Logs.warn ~src (fun m -> m "parser error: %s" @@ err_to_string e);
-                 aux (responses, (Cstruct.shift buf 1)) in
+      match get_msg ~address buf with
+      | Ok (x, rest) -> aux ((x :: responses), rest)
+      | Error e ->
+        match e with
+        | Insufficient_payload x -> responses, x
+        | e -> Logs.warn ~src (fun m -> m "parser error: %s" @@ err_to_string e);
+          aux (responses, (Cstruct.shift buf 1)) in
   let responses, rest = aux ([], buf) in
   List.rev responses,
   if Cstruct.len rest > 0 then Some rest else None
 
 let is_response (type a) (req : a Request.t)
-      (m : Cstruct.t cmd) : (a, string) result option =
+    (m : Cstruct.t cmd) : (a, string) result option =
   match req with
   | Device req -> Device.of_cmd req m
   | Configuration req -> Configuration.of_cmd req m

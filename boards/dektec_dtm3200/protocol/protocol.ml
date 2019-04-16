@@ -1,16 +1,13 @@
 open Application_types
-open Boards
 open Board_dektec_dtm3200_types
 open Util_react
 open Netlib
 
 let ( >>= ) = Lwt.bind
 
-type push_events =
-  { state : Application_types.Topology.state -> unit
-  ; status : status -> unit
-  ; devinfo : devinfo option -> unit
-  }
+let timeout = 3. (* seconds *)
+
+let msg_queue_size = 20
 
 type notifs =
   { streams : Stream.t list React.signal
@@ -27,90 +24,35 @@ type api =
   ; loop : unit -> unit Lwt.t
   ; push_data : Cstruct.t -> unit
   }
-and error =
-  | Not_responding
-  | Timeout
 
-let step ~(address : int)
+let send (type a) ~(address : int)
     (src : Logs.src)
-    msgs
-    (sender : Cstruct.t -> unit Lwt.t)
-    (stream : Cstruct.t Request.cmd Lwt_stream.t)
-    (config : config)
-    (pe : push_events) =
-
-  let (module Logs : Logs.LOG) = Logs.src_log src in
-
-  let rec first_step () =
-    Logs.info (fun m -> m "start of connection establishment...");
-    msgs := Pools.Queue.invalidate !msgs;
-    pe.state `No_response;
-    detect_device ()
-
-  and detect_device () =
-    Fsm_detect.step ~address
-      ~return:(fun () -> Lwt_unix.sleep 5. >>= fun () -> first_step ())
-      ~continue:(fun devinfo ->
-          pe.devinfo @@ Some devinfo;
-          pe.state `Init;
-          Logs.info (fun m -> m "connection established, starting initialization...");
-          init_device ())
-      src sender stream ()
-
-  and init_device () =
-    Fsm_init.step ~address
-      ~return:(fun () -> Lwt_unix.sleep 5. >>= fun () -> first_step ())
-      ~continue:(fun () ->
-          Logs.info (fun m -> m "initialization done!");
-          Lwt_unix.sleep 5. >>= first_step)
-      src sender stream config ()
-
-  (* and pull_status () =
-   *   Sm_probes.step ~address
-   *     ~return:(fun () -> Lwt_unix.sleep 5. >>= fun () -> first_step ())
-   *     ~continue:fork
-   *     src sender pe () *)
-
-  (* and fork ?timer () =
-   *   let timer = match timer with
-   *     | Some x -> x
-   *     | None -> Lwt_unix.sleep Sm_probes.interval in
-   *   Lwt.choose
-   *     [ (Pools.Queue.await_next !msgs >>= fun () -> Lwt.return `Message)
-   *     ; (timer >>= fun () -> Lwt.return `Timeout)
-   *     ]
-   *   >>= function
-   *   | `Message -> send_client_request timer ()
-   *   | `Timeout -> pull_status ()
-   * 
-   * and send_client_request timer () =
-   *   Pools.Queue.send !msgs
-   *   >>= fun msgs' ->
-   *   msgs := msgs';
-   *   Lwt.return @@ `Continue (wait_client_request timer None)
-   * 
-   * and wait_client_request timer acc recvd =
-   *   let responses, acc =
-   *     Parser.deserialize ~address src
-   *     @@ Board.concat_acc acc recvd in
-   *   Pools.Queue._match !msgs
-   *     ~pending:(fun pool ->
-   *       msgs := pool;
-   *       Lwt.return @@ `Continue (wait_client_request timer acc))
-   *     ~resolved:(fun pool _ -> msgs := pool; fork ~timer ())
-   *     ~not_sent:(fun pool -> msgs := pool; fork ~timer ())
-   *     ~error:(fun pool -> function
-   *       | `Interrupted -> msgs := pool; fork ~timer ()
-   *       | `Timeout ->
-   *          Logs.warn ~src (fun m ->
-   *              m "timeout while waiting for client request response, restarting...");
-   *          Lwt.cancel timer;
-   *          first_step ()) *)
-  in
-  fun () -> first_step ()
+    (state : Topology.state React.signal)
+    (timeout : float)
+    (push : _ Lwt_stream.bounded_push)
+    (req : a Request.t) =
+  match React.S.value state with
+  | `Init | `No_response -> Lwt.return_error Not_responding
+  | `Fine ->
+    Lwt.catch (fun () ->
+        let t, w = Lwt.task () in
+        let msg = Serializer.make_req ~address req in
+        let stop = fun () -> Lwt.cancel t in
+        let pred = fun stream ->
+          Lwt.pick Fsm_common.[sleep timeout; loop stream req]
+          >>= fun x ->
+          (match x with
+           | Error e -> Fsm_common.log_error src req e
+           | Ok x -> Fsm_common.log_ok src req x);
+          Lwt.wakeup_later w x; Lwt.return_unit in
+        push#push @@ (msg, pred, stop) >>= fun () -> t)
+      (function
+        | Lwt.Canceled -> Lwt.return_error Not_responding
+        | Lwt_stream.Full -> Lwt.return_error Queue_overflow
+        | exn -> Lwt.fail exn)
 
 let to_streams_s (config : config signal) (status : status event) =
-  S.hold ~eq:(Util.List.equal Stream.Raw.equal) []
+  S.hold ~eq:(Boards.Util.List.equal Stream.Raw.equal) []
   @@ S.sample (fun ({ asi_bitrate; protocol; _ } : status)
                 ({ ip; nw } : config) ->
                 if asi_bitrate <= 0 then [] else (
@@ -143,39 +85,41 @@ let create ~(address : int)
     (kv : config Kv_v.rw)
     (control : int)
     (db : Db.t) =
-  let state, set_state = S.create ~eq:Topology.equal_state `No_response in
   let status, set_status = E.create () in
-  let devinfo, set_devinfo = S.create ~eq:(Util.Option.equal equal_devinfo) None in
+  let state, set_state = S.create ~eq:Topology.equal_state `No_response in
+  let devinfo, set_devinfo =
+    S.create ~eq:(Boards.Util.Option.equal equal_devinfo) None in
   let notifs =
     { streams = streams_conv @@ to_streams_s kv#s status
     ; state
     ; status
     ; config = kv#s
     } in
-  let (pe : push_events) =
-    { state = set_state
-    ; status = set_status
-    ; devinfo = set_devinfo
-    } in
-  let msgs = ref (Pools.Queue.create []) in
+  let in_stream, enqueue = Lwt_stream.create_bounded msg_queue_size in
   let stream, push = Lwt_stream.create () in
   kv#get
   >>= fun config ->
   let push_data =
     let acc = ref None in
     let push (buf : Cstruct.t) =
-      let buf = Board.concat_acc !acc buf in
+      let buf = match !acc with
+        | None -> buf
+        | Some acc -> Cstruct.append acc buf in
       let parsed, new_acc = Parser.deserialize ~address src buf in
       acc := new_acc;
       List.iter (fun x -> push @@ Some x) parsed in
     push in
-  let loop = step ~address src msgs sender stream config pe in
+  let loop =
+    Fsm.start ~address src sender in_stream stream config
+      set_state
+      (fun x -> set_devinfo @@ Some x)
+      set_status in
   let (api : api) =
     { notifs
     ; address
     ; loop
     ; push_data
     ; kv
-    ; channel = (fun _ -> assert false)
+    ; channel = (fun req -> send ~address src state timeout enqueue req)
     } in
   Lwt.return_ok api

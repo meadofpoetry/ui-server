@@ -17,10 +17,10 @@ type access = R | W | E [@@deriving eq]
 
 type category =
   [ `Device [@value 0x01]
-  | `Configuration
+      | `Configuration
   | `Network
   | `IP_receive [@value 0x81]
-  | `ASI_output [@value 0x84]
+      | `ASI_output [@value 0x84]
   ] [@@deriving eq, enum]
 
 type 'a cmd =
@@ -70,28 +70,28 @@ let drop n s =
 let take_drop n s = take n s, drop n s
 
 let check_cmd (eq : 'a -> 'a -> bool)
-      (_of : int -> 'a option)
-      (x : Cstruct.t cmd)
-      (r : 'b rw)
-      (setting : 'a)
-      (f : Cstruct.t -> 'c option) : ('c, string) result option =
+    (_of : int -> 'a option)
+    (x : Cstruct.t cmd)
+    (r : 'b rw)
+    (setting : 'a)
+    (f : Cstruct.t -> 'c option) : ('c, string) result option =
   match x.rw, _of x.setting with
   | E, _ -> Some (Error "got error response")
   | _, None -> None
   | a, Some s when equal_access a (access_of_rw r) && eq s setting ->
-     (match f x.data with
-      | Some x -> Some (Ok x)
-      | None ->
-         let e = Printf.sprintf "data field parsing failure (%s)"
-                 @@ Cstruct.to_string x.data in
-         Some (Error e))
+    (match f x.data with
+     | Some x -> Some (Ok x)
+     | None ->
+       let e = Printf.sprintf "data field parsing failure (%s)"
+         @@ Cstruct.to_string x.data in
+       Some (Error e))
   | _ -> None
 
 module Device = struct
 
   type setting =
     [ `FPGA_version [@value 0x01]
-    | `Hardware_version
+        | `Hardware_version
     | `Firmware_version
     | `Serial_number
     | `Type
@@ -110,6 +110,14 @@ module Device = struct
     | Firmware_version -> show_request "firmware version"
     | Serial_number -> show_request "serial number"
     | Type -> show_request "device type"
+
+  let value_to_string (type a) (t : a t) : a -> string =
+    match t with
+    | FPGA_version -> string_of_int
+    | Hardware_version -> string_of_int
+    | Firmware_version -> string_of_int
+    | Serial_number -> string_of_int
+    | Type -> string_of_int
 
   let response_data_size : setting -> int = function
     | `FPGA_version | `Hardware_version -> Message.sizeof_setting8
@@ -130,12 +138,12 @@ module Device = struct
     let get r s f = check_cmd equal_setting setting_of_enum x r s f in
     match x.category with
     | `Device ->
-       (match req with
-        | FPGA_version -> get `R `FPGA_version Ascii.Int.get
-        | Hardware_version -> get `R `Hardware_version Ascii.Int.get
-        | Firmware_version -> get `R `Firmware_version Ascii.Int.get
-        | Serial_number -> get `R `Serial_number Ascii.Int.get
-        | Type -> get `R `Type Ascii.Int.get)
+      (match req with
+       | FPGA_version -> get `R `FPGA_version Ascii.Int.get
+       | Hardware_version -> get `R `Hardware_version Ascii.Int.get
+       | Firmware_version -> get `R `Firmware_version Ascii.Int.get
+       | Serial_number -> get `R `Serial_number Ascii.Int.get
+       | Type -> get `R `Type Ascii.Int.get)
     | _ -> None
 end
 
@@ -143,7 +151,7 @@ module Configuration = struct
 
   type setting =
     [ `Mode [@value 0x01]
-    | `Application
+        | `Application
     | `Volatile_storage
     ] [@@deriving eq, enum]
 
@@ -159,6 +167,12 @@ module Configuration = struct
       show_request ~rw:(rw_to_string application_to_string x) "application"
     | Volatile_storage x ->
       show_request ~rw:(rw_to_string storage_to_string x) "volatile storage"
+
+  let value_to_string (type a) (t : a t) : a -> string =
+    match t with
+    | Mode _ -> mode_to_string
+    | Application _ -> application_to_string
+    | Volatile_storage _ -> storage_to_string
 
   let response_data_size : setting -> int = function
     | `Mode | `Application | `Volatile_storage -> Message.sizeof_setting8
@@ -221,6 +235,15 @@ module Network = struct
     | Reboot -> show_request "reboot"
     | MAC_address -> show_request "MAC address"
 
+  let value_to_string (type a) (t : a t) : a -> string =
+    match t with
+    | IP_address _ -> Ipaddr.V4.to_string
+    | Subnet_mask _ -> Ipaddr.V4.to_string
+    | Gateway _ -> Ipaddr.V4.to_string
+    | DHCP _ -> string_of_bool
+    | Reboot -> fun () -> ""
+    | MAC_address -> Macaddr.to_string ?sep:None
+
   let response_data_size : setting -> int = function
     | `IP_address | `Subnet_mask | `Gateway -> Message.sizeof_setting32
     | `DHCP -> Message.sizeof_setting8
@@ -230,14 +253,14 @@ module Network = struct
   let to_cmd : type a. a t -> data option cmd = fun x ->
     let set, rw, data = match x with
       | IP_address x ->
-         `IP_address, (access_of_rw x),
-         data_of_rw (fun x -> `I32 (Ipaddr.V4.to_int32 x)) x
+        `IP_address, (access_of_rw x),
+        data_of_rw (fun x -> `I32 (Ipaddr.V4.to_int32 x)) x
       | Subnet_mask x ->
-         `Subnet_mask, access_of_rw x,
-         data_of_rw (fun x -> `I32 (Ipaddr.V4.to_int32 x)) x
+        `Subnet_mask, access_of_rw x,
+        data_of_rw (fun x -> `I32 (Ipaddr.V4.to_int32 x)) x
       | Gateway x ->
-         `Gateway, access_of_rw x,
-         data_of_rw (fun x -> `I32 (Ipaddr.V4.to_int32 x)) x
+        `Gateway, access_of_rw x,
+        data_of_rw (fun x -> `I32 (Ipaddr.V4.to_int32 x)) x
       | DHCP x -> `DHCP, access_of_rw x, data_of_rw (fun x -> `B x) x
       | Reboot -> `Reboot, W, Some (`B true)
       | MAC_address -> `MAC_address, R, None in
@@ -356,6 +379,34 @@ module Ip_receive = struct
     | Jitter_error_counter -> show_request "jitter error counter"
     | Lock_error_counter -> show_request "lock error counter"
     | Delay_factor -> show_request "delay factor"
+
+  let value_to_string (type a) (t : a t) : a -> string =
+    match t with
+    | Addressing_method _ -> meth_to_string
+    | Enable _ -> string_of_bool
+    | FEC_delay -> string_of_int
+    | FEC_enable _ -> string_of_bool
+    | FEC_columns -> string_of_int
+    | FEC_rows -> string_of_int
+    | IP_jitter_tolerance -> string_of_int
+    | IP_lost_after_FEC -> Int64.to_string
+    | IP_lost_before_FEC -> Int64.to_string
+    | UDP_port _ -> string_of_int
+    | IP_to_output_delay _ -> string_of_int
+    | Multicast_address _ -> Ipaddr.V4.to_string
+    | TP_per_IP -> string_of_int
+    | Status -> receiver_status_to_string
+    | Protocol -> protocol_to_string
+    | Index -> Int32.to_string
+    | Output_type -> output_to_string
+    | Packet_size -> packet_sz_to_string
+    | Bitrate -> string_of_int
+    | PCR_present -> string_of_bool
+    | Rate_change_counter -> Int32.to_string
+    | Rate_estimation_mode _ -> rate_mode_to_string
+    | Jitter_error_counter -> Int32.to_string
+    | Lock_error_counter -> Int32.to_string
+    | Delay_factor -> Int32.to_string
 
   let response_data_size : setting -> int = function
     | `Addressing_method -> Message.sizeof_setting8
@@ -478,6 +529,12 @@ module Asi_output = struct
     | Physical_port -> show_request "physical port"
     | Bitrate -> show_request "bitrate"
 
+  let value_to_string (type a) (t : a t) : a -> string =
+    match t with
+    | Packet_size _ -> asi_packet_sz_to_string
+    | Physical_port -> string_of_int
+    | Bitrate -> string_of_int
+
   let response_data_size : setting -> int = function
     | `Packet_size | `Physical_port -> Message.sizeof_setting8
     | `Bitrate -> Message.sizeof_setting32
@@ -518,6 +575,14 @@ let to_string (type a) (t : a t) = match t with
   | Network req -> "network -> " ^ Network.to_string req
   | IP_receive req -> "IP receive -> " ^ Ip_receive.to_string req
   | ASI_output req -> "ASI output -> " ^ Asi_output.to_string req
+
+let value_to_string (type a) (t : a t) : a -> string =
+  match t with
+  | Device req -> Device.value_to_string req
+  | Configuration req -> Configuration.value_to_string req
+  | Network req -> Network.value_to_string req
+  | IP_receive req -> Ip_receive.value_to_string req
+  | ASI_output req -> Asi_output.value_to_string req
 
 let equal_access a b = match a, b with
   | R, R | W, W | E, E -> true
