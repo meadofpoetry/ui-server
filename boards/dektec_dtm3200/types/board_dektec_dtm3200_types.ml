@@ -147,3 +147,10 @@ let asi_packet_sz_of_int = function
   | 1 -> Some (Sz TS204)
   | 2 -> Some Copy
   | _ -> None
+
+let nw_to_string (x : nw) =
+  Printf.sprintf "IP: %s, mask: %s, gateway: %s, DHCP: %b"
+    (Ipaddr.V4.to_string x.ip)
+    (Ipaddr.V4.to_string x.mask)
+    (Ipaddr.V4.to_string x.gateway)
+    x.dhcp

@@ -25,3 +25,11 @@ let loop (type a) stream (req : a Request.t) : (a, Request.error) result Lwt.t =
     | Some (Ok x) -> Lwt.return_ok x
     | Some (Error e) -> Lwt.return_error e in
   Lwt_stream.junk_old stream >>= aux
+
+let request (type a) ~address src sender stream (req : a Request.t) =
+  sender @@ Serializer.make_req ~address req
+  >>= fun () ->
+  Lwt.pick [loop stream req; sleep (Request.timeout req)]
+  >>= function
+  | Error e -> log_error src req e; Lwt.return_error e
+  | Ok x -> log_ok src req x; Lwt.return_ok x

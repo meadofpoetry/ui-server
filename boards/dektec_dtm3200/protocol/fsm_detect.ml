@@ -5,63 +5,48 @@ open Fsm_common
 
 let ( >>= ) = Lwt.bind
 
-let timeout = 3. (* seconds *)
-
 let step ~(address : int)
     ~(return : unit -> unit Lwt.t)
     ~(continue : devinfo -> unit Lwt.t)
     (src : Logs.src)
     (sender : Cstruct.t -> unit Lwt.t)
-    (stream : Cstruct.t cmd Lwt_stream.t) =
+    (rsp_queue : Cstruct.t cmd Lwt_stream.t) =
 
   let rec fpga_version () =
-    let req = Device FPGA_version in
-    sender @@ Serializer.make_req ~address req
-    >>= fun () -> Lwt.pick [loop stream req; sleep timeout]
+    request ~address src sender rsp_queue (Device FPGA_version)
     >>= function
-    | Error e -> log_error src req e; return ()
-    | Ok x -> log_ok src req x; hw_version GList.(x :: [])
+    | Error _ -> return ()
+    | Ok x -> hw_version GList.(x :: [])
 
   and hw_version acc =
-    let req = Device Hardware_version in
-    sender @@ Serializer.make_req ~address req
-    >>= fun () -> Lwt.pick [loop stream req; sleep timeout]
+    request ~address src sender rsp_queue (Device Hardware_version)
     >>= function
-    | Error e -> log_error src req e; return ()
-    | Ok x -> log_ok src req x; fw_version GList.(x :: acc)
+    | Error _ -> return ()
+    | Ok x -> fw_version GList.(x :: acc)
 
   and fw_version acc =
-    let req = Device Firmware_version in
-    sender @@ Serializer.make_req ~address req
-    >>= fun () -> Lwt.pick [loop stream req; sleep timeout]
+    request ~address src sender rsp_queue (Device Firmware_version)
     >>= function
-    | Error e -> log_error src req e; return ()
-    | Ok x -> log_ok src req x; serial GList.(x :: acc)
+    | Error _ -> return ()
+    | Ok x -> serial GList.(x :: acc)
 
   and serial acc =
-    let req = Device Serial_number in
-    sender @@ Serializer.make_req ~address req
-    >>= fun () -> Lwt.pick [loop stream req; sleep timeout]
+    request ~address src sender rsp_queue (Device Serial_number)
     >>= function
-    | Error e -> log_error src req e; return ()
-    | Ok x -> log_ok src req x; typ GList.(x :: acc)
+    | Error _ -> return ()
+    | Ok x -> typ GList.(x :: acc)
 
   and typ acc =
-    let req = Device Type in
-    sender @@ Serializer.make_req ~address req
-    >>= fun () -> Lwt.pick [loop stream req; sleep timeout]
+    request ~address src sender rsp_queue (Device Type)
     >>= function
-    | Error e -> log_error src req e; return ()
-    | Ok x -> log_ok src req x; mac_address GList.(x :: acc)
+    | Error _ -> return ()
+    | Ok x -> mac_address GList.(x :: acc)
 
   and mac_address acc =
-    let req = Network MAC_address in
-    sender @@ Serializer.make_req ~address req
-    >>= fun () -> Lwt.pick [loop stream req; sleep timeout]
+    request ~address src sender rsp_queue (Network MAC_address)
     >>= function
-    | Error e -> log_error src req e; return ()
+    | Error _ -> return ()
     | Ok mac ->
-      log_ok src req mac;
       let devinfo = match acc with
         | typ :: serial :: fw_ver :: hw_ver :: fpga_ver :: [] ->
           { fpga_ver
@@ -72,5 +57,5 @@ let step ~(address : int)
           ; mac
           } in
       continue devinfo
-
-  in fpga_version
+  in
+  fpga_version

@@ -6,6 +6,7 @@ type error =
   | Error_response
   | Not_responding
   | Queue_overflow
+  | Not_set of string * string
   | Invalid_payload of string
 
 let error_to_string = function
@@ -13,6 +14,8 @@ let error_to_string = function
   | Error_response -> "device responsed with error"
   | Invalid_payload s -> Printf.sprintf "got invalid payload in response (%s)" s
   | Queue_overflow -> "message queue overflow"
+  | Not_set (name, got) ->
+    Printf.sprintf "request \"%s\" not applied: got %s" name got
   | Not_responding -> Printf.sprintf "device is not responding"
 
 type 'a rw =
@@ -581,6 +584,9 @@ type _ t =
   | Network : 'a Network.t -> 'a t
   | IP_receive : 'a Ip_receive.t -> 'a t
   | ASI_output : 'a Asi_output.t -> 'a t
+
+let timeout (type a) : a t -> float = function
+  | _ -> 3.
 
 let to_string (type a) (t : a t) = match t with
   | Device req -> "device -> " ^ Device.to_string req

@@ -5,8 +5,6 @@ open Netlib
 
 let ( >>= ) = Lwt.bind
 
-let timeout = 3. (* seconds *)
-
 let msg_queue_size = 20
 
 type notifs =
@@ -28,7 +26,6 @@ type api =
 let send (type a) ~(address : int)
     (src : Logs.src)
     (state : Topology.state React.signal)
-    (timeout : float)
     (push : _ Lwt_stream.bounded_push)
     (sender : Cstruct.t -> unit Lwt.t)
     (req : a Request.t) =
@@ -39,13 +36,8 @@ let send (type a) ~(address : int)
         let t, w = Lwt.task () in
         let stop = fun error -> Lwt.wakeup_later w (Error error) in
         let send = fun stream ->
-          sender @@ Serializer.make_req ~address req
-          >>= fun () -> Lwt.pick Fsm_common.[sleep timeout; loop stream req]
-          >>= fun x ->
-          (match x with
-           | Error e -> Fsm_common.log_error src req e
-           | Ok x -> Fsm_common.log_ok src req x);
-          Lwt.wakeup_later w x; Lwt.return_unit in
+          Fsm_common.request ~address src sender stream req
+          >>= fun x -> Lwt.wakeup_later w x; Lwt.return_unit in
         push#push @@ (send, stop) >>= fun () -> t)
       (function
         | Lwt.Canceled -> Lwt.return_error Request.Not_responding
@@ -110,7 +102,7 @@ let create ~(address : int)
       acc := new_acc;
       List.iter (fun x -> push_rsp_queue @@ Some x) parsed in
     push in
-  let channel = fun req -> send ~address src state timeout push_req_queue sender req in
+  let channel = fun req -> send ~address src state push_req_queue sender req in
   let loop =
     Fsm.start ~address src sender req_queue rsp_queue config
       set_state
