@@ -138,6 +138,7 @@ let create (src : Logs.src)
         acc := new_acc;
         List.iter (fun x -> push_rsp_queue @@ Some x) parsed in
       push in
+    let channel = fun req -> send src state push_req_queue sender req in
     let loop =
       Fsm.start src sender req_queue rsp_queue kv source_id
         set_state
@@ -145,12 +146,15 @@ let create (src : Logs.src)
         set_measures
         set_params
         set_plps in
+    Lwt.async (fun () ->
+        let open Lwt.Infix in
+        Lwt_unix.sleep 11. >>= fun () -> channel Request.Reset);
     let api =
       { source_id
       ; notifs
       ; loop
       ; push_data
-      ; channel = (fun req -> send src state push_req_queue sender req)
+      ; channel
       ; model
       ; kv
       } in

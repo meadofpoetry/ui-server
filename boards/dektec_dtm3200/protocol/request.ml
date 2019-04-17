@@ -1,6 +1,20 @@
 open Board_dektec_dtm3200_types
 open Netlib
 
+type error =
+  | Timeout
+  | Error_response
+  | Not_responding
+  | Queue_overflow
+  | Invalid_payload of string
+
+let error_to_string = function
+  | Timeout -> "timeout"
+  | Error_response -> "device responsed with error"
+  | Invalid_payload s -> Printf.sprintf "got invalid payload in response (%s)" s
+  | Queue_overflow -> "message queue overflow"
+  | Not_responding -> Printf.sprintf "device is not responding"
+
 type 'a rw =
   [ `R
   | `W of 'a
@@ -74,17 +88,16 @@ let check_cmd (eq : 'a -> 'a -> bool)
     (x : Cstruct.t cmd)
     (r : 'b rw)
     (setting : 'a)
-    (f : Cstruct.t -> 'c option) : ('c, string) result option =
+    (f : Cstruct.t -> 'c option) : ('c, error) result option =
   match x.rw, _of x.setting with
-  | E, _ -> Some (Error "got error response")
+  | E, _ -> Some (Error Error_response)
   | _, None -> None
   | a, Some s when equal_access a (access_of_rw r) && eq s setting ->
     (match f x.data with
      | Some x -> Some (Ok x)
      | None ->
-       let e = Printf.sprintf "data field parsing failure (%s)"
-         @@ Cstruct.to_string x.data in
-       Some (Error e))
+       let data = Format.asprintf "%a" Cstruct.hexdump_pp x.data in
+       Some (Error (Invalid_payload data)))
   | _ -> None
 
 module Device = struct
@@ -133,7 +146,7 @@ module Device = struct
     let setting = setting_to_enum set in
     make_cmd ?data ~category:`Device ~setting ~rw ()
 
-  let of_cmd : type a. a t -> Cstruct.t cmd -> (a, string) result option =
+  let of_cmd : type a. a t -> Cstruct.t cmd -> (a, error) result option =
     fun req x ->
     let get r s f = check_cmd equal_setting setting_of_enum x r s f in
     match x.category with
@@ -191,7 +204,7 @@ module Configuration = struct
     let setting = setting_to_enum set in
     make_cmd ?data ~category:`Configuration ~setting ~rw ()
 
-  let of_cmd : type a. a t -> Cstruct.t cmd -> (a, string) result option =
+  let of_cmd : type a. a t -> Cstruct.t cmd -> (a, error) result option =
     fun req x ->
     let ( % ) f g x = match (g x) with None -> None | Some x -> f x in
     let get r s f = check_cmd equal_setting setting_of_enum x r s f in
@@ -267,7 +280,7 @@ module Network = struct
     let setting = setting_to_enum set in
     make_cmd ?data ~category:`Network ~setting ~rw ()
 
-  let of_cmd : type a. a t -> Cstruct.t cmd -> (a, string) result option =
+  let of_cmd : type a. a t -> Cstruct.t cmd -> (a, error) result option =
     fun req x ->
     let get r s f = check_cmd equal_setting setting_of_enum x r s f in
     match x.category with
@@ -473,7 +486,7 @@ module Ip_receive = struct
     let setting = setting_to_enum set in
     make_cmd ?data ~category:`IP_receive ~setting ~rw ()
 
-  let of_cmd : type a. a t -> Cstruct.t cmd -> (a, string) result option =
+  let of_cmd : type a. a t -> Cstruct.t cmd -> (a, error) result option =
     fun req x ->
     let ( % ) f g x = match (g x) with None -> None | Some x -> f x in
     let get r s f = check_cmd equal_setting setting_of_enum x r s f in
@@ -549,7 +562,7 @@ module Asi_output = struct
     let setting = setting_to_enum set in
     make_cmd ?data ~category:`ASI_output ~setting ~rw ()
 
-  let of_cmd : type a. a t -> Cstruct.t cmd -> (a, string) result option =
+  let of_cmd : type a. a t -> Cstruct.t cmd -> (a, error) result option =
     fun req x ->
     let ( % ) f g x = match (g x) with None -> None | Some x -> f x in
     let get r s f = check_cmd equal_setting setting_of_enum x r s f in

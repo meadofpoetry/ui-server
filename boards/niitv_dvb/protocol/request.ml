@@ -41,7 +41,7 @@ type _ t =
 
 let timeout (type a) : a t -> float = function
   | Get_devinfo -> 3.
-  | Reset -> 3. (* FIXME *)
+  | Reset -> 20.
   | Set_src_id _ -> 3.
   | Set_mode _ -> 3.
   | Get_measure _ -> 3.

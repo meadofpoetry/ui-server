@@ -127,7 +127,7 @@ let deserialize ~address src buf =
   if Cstruct.len rest > 0 then Some rest else None
 
 let is_response (type a) (req : a Request.t)
-    (m : Cstruct.t cmd) : (a, string) result option =
+    (m : Cstruct.t cmd) : (a, error) result option =
   match req with
   | Device req -> Device.of_cmd req m
   | Configuration req -> Configuration.of_cmd req m

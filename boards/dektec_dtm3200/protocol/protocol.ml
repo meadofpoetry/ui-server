@@ -20,7 +20,7 @@ type api =
   { address : int
   ; kv : config Kv_v.rw
   ; notifs : notifs
-  ; channel : 'a. 'a Request.t -> ('a, error) Lwt_result.t
+  ; channel : 'a. 'a Request.t -> ('a, Request.error) Lwt_result.t
   ; loop : unit -> unit Lwt.t
   ; push_data : Cstruct.t -> unit
   }
@@ -33,11 +33,11 @@ let send (type a) ~(address : int)
     (sender : Cstruct.t -> unit Lwt.t)
     (req : a Request.t) =
   match React.S.value state with
-  | `Init | `No_response -> Lwt.return_error Not_responding
+  | `Init | `No_response -> Lwt.return_error Request.Not_responding
   | `Fine ->
     Lwt.catch (fun () ->
         let t, w = Lwt.task () in
-        let stop = fun () -> Lwt.cancel t in
+        let stop = fun error -> Lwt.wakeup_later w (Error error) in
         let send = fun stream ->
           sender @@ Serializer.make_req ~address req
           >>= fun () -> Lwt.pick Fsm_common.[sleep timeout; loop stream req]
@@ -48,8 +48,8 @@ let send (type a) ~(address : int)
           Lwt.wakeup_later w x; Lwt.return_unit in
         push#push @@ (send, stop) >>= fun () -> t)
       (function
-        | Lwt.Canceled -> Lwt.return_error Not_responding
-        | Lwt_stream.Full -> Lwt.return_error Queue_overflow
+        | Lwt.Canceled -> Lwt.return_error Request.Not_responding
+        | Lwt_stream.Full -> Lwt.return_error Request.Queue_overflow
         | exn -> Lwt.fail exn)
 
 let to_streams_s (config : config signal) (status : status event) =
@@ -96,8 +96,8 @@ let create ~(address : int)
     ; status
     ; config = kv#s
     } in
-  let in_stream, enqueue = Lwt_stream.create_bounded msg_queue_size in
-  let stream, push = Lwt_stream.create () in
+  let req_queue, push_req_queue = Lwt_stream.create_bounded msg_queue_size in
+  let rsp_queue, push_rsp_queue = Lwt_stream.create () in
   kv#get
   >>= fun config ->
   let push_data =
@@ -108,10 +108,11 @@ let create ~(address : int)
         | Some acc -> Cstruct.append acc buf in
       let parsed, new_acc = Parser.deserialize ~address src buf in
       acc := new_acc;
-      List.iter (fun x -> push @@ Some x) parsed in
+      List.iter (fun x -> push_rsp_queue @@ Some x) parsed in
     push in
+  let channel = fun req -> send ~address src state timeout push_req_queue sender req in
   let loop =
-    Fsm.start ~address src sender in_stream stream config
+    Fsm.start ~address src sender req_queue rsp_queue config
       set_state
       (fun x -> set_devinfo @@ Some x)
       set_status in
@@ -121,6 +122,6 @@ let create ~(address : int)
     ; loop
     ; push_data
     ; kv
-    ; channel = (fun req -> send ~address src state timeout enqueue sender req)
+    ; channel
     } in
   Lwt.return_ok api
