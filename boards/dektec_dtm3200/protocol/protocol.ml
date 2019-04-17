@@ -30,22 +30,23 @@ let send (type a) ~(address : int)
     (state : Topology.state React.signal)
     (timeout : float)
     (push : _ Lwt_stream.bounded_push)
+    (sender : Cstruct.t -> unit Lwt.t)
     (req : a Request.t) =
   match React.S.value state with
   | `Init | `No_response -> Lwt.return_error Not_responding
   | `Fine ->
     Lwt.catch (fun () ->
         let t, w = Lwt.task () in
-        let msg = Serializer.make_req ~address req in
         let stop = fun () -> Lwt.cancel t in
-        let pred = fun stream ->
-          Lwt.pick Fsm_common.[sleep timeout; loop stream req]
+        let send = fun stream ->
+          sender @@ Serializer.make_req ~address req
+          >>= fun () -> Lwt.pick Fsm_common.[sleep timeout; loop stream req]
           >>= fun x ->
           (match x with
            | Error e -> Fsm_common.log_error src req e
            | Ok x -> Fsm_common.log_ok src req x);
           Lwt.wakeup_later w x; Lwt.return_unit in
-        push#push @@ (msg, pred, stop) >>= fun () -> t)
+        push#push @@ (send, stop) >>= fun () -> t)
       (function
         | Lwt.Canceled -> Lwt.return_error Not_responding
         | Lwt_stream.Full -> Lwt.return_error Queue_overflow
@@ -120,6 +121,6 @@ let create ~(address : int)
     ; loop
     ; push_data
     ; kv
-    ; channel = (fun req -> send ~address src state timeout enqueue req)
+    ; channel = (fun req -> send ~address src state timeout enqueue sender req)
     } in
   Lwt.return_ok api

@@ -110,15 +110,15 @@ let send usb port data =
       Cyusb.send usb msg) ()
 
 let apply (subscribers : ((Cstruct.t -> unit) * unit Lwt.t) Int_map.t)
-      (msgs : Cstruct.t list Int_map.t) =
-  Int_map.merge (fun _ sub msgs ->
+    (msgs : Cstruct.t list Int_map.t) =
+  Int_map.merge (fun id sub msgs ->
       match sub, msgs with
       | None, _ -> None
       | Some sub, None -> Some sub
       | Some sub, Some msgs ->
-         let msg = Cstruct.concat @@ List.rev msgs in
-         (fst sub) msg;
-         Some sub)
+        let msg = Cstruct.concat @@ List.rev msgs in
+        (fst sub) msg;
+        Some sub)
     subscribers msgs
 
 let create ?(sleep = 1.) () =

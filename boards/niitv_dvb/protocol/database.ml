@@ -48,7 +48,7 @@ module Model = struct
   let tables id =
     let id = string_of_int id in
     let names =
-      { measurements = "dvb_niit_measurements_" ^ id
+      { measurements = "niitv_dvb4ch_meas_" ^ id
       } in
     names,
     [names.measurements, keys_measurements, None]
@@ -80,8 +80,8 @@ module Measurements = struct
     let table = (Conn.names db).measurements in
     let insert =
       R.exec typ
-        (sprintf {|INSERT INTO %s(tuner,stream,lock,power,mer,ber,freq,bitrate,date)
-                  VALUES (?,?,?,?,?,?,?,?,?)|} table) in
+        (sprintf {|INSERT INTO %s(tuner,lock,power,mer,ber,freq,bitrate,date)
+                  VALUES (?,?,?,?,?,?,?,?)|} table) in
     Conn.request db Db.Request.(
       with_trans (List.fold_left (fun acc x ->
                       acc >>= fun () -> exec insert x)

@@ -3,17 +3,7 @@ open Message
 
 let ( % ) f g x = f (g x)
 
-type 'a cmd =
-  { tag : int
-  ; tuner_id : int
-  ; data : 'a
-  }
-
-type payload_error =
-  | Invalid_length
-  | Invalid_payload
-
-type err =
+type parser_error =
   | Bad_tag_start of int
   | Bad_length of int
   | Bad_msg_code of int
@@ -22,25 +12,25 @@ type err =
   | Insufficient_payload of Cstruct.t
   | Unknown_err of string
 
-let err_to_string : err -> string = function
-  | Bad_tag_start x -> Printf.sprintf "incorrect start tag: 0x%x" x
-  | Bad_length x -> Printf.sprintf "incorrect length: %d" x
-  | Bad_msg_code x -> Printf.sprintf "incorrect msg code: 0x%x" x
-  | Bad_crc (x,y) -> Printf.sprintf "incorrect crc: expected 0x%x, got 0x%x" x y
-  | Bad_tag_stop x -> Printf.sprintf "incorrect stop tag: 0x%x" x
+let parser_error_to_string : parser_error -> string = function
   | Insufficient_payload _ -> "insufficient payload"
+  | Bad_length x -> Printf.sprintf "incorrect length: %d" x
+  | Bad_tag_start x -> Printf.sprintf "incorrect start tag: 0x%x" x
+  | Bad_msg_code x -> Printf.sprintf "incorrect msg code: 0x%x" x
+  | Bad_tag_stop x -> Printf.sprintf "incorrect stop tag: 0x%x" x
+  | Bad_crc (x, y) -> Printf.sprintf "incorrect crc: expected 0x%x, got 0x%x" x y
   | Unknown_err s -> s
 
 let max_uint16 = Unsigned.(UInt16.to_int UInt16.max_int)
 let max_uint32 = Unsigned.(UInt32.to_int32 UInt32.max_int)
 
-let parse_devinfo (buf : Cstruct.t) : (Device.info, payload_error) result =
+let parse_devinfo (buf : Cstruct.t) : (Device.info, Request.error) result =
   try
     let hw_cfg = get_rsp_devinfo_hw_config buf in
     let serial = get_rsp_devinfo_serial buf in
     let hw_ver = get_rsp_devinfo_hw_ver buf in
     let fpga_ver = get_rsp_devinfo_fpga_ver buf in
-    let soft_ver = get_rsp_devinfo_soft_ver buf in
+    let fw_ver = get_rsp_devinfo_soft_ver buf in
     let asi = (hw_cfg land 16) > 0 in
     let receivers =
       List.fold_left (fun acc x ->
@@ -49,12 +39,12 @@ let parse_devinfo (buf : Cstruct.t) : (Device.info, payload_error) result =
           then x :: acc
           else acc) [] [3; 2; 1; 0]
     in
-    Ok { serial; hw_ver; fpga_ver; soft_ver; asi; receivers }
+    Ok { serial; hw_ver; fpga_ver; fw_ver; asi; receivers }
   with Invalid_argument _ -> Error Invalid_length
 
 let parse_source_id (buf : Cstruct.t) =
   try Ok (get_rsp_src_id_source_id buf)
-  with Invalid_argument _ -> Error Invalid_length
+  with Invalid_argument _ -> Error Request.Invalid_length
 
 let parse_mode (buf : Cstruct.t) =
   try
@@ -72,7 +62,7 @@ let parse_mode (buf : Cstruct.t) =
            ; mode = { standard; channel = { bw; freq; plp }}
            } in
     match rsp with
-    | None -> Error Invalid_payload
+    | None -> Error Request.Invalid_payload
     | Some x -> Ok x
   with Invalid_argument _ -> Error Invalid_length
 
@@ -81,7 +71,7 @@ let parse_measures (buf : Cstruct.t) =
   let int32_to_opt x = if Int32.equal x max_uint32 then None else Some x in
   try
     match bool_of_int @@ get_rsp_measure_lock buf with
-    | None -> Error Invalid_payload
+    | None -> Error Request.Invalid_payload
     | Some lock ->
       let power = match (int_to_opt % get_rsp_measure_power) buf with
         | None -> None
@@ -104,7 +94,7 @@ let parse_measures (buf : Cstruct.t) =
 let parse_params (buf : Cstruct.t) =
   try
     match bool_of_int @@ get_rsp_params_lock buf with
-    | None -> Error Invalid_payload
+    | None -> Error Request.Invalid_payload
     | Some lock ->
       Ok { Params. lock
          ; fft = get_rsp_params_fft buf
@@ -141,18 +131,21 @@ let parse_params (buf : Cstruct.t) =
 let parse_plp_list (buf : Cstruct.t) =
   try
     let opts, plps = Cstruct.split buf sizeof_rsp_plp_list in
-    let plps = match get_rsp_plp_list_plp_qty opts with
-      | 0xFF -> []
-      | n ->
-        let iter =
-          Cstruct.iter (fun _ -> Some 1)
-            (fun buf -> Cstruct.get_uint8 buf 0)
-            (fst @@ Cstruct.split plps n)
-        in
-        List.sort compare
-        @@ Cstruct.fold (fun acc el -> el :: acc) iter []
-    in
-    Ok plps
+    match bool_of_int @@ get_rsp_plp_list_lock opts with
+    | None -> Error Request.Invalid_payload
+    | Some lock ->
+      let plps = match get_rsp_plp_list_plp_qty opts with
+        | 0xFF -> []
+        | n ->
+          let iter =
+            Cstruct.iter (fun _ -> Some 1)
+              (fun buf -> Cstruct.get_uint8 buf 0)
+              (fst @@ Cstruct.split plps n)
+          in
+          List.sort compare
+          @@ Cstruct.fold (fun acc el -> el :: acc) iter []
+      in
+      Ok { Plp_list. lock; plps }
   with Invalid_argument _ -> Error Invalid_length
 
 let check_tag_start buf =
@@ -196,7 +189,7 @@ let check_msg msg =
 
 let deserialize (src : Logs.src) buf =
   let rec aux responses b =
-    if Cstruct.len b <= (sizeof_prefix + 1 + sizeof_suffix)
+    if Cstruct.len b < (sizeof_prefix + 1 + sizeof_suffix)
     then responses, b
     else
       match check_msg b with
@@ -205,7 +198,9 @@ let deserialize (src : Logs.src) buf =
         match e with
         | Insufficient_payload x -> responses, b
         | e ->
-          Logs.warn ~src (fun m -> m "parser error: %s" @@ err_to_string e);
+          Logs.err ~src (fun m ->
+              m "parser error: %s"
+              @@ parser_error_to_string e);
           aux responses (Cstruct.shift b 1)
   in
   let responses, rest = aux [] buf in
@@ -213,7 +208,7 @@ let deserialize (src : Logs.src) buf =
   if Cstruct.len rest > 0 then Some rest else None
 
 let is_response (type a) (req : a Request.t)
-    (msg : Cstruct.t Request.msg) : (a, payload_error) result option =
+    (msg : Cstruct.t Request.msg) : (a, Request.error) result option =
   let ( >>= ) r f = match r with Ok x -> f x | Error e -> Error e in
   if not Request.(equal_tag msg.tag (to_tag req))
   then None

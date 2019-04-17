@@ -9,12 +9,26 @@ type tag =
   | `PLP_list of int
   | `Source_id
   | `Ack
-  ] [@@deriving eq]
+  ] [@@deriving eq, show]
 
 type 'a msg =
   { tag : tag
   ; data : 'a
-  }
+  } [@@deriving show]
+
+type error =
+  | Timeout
+  | Queue_overflow
+  | Not_responding
+  | Invalid_length
+  | Invalid_payload
+
+let error_to_string = function
+  | Timeout -> "timeout"
+  | Queue_overflow -> "queue overflow"
+  | Not_responding -> "not responding"
+  | Invalid_length -> "invalid length"
+  | Invalid_payload -> "invalid payload"
 
 type _ t =
   | Get_devinfo : Device.info t
@@ -24,6 +38,47 @@ type _ t =
   | Get_measure : int -> (int * Measure.t) t
   | Get_params : int -> (int * Params.t) t
   | Get_plp_list : int -> (int * Plp_list.t) t
+
+let timeout (type a) : a t -> float = function
+  | Get_devinfo -> 3.
+  | Reset -> 3. (* FIXME *)
+  | Set_src_id _ -> 3.
+  | Set_mode _ -> 3.
+  | Get_measure _ -> 3.
+  | Get_params _ -> 3.
+  | Get_plp_list _ -> 3.
+
+let value_to_string (type a) (t : a t) : a -> string =
+  match t with
+  | Get_devinfo -> Device.info_to_string
+  | Reset -> Device.info_to_string
+  | Set_src_id _ -> string_of_int
+  | Set_mode _ ->
+    (fun (id, rsp) ->
+       Printf.sprintf "tuner: %d, %s"
+         id (Device.mode_rsp_to_string rsp))
+  | Get_measure _ ->
+    (fun (id, rsp) ->
+       Printf.sprintf "tuner: %d, %s"
+         id (Measure.to_string rsp))
+  | Get_params _ ->
+    (fun (id, rsp) ->
+       Printf.sprintf "tuner: %d, %s"
+         id (Params.show rsp))
+  | Get_plp_list _ ->
+    (fun (id, rsp) ->
+       Printf.sprintf "tuner: %d, %s"
+         id (Plp_list.to_string rsp))
+
+let to_string (type a) : a t -> string = function
+  | Get_devinfo -> "Get device info"
+  | Reset -> "Reset"
+  | Set_src_id id -> Printf.sprintf "Set source ID (src_id=%d)" id
+  | Set_mode (id, mode) ->
+    Printf.sprintf "Set mode (id=%d, mode=%s)" id Device.(mode_to_string mode)
+  | Get_measure id -> Printf.sprintf "Get measure (id=%d)" id
+  | Get_params id -> Printf.sprintf "Get params (id=%d)" id
+  | Get_plp_list id -> Printf.sprintf "Get PLP list (id=%d)" id
 
 let to_tag (type a) : a t -> tag = function
   | Get_devinfo -> `Devinfo
@@ -38,26 +93,26 @@ let min_tuner_id = 0
 let max_tuner_id = 3
 
 let tag_to_enum = function
-  | `Devinfo -> 0x01
-  | `Mode id -> 0x02 lor id
-  | `Measure id -> 0x03 lor id
-  | `Params id -> 0x04 lor id
-  | `PLP_list id -> 0x05 lor id
+  | `Devinfo -> 0x10
+  | `Mode id -> 0x20 lor id
+  | `Measure id -> 0x30 lor id
+  | `Params id -> 0x40 lor id
+  | `PLP_list id -> 0x50 lor id
   | `Source_id -> 0xD0
   | `Ack -> 0xEE
 
 let tag_of_enum = function
   | 0xEE -> Some `Ack
   | 0xD0 -> Some `Source_id
-  | 0x01 -> Some `Devinfo
+  | 0x10 -> Some `Devinfo
   | x ->
-    let code, id = x land 0x0F, x lsr 4 in
+    let code, id = x land 0xF0, x land 0x0F in
     if id < min_tuner_id || id > max_tuner_id
     then None else begin match code with
-      | 0x02 -> Some (`Mode id)
-      | 0x03 -> Some (`Measure id)
-      | 0x04 -> Some (`Params id)
-      | 0x05 -> Some (`PLP_list id)
+      | 0x20 -> Some (`Mode id)
+      | 0x30 -> Some (`Measure id)
+      | 0x40 -> Some (`Params id)
+      | 0x50 -> Some (`PLP_list id)
       | _ -> None
     end
 

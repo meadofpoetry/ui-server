@@ -15,10 +15,9 @@ let step ~(address : int)
     (stream : Cstruct.t cmd Lwt_stream.t) =
 
   let rec fpga_version () =
-    print_endline "fpga";
     let req = Device FPGA_version in
     sender @@ Serializer.make_req ~address req
-    >>= fun () -> print_endline "sent"; Lwt.pick [loop stream req; sleep timeout]
+    >>= fun () -> Lwt.pick [loop stream req; sleep timeout]
     >>= function
     | Error e -> log_error src req e; return ()
     | Ok x -> log_ok src req x; hw_version GList.(x :: [])

@@ -28,33 +28,33 @@ module Event = struct
   let get_mode (api : Protocol.api) (ids : int list) _user _body _env state =
     let event = match ids with
       | [] ->
-         S.changes api.notifs.config
-         |> E.map config_to_yojson
+        S.changes api.notifs.config
+        |> E.map config_to_yojson
       | ids ->
-         S.changes api.notifs.config
-         |> E.fmap (list_to_option % List.filter (fun (id, _) -> List.mem id ids))
-         |> E.map config_to_yojson in
+        S.changes api.notifs.config
+        |> E.fmap (list_to_option % List.filter (fun (id, _) -> List.mem id ids))
+        |> E.map config_to_yojson in
     Lwt.return (`Ev (state, event))
 end
 
 let reset (api : Protocol.api) _user _body _env _state =
   api.channel Reset
   >>= function
-  | Ok () -> Lwt.return `Unit
-  | Error e -> Lwt.return @@ `Error (Protocol.error_to_string e)
+  | Ok x -> Lwt.return (`Value Util_json.(info_to_yojson x))
+  | Error e -> Lwt.return @@ `Error (Request.error_to_string e)
 
 let set_mode (api : Protocol.api) id _user _body _env _state =
   match mode_of_yojson _body with
   | Error e -> Lwt.return (`Error e)
   | Ok mode ->
-     api.channel (Set_mode (id, mode))
-     >>= function
-     | Ok x ->
-        api.kv#get
-        >>= fun config ->
-        api.kv#set @@ Boards.Util.List.Assoc.set ~eq:(=) id mode config
-        >>= fun () -> Lwt.return @@ `Value (mode_rsp_to_yojson @@ snd x)
-     | Error e -> Lwt.return @@ `Error (Protocol.error_to_string e)
+    api.channel (Set_mode (id, mode))
+    >>= function
+    | Ok x ->
+      api.kv#get
+      >>= fun config ->
+      api.kv#set @@ Boards.Util.List.Assoc.set ~eq:(=) id mode config
+      >>= fun () -> Lwt.return @@ `Value (mode_rsp_to_yojson @@ snd x)
+    | Error e -> Lwt.return @@ `Error (Request.error_to_string e)
 
 let get_state (api : Protocol.api) _user _body _env _state =
   let value = Topology.state_to_yojson @@ React.S.value api.notifs.state in
@@ -75,6 +75,6 @@ let get_mode (api : Protocol.api) (ids : int list) _user _body _env _state =
   let value = match ids with
     | [] -> React.S.value api.notifs.config
     | ids ->
-       List.filter (fun (id, _) -> List.mem id ids)
-       @@ React.S.value api.notifs.config in
+      List.filter (fun (id, _) -> List.mem id ids)
+      @@ React.S.value api.notifs.config in
   Lwt.return (`Value (config_to_yojson value))

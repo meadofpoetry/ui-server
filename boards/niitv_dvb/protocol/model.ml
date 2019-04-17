@@ -16,9 +16,9 @@ let tick () =
   e, loop
 
 let create (log_src : Logs.src)
-      (control : int)
-      (measures : (int * Measure.t ts) list React.event)
-      (db : Db.state) =
+    (control : int)
+    (measures : (int * Measure.t ts) list React.event)
+    (db : Db.state) =
   let ( >>= ) = Lwt_result.bind in
   Database.Conn.create db control
   >>= fun db ->
@@ -27,10 +27,10 @@ let create (log_src : Logs.src)
     Util_react.E.map_s (fun x ->
         Lwt.catch (fun () -> Database.Measurements.insert db x)
           (function
-           | Failure e ->
+            | Failure e ->
               Logs_lwt.err ~src:log_src (fun m ->
                   m "measures db error: %s" e)
-           | exn ->
+            | exn ->
               Logs_lwt.err ~src:log_src (fun m ->
                   let s = Printexc.to_string exn in
                   m "measures db error: %s" s)))

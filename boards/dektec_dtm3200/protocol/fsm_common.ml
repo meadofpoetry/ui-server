@@ -10,7 +10,7 @@ let log_ok (type a) src (req : a Request.t) v =
         (Request.to_string req) (Request.value_to_string req v))
 
 let log_error (type a) src (req : a Request.t) (error : error) =
-  Logs.warn ~src (fun m ->
+  Logs.err ~src (fun m ->
       m "Request \"%s\" failed with error = %s"
         (Request.to_string req) (error_to_string error))
 

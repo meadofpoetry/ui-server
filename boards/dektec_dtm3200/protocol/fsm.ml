@@ -19,7 +19,7 @@ let start ~(address : int)
   let rec first_step () =
     Logs.info (fun m -> m "Start of connection establishment...");
     let msgs' = Lwt_stream.get_available msgs in
-    List.iter (fun (_, _, stop) -> stop ()) msgs';
+    List.iter (fun (_, stop) -> stop ()) msgs';
     Lwt_stream.junk_old stream
     >>= fun () ->
     set_state `No_response;
@@ -64,9 +64,7 @@ let start ~(address : int)
     | `Message msg -> send_client_request timer msg
     | `Timeout -> Lwt.cancel wait_msg; pull_status ()
 
-  and send_client_request timer (msg, pred, _) =
-    sender msg
-    >>= fun () -> pred stream
-    >>= fork ~timer
+  and send_client_request timer (send, _) =
+    send stream >>= fork ~timer
   in
   first_step
