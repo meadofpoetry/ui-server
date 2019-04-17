@@ -1,7 +1,5 @@
-open Containers
-open Board_types
-open Board_msg_formats
-open Common
+open Board_niitv_ts2ip_types
+open Message
 
 type _ request =
   | Get_board_info : devinfo request
@@ -10,34 +8,11 @@ type _ instant_request =
   | Set_board_mode : nw_settings * packer_settings list -> unit instant_request
   | Set_factory_mode : factory_settings -> unit instant_request
 
-let prefix = 0x55AA
-
 (* Message constructors *)
-
-let to_header ~msg_code () =
-  let hdr = Cstruct.create sizeof_header in
-  set_header_prefix hdr prefix;
-  set_header_msg_code hdr msg_code;
-  hdr
-
-let to_msg ~msg_code ~body () =
-  let hdr = to_header ~msg_code () in
-  Cstruct.append hdr body
 
 (* Requests *)
 
-module type Request = sig
-  type t
-  type rsp
-  val req_code : int
-  val rsp_code : int
-  val serialize : t -> Cstruct.t
-  val parse : Cstruct.t -> rsp
-end
-
-module Get_board_info : (Request
-                         with type t := unit
-                         with type rsp := devinfo) = struct
+module Get_board_info = struct
 
   let req_code = 0x0080
   let rsp_code = 0x0140
@@ -55,16 +30,7 @@ module Get_board_info : (Request
 
 end
 
-(* Instant requests *)
-
-module type Instant_request = sig
-  type t
-  val msg_code : int
-  val serialize : t -> Cstruct.t
-end
-
-module Set_factory_mode : (Instant_request
-                           with type t := factory_settings) = struct
+module Set_factory_mode = struct
 
   let msg_code = 0x0087
   let serialize mode =
@@ -74,9 +40,7 @@ module Set_factory_mode : (Instant_request
 
 end
 
-module Set_board_mode
-       : (Instant_request
-          with type t := nw_settings * (packer_settings list)) = struct
+module Set_board_mode = struct
 
   let msg_code = 0x0088
   let main_packers_num = 4
@@ -162,15 +126,7 @@ module Set_board_mode
 
 end
 
-(* Events  *)
-
-module type Event = sig
-  type t
-  val msg_code : int
-  val parse : Cstruct.t -> t
-end
-
-module Status : (Event with type t := (board_status * status_data)) = struct
+module Status = struct
 
   let msg_code = 0x0F40
 
@@ -212,112 +168,102 @@ module Status : (Event with type t := (board_status * status_data)) = struct
 
 end
 
-(* Message deserialization *)
+type err =
+  | Bad_prefix of int
+  | Bad_length of int
+  | Bad_msg_code of int
+  | No_prefix_after_msg of int
+  | Insufficient_payload of Cstruct.t
+  | Unknown_err of string
 
-module Make(Logs : Logs.LOG) = struct
+let string_of_err = function
+  | Bad_prefix x -> "incorrect prefix: " ^ (string_of_int x)
+  | Bad_length x -> "incorrect length: " ^ (string_of_int x)
+  | Bad_msg_code x -> "incorrect code: "   ^ (string_of_int x)
+  | No_prefix_after_msg x ->
+    Printf.sprintf "no prefix found after message with code = %d" x
+  | Insufficient_payload _ -> "insufficient payload"
+  | Unknown_err s -> s
 
-  type err =
-    | Bad_prefix of int
-    | Bad_length of int
-    | Bad_msg_code of int
-    | No_prefix_after_msg of int
-    | Insufficient_payload of Cstruct.t
-    | Unknown_err of string
+let check_prefix buf =
+  let prefix' = get_header_prefix buf in
+  if prefix <> prefix
+  then Error (Bad_prefix prefix') else Ok buf
 
-  let string_of_err = function
-    | Bad_prefix x -> "incorrect prefix: " ^ (string_of_int x)
-    | Bad_length x -> "incorrect length: " ^ (string_of_int x)
-    | Bad_msg_code x -> "incorrect code: "   ^ (string_of_int x)
-    | No_prefix_after_msg x ->
-       Printf.sprintf "no prefix found after message with code = %d" x
-    | Insufficient_payload _ -> "insufficient payload"
-    | Unknown_err s -> s
+let check_msg_code buf =
+  let hdr, rest = Cstruct.split buf sizeof_header in
+  let code = get_header_msg_code hdr in
+  let length = match code with
+    | x when x = Get_board_info.rsp_code -> Some sizeof_board_info
+    | x when x = Status.msg_code -> Some sizeof_status
+    | _ -> None in
+  match length with
+  | Some x -> Ok (x, code, rest)
+  | None -> Error (Bad_msg_code code)
 
-  let check_prefix buf =
-    let prefix' = get_header_prefix buf in
-    if prefix <> prefix
-    then Error (Bad_prefix prefix') else Ok buf
+let check_length (len, code, rest') =
+  if len > 512 - sizeof_header
+  then Error (Bad_length len)
+  else let body, rest = Cstruct.split rest' len in
+    Ok (code, body, rest)
 
-  let check_msg_code buf =
-    let hdr, rest = Cstruct.split buf sizeof_header in
-    let code = get_header_msg_code hdr in
-    let length = match code with
-      | x when x = Get_board_info.rsp_code -> Some sizeof_board_info
-      | x when x = Status.msg_code -> Some sizeof_status
-      | _ -> None in
-    match length with
-    | Some x -> Ok (x, code, rest)
-    | None -> Error (Bad_msg_code code)
+let check_next_prefix ((code, _, rest) as x) =
+  if Cstruct.len rest < sizeof_header then Ok x else
+    match check_prefix rest with
+    | Ok _ -> Ok x
+    | Error _ -> Error (No_prefix_after_msg code)
 
-  let check_length (len, code, rest') =
-    if len > 512 - sizeof_header
-    then Error (Bad_length len)
-    else let body, rest = Cstruct.split rest' len in
-         Ok (code, body, rest)
-
-  let check_next_prefix ((code, _, rest) as x) =
-    if Cstruct.len rest < sizeof_header then Ok x else
-      match check_prefix rest with
-      | Ok _ -> Ok x
-      | Error _ -> Error (No_prefix_after_msg code)
-
-  let get_msg buf =
-    try
-      Result.(
+let get_msg buf =
+  try
+    Result.(
       check_prefix buf
       >>= check_msg_code
       >>= check_length
       >>= check_next_prefix)
-    with
-    | Invalid_argument _ -> Error (Insufficient_payload buf)
-    | e -> Error (Unknown_err (Printexc.to_string e))
+  with
+  | Invalid_argument _ -> Error (Insufficient_payload buf)
+  | e -> Error (Unknown_err (Printexc.to_string e))
 
-  let deserialize buf =
-    let parse_msg = fun (code,body) ->
-      try
-        (match code with
-         | x when x = Get_board_info.rsp_code -> `R (`Board_info body)
-         | x when x = Status.msg_code -> `E (`Status (Status.parse body))
-         | x -> Logs.debug (fun m ->
-                    m "parser error: \
-                       unknown message code (0x%x)" x); `N)
-      with _ -> `N in
-    let rec f events responses b =
-      if Cstruct.len b >= sizeof_header
-      then match get_msg b with
-           | Ok (code, body, rest) ->
-              begin match parse_msg (code, body) with
-              | `E x -> f (x :: events) responses rest
-              | `R x -> f events (x :: responses) rest
-              | `N -> f events responses rest
-              end
-           | Error e ->
-              begin match e with
-              | Insufficient_payload x ->
-                 List.rev events,
-                 List.rev responses,
-                 x
-              | e ->
-                 Logs.warn (fun m ->
-                     m "parser error: %s" @@ string_of_err e);
-                 Cstruct.split b 1
-                 |> fun (_, x) -> f events responses x
-              end
-      else (List.rev events, List.rev responses, b)
-    in
-    let events, responses, res = f [] [] buf in
-    events,
-    responses,
-    if Cstruct.len res > 0 then Some res else None
+let deserialize buf =
+  let parse_msg = fun (code,body) ->
+    try
+      (match code with
+       | x when x = Get_board_info.rsp_code -> `R (`Board_info body)
+       | x when x = Status.msg_code -> `E (`Status (Status.parse body))
+       | x -> Logs.debug (fun m ->
+           m "parser error: \
+              unknown message code (0x%x)" x); `N)
+    with _ -> `N in
+  let rec f events responses b =
+    if Cstruct.len b >= sizeof_header
+    then match get_msg b with
+      | Ok (code, body, rest) ->
+        begin match parse_msg (code, body) with
+          | `E x -> f (x :: events) responses rest
+          | `R x -> f events (x :: responses) rest
+          | `N -> f events responses rest
+        end
+      | Error e ->
+        begin match e with
+          | Insufficient_payload x ->
+            List.rev events,
+            List.rev responses,
+            x
+          | e ->
+            Logs.warn (fun m ->
+                m "parser error: %s" @@ string_of_err e);
+            Cstruct.split b 1
+            |> fun (_, x) -> f events responses x
+        end
+    else (List.rev events, List.rev responses, b)
+  in
+  let events, responses, res = f [] [] buf in
+  events,
+  responses,
+  if Cstruct.len res > 0 then Some res else None
 
-end
-
-let try_parse f x = try Some (f x) with _ -> None
-
-let parse_get_board_info = function
-  | `Board_info buf -> try_parse Get_board_info.parse buf
-  | _ -> None
-
-let is_response (type a) (req : a request) msg : a option =
+let is_response (type a) (req : a Request.t) msg : a option =
   match req with
-  | Get_board_info -> parse_get_board_info msg
+  | Get_devinfo -> None
+  | Set_mode _ -> None
+  | Set_factory_mode _ -> None

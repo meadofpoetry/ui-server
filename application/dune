@@ -7,7 +7,7 @@
                board_niitv_dvb
                board_dektec_dtm3200
 ;;             board_qos_niit
-;;             board_ts2ip_niit
+               board_niitv_ts2ip
                pipeline
                pc_control
                util_react

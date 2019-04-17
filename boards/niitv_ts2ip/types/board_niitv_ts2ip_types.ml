@@ -1,4 +1,5 @@
-open Common
+open Netlib
+open Application_types
 
 type devinfo =
   { typ : int
