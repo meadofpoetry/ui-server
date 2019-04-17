@@ -38,14 +38,8 @@ let send (type a) (src : Logs.src)
         let t, w = Lwt.task () in
         let stop = fun error -> Lwt.wakeup_later w (Error error) in
         let send = fun stream ->
-          sender @@ Serializer.make_req req
-          >>= fun () ->
-          Lwt.pick Fsm.[sleep (Request.timeout req); loop stream req]
-          >>= fun x ->
-          (match x with
-           | Error e -> Fsm.log_error src req e
-           | Ok x -> Fsm.log_ok src req x);
-          Lwt.wakeup_later w x; Lwt.return_unit in
+          Fsm.request src stream sender req
+          >>= fun x -> Lwt.wakeup_later w x; Lwt.return_unit in
         push#push @@ (send, stop) >>= fun () -> t)
       (function
         | Lwt.Canceled -> Lwt.return_error Request.Not_responding

@@ -1,5 +1,8 @@
 open Board_niitv_dvb_types
 
+(* TODO maybe PLP list & params should be fetched
+   after 'lock' change in measures probes. *)
+
 let ( >>= ) = Lwt.( >>= )
 
 let cooldown_timeout = 10. (* seconds *)
@@ -7,6 +10,8 @@ let cooldown_timeout = 10. (* seconds *)
 let meas_interval = 1 (* seconds *)
 
 let params_interval = 5 (* seconds *)
+
+let ack_timeout = 2. (* seconds *)
 
 type api_msg = (Cstruct.t Request.msg Lwt_stream.t -> unit Lwt.t)
                * (Request.error -> unit)
@@ -28,15 +33,43 @@ let sleep timeout =
   Lwt_unix.sleep timeout
   >>= fun () -> Lwt.return_error Request.Timeout
 
-let loop (type a) stream (req : a Request.t) : (a, Request.error) result Lwt.t =
-  let rec aux () =
+let rec wait_ack stream =
+  Lwt.pick
+    [ (Lwt_stream.next stream >>= fun x -> Lwt.return_ok x)
+    ; sleep ack_timeout ]
+  >>= function
+  | Error e -> Lwt.return_error e
+  | Ok ({ tag; _ } : _ Request.msg) ->
+    match tag with
+    | `Ack -> Lwt.return_ok ()
+    | _ -> wait_ack stream
+
+let wait_rsp (type a) stream (req : a Request.t) =
+  let rec loop () =
     Lwt_stream.next stream
     >>= fun x ->
     match Parser.is_response req x with
-    | None -> aux ()
+    | None -> loop ()
     | Some (Ok x) -> Lwt.return_ok x
     | Some (Error e) -> Lwt.return_error e in
-  Lwt_stream.junk_old stream >>= aux
+  Lwt.pick [loop (); sleep (Request.timeout req)]
+
+let request (type a)
+    (src : Logs.src)
+    (stream : Cstruct.t Request.msg Lwt_stream.t)
+    (sender : Cstruct.t -> unit Lwt.t)
+    (req : a Request.t) : (a, Request.error) result Lwt.t =
+  let rec loop = function
+    | 0 -> Lwt.return_error Request.Not_responding
+    | n ->
+      sender @@ Serializer.make_req req
+      >>= fun () ->
+      Lwt_result.Infix.(wait_ack stream >>= fun () -> wait_rsp stream req)
+      >>= function
+      | Ok x -> log_ok src req x; Lwt.return_ok x
+      | Error e -> log_error src req e; loop (pred n) in
+  Lwt_stream.junk_old stream
+  >>= fun () -> loop 3
 
 let start (src : Logs.src)
     (sender : Cstruct.t -> unit Lwt.t)
@@ -80,17 +113,15 @@ let start (src : Logs.src)
     set_state `No_response;
     detect_device ()
 
+  and restart () =
+    Lwt_unix.sleep cooldown_timeout >>= first_step
+
   and detect_device () =
     let req = Request.Get_devinfo in
-    sender @@ Serializer.make_req req
-    >>= fun () ->
-    Lwt.pick [sleep (Request.timeout req); loop rsp_queue req]
+    request src rsp_queue sender req
     >>= function
-    | Error e ->
-      log_error src req e;
-      Lwt_unix.sleep cooldown_timeout >>= first_step
+    | Error _ -> restart ()
     | Ok devinfo ->
-      log_ok src req devinfo;
       set_state `Init;
       set_devinfo devinfo;
       Logs.info (fun m ->
@@ -101,13 +132,10 @@ let start (src : Logs.src)
     kv#get
     >>= fun config ->
     let req = Request.Set_src_id source_id in
-    sender @@ Serializer.make_req req
-    >>= fun () ->
-    Lwt.pick [sleep (Request.timeout req); loop rsp_queue req]
+    request src rsp_queue sender req
     >>= function
-    | Error e -> log_error src req e; first_step ()
+    | Error _ -> restart ()
     | Ok id ->
-      log_ok src req id;
       if id = source_id
       then init_device tuners config
       else (
@@ -128,15 +156,13 @@ let start (src : Logs.src)
           aux acc tl)
         else (
           let req = Request.Set_mode hd in
-          sender @@ Serializer.make_req req
-          >>= fun () ->
-          Lwt.pick [sleep (Request.timeout req); loop rsp_queue req]
+          request src rsp_queue sender req
           >>= function
-          | Error e -> log_error src req e; Lwt.return_error e
-          | Ok x -> log_ok src req x; aux (x :: acc) tl) in
+          | Error e -> Lwt.return_error e
+          | Ok x -> aux (x :: acc) tl) in
     aux [] config
     >>= function
-    | Error _ -> Lwt_unix.sleep cooldown_timeout >>= first_step
+    | Error _ -> restart ()
     | Ok x ->
       kv#set (List.map Device.(fun (id, rsp) -> id, rsp.mode) x)
       >>= fun () ->
@@ -148,45 +174,32 @@ let start (src : Logs.src)
     let timer = match timer with
       | Some x -> x
       | None -> wait_probes () in
-    let wait_msg = Lwt_stream.next req_queue >>= fun x -> Lwt.return @@ `Message x in
+    let wait_msg =
+      Lwt_stream.next req_queue
+      >>= fun x -> Lwt.return @@ `Message x in
     Lwt.choose [wait_msg; timer]
     >>= function
     | `Message msg -> send_client_request timer tuners msg
-    | `Both ->
+    | (`Meas | `Params | `Both) as probes ->
       Lwt.cancel wait_msg;
-      (Lwt_result.Infix.(
-          pull_measurements tuners
-          >>= fun meas -> pull_parameters tuners
-          >>= fun params -> pull_plps tuners
-          >>= fun plps -> Lwt.return_ok (meas, params, plps))
-       >>= function
-       | Ok (meas, params, plps) ->
-         set_measures meas;
-         set_params params;
-         set_plps plps;
-         fork tuners ()
-       | Error _ -> Lwt_unix.sleep cooldown_timeout >>= first_step)
-    | `Meas ->
-      Lwt.cancel wait_msg;
-      (pull_measurements tuners
-       >>= function
-       | Ok meas ->
-         set_measures meas;
-         fork tuners ()
-       | Error _ -> Lwt_unix.sleep cooldown_timeout >>= first_step)
-    | `Params ->
-      Lwt.cancel wait_msg;
-      (Lwt_result.Infix.(
-          pull_parameters tuners
-          >>= fun params -> pull_plps tuners
-          >>= fun plps -> Lwt.return_ok (params, plps))
-       >>= function
-       | Ok (params, plps) ->
-         set_params params;
-         set_plps plps;
-         fork tuners ()
-       | Error _ -> Lwt_unix.sleep cooldown_timeout >>= first_step)
+      let ( >>=? ) = Lwt_result.( >>= ) in
+      let t = match probes with
+        | `Meas ->
+          (pull_measurements tuners
+           >>=? fun x -> set_measures x; Lwt.return_ok ())
+        | `Params ->
+          (pull_parameters tuners
+           >>=? fun x -> set_params x; pull_plps tuners
+           >>=? fun x -> set_plps x; Lwt.return_ok ())
+        | `Both ->
+          (pull_measurements tuners
+           >>=? fun x -> set_measures x; pull_parameters tuners
+           >>=? fun x -> set_params x; pull_plps tuners
+           >>=? fun x -> set_plps x; Lwt.return_ok ())
+      in
+      t >>= function Ok () -> fork tuners () | Error _ -> restart ()
 
+  (* For now, failures client requests *)
   and send_client_request timer tuners (send, _) =
     send rsp_queue >>= fork ~timer tuners
 
@@ -195,13 +208,10 @@ let start (src : Logs.src)
       | [] -> Lwt.return_ok acc
       | id :: tl ->
         let req = Request.Get_measure id in
-        sender @@ Serializer.make_req req
-        >>= fun () ->
-        Lwt.pick [sleep (Request.timeout req); loop rsp_queue req]
+        request src rsp_queue sender req
         >>= function
-        | Error e -> log_error src req e; Lwt.return_error e
+        | Error e -> Lwt.return_error e
         | Ok x ->
-          log_ok src req x;
           let ts = fst x, { data = snd x; timestamp = Ptime_clock.now () } in
           aux (ts :: acc) tl
     in
@@ -224,13 +234,10 @@ let start (src : Logs.src)
           | T | C -> aux acc tl
           | T2 ->
             let req = Request.Get_params id in
-            sender @@ Serializer.make_req req
-            >>= fun () ->
-            Lwt.pick [sleep (Request.timeout req); loop rsp_queue req]
+            request src rsp_queue sender req
             >>= function
-            | Error e -> log_error src req e; Lwt.return_error e
+            | Error e -> Lwt.return_error e
             | Ok x ->
-              log_ok src req x;
               let ts = fst x, { data = snd x; timestamp = Ptime_clock.now () } in
               aux (ts :: acc) tl
     in
@@ -253,13 +260,10 @@ let start (src : Logs.src)
           | T | C -> aux acc tl
           | T2 ->
             let req = Request.Get_plp_list id in
-            sender @@ Serializer.make_req req
-            >>= fun () ->
-            Lwt.pick [sleep (Request.timeout req); loop rsp_queue req]
+            request src rsp_queue sender req
             >>= function
-            | Error e -> log_error src req e; Lwt.return_error e
+            | Error e -> Lwt.return_error e
             | Ok x ->
-              log_ok src req x;
               let ts = fst x, { data = snd x; timestamp = Ptime_clock.now () } in
               aux (ts :: acc) tl
     in
