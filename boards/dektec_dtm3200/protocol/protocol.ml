@@ -1,7 +1,6 @@
 open Application_types
 open Board_dektec_dtm3200_types
 open Util_react
-open Netlib
 
 let ( >>= ) = Lwt.bind
 
@@ -9,6 +8,7 @@ let msg_queue_size = 20
 
 type notifs =
   { streams : Stream.t list React.signal
+  ; devinfo : devinfo option React.signal
   ; state : Topology.state React.signal
   ; status : status React.event
   ; config : config React.signal
@@ -76,14 +76,14 @@ let create ~(address : int)
     (sender : Cstruct.t -> unit Lwt.t)
     streams_conv
     (kv : config Kv_v.rw)
-    (control : int)
-    (db : Db.t) =
+    (_ : Db.t) =
   let status, set_status = E.create () in
   let state, set_state = S.create ~eq:Topology.equal_state `No_response in
   let devinfo, set_devinfo =
     S.create ~eq:(Boards.Util.Option.equal equal_devinfo) None in
   let notifs =
     { streams = streams_conv @@ to_streams_s kv#s status
+    ; devinfo
     ; state
     ; status
     ; config = kv#s

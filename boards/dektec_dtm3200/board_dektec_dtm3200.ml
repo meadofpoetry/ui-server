@@ -44,13 +44,13 @@ let create (b : Topology.topo_board)
   >>= fun (cfg : config Kv_v.rw) -> Lwt.return (create_logger b)
   >>= fun (src : Logs.src) -> Lwt.return (get_address b)
   >>= fun (address : int) ->
-  Protocol.create ~address src send (convert_streams b) cfg b.control db
+  Protocol.create ~address src send (convert_streams b) cfg db
   >>= fun (api : Protocol.api) ->
   let state = object
     method finalize () = Lwt.return ()
   end in
   let (board : Board.t) =
-    { http = []
+    { http = Board_dektec_dtm3200_http.handlers b.control api
     ; ws = []
     ; templates = []
     ; control = b.control

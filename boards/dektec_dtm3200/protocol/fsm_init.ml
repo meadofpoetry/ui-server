@@ -42,7 +42,8 @@ let step ~(address : int)
     let req = Request.Configuration (Mode (`W mode)) in
     Lwt_result.Infix.(
       request ~address src sender rsp_queue req
-      >>= fun v -> detect_device (Configuration (Mode `R)) reboot_steps
+      (* FIXME what is here? maybe we don't need detect if the value is equal. *)
+      >>= fun _ -> detect_device (Configuration (Mode `R)) reboot_steps
       >>= fun (mode' : mode) ->
       if equal_mode mode mode'
       then Lwt.return_ok ()
@@ -54,14 +55,15 @@ let step ~(address : int)
         Lwt.return_error error))
     >>= function
     | Ok () -> set_application ()
-    | Error e -> return ()
+    | Error _ -> return ()
 
   and set_application () =
     let app = Normal in
     let req = Request.Configuration (Application (`W app)) in
     Lwt_result.Infix.(
       request ~address src sender rsp_queue req
-      >>= fun v -> detect_device (Configuration (Application `R)) reboot_steps
+      (* FIXME as above *)
+      >>= fun _ -> detect_device (Configuration (Application `R)) reboot_steps
       >>= fun (app' : application) ->
       if equal_application app app'
       then Lwt.return_ok ()
@@ -73,7 +75,7 @@ let step ~(address : int)
         Lwt.return_error error))
     >>= function
     | Ok () -> set_storage ()
-    | Error e -> return ()
+    | Error _ -> return ()
 
   and set_storage () =
     let v = FLASH in
@@ -118,7 +120,7 @@ let step ~(address : int)
       request ~address src sender rsp_queue req
       >>= function
       | Error _ -> return ()
-      | Ok v -> set_subnet_mask nw'
+      | Ok _ -> set_subnet_mask nw'
 
   and set_subnet_mask nw' =
     if Netlib.Ipaddr.V4.equal nw'.mask nw.mask
@@ -128,7 +130,7 @@ let step ~(address : int)
       request ~address src sender rsp_queue req
       >>= function
       | Error _ -> return ()
-      | Ok v -> set_gateway nw'
+      | Ok _ -> set_gateway nw'
 
   and set_gateway nw' =
     if Netlib.Ipaddr.V4.equal nw'.gateway nw.gateway
@@ -138,7 +140,7 @@ let step ~(address : int)
       request ~address src sender rsp_queue req
       >>= function
       | Error _ -> return ()
-      | Ok v -> set_dhcp nw'
+      | Ok _ -> set_dhcp nw'
 
   and set_dhcp nw' =
     if nw'.dhcp = nw.dhcp
@@ -148,7 +150,7 @@ let step ~(address : int)
       request ~address src sender rsp_queue req
       >>= function
       | Error _ -> return ()
-      | Ok v -> finalize_network ()
+      | Ok _ -> finalize_network ()
 
   (* Reboot device and check if the settings were applied. *)
   and finalize_network () =

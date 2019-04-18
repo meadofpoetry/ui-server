@@ -43,8 +43,8 @@ let reset (api : Protocol.api) _user _body _env _state =
   | Ok x -> Lwt.return (`Value Util_json.(info_to_yojson x))
   | Error e -> Lwt.return @@ `Error (Request.error_to_string e)
 
-let set_mode (api : Protocol.api) id _user _body _env _state =
-  match mode_of_yojson _body with
+let set_mode (api : Protocol.api) id _user body _env _state =
+  match mode_of_yojson body with
   | Error e -> Lwt.return (`Error e)
   | Ok mode ->
     api.channel (Set_mode (id, mode))

@@ -46,7 +46,8 @@ let timeout (type a) : a t -> float = function
   | Set_mode_aux_2 _ -> 0.
   | Set_mac _ -> 0.
 
-let value_to_string (type a) (t : a t) (v : a) : string option =
+(* FIXME implement *)
+let value_to_string (type a) (t : a t) (_ : a) : string option =
   match t with
   | Get_devinfo -> None
   | Set_mode_main _ -> None

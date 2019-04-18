@@ -117,7 +117,8 @@ let deserialize (src : Logs.src) (buf : Cstruct.t) =
   List.rev responses,
   if Cstruct.len rest > 0 then Some rest else None
 
-let is_response (type a) (req : a Request.t) msg : (a, Request.error) result option =
+(* FIXME implement *)
+let is_response (type a) (req : a Request.t) _ : (a, Request.error) result option =
   match req with
   | Get_devinfo -> None
   | Set_mode_main _ -> None
