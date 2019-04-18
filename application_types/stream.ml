@@ -198,7 +198,7 @@ end = struct
   let parse_pure (i : int32) : parsed =
     let open Int32 in
     let src = to_int @@ logand i 0xFFl in
-    let num = to_int @@ Int32.shift_right_logical (logand i 0xFFFFF00l) 8 in
+    let num = to_int @@ shift_right_logical (logand i 0xFFFFF00l) 8 in
     { source_id = src
     ; stream_id = num
     }
@@ -210,7 +210,7 @@ end = struct
     let num2 = shift_right_logical (logand i 0x3FFC00l) 10 in
     let num = to_int @@ logor num1 num2 in
     { source_id = src
-    ; stream_id = num 
+    ; stream_id = num
     }
 
   let make_pure (p : parsed) : int32 =
@@ -244,7 +244,7 @@ end = struct
 
   let equal x y = 0 = compare x y
 
-  let of_int32_raw (i : int32)  = Raw i
+  let of_int32_raw (i : int32) = Raw i
 
   let of_int32_pure (i : int32) = Pure i
 
@@ -263,8 +263,7 @@ end = struct
     Format.fprintf ppf "{ source_id = %d; stream_id = %d }"
       p.source_id p.stream_id
 
-  let show t =
-    Format.asprintf "%a" pp t
+  let show t = Format.asprintf "%a" pp t
 
   let source_id (t : t) = (parse t).source_id
 
@@ -314,7 +313,7 @@ module Raw = struct
   and source =
     { node : source_node
     ; info : Source.t
-    } [@@deriving eq, show]
+    } [@@deriving yojson, eq, show]
 
 end
 

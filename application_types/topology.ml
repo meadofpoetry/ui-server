@@ -20,8 +20,6 @@ type input =
   | TSOIP
   | ASI [@@deriving show, eq, enum]
 
-type board_type = string [@@deriving yojson, show, eq, ord]
-
 type process_type = string [@@deriving yojson, show, eq, ord]
 
 let compare_input l r = match l, r with
@@ -45,8 +43,6 @@ let input_to_yojson x = `String (input_to_string x)
 let input_of_yojson = function
   | `String s -> input_of_string s
   | _ as e -> Error ("input_of_yojson: unknown value: " ^ (Yojson.Safe.to_string e))
-
-type boards = (int * board_type) list [@@deriving yojson, eq]
 
 type version = int [@@deriving yojson, show, eq, ord]
 
@@ -92,8 +88,7 @@ and topo_input =
   }
 
 and topo_board =
-  { typ : board_type
-  ; model : string
+  { model : string
   ; manufacturer : string
   ; version : version
   ; control : int
@@ -130,15 +125,6 @@ let of_string s =
 let to_string x =
   to_yojson x
   |> Yojson.Safe.to_string
-  
-(** Returns human-readable names of some known board types *)
-let get_board_name (board : topo_board) =
-  match board.typ with
-  | "IP2TS" -> "Приёмник TSoIP"
-  | "TS2IP" -> "Передатчик TSoIP"
-  | "TS" -> "Анализатор TS"
-  | "DVB" -> "Приёмник DVB"
-  | s -> s
 
 module Show_topo_input = struct
   type t = topo_input

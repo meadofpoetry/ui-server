@@ -1,3 +1,7 @@
+let n_udp = 34
+let n_udp_main = 10
+let n_udp_aux = 12
+
 [@@@ocaml.warning "-32"]
 
 [%%cstruct
@@ -7,7 +11,7 @@
     } [@@little_endian]]
 
 [%%cstruct
-  type board_info =
+  type rsp_devinfo =
     { typ : uint8_t
     ; ver : uint8_t
     ; packers_num : uint8_t
@@ -15,43 +19,53 @@
     } [@@little_endian]]
 
 [%%cstruct
-  type factory_settings =
-    { mac : uint16_t [@len 3]
-    ; rfu : uint16_t [@len 61]
-    } [@@little_endian]]
-
-[%%cstruct
-  type packer_settings =
+  type udp_settings =
     { self_port : uint16_t
-    ; dst_mac : uint8_t [@len 6]
+    ; dst_mac : uint16_t [@len 3]
     ; dst_ip : uint32_t
     ; dst_port : uint16_t
     ; stream_id : uint32_t
-    ; mode : uint8_t
-    ; rfu : uint8_t
+    ; mode : uint16_t
     } [@@little_endian]]
 
 [%%cstruct
-  type req_settings_main =
+  type req_mode_main =
     { cmd : uint16_t
     ; ip : uint32_t
     ; mask : uint32_t
     ; gateway : uint32_t
     ; rfu : uint16_t [@len 17]
+    ; udp_descriptors : uint8_t [@len n_udp_main * sizeof_udp_settings]
+    ; rfu_2 : uint16_t [@len 4]
     } [@@little_endian]]
 
 [%%cstruct
-  type req_settings_packers =
+  type req_mode_aux =
     { cmd : uint16_t
     ; rfu : uint16_t [@len 3]
+    ; udp_descriptors : uint16_t [@len n_udp_aux * sizeof_udp_settings]
+    ; rfu_2 : uint16_t [@len 4]
+    } [@@little_endian]]
+
+[%%cstruct
+  type req_factory_mode =
+    { mac : uint16_t [@len 3]
+    ; rfu : uint16_t [@len 125]
+    } [@@little_endian]]
+
+[%%cstruct
+  type udp_status =
+    { rate : uint32_t
+    ; stream : uint32_t
     } [@@little_endian]]
 
 [%%cstruct
   type status =
-    { sub_cmd : uint16_t
+    { rfu : uint16_t
     ; phy : uint16_t
-    ; rfu : uint32_t
-    ; data : uint32_t [@len 30]
+    ; input : uint16_t
+    ; rfu_2 : uint16_t
+    ; data : uint16_t [@len 124]
     } [@@little_endian]]
 
 [@@@ocaml.warning "+32"]

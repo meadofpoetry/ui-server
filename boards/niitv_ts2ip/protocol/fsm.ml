@@ -1,71 +1,100 @@
+open Board_niitv_ts2ip_types
+
+type api_msg = (Request.msg Lwt_stream.t -> unit Lwt.t) * (Request.error -> unit)
+
+let ( >>= ) = Lwt.( >>= )
+
+let cooldown_timeout = 10.
+
+let take_drop (n : int) (l : 'a list) =
+  let rec aux i acc = function
+    | [] -> List.rev acc, []
+    | l when i = 0 -> List.rev acc, l
+    | hd :: tl -> aux (pred i) (hd :: acc) tl
+  in
+  aux n [] l
+
+let log_ok (type a) src (req : a Request.t) v =
+  Logs.debug ~src (fun m ->
+      let base =
+        Printf.sprintf "Request \"%s\" succeeded"
+          (Request.to_string req) in
+      let s = match Request.value_to_string req v with
+        | None -> base
+        | Some v -> Printf.sprintf "%s. Response = %s" base v in
+      m "%s" s)
+
+let log_error (type a) src (req : a Request.t) (error : Request.error) =
+  Logs.err ~src (fun m ->
+      m "Request \"%s\" failed. Error = %s"
+        (Request.to_string req) (Request.error_to_string error))
+
+let loop (type a)
+    (stream : Request.msg Lwt_stream.t)
+    (req : a Request.t) : (a, Request.error) result Lwt.t =
+  let rec aux () =
+    Lwt_stream.next stream
+    >>= fun x ->
+    match Parser.is_response req x with
+    | None -> aux ()
+    | Some (Ok x) -> Lwt.return_ok x
+    | Some (Error e) -> Lwt.return_error e in
+  (* FIXME remove junk old? *)
+  Lwt_stream.junk_old stream >>= aux
+
+let sleep timeout =
+  Lwt_unix.sleep timeout
+  >>= fun () -> Lwt.return_error Request.Timeout
+
+let request (type a)
+    (src : Logs.src)
+    (stream : Request.msg Lwt_stream.t)
+    (sender : Cstruct.t -> unit Lwt.t)
+    (req : a Request.t) : (a, Request.error) result Lwt.t =
+  sender @@ Serializer.make_req req
+  >>= fun () ->
+  Lwt.pick [loop stream req; sleep (Request.timeout req)]
+  >>= function
+  | Error e -> log_error src req e; Lwt.return_error e
+  | Ok x -> log_ok src req x; Lwt.return_ok x
+
+let request_instant (type a)
+    (sender : Cstruct.t -> unit Lwt.t)
+    (req : unit Request.t) : unit Lwt.t =
+  sender @@ Serializer.make_req req
+
 let start (src : Logs.src)
-    (sender : Cstruct.t -> unit Lwt.t) =
+    (sender : Cstruct.t -> unit Lwt.t)
+    (req_queue : api_msg Lwt_stream.t)
+    (rsp_queue : Request.msg Lwt_stream.t)
+    (kv : config Kv_v.rw)
+    (set_state : Application_types.Topology.state -> unit) =
 
   let (module Logs : Logs.LOG) = Logs.src_log src in
 
-  let wakeup_timeout (_, t) = t.pred `Timeout |> ignore in
-  let events_push _ = function
-    | `Status (brd,General x) ->
-      let sms = storage#get.packers in
-      let pkrs = List.take (List.length sms) x in
-      let status = { board_status   = brd
-                   ; packers_status = List.map2 Pair.make sms pkrs
-                   } in
-      Logs.debug (fun m -> m "got status event: %s" @@ show_status status);
-      pe.status status
-    | _ -> () in
-
   let rec first_step () =
     Logs.info (fun m -> m "Start of connection establishment...");
-    Await_queue.iter !msgs wakeup_timeout;
-    msgs  := Await_queue.create [];
-    imsgs := Queue.create [];
-    pe.state `No_response;
-    send_msg sender Get_board_info |> Lwt.ignore_result;
-    `Continue (step_detect (Timer.create ~step_duration timeout) None)
+    let msgs' = Lwt_stream.get_available req_queue in
+    List.iter (fun (_, stop) -> stop Request.Not_responding) msgs';
+    Lwt_stream.junk_old req_queue
+    >>= fun () ->
+    set_state `No_response;
+    detect_device ()
+    >>= init_device
 
-  and step_detect (timer : Timer.t) acc recvd =
-    try
-      let _, rsps, acc = Parser.deserialize (concat_acc acc recvd) in
-      match List.find_map (is_response Get_board_info) rsps with
-      | Some r ->
-        pe.state `Init;
-        pe.devinfo (Some r);
-        let config = storage#get in
-        send_instant sender (Set_factory_mode config.factory_mode)
-        |> Lwt.ignore_result;
-        send_instant sender (Set_board_mode (config.nw_mode,config.packers))
-        |> Lwt.ignore_result;
-        Logs.info (fun m -> m "connection established, \
-                               waiting for 'status' message");
-        `Continue (step_ok_idle true r (Timer.reset timer) None)
-      | None -> `Continue (step_detect (Timer.step timer) acc)
-    with Timer.Timeout t ->
-      Logs.warn (fun m ->
-          m "connection is not established after %g seconds, \
-             restarting..." (Timer.period t));
-      first_step ()
+  and restart () =
+    Lwt_unix.sleep cooldown_timeout >>= first_step
 
-  and step_ok_idle is_init info (timer : Timer.t) acc recvd =
-    try
-      let events, rsps, acc = Parser.deserialize (concat_acc acc recvd) in
-      if has_board_info rsps then raise_notrace Unexpected_init;
-      Queue.send !imsgs () |> Lwt.ignore_result;
-      imsgs := Queue.next !imsgs;
-      match events with
-      | [] -> `Continue (step_ok_idle is_init info (Timer.step timer) acc)
-      | l  ->
-        if is_init
-        then (Logs.info (fun m -> m "initialization done!");
-              pe.state `Fine);
-        List.iter (events_push info) l;
-        `Continue (step_ok_idle false info (Timer.reset timer) acc)
-    with
-    | Unexpected_init ->
-      Logs.warn (fun m -> m "%s" board_info_err_msg);
-      first_step ()
-    | Timer.Timeout t ->
-      Logs.warn (fun m -> m "%s" @@ no_status_msg t);
-      first_step ()
+  and detect_device () =
+    Lwt.return ()
 
-  in first_step ()
+  and init_device () =
+    kv#get
+    >>= fun { mac; mode } ->
+    request_instant sender (Set_mac mac)
+    >>= fun () ->
+    let main_pkrs, rest_pkrs = take_drop Message.n_udp_main mode.udp in
+    request_instant sender (Set_mode_main { mode with udp = main_pkrs })
+    >>= restart
+  in
+  first_step

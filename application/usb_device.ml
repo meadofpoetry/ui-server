@@ -85,17 +85,17 @@ let deserialize acc buf =
   let rec aux acc b =
     if Cstruct.len b >= sizeof_header
     then (match get_msg b with
-          | Ok ((k, v), rest) ->
-             let acc = Int_map.update k (function
-                           | Some l -> Some (v :: l)
-                           | None -> Some [v]) acc in
-             aux acc rest
-          | Error e ->
-             match e with
-             | Insufficient_payload b -> acc, b
-             | _e ->
-                Logs.warn (fun m -> m "%a" pp_error _e);
-                aux acc (Cstruct.shift b 1))
+        | Ok ((k, v), rest) ->
+          let acc = Int_map.update k (function
+              | Some l -> Some (v :: l)
+              | None -> Some [v]) acc in
+          aux acc rest
+        | Error e ->
+          match e with
+          | Insufficient_payload b -> acc, b
+          | _e ->
+            Logs.warn (fun m -> m "%a" pp_error _e);
+            aux acc (Cstruct.shift b 1))
     else acc, b in
   let msgs, rest = aux Int_map.empty buf in
   msgs, (if Cstruct.len rest > 0 then Some rest else None)

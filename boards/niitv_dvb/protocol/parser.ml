@@ -3,23 +3,21 @@ open Message
 
 let ( % ) f g x = f (g x)
 
-type parser_error =
+type error =
   | Bad_tag_start of int
   | Bad_length of int
   | Bad_msg_code of int
   | Bad_crc of (int * int)
   | Bad_tag_stop of int
   | Insufficient_payload of Cstruct.t
-  | Unknown_err of string
 
-let parser_error_to_string : parser_error -> string = function
+let error_to_string : error -> string = function
   | Insufficient_payload _ -> "insufficient payload"
   | Bad_length x -> Printf.sprintf "incorrect length: %d" x
   | Bad_tag_start x -> Printf.sprintf "incorrect start tag: 0x%x" x
   | Bad_msg_code x -> Printf.sprintf "incorrect msg code: 0x%x" x
   | Bad_tag_stop x -> Printf.sprintf "incorrect stop tag: 0x%x" x
   | Bad_crc (x, y) -> Printf.sprintf "incorrect crc: expected 0x%x, got 0x%x" x y
-  | Unknown_err s -> s
 
 let max_uint16 = Unsigned.(UInt16.to_int UInt16.max_int)
 let max_uint32 = Unsigned.(UInt32.to_int32 UInt32.max_int)
@@ -198,9 +196,7 @@ let deserialize (src : Logs.src) buf =
         match e with
         | Insufficient_payload x -> responses, b
         | e ->
-          Logs.err ~src (fun m ->
-              m "parser error: %s"
-              @@ parser_error_to_string e);
+          Logs.err ~src (fun m -> m "parser error: %s" @@ error_to_string e);
           aux responses (Cstruct.shift b 1)
   in
   let responses, rest = aux [] buf in

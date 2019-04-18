@@ -1,50 +1,91 @@
 open Board_niitv_ts2ip_types
 
-type req_tag =
-  [ `Devinfo
-  | `Factory_mode
+type error =
+  | Timeout
+  | Queue_overflow
+  | Not_responding
+  | Invalid_length
+  | Invalid_payload
+
+let error_to_string = function
+  | Timeout -> "timeout"
+  | Queue_overflow -> "queue overflow"
+  | Not_responding -> "not responding"
+  | Invalid_length -> "invalid length"
+  | Invalid_payload -> "invalid payload"
+
+type tag =
+  [ `Devinfo_req
+  | `Devinfo_rsp
+  | `MAC
   | `Mode
+  | `Status
   ]
 
-type rsp_tag =
-  [ `Status
-  | `Devinfo
-  ]
-
-type req =
-  { tag : req_tag
-  ; data : Cstruct.t
-  }
-
-type rsp =
-  { tag : rsp_tag
+type msg =
+  { tag : tag
   ; data : Cstruct.t
   }
 
 type _ t =
+  (* Requests device info. *)
   | Get_devinfo : devinfo t
-  | Set_mode : nw_settings * packer_settings list -> unit t
-  | Set_factory_mode : factory_settings -> unit t
+  (* Sets network *)
+  | Set_mode_main : mode -> unit t
+  (* Sets UDP mode for packers from 11 to 22. *)
+  | Set_mode_aux_1 : udp_mode list -> unit t
+  (* Sets UDP mode for packers from 23 to 34. *)
+  | Set_mode_aux_2 : udp_mode list -> unit t
+  (* Sets MAC address. *)
+  | Set_mac : Netlib.Macaddr.t -> unit t
 
-let req_tag_to_enum : req_tag -> int = function
-  | `Devinfo -> 0x0080
-  | `Factory_mode -> 0x0087
+let timeout (type a) : a t -> float = function
+  | Get_devinfo -> 3.
+  | Set_mode_main _ -> 0.
+  | Set_mode_aux_1 _ -> 0.
+  | Set_mode_aux_2 _ -> 0.
+  | Set_mac _ -> 0.
+
+let value_to_string (type a) (t : a t) (v : a) : string option =
+  match t with
+  | Get_devinfo -> None
+  | Set_mode_main _ -> None
+  | Set_mode_aux_1 _ -> None
+  | Set_mode_aux_2 _ -> None
+  | Set_mac _ -> None
+
+let to_string (type a) : a t -> string = function
+  | Get_devinfo -> "Get devinfo"
+  | Set_mode_main _ -> "Set mode (main)"
+  | Set_mode_aux_1 _ -> "Set mode (aux 1)"
+  | Set_mode_aux_2 _ -> "Set mode (aux 2)"
+  | Set_mac _ -> "Set MAC address"
+
+let req_tag_to_enum : tag -> int = function
+  | `Devinfo_req -> 0x0080
+  | `Devinfo_rsp -> 0x0140
+  | `MAC -> 0x0087
   | `Mode -> 0x0088
-
-let rsp_tag_to_enum : rsp_tag -> int = function
   | `Status -> 0x0F40
-  | `Devinfo -> 0x0140
 
-let to_req_tag (type a) : a t -> req_tag = function
-  | Get_devinfo -> `Devinfo
-  | Set_mode _ -> `Mode
-  | Set_factory_mode _ -> `Factory_mode
+let rsp_tag_of_enum : int -> tag option = function
+  | 0x0087 -> Some `MAC
+  | 0x0088 -> Some `Mode
+  | 0x0F40 -> Some `Status
+  | 0x0080 -> Some `Devinfo_req
+  | 0x0140 -> Some `Devinfo_rsp
+  | _ -> None
 
-let to_req (type a) (t : a t) : req =
-  let tag = to_req_tag t in
-  let data = match t with
-    | Get_devinfo -> Cstruct.create 1
-    | Set_factory_mode _ -> Cstruct.create 1
-    | Set_mode _ -> Cstruct.create 1
-  in
-  { tag; data }
+let to_tag (type a) : a t -> tag = function
+  | Get_devinfo -> `Devinfo_req
+  | Set_mode_main _ -> `Mode
+  | Set_mode_aux_1 _ -> `Mode
+  | Set_mode_aux_2 _ -> `Mode
+  | Set_mac _ -> `MAC
+
+let tag_to_data_size : tag -> int = function
+  | `Status -> Message.sizeof_status
+  | `Devinfo_rsp -> Message.sizeof_rsp_devinfo
+  | `Mode -> Message.sizeof_req_mode_main
+  | `MAC -> Message.sizeof_req_factory_mode
+  | `Devinfo_req -> 0

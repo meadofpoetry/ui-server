@@ -140,9 +140,6 @@ let create (src : Logs.src)
         set_measures
         set_params
         set_plps in
-    Lwt.async (fun () ->
-        let open Lwt.Infix in
-        Lwt_unix.sleep 11. >>= fun () -> channel Request.Reset);
     let api =
       { source_id
       ; notifs
