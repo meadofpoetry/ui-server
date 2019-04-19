@@ -84,5 +84,22 @@ let handlers (control : int) (api : Protocol.api) =
               ~query:Query.empty
               (Api_network.set_dhcp api)
           ]
+      ; make ~prefix:"receiver"
+          [ node ~doc:"Returns addressing method"
+              ~meth:`GET
+              ~path:Path.Format.("addressing-method" @/ empty)
+              ~query:Query.empty
+              (Api_receiver.get_addressing_method api)
+          ; node ~doc:"Returns [true] if the receiver is enabled"
+              ~meth:`GET
+              ~path:Path.Format.("enable" @/ empty)
+              ~query:Query.empty
+              (Api_receiver.get_enable api)
+          ; node ~doc:"Returns FEC delay"
+              ~meth:`GET
+              ~path:Path.Format.("fec-delay" @/ empty)
+              ~query:Query.empty
+              (Api_receiver.get_fec_delay api)
+          ]
       ]
   ]

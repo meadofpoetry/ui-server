@@ -43,7 +43,7 @@ let get_handler ~settings
     let uri = Request.uri req in
     let resource_path = Netlib.Uri.path uri in
     let meth = Request.meth req in
-    let env   = Api_cohttp.env_of_headers headers in
+    let env = Api_cohttp.env_of_headers headers in
     let sock_data = (req, (fst conn)) in
 
     let respond_page () =
@@ -53,7 +53,6 @@ let get_handler ~settings
 
     Cohttp_lwt.Body.to_string body
     >>= fun body ->
-
     Api_http.handle
       routes
       ~state:sock_data

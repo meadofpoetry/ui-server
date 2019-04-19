@@ -99,12 +99,7 @@ let deserialize (src : Logs.src) (buf : Cstruct.t) =
   let rec aux responses (buf : Cstruct.t) =
     if Cstruct.len buf >= Message.sizeof_prefix
     then match get_msg buf with
-      | Ok (x, rest) ->
-        (match x.tag with
-         | `Status ->
-           print_endline @@ show_status @@ parse_status x.data;
-         | _ -> ());
-        aux (x :: responses) rest
+      | Ok (x, rest) -> aux (x :: responses) rest
       | Error e ->
         match e with
         | Insufficient_payload x -> (responses, x)

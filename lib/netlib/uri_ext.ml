@@ -131,7 +131,10 @@ module Path = struct
       | h :: tl, F (Bool, fmt) -> scan_unsafe tl fmt (f @@ bool_of_string h)
       | _ :: tl, F (Any, fmt) -> scan_unsafe tl fmt (f ()) 
       | [], E -> f
-      | _ -> failwith "bad path"
+      | t, fmt ->
+        let t = String.concat "/" t in
+        let s = templ_to_string @@ to_templ fmt in
+        failwith @@ Printf.sprintf "path: %s, fmt: %s" t s
       | exception _ -> failwith "bad path"
                        
     let rec kprint : type a b. (string list -> b) -> (a, b) t -> a =
@@ -382,7 +385,16 @@ module Dispatcher = struct
 
   let prepend prefix node =
     let templ = (Path.to_templ prefix) @ node.templ in
-    { node with templ }
+    (* FIXME dirty hack *)
+    let handler uri =
+      let suffix =
+        Uri.with_path uri
+        @@ Path.merge
+        @@ List.tl
+        @@ Path.of_string
+        @@ Uri.path uri in
+      node.handler suffix in
+    { node with templ; handler }
 
   let empty : 'a t = M.empty
 
@@ -404,7 +416,7 @@ module Dispatcher = struct
       raise_notrace (Ambiguity (Path.templ_to_string node.templ))
     with Not_found ->
       M.add node.templ node m
-         
+
   let merge m lst =
     let update_fun templ new_v old =
       match old with
@@ -416,7 +428,21 @@ module Dispatcher = struct
         List.fold_left (fun m disp ->
             M.fold (fun path node m ->
                 let templ = prefix_templ @ path in
-                M.update templ (update_fun templ { node with templ }) m)
+                (* FIXME rewrite *)
+                let handler uri =
+                  let len = List.length prefix_templ in
+                  let rec drop n l = match l with
+                    | [] -> []
+                    | _ when n=0 -> l
+                    | _::l' -> drop (n-1) l' in
+                  let path' =
+                    Path.merge
+                    @@ drop len
+                    @@ Path.of_string
+                    @@ Uri.path uri in
+                  let suffix = Uri.with_path uri path' in
+                  node.handler suffix in
+                M.update templ (update_fun templ { node with templ; handler }) m)
               disp m)
           m disp_list)
       m lst
@@ -448,13 +474,13 @@ module Dispatcher = struct
   let dispatch ~default (m : 'a t) (uri : uri) =
     let templ  = Path.to_templ (Path.of_string @@ path uri) in
     try (M.find templ m).handler uri
-    with _ -> default
+    with exn -> print_endline @@ Printexc.to_string exn; default
 
   let doc (m : 'a t) : string list =
     let gen node =
       let queries q = String.concat "" @@ List.map (fun (name, typ) -> Printf.sprintf "\t%s : %s\n" name typ) q in
       let doc = match node.docstring with None -> "Absent" | Some s -> s in
-      Printf.sprintf "\t%s\nDoc: %s\n%s" node.path_typ doc (queries node.query_typ)
+      Printf.sprintf "\t%s\nDoc: %s\n%s" (Path.templ_to_string node.templ) doc (queries node.query_typ)
     in M.fold (fun _ node acc -> (gen node) :: acc) m []
 
 end
