@@ -46,8 +46,10 @@ module Make (User : USER) = struct
   let elt_to_string elt =
     Format.asprintf "%a" (Tyxml.Xml.pp ()) elt
 
-  let respond_string ?(status = `OK) body =
-    Cohttp_lwt_unix.Server.respond_string ~status ~body
+  let respond_string ?(status = `OK) body () =
+    let open Lwt.Infix in
+    Cohttp_lwt_unix.Server.respond_string ~status ~body ()
+    >>= fun resp -> Lwt.return (`Response resp)
 
   let list_max ~default c = function
     | [] -> default

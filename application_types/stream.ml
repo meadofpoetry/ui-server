@@ -7,7 +7,7 @@ let (>>=) m f = match m with
 (** Main stream ID *)
 module ID : sig
 
-  type t
+  type t = Uuidm.t
   type api_fmt = t
   val to_string : t -> string
   val of_string_opt : string -> t option

@@ -12,6 +12,7 @@ let ( % ) = Fun.( % )
 
 let resource base uri =
   Cohttp_lwt_unix.Server.respond_file ~fname:(Filename.concat base uri) ()
+  >>= fun resp -> Lwt.return (`Response resp)
  
 module Settings = struct
   type t = { path : string
@@ -90,4 +91,4 @@ let create kv auth_filter routes =
        ~mode:(`TCP (`Port settings.port))
        ~on_exn:(fun e ->
          Logs.err (fun m -> m "(Server) Exception: %s" (Printexc.to_string e)))
-       (Cohttp_lwt_unix.Server.make ~callback:handler ())
+       (Cohttp_lwt_unix.Server.make_response_action ~callback:handler ())
