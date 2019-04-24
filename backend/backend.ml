@@ -216,5 +216,17 @@ let () =
   | Error (#Boards.Board.error as e) ->
      Logs.err (fun m -> m "Terminated with board error %a"
                           Boards.Board.pp_error e)
+  | Error (`Network_conf_apply _) ->
+     Logs.err (fun m -> m "Terminated due to being unable to apply network config")
+  | Error (`No_network_config _) ->
+     Logs.err (fun m -> m "Terminated due to being unable to find network config")
+  | Error (`No_network_device d) ->
+     Logs.err (fun m -> m "Terminated due to being unable to find network device %s" d)
+  | Error (`Nm_no_connection _) -> ()
+  | Error (`Nm_no_settings _) -> ()
+  | Error (`Not_found) ->
+     Logs.err (fun m -> m "Terminated with: Not_found")
+  | Error (`Reading_error e) ->
+     Logs.err (fun m -> m "Terminated with reading error: %s" e)
   (* TODO remove *)
-  | _ -> Logs.err (fun m -> m "Terminated with an yet unspecified error")
+                                   (*| _ -> Logs.err (fun m -> m "Terminated with an yet unspecified error")*)

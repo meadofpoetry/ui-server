@@ -15,24 +15,25 @@ let create kv db =
   >>=? fun cfg ->
 
   Pipeline_protocol.Protocol.create db kv cfg.sock_in cfg.sock_out
-  >>=? fun (api, state, recv) ->
+  >>=? fun (api, state) ->
 
-  let reset = Pipeline_protocol.Protocol.reset cfg.bin_path cfg.bin_name in
-  (*React.E.keep @@ connect_db (S.changes api.streams) dbs;*)
-  (* polling loop *)
-  let rec loop () =
-    recv () >>= loop
+  let reset api state ss =
+    Pipeline_protocol.Protocol.reset api state ss
+    >>= function
+    | Ok () -> Lwt.return_unit
+    | Error (`Qoe_backend e) -> Lwt.fail_with e
   in
+  (*React.E.keep @@ connect_db (S.changes api.streams) dbs;*)
+
   Logs.info (fun m -> m "(Pipeline) created");
   Lwt.return_ok @@ object
-    val loop  = loop ()
     val api   = api
     val state = state
     method reset ss = reset api state ss
-    method http () = Pipeline_http.handlers api
+    method http () = Pipeline_http.handlers state api
     method ws () = Pipeline_http.ws api
     method pages () = Pipeline_http.pages ()
-    method finalize () = Pipeline_protocol.Protocol.finalize state
+    method finalize () = Pipeline_protocol.Protocol.finalize state api
     method log_source  = (fun filter ->
       let sf =
         Log_converters.Status.to_log_messages api.sources api.notifs.applied_structs filter in

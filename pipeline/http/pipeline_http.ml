@@ -32,8 +32,11 @@ let pages () : Api_template.topmost Api_template.item list =
     ~path:(Path.of_string "pipeline")
     props
   
-            
-let handlers (api : Pipeline_protocol.Protocol.api) =
+
+(* TODO remove state *)
+let handlers
+      (state : Pipeline_protocol.Protocol.state)
+      (api : Pipeline_protocol.Protocol.api) =
   let open Pipeline_protocol in
   let open Api_http in
   [ merge ~prefix:"pipeline"
@@ -42,13 +45,13 @@ let handlers (api : Pipeline_protocol.Protocol.api) =
               ~meth:`GET
               ~path:Path.Format.empty
               ~query:Query.empty
-              (Pipeline_api.get_wm_layout api)
+              (Pipeline_api.get_wm_layout state api)
           ; node ~doc:"Post wm"
               ~restrict:[`Guest]
               ~meth:`POST
               ~path:Path.Format.empty
               ~query:Query.empty
-              (Pipeline_api.apply_wm_layout api)
+              (Pipeline_api.apply_wm_layout state api)
           ]
      (* ; make ~prefix:"settings"
              [ `GET, [ create_handler ~docstring:"Settings"
@@ -75,31 +78,31 @@ let handlers (api : Pipeline_protocol.Protocol.api) =
               ~path:Path.Format.empty
               ~query:Query.[ "id", (module List(Stream.ID))
                            ; "input", (module List(Topology.Show_topo_input))  ]
-              (Pipeline_api_structures.get_streams api)
+              (Pipeline_api_structures.get_streams state api)
           ; node ~doc:"Applied streams"
               ~meth:`GET
               ~path:Path.Format.("applied" @/ empty)
               ~query:Query.[ "id", (module List(Stream.ID))
                            ; "input", (module List(Topology.Show_topo_input)) ]
-              (Pipeline_api_structures.get_streams_applied api)
+              (Pipeline_api_structures.get_streams_applied state api)
           ; node ~doc:"Streams with source"
               ~meth:`GET
               ~path:Path.Format.("with_source" @/ empty)
               ~query:Query.[ "id", (module List(Stream.ID))
                                ; "input", (module List(Topology.Show_topo_input))  ]
-              (Pipeline_api_structures.get_streams_with_source api)
+              (Pipeline_api_structures.get_streams_with_source state api)
           ; node ~doc:"Applied streams with source"
               ~meth:`GET
               ~path:Path.Format.("applied_with_source" @/ empty)
               ~query:Query.[ "id", (module List(Stream.ID))
                            ; "input", (module List(Topology.Show_topo_input)) ]
-              (Pipeline_api_structures.get_streams_applied_with_source api)
+              (Pipeline_api_structures.get_streams_applied_with_source state api)
           ; node ~doc:"Apply streams"
               ~restrict:[`Guest]
               ~meth:`POST
               ~path:Path.Format.empty
               ~query:Query.empty
-              (Pipeline_api_structures.apply_streams api)
+              (Pipeline_api_structures.apply_streams state api)
           ]
       ; make ~prefix:"history"
           [ node ~doc:"Streams archive"

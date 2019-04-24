@@ -1,17 +1,8 @@
 (library
   (name       pipeline_types)
-  (libraries  application_types
+  (libraries  qoe_backend_types
+              application_types
               api
               time
-              db
-              kv_v
-              netlib
-              util_react
-              zmq-lwt
-              lwt.unix
-              ptime.clock.os ;; TODO time_clock
-              logs.lwt)
-;;containers yojson caqti-lwt angstrom logs.lwt
-;;               lwt zmq-lwt websocket-lwt.cohttp ptime.clock.os
-;;               api process components_markup)
-  (preprocess  (pps ppx_deriving_yojson ppx_deriving.eq ppx_deriving.ord)))
+              netlib)
+  (preprocess  (pps ppx_deriving_yojson ppx_deriving.eq)))
