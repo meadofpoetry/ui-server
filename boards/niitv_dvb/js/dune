@@ -1,6 +1,7 @@
 (library
   (name       board_niitv_dvb_js)
   (libraries  api_js
+              board_niitv_dvb_types
               components
               ui_templates
               chartjs

@@ -3,14 +3,14 @@ open Components
 open Util_react
 open Lwt.Infix
 
-module Api_json = Api_js.Requests.Make(Body)
+module Api_http = Api_js.Http.Make(Body)
 
 module Requests = struct
   open Netlib.Uri
 
   (* TODO fix relative addr *)
   let get_config () =
-    Api_json.perform
+    Api_http.perform
       ~meth:`GET
       ~path:Path.Format.("api/network/config" @/ empty)
       ~query:Query.empty
@@ -22,7 +22,7 @@ module Requests = struct
            | Ok x -> Lwt.return_ok x)
 
   let post_config conf =
-    Api_json.perform_unit
+    Api_http.perform_unit
       ~meth:`POST
       ~body:(Network_config.to_yojson conf)
       ~path:Path.Format.("api/network/config" @/ empty)
@@ -340,7 +340,7 @@ let make_card is_root post (config : Network_config.t) =
 let page user =
   let is_root = User.equal user `Root in
   Requests.get_config () >>= function
-  | Error e -> Lwt.fail_with (Api_js.Requests.error_to_string e)
+  | Error e -> Lwt.fail_with (Api_js.Http.error_to_string e)
   | Ok config ->
     let event, push = E.create () in
     let post new_config =

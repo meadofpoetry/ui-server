@@ -1,6 +1,3 @@
-open Js_of_ocaml
-open Lwt.Infix
-
 let ( % ) f g x = f (g x)
 
 module type BODY = sig
@@ -17,13 +14,6 @@ type meth =
   | `PATCH
   | `POST
   | `PUT
-  ]
-
-type 'a contents =
-  [ `Blob of (#File.blob Js.t as 'a)
-  | `Form_contents of Form.form_contents
-  | `POST_form of (string * Form.form_elt) list
-  | `String of string
   ]
 
 type env = string -> string option
@@ -76,6 +66,8 @@ module Make(Body : BODY) : sig
 end = struct
 
   open Netlib
+
+  let ( >>= ) = Lwt.( >>= )
 
   let make_uri ?scheme ?host ?port ~f ~path ~query =
     Uri.kconstruct ?scheme ?host ?port

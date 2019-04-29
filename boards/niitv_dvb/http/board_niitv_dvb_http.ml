@@ -31,7 +31,7 @@ let handlers (control : int) (api : Protocol.api) =
               ~meth:`GET
               ~path:Path.Format.("info" @/ empty)
               ~query:Query.empty
-              (Api_device.get_devinfo api)
+              (Api_device.get_info api)
           ; node ~doc:"Returns available tuner indexes"
               ~meth:`GET
               ~path:Path.Format.("receivers" @/ empty)

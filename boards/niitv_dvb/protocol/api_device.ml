@@ -60,7 +60,7 @@ let get_state (api : Protocol.api) _user _body _env _state =
   let value = Topology.state_to_yojson @@ React.S.value api.notifs.state in
   Lwt.return (`Value value)
 
-let get_devinfo (api : Protocol.api) _user _body _env _state =
+let get_info (api : Protocol.api) _user _body _env _state =
   let value = React.S.value api.notifs.devinfo in
   Lwt.return (`Value Util_json.(Option.to_yojson info_to_yojson value))
 
