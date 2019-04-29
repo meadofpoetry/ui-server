@@ -117,7 +117,7 @@ end = struct
   type answer = [ Api.Authorize.error
                 | Body.t response
                 | `Instant of (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t
-                ] 
+                ]
 
   type response = (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t
 

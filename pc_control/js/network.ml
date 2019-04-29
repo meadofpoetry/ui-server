@@ -1,30 +1,46 @@
-open Containers
+open Application_types
 open Components
-open Api_js.Requests.Json_request
-open Common
-
+open Util_react
 open Lwt.Infix
 
-module Requests = struct
+module Api_json = Api_js.Requests.Make(Body)
 
-  open Common.Uri
+module Requests = struct
+  open Netlib.Uri
 
   (* TODO fix relative addr *)
   let get_config () =
-    let from_err = function `String s -> Ok s | _ -> Error "" in
-    get_result ?scheme:None ?host:None ?port:None
-               ~from:Network_config.of_yojson
-               ~from_err
-               ~path:Path.Format.("api/network/config" @/ empty)
-               ~query:Query.empty
+    Api_json.perform
+      ~meth:`GET
+      ~path:Path.Format.("api/network/config" @/ empty)
+      ~query:Query.empty
+      (fun _env -> function
+         | Error e -> Lwt.return_error e
+         | Ok x ->
+           match Network_config.of_yojson x with
+           | Error e -> Lwt.return_error (`Conv_error e)
+           | Ok x -> Lwt.return_ok x)
 
   let post_config conf =
-    post_result_unit ?scheme:None ?host:None ?port:None ?from_err:None
-                     ~contents:(Network_config.to_yojson conf)
-                     ~path:Path.Format.("api/network/config" @/ empty)
-                     ~query:Query.empty
+    Api_json.perform_unit
+      ~meth:`POST
+      ~body:(Network_config.to_yojson conf)
+      ~path:Path.Format.("api/network/config" @/ empty)
+      ~query:Query.empty
+      (fun _env res -> Lwt.return res)
 
 end
+
+(* FIXME remove 4.08 *)
+let rec equal_list (f : 'a -> 'a -> bool) l1 l2 = match l1, l2 with
+  | [], [] -> true
+  | [], _ | _, [] -> false
+  | x1 :: l1', x2 :: l2' -> f x1 x2 && equal_list f l1' l2'
+
+let equal_option (f : 'a -> 'a -> bool) o1 o2 = match o1, o2 with
+  | None, None -> true
+  | None, Some _ | Some _, None -> false
+  | Some a, Some b -> f a b
 
 let make_eth (eth : Network_config.ethernet_conf) =
   let eth_head  = new Card.Primary.t ~widgets:[new Card.Primary.title "Настройки устройства" ()] () in
@@ -40,7 +56,7 @@ let make_eth (eth : Network_config.ethernet_conf) =
       ~input_type:(Custom (of_string, to_string))
       () in
   let signal, push =
-    React.S.create ~eq:Network_config.equal_ethernet_conf eth in
+    S.create ~eq:Network_config.equal_ethernet_conf eth in
 
   let set (eth : Network_config.ethernet_conf) = address#set_value eth.mac_address in
 
@@ -49,7 +65,7 @@ let make_eth (eth : Network_config.ethernet_conf) =
   let eth_sets  = new Card.t ~widgets:[ eth_head#widget; media#widget ] () in
   
   let signal =
-    React.S.l2 ~eq:Network_config.equal_ethernet_conf
+    S.l2 ~eq:Network_config.equal_ethernet_conf
       (fun (config : Network_config.ethernet_conf) mac_address ->
         match mac_address with
         | None -> config
@@ -77,16 +93,16 @@ let make_dns (dns : Network_config.v4 list) =
   let full_box = new Vbox.t ~widgets:[header#widget; list#widget; add_box#widget] () in
 
   let signal, push =
-    React.S.create ~eq:(Equal.list Network_config.equal_v4) [] in
+    S.create ~eq:(equal_list Network_config.equal_v4) [] in
 
   let del_dns item addr =
     list#remove_item item;
     push
     @@ List.filter (fun dns -> not (Network_config.equal_v4 addr dns))
-    @@ React.S.value signal
+    @@ S.value signal
   in
   let add_dns addr =
-    let rlst = React.S.value signal in
+    let rlst = S.value signal in
     if List.exists (Network_config.equal_v4 addr) rlst
     then failwith "dns exists"; (* TODO fix *)
     let entry = make_dns_entry del_dns addr in
@@ -103,7 +119,7 @@ let make_dns (dns : Network_config.v4 list) =
     add_but#set_disabled flag;
   in
   add_but#listen_click_lwt (fun _ _ ->
-      begin match React.S.value address#s_input with
+      begin match S.value address#s_input with
       | Some addr -> add_dns addr
       | _ -> ()
       end;
@@ -141,16 +157,16 @@ let make_routes (routes : Network_config.address list) =
   let full_box = new Vbox.t ~widgets:[header#widget; list#widget; add_box#widget] () in
 
   let signal, push =
-    React.S.create ~eq:(Equal.list Network_config.equal_address) [] in
+    S.create ~eq:(equal_list Network_config.equal_address) [] in
 
   let del_route item (addr, mask) =
     list#remove_item item;
     push
     @@ List.filter (fun route -> not (Network_config.equal_address (addr,mask) route))
-    @@ React.S.value signal
+    @@ S.value signal
   in
   let add_route (addr, mask) =
-    let rlst = React.S.value signal in
+    let rlst = S.value signal in
     if List.exists (Network_config.equal_address (addr,mask)) rlst
     then failwith "route exists"; (* TODO fix *)
     let entry = make_route_entry del_route (addr, mask) in
@@ -168,7 +184,7 @@ let make_routes (routes : Network_config.address list) =
     add_but#set_disabled flag;
   in
   add_but#listen_click_lwt (fun _ _ ->
-      begin match React.S.value address#s_input, React.S.value mask#s_input with
+      begin match S.value address#s_input, S.value mask#s_input with
       | Some addr, Some mask -> add_route (addr, Int32.of_int mask)
       | _ -> ()
       end;
@@ -204,32 +220,34 @@ let make_ipv4 (ipv4 : Network_config.ipv4_conf) =
   let routes, routes_s, routes_set, routes_disable = make_routes ipv4.routes.static in
 
   let signal, push =
-    React.S.create ~eq:Network_config.equal_ipv4_conf ipv4 in
-  
+    S.create ~eq:Network_config.equal_ipv4_conf ipv4 in
+
   let set (ipv4 : Network_config.ipv4_conf) =
     meth#input_widget#set_checked (Network_config.equal_meth ipv4.meth Auto);
     address#set_value @@ fst ipv4.address;
     mask#set_value (Int32.to_int @@ snd ipv4.address);
-    CCOpt.iter gateway#set_value ipv4.routes.gateway;
+    (match ipv4.routes.gateway with
+     | None -> ()
+     | Some gw -> gateway#set_value gw);
     dns_set ipv4.dns;
     routes_set ipv4.routes.static;
     push ipv4
   in
 
   (* disable settings on Auto config *)
-  React.S.map ~eq:Equal.unit (fun disabled ->
+  S.map ~eq:(=) (fun disabled ->
       address#set_disabled disabled;
       mask#set_disabled disabled;
       gateway#set_disabled disabled;
       dns_disable disabled;
       routes_disable disabled) meth#input_widget#s_state
-  |> React.S.keep;
+  |> S.keep;
 
   (* disable routes on gateway config *)
-  React.S.map ~eq:Equal.unit (function
+  S.map ~eq:(=) (function
       | None -> routes_disable false
       | _ -> routes_disable true) gateway#s_input
-  |> React.S.keep;
+  |> S.keep;
 
   let media =
     new Card.Media.t
@@ -247,24 +265,28 @@ let make_ipv4 (ipv4 : Network_config.ipv4_conf) =
                ; media#widget ]
       () in
   let signal =
-    React.S.l6 ~eq:Network_config.equal_ipv4_conf
+    S.l6 ~eq:Network_config.equal_ipv4_conf
       (fun (config : Network_config.ipv4_conf) meth address mask gateway routes ->
-        { config with
-          meth = if meth then Auto else Manual
-        ; address =
-            (CCOpt.get_or address ~default:(fst config.address),
-             CCOpt.get_or mask ~default:(snd config.address))
-        ; routes = { gateway = gateway; static = routes } }) (* TODO fix *)
+         let addr = match address with
+           | None -> fst config.address
+           | Some x -> x in
+         let mask = match mask with
+           | None -> snd config.address
+           | Some x -> x in
+         { config with
+           meth = if meth then Auto else Manual
+         ; address = (addr, mask)
+         ; routes = { gateway = gateway; static = routes } }) (* TODO fix *)
       signal
       meth#input_widget#s_state
       address#s_input
-      (React.S.map ~eq:(Equal.option Int32.equal)
+      (S.map ~eq:(equal_option Int32.equal)
          (CCOpt.map Int32.of_int) mask#s_input)
       gateway#s_input
       routes_s
   in
   let signal =
-    React.S.l2 ~eq:Network_config.equal_ipv4_conf
+    S.l2 ~eq:Network_config.equal_ipv4_conf
       (fun (config : Network_config.ipv4_conf) dns ->
         { config with dns } ) signal dns_s in
   ipv4_sets, signal, set
@@ -289,7 +311,7 @@ let make_card is_root post (config : Network_config.t) =
   apply#set_disabled (not is_root);
 
   let signal, push =
-    React.S.create ~eq:Network_config.equal config in
+    S.create ~eq:Network_config.equal config in
 
   let set (config : Network_config.t) =
     eth_set config.ethernet;
@@ -300,7 +322,7 @@ let make_card is_root post (config : Network_config.t) =
   (* init *)
   set config;
   let signal =
-    React.S.l3 ~eq:Network_config.equal
+    S.l3 ~eq:Network_config.equal
       (fun (config : Network_config.t) ipv4 ethernet ->
         { config with ipv4; ethernet })
       signal ipv4_s eth_s
@@ -308,7 +330,7 @@ let make_card is_root post (config : Network_config.t) =
   apply#listen_click_lwt (fun _ _ ->
       warning#show_await ()
       >>= function
-      | `Accept -> post @@ React.S.value signal
+      | `Accept -> post @@ S.value signal
       | `Cancel -> Lwt.return_unit) |> Lwt.ignore_result;
 
   let box = new Vbox.t ~widgets:[eth_sets#widget; ipv4_sets#widget; apply#widget] () in
@@ -318,18 +340,20 @@ let make_card is_root post (config : Network_config.t) =
 let page user =
   let is_root = User.equal user `Root in
   Requests.get_config () >>= function
-  | Error { data = Some e; _ } -> Lwt.fail_with e
-  | Error _ -> Lwt.fail_with "unknown error"
+  | Error e -> Lwt.fail_with (Api_js.Requests.error_to_string e)
   | Ok config ->
-    let event, push = React.E.create () in
+    let event, push = E.create () in
     let post new_config =
       Requests.post_config new_config
       >>= function
-      | Ok ()   -> (push new_config; Lwt.return_unit)
-      | Error _ -> Requests.get_config () >>= function
-                   | Error _ -> (push config; Lwt.return_unit)
-                   | Ok config -> (push config; Lwt.return_unit)
+      | Ok _ -> (push new_config; Lwt.return_unit)
+      | Error _ ->
+        Requests.get_config () >>= function
+        | Error _ -> (push config; Lwt.return_unit)
+        | Ok config -> (push config; Lwt.return_unit)
     in
     let card, set = make_card is_root post config in
-    React.E.keep @@ React.E.map (fun config -> print_endline (Yojson.Safe.pretty_to_string @@ Network_config.to_yojson config); set config) event;
+    E.keep @@ E.map (fun config ->
+        print_endline (Yojson.Safe.pretty_to_string @@ Network_config.to_yojson config);
+        set config) event;
     Lwt.return card

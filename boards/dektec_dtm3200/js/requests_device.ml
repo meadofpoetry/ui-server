@@ -1,6 +1,5 @@
 open Board_types
 open Api_js.Requests.Json_request
-open Common
 
 let get_base_path () = Boards_js.Requests.Device.get_device_path ()
 

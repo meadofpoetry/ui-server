@@ -301,7 +301,7 @@ module Query = struct
   type (_,_) format =
     | (::) : (string * (module Convert with type t = 'a)) * ('b, 'c) format
              -> ('a -> 'b, 'c) format
-    | []   : ('c, 'c) format
+    | [] : ('c, 'c) format
 
   let empty : (_,_) format = []
 
@@ -492,7 +492,7 @@ let to_yojson x = `String (Uri.to_string x)
 let of_yojson = function
   | `String s -> Ok (Uri.of_string s)
   | _ -> Error "Netlib.Uri.of_yojson"
-                  
+
 let path_v4 uri =
   try Some (Ipaddr_ext.V4.of_string_exn @@ path uri)
   with _ -> None
@@ -502,7 +502,7 @@ let with_path_v4 uri ip =
 
 let with_path_parsed uri p =
   with_path uri @@ Path.to_string p
-                  
+
 let construct ?scheme ?host ?port ~path ~query =
   Path.Format.kprint (fun p ->
       Query.make_q (fun (query:Query.t) ->

@@ -1,8 +1,10 @@
-;(library
-;  (name        api_js)
-;  (modules     requests api_types)
-;  (synopsis    "js api framework")
-;  (libraries   common react js_of_ocaml js_of_ocaml-lwt yojson)
-;  (preprocess  (pps js_of_ocaml-ppx ppx_deriving_yojson)))
-
-;(copy_files ../api_types.{ml,mli})
+(library
+  (name       api_js)
+  (libraries  js_of_ocaml
+              js_of_ocaml-lwt
+              api
+              netlib
+              util_json)
+  (preprocess (pps js_of_ocaml-ppx
+                   ppx_deriving_yojson
+                   ppx_deriving.enum)))

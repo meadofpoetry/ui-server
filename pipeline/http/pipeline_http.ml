@@ -31,8 +31,7 @@ let pages () : Api_template.topmost Api_template.item list =
     ~icon:(make_icon Icon.SVG.Path.collage)
     ~path:(Path.of_string "pipeline")
     props
-  
-            
+
 let handlers (api : Pipeline_protocol.Protocol.api) =
   let open Pipeline_protocol in
   let open Api_http in
