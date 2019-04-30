@@ -81,6 +81,7 @@ end = struct
       | Some x -> Some Body.content_type in
     let contents = match body with
       | None -> None
+
       | Some x -> Some (`String (Body.to_string x)) in
     let f uri cb : 'a Lwt.t =
       Lwt_xmlHttpRequest.perform_raw_url

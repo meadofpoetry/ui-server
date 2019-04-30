@@ -1,8 +1,7 @@
-open Containers
 open Components
 open Widget_types
-open Board_types
-open Common
+open Board_niitv_dvb_types
+open Application_types
 
 (* TODO
    1. Make data units configurable, if possible (e.g. for power chart)
@@ -16,9 +15,9 @@ module Dataset = Chartjs.Line.Dataset.Make(Point)
 
 type data = (Stream.ID.t * Point.t list) list
 
-type init = (id * Measure.t Time.timestamped list) list
+type init = (int * Measure.t ts list) list
 
-type event = (id * Measure.t Time.timestamped) list React.event
+type event = (int * Measure.t ts) list React.event
 
 type widget_config =
   { sources : data_source list
@@ -35,11 +34,10 @@ let base_class = "dvb-niit-measures-line-chart"
 
 let colors =
   Random.init 255;
-  let st = Random.get_state () in
   Array.init 100 (fun _ ->
-      Random.run ~st (Random.int 255),
-      Random.run ~st (Random.int 255),
-      Random.run ~st (Random.int 255))
+      Random.int 255,
+      Random.int 255,
+      Random.int 255)
 
 let get_suggested_range = function
   | `Power -> (-70.0, 0.0)
@@ -247,12 +245,18 @@ let to_event (get : Measure.t -> float option)
     event
 
 let get_power (m : Measure.t) = m.power
+
 let get_mer (m : Measure.t) = m.mer
+
 let get_ber (m : Measure.t) = m.ber
-let get_freq (m : Measure.t) =
-  Option.map float_of_int m.freq
-let get_bitrate (m : Measure.t) =
-  Option.map (fun b -> float_of_int b /. 1_000_000.) m.bitrate
+
+let get_freq (m : Measure.t) = match m.freq with
+  | None -> None
+  | Some x -> Some (float_of_int x)
+
+let get_bitrate (m : Measure.t) = match m.bitrate with
+  | None -> None
+  | Some x -> Some (float_of_int x /. 1_000_000.)
 
 class t ~(init : init)
         ~(event : event)

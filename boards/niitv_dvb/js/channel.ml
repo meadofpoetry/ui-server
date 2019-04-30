@@ -7,12 +7,12 @@ type t =
   ; name : string
   }
 
-let mhz = 1000000
+let mhz = 1_000_000
 
-let to_string chan freq spec =
-  if spec
+let to_string chan freq special =
+  if special
   then Printf.sprintf "ТВК S%02d (%d МГц)" chan (freq / mhz)
-  else Printf.sprintf "ТВК %02d (%d МГц)"  chan (freq / mhz)
+  else Printf.sprintf "ТВК %02d (%d МГц)" chan (freq / mhz)
 
 module Terrestrial = struct
 

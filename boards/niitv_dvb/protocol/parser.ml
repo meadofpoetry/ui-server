@@ -86,7 +86,8 @@ let parse_measures (buf : Cstruct.t) =
       let bitrate = match (int32_to_opt % get_rsp_measure_bitrate) buf with
         | None -> None
         | Some x -> Some (Int32.to_int x) in
-      Ok { Measure. lock; power; mer; ber; freq; bitrate }
+      let data = { Measure. lock; power; mer; ber; freq; bitrate } in
+      Ok { data; timestamp = Ptime_clock.now () }
   with Invalid_argument _ -> Error Invalid_length
 
 let parse_params (buf : Cstruct.t) =
@@ -94,36 +95,38 @@ let parse_params (buf : Cstruct.t) =
     match bool_of_int @@ get_rsp_params_lock buf with
     | None -> Error Request.Invalid_payload
     | Some lock ->
-      Ok { Params. lock
-         ; fft = get_rsp_params_fft buf
-         ; gi = get_rsp_params_gi  buf
-         ; bw_ext = get_rsp_params_bw_ext buf > 0
-         ; papr = get_rsp_params_papr buf
-         ; l1_rep = get_rsp_params_l1_rep buf > 0
-         ; l1_mod = get_rsp_params_l1_mod buf
-         ; freq = Int32.to_int @@ get_rsp_params_freq buf
-         ; l1_post_sz = get_rsp_params_l1_post_sz buf
-         ; l1_post_info_sz = get_rsp_params_l1_post_info_sz buf
-         ; tr_fmt = get_rsp_params_tr_fmt buf
-         ; sys_id = get_rsp_params_sys_id buf
-         ; net_id = get_rsp_params_net_id buf
-         ; cell_id = get_rsp_params_cell_id buf
-         ; t2_frames = get_rsp_params_t2_frames buf
-         ; ofdm_syms = get_rsp_params_ofdm_syms buf
-         ; pp = get_rsp_params_pp buf
-         ; plp_num = get_rsp_params_plp_num buf
-         ; tx_id_avail = get_rsp_params_tx_id_avail buf
-         ; num_rf = get_rsp_params_num_rf buf
-         ; cur_rf_id = get_rsp_params_cur_rf_id buf
-         ; cur_plp_id = get_rsp_params_cur_plp_id buf
-         ; plp_type = get_rsp_params_plp_type buf
-         ; cr = get_rsp_params_cr buf
-         ; plp_mod = get_rsp_params_plp_mod buf
-         ; rotation = get_rsp_params_rotation buf > 0
-         ; fec_sz = get_rsp_params_fec_size buf
-         ; fec_block_num = get_rsp_params_fec_block_num buf
-         ; in_band_flag = get_rsp_params_in_band_flag buf > 0
-         }
+      let data =
+        { Params. lock
+        ; fft = get_rsp_params_fft buf
+        ; gi = get_rsp_params_gi  buf
+        ; bw_ext = get_rsp_params_bw_ext buf > 0
+        ; papr = get_rsp_params_papr buf
+        ; l1_rep = get_rsp_params_l1_rep buf > 0
+        ; l1_mod = get_rsp_params_l1_mod buf
+        ; freq = Int32.to_int @@ get_rsp_params_freq buf
+        ; l1_post_sz = get_rsp_params_l1_post_sz buf
+        ; l1_post_info_sz = get_rsp_params_l1_post_info_sz buf
+        ; tr_fmt = get_rsp_params_tr_fmt buf
+        ; sys_id = get_rsp_params_sys_id buf
+        ; net_id = get_rsp_params_net_id buf
+        ; cell_id = get_rsp_params_cell_id buf
+        ; t2_frames = get_rsp_params_t2_frames buf
+        ; ofdm_syms = get_rsp_params_ofdm_syms buf
+        ; pp = get_rsp_params_pp buf
+        ; plp_num = get_rsp_params_plp_num buf
+        ; tx_id_avail = get_rsp_params_tx_id_avail buf
+        ; num_rf = get_rsp_params_num_rf buf
+        ; cur_rf_id = get_rsp_params_cur_rf_id buf
+        ; cur_plp_id = get_rsp_params_cur_plp_id buf
+        ; plp_type = get_rsp_params_plp_type buf
+        ; cr = get_rsp_params_cr buf
+        ; plp_mod = get_rsp_params_plp_mod buf
+        ; rotation = get_rsp_params_rotation buf > 0
+        ; fec_sz = get_rsp_params_fec_size buf
+        ; fec_block_num = get_rsp_params_fec_block_num buf
+        ; in_band_flag = get_rsp_params_in_band_flag buf > 0
+        } in
+      Ok { data; timestamp = Ptime_clock.now () }
   with Invalid_argument _ -> Error Invalid_length
 
 let parse_plp_list (buf : Cstruct.t) =
@@ -143,7 +146,8 @@ let parse_plp_list (buf : Cstruct.t) =
           List.sort compare
           @@ Cstruct.fold (fun acc el -> el :: acc) iter []
       in
-      Ok { Plp_list. lock; plps }
+      let data = { Plp_list. lock; plps } in
+      Ok { data; timestamp = Ptime_clock.now () }
   with Invalid_argument _ -> Error Invalid_length
 
 let check_tag_start buf =

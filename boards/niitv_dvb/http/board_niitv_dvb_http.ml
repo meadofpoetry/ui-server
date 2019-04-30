@@ -43,6 +43,50 @@ let handlers (control : int) (api : Protocol.api) =
               ~query:Query.["id", (module List(Int))]
               (Api_device.get_mode api)
           ]
+      ; make ~prefix:"receiver"
+          [ node ~doc:"Returns corresponding stream description, if any"
+              ~meth:`GET
+              ~path:Path.Format.(Int ^/ "stream" @/ empty)
+              ~query:Query.empty
+              (Api_receiver.get_stream api)
+          ; node ~doc:"Returns measurements for the specified receiver"
+              ~meth:`GET
+              ~path:Path.Format.(Int ^/ "measurements" @/ empty)
+              ~query:Query.empty
+              (Api_receiver.get_measurements api)
+          ; node ~doc:"Returns parameters for the specified receiver"
+              ~meth:`GET
+              ~path:Path.Format.(Int ^/ "parameters" @/ empty)
+              ~query:Query.empty
+              (Api_receiver.get_parameters api)
+          ; node ~doc:"Returns PLP list for the specified receiver"
+              ~meth:`GET
+              ~path:Path.Format.(Int ^/ "plp-list" @/ empty)
+              ~query:Query.empty
+              (Api_receiver.get_parameters api)
+          ]
+      ; make ~prefix:"stream"
+          [ node ~doc:"Returns list of available streams"
+              ~meth:`GET
+              ~path:Path.Format.empty
+              ~query:Query.["id", (module List(Stream.ID))]
+              (Api_stream.get_streams api)
+          ; node ~doc:"Returns stream description, if any"
+              ~meth:`GET
+              ~path:Path.Format.(Stream.ID.fmt ^/ empty)
+              ~query:Query.empty
+              (Api_stream.get_stream api)
+          ; node ~doc:"Returns measurements for the specified stream"
+              ~meth:`GET
+              ~path:Path.Format.(Stream.ID.fmt ^/ "measurements" @/ empty)
+              ~query:Query.empty
+              (Api_stream.get_measurements api)
+          ; node ~doc:"Returns parameters for the specified stream"
+              ~meth:`GET
+              ~path:Path.Format.(Stream.ID.fmt ^/ "parameters" @/ empty)
+              ~query:Query.empty
+              (Api_stream.get_parameters api)
+          ]
       ; make ~prefix:"history"
           [ node ~doc:"Returns measurement results for the specified time interval"
               ~meth:`GET
@@ -79,7 +123,7 @@ let ws (control : int) (api : Protocol.api) =
           [ node ~doc:"Receiver measures socket"
               ~path:Path.Format.("measurements" @/ empty)
               ~query:Query.["id", (module List(Int))]
-              (Api_receiver.Event.get_measures api)
+              (Api_receiver.Event.get_measurements api)
           ; node ~doc:"Receiver parameters socket"
               ~path:Path.Format.("parameters" @/ empty)
               ~query:Query.["id", (module List(Int))]
@@ -87,7 +131,7 @@ let ws (control : int) (api : Protocol.api) =
           ; node ~doc:"Receiver PLP list socket"
               ~path:Path.Format.("plp-list" @/empty)
               ~query:Query.["id", (module List(Int))]
-              (Api_receiver.Event.get_plps api)
+              (Api_receiver.Event.get_plp_list api)
           ]
       ; make ~prefix:"stream"
           [ node ~doc:"Streams socket"
@@ -97,15 +141,11 @@ let ws (control : int) (api : Protocol.api) =
           ; node ~doc:"Stream measures socket"
               ~path:Path.Format.("measurements" @/ empty)
               ~query:Query.["id", (module List(Stream.ID))]
-              (Api_stream.Event.get_measures api)
+              (Api_stream.Event.get_measurements api)
           ; node ~doc:"Stream parameters socket"
               ~path:Path.Format.("parameters" @/ empty)
               ~query:Query.["id", (module List(Stream.ID))]
               (Api_stream.Event.get_parameters api)
-          ; node ~doc:"Stream PLP list socket"
-              ~path:Path.Format.("plp-list" @/ empty)
-              ~query:Query.["id", (module List(Stream.ID))]
-              (Api_stream.Event.get_plps api)
           ]
       ]
   ]

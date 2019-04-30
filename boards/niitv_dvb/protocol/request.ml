@@ -35,9 +35,9 @@ type _ t =
   | Reset : Device.info t
   | Set_src_id : int -> int t
   | Set_mode : (int * Device.mode) -> (int * Device.mode_rsp) t
-  | Get_measure : int -> (int * Measure.t) t
-  | Get_params : int -> (int * Params.t) t
-  | Get_plp_list : int -> (int * Plp_list.t) t
+  | Get_measure : int -> (int * Measure.t ts) t
+  | Get_params : int -> (int * Params.t ts) t
+  | Get_plp_list : int -> (int * Plp_list.t ts) t
 
 let timeout (type a) : a t -> float = function
   | Get_devinfo -> 3.
@@ -60,15 +60,15 @@ let value_to_string (type a) (t : a t) : a -> string =
   | Get_measure _ ->
     (fun (id, rsp) ->
        Printf.sprintf "tuner: %d, %s"
-         id (Measure.to_string rsp))
+         id (Measure.to_string rsp.data))
   | Get_params _ ->
     (fun (id, rsp) ->
        Printf.sprintf "tuner: %d, %s"
-         id (Params.show rsp))
+         id (Params.show rsp.data))
   | Get_plp_list _ ->
     (fun (id, rsp) ->
        Printf.sprintf "tuner: %d, %s"
-         id (Plp_list.to_string rsp))
+         id (Plp_list.to_string rsp.data))
 
 let to_string (type a) : a t -> string = function
   | Get_devinfo -> "Get device info"

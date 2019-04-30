@@ -1,31 +1,56 @@
 open Board_niitv_dvb_types
 open Netlib.Uri
-
-module Api_http = Api_js.Http.Make(Application_types.Body)
-
-let get_api_path = Application_types.Topology.get_api_path
-
-(* module WS = struct
- * 
- *   open Netlib.Uri
- * 
- *   include Boards_js.Requests.Device.WS
- * 
- *   let get_receivers control =
- *     WS.get ~from:Json.(Option.of_yojson @@ List.of_yojson Int.of_yojson)
- *       ~path:Path.Format.(get_base_path () / ("receivers" @/ empty))
- *       ~query:Query.empty
- *       control
- * 
- *   let get_mode ?(ids = []) control =
- *     WS.get ~from:config_of_yojson
- *       ~path:Path.Format.(get_base_path () / ("mode" @/ empty))
- *       ~query:Query.["id", (module List(Int))]
- *       control ids
- * 
- * end *)
+open Api_common
 
 module Event = struct
+
+  let ( % ) f g x = f (g x)
+
+  let ( >>= ) = Lwt_result.( >>= )
+
+  let map_ok f = function
+    | Ok x -> Ok (f x)
+    | Error e -> Error e
+
+  let get_state ?on_error ?f control =
+    let t =
+      Api_websocket.create ?on_error
+        ~path:Path.Format.(get_api_path control @/ "device/state" @/ empty)
+        ~query:Query.empty () in
+    match f with
+    | None -> t
+    | Some f ->
+      let of_json = Application_types.Topology.state_of_yojson in
+      t >>= fun socket ->
+      Api_websocket.subscribe (f % map_ok of_json) socket;
+      Lwt.return_ok socket
+
+  let get_receivers ?on_error ?f control =
+    let t =
+      Api_websocket.create ?on_error
+        ~path:Path.Format.(get_api_path control @/ "device/receivers" @/ empty)
+        ~query:Query.empty () in
+    match f with
+    | None -> t
+    | Some f ->
+      let of_json = Util_json.(Option.of_yojson @@ List.of_yojson Int.of_yojson) in
+      t >>= fun socket ->
+      Api_websocket.subscribe (f % map_ok of_json) socket;
+      Lwt.return_ok socket
+
+  let get_mode ?(ids = []) ?on_error ?f control =
+    let t =
+      Api_websocket.create ?on_error
+        ~path:Path.Format.(get_api_path control @/ "device/mode" @/ empty)
+        ~query:Query.["id", (module List(Int))]
+        ids () in
+    match f with
+    | None -> t
+    | Some f ->
+      let of_json = Device.config_of_yojson in
+      t >>= fun socket ->
+      Api_websocket.subscribe (f % map_ok of_json) socket;
+      Lwt.return_ok socket
 
 end
 

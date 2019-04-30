@@ -211,9 +211,7 @@ let start (src : Logs.src)
         request src rsp_queue sender req
         >>= function
         | Error e -> Lwt.return_error e
-        | Ok x ->
-          let ts = fst x, { data = snd x; timestamp = Ptime_clock.now () } in
-          aux (ts :: acc) tl
+        | Ok x -> aux (x :: acc) tl
     in
     aux [] tuners
 
@@ -237,9 +235,7 @@ let start (src : Logs.src)
             request src rsp_queue sender req
             >>= function
             | Error e -> Lwt.return_error e
-            | Ok x ->
-              let ts = fst x, { data = snd x; timestamp = Ptime_clock.now () } in
-              aux (ts :: acc) tl
+            | Ok x -> aux (x :: acc) tl
     in
     aux [] tuners
 
@@ -263,9 +259,7 @@ let start (src : Logs.src)
             request src rsp_queue sender req
             >>= function
             | Error e -> Lwt.return_error e
-            | Ok x ->
-              let ts = fst x, { data = snd x; timestamp = Ptime_clock.now () } in
-              aux (ts :: acc) tl
+            | Ok x -> aux (x :: acc) tl
     in
     aux [] tuners
   in

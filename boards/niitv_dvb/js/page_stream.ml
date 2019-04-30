@@ -1,6 +1,5 @@
-open Containers
 open Components
-open Common
+open Application_types
 
 (* TODO
    1. Fetch data once, not for every chart, except when periods differ *)
@@ -37,7 +36,9 @@ let make_default (stream : Stream.ID.t)
 let make (stream : Stream.ID.t) (control : int) =
   let factory = new Widget_factory.t control () in
   new Dashboard.t
-    ?init:(Option.map (fun x -> Dashboard.Serialized x) @@ Storage.get key)
+    ?init:(match Storage.get key with
+        | None -> None
+        | Some x -> Some (Dashboard.Serialized x))
     ~default:(Items (make_default stream))
     ~on_edit:(Storage.put key)
     ~edit_caps:(Partial { add = false; remove = false })

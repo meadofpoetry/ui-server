@@ -1,7 +1,5 @@
-open Containers
 open Components
-open Common
-open Board_types
+open Board_niitv_dvb_types
 open Lwt_result.Infix
 
 (* Widget type *)

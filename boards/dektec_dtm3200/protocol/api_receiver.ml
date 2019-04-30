@@ -3,11 +3,6 @@ open Netlib
 
 let ( >>= ) = Lwt.( >>= )
 
-module WS = struct
-  open Util_react
-
-end
-
 let get (api : Protocol.api) req to_yojson =
   api.channel req
   >>= function
