@@ -1,5 +1,6 @@
 open Containers
 open Components
+open Pipeline_types
 
 module Utils = struct
 
@@ -94,7 +95,8 @@ end
 
 module Item_info = struct
 
-  let _class     = "wm-grid-item__info"
+  (* FIXME use bem *)
+  let _class = "wm-grid-item__info"
   let line_class = Markup.CSS.add_element _class "line"
 
   let make_info icon info =
@@ -105,7 +107,7 @@ module Item_info = struct
     box#add_class _class;
     box#widget
 
-  let make_container_info (item:Wm.container Wm_types.wm_item) =
+  let make_container_info (item : Wm.container Wm_types.wm_item) =
     let text = new Typography.Text.t ~text:item.name () in
     let line_1 = new Hbox.t ~valign:`Center
                    ~widgets:[item.icon; text#widget] () in

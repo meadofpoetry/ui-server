@@ -58,6 +58,7 @@ let of_json f = Util_json.(Pair.of_yojson Int.of_yojson (ts_of_yojson f))
 
 let get_stream ~id control =
   Api_http.perform
+    ~meth:`GET
     ~path:Path.Format.(get_api_path control
                        @/ "receiver"
                        @/ Int
@@ -72,6 +73,7 @@ let get_stream ~id control =
 
 let get_measurements ~id control =
   Api_http.perform
+    ~meth:`GET
     ~path:Path.Format.(get_api_path control
                        @/ "receiver"
                        @/ Int
@@ -86,6 +88,7 @@ let get_measurements ~id control =
 
 let get_parameters ~id control =
   Api_http.perform
+    ~meth:`GET
     ~path:Path.Format.(get_api_path control
                        @/ "receiver"
                        @/ Int
@@ -100,6 +103,7 @@ let get_parameters ~id control =
 
 let get_plp_list ~id control =
   Api_http.perform
+    ~meth:`GET
     ~path:Path.Format.(get_api_path control
                        @/ "receiver"
                        @/ Int

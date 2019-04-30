@@ -1,7 +1,8 @@
 open Containers
 open Components
 open Wm_types
-open Wm_components
+open Basic_widgets
+open Pipeline_types
 
 type container_grids =
   { rect : Wm.position
@@ -77,7 +78,7 @@ let resize ~(resolution : int * int)
      let apply (item : 'a) : 'a =
        Utils.of_grid_position rect
        |> pos_absolute_to_relative (to_position item)
-       |> Wm_items_layer.grid_pos_of_layout_pos
+       |> Layer.grid_pos_of_layout_pos
             ~resolution:(rect.w, rect.h) ~cols:w ~rows:h
        |> (fun pos -> Dynamic_grid.Position.(
              { x = (pos.x * cw) + dx

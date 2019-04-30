@@ -3,8 +3,9 @@ open Containers
 open Components
 open Lwt_result.Infix
 open Wm_types
-open Wm_components
-open Wm_container
+open Basic_widgets
+open Container
+open Pipeline_types
 
 type container_grids =
   { rect : Wm.position
@@ -78,7 +79,7 @@ let resize ~(resolution : int * int)
      let apply (item : 'a) : 'a =
        Utils.of_grid_position rect
        |> pos_absolute_to_relative (to_position item)
-       |> Wm_items_layer.grid_pos_of_layout_pos
+       |> Layer.grid_pos_of_layout_pos
             ~resolution:(rect.w, rect.h) ~cols:w ~rows:h
        |> (fun pos -> Dynamic_grid.Position.(
              { x = (pos.x * cw) + dx
@@ -182,8 +183,8 @@ module Widget_item : Item with type item = Wm.widget = struct
 
 end
 
-module Cont = Wm_editor.Make(Wm_container.Container_item)
-module Widg = Wm_editor.Make(Widget_item)
+module Cont = Editor.Make(Container.Container_item)
+module Widg = Editor.Make(Widget_item)
 (*
 let serialize ~(cont : Cont.t) () : (string * Wm.container) list =
   List.map (fun (n, (v : Wm.container)) ->
@@ -217,11 +218,11 @@ let create_widgets_grid
                    cont_pos.bottom - cont_pos.top in
   let init = List.map Widget_item.t_of_layout_item container.item.widgets in
   let apply =
-    Wm_left_toolbar.make_action
+    Actions.make_action
       { icon = Icon.SVG.(new t ~paths:Path.[ new t check ()] ())#widget
       ; name = "Применить" } in
   let back =
-    Wm_left_toolbar.make_action
+    Actions.make_action
       { icon = Icon.SVG.(new t ~paths:Path.[ new t arrow_left ()] ())#widget
       ; name = "Назад" } in
   let dlg =
@@ -313,17 +314,17 @@ let switch ~grid
 
 let create_icons wz_show =
   let wizard =
-    Wm_left_toolbar.make_action
+    Actions.make_action
       { icon = Icon.SVG.(create_simple Path.auto_fix)#widget
       ; name = "Авто"
       } in
   let edit =
-    Wm_left_toolbar.make_action
+    Actions.make_action
       { icon = Icon.SVG.(create_simple Path.pencil)#widget
       ; name = "Редактировать"
       } in
   let save =
-    Wm_left_toolbar.make_action
+    Actions.make_action
       { icon = Icon.SVG.(create_simple Path.content_save)#widget
       ; name = "Сохранить"
       } in
@@ -377,7 +378,7 @@ let create ~(init : Wm.t)
   let containers = [new_cont] in
   let s_cc, s_cc_push = React.S.create containers in
   let wz_e, wz_push = React.E.create () in
-  let wz_dlg, wz_show = Wm_wizard.to_dialog init wz_push in
+  let wz_dlg, wz_show = Wizard.to_dialog init wz_push in
   let resolution = init.resolution in
   let s_state, s_state_push = React.S.create `Container in
   let title = "Контейнеры" in
@@ -385,7 +386,7 @@ let create ~(init : Wm.t)
   let on_remove = fun (t : Wm.container wm_item) ->
     let eq = Widget_item.equal in
     let ws = List.map Widget_item.t_of_layout_item t.item.widgets in
-    List.iter (fun x -> Wm_editor.remove ~eq s_wc s_wc_push x) ws in
+    List.iter (fun x -> Editor.remove ~eq s_wc s_wc_push x) ws in
   let cont =
     Cont.make ~title
       ~init:(List.map Container_item.t_of_layout_item init.layout)

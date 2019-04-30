@@ -8,8 +8,8 @@ let remove ~eq cs set (t : 'a wm_item) =
 
 module Make(I : Item) = struct
 
-  module IG = Wm_items_grid.Make(I)
-  module RT = Wm_right_toolbar.Make(I)
+  module IG = Grid.Make(I)
+  module RT = Controls.Make(I)
 
   type t =
     { ig : IG.t
@@ -26,7 +26,7 @@ module Make(I : Item) = struct
            ~(actions : Fab.t list)
            () =
     let rm =
-      Wm_left_toolbar.make_action
+      Actions.make_action
         { icon = Icon.SVG.(new t ~paths:Path.[new t delete ()] ())#widget
         ; name = "Удалить"
         } in
@@ -39,7 +39,7 @@ module Make(I : Item) = struct
     let selected, selected_push = React.S.create None in
     let rt = RT.make ~selected ~layers ~candidates ~set_candidates in
     let ig = IG.make ~title ~resolution ~init ~e_layers:rt#e_layers_action () in
-    let lt = Wm_left_toolbar.make (actions @ [ rm ]) in
+    let lt = Actions.make (actions @ [ rm ]) in
 
     let _ = React.S.map selected_push ig#s_selected in
     let _ = React.S.diff (fun n o ->

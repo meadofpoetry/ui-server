@@ -2,8 +2,9 @@ open Js_of_ocaml
 open Containers
 open Components
 open Wm_types
-open Wm_components
+open Basic_widgets
 open Dynamic_grid
+open Pipeline_types
 
 let base_class = "wm-grid"
 
@@ -90,7 +91,7 @@ module Make(I : Item) = struct
             let a = Js.Unsafe.coerce e##.dataTransfer##.types in
             let l = Js.to_array a |> Array.to_list |> List.map Js.to_string in
             let t = List.find_map (fun x ->
-                        match String.chop_prefix ~pre:Wm_items.drag_type_prefix x with
+                        match String.chop_prefix ~pre:List_of_items.drag_type_prefix x with
                         | Some wh -> typ <- x; Some wh
                         | None    -> None) l in
             Option.iter (fun wh ->

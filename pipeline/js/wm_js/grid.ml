@@ -2,13 +2,13 @@ open Js_of_ocaml
 open Containers
 open Components
 open Wm_types
-open Wm_components
+open Basic_widgets
 
 let base_class = "wm-grid"
 
 module Make(I : Item) = struct
 
-  module G = Wm_items_layer.Make(I)
+  module G = Layer.Make(I)
 
   let grid_to_string (x, y) =
     Printf.sprintf "%dx%d" x y
@@ -202,7 +202,7 @@ module Make(I : Item) = struct
         set_grid grid;
         let grouped =
           List.fold_left (fun acc (x:I.t) ->
-              List.Assoc.update ~eq:(=) (function
+              List.Assoc.update ~eq:(=) ~f:(function
                   | Some l -> Some (x :: l)
                   | None -> Some [x]) (I.layer_of_t x) acc)
             [] items in

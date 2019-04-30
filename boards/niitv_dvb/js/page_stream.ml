@@ -9,7 +9,7 @@ module Storage = Ui_templates.Storage.Local_storage
 let (key : string) = "board-dvb-page-stream"
 
 let make_default (stream : Stream.ID.t)
-    : Widget_factory.item Dashboard.Item.positioned_item list =
+  : Widget_factory.item Dashboard.Item.positioned_item list =
   let duration = Common.Time.Span.of_int_s 120 in
   let conf typ =
     (Some { typ

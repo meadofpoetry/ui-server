@@ -60,6 +60,7 @@ let of_json f = Util_json.(Pair.of_yojson Int.of_yojson (ts_of_yojson f))
 
 let get_measurements (id : Stream.ID.t) control =
   Api_http.perform
+    ~meth:`GET
     ~path:Path.Format.(get_api_path control
                        @/ "stream"
                        @/ Stream.ID.fmt
@@ -74,6 +75,7 @@ let get_measurements (id : Stream.ID.t) control =
 
 let get_parameters (id : Stream.ID.t) control =
   Api_http.perform
+    ~meth:`GET
     ~path:Path.Format.(get_api_path control
                        @/ "stream"
                        @/ Stream.ID.fmt
@@ -88,6 +90,7 @@ let get_parameters (id : Stream.ID.t) control =
 
 let get_stream (id : Stream.ID.t) control =
   Api_http.perform
+    ~meth:`GET
     ~path:Path.Format.(get_api_path control
                        @/ "stream"
                        @/ Stream.ID.fmt ^/ empty)
@@ -101,6 +104,7 @@ let get_stream (id : Stream.ID.t) control =
 
 let get_streams ?(ids = []) control =
   Api_http.perform
+    ~meth:`GET
     ~path:Path.Format.(get_api_path control @/ "stream" @/ empty)
     ~query:Query.["id", (module List(Stream.ID))]
     ids (fun _env -> function

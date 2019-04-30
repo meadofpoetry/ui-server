@@ -1,10 +1,13 @@
 open Containers
 open Components
-open Wm_components
-open Common.Stream
+open Basic_widgets
+open Application_types
+open Pipeline_types
 
-type channel = { stream  : ID.t
-               ; channel : int }
+type channel =
+  { stream : Stream.ID.t
+  ; channel : int
+  }
 
 let split_three l =
   List.fold_left (fun (first, second, third) (a, b, c) ->
@@ -15,9 +18,9 @@ module Parse_struct = struct
   let stream id (signal : Structure.packed list React.signal) =
     let packed =
       List.find_pred_exn (fun (x : Structure.packed) ->
-          Common.Stream.ID.equal x.structure.id id) (React.S.value signal) in
-    Common.Stream.Source.to_string packed.source.source.info,
-    Common.Url.to_string packed.structure.uri, packed
+          Stream.ID.equal x.structure.id id) (React.S.value signal) in
+    Stream.Source.to_string packed.source.source.info,
+    Uri.to_string packed.structure.uri, packed
 
   let channel (channel_ : int) (packed : Structure.packed) =
     let channel  =
@@ -47,7 +50,7 @@ module Find = struct
 
   let widget ~(widgets : ((string * Wm.widget) * channel) list) ~(typ : Wm.widget_type) ch =
     List.find_pred (fun ((_, (widget : Wm.widget)), wdg_channel) ->
-        Common.Stream.ID.equal ch.stream wdg_channel.stream
+        Stream.ID.equal ch.stream wdg_channel.stream
         && Int.equal ch.channel wdg_channel.channel
         && Wm.widget_type_equal widget.type_ typ) widgets
 
@@ -214,7 +217,7 @@ module Branches = struct
           let text, secondary_text = channel_struct.service_name, string_of_int channel in
           let widgets =
             List.filter (fun (_, (ch : channel)) ->
-                Common.Stream.ID.equal ch.stream stream
+                Stream.ID.equal ch.stream stream
                 && channel = ch.channel) widgets in
           let checkboxes, wds =
             List.split @@ List.map (fun widget -> make_widget widget channel_struct) widgets in
@@ -245,7 +248,7 @@ module Branches = struct
       List.fold_left (fun acc (x : (string * Wm.widget) * channel) ->
           let channel = snd x in
           if List.exists (fun stream ->
-              Common.Stream.ID.equal channel.stream stream) acc then
+              Stream.ID.equal channel.stream stream) acc then
             acc
           else
             channel.stream :: acc) [] widgets in
@@ -254,7 +257,7 @@ module Branches = struct
           let wds =
             List.filter (fun (x : (string * Wm.widget) * channel) ->
                 let wdg_stream = (snd x).stream in
-                Common.Stream.ID.equal wdg_stream stream) widgets in
+                Stream.ID.equal wdg_stream stream) widgets in
           stream, wds) streams in
     let checkboxes, items =
       List.fold_left (fun acc (stream, wds) ->
@@ -262,7 +265,7 @@ module Branches = struct
             Parse_struct.stream stream signal in
           let wdg_chbs, chan_chbs, nested = make_channels wds packed in
           let checkbox = new Checkbox.t () in
-          checkbox#set_id @@ Common.Stream.ID.to_string stream;
+          checkbox#set_id @@ Stream.ID.to_string stream;
           React.E.map (fun checked ->
               if checked then
                 List.iter (fun ch -> ch#set_checked true) chan_chbs)

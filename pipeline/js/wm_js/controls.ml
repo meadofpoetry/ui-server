@@ -4,11 +4,11 @@ open Wm_types
 
 module Make(I : Item) = struct
 
-  module It = Wm_items.Make(I)
+  module It = List_of_items.Make(I)
 
   class t ~layers ~selected ~candidates ~set_candidates () =
     let items, sel = It.make ~selected ~candidates ~set_candidates () in
-    let layers, layers_grid = Wm_layers.make ~init:layers ~max:I.max_layers in
+    let layers, layers_grid = List_of_layers.make ~init:layers ~max:I.max_layers in
     let _class = "wm-right-toolbar" in
     object
       inherit Vbox.t ~widgets:[items#widget; layers#widget] () as super
@@ -27,7 +27,7 @@ module Make(I : Item) = struct
         Option.iter (React.S.stop ~strong:true) _s;
         _s <- None
 
-      method e_layers_action : Wm_layers.action React.event = layers_grid#e_layer
+      method e_layers_action : List_of_layers.action React.event = layers_grid#e_layer
       method initialize_layers = layers_grid#initialize
     end
 

@@ -11,6 +11,7 @@ let of_json f =
 
 let get_measurements ?(ids = []) ?limit ?from ?till ?duration control =
   Api_http.perform
+    ~meth:`GET
     ~path:Path.Format.(get_api_path control @/ "measurements" @/ empty)
     ~query:Query.[ "id", (module List(Int))
                  ; "limit", (module Option(Int))

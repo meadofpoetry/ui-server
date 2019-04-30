@@ -2,7 +2,7 @@ open Js_of_ocaml
 open Containers
 open Components
 open Wm_types
-open Wm_components
+open Basic_widgets
 
 let drag_type_prefix = "application/grid_item-"
 
@@ -149,8 +149,8 @@ module Make(I : Item) = struct
     let props_title = "Свойства" in
     let add = Add.make ~candidates ~set_candidates () in
     let props = Properties.make [] selected in
-    let title = Wm_selectable_title.make [ add_title, add
-                                         ; props_title, props ] in
+    let title = Selectable_title.make [ add_title, add
+                                      ; props_title, props ] in
     let content = new Vbox.t ~widgets:[add#widget; props#widget] () in
     let box = new Vbox.t ~widgets:[title#widget; content#widget] () in
     content#add_class base_class;
