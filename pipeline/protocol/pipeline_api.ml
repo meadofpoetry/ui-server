@@ -69,9 +69,9 @@ let get_status (api : Protocol.api) ids _user _body _env _state =
     | [] -> l
     | ids -> List.filter (fun (x : Qoe_status.t) ->
                  List.exists (Application_types.Stream.ID.equal x.stream) ids) l)
-  |> Qoe_status.status_list_to_yojson
+  |> Util_json.List.to_yojson Qoe_status.to_yojson
   |> fun r -> Lwt.return (`Value r)
-                 
+
 
 (*
 

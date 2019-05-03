@@ -63,7 +63,7 @@ let handlers (control : int) (api : Protocol.api) =
               ~meth:`GET
               ~path:Path.Format.(Int ^/ "plp-list" @/ empty)
               ~query:Query.empty
-              (Api_receiver.get_parameters api)
+              (Api_receiver.get_plp_list api)
           ]
       ; make ~prefix:"stream"
           [ node ~doc:"Returns list of available streams"

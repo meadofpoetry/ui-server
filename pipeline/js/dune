@@ -1,9 +1,9 @@
 (library
   (name       pipeline_js)
   (libraries  pipeline_types
+              pipeline_api_js
               application_types
               util_json
-              wm_js
               api_js
               components
               janus

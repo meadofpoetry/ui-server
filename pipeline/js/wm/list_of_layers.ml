@@ -1,7 +1,7 @@
-open Containers
+open Js_of_ocaml_tyxml
 open Components
 
-let ( % ) = Fun.( % )
+let ( % ) f g x = f (g x)
 
 type value  =
   { original : int
@@ -100,34 +100,46 @@ let remove_layer grid push layer =
   push (`Removed layer#value.actual);
   grid#remove layer;
   emit_new_pos grid#s_items push;
-  match List.find_pred (fun w -> w#pos.y = y) layers with
+  match List.find_opt (fun w -> w#pos.y = y) layers with
   | Some w -> w#set_selected true;
-  | None   -> (match List.find_pred (fun w -> w#pos.y = y - 1) layers with
-               | Some w -> w#set_selected true
-               | None   -> (match layers with
-                            | hd::_ -> hd#set_selected true
-                            | _     -> ()))
+  | None ->
+    match List.find_opt (fun w -> w#pos.y = y - 1) layers with
+    | Some w -> w#set_selected true
+    | None ->
+      match layers with
+      | hd :: _ -> hd#set_selected true
+      | _ -> ()
 
 let move_layer_up s_layers push layer =
   let open Dynamic_grid.Position in
   let pos = layer#pos in
   if pos.y <> 0
-  then (let upper = List.find_opt (fun x -> x#pos.y = pos.y - 1) @@ React.S.value s_layers in
-        Option.iter (fun x -> let new_pos = x#pos in
-                              x#set_pos pos;
-                              layer#set_pos new_pos;
-                              emit_new_pos s_layers push) upper)
+  then
+    let upper =
+      List.find_opt (fun x -> x#pos.y = pos.y - 1)
+      @@ React.S.value s_layers in
+    match upper with
+    | None -> ()
+    | Some x ->
+      let new_pos = x#pos in
+      x#set_pos pos;
+      layer#set_pos new_pos;
+      emit_new_pos s_layers push
 
 let move_layer_down s_layers push layer =
   let open Dynamic_grid.Position in
-  let pos    = layer#pos in
+  let pos = layer#pos in
   let layers = React.S.value s_layers in
   if pos.y <> List.length layers - 1
-  then (let lower = List.find_opt (fun x -> x#pos.y = pos.y + 1) layers in
-        Option.iter (fun x -> let new_pos = x#pos in
-                              x#set_pos pos;
-                              layer#set_pos new_pos;
-                              emit_new_pos s_layers push) lower)
+  then
+    let lower = List.find_opt (fun x -> x#pos.y = pos.y + 1) layers in
+    match lower with
+    | None -> ()
+    | Some x ->
+      let new_pos = x#pos in
+      x#set_pos pos;
+      layer#set_pos new_pos;
+      emit_new_pos s_layers push
 
 class t ~init () =
   let _class = "wm-layers-grid" in
@@ -168,10 +180,11 @@ class t ~init () =
     method clear () = self#remove_all ()
 
     method initialize (init : int list) =
-      let init = List.length init in
       self#clear ();
-      List.iter (fun _ -> on_add self push) @@ List.range' init 0;
-      Option.iter (fun x -> x#set_selected true) @@ List.head_opt self#items
+      List.iter (fun _ -> on_add self push) init;
+      match self#items with
+      | hd :: _ -> hd#set_selected true
+      | _ -> ()
 
   end
 
@@ -200,20 +213,24 @@ let make_layers_actions max layers_grid push =
         | _ -> None) layers_grid#s_selected in
   let a_map ((a : #Widget.t), f) =
     a#listen_lwt Widget.Event.click (fun _ _ ->
-        Option.iter f @@ React.S.value s_sel;
+        (match React.S.value s_sel with
+         | Some x -> f x
+         | None -> ());
         Lwt.return_unit) |> Lwt.ignore_result in
   let _ =
     React.S.l2 (fun s l ->
         let len = List.length l in
-        let sel = Option.is_some s in
-        let is_first = Option.map (fun x -> x#pos.y = 0) s
-                       |> Option.get_or ~default:false in
-        let is_last = Option.map (fun x -> x#pos.y = pred len) s
-                      |> Option.get_or ~default:false in
-        add#set_disabled  (len >= max);
-        up#set_disabled   ((len <= 1) || not sel || is_first);
+        let sel = match s with None -> false | Some _ -> true in
+        let is_first = match s with
+          | None -> false
+          | Some x -> x#pos.y = 0 in
+        let is_last = match s with
+          | None -> false
+          | Some x -> x#pos.y = pred len in
+        add#set_disabled (len >= max);
+        up#set_disabled ((len <= 1) || not sel || is_first);
         down#set_disabled ((len <= 1) || not sel || is_last);
-        rm#set_disabled   ((len <= 1) || not sel))
+        rm#set_disabled ((len <= 1) || not sel))
       s_sel layers_grid#s_change in
   add#listen_lwt Widget.Event.click (fun _ _ ->
       on_add layers_grid push;
@@ -232,7 +249,10 @@ let make ~init ~max =
   let wrapper_class = "wm-layers-grid-wrapper" in
   let layers = Widget.create_div () in
   let grid = make_layers_grid ~init in
-  let actions = new Card.Actions.t ~widgets:[(make_layers_actions max grid grid#e_layer_push)#widget] () in
+  let actions =
+    new Card.Actions.t
+      ~widgets:[(make_layers_actions max grid grid#e_layer_push)#widget]
+      () in
   let card = new Card.t ~widgets:[layers#widget;actions#widget] () in
   let title = Selectable_title.make [("Слои", card)] in
   let box = new Vbox.t ~widgets:[title#widget; card#widget] () in

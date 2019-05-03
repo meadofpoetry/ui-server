@@ -56,39 +56,30 @@ module Event = struct
                   |> uris
        in E.map (f % filter_by_uris uris) event
 
-  let get_streams (api : Protocol.api) ids inputs _user _body _env state =
+  let get_streams (api : Protocol.api) ids inputs applied _user _body _env state =
     let event =
       filter_event ids inputs !(api.sources)
-        (S.changes api.notifs.streams)
+        (S.changes
+           (match applied with
+            | Some true -> api.notifs.applied_structs
+            | None | Some false -> api.notifs.streams))
       |> E.map (Util_json.List.to_yojson Structure.to_yojson)
     in
     Lwt.return (`Ev (state, event))
 
-  let get_applied (api : Protocol.api) ids inputs _user _body _env state =
-    let event = filter_event ids inputs !(api.sources)
-                  (S.changes api.notifs.applied_structs)
-                |> E.map (Util_json.List.to_yojson Structure.to_yojson)
+  let get_streams_packed (api : Protocol.api) ids inputs applied _user _body _env state =
+    let event =
+      filter_map_event ids inputs
+        (Structure_conv.match_streams api.sources)
+        !(api.sources)
+        (S.changes
+           (match applied with
+            | Some true -> api.notifs.applied_structs
+            | None | Some false -> api.notifs.streams))
+      |> E.map (Util_json.List.to_yojson Structure.packed_to_yojson)
     in
     Lwt.return (`Ev (state, event))
-    
-  let get_streams_packed (api : Protocol.api) ids inputs _user _body _env state =
-    let event = filter_map_event ids inputs
-                  (Structure_conv.match_streams api.sources)
-                  !(api.sources)
-                  (S.changes api.notifs.streams)
-                |> E.map (Util_json.List.to_yojson Structure.packed_to_yojson)
-    in
-    Lwt.return (`Ev (state, event))
-    
-  let get_applied_packed (api : Protocol.api) ids inputs _user _body _env state =
-    let event = filter_map_event ids inputs
-                  (Structure_conv.match_streams api.sources)
-                  !(api.sources)
-                  (S.changes api.notifs.applied_structs)
-                |> E.map (Util_json.List.to_yojson Structure.packed_to_yojson)
-    in
-    Lwt.return (`Ev (state, event))
-    
+
 end
 
 let filter_data ids inputs streams data =
@@ -100,40 +91,32 @@ let filter_data ids inputs streams data =
                 |> filter_by_input inputs
                 |> uris
      in filter_by_uris uris data
-      
-let get_streams (api : Protocol.api) ids inputs _user _body _env _state =
-  Message.Protocol.stream_parser_get api.channel ()
-  |> Lwt_result.map (Util_json.List.to_yojson Structure.to_yojson
-                     % filter_data ids inputs !(api.sources))
-  >>= function
-    | Ok v -> Lwt.return (`Value v)
-    | Error e -> Lwt.return (`Error e)
 
-let get_streams_applied (api : Protocol.api) ids inputs _user _body _env _state =
-  Message.Protocol.graph_get_structure api.channel ()
-  |> Lwt_result.map (Util_json.List.to_yojson Structure.to_yojson
-                     % filter_data ids inputs !(api.sources))
+let get_streams (api : Protocol.api) ids inputs applied _user _body _env _state =
+  (match applied with
+   | Some true -> Message.Protocol.graph_get_structure api.channel ()
+   | None | Some false -> Message.Protocol.stream_parser_get api.channel ())
   >>= function
-    | Ok v -> Lwt.return (`Value v)
-    | Error e -> Lwt.return (`Error e)
+  | Ok v ->
+    let json =
+      Util_json.List.to_yojson Structure.to_yojson
+      @@ filter_data ids inputs !(api.sources) v in
+    Lwt.return (`Value json)
+  | Error e -> Lwt.return (`Error e)
 
-let get_streams_with_source (api : Protocol.api) ids inputs _user _body _env _state =
-  Message.Protocol.stream_parser_get api.channel ()
-  |> Lwt_result.map (Util_json.List.to_yojson Structure.packed_to_yojson
-                     % Structure_conv.match_streams api.sources
-                     % filter_data ids inputs !(api.sources))
+let get_streams_with_source (api : Protocol.api) ids inputs applied
+    _user _body _env _state =
+  (match applied with
+   | Some true -> Message.Protocol.graph_get_structure api.channel ()
+   | None | Some false -> Message.Protocol.stream_parser_get api.channel ())
   >>= function
-    | Ok v -> Lwt.return (`Value v)
-    | Error e -> Lwt.return (`Error e)
-
-let get_streams_applied_with_source (api : Protocol.api) ids inputs _user _body _env _state =
-  Message.Protocol.graph_get_structure api.channel ()
-  |> Lwt_result.map (Util_json.List.to_yojson Structure.packed_to_yojson
-                     % Structure_conv.match_streams api.sources
-                     % filter_data ids inputs !(api.sources))
-  >>= function
-    | Ok v -> Lwt.return (`Value v)
-    | Error e -> Lwt.return (`Error e)
+  | Ok v ->
+    let json =
+      Util_json.List.to_yojson Structure.packed_to_yojson
+      @@ Structure_conv.match_streams api.sources
+      @@ filter_data ids inputs !(api.sources) v in
+    Lwt.return (`Value json)
+  | Error e -> Lwt.return (`Error e)
 
 let apply_streams (api : Protocol.api) _user body _env _state =
   match Util_json.List.of_yojson Structure.of_yojson body with
@@ -143,4 +126,4 @@ let apply_streams (api : Protocol.api) _user body _env _state =
        ~options:api.options.structures api.channel x
      >>= function Ok () -> Lwt.return `Unit
                 | Error e -> Lwt.return (`Error  e)
-                               
+

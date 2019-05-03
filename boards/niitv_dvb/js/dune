@@ -3,6 +3,7 @@
   (libraries  api_js
               time_uri
               board_niitv_dvb_types
+              board_niitv_dvb_api_js
               components
               ui_templates
               chartjs

@@ -1,24 +1,26 @@
-open Api_common
 open Netlib.Uri
-open Application_types
 open Pipeline_types
+
+module Api_websocket = Api_js.Websocket.Make(Body)
+
+module Api_http = Api_js.Http.Make(Body)
 
 module Event = struct
 
   let ( >>= ) = Lwt_result.( >>= )
 
-  let get ?on_error ?f ?(ids = []) () =
+  let get ?f ?(ids = []) () =
     let t =
-      Api_websocket.create ?on_error
+      Api_websocket.create
         ~path:Path.Format.("api/pipeline/status" @/ empty)
-        ~query:Query.["id", (module List(Stream.ID))]
+        ~query:Query.["id", (module List(Application_types.Stream.ID))]
         ids () in
     match f with
     | None -> t
     | Some f ->
-      let of_json = Qoe_status.status_list_of_yojson in
+      let of_json = Util_json.List.of_yojson Qoe_status.of_yojson in
       t >>= fun socket ->
-      Api_websocket.subscribe (f % map_ok of_json) socket;
+      Api_websocket.subscribe_map socket of_json @@ f socket;
       Lwt.return_ok socket
 
 end
@@ -27,11 +29,11 @@ let get ?(ids = []) () =
   Api_http.perform
     ~meth:`GET
     ~path:Path.Format.("api/pipeline/status" @/ empty)
-    ~query:Query.["id", (module List(Stream.ID))]
+    ~query:Query.["id", (module List(Application_types.Stream.ID))]
     ids
     (fun _env -> function
        | Error e -> Lwt.return_error e
        | Ok x ->
-         match Qoe_status.status_list_of_yojson x with
+         match Util_json.List.of_yojson Qoe_status.of_yojson x with
          | Error e -> Lwt.return_error (`Conv_error e)
          | Ok x -> Lwt.return_ok x)

@@ -12,7 +12,7 @@ type error =
   { counter   : int
   ; size      : int
   ; params    : params
-  ; timestamp : Time.Period.Useconds.t (* TODO to seconds & span -> Time.t *)
+  ; timestamp : Time.Useconds.t (* TODO to seconds & span -> Time.t *)
   ; peak_flag : bool
   ; cont_flag : bool
   } [@@deriving yojson]

@@ -1,14 +1,17 @@
 open Netlib.Uri
 open Pipeline_types
-open Api_common
+
+module Api_websocket = Api_js.Websocket.Make(Body)
+
+module Api_http = Api_js.Http.Make(Body)
 
 module Event = struct
 
   let ( >>= ) = Lwt_result.( >>= )
 
-  let get ?on_error ?f () =
+  let get ?f () =
     let t =
-      Api_websocket.create ?on_error
+      Api_websocket.create
         ~path:Path.Format.("api/pipeline/settings" @/ empty)
         ~query:Query.empty () in
     match f with
@@ -16,7 +19,7 @@ module Event = struct
     | Some f ->
       let of_json = Settings.of_yojson in
       t >>= fun socket ->
-      Api_websocket.subscribe (f % map_ok of_json) socket;
+      Api_websocket.subscribe_map socket of_json @@ f socket;
       Lwt.return_ok socket
 
 end

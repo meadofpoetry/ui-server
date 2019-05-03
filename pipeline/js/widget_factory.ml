@@ -1,11 +1,14 @@
 open Containers
 open Components
-open Qoe_errors
+open Pipeline_types
+open Util_react
 open Ui_templates.Factory
 open Lwt_result.Infix
-open Common
+open Pipeline_api_js
 
-let ( % ) = Fun.( % )
+let ( % ) f g x = f (g x)
+
+let ( >>= ) = Lwt.( >>= )
 
 type item =
   | Chart of Widget_parameter_chart.widget_config option [@@deriving yojson]
@@ -15,36 +18,45 @@ object(self)
 
   val mutable _structures = None
   val mutable _audio_data = None
-  val mutable _video_data : Video_data.t list React.event State.t option = None
+  val mutable _video_data :
+    Qoe_errors.Video_data.t list event State.t option = None
 
   method create : item -> Widget.t Dashboard.Item.item = function
     | Chart cfg ->
-       let open Widget_parameter_chart in
-       let config = Option.get_exn cfg in
-       let structures = self#get_structures () in
-       let t =
-         structures
-         >|= (fun structures ->
-           let chart = new t ~init:[] ~structures ~config () in
-           begin match typ_to_content config.typ with
-           | `Video ->
-              let video_data = self#get_video_data () in
-              React.E.map (fun (data : Video_data.t list) ->
-                  let data = convert_video_data config data in
-                  chart#append_data data) video_data
-              |> React.E.keep;
-           | `Audio ->
-              let audio_data = self#get_audio_data () in
-              React.E.map (fun (data : Audio_data.t list) ->
-                  let data = convert_audio_data config data in
-                  chart#append_data data) audio_data
-              |> React.E.keep;
-           end;
-           chart) in
-       let w = Ui_templates.Loader.create_widget_loader t in
-       Dashboard.Item.make_item
-         ~name:(typ_to_string config.typ)
-         w#widget
+      let open Widget_parameter_chart in
+      let config = Option.get_exn cfg in
+      let structures = self#get_structures () in
+      let t =
+        structures
+        >>= function
+        | Error e -> Lwt.return_error e
+        | Ok structures ->
+        let chart = new t ~init:[] ~structures ~config () in
+        match typ_to_content config.typ with
+        | `Video ->
+          (self#get_video_data ()
+           >>= function
+           | Error e -> Lwt.return_error e
+           | Ok event ->
+             E.map (fun (data : Qoe_errors.Video_data.t list) ->
+                 let data = convert_video_data config data in
+                 chart#append_data data) event
+             |> E.keep;
+             Lwt.return_ok chart)
+        | `Audio ->
+          (self#get_audio_data ()
+           >>= function
+           | Error e -> Lwt.return_error e
+           | Ok event ->
+             E.map (fun (data : Qoe_errors.Audio_data.t list) ->
+                 let data = convert_audio_data config data in
+                 chart#append_data data) event
+             |> E.keep;
+             Lwt.return_ok chart) in
+      let w = Ui_templates.Loader.create_widget_loader t in
+      Dashboard.Item.make_item
+        ~name:(typ_to_string config.typ)
+        w#widget
 
   method destroy () : unit =
     Option.iter State.finalize _structures;
@@ -66,14 +78,19 @@ object(self)
   method private get_structures () = match _structures with
     | Some (state : _ State.t) -> state.value
     | None ->
-       let state =
-         let get () =
-           Requests_structure.HTTP.get_applied_with_source ()
-           |> Lwt_result.map_err Api_js.Requests.err_to_string in
-         Signal.make_state ~get
-           ~get_socket:Requests_structure.WS.get_applied_with_source in
-       _structures <- Some state;
-       state.value
+      let state =
+        let get () =
+          Api_structure.get_streams_with_source ~applied:true ()
+          >>= function
+          | Ok x -> Lwt.return_ok x
+          | Error e -> Lwt.return_error @@ Api_js.Http.error_to_string e in
+        let get_socket ~f () =
+          Api_structure.Event.get_streams_with_source ~applied:true ~f () in
+        Signal.make_state
+          ~get
+          ~get_socket in
+      _structures <- Some state;
+      state.value
 
   (* XXX
    * Some thoughts about optimization:
@@ -83,21 +100,37 @@ object(self)
    * E.g., Requesting a socket with data for all sources is very redundant for one widget
    *)
   method private get_video_data () = match _video_data with
-    | Some state -> state.value
+    | Some state -> Lwt.return_ok state.value
     | None ->
-       let e, sock = Requests_measurements.WS.get_video () in
-       let fin = fun () -> sock##close; React.E.stop ~strong:true e in
-       let state = State.make ~fin e in
-       _video_data <- Some state;
-       e
+      let e, set = React.E.create () in
+      Api_measurements.Event.get_video ~f:(fun _ -> function
+          | Error _ -> ()
+          | Ok x -> set x) ()
+      >>= function
+      | Error e -> Lwt.return_error e
+      | Ok socket ->
+      let fin = fun () ->
+        Api_js.Websocket.close socket;
+        React.E.stop ~strong:true e in
+      let state = State.make ~fin e in
+      _video_data <- Some state;
+      Lwt.return_ok e
 
   method private get_audio_data () = match _audio_data with
-    | Some (state : _ State.t) -> state.value
+    | Some state -> Lwt.return_ok state.value
     | None ->
-       let e, sock = Requests_measurements.WS.get_audio () in
-       let fin = fun () -> sock##close; React.E.stop ~strong:true e in
-       let state = State.make ~fin e in
-       _audio_data <- Some state;
-       e
+      let e, set = React.E.create () in
+      Api_measurements.Event.get_audio ~f:(fun _ -> function
+          | Error _ -> ()
+          | Ok x -> set x) ()
+      >>= function
+      | Error e -> Lwt.return_error e
+      | Ok socket ->
+      let fin = fun () ->
+        Api_js.Websocket.close socket;
+        React.E.stop ~strong:true e in
+      let state = State.make ~fin e in
+      _audio_data <- Some state;
+      Lwt.return_ok e
 
 end

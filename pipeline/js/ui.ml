@@ -1,6 +1,8 @@
 open Containers
 open Components
-open Common
+open Application_types
+open Pipeline_types
+open Util_react
 
 module Structure = struct
 
@@ -8,24 +10,24 @@ module Structure = struct
     let text, stext =
       match pid.content with
       | Empty ->
-         "Empty " ^ pid.stream_type_name, ""
+        "Empty " ^ pid.stream_type_name, ""
       | Audio a ->
-         "Аудио " ^ pid.stream_type_name,
-         Printf.sprintf "Кодек: %s; Битрейт: %s;" a.codec a.bitrate
+        "Аудио " ^ pid.stream_type_name,
+        Printf.sprintf "Кодек: %s; Битрейт: %s;" a.codec a.bitrate
       | Video v ->
-         "Видео " ^ pid.stream_type_name,
-         Printf.sprintf "Кодек: %s; Разрешение: %dx%d;"
-           v.codec (fst v.resolution) (snd v.resolution)
+        "Видео " ^ pid.stream_type_name,
+        Printf.sprintf "Кодек: %s; Разрешение: %dx%d;"
+          v.codec (fst v.resolution) (snd v.resolution)
     in
     let checkbox = new Checkbox.t ~ripple:false () in
     checkbox#set_checked (Option.is_some applied);
-    let signal, push = React.S.create ~eq:Equal.bool (Option.is_some applied) in
-    let pid_s = React.S.map ~eq:(Option.equal Structure.equal_pid)
-                  (fun b -> if b then Some pid else None)
-                  signal
+    let signal, push = S.create ~eq:Equal.bool (Option.is_some applied) in
+    let pid_s = S.map ~eq:(Option.equal Structure.equal_pid)
+        (fun b -> if b then Some pid else None)
+        signal
     in
-    React.S.map ~eq:Equal.unit push checkbox#s_state
-    |> React.S.keep;
+    S.map ~eq:Equal.unit push checkbox#s_state
+    |> S.keep;
     let item =
       new Tree.Item.t
         ~text
@@ -49,11 +51,11 @@ module Structure = struct
     let wl, sl = List.split @@ List.map make ch.pids in
     let ch_s =
       sl
-      |> React.S.merge ~eq:(Equal.list Structure.equal_pid)
-           (fun a p -> match p with None -> a | Some p -> p :: a) []
+      |> S.merge ~eq:(Equal.list Structure.equal_pid)
+        (fun a p -> match p with None -> a | Some p -> p :: a) []
       (* TODO clear this abominable mess *)
-      |> React.S.map ~eq:Structure.equal_channel
-           (fun pl -> { ch with pids = pl }) in
+      |> S.map ~eq:Structure.equal_channel
+        (fun pl -> { ch with pids = pl }) in
     let nested = new Tree.t ~items:wl () in
     let e = new Tree.Item.t ~text ~secondary_text:stext ~nested ~value:() ()
     in e, ch_s
@@ -68,14 +70,14 @@ module Structure = struct
     in
     let text, stext =
       let h = Printf.sprintf "Поток: %s" (Stream.Source.to_string s.source.source.info)
-      in h, (Printf.sprintf "ip: %s" @@ Url.to_string s.structure.uri) in
+      in h, (Printf.sprintf "ip: %s" @@ Uri.to_string s.structure.uri) in
     let wl, cl = List.split @@ List.map make s.structure.channels in
     let st_s =
       cl
-      |> React.S.merge ~eq:(Equal.list Structure.equal_channel)
-           (fun a p -> p :: a) []
-      |> React.S.map ~eq:Structure.equal
-           (fun chl -> { s.structure with channels = chl }) in
+      |> S.merge ~eq:(Equal.list Structure.equal_channel)
+        (fun a p -> p :: a) []
+      |> S.map ~eq:Structure.equal
+        (fun chl -> { s.structure with channels = chl }) in
     let nested = new Tree.t ~items:wl () in
     let e = new Tree.Item.t ~text ~secondary_text:stext ~nested ~value:() ()
     in e, st_s
@@ -83,52 +85,52 @@ module Structure = struct
   let make_structure_list (applied : Structure.t list) (sl : Structure.packed list) =
     match sl with
     | [] ->
-       let ph =
-         Ui_templates.Placeholder.create_with_icon
-           ~text:"Потоки не обнаружены"
-           ~icon:Icon.SVG.(create_simple Path.information) () in
-       ph#widget, React.S.const None
+      let ph =
+        Ui_templates.Placeholder.create_with_icon
+          ~text:"Потоки не обнаружены"
+          ~icon:Icon.SVG.(create_simple Path.information) () in
+      ph#widget, S.const None
     | sl ->
-       let make (s : Structure.packed) =
-         let open Structure in
-         make_structure s
-           ?applied:(List.find_opt (fun x -> Url.equal x.uri s.structure.uri) applied)
-       in
-       let eq = Equal.list Structure.equal in
-       let wl, sl = List.split @@ List.map make sl in
-       let sl_s = React.S.merge ~eq (fun a p -> p :: a) [] sl in
-       let lst = new Tree.t ~items:wl () in
-       lst#widget, React.S.map ~eq:(Equal.option eq) Option.return sl_s
+      let make (s : Structure.packed) =
+        let open Structure in
+        make_structure s
+          ?applied:(List.find_opt (fun x -> Uri.equal x.uri s.structure.uri) applied)
+      in
+      let eq = Equal.list Structure.equal in
+      let wl, sl = List.split @@ List.map make sl in
+      let sl_s = S.merge ~eq (fun a p -> p :: a) [] sl in
+      let lst = new Tree.t ~items:wl () in
+      lst#widget, S.map ~eq:(Equal.option eq) Option.return sl_s
 
   let make
-        ~(init_applied : Structure.t list)
-        ~(init : Structure.packed list)
-        ~(event_applied : Structure.t list React.event)
-        ~(event : Structure.packed list React.event)
-        () : (Structure.t list, unit) Ui_templates.Types.settings_block =
+      ~(init_applied : Structure.t list)
+      ~(init : Structure.packed list)
+      ~(event_applied : Structure.t list event)
+      ~(event : Structure.packed list event)
+      () : Structure.t list Ui_templates.Types.settings_block =
     let div = Widget.create_div () in
     let make (applied : Structure.t list) (str : Structure.packed list) =
       let dis, s = make_structure_list applied str in
       let place = dis in
       place, s in
-    let s_applied = React.S.hold ~eq:(Equal.list Structure.equal) init_applied event_applied in
-    let s_in      = React.S.hold ~eq:(Equal.list Structure.equal_packed) init event in
+    let s_applied = S.hold ~eq:(Equal.list Structure.equal) init_applied event_applied in
+    let s_in      = S.hold ~eq:(Equal.list Structure.equal_packed) init event in
     let eq_s =
       let eq = Equal.option @@ Equal.list Structure.equal in
-      React.S.equal ~eq in
+      S.equal ~eq in
     let s_div =
-      React.S.l2 ~eq:(fun (w1, s1) (w2, s2) ->
+      S.l2 ~eq:(fun (w1, s1) (w2, s2) ->
           Widget.equal w1 w2 && eq_s s1 s2)
         (fun applied s -> make applied s) s_applied s_in in
     let s =
-      React.S.switch ~eq:(Equal.option @@ Equal.list Structure.equal)
-        (React.S.map ~eq:eq_s (fun n ->
+      S.switch ~eq:(Equal.option @@ Equal.list Structure.equal)
+        (S.map ~eq:eq_s (fun n ->
              div#set_empty ();
              let tree, n_s = n in
              div#append_child tree;
              n_s) s_div)
     in
-    let post = Requests_structure.HTTP.apply_streams in
+    let post = Pipeline_api_js.Api_structure.apply_streams in
     div, s, post
 
 end
@@ -141,19 +143,19 @@ module Settings = struct
     let peak_en_chck       = new Checkbox.t () in
     let peak_en_field      = new Form_field.t ~label:"Пиковая ошибка" ~input:peak_en_chck () in
     let peak_field         = new Textfield.t
-                               ~input_id:"peak_field"
-                               ~label:"Значение"
-                               ~input_type:(Float ((Some (-100.)),(Some 100.))) () in
+      ~input_id:"peak_field"
+      ~label:"Значение"
+      ~input_type:(Float ((Some (-100.)),(Some 100.))) () in
     let cont_en_chck       = new Checkbox.t () in
     let cont_en_field      = new Form_field.t ~label:"Длительная ошибка" ~input:cont_en_chck () in
     let cont_field         = new Textfield.t
-                               ~input_id:"cont_field"
-                               ~label:"Значение"
-                               ~input_type:(Float ((Some (-100.)),(Some 100.))) () in
+      ~input_id:"cont_field"
+      ~label:"Значение"
+      ~input_type:(Float ((Some (-100.)),(Some 100.))) () in
     let dur_field          = new Textfield.t
-                               ~input_id:"dur_field"
-                               ~label:"Длительность"
-                               ~input_type:(Float ((Some (-100.)),(Some 100.))) () in
+      ~input_id:"dur_field"
+      ~label:"Длительность"
+      ~input_type:(Float ((Some (-100.)),(Some 100.))) () in
     peak_en_chck#set_checked s.peak_en;
     cont_en_chck#set_checked s.cont_en;
     peak_field#set_value s.peak;
@@ -166,13 +168,13 @@ module Settings = struct
                                    cont_box#widget;
                                    dur_field#widget] () in
     let signal =
-      React.S.l5 ~eq:Settings.equal_setting
+      S.l5 ~eq:Settings.equal_setting
         (fun peak_en peak cont_en cont dur ->
-          Settings.{ peak_en
-                   ; peak = Option.get_or ~default:(s.peak) peak
-                   ; cont_en
-                   ; cont = Option.get_or ~default:(s.cont) cont
-                   ; duration = Option.get_or ~default:(s.duration) dur } )
+           Settings.{ peak_en
+                    ; peak = Option.get_or ~default:(s.peak) peak
+                    ; cont_en
+                    ; cont = Option.get_or ~default:(s.cont) cont
+                    ; duration = Option.get_or ~default:(s.duration) dur } )
         peak_en_chck#s_state peak_field#s_input
         cont_en_chck#s_state cont_field#s_input
         dur_field#s_input in
@@ -194,7 +196,7 @@ module Settings = struct
                            luma_w#widget;
                            bpixel_field#widget] () in
     let signal =
-      React.S.l3 ~eq:Settings.equal_black (fun black luma bpixel ->
+      S.l3 ~eq:Settings.equal_black (fun black luma bpixel ->
           match bpixel with
           | None -> Settings.{ black; luma; black_pixel = b.black_pixel }
           | Some black_pixel -> Settings.{ black; luma; black_pixel } )
@@ -216,11 +218,11 @@ module Settings = struct
                                    diff_w#widget;
                                    pixeld_field#widget] () in
     let signal =
-      React.S.l3 ~eq:Settings.equal_freeze
+      S.l3 ~eq:Settings.equal_freeze
         (fun freeze diff pixeld ->
-          match pixeld with
-          | None -> Settings.{ freeze; diff; pixel_diff = f.pixel_diff }
-          | Some pixel_diff -> Settings.{ freeze; diff; pixel_diff } )
+           match pixeld with
+           | None -> Settings.{ freeze; diff; pixel_diff = f.pixel_diff }
+           | Some pixel_diff -> Settings.{ freeze; diff; pixel_diff } )
         freeze_s diff_s pixeld_field#s_input in
     box, signal
 
@@ -231,7 +233,7 @@ module Settings = struct
     let box = new Vbox.t ~widgets:[(Widget.create header);
                                    blocky_w#widget] () in
     let signal =
-      React.S.map ~eq:Settings.equal_blocky
+      S.map ~eq:Settings.equal_blocky
         (fun blocky -> Settings.{ blocky })
         blocky_s in
     box, signal
@@ -253,11 +255,11 @@ module Settings = struct
                                    freeze_w#widget;
                                    blocky_w#widget] () in
     let signal =
-      React.S.l4 ~eq:Settings.equal_video
+      S.l4 ~eq:Settings.equal_video
         (fun loss black freeze blocky ->
-          match loss with
-          | None -> Settings.{ loss = v.loss; black; freeze; blocky }
-          | Some loss -> Settings.{ loss; black; freeze; blocky } )
+           match loss with
+           | None -> Settings.{ loss = v.loss; black; freeze; blocky }
+           | Some loss -> Settings.{ loss; black; freeze; blocky } )
         loss_field#s_input black_s freeze_s blocky_s in
     box, signal
 
@@ -267,7 +269,7 @@ module Settings = struct
     let sil_w, sil_s = make_setting "Громкость" s.silence in
     let box = new Vbox.t ~widgets:[(Widget.create header); sil_w#widget] () in
     let signal =
-      React.S.map ~eq:Settings.equal_silence
+      S.map ~eq:Settings.equal_silence
         (fun silence -> Settings.{ silence } ) sil_s in
     box, signal
 
@@ -277,7 +279,7 @@ module Settings = struct
     let sil_w, sil_s = make_setting "Громкость" s.loudness in
     let box = new Vbox.t ~widgets:[(Widget.create header); sil_w#widget] () in
     let signal =
-      React.S.map ~eq:Settings.equal_loudness
+      S.map ~eq:Settings.equal_loudness
         (fun loudness -> Settings.{ loudness } ) sil_s in
     box, signal
 
@@ -301,7 +303,7 @@ module Settings = struct
                  ; buf#widget]
         () in
     let signal =
-      React.S.l2 ~eq:Settings.equal_adv (fun diff buf ->
+      S.l2 ~eq:Settings.equal_adv (fun diff buf ->
           Settings.{ adv_diff = Option.get_or ~default:(s.adv_diff) diff
                    ; adv_buf  = Option.get_or ~default:(s.adv_buf) buf })
         diff#s_input buf#s_input in
@@ -324,11 +326,11 @@ module Settings = struct
                            silence_w#widget;
                            loudness_w#widget; (* adv_w#widget *)] () in
     let signal =
-      React.S.l4 ~eq:Settings.equal_audio
+      S.l4 ~eq:Settings.equal_audio
         (fun loss silence loudness adv ->
-          match loss with
-          | None -> Settings.{ loss = a.loss; silence; loudness; adv }
-          | Some loss -> Settings.{ loss; silence; loudness; adv } )
+           match loss with
+           | None -> Settings.{ loss = a.loss; silence; loudness; adv }
+           | Some loss -> Settings.{ loss; silence; loudness; adv } )
         loss_field#s_input sil_s loud_s adv_s in
     box, signal
 
@@ -338,7 +340,7 @@ module Settings = struct
     let v, v_s = make_video s.video in
     let a, a_s = make_audio s.audio in
     let s =
-      React.S.l2 ~eq:(Equal.option Settings.equal)
+      S.l2 ~eq:(Equal.option Settings.equal)
         (fun v a -> Some Settings.{ video = v; audio = a; }) v_s a_s in
     let box =
       new Vbox.t
@@ -349,8 +351,8 @@ module Settings = struct
     box, s
 
   let make ~(init : Settings.t)
-        ~(event : Settings.t React.event)
-        () : (Settings.t, unit) Ui_templates.Types.settings_block =
+      ~(event : Settings.t event)
+      () : Settings.t Ui_templates.Types.settings_block =
     let div = Widget.create_div () in
     let make (set : Settings.t) =
       let dis, s = make_layout set in
@@ -359,18 +361,18 @@ module Settings = struct
     in
     let eq = Equal.option Settings.equal in
     let eq_s =
-      Equal.pair Widget.equal (React.S.equal ~eq) in
-    let s_in = React.S.hold ~eq:Settings.equal init event in
-    let s_div = React.S.map ~eq:eq_s (fun s -> make s) s_in in
+      Equal.pair Widget.equal (S.equal ~eq) in
+    let s_in = S.hold ~eq:Settings.equal init event in
+    let s_div = S.map ~eq:eq_s (fun s -> make s) s_in in
     let s  =
-      React.S.switch ~eq
-        (React.S.map ~eq:(React.S.equal ~eq)
+      S.switch ~eq
+        (S.map ~eq:(S.equal ~eq)
            (fun n ->
-             div#set_empty ();
-             let w, n_s = n in
-             div#append_child w;
-             n_s) s_div)
+              div#set_empty ();
+              let w, n_s = n in
+              div#append_child w;
+              n_s) s_div)
     in
-    let post = Requests_settings.HTTP.set in
+    let post = Pipeline_api_js.Api_settings.set in
     div, s, post
 end

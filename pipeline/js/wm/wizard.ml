@@ -3,6 +3,9 @@ open Components
 open Basic_widgets
 open Application_types
 open Pipeline_types
+open Pipeline_api_js
+
+let ( >>= ) = Lwt.( >>= )
 
 type channel =
   { stream : Stream.ID.t
@@ -415,9 +418,18 @@ let to_layout ~resolution ~widgets signal =
  * it returns dialog, react event and a fun showing dialog *)
 
 let to_content (wm : Wm.t) =
-  let open Lwt_result.Infix in
-  Requests_structure.HTTP.get_applied_with_source ()
-  >|= (fun init ->
+  Api_structure.get_streams_with_source ~applied:true ()
+  >>= function
+  | Error e -> Lwt.return_error @@ Api_js.Http.error_to_string e
+  | Ok init ->
+    let s, set_s = React.S.create ~eq:(List.equal Structure.equal_packed) init in
+    Api_structure.Event.get_streams_with_source ~applied:true
+      ~f:(fun _ -> function
+          | Ok x -> set_s x
+          | Error _ -> ()) ()
+    >>= function
+    | Error e -> Lwt.return_error e
+    | Ok socket ->
       let open Wm in
       let widgets = List.filter_map (fun (name, (widget : widget)) ->
           match (widget.domain : domain) with
@@ -425,9 +437,7 @@ let to_content (wm : Wm.t) =
             Some ((name, widget),
                   ({ stream; channel } : channel))
           | (Nihil : domain) -> None) wm.widgets in
-      let ev, _  = Requests_structure.WS.get_applied_with_source () in
-      let struct_signal = React.S.hold init ev in
-      let checkboxes, tree = Branches.make_streams widgets struct_signal in
+      let checkboxes, tree = Branches.make_streams widgets s in
       let box = new Vbox.t ~widgets:[tree#widget] () in
       let set = fun () ->
         let wds =
@@ -451,9 +461,8 @@ let to_content (wm : Wm.t) =
                   && widget_type_equal (snd wdg).type_ typ) widgets with
               | [] -> acc
               | l  -> l @ acc) [] wds in
-        to_layout ~resolution:wm.resolution ~widgets struct_signal in
-      box, set)
-  |> Lwt_result.map_err Api_js.Requests.err_to_string
+        to_layout ~resolution:wm.resolution ~widgets s in
+      Lwt.return_ok (box, set)
 
 let to_dialog (wm : Wm.t) push =
   let thread = to_content wm in

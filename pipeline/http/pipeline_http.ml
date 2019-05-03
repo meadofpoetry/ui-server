@@ -73,26 +73,16 @@ let handlers (api : Pipeline_protocol.Protocol.api) =
               ~meth:`GET
               ~path:Path.Format.empty
               ~query:Query.[ "id", (module List(Stream.ID))
-                           ; "input", (module List(Topology.Show_topo_input))  ]
+                           ; "input", (module List(Topology.Show_topo_input))
+                           ; "applied", (module Option(Bool)) ]
               (Pipeline_api_structures.get_streams api)
-          ; node ~doc:"Applied streams"
-              ~meth:`GET
-              ~path:Path.Format.("applied" @/ empty)
-              ~query:Query.[ "id", (module List(Stream.ID))
-                           ; "input", (module List(Topology.Show_topo_input)) ]
-              (Pipeline_api_structures.get_streams_applied api)
           ; node ~doc:"Streams with source"
               ~meth:`GET
-              ~path:Path.Format.("with_source" @/ empty)
+              ~path:Path.Format.("with-source" @/ empty)
               ~query:Query.[ "id", (module List(Stream.ID))
-                               ; "input", (module List(Topology.Show_topo_input))  ]
+                           ; "input", (module List(Topology.Show_topo_input))
+                           ; "applied", (module Option(Bool)) ]
               (Pipeline_api_structures.get_streams_with_source api)
-          ; node ~doc:"Applied streams with source"
-              ~meth:`GET
-              ~path:Path.Format.("applied_with_source" @/ empty)
-              ~query:Query.[ "id", (module List(Stream.ID))
-                           ; "input", (module List(Topology.Show_topo_input)) ]
-              (Pipeline_api_structures.get_streams_applied_with_source api)
           ; node ~doc:"Apply streams"
               ~restrict:[`Guest]
               ~meth:`POST
@@ -148,22 +138,14 @@ let ws (api : Pipeline_protocol.Protocol.api) =
           [ node ~doc:"Streams websocket"
               ~path:Path.Format.empty
               ~query:Query.[ "id", (module List(Stream.ID))
-                           ; "input", (module List(Topology.Show_topo_input)) ]
+                           ; "input", (module List(Topology.Show_topo_input))
+                           ; "applied", (module Option(Bool)) ]
               (Pipeline_api_structures.Event.get_streams api)
-          ; node ~doc:"Applied streams websocket"
-              ~path:Path.Format.("applied" @/ empty)
-              ~query:Query.[ "id",    (module List(Stream.ID))
-                           ; "input", (module List(Topology.Show_topo_input)) ]
-              (Pipeline_api_structures.Event.get_applied api)
           ; node ~doc:"Streams with source websocket"
-              ~path:Path.Format.("with_source" @/ empty)
-              ~query:Query.[ "id",    (module List(Stream.ID))
-                           ; "input", (module List(Topology.Show_topo_input)) ]
-              (Pipeline_api_structures.Event.get_streams_packed api)
-          ; node ~doc:"Applied streams with source websocket"
-              ~path:Path.Format.("applied_with_source" @/ empty)
-              ~query:Query.[ "id",    (module List(Stream.ID))
-                           ; "input", (module List(Topology.Show_topo_input)) ]
+              ~path:Path.Format.("with-source" @/ empty)
+              ~query:Query.[ "id", (module List(Stream.ID))
+                           ; "input", (module List(Topology.Show_topo_input))
+                           ; "applied", (module Option(Bool)) ]
               (Pipeline_api_structures.Event.get_streams_packed api)
           ]
       ; make ~prefix:"measurements"

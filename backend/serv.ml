@@ -18,7 +18,7 @@ module Settings = struct
            ; port : int
            } [@@deriving yojson]
   let default = { path = Filename.concat Filename.current_dir_name "resources"
-                ; port = 7777
+                ; port = 8080
                 }
   let domain = "server"
   let of_string s =

@@ -1,11 +1,13 @@
 open Js_of_ocaml
 open Containers
 open Components
-open Lwt_result.Infix
 open Wm_types
 open Basic_widgets
 open Container
 open Pipeline_types
+open Pipeline_api_js
+
+let ( >>= ) = Lwt.( >>= )
 
 type container_grids =
   { rect : Wm.position
@@ -443,43 +445,38 @@ let create ~(init : Wm.t)
   cont.ig#append_child wz_dlg;
   [lc; mc; rc]
 
-class t () = object(self)
-  val mutable sock : WebSockets.webSocket Js.t option = None
-  inherit Layout_grid.t ~cells:[] () as super
+let post = fun w ->
+  Api_wm.set_layout w
+  >>= function
+  | Ok () -> Lwt.return ()
+  | Error e ->
+    print_endline @@ Api_js.Http.error_to_string e;
+    Lwt.return ()
 
-  method! init () : unit =
-    super#init ();
-    super#add_class "wm";
-    self#set_on_load @@ Some self#on_load;
-    self#set_on_unload @@ Some self#on_unload;
+let on_data (grid : Layout_grid.t) wm =
+  grid#inner#set_empty ();
+  let cells =
+    try create ~init:wm ~post ()
+    with e -> Printf.printf "error: %s\n" @@ Printexc.to_string e; [] in
+  List.iter grid#inner#append_child cells
 
-  method private on_load () =
-    Requests_wm.HTTP.get_layout ()
-    >>= (fun wm ->
-      let e_wm, wm_sock = Requests_wm.WS.get () in
-      let post = fun w ->
-        Lwt.Infix.(
-          Requests_wm.HTTP.apply_layout w
-          >|= (function
-               | Ok () -> ()
-               | Error _ -> print_endline @@ "error post wm")) in
-      let _ =
-        React.S.map (fun (s : Wm.t) ->
-            self#inner#set_empty ();
-            let cells =
-              try
-                create ~init:s ~post ()
-              with e ->
-                Printf.printf "error: %s\n" @@ Printexc.to_string e;
-                [] in
-            List.iter self#inner#append_child cells)
-          (React.S.hold wm e_wm) in
-      sock <- Some wm_sock;
-      Lwt_result.return ())
-    |> Lwt.ignore_result
-
-  method private on_unload () =
-    Option.iter (fun x -> x##close; sock <- None) sock
-end
-
-let page () = new t ()
+let page () =
+  let grid = new Layout_grid.t ~cells:[] () in
+  let t =
+    Api_wm.get_layout ()
+    >>= function
+    | Error e -> Lwt.return_error @@ Api_js.Http.error_to_string e
+    | Ok wm ->
+      on_data grid wm;
+      Api_wm.Event.get ~f:(fun _ ->
+          function
+          | Ok x -> on_data grid x
+          | Error _ -> ()) ()
+      >>= function
+      | Error e -> Lwt.return_error e
+      | Ok socket ->
+        grid#add_class "wm";
+        grid#set_on_destroy (fun () -> socket##close);
+        Lwt.return_ok grid in
+  Lwt.ignore_result t;
+  grid

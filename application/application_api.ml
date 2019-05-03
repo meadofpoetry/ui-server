@@ -28,6 +28,8 @@ module Event = struct
 
 end
 
+module Interval = Time.Interval.Make(Ptime_clock)
+
 let set_streams (app : Application.t) _user body _env _state =
   match Stream.stream_setting_of_yojson body with
   | Error e -> Lwt.return (`Error e)
@@ -61,7 +63,7 @@ let set_streams (app : Application.t) _user body _env _state =
 
   let get_log (app : Application.t) boards cpu inputs streams
         limit from till duration _user _body _env _state =
-    match Time.make_interval ?from ?till ?duration () with
+    match Interval.make ?from ?till ?duration () with
     | Ok `Range (from, till) ->
        Database.Log.select app.db ~boards ~cpu ~inputs ~streams
          ?limit ~from ~till ()
