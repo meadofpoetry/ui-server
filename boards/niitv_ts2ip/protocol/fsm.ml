@@ -1,18 +1,13 @@
 open Board_niitv_ts2ip_types
+open Application_types
 
-type api_msg = (Request.msg Lwt_stream.t -> unit Lwt.t) * (Request.error -> unit)
+type api_msg = (Request.msg Lwt_stream.t -> unit Lwt.t)
 
 let ( >>= ) = Lwt.( >>= )
 
 let cooldown_timeout = 10.
 
-let take_drop (n : int) (l : 'a list) =
-  let rec aux i acc = function
-    | [] -> List.rev acc, []
-    | l when i = 0 -> List.rev acc, l
-    | hd :: tl -> aux (pred i) (hd :: acc) tl
-  in
-  aux n [] l
+let status_timeout = 3.
 
 let log_ok (type a) src (req : a Request.t) v =
   Logs.debug ~src (fun m ->
@@ -53,48 +48,154 @@ let request (type a)
     (req : a Request.t) : (a, Request.error) result Lwt.t =
   sender @@ Serializer.make_req req
   >>= fun () ->
-  Lwt.pick [loop stream req; sleep (Request.timeout req)]
+  (match req with
+   | Get_devinfo -> Lwt.pick [loop stream req; sleep (Request.timeout req)]
+   | Set_mode_main _ -> Lwt.return_ok ()
+   | Set_mode_aux_1 _ -> Lwt.return_ok ()
+   | Set_mode_aux_2 _ -> Lwt.return_ok ()
+   | Set_mac _ -> Lwt.return_ok ())
   >>= function
   | Error e -> log_error src req e; Lwt.return_error e
   | Ok x -> log_ok src req x; Lwt.return_ok x
-
-let request_instant (type a)
-    (sender : Cstruct.t -> unit Lwt.t)
-    (req : unit Request.t) : unit Lwt.t =
-  sender @@ Serializer.make_req req
 
 let start (src : Logs.src)
     (sender : Cstruct.t -> unit Lwt.t)
     (req_queue : api_msg Lwt_stream.t)
     (rsp_queue : Request.msg Lwt_stream.t)
     (kv : config Kv_v.rw)
-    (set_state : Application_types.Topology.state -> unit) =
+    (set_state : Application_types.Topology.state -> unit)
+    (set_devinfo : devinfo -> unit)
+    (set_device_status : device_status -> unit)
+    (set_transmitter_status : transmitter_status -> unit) =
 
   let (module Logs : Logs.LOG) = Logs.src_log src in
 
+  let log_udp_transmitters start = function
+    | [] -> ()
+    | l ->
+      let stop = start + List.length l in
+      Logs.debug (fun m -> m "Setting UDP transmitters (%d - %d):" start stop);
+      List.iteri (fun i (x : udp_mode) ->
+          Logs.debug (fun m ->
+              m "Setting UDP transmitter %d: stream = %s, IP = %a, \
+                 port = %d, self port = %d, enabled = %b, socket = %s"
+                (start + i)
+                (Application_types.Stream.Multi_TS_ID.show x.stream)
+                Netlib.Ipaddr.V4.pp x.dst_ip
+                x.dst_port x.self_port x.enabled
+                (socket_to_string x.socket))) l in
+
   let rec first_step () =
     Logs.info (fun m -> m "Start of connection establishment...");
-    let msgs' = Lwt_stream.get_available req_queue in
-    List.iter (fun (_, stop) -> stop Request.Not_responding) msgs';
     Lwt_stream.junk_old req_queue
-    >>= fun () ->
-    set_state `No_response;
-    detect_device ()
-    >>= init_device
+    >>= fun () -> Lwt_stream.junk_old rsp_queue
+    >>= fun () -> set_state `No_response; detect_device ()
 
   and restart () =
-    Lwt_unix.sleep cooldown_timeout >>= first_step
+    Logs.info (fun m -> m "Restarting...");
+    set_state `No_response;
+    Lwt_stream.junk_old req_queue
+    >>= fun () -> Lwt_stream.junk_old rsp_queue
+    >>= fun () -> Lwt_unix.sleep cooldown_timeout
+    >>= first_step
 
   and detect_device () =
-    Lwt.return ()
+    let rec loop () =
+      Lwt_stream.next rsp_queue
+      >>= function
+      | { tag = `Status; _ } -> request src rsp_queue sender Request.Get_devinfo
+      | { tag = `Devinfo_rsp; data } -> Lwt.return @@ Parser.parse_devinfo data
+      | _ -> loop () in
+    loop ()
+    >>= function
+    | Ok x -> init_device x
+    | Error e ->
+      Logs.err (fun m ->
+          m "Got error during detect step: %s"
+          @@ Request.error_to_string e);
+      restart ()
 
-  and init_device () =
+  and init_device (info : devinfo) =
+    set_state `Init;
+    set_devinfo info;
+    Logs.info (fun m -> m "Connection established, device initialization started...");
     kv#get
     >>= fun { mac; mode } ->
-    request_instant sender (Set_mac mac)
-    >>= fun () ->
-    let main_pkrs, rest_pkrs = take_drop Message.n_udp_main mode.udp in
-    request_instant sender (Set_mode_main { mode with udp = main_pkrs })
-    >>= restart
+    Logs.debug (fun m -> m "Setting MAC address: %a" Netlib.Macaddr.pp mac);
+    Lwt_result.Infix.(
+      request src rsp_queue sender Request.(Set_mac mac)
+      >>= fun () ->
+      let mode, aux_1, aux_2 = Request.split_mode mode in
+      Logs.debug (fun m ->
+          m "Setting network: IP = %a, mask = %a, gateway = %a"
+            Netlib.Ipaddr.V4.pp mode.network.ip
+            Netlib.Ipaddr.V4.pp mode.network.mask
+            Netlib.Ipaddr.V4.pp mode.network.gateway);
+      log_udp_transmitters 0 mode.udp;
+      request src rsp_queue sender Request.(Set_mode_main mode)
+      >>= fun () ->
+      log_udp_transmitters Message.n_udp_main aux_1;
+      request src rsp_queue sender Request.(Set_mode_aux_1 aux_1)
+      >>= fun () ->
+      log_udp_transmitters Message.(n_udp_main + n_udp_aux) aux_2;
+      request src rsp_queue sender Request.(Set_mode_aux_2 aux_2))
+    >>= function
+    | Error e ->
+      Logs.err (fun m ->
+          m "Got error during init step: %s"
+          @@ Request.error_to_string e);
+      restart ()
+    | Ok () ->
+      Lwt_stream.junk_old rsp_queue
+      >>= fun () ->
+      set_state `Fine;
+      Logs.info (fun m -> m "Initialization done!");
+      idle ()
+
+  and idle ?timer () =
+    let rec loop () =
+      Lwt_stream.next rsp_queue
+      >>= function
+      | { tag = `Devinfo_rsp; _ } -> Lwt.return `Devinfo
+      | { tag = `Status; data } ->
+        (match Parser.parse_status data with
+         | Ok x -> Lwt.return (`S x)
+         | Error e ->
+           Logs.warn (fun m ->
+               m "Status parsing failed: %s" @@ Request.error_to_string e);
+           loop ())
+      | _ -> loop () in
+    let timer = match timer with
+      | Some x -> x
+      | None -> Lwt_unix.sleep status_timeout >>= fun () -> Lwt.return `Tm in
+    let wait_status = loop () in
+    let wait_client = Lwt_stream.next req_queue >>= fun x -> Lwt.return (`R x) in
+    Lwt.choose [wait_status; wait_client; timer]
+    >>= function
+    | `R x -> Lwt.cancel wait_status; send_client_request timer x
+    | `S (d, t) ->
+      Lwt.cancel wait_client;
+      set_device_status d;
+      set_transmitter_status t;
+      idle ()
+    | `Devinfo ->
+      Lwt.cancel wait_client;
+      Logs.err (fun m ->
+          m "Seems that the device has been reset, \
+             got device info during operation");
+      restart ()
+    | `Tm ->
+      Lwt.cancel wait_client;
+      Lwt.cancel wait_status;
+      Logs.err (fun m ->
+          m "Seems that the device is not responding, \
+             got no status for %g seconds" status_timeout);
+      restart ()
+
+  and send_client_request (type a) timer send =
+    let stream = Lwt_stream.filter (function
+        | { Request. tag = `Status; _ } -> false
+        | _ -> true) rsp_queue in
+    send stream >>= idle ~timer
   in
   first_step

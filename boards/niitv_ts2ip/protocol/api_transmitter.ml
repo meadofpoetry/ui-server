@@ -1,114 +1,106 @@
-(* open Containers
- * open Board_protocol
- * open Board_types
- * open Api.Interaction.Json
- * open Board_api_common
- * open Common
- * 
- * module WS = struct
- * 
- *   open Api.Socket
- * 
- *   let status (events : events) _ body sock_data () =
- *     handler socket_table sock_data events.status status_to_yojson body
- * 
- *   let mode (events : events) _ body sock_data () =
- *     let e = React.E.map (fun (x : config) -> x.packers)
- *             @@ React.S.changes events.config in
- *     handler socket_table sock_data e (Json.List.to_yojson packer_settings_to_yojson) body
- * 
- *   let in_streams (events : events) _ body sock_data () =
- *     let e = React.S.changes events.in_streams in
- *     handler socket_table sock_data e (Json.List.to_yojson Stream.to_yojson) body
- * 
- *   let out_streams (events : events) _ body sock_data () =
- *     let e = React.S.changes events.out_streams in
- *     handler socket_table sock_data e (Json.List.to_yojson Stream.to_yojson) body
- * 
- * end
- * 
- * module HTTP = struct
- * 
- *   let set_mode (api : api) _ body () =
- *     of_body body >>= fun json ->
- *     (match (Json.List.of_yojson stream_settings_of_yojson) json with
- *      | Error e -> Lwt_result.fail @@ of_error_string e
- *      | Ok mode -> api.set_packers mode
- *                   |> Lwt_result.map_err packers_error_to_yojson)
- *     >>= respond_result_unit
- * 
- *   let set_streams (api : api) _ body () =
- *     of_body body >>= fun json ->
- *     (match (Json.List.of_yojson Stream.of_yojson) json with
- *      | Error e -> Lwt_result.fail @@ of_error_string e
- *      | Ok s    -> api.set_streams s
- *                   |> Lwt_result.map_err packers_error_to_yojson)
- *     >>= respond_result_unit
- * 
- *   let get_mode (api : api) _ _ () =
- *     (api.config ()).packers |> Json.List.to_yojson packer_settings_to_yojson
- *     |> Result.return |> respond_result
- * 
- *   let get_in_streams (api : api) _ _ () =
- *     api.in_streams () |> Json.List.to_yojson Stream.to_yojson
- *     |> Result.return |> respond_result
- * 
- *   let get_out_streams (api : api) _ _ () =
- *     api.out_streams () |> Json.List.to_yojson Stream.to_yojson
- *     |> Result.return |> respond_result
- * 
- *   let get_status (api : api) _ _ () =
- *     api.status () |> Json.Option.to_yojson status_to_yojson
- *     |> Result.return |> respond_result
- * 
- * end
- * 
- * let handler api events =
- *   let open Uri in
- *   let open Boards.Board.Api_handler in
- *   create_dispatcher
- *     "transmitter"
- *     [ create_ws_handler ~docstring:"Notifies client when board mode is changed"
- *         ~path:Path.Format.("mode" @/ empty)
- *         ~query:Query.empty
- *         (WS.mode events)
- *     ; create_ws_handler ~docstring:"Pushes board status to the client"
- *         ~path:Path.Format.("status" @/ empty)
- *         ~query:Query.empty
- *         (WS.status events)
- *     ; create_ws_handler ~docstring:"Pushes input streams to the client"
- *         ~path:Path.Format.("streams/input" @/ empty)
- *         ~query:Query.empty
- *         (WS.in_streams events)
- *     ; create_ws_handler ~docstring:"Pushes output streams to the client"
- *         ~path:Path.Format.("streams/output" @/ empty)
- *         ~query:Query.empty
- *         (WS.out_streams events)
- *     ]
- *     [ `POST, [ create_handler ~docstring:"Sets transmitter mode"
- *                  ~path:Path.Format.("mode" @/ empty)
- *                  ~query:Query.empty
- *                  (HTTP.set_mode api)
- *              ; create_handler ~docstring:"Sets streams to transmit"
- *                  ~path:Path.Format.("streams" @/ empty)
- *                  ~query:Query.empty
- *                  (HTTP.set_streams api)
- *              ]
- *     ; `GET,  [ create_handler ~docstring:"Returns current transmitter mode"
- *                  ~path:Path.Format.("mode" @/ empty)
- *                  ~query:Query.empty
- *                  (HTTP.get_mode api)
- *              ; create_handler ~docstring:"Returns latest board status to the client, if any"
- *                  ~path:Path.Format.("status" @/ empty)
- *                  ~query:Query.empty
- *                  (HTTP.get_status api)
- *              ; create_handler ~docstring:"Returns input streams to the client"
- *                  ~path:Path.Format.("streams/input" @/ empty)
- *                  ~query:Query.empty
- *                  (HTTP.get_in_streams api)
- *              ; create_handler ~docstring:"Returns output streams to the client"
- *                  ~path:Path.Format.("streams/output" @/ empty)
- *                  ~query:Query.empty
- *                  (HTTP.get_out_streams api)
- *              ]
- *     ] *)
+open Board_niitv_ts2ip_types
+open Application_types
+
+let ( >>= ) = Lwt.( >>= )
+
+module Event = struct
+  open Util_react
+
+  let get_status (api : Protocol.api) _user _body _env state =
+    let event =
+      E.map transmitter_status_to_yojson
+        api.notifs.transmitter_status in
+    Lwt.return (`Ev (state, event))
+
+  let get_incoming_streams (api : Protocol.api) _user _body _env state =
+    let event =
+      E.map Util_json.(List.to_yojson Stream.to_yojson)
+      @@ React.S.changes api.notifs.incoming_streams in
+    Lwt.return (`Ev (state, event))
+
+  let get_outgoing_streams (api : Protocol.api) _user _body _env state =
+    let event =
+      E.map Util_json.(List.to_yojson Stream.to_yojson)
+      @@ React.S.changes api.notifs.outgoing_streams in
+    Lwt.return (`Ev (state, event))
+
+  let get_mode (api : Protocol.api) _user _body _env state =
+    let event =
+      E.map (fun (x : config) ->
+          Util_json.List.to_yojson udp_mode_to_yojson x.mode.udp)
+      @@ React.S.changes api.notifs.config in
+    Lwt.return (`Ev (state, event))
+
+end
+
+let get_status (api : Protocol.api) _user _body _env _state =
+  match React.S.value api.notifs.state with
+  | `No_response | `Init ->
+    let error = Request.error_to_string Not_responding in
+    Lwt.return (`Error error)
+  | `Fine ->
+    Lwt.pick
+      [ Protocol.await_no_response api.notifs.state
+      ; (Util_react.E.next api.notifs.transmitter_status
+         >>= fun x -> Lwt.return_ok x)
+      ]
+    >>= function
+    | Error e -> Lwt.return (`Error (Request.error_to_string e))
+    | Ok x -> Lwt.return (`Value (transmitter_status_to_yojson x))
+
+let get_incoming_streams (api : Protocol.api) _user _body _env _state =
+  let streams = React.S.value api.notifs.incoming_streams in
+  Lwt.return (`Value Util_json.(List.to_yojson Stream.to_yojson streams))
+
+let get_outgoing_streams (api : Protocol.api) _user _body _env _state =
+  let streams = React.S.value api.notifs.outgoing_streams in
+  Lwt.return (`Value Util_json.(List.to_yojson Stream.to_yojson streams))
+
+let set_streams (api : Protocol.api) _user body _env _state =
+  match Util_json.List.of_yojson Stream.of_yojson body with
+  | Error e -> Lwt.return (`Error e)
+  | Ok streams ->
+    let devinfo = React.S.value api.notifs.devinfo in
+    match Streams_setup.simple api.ports devinfo streams with
+    | Error e -> Lwt.return (`Error (Stream.Table.set_error_to_string e))
+    | Ok udp ->
+      api.kv#get
+      >>= fun config ->
+      let mode = { config.mode with udp } in
+      let main, aux_1, aux_2 = Request.split_mode mode in
+      Lwt_result.Infix.(
+        api.channel (Request.Set_mode_main main)
+        >>= fun () -> api.channel (Request.Set_mode_aux_1 aux_1)
+        >>= fun () -> api.channel (Request.Set_mode_aux_2 aux_2)
+        >>= fun () -> Lwt.return_ok mode)
+      >>= function
+      | Error e -> Lwt.return (`Error (Request.error_to_string e))
+      | Ok mode ->
+        api.kv#set { config with mode }
+        >>= fun () -> Lwt.return `Unit
+
+let set_mode (api : Protocol.api) _user body _env _state =
+  match Util_json.List.of_yojson udp_mode_of_yojson body with
+  | Error e -> print_endline e; Lwt.return (`Error e)
+  | Ok mode ->
+    let devinfo = React.S.value api.notifs.devinfo in
+    match Streams_setup.full devinfo mode with
+    | Error e -> Lwt.return (`Error (Stream.Table.set_error_to_string e))
+    | Ok udp ->
+      api.kv#get
+      >>= fun config ->
+      let mode = { config.mode with udp } in
+      let main, aux_1, aux_2 = Request.split_mode mode in
+      print_endline
+      @@ Yojson.Safe.pretty_to_string
+      @@ Util_json.List.to_yojson udp_mode_to_yojson main.udp;
+      Lwt_result.Infix.(
+        api.channel (Request.Set_mode_main main)
+        >>= fun () -> api.channel (Request.Set_mode_aux_1 aux_1)
+        >>= fun () -> api.channel (Request.Set_mode_aux_2 aux_2)
+        >>= fun () -> Lwt.return_ok mode)
+      >>= function
+      | Error e -> Lwt.return (`Error (Request.error_to_string e))
+      | Ok mode ->
+        api.kv#set { config with mode }
+        >>= fun () -> Lwt.return `Unit

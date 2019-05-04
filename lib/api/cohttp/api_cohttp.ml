@@ -161,7 +161,9 @@ end = struct
           | `Instant resp ->
              resp
           | `Value body ->
-             respond_string (Body.to_string body) ()
+            respond_string
+              ~headers:(Cohttp.Header.of_list ["Content-Type", Body.content_type])
+              (Body.to_string body) ()
           | `Unit ->
              respond_string "" () (* TODO there should be something better that string *)
           | `Not_implemented ->

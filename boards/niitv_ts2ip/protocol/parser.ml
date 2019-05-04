@@ -11,6 +11,9 @@ let error_to_string = function
   | Invalid_msg_code x -> "invalid code: " ^ (string_of_int x)
   | Insufficient_payload _ -> "insufficient payload"
 
+let cons_if b v l =
+  if b then v :: l else l
+
 let parse_devinfo (buf : Cstruct.t) =
   try
     let ver = Message.get_rsp_devinfo_ver buf in
@@ -49,26 +52,36 @@ let parse_status_data (buf : Cstruct.t) =
   List.rev @@ Cstruct.fold (fun acc x -> x :: acc) iter []
 
 let parse_status (buf : Cstruct.t) =
-  let data = Message.get_status_data buf in
-  let phy = Message.get_status_phy buf in
-  let input = Message.get_status_input buf in
-  let speed =
-    if phy land 0x06 > 0 then Speed_1000
-    else if phy land 0x0A > 0 then Speed_100
-    else if phy land 0x12 > 0 then Speed_10
-    else Speed_failure in
-  let brd =
-    { phy = phy land 1 > 0
-    ; link = phy land 0x20 > 0
-    ; speed
-    ; spi_1 = (input land 0x01) > 0
-    ; spi_2 = (input land 0x02) > 0
-    ; spi_3 = (input land 0x04) > 0
-    ; asi_1 = (input land 0x08) > 0
-    ; asi_2 = (input land 0x10) > 0
-    ; udp = parse_status_data data
-    } in
-  brd
+  try
+    let data = Message.get_status_data buf in
+    let phy = Message.get_status_phy buf in
+    let input = Message.get_status_input buf in
+    let speed =
+      if phy land 0x06 > 0 then Speed_1000
+      else if phy land 0x0A > 0 then Speed_100
+      else if phy land 0x12 > 0 then Speed_10
+      else Speed_failure in
+    let sync =
+      []
+      |> cons_if ((input land 0x01) > 0) SPI_1
+      |> cons_if ((input land 0x02) > 0) SPI_2
+      |> cons_if ((input land 0x04) > 0) SPI_3
+      |> cons_if ((input land 0x08) > 0) ASI_1
+      |> cons_if ((input land 0x10) > 0) ASI_2 in
+    let timestamp = Ptime_clock.now () in
+    let device_status =
+      { phy = phy land 1 > 0
+      ; link = phy land 0x20 > 0
+      ; speed
+      ; sync
+      ; timestamp
+      } in
+    let transmitter_status =
+      { udp = parse_status_data data
+      ; timestamp
+      } in
+    Ok (device_status, transmitter_status)
+  with Invalid_argument _ -> Error Request.Invalid_length
 
 let check_prefix (buf : Cstruct.t) =
   try
@@ -104,7 +117,7 @@ let deserialize (src : Logs.src) (buf : Cstruct.t) =
         match e with
         | Insufficient_payload x -> (responses, x)
         | e ->
-          Logs.warn ~src (fun m -> m "parser error: %s" @@ error_to_string e);
+          Logs.err ~src (fun m -> m "parser error: %s" @@ error_to_string e);
           aux responses (Cstruct.shift buf 1)
     else (responses, buf)
   in
@@ -112,10 +125,13 @@ let deserialize (src : Logs.src) (buf : Cstruct.t) =
   List.rev responses,
   if Cstruct.len rest > 0 then Some rest else None
 
-(* FIXME implement *)
-let is_response (type a) (req : a Request.t) _ : (a, Request.error) result option =
+let is_response (type a) (req : a Request.t)
+    (msg : Request.msg) : (a, Request.error) result option =
   match req with
-  | Get_devinfo -> None
+  | Get_devinfo ->
+    (match msg.tag with
+     | `Devinfo_rsp -> Some (parse_devinfo msg.data)
+     | _ -> None)
   | Set_mode_main _ -> None
   | Set_mode_aux_1 _ -> None
   | Set_mode_aux_2 _ -> None

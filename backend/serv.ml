@@ -11,13 +11,14 @@ module Api_http = Api_cohttp.Make(Application_types.User)(Application_types.Body
 let ( % ) = Fun.( % )
 
 let resource base uri =
-  Cohttp_lwt_unix.Server.respond_file ~fname:(Filename.concat base uri) ()
- 
+  let fname = Filename.concat base uri in
+  Cohttp_lwt_unix.Server.respond_file ~fname ()
+
 module Settings = struct
   type t = { path : string
            ; port : int
            } [@@deriving yojson]
-  let default = { path = Filename.concat Filename.current_dir_name "resources"
+  let default = { path = Filename.concat Filename.current_dir_name "dist/resources"
                 ; port = 8080
                 }
   let domain = "server"

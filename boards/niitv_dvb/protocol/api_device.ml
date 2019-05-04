@@ -43,19 +43,6 @@ let reset (api : Protocol.api) _user _body _env _state =
   | Ok x -> Lwt.return (`Value Util_json.(info_to_yojson x))
   | Error e -> Lwt.return @@ `Error (Request.error_to_string e)
 
-let set_mode (api : Protocol.api) id _user body _env _state =
-  match mode_of_yojson body with
-  | Error e -> Lwt.return (`Error e)
-  | Ok mode ->
-    api.channel (Set_mode (id, mode))
-    >>= function
-    | Ok x ->
-      api.kv#get
-      >>= fun config ->
-      api.kv#set @@ Boards.Util.List.Assoc.set ~eq:(=) id mode config
-      >>= fun () -> Lwt.return @@ `Value (mode_rsp_to_yojson @@ snd x)
-    | Error e -> Lwt.return @@ `Error (Request.error_to_string e)
-
 let get_state (api : Protocol.api) _user _body _env _state =
   let value = Topology.state_to_yojson @@ React.S.value api.notifs.state in
   Lwt.return (`Value value)

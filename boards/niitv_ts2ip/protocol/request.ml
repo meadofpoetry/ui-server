@@ -20,7 +20,7 @@ type tag =
   | `MAC
   | `Mode
   | `Status
-  ]
+  ] [@@deriving eq, show]
 
 type msg =
   { tag : tag
@@ -46,10 +46,9 @@ let timeout (type a) : a t -> float = function
   | Set_mode_aux_2 _ -> 0.
   | Set_mac _ -> 0.
 
-(* FIXME implement *)
-let value_to_string (type a) (t : a t) (_ : a) : string option =
+let value_to_string (type a) (t : a t) (v : a) : string option =
   match t with
-  | Get_devinfo -> None
+  | Get_devinfo -> Some (devinfo_to_string v)
   | Set_mode_main _ -> None
   | Set_mode_aux_1 _ -> None
   | Set_mode_aux_2 _ -> None
@@ -90,3 +89,16 @@ let tag_to_data_size : tag -> int = function
   | `Mode -> Message.sizeof_req_mode_main
   | `MAC -> Message.sizeof_req_factory_mode
   | `Devinfo_req -> 0
+
+let take_drop (n : int) (l : 'a list) =
+  let rec aux i acc = function
+    | [] -> List.rev acc, []
+    | l when i = 0 -> List.rev acc, l
+    | hd :: tl -> aux (pred i) (hd :: acc) tl
+  in
+  aux n [] l
+
+let split_mode (mode : mode) =
+  let main_pkrs, aux = take_drop Message.n_udp_main mode.udp in
+  let aux_1, aux_2 = take_drop Message.n_udp_aux aux in
+  { mode with udp = main_pkrs }, aux_1, aux_2

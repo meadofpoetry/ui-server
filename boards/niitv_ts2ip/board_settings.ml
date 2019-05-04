@@ -12,9 +12,11 @@ let default =
   { Board_niitv_ts2ip_types.
     mac = Macaddr.of_string_exn "00:50:c2:88:50:ab"
   ; mode =
-      { ip = Ipaddr.V4.make 192 168 0 1
-      ; mask = Ipaddr.V4.make 255 255 255 0
-      ; gateway = Ipaddr.V4.make 192 168 0 1
+      { network =
+          { ip = Ipaddr.V4.make 192 168 0 1
+          ; mask = Ipaddr.V4.make 255 255 255 0
+          ; gateway = Ipaddr.V4.make 192 168 0 1
+          }
       ; udp = []
       }
   }

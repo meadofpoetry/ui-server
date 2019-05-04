@@ -385,7 +385,7 @@ let rec get_input (s : t) : topo_input option =
   | Entry Input i -> Some i
   | Entry Board _ -> None
 
-let to_topo_port (b : topo_board) (t : t) : topo_port option =
+let to_topo_port (ports : topo_port list) (t : t) : topo_port option =
   let rec get_port input = function
     | [] -> None
     | hd :: tl ->
@@ -401,7 +401,7 @@ let to_topo_port (b : topo_board) (t : t) : topo_port option =
        end
   in
   get_input t >>= fun input ->
-  get_port input b.ports
+  get_port input ports
 
 module Table = struct
 
@@ -430,6 +430,13 @@ module Table = struct
     { url : Netlib.Uri.t
     ; stream : t
     } [@@deriving yojson, eq, ord]
+
+  let set_error_to_string : set_error -> string = function
+    | `Not_in_range -> "Not in range"
+    | `Forbidden -> "Forbidden"
+    | `Internal_error e -> Printf.sprintf "Internal error: %s" e
+    | `Limit_exceeded (exp, got) ->
+      Printf.sprintf "Limit of %d streams exceeded (%d)" exp got
 
 end
 

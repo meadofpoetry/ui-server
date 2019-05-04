@@ -82,7 +82,7 @@ let create (b : Topology.topo_board)
   Config.create ~default:Board_settings.default kv ["board"; (string_of_int b.control)]
   >>= fun (cfg : config Kv_v.rw) -> Lwt.return (create_logger b)
   >>= fun (src : Logs.src) ->
-  Protocol.create src send (convert_streams b) cfg b.control
+  Protocol.create src send streams (convert_streams b) cfg b.ports b.control
   >>= fun (api : Protocol.api) ->
   let state = object
     method finalize () = Lwt.return ()
@@ -126,11 +126,11 @@ let create (b : Topology.topo_board)
    * in *)
   let board =
     { Board.
-      http = []
+      http = Board_niitv_ts2ip_http.handlers b.control api
     ; ws = []
     ; templates = []
     ; control = b.control
-    ; streams_signal = api.notifs.out_streams
+    ; streams_signal = api.notifs.outgoing_streams
     ; log_source = (fun _ -> React.E.never) (* TODO implement source *)
     ; loop = api.loop
     ; push_data = api.push_data

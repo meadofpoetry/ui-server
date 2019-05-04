@@ -1,18 +1,23 @@
 open Board_niitv_ts2ip_types
 open Application_types
 
+(* TODO remove after 4.08 *)
+module List = Boards.Util.List
+
 type notifs =
   { state : Topology.state React.signal
-  ; status : status React.event
+  ; device_status : device_status React.event
+  ; transmitter_status : transmitter_status React.event
   ; devinfo : devinfo option React.signal
   ; config : config React.signal
-  ; in_streams : Stream.t list React.signal
-  ; out_streams : Stream.t list React.signal
+  ; incoming_streams : Stream.t list React.signal
+  ; outgoing_streams : Stream.t list React.signal
   }
 
 type api =
   { notifs : notifs
   ; kv : config Kv_v.rw
+  ; ports : Topology.topo_port list
   ; channel : 'a. 'a Request.t -> ('a, Request.error) Lwt_result.t
   ; loop : unit -> unit Lwt.t
   ; push_data : Cstruct.t -> unit
@@ -24,77 +29,46 @@ let ( % ) f g x = f (g x)
 
 let ( >>= ) = Lwt.Infix.( >>= )
 
-(* module Streams_setup : sig
- *   val full : Topology.topo_board ->
- *     devinfo option ->
- *     stream_settings list ->
- *     (packer_settings list,packers_error) result
- *   val simple : Topology.topo_board ->
- *     devinfo option ->
- *     Stream.t list ->
- *     (packer_settings list,packers_error) result
- * end = struct
- * 
- *   let to_packer_settings (b : Topology.topo_board)
- *       (s : stream_settings) : packer_settings option =
- *     match s.stream.orig_id, Stream.to_topo_port b s.stream with
- *     | TS_multi _, Some p ->
- *       Some { dst_ip = s.dst_ip
- *            ; dst_port = s.dst_port
- *            ; self_port = 2027
- *            ; enabled = s.enabled
- *            ; stream = s.stream
- *            ; socket = p.port }
- *     | _ -> None
- * 
- *   let full b devinfo streams =
- *     match Option.(devinfo >>= (fun x -> x.packers_num)) with
- *     | None -> Error `Undefined_limit
- *     | Some n ->
- *       let streams =
- *         List.filter (fun (s : stream_settings) ->
- *             match s.stream.orig_id with
- *             | TS_raw | TSoIP _ -> false
- *             | TS_multi _ -> true) streams in
- *       let len = List.length streams in
- *       if len > n then Error (`Limit_exceeded (n, len)) else
- *         let rec pack acc = function
- *           | [] -> acc
- *           | h :: tl ->
- *             begin match to_packer_settings b h with
- *               | Some pkr -> pack (pkr :: acc) tl
- *               | None -> pack acc tl
- *             end
- *         in
- *         Ok (pack [] streams)
- * 
- *   let succ_mcast addr =
- *     Int32.add (Ipaddr.V4.to_int32 addr) 1l
- *     |> Ipaddr.V4.of_int32
- * 
- *   let simple b devinfo streams =
- *     let settings =
- *       let rec pack dst_ip dst_port acc = function
- *         | [ ] -> acc
- *         | stream :: tl ->
- *           let s = { dst_ip; dst_port; enabled = true; stream } in
- *           pack (succ_mcast dst_ip) (succ dst_port) (s :: acc) tl
- *       in pack (Ipaddr.V4.make 224 1 2 2) 1234 [] streams
- *     in full b devinfo settings
- * 
- * end *)
+let await_no_response state =
+  Util_react.(
+    E.next
+    @@ E.fmap (function
+        | `Init | `No_response -> Some (Error Request.Not_responding)
+        | `Fine -> None)
+    @@ S.changes state)
 
-(* let find_stream (b : Topology.topo_board)
- *     (stream : Stream.t)
- *     (port : int)
- *     (streams : Stream.t list) =
- *   List.find_opt (fun (t : Stream.t) ->
- *       let p = Stream.to_topo_port b t in
- *       match p with
- *       | Some p when Stream.equal t stream && p.port = port -> true
- *       | _ -> false) streams
- * 
- * let to_out_streams_s (b : Topology.topo_board)
+let send (type a)
+    (src : Logs.src)
+    (state : Topology.state React.signal)
+    (push : _ Lwt_stream.bounded_push)
+    (sender : Cstruct.t -> unit Lwt.t)
+    (req : a Request.t) =
+  match React.S.value state with
+  | `Init | `No_response -> Lwt.return_error Request.Not_responding
+  | `Fine ->
+    Lwt.catch (fun () ->
+        let t, w = Lwt.task () in
+        let send = fun stream ->
+          Fsm.request src stream sender req
+          >>= fun x -> Lwt.wakeup_later w x; Lwt.return_unit in
+        Lwt.pick [await_no_response state; (push#push send >>= fun () -> t)])
+      (function
+        | Lwt.Canceled -> Lwt.return_error Request.Not_responding
+        | Lwt_stream.Full -> Lwt.return_error Request.Queue_overflow
+        | exn -> Lwt.fail exn)
+
+let find_stream (ports : Topology.topo_port list)
+    (stream : Stream.t)
+    (socket : socket)
+    (streams : Stream.t list) =
+  List.find_opt (fun (t : Stream.t) ->
+      let p = Stream.to_topo_port ports t in
+      let port = socket_to_enum socket in
+      match p with
+      | Some p when Stream.equal t stream && p.port = port -> true
+      | _ -> false) streams
+
+(* let to_out_streams_s (ports : Topology.topo_port list)
  *     (status : status React.event)
  *     (streams : Stream.t list React.signal) =
  *   let status =
@@ -103,16 +77,16 @@ let ( >>= ) = Lwt.Infix.( >>= )
  *       |> Equal.list in
  *     React.E.map (fun x -> x.packers_status) status
  *     |> React.S.hold ~eq [] in
- *   React.S.l2 ~eq:(Equal.list Stream.equal) (fun status streams ->
- *       List.fold_left (fun acc ((packer : packer_settings),
+ *   React.S.l2 ~eq:(List.equal Stream.equal) (fun status streams ->
+ *       List.fold_left (fun acc ((mode : udp_mode),
  *                                { bitrate; enabled; has_data; _ }) ->
- *                        let s = find_stream b packer.stream packer.socket streams in
+ *                        let s = find_stream ports mode.stream mode.socket streams in
  *                        match s, bitrate, enabled, has_data with
  *                        | Some s, Some _, true, true ->
  *                          let (stream : Stream.t) =
  *                            { source = s.source
- *                            ; orig_id = TSoIP { addr = packer.dst_ip
- *                                              ; port = packer.dst_port }
+ *                            ; orig_id = TSoIP { addr = mode.dst_ip
+ *                                              ; port = mode.dst_port }
  *                            ; id = s.id
  *                            ; typ = s.typ
  *                            }
@@ -120,24 +94,68 @@ let ( >>= ) = Lwt.Infix.( >>= )
  *                        | _ -> acc) [] status)
  *     status streams *)
 
+let port_to_stream (port : Topology.topo_port) =
+  match port.child with
+  | Board _ -> None
+  | Input _ ->
+    match socket_of_enum port.port with
+    | None -> None
+    | Some socket ->
+      let info = match socket with
+        | ASI_1 | ASI_2 -> Stream.Source.ASI
+        | SPI_1 | SPI_2 | SPI_3 -> SPI in
+      let id = Stream.Multi_TS_ID.make ~source_id:0 ~stream_id:0 in
+      Some (socket, { Stream.Raw.
+                      source = { info; node = Port port.port }
+                    ; id = TS_multi id
+                    ; typ = TS
+                    })
+
+let update_incoming_streams
+    (streams : Stream.t list React.signal)
+    (conv : Stream.Raw.t list React.signal -> Stream.t list React.signal)
+    (status : device_status React.event)
+    (ports : Topology.topo_port list) =
+  let inputs = List.filter_map port_to_stream ports in
+  let input_streams =
+    React.S.hold []
+    @@ React.E.fmap (fun (sync : socket list) ->
+        match List.filter_map (fun id -> List.assoc_opt id inputs) sync with
+        | [] -> None
+        | l -> Some l)
+    @@ React.E.changes ~eq:(List.equal equal_socket)
+    @@ React.E.map (fun (status : device_status) -> status.sync) status in
+  React.S.merge ~eq:(List.equal Stream.equal) (@)
+    [] [conv input_streams; streams]
+
 let create (src : Logs.src)
     (sender : Cstruct.t -> unit Lwt.t)
-    streams_conv
+    (incoming_streams : Stream.t list React.signal)
+    (streams_conv : Stream.Raw.t list React.signal -> Stream.t list React.signal)
     (kv : config Kv_v.rw)
+    (ports : Topology.topo_port list)
     (control : int) =
   let state, set_state =
     React.S.create ~eq:Topology.equal_state `No_response in
   let devinfo, set_devinfo =
     React.S.create ~eq:(Boards.Util.Option.equal equal_devinfo) None in
-  let status, set_status = React.E.create () in
-  (* let in_streams = streams in (\* FIXME add ASI streams? *\)
-   * let out_streams = to_out_streams_s board status streams in *)
+  let device_status, set_device_status = React.E.create () in
+  let transmitter_status, set_transmitter_status = React.E.create () in
+  let incoming_streams =
+    update_incoming_streams
+      incoming_streams
+      streams_conv
+      device_status
+      ports in
+  (* let out_streams = to_out_streams_s board status streams in *)
+  let outgoing_streams = React.S.const [] in
   let (notifs : notifs) =
     { state
     ; devinfo
-    ; in_streams = React.S.const []
-    ; out_streams = React.S.const []
-    ; status
+    ; incoming_streams
+    ; outgoing_streams
+    ; device_status
+    ; transmitter_status
     ; config = kv#s
     } in
   let req_queue, push_req_queue = Lwt_stream.create_bounded msg_queue_size in
@@ -152,11 +170,16 @@ let create (src : Logs.src)
       acc := new_acc;
       List.iter (fun x -> push_rsp_queue @@ Some x) parsed in
     push in
-  let channel = fun req -> assert false in (* FIXME *)
-  let loop = Fsm.start src sender req_queue rsp_queue kv set_state in
+  let channel = fun req -> send src state push_req_queue sender req in
+  let loop = Fsm.start src sender req_queue rsp_queue kv
+      set_state
+      (fun x -> set_devinfo @@ Some x)
+      set_device_status
+      set_transmitter_status in
   let api =
     { notifs
     ; loop
+    ; ports
     ; push_data
     ; channel
     ; kv

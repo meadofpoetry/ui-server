@@ -18,25 +18,23 @@ let state_of_string = function
 type input =
   | RF
   | TSOIP
-  | ASI [@@deriving show, eq, enum]
+  | ASI
+  | SPI [@@deriving show, eq, enum, ord]
 
 type process_type = string [@@deriving yojson, show, eq, ord]
-
-let compare_input l r = match l, r with
-  | RF, RF | TSOIP, TSOIP | ASI, ASI -> 0
-  | RF, _  | _, ASI -> -1
-  | ASI, _ | _, RF  -> 1
 
 let input_to_string = function
   | RF -> "RF"
   | TSOIP -> "TSOIP"
   | ASI -> "ASI"
+  | SPI -> "SPI"
 
 let input_of_string = function
-  | "RF"    -> Ok RF
+  | "RF" -> Ok RF
+  | "ASI" -> Ok ASI
+  | "SPI" -> Ok SPI
   | "TSOIP" -> Ok TSOIP
-  | "ASI"   -> Ok ASI
-  | s       -> Error ("input_of_string: bad input string: " ^ s)
+  | s -> Error ("input_of_string: bad input string: " ^ s)
 
 let input_to_yojson x = `String (input_to_string x)
 
@@ -172,6 +170,7 @@ let get_input_name (i : topo_input) =
   | RF -> to_string "RF"
   | TSOIP -> to_string "TSoIP"
   | ASI -> to_string "ASI"
+  | SPI -> to_string "SPI"
 
 let get_inputs t =
   let rec get acc = function

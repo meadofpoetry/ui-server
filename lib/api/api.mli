@@ -50,6 +50,7 @@ module type BODY = sig
   type t
   val to_string : t -> string
   val of_string : string -> (t, [>`Conv_error of string]) result
+  val content_type : string
 end
                  
 module type S = sig

@@ -12,9 +12,9 @@ module Event = struct
     | Ok x -> Ok (f x)
     | Error e -> Error e
 
-  let get_state ?on_error ?f control =
+  let get_state ?f control =
     let t =
-      Api_websocket.create ?on_error
+      Api_websocket.create
         ~path:Path.Format.(get_api_path control @/ "device/state" @/ empty)
         ~query:Query.empty () in
     match f with

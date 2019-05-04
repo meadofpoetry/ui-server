@@ -1,6 +1,14 @@
 open Board_niitv_ts2ip_types
 open Application_types
 
+let take (n : int) (l : 'a list) =
+  let rec aux i acc = function
+    | [] -> List.rev acc
+    | l when i = 0 -> List.rev acc
+    | hd :: tl -> aux (pred i) (hd :: acc) tl
+  in
+  aux n [] l
+
 let to_prefix (msg : Request.msg) =
   let buf = Cstruct.create Message.sizeof_prefix in
   let tag = Request.req_tag_to_enum msg.tag in
@@ -10,7 +18,7 @@ let to_prefix (msg : Request.msg) =
 
 let serialize_udp_mode (mode : udp_mode) =
   let buf = Cstruct.create Message.sizeof_udp_settings in
-  let id = Stream.Multi_TS_ID.to_int32_raw (Stream.to_multi_id mode.stream) in
+  let id = Stream.Multi_TS_ID.to_int32_pure mode.stream in
   let mac = Netlib.Ipaddr.V4.multicast_to_mac mode.dst_ip in
   let sock = socket_to_enum mode.socket in
   let chan = (sock lsl 1) lor (if mode.enabled then 1 else 0) in
@@ -23,36 +31,27 @@ let serialize_udp_mode (mode : udp_mode) =
   buf
 
 let serialize_mode_main (mode : mode) =
-  if List.length mode.udp > Message.n_udp_main
-  then (
-    let err =
-      Printf.sprintf "number of packers can't exceed %d"
-        Message.n_udp_main in
-    raise (Invalid_argument err));
   let buf = Cstruct.create Message.sizeof_req_mode_main in
   Message.set_req_mode_main_cmd buf 0;
-  Message.set_req_mode_main_ip buf @@ Netlib.Ipaddr.V4.to_int32 mode.ip;
-  Message.set_req_mode_main_mask buf @@ Netlib.Ipaddr.V4.to_int32 mode.mask;
-  Message.set_req_mode_main_gateway buf @@ Netlib.Ipaddr.V4.to_int32 mode.gateway;
+  Netlib.Ipaddr.(
+    Message.set_req_mode_main_ip buf @@ V4.to_int32 mode.network.ip;
+    Message.set_req_mode_main_mask buf @@ V4.to_int32 mode.network.mask;
+    Message.set_req_mode_main_gateway buf @@ V4.to_int32 mode.network.gateway);
   List.iteri (fun (i : int) (pkr : udp_mode) ->
       let bytes = serialize_udp_mode pkr in
       let len = Cstruct.len bytes in
-      Cstruct.blit bytes 0 buf (i * len) len) mode.udp;
+      Cstruct.blit bytes 0 buf (i * len) len)
+  @@ take Message.n_udp_main mode.udp;
   buf
 
 let serialize_mode_aux (i : int) (pkrs : udp_mode list) =
-  if List.length pkrs > Message.n_udp_aux
-  then (
-    let err =
-      Printf.sprintf "number of packers can't exceed %d"
-        Message.n_udp_aux in
-    raise (Invalid_argument err));
   let buf = Cstruct.create Message.sizeof_req_mode_aux in
   Message.set_req_mode_aux_cmd buf i;
   List.iteri (fun (i : int) (pkr : udp_mode) ->
       let bytes = serialize_udp_mode pkr in
       let len = Cstruct.len bytes in
-      Cstruct.blit bytes 0 buf (i * len) len) pkrs;
+      Cstruct.blit bytes 0 buf (i * len) len)
+  @@ take Message.n_udp_aux pkrs;
   buf
 
 let to_msg (type a) (t : a Request.t) : Request.msg =

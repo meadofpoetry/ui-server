@@ -35,7 +35,7 @@ let n_udp_aux = 12
     ; mask : uint32_t
     ; gateway : uint32_t
     ; rfu : uint16_t [@len 17]
-    ; udp_descriptors : uint8_t [@len n_udp_main * sizeof_udp_settings]
+    ; udp_descriptors : uint8_t [@len 200]
     ; rfu_2 : uint16_t [@len 4]
     } [@@little_endian]]
 
@@ -43,7 +43,7 @@ let n_udp_aux = 12
   type req_mode_aux =
     { cmd : uint16_t
     ; rfu : uint16_t [@len 3]
-    ; udp_descriptors : uint16_t [@len n_udp_aux * sizeof_udp_settings]
+    ; udp_descriptors : uint8_t [@len 240]
     ; rfu_2 : uint16_t [@len 4]
     } [@@little_endian]]
 

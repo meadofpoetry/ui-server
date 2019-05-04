@@ -13,38 +13,43 @@ let handlers (control : int) (api : Protocol.api) =
           [ node ~doc:"Resets the board"
               ~restrict:[`Guest]
               ~meth:`POST
-              ~path:Path.Format.("reset" @/ empty)
+              ~path:(Path.Format.of_string "reset")
               ~query:Query.empty
               (Api_device.reset api)
-          ; node ~doc:"Sets tuner receiving mode"
-              ~restrict:[`Guest]
-              ~meth:`POST
-              ~path:Path.Format.("mode" @/ Int ^/ empty)
-              ~query:Query.empty
-              (Api_device.set_mode api)
           ; node ~doc:"Returns the state of the board"
               ~meth:`GET
-              ~path:Path.Format.("state" @/ empty)
+              ~path:(Path.Format.of_string "state")
               ~query:Query.empty
               (Api_device.get_state api)
           ; node ~doc:"Returns board description and capabilities, if available"
               ~meth:`GET
-              ~path:Path.Format.("info" @/ empty)
+              ~path:(Path.Format.of_string "info")
               ~query:Query.empty
               (Api_device.get_info api)
           ; node ~doc:"Returns available tuner indexes"
               ~meth:`GET
-              ~path:Path.Format.("receivers" @/ empty)
+              ~path:(Path.Format.of_string "receivers")
               ~query:Query.empty
               (Api_device.get_receivers api)
           ; node ~doc:"Returns the receiving mode of the requested tuner(s)"
               ~meth:`GET
-              ~path:Path.Format.("mode" @/ empty)
+              ~path:(Path.Format.of_string "mode")
               ~query:Query.["id", (module List(Int))]
               (Api_device.get_mode api)
           ]
       ; make ~prefix:"receiver"
-          [ node ~doc:"Returns corresponding stream description, if any"
+          [ node ~doc:"Sets tuner receiving mode"
+              ~restrict:[`Guest]
+              ~meth:`POST
+              ~path:Path.Format.(Int ^/ "mode" @/ empty)
+              ~query:Query.empty
+              (Api_receiver.set_mode api)
+          ; node ~doc:"Returns the receiving mode of the requested tuner"
+              ~meth:`GET
+              ~path:Path.Format.(Int ^/ "mode" @/ empty)
+              ~query:Query.empty
+              (Api_receiver.get_mode api)
+          ; node ~doc:"Returns corresponding stream description, if any"
               ~meth:`GET
               ~path:Path.Format.(Int ^/ "stream" @/ empty)
               ~query:Query.empty
@@ -90,7 +95,7 @@ let handlers (control : int) (api : Protocol.api) =
       ; make ~prefix:"history"
           [ node ~doc:"Returns measurement results for the specified time interval"
               ~meth:`GET
-              ~path:Path.Format.("measurements" @/ empty)
+              ~path:(Path.Format.of_string "measurements")
               ~query:Query.[ "id", (module List(Int))
                            ; "limit", (module Option(Int))
                            ; "from", (module Option(Time_uri.Show))
@@ -107,29 +112,29 @@ let ws (control : int) (api : Protocol.api) =
   [ merge ~prefix:(Topology.get_api_path control)
       [ make ~prefix:"device"
           [ node ~doc:"Board state socket"
-              ~path:Path.Format.("state" @/ empty)
+              ~path:(Path.Format.of_string "state")
               ~query:Query.empty
               (Api_device.Event.get_state api)
           ; node ~doc:"Tuner receiving mode socket"
-              ~path:Path.Format.("mode" @/ empty)
+              ~path:(Path.Format.of_string "mode")
               ~query:Query.["id", (module List(Int))]
               (Api_device.Event.get_mode api)
           ; node ~doc:"Available tuner indexes socket"
-              ~path:Path.Format.("receivers" @/ empty)
+              ~path:(Path.Format.of_string "receivers")
               ~query:Query.empty
               (Api_device.Event.get_receivers api)
           ]
       ; make ~prefix:"receiver"
           [ node ~doc:"Receiver measures socket"
-              ~path:Path.Format.("measurements" @/ empty)
+              ~path:(Path.Format.of_string "measurements")
               ~query:Query.["id", (module List(Int))]
               (Api_receiver.Event.get_measurements api)
           ; node ~doc:"Receiver parameters socket"
-              ~path:Path.Format.("parameters" @/ empty)
+              ~path:(Path.Format.of_string "parameters")
               ~query:Query.["id", (module List(Int))]
               (Api_receiver.Event.get_parameters api)
           ; node ~doc:"Receiver PLP list socket"
-              ~path:Path.Format.("plp-list" @/empty)
+              ~path:(Path.Format.of_string "plp-list")
               ~query:Query.["id", (module List(Int))]
               (Api_receiver.Event.get_plp_list api)
           ]
@@ -139,11 +144,11 @@ let ws (control : int) (api : Protocol.api) =
               ~query:Query.["id", (module List(Stream.ID))]
               (Api_stream.Event.get_streams api)
           ; node ~doc:"Stream measures socket"
-              ~path:Path.Format.("measurements" @/ empty)
+              ~path:(Path.Format.of_string "measurements")
               ~query:Query.["id", (module List(Stream.ID))]
               (Api_stream.Event.get_measurements api)
           ; node ~doc:"Stream parameters socket"
-              ~path:Path.Format.("parameters" @/ empty)
+              ~path:(Path.Format.of_string "parameters")
               ~query:Query.["id", (module List(Stream.ID))]
               (Api_stream.Event.get_parameters api)
           ]
