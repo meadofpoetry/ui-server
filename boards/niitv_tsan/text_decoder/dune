@@ -1,0 +1,6 @@
+(library
+  (name       text_decoder)
+  (libraries  ctypes
+              cstruct)
+  (flags      (:standard -cclib -lc))
+  (preprocess (pps ppx_cstruct)))

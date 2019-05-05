@@ -26,7 +26,7 @@ let calc_crc ~(pfx : Cstruct.t) (bdy : Cstruct.t) =
   tag lxor (Cstruct.fold ( lxor ) iter 0)
 
 (** Arbitrary message constructor. *)
-let make_req (type a) (request : a Request.t) : Cstruct.t =
+let serialize (type a) (request : a Request.t) : Cstruct.t =
   let msg = Request.to_msg request in
   let pfx = to_prefix msg in
   let sfx = to_suffix ~crc:(calc_crc ~pfx msg.data) in

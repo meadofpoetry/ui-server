@@ -25,7 +25,7 @@ let to_hex_string x =
   | len when len > size -> String.sub s (len - size) size
   | _ -> s
 
-let serialize (x : data) =
+let serialize_data (x : data) =
   let setter : data -> (string -> int -> Cstruct.t -> unit) = function
     | `B _ | `I8 _ -> Message.set_setting8_data
     | `I16 _ -> Message.set_setting16_data
@@ -34,13 +34,13 @@ let serialize (x : data) =
   setter x (to_hex_string x) 0 buf;
   buf
 
-let make_req ~address request =
+let serialize ~address request =
   Message.(
     let { category; setting; rw; data } = Request.to_cmd request in
     let pfx = Cstruct.create sizeof_prefix in
     let bdy = match data with
       | None -> Cstruct.create 0
-      | Some x -> serialize x in
+      | Some x -> serialize_data x in
     let sfx = Cstruct.create sizeof_suffix in
     set_prefix_stx pfx stx;
     set_prefix_address (to_hex_string (`I8 address)) 0 pfx;
@@ -49,7 +49,7 @@ let make_req ~address request =
     set_prefix_rw pfx (access_to_int rw);
     let pfx = match category with
       | `Device | `Configuration | `Network -> pfx
-      | `IP_receive | `ASI_output -> Cstruct.append pfx (serialize (`I16 0)) in
+      | `IP_receive | `ASI_output -> Cstruct.append pfx (serialize_data (`I16 0)) in
     set_suffix_crc (to_hex_string (`I8 (calc_crc ~pfx ~bdy))) 0 sfx;
     set_suffix_etx sfx etx;
     Cstruct.concat [pfx; bdy; sfx])

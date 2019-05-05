@@ -46,7 +46,7 @@ let request (type a)
     (stream : Request.msg Lwt_stream.t)
     (sender : Cstruct.t -> unit Lwt.t)
     (req : a Request.t) : (a, Request.error) result Lwt.t =
-  sender @@ Serializer.make_req req
+  sender @@ Serializer.serialize req
   >>= fun () ->
   (match req with
    | Get_devinfo -> Lwt.pick [loop stream req; sleep (Request.timeout req)]

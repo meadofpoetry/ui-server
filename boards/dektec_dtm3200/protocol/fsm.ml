@@ -23,7 +23,7 @@ let start ~(address : int)
     Logs.info (fun m -> m "Start of connection establishment...");
     let msgs' = Lwt_stream.get_available req_queue in
     List.iter (fun (_, stop) -> stop Request.Not_responding) msgs';
-    Lwt_stream.junk_old req_queue
+    Lwt_stream.junk_old rsp_queue
     >>= fun () ->
     set_state `No_response;
     detect_device ()

@@ -69,7 +69,7 @@ let to_msg (type a) (t : a Request.t) : Request.msg =
   in
   { tag; data }
 
-let make_req (type a) (request : a Request.t) : Cstruct.t =
+let serialize (type a) (request : a Request.t) : Cstruct.t =
   let msg = to_msg request in
   let pfx = to_prefix msg in
   Cstruct.concat [pfx; msg.data]

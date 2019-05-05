@@ -62,7 +62,7 @@ let request (type a)
   let rec loop = function
     | 0 -> Lwt.return_error Request.Not_responding
     | n ->
-      sender @@ Serializer.make_req req
+      sender @@ Serializer.serialize req
       >>= fun () ->
       Lwt_result.Infix.(wait_ack stream >>= fun () -> wait_rsp stream req)
       >>= function
@@ -108,7 +108,7 @@ let start (src : Logs.src)
     Logs.info (fun m -> m "Start of connection establishment...");
     let msgs' = Lwt_stream.get_available req_queue in
     List.iter (fun (_, stop) -> stop Request.Not_responding) msgs';
-    Lwt_stream.junk_old req_queue
+    Lwt_stream.junk_old rsp_queue
     >>= fun () ->
     set_state `No_response;
     detect_device ()

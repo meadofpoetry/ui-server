@@ -27,7 +27,7 @@ let loop (type a) stream (req : a Request.t) : (a, Request.error) result Lwt.t =
   Lwt_stream.junk_old stream >>= aux
 
 let request (type a) ~address src sender stream (req : a Request.t) =
-  sender @@ Serializer.make_req ~address req
+  sender @@ Serializer.serialize ~address req
   >>= fun () ->
   Lwt.pick [loop stream req; sleep (Request.timeout req)]
   >>= function

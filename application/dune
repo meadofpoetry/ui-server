@@ -5,9 +5,9 @@
   (libraries   application_types
                boards
                board_niitv_dvb
+               board_niitv_tsan
                board_niitv_ts2ip
                board_dektec_dtm3200
-;;             board_qos_niit
                pipeline
                pc_control
                util_react
