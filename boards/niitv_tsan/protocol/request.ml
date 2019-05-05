@@ -10,13 +10,14 @@ type req_tag =
   | `Get_mode
   ]
 
-type rsp_tag =
+type tag =
   [ `Devinfo
   | `Mode
   | `Status
   | `Streams
   | `Ts_errors
   | `T2mi_errors
+  | `Part
   | `End_of_errors
   | `End_of_transmission
   ]
@@ -39,15 +40,64 @@ let req_tag_to_enum : req_tag -> int = function
   | `Set_source_id -> 0x0089
   | `Set_jitter_mode -> 0x0112
 
-let rsp_tag_to_enum : rsp_tag -> int = function
+let tag_to_string : tag -> string = function
+  | `Devinfo -> "devinfo"
+  | `Mode -> "mode"
+  | `Status -> "status"
+  | `Streams -> "streams"
+  | `Ts_errors -> "TS errors"
+  | `T2mi_errors -> "T2-MI errors"
+  | `Part -> "part"
+  | `End_of_errors -> "end of errors"
+  | `End_of_transmission -> "end of transmission"
+
+let tag_to_enum : tag -> int = function
   | `Devinfo -> 0x01
   | `Mode -> 0x02
   | `Status -> 0x03
   | `Ts_errors -> 0x04
   | `T2mi_errors -> 0x05
+  | `Part -> 0x09
   | `Streams -> 0x0B
   | `End_of_errors -> 0xFD
   | `End_of_transmission -> 0xFF
+
+let tag_of_enum : int -> tag option = function
+  | 0x01 -> Some `Devinfo
+  | 0x02 -> Some `Mode
+  | 0x03 -> Some `Status
+  | 0x04 -> Some `Ts_errors
+  | 0x05 -> Some `T2mi_errors
+  | 0x09 -> Some `Part
+  | 0x0B -> Some `Streams
+  | 0xFD -> Some `End_of_errors
+  | 0xFF -> Some `End_of_transmission
+  | _ -> None
+
+let split_message (has_crc : bool) (buf : Cstruct.t) (tag : tag) =
+  let length = match tag with
+    | `Devinfo -> sizeof_common_header + sizeof_board_info
+    | `Mode -> sizeof_common_header + sizeof_board_mode
+    | `Status -> sizeof_common_header + sizeof_status
+    | `Ts_errors ->
+      let body = Cstruct.shift buf sizeof_common_header in
+      let length = 2 * get_ts_errors_length body in
+      sizeof_common_header + 2 + length
+    | `T2mi_errors ->
+      let body = Cstruct.shift buf sizeof_common_header in
+      let length = 2 * get_t2mi_errors_length body in
+      sizeof_common_header + 2 + length
+    | `Streams ->
+      let body = Cstruct.shift buf sizeof_common_header in
+      let length = 2 * get_streams_list_event_length body in
+      sizeof_common_header + 2 + length
+    | `Part ->
+      let body = Cstruct.shift buf sizeof_common_header in
+      let length = 2 * get_complex_rsp_header_length body in
+      sizeof_common_header + 2 + length
+    | `End_of_errors -> sizeof_common_header + sizeof_end_of_errors
+    | `End_of_transmission -> sizeof_common_header in
+  Cstruct.split buf (if has_crc then length + 2 else length)
 
 let complex_tag_to_enum : complex_tag -> int = function
   | `Deverr -> 0x0110
@@ -59,10 +109,27 @@ let complex_tag_to_enum : complex_tag -> int = function
   | `Bitrate -> 0x030A
   | `T2mi_info -> 0x030B
 
+let complex_tag_of_enum : int -> complex_tag option = function
+  | 0x0110 -> Some `Deverr
+  | 0x0111 -> Some `Reset
+  | 0x0302 -> Some `Section
+  | 0x0306 -> Some `T2mi_seq
+  | 0x0307 -> Some `Jitter
+  | 0x0309 -> Some `Structure
+  | 0x030A -> Some `Bitrate
+  | 0x030B -> Some `T2mi_info
+  | _ -> None
+
 type 'a msg =
   { tag : 'a
   ; data : Cstruct.t
   }
+
+let msg_to_string f m =
+  Format.asprintf "tag: %s, data: %a"
+    (f m.tag)
+    Cstruct.hexdump_pp
+    m.data
 
 type complex_msg =
   { tag : complex_tag
@@ -103,7 +170,7 @@ type t2mi_mode_raw =
   ; pid : int
   ; t2mi_stream_id : int
   ; stream : Stream.Multi_TS_ID.t
-  } [@@deriving show, eq]
+  } [@@deriving eq]
 
 type jitter_raw =
   { measures : Jitter.measures
@@ -120,7 +187,7 @@ type structure =
   ; tables : SI_PSI_table.t list
   ; pids : Pid.t list
   ; time : Time.t
-  } [@@deriving yojson, eq]
+  } [@@deriving eq]
 
 type _ t =
   | Get_devinfo : devinfo t

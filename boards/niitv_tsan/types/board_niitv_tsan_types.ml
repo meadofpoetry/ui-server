@@ -14,7 +14,7 @@ type 'a tspan =
 type devinfo =
   { typ : int
   ; ver : int
-  } [@@deriving yojson, eq]
+  } [@@deriving yojson, eq, show]
 
 type input =
   | SPI
@@ -266,7 +266,7 @@ module SI_PSI_section = struct
       { stream_id : Stream.Multi_TS_ID.t
       ; table_id : int
       ; section_id : int
-      ; section : int list
+      ; section : string
       ; content : Si_psi_parser.Node.t list option
       } [@@deriving yojson]
 

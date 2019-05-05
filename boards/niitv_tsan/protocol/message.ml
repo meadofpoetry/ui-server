@@ -354,4 +354,10 @@ let prefix = 0x55AA
     ; stream_id : uint32_t
     } [@@little_endian]]
 
+[%%cstruct
+  type end_of_errors =
+    { ts_count : uint16_t
+    ; rfu : uint16_t
+    } [@@little_endian]]
+
 [@@@ocaml.warning "+32"]

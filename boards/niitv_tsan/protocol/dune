@@ -1,6 +1,7 @@
 (library
   (name       board_niitv_tsan_protocol)
   (libraries  boards
+              base64
               bitstring
               text_decoder
               si_psi_parser
@@ -8,4 +9,5 @@
               ptime.clock.os)
   (flags      (:standard -cclib -lc))
   (preprocess (pps ppx_cstruct
-                   bitstring.ppx)))
+                   bitstring.ppx
+                   ppx_deriving.eq)))

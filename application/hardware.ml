@@ -67,11 +67,10 @@ type t =
 let create_board db usb (b : Topology.topo_board) boards kv =
   let (module B : Board.BOARD) =
     match b.manufacturer, b.model, b.version with (* TODO add boards *)
-    | "NIITV", "DVB4CH", 1 -> (module Board_niitv_dvb : Board.BOARD)
+    | "NIITV", "TSAN", 5 -> (module Board_niitv_tsan : Board.BOARD)
     | "NIITV", "TS2IP", 2 -> (module Board_niitv_ts2ip : Board.BOARD)
+    | "NIITV", "DVB4CH", 1 -> (module Board_niitv_dvb : Board.BOARD)
     | "DekTec", "DTM-3200", 1 -> (module Board_dektec_dtm3200 : Board.BOARD)
-    (* | "TS", "qos", "niitv", 1 -> (module Board_qos_niit : Board.BOARD)
-    *)
     | _ -> raise (Failure ("create board: unknown board ")) in
   B.create b
     (Board.get_streams boards b)
