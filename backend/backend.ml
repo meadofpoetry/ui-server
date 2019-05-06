@@ -200,7 +200,7 @@ let () =
   then begin
       Printf.printf "Usage:\n\t%s [path to template]\n" Sys.argv.(0);
       exit -1
-    end
+    end;
   
   match Lwt_main.run (main ()) with
   | Ok () ->
