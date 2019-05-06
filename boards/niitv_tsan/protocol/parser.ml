@@ -32,6 +32,10 @@ type part =
   ; data : Cstruct.t
   }
 
+let int8_to_bool_list (x : int) =
+  List.map (fun i -> (x land i) > 0)
+  @@ [0; 2; 4; 8; 16; 32; 64; 128]
+
 let parse_devinfo (msg : Cstruct.t) =
   try
     Ok { typ = Message.get_board_info_board_type msg
@@ -289,6 +293,72 @@ module Bitrate_parser = struct
     with Invalid_argument _ -> Error Request.Invalid_payload
 end
 
+module T2MI_info_parser = struct
+
+  let parse_packets (buf : Cstruct.t) =
+    let iter =
+      Cstruct.iter
+        (fun _ -> Some 1)
+        (fun x -> int8_to_bool_list @@ Cstruct.get_uint8 x 0)
+        (Message.get_t2mi_info_packets buf) in
+    Cstruct.fold (fun acc el -> (List.rev el) @ acc) iter []
+    |> List.rev
+    |> List.fold_left (fun (i, acc) x ->
+        if x then succ i, (i :: acc)
+        else succ i, acc) (0, [])
+    |> snd
+
+  let parse_l1 (body : Cstruct.t) =
+    let conf_len =
+      Message.get_t2mi_info_ext_conf_len body
+      |> fun x ->
+      let r, d = x mod 8, x / 8 in
+      d + (if r > 0 then 1 else 0) in
+    let conf = snd @@ Cstruct.split body Message.sizeof_t2mi_info_ext in
+    let conf = fst @@ Cstruct.split conf conf_len in
+    let l1_pre' = Cstruct.to_string @@ Message.get_t2mi_info_ext_l1_pre body in
+    let l1_post' = Cstruct.to_string conf in
+    match L1_parser.l1_pre_of_string l1_pre' with
+    | None -> None
+    | Some l1_pre ->
+      match L1_parser.l1_post_conf_of_string l1_pre l1_post' with
+      | None -> None
+      | Some x -> Some { T2mi_info. l1_pre; l1_post_conf = x }
+
+  let parse stream (msg : Cstruct.t) =
+    try
+      let header, rest = Cstruct.split msg Message.sizeof_t2mi_info in
+      let packets = parse_packets header in
+      let sid = Message.get_t2mi_info_stream_id header in
+      let length = Message.get_t2mi_info_length header in
+      match length with
+      | 0 ->
+        let info =
+          { T2mi_info.
+            packets
+          ; t2mi_pid = None
+          ; l1 = None
+          ; l1_empty = true
+          ; l1_parse_error = false
+          } in
+        Ok (stream, (sid, info))
+      | length ->
+        let body, _ = Cstruct.split rest length in
+        let l1 = parse_l1 body in
+        let t2mi_pid = Some (Message.get_t2mi_info_ext_t2mi_pid body) in
+        let l1_parse_error = match l1 with None -> true | Some _ -> false in
+        let info =
+          { T2mi_info.
+            packets
+          ; t2mi_pid
+          ; l1
+          ; l1_empty = false
+          ; l1_parse_error
+          } in
+        Ok (stream, (sid, info))
+    with Invalid_argument _ -> Error Request.Invalid_payload
+end
+
 (* let int_to_bool_list x =
  *   List.map (fun i -> (x land Int.pow 2 i) > 0) (List.range 0 7)
  * 
@@ -351,53 +421,7 @@ end
  *     { measures; next_ptr; time; timestamp; pid; t_pcr }
  * end
  *)
- (* module Get_t2mi_info = struct
- *   let parse ({ stream; _ } : t2mi_info_req) msg =
- *     let hdr, rest = Cstruct.split msg sizeof_t2mi_info in
- *     let iter = Cstruct.iter (fun _ -> Some 1)
- *         (fun buf -> Cstruct.get_uint8 buf 0)
- *         (get_t2mi_info_packets hdr) in
- *     let packets =
- *       Cstruct.fold (fun acc el ->
- *           (List.rev @@ int_to_bool_list el) @ acc) iter []
- *       |> List.rev
- *       |> List.foldi (fun acc i x -> if x then i :: acc else acc) [] in
- *     let sid = get_t2mi_info_stream_id hdr in
- *     let length = get_t2mi_info_length hdr in
- *     match length with
- *     | 0 ->
- *       stream,
- *       (sid, { packets
- *             ; t2mi_pid = None
- *             ; l1 = None
- *             ; l1_empty = true
- *             ; l1_parse_error = false })
- *     | l ->
- *       let body, _ = Cstruct.split rest l in
- *       let conf_len =
- *         get_t2mi_info_ext_conf_len body
- *         |> fun x -> let r, d = x mod 8,
- *                                x / 8 in d + (if r > 0 then 1 else 0) in
- *       let conf = snd @@ Cstruct.split body sizeof_t2mi_info_ext in
- *       let conf = fst @@ Cstruct.split conf conf_len in
- *       let l1_pre' = Cstruct.to_string @@ get_t2mi_info_ext_l1_pre body in
- *       let l1_post' = Cstruct.to_string conf in
- *       let l1 = match L1_parser.l1_pre_of_string l1_pre' with
- *         | None -> None
- *         | Some l1_pre ->
- *           begin match L1_parser.l1_post_conf_of_string l1_pre l1_post' with
- *             | None -> None
- *             | Some x -> Some { l1_pre; l1_post_conf = x }
- *           end in
- *       stream,
- *       (sid, { packets
- *             ; t2mi_pid = Some (get_t2mi_info_ext_t2mi_pid body)
- *             ; l1
- *             ; l1_empty = false
- *             ; l1_parse_error = Option.is_none l1
- *             })
- * end
- * 
+(*
  * module TS_streams = struct
  * 
  *   let parse msg =
@@ -786,4 +810,8 @@ let is_response (type a) (req : a Request.t)
      | `Complex { tag = `Structure; data; request_id; _ } when id = request_id ->
        Some (Structure_parser.parse stream data)
      | _ -> None)
-  | _ -> None
+  | Get_t2mi_info { request_id = id; stream; _ } ->
+    (match msg with
+     | `Complex { tag = `T2mi_info; data; request_id; _ } when id = request_id ->
+       Some (T2MI_info_parser.parse stream data)
+     | _ -> None)

@@ -281,9 +281,7 @@ let update_pid (elements : (Service.t * Service.element list) list)
     (tables : SI_PSI_table.t list)
     (emm : Service.element list)
     (pid : Pid.t) : Pid.t =
-  let ( >>= ) x f = match x with
-    | Some x -> Some x
-    | None -> f pid in
+  let ( >>= ) x f = match x with Some x -> Some x | None -> f pid in
   update_if_null pid
   >>= update_if_in_services elements
   >>= update_if_in_emm emm
@@ -331,13 +329,13 @@ let parse_blocks (msg : Cstruct.t) =
   { Request. info; services; tables; pids; time = Time.epoch }
 
 let of_ts_struct msg =
-  let hdr, rest = Cstruct.split msg Message.sizeof_ts_struct in
-  let len = (Int32.to_int @@ Message.get_ts_struct_length hdr) in
-  let bdy, rest = Cstruct.split rest len in
-  let structure = parse_blocks bdy in
+  let header, rest = Cstruct.split msg Message.sizeof_ts_struct in
+  let length = (Int32.to_int @@ Message.get_ts_struct_length header) in
+  let body, rest = Cstruct.split rest length in
+  let structure = parse_blocks body in
   let stream =
     Stream.Multi_TS_ID.of_int32_pure
-    @@ Message.get_ts_struct_stream_id hdr in
+    @@ Message.get_ts_struct_stream_id header in
   (stream, structure), rest
 
 let parse stream (msg : Cstruct.t) =
