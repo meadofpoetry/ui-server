@@ -1,12 +1,13 @@
 open Containers
 open Components
-open Common
+open Application_types
+open Util_react
 
 let _class = "topology"
 
 let is_ts2ip_niitv (b : Topology.topo_board) =
-  match b.typ, b.model, b.manufacturer with
-  | "TS2IP", "ts2ip", "niitv" -> true
+  match b.manufacturer, b.model with
+  | "NIITV", "TS2IP" -> true
   | _ -> false
 
 let find_max l =
@@ -197,9 +198,9 @@ let create ~(parent : #Widget.t)
       | `Board (b : Topo_board.t) -> Some b#settings_event
       | `CPU (c : Topo_cpu.t) -> Some c#settings_event
       | `Input _ -> None) nodes
-  |> React.E.select
-  |> React.E.map_s on_settings
-  |> React.E.keep;
-  React.(E.keep @@ E.map (update_nodes nodes) event);
+  |> E.select
+  |> E.map_s on_settings
+  |> E.keep;
+  E.keep @@ E.map (update_nodes nodes) event;
   parent#style##.cssText := Js_of_ocaml.Js.string gta;
   nodes

@@ -71,6 +71,13 @@ let env_of_yojson : Yojson.Safe.json -> (env, string) result = function
 let pp_env _ppf _ = () (* Format. Env. String.pp String.pp*)
 let equal_env = Env.equal String.equal
 
+type board_id =
+  { manufacturer : string
+  ; model : string
+  ; version : version
+  ; control : int
+  } [@@deriving eq, yojson]
+
 type t =
   [ `CPU of topo_cpu
   | `Boards of topo_board list

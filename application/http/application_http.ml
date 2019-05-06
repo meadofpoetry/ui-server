@@ -65,12 +65,13 @@ let input topo (input : Topology.topo_input) =
     |> (function Some (_, p, c) -> Some (p, c) | None -> None)
   in
   match path with
-  | None              -> failwith "input not found"
+  | None -> failwith "input not found"
   | Some (boards, cpu) ->
      let title = Topology.get_input_name input in
      let boards =
-       List.map (fun (x : Topology.topo_board) -> x.control, x.typ) boards
-       |> Topology.boards_to_yojson
+       List.map (fun { Topology. control; manufacturer; model; version; _ } ->
+           { Topology. control; manufacturer; model; version }) boards
+       |> Util_json.List.to_yojson Topology.board_id_to_yojson
        |> Yojson.Safe.to_string in
      let cpu = (* TODO remove after 4.08 *)
        cpu
@@ -151,26 +152,25 @@ let application_pages (app : Application.t) =
     } in *)
   let topo = React.S.value app.topo in
   let hw_templates =
-    Hardware.Map.fold (fun _ (x : Boards.Board.t) acc ->
-        List.cons_maybe x.templates acc) app.hw.boards []
+    Hardware.Map.fold (fun _ (x : Boards.Board.t) acc -> x.templates @ acc)
+      app.hw.boards []
   in
   let inputs = Topology.get_inputs topo in
   let input_templates, stream_templates =
     List.map (input topo) inputs
     |> List.split
   in
-  [ subtree
-      ~priority:(`Index 2)
-      ~title:"Входы"
-      ~icon:(icon Icon.SVG.Path.arrow_right_box)
-      input_templates
-  ; simple
-      ~priority:(`Index 3)
-      ~title:"Конфигурация"
-      ~icon:(icon Icon.SVG.Path.tournament)
-      ~path:(Path.of_string "application")
-      props
-  ]
+  subtree
+    ~priority:(`Index 2)
+    ~title:"Входы"
+    ~icon:(icon Icon.SVG.Path.arrow_right_box)
+    (List.flatten input_templates)
+  @ simple
+    ~priority:(`Index 3)
+    ~title:"Конфигурация"
+    ~icon:(icon Icon.SVG.Path.tournament)
+    ~path:(Path.of_string "application")
+    props
   @ hw_templates
 
 let application_handlers (app : Application.t) =
@@ -279,11 +279,7 @@ let create template (app : Application.t) =
                 :: board_ws
                 :: proc_ws_list )
   in
-  let api = Api_http.merge [ api; ws; pages ] in
-  let doc = Api_http.doc api in
-  List.iter (fun (k, v) ->
-    print_endline @@ k ^ ":: " ^ (String.concat " -> " v)) doc;
-  api
+  Api_http.merge [ api; ws; pages ]
      
     
  (*   

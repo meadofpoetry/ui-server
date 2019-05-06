@@ -1,8 +1,9 @@
 (executables
-  (names       page_mosaic)
+  (names       page_mosaic topology)
   (libraries   js_of_ocaml
                js_of_ocaml.weak
                js_of_ocaml-tyxml
+               application_js
                pipeline_js
                wm_js
                ;; application_js
