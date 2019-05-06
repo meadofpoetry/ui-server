@@ -18,7 +18,7 @@ module Settings = struct
   type t = { path : string
            ; port : int
            } [@@deriving yojson]
-  let default = { path = Filename.concat Filename.current_dir_name "dist/resources"
+  let default = { path = Filename.concat Filename.current_dir_name "resources"
                 ; port = 8080
                 }
   let domain = "server"

@@ -106,11 +106,17 @@ let application_ws (app : Application.t) =
                       "id", (module List(Stream.ID))]
         (Application_api.Event.get_log app)
     ]
-    
 
 let create template (app : Application.t) =
+  let proc_pages = match app.proc with
+    | None -> []
+    | Some proc -> proc#pages () in
+  let hardware_pages = Hardware.Map.fold (fun _ x acc ->
+      x.Boards.Board.templates @ acc) app.hw.boards [] in
   let templates =
     Pc_control_http.network_pages
+    @ hardware_pages
+    @ proc_pages
     @ user_pages
   in
   let application_api = application_handlers app in
@@ -148,7 +154,11 @@ let create template (app : Application.t) =
                 :: board_ws
                 :: proc_ws_list )
   in
-  Api_http.merge [ api; ws; pages ]
+  let api = Api_http.merge [ api; ws; pages ] in
+  let doc = Api_http.doc api in
+  List.iter (fun (k, v) ->
+    print_endline @@ k ^ ":: " ^ (String.concat " -> " v)) doc;
+  api
      
     
  (*   

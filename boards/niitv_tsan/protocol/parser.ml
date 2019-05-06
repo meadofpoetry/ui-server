@@ -702,10 +702,6 @@ let deserialize src parts buf =
             f acc parts (Cstruct.shift buf 1)
         end in
   let responses, parts, res = f [] parts buf in
-  List.iter (fun (m : Request.tag Request.msg) ->
-      print_endline @@ show_devinfo @@ parse_devinfo m.data;
-      Request.msg_to_string Request.tag_to_string m
-      |> print_endline) responses;
   let parts =
     List.filter (fun (_, x) ->
         let first_msgs = List.find_all (fun x -> x.first) x in

@@ -79,7 +79,7 @@ module Make (User : USER) = struct
       | Some v -> v
     in List.map convert lst
 
-  let make_node ~template paths (Item (path, items, cont)) =
+  let make_node ~template paths gen_item_list (Item (path, items, cont)) =
     let table = Hashtbl.create 16 in
     (* Check if the same path was added twice *)
     if Uri.Path.Format.has_template paths path
@@ -92,12 +92,11 @@ module Make (User : USER) = struct
         match Hashtbl.find_opt table user with
         | Some v -> Some (`String v)
         | None ->
-           let params =
-             match items user, cont user with
-             | Some `O i, Some `O c -> `O (i @ c)
-             | Some (`O _ as i), _ -> i
-             | _, Some (`O _ as c) -> c
-             | _ -> `O []
+          let params =
+            let nav = [ "navigation", `A (gen_item_list user) ] in
+             match cont user with
+             | Some `O c -> `O (c @ nav)
+             | _ -> `O nav
            in
            let v = Mustache.render template params in
            Hashtbl.replace table user v;
@@ -135,7 +134,7 @@ module Make (User : USER) = struct
       else
         Some (`O [ "title", `String title
                  ; "icon", (make_icon icon)
-                 ; "href", `String (Uri.Path.to_string path)
+                 ; "href", `String ("/" ^ Uri.Path.to_string path) (* TODO refactor later *)
                  ; "simple", `Bool true ])
     in
     let content user =
@@ -183,6 +182,14 @@ module Make (User : USER) = struct
     in
     List.map (fun (Item (f,_,co)) -> priority, Item (f,item,co)) list
 
+  (* TODO remove after 4.08 *)
+  let rec filter_opt = function
+    | [] -> []
+    | h::tl ->
+      match h with
+      | None -> filter_opt tl
+      | Some v -> v :: filter_opt tl
+
   let make ~template list =
     let template = Mustache.of_string template in
     let paths = Uri.Path.Format.templates () in
@@ -191,6 +198,10 @@ module Make (User : USER) = struct
       |> List.sort priority_compare_pair
       |> List.map snd
     in
-    List.map (fun node -> `GET, make_node paths ~template node) list
+    let gen_item_list user =
+      List.map (fun (Item (_,f,_)) -> f user) list
+      |> filter_opt
+    in
+    List.map (fun node -> `GET, make_node paths ~template gen_item_list node) list
                        
 end
