@@ -338,23 +338,24 @@ let of_ts_struct msg =
   let stream =
     Stream.Multi_TS_ID.of_int32_pure
     @@ Message.get_ts_struct_stream_id hdr in
-  let rest = if Cstruct.len rest > 0 then Some rest else None in
   (stream, structure), rest
 
 let parse stream (msg : Cstruct.t) =
-  let hdr, bdy' = Cstruct.split msg Message.sizeof_ts_structs in
-  let count = Message.get_ts_structs_count hdr in
-  (* stream id list *)
-  let bdy = snd @@ Cstruct.split bdy' (count * 4) in
-  (* FIXME stuffing bytes when requesting for a single stream *)
-  let parse = match stream with
-    | `All ->
-      let rec f = fun acc buf ->
-        let x, rest = of_ts_struct buf in
-        match rest with
-        | Some b -> f (x :: acc) b
-        | None -> List.rev (x :: acc) in
-      f []
-    | `Single _ ->
-      fun buf -> let s, _ = of_ts_struct buf in [s] in
-  if count > 0 then parse bdy else []
+  try
+    let hdr, bdy' = Cstruct.split msg Message.sizeof_ts_structs in
+    let count = Message.get_ts_structs_count hdr in
+    (* stream id list *)
+    let bdy = snd @@ Cstruct.split bdy' (count * 4) in
+    (* FIXME stuffing bytes when requesting for a single stream *)
+    let parse = match stream with
+      | `All ->
+        let rec aux = fun acc buf ->
+          match Cstruct.len buf with
+          | 0 -> List.rev acc
+          | _ ->
+            let x, rest = of_ts_struct buf in
+            aux (x :: acc) rest in
+        aux []
+      | `Single _ -> fun buf -> let s, _ = of_ts_struct buf in [s] in
+    Ok (if count > 0 then parse bdy else [])
+  with Invalid_argument _ -> Error Request.Invalid_payload

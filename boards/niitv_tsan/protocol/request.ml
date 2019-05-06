@@ -2,6 +2,22 @@ open Application_types
 open Board_niitv_tsan_types
 open Message
 
+type error =
+  | Timeout
+  | Queue_overflow
+  | Not_responding
+  | Invalid_length
+  | Invalid_payload
+  | Custom of string
+
+let error_to_string = function
+  | Timeout -> "timeout"
+  | Queue_overflow -> "queue overflow"
+  | Not_responding -> "not responding"
+  | Invalid_length -> "invalid length"
+  | Invalid_payload -> "invalid payload"
+  | Custom s -> s
+
 type req_tag =
   [ `Set_source_id
   | `Set_mode
@@ -153,20 +169,6 @@ type 'a msg =
 
 type rsp = rsp_tag msg
 
-type error =
-  | Timeout
-  | Queue_overflow
-  | Not_responding
-  | Invalid_length
-  | Invalid_payload
-
-let error_to_string = function
-  | Timeout -> "timeout"
-  | Queue_overflow -> "queue overflow"
-  | Not_responding -> "not responding"
-  | Invalid_length -> "invalid length"
-  | Invalid_payload -> "invalid payload"
-
 type t2mi_mode_raw =
   { enabled : bool
   ; pid : int
@@ -214,12 +216,12 @@ type _ t =
       ; id_ext_1 : int option (* ts_id for EIT, orig_nw_id for SDT *)
       ; id_ext_2 : int option (* orig_nw_id for EIT *)
       ; section : int option
-      } -> (SI_PSI_section.Dump.t ts, SI_PSI_section.Dump.error) result t
+      } -> SI_PSI_section.Dump.t ts t
   | Get_jitter :
       { request_id : int
       ; pointer : int32
       } -> jitter_raw t
-  | Get_bitrate : int -> (Stream.Multi_TS_ID.t * Bitrate.t) t
+  | Get_bitrate : int -> (Stream.Multi_TS_ID.t * Bitrate.t) list t
   | Get_structure :
       { request_id : int
       ; stream : [ `All | `Single of Stream.Multi_TS_ID.t ]

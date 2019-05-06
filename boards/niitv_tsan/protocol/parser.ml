@@ -39,288 +39,78 @@ let parse_devinfo (msg : Cstruct.t) =
        }
   with _ -> Error Request.Invalid_payload
 
-module Deverr = struct
+let parse_section
+    ~(table_id : int)
+    ~(section : int option)
+    (msg : Cstruct.t) =
+  try
+    let hdr, bdy = Cstruct.split msg Message.sizeof_section in
+    let length = Message.get_section_length hdr in
+    let result = Message.get_section_result hdr in
+    let timestamp = Ptime_clock.now () in
+    if length > 0 && result = 0
+    then
+      let sid, data  = Cstruct.split bdy 4 in
+      let stream_id = Cstruct.LE.get_uint32 sid 0 in
+      let raw = Cstruct.to_string data in
+      let section_id = match section with
+        | None -> 0
+        | Some x -> x in
+      let data =
+        { SI_PSI_section.Dump.
+          section = B64.encode raw
+        ; stream_id = Stream.Multi_TS_ID.of_int32_pure stream_id
+        ; table_id
+        ; section_id
+        ; content = Si_psi_parser.parse raw
+        } in
+      Ok { timestamp; data }
+    else
+      let error = match result with
+        | 0 | 3 -> Request.Custom "Section is empty"
+        | 1 -> Custom "Table not found"
+        | 2 -> Custom "Section not found"
+        | 4 -> Custom "Stream_not_found"
+        | x -> Custom (Printf.sprintf "Unknown error code %d" x) in
+      Error error
+  with Invalid_argument _ -> Error Request.Invalid_payload
 
-  let param_codes = [18; 32]
+let parse_t2mi_sequence (msg : Cstruct.t) =
+  let iter =
+    Cstruct.iter
+      (fun _ -> Some Message.sizeof_t2mi_frame_seq_item)
+      (fun x -> x) msg in
+  let timestamp = Ptime_clock.now () in
+  try
+    let data =
+      List.rev
+      @@ Cstruct.fold (fun (acc : T2mi_sequence.item list) el ->
+          let typ = Message.get_t2mi_frame_seq_item_typ el in
+          let sframe_stream = Message.get_t2mi_frame_seq_item_sframe_stream el in
+          let super_frame = (sframe_stream land 0xF0) lsr 4 in
+          let stream_id = sframe_stream land 0x07 in
+          let frame = Message.get_t2mi_frame_seq_item_frame el in
+          let count = Int32.to_int @@ Message.get_t2mi_frame_seq_item_count el in
+          let plp = Message.get_t2mi_frame_seq_item_plp el in
+          let l1_param_1 = Message.get_t2mi_frame_seq_item_dyn1_frame el in
+          let l1_param_2 = Message.get_t2mi_frame_seq_item_dyn2_frame el in
+          let ts_packet = Int32.to_int @@ Message.get_t2mi_frame_seq_item_time el in
+          { typ
+          ; super_frame
+          ; stream_id
+          ; frame
+          ; count
+          ; plp
+          ; l1_param_1
+          ; l1_param_2
+          ; ts_packet
+          } :: acc)
+        iter []
+    in
+    Ok { timestamp; data }
+  with Invalid_argument _ -> Error Request.Invalid_payload
 
-  let traverse time (code, acc) item =
-    let is_param = List.mem ~eq:(=) code param_codes in
-    let acc =
-      if not is_param
-      then
-        let item =
-          { Board_error.
-            time
-          ; source = Hardware
-          ; code
-          ; count = Int32.to_int item
-          ; param = None
-          } in
-        (item :: acc)
-      else match acc with
-        | hd :: tl -> { hd with param = Some (Int32.to_int item) } :: tl
-        | _ -> acc in
-    (succ code, acc)
-
-  let parse (msg : Cstruct.t) =
-    let iter =
-      Cstruct.iter (fun _ -> Some 4)
-        (fun buf -> Cstruct.LE.get_uint32 buf 0)
-        (Message.get_board_errors_errors msg) in
-    let time = Ptime_clock.now () in
-    try Ok (List.rev @@ snd @@ Cstruct.fold (traverse time) iter (0, []))
-    with Invalid_argument _ -> Error Request.Invalid_payload
-
-end
-
-(* let int_to_bool_list x =
- *   List.map (fun i -> (x land Int.pow 2 i) > 0) (List.range 0 7)
- * 
- * let int_to_t2mi_sync_list x =
- *   int_to_bool_list x
- *   |> List.foldi (fun acc i x -> if x then i :: acc else acc) []
- * 
- * let to_mode_exn mode t2mi_pid stream_id : input * t2mi_mode_raw =
- *   Option.get_exn @@ input_of_int (mode land 1),
- *   { enabled = if (mode land 4) > 0 then true else false
- *   ; pid = t2mi_pid land 0x1fff
- *   ; t2mi_stream_id = (t2mi_pid lsr 13) land 0x7
- *   ; stream = stream_id
- *   }
- * 
- * module Get_board_mode = struct
- * 
- *   let parse _ msg =
- *     to_mode_exn (get_board_mode_mode msg)
- *       (get_board_mode_t2mi_pid msg)
- *       (Multi_TS_ID.of_int32_pure (get_board_mode_stream_id msg))
- * end
- * 
- * let parse_section
- *     (table_id : int)
- *     (section : int option)
- *     (msg : Cstruct.t) =
- *   let hdr, bdy = Cstruct.split msg Message.sizeof_section in
- *   let length = Message.get_section_length hdr in
- *   let result = Message.get_section_result hdr in
- *   let timestamp = Ptime_clock.now () in
- *   if length > 0 && result = 0
- *   then
- *     let sid, data  = Cstruct.split bdy 4 in
- *     let stream_id = Cstruct.LE.get_uint32 sid 0 in
- *     let raw = Cstruct.to_string data in
- *     let section_id = match section with
- *       | None -> 0
- *       | Some x -> x in
- *     let data =
- *       { SI_PSI_section.Dump.
- *         section = B64.encode raw
- *       ; stream_id = Stream.Multi_TS_ID.of_int32_pure stream_id
- *       ; table_id
- *       ; section_id
- *       ; content = Si_psi_parser.parse raw
- *       } in
- *     Ok { timestamp; data }
- *   else
- *     let error = match result with
- *       | 0 | 3 -> SI_PSI_section.Dump.Zero_length
- *       | 1 -> Table_not_found
- *       | 2 -> Section_not_found
- *       | 4 -> Stream_not_found
- *       | _ -> Unknown in
- *     Error error
- * 
- * let parse_t2mi_seq (msg : Cstruct.t) =
- *   let iter =
- *     Cstruct.iter
- *       (fun _ -> Some Message.sizeof_t2mi_frame_seq_item)
- *       (fun buf -> buf)
- *       msg in
- *   let timestamp = Ptime_clock.now () in
- *   try
- *     let data =
- *       List.rev
- *       @@ Cstruct.fold (fun (acc : T2mi_sequence.item list) el ->
- *           Message.(
- *             let typ = get_t2mi_frame_seq_item_typ el in
- *             let sframe_stream = get_t2mi_frame_seq_item_sframe_stream el in
- *             let super_frame = (sframe_stream land 0xF0) lsr 4 in
- *             let stream_id = sframe_stream land 0x07 in
- *             let frame = get_t2mi_frame_seq_item_frame el in
- *             let count = Int32.to_int @@ get_t2mi_frame_seq_item_count el in
- *             let plp = get_t2mi_frame_seq_item_plp el in
- *             let l1_param_1 = get_t2mi_frame_seq_item_dyn1_frame el in
- *             let l1_param_2 = get_t2mi_frame_seq_item_dyn2_frame el in
- *             let ts_packet = Int32.to_int @@ get_t2mi_frame_seq_item_time el in
- *             { typ
- *             ; super_frame
- *             ; stream_id
- *             ; frame
- *             ; count
- *             ; plp
- *             ; l1_param_1
- *             ; l1_param_2
- *             ; ts_packet
- *             } :: acc))
- *         iter []
- *     in
- *     Ok { timestamp; data }
- *   with Invalid_argument _ -> Error Request.Invalid_length
- * 
- * module Get_jitter = struct
- * 
- *   let parse_item el packet_time : Jitter.measure =
- *     let status = get_jitter_item_status el in
- *     let d_pack = get_jitter_item_d_packet el in
- *     let d_pcr = get_jitter_item_d_pcr el in
- *     let drift = get_jitter_item_drift el in
- *     let fo = get_jitter_item_fo el in
- *     let jitter = get_jitter_item_jitter el in
- *     let t_pcr = ((Int32.to_float d_pcr) *. 10e+9) /. 27e+6 in
- *     let t_pcr_br = (Int32.to_float packet_time) *. (float_of_int d_pack) in
- *     let accuracy = t_pcr /. t_pcr_br in
- *     { discont_err = status land 0x8000 <> 0
- *     ; discont_ok = status land 0x4000 <> 0
- *     ; t_pcr = t_pcr_br
- *     ; accuracy
- *     ; jitter
- *     ; drift = Int32.float_of_bits drift
- *     ; fo = Int32.float_of_bits fo
- *     ; period = t_pcr_br /. 10e+6
- *     }
- * 
- *   let parse _ msg : jitter_raw =
- *     let hdr, bdy' = Cstruct.split msg sizeof_jitter in
- *     let count  = get_jitter_count hdr in
- *     let bdy, _  = Cstruct.split bdy' @@ sizeof_jitter_item * count in
- *     let pid = get_jitter_pid hdr in
- *     let t_pcr = Int32.float_of_bits @@ get_jitter_t_pcr hdr in
- *     let time = Int32.to_int @@ get_jitter_time hdr in
- *     let next_ptr = get_jitter_req_next hdr in
- *     let packet_time = get_jitter_packet_time hdr in
- *     let iter = Cstruct.iter (fun _ -> Some sizeof_jitter_item) (fun buf -> buf) bdy in
- *     let timestamp = Ptime_clock.now () in
- *     let measures =
- *       Cstruct.fold (fun acc el -> (parse_item el packet_time) :: acc)
- *         iter [] |> List.rev in
- *     { measures; next_ptr; time; timestamp; pid; t_pcr }
- * end
- * 
- * module Get_bitrate = struct
- * 
- *   let of_pids_bitrate total_pids br_per_pkt buf =
- *     let msg, rest = Cstruct.split buf (sizeof_pid_bitrate * total_pids) in
- *     let iter = Cstruct.iter (fun _ -> Some sizeof_pid_bitrate)
- *         (fun buf -> buf) msg in
- *     let pids =
- *       Cstruct.fold (fun acc el ->
- *           let packets = get_pid_bitrate_packets el in
- *           let pid = get_pid_bitrate_pid el land 0x1FFF in
- *           let br = int_of_float @@ br_per_pkt *. (Int32.to_float packets) in
- *           (pid, br) :: acc)
- *         iter []
- *     in
- *     List.rev pids, rest
- * 
- *   let of_tables_bitrate (total_tbls : int)
- *       (br_per_pkt : float)
- *       (buf : Cstruct.t) : table list =
- *     let msg, _ = Cstruct.split buf (sizeof_table_bitrate * total_tbls) in
- *     let iter = Cstruct.iter (fun _ -> Some sizeof_table_bitrate) Fun.id msg in
- *     let tables =
- *       Cstruct.fold (fun acc el ->
- *           let packets = get_table_bitrate_packets el in
- *           let flags = get_table_bitrate_flags el in
- *           let id_ext_1 = get_table_bitrate_id_ext_1 el in
- *           let id_ext_2 = get_table_bitrate_id_ext_2 el in
- *           let rate = int_of_float @@ br_per_pkt *. (Int32.to_float packets) in
- *           { table_id = get_table_bitrate_table_id el
- *           ; table_id_ext = get_table_bitrate_table_id_ext el
- *           ; id_ext_1
- *           ; id_ext_2
- *           ; fully_analyzed = flags land 2 > 0
- *           ; section_syntax = flags land 1 > 0
- *           ; bitrate = rate } :: acc)
- *         iter []
- *     in
- *     List.rev tables
- * 
- *   let of_stream_bitrate (buf : Cstruct.t) =
- *     let length = (Int32.to_int @@ get_stream_bitrate_length buf) in
- *     let msg, rest = Cstruct.split buf (length + 8) in
- *     let hdr, bdy = Cstruct.split msg sizeof_stream_bitrate in
- *     let total = Int32.to_int @@ get_stream_bitrate_ts_bitrate hdr in
- *     let total_pkts = get_stream_bitrate_total_packets hdr in
- *     let br_per_pkt = (float_of_int total) /. (Int32.to_float total_pkts)  in
- *     let total_pids = get_stream_bitrate_total_pids hdr in
- *     let total_tbls = get_stream_bitrate_total_tables hdr in
- *     let pids, tbls = of_pids_bitrate total_pids br_per_pkt bdy in
- *     let tables = of_tables_bitrate total_tbls br_per_pkt tbls in
- *     let stream = get_stream_bitrate_stream_id hdr in
- *     let data = { total; pids; tables } in
- *     let rsp = Multi_TS_ID.of_int32_pure stream, data in
- *     let rest = if Cstruct.len rest > 0 then Some rest else None in
- *     rsp, rest
- * 
- *   let parse _ (msg : Cstruct.t) : (Multi_TS_ID.t * t) list =
- *     let hdr, bdy = Cstruct.split msg sizeof_bitrates in
- *     let count = get_bitrates_count hdr in
- *     let rec parse = fun acc buf ->
- *       let x, rest = of_stream_bitrate buf in
- *       match rest with
- *       | Some b -> parse (x :: acc) b
- *       | None -> List.rev (x :: acc) in
- *     if count > 0 then parse [] bdy else []
- * end
- * 
- * module Get_t2mi_info = struct
- *   let parse ({ stream; _ } : t2mi_info_req) msg =
- *     let hdr, rest = Cstruct.split msg sizeof_t2mi_info in
- *     let iter = Cstruct.iter (fun _ -> Some 1)
- *         (fun buf -> Cstruct.get_uint8 buf 0)
- *         (get_t2mi_info_packets hdr) in
- *     let packets =
- *       Cstruct.fold (fun acc el ->
- *           (List.rev @@ int_to_bool_list el) @ acc) iter []
- *       |> List.rev
- *       |> List.foldi (fun acc i x -> if x then i :: acc else acc) [] in
- *     let sid = get_t2mi_info_stream_id hdr in
- *     let length = get_t2mi_info_length hdr in
- *     match length with
- *     | 0 ->
- *       stream,
- *       (sid, { packets
- *             ; t2mi_pid = None
- *             ; l1 = None
- *             ; l1_empty = true
- *             ; l1_parse_error = false })
- *     | l ->
- *       let body, _ = Cstruct.split rest l in
- *       let conf_len =
- *         get_t2mi_info_ext_conf_len body
- *         |> fun x -> let r, d = x mod 8,
- *                                x / 8 in d + (if r > 0 then 1 else 0) in
- *       let conf = snd @@ Cstruct.split body sizeof_t2mi_info_ext in
- *       let conf = fst @@ Cstruct.split conf conf_len in
- *       let l1_pre' = Cstruct.to_string @@ get_t2mi_info_ext_l1_pre body in
- *       let l1_post' = Cstruct.to_string conf in
- *       let l1 = match L1_parser.l1_pre_of_string l1_pre' with
- *         | None -> None
- *         | Some l1_pre ->
- *           begin match L1_parser.l1_post_conf_of_string l1_pre l1_post' with
- *             | None -> None
- *             | Some x -> Some { l1_pre; l1_post_conf = x }
- *           end in
- *       stream,
- *       (sid, { packets
- *             ; t2mi_pid = Some (get_t2mi_info_ext_t2mi_pid body)
- *             ; l1
- *             ; l1_empty = false
- *             ; l1_parse_error = Option.is_none l1
- *             })
- * end
- * 
- * let parse_status (msg : Cstruct.t) =
+(* let parse_status (msg : Cstruct.t) =
  *   let time = Ptime_clock.now () in
  *   let iter =
  *     Cstruct.iter
@@ -388,7 +178,225 @@ end
  *     ; versions
  *     ; streams = [] (\* Filled in later *\)
  *     } in
- *   raw
+ *   raw *)
+
+module Deverr_parser = struct
+
+  let param_codes = [18; 32]
+
+  let traverse time (code, acc) item =
+    let is_param = List.mem ~eq:(=) code param_codes in
+    let acc =
+      if not is_param
+      then
+        let item =
+          { Board_error.
+            time
+          ; source = Hardware
+          ; code
+          ; count = Int32.to_int item
+          ; param = None
+          } in
+        (item :: acc)
+      else match acc with
+        | hd :: tl -> { hd with param = Some (Int32.to_int item) } :: tl
+        | _ -> acc in
+    (succ code, acc)
+
+  let parse (msg : Cstruct.t) =
+    let iter =
+      Cstruct.iter (fun _ -> Some 4)
+        (fun buf -> Cstruct.LE.get_uint32 buf 0)
+        (Message.get_board_errors_errors msg) in
+    let time = Ptime_clock.now () in
+    try Ok (List.rev @@ snd @@ Cstruct.fold (traverse time) iter (0, []))
+    with Invalid_argument _ -> Error Request.Invalid_payload
+
+end
+
+module Bitrate_parser = struct
+
+  let of_pids_bitrate total_pids br_per_pkt (buf : Cstruct.t) =
+    let msg, rest = Cstruct.split buf (Message.sizeof_pid_bitrate * total_pids) in
+    let iter =
+      Cstruct.iter
+        (fun _ -> Some Message.sizeof_pid_bitrate)
+        (fun x -> x) msg in
+    let pids =
+      Cstruct.fold (fun acc el ->
+          let packets = Message.get_pid_bitrate_packets el in
+          let pid = Message.get_pid_bitrate_pid el land 0x1FFF in
+          let br = int_of_float @@ br_per_pkt *. (Int32.to_float packets) in
+          (pid, br) :: acc)
+        iter []
+    in
+    List.rev pids, rest
+
+  let of_tables_bitrate (total_tbls : int)
+      (br_per_pkt : float)
+      (buf : Cstruct.t) =
+    let msg, _ = Cstruct.split buf (Message.sizeof_table_bitrate * total_tbls) in
+    let iter =
+      Cstruct.iter
+        (fun _ -> Some Message.sizeof_table_bitrate)
+        (fun x -> x) msg in
+    let tables =
+      Cstruct.fold (fun acc el ->
+          let packets = Message.get_table_bitrate_packets el in
+          let flags = Message.get_table_bitrate_flags el in
+          let id_ext_1 = Message.get_table_bitrate_id_ext_1 el in
+          let id_ext_2 = Message.get_table_bitrate_id_ext_2 el in
+          let rate = int_of_float @@ br_per_pkt *. (Int32.to_float packets) in
+          { Bitrate.
+            table_id = Message.get_table_bitrate_table_id el
+          ; table_id_ext = Message.get_table_bitrate_table_id_ext el
+          ; id_ext_1
+          ; id_ext_2
+          ; fully_analyzed = flags land 2 > 0
+          ; section_syntax = flags land 1 > 0
+          ; bitrate = rate } :: acc)
+        iter []
+    in
+    List.rev tables
+
+  let of_stream_bitrate (buf : Cstruct.t) =
+    let length = (Int32.to_int @@ Message.get_stream_bitrate_length buf) in
+    let msg, rest = Cstruct.split buf (length + 8) in
+    let hdr, bdy = Cstruct.split msg Message.sizeof_stream_bitrate in
+    let total = Int32.to_int @@ Message.get_stream_bitrate_ts_bitrate hdr in
+    let total_pkts = Message.get_stream_bitrate_total_packets hdr in
+    let br_per_pkt = (float_of_int total) /. (Int32.to_float total_pkts)  in
+    let total_pids = Message.get_stream_bitrate_total_pids hdr in
+    let total_tbls = Message.get_stream_bitrate_total_tables hdr in
+    let pids, tbls = of_pids_bitrate total_pids br_per_pkt bdy in
+    let tables = of_tables_bitrate total_tbls br_per_pkt tbls in
+    let stream = Message.get_stream_bitrate_stream_id hdr in
+    let data = { Bitrate. total; pids; tables } in
+    let rsp = Stream.Multi_TS_ID.of_int32_pure stream, data in
+    rsp, rest
+
+  let parse (msg : Cstruct.t) =
+    try
+      let count = Message.get_bitrates_count msg in
+      let rec parse acc buf =
+        match Cstruct.len buf with
+        | 0 -> List.rev acc
+        | _ ->
+          let x, rest = of_stream_bitrate buf in
+          parse (x :: acc) rest in
+      let body = Cstruct.shift msg Message.sizeof_bitrates in
+      Ok (if count > 0 then parse [] body else [])
+    with Invalid_argument _ -> Error Request.Invalid_payload
+end
+
+(* let int_to_bool_list x =
+ *   List.map (fun i -> (x land Int.pow 2 i) > 0) (List.range 0 7)
+ * 
+ * let int_to_t2mi_sync_list x =
+ *   int_to_bool_list x
+ *   |> List.foldi (fun acc i x -> if x then i :: acc else acc) []
+ * 
+ * let to_mode_exn mode t2mi_pid stream_id : input * t2mi_mode_raw =
+ *   Option.get_exn @@ input_of_int (mode land 1),
+ *   { enabled = if (mode land 4) > 0 then true else false
+ *   ; pid = t2mi_pid land 0x1fff
+ *   ; t2mi_stream_id = (t2mi_pid lsr 13) land 0x7
+ *   ; stream = stream_id
+ *   }
+ * 
+ * module Get_board_mode = struct
+ * 
+ *   let parse _ msg =
+ *     to_mode_exn (get_board_mode_mode msg)
+ *       (get_board_mode_t2mi_pid msg)
+ *       (Multi_TS_ID.of_int32_pure (get_board_mode_stream_id msg))
+ * end
+ * 
+ * module Get_jitter = struct
+ * 
+ *   let parse_item el packet_time : Jitter.measure =
+ *     let status = get_jitter_item_status el in
+ *     let d_pack = get_jitter_item_d_packet el in
+ *     let d_pcr = get_jitter_item_d_pcr el in
+ *     let drift = get_jitter_item_drift el in
+ *     let fo = get_jitter_item_fo el in
+ *     let jitter = get_jitter_item_jitter el in
+ *     let t_pcr = ((Int32.to_float d_pcr) *. 10e+9) /. 27e+6 in
+ *     let t_pcr_br = (Int32.to_float packet_time) *. (float_of_int d_pack) in
+ *     let accuracy = t_pcr /. t_pcr_br in
+ *     { discont_err = status land 0x8000 <> 0
+ *     ; discont_ok = status land 0x4000 <> 0
+ *     ; t_pcr = t_pcr_br
+ *     ; accuracy
+ *     ; jitter
+ *     ; drift = Int32.float_of_bits drift
+ *     ; fo = Int32.float_of_bits fo
+ *     ; period = t_pcr_br /. 10e+6
+ *     }
+ * 
+ *   let parse _ msg : jitter_raw =
+ *     let hdr, bdy' = Cstruct.split msg sizeof_jitter in
+ *     let count  = get_jitter_count hdr in
+ *     let bdy, _  = Cstruct.split bdy' @@ sizeof_jitter_item * count in
+ *     let pid = get_jitter_pid hdr in
+ *     let t_pcr = Int32.float_of_bits @@ get_jitter_t_pcr hdr in
+ *     let time = Int32.to_int @@ get_jitter_time hdr in
+ *     let next_ptr = get_jitter_req_next hdr in
+ *     let packet_time = get_jitter_packet_time hdr in
+ *     let iter = Cstruct.iter (fun _ -> Some sizeof_jitter_item) (fun buf -> buf) bdy in
+ *     let timestamp = Ptime_clock.now () in
+ *     let measures =
+ *       Cstruct.fold (fun acc el -> (parse_item el packet_time) :: acc)
+ *         iter [] |> List.rev in
+ *     { measures; next_ptr; time; timestamp; pid; t_pcr }
+ * end
+ *)
+ (* module Get_t2mi_info = struct
+ *   let parse ({ stream; _ } : t2mi_info_req) msg =
+ *     let hdr, rest = Cstruct.split msg sizeof_t2mi_info in
+ *     let iter = Cstruct.iter (fun _ -> Some 1)
+ *         (fun buf -> Cstruct.get_uint8 buf 0)
+ *         (get_t2mi_info_packets hdr) in
+ *     let packets =
+ *       Cstruct.fold (fun acc el ->
+ *           (List.rev @@ int_to_bool_list el) @ acc) iter []
+ *       |> List.rev
+ *       |> List.foldi (fun acc i x -> if x then i :: acc else acc) [] in
+ *     let sid = get_t2mi_info_stream_id hdr in
+ *     let length = get_t2mi_info_length hdr in
+ *     match length with
+ *     | 0 ->
+ *       stream,
+ *       (sid, { packets
+ *             ; t2mi_pid = None
+ *             ; l1 = None
+ *             ; l1_empty = true
+ *             ; l1_parse_error = false })
+ *     | l ->
+ *       let body, _ = Cstruct.split rest l in
+ *       let conf_len =
+ *         get_t2mi_info_ext_conf_len body
+ *         |> fun x -> let r, d = x mod 8,
+ *                                x / 8 in d + (if r > 0 then 1 else 0) in
+ *       let conf = snd @@ Cstruct.split body sizeof_t2mi_info_ext in
+ *       let conf = fst @@ Cstruct.split conf conf_len in
+ *       let l1_pre' = Cstruct.to_string @@ get_t2mi_info_ext_l1_pre body in
+ *       let l1_post' = Cstruct.to_string conf in
+ *       let l1 = match L1_parser.l1_pre_of_string l1_pre' with
+ *         | None -> None
+ *         | Some l1_pre ->
+ *           begin match L1_parser.l1_post_conf_of_string l1_pre l1_post' with
+ *             | None -> None
+ *             | Some x -> Some { l1_pre; l1_post_conf = x }
+ *           end in
+ *       stream,
+ *       (sid, { packets
+ *             ; t2mi_pid = Some (get_t2mi_info_ext_t2mi_pid body)
+ *             ; l1
+ *             ; l1_empty = false
+ *             ; l1_parse_error = Option.is_none l1
+ *             })
+ * end
  * 
  * module TS_streams = struct
  * 
@@ -731,8 +739,7 @@ let deserialize src parts buf =
   responses, parts, if Cstruct.len res > 0 then Some res else None
 
 let parse_mode _ = Error Request.Invalid_payload
-let parse_t2mi_sequence _ = Error Request.Invalid_payload
-let parse_section _ = Error Request.Invalid_payload
+let parse_jitter _ = Error Request.Invalid_payload
 
 let is_response (type a) (req : a Request.t)
     (msg : Request.rsp) : (a, Request.error) result option =
@@ -744,7 +751,7 @@ let is_response (type a) (req : a Request.t)
   | Get_deverr id ->
     (match msg with
      | `Complex { tag = `Deverr; data; request_id; _ } when id = request_id ->
-       Some (Deverr.parse data)
+       Some (Deverr_parser.parse data)
      | _ -> None)
   | Get_mode ->
     (match msg with
@@ -759,9 +766,24 @@ let is_response (type a) (req : a Request.t)
      | `Complex { tag = `T2mi_seq; data; request_id; _ } when id = request_id ->
        Some (parse_t2mi_sequence data)
      | _ -> None)
-  | Get_section { request_id = id; _ } ->
+  | Get_section { request_id = id; table_id; section; _ } ->
     (match msg with
      | `Complex { tag = `Section; data; request_id; _ } when id = request_id ->
-       Some (parse_section data)
+       Some (parse_section ~table_id ~section data)
+     | _ -> None)
+  | Get_jitter { request_id = id; _ } ->
+    (match msg with
+     | `Complex { tag = `Jitter; data; request_id; _ } when id = request_id ->
+       Some (parse_jitter data)
+     | _ -> None)
+  | Get_bitrate id ->
+    (match msg with
+     | `Complex { tag = `Bitrate; data; request_id; _ } when id = request_id ->
+       Some (Bitrate_parser.parse data)
+     | _ -> None)
+  | Get_structure { request_id = id; stream } ->
+    (match msg with
+     | `Complex { tag = `Structure; data; request_id; _ } when id = request_id ->
+       Some (Structure_parser.parse stream data)
      | _ -> None)
   | _ -> None
