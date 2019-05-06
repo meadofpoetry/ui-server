@@ -46,6 +46,133 @@ let user_handlers (users : Application.User_api.t) =
         Application.User_api.logout
     ]
 
+let input topo (input : Topology.topo_input) =
+  let open Api_template in
+  let icon x =
+    let open Icon.SVG in
+    let path = create_path x () in
+    let icon = create [path] () in
+    Tyxml.Html.toelt icon
+  in
+  let get_input_href (x : Topology.topo_input) =
+    let name = Topology.input_to_string x.input in
+    let id = string_of_int x.id in
+    Filename.concat name id
+  in
+  let path =
+    Topology.get_paths topo
+    |> List.find_opt (fun (i, _, _) -> Topology.equal_topo_input i input)
+    |> (function Some (_, p, c) -> Some (p, c) | None -> None)
+  in
+  match path with
+  | None              -> failwith "input not found"
+  | Some (boards, cpu) ->
+     let title = Topology.get_input_name input in
+     let boards =
+       List.map (fun (x : Topology.topo_board) -> x.control, x.typ) boards
+       |> Topology.boards_to_yojson
+       |> Yojson.Safe.to_string in
+     let cpu = (* TODO remove after 4.08 *)
+       cpu
+       |> (function Some (x : Topology.topo_cpu) -> Some x.process | None -> None)
+       |> Util_json.Option.to_yojson Topology.process_type_to_yojson
+       |> Yojson.Safe.to_string in
+     let input_string = Topology.Show_topo_input.to_string input in
+     let input_template =
+       { title = Some title
+       ; pre_scripts  =
+           [ Raw (Printf.sprintf "var input = \"%s\";\
+                                  var boards = %s;\
+                                  var cpu = %s;"
+                    input_string boards cpu)]
+       ; post_scripts = [Src "/js/input.js"]
+       ; stylesheets = []
+       ; content = []
+       }
+     in
+     let input_page =
+       simple
+         ~priority:(`Index input.id)
+         ~title
+         ~icon:(icon Icon.SVG.Path.settings)
+         ~path:(Path.of_string @@ get_input_href input)
+         input_template
+     in
+     let pre = "input/" ^ get_input_href input in
+     let stream_template =
+       { title = Some ("Входы / " ^ title)
+       ; pre_scripts =
+           [ Raw (Printf.sprintf "var input = \"%s\";\
+                                  var boards = %s;\
+                                  var cpu = %s;"
+                    input_string boards cpu)
+           ; Src "/js/moment.min.js"
+           ; Src "/js/Chart.min.js"
+           ; Src "/js/chartjs-plugin-streaming.min.js"
+           ; Src "/js/chartjs-plugin-datalabels.min.js"
+           ]
+       ; post_scripts = [Src "/js/stream.js"]
+       ; stylesheets = []
+       ; content = []
+       } in
+     let stream_page =
+       parametric
+         ~path:Path.Format.(pre @/ Stream.ID.fmt ^/ empty)
+         stream_template
+     in
+     (*`Index input.id,*)
+     input_page, stream_page
+  
+let application_pages (app : Application.t) =
+  let open Api_template in
+  let icon x =
+    let open Icon.SVG in
+    let path = create_path x () in
+    let icon = create [path] () in
+    Tyxml.Html.toelt icon
+  in
+  let props =
+    { title = Some "Конфигурация"
+    ; pre_scripts = []
+    ; post_scripts = [Src "/js/topology.js"]
+    ; stylesheets = ["/css/topology.min.css"]
+    ; content = []
+    }
+  in
+  (* let _demo_props = (* TODO *)
+    { title = Some "UI Демо"
+    ; pre_scripts =
+        [ Src "/js/moment.min.js"
+        ; Src "/js/Chart.min.js"
+        ]
+    ; post_scripts = [Src "/js/demo.js"]
+    ; stylesheets = ["/css/demo.min.css"]
+    ; content = []
+    } in *)
+  let topo = React.S.value app.topo in
+  let hw_templates =
+    Hardware.Map.fold (fun _ (x : Boards.Board.t) acc ->
+        List.cons_maybe x.templates acc) app.hw.boards []
+  in
+  let inputs = Topology.get_inputs topo in
+  let input_templates, stream_templates =
+    List.map (input topo) inputs
+    |> List.split
+  in
+  [ subtree
+      ~priority:(`Index 2)
+      ~title:"Входы"
+      ~icon:(icon Icon.SVG.Path.arrow_right_box)
+      input_templates
+  ; simple
+      ~priority:(`Index 3)
+      ~title:"Конфигурация"
+      ~icon:(icon Icon.SVG.Path.tournament)
+      ~path:(Path.of_string "application")
+      props
+  ]
+  @ hw_templates
+
 let application_handlers (app : Application.t) =
   let open Api_http in
   make ~prefix:"topology" (* TODO change to application *)
@@ -111,11 +238,9 @@ let create template (app : Application.t) =
   let proc_pages = match app.proc with
     | None -> []
     | Some proc -> proc#pages () in
-  let hardware_pages = Hardware.Map.fold (fun _ x acc ->
-      x.Boards.Board.templates @ acc) app.hw.boards [] in
   let templates =
     Pc_control_http.network_pages
-    @ hardware_pages
+    @ (application_pages app)
     @ proc_pages
     @ user_pages
   in
