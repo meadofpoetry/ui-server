@@ -33,9 +33,45 @@ type part =
   }
 
 let parse_devinfo (msg : Cstruct.t) =
-  { typ = Message.get_board_info_board_type msg
-  ; ver = Message.get_board_info_board_version msg
-  }
+  try
+    Ok { typ = Message.get_board_info_board_type msg
+       ; ver = Message.get_board_info_board_version msg
+       }
+  with _ -> Error Request.Invalid_payload
+
+module Deverr = struct
+
+  let param_codes = [18; 32]
+
+  let traverse time (code, acc) item =
+    let is_param = List.mem ~eq:(=) code param_codes in
+    let acc =
+      if not is_param
+      then
+        let item =
+          { Board_error.
+            time
+          ; source = Hardware
+          ; code
+          ; count = Int32.to_int item
+          ; param = None
+          } in
+        (item :: acc)
+      else match acc with
+        | hd :: tl -> { hd with param = Some (Int32.to_int item) } :: tl
+        | _ -> acc in
+    (succ code, acc)
+
+  let parse (msg : Cstruct.t) =
+    let iter =
+      Cstruct.iter (fun _ -> Some 4)
+        (fun buf -> Cstruct.LE.get_uint32 buf 0)
+        (Message.get_board_errors_errors msg) in
+    let time = Ptime_clock.now () in
+    try Ok (List.rev @@ snd @@ Cstruct.fold (traverse time) iter (0, []))
+    with Invalid_argument _ -> Error Request.Invalid_payload
+
+end
 
 (* let int_to_bool_list x =
  *   List.map (fun i -> (x land Int.pow 2 i) > 0) (List.range 0 7)
@@ -58,37 +94,6 @@ let parse_devinfo (msg : Cstruct.t) =
  *     to_mode_exn (get_board_mode_mode msg)
  *       (get_board_mode_t2mi_pid msg)
  *       (Multi_TS_ID.of_int32_pure (get_board_mode_stream_id msg))
- * end
- * 
- * module Get_board_errors = struct
- *   open Board_error
- *   let param_codes = [18; 32]
- * 
- *   let parse _ msg =
- *     let iter =
- *       Cstruct.iter (fun _ -> Some 4)
- *         (fun buf -> Cstruct.LE.get_uint32 buf 0)
- *         (get_board_errors_errors msg) in
- *     List.rev @@ Cstruct.fold (fun acc el -> el :: acc) iter []
- *     |> List.foldi (fun acc i x ->
- *         if i < 0 || i > 32 then acc else
- *           match Int32.to_int x,
- *                 List.mem ~eq:(=) i param_codes,
- *                 acc with
- *           | 0, false, _ | _, true, [] -> acc
- *           | count, false, acc ->
- *             let item =
- *               { time = Ptime_clock.now ()
- *               ; source = Hardware
- *               ; code = i
- *               ; count
- *               ; param = None
- *               } in
- *             item :: acc
- *           | count, true, hd :: tl ->
- *             if hd.code = (i - 1)
- *             then { hd with param = Some count } :: tl
- *             else acc) []
  * end
  * 
  * let parse_section
@@ -556,7 +561,7 @@ let check_msg_code (buf : Cstruct.t) =
   try
     let code = Message.get_common_header_msg_code buf in
     let has_crc = (code land 2) > 0 in
-    match Request.tag_of_enum @@ code lsr 8 with
+    match Request.rsp_tag_of_enum @@ code lsr 8 with
     | None -> Error (Bad_msg_code code)
     | Some tag ->
       let message, rest = Request.split_message has_crc buf tag in
@@ -655,13 +660,15 @@ let parse src data parts = function
  *         m "parser - failure while parsing complex message: %s"
  *           (Printexc.to_string e)); `N *)
 
-let try_compose_parts src ((id, gp) as x) =
-  let gp = List.sort (fun x y ->
+(* FIXME optimize, we should not try to compose parts once again if failed,
+   store already composed items *)
+let try_compose_parts src ((id, acc) as x) =
+  let sorted = List.sort (fun x y ->
       if x.first then (-1)
       else if y.first then 1
-      else compare x.param y.param) gp in
-  match gp with
-  | [] -> failwith "empty"
+      else compare x.param y.param) acc in
+  match sorted with
+  | [] -> `P x
   | first :: rest ->
     try
       let acc =
@@ -702,10 +709,6 @@ let deserialize src parts buf =
             f acc parts (Cstruct.shift buf 1)
         end in
   let responses, parts, res = f [] parts buf in
-  List.iter (fun (m : Request.tag Request.msg) ->
-      print_endline @@ show_devinfo @@ parse_devinfo m.data;
-      Request.msg_to_string Request.tag_to_string m
-      |> print_endline) responses;
   let parts =
     List.filter (fun (_, x) ->
         let first_msgs = List.find_all (fun x -> x.first) x in
@@ -726,3 +729,39 @@ let deserialize src parts buf =
    *     (ev_rsps, rsps, []) parts
    * in *)
   responses, parts, if Cstruct.len res > 0 then Some res else None
+
+let parse_mode _ = Error Request.Invalid_payload
+let parse_t2mi_sequence _ = Error Request.Invalid_payload
+let parse_section _ = Error Request.Invalid_payload
+
+let is_response (type a) (req : a Request.t)
+    (msg : Request.rsp) : (a, Request.error) result option =
+  match req with
+  | Get_devinfo ->
+    (match msg with
+     | `Simple { tag = `Devinfo; data } -> Some (parse_devinfo data)
+     | _ -> None)
+  | Get_deverr id ->
+    (match msg with
+     | `Complex { tag = `Deverr; data; request_id; _ } when id = request_id ->
+       Some (Deverr.parse data)
+     | _ -> None)
+  | Get_mode ->
+    (match msg with
+     | `Simple { tag = `Mode; data } -> Some (parse_mode data)
+     | _ -> None)
+  | Set_mode _ -> None
+  | Set_jitter_mode _ -> None
+  | Reset -> None
+  | Set_src_id _ -> None
+  | Get_t2mi_seq { request_id = id; _ } ->
+    (match msg with
+     | `Complex { tag = `T2mi_seq; data; request_id; _ } when id = request_id ->
+       Some (parse_t2mi_sequence data)
+     | _ -> None)
+  | Get_section { request_id = id; _ } ->
+    (match msg with
+     | `Complex { tag = `Section; data; request_id; _ } when id = request_id ->
+       Some (parse_section data)
+     | _ -> None)
+  | _ -> None

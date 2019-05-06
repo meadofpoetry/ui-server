@@ -16,6 +16,10 @@ type devinfo =
   ; ver : int
   } [@@deriving yojson, eq, show]
 
+let devinfo_to_string (x : devinfo) =
+  Printf.sprintf "type: 0x%02X, version: %d"
+    x.typ x.ver
+
 type input =
   | SPI
   | ASI [@@deriving yojson, show, eq]

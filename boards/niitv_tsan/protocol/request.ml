@@ -10,7 +10,7 @@ type req_tag =
   | `Get_mode
   ]
 
-type tag =
+type rsp_tag =
   [ `Devinfo
   | `Mode
   | `Status
@@ -40,7 +40,7 @@ let req_tag_to_enum : req_tag -> int = function
   | `Set_source_id -> 0x0089
   | `Set_jitter_mode -> 0x0112
 
-let tag_to_string : tag -> string = function
+let rsp_tag_to_string : rsp_tag -> string = function
   | `Devinfo -> "devinfo"
   | `Mode -> "mode"
   | `Status -> "status"
@@ -51,7 +51,7 @@ let tag_to_string : tag -> string = function
   | `End_of_errors -> "end of errors"
   | `End_of_transmission -> "end of transmission"
 
-let tag_to_enum : tag -> int = function
+let rsp_tag_to_enum : rsp_tag -> int = function
   | `Devinfo -> 0x01
   | `Mode -> 0x02
   | `Status -> 0x03
@@ -62,7 +62,7 @@ let tag_to_enum : tag -> int = function
   | `End_of_errors -> 0xFD
   | `End_of_transmission -> 0xFF
 
-let tag_of_enum : int -> tag option = function
+let rsp_tag_of_enum : int -> rsp_tag option = function
   | 0x01 -> Some `Devinfo
   | 0x02 -> Some `Mode
   | 0x03 -> Some `Status
@@ -74,7 +74,7 @@ let tag_of_enum : int -> tag option = function
   | 0xFF -> Some `End_of_transmission
   | _ -> None
 
-let split_message (has_crc : bool) (buf : Cstruct.t) (tag : tag) =
+let split_message (has_crc : bool) (buf : Cstruct.t) (tag : rsp_tag) =
   let length = match tag with
     | `Devinfo -> sizeof_common_header + sizeof_board_info
     | `Mode -> sizeof_common_header + sizeof_board_mode
@@ -120,16 +120,10 @@ let complex_tag_of_enum : int -> complex_tag option = function
   | 0x030B -> Some `T2mi_info
   | _ -> None
 
-type 'a msg =
+type 'a simple_msg =
   { tag : 'a
   ; data : Cstruct.t
   }
-
-let msg_to_string f m =
-  Format.asprintf "tag: %s, data: %a"
-    (f m.tag)
-    Cstruct.hexdump_pp
-    m.data
 
 type complex_msg =
   { tag : complex_tag
@@ -137,6 +131,12 @@ type complex_msg =
   ; request_id : int
   ; data : Cstruct.t
   }
+
+let simple_msg_to_string f m =
+  Format.asprintf "tag: %s, data: %a"
+    (f m.tag)
+    Cstruct.hexdump_pp
+    m.data
 
 let make_complex_msg ?(request_id = 0) ?(client_id = 0)
     ?(data = Cstruct.empty) tag =
@@ -146,10 +146,12 @@ let make_complex_msg ?(request_id = 0) ?(client_id = 0)
   ; data
   }
 
-type req_msg =
+type 'a msg =
   [ `Complex of complex_msg
-  | `Simple of req_tag msg
+  | `Simple of 'a simple_msg
   ]
+
+type rsp = rsp_tag msg
 
 type error =
   | Timeout
@@ -243,3 +245,34 @@ let timeout (type a) : a t -> float = function
   | Get_t2mi_info _ -> 0.
   | Set_mode _ -> 0.
   | Set_jitter_mode _ -> 0.
+
+let value_to_string (type a) (t : a t) (v : a) : string option =
+  match t with
+  | Get_devinfo -> Some (devinfo_to_string v)
+  | Reset -> None
+  | Set_src_id _ -> None
+  | Get_deverr _ -> None
+  | Get_mode -> None
+  | Get_t2mi_seq _ -> None
+  | Get_section _ -> None
+  | Get_jitter _ -> None
+  | Get_bitrate _ -> None
+  | Get_structure _ -> None
+  | Get_t2mi_info _ -> None
+  | Set_mode _ -> None
+  | Set_jitter_mode _ -> None
+
+let to_string (type a) : a t -> string = function
+  | Get_devinfo -> "Get devinfo"
+  | Reset -> "Reset"
+  | Set_src_id _ -> "Set source ID"
+  | Get_deverr _ -> "Get deverr"
+  | Get_mode -> "Get mode"
+  | Get_t2mi_seq _ -> "Get T2-MI sequence"
+  | Get_section _ -> "Get section"
+  | Get_jitter _ -> "Get jitter"
+  | Get_bitrate _ -> "Get bitrate"
+  | Get_structure _ -> "Get structure"
+  | Get_t2mi_info _ -> "Get T2-MI info"
+  | Set_mode _ -> "Set mode"
+  | Set_jitter_mode _ -> "Set jitter mode"

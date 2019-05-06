@@ -14,7 +14,7 @@ let to_common_header (code : int) =
   Message.set_common_header_msg_code hdr code;
   hdr
 
-let to_simple_req (msg : Request.req_tag Request.msg) =
+let to_simple_req (msg : Request.req_tag Request.simple_msg) =
   let common = to_common_header @@ Request.req_tag_to_enum msg.tag in
   Cstruct.append common msg.data
 
@@ -27,7 +27,7 @@ let to_complex_req (msg : Request.complex_msg) =
   Message.set_complex_req_header_request_id header msg.request_id;
   Cstruct.concat [common; header; msg.data]
 
-let to_msg (type a) : a Request.t -> Request.req_msg = function
+let to_msg (type a) : a Request.t -> Request.req_tag Request.msg = function
   | Get_devinfo -> `Simple { tag = `Get_devinfo; data = Cstruct.empty }
   | Get_deverr request_id -> `Complex (Request.make_complex_msg ~request_id `Deverr)
   | Get_mode -> `Simple { tag = `Get_mode; data = Cstruct.empty }
