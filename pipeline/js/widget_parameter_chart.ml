@@ -1,14 +1,14 @@
 open Js_of_ocaml
 open Containers
 open Components
-open Common
-open Qoe_errors
+open Application_types
+open Pipeline_types
 
 let base_class = "pipeline-chart"
 
 type widget_config =
   { duration : Time.Period.t
-  ; typ : labels
+  ; typ : Qoe_errors.labels
   ; sources : data_source list
   ; filter : data_filter list
   ; settings : widget_settings option
@@ -77,15 +77,15 @@ let filter (src : data_source) (filter : data_filter list) : bool =
   | filter -> aux filter
 
 let convert_video_data (config : widget_config)
-      (d : Video_data.t list) : data =
-  List.fold_left (fun acc (point : Video_data.t) ->
+      (d : Qoe_errors.Video_data.t list) : data =
+  List.fold_left (fun acc (point : Qoe_errors.Video_data.t) ->
       let (src : data_source) =
         { stream = point.stream
         ; service = point.channel
         ; pid = point.pid
         } in
       if not (filter src config.filter) then [] else
-        let (error : error) = match config.typ with
+        let (error : Qoe_errors.error) = match config.typ with
           | `Black -> point.errors.black
           | `Luma -> point.errors.luma
           | `Freeze -> point.errors.freeze
@@ -105,19 +105,20 @@ let convert_video_data (config : widget_config)
                 | _ -> failwith "not an audio chart"
           } in
         List.Assoc.update ~eq:equal_data_source
-          (function None -> Some [point] | Some l -> Some (point :: l))
+          ~f:(function None -> Some [point]
+                     | Some l -> Some (point :: l))
           src acc) [] d
 
 let convert_audio_data (config : widget_config)
-      (d : Audio_data.t list) : data =
-  List.fold_left (fun acc (point : Audio_data.t) ->
+      (d : Qoe_errors.Audio_data.t list) : data =
+  List.fold_left (fun acc (point : Qoe_errors.Audio_data.t) ->
       let (src : data_source) =
         { stream = point.stream
         ; service = point.channel
         ; pid = point.pid
         } in
       if not (filter src config.filter) then [] else
-        let (error : error) = match config.typ with
+        let (error : Qoe_errors.error) = match config.typ with
           | `Silence_shortt -> point.errors.silence_shortt
           | `Silence_moment -> point.errors.silence_moment
           | `Loudness_shortt -> point.errors.loudness_shortt
@@ -128,7 +129,9 @@ let convert_audio_data (config : widget_config)
           ; y = error.params.avg
           } in
         List.Assoc.update ~eq:equal_data_source
-          (function None -> Some [point] | Some l -> Some (point :: l))
+          ~f:(function
+              | None -> Some [point]
+              | Some l -> Some (point :: l))
           src acc) [] d
 
 let data_source_to_string (structures : Structure.packed list)
@@ -154,12 +157,12 @@ let data_source_to_string (structures : Structure.packed list)
         end
      end
 
-let typ_to_content : labels -> [`Video | `Audio] = function
+let typ_to_content : Qoe_errors.labels -> [`Video | `Audio] = function
   | `Black | `Luma | `Freeze | `Diff | `Blocky -> `Video
   | `Silence_shortt | `Silence_moment | `Loudness_shortt | `Loudness_moment ->
      `Audio
 
-let typ_to_string : labels -> string = function
+let typ_to_string : Qoe_errors.labels -> string = function
   | `Black -> "Чёрный кадр"
   | `Luma -> "Средняя яркость"
   | `Freeze -> "Заморозка видео"
@@ -168,7 +171,7 @@ let typ_to_string : labels -> string = function
   | `Silence_shortt | `Loudness_shortt -> "Громкость (short term)"
   | `Silence_moment | `Loudness_moment -> "Громкость (momentary)"
 
-let typ_to_unit_string : labels -> string = function
+let typ_to_unit_string : Qoe_errors.labels -> string = function
   | `Black | `Freeze | `Blocky -> "%"
   | `Luma | `Diff -> ""
   | `Silence_shortt | `Silence_moment | `Loudness_shortt | `Loudness_moment ->

@@ -1,0 +1,15 @@
+(library
+  (name       board_niitv_tsan_types)
+  (modules    board_niitv_tsan_types)
+  (libraries  application_types
+              si_psi_parser)
+  (preprocess (pps ppx_deriving_yojson
+                   ppx_deriving.show
+                   ppx_deriving.eq
+                   ppx_deriving.ord
+                   ppx_deriving.enum)))
+
+(library
+  (name       ts_error)
+  (modules    ts_error)
+  (libraries  board_niitv_tsan_types))

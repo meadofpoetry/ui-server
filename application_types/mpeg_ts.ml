@@ -15,7 +15,7 @@ type table =
   | `SIT
   | `Unknown of int
   ]
-and ao = [ `Actual  | `Other    ]
+and ao = [ `Actual | `Other ]
 and ps = [ `Present | `Schedule ]
 
 let table_of_int : int -> table = function

@@ -1,7 +1,17 @@
 (library
   (name        application_js)
-  (synopsis    "app js")
-  (libraries   containers yojson ppx_deriving_yojson.runtime
-               api_js common components pipeline_js
-               board_ip_dektec_js board_dvb_niit_js board_ts2ip_niit_js)
-  (preprocess  (pps js_of_ocaml-ppx ppx_deriving_yojson ppx_deriving.eq)))
+  (libraries   containers
+               components
+               api_js
+               time_uri
+               pipeline_js
+               pipeline_api_js
+               ptime.clock.jsoo
+               ;; board_dektec_dtm3200_js
+               ;; board_niitv_dvb_js
+               ;; board_niitv_ts2ip_js
+               ;; board_niitv_tsan_js
+               )
+  (preprocess  (pps js_of_ocaml-ppx
+                    ppx_deriving_yojson
+                    ppx_deriving.eq)))

@@ -2,7 +2,6 @@ open Containers
 open Components
 open Lwt.Infix
 open Application_types
-open Common
 
 let dense = false
 
@@ -36,7 +35,8 @@ class base ?actions ~body
         ~(entry : Topology.topo_entry) () =
   let title = match entry with
     | Topology.Input i -> "Вход " ^ Topology.get_input_name i
-    | Topology.Board b -> "Плата " ^ Topology.get_board_name b in
+    | Topology.Board b ->
+      Printf.sprintf "Плата %s %s v%d" b.manufacturer b.model b.version in
   let title = new Card.Primary.title title () in
   let subtitle = match left with
     | None -> None
@@ -218,7 +218,7 @@ module Board = struct
     w#widget, settings
 
   let make (board : Topology.topo_board option)
-        ((marker, state, stream_list) : stream_table_row) =
+        ((marker, state, stream_list) : Stream.stream_table_row) =
     let open Stream.Table in
     let open Topology in
     let inputs =
@@ -245,7 +245,7 @@ module Board = struct
           make_entry state counter counter_push left filtered_streams i) inputs
       |> List.split in
     let eq_l = Equal.list Stream.equal in
-    let eq = Equal.pair equal_marker eq_l in
+    let eq = Equal.pair Stream.equal_marker eq_l in
     let settings =
       React.S.merge ~eq:eq_l (@) [] settings
       |> React.S.map ~eq (Pair.make marker) in
@@ -260,7 +260,7 @@ module Input = struct
     let merge input addr port =
       let open Stream in
       match addr, port with
-      | Some (addr : Ipaddr.V4.t), Some (port : int) ->
+      | Some (addr : Netlib.Ipaddr.V4.t), Some (port : int) ->
          let source =
            { info = IPV4 { scheme = "udp"
                          ; addr
@@ -361,7 +361,7 @@ module Input = struct
     in
     signal, list, add
 
-  class t ((iid, state, stream_list) : stream_table_row) () =
+  class t ((iid, state, stream_list) : Stream.stream_table_row) () =
     let open Stream.Table in
     let input, id = match iid with
       | `Input (inp, id) -> inp, id
@@ -427,14 +427,14 @@ module Input = struct
 
     end
 
-  let make (row : stream_table_row) =
+  let make (row : Stream.stream_table_row) =
     let w = new t row () in
     [w#widget], w#settings
 
 end
 
-let make_entry : Topology.topo_cpu -> stream_table_row ->
-                 (Widget.t list) * ((marker * Stream.t list) React.signal) =
+let make_entry : Topology.topo_cpu -> Stream.stream_table_row ->
+                 (Widget.t list) * ((Stream.marker * Stream.t list) React.signal) =
   fun cpu st ->
   let (marker, b, sl) = st in
   let sl =
@@ -450,24 +450,24 @@ let make_entry : Topology.topo_cpu -> stream_table_row ->
        @@ Topology.get_boards (`CPU cpu) in
      Board.make board st
 
-let make_table cpu (table : stream_table) =
+let make_table cpu (table : Stream.stream_table) =
   let widgets, signals = List.split @@ List.map (make_entry cpu) table in
   let widgets = List.concat widgets in
   let list = new Vbox.t ~widgets () in
   list#set_on_destroy (fun () ->
       List.iter (fun w -> w#destroy ()) widgets);
-  list, React.S.map ~eq:(Equal.option equal_stream_setting) Option.return
-          (React.S.merge ~eq:equal_stream_setting (fun acc v -> v :: acc)
+  list, React.S.map ~eq:(Equal.option Stream.equal_stream_setting) Option.return
+          (React.S.merge ~eq:Stream.equal_stream_setting (fun acc v -> v :: acc)
              [] signals)
 
-class t ~(init : stream_table)
-        ~(event : stream_table React.event)
+class t ~(init : Stream.stream_table)
+        ~(event : Stream.stream_table React.event)
         (cpu : Topology.topo_cpu)
         () =
   let id = "settings-place" in
-  let post = Requests.HTTP.set_streams in
-  let s_in = React.S.hold ~eq:equal_stream_table init event in
-  let make (table : stream_table) =
+  let post = Requests.set_streams in
+  let s_in = React.S.hold ~eq:Stream.equal_stream_table init event in
+  let make (table : Stream.stream_table) =
     let dis, s = make_table cpu table in
     let place = dis in
     place#set_id id;
@@ -475,7 +475,7 @@ class t ~(init : stream_table)
   let s_div =
     React.S.map ~eq:(fun (w1, ss1) (w2, ss2) ->
         let eq_w = Widget.equal in
-        let eq_ss = React.S.equal ~eq:(Equal.option equal_stream_setting) in
+        let eq_ss = React.S.equal ~eq:(Equal.option Stream.equal_stream_setting) in
         eq_w w1 w2 && eq_ss ss1 ss2)
       (fun s -> make s) s_in in
   let e_div =
@@ -483,7 +483,7 @@ class t ~(init : stream_table)
         o#destroy ()) s_div in
   let div = Widget.create_div () in
   let s =
-    let eq = Equal.option equal_stream_setting in
+    let eq = Equal.option Stream.equal_stream_setting in
     React.S.switch ~eq
       (React.S.map ~eq:(React.S.equal ~eq)
          (fun n ->

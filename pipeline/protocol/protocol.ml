@@ -4,9 +4,10 @@ open Pipeline_types
 module Qoe_backend = Qoe_backend_lwt.Make
                        (Stream.ID)
                        (Netlib.Uri)
-                       (Time.Period.Useconds)
+                       (Time.Useconds)
 (* TODO rename Qoe_...types.Basic.Time to Usec period *)
    
+
 type options =
   { wm : Wm.t Kv_v.rw
   ; structures : Structure.t list Kv_v.rw
@@ -247,7 +248,8 @@ let reset api state (sources : (Netlib.Uri.t * Stream.t) list) =
         Stream.ID.to_string s.Stream.id) sources in
   let uris = List.map (fun (a,_) -> Netlib.Uri.to_string a) sources in
   let args = Array.of_list @@ List.combine ids uris in
-  (* ignore @@ Lwt_io.printf "Arguments: %s\n" (Array.fold_left (fun acc s -> acc ^ " " ^ s) "" exec_opts); *)
+  ignore @@
+    Lwt_io.printf "Arguments: %s\n" (Array.fold_left (fun acc (id,s) -> acc ^ " (" ^ id ^ ", " ^ s ^ ")") "" args);
   api.sources := sources;
 
   begin match state.backend with

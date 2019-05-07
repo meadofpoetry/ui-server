@@ -88,7 +88,7 @@ module Event = struct
                 |> E.map (Util_json.List.to_yojson Structure.packed_to_yojson)
     in
     Lwt.return (`Ev (state, event))
-    
+
 end
 
 let filter_data ids inputs streams data =
@@ -147,6 +147,7 @@ let get_streams_applied_with_source (state : Protocol.state) (api : Protocol.api
      | Ok v -> Lwt.return (`Value v)
      | Error (`Qoe_backend e) -> Lwt.return (`Error e)
 
+
 let apply_streams (state : Protocol.state) (api : Protocol.api) _user body _env _state =
   match Util_json.List.of_yojson Structure.of_yojson body with
   | Error e -> Lwt.return (`Error e)
@@ -161,4 +162,3 @@ let apply_streams (state : Protocol.state) (api : Protocol.api) _user body _env 
            api.options.structures#set x
            >>= fun () ->
            Lwt.return `Unit
-                               

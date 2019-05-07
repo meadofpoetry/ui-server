@@ -146,14 +146,15 @@ let main log_level config =
   with e -> Printf.printf "Error: %s\n%s\n" (Printexc.get_backtrace ()) (Printexc.to_string e)
  *)
 
-let (/) = Filename.concat
+let ( / ) = Filename.concat
 
-let (>>=) = Lwt_result.bind
+let ( >>= ) = Lwt_result.bind
+
+let unwrap = function Ok v -> v | Error e -> failwith e
             
 (* TODO let operators *)
 let main () =
   let config_path = Xdg.config_dir / "ui_server" in
-  (*let persistent  = config_path / "persistent" in*)
   Lwt.return @@ Kv.RW.create ~create:true ~path:config_path >>= fun kv ->
   Kv.RW.parse ~default:Db_conf.default Db_conf.of_string kv ["db"] >>= fun db_conf ->
   (* TODO getenv opt *)
@@ -164,24 +165,20 @@ let main () =
     ~cleanup:db_conf.cleanup
     ~maintain:db_conf.cleanup
   >>= fun db ->
-  
   Application.create kv db
-  >>= fun (app, app_loop) ->
-
-  let routes      = Application_http.create "need template" app in
+  >>= fun (app, app_loop) -> (* TODO move template to application *)
+  Futil_lwt.File.read (unwrap @@ Futil.Path.of_string @@ Sys.argv.(1))
+  >>= fun template ->
+  let routes = Application_http.create template app in (* TODO proper template init *)
   let auth_filter = Application.redirect_filter app in
-
   Serv.create kv auth_filter routes
-  >>= fun server ->  
-  
+  >>= fun server ->
   let main_loop () : (unit, 'a) Lwt_result.t =
     ignore db_conf;
     Lwt.bind (Lwt.pick [app_loop; server]) Lwt.return_ok
   in
-  
   main_loop ()
-  
-               
+
 let () =
   let log_level =
     match Sys.getenv_opt "UI_LOG_LEVEL" with
@@ -198,35 +195,34 @@ let () =
   ignore (Nocrypto_entropy_lwt.initialize ());
   Logs.set_reporter (lwt_reporter (Format.std_formatter));
   Logs.set_level (Some log_level);
+
+  if Array.length @@ Sys.argv <> 2
+  then begin
+      Printf.printf "Usage:\n\t%s [path to template]\n" Sys.argv.(0);
+      exit (-1)
+    end;
+  
   match Lwt_main.run (main ()) with
   | Ok () ->
      print_endline "Ui Server is done, no error reported"
   | Error (#Kv.RO.error as e) ->
-     Logs.err (fun m -> m "Terminated with file error %a"
+     Logs.err (fun m -> m "Terminated with file error: %a"
                           Kv.RO.pp_error e)
+  | Error (#Kv.RW.parse_error as e) ->
+     Logs.err (fun m -> m "Terminated with file read error: %a"
+                          Kv.RW.pp_parse_error e)
   | Error (#Kv_v.error as e) ->
-     Logs.err (fun m -> m "Terminated with config error %a"
+     Logs.err (fun m -> m "Terminated with config error: %a"
                           Kv_v.pp_error e)
   | Error (#Db.error as e) ->
-     Logs.err (fun m -> m "Terminated with database error %a"
+     Logs.err (fun m -> m "Terminated with database error: %a"
                           Db.pp_error e)
   | Error (#Db.conn_error as e) ->
-     Logs.err (fun m -> m "Terminated with database error %a"
+     Logs.err (fun m -> m "Terminated with database error: %a"
                           Db.pp_conn_error e)
   | Error (#Boards.Board.error as e) ->
-     Logs.err (fun m -> m "Terminated with board error %a"
+     Logs.err (fun m -> m "Terminated with board error: %a"
                           Boards.Board.pp_error e)
-  | Error (`Network_conf_apply _) ->
-     Logs.err (fun m -> m "Terminated due to being unable to apply network config")
-  | Error (`No_network_config _) ->
-     Logs.err (fun m -> m "Terminated due to being unable to find network config")
-  | Error (`No_network_device d) ->
-     Logs.err (fun m -> m "Terminated due to being unable to find network device %s" d)
-  | Error (`Nm_no_connection _) -> ()
-  | Error (`Nm_no_settings _) -> ()
-  | Error (`Not_found) ->
-     Logs.err (fun m -> m "Terminated with: Not_found")
-  | Error (`Reading_error e) ->
-     Logs.err (fun m -> m "Terminated with reading error: %s" e)
-  (* TODO remove *)
-                                   (*| _ -> Logs.err (fun m -> m "Terminated with an yet unspecified error")*)
+  | Error (#Pc_control.Network.error as e) ->
+     Logs.err (fun m -> m "Terminated with network error: %a"
+                          Pc_control.Network.pp_error e)

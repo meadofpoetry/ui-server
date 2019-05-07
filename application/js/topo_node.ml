@@ -1,21 +1,16 @@
+open Application_types
 open Containers
 open Components
 open Js_of_ocaml
 open Topo_types
-open Common
 
 type node_entry = Topo_types.node_entry
 
 let input_to_area ({ input; id } : Topology.topo_input) =
-  let str = string_of_int id in
-  (match input with
-   | RF -> "RF"
-   | TSOIP -> "TSOIP"
-   | ASI   -> "ASI")^str
+  Printf.sprintf "%s.%d" (Topology.input_to_string input) id
 
-let board_to_area (board : Topology.topo_board) =
-  let str = string_of_int board.control in
-  board.typ ^ str
+let board_to_area ({ manufacturer; model; version; control } : Topology.topo_board) =
+  Printf.sprintf "%s.%s.%d.%d" manufacturer model version control
 
 let node_entry_to_area = function
   | `CPU _ -> "CPU"
