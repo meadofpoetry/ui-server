@@ -54,6 +54,7 @@ type t =
   ; streams_signal : Stream.t list React.signal
   ; log_source : Stream.Log_message.source
   ; loop : unit -> unit Lwt.t
+  (* TODO return Lwt here *)
   ; push_data : Cstruct.t -> unit
   ; connection : Topology.state React.signal
   ; ports_active : bool React.signal Ports.t

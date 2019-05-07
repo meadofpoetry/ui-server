@@ -20,6 +20,36 @@ let create_logger (b : Topology.topo_board) =
       Ok log_src
     | Error _ -> Error (`Unknown_log_level x)
 
+let get_input_source_from_env src (b : Topology.topo_board) =
+  match Topology.Env.find_opt "input_source" b.env with
+  | None -> None
+  | Some s ->
+    match int_of_string_opt s with
+    | Some x -> Some x
+    | None ->
+      Logs.warn ~src (fun m ->
+          m "Failed to parse input source value from environment: %s" s);
+      None
+
+let get_t2mi_source_from_env src (b : Topology.topo_board) =
+  match Topology.Env.find_opt "t2mi_source" b.env with
+  | None -> None
+  | Some s ->
+    match int_of_string_opt s with
+    | Some x -> Some x
+    | None ->
+      Logs.warn ~src (fun m ->
+          m "Failed to parse T2-MI source value from environment: %s" s);
+      None
+
+let update_config_with_env src (config : config) (b : Topology.topo_board) =
+  let config = match get_input_source_from_env src b with
+    | None -> config
+    | Some input_source -> { config with input_source } in
+  match get_t2mi_source_from_env src b with
+  | None -> config
+  | Some t2mi_source -> { config with t2mi_source }
+
 (* let tick tm =
  *   let e, push = React.E.create () in
  *   let rec loop () =
@@ -52,7 +82,10 @@ let create (b : Topology.topo_board)
     (send : Cstruct.t -> unit Lwt.t)
     (db : Db.t)
     (kv : Kv.RW.t) : (Board.t, [> Board.error]) Lwt_result.t =
-  Config.create ~default:Board_settings.default kv ["board"; (string_of_int b.control)]
+  Lwt.return @@ create_logger b
+  >>= fun (src : Logs.src) ->
+  let default = update_config_with_env src Board_settings.default b in
+  Config.create ~default kv ["board"; (string_of_int b.control)]
   >>= fun (cfg : config Kv_v.rw) -> Lwt.return (create_logger b)
   >>= fun (src : Logs.src) -> Protocol.create src send (convert_streams b) cfg
   >>= fun (api : Protocol.api) ->

@@ -732,12 +732,9 @@ let deserialize src parts buf =
         end
       | Error e ->
         begin match e with
-          | Insufficient_payload x ->
-            print_endline "insufficient payload"; List.(rev acc, rev parts, x)
+          | Insufficient_payload x -> List.(rev acc, rev parts, x)
           | e ->
-            Logs.warn (fun m ->
-                m "parser - composer error: %s"
-                @@ error_to_string e);
+            Logs.warn ~src (fun m -> m "parser error: %s" @@ error_to_string e);
             f acc parts (Cstruct.shift buf 1)
         end in
   let responses, parts, res = f [] parts buf in

@@ -55,7 +55,7 @@ let to_msg (type a) : a Request.t -> Request.req_tag Request.msg = function
     Message.set_req_source_id_input_src_id data input;
     Message.set_req_source_id_t2mi_src_id data t2mi;
     `Simple { tag = `Set_source_id; data }
-  | Get_t2mi_seq { request_id; stream; seconds } ->
+  | Get_t2mi_seq { request_id; seconds } ->
     let data = Cstruct.create Message.sizeof_req_t2mi_seq in
     Message.set_req_t2mi_seq_time data seconds;
     `Complex (Request.make_complex_msg ~request_id ~data `T2mi_seq)

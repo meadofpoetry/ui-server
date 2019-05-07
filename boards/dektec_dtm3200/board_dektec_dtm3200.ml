@@ -24,13 +24,16 @@ let create_logger (b : Topology.topo_board) =
       Ok log_src
     | Error _ -> Error (`Unknown_log_level x)
 
-let get_address (b : Topology.topo_board) =
+let get_address_from_env src (b : Topology.topo_board) =
   match Topology.Env.find_opt "address" b.env with
-  | None -> Error (`Board_error "Board address not provided")
-  | Some address ->
-    match int_of_string_opt address with
-    | None -> Error (`Board_error "Invalid board address")
-    | Some x -> Ok x
+  | None -> None
+  | Some s ->
+    match int_of_string_opt s with
+    | Some x -> Some x
+    | None ->
+      Logs.warn ~src (fun m ->
+          m "Failed to parse address value from environment: %s" s);
+      None
 
 let create (b : Topology.topo_board)
     (_ : Stream.t list React.signal)
@@ -40,11 +43,14 @@ let create (b : Topology.topo_board)
     (send : Cstruct.t -> unit Lwt.t)
     (db : Db.t)
     (kv : Kv.RW.t) : (Board.t, [> Board.error]) Lwt_result.t =
-  Config.create ~default:Board_settings.default kv ["board"; (string_of_int b.control)]
-  >>= fun (cfg : config Kv_v.rw) -> Lwt.return (create_logger b)
-  >>= fun (src : Logs.src) -> Lwt.return (get_address b)
-  >>= fun (address : int) ->
-  Protocol.create ~address src send (convert_streams b) cfg db
+  Lwt.return @@ create_logger b
+  >>= fun (src : Logs.src) ->
+  let default = match get_address_from_env src b with
+    | None -> Board_settings.default
+    | Some address -> { Board_settings.default with address } in
+  Config.create ~default kv ["board"; (string_of_int b.control)]
+  >>= fun (cfg : config Kv_v.rw) ->
+  Protocol.create src send (convert_streams b) cfg db
   >>= fun (api : Protocol.api) ->
   let state = object
     method finalize () = Lwt.return ()

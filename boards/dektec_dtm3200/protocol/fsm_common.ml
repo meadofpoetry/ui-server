@@ -1,3 +1,5 @@
+open Board_dektec_dtm3200_types
+
 let ( >>= ) = Lwt.( >>= )
 
 let reboot_steps = 10
@@ -26,7 +28,9 @@ let loop (type a) stream (req : a Request.t) : (a, Request.error) result Lwt.t =
     | Some (Error e) -> Lwt.return_error e in
   Lwt_stream.junk_old stream >>= aux
 
-let request (type a) ~address src sender stream (req : a Request.t) =
+let request (type a) src sender stream (config : config Kv_v.rw) (req : a Request.t) =
+  config#get
+  >>= fun { address; _ } ->
   sender @@ Serializer.serialize ~address req
   >>= fun () ->
   Lwt.pick [loop stream req; sleep (Request.timeout req)]

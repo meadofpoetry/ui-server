@@ -91,7 +91,6 @@ and topo_board =
   ; version : version
   ; control : int
   ; connection : (state [@default `No_response])
-  ; sources : (Util_json.t option [@default None])
   ; env : (env [@default Env.empty])
   ; ports : topo_port list
   ; logs : (string option [@default None])

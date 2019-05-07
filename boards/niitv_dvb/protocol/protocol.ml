@@ -15,8 +15,7 @@ type notifs =
   }
 
 type api =
-  { source_id : int
-  ; kv : Device.config Kv_v.rw
+  { kv : Device.config Kv_v.rw
   ; notifs : notifs
   ; channel : 'a. 'a Request.t -> ('a, Request.error) Lwt_result.t
   ; loop : unit -> unit Lwt.t
@@ -66,21 +65,21 @@ let mode_to_stream (source_id : int)
   }
 
 (** Converts device config signal to raw stream list signal. *)
-let to_streams_s (source_id : int)
-    (config : Device.config React.signal)
+let to_streams_s (config : Device.config React.signal)
   : Stream.Raw.t list React.signal =
   React.S.map ~eq:(Boards.Util.List.equal Stream.Raw.equal)
-    (List.map (mode_to_stream source_id)) config
+    (fun (x : Device.config) -> List.map (mode_to_stream x.source) x.mode)
+    config
 
 (** Converts absolute measured channel frequency value
     to frequency offset in measurements event. *)
 let map_measures (config : Device.config React.signal)
     (e : (int * Measure.t ts) list React.event)
   : (int * Measure.t ts) list React.event =
-  React.S.sample (fun l config ->
+  React.S.sample (fun l (config : Device.config) ->
       Boards.Util.List.filter_map
         (fun (id, ({ data; timestamp } : Measure.t ts)) ->
-           match List.assoc_opt id config with
+           match List.assoc_opt id config.mode with
            | None -> None
            | Some (mode : Device.mode) ->
              let freq = match data.freq with
@@ -94,7 +93,6 @@ let map_measures (config : Device.config React.signal)
 let create (src : Logs.src)
     (sender : Cstruct.t -> unit Lwt.t)
     streams_conv
-    (source_id : int)
     (kv : Device.config Kv_v.rw)
     (control : int)
     (db : Db.t) =
@@ -105,7 +103,7 @@ let create (src : Logs.src)
   let params, set_params = E.create () in
   let plps, set_plps = E.create () in
   let state, set_state = S.create ~eq:Topology.equal_state `No_response in
-  let raw_streams = to_streams_s source_id kv#s in
+  let raw_streams = to_streams_s kv#s in
   let streams = streams_conv raw_streams in
   let (notifs : notifs) =
     { measures = map_measures kv#s measures
@@ -134,15 +132,14 @@ let create (src : Logs.src)
       push in
     let channel = fun req -> send src state push_req_queue sender req in
     let loop =
-      Fsm.start src sender req_queue rsp_queue kv source_id
+      Fsm.start src sender req_queue rsp_queue kv
         set_state
         (fun x -> set_devinfo @@ Some x)
         set_measures
         set_params
         set_plps in
     let api =
-      { source_id
-      ; notifs
+      { notifs
       ; loop
       ; push_data
       ; channel

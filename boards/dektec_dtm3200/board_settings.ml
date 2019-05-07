@@ -23,6 +23,7 @@ let (default : t) =
       ; delay = 100
       ; rate_mode = On
       }
+  ; address = 0x40
   }
 
 let to_string x =

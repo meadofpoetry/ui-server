@@ -7,12 +7,12 @@ let status_interval = 1. (* seconds *)
 type api_msg = (Cstruct.t Request.cmd Lwt_stream.t -> unit Lwt.t)
                * (Request.error -> unit)
 
-let start ~(address : int)
+let start
     (src : Logs.src)
     (sender : Cstruct.t -> unit Lwt.t)
     (req_queue : api_msg Lwt_stream.t)
     (rsp_queue : Cstruct.t Request.cmd Lwt_stream.t)
-    (config : config)
+    (kv : config Kv_v.rw)
     (set_state : Application_types.Topology.state -> unit)
     (set_devinfo : devinfo -> unit)
     (set_status : status -> unit) =
@@ -29,31 +29,31 @@ let start ~(address : int)
     detect_device ()
 
   and detect_device () =
-    Fsm_detect.step ~address
+    Fsm_detect.step
       ~return:(fun () -> Lwt_unix.sleep 5. >>= fun () -> first_step ())
       ~continue:(fun devinfo ->
           set_devinfo devinfo;
           set_state `Init;
           Logs.info (fun m -> m "Connection established, starting initialization...");
           init_device ())
-      src sender rsp_queue ()
+      src sender rsp_queue kv ()
 
   and init_device () =
-    Fsm_init.step ~address
+    Fsm_init.step
       ~return:(fun () -> Lwt_unix.sleep 5. >>= fun () -> first_step ())
       ~continue:(fun () ->
           set_state `Fine;
           Logs.info (fun m -> m "Initialization done!");
           Lwt_unix.sleep 1. >>= pull_status)
-      src sender rsp_queue config ()
+      src sender rsp_queue kv ()
 
   and pull_status () =
-    Fsm_probes.step ~address
+    Fsm_probes.step
       ~return:(fun () -> Lwt_unix.sleep 5. >>= fun () -> first_step ())
       ~continue:(fun status ->
           set_status status;
           fork ())
-      src sender rsp_queue ()
+      src sender rsp_queue kv ()
 
   and fork ?timer () =
     let timer = match timer with

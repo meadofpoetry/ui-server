@@ -16,7 +16,8 @@ type api =
 
 let msg_queue_size = 20
 
-let create (src : Logs.src)
+let create
+    (src : Logs.src)
     (sender : Cstruct.t -> unit Lwt.t)
     (streams_conv : Stream.Raw.t list React.signal -> Stream.t list React.signal)
     (kv : config Kv_v.rw) =
@@ -28,7 +29,7 @@ let create (src : Logs.src)
     { state
     ; devinfo
     } in
-  (* let req_queue, push_req_queue = Lwt_stream.create_bounded msg_queue_size in *)
+  let req_queue, push_req_queue = Lwt_stream.create_bounded msg_queue_size in
   let rsp_queue, push_rsp_queue = Lwt_stream.create () in
   let push_data =
     let acc = ref None in
@@ -40,10 +41,13 @@ let create (src : Logs.src)
       let parsed, new_parts, new_acc = Parser.deserialize src !parts buf in
       acc := new_acc;
       parts := new_parts;
-      List.iter (fun x -> push_rsp_queue @@ Some x) parsed in
+      List.iter (fun x -> push_rsp_queue @@ Some (`Simple x)) parsed in
     push in
   let channel _ = assert false in
-  let loop () = Lwt.return_unit in
+  let loop () =
+    Fsm.start src sender req_queue rsp_queue kv
+      set_state
+      (fun x -> set_devinfo @@ Some x) in
   Lwt.return_ok { notifs
                 ; kv
                 ; channel

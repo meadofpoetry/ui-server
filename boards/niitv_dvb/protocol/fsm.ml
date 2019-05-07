@@ -76,7 +76,6 @@ let start (src : Logs.src)
     (req_queue : api_msg Lwt_stream.t)
     (rsp_queue : Cstruct.t Request.msg Lwt_stream.t)
     (kv : Device.config Kv_v.rw)
-    (source_id : int)
     (set_state : Application_types.Topology.state -> unit)
     (set_devinfo : Device.info -> unit)
     (set_measures : (int * Measure.t ts) list -> unit)
@@ -131,20 +130,20 @@ let start (src : Logs.src)
   and set_source_id tuners =
     kv#get
     >>= fun config ->
-    let req = Request.Set_src_id source_id in
+    let req = Request.Set_src_id config.source in
     request src rsp_queue sender req
     >>= function
     | Error _ -> restart ()
     | Ok id ->
-      if id = source_id
+      if id = config.source
       then init_device tuners config
       else (
         Logs.err (fun m ->
             m "Failure setting up source ID = %d. \
-               Device returned ID = %d" source_id id);
+               Device returned ID = %d" config.source id);
         Lwt_unix.sleep cooldown_timeout >>= first_step)
 
-  and init_device tuners config =
+  and init_device tuners (config : Device.config) =
     let rec aux acc = function
       | [] -> Lwt.return_ok acc
       | ((id, _) as hd) :: tl ->
@@ -160,11 +159,13 @@ let start (src : Logs.src)
           >>= function
           | Error e -> Lwt.return_error e
           | Ok x -> aux (x :: acc) tl) in
-    aux [] config
+    aux [] config.mode
     >>= function
     | Error _ -> restart ()
     | Ok x ->
-      kv#set (List.map Device.(fun (id, rsp) -> id, rsp.mode) x)
+      let mode = List.map (fun (id, ({ mode; _ } : Device.mode_rsp)) ->
+          id, mode) x in
+      kv#set { config with mode }
       >>= fun () ->
       Logs.info (fun m -> m "Initialization done!");
       set_state `Fine;
@@ -221,7 +222,7 @@ let start (src : Logs.src)
       | id :: tl ->
         kv#get
         >>= fun config ->
-        match List.find_opt (fun (id', _) -> id = id') config with
+        match List.find_opt (fun (id', _) -> id = id') config.mode with
         | None ->
           Logs.debug (fun m ->
               m "Pull parameters: configuration not found for tuner %d" id);
@@ -245,7 +246,7 @@ let start (src : Logs.src)
       | id :: tl ->
         kv#get
         >>= fun config ->
-        match List.find_opt (fun (id', _) -> id = id') config with
+        match List.find_opt (fun (id', _) -> id = id') config.mode with
         | None ->
           Logs.debug (fun m ->
               m "Pull PLPs: configuration not found for tuner %d" id);

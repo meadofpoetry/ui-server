@@ -14,19 +14,22 @@ type 'a tspan =
 type devinfo =
   { typ : int
   ; ver : int
-  } [@@deriving yojson, eq, show]
+  } [@@deriving yojson, eq]
 
-let devinfo_to_string (x : devinfo) =
-  Printf.sprintf "type: 0x%02X, version: %d"
-    x.typ x.ver
+let pp_devinfo ppf di =
+  Format.fprintf ppf "type: 0x%02X, version: %d" di.typ di.ver
+
+let show_devinfo = Format.asprintf "%a" pp_devinfo
 
 type input =
   | SPI
-  | ASI [@@deriving yojson, show, eq]
+  | ASI [@@deriving yojson, eq]
 
-let input_to_string = function
-  | SPI -> "SPI"
-  | ASI -> "ASI"
+let pp_input ppf = function
+  | SPI -> Format.pp_print_string ppf "SPI"
+  | ASI -> Format.pp_print_string ppf "ASI"
+
+let show_input = Format.asprintf "%a" pp_input
 
 let input_to_int = function
   | SPI -> 0
@@ -52,6 +55,8 @@ type jitter_mode =
 
 type config =
   { input : input
+  ; input_source : int
+  ; t2mi_source : int
   ; t2mi_mode : t2mi_mode option
   ; jitter_mode : jitter_mode option
   } [@@deriving yojson, eq]

@@ -205,7 +205,6 @@ type _ t =
       ; t2mi : int } -> unit t
   | Get_t2mi_seq :
       { request_id : int
-      ; stream : Stream.ID.t
       ; seconds : int
       } -> T2mi_sequence.t ts t
   | Get_section :
@@ -250,7 +249,7 @@ let timeout (type a) : a t -> float = function
 
 let value_to_string (type a) (t : a t) (v : a) : string option =
   match t with
-  | Get_devinfo -> Some (devinfo_to_string v)
+  | Get_devinfo -> Some (show_devinfo v)
   | Reset -> None
   | Set_src_id _ -> None
   | Get_deverr _ -> None
@@ -264,17 +263,51 @@ let value_to_string (type a) (t : a t) (v : a) : string option =
   | Set_mode _ -> None
   | Set_jitter_mode _ -> None
 
+let pp_int_option out = function
+  | None -> Format.pp_print_string out "None"
+  | Some x -> Format.pp_print_int out x
+
 let to_string (type a) : a t -> string = function
-  | Get_devinfo -> "Get devinfo"
   | Reset -> "Reset"
-  | Set_src_id _ -> "Set source ID"
-  | Get_deverr _ -> "Get deverr"
   | Get_mode -> "Get mode"
-  | Get_t2mi_seq _ -> "Get T2-MI sequence"
-  | Get_section _ -> "Get section"
-  | Get_jitter _ -> "Get jitter"
-  | Get_bitrate _ -> "Get bitrate"
-  | Get_structure _ -> "Get structure"
-  | Get_t2mi_info _ -> "Get T2-MI info"
-  | Set_mode _ -> "Set mode"
-  | Set_jitter_mode _ -> "Set jitter mode"
+  | Get_devinfo -> "Get devinfo"
+  | Set_src_id { input; t2mi } ->
+    Printf.sprintf "Set source ID (input=%d, t2mi=%d)"
+      input t2mi
+  | Get_deverr request_id ->
+    Printf.sprintf "Get deverr (rid=%d)" request_id
+  | Get_t2mi_seq { request_id; seconds } ->
+    Printf.sprintf "Get T2-MI sequence (rid=%d, seconds=%d)"
+      request_id seconds
+  | Get_section { request_id; stream_id; table_id
+                ; table_id_ext; id_ext_1; id_ext_2; section } ->
+    Format.asprintf "Get section (rid=%d, stream=%a, table=%d, section=%a, \
+                     table_ext=%a, id_ext_1=%a, id_ext_2=%a)"
+      request_id Stream.Multi_TS_ID.pp stream_id table_id
+      pp_int_option section
+      pp_int_option table_id_ext
+      pp_int_option id_ext_1
+      pp_int_option id_ext_2
+  | Get_jitter { request_id; pointer } ->
+    Printf.sprintf "Get jitter (rid=%d, pointer=%ld)"
+      request_id pointer
+  | Get_bitrate request_id ->
+    Printf.sprintf "Get bitrate (rid=%d)" request_id
+  | Get_structure { request_id; stream = `All } ->
+    Printf.sprintf "Get structure (rid=%d, all streams)" request_id
+  | Get_structure { request_id; stream = `Single s } ->
+    Format.asprintf "Get structure (rid=%d, stream=%a)"
+      request_id Stream.Multi_TS_ID.pp s
+  | Get_t2mi_info { request_id; t2mi_stream_id; stream } ->
+    Format.asprintf "Get T2-MI info (rid=%d, T2-MI stream ID=%d, stream=%a)"
+      request_id t2mi_stream_id Stream.Multi_TS_ID.pp stream
+  | Set_mode (input, { enabled; pid; t2mi_stream_id; stream }) ->
+    Format.asprintf "Set mode (input: %a, \
+                     t2mi: enabled=%B, PID=%d, T2-MI stream ID=%d, stream=%a)"
+      pp_input input
+      enabled pid t2mi_stream_id
+      Stream.Multi_TS_ID.pp stream
+  | Set_jitter_mode Some { stream; pid } ->
+    Format.asprintf "Set jitter mode (stream=%a, PID=%d)"
+      Stream.Multi_TS_ID.pp stream pid
+  | Set_jitter_mode None -> "Set jitter mode (None)"

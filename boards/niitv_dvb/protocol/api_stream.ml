@@ -52,19 +52,21 @@ module Event = struct
 
   let get_measurements (api : Protocol.api) (ids : Stream.ID.t list)
       _user _body _env state =
-    let event =
-      map_event api.source_id api.notifs.streams api.notifs.measures
-      |> filter_if_needed ids
-      |> E.map (to_json Measure.to_yojson) in
-    Lwt.return (`Ev (state, event))
+    api.kv#get
+    >>= fun { source; _ } ->
+    map_event source api.notifs.streams api.notifs.measures
+    |> filter_if_needed ids
+    |> E.map (to_json Measure.to_yojson)
+    |> fun event -> Lwt.return (`Ev (state, event))
 
   let get_parameters (api : Protocol.api) (ids : Stream.ID.t list)
       _user _body _env state =
-    let event =
-      map_event api.source_id api.notifs.streams api.notifs.params
-      |> filter_if_needed ids
-      |> E.map (to_json Params.to_yojson) in
-    Lwt.return (`Ev (state, event))
+    api.kv#get
+    >>= fun { source; _ } ->
+    map_event source api.notifs.streams api.notifs.params
+    |> filter_if_needed ids
+    |> E.map (to_json Params.to_yojson)
+    |> fun event -> Lwt.return (`Ev (state, event))
 
   let get_streams (api : Protocol.api) (ids : Stream.ID.t list)
       _user _body _env state =

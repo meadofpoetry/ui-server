@@ -30,13 +30,16 @@ let create_logger (b : Topology.topo_board) =
       Ok log_src
     | Error _ -> Error (`Unknown_log_level x)
 
-let parse_source_id (b : Topology.topo_board) =
-  match b.sources with
-  | None -> Error (`Board_error "Source id not found")
-  | Some i ->
-    match Util_json.Int.of_yojson i with
-    | Ok i -> Ok i
-    | Error _ -> Error (`Board_error "Invalid source id")
+let get_source_from_env src (b : Topology.topo_board) =
+  match Topology.Env.find_opt "source" b.env with
+  | None -> None
+  | Some s ->
+    match int_of_string_opt s with
+    | Some i -> Some i
+    | None ->
+      Logs.warn ~src (fun m ->
+          m "Failed to parse source ID value from environment: %s" s);
+      None
 
 let create (b : Topology.topo_board)
     (_ : Stream.t list React.signal)
@@ -46,11 +49,14 @@ let create (b : Topology.topo_board)
     (send : Cstruct.t -> unit Lwt.t)
     (db : Db.t)
     (kv : Kv.RW.t) : (Board.t, [> Board.error]) Lwt_result.t =
-  Config.create ~default:Board_settings.default kv ["board"; (string_of_int b.control)]
-  >>= fun (cfg : Device.config Kv_v.rw) -> Lwt.return (create_logger b)
-  >>= fun (src : Logs.src) -> Lwt.return (parse_source_id b)
-  >>= fun (source_id : int) ->
-  Protocol.create src send (convert_streams b) source_id cfg b.control db
+  Lwt.return @@ create_logger b
+  >>= fun (src : Logs.src) ->
+  let default = match get_source_from_env src b with
+    | None -> Board_settings.default
+    | Some source -> { Board_settings.default with source } in
+  Config.create ~default kv ["board"; (string_of_int b.control)]
+  >>= fun (cfg : Device.config Kv_v.rw) ->
+  Protocol.create src send (convert_streams b) cfg b.control db
   >>= fun (api : Protocol.api) ->
   let state = object
     method finalize () = Lwt.return ()

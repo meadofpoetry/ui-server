@@ -92,6 +92,7 @@ type ip =
 type config =
   { nw : nw
   ; ip : ip
+  ; address : int
   } [@@deriving yojson, eq]
 
 let packet_sz_to_string = function

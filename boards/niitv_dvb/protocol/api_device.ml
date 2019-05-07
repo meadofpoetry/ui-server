@@ -8,8 +8,6 @@ let ( % ) f g x = f (g x)
 module Event = struct
   open Util_react
 
-  let list_to_option = function [] -> None | l -> Some l
-
   let get_state (api : Protocol.api) _user _body _env state =
     let event =
       S.changes api.notifs.state
@@ -26,14 +24,18 @@ module Event = struct
     Lwt.return (`Ev (state, event))
 
   let get_mode (api : Protocol.api) (ids : int list) _user _body _env state =
+    let to_yojson = Util_json.(
+        List.to_yojson (Pair.to_yojson Int.to_yojson mode_to_yojson)) in
     let event = match ids with
       | [] ->
         S.changes api.notifs.config
-        |> E.map config_to_yojson
+        |> E.map (fun x -> to_yojson x.mode)
       | ids ->
         S.changes api.notifs.config
-        |> E.fmap (list_to_option % List.filter (fun (id, _) -> List.mem id ids))
-        |> E.map config_to_yojson in
+        |> E.fmap (fun x ->
+            match List.filter (fun (id, _) -> List.mem id ids) x.mode with
+            | [] -> None
+            | l -> Some (to_yojson l)) in
     Lwt.return (`Ev (state, event))
 end
 
@@ -59,9 +61,11 @@ let get_receivers (api : Protocol.api) _user _body _env _state =
   Lwt.return (`Value (to_yojson value))
 
 let get_mode (api : Protocol.api) (ids : int list) _user _body _env _state =
+  api.kv#get
+  >>= fun (config : config) ->
   let value = match ids with
-    | [] -> React.S.value api.notifs.config
-    | ids ->
-      List.filter (fun (id, _) -> List.mem id ids)
-      @@ React.S.value api.notifs.config in
-  Lwt.return (`Value (config_to_yojson value))
+    | [] -> config.mode
+    | ids -> List.filter (fun (id, _) -> List.mem id ids) @@ config.mode in
+  let to_yojson = Util_json.(
+      List.to_yojson (Pair.to_yojson Int.to_yojson mode_to_yojson)) in
+  Lwt.return (`Value (to_yojson value))
