@@ -1,7 +1,7 @@
 open Board_niitv_tsan_types
 open Application_types
 
-type api_msg = (Cstruct.t Lwt_stream.t -> unit Lwt.t)
+type api_msg = (Request.rsp_tag Request.msg Lwt_stream.t -> unit Lwt.t)
 
 let ( >>= ) = Lwt.( >>= )
 
@@ -42,11 +42,13 @@ let loop (type a)
   aux ()
 
 let request (type a)
+    ?(flush = false)
     (src : Logs.src)
     (stream : Request.rsp_tag Request.msg Lwt_stream.t)
     (sender : Cstruct.t -> unit Lwt.t)
     (req : a Request.t) : (a, Request.error) result Lwt.t =
   sender @@ Serializer.serialize req
+  >>= (fun () -> if flush then Lwt_stream.junk_old stream else Lwt.return ())
   >>= fun () ->
   let wait req = Lwt.pick [loop stream req; sleep (Request.timeout req)] in
   (match req with
@@ -93,16 +95,21 @@ let start
     >>= first_step
 
   and detect_device () =
-    print_endline "detect device";
     let rec loop () =
       Lwt_stream.next rsp_queue
       >>= function
-      | `Simple { tag = `Status; _ } -> request src rsp_queue sender Request.Get_devinfo
+      | `Simple { tag = `Status; _ } ->
+        Logs.debug (fun m ->
+            m "The device was already initialized, \
+               got status event");
+        request ~flush:true src rsp_queue sender Request.Get_devinfo
       | `Simple { tag = `Devinfo; data } ->
         (match Parser.parse_devinfo data with
          | Error _ as e -> Lwt.return e
          | Ok info as x ->
-           Logs.debug (fun m -> m "Got device info event: %a" pp_devinfo info);
+           Logs.debug (fun m ->
+               m "The device is waiting, for initialization, \
+                  got device info event: %a" pp_devinfo info);
            Lwt.return x)
       | _ -> loop () in
     loop ()
@@ -118,20 +125,44 @@ let start
     set_state `Init;
     set_devinfo info;
     Logs.info (fun m -> m "Connection established, device initialization started...");
-    restart ()
-    (* let rec loop () =
-     *   Lwt_stream.next rsp_queue
-     *   >>= function
-     *   | { tag = `Status; _ } -> request src rsp_queue sender Request.Get_devinfo
-     *   | { tag = `Devinfo_rsp; data } -> Lwt.return @@ Parser.parse_devinfo data
-     *   | _ -> loop () in
-     * loop ()
-     * >>= function
-     * | Ok x -> init_device x
-     * | Error e ->
-     *   Logs.err (fun m ->
-     *       m "Got error during detect step: %s"
-     *       @@ Request.error_to_string e);
-     *   restart () *)
+    kv#get
+    >>= fun { input_source
+            ; t2mi_source
+            ; input
+            ; t2mi_mode
+            ; jitter_mode
+            } ->
+    Lwt_result.Infix.(
+      let req = Request.Set_src_id { input_source; t2mi_source } in
+      request ~flush:true src rsp_queue sender req
+      >>= fun () ->
+      let (mode : Request.t2mi_mode_raw) =
+        { pid = 0
+        ; enabled = false
+        ; t2mi_stream_id = 0
+        ; stream = Stream.Multi_TS_ID.of_int32_pure 0l
+        } in
+      let req = Request.Set_mode (input, mode) in
+      request ~flush:true src rsp_queue sender req
+      >>= fun () -> Lwt.return_ok ())
+    >>= function
+    | Ok () ->
+      Lwt_stream.junk_old rsp_queue
+      >>= fun () ->
+      set_state `Fine;
+      Logs.info (fun m -> m "Initialization done!");
+      idle ()
+    | Error e ->
+      Logs.err (fun m ->
+          m "Got error during init step: %s"
+          @@ Request.error_to_string e);
+      restart ()
+
+  and idle () =
+    Lwt_stream.next req_queue
+    >>= send_client_request
+
+  and send_client_request (type a) send =
+    send rsp_queue >>= idle
   in
   first_step ()

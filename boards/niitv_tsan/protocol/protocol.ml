@@ -16,6 +16,36 @@ type api =
 
 let msg_queue_size = 20
 
+let ( >>= ) = Lwt.( >>= )
+
+let await_no_response state =
+  Util_react.(
+    E.next
+    @@ E.fmap (function
+        | `Init | `No_response -> Some (Error Request.Not_responding)
+        | `Fine -> None)
+    @@ S.changes state)
+
+let send (type a)
+    (src : Logs.src)
+    (state : Topology.state React.signal)
+    (push : _ Lwt_stream.bounded_push)
+    (sender : Cstruct.t -> unit Lwt.t)
+    (req : a Request.t) =
+  match React.S.value state with
+  | `Init | `No_response -> Lwt.return_error Request.Not_responding
+  | `Fine ->
+    Lwt.catch (fun () ->
+        let t, w = Lwt.task () in
+        let send = fun stream ->
+          Fsm.request src stream sender req
+          >>= fun x -> Lwt.wakeup_later w x; Lwt.return_unit in
+        Lwt.pick [await_no_response state; (push#push send >>= fun () -> t)])
+      (function
+        | Lwt.Canceled -> Lwt.return_error Request.Not_responding
+        | Lwt_stream.Full -> Lwt.return_error Request.Queue_overflow
+        | exn -> Lwt.fail exn)
+
 let create
     (src : Logs.src)
     (sender : Cstruct.t -> unit Lwt.t)
@@ -43,7 +73,7 @@ let create
       parts := new_parts;
       List.iter (fun x -> push_rsp_queue @@ Some (`Simple x)) parsed in
     push in
-  let channel _ = assert false in
+  let channel = fun req -> send src state push_req_queue sender req in
   let loop () =
     Fsm.start src sender req_queue rsp_queue kv
       set_state

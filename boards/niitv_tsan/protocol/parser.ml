@@ -359,14 +359,11 @@ module T2MI_info_parser = struct
     with Invalid_argument _ -> Error Request.Invalid_payload
 end
 
-(* let int_to_bool_list x =
- *   List.map (fun i -> (x land Int.pow 2 i) > 0) (List.range 0 7)
- * 
- * let int_to_t2mi_sync_list x =
+(* let int_to_t2mi_sync_list x =
  *   int_to_bool_list x
- *   |> List.foldi (fun acc i x -> if x then i :: acc else acc) []
- * 
- * let to_mode_exn mode t2mi_pid stream_id : input * t2mi_mode_raw =
+ *   |> List.foldi (fun acc i x -> if x then i :: acc else acc) [] *)
+
+(* let to_mode_exn mode t2mi_pid stream_id : input * t2mi_mode_raw =
  *   Option.get_exn @@ input_of_int (mode land 1),
  *   { enabled = if (mode land 4) > 0 then true else false
  *   ; pid = t2mi_pid land 0x1fff
@@ -420,8 +417,7 @@ end
  *         iter [] |> List.rev in
  *     { measures; next_ptr; time; timestamp; pid; t_pcr }
  * end
- *)
-(*
+ * 
  * module TS_streams = struct
  * 
  *   let parse msg =
@@ -434,152 +430,173 @@ end
  *           @@ Cstruct.LE.get_uint32 buf 0) bdy in
  *     List.rev @@ Cstruct.fold (fun acc el -> el :: acc) iter []
  * 
- * end
- * 
- * module Ts_errors = struct
- * 
- *   let prioriry_of_err_code = function
- *     | x when x >= 0x11 && x <= 0x16 -> 1
- *     | x when x >= 0x21 && x <= 0x26 -> 2
- *     | x when x >= 0x31 && x <= 0x38 -> 3
- *     | _ -> 0 (\* Unknown *\)
- * 
- *   let compare = fun x y ->
- *     Int32.compare x.packet y.packet
- * 
- *   let parse (msg : Cstruct.t) : Multi_TS_ID.t * (t list) =
- *     let common, rest = Cstruct.split msg sizeof_ts_errors in
- *     let number = get_ts_errors_count common in
- *     let errors, _ = Cstruct.split rest (number * sizeof_ts_error) in
- *     let stream_id = Multi_TS_ID.of_int32_pure
- *       @@ get_ts_errors_stream_id common in
- *     let iter = Cstruct.iter (fun _ -> Some sizeof_ts_error) (fun x -> x) errors in
- *     Cstruct.fold (fun acc el ->
- *         let pid' = get_ts_error_pid el in
- *         let pid = pid' land 0x1FFF in
- *         let err_code = get_ts_error_err_code el in
- *         { count = get_ts_error_count el
- *         ; err_code
- *         ; err_ext = get_ts_error_err_ext el
- *         ; priority = prioriry_of_err_code err_code
- *         ; multi_pid = (pid' land 0x8000) > 0
- *         ; pid
- *         ; packet = get_ts_error_packet el
- *         ; param_1 = get_ts_error_param_1 el
- *         ; param_2 = get_ts_error_param_2 el
- *         ; time = Time.epoch
- *         } :: acc) iter []
- *     |> List.sort compare
- *     |> Pair.make stream_id
- * 
- * end
- * 
- * module T2mi_errors = struct
- * 
- *   let ts_parser_error_code = 0xF0
- *   let t2mi_parser_error_code = 0xF1
- * 
- *   let get_relevant_t2mi_adv_code = function
- *     | 0 -> Some 2 | 1 -> Some 3 | 4 -> Some 4
- *     | 5 -> Some 5 | 6 -> Some 6 | 9 -> Some 7
- *     | 20 -> Some 8 | _ -> None
- * 
- *   let make_error ~count ~err_code ~param_1 ~param_2 ~pid () =
- *     { count
- *     ; err_code
- *     ; err_ext = 0
- *     ; priority = 0
- *     ; multi_pid = false
- *     ; pid
- *     ; packet = 0l
- *     ; param_1
- *     ; param_2
- *     ; time = Time.epoch
- *     }
- * 
- *   (\* Merge t2mi errors with counter and advanced errors.
- *      Result is common t2mi error type *\)
- *   let merge pid
- *       (count : t2mi_error_raw list)
- *       (param : t2mi_error_adv_raw list) : t list =
- *     List.map (fun (x : t2mi_error_raw) ->
- *         let open Option in
- *         let param =
- *           get_relevant_t2mi_adv_code x.code
- *           |> flat_map (fun c ->
- *               List.find_opt (fun a ->
- *                   a.code = c
- *                   && a.stream_id = x.stream_id) param
- *               |> map (fun (x : t2mi_error_adv_raw) -> Int32.of_int x.param))
- *           |> get_or ~default:0l
- *         in
- *         make_error ~count:x.count
- *           ~err_code:x.code
- *           ~pid
- *           ~param_1:param
- *           ~param_2:(Int32.of_int x.stream_id)
- *           ()) count
- * 
- *   (\* Convert t2mi advanced errors with 'code' = 0 to common t2mi error type *\)
- *   let convert_other pid (other : t2mi_error_adv_raw list) : t list =
- *     List.map (fun (x : t2mi_error_adv_raw) ->
- *         make_error ~count:1
- *           ~err_code:t2mi_parser_error_code
- *           ~pid
- *           ~param_1:(Int32.of_int x.param)
- *           ~param_2:(Int32.of_int x.stream_id)
- *           ()) other
- * 
- *   (\* Convert ts parser flags to common t2mi error type *\)
- *   let convert_ts pid (ts : int list) : t list =
- *     List.map (fun (x : int) ->
- *         make_error ~count:1
- *           ~err_code:ts_parser_error_code
- *           ~pid
- *           ~param_1:(Int32.of_int x)
- *           ~param_2:0l
- *           ()) ts
- * 
- *   let parse (msg : Cstruct.t) : Multi_TS_ID.t * (t list) =
- *     let common, rest = Cstruct.split msg sizeof_t2mi_errors in
- *     let number = get_t2mi_errors_count common in
- *     let errors, _ = Cstruct.split rest (number * sizeof_t2mi_error) in
- *     let stream_id = get_t2mi_errors_stream_id common in
- *     let pid = get_t2mi_errors_pid common in
- *     (\* let sync = int_to_t2mi_sync_list (get_t2mi_errors_sync common) in *\)
- *     let iter = Cstruct.iter (fun _ -> Some sizeof_t2mi_error)
- *         (fun buf -> buf) errors in
- *     let cnt, adv, oth =
- *       Cstruct.fold (fun (cnt, adv, oth) el ->
- *           let index = get_t2mi_error_index el in
- *           let data = get_t2mi_error_data el in
- *           let code = index lsr 4 in
- *           let sid = index land 7 in
- *           match index land 8 with
- *           | 0 -> if data > 0 (\* filter zero errors *\)
- *             then
- *               let (x : t2mi_error_raw) =
- *                 { code; stream_id = sid; count = data } in
- *               (x :: cnt), adv, oth
- *             else cnt,adv,oth
- *           | _ -> let f x = { code = x; stream_id = sid; param = data } in
- *             if code = 0 (\* t2mi parser error *\)
- *             then cnt, adv, ((f t2mi_parser_error_code) :: oth)
- *             else cnt, ((f code) :: adv), oth)
- *         iter ([], [], [])
- *     in
- *     let pe = get_t2mi_errors_err_flags common in
- *     let ts = List.filter_map (fun x ->
- *         if pe land (Int.pow 2 x) <> 0
- *         then Some x else None)
- *         (List.range 0 3) in
- *     let errors =
- *       merge pid cnt adv
- *       @ convert_other pid oth
- *       @ convert_ts pid ts in
- *     Multi_TS_ID.of_int32_pure stream_id, errors
- * 
  * end *)
+
+let parse_ts_errors (msg : Cstruct.t) =
+  try
+    let common, rest = Cstruct.split msg Message.sizeof_ts_errors in
+    let number = Message.get_ts_errors_count common in
+    let errors, _ = Cstruct.split rest (number * Message.sizeof_ts_error) in
+    let stream =
+      Stream.Multi_TS_ID.of_int32_pure
+      @@ Message.get_ts_errors_stream_id common in
+    let iter =
+      Cstruct.iter
+        (fun _ -> Some Message.sizeof_ts_error)
+        (fun x ->
+           let pid' = Message.get_ts_error_pid x in
+           let pid = pid' land 0x1FFF in
+           let err_code = Message.get_ts_error_err_code x in
+           { Error.
+             count = Message.get_ts_error_count x
+           ; err_code
+           ; err_ext = Message.get_ts_error_err_ext x
+           ; multi_pid = (pid' land 0x8000) > 0
+           ; pid
+           ; packet = Message.get_ts_error_packet x
+           ; param_1 = Message.get_ts_error_param_1 x
+           ; param_2 = Message.get_ts_error_param_2 x
+           }) errors in
+    let errors =
+      List.sort (fun (x : Error.t) y -> Int32.compare x.packet y.packet)
+      @@ Cstruct.fold (fun acc el -> el :: acc) iter [] in
+    Ok (stream, errors)
+  with Invalid_argument _ -> Error Request.Invalid_payload
+
+module T2MI_errors_parser = struct
+
+  type error =
+    { code : int
+    ; t2mi_stream_id : int
+    ; param : int
+    }
+
+  let equal_error (a : error as 'a) (b : 'a) =
+    a.code = b.code
+    && a.t2mi_stream_id = b.t2mi_stream_id
+
+  let ts_parser_code = 0xF0
+
+  let t2mi_parser_code = 0xF1
+
+  let get_relevant_t2mi_adv_code = function
+    | 0 -> Some 2
+    | 1 -> Some 3
+    | 4 -> Some 4
+    | 5 -> Some 5
+    | 6 -> Some 6
+    | 9 -> Some 7
+    | 20 -> Some 8
+    | _ -> None
+
+  (* Merge t2mi errors with counter and advanced errors.
+     Result is common t2mi error type *)
+  let merge ~(count : error list) ~(param : error list) pid : Error.t list =
+    List.map (fun (error : error) ->
+        let param_1 = match get_relevant_t2mi_adv_code error.code with
+          | None -> 0l
+          | Some code ->
+            match List.find_opt (equal_error error) param with
+            | None -> 0l
+            | Some x -> Int32.of_int x.param
+        in
+        { Error.
+          count = error.param
+        ; err_code = error.code
+        ; err_ext = 0
+        ; multi_pid = false
+        ; pid
+        ; packet = 0l
+        ; param_1
+        ; param_2 = Int32.of_int error.t2mi_stream_id
+        }) count
+
+  (* Map T2-MI advanced errors with 'code' = 0 to common T2-MI error type *)
+  let map_parser_error pid (other : error list) =
+    List.map (fun (x : error) ->
+        { Error.
+          count = 1
+        ; err_code = t2mi_parser_code
+        ; err_ext = 0
+        ; multi_pid = false
+        ; pid
+        ; packet = 0l
+        ; param_1 = Int32.of_int x.param
+        ; param_2 = Int32.of_int x.t2mi_stream_id
+        }) other
+
+  (* Map ts parser flags to common T2-MI error type *)
+  let map_ts_container_error pid (ts : int list) : Error.t list =
+    List.map (fun (x : int) ->
+        { Error.
+          count = 1
+        ; err_code = ts_parser_code
+        ; err_ext = 0
+        ; multi_pid = false
+        ; pid
+        ; packet = 0l
+        ; param_1 = Int32.of_int x
+        ; param_2 = 0l
+        }) ts
+
+  let parse_ts_container_errors (flags : int) =
+    let msb = 3 in
+    let rec aux acc i =
+      let acc =
+        if flags land (1 lsl i) <> 0
+        then i :: acc else acc in
+      if i = 0 then acc else aux acc (pred i) in
+    aux [] msb
+
+  let parse_error (buf : Cstruct.t) =
+    let index = Message.get_t2mi_error_index buf in
+    let param = Message.get_t2mi_error_data buf in
+    let code = index lsr 4 in
+    let t2mi_stream_id = index land 7 in
+    match index land 8 with
+    | 0 ->
+      if param > 0 (* filter zero errors *)
+      then `E { code; t2mi_stream_id; param }
+      else `N
+    | _ ->
+      if code = 0 (* t2mi parser error *)
+      then `C { code = t2mi_parser_code; t2mi_stream_id; param }
+      else `P { code; t2mi_stream_id; param }
+
+  let parse (msg : Cstruct.t) =
+    try
+      let common, rest = Cstruct.split msg Message.sizeof_t2mi_errors in
+      let number = Message.get_t2mi_errors_count common in
+      let errors, _ = Cstruct.split rest (number * Message.sizeof_t2mi_error) in
+      let stream =
+        Stream.Multi_TS_ID.of_int32_pure
+        @@ Message.get_t2mi_errors_stream_id common in
+      let pid = Message.get_t2mi_errors_pid common in
+      (* let sync = int_to_t2mi_sync_list (get_t2mi_errors_sync common) in *)
+      let iter =
+        Cstruct.iter
+          (fun _ -> Some Message.sizeof_t2mi_error)
+          (fun x -> x) errors in
+      let ( err_with_counter
+          , err_with_param
+          , parser_err ) =
+        Cstruct.fold (fun ((cnt, adv, oth) as acc) buf ->
+            match parse_error buf with
+            | `N -> acc
+            | `E x -> (x :: cnt), adv, oth
+            | `P x -> cnt, (x :: adv), oth
+            | `C x -> cnt, adv, (x :: oth))
+          iter ([], [], [])
+      in
+      let ts_parser_flags = Message.get_t2mi_errors_err_flags common in
+      let errors =
+        merge ~count:err_with_counter ~param:err_with_param pid
+        @ map_parser_error pid parser_err
+        @ map_ts_container_error pid (parse_ts_container_errors ts_parser_flags) in
+      Ok (stream, errors)
+    with Invalid_argument _ -> Error Request.Invalid_payload
+
+end
 
 let check_prefix (buf : Cstruct.t) =
   try
@@ -628,31 +645,33 @@ let get_msg buf =
   >>= check_msg_code
   >>= check_crc
 
-let parse_part src data =
-  let code_ext = Message.get_complex_rsp_header_code_ext data in
+let parse_part src (buf : Cstruct.t) =
+  let code_ext = Message.get_complex_rsp_header_code_ext buf in
   let code = code_ext land 0x0FFF in
   let long = code_ext land 0x2000 <> 0 in
   let parity = if code_ext land 0x1000 <> 0 then 1 else 0 in
   let first = code_ext land 0x8000 <> 0 in
-  let client_id = Message.get_complex_req_header_client_id data in
-  let request_id = Message.get_complex_rsp_header_request_id data in
-  let data' =
-    if long
-    then Cstruct.shift data Message.sizeof_complex_rsp_header_ext
-    else Cstruct.shift data Message.sizeof_complex_rsp_header in
-  let data, _ = Cstruct.(split data' (len data' - parity)) in
+  let client_id = Message.get_complex_rsp_header_client_id buf in
+  let request_id = Message.get_complex_rsp_header_request_id buf in
   let param =
     Int32.mul 2l
       (if long
-       then Message.get_complex_rsp_header_ext_param data
-       else Int32.of_int @@ Message.get_complex_rsp_header_param data)
+       then Message.get_complex_rsp_header_ext_param buf
+       else Int32.of_int @@ Message.get_complex_rsp_header_param buf)
     |> fun x -> Int32.sub x (Int32.of_int parity) in
+  let data =
+    (if long
+     then Cstruct.shift buf Message.sizeof_complex_rsp_header_ext
+     else Cstruct.shift buf Message.sizeof_complex_rsp_header)
+    |> (fun x -> Cstruct.split x (Cstruct.len x - parity))
+    |> fst in
   Logs.debug ~src (fun m ->
       m "parser - got complex message part \
          (first: %B, code: 0x%X, parity: %d, \
          req_id: %d, client_id: %d, \
          length: %d, param: %ld)"
-        first code parity request_id client_id
+        first code parity
+        request_id client_id
         (Cstruct.len data) param);
   let id = { code; client_id; request_id } in
   let part = { data; first; param } in
@@ -692,34 +711,32 @@ let parse src data parts = function
  *         m "parser - failure while parsing complex message: %s"
  *           (Printexc.to_string e)); `N *)
 
-(* FIXME optimize, we should not try to compose parts once again if failed,
-   store already composed items *)
-let try_compose_parts src ((id, acc) as x) =
+exception Invalid_part_offset
+
+let try_compose_parts src (id, parts) =
   let sorted = List.sort (fun x y ->
       if x.first then (-1)
       else if y.first then 1
-      else compare x.param y.param) acc in
+      else compare x.param y.param) parts in
   match sorted with
-  | [] -> `P x
-  | first :: rest ->
+  | [] -> `P sorted
+  | (first :: rest) as sorted ->
     try
-      let acc =
+      let length =
         List.fold_left (fun acc x ->
-            if Int32.equal x.param (Int32.of_int (Cstruct.len acc))
-            then Cstruct.append acc x.data
-            else failwith "Incorrect part offset")
-          first.data rest
-      in
-      if Int32.equal first.param (Int32.of_int (Cstruct.len acc))
-      then `F (id, acc)
-      else `P x
-    with e ->
-      Logs.warn ~src (fun m ->
-          m "parser - failure while composing complex message parts: %s"
-          @@ Printexc.to_string e);
-      `N
+            if (Int32.to_int x.param) = acc
+            then acc + Cstruct.len x.data
+            else raise_notrace Invalid_part_offset)
+          (Cstruct.len first.data) rest in
+      if (Int32.to_int first.param) = length
+      then `F (id, Cstruct.concat @@ List.map (fun x -> x.data) sorted)
+      else `P sorted
+    with Invalid_part_offset ->
+      Logs.err ~src (fun m -> m "parser - invalid complex message part offset");
+      `E
 
 let deserialize src parts buf =
+  print_endline @@ Format.asprintf "FULL: %a" Cstruct.hexdump_pp buf;
   let rec f acc parts buf =
     if Cstruct.len buf < Message.sizeof_common_header
     then List.(rev acc, rev parts, buf)
@@ -738,25 +755,9 @@ let deserialize src parts buf =
             f acc parts (Cstruct.shift buf 1)
         end in
   let responses, parts, res = f [] parts buf in
-  let parts =
-    List.filter (fun (_, x) ->
-        let first_msgs = List.find_all (fun x -> x.first) x in
-        match first_msgs with
-        | [_] -> true
-        | _ -> false) parts in
-  (* let ev_rsps, rsps, parts =
-   *   List.fold_left (fun ((e, r, p) as acc) x ->
-   *       match try_compose_parts src x with
-   *       | `F x ->
-   *         begin match parse_complex_msg x with
-   *           | `ER x -> x :: e, r, p
-   *           | `R x -> e, x :: r, p
-   *           | `N -> acc
-   *         end
-   *       | `P x -> e, r, x :: p
-   *       | `N -> e, r, p)
-   *     (ev_rsps, rsps, []) parts
-   * in *)
+  List.iter (fun (x : Request.rsp_tag Request.simple_msg) ->
+      print_endline @@ Printf.sprintf "tag = %s" @@ Request.rsp_tag_to_string x.tag)
+    responses;
   responses, parts, if Cstruct.len res > 0 then Some res else None
 
 let parse_mode _ = Error Request.Invalid_payload

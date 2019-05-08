@@ -140,7 +140,7 @@ let create (b : Topology.topo_board)
    * let ports_active = Port.active b events in *)
   let board =
     { Board.
-      http = []
+      http = Board_niitv_tsan_http.handlers b.control api
     ; ws = []
     ; templates = []
     ; control = b.control

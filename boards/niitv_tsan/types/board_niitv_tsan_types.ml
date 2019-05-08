@@ -209,14 +209,14 @@ module Pid = struct
     ; present : bool
     ; service_id : int option
     ; service_name : string option [@default None]
-    ; typ : Mpeg_ts.Pid.Type.t [@key "type"]
+    ; typ : Mpeg_ts.PID.Type.t [@key "type"]
     } [@@deriving yojson, eq, show, ord]
 
 end
 
 module Service = struct
 
-  type element = int * Mpeg_ts.Pid.Type.t [@@deriving yojson, eq]
+  type element = int * Mpeg_ts.PID.Type.t [@@deriving yojson, eq]
 
   type t = id * info
   and id = int
@@ -469,20 +469,19 @@ module Error = struct
     ; no_measure : float
     } [@@deriving yojson]
 
-  type 'a error =
+  type 'a e =
     { count : int
     ; err_code : int
     ; err_ext : int
-    ; priority : int
     ; multi_pid : bool
     ; pid : 'a
     ; packet : int32
     ; param_1 : int32
     ; param_2 : int32 (* t2mi stream id for t2mi error *)
-    ; time : Time.t
     }
-  and t = int error [@@deriving yojson, eq, show]
-  and t_ext = (Pid.id * Pid.info option) error
+  and t = int e [@@deriving yojson, eq, show]
+
+  and t_ext = (Pid.id * Pid.info option) e
 
   type compressed = percent tspan list
   and percent =
@@ -498,7 +497,7 @@ type bitrates = (Stream.ID.t * Bitrate.t ts) list [@@deriving yojson, eq]
 type ts_info = (Stream.ID.t * Ts_info.t ts) list [@@deriving yojson, eq]
 type pids = (Stream.ID.t * Pid.t list ts) list [@@deriving yojson, eq]
 type services = (Stream.ID.t * (Service.t list ts)) list [@@deriving yojson, eq]
-type elements = (Stream.ID.t * ((int * int) * Mpeg_ts.Pid.Type.t) list ts) list [@@deriving yojson, eq]
+type elements = (Stream.ID.t * ((int * int) * Mpeg_ts.PID.Type.t) list ts) list [@@deriving yojson, eq]
 type tables = (Stream.ID.t * (SI_PSI_table.t list ts)) list [@@deriving yojson, eq]
 type sections = (Stream.ID.t * (SI_PSI_section.t list ts)) list [@@deriving yojson, eq]
 type t2mi_info = (Stream.ID.t * T2mi_info.t list ts) list [@@deriving yojson, eq]

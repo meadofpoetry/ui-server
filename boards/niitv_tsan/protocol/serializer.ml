@@ -50,10 +50,10 @@ let to_msg (type a) : a Request.t -> Request.req_tag Request.msg = function
     Message.set_req_set_jitter_mode_pid data pid;
     `Simple { tag = `Set_jitter_mode; data }
   | Reset -> `Complex (Request.make_complex_msg `Reset)
-  | Set_src_id { input; t2mi } ->
+  | Set_src_id { input_source; t2mi_source } ->
     let data = Cstruct.create Message.sizeof_req_source_id in
-    Message.set_req_source_id_input_src_id data input;
-    Message.set_req_source_id_t2mi_src_id data t2mi;
+    Message.set_req_source_id_input_src_id data input_source;
+    Message.set_req_source_id_t2mi_src_id data t2mi_source;
     `Simple { tag = `Set_source_id; data }
   | Get_t2mi_seq { request_id; seconds } ->
     let data = Cstruct.create Message.sizeof_req_t2mi_seq in

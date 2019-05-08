@@ -34,20 +34,6 @@ type status_raw =
   ; streams : Stream.Multi_TS_ID.t list
   } [@@deriving eq]
 
-(** T2-MI errors *)
-
-type t2mi_error_raw =
-  { code : int
-  ; stream_id : int
-  ; count : int
-  }
-
-type t2mi_error_adv_raw =
-  { code : int
-  ; stream_id : int
-  ; param : int
-  }
-
 type group =
   { status : status_raw
   ; prev_status : status_raw option

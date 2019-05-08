@@ -112,7 +112,7 @@ let of_es_block (msg : Cstruct.t) : Service.element list =
   @@ Cstruct.fold (fun acc x ->
       let pid = (Message.get_es_struct_block_pid x) land 0x1FFF in
       let info =
-        Mpeg_ts.Pid.Type.PES
+        Mpeg_ts.PID.Type.PES
           { stream_type = Message.get_es_struct_block_es_type x
           ; stream_id = Message.get_es_struct_block_es_stream_id x } in
       (pid, info) :: acc) iter []
@@ -123,7 +123,7 @@ let of_ecm_block (msg : Cstruct.t) : Service.element list =
   @@ Cstruct.fold (fun acc x ->
       let pid = (Message.get_ecm_struct_block_pid x) land 0x1FFF in
       let ca_sys_id = Message.get_ecm_struct_block_ca_system_id x in
-      let info = Mpeg_ts.Pid.Type.ECM { ca_sys_id } in
+      let info = Mpeg_ts.PID.Type.ECM { ca_sys_id } in
       (pid, info) :: acc) iter []
 
 let of_emm_block (msg : Cstruct.t) : Service.element list =
@@ -225,7 +225,7 @@ let update_if_null (pid, info) : Pid.t option =
 
 let find_in_elements
     ((pid, _) : Pid.t)
-    (elements : Service.element list) : Mpeg_ts.Pid.Type.t option =
+    (elements : Service.element list) : Mpeg_ts.PID.Type.t option =
   let pid = List.find_opt (fun (pid', _) -> pid' = pid) elements in
   match pid with
   | None -> None
@@ -260,8 +260,8 @@ let update_if_in_tables (tables : SI_PSI_table.t list)
   |> (function
       | [] -> None
       | [(id, info)] ->
-        let open Mpeg_ts.Pid.Type in
-        begin match Mpeg_ts.table_of_int id.table_id with
+        let open Mpeg_ts.PID.Type in
+        begin match Mpeg_ts.SI_PSI.of_table_id id.table_id with
           | `PMT -> Some (info.service_id, info.service_name, SEC [id.table_id])
           | _ -> Some (None, None, SEC [id.table_id])
         end
@@ -291,7 +291,7 @@ let update_pid (elements : (Service.t * Service.element list) list)
 let update_table (services : Service.t list)
     ((id, info) : SI_PSI_table.t) : SI_PSI_table.t =
   let result =
-    match Mpeg_ts.table_of_int id.table_id with
+    match Mpeg_ts.SI_PSI.of_table_id id.table_id with
     | `EIT (`Actual, _) ->
       let service = List.find_opt (fun (sid, _) ->
           sid = id.table_id_ext) services in

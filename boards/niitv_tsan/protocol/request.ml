@@ -191,7 +191,7 @@ type structure =
   ; tables : SI_PSI_table.t list
   ; pids : Pid.t list
   ; time : Time.t
-  } [@@deriving eq]
+  } [@@deriving eq, yojson]
 
 type _ t =
   | Get_devinfo : devinfo t
@@ -201,8 +201,8 @@ type _ t =
   | Set_jitter_mode : jitter_mode option -> unit t
   | Reset : unit t
   | Set_src_id :
-      { input : int
-      ; t2mi : int } -> unit t
+      { input_source : int
+      ; t2mi_source : int } -> unit t
   | Get_t2mi_seq :
       { request_id : int
       ; seconds : int
@@ -233,19 +233,21 @@ type _ t =
 
 (* FIXME *)
 let timeout (type a) : a t -> float = function
-  | Get_devinfo -> 3.
+  (* Responseless requests *)
   | Reset -> 0.
+  | Set_mode _ -> 0.
   | Set_src_id _ -> 0.
+  | Set_jitter_mode _ -> 0.
+  (* Requests with response *)
+  | Get_devinfo -> 3.
   | Get_deverr _ -> 3.
   | Get_mode -> 3.
-  | Get_t2mi_seq x -> 0.
-  | Get_section _ -> 0.
-  | Get_jitter _ -> 0.
-  | Get_bitrate _ -> 0.
-  | Get_structure _ -> 0.
-  | Get_t2mi_info _ -> 0.
-  | Set_mode _ -> 0.
-  | Set_jitter_mode _ -> 0.
+  | Get_t2mi_seq x -> 3.
+  | Get_section _ -> 3.
+  | Get_jitter _ -> 3.
+  | Get_bitrate _ -> 3.
+  | Get_structure _ -> 3.
+  | Get_t2mi_info _ -> 3.
 
 let value_to_string (type a) (t : a t) (v : a) : string option =
   match t with
@@ -271,9 +273,9 @@ let to_string (type a) : a t -> string = function
   | Reset -> "Reset"
   | Get_mode -> "Get mode"
   | Get_devinfo -> "Get devinfo"
-  | Set_src_id { input; t2mi } ->
+  | Set_src_id { input_source; t2mi_source } ->
     Printf.sprintf "Set source ID (input=%d, t2mi=%d)"
-      input t2mi
+      input_source t2mi_source
   | Get_deverr request_id ->
     Printf.sprintf "Get deverr (rid=%d)" request_id
   | Get_t2mi_seq { request_id; seconds } ->

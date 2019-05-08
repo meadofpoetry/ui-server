@@ -1,81 +1,13 @@
-type table =
-  [ `PAT
-  | `CAT
-  | `PMT
-  | `TSDT
-  | `NIT of ao
-  | `SDT of ao
-  | `BAT
-  | `EIT of ao * ps
-  | `TDT
-  | `RST
-  | `ST
-  | `TOT
-  | `DIT
-  | `SIT
-  | `Unknown of int
-  ]
-and ao = [ `Actual | `Other ]
-and ps = [ `Present | `Schedule ]
+(* In accordance with FIXME *)
+let running_status_to_string = function
+  | 0 -> "undefined"
+  | 1 -> "not running"
+  | 2 -> "starts in a few seconds"
+  | 3 -> "pausing"
+  | 4 -> "running"
+  | _ -> "reserved for future use"
 
-let table_of_int : int -> table = function
-  | 0x00 -> `PAT
-  | 0x01 -> `CAT
-  | 0x02 -> `PMT
-  | 0x03 -> `TSDT
-  | 0x40 -> `NIT `Actual
-  | 0x41 -> `NIT `Other
-  | 0x42 -> `SDT `Actual
-  | 0x46 -> `SDT `Other
-  | 0x4A -> `BAT
-  | 0x4E -> `EIT (`Actual, `Present)
-  | 0x4F -> `EIT (`Other,  `Present)
-  | x when x >= 0x50 && x <= 0x5F ->
-     `EIT (`Actual, `Schedule)
-  | x when x >= 0x60 && x <= 0x6F ->
-     `EIT (`Other,  `Schedule)
-  | 0x70 -> `TDT
-  | 0x71 -> `RST
-  | 0x72 -> `ST
-  | 0x73 -> `TOT
-  | 0x7E -> `DIT
-  | 0x7F -> `SIT
-  | x    -> `Unknown x
-
-let table_to_string : ?simple:bool -> table -> string =
-  fun ?(simple=false) ->
-  function
-  | `PAT   -> "PAT"
-  | `CAT   -> "CAT"
-  | `PMT   -> "PMT"
-  | `TSDT  -> "TSDT"
-  | `NIT x ->
-     if simple then "NIT"
-     else (match x with
-           | `Actual -> "NIT actual"
-           | `Other  -> "NIT other")
-  | `SDT x ->
-     if simple then "SDT"
-     else (match x with
-           | `Actual -> "SDT actual"
-           | `Other  -> "SDT other")
-  | `BAT   -> "BAT"
-  | `EIT x ->
-     if simple then "EIT"
-     else (match x with
-           | `Actual, `Present  -> "EIT actual present"
-           | `Other , `Present  -> "EIT other present"
-           | `Actual, `Schedule -> "EIT actual schedule"
-           | `Other , `Schedule -> "EIT other schedule")
-  | `TDT   -> "TDT"
-  | `RST   -> "RST"
-  | `ST    -> "ST"
-  | `TOT   -> "TOT"
-  | `DIT   -> "DIT"
-  | `SIT   -> "SIT"
-  | `Unknown _ -> "Unknown"
-
-(* In accordance to ISO/IEC 13818-1:2015(E) *)
+(* In accordance with ISO/IEC 13818-1:2015(E) *)
 let stream_type_to_string = function
   | 0x00 -> "Reserved"
   | 0x01 -> "Video MPEG-1"
@@ -121,16 +53,7 @@ let stream_type_to_string = function
   | x when x >= 0x80 && x <= 0xFF -> "User Private"
   | _    -> "Unknown"
 
-(* In accordance to FIXME *)
-let running_status_to_string = function
-  | 0 -> "undefined"
-  | 1 -> "not running"
-  | 2 -> "starts in a few seconds"
-  | 3 -> "pausing"
-  | 4 -> "running"
-  | _ -> "reserved for future use"
-
-(* In accordance to EN 300 468 V1.15.1 *)
+(* In accordance with EN 300 468 V1.15.1 *)
 let service_type_to_string = function
   | 0x00 -> "rfu"
   | 0x01 -> "digital television"
@@ -165,9 +88,162 @@ let service_type_to_string = function
   | x when x >= 0x80 && x <= 0xFE -> "user defined"
   | _    -> "rfu"
 
-module Pid = struct
+module ETR290_error = struct
+
+  type t =
+    | Sync_loss
+    | Sync_byte_error
+    | PAT_error
+    | CC_error
+    | PMT_error
+    | PID_error
+    | Transport_error
+    | CRC_error
+    | PCR_error
+    | PCR_accuracy_error
+    | PTS_error
+    | CAT_error
+    | NIT_error
+    | SI_repetition_error
+    | Unreferenced_pid
+    | SDT_error
+    | EIT_error
+    | RST_error
+    | TDT_error
+
+  let priority : t -> int = function
+    | (Sync_loss | Sync_byte_error | PAT_error
+      | CC_error | PMT_error | PID_error) -> 1
+    | (Transport_error | CRC_error | PCR_error
+      | PCR_accuracy_error | PTS_error | CAT_error) -> 2
+    | (NIT_error | SI_repetition_error | Unreferenced_pid
+      | SDT_error | EIT_error | RST_error | TDT_error) -> 3
+
+  let name : t -> string = function
+    | Sync_loss -> "TS sync loss"
+    | Sync_byte_error -> "Sync byte error"
+    | PAT_error -> "PAT error"
+    | CC_error -> "Continuity count error"
+    | PMT_error -> "PMT error"
+    | PID_error -> "PID error"
+    | Transport_error -> "Transport error"
+    | CRC_error -> "CRC error"
+    | PCR_error -> "PCR error"
+    | PCR_accuracy_error -> "PCR accuracy error"
+    | PTS_error -> "PTS error"
+    | CAT_error -> "CAT error"
+    | NIT_error -> "NIT error"
+    | SI_repetition_error -> "SI repetition error"
+    | Unreferenced_pid -> "Unreferenced PID"
+    | SDT_error -> "SDT error"
+    | EIT_error -> "EIT error"
+    | RST_error -> "RST error"
+    | TDT_error -> "TDT error"
+
+  let number : t -> string = function
+    | Sync_loss -> "1.1"
+    | Sync_byte_error -> "1.2"
+    | PAT_error -> "1.3"
+    | CC_error -> "1.4"
+    | PMT_error -> "1.5"
+    | PID_error -> "1.6"
+    | Transport_error -> "2.1"
+    | CRC_error -> "2.2"
+    | PCR_error -> "2.3"
+    | PCR_accuracy_error -> "2.4"
+    | PTS_error -> "2.5"
+    | CAT_error -> "2.6"
+    | NIT_error -> "3.1"
+    | SI_repetition_error -> "3.2"
+    | Unreferenced_pid -> "3.4"
+    | SDT_error -> "3.5"
+    | EIT_error -> "3.6"
+    | RST_error -> "3.7"
+    | TDT_error -> "3.8"
+
+end
+
+module SI_PSI = struct
+
+  type t =
+    [ `PAT
+    | `CAT
+    | `PMT
+    | `TSDT
+    | `NIT of ao
+    | `SDT of ao
+    | `BAT
+    | `EIT of ao * ps
+    | `TDT
+    | `RST
+    | `ST
+    | `TOT
+    | `DIT
+    | `SIT
+    | `Unknown of int
+    ]
+  and ao = [ `Actual | `Other ]
+  and ps = [ `Present | `Schedule ]
+
+  let of_table_id : int -> t = function
+    | 0x00 -> `PAT
+    | 0x01 -> `CAT
+    | 0x02 -> `PMT
+    | 0x03 -> `TSDT
+    | 0x40 -> `NIT `Actual
+    | 0x41 -> `NIT `Other
+    | 0x42 -> `SDT `Actual
+    | 0x46 -> `SDT `Other
+    | 0x4A -> `BAT
+    | 0x4E -> `EIT (`Actual, `Present)
+    | 0x4F -> `EIT (`Other,  `Present)
+    | 0x70 -> `TDT
+    | 0x71 -> `RST
+    | 0x72 -> `ST
+    | 0x73 -> `TOT
+    | 0x7E -> `DIT
+    | 0x7F -> `SIT
+    | x when x >= 0x50 && x <= 0x5F -> `EIT (`Actual, `Schedule)
+    | x when x >= 0x60 && x <= 0x6F -> `EIT (`Other,  `Schedule)
+    | x -> `Unknown x
+
+  let name ?(short = false) : t -> string = function
+    | `PAT -> "PAT"
+    | `CAT -> "CAT"
+    | `PMT -> "PMT"
+    | `TSDT -> "TSDT"
+    | `BAT -> "BAT"
+    | `TDT -> "TDT"
+    | `RST -> "RST"
+    | `ST -> "ST"
+    | `TOT -> "TOT"
+    | `DIT -> "DIT"
+    | `SIT -> "SIT"
+    | `Unknown x -> Printf.sprintf "Unknown (0x%02X)" x
+    | `NIT x ->
+      if short then "NIT"
+      else (match x with
+          | `Actual -> "NIT actual"
+          | `Other -> "NIT other")
+    | `SDT x ->
+      if short then "SDT"
+      else (match x with
+          | `Actual -> "SDT actual"
+          | `Other -> "SDT other")
+    | `EIT x ->
+      if short then "EIT"
+      else (match x with
+          | `Actual, `Present -> "EIT actual present"
+          | `Other, `Present -> "EIT other present"
+          | `Actual, `Schedule -> "EIT actual schedule"
+          | `Other, `Schedule -> "EIT other schedule")
+
+end
+
+module PID = struct
 
   module Type = struct
+
     type t =
       | SEC of int list
       | PES of pes
@@ -186,12 +262,13 @@ module Pid = struct
 
     let to_string : t -> string = function
       | SEC l ->
-         let s = List.map (fun x -> table_to_string @@ table_of_int x) l
-                 |> String.concat ", " in
-         "SEC -> " ^ s
+        let s =
+          List.map (fun x -> SI_PSI.name @@ SI_PSI.of_table_id x) l
+          |> String.concat ", " in
+        "SEC -> " ^ s
       | PES x ->
-         let s = stream_type_to_string x.stream_type in
-         "PES -> " ^ s
+        let s = stream_type_to_string x.stream_type in
+        "PES -> " ^ s
       | ECM x -> "ECM -> " ^ (string_of_int x.ca_sys_id)
       | EMM x -> "EMM -> " ^ (string_of_int x.ca_sys_id)
       | Null -> "Null"
