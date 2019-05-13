@@ -133,19 +133,4 @@ module Animation = struct
   let cancel_animation_frame (id : frame_id) : unit =
     Dom_html.window##cancelAnimationFrame id
 
-  let animate ~(timing : float -> float)
-        ~(draw : float -> unit)
-        ~(duration : float) =
-    let start = Unix.gettimeofday () in
-    let rec cb = (fun _ ->
-        let time = Unix.gettimeofday () in
-        let time_fraction = Float.min ((time -. start) /. duration) 1. in
-        let progress = timing time_fraction in
-        draw progress;
-
-        if Float.(time_fraction < 1.)
-        then ignore @@ request_animation_frame cb)
-    in
-    ignore @@ request_animation_frame cb
-
 end

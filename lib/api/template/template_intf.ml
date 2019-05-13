@@ -51,7 +51,7 @@ module type S = sig
              -> topmost item list
              -> (Cohttp.Code.meth
                  * (user -> 'a -> 'b -> 'c ->
-                    [> `Instant of  (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t
-                    |  `Error of string ]) Netlib.Uri.Dispatcher.node) list
+                    [> `Instant of  Cohttp_lwt_unix.Server.response_action Lwt.t
+                    |  `Error of string ] Lwt.t) Netlib.Uri.Dispatcher.node) list
 
 end

@@ -1,10 +1,15 @@
 (executables
-  (names       home topology user
-               network demo page_mosaic
-               page_input page_stream)
-  (libraries   js_of_ocaml js_of_ocaml.weak
-               gg vg vg.htmlc js_of_ocaml-tyxml common
-               components pipeline_js application_js pc_control_js
-               board_ip_dektec_js board_dvb_niit_js board_ts2ip_niit_js
-               chartjs)
+  (names       page_mosaic topology)
+  (libraries   js_of_ocaml
+               js_of_ocaml.weak
+               js_of_ocaml-tyxml
+               application_js
+               pipeline_js
+               wm_js
+               ;; application_js
+               ;; pc_control_js
+               ;; board_dektec_dtm3200_js
+               ;; board_niitv_dvb_js
+               ;; board_niitv_ts2ip_js
+               )
   (preprocess  (pps ppx_deriving_yojson js_of_ocaml-ppx)))

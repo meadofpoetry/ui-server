@@ -1,0 +1,18 @@
+(library
+  (name       pipeline)
+  (libraries  pipeline_protocol
+              pipeline_http
+              application_types
+              api
+              time
+              db
+              kv_v
+              netlib
+              util_react
+              lwt.unix
+              ptime.clock.os ;; TODO time_clock
+              logs.lwt)
+;;containers yojson caqti-lwt angstrom logs.lwt
+;;               lwt zmq-lwt websocket-lwt.cohttp ptime.clock.os
+;;               api process components_markup)
+  (preprocess  (pps ppx_deriving_yojson ppx_deriving.eq ppx_deriving.ord)))

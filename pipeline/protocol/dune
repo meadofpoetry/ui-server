@@ -1,0 +1,15 @@
+(library
+  (name       pipeline_protocol)
+  (libraries  qoe_backend_lwt
+              pipeline_types
+              application_types
+              api
+              time
+              db
+              kv_v
+              netlib
+              util_react
+              lwt.unix
+              ptime.clock.os ;; TODO time_clock
+              logs.lwt)
+  (preprocess  (pps ppx_deriving_yojson ppx_deriving.eq ppx_deriving.ord)))

@@ -17,13 +17,14 @@ module Make (User : Api.USER) (Body : Api.BODY) : sig
            and type path = Netlib.Uri.t
            and type answer = [ Api.Authorize.error
                              | Body.t response
-                             | `Instant of (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t
+                             | `Instant of Cohttp_lwt_unix.Server.response_action Lwt.t
                              ]
-           and type response = (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t
+           and type response = Cohttp_lwt_unix.Server.response_action Lwt.t
            and type 'a handler =
                       Cohttp.Code.meth * 'a Netlib.Uri.Dispatcher.node
 
-  val make : domain:string
+  (* raises Ambiguity on ambiguous path *)
+  val make : ?prefix:string
              -> node list
              -> t
 
@@ -32,9 +33,11 @@ module Make (User : Api.USER) (Body : Api.BODY) : sig
              -> meth:meth
              -> path:('a, 'b)
                   Netlib.Uri.Path.Format.t
-             -> query:('b, user -> body -> env -> state -> answer)
+             -> query:('b, user -> body -> env -> state -> answer Lwt.t)
                   Netlib.Uri.Query.format
              -> 'a
              -> node
+
+  val doc : t -> (string * string list) list
 
 end

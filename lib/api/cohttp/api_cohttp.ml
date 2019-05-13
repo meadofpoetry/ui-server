@@ -17,7 +17,13 @@ let env_of_headers headers : env =
        | _ -> None
   in { env }
 
-let respond_need_auth = Cohttp_lwt_unix.Server.respond_need_auth
+let to_resp_action resp =
+  Lwt.return (`Response resp)
+
+let respond_need_auth ?headers ~auth () =
+  let open Lwt.Infix in
+  Cohttp_lwt_unix.Server.respond_need_auth ?headers ~auth ()
+  >>= to_resp_action
 
 (*
 let respond_not_found = Cohttp_lwt_unix.Server.respond_not_found
@@ -26,8 +32,10 @@ let respond_file base path =
   Cohttp_lwt_unix.Server.respond_file
     ~fname:(Filename.concat base path)
  *)
-let respond_string ?(status = `OK) body =
-  Cohttp_lwt_unix.Server.respond_string ~status ~body
+let respond_string ?(status = `OK) ?headers body () =
+  let open Lwt.Infix in
+  Cohttp_lwt_unix.Server.respond_string ~status ?headers ~body ()
+  >>= to_resp_action
 (*
 let respond_html_elt ?(status = `OK) body =
   Cohttp_lwt_unix.Server.respond ~status
@@ -38,8 +46,10 @@ let respond_redirect path =
   Cohttp_lwt_unix.Server.respond_redirect
     ~uri:(Uri.with_path Uri.empty path)
  *)
-let respond_error ?(status = `Forbidden) error =
-  Cohttp_lwt_unix.Server.respond_error ~status ~body:error
+let respond_error ?(status = `Forbidden) error () =
+  let open Lwt.Infix in
+  Cohttp_lwt_unix.Server.respond_error ~status ~body:error ()
+  >>= to_resp_action
 
 (* TODO make use of Result resp types
   
@@ -74,13 +84,13 @@ module Make (User : Api.USER) (Body : Api.BODY) : sig
            and type path = Netlib.Uri.t
            and type answer = [ Api.Authorize.error
                              | Body.t response
-                             | `Instant of (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t
+                             | `Instant of Cohttp_lwt_unix.Server.response_action Lwt.t
                              ]
-           and type response = (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t
+           and type response = Cohttp_lwt_unix.Server.response_action Lwt.t
            and type 'a handler =
                       Cohttp.Code.meth * 'a Netlib.Uri.Dispatcher.node
 
-  val make : domain:string
+  val make : ?prefix:string
              -> node list
              -> t
 
@@ -88,10 +98,12 @@ module Make (User : Api.USER) (Body : Api.BODY) : sig
              -> ?restrict:user list
              -> meth:meth
              -> path:('a, 'b) Netlib.Uri.Path.Format.t
-             -> query:('b, user -> body -> env -> state -> answer)
+             -> query:('b, user -> body -> env -> state -> answer Lwt.t)
                   Netlib.Uri.Query.format
              -> 'a
              -> node
+
+  val doc : t -> (string * string list) list
 
 end = struct
 
@@ -100,7 +112,7 @@ end = struct
   module Meth_map = Map.Make (struct
                         type t = Cohttp.Code.meth
                         let compare : t -> t -> int = Pervasives.compare
-                      end) 
+                      end)
 
   type state = Cohttp_lwt_unix.Request.t * Conduit_lwt_unix.flow
 
@@ -114,87 +126,117 @@ end = struct
 
   type answer = [ Api.Authorize.error
                 | Body.t response
-                | `Instant of (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t
+                | `Instant of Cohttp_lwt_unix.Server.response_action Lwt.t
                 ] 
 
-  type response = (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t
+  type response = Cohttp_lwt_unix.Server.response_action Lwt.t
 
   type 'a handler =
     Cohttp.Code.meth * 'a Netlib.Uri.Dispatcher.node
 
   type node =
-    (user -> body -> env -> state -> answer) handler
+    (user -> body -> env -> state -> answer Lwt.t) handler
 
   type t =
-    (user -> body -> env -> state -> answer)
+    (user -> body -> env -> state -> answer Lwt.t)
       Netlib.Uri.Dispatcher.t
       Meth_map.t 
 
-  let handle tbl ~state ?(meth=`GET) ~env ~redir uri body =
+  let handle (tbl : t) ~state ?(meth=`GET) ?default ~env ~redir uri body =
+    let open Lwt.Infix in
     let body = match Body.of_string body with
       | Ok v -> v
       | Error _ -> failwith ""
     in
-    let default (user : user) body env state =
-      ignore (user, body, env, state); 
-      `Instant (respond_error "bad request" ())
+    let default = match default with
+      | None -> fun (_user : user) _body _env _state ->
+                Lwt.return (`Error "bad request")
+      | Some v -> fun (_user : user) _body _env _state ->
+                  Lwt.return (`Instant (v ()))
     in
-    redir @@ (fun user ->
-      let ans = match Meth_map.find_opt meth tbl with
-        | None ->
-           default user body env state
-        | Some tbl ->
-           Uri.Dispatcher.dispatch ~default tbl uri user body env state
-      in match ans with (* TODO check resp types *)
-         | #Api.Authorize.error ->
-            respond_need_auth ~auth:(`Basic "User Visible Realm") ()
-         | `Instant resp ->
-            resp
-         | `Value body ->
-            respond_string (Body.to_string body) ()
-         | `Unit ->
-            respond_string "" () (* TODO there should be something better that string *)
-         | `Error e ->
-            respond_error e () ) 
+    redir env >>= function
+    | Error #Api.Authorize.error ->
+       respond_need_auth ~auth:(`Basic "User Visible Realm") ()
+    | Ok user ->
+       let ans = match Meth_map.find_opt meth tbl with
+         | None ->
+            default user body env state
+         | Some tbl ->
+            Uri.Dispatcher.dispatch ~default tbl uri user body env state
+       in ans >>= function (* TODO check resp types *)
+          | `Unknown e ->
+             respond_error e ()
+          | #Api.Authorize.error -> (* TODO check resp types *)
+             respond_need_auth ~auth:(`Basic "User Visible Realm") ()
+          | `Instant resp ->
+             resp
+          | `Value body ->
+            respond_string
+              ~headers:(Cohttp.Header.of_list ["Content-Type", Body.content_type])
+              (Body.to_string body) ()
+          | `Unit ->
+             respond_string "" () (* TODO there should be something better that string *)
+          | `Not_implemented ->
+             respond_error ~status:`Not_implemented "FIXME" ()
+          | `Error e ->
+             respond_error e ()  
 
-  let make ~domain nodes =
-    let path = Uri.Path.of_string domain in
+  let make ?prefix nodes =
     let add_node map (meth, node) =
+      let node = match prefix with
+        | None -> node
+        | Some prefix ->
+           assert (String.length prefix <> 0);
+           Uri.Dispatcher.prepend (Uri.Path.of_string prefix) node
+      in
       let update = function
         | None ->
-           Some Uri.Dispatcher.(add empty (prepend path node))
+           Some Uri.Dispatcher.(add empty node)
         | Some disp ->
-           Some Uri.Dispatcher.(add disp (prepend path node))
+           Some Uri.Dispatcher.(add disp node)
       in Meth_map.update meth update map
     in 
     nodes
     |> List.fold_left add_node Meth_map.empty
 
-  let merge ~domain handlers =
-    let path = Uri.Path.of_string domain in
+  let merge ?prefix handlers =
     let flat _meth l r =
       match l, r with
       | Some tl, Some h -> Some (h::tl)
       | (Some _ as v), None -> v
       | None, Some h -> Some [h]
       | None, None -> None
-    in
-    handlers 
-    |> List.fold_left (Meth_map.merge flat) Meth_map.empty
-    |> Meth_map.map (fun met ->
-           Uri.Dispatcher.(merge empty (List.map (fun x -> path, x) met)))
+    in 
+    match prefix with
+    | None ->
+       handlers
+       |> List.fold_left (Meth_map.merge flat) Meth_map.empty
+       |> Meth_map.map Uri.Dispatcher.concat
+    | Some prefix ->
+       assert (String.length prefix <> 0);
+       let path = Uri.Path.of_string prefix in
+       handlers
+       |> List.fold_left (Meth_map.merge flat) Meth_map.empty
+       |> Meth_map.map (fun disps ->
+              Uri.Dispatcher.(merge empty [path, disps]))
 
   let transform not_allowed f =
     fun user body env state ->
     if not_allowed user
-    then `Error "access denied"
+    then Lwt.return (`Error "access denied")
     else f user body env state
-    
+
   let node ?doc ?(restrict=[]) ~meth ~path ~query handler : node =
     let not_allowed id = List.exists (User.equal id) restrict in
     Uri.Dispatcher.make ?docstring:doc ~path ~query handler
     |> Uri.Dispatcher.map_node (transform not_allowed)
     |> fun node -> meth, node
+
+  let doc (t : t) =
+    List.map (fun (meth, v) ->
+        Cohttp.Code.string_of_method meth,
+        Uri.Dispatcher.doc v)
+    @@ Meth_map.bindings t
 
 end
 

@@ -14,11 +14,11 @@ type _ key = Key : string -> string key | Auth : (string * string) key
 type env = { env : 'a. 'a key -> 'a option }
                 
 (* TODO elaborate this *)
-type 'a response = [ `Value of 'a | `Unit | `Error of string ]
+type 'a response = [ `Value of 'a | `Unit | `Error of string | `Not_implemented]
 
 module Authorize = struct
 
-  type error = [`Need_auth | `Wrong_password]
+  type error = [`Need_auth | `Wrong_password | `Unknown of string ]
 
   let auth validate env =
     env.env Auth
@@ -27,7 +27,7 @@ module Authorize = struct
          Lwt.return_error `Need_auth
       | Some (name, pass) ->
          validate ~name ~pass
-
+        
 end
                  
 module type USER = sig
@@ -39,6 +39,7 @@ module type BODY = sig
   type t
   val to_string : t -> string
   val of_string : string -> (t, [>`Conv_error of string]) result
+  val content_type : string
 end
                  
 module type S = sig
@@ -61,17 +62,19 @@ module type S = sig
 
   type 'a handler
 
-  type node = (user -> body -> env -> state -> answer) handler
-            
-  val merge : domain:string
+  type node = (user -> body -> env -> state -> answer Lwt.t) handler
+
+  (* raises Ambiguity on ambiguous path *)
+  val merge : ?prefix:string
               -> t list
               -> t
     
   val handle : t
                -> state:state
                -> ?meth:meth
+               -> ?default:(unit -> response)
                -> env:env
-               -> redir:((user -> response) -> response)
+               -> redir:(env -> (user, Authorize.error) Lwt_result.t)
                -> path
                -> string
                -> response

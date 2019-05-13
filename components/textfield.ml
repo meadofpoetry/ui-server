@@ -1,6 +1,6 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml.Tyxml_js
 open Containers
-open Tyxml_js
 
 module Markup = Components_markup.Textfield.Make(Xml)(Svg)(Html)
 
@@ -127,7 +127,8 @@ module Helper_text = struct
 
 end
 
-let id_ref = ref (Unix.time () |> int_of_float)
+let id_ref = ref (int_of_float (new%js Js.date_now)##getTime)
+
 let get_id = fun () ->
   incr id_ref;
   Printf.sprintf "text-field-%d" !id_ref

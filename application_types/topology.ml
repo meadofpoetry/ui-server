@@ -18,27 +18,23 @@ let state_of_string = function
 type input =
   | RF
   | TSOIP
-  | ASI [@@deriving show, eq, enum]
-
-type board_type = string [@@deriving yojson, show, eq, ord]
+  | ASI
+  | SPI [@@deriving show, eq, enum, ord]
 
 type process_type = string [@@deriving yojson, show, eq, ord]
-
-let compare_input l r = match l, r with
-  | RF, RF | TSOIP, TSOIP | ASI, ASI -> 0
-  | RF, _  | _, ASI -> -1
-  | ASI, _ | _, RF  -> 1
 
 let input_to_string = function
   | RF -> "RF"
   | TSOIP -> "TSOIP"
   | ASI -> "ASI"
+  | SPI -> "SPI"
 
 let input_of_string = function
-  | "RF"    -> Ok RF
+  | "RF" -> Ok RF
+  | "ASI" -> Ok ASI
+  | "SPI" -> Ok SPI
   | "TSOIP" -> Ok TSOIP
-  | "ASI"   -> Ok ASI
-  | s       -> Error ("input_of_string: bad input string: " ^ s)
+  | s -> Error ("input_of_string: bad input string: " ^ s)
 
 let input_to_yojson x = `String (input_to_string x)
 
@@ -46,32 +42,41 @@ let input_of_yojson = function
   | `String s -> input_of_string s
   | _ as e -> Error ("input_of_yojson: unknown value: " ^ (Yojson.Safe.to_string e))
 
-type boards = (int * board_type) list [@@deriving yojson, eq]
-
 type version = int [@@deriving yojson, show, eq, ord]
 
 type id = int [@@deriving yojson, show, eq, ord]
 
 module Env = Map.Make(String)
-           
+
 type env = string Env.t [@@deriving ord]
-         
-let env_to_yojson e : Yojson.Safe.json =
-  `Assoc (Env.fold (fun k v a -> (k, `String v)::a) e [])
+
+let env_to_yojson (e : env) : Yojson.Safe.json =
+  `Assoc (Env.fold (fun k v a -> (k, `String v) :: a) e [])
+
 let env_of_yojson : Yojson.Safe.json -> (env, string) result = function
   | `Assoc ls -> begin
       try ls
-          |> List.map (function (k, `String v) -> (k, v)
-                              | _ -> raise_notrace (Failure "env_of_yojson :value should be string"))
-          |> List.fold_left (fun env (k,v) -> Env.add k v env) Env.empty
+          |> List.map (function
+                 | (k, `String v) -> (k, v)
+                 | _ -> raise_notrace (Failure "env_of_yojson: value should be string"))
+          |> List.fold_left (fun env (k, v) -> Env.add k v env) Env.empty
           |> fun x -> Ok x
       with Failure e -> Error e
     end
-  | _ -> Error "env_of_yojson"
+  | j ->
+     let e = Printf.sprintf "env_of_yojson: got bad value - %s" (Yojson.Safe.to_string j) in
+     Error e
 
 (* TODO proper pp *)
 let pp_env _ppf _ = () (* Format. Env. String.pp String.pp*)
 let equal_env = Env.equal String.equal
+
+type board_id =
+  { manufacturer : string
+  ; model : string
+  ; version : version
+  ; control : int
+  } [@@deriving eq, yojson]
 
 type t =
   [ `CPU of topo_cpu
@@ -88,8 +93,7 @@ and topo_input =
   }
 
 and topo_board =
-  { typ : board_type
-  ; model : string
+  { model : string
   ; manufacturer : string
   ; version : version
   ; control : int
@@ -118,14 +122,14 @@ and topo_interface =
   ; conn : topo_entry
   }
 
-(** Returns human-readable names of some known board types *)
-let get_board_name (board : topo_board) =
-  match board.typ with
-  | "IP2TS" -> "Приёмник TSoIP"
-  | "TS2IP" -> "Передатчик TSoIP"
-  | "TS" -> "Анализатор TS"
-  | "DVB" -> "Приёмник DVB"
-  | s -> s
+let of_string s =
+  Yojson.Safe.from_string s
+  |> of_yojson
+  |> function Ok v -> v | Error e -> failwith e
+
+let to_string x =
+  to_yojson x
+  |> Yojson.Safe.to_string
 
 module Show_topo_input = struct
   type t = topo_input
@@ -173,6 +177,7 @@ let get_input_name (i : topo_input) =
   | RF -> to_string "RF"
   | TSOIP -> to_string "TSoIP"
   | ASI -> to_string "ASI"
+  | SPI -> to_string "SPI"
 
 let get_inputs t =
   let rec get acc = function
@@ -235,3 +240,5 @@ let board_list_for_input input : t -> 'a =
      fmap_first (fun board ->
          fmap_first (fun port -> traverse [] port.child) board.ports)
        bs
+
+       

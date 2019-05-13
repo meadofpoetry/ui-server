@@ -13,15 +13,17 @@ module Make (User : Api.USER) (Body : Api.BODY) : sig
 
   type env = Api.env
 
-  type event
+  type event = [ `Ev of state * body React.event
+               | `Error of string
+               ]
 
-  val event : state -> string React.event -> event
+  val event : state -> body React.event -> event Lwt.t
 
   val node : ?doc:string
              -> ?restrict:user list
              -> path:('a, 'b)
                   Netlib.Uri.Path.Format.t
-             -> query:('b, user -> body -> env -> state -> event)
+             -> query:('b, user -> body -> env -> state -> event Lwt.t)
                   Netlib.Uri.Query.format
              -> 'a
              -> node

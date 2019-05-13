@@ -86,10 +86,11 @@ and ipv4_conf     = { address : address
 and ipv6_conf     = unit
 and proxy_conf    = unit
         
-let dump x =
+let to_string x =
   to_yojson x
   |> Yojson.Safe.to_string
 
-let restore x =
+let of_string x =
   Yojson.Safe.from_string x
   |> of_yojson
+  |> function Ok x -> x | Error e -> failwith e

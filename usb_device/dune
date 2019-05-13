@@ -1,8 +1,0 @@
-(library
-  (name        usb_device)
-  ;(public_name usb_device)
-  (wrapped     false)
-  (modes       native)
-  (synopsis    "usb implementation")
-  (libraries   ctypes ctypes.foreign lwt lwt.unix cstruct boards)
-  (preprocess (pps ppx_deriving_yojson ppx_cstruct)))

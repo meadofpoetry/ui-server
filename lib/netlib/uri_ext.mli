@@ -144,14 +144,17 @@ module Dispatcher : sig
   val map_node : ('a -> 'b) -> 'a node -> 'b node
 
   val prepend : Path.t -> 'a node -> 'a node
-    
+
+  exception Ambiguity of string
+                       
+  (* raises Ambiguity on ambiguous path *)
   val add : 'a t -> 'a node -> 'a t
 
-  val merge : 'a t -> (Path.t * 'a t) list -> 'a t
+  (* raises Ambiguity on ambiguous path *)
+  val merge : 'a t -> (Path.t * 'a t list) list -> 'a t
 
-  val merge_unsafe : 'a t list -> 'a t
-
-  val concat : 'a t -> 'a t -> 'a t
+  (* raises Ambiguity on ambiguous path *)
+  val concat : 'a t list -> 'a t
 
   val dispatch : default:'a -> 'a t -> uri -> 'a
 
@@ -159,6 +162,9 @@ module Dispatcher : sig
 
 end
 
+(* TODO move to a more approp place *)
+val typ : string
+     
 val to_yojson : t -> Yojson.Safe.json
 
 val of_yojson : Yojson.Safe.json -> (t, string) result

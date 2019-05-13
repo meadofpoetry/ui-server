@@ -4,7 +4,7 @@ open Components
 let tabs =
   let data =
     [ "Видео", "video", (fun () -> Page_video.page ())
-    ; "Редактор", "editor", (fun () -> Page_editor.page ())
+    ; "Редактор", "editor", (fun () -> Wm_js.page ())
     ] in
   List.map (fun (name, hash, f) ->
       new Tab.t ~value:(hash, f) ~content:(Text name) ())
