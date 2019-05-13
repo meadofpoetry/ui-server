@@ -1,0 +1,5 @@
+(library
+  (name board_dektec_dtm3200)
+  (libraries board_dektec_dtm3200_types
+             board_dektec_dtm3200_protocol
+             board_dektec_dtm3200_http))

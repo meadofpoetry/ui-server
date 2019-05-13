@@ -184,9 +184,10 @@ class ['a] t ?(disabled = false)
 
     method remove_item (i : 'a Item.t) : unit =
       _items <- List.remove ~eq:(fun a b ->
-                    match a, b with
-                    | `Item a, `Item b -> Widget.equal a b
-                    | _ -> false) (`Item i) _items;
+          match a, b with
+          | `Item a, `Item b -> Widget.equal a b
+          | _ -> false)
+          ~key:(`Item i) _items;
       self#select#remove_child i;
       match self#selected_item with
       | None -> ()

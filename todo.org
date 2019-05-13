@@ -1,23 +1,72 @@
 * Project goals
 
-** TODO Alpha goals [0/6]:
-- [ ] Rearrange project libraries
-  - [ ] Separate utility libraries
-  - [ ] Functorize everything with stuff like users, db, streams, topologies etc as it is done in mirage
+** TODO Alpha goals [1/16]:
+- [-] Rearrange project libraries
+  - [X] Separate utility libraries
+    - [X] Netlib
+  - [-] Functorize everything with stuff like users, db, streams, topologies etc as it is done in mirage
+    - [ ] Hardware refactoring (the stream api part)
     - [ ] Common timer loop
-    - [ ] DB, KV, Boards resources
-    - [ ] Streams, Topo, Users types
-- [ ] Wrap caqti interface with a adaptor
+    - [X] KV
+    - [X] DB 
+      - [X] Wrap caqti interface with an adaptor
+    - [X] Server
+      - [X] Refactor Api.Socket interaction layer
+      - [X] Refactor Api interaction layer
+    - [ ] Boards
+    - [X] Streams, Topo, Users application types
+- [X] Non-blocking usb interaction
 - [ ] Fix db leaks
 - [ ] User password encryption
-- [ ] Refactor Api.Socket interaction layer
 - [ ] Refactor Pipeline types to support saved settings alteration
+- [ ] Make ats-backend a library
+- [ ] HTTP Server refactoring
+  - [ ] Https support
+  - [ ] Flexible configuration and iface
+  - [ ] Swagger like api page
 - [ ] Interaction with the Qoe analyser
+  - [ ] Consider h264 streaming option
   - [ ] Settings api
   - [ ] Integrate glsoundbar into the ats3-backend
   - [ ] Implement audio settings
   - [ ] Audio stream channels control
 - [ ] Switch to ocaml-4.08 monadic let operators
+- [ ] Refactor HTML templating
+- [ ] Streams
+  - [ ] T2-MI/TS stream types. We should know if the stream was T2-MI in the past to show stats
+- [ ] Topology
+  - [ ] Add flag to indicate stream presence at CPU inputs ('port active' and 'port sync')
+- [ ] Board QoS
+  - [ ] Debug state machine
+  - [ ] Watch for stream changes and configure T2-MI settings correspondingly
+- [ ] Board DVB
+  - [ ] Prohibit selection of equal streams for analysis
+- [ ] API
+  - [ ] Add API to fetch archived streams (from all sources)
+- [ ] UI
+  - [ ] Implement common scaffold widget for every page
+  - [ ] Reduce generated JS files size
+  - [ ] Render initial content on the server side where possible
+  - [ ] Refactor mosaic video page
+    - [ ] Show stats and settings inside dismissible side sheet widget
+    - [ ] Add quick navigation to mosaic editor
+    - [ ] Video controls should be common across browsers
+  - [ ] Refactor mosaic editor page
+    - [ ] Adaptive design
+    - [ ] Show layers and widgets cards inside dismissible side sheet widget
+    - [ ] Grid should never scroll
+    - [ ] Rethink grid size principles
+    - [ ] Add fast available widget selection mechanism
+    - [ ] Show when the widget on mosaic in unavailable
+  - [ ] Refactor topology page
+    - [ ] Show/hide settings dependent on the current user
+  - [ ] Refactor input page
+    - [ ] Add board tabs to show info for boards, not streams
+    - [ ] Add archived streams to streams tab
+  - [ ] Refactor network settings page
+    - [ ] Just put things in order
+  - [ ] Refactor user settings page
+    - [ ] Just put things in order
 
 ** TODO Beta goals [0/2]:
 - [ ] QoE storage
@@ -30,10 +79,22 @@
 - [ ] Interaction with the Qoe analyser
   - [ ] Send QoS errors to pipeline
   - [ ] Integrate glerror into the ats3-backend
-
-
+- [ ] Show alerts on HTTP requests failure
+- [ ] Refactor mosaic editor page
+  - [ ] Implement sterling wizard
+  - [ ] Add resolution change support
+- [ ] Refactor topology page
+  - [ ] Show detailed status for boards
+- [ ] Add mosaic encoding settings (codec, bitrate, resolution)
+  
 ** TODO Release candidate [0/1]:
 - [ ] Data server interaction
   - [ ] Send-dependency graph
   - [ ] Shared resources sending
   - [ ] Sender implementation
+  - [ ] SNMP?
+- [ ] Add support for the new IP receiver board
+- [ ] Dashboard GUI
+- [ ] Archive GUI
+- [ ] Jitter measurements
+- [ ] Logout

@@ -1,0 +1,10 @@
+(library
+  (name       api_js)
+  (libraries  js_of_ocaml
+              js_of_ocaml-lwt
+              api
+              netlib
+              util_json)
+  (preprocess (pps js_of_ocaml-ppx
+                   ppx_deriving_yojson
+                   ppx_deriving.enum)))

@@ -1,0 +1,7 @@
+(library
+  (name       pipeline_http)
+  (libraries  pipeline_protocol
+              api_websocket
+              api_cohttp_template
+              components_markup
+              time_uri))

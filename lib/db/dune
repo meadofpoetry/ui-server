@@ -1,0 +1,3 @@
+(library
+  (name      db)
+  (libraries time fmt caqti-lwt caqti-driver-postgresql))
