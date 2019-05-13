@@ -1,18 +1,18 @@
 type state =
   [ `Fine
-  | `No_response
   | `Init
+  | `No_response
   ] [@@deriving yojson, show, eq, ord]
 
 let state_to_string = function
   | `Fine -> "fine"
-  | `No_response -> "no-response"
   | `Init -> "init"
+  | `No_response -> "no-response"
 
 let state_of_string = function
   | "fine" -> Some `Fine
-  | "no-response" -> Some `No_response
   | "init" -> Some `Init
+  | "no-response" -> Some `No_response
   | _ -> None
 
 type input =

@@ -48,8 +48,7 @@ let get_status (api : Protocol.api) _user _body _env _state =
   | `Fine ->
     Lwt.pick
       [ Protocol.await_no_response api.notifs.state
-      ; (Util_react.E.next api.notifs.device_status
-         >>= fun x -> Lwt.return_ok x)
+      ; (Util_react.E.next api.notifs.device_status >>= Lwt.return_ok)
       ]
     >>= function
     | Error e -> Lwt.return (`Error (Request.error_to_string e))
@@ -60,7 +59,7 @@ let get_info (api : Protocol.api) force _user _body _env _state =
   | None | Some false ->
     (match React.S.value api.notifs.devinfo with
      | None -> Lwt.return (`Error (Request.error_to_string Not_responding))
-     | Some x -> Lwt.return (`Value Util_json.(devinfo_to_yojson x)))
+     | Some x -> Lwt.return (`Value (devinfo_to_yojson x)))
   | Some true ->
     api.channel Request.Get_devinfo
     >>= function

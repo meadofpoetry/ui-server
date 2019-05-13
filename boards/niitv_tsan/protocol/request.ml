@@ -64,8 +64,8 @@ let rsp_tag_to_string : rsp_tag -> string = function
   | `Ts_errors -> "TS errors"
   | `T2mi_errors -> "T2-MI errors"
   | `Part -> "part"
-  | `End_of_errors -> "end of errors"
-  | `End_of_transmission -> "end of transmission"
+  | `End_of_errors -> "EOE"
+  | `End_of_transmission -> "EOT"
 
 let rsp_tag_to_enum : rsp_tag -> int = function
   | `Devinfo -> 0x01
@@ -136,6 +136,16 @@ let complex_tag_of_enum : int -> complex_tag option = function
   | 0x030B -> Some `T2mi_info
   | _ -> None
 
+let complex_tag_to_string : complex_tag -> string = function
+  | `Reset -> "reset"
+  | `Deverr -> "deverr"
+  | `Section -> "section"
+  | `T2mi_seq -> "T2-MI sequence"
+  | `Jitter -> "jitter"
+  | `Bitrate -> "bitrate"
+  | `Structure -> "structure"
+  | `T2mi_info -> "T2-MI info"
+
 type 'a simple_msg =
   { tag : 'a
   ; data : Cstruct.t
@@ -169,35 +179,22 @@ type 'a msg =
 
 type rsp = rsp_tag msg
 
-type t2mi_mode_raw =
-  { enabled : bool
-  ; pid : int
-  ; t2mi_stream_id : int
-  ; stream : Stream.Multi_TS_ID.t
-  } [@@deriving eq]
-
-type jitter_raw =
-  { measures : Jitter.measures
-  ; next_ptr : int32
-  ; time : int
-  ; timestamp : Time.t
-  ; pid : int
-  ; t_pcr : float
-  }
-
 type structure =
-  { info : Ts_info.t
-  ; services : Service.t list
-  ; tables : SI_PSI_table.t list
-  ; pids : Pid.t list
-  ; time : Time.t
+  { info : TS_info.t
+  ; services : (int * Service_info.t) list
+  ; tables : (SI_PSI_table.id * SI_PSI_table.t) list
+  ; pids : (int * PID_info.t) list
+  ; timestamp : Time.t
   } [@@deriving eq, yojson]
 
 type _ t =
   | Get_devinfo : devinfo t
-  | Get_deverr : int -> Board_error.t list t
-  | Get_mode : (input * t2mi_mode_raw) t
-  | Set_mode : input * t2mi_mode_raw -> unit t
+  | Get_deverr : int -> Deverr.t list t
+  | Get_mode : (input * t2mi_mode) t
+  | Set_mode :
+      { input : input
+      ; t2mi_mode : t2mi_mode
+      } -> unit t
   | Set_jitter_mode : jitter_mode option -> unit t
   | Reset : unit t
   | Set_src_id :
@@ -216,10 +213,6 @@ type _ t =
       ; id_ext_2 : int option (* orig_nw_id for EIT *)
       ; section : int option
       } -> SI_PSI_section.Dump.t ts t
-  | Get_jitter :
-      { request_id : int
-      ; pointer : int32
-      } -> jitter_raw t
   | Get_bitrate : int -> (Stream.Multi_TS_ID.t * Bitrate.t) list t
   | Get_structure :
       { request_id : int
@@ -229,22 +222,20 @@ type _ t =
       { request_id : int
       ; t2mi_stream_id : int
       ; stream : Stream.Multi_TS_ID.t
-      } -> (Stream.Multi_TS_ID.t * T2mi_info.t) t
+      } -> ((Stream.Multi_TS_ID.t * int) * T2mi_info.t) t
 
-(* FIXME *)
 let timeout (type a) : a t -> float = function
   (* Responseless requests *)
   | Reset -> 0.
   | Set_mode _ -> 0.
   | Set_src_id _ -> 0.
   | Set_jitter_mode _ -> 0.
-  (* Requests with response *)
+  (* Requests with responses *)
   | Get_devinfo -> 3.
   | Get_deverr _ -> 3.
   | Get_mode -> 3.
-  | Get_t2mi_seq x -> 3.
-  | Get_section _ -> 3.
-  | Get_jitter _ -> 3.
+  | Get_t2mi_seq { seconds; _ } -> 10. +. float_of_int seconds
+  | Get_section _ -> 125.
   | Get_bitrate _ -> 3.
   | Get_structure _ -> 3.
   | Get_t2mi_info _ -> 3.
@@ -258,7 +249,6 @@ let value_to_string (type a) (t : a t) (v : a) : string option =
   | Get_mode -> None
   | Get_t2mi_seq _ -> None
   | Get_section _ -> None
-  | Get_jitter _ -> None
   | Get_bitrate _ -> None
   | Get_structure _ -> None
   | Get_t2mi_info _ -> None
@@ -290,9 +280,6 @@ let to_string (type a) : a t -> string = function
       pp_int_option table_id_ext
       pp_int_option id_ext_1
       pp_int_option id_ext_2
-  | Get_jitter { request_id; pointer } ->
-    Printf.sprintf "Get jitter (rid=%d, pointer=%ld)"
-      request_id pointer
   | Get_bitrate request_id ->
     Printf.sprintf "Get bitrate (rid=%d)" request_id
   | Get_structure { request_id; stream = `All } ->
@@ -303,7 +290,7 @@ let to_string (type a) : a t -> string = function
   | Get_t2mi_info { request_id; t2mi_stream_id; stream } ->
     Format.asprintf "Get T2-MI info (rid=%d, T2-MI stream ID=%d, stream=%a)"
       request_id t2mi_stream_id Stream.Multi_TS_ID.pp stream
-  | Set_mode (input, { enabled; pid; t2mi_stream_id; stream }) ->
+  | Set_mode { input; t2mi_mode = { enabled; pid; t2mi_stream_id; stream }} ->
     Format.asprintf "Set mode (input: %a, \
                      t2mi: enabled=%B, PID=%d, T2-MI stream ID=%d, stream=%a)"
       pp_input input

@@ -24,6 +24,8 @@ module List = struct
 
   type 'a t = 'a list
 
+  let direct_depth_default_ = 1000
+
   let rec equal (f : 'a -> 'a -> bool) l1 l2 = match l1, l2 with
     | [], [] -> true
     | [], _ | _, [] -> false
@@ -63,6 +65,28 @@ module List = struct
            | Some y -> y :: acc in
          recurse acc' l'
     in recurse [] l
+
+  let take n l =
+    let rec direct i n l = match l with
+      | [] -> []
+      | _ when i=0 -> safe n [] l
+      | x::l' ->
+        if n > 0
+        then x :: direct (i-1) (n-1) l'
+        else []
+    and safe n acc l = match l with
+      | [] -> List.rev acc
+      | _ when n=0 -> List.rev acc
+      | x::l' -> safe (n-1) (x::acc) l'
+    in
+    direct direct_depth_default_ n l
+
+  let rec drop n l = match l with
+    | [] -> []
+    | _ when n=0 -> l
+    | _::l' -> drop (n-1) l'
+
+  let take_drop n l = take n l, drop n l
 
   module Assoc = struct
 

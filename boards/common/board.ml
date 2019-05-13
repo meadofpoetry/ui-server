@@ -101,6 +101,7 @@ let get_streams (boards : t Map.t) (topo : Topology.topo_board) :
        end in
   get_streams' (React.S.const []) topo.ports
 
+(* XXX what to do if this fails? *)
 let merge_streams (boards : t Map.t)
       (topo : Topology.topo_board)
       (raw_streams : Stream.Raw.t list React.signal)

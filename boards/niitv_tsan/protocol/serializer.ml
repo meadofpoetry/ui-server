@@ -31,7 +31,7 @@ let to_msg (type a) : a Request.t -> Request.req_tag Request.msg = function
   | Get_devinfo -> `Simple { tag = `Get_devinfo; data = Cstruct.empty }
   | Get_deverr request_id -> `Complex (Request.make_complex_msg ~request_id `Deverr)
   | Get_mode -> `Simple { tag = `Get_mode; data = Cstruct.empty }
-  | Set_mode (input, { pid; enabled; stream; t2mi_stream_id }) ->
+  | Set_mode { input; t2mi_mode = { pid; enabled; stream; t2mi_stream_id }} ->
     let data = Cstruct.create Message.sizeof_board_mode in
     let pid = (t2mi_stream_id lsl 13) lor (pid land 0x1FFF) in
     input_to_int input
@@ -77,10 +77,6 @@ let to_msg (type a) : a Request.t -> Request.req_tag Request.msg = function
     iter (Message.set_req_section_id_ext_1 data) id_ext_1;
     iter (Message.set_req_section_id_ext_2 data) id_ext_2;
     `Complex (Request.make_complex_msg ~request_id ~data `Section)
-  | Get_jitter { request_id; pointer } ->
-    let data = Cstruct.create Message.sizeof_req_jitter in
-    Message.set_req_jitter_ptr data pointer;
-    `Complex (Request.make_complex_msg ~request_id ~data `Jitter)
   | Get_bitrate request_id ->
     `Complex (Request.make_complex_msg ~request_id `Bitrate)
   | Get_structure { request_id; stream } ->

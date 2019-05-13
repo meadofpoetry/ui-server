@@ -43,8 +43,8 @@ type t2mi_mode =
   { enabled : bool
   ; pid : int
   ; t2mi_stream_id : int
-  ; stream : Stream.t
-  } [@@deriving yojson, eq, show]
+  ; stream : Stream.Multi_TS_ID.t
+  } [@@deriving eq, yojson, show]
 
 type jitter_mode =
   { stream : Stream.Multi_TS_ID.t
@@ -57,7 +57,7 @@ type config =
   { input : input
   ; input_source : int
   ; t2mi_source : int
-  ; t2mi_mode : t2mi_mode option
+  ; t2mi_mode : t2mi_mode
   ; jitter_mode : jitter_mode option
   } [@@deriving yojson, eq]
 
@@ -89,7 +89,7 @@ let packet_sz_of_yojson = function
                 @@ Yojson.Safe.to_string x)
 
 type status =
-  { time : Time.t
+  { timestamp : Time.t
   ; load : float
   ; reset : bool
   ; ts_num : int
@@ -100,11 +100,7 @@ type status =
   ; has_stream : bool
   } [@@deriving yojson, show, eq]
 
-type reset_ts =
-  { timestamp : Time.t
-  }
-
-module Board_error = struct
+module Deverr = struct
 
   type t =
     { time : Time.t
@@ -116,49 +112,6 @@ module Board_error = struct
   and source =
     | Hardware
     | Protocol [@@deriving yojson]
-
-end
-
-type state =
-  { state : Topology.state
-  ; from : Time.t
-  ; till : Time.t
-  } [@@deriving yojson, show]
-
-type state_compressed =
-  { no_response : float
-  ; init : float
-  ; fine : float
-  } [@@deriving yojson, show]
-
-module Jitter = struct
-
-  type session =
-    { timestamp : Time.t
-    ; t_pcr : float
-    ; mode : jitter_mode
-    } [@@deriving yojson,eq]
-
-  type measure =
-    { discont_err : bool
-    ; discont_ok : bool
-    ; t_pcr : float
-    (* for charts *)
-    ; accuracy : float
-    ; jitter : int
-    ; drift : float
-    ; fo : float
-    ; period : float
-    } [@@deriving yojson]
-
-  type measures = measure list [@@deriving yojson]
-
-  type archive_item =
-    { session : session
-    ; measures : measure list
-    } [@@deriving yojson]
-
-  type archive = archive_item list [@@deriving yojson]
 
 end
 
@@ -183,7 +136,7 @@ module Bitrate = struct
 
 end
 
-module Ts_info = struct
+module TS_info = struct
 
   type t =
     { complete : bool
@@ -198,11 +151,9 @@ module Ts_info = struct
 
 end
 
-module Pid = struct
+module PID_info = struct
 
-  type t = id * info
-  and id = int
-  and info =
+  type t =
     { has_pts : bool
     ; has_pcr : bool
     ; scrambled : bool
@@ -214,13 +165,9 @@ module Pid = struct
 
 end
 
-module Service = struct
+module Service_info = struct
 
-  type element = int * Mpeg_ts.PID.Type.t [@@deriving yojson, eq]
-
-  type t = id * info
-  and id = int
-  and info =
+  type t =
     { name : string
     ; provider_name : string
     ; pmt_pid : int
@@ -242,15 +189,15 @@ end
 
 module SI_PSI_section = struct
 
-  type t = id * info
-  and id =
+  type id =
     { table_id : int
     ; table_id_ext : int
     ; id_ext_1 : int (* For SDT - orig nw id, for EIT - ts id *)
     ; id_ext_2 : int (* For EIT - orig nw id *)
     ; section : int
-    }
-  and info =
+    } [@@deriving yojson, show, eq, ord]
+
+  type t =
     { pid : int
     ; version : int
     ; service_id : int option
@@ -285,18 +232,19 @@ end
 
 module SI_PSI_table = struct
 
-  type t = id * info
-  and id =
+  type id =
     { table_id : int
     ; table_id_ext : int
     ; id_ext_1 : int (* See SI_PSI_section.id *)
     ; id_ext_2 : int (* See SI_PSI_section.id *)
-    }
-  and section_info =
+    } [@@deriving yojson, show, eq, ord]
+
+  type section_info =
     { section : int
     ; length : int
-    }
-  and info =
+    } [@@deriving yojson, show, eq, ord]
+
+  type t =
     { pid : int
     ; version : int
     ; service_id : int option
@@ -397,14 +345,10 @@ module T2mi_info = struct
     ; l1_post_conf : l1_post_conf
     } [@@deriving yojson, show, eq]
 
-  type t = id * info
-  and id = int
-  and info =
+  type t =
     { packets : int list
     ; t2mi_pid : int option
     ; l1 : l1 option
-    ; l1_empty : bool [@default false]
-    ; l1_parse_error : bool [@default false]
     } [@@deriving yojson, show, eq]
 
 end
@@ -427,12 +371,12 @@ module T2mi_sequence = struct
    * 0x32  - FEF part : composite
    * 0x33  - FEF sub-part
    * other - Reserved for future use
-   *)
+  *)
 
   (* NOTE suggest using fields like plp, frame,
    * l1_param_1 and l1_param_2 as abstract parameters,
    * which have its own meaning for each packet type
-   *)
+  *)
 
   type item =
     { typ : int (* T2-MI packet type according to TS 102 773 *)
@@ -481,7 +425,7 @@ module Error = struct
     }
   and t = int e [@@deriving yojson, eq, show]
 
-  and t_ext = (Pid.id * Pid.info option) e
+  and t_ext = (int * PID_info.t option) e
 
   type compressed = percent tspan list
   and percent =
@@ -490,15 +434,3 @@ module Error = struct
     } [@@deriving yojson]
 
 end
-
-(* Helper types *)
-
-type bitrates = (Stream.ID.t * Bitrate.t ts) list [@@deriving yojson, eq]
-type ts_info = (Stream.ID.t * Ts_info.t ts) list [@@deriving yojson, eq]
-type pids = (Stream.ID.t * Pid.t list ts) list [@@deriving yojson, eq]
-type services = (Stream.ID.t * (Service.t list ts)) list [@@deriving yojson, eq]
-type elements = (Stream.ID.t * ((int * int) * Mpeg_ts.PID.Type.t) list ts) list [@@deriving yojson, eq]
-type tables = (Stream.ID.t * (SI_PSI_table.t list ts)) list [@@deriving yojson, eq]
-type sections = (Stream.ID.t * (SI_PSI_section.t list ts)) list [@@deriving yojson, eq]
-type t2mi_info = (Stream.ID.t * T2mi_info.t list ts) list [@@deriving yojson, eq]
-type errors = (Stream.ID.t * (Error.t list)) list [@@deriving yojson, eq]
