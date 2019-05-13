@@ -1,5 +1,5 @@
 (executables
-  (names       page_mosaic topology)
+  (names       page_mosaic topology user)
   (libraries   js_of_ocaml
                js_of_ocaml.weak
                js_of_ocaml-tyxml
