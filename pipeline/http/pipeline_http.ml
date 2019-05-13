@@ -129,9 +129,13 @@ let ws (api : Pipeline_protocol.Protocol.api) =
   let open Pipeline_protocol in
   let open Api_http in
   let open Api_websocket in
+  (* TODO add closing event *)
+  let socket_table = make_socket_table () in
+
   [ merge ~prefix:"pipeline"
       [ make ~prefix:"wm"
           [ node ~doc:"WM socket"
+              ~socket_table
               ~path:Path.Format.empty
               ~query:Query.empty
               (Pipeline_api.Event.get_wm_layout api)
@@ -143,27 +147,32 @@ let ws (api : Pipeline_protocol.Protocol.api) =
         (WS.get_settings api) *)
       ; make ~prefix:"status"
           [ node ~doc:"Stream status socket"
+              ~socket_table
               ~path:Path.Format.empty
               ~query:Query.["id", (module List(Stream.ID))]
               (Pipeline_api.Event.get_status api)
           ]
       ; make ~prefix:"streams"
           [ node ~doc:"Streams websocket"
+              ~socket_table
               ~path:Path.Format.empty
               ~query:Query.[ "id", (module List(Stream.ID))
                            ; "input", (module List(Topology.Show_topo_input)) ]
               (Pipeline_api_structures.Event.get_streams api)
           ; node ~doc:"Applied streams websocket"
+              ~socket_table
               ~path:Path.Format.("applied" @/ empty)
               ~query:Query.[ "id",    (module List(Stream.ID))
                            ; "input", (module List(Topology.Show_topo_input)) ]
               (Pipeline_api_structures.Event.get_applied api)
           ; node ~doc:"Streams with source websocket"
+              ~socket_table
               ~path:Path.Format.("with-source" @/ empty)
               ~query:Query.[ "id",    (module List(Stream.ID))
                            ; "input", (module List(Topology.Show_topo_input)) ]
               (Pipeline_api_structures.Event.get_streams_packed api)
           ; node ~doc:"Applied streams with source websocket"
+              ~socket_table
               ~path:Path.Format.("applied-with-source" @/ empty)
               ~query:Query.[ "id",    (module List(Stream.ID))
                            ; "input", (module List(Topology.Show_topo_input)) ]
@@ -171,12 +180,14 @@ let ws (api : Pipeline_protocol.Protocol.api) =
           ]
       ; make ~prefix:"measurements"
           [ node ~doc:"Video data socket"
+              ~socket_table
               ~path:Path.Format.("video" @/ empty)
               ~query:Query.[ "stream", (module Option(Stream.ID))
                            ; "channel", (module Option(Int))
                            ; "pid", (module Option(Int)) ]
               (Pipeline_api_measurements.Event.get_video api)
           ; node ~doc:"Audio data socket"
+              ~socket_table
               ~path:Path.Format.("audio" @/ empty)
               ~query:Query.[ "stream", (module Option(Stream.ID))
                            ; "channel", (module Option(Int))

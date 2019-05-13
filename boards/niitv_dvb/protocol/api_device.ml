@@ -10,22 +10,22 @@ module Event = struct
 
   let list_to_option = function [] -> None | l -> Some l
 
-  let get_state (api : Protocol.api) _user _body _env state =
+  let get_state (api : Protocol.api) _user _body _env _state =
     let event =
       S.changes api.notifs.state
       |> E.map Topology.state_to_yojson in
-    Lwt.return (`Ev (state, event))
+    Lwt.return (`Ev event)
 
-  let get_receivers (api : Protocol.api) _user _body _env state =
+  let get_receivers (api : Protocol.api) _user _body _env _state =
     let event =
       S.map ~eq:(Boards.Util.(Option.equal @@ List.equal (=))) (function
           | None -> None
           | Some x -> Some x.receivers) api.notifs.devinfo
       |> S.changes
       |> E.map Util_json.(Option.to_yojson @@ List.to_yojson Int.to_yojson) in
-    Lwt.return (`Ev (state, event))
+    Lwt.return (`Ev event)
 
-  let get_mode (api : Protocol.api) (ids : int list) _user _body _env state =
+  let get_mode (api : Protocol.api) (ids : int list) _user _body _env _state =
     let event = match ids with
       | [] ->
         S.changes api.notifs.config
@@ -34,7 +34,7 @@ module Event = struct
         S.changes api.notifs.config
         |> E.fmap (list_to_option % List.filter (fun (id, _) -> List.mem id ids))
         |> E.map config_to_yojson in
-    Lwt.return (`Ev (state, event))
+    Lwt.return (`Ev event)
 end
 
 let reset (api : Protocol.api) _user _body _env _state =

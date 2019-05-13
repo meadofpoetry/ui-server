@@ -13,14 +13,21 @@ module Make (User : Api.USER) (Body : Api.BODY) : sig
 
   type env = Api.env
 
-  type event = [ `Ev of state * body React.event
+  type event = [ `Ev of body React.event
                | `Error of string
                ]
 
-  val event : state -> body React.event -> event Lwt.t
+  type socket_table
+
+  val make_socket_table : unit -> socket_table
+
+  val close_sockets : socket_table -> unit
+    
+  val event : body React.event -> event Lwt.t
 
   val node : ?doc:string
              -> ?restrict:user list
+             -> socket_table:socket_table
              -> path:('a, 'b)
                   Netlib.Uri.Path.Format.t
              -> query:('b, user -> body -> env -> state -> event Lwt.t)

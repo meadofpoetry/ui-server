@@ -51,23 +51,23 @@ module Event = struct
     |> E.fmap list_to_option
 
   let get_measurements (api : Protocol.api) (ids : Stream.ID.t list)
-      _user _body _env state =
+      _user _body _env _state =
     let event =
       map_event api.source_id api.notifs.streams api.notifs.measures
       |> filter_if_needed ids
       |> E.map (to_json Measure.to_yojson) in
-    Lwt.return (`Ev (state, event))
+    Lwt.return (`Ev event)
 
   let get_parameters (api : Protocol.api) (ids : Stream.ID.t list)
-      _user _body _env state =
+      _user _body _env _state =
     let event =
       map_event api.source_id api.notifs.streams api.notifs.params
       |> filter_if_needed ids
       |> E.map (to_json Params.to_yojson) in
-    Lwt.return (`Ev (state, event))
+    Lwt.return (`Ev event)
 
   let get_streams (api : Protocol.api) (ids : Stream.ID.t list)
-      _user _body _env state =
+      _user _body _env _state =
     let event = match ids with
       | [] ->
         api.notifs.streams
@@ -78,7 +78,7 @@ module Event = struct
         |> S.changes
         |> E.fmap (list_to_option % List.filter (fun (s : Stream.t) -> mem s.id ids))
         |> E.map Util_json.(List.to_yojson Stream.to_yojson) in
-    Lwt.return (`Ev (state, event))
+    Lwt.return (`Ev event)
 end
 
 let to_json f (v : int * 'a ts) =
