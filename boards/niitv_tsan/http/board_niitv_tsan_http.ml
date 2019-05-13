@@ -10,7 +10,12 @@ let handlers (control : int) (api : Protocol.api) =
   let open Api_http in
   [ merge ~prefix:(Topology.get_api_path control)
       [ make ~prefix:"device"
-          [ node ~doc:"Returns current state of the device"
+          [ node ~doc:"Resets the board"
+              ~meth:`GET
+              ~path:(Path.Format.of_string "reset")
+              ~query:Query.empty
+              (Api_device.reset api)
+          ; node ~doc:"Returns current state of the device"
               ~meth:`GET
               ~path:(Path.Format.of_string "state")
               ~query:Query.empty

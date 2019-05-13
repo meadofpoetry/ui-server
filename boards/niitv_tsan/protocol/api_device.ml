@@ -3,6 +3,12 @@ open Board_niitv_tsan_types
 
 let ( >>= ) = Lwt.( >>= )
 
+let reset (api : Protocol.api) _user _body _env _state =
+  api.channel Request.Reset
+  >>= function
+  | Error e -> Lwt.return (`Error (Request.error_to_string e))
+  | Ok () -> Lwt.return `Unit
+
 let get_state (api : Protocol.api) _user _body _env _state =
   let json = Topology.state_to_yojson @@ React.S.value api.notifs.state in
   Lwt.return (`Value json)
@@ -61,6 +67,4 @@ let get_jitter_mode (api : Protocol.api) force _user _body _env _state =
           >>= fun s -> Lwt.return_ok s.jitter_mode) ])
   >>= function
   | Error e -> Lwt.return (`Error (Request.error_to_string e))
-  | Ok x ->
-    let to_json = Util_json.Option.to_yojson jitter_mode_to_yojson in
-    Lwt.return (`Value (to_json x))
+  | Ok x -> Lwt.return (`Value (jitter_mode_to_yojson x))

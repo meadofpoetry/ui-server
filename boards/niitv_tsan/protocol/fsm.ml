@@ -1,9 +1,25 @@
 open Board_niitv_tsan_types
 open Application_types
 
+(* TODO: 1. add structure, bitrate, deverr, jitter, t2mi info probes.
+         2. remove unclaimed messages from rsp queue
+         3. remove unclaimed message parts from part acc (in protocol) *)
+
 module List = Boards.Util.List
 
-type api_msg = (Request.rsp_tag Request.msg Lwt_stream.t -> unit Lwt.t)
+type event =
+  [ `Status of Parser.Status.t
+  | `Streams of Stream.Multi_TS_ID.t list
+  | `Ts_errors of Stream.Multi_TS_ID.t * Error.t list
+  | `T2mi_errors of Stream.Multi_TS_ID.t * Error.t list
+  | `End_of_errors
+  | `End_of_transmission
+  ]
+
+type api_msg =
+  Request.rsp Lwt_stream.t
+  -> event Lwt_stream.t
+  -> (unit, Request.error) result Lwt.t
 
 type sender = { send : 'a. 'a Request.t -> unit Lwt.t }
 
@@ -13,25 +29,6 @@ type event_acc =
   ; streams : Stream.Multi_TS_ID.t list
   ; errors : (Stream.Multi_TS_ID.t * Error.t list) list
   }
-
-module Await_queue = struct
-
-  type pending =
-    { resolve : Request.rsp -> bool
-    }
-
-  type t = pending list
-
-  let resolve (t : t) (response : Request.rsp) =
-    let rec aux acc = function
-      | [] -> acc
-      | hd :: tl ->
-        if hd.resolve response
-        then acc @ tl
-        else aux (hd :: acc) tl in
-    aux t
-
-end
 
 let ( >>= ) = Lwt.( >>= )
 
@@ -45,26 +42,27 @@ let to_raw_stream
     (mode : t2mi_mode)
     (input : input)
     (id : Stream.Multi_TS_ID.t) =
-  let open Stream.Source in
-  let open Stream.Raw in
-  let source_id = Stream.Multi_TS_ID.source_id id in
   let stream_id = Stream.Multi_TS_ID.stream_id id in
-  let src = match source_id, input_of_int stream_id with
-    | src, Some SPI when src = input_source -> `Spi
-    | src, Some ASI when src = input_source -> `Asi
-    | src, _ when src = t2mi_source -> `T2mi stream_id
-    | _ -> match input with SPI -> `Spi | ASI -> `Asi in
+  let src = match Stream.Multi_TS_ID.source_id id, input_of_int stream_id with
+    (* Transport stream coming from SPI input. *)
+    | src, Some SPI when src = input_source -> `SPI
+    (* Transport stream coming from ASI input. *)
+    | src, Some ASI when src = input_source -> `ASI
+    (* T2-MI PLP. *)
+    | src, _ when src = t2mi_source -> `T2MI stream_id
+    (* Incoming multi-id transport stream. *)
+    | _ -> match input with SPI -> `SPI | ASI -> `ASI in
   let source = match src, mode with
-    | `T2mi plp, { stream
+    | `T2MI plp, { stream
                  ; t2mi_stream_id = stream_id
                  ; enabled = true
                  ; _ } ->
-      let node = Stream (TS_multi stream) in
-      let info = T2MI { stream_id; plp } in
-      Some { node; info }
-    | `T2mi _, _ -> None
-    | `Spi, _ -> Some { node = Port stream_id; info = SPI }
-    | `Asi, _ -> Some { node = Port stream_id; info = ASI }
+      let node = Stream.Raw.(Stream (TS_multi stream)) in
+      let info = Stream.Source.T2MI { stream_id; plp } in
+      Some { Stream.Raw. node; info }
+    | `T2MI _, _ -> None
+    | `SPI, _ -> Some { node = Port stream_id; info = SPI }
+    | `ASI, _ -> Some { node = Port stream_id; info = ASI }
     | `Unknown, _ -> None in
   match source with
   | None -> None
@@ -72,15 +70,19 @@ let to_raw_stream
     let (typ : Stream.stream_type) =
       if Stream.Multi_TS_ID.equal id mode.stream && mode.enabled
       then T2MI else TS in
-    Some { id = TS_multi id; source; typ }
+    Some { Stream.Raw. id = TS_multi id; source; typ }
 
-let log_unexpected_message src expected (rsp : Request.rsp) =
+let log_unexpected_event src expected got =
   let expected =
     String.concat "/"
-    @@ List.map Request.rsp_tag_to_string expected in
-  let got = match rsp with
-    | `Simple { tag; _ } -> Request.rsp_tag_to_string tag
-    | `Complex { tag; _ } -> Request.complex_tag_to_string tag in
+    @@ List.map Request.simple_tag_to_string expected in
+  let got = match got with
+    | `Status _ -> "Status"
+    | `Streams _ -> "Streams"
+    | `Ts_errors _ -> "TS errors"
+    | `T2mi_errors _ -> "T2-MI errors"
+    | `End_of_errors -> "End of errors"
+    | `End_of_transmission -> "End of transmission" in
   Logs.err ~src (fun m -> m "Expected '%s', but got '%s'" expected got)
 
 let log_error (type a) src (req : a Request.t) (error : Request.error) =
@@ -116,29 +118,51 @@ let loop (type a)
     | Some (Error _ as e) -> Lwt.return e in
   aux ()
 
+let wait_status req events f =
+  let rec loop () =
+    let events = Lwt_stream.filter_map (function
+        | `Status x -> Some x
+        | _ -> None)
+      @@ Lwt_stream.clone events in
+    Lwt_stream.next events
+    >>= fun status ->
+    if f status
+    then Lwt.return_ok ()
+    else loop () in
+  Lwt.pick [loop (); sleep @@ Request.timeout req]
+
 let request (type a)
     ?(flush = false)
     (src : Logs.src)
-    (stream : Request.rsp_tag Request.msg Lwt_stream.t)
+    (stream : Request.simple_tag Request.msg Lwt_stream.t)
+    (events : event Lwt_stream.t)
     (sender : sender)
     (req : a Request.t) : (a, Request.error) result Lwt.t =
   sender.send req
   >>= (fun () -> if flush then Lwt_stream.junk_old stream else Lwt.return ())
   >>= fun () ->
-  let wait req = Lwt.pick [loop stream req; sleep @@ Request.timeout req] in
+  let wait_response req =
+    Lwt.pick
+      [ loop stream req
+      ; sleep @@ Request.timeout req ] in
   (match req with
-   | Get_devinfo -> wait req
-   | Get_deverr _ -> wait req
-   | Get_mode -> wait req
-   | Get_t2mi_seq _ -> wait req
-   | Get_section _ -> wait req
-   | Get_bitrate _ -> wait req
-   | Get_structure _ -> wait req
-   | Get_t2mi_info _ -> wait req
-   | Set_mode _ -> Lwt.return_ok ()
-   | Set_jitter_mode _ -> Lwt.return_ok ()
-   | Reset -> Lwt.return_ok ()
-   | Set_src_id _ -> Lwt.return_ok ())
+   | Get_devinfo -> wait_response req
+   | Get_deverr _ -> wait_response req
+   | Get_mode -> wait_response req
+   | Get_t2mi_seq _ -> wait_response req
+   | Get_section _ -> wait_response req
+   | Get_bitrate _ -> wait_response req
+   | Get_structure _ -> wait_response req
+   | Get_t2mi_info _ -> wait_response req
+   | Set_src_id _ -> Lwt.return_ok ()
+   | Reset -> wait_status req events (fun status -> status.basic.reset)
+   | Set_jitter_mode m ->
+     wait_status req events (fun status ->
+         equal_jitter_mode status.jitter_mode m)
+   | Set_mode m ->
+     wait_status req events (fun status ->
+         equal_t2mi_mode status.t2mi_mode m.t2mi_mode
+         && equal_input status.input m.input))
   >>= function
   | Error e -> log_error src req e; Lwt.return_error e
   | Ok x -> log_ok src req x; Lwt.return_ok x
@@ -148,17 +172,46 @@ let start
     (sender : sender)
     (req_queue : api_msg Lwt_stream.t)
     (rsp_queue : Request.rsp Lwt_stream.t)
+    (evt_queue : Request.evt Lwt_stream.t)
     (kv : config Kv_v.rw)
     (set_state : ?step:React.step -> Topology.state -> unit)
     (set_devinfo : ?step:React.step -> devinfo -> unit)
     (set_status : ?step:React.step -> Parser.Status.t -> unit)
+    (set_errors : ?step:React.step -> (Stream.Multi_TS_ID.t * Error.t list) list -> unit)
     (set_streams : ?step:React.step -> Stream.Raw.t list -> unit) =
 
   let (module Logs : Logs.LOG) = Logs.src_log src in
 
+  let evt_queue = Lwt_stream.filter_map (fun (msg : Request.evt) ->
+      let ( >>= ) x f = match x with Ok x -> f x | Error _ as e -> e in
+      let res = match msg with
+        | { tag = `Status; data } ->
+          Parser.Status.parse data
+          >>= fun x -> Ok (`Status x)
+        | { tag = `Streams; data } ->
+          Parser.parse_streams data
+          >>= fun x -> Ok (`Streams x)
+        | { tag = `Ts_errors; data } ->
+          Parser.TS_error.parse data
+          >>= fun x -> Ok (`Ts_errors x)
+        | { tag = `T2mi_errors; data } ->
+          Parser.T2MI_error.parse data
+          >>= fun x -> Ok (`T2mi_errors x)
+        | { tag = `End_of_errors; _ } -> Ok `End_of_errors
+        | { tag = `End_of_transmission; _ } -> Ok `End_of_transmission in
+      match res with
+      | Ok x -> Some x
+      | Error e ->
+        Logs.err (fun m ->
+            m "Error parsing '%s' event: %s" (Request.event_tag_to_string msg.tag)
+            @@ Request.error_to_string e);
+        None)
+      evt_queue in
+
   let rec first_step () =
     Logs.info (fun m -> m "Start of connection establishment...");
     Lwt_stream.junk_old req_queue
+    >>= fun () -> Lwt_stream.junk_old evt_queue
     >>= fun () -> Lwt_stream.junk_old rsp_queue
     >>= fun () -> set_state `No_response; detect_device ()
 
@@ -166,20 +219,23 @@ let start
     Logs.info (fun m -> m "Restarting...");
     set_state `No_response;
     Lwt_stream.junk_old req_queue
+    >>= fun () -> Lwt_stream.junk_old evt_queue
     >>= fun () -> Lwt_stream.junk_old rsp_queue
     >>= fun () -> Lwt_unix.sleep cooldown_timeout
     >>= first_step
 
   and detect_device () =
     let rec loop () =
-      Lwt_stream.next rsp_queue
+      Lwt.pick
+        [ (Lwt_stream.next evt_queue >>= fun x -> Lwt.return @@ `E x)
+        ; (Lwt_stream.next rsp_queue >>= fun x -> Lwt.return @@ `R x) ]
       >>= function
-      | `Simple { tag = `Status; _ } ->
+      | `E `Status _ ->
         Logs.debug (fun m ->
             m "The device was already initialized, \
                got status event");
-        request ~flush:true src rsp_queue sender Request.Get_devinfo
-      | `Simple { tag = `Devinfo; data } ->
+        request ~flush:true src rsp_queue evt_queue sender Request.Get_devinfo
+      | `R `Simple { tag = `Devinfo; data } ->
         (match Parser.parse_devinfo data with
          | Error _ as e -> Lwt.return e
          | Ok info as x ->
@@ -190,44 +246,46 @@ let start
       | _ -> loop () in
     loop ()
     >>= function
-    | Ok x -> init_device x
+    | Ok x ->
+      set_state `Init;
+      set_devinfo x;
+      Logs.info (fun m -> m "Connection established, \
+                             device initialization started...");
+      Lwt_stream.junk_old evt_queue
+      >>= fun () -> Lwt_stream.junk_old rsp_queue
+      >>= init_device
     | Error e ->
       Logs.err (fun m ->
           m "Got error during detect step: %s"
           @@ Request.error_to_string e);
       restart ()
 
-  and init_device (info : devinfo) =
-    set_state `Init;
-    set_devinfo info;
-    Logs.info (fun m -> m "Connection established, device initialization started...");
+  and init_device () =
     kv#get
-    >>= fun { input_source
-            ; t2mi_source
-            ; input
-            ; t2mi_mode
-            ; jitter_mode
-            } ->
-    Lwt_result.Infix.(
-      let req = Request.Set_src_id { input_source; t2mi_source } in
-      request ~flush:true src rsp_queue sender req
-      >>= fun () ->
-      let req = Request.Set_mode { input; t2mi_mode } in
-      request ~flush:true src rsp_queue sender req
-      >>= fun () ->
-      let req = Request.Set_jitter_mode jitter_mode in
-      request ~flush:true src rsp_queue sender req
-      >>= fun () -> Lwt.return_ok ())
+    >>= fun { input_source; t2mi_source; input; t2mi_mode; jitter_mode } ->
+    sender.send Request.(Set_src_id { input_source; t2mi_source })
+    >>= fun () -> sender.send Request.(Set_mode { input; t2mi_mode })
+    >>= fun () -> sender.send Request.(Set_jitter_mode jitter_mode)
+    >>= fun () ->
+    (* Wait for status - make sure that the desired mode is set. *)
+    let rec status_loop () =
+      Lwt_stream.next evt_queue
+      >>= function
+      | `Status status ->
+        if equal_t2mi_mode status.t2mi_mode t2mi_mode
+        && equal_jitter_mode status.jitter_mode jitter_mode
+        then Lwt.return_ok ()
+        else status_loop ()
+      | _ -> status_loop () in
+    Lwt.pick [status_loop (); sleep status_timeout]
     >>= function
     | Ok () ->
-      Lwt_stream.junk_old rsp_queue
-      >>= fun () ->
       set_state `Fine;
       Logs.info (fun m -> m "Initialization done!");
       idle ()
     | Error e ->
       Logs.err (fun m ->
-          m "Got error during init step: %s"
+          m "Initialization failed: %s"
           @@ Request.error_to_string e);
       restart ()
 
@@ -239,15 +297,10 @@ let start
       Lwt_stream.next req_queue
       >>= fun x -> Lwt.return (`C x) in
     let wait_message =
-      Lwt_stream.next rsp_queue
+      Lwt_stream.next evt_queue
       >>= function
-      | `Simple { tag = `Status; data } ->
-        Lwt.return
-        @@ (match Parser.Status.parse data with
-            | Ok status -> `S status
-            | Error e -> `E e)
-      | rsp -> Lwt.return (`R rsp) in
-    (* TODO we should not wait for status forever, there must be a timeout *)
+      | `Status status -> Lwt.return @@ `S status
+      | rsp -> Lwt.return `N in
     Lwt.pick
       [ timer
       ; wait_message
@@ -255,11 +308,14 @@ let start
       ]
     >>= function
     | `S status ->
-      print_endline "Got status";
       let acc = { prev; status; streams = []; errors = [] } in
       wait_streams acc
-    | `R _ -> idle ?prev ()
-    | `C send -> send rsp_queue >>= idle ?prev
+    | `N -> idle ?prev ()
+    | `C send ->
+      (send rsp_queue evt_queue
+       >>= function
+       | Ok () -> idle ?prev ()
+       | Error _ -> idle ?prev ())
     | `E e ->
       Logs.err (fun m ->
           m "Error parsing status: %s"
@@ -272,59 +328,36 @@ let start
       restart ()
 
   and wait_streams acc =
-    Lwt_stream.next rsp_queue
+    Lwt_stream.next evt_queue
     >>= function
-    | `Simple { tag = `Streams; data } ->
-      (match Parser.parse_streams data with
-       | Ok streams -> wait_errors { acc with streams }
-       | Error e ->
-         Logs.err (fun m ->
-             m "Failure parsing streams: %s"
-             @@ Request.error_to_string e);
-         restart ())
-    | rsp ->
-      log_unexpected_message src [`Streams] rsp;
+    | `Streams x -> wait_errors { acc with streams = x }
+    | event ->
+      log_unexpected_event src [`Streams] event;
       restart ()
 
   and wait_errors acc =
-    Lwt_stream.next rsp_queue
+    Lwt_stream.next evt_queue
     >>= function
-    | `Simple { tag = `T2mi_errors; data } ->
-      let acc = match Parser.T2MI_error.parse data with
-        | Ok (stream, errors) ->
-          let errors =
-            List.Assoc.update ~eq:(=) (function
-                | None -> Some errors
-                | Some x -> Some (errors @ x))
-              stream acc.errors in
-          { acc with errors }
-        | Error e ->
-          Logs.err (fun m ->
-              m "Failure parsing T2-MI errors: %s"
-              @@ Request.error_to_string e);
-          acc in
-      wait_errors acc
-    | `Simple { tag = `Ts_errors; data } ->
-      let acc = match Parser.TS_error.parse data with
-        | Ok (stream, errors) ->
-          let errors =
-            List.Assoc.update ~eq:(=) (function
-                | None -> Some errors
-                | Some x -> Some (errors @ x))
-              stream acc.errors in
-          { acc with errors }
-        | Error e ->
-          Logs.err (fun m ->
-              m "Failure parsing TS errors: %s"
-              @@ Request.error_to_string e);
-          acc in
-      wait_errors acc
-    | `Simple { tag = `End_of_errors; _ } -> wait_eot acc
-    | `Simple { tag = `End_of_transmission; _ } as rsp ->
+    | `T2mi_errors (stream, errors) ->
+      let errors =
+        List.Assoc.update ~eq:(=) (function
+            | None -> Some errors
+            | Some x -> Some (errors @ x))
+          stream acc.errors in
+      wait_errors { acc with errors }
+    | `Ts_errors (stream, errors) ->
+      let errors =
+        List.Assoc.update ~eq:(=) (function
+            | None -> Some errors
+            | Some x -> Some (errors @ x))
+          stream acc.errors in
+      wait_errors { acc with errors }
+    | `End_of_errors -> wait_eot acc
+    | `End_of_transmission as rsp ->
       (match acc.errors with
        | [] -> finalize_events acc
        | _ ->
-         log_unexpected_message src [`End_of_errors] rsp;
+         log_unexpected_event src [`End_of_errors] rsp;
          restart ())
     | rsp ->
       let exp =
@@ -333,30 +366,21 @@ let start
         ; `End_of_errors
         ; `End_of_transmission
         ] in
-      log_unexpected_message src exp rsp; restart ()
+      log_unexpected_event src exp rsp; restart ()
 
   and wait_eot acc =
-    Lwt_stream.next rsp_queue
+    Lwt_stream.next evt_queue
     >>= function
-    | `Simple { tag = `End_of_transmission; _ } -> finalize_events acc
+    | `End_of_transmission -> finalize_events acc
     | rsp ->
-      log_unexpected_message src [`End_of_transmission] rsp;
+      log_unexpected_event src [`End_of_transmission] rsp;
       restart ()
 
   and finalize_events { prev; status; streams; errors } =
-    (* XXX Maybe send probes here?
-       Seems that we must send them without waiting for response,
-       just putting the to the await queue.
-       Do the actions (updating the event) when the thread is
-       resolved.
-       The only request we should wait for is structure,
-       as errors corresponds to pids.
-    *)
     let request_structures () =
-      print_endline "Requesting structures!";
       let request_id = Serializer.get_request_id () in
       let req = Request.Get_structure { request_id; stream = `All } in
-      request ~flush:true src rsp_queue sender req in
+      request ~flush:true src rsp_queue evt_queue sender req in
     (match prev with
      | None -> request_structures ()
      | Some versions ->
@@ -374,12 +398,11 @@ let start
                            status.t2mi_mode
                            status.input) streams in
       let step = React.Step.create () in
-      (try
-         set_status ~step status;
-         set_streams ~step raw_streams;
-         React.Step.execute step;
-         idle ~prev:status.versions ()
-       with _ -> Lwt.fail_with "notifs update failure")
+      set_status ~step status;
+      set_errors ~step errors;
+      set_streams ~step raw_streams;
+      React.Step.execute step;
+      idle ~prev:status.versions ()
     | Error e ->
       Logs.err (fun m -> m "Error getting structures");
       restart ()

@@ -17,7 +17,7 @@ let default : t =
   }
 
 let to_string x =
-  Yojson.Safe.to_string @@ to_yojson x
+  Yojson.Safe.pretty_to_string @@ to_yojson x
 
 let of_string x =
   Yojson.Safe.from_string x

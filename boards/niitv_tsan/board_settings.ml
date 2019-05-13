@@ -19,7 +19,10 @@ let default =
       ; t2mi_stream_id = 0
       ; stream = Stream.Multi_TS_ID.of_int32_pure 0l
       }
-  ; jitter_mode = None
+  ; jitter_mode =
+      { pid = 0x1FFF
+      ; stream = Stream.Multi_TS_ID.of_int32_pure 0l
+      }
   }
 
 let to_string x =

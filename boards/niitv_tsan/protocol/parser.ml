@@ -113,7 +113,7 @@ module Status = struct
     { basic : status
     ; input : input
     ; t2mi_mode : t2mi_mode
-    ; jitter_mode : jitter_mode option
+    ; jitter_mode : jitter_mode
     ; errors : bool
     ; t2mi_sync : int list
     ; versions : versions
@@ -174,9 +174,7 @@ module Status = struct
     let jitter_mode =
       let pid = Message.get_status_jitter_pid msg in
       let id = Message.get_status_jitter_stream_id msg in
-      if not (pid = 0x1fff)
-      then Some { stream = Stream.Multi_TS_ID.of_int32_pure id; pid }
-      else None in
+      { stream = Stream.Multi_TS_ID.of_int32_pure id; pid } in
     let (basic : status) =
       { timestamp
       ; load = (float_of_int ((Message.get_status_load msg) * 100)) /. 255.
@@ -1006,7 +1004,7 @@ let check_msg_code (buf : Cstruct.t) =
   try
     let code = Message.get_common_header_msg_code buf in
     let has_crc = (code land 2) > 0 in
-    match Request.rsp_tag_of_enum @@ code lsr 8 with
+    match Request.simple_tag_of_enum @@ code lsr 8 with
     | None -> Error (Bad_msg_code code)
     | Some tag ->
       let message, rest = Request.split_message has_crc buf tag in
@@ -1151,8 +1149,6 @@ let deserialize src parts buf =
         end in
   let responses, parts, res = f [] parts buf in
   responses, parts, if Cstruct.len res > 0 then Some res else None
-
-let parse_mode _ = Error Request.Invalid_payload
 
 let is_response (type a) (req : a Request.t)
     (msg : Request.rsp) : (a, Request.error) result option =

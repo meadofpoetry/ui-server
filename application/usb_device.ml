@@ -135,8 +135,8 @@ let create ?(sleep = 1.) () =
     subscribers := apply !subscribers msgs;
     loop rest ()
   in
-  { usb; subscribers; send },
-  (fun () -> loop None ())
+  Lwt.return ({ usb; subscribers; send },
+              (fun () -> loop None ()))
 
 let subscribe (t : t) id loop push =
   t.subscribers := Int_map.add id (push, loop ()) !(t.subscribers)

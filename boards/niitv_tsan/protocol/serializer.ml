@@ -41,14 +41,12 @@ let to_msg (type a) : a Request.t -> Request.req_tag Request.msg = function
     Message.set_board_mode_t2mi_pid data pid;
     Message.set_board_mode_stream_id data @@ Stream.Multi_TS_ID.to_int32_pure stream;
     `Simple { tag = `Set_mode; data }
-  | Set_jitter_mode mode ->
-    let pid, stream = match mode with
-      | None -> 0, 0l
-      | Some m -> m.pid, Stream.Multi_TS_ID.to_int32_pure m.stream in
+  | Set_jitter_mode { stream; pid } ->
     let data = Cstruct.create Message.sizeof_req_set_jitter_mode in
-    Message.set_req_set_jitter_mode_stream_id data stream;
+    Message.set_req_set_jitter_mode_stream_id data
+    @@ Stream.Multi_TS_ID.to_int32_pure stream;
     Message.set_req_set_jitter_mode_pid data pid;
-    `Simple { tag = `Set_jitter_mode; data }
+    `Complex (Request.make_complex_msg ~data `Jitter_mode)
   | Reset -> `Complex (Request.make_complex_msg `Reset)
   | Set_src_id { input_source; t2mi_source } ->
     let data = Cstruct.create Message.sizeof_req_source_id in

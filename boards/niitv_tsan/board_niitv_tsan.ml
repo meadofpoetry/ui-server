@@ -20,6 +20,37 @@ let create_logger (b : Topology.topo_board) =
       Ok log_src
     | Error _ -> Error (`Unknown_log_level x)
 
+let invalid_port board x =
+  let prefix = Boards.Board.log_name board in
+  let s = prefix ^ ": invalid port " ^ (string_of_int x) in
+  raise (Boards.Board.Invalid_port s)
+
+let ports_sync
+    (board : Topology.topo_board)
+    (input : input signal)
+    (streams : Stream.t list signal) : bool signal Boards.Board.Ports.t =
+  List.fold_left (fun acc (p : Topology.topo_port) ->
+      match input_of_int p.port with
+      | None -> invalid_port board p.port
+      | Some i ->
+        let f a b = match a, b with
+          | x, _ :: _ when equal_input i x -> true
+          | _ -> false in
+        let s = S.l2 ~eq:(=) f input streams in
+        Boards.Board.Ports.add p.port s acc)
+    Boards.Board.Ports.empty board.ports
+
+let ports_active
+    (board : Topology.topo_board)
+    (input : input signal) : bool signal Boards.Board.Ports.t =
+  List.fold_left (fun acc (p : Topology.topo_port) ->
+      match input_of_int p.port with
+      | None -> invalid_port board p.port
+      | Some i ->
+        let s = S.map ~eq:(=) (equal_input i) input in
+        Boards.Board.Ports.add p.port s acc)
+    Boards.Board.Ports.empty board.ports
+
 let get_input_source_from_env src (b : Topology.topo_board) =
   match Topology.Env.find_opt "input_source" b.env with
   | None -> None
@@ -149,21 +180,9 @@ let create (b : Topology.topo_board)
     ; loop = api.loop
     ; push_data = api.push_data
     ; connection = api.notifs.state
-    ; ports_sync = Port.sync b (React.S.const ASI) (React.S.const [])
-    ; ports_active = Port.active b (React.S.const ASI)
+    ; ports_sync = ports_sync b (React.S.const ASI) (React.S.const [])
+    ; ports_active = ports_active b (React.S.const ASI)
     ; stream_handler = None
     ; state = (state :> < finalize : unit -> unit Lwt.t >)
     } in
   Lwt.return_ok board
-  (* { handlers = handlers
-   * ; control = b.control
-   * ; streams_signal = events.streams
-   * ; log_source = Logger.make_event b.control events
-   * ; step
-   * ; connection = events.device.state
-   * ; ports_sync
-   * ; ports_active
-   * ; stream_handler = None
-   * ; state = (state :> < finalize : unit -> unit >)
-   * ; templates = None
-   * } *)

@@ -58,7 +58,7 @@ type config =
   ; input_source : int
   ; t2mi_source : int
   ; t2mi_mode : t2mi_mode
-  ; jitter_mode : jitter_mode option
+  ; jitter_mode : jitter_mode
   } [@@deriving yojson, eq]
 
 type packet_sz =

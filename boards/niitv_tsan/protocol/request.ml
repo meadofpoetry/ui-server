@@ -21,25 +21,33 @@ let error_to_string = function
 type req_tag =
   [ `Set_source_id
   | `Set_mode
-  | `Set_jitter_mode
   | `Get_devinfo
   | `Get_mode
   ]
 
-type rsp_tag =
-  [ `Devinfo
-  | `Mode
-  | `Status
+type event_tag =
+  [ `Status
   | `Streams
   | `Ts_errors
   | `T2mi_errors
-  | `Part
   | `End_of_errors
   | `End_of_transmission
   ]
 
+type response_tag =
+  [ `Devinfo
+  | `Mode
+  | `Part
+  ]
+
+type simple_tag =
+  [ event_tag
+  | response_tag
+  ]
+
 type complex_tag =
   [ `Reset
+  | `Jitter_mode
   | `Deverr
   | `Section
   | `T2mi_seq
@@ -54,43 +62,62 @@ let req_tag_to_enum : req_tag -> int = function
   | `Get_mode -> 0x0081
   | `Set_mode -> 0x0082
   | `Set_source_id -> 0x0089
-  | `Set_jitter_mode -> 0x0112
 
-let rsp_tag_to_string : rsp_tag -> string = function
-  | `Devinfo -> "devinfo"
-  | `Mode -> "mode"
+let event_tag_to_string : event_tag -> string = function
   | `Status -> "status"
   | `Streams -> "streams"
   | `Ts_errors -> "TS errors"
   | `T2mi_errors -> "T2-MI errors"
-  | `Part -> "part"
   | `End_of_errors -> "EOE"
   | `End_of_transmission -> "EOT"
 
-let rsp_tag_to_enum : rsp_tag -> int = function
-  | `Devinfo -> 0x01
-  | `Mode -> 0x02
+let event_tag_to_enum : event_tag -> int = function
   | `Status -> 0x03
   | `Ts_errors -> 0x04
   | `T2mi_errors -> 0x05
-  | `Part -> 0x09
   | `Streams -> 0x0B
   | `End_of_errors -> 0xFD
   | `End_of_transmission -> 0xFF
 
-let rsp_tag_of_enum : int -> rsp_tag option = function
-  | 0x01 -> Some `Devinfo
-  | 0x02 -> Some `Mode
+let event_tag_of_enum : int -> event_tag option = function
   | 0x03 -> Some `Status
   | 0x04 -> Some `Ts_errors
   | 0x05 -> Some `T2mi_errors
-  | 0x09 -> Some `Part
   | 0x0B -> Some `Streams
   | 0xFD -> Some `End_of_errors
   | 0xFF -> Some `End_of_transmission
   | _ -> None
 
-let split_message (has_crc : bool) (buf : Cstruct.t) (tag : rsp_tag) =
+let response_tag_to_string : response_tag -> string = function
+  | `Devinfo -> "devinfo"
+  | `Mode -> "mode"
+  | `Part -> "part"
+
+let response_tag_to_enum : response_tag -> int = function
+  | `Devinfo -> 0x01
+  | `Mode -> 0x02
+  | `Part -> 0x09
+
+let response_tag_of_enum : int -> response_tag option = function
+  | 0x01 -> Some `Devinfo
+  | 0x02 -> Some `Mode
+  | 0x09 -> Some `Part
+  | _ -> None
+
+let simple_tag_to_string : simple_tag -> string = function
+  | #event_tag as e -> event_tag_to_string e
+  | #response_tag as r -> response_tag_to_string r
+
+let simple_tag_to_enum : simple_tag -> int = function
+  | #event_tag as e -> event_tag_to_enum e
+  | #response_tag as r -> response_tag_to_enum r
+
+let simple_tag_of_enum : int -> simple_tag option = fun i ->
+  match event_tag_of_enum i with
+  | None -> (response_tag_of_enum i :> simple_tag option)
+  | Some tag -> Some (tag :> simple_tag)
+
+let split_message (has_crc : bool) (buf : Cstruct.t) (tag : simple_tag) =
   let length = match tag with
     | `Devinfo -> sizeof_common_header + sizeof_board_info
     | `Mode -> sizeof_common_header + sizeof_board_mode
@@ -118,6 +145,7 @@ let split_message (has_crc : bool) (buf : Cstruct.t) (tag : rsp_tag) =
 let complex_tag_to_enum : complex_tag -> int = function
   | `Deverr -> 0x0110
   | `Reset -> 0x0111
+  | `Jitter_mode -> 0x0112
   | `Section -> 0x0302
   | `T2mi_seq -> 0x0306
   | `Jitter -> 0x0307
@@ -137,14 +165,15 @@ let complex_tag_of_enum : int -> complex_tag option = function
   | _ -> None
 
 let complex_tag_to_string : complex_tag -> string = function
-  | `Reset -> "reset"
-  | `Deverr -> "deverr"
-  | `Section -> "section"
-  | `T2mi_seq -> "T2-MI sequence"
-  | `Jitter -> "jitter"
-  | `Bitrate -> "bitrate"
-  | `Structure -> "structure"
-  | `T2mi_info -> "T2-MI info"
+  | `Reset -> "Reset"
+  | `Jitter_mode -> "Set jitter mode"
+  | `Deverr -> "Get deverr"
+  | `Section -> "Get section"
+  | `T2mi_seq -> "Get T2-MI sequence"
+  | `Jitter -> "Get jitter"
+  | `Bitrate -> "Get bitrate"
+  | `Structure -> "Get structure"
+  | `T2mi_info -> "Get T2-MI info"
 
 type 'a simple_msg =
   { tag : 'a
@@ -177,7 +206,9 @@ type 'a msg =
   | `Simple of 'a simple_msg
   ]
 
-type rsp = rsp_tag msg
+type rsp = simple_tag msg
+
+type evt = event_tag simple_msg
 
 type structure =
   { info : TS_info.t
@@ -195,7 +226,7 @@ type _ t =
       { input : input
       ; t2mi_mode : t2mi_mode
       } -> unit t
-  | Set_jitter_mode : jitter_mode option -> unit t
+  | Set_jitter_mode : jitter_mode -> unit t
   | Reset : unit t
   | Set_src_id :
       { input_source : int
@@ -225,20 +256,21 @@ type _ t =
       } -> ((Stream.Multi_TS_ID.t * int) * T2mi_info.t) t
 
 let timeout (type a) : a t -> float = function
-  (* Responseless requests *)
-  | Reset -> 0.
-  | Set_mode _ -> 0.
+  (* Responseless requests. If timeout if non-zero, it defines the time
+     we wait for the status with the expected data. *)
+  | Reset -> 5.
+  | Set_mode _ -> 5.
   | Set_src_id _ -> 0.
-  | Set_jitter_mode _ -> 0.
+  | Set_jitter_mode _ -> 5.
   (* Requests with responses *)
-  | Get_devinfo -> 3.
-  | Get_deverr _ -> 3.
-  | Get_mode -> 3.
+  | Get_devinfo -> 5.
+  | Get_deverr _ -> 5.
+  | Get_mode -> 5.
   | Get_t2mi_seq { seconds; _ } -> 10. +. float_of_int seconds
   | Get_section _ -> 125.
-  | Get_bitrate _ -> 3.
-  | Get_structure _ -> 3.
-  | Get_t2mi_info _ -> 3.
+  | Get_bitrate _ -> 5.
+  | Get_structure _ -> 5.
+  | Get_t2mi_info _ -> 5.
 
 let value_to_string (type a) (t : a t) (v : a) : string option =
   match t with
@@ -296,7 +328,6 @@ let to_string (type a) : a t -> string = function
       pp_input input
       enabled pid t2mi_stream_id
       Stream.Multi_TS_ID.pp stream
-  | Set_jitter_mode Some { stream; pid } ->
+  | Set_jitter_mode { stream; pid } ->
     Format.asprintf "Set jitter mode (stream=%a, PID=%d)"
       Stream.Multi_TS_ID.pp stream pid
-  | Set_jitter_mode None -> "Set jitter mode (None)"

@@ -238,7 +238,8 @@ let create kv db (topo : Topology.t) =
   Uri_storage.create ~default:External_uri_storage.default
     kv ["application"; "uri_storage"]
   >>=? fun uri_storage ->
-  let usb, loop = Usb_device.create ~sleep:step_duration () in
+  Usb_device.create ~sleep:step_duration ()
+  >>= fun (usb, loop) ->
   let topo_entries = Topology.get_entries topo in
   get_boards topo
   |> Lwt_list.fold_left_s (fun m (b : topo_board) ->
