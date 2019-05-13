@@ -18,7 +18,7 @@ module Event = struct
          E.aggregate (fun () -> Lwt_unix.sleep 1.0) [event]
          |> E.map (Util_json.List.to_yojson Video_data.to_yojson)
        in
-       Lwt.return (`Ev (state, event))
+       Lwt.return (`Ev event)
     | Some s, Some c, _ ->
        let pred (x : Video_data.t) =
          x.channel = c
@@ -28,7 +28,7 @@ module Event = struct
          E.aggregate (fun () -> Lwt_unix.sleep 1.0) [event]
          |> E.map (Util_json.List.to_yojson Video_data.to_yojson)
        in
-       Lwt.return (`Ev (state, event))
+       Lwt.return (`Ev event)
     | Some s, _, _ ->
        let pred (x : Video_data.t) = Stream.ID.equal x.stream s in
        let event = E.filter pred api.notifs.vdata in
@@ -36,13 +36,13 @@ module Event = struct
          E.aggregate (fun () -> Lwt_unix.sleep 1.0) [event]
          |> E.map (Util_json.List.to_yojson Video_data.to_yojson)
        in
-       Lwt.return (`Ev (state, event))
+       Lwt.return (`Ev event)
     | _ ->
        let event =
          E.aggregate (fun () -> Lwt_unix.sleep 1.0) [api.notifs.vdata]
          |> E.map (Util_json.List.to_yojson Video_data.to_yojson)
        in
-       Lwt.return (`Ev (state, event))
+       Lwt.return (`Ev event)
        
 
   let get_audio (api : Protocol.api) stream channel pid _user _body _env state =
@@ -57,7 +57,7 @@ module Event = struct
          E.aggregate (fun () -> Lwt_unix.sleep 1.0) [event]
          |> E.map (Util_json.List.to_yojson Audio_data.to_yojson)
        in
-       Lwt.return (`Ev (state, event))
+       Lwt.return (`Ev event)
     | Some s, Some c, _ ->
        let pred (x : Audio_data.t) =
          x.channel = c
@@ -67,7 +67,7 @@ module Event = struct
          E.aggregate (fun () -> Lwt_unix.sleep 1.0) [event]
          |> E.map (Util_json.List.to_yojson Audio_data.to_yojson)
        in
-       Lwt.return (`Ev (state, event))
+       Lwt.return (`Ev event)
     | Some s, _, _ ->
        let pred (x : Audio_data.t) = Stream.ID.equal x.stream s in
        let event = E.filter pred api.notifs.adata in
@@ -75,12 +75,12 @@ module Event = struct
          E.aggregate (fun () -> Lwt_unix.sleep 1.0) [event]
          |> E.map (Util_json.List.to_yojson Audio_data.to_yojson)
        in
-       Lwt.return (`Ev (state, event))
+       Lwt.return (`Ev event)
     | _ ->
        let event =
          E.aggregate (fun () -> Lwt_unix.sleep 1.0) [api.notifs.adata]
          |> E.map (Util_json.List.to_yojson Audio_data.to_yojson)
        in
-       Lwt.return (`Ev (state, event))
+       Lwt.return (`Ev event)
   
 end

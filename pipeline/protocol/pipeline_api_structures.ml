@@ -62,14 +62,14 @@ module Event = struct
         (S.changes api.notifs.streams)
       |> E.map (Util_json.List.to_yojson Structure.to_yojson)
     in
-    Lwt.return (`Ev (state, event))
+    Lwt.return (`Ev event)
 
   let get_applied (api : Protocol.api) ids inputs _user _body _env state =
     let event = filter_event ids inputs !(api.sources)
                   (S.changes api.notifs.applied_structs)
                 |> E.map (Util_json.List.to_yojson Structure.to_yojson)
     in
-    Lwt.return (`Ev (state, event))
+    Lwt.return (`Ev event)
     
   let get_streams_packed (api : Protocol.api) ids inputs _user _body _env state =
     let event = filter_map_event ids inputs
@@ -78,7 +78,7 @@ module Event = struct
                   (S.changes api.notifs.streams)
                 |> E.map (Util_json.List.to_yojson Structure.packed_to_yojson)
     in
-    Lwt.return (`Ev (state, event))
+    Lwt.return (`Ev event)
     
   let get_applied_packed (api : Protocol.api) ids inputs _user _body _env state =
     let event = filter_map_event ids inputs
@@ -87,7 +87,7 @@ module Event = struct
                   (S.changes api.notifs.applied_structs)
                 |> E.map (Util_json.List.to_yojson Structure.packed_to_yojson)
     in
-    Lwt.return (`Ev (state, event))
+    Lwt.return (`Ev event)
 
 end
 

@@ -16,7 +16,7 @@ let get_settings (api : api) _ body sock_data () =
       S.changes api.notifs.wm
       |> E.map Wm.to_yojson
     in
-    Lwt.return (`Ev (state, event))
+    Lwt.return (`Ev event)
 
   let get_status (api : Protocol.api) ids _user _body _env state =
     let event = S.changes api.notifs.status in
@@ -28,7 +28,7 @@ let get_settings (api : api) _ body sock_data () =
            event
     in
     let event = E.map (Util_json.List.to_yojson Qoe_status.to_yojson) event in
-    Lwt.return (`Ev (state, event))
+    Lwt.return (`Ev event)
 
 end
 

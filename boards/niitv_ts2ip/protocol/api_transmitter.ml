@@ -6,30 +6,30 @@ let ( >>= ) = Lwt.( >>= )
 module Event = struct
   open Util_react
 
-  let get_status (api : Protocol.api) _user _body _env state =
+  let get_status (api : Protocol.api) _user _body _env _state =
     let event =
       E.map transmitter_status_to_yojson
         api.notifs.transmitter_status in
-    Lwt.return (`Ev (state, event))
+    Lwt.return (`Ev event)
 
-  let get_incoming_streams (api : Protocol.api) _user _body _env state =
+  let get_incoming_streams (api : Protocol.api) _user _body _env _state =
     let event =
       E.map Util_json.(List.to_yojson Stream.to_yojson)
       @@ React.S.changes api.notifs.incoming_streams in
-    Lwt.return (`Ev (state, event))
+    Lwt.return (`Ev event)
 
-  let get_outgoing_streams (api : Protocol.api) _user _body _env state =
+  let get_outgoing_streams (api : Protocol.api) _user _body _env _state =
     let event =
       E.map Util_json.(List.to_yojson Stream.to_yojson)
       @@ React.S.changes api.notifs.outgoing_streams in
-    Lwt.return (`Ev (state, event))
+    Lwt.return (`Ev event)
 
-  let get_mode (api : Protocol.api) _user _body _env state =
+  let get_mode (api : Protocol.api) _user _body _env _state =
     let event =
       E.map (fun (x : config) ->
           Util_json.List.to_yojson udp_mode_to_yojson x.mode.udp)
       @@ React.S.changes api.notifs.config in
-    Lwt.return (`Ev (state, event))
+    Lwt.return (`Ev event)
 
 end
 

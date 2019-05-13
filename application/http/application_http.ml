@@ -218,16 +218,22 @@ let application_handlers (app : Application.t) =
 
 let application_ws (app : Application.t) =
   let open Api_http in
+  (* TODO add closing event *)
+  let socket_table = Api_websocket.make_socket_table () in
+  
   make ~prefix:"topology" (* TODO change to application *)
     [ Api_websocket.node ~doc:"Pushes device topology to the client"
+        ~socket_table
         ~path:Path.Format.empty
         ~query:Query.empty
         (Application_api.Event.get_topology app)
     ; Api_websocket.node ~doc:"Pushes stream table to the client"
+        ~socket_table
         ~path:Path.Format.("stream_table" @/ empty)
         ~query:Query.empty
         (Application_api.Event.get_streams app)
     ; Api_websocket.node ~doc:"Log for input (and stream)"
+        ~socket_table
         ~path:Path.Format.("log" @/ empty)
         ~query:Query.["input", (module List(Topology.Show_topo_input));
                       "id", (module List(Stream.ID))]
