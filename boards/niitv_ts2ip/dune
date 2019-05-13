@@ -1,0 +1,5 @@
+(library
+  (name board_niitv_ts2ip)
+  (libraries board_niitv_ts2ip_types
+             board_niitv_ts2ip_protocol
+             board_niitv_ts2ip_http))

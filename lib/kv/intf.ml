@@ -14,7 +14,7 @@ module type RO = sig
              
   type read_error = [
     | Futil.File.read_error
-    | `Not_found
+    | `Not_found of string
     ]
                           
   val pp_error : error Fmt.t
@@ -39,7 +39,14 @@ module type RW = sig
                
   type write_error = Futil.File.write_error
 
+  type parse_error = [
+  | read_error
+  | `Not_parsed of string * string list * string
+  ]
+
   val pp_write_error : write_error Fmt.t
+
+  val pp_parse_error : parse_error Fmt.t
 
   val create : ?create:bool -> path:string -> (t, [> error ]) result
     
@@ -48,5 +55,6 @@ module type RW = sig
   val watch : t -> key list -> watcher -> unit Lwt.t
 
   val unwatch : t -> key list -> unit Lwt.t
-    
+
+  val parse : ?default:'a -> (value -> 'a) -> t -> key list -> ('a, [> parse_error]) Lwt_result.t
 end

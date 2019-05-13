@@ -1,0 +1,68 @@
+let name = "MPEG-4_audio_descriptor"
+
+let audio_value_of_int = function
+  | 0x0F -> "No_audio_profile"
+  | 0x10 -> "Main profile, level 1"
+  | 0x11 -> "Main profile, level 2"
+  | 0x12 -> "Main profile, level 3"
+  | 0x13 -> "Main profile, level 4"
+  | 0x18 -> "Scalable profile, level 1"
+  | 0x19 -> "Scalable profile, level 2"
+  | 0x1A -> "Scalable profile, level 3"
+  | 0x1B -> "Scalable profile, level 4"
+  | 0x20 -> "Speech profile, level 1"
+  | 0x21 -> "Speech profile, level 2"
+  | 0x28 -> "Synthesis profile, level 1"
+  | 0x29 -> "Synthesis profile, level 2"
+  | 0x2A -> "Synthesis profile, level 3"
+  | 0x30 -> "High quality audio profile, level 1"
+  | 0x31 -> "High quality audio profile, level 2"
+  | 0x32 -> "High quality audio profile, level 3"
+  | 0x33 -> "High quality audio profile, level 4"
+  | 0x34 -> "High quality audio profile, level 5"
+  | 0x35 -> "High quality audio profile, level 6"
+  | 0x36 -> "High quality audio profile, level 7"
+  | 0x37 -> "High quality audio profile, level 8"
+  | 0x38 -> "Low delay audio profile, level 1"
+  | 0x39 -> "Low delay audio profile, level 2"
+  | 0x3A -> "Low delay audio profile, level 3"
+  | 0x3B -> "Low delay audio profile, level 4"
+  | 0x3C -> "Low delay audio profile, level 5"
+  | 0x3D -> "Low delay audio profile, level 6"
+  | 0x3E -> "Low delay audio profile, level 7"
+  | 0x3F -> "Low delay audio profile, level 8"
+  | 0x40 -> "Natural audio profile, level 1"
+  | 0x41 -> "Natural audio profile, level 2"
+  | 0x42 -> "Natural audio profile, level 3"
+  | 0x43 -> "Natural audio profile, level 4"
+  | 0x48 -> "Mobile audio internetworking profile, level 1"
+  | 0x49 -> "Mobile audio internetworking profile, level 2"
+  | 0x4A -> "Mobile audio internetworking profile, level 3"
+  | 0x4B -> "Mobile audio internetworking profile, level 4"
+  | 0x4C -> "Mobile audio internetworking profile, level 5"
+  | 0x4D -> "Mobile audio internetworking profile, level 6"
+  | 0x50 -> "AAC profile, level 1"
+  | 0x51 -> "AAC profile, level 2"
+  | 0x52 -> "AAC profile, level 4"
+  | 0x53 -> "AAC profile, level 5"
+  | 0x58 -> "High efficiency AAC profile, level 2"
+  | 0x59 -> "High efficiency AAC profile, level 3"
+  | 0x5A -> "High efficiency AAC profile, level 4"
+  | 0x5B -> "High efficiency AAC profile, level 5"
+  | 0x60 -> "High efficiency AAC v2 profile, level 2"
+  | 0x61 -> "High efficiency AAC v2 profile, level 3"
+  | 0x62 -> "High efficiency AAC v2 profile, level 4"
+  | 0x63 -> "High efficiency AAC v2 profile, level 5"
+  | 0xFF -> "Not_specified"
+  | _    -> "Reserved"
+
+let parse bs off =
+  match%bitstring bs with
+  | {| mpeg_4_audio : 8 |} ->
+    let parsed = audio_value_of_int mpeg_4_audio in
+    [ Node.make
+        ~parsed
+        ~offset:off
+        7
+        "MPEG-4_audio_profile_and_level"
+        (Hex (Int mpeg_4_audio)) ]

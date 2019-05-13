@@ -72,36 +72,7 @@ let of_yojson (j : Yojson.Safe.json) : (t, string) result =
      end
   | _ -> Error (to_err j)
 
-
-let make_interval ?(from : t option)
-      ?(till : t option)
-      ?(duration : span option) () =
-  let ok v = Ok v in
-  let err s = Error s in
-  match from, till, duration with
-  | Some _, Some _, Some _ -> err "excessive duration query"
-  | Some s, Some e, None -> ok (`Range (s,e))
-  | Some s, None, Some d ->
-     begin match add_span s d with
-     | Some e -> ok (`Range (s,e))
-     | None -> err "time range exceeded"
-     end
-  | Some s, None, None -> ok (`Range (s, max))
-  | None, Some e, Some d ->
-     begin match sub_span e d with
-     | Some s -> ok (`Range (s, e))
-     | None   -> err "time range exceeded"
-     end
-  | None, Some e, None -> ok (`Range (epoch, e))
-  | None, None, Some d ->
-     let e = match of_float_s @@ Unix.gettimeofday () with
-       | None -> assert false
-       | Some x -> x in
-     begin match sub_span e d with
-     | Some s -> ok (`Range (s, e))
-     | None -> err "time range exceeded"
-     end
-  | None, None, None -> ok (`Range (epoch, max))
+module Interval = Interval
 
 let split ~from ~till =
   let second = 1 in
@@ -148,20 +119,98 @@ let split ~from ~till =
   | `Minutes -> sep_seconds ~sz:60 from till
   | `Seconds -> [from, till]
 
+let ps_in_s = 1000_000_000_000L
+
+module Conv (M : sig
+    val of_int : int -> int * int64
+    val to_int : int * int64 -> int
+  end) = struct
+  type t = Ptime.t
+
+  let of_int x =
+    get_exn
+    @@ Ptime.of_span
+    @@ get_exn
+    @@ Ptime.Span.of_d_ps (M.of_int x)
+
+  let to_int x =
+    M.to_int
+    @@ Ptime.Span.to_d_ps
+    @@ Ptime.to_span x
+
+  let of_string s = of_int @@ int_of_string s
+  let to_string x = string_of_int @@ to_int x
+
+  let of_yojson x =
+    match x with
+    | `Int x -> Ok (of_int x)
+    | _ -> Error "of_yojson"
+    | exception _ -> Error "of_yojson"
+  let to_yojson x = `Int (to_int x)
+end
+
+module Conv64 (M : sig val second : int64 end) = struct
+  let () =
+    if Int64.compare M.second ps_in_s > 0
+    then failwith "Time.Span.Conv64: second precision is more than 1ps"
+
+  type t = Ptime.t
+
+  let of_int64 (x : int64) : t =
+    let s = (Int64.to_float x) /. (Int64.to_float M.second) in
+    get_exn
+    @@ Ptime.of_span
+    @@ get_exn
+    @@ Ptime.Span.of_float_s s
+
+  let to_int64 (x : t) : int64 =
+    Ptime.Span.to_float_s @@ Ptime.to_span x
+    |> ( *. ) (Int64.to_float M.second)
+    |> Int64.of_float
+
+  let of_string (s : string) : t =
+    of_int64 @@ Int64.of_string s
+
+  let to_string (x : t) : string =
+    Int64.to_string @@ to_int64 x
+
+  let of_yojson (x : Yojson.Safe.json) : (t, string) result = match x with
+    | `Intlit x -> Ok (of_string x)
+    | `Int x -> Ok (of_int64 @@ Int64.of_int x)
+    | _ -> Error "of_yojson"
+    | exception _ -> Error "of_yojson"
+
+  let to_yojson (x : t) : Yojson.Safe.json =
+    `Intlit (to_string x)
+
+end
+
+module Hours = Conv(struct
+    let of_int x = (x / 24, I64.(of_int Int.(x mod 24) * 3600L * ps_in_s))
+    let to_int (d,ps) = (d * 24) + I64.(to_int (ps / (3600L * ps_in_s)))
+  end)
+
+module Seconds = Conv(struct
+    let of_int x = Ptime.Span.to_d_ps @@ Ptime.Span.of_int_s x
+    let to_int x = get_exn @@ Ptime.Span.to_int_s @@ Ptime.Span.v x
+  end)
+
+module Seconds64 = Conv64(struct let second = 1L end)
+
+module Useconds = Conv64(struct let second = 1000_000L end)
+
 module Period = struct
   include Ptime.Span
 
-  let ps_in_s = 1000_000_000_000L
-
   let to_yojson (v:t) : Yojson.Safe.json =
-    let d, ps = Span.to_d_ps v in
+    let d, ps = Ptime.Span.to_d_ps v in
     `List [ `Int d;`Intlit (Int64.to_string ps) ]
 
   let of_yojson (j:Yojson.Safe.json) : (t,string) result =
     let to_err j = Printf.sprintf "span_of_yojson: bad json value (%s)" @@ Yojson.Safe.to_string j in
     match j with
     | `List [ `Int d; `Intlit ps] -> (match Int64.of_string_opt ps with
-                                      | Some ps -> to_result (Span.of_d_ps (d,ps))
+                                      | Some ps -> to_result (Ptime.Span.of_d_ps (d,ps))
                                       | None    -> Error (to_err j))
     | _ -> Error (to_err j)
 
@@ -170,7 +219,7 @@ module Period = struct
                val to_int : int * int64 -> int
              end) = struct
     type t = Ptime.Span.t
-            
+
     let of_int x = get_exn @@ Ptime.Span.of_d_ps (M.of_int x)
     let to_int x = M.to_int @@ Ptime.Span.to_d_ps x
     let of_string s = of_int @@ int_of_string s
@@ -221,19 +270,22 @@ module Period = struct
 
   end
 
-  module Hours = Conv(struct
-                     let of_int x = (x / 24, I64.(of_int Int.(x mod 24) * 3600L * ps_in_s))
-                     let to_int (d,ps) = (d * 24) + I64.(to_int (ps / (3600L * ps_in_s)))
-                   end)
+  module Hours =
+    Conv(struct
+      let of_int x = (x / 24, I64.(of_int Int.(x mod 24) * 3600L * ps_in_s))
+      let to_int (d,ps) = (d * 24) + I64.(to_int (ps / (3600L * ps_in_s)))
+    end)
 
-  module Seconds = Conv(struct
-                       let of_int x = Ptime.Span.to_d_ps @@ Ptime.Span.of_int_s x
-                       let to_int x = get_exn @@ Ptime.Span.to_int_s @@ Ptime.Span.v x
-                     end)
+  module Seconds =
+    Conv(struct
+      let of_int x = Ptime.Span.to_d_ps @@ Ptime.Span.of_int_s x
+      let to_int x = get_exn @@ Ptime.Span.to_int_s @@ Ptime.Span.v x
+    end)
 
   module Seconds64 = Conv64(struct let second = 1L end)
-  module Useconds = Conv64(struct let second = 1000_000L end) 
-                  
+
+  module Useconds = Conv64(struct let second = 1000_000L end)
+
 end
 
 module Range = struct
@@ -242,13 +294,13 @@ module Range = struct
   let after time span : t = (time, span)
 
 end
-             
+
 module Relative = struct
   include Ptime.Span
 
   let to_seconds : t -> int = fun x -> get_exn @@ Ptime.Span.to_int_s x
-                                     
+
   let of_seconds : int -> t = Ptime.Span.of_int_s
-   
+
 end
 

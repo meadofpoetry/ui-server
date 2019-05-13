@@ -1,5 +1,5 @@
 open Websocket_cohttp_lwt
-open Frame
+open Websocket
 open Lwt.Infix
 
 module Make (User : Api.USER) (Body : Api.BODY) = struct
@@ -26,25 +26,24 @@ module Make (User : Api.USER) (Body : Api.BODY) = struct
 
   let socket_table : (int, unit React.event) Hashtbl.t =
     Hashtbl.create 1000
-
+  (* TODO fix api *)
   let to_response sock_data (event:body React.event) =
     let id = rand_int () in
     (*Cohttp_lwt.Body.drain_body body
     >>= fun () ->*)
     Websocket_cohttp_lwt.upgrade_connection
       (fst sock_data)
-      (snd sock_data)
       (fun f -> match f.opcode with
-                | Opcode.Close -> Hashtbl.remove socket_table id
+                | Frame.Opcode.Close -> Hashtbl.remove socket_table id
                 | _ -> ())
-    >>= fun (resp, body, frames_out_fn) ->
+    >>= fun (resp, frames_out_fn) ->
     let send msg =
       let msg = Body.to_string msg in
       frames_out_fn @@ Some (Frame.create ~content:msg ())
     in
     let sock_events = React.E.map (fun e -> send e) event in
     Hashtbl.add socket_table id sock_events;
-    Lwt.return (resp, (body :> Cohttp_lwt.Body.t))
+    Lwt.return resp
 
   let transform_resp : event -> Api_http.answer = function
     | `Error _ as e -> e

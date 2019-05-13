@@ -1,5 +1,4 @@
 open Containers
-open Common
 open Components
 
 let make_overview ?boards ?cpu ?inputs ?streams e_log =
@@ -13,7 +12,11 @@ let make_overview ?boards ?cpu ?inputs ?streams e_log =
   Dashboard.Item.make item, close
 
 let make ?boards ?cpu ?inputs ?streams () =
-  let e_log, log_sock = Requests.WS.get_log ?inputs ?streams () in
+  let ( >>= ) = Lwt_result.( >>= ) in
+  let e_log, set_log = React.E.create () in
+  Requests.Event.get_log ?inputs ?streams
+    ~f:(fun _ -> function Ok x -> set_log x | _ -> ()) ()
+  >>= fun socket ->
   let overview, overview_close =
     make_overview ?boards ?cpu ?inputs ?streams e_log in
   let box =
@@ -26,5 +29,5 @@ let make ?boards ?cpu ?inputs ?streams () =
       overview#destroy ();
       overview_close ();
       React.E.stop ~strong:true e_log;
-      log_sock##close);
-  box#widget
+      socket##close);
+  Lwt.return_ok box#widget

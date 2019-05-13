@@ -88,7 +88,7 @@ module Event = struct
                 |> E.map (Util_json.List.to_yojson Structure.packed_to_yojson)
     in
     Lwt.return (`Ev (state, event))
-    
+
 end
 
 let filter_data ids inputs streams data =
@@ -101,46 +101,64 @@ let filter_data ids inputs streams data =
                 |> uris
      in filter_by_uris uris data
       
-let get_streams (api : Protocol.api) ids inputs _user _body _env _state =
-  Message.Protocol.stream_parser_get api.channel ()
-  |> Lwt_result.map (Util_json.List.to_yojson Structure.to_yojson
-                     % filter_data ids inputs !(api.sources))
-  >>= function
-    | Ok v -> Lwt.return (`Value v)
-    | Error e -> Lwt.return (`Error e)
+let get_streams (state : Protocol.state) (api : Protocol.api) ids inputs _user _body _env _state =
+  match state.backend with
+  | None -> Lwt.return (`Error "not ready")
+  | Some backend ->
+     Protocol.Qoe_backend.Stream_parser.get_structure backend
+     |> Lwt_result.map (Util_json.List.to_yojson Structure.to_yojson
+                        % filter_data ids inputs !(api.sources))
+     >>= function
+     | Ok v -> Lwt.return (`Value v)
+     | Error (`Qoe_backend e) -> Lwt.return (`Error e)
 
-let get_streams_applied (api : Protocol.api) ids inputs _user _body _env _state =
-  Message.Protocol.graph_get_structure api.channel ()
-  |> Lwt_result.map (Util_json.List.to_yojson Structure.to_yojson
-                     % filter_data ids inputs !(api.sources))
-  >>= function
-    | Ok v -> Lwt.return (`Value v)
-    | Error e -> Lwt.return (`Error e)
+let get_streams_applied (state : Protocol.state) (api : Protocol.api) ids inputs _user _body _env _state =
+  match state.backend with
+  | None -> Lwt.return (`Error "not ready")
+  | Some backend ->
+     Protocol.Qoe_backend.Graph.get_structure backend
+     |> Lwt_result.map (Util_json.List.to_yojson Structure.to_yojson
+                        % filter_data ids inputs !(api.sources))
+     >>= function
+     | Ok v -> Lwt.return (`Value v)
+     | Error (`Qoe_backend e) -> Lwt.return (`Error e)
 
-let get_streams_with_source (api : Protocol.api) ids inputs _user _body _env _state =
-  Message.Protocol.stream_parser_get api.channel ()
-  |> Lwt_result.map (Util_json.List.to_yojson Structure.packed_to_yojson
-                     % Structure_conv.match_streams api.sources
-                     % filter_data ids inputs !(api.sources))
-  >>= function
-    | Ok v -> Lwt.return (`Value v)
-    | Error e -> Lwt.return (`Error e)
+let get_streams_with_source (state : Protocol.state) (api : Protocol.api) ids inputs _user _body _env _state =
+  match state.backend with
+  | None -> Lwt.return (`Error "not ready")
+  | Some backend ->
+     Protocol.Qoe_backend.Stream_parser.get_structure backend
+     |> Lwt_result.map (Util_json.List.to_yojson Structure.packed_to_yojson
+                        % Structure_conv.match_streams api.sources
+                        % filter_data ids inputs !(api.sources))
+     >>= function
+     | Ok v -> Lwt.return (`Value v)
+     | Error (`Qoe_backend e) -> Lwt.return (`Error e)
 
-let get_streams_applied_with_source (api : Protocol.api) ids inputs _user _body _env _state =
-  Message.Protocol.graph_get_structure api.channel ()
-  |> Lwt_result.map (Util_json.List.to_yojson Structure.packed_to_yojson
-                     % Structure_conv.match_streams api.sources
-                     % filter_data ids inputs !(api.sources))
-  >>= function
-    | Ok v -> Lwt.return (`Value v)
-    | Error e -> Lwt.return (`Error e)
+let get_streams_applied_with_source (state : Protocol.state) (api : Protocol.api) ids inputs _user _body _env _state =
+  match state.backend with
+  | None -> Lwt.return (`Error "not ready")
+  | Some backend ->
+     Protocol.Qoe_backend.Graph.get_structure backend
+     |> Lwt_result.map (Util_json.List.to_yojson Structure.packed_to_yojson
+                        % Structure_conv.match_streams api.sources
+                        % filter_data ids inputs !(api.sources))
+     >>= function
+     | Ok v -> Lwt.return (`Value v)
+     | Error (`Qoe_backend e) -> Lwt.return (`Error e)
 
-let apply_streams (api : Protocol.api) _user body _env _state =
+
+let apply_streams (state : Protocol.state) (api : Protocol.api) _user body _env _state =
   match Util_json.List.of_yojson Structure.of_yojson body with
   | Error e -> Lwt.return (`Error e)
   | Ok x ->
-     Message.Protocol.graph_apply_structure
-       ~options:api.options.structures api.channel x
-     >>= function Ok () -> Lwt.return `Unit
-                | Error e -> Lwt.return (`Error  e)
-                               
+     match state.backend with
+     | None -> Lwt.return (`Error "not ready")
+     | Some backend ->
+        Protocol.Qoe_backend.Graph.apply_structure backend x
+        >>= function
+        | Error (`Qoe_backend e) -> Lwt.return (`Error  e)
+        | Ok () ->
+           api.options.structures#set x
+           >>= fun () ->
+           Lwt.return `Unit

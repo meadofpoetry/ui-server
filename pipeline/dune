@@ -9,7 +9,6 @@
               kv_v
               netlib
               util_react
-              zmq-lwt
               lwt.unix
               ptime.clock.os ;; TODO time_clock
               logs.lwt)

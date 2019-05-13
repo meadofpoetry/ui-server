@@ -6,9 +6,8 @@
                util_react
                db
                kv
+               kv_v
                lwt
-               containers
-               containers.data
                yojson
                cstruct
                ctypes)

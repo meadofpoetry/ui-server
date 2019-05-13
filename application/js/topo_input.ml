@@ -1,7 +1,10 @@
-let input_to_string : Common.Topology.input -> string = function
+open Application_types
+
+let input_to_string : Topology.input -> string = function
   | RF -> "RF"
   | ASI -> "ASI"
   | TSOIP -> "TSoIP"
+  | SPI -> "SPI"
 
 let circle_markup text =
   Tyxml_js.Html.(
@@ -11,9 +14,9 @@ let label_markup text =
   Tyxml_js.Html.(
     span ~a:[a_class ["topology__input__label"]] [txt text])
 
-let markup (input : Common.Topology.topo_input) =
+let markup (input : Topology.topo_input) =
   (* FIXME migrate to svg icon *)
-  let name = Common.Topology.get_input_name input in
+  let name = Topology.get_input_name input in
   Tyxml_js.Html.(
     div ~a:[a_class ["mdc-chip"; "topology__input"]]
       [ div ~a:[a_class ["mdc-chip__text"]] [txt name]

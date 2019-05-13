@@ -84,20 +84,23 @@ module Signal = struct
   type 'a t = ('a React.signal, string) Lwt_result.t State.t
 
   let make_state
-        ~(get : (unit -> ('a, string) Lwt_result.t))
-        ~(get_socket : (unit -> 'a React.event * webSocket Js.t)) : 'a t =
+        ~(get : (unit -> ('a, string) Lwt_result.t)) ~get_socket : 'a t =
     let t =
       get ()
-      >>= (fun state ->
-        let e, sock = get_socket () in
-        let s = React.S.hold state e in
-        let state = (e, s, sock) in
-        Lwt_result.return (s, state)) in
+      >>= fun state ->
+      let s, set = React.S.create state in
+      get_socket ~f:(fun _ -> function
+          | Ok x -> set x
+          | Error _ -> ()) ()
+      >>= fun (socket : webSocket Js.t) ->
+      let state = (s, socket) in
+      Lwt_result.return (s, state) in
     let fin = fun () ->
-      t >|= (fun (_, (e, s, sock)) ->
-        sock##close;
-        React.E.stop ~strong:true e;
-        React.S.stop ~strong:true s)
+      (t
+       >>= fun (_, (s, socket)) ->
+       socket##close;
+       React.S.stop ~strong:true s;
+       Lwt.return_ok ())
       |> Lwt.ignore_result in
     let value = t >|= fst in
     State.make ~fin value

@@ -4,10 +4,10 @@
   (synopsis    "app")
   (libraries   application_types
                boards
-;;             board_dvb_niit
-;;             board_ip_dektec
-;;             board_qos_niit
-;;             board_ts2ip_niit
+               board_niitv_dvb
+               board_niitv_tsan
+               board_niitv_ts2ip
+               board_dektec_dtm3200
                pipeline
                pc_control
                util_react

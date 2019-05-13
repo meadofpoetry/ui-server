@@ -11,14 +11,16 @@ module Api_http = Api_cohttp.Make(Application_types.User)(Application_types.Body
 let ( % ) = Fun.( % )
 
 let resource base uri =
-  Cohttp_lwt_unix.Server.respond_file ~fname:(Filename.concat base uri) ()
- 
+  let fname = Filename.concat base uri in
+  Cohttp_lwt_unix.Server.respond_file ~fname ()
+  >>= fun resp -> Lwt.return (`Response resp)
+
 module Settings = struct
   type t = { path : string
            ; port : int
            } [@@deriving yojson]
   let default = { path = Filename.concat Filename.current_dir_name "resources"
-                ; port = 7777
+                ; port = 8080
                 }
   let domain = "server"
   let of_string s =
@@ -43,7 +45,7 @@ let get_handler ~settings
     let uri = Request.uri req in
     let resource_path = Netlib.Uri.path uri in
     let meth = Request.meth req in
-    let env   = Api_cohttp.env_of_headers headers in
+    let env = Api_cohttp.env_of_headers headers in
     let sock_data = (req, (fst conn)) in
 
     let respond_page () =
@@ -53,7 +55,6 @@ let get_handler ~settings
 
     Cohttp_lwt.Body.to_string body
     >>= fun body ->
-
     Api_http.handle
       routes
       ~state:sock_data
@@ -90,4 +91,4 @@ let create kv auth_filter routes =
        ~mode:(`TCP (`Port settings.port))
        ~on_exn:(fun e ->
          Logs.err (fun m -> m "(Server) Exception: %s" (Printexc.to_string e)))
-       (Cohttp_lwt_unix.Server.make ~callback:handler ())
+       (Cohttp_lwt_unix.Server.make_response_action ~callback:handler ())
