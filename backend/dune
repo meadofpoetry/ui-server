@@ -1,15 +1,11 @@
 (executable
   (name       backend)
   (modes      native)
-  (libraries  xdg kv_v
+  (libraries  xdg
+              kv_v
               db
               application_http
-              lwt lwt.unix
-              nocrypto.lwt logs.lwt
+              lwt.unix
+              logs.lwt
               ptime.clock.os)
   (preprocess (pps ppx_deriving_yojson)))
-  ;;          application
-  ;;          caqti-lwt lwt logs.lwt logs.fmt
-  ;;          cohttp-lwt-unix
-  ;;          yojson ppx_deriving_yojson.runtime
-  ;;          nocrypto.lwt)

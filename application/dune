@@ -15,5 +15,7 @@
                db
                cyusb
                api_cohttp_template
+               nocrypto.lwt
+               pbkdf
                caqti-lwt)
   (preprocess (pps ppx_cstruct ppx_deriving_yojson ppx_deriving.eq)))
