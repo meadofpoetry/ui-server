@@ -1,0 +1,6 @@
+(library
+  (name       board_niitv_ts2ip_http)
+  (libraries  board_niitv_ts2ip_protocol
+              api_websocket
+              api_cohttp_template
+              time_uri))

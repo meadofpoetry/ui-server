@@ -35,7 +35,12 @@ type write_error = Futil.File.write_error
 
 type read_error = [
   | Futil.File.read_error
-  | `Not_found
+  | `Not_found of string
+  ]
+
+type parse_error = [
+  | read_error
+  | `Not_parsed of string * string list * string
   ]
 
 let pp_error ppf = function
@@ -47,7 +52,13 @@ let pp_write_error = Futil.File.pp_write_error
 
 let pp_read_error ppf = function
   | #Futil.File.read_error as e -> Futil.File.pp_read_error ppf e
-  | `Not_found -> Fmt.string ppf "not found"
+  | `Not_found s -> Fmt.fmt "file '%s' not found" ppf s
+
+let pp_parse_error ppf = function
+  | #read_error as e -> pp_read_error ppf e
+  | `Not_parsed (e, k, v) ->
+     let path = String.concat "/" k in
+     Fmt.fmt "value '%s' under path '%s' not parsed. error = %s" ppf v path e
 
 let (>>=) e f =
   match e with
@@ -88,7 +99,7 @@ let read kv keys =
      File.read path
      >>= function
      | Error `No_such_file ->
-        Lwt.return_error `Not_found
+        Lwt.return_error (`Not_found (Path.to_string path))
      | Error _ as e ->
         Lwt.return e
      | Ok data' ->
@@ -149,6 +160,10 @@ let parse ?default of_string kv keys =
       | None -> Lwt.return e
       | Some x -> Lwt.return_ok x
     end
-  | Ok v -> 
+  | Ok v ->
      try Lwt.return_ok @@ of_string v
-     with _ -> Lwt.return_error `Not_found
+     with exn ->
+       let e = match exn with
+         | Failure s -> s
+         | exn -> Printexc.to_string exn in
+       Lwt.return_error (`Not_parsed (e, keys, v))

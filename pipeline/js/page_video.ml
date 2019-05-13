@@ -1,15 +1,15 @@
 open Js_of_ocaml
 open Containers
 open Components
-open Common
+open Util_react
 
 open Lwt.Infix
 
 type track =
-  { id          : int
+  { id : int
   ; description : string
-  ; video       : Janus_streaming.Mp_rtp.video option
-  ; audio       : Janus_streaming.Mp_rtp.audio option
+  ; video : Janus_streaming.Mp_rtp.video option
+  ; audio : Janus_streaming.Mp_rtp.audio option
   }
 
 type media =
@@ -38,8 +38,8 @@ let janus_plugin ~(tracks: track list)
   let e_rs, on_remote_stream = React.E.create () in
   Session.attach ~session ~plugin_type:Plugin.Streaming ~on_remote_stream ~on_jsep ()
   >>= (fun plugin ->
-    React.E.map (fun stream -> Janus.attachMediaStream target stream) e_rs
-    |> React.E.keep;
+    E.map (fun stream -> Janus.attachMediaStream target stream) e_rs
+    |> E.keep;
     React.E.map (function
         | Session.Offer x ->
            Plugin.create_answer plugin Janus_streaming.default_media_props None x
@@ -50,7 +50,7 @@ let janus_plugin ~(tracks: track list)
            |> Lwt.ignore_result
         | Answer x  -> Plugin.handle_remote_jsep plugin x |> Lwt.ignore_result
         | Unknown _ -> Printf.printf "Unknown jsep received\n") e_jsep
-    |> React.E.keep;
+    |> E.keep;
     List.iter (fun x ->
         let req =
           ({ type_ = Rtp { base = ({ id          = Some x.id
@@ -77,8 +77,8 @@ let janus_plugin ~(tracks: track list)
              | Error e -> Printf.printf "failure creating mp: %s\n" e; Lwt.return_unit)
         |> Lwt.ignore_result) tracks;
     React.S.changes selected
-    |> React.E.map_s (fun x -> Janus_streaming.send plugin (Switch x.id))
-    |> React.E.keep;
+    |> E.map_s (fun x -> Janus_streaming.send plugin (Switch x.id))
+    |> E.keep;
     let init = React.S.value selected in
     Janus_streaming.send plugin (Watch { id = init.id; secret = None }) |> ignore;
     Lwt.return_unit)

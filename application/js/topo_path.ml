@@ -1,9 +1,9 @@
+open Application_types
 open Js_of_ocaml
 open Containers
 open Components
 open Topo_types
 open Lwt.Infix
-open Common
 
 let get_output_point (elt : #Dom_html.element Js.t) : point =
   { x = elt##.offsetLeft + elt##.offsetWidth

@@ -1,10 +1,10 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml.Tyxml_js
 open Containers
-open Tyxml_js
 
 module Markup = Components_markup.Form_field.Make(Xml)(Svg)(Html)
 
-let x = ref (Unix.time () |> int_of_float)
+let x = ref (int_of_float (new%js Js.date_now)##getTime)
 let get_id = fun () -> incr x; Printf.sprintf "form-input-%d" !x
 
 class ['a] t ?align_end ~(input : 'a) ~label () =

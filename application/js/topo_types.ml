@@ -1,4 +1,4 @@
-open Common.Topology
+open Application_types.Topology
 
 type connection_state =
   [ `Active      (* path is active, but there is not info about streams *)

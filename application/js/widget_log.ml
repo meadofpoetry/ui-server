@@ -1,8 +1,7 @@
 open Containers
 open Components
 open Lwt_result.Infix
-open Api_js.Api_types
-open Common
+open Application_types
 
 let name = "Log"
 let base_class = "application-log"
@@ -12,10 +11,10 @@ let ( % ) = Fun.( % )
 
 let get_log ?from ?till ?duration ?limit
       ?boards ?cpu ?streams ?inputs () =
-  let open Requests.HTTP in
+  let open Requests in
   get_log ?limit ?from ?till ?duration
     ?boards ?cpu ?streams ?inputs ()
-  >>* Api_js.Requests.err_to_string
+  >>* Api_js.Http.error_to_string
   >>= function
   | Raw s -> Lwt_result.return (s.has_more, s.data)
   | _ -> Lwt.fail_with "got compressed"

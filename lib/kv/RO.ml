@@ -29,7 +29,7 @@ type error = [
 
 type read_error = [
   | Futil.File.read_error
-  | `Not_found
+  | `Not_found of string
   ]
 
 let pp_error ppf = function
@@ -37,9 +37,9 @@ let pp_error ppf = function
   | `Bad_path path -> Fmt.fmt "bad path: %s" ppf path
   | `Not_directory path -> Fmt.fmt "kv path %s refers not to a directory" ppf path
 
-let pp_read_error ppf = function
+let pp_read_error ppf : read_error -> unit = function
   | #Futil.File.read_error as e -> Futil.File.pp_read_error ppf e
-  | `Not_found -> Fmt.string ppf "not found"
+  | `Not_found s -> Fmt.fmt "file '%s' not found" ppf s
     
 let (>>=) e f =
   match e with
@@ -78,7 +78,7 @@ let read kv keys =
      File.read path
      >>= function
      | Error `No_such_file ->
-        Lwt.return_error `Not_found
+        Lwt.return_error (`Not_found (Path.to_string path))
      | Error _ as e ->
         Lwt.return e
      | Ok data' ->

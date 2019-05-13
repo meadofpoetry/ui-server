@@ -7,7 +7,7 @@ open Netlib
 (* TODO rewrite, especially the range constraints part *)
 
 module Map = Board.Ports
-   
+
 module Uri_storage = Kv_v.RW (External_uri_storage)
 (* TODO remove after 4.08 *)
 let flip f x y = f y x
@@ -32,7 +32,7 @@ let filter_map f l =
 let partition_map f l =
   let rec loop accl accr = function
     | [] -> List.rev accl, List.rev accr
-    | h::tl ->
+    | h :: tl ->
        match f h with
        | `Left x -> loop (x::accl) accr tl
        | `Right x -> loop accl (x::accr) tl
@@ -64,27 +64,25 @@ type t =
   ; uri_storage : Uri_storage.t
   }
 
-let create_board db usb (b : Topology.topo_board) boards kv step_duration =
+let create_board db usb (b : Topology.topo_board) boards kv =
   let (module B : Board.BOARD) =
-    match b.typ, b.model, b.manufacturer, b.version with (* TODO add boards *)
- (*   | "DVB", "rf", "niitv", 1 -> (module Board_dvb_niit : Board.BOARD) 
-    | "IP2TS", "dtm-3200", "dektec", 1 -> (module Board_ip_dektec  : Board.BOARD)
-    | "TS", "qos", "niitv", 1 -> (module Board_qos_niit : Board.BOARD)
-    | "TS2IP", "ts2ip", "niitv", 1 -> (module Board_ts2ip_niit : Board.BOARD) *)
+    match b.manufacturer, b.model, b.version with (* TODO add boards *)
+    | "NIITV", "TSAN", 5 -> (module Board_niitv_tsan : Board.BOARD)
+    | "NIITV", "TS2IP", 2 -> (module Board_niitv_ts2ip : Board.BOARD)
+    | "NIITV", "DVB4CH", 1 -> (module Board_niitv_dvb : Board.BOARD)
+    | "DekTec", "DTM-3200", 1 -> (module Board_dektec_dtm3200 : Board.BOARD)
     | _ -> raise (Failure ("create board: unknown board ")) in
   B.create b
     (Board.get_streams boards b)
     (Board.merge_streams boards)
     (Usb_device.get_send usb b.control)
-    db kv step_duration
+    db kv
 
 (* TODO do some refactoring later on *)
 let topo_to_signal topo (boards : Board.t Board.Ports.t) : Topology.t React.signal =
   let open Topology in
   let cons l v = (flip List.cons) l v in
-  let get_port m p = match Board.Ports.get p m with
-    | None -> raise Not_found
-    | Some p -> p in
+  let get_port m p = Board.Ports.find p m in
   let build_board b connection ports =
     let eq = equal_topo_entry in
     S.l2 ~eq (fun a p -> Board { b with connection = a; ports = p })
@@ -104,7 +102,7 @@ let topo_to_signal topo (boards : Board.t Board.Ports.t) : Topology.t React.sign
     | Board b ->
        let connection, port_list, sync_list =
          match Board.Ports.find_opt b.control boards with
-         | None -> raise Not_found
+         | None -> Printf.printf "board with control=%d not found\n" b.control; raise Not_found
          | Some state ->
             state.connection,
             (get_port state.ports_active),
@@ -231,32 +229,29 @@ let create kv db (topo : Topology.t) =
   let (>>=?) = Lwt_result.bind in
   let (>>=) = Lwt.bind in
 
-  let rec traverse acc = function
-    | Board b ->
-       List.fold_left (fun a x -> traverse a x.child)
-         (b :: acc) b.ports
-    | Input _ -> acc in
+  (* let rec traverse acc = function
+   *   | Board b -> List.fold_left (fun a x -> traverse a x.child) (b :: acc) b.ports
+   *   | Input _ -> acc in *)
 
   let step_duration = 0.01 in
-  
-  Uri_storage.create
-    ~default:External_uri_storage.default
+
+  Uri_storage.create ~default:External_uri_storage.default
     kv ["application"; "uri_storage"]
   >>=? fun uri_storage ->
   let usb, loop = Usb_device.create ~sleep:step_duration () in
   let topo_entries = Topology.get_entries topo in
-
-  List.fold_left traverse [] topo_entries (* TODO; Attention: traverse order now matters;
-                                             child nodes come before parents *)
-  |> List.fold_left (fun m b ->
-         m >>=? fun m ->
-         create_board db usb b m kv step_duration
-         >>=? fun board ->
-         Usb_device.subscribe usb b.control board.step;
-         Lwt.return_ok @@ Board.Ports.add b.control board m)
-       (Lwt.return_ok Board.Ports.empty)
-  >>=? fun boards ->
-  uri_storage#get >>= fun uri_config ->
+  get_boards topo
+  |> Lwt_list.fold_left_s (fun m (b : topo_board) ->
+         match m with
+         | Error e -> Lwt.return_error e
+         | Ok m ->
+            create_board db usb b m kv
+            >>=? fun (board : Board.t) ->
+            Usb_device.subscribe usb b.control board.loop board.push_data;
+            Lwt.return_ok @@ Board.Map.add b.control board m)
+       (Ok Board.Map.empty)
+  >>=? fun boards -> uri_storage#get
+  >>= fun uri_config ->
   let sources, streams = get_sources topo_entries uri_config boards in
   S.limit ~eq:Stream.equal_stream_table (fun () -> Lwt_unix.sleep 0.5) streams
   |> S.map ~eq:(fun _ _ -> false) (store_external_uris uri_storage)
@@ -289,7 +284,12 @@ let set_stream ?(port=1234) (hw : t) (ss : Stream.stream_setting) =
              (function ((`Board bid, bs), buri) as v ->
                 if id = bid
                 then
-                  let url = Uri.(with_port (with_path_v4 empty buri) (Some port')) in
+                  let url =
+                    Uri.empty
+                    |> (fun uri -> Uri.with_host uri (Some (Ipaddr.V4.to_string buri)))
+                    |> (fun uri -> Uri.with_port uri (Some port'))
+                    |> (fun uri -> Uri.with_scheme uri (Some "udp")) (* TODO proper scheme *)
+                  in
                   `Left { url; stream = bs }
                 else
                   `Right v) streams in
@@ -300,8 +300,9 @@ let set_stream ?(port=1234) (hw : t) (ss : Stream.stream_setting) =
         | TSoIP x ->
            let url =
              Uri.empty
-             |> (fun uri -> Uri.with_path_v4 uri x.addr)
+             |> (fun uri -> Uri.with_host uri (Some (Ipaddr.V4.to_string x.addr)))
              |> (fun uri -> Uri.with_port uri (Some x.port))
+             |> (fun uri -> Uri.with_scheme uri (Some "udp")) (* TODO proper scheme *)
            in
            { url; stream = s }
         | _ -> raise_notrace (

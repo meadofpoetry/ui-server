@@ -32,9 +32,9 @@ let respond_file base path =
   Cohttp_lwt_unix.Server.respond_file
     ~fname:(Filename.concat base path)
  *)
-let respond_string ?(status = `OK) body () =
+let respond_string ?(status = `OK) ?headers body () =
   let open Lwt.Infix in
-  Cohttp_lwt_unix.Server.respond_string ~status ~body ()
+  Cohttp_lwt_unix.Server.respond_string ~status ?headers ~body ()
   >>= to_resp_action
 (*
 let respond_html_elt ?(status = `OK) body =
@@ -103,6 +103,8 @@ module Make (User : Api.USER) (Body : Api.BODY) : sig
              -> 'a
              -> node
 
+  val doc : t -> (string * string list) list
+
 end = struct
 
   open Netlib
@@ -110,7 +112,7 @@ end = struct
   module Meth_map = Map.Make (struct
                         type t = Cohttp.Code.meth
                         let compare : t -> t -> int = Pervasives.compare
-                      end) 
+                      end)
 
   type state = Cohttp_lwt_unix.Request.t * Conduit_lwt_unix.flow
 
@@ -169,7 +171,9 @@ end = struct
           | `Instant resp ->
              resp
           | `Value body ->
-             respond_string (Body.to_string body) ()
+            respond_string
+              ~headers:(Cohttp.Header.of_list ["Content-Type", Body.content_type])
+              (Body.to_string body) ()
           | `Unit ->
              respond_string "" () (* TODO there should be something better that string *)
           | `Not_implemented ->
@@ -221,12 +225,18 @@ end = struct
     if not_allowed user
     then Lwt.return (`Error "access denied")
     else f user body env state
-    
+
   let node ?doc ?(restrict=[]) ~meth ~path ~query handler : node =
     let not_allowed id = List.exists (User.equal id) restrict in
     Uri.Dispatcher.make ?docstring:doc ~path ~query handler
     |> Uri.Dispatcher.map_node (transform not_allowed)
-    |> fun node -> meth, node 
+    |> fun node -> meth, node
+
+  let doc (t : t) =
+    List.map (fun (meth, v) ->
+        Cohttp.Code.string_of_method meth,
+        Uri.Dispatcher.doc v)
+    @@ Meth_map.bindings t
 
 end
 

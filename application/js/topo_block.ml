@@ -1,7 +1,6 @@
 open Containers
 open Components
 open Topo_types
-open Common
 
 let port_section_height = 50
 let base_class = "topology__block"
@@ -86,7 +85,7 @@ class virtual t ~port_setter
 
     method virtual settings_event : (Widget.t * string) React.event
 
-    method private set_state : Topology.state -> unit = function
+    method private set_state : Application_types.Topology.state -> unit = function
       | `Fine ->
          self#add_class fine_class;
          self#remove_class init_class;

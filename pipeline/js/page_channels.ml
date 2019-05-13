@@ -1,6 +1,6 @@
 open Containers
 open Components
-open Common
+open Application_types
 
 module Storage = Ui_templates.Storage.Local_storage
 

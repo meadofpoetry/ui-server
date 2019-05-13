@@ -38,4 +38,6 @@ module Make (User : Api.USER) (Body : Api.BODY) : sig
              -> 'a
              -> node
 
+  val doc : t -> (string * string list) list
+
 end

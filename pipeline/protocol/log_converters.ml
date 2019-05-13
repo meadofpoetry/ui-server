@@ -52,11 +52,7 @@ module Video = struct
     let level     = Err in
     let create flag time message info =
       if not flag then []
-      else
-        match Time.of_span time with
-        | None -> []
-        | Some time ->
-           [ { time; input; stream; service; pid; node; level; info = info (); message } ]
+      else [{ time; input; stream; service; pid; node; level; info = info (); message }]
     in
     let errors = x.errors in
     let info (params : Qoe_errors.params) typ peak_cont () =
@@ -144,11 +140,7 @@ module Audio = struct
     let level     = Err in
     let create flag time message info =
       if not flag then []
-      else
-        match Time.of_span time with
-        | None -> []
-        | Some time ->
-           [ { time; input; stream; service; pid; node; level; info = info (); message } ]
+      else [{ time; input; stream; service; pid; node; level; info = info (); message }]
     in
     let errors = x.errors in
     let info (params : Qoe_errors.params) cont_peak () =

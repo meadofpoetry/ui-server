@@ -1,5 +1,5 @@
 module V4 : sig
-  include module type of Ipaddr.V4
+  include module type of Ipaddr.V4 with type t = Ipaddr.V4.t
 
   val equal : t -> t -> bool
 
@@ -20,7 +20,7 @@ module V4 : sig
 end
 
 module V6 : sig
-  include module type of Ipaddr.V6
+  include module type of Ipaddr.V6 with type t = Ipaddr.V6.t
 
   val equal : t -> t -> bool
 
