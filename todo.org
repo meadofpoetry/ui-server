@@ -1,25 +1,24 @@
 * Project goals
 
-** TODO Alpha goals [1/16]:
-- [-] Rearrange project libraries
+** TODO Alpha goals [3/16]:
+- [X] Rearrange project libraries
   - [X] Separate utility libraries
     - [X] Netlib
-  - [-] Functorize everything with stuff like users, db, streams, topologies etc as it is done in mirage
-    - [ ] Hardware refactoring (the stream api part)
-    - [ ] Common timer loop
+  - [X] Functorize everything with stuff like users, db, streams, topologies etc as it is done in mirage
+    - [X] Hardware refactoring (the stream api part)
     - [X] KV
     - [X] DB 
       - [X] Wrap caqti interface with an adaptor
     - [X] Server
       - [X] Refactor Api.Socket interaction layer
       - [X] Refactor Api interaction layer
-    - [ ] Boards
+    - [X] Boards
     - [X] Streams, Topo, Users application types
 - [X] Non-blocking usb interaction
 - [ ] Fix db leaks
 - [ ] User password encryption
 - [ ] Refactor Pipeline types to support saved settings alteration
-- [ ] Make ats-backend a library
+- [X] Make ats-backend a library
 - [ ] HTTP Server refactoring
   - [ ] Https support
   - [ ] Flexible configuration and iface
@@ -69,6 +68,7 @@
     - [ ] Just put things in order
 
 ** TODO Beta goals [0/2]:
+- [ ] SDI support
 - [ ] QoE storage
   - [ ] Consider using min/max + deviation + avg instead of min + max + avg
   - [ ] DB aggregator refactoring
