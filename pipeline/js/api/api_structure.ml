@@ -9,14 +9,13 @@ module Event = struct
 
   let ( >>= ) = Lwt_result.( >>= )
 
-  let get_streams ?f ?applied ?(inputs = []) ?(ids = []) () =
+  let get_streams ?f ?(inputs = []) ?(ids = []) () =
     let t =
       Api_websocket.create
-        ~path:Path.Format.("api/pipeline/streams" @/ empty)
+        ~path:Path.Format.("ws/pipeline/streams" @/ empty)
         ~query:Query.[ "id", (module List(Application_types.Stream.ID))
-                     ; "input", (module List(Application_types.Topology.Show_topo_input))
-                     ; "applied", (module Option(Bool)) ]
-        ids inputs applied () in
+                     ; "input", (module List(Application_types.Topology.Show_topo_input)) ]
+        ids inputs () in
     match f with
     | None -> t
     | Some f ->
@@ -25,14 +24,13 @@ module Event = struct
       Api_websocket.subscribe_map socket of_json @@ f socket;
       Lwt.return_ok socket
 
-  let get_streams_with_source ?f ?applied ?(inputs = []) ?(ids = []) () =
+  let get_streams_with_source ?f ?(inputs = []) ?(ids = []) () =
     let t =
       Api_websocket.create
-        ~path:Path.Format.("api/pipeline/streams/with-source" @/ empty)
+        ~path:Path.Format.("ws/pipeline/streams/with-source" @/ empty)
         ~query:Query.[ "id", (module List(Application_types.Stream.ID))
-                     ; "input", (module List(Application_types.Topology.Show_topo_input))
-                     ; "applied", (module Option(Bool)) ]
-        ids inputs applied () in
+                     ; "input", (module List(Application_types.Topology.Show_topo_input)) ]
+        ids inputs () in
     match f with
     | None -> t
     | Some f ->
@@ -40,6 +38,36 @@ module Event = struct
       t >>= fun socket ->
       Api_websocket.subscribe_map socket of_json @@ f socket;
       Lwt.return_ok socket
+
+  let get_streams_applied ?f ?(inputs = []) ?(ids = []) () =
+    let t =
+      Api_websocket.create
+        ~path:Path.Format.("ws/pipeline/streams/applied" @/ empty)
+        ~query:Query.[ "id", (module List(Application_types.Stream.ID))
+                     ; "input", (module List(Application_types.Topology.Show_topo_input)) ]
+        ids inputs () in
+    match f with
+    | None -> t
+    | Some f ->
+       let of_json = Util_json.List.of_yojson Structure.of_yojson in
+       t >>= fun socket ->
+       Api_websocket.subscribe_map socket of_json @@ f socket;
+       Lwt.return_ok socket
+
+  let get_streams_applied_with_source ?f ?(inputs = []) ?(ids = []) () =
+    let t =
+      Api_websocket.create
+        ~path:Path.Format.("ws/pipeline/streams/applied-with-source" @/ empty)
+        ~query:Query.[ "id", (module List(Application_types.Stream.ID))
+                     ; "input", (module List(Application_types.Topology.Show_topo_input)) ]
+        ids inputs () in
+    match f with
+    | None -> t
+    | Some f ->
+       let of_json = Util_json.List.of_yojson Structure.packed_of_yojson in
+       t >>= fun socket ->
+       Api_websocket.subscribe_map socket of_json @@ f socket;
+       Lwt.return_ok socket
 
 end
 
@@ -51,14 +79,13 @@ let apply_streams s =
     ~body:(Util_json.List.to_yojson Structure.to_yojson s)
     (fun _env res -> Lwt.return res)
 
-let get_streams ?applied ?(inputs = []) ?(ids = []) () =
+let get_streams ?(inputs = []) ?(ids = []) () =
   Api_http.perform
     ~meth:`GET
     ~path:Path.Format.("api/pipeline/streams" @/ empty)
     ~query:Query.[ "id", (module List(Application_types.Stream.ID))
-                 ; "input", (module List(Application_types.Topology.Show_topo_input))
-                 ; "applied", (module Option(Bool)) ]
-    ids inputs applied
+                 ; "input", (module List(Application_types.Topology.Show_topo_input))]
+    ids inputs
     (fun _env -> function
        | Error e -> Lwt.return_error e
        | Ok x ->
@@ -66,17 +93,44 @@ let get_streams ?applied ?(inputs = []) ?(ids = []) () =
          | Error e -> Lwt.return_error (`Conv_error e)
          | Ok x -> Lwt.return_ok x)
 
-let get_streams_with_source ?applied ?(inputs = []) ?(ids = []) () =
+let get_streams_with_source ?(inputs = []) ?(ids = []) () =
   Api_http.perform
     ~meth:`GET
     ~path:Path.Format.("api/pipeline/streams/with-source" @/ empty)
     ~query:Query.[ "id", (module List(Application_types.Stream.ID))
-                 ; "input", (module List(Application_types.Topology.Show_topo_input))
-                 ; "applied", (module Option(Bool)) ]
-    ids inputs applied
+                 ; "input", (module List(Application_types.Topology.Show_topo_input))]
+    ids inputs
     (fun _env -> function
        | Error e -> Lwt.return_error e
        | Ok x ->
+         match Util_json.List.of_yojson Structure.packed_of_yojson x with
+         | Error e -> Lwt.return_error (`Conv_error e)
+         | Ok x -> Lwt.return_ok x)
+
+let get_streams_applied ?(inputs = []) ?(ids = []) () =
+  Api_http.perform
+    ~meth:`GET
+    ~path:Path.Format.("api/pipeline/streams/applied" @/ empty)
+    ~query:Query.[ "id", (module List(Application_types.Stream.ID))
+                 ; "input", (module List(Application_types.Topology.Show_topo_input))]
+    ids inputs
+    (fun _env -> function
+      | Error e -> Lwt.return_error e
+      | Ok x ->
+         match Util_json.List.of_yojson Structure.of_yojson x with
+         | Error e -> Lwt.return_error (`Conv_error e)
+         | Ok x -> Lwt.return_ok x)
+
+let get_streams_applied_with_source ?(inputs = []) ?(ids = []) () =
+  Api_http.perform
+    ~meth:`GET
+    ~path:Path.Format.("api/pipeline/streams/applied-with-source" @/ empty)
+    ~query:Query.[ "id", (module List(Application_types.Stream.ID))
+                 ; "input", (module List(Application_types.Topology.Show_topo_input))]
+    ids inputs
+    (fun _env -> function
+      | Error e -> Lwt.return_error e
+      | Ok x ->
          match Util_json.List.of_yojson Structure.packed_of_yojson x with
          | Error e -> Lwt.return_error (`Conv_error e)
          | Ok x -> Lwt.return_ok x)

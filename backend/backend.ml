@@ -150,10 +150,11 @@ let ( / ) = Filename.concat
 
 let ( >>= ) = Lwt_result.bind
 
+let unwrap = function Ok v -> v | Error e -> failwith e
+            
 (* TODO let operators *)
 let main () =
   let config_path = Xdg.config_dir / "ui_server" in
-  (*let persistent  = config_path / "persistent" in*)
   Lwt.return @@ Kv.RW.create ~create:true ~path:config_path >>= fun kv ->
   Kv.RW.parse ~default:Db_conf.default Db_conf.of_string kv ["db"] >>= fun db_conf ->
   (* TODO getenv opt *)
@@ -165,8 +166,10 @@ let main () =
     ~maintain:db_conf.cleanup
   >>= fun db ->
   Application.create kv db
-  >>= fun (app, app_loop) ->
-  let routes = Application_http.create "need template" app in
+  >>= fun (app, app_loop) -> (* TODO move template to application *)
+  Futil_lwt.File.read (unwrap @@ Futil.Path.of_string @@ Sys.argv.(1))
+  >>= fun template ->
+  let routes = Application_http.create template app in (* TODO proper template init *)
   let auth_filter = Application.redirect_filter app in
   Serv.create kv auth_filter routes
   >>= fun server ->
@@ -192,6 +195,13 @@ let () =
   ignore (Nocrypto_entropy_lwt.initialize ());
   Logs.set_reporter (lwt_reporter (Format.std_formatter));
   Logs.set_level (Some log_level);
+
+  if Array.length @@ Sys.argv <> 2
+  then begin
+      Printf.printf "Usage:\n\t%s [path to template]\n" Sys.argv.(0);
+      exit (-1)
+    end;
+  
   match Lwt_main.run (main ()) with
   | Ok () ->
      print_endline "Ui Server is done, no error reported"

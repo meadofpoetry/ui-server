@@ -19,26 +19,26 @@ module Event = struct
     Util_json.(
       List.to_yojson (Pair.to_yojson Int.to_yojson (ts_to_yojson f)) v)
 
-  let get_measurements (api : Protocol.api) (ids : int list) _user _body _env state =
+  let get_measurements (api : Protocol.api) (ids : int list) _user _body _env _state =
     let event =
       api.notifs.measures
       |> filter_if_needed ids
       |> E.map (to_json Measure.to_yojson) in
-    Lwt.return (`Ev (state, event))
+    Lwt.return (`Ev event)
 
-  let get_parameters (api : Protocol.api) (ids : int list) _user _body _env state =
+  let get_parameters (api : Protocol.api) (ids : int list) _user _body _env _state =
     let event =
       api.notifs.params
       |> filter_if_needed ids
       |> E.map (to_json Params.to_yojson) in
-    Lwt.return (`Ev (state, event))
+    Lwt.return (`Ev event)
 
-  let get_plp_list (api : Protocol.api) (ids : int list) _user _body _env state =
+  let get_plp_list (api : Protocol.api) (ids : int list) _user _body _env _state =
     let event =
       api.notifs.plps
       |> filter_if_needed ids
       |> E.map (to_json Plp_list.to_yojson) in
-    Lwt.return (`Ev (state, event))
+    Lwt.return (`Ev event)
 end
 
 let to_json f x =
@@ -76,7 +76,7 @@ let get_stream (api : Protocol.api) (id : int) _user _body _env state =
       (React.S.value api.notifs.streams) in
   Lwt.return @@ `Value Util_json.(Option.to_yojson Stream.to_yojson stream)
 
-let get_measurements (api : Protocol.api) (id : int) _user _body _env state =
+let get_measurements (api : Protocol.api) (id : int) _user _body _env _state =
   api.channel (Request.Get_measure id)
   >>= function
   | Ok x -> Lwt.return @@ `Value (to_json Measure.to_yojson x)

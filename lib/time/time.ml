@@ -203,14 +203,14 @@ module Period = struct
   include Ptime.Span
 
   let to_yojson (v:t) : Yojson.Safe.json =
-    let d, ps = Span.to_d_ps v in
+    let d, ps = Ptime.Span.to_d_ps v in
     `List [ `Int d;`Intlit (Int64.to_string ps) ]
 
   let of_yojson (j:Yojson.Safe.json) : (t,string) result =
     let to_err j = Printf.sprintf "span_of_yojson: bad json value (%s)" @@ Yojson.Safe.to_string j in
     match j with
     | `List [ `Int d; `Intlit ps] -> (match Int64.of_string_opt ps with
-                                      | Some ps -> to_result (Span.of_d_ps (d,ps))
+                                      | Some ps -> to_result (Ptime.Span.of_d_ps (d,ps))
                                       | None    -> Error (to_err j))
     | _ -> Error (to_err j)
 

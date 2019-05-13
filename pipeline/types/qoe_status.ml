@@ -1,10 +1,5 @@
 open Application_types
 
+include Qoe_backend_types.Qoe_status.Make (Stream.ID)
+   
 let name = "stream_lost"
-
-type t =
-  { stream  : Stream.ID.t
-  ; channel : int
-  ; pid     : int
-  ; playing : bool
-  } [@@deriving yojson, ord]

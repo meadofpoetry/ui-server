@@ -1,6 +1,6 @@
 open Netlib.Uri
 open Pipeline_types
-
+(*
 module Api_websocket = Api_js.Websocket.Make(Body)
 
 module Api_http = Api_js.Http.Make(Body)
@@ -43,3 +43,4 @@ let get () =
          match Settings.of_yojson x with
          | Error e -> Lwt.return_error (`Conv_error e)
          | Ok x -> Lwt.return_ok x)
+ *)

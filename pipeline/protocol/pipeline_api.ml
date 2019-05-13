@@ -16,7 +16,7 @@ let get_settings (api : api) _ body sock_data () =
       S.changes api.notifs.wm
       |> E.map Wm.to_yojson
     in
-    Lwt.return (`Ev (state, event))
+    Lwt.return (`Ev event)
 
   let get_status (api : Protocol.api) ids _user _body _env state =
     let event = S.changes api.notifs.status in
@@ -28,7 +28,7 @@ let get_settings (api : api) _ body sock_data () =
            event
     in
     let event = E.map (Util_json.List.to_yojson Qoe_status.to_yojson) event in
-    Lwt.return (`Ev (state, event))
+    Lwt.return (`Ev event)
 
 end
 
@@ -38,7 +38,7 @@ let set body conv apply =
   | Ok x ->
      apply x
      >>= function Ok () -> Lwt.return `Unit
-                | Error e -> Lwt.return (`Error e) (* TODO respond result *)
+                | Error (`Qoe_backend e) -> Lwt.return (`Error e) (* TODO respond result *)
 (*
   let set_settings (api : api) headers body () =
     set body Settings.of_yojson
@@ -51,16 +51,25 @@ let set body conv apply =
          | Ok v -> Ok (Settings.to_yojson v))
     >>= respond_result
  *)
-let apply_wm_layout (api : Protocol.api) _user body _env _state =
+let apply_wm_layout (state : Protocol.state) (api : Protocol.api) _user body _env _state =
+  let (>>=) = Lwt_result.bind in
   set body Wm.of_yojson
     Protocol.(fun x ->
-    Message.Protocol.wm_apply_layout ~options:api.options.wm api.channel x)
+    match state.backend with
+    | None -> Lwt.return_error (`Qoe_backend "not ready")
+    | Some backend ->
+       Qoe_backend.Mosaic.apply_layout backend x
+       >>= fun () ->
+       Lwt_result.ok @@ api.options.wm#set x)
 
-let get_wm_layout (api : Protocol.api) _user _body _env _state =
-  Message.Protocol.wm_get_layout api.channel ()
-  >>= (function
-       | Error e -> Lwt.return (`Error e)
-       | Ok v -> Lwt.return (`Value (Wm.to_yojson v)))
+let get_wm_layout (state : Protocol.state) (api : Protocol.api) _user _body _env _state =
+  match state.backend with
+  | None -> Lwt.return (`Error "not ready")
+  | Some backend ->
+     Protocol.Qoe_backend.Mosaic.get_layout backend
+     >>= (function
+          | Error (`Qoe_backend e) -> Lwt.return (`Error e)
+          | Ok v -> Lwt.return (`Value (Wm.to_yojson v)))
 
 let get_status (api : Protocol.api) ids _user _body _env _state =
   React.S.value api.notifs.status

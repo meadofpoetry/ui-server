@@ -1,41 +1,56 @@
 open Application_types
 open Pipeline_types
-open Qoe_errors
+
+module Qoe_backend = Qoe_backend_lwt.Make
+                       (Stream.ID)
+                       (Netlib.Uri)
+                       (Time.Useconds)
+(* TODO rename Qoe_...types.Basic.Time to Usec period *)
+   
 
 type options =
   { wm : Wm.t Kv_v.rw
   ; structures : Structure.t list Kv_v.rw
-  ; settings : Settings.t Kv_v.rw
+  ; settings : unit (* Settings.t Kv_v.rw *)
   }
 
-type state =
-  { socket : Exchange.t
-  ; ready_e : unit React.event
-  ; mutable proc : Lwt_process.process_none option
-  }
-
-type notifs =
+type notifications =
   { streams : Structure.t list React.signal
   (*; settings : Settings.t React.signal*)
   ; wm : Wm.t React.signal
   ; applied_structs : Structure.t list React.signal
   ; status : Qoe_status.t list React.signal
   ; status_raw : Qoe_status.t React.event
-  ; vdata : Video_data.t React.event (* TODO to be split by purpose later *)
-  ; adata : Audio_data.t React.event
+  ; vdata : Qoe_errors.Video_data.t React.event (* TODO to be split by purpose later *)
+  ; adata : Qoe_errors.Audio_data.t React.event
   }
 
+type notify = { streams : Structure.t list -> unit
+              ; wm : Wm.t -> unit
+              ; applied_structs : Structure.t list -> unit
+              ; status : Qoe_status.t -> unit
+              ; vdata : Qoe_errors.Video_data.t -> unit
+              ; adata : Qoe_errors.Audio_data.t -> unit
+              }
+                                         
 type api =
-  { notifs  : notifs
+  { notifs  : notifications
   ; options : options
   ; sources : (Netlib.Uri.t * Stream.t) list ref
-  ; channel : Message.chan
   ; model   : Model.t
+  }
+
+type state =
+  (* TODO add socket? *)
+  { mutable backend : Qoe_backend.t option
+  ; mutable running : unit Lwt.t option
+  ; notify : notify
+  ; mutable kept : < >
   }
 
 module Wm_options = Kv_v.RW(Wm)
 module Structures_options = Kv_v.RW(Structure.Many)
-module Settings_options = Kv_v.RW(Settings)
+(*module Settings_options = Kv_v.RW(Settings)*)
 
 (*
 let settings_init typ send (options : options) =
@@ -137,22 +152,16 @@ let notification_attach_setter
   >>= fun default ->
   signal_add_setter signal default merge
   
-let create_notifications (options : options) channel =
-  let open Notif in
-  let (>>=) = Lwt.bind in
-  
-  let ready  = add_event ~name:Exchange.Ready.name Exchange.Ready.ready_of_yojson in
+let create_notifications (options : options) : (notifications * notify) =  
   (* TODO remove Equal.poly *)
-  let status_raw = add_event ~name:"stream_lost" Qoe_status.of_yojson in
-  let vdata  = add_event ~name:"video_data" Qoe_errors.Video_data.of_yojson in
-  let adata  = add_event ~name:"audio_data" Qoe_errors.Audio_data.of_yojson in
-  let wm     = add_signal ~name:"wm" ~eq:Wm.equal ~init:Wm.default Wm.of_yojson in
-  let streams = add_signal ~name:"stream_parser" ~eq:(fun _ _ -> false) ~init:[]
-                  Structure.Many.of_yojson in
-
-  let applied_structs = add_signal ~name:"applied_streams" ~eq:(fun _ _ -> false) ~init:[]
-                          Structure.Many.of_yojson in
-
+  let streams, streams_push = Util_react.E.create () in
+  let wm, wm_push = Util_react.E.create () in
+  let applied_structs, applied_push = Util_react.E.create () in
+  let status_raw, status_push = Util_react.E.create () in
+  let vdata, vdata_push = Util_react.E.create () in
+  let adata, adata_push = Util_react.E.create () in
+  
+  (*
   notification_attach_setter
     ~combine:Structure.combine
     ~set:(Message.Protocol.graph_apply_structure channel)
@@ -160,7 +169,7 @@ let create_notifications (options : options) channel =
     ~signal:(React.S.l2 ~eq:(fun _ _ -> false) (fun a b -> (a,b))
                applied_structs
                streams)
-  >>= fun applied_structs ->
+  >>= fun applied_structs -> 
 
   notification_attach_setter
     ~combine:Wm.combine
@@ -168,7 +177,11 @@ let create_notifications (options : options) channel =
     ~options:(options.wm)
     ~signal:wm
   >>= fun wm ->
-
+   *)
+  let streams = Util_react.S.hold ~eq:Structure.equal_many [] streams in
+  let wm = Util_react.S.hold ~eq:Wm.equal Wm.default wm in
+  let applied_structs = Util_react.S.hold ~eq:Structure.equal_many [] applied_structs in
+  
   let pids_diff =
     applied_structs
     |> React.S.map ~eq:(list_equal pid_equal) (fun x -> Structure.pids x)
@@ -180,90 +193,114 @@ let create_notifications (options : options) channel =
     |> React.S.fold ~eq:(fun _ _ -> false) update_status []
   in
   
-  let notifs = { streams; applied_structs; wm; vdata; adata; status; status_raw } in 
-  Lwt.return (ready, notifs)
+  let notifs = { streams; applied_structs; wm; vdata; adata; status; status_raw } in
+  let notif_push = { streams = streams_push
+                   ; wm = wm_push
+                   ; applied_structs = applied_push
+                   ; status = status_push
+                   ; vdata = vdata_push
+                   ; adata = adata_push
+                   }
+  in
+  (notifs, notif_push)
   
 let create db kv sock_in sock_out =
   let (>>=?) = Lwt_result.bind in
-  let (>>=) = Lwt.bind in
 
   Wm_options.create ~default:Wm.default kv ["pipeline";"wm"]
   >>=? fun wm ->
 
   Structures_options.create ~default:[] kv ["pipeline";"structures"]
   >>=? fun structures ->
-
+(*
   Settings_options.create ~default:Settings.default kv ["pipeline";"settings"]
   >>=? fun settings ->
+ *)
   
-  let options = { wm; structures; settings } in
+  let options = { wm; structures; settings = () } in
   let sources = ref [] in
-  let proc    = None in
 
-  let socket  = Exchange.create ~sock_in ~sock_out in
-  let recv    = Exchange.get_recv socket in
-  let channel = Exchange.get_chan socket in
+  Qoe_backend.init_logger ();
+  let backend = None in
+  let running = None in
 
   (*let merge v = Structure_conv.match_streams srcs v in*)
 
-  create_notifications options channel
-  >>= fun (ready_e, notifs) ->
+  let (notifs, notify) = create_notifications options in
   
   Model.create db notifs.streams notifs.status notifs.vdata notifs.adata
   >>=? fun model ->
   
   let api =
-    { notifs; options; sources; channel; model }
+    { notifs; options; sources; model }
   in
   let state =
-    { socket; ready_e; proc }
+    { backend; running; notify; kept = object end }
   in
-  Lwt.return_ok (api, state, (recv Notif.dispatch))
-
-let rec interleave l r =
-  match l, r with
-  | [], r' -> r'
-  | l', [] -> l'
-  | x::l', y::r' ->
-     x::y::(interleave l' r')
+  Lwt.return_ok (api, state)
   
-let reset bin_path bin_name api state (sources : (Netlib.Uri.t * Stream.t) list) =
-  let exec_path = (Filename.concat bin_path bin_name) in
+let reset api state (sources : (Netlib.Uri.t * Stream.t) list) =
+  let (>>=) = Lwt.bind in
+  let (>>=?) = Lwt_result.bind in
+  
   let ids =
     List.map (fun (_, s) ->
         Stream.ID.to_string s.Stream.id) sources in
   let uris = List.map (fun (a,_) -> Netlib.Uri.to_string a) sources in
-  let args = interleave ids uris in
-  let exec_opts = Array.of_list (bin_name :: args) in
-  (* ignore @@ Lwt_io.printf "Arguments: %s\n" (Array.fold_left (fun acc s -> acc ^ " " ^ s) "" exec_opts); *)
+  let args = Array.of_list @@ List.combine ids uris in
+  ignore @@
+    Lwt_io.printf "Arguments: %s\n" (Array.fold_left (fun acc (id,s) -> acc ^ " (" ^ id ^ ", " ^ s ^ ")") "" args);
   api.sources := sources;
 
-  Exchange.reset state.socket;
+  begin match state.backend with
+  | None -> Lwt.return_unit
+  | Some backend ->
+     match state.running with
+     | None -> Lwt.return_unit
+     | Some t ->
+        Qoe_backend.destroy backend;
+        t
+  end
+  >>= fun () ->
 
-  begin match state.proc with
-  | None -> ()
-  | Some proc -> proc#terminate
-  end;
+  Qoe_backend.create args
+  >>=? fun (backend, events) ->
+  
+  state.backend <- Some backend;
 
-  let is_ready = Exchange.Ready.is_ready state.ready_e in
-  state.proc <- Some (Lwt_process.open_process_none (exec_path, exec_opts));
+  state.kept <-
+    object
+      val st = Util_react.E.map state.notify.streams events.streams
+      val wm = Util_react.E.map state.notify.wm events.wm
+      val ap = Util_react.E.map state.notify.applied_structs events.graph
+      val sta = Util_react.E.map state.notify.status events.status
+      val vd = Util_react.E.map state.notify.vdata events.vdata
+      val ad = Util_react.E.map state.notify.adata events.adata
+    end;
 
-  Lwt.on_termination is_ready (Exchange.on_ready state.socket (fun () -> ()));
-
-  (*Lwt.ignore_result (is_ready
-                     >|= Exchange.on_ready state.socket (fun () -> ()));*)
-  (*settings_init typ send state.options)); *)
+  (* TODO add state updates if settings are avail *)
 
   Model.set_streams api.model (List.map snd sources);
-  Logs.debug (fun m -> m "(Pipeline) reset [%s]" (Array.fold_left (fun acc x -> acc ^ " " ^ x) "" exec_opts));
-  Lwt.return_unit
 
-let finalize state =
-  Exchange.finalize state.socket;
-  begin match state.proc with
-  | None -> ()
-  | Some proc -> proc#terminate
-  end;
-  state.proc <- None;
+  state.running <- Some (Qoe_backend.run backend);
+
+  Lwt.return_ok ()
+
+let finalize state api =
+  let (>>=) = Lwt.bind in
+  begin match state.backend with
+  | None -> Lwt.return_unit
+  | Some backend ->
+     match state.running with
+     | None -> Lwt.return_unit
+     | Some t ->
+        Qoe_backend.destroy backend;
+        t
+  end
+  >>= fun () ->
+
+  state.backend <- None;
+  state.running <- None;
+  state.kept <- object end;
   Logs.debug (fun m -> m "(Pipeline) finalize");
   Lwt.return_unit

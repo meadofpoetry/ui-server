@@ -80,12 +80,12 @@ object(self)
     | None ->
       let state =
         let get () =
-          Api_structure.get_streams_with_source ~applied:true ()
+          Api_structure.get_streams_applied_with_source ()
           >>= function
           | Ok x -> Lwt.return_ok x
           | Error e -> Lwt.return_error @@ Api_js.Http.error_to_string e in
         let get_socket ~f () =
-          Api_structure.Event.get_streams_with_source ~applied:true ~f () in
+          Api_structure.Event.get_streams_applied_with_source ~f () in
         Signal.make_state
           ~get
           ~get_socket in

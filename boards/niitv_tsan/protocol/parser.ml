@@ -255,7 +255,7 @@ module Section = struct
           | Some x -> x in
         let data =
           { SI_PSI_section.Dump.
-            section = B64.encode raw
+            section = Base64.encode_exn raw
           ; stream_id = Stream.Multi_TS_ID.of_int32_pure stream_id
           ; table_id
           ; section_id

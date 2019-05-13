@@ -3,28 +3,28 @@ open Lwt.Infix
 
 module Event = struct
 
-  let get_topology (app : Application.t) _user _body _env state =
+  let get_topology (app : Application.t) _user _body _env _state =
     let event =
       React.S.changes app.topo
       |> React.E.map Topology.to_yojson
     in
-    Lwt.return (`Ev (state, event))
+    Lwt.return (`Ev event)
 
-  let get_streams (app : Application.t) _user _body _env state =
+  let get_streams (app : Application.t) _user _body _env _state =
     let event =
       React.S.changes app.hw.streams
       |> React.E.map Stream.stream_table_to_yojson
     in
-    Lwt.return (`Ev (state, event))
+    Lwt.return (`Ev event)
 
-  let get_log (app : Application.t) inputs streams _user _body _env state =
+  let get_log (app : Application.t) inputs streams _user _body _env _state =
     match Application.log_for_input app inputs streams with
     | Error e  -> Lwt.return (`Error e)
     | Ok event ->
        let event =
          React.E.map (Util_json.List.to_yojson Stream.Log_message.to_yojson) event
        in
-       Lwt.return (`Ev (state, event))
+       Lwt.return (`Ev event)
 
 end
 

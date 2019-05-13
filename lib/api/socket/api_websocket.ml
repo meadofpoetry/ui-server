@@ -1,5 +1,5 @@
 open Websocket_cohttp_lwt
-open Frame
+open Websocket
 open Lwt.Infix
 
 module Make (User : Api.USER) (Body : Api.BODY) = struct
@@ -18,51 +18,70 @@ module Make (User : Api.USER) (Body : Api.BODY) = struct
 
   type env = Api.env
 
-  type event = [ `Ev of state * body React.event
+  type event = [ `Ev of body React.event
                | `Error of string
                ]
 
-  let rand_int () = Random.int 10000000
+  type socket_table = (int, unit React.event * (unit -> unit)) Hashtbl.t
 
-  let socket_table : (int, unit React.event) Hashtbl.t =
+  let make_socket_table () =
     Hashtbl.create 1000
 
-  let to_response sock_data (event:body React.event) =
+  let close_sockets (table : socket_table) =
+    Hashtbl.iter (fun _ (_,close) -> close ()) table;
+    Hashtbl.clear table
+
+  let rand_int () = Random.int 10000000
+    
+  (* TODO fix api *)
+  let to_response socket_table sock_data (event:body React.event) =
     let id = rand_int () in
     (*Cohttp_lwt.Body.drain_body body
     >>= fun () ->*)
     Websocket_cohttp_lwt.upgrade_connection
       (fst sock_data)
-      (snd sock_data)
       (fun f -> match f.opcode with
-                | Opcode.Close -> Hashtbl.remove socket_table id
+                | Frame.Opcode.Close ->
+                   Hashtbl.find_all socket_table id
+                   |> List.iter (fun (_,close) -> close ());
+                   Hashtbl.remove socket_table id
                 | _ -> ())
-    >>= fun (resp, body, frames_out_fn) ->
+    >>= fun (resp, frames_out_fn) ->
+    
     let send msg =
-      let msg = Body.to_string msg in
+      let msg = Body.to_string msg in 
       frames_out_fn @@ Some (Frame.create ~content:msg ())
     in
+    
     let sock_events = React.E.map (fun e -> send e) event in
-    Hashtbl.add socket_table id sock_events;
-    Lwt.return (resp, (body :> Cohttp_lwt.Body.t))
+    
+    let close () =
+      React.E.stop sock_events;
+      frames_out_fn @@ Some (Frame.create ~opcode:Frame.Opcode.Close ())
+    in
+    
+    Hashtbl.add socket_table id (sock_events, close);
+    Lwt.return resp
 
-  let transform_resp : event -> Api_http.answer = function
+  let transform_resp socket_table state : event -> Api_http.answer = function
     | `Error _ as e -> e
-    | `Ev (state, ev) ->
-       `Instant (to_response state ev)
+    | `Ev ev ->
+       `Instant (to_response socket_table state ev)
 
-  let transform not_allowed f =
+  let transform socket_table not_allowed f =
     fun user body env state ->
     if not_allowed user
     then Lwt.return (`Error "access denied")
-    else Lwt.map transform_resp (f user body env state)
+    else Lwt.map
+           (transform_resp socket_table state)
+           (f user body env state)
 
-  let event state ev : event Lwt.t = Lwt.return (`Ev (state, ev))
+  let event ev : event Lwt.t = Lwt.return (`Ev ev)
     
-  let node ?doc ?(restrict=[]) ~path ~query handler : node =
+  let node ?doc ?(restrict=[]) ~socket_table ~path ~query handler : node =
     let not_allowed id = List.exists (User.equal id) restrict in
     Uri.Dispatcher.make ?docstring:doc ~path ~query handler
-    |> Uri.Dispatcher.map_node (transform not_allowed)
+    |> Uri.Dispatcher.map_node (transform socket_table not_allowed)
     |> fun node -> `GET, node
     
 end

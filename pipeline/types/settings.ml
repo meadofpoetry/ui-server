@@ -1,4 +1,4 @@
-
+(*
 let name = "settings"
 
 type setting =
@@ -134,3 +134,4 @@ let of_string s =
   | Error e -> failwith e
 
 let combine ~set x = ignore set; `Kept x
+                                 *)

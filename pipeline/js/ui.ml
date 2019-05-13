@@ -134,7 +134,7 @@ module Structure = struct
     div, s, post
 
 end
-
+(*
 module Settings = struct
 
   let make_setting h (s : Settings.setting) =
@@ -376,3 +376,4 @@ module Settings = struct
     let post = Pipeline_api_js.Api_settings.set in
     div, s, post
 end
+ *)

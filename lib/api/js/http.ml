@@ -70,7 +70,13 @@ end = struct
   let ( >>= ) = Lwt.( >>= )
 
   let make_uri ?scheme ?host ?port ~f ~path ~query =
-    Uri.kconstruct ?scheme ?host ?port
+    let host = match host with
+      | None -> Js_of_ocaml.Url.Current.host
+      | Some x -> x in
+    let port = match port with
+      | None -> Js_of_ocaml.Url.Current.port
+      | Some x -> Some x in
+    Uri.kconstruct ?scheme ~host ?port
       ~f:(f % Uri.pct_decode % Uri.to_string) ~path ~query
 
   let perform ?headers ?progress ?upload_progress

@@ -1,7 +1,7 @@
 open Containers
 open Components
+open Application_types
 open Topo_types
-open Common
 
 let base_class = "topology__cpu"
 

@@ -31,8 +31,11 @@ let pages () : Api_template.topmost Api_template.item list =
     ~icon:(make_icon Icon.SVG.Path.collage)
     ~path:(Path.of_string "pipeline")
     props
-
-let handlers (api : Pipeline_protocol.Protocol.api) =
+  
+(* TODO remove state *)
+let handlers
+      (state : Pipeline_protocol.Protocol.state)
+      (api : Pipeline_protocol.Protocol.api) =
   let open Pipeline_protocol in
   let open Api_http in
   [ merge ~prefix:"pipeline"
@@ -41,13 +44,13 @@ let handlers (api : Pipeline_protocol.Protocol.api) =
               ~meth:`GET
               ~path:Path.Format.empty
               ~query:Query.empty
-              (Pipeline_api.get_wm_layout api)
+              (Pipeline_api.get_wm_layout state api)
           ; node ~doc:"Post wm"
               ~restrict:[`Guest]
               ~meth:`POST
               ~path:Path.Format.empty
               ~query:Query.empty
-              (Pipeline_api.apply_wm_layout api)
+              (Pipeline_api.apply_wm_layout state api)
           ]
      (* ; make ~prefix:"settings"
              [ `GET, [ create_handler ~docstring:"Settings"
@@ -73,22 +76,32 @@ let handlers (api : Pipeline_protocol.Protocol.api) =
               ~meth:`GET
               ~path:Path.Format.empty
               ~query:Query.[ "id", (module List(Stream.ID))
-                           ; "input", (module List(Topology.Show_topo_input))
-                           ; "applied", (module Option(Bool)) ]
-              (Pipeline_api_structures.get_streams api)
+                           ; "input", (module List(Topology.Show_topo_input))  ]
+              (Pipeline_api_structures.get_streams state api)
+          ; node ~doc:"Applied streams"
+              ~meth:`GET
+              ~path:Path.Format.("applied" @/ empty)
+              ~query:Query.[ "id", (module List(Stream.ID))
+                           ; "input", (module List(Topology.Show_topo_input)) ]
+              (Pipeline_api_structures.get_streams_applied state api)
           ; node ~doc:"Streams with source"
               ~meth:`GET
               ~path:Path.Format.("with-source" @/ empty)
               ~query:Query.[ "id", (module List(Stream.ID))
-                           ; "input", (module List(Topology.Show_topo_input))
-                           ; "applied", (module Option(Bool)) ]
-              (Pipeline_api_structures.get_streams_with_source api)
+                           ; "input", (module List(Topology.Show_topo_input))  ]
+              (Pipeline_api_structures.get_streams_with_source state api)
+          ; node ~doc:"Applied streams with source"
+              ~meth:`GET
+              ~path:Path.Format.("applied-with-source" @/ empty)
+              ~query:Query.[ "id", (module List(Stream.ID))
+                           ; "input", (module List(Topology.Show_topo_input)) ]
+              (Pipeline_api_structures.get_streams_applied_with_source state api)
           ; node ~doc:"Apply streams"
               ~restrict:[`Guest]
               ~meth:`POST
               ~path:Path.Format.empty
               ~query:Query.empty
-              (Pipeline_api_structures.apply_streams api)
+              (Pipeline_api_structures.apply_streams state api)
           ]
       ; make ~prefix:"history"
           [ node ~doc:"Streams archive"
@@ -116,9 +129,13 @@ let ws (api : Pipeline_protocol.Protocol.api) =
   let open Pipeline_protocol in
   let open Api_http in
   let open Api_websocket in
+  (* TODO add closing event *)
+  let socket_table = make_socket_table () in
+
   [ merge ~prefix:"pipeline"
       [ make ~prefix:"wm"
           [ node ~doc:"WM socket"
+              ~socket_table
               ~path:Path.Format.empty
               ~query:Query.empty
               (Pipeline_api.Event.get_wm_layout api)
@@ -130,32 +147,47 @@ let ws (api : Pipeline_protocol.Protocol.api) =
         (WS.get_settings api) *)
       ; make ~prefix:"status"
           [ node ~doc:"Stream status socket"
+              ~socket_table
               ~path:Path.Format.empty
               ~query:Query.["id", (module List(Stream.ID))]
               (Pipeline_api.Event.get_status api)
           ]
       ; make ~prefix:"streams"
           [ node ~doc:"Streams websocket"
+              ~socket_table
               ~path:Path.Format.empty
               ~query:Query.[ "id", (module List(Stream.ID))
-                           ; "input", (module List(Topology.Show_topo_input))
-                           ; "applied", (module Option(Bool)) ]
+                           ; "input", (module List(Topology.Show_topo_input)) ]
               (Pipeline_api_structures.Event.get_streams api)
+          ; node ~doc:"Applied streams websocket"
+              ~socket_table
+              ~path:Path.Format.("applied" @/ empty)
+              ~query:Query.[ "id",    (module List(Stream.ID))
+                           ; "input", (module List(Topology.Show_topo_input)) ]
+              (Pipeline_api_structures.Event.get_applied api)
           ; node ~doc:"Streams with source websocket"
+              ~socket_table
               ~path:Path.Format.("with-source" @/ empty)
-              ~query:Query.[ "id", (module List(Stream.ID))
-                           ; "input", (module List(Topology.Show_topo_input))
-                           ; "applied", (module Option(Bool)) ]
+              ~query:Query.[ "id",    (module List(Stream.ID))
+                           ; "input", (module List(Topology.Show_topo_input)) ]
               (Pipeline_api_structures.Event.get_streams_packed api)
+          ; node ~doc:"Applied streams with source websocket"
+              ~socket_table
+              ~path:Path.Format.("applied-with-source" @/ empty)
+              ~query:Query.[ "id",    (module List(Stream.ID))
+                           ; "input", (module List(Topology.Show_topo_input)) ]
+              (Pipeline_api_structures.Event.get_applied_packed api)
           ]
       ; make ~prefix:"measurements"
           [ node ~doc:"Video data socket"
+              ~socket_table
               ~path:Path.Format.("video" @/ empty)
               ~query:Query.[ "stream", (module Option(Stream.ID))
                            ; "channel", (module Option(Int))
                            ; "pid", (module Option(Int)) ]
               (Pipeline_api_measurements.Event.get_video api)
           ; node ~doc:"Audio data socket"
+              ~socket_table
               ~path:Path.Format.("audio" @/ empty)
               ~query:Query.[ "stream", (module Option(Stream.ID))
                            ; "channel", (module Option(Int))

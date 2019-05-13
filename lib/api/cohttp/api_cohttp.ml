@@ -17,7 +17,13 @@ let env_of_headers headers : env =
        | _ -> None
   in { env }
 
-let respond_need_auth = Cohttp_lwt_unix.Server.respond_need_auth
+let to_resp_action resp =
+  Lwt.return (`Response resp)
+
+let respond_need_auth ?headers ~auth () =
+  let open Lwt.Infix in
+  Cohttp_lwt_unix.Server.respond_need_auth ?headers ~auth ()
+  >>= to_resp_action
 
 (*
 let respond_not_found = Cohttp_lwt_unix.Server.respond_not_found
@@ -26,8 +32,10 @@ let respond_file base path =
   Cohttp_lwt_unix.Server.respond_file
     ~fname:(Filename.concat base path)
  *)
-let respond_string ?(status = `OK) body =
-  Cohttp_lwt_unix.Server.respond_string ~status ~body
+let respond_string ?(status = `OK) ?headers body () =
+  let open Lwt.Infix in
+  Cohttp_lwt_unix.Server.respond_string ~status ?headers ~body ()
+  >>= to_resp_action
 (*
 let respond_html_elt ?(status = `OK) body =
   Cohttp_lwt_unix.Server.respond ~status
@@ -38,8 +46,10 @@ let respond_redirect path =
   Cohttp_lwt_unix.Server.respond_redirect
     ~uri:(Uri.with_path Uri.empty path)
  *)
-let respond_error ?(status = `Forbidden) error =
-  Cohttp_lwt_unix.Server.respond_error ~status ~body:error
+let respond_error ?(status = `Forbidden) error () =
+  let open Lwt.Infix in
+  Cohttp_lwt_unix.Server.respond_error ~status ~body:error ()
+  >>= to_resp_action
 
 (* TODO make use of Result resp types
   
@@ -74,9 +84,9 @@ module Make (User : Api.USER) (Body : Api.BODY) : sig
            and type path = Netlib.Uri.t
            and type answer = [ Api.Authorize.error
                              | Body.t response
-                             | `Instant of (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t
+                             | `Instant of Cohttp_lwt_unix.Server.response_action Lwt.t
                              ]
-           and type response = (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t
+           and type response = Cohttp_lwt_unix.Server.response_action Lwt.t
            and type 'a handler =
                       Cohttp.Code.meth * 'a Netlib.Uri.Dispatcher.node
 
@@ -116,10 +126,10 @@ end = struct
 
   type answer = [ Api.Authorize.error
                 | Body.t response
-                | `Instant of (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t
-                ]
+                | `Instant of Cohttp_lwt_unix.Server.response_action Lwt.t
+                ] 
 
-  type response = (Cohttp.Response.t * Cohttp_lwt.Body.t) Lwt.t
+  type response = Cohttp_lwt_unix.Server.response_action Lwt.t
 
   type 'a handler =
     Cohttp.Code.meth * 'a Netlib.Uri.Dispatcher.node

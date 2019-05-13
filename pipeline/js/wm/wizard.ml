@@ -418,12 +418,12 @@ let to_layout ~resolution ~widgets signal =
  * it returns dialog, react event and a fun showing dialog *)
 
 let to_content (wm : Wm.t) =
-  Api_structure.get_streams_with_source ~applied:true ()
+  Api_structure.get_streams_applied_with_source ()
   >>= function
   | Error e -> Lwt.return_error @@ Api_js.Http.error_to_string e
   | Ok init ->
     let s, set_s = React.S.create ~eq:(List.equal Structure.equal_packed) init in
-    Api_structure.Event.get_streams_with_source ~applied:true
+    Api_structure.Event.get_streams_applied_with_source
       ~f:(fun _ -> function
           | Ok x -> set_s x
           | Error _ -> ()) ()

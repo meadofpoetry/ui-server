@@ -33,15 +33,19 @@ class t () = object(self)
 
   method private on_load =
     let open Lwt_result.Infix in
-    Requests.HTTP.get_topology ()
-    >>= (fun init ->
-      let event,sock = Requests.WS.get_topology () in
-      let nodes = Page_topology.create ~parent:self ~init ~event () in
-      _nodes <- nodes;
-      _sock <- Some sock;
-      self#layout ();
-      Lwt_result.return ())
-    |> ignore
+    Lwt.async (fun () ->
+        (Requests.get_topology ()
+         |> Lwt_result.map_err Api_js.Http.error_to_string)
+        >>= fun init ->
+        let event, set_event = React.E.create () in
+        Requests.Event.get_topology
+          ~f:(fun _ -> function Ok x -> set_event x | _ -> ()) ()
+        >>= fun socket ->
+        let nodes = Page_topology.create ~parent:self ~init ~event () in
+        _nodes <- nodes;
+        _sock <- Some socket;
+        self#layout ();
+        Lwt.return_ok ())
 
 end
 

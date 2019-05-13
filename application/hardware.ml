@@ -285,7 +285,12 @@ let set_stream ?(port=1234) (hw : t) (ss : Stream.stream_setting) =
              (function ((`Board bid, bs), buri) as v ->
                 if id = bid
                 then
-                  let url = Uri.(with_port (with_path_v4 empty buri) (Some port')) in
+                  let url =
+                    Uri.empty
+                    |> (fun uri -> Uri.with_host uri (Some (Ipaddr.V4.to_string buri)))
+                    |> (fun uri -> Uri.with_port uri (Some port'))
+                    |> (fun uri -> Uri.with_scheme uri (Some "udp")) (* TODO proper scheme *)
+                  in
                   `Left { url; stream = bs }
                 else
                   `Right v) streams in
@@ -296,8 +301,9 @@ let set_stream ?(port=1234) (hw : t) (ss : Stream.stream_setting) =
         | TSoIP x ->
            let url =
              Uri.empty
-             |> (fun uri -> Uri.with_path_v4 uri x.addr)
+             |> (fun uri -> Uri.with_host uri (Some (Ipaddr.V4.to_string x.addr)))
              |> (fun uri -> Uri.with_port uri (Some x.port))
+             |> (fun uri -> Uri.with_scheme uri (Some "udp")) (* TODO proper scheme *)
            in
            { url; stream = s }
         | _ -> raise_notrace (
