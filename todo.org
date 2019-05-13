@@ -1,23 +1,29 @@
 * Project goals
 
-** TODO Alpha goals [1/22]:
+** TODO Alpha goals [1/16]:
 - [-] Rearrange project libraries
   - [X] Separate utility libraries
     - [X] Netlib
   - [-] Functorize everything with stuff like users, db, streams, topologies etc as it is done in mirage
+    - [ ] Hardware refactoring (the stream api part)
     - [ ] Common timer loop
     - [X] KV
     - [X] DB 
       - [X] Wrap caqti interface with an adaptor
-    - [ ] Server
-      - [ ] Refactor Api.Socket interaction layer
-      - [ ] Refactor Api interaction layer
+    - [X] Server
+      - [X] Refactor Api.Socket interaction layer
+      - [X] Refactor Api interaction layer
     - [ ] Boards
-    - [ ] Streams, Topo, Users application types
+    - [X] Streams, Topo, Users application types
 - [X] Non-blocking usb interaction
 - [ ] Fix db leaks
 - [ ] User password encryption
 - [ ] Refactor Pipeline types to support saved settings alteration
+- [ ] Make ats-backend a library
+- [ ] HTTP Server refactoring
+  - [ ] Https support
+  - [ ] Flexible configuration and iface
+  - [ ] Swagger like api page
 - [ ] Interaction with the Qoe analyser
   - [ ] Consider h264 streaming option
   - [ ] Settings api
@@ -37,29 +43,30 @@
   - [ ] Prohibit selection of equal streams for analysis
 - [ ] API
   - [ ] Add API to fetch archived streams (from all sources)
-- [ ] Implement common scaffold widget for every page
-- [ ] Reduce generated JS files size
-- [ ] Render initial content on the server side where possible
-- [ ] Refactor mosaic video page
-  - [ ] Show stats and settings inside dismissible side sheet widget
-  - [ ] Add quick navigation to mosaic editor
-  - [ ] Video controls should be common across browsers
-- [ ] Refactor mosaic editor page
-  - [ ] Adaptive design
-  - [ ] Show layers and widgets cards inside dismissible side sheet widget
-  - [ ] Grid should never scroll
-  - [ ] Rethink grid size principles
-  - [ ] Add fast available widget selection mechanism
-  - [ ] Show when the widget on mosaic in unavailable
-- [ ] Refactor topology page
-  - [ ] Show/hide settings dependent on the current user
-- [ ] Refactor input page
-  - [ ] Add board tabs to show info for boards, not streams
-  - [ ] Add archived streams to streams tab
-- [ ] Refactor network settings page
-  - [ ] Just put things in order
-- [ ] Refactor user settings page
-  - [ ] Just put things in order
+- [ ] UI
+  - [ ] Implement common scaffold widget for every page
+  - [ ] Reduce generated JS files size
+  - [ ] Render initial content on the server side where possible
+  - [ ] Refactor mosaic video page
+    - [ ] Show stats and settings inside dismissible side sheet widget
+    - [ ] Add quick navigation to mosaic editor
+    - [ ] Video controls should be common across browsers
+  - [ ] Refactor mosaic editor page
+    - [ ] Adaptive design
+    - [ ] Show layers and widgets cards inside dismissible side sheet widget
+    - [ ] Grid should never scroll
+    - [ ] Rethink grid size principles
+    - [ ] Add fast available widget selection mechanism
+    - [ ] Show when the widget on mosaic in unavailable
+  - [ ] Refactor topology page
+    - [ ] Show/hide settings dependent on the current user
+  - [ ] Refactor input page
+    - [ ] Add board tabs to show info for boards, not streams
+    - [ ] Add archived streams to streams tab
+  - [ ] Refactor network settings page
+    - [ ] Just put things in order
+  - [ ] Refactor user settings page
+    - [ ] Just put things in order
 
 ** TODO Beta goals [0/2]:
 - [ ] QoE storage
@@ -79,7 +86,7 @@
 - [ ] Refactor topology page
   - [ ] Show detailed status for boards
 - [ ] Add mosaic encoding settings (codec, bitrate, resolution)
-
+  
 ** TODO Release candidate [0/1]:
 - [ ] Data server interaction
   - [ ] Send-dependency graph

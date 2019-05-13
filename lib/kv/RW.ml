@@ -27,7 +27,7 @@ type t =
 
 type error = [
   | Futil.File.create_error
-  | `Not_directory
+  | `Not_directory of string
   | `Bad_path of string
   ]
 
@@ -35,21 +35,30 @@ type write_error = Futil.File.write_error
 
 type read_error = [
   | Futil.File.read_error
-  | `Not_found
-  | `Parse_error of string
+  | `Not_found of string
+  ]
+
+type parse_error = [
+  | read_error
+  | `Not_parsed of string * string list * string
   ]
 
 let pp_error ppf = function
   | #Futil.File.create_error as e -> Futil.File.pp_create_error ppf e
   | `Bad_path path -> Fmt.fmt "bad path: %s" ppf path
-  | `Not_directory -> Fmt.string ppf "kv path refers not to a directory"
+  | `Not_directory path -> Fmt.fmt "kv path %s refers not to a directory" ppf path
 
 let pp_write_error = Futil.File.pp_write_error
 
 let pp_read_error ppf = function
   | #Futil.File.read_error as e -> Futil.File.pp_read_error ppf e
-  | `Not_found -> Fmt.string ppf "not found"
-  | `Parse_error msg -> Fmt.fmt "value parse error: %s" ppf msg
+  | `Not_found s -> Fmt.fmt "file '%s' not found" ppf s
+
+let pp_parse_error ppf = function
+  | #read_error as e -> pp_read_error ppf e
+  | `Not_parsed (e, k, v) ->
+     let path = String.concat "/" k in
+     Fmt.fmt "value '%s' under path '%s' not parsed. error = %s" ppf v path e
 
 let (>>=) e f =
   match e with
@@ -68,7 +77,7 @@ let create ?(create = false) ~path =
      Info.info path'
      >>= fun info ->
      if not (Info.is_dir info)
-     then Error `Not_directory
+     then Error (`Not_directory path)
      else if (Info.unix_perm info land 0o300) = 0
      then Error `Access_denied
      else Ok { cached_lock = Lwt_mutex.create ()
@@ -90,7 +99,7 @@ let read kv keys =
      File.read path
      >>= function
      | Error `No_such_file ->
-        Lwt.return_error `Not_found
+        Lwt.return_error (`Not_found (Path.to_string path))
      | Error _ as e ->
         Lwt.return e
      | Ok data' ->
@@ -142,3 +151,19 @@ let unwatch kv keys =
   Lwt_mutex.with_lock kv.watchers_lock
     (fun _ -> Lwt.return @@
                 kv.watchers <- KMap.remove keys kv.watchers)
+
+let parse ?default of_string kv keys =
+  let open Lwt.Infix in
+  read kv keys >>= function
+  | Error _ as e -> begin
+      match default with
+      | None -> Lwt.return e
+      | Some x -> Lwt.return_ok x
+    end
+  | Ok v ->
+     try Lwt.return_ok @@ of_string v
+     with exn ->
+       let e = match exn with
+         | Failure s -> s
+         | exn -> Printexc.to_string exn in
+       Lwt.return_error (`Not_parsed (e, keys, v))

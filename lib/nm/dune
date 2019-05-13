@@ -1,0 +1,3 @@
+(library
+  (name      nm)
+  (libraries obus))

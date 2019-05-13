@@ -1,0 +1,4 @@
+(library
+  (name      api_cohttp)
+  (libraries api netlib cohttp-lwt-unix)
+  (preprocess future_syntax))

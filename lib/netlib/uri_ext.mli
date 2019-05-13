@@ -1,4 +1,4 @@
-include module type of Uri
+include module type of Uri with type t = Uri.t
                      
 module Scheme : sig
   type uri = t
@@ -17,6 +17,7 @@ module Scheme : sig
 end
 
 module Path : sig
+  type uri = t
   type t
   (* type templ*)
 
@@ -29,6 +30,15 @@ module Path : sig
       | Int32  : int32 fmt
       | Uuid   : Uuidm.t fmt
       | Bool   : bool fmt
+      | Any    : unit fmt
+
+    type paths
+
+    val templates : unit -> paths
+
+    val store_template : paths -> ('a, 'b) t -> unit
+
+    val has_template : paths -> ('a, 'b) t -> bool
 
     val empty : ('a, 'a) t
 
@@ -41,11 +51,13 @@ module Path : sig
     val to_templ : (_,_) t -> templ
  *)
     val doc : ('a, 'b) t -> string
+
+    val of_string : string -> ('a, 'a) t
 (*
     val scan_unsafe : string list -> ('a,'b) t -> 'a -> 'b
-      
-    val kprint : (string list -> 'b) -> ('a, 'b) t -> 'a
  *)
+    val kprint : (string list -> 'b) -> ('a, 'b) t -> 'a
+
   end
 
   val empty : t
@@ -58,9 +70,13 @@ module Path : sig
      *)
   val next : t -> string option * t
 
+  val of_uri : uri -> t
+    
   val of_string : string -> t
     
   val to_string : t -> string
+
+  val concat : t -> t -> t
 end
 
 module Query : sig
@@ -120,20 +136,35 @@ module Dispatcher : sig
   val empty : 'a t
 
   val make : ?docstring:string
-             -> ?schemes:[`Any | `List of Scheme.t list]
              -> path:('a, 'b) Path.Format.t
              -> query:('b, 'c) Query.format
              -> 'a
              -> 'c node
 
+  val map_node : ('a -> 'b) -> 'a node -> 'b node
+
+  val prepend : Path.t -> 'a node -> 'a node
+
+  exception Ambiguity of string
+                       
+  (* raises Ambiguity on ambiguous path *)
   val add : 'a t -> 'a node -> 'a t
 
-  val dispatch : on_err:(unit -> 'a) -> 'a t -> uri -> 'a
+  (* raises Ambiguity on ambiguous path *)
+  val merge : 'a t -> (Path.t * 'a t list) list -> 'a t
+
+  (* raises Ambiguity on ambiguous path *)
+  val concat : 'a t list -> 'a t
+
+  val dispatch : default:'a -> 'a t -> uri -> 'a
 
   val doc : 'a t -> string list
 
 end
 
+(* TODO move to a more approp place *)
+val typ : string
+     
 val to_yojson : t -> Yojson.Safe.json
 
 val of_yojson : Yojson.Safe.json -> (t, string) result
@@ -141,6 +172,8 @@ val of_yojson : Yojson.Safe.json -> (t, string) result
 val path_v4 : t -> Ipaddr_ext.V4.t option
 
 val with_path_v4 : t -> Ipaddr_ext.V4.t -> t
+
+val with_path_parsed : t -> Path.t -> t
 
 val construct : ?scheme:Scheme.t
                 -> ?host:string
