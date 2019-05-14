@@ -175,7 +175,10 @@ let main () =
   Futil_lwt.File.read (unwrap @@ Futil.Path.of_string @@ Sys.argv.(1))
   >>= fun template ->
 
-  let routes = Application_http.create template app in (* TODO proper template init *)
+  let serv_pages = Server_http.pages () in
+  let serv_handlers = Server_http.handlers server_conf in
+
+  let routes = Application_http.create template app serv_pages serv_handlers in (* TODO proper template init *)
   let auth_filter = Application.redirect_filter app in
   
   let server = Server.create server_conf auth_filter routes in

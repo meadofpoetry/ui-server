@@ -70,11 +70,15 @@ module Make (User : Api.USER) (Body : Api.BODY) = struct
 
   let transform socket_table not_allowed f =
     fun user body env state ->
-    if not_allowed user
-    then Lwt.return (`Error "access denied")
-    else Lwt.map
-           (transform_resp socket_table state)
-           (f user body env state)
+    match Body.of_string body with
+    | Error (`Conv_error e) ->
+       Lwt.return (`Error ("body conversion error: " ^ e))
+    | Ok body ->
+       if not_allowed user
+       then Lwt.return (`Error "access denied")
+       else Lwt.map
+              (transform_resp socket_table state)
+              (f user body env state)
 
   let event ev : event Lwt.t = Lwt.return (`Ev ev)
     

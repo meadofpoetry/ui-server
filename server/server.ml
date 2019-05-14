@@ -3,10 +3,11 @@ open Lwt.Infix
 module Api_http = Api_cohttp.Make(Application_types.User)(Application_types.Body)
 
 let ( / ) = Filename.concat
-                
+          
 module Config = struct
 
   type t = { https_enabled : bool
+           ; tls_path : string
            ; tls_key : string option
            ; tls_cert : string option
            ; resources : string
@@ -23,13 +24,14 @@ module Config = struct
     | Error e -> failwith e
                
   let default = { https_enabled = true
-                ; tls_key = Some (Xdg.data_dir / "ui_server/tls/server.key")
-                ; tls_cert = Some (Xdg.data_dir / "ui_server/tls/server.crt")
+                ; tls_path = Xdg.data_dir / "ui_server/tls"
+                ; tls_key = Some "server.key"
+                ; tls_cert = Some "server.crt"
                 ; resources = Xdg.data_dir / "ui_server/resources"
                 ; https_port = 8443
                 ; http_port = 8080
                 }
-               
+              
 end
 
 module Serv_conf = Kv_v.RW (Config)
@@ -44,7 +46,7 @@ exception Server_reset
 let is_none = function None -> true | _ -> false
 
 let get_exn = function Some x -> x | _ -> failwith "get_exn: none"
-  
+                                        
 let handler ~resources_path ~auth_filter ~routes =
 
   let resource base uri =
@@ -120,21 +122,24 @@ let create (config : config) auth_filter routes =
 
   else begin
 
-      let key_path = get_exn settings.tls_key
-      and crt_path = get_exn settings.tls_cert in
+      try
 
-      if not (Sys.file_exists key_path)
-         || not (Sys.file_exists crt_path)
+        let tls_path = Futil.Path.to_explicit_exn settings.tls_path in
+        
+        let key_path = tls_path / get_exn settings.tls_key
+        and crt_path = tls_path / get_exn settings.tls_cert in
 
-      then http_server
+        if not (Sys.file_exists key_path)
+           || not (Sys.file_exists crt_path)
 
-      else 
+        then http_server
 
-        try
+        else 
+
           let mode =
             `TLS
-              (`Crt_file_path (Futil.Path.to_explicit_exn crt_path),
-               `Key_file_path (Futil.Path.to_explicit_exn key_path),
+              (`Crt_file_path crt_path,
+               `Key_file_path key_path,
                `No_password,
                `Port settings.https_port)
           in
@@ -143,5 +148,5 @@ let create (config : config) auth_filter routes =
           
           Lwt.pick [ http_server; tls_server ]
           
-        with _ -> http_server
+      with _ -> http_server
     end

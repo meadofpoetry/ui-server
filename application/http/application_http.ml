@@ -240,7 +240,7 @@ let application_ws (app : Application.t) =
         (Application_api.Event.get_log app)
     ]
 
-let create template (app : Application.t) =
+let create template (app : Application.t) foreign_pages foreing_handlers =
   let proc_pages = match app.proc with
     | None -> []
     | Some proc -> proc#pages () in
@@ -249,6 +249,7 @@ let create template (app : Application.t) =
     @ (application_pages app)
     @ proc_pages
     @ user_pages
+    @ foreign_pages
   in
   let application_api = application_handlers app in
   let board_api =
@@ -274,11 +275,12 @@ let create template (app : Application.t) =
     |> Api_http.make
   in
   let api = Api_http.merge ~prefix:"api"
-              ( user_handlers app.users
+              ( foreing_handlers
+                :: user_handlers app.users
                 :: Pc_control_http.network_handlers app.network
                 :: application_api
                 :: board_api
-                :: proc_api_list )
+                :: proc_api_list)
   in
   let ws = Api_http.merge ~prefix:"ws"
               ( application_ws
