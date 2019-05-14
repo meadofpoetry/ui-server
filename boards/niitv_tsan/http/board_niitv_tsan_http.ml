@@ -10,11 +10,26 @@ let handlers (control : int) (api : Protocol.api) =
   let open Api_http in
   [ merge ~prefix:(Topology.get_api_path control)
       [ make ~prefix:"device"
-          [ node ~doc:"Resets the board"
-              ~meth:`GET
+          [ node ~doc:"Resets the device"
+              ~meth:`POST
               ~path:(Path.Format.of_string "reset")
               ~query:Query.empty
               (Api_device.reset api)
+          ; node ~doc:"Sets T2-MI monitoring mode of the device"
+              ~meth:`POST
+              ~path:(Path.Format.of_string "mode/t2mi")
+              ~query:Query.empty
+              (Api_device.set_t2mi_mode api)
+          ; node ~doc:"Sets active input"
+              ~meth:`POST
+              ~path:(Path.Format.of_string "mode/input")
+              ~query:Query.empty
+              (Api_device.set_input api)
+          ; node ~doc:"Sets port state"
+              ~meth:`POST
+              ~path:Path.Format.("mode/port" @/ Int ^/ empty)
+              ~query:Query.empty
+              (Api_device.set_port api)
           ; node ~doc:"Returns current state of the device"
               ~meth:`GET
               ~path:(Path.Format.of_string "state")
@@ -45,6 +60,38 @@ let handlers (control : int) (api : Protocol.api) =
               ~path:(Path.Format.of_string "mode/jitter")
               ~query:Query.["force", (module Option(Bool))]
               (Api_device.get_jitter_mode api)
+          ]
+      ; make ~prefix:"measurements"
+          [ node ~doc:"Returns list of available TS info"
+              ~meth:`GET
+              ~path:(Path.Format.of_string "ts-info")
+              ~query:Query.empty
+              (Api_measurements.get_ts_info api)
+          ; node ~doc:"Returns current bitrate"
+              ~meth:`GET
+              ~path:(Path.Format.of_string "bitrate")
+              ~query:Query.empty
+              (Api_measurements.get_bitrate api)
+          ; node ~doc:"Returns available services"
+              ~meth:`GET
+              ~path:(Path.Format.of_string "services")
+              ~query:Query.empty
+              (Api_measurements.get_services api)
+          ; node ~doc:"Returns available PIDs"
+              ~meth:`GET
+              ~path:(Path.Format.of_string "pids")
+              ~query:Query.empty
+              (Api_measurements.get_pids api)
+          ; node ~doc:"Returns available SI/PSI tables"
+              ~meth:`GET
+              ~path:(Path.Format.of_string "tables")
+              ~query:Query.empty
+              (Api_measurements.get_si_psi_tables api)
+          ; node ~doc:"Returns available T2-MI info"
+              ~meth:`GET
+              ~path:(Path.Format.of_string "t2mi-info")
+              ~query:Query.empty
+              (Api_measurements.get_t2mi_info api)
           ]
       ; make ~prefix:"stream"
           [ node ~doc:"Returns current streams"

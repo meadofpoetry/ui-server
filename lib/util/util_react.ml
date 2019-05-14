@@ -8,6 +8,12 @@ module E = struct
 
   include Lwt_react.E
 
+  let next ev =
+    let t, w = Lwt.task () in
+    let ev = map (fun x -> Lwt.wakeup_later w x) (once ev) in
+    Lwt.on_cancel t (fun () -> stop ev);
+    t
+
   let changes ~(eq:'a -> 'a -> bool) (e : 'a event) : 'a event =
     changes ~eq e
 

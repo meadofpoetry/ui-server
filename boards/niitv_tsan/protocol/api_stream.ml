@@ -11,7 +11,7 @@ let get_structure (api : Protocol.api) _user _body _env _state =
     let item_to_json =
       Util_json.Pair.to_yojson
         Stream.Multi_TS_ID.to_yojson
-        Request.structure_to_yojson in
+        Structure.to_yojson in
     let to_json = Util_json.List.to_yojson item_to_json in
     Lwt.return (`Value (to_json structure))
 

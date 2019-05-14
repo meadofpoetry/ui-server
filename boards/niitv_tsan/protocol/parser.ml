@@ -106,7 +106,7 @@ module Status = struct
     ; streams : int
     ; ts_common : int
     ; ts : int list
-    ; t2mi : int list
+    ; t2mi : (int * int) list
     } [@@deriving eq, show]
 
   type t =
@@ -131,9 +131,10 @@ module Status = struct
       | 8 -> acc
       | i ->
         (* NOTE check this *)
-        let acc = (Int32.shift_right v (4 * i)
-                   |> Int32.logand 0xfl
-                   |> Int32.to_int) :: acc in
+        let ver = Int32.shift_right v (4 * i)
+                  |> Int32.logand 0xfl
+                  |> Int32.to_int in
+        let acc = (i, ver) :: acc in
         aux acc (succ i) in
     aux [] 0
 
@@ -620,7 +621,7 @@ module Structure = struct
       id, { info with service_id = Some sid
                     ; service_name = Some name }
 
-  let parse_blocks (msg : Cstruct.t) =
+  let parse_blocks timestamp (msg : Cstruct.t) =
     let acc = split_into_blocks msg in
     let info, slen = of_general_block acc.general in
     let elements =
@@ -635,19 +636,19 @@ module Structure = struct
     let emm = of_emm_block acc.emm in
     let pids = List.map (update_pid elements tables emm)
       @@ of_pids_block acc.pids in
-    { Request.
+    { Structure.
       info
     ; services
     ; tables
     ; pids
-    ; timestamp = Ptime_clock.now ()
+    ; timestamp
     }
 
-  let of_ts_struct msg =
+  let of_ts_struct timestamp msg =
     let header, rest = Cstruct.split msg Message.sizeof_ts_struct in
     let length = (Int32.to_int @@ Message.get_ts_struct_length header) in
     let body, rest = Cstruct.split rest length in
-    let structure = parse_blocks body in
+    let structure = parse_blocks timestamp body in
     let stream =
       Stream.Multi_TS_ID.of_int32_pure
       @@ Message.get_ts_struct_stream_id header in
@@ -655,6 +656,7 @@ module Structure = struct
 
   let parse stream (msg : Cstruct.t) =
     try
+      let timestamp = Ptime_clock.now () in
       let count = Message.get_ts_structs_count msg in
       (* stream id list *)
       let body = Cstruct.shift msg (Message.sizeof_ts_structs + count * 4) in
@@ -665,10 +667,10 @@ module Structure = struct
             match Cstruct.len buf with
             | 0 -> List.rev acc
             | _ ->
-              let x, rest = of_ts_struct buf in
+              let x, rest = of_ts_struct timestamp buf in
               aux (x :: acc) rest in
           aux []
-        | `Single _ -> fun buf -> let s, _ = of_ts_struct buf in [s] in
+        | `Single _ -> fun buf -> let s, _ = of_ts_struct timestamp buf in [s] in
       Ok (if count > 0 then parse body else [])
     with Invalid_argument _ -> Error Request.Invalid_payload
 
@@ -792,7 +794,7 @@ module T2MI_info = struct
     | Invalid_argument _ -> Error Request.Invalid_payload
     | Match_failure _ -> Error Request.Invalid_payload
 
-  let parse (stream : Stream.Multi_TS_ID.t) (msg : Cstruct.t) =
+  let parse (msg : Cstruct.t) =
     try
       let header, rest = Cstruct.split msg Message.sizeof_t2mi_info in
       let packets = parse_packets header in
@@ -806,7 +808,7 @@ module T2MI_info = struct
           ; t2mi_pid = None
           ; l1 = None
           } in
-        Ok ((stream, t2mi_stream_id), info)
+        Ok (t2mi_stream_id, info)
       | length ->
         let body = Cstruct.shift rest length in
         match parse_l1 body with
@@ -818,7 +820,7 @@ module T2MI_info = struct
             ; t2mi_pid = Some (Message.get_t2mi_info_ext_t2mi_pid body)
             ; l1 = Some l1
             } in
-          Ok ((stream, t2mi_stream_id), info)
+          Ok (t2mi_stream_id, info)
     with Invalid_argument _ -> Error Request.Invalid_payload
 end
 
@@ -1120,7 +1122,7 @@ let parse src data (parts : part list Part.t) = function
            | Some tag ->
              let msg =
                { Request.
-                 tag = `Structure
+                 tag
                ; client_id = id.client_id
                ; request_id = id.request_id
                ; data
@@ -1190,8 +1192,8 @@ let is_response (type a) (req : a Request.t)
      | `Complex { tag = `Structure; data; request_id; _ } when id = request_id ->
        Some (Structure.parse stream data)
      | _ -> None)
-  | Get_t2mi_info { request_id = id; stream; _ } ->
+  | Get_t2mi_info { request_id = id; _ } ->
     (match msg with
      | `Complex { tag = `T2mi_info; data; request_id; _ } when id = request_id ->
-       Some (T2MI_info.parse stream data)
+       Some (T2MI_info.parse data)
      | _ -> None)

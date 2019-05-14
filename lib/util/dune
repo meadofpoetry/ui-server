@@ -7,3 +7,7 @@
   (name      util_react)
   (modules   util_react)
   (libraries lwt_react))
+
+(library
+  (name      util_equal)
+  (modules   util_equal))

@@ -6,6 +6,10 @@ type notifs =
   ; devinfo : devinfo option React.signal
   ; status : Parser.Status.t React.event
   ; streams : Stream.t list React.signal
+  ; bitrate : (Stream.ID.t * Bitrate.t) list React.event
+  ; structure : (Stream.ID.t * Structure.t) list React.signal
+  ; t2mi_info : (Stream.ID.t * (int * T2mi_info.t) list) list React.signal
+  ; deverr : Deverr.t list React.event
   }
 
 type api =
@@ -74,6 +78,16 @@ let rec map_response prev (rsp : Request.rsp) =
         | `E _ -> `E e))
   | r -> `R r
 
+let map_stream_id
+    (streams : Stream.t list React.signal)
+    (event : (Stream.Multi_TS_ID.t * 'a) list React.event) =
+  Util_react.S.sample (fun event streams ->
+      Boards.Util.List.filter_map (fun (id, v) ->
+          match Stream.find_by_multi_id id streams with
+          | None -> None
+          | Some s -> Some (s.id, v)) event)
+    event streams
+
 let create
     (src : Logs.src)
     (sender : Cstruct.t -> unit Lwt.t)
@@ -86,11 +100,25 @@ let create
   let status, set_status = React.E.create () in
   let errors, set_errors = React.E.create () in
   let raw_streams, set_raw_streams = React.S.create [] in
+  let structure, set_structure = React.E.create () in
+  let bitrate, set_bitrate = React.E.create () in
+  let t2mi_info, set_t2mi_info = React.E.create () in
+  let deverr, set_deverr = React.E.create () in
+  let streams = streams_conv raw_streams in
   let notifs =
     { state
     ; devinfo
+    ; deverr
     ; status
-    ; streams = streams_conv raw_streams
+    ; streams
+    ; bitrate = map_stream_id streams bitrate
+    ; t2mi_info = Util_equal.(
+          let eq_t2mi = List.equal @@ Pair.equal Int.equal T2mi_info.equal in
+          let eq = List.equal @@ Pair.equal Stream.ID.equal eq_t2mi in
+          React.S.hold ~eq [] @@ map_stream_id streams t2mi_info)
+    ; structure = Util_equal.(
+          let eq = List.equal @@ Pair.equal Stream.ID.equal Structure.equal in
+          React.S.hold ~eq [] @@ map_stream_id streams structure)
     } in
   let sender = { Fsm. send = fun req -> sender @@ Serializer.serialize req } in
   let req_queue, push_req_queue = Lwt_stream.create_bounded msg_queue_size in
@@ -120,7 +148,11 @@ let create
       (fun ?step x -> set_devinfo ?step @@ Some x)
       set_status
       set_errors
-      set_raw_streams in
+      set_raw_streams
+      set_structure
+      set_bitrate
+      set_t2mi_info
+      set_deverr in
   Lwt.return_ok { notifs
                 ; kv
                 ; channel

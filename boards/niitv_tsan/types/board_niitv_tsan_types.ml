@@ -258,6 +258,18 @@ module SI_PSI_table = struct
 
 end
 
+module Structure = struct
+
+  type t =
+    { info : TS_info.t
+    ; services : (int * Service_info.t) list
+    ; tables : (SI_PSI_table.id * SI_PSI_table.t) list
+    ; pids : (int * PID_info.t) list
+    ; timestamp : Time.t
+    } [@@deriving eq, yojson]
+
+end
+
 module T2mi_info = struct
 
   type l1_pre =

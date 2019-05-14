@@ -10,14 +10,14 @@ let of_yojson = Board_niitv_tsan_types.config_of_yojson
 
 let default =
   { Board_niitv_tsan_types.
-    input = SPI
+    input = ASI
   ; input_source = 1
   ; t2mi_source = 2
   ; t2mi_mode =
-      { pid = 0
-      ; enabled = false
+      { pid = 4096
+      ; enabled = true
       ; t2mi_stream_id = 0
-      ; stream = Stream.Multi_TS_ID.of_int32_pure 0l
+      ; stream = Stream.Multi_TS_ID.make ~source_id:1 ~stream_id:1
       }
   ; jitter_mode =
       { pid = 0x1FFF
@@ -26,7 +26,7 @@ let default =
   }
 
 let to_string x =
-  Yojson.Safe.to_string @@ to_yojson x
+  Yojson.Safe.pretty_to_string @@ to_yojson x
 
 let of_string x =
   Yojson.Safe.from_string x

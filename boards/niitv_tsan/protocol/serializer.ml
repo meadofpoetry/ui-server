@@ -84,7 +84,7 @@ let to_msg (type a) : a Request.t -> Request.req_tag Request.msg = function
     let data = Cstruct.create Message.sizeof_req_structure in
     Message.set_req_structure_stream_id data stream;
     `Complex (Request.make_complex_msg ~request_id ~data `Structure)
-  | Get_t2mi_info { request_id; t2mi_stream_id; stream } ->
+  | Get_t2mi_info { request_id; t2mi_stream_id } ->
     let data = Cstruct.create Message.sizeof_req_t2mi_info in
     Message.set_req_t2mi_info_t2mi_stream_id data t2mi_stream_id;
     `Complex (Request.make_complex_msg ~request_id ~data `T2mi_info)

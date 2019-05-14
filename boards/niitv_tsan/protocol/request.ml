@@ -23,7 +23,7 @@ type req_tag =
   | `Set_mode
   | `Get_devinfo
   | `Get_mode
-  ]
+  ] [@@deriving eq]
 
 type event_tag =
   [ `Status
@@ -55,7 +55,7 @@ type complex_tag =
   | `Bitrate
   | `Structure
   | `T2mi_info
-  ]
+  ] [@@deriving eq]
 
 let req_tag_to_enum : req_tag -> int = function
   | `Get_devinfo -> 0x0080
@@ -210,14 +210,6 @@ type rsp = simple_tag msg
 
 type evt = event_tag simple_msg
 
-type structure =
-  { info : TS_info.t
-  ; services : (int * Service_info.t) list
-  ; tables : (SI_PSI_table.id * SI_PSI_table.t) list
-  ; pids : (int * PID_info.t) list
-  ; timestamp : Time.t
-  } [@@deriving eq, yojson]
-
 type _ t =
   | Get_devinfo : devinfo t
   | Get_deverr : int -> Deverr.t list t
@@ -248,12 +240,31 @@ type _ t =
   | Get_structure :
       { request_id : int
       ; stream : [ `All | `Single of Stream.Multi_TS_ID.t ]
-      } -> (Stream.Multi_TS_ID.t * structure) list t
+      } -> (Stream.Multi_TS_ID.t * Structure.t) list t
   | Get_t2mi_info :
       { request_id : int
       ; t2mi_stream_id : int
-      ; stream : Stream.Multi_TS_ID.t
-      } -> ((Stream.Multi_TS_ID.t * int) * T2mi_info.t) t
+      } -> (int * T2mi_info.t) t
+
+let to_tag (type a) : a t -> [`Simple of req_tag | `Complex of complex_tag] = function
+  | Get_devinfo -> `Simple `Get_devinfo
+  | Get_deverr _ -> `Complex `Deverr
+  | Get_mode -> `Simple `Get_mode
+  | Set_mode _ -> `Simple `Set_mode
+  | Set_jitter_mode _ -> `Complex `Jitter_mode
+  | Reset -> `Complex `Reset
+  | Set_src_id _ -> `Simple `Set_source_id
+  | Get_t2mi_seq _ -> `Complex `T2mi_seq
+  | Get_section _ -> `Complex `Section
+  | Get_bitrate _ -> `Complex `Bitrate
+  | Get_structure _ -> `Complex `Structure
+  | Get_t2mi_info _ -> `Complex `T2mi_info
+
+let equal a b =
+  match to_tag a, to_tag b with
+  | `Simple _, `Complex _ | `Complex _, `Simple _ -> false
+  | `Simple a, `Simple b -> equal_req_tag a b
+  | `Complex a, `Complex b -> equal_complex_tag a b
 
 let timeout (type a) : a t -> float = function
   (* Responseless requests. If timeout if non-zero, it defines the time
@@ -319,9 +330,9 @@ let to_string (type a) : a t -> string = function
   | Get_structure { request_id; stream = `Single s } ->
     Format.asprintf "Get structure (rid=%d, stream=%a)"
       request_id Stream.Multi_TS_ID.pp s
-  | Get_t2mi_info { request_id; t2mi_stream_id; stream } ->
-    Format.asprintf "Get T2-MI info (rid=%d, T2-MI stream ID=%d, stream=%a)"
-      request_id t2mi_stream_id Stream.Multi_TS_ID.pp stream
+  | Get_t2mi_info { request_id; t2mi_stream_id } ->
+    Format.asprintf "Get T2-MI info (rid=%d, T2-MI stream ID=%d)"
+      request_id t2mi_stream_id
   | Set_mode { input; t2mi_mode = { enabled; pid; t2mi_stream_id; stream }} ->
     Format.asprintf "Set mode (input: %a, \
                      t2mi: enabled=%B, PID=%d, T2-MI stream ID=%d, stream=%a)"
