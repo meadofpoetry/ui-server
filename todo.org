@@ -1,6 +1,6 @@
 * Project goals
 
-** TODO Alpha goals [3/16]:
+** TODO Alpha goals [4/17]:
 - [X] Rearrange project libraries
   - [X] Separate utility libraries
     - [X] Netlib
@@ -16,7 +16,7 @@
     - [X] Streams, Topo, Users application types
 - [X] Non-blocking usb interaction
 - [ ] Fix db leaks
-- [ ] User password encryption
+- [X] User password encryption
 - [ ] Refactor Pipeline types to support saved settings alteration
 - [X] Make ats-backend a library
 - [ ] HTTP Server refactoring

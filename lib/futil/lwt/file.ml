@@ -113,20 +113,25 @@ let create ?(fmode = default_mode) ?(dmode = default_dir_mode) path =
   else Lwt.return_ok ()
 
 let write ?(create = true) ?(fmode = default_mode) ?(dmode = default_dir_mode) path data =
+  let (>>=?) = Lwt_result.bind in
   let path_s = Path.to_string path in
   Info.exists path
   >>= fun exists ->
-  if create && not exists
-  then create_rec ~fmode ~dmode (Path.to_string path)
-  else Lwt.catch
-         (fun () ->
-           Lwt_io.with_file
-             ~mode:Lwt_io.Output
-             path_s
-             (fun oc ->
-               Lwt_io.write oc data
-               >>= Lwt.return_ok))
-         (fun e -> Lwt.return_error (`Writing_error (Printexc.to_string e)))
+  begin
+    if create && not exists
+    then create_rec ~fmode ~dmode (Path.to_string path)
+    else Lwt.return_ok ()
+  end
+  >>=? fun () ->
+  Lwt.catch
+    (fun () ->
+      Lwt_io.with_file
+        ~mode:Lwt_io.Output
+        path_s
+        (fun oc ->
+          Lwt_io.write oc data
+          >>= Lwt.return_ok))
+    (fun e -> Lwt.return_error (`Writing_error (Printexc.to_string e)))
 
 let read path =
   let path_s = Path.to_string path in

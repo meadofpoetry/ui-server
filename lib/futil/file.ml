@@ -35,6 +35,7 @@ let page_size = 65536
                  
 let () = assert (Filename.dir_sep = "/")
 
+(* TODO remove after 4.08 *)
 let finalizer res f ~fin =
   try let r = f res in
       fin res;
@@ -132,7 +133,7 @@ let write ?(create = true) ?(fmode = default_mode) ?(dmode = default_dir_mode) p
   try
     let oc = open_out_bin path_s in
     finalizer oc
-      (fun oc -> output_string oc data)
+      (fun oc -> output_string oc data; flush oc)
       ~fin:close_out;
     Ok ()
   with Sys_error e -> Error (`Writing_error e)
