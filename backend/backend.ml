@@ -165,19 +165,23 @@ let main () =
     ~cleanup:db_conf.cleanup
     ~maintain:db_conf.cleanup
   >>= fun db ->
+
+  Server.create_config kv
+  >>= fun server_conf ->
+  
   Application.create kv db
   >>= fun (app, app_loop) -> (* TODO move template to application *)
+  
   Futil_lwt.File.read (unwrap @@ Futil.Path.of_string @@ Sys.argv.(1))
   >>= fun template ->
+
   let routes = Application_http.create template app in (* TODO proper template init *)
   let auth_filter = Application.redirect_filter app in
-  Serv.create kv auth_filter routes
-  >>= fun server ->
-  let main_loop () : (unit, 'a) Lwt_result.t =
-    ignore db_conf;
-    Lwt.bind (Lwt.pick [app_loop; server]) Lwt.return_ok
-  in
-  main_loop ()
+  
+  let server = Server.create server_conf auth_filter routes in
+  
+  ignore db_conf;
+  Lwt.bind (Lwt.pick [app_loop; server]) Lwt.return_ok
 
 let () =
   let log_level =

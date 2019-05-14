@@ -49,5 +49,10 @@ let of_string s =
 
 let to_string x = x
 
+let to_explicit_exn x =
+  match of_string x with
+  | Error e -> failwith e
+  | Ok v -> to_string v
+
 let append path l =
   Filename.concat path (String.concat Filename.dir_sep l)

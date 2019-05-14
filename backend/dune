@@ -4,6 +4,7 @@
   (libraries  xdg
               kv_v
               db
+              server
               application_http
               lwt.unix
               logs.lwt
