@@ -108,7 +108,9 @@ let create (config : config) auth_filter routes =
   let http_server = Cohttp_lwt_unix.Server.create
                       ~stop:server_stop
                       ~mode:http_mode
-                      ~on_exn:(fun e -> Logs.err (fun m -> m "(Server) Exception: %s" (Printexc.to_string e)))
+                      ~on_exn:(fun e ->
+                        Logs.err (fun m ->
+                            m "(Server) Exception: %s" (Printexc.to_string e)))
                       server
 
   in
@@ -117,8 +119,13 @@ let create (config : config) auth_filter routes =
      || is_none settings.tls_key
      || is_none settings.tls_cert
 
-  then http_server
+  then begin
 
+      Logs.warn (fun m ->
+          m "Https server was not created due to: not configured");
+      http_server
+      
+    end
   else begin
 
       try
@@ -131,10 +138,15 @@ let create (config : config) auth_filter routes =
         if not (Sys.file_exists key_path)
            || not (Sys.file_exists crt_path)
 
-        then http_server
+        then begin
 
-        else 
-
+            Logs.warn (fun m ->
+                m "Https server was not created due to: no certificates provided");
+            http_server
+            
+          end
+        else
+          
           let mode =
             `TLS
               (`Crt_file_path crt_path,
@@ -143,9 +155,18 @@ let create (config : config) auth_filter routes =
                `Port settings.https_port)
           in
           
-          let tls_server = Cohttp_lwt_unix.Server.create ~mode server in
+          let tls_server = Cohttp_lwt_unix.Server.create
+                             ~mode
+                             ~on_exn:(fun e ->
+                               Logs.err (fun m ->
+                                   m "(TLS Server) Exception: %s" (Printexc.to_string e)))
+                             server
+          in
           
           Lwt.pick [ http_server; tls_server ]
-          
-      with _ -> http_server
+
+      with _ ->
+        Logs.warn (fun m ->
+            m "Https server was not created due to: unexpected error");
+        http_server
     end

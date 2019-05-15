@@ -29,6 +29,10 @@ hardware:
 	$(BUILD) frontend/topology.bc.js
 	cp _build/default/frontend/topology.bc.js dist/resources/js/topology.js
 
+server_config:
+	$(BUILD) frontend/server_config.bc.js
+	cp _build/default/frontend/server_config.bc.js dist/resources/js/server_config.js
+
 user:
 	$(BUILD) frontend/user.bc.js
 	cp _build/default/frontend/user.bc.js dist/resources/js/user.js
@@ -57,11 +61,11 @@ backend:
 	$(BUILD) backend/backend.exe
 	cp _build/default/backend/backend.exe dist/backend
 
-build: backend home pipeline hardware user network demo input stream
+build: backend home pipeline hardware user server_config network demo input stream
 	@echo "Done"
 
 dev: PROFILE = dev
-dev: backend home pipeline hardware user network demo input stream
+dev: backend home pipeline hardware user server_config network demo input stream
 	@echo "Done"
 
 doc:

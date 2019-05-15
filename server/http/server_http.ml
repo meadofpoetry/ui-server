@@ -32,7 +32,7 @@ let set_https (conf : Server.config) flag _user _body _env _state =
   
 let add_file setter (conf : Server.config) name _user body _env _state =
   conf#get >>= fun settings ->
-  
+  Lwt_io.printf "Got file %s\n" name |> ignore;
   match Futil.Path.of_string settings.tls_path with
   | Error _ -> Lwt.return (`Error "internal server error")
   | Ok path ->
@@ -93,7 +93,7 @@ let pages () : Api_template.topmost Api_template.item list =
   let props =
     { title = Some "Сервер"
     ; pre_scripts = []
-    ; post_scripts = [ Src "/js/server.js" ]
+    ; post_scripts = [ Src "/js/server_config.js" ]
     ; stylesheets = []
     ; content = []
     }
