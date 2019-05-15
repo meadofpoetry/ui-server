@@ -13,6 +13,8 @@ let make_card user =
     | `Operator -> "оператора"
     | `Guest -> "гостя" in
 
+  (* TODO add https flag and permission check *)
+  
   let key_field =
     Dom_html.createInput ~_type:(Js.string "file") Dom_html.document
   in

@@ -1,6 +1,6 @@
 * Project goals
 
-** TODO Alpha goals [4/17]:
+** TODO Alpha goals [5/17]:
 - [X] Rearrange project libraries
   - [X] Separate utility libraries
     - [X] Netlib
@@ -15,14 +15,14 @@
     - [X] Boards
     - [X] Streams, Topo, Users application types
 - [X] Non-blocking usb interaction
+- [X] HTTP Server refactoring
+  - [X] Https support
+  - [X] Flexible configuration and iface
 - [ ] Fix db leaks
 - [X] User password encryption
 - [ ] Refactor Pipeline types to support saved settings alteration
 - [X] Make ats-backend a library
-- [ ] HTTP Server refactoring
-  - [ ] Https support
-  - [ ] Flexible configuration and iface
-  - [ ] Swagger like api page
+- [ ] Swagger like api page
 - [ ] Interaction with the Qoe analyser
   - [ ] Consider h264 streaming option
   - [ ] Settings api
