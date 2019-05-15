@@ -41,7 +41,10 @@ type config = Serv_conf.t
 let create_config kv =
   Serv_conf.create ~default:Config.default kv [ "server" ]
 
-exception Server_reset
+let server_stop, server_kill = Lwt.wait ()
+
+let kill_server () =
+  Lwt.wakeup_later server_kill ()
 
 let is_none = function None -> true | _ -> false
 
@@ -102,14 +105,10 @@ let create (config : config) auth_filter routes =
 
   let http_mode = `TCP (`Port settings.http_port) in
 
-  let stop, wakener = Lwt.wait () in
   let http_server = Cohttp_lwt_unix.Server.create
-                      ~stop
+                      ~stop:server_stop
                       ~mode:http_mode
-                      ~on_exn:(function Server_reset ->
-                                         Lwt.wakeup wakener ()
-                                      | e ->
-                                         Logs.err (fun m -> m "(Server) Exception: %s" (Printexc.to_string e)))
+                      ~on_exn:(fun e -> Logs.err (fun m -> m "(Server) Exception: %s" (Printexc.to_string e)))
                       server
 
   in

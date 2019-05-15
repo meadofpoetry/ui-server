@@ -61,17 +61,27 @@ let handlers (config : Server.config) =
         ~path:Path.Format.("config" @/ empty)
         ~query:Query.empty
         (get_config config)
+    ; node ~doc:"Restart"
+        ~restrict:[`Operator; `Guest ]
+        ~meth:`POST
+        ~path:Path.Format.("config/server_restart" @/empty)
+        ~query:Query.empty
+        (fun _user _body _env _state ->
+          Server.kill_server (); Lwt.return `Unit)
     ; node ~doc:"Set https flag"
+        ~restrict:[`Operator; `Guest ]
         ~meth:`POST
         ~path:Path.Format.("config/https_enabled" @/empty)
         ~query:Query.[ "value", (module Single(Bool)) ]
         (set_https config)
     ; node_raw ~doc:"Set tls cert"
+        ~restrict:[`Operator; `Guest ]
         ~meth:`POST
         ~path:Path.Format.("config/cert" @/ String ^/empty)
         ~query:Query.empty
         (add_cert config)
     ; node_raw ~doc:"Set tls key"
+        ~restrict:[`Operator; `Guest ]
         ~meth:`POST
         ~path:Path.Format.("config/key" @/ String ^/empty)
         ~query:Query.empty
