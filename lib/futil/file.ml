@@ -14,6 +14,11 @@ type read_error = [
   | `Reading_error of string
   ]
 
+type delete_error = [
+    Path.error
+  | `Sys_error of string
+  ]
+
 let pp_create_error ppf = function
   | #Info.error as e -> Info.pp_error ppf e
   | `File_already_exists -> Fmt.string ppf "file already exists"
@@ -26,6 +31,10 @@ let pp_write_error ppf = function
 let pp_read_error ppf = function
   | #Info.error as e -> Info.pp_error ppf e
   | `Reading_error e -> Fmt.fmt "reading error: %s" ppf e
+
+let pp_delete_error ppf = function
+  | #Path.error as e -> Path.pp_error ppf e
+  | `Sys_error e -> Fmt.fmt "error while deleting file: %s" ppf e
 
 let default_mode = 0o644
 
@@ -115,56 +124,71 @@ let create_rec
   | Error _ as e -> e
 
 let create_dir ?(dmode = default_dir_mode) path =
-  if not (Info.exists path)
-  then create_rec ~dir:true ~dmode (Path.to_string path)
-  else Ok ()
-                 
+  match Path.of_string path with
+  | Error _ as e -> e
+  | Ok path' ->
+     if not (Info.exists path)
+     then create_rec ~dir:true ~dmode (Path.to_string path')
+     else Ok ()
+    
 let create ?(fmode = default_mode) ?(dmode = default_dir_mode) path =
-  if not (Info.exists path)
-  then create_rec ~dir:false ~fmode ~dmode (Path.to_string path)
-  else Ok ()
+  match Path.of_string path with
+  | Error _ as e -> e
+  | Ok path' ->
+     if not (Info.exists path)
+     then create_rec ~dir:false ~fmode ~dmode (Path.to_string path')
+     else Ok ()
                  
 let write ?(create = true) ?(fmode = default_mode) ?(dmode = default_dir_mode) path data =
-  let path_s = Path.to_string path in
-  (if create && not (Info.exists path)
-   then create_rec ~fmode ~dmode path_s
-   else Ok ())
-  >>= fun () ->
-  try
-    let oc = open_out_bin path_s in
-    finalizer oc
-      (fun oc -> output_string oc data; flush oc)
-      ~fin:close_out;
-    Ok ()
-  with Sys_error e -> Error (`Writing_error e)
+  match Path.of_string path with
+  | Error _ as e -> e
+  | Ok path' ->
+     let path_s = Path.to_string path' in
+     (if create && not (Info.exists path)
+      then create_rec ~fmode ~dmode path_s
+      else Ok ())
+     >>= fun () ->
+     try
+       let oc = open_out_bin path_s in
+       finalizer oc
+         (fun oc -> output_string oc data; flush oc)
+         ~fin:close_out;
+       Ok ()
+     with Sys_error e -> Error (`Writing_error e)
 
 let read path =
-  let path_s = Path.to_string path in
-  if not (Info.exists path)
-  then Error `No_such_file
-  else
-    try
-      let ic = open_in_bin path_s in
-      let buf = ref (Bytes.create page_size) in
-      let len = ref 0 in
-      finalizer ic
-        ~fin:close_in
-        (fun ic -> try
-            while true do
-              (* resize *)
-              if !len = Bytes.length !buf then (
-                buf := Bytes.extend !buf 0 !len;
-              );
-              assert (Bytes.length !buf > !len);
-              let n = input ic !buf !len (Bytes.length !buf - !len) in
-              len := !len + n;
-              if n = 0 then raise Exit;  (* exhausted *)
-            done;
-            assert false (* never reached*)
-          with Exit -> Ok (Bytes.sub_string !buf 0 !len))
-    with Sys_error e -> Error (`Reading_error e)
-       | Out_of_memory -> Error (`Reading_error "file is too big")
+  match Path.of_string path with
+  | Error _ as e -> e
+  | Ok path' ->
+     let path_s = Path.to_string path' in
+     if not (Info.exists path)
+     then Error `No_such_file
+     else
+       try
+         let ic = open_in_bin path_s in
+         let buf = ref (Bytes.create page_size) in
+         let len = ref 0 in
+         finalizer ic
+           ~fin:close_in
+           (fun ic -> try
+               while true do
+                 (* resize *)
+                 if !len = Bytes.length !buf then (
+                   buf := Bytes.extend !buf 0 !len;
+                 );
+                 assert (Bytes.length !buf > !len);
+                 let n = input ic !buf !len (Bytes.length !buf - !len) in
+                 len := !len + n;
+                 if n = 0 then raise Exit;  (* exhausted *)
+               done;
+               assert false (* never reached*)
+             with Exit -> Ok (Bytes.sub_string !buf 0 !len))
+       with Sys_error e -> Error (`Reading_error e)
+          | Out_of_memory -> Error (`Reading_error "file is too big")
 
 let delete path =
-  try Ok (Sys.remove (Path.to_string path))
-  with Sys_error e -> Error e
+  match Path.of_string path with
+  | Error _ as e -> e
+  | Ok path' ->
+     try Ok (Sys.remove (Path.to_string path'))
+     with Sys_error e -> Error (`Sys_error e)

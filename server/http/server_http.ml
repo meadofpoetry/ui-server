@@ -8,6 +8,8 @@ module Api_template = Api_cohttp_template.Make(User)
 
 module Icon = Components_markup.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
+let ( / ) = Filename.concat
+            
 let make_icon path =
   let open Icon.SVG in
   let path = create_path path () in
@@ -32,21 +34,17 @@ let set_https (conf : Server.config) flag _user _body _env _state =
   
 let add_file setter (conf : Server.config) name _user body _env _state =
   conf#get >>= fun settings ->
-  Lwt_io.printf "Got file %s\n" name |> ignore;
-  match Futil.Path.of_string settings.tls_path with
-  | Error _ -> Lwt.return (`Error "internal server error")
-  | Ok path ->
-     if String.contains name '/'
-     then Lwt.return (`Error "filename must not contain separators")
-     else
-       let path = Futil.Path.append path [name] in
-       Futil_lwt.File.write ~create:true path body
-       >>= function
-       | Error _ -> Lwt.return (`Error "could not save the file")
-       | Ok () ->
-          conf#set (setter settings (Some name))
-          >>= fun () ->
-          Lwt.return `Unit
+  if String.contains name '/'
+  then Lwt.return (`Error "filename must not contain separators")
+  else
+    let path = settings.tls_path / name in
+    Futil_lwt.File.write ~create:true path body
+    >>= function
+    | Error _ -> Lwt.return (`Error "could not save the file")
+    | Ok () ->
+       conf#set (setter settings (Some name))
+       >>= fun () ->
+       Lwt.return `Unit
 
 let add_cert = add_file (fun x v -> { x with tls_cert = v })
 

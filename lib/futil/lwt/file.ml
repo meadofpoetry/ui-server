@@ -6,11 +6,15 @@ type write_error = Futil.File.write_error
 
 type read_error = Futil.File.read_error
 
+type delete_error = Futil.File.delete_error
+
 let pp_create_error = Futil.File.pp_create_error
 
 let pp_write_error = Futil.File.pp_write_error
 
 let pp_read_error = Futil.File.pp_read_error
+
+let pp_delete_error = Futil.File.pp_delete_error
    
 let default_mode = Futil.File.default_mode
 
@@ -99,47 +103,60 @@ let create_rec
   | Error _ as e -> Lwt.return e
 
 let create_dir ?(dmode = default_dir_mode) path =
-  Info.exists path
-  >>= fun exists ->
-  if not exists
-  then create_rec ~dmode (Path.to_string path)
-  else Lwt.return_ok ()
-                 
+  match Path.of_string path with
+  | Error _ as e -> Lwt.return e
+  | Ok path' ->
+     Info.exists path
+     >>= fun exists ->
+     if not exists
+     then create_rec ~dmode (Path.to_string path')
+     else Lwt.return_ok ()
+     
 let create ?(fmode = default_mode) ?(dmode = default_dir_mode) path =
-  Info.exists path
-  >>= fun exists ->
-  if not exists
-  then create_rec ~fmode ~dmode (Path.to_string path)
-  else Lwt.return_ok ()
+  match Path.of_string path with
+  | Error _ as e -> Lwt.return e
+  | Ok path' ->
+     Info.exists path
+     >>= fun exists ->
+     if not exists
+     then create_rec ~fmode ~dmode (Path.to_string path')
+     else Lwt.return_ok ()
 
 let write ?(create = true) ?(fmode = default_mode) ?(dmode = default_dir_mode) path data =
   let (>>=?) = Lwt_result.bind in
-  let path_s = Path.to_string path in
-  Info.exists path
-  >>= fun exists ->
-  begin
-    if create && not exists
-    then create_rec ~fmode ~dmode (Path.to_string path)
-    else Lwt.return_ok ()
-  end
-  >>=? fun () ->
-  Lwt.catch
-    (fun () ->
-      Lwt_io.with_file
-        ~mode:Lwt_io.Output
-        path_s
-        (fun oc ->
-          Lwt_io.write oc data
-          >>= Lwt.return_ok))
-    (fun e -> Lwt.return_error (`Writing_error (Printexc.to_string e)))
+  match Path.of_string path with
+  | Error _ as e -> Lwt.return e
+  | Ok path' ->
+     let path_s = Path.to_string path' in
+     Info.exists path
+     >>= fun exists ->
+     begin
+       if create && not exists
+       then create_rec ~fmode ~dmode path_s
+       else Lwt.return_ok ()
+     end
+     >>=? fun () ->
+     Lwt.catch
+       (fun () ->
+         Lwt_io.with_file
+           ~mode:Lwt_io.Output
+           path_s
+           (fun oc ->
+             Lwt_io.write oc data
+             >>= Lwt.return_ok))
+       (fun e -> Lwt.return_error (`Writing_error (Printexc.to_string e)))
 
 let read path =
-  let path_s = Path.to_string path in
-  Info.exists path
-  >>= fun exists ->
-  if not exists
-  then Lwt.return_error `No_such_file
-  else Lwt.catch
+  match Path.of_string path with
+  | Error _ as e -> Lwt.return e
+  | Ok path' ->
+     Info.exists path
+     >>= fun exists ->
+     if not exists
+     then Lwt.return_error `No_such_file
+     else
+       let path_s = Path.to_string path' in
+       Lwt.catch
          (fun () -> Lwt_io.with_file
                       ~mode:Lwt_io.Input
                       path_s
@@ -147,13 +164,18 @@ let read path =
                         Lwt_io.read ic
                         >>= Lwt.return_ok))
          (fun e -> Lwt.return_error (`Reading_error (Printexc.to_string e)))
-                        
+       
 let delete path =
-  let path_s = Path.to_string path in
-  Info.exists path
-  >>= fun exists ->
-  if not exists
-  then Lwt.return_error ("File.delete: file not exists " ^ path_s)
-  else Lwt.catch
+  match Path.of_string path with
+  | Error _ as e -> Lwt.return e
+  | Ok path' ->
+     Info.exists path
+     >>= fun exists ->
+     let path_s = Path.to_string path' in
+     if not exists
+     then
+       Lwt.return_error (`Sys_error ("File.delete: file not exists " ^ path_s))
+     else
+       Lwt.catch
          (fun () -> Lwt_unix.unlink path_s >>= Lwt.return_ok)
-         (fun _ -> Lwt.return_error ("File.delete: unknown error " ^ path_s))
+         (fun _ -> Lwt.return_error (`Sys_error ("File.delete: unknown error " ^ path_s)))
