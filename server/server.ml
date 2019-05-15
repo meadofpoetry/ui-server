@@ -157,6 +157,7 @@ let create (config : config) auth_filter routes =
           
           let tls_server = Cohttp_lwt_unix.Server.create
                              ~mode
+                             ~stop:server_stop
                              ~on_exn:(fun e ->
                                Logs.err (fun m ->
                                    m "(TLS Server) Exception: %s" (Printexc.to_string e)))

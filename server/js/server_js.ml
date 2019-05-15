@@ -73,6 +73,14 @@ let make_card user =
 
   let reset = new Button.t ~label:"Перезапустить сервер" () in
 
+  Lwt.async (fun () ->
+      reset#listen_click_lwt (fun _ _ ->
+          Api_http.perform_unit
+            ~meth:`POST
+            ~path:Path.Format.("api/server/config/server_restart" @/ empty)
+            ~query:Query.empty
+            (fun _ _ -> Lwt.return_unit)));
+
   let cont = new Vbox.t ~widgets:[ Widget.create key_field
                                  ; key_but#widget
                                  ; Widget.create cert_field
