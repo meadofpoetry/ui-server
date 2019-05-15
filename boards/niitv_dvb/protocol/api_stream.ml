@@ -28,7 +28,7 @@ module Event = struct
 
   let list_to_option = function [] -> None | l -> Some l
 
-  let mem = Boards.Util.List.mem ~eq:Stream.ID.equal
+  let mem id = List.exists (Stream.ID.equal id)
 
   let filter_if_needed ids event =
     match ids with

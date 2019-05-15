@@ -67,7 +67,7 @@ let mode_to_stream (source_id : int)
 (** Converts device config signal to raw stream list signal. *)
 let to_streams_s (config : Device.config React.signal)
   : Stream.Raw.t list React.signal =
-  React.S.map ~eq:(Boards.Util.List.equal Stream.Raw.equal)
+  React.S.map ~eq:(Util_equal.List.equal Stream.Raw.equal)
     (fun (x : Device.config) -> List.map (mode_to_stream x.source) x.mode)
     config
 
@@ -98,7 +98,7 @@ let create (src : Logs.src)
     (db : Db.t) =
   let open Util_react in
   let devinfo, set_devinfo =
-    S.create ~eq:(Boards.Util.Option.equal Device.equal_info) None in
+    S.create ~eq:(Util_equal.Option.equal Device.equal_info) None in
   let measures, set_measures = E.create () in
   let params, set_params = E.create () in
   let plps, set_plps = E.create () in

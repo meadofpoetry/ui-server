@@ -45,7 +45,7 @@ let send (type a) ~(address : int)
         | exn -> Lwt.fail exn)
 
 let to_streams_s (config : config signal) (status : status event) =
-  S.hold ~eq:(Boards.Util.List.equal Stream.Raw.equal) []
+  S.hold ~eq:(Util_equal.List.equal Stream.Raw.equal) []
   @@ S.sample (fun ({ asi_bitrate; protocol; _ } : status)
                 ({ ip; nw } : config) ->
                 if asi_bitrate <= 0 then [] else (
@@ -79,7 +79,7 @@ let create (src : Logs.src)
   let status, set_status = E.create () in
   let state, set_state = S.create ~eq:Topology.equal_state `No_response in
   let devinfo, set_devinfo =
-    S.create ~eq:(Boards.Util.Option.equal equal_devinfo) None in
+    S.create ~eq:(Util_equal.Option.equal equal_devinfo) None in
   let notifs =
     { streams = streams_conv @@ to_streams_s kv#s status
     ; devinfo

@@ -2,7 +2,6 @@
   (name       board_niitv_tsan_protocol)
   (libraries  boards
               base64
-              util_equal
               bitstring
               text_decoder
               si_psi_parser

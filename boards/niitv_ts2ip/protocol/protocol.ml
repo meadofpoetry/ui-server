@@ -123,9 +123,9 @@ let update_incoming_streams
         match List.filter_map (fun id -> List.assoc_opt id inputs) sync with
         | [] -> None
         | l -> Some l)
-    @@ React.E.changes ~eq:(List.equal equal_socket)
+    @@ React.E.changes ~eq:(Util_equal.List.equal equal_socket)
     @@ React.E.map (fun (status : device_status) -> status.sync) status in
-  React.S.merge ~eq:(List.equal Stream.equal) (@)
+  React.S.merge ~eq:(Util_equal.List.equal Stream.equal) (@)
     [] [conv input_streams; streams]
 
 let create (src : Logs.src)
@@ -138,7 +138,7 @@ let create (src : Logs.src)
   let state, set_state =
     React.S.create ~eq:Topology.equal_state `No_response in
   let devinfo, set_devinfo =
-    React.S.create ~eq:(Boards.Util.Option.equal equal_devinfo) None in
+    React.S.create ~eq:(Util_equal.Option.equal equal_devinfo) None in
   let device_status, set_device_status = React.E.create () in
   let transmitter_status, set_transmitter_status = React.E.create () in
   let incoming_streams =

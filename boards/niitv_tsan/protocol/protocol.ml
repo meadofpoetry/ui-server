@@ -96,7 +96,7 @@ let create
   let state, set_state =
     React.S.create ~eq:Topology.equal_state `No_response in
   let devinfo, set_devinfo =
-    React.S.create ~eq:(Boards.Util.Option.equal equal_devinfo) None in
+    React.S.create ~eq:(Util_equal.Option.equal equal_devinfo) None in
   let status, set_status = React.E.create () in
   let errors, set_errors = React.E.create () in
   let raw_streams, set_raw_streams = React.S.create [] in
@@ -122,28 +122,36 @@ let create
     } in
   let sender = { Fsm. send = fun req -> sender @@ Serializer.serialize req } in
   let req_queue, push_req_queue = Lwt_stream.create_bounded msg_queue_size in
-  let rsp_queue, push_rsp_queue = Lwt_stream.create () in
+  let rsp_event, push_rsp_event = React.E.create () in
   let evt_queue, push_evt_queue = Lwt_stream.create () in
-  let push_data =
-    let prev = ref None in
-    let acc = ref None in
-    let parts = ref Parser.Part.empty in
-    let push (buf : Cstruct.t) =
-      let buf = match !acc with
-        | None -> buf
-        | Some acc -> Cstruct.append acc buf in
-      let parsed, new_parts, new_acc = Parser.deserialize src !parts buf in
-      acc := new_acc;
-      parts := new_parts;
-      List.iter (fun (x : Request.rsp) ->
-          (match map_response !prev x with
-           | `R r -> push_rsp_queue @@ Some r
-           | `E e -> push_evt_queue @@ Some e);
-          prev := Some x) parsed in
-    push in
+  let prev = ref None in
+  let acc = ref None in
+  let parts = ref Parser.Part.empty in
+  let ttl = 5. in
+  let push_data (buf : Cstruct.t) =
+    let buf = match !acc with
+      | None -> buf
+      | Some acc -> Cstruct.append acc buf in
+    let timestamp = Ptime_clock.now () in
+    let parts' = Parser.Part.filter (fun _ (acc : Parser.part list ts) ->
+        let old = Ptime.to_float_s acc.timestamp in
+        let cur = Ptime.to_float_s timestamp in
+        cur -. old < ttl) !parts in
+    let parsed, new_parts, new_acc = Parser.deserialize ~timestamp src parts' buf in
+    acc := new_acc;
+    parts := new_parts;
+    List.iter (fun (x : Request.rsp) ->
+        Logs.debug ~src (fun m ->
+            m "Got '%s'" (match x with
+                | `Complex { tag; _ } -> Request.complex_tag_to_string tag
+                | `Simple { tag; _ } -> Request.simple_tag_to_string tag));
+        (match map_response !prev x with
+         | `R r -> push_rsp_event r
+         | `E e -> push_evt_queue @@ Some e);
+        prev := Some x) parsed in
   let channel = fun req -> send src state push_req_queue sender req in
   let loop () =
-    Fsm.start src sender req_queue rsp_queue evt_queue kv
+    Fsm.start src sender req_queue rsp_event evt_queue kv
       set_state
       (fun ?step x -> set_devinfo ?step @@ Some x)
       set_status

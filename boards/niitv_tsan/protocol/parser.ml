@@ -56,7 +56,7 @@ let compare_part = fun x y ->
 
 let int8_to_bool_list (x : int) =
   List.map (fun i -> (x land i) > 0)
-  @@ [0; 2; 4; 8; 16; 32; 64; 128]
+  @@ [1; 2; 4; 8; 16; 32; 64; 128]
 
 let make_mode mode t2mi_pid stream =
   input_of_int (mode land 1),
@@ -206,7 +206,7 @@ module Deverr = struct
   let param_codes = [18; 32]
 
   let traverse time (code, acc) item =
-    let is_param = List.mem ~eq:(=) code param_codes in
+    let is_param = List.exists (fun x -> x = code) param_codes in
     let acc =
       if not is_param
       then
@@ -810,7 +810,7 @@ module T2MI_info = struct
           } in
         Ok (t2mi_stream_id, info)
       | length ->
-        let body = Cstruct.shift rest length in
+        let body = fst @@ Cstruct.split rest length in
         match parse_l1 body with
         | Error _ as e -> e
         | Ok l1 ->
@@ -1098,18 +1098,18 @@ let compose_parts (parts : part list) =
      | Invalid_part e -> `E e)
   | _ -> `P sorted
 
-let parse src data (parts : part list Part.t) = function
+let parse ~timestamp src data parts = function
   | `Part ->
     (match parse_part src data with
      | Error e ->
        Logs.err ~src (fun m -> m "Error parsing message part: %s" e);
        None, parts
      | Ok (id, part) ->
-       let other = match Part.find_opt id parts with
-         | None -> []
+       let acc = match Part.find_opt id parts with
+         | None -> { data = []; timestamp }
          | Some x -> x in
-       match compose_parts (part :: other) with
-       | `P p -> None, Part.add id p parts
+       match compose_parts (part :: acc.data) with
+       | `P data -> None, Part.add id { acc with data } parts
        | `E e ->
          Logs.err (fun m -> m "Error composing parts: %a" pp_part_error e);
          None, Part.remove id parts
@@ -1131,14 +1131,14 @@ let parse src data (parts : part list Part.t) = function
          msg, Part.remove id parts)
   | tag -> Some (`Simple { Request. tag; data }), parts
 
-let deserialize src parts buf =
+let deserialize ?(timestamp = Ptime_clock.now ()) src parts buf =
   let rec f acc parts buf =
     if Cstruct.len buf < Message.sizeof_common_header
     then (List.rev acc, parts, buf)
     else
       match get_msg buf with
       | Ok (tag, body, rest) ->
-        begin match parse src body parts tag with
+        begin match parse ~timestamp src body parts tag with
           | Some rsp, parts -> f (rsp :: acc) parts rest
           | None, parts -> f acc parts rest
         end

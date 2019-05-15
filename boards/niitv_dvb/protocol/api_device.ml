@@ -16,7 +16,7 @@ module Event = struct
 
   let get_receivers (api : Protocol.api) _user _body _env _state =
     let event =
-      S.map ~eq:(Boards.Util.(Option.equal @@ List.equal (=))) (function
+      S.map ~eq:(Util_equal.(Option.equal @@ List.equal (=))) (function
           | None -> None
           | Some x -> Some x.receivers) api.notifs.devinfo
       |> S.changes

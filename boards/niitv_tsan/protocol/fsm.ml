@@ -137,7 +137,7 @@ let wait_response req (ev : Request.rsp React.event) =
       | None -> ()
       | Some x -> Lwt.wakeup_later w x) ev in
   Lwt.on_cancel t (fun () -> React.E.stop ev);
-  t
+  Lwt.pick [t; sleep @@ Request.timeout req]
 
 let request (type a)
     (src : Logs.src)
@@ -145,6 +145,7 @@ let request (type a)
     (events : event Lwt_stream.t)
     (sender : sender)
     (req : a Request.t) : (a, Request.error) result Lwt.t =
+  Logs.debug ~src (fun m -> m "Requesting \"%s\"" @@ Request.to_string req);
   sender.send req
   >>= fun () ->
   (match req with
@@ -175,7 +176,7 @@ let start
     (src : Logs.src)
     (sender : sender)
     (req_queue : api_msg Lwt_stream.t)
-    (rsp_queue : Request.rsp Lwt_stream.t)
+    (rsp_event : Request.rsp React.event)
     (evt_queue : Request.evt Lwt_stream.t)
     (kv : config Kv_v.rw)
     (set_state : Topology.state set)
@@ -189,8 +190,6 @@ let start
     (set_deverr : Deverr.t list set) =
 
   let (module Logs : Logs.LOG) = Logs.src_log src in
-
-  let rsp_event = Util_react.E.of_stream rsp_queue in
 
   let evt_queue = Lwt_stream.filter_map (fun (msg : Request.evt) ->
       let ( >>= ) x f = match x with Ok x -> f x | Error _ as e -> e in
@@ -222,7 +221,6 @@ let start
     Logs.info (fun m -> m "Start of connection establishment...");
     Lwt_stream.junk_old req_queue
     >>= fun () -> Lwt_stream.junk_old evt_queue
-    >>= fun () -> Lwt_stream.junk_old rsp_queue
     >>= fun () -> set_state `No_response; detect_device ()
 
   and restart () =
@@ -230,7 +228,6 @@ let start
     set_state `No_response;
     Lwt_stream.junk_old req_queue
     >>= fun () -> Lwt_stream.junk_old evt_queue
-    >>= fun () -> Lwt_stream.junk_old rsp_queue
     >>= fun () -> Lwt_unix.sleep cooldown_timeout
     >>= first_step
 
@@ -238,7 +235,7 @@ let start
     let rec loop () =
       Lwt.pick
         [ (Lwt_stream.next evt_queue >>= fun x -> Lwt.return @@ `E x)
-        ; (Lwt_stream.next rsp_queue >>= fun x -> Lwt.return @@ `R x) ]
+        ; (Util_react.E.next rsp_event >>= fun x -> Lwt.return @@ `R x) ]
       >>= function
       | `E `Status _ ->
         Logs.debug (fun m ->
@@ -266,7 +263,6 @@ let start
       Logs.info (fun m -> m "Connection established, \
                              device initialization started...");
       Lwt_stream.junk_old evt_queue
-      >>= fun () -> Lwt_stream.junk_old rsp_queue
       >>= init_device
 
   and init_device () =
@@ -411,7 +407,7 @@ let start
       (probes : probe list) =
     let fetch = match old with
       | None -> true
-      | Some { ts_common; _ } -> ts_common = cur.ts_common in
+      | Some { ts_common; _ } -> ts_common <> cur.ts_common in
     if not fetch then Lwt.return_ok probes
     else
       let request_id = Serializer.get_request_id () in
@@ -422,7 +418,8 @@ let start
       | Ok x -> Lwt.return_ok (`Structure x :: probes)
 
   and get_bitrate has_sync probes =
-    if not has_sync then Lwt.return_ok probes
+    if not has_sync
+    then Lwt.return_ok (`Bitrate [] :: probes)
     else
       let request_id = Serializer.get_request_id () in
       let req = Request.Get_bitrate request_id in
@@ -431,7 +428,6 @@ let start
       | Error _ as e -> Lwt.return e
       | Ok x -> Lwt.return_ok (`Bitrate x :: probes)
 
-  (* TODO check this *)
   and get_t2mi_info
       (old : Parser.Status.versions option)
       (cur : Parser.Status.t)
@@ -445,20 +441,23 @@ let start
                   List.assoc_opt i prev.t2mi with
             | None, _ | _, None -> acc
             | Some c, Some o -> if c <> o then i :: acc else acc) [] sync in
-    let rec request_loop probes = function
-      | [] -> Lwt.return_ok probes
-      | t2mi_stream_id :: tl ->
-        let request_id = Serializer.get_request_id () in
-        let req = Request.Get_t2mi_info { request_id; t2mi_stream_id } in
-        request src rsp_event evt_queue sender req
-        >>= function
-        | Ok x -> request_loop (x :: probes) tl
-        | Error e -> Lwt.return_error e in
-    Lwt_result.Infix.(
-      request_loop [] ids
-      >>= fun x ->
-      let stream = cur.t2mi_mode.stream in
-      Lwt.return_ok (`T2MI_info [stream, x] :: probes))
+    match ids with
+    | [] -> Lwt.return_ok probes
+    | ids ->
+      let rec request_loop probes = function
+        | [] -> Lwt.return_ok probes
+        | t2mi_stream_id :: tl ->
+          let request_id = Serializer.get_request_id () in
+          let req = Request.Get_t2mi_info { request_id; t2mi_stream_id } in
+          request src rsp_event evt_queue sender req
+          >>= function
+          | Ok x -> request_loop (x :: probes) tl
+          | Error e -> Lwt.return_error e in
+      Lwt_result.Infix.(
+        request_loop [] ids
+        >>= fun x ->
+        let stream = cur.t2mi_mode.stream in
+        Lwt.return_ok (`T2MI_info [stream, x] :: probes))
 
   (* TODO state machine should not depend on the result of this request,
      if it fails - ok, if it returns value after some amount of time - also ok *)

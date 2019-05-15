@@ -1,41 +1,9 @@
-module Pair = struct
-
-  type ('a, 'b) t = 'a * 'b
-
-  let equal (f : 'a -> 'a -> bool) (g : 'b -> 'b -> bool)
-        (a1, b1) (a2, b2) : bool =
-    f a1 a2 && g b1 b2
-
-end
-
-module Option = struct
-
-  type 'a t = 'a option
-
-  let equal (f : 'a -> 'a -> bool) a b = match a, b with
-    | None, None -> true
-    | Some _, None | None, Some _ -> false
-    | Some a, Some b -> f a b
-
-end
-
 module List = struct
   include List
 
   type 'a t = 'a list
 
   let direct_depth_default_ = 1000
-
-  let rec equal (f : 'a -> 'a -> bool) l1 l2 = match l1, l2 with
-    | [], [] -> true
-    | [], _ | _, [] -> false
-    | x1 :: l1', x2 :: l2' -> f x1 x2 && equal f l1' l2'
-
-  let mem ~eq x l =
-    let rec search eq x l = match l with
-      | [] -> false
-      | y::l' -> eq x y || search eq x l'
-    in search eq x l
 
   let find_map f l =
     let rec aux f = function
@@ -93,9 +61,9 @@ module List = struct
     let rec search_set eq acc l x ~f = match l with
       | [] -> f x None acc
       | (x', y') :: l' ->
-         if eq x x'
-         then f x (Some y') (List.rev_append acc l')
-         else search_set eq ((x', y') :: acc) l' x ~f
+        if eq x x'
+        then f x (Some y') (List.rev_append acc l')
+        else search_set eq ((x', y') :: acc) l' x ~f
 
     let set ~eq x y l =
       search_set eq [] l x
@@ -104,8 +72,8 @@ module List = struct
     let update ~eq f x l =
       search_set eq [] l x
         ~f:(fun x opt_y rest ->
-          match f opt_y with
-          | None -> rest (* drop *)
-          | Some y' -> (x, y') :: rest)
+            match f opt_y with
+            | None -> rest (* drop *)
+            | Some y' -> (x, y') :: rest)
   end
 end
