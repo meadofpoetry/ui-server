@@ -1,11 +1,12 @@
 (executables
-  (names       page_mosaic topology)
+  (names       page_mosaic topology user server_config)
   (libraries   js_of_ocaml
                js_of_ocaml.weak
                js_of_ocaml-tyxml
                application_js
                pipeline_js
                wm_js
+               server_js
                ;; application_js
                ;; pc_control_js
                ;; board_dektec_dtm3200_js

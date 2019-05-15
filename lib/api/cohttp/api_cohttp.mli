@@ -38,6 +38,16 @@ module Make (User : Api.USER) (Body : Api.BODY) : sig
              -> 'a
              -> node
 
+  val node_raw : ?doc:string
+                 -> ?restrict:user list
+                 -> meth:meth
+                 -> path:('a, 'b)
+                      Netlib.Uri.Path.Format.t
+                 -> query:('b, user -> string -> env -> state -> answer Lwt.t)
+                      Netlib.Uri.Query.format
+                 -> 'a
+                 -> node
+
   val doc : t -> (string * string list) list
 
 end

@@ -165,19 +165,29 @@ let main () =
     ~cleanup:db_conf.cleanup
     ~maintain:db_conf.cleanup
   >>= fun db ->
+
+  Server.create_config kv
+  >>= fun server_conf ->
+
+  let template_path = (React.S.value server_conf#s).resources / "html/templates" in
+  Lwt.return @@ Kv.RO.create ~path:template_path
+  >>= fun templates ->
+  
   Application.create kv db
-  >>= fun (app, app_loop) -> (* TODO move template to application *)
-  Futil_lwt.File.read (unwrap @@ Futil.Path.of_string @@ Sys.argv.(1))
-  >>= fun template ->
-  let routes = Application_http.create template app in (* TODO proper template init *)
+  >>= fun (app, app_loop) ->
+
+  let serv_pages = Server_http.pages () in
+  let serv_handlers = Server_http.handlers server_conf in
+
+  Application_http.create templates app serv_pages serv_handlers
+  >>= fun routes ->
+  
   let auth_filter = Application.redirect_filter app in
-  Serv.create kv auth_filter routes
-  >>= fun server ->
-  let main_loop () : (unit, 'a) Lwt_result.t =
-    ignore db_conf;
-    Lwt.bind (Lwt.pick [app_loop; server]) Lwt.return_ok
-  in
-  main_loop ()
+  
+  let server = Server.create server_conf auth_filter routes in
+  
+  ignore db_conf;
+  Lwt.bind (Lwt.pick [app_loop; server]) Lwt.return_ok
 
 let () =
   let log_level =
@@ -196,12 +206,6 @@ let () =
   Logs.set_reporter (lwt_reporter (Format.std_formatter));
   Logs.set_level (Some log_level);
 
-  if Array.length @@ Sys.argv <> 2
-  then begin
-      Printf.printf "Usage:\n\t%s [path to template]\n" Sys.argv.(0);
-      exit (-1)
-    end;
-  
   match Lwt_main.run (main ()) with
   | Ok () ->
      print_endline "Ui Server is done, no error reported"

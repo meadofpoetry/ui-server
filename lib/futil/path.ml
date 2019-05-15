@@ -1,5 +1,10 @@
 type t = string
 
+type error = [ `Bad_path of string ]
+
+let pp_error ppf (`Bad_path msg) =
+  Fmt.fmt "bad path %s" ppf msg
+       
 let () = assert (Filename.dir_sep = "/")
 
 let string_has c s =
@@ -40,7 +45,7 @@ let of_implicit s =
     |> List.filter (fun x -> String.length x <> 0)
     |> String.concat Filename.dir_sep
     |> fun x -> Ok x
-  with e -> Error (Printexc.to_string e)
+  with e -> Error (`Bad_path (Printexc.to_string e))
           
 let of_string s =
   if Filename.is_implicit s || string_has '$' s
@@ -48,6 +53,11 @@ let of_string s =
   else Ok s
 
 let to_string x = x
+
+let to_explicit_exn x =
+  match of_string x with
+  | Error (`Bad_path e) -> failwith e
+  | Ok v -> to_string v
 
 let append path l =
   Filename.concat path (String.concat Filename.dir_sep l)

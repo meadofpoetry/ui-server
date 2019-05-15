@@ -1,7 +1,9 @@
 open Components
-open Api_js.Requests.Json_request
+open Application_types
 open Containers
-open Common
+open Netlib.Uri
+
+module Api_http = Api_js.Http.Make(Body)
 
 let make_card user =
   let username = match user with
@@ -93,12 +95,11 @@ let make_card user =
     old_helper_text#set_content s in
   let set (pass : User.pass_change) =
     let f () =
-      post_result
-        ?scheme:None ?host:None ?port:None ?from_err:None
-        ~from:(fun _ -> Ok ())
-        ~path:Uri.Path.Format.("/api/user/password" @/ empty)
-        ~query:Uri.Query.empty
-        ~contents:(User.pass_change_to_yojson pass) in
+      Api_http.perform_unit
+        ~path:Path.Format.("/api/user/password" @/ empty)
+        ~query:Query.empty
+        ~body:(User.pass_change_to_yojson pass)
+        (fun _env x -> Lwt.return x) in
     Lwt.try_bind
       (fun () -> f ())
       (function
@@ -107,7 +108,7 @@ let make_card user =
           then Js_of_ocaml.(Dom_html.window##.location##.href := Js.string "/");
           Lwt.return (Ok ())
        | Error e ->
-          let s = Api_js.Requests.err_to_string e in
+          let s = Api_js.Http.error_to_string e in
           set_error s;
           Lwt.return (Error s))
       (fun e ->
@@ -135,4 +136,4 @@ let () =
              ; new Layout_grid.Cell.t ~widgets:[operator_card] ()
              ; new Layout_grid.Cell.t ~widgets:[guest_card] () ]
       () in
-  ignore @@ new Ui_templates.Page.t (`Static [box#widget]) ()
+ignore @@ new Ui_templates.Page.t (`Static [box#widget]) ()
