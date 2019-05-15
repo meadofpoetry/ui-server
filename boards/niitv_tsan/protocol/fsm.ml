@@ -51,8 +51,7 @@ let event_timeout = 3.
 let to_raw_stream
     ~input_source
     ~t2mi_source
-    (mode : t2mi_mode)
-    (input : input)
+    (status : Parser.Status.t)
     (id : Stream.Multi_TS_ID.t) =
   let stream_id = Stream.Multi_TS_ID.stream_id id in
   let src = match Stream.Multi_TS_ID.source_id id, input_of_int stream_id with
@@ -63,8 +62,8 @@ let to_raw_stream
     (* T2-MI PLP. *)
     | src, _ when src = t2mi_source -> `T2MI stream_id
     (* Incoming multi-id transport stream. *)
-    | _ -> match input with SPI -> `SPI | ASI -> `ASI in
-  let source = match src, mode with
+    | _ -> match status.input with SPI -> `SPI | ASI -> `ASI in
+  let source = match src, status.t2mi_mode with
     | `T2MI plp, { stream
                  ; t2mi_stream_id = stream_id
                  ; enabled = true
@@ -80,7 +79,9 @@ let to_raw_stream
   | None -> None
   | Some source ->
     let (typ : Stream.stream_type) =
-      if Stream.Multi_TS_ID.equal id mode.stream && mode.enabled
+      if Stream.Multi_TS_ID.equal id status.t2mi_mode.stream
+      && status.t2mi_mode.enabled
+      && (match status.t2mi_sync with [] -> false | _ -> true)
       then T2MI else TS in
     Some { Stream.Raw. id = TS_multi id; source; typ }
 
@@ -498,8 +499,7 @@ let start
         List.filter_map (to_raw_stream
                            ~input_source
                            ~t2mi_source
-                           status.t2mi_mode
-                           status.input) streams in
+                           status) streams in
       let step = React.Step.create () in
       set_status ~step status;
       set_streams ~step raw_streams;

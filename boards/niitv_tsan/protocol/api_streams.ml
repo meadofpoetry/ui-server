@@ -19,7 +19,7 @@ let get_bitrate (api : Protocol.api) id _user _body _env _state =
   Lwt.pick
     [ Protocol.await_no_response api.notifs.state
     ; (Util_react.E.next api.notifs.bitrate >>= Lwt.return_ok)
-    ; (Lwt_unix.sleep Fsm.status_timeout >>= fun () -> Lwt.return_ok []) ]
+    ; Fsm.sleep Fsm.status_timeout ]
   >>= function
   | Error e -> Lwt.return (`Error (Request.error_to_string e))
   | Ok bitrate ->

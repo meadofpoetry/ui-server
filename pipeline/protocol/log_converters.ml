@@ -43,7 +43,7 @@ module Video = struct
     let service = opt_map fst info in
     let stream_type = opt_map snd info in
     let typ       = opt_map (fun x ->
-                        Mpeg_ts.PID.Type.to_string
+                        MPEG_TS.PID.Type.to_string
                         @@ PES { stream_type = x
                                ; stream_id = 0 })
                       stream_type in
@@ -131,7 +131,7 @@ module Audio = struct
     let service = opt_map fst info in
     let stream_type = opt_map snd info in
     let typ       = opt_map (fun x ->
-                        Mpeg_ts.PID.Type.to_string
+                        MPEG_TS.PID.Type.to_string
                         @@ PES { stream_type = x
                                ; stream_id = 0 })
                       stream_type in

@@ -14,7 +14,7 @@ let table_info_of_ts_error (e : 'a Error.e) =
   let id_ext = Int32.to_int @@ e.param_2 land 0x0000_FFFFl in
   { section; id; id_ext }
 
-let etr290_error_of_code : int -> Mpeg_ts.ETR290_error.t option = function
+let etr290_error_of_code : int -> MPEG_TS.ETR290_error.t option = function
   | 0x11 -> Some Sync_loss
   | 0x12 -> Some Sync_byte_error
   | 0x13 -> Some PAT_error
@@ -57,7 +57,7 @@ module Info = struct
 
   type t = string
 
-  let possible_si_pids : Mpeg_ts.SI_PSI.t -> possible_pids = function
+  let possible_si_pids : MPEG_TS.SI_PSI.t -> possible_pids = function
     | `PAT -> `One 0x00
     | `CAT -> `One 0x01
     | `PMT -> `One 0x02
@@ -77,7 +77,7 @@ module Info = struct
     | _ -> `Unk
 
   (* FIXME extend basic table type and write its own converter *)
-  let table_name = Mpeg_ts.SI_PSI.name ~short:true
+  let table_name = MPEG_TS.SI_PSI.name ~short:true
 
   let period_to_unit_name : interval -> string = function
     | `S _ -> "с"
@@ -262,7 +262,7 @@ module Info = struct
         | 0x01 -> table_short_interval ~period:(`Ms 25.) e
         | 0x02 -> table_long_interval ~period:(table_id_to_interval id) e
         | _ -> table_ext_unknown
-      in f @@ Mpeg_ts.SI_PSI.of_table_id id
+      in f @@ MPEG_TS.SI_PSI.of_table_id id
     | 0x34 -> "Пакет с неизвестным PID"
     | 0x35 ->
       let f = match e.err_ext with

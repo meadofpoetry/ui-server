@@ -161,7 +161,7 @@ module PID_info = struct
     ; present : bool
     ; service_id : int option
     ; service_name : string option [@default None]
-    ; typ : Mpeg_ts.PID.Type.t [@key "type"]
+    ; typ : MPEG_TS.PID.Type.t [@key "type"]
     } [@@deriving yojson, eq, show, ord]
 
 end
@@ -431,6 +431,7 @@ module Error = struct
     { count : int
     ; err_code : int
     ; err_ext : int
+    ; is_t2mi : bool
     ; multi_pid : bool
     ; pid : 'a
     ; packet : int32

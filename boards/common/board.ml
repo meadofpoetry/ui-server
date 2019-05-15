@@ -125,7 +125,7 @@ let merge_streams (boards : t Map.t)
                  ; id = make_id source } in
     `Done (React.S.const (Some stream)) in
   (* When board is connected directly to input *)
-  let create_in_stream (s : Raw.t) (i:topo_input) =
+  let create_in_stream (s : Raw.t) (i : topo_input) =
     let source = { node = Entry (Input i)
                  ; info = s.source.info } in
     let stream = { source

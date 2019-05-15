@@ -8,7 +8,7 @@ let parse bs off =
      ; length_2         : 8 : save_offset_to (off_3)
      ; service          : length_2 * 8 : save_offset_to (off_4), bitstring
      |} ->
-    let parsed = Application_types.Mpeg_ts.service_type_to_string service_type in
+    let parsed = Application_types.MPEG_TS.service_type_to_string service_type in
     let service =
       match Text_decoder.decode @@ Util.Bitstring.to_cstruct service with
       | Ok s -> s

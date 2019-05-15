@@ -424,11 +424,11 @@ module Structure = struct
     @@ Cstruct.fold (fun acc x ->
         let pid = (Message.get_es_struct_block_pid x) land 0x1FFF in
         let info =
-          { Mpeg_ts.PID.Type.
+          { MPEG_TS.PID.Type.
             stream_type = Message.get_es_struct_block_es_type x
           ; stream_id = Message.get_es_struct_block_es_stream_id x
           } in
-        (pid, Mpeg_ts.PID.Type.PES info) :: acc)
+        (pid, MPEG_TS.PID.Type.PES info) :: acc)
       iter []
 
   let of_ecm_block (msg : Cstruct.t) =
@@ -437,7 +437,7 @@ module Structure = struct
     @@ Cstruct.fold (fun acc x ->
         let pid = (Message.get_ecm_struct_block_pid x) land 0x1FFF in
         let ca_sys_id = Message.get_ecm_struct_block_ca_system_id x in
-        let info = Mpeg_ts.PID.Type.ECM { ca_sys_id } in
+        let info = MPEG_TS.PID.Type.ECM { ca_sys_id } in
         (pid, info) :: acc) iter []
 
   let of_emm_block (msg : Cstruct.t) =
@@ -572,8 +572,8 @@ module Structure = struct
     |> (function
         | [] -> None
         | ((id : SI_PSI_table.id), info) :: [] ->
-          let open Mpeg_ts.PID.Type in
-          begin match Mpeg_ts.SI_PSI.of_table_id id.table_id with
+          let open MPEG_TS.PID.Type in
+          begin match MPEG_TS.SI_PSI.of_table_id id.table_id with
             | `PMT -> Some (info.service_id, info.service_name, SEC [id.table_id])
             | _ -> Some (None, None, SEC [id.table_id])
           end
@@ -597,7 +597,7 @@ module Structure = struct
 
   let update_table services ((id : SI_PSI_table.id),
                              (info : SI_PSI_table.t)) =
-    (match Mpeg_ts.SI_PSI.of_table_id id.table_id with
+    (match MPEG_TS.SI_PSI.of_table_id id.table_id with
      | `EIT (`Actual, _) ->
        let service = List.find_opt (fun (sid, _) ->
            sid = id.table_id_ext) services in
@@ -840,6 +840,7 @@ module TS_error = struct
                count = Message.get_ts_error_count x
              ; err_code
              ; err_ext = Message.get_ts_error_err_ext x
+             ; is_t2mi = false
              ; multi_pid = (pid' land 0x8000) > 0
              ; pid
              ; packet = Message.get_ts_error_packet x
@@ -900,6 +901,7 @@ module T2MI_error = struct
           count = error.param
         ; err_code = error.code
         ; err_ext = 0
+        ; is_t2mi = true
         ; multi_pid = false
         ; pid
         ; packet = 0l
@@ -915,6 +917,7 @@ module T2MI_error = struct
           count = 1
         ; err_code = x.code
         ; err_ext = 0
+        ; is_t2mi = true
         ; multi_pid = false
         ; pid
         ; packet = 0l
@@ -930,6 +933,7 @@ module T2MI_error = struct
           count = 1
         ; err_code = ts_parser_code
         ; err_ext = 0
+        ; is_t2mi = true
         ; multi_pid = false
         ; pid
         ; packet = 0l

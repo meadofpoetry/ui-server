@@ -7,7 +7,7 @@ let rec parse bs off =
        ; service_type : 8  : save_offset_to (off_1)
        ; rest         : -1 : save_offset_to (off_2), bitstring
        |} ->
-      let parsed = Application_types.Mpeg_ts.service_type_to_string service_type in
+      let parsed = Application_types.MPEG_TS.service_type_to_string service_type in
       let nodes =
         [ Node.make ~offset:off 16 "service_id" (Hex (Int service_id))
         ; Node.make ~parsed ~offset:(off + off_1) 8 "service_type" (Hex (Int service_type)) ]
