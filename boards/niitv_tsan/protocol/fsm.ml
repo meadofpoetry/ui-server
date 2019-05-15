@@ -27,7 +27,7 @@ type probe =
   ]
 
 type api_msg =
-  Request.rsp React.event
+  Request.rsp ts React.event
   -> event Lwt_stream.t
   -> (unit, Request.error) result Lwt.t
 
@@ -130,7 +130,7 @@ let wait_status req events f =
     else loop () in
   Lwt.pick [loop (); sleep @@ Request.timeout req]
 
-let wait_response req (ev : Request.rsp React.event) =
+let wait_response req (ev : Request.rsp ts React.event) =
   let t, w = Lwt.task () in
   let ev = Util_react.E.map (fun rsp ->
       match Parser.is_response req rsp with
@@ -141,7 +141,7 @@ let wait_response req (ev : Request.rsp React.event) =
 
 let request (type a)
     (src : Logs.src)
-    (stream : Request.rsp React.event)
+    (stream : Request.rsp ts React.event)
     (events : event Lwt_stream.t)
     (sender : sender)
     (req : a Request.t) : (a, Request.error) result Lwt.t =
@@ -176,8 +176,8 @@ let start
     (src : Logs.src)
     (sender : sender)
     (req_queue : api_msg Lwt_stream.t)
-    (rsp_event : Request.rsp React.event)
-    (evt_queue : Request.evt Lwt_stream.t)
+    (rsp_event : Request.rsp ts React.event)
+    (evt_queue : Request.evt ts Lwt_stream.t)
     (kv : config Kv_v.rw)
     (set_state : Topology.state set)
     (set_devinfo : devinfo set)
@@ -191,20 +191,20 @@ let start
 
   let (module Logs : Logs.LOG) = Logs.src_log src in
 
-  let evt_queue = Lwt_stream.filter_map (fun (msg : Request.evt) ->
+  let evt_queue = Lwt_stream.filter_map (fun { data; timestamp } ->
       let ( >>= ) x f = match x with Ok x -> f x | Error _ as e -> e in
-      let res = match msg with
-        | { tag = `Status; data } ->
-          Parser.Status.parse data
+      let res = match (data : Request.evt) with
+        | { tag = `Status; body } ->
+          Parser.Status.parse ~timestamp body
           >>= fun x -> Ok (`Status x)
-        | { tag = `Streams; data } ->
-          Parser.parse_streams data
+        | { tag = `Streams; body } ->
+          Parser.parse_streams body
           >>= fun x -> Ok (`Streams x)
-        | { tag = `Ts_errors; data } ->
-          Parser.TS_error.parse data
+        | { tag = `Ts_errors; body } ->
+          Parser.TS_error.parse ~timestamp body
           >>= fun x -> Ok (`Ts_errors x)
-        | { tag = `T2mi_errors; data } ->
-          Parser.T2MI_error.parse data
+        | { tag = `T2mi_errors; body } ->
+          Parser.T2MI_error.parse ~timestamp body
           >>= fun x -> Ok (`T2mi_errors x)
         | { tag = `End_of_errors; _ } -> Ok `End_of_errors
         | { tag = `End_of_transmission; _ } -> Ok `End_of_transmission in
@@ -212,7 +212,7 @@ let start
       | Ok x -> Some x
       | Error e ->
         Logs.err (fun m ->
-            m "Error parsing '%s' event: %s" (Request.event_tag_to_string msg.tag)
+            m "Error parsing '%s' event: %s" (Request.event_tag_to_string data.tag)
             @@ Request.error_to_string e);
         None)
       evt_queue in
@@ -242,8 +242,8 @@ let start
             m "The device was already initialized, \
                got status event");
         request src rsp_event evt_queue sender Request.Get_devinfo
-      | `R `Simple { tag = `Devinfo; data } ->
-        (match Parser.parse_devinfo data with
+      | `R { data = `Simple { tag = `Devinfo; body }; _ } ->
+        (match Parser.parse_devinfo body with
          | Error _ as e -> Lwt.return e
          | Ok info as x ->
            Logs.debug (fun m ->
@@ -348,14 +348,14 @@ let start
       | `T2mi_errors (stream, errors) ->
         let errors =
           List.Assoc.update ~eq:(=) (function
-              | None -> Some errors
+              | None -> (match errors with [] -> None | l -> Some l)
               | Some x -> Some (errors @ x))
             stream acc.errors in
         Lwt.return_ok (`E { acc with errors })
       | `Ts_errors (stream, errors) ->
         let errors =
           List.Assoc.update ~eq:(=) (function
-              | None -> Some errors
+              | None -> (match errors with [] -> None | l -> Some l)
               | Some x -> Some (errors @ x))
             stream acc.errors in
         Lwt.return_ok (`E { acc with errors })
@@ -502,8 +502,10 @@ let start
                            status.input) streams in
       let step = React.Step.create () in
       set_status ~step status;
-      set_errors ~step errors;
       set_streams ~step raw_streams;
+      (match errors with
+       | [] -> ()
+       | errors -> set_errors ~step errors);
       List.iter (function
           | `Structure x -> set_structure ~step x
           | `Bitrate x -> set_bitrate ~step x

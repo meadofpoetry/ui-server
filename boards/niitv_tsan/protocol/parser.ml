@@ -34,7 +34,7 @@ module Part = Map.Make(Part_id)
 type part =
   { first : bool
   ; param : int32
-  ; data : Cstruct.t
+  ; body : Cstruct.t
   }
 
 type part_error =
@@ -54,9 +54,14 @@ let compare_part = fun x y ->
   else if y.first then 1
   else compare x.param y.param
 
-let int8_to_bool_list (x : int) =
-  List.map (fun i -> (x land i) > 0)
-  @@ [1; 2; 4; 8; 16; 32; 64; 128]
+let non_zero_indexes_of_int ?(start = 0) ~n (v : int) =
+  let rec loop acc = function
+    | i when i = n -> acc
+    | i ->
+      let pow = int_of_float @@ Float.pow 2. (float_of_int i) in
+      let acc = if v land pow > 0 then (start + i) :: acc else acc in
+      loop acc (succ i) in
+  loop [] 0
 
 let make_mode mode t2mi_pid stream =
   input_of_int (mode land 1),
@@ -119,12 +124,6 @@ module Status = struct
     ; versions : versions
     } [@@deriving eq, show]
 
-  let int_to_t2mi_sync_list x =
-    int8_to_bool_list x
-    |> List.mapi (fun i x -> i, x)
-    |> List.filter (fun (_, x) -> x)
-    |> List.map fst
-
   let rec parse_t2mi_versions (buf : Cstruct.t) =
     let v = Message.get_status_t2mi_ver_lst buf in
     let rec aux acc = function
@@ -155,8 +154,7 @@ module Status = struct
     ; t2mi = parse_t2mi_versions buf
     }
 
-  let parse (msg : Cstruct.t) =
-    let timestamp = Ptime_clock.now () in
+  let parse ?(timestamp = Ptime_clock.now ()) (msg : Cstruct.t) =
     let flags = Message.get_status_flags msg in
     let ts_num = Message.get_status_ts_num msg in
     let flags2 = Message.get_status_flags_2 msg in
@@ -166,7 +164,7 @@ module Status = struct
       if (flags land 0x08) <> 0 then Ts192
       else if (flags land 0x10) <> 0 then Ts204
       else Ts188 in
-    let t2mi_sync = int_to_t2mi_sync_list (Message.get_status_t2mi_sync msg) in
+    let t2mi_sync = non_zero_indexes_of_int ~n:8 (Message.get_status_t2mi_sync msg) in
     let input, t2mi_mode =
       make_mode (Message.get_status_mode msg)
         (Message.get_status_t2mi_pid msg)
@@ -205,14 +203,14 @@ module Deverr = struct
 
   let param_codes = [18; 32]
 
-  let traverse time (code, acc) item =
+  let traverse timestamp (code, acc) item =
     let is_param = List.exists (fun x -> x = code) param_codes in
     let acc =
       if not is_param
       then
         let item =
           { Deverr.
-            time
+            timestamp
           ; source = Hardware
           ; code
           ; count = Int32.to_int item
@@ -224,13 +222,12 @@ module Deverr = struct
         | _ -> acc in
     (succ code, acc)
 
-  let parse (msg : Cstruct.t) =
+  let parse ?(timestamp = Ptime_clock.now ()) (msg : Cstruct.t) =
     let iter =
       Cstruct.iter (fun _ -> Some 4)
         (fun buf -> Cstruct.LE.get_uint32 buf 0)
         (Message.get_board_errors_errors msg) in
-    let time = Ptime_clock.now () in
-    try Ok (List.rev @@ snd @@ Cstruct.fold (traverse time) iter (0, []))
+    try Ok (List.rev @@ snd @@ Cstruct.fold (traverse timestamp) iter (0, []))
     with Invalid_argument _ -> Error Request.Invalid_payload
 
 end
@@ -238,6 +235,7 @@ end
 module Section = struct
 
   let parse
+      ?(timestamp = Ptime_clock.now ())
       ~(table_id : int)
       ~(section : int option)
       (msg : Cstruct.t) =
@@ -245,7 +243,6 @@ module Section = struct
       let hdr, bdy = Cstruct.split msg Message.sizeof_section in
       let length = Message.get_section_length hdr in
       let result = Message.get_section_result hdr in
-      let timestamp = Ptime_clock.now () in
       if length > 0 && result = 0
       then
         let sid, data  = Cstruct.split bdy 4 in
@@ -277,12 +274,11 @@ end
 
 module T2MI_sequence = struct
 
-  let parse (msg : Cstruct.t) =
+  let parse ?(timestamp = Ptime_clock.now ()) (msg : Cstruct.t) =
     let iter =
       Cstruct.iter
         (fun _ -> Some Message.sizeof_t2mi_frame_seq_item)
         (fun x -> x) msg in
-    let timestamp = Ptime_clock.now () in
     try
       let data =
         List.rev
@@ -654,9 +650,8 @@ module Structure = struct
       @@ Message.get_ts_struct_stream_id header in
     (stream, structure), rest
 
-  let parse stream (msg : Cstruct.t) =
+  let parse ?(timestamp = Ptime_clock.now ()) stream (msg : Cstruct.t) =
     try
-      let timestamp = Ptime_clock.now () in
       let count = Message.get_ts_structs_count msg in
       (* stream id list *)
       let body = Cstruct.shift msg (Message.sizeof_ts_structs + count * 4) in
@@ -721,7 +716,7 @@ module Bitrate = struct
     in
     List.rev tables
 
-  let of_stream_bitrate (buf : Cstruct.t) =
+  let of_stream_bitrate timestamp (buf : Cstruct.t) =
     let length = (Int32.to_int @@ Message.get_stream_bitrate_length buf) in
     let msg, rest = Cstruct.split buf (length + 8) in
     let hdr, bdy = Cstruct.split msg Message.sizeof_stream_bitrate in
@@ -733,18 +728,18 @@ module Bitrate = struct
     let pids, tbls = of_pids_bitrate total_pids br_per_pkt bdy in
     let tables = of_tables_bitrate total_tbls br_per_pkt tbls in
     let stream = Message.get_stream_bitrate_stream_id hdr in
-    let data = { Bitrate. total; pids; tables } in
+    let data = { Bitrate. total; pids; tables; timestamp } in
     let rsp = Stream.Multi_TS_ID.of_int32_pure stream, data in
     rsp, rest
 
-  let parse (msg : Cstruct.t) =
+  let parse ?(timestamp = Ptime_clock.now ()) (msg : Cstruct.t) =
     try
       let count = Message.get_bitrates_count msg in
       let rec parse acc buf =
         match Cstruct.len buf with
         | 0 -> List.rev acc
         | _ ->
-          let x, rest = of_stream_bitrate buf in
+          let x, rest = of_stream_bitrate timestamp buf in
           parse (x :: acc) rest in
       let body = Cstruct.shift msg Message.sizeof_bitrates in
       Ok (if count > 0 then parse [] body else [])
@@ -757,13 +752,11 @@ module T2MI_info = struct
     let iter =
       Cstruct.iter
         (fun _ -> Some 1)
-        (fun x -> int8_to_bool_list @@ Cstruct.get_uint8 x 0)
+        (fun x -> Cstruct.get_uint8 x 0)
         (Message.get_t2mi_info_packets buf) in
-    Cstruct.fold (fun acc el -> (List.rev el) @ acc) iter []
-    |> List.rev
-    |> List.fold_left (fun (i, acc) x ->
-        if x then succ i, (i :: acc)
-        else succ i, acc) (0, [])
+    Cstruct.fold (fun (i, acc) el ->
+        let l = non_zero_indexes_of_int ~start:i ~n:8 el in
+        (i + 8), l @ acc) iter (0, [])
     |> snd
 
   let parse_l1 (body : Cstruct.t) =
@@ -794,7 +787,7 @@ module T2MI_info = struct
     | Invalid_argument _ -> Error Request.Invalid_payload
     | Match_failure _ -> Error Request.Invalid_payload
 
-  let parse (msg : Cstruct.t) =
+  let parse ?(timestamp = Ptime_clock.now ()) (msg : Cstruct.t) =
     try
       let header, rest = Cstruct.split msg Message.sizeof_t2mi_info in
       let packets = parse_packets header in
@@ -807,6 +800,7 @@ module T2MI_info = struct
             packets
           ; t2mi_pid = None
           ; l1 = None
+          ; timestamp
           } in
         Ok (t2mi_stream_id, info)
       | length ->
@@ -819,6 +813,7 @@ module T2MI_info = struct
               packets
             ; t2mi_pid = Some (Message.get_t2mi_info_ext_t2mi_pid body)
             ; l1 = Some l1
+            ; timestamp
             } in
           Ok (t2mi_stream_id, info)
     with Invalid_argument _ -> Error Request.Invalid_payload
@@ -826,7 +821,7 @@ end
 
 module TS_error = struct
 
-  let parse (msg : Cstruct.t) =
+  let parse ?(timestamp = Ptime_clock.now ()) (msg : Cstruct.t) =
     try
       let common, rest = Cstruct.split msg Message.sizeof_ts_errors in
       let number = Message.get_ts_errors_count common in
@@ -850,6 +845,7 @@ module TS_error = struct
              ; packet = Message.get_ts_error_packet x
              ; param_1 = Message.get_ts_error_param_1 x
              ; param_2 = Message.get_ts_error_param_2 x
+             ; timestamp
              }) errors in
       let errors =
         List.sort (fun (x : Error.t) y -> Int32.compare x.packet y.packet)
@@ -887,7 +883,11 @@ module T2MI_error = struct
 
   (* Merge t2mi errors with counter and advanced errors.
      Result is common t2mi error type *)
-  let merge ~(count : error list) ~(param : error list) pid : Error.t list =
+  let merge
+      ~(count : error list)
+      ~(param : error list)
+      timestamp
+      pid : Error.t list =
     List.map (fun (error : error) ->
         let param_1 = match get_relevant_t2mi_adv_code error.code with
           | None -> 0l
@@ -905,24 +905,26 @@ module T2MI_error = struct
         ; packet = 0l
         ; param_1
         ; param_2 = Int32.of_int error.t2mi_stream_id
+        ; timestamp
         }) count
 
   (* Map T2-MI advanced errors with 'code' = 0 to common T2-MI error type *)
-  let map_parser_error pid (other : error list) =
+  let map_t2mi_parser_errors timestamp (pid : int) =
     List.map (fun (x : error) ->
         { Error.
           count = 1
-        ; err_code = t2mi_parser_code
+        ; err_code = x.code
         ; err_ext = 0
         ; multi_pid = false
         ; pid
         ; packet = 0l
         ; param_1 = Int32.of_int x.param
         ; param_2 = Int32.of_int x.t2mi_stream_id
-        }) other
+        ; timestamp
+        })
 
   (* Map ts parser flags to common T2-MI error type *)
-  let map_ts_container_error pid (ts : int list) : Error.t list =
+  let map_ts_container_error timestamp (pid : int) =
     List.map (fun (x : int) ->
         { Error.
           count = 1
@@ -933,7 +935,8 @@ module T2MI_error = struct
         ; packet = 0l
         ; param_1 = Int32.of_int x
         ; param_2 = 0l
-        }) ts
+        ; timestamp
+        })
 
   let parse_ts_container_errors (flags : int) =
     let msb = 3 in
@@ -955,11 +958,13 @@ module T2MI_error = struct
       then `E { code; t2mi_stream_id; param }
       else `N
     | _ ->
-      if code = 0 (* t2mi parser error *)
+      if code <> 0 (* t2mi parser error *)
+      then `P { code; t2mi_stream_id; param }
+      else if param <> 0
       then `C { code = t2mi_parser_code; t2mi_stream_id; param }
-      else `P { code; t2mi_stream_id; param }
+      else `N
 
-  let parse (msg : Cstruct.t) =
+  let parse ?(timestamp = Ptime_clock.now ()) (msg : Cstruct.t) =
     try
       let common, rest = Cstruct.split msg Message.sizeof_t2mi_errors in
       let number = Message.get_t2mi_errors_count common in
@@ -984,11 +989,13 @@ module T2MI_error = struct
             | `C x -> cnt, adv, (x :: oth))
           iter ([], [], [])
       in
-      let ts_parser_flags = Message.get_t2mi_errors_err_flags common in
+      let ts_container_errors =
+        parse_ts_container_errors
+        @@ Message.get_t2mi_errors_err_flags common in
       let errors =
-        merge ~count:err_with_counter ~param:err_with_param pid
-        @ map_parser_error pid parser_err
-        @ map_ts_container_error pid (parse_ts_container_errors ts_parser_flags) in
+        merge ~count:err_with_counter ~param:err_with_param timestamp pid
+        @ map_t2mi_parser_errors timestamp pid parser_err
+        @ map_ts_container_error timestamp pid ts_container_errors in
       Ok (stream, errors)
     with Invalid_argument _ -> Error Request.Invalid_payload
 
@@ -1052,7 +1059,7 @@ let parse_part src (buf : Cstruct.t) =
          then Message.get_complex_rsp_header_ext_param buf
          else Int32.of_int @@ Message.get_complex_rsp_header_param buf)
       |> fun x -> Int32.sub x (Int32.of_int parity) in
-    let data =
+    let body =
       (if long
        then Cstruct.shift buf Message.sizeof_complex_rsp_header_ext
        else Cstruct.shift buf Message.sizeof_complex_rsp_header)
@@ -1065,7 +1072,7 @@ let parse_part src (buf : Cstruct.t) =
       ; request_id = Message.get_complex_rsp_header_request_id buf
       } in
     let part =
-      { data
+      { body
       ; first = (code_ext land 0x8000) <> 0
       ; param
       } in
@@ -1074,7 +1081,7 @@ let parse_part src (buf : Cstruct.t) =
            (code: 0x%X, req_id: %d, client_id: %d, \
            first: %B, parity: %d, length: %d, param: %ld)"
           id.code id.request_id id.client_id
-          part.first parity (Cstruct.len data) param);
+          part.first parity (Cstruct.len body) param);
     Ok (id, part)
   with Invalid_argument _ -> Error "invalid payload"
 
@@ -1088,19 +1095,19 @@ let compose_parts (parts : part list) =
              if part.first = true
              then raise_notrace (Invalid_part Unexpected_first);
              if Int32.to_int part.param = acc
-             then acc + Cstruct.len part.data
+             then acc + Cstruct.len part.body
              else raise_notrace (Invalid_part Discontinuity))
-           (Cstruct.len first.data) rest in
+           (Cstruct.len first.body) rest in
        if Int32.to_int first.param <> length then `P sorted
-       else `V (Cstruct.concat @@ List.map (fun x -> x.data) sorted)
+       else `V (Cstruct.concat @@ List.map (fun x -> x.body) sorted)
      with
      | Invalid_part Discontinuity -> `P sorted
      | Invalid_part e -> `E e)
   | _ -> `P sorted
 
-let parse ~timestamp src data parts = function
+let parse ~timestamp src body parts = function
   | `Part ->
-    (match parse_part src data with
+    (match parse_part src body with
      | Error e ->
        Logs.err ~src (fun m -> m "Error parsing message part: %s" e);
        None, parts
@@ -1113,7 +1120,7 @@ let parse ~timestamp src data parts = function
        | `E e ->
          Logs.err (fun m -> m "Error composing parts: %a" pp_part_error e);
          None, Part.remove id parts
-       | `V data ->
+       | `V body ->
          let msg = match Request.complex_tag_of_enum id.code with
            | None ->
              Logs.debug (fun m ->
@@ -1125,11 +1132,12 @@ let parse ~timestamp src data parts = function
                  tag
                ; client_id = id.client_id
                ; request_id = id.request_id
-               ; data
+               ; body
                } in
-             Some (`Complex msg) in
+             Some { data = `Complex msg; timestamp } in
          msg, Part.remove id parts)
-  | tag -> Some (`Simple { Request. tag; data }), parts
+  | tag -> Some ({ data = `Simple { Request. tag; body }
+                 ; timestamp }), parts
 
 let deserialize ?(timestamp = Ptime_clock.now ()) src parts buf =
   let rec f acc parts buf =
@@ -1153,47 +1161,47 @@ let deserialize ?(timestamp = Ptime_clock.now ()) src parts buf =
   responses, parts, if Cstruct.len res > 0 then Some res else None
 
 let is_response (type a) (req : a Request.t)
-    (msg : Request.rsp) : (a, Request.error) result option =
+    ({ data; timestamp } : Request.rsp ts) : (a, Request.error) result option =
   match req with
   | Reset -> None
   | Get_devinfo ->
-    (match msg with
-     | `Simple { tag = `Devinfo; data } -> Some (parse_devinfo data)
+    (match data with
+     | `Simple { tag = `Devinfo; body } -> Some (parse_devinfo body)
      | _ -> None)
   | Get_deverr id ->
-    (match msg with
-     | `Complex { tag = `Deverr; data; request_id; _ } when id = request_id ->
-       Some (Deverr.parse data)
+    (match data with
+     | `Complex { tag = `Deverr; body; request_id; _ } when id = request_id ->
+       Some (Deverr.parse ~timestamp body)
      | _ -> None)
   | Get_mode ->
-    (match msg with
-     | `Simple { tag = `Mode; data } -> Some (parse_mode data)
+    (match data with
+     | `Simple { tag = `Mode; body } -> Some (parse_mode body)
      | _ -> None)
   | Set_mode _ -> None
   | Set_jitter_mode _ -> None
   | Set_src_id _ -> None
   | Get_t2mi_seq { request_id = id; _ } ->
-    (match msg with
-     | `Complex { tag = `T2mi_seq; data; request_id; _ } when id = request_id ->
-       Some (T2MI_sequence.parse data)
+    (match data with
+     | `Complex { tag = `T2mi_seq; body; request_id; _ } when id = request_id ->
+       Some (T2MI_sequence.parse ~timestamp body)
      | _ -> None)
   | Get_section { request_id = id; table_id; section; _ } ->
-    (match msg with
-     | `Complex { tag = `Section; data; request_id; _ } when id = request_id ->
-       Some (Section.parse ~table_id ~section data)
+    (match data with
+     | `Complex { tag = `Section; body; request_id; _ } when id = request_id ->
+       Some (Section.parse ~table_id ~section ~timestamp body)
      | _ -> None)
   | Get_bitrate id ->
-    (match msg with
-     | `Complex { tag = `Bitrate; data; request_id; _ } when id = request_id ->
-       Some (Bitrate.parse data)
+    (match data with
+     | `Complex { tag = `Bitrate; body; request_id; _ } when id = request_id ->
+       Some (Bitrate.parse ~timestamp body)
      | _ -> None)
   | Get_structure { request_id = id; stream } ->
-    (match msg with
-     | `Complex { tag = `Structure; data; request_id; _ } when id = request_id ->
-       Some (Structure.parse stream data)
+    (match data with
+     | `Complex { tag = `Structure; body; request_id; _ } when id = request_id ->
+       Some (Structure.parse ~timestamp stream body)
      | _ -> None)
   | Get_t2mi_info { request_id = id; _ } ->
-    (match msg with
-     | `Complex { tag = `T2mi_info; data; request_id; _ } when id = request_id ->
-       Some (T2MI_info.parse data)
+    (match data with
+     | `Complex { tag = `T2mi_info; body; request_id; _ } when id = request_id ->
+       Some (T2MI_info.parse ~timestamp body)
      | _ -> None)

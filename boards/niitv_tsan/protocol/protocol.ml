@@ -61,22 +61,22 @@ let send (type a)
         | Lwt_stream.Full -> Lwt.return_error Request.Queue_overflow
         | exn -> Lwt.fail exn)
 
-let rec map_response prev (rsp : Request.rsp) =
-  match rsp with
-  | `Complex _ as c -> `R c
-  | `Simple ({ tag = `Status; _ } as e) -> `E e
-  | `Simple ({ tag = `Streams; _ } as e) -> `E e
-  | `Simple ({ tag = `Ts_errors; _ } as e) -> `E e
-  | `Simple ({ tag = `T2mi_errors; _ } as e) -> `E e
-  | `Simple ({ tag = `End_of_errors; _ } as e) -> `E e
-  | `Simple ({ tag = `End_of_transmission; _ } as e) as r ->
+let rec map_response prev ({ data; timestamp } as rsp : Request.rsp ts) =
+  match data with
+  | `Complex _ -> `R rsp
+  | `Simple ({ tag = `Status; _ } as data) -> `E { data; timestamp }
+  | `Simple ({ tag = `Streams; _ } as data) -> `E { data; timestamp }
+  | `Simple ({ tag = `Ts_errors; _ } as data) -> `E { data; timestamp }
+  | `Simple ({ tag = `T2mi_errors; _ } as data) -> `E { data; timestamp }
+  | `Simple ({ tag = `End_of_errors; _ } as data) -> `E { data; timestamp }
+  | `Simple ({ tag = `End_of_transmission; _ } as data) ->
     (match prev with
-     | None -> `R r
+     | None -> `R rsp
      | Some prev ->
        (match map_response None prev with
-        | `R _ -> `R r
-        | `E _ -> `E e))
-  | r -> `R r
+        | `R _ -> `R rsp
+        | `E _ -> `E { data; timestamp }))
+  | r -> `R rsp
 
 let map_stream_id
     (streams : Stream.t list React.signal)
@@ -127,7 +127,8 @@ let create
   let prev = ref None in
   let acc = ref None in
   let parts = ref Parser.Part.empty in
-  let ttl = 5. in
+  (* Complex message part TTL (in seconds). *)
+  let parts_ttl = 5. in
   let push_data (buf : Cstruct.t) =
     let buf = match !acc with
       | None -> buf
@@ -136,13 +137,13 @@ let create
     let parts' = Parser.Part.filter (fun _ (acc : Parser.part list ts) ->
         let old = Ptime.to_float_s acc.timestamp in
         let cur = Ptime.to_float_s timestamp in
-        cur -. old < ttl) !parts in
+        cur -. old < parts_ttl) !parts in
     let parsed, new_parts, new_acc = Parser.deserialize ~timestamp src parts' buf in
     acc := new_acc;
     parts := new_parts;
-    List.iter (fun (x : Request.rsp) ->
+    List.iter (fun (x : Request.rsp ts) ->
         Logs.debug ~src (fun m ->
-            m "Got '%s'" (match x with
+            m "Got '%s'" (match x.data with
                 | `Complex { tag; _ } -> Request.complex_tag_to_string tag
                 | `Simple { tag; _ } -> Request.simple_tag_to_string tag));
         (match map_response !prev x with

@@ -16,47 +16,47 @@ let to_common_header (code : int) =
 
 let to_simple_req (msg : Request.req_tag Request.simple_msg) =
   let common = to_common_header @@ Request.req_tag_to_enum msg.tag in
-  Cstruct.append common msg.data
+  Cstruct.append common msg.body
 
 let to_complex_req (msg : Request.complex_msg) =
   let common = to_common_header @@ Request.complex_tag_to_enum msg.tag in
   let header = Cstruct.create Message.sizeof_complex_req_header in
-  let length = (Cstruct.len msg.data / 2) + 1 in
+  let length = (Cstruct.len msg.body / 2) + 1 in
   Message.set_complex_req_header_client_id header msg.client_id;
   Message.set_complex_req_header_length header length;
   Message.set_complex_req_header_request_id header msg.request_id;
-  Cstruct.concat [common; header; msg.data]
+  Cstruct.concat [common; header; msg.body]
 
 let to_msg (type a) : a Request.t -> Request.req_tag Request.msg = function
-  | Get_devinfo -> `Simple { tag = `Get_devinfo; data = Cstruct.empty }
+  | Get_devinfo -> `Simple { tag = `Get_devinfo; body = Cstruct.empty }
   | Get_deverr request_id -> `Complex (Request.make_complex_msg ~request_id `Deverr)
-  | Get_mode -> `Simple { tag = `Get_mode; data = Cstruct.empty }
+  | Get_mode -> `Simple { tag = `Get_mode; body = Cstruct.empty }
   | Set_mode { input; t2mi_mode = { pid; enabled; stream; t2mi_stream_id }} ->
-    let data = Cstruct.create Message.sizeof_board_mode in
+    let body = Cstruct.create Message.sizeof_board_mode in
     let pid = (t2mi_stream_id lsl 13) lor (pid land 0x1FFF) in
     input_to_int input
     |> (lor) (if enabled then 4 else 0)
     |> (lor) 8 (* disable board storage by default *)
-    |> Message.set_board_mode_mode data;
-    Message.set_board_mode_t2mi_pid data pid;
-    Message.set_board_mode_stream_id data @@ Stream.Multi_TS_ID.to_int32_pure stream;
-    `Simple { tag = `Set_mode; data }
+    |> Message.set_board_mode_mode body;
+    Message.set_board_mode_t2mi_pid body pid;
+    Message.set_board_mode_stream_id body @@ Stream.Multi_TS_ID.to_int32_pure stream;
+    `Simple { tag = `Set_mode; body }
   | Set_jitter_mode { stream; pid } ->
-    let data = Cstruct.create Message.sizeof_req_set_jitter_mode in
-    Message.set_req_set_jitter_mode_stream_id data
+    let body = Cstruct.create Message.sizeof_req_set_jitter_mode in
+    Message.set_req_set_jitter_mode_stream_id body
     @@ Stream.Multi_TS_ID.to_int32_pure stream;
-    Message.set_req_set_jitter_mode_pid data pid;
-    `Complex (Request.make_complex_msg ~data `Jitter_mode)
+    Message.set_req_set_jitter_mode_pid body pid;
+    `Complex (Request.make_complex_msg ~body `Jitter_mode)
   | Reset -> `Complex (Request.make_complex_msg `Reset)
   | Set_src_id { input_source; t2mi_source } ->
-    let data = Cstruct.create Message.sizeof_req_source_id in
-    Message.set_req_source_id_input_src_id data input_source;
-    Message.set_req_source_id_t2mi_src_id data t2mi_source;
-    `Simple { tag = `Set_source_id; data }
+    let body = Cstruct.create Message.sizeof_req_source_id in
+    Message.set_req_source_id_input_src_id body input_source;
+    Message.set_req_source_id_t2mi_src_id body t2mi_source;
+    `Simple { tag = `Set_source_id; body }
   | Get_t2mi_seq { request_id; seconds } ->
-    let data = Cstruct.create Message.sizeof_req_t2mi_seq in
-    Message.set_req_t2mi_seq_time data seconds;
-    `Complex (Request.make_complex_msg ~request_id ~data `T2mi_seq)
+    let body = Cstruct.create Message.sizeof_req_t2mi_seq in
+    Message.set_req_t2mi_seq_time body seconds;
+    `Complex (Request.make_complex_msg ~request_id ~body `T2mi_seq)
   | Get_section { request_id
                 ; stream_id
                 ; table_id
@@ -66,28 +66,28 @@ let to_msg (type a) : a Request.t -> Request.req_tag Request.msg = function
                 ; section
                 } ->
     let iter f x = match x with None -> () | Some x -> f x in
-    let data = Cstruct.create Message.sizeof_req_section in
+    let body = Cstruct.create Message.sizeof_req_section in
     let stream = Stream.Multi_TS_ID.to_int32_pure stream_id in
-    Message.set_req_section_stream_id data stream;
-    Message.set_req_section_table_id data table_id;
-    iter (Message.set_req_section_section data) section;
-    iter (Message.set_req_section_table_id_ext data) table_id_ext;
-    iter (Message.set_req_section_id_ext_1 data) id_ext_1;
-    iter (Message.set_req_section_id_ext_2 data) id_ext_2;
-    `Complex (Request.make_complex_msg ~request_id ~data `Section)
+    Message.set_req_section_stream_id body stream;
+    Message.set_req_section_table_id body table_id;
+    iter (Message.set_req_section_section body) section;
+    iter (Message.set_req_section_table_id_ext body) table_id_ext;
+    iter (Message.set_req_section_id_ext_1 body) id_ext_1;
+    iter (Message.set_req_section_id_ext_2 body) id_ext_2;
+    `Complex (Request.make_complex_msg ~request_id ~body `Section)
   | Get_bitrate request_id ->
     `Complex (Request.make_complex_msg ~request_id `Bitrate)
   | Get_structure { request_id; stream } ->
     let stream = match stream with
       | `All -> 0xFFFF_FFFFl
       | `Single x -> Stream.Multi_TS_ID.to_int32_pure x in
-    let data = Cstruct.create Message.sizeof_req_structure in
-    Message.set_req_structure_stream_id data stream;
-    `Complex (Request.make_complex_msg ~request_id ~data `Structure)
+    let body = Cstruct.create Message.sizeof_req_structure in
+    Message.set_req_structure_stream_id body stream;
+    `Complex (Request.make_complex_msg ~request_id ~body `Structure)
   | Get_t2mi_info { request_id; t2mi_stream_id } ->
-    let data = Cstruct.create Message.sizeof_req_t2mi_info in
-    Message.set_req_t2mi_info_t2mi_stream_id data t2mi_stream_id;
-    `Complex (Request.make_complex_msg ~request_id ~data `T2mi_info)
+    let body = Cstruct.create Message.sizeof_req_t2mi_info in
+    Message.set_req_t2mi_info_t2mi_stream_id body t2mi_stream_id;
+    `Complex (Request.make_complex_msg ~request_id ~body `T2mi_info)
 
 let serialize (type a) (req : a Request.t) : Cstruct.t =
   match to_msg req with

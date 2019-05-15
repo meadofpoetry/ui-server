@@ -177,28 +177,28 @@ let complex_tag_to_string : complex_tag -> string = function
 
 type 'a simple_msg =
   { tag : 'a
-  ; data : Cstruct.t
+  ; body : Cstruct.t
   }
 
 type complex_msg =
   { tag : complex_tag
   ; client_id : int
   ; request_id : int
-  ; data : Cstruct.t
+  ; body : Cstruct.t
   }
 
 let simple_msg_to_string f m =
   Format.asprintf "tag: %s, data: %a"
     (f m.tag)
     Cstruct.hexdump_pp
-    m.data
+    m.body
 
 let make_complex_msg ?(request_id = 0) ?(client_id = 0)
-    ?(data = Cstruct.empty) tag =
+    ?(body = Cstruct.empty) tag =
   { tag
   ; client_id
   ; request_id
-  ; data
+  ; body
   }
 
 type 'a msg =

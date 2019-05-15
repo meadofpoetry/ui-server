@@ -103,7 +103,7 @@ type status =
 module Deverr = struct
 
   type t =
-    { time : Time.t
+    { timestamp : Time.t
     ; code : int
     ; count : int
     ; source : source
@@ -131,6 +131,7 @@ module Bitrate = struct
     { total : int
     ; tables : table list
     ; pids : (int * int) list
+    ; timestamp : Time.t
     } [@@deriving yojson, eq]
 
 
@@ -361,6 +362,7 @@ module T2mi_info = struct
     { packets : int list
     ; t2mi_pid : int option
     ; l1 : l1 option
+    ; timestamp : Time.t
     } [@@deriving yojson, show, eq]
 
 end
@@ -434,6 +436,7 @@ module Error = struct
     ; packet : int32
     ; param_1 : int32
     ; param_2 : int32 (* t2mi stream id for t2mi error *)
+    ; timestamp : Time.t
     }
   and t = int e [@@deriving yojson, eq, show]
 
