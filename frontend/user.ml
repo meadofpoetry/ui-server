@@ -136,4 +136,4 @@ let () =
              ; new Layout_grid.Cell.t ~widgets:[operator_card] ()
              ; new Layout_grid.Cell.t ~widgets:[guest_card] () ]
       () in
-  ignore @@ new Ui_templates.Page.t (`Static [box#widget]) ()
+ignore @@ new Ui_templates.Page.t (`Static [box#widget]) ()

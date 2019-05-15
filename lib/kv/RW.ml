@@ -22,13 +22,12 @@ type t =
   ; mutable cached : value KMap.t
   ; watchers_lock : Lwt_mutex.t
   ; mutable watchers : watcher KMap.t
-  ; base_path : Futil.Path.t
+  ; base_path : string
   }
 
 type error = [
   | Futil.File.create_error
   | `Not_directory of string
-  | `Bad_path of string
   ]
 
 type write_error = Futil.File.write_error
@@ -45,7 +44,6 @@ type parse_error = [
 
 let pp_error ppf = function
   | #Futil.File.create_error as e -> Futil.File.pp_create_error ppf e
-  | `Bad_path path -> Fmt.fmt "bad path: %s" ppf path
   | `Not_directory path -> Fmt.fmt "kv path %s refers not to a directory" ppf path
 
 let pp_write_error = Futil.File.pp_write_error
@@ -65,28 +63,34 @@ let (>>=) e f =
   | Ok v -> f v
   | Error _ as er -> er
 
+let ( / ) = Filename.concat
+
+let cat = String.concat Filename.dir_sep
+
 let create ?(create = false) ~path =
   let open Futil in
   match Path.of_string path with
-  | Error e -> Error (`Bad_path e)
+  | Error _ as e -> e
   | Ok path' ->
-     (if not (Info.exists path') && create
-      then File.create_dir path'
+     (if not (Info.exists path) && create
+      then File.create_dir path
       else Ok ())
      >>= fun () ->
-     Info.info path'
+     Info.info path
      >>= fun info ->
      if not (Info.is_dir info)
      then Error (`Not_directory path)
      else if (Info.unix_perm info land 0o300) = 0
      then Error `Access_denied
-     else Ok { cached_lock = Lwt_mutex.create ()
-             ; cached = KMap.empty
-             ; watchers_lock = Lwt_mutex.create ()
-             ; watchers = KMap.empty
-             ; base_path = path'
-            }
-     
+     else
+       let base_path = Path.to_string path' in
+       Ok { cached_lock = Lwt_mutex.create ()
+          ; cached = KMap.empty
+          ; watchers_lock = Lwt_mutex.create ()
+          ; watchers = KMap.empty
+          ; base_path
+         }
+       
 let read kv keys =
   let open Futil_lwt in
   let (>>=) = Lwt.(>>=) in
@@ -95,11 +99,11 @@ let read kv keys =
   >>= function
   | Some v -> Lwt.return_ok v
   | None ->
-     let path = Path.append kv.base_path keys in
+     let path = kv.base_path / (cat keys) in
      File.read path
      >>= function
      | Error `No_such_file ->
-        Lwt.return_error (`Not_found (Path.to_string path))
+        Lwt.return_error (`Not_found path)
      | Error _ as e ->
         Lwt.return e
      | Ok data' ->
@@ -125,7 +129,7 @@ let write kv keys data =
      Lwt.return_ok ()
   | _ as old ->
      let open Lwt_result.Infix in
-     let path = Path.append kv.base_path keys in
+     let path = kv.base_path / (cat keys) in
      File.write path data
      >>= fun () ->
      let open Lwt.Infix in

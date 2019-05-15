@@ -103,6 +103,16 @@ module Make (User : Api.USER) (Body : Api.BODY) : sig
              -> 'a
              -> node
 
+  val node_raw : ?doc:string
+                 -> ?restrict:user list
+                 -> meth:meth
+                 -> path:('a, 'b)
+                      Netlib.Uri.Path.Format.t
+                 -> query:('b, user -> string -> env -> state -> answer Lwt.t)
+                      Netlib.Uri.Query.format
+                 -> 'a
+                 -> node
+
   val doc : t -> (string * string list) list
 
 end = struct
@@ -135,19 +145,15 @@ end = struct
     Cohttp.Code.meth * 'a Netlib.Uri.Dispatcher.node
 
   type node =
-    (user -> body -> env -> state -> answer Lwt.t) handler
+    (user -> string -> env -> state -> answer Lwt.t) handler
 
   type t =
-    (user -> body -> env -> state -> answer Lwt.t)
+    (user -> string -> env -> state -> answer Lwt.t)
       Netlib.Uri.Dispatcher.t
       Meth_map.t 
 
   let handle (tbl : t) ~state ?(meth=`GET) ?default ~env ~redir uri body =
     let open Lwt.Infix in
-    let body = match Body.of_string body with
-      | Ok v -> v
-      | Error _ -> failwith ""
-    in
     let default = match default with
       | None -> fun (_user : user) _body _env _state ->
                 Lwt.return (`Error "bad request")
@@ -220,17 +226,33 @@ end = struct
        |> Meth_map.map (fun disps ->
               Uri.Dispatcher.(merge empty [path, disps]))
 
-  let transform not_allowed f =
+  let transform not_allowed f : user -> string -> env -> state -> answer Lwt.t =
     fun user body env state ->
+    match Body.of_string body with
+    | Error (`Conv_error e) ->
+       Lwt.return (`Error ("body conversion error: " ^ e))
+    | Ok body ->
+       if not_allowed user
+       then Lwt.return (`Error "access denied")
+       else f user body env state
+
+  let transform_raw not_allowed f =
+    fun user (body : string) env state ->
     if not_allowed user
     then Lwt.return (`Error "access denied")
-    else f user body env state
+    else f user body env state 
 
   let node ?doc ?(restrict=[]) ~meth ~path ~query handler : node =
     let not_allowed id = List.exists (User.equal id) restrict in
     Uri.Dispatcher.make ?docstring:doc ~path ~query handler
     |> Uri.Dispatcher.map_node (transform not_allowed)
     |> fun node -> meth, node
+
+  let node_raw ?doc ?(restrict=[]) ~meth ~path ~query handler : node =
+    let not_allowed id = List.exists (User.equal id) restrict in
+    Uri.Dispatcher.make ?docstring:doc ~path ~query handler
+    |> Uri.Dispatcher.map_node (transform_raw not_allowed)
+    |> fun node -> meth, node        
 
   let doc (t : t) =
     List.map (fun (meth, v) ->

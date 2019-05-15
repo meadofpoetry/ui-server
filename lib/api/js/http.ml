@@ -1,3 +1,7 @@
+open Js_of_ocaml_lwt
+open Lwt.Infix
+open Netlib
+
 let ( % ) f g x = f (g x)
 
 module type BODY = sig
@@ -33,9 +37,40 @@ let error_to_string : error -> string = function
   | `Error s -> s
   | `Unknown code -> Printf.sprintf "Unexpected response code: %d" code
 
+let make_uri ?scheme ?host ?port ~f ~path ~query =
+  let host = match host with
+    | None -> Js_of_ocaml.Url.Current.host
+    | Some x -> x in
+  let port = match port with
+    | None -> Js_of_ocaml.Url.Current.port
+    | Some x -> Some x in
+  Uri.kconstruct ?scheme ~host ?port
+    ~f:(f % Uri.pct_decode % Uri.to_string) ~path ~query
+                   
+let perform_file ?headers ?progress ?upload_progress
+      ~file ?meth ?with_credentials ?scheme
+      ?host ?port ~path ~query =
+  let f uri cb : 'a Lwt.t =
+    XmlHttpRequest.perform_raw_url
+      ?headers 
+      ?progress
+      ?upload_progress
+      ~content_type:"application/octet-stream"
+      ~contents:(`Blob file) 
+      ?override_method:meth
+      ?with_credentials
+      uri
+    >>= fun (x : XmlHttpRequest.http_frame) ->
+    let res = match Code.of_int x.code with
+      | `Unauthorized -> Error `Unauthorized
+      | `Not_implemented -> Error `Not_implemented
+      | `Forbidden -> Error (`Error x.content)
+      | `OK -> Ok ()
+      | _ -> Error (`Unknown x.code) in
+    cb x.headers res in
+  make_uri ?scheme ?host ?port ~f ~path ~query
+                   
 module Make(Body : BODY) : sig
-
-  open Netlib
 
   val perform : ?headers:(string * string) list
     -> ?progress:(int -> int -> unit)
@@ -65,20 +100,6 @@ module Make(Body : BODY) : sig
 
 end = struct
 
-  open Netlib
-
-  let ( >>= ) = Lwt.( >>= )
-
-  let make_uri ?scheme ?host ?port ~f ~path ~query =
-    let host = match host with
-      | None -> Js_of_ocaml.Url.Current.host
-      | Some x -> x in
-    let port = match port with
-      | None -> Js_of_ocaml.Url.Current.port
-      | Some x -> Some x in
-    Uri.kconstruct ?scheme ~host ?port
-      ~f:(f % Uri.pct_decode % Uri.to_string) ~path ~query
-
   let perform ?headers ?progress ?upload_progress
       ?body ?meth ?with_credentials ?scheme
       ?host ?port ~path ~query =
@@ -90,7 +111,7 @@ end = struct
 
       | Some x -> Some (`String (Body.to_string x)) in
     let f uri cb : 'a Lwt.t =
-      Lwt_xmlHttpRequest.perform_raw_url
+      XmlHttpRequest.perform_raw_url
         ?headers
         ?progress
         ?upload_progress
@@ -99,7 +120,7 @@ end = struct
         ?override_method:meth
         ?with_credentials
         uri
-      >>= fun (x : Lwt_xmlHttpRequest.http_frame) ->
+      >>= fun (x : XmlHttpRequest.http_frame) ->
       let res = match Code.of_int x.code with
         | `Unauthorized -> Error `Unauthorized
         | `Not_implemented -> Error `Not_implemented
@@ -119,7 +140,7 @@ end = struct
       | None -> None
       | Some x -> Some (`String (Body.to_string x)) in
     let f uri cb : 'a Lwt.t =
-      Lwt_xmlHttpRequest.perform_raw_url
+      XmlHttpRequest.perform_raw_url
         ?headers
         ?progress
         ?upload_progress
@@ -128,7 +149,7 @@ end = struct
         ?override_method:meth
         ?with_credentials
         uri
-      >>= fun (x : Lwt_xmlHttpRequest.http_frame) ->
+      >>= fun (x : XmlHttpRequest.http_frame) ->
       let res = match Code.of_int x.code with
         | `Unauthorized -> Error `Unauthorized
         | `Not_implemented -> Error `Not_implemented
