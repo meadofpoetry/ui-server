@@ -34,6 +34,7 @@ let filter_by_uris (uris : Netlib.Uri.t list)
 
 module Event = struct
 
+  open Protocol
   open Util_react
 
   let filter_event ids inputs streams event =
@@ -56,35 +57,35 @@ module Event = struct
                   |> uris
        in E.map (f % filter_by_uris uris) event
 
-  let get_streams (api : Protocol.api) ids inputs _user _body _env state =
+  let get_streams (state : Protocol.state) ids inputs _user _body _env _state =
     let event =
-      filter_event ids inputs !(api.sources)
-        (S.changes api.notifs.streams)
+      filter_event ids inputs (state.sources)
+        (S.changes state.notifs.streams)
       |> E.map (Util_json.List.to_yojson Structure.to_yojson)
     in
     Lwt.return (`Ev event)
 
-  let get_applied (api : Protocol.api) ids inputs _user _body _env state =
-    let event = filter_event ids inputs !(api.sources)
-                  (S.changes api.notifs.applied_structs)
+  let get_applied (state : Protocol.state) ids inputs _user _body _env _state =
+    let event = filter_event ids inputs (state.sources)
+                  (S.changes state.notifs.applied_structs)
                 |> E.map (Util_json.List.to_yojson Structure.to_yojson)
     in
     Lwt.return (`Ev event)
     
-  let get_streams_packed (api : Protocol.api) ids inputs _user _body _env state =
+  let get_streams_packed (state : Protocol.state) ids inputs _user _body _env _state =
     let event = filter_map_event ids inputs
-                  (Structure_conv.match_streams api.sources)
-                  !(api.sources)
-                  (S.changes api.notifs.streams)
+                  (Structure_conv.match_streams state.sources)
+                  (state.sources)
+                  (S.changes state.notifs.streams)
                 |> E.map (Util_json.List.to_yojson Structure.packed_to_yojson)
     in
     Lwt.return (`Ev event)
     
-  let get_applied_packed (api : Protocol.api) ids inputs _user _body _env state =
+  let get_applied_packed (state : Protocol.state) ids inputs _user _body _env _state =
     let event = filter_map_event ids inputs
-                  (Structure_conv.match_streams api.sources)
-                  !(api.sources)
-                  (S.changes api.notifs.applied_structs)
+                  (Structure_conv.match_streams state.sources)
+                  (state.sources)
+                  (S.changes state.notifs.applied_structs)
                 |> E.map (Util_json.List.to_yojson Structure.packed_to_yojson)
     in
     Lwt.return (`Ev event)
@@ -101,54 +102,54 @@ let filter_data ids inputs streams data =
                 |> uris
      in filter_by_uris uris data
       
-let get_streams (state : Protocol.state) (api : Protocol.api) ids inputs _user _body _env _state =
+let get_streams (state : Protocol.state) ids inputs _user _body _env _state =
   match state.backend with
   | None -> Lwt.return (`Error "not ready")
   | Some backend ->
      Protocol.Qoe_backend.Stream_parser.get_structure backend
      |> Lwt_result.map (Util_json.List.to_yojson Structure.to_yojson
-                        % filter_data ids inputs !(api.sources))
+                        % filter_data ids inputs state.sources)
      >>= function
      | Ok v -> Lwt.return (`Value v)
      | Error (`Qoe_backend e) -> Lwt.return (`Error e)
 
-let get_streams_applied (state : Protocol.state) (api : Protocol.api) ids inputs _user _body _env _state =
+let get_streams_applied (state : Protocol.state) ids inputs _user _body _env _state =
   match state.backend with
   | None -> Lwt.return (`Error "not ready")
   | Some backend ->
      Protocol.Qoe_backend.Graph.get_structure backend
      |> Lwt_result.map (Util_json.List.to_yojson Structure.to_yojson
-                        % filter_data ids inputs !(api.sources))
+                        % filter_data ids inputs state.sources)
      >>= function
      | Ok v -> Lwt.return (`Value v)
      | Error (`Qoe_backend e) -> Lwt.return (`Error e)
 
-let get_streams_with_source (state : Protocol.state) (api : Protocol.api) ids inputs _user _body _env _state =
+let get_streams_with_source (state : Protocol.state) ids inputs _user _body _env _state =
   match state.backend with
   | None -> Lwt.return (`Error "not ready")
   | Some backend ->
      Protocol.Qoe_backend.Stream_parser.get_structure backend
      |> Lwt_result.map (Util_json.List.to_yojson Structure.packed_to_yojson
-                        % Structure_conv.match_streams api.sources
-                        % filter_data ids inputs !(api.sources))
+                        % Structure_conv.match_streams state.sources
+                        % filter_data ids inputs state.sources)
      >>= function
      | Ok v -> Lwt.return (`Value v)
      | Error (`Qoe_backend e) -> Lwt.return (`Error e)
 
-let get_streams_applied_with_source (state : Protocol.state) (api : Protocol.api) ids inputs _user _body _env _state =
+let get_streams_applied_with_source (state : Protocol.state) ids inputs _user _body _env _state =
   match state.backend with
   | None -> Lwt.return (`Error "not ready")
   | Some backend ->
      Protocol.Qoe_backend.Graph.get_structure backend
      |> Lwt_result.map (Util_json.List.to_yojson Structure.packed_to_yojson
-                        % Structure_conv.match_streams api.sources
-                        % filter_data ids inputs !(api.sources))
+                        % Structure_conv.match_streams state.sources
+                        % filter_data ids inputs state.sources)
      >>= function
      | Ok v -> Lwt.return (`Value v)
      | Error (`Qoe_backend e) -> Lwt.return (`Error e)
 
 
-let apply_streams (state : Protocol.state) (api : Protocol.api) _user body _env _state =
+let apply_streams (state : Protocol.state) _user body _env _state =
   match Util_json.List.of_yojson Structure.of_yojson body with
   | Error e -> Lwt.return (`Error e)
   | Ok x ->
@@ -159,6 +160,6 @@ let apply_streams (state : Protocol.state) (api : Protocol.api) _user body _env 
         >>= function
         | Error (`Qoe_backend e) -> Lwt.return (`Error  e)
         | Ok () ->
-           api.options.structures#set x
+           state.options.structures#set x
            >>= fun () ->
            Lwt.return `Unit

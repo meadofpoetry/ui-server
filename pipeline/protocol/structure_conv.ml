@@ -13,7 +13,7 @@ let filter_map f l =
   in loop [] l
    
 let match_streams
-      (sources : (Uri.t * Stream.t) list ref)
+      (sources : (Uri.t * Stream.t) list)
       (sl : Structure.t list) : Structure.packed list =
   let open Structure in
   let rec merge (sources : (Uri.t * Stream.t) list) structure =
@@ -24,7 +24,7 @@ let match_streams
        then Some { source = s; structure }
        else merge ss structure
   in
-  filter_map (merge !sources) sl
+  filter_map (merge sources) sl
 
 let dump_structures (entries : Structure.packed list) =
   List.map (fun (x : Structure.packed) ->
