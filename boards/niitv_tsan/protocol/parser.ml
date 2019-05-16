@@ -62,8 +62,7 @@ let non_zero_indexes_of_int ?(start = 0) ~n (v : int) =
   let rec loop acc = function
     | i when i = n -> acc
     | i ->
-      let pow = int_of_float @@ Float.pow 2. (float_of_int i) in
-      let acc = if v land pow > 0 then (start + i) :: acc else acc in
+      let acc = if (v land (1 lsl i)) > 0 then (start + i) :: acc else acc in
       loop acc (succ i) in
   loop [] 0
 
@@ -133,7 +132,6 @@ module Status = struct
     let rec aux acc = function
       | 8 -> acc
       | i ->
-        (* NOTE check this *)
         let ver = Int32.shift_right v (4 * i)
                   |> Int32.logand 0xfl
                   |> Int32.to_int in

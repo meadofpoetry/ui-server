@@ -246,25 +246,19 @@ type _ t =
       ; t2mi_stream_id : int
       } -> (int * T2mi_info.t) t
 
-let to_tag (type a) : a t -> [`Simple of req_tag | `Complex of complex_tag] = function
-  | Get_devinfo -> `Simple `Get_devinfo
-  | Get_deverr _ -> `Complex `Deverr
-  | Get_mode -> `Simple `Get_mode
-  | Set_mode _ -> `Simple `Set_mode
-  | Set_jitter_mode _ -> `Complex `Jitter_mode
-  | Reset -> `Complex `Reset
-  | Set_src_id _ -> `Simple `Set_source_id
-  | Get_t2mi_seq _ -> `Complex `T2mi_seq
-  | Get_section _ -> `Complex `Section
-  | Get_bitrate _ -> `Complex `Bitrate
-  | Get_structure _ -> `Complex `Structure
-  | Get_t2mi_info _ -> `Complex `T2mi_info
-
-let equal a b =
-  match to_tag a, to_tag b with
-  | `Simple _, `Complex _ | `Complex _, `Simple _ -> false
-  | `Simple a, `Simple b -> equal_req_tag a b
-  | `Complex a, `Complex b -> equal_complex_tag a b
+let to_enum (type a) : a t -> int = function
+  | Get_devinfo -> 0
+  | Get_deverr _ -> 1
+  | Get_mode -> 2
+  | Set_mode _ -> 3
+  | Set_jitter_mode _ -> 4
+  | Reset -> 5
+  | Set_src_id _ -> 6
+  | Get_t2mi_seq _ -> 7
+  | Get_section _ -> 8
+  | Get_bitrate _ -> 9
+  | Get_structure _ -> 10
+  | Get_t2mi_info _ -> 11
 
 let timeout (type a) : a t -> float = function
   (* Responseless requests. If timeout if non-zero, it defines the time

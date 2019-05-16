@@ -3,12 +3,17 @@ open Application_types
 
 (* TODO: 1. add structure, bitrate, deverr, jitter, t2mi info probes. - DONE
          2. remove unclaimed messages from rsp queue - DONE
-         3. remove unclaimed message parts from part acc (in protocol)
-         4. catch devinfo message without corresponding request
-         5. implement client request queue
-         6. implement T2-MI monitoring setup after stream appeared/dissapeared *)
+         3. remove unclaimed message parts from part acc (in protocol) - DONE
+         4. catch devinfo message without corresponding request - MAYBE THIS IS NOT NEEDED AT ALL
+         5. implement client request queue - WIP
+         6. implement T2-MI monitoring setup after stream appeared/dissapeared
+         7. set equal timestamps in probes
+         8. do not remove structures/t2mi-info when no corresponding stream is found
+         9. implement jitter measurements *)
 
 module List = Boards.Util.List
+
+let ( % ) f g x = f (g x)
 
 type event =
   [ `Status of Parser.Status.t
@@ -26,10 +31,14 @@ type probe =
   | `Deverr of Deverr.t list
   ]
 
-type api_msg =
+type send_client =
   Request.rsp ts React.event
   -> event Lwt_stream.t
   -> (unit, Request.error) result Lwt.t
+
+type api_msg = int * send_client
+
+type pending = (int * (unit, Request.error) result Lwt.t) list
 
 type sender = { send : 'a. 'a Request.t -> unit Lwt.t }
 
@@ -47,6 +56,19 @@ let cooldown_timeout = 10.
 let status_timeout = 8.
 
 let event_timeout = 3.
+
+let wait_client_request
+    (queue : api_msg Lwt_stream.t)
+    (pending : pending ref)
+    push =
+  let rec aux () =
+    (* FIXME find is not suitable, it removes all from the queue *)
+    print_endline @@ Printf.sprintf "SIZE BEFORE FIND: %d" push#count;
+    Lwt_stream.find (fun (id, _) -> not @@ List.mem_assoc id !pending) queue
+    >>= function
+    | None -> print_endline @@ Printf.sprintf "NO CLIENT REQUEST: %d" push#count; aux ()
+    | Some x -> print_endline @@ Printf.sprintf "GOT CLIENT REQUEST: %d" push#count; Lwt.return (`C x) in
+  aux ()
 
 let to_raw_stream
     ~input_source
@@ -146,6 +168,9 @@ let request (type a)
     (events : event Lwt_stream.t)
     (sender : sender)
     (req : a Request.t) : (a, Request.error) result Lwt.t =
+  (match req with
+   | Get_t2mi_seq _ -> print_endline "REQ!!! T2MI seq"
+   | _ -> ());
   Logs.debug ~src (fun m -> m "Requesting \"%s\"" @@ Request.to_string req);
   sender.send req
   >>= fun () ->
@@ -180,6 +205,7 @@ let start
     (rsp_event : Request.rsp ts React.event)
     (evt_queue : Request.evt ts Lwt_stream.t)
     (kv : config Kv_v.rw)
+    push_req_queue
     (set_state : Topology.state set)
     (set_devinfo : devinfo set)
     (set_status : Parser.Status.t set)
@@ -192,7 +218,11 @@ let start
 
   let (module Logs : Logs.LOG) = Logs.src_log src in
 
-  let pending : 'a Lwt.t list ref = ref [] in
+  let pending : pending ref = ref [] in
+
+  let clear_pending () =
+    List.iter (Lwt.cancel % snd) !pending;
+    pending := [] in
 
   let reset_notifs () =
     let step = React.Step.create () in
@@ -236,13 +266,16 @@ let start
 
   let rec first_step () =
     Logs.info (fun m -> m "Start of connection establishment...");
+    print_endline "JUNK!!!";
     Lwt_stream.junk_old req_queue
     >>= fun () -> Lwt_stream.junk_old evt_queue
-    >>= fun () -> reset_notifs (); detect_device ()
+    >>= fun () -> clear_pending (); reset_notifs (); detect_device ()
 
   and restart () =
     Logs.info (fun m -> m "Restarting...");
+    clear_pending ();
     reset_notifs ();
+    print_endline "JUNK!!!";
     Lwt_stream.junk_old req_queue
     >>= fun () -> Lwt_stream.junk_old evt_queue
     >>= fun () -> Lwt_unix.sleep cooldown_timeout
@@ -312,12 +345,13 @@ let start
       restart ()
 
   and idle ?timer ?prev () =
-    pending := List.filter Lwt.is_sleeping !pending;
-    print_endline @@ Printf.sprintf "Pending: %d" @@ List.length !pending;
+    pending := List.filter (Lwt.is_sleeping % snd) !pending;
+    print_endline @@ "PENDING: " ^ string_of_int @@ List.length !pending;
+    print_endline @@ Printf.sprintf "QUEUE: %d" push_req_queue#count;
     let timer = match timer with
       | Some x -> x
       | None -> Lwt_unix.sleep status_timeout >>= fun () -> Lwt.return `Tm in
-    let wait_client = Lwt_stream.next req_queue >>= fun x -> Lwt.return (`C x) in
+    let wait_client = wait_client_request req_queue pending push_req_queue in
     let wait_status = status_loop () in
     Lwt.choose [timer; wait_status; wait_client]
     >>= function
@@ -326,10 +360,10 @@ let start
       Lwt.cancel wait_client;
       let timer = Lwt_unix.sleep status_timeout >>= fun () -> Lwt.return `Tm in
       wait_streams ~timer { prev; status; streams = []; errors = [] }
-    | `C send ->
+    | `C (id, send) ->
       Lwt.cancel wait_status;
       let r = send rsp_event evt_queue in
-      pending := r :: !pending;
+      pending := (id, r) :: !pending;
       idle ?prev ~timer ()
     | `Tm ->
       Lwt.cancel wait_status;

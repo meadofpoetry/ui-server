@@ -55,11 +55,12 @@ let send (type a)
            | Error _ as e -> Lwt.return e) in
         Lwt.pick
           [ await_no_response state
-          ; (push#push send >>= fun () -> t)
+          ; (push#push ((Request.to_enum req), send) >>= fun () ->
+             print_endline @@ Printf.sprintf "PUSHED! %d" push#count; t)
           ])
       (function
         | Lwt.Canceled -> Lwt.return_error Request.Not_responding
-        | Lwt_stream.Full -> Lwt.return_error Request.Queue_overflow
+        | Lwt_stream.Full -> print_endline "FULL!"; Lwt.return_error Request.Queue_overflow
         | exn -> Lwt.fail exn)
 
 let rec map_response prev ({ data; timestamp } as rsp : Request.rsp ts) =
@@ -169,6 +170,7 @@ let create
   let channel = fun req -> send src state push_req_queue sender req in
   let loop () =
     Fsm.start src sender req_queue rsp_event evt_queue kv
+      push_req_queue
       set_state
       (fun ?step x -> set_devinfo ?step @@ Some x)
       set_status
