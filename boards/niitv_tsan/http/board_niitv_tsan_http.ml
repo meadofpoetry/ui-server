@@ -134,6 +134,12 @@ let handlers (control : int) (api : Protocol.api) =
               ~path:Path.Format.(Stream.ID.fmt ^/ "t2mi-info" @/ empty)
               ~query:Query.empty
               (Api_streams.get_t2mi_info api)
+          ; node ~doc:"Returns T2-MI packet sequence"
+              ~meth:`GET
+              ~path:Path.Format.(Stream.ID.fmt ^/ "t2mi-sequence" @/ empty)
+              ~query:Query.[ "duration", (module Option(Time_uri.Show_relative))
+                           ; "t2mi-stream-id", (module List(Int)) ]
+              (Api_streams.get_t2mi_sequence api)
           ; node ~doc:"Returns SI/PSI section"
               ~meth:`GET
               ~path:Path.Format.(Stream.ID.fmt

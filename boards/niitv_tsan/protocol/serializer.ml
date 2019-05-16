@@ -55,9 +55,9 @@ let to_msg (type a) : a Request.t -> Request.req_tag Request.msg = function
     Message.set_req_source_id_input_src_id body input_source;
     Message.set_req_source_id_t2mi_src_id body t2mi_source;
     `Simple { tag = `Set_source_id; body }
-  | Get_t2mi_seq { request_id; seconds } ->
+  | Get_t2mi_seq { request_id; duration } ->
     let body = Cstruct.create Message.sizeof_req_t2mi_seq in
-    Message.set_req_t2mi_seq_time body seconds;
+    Message.set_req_t2mi_seq_time body duration;
     `Complex (Request.make_complex_msg ~request_id ~body `T2mi_seq)
   | Get_section { request_id
                 ; stream_id

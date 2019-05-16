@@ -225,7 +225,7 @@ type _ t =
       ; t2mi_source : int } -> unit t
   | Get_t2mi_seq :
       { request_id : int
-      ; seconds : int
+      ; duration : int (* seconds (120 seconds max) *)
       } -> T2mi_sequence.t ts t
   | Get_section :
       { request_id : int
@@ -277,7 +277,7 @@ let timeout (type a) : a t -> float = function
   | Get_devinfo -> 5.
   | Get_deverr _ -> 5.
   | Get_mode -> 5.
-  | Get_t2mi_seq { seconds; _ } -> 10. +. float_of_int seconds
+  | Get_t2mi_seq { duration; _ } -> 10. +. float_of_int duration
   | Get_section _ -> 125.
   | Get_bitrate _ -> 5.
   | Get_structure _ -> 5.
@@ -311,9 +311,9 @@ let to_string (type a) : a t -> string = function
       input_source t2mi_source
   | Get_deverr request_id ->
     Printf.sprintf "Get deverr (rid=%d)" request_id
-  | Get_t2mi_seq { request_id; seconds } ->
-    Printf.sprintf "Get T2-MI sequence (rid=%d, seconds=%d)"
-      request_id seconds
+  | Get_t2mi_seq { request_id; duration } ->
+    Printf.sprintf "Get T2-MI sequence (rid=%d, duration=%d)"
+      request_id duration
   | Get_section { request_id; stream_id; table_id
                 ; table_id_ext; id_ext_1; id_ext_2; section } ->
     Format.asprintf "Get section (rid=%d, stream=%a, table=%d, section=%a, \
