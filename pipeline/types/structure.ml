@@ -73,7 +73,7 @@ let combine_structure ~changed ~set ~applied x =
      | [] -> None
      | c  -> Some { x with channels = c }
 
-let combine ~(set : t list) (applied, strs) =
+let combine ~(set : t list) applied strs =
   let changed = ref false in
   let get_settings_opt stream =
     List.find_opt (fun x -> Stream.ID.equal x.id stream.id)
