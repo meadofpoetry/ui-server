@@ -24,15 +24,7 @@ type notifications =
   ; vdata : Qoe_errors.Video_data.t React.event (* TODO to be split by purpose later *)
   ; adata : Qoe_errors.Audio_data.t React.event
   }
-
-type notify = { streams : Structure.t list -> unit
-              ; wm : Wm.t -> unit
-              ; applied_structs : Structure.t list -> unit
-              ; status : Qoe_status.t -> unit
-              ; vdata : Qoe_errors.Video_data.t -> unit
-              ; adata : Qoe_errors.Audio_data.t -> unit
-              }
-
+  
 type state =
   { mutable backend : Qoe_backend.t option
   ; mutable running : unit Lwt.t option
@@ -40,7 +32,7 @@ type state =
   ; mutable sources : (Netlib.Uri.t * Stream.t) list
   ; options : options
   ; model   : Model.t
-  ; cleanup : unit React.event
+  ; cleanup : < set_cb : (unit -> unit) -> unit; call : unit >
   }
 
 module Wm_options = Kv_v.RW(Wm)
@@ -214,8 +206,6 @@ let init_streams stream_options events = failwith "not impl"
 
 let init_wm stream_options events = failwith "not impl"
                   
-let cleanup, call_cleanup = React.E.create ()
-                  
 let create db kv =
   let (>>=?) = Lwt_result.bind in
 
@@ -244,6 +234,14 @@ let create db kv =
   
   Model.create db notifs.streams notifs.status notifs.vdata notifs.adata
   >>=? fun model ->
+
+  let cleanup =
+    let cb = ref (fun () -> ()) in
+    object
+      method set_cb new_cb = cb := new_cb
+      method call = !cb ()
+    end
+  in
   
   let state =
     { backend; running; notifs; sources; options; model; cleanup }
@@ -288,7 +286,7 @@ let reset state (sources : (Netlib.Uri.t * Stream.t) list) =
                   ; adata = events.adata
                   };
 
-  call_cleanup ();
+  state.cleanup#call;
 
   (* TODO add state updates if settings are avail *)
 
@@ -314,6 +312,6 @@ let finalize state =
   state.backend <- None;
   state.running <- None;
   state.notifs <- notifs_default;
-  call_cleanup ();
+  state.cleanup#call;
   Logs.debug (fun m -> m "(Pipeline) finalize");
   Lwt.return_unit

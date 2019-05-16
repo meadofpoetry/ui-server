@@ -130,6 +130,7 @@ let ws (state : Pipeline_protocol.Protocol.state) =
   let open Api_websocket in
   (* TODO add closing event *)
   let socket_table = make_socket_table () in
+  state.cleanup#set_cb (fun () -> close_sockets socket_table);
 
   [ merge ~prefix:"pipeline"
       [ make ~prefix:"wm"
