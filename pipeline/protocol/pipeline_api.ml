@@ -3,23 +3,24 @@ open Lwt.Infix
 
 module Event = struct
 
+  open Protocol
   open Util_react
   (*
-let get_settings (api : api) _ body sock_data () =
+let get_settings (state : state) _ body sock_data () =
     let event = S.changes api.notifs.settings in
     Api.Socket.handler socket_table sock_data event
       Settings.to_yojson body
    *)
 
-  let get_wm_layout (api : Protocol.api) _user _body _env state =
+  let get_wm_layout (state : Protocol.state) _user _body _env _state =
     let event =
-      S.changes api.notifs.wm
+      S.changes state.notifs.wm
       |> E.map Wm.to_yojson
     in
     Lwt.return (`Ev event)
 
-  let get_status (api : Protocol.api) ids _user _body _env state =
-    let event = S.changes api.notifs.status in
+  let get_status (state : Protocol.state) ids _user _body _env _state =
+    let event = S.changes state.notifs.status in
     let event = match ids with
       | [] -> event
       | ids ->
@@ -40,18 +41,18 @@ let set body conv apply =
      >>= function Ok () -> Lwt.return `Unit
                 | Error (`Qoe_backend e) -> Lwt.return (`Error e) (* TODO respond result *)
 (*
-  let set_settings (api : api) headers body () =
+  let set_settings (state : state) headers body () =
     set body Settings.of_yojson
-      Pipeline_protocol.(fun x -> api.requests.settings.set x)
+      Pipeline_protocol.(fun x -> state.requests.settings.set x)
 
-  let get_settings (api : api) headers body () =
-    api.requests.settings.get ()
+  let get_settings (state : state) headers body () =
+    state.requests.settings.get ()
     >|= (function
          | Error e -> Error (Json.String.to_yojson e)
          | Ok v -> Ok (Settings.to_yojson v))
     >>= respond_result
  *)
-let apply_wm_layout (state : Protocol.state) (api : Protocol.api) _user body _env _state =
+let apply_wm_layout (state : Protocol.state) _user body _env _state =
   let (>>=) = Lwt_result.bind in
   set body Wm.of_yojson
     Protocol.(fun x ->
@@ -60,9 +61,9 @@ let apply_wm_layout (state : Protocol.state) (api : Protocol.api) _user body _en
     | Some backend ->
        Qoe_backend.Mosaic.apply_layout backend x
        >>= fun () ->
-       Lwt_result.ok @@ api.options.wm#set x)
+       Lwt_result.ok @@ state.options.wm#set x)
 
-let get_wm_layout (state : Protocol.state) (api : Protocol.api) _user _body _env _state =
+let get_wm_layout (state : Protocol.state) _user _body _env _state =
   match state.backend with
   | None -> Lwt.return (`Error "not ready")
   | Some backend ->
@@ -71,8 +72,8 @@ let get_wm_layout (state : Protocol.state) (api : Protocol.api) _user _body _env
           | Error (`Qoe_backend e) -> Lwt.return (`Error e)
           | Ok v -> Lwt.return (`Value (Wm.to_yojson v)))
 
-let get_status (api : Protocol.api) ids _user _body _env _state =
-  React.S.value api.notifs.status
+let get_status (state : Protocol.state) ids _user _body _env _state =
+  React.S.value state.notifs.status
   |> (fun l ->
     match ids with
     | [] -> l
@@ -85,8 +86,8 @@ let get_status (api : Protocol.api) ids _user _body _env _state =
 (*
 
 
-let handlers (api : api) =
-  [ Api_handler.add_layer "pipeline"
+let handlers (state : state) =
+  [ State_handler.add_layer "pipeline"
       ; Pipeline_api_measurements.handler api
       ; Pipeline_api_history.handler api
       ]

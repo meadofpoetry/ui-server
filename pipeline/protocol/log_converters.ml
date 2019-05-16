@@ -25,7 +25,7 @@ module Video = struct
   let convert sources structures x =
     let (_, stream) = List.find
                         (fun (_,s) -> Stream.(ID.equal s.id x.stream))
-                        !sources
+                        sources
     in
     let input     = Stream.get_input stream in
     let stream    = Some x.stream in
@@ -113,7 +113,7 @@ module Audio = struct
   let convert sources structures x =
     let (_, stream) = List.find
                         (fun (_,s) -> Stream.(ID.equal s.id x.stream))
-                        !sources
+                        sources
     in
     let input     = Stream.get_input stream in
     let stream    = Some x.stream in
@@ -182,7 +182,7 @@ module Status = struct
   let convert sources structures x =
     let (_, stream) = List.find
                         (fun (_,s) -> Stream.(ID.equal s.id x.stream))
-                        !sources
+                        sources
     in
     let input     = Stream.get_input stream in
     let stream    = Some x.stream in

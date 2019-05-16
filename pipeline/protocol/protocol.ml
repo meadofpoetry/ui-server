@@ -32,20 +32,15 @@ type notify = { streams : Structure.t list -> unit
               ; vdata : Qoe_errors.Video_data.t -> unit
               ; adata : Qoe_errors.Audio_data.t -> unit
               }
-                                         
-type api =
-  { notifs  : notifications
-  ; options : options
-  ; sources : (Netlib.Uri.t * Stream.t) list ref
-  ; model   : Model.t
-  }
 
 type state =
-  (* TODO add socket? *)
   { mutable backend : Qoe_backend.t option
   ; mutable running : unit Lwt.t option
-  ; notify : notify
-  ; mutable kept : < >
+  ; mutable notifs : notifications
+  ; mutable sources : (Netlib.Uri.t * Stream.t) list
+  ; options : options
+  ; model   : Model.t
+  ; cleanup : unit React.event
   }
 
 module Wm_options = Kv_v.RW(Wm)
@@ -70,7 +65,7 @@ let list_equal eq l r =
                          then raise_notrace Not_found) r;
     true
   with Not_found -> false
-                        
+   (*                     
 let limit_inert ~eq t s =
   let open React in
   let tm = ref Lwt.return_unit in
@@ -151,7 +146,8 @@ let notification_attach_setter
   options#get
   >>= fun default ->
   signal_add_setter signal default merge
-  
+    *)
+  (*
 let create_notifications (options : options) : (notifications * notify) =  
   (* TODO remove Equal.poly *)
   let streams, streams_push = Util_react.E.create () in
@@ -203,8 +199,24 @@ let create_notifications (options : options) : (notifications * notify) =
                    }
   in
   (notifs, notif_push)
-  
-let create db kv sock_in sock_out =
+   *)
+
+let notifs_default = { streams = React.S.const []
+                     ; wm = React.S.const Wm.default
+                     ; applied_structs = React.S.const []
+                     ; status = React.S.const []
+                     ; status_raw = React.E.never
+                     ; vdata = React.E.never
+                     ; adata = React.E.never
+                     }
+
+let init_streams stream_options events = failwith "not impl"
+
+let init_wm stream_options events = failwith "not impl"
+                  
+let cleanup, call_cleanup = React.E.create ()
+                  
+let create db kv =
   let (>>=?) = Lwt_result.bind in
 
   Wm_options.create ~default:Wm.default kv ["pipeline";"wm"]
@@ -218,28 +230,27 @@ let create db kv sock_in sock_out =
  *)
   
   let options = { wm; structures; settings = () } in
-  let sources = ref [] in
+  let sources = [] in
 
   Qoe_backend.init_logger ();
   let backend = None in
   let running = None in
 
   (*let merge v = Structure_conv.match_streams srcs v in*)
-
+  (*
   let (notifs, notify) = create_notifications options in
+   *)
+  let notifs = notifs_default in
   
   Model.create db notifs.streams notifs.status notifs.vdata notifs.adata
   >>=? fun model ->
   
-  let api =
-    { notifs; options; sources; model }
-  in
   let state =
-    { backend; running; notify; kept = object end }
+    { backend; running; notifs; sources; options; model; cleanup }
   in
-  Lwt.return_ok (api, state)
+  Lwt.return_ok (state)
   
-let reset api state (sources : (Netlib.Uri.t * Stream.t) list) =
+let reset state (sources : (Netlib.Uri.t * Stream.t) list) =
   let (>>=) = Lwt.bind in
   let (>>=?) = Lwt_result.bind in
   
@@ -248,9 +259,6 @@ let reset api state (sources : (Netlib.Uri.t * Stream.t) list) =
         Stream.ID.to_string s.Stream.id) sources in
   let uris = List.map (fun (a,_) -> Netlib.Uri.to_string a) sources in
   let args = Array.of_list @@ List.combine ids uris in
-  ignore @@
-    Lwt_io.printf "Arguments: %s\n" (Array.fold_left (fun acc (id,s) -> acc ^ " (" ^ id ^ ", " ^ s ^ ")") "" args);
-  api.sources := sources;
 
   begin match state.backend with
   | None -> Lwt.return_unit
@@ -268,25 +276,29 @@ let reset api state (sources : (Netlib.Uri.t * Stream.t) list) =
   
   state.backend <- Some backend;
 
-  state.kept <-
-    object
-      val st = Util_react.E.map state.notify.streams events.streams
-      val wm = Util_react.E.map state.notify.wm events.wm
-      val ap = Util_react.E.map state.notify.applied_structs events.graph
-      val sta = Util_react.E.map state.notify.status events.status
-      val vd = Util_react.E.map state.notify.vdata events.vdata
-      val ad = Util_react.E.map state.notify.adata events.adata
-    end;
+  let streams = init_streams state.options.structures events.streams in
+  let wm = init_wm state.options.wm events.wm in
+
+  state.notifs <- { streams
+                  ; wm
+                  ; applied_structs = React.S.const [] (* TODO *)
+                  ; status = React.S.const []    (* TODO *)
+                  ; status_raw = events.status
+                  ; vdata = events.vdata
+                  ; adata = events.adata
+                  };
+
+  call_cleanup ();
 
   (* TODO add state updates if settings are avail *)
 
-  Model.set_streams api.model (List.map snd sources);
+  Model.set_streams state.model (List.map snd sources);
 
   state.running <- Some (Qoe_backend.run backend);
 
   Lwt.return_ok ()
 
-let finalize state api =
+let finalize state =
   let (>>=) = Lwt.bind in
   begin match state.backend with
   | None -> Lwt.return_unit
@@ -301,6 +313,7 @@ let finalize state api =
 
   state.backend <- None;
   state.running <- None;
-  state.kept <- object end;
+  state.notifs <- notifs_default;
+  call_cleanup ();
   Logs.debug (fun m -> m "(Pipeline) finalize");
   Lwt.return_unit
