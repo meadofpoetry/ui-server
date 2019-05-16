@@ -59,6 +59,7 @@ let compare_part = fun x y ->
   else compare x.param y.param
 
 let non_zero_indexes_of_int ?(start = 0) ~n (v : int) =
+  let n = min Sys.int_size n in
   let rec loop acc = function
     | i when i = n -> acc
     | i ->

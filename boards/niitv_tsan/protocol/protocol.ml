@@ -39,7 +39,7 @@ let await_no_response state =
 let send (type a)
     (src : Logs.src)
     (state : Topology.state React.signal)
-    (push : _ Lwt_stream.bounded_push)
+    (push : Fsm.api_msg -> unit Lwt.t)
     (sender : Fsm.sender)
     (req : a Request.t) =
   match React.S.value state with
@@ -55,12 +55,11 @@ let send (type a)
            | Error _ as e -> Lwt.return e) in
         Lwt.pick
           [ await_no_response state
-          ; (push#push ((Request.to_enum req), send) >>= fun () ->
-             print_endline @@ Printf.sprintf "PUSHED! %d" push#count; t)
+          ; (push ((Request.to_enum req), send) >>= fun () -> t)
           ])
       (function
         | Lwt.Canceled -> Lwt.return_error Request.Not_responding
-        | Lwt_stream.Full -> print_endline "FULL!"; Lwt.return_error Request.Queue_overflow
+        | Queue_lwt.Full -> Lwt.return_error Request.Queue_overflow
         | exn -> Lwt.fail exn)
 
 let rec map_response prev ({ data; timestamp } as rsp : Request.rsp ts) =
@@ -138,7 +137,7 @@ let create
           React.S.hold ~eq [] @@ map_stream_id streams structure)
     } in
   let sender = { Fsm. send = fun req -> sender @@ Serializer.serialize req } in
-  let req_queue, push_req_queue = Lwt_stream.create_bounded msg_queue_size in
+  let req_queue, push_req_queue = Queue_lwt.create msg_queue_size in
   let rsp_event, push_rsp_event = React.E.create () in
   let evt_queue, push_evt_queue = Lwt_stream.create () in
   let prev = ref None in
@@ -170,7 +169,6 @@ let create
   let channel = fun req -> send src state push_req_queue sender req in
   let loop () =
     Fsm.start src sender req_queue rsp_event evt_queue kv
-      push_req_queue
       set_state
       (fun ?step x -> set_devinfo ?step @@ Some x)
       set_status
