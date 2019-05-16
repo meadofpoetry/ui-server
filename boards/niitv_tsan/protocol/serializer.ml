@@ -5,7 +5,9 @@ let request_id = ref 0
 
 let get_request_id () =
   let id = !request_id in
-  incr request_id;
+  if id = 0xFFFF
+  then request_id := 0
+  else incr request_id;
   id
 
 let to_common_header (code : int) =

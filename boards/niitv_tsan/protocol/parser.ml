@@ -34,11 +34,13 @@ module Part = Map.Make(Part_id)
 type part =
   { first : bool
   ; param : int32
+  ; parity : bool
   ; body : Cstruct.t
   }
 
 type part_error =
   | Unexpected_first
+  | Unexpected_parity
   | Discontinuity
 
 exception Invalid_part of part_error
@@ -46,6 +48,8 @@ exception Invalid_part of part_error
 let pp_part_error ppf = function
   | Unexpected_first ->
     Format.pp_print_string ppf "several parts have 'first' flag set"
+  | Unexpected_parity ->
+    Format.pp_print_string ppf "different value of 'parity' flag across parts"
   | Discontinuity ->
     Format.pp_print_string ppf "unfilled gap between parts"
 
@@ -1056,19 +1060,16 @@ let parse_part src (buf : Cstruct.t) =
   try
     let code_ext = Message.get_complex_rsp_header_code_ext buf in
     let long = (code_ext land 0x2000) <> 0 in
-    let parity = if (code_ext land 0x1000) <> 0 then 1 else 0 in
+    let parity = (code_ext land 0x1000) <> 0 in
     let param =
       Int32.mul 2l
         (if long
          then Message.get_complex_rsp_header_ext_param buf
-         else Int32.of_int @@ Message.get_complex_rsp_header_param buf)
-      |> fun x -> Int32.sub x (Int32.of_int parity) in
+         else Int32.of_int @@ Message.get_complex_rsp_header_param buf) in
     let body =
-      (if long
-       then Cstruct.shift buf Message.sizeof_complex_rsp_header_ext
-       else Cstruct.shift buf Message.sizeof_complex_rsp_header)
-      |> (fun x -> Cstruct.split x (Cstruct.len x - parity))
-      |> fst in
+      if long
+      then Cstruct.shift buf Message.sizeof_complex_rsp_header_ext
+      else Cstruct.shift buf Message.sizeof_complex_rsp_header in
     let id =
       { Part_id.
         code = code_ext land 0x0FFF
@@ -1078,12 +1079,13 @@ let parse_part src (buf : Cstruct.t) =
     let part =
       { body
       ; first = (code_ext land 0x8000) <> 0
+      ; parity
       ; param
       } in
     Logs.debug ~src (fun m ->
         m "parser - got complex message part \
            (code: 0x%X, req_id: %d, client_id: %d, \
-           first: %B, parity: %d, length: %d, param: %ld)"
+           first: %B, parity: %B, length: %d, param: %ld)"
           id.code id.request_id id.client_id
           part.first parity (Cstruct.len body) param);
     Ok (id, part)
@@ -1098,12 +1100,20 @@ let compose_parts (parts : part list) =
          List.fold_left (fun acc part ->
              if part.first = true
              then raise_notrace (Invalid_part Unexpected_first);
+             if part.parity <> first.parity
+             then raise_notrace (Invalid_part Unexpected_parity);
              if Int32.to_int part.param = acc
              then acc + Cstruct.len part.body
              else raise_notrace (Invalid_part Discontinuity))
            (Cstruct.len first.body) rest in
        if Int32.to_int first.param <> length then `P sorted
-       else `V (Cstruct.concat @@ List.map (fun x -> x.body) sorted)
+       else (
+         let acc = Cstruct.concat @@ List.map (fun x -> x.body) sorted in
+         let message =
+           if first.parity
+           then fst @@ Cstruct.split acc (Cstruct.len acc - 1)
+           else acc in
+         `V message)
      with
      | Invalid_part Discontinuity -> `P sorted
      | Invalid_part e -> `E e)
@@ -1121,8 +1131,8 @@ let parse ~timestamp src body parts = function
          | Some x -> x in
        match compose_parts (part :: acc.data) with
        | `P data -> None, Part.add id { acc with data } parts
-       | `E e ->
-         Logs.err (fun m -> m "Error composing parts: %a" pp_part_error e);
+       | `E e -> Logs.err (fun m ->
+           m "Error composing parts: %a" pp_part_error e);
          None, Part.remove id parts
        | `V body ->
          let msg = match Request.complex_tag_of_enum id.code with

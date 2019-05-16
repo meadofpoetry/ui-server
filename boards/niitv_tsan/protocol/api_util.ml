@@ -6,6 +6,9 @@ let ( % ) f g x = f (g x)
 let return_value x =
   Lwt.return (`Value x)
 
+let return_error e =
+  Lwt.return (`Error (Request.error_to_string e))
+
 let stream_pair_to_yojson f =
   Util_json.Pair.to_yojson Stream.ID.to_yojson f
 

@@ -192,6 +192,16 @@ let start
 
   let (module Logs : Logs.LOG) = Logs.src_log src in
 
+  let pending : 'a Lwt.t list ref = ref [] in
+
+  let reset_notifs () =
+    let step = React.Step.create () in
+    set_state ~step `No_response;
+    set_streams ~step [];
+    set_structure ~step [];
+    set_t2mi_info ~step [];
+    React.Step.execute step in
+
   let evt_queue = Lwt_stream.filter_map (fun { data; timestamp } ->
       let ( >>= ) x f = match x with Ok x -> f x | Error _ as e -> e in
       let res = match (data : Request.evt) with
@@ -218,15 +228,21 @@ let start
         None)
       evt_queue in
 
+  let rec status_loop () =
+    Lwt_stream.next evt_queue
+    >>= function
+    | `Status status -> Lwt.return @@ `S status
+    | _ -> status_loop () in
+
   let rec first_step () =
     Logs.info (fun m -> m "Start of connection establishment...");
     Lwt_stream.junk_old req_queue
     >>= fun () -> Lwt_stream.junk_old evt_queue
-    >>= fun () -> set_state `No_response; detect_device ()
+    >>= fun () -> reset_notifs (); detect_device ()
 
   and restart () =
     Logs.info (fun m -> m "Restarting...");
-    set_state `No_response;
+    reset_notifs ();
     Lwt_stream.junk_old req_queue
     >>= fun () -> Lwt_stream.junk_old evt_queue
     >>= fun () -> Lwt_unix.sleep cooldown_timeout
@@ -296,34 +312,31 @@ let start
       restart ()
 
   and idle ?timer ?prev () =
+    pending := List.filter Lwt.is_sleeping !pending;
+    print_endline @@ Printf.sprintf "Pending: %d" @@ List.length !pending;
     let timer = match timer with
       | Some x -> x
       | None -> Lwt_unix.sleep status_timeout >>= fun () -> Lwt.return `Tm in
-    let wait_client =
-      Lwt_stream.next req_queue
-      >>= fun x -> Lwt.return (`C x) in
-    let rec wait_status () =
-      Lwt_stream.next evt_queue
-      >>= function
-      | `Status status -> Lwt.return @@ `S status
-      | _ -> wait_status () in
-    Lwt.pick
-      [ timer
-      ; wait_status ()
-      ; wait_client ]
+    let wait_client = Lwt_stream.next req_queue >>= fun x -> Lwt.return (`C x) in
+    let wait_status = status_loop () in
+    Lwt.choose [timer; wait_status; wait_client]
     >>= function
     | `S status ->
+      Lwt.cancel timer;
+      Lwt.cancel wait_client;
       let timer = Lwt_unix.sleep status_timeout >>= fun () -> Lwt.return `Tm in
       wait_streams ~timer { prev; status; streams = []; errors = [] }
     | `C send ->
-      (* FIXME *)
-      (send rsp_event evt_queue
-       >>= function
-       | Ok () -> idle ?prev ~timer ()
-       | Error _ -> idle ?prev ~timer ())
-    | `Tm -> Logs.err (fun m ->
-        m "Seems that the device is not responding, \
-           got no status for %g seconds" status_timeout);
+      Lwt.cancel wait_status;
+      let r = send rsp_event evt_queue in
+      pending := r :: !pending;
+      idle ?prev ~timer ()
+    | `Tm ->
+      Lwt.cancel wait_status;
+      Lwt.cancel wait_client;
+      Logs.err (fun m ->
+          m "Seems that the device is not responding, \
+             got no status for %g seconds" status_timeout);
       restart ()
 
   and wait_streams ~timer acc =

@@ -112,12 +112,12 @@ let handlers (control : int) (api : Protocol.api) =
           ; node ~doc:"Returns TS details"
               ~meth:`GET
               ~path:Path.Format.(Stream.ID.fmt ^/ "ts-info" @/ empty)
-              ~query:Query.empty
+              ~query:Query.["force", (module Option(Bool))]
               (Api_streams.get_ts_info api)
           ; node ~doc:"Returns PID list"
               ~meth:`GET
               ~path:Path.Format.(Stream.ID.fmt ^/ "pids" @/ empty)
-              ~query:Query.empty
+              ~query:Query.["force", (module Option(Bool))]
               (Api_streams.get_pids api)
           ; node ~doc:"Returns available SI/PSI tables"
               ~meth:`GET
@@ -136,9 +136,9 @@ let handlers (control : int) (api : Protocol.api) =
               (Api_streams.get_t2mi_info api)
           ; node ~doc:"Returns SI/PSI section"
               ~meth:`GET
-              ~path:Path.Format.("si-psi-section"
-                                 @/ Stream.ID.fmt
-                                 ^/ Int
+              ~path:Path.Format.(Stream.ID.fmt
+                                 ^/ "section"
+                                 @/ Int
                                  ^/ empty)
               ~query:Query.[ "section", (module Option(Int))
                            ; "table-id-ext", (module Option(Int))

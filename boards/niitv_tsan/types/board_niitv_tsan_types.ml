@@ -5,6 +5,9 @@ type 'a ts =
   ; timestamp : Time.t
   } [@@deriving yojson, eq, show]
 
+let stamp (data : 'a) (timestamp : Time.t) =
+  { data; timestamp }
+
 type 'a tspan =
   { data : 'a
   ; from : Time.t
@@ -268,6 +271,14 @@ module Structure = struct
     ; pids : (int * PID_info.t) list
     ; timestamp : Time.t
     } [@@deriving eq, yojson]
+
+  let info (t : t) = t.info
+
+  let pids (t : t) = t.pids
+
+  let services (t : t) = t.services
+
+  let tables (t : t) = t.tables
 
 end
 

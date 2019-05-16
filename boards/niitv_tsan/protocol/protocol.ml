@@ -10,6 +10,7 @@ type notifs =
   ; structure : (Stream.ID.t * Structure.t) list React.signal
   ; t2mi_info : (Stream.ID.t * (int * T2mi_info.t) list) list React.signal
   ; deverr : Deverr.t list React.event
+  ; errors : (Stream.ID.t * Error.t list) list React.event
   }
 
 type api =
@@ -88,6 +89,20 @@ let map_stream_id
           | Some s -> Some (s.id, v)) event)
     event streams
 
+let map_errors
+    (errors : ('a * Error.t list) list)
+    (structures : ('a * Structure.t) list)
+  : ('a * Error.t_ext list) list =
+  List.map (fun (id, errors) ->
+      match List.assoc_opt id structures with
+      | None -> id, List.map (fun (e : Error.t) ->
+          { e with pid = (e.pid, None) }) errors
+      | Some { pids; _ } ->
+        let errors =
+          List.map (fun (e : Error.t) ->
+              { e with pid = (e.pid, List.assoc_opt e.pid pids) }) errors in
+        id, errors) errors
+
 let create
     (src : Logs.src)
     (sender : Cstruct.t -> unit Lwt.t)
@@ -112,6 +127,7 @@ let create
     ; status
     ; streams
     ; bitrate = map_stream_id streams bitrate
+    ; errors = map_stream_id streams errors
     ; t2mi_info = Util_equal.(
           let eq_t2mi = List.equal @@ Pair.equal Int.equal T2mi_info.equal in
           let eq = List.equal @@ Pair.equal Stream.ID.equal eq_t2mi in
@@ -142,10 +158,10 @@ let create
     acc := new_acc;
     parts := new_parts;
     List.iter (fun (x : Request.rsp ts) ->
-        Logs.debug ~src (fun m ->
-            m "Got '%s'" (match x.data with
-                | `Complex { tag; _ } -> Request.complex_tag_to_string tag
-                | `Simple { tag; _ } -> Request.simple_tag_to_string tag));
+        (* Logs.debug ~src (fun m ->
+         *     m "Got '%s'" (match x.data with
+         *         | `Complex { tag; _ } -> Request.complex_tag_to_string tag
+         *         | `Simple { tag; _ } -> Request.simple_tag_to_string tag)); *)
         (match map_response !prev x with
          | `R r -> push_rsp_event r
          | `E e -> push_evt_queue @@ Some e);

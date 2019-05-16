@@ -34,4 +34,4 @@ let parse_exn (buf : string) : Node.t list =
 
 let parse (buf : string) : Node.t list option =
   try Some (parse_exn buf)
-  with _ -> None
+  with exn -> print_endline @@ Printexc.to_string exn; None
