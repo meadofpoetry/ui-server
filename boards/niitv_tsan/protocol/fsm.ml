@@ -1,15 +1,17 @@
 open Board_niitv_tsan_types
 open Application_types
 
-(* TODO: 1. add structure, bitrate, deverr, jitter, t2mi info probes. - DONE
-         2. remove unclaimed messages from rsp queue - DONE
-         3. remove unclaimed message parts from part acc (in protocol) - DONE
-         4. catch devinfo message without corresponding request - MAYBE THIS IS NOT NEEDED AT ALL
-         5. implement client request queue - WIP
-         6. implement T2-MI monitoring setup after stream appeared/dissapeared
-         7. set equal timestamps in probes
-         8. do not remove structures/t2mi-info when no corresponding stream is found
-         9. implement jitter measurements *)
+(* TODO:
+   1. add structure, bitrate, deverr, jitter, t2mi info probes. - DONE
+   2. remove unclaimed messages from rsp queue - DONE
+   3. remove unclaimed message parts from part acc (in protocol) - DONE
+   4. catch devinfo message without corresponding request - MAYBE THIS IS NOT NEEDED AT ALL
+   5. implement client request queue - DONE
+   6. implement T2-MI monitoring setup after stream appeared/dissapeared
+   7. set equal timestamps in probes
+   8. do not remove structures/t2mi-info when no corresponding stream is found
+   9. implement jitter measurements
+   10. cancel requests if they were canceled by the client *)
 
 module List = Boards.Util.List
 
@@ -34,11 +36,11 @@ type probe =
 type send_client =
   Request.rsp ts React.event
   -> event Lwt_stream.t
-  -> (unit, Request.error) result Lwt.t
+  -> unit Lwt.t
 
 type api_msg = int * send_client
 
-type pending = (int * (unit, Request.error) result Lwt.t) list
+type pending = (int * unit Lwt.t) list
 
 type sender = { send : 'a. 'a Request.t -> unit Lwt.t }
 
@@ -56,16 +58,6 @@ let cooldown_timeout = 10.
 let status_timeout = 8.
 
 let event_timeout = 3.
-
-let wait_client_request
-    (queue : api_msg Queue_lwt.t)
-    (pending : pending ref) =
-  let rec aux () =
-    Queue_lwt.get_while (fun (id, _) -> not @@ List.mem_assoc id !pending) queue
-    >>= function
-    | [] -> aux ()
-    | l -> Lwt.return (`C l) in
-  aux ()
 
 let to_raw_stream
     ~input_source
@@ -195,6 +187,7 @@ type 'a set = ?step:React.step -> 'a -> unit
 let start
     (src : Logs.src)
     (sender : sender)
+    (pending : pending ref)
     (req_queue : api_msg Queue_lwt.t)
     (rsp_event : Request.rsp ts React.event)
     (evt_queue : Request.evt ts Lwt_stream.t)
@@ -210,8 +203,6 @@ let start
     (set_deverr : Deverr.t list set) =
 
   let (module Logs : Logs.LOG) = Logs.src_log src in
-
-  let pending : pending ref = ref [] in
 
   let clear_pending () =
     List.iter (Lwt.cancel % snd) !pending;
@@ -339,10 +330,12 @@ let start
 
   and idle ?timer ?prev () =
     pending := List.filter (Lwt.is_sleeping % snd) !pending;
+    Queue_lwt.check_condition req_queue
+    >>= fun () ->
     let timer = match timer with
       | Some x -> x
       | None -> Lwt_unix.sleep status_timeout >>= fun () -> Lwt.return `Tm in
-    let wait_client = wait_client_request req_queue pending in
+    let wait_client = Queue_lwt.next req_queue >>= fun x -> Lwt.return (`C x) in
     let wait_status = status_loop () in
     Lwt.choose [timer; wait_status; wait_client]
     >>= function
@@ -351,10 +344,10 @@ let start
       Lwt.cancel wait_client;
       let timer = Lwt_unix.sleep status_timeout >>= fun () -> Lwt.return `Tm in
       wait_streams ~timer { prev; status; streams = []; errors = [] }
-    | `C reqs ->
+    | `C (id, send) ->
       Lwt.cancel wait_status;
-      let acc = List.map (fun (id, send) -> id, send rsp_event evt_queue) reqs in
-      pending := acc @ !pending;
+      let r = send rsp_event evt_queue in
+      pending := (id, r) :: !pending;
       idle ?prev ~timer ()
     | `Tm ->
       Lwt.cancel wait_status;

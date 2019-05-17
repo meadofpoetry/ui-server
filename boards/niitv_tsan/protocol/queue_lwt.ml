@@ -2,9 +2,12 @@ exception Full
 
 exception Empty
 
+(* TODO replace list with smth more efficient *)
+
 type 'a t =
   { m : Lwt_mutex.t
-  ; c : unit Lwt_condition.t
+  ; c : [`V of 'a * 'a list | `E] Lwt_condition.t
+  ; pred : 'a -> bool
   ; mutable v : 'a list
   ; mutable pending : 'a option
   ; mutable push_wakener : unit Lwt.u
@@ -17,18 +20,19 @@ let ( >>= ) = Lwt.( >>= )
 let length t = List.length t.v
 
 let enqueue v (t : 'a t) =
-  t.v <- v :: t.v
+  t.v <- t.v @ [v]
 
 let notify_pusher (t : 'a t) =
-  (match t.pending with
-   | None -> ()
-   | Some x -> enqueue x t);
-  t.pending <- None;
-  let prev_wakener = t.push_wakener in
-  let waiter, wakener = Lwt.task () in
-  t.push_waiter <- waiter;
-  t.push_wakener <- wakener;
-  Lwt.wakeup_later prev_wakener ()
+  match t.pending with
+  | None -> ()
+  | Some x ->
+    enqueue x t;
+    t.pending <- None;
+    let prev_wakener = t.push_wakener in
+    let waiter, wakener = Lwt.task () in
+    t.push_waiter <- waiter;
+    t.push_wakener <- wakener;
+    Lwt.wakeup_later prev_wakener ()
 
 let push x t =
   match t.pending with
@@ -48,7 +52,7 @@ let push x t =
           | exn -> Lwt.fail exn))
     else (
       enqueue x t;
-      Lwt_condition.signal t.c ();
+      if t.pred x then Lwt_condition.signal t.c `E;
       Lwt.return ())
 
 let clear (t : 'a t) =
@@ -60,15 +64,15 @@ let clear (t : 'a t) =
      let waiter, wakener = Lwt.task () in
      t.push_waiter <- waiter;
      t.push_wakener <- wakener);
-  Lwt_mutex.lock t.m
-  >>= fun () -> t.v <- []; Lwt_mutex.unlock t.m; Lwt.return ()
+  Lwt_mutex.with_lock t.m (fun () -> t.v <- []; Lwt.return ())
 
-let create limit =
+let create limit pred =
   let push_waiter, push_wakener = Lwt.task () in
   let info =
     { m = Lwt_mutex.create ()
     ; c = Lwt_condition.create ()
     ; v = []
+    ; pred
     ; pending = None
     ; push_waiter
     ; push_wakener
@@ -76,37 +80,31 @@ let create limit =
     } in
   info, fun x -> push x info
 
-let next t =
-  Lwt_mutex.lock t.m
-  >>= fun () ->
-  (match t.v with
-   | [] -> Lwt_condition.wait ~mutex:t.m t.c
-   | _ -> Lwt.return ())
-  >>= fun () ->
-  match List.rev t.v with
-  | [] -> Lwt.fail Empty
-  | hd :: tl ->
-    t.v <- List.rev tl;
-    (match t.pending with
-     | None -> ()
-     | Some _ -> notify_pusher t);
-    Lwt_mutex.unlock t.m;
-    Lwt.return hd
+let check_condition t =
+  Lwt_mutex.with_lock t.m (fun () ->
+      if not @@ List.for_all (fun x -> not (t.pred x)) t.v
+      then Lwt_condition.signal t.c `E;
+      Lwt.return ())
 
-let get_while f t =
-  Lwt_mutex.lock t.m
-  >>= fun () ->
-  (match t.v with
-   | [] -> Lwt_condition.wait ~mutex:t.m t.c
-   | _ -> Lwt.return ())
-  >>= fun () ->
-  match t.v with
-  | [] -> Lwt.fail Empty
-  | v ->
-    let l, r = List.partition f v in
-    t.v <- r;
-    (match l, t.pending with
-     | [], _ | _, None -> ()
-     | _ -> notify_pusher t);
-    Lwt_mutex.unlock t.m;
-    Lwt.return @@ List.rev l
+let rec find_and_remove f = function
+  | [] -> None, []
+  | hd :: tl ->
+    if f hd
+    then Some hd, tl
+    else
+      let r, l = find_and_remove f tl in
+      r, hd :: l
+
+let next t =
+  Lwt_mutex.with_lock t.m (fun () ->
+      (match find_and_remove t.pred t.v with
+       | None, _ -> Lwt_condition.wait ~mutex:t.m t.c
+       | Some x, v -> Lwt.return (`V (x, v)))
+      >>= function
+      | `V (x, v) -> t.v <- v; notify_pusher t; Lwt.return x
+      | `E ->
+        let x, l = find_and_remove t.pred t.v in
+        t.v <- l;
+        match x with
+        | None -> Lwt.fail Empty
+        | Some x -> notify_pusher t; Lwt.return x)

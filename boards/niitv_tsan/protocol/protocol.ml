@@ -49,10 +49,7 @@ let send (type a)
         let t, w = Lwt.task () in
         let send = fun stream events ->
           Fsm.request src stream events sender req
-          >>= fun x -> Lwt.wakeup_later w x;
-          (match x with
-           | Ok _ -> Lwt.return_ok ()
-           | Error _ as e -> Lwt.return e) in
+          >>= fun x -> Lwt.wakeup_later w x; Lwt.return_unit in
         Lwt.pick
           [ await_no_response state
           ; (push ((Request.to_enum req), send) >>= fun () -> t)
@@ -137,7 +134,9 @@ let create
           React.S.hold ~eq [] @@ map_stream_id streams structure)
     } in
   let sender = { Fsm. send = fun req -> sender @@ Serializer.serialize req } in
-  let req_queue, push_req_queue = Queue_lwt.create msg_queue_size in
+  let (pending : Fsm.pending ref) = ref [] in
+  let pred = (fun (id, _) -> not @@ List.mem_assoc id !pending) in
+  let req_queue, push_req_queue = Queue_lwt.create msg_queue_size pred in
   let rsp_event, push_rsp_event = React.E.create () in
   let evt_queue, push_evt_queue = Lwt_stream.create () in
   let prev = ref None in
@@ -168,7 +167,7 @@ let create
         prev := Some x) parsed in
   let channel = fun req -> send src state push_req_queue sender req in
   let loop () =
-    Fsm.start src sender req_queue rsp_event evt_queue kv
+    Fsm.start src sender pending req_queue rsp_event evt_queue kv
       set_state
       (fun ?step x -> set_devinfo ?step @@ Some x)
       set_status

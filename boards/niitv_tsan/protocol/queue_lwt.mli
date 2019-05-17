@@ -4,12 +4,12 @@ exception Empty
 
 type 'a t
 
-val create : int -> 'a t * ('a -> unit Lwt.t)
+val create : int -> ('a -> bool) -> 'a t * ('a -> unit Lwt.t)
 
 val clear : 'a t -> unit Lwt.t
 
 val length : 'a t -> int
 
-val next : 'a t -> 'a Lwt.t
+val check_condition : 'a t -> unit Lwt.t
 
-val get_while : ('a -> bool) -> 'a t -> 'a list Lwt.t
+val next : 'a t -> 'a Lwt.t
