@@ -100,6 +100,23 @@ let map_errors
               { e with pid = (e.pid, List.assoc_opt e.pid pids) }) errors in
         id, errors) errors
 
+let change_t2mi_mode
+    (streams : Stream.t list React.signal)
+    (config : config React.signal)
+  : t2mi_mode Lwt_stream.t =
+  React.S.sample (fun streams ({ t2mi_mode = mode; _ } : config) ->
+      match mode.stream_id with
+      | None -> None
+      | Some id ->
+        match Stream.find_by_id id streams with
+        | None -> Some { mode with enabled = false }
+        | Some { orig_id = TS_multi stream; _ } -> Some { mode with stream }
+        | Some _ -> None)
+    (React.S.changes streams) config
+  |> React.E.fmap (fun x -> x)
+  |> React.E.changes ~eq:equal_t2mi_mode
+  |> Util_react.E.to_stream
+
 let create
     (src : Logs.src)
     (sender : Cstruct.t -> unit Lwt.t)
@@ -117,6 +134,7 @@ let create
   let t2mi_info, set_t2mi_info = React.E.create () in
   let deverr, set_deverr = React.E.create () in
   let streams = streams_conv raw_streams in
+  let t2mi_mode_listener = change_t2mi_mode streams kv#s in
   let notifs =
     { state
     ; devinfo
@@ -168,6 +186,7 @@ let create
   let channel = fun req -> send src state push_req_queue sender req in
   let loop () =
     Fsm.start src sender pending req_queue rsp_event evt_queue kv
+      t2mi_mode_listener
       set_state
       (fun ?step x -> set_devinfo ?step @@ Some x)
       set_status

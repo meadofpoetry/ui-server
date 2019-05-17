@@ -2,19 +2,59 @@ open Application_types
 open Board_niitv_tsan_types
 open Api_util
 
-let ( >>= ) = Lwt.( >>= )
+module List = Boards.Util.List
 
-let get_bitrate (api : Protocol.api) ids _user _body _env _state =
+let filter_errors f x =
+  match List.filter_map (fun (id, errors) ->
+      match List.filter f errors with
+      | [] -> None
+      | e -> Some (id, e)) x with
+  | [] -> None
+  | x -> Some x
+
+let get_errors (api : Protocol.api) ids timeout _user _body _env _state =
+  let timeout = match timeout with
+    | None -> Fsm.status_timeout
+    | Some x -> x in
+  Lwt.pick
+    [ Protocol.await_no_response api.notifs.state
+    ; (Util_react.E.next api.notifs.errors >>= Lwt.return_ok)
+    ; (Lwt_unix.sleep timeout >>= fun () -> Lwt.return_ok []) ]
+  >>=? fun errors ->
+  return_value
+  @@ stream_assoc_list_to_yojson (Util_json.List.to_yojson Error.to_yojson)
+  @@ filter_ids ids errors
+
+let get_filtered_errors ~is_t2mi (api : Protocol.api) ids timeout
+    _user _body _env _state =
+  let timeout = match timeout with
+    | None -> Fsm.status_timeout
+    | Some x -> x in
+  let event = React.E.fmap (filter_errors (fun (x : 'a Error.e) ->
+      is_t2mi = x.is_t2mi)) api.notifs.errors in
+  let waiter =
+    Lwt.pick
+      [ Protocol.await_no_response api.notifs.state
+      ; (Util_react.E.next event >>= Lwt.return_ok)
+      ; (Lwt_unix.sleep timeout >>= fun () -> Lwt.return_ok []) ] in
+  Lwt.on_termination waiter (fun () -> React.E.stop event);
+  waiter >>=? fun errors ->
+  return_value
+  @@ stream_assoc_list_to_yojson (Util_json.List.to_yojson Error.to_yojson)
+  @@ filter_ids ids errors
+
+let get_bitrate (api : Protocol.api) ids timeout _user _body _env _state =
+  let timeout = match timeout with
+    | None -> Fsm.status_timeout
+    | Some x -> x in
   Lwt.pick
     [ Protocol.await_no_response api.notifs.state
     ; (Util_react.E.next api.notifs.bitrate >>= Lwt.return_ok)
-    ; Fsm.sleep Fsm.status_timeout ]
-  >>= function
-  | Error e -> Lwt.return (`Error (Request.error_to_string e))
-  | Ok bitrate ->
-    return_value
-    @@ stream_assoc_list_to_yojson Bitrate.to_yojson
-    @@ filter_ids ids bitrate
+    ; (Lwt_unix.sleep timeout >>= fun () -> Lwt.return_ok []) ]
+  >>=? fun bitrate ->
+  return_value
+  @@ stream_assoc_list_to_yojson Bitrate.to_yojson
+  @@ filter_ids ids bitrate
 
 let get_ts_info (api : Protocol.api) ids _user _body _env _state =
   check_state api.notifs.state (fun () ->

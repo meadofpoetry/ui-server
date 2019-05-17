@@ -109,7 +109,7 @@ let get_msg (buf : Cstruct.t) =
   >>= check_msg_code
 
 let deserialize (src : Logs.src) (buf : Cstruct.t) =
-  let rec aux responses (buf : Cstruct.t) =
+  let rec aux ?error responses (buf : Cstruct.t) =
     if Cstruct.len buf >= Message.sizeof_prefix
     then match get_msg buf with
       | Ok (x, rest) -> aux (x :: responses) rest
@@ -117,8 +117,11 @@ let deserialize (src : Logs.src) (buf : Cstruct.t) =
         match e with
         | Insufficient_payload x -> (responses, x)
         | e ->
-          Logs.err ~src (fun m -> m "parser error: %s" @@ error_to_string e);
-          aux responses (Cstruct.shift buf 1)
+          (match e, error with
+           | Invalid_start_tag _, Some Invalid_start_tag _ -> ()
+           | _ -> Logs.warn ~src (fun m ->
+               m "parser error: %s" @@ error_to_string e));
+          aux ~error:e responses (Cstruct.shift buf 1)
     else (responses, buf)
   in
   let responses, rest = aux [] buf in

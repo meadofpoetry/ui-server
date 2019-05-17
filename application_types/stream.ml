@@ -168,6 +168,7 @@ module Multi_TS_ID : sig
 
   type t
 
+  val forbidden : t
   val to_yojson : t -> Yojson.Safe.json
   val of_yojson : Yojson.Safe.json -> (t, string) result
   val compare : t -> t -> int
@@ -194,6 +195,8 @@ end = struct
     ; stream_id : int
     } [@@deriving eq, ord]
   [@@@ocaml.warning "+32"]
+
+  let forbidden = Pure 0l
 
   let parse_pure (i : int32) : parsed =
     let open Int32 in

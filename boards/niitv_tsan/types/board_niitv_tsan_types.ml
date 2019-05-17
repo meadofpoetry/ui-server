@@ -47,12 +47,34 @@ type t2mi_mode =
   ; pid : int
   ; t2mi_stream_id : int
   ; stream : Stream.Multi_TS_ID.t
-  } [@@deriving eq, yojson, show]
+  ; stream_id : Stream.ID.t option [@default None]
+  } [@@deriving yojson, show]
+
+let equal_t2mi_mode ?(with_stream_id = true) (a : t2mi_mode as 'a) (b : 'a) =
+  a.enabled = b.enabled
+  && a.pid = b.pid
+  && a.t2mi_stream_id = b.t2mi_stream_id
+  && Stream.Multi_TS_ID.equal a.stream b.stream
+  && (if with_stream_id
+      then begin match a.stream_id, b.stream_id with
+        | None, Some _ | Some _, None -> false
+        | None, None -> true
+        | Some a, Some b -> Stream.ID.equal a b
+      end else true)
 
 type jitter_mode =
-  { stream : Stream.Multi_TS_ID.t
-  ; pid : int
-  } [@@deriving yojson, eq, show]
+  { pid : int
+  ; stream : Stream.Multi_TS_ID.t
+  ; stream_id : Stream.ID.t option [@default None]
+  } [@@deriving yojson, show]
+
+let equal_jitter_mode (a : jitter_mode as 'a) (b : 'a) =
+  a.pid = b.pid
+  && Stream.Multi_TS_ID.equal a.stream b.stream
+  && (match a.stream_id, b.stream_id with
+      | None, Some _ | Some _, None -> false
+      | None, None -> true
+      | Some a, Some b -> Stream.ID.equal a b)
 
 (** Config *)
 

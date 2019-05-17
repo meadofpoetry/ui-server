@@ -31,7 +31,8 @@ let to_complex_req (msg : Request.complex_msg) =
 
 let to_msg (type a) : a Request.t -> Request.req_tag Request.msg = function
   | Get_devinfo -> `Simple { tag = `Get_devinfo; body = Cstruct.empty }
-  | Get_deverr request_id -> `Complex (Request.make_complex_msg ~request_id `Deverr)
+  | Get_deverr { request_id; _ } ->
+    `Complex (Request.make_complex_msg ~request_id `Deverr)
   | Get_mode -> `Simple { tag = `Get_mode; body = Cstruct.empty }
   | Set_mode { input; t2mi_mode = { pid; enabled; stream; t2mi_stream_id }} ->
     let body = Cstruct.create Message.sizeof_board_mode in

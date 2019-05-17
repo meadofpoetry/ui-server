@@ -9,6 +9,13 @@ let return_value x =
 let return_error e =
   Lwt.return (`Error (Request.error_to_string e))
 
+let ( >>= ) = Lwt.( >>= )
+
+let ( >>=? ) x f =
+  x >>= function
+  | Ok x -> f x
+  | Error e -> return_error e
+
 let stream_pair_to_yojson f =
   Util_json.Pair.to_yojson Stream.ID.to_yojson f
 
@@ -29,11 +36,10 @@ let filter_ids ids v = match ids with
   | [] -> v
   | ids -> List.filter (fun (id, _) -> List.exists (Stream.ID.equal id) ids) v
 
-let check_state state f =
+let check_state (state : Application_types.Topology.state React.signal) f =
   match React.S.value state with
   | `Fine -> f ()
-  | `No_response | `Init ->
-    Lwt.return @@ `Error (Request.error_to_string Request.Not_responding)
+  | `No_response | `Init -> return_error Request.Not_responding
 
 let pids_to_yojson = Util_json.(
     List.to_yojson

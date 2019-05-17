@@ -73,6 +73,7 @@ let make_mode mode t2mi_pid stream =
   ; pid = t2mi_pid land 0x1fff
   ; t2mi_stream_id = (t2mi_pid lsr 13) land 0x7
   ; stream
+  ; stream_id = None
   }
 
 let parse_devinfo (msg : Cstruct.t) =
@@ -176,7 +177,10 @@ module Status = struct
     let jitter_mode =
       let pid = Message.get_status_jitter_pid msg in
       let id = Message.get_status_jitter_stream_id msg in
-      { stream = Stream.Multi_TS_ID.of_int32_pure id; pid } in
+      { pid
+      ; stream = Stream.Multi_TS_ID.of_int32_pure id
+      ; stream_id = None
+      } in
     let (basic : status) =
       { timestamp
       ; load = (float_of_int ((Message.get_status_load msg) * 100)) /. 255.
@@ -1153,7 +1157,7 @@ let parse ~timestamp src body parts = function
                  ; timestamp }), parts
 
 let deserialize ?(timestamp = Ptime_clock.now ()) src parts buf =
-  let rec f acc parts buf =
+  let rec f ?error acc parts buf =
     if Cstruct.len buf < Message.sizeof_common_header
     then (List.rev acc, parts, buf)
     else
@@ -1167,8 +1171,11 @@ let deserialize ?(timestamp = Ptime_clock.now ()) src parts buf =
         begin match e with
           | Insufficient_payload x -> (List.rev acc, parts, x)
           | e ->
-            Logs.warn ~src (fun m -> m "parser error: %s" @@ error_to_string e);
-            f acc parts (Cstruct.shift buf 1)
+            (match e, error with
+             | Bad_prefix _, Some Bad_prefix _ -> ()
+             | _ -> Logs.warn ~src (fun m ->
+                 m "parser error: %s" @@ error_to_string e));
+            f ~error:e acc parts (Cstruct.shift buf 1)
         end in
   let responses, parts, res = f [] parts buf in
   responses, parts, if Cstruct.len res > 0 then Some res else None
@@ -1181,7 +1188,7 @@ let is_response (type a) (req : a Request.t)
     (match data with
      | `Simple { tag = `Devinfo; body } -> Some (parse_devinfo body)
      | _ -> None)
-  | Get_deverr id ->
+  | Get_deverr { request_id = id; _ } ->
     (match data with
      | `Complex { tag = `Deverr; body; request_id; _ } when id = request_id ->
        Some (Deverr.parse ~timestamp body)

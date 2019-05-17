@@ -106,7 +106,7 @@ let create (b : Topology.topo_board)
   let board =
     { Board.
       http = Board_niitv_tsan_http.handlers b.control api
-    ; ws = []
+    ; ws = Board_niitv_tsan_http.ws b.control api
     ; templates = []
     ; control = b.control
     ; streams_signal = React.S.const []

@@ -40,6 +40,12 @@ let handlers (control : int) (api : Protocol.api) =
               ~path:(Path.Format.of_string "info")
               ~query:Query.["force", (module Option(Bool))]
               (Api_device.get_info api)
+          ; node ~doc:"Returns device errors, if any"
+              ~meth:`GET
+              ~path:(Path.Format.of_string "errors")
+              ~query:Query.[ "timeout", (module Option(Float))
+                           ; "force", (module Option(Bool)) ]
+              (Api_device.get_errors api)
           ; node ~doc:"Returns status of the device"
               ~meth:`GET
               ~path:(Path.Format.of_string "status")
@@ -62,7 +68,25 @@ let handlers (control : int) (api : Protocol.api) =
               (Api_device.get_jitter_mode api)
           ]
       ; make ~prefix:"monitoring"
-          [ node ~doc:"Returns list of available TS info"
+          [ node ~doc:"Returns TS & T2-MI errors, if any"
+              ~meth:`GET
+              ~path:(Path.Format.of_string "errors")
+              ~query:Query.[ "id", (module List(Stream.ID))
+                           ; "timeout", (module Option(Float)) ]
+              (Api_monitoring.get_errors api)
+          ; node ~doc:"Returns TS errors, if any"
+              ~meth:`GET
+              ~path:(Path.Format.of_string "errors/ts")
+              ~query:Query.[ "id", (module List(Stream.ID))
+                           ; "timeout", (module Option(Float)) ]
+              (Api_monitoring.get_filtered_errors ~is_t2mi:false api)
+          ; node ~doc:"Returns T2-MI errors, if any"
+              ~meth:`GET
+              ~path:(Path.Format.of_string "errors/t2mi")
+              ~query:Query.[ "id", (module List(Stream.ID))
+                           ; "timeout", (module Option(Float)) ]
+              (Api_monitoring.get_filtered_errors ~is_t2mi:true api)
+          ; node ~doc:"Returns list of available TS info"
               ~meth:`GET
               ~path:(Path.Format.of_string "ts-info")
               ~query:Query.["id", (module List(Stream.ID))]
@@ -70,7 +94,8 @@ let handlers (control : int) (api : Protocol.api) =
           ; node ~doc:"Returns current bitrate"
               ~meth:`GET
               ~path:(Path.Format.of_string "bitrate")
-              ~query:Query.["id", (module List(Stream.ID))]
+              ~query:Query.[ "id", (module List(Stream.ID))
+                           ; "timeout", (module Option(Float)) ]
               (Api_monitoring.get_bitrate api)
           ; node ~doc:"Returns available services"
               ~meth:`GET
@@ -137,7 +162,7 @@ let handlers (control : int) (api : Protocol.api) =
           ; node ~doc:"Returns T2-MI packet sequence"
               ~meth:`GET
               ~path:Path.Format.(Stream.ID.fmt ^/ "t2mi-sequence" @/ empty)
-              ~query:Query.[ "duration", (module Option(Time_uri.Show_relative))
+              ~query:Query.[ "duration", (module Option(Int))
                            ; "t2mi-stream-id", (module List(Int)) ]
               (Api_streams.get_t2mi_sequence api)
           ; node ~doc:"Returns SI/PSI section"
@@ -151,6 +176,47 @@ let handlers (control : int) (api : Protocol.api) =
                            ; "id-ext-1", (module Option(Int))
                            ; "id-ext-2", (module Option(Int)) ]
               (Api_streams.get_section api)
+          ]
+      ]
+  ]
+
+let ws (control : int) (api : Protocol.api) =
+  let open Api_http in
+  let open Api_websocket in
+  (* TODO add closing event *)
+  let socket_table = make_socket_table () in
+  [ merge ~prefix:(Topology.get_api_path control)
+      [ make ~prefix:"device"
+          [ node ~doc:"Device state socket"
+              ~socket_table
+              ~path:(Path.Format.of_string "state")
+              ~query:Query.empty
+              (Api_device.Event.get_state api)
+          ; node ~doc:"Active input socket"
+              ~socket_table
+              ~path:(Path.Format.of_string "input")
+              ~query:Query.empty
+              (Api_device.Event.get_input api)
+          ; node ~doc:"Device status socket"
+              ~socket_table
+              ~path:(Path.Format.of_string "status")
+              ~query:Query.empty
+              (Api_device.Event.get_status api)
+          ; node ~doc:"Device info socket"
+              ~socket_table
+              ~path:(Path.Format.of_string "info")
+              ~query:Query.empty
+              (Api_device.Event.get_info api)
+          ; node ~doc:"Device errors socket"
+              ~socket_table
+              ~path:(Path.Format.of_string "errors")
+              ~query:Query.empty
+              (Api_device.Event.get_errors api)
+          ; node ~doc:"T2-MI mode socket"
+              ~socket_table
+              ~path:(Path.Format.of_string "mode/t2mi")
+              ~query:Query.empty
+              (Api_device.Event.get_t2mi_mode api)
           ]
       ]
   ]

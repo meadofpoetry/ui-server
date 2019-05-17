@@ -212,7 +212,10 @@ type evt = event_tag simple_msg
 
 type _ t =
   | Get_devinfo : devinfo t
-  | Get_deverr : int -> Deverr.t list t
+  | Get_deverr :
+      { request_id : int
+      ; timeout : float option
+      } -> Deverr.t list t
   | Get_mode : (input * t2mi_mode) t
   | Set_mode :
       { input : input
@@ -269,7 +272,8 @@ let timeout (type a) : a t -> float = function
   | Set_jitter_mode _ -> 5.
   (* Requests with responses *)
   | Get_devinfo -> 5.
-  | Get_deverr _ -> 5.
+  | Get_deverr { timeout = Some x } -> x
+  | Get_deverr { timeout = None } -> 5.
   | Get_mode -> 5.
   | Get_t2mi_seq { duration; _ } -> 10. +. float_of_int duration
   | Get_section _ -> 125.
@@ -296,6 +300,10 @@ let pp_int_option out = function
   | None -> Format.pp_print_string out "None"
   | Some x -> Format.pp_print_int out x
 
+let pp_float_option out = function
+  | None -> Format.pp_print_string out "None"
+  | Some x -> Format.pp_print_float out x
+
 let to_string (type a) : a t -> string = function
   | Reset -> "Reset"
   | Get_mode -> "Get mode"
@@ -303,8 +311,9 @@ let to_string (type a) : a t -> string = function
   | Set_src_id { input_source; t2mi_source } ->
     Printf.sprintf "Set source ID (input=%d, t2mi=%d)"
       input_source t2mi_source
-  | Get_deverr request_id ->
-    Printf.sprintf "Get deverr (rid=%d)" request_id
+  | Get_deverr { request_id; timeout } ->
+    Format.asprintf "Get deverr (rid=%d, timeout=%a)"
+      request_id pp_float_option timeout
   | Get_t2mi_seq { request_id; duration } ->
     Printf.sprintf "Get T2-MI sequence (rid=%d, duration=%d)"
       request_id duration

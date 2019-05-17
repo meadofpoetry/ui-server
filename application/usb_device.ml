@@ -135,6 +135,8 @@ let create ?(sleep = 1.) () =
     subscribers := apply !subscribers msgs;
     loop rest ()
   in
+  recv () (* HACK read trash bytes *)
+  >>= fun _ ->
   Lwt.return ({ usb; subscribers; send },
               (fun () -> loop None ()))
 

@@ -114,7 +114,7 @@ let ws (control : int) (api : Protocol.api) =
   
   [ merge ~prefix:(Topology.get_api_path control)
       [ make ~prefix:"device"
-          [ node ~doc:"Board state socket"
+          [ node ~doc:"Device state socket"
               ~socket_table
               ~path:(Path.Format.of_string "state")
               ~query:Query.empty

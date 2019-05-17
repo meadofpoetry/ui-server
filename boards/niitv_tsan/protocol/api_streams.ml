@@ -2,13 +2,6 @@ open Application_types
 open Board_niitv_tsan_types
 open Api_util
 
-let ( >>= ) = Lwt.( >>= )
-
-let ( >>=? ) x f =
-  x >>= function
-  | Ok x -> f x
-  | Error e -> return_error e
-
 let invalid_stream = Request.Custom "Unsupported stream format"
 
 let stream_not_found = Request.Custom "Stream not found"
@@ -104,30 +97,25 @@ let get_t2mi_info (api : Protocol.api) id _user _body _env _state =
 let get_t2mi_sequence (api : Protocol.api) id duration t2mi_stream_ids
     _user _body _env _state =
   let duration = match duration with
-    | None -> Some 5
-    | Some span -> Time.Relative.to_int_s span in
-  match duration with
-  | None -> return_error (Request.Custom "Invalid duration")
-  | Some duration ->
-    (* Maximum dump duration is 120 seconds *)
-    let duration = min 120 duration in
-    let streams = React.S.value api.notifs.streams in
-    (match Stream.find_by_id id streams with
-     | Some { orig_id = TS_multi stream_id; _ } ->
-       let request_id = Serializer.get_request_id () in
-       let req = Request.Get_t2mi_seq { request_id; duration } in
-       api.channel req
-     | Some _ -> Lwt.return_error invalid_stream
-     | None -> Lwt.return_error stream_not_found)
-    >>=? fun x ->
-    let value = match t2mi_stream_ids with
-      | [] -> x
-      | ids ->
-        let data = List.filter (fun (x : T2mi_sequence.item) ->
-            List.mem x.stream_id ids) x.data in
-        { x with data } in
-    let to_yojson = ts_to_yojson T2mi_sequence.to_yojson in
-    return_value @@ to_yojson value
+    | None -> 5
+    | Some x -> min 120 x in
+  let streams = React.S.value api.notifs.streams in
+  (match Stream.find_by_id id streams with
+   | Some { orig_id = TS_multi stream_id; _ } ->
+     let request_id = Serializer.get_request_id () in
+     let req = Request.Get_t2mi_seq { request_id; duration } in
+     api.channel req
+   | Some _ -> Lwt.return_error invalid_stream
+   | None -> Lwt.return_error stream_not_found)
+  >>=? fun x ->
+  let value = match t2mi_stream_ids with
+    | [] -> x
+    | ids ->
+      let data = List.filter (fun (x : T2mi_sequence.item) ->
+          List.mem x.stream_id ids) x.data in
+      { x with data } in
+  let to_yojson = ts_to_yojson T2mi_sequence.to_yojson in
+  return_value @@ to_yojson value
 
 let get_section (api : Protocol.api) stream_id table_id
     section table_id_ext id_ext_1 id_ext_2

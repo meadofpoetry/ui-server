@@ -18,10 +18,12 @@ let default =
       ; enabled = true
       ; t2mi_stream_id = 0
       ; stream = Stream.Multi_TS_ID.make ~source_id:1 ~stream_id:1
+      ; stream_id = Some (Stream.ID.of_string "e332c543-8690-5755-aa44-8791e9293ee7")
       }
   ; jitter_mode =
       { pid = 0x1FFF
       ; stream = Stream.Multi_TS_ID.of_int32_pure 0l
+      ; stream_id = None
       }
   }
 

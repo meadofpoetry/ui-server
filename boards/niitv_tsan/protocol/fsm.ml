@@ -9,9 +9,9 @@ open Application_types
    5. implement client request queue - DONE
    6. implement T2-MI monitoring setup after stream appeared/dissapeared
    7. set equal timestamps in probes
-   8. do not remove structures/t2mi-info when no corresponding stream is found
-   9. implement jitter measurements
-   10. cancel requests if they were canceled by the client *)
+   8. preserve structures/t2mi-info when no corresponding stream is found
+   9. implement jitter measurements - NEXT
+   10. check device typ & version equality before continue *)
 
 module List = Boards.Util.List
 
@@ -130,11 +130,11 @@ let sleep timeout =
   >>= fun () -> Lwt.return_error Request.Timeout
 
 let wait_status req events f =
+  let events = Lwt_stream.filter_map (function
+      | `Status x -> Some x
+      | _ -> None)
+    @@ Lwt_stream.clone events in
   let rec loop () =
-    let events = Lwt_stream.filter_map (function
-        | `Status x -> Some x
-        | _ -> None)
-      @@ Lwt_stream.clone events in
     Lwt_stream.next events
     >>= fun status ->
     if f status
@@ -176,7 +176,7 @@ let request (type a)
          equal_jitter_mode status.jitter_mode m)
    | Set_mode m ->
      wait_status req events (fun status ->
-         equal_t2mi_mode status.t2mi_mode m.t2mi_mode
+         equal_t2mi_mode ~with_stream_id:false status.t2mi_mode m.t2mi_mode
          && equal_input status.input m.input))
   >>= function
   | Error e -> log_error src req e; Lwt.return_error e
@@ -192,6 +192,7 @@ let start
     (rsp_event : Request.rsp ts React.event)
     (evt_queue : Request.evt ts Lwt_stream.t)
     (kv : config Kv_v.rw)
+    (t2mi_mode_listener : t2mi_mode Lwt_stream.t)
     (set_state : Topology.state set)
     (set_devinfo : devinfo set)
     (set_status : Parser.Status.t set)
@@ -303,7 +304,11 @@ let start
     kv#get
     >>= fun { input_source; t2mi_source; input; t2mi_mode; jitter_mode } ->
     sender.send Request.(Set_src_id { input_source; t2mi_source })
-    >>= fun () -> sender.send Request.(Set_mode { input; t2mi_mode })
+    >>= fun () ->
+    let t2mi_mode = match t2mi_mode.stream_id with
+      | None -> t2mi_mode
+      | Some _ -> { t2mi_mode with enabled = false } in
+    sender.send Request.(Set_mode { input; t2mi_mode })
     >>= fun () -> sender.send Request.(Set_jitter_mode jitter_mode)
     >>= fun () ->
     (* Wait for status - make sure that the desired mode is set. *)
@@ -311,7 +316,8 @@ let start
       Lwt_stream.next evt_queue
       >>= function
       | `Status status ->
-        if equal_t2mi_mode status.t2mi_mode t2mi_mode
+        print_endline @@ Parser.Status.show status;
+        if equal_t2mi_mode ~with_stream_id:false status.t2mi_mode t2mi_mode
         && equal_jitter_mode status.jitter_mode jitter_mode
         then Lwt.return_ok ()
         else status_loop ()
@@ -329,6 +335,7 @@ let start
       restart ()
 
   and idle ?timer ?prev () =
+    print_endline "IDLE";
     pending := List.filter (Lwt.is_sleeping % snd) !pending;
     Queue_lwt.check_condition req_queue
     >>= fun () ->
@@ -337,13 +344,29 @@ let start
       | None -> Lwt_unix.sleep status_timeout >>= fun () -> Lwt.return `Tm in
     let wait_client = Queue_lwt.next req_queue >>= fun x -> Lwt.return (`C x) in
     let wait_status = status_loop () in
-    Lwt.choose [timer; wait_status; wait_client]
+    let wait_t2mi_mode =
+      Lwt_stream.last_new t2mi_mode_listener >>= fun x -> Lwt.return (`T2MI x) in
+    Lwt.choose [timer; wait_t2mi_mode; wait_status; wait_client]
     >>= function
     | `S status ->
       Lwt.cancel timer;
       Lwt.cancel wait_client;
       let timer = Lwt_unix.sleep status_timeout >>= fun () -> Lwt.return `Tm in
       wait_streams ~timer { prev; status; streams = []; errors = [] }
+    | `T2MI t2mi_mode ->
+      print_endline "UPDATING T2MI";
+      print_endline @@ show_t2mi_mode t2mi_mode;
+      (Lwt_stream.junk_old t2mi_mode_listener
+       >>= fun () -> kv#get
+       >>= fun { input; _ } ->
+       let req = Request.Set_mode { input; t2mi_mode } in
+       print_endline "Sending T2-MI request";
+       request src rsp_event evt_queue sender req
+       >>= function
+       | Error e -> Logs.err (fun m ->
+           m "Internal failure - failed to update T2-MI mode");
+         restart ()
+       | Ok () -> print_endline "UPDATED T2-MI"; idle ?prev ~timer ())
     | `C (id, send) ->
       Lwt.cancel wait_status;
       let r = send rsp_event evt_queue in
@@ -497,7 +520,7 @@ let start
     if not has_errors then Lwt.return_ok probes
     else
       let request_id = Serializer.get_request_id () in
-      let req = Request.Get_deverr request_id in
+      let req = Request.Get_deverr { request_id; timeout = None } in
       request src rsp_event evt_queue sender req
       >>= function
       | Error _ as e -> Lwt.return e
