@@ -1,7 +1,9 @@
 open Board_niitv_ts2ip_types
 open Application_types
 
-type api_msg = (Request.msg Lwt_stream.t -> unit Lwt.t)
+type api_msg = Request.msg Lwt_stream.t -> unit Lwt.t
+
+type 'a set = ?step:React.step -> 'a -> unit
 
 let ( >>= ) = Lwt.( >>= )
 
@@ -34,7 +36,6 @@ let loop (type a)
     | None -> aux ()
     | Some (Ok x) -> Lwt.return_ok x
     | Some (Error e) -> Lwt.return_error e in
-  (* FIXME remove junk old? *)
   Lwt_stream.junk_old stream >>= aux
 
 let sleep timeout =
@@ -62,11 +63,12 @@ let start (src : Logs.src)
     (sender : Cstruct.t -> unit Lwt.t)
     (req_queue : api_msg Lwt_stream.t)
     (rsp_queue : Request.msg Lwt_stream.t)
+    (evt_queue : Cstruct.t Lwt_stream.t)
     (kv : config Kv_v.rw)
-    (set_state : Application_types.Topology.state -> unit)
-    (set_devinfo : devinfo -> unit)
-    (set_device_status : device_status -> unit)
-    (set_transmitter_status : transmitter_status -> unit) =
+    (set_state : Application_types.Topology.state set)
+    (set_devinfo : devinfo set)
+    (set_device_status : device_status set)
+    (set_transmitter_status : transmitter_status set) =
 
   let (module Logs : Logs.LOG) = Logs.src_log src in
 
@@ -85,21 +87,17 @@ let start (src : Logs.src)
                 x.dst_port x.self_port x.enabled
                 (socket_to_string x.socket))) l in
 
-  let rec first_step () =
-    Logs.info (fun m -> m "Start of connection establishment...");
-    Lwt_stream.junk_old req_queue
-    >>= fun () -> Lwt_stream.junk_old rsp_queue
-    >>= fun () -> set_state `No_response; detect_device ()
-
-  and restart () =
+  let rec restart () =
     Logs.info (fun m -> m "Restarting...");
     set_state `No_response;
     Lwt_stream.junk_old req_queue
     >>= fun () -> Lwt_stream.junk_old rsp_queue
     >>= fun () -> Lwt_unix.sleep cooldown_timeout
-    >>= first_step
+    >>= detect
 
-  and detect_device () =
+  and detect () =
+    Logs.info (fun m -> m "Start of connection establishment...");
+    set_state `Detect;
     let rec loop () =
       Lwt_stream.next rsp_queue
       >>= function
@@ -108,16 +106,18 @@ let start (src : Logs.src)
       | _ -> loop () in
     loop ()
     >>= function
-    | Ok x -> init_device x
+    | Ok x -> initialize x
     | Error e ->
       Logs.err (fun m ->
           m "Got error during detect step: %s"
           @@ Request.error_to_string e);
       restart ()
 
-  and init_device (info : devinfo) =
-    set_state `Init;
-    set_devinfo info;
+  and initialize (info : devinfo) =
+    let step = React.Step.create () in
+    set_state ~step `Init;
+    set_devinfo ~step info;
+    React.Step.execute step;
     Logs.info (fun m -> m "Connection established, device initialization started...");
     kv#get
     >>= fun { mac; mode } ->
@@ -147,55 +147,53 @@ let start (src : Logs.src)
       restart ()
     | Ok () ->
       Lwt_stream.junk_old rsp_queue
-      >>= fun () ->
-      set_state `Fine;
-      Logs.info (fun m -> m "Initialization done!");
-      idle ()
+      >>= fun () -> Lwt_stream.junk_old evt_queue
+      >>= idle
 
-  and idle ?timer () =
-    let rec loop () =
-      Lwt_stream.next rsp_queue
-      >>= function
-      | { tag = `Devinfo_rsp; _ } -> Lwt.return `Devinfo
-      | { tag = `Status; data } ->
-        (match Parser.parse_status data with
-         | Ok x -> Lwt.return (`S x)
-         | Error e ->
-           Logs.warn (fun m ->
-               m "Status parsing failed: %s" @@ Request.error_to_string e);
-           loop ())
-      | _ -> loop () in
-    let timer = match timer with
-      | Some x -> x
-      | None -> Lwt_unix.sleep status_timeout >>= fun () -> Lwt.return `Tm in
-    let wait_status = loop () in
-    let wait_client = Lwt_stream.next req_queue >>= fun x -> Lwt.return (`R x) in
-    Lwt.choose [wait_status; wait_client; timer]
+  and idle () =
+    set_state `Fine;
+    Logs.info (fun m -> m "Initialization done!");
+    Lwt.pick [status_loop (); client_loop ()]
+    >>= restart
+
+  and client_loop () =
+    Lwt.pick
+      [ (Lwt_stream.next rsp_queue >>= fun x -> Lwt.return (`RSP x))
+      ; (Lwt_stream.next req_queue >>= fun x -> Lwt.return (`REQ x)) ]
     >>= function
-    | `R x -> Lwt.cancel wait_status; send_client_request timer x
-    | `S (d, t) ->
-      Lwt.cancel wait_client;
-      set_device_status d;
-      set_transmitter_status t;
-      idle ()
-    | `Devinfo ->
-      Lwt.cancel wait_client;
-      Logs.err (fun m ->
-          m "Seems that the device has been reset, \
-             got device info during operation");
-      restart ()
-    | `Tm ->
-      Lwt.cancel wait_client;
-      Lwt.cancel wait_status;
-      Logs.err (fun m ->
-          m "Seems that the device is not responding, \
-             got no status for %g seconds" status_timeout);
-      restart ()
+    | `REQ send ->
+      Lwt_stream.next req_queue
+      >>= fun send -> send rsp_queue
+      >>= client_loop
+    | `RSP { tag = `Devinfo_rsp; _ } -> Logs.err (fun m ->
+        m "Got devinfo during operation, \
+           seems the device is not responding...");
+      Lwt.return ()
+    | `RSP _ -> client_loop ()
 
-  and send_client_request (type a) timer send =
-    let stream = Lwt_stream.filter (function
-        | { Request. tag = `Status; _ } -> false
-        | _ -> true) rsp_queue in
-    send stream >>= idle ~timer
+  and status_loop () =
+    Lwt.pick
+      [ (Lwt_stream.next evt_queue
+         >>= fun data ->
+         match Parser.parse_status data with
+         | Ok x -> Lwt.return @@ `S x
+         | Error e -> Lwt.return @@ `E e)
+      ; (Lwt_unix.sleep status_timeout
+         >>= fun () -> Lwt.return `Tm) ]
+    >>= function
+    | `S (d, t) ->
+      let step = React.Step.create () in
+      set_device_status ~step d;
+      set_transmitter_status ~step t;
+      React.Step.execute step;
+      idle ()
+    | `E e -> Logs.err (fun m ->
+        m "Status parsing failed: %s"
+        @@ Request.error_to_string e);
+      Lwt.return ()
+    | `Tm -> Logs.err (fun m ->
+        m "Seems that the device is not responding, \
+           got no status for %g seconds" status_timeout);
+      Lwt.return ()
   in
-  first_step
+  detect

@@ -569,4 +569,4 @@ let start
       Lwt.return_ok status.versions
 
   in
-  detect ()
+  detect

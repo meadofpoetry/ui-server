@@ -143,20 +143,23 @@ let create (src : Logs.src)
     } in
   let req_queue, push_req_queue = Lwt_stream.create_bounded msg_queue_size in
   let rsp_queue, push_rsp_queue = Lwt_stream.create () in
-  let push_data =
-    let acc = ref None in
-    let push (buf : Cstruct.t) =
-      let buf = match !acc with
-        | None -> buf
-        | Some acc -> Cstruct.append acc buf in
-      let parsed, new_acc = Parser.deserialize src buf in
-      acc := new_acc;
-      List.iter (fun x -> push_rsp_queue @@ Some x) parsed in
-    push in
+  let evt_queue, push_evt_queue = Lwt_stream.create () in
+  let acc = ref None in
+  let push_data (buf : Cstruct.t) =
+    let buf = match !acc with
+      | None -> buf
+      | Some acc -> Cstruct.append acc buf in
+    let parsed, new_acc = Parser.deserialize src buf in
+    acc := new_acc;
+    match React.S.value state with
+    | `No_response -> ()
+    | _ -> List.iter (function
+        | { Request. tag = `Status; data } -> push_evt_queue @@ Some data
+        | x -> push_rsp_queue @@ Some x) parsed in
   let channel = fun req -> send src state push_req_queue sender req in
-  let loop = Fsm.start src sender req_queue rsp_queue kv
+  let loop = Fsm.start src sender req_queue rsp_queue evt_queue kv
       set_state
-      (fun x -> set_devinfo @@ Some x)
+      (fun ?step x -> set_devinfo ?step @@ Some x)
       set_device_status
       set_transmitter_status in
   let api =

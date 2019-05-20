@@ -184,7 +184,7 @@ let create
            | `E e -> push_evt_queue @@ Some e);
           prev := Some x) parsed in
   let channel = fun req -> send src state push_req_queue sender req in
-  let loop () =
+  let loop =
     Fsm.start src sender pending req_queue rsp_event evt_queue kv
       t2mi_mode_listener
       set_state
