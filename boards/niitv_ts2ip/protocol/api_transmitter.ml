@@ -13,18 +13,6 @@ module Event = struct
         api.notifs.transmitter_status in
     Lwt.return (`Ev event)
 
-  let get_incoming_streams (api : Protocol.api) _user _body _env _state =
-    let event =
-      E.map Util_json.(List.to_yojson Stream.to_yojson)
-      @@ React.S.changes api.notifs.incoming_streams in
-    Lwt.return (`Ev event)
-
-  let get_outgoing_streams (api : Protocol.api) _user _body _env _state =
-    let event =
-      E.map Util_json.(List.to_yojson Stream.to_yojson)
-      @@ React.S.changes api.notifs.outgoing_streams in
-    Lwt.return (`Ev event)
-
   let get_mode (api : Protocol.api) _user _body _env _state =
     let event =
       E.map (fun (x : config) ->
@@ -40,14 +28,6 @@ let get_status (api : Protocol.api) _user _body _env _state =
     ; (Util_react.E.next api.notifs.transmitter_status >>= Lwt.return_ok)
     ; Fsm.sleep Fsm.status_timeout ]
   >>=? return_value % transmitter_status_to_yojson
-
-let get_incoming_streams (api : Protocol.api) _user _body _env _state =
-  let streams = React.S.value api.notifs.incoming_streams in
-  return_value @@ Util_json.(List.to_yojson Stream.to_yojson streams)
-
-let get_outgoing_streams (api : Protocol.api) _user _body _env _state =
-  let streams = React.S.value api.notifs.outgoing_streams in
-  return_value @@ Util_json.(List.to_yojson Stream.to_yojson streams)
 
 let set_streams (api : Protocol.api) _user body _env _state =
   match Util_json.List.of_yojson Stream.of_yojson body with

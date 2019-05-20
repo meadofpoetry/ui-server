@@ -1,5 +1,6 @@
 open Board_niitv_ts2ip_types
 open Application_types
+open Netlib
 
 type api_msg = Request.msg Lwt_stream.t -> unit Lwt.t
 
@@ -82,8 +83,8 @@ let start (src : Logs.src)
               m "Setting UDP transmitter %d: stream = %s, IP = %a, \
                  port = %d, self port = %d, enabled = %b, socket = %s"
                 (start + i)
-                (Application_types.Stream.Multi_TS_ID.show x.stream)
-                Netlib.Ipaddr.V4.pp x.dst_ip
+                (Stream.Multi_TS_ID.show x.stream)
+                Ipaddr.V4.pp x.dst_ip
                 x.dst_port x.self_port x.enabled
                 (socket_to_string x.socket))) l in
 
@@ -99,18 +100,22 @@ let start (src : Logs.src)
     Logs.info (fun m -> m "Start of connection establishment...");
     set_state `Detect;
     let rec loop () =
-      Lwt_stream.next rsp_queue
+      Lwt.pick
+        [ (Lwt_stream.next evt_queue >>= fun _ -> Lwt.return `S)
+        ; (Lwt_stream.next rsp_queue
+           >>= function
+           | { tag = `Devinfo_rsp; data } -> Lwt.return @@ `D data
+           | _ -> Lwt.return `N) ]
       >>= function
-      | { tag = `Status; _ } -> request src rsp_queue sender Request.Get_devinfo
-      | { tag = `Devinfo_rsp; data } -> Lwt.return @@ Parser.parse_devinfo data
-      | _ -> loop () in
+      | `S -> request src rsp_queue sender Request.Get_devinfo
+      | `D data -> Lwt.return @@ Parser.parse_devinfo data
+      | `N -> loop () in
     loop ()
     >>= function
     | Ok x -> initialize x
-    | Error e ->
-      Logs.err (fun m ->
-          m "Got error during detect step: %s"
-          @@ Request.error_to_string e);
+    | Error e -> Logs.err (fun m ->
+        m "Got error during detect step: %s"
+        @@ Request.error_to_string e);
       restart ()
 
   and initialize (info : devinfo) =
@@ -121,16 +126,16 @@ let start (src : Logs.src)
     Logs.info (fun m -> m "Connection established, device initialization started...");
     kv#get
     >>= fun { mac; mode } ->
-    Logs.debug (fun m -> m "Setting MAC address: %a" Netlib.Macaddr.pp mac);
+    Logs.debug (fun m -> m "Setting MAC address: %a" Macaddr.pp mac);
     Lwt_result.Infix.(
       request src rsp_queue sender Request.(Set_mac mac)
       >>= fun () ->
       let mode, aux_1, aux_2 = Request.split_mode mode in
       Logs.debug (fun m ->
           m "Setting network: IP = %a, mask = %a, gateway = %a"
-            Netlib.Ipaddr.V4.pp mode.network.ip
-            Netlib.Ipaddr.V4.pp mode.network.mask
-            Netlib.Ipaddr.V4.pp mode.network.gateway);
+            Ipaddr.V4.pp mode.network.ip
+            Ipaddr.V4.pp mode.network.mask
+            Ipaddr.V4.pp mode.network.gateway);
       log_udp_transmitters 0 mode.udp;
       request src rsp_queue sender Request.(Set_mode_main mode)
       >>= fun () ->
@@ -186,7 +191,7 @@ let start (src : Logs.src)
       set_device_status ~step d;
       set_transmitter_status ~step t;
       React.Step.execute step;
-      idle ()
+      status_loop ()
     | `E e -> Logs.err (fun m ->
         m "Status parsing failed: %s"
         @@ Request.error_to_string e);
