@@ -8,7 +8,7 @@ module Api_websocket = Api_websocket.Make(User)(Body)
 
 let handlers (control : int) (api : Protocol.api) =
   let open Api_http in
-  [ merge ~prefix:(Topology.get_api_path control)
+  [ merge ~prefix:(string_of_int control)
       [ make ~prefix:"device"
           [ node ~doc:"Resets the board"
               ~restrict:[`Guest]
@@ -98,6 +98,38 @@ let handlers (control : int) (api : Protocol.api) =
               ~path:(Path.Format.of_string "fec-delay")
               ~query:Query.empty
               (Api_receiver.get_fec_delay api)
+          ]
+      ]
+  ]
+
+let ws (control : int) (api : Protocol.api) =
+  let open Api_http in
+  let open Api_websocket in
+  let socket_table = make_socket_table () in
+  [ merge ~prefix:(string_of_int control)
+      [ make ~prefix:"device"
+          [ node ~doc:"Device state socket"
+              ~socket_table
+              ~path:(Path.Format.of_string "state")
+              ~query:Query.empty
+              (Api_device.Event.get_state api)
+          ; node ~doc:"Device info socket"
+              ~socket_table
+              ~path:(Path.Format.of_string "info")
+              ~query:Query.empty
+              (Api_device.Event.get_devinfo api)
+          ; node ~doc:"Device configuration socket"
+              ~socket_table
+              ~path:(Path.Format.of_string "config")
+              ~query:Query.empty
+              (Api_device.Event.get_config api)
+          ]
+      ; make ~prefix:"network"
+          [ node ~doc:"Network configuration socket"
+              ~socket_table
+              ~path:(Path.Format.of_string "config")
+              ~query:Query.empty
+              (Api_network.Event.get_config api)
           ]
       ]
   ]

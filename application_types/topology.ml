@@ -1,5 +1,6 @@
 type state =
   [ `Fine
+  | `Detect
   | `Init
   | `No_response
   ] [@@deriving yojson, show, eq, ord]
@@ -167,8 +168,6 @@ let cpu_subbranches = function
 let get_entries = function
   | `Boards l -> List.fold_left (fun acc b -> (List.map (fun p -> p.child) b.ports) @ acc) [] l
   | `CPU c -> List.map (fun i -> i.conn) c.ifaces
-
-let get_api_path = string_of_int
 
 let get_input_name (i : topo_input) =
   let to_string s = Printf.sprintf "%s %d" s i.id in

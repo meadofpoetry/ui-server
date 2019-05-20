@@ -3,6 +3,7 @@ open Application_types
 module Api_http = Api_cohttp.Make(User)(Body)
 module Api_template = Api_cohttp_template.Make(User)
 
+(* TODO remove in 4.08 *)
 module Int = struct
   type t = int
 
@@ -78,9 +79,32 @@ end
 let log_name (b : Topology.topo_board) =
   Printf.sprintf "%s %s (%d)" b.manufacturer b.model b.control
 
-let concat_acc acc recvd = match acc with
-  | Some acc -> Cstruct.append acc recvd
-  | None -> recvd
+let create_log_src (b : Topology.topo_board) =
+  let log_name = log_name b in
+  let log_src = Logs.Src.create log_name in
+  match b.logs with
+  | None -> Ok log_src
+  | Some x ->
+    match Logs.level_of_string x with
+    | Ok x ->
+      Logs.Src.set_level log_src x;
+      Ok log_src
+    | Error _ -> Error (`Unknown_log_level x)
+
+let invalid_port (src : Logs.src) port =
+  let s = (Logs.Src.name src) ^ ": invalid port " ^ (string_of_int port) in
+  raise (Invalid_port s)
+
+let await_no_response (state : Topology.state React.signal) =
+  match React.S.value state with
+  | `No_response | `Init | `Detect -> Lwt.return ()
+  | `Fine ->
+    Util_react.(
+      E.next
+      @@ E.fmap (function
+          | `Init | `No_response | `Detect -> Some ()
+          | `Fine -> None)
+      @@ S.changes state)
 
 module Map = Map.Make(Int)
 

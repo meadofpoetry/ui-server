@@ -30,7 +30,7 @@ let get_stream (api : Protocol.api) id _user _body _env _state =
 
 let get_bitrate (api : Protocol.api) id _user _body _env _state =
   Lwt.pick
-    [ Protocol.await_no_response api.notifs.state
+    [ (Boards.Board.await_no_response api.notifs.state >>= not_responding)
     ; (Util_react.E.next api.notifs.bitrate >>= Lwt.return_ok)
     ; Fsm.sleep Fsm.status_timeout ]
   >>=? fun bitrate ->

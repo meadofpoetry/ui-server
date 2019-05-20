@@ -8,18 +8,6 @@ let ( >>= ) = Lwt_result.( >>= )
 
 module Config = Kv_v.RW(Board_settings)
 
-let create_logger (b : Topology.topo_board) =
-  let log_name = Board.log_name b in
-  let log_src = Logs.Src.create log_name in
-  match b.logs with
-  | None -> Ok log_src
-  | Some x ->
-    match Logs.level_of_string x with
-    | Ok x ->
-      Logs.Src.set_level log_src x;
-      Ok log_src
-    | Error _ -> Error (`Unknown_log_level x)
-
 (* let get_ports_sync board streams =
  *   let open React in
  *   List.fold_left (fun acc p ->
@@ -79,9 +67,11 @@ let create (b : Topology.topo_board)
     (send : Cstruct.t -> unit Lwt.t)
     (db : Db.t)
     (kv : Kv.RW.t) : (Board.t, [> Board.error]) Lwt_result.t =
-  Config.create ~default:Board_settings.default kv ["board"; (string_of_int b.control)]
-  >>= fun (cfg : config Kv_v.rw) -> Lwt.return (create_logger b)
+  Lwt.return @@ Boards.Board.create_log_src b
   >>= fun (src : Logs.src) ->
+  let default = Board_settings.default in
+  Config.create ~default kv ["board"; (string_of_int b.control)]
+  >>= fun (cfg : config Kv_v.rw) ->
   Protocol.create src send streams (convert_streams b) cfg b.ports b.control
   >>= fun (api : Protocol.api) ->
   let state = object

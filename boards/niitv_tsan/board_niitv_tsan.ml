@@ -9,30 +9,14 @@ let ( >>= ) = Lwt.( >>= )
 
 module Config = Kv_v.RW(Board_settings)
 
-let create_log_src (b : Topology.topo_board) =
-  let log_name = Board.log_name b in
-  let log_src = Logs.Src.create log_name in
-  match b.logs with
-  | None -> Ok log_src
-  | Some x ->
-    match Logs.level_of_string x with
-    | Ok x ->
-      Logs.Src.set_level log_src x;
-      Ok log_src
-    | Error _ -> Error (`Unknown_log_level x)
-
-let invalid_port board x =
-  let prefix = Boards.Board.log_name board in
-  let s = prefix ^ ": invalid port " ^ (string_of_int x) in
-  raise (Boards.Board.Invalid_port s)
-
 let ports_sync
+    (src : Logs.src)
     (board : Topology.topo_board)
     (input : input signal)
     (streams : Stream.t list signal) : bool signal Boards.Board.Ports.t =
   List.fold_left (fun acc (p : Topology.topo_port) ->
       match input_of_int p.port with
-      | None -> invalid_port board p.port
+      | None -> Boards.Board.invalid_port src p.port
       | Some i ->
         let f a b = match a, b with
           | x, _ :: _ when equal_input i x -> true
@@ -42,11 +26,12 @@ let ports_sync
     Boards.Board.Ports.empty board.ports
 
 let ports_active
+    (src : Logs.src)
     (board : Topology.topo_board)
     (input : input signal) : bool signal Boards.Board.Ports.t =
   List.fold_left (fun acc (p : Topology.topo_port) ->
       match input_of_int p.port with
-      | None -> invalid_port board p.port
+      | None -> Boards.Board.invalid_port src p.port
       | Some i ->
         let s = S.map ~eq:(=) (equal_input i) input in
         Boards.Board.Ports.add p.port s acc)
@@ -90,7 +75,7 @@ let create (b : Topology.topo_board)
     (send : Cstruct.t -> unit Lwt.t)
     (db : Db.t)
     (kv : Kv.RW.t) : (Board.t, [> Board.error]) Lwt_result.t =
-  Lwt.return @@ create_log_src b
+  Lwt.return @@ Boards.Board.create_log_src b
   >>=? fun (src : Logs.src) ->
   let default = update_config_with_env src Board_settings.default b in
   Config.create ~default kv ["board"; (string_of_int b.control)]
@@ -114,8 +99,8 @@ let create (b : Topology.topo_board)
     ; loop = api.loop
     ; push_data = api.push_data
     ; connection = api.notifs.state
-    ; ports_sync = ports_sync b input api.notifs.streams
-    ; ports_active = ports_active b input
+    ; ports_sync = ports_sync src b input api.notifs.streams
+    ; ports_active = ports_active src b input
     ; stream_handler = None
     ; state = (state :> < finalize : unit -> unit Lwt.t >)
     } in

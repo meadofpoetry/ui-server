@@ -25,17 +25,6 @@ let msg_queue_size = 20
 
 let ( >>= ) = Lwt.( >>= )
 
-let await_no_response state =
-  match React.S.value state with
-  | `No_response | `Init -> Lwt.return_error Request.Not_responding
-  | `Fine ->
-    Util_react.(
-      E.next
-      @@ E.fmap (function
-          | `Init | `No_response -> Some (Error Request.Not_responding)
-          | `Fine -> None)
-      @@ S.changes state)
-
 let send (type a)
     (src : Logs.src)
     (state : Topology.state React.signal)
@@ -43,7 +32,7 @@ let send (type a)
     (sender : Fsm.sender)
     (req : a Request.t) =
   match React.S.value state with
-  | `Init | `No_response -> Lwt.return_error Request.Not_responding
+  | `Init | `No_response | `Detect -> Lwt.return_error Request.Not_responding
   | `Fine ->
     Lwt.catch (fun () ->
         let t, w = Lwt.task () in
@@ -51,7 +40,7 @@ let send (type a)
           Fsm.request src stream events sender req
           >>= fun x -> Lwt.wakeup_later w x; Lwt.return_unit in
         Lwt.pick
-          [ await_no_response state
+          [ (Boards.Board.await_no_response state >>= Api_util.not_responding)
           ; (push ((Request.to_enum req), send) >>= fun () -> t)
           ])
       (function

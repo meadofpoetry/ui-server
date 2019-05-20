@@ -7,28 +7,12 @@ module Config = Kv_v.RW(Board_settings)
 
 let ( >>= ) = Lwt_result.bind
 
-let invalid_port (src : Logs.src) port =
-  let s = (Logs.Src.name src) ^ ": invalid port " ^ (string_of_int port) in
-  raise (Board.Invalid_port s)
-
 let rec has_sync = function
   | [] -> false
   | (_, ({ data; _ } : Measure.t ts)) :: tl ->
     match data.lock, data.bitrate with
     | true, Some x when x > 0 -> true
     | _ -> has_sync tl
-
-let create_logger (b : Topology.topo_board) =
-  let log_name = Board.log_name b in
-  let log_src = Logs.Src.create log_name in
-  match b.logs with
-  | None -> Ok log_src
-  | Some x ->
-    match Logs.level_of_string x with
-    | Ok x ->
-      Logs.Src.set_level log_src x;
-      Ok log_src
-    | Error _ -> Error (`Unknown_log_level x)
 
 let get_source_from_env src (b : Topology.topo_board) =
   match Topology.Env.find_opt "source" b.env with
@@ -49,7 +33,7 @@ let create (b : Topology.topo_board)
     (send : Cstruct.t -> unit Lwt.t)
     (db : Db.t)
     (kv : Kv.RW.t) : (Board.t, [> Board.error]) Lwt_result.t =
-  Lwt.return @@ create_logger b
+  Lwt.return @@ Boards.Board.create_log_src b
   >>= fun (src : Logs.src) ->
   let default = match get_source_from_env src b with
     | None -> Board_settings.default
@@ -76,14 +60,14 @@ let create (b : Topology.topo_board)
             (match p.port with
              | 0 -> React.E.map has_sync api.notifs.measures
                     |> React.S.hold ~eq:(=) false
-             | x -> invalid_port src x)
+             | x -> Boards.Board.invalid_port src x)
             |> fun x -> Board.Ports.add p.port x acc)
           Board.Ports.empty b.ports
     ; ports_active =
         List.fold_left (fun acc (p : Topology.topo_port) ->
             (match p.port with
              | 0 -> React.S.const true
-             | x -> invalid_port src x)
+             | x -> Boards.Board.invalid_port src x)
             |> fun x -> Board.Ports.add p.port x acc)
           Board.Ports.empty b.ports
     ; stream_handler = None

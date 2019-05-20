@@ -6,7 +6,7 @@ open Fsm_common
 let ( >>= ) = Lwt.bind
 
 let step
-    ~(return : unit -> unit Lwt.t)
+    ~(return : Request.error -> unit Lwt.t)
     ~continue
     (src : Logs.src)
     (sender : Cstruct.t -> unit Lwt.t)
@@ -14,6 +14,11 @@ let step
     (config : config Kv_v.rw) =
 
   let (module Logs : Logs.LOG) = Logs.src_log src in
+
+  let ( >>=? ) x f =
+    x >>= function
+    | Error e -> return e
+    | Ok x -> f x in
 
   let rec detect_device req steps =
     request src sender rsp_queue config req
@@ -32,10 +37,10 @@ let step
     let ( >>= ) = Lwt_result.( >>= ) in
     let req x = request src sender rsp_queue config x in
     req (Network (IP_address `R))
-    >>= fun ip -> req (Network (Subnet_mask `R))
+    >>= fun ip_address -> req (Network (Subnet_mask `R))
     >>= fun mask -> req (Network (Gateway `R))
     >>= fun gateway -> req (Network (DHCP `R))
-    >>= fun dhcp -> Lwt.return_ok { ip; mask; gateway; dhcp } in
+    >>= fun dhcp -> Lwt.return_ok { ip_address; mask; gateway; dhcp } in
 
   let rec set_mode () =
     let mode = IP2ASI in
@@ -53,9 +58,7 @@ let step
         let error = Request.Not_set (name, got) in
         Logs.err (fun m -> m "%s" @@ Request.error_to_string error);
         Lwt.return_error error))
-    >>= function
-    | Ok () -> set_application ()
-    | Error _ -> return ()
+    >>=? set_application
 
   and set_application () =
     let app = Normal in
@@ -73,9 +76,7 @@ let step
         let error = Request.Not_set (name, got) in
         Logs.err (fun m -> m "%s" @@ Request.error_to_string error);
         Lwt.return_error error))
-    >>= function
-    | Ok () -> set_storage ()
-    | Error _ -> return ()
+    >>=? set_storage
 
   and set_storage () =
     let v = FLASH in
@@ -91,38 +92,32 @@ let step
         let error = Request.Not_set (name, got) in
         Logs.err (fun m -> m "%s" @@ Request.error_to_string error);
         Lwt.return_error error))
-    >>= function
-    | Ok () -> check_network ()
-    | Error _ -> return ()
+    >>=? check_network
 
   and check_network () =
     config#get
-    >>= fun { nw; ip; _ } ->
+    >>= fun { nw; ip_receive; _ } ->
     get_network ()
-    >>= function
-    | Error _ -> return ()
-    | Ok dev ->
-      (* If device network settings are equal to the user settings,
-         skip network initialization and go directly to IP receiver
-         initialization. *)
-      if equal_nw dev nw
-      then (
-        Logs.info (fun m -> m "No need to initialize network settings, skipping...");
-        set_enable ip)
-      (* Otherwise, initialize network settings first. *)
-      else (
-        Logs.info (fun m -> m "Initializing network settings...");
-        set_ip_address ~cfg:nw ~dev)
+    >>=? fun dev ->
+    (* If device network settings are equal to the user settings,
+       skip network initialization and go directly to IP receiver
+       initialization. *)
+    if equal_nw dev nw
+    then (
+      Logs.info (fun m -> m "No need to initialize network settings, skipping...");
+      set_enable ip_receive)
+    (* Otherwise, initialize network settings first. *)
+    else (
+      Logs.info (fun m -> m "Initializing network settings...");
+      set_ip_address ~cfg:nw ~dev)
 
   and set_ip_address ~cfg ~dev =
-    if Netlib.Ipaddr.V4.equal dev.ip cfg.ip
+    if Netlib.Ipaddr.V4.equal dev.ip_address cfg.ip_address
     then set_subnet_mask ~cfg ~dev
     else
-      let req = Request.Network (IP_address (`W cfg.ip)) in
+      let req = Request.Network (IP_address (`W cfg.ip_address)) in
       request src sender rsp_queue config req
-      >>= function
-      | Error _ -> return ()
-      | Ok _ -> set_subnet_mask ~cfg ~dev
+      >>=? fun (_ : Ipaddr.V4.t) -> set_subnet_mask ~cfg ~dev
 
   and set_subnet_mask ~cfg ~dev =
     if Netlib.Ipaddr.V4.equal dev.mask cfg.mask
@@ -130,9 +125,7 @@ let step
     else
       let req = Request.Network (Subnet_mask (`W cfg.mask)) in
       request src sender rsp_queue config req
-      >>= function
-      | Error _ -> return ()
-      | Ok _ -> set_gateway ~cfg ~dev
+      >>=? fun (_ : Ipaddr.V4.t) -> set_gateway ~cfg ~dev
 
   and set_gateway ~cfg ~dev =
     if Netlib.Ipaddr.V4.equal dev.gateway cfg.gateway
@@ -140,9 +133,7 @@ let step
     else
       let req = Request.Network (Gateway (`W cfg.gateway)) in
       request src sender rsp_queue config req
-      >>= function
-      | Error _ -> return ()
-      | Ok _ -> set_dhcp ~cfg ~dev
+      >>=? fun (_ : Ipaddr.V4.t) -> set_dhcp ~cfg ~dev
 
   and set_dhcp ~cfg ~dev =
     if dev.dhcp = cfg.dhcp
@@ -150,9 +141,7 @@ let step
     else
       let req = Request.Network (DHCP (`W cfg.dhcp)) in
       request src sender rsp_queue config req
-      >>= function
-      | Error _ -> return ()
-      | Ok _ -> finalize_network cfg
+      >>=? fun (_ : bool) -> finalize_network cfg
 
   (* Reboot device and check if the settings were applied. *)
   and finalize_network nw =
@@ -174,64 +163,42 @@ let step
         let err = Request.Not_set ("Set network settings", nw_to_string nw') in
         Logs.err (fun m -> m "%s" @@ Request.error_to_string err);
         Lwt.return_error err))
-    >>= function
-    | Error _ -> return ()
-    | Ok () ->
-      config#get >>= fun { ip; _ } -> set_enable ip
+    >>=? fun () -> config#get
+    >>= fun { ip_receive; _ } -> set_enable ip_receive
 
   and set_enable cfg =
     let req = Request.IP_receive (Enable (`W cfg.enable)) in
     request src sender rsp_queue config req
-    >>= function
-    | Error _ -> return ()
-    | Ok _ -> set_fec_enable cfg
+    >>=? fun (_ : bool) -> set_fec_enable cfg
 
   and set_fec_enable cfg =
-    let req = Request.IP_receive (FEC_enable (`W cfg.fec)) in
+    let req = Request.IP_receive (FEC_enable (`W cfg.fec_enable)) in
     request src sender rsp_queue config req
-    >>= function
-    | Error _ -> return ()
-    | Ok _ -> set_udp_port cfg
+    >>=? fun (_ : bool) -> set_udp_port cfg
 
   and set_udp_port cfg =
-    let req = Request.IP_receive (UDP_port (`W cfg.port)) in
+    let req = Request.IP_receive (UDP_port (`W cfg.udp_port)) in
     request src sender rsp_queue config req
-    >>= function
-    | Error _ -> return ()
-    | Ok _ ->
-      match cfg.multicast with
-      | None -> set_addressing_method cfg
-      | Some x -> set_multicast cfg x
+    >>=? fun (_ : int) -> set_multicast cfg
 
-  and set_multicast cfg multicast =
-    let req = Request.IP_receive (Multicast_address (`W multicast)) in
+  and set_multicast cfg =
+    let req = Request.IP_receive (Multicast_address (`W cfg.multicast)) in
     request src sender rsp_queue config req
-    >>= function
-    | Error _ -> return ()
-    | Ok _ -> set_addressing_method cfg
+    >>=? fun (_ : Ipaddr.V4.t) -> set_addressing_method cfg
 
   and set_addressing_method cfg =
-    let meth = match cfg.multicast with
-      | None -> Unicast
-      | Some _ -> Multicast in
-    let req = Request.IP_receive (Addressing_method (`W meth)) in
+    let req = Request.IP_receive (Addressing_method (`W cfg.addressing_method)) in
     request src sender rsp_queue config req
-    >>= function
-    | Error _ -> return ()
-    | Ok _ -> set_delay cfg
+    >>=? fun (_ : meth) -> set_ip_to_output_delay cfg
 
-  and set_delay cfg =
-    let req = Request.IP_receive (IP_to_output_delay (`W cfg.delay)) in
+  and set_ip_to_output_delay cfg =
+    let req = Request.IP_receive (IP_to_output_delay (`W cfg.ip_to_output_delay)) in
     request src sender rsp_queue config req
-    >>= function
-    | Error _ -> return ()
-    | Ok _ -> set_rate_mode cfg
+    >>=? fun (_ : int) -> set_rate_mode cfg
 
   and set_rate_mode cfg =
     let req = Request.IP_receive (Rate_estimation_mode (`W cfg.rate_mode)) in
     request src sender rsp_queue config req
-    >>= function
-    | Error _ -> return ()
-    | Ok _ -> continue ()
+    >>=? fun (_ : rate_mode) -> continue ()
   in
   set_mode

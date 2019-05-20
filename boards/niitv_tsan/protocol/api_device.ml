@@ -114,7 +114,7 @@ let get_errors (api : Protocol.api) timeout force _user _body _env _state =
       | None -> Fsm.status_timeout
       | Some x -> x in
     Lwt.pick
-      [ Protocol.await_no_response api.notifs.state
+      [ (Boards.Board.await_no_response api.notifs.state >>= not_responding)
       ; (Util_react.E.next api.notifs.deverr >>= Lwt.return_ok)
       ; (Lwt_unix.sleep timeout >>= fun () -> Lwt.return_ok []) ]
     >>=? return_value % Util_json.List.to_yojson Deverr.to_yojson
@@ -125,14 +125,14 @@ let get_errors (api : Protocol.api) timeout force _user _body _env _state =
 
 let get_status (api : Protocol.api) _user _body _env _state =
   Lwt.pick
-    [ Protocol.await_no_response api.notifs.state
+    [ (Boards.Board.await_no_response api.notifs.state >>= not_responding)
     ; (Util_react.E.next api.notifs.status >>= Lwt.return_ok)
     ; Fsm.sleep Fsm.status_timeout ]
   >>=? fun status -> return_value (status_to_yojson status.basic)
 
 let get_input (api : Protocol.api) _user _body _env _state =
   Lwt.pick
-    [ Protocol.await_no_response api.notifs.state
+    [ (Boards.Board.await_no_response api.notifs.state >>= not_responding)
     ; (Util_react.E.next api.notifs.status >>= Lwt.return_ok)
     ; Fsm.sleep Fsm.status_timeout ]
   >>=? fun status -> return_value (input_to_yojson status.input)
@@ -143,7 +143,7 @@ let get_t2mi_mode (api : Protocol.api) force _user _body _env _state =
      api.kv#get >>= fun { t2mi_mode; _ } -> Lwt.return_ok t2mi_mode
    | Some true ->
      Lwt.pick
-       [ Protocol.await_no_response api.notifs.state
+       [ (Boards.Board.await_no_response api.notifs.state >>= not_responding)
        ; (Util_react.E.next api.notifs.status
           >>= fun s -> Lwt.return_ok s.t2mi_mode)
        ; Fsm.sleep Fsm.status_timeout ])
@@ -155,7 +155,7 @@ let get_jitter_mode (api : Protocol.api) force _user _body _env _state =
      api.kv#get >>= fun { jitter_mode; _ } -> Lwt.return_ok jitter_mode
    | Some true ->
      Lwt.pick
-       [ Protocol.await_no_response api.notifs.state
+       [ (Boards.Board.await_no_response api.notifs.state >>= not_responding)
        ; (Util_react.E.next api.notifs.status
           >>= fun s -> Lwt.return_ok s.jitter_mode)
        ; Fsm.sleep Fsm.status_timeout ])

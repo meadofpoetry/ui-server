@@ -8,7 +8,7 @@ module Api_websocket = Api_websocket.Make(User)(Body)
 
 let handlers (control : int) (api : Protocol.api) =
   let open Api_http in
-  [ merge ~prefix:(Topology.get_api_path control)
+  [ merge ~prefix:(string_of_int control)
       [ make ~prefix:"device"
           [ node ~doc:"Resets the board"
               ~restrict:[`Guest]
@@ -112,7 +112,7 @@ let ws (control : int) (api : Protocol.api) =
   (* TODO add closing event *)
   let socket_table = make_socket_table () in
   
-  [ merge ~prefix:(Topology.get_api_path control)
+  [ merge ~prefix:(string_of_int control)
       [ make ~prefix:"device"
           [ node ~doc:"Device state socket"
               ~socket_table
@@ -130,8 +130,8 @@ let ws (control : int) (api : Protocol.api) =
               ~query:Query.empty
               (Api_device.Event.get_receivers api)
           ]
-      ; make ~prefix:"receiver"
-          [ node ~doc:"Receiver measures socket"
+      ; make ~prefix:"receivers"
+          [ node ~doc:"Receiver measurements socket"
               ~socket_table
               ~path:(Path.Format.of_string "measurements")
               ~query:Query.["id", (module List(Int))]
@@ -147,13 +147,13 @@ let ws (control : int) (api : Protocol.api) =
               ~query:Query.["id", (module List(Int))]
               (Api_receiver.Event.get_plp_list api)
           ]
-      ; make ~prefix:"stream"
+      ; make ~prefix:"streams"
           [ node ~doc:"Streams socket"
               ~socket_table
               ~path:Path.Format.empty
               ~query:Query.["id", (module List(Stream.ID))]
               (Api_stream.Event.get_streams api)
-          ; node ~doc:"Stream measures socket"
+          ; node ~doc:"Stream measurements socket"
               ~socket_table
               ~path:(Path.Format.of_string "measurements")
               ~query:Query.["id", (module List(Stream.ID))]

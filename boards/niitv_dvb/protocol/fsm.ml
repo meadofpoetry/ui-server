@@ -13,8 +13,7 @@ let params_interval = 5 (* seconds *)
 
 let ack_timeout = 2. (* seconds *)
 
-type api_msg = (Cstruct.t Request.msg Lwt_stream.t -> unit Lwt.t)
-               * (Request.error -> unit)
+type api_msg = Cstruct.t Request.msg Lwt_stream.t -> unit Lwt.t
 
 let rec gcd a b =
   if b = 0 then a else gcd b (a mod b)
@@ -95,31 +94,37 @@ let start (src : Logs.src)
       cnt_params := !cnt_params + gcd;
       if !cnt_params = params_interval
       && !cnt_meas = meas_interval
-      then (cnt_params := 0; cnt_meas := 0; Lwt.return `Both)
+      then (cnt_params := 0; cnt_meas := 0; Lwt.return `EBOTH)
       else if !cnt_meas mod meas_interval = 0
-      then (cnt_meas := 0; Lwt.return `Meas)
+      then (cnt_meas := 0; Lwt.return `EMEAS)
       else if !cnt_params mod params_interval = 0
-      then (cnt_params := 0; Lwt.return `Params)
+      then (cnt_params := 0; Lwt.return `EPARAMS)
       else f () in
     f in
 
   let rec first_step () =
     Logs.info (fun m -> m "Start of connection establishment...");
-    let msgs' = Lwt_stream.get_available req_queue in
-    List.iter (fun (_, stop) -> stop Request.Not_responding) msgs';
     Lwt_stream.junk_old rsp_queue
-    >>= fun () ->
-    set_state `No_response;
-    detect_device ()
+    >>= fun () -> Lwt_stream.junk_old req_queue
+    >>= detect_device
 
   and restart () =
-    Lwt_unix.sleep cooldown_timeout >>= first_step
+    Logs.info (fun m -> m "Restarting...");
+    set_state `No_response;
+    Lwt_stream.junk_old rsp_queue
+    >>= fun () -> Lwt_stream.junk_old req_queue
+    >>= fun () -> Lwt_unix.sleep cooldown_timeout
+    >>= first_step
 
   and detect_device () =
+    set_state `Detect;
     let req = Request.Get_devinfo in
     request src rsp_queue sender req
     >>= function
-    | Error _ -> restart ()
+    | Error e -> Logs.err (fun m ->
+        m "Error during detect step: %s"
+        @@ Request.error_to_string e);
+      restart ()
     | Ok devinfo ->
       set_state `Init;
       set_devinfo devinfo;
@@ -177,32 +182,28 @@ let start (src : Logs.src)
       | None -> wait_probes () in
     let wait_msg =
       Lwt_stream.next req_queue
-      >>= fun x -> Lwt.return @@ `Message x in
+      >>= fun x -> Lwt.return @@ `M x in
     Lwt.choose [wait_msg; timer]
     >>= function
-    | `Message msg -> send_client_request timer tuners msg
-    | (`Meas | `Params | `Both) as probes ->
+    | `M send -> send rsp_queue >>= fork ~timer tuners
+    | (`EMEAS | `EPARAMS | `EBOTH) as probes ->
       Lwt.cancel wait_msg;
-      let ( >>=? ) = Lwt_result.( >>= ) in
-      let t = match probes with
-        | `Meas ->
-          (pull_measurements tuners
-           >>=? fun x -> set_measures x; Lwt.return_ok ())
-        | `Params ->
-          (pull_parameters tuners
-           >>=? fun x -> set_params x; pull_plps tuners
-           >>=? fun x -> set_plps x; Lwt.return_ok ())
-        | `Both ->
-          (pull_measurements tuners
-           >>=? fun x -> set_measures x; pull_parameters tuners
-           >>=? fun x -> set_params x; pull_plps tuners
-           >>=? fun x -> set_plps x; Lwt.return_ok ())
+      let t = Lwt_result.Infix.(
+          match probes with
+          | `EMEAS ->
+            (pull_measurements tuners
+             >>= fun x -> set_measures x; Lwt.return_ok ())
+          | `EPARAMS ->
+            (pull_parameters tuners
+             >>= fun x -> set_params x; pull_plps tuners
+             >>= fun x -> set_plps x; Lwt.return_ok ())
+          | `EBOTH ->
+            (pull_measurements tuners
+             >>= fun x -> set_measures x; pull_parameters tuners
+             >>= fun x -> set_params x; pull_plps tuners
+             >>= fun x -> set_plps x; Lwt.return_ok ()))
       in
       t >>= function Ok () -> fork tuners () | Error _ -> restart ()
-
-  (* For now, failures client requests *)
-  and send_client_request timer tuners (send, _) =
-    send rsp_queue >>= fork ~timer tuners
 
   and pull_measurements tuners =
     let rec aux acc = function

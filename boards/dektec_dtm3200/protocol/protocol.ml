@@ -30,15 +30,17 @@ let send (type a) ~(address : int)
     (kv : config Kv_v.rw)
     (req : a Request.t) =
   match React.S.value state with
-  | `Init | `No_response -> Lwt.return_error Request.Not_responding
+  | `Init | `No_response | `Detect -> Lwt.return_error Request.Not_responding
   | `Fine ->
     Lwt.catch (fun () ->
         let t, w = Lwt.task () in
-        let stop = fun error -> Lwt.wakeup_later w (Error error) in
         let send = fun stream ->
           Fsm_common.request src sender stream kv req
           >>= fun x -> Lwt.wakeup_later w x; Lwt.return_unit in
-        push#push @@ (send, stop) >>= fun () -> t)
+        Lwt.pick
+          [ (Boards.Board.await_no_response state
+             >>= fun () -> Lwt.return_error Request.Not_responding)
+          ; (push#push send >>= fun () -> t) ])
       (function
         | Lwt.Canceled -> Lwt.return_error Request.Not_responding
         | Lwt_stream.Full -> Lwt.return_error Request.Queue_overflow
@@ -47,22 +49,19 @@ let send (type a) ~(address : int)
 let to_streams_s (config : config signal) (status : status event) =
   S.hold ~eq:(Util_equal.List.equal Stream.Raw.equal) []
   @@ S.sample (fun ({ asi_bitrate; protocol; _ } : status)
-                ({ ip; nw } : config) ->
+                ({ ip_receive; nw } : config) ->
                 if asi_bitrate <= 0 then [] else (
                   let scheme = match protocol with
                     | RTP -> "rtp"
                     | UDP -> "udp" in
-                  let (info : Stream.Source.ipv4) = match ip.multicast with
-                    | Some x ->
-                      { addr = x
-                      ; port = ip.port
-                      ; scheme
-                      }
-                    | None ->
-                      { addr = nw.ip
-                      ; port = ip.port
-                      ; scheme
-                      } in
+                  let addr = match ip_receive.addressing_method with
+                    | Multicast -> ip_receive.multicast
+                    | Unicast -> nw.ip_address in
+                  let (info : Stream.Source.ipv4) =
+                    { addr
+                    ; port = ip_receive.udp_port
+                    ; scheme
+                    } in
                   let (stream : Stream.Raw.t) =
                     { source = { info = IPV4 info; node = Port 0 }
                     ; id = TS_raw

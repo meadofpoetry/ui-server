@@ -17,7 +17,7 @@ let get_errors (api : Protocol.api) ids timeout _user _body _env _state =
     | None -> Fsm.status_timeout
     | Some x -> x in
   Lwt.pick
-    [ Protocol.await_no_response api.notifs.state
+    [ (Boards.Board.await_no_response api.notifs.state >>= not_responding)
     ; (Util_react.E.next api.notifs.errors >>= Lwt.return_ok)
     ; (Lwt_unix.sleep timeout >>= fun () -> Lwt.return_ok []) ]
   >>=? fun errors ->
@@ -34,7 +34,7 @@ let get_filtered_errors ~is_t2mi (api : Protocol.api) ids timeout
       is_t2mi = x.is_t2mi)) api.notifs.errors in
   let waiter =
     Lwt.pick
-      [ Protocol.await_no_response api.notifs.state
+      [ (Boards.Board.await_no_response api.notifs.state >>= not_responding)
       ; (Util_react.E.next event >>= Lwt.return_ok)
       ; (Lwt_unix.sleep timeout >>= fun () -> Lwt.return_ok []) ] in
   Lwt.on_termination waiter (fun () -> React.E.stop event);
@@ -48,7 +48,7 @@ let get_bitrate (api : Protocol.api) ids timeout _user _body _env _state =
     | None -> Fsm.status_timeout
     | Some x -> x in
   Lwt.pick
-    [ Protocol.await_no_response api.notifs.state
+    [ (Boards.Board.await_no_response api.notifs.state >>= not_responding)
     ; (Util_react.E.next api.notifs.bitrate >>= Lwt.return_ok)
     ; (Lwt_unix.sleep timeout >>= fun () -> Lwt.return_ok []) ]
   >>=? fun bitrate ->

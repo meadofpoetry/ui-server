@@ -31,15 +31,17 @@ let send (type a) (src : Logs.src)
     (sender : Cstruct.t -> unit Lwt.t)
     (req : a Request.t) =
   match React.S.value state with
-  | `Init | `No_response -> Lwt.return_error Request.Not_responding
+  | `Init | `No_response | `Detect -> Lwt.return_error Request.Not_responding
   | `Fine ->
     Lwt.catch (fun () ->
         let t, w = Lwt.task () in
-        let stop = fun error -> Lwt.wakeup_later w (Error error) in
         let send = fun stream ->
           Fsm.request src stream sender req
           >>= fun x -> Lwt.wakeup_later w x; Lwt.return_unit in
-        push#push @@ (send, stop) >>= fun () -> t)
+        Lwt.pick
+          [ (Boards.Board.await_no_response state >>= Api_util.not_responding)
+          ; (push#push send >>= fun () -> t)
+          ])
       (function
         | Lwt.Canceled -> Lwt.return_error Request.Not_responding
         | Lwt_stream.Full -> Lwt.return_error Request.Queue_overflow

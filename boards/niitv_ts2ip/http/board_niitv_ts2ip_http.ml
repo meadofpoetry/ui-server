@@ -9,7 +9,7 @@ module Api_websocket = Api_websocket.Make(User)(Body)
 let handlers (control : int) (api : Protocol.api) =
   let open Api_http in
   
-  [ merge ~prefix:(Topology.get_api_path control)
+  [ merge ~prefix:(string_of_int control)
       [ make ~prefix:"device"
           [ node ~doc:"Returns the state of the device"
               ~meth:`GET
@@ -135,8 +135,8 @@ let ws (control : int) (api : Protocol.api) =
   let open Api_websocket in
   (* TODO add closing event *)
   let socket_table = make_socket_table () in
-  
-  [ merge ~prefix:(Topology.get_api_path control)
+
+  [ merge ~prefix:(string_of_int control)
       [ make ~prefix:"device"
           [ node ~doc:"Device state socket"
               ~socket_table

@@ -29,14 +29,6 @@ let ( % ) f g x = f (g x)
 
 let ( >>= ) = Lwt.Infix.( >>= )
 
-let await_no_response state =
-  Util_react.(
-    E.next
-    @@ E.fmap (function
-        | `Init | `No_response -> Some (Error Request.Not_responding)
-        | `Fine -> None)
-    @@ S.changes state)
-
 let send (type a)
     (src : Logs.src)
     (state : Topology.state React.signal)
@@ -44,14 +36,17 @@ let send (type a)
     (sender : Cstruct.t -> unit Lwt.t)
     (req : a Request.t) =
   match React.S.value state with
-  | `Init | `No_response -> Lwt.return_error Request.Not_responding
+  | `Init | `No_response | `Detect -> Lwt.return_error Request.Not_responding
   | `Fine ->
     Lwt.catch (fun () ->
         let t, w = Lwt.task () in
         let send = fun stream ->
           Fsm.request src stream sender req
           >>= fun x -> Lwt.wakeup_later w x; Lwt.return_unit in
-        Lwt.pick [await_no_response state; (push#push send >>= fun () -> t)])
+        Lwt.pick
+          [ (Boards.Board.await_no_response state >>= Api_util.not_responding)
+          ; (push#push send >>= fun () -> t)
+          ])
       (function
         | Lwt.Canceled -> Lwt.return_error Request.Not_responding
         | Lwt_stream.Full -> Lwt.return_error Request.Queue_overflow
