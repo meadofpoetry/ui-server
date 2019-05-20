@@ -16,22 +16,22 @@ let handlers (control : int) (api : Protocol.api) =
               ~path:(Path.Format.of_string "reset")
               ~query:Query.empty
               (Api_device.reset api)
-          ; node ~doc:"Returns the state of the board"
+          ; node ~doc:"Device state"
               ~meth:`GET
               ~path:(Path.Format.of_string "state")
               ~query:Query.empty
               (Api_device.get_state api)
-          ; node ~doc:"Returns board description and capabilities, if available"
+          ; node ~doc:"Description and capabilities of the device"
               ~meth:`GET
               ~path:(Path.Format.of_string "info")
-              ~query:Query.empty
+              ~query:Query.["force", (module Option(Bool))]
               (Api_device.get_info api)
-          ; node ~doc:"Returns available tuner indexes"
+          ; node ~doc:"Indexes of installed tuners"
               ~meth:`GET
               ~path:(Path.Format.of_string "receivers")
               ~query:Query.empty
               (Api_device.get_receivers api)
-          ; node ~doc:"Returns the receiving mode of the requested tuner(s)"
+          ; node ~doc:"Receiving mode of the requested tuner(s)"
               ~meth:`GET
               ~path:(Path.Format.of_string "mode")
               ~query:Query.["id", (module List(Int))]

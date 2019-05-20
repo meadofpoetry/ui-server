@@ -1,12 +1,6 @@
 open Board_dektec_dtm3200_types
 open Netlib
-
-let ( >>= ) = Lwt.( >>= )
-
-let ( >>=? ) x f =
-  x >>= function
-  | Error e -> Lwt.return (`Error (Request.error_to_string e))
-  | Ok x -> f x
+open Api_util
 
 module Event = struct
   open Util_react
@@ -25,9 +19,7 @@ end
 
 let get (api : Protocol.api) req to_yojson =
   api.channel (Request.IP_receive req)
-  >>= function
-  | Ok x -> Lwt.return @@ `Value (to_yojson x)
-  | Error e -> Lwt.return @@ `Error (Request.error_to_string e)
+  >>=? return_value % to_yojson
 
 let get_addressing_method (api : Protocol.api) _user _body _env _state =
   get api Request.(Addressing_method `R) meth_to_yojson
@@ -37,8 +29,7 @@ let set_addressing_method (api : Protocol.api) _user body _env _state =
   | Error e -> Lwt.return (`Error e)
   | Ok x ->
     api.channel Request.(IP_receive (Addressing_method (`W x)))
-    >>=? fun (addressing_method : meth)->
-    api.kv#get
+    >>=? fun (addressing_method : meth) -> api.kv#get
     >>= fun cfg ->
     api.kv#set { cfg with ip_receive = { cfg.ip_receive with addressing_method }}
     >>= fun () -> Lwt.return @@ `Value (meth_to_yojson addressing_method)
@@ -51,10 +42,8 @@ let set_enable (api : Protocol.api) _user body _env _state =
   | Error e -> Lwt.return (`Error e)
   | Ok x ->
     api.channel Request.(IP_receive (Enable (`W x)))
-    >>=? fun enable ->
-    api.kv#get
-    >>= fun cfg ->
-    api.kv#set { cfg with ip_receive = { cfg.ip_receive with enable }}
+    >>=? fun enable -> api.kv#get
+    >>= fun cfg -> api.kv#set { cfg with ip_receive = { cfg.ip_receive with enable }}
     >>= fun () -> Lwt.return @@ `Value (Util_json.Bool.to_yojson enable)
 
 let get_fec_delay (api : Protocol.api) _user _body _env _state =
@@ -68,10 +57,8 @@ let set_fec_enable (api : Protocol.api) _user body _env _state =
   | Error e -> Lwt.return (`Error e)
   | Ok x ->
     api.channel Request.(IP_receive (FEC_enable (`W x)))
-    >>=? fun fec_enable ->
-    api.kv#get
-    >>= fun cfg ->
-    api.kv#set { cfg with ip_receive = { cfg.ip_receive with fec_enable }}
+    >>=? fun fec_enable -> api.kv#get
+    >>= fun cfg -> api.kv#set { cfg with ip_receive = { cfg.ip_receive with fec_enable }}
     >>= fun () -> Lwt.return @@ `Value (Util_json.Bool.to_yojson fec_enable)
 
 let get_fec_columns (api : Protocol.api) _user _body _env _state =
@@ -111,8 +98,7 @@ let set_ip_to_output_delay (api : Protocol.api) _user body _env _state =
   | Error e -> Lwt.return (`Error e)
   | Ok x ->
     api.channel Request.(IP_receive (IP_to_output_delay (`W x)))
-    >>=? fun ip_to_output_delay ->
-    api.kv#get
+    >>=? fun ip_to_output_delay -> api.kv#get
     >>= fun cfg ->
     api.kv#set { cfg with ip_receive = { cfg.ip_receive with ip_to_output_delay }}
     >>= fun () -> Lwt.return @@ `Value (Util_json.Int.to_yojson ip_to_output_delay)
@@ -125,16 +111,14 @@ let set_multicast_address (api : Protocol.api) _user body _env _state =
   | Error e -> Lwt.return (`Error e)
   | Ok x ->
     api.channel Request.(IP_receive (Multicast_address (`W x)))
-    >>=? fun multicast ->
-    api.kv#get
-    >>= fun cfg ->
-    api.kv#set { cfg with ip_receive = { cfg.ip_receive with multicast }}
+    >>=? fun multicast -> api.kv#get
+    >>= fun cfg -> api.kv#set { cfg with ip_receive = { cfg.ip_receive with multicast }}
     >>= fun () -> Lwt.return @@ `Value (Ipaddr.V4.to_yojson multicast)
 
 let get_tp_per_ip (api : Protocol.api) _user _body _env _state =
   get api Request.(TP_per_IP) Util_json.Int.to_yojson
 
-let get_status (api : Protocol.api) _user _body _env _state =
+let get_receiver_status (api : Protocol.api) _user _body _env _state =
   get api Request.(Status) receiver_status_to_yojson
 
 let get_protocol (api : Protocol.api) _user _body _env _state =
@@ -160,6 +144,15 @@ let get_rate_change_counter (api : Protocol.api) _user _body _env _state =
 
 let get_rate_estimation_mode (api : Protocol.api) _user _body _env _state =
   get api Request.(Rate_estimation_mode `R) rate_mode_to_yojson
+
+let set_rate_estimation_mode (api : Protocol.api) _user body _env _state =
+  match rate_mode_of_yojson body with
+  | Error e -> Lwt.return (`Error e)
+  | Ok x ->
+    api.channel Request.(IP_receive (Rate_estimation_mode (`W x)))
+    >>=? fun rate_mode -> api.kv#get
+    >>= fun cfg -> api.kv#set { cfg with ip_receive = { cfg.ip_receive with rate_mode }}
+    >>= fun () -> Lwt.return @@ `Value (rate_mode_to_yojson rate_mode)
 
 let get_jitter_error_counter (api : Protocol.api) _user _body _env _state =
   get api Request.(Jitter_error_counter) Util_json.Int32.to_yojson

@@ -1,9 +1,8 @@
 open Board_niitv_dvb_types
 open Application_types
+open Api_util
 
-let ( >>= ) = Lwt.bind
-
-let ( % ) f g x = f (g x)
+let stream_not_found = `Error "Stream not found"
 
 let find_stream_by_receiver_id ~source_id id streams =
   let multi_id = Stream.Multi_TS_ID.make
@@ -88,27 +87,23 @@ let to_json f (v : int * 'a ts) =
 
 let get_measurements (api : Protocol.api) (id : Stream.ID.t) _user _body _env state =
   match find_receiver_by_stream_id id api.notifs.streams with
-  | None -> Lwt.return @@ `Error "Stream not found"
+  | None -> Lwt.return stream_not_found
   | Some id ->
     api.channel (Request.Get_measure id)
-    >>= function
-    | Ok x -> Lwt.return @@ `Value (to_json Measure.to_yojson x)
-    | Error e -> Lwt.return @@ `Error (Request.error_to_string e)
+    >>=? return_value % to_json Measure.to_yojson
 
 let get_parameters (api : Protocol.api) (id : Stream.ID.t) _user _body _env _state =
   match find_receiver_by_stream_id id api.notifs.streams with
-  | None -> Lwt.return @@ `Error "Stream not found"
+  | None -> Lwt.return stream_not_found
   | Some id ->
     api.channel (Request.Get_params id)
-    >>= function
-    | Ok x -> Lwt.return @@ `Value (to_json Params.to_yojson x)
-    | Error e -> Lwt.return @@ `Error (Request.error_to_string e)
+    >>=? return_value % to_json Params.to_yojson
 
 let get_stream (api : Protocol.api) (id : Stream.ID.t) _user _body _env _state =
   let stream =
     List.find_opt (fun (s : Stream.t) -> Stream.ID.equal s.id id)
     @@ React.S.value api.notifs.streams in
-  Lwt.return @@ `Value Util_json.(Option.to_yojson Stream.to_yojson stream)
+  return_value Util_json.(Option.to_yojson Stream.to_yojson stream)
 
 let get_streams (api : Protocol.api) (ids : Stream.ID.t list) _user _body _env _state =
   let streams = React.S.value api.notifs.streams in
@@ -118,4 +113,4 @@ let get_streams (api : Protocol.api) (ids : Stream.ID.t list) _user _body _env _
         match List.find_opt (Stream.ID.equal s.id) ids with
         | None -> false
         | Some _ -> true) streams in
-  Lwt.return @@ `Value Util_json.(List.to_yojson Stream.to_yojson streams)
+  return_value Util_json.(List.to_yojson Stream.to_yojson streams)

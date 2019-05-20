@@ -176,8 +176,8 @@ let request (type a)
          equal_jitter_mode status.jitter_mode m)
    | Set_mode m ->
      wait_status req events (fun status ->
-         equal_t2mi_mode ~with_stream_id:false status.t2mi_mode m.t2mi_mode
-         && equal_input status.input m.input))
+         (* equal_t2mi_mode ~with_stream_id:false status.t2mi_mode m.t2mi_mode
+          * && *) equal_input status.input m.input))
   >>= function
   | Error e -> log_error src req e; Lwt.return_error e
   | Ok x -> log_ok src req x; Lwt.return_ok x

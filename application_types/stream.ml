@@ -262,9 +262,10 @@ end = struct
     | Raw i -> parse_raw i |> make_pure
 
   let pp ppf t =
-    let p = parse t in
-    Format.fprintf ppf "{ source_id = %d; stream_id = %d }"
-      p.source_id p.stream_id
+    Format.pp_print_string ppf (Int32.to_string @@ to_int32_pure t)
+    (* let p = parse t in
+     * Format.fprintf ppf "{ source_id = %d; stream_id = %d }"
+     *   p.source_id p.stream_id *)
 
   let show t = Format.asprintf "%a" pp t
 

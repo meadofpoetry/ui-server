@@ -38,8 +38,7 @@ let send (type a) ~(address : int)
           Fsm_common.request src sender stream kv req
           >>= fun x -> Lwt.wakeup_later w x; Lwt.return_unit in
         Lwt.pick
-          [ (Boards.Board.await_no_response state
-             >>= fun () -> Lwt.return_error Request.Not_responding)
+          [ (Boards.Board.await_no_response state >>= Api_util.not_responding)
           ; (push#push send >>= fun () -> t) ])
       (function
         | Lwt.Canceled -> Lwt.return_error Request.Not_responding
