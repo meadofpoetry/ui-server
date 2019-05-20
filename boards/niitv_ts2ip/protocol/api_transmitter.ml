@@ -69,22 +69,24 @@ let set_streams (api : Protocol.api) _user body _env _state =
       >>=? fun mode -> api.kv#set { config with mode }
       >>= fun () -> Lwt.return `Unit
 
+let set_mode_ (api : Protocol.api) mode =
+  let devinfo = React.S.value api.notifs.devinfo in
+  match Streams_setup.full devinfo mode with
+  | Error e -> Lwt.return (`Error (Stream.Table.set_error_to_string e))
+  | Ok udp ->
+    api.kv#get
+    >>= fun config ->
+    let mode = { config.mode with udp } in
+    let main, aux_1, aux_2 = Request.split_mode mode in
+    Lwt_result.Infix.(
+      api.channel (Request.Set_mode_main main)
+      >>= fun () -> api.channel (Request.Set_mode_aux_1 aux_1)
+      >>= fun () -> api.channel (Request.Set_mode_aux_2 aux_2)
+      >>= fun () -> Lwt.return_ok mode)
+    >>=? fun mode -> api.kv#set { config with mode }
+    >>= fun () -> Lwt.return `Unit
+
 let set_mode (api : Protocol.api) _user body _env _state =
   match Util_json.List.of_yojson udp_mode_of_yojson body with
   | Error e -> Lwt.return (`Error e)
-  | Ok mode ->
-    let devinfo = React.S.value api.notifs.devinfo in
-    match Streams_setup.full devinfo mode with
-    | Error e -> Lwt.return (`Error (Stream.Table.set_error_to_string e))
-    | Ok udp ->
-      api.kv#get
-      >>= fun config ->
-      let mode = { config.mode with udp } in
-      let main, aux_1, aux_2 = Request.split_mode mode in
-      Lwt_result.Infix.(
-        api.channel (Request.Set_mode_main main)
-        >>= fun () -> api.channel (Request.Set_mode_aux_1 aux_1)
-        >>= fun () -> api.channel (Request.Set_mode_aux_2 aux_2)
-        >>= fun () -> Lwt.return_ok mode)
-      >>=? fun mode -> api.kv#set { config with mode }
-      >>= fun () -> Lwt.return `Unit
+  | Ok mode -> set_mode_ api mode

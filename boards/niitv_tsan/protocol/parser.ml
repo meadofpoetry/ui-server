@@ -68,7 +68,7 @@ let non_zero_indexes_of_int ?(start = 0) ~n (v : int) =
   loop [] 0
 
 let make_mode mode t2mi_pid stream =
-  input_of_int (mode land 1),
+  input_of_enum (mode land 1),
   { enabled = if (mode land 4) > 0 then true else false
   ; pid = t2mi_pid land 0x1fff
   ; t2mi_stream_id = (t2mi_pid lsr 13) land 0x7

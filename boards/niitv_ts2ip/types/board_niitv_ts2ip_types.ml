@@ -1,13 +1,31 @@
 open Netlib
 open Application_types
 
+let ( % ) f g x = f (g x)
+
 (* Physical port on a board. *)
 type socket =
   | SPI_1
   | SPI_2
   | SPI_3
   | ASI_1
-  | ASI_2 [@@deriving yojson, show, eq, enum]
+  | ASI_2 [@@deriving show, eq, enum]
+
+let socket_to_yojson = Util_json.Int.to_yojson % socket_to_enum
+
+let socket_of_yojson json =
+  match Util_json.Int.of_yojson json with
+  | Error _ as e -> e
+  | Ok x -> match socket_of_enum x with
+    | Some x -> Ok x
+    | None -> Error (Printf.sprintf "socket_of_yojson: bad int value (%d)" x)
+
+let stream_to_socket
+    (ports : Topology.topo_port list)
+    (stream : Stream.t) : socket option =
+  match Stream.to_topo_port ports stream with
+  | None -> None
+  | Some p -> socket_of_enum p.port
 
 type speed =
   | Speed_10
@@ -23,6 +41,7 @@ type devinfo =
 
 type udp_mode =
   { stream : Stream.Multi_TS_ID.t
+  ; stream_id : Stream.ID.t option [@default None]
   ; dst_ip : Ipaddr.V4.t
   ; dst_port : int
   ; self_port : int
@@ -54,7 +73,7 @@ type udp_status =
   ; overflow : bool
   ; enabled : bool
   ; sync : bool
-  ; stream : Stream.Multi_TS_ID.t
+  ; stream : Stream.container_id
   } [@@deriving yojson, show, eq]
 
 type transmitter_status =

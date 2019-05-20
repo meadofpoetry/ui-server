@@ -91,19 +91,26 @@ let map_errors
 
 let change_t2mi_mode
     (streams : Stream.t list React.signal)
-    (config : config React.signal)
+    (status : Parser.Status.t React.event)
+    (kv : config Kv_v.rw)
   : t2mi_mode Lwt_stream.t =
-  React.S.sample (fun streams ({ t2mi_mode = mode; _ } : config) ->
-      match mode.stream_id with
+  React.S.sample (fun ({ t2mi_mode = mode; _ } : Parser.Status.t) (streams, config) ->
+      let { enabled; stream_id; _ } = config.t2mi_mode in
+      match stream_id with
       | None -> None
       | Some id ->
-        match Stream.find_by_id id streams with
-        | None -> Some { mode with enabled = false }
-        | Some { orig_id = TS_multi stream; _ } -> Some { mode with stream }
-        | Some _ -> None)
-    (React.S.changes streams) config
+        let mode' = match Stream.find_by_id id streams with
+          | None -> Some { mode with enabled = false }
+          | Some { orig_id = TS_multi stream; _ } -> Some { mode with stream; enabled }
+          | Some _ -> None in
+        match mode' with
+        | None -> None
+        | Some x ->
+          if equal_t2mi_mode ~with_stream_id:false x mode
+          then None else Some x)
+    status (React.S.l2 ~eq:(=) (fun x y -> x, y) streams kv#s)
   |> React.E.fmap (fun x -> x)
-  |> React.E.changes ~eq:equal_t2mi_mode
+  |> React.E.changes ~eq:(fun _ _ -> false)
   |> Util_react.E.to_stream
 
 let create
@@ -123,7 +130,7 @@ let create
   let t2mi_info, set_t2mi_info = React.E.create () in
   let deverr, set_deverr = React.E.create () in
   let streams = streams_conv raw_streams in
-  let t2mi_mode_listener = change_t2mi_mode streams kv#s in
+  let t2mi_mode_listener = change_t2mi_mode streams status kv in
   let notifs =
     { state
     ; devinfo
@@ -163,15 +170,19 @@ let create
     let parsed, new_parts, new_acc = Parser.deserialize ~timestamp src parts' buf in
     acc := new_acc;
     parts := new_parts;
-    List.iter (fun (x : Request.rsp ts) ->
-        (* Logs.debug ~src (fun m ->
-         *     m "Got '%s'" (match x.data with
-         *         | `Complex { tag; _ } -> Request.complex_tag_to_string tag
-         *         | `Simple { tag; _ } -> Request.simple_tag_to_string tag)); *)
-        (match map_response !prev x with
-         | `R r -> push_rsp_event r
-         | `E e -> push_evt_queue @@ Some e);
-        prev := Some x) parsed in
+    (* Do not send anything while the device is not responding *)
+    match React.S.value state with
+    | `No_response -> ()
+    | _ ->
+      List.iter (fun (x : Request.rsp ts) ->
+          (* Logs.debug ~src (fun m ->
+           *     m "Got '%s'" (match x.data with
+           *         | `Complex { tag; _ } -> Request.complex_tag_to_string tag
+           *         | `Simple { tag; _ } -> Request.simple_tag_to_string tag)); *)
+          (match map_response !prev x with
+           | `R r -> push_rsp_event r
+           | `E e -> push_evt_queue @@ Some e);
+          prev := Some x) parsed in
   let channel = fun req -> send src state push_req_queue sender req in
   let loop () =
     Fsm.start src sender pending req_queue rsp_event evt_queue kv

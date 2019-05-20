@@ -37,7 +37,7 @@ let to_msg (type a) : a Request.t -> Request.req_tag Request.msg = function
   | Set_mode { input; t2mi_mode = { pid; enabled; stream; t2mi_stream_id }} ->
     let body = Cstruct.create Message.sizeof_board_mode in
     let pid = (t2mi_stream_id lsl 13) lor (pid land 0x1FFF) in
-    input_to_int input
+    input_to_enum input
     |> (lor) (if enabled then 4 else 0)
     |> (lor) 8 (* disable board storage by default *)
     |> Message.set_board_mode_mode body;

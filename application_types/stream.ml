@@ -26,7 +26,7 @@ end = struct
   let get_exn = function Some v -> v | None -> failwith "None"
 
   let of_opt = function Some v -> Ok v | None -> Error "None"
-                                             
+
   include Uuidm
 
   type api_fmt = t
@@ -408,8 +408,6 @@ let to_topo_port (ports : topo_port list) (t : t) : topo_port option =
   get_port input ports
 
 module Table = struct
-
-  type url = Netlib.Uri.t [@@deriving eq]
 
   type source_state =
     [ `Forbidden

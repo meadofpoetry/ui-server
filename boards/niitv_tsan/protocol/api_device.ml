@@ -69,7 +69,7 @@ let set_port (api : Protocol.api) port _user body _env _state =
   match Util_json.Bool.of_yojson body with
   | Error e -> Lwt.return (`Error e)
   | Ok en ->
-    let input = match input_of_int port, en with
+    let input = match input_of_enum port, en with
       | Some i, true -> Some i
       | Some ASI, false -> Some SPI
       | Some SPI, false -> Some ASI

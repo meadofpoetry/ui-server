@@ -25,8 +25,9 @@ let parse_devinfo (buf : Cstruct.t) =
 let parse_udp_status (buf : Cstruct.t) =
   let rate = Message.get_udp_status_rate buf in
   let strm = Message.get_udp_status_stream buf in
-  let (stream : Stream.Multi_TS_ID.t) =
-    Stream.Multi_TS_ID.of_int32_pure Int32.(logand strm 0x3F_FF_FFl) in
+  let stream = match Int32.logand strm 0x3F_FF_FFl with
+    | 0l -> Stream.TS_raw
+    | x -> TS_multi (Stream.Multi_TS_ID.of_int32_pure x) in
   let flags = Int32.to_int @@ Int32.shift_right_logical rate 24 in
   let rdy = flags land 0x08 > 0 in
   let sync = flags land 0x10 > 0 in

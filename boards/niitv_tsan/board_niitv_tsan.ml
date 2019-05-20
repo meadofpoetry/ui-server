@@ -15,7 +15,7 @@ let ports_sync
     (input : input signal)
     (streams : Stream.t list signal) : bool signal Boards.Board.Ports.t =
   List.fold_left (fun acc (p : Topology.topo_port) ->
-      match input_of_int p.port with
+      match input_of_enum p.port with
       | None -> Boards.Board.invalid_port src p.port
       | Some i ->
         let f a b = match a, b with
@@ -30,7 +30,7 @@ let ports_active
     (board : Topology.topo_board)
     (input : input signal) : bool signal Boards.Board.Ports.t =
   List.fold_left (fun acc (p : Topology.topo_port) ->
-      match input_of_int p.port with
+      match input_of_enum p.port with
       | None -> Boards.Board.invalid_port src p.port
       | Some i ->
         let s = S.map ~eq:(=) (equal_input i) input in

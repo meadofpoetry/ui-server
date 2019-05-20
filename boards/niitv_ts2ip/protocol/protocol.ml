@@ -1,6 +1,10 @@
 open Board_niitv_ts2ip_types
 open Application_types
 
+(* TODO
+   1. If stream_id is set in udp_mode, disable this stream
+      when stream_id is not found at device's input *)
+
 (* TODO remove after 4.08 *)
 module List = Boards.Util.List
 
@@ -63,46 +67,29 @@ let find_stream (ports : Topology.topo_port list)
       | Some p when Stream.equal t stream && p.port = port -> true
       | _ -> false) streams
 
-(* let to_out_streams_s (ports : Topology.topo_port list)
- *     (status : status React.event)
- *     (streams : Stream.t list React.signal) =
- *   let status =
- *     let eq =
- *       Equal.pair equal_packer_settings equal_packer_status
- *       |> Equal.list in
- *     React.E.map (fun x -> x.packers_status) status
- *     |> React.S.hold ~eq [] in
- *   React.S.l2 ~eq:(List.equal Stream.equal) (fun status streams ->
- *       List.fold_left (fun acc ((mode : udp_mode),
- *                                { bitrate; enabled; has_data; _ }) ->
- *                        let s = find_stream ports mode.stream mode.socket streams in
- *                        match s, bitrate, enabled, has_data with
- *                        | Some s, Some _, true, true ->
- *                          let (stream : Stream.t) =
- *                            { source = s.source
- *                            ; orig_id = TSoIP { addr = mode.dst_ip
- *                                              ; port = mode.dst_port }
- *                            ; id = s.id
- *                            ; typ = s.typ
- *                            }
- *                          in stream :: acc
- *                        | _ -> acc) [] status)
- *     status streams *)
+let to_out_streams_s (ports : Topology.topo_port list)
+    (status : transmitter_status React.event)
+    (streams : Stream.t list React.signal) =
+  React.S.sample (fun (status : transmitter_status) streams ->
+      List.filter_map (fun { enabled; sync; stream; _ } ->
+          if enabled && sync
+          then None
+          else None) status.udp)
+    status streams
 
 let port_to_stream (port : Topology.topo_port) =
   match port.child with
-  | Board _ -> None
+  | Board _ -> None (* This board should return list of streams *)
   | Input _ ->
     match socket_of_enum port.port with
-    | None -> None
+    | None -> assert false
     | Some socket ->
       let info = match socket with
         | ASI_1 | ASI_2 -> Stream.Source.ASI
         | SPI_1 | SPI_2 | SPI_3 -> SPI in
-      let id = Stream.Multi_TS_ID.make ~source_id:0 ~stream_id:0 in
       Some (socket, { Stream.Raw.
                       source = { info; node = Port port.port }
-                    ; id = TS_multi id
+                    ; id = TS_raw
                     ; typ = TS
                     })
 
@@ -142,8 +129,9 @@ let create (src : Logs.src)
       streams_conv
       device_status
       ports in
-  (* let out_streams = to_out_streams_s board status streams in *)
-  let outgoing_streams = React.S.const [] in
+  let outgoing_streams =
+    React.S.hold ~eq:(Util_equal.List.equal Stream.equal) []
+    @@ to_out_streams_s ports transmitter_status incoming_streams in
   let (notifs : notifs) =
     { state
     ; devinfo

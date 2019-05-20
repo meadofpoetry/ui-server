@@ -1,5 +1,7 @@
 open Application_types
 
+let ( % ) f g x = f (g x)
+
 type 'a ts =
   { data : 'a
   ; timestamp : Time.t
@@ -26,7 +28,7 @@ let show_devinfo = Format.asprintf "%a" pp_devinfo
 
 type input =
   | SPI
-  | ASI [@@deriving yojson, eq]
+  | ASI [@@deriving enum, eq]
 
 let pp_input ppf = function
   | SPI -> Format.pp_print_string ppf "SPI"
@@ -34,13 +36,15 @@ let pp_input ppf = function
 
 let show_input = Format.asprintf "%a" pp_input
 
-let input_to_int = function
-  | SPI -> 0
-  | ASI -> 1
-let input_of_int = function
-  | 0 -> Some SPI
-  | 1 -> Some ASI
-  | _ -> None
+let input_to_yojson = Util_json.Int.to_yojson % input_to_enum
+
+let input_of_yojson json =
+  match Util_json.Int.of_yojson json with
+  | Error _ as e -> e
+  | Ok i ->
+    match input_of_enum i with
+    | None -> Error (Printf.sprintf "input_of_yojson: invalid int value (%d)" i)
+    | Some x -> Ok x
 
 type t2mi_mode =
   { enabled : bool

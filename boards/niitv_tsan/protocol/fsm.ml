@@ -7,7 +7,7 @@ open Application_types
    3. remove unclaimed message parts from part acc (in protocol) - DONE
    4. catch devinfo message without corresponding request - MAYBE THIS IS NOT NEEDED AT ALL
    5. implement client request queue - DONE
-   6. implement T2-MI monitoring setup after stream appeared/dissapeared
+   6. implement T2-MI monitoring setup after stream appeared/dissapeared - DONE
    7. set equal timestamps in probes
    8. preserve structures/t2mi-info when no corresponding stream is found
    9. implement jitter measurements - NEXT
@@ -65,7 +65,7 @@ let to_raw_stream
     (status : Parser.Status.t)
     (id : Stream.Multi_TS_ID.t) =
   let stream_id = Stream.Multi_TS_ID.stream_id id in
-  let src = match Stream.Multi_TS_ID.source_id id, input_of_int stream_id with
+  let src = match Stream.Multi_TS_ID.source_id id, input_of_enum stream_id with
     (* Transport stream coming from SPI input. *)
     | src, Some SPI when src = input_source -> `SPI
     (* Transport stream coming from ASI input. *)
@@ -243,30 +243,19 @@ let start
         None)
       evt_queue in
 
-  let rec status_loop () =
-    Lwt_stream.next evt_queue
-    >>= function
-    | `Status status -> Lwt.return @@ `S status
-    | _ -> status_loop () in
-
-  let rec first_step () =
-    Logs.info (fun m -> m "Start of connection establishment...");
-    clear_pending ();
-    reset_notifs ();
-    Queue_lwt.clear req_queue
-    >>= fun () -> Lwt_stream.junk_old evt_queue
-    >>= detect_device
-
-  and restart () =
+  let rec restart () =
     Logs.info (fun m -> m "Restarting...");
     clear_pending ();
     reset_notifs ();
     Queue_lwt.clear req_queue
     >>= fun () -> Lwt_stream.junk_old evt_queue
+    >>= fun () -> Lwt_stream.junk_old t2mi_mode_listener
     >>= fun () -> Lwt_unix.sleep cooldown_timeout
-    >>= first_step
+    >>= detect
 
-  and detect_device () =
+  and detect () =
+    Logs.info (fun m -> m "Start of connection establishment...");
+    set_state `Detect;
     let rec loop () =
       Lwt.pick
         [ (Lwt_stream.next evt_queue >>= fun x -> Lwt.return @@ `E x)
@@ -298,9 +287,9 @@ let start
       Logs.info (fun m -> m "Connection established, \
                              device initialization started...");
       Lwt_stream.junk_old evt_queue
-      >>= init_device
+      >>= initialize
 
-  and init_device () =
+  and initialize () =
     kv#get
     >>= fun { input_source; t2mi_source; input; t2mi_mode; jitter_mode } ->
     sender.send Request.(Set_src_id { input_source; t2mi_source })
@@ -312,75 +301,85 @@ let start
     >>= fun () -> sender.send Request.(Set_jitter_mode jitter_mode)
     >>= fun () ->
     (* Wait for status - make sure that the desired mode is set. *)
-    let rec status_loop () =
+    let rec wait_status () =
       Lwt_stream.next evt_queue
       >>= function
       | `Status status ->
-        print_endline @@ Parser.Status.show status;
         if equal_t2mi_mode ~with_stream_id:false status.t2mi_mode t2mi_mode
         && equal_jitter_mode status.jitter_mode jitter_mode
         then Lwt.return_ok ()
-        else status_loop ()
-      | _ -> status_loop () in
-    Lwt.pick [status_loop (); sleep status_timeout]
+        else wait_status ()
+      | _ -> wait_status () in
+    Lwt.pick [wait_status (); sleep status_timeout]
     >>= function
-    | Ok () ->
-      set_state `Fine;
-      Logs.info (fun m -> m "Initialization done!");
-      idle ()
+    | Ok () -> idle ()
     | Error e ->
       Logs.err (fun m ->
           m "Initialization failed: %s"
           @@ Request.error_to_string e);
       restart ()
 
-  and idle ?timer ?prev () =
-    print_endline "IDLE";
-    pending := List.filter (Lwt.is_sleeping % snd) !pending;
-    Queue_lwt.check_condition req_queue
-    >>= fun () ->
-    let timer = match timer with
-      | Some x -> x
-      | None -> Lwt_unix.sleep status_timeout >>= fun () -> Lwt.return `Tm in
-    let wait_client = Queue_lwt.next req_queue >>= fun x -> Lwt.return (`C x) in
-    let wait_status = status_loop () in
-    let wait_t2mi_mode =
-      Lwt_stream.last_new t2mi_mode_listener >>= fun x -> Lwt.return (`T2MI x) in
-    Lwt.choose [timer; wait_t2mi_mode; wait_status; wait_client]
+  and idle () =
+    set_state `Fine;
+    Logs.info (fun m -> m "Initialization done!");
+    Lwt.pick
+      [ status_loop ()
+      ; t2mi_loop ()
+      ; client_loop () ]
+    >>= restart
+
+  and t2mi_loop () : unit Lwt.t =
+    Lwt_stream.last_new t2mi_mode_listener
+    >>= fun t2mi_mode -> kv#get
+    >>= fun { input; _ } ->
+    let req = Request.Set_mode { input; t2mi_mode } in
+    request src rsp_event evt_queue sender req
     >>= function
-    | `S status ->
-      Lwt.cancel timer;
-      Lwt.cancel wait_client;
-      let timer = Lwt_unix.sleep status_timeout >>= fun () -> Lwt.return `Tm in
-      wait_streams ~timer { prev; status; streams = []; errors = [] }
-    | `T2MI t2mi_mode ->
-      print_endline "UPDATING T2MI";
-      print_endline @@ show_t2mi_mode t2mi_mode;
-      (Lwt_stream.junk_old t2mi_mode_listener
-       >>= fun () -> kv#get
-       >>= fun { input; _ } ->
-       let req = Request.Set_mode { input; t2mi_mode } in
-       print_endline "Sending T2-MI request";
-       request src rsp_event evt_queue sender req
-       >>= function
-       | Error e -> Logs.err (fun m ->
-           m "Internal failure - failed to update T2-MI mode");
-         restart ()
-       | Ok () -> print_endline "UPDATED T2-MI"; idle ?prev ~timer ())
+    | Ok () -> t2mi_loop ()
+    | Error e ->
+      Logs.err (fun m ->
+          m "Error during internal T2-MI mode setup: %s"
+          @@ Request.error_to_string e);
+      Lwt.return ()
+
+  and client_loop () : unit Lwt.t =
+    Lwt.pick
+      [ (Queue_lwt.next req_queue >>= fun x -> Lwt.return (`C x))
+      ; (Lwt.nchoose @@ List.map snd !pending >>= fun _ -> Lwt.return `R) ]
+    >>= function
+    | `R ->
+      pending := List.filter (Lwt.is_sleeping % snd) !pending;
+      Queue_lwt.check_condition req_queue
+      >>= client_loop
     | `C (id, send) ->
-      Lwt.cancel wait_status;
       let r = send rsp_event evt_queue in
       pending := (id, r) :: !pending;
-      idle ?prev ~timer ()
+      client_loop ()
+
+  and status_loop
+      ?(timer = Lwt_unix.sleep status_timeout >>= fun () -> Lwt.return `Tm)
+      ?(prev : Parser.Status.versions option)
+      () : unit Lwt.t =
+    let rec wait_status () =
+      Lwt_stream.next evt_queue
+      >>= function
+      | `Status status -> Lwt.return @@ `S status
+      | _ -> wait_status () in
+    Lwt.pick [timer; wait_status ()]
+    >>= function
+    | `S status ->
+      (let timer = Lwt_unix.sleep status_timeout >>= fun () -> Lwt.return `Tm in
+       wait_streams { prev; status; streams = []; errors = [] }
+       >>= function
+       | Error _ -> Lwt.return ()
+       | Ok prev -> status_loop ~timer ~prev ())
     | `Tm ->
-      Lwt.cancel wait_status;
-      Lwt.cancel wait_client;
       Logs.err (fun m ->
           m "Seems that the device is not responding, \
              got no status for %g seconds" status_timeout);
-      restart ()
+      Lwt.return ()
 
-  and wait_streams ~timer acc =
+  and wait_streams acc =
     Lwt.pick
       [ sleep event_timeout
       ; (Lwt_stream.next evt_queue
@@ -390,13 +389,13 @@ let start
            log_unexpected_event src [`Streams] event;
            Lwt.return_error (Request.Custom "Unexpected event")) ]
     >>= function
-    | Ok acc -> wait_errors ~timer acc
+    | Ok acc -> wait_errors acc
     | Error e -> Logs.err (fun m ->
         m "Error while waiting for streams event: %s"
         @@ Request.error_to_string e);
-      restart ()
+      Lwt.return_error e
 
-  and wait_errors ~timer acc =
+  and wait_errors acc =
     let wait_event =
       Lwt_stream.next evt_queue
       >>= function
@@ -432,15 +431,15 @@ let start
         Lwt.return_error (Request.Custom "Unexpected event") in
     Lwt.pick [sleep event_timeout; wait_event]
     >>= function
-    | Ok `EOE -> wait_eot ~timer acc
-    | Ok `EOT -> finalize_events ~timer acc
-    | Ok `E acc -> wait_errors ~timer acc
+    | Ok `EOE -> wait_eot acc
+    | Ok `EOT -> finalize_events acc
+    | Ok `E acc -> wait_errors acc
     | Error e -> Logs.err (fun m ->
         m "Error while waiting for errors event: %s"
         @@ Request.error_to_string e);
-      restart ()
+      Lwt.return_error e
 
-  and wait_eot ~timer acc =
+  and wait_eot acc =
     Lwt.pick
       [ sleep event_timeout
       ; (Lwt_stream.next evt_queue
@@ -450,11 +449,11 @@ let start
            log_unexpected_event src [`End_of_transmission] rsp;
            Lwt.return_error (Request.Custom "Unexpected event")) ]
     >>= function
-    | Ok () -> finalize_events ~timer acc
+    | Ok () -> finalize_events acc
     | Error e -> Logs.err (fun m ->
         m "Error while waiting for EOT event: %s"
         @@ Request.error_to_string e);
-      restart ()
+      Lwt.return_error e
 
   and get_structures
       ~(old : Parser.Status.versions option)
@@ -533,7 +532,8 @@ let start
       >>= get_bitrate status.basic.has_sync
       >>= get_t2mi_info prev status)
 
-  and finalize_events ~timer ({ prev; status; streams; errors } as acc) =
+  and finalize_events
+      ({ prev; status; streams; errors } as acc) =
     let rec wait_status () =
       Lwt_stream.next evt_queue
       >>= function
@@ -545,7 +545,7 @@ let start
     | Error e -> Logs.err (fun m ->
         m "Error while fetching probes: %s"
         @@ Request.error_to_string e);
-      restart ()
+      Lwt.return_error e
     | Ok probes ->
       kv#get
       >>= fun { input_source; t2mi_source; _ } ->
@@ -566,7 +566,7 @@ let start
           | `T2MI_info x -> set_t2mi_info ~step x
           | `Deverr x -> set_deverr ~step x) probes;
       React.Step.execute step;
-      idle ~timer ~prev:status.versions ()
+      Lwt.return_ok status.versions
 
   in
-  first_step ()
+  detect ()
