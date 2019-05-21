@@ -34,7 +34,10 @@ type mode_rsp =
   ; lock : bool
   } [@@deriving yojson]
 
-type config = (int * mode) list [@@deriving yojson, eq]
+type config =
+  { mode : (int * mode) list
+  ; source : int
+  } [@@deriving yojson, eq]
 
 let standard_to_string = function
   | T2 -> "T2" | T -> "T" | C -> "C"

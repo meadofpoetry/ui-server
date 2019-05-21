@@ -26,7 +26,7 @@ end = struct
   let get_exn = function Some v -> v | None -> failwith "None"
 
   let of_opt = function Some v -> Ok v | None -> Error "None"
-                                             
+
   include Uuidm
 
   type api_fmt = t
@@ -54,7 +54,7 @@ end
 module Source = struct
 
   let round_freq (x : int64) =
-    let ( mod ), ( / ), (=) = Int64.(rem, div, equal) in
+    let ( mod ), ( / ), ( = ) = Int64.(rem, div, equal) in
     if x mod 1_000_000_000L = 0L then x / 1_000_000_000L, "ГГц"
     else if x mod 1_000_000L = 0L then x / 1_000_000L, "МГц"
     else if x mod 1_000L = 0L then x / 1_000L, "кГц"
@@ -95,9 +95,8 @@ module Source = struct
     | DVB_T of dvb_t
     | DVB_C of dvb_c
     | IPV4 of ipv4
-    | ASI
-    | SPI
-    | T2MI of t2mi [@@deriving yojson, show, eq, ord]
+    | T2MI of t2mi
+    | Plain [@@deriving yojson, show, eq, ord]
 
   let dvb_t2_to_string (x : dvb_t2) =
     let open Printf in
@@ -112,25 +111,21 @@ module Source = struct
     sprintf "DVB-T, %Lu %s, %s" freq unit bw
 
   let dvb_c_to_string (x : dvb_c) =
-    dvb_t_to_string x
-
-  let asi_to_string () =
-    "ASI"
-
-  let spi_to_string () =
-    "SPI"
+    let open Printf in
+    let freq, unit = round_freq x.freq in
+    let bw = sprintf "полоса %g MГц" x.bw in
+    sprintf "DVB-C, %Lu %s, %s" freq unit bw
 
   let t2mi_to_string (x : t2mi) =
-    let open Printf in
-    sprintf "T2-MI PLP. Stream ID %d, PLP %d" x.stream_id x.plp
+    Printf.sprintf "T2-MI PLP. Stream ID %d, PLP %d" x.stream_id x.plp
 
-  let ipv4_to_string (x : ipv4) =
-    Uri.make
-      ~scheme:x.scheme
-      ~host:(Netlib.Ipaddr.V4.to_string x.addr)
-      ~port:x.port
+  let ipv4_to_string ({ scheme; port; addr } : ipv4) =
+    Uri.to_string
+    @@ Uri.make
+      ~scheme
+      ~host:(Netlib.Ipaddr.V4.to_string addr)
+      ~port
       ()
-    |> Uri.to_string
 
   let to_string = function
     | DVB_T2 x -> dvb_t2_to_string x
@@ -138,8 +133,7 @@ module Source = struct
     | DVB_C x -> dvb_c_to_string x
     | T2MI x -> t2mi_to_string x
     | IPV4 x -> ipv4_to_string x
-    | ASI -> asi_to_string ()
-    | SPI -> spi_to_string ()
+    | Plain -> ""
 
 end
 
@@ -168,6 +162,7 @@ module Multi_TS_ID : sig
 
   type t
 
+  val forbidden : t
   val to_yojson : t -> Yojson.Safe.json
   val of_yojson : Yojson.Safe.json -> (t, string) result
   val compare : t -> t -> int
@@ -194,6 +189,8 @@ end = struct
     ; stream_id : int
     } [@@deriving eq, ord]
   [@@@ocaml.warning "+32"]
+
+  let forbidden = Pure 0l
 
   let parse_pure (i : int32) : parsed =
     let open Int32 in
@@ -259,9 +256,10 @@ end = struct
     | Raw i -> parse_raw i |> make_pure
 
   let pp ppf t =
-    let p = parse t in
-    Format.fprintf ppf "{ source_id = %d; stream_id = %d }"
-      p.source_id p.stream_id
+    Format.pp_print_string ppf (Int32.to_string @@ to_int32_pure t)
+  (* let p = parse t in
+   * Format.fprintf ppf "{ source_id = %d; stream_id = %d }"
+   *   p.source_id p.stream_id *)
 
   let show t = Format.asprintf "%a" pp t
 
@@ -284,7 +282,8 @@ type stream_type =
   | T2MI [@@deriving yojson, eq, show, ord]
 
 type tsoip_id =
-  { addr : Netlib.Ipaddr.V4.t
+  { scheme : string
+  ; addr : Netlib.Ipaddr.V4.t
   ; port : int
   } [@@deriving yojson, eq, show, ord]
 
@@ -293,11 +292,11 @@ type container_id =
   | TS_multi of Multi_TS_ID.t
   | TSoIP of tsoip_id [@@deriving yojson, eq, show, ord]
 
-           
 let tsoip_id_of_uri (x : Netlib.Uri.t) : tsoip_id option =
-  Netlib.Uri.path_v4 x >>= fun addr ->
+  Netlib.Uri.host_v4 x >>= fun addr ->
   Netlib.Uri.port x >>= fun port ->
-  Some { addr; port }
+  Netlib.Uri.scheme x >>= fun scheme ->
+  Some { scheme; addr; port }
 
 module Raw = struct
 
@@ -344,10 +343,9 @@ let make_id (src : source) : ID.t =
     | DVB_T2 x -> "dvbt2/" ^ Source.dvb_t2_to_string x
     | DVB_T x -> "dvbt/" ^ Source.dvb_t_to_string  x
     | DVB_C x -> "dvbc/" ^ Source.dvb_c_to_string  x
-    | ASI -> "asi"
-    | SPI -> "spi"
     | T2MI x -> "t2mi/" ^ Source.t2mi_to_string x
-    | IPV4 x -> "ipv4/" ^ Source.ipv4_to_string x in
+    | IPV4 x -> "ipv4/" ^ Source.ipv4_to_string x
+    | Plain -> "plain" in
   ID.make (node ^ "/" ^ info)
 
 let to_multi_id (t : t) : Multi_TS_ID.t =
@@ -404,8 +402,6 @@ let to_topo_port (ports : topo_port list) (t : t) : topo_port option =
   get_port input ports
 
 module Table = struct
-
-  type url = Netlib.Uri.t [@@deriving eq]
 
   type source_state =
     [ `Forbidden

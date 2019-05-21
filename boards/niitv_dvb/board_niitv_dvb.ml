@@ -7,10 +7,6 @@ module Config = Kv_v.RW(Board_settings)
 
 let ( >>= ) = Lwt_result.bind
 
-let invalid_port (src : Logs.src) port =
-  let s = (Logs.Src.name src) ^ ": invalid port " ^ (string_of_int port) in
-  raise (Board.Invalid_port s)
-
 let rec has_sync = function
   | [] -> false
   | (_, ({ data; _ } : Measure.t ts)) :: tl ->
@@ -18,25 +14,16 @@ let rec has_sync = function
     | true, Some x when x > 0 -> true
     | _ -> has_sync tl
 
-let create_logger (b : Topology.topo_board) =
-  let log_name = Board.log_name b in
-  let log_src = Logs.Src.create log_name in
-  match b.logs with
-  | None -> Ok log_src
-  | Some x ->
-    match Logs.level_of_string x with
-    | Ok x ->
-      Logs.Src.set_level log_src x;
-      Ok log_src
-    | Error _ -> Error (`Unknown_log_level x)
-
-let parse_source_id (b : Topology.topo_board) =
-  match b.sources with
-  | None -> Error (`Board_error "Source id not found")
-  | Some i ->
-    match Util_json.Int.of_yojson i with
-    | Ok i -> Ok i
-    | Error _ -> Error (`Board_error "Invalid source id")
+let get_source_from_env src (b : Topology.topo_board) =
+  match Topology.Env.find_opt "source" b.env with
+  | None -> None
+  | Some s ->
+    match int_of_string_opt s with
+    | Some i -> Some i
+    | None ->
+      Logs.warn ~src (fun m ->
+          m "Failed to parse source ID value from environment: %s" s);
+      None
 
 let create (b : Topology.topo_board)
     (_ : Stream.t list React.signal)
@@ -46,11 +33,14 @@ let create (b : Topology.topo_board)
     (send : Cstruct.t -> unit Lwt.t)
     (db : Db.t)
     (kv : Kv.RW.t) : (Board.t, [> Board.error]) Lwt_result.t =
-  Config.create ~default:Board_settings.default kv ["board"; (string_of_int b.control)]
-  >>= fun (cfg : Device.config Kv_v.rw) -> Lwt.return (create_logger b)
-  >>= fun (src : Logs.src) -> Lwt.return (parse_source_id b)
-  >>= fun (source_id : int) ->
-  Protocol.create src send (convert_streams b) source_id cfg b.control db
+  Lwt.return @@ Boards.Board.create_log_src b
+  >>= fun (src : Logs.src) ->
+  let default = match get_source_from_env src b with
+    | None -> Board_settings.default
+    | Some source -> { Board_settings.default with source } in
+  Config.create ~default kv ["board"; (string_of_int b.control)]
+  >>= fun (cfg : Device.config Kv_v.rw) ->
+  Protocol.create src send (convert_streams b) cfg b.control db
   >>= fun (api : Protocol.api) ->
   let state = object
     method finalize () = Lwt.return ()
@@ -70,14 +60,14 @@ let create (b : Topology.topo_board)
             (match p.port with
              | 0 -> React.E.map has_sync api.notifs.measures
                     |> React.S.hold ~eq:(=) false
-             | x -> invalid_port src x)
+             | x -> Boards.Board.invalid_port src x)
             |> fun x -> Board.Ports.add p.port x acc)
           Board.Ports.empty b.ports
     ; ports_active =
         List.fold_left (fun acc (p : Topology.topo_port) ->
             (match p.port with
              | 0 -> React.S.const true
-             | x -> invalid_port src x)
+             | x -> Boards.Board.invalid_port src x)
             |> fun x -> Board.Ports.add p.port x acc)
           Board.Ports.empty b.ports
     ; stream_handler = None

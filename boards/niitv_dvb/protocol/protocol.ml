@@ -15,8 +15,7 @@ type notifs =
   }
 
 type api =
-  { source_id : int
-  ; kv : Device.config Kv_v.rw
+  { kv : Device.config Kv_v.rw
   ; notifs : notifs
   ; channel : 'a. 'a Request.t -> ('a, Request.error) Lwt_result.t
   ; loop : unit -> unit Lwt.t
@@ -32,15 +31,16 @@ let send (type a) (src : Logs.src)
     (sender : Cstruct.t -> unit Lwt.t)
     (req : a Request.t) =
   match React.S.value state with
-  | `Init | `No_response -> Lwt.return_error Request.Not_responding
+  | `Init | `No_response | `Detect -> Lwt.return_error Request.Not_responding
   | `Fine ->
     Lwt.catch (fun () ->
         let t, w = Lwt.task () in
-        let stop = fun error -> Lwt.wakeup_later w (Error error) in
         let send = fun stream ->
           Fsm.request src stream sender req
           >>= fun x -> Lwt.wakeup_later w x; Lwt.return_unit in
-        push#push @@ (send, stop) >>= fun () -> t)
+        Lwt.pick
+          [ (Boards.Board.await_no_response state >>= Api_util.not_responding)
+          ; (push#push send >>= fun () -> t) ])
       (function
         | Lwt.Canceled -> Lwt.return_error Request.Not_responding
         | Lwt_stream.Full -> Lwt.return_error Request.Queue_overflow
@@ -65,22 +65,30 @@ let mode_to_stream (source_id : int)
   ; typ = TS
   }
 
-(** Converts device config signal to raw stream list signal. *)
-let to_streams_s (source_id : int)
+let to_streams_s
     (config : Device.config React.signal)
+    (meas : (int * Measure.t ts) list React.event)
   : Stream.Raw.t list React.signal =
-  React.S.map ~eq:(Boards.Util.List.equal Stream.Raw.equal)
-    (List.map (mode_to_stream source_id)) config
+  React.S.sample (fun meas (config : Device.config) ->
+      Boards.Util.List.filter_map (fun ((id, _) as mode)->
+          match List.find_opt (fun (id', _) -> id = id') meas with
+          | None -> None
+          | Some (_, { data = { Measure. lock; bitrate; _ }; _ }) ->
+            if lock && (match bitrate with None -> false | Some x -> x > 0)
+            then Some (mode_to_stream config.source mode)
+            else None) config.mode)
+    meas config
+  |> React.S.hold ~eq:(Util_equal.List.equal Stream.Raw.equal) []
 
 (** Converts absolute measured channel frequency value
     to frequency offset in measurements event. *)
 let map_measures (config : Device.config React.signal)
     (e : (int * Measure.t ts) list React.event)
   : (int * Measure.t ts) list React.event =
-  React.S.sample (fun l config ->
+  React.S.sample (fun l (config : Device.config) ->
       Boards.Util.List.filter_map
         (fun (id, ({ data; timestamp } : Measure.t ts)) ->
-           match List.assoc_opt id config with
+           match List.assoc_opt id config.mode with
            | None -> None
            | Some (mode : Device.mode) ->
              let freq = match data.freq with
@@ -94,18 +102,17 @@ let map_measures (config : Device.config React.signal)
 let create (src : Logs.src)
     (sender : Cstruct.t -> unit Lwt.t)
     streams_conv
-    (source_id : int)
     (kv : Device.config Kv_v.rw)
     (control : int)
     (db : Db.t) =
   let open Util_react in
   let devinfo, set_devinfo =
-    S.create ~eq:(Boards.Util.Option.equal Device.equal_info) None in
+    S.create ~eq:(Util_equal.Option.equal Device.equal_info) None in
   let measures, set_measures = E.create () in
   let params, set_params = E.create () in
   let plps, set_plps = E.create () in
   let state, set_state = S.create ~eq:Topology.equal_state `No_response in
-  let raw_streams = to_streams_s source_id kv#s in
+  let raw_streams = to_streams_s kv#s measures in
   let streams = streams_conv raw_streams in
   let (notifs : notifs) =
     { measures = map_measures kv#s measures
@@ -122,27 +129,26 @@ let create (src : Logs.src)
     >>= fun model ->
     let req_queue, push_req_queue = Lwt_stream.create_bounded msg_queue_size in
     let rsp_queue, push_rsp_queue = Lwt_stream.create () in
-    let push_data =
-      let acc = ref None in
-      let push (buf : Cstruct.t) =
-        let buf = match !acc with
-          | None -> buf
-          | Some acc -> Cstruct.append acc buf in
-        let parsed, new_acc = Parser.deserialize src buf in
-        acc := new_acc;
-        List.iter (fun x -> push_rsp_queue @@ Some x) parsed in
-      push in
+    let acc = ref None in
+    let push_data (buf : Cstruct.t) =
+      let buf = match !acc with
+        | None -> buf
+        | Some acc -> Cstruct.append acc buf in
+      let parsed, new_acc = Parser.deserialize src buf in
+      acc := new_acc;
+      match React.S.value state with
+      | `No_response -> ()
+      | _ -> List.iter (fun x -> push_rsp_queue @@ Some x) parsed in
     let channel = fun req -> send src state push_req_queue sender req in
     let loop =
-      Fsm.start src sender req_queue rsp_queue kv source_id
+      Fsm.start src sender req_queue rsp_queue kv
         set_state
-        (fun x -> set_devinfo @@ Some x)
+        (fun ?step x -> set_devinfo ?step @@ Some x)
         set_measures
         set_params
         set_plps in
     let api =
-      { source_id
-      ; notifs
+      { notifs
       ; loop
       ; push_data
       ; channel

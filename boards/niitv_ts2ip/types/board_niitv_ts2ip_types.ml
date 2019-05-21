@@ -1,19 +1,53 @@
 open Netlib
 open Application_types
 
+let ( % ) f g x = f (g x)
+
 (* Physical port on a board. *)
 type socket =
   | SPI_1
   | SPI_2
   | SPI_3
   | ASI_1
-  | ASI_2 [@@deriving yojson, show, eq, enum]
+  | ASI_2 [@@deriving show, eq, enum]
+
+let socket_to_string = function
+  | ASI_1 -> "ASI 1"
+  | ASI_2 -> "ASI 2"
+  | SPI_1 -> "SPI 1"
+  | SPI_2 -> "SPI 2"
+  | SPI_3 -> "SPI 3"
+
+let socket_to_yojson = Util_json.Int.to_yojson % socket_to_enum
+
+let socket_of_yojson json =
+  match Util_json.Int.of_yojson json with
+  | Error _ as e -> e
+  | Ok x -> match socket_of_enum x with
+    | Some x -> Ok x
+    | None -> Error (Printf.sprintf "socket_of_yojson: bad int value (%d)" x)
+
+let stream_to_socket
+    (ports : Topology.topo_port list)
+    (stream : Stream.t) : socket option =
+  match Stream.to_topo_port ports stream with
+  | None -> None
+  | Some p -> socket_of_enum p.port
 
 type speed =
   | Speed_10
   | Speed_100
   | Speed_1000
-  | Speed_failure [@@deriving yojson, show, eq]
+  | Speed_failure [@@deriving enum, show, eq]
+
+let speed_to_yojson = Util_json.Int.to_yojson % speed_to_enum
+
+let speed_of_yojson json =
+  match Util_json.Int.of_yojson json with
+  | Error _ as e -> e
+  | Ok x -> match speed_of_enum x with
+    | Some x -> Ok x
+    | None -> Error (Printf.sprintf "speed_of_yojson: bad int value (%d)" x)
 
 type devinfo =
   { typ : int
@@ -21,8 +55,31 @@ type devinfo =
   ; packers_num : int
   } [@@deriving yojson, eq]
 
+type stream =
+  | ID of Stream.Multi_TS_ID.t
+  | Full of Stream.t [@@deriving eq]
+
+let pp_stream ppf = function
+  | ID x -> Stream.Multi_TS_ID.pp ppf x
+  | Full x -> Stream.pp_container_id ppf x.orig_id
+
+let show_stream s =
+  Format.asprintf "%a" pp_stream s
+
+let stream_to_yojson = function
+  | ID x -> Stream.Multi_TS_ID.to_yojson x
+  | Full x -> Stream.to_yojson x
+
+let stream_of_yojson json =
+  match Stream.Multi_TS_ID.of_yojson json with
+  | Ok x -> Ok (ID x)
+  | Error _ ->
+    match Stream.of_yojson json with
+    | Ok x -> Ok (Full x)
+    | Error _ -> Error "stream_of_yojson: got neither Multi TS ID, nor stream"
+
 type udp_mode =
-  { stream : Stream.Multi_TS_ID.t
+  { stream : stream
   ; dst_ip : Ipaddr.V4.t
   ; dst_port : int
   ; self_port : int
@@ -54,7 +111,7 @@ type udp_status =
   ; overflow : bool
   ; enabled : bool
   ; sync : bool
-  ; stream : Stream.Multi_TS_ID.t
+  ; stream : Stream.container_id
   } [@@deriving yojson, show, eq]
 
 type transmitter_status =
@@ -71,13 +128,6 @@ type 'a ts =
   { data : 'a
   ; timestamp : Time.t
   } [@@deriving yojson, show, eq]
-
-let socket_to_string = function
-  | ASI_1 -> "ASI 1"
-  | ASI_2 -> "ASI 2"
-  | SPI_1 -> "SPI 1"
-  | SPI_2 -> "SPI 2"
-  | SPI_3 -> "SPI 3"
 
 let devinfo_to_string (x : devinfo) =
   Printf.sprintf "type: 0x%02X, version: %d, packers: %d"

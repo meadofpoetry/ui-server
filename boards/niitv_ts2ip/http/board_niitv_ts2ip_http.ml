@@ -8,8 +8,8 @@ module Api_websocket = Api_websocket.Make(User)(Body)
 
 let handlers (control : int) (api : Protocol.api) =
   let open Api_http in
-  
-  [ merge ~prefix:(Topology.get_api_path control)
+
+  [ merge ~prefix:(string_of_int control)
       [ make ~prefix:"device"
           [ node ~doc:"Returns the state of the device"
               ~meth:`GET
@@ -98,22 +98,24 @@ let handlers (control : int) (api : Protocol.api) =
               ~query:Query.empty
               (Api_device.set_mode api)
           ]
+      ; make ~prefix:"streams"
+          [ node ~doc:"Available streams"
+              ~meth:`GET
+              ~path:Path.Format.empty
+              ~query:Query.["incoming", (module Option(Bool))]
+              (Api_streams.get_streams api)
+          ; node ~doc:"Stream description, if available"
+              ~meth:`GET
+              ~path:Path.Format.(Stream.ID.fmt ^/ empty)
+              ~query:Query.["incoming", (module Option(Bool))]
+              (Api_streams.get_stream api)
+          ]
       ; make ~prefix:"transmitter"
-          [ node ~doc:"Returns UDP transmitters status"
+          [ node ~doc:"UDP transmitter status"
               ~meth:`GET
               ~path:Path.Format.("status" @/ empty)
               ~query:Query.empty
               (Api_transmitter.get_status api)
-          ; node ~doc:"Returns incoming streams"
-              ~meth:`GET
-              ~path:Path.Format.("streams/incoming" @/ empty)
-              ~query:Query.empty
-              (Api_transmitter.get_incoming_streams api)
-          ; node ~doc:"Returns outgoing streams"
-              ~meth:`GET
-              ~path:Path.Format.("streams/outgoing" @/ empty)
-              ~query:Query.empty
-              (Api_transmitter.get_outgoing_streams api)
           ; node ~doc:"Sets streams to transmit via UDP"
               ~meth:`POST
               ~restrict:[`Guest]
@@ -135,8 +137,8 @@ let ws (control : int) (api : Protocol.api) =
   let open Api_websocket in
   (* TODO add closing event *)
   let socket_table = make_socket_table () in
-  
-  [ merge ~prefix:(Topology.get_api_path control)
+
+  [ merge ~prefix:(string_of_int control)
       [ make ~prefix:"device"
           [ node ~doc:"Device state socket"
               ~socket_table
@@ -164,22 +166,19 @@ let ws (control : int) (api : Protocol.api) =
               ~query:Query.empty
               (Api_device.Event.get_status api)
           ]
+      ; make ~prefix:"streams"
+          [ node ~doc:"Streams socket"
+              ~socket_table
+              ~path:Path.Format.empty
+              ~query:Query.["incoming", (module Option(Bool))]
+              (Api_streams.Event.get_streams api)
+          ]
       ; make ~prefix:"transmitter"
           [ node ~doc:"Transmitter status socket"
               ~socket_table
               ~path:(Path.Format.of_string "status")
               ~query:Query.empty
               (Api_transmitter.Event.get_status api)
-          ; node ~doc:"Incoming streams socket"
-              ~socket_table
-              ~path:(Path.Format.of_string "streams/incoming")
-              ~query:Query.empty
-              (Api_transmitter.Event.get_incoming_streams api)
-          ; node ~doc:"Outgoing streams socket"
-              ~socket_table
-              ~path:(Path.Format.of_string "streams/outgoing")
-              ~query:Query.empty
-              (Api_transmitter.Event.get_outgoing_streams api)
           ; node ~doc:"Transmitters mode socket"
               ~socket_table
               ~path:(Path.Format.of_string "mode")

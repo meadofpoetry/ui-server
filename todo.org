@@ -35,10 +35,11 @@
   - [ ] T2-MI/TS stream types. We should know if the stream was T2-MI in the past to show stats
 - [ ] Topology
   - [ ] Add flag to indicate stream presence at CPU inputs ('port active' and 'port sync')
-- [ ] Board QoS
+- [ ] Board NIITV TSAN
   - [ ] Debug state machine
+  - [ ] Refactor lwt queue to have a clear api
   - [ ] Watch for stream changes and configure T2-MI settings correspondingly
-- [ ] Board DVB
+- [ ] Board NIITV DVB
   - [ ] Prohibit selection of equal streams for analysis
 - [ ] API
   - [ ] Add API to fetch archived streams (from all sources)

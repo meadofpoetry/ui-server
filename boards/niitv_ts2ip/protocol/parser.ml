@@ -20,18 +20,19 @@ let parse_devinfo (buf : Cstruct.t) =
     let typ = Message.get_rsp_devinfo_typ buf in
     let packers_num = Message.get_rsp_devinfo_packers_num buf in
     Ok { typ; ver; packers_num }
-  with Invalid_argument _ -> Error Request.Invalid_length
+  with Invalid_argument _ -> Error Request.Invalid_payload
 
 let parse_udp_status (buf : Cstruct.t) =
   let rate = Message.get_udp_status_rate buf in
   let strm = Message.get_udp_status_stream buf in
-  let (stream : Stream.Multi_TS_ID.t) =
-    Stream.Multi_TS_ID.of_int32_pure Int32.(logand strm 0x3F_FF_FFl) in
+  let stream = match Int32.logand strm 0x3F_FF_FFl with
+    | 0l -> Stream.TS_raw
+    | x -> TS_multi (Stream.Multi_TS_ID.of_int32_pure x) in
   let flags = Int32.to_int @@ Int32.shift_right_logical rate 24 in
   let rdy = flags land 0x08 > 0 in
   let sync = flags land 0x10 > 0 in
   let overflow = flags land 0x20 > 0 in
-  let enabled = Int32.((logand strm 0x80_00_00_00l) > 0l) in
+  let enabled = Int32.((shift_right_logical strm 31) <> 0l) in
   let bitrate =
     if not rdy then None
     else Some (Int32.(to_int @@ mul 8l (logand rate 0x07_FF_FF_FFl))) in
@@ -61,6 +62,11 @@ let parse_status (buf : Cstruct.t) =
       else if phy land 0x0A > 0 then Speed_100
       else if phy land 0x12 > 0 then Speed_10
       else Speed_failure in
+    (* TODO sync can be encoded as 2 bits, as follows:
+       00 - no sync
+       01 - sync 188
+       10 - sync 204
+       11 - sync 192 *)
     let sync =
       []
       |> cons_if ((input land 0x01) > 0) SPI_1
@@ -81,7 +87,7 @@ let parse_status (buf : Cstruct.t) =
       ; timestamp
       } in
     Ok (device_status, transmitter_status)
-  with Invalid_argument _ -> Error Request.Invalid_length
+  with Invalid_argument _ -> Error Request.Invalid_payload
 
 let check_prefix (buf : Cstruct.t) =
   try
@@ -94,11 +100,13 @@ let check_msg_code (buf : Cstruct.t) =
   try
     let pfx, rest = Cstruct.split buf Message.sizeof_prefix in
     let code = Message.get_prefix_msg_code pfx in
-    match Request.rsp_tag_of_enum code with
+    match Request.tag_of_enum code with
     | None | Some `Devinfo_req | Some `Mode | Some `MAC ->
       Error (Invalid_msg_code code)
     | Some ((`Devinfo_rsp | `Status) as tag) ->
-      let length = Request.tag_to_data_size tag in
+      let length = match tag with
+        | `Devinfo_rsp -> Message.sizeof_rsp_devinfo
+        | `Status -> Message.sizeof_status in
       let data, rest = Cstruct.split rest length in
       Ok ({ Request. tag; data }, rest)
   with Invalid_argument _ -> Error (Insufficient_payload buf)
@@ -109,7 +117,7 @@ let get_msg (buf : Cstruct.t) =
   >>= check_msg_code
 
 let deserialize (src : Logs.src) (buf : Cstruct.t) =
-  let rec aux responses (buf : Cstruct.t) =
+  let rec aux ?error responses (buf : Cstruct.t) =
     if Cstruct.len buf >= Message.sizeof_prefix
     then match get_msg buf with
       | Ok (x, rest) -> aux (x :: responses) rest
@@ -117,8 +125,11 @@ let deserialize (src : Logs.src) (buf : Cstruct.t) =
         match e with
         | Insufficient_payload x -> (responses, x)
         | e ->
-          Logs.err ~src (fun m -> m "parser error: %s" @@ error_to_string e);
-          aux responses (Cstruct.shift buf 1)
+          (match e, error with
+           | Invalid_start_tag _, Some Invalid_start_tag _ -> ()
+           | _ -> Logs.warn ~src (fun m ->
+               m "parser error: %s" @@ error_to_string e));
+          aux ~error:e responses (Cstruct.shift buf 1)
     else (responses, buf)
   in
   let responses, rest = aux [] buf in

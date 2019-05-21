@@ -168,10 +168,10 @@ val typ : string
 val to_yojson : t -> Yojson.Safe.json
 
 val of_yojson : Yojson.Safe.json -> (t, string) result
-     
-val path_v4 : t -> Ipaddr_ext.V4.t option
 
-val with_path_v4 : t -> Ipaddr_ext.V4.t -> t
+val host_v4 : t -> Ipaddr_ext.V4.t option
+
+val with_host_v4 : t -> Ipaddr_ext.V4.t -> t
 
 val with_path_parsed : t -> Path.t -> t
 

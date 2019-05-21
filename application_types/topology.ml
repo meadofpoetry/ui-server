@@ -1,18 +1,19 @@
 type state =
   [ `Fine
-  | `No_response
+  | `Detect
   | `Init
+  | `No_response
   ] [@@deriving yojson, show, eq, ord]
 
 let state_to_string = function
   | `Fine -> "fine"
-  | `No_response -> "no-response"
   | `Init -> "init"
+  | `No_response -> "no-response"
 
 let state_of_string = function
   | "fine" -> Some `Fine
-  | "no-response" -> Some `No_response
   | "init" -> Some `Init
+  | "no-response" -> Some `No_response
   | _ -> None
 
 type input =
@@ -98,7 +99,6 @@ and topo_board =
   ; version : version
   ; control : int
   ; connection : (state [@default `No_response])
-  ; sources : (Util_json.t option [@default None])
   ; env : (env [@default Env.empty])
   ; ports : topo_port list
   ; logs : (string option [@default None])
@@ -168,8 +168,6 @@ let cpu_subbranches = function
 let get_entries = function
   | `Boards l -> List.fold_left (fun acc b -> (List.map (fun p -> p.child) b.ports) @ acc) [] l
   | `CPU c -> List.map (fun i -> i.conn) c.ifaces
-
-let get_api_path = string_of_int
 
 let get_input_name (i : topo_input) =
   let to_string s = Printf.sprintf "%s %d" s i.id in

@@ -1,4 +1,4 @@
-include module type of Macaddr
+include module type of Macaddr with type t = Macaddr.t
 
 val equal : t -> t -> bool
 

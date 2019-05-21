@@ -10,19 +10,21 @@ let of_yojson = Board_dektec_dtm3200_types.config_of_yojson
 
 let (default : t) =
   { nw =
-      { ip = Ipaddr.V4.of_string_exn "192.168.0.2"
+      { ip_address = Ipaddr.V4.of_string_exn "192.168.0.2"
       ; mask = Ipaddr.V4.of_string_exn "255.255.255.0"
       ; gateway = Ipaddr.V4.of_string_exn "192.168.0.1"
       ; dhcp = false
       }
-  ; ip =
+  ; ip_receive =
       { enable = false
-      ; fec = true
-      ; port = 1234
-      ; multicast = Some (Ipaddr.V4.of_string_exn "224.1.2.2")
-      ; delay = 100
+      ; fec_enable = true
+      ; udp_port = 1234
+      ; addressing_method = Multicast
+      ; multicast = Ipaddr.V4.of_string_exn "224.1.2.2"
+      ; ip_to_output_delay = 100
       ; rate_mode = On
       }
+  ; address = 0x40
   }
 
 let to_string x =

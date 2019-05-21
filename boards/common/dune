@@ -4,6 +4,7 @@
   (libraries   application_types
                api_cohttp_template
                util_react
+               util_equal
                db
                kv
                kv_v
