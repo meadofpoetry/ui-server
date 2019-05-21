@@ -30,10 +30,8 @@ let loop (type a) stream (req : a Request.t) : (a, Request.error) result Lwt.t =
 
 let request (type a) src sender stream (config : config Kv_v.rw) (req : a Request.t) =
   config#get
-  >>= fun { address; _ } ->
-  sender @@ Serializer.serialize ~address req
-  >>= fun () ->
-  Lwt.pick [loop stream req; sleep (Request.timeout req)]
+  >>= fun { address; _ } -> sender @@ Serializer.serialize ~address req
+  >>= fun () -> Lwt.pick [loop stream req; sleep (Request.timeout req)]
   >>= function
   | Error e -> log_error src req e; Lwt.return_error e
   | Ok x -> log_ok src req x; Lwt.return_ok x

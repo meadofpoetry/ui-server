@@ -20,7 +20,7 @@ let parse_devinfo (buf : Cstruct.t) =
     let typ = Message.get_rsp_devinfo_typ buf in
     let packers_num = Message.get_rsp_devinfo_packers_num buf in
     Ok { typ; ver; packers_num }
-  with Invalid_argument _ -> Error Request.Invalid_length
+  with Invalid_argument _ -> Error Request.Invalid_payload
 
 let parse_udp_status (buf : Cstruct.t) =
   let rate = Message.get_udp_status_rate buf in
@@ -82,7 +82,7 @@ let parse_status (buf : Cstruct.t) =
       ; timestamp
       } in
     Ok (device_status, transmitter_status)
-  with Invalid_argument _ -> Error Request.Invalid_length
+  with Invalid_argument _ -> Error Request.Invalid_payload
 
 let check_prefix (buf : Cstruct.t) =
   try

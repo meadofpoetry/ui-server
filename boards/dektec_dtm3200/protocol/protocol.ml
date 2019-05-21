@@ -22,8 +22,7 @@ type api =
   ; push_data : Cstruct.t -> unit
   }
 
-let send (type a) ~(address : int)
-    (src : Logs.src)
+let send (type a) (src : Logs.src)
     (state : Topology.state React.signal)
     (push : _ Lwt_stream.bounded_push)
     (sender : Cstruct.t -> unit Lwt.t)
@@ -87,25 +86,22 @@ let create (src : Logs.src)
     } in
   let req_queue, push_req_queue = Lwt_stream.create_bounded msg_queue_size in
   let rsp_queue, push_rsp_queue = Lwt_stream.create () in
-  let push_data =
-    let acc = ref None in
-    let push (buf : Cstruct.t) =
-      let buf = match !acc with
-        | None -> buf
-        | Some acc -> Cstruct.append acc buf in
-      let address = (React.S.value kv#s).address in
-      let parsed, new_acc = Parser.deserialize ~address src buf in
-      acc := new_acc;
-      List.iter (fun x -> push_rsp_queue @@ Some x) parsed in
-    push in
-  let channel = fun req ->
-    kv#get
-    >>= fun { address; _ } ->
-    send ~address src state push_req_queue sender kv req in
+  let acc = ref None in
+  let push_data (buf : Cstruct.t) =
+    let buf = match !acc with
+      | None -> buf
+      | Some acc -> Cstruct.append acc buf in
+    let address = (React.S.value kv#s).address in
+    let parsed, new_acc = Parser.deserialize ~address src buf in
+    acc := new_acc;
+    match React.S.value state with
+    | `No_response -> ()
+    | _ -> List.iter (fun x -> push_rsp_queue @@ Some x) parsed in
+  let channel = fun req -> send src state push_req_queue sender kv req in
   let loop =
     Fsm.start src sender req_queue rsp_queue kv
       set_state
-      (fun x -> set_devinfo @@ Some x)
+      (fun ?step x -> set_devinfo ?step @@ Some x)
       set_status in
   let (api : api) =
     { notifs

@@ -82,12 +82,15 @@ let apply_streams (api : Protocol.api) range ports streams =
             | TS_multi x -> Some x
             | _ -> None in
           (match stream_id, Ipaddr.V4.of_string host with
-           | None, _ | _, Error _ -> Error `Forbidden
+           | None, _ -> Error (`Internal_error "Invalid stream container ID")
+           | _, Error `Msg s -> Error (`Internal_error s)
            | Some id, Ok ip ->
              if is_ipaddr_in_range range ip
              then check_loop ((ip, port, id, stream.id, socket) :: acc) tl
              else Error `Not_in_range)
-        | _ -> Error `Forbidden in
+        | None, _, _ -> Error (`Internal_error "No host provided in URI")
+        | _, None, _ -> Error (`Internal_error "No port provided in URI")
+        | _, _, None -> Error (`Internal_error "Invalid stream") in
     match check_loop [] streams with
     | Error _ as e -> Lwt.return e
     | Ok x ->
@@ -103,7 +106,7 @@ let apply_streams (api : Protocol.api) range ports streams =
             }) x in
       Api_transmitter.set_mode_ api mode
       >>= function
-      | `Error _ -> Lwt.return_error `Forbidden
+      | `Error e -> Lwt.return_error @@ `Internal_error e
       | `Unit -> Lwt.return_ok ()
 
 let create (b : Topology.topo_board)
@@ -128,7 +131,7 @@ let create (b : Topology.topo_board)
     React.S.l2 ~eq:Stream.Table.equal_source_state
       (fun s d ->
          match s, d with
-         | `Fine, Some devi -> `Limited devi.packers_num
+         | `Fine, Some { packers_num; _ } -> `Limited packers_num
          | _ -> `Forbidden)
       api.notifs.state api.notifs.devinfo in
   let range = (Ipaddr.V4.make 224 1 2 2, Ipaddr.V4.make 239 255 255 255) in

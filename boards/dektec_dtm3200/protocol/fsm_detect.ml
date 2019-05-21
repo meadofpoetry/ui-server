@@ -1,6 +1,5 @@
 open Board_dektec_dtm3200_types
 open Request
-open Netlib
 open Fsm_common
 
 let ( >>= ) = Lwt.bind

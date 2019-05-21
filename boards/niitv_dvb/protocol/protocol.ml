@@ -40,8 +40,7 @@ let send (type a) (src : Logs.src)
           >>= fun x -> Lwt.wakeup_later w x; Lwt.return_unit in
         Lwt.pick
           [ (Boards.Board.await_no_response state >>= Api_util.not_responding)
-          ; (push#push send >>= fun () -> t)
-          ])
+          ; (push#push send >>= fun () -> t) ])
       (function
         | Lwt.Canceled -> Lwt.return_error Request.Not_responding
         | Lwt_stream.Full -> Lwt.return_error Request.Queue_overflow
@@ -122,21 +121,21 @@ let create (src : Logs.src)
     >>= fun model ->
     let req_queue, push_req_queue = Lwt_stream.create_bounded msg_queue_size in
     let rsp_queue, push_rsp_queue = Lwt_stream.create () in
-    let push_data =
-      let acc = ref None in
-      let push (buf : Cstruct.t) =
-        let buf = match !acc with
-          | None -> buf
-          | Some acc -> Cstruct.append acc buf in
-        let parsed, new_acc = Parser.deserialize src buf in
-        acc := new_acc;
-        List.iter (fun x -> push_rsp_queue @@ Some x) parsed in
-      push in
+    let acc = ref None in
+    let push_data (buf : Cstruct.t) =
+      let buf = match !acc with
+        | None -> buf
+        | Some acc -> Cstruct.append acc buf in
+      let parsed, new_acc = Parser.deserialize src buf in
+      acc := new_acc;
+      match React.S.value state with
+      | `No_response -> ()
+      | _ -> List.iter (fun x -> push_rsp_queue @@ Some x) parsed in
     let channel = fun req -> send src state push_req_queue sender req in
     let loop =
       Fsm.start src sender req_queue rsp_queue kv
         set_state
-        (fun x -> set_devinfo @@ Some x)
+        (fun ?step x -> set_devinfo ?step @@ Some x)
         set_measures
         set_params
         set_plps in

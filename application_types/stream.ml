@@ -54,7 +54,7 @@ end
 module Source = struct
 
   let round_freq (x : int64) =
-    let ( mod ), ( / ), (=) = Int64.(rem, div, equal) in
+    let ( mod ), ( / ), ( = ) = Int64.(rem, div, equal) in
     if x mod 1_000_000_000L = 0L then x / 1_000_000_000L, "ГГц"
     else if x mod 1_000_000L = 0L then x / 1_000_000L, "МГц"
     else if x mod 1_000L = 0L then x / 1_000L, "кГц"
@@ -112,25 +112,21 @@ module Source = struct
     sprintf "DVB-T, %Lu %s, %s" freq unit bw
 
   let dvb_c_to_string (x : dvb_c) =
-    dvb_t_to_string x
-
-  let asi_to_string () =
-    "ASI"
-
-  let spi_to_string () =
-    "SPI"
+    let open Printf in
+    let freq, unit = round_freq x.freq in
+    let bw = sprintf "полоса %g MГц" x.bw in
+    sprintf "DVB-C, %Lu %s, %s" freq unit bw
 
   let t2mi_to_string (x : t2mi) =
-    let open Printf in
-    sprintf "T2-MI PLP. Stream ID %d, PLP %d" x.stream_id x.plp
+    Printf.sprintf "T2-MI PLP. Stream ID %d, PLP %d" x.stream_id x.plp
 
-  let ipv4_to_string (x : ipv4) =
-    Uri.make
-      ~scheme:x.scheme
-      ~host:(Netlib.Ipaddr.V4.to_string x.addr)
-      ~port:x.port
+  let ipv4_to_string ({ scheme; port; addr } : ipv4) =
+    Uri.to_string
+    @@ Uri.make
+      ~scheme
+      ~host:(Netlib.Ipaddr.V4.to_string addr)
+      ~port
       ()
-    |> Uri.to_string
 
   let to_string = function
     | DVB_T2 x -> dvb_t2_to_string x
@@ -138,8 +134,8 @@ module Source = struct
     | DVB_C x -> dvb_c_to_string x
     | T2MI x -> t2mi_to_string x
     | IPV4 x -> ipv4_to_string x
-    | ASI -> asi_to_string ()
-    | SPI -> spi_to_string ()
+    | ASI -> "ASI"
+    | SPI -> "SPI"
 
 end
 
@@ -263,9 +259,9 @@ end = struct
 
   let pp ppf t =
     Format.pp_print_string ppf (Int32.to_string @@ to_int32_pure t)
-    (* let p = parse t in
-     * Format.fprintf ppf "{ source_id = %d; stream_id = %d }"
-     *   p.source_id p.stream_id *)
+  (* let p = parse t in
+   * Format.fprintf ppf "{ source_id = %d; stream_id = %d }"
+   *   p.source_id p.stream_id *)
 
   let show t = Format.asprintf "%a" pp t
 
@@ -297,7 +293,7 @@ type container_id =
   | TS_multi of Multi_TS_ID.t
   | TSoIP of tsoip_id [@@deriving yojson, eq, show, ord]
 
-           
+(* FIXME *)
 let tsoip_id_of_uri (x : Netlib.Uri.t) : tsoip_id option =
   Netlib.Uri.path_v4 x >>= fun addr ->
   Netlib.Uri.port x >>= fun port ->

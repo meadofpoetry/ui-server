@@ -208,7 +208,7 @@ let deserialize (src : Logs.src) buf =
   if Cstruct.len rest > 0 then Some rest else None
 
 let is_response (type a) (req : a Request.t)
-    (msg : Cstruct.t Request.msg) : (a, Request.error) result option =
+    (msg : Request.msg) : (a, Request.error) result option =
   let ( >>= ) r f = match r with Ok x -> f x | Error e -> Error e in
   if not Request.(equal_tag msg.tag (to_tag req))
   then None

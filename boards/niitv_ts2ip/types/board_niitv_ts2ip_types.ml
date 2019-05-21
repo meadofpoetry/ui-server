@@ -11,6 +11,13 @@ type socket =
   | ASI_1
   | ASI_2 [@@deriving show, eq, enum]
 
+let socket_to_string = function
+  | ASI_1 -> "ASI 1"
+  | ASI_2 -> "ASI 2"
+  | SPI_1 -> "SPI 1"
+  | SPI_2 -> "SPI 2"
+  | SPI_3 -> "SPI 3"
+
 let socket_to_yojson = Util_json.Int.to_yojson % socket_to_enum
 
 let socket_of_yojson json =
@@ -31,7 +38,16 @@ type speed =
   | Speed_10
   | Speed_100
   | Speed_1000
-  | Speed_failure [@@deriving yojson, show, eq]
+  | Speed_failure [@@deriving enum, show, eq]
+
+let speed_to_yojson = Util_json.Int.to_yojson % speed_to_enum
+
+let speed_of_yojson json =
+  match Util_json.Int.of_yojson json with
+  | Error _ as e -> e
+  | Ok x -> match speed_of_enum x with
+    | Some x -> Ok x
+    | None -> Error (Printf.sprintf "speed_of_yojson: bad int value (%d)" x)
 
 type devinfo =
   { typ : int
@@ -90,13 +106,6 @@ type 'a ts =
   { data : 'a
   ; timestamp : Time.t
   } [@@deriving yojson, show, eq]
-
-let socket_to_string = function
-  | ASI_1 -> "ASI 1"
-  | ASI_2 -> "ASI 2"
-  | SPI_1 -> "SPI 1"
-  | SPI_2 -> "SPI 2"
-  | SPI_3 -> "SPI 3"
 
 let devinfo_to_string (x : devinfo) =
   Printf.sprintf "type: 0x%02X, version: %d, packers: %d"
