@@ -2,6 +2,9 @@ open Application_types
 open Board_niitv_ts2ip_types
 open Board_niitv_ts2ip_protocol
 open Util_react
+open Netlib
+
+module List = Boards.Util.List
 
 let ( >>=? ) = Lwt_result.( >>= )
 
@@ -25,38 +28,43 @@ let get_ports_sync ports (status : device_status React.event) =
       Boards.Board.Ports.add port s acc)
     Boards.Board.Ports.empty ports
 
-let find_and_rest (f : 'a -> bool) (l : 'a list) =
-  let rec aux acc = function
-    | [] -> None, List.rev acc
-    | hd :: tl ->
-      if f hd
-      then Some hd, (List.rev acc) @ tl
-      else aux (hd :: acc) tl
-  in
-  aux [] l
-
-(* let make_streams
- *     (input_streams : Stream.t list React.signal)
- *     (config : config React.signal) =
- *   React.S.l2 ~eq:(Util_equal.List.equal Stream.Table.equal_stream)
- *     (fun incoming config ->
- *        let merged, rest =
- *          List.fold_left (fun (acc, rest) (s : Stream.t) ->
- *              let opt, rest =
- *                find_and_rest (fun (c : packer_settings) ->
- *                    Stream.equal s c.stream) rest in
- *              let res = match opt with
- *                | Some (ps : packer_settings) ->
- *                  of_packer_setting ~present:true ps
- *                | None ->
- *                  { url = None
- *                  ; present = true
- *                  ; stream = s } in
- *              (res :: acc), rest)
- *            ([], config.mode.udp) incoming in
- *        let rest = List.map (of_packer_setting ~present:false) rest in
- *        merged @ rest)
- *     input_streams config *)
+let make_streams ~incoming_streams ~outgoing_streams config ports =
+  React.S.l3 (fun incoming outgoing config ->
+      let outgoing = List.filter_map (fun (mode : udp_mode) ->
+          let url =
+            Uri.with_host_v4 Uri.empty mode.dst_ip
+            |> (fun uri -> Uri.with_scheme uri @@ Some "udp")
+            |> (fun uri -> Uri.with_port uri @@ Some mode.dst_port)
+            |> fun x -> Some x in
+          let present, stream = match mode.stream with
+            | ID id ->
+              let stream =
+                List.find_opt (fun (s : Stream.t) ->
+                    match stream_to_socket ports s with
+                    | None -> false
+                    | Some socket ->
+                      equal_socket socket mode.socket
+                      && Stream.equal_container_id s.orig_id (TS_multi id))
+                  outgoing in
+              (match stream with
+               | None -> false, None
+               | Some _ as s -> true, s)
+            | Full s ->
+              let present = match Stream.find_by_id s.id outgoing with
+                | None -> false
+                | Some _ -> true in
+              present, Some s in
+          match stream with
+          | None -> None
+          | Some stream -> Some { Stream.Table. url; present; stream })
+          config.mode.udp in
+      let incoming = List.filter_map (fun (stream : Stream.t) ->
+          match List.find_opt (fun ({ stream = s; _ } : Stream.Table.stream) ->
+              Stream.ID.equal stream.id s.id) outgoing with
+          | None -> Some { Stream.Table. url = None; present = true; stream }
+          | Some _ -> None) incoming in
+      List.sort_uniq Stream.Table.compare_stream (incoming @ outgoing))
+    incoming_streams outgoing_streams config
 
 let is_ipaddr_in_range range (a : Ipaddr.V4.t) =
   match Ipaddr.V4.compare a (fst range) with
@@ -143,7 +151,12 @@ let create (b : Topology.topo_board)
     ; ports_sync = get_ports_sync b.ports api.notifs.device_status
     ; ports_active = get_ports_active b.ports
     ; stream_handler = Some (object
-          method streams = assert false (* make_streams events *)
+          method streams =
+            make_streams
+              ~outgoing_streams:api.notifs.outgoing_streams
+              ~incoming_streams:api.notifs.incoming_streams
+              cfg#s
+              b.ports
           method set x = apply_streams api range b.ports x
           method constraints = constraints
         end)
