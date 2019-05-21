@@ -109,8 +109,8 @@ let get_t2mi_sequence (api : Protocol.api) id duration t2mi_stream_ids
    | None -> Lwt.return_error stream_not_found)
   >>=? fun x ->
   let value = match t2mi_stream_ids with
-    | [] -> x
-    | ids ->
+    | None -> x
+    | Some ids ->
       let data = List.filter (fun (x : T2mi_sequence.item) ->
           List.mem x.stream_id ids) x.data in
       { x with data } in

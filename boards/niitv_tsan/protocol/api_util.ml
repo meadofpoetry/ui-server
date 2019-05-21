@@ -35,8 +35,8 @@ let find_map_by_id id f l =
   | Some x -> Some (f x)
 
 let filter_ids ids v = match ids with
-  | [] -> v
-  | ids -> List.filter (fun (id, _) -> List.exists (Stream.ID.equal id) ids) v
+  | None -> v
+  | Some ids -> List.filter (fun (id, _) -> List.exists (Stream.ID.equal id) ids) v
 
 let check_state (state : Application_types.Topology.state React.signal) f =
   match React.S.value state with
