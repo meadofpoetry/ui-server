@@ -95,9 +95,8 @@ module Source = struct
     | DVB_T of dvb_t
     | DVB_C of dvb_c
     | IPV4 of ipv4
-    | ASI
-    | SPI
-    | T2MI of t2mi [@@deriving yojson, show, eq, ord]
+    | T2MI of t2mi
+    | Plain [@@deriving yojson, show, eq, ord]
 
   let dvb_t2_to_string (x : dvb_t2) =
     let open Printf in
@@ -134,8 +133,7 @@ module Source = struct
     | DVB_C x -> dvb_c_to_string x
     | T2MI x -> t2mi_to_string x
     | IPV4 x -> ipv4_to_string x
-    | ASI -> "ASI"
-    | SPI -> "SPI"
+    | Plain -> ""
 
 end
 
@@ -284,7 +282,8 @@ type stream_type =
   | T2MI [@@deriving yojson, eq, show, ord]
 
 type tsoip_id =
-  { addr : Netlib.Ipaddr.V4.t
+  { scheme : string
+  ; addr : Netlib.Ipaddr.V4.t
   ; port : int
   } [@@deriving yojson, eq, show, ord]
 
@@ -293,11 +292,11 @@ type container_id =
   | TS_multi of Multi_TS_ID.t
   | TSoIP of tsoip_id [@@deriving yojson, eq, show, ord]
 
-(* FIXME *)
 let tsoip_id_of_uri (x : Netlib.Uri.t) : tsoip_id option =
-  Netlib.Uri.path_v4 x >>= fun addr ->
+  Netlib.Uri.host_v4 x >>= fun addr ->
   Netlib.Uri.port x >>= fun port ->
-  Some { addr; port }
+  Netlib.Uri.scheme x >>= fun scheme ->
+  Some { scheme; addr; port }
 
 module Raw = struct
 
@@ -344,10 +343,9 @@ let make_id (src : source) : ID.t =
     | DVB_T2 x -> "dvbt2/" ^ Source.dvb_t2_to_string x
     | DVB_T x -> "dvbt/" ^ Source.dvb_t_to_string  x
     | DVB_C x -> "dvbc/" ^ Source.dvb_c_to_string  x
-    | ASI -> "asi"
-    | SPI -> "spi"
     | T2MI x -> "t2mi/" ^ Source.t2mi_to_string x
-    | IPV4 x -> "ipv4/" ^ Source.ipv4_to_string x in
+    | IPV4 x -> "ipv4/" ^ Source.ipv4_to_string x
+    | Plain -> "plain" in
   ID.make (node ^ "/" ^ info)
 
 let to_multi_id (t : t) : Multi_TS_ID.t =

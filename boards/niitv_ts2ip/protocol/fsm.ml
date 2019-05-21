@@ -65,6 +65,7 @@ let start (src : Logs.src)
     (req_queue : api_msg Lwt_stream.t)
     (rsp_queue : Request.msg Lwt_stream.t)
     (evt_queue : Cstruct.t Lwt_stream.t)
+    (mode_changer : mode Lwt_stream.t)
     (kv : config Kv_v.rw)
     (set_state : Application_types.Topology.state set)
     (set_devinfo : devinfo set)
@@ -83,7 +84,7 @@ let start (src : Logs.src)
               m "Setting UDP transmitter %d: stream = %s, IP = %a, \
                  port = %d, self port = %d, enabled = %b, socket = %s"
                 (start + i)
-                (Stream.Multi_TS_ID.show x.stream)
+                (show_stream x.stream)
                 Ipaddr.V4.pp x.dst_ip
                 x.dst_port x.self_port x.enabled
                 (socket_to_string x.socket))) l in
@@ -127,54 +128,59 @@ let start (src : Logs.src)
     kv#get
     >>= fun { mac; mode } ->
     Logs.debug (fun m -> m "Setting MAC address: %a" Macaddr.pp mac);
-    Lwt_result.Infix.(
-      request src rsp_queue sender Request.(Set_mac mac)
-      >>= fun () ->
-      let mode, aux_1, aux_2 = Request.split_mode mode in
-      Logs.debug (fun m ->
-          m "Setting network: IP = %a, mask = %a, gateway = %a"
-            Ipaddr.V4.pp mode.network.ip
-            Ipaddr.V4.pp mode.network.mask
-            Ipaddr.V4.pp mode.network.gateway);
-      log_udp_transmitters 0 mode.udp;
-      request src rsp_queue sender Request.(Set_mode_main mode)
-      >>= fun () ->
-      log_udp_transmitters Message.n_udp_main aux_1;
-      request src rsp_queue sender Request.(Set_mode_aux_1 aux_1)
-      >>= fun () ->
-      log_udp_transmitters Message.(n_udp_main + n_udp_aux) aux_2;
-      request src rsp_queue sender Request.(Set_mode_aux_2 aux_2))
-    >>= function
-    | Error e ->
-      Logs.err (fun m ->
-          m "Got error during init step: %s"
-          @@ Request.error_to_string e);
-      restart ()
-    | Ok () ->
-      Lwt_stream.junk_old rsp_queue
-      >>= fun () -> Lwt_stream.junk_old evt_queue
-      >>= idle
+    sender @@ Serializer.serialize Request.(Set_mac mac)
+    >>= fun () ->
+    let mode, aux_1, aux_2 = Request.split_mode mode in
+    Logs.debug (fun m ->
+        m "Setting network: IP = %a, mask = %a, gateway = %a"
+          Ipaddr.V4.pp mode.network.ip
+          Ipaddr.V4.pp mode.network.mask
+          Ipaddr.V4.pp mode.network.gateway);
+    log_udp_transmitters 0 mode.udp;
+    sender @@ Serializer.serialize Request.(Set_mode_main mode)
+    >>= fun () ->
+    log_udp_transmitters Message.n_udp_main aux_1;
+    sender @@ Serializer.serialize Request.(Set_mode_aux_1 aux_1)
+    >>= fun () ->
+    log_udp_transmitters Message.(n_udp_main + n_udp_aux) aux_2;
+    sender @@ Serializer.serialize Request.(Set_mode_aux_2 aux_2)
+    >>= fun () -> Lwt_stream.junk_old rsp_queue
+    >>= fun () -> Lwt_stream.junk_old evt_queue
+    >>= idle
 
   and idle () =
     set_state `Fine;
     Logs.info (fun m -> m "Initialization done!");
-    Lwt.pick [status_loop (); client_loop ()]
+    Lwt.pick [status_loop (); mode_loop (); client_loop ()]
     >>= restart
 
+  and mode_loop () =
+    Lwt_stream.last_new mode_changer
+    >>= fun mode ->
+    let mode, aux_1, aux_2 = Request.split_mode mode in
+    sender @@ Serializer.serialize Request.(Set_mode_main mode)
+    >>= fun () -> sender @@ Serializer.serialize Request.(Set_mode_aux_1 aux_1)
+    >>= fun () -> sender @@ Serializer.serialize Request.(Set_mode_aux_2 aux_2)
+    >>= mode_loop
+
   and client_loop () =
+    let rec wait_devinfo () =
+      Lwt_stream.next rsp_queue
+      >>= function
+      | { tag = `Devinfo_rsp; _ } -> Lwt.return `E
+      | _ -> wait_devinfo () in
     Lwt.pick
-      [ (Lwt_stream.next rsp_queue >>= fun x -> Lwt.return (`RSP x))
+      [ wait_devinfo ()
       ; (Lwt_stream.next req_queue >>= fun x -> Lwt.return (`REQ x)) ]
     >>= function
     | `REQ send ->
       Lwt_stream.next req_queue
       >>= fun send -> send rsp_queue
       >>= client_loop
-    | `RSP { tag = `Devinfo_rsp; _ } -> Logs.err (fun m ->
+    | `E -> Logs.err (fun m ->
         m "Got devinfo during operation, \
            seems the device is not responding...");
       Lwt.return ()
-    | `RSP _ -> client_loop ()
 
   and status_loop () =
     Lwt.pick

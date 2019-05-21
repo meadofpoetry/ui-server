@@ -493,12 +493,16 @@ let of_yojson = function
   | `String s -> Ok (Uri.of_string s)
   | _ -> Error "Netlib.Uri.of_yojson"
 
-let path_v4 uri =
-  try Some (Ipaddr_ext.V4.of_string_exn @@ path uri)
-  with _ -> None
+let host_v4 uri =
+  match host uri with
+  | None -> None
+  | Some host ->
+    match Ipaddr_ext.V4.of_string host with
+    | Error _ -> None
+    | Ok x -> Some x
 
-let with_path_v4 uri ip =
-  with_path uri @@ Ipaddr_ext.V4.to_string ip
+let with_host_v4 uri ip =
+  with_host uri @@ Some (Ipaddr_ext.V4.to_string ip)
 
 let with_path_parsed uri p =
   with_path uri @@ Path.to_string p

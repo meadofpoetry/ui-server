@@ -331,7 +331,7 @@ let set_stream ?(port=1234) (hw : t) (ss : Stream.stream_setting) =
     let inputs = List.map input_add_uri inputs in
     let forbidden =
       grep_input_uris [] inputs
-      |> filter_map Uri.path_v4
+      |> filter_map Uri.host_v4
     in
     let boards = (*match Ipaddr.V4.gen_in_ranges ~forbidden (List.concat boards) with*)
       Ipaddr.V4.gen_in_ranges ~forbidden (List.concat boards)
@@ -355,7 +355,7 @@ let set_stream ?(port=1234) (hw : t) (ss : Stream.stream_setting) =
     if range = [] then ()
     else List.iter (fun ({ url; _} : Stream.Table.setting) ->
              if not @@ List.exists (fun r ->
-                           match Uri.path_v4 url with
+                           match Uri.host_v4 url with
                            | None -> false
                            | Some ip -> Ipaddr.V4.in_range r ip) range
              then raise_notrace (Constraints `Not_in_range)) streams

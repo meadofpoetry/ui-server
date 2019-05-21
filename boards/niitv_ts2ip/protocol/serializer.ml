@@ -28,7 +28,12 @@ let flip_ipaddr (x : Ipaddr.V4.t) =
 
 let serialize_udp_mode (mode : udp_mode) =
   let buf = Cstruct.create Message.sizeof_udp_settings in
-  let id = Stream.Multi_TS_ID.to_int32_pure mode.stream in
+  let id =
+    Stream.Multi_TS_ID.to_int32_pure
+    @@ match mode.stream with
+    | ID x -> x
+    | Full { orig_id = TS_multi x; _ } -> x
+    | Full _ -> Stream.Multi_TS_ID.forbidden in
   let mac = Netlib.Ipaddr.V4.multicast_to_mac mode.dst_ip in
   let sock = socket_to_enum mode.socket in
   let chan = (sock lsl 1) lor (if mode.enabled then 1 else 0) in

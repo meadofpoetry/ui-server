@@ -55,9 +55,31 @@ type devinfo =
   ; packers_num : int
   } [@@deriving yojson, eq]
 
+type stream =
+  | ID of Stream.Multi_TS_ID.t
+  | Full of Stream.t [@@deriving eq]
+
+let pp_stream ppf = function
+  | ID x -> Stream.Multi_TS_ID.pp ppf x
+  | Full x -> Stream.pp_container_id ppf x.orig_id
+
+let show_stream s =
+  Format.asprintf "%a" pp_stream s
+
+let stream_to_yojson = function
+  | ID x -> Stream.Multi_TS_ID.to_yojson x
+  | Full x -> Stream.to_yojson x
+
+let stream_of_yojson json =
+  match Stream.Multi_TS_ID.of_yojson json with
+  | Ok x -> Ok (ID x)
+  | Error _ ->
+    match Stream.of_yojson json with
+    | Ok x -> Ok (Full x)
+    | Error _ as e -> e
+
 type udp_mode =
-  { stream : Stream.Multi_TS_ID.t
-  ; stream_id : Stream.ID.t option [@default None]
+  { stream : stream
   ; dst_ip : Ipaddr.V4.t
   ; dst_port : int
   ; self_port : int

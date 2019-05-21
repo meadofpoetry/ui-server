@@ -65,12 +65,20 @@ let mode_to_stream (source_id : int)
   ; typ = TS
   }
 
-(** Converts device config signal to raw stream list signal. *)
-let to_streams_s (config : Device.config React.signal)
+let to_streams_s
+    (config : Device.config React.signal)
+    (meas : (int * Measure.t ts) list React.event)
   : Stream.Raw.t list React.signal =
-  React.S.map ~eq:(Util_equal.List.equal Stream.Raw.equal)
-    (fun (x : Device.config) -> List.map (mode_to_stream x.source) x.mode)
-    config
+  React.S.sample (fun meas (config : Device.config) ->
+      Boards.Util.List.filter_map (fun ((id, _) as mode)->
+          match List.find_opt (fun (id', _) -> id = id') meas with
+          | None -> None
+          | Some (_, { data = { Measure. lock; bitrate; _ }; _ }) ->
+            if lock && (match bitrate with None -> false | Some x -> x > 0)
+            then Some (mode_to_stream config.source mode)
+            else None) config.mode)
+    meas config
+  |> React.S.hold ~eq:(Util_equal.List.equal Stream.Raw.equal) []
 
 (** Converts absolute measured channel frequency value
     to frequency offset in measurements event. *)
@@ -104,7 +112,7 @@ let create (src : Logs.src)
   let params, set_params = E.create () in
   let plps, set_plps = E.create () in
   let state, set_state = S.create ~eq:Topology.equal_state `No_response in
-  let raw_streams = to_streams_s kv#s in
+  let raw_streams = to_streams_s kv#s measures in
   let streams = streams_conv raw_streams in
   let (notifs : notifs) =
     { measures = map_measures kv#s measures

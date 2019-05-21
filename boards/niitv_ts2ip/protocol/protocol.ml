@@ -69,28 +69,46 @@ let find_stream (ports : Topology.topo_port list)
 
 let to_out_streams_s (ports : Topology.topo_port list)
     (status : transmitter_status React.event)
-    (streams : Stream.t list React.signal) =
-  React.S.sample (fun (status : transmitter_status) streams ->
-      List.filter_map (fun { enabled; sync; stream; _ } ->
-          if enabled && sync
-          then List.find_opt (fun (s : Stream.t) ->
-              Stream.equal_container_id s.orig_id stream)
-              streams
-          else None) status.udp)
-    status streams
+    (streams : Stream.t list React.signal)
+    (config : config React.signal) =
+  React.S.sample (fun (status : transmitter_status) (streams, config) ->
+      let config_udp = config.mode.udp in
+      let status_udp = List.take (List.length config_udp) status.udp in
+      List.map2 (fun
+                  { enabled; sync; stream; _ }
+                  { socket; dst_ip; dst_port; _ } ->
+                  if enabled && sync
+                  then List.find_map (fun (s : Stream.t) ->
+                      match stream_to_socket ports s with
+                      | None -> None
+                      | Some port ->
+                        if Stream.equal_container_id s.orig_id stream
+                        && equal_socket socket port
+                        then
+                          let (orig_id : Stream.container_id) =
+                            TSoIP { scheme = "udp"
+                                  ; addr = dst_ip
+                                  ; port = dst_port
+                                  } in
+                          Some { s with orig_id }
+                        else None)
+                      streams
+                  else None) status_udp config_udp
+      |> List.filter_map (fun x -> x))
+    status
+    (React.S.l2 ~eq:(=) (fun x y -> x, y) streams config)
 
 let port_to_stream (port : Topology.topo_port) =
   match socket_of_enum port.port with
   | None -> assert false
   | Some socket ->
-    let info = match socket with
-      | ASI_1 | ASI_2 -> Stream.Source.ASI
-      | SPI_1 | SPI_2 | SPI_3 -> SPI in
-    Some (socket, { Stream.Raw.
-                    source = { info; node = Port port.port }
-                  ; id = TS_raw
-                  ; typ = TS
-                  })
+    let stream =
+      { Stream.Raw.
+        source = { info = Plain; node = Port port.port }
+      ; id = TS_raw
+      ; typ = TS
+      } in
+    Some (socket, stream)
 
 let update_incoming_streams
     (streams : Stream.t list React.signal)
@@ -108,6 +126,37 @@ let update_incoming_streams
     @@ React.E.map (fun (status : device_status) -> status.sync) status in
   React.S.merge ~eq:(Util_equal.List.equal Stream.equal) (@)
     [] [conv input_streams; streams]
+
+let change_udp_mode
+    (streams : Stream.t list React.signal)
+    (status : transmitter_status React.event)
+    (kv : config Kv_v.rw) =
+  let stream, push, set_ref = Lwt_stream.create_with_reference () in
+  set_ref @@ React.S.sample (fun status (streams, config) ->
+      let rec aux i change = function
+        | [], _ | _, [] -> change, []
+        | (mode : udp_mode) :: tl, ({ enabled; _ } :: tl') ->
+          match mode.stream with
+          | ID _ ->
+            let c, l = aux (succ i) change (tl, tl') in
+            c, mode :: l
+          | Full s ->
+            let change', mode = match Stream.find_by_id s.id streams with
+              | Some { orig_id = (TS_multi _ | TS_raw); _ } ->
+                if not enabled
+                then true, { mode with enabled = true }
+                else false, mode
+              | None | Some { orig_id = TSoIP _; _ } ->
+                if enabled
+                then true, { mode with enabled = false }
+                else false, mode in
+            let c, l = aux (succ i) (change' || change) (tl, tl') in
+            c, mode :: l in
+      match aux 0 false (config.mode.udp, status.udp) with
+      | false, _ -> ()
+      | true, udp -> push @@ Some { config.mode with udp })
+    status (React.S.l2 ~eq:(=) (fun x y -> x, y) streams kv#s);
+  stream
 
 let create (src : Logs.src)
     (sender : Cstruct.t -> unit Lwt.t)
@@ -130,7 +179,7 @@ let create (src : Logs.src)
       ports in
   let outgoing_streams =
     React.S.hold ~eq:(Util_equal.List.equal Stream.equal) []
-    @@ to_out_streams_s ports transmitter_status incoming_streams in
+    @@ to_out_streams_s ports transmitter_status incoming_streams kv#s in
   let (notifs : notifs) =
     { state
     ; devinfo
@@ -140,6 +189,7 @@ let create (src : Logs.src)
     ; transmitter_status
     ; config = kv#s
     } in
+  let mode_changer = change_udp_mode incoming_streams transmitter_status kv in
   let req_queue, push_req_queue = Lwt_stream.create_bounded msg_queue_size in
   let rsp_queue, push_rsp_queue = Lwt_stream.create () in
   let evt_queue, push_evt_queue = Lwt_stream.create () in
@@ -156,7 +206,7 @@ let create (src : Logs.src)
         | { Request. tag = `Status; data } -> push_evt_queue @@ Some data
         | x -> push_rsp_queue @@ Some x) parsed in
   let channel = fun req -> send src state push_req_queue sender req in
-  let loop = Fsm.start src sender req_queue rsp_queue evt_queue kv
+  let loop = Fsm.start src sender req_queue rsp_queue evt_queue mode_changer kv
       set_state
       (fun ?step x -> set_devinfo ?step @@ Some x)
       set_device_status

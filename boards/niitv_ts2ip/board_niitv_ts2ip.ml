@@ -73,34 +73,27 @@ let apply_streams (api : Protocol.api) range ports streams =
     let rec check_loop acc = function
       | [] -> Ok (List.rev acc)
       | { Stream.Table. url; stream } :: tl ->
-        match Uri.host url,
+        match Netlib.Uri.host_v4 url,
               Uri.port url,
               stream_to_socket ports stream with
-        | Some host, Some port, Some socket ->
-          let stream_id = match stream.orig_id with
-            | TS_raw -> Some (Stream.Multi_TS_ID.of_int32_pure 0l)
-            | TS_multi x -> Some x
-            | _ -> None in
-          (match stream_id, Ipaddr.V4.of_string host with
-           | None, _ -> Error (`Internal_error "Invalid stream container ID")
-           | _, Error `Msg s -> Error (`Internal_error s)
-           | Some id, Ok ip ->
-             if is_ipaddr_in_range range ip
-             then check_loop ((ip, port, id, stream.id, socket) :: acc) tl
-             else Error `Not_in_range)
-        | None, _, _ -> Error (`Internal_error "No host provided in URI")
+        | Some ip, Some port, Some socket ->
+          (match stream.orig_id, is_ipaddr_in_range range ip with
+           | (TS_raw | TS_multi _), true ->
+             check_loop ((ip, port, stream, socket) :: acc) tl
+           | _, false -> Error `Not_in_range
+           | _ -> Error (`Internal_error "Invalid stream container ID"))
+        | None, _, _ -> Error (`Internal_error "Invalid host in URI")
         | _, None, _ -> Error (`Internal_error "No port provided in URI")
         | _, _, None -> Error (`Internal_error "Invalid stream") in
     match check_loop [] streams with
     | Error _ as e -> Lwt.return e
     | Ok x ->
       let mode =
-        List.map (fun (ip, port, stream, stream_id, socket) ->
+        List.map (fun (ip, port, stream, socket) ->
             { dst_ip = ip
             ; dst_port = port
             ; enabled = true
-            ; stream
-            ; stream_id = Some stream_id
+            ; stream = Full stream
             ; self_port = 2027
             ; socket
             }) x in

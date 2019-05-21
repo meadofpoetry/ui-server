@@ -62,6 +62,11 @@ let parse_status (buf : Cstruct.t) =
       else if phy land 0x0A > 0 then Speed_100
       else if phy land 0x12 > 0 then Speed_10
       else Speed_failure in
+    (* TODO sync can be encoded as 2 bits, as follows:
+       00 - no sync
+       01 - sync 188
+       10 - sync 204
+       11 - sync 192 *)
     let sync =
       []
       |> cons_if ((input land 0x01) > 0) SPI_1
