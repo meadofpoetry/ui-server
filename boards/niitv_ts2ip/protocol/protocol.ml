@@ -73,25 +73,24 @@ let to_out_streams_s (ports : Topology.topo_port list)
   React.S.sample (fun (status : transmitter_status) streams ->
       List.filter_map (fun { enabled; sync; stream; _ } ->
           if enabled && sync
-          then None
+          then List.find_opt (fun (s : Stream.t) ->
+              Stream.equal_container_id s.orig_id stream)
+              streams
           else None) status.udp)
     status streams
 
 let port_to_stream (port : Topology.topo_port) =
-  match port.child with
-  | Board _ -> None (* This board should return list of streams *)
-  | Input _ ->
-    match socket_of_enum port.port with
-    | None -> assert false
-    | Some socket ->
-      let info = match socket with
-        | ASI_1 | ASI_2 -> Stream.Source.ASI
-        | SPI_1 | SPI_2 | SPI_3 -> SPI in
-      Some (socket, { Stream.Raw.
-                      source = { info; node = Port port.port }
-                    ; id = TS_raw
-                    ; typ = TS
-                    })
+  match socket_of_enum port.port with
+  | None -> assert false
+  | Some socket ->
+    let info = match socket with
+      | ASI_1 | ASI_2 -> Stream.Source.ASI
+      | SPI_1 | SPI_2 | SPI_3 -> SPI in
+    Some (socket, { Stream.Raw.
+                    source = { info; node = Port port.port }
+                  ; id = TS_raw
+                  ; typ = TS
+                  })
 
 let update_incoming_streams
     (streams : Stream.t list React.signal)

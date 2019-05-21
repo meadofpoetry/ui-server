@@ -8,6 +8,7 @@ module Api_websocket = Api_websocket.Make(User)(Body)
 
 let handlers (control : int) (api : Protocol.api) =
   let open Api_http in
+
   [ merge ~prefix:(string_of_int control)
       [ make ~prefix:"device"
           [ node ~doc:"Returns the state of the device"

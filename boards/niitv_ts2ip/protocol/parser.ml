@@ -32,7 +32,7 @@ let parse_udp_status (buf : Cstruct.t) =
   let rdy = flags land 0x08 > 0 in
   let sync = flags land 0x10 > 0 in
   let overflow = flags land 0x20 > 0 in
-  let enabled = Int32.((logand strm 0x80_00_00_00l) > 0l) in
+  let enabled = Int32.((shift_right_logical strm 31) <> 0l) in
   let bitrate =
     if not rdy then None
     else Some (Int32.(to_int @@ mul 8l (logand rate 0x07_FF_FF_FFl))) in
@@ -95,11 +95,13 @@ let check_msg_code (buf : Cstruct.t) =
   try
     let pfx, rest = Cstruct.split buf Message.sizeof_prefix in
     let code = Message.get_prefix_msg_code pfx in
-    match Request.rsp_tag_of_enum code with
+    match Request.tag_of_enum code with
     | None | Some `Devinfo_req | Some `Mode | Some `MAC ->
       Error (Invalid_msg_code code)
     | Some ((`Devinfo_rsp | `Status) as tag) ->
-      let length = Request.tag_to_data_size tag in
+      let length = match tag with
+        | `Devinfo_rsp -> Message.sizeof_rsp_devinfo
+        | `Status -> Message.sizeof_status in
       let data, rest = Cstruct.split rest length in
       Ok ({ Request. tag; data }, rest)
   with Invalid_argument _ -> Error (Insufficient_payload buf)

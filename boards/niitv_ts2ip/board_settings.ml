@@ -17,7 +17,16 @@ let default =
           ; mask = Ipaddr.V4.make 255 255 255 0
           ; gateway = Ipaddr.V4.make 192 168 0 1
           }
-      ; udp = []
+      ; udp =
+          [ { stream = Application_types.Stream.Multi_TS_ID.of_int32_pure 5l
+            ; stream_id = None
+            ; dst_ip = Ipaddr.V4.make 224 1 2 2
+            ; dst_port = 1234
+            ; self_port = 2027
+            ; enabled = true
+            ; socket = SPI_2
+            }
+          ]
       }
   }
 
