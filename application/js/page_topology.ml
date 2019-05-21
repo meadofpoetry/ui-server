@@ -1,3 +1,4 @@
+open Js_of_ocaml_tyxml
 open Containers
 open Components
 open Application_types

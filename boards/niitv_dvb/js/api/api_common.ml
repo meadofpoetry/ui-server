@@ -6,4 +6,6 @@ module Body = struct
     of_string @@ Js.to_string evt##.data
 end
 
-let get_api_path = Application_types.Topology.get_api_path
+module Api_http = Api_js.Http.Make(Body)
+
+module Api_websocket = Api_js.Websocket.Make(Body)

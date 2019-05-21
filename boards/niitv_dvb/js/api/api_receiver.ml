@@ -10,20 +10,22 @@ module Event = struct
 
   let map_ok f = function Error e -> Error e | Ok x -> Ok (f x)
 
-  let of_json f =
-    Util_json.(List.of_yojson @@ Pair.of_yojson Int.of_yojson (ts_of_yojson f))
+  let of_json f = Util_json.(
+      List.of_yojson @@ Pair.of_yojson Int.of_yojson (ts_of_yojson f))
 
-  let get_measurements ?(ids = []) ?on_error ?f control =
+  let get_measurements ?(ids = []) ?f control =
     let t =
-      Api_websocket.create ?on_error
-        ~path:Path.Format.(get_api_path control @/ "receiver/measurements" @/ empty)
+      Api_websocket.create
+        ~path:Path.Format.(string_of_int control
+                           @/ "receiver/measurements"
+                           @/ empty)
         ~query:Query.["id", (module List(Int))]
         ids () in
     match f with
     | None -> t
     | Some f ->
       t >>= fun socket ->
-      Api_websocket.subscribe (f % map_ok (of_json Measure.of_yojson)) socket;
+      Api_websocket.subscribe socket (f % map_ok (of_json Measure.of_yojson));
       Lwt.return_ok socket
 
   let get_parameters ?(ids = []) ?on_error ?f control =
@@ -59,10 +61,11 @@ let of_json f = Util_json.(Pair.of_yojson Int.of_yojson (ts_of_yojson f))
 let get_stream ~id control =
   Api_http.perform
     ~meth:`GET
-    ~path:Path.Format.(get_api_path control
+    ~path:Path.Format.(string_of_int control
                        @/ "receiver"
                        @/ Int
-                       ^/ "stream" @/ empty)
+                       ^/ "stream"
+                       @/ empty)
     ~query:Query.empty
     id (fun _env -> function
         | Error e -> Lwt.return_error e

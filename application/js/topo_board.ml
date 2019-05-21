@@ -45,9 +45,9 @@ let get_board_name ({ manufacturer; model; _ } : Topology.topo_board) =
 let port_setter (b : Topology.topo_board) port state =
   match b.manufacturer, b.model, b.version with
   | "NIITV", "TSAN", _ -> Lwt_result.fail "not implemented"
-     (* Board_qos_niit_js.Requests.Device.HTTP.post_port ~port ~state b.control
-      * |> Lwt_result.map (fun _ -> ())
-      * |> Lwt_result.map_err (fun _ -> "failed switching port") *)
+  (* Board_qos_niit_js.Requests.Device.HTTP.post_port ~port ~state b.control
+   * |> Lwt_result.map (fun _ -> ())
+   * |> Lwt_result.map_err (fun _ -> "failed switching port") *)
   | "NIITV", "DVB4CH", _ -> Lwt_result.fail "ports not switchable"
   | "NIITV", "TS2IP", _ -> Lwt_result.fail "ports not switchable"
   | "DekTec", "DTM-3200", 1 -> Lwt_result.fail "ports not switchable"
@@ -133,8 +133,8 @@ module Body = struct
 end
 
 class t ~(connections : (#Topo_node.t * connection_point) list)
-        (board : Topology.topo_board)
-        () =
+    (board : Topology.topo_board)
+    () =
   let e_settings, push_settings = React.E.create () in
   let eq = Topology.equal_state in
   let s, push = React.S.create ~eq board.connection in
