@@ -46,25 +46,47 @@ let input_of_yojson json =
     | None -> Error (Printf.sprintf "input_of_yojson: invalid int value (%d)" i)
     | Some x -> Ok x
 
+type stream =
+  | ID of Stream.Multi_TS_ID.t
+  | Full of Stream.t [@@deriving eq]
+
+let pp_stream ppf = function
+  | ID x -> Stream.Multi_TS_ID.pp ppf x
+  | Full x -> Stream.pp_container_id ppf x.orig_id
+
+let show_stream s =
+  Format.asprintf "%a" pp_stream s
+
+let stream_to_yojson = function
+  | ID x -> Stream.Multi_TS_ID.to_yojson x
+  | Full x -> Stream.to_yojson x
+
+let stream_of_yojson json =
+  match Stream.Multi_TS_ID.of_yojson json with
+  | Ok x -> Ok (ID x)
+  | Error _ ->
+    match Stream.of_yojson json with
+    | Ok x -> Ok (Full x)
+    | Error _ -> Error "stream_of_yojson: got neither Multi TS ID, nor stream"
+
 type t2mi_mode =
   { enabled : bool
   ; pid : int
   ; t2mi_stream_id : int
-  ; stream : Stream.Multi_TS_ID.t
-  ; stream_id : Stream.ID.t option [@default None]
+  ; stream : stream
   } [@@deriving yojson, show]
 
-let equal_t2mi_mode ?(with_stream_id = true) (a : t2mi_mode as 'a) (b : 'a) =
+let equal_t2mi_mode (a : t2mi_mode as 'a) (b : 'a) =
   a.enabled = b.enabled
   && a.pid = b.pid
   && a.t2mi_stream_id = b.t2mi_stream_id
-  && Stream.Multi_TS_ID.equal a.stream b.stream
-  && (if with_stream_id
-      then begin match a.stream_id, b.stream_id with
-        | None, Some _ | Some _, None -> false
-        | None, None -> true
-        | Some a, Some b -> Stream.ID.equal a b
-      end else true)
+  && (match a.stream, b.stream with
+      | Full x, Full y ->
+        Stream.ID.equal x.id y.id
+        && Stream.equal_container_id x.orig_id y.orig_id
+      | Full x, ID y | ID y, Full x ->
+        Stream.equal_container_id x.orig_id (TS_multi y)
+      | ID x, ID y -> Stream.Multi_TS_ID.equal x y)
 
 type jitter_mode =
   { pid : int

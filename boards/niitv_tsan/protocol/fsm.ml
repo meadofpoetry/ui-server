@@ -79,7 +79,10 @@ let to_raw_stream
                  ; t2mi_stream_id = stream_id
                  ; enabled = true
                  ; _ } ->
-      let node = Stream.Raw.(Stream (TS_multi stream)) in
+      let stream = match stream with
+        | ID x -> Stream.TS_multi x
+        | Full s -> s.orig_id in
+      let node = Stream.Raw.(Stream stream) in
       let info = Stream.Source.T2MI { stream_id; plp } in
       Some { Stream.Raw. node; info }
     | `T2MI _, _ -> None
@@ -89,9 +92,12 @@ let to_raw_stream
   | None -> None
   | Some source ->
     let (typ : Stream.stream_type) =
-      if Stream.Multi_TS_ID.equal id status.t2mi_mode.stream
-      && status.t2mi_mode.enabled
+      if status.t2mi_mode.enabled
       && (match status.t2mi_sync with [] -> false | _ -> true)
+      && Stream.Multi_TS_ID.equal id
+           (match status.t2mi_mode.stream with
+            | ID x -> x
+            | Full s -> Stream.to_multi_id s)
       then T2MI else TS in
     Some { Stream.Raw. id = TS_multi id; source; typ }
 
@@ -175,8 +181,8 @@ let request (type a)
          equal_jitter_mode status.jitter_mode m)
    | Set_mode m ->
      wait_status req events (fun status ->
-         (* equal_t2mi_mode ~with_stream_id:false status.t2mi_mode m.t2mi_mode
-          * && *) equal_input status.input m.input))
+         equal_t2mi_mode status.t2mi_mode m.t2mi_mode
+         && equal_input status.input m.input))
   >>= function
   | Error e -> log_error src req e; Lwt.return_error e
   | Ok x -> log_ok src req x; Lwt.return_ok x
@@ -293,9 +299,9 @@ let start
     >>= fun { input_source; t2mi_source; input; t2mi_mode; jitter_mode } ->
     sender.send Request.(Set_src_id { input_source; t2mi_source })
     >>= fun () ->
-    let t2mi_mode = match t2mi_mode.stream_id with
-      | None -> t2mi_mode
-      | Some _ -> { t2mi_mode with enabled = false } in
+    let t2mi_mode = match t2mi_mode.stream with
+      | ID x -> t2mi_mode
+      | Full _ -> { t2mi_mode with enabled = false } in
     sender.send Request.(Set_mode { input; t2mi_mode })
     >>= fun () -> sender.send Request.(Set_jitter_mode jitter_mode)
     >>= fun () ->
@@ -304,7 +310,7 @@ let start
       Lwt_stream.next evt_queue
       >>= function
       | `Status status ->
-        if equal_t2mi_mode ~with_stream_id:false status.t2mi_mode t2mi_mode
+        if equal_t2mi_mode status.t2mi_mode t2mi_mode
         && equal_jitter_mode status.jitter_mode jitter_mode
         then Lwt.return_ok ()
         else wait_status ()
@@ -509,7 +515,9 @@ let start
       Lwt_result.Infix.(
         request_loop [] ids
         >>= fun x ->
-        let stream = cur.t2mi_mode.stream in
+        let stream = match cur.t2mi_mode.stream with
+          | ID x -> x
+          | Full s -> Stream.to_multi_id s in
         Lwt.return_ok (`T2MI_info [stream, x] :: probes))
 
   (* TODO state machine should not depend on the result of this request,

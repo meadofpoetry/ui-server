@@ -76,7 +76,7 @@ let stream_of_yojson json =
   | Error _ ->
     match Stream.of_yojson json with
     | Ok x -> Ok (Full x)
-    | Error _ as e -> e
+    | Error _ -> Error "stream_of_yojson: got neither Multi TS ID, nor stream"
 
 type udp_mode =
   { stream : stream

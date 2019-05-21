@@ -341,7 +341,7 @@ let to_string (type a) : a t -> string = function
                      t2mi: enabled=%B, PID=%d, T2-MI stream ID=%d, stream=%a)"
       pp_input input
       enabled pid t2mi_stream_id
-      Stream.Multi_TS_ID.pp stream
+      pp_stream stream
   | Set_jitter_mode { stream; pid } ->
     Format.asprintf "Set jitter mode (stream=%a, PID=%d)"
       Stream.Multi_TS_ID.pp stream pid

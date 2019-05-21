@@ -42,7 +42,11 @@ let to_msg (type a) : a Request.t -> Request.req_tag Request.msg = function
     |> (lor) 8 (* disable board storage by default *)
     |> Message.set_board_mode_mode body;
     Message.set_board_mode_t2mi_pid body pid;
-    Message.set_board_mode_stream_id body @@ Stream.Multi_TS_ID.to_int32_pure stream;
+    Message.set_board_mode_stream_id body
+    @@ Stream.Multi_TS_ID.to_int32_pure
+    @@ (match stream with
+        | ID x -> x
+        | Full x -> Stream.to_multi_id x);
     `Simple { tag = `Set_mode; body }
   | Set_jitter_mode { stream; pid } ->
     let body = Cstruct.create Message.sizeof_req_set_jitter_mode in

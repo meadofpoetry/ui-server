@@ -94,24 +94,25 @@ let change_t2mi_mode
     (status : Parser.Status.t React.event)
     (kv : config Kv_v.rw)
   : t2mi_mode Lwt_stream.t =
-  React.S.sample (fun ({ t2mi_mode = mode; _ } : Parser.Status.t) (streams, config) ->
-      let { enabled; stream_id; _ } = config.t2mi_mode in
-      match stream_id with
-      | None -> None
-      | Some id ->
-        let mode' = match Stream.find_by_id id streams with
+  let stream, push, set_ref = Lwt_stream.create_with_reference () in
+  set_ref
+  @@ React.S.sample (fun status (streams, config) ->
+      let mode = Parser.Status.(status.t2mi_mode) in
+      let { enabled; stream; _ } = config.t2mi_mode in
+      match stream with
+      | ID _ -> ()
+      | Full s ->
+        let mode' = match Stream.find_by_id s.id streams with
           | None -> Some { mode with enabled = false }
-          | Some { orig_id = TS_multi stream; _ } -> Some { mode with stream; enabled }
-          | Some _ -> None in
+          | Some { orig_id; _ } ->
+            if Stream.equal_container_id orig_id s.orig_id
+            then Some { mode with enabled }
+            else Some { mode with enabled = false } in
         match mode' with
-        | None -> None
-        | Some x ->
-          if equal_t2mi_mode ~with_stream_id:false x mode
-          then None else Some x)
-    status (React.S.l2 ~eq:(=) (fun x y -> x, y) streams kv#s)
-  |> React.E.fmap (fun x -> x)
-  |> React.E.changes ~eq:(fun _ _ -> false)
-  |> Util_react.E.to_stream
+        | None -> ()
+        | Some x -> if not @@ equal_t2mi_mode x mode then push @@ Some x)
+    status (React.S.l2 ~eq:(=) (fun x y -> x, y) streams kv#s);
+  stream
 
 let create
     (src : Logs.src)

@@ -14,11 +14,10 @@ let default =
   ; input_source = 1
   ; t2mi_source = 2
   ; t2mi_mode =
-      { pid = 4096
-      ; enabled = true
+      { pid = 0x1FFF
+      ; enabled = false
       ; t2mi_stream_id = 0
-      ; stream = Stream.Multi_TS_ID.make ~source_id:1 ~stream_id:1
-      ; stream_id = Some (Stream.ID.of_string "e332c543-8690-5755-aa44-8791e9293ee1") (*7 *)
+      ; stream = ID Stream.Multi_TS_ID.forbidden
       }
   ; jitter_mode =
       { pid = 0x1FFF

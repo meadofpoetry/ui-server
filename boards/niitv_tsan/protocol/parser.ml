@@ -72,8 +72,7 @@ let make_mode mode t2mi_pid stream =
   { enabled = if (mode land 4) > 0 then true else false
   ; pid = t2mi_pid land 0x1fff
   ; t2mi_stream_id = (t2mi_pid lsr 13) land 0x7
-  ; stream
-  ; stream_id = None
+  ; stream = ID stream
   }
 
 let parse_devinfo (msg : Cstruct.t) =
