@@ -186,9 +186,9 @@ let get_sources (topo : Topology.topo_entry list) uri_table boards =
           let board = `Board b.control in
           (* set previous uri preferences *)
           (* TODO proper Lwt type *)
-          External_uri_storage.Map.find_opt board uri_table
-          >|= h#set
-          |> ignore;
+          (* External_uri_storage.Map.find_opt board uri_table
+           * >|= h#set
+           * |> ignore; *)
           let controls = { controls with boards = Board.Ports.add b.control h controls.boards } in
           let signals =
             (React.S.l2 ~eq:eq_row (fun s st -> board, st, s)
