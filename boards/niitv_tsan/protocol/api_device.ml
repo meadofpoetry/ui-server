@@ -108,6 +108,9 @@ let get_info (api : Protocol.api) force _user _body _env _state =
     >>=? return_value % devinfo_to_yojson
 
 let get_errors (api : Protocol.api) timeout force _user _body _env _state =
+  let timeout = match timeout with
+    | None -> None
+    | Some x -> Some (int_ms_to_float_s x) in
   match force with
   | None | Some false ->
     let timeout = match timeout with

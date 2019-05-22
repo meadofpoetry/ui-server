@@ -24,6 +24,9 @@ let ( >>=? ) x f =
   | Ok x -> f x
   | Error e -> return_error e
 
+let int_ms_to_float_s (x : int) =
+  float_of_int x /. 1000.
+
 let stream_pair_to_yojson f =
   Util_json.Pair.to_yojson Stream.ID.to_yojson f
 
@@ -40,9 +43,14 @@ let find_map_by_id id f l =
   | None -> None
   | Some x -> Some (f x)
 
+let filter_streams ids v = match ids with
+  | [] -> v
+  | ids -> List.filter (fun (s : Stream.t) ->
+      List.exists (Stream.ID.equal s.id) ids) v
+
 let filter_ids ids v = match ids with
-  | None -> v
-  | Some ids -> List.filter (fun (id, _) -> List.exists (Stream.ID.equal id) ids) v
+  | [] -> v
+  | ids -> List.filter (fun (id, _) -> List.exists (Stream.ID.equal id) ids) v
 
 let check_state (state : Application_types.Topology.state React.signal) =
   match React.S.value state with

@@ -63,7 +63,7 @@ let get_info ?force control =
   Api_http.perform
     ~meth:`GET
     ~path:Path.Format.("api/board" @/ Int ^/ "device/info" @/ empty)
-    ~query:Query.["force", (module Flag)]
+    ~query:Query.["force", (module Option(Bool))]
     control force
     (ignore_env_bind (Lwt.return % map_err % devinfo_of_yojson))
 
@@ -72,8 +72,8 @@ let get_errors ?force ?timeout control =
   Api_http.perform
     ~meth:`GET
     ~path:Path.Format.("api/board" @/ Int ^/ "device/errors" @/ empty)
-    ~query:Query.[ "force", (module Flag)
-                 ; "timeout", (module Option(Float)) ]
+    ~query:Query.[ "force", (module Option(Bool))
+                 ; "timeout", (module Option(Int)) ]
     control force timeout
     (ignore_env_bind (Lwt.return % map_err % of_yojson))
 
@@ -97,7 +97,7 @@ let get_t2mi_mode ?force control =
   Api_http.perform
     ~meth:`GET
     ~path:Path.Format.("api/board" @/ Int ^/ "device/mode/t2mi" @/ empty)
-    ~query:Query.["force", (module Flag)]
+    ~query:Query.["force", (module Option(Bool))]
     control force
     (ignore_env_bind (Lwt.return % map_err % t2mi_mode_of_yojson))
 
@@ -105,6 +105,6 @@ let get_jitter_mode ?force control =
   Api_http.perform
     ~meth:`GET
     ~path:Path.Format.("api/board" @/ Int ^/ "device/mode/jitter" @/ empty)
-    ~query:Query.["force", (module Flag)]
+    ~query:Query.["force", (module Option(Bool))]
     control force
     (ignore_env_bind (Lwt.return % map_err % jitter_mode_of_yojson))

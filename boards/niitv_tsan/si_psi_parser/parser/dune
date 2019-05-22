@@ -1,0 +1,10 @@
+(library
+  (name       si_psi_parser)
+  (libraries  si_psi_parser_types
+	            time
+              cstruct
+              bitstring
+              text_decoder
+              application_types)
+  (preprocess (pps bitstring.ppx
+                   ppx_deriving_yojson)))

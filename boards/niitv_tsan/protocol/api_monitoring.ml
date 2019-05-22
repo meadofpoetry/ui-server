@@ -15,7 +15,7 @@ let filter_errors f x =
 let get_errors (api : Protocol.api) ids timeout _user _body _env _state =
   let timeout = match timeout with
     | None -> Fsm.status_timeout
-    | Some x -> x in
+    | Some x -> int_ms_to_float_s x in
   Lwt.pick
     [ (Boards.Board.await_no_response api.notifs.state >>= not_responding)
     ; (Util_react.E.next api.notifs.errors >>= Lwt.return_ok)
@@ -25,28 +25,10 @@ let get_errors (api : Protocol.api) ids timeout _user _body _env _state =
   @@ stream_assoc_list_to_yojson (Util_json.List.to_yojson Error.to_yojson)
   @@ filter_ids ids errors
 
-let get_filtered_errors ~is_t2mi (api : Protocol.api) ids timeout
-    _user _body _env _state =
-  let timeout = match timeout with
-    | None -> Fsm.status_timeout
-    | Some x -> x in
-  let event = React.E.fmap (filter_errors (fun (x : 'a Error.e) ->
-      is_t2mi = x.is_t2mi)) api.notifs.errors in
-  let waiter =
-    Lwt.pick
-      [ (Boards.Board.await_no_response api.notifs.state >>= not_responding)
-      ; (Util_react.E.next event >>= Lwt.return_ok)
-      ; (Lwt_unix.sleep timeout >>= fun () -> Lwt.return_ok []) ] in
-  Lwt.on_termination waiter (fun () -> React.E.stop event);
-  waiter >>=? fun errors ->
-  return_value
-  @@ stream_assoc_list_to_yojson (Util_json.List.to_yojson Error.to_yojson)
-  @@ filter_ids ids errors
-
 let get_bitrate (api : Protocol.api) ids timeout _user _body _env _state =
   let timeout = match timeout with
     | None -> Fsm.status_timeout
-    | Some x -> x in
+    | Some x -> int_ms_to_float_s x in
   Lwt.pick
     [ (Boards.Board.await_no_response api.notifs.state >>= not_responding)
     ; (Util_react.E.next api.notifs.bitrate >>= Lwt.return_ok)
@@ -116,8 +98,8 @@ let get_services (api : Protocol.api) force ids _user _body _env _state =
 
 let filter_t2mi_stream_id ids l =
   match ids with
-  | None -> l
-  | Some ids ->
+  | [] -> l
+  | ids ->
     List.filter_map (fun (id, l) ->
         match List.filter (fun (id, _) -> List.mem id ids) l with
         | [] -> None
@@ -154,8 +136,8 @@ let get_t2mi_info (api : Protocol.api) force ids t2mi_stream_ids
                | Some l -> Some (x :: l)) id acc in
            loop acc tl in
      (match t2mi_stream_ids with
-      | None -> loop [] (range 0 7)
-      | Some l -> loop [] l)
+      | [] -> loop [] (range 0 7)
+      | l -> loop [] l)
    | None | Some false ->
      check_state api.notifs.state
      >>= fun () -> Lwt.return_ok @@ React.S.value api.notifs.t2mi_info)

@@ -17,8 +17,10 @@ let return_value_or_not_found = function
   | None -> return_error stream_not_found
   | Some x -> return_value x
 
-let get_streams (api : Protocol.api) _user _body _env _state =
-  let streams = React.S.value api.notifs.streams in
+let get_streams (api : Protocol.api) ids _user _body _env _state =
+  let streams =
+    filter_streams ids
+    @@ React.S.value api.notifs.streams in
   let to_json = Util_json.List.to_yojson Stream.to_yojson in
   Lwt.return (`Value (to_json streams))
 
@@ -114,8 +116,8 @@ let get_t2mi_sequence (api : Protocol.api) id duration t2mi_stream_ids
    | None -> Lwt.return_error stream_not_found)
   >>=? fun x ->
   let value = match t2mi_stream_ids with
-    | None -> x
-    | Some ids ->
+    | [] -> x
+    | ids ->
       let data = List.filter (fun (x : T2mi_sequence.item) ->
           List.mem x.stream_id ids) x.data in
       { x with data } in

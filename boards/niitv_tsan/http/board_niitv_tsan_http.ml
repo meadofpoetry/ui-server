@@ -38,13 +38,13 @@ let handlers (control : int) (api : Protocol.api) =
           ; node ~doc:"Returns device description"
               ~meth:`GET
               ~path:(Path.Format.of_string "info")
-              ~query:Query.["force", (module Flag)]
+              ~query:Query.["force", (module Option(Bool))]
               (Api_device.get_info api)
           ; node ~doc:"Returns device errors, if any"
               ~meth:`GET
               ~path:(Path.Format.of_string "errors")
-              ~query:Query.[ "timeout", (module Option(Float))
-                           ; "force", (module Flag) ]
+              ~query:Query.[ "timeout", (module Option(Int))
+                           ; "force", (module Option(Bool)) ]
               (Api_device.get_errors api)
           ; node ~doc:"Returns status of the device"
               ~meth:`GET
@@ -59,76 +59,64 @@ let handlers (control : int) (api : Protocol.api) =
           ; node ~doc:"Returns current T2-MI monitoring mode"
               ~meth:`GET
               ~path:(Path.Format.of_string "mode/t2mi")
-              ~query:Query.["force", (module Flag)]
+              ~query:Query.["force", (module Option(Bool))]
               (Api_device.get_t2mi_mode api)
           ; node ~doc:"Returns current PCR jitter monitoring mode"
               ~meth:`GET
               ~path:(Path.Format.of_string "mode/jitter")
-              ~query:Query.["force", (module Flag)]
+              ~query:Query.["force", (module Option(Bool))]
               (Api_device.get_jitter_mode api)
           ]
       ; make ~prefix:"monitoring"
           [ node ~doc:"Returns TS & T2-MI errors, if any"
               ~meth:`GET
               ~path:(Path.Format.of_string "errors")
-              ~query:Query.[ "id", (module Opt_list(Stream.ID))
-                           ; "timeout", (module Option(Float)) ]
+              ~query:Query.[ "id", (module List(Stream.ID))
+                           ; "timeout", (module Option(Int)) ]
               (Api_monitoring.get_errors api)
-          ; node ~doc:"Returns TS errors, if any"
-              ~meth:`GET
-              ~path:(Path.Format.of_string "errors/ts")
-              ~query:Query.[ "id", (module Opt_list(Stream.ID))
-                           ; "timeout", (module Option(Float)) ]
-              (Api_monitoring.get_filtered_errors ~is_t2mi:false api)
-          ; node ~doc:"Returns T2-MI errors, if any"
-              ~meth:`GET
-              ~path:(Path.Format.of_string "errors/t2mi")
-              ~query:Query.[ "id", (module Opt_list(Stream.ID))
-                           ; "timeout", (module Option(Float)) ]
-              (Api_monitoring.get_filtered_errors ~is_t2mi:true api)
           ; node ~doc:"Returns list of available TS info"
               ~meth:`GET
               ~path:(Path.Format.of_string "ts-info")
-              ~query:Query.[ "force", (module Flag)
-                           ; "id", (module Opt_list(Stream.ID)) ]
+              ~query:Query.[ "force", (module Option(Bool))
+                           ; "id", (module List(Stream.ID)) ]
               (Api_monitoring.get_ts_info api)
           ; node ~doc:"Returns current bitrate"
               ~meth:`GET
               ~path:(Path.Format.of_string "bitrate")
-              ~query:Query.[ "id", (module Opt_list(Stream.ID))
-                           ; "timeout", (module Option(Float)) ]
+              ~query:Query.[ "id", (module List(Stream.ID))
+                           ; "timeout", (module Option(Int)) ]
               (Api_monitoring.get_bitrate api)
           ; node ~doc:"Returns available services"
               ~meth:`GET
               ~path:(Path.Format.of_string "services")
-              ~query:Query.[ "force", (module Flag)
-                           ; "id", (module Opt_list(Stream.ID)) ]
+              ~query:Query.[ "force", (module Option(Bool))
+                           ; "id", (module List(Stream.ID)) ]
               (Api_monitoring.get_services api)
           ; node ~doc:"Returns available PIDs"
               ~meth:`GET
               ~path:(Path.Format.of_string "pids")
-              ~query:Query.[ "force", (module Flag)
-                           ; "id", (module Opt_list(Stream.ID)) ]
+              ~query:Query.[ "force", (module Option(Bool))
+                           ; "id", (module List(Stream.ID)) ]
               (Api_monitoring.get_pids api)
           ; node ~doc:"Returns available SI/PSI tables"
               ~meth:`GET
               ~path:(Path.Format.of_string "tables")
-              ~query:Query.[ "force", (module Flag)
-                           ; "id", (module Opt_list(Stream.ID)) ]
+              ~query:Query.[ "force", (module Option(Bool))
+                           ; "id", (module List(Stream.ID)) ]
               (Api_monitoring.get_si_psi_tables api)
           ; node ~doc:"Returns available T2-MI info"
               ~meth:`GET
               ~path:(Path.Format.of_string "t2mi-info")
-              ~query:Query.[ "force", (module Flag)
-                           ; "id", (module Opt_list(Stream.ID))
-                           ; "t2mi-stream-id", (module Opt_list(Int))]
+              ~query:Query.[ "force", (module Option(Bool))
+                           ; "id", (module List(Stream.ID))
+                           ; "t2mi-stream-id", (module List(Int))]
               (Api_monitoring.get_t2mi_info api)
           ]
       ; make ~prefix:"streams"
           [ node ~doc:"Returns current streams"
               ~meth:`GET
               ~path:Path.Format.empty
-              ~query:Query.empty
+              ~query:Query.["id", (module List(Stream.ID))]
               (Api_streams.get_streams api)
           ; node ~doc:"Returns stream details"
               ~meth:`GET
@@ -169,7 +157,7 @@ let handlers (control : int) (api : Protocol.api) =
               ~meth:`GET
               ~path:Path.Format.(Stream.ID.fmt ^/ "t2mi-sequence" @/ empty)
               ~query:Query.[ "duration", (module Option(Int))
-                           ; "t2mi-stream-id", (module Opt_list(Int)) ]
+                           ; "t2mi-stream-id", (module List(Int)) ]
               (Api_streams.get_t2mi_sequence api)
           ; node ~doc:"Returns SI/PSI section"
               ~meth:`GET

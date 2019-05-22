@@ -104,9 +104,7 @@ module Query : sig
   module Either (L : Show)(R : Show)
          : Show with type t = [ `Left of L.t | `Right of R.t ]
 
-  module Flag : Convert with type t = bool option
   module List (E : Show) : Convert with type t = E.t list
-  module Opt_list (E : Show) : Convert with type t = E.t list option
   module Single (E : Show) : Convert with type t = E.t
   module Option (E : Show) : Convert with type t = E.t option
 
