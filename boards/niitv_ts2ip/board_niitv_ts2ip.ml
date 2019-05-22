@@ -75,6 +75,7 @@ let is_ipaddr_in_range range (a : Ipaddr.V4.t) =
     | _ -> true
 
 let apply_streams (api : Protocol.api) range ports streams =
+  List.iter (print_endline % Yojson.Safe.pretty_to_string % Stream.Table.setting_to_yojson) streams;
   match React.S.value api.notifs.state with
   | `No_response | `Init | `Detect -> Lwt.return_error `Forbidden
   | `Fine ->

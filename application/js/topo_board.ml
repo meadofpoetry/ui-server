@@ -42,46 +42,36 @@ let get_board_name ({ manufacturer; model; _ } : Topology.topo_board) =
   | "NIITV", "DVB4CH" -> "Приёмник DVB"
   | _ -> Printf.sprintf "%s %s" manufacturer model
 
+(* TODO add UI notification when the request has failed. *)
 let port_setter (b : Topology.topo_board) port state =
   match b.manufacturer, b.model, b.version with
-  | "NIITV", "TSAN", _ -> Lwt_result.fail "not implemented"
-  (* Board_qos_niit_js.Requests.Device.HTTP.post_port ~port ~state b.control
-   * |> Lwt_result.map (fun _ -> ())
-   * |> Lwt_result.map_err (fun _ -> "failed switching port") *)
-  | "NIITV", "DVB4CH", _ -> Lwt_result.fail "ports not switchable"
-  | "NIITV", "TS2IP", _ -> Lwt_result.fail "ports not switchable"
-  | "DekTec", "DTM-3200", 1 -> Lwt_result.fail "ports not switchable"
-  | _ -> Lwt_result.fail "Unknown board"
+  | "NIITV", "TSAN", _ ->
+    let open Board_niitv_tsan_http_js in
+    Http_device.set_port ~port state b.control
+    |> Lwt_result.map_err Api_js.Http.error_to_string
+  | _ -> Lwt_result.fail "Device has no switchable ports"
 
-(* let make_board_page (board : Topology.topo_board) =
- *   match board.typ, board.model, board.manufacturer, board.version with
- *   | "TS", "qos", "niitv", 1 ->
- *      let open Board_qos_niit_js in
- *      let getter = fun () ->
- *        Topo_page.make board
- *        |> Ui_templates.Loader.create_widget_loader
- *        |> Widget.coerce in
- *      Some getter
- *   | "DVB", "rf", "niitv", 1 ->
- *      let open Board_dvb_niit_js in
- *      let getter = fun () ->
- *        let factory = new Widget_factory.t board.control () in
- *        let ({ widget; _ } : 'a Dashboard.Item.item) = factory#create Settings in
- *        widget#set_on_destroy factory#destroy;
- *        widget#widget in
- *      Some getter
- *   | "TS2IP", "ts2ip", "niitv", 1 ->
- *      None (\* FIXME *\)
- *   | "IP2TS", "dtm-3200", "dektec", 1 ->
- *      let open Board_ip_dektec_js in
- *      let getter = fun () ->
- *        let factory = new Widget_factory.t board.control () in
- *        let ({ widget; _ } : 'a Dashboard.Item.item) =
- *          factory#create @@ Settings None in
- *        widget#set_on_destroy factory#destroy;
- *        widget#widget in
- *      Some getter
- *   | _ -> None *)
+(* TODO replace with something more abstract.
+   Maybe the device should define a CSS style (color) on its own *)
+let get_board_type ({ manufacturer; model; _ } : Topology.topo_board) =
+  match manufacturer, model with
+  | "DekTec", "DTM-3200" -> "IP2TS"
+  | "NIITV", "TS2IP" -> "TS2IP"
+  | "NIITV", "TSAN" -> "TS"
+  | "NIITV", "DVB4CH" -> "DVB"
+  | _ -> ""
+
+let make_board_page (b : Topology.topo_board) =
+  match b.manufacturer, b.model, b.version with
+  | "NIITV", "TSAN", _ ->
+    let open Board_niitv_tsan_widgets_js in
+    let getter = fun () ->
+      let factory = new Widget_factory.t b.control () in
+      let settings = factory#create Settings in
+      settings.widget#set_on_destroy factory#destroy;
+      Widget.coerce settings.widget in
+    Some getter
+  | _ -> None
 
 module Header = struct
 
@@ -138,8 +128,7 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
   let e_settings, push_settings = React.E.create () in
   let eq = Topology.equal_state in
   let s, push = React.S.create ~eq board.connection in
-  let make_settings = None in
-  (* let make_settings = make_board_page board in *)
+  let make_settings = make_board_page board in
   let header = Header.create (Option.is_some make_settings) board in
   let body = Body.create board in
   object(self)
@@ -155,7 +144,7 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
       super#init ();
       self#set_board _board;
       super#add_class base_class;
-      (* super#set_attribute "data-board" _board.typ; *)
+      super#set_attribute "data-board" @@ get_board_type _board;
       Option.iter (fun (w : Icon_button.t) ->
           let listener =
             w#listen_click_lwt (fun _ _ ->
@@ -191,14 +180,14 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
     method private make_settings_widget () : Widget.t =
       match make_settings with
       | None ->
-         let icon = Icon.SVG.(create_simple Path.stop) in
-         let ph =
-           Ui_templates.Placeholder.create_with_icon
-             ~icon
-             ~text:"Нет доступных настроек для платы"
-             () in
-         ph#widget
-      | Some make -> Widget.create_div () (* make () *)
+        let icon = Icon.SVG.(create_simple Path.stop) in
+        let ph =
+          Ui_templates.Placeholder.create_with_icon
+            ~icon
+            ~text:"Нет доступных настроек для платы"
+            () in
+        ph#widget
+      | Some make -> make ()
 
     method private set_ports (l : Topology.topo_port list) : unit =
       let find (port : Topology.topo_port) (p : Topo_path.t) : bool =
@@ -207,11 +196,11 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
           match List.find_opt (find x) self#paths with
           | None -> ()
           | Some path ->
-             let state = match x.has_sync, x.listening with
-               | true, true -> `Sync
-               | false, true -> `Sync_lost
-               | _, _ -> `Muted in
-             path#set_state state) l
+            let state = match x.has_sync, x.listening with
+              | true, true -> `Sync
+              | false, true -> `Sync_lost
+              | _, _ -> `Muted in
+            path#set_state state) l
   end
 
 let create ~connections (board : Topology.topo_board) =

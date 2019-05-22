@@ -5,15 +5,30 @@ open Util
 
 module Event = struct
 
+  let ( >>= ) = Lwt_result.( >>= )
+
+  let get_streams ?incoming ?(ids = []) f control =
+    let of_yojson = Util_json.List.of_yojson Stream.of_yojson in
+    Api_websocket.create
+      ~path:Path.Format.("ws/board" @/ Int ^/ "streams" @/ empty)
+      ~query:Query.[ "incoming", (module Option(Bool))
+                   ; "id", (module List(Stream.ID))]
+      control incoming ids ()
+    >>= fun socket ->
+    Api_websocket.subscribe_map socket of_yojson (f socket);
+    Lwt.return_ok socket
+
+
 end
 
-let get_streams ?(ids = []) control =
+let get_streams ?(ids = []) ?incoming control =
   let of_yojson = Util_json.List.of_yojson Stream.of_yojson in
   Api_http.perform
     ~meth:`GET
     ~path:Path.Format.("api/board" @/ Int ^/ "streams" @/ empty)
-    ~query:Query.["id", (module List(Stream.ID))]
-    control ids
+    ~query:Query.[ "id", (module List(Stream.ID))
+                 ; "incoming", (module Option(Bool)) ]
+    control ids incoming
     (ignore_env_bind (Lwt.return % map_err % of_yojson))
 
 let get_stream id control =

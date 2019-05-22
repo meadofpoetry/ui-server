@@ -94,7 +94,7 @@ let create (b : Topology.topo_board)
     ; ws = Board_niitv_tsan_http.ws b.control api
     ; templates = []
     ; control = b.control
-    ; streams_signal = React.S.const []
+    ; streams_signal = api.notifs.streams
     ; log_source = (fun src -> Board_logger.create b.control api src)
     ; loop = api.loop
     ; push_data = api.push_data

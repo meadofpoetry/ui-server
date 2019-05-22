@@ -84,7 +84,7 @@ object(self)
           >>= function
           | Ok x -> Lwt.return_ok x
           | Error e -> Lwt.return_error @@ Api_js.Http.error_to_string e in
-        let get_socket ~f () =
+        let get_socket f =
           Api_structure.Event.get_streams_applied_with_source ~f () in
         Signal.make_state
           ~get

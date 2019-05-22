@@ -1,7 +1,9 @@
 (library
-  (name        board_niitv_tsan_js)
+  (name        board_niitv_tsan_widgets_js)
   (libraries   board_niitv_tsan_types
+               board_niitv_tsan_http_js
                application_types
+               util_equal
                ts_error
                containers
                api_js

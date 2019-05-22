@@ -35,8 +35,9 @@ module Event = struct
     Lwt.return (`Ev event)
 
   let get_t2mi_mode (api : Protocol.api) _user _body _env _state =
-    let event = E.map (fun (x : Parser.Status.t) ->
-        t2mi_mode_to_yojson x.t2mi_mode) api.notifs.status in
+    let event = E.map (fun (x : config) ->
+        t2mi_mode_to_yojson x.t2mi_mode)
+      @@ S.changes api.kv#s in
     Lwt.return (`Ev event)
 
 end

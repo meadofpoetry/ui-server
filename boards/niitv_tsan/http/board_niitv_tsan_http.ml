@@ -1,5 +1,6 @@
 open Application_types
 open Netlib.Uri
+open Board_niitv_tsan_types
 open Board_niitv_tsan_protocol
 
 module Api_http = Api_cohttp.Make(User)(Body)
@@ -116,7 +117,8 @@ let handlers (control : int) (api : Protocol.api) =
           [ node ~doc:"Returns current streams"
               ~meth:`GET
               ~path:Path.Format.empty
-              ~query:Query.["id", (module List(Stream.ID))]
+              ~query:Query.[ "incoming", (module Option(Bool))
+                           ; "id", (module List(Stream.ID)) ]
               (Api_streams.get_streams api)
           ; node ~doc:"Returns stream details"
               ~meth:`GET
@@ -211,6 +213,14 @@ let ws (control : int) (api : Protocol.api) =
               ~path:(Path.Format.of_string "mode/t2mi")
               ~query:Query.empty
               (Api_device.Event.get_t2mi_mode api)
+          ]
+      ; make ~prefix:"streams"
+          [ node ~doc:"Streams socket"
+              ~socket_table
+              ~path:Path.Format.empty
+              ~query:Query.[ "incoming", (module Option(Bool))
+                           ; "id", (module List(Stream.ID))]
+              (Api_streams.Event.get_streams api)
           ]
       ]
   ]

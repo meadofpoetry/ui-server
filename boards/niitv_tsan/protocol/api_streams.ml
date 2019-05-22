@@ -6,6 +6,32 @@ let invalid_stream = Request.Custom "Unsupported stream format"
 
 let stream_not_found = Request.Custom "Stream not found"
 
+let is_incoming_stream (api : Protocol.api) (s : Stream.t) =
+  let { t2mi_source; _ } = React.S.value api.kv#s in
+  match s.orig_id with
+  | TS_multi x -> Stream.Multi_TS_ID.source_id x <> t2mi_source
+  | _ -> true
+
+module Event = struct
+  open Util_react
+
+  let get_streams (api : Protocol.api) incoming ids _user _body _env _state =
+    let to_yojson = Util_json.List.to_yojson Stream.to_yojson in
+    let filter = match incoming, ids with
+      | (None | Some false), [] -> None
+      | Some true, [] -> Some (List.filter (is_incoming_stream api))
+      | Some true, ids ->
+        Some (List.filter (is_incoming_stream api) % filter_streams ids)
+      | _, ids -> Some (filter_streams ids) in
+    let signal = match filter with
+      | None -> api.notifs.streams
+      | Some f ->
+        let eq = Util_equal.List.equal Stream.equal in
+        S.map ~eq f api.notifs.streams in
+    Lwt.return (`Ev (E.map to_yojson @@ S.changes signal))
+
+end
+
 let find_multi_id id streams =
   match Stream.find_by_id id @@ React.S.value streams with
   | None -> Error stream_not_found
@@ -17,10 +43,16 @@ let return_value_or_not_found = function
   | None -> return_error stream_not_found
   | Some x -> return_value x
 
-let get_streams (api : Protocol.api) ids _user _body _env _state =
-  let streams =
-    filter_streams ids
-    @@ React.S.value api.notifs.streams in
+let get_streams (api : Protocol.api) incoming ids _user _body _env _state =
+  let filter = match incoming, ids with
+    | (None | Some false), [] -> None
+    | Some true, [] -> Some (List.filter (is_incoming_stream api))
+    | Some true, ids ->
+      Some (List.filter (is_incoming_stream api) % filter_streams ids)
+    | _, ids -> Some (filter_streams ids) in
+  let streams = match filter with
+    | None -> React.S.value api.notifs.streams
+    | Some f -> f @@ React.S.value api.notifs.streams in
   let to_json = Util_json.List.to_yojson Stream.to_yojson in
   Lwt.return (`Value (to_json streams))
 

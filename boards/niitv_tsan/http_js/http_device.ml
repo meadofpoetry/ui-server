@@ -5,6 +5,30 @@ open Util
 
 module Event = struct
 
+  let ( >>= ) = Lwt_result.( >>= )
+
+  let bind_ok f = function
+    | Ok x -> (f x)
+    | Error _ as e -> e
+
+  let get_state f control =
+    Api_websocket.create
+      ~path:Path.Format.("ws/board" @/ Int ^/ "device/state" @/ empty)
+      ~query:Query.empty
+      control ()
+    >>= fun socket ->
+    Api_websocket.subscribe socket (f socket % bind_ok Topology.state_of_yojson);
+    Lwt.return_ok socket
+
+  let get_t2mi_mode f control =
+    Api_websocket.create
+      ~path:Path.Format.("ws/board" @/ Int ^/ "device/mode/t2mi" @/ empty)
+      ~query:Query.empty
+      control ()
+    >>= fun socket ->
+    Api_websocket.subscribe_map socket t2mi_mode_of_yojson (f socket);
+    Lwt.return_ok socket
+
 end
 
 let reset control =

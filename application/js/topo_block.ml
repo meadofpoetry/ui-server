@@ -94,7 +94,7 @@ class virtual t ~port_setter
          self#add_class init_class;
          self#remove_class fine_class;
          self#remove_class fail_class
-      | `No_response ->
+      | `No_response | `Detect ->
          self#add_class fail_class;
          self#remove_class init_class;
          self#remove_class fine_class
