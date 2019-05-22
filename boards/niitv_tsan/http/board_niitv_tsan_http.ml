@@ -101,7 +101,8 @@ let handlers (control : int) (api : Protocol.api) =
           ; node ~doc:"Returns available services"
               ~meth:`GET
               ~path:(Path.Format.of_string "services")
-              ~query:Query.["id", (module Opt_list(Stream.ID))]
+              ~query:Query.[ "force", (module Flag)
+                           ; "id", (module Opt_list(Stream.ID)) ]
               (Api_monitoring.get_services api)
           ; node ~doc:"Returns available PIDs"
               ~meth:`GET
@@ -112,12 +113,15 @@ let handlers (control : int) (api : Protocol.api) =
           ; node ~doc:"Returns available SI/PSI tables"
               ~meth:`GET
               ~path:(Path.Format.of_string "tables")
-              ~query:Query.["id", (module Opt_list(Stream.ID))]
+              ~query:Query.[ "force", (module Flag)
+                           ; "id", (module Opt_list(Stream.ID)) ]
               (Api_monitoring.get_si_psi_tables api)
           ; node ~doc:"Returns available T2-MI info"
               ~meth:`GET
               ~path:(Path.Format.of_string "t2mi-info")
-              ~query:Query.["id", (module Opt_list(Stream.ID))]
+              ~query:Query.[ "force", (module Flag)
+                           ; "id", (module Opt_list(Stream.ID))
+                           ; "t2mi-stream-id", (module Opt_list(Int))]
               (Api_monitoring.get_t2mi_info api)
           ]
       ; make ~prefix:"streams"

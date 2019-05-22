@@ -41,10 +41,11 @@ let get_bitrate (api : Protocol.api) id _user _body _env _state =
 let get_ts_info (api : Protocol.api) id force _user _body _env _state =
   match force with
   | None | Some false ->
-    check_state api.notifs.state (fun () ->
-        return_value_or_not_found
-        @@ find_map_by_id id (TS_info.to_yojson % Structure.info)
-        @@ React.S.value api.notifs.structure)
+    check_state api.notifs.state
+    >>=? fun () ->
+    return_value_or_not_found
+    @@ find_map_by_id id (TS_info.to_yojson % Structure.info)
+    @@ React.S.value api.notifs.structure
   | Some true ->
     match find_multi_id id api.notifs.streams with
     | Error e -> return_error e
@@ -60,10 +61,11 @@ let get_ts_info (api : Protocol.api) id force _user _body _env _state =
 let get_pids (api : Protocol.api) id force _user _body _env _state =
   match force with
   | None | Some false ->
-    check_state api.notifs.state (fun () ->
-        return_value_or_not_found
-        @@ find_map_by_id id (pids_to_yojson % Structure.pids)
-        @@ React.S.value api.notifs.structure)
+    check_state api.notifs.state
+    >>=? fun () ->
+    return_value_or_not_found
+    @@ find_map_by_id id (pids_to_yojson % Structure.pids)
+    @@ React.S.value api.notifs.structure
   | Some true ->
     match find_multi_id id api.notifs.streams with
     | Error e -> return_error e
@@ -77,22 +79,25 @@ let get_pids (api : Protocol.api) id force _user _body _env _state =
       | Some x -> return_value (pids_to_yojson x.pids)
 
 let get_si_psi_tables (api : Protocol.api) id _user _body _env _state =
-  check_state api.notifs.state (fun () ->
-      return_value_or_not_found
-      @@ find_map_by_id id (si_psi_tables_to_yojson % Structure.tables)
-      @@ React.S.value api.notifs.structure)
+  check_state api.notifs.state
+  >>=? fun () ->
+  return_value_or_not_found
+  @@ find_map_by_id id (si_psi_tables_to_yojson % Structure.tables)
+  @@ React.S.value api.notifs.structure
 
 let get_services (api : Protocol.api) id _user _body _env _state =
-  check_state api.notifs.state (fun () ->
-      return_value_or_not_found
-      @@ find_map_by_id id (services_to_yojson % Structure.services)
-      @@ React.S.value api.notifs.structure)
+  check_state api.notifs.state
+  >>=? fun () ->
+  return_value_or_not_found
+  @@ find_map_by_id id (services_to_yojson % Structure.services)
+  @@ React.S.value api.notifs.structure
 
 let get_t2mi_info (api : Protocol.api) id _user _body _env _state =
-  check_state api.notifs.state (fun () ->
-      return_value_or_not_found
-      @@ find_map_by_id id t2mi_info_to_yojson
-      @@ React.S.value api.notifs.t2mi_info)
+  check_state api.notifs.state
+  >>=? fun () ->
+  return_value_or_not_found
+  @@ find_map_by_id id t2mi_info_to_yojson
+  @@ React.S.value api.notifs.t2mi_info
 
 let get_t2mi_sequence (api : Protocol.api) id duration t2mi_stream_ids
     _user _body _env _state =

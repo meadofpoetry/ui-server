@@ -44,10 +44,10 @@ let filter_ids ids v = match ids with
   | None -> v
   | Some ids -> List.filter (fun (id, _) -> List.exists (Stream.ID.equal id) ids) v
 
-let check_state (state : Application_types.Topology.state React.signal) f =
+let check_state (state : Application_types.Topology.state React.signal) =
   match React.S.value state with
-  | `Fine -> f ()
-  | `No_response | `Init | `Detect -> return_error Request.Not_responding
+  | `Fine -> Lwt.return_ok ()
+  | `No_response | `Init | `Detect -> Lwt.return_error Request.Not_responding
 
 let pids_to_yojson = Util_json.(
     List.to_yojson
