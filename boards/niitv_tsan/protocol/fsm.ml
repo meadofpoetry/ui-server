@@ -469,7 +469,7 @@ let start
       | Some { ts_common; _ } -> ts_common <> cur.ts_common in
     if not fetch then Lwt.return_ok probes
     else
-      let request_id = Serializer.get_request_id () in
+      let request_id = Request_id.next () in
       let req = Request.Get_structure { request_id; stream = `All } in
       request src rsp_event evt_queue sender req
       >>= function
@@ -480,8 +480,8 @@ let start
     if not has_sync
     then Lwt.return_ok (`Bitrate [] :: probes)
     else
-      let request_id = Serializer.get_request_id () in
-      let req = Request.Get_bitrate request_id in
+      let request_id = Request_id.next () in
+      let req = Request.Get_bitrate { request_id } in
       request src rsp_event evt_queue sender req
       >>= function
       | Error _ as e -> Lwt.return e
@@ -506,7 +506,7 @@ let start
       let rec request_loop probes = function
         | [] -> Lwt.return_ok probes
         | t2mi_stream_id :: tl ->
-          let request_id = Serializer.get_request_id () in
+          let request_id = Request_id.next () in
           let req = Request.Get_t2mi_info { request_id; t2mi_stream_id } in
           request src rsp_event evt_queue sender req
           >>= function
@@ -525,7 +525,7 @@ let start
   and get_deverr has_errors probes =
     if not has_errors then Lwt.return_ok probes
     else
-      let request_id = Serializer.get_request_id () in
+      let request_id = Request_id.next () in
       let req = Request.Get_deverr { request_id; timeout = None } in
       request src rsp_event evt_queue sender req
       >>= function

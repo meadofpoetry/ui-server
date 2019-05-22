@@ -49,7 +49,7 @@ let get_ts_info (api : Protocol.api) id force _user _body _env _state =
     match find_multi_id id api.notifs.streams with
     | Error e -> return_error e
     | Ok id ->
-      let request_id = Serializer.get_request_id () in
+      let request_id = Request_id.next () in
       let req = Request.Get_structure { request_id; stream = `Single id } in
       api.channel req
       >>=? fun structures ->
@@ -68,7 +68,7 @@ let get_pids (api : Protocol.api) id force _user _body _env _state =
     match find_multi_id id api.notifs.streams with
     | Error e -> return_error e
     | Ok id ->
-      let request_id = Serializer.get_request_id () in
+      let request_id = Request_id.next () in
       let req = Request.Get_structure { request_id; stream = `Single id } in
       api.channel req
       >>=? fun structures ->
@@ -102,7 +102,7 @@ let get_t2mi_sequence (api : Protocol.api) id duration t2mi_stream_ids
   let streams = React.S.value api.notifs.streams in
   (match Stream.find_by_id id streams with
    | Some { orig_id = TS_multi stream_id; _ } ->
-     let request_id = Serializer.get_request_id () in
+     let request_id = Request_id.next () in
      let req = Request.Get_t2mi_seq { request_id; duration } in
      api.channel req
    | Some _ -> Lwt.return_error invalid_stream
@@ -123,7 +123,7 @@ let get_section (api : Protocol.api) stream_id table_id
   let streams = React.S.value api.notifs.streams in
   (match Stream.find_by_id stream_id streams with
    | Some { orig_id = TS_multi stream_id; _ } ->
-     let request_id = Serializer.get_request_id () in
+     let request_id = Request_id.next () in
      let req = Request.Get_section { request_id
                                    ; stream_id
                                    ; table_id

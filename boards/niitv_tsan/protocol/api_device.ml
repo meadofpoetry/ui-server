@@ -119,7 +119,7 @@ let get_errors (api : Protocol.api) timeout force _user _body _env _state =
       ; (Lwt_unix.sleep timeout >>= fun () -> Lwt.return_ok []) ]
     >>=? return_value % Util_json.List.to_yojson Deverr.to_yojson
   | Some true ->
-    let request_id = Serializer.get_request_id () in
+    let request_id = Request_id.next () in
     api.channel (Request.Get_deverr { request_id; timeout })
     >>=? return_value % Util_json.List.to_yojson Deverr.to_yojson
 

@@ -23,8 +23,8 @@ module Part_id = struct
 
   type t =
     { code : int
-    ; request_id : int
-    ; client_id : int
+    ; request_id : Uint16.t
+    ; client_id : Uint16.t
     } [@@deriving eq, ord]
 
 end
@@ -1075,8 +1075,8 @@ let parse_part src (buf : Cstruct.t) =
     let id =
       { Part_id.
         code = code_ext land 0x0FFF
-      ; client_id = Message.get_complex_rsp_header_client_id buf
-      ; request_id = Message.get_complex_rsp_header_request_id buf
+      ; client_id = Uint16.of_int @@ Message.get_complex_rsp_header_client_id buf
+      ; request_id = Uint16.of_int @@ Message.get_complex_rsp_header_request_id buf
       } in
     let part =
       { body
@@ -1086,9 +1086,9 @@ let parse_part src (buf : Cstruct.t) =
       } in
     Logs.debug ~src (fun m ->
         m "parser - got complex message part \
-           (code: 0x%X, req_id: %d, client_id: %d, \
+           (code: 0x%X, req_id: %a, client_id: %a, \
            first: %B, parity: %B, length: %d, param: %ld)"
-          id.code id.request_id id.client_id
+          id.code Uint16.pp id.request_id Uint16.pp id.client_id
           part.first parity (Cstruct.len body) param);
     Ok (id, part)
   with Invalid_argument _ -> Error "invalid payload"
@@ -1209,7 +1209,7 @@ let is_response (type a) (req : a Request.t)
      | `Complex { tag = `Section; body; request_id; _ } when id = request_id ->
        Some (Section.parse ~table_id ~section ~timestamp body)
      | _ -> None)
-  | Get_bitrate id ->
+  | Get_bitrate { request_id = id } ->
     (match data with
      | `Complex { tag = `Bitrate; body; request_id; _ } when id = request_id ->
        Some (Bitrate.parse ~timestamp body)

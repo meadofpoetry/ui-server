@@ -56,15 +56,25 @@ let get_bitrate (api : Protocol.api) ids timeout _user _body _env _state =
   @@ stream_assoc_list_to_yojson Bitrate.to_yojson
   @@ filter_ids ids bitrate
 
-let get_ts_info (api : Protocol.api) ids _user _body _env _state =
-  check_state api.notifs.state (fun () ->
-      return_value
-      @@ stream_assoc_list_to_yojson TS_info.to_yojson
-      @@ filter_ids ids
-      @@ List.map (fun (id, (s : Structure.t)) -> id, s.info)
-      @@ React.S.value api.notifs.structure)
+let get_ts_info (api : Protocol.api) force ids _user _body _env _state =
+  match force with
+  | Some true ->
+    let request_id = Request_id.next () in
+    api.channel Request.(Get_structure { request_id; stream = `All })
+    >>=? fun structure ->
+    return_value
+    @@ stream_assoc_list_to_yojson TS_info.to_yojson
+    @@ List.map (fun (id, (x : Structure.t)) -> id, x.info)
+    @@ map_stream_id (React.S.value api.notifs.streams) structure
+  | None | Some false ->
+    check_state api.notifs.state (fun () ->
+        return_value
+        @@ stream_assoc_list_to_yojson TS_info.to_yojson
+        @@ filter_ids ids
+        @@ List.map (fun (id, (s : Structure.t)) -> id, s.info)
+        @@ React.S.value api.notifs.structure)
 
-let get_pids (api : Protocol.api) ids _user _body _env _state =
+let get_pids (api : Protocol.api) force ids _user _body _env _state =
   check_state api.notifs.state (fun () ->
       return_value
       @@ stream_assoc_list_to_yojson pids_to_yojson

@@ -89,7 +89,8 @@ let handlers (control : int) (api : Protocol.api) =
           ; node ~doc:"Returns list of available TS info"
               ~meth:`GET
               ~path:(Path.Format.of_string "ts-info")
-              ~query:Query.["id", (module Opt_list(Stream.ID))]
+              ~query:Query.[ "force", (module Flag)
+                           ; "id", (module Opt_list(Stream.ID)) ]
               (Api_monitoring.get_ts_info api)
           ; node ~doc:"Returns current bitrate"
               ~meth:`GET
@@ -105,7 +106,8 @@ let handlers (control : int) (api : Protocol.api) =
           ; node ~doc:"Returns available PIDs"
               ~meth:`GET
               ~path:(Path.Format.of_string "pids")
-              ~query:Query.["id", (module Opt_list(Stream.ID))]
+              ~query:Query.[ "force", (module Flag)
+                           ; "id", (module Opt_list(Stream.ID)) ]
               (Api_monitoring.get_pids api)
           ; node ~doc:"Returns available SI/PSI tables"
               ~meth:`GET

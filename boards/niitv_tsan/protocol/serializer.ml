@@ -1,15 +1,6 @@
 open Board_niitv_tsan_types
 open Application_types
 
-let request_id = ref 0
-
-let get_request_id () =
-  let id = !request_id in
-  if id = 0xFFFF
-  then request_id := 0
-  else incr request_id;
-  id
-
 let to_common_header (code : int) =
   let hdr = Cstruct.create Message.sizeof_common_header in
   Message.set_common_header_prefix hdr Message.prefix;
@@ -24,9 +15,9 @@ let to_complex_req (msg : Request.complex_msg) =
   let common = to_common_header @@ Request.complex_tag_to_enum msg.tag in
   let header = Cstruct.create Message.sizeof_complex_req_header in
   let length = (Cstruct.len msg.body / 2) + 1 in
-  Message.set_complex_req_header_client_id header msg.client_id;
+  Message.set_complex_req_header_client_id header @@ Uint16.to_int msg.client_id;
   Message.set_complex_req_header_length header length;
-  Message.set_complex_req_header_request_id header msg.request_id;
+  Message.set_complex_req_header_request_id header @@ Uint16.to_int msg.request_id;
   Cstruct.concat [common; header; msg.body]
 
 let to_msg (type a) : a Request.t -> Request.req_tag Request.msg = function
@@ -82,7 +73,7 @@ let to_msg (type a) : a Request.t -> Request.req_tag Request.msg = function
     iter (Message.set_req_section_id_ext_1 body) id_ext_1;
     iter (Message.set_req_section_id_ext_2 body) id_ext_2;
     `Complex (Request.make_complex_msg ~request_id ~body `Section)
-  | Get_bitrate request_id ->
+  | Get_bitrate { request_id } ->
     `Complex (Request.make_complex_msg ~request_id `Bitrate)
   | Get_structure { request_id; stream } ->
     let stream = match stream with
