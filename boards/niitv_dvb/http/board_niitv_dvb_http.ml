@@ -37,7 +37,7 @@ let handlers (control : int) (api : Protocol.api) =
               ~query:Query.["id", (module List(Int))]
               (Api_device.get_mode api)
           ]
-      ; make ~prefix:"receiver"
+      ; make ~prefix:"receivers"
           [ node ~doc:"Sets tuner receiving mode"
               ~restrict:[`Guest]
               ~meth:`POST
@@ -70,7 +70,7 @@ let handlers (control : int) (api : Protocol.api) =
               ~query:Query.empty
               (Api_receiver.get_plp_list api)
           ]
-      ; make ~prefix:"stream"
+      ; make ~prefix:"streams"
           [ node ~doc:"Returns list of available streams"
               ~meth:`GET
               ~path:Path.Format.empty
@@ -111,7 +111,6 @@ let ws (control : int) (api : Protocol.api) =
   let open Api_websocket in
   (* TODO add closing event *)
   let socket_table = make_socket_table () in
-  
   [ merge ~prefix:(string_of_int control)
       [ make ~prefix:"device"
           [ node ~doc:"Device state socket"

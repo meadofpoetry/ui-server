@@ -5,4 +5,5 @@
               board_niitv_tsan_types
               application_types
               netlib)
-  (preprocess (pps js_of_ocaml-ppx)))
+  (preprocess (pps js_of_ocaml-ppx))
+  (private_modules util))

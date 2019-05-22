@@ -71,6 +71,14 @@ let make_board_page (b : Topology.topo_board) =
       settings.widget#set_on_destroy factory#destroy;
       Widget.coerce settings.widget in
     Some getter
+  | "NIITV", "DVB4CH", _ ->
+    let open Board_niitv_dvb_widgets_js in
+    let getter = fun () ->
+      let factory = new Widget_factory.t b.control () in
+      let settings = factory#create Settings in
+      settings.widget#set_on_destroy factory#destroy;
+      Widget.coerce settings.widget in
+    Some getter
   | _ -> None
 
 module Header = struct

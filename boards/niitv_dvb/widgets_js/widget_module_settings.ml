@@ -1,14 +1,13 @@
+open Application_types
+open Board_niitv_dvb_types.Device
+open Board_niitv_dvb_http_js
 open Containers
 open Components
-open Board_types.Device
 open Lwt_result.Infix
-open Common
 
 type widget_config =
   { id : int
   } [@@deriving yojson]
-
-let ( %> ) = Fun.( %> )
 
 let base_class = "dvb-niit-module-settings"
 
@@ -26,7 +25,7 @@ let make_standard () =
   let set = function
     | None -> mode#set_selected_index 0
     | Some x ->
-       mode#set_selected_value ~eq:equal_standard x.standard |> ignore in
+      mode#set_selected_value ~eq:equal_standard x.standard |> ignore in
   mode#add_class @@ Markup.CSS.add_element base_class "mode";
   mode, set
 
@@ -51,8 +50,8 @@ let make_bw (standard : standard option React.signal) () =
   bw, set, (fun () -> React.S.stop ~strong:true s_hide)
 
 let make_freq ?(terrestrial = true)
-      (standard : standard option React.signal)
-      () =
+    (standard : standard option React.signal)
+    () =
   let items =
     List.map (fun (c : Channel.t) ->
         `Item (new Select.Item.t ~text:c.name ~value:c.freq ()))
@@ -67,16 +66,16 @@ let make_freq ?(terrestrial = true)
     React.S.map ~eq:Equal.unit (fun x ->
         match x, terrestrial with
         | (Some T, true) | (Some T2, true) | (Some C, false) ->
-           freq#style##.display := Js_of_ocaml.Js.string ""
+          freq#style##.display := Js_of_ocaml.Js.string ""
         | _ -> freq#style##.display := Js_of_ocaml.Js.string "none") standard in
   let set = function
     | None -> freq#set_selected_index 0
     | Some x ->
-       begin match x.standard, terrestrial with
-       | (T, true) | (T2, true) | (C, false) ->
+      begin match x.standard, terrestrial with
+        | (T, true) | (T2, true) | (C, false) ->
           freq#set_selected_value ~eq:(=) x.channel.freq |> ignore
-       | _ -> ()
-       end in
+        | _ -> ()
+      end in
   freq, set, (fun () -> React.S.stop ~strong:true s_hide)
 
 let make_plp (standard : standard option React.signal) () =
@@ -96,11 +95,11 @@ let make_plp (standard : standard option React.signal) () =
   plp, set, (fun () -> React.S.stop ~strong:true s_hide)
 
 let make_mode_box ~(id : int)
-      ~(init : mode option)
-      ~(event : mode option React.event)
-      ~(state : Common.Topology.state React.signal)
-      (control : int)
-      () =
+    ~(init : mode option)
+    ~(event : mode option React.event)
+    ~(state : Topology.state React.signal)
+    (control : int)
+    () =
   let std, set_std = make_standard () in
   let t_freq, set_t_freq, t_freq_close =
     make_freq ~terrestrial:true std#s_selected_value () in
@@ -121,14 +120,14 @@ let make_mode_box ~(id : int)
   let s =
     React.S.l6 ~eq:(Equal.option @@ Equal.pair Int.equal equal_mode)
       (fun standard t_freq c_freq bw plp state ->
-        match standard, t_freq, c_freq, bw, plp, state with
-        | Some T2, Some freq, _, Some bw, Some plp, `Fine ->
+         match standard, t_freq, c_freq, bw, plp, state with
+         | Some T2, Some freq, _, Some bw, Some plp, `Fine ->
            Some (id, { standard = T2; channel = { freq; bw; plp }})
-        | Some T, Some freq, _, Some bw, _, `Fine ->
+         | Some T, Some freq, _, Some bw, _, `Fine ->
            Some (id, { standard = T; channel = { freq; bw; plp = 0 }})
-        | Some C, _, Some freq, Some bw, _, `Fine ->
+         | Some C, _, Some freq, Some bw, _, `Fine ->
            Some (id, { standard = C; channel = { freq; bw; plp = 0 }})
-        | _ -> None)
+         | _ -> None)
       std#s_selected_value
       t_freq#s_selected_value
       c_freq#s_selected_value
@@ -138,12 +137,12 @@ let make_mode_box ~(id : int)
   let s_set =
     React.S.hold init ~eq:(Equal.option equal_mode) event
     |> React.S.map ~eq:Equal.unit (fun (m : mode option) ->
-           (* NOTE standard should be updated first *)
-           set_std m;
-           set_t_freq m;
-           set_c_freq m;
-           set_bw m;
-           set_plp m) in
+        (* NOTE standard should be updated first *)
+        set_std m;
+        set_t_freq m;
+        set_c_freq m;
+        set_bw m;
+        set_plp m) in
   let s_dis =
     React.S.map ~eq:Equal.unit (fun x ->
         let is_disabled = match x with
@@ -156,15 +155,15 @@ let make_mode_box ~(id : int)
         plp#set_disabled is_disabled)
       state in
   let submit = fun (id, m) ->
-    Requests.Device.HTTP.set_mode ~id m control
+    Http_receivers.set_mode ~id m control
     >|= (fun _ -> ()) in
   box, s, submit, (fun () ->
-    t_freq_close ();
-    c_freq_close ();
-    bw_close ();
-    plp_close ();
-    React.S.stop ~strong:true s_set;
-    React.S.stop ~strong:true s_dis)
+      t_freq_close ();
+      c_freq_close ();
+      bw_close ();
+      plp_close ();
+      React.S.stop ~strong:true s_set;
+      React.S.stop ~strong:true s_dis)
 
 let default_config = { id = 0 }
 
@@ -175,12 +174,12 @@ let name conf : string =
 let settings = None
 
 (* FIXME declare class instead *)
-let make ~(state : Common.Topology.state React.signal)
-      ~(config : config React.signal)
-      (conf : widget_config option)
-      control =
+let make ~(state : Topology.state React.signal)
+    ~(config : (int * mode) list React.signal)
+    (conf : widget_config option)
+    control =
   let conf = Option.get_or ~default:default_config conf in
-  let get = List.Assoc.get ~eq:(=) conf.id in
+  let get x = List.Assoc.get ~eq:(=) conf.id x in
   let w, s, set, close =
     make_mode_box ~id:conf.id
       ~init:(get @@ React.S.value config)

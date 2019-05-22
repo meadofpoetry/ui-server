@@ -65,8 +65,6 @@ module Make(Body : BODY) : sig
 
   open Netlib
 
-  type t = webSocket Js.t
-
   val create : ?secure:bool
     -> ?host:string
     -> ?port:int
@@ -84,8 +82,6 @@ module Make(Body : BODY) : sig
 end = struct
 
   open Netlib
-
-  type t = webSocket Js.t
 
   let make_uri ?secure ?host ?port ~f ~path ~query =
     let host = match host with
