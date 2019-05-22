@@ -12,6 +12,6 @@
                ;; board_dektec_dtm3200_js
                ;; board_niitv_dvb_js
                ;; board_niitv_ts2ip_js
-               board_niitv_tsan_api_js
+               board_niitv_tsan_http_js
                )
   (preprocess  (pps ppx_deriving_yojson js_of_ocaml-ppx)))

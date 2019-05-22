@@ -1,5 +1,5 @@
 (library
-  (name       board_niitv_tsan_api_js)
+  (name       board_niitv_tsan_http_js)
   (libraries  api_js
               time_uri
               board_niitv_tsan_types
