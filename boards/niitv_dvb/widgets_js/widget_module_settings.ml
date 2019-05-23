@@ -173,6 +173,20 @@ let name conf : string =
 
 let settings = None
 
+type event =
+  [ `Mode of (int * mode) list
+  | `State of Topology.state
+  ]
+
+(* class t () = object
+ *   inherit Vbox.t ~widgets:[] ()
+ * 
+ *   method notify : event -> unit = function
+ *     | `Mode _ -> ()
+ *     | `State _ -> ()
+ * 
+ * end *)
+
 (* FIXME declare class instead *)
 let make ~(state : Topology.state React.signal)
     ~(config : (int * mode) list React.signal)

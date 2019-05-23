@@ -1,8 +1,8 @@
 (library
-  (name       board_niitv_dvb_http_js)
+  (name       board_dektec_dtm3200_http_js)
   (libraries  api_js
               time_uri
-              board_niitv_dvb_types
+              board_dektec_dtm3200_types
               application_types
               netlib)
   (preprocess (pps js_of_ocaml-ppx))

@@ -135,7 +135,7 @@ let create (b : Topology.topo_board)
          | `Fine, Some { packers_num; _ } -> `Limited packers_num
          | _ -> `Forbidden)
       api.notifs.state api.notifs.devinfo in
-  let range = (Ipaddr.V4.make 224 1 2 2, Ipaddr.V4.make 239 255 255 255) in
+  let range = (Ipaddr.V4.make 224 0 0 0, Ipaddr.V4.make 239 255 255 255) in
   let constraints = { Boards.Board. state = source_state; range = [range] } in
   let board =
     { Boards.Board.
