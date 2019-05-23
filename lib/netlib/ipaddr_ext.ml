@@ -63,6 +63,35 @@ module V4 = struct
      TODO consider SAT-like approach *)
   let gen_in_ranges ?(forbidden : t list = []) ~allowed (vs : ('a * (t * t) list) list)
       : ('a * t) list =
+
+    (* Debug
+
+    let forb =
+      Printf.sprintf "Forbidden: [%s]"
+      @@ String.concat "; " (List.map to_string forbidden)
+    in
+    let all =
+      Printf.sprintf "Allowed: [%s]"
+        ("(" ^ (to_string (fst allowed)) ^ " .. " ^ (to_string (snd allowed)) ^ ")")
+    in
+    let dat =
+      Printf.sprintf "Input: [%s]"
+      @@ String.concat "; "
+      @@ List.map (fun (_id, rngs) ->
+             let rngs = List.map (fun rng ->
+                            let min, max = range_to_pair rng in
+                            "(" ^ (to_string min) ^ " .. " ^ (to_string max) ^ ")")
+                          rngs
+             in "< 'a: " ^ String.concat "; " rngs ^ ">")
+           vs
+    in
+    
+    print_endline forb;
+    print_endline all;
+    print_endline dat;
+
+    End Debug *)
+    
     let random_in ~ranges =
       let len = List.length ranges in
       assert (len > 0);
@@ -151,6 +180,22 @@ module V4 = struct
        []
     | Some used ->
        used
+
+    (* Debug
+    
+    let dat =
+      Printf.sprintf "Output: [%s]"
+      @@ String.concat "; "
+      @@ List.map (fun (_id, ip) ->
+             "< 'a: " ^ to_string ip ^ ">")
+           res
+    in
+
+    print_endline dat;
+
+    res
+
+      End debug *)
     
     
   (*              
