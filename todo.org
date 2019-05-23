@@ -22,7 +22,6 @@
 - [X] User password encryption
 - [ ] Refactor Pipeline types to support saved settings alteration
 - [X] Make ats-backend a library
-- [ ] Swagger like api page
 - [ ] Interaction with the Qoe analyser
   - [ ] Consider h264 streaming option
   - [ ] Settings api
@@ -67,7 +66,7 @@
   - [ ] Refactor user settings page
     - [ ] Just put things in order
 
-** TODO Beta goals [0/2]:
+** TODO Beta goals [0/7]:
 - [ ] SDI support
 - [ ] QoE storage
   - [ ] Consider using min/max + deviation + avg instead of min + max + avg
@@ -87,10 +86,10 @@
   - [ ] Show detailed status for boards
 - [ ] Add mosaic encoding settings (codec, bitrate, resolution)
   
-** TODO Release candidate [0/1]:
+** TODO Release candidate [0/6]:
 - [ ] Data server interaction
   - [ ] Send-dependency graph
-  - [ ] Shared resources sending
+  - [ ] Shared data sending
   - [ ] Sender implementation
   - [ ] SNMP?
 - [ ] Add support for the new IP receiver board
@@ -98,3 +97,4 @@
 - [ ] Archive GUI
 - [ ] Jitter measurements
 - [ ] Logout
+- [ ] Swagger like api page
