@@ -1,3 +1,4 @@
+open Js_of_ocaml_tyxml
 open Containers
 open Components
 open Application_types
@@ -7,7 +8,7 @@ let _class = "topology"
 
 let is_ts2ip_niitv (b : Topology.topo_board) =
   match b.manufacturer, b.model with
-  | "NIITV", "TS2IP" -> true
+  | "NIITV", "TS2IP" -> false
   | _ -> false
 
 let find_max l =
@@ -52,32 +53,31 @@ let grid_template_areas t =
   let depth = get_node_depth t in
   let rec get_entry_areas acc count = function
     | Topology.Input x ->
-       if (count + 1) < depth
-       then let inp  = "\"" ^ (Topo_node.input_to_area x) in
-            let list = List.range 1 @@ (depth-count - 1) * 2 in
-            (List.fold_left (fun acc _ -> acc ^ " . ") inp list) ^ acc ^ "\""
-       else "\"" ^ (Topo_node.input_to_area x) ^ " " ^ acc ^ "\""
+      if (count + 1) < depth
+      then let inp  = "\"" ^ (Topo_node.input_to_area x) in
+        let list = List.range 1 @@ (depth-count - 1) * 2 in
+        (List.fold_left (fun acc _ -> acc ^ " . ") inp list) ^ acc ^ "\""
+      else "\"" ^ (Topo_node.input_to_area x) ^ " " ^ acc ^ "\""
     | Topology.Board x ->
-       let ports = List.map (fun (x : Topology.topo_port) ->
-                       x.child) x.ports in
-       let str = ". " ^ (Topo_node.board_to_area x) ^ " " in
-       match ports with
-       | [] -> str ^ " " ^ acc
-       | l -> concat (List.map (get_entry_areas (str ^ acc) (count + 1)) l)
+      let ports = List.map (fun (x : Topology.topo_port) -> x.child) x.ports in
+      let str = ". " ^ (Topo_node.board_to_area x) ^ " " in
+      match ports with
+      | [] -> str ^ " " ^ acc
+      | l -> concat (List.map (get_entry_areas (str ^ acc) (count + 1)) l)
   in
   match t with
   | `CPU (x : Topology.topo_cpu) ->
-     List.map (fun (x : Topology.topo_interface) ->
-         get_entry_areas ". CPU" 1 x.conn) x.ifaces
-     |> concat
+    List.map (fun (x : Topology.topo_interface) ->
+        get_entry_areas ". CPU" 1 x.conn) x.ifaces
+    |> concat
   | `Boards x ->
-     let map board =
-       get_entry_areas (". " ^ (Topo_node.board_to_area board)) 1 in
-     List.map (fun board ->
-         List.map (fun (x : Topology.topo_port) -> map board x.child)
-           board.ports
-         |> concat) x
-     |> concat
+    let map board =
+      get_entry_areas (". " ^ (Topo_node.board_to_area board)) 1 in
+    List.map (fun board ->
+        List.map (fun (x : Topology.topo_port) -> map board x.child)
+          board.ports
+        |> concat) x
+    |> concat
 
 let wrap area elt =
   let div = Widget.create_div () in
@@ -189,9 +189,10 @@ let create ~(parent : #Widget.t)
       Js_of_ocaml.Dom.appendChild svg x#root) nodes;
   Widget.append_to_body drawer;
   Js_of_ocaml.Dom.appendChild parent#root svg;
-  List.iter (fun x -> let node = to_topo_node x in
-                      let w = wrap node#area node in
-                      parent#append_child w) nodes;
+  List.iter (fun x ->
+      let node = to_topo_node x in
+      let w = wrap node#area node in
+      parent#append_child w) nodes;
   let gta = "grid-template-areas: " ^ (grid_template_areas init) ^ ";" in
   (* FIXME store events? *)
   List.filter_map (function

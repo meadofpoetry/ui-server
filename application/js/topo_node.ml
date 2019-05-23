@@ -7,10 +7,10 @@ open Topo_types
 type node_entry = Topo_types.node_entry
 
 let input_to_area ({ input; id } : Topology.topo_input) =
-  Printf.sprintf "%s.%d" (Topology.input_to_string input) id
+  Printf.sprintf "%s-%d" (Topology.input_to_string input) id
 
 let board_to_area ({ manufacturer; model; version; control } : Topology.topo_board) =
-  Printf.sprintf "%s.%s.%d.%d" manufacturer model version control
+  Printf.sprintf "%s-%s-v%d-%d" manufacturer model version control
 
 let node_entry_to_area = function
   | `CPU _ -> "CPU"
@@ -18,19 +18,19 @@ let node_entry_to_area = function
   | `Entry (Topology.Input i) -> input_to_area i
 
 class t ~node ~body elt () =
-object
-  val area = node_entry_to_area node
-  inherit Widget.t elt ()
-  method area : string = area
-  method node_entry : node_entry = node
-  method output_point = Topo_path.get_output_point body
-end
+  object
+    val area = node_entry_to_area node
+    inherit Widget.t elt ()
+    method area : string = area
+    method node_entry : node_entry = node
+    method output_point = Topo_path.get_output_point body
+  end
 
 class parent ~port_setter
-        ~(connections : (#t * connection_point) list)
-        ~(node : node_entry)
-        ~(body : #Dom_html.element Js.t)
-        elt () =
+    ~(connections : (#t * connection_point) list)
+    ~(node : node_entry)
+    ~(body : #Dom_html.element Js.t)
+    elt () =
   let num = List.length connections in
   let paths =
     List.mapi (fun i (x,p) ->
@@ -45,7 +45,7 @@ class parent ~port_setter
   let s_switch_changing =
     List.map (fun x -> x#s_changing) switches
     |> React.S.merge ~eq:Bool.equal
-         (fun acc x -> if x then x else acc) false
+      (fun acc x -> if x then x else acc) false
   in
   object(self)
     inherit t ~node ~body elt () as super

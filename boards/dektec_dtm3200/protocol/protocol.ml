@@ -15,54 +15,51 @@ type notifs =
   }
 
 type api =
-  { address : int
-  ; kv : config Kv_v.rw
+  { kv : config Kv_v.rw
   ; notifs : notifs
   ; channel : 'a. 'a Request.t -> ('a, Request.error) Lwt_result.t
   ; loop : unit -> unit Lwt.t
   ; push_data : Cstruct.t -> unit
   }
 
-let send (type a) ~(address : int)
-    (src : Logs.src)
+let send (type a) (src : Logs.src)
     (state : Topology.state React.signal)
     (push : _ Lwt_stream.bounded_push)
     (sender : Cstruct.t -> unit Lwt.t)
+    (kv : config Kv_v.rw)
     (req : a Request.t) =
   match React.S.value state with
-  | `Init | `No_response -> Lwt.return_error Request.Not_responding
+  | `Init | `No_response | `Detect -> Lwt.return_error Request.Not_responding
   | `Fine ->
     Lwt.catch (fun () ->
         let t, w = Lwt.task () in
-        let stop = fun error -> Lwt.wakeup_later w (Error error) in
         let send = fun stream ->
-          Fsm_common.request ~address src sender stream req
+          Fsm_common.request src sender stream kv req
           >>= fun x -> Lwt.wakeup_later w x; Lwt.return_unit in
-        push#push @@ (send, stop) >>= fun () -> t)
+        Lwt.pick
+          [ (Boards.Board.await_no_response state >>= Api_util.not_responding)
+          ; (push#push send >>= fun () -> t) ])
       (function
         | Lwt.Canceled -> Lwt.return_error Request.Not_responding
         | Lwt_stream.Full -> Lwt.return_error Request.Queue_overflow
         | exn -> Lwt.fail exn)
 
 let to_streams_s (config : config signal) (status : status event) =
-  S.hold ~eq:(Boards.Util.List.equal Stream.Raw.equal) []
+  S.hold ~eq:(Util_equal.List.equal Stream.Raw.equal) []
   @@ S.sample (fun ({ asi_bitrate; protocol; _ } : status)
-                ({ ip; nw } : config) ->
+                ({ ip_receive; nw } : config) ->
                 if asi_bitrate <= 0 then [] else (
                   let scheme = match protocol with
                     | RTP -> "rtp"
                     | UDP -> "udp" in
-                  let (info : Stream.Source.ipv4) = match ip.multicast with
-                    | Some x ->
-                      { addr = x
-                      ; port = ip.port
-                      ; scheme
-                      }
-                    | None ->
-                      { addr = nw.ip
-                      ; port = ip.port
-                      ; scheme
-                      } in
+                  let addr = match ip_receive.addressing_method with
+                    | Multicast -> ip_receive.multicast
+                    | Unicast -> nw.ip_address in
+                  let (info : Stream.Source.ipv4) =
+                    { addr
+                    ; port = ip_receive.udp_port
+                    ; scheme
+                    } in
                   let (stream : Stream.Raw.t) =
                     { source = { info = IPV4 info; node = Port 0 }
                     ; id = TS_raw
@@ -71,8 +68,7 @@ let to_streams_s (config : config signal) (status : status event) =
                   [stream]))
     status config
 
-let create ~(address : int)
-    (src : Logs.src)
+let create (src : Logs.src)
     (sender : Cstruct.t -> unit Lwt.t)
     streams_conv
     (kv : config Kv_v.rw)
@@ -80,7 +76,7 @@ let create ~(address : int)
   let status, set_status = E.create () in
   let state, set_state = S.create ~eq:Topology.equal_state `No_response in
   let devinfo, set_devinfo =
-    S.create ~eq:(Boards.Util.Option.equal equal_devinfo) None in
+    S.create ~eq:(Util_equal.Option.equal equal_devinfo) None in
   let notifs =
     { streams = streams_conv @@ to_streams_s kv#s status
     ; devinfo
@@ -90,27 +86,25 @@ let create ~(address : int)
     } in
   let req_queue, push_req_queue = Lwt_stream.create_bounded msg_queue_size in
   let rsp_queue, push_rsp_queue = Lwt_stream.create () in
-  kv#get
-  >>= fun config ->
-  let push_data =
-    let acc = ref None in
-    let push (buf : Cstruct.t) =
-      let buf = match !acc with
-        | None -> buf
-        | Some acc -> Cstruct.append acc buf in
-      let parsed, new_acc = Parser.deserialize ~address src buf in
-      acc := new_acc;
-      List.iter (fun x -> push_rsp_queue @@ Some x) parsed in
-    push in
-  let channel = fun req -> send ~address src state push_req_queue sender req in
+  let acc = ref None in
+  let push_data (buf : Cstruct.t) =
+    let buf = match !acc with
+      | None -> buf
+      | Some acc -> Cstruct.append acc buf in
+    let address = (React.S.value kv#s).address in
+    let parsed, new_acc = Parser.deserialize ~address src buf in
+    acc := new_acc;
+    match React.S.value state with
+    | `No_response -> ()
+    | _ -> List.iter (fun x -> push_rsp_queue @@ Some x) parsed in
+  let channel = fun req -> send src state push_req_queue sender kv req in
   let loop =
-    Fsm.start ~address src sender req_queue rsp_queue config
+    Fsm.start src sender req_queue rsp_queue kv
       set_state
-      (fun x -> set_devinfo @@ Some x)
+      (fun ?step x -> set_devinfo ?step @@ Some x)
       set_status in
   let (api : api) =
     { notifs
-    ; address
     ; loop
     ; push_data
     ; kv

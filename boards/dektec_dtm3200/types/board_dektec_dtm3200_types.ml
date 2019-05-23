@@ -29,7 +29,7 @@ type meth =
 
 type output =
   | ASI
-  | SPI [@@deriving enum]
+  | SPI [@@deriving yojson, enum]
 
 type packet_sz =
   | TS188
@@ -74,24 +74,26 @@ type status =
   } [@@deriving yojson, eq]
 
 type nw =
-  { ip : Ipaddr.V4.t
+  { ip_address : Ipaddr.V4.t
   ; mask : Ipaddr.V4.t
   ; gateway : Ipaddr.V4.t
   ; dhcp : bool
   } [@@deriving yojson, eq]
 
-type ip =
+type ip_receive =
   { enable : bool
-  ; fec : bool
-  ; port : int
-  ; multicast : Ipaddr.V4.t option
-  ; delay : int
+  ; fec_enable : bool
+  ; udp_port : int
+  ; addressing_method : meth
+  ; multicast : Ipaddr.V4.t
+  ; ip_to_output_delay : int
   ; rate_mode : rate_mode
   } [@@deriving yojson, eq]
 
 type config =
   { nw : nw
-  ; ip : ip
+  ; ip_receive : ip_receive
+  ; address : int
   } [@@deriving yojson, eq]
 
 let packet_sz_to_string = function
@@ -150,7 +152,7 @@ let asi_packet_sz_of_int = function
 
 let nw_to_string (x : nw) =
   Printf.sprintf "IP: %s, mask: %s, gateway: %s, DHCP: %b"
-    (Ipaddr.V4.to_string x.ip)
+    (Ipaddr.V4.to_string x.ip_address)
     (Ipaddr.V4.to_string x.mask)
     (Ipaddr.V4.to_string x.gateway)
     x.dhcp

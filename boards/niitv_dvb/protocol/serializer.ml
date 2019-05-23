@@ -1,7 +1,7 @@
 open Board_niitv_dvb_types
 open Message
 
-let to_prefix (msg : Cstruct.t Request.msg) : Cstruct.t =
+let to_prefix (msg : Request.msg) : Cstruct.t =
   let buf = Cstruct.create sizeof_prefix in
   let len = Cstruct.len msg.data + 1 in
   let tag = Request.tag_to_enum msg.tag in

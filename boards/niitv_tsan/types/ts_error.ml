@@ -6,7 +6,7 @@ type table_info =
   ; id : int
   ; id_ext : int
   }
-let table_info_of_ts_error (e : 'a Error.error) =
+let table_info_of_ts_error (e : 'a Error.e) =
   let ( land ) a b = Int32.logand a b in
   let ( lsr ) a b = Int32.shift_right_logical a b in
   let section = Int32.to_int @@ (e.param_2 land 0xFF00_0000l) lsr 24 in
@@ -14,34 +14,27 @@ let table_info_of_ts_error (e : 'a Error.error) =
   let id_ext = Int32.to_int @@ e.param_2 land 0x0000_FFFFl in
   { section; id; id_ext }
 
-module Kind = struct
-
-  type t = string * string
-
-  let of_error (e : 'a Error.error) : t =
-    match e.err_code with
-    | 0x11 -> "1.1", "TS sync loss"
-    | 0x12 -> "1.2", "Sync byte error"
-    | 0x13 -> "1.3", "PAT error"
-    | 0x14 -> "1.4", "Continuity count error"
-    | 0x15 -> "1.5", "PMT error"
-    | 0x16 -> "1.6", "PID error"
-    | 0x21 -> "2.1", "Transport error"
-    | 0x22 -> "2.2", "CRC error"
-    | 0x23 -> "2.3", "PCR error"
-    | 0x24 -> "2.4", "PCR accuracy error"
-    | 0x25 -> "2.5", "PTS error"
-    | 0x26 -> "2.6", "CAT error"
-    | 0x31 -> "3.1", "NIT error"
-    | 0x32 -> "3.2", "SI repetition error"
-    | 0x34 -> "3.4", "Unreferenced PID"
-    | 0x35 -> "3.5", "SDT error"
-    | 0x36 -> "3.6", "EIT error"
-    | 0x37 -> "3.7", "RST error"
-    | 0x38 -> "3.8", "TDT error"
-    | _ -> "", ""
-
-end
+let etr290_error_of_code : int -> MPEG_TS.ETR290_error.t option = function
+  | 0x11 -> Some Sync_loss
+  | 0x12 -> Some Sync_byte_error
+  | 0x13 -> Some PAT_error
+  | 0x14 -> Some CC_error
+  | 0x15 -> Some PMT_error
+  | 0x16 -> Some PID_error
+  | 0x21 -> Some Transport_error
+  | 0x22 -> Some CRC_error
+  | 0x23 -> Some PCR_error
+  | 0x24 -> Some PCR_accuracy_error
+  | 0x25 -> Some PTS_error
+  | 0x26 -> Some CAT_error
+  | 0x31 -> Some NIT_error
+  | 0x32 -> Some SI_repetition_error
+  | 0x34 -> Some Unreferenced_pid
+  | 0x35 -> Some SDT_error
+  | 0x36 -> Some EIT_error
+  | 0x37 -> Some RST_error
+  | 0x38 -> Some TDT_error
+  | _ -> None
 
 module Info = struct
 
@@ -64,7 +57,7 @@ module Info = struct
 
   type t = string
 
-  let possible_si_pids : Mpeg_ts.table -> possible_pids = function
+  let possible_si_pids : MPEG_TS.SI_PSI.t -> possible_pids = function
     | `PAT -> `One 0x00
     | `CAT -> `One 0x01
     | `PMT -> `One 0x02
@@ -84,7 +77,7 @@ module Info = struct
     | _ -> `Unk
 
   (* FIXME extend basic table type and write its own converter *)
-  let table_name = Mpeg_ts.table_to_string ~simple:true
+  let table_name = MPEG_TS.SI_PSI.name ~short:true
 
   let period_to_unit_name : interval -> string = function
     | `S _ -> "с"
@@ -122,7 +115,7 @@ module Info = struct
     | `S x | `Ms x | `Us x  | `Ns x -> x
     | _ -> 0.0
 
-  let crc_err ?(hex = false) ?table (e : 'a Error.error) =
+  let crc_err ?(hex = false) ?table (e : 'a Error.e) =
     let base = "Ошибка CRC" in
     let prefix = match table with
       | None -> base
@@ -132,7 +125,7 @@ module Info = struct
     let actual = to_s e.param_2 in
     Printf.sprintf "%s, CRC = %s, должно быть %s" prefix computed actual
 
-  let interval_err ?(coef = 0.1) ~prefix ~cmp_word ~period (e : 'a Error.error) =
+  let interval_err ?(coef = 0.1) ~prefix ~cmp_word ~period (e : 'a Error.e) =
     let got = match e.param_1 with
       | -1l -> None
       | x -> Int32.to_float x *. coef
@@ -156,13 +149,13 @@ module Info = struct
         (period_to_unit_name got)
         ext
 
-  let table_short_interval ~period (e : 'a Error.error) table =
+  let table_short_interval ~period (e : 'a Error.e) table =
     let prefix =
       Printf.sprintf "Период следования таблицы %s -"
       @@ table_name table in
     interval_err ~prefix ~cmp_word:"менее" ~period e
 
-  let table_long_interval ~period (e : 'a Error.error) table =
+  let table_long_interval ~period (e : 'a Error.e) table =
     let prefix =
       Printf.sprintf "Таблица %s отсутствует в потоке"
       @@ table_name table in
@@ -173,7 +166,7 @@ module Info = struct
 
   let table_crc ?hex e table = crc_err ?hex ~table e
 
-  let table_id ?(short = false) ?(hex = false) (e : 'a Error.error) table =
+  let table_id ?(short = false) ?(hex = false) (e : 'a Error.e) table =
     let to_s =
       if hex then Printf.sprintf "0x%02X"
       else Printf.sprintf "%u" in
@@ -193,7 +186,7 @@ module Info = struct
 
   let table_ext_unknown _ = ""
 
-  let of_error ?(hex = true) (e : 'a Error.error) =
+  let of_error ?(hex = true) (e : 'a Error.e) =
     match e.err_code with
     (* First priority *)
     | 0x11 -> "Пропадание синхронизации"
@@ -269,7 +262,7 @@ module Info = struct
         | 0x01 -> table_short_interval ~period:(`Ms 25.) e
         | 0x02 -> table_long_interval ~period:(table_id_to_interval id) e
         | _ -> table_ext_unknown
-      in f @@ Mpeg_ts.table_of_int id
+      in f @@ MPEG_TS.SI_PSI.of_table_id id
     | 0x34 -> "Пакет с неизвестным PID"
     | 0x35 ->
       let f = match e.err_ext with

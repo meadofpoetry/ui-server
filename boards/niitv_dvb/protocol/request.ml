@@ -11,10 +11,10 @@ type tag =
   | `Ack
   ] [@@deriving eq, show]
 
-type 'a msg =
+type msg =
   { tag : tag
-  ; data : 'a
-  } [@@deriving show]
+  ; data : Cstruct.t
+  }
 
 type error =
   | Timeout
@@ -116,7 +116,7 @@ let tag_of_enum = function
       | _ -> None
     end
 
-let to_msg (type a) (t : a t) : Cstruct.t msg =
+let to_msg (type a) (t : a t) : msg =
   let tag = to_tag t in
   let data = match t with
     | Get_devinfo -> Cstruct.create sizeof_cmd_devinfo

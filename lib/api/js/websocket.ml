@@ -87,14 +87,20 @@ end = struct
 
   type t = webSocket Js.t
 
-  let make_uri ?(secure = false) ?host ?port ~f ~path ~query =
+  let make_uri ?secure ?host ?port ~f ~path ~query =
     let host = match host with
       | None -> Url.Current.host
       | Some x -> x in
     let port = match port with
       | None -> Url.Current.port
       | Some x -> Some x in
-    let scheme = if secure then "wss" else "ws" in
+    let scheme = match secure with
+      | Some false -> "ws"
+      | Some true -> "wss"
+      | None -> match Url.Current.protocol with
+        | "https" -> "wss"
+        | "http" -> "ws"
+        | _ -> "ws" in
     Uri.kconstruct ~scheme ~host ?port ~path ~query
       ~f:(f % Uri.pct_decode % Uri.to_string)
 

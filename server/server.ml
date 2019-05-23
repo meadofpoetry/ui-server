@@ -109,7 +109,7 @@ let create (config : config) auth_filter routes =
                       ~stop:server_stop
                       ~mode:http_mode
                       ~on_exn:(fun e ->
-                        Logs.err (fun m ->
+                          Logs.err (fun m ->
                             m "(Server) Exception: %s" (Printexc.to_string e)))
                       server
 

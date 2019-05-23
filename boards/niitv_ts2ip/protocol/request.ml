@@ -61,14 +61,14 @@ let to_string (type a) : a t -> string = function
   | Set_mode_aux_2 _ -> "Set mode (aux 2)"
   | Set_mac _ -> "Set MAC address"
 
-let req_tag_to_enum : tag -> int = function
+let tag_to_enum : tag -> int = function
   | `Devinfo_req -> 0x0080
   | `Devinfo_rsp -> 0x0140
   | `MAC -> 0x0087
   | `Mode -> 0x0088
   | `Status -> 0x0F40
 
-let rsp_tag_of_enum : int -> tag option = function
+let tag_of_enum : int -> tag option = function
   | 0x0087 -> Some `MAC
   | 0x0088 -> Some `Mode
   | 0x0F40 -> Some `Status
@@ -82,13 +82,6 @@ let to_tag (type a) : a t -> tag = function
   | Set_mode_aux_1 _ -> `Mode
   | Set_mode_aux_2 _ -> `Mode
   | Set_mac _ -> `MAC
-
-let tag_to_data_size : tag -> int = function
-  | `Status -> Message.sizeof_status
-  | `Devinfo_rsp -> Message.sizeof_rsp_devinfo
-  | `Mode -> Message.sizeof_req_mode_main
-  | `MAC -> Message.sizeof_req_factory_mode
-  | `Devinfo_req -> 0
 
 let take_drop (n : int) (l : 'a list) =
   let rec aux i acc = function

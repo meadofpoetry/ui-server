@@ -29,22 +29,28 @@ let n_udp_aux = 12
     } [@@little_endian]]
 
 [%%cstruct
-  type req_mode_main =
+  type req_mode_main_prefix =
     { cmd : uint16_t
     ; ip : uint32_t
     ; mask : uint32_t
     ; gateway : uint32_t
     ; rfu : uint16_t [@len 17]
-    ; udp_descriptors : uint8_t [@len 200]
-    ; rfu_2 : uint16_t [@len 4]
     } [@@little_endian]]
 
 [%%cstruct
-  type req_mode_aux =
+  type req_mode_main_suffix =
+    { rfu : uint16_t [@len 4]
+    } [@@little_endian]]
+
+[%%cstruct
+  type req_mode_aux_prefix =
     { cmd : uint16_t
     ; rfu : uint16_t [@len 3]
-    ; udp_descriptors : uint8_t [@len 240]
-    ; rfu_2 : uint16_t [@len 4]
+    } [@@little_endian]]
+
+[%%cstruct
+  type req_mode_aux_suffix =
+    { rfu : uint16_t [@len 4]
     } [@@little_endian]]
 
 [%%cstruct

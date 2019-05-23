@@ -1,5 +1,6 @@
 (library
   (name board_niitv_tsan)
-  (libraries board_niitv_tsan_types
+  (libraries ts_error
+             board_niitv_tsan_types
              board_niitv_tsan_protocol
              board_niitv_tsan_http))

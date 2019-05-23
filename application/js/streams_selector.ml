@@ -267,7 +267,7 @@ module Input = struct
                          ; port }
            ; node = Entry (Input input) } in
          Ok { id = make_id source
-            ; orig_id = TSoIP { addr; port }
+            ; orig_id = TSoIP { scheme = "udp"; addr; port }
             ; typ = TS
             ; source
            }
