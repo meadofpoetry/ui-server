@@ -1,6 +1,5 @@
 open Netlib
 
-(* Overall types *)
 type mode =
   | ASI2IP
   | IP2ASI [@@deriving eq, enum]
@@ -13,8 +12,7 @@ type storage =
   | FLASH
   | RAM [@@deriving eq, enum]
 
-(* Ip types *)
-type receiver_status =
+type state =
   | On
   | Off
   | Fail [@@deriving yojson, eq, enum]
@@ -41,8 +39,7 @@ type rate_mode =
   | Without_pcr
   | Off [@@deriving yojson, eq, enum]
 
-(* ASI types *)
-type asi_packet_sz = Sz of packet_sz | Copy
+type asi_packet_sz = Sz of packet_sz | Copy [@@deriving yojson]
 
 type devinfo =
   { fpga_ver : int
@@ -61,7 +58,7 @@ type status =
   ; lost_after_fec : int64
   ; lost_before_fec : int64
   ; tp_per_ip : int
-  ; status : receiver_status
+  ; status : state
   ; protocol : protocol
   ; packet_size : packet_sz
   ; bitrate : int
@@ -122,7 +119,7 @@ let rate_mode_to_string = function
   | Fixed -> "fixed"
   | Without_pcr -> "without PCR"
 
-let receiver_status_to_string : receiver_status -> string = function
+let state_to_string : state -> string = function
   | On -> "on"
   | Off -> "off"
   | Fail -> "fail"

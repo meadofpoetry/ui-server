@@ -10,11 +10,6 @@ module Event = struct
       S.changes api.notifs.config
       |> E.map (fun x -> ip_receive_to_yojson x.ip_receive) in
     Lwt.return (`Ev event)
-
-  let get_status (api : Protocol.api) _user _body _env _state =
-    let event = E.map status_to_yojson api.notifs.status in
-    Lwt.return (`Ev event)
-
 end
 
 let get (api : Protocol.api) req to_yojson =
@@ -118,8 +113,8 @@ let set_multicast_address (api : Protocol.api) _user body _env _state =
 let get_tp_per_ip (api : Protocol.api) _user _body _env _state =
   get api Request.(TP_per_IP) Util_json.Int.to_yojson
 
-let get_receiver_status (api : Protocol.api) _user _body _env _state =
-  get api Request.(Status) receiver_status_to_yojson
+let get_status (api : Protocol.api) _user _body _env _state =
+  get api Request.(Status) state_to_yojson
 
 let get_protocol (api : Protocol.api) _user _body _env _state =
   get api Request.(Protocol) protocol_to_yojson

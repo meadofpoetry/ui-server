@@ -75,3 +75,7 @@ let set_dhcp (api : Protocol.api) _user body _env _state =
 let get_mac_address (api : Protocol.api) _user _body _env _state =
   api.channel Request.(Network MAC_address)
   >>=? return_value % Macaddr.to_yojson
+
+let reboot (api : Protocol.api) _user _body _env _state =
+  api.channel Request.(Network Reboot)
+  >>=? fun () -> Lwt.return `Unit

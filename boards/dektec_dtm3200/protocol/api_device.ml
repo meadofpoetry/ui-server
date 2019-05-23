@@ -56,7 +56,3 @@ let get_serial_number (api : Protocol.api) _user _body _env _state =
 let get_type (api : Protocol.api) _user _body _env _state =
   api.channel Request.(Device Type)
   >>=? return_value % Util_json.Int.to_yojson
-
-let reboot (api : Protocol.api) _user _body _env _state =
-  api.channel Request.(Network Reboot)
-  >>=? fun () -> Lwt.return `Unit
