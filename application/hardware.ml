@@ -334,7 +334,10 @@ let set_stream ?(port=1234) (hw : t) (ss : Stream.stream_setting) =
       |> filter_map Uri.host_v4
     in
     let boards = (*match Ipaddr.V4.gen_in_ranges ~forbidden (List.concat boards) with*)
-      Ipaddr.V4.gen_in_ranges ~forbidden (List.concat boards)
+      Ipaddr.V4.gen_in_ranges
+        ~forbidden
+        ~allowed:Netlib.Ipaddr.V4.multicast
+        (List.concat boards)
       |> (fun boards -> rebuild_boards port [] boards ss)
                      (*Url.gen_in_ranges ~forbidden (List.concat boards) with*)
      (* | Ok boards -> rebuild_boards [] boards ss

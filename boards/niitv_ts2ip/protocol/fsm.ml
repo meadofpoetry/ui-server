@@ -48,6 +48,7 @@ let request (type a)
     (stream : Request.msg Lwt_stream.t)
     (sender : Cstruct.t -> unit Lwt.t)
     (req : a Request.t) : (a, Request.error) result Lwt.t =
+  Logs.debug ~src (fun m -> m "Requesting \"%s\"" @@ Request.to_string req);
   sender @@ Serializer.serialize req
   >>= fun () ->
   (match req with
@@ -173,10 +174,7 @@ let start (src : Logs.src)
       [ wait_devinfo ()
       ; (Lwt_stream.next req_queue >>= fun x -> Lwt.return (`REQ x)) ]
     >>= function
-    | `REQ send ->
-      Lwt_stream.next req_queue
-      >>= fun send -> send rsp_queue
-      >>= client_loop
+    | `REQ send -> send rsp_queue >>= client_loop
     | `E -> Logs.err (fun m ->
         m "Got devinfo during operation, \
            seems the device is not responding...");
