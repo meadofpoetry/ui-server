@@ -68,13 +68,12 @@ class t (control : int) () =
     (** Private methods *)
 
     method private _create_settings () =
-      (fun s c r ->
-        Widget_settings.make ~state:s ~config:c ~receivers:r control)
-      |> Lift.l3 self#_state self#_config self#_receivers
-      |> Ui_templates.Loader.create_widget_loader
-      |> Widget.coerce
-      |> Dashboard.Item.make_item ~name:Widget_settings.name
-           ?settings:Widget_settings.settings
+      Widget_settings.(
+        (fun s c r -> make ~state:s ~config:c ~receivers:r control)
+        |> Lift.l3 self#_state self#_config self#_receivers
+        |> Ui_templates.Loader.create_widget_loader
+        |> Widget.coerce
+        |> Dashboard.Item.make_item ?settings ~name)
 
     (* method private _create_chart conf =
      *   (\* FIXME conf should not be an option *\)

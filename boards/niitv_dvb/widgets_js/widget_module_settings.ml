@@ -94,12 +94,15 @@ let make_plp (standard : standard option React.signal) () =
     | Some x -> plp#set_value x.channel.plp in
   plp, set, (fun () -> React.S.stop ~strong:true s_hide)
 
+type event =
+  [ `Mode of (int * mode) list
+  | `State of Topology.state
+  ]
+
 let make_mode_box ~(id : int)
-    ~(init : mode option)
-    ~(event : mode option React.event)
-    ~(state : Topology.state React.signal)
-    (control : int)
-    () =
+    ~(mode : (int * mode) list)
+    ~(state : Topology.state)
+    (control : int) =
   let std, set_std = make_standard () in
   let t_freq, set_t_freq, t_freq_close =
     make_freq ~terrestrial:true std#s_selected_value () in
@@ -109,14 +112,7 @@ let make_mode_box ~(id : int)
     make_bw std#s_selected_value () in
   let plp, set_plp, plp_close =
     make_plp std#s_selected_value () in
-  let box =
-    new Vbox.t
-      ~widgets:[ std#widget
-               ; t_freq#widget
-               ; c_freq#widget
-               ; bw#widget
-               ; plp#widget ]
-      () in
+  let state, set_state = React.S.create state in
   let s =
     React.S.l6 ~eq:(Equal.option @@ Equal.pair Int.equal equal_mode)
       (fun standard t_freq c_freq bw plp state ->
@@ -134,36 +130,51 @@ let make_mode_box ~(id : int)
       bw#s_selected_value
       plp#s_input
       state in
-  let s_set =
-    React.S.hold init ~eq:(Equal.option equal_mode) event
-    |> React.S.map ~eq:Equal.unit (fun (m : mode option) ->
+  let submit = fun (id, m) ->
+    Http_receivers.set_mode ~id m control
+    >|= (fun _ -> ()) in
+  object(self)
+    inherit Vbox.t
+        ~widgets:[ std#widget
+                 ; t_freq#widget
+                 ; c_freq#widget
+                 ; bw#widget
+                 ; plp#widget ]
+        () as super
+
+    method! init () : unit =
+      super#init ();
+      self#notify (`Mode mode)
+
+    method! destroy () : unit =
+      super#destroy ();
+      t_freq_close ();
+      c_freq_close ();
+      bw_close ();
+      plp_close ()
+
+    method notify : event -> unit = function
+      | `Mode mode ->
+        let m = List.Assoc.get ~eq:(=) id mode in
         (* NOTE standard should be updated first *)
         set_std m;
         set_t_freq m;
         set_c_freq m;
         set_bw m;
-        set_plp m) in
-  let s_dis =
-    React.S.map ~eq:Equal.unit (fun x ->
-        let is_disabled = match x with
-          | `Fine -> false
-          | _ -> true in
+        set_plp m
+      | `State s ->
+        set_state s;
+        let is_disabled = match s with `Fine -> false | _ -> true in
         std#set_disabled is_disabled;
         t_freq#set_disabled is_disabled;
         c_freq#set_disabled is_disabled;
         bw#set_disabled is_disabled;
-        plp#set_disabled is_disabled)
-      state in
-  let submit = fun (id, m) ->
-    Http_receivers.set_mode ~id m control
-    >|= (fun _ -> ()) in
-  box, s, submit, (fun () ->
-      t_freq_close ();
-      c_freq_close ();
-      bw_close ();
-      plp_close ();
-      React.S.stop ~strong:true s_set;
-      React.S.stop ~strong:true s_dis)
+        plp#set_disabled is_disabled
+
+    method submit = submit
+
+    method s = s
+  end
 
 let default_config = { id = 0 }
 
@@ -173,39 +184,22 @@ let name conf : string =
 
 let settings = None
 
-type event =
-  [ `Mode of (int * mode) list
-  | `State of Topology.state
-  ]
-
-(* class t () = object
- *   inherit Vbox.t ~widgets:[] ()
- * 
- *   method notify : event -> unit = function
- *     | `Mode _ -> ()
- *     | `State _ -> ()
- * 
- * end *)
-
-(* FIXME declare class instead *)
-let make ~(state : Topology.state React.signal)
-    ~(config : (int * mode) list React.signal)
-    (conf : widget_config option)
-    control =
-  let conf = Option.get_or ~default:default_config conf in
-  let get x = List.Assoc.get ~eq:(=) conf.id x in
-  let w, s, set, close =
-    make_mode_box ~id:conf.id
-      ~init:(get @@ React.S.value config)
-      ~event:(React.S.map ~eq:(Equal.option equal_mode) get config
-              |> React.S.changes)
-      ~state
-      control
-      () in
-  let apply = new Ui_templates.Buttons.Set.t s set () in
+class t ?(config = default_config) mode state control =
+  let mode_box = make_mode_box ~id:config.id ~mode ~state control in
+  let apply = new Ui_templates.Buttons.Set.t mode_box#s mode_box#submit () in
   let buttons = new Card.Actions.Buttons.t ~widgets:[apply] () in
   let actions = new Card.Actions.t ~widgets:[buttons] () in
-  let box = new Vbox.t ~widgets:[w#widget; actions#widget] () in
-  box#add_class base_class;
-  box#set_on_destroy close;
-  box#widget
+  object
+    inherit Vbox.t ~widgets:[mode_box#widget; actions#widget] () as super
+
+    method! init () : unit =
+      super#init ();
+      super#add_class base_class
+
+    method notify event =
+      mode_box#notify event
+
+  end
+
+let make ?config mode state control =
+  new t ?config mode state control

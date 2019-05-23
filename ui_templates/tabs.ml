@@ -6,7 +6,7 @@ module Markup = Components_markup
 
 type 'a dynamic_value = (unit -> #Widget.t as 'a)
 
-let create_simple ?body (tabs : ('a, Widget.t) Tab.t list) =
+let create_simple ?body (tabs : ('a, #Widget.t) Tab.t list) =
   let hide = fun w -> w#style##.display := Js.string "none" in
   let show = fun w -> w#style##.display := Js.string "" in
   let bar = new Tab_bar.t ~tabs () in
