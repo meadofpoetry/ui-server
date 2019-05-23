@@ -143,7 +143,7 @@ let set_udp_port port control =
 let get_ip_to_output_delay control =
   Api_http.perform
     ~meth:`GET
-    ~path:Path.Format.("api/board" @/ Int ^/ "receiver/ip-to_output_delay" @/ empty)
+    ~path:Path.Format.("api/board" @/ Int ^/ "receiver/ip-to-output-delay" @/ empty)
     ~query:Query.empty
     control
     (ignore_env_bind (Lwt.return % map_err % Util_json.Int.of_yojson))
@@ -152,7 +152,7 @@ let set_ip_to_output_delay delay control =
   Api_http.perform
     ~meth:`POST
     ~body:(Util_json.Int.to_yojson delay)
-    ~path:Path.Format.("api/board" @/ Int ^/ "receiver/ip-to_output_delay" @/ empty)
+    ~path:Path.Format.("api/board" @/ Int ^/ "receiver/ip-to-output-delay" @/ empty)
     ~query:Query.empty
     control
     (ignore_env_bind (Lwt.return % map_err % Util_json.Int.of_yojson))

@@ -16,13 +16,13 @@ let make_enable () =
   form#widget, set, en#s_state, en#set_disabled
 
 let make_fec () =
-  let en   = new Switch.t () in
+  let en = new Switch.t () in
   let form =
     new Form_field.t
       ~input:en
       ~label:"Включить FEC"
       ~align_end:true () in
-  let set (x : ip_receive) = en#set_checked x.enable in
+  let set (x : ip_receive) = en#set_checked x.fec_enable in
   form#widget, set, en#s_state, en#set_disabled
 
 let make_meth () =
@@ -61,8 +61,8 @@ let ( >>= ) = Lwt_result.( >>= )
 
 (* FIXME declare class instead *)
 let make ~(state : Topology.state React.signal)
-      ~(mode : ip_receive React.signal)
-      control =
+    ~(mode : ip_receive React.signal)
+    control =
   let en, set_en, s_en, dis_en = make_enable () in
   let fec, set_fec, s_fec, dis_fec = make_fec () in
   let meth, set_meth, s_meth, dis_meth = make_meth () in
@@ -70,20 +70,20 @@ let make ~(state : Topology.state React.signal)
   let mcast, set_mcast, s_mcast, dis_mcast = make_multicast () in
   let (s : ip_receive option React.signal) =
     React.S.l6 ~eq:(Util_equal.Option.equal equal_ip_receive)
-      (fun en fec meth udp_port multicast state ->
-        let ip_to_output_delay = (React.S.value mode).ip_to_output_delay in
-        let rate_mode = (React.S.value mode).rate_mode in
-        match udp_port, multicast, state with
-        | Some udp_port, Some multicast, `Fine ->
+      (fun en fec_enable meth udp_port multicast state ->
+         let ip_to_output_delay = (React.S.value mode).ip_to_output_delay in
+         let rate_mode = (React.S.value mode).rate_mode in
+         match udp_port, multicast, state with
+         | Some udp_port, Some multicast, `Fine ->
            Some ({ enable = en
-                 ; fec_enable = true
+                 ; fec_enable
                  ; multicast
                  ; ip_to_output_delay
                  ; addressing_method = (if meth then Multicast else Unicast)
                  ; udp_port
                  ; rate_mode
                  } : ip_receive)
-        | _ -> None)
+         | _ -> None)
       s_en s_fec s_meth s_port s_mcast state in
   let s_dis =
     React.S.map ~eq:(=) (fun state ->
