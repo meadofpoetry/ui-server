@@ -1,9 +1,7 @@
-open Board_types
-open Containers
+open Application_types
+open Board_dektec_dtm3200_types
+open Board_dektec_dtm3200_http_js
 open Components
-open Common
-
-type config = unit [@@deriving yojson]
 
 let base_class = "ip-dektec-receiver-settings"
 
@@ -14,7 +12,7 @@ let make_enable () =
       ~input:en
       ~label:"Включить приём TSoIP"
       ~align_end:true () in
-  let set (x : ip) = en#set_checked x.enable in
+  let set (x : ip_receive) = en#set_checked x.enable in
   form#widget, set, en#s_state, en#set_disabled
 
 let make_fec () =
@@ -24,7 +22,7 @@ let make_fec () =
       ~input:en
       ~label:"Включить FEC"
       ~align_end:true () in
-  let set (x : ip) = en#set_checked x.enable in
+  let set (x : ip_receive) = en#set_checked x.enable in
   form#widget, set, en#s_state, en#set_disabled
 
 let make_meth () =
@@ -34,7 +32,9 @@ let make_meth () =
       ~input:en
       ~label:"Включить Multicast"
       ~align_end:true () in
-  let set (x : ip) = en#set_checked @@ Option.is_some x.multicast in
+  let set (x : ip_receive) = match x.addressing_method with
+    | Unicast -> en#set_checked false
+    | Multicast -> en#set_checked true in
   form#widget, set, en#s_state, en#set_disabled
 
 let make_port () =
@@ -42,7 +42,7 @@ let make_port () =
     new Textfield.t
       ~label:"UDP порт"
       ~input_type:(Integer (Some 0, Some 65535)) () in
-  let set (x : ip) = port#set_value x.port in
+  let set (x : ip_receive) = port#set_value x.udp_port in
   port#widget, set, port#s_input, port#set_disabled
 
 let make_multicast () =
@@ -51,61 +51,60 @@ let make_multicast () =
       ~input_id:"mcast"
       ~label:"Multicast адрес"
       ~input_type:MulticastV4 () in
-  let set (x : ip) = match x.multicast with
-    | None -> ()
-    | Some x -> mcast#set_value x
-  in
+  let set (x : ip_receive) = mcast#set_value x.multicast in
   mcast#widget, set, mcast#s_input, mcast#set_disabled
 
 let name = "Настройки. Приём"
 let settings = None
 
+let ( >>= ) = Lwt_result.( >>= )
+
 (* FIXME declare class instead *)
 let make ~(state : Topology.state React.signal)
-      ~(mode : ip React.signal)
-      (_ : config option)
+      ~(mode : ip_receive React.signal)
       control =
   let en, set_en, s_en, dis_en = make_enable () in
   let fec, set_fec, s_fec, dis_fec = make_fec () in
   let meth, set_meth, s_meth, dis_meth = make_meth () in
   let port, set_port, s_port, dis_port = make_port () in
   let mcast, set_mcast, s_mcast, dis_mcast = make_multicast () in
-  let (s : ip option React.signal) =
-    React.S.l6 ~eq:(Equal.option equal_ip)
-      (fun en fec meth port mcast state ->
-        let delay = (React.S.value mode).delay in
+  let (s : ip_receive option React.signal) =
+    React.S.l6 ~eq:(Util_equal.Option.equal equal_ip_receive)
+      (fun en fec meth udp_port multicast state ->
+        let ip_to_output_delay = (React.S.value mode).ip_to_output_delay in
         let rate_mode = (React.S.value mode).rate_mode in
-        match port, meth, mcast, state with
-        | Some port, true, Some mcast, `Fine ->
+        match udp_port, multicast, state with
+        | Some udp_port, Some multicast, `Fine ->
            Some ({ enable = en
-                 ; fec
-                 ; multicast = Some mcast
-                 ; delay
-                 ; port
-                 ; rate_mode } : ip)
-        | Some port, false, _, `Fine      ->
-           Some ({ enable = en
-                 ; fec
-                 ; multicast = None
-                 ; delay
-                 ; port
-                 ; rate_mode } : ip)
+                 ; fec_enable = true
+                 ; multicast
+                 ; ip_to_output_delay
+                 ; addressing_method = (if meth then Multicast else Unicast)
+                 ; udp_port
+                 ; rate_mode
+                 } : ip_receive)
         | _ -> None)
       s_en s_fec s_meth s_port s_mcast state in
   let s_dis =
-    React.S.l2 ~eq:Equal.unit (fun mcast_en state ->
+    React.S.map ~eq:(=) (fun state ->
         let is_disabled = match state with
           | `Fine -> false
           | _     -> true in
-        List.iter (fun f -> f is_disabled) [dis_en;dis_fec;dis_meth;dis_port];
-        if is_disabled
-        then dis_mcast true
-        else dis_mcast @@ not mcast_en) s_meth state in
+        List.iter (fun f -> f is_disabled) [dis_en;dis_fec;dis_meth;dis_port])
+      state in
   let s_set =
-    React.S.map ~eq:Equal.unit (fun (ip : ip) ->
+    React.S.map ~eq:(=) (fun (ip : ip_receive) ->
         let setters = [ set_en; set_fec; set_meth; set_port; set_mcast ] in
         List.iter (fun f -> f ip) setters) mode in
-  let submit = fun x -> Requests.Receiver.HTTP.set_mode x control in
+  let submit (x : ip_receive) = Http_receiver.(
+      set_enable x.enable control
+      >>= fun _ -> set_fec_enable x.fec_enable control
+      >>= fun _ -> set_multicast_address x.multicast control
+      >>= fun _ -> set_ip_to_output_delay x.ip_to_output_delay control
+      >>= fun _ -> set_addressing_method x.addressing_method control
+      >>= fun _ -> set_udp_port x.udp_port control
+      >>= fun _ -> set_rate_estimation_mode x.rate_mode control
+      >>= fun _ -> Lwt.return_ok ()) in
   let apply = new Ui_templates.Buttons.Set.t s submit () in
   let buttons = new Card.Actions.Buttons.t ~widgets:[apply] () in
   let actions = new Card.Actions.t ~widgets:[buttons] () in

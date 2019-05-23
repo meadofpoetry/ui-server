@@ -79,6 +79,14 @@ let make_board_page (b : Topology.topo_board) =
       settings.widget#set_on_destroy factory#destroy;
       Widget.coerce settings.widget in
     Some getter
+  | "DekTec", "DTM-3200", _ ->
+    let open Board_dektec_dtm3200_widgets_js in
+    let getter = fun () ->
+      let factory = new Factory.t b.control () in
+      let settings = factory#create Settings in
+      settings.widget#set_on_destroy factory#destroy;
+      Widget.coerce settings.widget in
+    Some getter
   | _ -> None
 
 module Header = struct

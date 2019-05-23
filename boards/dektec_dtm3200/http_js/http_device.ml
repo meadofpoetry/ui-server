@@ -13,7 +13,7 @@ module Event = struct
       ~query:Query.empty
       control ()
     >>= fun socket ->
-    Api_websocket.subscribe_map socket Topology.of_yojson (f socket);
+    Api_websocket.subscribe_map socket Topology.state_of_yojson (f socket);
     Lwt.return_ok socket
 
   let get_info f control =

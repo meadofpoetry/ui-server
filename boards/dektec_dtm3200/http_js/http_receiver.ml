@@ -16,6 +16,14 @@ module Event = struct
     Lwt.return_ok socket
 end
 
+let get_config control =
+  Api_http.perform
+    ~meth:`GET
+    ~path:Path.Format.("api/board" @/ Int ^/ "receiver/config" @/ empty)
+    ~query:Query.empty
+    control
+    (ignore_env_bind (Lwt.return % map_err % ip_receive_of_yojson))
+
 let get_addressing_method control =
   Api_http.perform
     ~meth:`GET

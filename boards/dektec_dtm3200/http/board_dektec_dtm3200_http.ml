@@ -115,7 +115,12 @@ let handlers (control : int) (api : Protocol.api) =
               (Api_network.get_mac_address api)
           ]
       ; make ~prefix:"receiver"
-          [ node ~doc:"Returns addressing (Unicast or any-source multicast)"
+          [ node ~doc:"Integrated IP receiver configuration"
+              ~meth:`GET
+              ~path:(Path.Format.of_string "config")
+              ~query:Query.empty
+              (Api_receiver.get_config api)
+          ; node ~doc:"Returns addressing (Unicast or any-source multicast)"
               ~meth:`GET
               ~path:(Path.Format.of_string "addressing-method")
               ~query:Query.empty

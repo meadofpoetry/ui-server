@@ -1,3 +1,4 @@
+open Board_dektec_dtm3200_types
 open Containers
 open Components
 
@@ -117,11 +118,11 @@ module Make(M : M) = struct
 end
 
 module Status = struct
-  type t = Board_types.receiver_status
+  type t = state
   let to_string : t -> string = function
-    | Enabled  -> "Вкл"
-    | Disabled -> "Выкл"
-    | Failure  -> "Сбой"
+    | On -> "Вкл"
+    | Off -> "Выкл"
+    | Fail -> "Сбой"
 end
 
 module Float = struct
@@ -130,13 +131,13 @@ module Float = struct
 end
 
 module Protocol = struct
-  type t = Board_types.protocol
-  let to_string : t -> string = Board_types.protocol_to_string
+  type t = protocol
+  let to_string : t -> string = protocol_to_string
 end
 
 module Size = struct
-  type t = Board_types.packet_sz
-  let to_string : t -> string = Board_types.packet_sz_to_string
+  type t = packet_sz
+  let to_string : t -> string = packet_sz_to_string
 end
 
 module Bool = struct
@@ -153,9 +154,8 @@ module Size_param = Make(Size)
 module Bool_param = Make(Bool)
 module Float_param = Make(Float)
 
-let make (event :  Board_types.status React.event)
+let make (event : status React.event)
          (config : config) =
-  let open Board_types in
   let fmt_br x = float_of_int x /. 1_000_000. in
   let map f = React.E.map (fun x -> Some (f x)) in
   match config.typ with

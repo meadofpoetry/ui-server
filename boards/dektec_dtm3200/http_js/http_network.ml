@@ -7,7 +7,7 @@ module Event = struct
 
   let ( >>= ) = Lwt_result.( >>= )
 
-  let get_confing f control =
+  let get_config f control =
     Api_websocket.create
       ~path:Path.Format.("ws/board" @/ Int ^/ "network/config" @/ empty)
       ~query:Query.empty
@@ -103,7 +103,7 @@ let set_dhcp dhcp control =
   Api_http.perform
     ~meth:`POST
     ~body:(Util_json.Bool.to_yojson dhcp)
-    ~path:Path.Format.("api/board" @/ Int ^/ "network/ip-address" @/ empty)
+    ~path:Path.Format.("api/board" @/ Int ^/ "network/dhcp" @/ empty)
     ~query:Query.empty
     control
     (ignore_env_bind (Lwt.return % map_err % Util_json.Bool.of_yojson))

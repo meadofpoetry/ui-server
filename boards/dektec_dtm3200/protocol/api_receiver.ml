@@ -12,6 +12,11 @@ module Event = struct
     Lwt.return (`Ev event)
 end
 
+let get_config (api : Protocol.api) _user _body _env _state =
+  return_value
+  @@ ip_receive_to_yojson
+  @@ (React.S.value api.notifs.config).ip_receive
+
 let get (api : Protocol.api) req to_yojson =
   api.channel (Request.IP_receive req)
   >>=? return_value % to_yojson
