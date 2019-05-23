@@ -1,5 +1,3 @@
-open Common
-
 type widget_state =
   | Fine
   | No_sync

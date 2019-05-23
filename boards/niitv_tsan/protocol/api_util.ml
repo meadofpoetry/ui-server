@@ -11,12 +11,21 @@ let return_value x =
 let return_error e =
   Lwt.return (`Error (Request.error_to_string e))
 
+let map_stream_id streams =
+  Boards.Util.List.filter_map (fun (id, v) ->
+      match Stream.find_by_multi_id id streams with
+      | None -> None
+      | Some s -> Some (s.id, v))
+
 let ( >>= ) = Lwt.( >>= )
 
 let ( >>=? ) x f =
   x >>= function
   | Ok x -> f x
   | Error e -> return_error e
+
+let int_ms_to_float_s (x : int) =
+  float_of_int x /. 1000.
 
 let stream_pair_to_yojson f =
   Util_json.Pair.to_yojson Stream.ID.to_yojson f
@@ -34,14 +43,19 @@ let find_map_by_id id f l =
   | None -> None
   | Some x -> Some (f x)
 
+let filter_streams ids v = match ids with
+  | [] -> v
+  | ids -> List.filter (fun (s : Stream.t) ->
+      List.exists (Stream.ID.equal s.id) ids) v
+
 let filter_ids ids v = match ids with
   | [] -> v
   | ids -> List.filter (fun (id, _) -> List.exists (Stream.ID.equal id) ids) v
 
-let check_state (state : Application_types.Topology.state React.signal) f =
+let check_state (state : Application_types.Topology.state React.signal) =
   match React.S.value state with
-  | `Fine -> f ()
-  | `No_response | `Init | `Detect -> return_error Request.Not_responding
+  | `Fine -> Lwt.return_ok ()
+  | `No_response | `Init | `Detect -> Lwt.return_error Request.Not_responding
 
 let pids_to_yojson = Util_json.(
     List.to_yojson

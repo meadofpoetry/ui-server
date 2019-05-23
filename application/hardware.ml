@@ -186,9 +186,9 @@ let get_sources (topo : Topology.topo_entry list) uri_table boards =
           let board = `Board b.control in
           (* set previous uri preferences *)
           (* TODO proper Lwt type *)
-          External_uri_storage.Map.find_opt board uri_table
-          >|= h#set
-          |> ignore;
+          (* External_uri_storage.Map.find_opt board uri_table
+           * >|= h#set
+           * |> ignore; *)
           let controls = { controls with boards = Board.Ports.add b.control h controls.boards } in
           let signals =
             (React.S.l2 ~eq:eq_row (fun s st -> board, st, s)
@@ -334,7 +334,10 @@ let set_stream ?(port=1234) (hw : t) (ss : Stream.stream_setting) =
       |> filter_map Uri.host_v4
     in
     let boards = (*match Ipaddr.V4.gen_in_ranges ~forbidden (List.concat boards) with*)
-      Ipaddr.V4.gen_in_ranges ~forbidden (List.concat boards)
+      Ipaddr.V4.gen_in_ranges
+        ~forbidden
+        ~allowed:Netlib.Ipaddr.V4.multicast
+        (List.concat boards)
       |> (fun boards -> rebuild_boards port [] boards ss)
                      (*Url.gen_in_ranges ~forbidden (List.concat boards) with*)
      (* | Ok boards -> rebuild_boards [] boards ss

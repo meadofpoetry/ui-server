@@ -170,12 +170,15 @@ let get_entries = function
   | `CPU c -> List.map (fun i -> i.conn) c.ifaces
 
 let get_input_name (i : topo_input) =
-  let to_string s = Printf.sprintf "%s %d" s i.id in
+  let to_string s = Printf.sprintf "%s-%d" s i.id in
   match i.input with
   | RF -> to_string "RF"
   | TSOIP -> to_string "TSoIP"
   | ASI -> to_string "ASI"
   | SPI -> to_string "SPI"
+
+let get_board_name (b : topo_board) =
+  Printf.sprintf "%s %s" b.manufacturer b.model
 
 let get_inputs t =
   let rec get acc = function

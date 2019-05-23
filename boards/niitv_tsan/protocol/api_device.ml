@@ -35,8 +35,9 @@ module Event = struct
     Lwt.return (`Ev event)
 
   let get_t2mi_mode (api : Protocol.api) _user _body _env _state =
-    let event = E.map (fun (x : Parser.Status.t) ->
-        t2mi_mode_to_yojson x.t2mi_mode) api.notifs.status in
+    let event = E.map (fun (x : config) ->
+        t2mi_mode_to_yojson x.t2mi_mode)
+      @@ S.changes api.kv#s in
     Lwt.return (`Ev event)
 
 end
@@ -108,6 +109,9 @@ let get_info (api : Protocol.api) force _user _body _env _state =
     >>=? return_value % devinfo_to_yojson
 
 let get_errors (api : Protocol.api) timeout force _user _body _env _state =
+  let timeout = match timeout with
+    | None -> None
+    | Some x -> Some (int_ms_to_float_s x) in
   match force with
   | None | Some false ->
     let timeout = match timeout with
@@ -119,7 +123,7 @@ let get_errors (api : Protocol.api) timeout force _user _body _env _state =
       ; (Lwt_unix.sleep timeout >>= fun () -> Lwt.return_ok []) ]
     >>=? return_value % Util_json.List.to_yojson Deverr.to_yojson
   | Some true ->
-    let request_id = Serializer.get_request_id () in
+    let request_id = Request_id.next () in
     api.channel (Request.Get_deverr { request_id; timeout })
     >>=? return_value % Util_json.List.to_yojson Deverr.to_yojson
 

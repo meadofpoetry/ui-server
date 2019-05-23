@@ -208,10 +208,10 @@ module Query = struct
    *)
   let grep_arg (name : string) lst =
     let rec grep' acc = function
-      | [] -> [], lst
+      | [] -> None, lst
       | (title, arg)::tl ->
          if String.equal title name
-         then (arg, (List.rev acc) @ tl)
+         then (Some arg, (List.rev acc) @ tl)
          else grep' ((title, arg)::acc) tl
     in grep' [] lst
    
@@ -226,7 +226,7 @@ module Query = struct
     type t
     val typ : string
     val to_query : t -> string list option
-    val of_query : string list -> t
+    val of_query : string list option -> t
   end
 
   module String = struct
@@ -274,7 +274,9 @@ module Query = struct
   module List (E : Show) : Convert with type t = E.t list = struct
     type t = E.t list
     let typ = "list of " ^ E.typ
-    let of_query = List.map E.of_string
+    let of_query = function
+      | None -> []
+      | Some l -> List.map E.of_string l
     let to_query v = match v with
       | [] -> None
       | v  -> Some (List.map E.to_string v)
@@ -283,18 +285,20 @@ module Query = struct
   module Single (E : Show) : Convert with type t = E.t = struct
     type t = E.t
     let typ = "mandatory " ^ E.typ
-    let of_query = function [v] -> E.of_string v
-                          | [] -> raise_notrace Not_found
-                          | _ -> raise_notrace (Failure "Single")
+    let of_query = function
+      | None | Some [] -> raise_notrace Not_found
+      | Some [v] -> E.of_string v
+      | Some _ -> raise_notrace (Failure "Single")
     let to_query v = Some [ E.to_string v ]
   end
 
   module Option (E : Show) : Convert with type t = E.t option = struct
     type t = E.t option
     let typ = "optional " ^ E.typ
-    let of_query = function [] -> None
-                          | [v] -> Some (E.of_string v)
-                          | _ -> raise_notrace (Failure "Option")
+    let of_query = function
+      | None -> None
+      | Some [v] -> Some (E.of_string v)
+      | _ -> raise_notrace (Failure "Option")
     let to_query = function Some v -> Some [ E.to_string v ] | None -> None
   end
 

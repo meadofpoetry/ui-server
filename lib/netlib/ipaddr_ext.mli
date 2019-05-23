@@ -1,6 +1,14 @@
 module V4 : sig
   include module type of Ipaddr.V4 with type t = Ipaddr.V4.t
 
+  type range
+
+  val multicast : range
+
+  val range_of_pair : (t * t) -> range option
+
+  val range_to_pair : range -> (t * t)
+
   val equal : t -> t -> bool
 
   val to_yojson : t -> Yojson.Safe.json
@@ -11,11 +19,11 @@ module V4 : sig
 
   val succ : t -> t
 
-  val in_range : (t * t) -> t -> bool
+  val in_range : range -> t -> bool
 
-  val range_to_seq : (t * t) list -> t Seq.t
+  val range_to_seq : range list -> t Seq.t
 
-  val gen_in_ranges : ?forbidden:t list -> ('a * (t * t) list) list -> ('a * t) list
+  val gen_in_ranges : ?forbidden:t list -> allowed:range -> ('a * range list) list -> ('a * t) list
 
 end
 

@@ -1,8 +1,8 @@
+open Application_types
+open Board_niitv_tsan_types
 open Containers
 open Components
 open Widget_common
-open Board_types
-open Common
 
 type pid_flags =
   { has_pcr : bool
@@ -87,10 +87,11 @@ let update_row row total br =
    | Some v -> if br >. v then max#set_value (Some br));
   br, pct
 
-let pid_type_fmt : Mpeg_ts.Pid.Type.t Table.custom =
-  Mpeg_ts.Pid.Type.{ to_string
+let pid_type_fmt : MPEG_TS.PID.Type.t Table.custom =
+  MPEG_TS.PID.Type.{ to_string
                    ; compare
-                   ; is_numeric = false }
+                   ; is_numeric = false
+                   }
 
 let pid_flags_fmt : pid_flags Table.custom_elt =
   { to_elt = to_pid_flags
@@ -118,7 +119,7 @@ let make_table_fmt ?(is_hex = false) () =
     :: (to_sort_column "Max, Мбит/с", br_fmt)
     :: []
 
-let add_row (table : 'a Table.t) ((pid, info) : Pid.t) =
+let add_row (table : 'a Table.t) ((pid, info) : int * PID_info.t) =
   let open Table in
   let flags =
     { has_pcr = info.has_pcr
@@ -132,7 +133,7 @@ let add_row (table : 'a Table.t) ((pid, info) : Pid.t) =
   row
 
 class t ?(settings : Settings.t option)
-        (init : Pid.t list Time.timestamped option)
+        (init : (int * PID_info.t) list ts option)
         () =
   let init, timestamp = match init with
     | None -> [], None

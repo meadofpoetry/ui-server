@@ -275,7 +275,7 @@ module SI_PSI_section = struct
       ; table_id : int
       ; section_id : int
       ; section : string
-      ; content : Si_psi_parser.Node.t list option
+      ; content : Si_psi_parser_types.Node.t list option
       } [@@deriving yojson]
 
   end

@@ -6,6 +6,9 @@ open Netlib
 
 module List = Boards.Util.List
 
+(* TODO remove in 4.08 *)
+let get_exn = function Some x -> x | _ -> failwith "get_exn"
+
 let ( >>=? ) = Lwt_result.( >>= )
 
 let ( >>= ) = Lwt.( >>= )
@@ -75,6 +78,7 @@ let is_ipaddr_in_range range (a : Ipaddr.V4.t) =
     | _ -> true
 
 let apply_streams (api : Protocol.api) range ports streams =
+  let range = Ipaddr.V4.range_to_pair range in
   match React.S.value api.notifs.state with
   | `No_response | `Init | `Detect -> Lwt.return_error `Forbidden
   | `Fine ->
@@ -135,7 +139,11 @@ let create (b : Topology.topo_board)
          | `Fine, Some { packers_num; _ } -> `Limited packers_num
          | _ -> `Forbidden)
       api.notifs.state api.notifs.devinfo in
-  let range = (Ipaddr.V4.make 224 1 2 2, Ipaddr.V4.make 239 255 255 255) in
+  let range =
+    (Ipaddr.V4.make 224 1 2 2, Ipaddr.V4.make 239 255 255 255)
+    |> Ipaddr.V4.range_of_pair
+    |> get_exn
+  in
   let constraints = { Boards.Board. state = source_state; range = [range] } in
   let board =
     { Boards.Board.
