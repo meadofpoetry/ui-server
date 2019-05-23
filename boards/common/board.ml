@@ -35,7 +35,7 @@ let pp_error ppf : error -> unit = function
   | (`No_value _) as e -> Kv_v.pp_error ppf e
 
 type constraints =
-  { range : (Netlib.Ipaddr.V4.t * Netlib.Ipaddr.V4.t) list
+  { range : Netlib.Ipaddr.V4.range list
   ; state : Stream.Table.source_state React.signal
   }
 
