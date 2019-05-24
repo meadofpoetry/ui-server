@@ -6,8 +6,6 @@ open Netlib
 (* Here be dragons, desperately needs a complete rewrite *)
 (* TODO rewrite, especially the range constraints part *)
 
-module Map = Board.Ports
-
 module Uri_storage = Kv_v.RW (External_uri_storage)
 (* TODO remove after 4.08 *)
 let flip f x y = f y x
@@ -39,14 +37,14 @@ let partition_map f l =
   in loop [] [] l
 
 module Input_map =
-  CCMap.Make(struct
-      open Topology
-      type t = input * int
-      let compare (li, lid) (ri, rid) =
-        let ci = compare_input li ri in
-        if ci <> 0 then ci
-        else Stdlib.compare lid rid
-    end)
+  Map.Make(struct
+    open Topology
+    type t = input * int
+    let compare (li, lid) (ri, rid) =
+      let ci = compare_input li ri in
+      if ci <> 0 then ci
+      else Stdlib.compare lid rid
+  end)
 
 type in_push = Stream.Table.setting list -> unit
 

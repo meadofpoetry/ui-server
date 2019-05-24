@@ -3,5 +3,5 @@
   (libraries  pipeline_protocol
               api_websocket
               api_cohttp_template
-              components_markup
+              components_tyxml
               time_uri))

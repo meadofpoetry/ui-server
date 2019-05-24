@@ -6,10 +6,10 @@ module Api_http = Api_cohttp.Make(User)(Body)
 
 module Api_template = Api_cohttp_template.Make(User)
 
-module Icon = Components_markup.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
+module Icon = Components_tyxml.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
 let ( / ) = Filename.concat
-            
+
 let make_icon path =
   let open Icon.SVG in
   let path = create_path path () in
@@ -100,6 +100,6 @@ let pages () : Api_template.topmost Api_template.item list =
     ~restrict:[`Operator; `Guest]
     ~priority:(`Index 10)
     ~title:"Сервер"
-    ~icon:(make_icon Icon.SVG.Path.lan)
+    ~icon:(make_icon Components_tyxml.Svg_icons.lan)
     ~path:(Path.of_string "settings/server")
     props

@@ -7,7 +7,7 @@ module Api_template = Api_cohttp_template.Make(User)
 
 module Api_websocket = Api_websocket.Make(User)(Body)
 
-module Icon = Components_markup.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
+module Icon = Components_tyxml.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
                     
 let user_pages : Api_template.topmost Api_template.item list =
   let open Api_template in
@@ -26,7 +26,7 @@ let user_pages : Api_template.topmost Api_template.item list =
     ~restrict:[`Operator; `Guest]
     ~priority:(`Index 10)
     ~title:"Пользователи"
-    ~icon:(icon Icon.SVG.Path.settings)
+    ~icon:(icon Components_tyxml.Svg_icons.settings)
     ~path:(Path.of_string "settings/user")
     props
                 
@@ -95,7 +95,7 @@ let input topo (input : Topology.topo_input) =
        simple
          ~priority:(`Index input.id)
          ~title
-         ~icon:(icon Icon.SVG.Path.settings)
+         ~icon:(icon Components_tyxml.Svg_icons.settings)
          ~path:(Path.of_string @@ get_input_href input)
          input_template
      in
@@ -152,7 +152,7 @@ let application_pages (app : Application.t) =
     } in *)
   let topo = React.S.value app.topo in
   let hw_templates =
-    Hardware.Map.fold (fun _ (x : Boards.Board.t) acc -> x.templates @ acc)
+    Boards.Board.Ports.fold (fun _ (x : Boards.Board.t) acc -> x.templates @ acc)
       app.hw.boards []
   in
   let inputs = Topology.get_inputs topo in
@@ -163,12 +163,12 @@ let application_pages (app : Application.t) =
   subtree
     ~priority:(`Index 2)
     ~title:"Входы"
-    ~icon:(icon Icon.SVG.Path.arrow_right_box)
+    ~icon:(icon Components_tyxml.Svg_icons.arrow_right_box)
     (List.flatten input_templates)
   @ simple
     ~priority:(`Index 3)
     ~title:"Конфигурация"
-    ~icon:(icon Icon.SVG.Path.tournament)
+    ~icon:(icon Components_tyxml.Svg_icons.tournament)
     ~path:(Path.of_string "application")
     props
   @ hw_templates
@@ -258,7 +258,7 @@ let create templates (app : Application.t) foreign_pages foreing_handlers =
   in
   let application_api = application_handlers app in
   let board_api =
-    Hardware.Map.fold (fun _ x acc -> x.Boards.Board.http @ acc) app.hw.boards []
+    Boards.Board.Ports.fold (fun _ x acc -> x.Boards.Board.http @ acc) app.hw.boards []
     |> Api_http.merge ~prefix:"board"
   in
   let proc_api_list = match app.proc with
@@ -267,7 +267,7 @@ let create templates (app : Application.t) foreign_pages foreing_handlers =
   in
   let application_ws = application_ws app in
   let board_ws =
-    Hardware.Map.fold (fun _ x acc -> x.Boards.Board.ws @ acc) app.hw.boards []
+    Boards.Board.Ports.fold (fun _ x acc -> x.Boards.Board.ws @ acc) app.hw.boards []
     |> Api_http.merge ~prefix:"board"
   in
   let proc_ws_list = match app.proc with

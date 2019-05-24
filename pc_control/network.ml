@@ -3,8 +3,18 @@ open Nm
 module String_map = Map.Make(String)
 module React = Util_react
 
-open Containers
 open Lwt.Infix
+
+(* TODO remove after 4.08 *)
+let filter_map f l =
+  let rec recurse acc l = match l with
+    | [] -> List.rev acc
+    | x :: l' ->
+      let acc' = match f x with
+        | None -> acc
+        | Some y -> y :: acc in
+      recurse acc' l'
+  in recurse [] l
 
 let properties_changed interface =
   let open OBus_value in
@@ -22,7 +32,7 @@ let monitor proxy interface switch =
   >>= fun event ->
   OBus_property.get_all_no_cache proxy interface
   >>= fun (context, dict) ->
-  Lwt.return (S.fold_s ~eq:(String_map.equal Equal.poly)
+  Lwt.return (S.fold_s ~eq:(String_map.equal (==))
                 (fun (map : (OBus_context.t * OBus_value.V.single) String_map.t) (context, updates) ->
                   Lwt.return (OBus_property.update_map context updates map))
                 (OBus_property.map_of_list context dict)
@@ -33,10 +43,15 @@ module Nm = struct
   module Config = struct
     include Network_config
 
-    let (.%{}) table key  = List.assoc_opt ~eq:String.equal key table
+    let (.%{}) table key  = List.assoc_opt key table
     let (-->) v converter = v >>= converter
 
-    let reverse_int32 x =
+    let reverse_int32 (x : int32) =
+      let ( lsr ), ( lsl ), ( land ), ( + ) =
+        Int32.shift_right_logical,
+        Int32.shift_left,
+        Int32.logand,
+        Int32.add in
       let mask = 0xFFl in
       let (a,b,c,d) = Int32.(((x lsr 24) land mask), ((x lsr 16) land mask), ((x lsr 8) land mask), (x land mask)) in
       Int32.((d lsl 24) + (c lsl 16) + (b lsl 8) + a)
@@ -59,12 +74,12 @@ module Nm = struct
       in
       match v with
       | OBus_value.V.Array (OBus_value.T.Array (OBus_value.T.Basic OBus_value.T.Uint32), ars) -> 
-         Some (List.filter_map unwrap' ars)
+         Some (filter_map unwrap' ars)
       | _ -> None
-                                                                                        
+
     let unwrap_ip_list = function
       | OBus_value.V.Array (OBus_value.T.Basic OBus_value.T.Uint32, lst) ->
-         Some (List.filter_map
+         Some (filter_map
                  (function OBus_value.V.Basic OBus_value.V.Uint32 i -> Some (Ipaddr.V4.of_int32 @@ reverse_int32 i)
                          | _ -> None)
                  lst)
@@ -72,10 +87,11 @@ module Nm = struct
 
     let unwrap_bytes = function
       | OBus_value.V.Array (OBus_value.T.Basic OBus_value.T.Byte, lst) ->
-         let s = String.of_list (List.filter_map (function OBus_value.V.Basic OBus_value.V.Byte c -> Some c
-                                                         | _ -> None) lst)
-         in
-         Some (Bytes.of_string s)
+        let s = String.of_seq @@ List.to_seq (filter_map (function
+            | OBus_value.V.Basic OBus_value.V.Byte c -> Some c
+            | _ -> None) lst)
+        in
+        Some (Bytes.of_string s)
       | OBus_value.V.Byte_array s -> Some (Bytes.of_string s)
       | _ -> None
 
@@ -85,10 +101,15 @@ module Nm = struct
       | _ -> None
 
     let of_dbus d =
-      let open Option.Infix in
+      let ( >>= ) x f = match x with None -> None | Some x -> f x in
+      let ( <+> ) else_ a = match a with
+        | None -> else_
+        | Some _ -> a in
+
+      let result_to_opt = function Ok x -> Some x | Error _ -> None in
 
       let of_eth opts =
-        opts.%{"mac-address"} --> unwrap_bytes >>= fun x -> Result.to_opt @@ Macaddr.of_bytes @@ Bytes.to_string x
+        opts.%{"mac-address"} --> unwrap_bytes >>= fun x -> result_to_opt @@ Macaddr.of_bytes @@ Bytes.to_string x
         >>= fun mac_address -> Some { mac_address }
       in
       
@@ -107,13 +128,14 @@ module Nm = struct
       let of_ipv4 opts =
         let gateway =
           opts.%{"gateway"} --> unwrap_string
-          >>= fun x -> Result.to_opt @@ Ipaddr.V4.of_string x
+          >>= fun x -> result_to_opt @@ Ipaddr.V4.of_string x
         in
         let static =
           opts.%{"routes"} --> unwrap_address_list |> function Some l -> l | None -> []
         in
         let routes = { gateway; static } in
-        opts.%{"addresses"} --> unwrap_address_list >>= List.head_opt
+        opts.%{"addresses"} --> unwrap_address_list
+        >>= function [] -> None | hd :: _ -> Some hd
         >>= fun address ->
         opts.%{"dns"} --> unwrap_ip_list
         >>= fun dns ->
@@ -427,11 +449,13 @@ let create (kv : Kv.RW.t) =
 
   (* The External ETH *)
   begin match
-    Option.(>>=) config.extern (fun conf ->
+      match config.extern with
+      | None -> None
+      | Some conf ->
         List.find_opt (fun (typ, name, _proxy) ->
             Int32.equal Nm.Device.type_ethernet typ
             && String.equal conf.interface name)
-          devices)
+          devices
   with None -> Lwt.return_error (`No_network_device "external")
      | Some (_,name,proxy) -> eth_connection bus nm_proxy name proxy
   end
@@ -445,7 +469,9 @@ let create (kv : Kv.RW.t) =
      >>=? fun applied ->
      let default = match config.extern with
        | None   -> applied
-       | Some c -> Option.get_or (Network_settings.apply applied c) ~default:applied
+       | Some c -> match Network_settings.apply applied c with
+         | None -> applied
+         | Some x -> x
      in
      Net_options.create ~default kv internal_options
      >>=? fun options ->

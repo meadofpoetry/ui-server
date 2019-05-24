@@ -7,7 +7,7 @@ module Api_template = Api_cohttp_template.Make(User)
 
 module Api_websocket = Api_websocket.Make(User)(Body)
 
-module Icon = Components_markup.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
+module Icon = Components_tyxml.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
 let make_icon path =
   let open Icon.SVG in
@@ -28,7 +28,7 @@ let pages () : Api_template.topmost Api_template.item list =
   in
   simple ~priority:(`Index 1)
     ~title:"Мозаика"
-    ~icon:(make_icon Icon.SVG.Path.collage)
+    ~icon:(make_icon Components_tyxml.Svg_icons.collage)
     ~path:(Path.of_string "pipeline")
     props
   

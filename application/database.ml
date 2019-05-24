@@ -1,5 +1,12 @@
-open Containers
 open Application_types.Stream
+
+(* TODO remove after 4.08 *)
+module Option = struct
+  let map f = function None -> None | Some x -> Some (f x)
+  let bind f = function None -> None | Some x -> f x
+  let join = function Some (Some _ as o) -> o | _ -> None
+  let get = function Some v -> v | None -> invalid_arg "option is None"
+end
 
 module SID = struct
 
@@ -35,7 +42,7 @@ let log_entry =
       let board = match l.node with Some (Board x) -> Some x | _ -> None in
       let cpu = match l.node with Some (Cpu x) -> Some x | _ -> None in
       let pid = Option.map (fun (x : pid) -> x.id) l.pid in
-      let pid_typ = Option.flat_map (fun (x : pid) -> x.typ) l.pid in
+      let pid_typ = Option.(join @@ map (fun (x : pid) -> x.typ) l.pid) in
       Ok(l.time,
          (level,
           (l.message,
@@ -60,8 +67,7 @@ let log_entry =
                           (pid,
                            (pid_typ,
                             (service)))))))))))) ->
-      let open Application_types.Topology in
-      let level = Option.get_exn (Log_message.level_of_enum level) in
+      let level = Option.get (Log_message.level_of_enum level) in
       let pid = match pid with
         | None -> None
         | Some id -> Some { id; typ = pid_typ } in
@@ -70,9 +76,9 @@ let log_entry =
         | Some x, None -> Some (Log_message.Board x)
         | None, Some x -> Some (Cpu x)
         | Some _, Some _ -> assert false in
-      let input = Option.map2 (fun input id -> { input; id })
-                    Option.(input_typ >>= input_of_enum)
-                    input_id in
+      let input = match Option.bind input_of_enum input_typ, input_id with
+        | Some input, Some id -> Some { input; id }
+        | _ -> None in
       Ok { time; level; node; input; message; info; stream; pid; service })
 
 module Model = struct
