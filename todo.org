@@ -87,6 +87,7 @@
 - [ ] Refactor topology page
   - [ ] Show detailed status for boards
 - [ ] Add mosaic encoding settings (codec, bitrate, resolution)
+- [ ] Decrease number of websockets per page
   
 ** TODO Release candidate [0/1]:
 - [ ] Data server interaction
