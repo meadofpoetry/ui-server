@@ -1,0 +1,10 @@
+(library
+  (name       dashboard)
+  (libraries  components
+              dynamic_grid
+              dashboard_tyxml
+              yojson
+              ptime)
+  (preprocess (pps js_of_ocaml-ppx
+                   ppx_deriving_yojson
+                   ppx_deriving.eq)))

@@ -1,6 +1,5 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
-open Containers
 open Components
 open Wm_types
 open Basic_widgets
@@ -13,9 +12,9 @@ module Make(I : Item) = struct
 
   module Add = struct
 
-    let base_class = Markup.CSS.add_element base_class "add"
-    let item_class = Markup.CSS.add_element base_class "item"
-    let wrapper_class = Markup.CSS.add_element base_class "wrapper"
+    let base_class = Components_tyxml.BEM.add_element base_class "add"
+    let item_class = Components_tyxml.BEM.add_element base_class "item"
+    let wrapper_class = Components_tyxml.BEM.add_element base_class "wrapper"
 
     class item ~candidate ~candidates ~set_candidates ~widgets () =
       let data = I.to_yojson candidate
@@ -27,7 +26,7 @@ module Make(I : Item) = struct
         | None, Some h -> "null" ^ ":" ^ string_of_int h
         | None, None -> "null:null" in
       let typ = drag_type_prefix ^ wh in
-      let box = new Hbox.t ~widgets () in
+      let box = Box.make ~dir:`Row widgets in
       object
         inherit Widget.t box#root () as super
         inherit Touch_draggable.t ~data ~typ box#root ()
@@ -41,54 +40,54 @@ module Make(I : Item) = struct
           super#add_class item_class;
 
           let dragstart =
-            super#listen Widget.Event.dragstart (fun _ e ->
-                super#style##.opacity := Js.def @@ Js.string "0.5";
-                super#style##.zIndex  := Js.string "5";
+            Events.dragstarts super#root (fun e _ ->
+                super#root##.style##.opacity := Js.def @@ Js.string "0.5";
+                super#root##.style##.zIndex  := Js.string "5";
                 e##.dataTransfer##setData (Js.string typ) data;
-                true) in
+                Lwt.return_unit) in
           let dragend =
-            super#listen Widget.Event.dragend (fun _ e ->
-              let res = e##.dataTransfer##.dropEffect |> Js.to_string in
-              if (not @@ String.equal res "none") && candidate.unique
-              then (let cs = React.S.value candidates in
-                    let c  = List.filter (fun x -> not @@ I.equal x candidate)
-                               cs in
-                    set_candidates c);
-              box#style##.opacity := Js.def @@ Js.string "";
-              box#style##.zIndex  := Js.string "";
-              false) in
+            Events.dragends super#root (fun e _ ->
+                let res = e##.dataTransfer##.dropEffect |> Js.to_string in
+                if (not @@ String.equal res "none") && candidate.unique
+                then (let cs = React.S.value candidates in
+                      let c  = List.filter (fun x -> not @@ I.equal x candidate)
+                          cs in
+                      set_candidates c);
+                box#root##.style##.opacity := Js.def @@ Js.string "";
+                box#root##.style##.zIndex  := Js.string "";
+                Dom.preventDefault e;
+                Lwt.return_unit) in
           _dragstart <- Some dragstart;
           _dragend <- Some dragend
 
         method! destroy () : unit =
           super#destroy ();
-          Option.iter Dom_events.stop_listen _dragstart;
+          Utils.Option.iter Lwt.cancel _dragstart;
           _dragstart <- None;
-          Option.iter Dom_events.stop_listen _dragend;
+          Utils.Option.iter Lwt.cancel _dragend;
           _dragend <- None
       end
 
     let make_item candidates set_candidates (candidate : I.t) =
 
-      let text = new Typography.Text.t
-                   ~adjust_margin:false
-                   ~text:candidate.name () in
-      let box  = new item
-                   ~candidate
-                   ~candidates
-                   ~set_candidates
-                   ~widgets:[candidate.icon; text#widget] () in
+      let text = Typography.Text.make candidate.name in
+      let box = new item
+        ~candidate
+        ~candidates
+        ~set_candidates
+        ~widgets:[candidate.icon; text#widget] () in
       box
 
     let make ~candidates ~set_candidates () =
       let ph =
         Placeholder.make
           ~text:"Нет доступных виджетов"
-          ~icon:Icon.SVG.(create_simple Path.information) () in
+          ~icon:(Icon.SVG.make_simple Icon.SVG.Path.information)
+          () in
       let wrapper = Tyxml_js.Html.(div ~a:[a_class [wrapper_class]] [])
                     |> Tyxml_js.To_dom.of_element
                     |> Widget.create  in
-      let card = new Card.t ~widgets:[wrapper] () in
+      let card = Card.make [wrapper] in
       card#add_class base_class;
       let _ =
         React.S.map (function
@@ -105,14 +104,14 @@ module Make(I : Item) = struct
 
   module Properties = struct
 
-    let base_class = Markup.CSS.add_element base_class "properties"
+    let base_class = Components_tyxml.BEM.add_element base_class "properties"
 
     let make widgets (s : I.t Dynamic_grid.Item.t option React.signal) =
       let ph = Placeholder.make
-                 ~text:"Выберите элемент в раскладке"
-                 ~icon:Icon.SVG.(create_simple Path.gesture_tap)
-                 () in
-      let card = new Card.t ~widgets:[] () in
+          ~text:"Выберите элемент в раскладке"
+          ~icon:Icon.SVG.(make_simple Path.gesture_tap)
+          () in
+      let card = Card.make [] in
       let id = "wm-item-properties" in
       let actions_id = "wm-item-properties-actions" in
       let _ =
@@ -127,15 +126,14 @@ module Make(I : Item) = struct
                 let w = I.make_item_properties x#s_value x#set_value widgets in
                 let l =
                   List.map (fun { label; on_click } ->
-                      let b = new Button.t ~label () in
-                      b#listen Widget.Event.click (fun _ _ ->
-                          on_click (); true) |> ignore;
-                      b) w.actions
-                in
-                let buttons = new Card.Actions.Buttons.t ~widgets:l () in
-                let actions = new Card.Actions.t ~widgets:[buttons] () in
-                actions#set_id actions_id;
-                w.widget#set_id id;
+                      Button.make
+                        ~label
+                        ~on_click:(fun _ _ -> on_click (); Lwt.return_unit)
+                        ()) w.actions in
+                let buttons = Card.Actions.make_buttons l in
+                let actions = Card.Actions.make [buttons] in
+                actions#root##.id := Js.string actions_id;
+                w.widget#root##.id := Js.string id;
                 card#append_child w.widget;
                 card#append_child actions
              | None -> card#append_child ph))
@@ -152,8 +150,8 @@ module Make(I : Item) = struct
     let props = Properties.make [] selected in
     let title = Selectable_title.make [ add_title, add
                                       ; props_title, props ] in
-    let content = new Vbox.t ~widgets:[add#widget; props#widget] () in
-    let box = new Vbox.t ~widgets:[title#widget; content#widget] () in
+    let content = Box.make ~dir:`Column [add#widget; props#widget] in
+    let box = Box.make ~dir:`Column [title#widget; content#widget] in
     content#add_class base_class;
     let sel = function
       | `Add -> title#select_by_name add_title

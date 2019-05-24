@@ -1,5 +1,4 @@
 open Js_of_ocaml
-open Containers
 open Components
 open Application_types
 open Pipeline_types
@@ -40,11 +39,10 @@ type data = (data_source * Point.t list) list
 
 let colors =
   Random.init 255;
-  let st = Random.get_state () in
   Array.init 100 (fun _ ->
-      Random.run ~st (Random.int 255),
-      Random.run ~st (Random.int 255),
-      Random.run ~st (Random.int 255))
+      (Random.int 255),
+      (Random.int 255),
+      (Random.int 255))
 
 let get_suggested_range = function
   | `Black -> 0.0, 100.0
@@ -57,14 +55,14 @@ let get_suggested_range = function
 let filter (src : data_source) (filter : data_filter list) : bool =
   let check_pid pid = function
     | [] -> true
-    | pids -> List.mem ~eq:Int.equal pid pids in
+    | pids -> List.mem pid pids in
   let check_service service pid = function
     | [] -> true
     | services ->
-       List.fold_while (fun _ (x : service_filter) ->
-           if service = x.service_id
-           then check_pid pid x.pids, `Stop
-           else false, `Continue) false services in
+      Utils.List.fold_while (fun _ (x : service_filter) ->
+          if service = x.service_id
+          then check_pid pid x.pids, `Stop
+          else false, `Continue) false services in
   let { stream; service; pid } = src in
   let rec aux = function
     | [] -> false
@@ -104,9 +102,9 @@ let convert_video_data (config : widget_config)
                 | `Blocky -> error.params.min
                 | _ -> failwith "not an audio chart"
           } in
-        List.Assoc.update ~eq:equal_data_source
-          ~f:(function None -> Some [point]
-                     | Some l -> Some (point :: l))
+        Utils.List.Assoc.update ~eq:equal_data_source
+          (function None -> Some [point]
+                  | Some l -> Some (point :: l))
           src acc) [] d
 
 let convert_audio_data (config : widget_config)
@@ -128,18 +126,18 @@ let convert_audio_data (config : widget_config)
           { x = error.timestamp
           ; y = error.params.avg
           } in
-        List.Assoc.update ~eq:equal_data_source
-          ~f:(function
-              | None -> Some [point]
-              | Some l -> Some (point :: l))
+        Utils.List.Assoc.update ~eq:equal_data_source
+          (function
+            | None -> Some [point]
+            | Some l -> Some (point :: l))
           src acc) [] d
 
 let data_source_to_string (structures : Structure.packed list)
       (src : data_source) : string =
   let open Structure in
-  match List.find_map (fun ({ structure = x; _ } : packed) ->
-            if Stream.ID.equal x.id src.stream
-            then Some x else None) structures with
+  match Utils.List.find_map (fun ({ structure = x; _ } : packed) ->
+      if Stream.ID.equal x.id src.stream
+      then Some x else None) structures with
   | None -> ""
   | Some { channels; _ } ->
      begin match List.find_opt (fun (x : channel) ->
@@ -277,10 +275,10 @@ let make_datasets (init : data)
     : (data_source * Dataset.t) list =
   let map id (src : data_source) =
     let data =
-      List.find_map (fun (src', data) ->
+      Utils.List.find_map (fun (src', data) ->
           if equal_data_source src src'
           then Some data else None) init
-      |> Option.get_or ~default:[] in
+      |> function None -> [] | Some x -> x in
     make_dataset id src structures data in
   List.mapi map sources
 
@@ -309,14 +307,13 @@ class t ~(init : 'a list)
       super#append_child @@ Widget.create canvas;
       (* FIXME maybe remove this map and call 'udpdate'
        * from the top level if needed? *)
-      React.S.map ~eq:Equal.unit self#update_structures structures
-      |> self#_keep_s
+      Lwt_react.S.keep @@ React.S.map ~eq:(=) self#update_structures structures
 
     method append_data (data : data) : unit =
       List.iter (fun (src, (data : Point.t list)) ->
           let data = List.sort (fun (a : Point.t) (b : Point.t) ->
                          Ptime.compare a.x b.x) data in
-          match List.Assoc.get ~eq:equal_data_source src _datasets with
+          match Utils.List.Assoc.get ~eq:equal_data_source src _datasets with
           | None ->
              begin match config.sources with
              | [] ->
@@ -348,8 +345,8 @@ class t ~(init : 'a list)
 
   end
 
-let make_dashboard_item ~init ~structures ~config () =
-  let widget = new t ~init ~structures ~config () in
-  Dashboard.Item.make_item
-    ~name:(typ_to_string config.typ)
-    widget
+(* let make_dashboard_item ~init ~structures ~config () =
+ *   let widget = new t ~init ~structures ~config () in
+ *   Dashboard.Item.make_item
+ *     ~name:(typ_to_string config.typ)
+ *     widget *)

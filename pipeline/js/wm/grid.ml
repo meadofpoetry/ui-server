@@ -1,10 +1,11 @@
 open Js_of_ocaml
-open Containers
 open Components
 open Wm_types
 open Basic_widgets
 
 let base_class = "wm-grid"
+
+module Option = Utils.Option
 
 module Make(I : Item) = struct
 
@@ -30,11 +31,11 @@ module Make(I : Item) = struct
     let s_active, set_active =
       React.S.create @@ List.hd @@ React.S.value s_layers in
     let wrapper = Widget.create_div () in
-    let title = new Typography.Text.t ~adjust_margin:false ~text:title () in
-    let grid_on = Icon.SVG.(create_simple Path.grid) in
-    let grid_off = Icon.SVG.(create_simple Path.grid_off) in
+    let title = Typography.Text.make title in
+    let grid_on = Icon.SVG.(make_simple Path.grid) in
+    let grid_off = Icon.SVG.(make_simple Path.grid_off) in
     let grid_icon =
-      new Icon_button.t
+      Icon_button.make
         ~on:is_grid_on
         ~on_icon:grid_on
         ~icon:grid_off
@@ -48,17 +49,16 @@ module Make(I : Item) = struct
      * let menu_wrap = new Menu.Wrapper.t ~anchor ~menu () in
      * let menu_block = new Hbox.t ~widgets:[ menu_text#widget
      *                                      ; menu_wrap#widget ] () in *)
-    let icons = new Hbox.t ~widgets:[ grid_icon#widget
-                                    (* ; menu_block#widget *) ] () in
-    let header = new Hbox.t ~widgets:[ title#widget
-                                     ; icons#widget ] () in
+    let icons = Box.make ~dir:`Row [grid_icon#widget (* ; menu_block#widget *)] in
+    let header = Box.make ~dir:`Row [title#widget; icons#widget] in
+    let elt = Dom_html.(createDiv document) in
     object(self)
 
-      inherit Vbox.t ~widgets:[header#widget; wrapper#widget] () as super
+      inherit Widget.t elt () as super
 
       val s_sel =
         let eq = fun _ _ -> false in
-        React.S.map ~eq:Equal.physical
+        React.S.map ~eq:(==)
           (fun x ->
             let s = React.S.hold ~eq [] x#e_selected in
             React.S.map ~eq (function [x] -> Some x | _ -> None) s)
@@ -75,6 +75,11 @@ module Make(I : Item) = struct
 
       method! init () : unit =
         super#init ();
+        super#add_class Box.CSS.horizontal;
+        super#add_class (Box.CSS.justify_content `Center);
+        super#add_class Box.CSS.root;
+        super#append_child header#widget;
+        super#append_child wrapper#widget;
         self#initialize resolution init;
         (* update available grids *)
         let eq = (fun _ _ -> false) in
@@ -110,21 +115,21 @@ module Make(I : Item) = struct
          *     menu#show ();
          *     Lwt.return_unit) |> Lwt.ignore_result; *)
         (* anchor#set_align_items `Center; *)
-        title#add_class @@ Markup.CSS.add_element base_class "title";
-        (* menu_block#add_class @@ Markup.CSS.add_element base_class "grid-select"; *)
-        icons#add_class @@ Markup.CSS.add_element base_class "right-menu";
-        grid_icon#add_class  @@ Markup.CSS.add_element base_class "menu";
-        header#add_class @@ Markup.CSS.add_element base_class "header";
-        React.S.l2 (fun conf grid ->
-            let value = if conf
-                        then (grid#overlay_grid#show ();
-                              Js.string "true")
-                        else (grid#overlay_grid#hide ();
-                              Js.string "false") in
-            match Js.Optdef.to_option storage with
-            | None -> ()
-            | Some x -> x##setItem (Js.string "grid_icon") value)
-          grid_icon#s_state s_active |> ignore;
+        title#add_class @@ Components_tyxml.BEM.add_element base_class "title";
+        (* menu_block#add_class @@ Components_tyxml.BEM.add_element base_class "grid-select"; *)
+        icons#add_class @@ Components_tyxml.BEM.add_element base_class "right-menu";
+        grid_icon#add_class  @@ Components_tyxml.BEM.add_element base_class "menu";
+        header#add_class @@ Components_tyxml.BEM.add_element base_class "header";
+        (* React.S.l2 (fun conf grid ->
+         *     let value = if conf
+         *                 then (grid#overlay_grid#show ();
+         *                       Js.string "true")
+         *                 else (grid#overlay_grid#hide ();
+         *                       Js.string "false") in
+         *     match Js.Optdef.to_option storage with
+         *     | None -> ()
+         *     | Some x -> x##setItem (Js.string "grid_icon") value)
+         *   grid_icon#s_state s_active |> ignore; *)
         React.S.map (fun x -> x#set_active true) s_active |> ignore;
         React.S.diff (fun _ o ->
             o#set_active false;
@@ -134,7 +139,7 @@ module Make(I : Item) = struct
             let grids = React.S.value s_layers in
             match e with
             | `Selected x ->
-               let grid = List.find_pred (fun g -> g#layer = x) grids in
+               let grid = List.find_opt (fun g -> g#layer = x) grids in
                Option.iter (fun g -> set_active g) grid
             | `Added x ->
                let grid = new G.t ~layer:x ~init:[] ~s_grid
@@ -142,21 +147,20 @@ module Make(I : Item) = struct
                wrapper#append_child grid;
                set_layers (grid :: grids)
             | `Removed x ->
-               let grid = List.find_pred (fun g -> g#layer = x) grids in
+               let grid = List.find_opt (fun g -> g#layer = x) grids in
                Option.iter (fun x ->  wrapper#remove_child x) grid;
                set_layers @@ List.filter (fun g -> g#layer <> x) grids
             | `Visibility (x, b) ->
-               let grid = List.find_pred (fun g -> g#layer = x) grids in
+               let grid = List.find_opt (fun g -> g#layer = x) grids in
                Option.iter (fun x -> x#set_visible b) grid
             | `Changed l  ->
                List.iter (fun g ->
-                   match List.Assoc.get ~eq:(=) g#layer l with
+                   match List.assoc_opt g#layer l with
                    | Some n -> g#set_layer n
                    | None -> ()) grids)
           e_layers |> ignore;
         super#add_class base_class;
-        super#set_justify_content `Center;
-        wrapper#add_class @@ Markup.CSS.add_element base_class "wrapper"
+        wrapper#add_class @@ Components_tyxml.BEM.add_element base_class "wrapper"
 
       method e_item_dblclick = e_dblclick
       method e_item_delete = e_delete
@@ -202,14 +206,16 @@ module Make(I : Item) = struct
         set_grid grid;
         let grouped =
           List.fold_left (fun acc (x:I.t) ->
-              List.Assoc.update ~eq:(=) ~f:(function
+              Utils.List.Assoc.update ~eq:(=) (function
                   | Some l -> Some (x :: l)
                   | None -> Some [x]) (I.layer_of_t x) acc)
             [] items in
         let layers =
           List.map (fun x ->
-              let items = List.Assoc.get ~eq:(=) x grouped in
-              let init = Option.get_or ~default:[] items in
+              let items = List.assoc_opt x grouped in
+              let init = match items with
+                | None -> []
+                | Some x -> x  in
               let grid = new G.t ~layer:x ~init ~s_grid ~resolution () in
               wrapper#append_child grid;
               grid) @@ List.sort compare (I.layers_of_t_list items) in

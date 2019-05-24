@@ -1,11 +1,10 @@
-open Containers
+open Js_of_ocaml
 open Components
 open Pipeline_types
 
 module Utils = struct
 
-  let gcd = Components.Utils.gcd
-  let resolution_to_aspect = Components.Utils.resolution_to_aspect
+  include Components.Utils
 
   let get_factors i =
     let rec aux acc cnt =
@@ -16,7 +15,6 @@ module Utils = struct
     aux [] i
 
   let get_grids ~resolution ~positions () =
-    let cmp = Pair.compare compare compare in
     let (w, h) = resolution in
     let (ax, ay) = resolution_to_aspect resolution in
     let grids =
@@ -30,11 +28,10 @@ module Utils = struct
                  then true,`Continue
                  else false,`Stop) true positions)
     in
-    List.sort cmp grids
+    List.sort Stdlib.compare grids
 
   let get_best_grid ?(cols = 90) ~resolution grids =
-    let cmp = Pair.compare compare compare in
-    let grids = List.sort cmp grids in
+    let grids = List.sort Stdlib.compare grids in
     List.fold_left (fun acc (c,r) ->
         if (c - cols) < (fst acc - cols) && c - cols > 0
         then (c, r) else acc) resolution grids
@@ -63,29 +60,33 @@ module Text_row = struct
 
   class t ?icon ?text ?s ~label () =
     let _class = "wm-property-row" in
-    let nw = new Typography.Text.t ~text:label () in
+    let nw = Widget.coerce @@ Typography.Text.make label in
     let vw = match icon with
-      | Some icon -> (new Icon.Font.t ~icon ())#widget
-      | None -> let text = Option.get_or ~default:"-" text in
-                (new Typography.Text.t ~text ())#widget
+      | Some icon -> (Icon.Font.make icon)#widget
+      | None ->
+        let text = match text with Some x -> x | None -> "-" in
+        (Typography.Text.make text)#widget
     in
+    let elt = Box.make_element ~dir:`Row ~justify_content:`Space_between [nw; vw] in
     object
-      inherit Hbox.t ~halign:`Space_between
-                ~widgets:[Widget.coerce nw; Widget.coerce vw]
-                () as super
+      inherit Box.t elt () as super
       val mutable _s = None
+
       method! init () : unit =
         super#init ();
         super#add_class _class;
-        vw#add_class @@ Markup.CSS.add_element _class "value";
-        nw#add_class @@ Markup.CSS.add_element _class "label";
+        vw#add_class @@ Components_tyxml.BEM.add_element _class "value";
+        nw#add_class @@ Components_tyxml.BEM.add_element _class "label";
         match s with
         | None -> ()
-        | Some s -> _s <- Some (React.S.map (fun x -> vw#set_text_content x) s)
+        | Some s -> _s <- Some (React.S.map (fun x ->
+            vw#root##.textContent := Js.some @@ Js.string x) s)
+
       method! destroy () : unit =
         super#destroy ();
-        Option.iter (React.S.stop ~strong:true) _s;
+        Utils.Option.iter (React.S.stop ~strong:true) _s;
         _s <- None
+
       method has_icon = icon
       method get_value_widget = vw
       method get_label_widget = nw
@@ -97,24 +98,26 @@ module Item_info = struct
 
   (* FIXME use bem *)
   let _class = "wm-grid-item__info"
-  let line_class = Markup.CSS.add_element _class "line"
+  let line_class = Components_tyxml.BEM.add_element _class "line"
 
   let make_info icon info =
-    let icon = new Icon.Font.t ~icon () in
+    let icon = Icon.Font.make icon in
     let info = List.map (fun (label, text) ->
                    new Text_row.t ~label ~text () |> Widget.coerce) info in
-    let box = new Vbox.t ~widgets:([icon#widget] @ info) () in
+    let box = Box.make ~dir:`Column ([icon#widget] @ info) in
     box#add_class _class;
     box#widget
 
   let make_container_info (item : Wm.container Wm_types.wm_item) =
-    let text = new Typography.Text.t ~text:item.name () in
-    let line_1 = new Hbox.t ~valign:`Center
-                   ~widgets:[item.icon; text#widget] () in
+    let text = Typography.Text.make item.name in
+    let line_1 = Box.make
+        ~dir:`Column
+        ~justify_content:`Center
+        [item.icon; text#widget] in
     let lines = [line_1#widget] in
-    let box = new Vbox.t ~widgets:lines () in
+    let box = Box.make ~dir:`Column lines in
     line_1#add_class
-    @@ Markup.CSS.add_modifier line_class "with-icon";
+    @@ Components_tyxml.BEM.add_modifier line_class "with-icon";
     List.iter (fun x -> x#add_class line_class) lines;
     box#add_class _class;
     box#widget
@@ -128,12 +131,12 @@ module Item_info = struct
         | None -> ""
         | Some pid -> string_of_int pid in
       Printf.sprintf "%s PID:%s" typ pid in
-    let line_2 = new Typography.Text.t ~text () in
+    let line_2 = Typography.Text.make text in
     (* let line_3 = new Typography.Text.t ~text:item.item.description () in *)
     let lines = [line_2#widget] in
-    let box = new Vbox.t ~widgets:lines () in
+    let box = Box.make ~dir:`Column lines in
     line_2#add_class
-    @@ Markup.CSS.add_modifier line_class "with-icon";
+    @@ Components_tyxml.BEM.add_modifier line_class "with-icon";
     List.iter (fun x -> x#add_class line_class) lines;
     box#add_class _class;
     box#widget
@@ -149,10 +152,10 @@ module Item_properties = struct
   let make_container_props (t : t_cont React.signal) =
     let s_name = React.S.map (fun (x : t_cont) -> x.name) t in
     let name = new Text_row.t ~label:"Имя" ~s:s_name () in
-    let s_num = React.S.map (fun (x:t_cont) ->
-                    string_of_int @@ List.length x.item.widgets) t in
-    let num  = new Text_row.t ~label:"Количество виджетов" ~s:s_num () in
-    let box  = new Vbox.t ~widgets:[name#widget; num#widget] () in
+    let s_num = React.S.map (fun (x : t_cont) ->
+        string_of_int @@ List.length x.item.widgets) t in
+    let num = new Text_row.t ~label:"Количество виджетов" ~s:s_num () in
+    let box = Box.make ~dir:`Column [name#widget; num#widget] in
     Wm_types.{ widget = box#widget; actions = [] }
 
   let make_video_props (t : t_widg React.signal) =
@@ -162,7 +165,7 @@ module Item_properties = struct
                    ~text:(Wm.aspect_to_string v.item.aspect) () in
     let descr = new Text_row.t ~label:"Описание"
                   ~text:v.item.description () in
-    let box = new Vbox.t ~widgets:[typ;aspect;descr] () in
+    let box = Box.make ~dir:`Column [typ;aspect;descr] in
     Wm_types.{ widget = box#widget; actions = [] }
 
   let make_audio_props (t : t_widg React.signal) =
@@ -172,7 +175,7 @@ module Item_properties = struct
                    ~text:(Wm.aspect_to_string v.item.aspect) () in
     let descr = new Text_row.t ~label:"Описание"
                   ~text:v.item.description () in
-    let box = new Vbox.t ~widgets:[typ;aspect;descr] () in
+    let box = Box.make ~dir:`Column [typ;aspect;descr] in
     Wm_types.{ widget = box#widget; actions = [] }
 
   let make_widget_props (t : t_widg React.signal) =
@@ -182,37 +185,37 @@ module Item_properties = struct
 
 end
 
-module Settings_dialog = struct
-
-  let make config =
-    let open Wm_types in
-    let show_grid_switch = new Switch.t () in
-    let show_grid = new Form_field.t ~align_end:true
-                      ~input:show_grid_switch
-                      ~label:"Показывать сетку" () in
-    let box = new Vbox.t ~widgets:[show_grid#widget] () in
-    let accept = new Button.t ~label:"Применить" () in
-    let d =
-      new Dialog.t
-        ~title:"Настройки редактора мозаики"
-        ~actions:[Dialog.Action.make ~typ:`Accept accept]
-        ~content:(`Widgets [ box#widget ])
-        () in
-    let s, push = React.S.create config in
-    let _ =
-      React.E.map (function
-          | `Accept -> let v = React.S.value show_grid_switch#s_state in
-                       push { show_grid_lines = v }
-          | `Cancel -> ()) d#e_action in
-    show_grid_switch#set_checked config.show_grid_lines;
-    d#add_class "wm-editor-config-dialog";
-    d, s
-
-end
+(* module Settings_dialog = struct
+ * 
+ *   let make config =
+ *     let open Wm_types in
+ *     let show_grid =
+ *       Form_field.make
+ *         ~align_end:true
+ *         ~label:"Показывать сетку"
+ *         (Switch.make ()) in
+ *     let box = Box.make ~direction:`Column [show_grid] in
+ *     let accept = Button.make ~label:"Применить" () in
+ *     let d =
+ *       Dialog.make
+ *         ~title:(Dialog.Markup.create_title_simple "Настройки редактора мозаики" ())
+ *         ~actions:[Dialog.Action.make ~typ:`Accept accept]
+ *         ~content:[box#widget]
+ *         () in
+ *     let s, push = React.S.create config in
+ *     let _ =
+ *       React.E.map (function
+ *           | `Accept -> push { show_grid_lines = show_grid#input#checked }
+ *           | `Cancel -> ()) d#e_action in
+ *     show_grid#input#toggle ~force:config.show_grid_lines ();
+ *     d#add_class "wm-editor-config-dialog";
+ *     d, s
+ * 
+ * end *)
 
 module Placeholder = struct
   let make ~text ~icon () =
-    let ph = Ui_templates.Placeholder.create_with_icon ~text ~icon () in
+    let ph = Ui_templates.Placeholder.With_icon.make ~text ~icon () in
     ph#add_class "wm-placeholder";
     ph
 end

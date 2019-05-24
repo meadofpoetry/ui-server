@@ -1,0 +1,3 @@
+(library
+  (name      dashboard_tyxml)
+  (libraries components_tyxml))

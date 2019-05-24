@@ -1,11 +1,11 @@
-open Containers
+open Js_of_ocaml
 open Components
 open Pipeline_types
 
 type icon = Widget.t
 
 let icon_to_yojson w =
-  `String w#outer_html
+  `String (Js.to_string w#root##.outerHTML)
 
 let icon_of_yojson = function
   | `String s ->
@@ -17,8 +17,8 @@ let icon_of_yojson = function
         |> Js.Unsafe.coerce in
       Ok (Widget.create elt))
   | _ -> Error "bad json"
-let equal_icon x y =
-  Equal.physical x#root y#root
+
+let equal_icon x y = Widget.equal x y
 
 type 'a wm_item =
   { icon : icon

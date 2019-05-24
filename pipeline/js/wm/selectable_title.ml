@@ -1,26 +1,21 @@
-open Containers
 open Components
 
 let base_class = "wm-selectable-title"
 
 class title ~title ~widget () =
-  let title_class = Markup.CSS.add_element base_class  "title" in
-  let active_class = Markup.CSS.add_modifier title_class "active" in
+  let title_class = Components_tyxml.BEM.add_element base_class "title" in
+  let active_class = Components_tyxml.BEM.add_modifier title_class "active" in
+  let elt = Typography.Text.make_element ~font:Subtitle_2 title in
   object
-
-    inherit Typography.Text.t
-              ~adjust_margin:false
-              ~text:title
-              ~font:Subtitle_2
-              () as super
+    inherit Typography.Text.t elt () as super
 
     method! init () : unit =
       super#init ();
       super#add_class title_class
 
     method set_active (x : bool) : unit =
-      super#add_or_remove_class x active_class;
-      widget#style##.display := Js_of_ocaml.Js.string (if x then "" else "none")
+      super#toggle_class ~force:x active_class;
+      widget#root##.style##.display := Js_of_ocaml.Js.string (if x then "" else "none")
 
     method get_title : string = title
 
@@ -30,16 +25,17 @@ class t titles () =
   let (titles : title list) =
     List.map (fun (title, widget) ->
         new title ~title ~widget ()) titles in
+  let elt = Box.make_element ~dir:`Row titles in
   object(self)
 
-    inherit Hbox.t ~widgets:titles () as super
+    inherit Box.t elt () as super
 
     method! init () : unit =
       super#init ();
       super#add_class base_class;
       let _ =
         List.map (fun (w : #Widget.t) ->
-            w#listen_click_lwt (fun _ _ -> self#select w; Lwt.return_unit))
+            Events.clicks w#root (fun _ _ -> self#select w; Lwt.return_unit))
           self#titles in
       match self#titles with
       | [] -> failwith "Titles must not be empty"

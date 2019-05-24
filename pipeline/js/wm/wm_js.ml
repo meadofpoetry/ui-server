@@ -1,5 +1,4 @@
 open Js_of_ocaml
-open Containers
 open Components
 open Wm_types
 open Basic_widgets
@@ -97,7 +96,7 @@ let resize_container (p : Wm.position) (t : Wm.container wm_item) =
   let resolution = p.right - p.left, p.bottom - p.top in
   let widgets =
     resize ~resolution
-      ~to_position:(fun (_, (x : Wm.widget)) -> Option.get_exn x.position)
+      ~to_position:(fun (_, (x : Wm.widget)) -> Utils.Option.get x.position)
       ~f:(fun pos (s, (x : Wm.widget)) -> s, { x with position = Some pos })
       (List.filter (fun (_, (w : Wm.widget)) -> Option.is_some w.position) t.item.widgets)
       (* TODO cleanup the the mess induced by relative widget position *)
@@ -134,7 +133,7 @@ module Widget_item : Item with type item = Wm.widget = struct
       | Video -> video
       | Audio -> music in
     let t =
-      { icon = Icon.SVG.(create_simple path)#widget
+      { icon = Icon.SVG.(make_simple path)#widget
       ; name = k
       ; unique = true
       ; min_size = None
@@ -157,13 +156,13 @@ module Widget_item : Item with type item = Wm.widget = struct
 
   let layers_of_t_list l =
     List.fold_left (fun acc x ->
-        if List.mem ~eq:(=) (layer_of_t x) acc
+        if List.mem (layer_of_t x) acc
         then acc else layer_of_t x :: acc) [] l
     |> List.sort compare
-    |> (fun l -> if List.is_empty l then [0] else l)
+    |> function [] -> [0] | l -> l
 
   (* TODO check if this invarian always holds *)
-  let position_of_t (t : t) = Option.get_exn t.item.position
+  let position_of_t (t : t) = Utils.Option.get t.item.position
 
   let update_layer (t : t) (layer : int) =
     { t with item = { t.item with layer } }
@@ -203,7 +202,7 @@ let get_free_widgets containers widgets =
                  x.widgets @ acc) [] containers in
   List.filter (fun (k, (v : Wm.widget)) ->
       let eq (k1, _) (k2, _) = String.equal k1 k2 in
-      not @@ List.mem ~eq (k,v) used)
+      not @@ List.exists (eq (k,v)) used)
     widgets
 
 let create_widgets_grid
@@ -221,20 +220,18 @@ let create_widgets_grid
   let init = List.map Widget_item.t_of_layout_item container.item.widgets in
   let apply =
     Actions.make_action
-      { icon = Icon.SVG.(new t ~paths:Path.[ new t check ()] ())#widget
+      { icon = Icon.SVG.(make_simple Path.check)#widget
       ; name = "Применить" } in
   let back =
     Actions.make_action
-      { icon = Icon.SVG.(new t ~paths:Path.[ new t arrow_left ()] ())#widget
+      { icon = Icon.SVG.(make_simple Path.arrow_left)#widget
       ; name = "Назад" } in
   let dlg =
-    let cancel = new Button.t ~label:"Отмена" () in
-    let accept = new Button.t ~label:"ОК" () in
-    new Dialog.t
-      ~actions:[ Dialog.Action.make ~typ:`Cancel cancel
-               ; Dialog.Action.make ~typ:`Accept accept ]
-      ~title:"Сохранить изменения?"
-      ~content:(`Widgets []) () in
+    Dialog.make
+      ~actions:[ Dialog.Markup.create_action ~label:"Отмена" ~action:Close ()
+               ; Dialog.Markup.create_action ~label:"ОК" ~action:Accept () ]
+      ~title:(Dialog.Markup.create_title_simple "Сохранить изменения?" ())
+      () in
   dlg#add_class "wm-confirmation-dialog";
   let title = Printf.sprintf "%s. Виджеты" cont_name in
   let w = Widg.make ~title
@@ -244,26 +241,26 @@ let create_widgets_grid
             ~resolution
             ~actions:[back; apply]
             () in
-  apply#listen_click_lwt (fun _ _ ->
-      on_apply w.ig#layout_items;
-      Lwt.return_unit)
-  |> Lwt.ignore_result;
-  back#listen_click_lwt (fun _ _ ->
-      let filter, mem = List.(filter, mem) in
-      let eq = Widget_item.equal in
-      let found = filter (fun x -> not @@ mem ~eq x init) w.ig#items in
-      let lost = filter (fun x -> not @@ mem ~eq x w.ig#items) init in
-      match found, lost with
-      | [], [] ->
-         on_cancel ();
-         Lwt.return_unit
-      | _ ->
-         let open Lwt.Infix in
-         dlg#show_await ()
-         >|= function
-         | `Accept -> on_apply w.ig#layout_items
-         | `Cancel -> set_candidates init_cand; on_cancel ())
-  |> Lwt.ignore_result;
+  Lwt.async (fun () ->
+      Events.clicks apply#root (fun _ _ ->
+          on_apply w.ig#layout_items;
+          Lwt.return_unit));
+  Lwt.async (fun () ->
+      Events.clicks back#root (fun _ _ ->
+          let eq = Widget_item.equal in
+          let filter, mem = List.(filter, fun x -> exists (eq x)) in
+          let found = filter (fun x -> not @@ mem x init) w.ig#items in
+          let lost = filter (fun x -> not @@ mem x w.ig#items) init in
+          match found, lost with
+          | [], [] ->
+            on_cancel ();
+            Lwt.return_unit
+          | _ ->
+            let open Lwt.Infix in
+            dlg#open_await ()
+            >|= function
+            | Accept -> on_apply w.ig#layout_items
+            | _ -> set_candidates init_cand; on_cancel ()));
   w.ig#append_child dlg;
   w
 
@@ -314,48 +311,25 @@ let switch ~grid
  *     ) domains
  *)
 
-let create_icons wz_show =
-  let wizard =
-    Actions.make_action
-      { icon = Icon.SVG.(create_simple Path.auto_fix)#widget
-      ; name = "Авто"
-      } in
-  let edit =
-    Actions.make_action
-      { icon = Icon.SVG.(create_simple Path.pencil)#widget
-      ; name = "Редактировать"
-      } in
-  let save =
-    Actions.make_action
-      { icon = Icon.SVG.(create_simple Path.content_save)#widget
-      ; name = "Сохранить"
-      } in
-  let wz = wizard#listen_click_lwt (fun _ _ -> wz_show ()) in
-  wizard#set_on_destroy (fun () -> Lwt.cancel wz);
-  wizard, edit, save
-
 let create_cells () =
   let lc =
-    new Layout_grid.Cell.t
+    Layout_grid.Cell.make
       ~span_desktop:1
       ~span_tablet:1
       ~span_phone:4
-      ~widgets:[]
-      () in
+      [] in
   let mc =
-    new Layout_grid.Cell.t
+    Layout_grid.Cell.make
       ~span_desktop:8
       ~span_tablet:7
       ~span_phone:4
-      ~widgets:[]
-      () in
+      [] in
   let rc =
-    new Layout_grid.Cell.t
+    Layout_grid.Cell.make
       ~span_desktop:3
       ~span_tablet:8
       ~span_phone:4
-      ~widgets:[]
-      () in
+      [] in
   lc, mc, rc
 
 let create ~(init : Wm.t)
@@ -368,7 +342,7 @@ let create ~(init : Wm.t)
   let s_wc, s_wc_push = React.S.create wc in
   (* FIXME icon shoud be common *)
   let new_cont =
-    ({ icon = Icon.SVG.(create_simple Path.contain)#widget
+    ({ icon = Icon.SVG.(make_simple Path.contain)#widget
      ; name = "Новый контейнер"
      ; unique = false
      ; min_size = None
@@ -380,15 +354,31 @@ let create ~(init : Wm.t)
   let containers = [new_cont] in
   let s_cc, s_cc_push = React.S.create containers in
   let wz_e, wz_push = React.E.create () in
-  let wz_dlg, wz_show = Wizard.to_dialog init wz_push in
+  (* let wz_dlg, wz_show = Wizard.to_dialog init wz_push in *)
   let resolution = init.resolution in
   let s_state, s_state_push = React.S.create `Container in
   let title = "Контейнеры" in
-  let wizard, edit, save = create_icons wz_show in
   let on_remove = fun (t : Wm.container wm_item) ->
     let eq = Widget_item.equal in
     let ws = List.map Widget_item.t_of_layout_item t.item.widgets in
     List.iter (fun x -> Editor.remove ~eq s_wc s_wc_push x) ws in
+  let wizard =
+    Actions.make_action
+      { icon = Icon.SVG.(make_simple Path.auto_fix)#widget
+      ; name = "Авто"
+      } in
+  let edit =
+    Actions.make_action
+      { icon = Icon.SVG.(make_simple Path.pencil)#widget
+      ; name = "Редактировать"
+      } in
+  let save =
+    Actions.make_action
+      { icon = Icon.SVG.(make_simple Path.content_save)#widget
+      ; name = "Сохранить"
+      } in
+  (* let wz = wizard#listen_click_lwt (fun _ _ -> wz_show ()) in *)
+  (* wizard#set_on_destroy (fun () -> Lwt.cancel wz); *)
   let cont =
     Cont.make ~title
       ~init:(List.map Container_item.t_of_layout_item init.layout)
@@ -399,9 +389,9 @@ let create ~(init : Wm.t)
       ~actions:[save; wizard; edit]
       () in
   (* FIXME store events and signals *)
-  let _ =
-    React.S.map (fun x -> edit#set_disabled @@ Option.is_none x)
-      cont.ig#s_selected in
+  (* let _ =
+   *   React.S.map (fun x -> edit#set_disabled @@ Option.is_none x)
+   *     cont.ig#s_selected in *)
   let e_edit, set_edit = React.E.create () in
   let _ =
     React.(
@@ -412,16 +402,17 @@ let create ~(init : Wm.t)
             ~set_candidates:s_wc_push
             ~selected
             ())
-      @@ E.select
-           [ cont.ig#e_item_dblclick; e_edit ]) in
-  edit#listen_click_lwt (fun _ _ ->
-      React.S.value cont.ig#s_selected |> Option.get_exn |> set_edit;
-      Lwt.return_unit) |> Lwt.ignore_result;
-  save#listen_click_lwt (fun _ _ ->
-      post { resolution = cont.ig#resolution
-           ; widgets = init.widgets
-           ; layout = cont.ig#layout_items (*serialize ~cont ()*) })
-  |> Lwt.ignore_result;
+      @@ E.select [ cont.ig#e_item_dblclick; e_edit ]) in
+  Lwt.async (fun () ->
+      Events.clicks edit#root (fun _ _ ->
+          React.S.value cont.ig#s_selected |> Utils.Option.get |> set_edit;
+          Lwt.return_unit));
+  Lwt.async (fun () ->
+      Events.clicks save#root (fun _ _ ->
+          post { resolution = cont.ig#resolution
+               ; widgets = init.widgets
+               ; layout = cont.ig#layout_items (*serialize ~cont ()*)
+               }));
   let _ =
     React.E.map (fun l ->
         let layers = Container_item.layers_of_t_list
@@ -442,7 +433,7 @@ let create ~(init : Wm.t)
         | `Widget (w : Widg.t) -> add_to_view w.lt w.ig w.rt
         | `Container -> add_to_view cont.lt cont.ig cont.rt)
       s_state in
-  cont.ig#append_child wz_dlg;
+  (* cont.ig#append_child wz_dlg; *)
   [lc; mc; rc]
 
 let post = fun w ->
@@ -454,14 +445,14 @@ let post = fun w ->
     Lwt.return ()
 
 let on_data (grid : Layout_grid.t) wm =
-  grid#inner#set_empty ();
+  grid#remove_cells ();
   let cells =
     try create ~init:wm ~post ()
     with e -> Printf.printf "error: %s\n" @@ Printexc.to_string e; [] in
-  List.iter grid#inner#append_child cells
+  List.iter grid#append_cell cells
 
 let page () =
-  let grid = new Layout_grid.t ~cells:[] () in
+  let grid = Layout_grid.make [] in
   let t =
     Api_wm.get_layout ()
     >>= function

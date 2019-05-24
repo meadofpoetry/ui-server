@@ -1,8 +1,9 @@
-open Containers
 open Components
 open Wm_types
 open Basic_widgets
 open Pipeline_types
+
+module Option = Utils.Option
 
 type container_grids =
   { rect : Wm.position
@@ -94,7 +95,7 @@ let resize_container (p : Wm.position) (t : Wm.container wm_item) =
   let resolution = p.right - p.left, p.bottom - p.top in
   let widgets =
     resize ~resolution
-      ~to_position:(fun (_, (x : Wm.widget)) -> Option.get_exn x.position)
+      ~to_position:(fun (_, (x : Wm.widget)) -> Option.get x.position)
       ~f:(fun pos (s, (x : Wm.widget)) -> s, { x with position = Some pos })
       (List.filter (fun (_, (w : Wm.widget)) -> Option.is_some w.position) t.item.widgets)
       (* TODO cleanup the the mess induced by relative widget position *)
@@ -124,17 +125,17 @@ module Container_item : Item with type item = Wm.container = struct
     let min_size = match t.item.widgets with
       | [] -> None
       | _  ->
-         let positions = List.filter_map (fun (_, (x : Wm.widget)) -> x.position)
-                           t.item.widgets in
-         let w, h = List.hd (get_bounding_rect_and_grids positions).grids in
-         Some (w, h) in
+        let positions = Utils.List.filter_map (fun (_, (x : Wm.widget)) -> x.position)
+            t.item.widgets in
+        let w, h = List.hd (get_bounding_rect_and_grids positions).grids in
+        Some (w, h) in
     { t with min_size }
 
   let t_to_layout_item (t : t) = t.name, t.item
 
   let t_of_layout_item (k, (v:item)) =
     let t =
-      { icon = Icon.SVG.(create_simple Path.contain)#widget
+      { icon = Icon.SVG.(make_simple Path.contain)#widget
       ; name = k
       ; unique = false
       ; min_size = None
@@ -159,9 +160,9 @@ module Container_item : Item with type item = Wm.container = struct
     let op = t.item.position in
     let nw, nh = p.right - p.left, p.bottom - p.top in
     let ow, oh = op.right - op.left, op.bottom - op.top in
-    match (ow <> nw || oh <> nh) && not (List.is_empty t.item.widgets) with
-    | true -> resize_container p t
-    | false -> { t with item = { t.item with position = p }}
+    match (ow <> nw || oh <> nh), t.item.widgets with
+    | true, _ :: _ -> resize_container p t
+    | _ -> { t with item = { t.item with position = p }}
 
   let update_layer (t : t) _ = t
 

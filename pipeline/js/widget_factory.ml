@@ -1,4 +1,3 @@
-open Containers
 open Components
 open Pipeline_types
 open Util_react

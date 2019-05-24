@@ -1,7 +1,7 @@
 (library
   (name       wm_js)
-  (libraries  containers
-              components
+  (libraries  components
+              dynamic_grid
               ui_templates
               pipeline_types
               application_types
