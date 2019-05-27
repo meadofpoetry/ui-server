@@ -583,8 +583,8 @@ object(self)
     >>= fun () ->
     if not @@ Element.is_focus_inside super#root
     then set_tab_index_to_first_selected_item
-           ~selected:_selected_items
-           items;
+        ~selected:_selected_items
+        items;
     Lwt.return_unit
 
   method private set_radio (selected : Dom_html.element Js.t) =
@@ -604,7 +604,7 @@ object(self)
     _selected_items <- selected
 
   method private toggle_checkbox ?(toggle = true)
-                   (item : Dom_html.element Js.t) : unit =
+      (item : Dom_html.element Js.t) : unit =
     let checked = not @@ is_item_checked item in
     if toggle then set_item_checked checked item;
     if checked
@@ -613,23 +613,23 @@ object(self)
 end
 
 let make ?avatar_list ?dense ?two_line ?non_interactive
-      ?role (items : #Widget.t list) : t =
+    ?role (items : #Widget.t list) : t =
   let two_line = match two_line with
     | Some x -> x
     | None ->
-       Option.is_some
-       @@ List.find_opt (fun i ->
-              let selector = Js.string ("." ^ CSS.item_secondary_text) in
-              Js.Opt.test @@ i#root##querySelector selector) items in
+      Option.is_some
+      @@ List.find_opt (fun i ->
+          let selector = Js.string ("." ^ CSS.item_secondary_text) in
+          Js.Opt.test @@ i#root##querySelector selector) items in
   let (elt : Dom_html.uListElement Js.t) =
     Tyxml_js.To_dom.of_ul
     @@ Markup.create ?role
-         ?avatar_list
-         ?dense
-         ~two_line
-         ?non_interactive
-         ~items:(List.map Widget.to_markup items)
-         () in
+      ?avatar_list
+      ?dense
+      ~two_line
+      ?non_interactive
+      ~items:(List.map Widget.to_markup items)
+      () in
   new t elt ()
 
 let attach (elt : #Dom_html.element Js.t) : t =

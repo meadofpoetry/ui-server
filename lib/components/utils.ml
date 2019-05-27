@@ -1,16 +1,5 @@
 open Js_of_ocaml
 
-let (=) : int -> int -> bool = Pervasives.(=)
-let (<>) : int -> int -> bool  = Pervasives.(<>)
-let (<) : int -> int -> bool = Pervasives.(<)
-let (>) : int -> int -> bool = Pervasives.(>)
-let (<=) : int -> int -> bool = Pervasives.(<=)
-let (>=) : int -> int -> bool = Pervasives.(>=)
-
-let compare : int -> int -> int = Pervasives.compare
-let min : int -> int -> int = Pervasives.min
-let max : int -> int -> int = Pervasives.max
-
 let (=.) : float -> float -> bool = Pervasives.(=)
 let (<>.) : float -> float -> bool = Pervasives.(<>)
 let (<.) : float -> float -> bool = Pervasives.(<)

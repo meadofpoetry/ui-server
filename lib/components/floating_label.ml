@@ -42,6 +42,10 @@ object(self)
     super#remove_class CSS.shake
 end
 
+let float (x : t) v = x#float v
+
+let shake (x : t) v = x#shake v
+
 let make ?(for_ : string option) (label : string) : t =
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element

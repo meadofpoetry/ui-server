@@ -123,15 +123,18 @@ let make ?min_width ?disabled ?active ?stacked
     ?(icon : #Widget.t option)
     ?(label : string option)
     ?(indicator_span_content = false)
-    ~(indicator : Tab_indicator.t)
+    ?(indicator : Tab_indicator.t option)
     () : t =
+  let indicator = match indicator with
+    | Some x -> x
+    | None -> Tab_indicator.make () in
   let text_label = match label with
     | None -> None
     | Some l -> Some (Markup.create_text_label l ()) in
   let content =
     Markup.create_content
-      ?indicator:(if not indicator_span_content then None else
-                    Some (Widget.to_markup indicator))
+      ?indicator:(if not indicator_span_content then None
+                  else Some (Widget.to_markup indicator))
       ?icon:(Option.map Widget.to_markup icon)
       ?text_label
       () in
@@ -139,8 +142,8 @@ let make ?min_width ?disabled ?active ?stacked
     Tyxml_js.To_dom.of_button
     @@ Markup.create
       ?min_width ?disabled ?active ?stacked
-      ?indicator:(if indicator_span_content then None else
-                    Some (Widget.to_markup indicator))
+      ?indicator:(if indicator_span_content then None
+                  else Some (Widget.to_markup indicator))
       content
       () in
   new t elt ()

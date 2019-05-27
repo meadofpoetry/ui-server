@@ -6,6 +6,19 @@ module Markup : sig
   include module type of Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 end
 
+module Event : sig
+  class type selected =
+    object
+      method index : int Js.readonly_prop
+      method item : Dom_html.element Js.t Js.readonly_prop
+    end
+
+  (** Used to indicate when an element has been selected.
+      This event also includes the item selected and the list index
+      of that item. *)
+  val selected : selected Js.t Widget.custom_event Js.t Events.Typ.typ
+end
+
 class t : ?list:Item_list.t -> Dom_html.element Js.t -> unit -> object
   inherit Menu_surface.t
 

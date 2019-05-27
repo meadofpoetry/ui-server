@@ -22,8 +22,8 @@ object(self)
     self#add_class CSS.deactivating
 
   (** Sets the center of the ripple animation to the given X coordinate. *)
-  method set_ripple_center (x_coordinate : int) : unit =
-    let value = Js.string @@ Printf.sprintf "%dpx center" x_coordinate in
+  method set_ripple_center (x_coordinate : float) : unit =
+    let value = Js.string @@ Printf.sprintf "%gpx center" x_coordinate in
     (Js.Unsafe.coerce super#root##.style)##.transformOrigin := value
 
   method! init () : unit =
@@ -53,6 +53,10 @@ object(self)
         (self#remove_class CSS.active;
          self#remove_class CSS.deactivating))
 end
+
+let activate (x : t) = x#activate ()
+
+let deactivate (x : t) = x#deactivate ()
 
 let make () : t =
   let (elt : Dom_html.element Js.t) =

@@ -662,9 +662,9 @@ class ['a] t ?(helper_text : Helper_text.t option)
            | Some (touch : Dom_html.touch Js.t) ->
               Js.Optdef.to_option touch##.target, touch##.clientX in
       let left = match target with
-        | None -> 0
-        | Some x -> int_of_float x##getBoundingClientRect##.left in
-      let normalized_x = client_x - left in
+        | None -> 0.
+        | Some x -> x##getBoundingClientRect##.left in
+      let normalized_x = float_of_int client_x -. left in
       Option.iter (fun (line_ripple : Line_ripple.t) ->
           line_ripple#set_ripple_center normalized_x) line_ripple
 

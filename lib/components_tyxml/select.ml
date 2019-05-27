@@ -34,6 +34,14 @@ module CSS = struct
 
   let is_changing = BEM.add_modifier root "is-changing"
 
+  let focused = BEM.add_modifier root "focused"
+
+  let required = BEM.add_modifier root "required"
+
+  let invalid = BEM.add_modifier root "invalid"
+
+  let activated = BEM.add_modifier root "activated"
+
   module Helper_text = struct
     (** Mandatory. *)
     let root = root ^ "-helper-text"
@@ -53,6 +61,22 @@ module Make(Xml : Xml_sigs.NoWrap)
            and module Svg := Svg) = struct
   open Html
   open Utils
+
+  module Helper_text = struct
+    let create ?(classes = []) ?attrs
+        ?(persistent = false) ?(validation = false) ?text () : 'a elt =
+      let classes =
+        classes
+        |> cons_if validation CSS.Helper_text.validation_msg
+        |> cons_if persistent CSS.Helper_text.persistent
+        |> List.cons CSS.Helper_text.root in
+      let text = match text with
+        | None -> ""
+        | Some s -> s in
+      div ~a:([a_class classes] <@> attrs
+              |> cons_if (not persistent) @@ a_aria "hidden" ["true"])
+        [txt text]
+  end
 
   module Native = struct
 
@@ -74,28 +98,32 @@ module Make(Xml : Xml_sigs.NoWrap)
                  |> cons_if_lazy disabled a_disabled
                  <@> attrs) items
 
-    let create ?(classes=[]) ?attrs ?label ?line_ripple ?(disabled = false)
-          ?icon ~select () : 'a elt =
+    let create ?(classes = []) ?attrs ?label ?line_ripple ?(disabled = false)
+        ?outline ?icon ~select () : 'a elt =
+      let outlined = match outline with
+        | None -> false
+        | Some _ -> true in
       let classes =
         classes
         |> cons_if disabled CSS.disabled
+        |> cons_if outlined CSS.outlined
         |> List.cons CSS.root in
       let dropdown_icon = i ~a:[a_class [CSS.dropdown_icon]] [] in
       div ~a:([a_class classes] <@> attrs)
-        (icon ^:: (dropdown_icon :: select :: (label ^:: line_ripple ^:: [])))
+        (icon ^:: (dropdown_icon :: select
+                   :: (label ^:: line_ripple ^:: outline ^:: [])))
   end
 
   module Enhanced = struct
 
-    let create_input ?(classes = []) ?attrs ?(disabled = false) () : 'a elt =
+    let create_hidden_input ?(classes = []) ?attrs ?(disabled = false) () : 'a elt =
       input ~a:([ a_class classes
-                ; a_input_type `Hidden ]
-                |> cons_if_lazy disabled a_disabled
-                <@> attrs) ()
+                ; a_input_type `Hidden ] <@> attrs
+                |> cons_if_lazy disabled a_disabled) ()
 
     let create ?(classes = []) ?attrs ?label ?line_ripple
           ?(disabled = false) ?(selected_text = "") ?outline
-          ?icon ~menu () : 'a elt =
+          ?icon ?hidden_input ~menu () : 'a elt =
       let with_leading_icon = match icon with
         | None -> false
         | Some _ -> true in
@@ -113,8 +141,10 @@ module Make(Xml : Xml_sigs.NoWrap)
         div ~a:[a_class [CSS.selected_text]]
           [txt selected_text] in
       div ~a:([a_class classes] <@> attrs)
-        (icon ^:: (dropdown_icon :: selected_text :: menu
-                   :: (label ^:: line_ripple ^:: outline ^:: [])))
+        (hidden_input
+         ^:: icon
+         ^:: (dropdown_icon :: selected_text :: menu
+              :: (label ^:: line_ripple ^:: outline ^:: [])))
 
   end
 end

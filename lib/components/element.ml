@@ -26,12 +26,12 @@ let append_child (elt : #Dom.node Js.t) (child : #Dom.node Js.t) : unit =
   Dom.appendChild elt child
 
 let insert_child_at_index (parent : #Dom.node Js.t) (index : int)
-      (child : #Dom.node Js.t) : unit =
+    (child : #Dom.node Js.t) : unit =
   let sibling = parent##.childNodes##item index in
   Dom.insertBefore parent child sibling
 
 let remove_child_safe (elt : #Dom.node Js.t)
-      (child : #Dom.node Js.t) : unit =
+    (child : #Dom.node Js.t) : unit =
   try Dom.removeChild elt child with _ -> ()
 
 let remove_children (elt : #Dom_html.element Js.t) =
@@ -45,7 +45,7 @@ let remove_class (elt : #Dom_html.element Js.t) (_class : string) : unit =
   elt##.classList##remove (Js.string _class)
 
 let toggle_class ?(force : bool option)
-      (elt : #Dom_html.element Js.t) (_class : string) : bool =
+    (elt : #Dom_html.element Js.t) (_class : string) : bool =
   match force with
   | None -> Js.to_bool @@ elt##.classList##toggle (Js.string _class)
   | Some true -> add_class elt _class; true
@@ -54,31 +54,34 @@ let toggle_class ?(force : bool option)
 let has_class (elt : #Dom_html.element Js.t) (_class : string) : bool =
   Js.to_bool @@ elt##.classList##contains (Js.string _class)
 
-let query_selector (elt : #Dom_html.element Js.t)
-      (selector : string) : t option =
+let query_selector (elt : #Dom_html.element Js.t) (selector : string) : t option =
   Js.Opt.to_option @@ elt##querySelector (Js.string selector)
 
+let query_selector_exn (elt : #Dom_html.element Js.t) (selector : string) : t =
+  Js.Opt.get (elt##querySelector (Js.string selector)) (fun () ->
+      failwith (Printf.sprintf "no element matches selector %s" selector))
+
 let query_selector_all (elt : #Dom_html.element Js.t)
-      (selector : string) : t list =
+    (selector : string) : t list =
   Dom.list_of_nodeList
   @@ elt##querySelectorAll (Js.string selector)
 
 let get_attribute (elt : #Dom_html.element Js.t)
-      (a : string) : string option =
+    (a : string) : string option =
   elt##getAttribute (Js.string a)
   |> Js.Opt.to_option
   |> function None -> None | Some x -> Some (Js.to_string x)
 
 let set_attribute (elt : #Dom_html.element Js.t)
-      (a : string) (v : string) : unit =
+    (a : string) (v : string) : unit =
   elt##setAttribute (Js.string a) (Js.string v)
 
 let remove_attribute (elt : #Dom_html.element Js.t)
-      (a : string) : unit =
+    (a : string) : unit =
   elt##removeAttribute (Js.string a)
 
 let set_style_property (elt : #Dom_html.element Js.t)
-      (prop : string) (value : string) : unit =
+    (prop : string) (value : string) : unit =
   (Js.Unsafe.coerce elt##.style)##setProperty
     (Js.string prop) (Js.string value)
 

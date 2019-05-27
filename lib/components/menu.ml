@@ -29,9 +29,6 @@ module Event = struct
       method item : Dom_html.element Js.t Js.readonly_prop
     end
 
-  (** Used to indicate when an element has been selected.
-      This event also includes the item selected and the list index
-      of that item. *)
   let selected : selected Js.t Widget.custom_event Js.t Events.Typ.typ =
     Events.Typ.make "menu:selected"
 end
