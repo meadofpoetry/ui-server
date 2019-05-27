@@ -10,7 +10,7 @@ module Event = struct
   let get_video ?f ?stream ?channel ?pid () =
     let t =
       Api_websocket.create
-        ~path:Path.Format.("api/pipeline/measurements/video" @/ empty)
+        ~path:Path.Format.("ws/pipeline/measurements/video" @/ empty)
         ~query:Query.[ "stream", (module Option(Application_types.Stream.ID))
                      ; "channel", (module Option(Int))
                      ; "pid", (module Option(Int)) ]
@@ -26,7 +26,7 @@ module Event = struct
   let get_audio ?f ?stream ?channel ?pid () =
     let t =
       Api_websocket.create
-        ~path:Path.Format.("api/pipeline/measurements/audio" @/ empty)
+        ~path:Path.Format.("ws/pipeline/measurements/audio" @/ empty)
         ~query:Query.[ "stream", (module Option(Application_types.Stream.ID))
                      ; "channel", (module Option(Int))
                      ; "pid", (module Option(Int)) ]

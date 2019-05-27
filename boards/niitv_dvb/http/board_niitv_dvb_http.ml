@@ -123,11 +123,6 @@ let ws (control : int) (api : Protocol.api) =
               ~path:(Path.Format.of_string "mode")
               ~query:Query.["id", (module List(Int))]
               (Api_device.Event.get_mode api)
-          ; node ~doc:"Available tuner indexes socket"
-              ~socket_table
-              ~path:(Path.Format.of_string "receivers")
-              ~query:Query.empty
-              (Api_device.Event.get_receivers api)
           ]
       ; make ~prefix:"receivers"
           [ node ~doc:"Receiver measurements socket"

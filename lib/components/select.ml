@@ -787,6 +787,19 @@ let make ?disabled ?label
   Option.iter (fun x -> x#set_value x) value;
   t
 
+let native_options_of_values
+    (type a)
+    ?(with_empty = false)
+    (validation : a validation)
+    (values : a list) =
+  let options =
+    List.map (fun (x : a) ->
+        Markup.Native.create_option ~text:(valid_to_string validation x) ())
+      values in
+  if not with_empty then options else
+    let empty = Markup.Native.create_option ~selected:true ~disabled:true ~text:"" () in
+    empty :: options
+
 let make_native ?disabled ?label
     ?outlined
     ?(icon : #Widget.t option)

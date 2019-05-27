@@ -5,7 +5,7 @@
               ui_templates
               pipeline_types
               application_types
-              pipeline_api_js
+              pipeline_http_js
               uri)
   (preprocess (pps js_of_ocaml-ppx
                    ppx_deriving_yojson

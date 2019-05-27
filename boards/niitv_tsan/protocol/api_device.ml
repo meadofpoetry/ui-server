@@ -23,12 +23,6 @@ module Event = struct
         status_to_yojson x.basic) api.notifs.status in
     Lwt.return (`Ev event)
 
-  let get_info (api : Protocol.api) _user _body _env _state =
-    let event =
-      S.changes api.notifs.devinfo
-      |> E.map (Util_json.Option.to_yojson devinfo_to_yojson) in
-    Lwt.return (`Ev event)
-
   let get_errors (api : Protocol.api) _user _body _env _state =
     let event = E.map (Util_json.List.to_yojson Deverr.to_yojson)
         api.notifs.deverr in

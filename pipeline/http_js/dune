@@ -1,5 +1,5 @@
 (library
-  (name       pipeline_api_js)
+  (name       pipeline_http_js)
   (libraries  api_js
               pipeline_types
               application_types

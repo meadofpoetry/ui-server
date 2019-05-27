@@ -139,6 +139,7 @@ let packet_sz_of_yojson = function
   | x -> Error (Printf.sprintf "packet_sz_of_yojson: not string value (%s)"
                 @@ Yojson.Safe.to_string x)
 
+(* TODO extend, add all info that is provided by the board *)
 type status =
   { timestamp : Time.t
   ; load : float

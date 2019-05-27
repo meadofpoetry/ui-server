@@ -1,7 +1,7 @@
+open Js_of_ocaml
 open Application_types
 open Board_niitv_dvb_types.Device
 open Board_niitv_dvb_http_js
-open Containers
 open Components
 open Lwt_result.Infix
 
@@ -11,42 +11,59 @@ type widget_config =
 
 let base_class = "dvb-niit-module-settings"
 
+let standard = Select.(
+    Custom { to_string = standard_to_string ~full:true
+           ; of_string = fun x ->
+               match standatd_of_string x with
+               | None -> Error "Bad standard value"
+               | Some x -> Ok x
+           })
+
+let bw =
+  let to_string = function
+    | Bw8 -> "8 МГц"
+    | Bw7 -> "7 МГц"
+    | Bw6 -> "6 МГц" in
+  let of_string = function
+    | "8 МГц" -> Ok Bw8
+    | "7 МГц" -> Ok Bw7
+    | "6 МГц" -> Ok Bw6
+    | _ -> Error "Bad bw value" in
+  Select.Custom { to_string; of_string }
+
 let make_standard () =
-  let items =
-    [ `Item (new Select.Item.t ~text:"DVB-T2" ~value:T2 ())
-    ; `Item (new Select.Item.t ~text:"DVB-T"  ~value:T  ())
-    ; `Item (new Select.Item.t ~text:"DVB-C"  ~value:C  ())
-    ] in
+  let items = Select.native_options_of_values
+      ~with_empty:true
+      standard
+      [T2; T; C] in
   let mode =
-    new Select.t
-      ~default_selected:false
+    Select.make_native
       ~label:"Стандарт"
-      ~items () in
+      ~items
+      standard in
   let set = function
     | None -> mode#set_selected_index 0
-    | Some x ->
-      mode#set_selected_value ~eq:equal_standard x.standard |> ignore in
-  mode#add_class @@ Markup.CSS.add_element base_class "mode";
+    | Some x -> mode#set_value x.standard in
+  mode#add_class @@ Components_tyxml.BEM.add_element base_class "mode";
   mode, set
 
 let make_bw (standard : standard option React.signal) () =
-  let items =
-    [ `Item (new Select.Item.t ~text:"6 МГц" ~value:Bw6 ())
-    ; `Item (new Select.Item.t ~text:"7 МГц" ~value:Bw7 ())
-    ; `Item (new Select.Item.t ~text:"8 МГц" ~value:Bw8 ())
-    ] in
+  let items = Select.native_options_of_values
+      ~with_empty:true
+      bw [Bw6; Bw7; Bw8] in
   let bw =
-    new Select.t
-      ~default_selected:false
+    Select.make_native
       ~label:"Полоса пропускания"
-      ~items () in
+      ~items
+      bw in
   let s_hide =
-    React.S.map ~eq:Equal.unit (function
-        | None -> bw#style##.display := Js_of_ocaml.Js.string "none"
-        | Some _ -> bw#style##.display := Js_of_ocaml.Js.string "") standard in
+    React.S.map ~eq:(=) (function
+        | None -> bw#root##.style##.display := Js_of_ocaml.Js.string "none"
+        | Some _ -> bw#root##.style##.display := Js_of_ocaml.Js.string "")
+      standard in
   let set = function
     | None -> bw#set_selected_index 0
-    | Some x -> bw#set_selected_value ~eq:equal_bw x.channel.bw |> ignore in
+    | Some x -> bw#set_value x in
   bw, set, (fun () -> React.S.stop ~strong:true s_hide)
 
 let make_freq ?(terrestrial = true)
@@ -63,7 +80,7 @@ let make_freq ?(terrestrial = true)
       ~label:"ТВ канал"
       ~items () in
   let s_hide =
-    React.S.map ~eq:Equal.unit (fun x ->
+    React.S.map ~eq:(=) (fun x ->
         match x, terrestrial with
         | (Some T, true) | (Some T2, true) | (Some C, false) ->
           freq#style##.display := Js_of_ocaml.Js.string ""
@@ -80,15 +97,15 @@ let make_freq ?(terrestrial = true)
 
 let make_plp (standard : standard option React.signal) () =
   let plp =
-    new Textfield.t
-      ~input_type:(Integer ((Some 0),(Some 255)))
+    Textfield.make_textfield
       ~label:"PLP ID"
-      () in
+      ~required:true
+      (Integer ((Some 0),(Some 255))) in
   plp#set_required true;
   let s_hide =
-    React.S.map ~eq:Equal.unit (function
-        | Some T2 -> plp#style##.display := Js_of_ocaml.Js.string ""
-        | _ -> plp#style##.display := Js_of_ocaml.Js.string "none") standard in
+    React.S.map ~eq:(=) (function
+        | Some T2 -> plp#root##.style##.display := Js_of_ocaml.Js.string ""
+        | _ -> plp#root##.style##.display := Js_of_ocaml.Js.string "none") standard in
   let set = function
     | None -> plp#clear ()
     | Some x -> plp#set_value x.channel.plp in
@@ -114,7 +131,8 @@ let make_mode_box ~(id : int)
     make_plp std#s_selected_value () in
   let state, set_state = React.S.create state in
   let s =
-    React.S.l6 ~eq:(Equal.option @@ Equal.pair Int.equal equal_mode)
+    let eq = Util_equal.(Option.equal (Pair.equal (=) equal_mode)) in
+    React.S.l6 ~eq
       (fun standard t_freq c_freq bw plp state ->
          match standard, t_freq, c_freq, bw, plp, state with
          | Some T2, Some freq, _, Some bw, Some plp, `Fine ->
@@ -178,28 +196,29 @@ let make_mode_box ~(id : int)
 
 let default_config = { id = 0 }
 
-let name conf : string =
-  Printf.sprintf "Модуль %d. Настройки"
-    (succ (Option.get_or ~default:default_config conf).id)
+let name config : string =
+  Printf.sprintf "Модуль %d. Настройки" (succ config.id)
 
 let settings = None
 
-class t ?(config = default_config) mode state control =
+class t config mode state control =
   let mode_box = make_mode_box ~id:config.id ~mode ~state control in
-  let apply = new Ui_templates.Buttons.Set.t mode_box#s mode_box#submit () in
-  let buttons = new Card.Actions.Buttons.t ~widgets:[apply] () in
-  let actions = new Card.Actions.t ~widgets:[buttons] () in
+  let submit = Button.make ~label:"Применить" () in
+  let buttons = Card.Actions.make_buttons [submit] in
+  let actions = Card.Actions.make [buttons] in
   object
-    inherit Vbox.t ~widgets:[mode_box#widget; actions#widget] () as super
+    inherit Widget.t Dom_html.(createDiv document) () as super
 
     method! init () : unit =
       super#init ();
+      super#append_child mode_box;
+      super#append_child actions;
       super#add_class base_class
 
-    method notify event =
-      mode_box#notify event
+    (* method notify event =
+     *   mode_box#notify event *)
 
   end
 
-let make ?config mode state control =
-  new t ?config mode state control
+let make config mode state control =
+  new t config mode state control

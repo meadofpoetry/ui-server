@@ -12,7 +12,7 @@ module Event = struct
   let get ?f () =
     let t =
       Api_websocket.create
-        ~path:Path.Format.("api/pipeline/wm" @/ empty)
+        ~path:Path.Format.("ws/pipeline/wm" @/ empty)
         ~query:Query.empty
         () in
     match f with

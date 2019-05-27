@@ -4,7 +4,7 @@ open Wm_types
 open Basic_widgets
 open Container
 open Pipeline_types
-open Pipeline_api_js
+open Pipeline_http_js
 
 let ( >>= ) = Lwt.( >>= )
 
@@ -437,7 +437,7 @@ let create ~(init : Wm.t)
   [lc; mc; rc]
 
 let post = fun w ->
-  Api_wm.set_layout w
+  Http_wm.set_layout w
   >>= function
   | Ok () -> Lwt.return ()
   | Error e ->
@@ -454,12 +454,12 @@ let on_data (grid : Layout_grid.t) wm =
 let page () =
   let grid = Layout_grid.make [] in
   let t =
-    Api_wm.get_layout ()
+    Http_wm.get_layout ()
     >>= function
     | Error e -> Lwt.return_error @@ Api_js.Http.error_to_string e
     | Ok wm ->
       on_data grid wm;
-      Api_wm.Event.get ~f:(fun _ ->
+      Http_wm.Event.get ~f:(fun _ ->
           function
           | Ok x -> on_data grid x
           | Error _ -> ()) ()

@@ -1,13 +1,12 @@
 (library
   (name       pipeline_js)
   (libraries  pipeline_types
-              pipeline_api_js
+              pipeline_http_js
               application_types
               util_json
               util_react
               api_js
               components
-              dashboard
               janus
               ui_templates
               chartjs

@@ -16,16 +16,6 @@ module Event = struct
     Api_websocket.subscribe_map socket Topology.state_of_yojson (f socket);
     Lwt.return_ok socket
 
-  let get_receivers f control =
-    let of_yojson = Util_json.(Option.of_yojson @@ List.of_yojson Int.of_yojson) in
-    Api_websocket.create
-      ~path:Path.Format.("ws/board" @/ Int ^/ "device/receivers" @/ empty)
-      ~query:Query.empty
-      control ()
-    >>= fun socket ->
-    Api_websocket.subscribe_map socket of_yojson (f socket);
-    Lwt.return_ok socket
-
   let get_mode ?(ids = []) f control =
     let of_yojson = Util_json.(
         List.of_yojson (Pair.of_yojson Int.of_yojson mode_of_yojson)) in

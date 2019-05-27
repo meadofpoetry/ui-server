@@ -1,0 +1,7 @@
+(library
+  (name pipeline_widgets_js)
+  (libraries pipeline_http_js
+             components
+             ui_templates)
+  (preprocess (pps ppx_deriving_yojson
+                   js_of_ocaml-ppx)))

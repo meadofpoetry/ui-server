@@ -150,16 +150,6 @@ let ws (control : int) (api : Protocol.api) =
               ~path:(Path.Format.of_string "config")
               ~query:Query.empty
               (Api_device.Event.get_config api)
-          ; node ~doc:"Device mode socket"
-              ~socket_table
-              ~path:(Path.Format.of_string "mode")
-              ~query:Query.empty
-              (Api_device.Event.get_mode api)
-          ; node ~doc:"Device network mode socket"
-              ~socket_table
-              ~path:(Path.Format.of_string "network")
-              ~query:Query.empty
-              (Api_device.Event.get_network_mode api)
           ; node ~doc:"Device status socket"
               ~socket_table
               ~path:(Path.Format.of_string "status")

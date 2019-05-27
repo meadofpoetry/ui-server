@@ -18,18 +18,6 @@ module Event = struct
       |> E.map config_to_yojson in
     Lwt.return (`Ev event)
 
-  let get_mode (api : Protocol.api) _user _body _env _state =
-    let event =
-      E.map (fun (x : config) -> mode_to_yojson x.mode)
-      @@ React.S.changes api.notifs.config in
-    Lwt.return (`Ev event)
-
-  let get_network_mode (api : Protocol.api) _user _body _env _state =
-    let event =
-      E.map (fun (x : config) -> network_mode_to_yojson x.mode.network)
-      @@ React.S.changes api.notifs.config in
-    Lwt.return (`Ev event)
-
   let get_status (api : Protocol.api) _user _body _env _state =
     let event = E.map device_status_to_yojson api.notifs.device_status in
     Lwt.return (`Ev event)

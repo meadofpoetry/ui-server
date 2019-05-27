@@ -1,4 +1,3 @@
-open Containers
 open Components
 open Application_types
 

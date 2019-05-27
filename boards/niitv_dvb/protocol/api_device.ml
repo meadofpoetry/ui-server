@@ -11,15 +11,6 @@ module Event = struct
       |> E.map Topology.state_to_yojson in
     Lwt.return (`Ev event)
 
-  let get_receivers (api : Protocol.api) _user _body _env _state =
-    let event =
-      S.map ~eq:(Util_equal.(Option.equal @@ List.equal (=))) (function
-          | None -> None
-          | Some x -> Some x.receivers) api.notifs.devinfo
-      |> S.changes
-      |> E.map Util_json.(Option.to_yojson @@ List.to_yojson Int.to_yojson) in
-    Lwt.return (`Ev event)
-
   let get_mode (api : Protocol.api) (ids : int list) _user _body _env _state =
     let to_yojson = Util_json.(
         List.to_yojson (Pair.to_yojson Int.to_yojson mode_to_yojson)) in

@@ -12,7 +12,7 @@ module Event = struct
   let get ?f ?(ids = []) () =
     let t =
       Api_websocket.create
-        ~path:Path.Format.("api/pipeline/status" @/ empty)
+        ~path:Path.Format.("ws/pipeline/status" @/ empty)
         ~query:Query.["id", (module List(Application_types.Stream.ID))]
         ids () in
     match f with

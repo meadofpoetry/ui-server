@@ -45,7 +45,7 @@ let settings = None
 let ( >>= ) = Lwt.( >>= )
 
 type event =
-  [ `Mode of nw
+  [ `Nw_mode of nw
   | `State of Topology.state
   ]
 
@@ -97,7 +97,7 @@ class t (state : Topology.state) (mode : nw) (control : int) =
         ip#set_disabled disabled;
         mask#set_disabled disabled;
         gw#set_disabled disabled
-      | `Mode mode -> self#set_value mode
+      | `Nw_mode mode -> self#set_value mode
 
     method value : nw option =
       match ip#value, mask#value, gw#value with

@@ -48,7 +48,7 @@ let settings = None
 let ( >>= ) = Lwt.( >>= )
 
 type event =
-  [ `Mode of ip_receive
+  [ `Ip_receive_mode of ip_receive
   | `State of Topology.state
   ]
 
@@ -86,7 +86,7 @@ class t (state : Topology.state) (mode : ip_receive) (control : int) =
       super#destroy ()
 
     method notify : event -> unit = function
-      | `Mode mode -> self#set_value mode
+      | `Ip_receive_mode mode -> self#set_value mode
       | `State s ->
         let disabled = match s with `Fine -> false | _ -> true in
         en#input#set_disabled disabled;
