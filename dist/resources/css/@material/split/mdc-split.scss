@@ -1,0 +1,39 @@
+@import "@material/theme/_mixins";
+@import "@material/theme/_constants";
+@import "./_mixins";
+
+.mdc-split {
+    display: flex;
+    flex-wrap: nowrap;
+    flex-direction: row;
+    .mdc-split__splitter {
+        cursor: col-resize;
+    }
+    .mdc-split__splitter .mdc-split__splitter-icon {
+        @include mdc-split-icon(horizontal);
+    }
+
+    &__panel {
+        overflow: hidden;
+        display: flex;
+        flex-shrink: 1;
+        flex-basis: 0px;
+    }
+    &__splitter {
+        display: flex;
+        flex: 0 0 11px;
+        justify-content: center;
+        align-items: center;
+        @include mdc-theme-prop(background-color, $mdc-split-outline-color);
+    }
+}
+
+.mdc-split--vertical {
+    flex-direction: column;
+    .mdc-split__splitter {
+        cursor: row-resize;
+    }
+    .mdc-split__splitter .mdc-split__splitter-icon {
+        @include mdc-split-icon(vertical);
+    }
+}

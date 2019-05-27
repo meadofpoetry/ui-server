@@ -1,0 +1,390 @@
+@import '@material/theme/_mixins';
+@import '@material/theme/_variables';
+@import '@material/theme/_functions';
+@import '@material/theme/_color-palette';
+@import '@material/ripple/_mixins';
+@import '@material/elevation/_mixins';
+@import '@material/fab/_mixins';
+@import '@material/typography/_mixins';
+@import '@material/layout-grid/_variables';
+@import '@material/animation/_variables';
+@import '@material/animation/_functions';
+@import './_variables';
+@import './_mixins';
+
+$wm-grid-background-color: surface;
+$wm-placeholder-color: text-secondary-on-surface;
+
+.wm {
+    margin: 0;
+}
+
+.wm, .mdc-layout-grid, .mdc-layout-grid__inner, .wm-grid-container {
+    height: 100%;
+}
+
+.wm-confirmation-dialog .mdc-dialog__surface {
+    max-width: 400px;
+    min-width: 400px;
+}
+.wm-resolution-dialog .mdc-dialog__surface {
+    max-width: 400px;
+    min-width: 400px;
+}
+
+@for $i from 0 through $max-layers {
+    @include wm-layer-prop($i)
+}
+
+.wm {
+    .mdc-dialog {
+        z-index: 101;
+    }
+}
+
+// ---- PROPERTY ROW ----
+
+.wm-property-row {
+    padding-bottom: 10px;
+    align-items: center;
+    &:last-child { padding-bottom: 0; }
+    &__value {
+        @include mdc-typography(body2);
+        text-align: end;
+        width: 50%;
+    }
+    &__label {
+        @include mdc-typography(subtitle1);
+        text-align: left;
+        width: 50%;
+    }
+}
+
+// ---- PLACEHOLDER ----
+
+.wm-placeholder {
+    position: absolute;
+}
+
+// ---- SELECTABLE TITLE ----
+
+.wm-selectable-title {
+
+    margin-bottom: 15px;
+
+    &__title {
+        @include mdc-theme-prop(color, text-disabled-on-background);
+        margin-left: 15px;
+        cursor: pointer;
+    }
+
+    &__title--active {
+        cursor: default;
+        @include mdc-theme-prop(color, text-primary-on-background);
+    }
+
+}
+
+// ---- ITEMS ----
+
+.wm-item-properties {
+    position: relative;
+    flex: 1 1 200px;
+
+    &__values {
+        table {
+            table-layout: fixed;
+        }
+        thead {
+            display: none;
+        }
+        td {
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+    }
+    &__actions {
+        margin-top: auto;
+    }
+}
+
+.wm-items {
+
+    flex-grow: 2;
+
+    &__add {
+        flex: 1 1 200px;
+        position: relative;
+    }
+
+    &__add__wrapper {
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    &__add__item {
+        @include mdc-theme-prop(background-color, surface);
+
+        display: flex;
+        align-items: center;
+        align-content: stretch;
+        border-bottom: 1px solid rgba(0,0,0,.12);
+        cursor: pointer;
+
+        .mdc-icon {
+            // FIXME surface
+            @include mdc-theme-prop(color, text-secondary-on-background);
+            padding: 12px;
+        }
+    }
+}
+
+// ---- LAYERS ----
+
+.wm-layer-item {
+    @include mdc-theme-prop(background-color, surface);
+
+    flex-grow: 1;
+    padding: 10px 0 10px 5px;
+    display: flex;
+    align-items: center;
+    align-content: stretch;
+    border-bottom: 1px solid rgba(0,0,0,.12);
+
+    &__drag-handle {
+        // FIXME surface
+        @include mdc-theme-prop(color, text-icon-on-background);
+        padding: 12px;
+    }
+    &__visibility {
+        // FIXME surface
+        @include mdc-theme-prop(color, text-icon-on-background);
+        margin-right: 5px;
+    }
+    &__color-indicator {
+        border-radius: 50%;
+        width: 10px;
+        height: 10px;
+        margin-right: 10px;
+        border: 1px solid rgba(0,0,0,.12);
+    }
+}
+
+.wm-layers-grid-wrapper {
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1 1 200px; // FIXME try to understand this magic
+
+    .mdc-dynamic-grid__item {
+        display: flex;
+        align-items: stretch;
+    }
+
+    .mdc-dynamic-grid__item--selected {
+        .wm-layer-item {
+            @include mdc-theme-prop(color, on-primary);
+            @include mdc-theme-prop(background-color, primary);
+            &__drag-handle {
+                @include mdc-theme-prop(color, on-primary);
+            }
+            &__visibility {
+                @include mdc-theme-prop(color, on-primary);
+            }
+        }
+    }
+}
+
+.wm-layers-actions {
+    .mdc-icon-button {
+        @include mdc-theme-prop(color,text-secondary-on-light);
+        transition: color 150ms $mdc-animation-standard-curve-timing-function;
+    }
+    .mdc-icon-button:disabled {
+        cursor: default;
+        @include mdc-theme-prop(color,text-disabled-on-light);
+    }
+}
+
+.wm-layers-card {
+    flex-grow: 1;
+    justify-content: space-between;
+}
+
+// ---- LEFT TOOLBAR ----
+
+.wm-left-toolbar {
+    $phone: map-get($mdc-layout-grid-breakpoints, phone);
+    &__action {
+        @include mdc-fab-accessible(mdc-theme-prop-value(surface));
+
+        margin-bottom: 20px;
+        &:last-child {
+            margin-bottom: 0;
+        }
+    }
+    &--exited {
+        transform: scale(0);
+        transition:
+        opacity 15ms linear 150ms,
+        mdc-animation-exit-permanent(transform, 180ms);
+        opacity: 0;
+    }
+}
+
+// ---- GRID ----
+
+.wm-grid-item__info {
+    $icon-margin: 10px;
+    $icon-size  : 24px;
+
+    padding: 12px;
+    white-space: nowrap;
+
+    &__line {
+        @include mdc-typography(caption);
+        margin-left: $icon-margin + $icon-size;
+        line-height: 1.5;
+    }
+    &__line--with-icon {
+        margin-left: 0;
+        .mdc-icon {
+            margin-right: $icon-margin;
+            width: $icon-size;
+            height: $icon-size;
+          }
+    }
+}
+
+.wm-grid {
+
+    height: 100%;
+
+    .wm-placeholder {
+        z-index: 4;
+        .mdc-placeholder__content {
+            @include mdc-theme-prop(background-color, surface);
+            border-radius: 4px;
+        }
+    }
+    &__right-menu {
+        align-items: center;
+        .mdc-menu {
+            z-index: 100;
+        }
+    }
+
+    &__grid-select {
+        @include mdc-theme-prop(color, text-secondary-on-background);
+        font-size: 12px;
+        font-weight: 400;
+        letter-spacing: 0.04em;
+        text-transform: inherit;
+        outline: none;
+        text-decoration: none;
+        user-select: none;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        padding-left: 12px;
+
+        .mdc-menu-anchor {
+            cursor: pointer;
+            padding-left: 8px;
+        }
+    }
+
+    &__wrapper {
+        @include mdc-theme-prop(background-color, $wm-grid-background-color);
+        @include mdc-elevation(2);
+
+        width: 100%;
+        height: auto;
+        overflow-x: auto;
+        position: relative;
+    }
+
+    &__header {
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+
+    &__title {
+        @include mdc-typography(subtitle1);
+    }
+
+    &__menu {
+        @include mdc-theme-prop(color, text-secondary-on-background);
+    }
+
+    &__grid {
+        $wm-grid-border: 2px dashed rgba(0,0,0,.12);
+
+        margin: 0 auto;
+
+        box-sizing: border-box;
+        outline: $wm-grid-border;
+
+        &.mdc-dynamic-grid--with-overlay-grid {
+            outline: none;
+        }
+
+        .mdc-dynamic-grid__item {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            @include mdc-elevation(2);
+            transition: box-shadow 100ms ease-out;
+            transition-delay: 100ms;
+        }
+        .mdc-dynamic-grid__item--dragging {
+            z-index: 100 !important;
+            @include mdc-elevation(8);
+        }
+        .mdc-dynamic-grid__item__ghost {
+            @include mdc-theme-prop(background-color, secondary);
+        }
+    }
+
+    &__grid--invisible {
+        .mdc-dynamic-grid__item {
+            display: none;
+        }
+    }
+    &__grid--background {
+        top: 0;
+        position: absolute;
+        left: 0;
+        right: 0;
+        margin-left: auto;
+        margin-right: auto;
+        outline: none;
+        pointer-events: none;
+
+        .mdc-dynamic-grid__item {
+            opacity: 0.4;
+        }
+        .mdc-dynamic-grid__item__resize {
+            display: none;
+        }
+
+        .wm-placeholder {
+            display: none;
+        }
+        .mdc-dynamic-grid__overlay-grid {
+            display: none;
+        }
+    }
+}
+
+// ---- RIGHT TOOLBAR ----
+
+.wm-right-toolbar {
+    height: 100%;
+    display: flex;
+    > * {
+        margin-bottom: 20px;
+        flex-grow: 2;
+        /* max-height: 40vh; */
+    }
+    > *:last-child { margin-bottom: 0; }
+}

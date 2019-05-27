@@ -137,9 +137,6 @@ object(self)
     |> List.filter (fun x ->
            Option.is_some @@ Element.get_attribute x "data-id"
            && Element.has_class x CSS.item)
-    |> fun x ->
-       List.iter (fun x -> Js.Unsafe.global##.console##log x) x;
-       x
     |> List.sort (fun e1 e2 ->
            compare (self#_get_item_id e1) (self#_get_item_id e2))
 

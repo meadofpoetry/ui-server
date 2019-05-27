@@ -17,14 +17,14 @@ let make_icon path =
 
 let pages () : Api_template.topmost Api_template.item list =
   let open Api_template in
-  let props = { title = Some "Мозаика"
-              ; pre_scripts = [ Src "/js/janus.nojquery.js"
-                              ; Src "/js/adapter.min.js"
-                              ]
-              ; post_scripts = [Src "/js/page_mosaic.js"]
-              ; stylesheets = ["/css/pipeline.min.css"]
-              ; content = []
-              }
+  let props =
+    make_template_props
+      ~title:"Мозаика"
+      ~pre_scripts:[ Src "/js/janus.nojquery.js"
+                   ; Src "/js/adapter.min.js" ]
+      ~post_scripts:[Src "/js/page_mosaic.js"]
+      ~stylesheets:["/css/pipeline.min.css"]
+      ()
   in
   simple ~priority:(`Index 1)
     ~title:"Мозаика"

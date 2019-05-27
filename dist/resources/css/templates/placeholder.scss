@@ -1,6 +1,6 @@
-@import '../components/theme/_mixins';
-@import '../components/theme/_color-palette';
-@import '../components/typography/_mixins';
+@import '@material/theme/_mixins';
+@import '@material/theme/_color-palette';
+@import '@material/typography/_mixins';
 
 .mdc-placeholder {
     display: flex;

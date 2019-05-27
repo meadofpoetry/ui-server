@@ -1,0 +1,5 @@
+@import '@material/animation/variables';
+
+@function mdc-expansion-panel-transition($property) {
+    @return $property 150ms $mdc-animation-standard-curve-timing-function;
+}

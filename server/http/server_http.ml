@@ -89,13 +89,10 @@ let handlers (config : Server.config) =
 let pages () : Api_template.topmost Api_template.item list =
   let open Api_template in
   let props =
-    { title = Some "Сервер"
-    ; pre_scripts = []
-    ; post_scripts = [ Src "/js/server_config.js" ]
-    ; stylesheets = []
-    ; content = []
-    }
-  in
+    make_template_props
+      ~title:"Сервер"
+      ~post_scripts:[Src "/js/server_config.js"]
+      () in
   simple
     ~restrict:[`Operator; `Guest]
     ~priority:(`Index 10)

@@ -26,12 +26,10 @@ let network_handlers (network : Pc_control.Network.t) =
 let network_pages : Api_template.topmost Api_template.item list =
   let open Api_template in
   let props =
-    { title = Some "Сеть"
-    ; pre_scripts = []
-    ; post_scripts = [ Src "/js/network.js" ]
-    ; stylesheets = []
-    ; content = []
-    }
+    make_template_props
+      ~title:"Сеть"
+      ~post_scripts:[Src "/js/network.js"]
+      ()
   in
   let icon x =
     let open Icon.SVG in

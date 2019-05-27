@@ -100,6 +100,23 @@ module Path = struct
       | F : 'a fmt * ('b,'c) t -> ('a -> 'b, 'c) t
       | E : ('a,'a) t
 
+    let rec equal : type a b c d. (a, b) t -> (c, d) t -> bool =
+      fun a b ->
+      match a, b with
+      | E, E -> true
+      | F (fa, a'), F (fb, b') ->
+        (match fa, fb with
+         | String, String -> true
+         | Int, Int -> true
+         | Int32, Int32 -> true
+         | Uuid, Uuid -> true
+         | Bool, Bool -> true
+         | Any, Any -> true
+         | _ -> false)
+        && equal a' b'
+      | S (ka, a'), S (kb, b') -> String.equal ka kb && equal a' b'
+      | _ -> false
+
     let rec to_templ : type a b. (a,b) t -> templ = function
       | E -> []
       | F (_,fmt) -> `Hole :: (to_templ fmt)

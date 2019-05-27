@@ -34,6 +34,8 @@ module Path : sig
 
     type paths
 
+    val equal : ('a, 'b) t -> ('c, 'd) t -> bool
+
     val templates : unit -> paths
 
     val store_template : paths -> ('a, 'b) t -> unit

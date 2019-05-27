@@ -197,9 +197,7 @@ module Make(Xml : Xml_sigs.NoWrap)
     let _, num, hex, chr =
       List.fold_left (fun (id, num, hex, chr) (x : char list) ->
           let num' = create_line_number (id / width) () in
-          Printf.printf "id: %d\n" id;
           let hex', chr' = create_row ~from_id:id ~width ~grouping base x in
-          print_endline "created row";
           id + List.length x,
           br () :: num' :: num,
           br () :: hex' @ hex,

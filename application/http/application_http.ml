@@ -11,12 +11,12 @@ module Icon = Components_tyxml.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
                     
 let user_pages : Api_template.topmost Api_template.item list =
   let open Api_template in
-  let props = { title        = Some "Пользователи"
-              ; pre_scripts  = []
-              ; post_scripts = [ Src "/js/user.js" ]
-              ; stylesheets  = [ "/css/user.min.css" ]
-              ; content      = []
-              } in
+  let props =
+    make_template_props
+      ~title:"Пользователи"
+      ~post_scripts:[Src "/js/user.js"]
+      ~stylesheets:["/css/user.min.css"]
+      () in
   let icon x =
     let open Icon.SVG in
     let path = create_path x () in
@@ -57,7 +57,7 @@ let input topo (input : Topology.topo_input) =
   let get_input_href (x : Topology.topo_input) =
     let name = Topology.input_to_string x.input in
     let id = string_of_int x.id in
-    Filename.concat name id
+    List.fold_left Filename.concat "" ["input"; name; id]
   in
   let path =
     Topology.get_paths topo
@@ -80,42 +80,38 @@ let input topo (input : Topology.topo_input) =
        |> Yojson.Safe.to_string in
      let input_string = Topology.Show_topo_input.to_string input in
      let input_template =
-       { title = Some title
-       ; pre_scripts  =
-           [ Raw (Printf.sprintf "var input = \"%s\";\
-                                  var boards = %s;\
-                                  var cpu = %s;"
-                    input_string boards cpu)]
-       ; post_scripts = [Src "/js/input.js"]
-       ; stylesheets = []
-       ; content = []
-       }
+       make_template_props
+       ~title
+       ~pre_scripts:[ Raw (Printf.sprintf "var input = \"%s\";\
+                                           var boards = %s;\
+                                           var cpu = %s;"
+                             input_string boards cpu)]
+       ~post_scripts:[Src "/js/input.js"]
+       ()
      in
      let input_page =
        simple
          ~priority:(`Index input.id)
          ~title
-         ~icon:(icon Components_tyxml.Svg_icons.settings)
+         ~icon:(icon Components_tyxml.Svg_icons.arrow_right)
          ~path:(Path.of_string @@ get_input_href input)
          input_template
      in
      let pre = "input/" ^ get_input_href input in
      let stream_template =
-       { title = Some ("Входы / " ^ title)
-       ; pre_scripts =
-           [ Raw (Printf.sprintf "var input = \"%s\";\
-                                  var boards = %s;\
-                                  var cpu = %s;"
-                    input_string boards cpu)
-           ; Src "/js/moment.min.js"
-           ; Src "/js/Chart.min.js"
-           ; Src "/js/chartjs-plugin-streaming.min.js"
-           ; Src "/js/chartjs-plugin-datalabels.min.js"
-           ]
-       ; post_scripts = [Src "/js/stream.js"]
-       ; stylesheets = []
-       ; content = []
-       } in
+       make_template_props
+       ~title:("Входы / " ^ title)
+       ~pre_scripts:[ Raw (Printf.sprintf "var input = \"%s\";\
+                                           var boards = %s;\
+                                           var cpu = %s;"
+                             input_string boards cpu)
+                    ; Src "/js/moment.min.js"
+                    ; Src "/js/Chart.min.js"
+                    ; Src "/js/chartjs-plugin-streaming.min.js"
+                    ; Src "/js/chartjs-plugin-datalabels.min.js"
+                    ]
+       ~post_scripts:[Src "/js/stream.js"]
+       () in
      let stream_page =
        parametric
          ~path:Path.Format.(pre @/ Stream.ID.fmt ^/ empty)
@@ -133,23 +129,22 @@ let application_pages (app : Application.t) =
     Tyxml.Html.toelt icon
   in
   let props =
-    { title = Some "Конфигурация"
-    ; pre_scripts = []
-    ; post_scripts = [Src "/js/topology.js"]
-    ; stylesheets = ["/css/topology.min.css"]
-    ; content = []
-    }
+    make_template_props
+    ~title:"Конфигурация"
+    ~post_scripts:[Src "/js/topology.js"]
+    ~stylesheets:["/css/topology.min.css"]
+    ()
   in
-  (* let _demo_props = (* TODO *)
-    { title = Some "UI Демо"
-    ; pre_scripts =
-        [ Src "/js/moment.min.js"
-        ; Src "/js/Chart.min.js"
-        ]
-    ; post_scripts = [Src "/js/demo.js"]
-    ; stylesheets = ["/css/demo.min.css"]
-    ; content = []
-    } in *)
+  let _demo_props =
+    make_template_props
+      ~title:"UI Демо"
+      ~pre_scripts:[ Src "/js/moment.min.js"
+                   ; Src "/js/Chart.min.js"
+                   ]
+      ~post_scripts:[Src "/js/demo.js"]
+      ~stylesheets:["/css/demo.min.css"]
+      ()
+  in
   let topo = React.S.value app.topo in
   let hw_templates =
     Boards.Board.Ports.fold (fun _ (x : Boards.Board.t) acc -> x.templates @ acc)
@@ -171,6 +166,13 @@ let application_pages (app : Application.t) =
     ~icon:(icon Components_tyxml.Svg_icons.tournament)
     ~path:(Path.of_string "application")
     props
+  @ simple
+    ~priority:(`Index 4)
+    ~title:"Демо"
+    ~icon:(icon Components_tyxml.Svg_icons.material_design)
+    ~path:(Path.of_string "demo")
+    _demo_props
+  @ List.flatten stream_templates
   @ hw_templates
 
 let application_handlers (app : Application.t) =

@@ -1,0 +1,4 @@
+(executable
+  (name demo)
+  (libraries js_of_ocaml components)
+  (preprocess (pps js_of_ocaml-ppx)))

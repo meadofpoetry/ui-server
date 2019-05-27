@@ -1,8 +1,8 @@
 PROFILE ?= release
 BUILD   = dune build --profile $(PROFILE)
 CLEAN   = dune clean
-CSS     = scss --style compressed
 CSS_DIR = dist/resources/css
+CSS     = scss --load-path $(CSS_DIR) --style compressed
 
 all: build
 
@@ -42,18 +42,19 @@ network:
 	cp _build/default/frontend/network.bc.js dist/resources/js/network.js
 
 demo:
-	$(BUILD) frontend/demo.bc.js
-	cp _build/default/frontend/demo.bc.js dist/resources/js/demo.js
+	$(BUILD) frontend/demo/js/demo.bc.js
+	cp _build/default/frontend/demo/js/demo.bc.js dist/resources/js/demo.js
 
 css-components:
-	$(CSS) $(CSS_DIR)/components/components.scss $(CSS_DIR)/components.min.css
+	$(CSS) $(CSS_DIR)/@material/components/components.scss $(CSS_DIR)/components.min.css
 
 css-pages:
 	$(CSS) $(CSS_DIR)/main.scss $(CSS_DIR)/main.min.css
-	$(CSS) $(CSS_DIR)/pages/demo/demo.scss $(CSS_DIR)/demo.min.css
-	$(CSS) $(CSS_DIR)/pages/topology/topology.scss $(CSS_DIR)/topology.min.css
-	$(CSS) $(CSS_DIR)/pages/pipeline/pipeline.scss $(CSS_DIR)/pipeline.min.css
-	$(CSS) $(CSS_DIR)/pages/user/user.scss $(CSS_DIR)/user.min.css
+	$(CSS) $(CSS_DIR)/frontend/mosaic_video/mosaic_video.scss $(CSS_DIR)/mosaic_video.min.css
+	$(CSS) $(CSS_DIR)/frontend/demo/demo.scss $(CSS_DIR)/demo.min.css
+	$(CSS) $(CSS_DIR)/frontend/topology/topology.scss $(CSS_DIR)/topology.min.css
+	$(CSS) $(CSS_DIR)/frontend/pipeline/pipeline.scss $(CSS_DIR)/pipeline.min.css
+	$(CSS) $(CSS_DIR)/frontend/user/user.scss $(CSS_DIR)/user.min.css
 
 css: css-components css-pages
 

@@ -1,0 +1,72 @@
+@import '@material/theme/_mixins';
+@import './_mixins';
+
+.mdc-dynamic-grid {
+    background-color: transparent;
+    position: relative;
+    box-sizing: border-box;
+    width: 100%;
+
+    &__ghost {
+        @include mdc-theme-prop(background-color, secondary);
+        z-index: 2;
+        position: absolute;
+        opacity: 0.3;
+    }
+
+    &__overlay-grid {
+        position: absolute;
+        left: 0;
+        top: 0;
+    }
+}
+
+.mdc-dynamic-grid-item {
+    @include mdc-no-selection;
+    @include mdc-theme-prop(background-color, surface);
+    position: absolute;
+    background-position: center center;
+    box-sizing: border-box;
+    z-index: 2;
+    /* transition: transform 150ms ease-out; */
+
+    &:focus {
+        outline:none;
+    }
+
+    &__drag-handle {
+        cursor: pointer;
+    }
+
+    &__select-handle {
+        cursor: pointer;
+    }
+
+    &__resize-handle {
+        @include mdc-no-selection;
+        position: absolute;
+        bottom: 0px;
+        right: 0px;
+        width: 20px;
+        height: 20px;
+        z-index: 3;
+        cursor: se-resize;
+    }
+
+    &__resize-handle::after {
+        content: "";
+        position: absolute;
+        right: 3px;
+        bottom: 3px;
+        width: 5px;
+        height: 5px;
+        border-right: 2px solid rgba(0, 0, 0, 0.4);
+        border-bottom: 2px solid rgba(0, 0, 0, 0.4);
+    }
+
+    &--dragging {
+        cursor: grabbing;
+        cursor: -webkit-grabbing;
+        cursor: -moz-grabbing;
+    }
+}
