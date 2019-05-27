@@ -14,7 +14,7 @@ let base_class = "dvb-niit-module-settings"
 let standard = Select.(
     Custom { to_string = standard_to_string ~full:true
            ; of_string = fun x ->
-               match standatd_of_string x with
+               match standard_of_string x with
                | None -> Error "Bad standard value"
                | Some x -> Ok x
            })

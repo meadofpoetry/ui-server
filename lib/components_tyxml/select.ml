@@ -93,7 +93,7 @@ module Make(Xml : Xml_sigs.NoWrap)
 
     let create_select ?(classes = []) ?attrs
           ?(disabled = false) ~items () : 'a elt =
-      let classes = CSS.native_control ::classes in
+      let classes = CSS.native_control :: classes in
       select ~a:([a_class classes]
                  |> cons_if_lazy disabled a_disabled
                  <@> attrs) items

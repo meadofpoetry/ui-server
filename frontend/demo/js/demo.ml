@@ -26,7 +26,8 @@ let onload _ =
     ; (Tabs.section ())#widget
     ; (Dialog.section ())#widget
     ; (Textfield.section ())#widget
-    ; (Hexdump.section ())#widget ] in
+    ; (Hexdump.section ())#widget
+    ; (Select.section ())#widget ] in
   List.iter (fun x -> x#add_class "demo-section") widgets;
   let div =
     Components.Widget.create_div

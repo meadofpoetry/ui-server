@@ -220,9 +220,13 @@ class ['a] t
     (elt : Dom_html.element Js.t) () =
   let native_control : Dom_html.selectElement Js.t option =
     Option.map (fun x ->
-        match Js.to_string elt##.tagName with
+        match Js.to_string x##.tagName with
         | "SELECT" -> Js.Unsafe.coerce x
-        | _ -> failwith "select: native control should have a `select` tag")
+        | s ->
+          let err = Printf.sprintf
+              "select: native control should have a `select` tag, \
+               but got `%s`" (String.lowercase_ascii s) in
+          failwith err)
     @@ Element.query_selector elt Selector.native_control in
   let selected_text = Element.query_selector elt Selector.selected_text in
   let target = match native_control, selected_text with
@@ -232,9 +236,13 @@ class ['a] t
       Element.set_attribute text "tabindex" (if is_disabled then "-1" else "0");
       let hidden_input =
         Option.map (fun x ->
-            match Js.to_string elt##.tagName with
+            match Js.to_string x##.tagName with
             | "INPUT" -> Js.Unsafe.coerce x
-            | _ -> failwith "select: hidden input should have an `input` tag")
+            | s ->
+              let err = Printf.sprintf
+                  "select: hidden input should have an `input` tag, \
+                   but got `%s`" (String.lowercase_ascii s) in
+              failwith err)
         @@ Element.query_selector elt Selector.hidden_input in
       let menu_elt = Element.query_selector_exn elt Selector.menu in
       let menu = Menu.attach menu_elt in

@@ -46,7 +46,7 @@ let standard_to_string ?(full = false) x =
     | C -> "C" in
   if full then "DVB-" ^ suffix else suffix
 
-let standatd_of_string = function
+let standard_of_string = function
   | "DVB-T2" | "T2" -> Some T2
   | "DVB-T" | "T" -> Some T
   | "DVB-C" | "C" -> Some C
