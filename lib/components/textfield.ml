@@ -300,13 +300,14 @@ let get_helper_line (elt : Dom_html.element Js.t) =
      if Element.has_class next CSS.helper_line
      then Some next else None
 
-class ['a] t ?(helper_text : Helper_text.t option)
-        ?(character_counter : Character_counter.t option)
-        ?(line_ripple : Line_ripple.t option)
-        ?(floating_label : Floating_label.t option)
-        ?(notched_outline : Notched_outline.t option)
-        ?(validation : 'a validation option)
-        (elt : Dom_html.element Js.t) () =
+class ['a] t ?on_input
+    ?(helper_text : Helper_text.t option)
+    ?(character_counter : Character_counter.t option)
+    ?(line_ripple : Line_ripple.t option)
+    ?(floating_label : Floating_label.t option)
+    ?(notched_outline : Notched_outline.t option)
+    ?(validation : 'a validation option)
+    (elt : Dom_html.element Js.t) () =
   let helper_line = get_helper_line elt in
   let icon_elements = Element.query_selector_all elt Selector.icon in
   object(self)
@@ -626,7 +627,10 @@ class ['a] t ?(helper_text : Helper_text.t option)
 
     method private handle_input () : unit =
       self#auto_complete_focus ();
-      self#set_character_counter @@ String.length self#value_as_string
+      self#set_character_counter @@ String.length self#value_as_string;
+      match on_input with
+      | None -> ()
+      | Some f -> f (self :> 'a t)
 
     method private handle_text_field_interaction () : unit =
       if not (Js.to_bool input_elt##.disabled)
@@ -770,16 +774,17 @@ class ['a] t ?(helper_text : Helper_text.t option)
       new Ripple.t adapter ()
   end
 
-let make_textfield ?disabled ?(fullwidth = false)
-      ?(outlined = false) ?focused ?input_id
-      ?pattern ?min_length ?max_length ?step
-      ?(value : 'a option) ?placeholder ?required
-      ?(helper_text : Helper_text.t option)
-      ?(character_counter : Character_counter.t option)
-      ?(leading_icon : #Widget.t option)
-      ?(trailing_icon : #Widget.t option)
-      ?(label : string option)
-      (validation : 'a validation) : 'a t =
+let make_textfield ?on_input
+    ?disabled ?(fullwidth = false)
+    ?(outlined = false) ?focused ?input_id
+    ?pattern ?min_length ?max_length ?step
+    ?(value : 'a option) ?placeholder ?required
+    ?(helper_text : Helper_text.t option)
+    ?(character_counter : Character_counter.t option)
+    ?(leading_icon : #Widget.t option)
+    ?(trailing_icon : #Widget.t option)
+    ?(label : string option)
+    (validation : 'a validation) : 'a t =
   Option.iter (fun x -> x#add_class CSS.icon) leading_icon;
   Option.iter (fun x -> x#add_class CSS.icon) trailing_icon;
   let id = match input_id with
@@ -788,7 +793,7 @@ let make_textfield ?disabled ?(fullwidth = false)
   let typ = input_type_of_validation validation in
   let floating_label, placeholder = match fullwidth, label, placeholder with
     | false, Some label, None ->
-       Some (Floating_label.make ~for_:id label), None
+      Some (Floating_label.make ~for_:id label), None
     | true, Some label, None -> None, Some label
     | _ -> None, placeholder in
   let notched_outline = match outlined with
@@ -813,30 +818,31 @@ let make_textfield ?disabled ?(fullwidth = false)
   let (elt : Dom_html.divElement Js.t) =
     Tyxml_js.To_dom.of_div
     @@ Markup.create ?disabled ?focused ~fullwidth
-         ?leading_icon:(Option.map Widget.to_markup leading_icon)
-         ?trailing_icon:(Option.map Widget.to_markup trailing_icon)
-         ?line_ripple:(Option.map Widget.to_markup line_ripple)
-         ?label:(Option.map Widget.to_markup label)
-         ?outline:(Option.map Widget.to_markup notched_outline)
-         ~no_label:(Option.is_none floating_label)
-         ~input () in
+      ?leading_icon:(Option.map Widget.to_markup leading_icon)
+      ?trailing_icon:(Option.map Widget.to_markup trailing_icon)
+      ?line_ripple:(Option.map Widget.to_markup line_ripple)
+      ?label:(Option.map Widget.to_markup label)
+      ?outline:(Option.map Widget.to_markup notched_outline)
+      ~no_label:(Option.is_none floating_label)
+      ~input () in
   (* Instantiate new Text Field object. *)
-  new t ?helper_text ?character_counter ?line_ripple ?notched_outline
+  new t ?on_input ?helper_text ?character_counter ?line_ripple ?notched_outline
     ?floating_label ~validation elt ()
 
-let make_textarea ?disabled ?(fullwidth = false) ?focused ?input_id
-      ?min_length ?max_length ?rows ?cols
-      ?(value : string option) ?placeholder ?required
-      ?(helper_text : Helper_text.t option)
-      ?(character_counter : Character_counter.t option)
-      ?(label : string option)
-      () : string t =
+let make_textarea ?on_input
+    ?disabled ?(fullwidth = false) ?focused ?input_id
+    ?min_length ?max_length ?rows ?cols
+    ?(value : string option) ?placeholder ?required
+    ?(helper_text : Helper_text.t option)
+    ?(character_counter : Character_counter.t option)
+    ?(label : string option)
+    () : string t =
   let id = match input_id with
     | Some x -> x
     | None -> Id.get () in
   let floating_label, placeholder = match fullwidth, label, placeholder with
     | false, Some label, None ->
-       Some (Floating_label.make ~for_:id label), None
+      Some (Floating_label.make ~for_:id label), None
     | true, Some label, None -> None, Some label
     | _ -> None, placeholder in
   let notched_outline = Notched_outline.make ?label:floating_label () in
@@ -848,16 +854,16 @@ let make_textarea ?disabled ?(fullwidth = false) ?focused ?input_id
   let (elt : Dom_html.divElement Js.t) =
     Tyxml_js.To_dom.of_div
     @@ Markup.Textarea.create ?disabled ?focused
-         ~fullwidth
-         ~outline:(Widget.to_markup notched_outline)
-         ?character_counter:(Option.map Widget.to_markup character_counter)
-         ~input () in
+      ~fullwidth
+      ~outline:(Widget.to_markup notched_outline)
+      ?character_counter:(Option.map Widget.to_markup character_counter)
+      ~input () in
   (* Instantiate new Text Field object. *)
-  new t ?helper_text ?floating_label ?character_counter
+  new t ?on_input ?helper_text ?floating_label ?character_counter
     ~notched_outline ~validation:Text elt ()
 
-let attach ?helper_text ?character_counter
-      ?(validation : 'a validation option)
-      (elt : #Dom_html.element Js.t) : 'a t =
-  new t ?helper_text ?character_counter ?validation
+let attach ?on_input ?helper_text ?character_counter
+    ?(validation : 'a validation option)
+    (elt : #Dom_html.element Js.t) : 'a t =
+  new t ?on_input ?helper_text ?character_counter ?validation
     (Element.coerce elt) ()

@@ -6,10 +6,13 @@ open Utils
    - add rtl support
  *)
 
+let ( >>= ) = Lwt.( >>= )
+
 include Components_tyxml.Tab_bar
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
-class t ?scroller ?(auto_activation = false) (elt : Dom_html.element Js.t) () =
+class t ?on_change ?scroller ?(auto_activation = false)
+    (elt : Dom_html.element Js.t) () =
 object(self)
   val _scroller = match scroller with
     | Some x -> x
@@ -77,7 +80,11 @@ object(self)
       if not @@ eq (Some tab) previous
       then (
         _scroller#set_active_tab tab;
-        self#scroll_into_view tab)
+        self#scroll_into_view tab
+        >>= fun () ->
+        (match on_change with
+         | None -> Lwt.return_unit
+         | Some f -> f previous (self :> t)))
       else Lwt.return_unit)
     else Lwt.return_unit
 
@@ -222,14 +229,14 @@ object(self)
         else x) index
 
   method private handle_tab_interaction (e : Tab.Event.interacted Js.t)
-                   (_ : unit Lwt.t) : unit Lwt.t =
+      (_ : unit Lwt.t) : unit Lwt.t =
     match Js.Opt.to_option e##.detail with
     | None -> Lwt.return_unit
     | Some (elt : Element.t) ->
-       List.find_opt (fun tab -> Element.equal tab#root elt) self#tabs
-       |> function
-         | None -> Lwt.return_unit
-         | Some tab -> self#set_active_tab tab
+      List.find_opt (fun tab -> Element.equal tab#root elt) self#tabs
+      |> function
+      | None -> Lwt.return_unit
+      | Some tab -> self#set_active_tab tab
 
   method private handle_key_down (e : Dom_html.keyboardEvent Js.t)
                    (_ : unit Lwt.t) : unit Lwt.t =
@@ -275,12 +282,12 @@ object(self)
     | Some a -> List.find_opt (fun x -> Element.equal x#root a) self#tabs
 end
 
-let make ?auto_activation
+let make ?on_change ?auto_activation
       (scroller : Tab_scroller.t) : t =
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element
     @@ Markup.create ~scroller:(Widget.to_markup scroller) () in
-  new t ?auto_activation ~scroller elt ()
+  new t ?on_change ?auto_activation ~scroller elt ()
 
-let attach ?auto_activation (elt : Dom_html.element Js.t) : t =
-  new t ?auto_activation (Element.coerce elt) ()
+let attach ?on_change ?auto_activation (elt : Dom_html.element Js.t) : t =
+  new t ?on_change ?auto_activation (Element.coerce elt) ()

@@ -1,6 +1,6 @@
-open Application_types
 open Js_of_ocaml
-open Containers
+open Js_of_ocaml_tyxml
+open Application_types
 open Components
 open Topo_types
 open Lwt.Infix
@@ -18,42 +18,32 @@ let get_input_point ~num i (elt : #Dom_html.element Js.t) : point =
 
 class switch (port : Topology.topo_port) setter () =
   let _class = "topology__switch" in
-  let s, push = React.S.create ~eq:Equal.bool false in
+  let signal, push = React.S.create ~eq:(=) false in
+  let elt = Tyxml_js.To_dom.of_element @@ Switch.Markup.create () in
   object(self)
 
-    inherit Switch.t () as super
+    inherit Switch.t elt () as super
 
     val mutable _state = `Unavailable
 
     method! init () : unit =
       super#init ();
-      Dom_events.listen super#input_element Widget.Event.change (fun _ _ ->
-          push true;
-          setter port.port super#checked
-          >>= (function
-               | Ok _ -> push false; Lwt.return_unit
-               | Error _ ->
-                  push false;
-                  (* return current state back *)
-                  self#set_state _state;
-                  Lwt.return_unit)
-          |> Lwt.ignore_result;
-          true)
-      |> ignore;
       super#set_disabled true;
       super#add_class _class
 
     method port : Topology.topo_port = port
-    method s_changing : bool React.signal = s
+
+    method s_changing : bool React.signal = signal
+
     method set_state (x : connection_state) : unit =
       _state <- x;
       match x with
       | `Active | `Sync | `Sync_lost ->
-         super#set_checked true;
+         super#toggle ~force:true ();
          super#set_disabled false
       | `Muted ->
          super#set_disabled false;
-         super#set_checked false
+         super#toggle ~force:false ()
       | `Unavailable ->
          super#set_disabled true
 
@@ -64,13 +54,24 @@ class switch (port : Topology.topo_port) setter () =
          | `Unavailable -> ()
          | _ -> super#set_disabled false
 
+    method! private notify_change () =
+      push true;
+      setter port.port super#checked
+      >>= function
+      | Ok _ -> push false; Lwt.return_unit
+      | Error _ ->
+        push false;
+        (* return current state back *)
+        self#set_state _state;
+        Lwt.return_unit
+
   end
 
 let _class = "topology__path"
-let active_class = Markup.CSS.add_modifier _class "active"
-let muted_class = Markup.CSS.add_modifier _class "muted"
-let sync_class = Markup.CSS.add_modifier _class "sync"
-let no_sync_class = Markup.CSS.add_modifier _class "no-sync"
+let active_class = BEM.add_modifier _class "active"
+let muted_class = BEM.add_modifier _class "muted"
+let sync_class = BEM.add_modifier _class "sync"
+let no_sync_class = BEM.add_modifier _class "no-sync"
 
 class t ~(left_node : node_entry)
         ~(right_point : connection_point)
@@ -103,7 +104,7 @@ class t ~(left_node : node_entry)
     method switch : switch option = switch
     method set_state (x : connection_state) : unit =
       state <- x;
-      Option.iter (fun sw -> sw#set_state x) switch;
+      Utils.Option.iter (fun sw -> sw#set_state x) switch;
       match state with
       | `Muted | `Unavailable ->
          super#add_class muted_class;
@@ -135,11 +136,11 @@ class t ~(left_node : node_entry)
         if left.y > right.y
         then left.y, left.y  - right.y
         else right.y, right.y - left.y in
-      Option.iter (fun sw ->
+      Utils.Option.iter (fun sw ->
           let x = right.x + 15 in
-          let y = right.y - (sw#offset_height / 2) in
-          sw#style##.top := Utils.px_js y;
-          sw#style##.left := Utils.px_js x) switch;
+          let y = right.y - (sw#root##.offsetHeight / 2) in
+          sw#root##.style##.top := Utils.px_js y;
+          sw#root##.style##.left := Utils.px_js x) switch;
       let width = right.x - left.x in
       let path =
         if abs (left.y - right.y) < 4

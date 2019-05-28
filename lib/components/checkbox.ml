@@ -58,8 +58,7 @@ object(self)
     let change_listener =
       Events.listen_lwt input_elt Events.Typ.change (fun _ _ ->
           self#transition_check_state ();
-          self#notify_change ();
-          Lwt.return_unit) in
+          self#notify_change ()) in
     _change_listener <- Some change_listener;
     let animationend_listener =
       Events.listen_lwt super#root Events.Typ.animationend
@@ -112,7 +111,7 @@ object(self)
   method toggle ?(notify = false) ?(force : bool option) () : unit =
     let v = match force with None -> not self#checked | Some x -> x in
     input_elt##.checked := Js.bool v;
-    if notify then self#notify_change ()
+    if notify then Lwt.async self#notify_change
 
   method input_element : Dom_html.inputElement Js.t =
     input_elt
@@ -122,8 +121,10 @@ object(self)
 
   (* Private methods *)
 
-  method private notify_change () : unit =
-    Option.iter (fun f -> f self#checked) on_change
+  method private notify_change () : unit Lwt.t =
+    match on_change with
+    | None -> Lwt.return_unit
+    | Some f -> f (self :> t)
 
   method private create_ripple () : Ripple.t =
     let adapter = Ripple.make_default_adapter super#root in

@@ -1,7 +1,7 @@
+open Js_of_ocaml
 open Application_types
 open Containers
 open Components
-open Js_of_ocaml
 open Topo_types
 
 type node_entry = Topo_types.node_entry
@@ -48,18 +48,24 @@ class parent ~port_setter
       (fun acc x -> if x then x else acc) false
   in
   object(self)
+    val mutable _s = None
     inherit t ~node ~body elt () as super
 
     method! init () : unit =
       super#init ();
-      React.S.map ~eq:Equal.unit
-        (fun x -> List.iter (fun s -> s#set_changing x) switches)
-        s_switch_changing
-      |> self#_keep_s;
+      let s = React.S.map ~eq:Equal.unit
+          (fun x -> List.iter (fun s -> s#set_changing x) switches)
+          s_switch_changing in
+      _s <- Some s
 
     method! layout () : unit =
       super#layout ();
       List.iter (fun p -> p#layout ()) paths
+
+    method! destroy () : unit =
+      super#destroy ();
+      Option.iter (React.S.stop ~strong:true) _s;
+      _s <- None
 
     method paths = paths
 

@@ -5,8 +5,6 @@ open Utils
 include Components_tyxml.Radio
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
-let ( >>= ) = Lwt.bind
-
 class t ?on_change (elt : Dom_html.element Js.t) () =
 object(self)
   val input_elt : Dom_html.inputElement Js.t =

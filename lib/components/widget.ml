@@ -47,9 +47,8 @@ class t ?(widgets : #t list option) (elt : #Dom_html.element Js.t) () =
     method node : Dom.node Js.t =
       (elt :> Dom.node Js.t)
 
-    method markup : Tyxml_js.Xml.elt =
+    method markup : 'a. 'a Tyxml_js.Html.elt =
       Tyxml_js.Of_dom.of_element self#root
-      |> Tyxml_js.Html.toelt
 
     method widget : t = (self :> t)
 

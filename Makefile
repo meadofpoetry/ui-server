@@ -25,9 +25,9 @@ pipeline:
 	$(BUILD) frontend/page_mosaic.bc.js
 	cp _build/default/frontend/page_mosaic.bc.js dist/resources/js/page_mosaic.js
 
-hardware:
-	$(BUILD) frontend/topology.bc.js
-	cp _build/default/frontend/topology.bc.js dist/resources/js/topology.js
+topology:
+	$(BUILD) application/pages_js/page_topology.bc.js
+	cp _build/default/application/pages_js/page_topology.bc.js dist/resources/js/topology.js
 
 server_config:
 	$(BUILD) frontend/server_config.bc.js

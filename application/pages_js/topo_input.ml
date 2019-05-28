@@ -1,3 +1,4 @@
+open Js_of_ocaml_tyxml
 open Application_types
 
 let input_to_string : Topology.input -> string = function

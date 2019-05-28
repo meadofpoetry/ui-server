@@ -29,7 +29,7 @@ class t ?(ripple = true) ?on_click ?loader
       match on_click with
       | None -> ()
       | Some f ->
-        let listener = Events.clicks super#root f in
+        let listener = Events.clicks super#root (f (self :> t)) in
         _click_listener <- Some listener
 
     method! layout () : unit =

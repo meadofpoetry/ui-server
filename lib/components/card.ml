@@ -60,14 +60,10 @@ module Primary = struct
       @@ Markup.create_subtitle text () in
     Typography.Text.attach elt
 
-  let make ?overline ?title ?subtitle () : Widget.t =
+  let make content : Widget.t =
     let (elt : Dom_html.element Js.t) =
       Tyxml_js.To_dom.of_section
-      @@ Markup.create_primary
-           ?overline:(Option.map Widget.to_markup overline)
-           ?title:(Option.map Widget.to_markup title)
-           ?subtitle:(Option.map Widget.to_markup subtitle)
-           () in
+      @@ Markup.create_primary (List.map Widget.to_markup content) () in
     Widget.create elt
 
 end
@@ -84,22 +80,20 @@ module Media = struct
 end
 
 class t ?widgets (elt : Dom_html.element Js.t) () =
-object
-  inherit Widget.t ?widgets elt () as super
+  object
+    inherit Widget.t ?widgets elt () as super
 
-  method outlined : bool =
-    super#has_class CSS.outlined
+    method outlined : bool =
+      super#has_class CSS.outlined
 
-  method set_outlined (x : bool) : unit =
-    super#toggle_class ~force:x CSS.outlined
-end
-
-let make_element ?outlined ?(tag = Tyxml_js.Html.div) widgets =
-  Tyxml_js.To_dom.of_element
-  @@ Markup.create ?outlined ~tag [] ()
+    method set_outlined (x : bool) : unit =
+      super#toggle_class ~force:x CSS.outlined
+  end
 
 let make ?outlined ?tag widgets : t =
-  let elt = make_element ?outlined ?tag widgets in
+  let elt =
+    Tyxml_js.To_dom.of_element
+    @@ Markup.create ?outlined ?tag [] in
   new t ~widgets elt ()
 
 let attach (elt : #Dom_html.element Js.t) : t =

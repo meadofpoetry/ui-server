@@ -41,7 +41,7 @@ let section () =
   let b_t2 = Button.make
       ~appearance:Raised
       ~label:"SET T2"
-      ~on_click:(fun _ _ ->
+      ~on_click:(fun _ _ _ ->
           select#set_value T2;
           select_2#set_value T2;
           Lwt.return_unit)
@@ -49,7 +49,7 @@ let section () =
   let b_t = Button.make
       ~appearance:Raised
       ~label:"SET T"
-      ~on_click:(fun _ _ ->
+      ~on_click:(fun _ _ _ ->
           select#set_value T;
           select_2#set_value T;
           Lwt.return_unit)
@@ -57,7 +57,7 @@ let section () =
   let b_c = Button.make
       ~appearance:Raised
       ~label:"SET C"
-      ~on_click:(fun _ _ ->
+      ~on_click:(fun _ _ _ ->
           select#set_value C;
           select_2#set_value C;
           Lwt.return_unit)

@@ -1,5 +1,4 @@
 open Application_types
-open Containers
 open Components
 open Topo_types
 
@@ -61,45 +60,24 @@ let get_board_type ({ manufacturer; model; _ } : Topology.topo_board) =
   | "NIITV", "DVB4CH" -> "DVB"
   | _ -> ""
 
-let make_board_page (b : Topology.topo_board) =
+let make_board_page (b : Topology.topo_board) : (unit -> Widget.t) option =
   match b.manufacturer, b.model, b.version with
-  | "NIITV", "TSAN", _ ->
-    let open Board_niitv_tsan_widgets_js in
-    let getter = fun () ->
-      let factory = new Widget_factory.t b.control () in
-      let settings = factory#create Settings in
-      settings.widget#set_on_destroy factory#destroy;
-      Widget.coerce settings.widget in
-    Some getter
-  | "NIITV", "DVB4CH", _ ->
-    let open Board_niitv_dvb_widgets_js in
-    let getter = fun () ->
-      let factory = new Widget_factory.t b.control () in
-      let settings = factory#create Settings in
-      settings.widget#set_on_destroy factory#destroy;
-      Widget.coerce settings.widget in
-    Some getter
-  | "DekTec", "DTM-3200", _ ->
-    let open Board_dektec_dtm3200_widgets_js in
-    let getter = fun () ->
-      let factory = new Factory.t b.control () in
-      let settings = factory#create Settings in
-      settings.widget#set_on_destroy factory#destroy;
-      Widget.coerce settings.widget in
-    Some getter
+  | "NIITV", "TSAN", _ -> None
+  | "NIITV", "DVB4CH", _ -> None
+  | "DekTec", "DTM-3200", _ -> None
   | _ -> None
 
 module Header = struct
 
   class t (has_settings_button : bool)
           (board : Topology.topo_board) () =
-    let _class = Markup.CSS.add_element base_class "header" in
+    let _class = BEM.add_element base_class "header" in
     let title = get_board_name board in
     let settings = match has_settings_button with
       | false -> None
       | true ->
-         let icon = Icon.SVG.(create_simple Path.settings) in
-         let button = new Icon_button.t ~icon () in
+         let icon = Icon.SVG.(make_simple Path.settings) in
+         let button = Icon_button.make ~icon () in
          Some button in
     object(self)
       inherit Topo_block.Header.t ?action:settings ~title () as super
@@ -110,7 +88,7 @@ module Header = struct
 
       method! layout () : unit =
         super#layout ();
-        Option.iter (fun x -> x#layout ()) self#settings_icon
+        Utils.Option.iter Widget.layout self#settings_icon
 
       method settings_icon =
         settings
@@ -123,7 +101,7 @@ end
 
 module Body = struct
 
-  let _class = Markup.CSS.add_element base_class "body"
+  let _class = BEM.add_element base_class "body"
 
   class t (board : Topology.topo_board) () =
   object
@@ -145,7 +123,7 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
   let eq = Topology.equal_state in
   let s, push = React.S.create ~eq board.connection in
   let make_settings = make_board_page board in
-  let header = Header.create (Option.is_some make_settings) board in
+  let header = Header.create (Utils.Option.is_some make_settings) board in
   let body = Body.create board in
   object(self)
     val mutable _board = board
@@ -161,9 +139,9 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
       self#set_board _board;
       super#add_class base_class;
       super#set_attribute "data-board" @@ get_board_type _board;
-      Option.iter (fun (w : Icon_button.t) ->
+      Utils.Option.iter (fun (w : Icon_button.t) ->
           let listener =
-            w#listen_click_lwt (fun _ _ ->
+            Events.clicks w#root (fun _ _ ->
                 let name = get_board_name self#board in
                 let widget = self#make_settings_widget () in
                 push_settings (widget, name);
@@ -173,7 +151,7 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
 
     method! destroy () : unit =
       super#destroy ();
-      Option.iter Lwt.cancel _click_listener;
+      Utils.Option.iter Lwt.cancel _click_listener;
       _click_listener <- None
 
     method! layout () : unit =
@@ -196,9 +174,9 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
     method private make_settings_widget () : Widget.t =
       match make_settings with
       | None ->
-        let icon = Icon.SVG.(create_simple Path.stop) in
+        let icon = Icon.SVG.(make_simple Path.stop) in
         let ph =
-          Ui_templates.Placeholder.create_with_icon
+          Ui_templates.Placeholder.With_icon.make
             ~icon
             ~text:"Нет доступных настроек для платы"
             () in

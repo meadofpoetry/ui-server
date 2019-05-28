@@ -95,14 +95,12 @@ module Make(Xml : Xml_sigs.NoWrap)
     let classes = CSS.subtitle :: classes in
     h3 ~a:([a_class classes] <@> attrs) [txt text]
 
-  let create_primary ?(classes = []) ?attrs
-        ?overline ?title ?subtitle () : 'a elt =
+  let create_primary ?(classes = []) ?attrs content () : 'a elt =
     let classes = CSS.primary :: classes in
-    let content = overline ^:: title ^:: subtitle ^:: [] in
     section ~a:([a_class classes] <@> attrs) content
 
   let create ?(classes=[]) ?attrs ?(tag = div) ?(outlined = false)
-        sections () : 'a elt =
+      sections : 'a elt =
     let classes =
       classes
       |> cons_if outlined CSS.outlined

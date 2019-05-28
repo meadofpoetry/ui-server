@@ -1,8 +1,8 @@
 (library
   (name       dynamic_grid)
-  (libraries  components
+  (libraries  dynamic_grid_tyxml
+              components
               lwt_react
-              dynamic_grid_tyxml
               util_equal)
   (preprocess (pps js_of_ocaml-ppx
                    ppx_deriving_yojson

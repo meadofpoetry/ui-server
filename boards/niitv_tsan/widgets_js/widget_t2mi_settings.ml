@@ -8,7 +8,10 @@ let base_class = "qos-niit-t2mi-settings"
 
 let make_enabled () =
   let signal, push = React.S.create false in
-  let enabled = Switch.make ~on_change:push () in
+  let enabled = Switch.make ~on_change:(fun x ->
+      push x#checked;
+      Lwt.return_unit)
+      () in
   let form =
     Form_field.make
       ~label:"Включить анализ T2-MI"

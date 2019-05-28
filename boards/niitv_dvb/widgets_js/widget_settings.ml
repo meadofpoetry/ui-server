@@ -8,7 +8,7 @@ let name = "Настройки"
 let settings = None
 
 let base_class = "dvb-niit-settings"
-let body_class = Markup.CSS.add_element base_class "body"
+let body_class = Components_tyxml.BEM.add_element base_class "body"
 
 type event =
   [ `Mode of (int * mode) list
@@ -41,8 +41,8 @@ let make_inner state mode receivers control =
     List.map (fun id ->
         let open Widget_module_settings in
         let name = Printf.sprintf "%s %d" module_name (succ id) in
-        let value = make ~config:{id} state mode control in
-        new Tab.t ~value ~content:(Text name) ())
+        let value = make {id} state mode control in
+        value#widget, Tab.make ~label:name ())
     @@ List.sort compare receivers in
   let bar, body = Ui_templates.Tabs.create_simple tabs in
   body#add_class body_class;

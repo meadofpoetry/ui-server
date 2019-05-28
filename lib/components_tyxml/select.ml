@@ -80,9 +80,10 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   module Native = struct
 
-    let create_option ?(classes = []) ?attrs ?(disabled = false)
+    let create_option ?(classes = []) ?attrs ?value ?(disabled = false)
           ?(selected = false) ~text () : 'a elt =
       option ~a:([a_class classes]
+                 |> map_cons_option a_value value
                  |> cons_if_lazy disabled a_disabled
                  |> cons_if_lazy selected a_selected
                  <@> attrs)

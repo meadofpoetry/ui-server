@@ -28,8 +28,9 @@ let make_ip ~id ~label () =
 let make_dhcp (inputs : 'a #Textfield.t list) =
   let signal, push = React.S.create false in
   let dhcp = Switch.make ~on_change:(fun x ->
-      push x;
-      List.iter (fun w -> w#set_disabled x) inputs)
+      push x#checked;
+      List.iter (fun w -> w#set_disabled x#checked) inputs;
+      Lwt.return_unit)
       () in
   let form =
     Form_field.make

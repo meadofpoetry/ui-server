@@ -3,7 +3,6 @@ open Application_types
 open Board_niitv_dvb_types.Device
 open Board_niitv_dvb_http_js
 open Components
-open Lwt_result.Infix
 
 type widget_config =
   { id : int
@@ -32,12 +31,14 @@ let bw =
   Select.Custom { to_string; of_string }
 
 let make_standard () =
+  let signal, push = React.S.create None in
   let items = Select.native_options_of_values
       ~with_empty:true
       standard
       [T2; T; C] in
   let mode =
     Select.make_native
+      ~on_change:(fun s -> push s#value)
       ~label:"Стандарт"
       ~items
       standard in
@@ -45,14 +46,16 @@ let make_standard () =
     | None -> mode#set_selected_index 0
     | Some x -> mode#set_value x.standard in
   mode#add_class @@ Components_tyxml.BEM.add_element base_class "mode";
-  mode, set
+  mode, set, signal
 
-let make_bw (standard : standard option React.signal) () =
+let make_bw (standard : standard option React.signal) =
+  let signal, push = React.S.create None in
   let items = Select.native_options_of_values
       ~with_empty:true
       bw [Bw6; Bw7; Bw8] in
   let bw =
     Select.make_native
+      ~on_change:(fun s -> push s#value)
       ~label:"Полоса пропускания"
       ~items
       bw in
@@ -63,39 +66,45 @@ let make_bw (standard : standard option React.signal) () =
       standard in
   let set = function
     | None -> bw#set_selected_index 0
-    | Some x -> bw#set_value x in
-  bw, set, (fun () -> React.S.stop ~strong:true s_hide)
+    | Some (x : mode) -> bw#set_value x.channel.bw in
+  bw#set_on_destroy (fun () -> React.S.stop ~strong:true s_hide);
+  bw, set, signal
 
-let make_freq ?(terrestrial = true)
-    (standard : standard option React.signal)
-    () =
-  let items =
-    List.map (fun (c : Channel.t) ->
-        `Item (new Select.Item.t ~text:c.name ~value:c.freq ()))
-      (if terrestrial then Channel.Terrestrial.lst
-       else Channel.Cable.lst) in
+let make_freq ?(terrestrial = true) (standard : standard option React.signal) =
+  let signal, push = React.S.create None in
+  let items = Select.native_options_of_values
+      ~with_empty:true
+      ~label:(fun x -> "")
+      Integer
+      (List.map (fun (c : Channel.t) -> c.freq)
+         (if terrestrial
+          then Channel.Terrestrial.lst
+          else Channel.Cable.lst)) in
   let freq =
-    new Select.t
-      ~default_selected:false
+    Select.make_native
+      ~on_change:(fun s -> push s#value)
       ~label:"ТВ канал"
-      ~items () in
+      ~items
+      Integer in
   let s_hide =
     React.S.map ~eq:(=) (fun x ->
         match x, terrestrial with
         | (Some T, true) | (Some T2, true) | (Some C, false) ->
-          freq#style##.display := Js_of_ocaml.Js.string ""
-        | _ -> freq#style##.display := Js_of_ocaml.Js.string "none") standard in
+          freq#root##.style##.display := Js_of_ocaml.Js.string ""
+        | _ -> freq#root##.style##.display := Js_of_ocaml.Js.string "none")
+      standard in
   let set = function
     | None -> freq#set_selected_index 0
     | Some x ->
-      begin match x.standard, terrestrial with
-        | (T, true) | (T2, true) | (C, false) ->
-          freq#set_selected_value ~eq:(=) x.channel.freq |> ignore
-        | _ -> ()
-      end in
-  freq, set, (fun () -> React.S.stop ~strong:true s_hide)
+      match x.standard, terrestrial with
+      | (T, true) | (T2, true) | (C, false) -> freq#set_value x.channel.freq
+      | _ -> ()
+  in
+  freq#set_on_destroy (fun () -> React.S.stop ~strong:true s_hide);
+  freq, set, signal
 
-let make_plp (standard : standard option React.signal) () =
+let make_plp (standard : standard option React.signal) =
+  let signal, push = React.S.create None in
   let plp =
     Textfield.make_textfield
       ~label:"PLP ID"
@@ -109,7 +118,8 @@ let make_plp (standard : standard option React.signal) () =
   let set = function
     | None -> plp#clear ()
     | Some x -> plp#set_value x.channel.plp in
-  plp, set, (fun () -> React.S.stop ~strong:true s_hide)
+  plp#set_on_destroy (fun () -> React.S.stop ~strong:true s_hide);
+  plp, set, signal
 
 type event =
   [ `Mode of (int * mode) list
@@ -120,15 +130,13 @@ let make_mode_box ~(id : int)
     ~(mode : (int * mode) list)
     ~(state : Topology.state)
     (control : int) =
-  let std, set_std = make_standard () in
-  let t_freq, set_t_freq, t_freq_close =
-    make_freq ~terrestrial:true std#s_selected_value () in
-  let c_freq, set_c_freq, c_freq_close =
-    make_freq ~terrestrial:false std#s_selected_value () in
-  let bw, set_bw, bw_close =
-    make_bw std#s_selected_value () in
-  let plp, set_plp, plp_close =
-    make_plp std#s_selected_value () in
+  let std, set_std, s_std = make_standard () in
+  let t_freq, set_t_freq, s_t_freq =
+    make_freq ~terrestrial:true s_std in
+  let c_freq, set_c_freq, s_c_freq =
+    make_freq ~terrestrial:false s_std in
+  let bw, set_bw, s_bw = make_bw s_std in
+  let plp, set_plp, s_plp = make_plp s_std in
   let state, set_state = React.S.create state in
   let s =
     let eq = Util_equal.(Option.equal (Pair.equal (=) equal_mode)) in
@@ -142,38 +150,48 @@ let make_mode_box ~(id : int)
          | Some C, _, Some freq, Some bw, _, `Fine ->
            Some (id, { standard = C; channel = { freq; bw; plp = 0 }})
          | _ -> None)
-      std#s_selected_value
-      t_freq#s_selected_value
-      c_freq#s_selected_value
-      bw#s_selected_value
-      plp#s_input
-      state in
-  let submit = fun (id, m) ->
-    Http_receivers.set_mode ~id m control
-    >|= (fun _ -> ()) in
+      s_std s_t_freq s_c_freq s_bw s_plp state in
   object(self)
-    inherit Vbox.t
-        ~widgets:[ std#widget
-                 ; t_freq#widget
-                 ; c_freq#widget
-                 ; bw#widget
-                 ; plp#widget ]
-        () as super
+    inherit Widget.t Dom_html.(createDiv document) () as super
 
     method! init () : unit =
       super#init ();
+      super#append_child std;
+      super#append_child t_freq;
+      super#append_child c_freq;
+      super#append_child bw;
+      super#append_child plp;
       self#notify (`Mode mode)
 
     method! destroy () : unit =
       super#destroy ();
-      t_freq_close ();
-      c_freq_close ();
-      bw_close ();
-      plp_close ()
+      std#destroy ();
+      t_freq#destroy ();
+      c_freq#destroy ();
+      bw#destroy ();
+      plp#destroy ();
+      React.S.stop ~strong:true state;
+      React.S.stop ~strong:true s_std;
+      React.S.stop ~strong:true s_t_freq;
+      React.S.stop ~strong:true s_c_freq;
+      React.S.stop ~strong:true s_bw;
+      React.S.stop ~strong:true s_plp;
+      React.S.stop ~strong:true s
+
+    method value : (int * mode) option =
+      match std#value, t_freq#value, c_freq#value,
+            bw#value, plp#value, React.S.value state with
+      | Some T2, Some freq, _, Some bw, Some plp, `Fine ->
+        Some (id, { standard = T2; channel = { freq; bw; plp }})
+      | Some T, Some freq, _, Some bw, _, `Fine ->
+        Some (id, { standard = T; channel = { freq; bw; plp = 0 }})
+      | Some C, _, Some freq, Some bw, _, `Fine ->
+        Some (id, { standard = C; channel = { freq; bw; plp = 0 }})
+      | _ -> None
 
     method notify : event -> unit = function
       | `Mode mode ->
-        let m = List.Assoc.get ~eq:(=) id mode in
+        let m = List.assoc_opt id mode in
         (* NOTE standard should be updated first *)
         set_std m;
         set_t_freq m;
@@ -189,8 +207,6 @@ let make_mode_box ~(id : int)
         bw#set_disabled is_disabled;
         plp#set_disabled is_disabled
 
-    method submit = submit
-
     method s = s
   end
 
@@ -201,9 +217,22 @@ let name config : string =
 
 let settings = None
 
+let ( >>= ) = Lwt.( >>= )
+
 class t config mode state control =
   let mode_box = make_mode_box ~id:config.id ~mode ~state control in
-  let submit = Button.make ~label:"Применить" () in
+  let submit = Button.make
+      ~on_click:(fun btn _ _ ->
+          match mode_box#value with
+          | None -> Lwt.return_unit
+          | Some (id, mode) ->
+            let t =
+              Http_receivers.set_mode ~id mode control
+              >>= fun _ -> Lwt.return_unit in
+            btn#set_loading_lwt t;
+            t)
+      ~label:"Применить"
+      () in
   let buttons = Card.Actions.make_buttons [submit] in
   let actions = Card.Actions.make [buttons] in
   object
@@ -215,8 +244,8 @@ class t config mode state control =
       super#append_child actions;
       super#add_class base_class
 
-    (* method notify event =
-     *   mode_box#notify event *)
+    method notify event =
+      mode_box#notify event
 
   end
 

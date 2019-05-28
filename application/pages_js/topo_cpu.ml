@@ -1,4 +1,3 @@
-open Containers
 open Components
 open Application_types
 open Topo_types
@@ -23,13 +22,13 @@ module Header = struct
 
   class t (has_settings_button : bool)
           (cpu : Topology.topo_cpu) () =
-    let _class = Markup.CSS.add_element base_class "header" in
+    let _class = BEM.add_element base_class "header" in
     let title = get_cpu_name cpu in
     let settings = match has_settings_button with
       | false -> None
       | true ->
-         let icon = Icon.SVG.(create_simple Path.settings) in
-         let button = new Icon_button.t ~icon () in
+         let icon = Icon.SVG.(make_simple Path.settings) in
+         let button = Icon_button.make ~icon () in
          Some button in
     object(self)
       inherit Topo_block.Header.t ?action:settings ~title () as super
@@ -42,7 +41,7 @@ module Header = struct
 
       method! layout () : unit =
         super#layout ();
-        Option.iter (fun x -> x#layout ()) self#settings_icon
+        Utils.Option.iter Widget.layout self#settings_icon
 
     end
 
@@ -69,7 +68,7 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
         () =
   let e_settings, push_settings = React.E.create () in
   let make_settings = make_cpu_page cpu in
-  let header = Header.create (Option.is_some make_settings) cpu in
+  let header = Header.create (Utils.Option.is_some make_settings) cpu in
   let body = Body.create cpu in
   let port_setter = fun _ _ ->
     Lwt_result.fail "CPU ports are not switchable" in
@@ -90,9 +89,9 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
       List.iter (fun p -> p#set_state `Active) self#paths;
       self#add_class base_class;
       self#set_attribute "data-cpu" cpu.process;
-      Option.iter (fun (w : #Widget.t) ->
+      Utils.Option.iter (fun (w : #Widget.t) ->
           let listener =
-            w#listen_click_lwt (fun _ _ ->
+            Events.clicks w#root (fun _ _ ->
                 let name = get_cpu_name self#cpu in
                 let widget = self#make_settings_widget () in
                 push_settings (widget, name);
@@ -102,7 +101,7 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
 
     method! destroy () : unit =
       super#destroy ();
-      Option.iter Lwt.cancel _click_listener;
+      Utils.Option.iter Lwt.cancel _click_listener;
       _click_listener <- None
 
     method! layout () : unit =
@@ -119,9 +118,9 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
     method private make_settings_widget () : Widget.t =
       match make_settings with
       | None ->
-         let icon = Icon.SVG.(create_simple Path.stop) in
+         let icon = Icon.SVG.(make_simple Path.stop) in
          let ph =
-           Ui_templates.Placeholder.create_with_icon
+           Ui_templates.Placeholder.With_icon.make
              ~icon
              ~text:"Нет доступных настроек для модуля"
              () in

@@ -20,7 +20,7 @@ let multicast = Textfield.(
 
 let make_checkbox ~label () =
   let signal, push = React.S.create false in
-  let en = Switch.make ~on_change:push () in
+  let en = Switch.make ~on_change:(fun x -> Lwt.return @@ push x#checked) () in
   let form =
     Form_field.make ~label
       ~align_end:true

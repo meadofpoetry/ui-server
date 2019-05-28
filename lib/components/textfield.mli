@@ -257,6 +257,7 @@ class type ['a] t =
   end
 
 val make_textfield :
+  ?on_input:('a t -> unit) ->
   ?disabled:bool ->
   ?fullwidth:bool ->
   ?outlined:bool ->
@@ -277,6 +278,7 @@ val make_textfield :
   'a validation -> 'a t
 
 val make_textarea :
+  ?on_input:(string t -> unit) ->
   ?disabled:bool ->
   ?fullwidth:bool ->
   ?focused:bool ->
@@ -294,6 +296,7 @@ val make_textarea :
   unit -> string t
 
 val attach :
+  ?on_input:('a t -> unit) ->
   ?helper_text:Helper_text.t ->
   ?character_counter:Character_counter.t ->
   ?validation:'a validation ->

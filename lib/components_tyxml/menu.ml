@@ -19,7 +19,6 @@ module Make(Xml : Xml_sigs.NoWrap)
          (Svg : Svg_sigs.NoWrap with module Xml := Xml)
          (Html : Html_sigs.NoWrap
           with module Xml := Xml and module Svg := Svg) = struct
-  open Utils
 
   module Menu_surface = Menu_surface.Make(Xml)(Svg)(Html)
   module Item_list = struct

@@ -10,7 +10,7 @@ let section () =
   let show =
     Button.make
       ~label:"show snackbar"
-      ~on_click:(fun _ _ -> snackbar#open_ ())
+      ~on_click:(fun _ _ _ -> snackbar#open_ ())
       () in
   Lwt.ignore_result
   @@ Events.listen_lwt snackbar#root Snackbar.Event.closing (fun _ _ ->

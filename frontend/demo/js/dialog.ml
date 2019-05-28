@@ -30,7 +30,7 @@ let section () =
   let button =
     Button.make
       ~label:"show"
-      ~on_click:(fun _ _ ->
+      ~on_click:(fun _ _ _ ->
         dialog#open_await ()
         >>= fun x -> print_endline (Dialog.action_to_string x);
                      Lwt.return_unit)

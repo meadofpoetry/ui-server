@@ -385,7 +385,7 @@ class ['a] t
             (in some browsers) refreshes the page. *)
          | None, Some s, _ when String.length s > 0 -> self#set_value_ s
          (* If an element is selected, the select should set the initial selected text. *)
-         | _, _, Some item -> self#set_value_as_string self#value_as_string
+         | _, _, Some _ -> self#set_value_as_string self#value_as_string
          | _ -> ());
       self#handle_change ~did_change:false (); (* Initially sync floating label *)
       match super#has_class CSS.disabled, self#native_control with
@@ -668,7 +668,7 @@ class ['a] t
     method private set_enhanced_selected_index (i : int) =
       match target with
       | Native _ -> ()
-      | Enhanced { menu; text; hidden_input } ->
+      | Enhanced { menu; hidden_input; _ } ->
         let selected = List.nth_opt menu#items i in
         Option.iter (fun x ->
             Element.remove_class x Item_list.CSS.item_selected;
@@ -800,11 +800,18 @@ let make ?on_change ?disabled ?label
 let native_options_of_values
     (type a)
     ?(with_empty = false)
+    ?(label : (a -> string) option)
     (validation : a validation)
     (values : a list) =
+  let label = match label with
+    | None -> valid_to_string validation
+    | Some f -> f in
   let options =
     List.map (fun (x : a) ->
-        Markup.Native.create_option ~text:(valid_to_string validation x) ())
+        Markup.Native.create_option
+          ~value:(valid_to_string validation x)
+          ~text:(label x)
+          ())
       values in
   if not with_empty then options else
     let empty = Markup.Native.create_option ~selected:true ~disabled:true ~text:"" () in
