@@ -1,7 +1,7 @@
 PROFILE ?= release
 BUILD   = dune build --profile $(PROFILE)
 CLEAN   = dune clean
-CSS_DIR = dist/resources/css
+CSS_DIR = ./dist/resources/css
 CSS     = scss --load-path $(CSS_DIR) --style compressed
 
 all: build
@@ -47,6 +47,7 @@ demo:
 
 css-components:
 	$(CSS) $(CSS_DIR)/@material/components/components.scss $(CSS_DIR)/components.min.css
+	postcss -u autoprefixer -r $(CSS_DIR)/components.min.css
 
 css-pages:
 	$(CSS) $(CSS_DIR)/main.scss $(CSS_DIR)/main.min.css

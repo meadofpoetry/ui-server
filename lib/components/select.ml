@@ -212,6 +212,7 @@ let target_element = function
   | Enhanced { text; _ } -> text
 
 class ['a] t
+    ?(on_change : ('a t -> unit) option)
     ?(line_ripple : Line_ripple.t option)
     ?(floating_label : Floating_label.t option)
     ?(notched_outline : Notched_outline.t option)
@@ -556,7 +557,7 @@ class ['a] t
       let value = self#value_as_string in
       let has_value = String.length value > 0 in
       self#notch_outline has_value;
-      if super#has_class CSS.focused
+      if not @@ super#has_class CSS.focused
       then Option.iter (flip Floating_label.float has_value) floating_label;
       if did_change
       then (
@@ -565,6 +566,7 @@ class ['a] t
           val value = value
         end in
         super#emit ~should_bubble:true ~detail Event.change;
+        Option.iter (fun f -> f (self :> 'a t)) on_change;
         let is_valid = self#is_valid in
         if super#has_class CSS.required
         then (
@@ -746,7 +748,7 @@ class ['a] t
 
   end
 
-let make ?disabled ?label
+let make ?on_change ?disabled ?label
     ?(outlined = false)
     ?(icon : #Widget.t option)
     ?(helper_text : Helper_text.t option)
@@ -790,8 +792,8 @@ let make ?disabled ?label
         ?hidden_input
         ~menu
         () in
-  let t = new t ?helper_text ?line_ripple ?notched_outline ?floating_label
-    ~validation elt () in
+  let t = new t ?on_change ?helper_text ?line_ripple ?notched_outline
+    ?floating_label ~validation elt () in
   Option.iter (fun x -> x#set_value x) value;
   t
 
@@ -808,24 +810,24 @@ let native_options_of_values
     let empty = Markup.Native.create_option ~selected:true ~disabled:true ~text:"" () in
     empty :: options
 
-let make_native ?disabled ?label
+let make_native ?on_change ?disabled ?label
     ?outlined
     ?(icon : #Widget.t option)
     ?(helper_text : Helper_text.t option)
     ?value
     ~items
     validation : 'a t =
-  make ?disabled ?label ?outlined ?icon ?helper_text ?value
+  make ?on_change ?disabled ?label ?outlined ?icon ?helper_text ?value
     (`Native items) validation
 
-let make_enhanced ?disabled ?label
+let make_enhanced ?on_change ?disabled ?label
     ?outlined
     ?(icon : #Widget.t option)
     ?(helper_text : Helper_text.t option)
     ?value
     ~menu
     validation : 'a t =
-  make ?disabled ?label ?outlined ?icon ?helper_text ?value
+  make ?on_change ?disabled ?label ?outlined ?icon ?helper_text ?value
     (`Enhanced menu) validation
 
 let attach ?helper_text ?validation (elt : #Dom_html.element Js.t) : 'a t =
