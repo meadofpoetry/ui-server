@@ -234,6 +234,8 @@ let create (init : Topology.t) =
 
   end
 
+let ( >>= ) = Lwt_result.( >>= )
+
 let on_settings (side_sheet : #Side_sheet.Parent.t)
     (content : #Widget.t)
     (set_title : string -> unit) =
@@ -248,9 +250,7 @@ let on_settings (side_sheet : #Side_sheet.Parent.t)
     set_title name;
     Lwt.Infix.(
       side_sheet#toggle ~force:true ()
-      >|= (fun () -> Some widget))
-
-let ( >>= ) = Lwt_result.( >>= )
+      >>= fun () -> Lwt.return_some widget)
 
 let () =
   let side_sheet, side_sheet_content, set_side_sheet_title =

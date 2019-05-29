@@ -25,11 +25,13 @@ $side-sheet-width: 400px;
 
     svg {
         overflow: visible;
+        z-index: 1;
     }
 }
 
 .topology__switch {
     position: absolute;
+    z-index: 2;
 }
 
 .topology__drawer {
@@ -83,6 +85,7 @@ $side-sheet-width: 400px;
 
 .topology__path {
     stroke: black;
+    z-index: 1;
 
     vector-effect: non-scaling-stroke;
     stroke-width: 2px;
@@ -142,6 +145,7 @@ $side-sheet-width: 400px;
 .topology__block {
     margin: 40px;
     max-width: 250px;
+    z-index: 2;
 
     &--fail {
         .topology__block__body {

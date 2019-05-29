@@ -1,28 +1,18 @@
 open Js_of_ocaml_tyxml
 open Application_types
 
-let input_to_string : Topology.input -> string = function
-  | RF -> "RF"
-  | ASI -> "ASI"
-  | TSOIP -> "TSoIP"
-  | SPI -> "SPI"
-
-let circle_markup text =
-  Tyxml_js.Html.(
-    span ~a:[a_class ["topology__input__circle"]] [txt text])
-
-let label_markup text =
-  Tyxml_js.Html.(
-    span ~a:[a_class ["topology__input__label"]] [txt text])
-
 let markup (input : Topology.topo_input) =
-  (* FIXME migrate to svg icon *)
   let name = Topology.get_input_name input in
   Tyxml_js.Html.(
     div ~a:[a_class ["mdc-chip"; "topology__input"]]
       [ div ~a:[a_class ["mdc-chip__text"]] [txt name]
-      ; i ~a:[a_class ["material-icons mdc-chip__icon mdc-chip__icon--trailing"]]
-          [txt "arrow_forward"]])
+      ; Components.Icon.SVG.(
+          Markup.create
+            ~size:24
+            ~classes:[ "mdc-chip__icon"
+                     ; "mdc-chip__icon--trailing" ]
+            [Markup.create_path Path.arrow_right ()] ())
+      ])
 
 
 class t ~input () =
