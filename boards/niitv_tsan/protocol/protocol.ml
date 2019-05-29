@@ -38,11 +38,11 @@ let send (type a)
         let t, w = Lwt.task () in
         let send = fun stream events ->
           Fsm.request src stream events sender req
-          >>= fun x -> Lwt.wakeup_later w x; Lwt.return_unit in
+          >>= fun x -> Lwt.wakeup_later w x;
+          Lwt.return (match x with Ok _ -> Ok () | Error _ as e -> e) in
         Lwt.pick
           [ (Boards.Board.await_no_response state >>= Api_util.not_responding)
-          ; (push ((Request.to_enum req), send) >>= fun () -> t)
-          ])
+          ; (push ((Request.to_enum req), send) >>= fun () -> t) ])
       (function
         | Lwt.Canceled -> Lwt.return_error Request.Not_responding
         | Queue_lwt.Full -> Lwt.return_error Request.Queue_overflow
