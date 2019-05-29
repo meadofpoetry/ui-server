@@ -82,7 +82,7 @@ module Progress = struct
   let create_text text =
     let w = Widget.create @@ Dom_html.(createP document) in
     w#root##.textContent := Js.some @@ Js.string text;
-    for i = 0 to 2 do w#append_child @@ make_dot () done;
+    for _ = 0 to 2 do w#append_child @@ make_dot () done;
     w
 
   class t ?(indeterminate = true) ?size ?(text = "Загрузка") () =

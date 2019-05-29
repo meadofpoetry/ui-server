@@ -105,7 +105,7 @@ end = struct
       ?host ?port ~path ~query =
     let content_type = match body with
       | None -> None
-      | Some x -> Some Body.content_type in
+      | Some _ -> Some Body.content_type in
     let contents = match body with
       | None -> None
 
@@ -135,7 +135,7 @@ end = struct
       ?host ?port ~path ~query =
     let content_type = match body with
       | None -> None
-      | Some x -> Some Body.content_type in
+      | Some _ -> Some Body.content_type in
     let contents = match body with
       | None -> None
       | Some x -> Some (`String (Body.to_string x)) in

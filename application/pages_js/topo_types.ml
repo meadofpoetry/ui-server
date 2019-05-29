@@ -6,7 +6,7 @@ type connection_state =
   | `Sync        (* path is active, streams detected *)
   | `Sync_lost   (* path is active, no streams *)
   | `Unavailable (* path parent is not responding/unavailable *)
-  ]
+  ] [@@deriving show]
 
 type point =
   { x : int

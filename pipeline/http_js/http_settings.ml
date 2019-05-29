@@ -1,5 +1,5 @@
-open Netlib.Uri
-open Pipeline_types
+(* open Netlib.Uri
+ * open Pipeline_types *)
 (*
 module Api_websocket = Api_js.Websocket.Make(Body)
 

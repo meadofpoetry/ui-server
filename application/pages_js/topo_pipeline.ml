@@ -26,9 +26,9 @@ let make_structure () =
    >>= fun init_applied ->
    Lwt.return_ok (init, init_applied))
   |> Lwt_result.map_err Api_js.Http.error_to_string
-  >>= fun (init, init_applied) ->
+  >>= fun (_, _) ->
   let event, set_event = React.E.create () in
-  let event_applied, set_event_applied = React.E.create () in
+  let _, set_event_applied = React.E.create () in
   Pipeline_http_js.Http_structure.Event.get_streams_with_source
     ~f:(fun _ -> function Ok x -> set_event x | _ -> ()) ()
   >>= fun socket ->

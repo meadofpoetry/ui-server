@@ -1,6 +1,5 @@
 open Js_of_ocaml
 open Application_types
-open Containers
 open Components
 open Topo_types
 
@@ -9,7 +8,7 @@ type node_entry = Topo_types.node_entry
 let input_to_area ({ input; id } : Topology.topo_input) =
   Printf.sprintf "%s-%d" (Topology.input_to_string input) id
 
-let board_to_area ({ manufacturer; model; version; control } : Topology.topo_board) =
+let board_to_area ({ manufacturer; model; version; control; _ } : Topology.topo_board) =
   Printf.sprintf "%s-%s-v%d-%d" manufacturer model version control
 
 let node_entry_to_area = function
@@ -33,7 +32,7 @@ class parent ~port_setter
     elt () =
   let num = List.length connections in
   let paths =
-    List.mapi (fun i (x,p) ->
+    List.mapi (fun i (x, p) ->
         let f_lp = fun () -> x#output_point in
         let f_rp = fun () -> Topo_path.get_input_point ~num i body in
         new Topo_path.t
@@ -41,20 +40,20 @@ class parent ~port_setter
           ~right_point:p
           ~f_lp ~f_rp ~port_setter ()) connections
   in
-  let switches = List.filter_map (fun x -> x#switch) paths in
+  let switches = Utils.List.filter_map (fun x -> x#switch) paths in
   let s_switch_changing =
-    List.map (fun x -> x#s_changing) switches
-    |> React.S.merge ~eq:Bool.equal
+    List.map (fun x -> x#forbidden) switches
+    |> React.S.merge ~eq:(=)
       (fun acc x -> if x then x else acc) false
   in
-  object(self)
+  object
     val mutable _s = None
     inherit t ~node ~body elt () as super
 
     method! init () : unit =
       super#init ();
-      let s = React.S.map ~eq:Equal.unit
-          (fun x -> List.iter (fun s -> s#set_changing x) switches)
+      let s = React.S.map ~eq:(=)
+          (fun x -> List.iter (fun s -> s#set_forbidden x) switches)
           s_switch_changing in
       _s <- Some s
 
@@ -64,7 +63,7 @@ class parent ~port_setter
 
     method! destroy () : unit =
       super#destroy ();
-      Option.iter (React.S.stop ~strong:true) _s;
+      Utils.Option.iter (React.S.stop ~strong:true) _s;
       _s <- None
 
     method paths = paths

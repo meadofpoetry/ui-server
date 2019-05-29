@@ -493,9 +493,9 @@ module Dispatcher = struct
        List.fold_left (M.merge merge_fun) acc l'
 
   let dispatch ~default (m : 'a t) (uri : uri) =
-    let templ  = Path.to_templ (Path.of_string @@ path uri) in
+    let templ = Path.to_templ (Path.of_string @@ path uri) in
     try (M.find templ m).handler uri
-    with exn -> print_endline @@ Printexc.to_string exn; default
+    with _ -> default
 
   let doc (m : 'a t) : string list =
     let gen node =

@@ -2,7 +2,6 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml
 open Components
 open Application_types
-open Util_react
 
 let _class = "topology"
 
@@ -157,20 +156,18 @@ let make_nodes topology =
 let iter_paths f nodes =
   List.iter (function
       | `Board b -> List.iter (fun p -> f (b :> Topo_node.t) p) b#paths
-      | `CPU c   -> List.iter (fun p -> f (c :> Topo_node.t) p) c#paths
-      | _ -> ()) nodes
+      | `CPU c -> List.iter (fun p -> f (c :> Topo_node.t) p) c#paths
+      | `Input _ -> ()) nodes
 
 let update_nodes nodes (t : Topology.t) =
   let boards = Topology.get_boards t in
-  let f (b : Topo_board.t) (x : Topology.topo_board) =
-    Topo_board.eq_board b#board x in
+  let eq (b : Topo_board.t) = Topo_board.eq_board b#board in
   List.iter (function
+      | `CPU _ | `Input _ -> ()
       | `Board b ->
-        begin match List.find_opt (f b) boards with
-          | Some tb -> b#set_board tb
-          | None -> ()
-        end
-      | _ -> ()) nodes
+        match List.find_opt (eq b) boards with
+        | Some tb -> b#notify (`State tb)
+        | None -> ()) nodes
 
 type event =
   [ `Topology of Topology.t
@@ -253,10 +250,10 @@ let on_settings (side_sheet : #Side_sheet.Parent.t)
       >>= fun () -> Lwt.return_some widget)
 
 let () =
-  let side_sheet, side_sheet_content, set_side_sheet_title =
-    Topo_drawer.make ~title:"" () in
-  let on_settings =
-    on_settings side_sheet side_sheet_content set_side_sheet_title in
+  (* let side_sheet, side_sheet_content, set_side_sheet_title =
+   *   Topo_drawer.make ~title:"" () in *)
+  (* let on_settings =
+   *   on_settings side_sheet side_sheet_content set_side_sheet_title in *)
   let thread =
     Lwt_result.map_err Api_js.Http.error_to_string
     @@ Application_http_js.get_topology ()
@@ -267,10 +264,10 @@ let () =
         | _ -> ()) ()
     >>= fun socket ->
     page#set_on_destroy (fun () -> socket##close);
-    Lwt_react.(E.keep @@ E.fold_s on_settings None page#e_settings);
+    (* Lwt_react.(E.keep @@ E.fold_s on_settings None page#e_settings); *)
     Lwt.return_ok page in
   let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
   let body = Ui_templates.Loader.create_widget_loader thread in
   body#add_class Layout_grid.CSS.root;
-  scaffold#set_side_sheet ~elevation:Full_height side_sheet;
+  (* scaffold#set_side_sheet ~elevation:Full_height side_sheet; *)
   scaffold#set_body body

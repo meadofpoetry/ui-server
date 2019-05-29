@@ -1,7 +1,6 @@
 open Application_types
 open Board_niitv_tsan_types
-open Board_niitv_tsan_http_js
-open Containers
+(* open Board_niitv_tsan_http_js *)
 open Components
 
 let base_class = "qos-niit-t2mi-settings"
@@ -112,7 +111,7 @@ type event =
 class t
     (state : Topology.state)
     (mode : t2mi_mode)
-    (control : int)
+    (_ : int)
     elt =
   let s_state, set_state = React.S.create state in
   let en, s_en = make_enabled () in
@@ -152,7 +151,7 @@ class t
     method! destroy () : unit =
       super#destroy ();
       React.S.stop ~strong:true s;
-      Option.iter Lwt.cancel _on_submit;
+      Utils.Option.iter Lwt.cancel _on_submit;
       _on_submit <- None
 
     method value : t2mi_mode option =

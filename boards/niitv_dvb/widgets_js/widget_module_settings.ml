@@ -74,7 +74,7 @@ let make_freq ?(terrestrial = true) (standard : standard option React.signal) =
   let signal, push = React.S.create None in
   let items = Select.native_options_of_values
       ~with_empty:true
-      ~label:(fun x -> "")
+      ~label:(fun _ -> "")
       Integer
       (List.map (fun (c : Channel.t) -> c.freq)
          (if terrestrial
@@ -107,6 +107,7 @@ let make_plp (standard : standard option React.signal) =
   let signal, push = React.S.create None in
   let plp =
     Textfield.make_textfield
+      ~on_input:(fun i -> push i#value)
       ~label:"PLP ID"
       ~required:true
       (Integer ((Some 0),(Some 255))) in
@@ -128,8 +129,7 @@ type event =
 
 let make_mode_box ~(id : int)
     ~(mode : (int * mode) list)
-    ~(state : Topology.state)
-    (control : int) =
+    ~(state : Topology.state) =
   let std, set_std, s_std = make_standard () in
   let t_freq, set_t_freq, s_t_freq =
     make_freq ~terrestrial:true s_std in
@@ -220,7 +220,7 @@ let settings = None
 let ( >>= ) = Lwt.( >>= )
 
 class t config mode state control =
-  let mode_box = make_mode_box ~id:config.id ~mode ~state control in
+  let mode_box = make_mode_box ~id:config.id ~mode ~state in
   let submit = Button.make
       ~on_click:(fun btn _ _ ->
           match mode_box#value with

@@ -287,9 +287,9 @@ class t (adapter : adapter) () =
         >>= fun _ ->
         self#layout_internal ();
         Lwt.return () in
+      Lwt.on_termination t (fun () -> _layout_frame <- None);
       _layout_frame <- Some t;
-      Lwt.on_cancel t (fun () -> _layout_frame <- None);
-      Lwt.async (fun () -> t)
+      Lwt.async (fun () -> Lwt.catch (fun () -> t) (fun _ -> Lwt.return_unit))
 
     method unbounded : bool =
       adapter.is_unbounded ()

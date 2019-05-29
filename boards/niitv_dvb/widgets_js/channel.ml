@@ -1,5 +1,3 @@
-open Containers
-
 type t =
   { chan : int
   ; freq : int
@@ -27,7 +25,10 @@ module Terrestrial = struct
          let freq = (chan * 8 + 306) * mhz in
          { chan; freq; spec = false; name = to_string chan freq false }
     in
-    List.map f (List.range 1 56)
+    let rec aux acc = function
+      | 0 -> acc
+      | n -> aux (f n :: acc) (pred n) in
+    aux [] 56
 
 end
 
@@ -71,6 +72,9 @@ module Cable = struct
          let spec = false in
          { chan; freq; spec; name = to_string chan freq spec }
     in
-    List.map f (List.range 1 99)
+    let rec aux acc = function
+      | 0 -> acc
+      | n -> aux (f n :: acc) (pred n) in
+    aux [] 99
 
 end

@@ -4,7 +4,6 @@
                board_niitv_dvb_http_js
                application_types
                util_equal
-               containers
                api_js
                components
                gen_js_api

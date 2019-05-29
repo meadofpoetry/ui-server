@@ -259,6 +259,7 @@ module Input = struct
       let port =
         Textfield.make_textfield
           ~label:"UDP порт"
+          ~on_input:(fun i -> push_port i#value)
           (Integer ((Some 0), (Some 65535))) in
       let accept = Button.make ~label:"применить" () in
       let cancel = Button.make ~label:"отмена" () in
@@ -270,8 +271,8 @@ module Input = struct
       let box = Box.make ~dir:`Column [addr#widget; port#widget] in
       let dialog =
         Dialog.make
-          ~title:(Dialog.Markup.create_title_simple "Добавление потока" ())
-          ~content:(Dialog.Markup.create_content [box#markup] ())
+          ~title:(Dialog.Markup.create_title_simple ~title:"Добавление потока" ())
+          ~content:(Dialog.Markup.create_content ~content:[box#markup] ())
           ~actions:[accept#markup; cancel#markup]
           () in
       dialog#add_class dialog_class;
@@ -478,7 +479,7 @@ class t
       () in
   let buttons = Card.Actions.make_buttons [submit] in
   let actions = Card.Actions.make [buttons] in
-  object(self)
+  object
 
     inherit Widget.t Dom_html.(createDiv document) () as super
 

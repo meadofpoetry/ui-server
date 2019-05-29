@@ -3,7 +3,8 @@ open Js_of_ocaml_tyxml
 open Application_types
 open Components
 open Topo_types
-open Lwt.Infix
+
+let ( >>= ) = Lwt.( >>= )
 
 let get_output_point (elt : #Dom_html.element Js.t) : point =
   { x = elt##.offsetLeft + elt##.offsetWidth
@@ -18,12 +19,13 @@ let get_input_point ~num i (elt : #Dom_html.element Js.t) : point =
 
 class switch (port : Topology.topo_port) setter () =
   let _class = "topology__switch" in
-  let signal, push = React.S.create ~eq:(=) false in
+  let s_forbidden, set_forbidden = React.S.create ~eq:(=) false in
   let elt = Tyxml_js.To_dom.of_element @@ Switch.Markup.create () in
   object(self)
 
     inherit Switch.t elt () as super
 
+    val mutable _changing = false
     val mutable _state = `Unavailable
 
     method! init () : unit =
@@ -33,37 +35,32 @@ class switch (port : Topology.topo_port) setter () =
 
     method port : Topology.topo_port = port
 
-    method s_changing : bool React.signal = signal
+    method forbidden : bool React.signal = s_forbidden
 
     method set_state (x : connection_state) : unit =
       _state <- x;
-      match x with
-      | `Active | `Sync | `Sync_lost ->
-         super#toggle ~force:true ();
-         super#set_disabled false
-      | `Muted ->
-         super#set_disabled false;
-         super#toggle ~force:false ()
-      | `Unavailable ->
-         super#set_disabled true
+      if not _changing then match x with
+        | `Active | `Sync | `Sync_lost ->
+          super#toggle ~notify:false ~force:true ();
+          super#set_disabled false
+        | `Muted ->
+          super#toggle ~notify:false ~force:false ();
+          super#set_disabled false
+        | `Unavailable ->
+          super#set_disabled true
 
-    method set_changing : bool -> unit = function
-      | true -> super#set_disabled true
-      | false ->
-         match _state with
-         | `Unavailable -> ()
-         | _ -> super#set_disabled false
+    method set_forbidden x =
+      _changing <- x;
+      match x, _state with
+      | true, _ -> super#set_disabled true
+      | false, `Unavailable -> ()
+      | false, _ -> self#set_disabled false
 
+    (** Called when a user clicks on a switch *)
     method! private notify_change () =
-      push true;
+      set_forbidden true;
       setter port.port super#checked
-      >>= function
-      | Ok _ -> push false; Lwt.return_unit
-      | Error _ ->
-        push false;
-        (* return current state back *)
-        self#set_state _state;
-        Lwt.return_unit
+      >>= fun _ -> set_forbidden false; Lwt.return_unit
 
   end
 

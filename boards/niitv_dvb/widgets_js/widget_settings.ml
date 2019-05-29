@@ -49,7 +49,7 @@ let make_inner state mode receivers control =
   Ui_templates.Tabs.wrap bar body
 
 class t mode state receivers control =
-  object(self)
+  object
     inherit Widget.t (Dom_html.createDiv Dom_html.document) () as super
 
     val mutable inner = match receivers with

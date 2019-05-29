@@ -56,7 +56,7 @@ module V4 = struct
 
   let is_none = function None -> true | _ -> false
 
-  let get_exn = function Some x -> x | None -> failwith "get_exn"
+  (* let get_exn = function Some x -> x | None -> failwith "get_exn" *)
 
   (* TODO and range type with invarian min < max *)
   (* Brutally solved by a random assingment

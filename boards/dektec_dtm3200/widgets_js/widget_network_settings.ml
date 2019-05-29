@@ -93,6 +93,7 @@ class t (state : Topology.state) (mode : nw) (control : int) =
 
     method notify : event -> unit = function
       | `State x ->
+        set_state x;
         let disabled = match x with `Fine -> false | _ -> true in
         dhcp#input#set_disabled disabled;
         ip#set_disabled disabled;

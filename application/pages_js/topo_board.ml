@@ -116,9 +116,12 @@ module Body = struct
 
 end
 
+type event =
+  [ `State of Topology.topo_board
+  ]
+
 class t ~(connections : (#Topo_node.t * connection_point) list)
-    (board : Topology.topo_board)
-    () =
+    (board : Topology.topo_board) =
   let e_settings, push_settings = React.E.create () in
   let eq = Topology.equal_state in
   let s, push = React.S.create ~eq board.connection in
@@ -126,7 +129,7 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
   let header = Header.create (Utils.Option.is_some make_settings) board in
   let body = Body.create board in
   object(self)
-    val mutable _board = board
+    val mutable _state = board
     val mutable _click_listener = None
 
     inherit Topo_block.t
@@ -136,9 +139,9 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
 
     method! init () : unit =
       super#init ();
-      self#set_board _board;
+      self#notify (`State _state);
       super#add_class base_class;
-      super#set_attribute "data-board" @@ get_board_type _board;
+      super#set_attribute "data-board" @@ get_board_type _state;
       Utils.Option.iter (fun (w : Icon_button.t) ->
           let listener =
             Events.clicks w#root (fun _ _ ->
@@ -159,15 +162,19 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
       header#layout ()
 
     method settings_event : (Widget.t * string) React.event = e_settings
+
     method s_state : Topology.state React.signal = s
-    method board : Topology.topo_board = _board
-    method set_board (x : Topology.topo_board) : unit =
-      _board <- x;
-      push x.connection;
-      super#set_state x.connection;
-      match x.connection with
-      | `Fine -> self#set_ports x.ports;
-      | _ -> List.iter (fun p -> p#set_state `Unavailable) self#paths
+
+    method board : Topology.topo_board = _state
+
+    method notify : event -> unit = function
+      | `State x ->
+        _state <- x;
+        push x.connection;
+        super#set_state x.connection;
+        match x.connection with
+        | `Fine -> self#set_ports x.ports;
+        | _ -> List.iter (fun p -> p#set_state `Unavailable) self#paths
 
     (* Private methods *)
 
@@ -198,4 +205,4 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
   end
 
 let create ~connections (board : Topology.topo_board) =
-  new t ~connections board ()
+  new t ~connections board

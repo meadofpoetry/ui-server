@@ -61,6 +61,7 @@ class t (state : Topology.state) (mode : ip_receive) (control : int) =
   let submit = Button.make ~label:"Применить" () in
   let buttons = Card.Actions.make_buttons [submit] in
   let actions = Card.Actions.make [buttons] in
+  let () = ignore (state, s_en, s_fec, s_meth) in
   object(self)
     val mutable _on_submit = None
     inherit Widget.t Dom_html.(createDiv document) () as super
