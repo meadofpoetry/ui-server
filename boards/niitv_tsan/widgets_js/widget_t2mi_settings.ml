@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Application_types
 open Board_niitv_tsan_types
 (* open Board_niitv_tsan_http_js *)
@@ -55,50 +56,57 @@ let rec stream_to_string (s : Stream.t) =
   | "" -> src
   | s -> Printf.sprintf "%s. %s" src s
 
-(* let make_stream_select
- *     (streams : Stream.t list React.signal)
- *     (mode : t2mi_mode React.signal) =
- *   let streams =
- *     React.S.l2
- *       ~eq:(Equal.list Stream.equal)
- *       (fun (set : t2mi_mode) lst ->
- *          match set.stream with
- *          | ID _ -> lst
- *          | Full s ->
- *            let streams = List.add_nodup ~eq:Stream.equal s lst in
- *            List.sort Stream.compare streams)
- *       mode streams in
- *   let make_items sms =
- *     List.map (fun (s : Stream.t) ->
- *         new Select.Item.t
- *           ~value:s
- *           ~text:(stream_to_string s)
- *           ()) sms in
- *   let select =
- *     new Select.t
- *       ~default_selected:false
- *       ~label:"Поток для анализа T2-MI"
- *       ~items:[]
- *       () in
- *   let _s =
- *     React.S.map ~eq:Equal.unit
- *       (fun sms ->
- *          let eq = Stream.equal in
- *          let value = select#value in
- *          let items = make_items sms in
- *          select#set_empty ();
- *          List.iter select#append_item items;
- *          Option.iter Fun.(ignore % select#set_selected_value ~eq) value)
- *       streams in
- *   let set (x : t2mi_mode) =
- *     match x.stream with
- *     | ID _ -> ()
- *     | Full s -> ignore @@ select#set_selected_value ~eq:Stream.equal s in
- *   select#set_on_destroy (fun () -> React.S.stop ~strong:true _s);
- *   select#widget,
- *   set,
- *   select#s_selected_value,
- *   select#set_disabled *)
+let make_stream_select
+    (streams : Stream.t list)
+    (_ : t2mi_mode) =
+  let signal, push = React.S.create None in
+  let validation = Select.(
+      { to_string = Yojson.Safe.to_string % Stream.to_yojson
+      ; of_string = Stream.of_yojson % Yojson.Safe.from_string
+      }) in
+  (* let streams =
+   *   React.S.l2
+   *     ~eq:(Util_equal.List.equal Stream.equal)
+   *     (fun (set : t2mi_mode) lst ->
+   *        match set.stream with
+   *        | ID _ -> lst
+   *        | Full s ->
+   *          let streams = Utils.List.add_nodup ~eq:Stream.equal s lst in
+   *          List.sort Stream.compare streams)
+   *     mode streams in *)
+  let make_items sms =
+    List.map (fun (s : Stream.t) ->
+        let open Select.Markup.Native in
+        create_option
+          ~value:(validation.to_string s)
+          ~text:(stream_to_string s)
+          ()) sms in
+  let select =
+    Select.make_native
+      ~on_change:(fun x ->
+          let v = match x#value with
+            | None -> None
+            | Some x -> Some (Full x) in
+          push v)
+      ~label:"Поток для анализа T2-MI"
+      ~items:(make_items streams)
+      (Custom validation) in
+  (* let _s =
+   *   React.S.map ~eq:(=)
+   *     (fun sms ->
+   *        let value = select#value in
+   *        let items = make_items sms in
+   *        select#set_empty ();
+   *        List.iter (Element.append_child select#root)
+   *        @@ List.map Tyxml_js.To_dom.of_option items;
+   *        Utils.Option.iter select#set_value value)
+   *     streams in *)
+  let set (x : t2mi_mode) =
+    match x.stream with
+    | ID _ -> ()
+    | Full s -> select#set_value s in
+  (* select#set_on_destroy (fun () -> React.S.stop ~strong:true _s); *)
+  select, set, signal
 
 let name = "Настройки. T2-MI"
 let settings = None
@@ -111,16 +119,15 @@ type event =
 class t
     (state : Topology.state)
     (mode : t2mi_mode)
-    (_ : int)
-    elt =
+    (_ : int) =
   let s_state, set_state = React.S.create state in
   let en, s_en = make_enabled () in
   let pid, s_pid = make_pid () in
   let sid, s_sid = make_sid () in
+  let stream, _, s_stream = make_stream_select [] mode in
   let submit = Button.make ~label:"Применить" () in
   let buttons = Card.Actions.make_buttons [submit] in
   let actions = Card.Actions.make [buttons] in
-  let s_stream = React.S.const (Some (ID Stream.Multi_TS_ID.forbidden)) in
   let (s : t2mi_mode option React.signal) =
     React.S.l5 ~eq:(Util_equal.Option.equal equal_t2mi_mode)
       (fun en pid sid stream state ->
@@ -135,15 +142,18 @@ class t
       s_en s_pid s_sid s_stream s_state in
   object(self)
     val mutable _on_submit = None
-    inherit Box.t ~widgets:[ en#widget
-                           ; pid#widget
-                           ; sid#widget
-                           ; actions#widget ]
-        elt () as super
+    inherit Widget.t Dom_html.(createDiv document) () as super
 
     method! init () : unit =
       super#init ();
+      super#append_child en;
+      super#append_child stream;
+      super#append_child pid;
+      super#append_child sid;
+      super#append_child actions;
       super#add_class base_class;
+      super#add_class Box.CSS.root;
+      super#add_class Box.CSS.vertical;
       self#set_ mode;
       _on_submit <- Some (Events.clicks submit#root (fun _ _ ->
           Lwt.return_unit))
@@ -170,6 +180,7 @@ class t
         set_state s;
         let disabled = match s with `Fine -> false | _ -> true in
         en#input#set_disabled disabled;
+        stream#set_disabled disabled;
         pid#set_disabled disabled;
         sid#set_disabled disabled
 
@@ -182,4 +193,4 @@ class t
 let make (state : Topology.state)
     (mode : t2mi_mode)
     (control : int) =
-  new t state mode control (assert false)
+  new t state mode control

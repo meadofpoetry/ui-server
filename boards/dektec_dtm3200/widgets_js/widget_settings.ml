@@ -20,7 +20,7 @@ let make (state : Topology.state )
   let ip = Widget_receiver_settings.make state ip_receive control in
   let tabs =
     [ (nw#widget, Tab.make ~label:"Сеть" ())
-    ; (ip#widget, Tab.make ~label:"Приём TSoIP" ()) ] in
+    ; (ip#widget, Tab.make ~label:"Приём IP" ()) ] in
   let tab_bar, body = Ui_templates.Tabs.create_simple tabs in
   object
     inherit Widget.t Dom_html.(createDiv document) () as super

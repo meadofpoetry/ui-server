@@ -105,7 +105,7 @@ module Board = struct
     let _s =
       React.S.map ~eq:(=)
         (fun v -> checkbox#set_disabled (not v)) check.avail in
-    let item = Item_list.Item.make ~meta:checkbox text in
+    let item = Item_list.Item.make ~graphic:checkbox text in
     item#add_class stream_class;
     if not present then item#add_class lost_class;
     item#set_on_destroy (fun () -> React.S.stop ~strong:true _s);
@@ -318,20 +318,25 @@ module Input = struct
     let signal, push = React.S.create
         ~eq:(Util_equal.List.equal Stream.equal)
         stream_list in
-    let list = Item_list.make ~dense [] in
-    let del_item i = list#remove_child i in
+    let list = Item_list.make
+        ~dense [] in
+    let del_item i =
+      list#remove_child i;
+      list#layout () in
     let del_stream s =
       let slst = React.S.value signal in
       push @@ List.filter (fun x -> not @@ Stream.equal s x) slst
     in
     let items = List.map (make_board_stream_entry del_item del_stream) stream_list in
     List.iter list#append_child items;
+    list#layout ();
     let add stream =
       let slst = React.S.value signal in
       if List.exists (Stream.equal stream) slst
       then failwith "stream exists"; (* TODO fix *)
       let item = make_board_stream_entry del_item del_stream stream in
       list#append_child item;
+      list#layout ();
       push (stream :: slst)
     in
     signal, list, add

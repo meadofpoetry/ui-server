@@ -75,6 +75,8 @@ class t (state : Topology.state) (mode : ip_receive) (control : int) =
       super#append_child mcast;
       super#append_child actions;
       super#add_class base_class;
+      super#add_class Box.CSS.root;
+      super#add_class Box.CSS.vertical;
       self#set_value mode;
       _on_submit <- Some (Events.clicks submit#root (fun _ _ ->
           match self#value with

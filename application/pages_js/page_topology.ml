@@ -250,10 +250,10 @@ let on_settings (side_sheet : #Side_sheet.Parent.t)
       >>= fun () -> Lwt.return_some widget)
 
 let () =
-  (* let side_sheet, side_sheet_content, set_side_sheet_title =
-   *   Topo_drawer.make ~title:"" () in *)
-  (* let on_settings =
-   *   on_settings side_sheet side_sheet_content set_side_sheet_title in *)
+  let side_sheet, side_sheet_content, set_side_sheet_title =
+    Topo_drawer.make ~title:"" () in
+  let on_settings =
+    on_settings side_sheet side_sheet_content set_side_sheet_title in
   let thread =
     Lwt_result.map_err Api_js.Http.error_to_string
     @@ Application_http_js.get_topology ()
@@ -264,10 +264,10 @@ let () =
         | _ -> ()) ()
     >>= fun socket ->
     page#set_on_destroy (fun () -> socket##close);
-    (* Lwt_react.(E.keep @@ E.fold_s on_settings None page#e_settings); *)
+    Lwt_react.(E.keep @@ E.fold_s on_settings None page#e_settings);
     Lwt.return_ok page in
   let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
   let body = Ui_templates.Loader.create_widget_loader thread in
   body#add_class Layout_grid.CSS.root;
-  (* scaffold#set_side_sheet ~elevation:Full_height side_sheet; *)
+  scaffold#set_side_sheet ~elevation:Full_height side_sheet;
   scaffold#set_body body

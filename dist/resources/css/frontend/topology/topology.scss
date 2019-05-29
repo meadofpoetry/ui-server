@@ -3,7 +3,6 @@
 @import '@material/typography/_mixins';
 @import '@material/side-sheet/mixins';
 @import './_mixins';
-@import '../boards/dvb_niit';
 
 $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
 $error-surface: $material-color-red-200;
@@ -176,6 +175,7 @@ $side-sheet-width: 400px;
             white-space: nowrap;
         }
         &__action {
+            z-index: 2;
             margin-left: 10px;
         }
     }

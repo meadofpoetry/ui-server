@@ -60,11 +60,47 @@ let get_board_type ({ manufacturer; model; _ } : Topology.topo_board) =
   | "NIITV", "DVB4CH" -> "DVB"
   | _ -> ""
 
-let make_board_page (b : Topology.topo_board) : (unit -> Widget.t) option =
+let make_board_page (b : Topology.topo_board) : (unit -> #Widget.t) option =
+  let ( >>= ) = Lwt_result.( >>= ) in
   match b.manufacturer, b.model, b.version with
-  | "NIITV", "TSAN", _ -> None
-  | "NIITV", "DVB4CH", _ -> None
-  | "DekTec", "DTM-3200", _ -> None
+  | "NIITV", "TSAN", _ ->
+    let open Board_niitv_tsan_http_js in
+    let open Board_niitv_tsan_widgets_js in
+    Some (fun () ->
+        let t =
+          Lwt_result.map_err Api_js.Http.error_to_string
+          @@ (Http_device.get_t2mi_mode b.control
+              >>= fun mode ->
+              let state = `Fine in
+              let widget = Widget_t2mi_settings.make state mode b.control in
+              Lwt.return_ok widget#widget) in
+        Ui_templates.Loader.create_widget_loader t)
+  | "NIITV", "DVB4CH", _ ->
+    let open Board_niitv_dvb_http_js in
+    let open Board_niitv_dvb_widgets_js in
+    Some (fun () ->
+        let t =
+          Lwt_result.map_err Api_js.Http.error_to_string
+          @@ (Http_device.get_mode b.control
+              >>= fun mode -> Http_device.get_info b.control
+              >>= fun info ->
+              let state = `Fine in
+              let receivers = Some info.receivers in
+              let widget = Widget_settings.make state mode receivers b.control in
+              Lwt.return_ok widget#widget) in
+        Ui_templates.Loader.create_widget_loader t)
+  | "DekTec", "DTM-3200", _ ->
+    let open Board_dektec_dtm3200_http_js in
+    let open Board_dektec_dtm3200_widgets_js in
+    Some (fun () ->
+        let t =
+          Lwt_result.map_err Api_js.Http.error_to_string
+          @@ (Http_device.get_config b.control
+              >>= fun { nw; ip_receive; _ } ->
+              let state = `Fine in
+              let widget = Widget_settings.make state nw ip_receive b.control in
+              Lwt.return_ok widget#widget) in
+        Ui_templates.Loader.create_widget_loader t)
   | _ -> None
 
 module Header = struct
@@ -123,8 +159,6 @@ type event =
 class t ~(connections : (#Topo_node.t * connection_point) list)
     (board : Topology.topo_board) =
   let e_settings, push_settings = React.E.create () in
-  let eq = Topology.equal_state in
-  let s, push = React.S.create ~eq board.connection in
   let make_settings = make_board_page board in
   let header = Header.create (Utils.Option.is_some make_settings) board in
   let body = Body.create board in
@@ -133,9 +167,9 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
     val mutable _click_listener = None
 
     inherit Topo_block.t
-              ~port_setter:(port_setter board)
-              ~node:(`Entry (Board board))
-              ~connections ~header ~body () as super
+        ~port_setter:(port_setter board)
+        ~node:(`Entry (Board board))
+        ~connections ~header ~body () as super
 
     method! init () : unit =
       super#init ();
@@ -163,14 +197,11 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
 
     method settings_event : (Widget.t * string) React.event = e_settings
 
-    method s_state : Topology.state React.signal = s
-
     method board : Topology.topo_board = _state
 
     method notify : event -> unit = function
       | `State x ->
         _state <- x;
-        push x.connection;
         super#set_state x.connection;
         match x.connection with
         | `Fine -> self#set_ports x.ports;
@@ -188,7 +219,7 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
             ~text:"Нет доступных настроек для платы"
             () in
         ph#widget
-      | Some make -> make ()
+      | Some make -> Widget.coerce @@ make ()
 
     method private set_ports (l : Topology.topo_port list) : unit =
       let find (port : Topology.topo_port) (p : Topo_path.t) : bool =

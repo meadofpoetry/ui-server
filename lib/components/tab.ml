@@ -125,6 +125,7 @@ let make ?min_width ?disabled ?active ?stacked
     ?(indicator_span_content = false)
     ?(indicator : Tab_indicator.t option)
     () : t =
+  Option.iter (fun x -> x#add_class CSS.icon) icon;
   let indicator = match indicator with
     | Some x -> x
     | None -> Tab_indicator.make () in

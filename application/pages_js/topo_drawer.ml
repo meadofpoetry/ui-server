@@ -1,4 +1,3 @@
-open Components_tyxml
 open Components
 
 let base_class = "topology__drawer"

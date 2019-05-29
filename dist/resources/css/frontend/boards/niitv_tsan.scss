@@ -30,17 +30,17 @@ $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #
 // Jitter settings widget
 // T2-MI settings widget
 
-.qos-niit-t2mi-settings, .qos-niit-jitter-settings {
-    .mdc-form-field, .mdc-select, .mdc-text-field {
-        margin-top: 1rem;
-    }
-    padding: 1rem;
-}
-
 .qos-niit-jitter-settings, .qos-niit-t2mi-settings {
     .mdc-apply-button {
         align-self: flex-start;
     }
+    .mdc-form-field, .mdc-select, .mdc-text-field {
+        margin-top: 1rem;
+    }
+    .mdc-form-field label {
+        width: 100%;
+    }
+    padding: 1rem;
 }
 
 /* Table dump widget */

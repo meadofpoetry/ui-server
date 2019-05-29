@@ -20,7 +20,7 @@ let make_card user =
   in
   let key_but = Button.make
       ~label:"Сохранить ключ"
-      ~on_click:(fun _ _ ->
+      ~on_click:(fun _ _ _ ->
           match Js.Optdef.to_option @@ key_field##.files with
           | None -> Lwt.return @@ print_endline "no file 1"
           | Some files ->
@@ -50,7 +50,7 @@ let make_card user =
   in
   let cert_but = Button.make
       ~label:"Сохранить сертификат"
-      ~on_click:(fun _ _ ->
+      ~on_click:(fun _ _ _ ->
           match Js.Optdef.to_option @@ cert_field##.files with
           | None -> Lwt.return @@ print_endline "no file"
           | Some files ->
@@ -76,7 +76,7 @@ let make_card user =
 
   let reset = Button.make
       ~label:"Перезапустить сервер"
-      ~on_click:(fun _ _ ->
+      ~on_click:(fun _ _ _ ->
           Api_http.perform_unit
             ~meth:`POST
             ~path:Path.Format.("api/server/config/server_restart" @/ empty)

@@ -82,7 +82,7 @@ class t ?(ripple = true) ?on_click ?loader
         Element.append_child super#root loader_container)
       else (
         super#remove_class CSS.loading;
-        self#set_disabled true;
+        self#set_disabled false;
         Option.iter (Element.remove_child_safe super#root) _loader_container)
   end
 

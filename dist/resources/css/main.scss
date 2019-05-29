@@ -10,9 +10,9 @@
 @import './frontend/application/application';
 @import './frontend/pipeline/widgets';
 
-@import './frontend/boards/dvb_niit';
-@import './frontend/boards/qos_niit';
-@import './frontend/boards/ip_dektec';
+@import './frontend/boards/niitv_dvb';
+@import './frontend/boards/niitv_tsan';
+@import './frontend/boards/dektec_dtm3200';
 
 :root.mdc-theme-dark {
     --mdc-theme-background: #121212;
