@@ -2,6 +2,10 @@ open Components
 
 let section () =
   let checkbox = Checkbox.make () in
+  (* let t = checkbox#connect#change (fun _ _ ->
+   *     print_endline "changed!";
+   *     Lwt.return_unit) in
+   * checkbox#set_on_destroy (fun () -> Lwt.cancel t); *)
   let button =
     Button.make ~appearance:Raised
       ~label:"toggle indeterminate"

@@ -61,7 +61,7 @@ class t ?(widgets : #t list option) (elt : #Dom_html.element Js.t) () =
                                  .. > as 'a) -> unit =
       fun x ->
       Dom.appendChild self#root x#node;
-      _widgets <- x#widget :: _widgets;
+      _widgets <- List.add_nodup ~eq:(==) x#widget _widgets;
       if self#in_dom then self#layout ()
 
     method insert_child_at_idx : 'a. int -> (< root : Dom_html.element Js.t;
