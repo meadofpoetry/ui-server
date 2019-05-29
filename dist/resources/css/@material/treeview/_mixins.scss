@@ -1,0 +1,45 @@
+@mixin mdc-treeview-core-styles($query: mdc-feature-all()) {
+    @include mdc-treeview-base_($query);
+}
+
+//
+// Private
+//
+
+@mixin mdc-treeview-base_($query: mdc-feature-all()) {
+    .mdc-treeview-node {
+        @include mdc-treeview-node_;
+    }
+    .mdc-treeview-node--root {
+        display: flex;
+        align-items: center;
+        min-height: 34px;
+    }
+    .mdc-treeview-node__content {
+        display: flex;
+        flex-grow: 1;
+        flex-shrink: 0;
+        align-items: center;
+    }
+    .mdc-treeview-node__label {
+        font-size: 1.2rem;
+        margin-left: 5px;
+        flex-grow: 1;
+        flex-shrink: 0;
+    }
+    .mdc-treeview-node--leaf {
+        @include mdc-treeview-node-leaf_;
+    }
+
+    > .mdc-treeview-node {
+        margin-left: 0;
+    }
+}
+
+@mixin mdc-treeview-node_ {
+    margin-left: 26px;
+}
+
+@mixin mdc-treeview-node-leaf_ {
+    margin-left: 50px;
+}

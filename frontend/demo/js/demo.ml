@@ -20,7 +20,8 @@ let onload _ =
   let root = Dom_html.getElementById "root" in
   let page = Components.Scaffold.attach root in
   let widgets =
-    [ (Dgrid.make ())#widget
+    [ (Tree.make ())#widget
+    ; (Dgrid.make ())#widget
     ; (Snackbar.section ())#widget
     ; (Slider.section ())#widget
     ; (Checkbox.section ())#widget

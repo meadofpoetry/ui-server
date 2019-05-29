@@ -71,8 +71,8 @@ class t (state : Topology.state) (mode : ip_receive) (control : int) =
       super#append_child en;
       super#append_child fec;
       super#append_child meth;
-      super#append_child port;
       super#append_child mcast;
+      super#append_child port;
       super#append_child actions;
       super#add_class base_class;
       super#add_class Box.CSS.root;
