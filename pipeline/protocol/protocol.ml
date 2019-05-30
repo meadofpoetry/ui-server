@@ -230,11 +230,10 @@ let reset state (sources : (Netlib.Uri.t * Stream.t) list) =
   let (>>=) = Lwt.bind in
   let (>>=?) = Lwt_result.bind in
   
-  let ids =
-    List.map (fun (_, s) ->
-        Stream.ID.to_string s.Stream.id) sources in
-  let uris = List.map (fun (a,_) -> Netlib.Uri.to_string a) sources in
-  let args = Array.of_list @@ List.combine ids uris in
+  let args =
+    Array.of_list
+    @@ List.map (fun (a,s) -> (s.Stream.id, a)) sources
+  in
 
   begin match state.backend with
   | None -> Lwt.return_unit

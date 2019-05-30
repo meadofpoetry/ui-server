@@ -7,17 +7,13 @@ module Event = struct
 
   let ( >>= ) = Lwt_result.( >>= )
 
-  let get_streams ?incoming ?(ids = []) f control =
+  let get_streams ?incoming ?(ids = []) sock control =
     let of_yojson = Util_json.List.of_yojson Stream.of_yojson in
-    Api_websocket.create
-      ~path:Path.Format.("ws/board" @/ Int ^/ "streams" @/ empty)
+    Api_websocket.subscribe
+      ~path:Path.Format.("board" @/ Int ^/ "streams" @/ empty)
       ~query:Query.[ "incoming", (module Option(Bool))
                    ; "id", (module List(Stream.ID))]
-      control incoming ids ()
-    >>= fun socket ->
-    Api_websocket.subscribe_map socket of_yojson (f socket);
-    Lwt.return_ok socket
-
+      control incoming ids of_yojson sock
 
 end
 

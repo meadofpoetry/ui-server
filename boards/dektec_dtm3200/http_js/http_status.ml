@@ -5,14 +5,11 @@ open Util
 module Event = struct
   let ( >>= ) = Lwt_result.( >>= )
 
-  let get_status f control =
-    Api_websocket.create
-      ~path:Path.Format.("ws/board" @/ Int ^/ "status" @/ empty)
+  let get_status sock control =
+    Api_websocket.subscribe
+      ~path:Path.Format.("board" @/ Int ^/ "status" @/ empty)
       ~query:Query.empty
-      control ()
-    >>= fun socket ->
-    Api_websocket.subscribe_map socket status_of_yojson (f socket);
-    Lwt.return_ok socket
+      control status_of_yojson sock
 end
 
 let get_status ?timeout control =

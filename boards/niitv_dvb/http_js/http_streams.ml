@@ -10,33 +10,24 @@ module Event = struct
   let of_yojson f =
     Util_json.(List.of_yojson @@ Pair.of_yojson Stream.ID.of_yojson (ts_of_yojson f))
 
-  let get_streams ?(ids = []) f control =
-    Api_websocket.create
-      ~path:Path.Format.("ws/board" @/ Int ^/ "streams" @/ empty)
-      ~query:Query.["id", (module List(Stream.ID))]
-      control ids ()
-    >>= fun socket ->
+  let get_streams ?(ids = []) sock control =
     let of_yojson = Util_json.List.of_yojson Stream.of_yojson in
-    Api_websocket.subscribe_map socket of_yojson (f socket);
-    Lwt.return_ok socket
-
-  let get_measurements ?(ids = []) f control =
-    Api_websocket.create
-      ~path:Path.Format.("ws/board" @/ Int ^/ "streams/measurements" @/ empty)
+    Api_websocket.subscribe
+      ~path:Path.Format.("board" @/ Int ^/ "streams" @/ empty)
       ~query:Query.["id", (module List(Stream.ID))]
-      control ids ()
-    >>= fun socket ->
-    Api_websocket.subscribe_map socket (of_yojson Measure.of_yojson) (f socket);
-    Lwt.return_ok socket
+      control ids of_yojson sock
 
-  let get_parameters ?(ids = []) f control =
-    Api_websocket.create
-      ~path:Path.Format.("ws/board" @/ Int ^/ "streams/parameters" @/ empty)
+  let get_measurements ?(ids = []) sock control =
+    Api_websocket.subscribe
+      ~path:Path.Format.("board" @/ Int ^/ "streams/measurements" @/ empty)
       ~query:Query.["id", (module List(Stream.ID))]
-      control ids ()
-    >>= fun socket ->
-    Api_websocket.subscribe_map socket (of_yojson Params.of_yojson) (f socket);
-    Lwt.return_ok socket
+      control ids (of_yojson Measure.of_yojson) sock
+
+  let get_parameters ?(ids = []) sock control =
+    Api_websocket.subscribe
+      ~path:Path.Format.("board" @/ Int ^/ "streams/parameters" @/ empty)
+      ~query:Query.["id", (module List(Stream.ID))]
+      control ids (of_yojson Params.of_yojson) sock
 
 end
 

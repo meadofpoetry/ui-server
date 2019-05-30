@@ -15,7 +15,7 @@ let is_incoming_stream (api : Protocol.api) (s : Stream.t) =
 module Event = struct
   open Util_react
 
-  let get_streams (api : Protocol.api) incoming ids _user _body _env _state =
+  let get_streams (api : Protocol.api) incoming ids _user =
     let to_yojson = Util_json.List.to_yojson Stream.to_yojson in
     let filter = match incoming, ids with
       | (None | Some false), [] -> None
@@ -28,7 +28,7 @@ module Event = struct
       | Some f ->
         let eq = Util_equal.List.equal Stream.equal in
         S.map ~eq f api.notifs.streams in
-    Lwt.return (`Ev (E.map to_yojson @@ S.changes signal))
+    Lwt.return (E.map to_yojson @@ S.changes signal)
 
 end
 

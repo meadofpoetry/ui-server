@@ -4,9 +4,9 @@ open Api_util
 module Event = struct
   open Util_react
 
-  let get_status (api : Protocol.api) _user _body _env _state =
+  let get_status (api : Protocol.api) _user =
     let event = E.map status_to_yojson api.notifs.status in
-    Lwt.return (`Ev event)
+    Lwt.return event
 end
 
 let get_status (api : Protocol.api) timeout _user _body _env _state =

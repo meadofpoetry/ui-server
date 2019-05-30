@@ -5,34 +5,34 @@ open Api_util
 module Event = struct
   open Util_react
 
-  let get_state (api : Protocol.api) _user _body _env _state =
+  let get_state (api : Protocol.api) _user =
     let event =
       S.changes api.notifs.state
       |> E.map Topology.state_to_yojson in
-    Lwt.return (`Ev event)
+    Lwt.return event
 
-  let get_input (api : Protocol.api) _user _body _env _state =
+  let get_input (api : Protocol.api) _user =
     let event =
       api.notifs.status
       |> E.map (fun (x : Parser.Status.t) -> input_to_yojson x.input)
       |> E.changes ~eq:(=) in
-    Lwt.return (`Ev event)
+    Lwt.return event
 
-  let get_status (api : Protocol.api) _user _body _env _state =
+  let get_status (api : Protocol.api) _user =
     let event = E.map (fun (x : Parser.Status.t) ->
         status_to_yojson x.basic) api.notifs.status in
-    Lwt.return (`Ev event)
+    Lwt.return event
 
-  let get_errors (api : Protocol.api) _user _body _env _state =
+  let get_errors (api : Protocol.api) _user =
     let event = E.map (Util_json.List.to_yojson Deverr.to_yojson)
         api.notifs.deverr in
-    Lwt.return (`Ev event)
+    Lwt.return event
 
-  let get_t2mi_mode (api : Protocol.api) _user _body _env _state =
+  let get_t2mi_mode (api : Protocol.api) _user =
     let event = E.map (fun (x : config) ->
         t2mi_mode_to_yojson x.t2mi_mode)
       @@ S.changes api.kv#s in
-    Lwt.return (`Ev event)
+    Lwt.return event
 
 end
 

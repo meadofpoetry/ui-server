@@ -7,32 +7,23 @@ module Event = struct
 
   let ( >>= ) = Lwt_result.( >>= )
 
-  let get_state f control =
-    Api_websocket.create
-      ~path:Path.Format.("ws/board" @/ Int ^/ "device/state" @/ empty)
+  let get_state sock control =
+    Api_websocket.subscribe
+      ~path:Path.Format.("board" @/ Int ^/ "device/state" @/ empty)
       ~query:Query.empty
-      control ()
-    >>= fun socket ->
-    Api_websocket.subscribe_map socket Topology.state_of_yojson (f socket);
-    Lwt.return_ok socket
+      control Topology.state_of_yojson sock
 
-  let get_info f control =
-    Api_websocket.create
-      ~path:Path.Format.("ws/board" @/ Int ^/ "device/info" @/ empty)
+  let get_info sock control =
+    Api_websocket.subscribe
+      ~path:Path.Format.("board" @/ Int ^/ "device/info" @/ empty)
       ~query:Query.empty
-      control ()
-    >>= fun socket ->
-    Api_websocket.subscribe_map socket devinfo_of_yojson (f socket);
-    Lwt.return_ok socket
+      control devinfo_of_yojson sock
 
-  let get_config f control =
-    Api_websocket.create
+  let get_config sock control =
+    Api_websocket.subscribe
       ~path:Path.Format.("ws/board" @/ Int ^/ "device/config" @/ empty)
       ~query:Query.empty
-      control ()
-    >>= fun socket ->
-    Api_websocket.subscribe_map socket config_of_yojson (f socket);
-    Lwt.return_ok socket
+      control config_of_yojson sock
 
 end
 

@@ -6,21 +6,21 @@ open Netlib
 module Event = struct
   open Util_react
 
-  let get_state (api : Protocol.api) _user _body _env _state =
+  let get_state (api : Protocol.api) _user =
     let event =
       S.changes api.notifs.state
       |> E.map Application_types.Topology.state_to_yojson in
-    Lwt.return (`Ev event)
+    Lwt.return event
 
-  let get_config (api : Protocol.api) _user _body _env _state =
+  let get_config (api : Protocol.api) _user =
     let event =
       S.changes api.notifs.config
       |> E.map config_to_yojson in
-    Lwt.return (`Ev event)
+    Lwt.return event
 
-  let get_status (api : Protocol.api) _user _body _env _state =
+  let get_status (api : Protocol.api) _user =
     let event = E.map device_status_to_yojson api.notifs.device_status in
-    Lwt.return (`Ev event)
+    Lwt.return event
 
 end
 

@@ -5,7 +5,7 @@ open Board_niitv_tsan_protocol
 
 module Api_http = Api_cohttp.Make(User)(Body)
 
-module Api_websocket = Api_websocket.Make(User)(Body)
+module Api_websocket = Api_websocket.Make(User)(Body)(Api_websocket.Json_msg)
 
 let handlers (control : int) (api : Protocol.api) =
   let open Api_http in
@@ -177,41 +177,33 @@ let handlers (control : int) (api : Protocol.api) =
   ]
 
 let ws (control : int) (api : Protocol.api) =
-  let open Api_http in
   let open Api_websocket in
   (* TODO add closing event *)
-  let socket_table = make_socket_table () in
   [ merge ~prefix:(string_of_int control)
       [ make ~prefix:"device"
-          [ node ~doc:"Device state socket"
-              ~socket_table
+          [ event_node ~doc:"Device state socket"
               ~path:(Path.Format.of_string "state")
               ~query:Query.empty
               (Api_device.Event.get_state api)
-          ; node ~doc:"Active input socket"
-              ~socket_table
+          ; event_node ~doc:"Active input socket"
               ~path:(Path.Format.of_string "input")
               ~query:Query.empty
               (Api_device.Event.get_input api)
-          ; node ~doc:"Device status socket"
-              ~socket_table
+          ; event_node ~doc:"Device status socket"
               ~path:(Path.Format.of_string "status")
               ~query:Query.empty
               (Api_device.Event.get_status api)
-          ; node ~doc:"Device errors socket"
-              ~socket_table
+          ; event_node ~doc:"Device errors socket"
               ~path:(Path.Format.of_string "errors")
               ~query:Query.empty
               (Api_device.Event.get_errors api)
-          ; node ~doc:"T2-MI mode socket"
-              ~socket_table
+          ; event_node ~doc:"T2-MI mode socket"
               ~path:(Path.Format.of_string "mode/t2mi")
               ~query:Query.empty
               (Api_device.Event.get_t2mi_mode api)
           ]
       ; make ~prefix:"streams"
-          [ node ~doc:"Streams socket"
-              ~socket_table
+          [ event_node ~doc:"Streams socket"
               ~path:Path.Format.empty
               ~query:Query.[ "incoming", (module Option(Bool))
                            ; "id", (module List(Stream.ID))]

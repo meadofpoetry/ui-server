@@ -21,7 +21,7 @@ end
 
 module Api_http = Api_js.Http.Make(Body)
 
-module Api_websocket = Api_js.Websocket.Make(Body)
+module Api_websocket = Api_js.Websocket.Make(Body)(Api_js.Websocket.Json_msg)
 
 let stream_assoc_list_of_yojson _of =
   Util_json.(List.of_yojson (Pair.of_yojson Stream.ID.of_yojson _of))

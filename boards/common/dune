@@ -3,6 +3,7 @@
   (synopsis    "boards common")
   (libraries   application_types
                api_cohttp_template
+               api_websocket
                util_react
                util_equal
                db

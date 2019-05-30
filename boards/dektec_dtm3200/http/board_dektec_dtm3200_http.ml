@@ -4,7 +4,7 @@ open Board_dektec_dtm3200_protocol
 
 module Api_http = Api_cohttp.Make(User)(Body)
 
-module Api_websocket = Api_websocket.Make(User)(Body)
+module Api_websocket = Api_websocket.Make(User)(Body)(Api_websocket.Json_msg)
 
 let handlers (control : int) (api : Protocol.api) =
   let open Api_http in
@@ -340,40 +340,31 @@ let handlers (control : int) (api : Protocol.api) =
   ]
 
 let ws (control : int) (api : Protocol.api) =
-  let open Api_http in
   let open Api_websocket in
-  let socket_table = make_socket_table () in
   [ merge ~prefix:(string_of_int control)
       [ make ~prefix:"device"
-          [ node ~doc:"Device state socket"
-              ~socket_table
+          [ event_node ~doc:"Device state socket"
               ~path:(Path.Format.of_string "state")
               ~query:Query.empty
               (Api_device.Event.get_state api)
-          ; node ~doc:"Device configuration socket"
-              ~socket_table
+          ; event_node ~doc:"Device configuration socket"
               ~path:(Path.Format.of_string "config")
               ~query:Query.empty
               (Api_device.Event.get_config api)
           ]
       ; make ~prefix:"network"
-          [ node ~doc:"Network configuration socket"
-              ~socket_table
+          [ event_node ~doc:"Network configuration socket"
               ~path:(Path.Format.of_string "config")
               ~query:Query.empty
               (Api_network.Event.get_config api)
           ]
       ; make ~prefix:"receiver"
-          [ node ~doc:"IP receiver configuration socket"
-              ~socket_table
+          [ event_node ~doc:"IP receiver configuration socket"
               ~path:(Path.Format.of_string "config")
               ~query:Query.empty
               (Api_receiver.Event.get_config api)
-          ]
-      ; make ~prefix:"status"
-          [ node ~doc:"Overall device status socket"
-              ~socket_table
-              ~path:Path.Format.empty
+          ; event_node ~doc:"Integrated status of the device"
+              ~path:(Path.Format.of_string "status")
               ~query:Query.empty
               (Api_status.Event.get_status api)
           ]

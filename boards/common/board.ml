@@ -1,6 +1,10 @@
 open Application_types
 
 module Api_http = Api_cohttp.Make(User)(Body)
+module Api_events = Api_websocket.Make
+                      (User)
+                      (Body)
+                      (Api_websocket.Json_msg)
 module Api_template = Api_cohttp_template.Make(User)
 
 (* TODO remove in 4.08 *)
@@ -48,7 +52,7 @@ type stream_handler =
 
 type t =
   { http : Api_http.t list
-  ; ws : Api_http.t list
+  ; ws : Api_events.t list
   ; templates : Api_template.topmost Api_template.item list
   ; control : int
   ; streams_signal : Stream.t list React.signal

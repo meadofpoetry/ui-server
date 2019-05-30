@@ -6,14 +6,11 @@ open Util
 module Event = struct
   let ( >>= ) = Lwt_result.( >>= )
 
-  let get_config f control =
-    Api_websocket.create
-      ~path:Path.Format.("ws/board" @/ Int ^/ "receiver/config" @/ empty)
+  let get_config sock control =
+    Api_websocket.subscribe
+      ~path:Path.Format.("board" @/ Int ^/ "receiver/config" @/ empty)
       ~query:Query.empty
-      control ()
-    >>= fun socket ->
-    Api_websocket.subscribe_map socket ip_receive_of_yojson (f socket);
-    Lwt.return_ok socket
+      control ip_receive_of_yojson sock
 end
 
 let get_config control =

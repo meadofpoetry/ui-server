@@ -5,13 +5,13 @@ open Api_util
 module Event = struct
   open Util_react
 
-  let get_state (api : Protocol.api) _user _body _env _state =
+  let get_state (api : Protocol.api) _user =
     let event =
       S.changes api.notifs.state
       |> E.map Topology.state_to_yojson in
-    Lwt.return (`Ev event)
+    Lwt.return event
 
-  let get_mode (api : Protocol.api) (ids : int list) _user _body _env _state =
+  let get_mode (api : Protocol.api) (ids : int list) _user =
     let to_yojson = Util_json.(
         List.to_yojson (Pair.to_yojson Int.to_yojson mode_to_yojson)) in
     let event = match ids with
@@ -24,7 +24,7 @@ module Event = struct
             match List.filter (fun (id, _) -> List.mem id ids) mode with
             | [] -> None
             | l -> Some (to_yojson l)) in
-    Lwt.return (`Ev event)
+    Lwt.return event
 end
 
 let reset (api : Protocol.api) _user _body _env _state =

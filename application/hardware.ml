@@ -396,7 +396,7 @@ let finalize hw =
   (match hw.usb with
    | None -> ()
    | Some usb -> Usb_device.finalize usb);
-  Board.Ports.fold
+  Board.Map.fold
     (fun _ (b : Board.t) acc -> acc >>= b.state#finalize)
     hw.boards
     Lwt.return_unit
