@@ -236,18 +236,11 @@ let ( >>= ) = Lwt_result.( >>= )
 let on_settings (side_sheet : #Side_sheet.Parent.t)
     (content : #Widget.t)
     (set_title : string -> unit) =
-  fun (prev : Widget.t option)
-    ((widget : Widget.t), (name : string)) ->
-    begin match prev with
-      | None -> ()
-      | Some w -> w#destroy ()
-    end;
-    content#set_empty ();
-    content#append_child widget;
-    set_title name;
-    Lwt.Infix.(
-      side_sheet#toggle ~force:true ()
-      >>= fun () -> Lwt.return_some widget)
+  fun ((widget : Widget.t), (name : string)) ->
+  content#set_empty ~hard:true ();
+  content#append_child widget;
+  set_title name;
+  side_sheet#toggle ~force:true ()
 
 let () =
   let side_sheet, side_sheet_content, set_side_sheet_title =
@@ -264,7 +257,7 @@ let () =
         | _ -> ()) ()
     >>= fun socket ->
     page#set_on_destroy (fun () -> socket##close);
-    Lwt_react.(E.keep @@ E.fold_s on_settings None page#e_settings);
+    Lwt_react.(E.keep @@ E.map_p on_settings page#e_settings);
     Lwt.return_ok page in
   let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
   let body = Ui_templates.Loader.create_widget_loader thread in
