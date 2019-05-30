@@ -63,6 +63,15 @@ module Make
     in 
     List.fold_left add_node Uri.Dispatcher.empty nodes
 
+  let merge ?prefix handlers =
+    match prefix with
+    | None ->
+       Uri.Dispatcher.concat handlers
+    | Some prefix ->
+       assert (String.length prefix <> 0);
+       let path = Uri.Path.of_string prefix in
+       Uri.Dispatcher.(merge empty [path, handlers])
+
   let connections = Array.make 1_000 None
 
   let find_free_connection () =
@@ -142,15 +151,17 @@ module Make
     
         Lwt.return resp)
 
-  let to_http_node ?doc ~prefix nodes : node =
+  let to_http ?doc ~prefix nodes =
     let make_conn user body env (state : Api_http.state) : Api_http.answer Lwt.t =
       Lwt.return (`Instant (open_connection nodes user body env state))
     in
-    Api_http.node_raw
-      ?doc
-      ~meth:`GET
-      ~path:Uri.Path.Format.(prefix @/ empty)
-      ~query:Uri.Query.empty
-      make_conn
+    Api_http.make
+      [ Api_http.node_raw
+          ?doc
+          ~meth:`GET
+          ~path:Uri.Path.Format.(prefix @/ empty)
+          ~query:Uri.Query.empty
+          make_conn
+      ]
 
 end

@@ -1,12 +1,16 @@
 type url = Netlib.Uri.t
 
 module Api_http = Api_cohttp.Make (Application_types.User) (Application_types.Body)
+module Api_events = Api_websocket.Make
+                      (Application_types.User)
+                      (Application_types.Body)
+                      (Api_websocket.Json_msg)
 module Api_template = Api_cohttp_template.Make (Application_types.User)
 
 type t =
   < reset    : (url * Application_types.Stream.t) list -> unit Lwt.t
   ; http : unit -> Api_http.t list
-  ; ws : unit -> Api_http.t list
+  ; ws : unit -> Api_events.t list
   ; pages : unit -> Api_template.topmost Api_template.item list
   ; log_source : Application_types.Stream.Log_message.source
   ; finalize : unit -> unit Lwt.t >

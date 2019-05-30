@@ -5,23 +5,23 @@ open Api_util
 module Event = struct
   open Util_react
 
-  let get_state (api : Protocol.api) _user _body _env _state =
+  let get_state (api : Protocol.api) _user =
     let event =
       S.changes api.notifs.state
       |> E.map Topology.state_to_yojson in
-    Lwt.return (`Ev event)
+    Lwt.return event
 
-  let get_info (api : Protocol.api) _user _body _env _state =
+  let get_info (api : Protocol.api) _user =
     let event =
       S.changes api.notifs.devinfo
       |> E.map (Util_json.Option.to_yojson devinfo_to_yojson) in
-    Lwt.return (`Ev event)
+    Lwt.return event
 
-  let get_config (api : Protocol.api) _user _body _env _state =
+  let get_config (api : Protocol.api) _user =
     let event =
       S.changes api.notifs.config
       |> E.map config_to_yojson in
-    Lwt.return (`Ev event)
+    Lwt.return event
 end
 
 let get_state (api : Protocol.api) _user _body _env _state =

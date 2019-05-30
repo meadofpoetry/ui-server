@@ -5,7 +5,7 @@ module Api_http = Api_cohttp.Make(User)(Body)
 
 module Api_template = Api_cohttp_template.Make(User)
 
-module Api_websocket = Api_websocket.Make(User)(Body)
+module Api_websocket = Api_websocket.Make(User)(Body)(Api_websocket.Json_msg)
 
 module Icon = Components_markup.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
                     
@@ -217,23 +217,20 @@ let application_handlers (app : Application.t) =
     ]
 
 let application_ws (app : Application.t) =
-  let open Api_http in
+  let open Api_websocket in
   (* TODO add closing event *)
-  let socket_table = Api_websocket.make_socket_table () in
+  (*let socket_table = Api_websocket.make_socket_table () in*)
   
   make ~prefix:"topology" (* TODO change to application *)
-    [ Api_websocket.node ~doc:"Pushes device topology to the client"
-        ~socket_table
+    [ event_node ~doc:"Pushes device topology to the client"
         ~path:Path.Format.empty
         ~query:Query.empty
         (Application_api.Event.get_topology app)
-    ; Api_websocket.node ~doc:"Pushes stream table to the client"
-        ~socket_table
+    ; event_node ~doc:"Pushes stream table to the client"
         ~path:Path.Format.("stream_table" @/ empty)
         ~query:Query.empty
         (Application_api.Event.get_streams app)
-    ; Api_websocket.node ~doc:"Log for input (and stream)"
-        ~socket_table
+    ; event_node ~doc:"Log for input (and stream)"
         ~path:Path.Format.("log" @/ empty)
         ~query:Query.["input", (module List(Topology.Show_topo_input));
                       "id", (module List(Stream.ID))]
@@ -268,7 +265,7 @@ let create templates (app : Application.t) foreign_pages foreing_handlers =
   let application_ws = application_ws app in
   let board_ws =
     Hardware.Map.fold (fun _ x acc -> x.Boards.Board.ws @ acc) app.hw.boards []
-    |> Api_http.merge ~prefix:"board"
+    |> Api_websocket.merge ~prefix:"board"
   in
   let proc_ws_list = match app.proc with
     | None -> []
@@ -287,10 +284,12 @@ let create templates (app : Application.t) foreign_pages foreing_handlers =
                 :: board_api
                 :: proc_api_list)
   in
-  let ws = Api_http.merge ~prefix:"ws"
-              ( application_ws
-                :: board_ws
-                :: proc_ws_list )
+  let ws =
+    Api_websocket.to_http ~prefix:"ws"
+    @@ Api_websocket.merge
+         ( application_ws
+           :: board_ws
+           :: proc_ws_list )
   in
   Lwt.return_ok @@ Api_http.merge [ api; ws; pages ]
      

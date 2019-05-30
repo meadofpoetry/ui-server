@@ -12,14 +12,14 @@ let get_settings (state : state) _ body sock_data () =
       Settings.to_yojson body
    *)
 
-  let get_wm_layout (state : Protocol.state) _user _body _env _state =
+  let get_wm_layout (state : Protocol.state) _user =
     let event =
       S.changes state.notifs.wm
       |> E.map Wm.to_yojson
     in
-    Lwt.return (`Ev event)
+    Lwt.return event
 
-  let get_status (state : Protocol.state) ids _user _body _env _state =
+  let get_status (state : Protocol.state) ids _user =
     let event = S.changes state.notifs.status in
     let event = match ids with
       | [] -> event
@@ -29,7 +29,7 @@ let get_settings (state : state) _ body sock_data () =
            event
     in
     let event = E.map (Util_json.List.to_yojson Qoe_status.to_yojson) event in
-    Lwt.return (`Ev event)
+    Lwt.return event
 
 end
 

@@ -7,18 +7,18 @@ let ( >>= ) = Lwt.( >>= )
 module Event = struct
   open Util_react
 
-  let get_status (api : Protocol.api) _user _body _env _state =
+  let get_status (api : Protocol.api) _user =
     let event =
       E.map transmitter_status_to_yojson
         api.notifs.transmitter_status in
-    Lwt.return (`Ev event)
+    Lwt.return event
 
-  let get_mode (api : Protocol.api) _user _body _env _state =
+  let get_mode (api : Protocol.api) _user =
     let event =
       E.map (fun (x : config) ->
           Util_json.List.to_yojson udp_mode_to_yojson x.mode.udp)
       @@ React.S.changes api.notifs.config in
-    Lwt.return (`Ev event)
+    Lwt.return event
 
 end
 

@@ -12,8 +12,83 @@ module type BODY = sig
   val of_event : webSocket messageEvent Js.t -> (t, [ `Conv_error of string]) result
 end
 
+module type CONTROL_MSG = sig
+  type t
+  val parse : t -> (int * string) option
+  val compose : int -> t -> t
+end
+
 type t = webSocket Js.t
 
+module Make (Body : BODY) (Msg : CONTROL_MSG with type t = Body.t) = struct
+
+  open Netlib
+
+  type state = Body.t -> unit
+     
+  type t = Uri.t -> (Body.t React.event * state)
+
+  let make_uri ?secure ?host ?port ~f ~path =
+    let host = match host with
+      | None -> Url.Current.host
+      | Some x -> x in
+    let port = match port with
+      | None -> Url.Current.port
+      | Some x -> Some x in
+    let scheme = match secure with
+      | Some false -> "ws"
+      | Some true -> "wss"
+      | None -> match Url.Current.protocol with
+                | "https" -> "wss"
+                | "http" -> "ws"
+                | _ -> "ws" in
+    Uri.kconstruct ~scheme ~host ?port ~path ~query:Uri.Query.empty
+      ~f:(f % Uri.pct_decode % Uri.to_string)
+  
+  let open_socket : ?secure:bool
+                    -> ?host:string
+                    -> ?port:int
+                    -> path:('a, unit -> ((t, string) Lwt_result.t)) Uri.Path.Format.t
+                    -> 'a =
+    fun ?sequre ?host ?port ~path ->
+    let f uri () : (t, string) Lwt_result.t =
+      let next_id = ref 0 in
+      let handlers = Weak.create 100 in
+      let socket = new%js webSocket (Js.string uri) in
+      let message_handler (evt : webSocket messageEvent Js.t) =
+        (match Body.of_event evt with
+         | Error _ -> failwith "TODO"
+         | Ok v ->
+            match Msg.parse v with
+            | None -> ()
+            | Some (id, data) ->
+               match Weak.get handlers id with
+               | None -> ()
+               | Some f -> f data)
+        Js._true
+      in
+      let event_generator path =
+        let msg = Msg.compose !next_id (Uri.to_string path) in
+        let event, push = React.E.create () in
+        socket##send (Js.string @@ Body.to_string msg);
+        Weak.set handlers !next_id push;
+        incr next_id;
+        event, push
+      in
+      Lwt.pick [ Event.make "open" socket
+               ; Event.make "error" socket ]
+      >>= fun (evt : webSocket Dom.event Js.t) ->
+      match Js.to_string evt##._type with
+      | "open" ->
+         socket##.onmessage := Dom.handler message_handler;
+         Lwt.return 
+      | "error" -> Lwt.return_error "socket error"
+      | _ -> assert false in
+    make_uri ?secure ?host ?port ~path ~f
+    
+
+end
+       (*
 module Event = struct
 
   let make event_type (socket : t) =
@@ -131,3 +206,4 @@ end = struct
     subscribe socket f
 
 end
+        *)

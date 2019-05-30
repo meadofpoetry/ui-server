@@ -5,11 +5,11 @@ open Api_util
 module Event = struct
   open Util_react
 
-  let get_config (api : Protocol.api) _user _body _env _state =
+  let get_config (api : Protocol.api) _user =
     let event =
       S.changes api.notifs.config
       |> E.map (fun x -> nw_to_yojson x.nw) in
-    Lwt.return (`Ev event)
+    Lwt.return event
 end
 
 let get_config (api : Protocol.api) _user _body _env _state =
