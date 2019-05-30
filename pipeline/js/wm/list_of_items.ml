@@ -128,7 +128,7 @@ module Make(I : Item) = struct
                   List.map (fun { label; on_click } ->
                       Button.make
                         ~label
-                        ~on_click:(fun _ _ -> on_click (); Lwt.return_unit)
+                        ~on_click:(fun _ _ _ -> on_click (); Lwt.return_unit)
                         ()) w.actions in
                 let buttons = Card.Actions.make_buttons l in
                 let actions = Card.Actions.make [buttons] in

@@ -112,7 +112,7 @@ module Make (User : USER) = struct
         `O ["action", `String (elt_to_string x)])
         actions in
     let is_empty = function [] -> true | _ -> false in
-    [ "top_app_bar_has_actions", `Bool (is_empty actions)
+    [ "top_app_bar_has_actions", `Bool (not @@ is_empty actions)
     ; "top_app_bar_leading", `String leading'
     ; "top_app_bar_actions", `A actions'
     ; "top_app_bar_bottom", bottom' ]
@@ -124,7 +124,7 @@ module Make (User : USER) = struct
       let make () =
         let class_ = match typ with
           | `Modal -> "mdc-side-sheet--modal"
-          | `Dismissible -> "mdc-shide-sheet--dismissible"
+          | `Dismissible -> "mdc-side-sheet--dismissible"
           | `Permanent -> "" in
         let opened = if opened then "mdc-side-sheet--opened" else "" in
         elt_to_string

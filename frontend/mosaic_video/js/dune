@@ -1,0 +1,4 @@
+(executable
+  (name mosaic_video)
+  (libraries js_of_ocaml janus-js components pipeline_js page_mosaic_video_tyxml)
+  (preprocess (pps js_of_ocaml-ppx)))

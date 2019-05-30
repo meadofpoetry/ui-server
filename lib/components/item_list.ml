@@ -263,6 +263,8 @@ module Item = struct
 
   let make ?ripple ?activated ?selected ?secondary_text ?graphic ?meta ?role
       text : t =
+    Option.iter (fun x -> x#add_class CSS.item_graphic) graphic;
+    Option.iter (fun x -> x#add_class CSS.item_meta) meta;
     let text_elt = match secondary_text with
       | Some st ->
         let primary = Markup.create_item_primary_text text () in

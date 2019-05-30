@@ -17,13 +17,25 @@ let make_icon path =
 
 let pages () : Api_template.topmost Api_template.item list =
   let open Api_template in
+  let side_sheet_toggle = Mosaic_video_template.(
+      make_icon_button
+        ~classes:[CSS.side_sheet_icon]
+        Components_tyxml.Svg_icons.tune) in
+  let menu_toggle = Mosaic_video_template.(
+      make_icon_button
+        ~classes:[CSS.menu_icon]
+        Components_tyxml.Svg_icons.dots_horizontal) in
   let props =
     make_template_props
       ~title:"Мозаика"
-      ~pre_scripts:[ Src "/js/janus.nojquery.js"
-                   ; Src "/js/adapter.min.js" ]
-      ~post_scripts:[Src "/js/page_mosaic.js"]
-      ~stylesheets:["/css/pipeline.min.css"]
+      ~side_sheet:(make_side_sheet_props ~clipped:false ())
+      ~top_app_bar_actions:[ Tyxml.Html.toelt menu_toggle
+                           ; Tyxml.Html.toelt side_sheet_toggle ]
+      ~pre_scripts:[Src "/js/adapter.min.js"]
+      ~post_scripts:[Src "/js/mosaic_video.js"]
+      ~stylesheets:[ "/css/pipeline.min.css"
+                   ; "/css/mosaic_video.min.css" ]
+      ~content:[Tyxml.Html.toelt @@ Mosaic_video_template.make_player ()]
       ()
   in
   simple ~priority:(`Index 1)
@@ -31,7 +43,7 @@ let pages () : Api_template.topmost Api_template.item list =
     ~icon:(make_icon Components_tyxml.Svg_icons.collage)
     ~path:(Path.of_string "pipeline")
     props
-  
+
 (* TODO remove state *)
 let handlers
       (state : Pipeline_protocol.Protocol.state) =

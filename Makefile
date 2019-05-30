@@ -22,6 +22,7 @@ stream:
 	cp _build/default/frontend/page_stream.bc.js dist/resources/js/stream.js
 
 pipeline:
+
 	$(BUILD) frontend/page_mosaic.bc.js
 	cp _build/default/frontend/page_mosaic.bc.js dist/resources/js/page_mosaic.js
 
@@ -44,6 +45,10 @@ network:
 demo:
 	$(BUILD) frontend/demo/js/demo.bc.js
 	cp _build/default/frontend/demo/js/demo.bc.js dist/resources/js/demo.js
+
+mosaic_video:
+	$(BUILD) frontend/mosaic_video/js/mosaic_video.bc.js
+	cp _build/default/frontend/mosaic_video/js/mosaic_video.bc.js dist/resources/js/mosaic_video.js
 
 css-components:
 	$(CSS) $(CSS_DIR)/@material/components/components.scss $(CSS_DIR)/components.min.css

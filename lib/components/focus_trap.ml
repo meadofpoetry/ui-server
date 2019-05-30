@@ -25,11 +25,11 @@ let is_tab_event (e : Dom_html.keyboardEvent Js.t) : bool =
 let select_if_available (node : Dom_html.element Js.t) : unit =
   match Js.to_string node##.tagName with
   | "input" ->
-     let (i : Dom_html.inputElement Js.t) = Js.Unsafe.coerce node in
-     let i' = Js.Unsafe.coerce i in
-     if Js.Optdef.test i'##.select
-        && String.equal "function" @@ Js.to_string @@ Js.typeof i'##.select
-     then i##select
+    let (i : Dom_html.inputElement Js.t) = Js.Unsafe.coerce node in
+    let i' = Js.Unsafe.coerce i in
+    if Js.Optdef.test i'##.select
+    && String.equal "function" @@ Js.to_string @@ Js.typeof i'##.select
+    then i##select
   | _ -> ()
 
 let remove ~eq x l =
@@ -88,22 +88,22 @@ let get_initial_focus_node (t : t) : Dom_html.element Js.t =
   match t.options.initial_focus with
   | Some x -> x
   | None ->
-     let active =
-       Js.Opt.bind Dom_html.document##.activeElement
-         (fun active ->
+    let active =
+      Js.Opt.bind Dom_html.document##.activeElement
+        (fun active ->
            if contains t.container active
            then Js.some active else Js.null) in
-     match Js.Opt.to_option active with
-     | Some x -> x
-     | None ->
-        match t.state.first_tabbable with
+    match Js.Opt.to_option active with
+    | Some x -> x
+    | None ->
+      match t.state.first_tabbable with
+      | Some x -> x
+      | None ->
+        match t.options.fallback_focus with
         | Some x -> x
         | None ->
-           match t.options.fallback_focus with
-           | Some x -> x
-           | None ->
-              failwith "You can't have a focus-trap without at least one \
-                        focusable element"
+          failwith "You can't have a focus-trap without at least one \
+                    focusable element"
 
 let update_tabbable_nodes (t : t) : unit =
   let tabbable = Tabbable.get_tabbable t.container in
@@ -124,14 +124,12 @@ let pause (t : t) : unit =
 let rec try_focus (t : t) (node : Dom_html.element Js.t option) : unit =
   match node, Js.Opt.to_option Dom_html.document##.activeElement with
   | None, None -> ()
-  | None, Some _ ->
-     try_focus t (Some (get_initial_focus_node t))
-  | Some x, Some a when x == a ->
-     try_focus t (Some (get_initial_focus_node t))
+  | Some x, Some a when x == a -> ()
+  | None, Some _ -> try_focus t (Some (get_initial_focus_node t))
   | Some x, _ ->
-     x##focus;
-     t.state.recently_focused <- node;
-     select_if_available x
+    x##focus;
+    t.state.recently_focused <- node;
+    select_if_available x
 
 let deactivate_trap (x : t) : unit =
   queue := remove ~eq:equal x !queue;
@@ -160,19 +158,19 @@ let check_pointer_down (t : t) (e : #Dom_html.event Js.t) =
   match Js.Opt.to_option e##.target with
   | Some target when contains t.container target -> ()
   | target ->
-     let return_focus = match target with
-       | None -> false
-       | Some x -> Tabbable.is_focusable x in
-     if t.options.click_outside_deactivates
-     then deactivate ~return_focus t
-     else Dom.preventDefault e
+    let return_focus = match target with
+      | None -> false
+      | Some x -> Tabbable.is_focusable x in
+    if t.options.click_outside_deactivates
+    then deactivate ~return_focus t
+    else Dom.preventDefault e
 
 (** In case focus escapes the trap for some strange reason, pull it back in. *)
 let check_focus_in (t : t) (e : Dom_html.event Js.t) =
   let target = Dom.eventTarget e in
   (** In Firefox when you Tab out of an iframe the Document is briefly focused. *)
   if not @@ contains t.container target
-     && not @@ Js.instanceof target Js.Unsafe.global##.Document
+  && not @@ Js.instanceof target Js.Unsafe.global##.Document
   then (
     let node = match t.state.recently_focused with
       | Some x -> Some x
@@ -191,11 +189,11 @@ let check_tab (t : t) (e : Dom_html.keyboardEvent Js.t) =
         t.state.first_tabbable,
         t.state.last_tabbable with
   | true, Some target, Some first, _ when target == first ->
-     Dom.preventDefault e;
-     try_focus t t.state.last_tabbable;
+    Dom.preventDefault e;
+    try_focus t t.state.last_tabbable;
   | false, Some target, _, Some last when target == last ->
-     Dom.preventDefault e;
-     try_focus t t.state.first_tabbable
+    Dom.preventDefault e;
+    try_focus t t.state.first_tabbable
   | _ -> ()
 
 let check_key (t : t) (e : Dom_html.keyboardEvent Js.t) =
@@ -211,8 +209,8 @@ let check_click (t : t) (e : Dom_html.mouseEvent Js.t) =
   | true, _  -> ()
   | _, Some target when contains t.container target -> ()
   | _ ->
-     Dom.preventDefault e;
-     (Js.Unsafe.coerce e)##stopImmediatePropagation
+    Dom.preventDefault e;
+    (Js.Unsafe.coerce e)##stopImmediatePropagation
 
 let activate_trap (x : t) : unit =
   (match !queue with
@@ -259,13 +257,13 @@ let activate (t : t) : unit =
     add_listeners t)
 
 let make ?(on_activate : (unit -> unit) option)
-      ?(on_deactivate : (unit -> unit) option)
-      ?(initial_focus : Dom_html.element Js.t option)
-      ?(fallback_focus : Dom_html.element Js.t option)
-      ?(escape_deactivates = true)
-      ?(click_outside_deactivates = false)
-      ?(return_focus_on_deactivate = true)
-      (container : #Dom_html.element Js.t) : t =
+    ?(on_deactivate : (unit -> unit) option)
+    ?(initial_focus : Dom_html.element Js.t option)
+    ?(fallback_focus : Dom_html.element Js.t option)
+    ?(escape_deactivates = true)
+    ?(click_outside_deactivates = false)
+    ?(return_focus_on_deactivate = true)
+    (container : #Dom_html.element Js.t) : t =
   let options =
     { on_activate
     ; on_deactivate

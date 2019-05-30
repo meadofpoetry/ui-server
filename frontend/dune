@@ -3,7 +3,7 @@
   (libraries   js_of_ocaml
                js_of_ocaml.weak
                js_of_ocaml-tyxml
-               application_js
+               application_http_js
                pipeline_js
                wm_js
                server_js

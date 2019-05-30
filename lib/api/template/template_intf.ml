@@ -32,6 +32,13 @@ module type S = sig
 
   type 'a item
 
+  val make_side_sheet_props : ?clipped:bool
+    -> ?opened:bool
+    -> ?typ:[ `Dismissible | `Modal | `Permanent ]
+    -> ?content:Tyxml.Xml.elt list
+    -> unit
+    -> side_sheet_props
+
   val make_template_props : ?title:string
     -> ?top_app_bar_leading:Tyxml.Xml.elt
     -> ?top_app_bar_actions:Tyxml.Xml.elt list
