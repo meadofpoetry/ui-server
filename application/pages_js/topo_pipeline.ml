@@ -9,14 +9,14 @@ let make_streams (cpu : Topology.topo_cpu) () =
   |> Lwt_result.map_err Api_js.Http.error_to_string
   >>= fun init ->
   let event, set_event = React.E.create () in
-  Application_http_js.Event.get_streams ~f:(fun _ -> function
-      | Ok x -> set_event x
-      | Error _ -> ()) ()
-  >>= fun socket ->
+  (* Application_http_js.Event.get_streams ~f:(fun _ -> function
+   *     | Ok x -> set_event x
+   *     | Error _ -> ()) ()
+   * >>= fun socket -> *)
   let box = Streams_selector.make ~init ~event cpu () in
-  box#set_on_destroy (fun () ->
-      React.E.stop ~strong:true event;
-      socket##close);
+  (* box#set_on_destroy (fun () ->
+   *     React.E.stop ~strong:true event;
+   *     socket##close); *)
   Lwt_result.return box#widget
 
 let make_structure () =
@@ -29,12 +29,12 @@ let make_structure () =
   >>= fun (_, _) ->
   let event, set_event = React.E.create () in
   let _, set_event_applied = React.E.create () in
-  Pipeline_http_js.Http_structure.Event.get_streams_with_source
-    ~f:(fun _ -> function Ok x -> set_event x | _ -> ()) ()
-  >>= fun socket ->
-  Pipeline_http_js.Http_structure.Event.get_streams_applied
-    ~f:(fun _ -> function Ok x -> set_event_applied x | _ -> ()) ()
-  >>= fun socket_applied ->
+  (* Pipeline_http_js.Http_structure.Event.get_streams_with_source
+   *   ~f:(fun _ -> function Ok x -> set_event x | _ -> ()) ()
+   * >>= fun socket ->
+   * Pipeline_http_js.Http_structure.Event.get_streams_applied
+   *   ~f:(fun _ -> function Ok x -> set_event_applied x | _ -> ()) ()
+   * >>= fun socket_applied -> *)
   let w = Widget.create_div () in
   (* let w, s, set = Pipeline_js.Ui.Structure.make
    *     ~init ~init_applied ~event ~event_applied () in *)
@@ -42,10 +42,10 @@ let make_structure () =
   let buttons = Card.Actions.make_buttons [submit] in
   let actions = Card.Actions.make [buttons] in
   let box = Box.make ~dir:`Column [w; actions#widget] in
-  box#set_on_destroy (fun () ->
-      React.E.stop ~strong:true event;
-      socket_applied##close;
-      socket##close);
+  (* box#set_on_destroy (fun () ->
+   *     React.E.stop ~strong:true event;
+   *     socket_applied##close;
+   *     socket##close); *)
   Lwt_result.return box#widget
 (*
 let make_settings () =

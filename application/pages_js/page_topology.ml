@@ -2,6 +2,7 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml
 open Components
 open Application_types
+open Netlib
 
 let _class = "topology"
 
@@ -112,12 +113,12 @@ let map_cpu_conn (cpu : Topology.topo_cpu) : Topology.topo_cpu =
   let ifaces = List.rev @@ aux [] cpu.ifaces in
   { cpu with ifaces }
 
-let make_nodes topology =
+let make_nodes topology socket =
   let open Topology in
   let create_element ~(element : Topo_node.node_entry) ~connections =
     let connections = List.map (fun (x,p) -> to_topo_node x, p) connections in
     match element with
-    | `Entry (Board board) -> `Board (Topo_board.create ~connections board)
+    | `Entry (Board board) -> `Board (Topo_board.create ~connections socket board)
     | `Entry (Input input) -> `Input (Topo_input.create input)
     | `CPU cpu -> `CPU (Topo_cpu.create cpu ~connections) in
   let rec get_boards acc = function
@@ -173,17 +174,17 @@ type event =
   [ `Topology of Topology.t
   ]
 
-let create (init : Topology.t) =
+let create (init : Topology.t) (socket : Api_js.Websocket.JSON.t) =
   let svg = Tyxml_js.Svg.(
       svg ~a:[a_class [BEM.add_element _class "paths"]] []
       |> toelt
       |> Js.Unsafe.coerce
       |> Widget.create) in
-  let nodes = make_nodes init in
+  let nodes = make_nodes init socket in
   let gta =
     Printf.sprintf "grid-template-areas: %s;"
       (grid_template_areas init) in
-  let e_settings=
+  let e_settings =
     Utils.List.filter_map (function
         | `Board (b : Topo_board.t) -> Some b#settings_event
         | `CPU (c : Topo_cpu.t) -> Some c#settings_event
@@ -251,12 +252,15 @@ let () =
     Lwt_result.map_err Api_js.Http.error_to_string
     @@ Application_http_js.get_topology ()
     >>= fun init ->
-    let page = create init in
-    Application_http_js.Event.get_topology ~f:(fun _ -> function
-        | Ok x -> page#notify (`Topology x)
-        | _ -> ()) ()
+    Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
     >>= fun socket ->
-    page#set_on_destroy (fun () -> socket##close);
+    let page = create init socket in
+    let event =
+      React.E.map (fun x -> page#notify (`Topology x))
+      @@ Application_http_js.Event.get_topology socket in
+    page#set_on_destroy (fun () ->
+        React.E.stop ~strong:true event;
+        Api_js.Websocket.close_socket socket);
     Lwt_react.(E.keep @@ E.map_p on_settings page#e_settings);
     Lwt.return_ok page in
   let scaffold = Scaffold.attach (Dom_html.getElementById "root") in

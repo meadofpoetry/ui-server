@@ -67,7 +67,7 @@ let make_board_page (b : Topology.topo_board) =
   | "NIITV", "TSAN", _ ->
     let open Board_niitv_tsan_http_js in
     let open Board_niitv_tsan_widgets_js in
-    Some (fun state ->
+    Some (fun state socket ->
         let t =
           Lwt_result.map_err Api_js.Http.error_to_string
           @@ (Http_device.get_t2mi_mode b.control
@@ -78,35 +78,33 @@ let make_board_page (b : Topology.topo_board) =
   | "NIITV", "DVB4CH", _ ->
     let open Board_niitv_dvb_http_js in
     let open Board_niitv_dvb_widgets_js in
-    Some (fun state ->
+    Some (fun state socket ->
         let t =
           Http_device.get_mode b.control
           >>=? fun mode -> Http_device.get_info b.control
           >>=? fun info ->
           let receivers = Some info.receivers in
           let widget = Widget_settings.make state mode receivers b.control in
-          Http_device.Event.get_mode (fun _ -> function
-              | Ok x -> widget#notify (`Mode x)
-              | _ -> ()) b.control
-          >>= fun socket ->
-          widget#set_on_destroy (fun () -> socket##close);
+          let event =
+            React.E.map (fun x -> widget#notify (`Mode x))
+            @@ Http_device.Event.get_mode socket b.control in
+          widget#set_on_destroy (fun () -> React.E.stop ~strong:true event);
           Lwt.return_ok widget#widget in
         Ui_templates.Loader.create_widget_loader t)
   | "DekTec", "DTM-3200", _ ->
     let open Board_dektec_dtm3200_http_js in
     let open Board_dektec_dtm3200_widgets_js in
-    Some (fun state ->
+    Some (fun state socket ->
         let t =
           Http_device.get_config b.control
           >>=? fun { nw; ip_receive; _ } ->
           let widget = Widget_settings.make state nw ip_receive b.control in
-          Http_device.Event.get_config (fun _ -> function
-              | Ok x ->
+          let event =
+            React.E.map (fun (x : Board_dektec_dtm3200_types.config) ->
                 widget#notify (`Ip_receive_mode x.ip_receive);
-                widget#notify (`Nw_mode x.nw)
-              | _ -> ()) b.control
-          >>= fun socket ->
-          widget#set_on_destroy (fun () -> socket##close);
+                widget#notify (`Nw_mode x.nw))
+            @@ Http_device.Event.get_config socket b.control in
+          widget#set_on_destroy (fun () -> React.E.stop ~strong:true event);
           Lwt.return_ok widget#widget in
         Ui_templates.Loader.create_widget_loader t)
   | _ -> None
@@ -165,6 +163,7 @@ type event =
   ]
 
 class t ~(connections : (#Topo_node.t * connection_point) list)
+    (socket : Api_js.Websocket.JSON.t)
     (board : Topology.topo_board) =
   let e_settings, push_settings = React.E.create () in
   let make_board_page = make_board_page board in
@@ -227,7 +226,7 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
             ~text:"Нет доступных настроек для платы"
             () in
         ph#widget
-      | Some make -> Widget.coerce @@ make _state.connection
+      | Some make -> Widget.coerce @@ make _state.connection socket
 
     method private set_ports (l : Topology.topo_port list) : unit =
       let find (port : Topology.topo_port) (p : Topo_path.t) : bool =
@@ -243,5 +242,7 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
             path#set_state state) l
   end
 
-let create ~connections (board : Topology.topo_board) =
-  new t ~connections board
+let create ~connections
+    (socket : Api_js.Websocket.JSON.t)
+    (board : Topology.topo_board) =
+  new t ~connections socket board

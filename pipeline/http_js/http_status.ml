@@ -1,27 +1,16 @@
 open Netlib.Uri
 open Pipeline_types
 
-module Api_websocket = Api_js.Websocket.Make(Body)
-
 module Api_http = Api_js.Http.Make(Body)
 
 module Event = struct
 
-  let ( >>= ) = Lwt_result.( >>= )
-
-  let get ?f ?(ids = []) () =
-    let t =
-      Api_websocket.create
-        ~path:Path.Format.("ws/pipeline/status" @/ empty)
-        ~query:Query.["id", (module List(Application_types.Stream.ID))]
-        ids () in
-    match f with
-    | None -> t
-    | Some f ->
-      let of_json = Util_json.List.of_yojson Qoe_status.of_yojson in
-      t >>= fun socket ->
-      Api_websocket.subscribe_map socket of_json @@ f socket;
-      Lwt.return_ok socket
+  let get ?(ids = []) sock =
+    let of_yojson = Util_json.List.of_yojson Qoe_status.of_yojson in
+    Api_js.Websocket.JSON.subscribe
+      ~path:Path.Format.("pipeline/status" @/ empty)
+      ~query:Query.["id", (module List(Application_types.Stream.ID))]
+      ids of_yojson sock
 
 end
 

@@ -91,3 +91,5 @@ module type S = sig
                -> response
     
 end
+
+module Json_body : BODY with type t = Yojson.Safe.json

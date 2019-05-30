@@ -12,19 +12,19 @@ module Event = struct
 
   let get_streams ?(ids = []) sock control =
     let of_yojson = Util_json.List.of_yojson Stream.of_yojson in
-    Api_websocket.subscribe
+    Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("board" @/ Int ^/ "streams" @/ empty)
       ~query:Query.["id", (module List(Stream.ID))]
       control ids of_yojson sock
 
   let get_measurements ?(ids = []) sock control =
-    Api_websocket.subscribe
+    Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("board" @/ Int ^/ "streams/measurements" @/ empty)
       ~query:Query.["id", (module List(Stream.ID))]
       control ids (of_yojson Measure.of_yojson) sock
 
   let get_parameters ?(ids = []) sock control =
-    Api_websocket.subscribe
+    Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("board" @/ Int ^/ "streams/parameters" @/ empty)
       ~query:Query.["id", (module List(Stream.ID))]
       control ids (of_yojson Params.of_yojson) sock

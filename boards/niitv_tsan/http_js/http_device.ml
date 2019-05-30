@@ -8,13 +8,13 @@ module Event = struct
   let ( >>= ) = Lwt_result.( >>= )
 
   let get_state sock control =
-    Api_websocket.subscribe
+    Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("board" @/ Int ^/ "device/state" @/ empty)
       ~query:Query.empty
       control Topology.state_of_yojson sock
 
   let get_t2mi_mode sock control =
-    Api_websocket.subscribe
+    Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("board" @/ Int ^/ "device/mode/t2mi" @/ empty)
       ~query:Query.empty
       control t2mi_mode_of_yojson sock

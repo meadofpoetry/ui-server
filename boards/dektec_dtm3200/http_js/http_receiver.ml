@@ -7,7 +7,7 @@ module Event = struct
   let ( >>= ) = Lwt_result.( >>= )
 
   let get_config sock control =
-    Api_websocket.subscribe
+    Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("board" @/ Int ^/ "receiver/config" @/ empty)
       ~query:Query.empty
       control ip_receive_of_yojson sock

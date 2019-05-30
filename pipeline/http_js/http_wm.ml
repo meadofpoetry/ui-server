@@ -1,26 +1,17 @@
 open Pipeline_types
 open Netlib.Uri
 
-module Api_websocket = Api_js.Websocket.Make(Body)
-
 module Api_http = Api_js.Http.Make(Body)
 
 module Event = struct
 
   let ( >>= ) = Lwt_result.( >>= )
 
-  let get ?f () =
-    let t =
-      Api_websocket.create
-        ~path:Path.Format.("ws/pipeline/wm" @/ empty)
-        ~query:Query.empty
-        () in
-    match f with
-    | None -> t
-    | Some f ->
-      t >>= fun socket ->
-      Api_websocket.subscribe_map socket Wm.of_yojson @@ f socket;
-      Lwt.return_ok socket
+  let get sock =
+    Api_js.Websocket.JSON.subscribe
+      ~path:Path.Format.("pipeline/wm" @/ empty)
+      ~query:Query.empty
+      Wm.of_yojson sock
 
 end
 

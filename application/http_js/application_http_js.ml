@@ -9,52 +9,31 @@ module Body = struct
 
 end
 
-module Api_websocket = Api_js.Websocket.Make(Body)
-
 module Api_http = Api_js.Http.Make(Body)
 
 module Event = struct
 
   let ( >>= ) = Lwt_result.( >>= )
 
-  let get_topology ?f () =
-    let t =
-      Api_websocket.create
-        ~path:Path.Format.("ws/topology" @/ empty)
-        ~query:Query.empty () in
-    match f with
-    | None -> t
-    | Some f ->
-      t >>= fun socket ->
-      Api_websocket.subscribe_map socket Topology.of_yojson @@ f socket;
-      Lwt.return_ok socket
+  let get_topology sock =
+    Api_js.Websocket.JSON.subscribe
+      ~path:Path.Format.("topology" @/ empty)
+      ~query:Query.empty
+      Topology.of_yojson sock
 
-  let get_streams ?f () =
-    let t =
-      Api_websocket.create
-        ~path:Path.Format.("ws/topology/stream_table" @/ empty)
-        ~query:Query.empty () in
-    match f with
-    | None -> t
-    | Some f ->
-      t >>= fun socket ->
-      Api_websocket.subscribe_map socket Stream.stream_table_of_yojson @@ f socket;
-      Lwt.return_ok socket
+  let get_streams sock =
+    Api_js.Websocket.JSON.subscribe
+      ~path:Path.Format.("topology/stream_table" @/ empty)
+      ~query:Query.empty
+      Stream.stream_table_of_yojson sock
 
-  let get_log ?f ?(inputs = []) ?(streams = []) () =
-    let t =
-      Api_websocket.create
-        ~path:Path.Format.("ws/topology/log" @/ empty)
-        ~query:Query.[ "input", (module List(Topology.Show_topo_input))
-                     ; "id", (module List(Stream.ID))]
-        inputs streams () in
-    match f with
-    | None -> t
-    | Some f ->
-      t >>= fun socket ->
-      let of_json = Util_json.List.of_yojson Stream.Log_message.of_yojson in
-      Api_websocket.subscribe_map socket of_json @@ f socket;
-      Lwt.return_ok socket
+  let get_log ?(inputs = []) ?(streams = []) sock =
+    let of_yojson = Util_json.List.of_yojson Stream.Log_message.of_yojson in
+    Api_js.Websocket.JSON.subscribe
+      ~path:Path.Format.("topology/log" @/ empty)
+      ~query:Query.[ "input", (module List(Topology.Show_topo_input))
+                   ; "id", (module List(Stream.ID))]
+      inputs streams of_yojson sock
 
 end
 

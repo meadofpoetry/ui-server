@@ -1,73 +1,41 @@
 open Pipeline_types
 open Netlib.Uri
 
-module Api_websocket = Api_js.Websocket.Make(Body)
-
 module Api_http = Api_js.Http.Make(Body)
 
 module Event = struct
 
-  let ( >>= ) = Lwt_result.( >>= )
+  let get_streams ?(inputs = []) ?(ids = []) sock =
+    let of_yojson = Util_json.List.of_yojson Structure.of_yojson in
+    Api_js.Websocket.JSON.subscribe
+      ~path:Path.Format.("pipeline/streams" @/ empty)
+      ~query:Query.[ "id", (module List(Application_types.Stream.ID))
+                   ; "input", (module List(Application_types.Topology.Show_topo_input)) ]
+      ids inputs of_yojson sock
 
-  let get_streams ?f ?(inputs = []) ?(ids = []) () =
-    let t =
-      Api_websocket.create
-        ~path:Path.Format.("ws/pipeline/streams" @/ empty)
-        ~query:Query.[ "id", (module List(Application_types.Stream.ID))
-                     ; "input", (module List(Application_types.Topology.Show_topo_input)) ]
-        ids inputs () in
-    match f with
-    | None -> t
-    | Some f ->
-      let of_json = Util_json.List.of_yojson Structure.of_yojson in
-      t >>= fun socket ->
-      Api_websocket.subscribe_map socket of_json @@ f socket;
-      Lwt.return_ok socket
+  let get_streams_with_source ?(inputs = []) ?(ids = []) sock =
+    let of_yojson = Util_json.List.of_yojson Structure.packed_of_yojson in
+    Api_js.Websocket.JSON.subscribe
+      ~path:Path.Format.("pipeline/streams/with-source" @/ empty)
+      ~query:Query.[ "id", (module List(Application_types.Stream.ID))
+                   ; "input", (module List(Application_types.Topology.Show_topo_input)) ]
+      ids inputs of_yojson sock
 
-  let get_streams_with_source ?f ?(inputs = []) ?(ids = []) () =
-    let t =
-      Api_websocket.create
-        ~path:Path.Format.("ws/pipeline/streams/with-source" @/ empty)
-        ~query:Query.[ "id", (module List(Application_types.Stream.ID))
-                     ; "input", (module List(Application_types.Topology.Show_topo_input)) ]
-        ids inputs () in
-    match f with
-    | None -> t
-    | Some f ->
-      let of_json = Util_json.List.of_yojson Structure.packed_of_yojson in
-      t >>= fun socket ->
-      Api_websocket.subscribe_map socket of_json @@ f socket;
-      Lwt.return_ok socket
+  let get_streams_applied ?(inputs = []) ?(ids = []) sock =
+    let of_yojson = Util_json.List.of_yojson Structure.of_yojson in
+    Api_js.Websocket.JSON.subscribe
+      ~path:Path.Format.("pipeline/streams/applied" @/ empty)
+      ~query:Query.[ "id", (module List(Application_types.Stream.ID))
+                   ; "input", (module List(Application_types.Topology.Show_topo_input)) ]
+      ids inputs of_yojson sock
 
-  let get_streams_applied ?f ?(inputs = []) ?(ids = []) () =
-    let t =
-      Api_websocket.create
-        ~path:Path.Format.("ws/pipeline/streams/applied" @/ empty)
-        ~query:Query.[ "id", (module List(Application_types.Stream.ID))
-                     ; "input", (module List(Application_types.Topology.Show_topo_input)) ]
-        ids inputs () in
-    match f with
-    | None -> t
-    | Some f ->
-       let of_json = Util_json.List.of_yojson Structure.of_yojson in
-       t >>= fun socket ->
-       Api_websocket.subscribe_map socket of_json @@ f socket;
-       Lwt.return_ok socket
-
-  let get_streams_applied_with_source ?f ?(inputs = []) ?(ids = []) () =
-    let t =
-      Api_websocket.create
-        ~path:Path.Format.("ws/pipeline/streams/applied-with-source" @/ empty)
-        ~query:Query.[ "id", (module List(Application_types.Stream.ID))
-                     ; "input", (module List(Application_types.Topology.Show_topo_input)) ]
-        ids inputs () in
-    match f with
-    | None -> t
-    | Some f ->
-       let of_json = Util_json.List.of_yojson Structure.packed_of_yojson in
-       t >>= fun socket ->
-       Api_websocket.subscribe_map socket of_json @@ f socket;
-       Lwt.return_ok socket
+  let get_streams_applied_with_source ?(inputs = []) ?(ids = []) sock =
+    let of_yojson = Util_json.List.of_yojson Structure.packed_of_yojson in
+    Api_js.Websocket.JSON.subscribe
+      ~path:Path.Format.("pipeline/streams/applied-with-source" @/ empty)
+      ~query:Query.[ "id", (module List(Application_types.Stream.ID))
+                   ; "input", (module List(Application_types.Topology.Show_topo_input)) ]
+      ids inputs of_yojson sock
 
 end
 

@@ -6,7 +6,7 @@ module Event = struct
   let ( >>= ) = Lwt_result.( >>= )
 
   let get_status sock control =
-    Api_websocket.subscribe
+    Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("board" @/ Int ^/ "status" @/ empty)
       ~query:Query.empty
       control status_of_yojson sock

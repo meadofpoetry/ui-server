@@ -8,7 +8,7 @@ module Event = struct
   let ( >>= ) = Lwt_result.( >>= )
 
   let get_state sock control =
-    Api_websocket.subscribe
+    Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("board" @/ Int ^/ "device/state" @/ empty)
       ~query:Query.empty
       control Topology.state_of_yojson sock
@@ -16,7 +16,7 @@ module Event = struct
   let get_mode ?(ids = []) sock control =
     let of_yojson = Util_json.(
         List.of_yojson (Pair.of_yojson Int.of_yojson mode_of_yojson)) in
-    Api_websocket.subscribe
+    Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("board" @/ Int ^/ "device/mode" @/ empty)
       ~query:Query.["id", (module List(Int))]
       control ids of_yojson sock

@@ -9,7 +9,7 @@ module Event = struct
 
   let get_streams ?incoming ?(ids = []) sock control =
     let of_yojson = Util_json.List.of_yojson Stream.of_yojson in
-    Api_websocket.subscribe
+    Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("board" @/ Int ^/ "streams" @/ empty)
       ~query:Query.[ "incoming", (module Option(Bool))
                    ; "id", (module List(Stream.ID))]
