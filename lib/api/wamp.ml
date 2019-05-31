@@ -139,7 +139,7 @@ let abort ~details ~reason = Abort { details; reason }
 
 let goodbye ~details ~reason = Goodbye { details; reason }
 
-let error ~reqtype ~reqid ~details ~error ~args ~kw_args =
+let error ?(details = []) ?(args = []) ?(kw_args = []) ~reqtype ~reqid ~error () =
   Error { reqtype ; reqid ; details ; error ; args ; kw_args }
 
 let subscribe ?(reqid = Random.bits ()) ?(options = []) topic =
@@ -171,67 +171,67 @@ module Make (B : BODY) = struct
             | [String uri; Dict details] ->
               let realm = Uri.of_string uri in
               Ok (hello ~realm ~details)
-            | _ -> Error "msg_of_yojson: HELLO"
+            | _ -> Error "parse: HELLO"
           end
         | Some WELCOME -> begin match content with
             | [ Int id; Dict details] ->
               Ok (welcome ~id ~details)
-            | _ -> Error "msg_of_yojson: WELCOME"
+            | _ -> Error "parse: WELCOME"
           end
         | Some ABORT -> begin match content with
             | [ Dict details; String reason] ->
               let reason = Uri.of_string reason in
               Ok (abort ~details ~reason)
-            | _ -> Error "msg_of_yojson: ABORT"
+            | _ -> Error "parse: ABORT"
           end
         | Some GOODBYE -> begin
             match content with
             | [ Dict details; String reason] ->
               let reason = Uri.of_string reason in
               Ok (goodbye ~details ~reason)
-            | _ -> Error "msg_of_yojson: GOODBYE"
+            | _ -> Error "parse: GOODBYE"
           end
         | Some ERROR -> begin
             match content with
             | Int reqtype :: Int reqid :: Dict details :: String uri :: tl ->
               let uri = Uri.of_string uri in
               let args, kw_args = remaining_args tl in
-              Ok (error ~reqtype ~reqid ~details ~error:uri ~args ~kw_args)
-            | _ -> Error "msg_of_yojson: ERROR"
+              Ok (error ~reqtype ~reqid ~details ~error:uri ~args ~kw_args ())
+            | _ -> Error "parse: ERROR"
           end
         | Some SUBSCRIBE -> begin
             match content with
             | [ Int reqid; Dict options; String topic] ->
               let topic = Uri.of_string topic in
               Ok (snd @@ subscribe ~reqid ~options topic)
-            | _ -> Error "msg_of_yojson: PUBLISH"
+            | _ -> Error "parse: PUBLISH"
           end
         | Some SUBSCRIBED -> begin
             match content with
             | [ Int reqid; Int id] ->
               Ok (subscribed ~reqid ~id)
-            | _ -> Error "msg_of_yojson: SUBSCRIBED"
+            | _ -> Error "parse: SUBSCRIBED"
           end
         | Some UNSUBSCRIBE -> begin
             match content with
             | [ Int reqid; Int id] ->
               Ok (unsubscribe ~reqid ~id)
-            | _ -> Error "msg_of_yojson: UNSUBSCRIBE"
+            | _ -> Error "parse: UNSUBSCRIBE"
           end
         | Some UNSUBSCRIBED -> begin
             match content with
             | [ Int reqid] -> Ok (unsubscribed reqid)
-            | _ -> Error "msg_of_yojson: UNSUBSCRIBED"
+            | _ -> Error "parse: UNSUBSCRIBED"
           end
         | Some EVENT -> begin
             match content with
             |  Int subid :: Int pubid :: Dict details :: tl ->
               let args, kw_args = remaining_args tl in
               Ok (event ~subid ~pubid ~details ~args ~kw_args)
-            | _ -> Error "msg_of_yojson: EVENT"
+            | _ -> Error "parse: EVENT"
           end
       end
-    | msg -> Error "msg_of_yojson: msg must be a List"
+    | msg -> Error "parse: msg must be a List"
 
   let to_element = function
     | Hello { realm; details } ->
@@ -250,12 +250,14 @@ module Make (B : BODY) = struct
       List [ Int (msg_type_to_enum GOODBYE)
            ; Dict details
            ; String (Uri.to_string reason) ]
-    | Error { reqtype; reqid; details; error } ->
+    | Error { reqtype; reqid; details; error; args; kw_args } ->
       List [ Int (msg_type_to_enum ERROR)
            ; Int reqtype
            ; Int reqid
            ; Dict details
-           ; String (Uri.to_string error) ]
+           ; String (Uri.to_string error)
+           ; List args
+           ; Dict kw_args ]
     | Subscribe { reqid; options; topic } ->
       List [ Int (msg_type_to_enum SUBSCRIBE)
            ; Int reqid
@@ -272,11 +274,13 @@ module Make (B : BODY) = struct
     | Unsubscribed reqid ->
       List [ Int (msg_type_to_enum UNSUBSCRIBED)
            ; Int reqid ]
-    | Event { subid; pubid; details } ->
+    | Event { subid; pubid; details; args; kw_args } ->
       List [ Int (msg_type_to_enum EVENT)
            ; Int subid
            ; Int pubid
-           ; Dict details ]
+           ; Dict details
+           ; List args
+           ; Dict kw_args ]
 
   let serialize t = B.of_msg (to_element t)
 

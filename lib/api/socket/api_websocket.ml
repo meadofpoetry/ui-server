@@ -2,33 +2,61 @@ open Websocket_cohttp_lwt
 open Websocket
 open Lwt.Infix
 
+(* type 'a msg =
+ *   | Subscribe of { reqid : int ; topic : Uri.t }
+ *   | Subscribed of { reqid : int; id : int }
+ *   | Unsubscribe of { reqid : int; id : int }
+ *   | Unsubscribed of { reqid : int }
+ *   | Event of
+ *       { subid : int
+ *       ; data : 'a
+ *       }
+ *   | Error of
+ *       { reqtype : int
+ *       ; reqid : int
+ *       ; error : string
+ *       } *)
+
 module type CONTROL_MSG = sig
   type t
-  val parse : t -> (int * string) option
-  val compose : int -> t -> t
+  val of_msg : Wamp.Element.t -> t
+  val to_msg : t -> Wamp.Element.t
 end
 
 module Json_msg : CONTROL_MSG with type t = Yojson.Safe.json = struct
+  open StdLabels
   type t = Yojson.Safe.json
+  let rec to_msg = function
+    | `Bool b -> Wamp.Element.Bool b
+    | `Int i -> Int i
+    | `String s -> String s
+    | `List l -> List (List.map l ~f:to_msg)
+    | `Assoc a -> Dict (List.map a ~f:(fun (s, v) -> s, to_msg v))
+    | _ -> invalid_arg "to_msg"
 
-  let parse = function
-    | `Assoc [ "id", `Int id
-             ; "path", `String path
-      ] -> Some (id, path)
-    | _ -> None
-
-  let compose id data =
-    `Assoc [ "id", `Int id
-           ; "data", data
-      ]
+  let rec of_msg = function
+    | Wamp.Element.Int i -> `Int i
+    | String s -> `String s
+    | Bool b -> `Bool b
+    | Dict d -> `Assoc (List.map d ~f:(fun (k, v) -> k, of_msg v))
+    | List l -> `List (List.map l ~f:of_msg)
 end
-   
+
 module Make
          (User : Api.USER)
          (Body : Api.BODY)
          (Msg : CONTROL_MSG with type t = Body.t) = struct
 
   open Netlib
+
+  module Wamp_msg = Wamp.Make(Msg)
+
+  module Int = struct
+    type t = int
+    let compare = compare
+  end
+
+  module Subscribers = Map.Make(Int)
 
   module Api_http = Api_cohttp.Make (User) (Body)
 
@@ -37,7 +65,7 @@ module Make
   type user = Api_http.user
 
   type event_node = (user -> Body.t React.event Lwt.t) Uri.Dispatcher.node
-                  
+
   type t = (user -> Body.t React.event Lwt.t) Uri.Dispatcher.t
 
   let transform not_allowed f =
@@ -45,7 +73,7 @@ module Make
     if not_allowed user
     then Lwt.fail_with "not allowed"
     else f user
-         
+
   let event_node ?doc ?(restrict = []) ~path ~query event_source : event_node =
     let not_allowed id = List.exists (User.equal id) restrict in
     Uri.Dispatcher.make ?docstring:doc ~path ~query event_source
@@ -60,7 +88,7 @@ module Make
            Uri.Dispatcher.prepend (Uri.Path.of_string prefix) node
       in
       Uri.Dispatcher.(add map node)
-    in 
+    in
     List.fold_left add_node Uri.Dispatcher.empty nodes
 
   let merge ?prefix handlers =
@@ -89,71 +117,106 @@ module Make
 
   let free_connection ind =
     connections.(ind) <- None
-                  
+
   let conn_mutex = Lwt_mutex.create ()
-                  
-  let open_connection (events : t) user _body _env state =
+
+  let open_connection (events : t) (ping : unit React.event) user _body _env state =
 
     Lwt_mutex.with_lock conn_mutex
       (fun () ->
-        
+
         let connected_events = Hashtbl.create 100 in
 
         let msg_stream, push_msg = React.E.create () in
 
         let conn_id = find_free_connection () in
-    
-        let add id path =
+
+        let add reqid uri =
+          let id = Random.bits () in
+          (* let event = match Hashtbl.find_opt connected_events uri with
+           *   | Some x -> Some x
+           *   | None -> None in *)
           try
-            begin
-              match Hashtbl.find_opt connected_events id with
-              | None -> ()
-              | Some _ -> failwith "event exists"
-            end;
             Netlib.Uri.Dispatcher.dispatch
               ~default:(fun _ -> raise Not_found)
               events
-              (Uri.of_string path)
+              uri
               user
             >>= fun event ->
-            let event' = React.E.map (fun ev -> push_msg @@ Msg.compose id ev) event in
-            Hashtbl.add connected_events id event';
-            Lwt.return_unit
-          with _ -> Lwt.return_unit (* TODO log or respond *)
-        
+            let event' = React.E.map (fun ev ->
+                let data = Msg.to_msg ev in
+                let kw_args = ["data", data] in
+                let msg =
+                  Wamp_msg.serialize
+                  @@ Wamp.event ~subid:id ~pubid:0 ~details:[] ~args:[] ~kw_args in
+                push_msg (`Body msg)) event in
+            Hashtbl.add connected_events uri (id, event');
+            Lwt.return_ok id
+          with Not_found -> Lwt.return_error Wamp.invalid_uri
         in
-        
+
         let parse_frame s =
           match Body.of_string s with
           | Error _ -> None
-          | Ok v -> Msg.parse v
+          | Ok v ->
+            match Wamp_msg.parse @@ Msg.to_msg v with
+            | Error _ -> None
+            | Ok x -> Some x
         in
-        
+
         Websocket_cohttp_lwt.upgrade_connection
           (fst state)
           (fun frame ->
-            match frame.opcode with
-            | Frame.Opcode.Close ->
-               free_connection conn_id
-            | _ ->
-               match parse_frame frame.content with
-               | None -> ()
-               | Some (id, path) -> Lwt.async (fun () -> add id path))
+             match frame.opcode with
+             | Frame.Opcode.Close -> free_connection conn_id
+             | Frame.Opcode.Ping ->
+               let frame = Frame.create
+                   ~opcode:Pong
+                   ~content:frame.content
+                   () in
+               push_msg @@ `Frame frame
+             | Frame.Opcode.Pong -> (* TODO do smth, e.g. reset the timer *) ()
+             | Frame.Opcode.Text ->
+               begin match parse_frame frame.content with
+                 | None -> ()
+                 | Some Subscribe { reqid; topic; _ } ->
+                   Lwt.async (fun () ->
+                       add reqid topic
+                       >>= fun x ->
+                       let msg = match x with
+                         | Ok id ->
+                           Wamp_msg.serialize
+                           @@ Wamp.subscribed ~reqid ~id
+                         | Error error ->
+                           let reqtype = Wamp.msg_type_to_enum SUBSCRIBE in
+                           Wamp_msg.serialize
+                           @@ Wamp.error ~reqid ~reqtype ~error () in
+                       Lwt.return @@ push_msg (`Body msg))
+                 | Some _ -> ()
+               end
+             | _ -> ())
         >>= fun (resp, frames_out_fn) ->
 
         let send msg =
-          let msg = Body.to_string msg in 
-          frames_out_fn @@ Some (Frame.create ~content:msg ())
+          let frame = match msg with
+            | `Frame x -> x
+            | `Body body ->
+              let msg = Body.to_string body in
+              Frame.create ~content:msg () in
+          frames_out_fn @@ Some frame
         in
-
-        let event_stream = React.E.map send msg_stream in
+        let event_stream =
+          React.E.map send
+          @@ React.E.select
+            [ msg_stream
+            ; React.E.map (fun () -> `Frame (Frame.create ~opcode:Ping ())) ping ] in
         store_connection conn_id (event_stream, connected_events);
-    
+
         Lwt.return resp)
 
-  let to_http ?doc ~prefix nodes =
+  let to_http ?doc ~prefix ~ping nodes =
     let make_conn user body env (state : Api_http.state) : Api_http.answer Lwt.t =
-      Lwt.return (`Instant (open_connection nodes user body env state))
+      Lwt.return (`Instant (open_connection nodes ping user body env state))
     in
     Api_http.make
       [ Api_http.node_raw

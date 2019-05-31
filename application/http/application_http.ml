@@ -238,6 +238,16 @@ let application_ws (app : Application.t) =
         (Application_api.Event.get_log app)
     ]
 
+let tick ?(timeout = 1.) () =
+  let ( >>= ) = Lwt.bind in
+  let e, push = React.E.create () in
+  let rec aux () =
+    Lwt_unix.sleep timeout
+    >>= fun () ->
+    push ();
+    aux () in
+  e, aux ()
+
 let create templates (app : Application.t) foreign_pages foreing_handlers =
   let (>>=) = Lwt_result.bind in
   
@@ -285,15 +295,16 @@ let create templates (app : Application.t) foreign_pages foreing_handlers =
                 :: board_api
                 :: proc_api_list)
   in
+  let ping, loop = tick () in
   let ws =
-    Api_websocket.to_http ~prefix:"ws"
+    Api_websocket.to_http ~prefix:"ws" ~ping
     @@ Api_websocket.merge
          ( application_ws
            :: board_ws
            :: proc_ws_list )
   in
-  Lwt.return_ok @@ Api_http.merge [ api; ws; pages ]
-     
+  Lwt.return_ok (Api_http.merge [api; ws; pages], loop)
+
     
  (*   
 let make_icon path =
