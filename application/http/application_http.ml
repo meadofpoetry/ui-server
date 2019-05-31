@@ -222,7 +222,6 @@ let application_ws (app : Application.t) =
   let open Api_websocket in
   (* TODO add closing event *)
   (*let socket_table = Api_websocket.make_socket_table () in*)
-  
   make ~prefix:"topology" (* TODO change to application *)
     [ event_node ~doc:"Pushes device topology to the client"
         ~path:Path.Format.empty
@@ -235,7 +234,7 @@ let application_ws (app : Application.t) =
     ; event_node ~doc:"Log for input (and stream)"
         ~path:Path.Format.("log" @/ empty)
         ~query:Query.["input", (module List(Topology.Show_topo_input));
-                      "id", (module List(Stream.ID))]
+           "id", (module List(Stream.ID))]
         (Application_api.Event.get_log app)
     ]
 

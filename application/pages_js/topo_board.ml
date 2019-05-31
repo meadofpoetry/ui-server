@@ -61,19 +61,19 @@ let get_board_type ({ manufacturer; model; _ } : Topology.topo_board) =
   | _ -> ""
 
 let make_board_page (b : Topology.topo_board) =
-  let ( >>= ) = Lwt_result.( >>= ) in
-  let ( >>=? ) x f = Lwt_result.map_err Api_js.Http.error_to_string @@ x >>= f in
+  let ( >>= ) = Lwt.( >>= ) in
+  let ( >>=? ) x f = Lwt_result.(
+      map_err Api_js.Http.error_to_string @@ x >>= f) in
   match b.manufacturer, b.model, b.version with
   | "NIITV", "TSAN", _ ->
     let open Board_niitv_tsan_http_js in
     let open Board_niitv_tsan_widgets_js in
     Some (fun state socket ->
         let t =
-          Lwt_result.map_err Api_js.Http.error_to_string
-          @@ (Http_device.get_t2mi_mode b.control
-              >>= fun mode ->
-              let widget = Widget_t2mi_settings.make state mode b.control in
-              Lwt.return_ok widget#widget) in
+          Http_device.get_t2mi_mode b.control
+          >>=? fun mode ->
+          let widget = Widget_t2mi_settings.make state mode b.control in
+          Lwt.return_ok widget#widget in
         Ui_templates.Loader.create_widget_loader t)
   | "NIITV", "DVB4CH", _ ->
     let open Board_niitv_dvb_http_js in
@@ -82,14 +82,16 @@ let make_board_page (b : Topology.topo_board) =
         let t =
           Http_device.get_mode b.control
           >>=? fun mode -> Http_device.get_info b.control
-          >>=? fun info ->
-          let receivers = Some info.receivers in
-          let widget = Widget_settings.make state mode receivers b.control in
-          let event =
-            React.E.map (fun x -> widget#notify (`Mode x))
-            @@ Http_device.Event.get_mode socket b.control in
-          widget#set_on_destroy (fun () -> React.E.stop ~strong:true event);
-          Lwt.return_ok widget#widget in
+          >>=? fun info -> Http_device.Event.get_mode socket b.control
+          >>= function
+          | Error `Timeout _ -> Lwt.return_error "Timeout"
+          | Error `Error (r, _) -> Lwt.return_error (Uri.to_string r)
+          | Ok (id, event) ->
+            let receivers = Some info.receivers in
+            let widget = Widget_settings.make state mode receivers b.control in
+            let event = React.E.map (fun x -> widget#notify (`Mode x)) event in
+            widget#set_on_destroy (fun () -> React.E.stop ~strong:true event);
+            Lwt.return_ok widget#widget in
         Ui_templates.Loader.create_widget_loader t)
   | "DekTec", "DTM-3200", _ ->
     let open Board_dektec_dtm3200_http_js in
@@ -99,12 +101,12 @@ let make_board_page (b : Topology.topo_board) =
           Http_device.get_config b.control
           >>=? fun { nw; ip_receive; _ } ->
           let widget = Widget_settings.make state nw ip_receive b.control in
-          let event =
-            React.E.map (fun (x : Board_dektec_dtm3200_types.config) ->
-                widget#notify (`Ip_receive_mode x.ip_receive);
-                widget#notify (`Nw_mode x.nw))
-            @@ Http_device.Event.get_config socket b.control in
-          widget#set_on_destroy (fun () -> React.E.stop ~strong:true event);
+          (* let event =
+           *   React.E.map (fun (x : Board_dektec_dtm3200_types.config) ->
+           *       widget#notify (`Ip_receive_mode x.ip_receive);
+           *       widget#notify (`Nw_mode x.nw))
+           *   @@ Http_device.Event.get_config socket b.control in
+           * widget#set_on_destroy (fun () -> React.E.stop ~strong:true event); *)
           Lwt.return_ok widget#widget in
         Ui_templates.Loader.create_widget_loader t)
   | _ -> None

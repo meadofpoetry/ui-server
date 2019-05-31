@@ -1,5 +1,6 @@
 open Js_of_ocaml
 open Js_of_ocaml.WebSockets
+open Js_of_ocaml_lwt
 
 let ( % ) f g x = f (g x)
 
@@ -7,47 +8,68 @@ let ( >>= ) = Lwt.( >>= )
 
 let return_ok x = Ok x
 
+include Websocket_intf
+
 module type BODY = sig
   include Api.BODY
-  val of_event : webSocket messageEvent Js.t -> (t, [ `Conv_error of string]) result
+  val of_event : webSocket messageEvent Js.t -> (t, string) result
+  val of_msg : Wamp.Element.t -> t
+  val to_msg : t -> Wamp.Element.t
 end
 
-module type CONTROL_MSG = sig
-  type t
-  val parse : t -> (int * t) option
-  val compose : int -> string -> t
+module Json_body : BODY with type t = Yojson.Safe.json = struct
+  open StdLabels
+  include Api.Json_body
+  let of_event evt =
+    match of_string @@ Js.to_string evt##.data with
+    | Ok _ as x -> x
+    | Error `Conv_error e -> Error e
+  type repr = Yojson.Safe.json
+
+  let rec to_msg = function
+    | `Bool b -> Wamp.Element.Bool b
+    | `Int i -> Int i
+    | `String s -> String s
+    | `List l -> List (List.map l ~f:to_msg)
+    | `Assoc a -> Dict (List.map a ~f:(fun (s, v) -> s, to_msg v))
+    | _ -> invalid_arg "of_repr"
+
+  let rec of_msg = function
+    | Wamp.Element.Int i -> `Int i
+    | String s -> `String s
+    | Bool b -> `Bool b
+    | Dict d -> `Assoc (List.map d ~f:(fun (k, v) -> k, of_msg v))
+    | List l -> `List (List.map l ~f:of_msg)
 end
 
-type 'a t = WebSockets.webSocket Js.t * (Uri.t -> 'a React.event)
+type 'a t =
+  { socket : WebSockets.webSocket Js.t
+  ; subscribers : (int, 'a React.event * ('a -> unit)) Hashtbl.t
+  ; control : Wamp.t React.event
+  }
 
 let close_socket (t : 'a t) =
-  (fst t)##close
+  t.socket##close
 
-module type WS = sig
-  open Netlib
-
-  type body
-
-  type nonrec t = body t
-
-  val close_socket : t -> unit
-
-  val subscribe : path:('b, 'c) Uri.Path.Format.t
-    -> query:('c, (body -> ('a, string) result) -> t -> 'a React.event) Uri.Query.format
-    -> 'b
-
-  val open_socket : ?secure:bool
-    -> ?host:string
-    -> ?port:int
-    -> path:('a, unit -> ((t, string) Lwt_result.t)) Uri.Path.Format.t
-    -> 'a
-end
-
-module Make (Body : BODY) (Msg : CONTROL_MSG with type t = Body.t) = struct
+module Make (Body : BODY) = struct
 
   open Netlib
 
   type nonrec t = Body.t t
+
+  module Wamp_body = Wamp.Make(Body)
+
+  type timeout_error =
+    [ `Timeout of float ]
+
+  type error =
+    [ `Error of Uri.t * string option
+    ]
+
+  type subscribe_error =
+    [ error
+    | timeout_error
+    ]
 
   let make_uri ?(insert_defaults = true) ?secure ?host ?port ~f ~path ~query=
     let host = match host, insert_defaults with
@@ -68,8 +90,6 @@ module Make (Body : BODY) (Msg : CONTROL_MSG with type t = Body.t) = struct
         | _ -> Some "ws" in
     Uri.kconstruct ?scheme ?host ?port ~path ~query ~f
 
-  let get_event x = fst x
-
   let make_event event_type (socket : webSocket Js.t) =
     let el = ref Js.null in
     let t, w = Lwt.task () in
@@ -87,21 +107,108 @@ module Make (Body : BODY) (Msg : CONTROL_MSG with type t = Body.t) = struct
            Js._false);
     t
 
-  let close_socket = close_socket
+  let wait_message
+      ?(timeout = 2.)
+      ~pred
+      (socket : t) =
+    let timer = Lwt_js.sleep timeout >>= fun () -> Lwt.return `Tm in
+    let return x = Lwt.cancel timer; Lwt.return x in
+    let rec aux () =
+      Lwt.choose
+        [ (Lwt_react.E.next socket.control >>= fun x -> Lwt.return @@ `Ev x)
+        ; timer ]
+      >>= function
+      | `Tm -> Lwt.return_error (`Timeout timeout)
+      | `Ev msg ->
+        match pred msg with
+        | `Stop x -> return x
+        | `Resume -> aux () in
+    aux ()
 
-  let subscribe : path:('b, 'c) Uri.Path.Format.t
-    -> query:('c, (Body.t -> ('a, string) result)
-              -> t
-              -> 'a React.event) Uri.Query.format
-    -> 'b = fun ~path ~query ->
+  let open_session (t : t) =
+    let realm = Uri.of_string "ui-server" in
+    let msg =
+      Body.to_string
+      @@ Wamp_body.serialize
+      @@ Wamp.hello_roles ~realm ~roles:[Wamp.Subscriber] in
+    t.socket##send (Js.string msg);
+    wait_message
+      ~pred:(function
+          | Welcome x -> `Stop (Ok x.id)
+          | Abort x ->
+            let message = match x.details with
+              | ["message", String s] -> Some s
+              | _ -> None in
+            `Stop (Error (`Abort (x.reason, message)))
+          | x -> `Stop (Error (`Unexpected_msg (Wamp.msg_type x))))
+      t
+
+  let close_session
+      ?(reason = Uri.of_string "wamp.close_realm")
+      ?message
+      (t : t) =
+    let msg =
+      Wamp.goodbye
+        ~reason
+        ~details:(match message with
+            | None -> []
+            | Some s -> ["message", String s]) in
+    t.socket##send (Js.string @@ Body.to_string @@ Wamp_body.serialize msg);
+    wait_message ~pred:(function
+        | Goodbye { reason; details }->
+          let message = match details with
+            | ["message", String s] -> Some s
+            | _ -> None in
+          `Stop (Ok (reason, message))
+        | _ -> `Resume) t
+
+  let subscribe ~path ~query =
     let f (uri : Uri.t) _of (t : t) =
-      let event = (snd t) uri in
-      React.E.fmap (fun x -> match _of x with
-          | Error e -> prerr_endline e; None
-          | Ok x -> Some x) event in
+      let req_id, msg = Wamp.subscribe uri in
+      t.socket##send (Js.string @@ Body.to_string @@ Wamp_body.serialize msg);
+      wait_message ~pred:(function
+          | Error { reqid; reqtype; details; error; _ }
+            when req_id = reqid && reqtype = Wamp.msg_type_to_enum SUBSCRIBE ->
+            let message = match details with
+              | ["message", String s] -> Some s
+              | _ -> None in
+            `Stop (Error (`Error (error, message)))
+          | Subscribed { reqid; id } when req_id = reqid ->
+            let e = match Hashtbl.find_opt t.subscribers id with
+              | Some (e, _) -> e
+              | None ->
+                let e, push = React.E.create () in
+                Hashtbl.add t.subscribers id (e, push ?step:None);
+                e in
+            let e = React.E.fmap (fun x -> match _of x with
+                | Error e -> print_endline e; None
+                | Ok x -> Some x) e in
+            `Stop (Ok (id, e))
+          | _ -> `Resume) t in
     make_uri ?secure:None ?host:None ?port:None
       ~insert_defaults:false
       ~f ~path ~query
+
+  let unsubscribe (t : t) id =
+    let req_id = Random.bits () in
+    let msg = Wamp.unsubscribe ~reqid:req_id ~id in
+    t.socket##send (Js.string @@ Body.to_string @@ Wamp_body.serialize msg);
+    wait_message ~pred:(function
+        | Error { reqid; reqtype; details; error; _ }
+          when req_id = reqid && reqtype = Wamp.msg_type_to_enum UNSUBSCRIBE ->
+          let message = match details with
+            | ["message", String s] -> Some s
+            | _ -> None in
+          `Stop (Error (`Error (error, message)))
+        | Unsubscribed reqid when req_id = reqid ->
+          (match Hashtbl.find_opt t.subscribers id with
+           | None -> ()
+           | Some (e, _) -> React.E.stop ~strong:true e);
+          Hashtbl.remove t.subscribers id;
+          `Stop (Ok ())
+        | _ -> `Resume) t
+
+  let close_socket = close_socket
 
   let open_socket : ?secure:bool
     -> ?host:string
@@ -109,30 +216,21 @@ module Make (Body : BODY) (Msg : CONTROL_MSG with type t = Body.t) = struct
     -> path:('a, unit -> ((t, string) Lwt_result.t)) Uri.Path.Format.t
     -> 'a =
     fun ?secure ?host ?port ~path ->
+    let ( >>=? ) x f = match x with Error _ as e -> e | Ok x -> f x in
     let f uri () : (t, string) Lwt_result.t =
-      let next_id = ref 0 in
-      let handlers = Array.make 100 None in
+      let e, push = React.E.create () in
+      let subscribers = Hashtbl.create 100 in
       let socket = new%js webSocket (Js.string uri) in
       let message_handler (evt : webSocket messageEvent Js.t) =
-        (match Body.of_event evt with
+        (match Body.of_event evt >>=? Wamp_body.parse % Body.to_msg with
          | Error _ -> failwith "TODO"
-         | Ok v ->
-           match Msg.parse v with
-           | None -> ()
-           | Some (id, data) ->
-             match Array.get handlers id with
-             | None -> ()
-             | Some f -> f data);
+         | Ok Event { subid; kw_args = ["data", data]; _ } ->
+           (match Hashtbl.find_opt subscribers subid with
+            | None -> ()
+            | Some (_, push) -> push @@ Body.of_msg data)
+         | Ok Event _ -> ()
+         | Ok m -> push m);
         Js._true
-      in
-      let event_generator path =
-        let msg = Msg.compose !next_id (Uri.to_string path) in
-        let event, push = React.E.create () in
-        let push = push ?step:None in
-        socket##send (Js.string @@ Body.to_string msg);
-        Array.set handlers !next_id (Some push);
-        incr next_id;
-        event
       in
       Lwt.pick [ make_event "open" socket
                ; make_event "error" socket ]
@@ -140,7 +238,7 @@ module Make (Body : BODY) (Msg : CONTROL_MSG with type t = Body.t) = struct
       match Js.to_string evt##._type with
       | "open" ->
         socket##.onmessage := Dom.handler message_handler;
-        Lwt.return_ok (socket, event_generator)
+        Lwt.return_ok { socket; subscribers; control = e }
       | "error" -> Lwt.return_error "socket error"
       | _ -> assert false in
     make_uri ?secure ?host ?port ~path
@@ -150,22 +248,4 @@ module Make (Body : BODY) (Msg : CONTROL_MSG with type t = Body.t) = struct
 
 end
 
-module Json_body = struct
-  include Api.Json_body
-  let of_event evt = of_string @@ Js.to_string evt##.data
-end
-
-module Json_msg : CONTROL_MSG with type t = Yojson.Safe.json = struct
-  type t = Yojson.Safe.json
-
-  let parse : t -> (int * t) option = function
-    | `Assoc [ "id", `Int id
-             ; "path", path] -> Some (id, path)
-    | _ -> None
-
-  let compose id data : t =
-    `Assoc [ "id", `Int id
-           ; "data", `String data ]
-end
-
-module JSON = Make(Json_body)(Json_msg)
+module JSON = Make(Json_body)

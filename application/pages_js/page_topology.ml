@@ -232,7 +232,11 @@ let create (init : Topology.t) (socket : Api_js.Websocket.JSON.t) =
 
   end
 
-let ( >>= ) = Lwt_result.( >>= )
+let ( >>= ) = Lwt.( >>= )
+let ( >>=? ) = Lwt_result.( >>= )
+let ( >>=& ) x f =
+  Lwt_result.map_err Api_js.Http.error_to_string
+  @@ x >>=? f
 
 let on_settings (side_sheet : #Side_sheet.Parent.t)
     (content : #Widget.t)
@@ -249,20 +253,20 @@ let () =
   let on_settings =
     on_settings side_sheet side_sheet_content set_side_sheet_title in
   let thread =
-    Lwt_result.map_err Api_js.Http.error_to_string
-    @@ Application_http_js.get_topology ()
-    >>= fun init ->
+    Application_http_js.get_topology ()
+    >>=& fun init ->
     Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
-    >>= fun socket ->
-    let page = create init socket in
-    let event =
-      React.E.map (fun x -> page#notify (`Topology x))
-      @@ Application_http_js.Event.get_topology socket in
-    page#set_on_destroy (fun () ->
-        React.E.stop ~strong:true event;
-        Api_js.Websocket.close_socket socket);
-    Lwt_react.(E.keep @@ E.map_p on_settings page#e_settings);
-    Lwt.return_ok page in
+    >>=? fun socket -> Application_http_js.Event.get_topology socket
+    >>= function
+    | Error _ -> Lwt.return_error "error!"
+    | Ok (id, event) ->
+      let page = create init socket in
+      let event = React.E.map (fun x -> page#notify (`Topology x)) event in
+      page#set_on_destroy (fun () ->
+          React.E.stop ~strong:true event;
+          Api_js.Websocket.close_socket socket);
+      Lwt_react.(E.keep @@ E.map_p on_settings page#e_settings);
+      Lwt.return_ok page in
   let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
   let body = Ui_templates.Loader.create_widget_loader thread in
   body#add_class Layout_grid.CSS.root;
