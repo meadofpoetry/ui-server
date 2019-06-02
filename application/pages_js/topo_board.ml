@@ -81,16 +81,19 @@ let make_board_page (b : Topology.topo_board) =
     Some (fun state socket ->
         let t =
           Http_device.get_mode b.control
-          >>=? fun mode -> Http_device.get_info b.control
-          >>=? fun info -> Http_device.Event.get_mode socket b.control
+          >>=? fun mode -> (* Http_device.get_info b.control
+           * >>=? fun info ->  *)Http_device.Event.get_mode socket b.control
           >>= function
           | Error `Timeout _ -> Lwt.return_error "Timeout"
           | Error `Error e -> Lwt.return_error e
           | Ok (id, event) ->
-            let receivers = Some info.receivers in
+            let receivers = Some [0;1;2;3] in
+            (* let receivers = Some info.receivers in *)
             let widget = Widget_settings.make state mode receivers b.control in
             let event = React.E.map (fun x -> widget#notify (`Mode x)) event in
-            widget#set_on_destroy (fun () -> React.E.stop ~strong:true event);
+            widget#set_on_destroy (fun () ->
+                React.E.stop ~strong:true event;
+                Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket id));
             Lwt.return_ok widget#widget in
         Ui_templates.Loader.create_widget_loader t)
   | "DekTec", "DTM-3200", _ ->

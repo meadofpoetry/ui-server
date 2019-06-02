@@ -13,8 +13,8 @@ include Websocket_intf
 
 type 'a t =
   { socket : WebSockets.webSocket Js.t
-  ; subscribers : (int, 'a React.event * ('a -> unit)) Hashtbl.t
-  ; control : (int * Api.WS_BODY) React.event
+  ; subscribers : (int, int ref * 'a React.event * ('a -> unit)) Hashtbl.t
+  ; control : (int * 'a Api.ws_message) React.event
   }
 
 let close_socket (t : 'a t) =
@@ -32,51 +32,24 @@ module Make
     | Subscribe : int * Uri.t -> int req
     | Unsubscribe : int * int -> unit req
 
-  let make_event event_type (socket : webSocket Js.t) =
-    let el = ref Js.null in
-    let t, w = Lwt.task () in
-    let cancel () = Js.Opt.iter !el Dom.removeEventListener in
-    Lwt.on_cancel t cancel;
-    el :=
-      Js.some
-        (Dom.addEventListener
-           socket
-           (Dom.Event.make event_type)
-           (Dom.handler (fun (ev : 'a #Dom.event Js.t) ->
-                cancel ();
-                Lwt.wakeup w ev;
-                Js._true))
-           Js._false);
-    t
-
-  let wait_message
-      ?(timeout = 2.)
-      ~pred
-      (socket : t) =
-    let timer = Lwt_js.sleep timeout >>= fun () -> Lwt.return `Tm in
-    let return x = Lwt.cancel timer; Lwt.return x in
-    let rec aux () =
-      Lwt.choose
-        [ (Lwt_react.E.next socket.control >>= fun x -> Lwt.return @@ `Ev x)
-        ; timer ]
-      >>= function
-      | `Tm -> Lwt.return_error (`Timeout timeout)
-      | `Ev msg ->
-        match pred msg with
-        | `Stop x -> return x
-        | `Resume -> aux () in
-    aux ()
-
-  let request (type a) ?(timeout = 2.) (socket : t) (req : a req) =
-    let timer = Lwt_js.sleep timeout >>= fun () -> Lwt.return `Tm in
-    let rec aux () =
-      Lwt.choose
-        [ (Lwt_react.E.next socket.control >>= fun x -> Lwt.return @@ `Ev x)
-        ; timer ]
-      >>= function
-      | `Tm -> Lwt.return_error (`Timeout timeout)
-      | `Ev msg -> Lwt.return_error `TODO in
-    aux ()
+  let request (type a) ?(timeout = 2.) socket
+      (req : a req) =
+    let id, msg = match req with
+      | Subscribe (id, uri) -> id, (`Subscribe (Uri.to_string uri))
+      | Unsubscribe (id, subid) -> id, (`Unsubscribe subid) in
+    socket.socket##send (Js.string @@ Body.to_string @@ Msg.compose id msg);
+    let rec loop () =
+      Lwt_react.E.next socket.control
+      >>= fun resp ->
+      match req, resp with
+      | Subscribe _, (id', `Subscribed subid) when id = id' ->
+        (Lwt.return_ok subid : (a, _) result Lwt.t)
+      | Unsubscribe _, (id', `Unsubscribed) when id = id' -> Lwt.return_ok ()
+      | _, (id', `Error e) when id = id' -> Lwt.return_error (`Error e)
+      | _ -> loop () in
+    Lwt.pick
+      [ loop ()
+      ; (Lwt_js.sleep timeout >>= fun () -> Lwt.return_error (`Timeout timeout)) ]
 
   let make_uri ?(insert_defaults = true) ?secure ?host ?port ~f ~path ~query=
     let host = match host, insert_defaults with
@@ -97,38 +70,38 @@ module Make
         | _ -> Some "ws" in
     Uri.kconstruct ?scheme ?host ?port ~path ~query ~f
 
-  (* let unsubscribe ?(reqid = Random.bits ()) id (t : t) =
-   *   let msg = Msg.Unsubscribe { reqid; id} in
-   *   t.socket##send (Js.string @@ Body.to_string @@ Msg.compose msg);
-   *   wait_message ~pred:(function
-   *       | Err { reqid = reqid'; error } when reqid' = reqid ->
-   *         `Stop (Error (`Error error))
-   *       | Unsubscribed reqid' when reqid' = reqid ->
-   *         `Stop (Ok ())
-   *       | _ -> `Resume) t *)
+  let unsubscribe ?(reqid = Random.bits ()) t subid =
+    let ( >>= ) = Lwt_result.( >>= ) in
+    let req = Unsubscribe (reqid, subid) in
+    request t req
+    >>= fun () ->
+    (match Hashtbl.find_opt t.subscribers subid with
+     | None -> ()
+     | Some (n, e, _) ->
+       match !n with
+       | 0 -> Hashtbl.remove t.subscribers subid; React.E.stop ~strong:true e
+       | _ -> decr n);
+    Lwt.return_ok ()
 
-  (* let subscribe ?(reqid = Random.bits ()) ~path ~query =
-   *   let f (uri : Uri.t) _of (t : t) =
-   *     let msg = Msg.Subscribe { reqid; uri = Uri.to_string uri } in
-   *     t.socket##send (Js.string @@ Body.to_string @@ Msg.compose msg);
-   *     wait_message ~pred:(function
-   *         | Err { reqid = reqid'; error } when reqid' = reqid  ->
-   *           `Stop (Error (`Error error))
-   *         | Subscribed { reqid = reqid'; id } when reqid' = reqid ->
-   *           let e = match Hashtbl.find_opt t.subscribers id with
-   *             | Some (e, _) -> e
-   *             | None ->
-   *               let e, push = React.E.create () in
-   *               Hashtbl.add t.subscribers id (e, push ?step:None);
-   *               e in
-   *           let e = React.E.fmap (fun x -> match _of x with
-   *               | Error e -> print_endline e; None
-   *               | Ok x -> Some x) e in
-   *           `Stop (Ok (id, e))
-   *         | _ -> `Resume) t in
-   *   make_uri ?secure:None ?host:None ?port:None
-   *     ~insert_defaults:false
-   *     ~f ~path ~query *)
+  let subscribe ?(reqid = Random.bits ()) ~path ~query =
+    let ( >>= ) = Lwt_result.( >>= ) in
+    let f (uri : Uri.t) _of (t : t) =
+      let req = Subscribe (reqid, uri) in
+      request t req
+      >>= fun subid ->
+      let e = match Hashtbl.find_opt t.subscribers subid with
+        | Some (n, e, _) -> incr n; e
+        | None ->
+          let e, push = React.E.create () in
+          Hashtbl.add t.subscribers subid (ref 0, e, push ?step:None);
+          e in
+      let e = React.E.fmap (fun x -> match _of x with
+          | Error e -> print_endline e; None
+          | Ok x -> Some x) e in
+      Lwt.return_ok (subid, e) in
+    make_uri ?secure:None ?host:None ?port:None
+      ~insert_defaults:false
+      ~f ~path ~query
 
   let close_socket = close_socket
 
@@ -139,29 +112,28 @@ module Make
     -> 'a =
     fun ?secure ?host ?port ~path ->
     let f uri () : (t, string) Lwt_result.t =
-      let e, push = React.E.create () in
+      let control, push_ctrl = React.E.create () in
       let subscribers = Hashtbl.create 100 in
       let socket = new%js webSocket (Js.string uri) in
       let message_handler (evt : webSocket messageEvent Js.t) =
         (match Body.of_string @@ Js.to_string evt##.data with
-         | Error _ -> failwith "TODO"
+         | Error `Conv_error e -> print_endline e
          | Ok body ->
            match Msg.parse body with
            | None -> ()
-           | Some (subid, Event data) ->
+           | Some (subid, `Event data) ->
              (match Hashtbl.find_opt subscribers subid with
               | None -> ()
-              | Some (_, push) -> push data)
-           | Some x -> push x);
+              | Some (_, _, push) -> push data)
+           | Some x -> push_ctrl x);
         Js._true
       in
-      Lwt.pick [ make_event "open" socket
-               ; make_event "error" socket ]
-      >>= fun (evt : webSocket Dom.event Js.t) ->
-      match Js.to_string evt##._type with
+      Lwt.pick [ Lwt_js_events.make_event (Dom_events.Typ.make "open") socket
+               ; Lwt_js_events.make_event (Dom_events.Typ.make "error") socket ]
+      >>= fun event -> match Js.to_string event##._type with
       | "open" ->
         socket##.onmessage := Dom.handler message_handler;
-        Lwt.return_ok { socket; subscribers; control = e }
+        Lwt.return_ok { socket; subscribers; control }
       | "error" -> Lwt.return_error "socket error"
       | _ -> assert false in
     make_uri ?secure ?host ?port ~path
