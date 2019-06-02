@@ -258,7 +258,8 @@ let () =
     Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
     >>=? fun socket -> Application_http_js.Event.get_topology socket
     >>= function
-    | Error _ -> Lwt.return_error "error!"
+    | Error `Timeout _ -> Lwt.return_error "Timeout"
+    | Error `Error e -> Lwt.return_error e
     | Ok (id, event) ->
       let page = create init socket in
       let event = React.E.map (fun x -> page#notify (`Topology x)) event in

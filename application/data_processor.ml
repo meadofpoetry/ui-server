@@ -4,7 +4,7 @@ module Api_http = Api_cohttp.Make (Application_types.User) (Application_types.Bo
 module Api_events = Api_websocket.Make
                       (Application_types.User)
                       (Application_types.Body)
-                      (Api_websocket.Json_msg)
+                      (Application_types.Body_ws)
 module Api_template = Api_cohttp_template.Make (Application_types.User)
 
 type t =

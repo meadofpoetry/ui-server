@@ -4,8 +4,3 @@
   (synopsis    "api framework")
   (libraries   lwt yojson ppx_deriving_yojson.runtime)
   (preprocess  (pps ppx_deriving.eq ppx_deriving_yojson)))
-
-(library
-  (name      wamp)
-  (modules   wamp)
-  (libraries uri yojson))

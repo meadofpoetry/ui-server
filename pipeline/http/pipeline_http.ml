@@ -5,7 +5,7 @@ module Api_http = Api_cohttp.Make(User)(Body)
 
 module Api_template = Api_cohttp_template.Make(User)
 
-module Api_websocket = Api_websocket.Make(User)(Body)(Api_websocket.Json_msg)
+module Api_websocket = Api_websocket.Make(User)(Body)(Body_ws)
 
 module Icon = Components_tyxml.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 

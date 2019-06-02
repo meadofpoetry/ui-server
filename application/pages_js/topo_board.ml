@@ -85,7 +85,7 @@ let make_board_page (b : Topology.topo_board) =
           >>=? fun info -> Http_device.Event.get_mode socket b.control
           >>= function
           | Error `Timeout _ -> Lwt.return_error "Timeout"
-          | Error `Error (r, _) -> Lwt.return_error (Uri.to_string r)
+          | Error `Error e -> Lwt.return_error e
           | Ok (id, event) ->
             let receivers = Some info.receivers in
             let widget = Widget_settings.make state mode receivers b.control in

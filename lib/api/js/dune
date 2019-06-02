@@ -3,7 +3,7 @@
   (libraries  js_of_ocaml
               js_of_ocaml-lwt
               api
-              wamp
+              application_types
               netlib
               util_json
               util_react)

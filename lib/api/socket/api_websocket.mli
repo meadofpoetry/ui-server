@@ -1,12 +1,4 @@
-module type CONTROL_MSG = sig
-  type t
-  val of_msg : Wamp.Element.t -> t
-  val to_msg : t -> Wamp.Element.t
-end
-
-module Json_msg : CONTROL_MSG with type t = Yojson.Safe.json
-
-module Make (User : Api.USER) (Body : Api.BODY) (Msg : CONTROL_MSG with type t = Body.t) : sig
+module Make (User : Api.USER) (Body : Api.BODY) (Msg : Api.WS_BODY with type t = Body.t) : sig
 
   module Api_http : module type of Api_cohttp.Make (User) (Body)
 

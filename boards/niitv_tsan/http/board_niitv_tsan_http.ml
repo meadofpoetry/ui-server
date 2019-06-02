@@ -2,10 +2,7 @@ open Application_types
 open Netlib.Uri
 open Board_niitv_tsan_types
 open Board_niitv_tsan_protocol
-
-module Api_http = Api_cohttp.Make(User)(Body)
-
-module Api_websocket = Api_websocket.Make(User)(Body)(Api_websocket.Json_msg)
+open Boards.Board
 
 let handlers (control : int) (api : Protocol.api) =
   let open Api_http in
@@ -177,7 +174,7 @@ let handlers (control : int) (api : Protocol.api) =
   ]
 
 let ws (control : int) (api : Protocol.api) =
-  let open Api_websocket in
+  let open Api_events in
   (* TODO add closing event *)
   [ merge ~prefix:(string_of_int control)
       [ make ~prefix:"device"

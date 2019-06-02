@@ -4,7 +4,7 @@ module Api_http = Api_cohttp.Make(User)(Body)
 module Api_events = Api_websocket.Make
                       (User)
                       (Body)
-                      (Api_websocket.Json_msg)
+                      (Body_ws)
 module Api_template = Api_cohttp_template.Make(User)
 
 (* TODO remove in 4.08 *)
