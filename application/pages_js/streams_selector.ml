@@ -105,7 +105,7 @@ module Board = struct
     let _s =
       React.S.map ~eq:(=)
         (fun v -> checkbox#set_disabled (not v)) check.avail in
-    let item = Item_list.Item.make ~graphic:checkbox text in
+    let item = Item_list.Item.make ~meta:checkbox text in
     item#add_class stream_class;
     if not present then item#add_class lost_class;
     item#set_on_destroy (fun () -> React.S.stop ~strong:true _s);

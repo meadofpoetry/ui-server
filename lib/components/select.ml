@@ -395,7 +395,7 @@ class ['a] t
 
     method! layout () : unit =
       super#layout ();
-      self#notch_outline (String.length self#value_as_string > 0)
+      self#handle_change ~did_change:false ()
 
     method! destroy () : unit =
       super#destroy ();
@@ -448,7 +448,7 @@ class ['a] t
 
     method set_selected_index (i : int) : unit =
       self#set_selected_index_ i;
-      Lwt.async self#close_menu;
+      self#close_menu ();
       self#handle_change ~did_change:true ();
 
     method required : bool =
@@ -483,7 +483,7 @@ class ['a] t
          Element.set_attribute text "tabindex" tabindex;
          Element.set_attribute text Attr.aria_disabled (string_of_bool is_disabled);
          Option.iter (fun x -> x##.disabled := Js.bool is_disabled) hidden_input);
-      Lwt.async self#close_menu;
+      self#close_menu ();
       match leading_icon with
       | None -> ()
       | Some x -> x#set_disabled is_disabled
@@ -536,6 +536,22 @@ class ['a] t
          Element.set_attribute text Attr.aria_invalid
          @@ string_of_bool (not is_valid));
       super#toggle_class ~force:(not is_valid) CSS.invalid
+
+    method clear () : unit =
+      match target with
+      | Native elt -> Element.remove_children elt
+      | _ -> (* TODO implement *) ()
+
+    (* TODO make this class parameterized *)
+    method append_item : 'a. (#Dom_html.element as 'a) Js.t -> unit = fun item ->
+      match target with
+      | Native elt -> Dom.appendChild elt item
+      | Enhanced _ -> (* TODO implement *) ()
+
+    method! append_child child =
+      match target with
+      | Native elt -> Dom.appendChild elt child#node
+      | Enhanced _ -> (* TODO implement *) ()
 
     (* Private methods. *)
 
@@ -620,10 +636,10 @@ class ['a] t
       | Native _ -> false
       | Enhanced { menu; _ } -> menu#is_open
 
-    method private close_menu () : unit Lwt.t =
+    method private close_menu () : unit =
       match target with
-      | Native _ -> Lwt.return_unit
-      | Enhanced { menu; _ } -> menu#close ()
+      | Native _ -> ()
+      | Enhanced { menu; _ } -> Lwt.async menu#close
 
     method private open_menu () : unit Lwt.t =
       match target with

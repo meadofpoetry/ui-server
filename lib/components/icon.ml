@@ -49,7 +49,7 @@ module SVG = struct
       List.filter_map (fun (x : Dom_html.element Js.t) ->
           match String.lowercase_ascii @@ Js.to_string x##.nodeName with
           | "path" -> Some (Js.Unsafe.coerce x)
-          | s -> None)
+          | _ -> None)
       @@ Element.children super#root
   end
 

@@ -60,83 +60,81 @@ let get_board_type ({ manufacturer; model; _ } : Topology.topo_board) =
   | "NIITV", "DVB4CH" -> "DVB"
   | _ -> ""
 
-let make_board_page (b : Topology.topo_board) =
+class type stateful_widget =
+  object
+    inherit Widget.t
+    method notify : [`State of Topology.state] -> unit
+  end
+
+let make_board_page (signal : Topology.topo_board React.signal) socket =
   let ( >>= ) = Lwt_result.( >>= ) in
   let ( >>=? ) x f = Lwt_result.(
       map_err Api_js.Http.error_to_string @@ x >>= f) in
+  let b = React.S.value signal in
+  let get_state = fun () -> (React.S.value signal).connection in
   match b.manufacturer, b.model, b.version with
   | "NIITV", "TSAN", _ ->
     let open Board_niitv_tsan_http_js in
     let open Board_niitv_tsan_widgets_js in
-    let f = fun state socket ->
-      let t =
-        Http_device.get_t2mi_mode b.control
-        >>=? fun mode -> Http_streams.get_streams ~incoming:true b.control
-        >>=? fun streams -> Http_device.Event.get_t2mi_mode socket b.control
-        >>= fun (mode_id, e_mode) ->
-        Http_streams.Event.get_streams ~incoming:true socket b.control
-        >>= fun (streams_id, e_streams) ->
-        let open React in
-        let w = Widget_t2mi_settings.make state mode streams b.control in
-        let e1 = E.map (fun x -> w#notify (`Mode x)) e_mode in
-        let e2 = E.map (fun x -> w#notify (`Incoming_streams x)) e_streams in
-        w#set_on_destroy (fun () ->
-            E.stop ~strong:true e1;
-            E.stop ~strong:true e2;
-            E.stop ~strong:true e_mode;
-            E.stop ~strong:true e_streams;
-            Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket mode_id);
-            Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket streams_id));
-        Lwt.return_ok w#widget in
-      Ui_templates.Loader.create_widget_loader t in
-    Some f
+    Http_device.get_t2mi_mode b.control
+    >>=? fun mode -> Http_streams.get_streams ~incoming:true b.control
+    >>=? fun streams -> Http_device.Event.get_t2mi_mode socket b.control
+    >>= fun (mode_id, e_mode) ->
+    Http_streams.Event.get_streams ~incoming:true socket b.control
+    >>= fun (streams_id, e_streams) ->
+    let open React in
+    let w = Widget_t2mi_settings.make (get_state ()) mode streams b.control in
+    let notif =
+      React.E.merge (fun _ -> w#notify) ()
+        [ E.map (fun x -> `Mode x) e_mode
+        ; E.map (fun x -> `Incoming_streams x) e_streams
+        ; E.map (fun (x : Topology.topo_board) -> `State x.connection)
+          @@ S.changes signal ] in
+    w#set_on_destroy (fun () ->
+        E.stop ~strong:true notif;
+        Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket mode_id);
+        Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket streams_id));
+    Lwt.return_ok (w :> stateful_widget)
   | "NIITV", "DVB4CH", _ ->
     let open Board_niitv_dvb_http_js in
     let open Board_niitv_dvb_widgets_js in
-    Some (fun state socket ->
-        let t =
-          Http_device.get_mode b.control
-          >>=? fun mode -> Http_device.Event.get_mode socket b.control
-          >>= fun (id, event) ->
-          (* TODO *)
-          let receivers = Some [0;1;2;3] in
-          let widget = Widget_settings.make state mode receivers b.control in
-          let event = React.E.map (fun x -> widget#notify (`Mode x)) event in
-          widget#set_on_destroy (fun () ->
-              React.E.stop ~strong:true event;
-              Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket id));
-          Lwt.return_ok widget#widget in
-        Ui_templates.Loader.create_widget_loader t)
+    Http_device.get_mode b.control
+    >>=? fun mode -> Http_device.Event.get_mode socket b.control
+    >>= fun (id, event) ->
+    (* TODO *)
+    let receivers = Some [0;1;2;3] in
+    let widget = Widget_settings.make (get_state ()) mode receivers b.control in
+    let event = React.E.map (fun x -> widget#notify (`Mode x)) event in
+    widget#set_on_destroy (fun () ->
+        React.E.stop ~strong:true event;
+        Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket id));
+    Lwt.return_ok (widget :> stateful_widget)
   | "DekTec", "DTM-3200", _ ->
     let open Board_dektec_dtm3200_http_js in
     let open Board_dektec_dtm3200_widgets_js in
-    Some (fun state socket ->
-        let t =
-          Http_device.get_config b.control
-          >>=? fun { nw; ip_receive; _ } ->
-          let widget = Widget_settings.make state nw ip_receive b.control in
-          (* let event =
-           *   React.E.map (fun (x : Board_dektec_dtm3200_types.config) ->
-           *       widget#notify (`Ip_receive_mode x.ip_receive);
-           *       widget#notify (`Nw_mode x.nw))
-           *   @@ Http_device.Event.get_config socket b.control in
-           * widget#set_on_destroy (fun () -> React.E.stop ~strong:true event); *)
-          Lwt.return_ok widget#widget in
-        Ui_templates.Loader.create_widget_loader t)
-  | _ -> None
+    Http_device.get_config b.control
+    >>=? fun { nw; ip_receive; _ } ->
+    let widget = Widget_settings.make (get_state ()) nw ip_receive b.control in
+    (* let event =
+     *   React.E.map (fun (x : Board_dektec_dtm3200_types.config) ->
+     *       widget#notify (`Ip_receive_mode x.ip_receive);
+     *       widget#notify (`Nw_mode x.nw))
+     *   @@ Http_device.Event.get_config socket b.control in
+     * widget#set_on_destroy (fun () -> React.E.stop ~strong:true event); *)
+    Lwt.return_ok (widget :> stateful_widget)
+  | _ -> Lwt.return_error "No settings available for the device"
 
 module Header = struct
 
-  class t (has_settings_button : bool)
-          (board : Topology.topo_board) () =
+  class t (board : Topology.topo_board) () =
     let _class = BEM.add_element base_class "header" in
     let title = get_board_name board in
-    let settings = match has_settings_button with
-      | false -> None
-      | true ->
-         let icon = Icon.SVG.(make_simple Path.settings) in
-         let button = Icon_button.make ~icon () in
-         Some button in
+    let settings = match Topology.Env.find_opt "show-settings" board.env with
+      | Some "false" -> None
+      | _ ->
+        let icon = Icon.SVG.(make_simple Path.settings) in
+        let button = Icon_button.make ~icon () in
+        Some button in
     object(self)
       inherit Topo_block.Header.t ?action:settings ~title () as super
 
@@ -152,8 +150,8 @@ module Header = struct
         settings
     end
 
-  let create (has_settings_button : bool) (board : Topology.topo_board) : t =
-    new t has_settings_button board ()
+  let create (board : Topology.topo_board) : t =
+    new t board ()
 
 end
 
@@ -182,11 +180,10 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
     (socket : Api_js.Websocket.JSON.t)
     (board : Topology.topo_board) =
   let e_settings, push_settings = React.E.create () in
-  let make_board_page = make_board_page board in
-  let header = Header.create (Utils.Option.is_some make_board_page) board in
+  let header = Header.create board in
   let body = Body.create board in
+  let state, push_state = React.S.create board in
   object(self)
-    val mutable _state = board
     val mutable _click_listener = None
 
     inherit Topo_block.t
@@ -196,9 +193,9 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
 
     method! init () : unit =
       super#init ();
-      self#notify (`State _state);
+      self#notify (`State board);
       super#add_class base_class;
-      super#set_attribute "data-board" @@ get_board_type _state;
+      super#set_attribute "data-board" @@ get_board_type board;
       Utils.Option.iter (fun (w : Icon_button.t) ->
           let listener =
             Events.clicks w#root (fun _ _ ->
@@ -220,11 +217,11 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
 
     method settings_event : (Widget.t * string) React.event = e_settings
 
-    method board : Topology.topo_board = _state
+    method board : Topology.topo_board = React.S.value state
 
     method notify : event -> unit = function
       | `State x ->
-        _state <- x;
+        push_state x;
         super#set_state x.connection;
         match x.connection with
         | `Fine -> self#set_ports x.ports;
@@ -233,16 +230,8 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
     (* Private methods *)
 
     method private make_settings_widget () : Widget.t =
-      match make_board_page with
-      | None ->
-        let icon = Icon.SVG.(make_simple Path.stop) in
-        let ph =
-          Ui_templates.Placeholder.With_icon.make
-            ~icon
-            ~text:"Нет доступных настроек для платы"
-            () in
-        ph#widget
-      | Some make -> Widget.coerce @@ make _state.connection socket
+      let t = make_board_page state socket in
+      Widget.coerce @@ Ui_templates.Loader.create_widget_loader t
 
     method private set_ports (l : Topology.topo_port list) : unit =
       let find (port : Topology.topo_port) (p : Topo_path.t) : bool =

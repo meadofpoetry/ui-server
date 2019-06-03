@@ -8,7 +8,7 @@ let _class = "topology"
 
 let is_ts2ip_niitv (b : Topology.topo_board) =
   match b.manufacturer, b.model with
-  | "NIITV", "TS2IP" -> false
+  | "NIITV", "TS2IP" -> true
   | _ -> false
 
 let find_max l =
@@ -264,7 +264,7 @@ let () =
     >>=& fun init ->
     Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
     >>=? fun socket -> Application_http_js.Event.get_topology socket
-    >>=? fun (id, event) ->
+    >>=? fun (_, event) ->
     let page = create init socket in
     let event = React.E.map (fun x -> page#notify (`Topology x)) event in
     let s_settings =

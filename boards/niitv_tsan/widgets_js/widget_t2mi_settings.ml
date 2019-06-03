@@ -9,7 +9,7 @@ let base_class = "qos-niit-t2mi-settings"
 
 let make_enabled () =
   let event, push = React.E.create () in
-  let enabled = Switch.make ~on_change:(fun x ->
+  let enabled = Switch.make ~on_change:(fun _ ->
       push (); Lwt.return_unit) () in
   let form =
     Form_field.make
@@ -57,7 +57,10 @@ let rec stream_to_string (s : Stream.t) =
 
 let stream_select_validation = Select.(
     { to_string = Yojson.Safe.to_string % Stream.to_yojson
-    ; of_string = Stream.of_yojson % Yojson.Safe.from_string
+    ; of_string =
+        (fun json ->
+           try Stream.of_yojson @@ Yojson.Safe.from_string json
+           with Yojson.Json_error s -> Error s)
     })
 
 let make_stream_select_items streams =
@@ -72,16 +75,6 @@ let make_stream_select
     (streams : Stream.t list)
     (_ : t2mi_mode) =
   let event, push = React.E.create () in
-  (* let streams =
-   *   React.S.l2
-   *     ~eq:(Util_equal.List.equal Stream.equal)
-   *     (fun (set : t2mi_mode) lst ->
-   *        match set.stream with
-   *        | ID _ -> lst
-   *        | Full s ->
-   *          let streams = Utils.List.add_nodup ~eq:Stream.equal s lst in
-   *          List.sort Stream.compare streams)
-   *     mode streams in *)
   let select =
     Select.make_native
       ~on_change:(fun _ -> push ())
@@ -118,6 +111,7 @@ class t
   object(self)
     val mutable _on_submit = None
     val mutable _e_change = None
+    val mutable _state = state
     inherit Widget.t Dom_html.(createDiv document) () as super
 
     method! init () : unit =
@@ -132,11 +126,9 @@ class t
       super#add_class Box.CSS.vertical;
       self#set_value mode;
       self#notify (`State state);
-      _e_change <- Some (React.E.map (fun () ->
-          match self#value with
-          | None -> submit#set_disabled true
-          | Some _ -> submit#set_disabled false)
-         @@ React.E.select [e_en; e_pid; e_sid; e_stream]);
+      _e_change <- Some (
+          React.E.map self#update_submit_button_state
+          @@ React.E.select [e_en; e_pid; e_sid; e_stream]);
       _on_submit <- Some (Events.clicks submit#root (fun _ _ ->
           Lwt.map (fun _ -> ()) @@ self#submit ()))
 
@@ -151,8 +143,11 @@ class t
       match self#value with
       | None -> Lwt.return_error "Please fill the settings form"
       | Some mode ->
-        Lwt_result.map_err Api_js.Http.error_to_string
-        @@ Http_device.set_t2mi_mode mode control
+        let t =
+          Lwt_result.map_err Api_js.Http.error_to_string
+          @@ Http_device.set_t2mi_mode mode control in
+        submit#set_loading_lwt t;
+        t
 
     method value : t2mi_mode option =
       match pid#value, sid#value, stream_select#value with
@@ -167,23 +162,38 @@ class t
     method set_value (mode : t2mi_mode) : unit =
       en#input#toggle ~force:mode.enabled ();
       pid#set_value mode.pid;
-      sid#set_value mode.t2mi_stream_id
+      sid#set_value mode.t2mi_stream_id;
+      self#update_submit_button_state ()
 
     method notify : event -> unit = function
       | `Mode mode -> self#set_value mode
       | `Incoming_streams streams ->
         let value = stream_select#value in
+        let streams = match value with
+          | None -> streams
+          | Some s ->
+            if List.exists (Stream.equal s) streams
+            then streams else s :: streams in
         let items = make_stream_select_items streams in
-        stream_select#remove_children ();
-        List.iter (Element.append_child stream_select#root)
+        stream_select#clear ();
+        List.iter stream_select#append_item
         @@ List.map Tyxml_js.To_dom.of_option items;
-        Utils.Option.iter stream_select#set_value value
+        stream_select#layout ();
+        Utils.Option.iter stream_select#set_value value;
+        self#update_submit_button_state ()
       | `State s ->
+        _state <- s;
         let disabled = match s with `Fine -> false | _ -> true in
         en#input#set_disabled disabled;
         stream_select#set_disabled disabled;
         pid#set_disabled disabled;
-        sid#set_disabled disabled
+        sid#set_disabled disabled;
+        self#update_submit_button_state ()
+
+    method private update_submit_button_state () =
+      match self#value, _state with
+      | Some _, `Fine -> submit#set_disabled false
+      | _ -> submit#set_disabled true
   end
 
 let make (state : Topology.state)

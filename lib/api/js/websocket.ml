@@ -41,7 +41,6 @@ module Make
     let id, msg = match req with
       | Subscribe (id, uri) -> id, (`Subscribe (Uri.to_string uri))
       | Unsubscribe (id, subid) -> id, (`Unsubscribe subid) in
-    print_endline @@ request_to_string req;
     socket.socket##send (Js.string @@ Body.to_string @@ Msg.compose id msg);
     let rec loop () =
       Lwt_stream.next socket.control
