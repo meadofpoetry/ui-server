@@ -211,7 +211,7 @@ let create (init : Topology.t) (socket : Api_js.Websocket.JSON.t) =
       let obs =
         Ui_templates.Resize_observer.observe ~node:super#root
           ~f:(fun _ -> self#layout ()) () in
-      _resize_observer <- Some obs;
+      _resize_observer <- Some obs
 
     method! destroy () : unit =
       super#destroy ();

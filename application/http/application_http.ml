@@ -130,10 +130,11 @@ let application_pages (app : Application.t) =
   in
   let props =
     make_template_props
-    ~title:"Конфигурация"
-    ~post_scripts:[Src "/js/topology.js"]
-    ~stylesheets:["/css/topology.min.css"]
-    ()
+      ~title:"Конфигурация"
+      ~pre_scripts:[Src "/js/ResizeObserver.js"]
+      ~post_scripts:[Src "/js/topology.js"]
+      ~stylesheets:["/css/topology.min.css"]
+      ()
   in
   let _demo_props =
     make_template_props

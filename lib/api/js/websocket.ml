@@ -144,7 +144,9 @@ module Make
       | "open" ->
         socket##.onmessage := Dom.handler message_handler;
         Lwt.return_ok { socket; subscribers; control }
-      | "error" -> Lwt.return_error "socket error"
+      | "error" ->
+        ignore @@ Js.Unsafe.global##.console##log event;
+        Lwt.return_error "socket error"
       | _ -> assert false in
     make_uri ?secure ?host ?port ~path
       ~insert_defaults:true
