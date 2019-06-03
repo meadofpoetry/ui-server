@@ -40,7 +40,7 @@ let make_standard () =
     Select.make_native
       ~on_change:(fun s -> push s#value)
       ~label:"Стандарт"
-      ~items
+      ~items:(`Markup items)
       standard in
   let set = function
     | None -> mode#set_selected_index 0
@@ -57,7 +57,7 @@ let make_bw (standard : standard option React.signal) =
     Select.make_native
       ~on_change:(fun s -> push s#value)
       ~label:"Полоса пропускания"
-      ~items
+      ~items:(`Markup items)
       bw in
   let s_hide =
     React.S.map ~eq:(=) (function
@@ -84,7 +84,7 @@ let make_freq ?(terrestrial = true) (standard : standard option React.signal) =
     Select.make_native
       ~on_change:(fun s -> push s#value)
       ~label:"ТВ канал"
-      ~items
+      ~items:(`Markup items)
       Integer in
   let s_hide =
     React.S.map ~eq:(=) (fun x ->

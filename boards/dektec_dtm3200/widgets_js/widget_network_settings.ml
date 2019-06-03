@@ -4,6 +4,11 @@ open Board_dektec_dtm3200_types
 open Board_dektec_dtm3200_http_js
 open Components
 
+type event =
+  [ `Mode of nw
+  | `State of Topology.state
+  ]
+
 let base_class = "ip-dektec-network-settings"
 
 let ipv4 = Textfield.(
@@ -15,9 +20,9 @@ let ipv4 = Textfield.(
                | Ok _ as x -> x
            })
 
-let make_ip ~id ~label () =
+let make_ip ~id ~label value  =
   let event, push = React.E.create () in
-  let ip = Textfield.make_textfield ~input_id:id ~label ipv4 in
+  let ip = Textfield.make_textfield ~input_id:id ~label ~value ipv4 in
   let listener =
     Events.inputs ip#input_element (fun _ _ ->
         push ();
@@ -25,9 +30,9 @@ let make_ip ~id ~label () =
   ip#set_on_destroy (fun () -> Lwt.cancel listener);
   ip, event
 
-let make_dhcp (inputs : 'a #Textfield.t list) =
+let make_dhcp checked (inputs : 'a #Textfield.t list) =
   let event, push = React.E.create () in
-  let dhcp = Switch.make ~on_change:(fun x ->
+  let dhcp = Switch.make ~checked ~on_change:(fun x ->
       push ();
       List.iter (fun w -> w#set_disabled x#checked) inputs;
       Lwt.return_unit)
@@ -39,28 +44,18 @@ let make_dhcp (inputs : 'a #Textfield.t list) =
       dhcp in
   form, event
 
-let name = "Настройки. Сеть"
-
-let settings = None
-
-let ( >>= ) = Lwt.( >>= )
-
-type event =
-  [ `Nw_mode of nw
-  | `State of Topology.state
-  ]
-
 class t (state : Topology.state) (mode : nw) (control : int) =
-  let ip, e_ip = make_ip ~id:"ip" ~label:"IP адрес" () in
-  let mask, e_mask = make_ip ~id:"mask" ~label:"Маска подсети" () in
-  let gw, e_gw = make_ip ~id:"gw" ~label:"Шлюз" () in
-  let dhcp, e_dhcp = make_dhcp [ip; mask; gw] in
+  let ip, e_ip = make_ip ~id:"ip" ~label:"IP адрес" mode.ip_address in
+  let mask, e_mask = make_ip ~id:"mask" ~label:"Маска подсети" mode.mask in
+  let gw, e_gw = make_ip ~id:"gw" ~label:"Шлюз" mode.gateway in
+  let dhcp, e_dhcp = make_dhcp mode.dhcp [ip; mask; gw] in
   let submit = Button.make ~label:"Применить" () in
   let buttons = Card.Actions.make_buttons [submit] in
   let actions = Card.Actions.make [buttons] in
   object(self)
     val mutable _on_submit = None
     val mutable _e_change = None
+    val mutable _dhcp = mode.dhcp
     inherit Widget.t Dom_html.(createDiv document) () as super
 
     method! init () : unit =
@@ -74,12 +69,11 @@ class t (state : Topology.state) (mode : nw) (control : int) =
       super#add_class Box.CSS.root;
       super#add_class Box.CSS.vertical;
       self#notify (`State state);
-      self#set_value mode;
       _e_change <- Some (
           React.E.map self#update_submit_button_state
           @@ React.E.select [e_ip; e_mask; e_gw; e_dhcp]);
       _on_submit <- Some (Events.clicks submit#root (fun _ _ ->
-          self#submit () >>= fun _ -> Lwt.return ()))
+          Lwt.map ignore @@ self#submit ()))
 
     method! destroy () : unit =
       super#destroy ();
@@ -100,8 +94,8 @@ class t (state : Topology.state) (mode : nw) (control : int) =
             >>= fun mask -> set_gateway mode.gateway control
             >>= fun gateway -> set_dhcp mode.dhcp control
             >>= fun dhcp ->
-            (* FIXME force reboot when dhcp is changed *)
             if equal_nw mode { ip_address; mask; gateway; dhcp }
+            && _dhcp = dhcp
             then Lwt.return_ok ()
             else reboot control) in
         submit#set_loading_lwt req;
@@ -126,12 +120,12 @@ class t (state : Topology.state) (mode : nw) (control : int) =
       self#update_submit_button_state ()
 
     method notify : event -> unit = function
-      | `Nw_mode mode -> self#set_value mode
+      | `Mode mode -> self#set_value mode
       | `State x ->
         let disabled = match x with `Fine -> false | _ -> true in
-        ip#set_disabled disabled;
         dhcp#input#set_disabled disabled;
         let disabled = dhcp#input#checked || disabled in
+        ip#set_disabled disabled;
         mask#set_disabled disabled;
         gw#set_disabled disabled;
         self#update_submit_button_state ()

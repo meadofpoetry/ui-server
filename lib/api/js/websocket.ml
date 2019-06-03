@@ -9,19 +9,25 @@ let ( >>= ) = Lwt.( >>= )
 
 let return_ok x = Ok x
 
-include Websocket_intf
-
 type 'a t =
   { socket : WebSockets.webSocket Js.t
   ; subscribers : (int, int ref * 'a React.event * ('a -> unit)) Hashtbl.t
   ; control : (int * 'a Api.ws_message) Lwt_stream.t
   }
 
-let close_socket (t : 'a t) =
-  t.socket##close
+include Websocket_intf
+
+let close_socket ?code ?reason (t : 'a t) =
+  match code, reason with
+  | None, None -> t.socket##close
+  | Some code, None -> t.socket##close_withCode code
+  | None, Some reason ->
+    t.socket##close_withCodeAndReason 1000 (Js.string reason)
+  | Some code, Some reason ->
+    t.socket##close_withCodeAndReason code (Js.string reason)
 
 module Make
-    (Boby : Api.BODY)
+    (Body : Api.BODY)
     (Msg : Api.WS_BODY with type t := Body.t) = struct
 
   open Netlib
@@ -49,17 +55,11 @@ module Make
       | Subscribe _, (id', `Subscribed subid) when id = id' ->
         (Lwt.return_ok subid : (a, _) result Lwt.t)
       | Unsubscribe _, (id', `Unsubscribed) when id = id' -> Lwt.return_ok ()
-      | _, (id', `Error e) when id = id' ->
-        Lwt.return_error
-        @@ Printf.sprintf "\"%s\" request error: %s"
-          (request_to_string req) e
+      | _, (id', `Error e) when id = id' -> Lwt.return_error (`Error e)
       | _ -> loop () in
     Lwt.pick
       [ loop ()
-      ; (Lwt_js.sleep timeout >>= fun () ->
-         Lwt.return_error
-         @@ Printf.sprintf "Request \"%s\" timed out"
-         @@ request_to_string req) ]
+      ; (Lwt_js.sleep timeout >>= fun () -> Lwt.return_error (`Timeout timeout)) ]
 
   let make_uri ?(insert_defaults = true) ?secure ?host ?port ~f ~path ~query=
     let host = match host, insert_defaults with
@@ -118,10 +118,10 @@ module Make
   let open_socket : ?secure:bool
     -> ?host:string
     -> ?port:int
-    -> path:('a, unit -> ((t, string) Lwt_result.t)) Uri.Path.Format.t
+    -> path:('a, unit -> ((t, error) Lwt_result.t)) Uri.Path.Format.t
     -> 'a =
     fun ?secure ?host ?port ~path ->
-    let f uri () : (t, string) Lwt_result.t =
+    let f uri () : (t, error) Lwt_result.t =
       let control, push_ctrl = Lwt_stream.create () in
       let subscribers = Hashtbl.create 100 in
       let socket = new%js webSocket (Js.string uri) in
@@ -146,7 +146,7 @@ module Make
         Lwt.return_ok { socket; subscribers; control }
       | "error" ->
         ignore @@ Js.Unsafe.global##.console##log event;
-        Lwt.return_error "socket error"
+        Lwt.return_error (`Error "socket error")
       | _ -> assert false in
     make_uri ?secure ?host ?port ~path
       ~insert_defaults:true

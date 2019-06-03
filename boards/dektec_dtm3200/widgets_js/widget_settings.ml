@@ -8,6 +8,7 @@ let settings = None
 
 type event =
   [ `State of Topology.state
+  | `Config of config
   | `Nw_mode of nw
   | `Ip_receive_mode of ip_receive
   ]
@@ -37,6 +38,9 @@ let make (state : Topology.state )
 
     method notify : event -> unit = function
       | `State _ as e -> nw#notify e; ip#notify e
-      | `Nw_mode _ as e -> nw#notify e
-      | `Ip_receive_mode _ as e -> ip#notify e
+      | `Nw_mode x -> nw#notify (`Mode x)
+      | `Ip_receive_mode x -> ip#notify (`Mode x)
+      | `Config { nw = nw'; ip_receive; _ } ->
+        nw#notify (`Mode nw');
+        ip#notify (`Mode ip_receive)
   end

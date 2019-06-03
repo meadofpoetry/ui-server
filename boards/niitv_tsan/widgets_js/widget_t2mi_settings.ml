@@ -79,7 +79,7 @@ let make_stream_select
     Select.make_native
       ~on_change:(fun _ -> push ())
       ~label:"Поток для анализа T2-MI"
-      ~items:(make_stream_select_items streams)
+      ~items:(`Data (List.map (fun s -> s, Some (stream_to_string s)) streams))
       (Custom stream_select_validation) in
   let set (x : t2mi_mode) =
     match x.stream with

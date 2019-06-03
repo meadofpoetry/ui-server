@@ -13,6 +13,11 @@ $side-sheet-width: 400px;
     @include topology-board-type(nth($boards,$i));
 }
 
+.mdc-loader.mdc-layout-grid {
+    width: initial;
+    height: initial;
+}
+
 .mdc-side-sheet {
     @include mdc-side-sheet-width($side-sheet-width);
 }
@@ -20,7 +25,7 @@ $side-sheet-width: 400px;
 .topology {
     position: relative;
     height: 100%;
-    grid-template-columns: none !important;
+    grid-template-columns: 1fr auto auto;
 
     svg {
         overflow: visible;
@@ -142,8 +147,8 @@ $side-sheet-width: 400px;
 }
 
 .topology__block {
-    margin: 40px;
-    max-width: 250px;
+    margin: 20px;
+    max-width: 300px;
     z-index: 2;
 
     &--fail {

@@ -27,14 +27,16 @@ type error =
   | `Not_implemented
   | `Conv_error of string
   | `Error of string
+  | `Timeout of float
   | `Unknown of int
   ]
 
-let error_to_string : error -> string = function
+let error_to_string : [< error] -> string = function
   | `Unauthorized -> "Unauthorized"
   | `Not_implemented -> "Not implemented"
   | `Conv_error s -> Printf.sprintf "Body parsing failed: %s" s
   | `Error s -> s
+  | `Timeout _ -> Printf.sprintf "Request timed out"
   | `Unknown code -> Printf.sprintf "Unexpected response code: %d" code
 
 let make_uri ?scheme ?host ?port ~f ~path ~query =
@@ -46,7 +48,7 @@ let make_uri ?scheme ?host ?port ~f ~path ~query =
     | Some x -> Some x in
   Uri.kconstruct ?scheme ~host ?port
     ~f:(f % Uri.pct_decode % Uri.to_string) ~path ~query
-                   
+
 let perform_file ?headers ?progress ?upload_progress
       ~file ?meth ?with_credentials ?scheme
       ?host ?port ~path ~query =

@@ -60,68 +60,72 @@ let get_board_type ({ manufacturer; model; _ } : Topology.topo_board) =
   | "NIITV", "DVB4CH" -> "DVB"
   | _ -> ""
 
-class type stateful_widget =
-  object
-    inherit Widget.t
-    method notify : [`State of Topology.state] -> unit
-  end
+let ( >>= ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
+
+let make_board_niitv_tsan_settings state socket control =
+  let open React in
+  let open Board_niitv_tsan_http_js in
+  let open Board_niitv_tsan_widgets_js in
+  Http_device.get_t2mi_mode control
+  >>= fun mode -> Http_streams.get_streams ~incoming:true control
+  >>= fun streams -> Http_device.Event.get_t2mi_mode socket control
+  >>= fun (mid, e_mode) ->
+  Http_streams.Event.get_streams ~incoming:true socket control
+  >>= fun (sid, e_strm) ->
+  let w = Widget_t2mi_settings.make (S.value state) mode streams control in
+  let notif =
+    E.merge (fun _ -> w#notify) ()
+      [ E.map (fun x -> `Mode x) e_mode
+      ; E.map (fun x -> `Incoming_streams x) e_strm
+      ; E.map (fun x -> `State x) @@ S.changes state ] in
+  w#set_on_destroy (fun () ->
+      E.stop ~strong:true notif;
+      Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket mid);
+      Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket sid));
+  Lwt.return_ok w#widget
+
+let make_board_niitv_dvb4ch_settings state socket control =
+  let open React in
+  let open Board_niitv_dvb_http_js in
+  let open Board_niitv_dvb_widgets_js in
+  Http_device.get_mode control
+  >>= fun mode -> Http_device.Event.get_mode socket control
+  >>= fun (id, event) ->
+  (* TODO *)
+  let receivers = Some [0;1;2;3] in
+  let widget = Widget_settings.make (S.value state) mode receivers control in
+  let event = E.map (fun x -> widget#notify (`Mode x)) event in
+  widget#set_on_destroy (fun () ->
+      React.E.stop ~strong:true event;
+      Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket id));
+  Lwt.return_ok widget#widget
+
+let make_board_dektec_dtm3200_settings state socket control =
+  let open React in
+  let open Board_dektec_dtm3200_types in
+  let open Board_dektec_dtm3200_http_js in
+  let open Board_dektec_dtm3200_widgets_js in
+  Http_device.get_config control
+  >>= fun { nw; ip_receive; _ } -> Http_device.Event.get_config socket control
+  >>= fun (id, event) ->
+  let w = Widget_settings.make (S.value state) nw ip_receive control in
+  let notif =
+    E.merge (fun _ -> w#notify) ()
+      [ E.map (fun x -> `Config x) event
+      ; E.map (fun x -> `State x) @@ S.changes state
+      ] in
+  w#set_on_destroy (fun () ->
+      E.stop ~strong:true notif;
+      Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket id));
+  Lwt.return_ok w#widget
 
 let make_board_page (signal : Topology.topo_board React.signal) socket =
-  let ( >>= ) = Lwt_result.( >>= ) in
-  let ( >>=? ) x f = Lwt_result.(
-      map_err Api_js.Http.error_to_string @@ x >>= f) in
-  let b = React.S.value signal in
-  let get_state = fun () -> (React.S.value signal).connection in
-  match b.manufacturer, b.model, b.version with
-  | "NIITV", "TSAN", _ ->
-    let open Board_niitv_tsan_http_js in
-    let open Board_niitv_tsan_widgets_js in
-    Http_device.get_t2mi_mode b.control
-    >>=? fun mode -> Http_streams.get_streams ~incoming:true b.control
-    >>=? fun streams -> Http_device.Event.get_t2mi_mode socket b.control
-    >>= fun (mode_id, e_mode) ->
-    Http_streams.Event.get_streams ~incoming:true socket b.control
-    >>= fun (streams_id, e_streams) ->
-    let open React in
-    let w = Widget_t2mi_settings.make (get_state ()) mode streams b.control in
-    let notif =
-      React.E.merge (fun _ -> w#notify) ()
-        [ E.map (fun x -> `Mode x) e_mode
-        ; E.map (fun x -> `Incoming_streams x) e_streams
-        ; E.map (fun (x : Topology.topo_board) -> `State x.connection)
-          @@ S.changes signal ] in
-    w#set_on_destroy (fun () ->
-        E.stop ~strong:true notif;
-        Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket mode_id);
-        Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket streams_id));
-    Lwt.return_ok (w :> stateful_widget)
-  | "NIITV", "DVB4CH", _ ->
-    let open Board_niitv_dvb_http_js in
-    let open Board_niitv_dvb_widgets_js in
-    Http_device.get_mode b.control
-    >>=? fun mode -> Http_device.Event.get_mode socket b.control
-    >>= fun (id, event) ->
-    (* TODO *)
-    let receivers = Some [0;1;2;3] in
-    let widget = Widget_settings.make (get_state ()) mode receivers b.control in
-    let event = React.E.map (fun x -> widget#notify (`Mode x)) event in
-    widget#set_on_destroy (fun () ->
-        React.E.stop ~strong:true event;
-        Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket id));
-    Lwt.return_ok (widget :> stateful_widget)
-  | "DekTec", "DTM-3200", _ ->
-    let open Board_dektec_dtm3200_http_js in
-    let open Board_dektec_dtm3200_widgets_js in
-    Http_device.get_config b.control
-    >>=? fun { nw; ip_receive; _ } ->
-    let widget = Widget_settings.make (get_state ()) nw ip_receive b.control in
-    (* let event =
-     *   React.E.map (fun (x : Board_dektec_dtm3200_types.config) ->
-     *       widget#notify (`Ip_receive_mode x.ip_receive);
-     *       widget#notify (`Nw_mode x.nw))
-     *   @@ Http_device.Event.get_config socket b.control in
-     * widget#set_on_destroy (fun () -> React.E.stop ~strong:true event); *)
-    Lwt.return_ok (widget :> stateful_widget)
+  let { Topology. manufacturer; model; version; control; _ } = React.S.value signal in
+  let state = React.S.map (fun (x : Topology.topo_board) -> x.connection) signal in
+  match manufacturer, model, version with
+  | "NIITV", "TSAN", _ -> make_board_niitv_tsan_settings state socket control
+  | "NIITV", "DVB4CH", _ -> make_board_niitv_dvb4ch_settings state socket control
+  | "DekTec", "DTM-3200", _ -> make_board_dektec_dtm3200_settings state socket control
   | _ -> Lwt.return_error "No settings available for the device"
 
 module Header = struct

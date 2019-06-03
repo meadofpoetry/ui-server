@@ -810,7 +810,7 @@ let make ?on_change ?disabled ?label
         () in
   let t = new t ?on_change ?helper_text ?line_ripple ?notched_outline
     ?floating_label ~validation elt () in
-  Option.iter (fun x -> x#set_value x) value;
+  Option.iter (fun x -> t#set_value x) value;
   t
 
 let native_options_of_values
@@ -833,15 +833,30 @@ let native_options_of_values
     let empty = Markup.Native.create_option ~selected:true ~disabled:true ~text:"" () in
     empty :: options
 
+type ('a, 'b) items =
+  [ `Markup of 'a Tyxml_js.Html.elt list
+  | `Data of ('b * string option) list
+  ]
+
 let make_native ?on_change ?disabled ?label
     ?outlined
     ?(icon : #Widget.t option)
     ?(helper_text : Helper_text.t option)
     ?value
-    ~items
+    ~(items : ('b, 'a) items)
     validation : 'a t =
+  let items = match items with
+    | `Markup x -> `Native x
+    | `Data l ->
+      let items = List.map (fun (v, s) ->
+          let value = valid_to_string validation v in
+          let text = match s with
+            | None -> value
+            | Some s -> s in
+          Markup.Native.create_option ~text ~value ()) l in
+      `Native items in
   make ?on_change ?disabled ?label ?outlined ?icon ?helper_text ?value
-    (`Native items) validation
+    items validation
 
 let make_enhanced ?on_change ?disabled ?label
     ?outlined

@@ -233,10 +233,7 @@ let create (init : Topology.t) (socket : Api_js.Websocket.JSON.t) =
   end
 
 let ( >>= ) = Lwt.( >>= )
-let ( >>=? ) = Lwt_result.( >>= )
-let ( >>=& ) x f =
-  Lwt_result.map_err Api_js.Http.error_to_string
-  @@ x >>=? f
+let ( >>=? ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
 
 let on_settings (side_sheet : #Side_sheet.Parent.t)
     (content : #Widget.t)
@@ -261,7 +258,7 @@ let () =
     on_settings side_sheet side_sheet_content set_side_sheet_title in
   let thread =
     Application_http_js.get_topology ()
-    >>=& fun init ->
+    >>=? fun init ->
     Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
     >>=? fun socket -> Application_http_js.Event.get_topology socket
     >>=? fun (_, event) ->
