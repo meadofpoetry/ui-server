@@ -47,9 +47,9 @@ module SVG = struct
 
     method paths : Dom_svg.pathElement Js.t list =
       List.filter_map (fun (x : Dom_html.element Js.t) ->
-          match Js.to_string x##.nodeName with
-          | "PATH" -> Some (Js.Unsafe.coerce x)
-          | _ -> None)
+          match String.lowercase_ascii @@ Js.to_string x##.nodeName with
+          | "path" -> Some (Js.Unsafe.coerce x)
+          | s -> None)
       @@ Element.children super#root
   end
 

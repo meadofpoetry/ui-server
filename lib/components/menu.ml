@@ -33,7 +33,8 @@ module Event = struct
     Events.Typ.make "menu:selected"
 end
 
-class t ?list (elt : Dom_html.element Js.t) () =
+class t ?body ?viewport
+    ?list (elt : Dom_html.element Js.t) () =
 object(self)
   val _list : Item_list.t option =
     match list with
@@ -44,7 +45,7 @@ object(self)
   val mutable _default_focus_item_index : int option = None
   val mutable _action_listener = None
 
-  inherit Menu_surface.t elt () as super
+  inherit Menu_surface.t ?body ?viewport elt () as super
 
   method! initial_sync_with_dom () : unit =
     super#initial_sync_with_dom ();
@@ -157,11 +158,14 @@ object(self)
     aux (Element.get_parent item)
 end
 
-let make_of_item_list ?fixed ?open_ (list : Item_list.t) : t =
+let make_of_item_list ?body ?viewport
+    ?fixed ?open_ (list : Item_list.t) : t =
+  let body = (body :> Dom_html.element Js.t option) in
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element
     @@ Markup.create ?fixed ?open_ (Widget.to_markup list) () in
-  new t ~list elt ()
+  new t ?body ?viewport ~list elt ()
 
-let attach (elt : #Dom_html.element Js.t) : t =
-  new t (Element.coerce elt) ()
+let attach ?body ?viewport (elt : #Dom_html.element Js.t) : t =
+  let body = (body :> Dom_html.element Js.t option) in
+  new t ?body ?viewport (Element.coerce elt) ()

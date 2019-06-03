@@ -19,17 +19,17 @@ let get_transform_property_name ?(force = false) () : string =
     then "transform" else "webkitTransform"
   | Some v, _ -> v
 
-let get_window_dimensions () : int * int =
-  Js.Optdef.get Dom_html.window##.innerWidth (fun () -> 0),
-  Js.Optdef.get Dom_html.window##.innerHeight (fun () -> 0)
+let get_window_dimensions wnd : int * int =
+  Js.Optdef.get wnd##.innerWidth (fun () -> 0),
+  Js.Optdef.get wnd##.innerHeight (fun () -> 0)
 
-let get_window_scroll () : int * int =
-  (Js.Unsafe.coerce Dom_html.window)##.pageXOffset,
-  (Js.Unsafe.coerce Dom_html.window)##.pageYOffset
+let get_window_scroll wnd : int * int =
+  (Js.Unsafe.coerce wnd)##.pageXOffset,
+  (Js.Unsafe.coerce wnd)##.pageYOffset
 
-let get_body_dimensions () : int * int =
-  Dom_html.document##.body##.clientWidth,
-  Dom_html.document##.body##.clientHeight
+type viewport =
+  | Element of Dom_html.element Js.t
+  | Window of Dom_html.window Js.t
 
 module Const = struct
   let transition_open_duration_s = 0.120
@@ -124,7 +124,9 @@ let is_focused (x : #Dom_html.element Js.t) : bool =
   | None -> false
   | Some active -> Element.equal active x
 
-class t (elt : Dom_html.element Js.t) () =
+class t ?(body = Dom_html.document##.body)
+    ?(viewport = Window Dom_html.window)
+    (elt : Dom_html.element Js.t) () =
   object(self)
     inherit Widget.t elt () as super
 
@@ -470,9 +472,14 @@ class t (elt : Dom_html.element Js.t) () =
 
     method private get_auto_layout_measurements () : layout =
       let anchor_rect = Option.map (fun e -> e##getBoundingClientRect) _anchor_element in
-      let viewport = get_window_dimensions () in
-      let body = get_body_dimensions () in
-      let scroll = get_window_scroll () in
+      let viewport, scroll = match viewport with
+        | Window wnd -> get_window_dimensions wnd, get_window_scroll wnd
+        | Element elt ->
+          (elt##.clientWidth, elt##.clientHeight),
+          (elt##.scrollLeft, elt##.scrollTop) in
+      let body_rect =
+        body##.clientWidth,
+        body##.clientHeight in
       let anchor_rect = match anchor_rect with
         | Some x -> x
         | None ->
@@ -484,6 +491,8 @@ class t (elt : Dom_html.element Js.t) () =
             val height = Js.def 0.
             val width = Js.def 0.
           end in
+      ignore @@ Js.Unsafe.global##.console##log body;
+      print_endline @@ Printf.sprintf "%dx%d" (fst body_rect) (snd body_rect);
       { viewport
       ; viewport_distance =
           { top = anchor_rect##.top
@@ -491,7 +500,7 @@ class t (elt : Dom_html.element Js.t) () =
           ; left = anchor_rect##.left
           ; bottom = (float_of_int @@ snd viewport) -. anchor_rect##.bottom
           }
-      ; body_dimensions = body
+      ; body_dimensions = body_rect
       ; window_scroll = scroll
       ; anchor_height = Js.Optdef.get anchor_rect##.height (fun () -> 0.)
       ; anchor_width = Js.Optdef.get anchor_rect##.width (fun () -> 0.)
@@ -510,12 +519,14 @@ class t (elt : Dom_html.element Js.t) () =
       super#root##.style##.left := conv (get "left" pos)
   end
 
-let make ?fixed ?open_ (content : Dom_html.element Js.t list) : t =
+let make ?body ?viewport ?fixed ?open_ (content : Dom_html.element Js.t list) : t =
+  let body = (body :> Dom_html.element Js.t option) in
   let content' = List.map Tyxml_js.Of_dom.of_element content in
   let (elt : Dom_html.divElement Js.t) =
     Tyxml_js.To_dom.of_element
     @@ Markup.create ?fixed ?open_ content' () in
-  new t elt ()
+  new t ?body ?viewport elt ()
 
-let attach (elt : #Dom_html.element Js.t) : t =
-  new t (Element.coerce elt) ()
+let attach ?body ?viewport (elt : #Dom_html.element Js.t) : t =
+  let body = (body :> Dom_html.element Js.t option) in
+  new t ?body ?viewport (Element.coerce elt) ()

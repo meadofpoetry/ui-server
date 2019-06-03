@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Components
 
 let base_class = "wm-selectable-title"
@@ -25,14 +26,16 @@ class t titles () =
   let (titles : title list) =
     List.map (fun (title, widget) ->
         new title ~title ~widget ()) titles in
-  let elt = Box.make_element ~dir:`Row titles in
   object(self)
 
-    inherit Box.t elt () as super
+    inherit Widget.t Dom_html.(createDiv document) () as super
 
     method! init () : unit =
       super#init ();
       super#add_class base_class;
+      super#add_class Box.CSS.root;
+      super#add_class Box.CSS.horizontal;
+      List.iter (fun x -> super#append_child x) titles;
       let _ =
         List.map (fun (w : #Widget.t) ->
             Events.clicks w#root (fun _ _ -> self#select w; Lwt.return_unit))

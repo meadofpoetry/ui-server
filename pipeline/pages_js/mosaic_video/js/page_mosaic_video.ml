@@ -221,20 +221,23 @@ let make_hotkeys_dialog () =
   let content = Dialog.Markup.create_content [hotkeys#markup] () in
   Dialog.make ~title ~content ~actions:[cancel] ()
 
-let make_menu () =
+let make_menu ?body ?viewport () =
   let hotkeys_item =
     let graphic = Icon.SVG.(make_simple Path.keyboard) in
     Item_list.Item.make ~role:"menuitem" ~graphic "Горячие клавиши" in
   let items =
     [ hotkeys_item
     ] in
-  Menu.make_of_item_list (Item_list.make ~role:"menu" items)
+  Menu.make_of_item_list ?body ?viewport (Item_list.make ~role:"menu" items)
 
 let tie_menu_with_toggle (scaffold : Scaffold.t) =
   match Element.query_selector scaffold#root Selectors.menu_icon with
   | None -> ()
   | Some i ->
-    let menu = make_menu () in
+    let menu = make_menu
+        ~body:scaffold#app_content_inner
+        ~viewport:(Element scaffold#app_content_inner)
+        () in
     menu#set_quick_open true;
     Dom.appendChild i menu#root;
     menu#set_anchor_element i;

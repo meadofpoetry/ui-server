@@ -1,4 +1,5 @@
 open Js_of_ocaml
+open Netlib
 open Components
 open Wm_types
 open Basic_widgets
@@ -425,9 +426,9 @@ let create ~(init : Wm.t)
         @@ List.map Container_item.t_of_layout_item l) wz_e in
   let lc, mc, rc = create_cells () in
   let add_to_view lt ig rt =
-    lc#set_empty (); lc#append_child lt;
-    mc#set_empty (); mc#append_child ig;
-    rc#set_empty (); rc#append_child rt in
+    lc#remove_children (); lc#append_child lt;
+    mc#remove_children (); mc#append_child ig;
+    rc#remove_children (); rc#append_child rt in
   let _ =
     React.S.map (function
         | `Widget (w : Widg.t) -> add_to_view w.lt w.ig w.rt
@@ -451,23 +452,30 @@ let on_data (grid : Layout_grid.t) wm =
     with e -> Printf.printf "error: %s\n" @@ Printexc.to_string e; [] in
   List.iter grid#append_cell cells
 
+let ( >>= ) = Lwt.( >>= )
+let ( >>=? ) = Lwt_result.( >>= )
+let ( >>=& ) x f =
+  Lwt_result.map_err Api_js.Http.error_to_string
+  @@ x >>=? f
+
 let page () =
   let grid = Layout_grid.make [] in
   let t =
     Http_wm.get_layout ()
+    >>=& fun wm ->
+    Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
+    >>=? fun socket -> Http_wm.Event.get socket
     >>= function
-    | Error e -> Lwt.return_error @@ Api_js.Http.error_to_string e
-    | Ok wm ->
+    | Error `Timeout _ -> Lwt.return_error "Timeout"
+    | Error `Error e -> Lwt.return_error e
+    | Ok (_, event) ->
       on_data grid wm;
-      Http_wm.Event.get ~f:(fun _ ->
-          function
-          | Ok x -> on_data grid x
-          | Error _ -> ()) ()
-      >>= function
-      | Error e -> Lwt.return_error e
-      | Ok socket ->
-        grid#add_class "wm";
-        grid#set_on_destroy (fun () -> socket##close);
-        Lwt.return_ok grid in
+      grid#add_class "wm";
+      let e = React.E.map (on_data grid) event in
+      grid#set_on_destroy (fun () ->
+          React.E.stop ~strong:true e;
+          React.E.stop ~strong:true event;
+          Api_js.Websocket.close_socket socket);
+      Lwt.return_ok grid in
   Lwt.ignore_result t;
   grid

@@ -10,6 +10,15 @@ type event =
   | Mouse of Dom_html.mouseEvent Js.t
   | Touch of Dom_html.touchEvent Js.t
 
+module Event : sig
+  class type event =
+    object
+      inherit [float] Widget.custom_event
+    end
+  val input : event Js.t Events.Typ.t
+  val change : event Js.t Events.Typ.t
+end
+
 class type t =
   object
     inherit Widget.t

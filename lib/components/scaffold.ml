@@ -204,6 +204,10 @@ class t ?(drawer : #Drawer.t option)
     method set_drawer_breakpoints (bp : Side_sheet.typ Breakpoint.t) : unit =
       drawer_breakpoints <- bp
 
+    method app_content_inner = app_content_inner
+
+    method app_content_outer = app_content_outer
+
     method body : Widget.t option =
       body
 

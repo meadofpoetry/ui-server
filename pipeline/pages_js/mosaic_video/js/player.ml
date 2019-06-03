@@ -7,7 +7,7 @@ let ( >>= ) = Lwt.( >>= )
 
 let fullscreen_enabled = Fullscreen.is_enabled ()
 
-let autohide_timeout = 2000.
+let autohide_timeout = 2.
 
 let get_boolean_attr ?(default = false)
     (elt : #Dom_html.element Js.t)
@@ -109,7 +109,7 @@ module State_overlay = struct
         if not _animation_ended
         then (self#hide ();
               (* Trigger reflow *)
-              ignore super#root##.offsetWidth);
+              ignore super#root##getBoundingClientRect);
         super#root##.style##.display := Js.string "";
         _animation_ended <- false;
 
@@ -461,13 +461,13 @@ class t (elt : #Dom_html.element Js.t) () =
           Dom_html.stopPropagation e;
           let cur = self#volume in
           let vol = min (cur +. 0.05) 1. in
-          self#set_volume vol
+          self#set_volume ~show_overlay:true vol
         | `Arrow_down ->
           Dom.preventDefault e;
           Dom_html.stopPropagation e;
           let cur = self#volume in
           let vol = max (cur -. 0.05) 0. in
-          self#set_volume vol
+          self#set_volume ~show_overlay:true vol
         | `Space ->
           Dom.preventDefault e;
           if _video_can_play then self#toggle_play ~show_overlay:true ()
@@ -538,23 +538,25 @@ and controls (t : t) (elt : #Dom_html.element Js.t) () =
       let click = Events.clicks super#root (fun e _ ->
           Dom_html.stopPropagation e;
           Lwt.return_unit) in
+      let volume_change = match volume with
+        | None -> None
+        | Some slider ->
+          Some (Events.listen_lwt slider#root Slider.Event.input (fun e _ ->
+              match Js.Opt.to_option e##.detail with
+              | None -> Lwt.return_unit
+              | Some v ->
+                if Js.to_bool t#video_element##.muted
+                then t#video_element##.muted := Js._false;
+                t#set_volume ~show_overlay:false (v /. 100.);
+                Lwt.return_unit)) in
       _listeners <- Utils.List.filter_map (fun x -> x)
           [ click_play
           ; click_mute
           ; dblclick
           ; click_fullscreen
           ; Some click
+          ; volume_change
           ]
-      (* Add react event listeners *)
-      (* let e_volume' = match volume with
-       *   | None -> None
-       *   | Some (slider : Slider.t) ->
-       *     Some (React.E.map (fun (v : float) ->
-       *         if Js.to_bool t#video_element##.muted
-       *         then t#video_element##.muted := Js._false;
-       *         t#set_volume ~show_overlay:false (v /. 100.))
-       *         slider#e_input) in
-       * e_volume <- e_volume' *)
 
     method! destroy () : unit =
       super#destroy ();

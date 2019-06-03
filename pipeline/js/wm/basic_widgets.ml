@@ -67,14 +67,18 @@ module Text_row = struct
         let text = match text with Some x -> x | None -> "-" in
         (Typography.Text.make text)#widget
     in
-    let elt = Box.make_element ~dir:`Row ~justify_content:`Space_between [nw; vw] in
     object
-      inherit Box.t elt () as super
+      inherit Widget.t Dom_html.(createDiv document) () as super
       val mutable _s = None
 
       method! init () : unit =
         super#init ();
         super#add_class _class;
+        super#add_class Box.CSS.root;
+        super#add_class Box.CSS.horizontal;
+        super#add_class (Box.CSS.justify_content `Space_between);
+        super#append_child nw;
+        super#append_child vw;
         vw#add_class @@ Components_tyxml.BEM.add_element _class "value";
         nw#add_class @@ Components_tyxml.BEM.add_element _class "label";
         match s with
@@ -84,6 +88,8 @@ module Text_row = struct
 
       method! destroy () : unit =
         super#destroy ();
+        nw#destroy ();
+        vw#destroy ();
         Utils.Option.iter (React.S.stop ~strong:true) _s;
         _s <- None
 

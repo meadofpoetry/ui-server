@@ -17,10 +17,10 @@ let make_icon path =
 
 let pages () : Api_template.topmost Api_template.item list =
   let open Api_template in
-  let side_sheet_toggle = Mosaic_video_template.(
-      make_icon_button
-        ~classes:[CSS.side_sheet_icon]
-        Components_tyxml.Svg_icons.tune) in
+  (* let side_sheet_toggle = Mosaic_video_template.(
+   *     make_icon_button
+   *       ~classes:[CSS.side_sheet_icon]
+   *       Components_tyxml.Svg_icons.tune) in *)
   let menu_toggle = Mosaic_video_template.(
       make_icon_button
         ~classes:[CSS.menu_icon]
@@ -30,7 +30,7 @@ let pages () : Api_template.topmost Api_template.item list =
       ~title:"Мозаика"
       ~side_sheet:(make_side_sheet_props ~clipped:false ())
       ~top_app_bar_actions:[ Tyxml.Html.toelt menu_toggle
-                           ; Tyxml.Html.toelt side_sheet_toggle ]
+                           (* ; Tyxml.Html.toelt side_sheet_toggle *) ]
       ~pre_scripts:[Src "/js/adapter.min.js"]
       ~post_scripts:[Src "/js/mosaic_video.js"]
       ~stylesheets:[ "/css/pipeline.min.css"
