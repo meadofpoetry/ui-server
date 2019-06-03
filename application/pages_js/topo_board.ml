@@ -61,40 +61,51 @@ let get_board_type ({ manufacturer; model; _ } : Topology.topo_board) =
   | _ -> ""
 
 let make_board_page (b : Topology.topo_board) =
-  let ( >>= ) = Lwt.( >>= ) in
+  let ( >>= ) = Lwt_result.( >>= ) in
   let ( >>=? ) x f = Lwt_result.(
       map_err Api_js.Http.error_to_string @@ x >>= f) in
   match b.manufacturer, b.model, b.version with
   | "NIITV", "TSAN", _ ->
     let open Board_niitv_tsan_http_js in
     let open Board_niitv_tsan_widgets_js in
-    Some (fun state socket ->
-        let t =
-          Http_device.get_t2mi_mode b.control
-          >>=? fun mode ->
-          let widget = Widget_t2mi_settings.make state mode b.control in
-          Lwt.return_ok widget#widget in
-        Ui_templates.Loader.create_widget_loader t)
+    let f = fun state socket ->
+      let t =
+        Http_device.get_t2mi_mode b.control
+        >>=? fun mode -> Http_streams.get_streams ~incoming:true b.control
+        >>=? fun streams -> Http_device.Event.get_t2mi_mode socket b.control
+        >>= fun (mode_id, e_mode) ->
+        Http_streams.Event.get_streams ~incoming:true socket b.control
+        >>= fun (streams_id, e_streams) ->
+        let open React in
+        let w = Widget_t2mi_settings.make state mode streams b.control in
+        let e1 = E.map (fun x -> w#notify (`Mode x)) e_mode in
+        let e2 = E.map (fun x -> w#notify (`Incoming_streams x)) e_streams in
+        w#set_on_destroy (fun () ->
+            E.stop ~strong:true e1;
+            E.stop ~strong:true e2;
+            E.stop ~strong:true e_mode;
+            E.stop ~strong:true e_streams;
+            Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket mode_id);
+            Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket streams_id));
+        Lwt.return_ok w#widget in
+      Ui_templates.Loader.create_widget_loader t in
+    Some f
   | "NIITV", "DVB4CH", _ ->
     let open Board_niitv_dvb_http_js in
     let open Board_niitv_dvb_widgets_js in
     Some (fun state socket ->
         let t =
           Http_device.get_mode b.control
-          >>=? fun mode -> (* Http_device.get_info b.control
-           * >>=? fun info ->  *)Http_device.Event.get_mode socket b.control
-          >>= function
-          | Error `Timeout _ -> Lwt.return_error "Timeout"
-          | Error `Error e -> Lwt.return_error e
-          | Ok (id, event) ->
-            let receivers = Some [0;1;2;3] in
-            (* let receivers = Some info.receivers in *)
-            let widget = Widget_settings.make state mode receivers b.control in
-            let event = React.E.map (fun x -> widget#notify (`Mode x)) event in
-            widget#set_on_destroy (fun () ->
-                React.E.stop ~strong:true event;
-                Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket id));
-            Lwt.return_ok widget#widget in
+          >>=? fun mode -> Http_device.Event.get_mode socket b.control
+          >>= fun (id, event) ->
+          (* TODO *)
+          let receivers = Some [0;1;2;3] in
+          let widget = Widget_settings.make state mode receivers b.control in
+          let event = React.E.map (fun x -> widget#notify (`Mode x)) event in
+          widget#set_on_destroy (fun () ->
+              React.E.stop ~strong:true event;
+              Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket id));
+          Lwt.return_ok widget#widget in
         Ui_templates.Loader.create_widget_loader t)
   | "DekTec", "DTM-3200", _ ->
     let open Board_dektec_dtm3200_http_js in

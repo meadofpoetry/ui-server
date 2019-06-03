@@ -14,7 +14,7 @@ include Websocket_intf
 type 'a t =
   { socket : WebSockets.webSocket Js.t
   ; subscribers : (int, int ref * 'a React.event * ('a -> unit)) Hashtbl.t
-  ; control : (int * 'a Api.ws_message) React.event
+  ; control : (int * 'a Api.ws_message) Lwt_stream.t
   }
 
 let close_socket (t : 'a t) =
@@ -32,24 +32,35 @@ module Make
     | Subscribe : int * Uri.t -> int req
     | Unsubscribe : int * int -> unit req
 
+  let request_to_string (type a) : a req -> string = function
+    | Subscribe (_, uri) -> Printf.sprintf "Subscribe (%s)" @@ Uri.to_string uri
+    | Unsubscribe (_, id) -> Printf.sprintf "Unsubscribe (%d)" id
+
   let request (type a) ?(timeout = 2.) socket
       (req : a req) =
     let id, msg = match req with
       | Subscribe (id, uri) -> id, (`Subscribe (Uri.to_string uri))
       | Unsubscribe (id, subid) -> id, (`Unsubscribe subid) in
+    print_endline @@ request_to_string req;
     socket.socket##send (Js.string @@ Body.to_string @@ Msg.compose id msg);
     let rec loop () =
-      Lwt_react.E.next socket.control
+      Lwt_stream.next socket.control
       >>= fun resp ->
       match req, resp with
       | Subscribe _, (id', `Subscribed subid) when id = id' ->
         (Lwt.return_ok subid : (a, _) result Lwt.t)
       | Unsubscribe _, (id', `Unsubscribed) when id = id' -> Lwt.return_ok ()
-      | _, (id', `Error e) when id = id' -> Lwt.return_error (`Error e)
+      | _, (id', `Error e) when id = id' ->
+        Lwt.return_error
+        @@ Printf.sprintf "\"%s\" request error: %s"
+          (request_to_string req) e
       | _ -> loop () in
     Lwt.pick
       [ loop ()
-      ; (Lwt_js.sleep timeout >>= fun () -> Lwt.return_error (`Timeout timeout)) ]
+      ; (Lwt_js.sleep timeout >>= fun () ->
+         Lwt.return_error
+         @@ Printf.sprintf "Request \"%s\" timed out"
+         @@ request_to_string req) ]
 
   let make_uri ?(insert_defaults = true) ?secure ?host ?port ~f ~path ~query=
     let host = match host, insert_defaults with
@@ -112,7 +123,7 @@ module Make
     -> 'a =
     fun ?secure ?host ?port ~path ->
     let f uri () : (t, string) Lwt_result.t =
-      let control, push_ctrl = React.E.create () in
+      let control, push_ctrl = Lwt_stream.create () in
       let subscribers = Hashtbl.create 100 in
       let socket = new%js webSocket (Js.string uri) in
       let message_handler (evt : webSocket messageEvent Js.t) =
@@ -125,7 +136,7 @@ module Make
              (match Hashtbl.find_opt subscribers subid with
               | None -> ()
               | Some (_, _, push) -> push data)
-           | Some x -> push_ctrl x);
+           | Some x -> push_ctrl @@ Some x);
         Js._true
       in
       Lwt.pick [ Lwt_js_events.make_event (Dom_events.Typ.make "open") socket

@@ -264,26 +264,23 @@ let () =
     >>=& fun init ->
     Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
     >>=? fun socket -> Application_http_js.Event.get_topology socket
-    >>= function
-    | Error `Timeout _ -> Lwt.return_error "Timeout"
-    | Error `Error e -> Lwt.return_error e
-    | Ok (id, event) ->
-      let page = create init socket in
-      let event = React.E.map (fun x -> page#notify (`Topology x)) event in
-      let s_settings =
-        React.S.hold None
-        @@ React.E.map (fun x -> Some x) page#e_settings in
-      let close = Events.listen_lwt side_sheet#root Side_sheet.Event.close
-          (fun _ _ ->
-             match React.S.value s_settings with
-             | None -> Lwt.return_unit
-             | Some (w, _) -> w#destroy (); Lwt.return_unit) in
-      page#set_on_destroy (fun () ->
-          Lwt.cancel close;
-          React.E.stop ~strong:true event;
-          Api_js.Websocket.close_socket socket);
-      Lwt_react.(E.keep @@ S.diff_s on_settings s_settings);
-      Lwt.return_ok page in
+    >>=? fun (id, event) ->
+    let page = create init socket in
+    let event = React.E.map (fun x -> page#notify (`Topology x)) event in
+    let s_settings =
+      React.S.hold None
+      @@ React.E.map (fun x -> Some x) page#e_settings in
+    let close = Events.listen_lwt side_sheet#root Side_sheet.Event.close
+        (fun _ _ ->
+           match React.S.value s_settings with
+           | None -> Lwt.return_unit
+           | Some (w, _) -> w#destroy (); Lwt.return_unit) in
+    page#set_on_destroy (fun () ->
+        Lwt.cancel close;
+        React.E.stop ~strong:true event;
+        Api_js.Websocket.close_socket socket);
+    Lwt_react.(E.keep @@ S.diff_s on_settings s_settings);
+    Lwt.return_ok page in
   let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
   let body = Ui_templates.Loader.create_widget_loader thread in
   body#add_class Layout_grid.CSS.root;
