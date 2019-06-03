@@ -111,7 +111,6 @@ class t
   object(self)
     val mutable _on_submit = None
     val mutable _e_change = None
-    val mutable _state = state
     inherit Widget.t Dom_html.(createDiv document) () as super
 
     method! init () : unit =
@@ -150,8 +149,13 @@ class t
         t
 
     method value : t2mi_mode option =
-      match pid#value, sid#value, stream_select#value with
-      | Some pid, Some t2mi_stream_id, Some stream ->
+      let disabled =
+        en#input#disabled
+        || pid#disabled
+        || sid#disabled
+        || stream_select#disabled in
+      match disabled, pid#value, sid#value, stream_select#value with
+      | false, Some pid, Some t2mi_stream_id, Some stream ->
         Some { enabled = en#input#checked
              ; pid
              ; t2mi_stream_id
@@ -182,7 +186,6 @@ class t
         Utils.Option.iter stream_select#set_value value;
         self#update_submit_button_state ()
       | `State s ->
-        _state <- s;
         let disabled = match s with `Fine -> false | _ -> true in
         en#input#set_disabled disabled;
         stream_select#set_disabled disabled;
@@ -191,9 +194,9 @@ class t
         self#update_submit_button_state ()
 
     method private update_submit_button_state () =
-      match self#value, _state with
-      | Some _, `Fine -> submit#set_disabled false
-      | _ -> submit#set_disabled true
+      match self#value with
+      | Some _ -> submit#set_disabled false
+      | None -> submit#set_disabled true
   end
 
 let make (state : Topology.state)

@@ -16,19 +16,19 @@ let ipv4 = Textfield.(
            })
 
 let make_ip ~id ~label () =
-  let signal, push = React.S.create None in
+  let event, push = React.E.create () in
   let ip = Textfield.make_textfield ~input_id:id ~label ipv4 in
   let listener =
     Events.inputs ip#input_element (fun _ _ ->
-        push ip#value;
+        push ();
         Lwt.return_unit) in
   ip#set_on_destroy (fun () -> Lwt.cancel listener);
-  ip, signal
+  ip, event
 
 let make_dhcp (inputs : 'a #Textfield.t list) =
-  let signal, push = React.S.create false in
+  let event, push = React.E.create () in
   let dhcp = Switch.make ~on_change:(fun x ->
-      push x#checked;
+      push ();
       List.iter (fun w -> w#set_disabled x#checked) inputs;
       Lwt.return_unit)
       () in
@@ -37,7 +37,7 @@ let make_dhcp (inputs : 'a #Textfield.t list) =
       ~label:"DHCP"
       ~align_end:true
       dhcp in
-  form, signal
+  form, event
 
 let name = "Настройки. Сеть"
 
@@ -51,24 +51,16 @@ type event =
   ]
 
 class t (state : Topology.state) (mode : nw) (control : int) =
-  let s_state, set_state = React.S.create state in
-  let ip, s_ip = make_ip ~id:"ip" ~label:"IP адрес" () in
-  let mask, s_mask = make_ip ~id:"mask" ~label:"Маска подсети" () in
-  let gw, s_gw = make_ip ~id:"gw" ~label:"Шлюз" () in
-  let dhcp, s_dhcp = make_dhcp [ip; mask; gw] in
+  let ip, e_ip = make_ip ~id:"ip" ~label:"IP адрес" () in
+  let mask, e_mask = make_ip ~id:"mask" ~label:"Маска подсети" () in
+  let gw, e_gw = make_ip ~id:"gw" ~label:"Шлюз" () in
+  let dhcp, e_dhcp = make_dhcp [ip; mask; gw] in
   let submit = Button.make ~label:"Применить" () in
   let buttons = Card.Actions.make_buttons [submit] in
   let actions = Card.Actions.make [buttons] in
-  let (s : nw option React.signal) =
-    React.S.l5 ~eq:(Util_equal.Option.equal equal_nw)
-      (fun ip mask gw dhcp state ->
-         match ip, mask, gw, state with
-         | Some ip_address, Some mask, Some gw, `Fine ->
-           Some { ip_address; mask; gateway = gw; dhcp }
-         | _ -> None)
-      s_ip s_mask s_gw s_dhcp s_state in
   object(self)
     val mutable _on_submit = None
+    val mutable _e_change = None
     inherit Widget.t Dom_html.(createDiv document) () as super
 
     method! init () : unit =
@@ -81,31 +73,44 @@ class t (state : Topology.state) (mode : nw) (control : int) =
       super#add_class base_class;
       super#add_class Box.CSS.root;
       super#add_class Box.CSS.vertical;
+      self#notify (`State state);
       self#set_value mode;
+      _e_change <- Some (
+          React.E.map self#update_submit_button_state
+          @@ React.E.select [e_ip; e_mask; e_gw; e_dhcp]);
       _on_submit <- Some (Events.clicks submit#root (fun _ _ ->
-          self#request_ (assert false)
-          >>= fun _ -> Lwt.return ()))
+          self#submit () >>= fun _ -> Lwt.return ()))
 
     method! destroy () : unit =
       super#destroy ();
-      React.S.stop ~strong:true s;
+      Utils.Option.iter (React.E.stop ~strong:true) _e_change;
       (match _on_submit with
        | None -> ()
        | Some x -> Lwt.cancel x; _on_submit <- None)
 
-    method notify : event -> unit = function
-      | `State x ->
-        set_state x;
-        let disabled = match x with `Fine -> false | _ -> true in
-        dhcp#input#set_disabled disabled;
-        ip#set_disabled disabled;
-        mask#set_disabled disabled;
-        gw#set_disabled disabled
-      | `Nw_mode mode -> self#set_value mode
+    method submit () : (unit, string) Lwt_result.t =
+      match self#value with
+      | None -> Lwt.return_error "Please fill the settings form"
+      | Some mode ->
+        let req = Http_network.(
+            let ( >>= ) = Lwt_result.( >>= ) in
+            submit#set_loading true;
+            set_ip_address mode.ip_address control
+            >>= fun ip_address -> set_subnet_mask mode.mask control
+            >>= fun mask -> set_gateway mode.gateway control
+            >>= fun gateway -> set_dhcp mode.dhcp control
+            >>= fun dhcp ->
+            (* FIXME force reboot when dhcp is changed *)
+            if equal_nw mode { ip_address; mask; gateway; dhcp }
+            then Lwt.return_ok ()
+            else reboot control) in
+        submit#set_loading_lwt req;
+        Lwt_result.map_err Api_js.Http.error_to_string req
 
     method value : nw option =
-      match ip#value, mask#value, gw#value with
-      | Some ip_address, Some mask, Some gateway ->
+      let disabled = dhcp#input#disabled in
+      match disabled, ip#value, mask#value, gw#value with
+      | false, Some ip_address, Some mask, Some gateway ->
         Some { dhcp = dhcp#input#checked
              ; ip_address
              ; mask
@@ -117,22 +122,24 @@ class t (state : Topology.state) (mode : nw) (control : int) =
       dhcp#input#toggle ~notify:true ~force:x.dhcp ();
       ip#set_value x.ip_address;
       mask#set_value x.mask;
-      gw#set_value x.gateway
+      gw#set_value x.gateway;
+      self#update_submit_button_state ()
 
-    method private request_ (x : nw) =
-      let req = Http_network.(
-          let ( >>= ) = Lwt_result.( >>= ) in
-          submit#set_loading true;
-          set_ip_address x.ip_address control
-          >>= fun ip_address -> set_subnet_mask x.mask control
-          >>= fun mask -> set_gateway x.gateway control
-          >>= fun gateway -> set_dhcp x.dhcp control
-          >>= fun dhcp ->
-          if equal_nw x { ip_address; mask; gateway; dhcp }
-          then Lwt.return_ok ()
-          else reboot control) in
-      submit#set_loading_lwt req;
-      req
+    method notify : event -> unit = function
+      | `Nw_mode mode -> self#set_value mode
+      | `State x ->
+        let disabled = match x with `Fine -> false | _ -> true in
+        ip#set_disabled disabled;
+        dhcp#input#set_disabled disabled;
+        let disabled = dhcp#input#checked || disabled in
+        mask#set_disabled disabled;
+        gw#set_disabled disabled;
+        self#update_submit_button_state ()
+
+    method private update_submit_button_state () =
+      match self#value with
+      | Some _ -> submit#set_disabled false
+      | None -> submit#set_disabled true
 
   end
 
