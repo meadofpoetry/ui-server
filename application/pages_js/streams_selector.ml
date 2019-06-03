@@ -468,7 +468,7 @@ class t
     React.S.switch ~eq
       (React.S.map ~eq:(React.S.equal ~eq)
          (fun n ->
-           div#set_empty ();
+           div#remove_children ();
            let w, n_s = n in
            div#append_child w;
            n_s) s_div) in

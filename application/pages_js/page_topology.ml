@@ -241,11 +241,18 @@ let ( >>=& ) x f =
 let on_settings (side_sheet : #Side_sheet.Parent.t)
     (content : #Widget.t)
     (set_title : string -> unit) =
-  fun ((widget : Widget.t), (name : string)) ->
-  content#set_empty ~hard:true ();
-  content#append_child widget;
-  set_title name;
-  side_sheet#toggle ~force:true ()
+  fun cur old ->
+  (match old with
+   | Some (w, _) -> w#destroy ()
+   | None -> ());
+  content#remove_children ();
+  match cur with
+  | None -> Lwt.return_unit
+  | Some (widget, name) ->
+    content#remove_children ();
+    content#append_child widget;
+    set_title name;
+    side_sheet#toggle ~force:true ()
 
 let () =
   let side_sheet, side_sheet_content, set_side_sheet_title =
@@ -263,10 +270,19 @@ let () =
     | Ok (id, event) ->
       let page = create init socket in
       let event = React.E.map (fun x -> page#notify (`Topology x)) event in
+      let s_settings =
+        React.S.hold None
+        @@ React.E.map (fun x -> Some x) page#e_settings in
+      let close = Events.listen_lwt side_sheet#root Side_sheet.Event.close
+          (fun _ _ ->
+             match React.S.value s_settings with
+             | None -> Lwt.return_unit
+             | Some (w, _) -> w#destroy (); Lwt.return_unit) in
       page#set_on_destroy (fun () ->
+          Lwt.cancel close;
           React.E.stop ~strong:true event;
           Api_js.Websocket.close_socket socket);
-      Lwt_react.(E.keep @@ E.map_p on_settings page#e_settings);
+      Lwt_react.(E.keep @@ S.diff_s on_settings s_settings);
       Lwt.return_ok page in
   let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
   let body = Ui_templates.Loader.create_widget_loader thread in

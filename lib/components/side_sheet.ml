@@ -198,10 +198,10 @@ module Make_parent(M : M) = struct
       else Lwt.return_unit
 
     method private notify_open () : unit =
-      ()
+      super#emit ~should_bubble:true Event.open_
 
     method private notify_close () : unit =
-      ()
+      super#emit ~should_bubble:true Event.close
 
     method private handle_scrim_click () : unit Lwt.t =
       self#hide ()

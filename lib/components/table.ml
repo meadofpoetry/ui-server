@@ -159,15 +159,15 @@ module Cell = struct
        end
     | Html x ->
        let to_elt = map_or ~default:(fun x -> x) (fun x -> x.to_elt) x in
-       w#set_empty ();
+       w#remove_children ();
        Dom.appendChild w#root (to_elt v)
     | Custom_elt x ->
-       w#set_empty ();
+       w#remove_children ();
        Dom.appendChild w#root (x.to_elt v)
     | Widget x ->
        let to_elt =
          map_or ~default:(fun x -> x#node) (fun x -> x.to_elt) x in
-       w#set_empty ();
+       w#remove_children ();
        Dom.appendChild w#root (to_elt v)
     | _ -> w#root##.textContent := Js.some @@ Js.string @@ to_string fmt v
 
@@ -507,7 +507,7 @@ module Body = struct
         self#remove_child row
 
       method remove_all_rows () : unit =
-        self#set_empty ();
+        self#remove_children ();
         (* s_rows_push []; *)
 
       (* method s_rows : 'a Row.t list React.signal =
@@ -767,7 +767,7 @@ class ['a] t ?(selection : selection option)
       | None ->
          (* FIXME do it in a more smart way. Move only those rows that
          have changed their positions *)
-         body#set_empty ();
+         body#remove_children ();
          List.iter body#append_child rows
       | Some c ->
          Clusterize.update c @@ List.map (fun x -> x#root) rows

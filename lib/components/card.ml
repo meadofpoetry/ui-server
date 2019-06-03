@@ -79,9 +79,9 @@ module Media = struct
 
 end
 
-class t ?widgets (elt : Dom_html.element Js.t) () =
+class t (elt : Dom_html.element Js.t) () =
   object
-    inherit Widget.t ?widgets elt () as super
+    inherit Widget.t elt () as super
 
     method outlined : bool =
       super#has_class CSS.outlined
@@ -93,8 +93,9 @@ class t ?widgets (elt : Dom_html.element Js.t) () =
 let make ?outlined ?tag widgets : t =
   let elt =
     Tyxml_js.To_dom.of_element
-    @@ Markup.create ?outlined ?tag [] in
-  new t ~widgets elt ()
+    @@ Markup.create ?outlined ?tag
+    @@ List.map Widget.to_markup widgets in
+  new t elt ()
 
 let attach (elt : #Dom_html.element Js.t) : t =
   new t (Element.coerce elt) ()
