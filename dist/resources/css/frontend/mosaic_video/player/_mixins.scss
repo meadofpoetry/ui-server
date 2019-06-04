@@ -61,7 +61,7 @@
     @include mdc-theme-prop(color, $color);
     opacity: 0.75;
     user-select: none;
-    background-color: rgba(0, 0, 0, .5);
+    background-color: hsl(0%, 0%, 7%);
 
     .mdc-placeholder__text {
         @include mdc-theme-prop(color, $color);

@@ -38,7 +38,7 @@ let pages () : Api_template.topmost Api_template.item list =
       ~content:[Tyxml.Html.toelt @@ Mosaic_video_template.make_player ()]
       ()
   in
-  simple ~priority:(`Index 1)
+  simple ~priority:(`Index 2)
     ~title:"Мозаика"
     ~icon:(make_icon Components_tyxml.Svg_icons.collage)
     ~path:(Path.of_string "pipeline")

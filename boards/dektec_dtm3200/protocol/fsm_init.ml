@@ -102,10 +102,14 @@ let step
     (* If device network settings are equal to the user settings,
        skip network initialization and go directly to IP receiver
        initialization. *)
-    if equal_nw dev nw
+    if nw.dhcp && (dev.dhcp = nw.dhcp) || equal_nw nw dev
     then (
       Logs.info (fun m -> m "No need to initialize network settings, skipping...");
       set_enable ip_receive)
+    else if nw.dhcp
+    then (
+      Logs.info (fun m -> m "Initializing DHCP...");
+      set_dhcp ~cfg:nw ~dev)
     (* Otherwise, initialize network settings first. *)
     else (
       Logs.info (fun m -> m "Initializing network settings...");
@@ -152,7 +156,7 @@ let step
       >>= fun _ -> get_network ()
       >>= fun nw' ->
       (* If DHCP is enabled, check only DHCP equivalence. *)
-      if (nw.dhcp && nw.dhcp = nw'.dhcp)
+      if (nw.dhcp && (nw.dhcp = nw'.dhcp))
       || ((not nw.dhcp) && equal_nw nw nw')
       then (
         Logs.info (fun m ->

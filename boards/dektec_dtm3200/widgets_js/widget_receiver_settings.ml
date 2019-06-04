@@ -137,13 +137,22 @@ class t (state : Topology.state) (mode : ip_receive) (control : int) =
         Lwt_result.map_err Api_js.Http.error_to_string req
 
     method value : ip_receive option =
+      let enable = en#input#checked in
+      let fec_enable = fec#input#checked in
       match _state, mcast#value, port#value, meth#value with
+      | `Fine, None, Some udp_port, Some Unicast ->
+        Some { mode with
+               enable
+             ; fec_enable
+             ; addressing_method = Unicast
+             ; udp_port
+             }
       | `Fine, Some multicast, Some udp_port, Some addressing_method ->
         Some { mode with
-               enable = en#input#checked
-             ; fec_enable = fec#input#checked
+               enable
+             ; fec_enable
              ; addressing_method
-             ; multicast = multicast
+             ; multicast
              ; udp_port
              }
       | _ -> None
