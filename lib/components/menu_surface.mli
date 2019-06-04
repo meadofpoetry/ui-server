@@ -92,7 +92,6 @@ class t : ?body:Dom_html.element Js.t
     val mutable _last_focusable : Dom_html.element Js.t option
     val mutable _animation_thread : unit Lwt.t option
 
-    val mutable _dimensions : int * int
     val mutable _position : point
 
     (** Event listeners. *)
@@ -141,6 +140,10 @@ class t : ?body:Dom_html.element Js.t
 
     (** Sets the corner that the menu surface will be anchored to. *)
     method set_anchor_corner : Corner.t -> unit
+
+    method set_width_as_anchor : bool -> unit
+
+    method width_as_anchor : bool
 
     (** Private methods *)
 

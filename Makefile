@@ -62,6 +62,7 @@ css-pages:
 	$(CSS) $(CSS_DIR)/frontend/topology/topology.scss $(CSS_DIR)/topology.min.css
 	$(CSS) $(CSS_DIR)/frontend/pipeline/pipeline.scss $(CSS_DIR)/pipeline.min.css
 	$(CSS) $(CSS_DIR)/frontend/user/user.scss $(CSS_DIR)/user.min.css
+	postcss -u autoprefixer -r $(CSS_DIR)/topology.min.css
 
 css: css-components css-pages
 

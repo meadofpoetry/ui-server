@@ -86,19 +86,27 @@ let make_board_niitv_tsan_settings state socket control =
 
 let make_board_niitv_dvb4ch_settings state socket control =
   let open React in
+  let open Board_niitv_dvb_types in
   let open Board_niitv_dvb_http_js in
   let open Board_niitv_dvb_widgets_js in
   Http_device.get_mode control
-  >>= fun mode -> Http_device.Event.get_mode socket control
-  >>= fun (id, event) ->
+  >>= fun mode -> Http_receivers.get_plp_list ~id:0 control
+  >>= fun plps -> Http_device.Event.get_mode socket control
+  >>= fun (mode_id, e_mode) -> Http_receivers.Event.get_plp_list socket control
+  >>= fun (plps_id, e_plps) ->
   (* TODO *)
   let receivers = Some [0;1;2;3] in
-  let widget = Widget_settings.make (S.value state) mode receivers control in
-  let event = E.map (fun x -> widget#notify (`Mode x)) event in
-  widget#set_on_destroy (fun () ->
-      React.E.stop ~strong:true event;
-      Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket id));
-  Lwt.return_ok widget#widget
+  let w = Widget_settings.make (S.value state) mode [plps] receivers control in
+  let notif =
+    E.merge (fun _ -> w#notify) ()
+      [ E.map (fun x -> `Mode x) e_mode
+      ; E.map (fun x -> `PLPs x) e_plps
+      ; E.map (fun x -> `State x) @@ S.changes state ] in
+  w#set_on_destroy (fun () ->
+      React.E.stop ~strong:true notif;
+      Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket plps_id);
+      Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket mode_id));
+  Lwt.return_ok w#widget
 
 let make_board_dektec_dtm3200_settings state socket control =
   let open React in

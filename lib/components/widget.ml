@@ -8,6 +8,9 @@ class type ['a] custom_event =
     method detail : 'a Js.opt Js.readonly_prop
   end
 
+let event_detail (e : 'a #custom_event Js.t) =
+  Js.Opt.get e##.detail (fun () -> failwith "No detail")
+
 class t (elt : #Dom_html.element Js.t) () =
   object(self)
 

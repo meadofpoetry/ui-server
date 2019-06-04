@@ -15,7 +15,7 @@ end
 
 type 'a dynamic_value = (unit -> #Widget.t as 'a)
 
-let create_simple ?body (tabs : (Widget.t * Tab.t) list) =
+let create_simple ?body (tabs : (#Widget.t * Tab.t) list) =
   let hide = fun w -> w#root##.style##.display := Js.string "none" in
   let show = fun w -> w#root##.style##.display := Js.string "" in
   let scroller = Tab_scroller.make (List.map snd tabs) in

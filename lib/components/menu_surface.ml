@@ -60,7 +60,7 @@ type position =
   ; right : float
   ; left : float
   ; bottom : float
-  }
+  } [@@deriving show]
 
 let get_position_value_by_name (pos : position) = function
   | "top" -> pos.top
@@ -87,7 +87,7 @@ type layout =
   ; surface_width : float
   ; body_dimensions : int * int
   ; window_scroll : int * int
-  }
+  } [@@deriving show]
 
 module Corner = struct
   type t =
@@ -138,12 +138,12 @@ class t ?(body = Dom_html.document##.body)
     val mutable _previous_focus = None
     val mutable _hoisted_element = false
     val mutable _is_fixed_position = false
+    val mutable _width_as_anchor = false
 
     val mutable _first_focusable = None
     val mutable _last_focusable = None
     val mutable _animation_thread = None
 
-    val mutable _dimensions = 0, 0
     val mutable _position = { x = 0.; y = 0. }
     (* Event listeners. *)
     val mutable _keydown_listener = None
@@ -195,7 +195,7 @@ class t ?(body = Dom_html.document##.body)
     method hoist_menu_to_body () : unit =
       Option.iter (fun parent -> Dom.removeChild parent super#root)
         (Js.Opt.to_option super#root##.parentNode);
-      Element.append_child Dom_html.document##.body super#root;
+      Element.append_child body super#root;
       self#set_is_hoisted true
 
     method set_anchor_element : 'a. (#Dom_html.element as 'a) Js.t -> unit =
@@ -216,6 +216,12 @@ class t ?(body = Dom_html.document##.body)
 
     method set_anchor_corner (c : Corner.t) : unit =
       _anchor_corner <- c
+
+    method set_width_as_anchor (x : bool) : unit =
+      _width_as_anchor <- x
+
+    method width_as_anchor : bool =
+      _width_as_anchor
 
     (* Private methods *)
 
@@ -249,7 +255,10 @@ class t ?(body = Dom_html.document##.body)
         Animation.request ()
         >>= fun _ ->
         super#add_class CSS.open_;
-        _dimensions <- super#root##.offsetWidth, super#root##.offsetHeight;
+        self#auto_position ();
+        (* HACK dirty hack to position the element right.
+           should be fixed.
+           Body dimensions shrinks by 15px after the class is added *)
         self#auto_position ();
         if _quick_open
         then (
@@ -444,10 +453,9 @@ class t ?(body = Dom_html.document##.body)
         (Js.string (get_transform_property_name () ^ "-origin"))
         (Js.string (Printf.sprintf "%s %s" halign valign));
       self#set_position position;
-      begin match self#get_menu_surface_max_height meas corner with
-        | 0. -> super#root##.style##.maxHeight := Js.string ""
-        | x -> super#root##.style##.maxHeight := px_js (int_of_float x)
-      end
+      match self#get_menu_surface_max_height meas corner with
+      | 0. -> super#root##.style##.maxHeight := Js.string ""
+      | x -> super#root##.style##.maxHeight := px_js (int_of_float x)
 
     method private adjust_position_for_hoisted_element
         ({ window_scroll = x, y
@@ -463,23 +471,24 @@ class t ?(body = Dom_html.document##.body)
           let v =
             (* Surfaces that are absolutely positioned need to have
                additional calculations for scroll and bottom positioning. *)
-            if _is_fixed_position then v else
-              match k with
+            if _is_fixed_position then v
+            else match k with
               | "top" | "bottom" -> v +. float_of_int y
               | "left" | "right" -> v +. float_of_int x
               | _ -> v in
           k, v) position
 
     method private get_auto_layout_measurements () : layout =
-      let anchor_rect = Option.map (fun e -> e##getBoundingClientRect) _anchor_element in
-      let viewport, scroll = match viewport with
+      let body_dimensions =
+        body##.offsetWidth,
+        body##.offsetHeight in
+      let anchor_rect = Option.map (fun e ->
+          e##getBoundingClientRect) _anchor_element in
+      let viewport, window_scroll = match viewport with
         | Window wnd -> get_window_dimensions wnd, get_window_scroll wnd
         | Element elt ->
           (elt##.clientWidth, elt##.clientHeight),
           (elt##.scrollLeft, elt##.scrollTop) in
-      let body_rect =
-        body##.clientWidth,
-        body##.clientHeight in
       let anchor_rect = match anchor_rect with
         | Some x -> x
         | None ->
@@ -491,21 +500,28 @@ class t ?(body = Dom_html.document##.body)
             val height = Js.def 0.
             val width = Js.def 0.
           end in
-      ignore @@ Js.Unsafe.global##.console##log body;
-      print_endline @@ Printf.sprintf "%dx%d" (fst body_rect) (snd body_rect);
+      let anchor_width = Js.Optdef.get anchor_rect##.width (fun () -> 0.) in
+      let anchor_height = Js.Optdef.get anchor_rect##.height (fun () -> 0.) in
+      if _width_as_anchor then (
+        let width = Printf.sprintf "%gpx" anchor_width in
+        super#root##.style##.width := Js.string width);
+      let surface_width, surface_height =
+        float_of_int super#root##.offsetWidth,
+        float_of_int super#root##.offsetHeight in
+      let viewport_distance =
+        { top = anchor_rect##.top
+        ; right = (float_of_int @@ fst viewport) -. anchor_rect##.right
+        ; left = anchor_rect##.left
+        ; bottom = (float_of_int @@ snd viewport) -. anchor_rect##.bottom
+        } in
       { viewport
-      ; viewport_distance =
-          { top = anchor_rect##.top
-          ; right = (float_of_int @@ fst viewport) -. anchor_rect##.right
-          ; left = anchor_rect##.left
-          ; bottom = (float_of_int @@ snd viewport) -. anchor_rect##.bottom
-          }
-      ; body_dimensions = body_rect
-      ; window_scroll = scroll
-      ; anchor_height = Js.Optdef.get anchor_rect##.height (fun () -> 0.)
-      ; anchor_width = Js.Optdef.get anchor_rect##.width (fun () -> 0.)
-      ; surface_height = float_of_int @@ snd _dimensions
-      ; surface_width = float_of_int @@ fst _dimensions
+      ; viewport_distance
+      ; body_dimensions
+      ; window_scroll
+      ; anchor_height
+      ; anchor_width
+      ; surface_height
+      ; surface_width
       }
 
     method private set_position (pos : (string * float) list) : unit =
@@ -519,7 +535,10 @@ class t ?(body = Dom_html.document##.body)
       super#root##.style##.left := conv (get "left" pos)
   end
 
-let make ?body ?viewport ?fixed ?open_ (content : Dom_html.element Js.t list) : t =
+let make ?body ?viewport
+    ?fixed
+    ?open_
+    (content : Dom_html.element Js.t list) : t =
   let body = (body :> Dom_html.element Js.t option) in
   let content' = List.map Tyxml_js.Of_dom.of_element content in
   let (elt : Dom_html.divElement Js.t) =

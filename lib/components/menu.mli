@@ -22,6 +22,7 @@ end
 class t : ?body:Dom_html.element Js.t
   -> ?viewport:Menu_surface.viewport
   -> ?list:Item_list.t
+  -> ?focus_on_open:bool
   -> Dom_html.element Js.t
   -> unit
   -> object
@@ -62,6 +63,7 @@ class t : ?body:Dom_html.element Js.t
 
 val make_of_item_list : ?body:#Dom_html.element Js.t
   -> ?viewport:Menu_surface.viewport
+  -> ?focus_on_open:bool
   -> ?fixed:bool
   -> ?open_:bool
   -> Item_list.t
@@ -69,5 +71,6 @@ val make_of_item_list : ?body:#Dom_html.element Js.t
 
 val attach : ?body:#Dom_html.element Js.t
   -> ?viewport:Menu_surface.viewport
+  -> ?focus_on_open:bool
   -> #Dom_html.element Js.t
   -> t

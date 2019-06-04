@@ -29,6 +29,10 @@ module Character_counter : sig
 end
 
 module Icon : sig
+  module Attr : sig
+    val icon_role : string
+    val aria_label : string
+  end
   class type t =
     object
       inherit Widget.t
@@ -45,9 +49,13 @@ module Icon : sig
           the icon, which bubbles to the top-level text field element. *)
       method private notify_action : unit -> unit
 
-      method private handle_keydown : Dom_html.keyboardEvent Js.t -> unit Lwt.t
+      method private handle_keydown : Dom_html.keyboardEvent Js.t
+        -> unit Lwt.t
+        -> unit Lwt.t
 
-      method private handle_click : Dom_html.mouseEvent Js.t -> unit Lwt.t
+      method private handle_click : Dom_html.mouseEvent Js.t
+        -> unit Lwt.t
+        -> unit Lwt.t
     end
 
   val attach : #Dom_html.element Js.t -> t
@@ -185,6 +193,8 @@ class type ['a] t =
 
     (** Returns Text Field value as string. *)
     method value_as_string : string
+
+    method set_value_as_string : string -> unit
 
     (** Returns type-safe Text Field value. *)
     method value : 'a option

@@ -4,7 +4,7 @@ open Utils
 
 (* TODO
    - add 'onchange' callback
- *)
+*)
 
 include Components_tyxml.Textfield
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
@@ -32,14 +32,14 @@ end
 
 module Character_counter = struct
   class t (elt : Dom_html.element Js.t) () =
-  object
-    inherit Widget.t elt () as super
+    object
+      inherit Widget.t elt () as super
 
-    method set_value ~(max_length : int) (cur : int) : unit =
-      let cur = min cur max_length in
-      let s = Printf.sprintf "%d / %d" cur max_length in
-      super#root##.textContent := Js.some (Js.string s)
-  end
+      method set_value ~(max_length : int) (cur : int) : unit =
+        let cur = min cur max_length in
+        let s = Printf.sprintf "%d / %d" cur max_length in
+        super#root##.textContent := Js.some (Js.string s)
+    end
 
   let make ?current_length ?max_length () : t =
     let (elt : Dom_html.divElement Js.t) =
@@ -59,60 +59,58 @@ module Icon = struct
 
   (* XXX Should be inherited from Icon? *)
   class t (elt : Dom_html.element Js.t) () =
-  object(self)
-    val mutable _saved_tab_index = None
-    val mutable _click_listener = None
-    val mutable _keydown_listener = None
-    inherit Widget.t elt () as super
+    object(self)
+      val mutable _saved_tab_index = None
+      val mutable _click_listener = None
+      val mutable _keydown_listener = None
+      inherit Widget.t elt () as super
 
-    method! init () : unit =
-      super#init ();
-      _saved_tab_index <- Element.get_attribute super#root "tabindex";
-      (* Attach event listeners *)
-      let click =
-        Events.clicks super#root (fun e _ -> self#handle_click e;) in
-      let keydown =
-        Events.keydowns super#root (fun e _ -> self#handle_keydown e) in
-      _click_listener <- Some click;
-      _keydown_listener <- Some keydown
+      method! init () : unit =
+        super#init ();
+        _saved_tab_index <- Element.get_attribute super#root "tabindex";
+        (* Attach event listeners *)
+        let click = Events.clicks super#root self#handle_click in
+        let keydown = Events.keydowns super#root self#handle_keydown in
+        _click_listener <- Some click;
+        _keydown_listener <- Some keydown
 
-    method! destroy () : unit =
-      super#destroy ();
-      (* Detach event listeners *)
-      Option.iter Lwt.cancel _click_listener;
-      Option.iter Lwt.cancel _keydown_listener;
-      _click_listener <- None;
-      _keydown_listener <- None
+      method! destroy () : unit =
+        super#destroy ();
+        (* Detach event listeners *)
+        Option.iter Lwt.cancel _click_listener;
+        Option.iter Lwt.cancel _keydown_listener;
+        _click_listener <- None;
+        _keydown_listener <- None
 
-    method set_aria_label (label : string) : unit =
-      Element.set_attribute super#root Attr.aria_label label
+      method set_aria_label (label : string) : unit =
+        Element.set_attribute super#root Attr.aria_label label
 
-    method set_disabled (x : bool) : unit =
-      match _saved_tab_index with
-      | None -> ()
-      | Some tabindex ->
-         if x then (
-           Element.set_attribute super#root "tabindex" "-1";
-           Element.remove_attribute super#root "role")
-         else (
-           Element.set_attribute super#root "tabindex" tabindex;
-           Element.set_attribute super#root "role" Attr.icon_role)
+      method set_disabled (x : bool) : unit =
+        match _saved_tab_index with
+        | None -> ()
+        | Some tabindex ->
+          if x then (
+            Element.set_attribute super#root "tabindex" "-1";
+            Element.remove_attribute super#root "role")
+          else (
+            Element.set_attribute super#root "tabindex" tabindex;
+            Element.set_attribute super#root "role" Attr.icon_role)
 
-    (* Private methods *)
+      (* Private methods *)
 
-    method private notify_action () : unit =
-      super#emit ~should_bubble:true Event.icon
+      method private notify_action () : unit =
+        super#emit ~should_bubble:true Event.icon
 
-    method private handle_keydown (e : Dom_html.keyboardEvent Js.t) : unit Lwt.t =
-      (match Events.Key.of_event e with
-       | `Enter -> self#notify_action ()
-       | _ -> ());
-      Lwt.return_unit
+      method private handle_keydown e _ : unit Lwt.t =
+        (match Events.Key.of_event e with
+         | `Enter -> self#notify_action ()
+         | _ -> ());
+        Lwt.return_unit
 
-    method private handle_click (_ : Dom_html.mouseEvent Js.t) : unit Lwt.t =
-      self#notify_action ();
-      Lwt.return_unit
-  end
+      method private handle_click _ _ : unit Lwt.t =
+        self#notify_action ();
+        Lwt.return_unit
+    end
 
   let attach (elt : #Dom_html.element Js.t) : t =
     new t (Element.coerce elt) ()
@@ -126,40 +124,40 @@ module Helper_text = struct
   end
 
   class t (elt : Dom_html.element Js.t) () =
-  object(self)
-    inherit Widget.t elt () as super
+    object(self)
+      inherit Widget.t elt () as super
 
-    method set_content (s : string) : unit =
-      super#root##.textContent := Js.some @@ Js.string s
+      method set_content (s : string) : unit =
+        super#root##.textContent := Js.some @@ Js.string s
 
-    method persistent : bool =
-      super#has_class CSS.Helper_text.persistent
+      method persistent : bool =
+        super#has_class CSS.Helper_text.persistent
 
-    method set_persistent (x : bool) : unit =
-      super#toggle_class ~force:x CSS.Helper_text.persistent
+      method set_persistent (x : bool) : unit =
+        super#toggle_class ~force:x CSS.Helper_text.persistent
 
-    method validation : bool =
-      super#has_class CSS.Helper_text.validation_msg
+      method validation : bool =
+        super#has_class CSS.Helper_text.validation_msg
 
-    method set_validation (x : bool) : unit =
-      super#toggle_class ~force:x CSS.Helper_text.validation_msg
+      method set_validation (x : bool) : unit =
+        super#toggle_class ~force:x CSS.Helper_text.validation_msg
 
-    method show_to_screen_reader () : unit =
-      super#remove_attribute Attr.aria_hidden
+      method show_to_screen_reader () : unit =
+        super#remove_attribute Attr.aria_hidden
 
-    method set_validity (is_valid : bool) : unit =
-      let needs_display = self#validation && not is_valid in
-      if needs_display
-      then super#set_attribute "role" "alert"
-      else super#remove_attribute "role";
-      if not self#persistent && not needs_display
-      then self#hide ()
+      method set_validity (is_valid : bool) : unit =
+        let needs_display = self#validation && not is_valid in
+        if needs_display
+        then super#set_attribute "role" "alert"
+        else super#remove_attribute "role";
+        if not self#persistent && not needs_display
+        then self#hide ()
 
-    (* Private methods *)
+      (* Private methods *)
 
-    method private hide () : unit =
-      super#set_attribute Attr.aria_hidden "true"
-  end
+      method private hide () : unit =
+        super#set_attribute Attr.aria_hidden "true"
+    end
 
   let make ?persistent ?validation text : t =
     let (elt : Dom_html.element Js.t) =
@@ -243,51 +241,51 @@ let input_type_of_validation : type a. a validation -> Html_types.input_type =
   | Custom c -> c.input_type
 
 let parse_valid (type a) (v : a validation)
-      (s : string) : a option =
+    (s : string) : a option =
   match v with
   | Text -> Some s
   | Email -> Some s
   | Integer (None, None) -> int_of_string_opt s
   | Integer (Some min, None) ->
-     (match int_of_string_opt s with
-      | None -> None
-      | Some (v : int) -> if v >= min then Some v else None)
+    (match int_of_string_opt s with
+     | None -> None
+     | Some (v : int) -> if v >= min then Some v else None)
   | Integer (None, Some max) ->
-     (match int_of_string_opt s with
-      | None -> None
-      | Some (v : int) -> if v <= max then Some v else None)
+    (match int_of_string_opt s with
+     | None -> None
+     | Some (v : int) -> if v <= max then Some v else None)
   | Integer (Some min, Some max) ->
-     (match int_of_string_opt s with
-      | None -> None
-      | Some (v : int) -> if v <= max && v >= min then Some v else None)
+    (match int_of_string_opt s with
+     | None -> None
+     | Some (v : int) -> if v <= max && v >= min then Some v else None)
   | Float (None, None) -> float_of_string_opt s
   | Float (Some min, None) ->
-     (match float_of_string_opt s with
-      | None -> None
-      | Some (v : float) -> if v >=. min then Some v else None)
+    (match float_of_string_opt s with
+     | None -> None
+     | Some (v : float) -> if v >=. min then Some v else None)
   | Float (None, Some max) ->
-     (match float_of_string_opt s with
-      | None -> None
-      | Some (v : float) -> if v <=. max then Some v else None)
+    (match float_of_string_opt s with
+     | None -> None
+     | Some (v : float) -> if v <=. max then Some v else None)
   | Float (Some min, Some max) ->
-     (match float_of_string_opt s with
-      | None -> None
-      | Some (v : float) -> if v <=. max && v >=. min then Some v else None)
+    (match float_of_string_opt s with
+     | None -> None
+     | Some (v : float) -> if v <=. max && v >=. min then Some v else None)
   | Password vf  ->
-     (match vf s with
-      | Ok () -> Some s
-      | Error _ -> None)
+    (match vf s with
+     | Ok () -> Some s
+     | Error _ -> None)
   | Custom c ->
-     (match c.of_string s with
-      | Ok v -> Some v
-      | Error _ -> None)
+    (match c.of_string s with
+     | Ok v -> Some v
+     | Error _ -> None)
 
 let valid_to_string (type a) (v : a validation) (e : a) : string =
   match v with
   | Custom c -> c.to_string e
   | Float _ ->
-     let s = string_of_float e in
-     if String.suffix ~suf:"." s then s ^ "0" else s
+    let s = string_of_float e in
+    if String.suffix ~suf:"." s then s ^ "0" else s
   | Integer _ -> string_of_int e
   | Email -> e
   | Password _ -> e
@@ -297,8 +295,8 @@ let get_helper_line (elt : Dom_html.element Js.t) =
   match Js.Opt.to_option @@ Element.get_next_sibling elt with
   | None -> None
   | Some next ->
-     if Element.has_class next CSS.helper_line
-     then Some next else None
+    if Element.has_class next CSS.helper_line
+    then Some next else None
 
 class ['a] t ?on_input
     ?(helper_text : Helper_text.t option)
@@ -318,60 +316,60 @@ class ['a] t ?on_input
       match line_ripple with
       | Some x -> Some x
       | None ->
-         match Element.query_selector elt Selector.line_ripple with
-         | None -> None
-         | Some x -> Some (Line_ripple.attach x)
+        match Element.query_selector elt Selector.line_ripple with
+        | None -> None
+        | Some x -> Some (Line_ripple.attach x)
     val notched_outline : Notched_outline.t option =
       match notched_outline with
       | Some x -> Some x
       | None ->
-         match Element.query_selector elt Selector.notched_outline with
-         | None -> None
-         | Some x -> Some (Notched_outline.attach x)
+        match Element.query_selector elt Selector.notched_outline with
+        | None -> None
+        | Some x -> Some (Notched_outline.attach x)
     val floating_label : Floating_label.t option =
       match floating_label with
       | Some x -> Some x
       | None ->
-         match Element.query_selector elt Selector.floating_label with
-         | None -> None
-         | Some x -> Some (Floating_label.attach x)
+        match Element.query_selector elt Selector.floating_label with
+        | None -> None
+        | Some x -> Some (Floating_label.attach x)
     val helper_text =
       match helper_text with
       | Some x -> Some x
       | None ->
-         match helper_line with
-         | None -> None
-         | Some helper_line ->
-            match Element.query_selector helper_line Selector.helper_text with
-            | None -> None
-            | Some ht -> Some (Helper_text.attach ht)
+        match helper_line with
+        | None -> None
+        | Some helper_line ->
+          match Element.query_selector helper_line Selector.helper_text with
+          | None -> None
+          | Some ht -> Some (Helper_text.attach ht)
     val character_counter = match character_counter with
       | Some x -> Some x
       | None ->
-         (* Try to search for character counter at root *)
-         match Element.query_selector elt Selector.character_counter with
-         | Some cc -> Some (Character_counter.attach cc)
-         | None ->
-            (* If character counter is not found in root, search in sibling element *)
-            match helper_line with
+        (* Try to search for character counter at root *)
+        match Element.query_selector elt Selector.character_counter with
+        | Some cc -> Some (Character_counter.attach cc)
+        | None ->
+          (* If character counter is not found in root, search in sibling element *)
+          match helper_line with
+          | None -> None
+          | Some helper_line ->
+            match Element.query_selector helper_line Selector.character_counter with
             | None -> None
-            | Some helper_line ->
-               match Element.query_selector helper_line Selector.character_counter with
-               | None -> None
-               | Some cc -> Some (Character_counter.attach cc)
+            | Some cc -> Some (Character_counter.attach cc)
     val leading_icon : Icon.t option =
       match icon_elements with
       | [] -> None
       | [x] ->
-         if Element.has_class elt CSS.with_leading_icon
-         then Some (Icon.attach x) else None
+        if Element.has_class elt CSS.with_leading_icon
+        then Some (Icon.attach x) else None
       | x :: _ :: _ -> Some (Icon.attach x)
     val trailing_icon : Icon.t option =
       match icon_elements with
       | [] -> None
       | [x] ->
-         if Element.has_class elt CSS.with_trailing_icon
-         then Some (Icon.attach x) else None
+        if Element.has_class elt CSS.with_trailing_icon
+        then Some (Icon.attach x) else None
       | _ :: x :: _ -> Some (Icon.attach x)
     (* Event listeners *)
     val mutable _focus_listener = None
@@ -397,10 +395,10 @@ class ['a] t ?on_input
       if self#focused
       then self#activate_focus ()
       else (match floating_label, self#should_float with
-            | None, _ | Some _, false -> ()
-            | Some (label : Floating_label.t), true ->
-               self#notch_outline true;
-               label#float true);
+          | None, _ | Some _, false -> ()
+          | Some (label : Floating_label.t), true ->
+            self#notch_outline true;
+            label#float true);
       (* Attach event listeners *)
       let focus =
         Events.focuses input_elt (fun _ _ ->
@@ -584,25 +582,27 @@ class ['a] t ?on_input
       match validation with
       | None -> None
       | Some validation ->
-         parse_valid validation self#value_as_string
+        parse_valid validation self#value_as_string
+
+    method set_value_as_string (s : string) : unit =
+      (* Prevent Safari from moving the caret to the end of the
+         input when the value has not changed. *)
+      if not @@ String.equal self#value_as_string s
+      then (
+        input_elt##.value := Js.string s;
+        self#set_character_counter (String.length s));
+      self#style_validity self#valid;
+      Option.iter (fun (label : Floating_label.t) ->
+          self#notch_outline self#should_float;
+          label#float self#should_float;
+          label#shake self#should_shake) floating_label
 
     method set_value (v : 'a) =
       match validation with
       | None -> failwith "textfield: type validation is not set"
       | Some validation ->
-         let v' = valid_to_string validation v in
-         (* Prevent Safari from moving the caret to the end of the
-            input when the value has not changed. *)
-         if not @@ String.equal self#value_as_string v'
-         then (
-           input_elt##.value := Js.string v';
-           self#set_character_counter (String.length v'));
-         input_elt##.value := Js.string (valid_to_string validation v);
-         self#style_validity self#valid;
-         Option.iter (fun (label : Floating_label.t) ->
-             self#notch_outline self#should_float;
-             label#float self#should_float;
-             label#shake self#should_shake) floating_label
+        let v' = valid_to_string validation v in
+        self#set_value_as_string v'
 
     (* Private methods *)
 
@@ -640,10 +640,10 @@ class ['a] t ?on_input
       let rec aux = function
         | [] -> ()
         | attr :: tl ->
-           if String.equal "maxlength" attr
-           then self#set_character_counter @@ String.length self#value_as_string;
-           if List.mem ~eq:String.equal attr Const.validation_attr_whitelist
-           then self#style_validity true else aux tl in
+          if String.equal "maxlength" attr
+          then self#set_character_counter @@ String.length self#value_as_string;
+          if List.mem ~eq:String.equal attr Const.validation_attr_whitelist
+          then self#style_validity true else aux tl in
       aux attrs
 
     method private notch_outline (open_notch : bool) : unit =
@@ -660,11 +660,11 @@ class ['a] t ?on_input
       let target, client_x = match event with
         | Mouse e -> Js.Opt.to_option e##.target, e##.clientX
         | Touch e ->
-           let touch = Js.Optdef.to_option (e##.touches##item 0) in
-           match touch with
-           | None -> None, 0
-           | Some (touch : Dom_html.touch Js.t) ->
-              Js.Optdef.to_option touch##.target, touch##.clientX in
+          let touch = Js.Optdef.to_option (e##.touches##item 0) in
+          match touch with
+          | None -> None, 0
+          | Some (touch : Dom_html.touch Js.t) ->
+            Js.Optdef.to_option touch##.target, touch##.clientX in
       let left = match target with
         | None -> 0.
         | Some x -> x##getBoundingClientRect##.left in
@@ -735,16 +735,16 @@ class ['a] t ?on_input
           ~node:input_elt
           ~attributes:true
           ~f:(fun (arr : mutationRecord Js.t Js.js_array Js.t) _ ->
-            let cb = fun acc (record : mutationRecord Js.t) _ _ ->
-              let attr = record##.attributeName in
-              if Js.Opt.test attr
-              then (
-                let (s : string) =
-                  Js.to_string
-                  @@ Js.Opt.get attr (fun () -> assert false) in
-                s :: acc)
-              else acc in
-            handler @@ arr##reduce_init (Js.wrap_callback cb) [])
+              let cb = fun acc (record : mutationRecord Js.t) _ _ ->
+                let attr = record##.attributeName in
+                if Js.Opt.test attr
+                then (
+                  let (s : string) =
+                    Js.to_string
+                    @@ Js.Opt.get attr (fun () -> assert false) in
+                  s :: acc)
+                else acc in
+              handler @@ arr##reduce_init (Js.wrap_callback cb) [])
           ())
 
     method private set_max_as_number (x : float) : unit =
@@ -756,11 +756,11 @@ class ['a] t ?on_input
     method private apply_validation_constraints (type a) (v : a validation) : unit =
       match v with
       | Float (min, max) ->
-         Option.iter self#set_min_as_number min;
-         Option.iter self#set_max_as_number max
+        Option.iter self#set_min_as_number min;
+        Option.iter self#set_max_as_number max
       | Integer (min, max) ->
-         Option.iter (self#set_min_as_number % float_of_int) min;
-         Option.iter (self#set_max_as_number % float_of_int) max
+        Option.iter (self#set_min_as_number % float_of_int) min;
+        Option.iter (self#set_max_as_number % float_of_int) max
       | _ -> ()
 
     method private create_ripple () : Ripple.t =

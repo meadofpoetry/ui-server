@@ -1,6 +1,6 @@
 open Js_of_ocaml
 open Application_types
-open Board_niitv_dvb_types.Device
+open Board_niitv_dvb_types
 open Components
 open Widget_types
 
@@ -11,8 +11,9 @@ let base_class = "dvb-niit-settings"
 let body_class = Components_tyxml.BEM.add_element base_class "body"
 
 type event =
-  [ `Mode of (int * mode) list
+  [ `Mode of (int * Device.mode) list
   | `State of Topology.state
+  | `PLPs of (int * (Plp_list.t ts)) list
   ]
 
 (*
@@ -36,33 +37,49 @@ type event =
     make ~config:{id} ~state ~config (Some {id}) control
 *)
 
-let make_inner state mode receivers control =
+let make_inner state mode plps receivers control =
   let tabs =
     List.map (fun id ->
         let open Widget_module_settings in
         let name = Printf.sprintf "%s %d" module_name (succ id) in
-        let value = make {id} state mode control in
-        value#widget, Tab.make ~label:name ())
+        let mode = List.assoc_opt id mode in
+        let plps = match List.assoc_opt id plps with
+          | None -> []
+          | Some (x : Plp_list.t ts) -> x.data.plps in
+        make {id} state mode plps control, Tab.make ~label:name ())
     @@ List.sort compare receivers in
   let bar, body = Ui_templates.Tabs.create_simple tabs in
   body#add_class body_class;
-  Ui_templates.Tabs.wrap bar body
+  List.map fst tabs, Ui_templates.Tabs.wrap bar body
 
-class t mode state receivers control =
+class t state mode plps receivers control =
+  let modules, inner = match receivers with
+    | None -> [], None
+    | Some x ->
+      let x, y = make_inner state mode plps x control in
+      x, Some y in
   object
     inherit Widget.t (Dom_html.createDiv Dom_html.document) () as super
 
-    val mutable inner = match receivers with
-      | None -> None
-      | Some x -> Some (make_inner state mode x control)
-
     method! init () : unit =
       super#init ();
-      super#add_class base_class
+      super#add_class base_class;
+      Utils.Option.iter super#append_child inner
 
-    method notify : event -> unit = function _ -> ()
+    method! destroy () : unit =
+      List.iter Widget.destroy modules;
+      super#destroy ()
+
+    method notify : event -> unit = function
+      | `Mode x -> ()
+      | `PLPs x ->
+        List.iter (fun (id, ({ data; _ } : Plp_list.t ts)) ->
+            match List.find_opt (fun w -> w#id = id) modules with
+            | None -> ()
+            | Some m -> m#notify (`PLPs data.plps)) x
+      | `State _ -> ()
 
   end
 
-let make mode state receivers control =
-  new t mode state receivers control
+let make state mode plps receivers control =
+  new t state mode plps receivers control

@@ -138,6 +138,8 @@ html, body {
     margin: -.063rem 0;
 }
 
+*:focus {outline:none !important}
+
 button:-moz-focusring,
 [type="button"]:-moz-focusring,
 [type="reset"]:-moz-focusring,
