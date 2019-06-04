@@ -7,6 +7,8 @@ module Markup : sig
 end
 
 module Event : sig
+  include module type of Menu_surface.Event
+
   class type selected =
     object
       method index : int Js.readonly_prop

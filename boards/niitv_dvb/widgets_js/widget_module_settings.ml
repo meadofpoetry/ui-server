@@ -1,4 +1,5 @@
 open Js_of_ocaml
+open Js_of_ocaml_lwt
 open Application_types
 open Board_niitv_dvb_types.Device
 open Board_niitv_dvb_http_js
@@ -13,6 +14,8 @@ type event =
   | `State of Topology.state
   | `PLPs of int list
   ]
+
+let ( >>= ) = Lwt.bind
 
 let base_class = "dvb-niit-module-settings"
 
@@ -37,7 +40,7 @@ let bw =
   Select.Custom { to_string; of_string }
 
 let make_standard ?value () =
-  let event, push = React.E.create () in
+  let signal, push = React.S.create None in
   let items = Select.native_options_of_values
       ~with_empty:true
       standard
@@ -50,7 +53,7 @@ let make_standard ?value () =
       ~items:(`Markup items)
       standard in
   select#add_class @@ BEM.add_element base_class "mode";
-  select, event
+  select, signal
 
 let make_bw ?value () =
   let event, push = React.E.create () in
@@ -74,48 +77,94 @@ let contains pattern value =
     let sub = String.sub pattern 0 len in
     String.uppercase_ascii sub = String.uppercase_ascii value
 
-let make_frequency ?(terrestrial = true) ?value () =
+let filter_frequency_string (s : string) =
+  List.filter (function
+      | '0'..'9' -> true
+      | _ -> false)
+  @@ List.of_seq
+  @@ String.to_seq s
+
+let format_frequency ?(filter = true) (s : string) =
+  let s =
+    if filter
+    then filter_frequency_string s
+    else List.of_seq @@ String.to_seq s in
+  let rec loop acc = function
+    | [] -> acc
+    | a :: b :: c :: (_ :: _ as tl) ->
+      let acc = ' ' :: c :: b :: a :: acc in
+      loop acc tl
+    | l -> List.rev l @ acc in
+  String.of_seq @@ List.to_seq @@ loop [] @@ List.rev s
+
+let max_frequency = 950_000_000
+
+let min_frequency = 50_000_000
+
+let frequency_to_string (x : int) =
+  format_frequency (string_of_int x)
+
+let frequency_of_string (s : string) =
+  let s = String.of_seq @@ List.to_seq @@ filter_frequency_string s in
+  match int_of_string_opt s with
+  | None -> Error "Bad frequency format"
+  | Some i ->
+    if i > max_frequency
+    then Error "Частота не может превышать 950 МГц"
+    else if i < min_frequency
+    then Error "Частота не может быть меньше 50 МГц"
+    else Ok i
+
+let frequency = Textfield.(
+    let to_string = frequency_to_string in
+    let of_string = frequency_of_string in
+    Custom { to_string
+           ; of_string
+           ; input_type = `Text
+           })
+
+let make_frequency ?(value : int option) (standard : standard option React.signal) =
   let event, push = React.E.create () in
-  let autocomplete =
-    if terrestrial
-    then Channel.Terrestrial.lst
-    else Channel.Cable.lst in
   let trailing_icon = Typography.Text.make "Гц" in
   let list = Item_list.make [] in
   let menu = Menu.make_of_item_list ~focus_on_open:false list in
   let input =
     Textfield.make_textfield
       ?value
+      ~max_length:11
       ~on_input:(fun input ->
-          (match input#value_as_string with
-           | "" -> Lwt.async menu#close
-           | v ->
-             let matching = List.filter (fun (c : Channel.t) ->
-                 let freq = string_of_int c.freq in
-                 let chan = string_of_int c.chan in
-                 contains freq v || contains chan v) autocomplete in
-             list#remove_children ();
-             (match matching with
-              | [] -> Lwt.async menu#close
-              | x ->
-                List.iter (fun (c : Channel.t) ->
-                    let item = Item_list.Item.make c.name in
-                    item#set_attribute "value" (string_of_int c.freq);
-                    list#append_child item) x;
-                Lwt.async menu#reveal));
-          push ())
+          push ();
+          let v =
+            String.of_seq
+            @@ List.to_seq
+            @@ filter_frequency_string input#value_as_string in
+          input#input_element##.value := Js.string (format_frequency ~filter:false v);
+          match v with
+          | "" -> Lwt.async menu#close
+          | v ->
+            let matching = List.filter (fun (c : Channel.t) ->
+                let freq = string_of_int c.freq in
+                let chan = string_of_int c.chan in
+                contains freq v || contains chan v)
+              @@ match React.S.value standard with
+              | None -> []
+              | Some (T | T2) -> Channel.Terrestrial.lst
+              | Some C -> Channel.Cable.lst in
+            list#remove_children ();
+            (match matching with
+             | [] -> Lwt.async menu#close
+             | x ->
+               List.iter (fun (c : Channel.t) ->
+                   let item = Item_list.Item.make c.name in
+                   item#set_attribute "value" (string_of_int c.freq);
+                   list#append_child item) x;
+               Lwt.async menu#reveal))
       ~trailing_icon
       ~label:"Частота"
-      (Integer (Some 50_000_000, Some 950_000_000)) in
-  let selected = Events.listen_lwt menu#root Menu.Event.selected (fun e _ ->
-      (match Element.get_attribute (Widget.event_detail e)##.item "value" with
-       | None -> ()
-       | Some value -> input#set_value_as_string value);
-      Lwt.return_unit) in
+      frequency in
   let active_class = Item_list.CSS.item_activated in
   let get_selected items =
-    List.find_opt (fun x ->
-        Element.has_class x active_class) items in
+    List.find_opt (fun x -> Element.has_class x active_class) items in
   let next dir = function
     | [] -> ()
     | items ->
@@ -128,36 +177,56 @@ let make_frequency ?(terrestrial = true) ?value () =
           | `Down -> Js.Opt.get x##.nextElementSibling (fun () -> List.hd items)
           | `Up -> Js.Opt.get x##.previousElementSibling (fun () ->
               List.hd @@ List.rev items) in
+      next##scrollIntoView Js._false;
       Element.add_class next active_class in
   let keydown = Events.keydowns input#input_element (fun e _ ->
-      (match Events.Key.of_event e with
-       | `Arrow_down ->
-         if menu#is_open
-         then (Dom.preventDefault e; next `Down list#items);
-         Lwt.return_unit
-       | `Arrow_up ->
-         if menu#is_open
-         then (Dom.preventDefault e; next `Up list#items);
-         Lwt.return_unit
-       | `Enter ->
-         (match menu#is_open, get_selected list#items with
-          | true, Some item ->
-            Dom.preventDefault e;
-            (match Element.get_attribute item "value" with
-             | None -> Lwt.return_unit
-             | Some v ->
-               input#set_value_as_string v;
-               menu#close ())
-          | _ -> Lwt.return_unit)
-       | _ -> Lwt.return_unit)) in
+      let items = list#items in
+      match Events.Key.of_event e with
+      | `Space -> Dom.preventDefault e; Lwt.return_unit
+      | `Escape -> menu#close ()
+      | `Arrow_down ->
+        if menu#is_open then (Dom.preventDefault e; next `Down items);
+        Lwt.return_unit
+      | `Arrow_up ->
+        if menu#is_open then (Dom.preventDefault e; next `Up items);
+        Lwt.return_unit
+      | `Enter ->
+        (match menu#is_open, get_selected items with
+         | true, Some item ->
+           Dom.preventDefault e;
+           (match Element.get_attribute item "value" with
+            | None -> Lwt.return_unit
+            | Some v ->
+              input#set_value_as_string v;
+              menu#close ())
+         | _ -> Lwt.return_unit)
+      | _ -> Lwt.return_unit) in
+  let open_ = Events.listen_lwt menu#root Menu.Event.opened (fun _ _ ->
+      input#set_use_native_validation false;
+      let closed = Events.make_event Menu.Event.closed menu#root in
+      let select = Events.make_event Menu.Event.selected menu#root in
+      let t =
+        Lwt.pick
+          [ (select >>= fun e -> Lwt.return @@ `Selected e)
+          ; (closed >>= fun _ -> Lwt.return `Closed) ]
+        >>= function
+        | `Closed -> Lwt.return_unit
+        | `Selected e ->
+          (match Element.get_attribute (Widget.event_detail e)##.item "value" with
+           | None -> ()
+           | Some value -> input#set_value_as_string (format_frequency value));
+          Lwt.return_unit in
+      Lwt.on_termination t (fun () ->
+          input#set_use_native_validation true;
+          input#set_valid input#valid);
+      t) in
   menu#set_quick_open true;
   menu#set_anchor_element input#root;
   menu#set_anchor_corner Bottom_left;
   menu#set_width_as_anchor true;
   menu#hoist_menu_to_body ();
   input#set_on_destroy (fun () ->
-      Lwt.cancel keydown;
-      Lwt.cancel selected;
+      List.iter Lwt.cancel [open_; keydown];
       Element.remove_child_safe Dom_html.document##.body menu#root;
       menu#destroy ());
   input, event
@@ -214,32 +283,18 @@ let make_plp ?value (plps : int list React.signal) =
 
 let make_mode_box ~(id : int) (state : Topology.state) (mode : mode option) plps =
   let plps, push_plps = React.S.create plps in
-  let std, e_std = make_standard
+  let std, s_std = make_standard
       ?value:(Utils.Option.map (fun x -> x.standard) mode)
       () in
   let freq, e_freq = make_frequency
       ?value:(Utils.Option.map (fun x -> x.channel.freq) mode)
-      ~terrestrial:true
-      () in
+      s_std in
   let bw, e_bw = make_bw
       ?value:(Utils.Option.map (fun x -> x.channel.bw) mode)
       () in
   let plp, e_plp = make_plp
       ?value:(Utils.Option.map (fun x -> x.channel.plp) mode)
       plps in
-  (* let s =
-   *   let eq = Util_equal.(Option.equal (Pair.equal (=) equal_mode)) in
-   *   React.S.l6 ~eq
-   *     (fun standard t_freq c_freq bw plp state ->
-   *        match standard, t_freq, c_freq, bw, plp, state with
-   *        | Some T2, Some freq, _, Some bw, Some plp, `Fine ->
-   *          Some (id, { standard = T2; channel = { freq; bw; plp }})
-   *        | Some T, Some freq, _, Some bw, _, `Fine ->
-   *          Some (id, { standard = T; channel = { freq; bw; plp = 0 }})
-   *        | Some C, _, Some freq, Some bw, _, `Fine ->
-   *          Some (id, { standard = C; channel = { freq; bw; plp = 0 }})
-   *        | _ -> None)
-   *     s_std s_t_freq s_c_freq s_bw s_plp state in *)
   object(self)
     val mutable _state = state
     inherit Widget.t Dom_html.(createDiv document) () as super

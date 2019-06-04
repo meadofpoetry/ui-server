@@ -240,7 +240,8 @@ let input_type_of_validation : type a. a validation -> Html_types.input_type =
   | Password _ -> `Password
   | Custom c -> c.input_type
 
-let parse_valid (type a) (v : a validation)
+let parse_valid (type a)
+    (v : a validation)
     (s : string) : a option =
   match v with
   | Text -> Some s
@@ -525,6 +526,7 @@ class ['a] t ?on_input
       _use_native_validation
 
     method set_use_native_validation (x : bool) : unit =
+      if x then _is_valid <- true;
       _use_native_validation <- x
 
     method valid : bool =
@@ -533,7 +535,7 @@ class ['a] t ?on_input
       else _is_valid
 
     method set_valid (x : bool) : unit =
-      _is_valid <- x;
+      if not _use_native_validation then _is_valid <- x;
       self#style_validity x;
       let shold_shake = not x && not _is_focused in
       Option.iter (fun x -> x#shake shold_shake) floating_label
@@ -715,6 +717,12 @@ class ['a] t ?on_input
     method private is_native_input_valid () : bool =
       let (validity : validity_state Js.t) = (Js.Unsafe.coerce input_elt)##.validity in
       Js.to_bool validity##.valid
+      && (match validation with
+          | Some Custom { of_string; _ } ->
+            (match of_string self#value_as_string with
+             | Ok _ -> true
+             | Error _ -> false)
+          | _ -> true)
 
     method private style_validity (is_valid : bool) : unit =
       super#toggle_class ~force:(not is_valid) CSS.invalid;
