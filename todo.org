@@ -1,6 +1,6 @@
 * Project goals
 
-** TODO Alpha goals [5/17]:
+** TODO Alpha goals [6/16]:
 - [X] Rearrange project libraries
   - [X] Separate utility libraries
     - [X] Netlib
@@ -18,26 +18,27 @@
 - [X] HTTP Server refactoring
   - [X] Https support
   - [X] Flexible configuration and iface
-- [ ] Fix db leaks
 - [X] User password encryption
-- [ ] Refactor Pipeline types to support saved settings alteration
 - [X] Make ats-backend a library
-- [ ] Swagger like api page
-- [ ] Interaction with the Qoe analyser
-  - [ ] Consider h264 streaming option
-  - [ ] Settings api
-  - [ ] Integrate glsoundbar into the ats3-backend
+- [X] Refactor HTML templating
+- [-] Interaction with the Qoe analyser
+  - [X] Settings api
+  - [X] Integrate glsoundbar into the ats3-backend
   - [ ] Implement audio settings
   - [ ] Audio stream channels control
+- [ ] Refactor Pipeline types to support saved settings alteration
+- [ ] Database refactoring
+  - [ ] Prepare statements in advance to mitigate memory leak
+  - [ ] Add versions and migration support
+  - [ ] Better DSL for query and data description
 - [ ] Switch to ocaml-4.08 monadic let operators
-- [ ] Refactor HTML templating
 - [ ] Streams
   - [ ] T2-MI/TS stream types. We should know if the stream was T2-MI in the past to show stats
 - [ ] Topology
   - [ ] Add flag to indicate stream presence at CPU inputs ('port active' and 'port sync')
 - [ ] Board NIITV TSAN
   - [ ] Debug state machine
-  - [ ] Refactor lwt queue to have a clear api
+  - [ ] Refactor lwt queue to have a clean api
   - [ ] Watch for stream changes and configure T2-MI settings correspondingly
 - [ ] Board NIITV DVB
   - [ ] Prohibit selection of equal streams for analysis
@@ -68,10 +69,17 @@
   - [ ] Refactor user settings page
     - [ ] Just put things in order
 
-** TODO Beta goals [0/2]:
+** TODO Beta goals [0/9]:
+- [ ] Refactor topology so that graph were represented as directed graph (as in dot files)
+  - [ ] New format
+  - [ ] Cycles detection
+  - [ ] Frontend
+- [ ] Pipeline codec preferences
+  - [ ] Backend
+  - [ ] Frontend page
 - [ ] SDI support
 - [ ] QoE storage
-  - [ ] Consider using min/max + deviation + avg instead of min + max + avg
+  - [ ] Use raw data instead of (min, max, avg)
   - [ ] DB aggregator refactoring
   - [ ] QoE storage for all errors and data
   - [ ] QoE plots
@@ -86,16 +94,21 @@
   - [ ] Add resolution change support
 - [ ] Refactor topology page
   - [ ] Show detailed status for boards
-- [ ] Add mosaic encoding settings (codec, bitrate, resolution)
   
-** TODO Release candidate [0/1]:
+** TODO Release candidate [0/7]:
+- [ ] Update mechanism
 - [ ] Data server interaction
   - [ ] Send-dependency graph
   - [ ] Shared resources sending
   - [ ] Sender implementation
-  - [ ] SNMP?
 - [ ] Add support for the new IP receiver board
 - [ ] Dashboard GUI
 - [ ] Archive GUI
 - [ ] Jitter measurements
 - [ ] Logout
+- [ ] Swagger like api page
+  - [ ] Proper api docstrings on backend
+  - [ ] Related http-page
+
+** TODO After release [0/1]:
+- [ ] SNMP
