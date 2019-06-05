@@ -26,6 +26,9 @@
   - [X] Integrate glsoundbar into the ats3-backend
   - [ ] Implement audio settings
   - [ ] Audio stream channels control
+  - [ ] Pipeline codec preferences
+    - [ ] Backend
+    - [ ] Frontend page
 - [ ] Refactor Pipeline types to support saved settings alteration
 - [ ] Database refactoring
   - [ ] Prepare statements in advance to mitigate memory leak
@@ -74,9 +77,6 @@
   - [ ] New format
   - [ ] Cycles detection
   - [ ] Frontend
-- [ ] Pipeline codec preferences
-  - [ ] Backend
-  - [ ] Frontend page
 - [ ] SDI support
 - [ ] QoE storage
   - [ ] Use raw data instead of (min, max, avg)
