@@ -1,0 +1,3 @@
+(library
+  (name      page_mosaic_editor_tyxml)
+  (libraries components_tyxml))

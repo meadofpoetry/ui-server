@@ -9,6 +9,10 @@ open Pipeline_http_js
 
 let ( >>= ) = Lwt.( >>= )
 
+module Selector = struct
+  let video = "." ^ Page_mosaic_editor_tyxml.CSS.video
+end
+
 type container_grids =
   { rect : Wm.position
   ; grids : (int * int) list
@@ -452,30 +456,24 @@ let on_data (grid : Layout_grid.t) wm =
     with e -> Printf.printf "error: %s\n" @@ Printexc.to_string e; [] in
   List.iter grid#append_cell cells
 
-let ( >>= ) = Lwt.( >>= )
-let ( >>=? ) = Lwt_result.( >>= )
-let ( >>=& ) x f =
-  Lwt_result.map_err Api_js.Http.error_to_string
-  @@ x >>=? f
+let ( >>= ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
 
-let page () =
+let () =
   let grid = Layout_grid.make [] in
-  let t =
+  let thread =
     Http_wm.get_layout ()
-    >>=& fun wm ->
+    >>= fun wm ->
     Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
-    >>=? fun socket -> Http_wm.Event.get socket
-    >>= function
-    | Error `Timeout _ -> Lwt.return_error "Timeout"
-    | Error `Error e -> Lwt.return_error e
-    | Ok (_, event) ->
-      on_data grid wm;
-      grid#add_class "wm";
-      let e = React.E.map (on_data grid) event in
-      grid#set_on_destroy (fun () ->
-          React.E.stop ~strong:true e;
-          React.E.stop ~strong:true event;
-          Api_js.Websocket.close_socket socket);
-      Lwt.return_ok grid in
-  Lwt.ignore_result t;
-  grid
+    >>= fun socket -> Http_wm.Event.get socket
+    >>= fun (_, event) ->
+    on_data grid wm;
+    grid#add_class "wm";
+    let e = React.E.map (on_data grid) event in
+    grid#set_on_destroy (fun () ->
+        React.E.stop ~strong:true e;
+        React.E.stop ~strong:true event;
+        Api_js.Websocket.close_socket socket);
+    Lwt.return_ok grid in
+  let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
+  let body = Ui_templates.Loader.create_widget_loader thread in
+  scaffold#set_body body

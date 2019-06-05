@@ -9,11 +9,20 @@ module Api_websocket = Api_websocket.Make(User)(Body)(Body_ws)
 
 module Icon = Components_tyxml.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
-let make_icon path =
+module Button = Components_tyxml.Button.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
+
+let make_icon ?classes path =
   let open Icon.SVG in
   let path = create_path path () in
-  let icon = create [path] () in
+  let icon = create ?classes [path] () in
   Tyxml.Html.toelt icon
+
+let make_anchor_button ?attrs ?classes ?icon ~label () =
+  let icon = match icon with
+    | None -> None
+    | Some x -> Some (Tyxml_html.tot x) in
+  let button = Button.create_anchor ?classes ?attrs ?icon ~label () in
+  Tyxml.Html.toelt button
 
 let pages () : Api_template.topmost Api_template.item list =
   let open Api_template in
@@ -25,12 +34,21 @@ let pages () : Api_template.topmost Api_template.item list =
       make_icon_button
         ~classes:[CSS.menu_icon]
         Components_tyxml.Svg_icons.dots_horizontal) in
-  let props =
+  let video_path = "/mosaic/video" in
+  let editor_path = "/mosaic/editor" in
+  let video_page_props =
     make_template_props
       ~title:"Мозаика"
       ~side_sheet:(make_side_sheet_props ~clipped:false ())
-      ~top_app_bar_actions:[ Tyxml.Html.toelt menu_toggle
-                           (* ; Tyxml.Html.toelt side_sheet_toggle *) ]
+      ~top_app_bar_actions:[ make_anchor_button
+                               ~attrs:Tyxml_html.[a_href editor_path]
+                               ~icon:(make_icon
+                                        ~classes:[Components_tyxml.Button.CSS.icon]
+                                        Components_tyxml.Svg_icons.pencil)
+                               ~classes:[Mosaic_video_template.CSS.edit]
+                               ~label:"Редактировать" ()
+                           ; Tyxml.Html.toelt menu_toggle
+                             (* ; Tyxml.Html.toelt side_sheet_toggle *) ]
       ~pre_scripts:[Src "/js/adapter.min.js"]
       ~post_scripts:[Src "/js/mosaic_video.js"]
       ~stylesheets:[ "/css/pipeline.min.css"
@@ -38,11 +56,32 @@ let pages () : Api_template.topmost Api_template.item list =
       ~content:[Tyxml.Html.toelt @@ Mosaic_video_template.make_player ()]
       ()
   in
+  let editor_page_props =
+    make_template_props
+      ~title:"Редактор мозаики"
+      ~top_app_bar_actions:[make_anchor_button
+                              ~attrs:Tyxml_html.[a_href video_path]
+                              ~icon:(make_icon
+                                       ~classes:[Components_tyxml.Button.CSS.icon]
+                                       Components_tyxml.Svg_icons.video)
+                              ~classes:[Mosaic_editor_template.CSS.video]
+                              ~label:"Видео" ()]
+      ~post_scripts:[Src "/js/mosaic_editor.js"]
+      ~stylesheets:[ "/css/pipeline.min.css"
+                   ; "/css/mosaic_editor.min.css" ]
+      ~content:[]
+      ()
+  in
   simple ~priority:(`Index 2)
     ~title:"Мозаика"
     ~icon:(make_icon Components_tyxml.Svg_icons.collage)
-    ~path:(Path.of_string "pipeline")
-    props
+    ~path:(Path.of_string video_path)
+    video_page_props
+  @ simple ~priority:(`Index 3)
+    ~title:"Редактор мозаики"
+    ~icon:(make_icon Components_tyxml.Svg_icons.pencil)
+    ~path:(Path.of_string editor_path)
+    editor_page_props
 
 (* TODO remove state *)
 let handlers

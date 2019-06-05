@@ -3,6 +3,7 @@
   (libraries  pipeline_protocol
               api_websocket
               page_mosaic_video_tyxml
+              page_mosaic_editor_tyxml
               api_cohttp_template
               components_tyxml
               time_uri))

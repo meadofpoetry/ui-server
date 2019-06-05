@@ -35,10 +35,10 @@ module CSS = struct
 end
 
 module Make(Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-           and module Svg := Svg) = struct
+    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
+    (Html : Html_sigs.NoWrap
+     with module Xml := Xml
+      and module Svg := Svg) = struct
   open Html
   open Utils
 
@@ -46,21 +46,33 @@ module Make(Xml : Xml_sigs.NoWrap)
     let classes = CSS.loader_container :: classes in
     div ~a:([a_class classes] <@> attrs) [loader]
 
-  let create ?(classes = []) ?attrs ?button_type ?appearance
-        ?(disabled = false) ?(dense = false) ?icon ?label () : 'a elt =
+  let create_ ?(classes = []) ?appearance
+      ?(dense = false) ?icon ?label () =
     let make_label (x : string) : _ elt =
       span ~a:[a_class [CSS.label]] [txt x] in
     let (classes : string list) =
       classes
       |> map_cons_option (function
-             | Raised -> CSS.raised
-             | Outlined -> CSS.outlined
-             | Unelevated -> CSS.unelevated) appearance
+          | Raised -> CSS.raised
+          | Outlined -> CSS.outlined
+          | Unelevated -> CSS.unelevated) appearance
       |> cons_if dense CSS.dense
       |> List.cons CSS.root in
+    cons_option icon @@ map_cons_option make_label label [],
+    classes
+
+  let create_anchor ?classes ?attrs ?appearance
+      ?dense ?icon ?label () =
+    let children, classes =
+      create_ ?classes ?appearance ?dense ?icon ?label () in
+    a ~a:([a_class classes] <@> attrs) children
+
+  let create ?classes ?attrs ?button_type ?appearance
+      ?(disabled = false) ?dense ?icon ?label () =
+    let children, classes =
+      create_ ?classes ?appearance ?dense ?icon ?label () in
     button ~a:([a_class classes]
                |> map_cons_option a_button_type button_type
-               |> cons_if disabled @@ a_disabled ()
-               <@> attrs)
-      (cons_option icon @@ map_cons_option make_label label [])
+               |> cons_if disabled @@ a_disabled () <@> attrs)
+      children
 end

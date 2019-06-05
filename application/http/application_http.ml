@@ -157,18 +157,18 @@ let application_pages (app : Application.t) =
     |> List.split
   in
   subtree
-    ~priority:(`Index 2)
+    ~priority:(`Index 1)
     ~title:"Входы"
     ~icon:(icon Components_tyxml.Svg_icons.arrow_right_box)
     (List.flatten input_templates)
   @ simple
-    ~priority:(`Index 3)
+    ~priority:(`Index 4)
     ~title:"Конфигурация"
     ~icon:(icon Components_tyxml.Svg_icons.tournament)
     ~path:(Path.of_string "application")
     props
   @ simple
-    ~priority:(`Index 4)
+    ~priority:(`Index 5)
     ~title:"Демо"
     ~icon:(icon Components_tyxml.Svg_icons.material_design)
     ~path:(Path.of_string "demo")

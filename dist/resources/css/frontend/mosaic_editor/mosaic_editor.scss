@@ -1,0 +1,6 @@
+@import "@material/button/mixins";
+
+.mosaic__video {
+    @include mdc-states(on-primary, false);
+    @include mdc-button-ink-color(on-primary);
+}

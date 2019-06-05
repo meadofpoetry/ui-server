@@ -75,7 +75,7 @@ module Make(I : Item) = struct
 
       method! init () : unit =
         super#init ();
-        super#add_class Box.CSS.horizontal;
+        super#add_class Box.CSS.vertical;
         super#add_class (Box.CSS.justify_content `Center);
         super#add_class Box.CSS.root;
         super#append_child header#widget;

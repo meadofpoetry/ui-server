@@ -1,2 +1,13 @@
+@import "@material/button/mixins";
 @import "./player/player";
 @import "./hotkeys/hotkeys";
+
+.mosaic__menu-icon {
+    @include mdc-states(on-primary, false);
+}
+
+.mosaic__edit {
+    @include mdc-states(on-primary, false);
+    @include mdc-button-ink-color(on-primary);
+    margin-right: 1rem;
+}

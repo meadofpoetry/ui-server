@@ -1,14 +1,15 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml.Tyxml_js
 open Components
-open Lwt.Infix
 
 (* TODO
    - add hotkeys legend
    - add stats inside the side sheet
    - add settings inside the side sheet
    - add switch to the editor mode
- *)
+*)
+
+let ( >>= ) = Lwt.bind
 
 module CSS = Page_mosaic_video_tyxml.CSS
 module Markup = Page_mosaic_video_tyxml.Make(Xml)(Svg)(Html)
@@ -16,6 +17,7 @@ module Hotkeys = Page_mosaic_video_tyxml.Hotkeys.Make(Xml)(Svg)(Html)
 
 module Selectors = struct
   let menu_icon = "." ^ CSS.menu_icon
+  let edit = "." ^ CSS.edit
   let side_sheet_icon = "." ^ CSS.side_sheet_icon
 end
 
@@ -106,14 +108,14 @@ module RTC = struct
       }
 
     let create (plugin : Plugin.t) (req : Mp_create.t)
-        : (Mp_create.r, string) Lwt_result.t =
+      : (Mp_create.r, string) Lwt_result.t =
       Plugin.send_message
         ~message:(Js.Unsafe.obj @@ request_to_obj (Create req))
         plugin
-      >|= function
-      | Ok None -> Error "empty response"
-      | Ok Some d -> Mp_create.of_js_obj d
-      | Error e -> Error e
+      >>= function
+      | Ok None -> Lwt.return_error "empty response"
+      | Ok Some d -> Lwt.return @@ Mp_create.of_js_obj d
+      | Error _ as e -> Lwt.return e
 
     let watch ?secret (plugin : Plugin.t) (id : int)
         : (unit, string) Lwt_result.t =
@@ -121,14 +123,18 @@ module RTC = struct
       Plugin.send_message
         ~message:(Js.Unsafe.obj @@ request_to_obj (Watch req))
         plugin
-      >|= function Ok _ -> Ok () | Error e -> Error e
+      >>= function
+      | Ok _ -> Lwt.return_ok ()
+      | Error _ as e -> Lwt.return e
 
     let start ?jsep (plugin : Plugin.t) =
       Plugin.send_message
         ?jsep
         ~message:(Js.Unsafe.obj @@ request_to_obj Start)
         plugin
-      >|= function Ok _ -> Ok () | Error e -> Error e
+      >>= function
+      | Ok _ -> Lwt.return_ok ()
+      | Error _ as e -> Lwt.return e
 
   end
 
@@ -234,15 +240,16 @@ let tie_menu_with_toggle (scaffold : Scaffold.t) =
   match Element.query_selector scaffold#root Selectors.menu_icon with
   | None -> ()
   | Some i ->
+    let icon = Icon_button.attach i in
     let menu = make_menu
         ~body:scaffold#app_content_inner
         ~viewport:(Element scaffold#app_content_inner)
         () in
     menu#set_quick_open true;
-    Dom.appendChild i menu#root;
-    menu#set_anchor_element i;
+    icon#append_child menu;
+    menu#set_anchor_element icon#root;
     menu#set_anchor_corner Bottom_left;
-    let click = Events.clicks i (fun e _ ->
+    let click = Events.clicks icon#root (fun e _ ->
         let target = Dom.eventTarget e in
         if not @@ Element.contains menu#root target
         && not @@ Element.equal menu#root target
@@ -261,6 +268,7 @@ let tie_menu_with_toggle (scaffold : Scaffold.t) =
           Lwt.return_unit
         | _ ->Lwt.return_unit) in
     menu#set_on_destroy (fun () ->
+        icon#destroy ();
         Lwt.cancel click;
         Lwt.cancel selected)
 
@@ -271,12 +279,13 @@ let () =
     | Some x -> Player.attach x#root in
   tie_side_sheet_with_toggle scaffold;
   tie_menu_with_toggle scaffold;
-  RTC.start_webrtc player
-  >|= (function
-       | Ok (_ : RTC.t) -> player#root##focus
-       | Error e ->
-          (* Show error overlay in case of failure while starting webrtc session *)
-          let ph = Ui_templates.Placeholder.Err.make ~text:e () in
-          ph#add_class Player.CSS.overlay;
-          player#append_child ph)
-  |> Lwt.ignore_result
+  Lwt.async (fun () ->
+      RTC.start_webrtc player
+      >>= function
+      | Ok (_ : RTC.t) -> Lwt.return player#root##focus
+      | Error e ->
+        (* Show error overlay in case of failure while starting webrtc session *)
+        let ph = Ui_templates.Placeholder.Err.make ~text:e () in
+        ph#add_class Player.CSS.overlay;
+        player#append_child ph;
+        Lwt.return_unit)

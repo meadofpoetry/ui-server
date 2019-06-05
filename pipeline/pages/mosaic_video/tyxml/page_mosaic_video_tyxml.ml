@@ -31,6 +31,7 @@ module CSS = struct
   let root = "mosaic"
   let side_sheet_icon = BEM.add_element root "side-sheet-icon"
   let menu_icon = BEM.add_element root "menu-icon"
+  let edit = BEM.add_element root "edit"
 end
 
 module Make(Xml : Xml_sigs.NoWrap)

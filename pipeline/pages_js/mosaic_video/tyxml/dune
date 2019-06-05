@@ -1,4 +1,0 @@
-(library
-  (name page_mosaic_video_tyxml)
-  (synopsis "page skeletons for video mosaic page")
-  (libraries components_tyxml))

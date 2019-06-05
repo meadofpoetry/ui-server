@@ -22,11 +22,6 @@ stream:
 	$(BUILD) frontend/page_stream.bc.js
 	cp $(BUILD_DIR)/frontend/page_stream.bc.js dist/resources/js/stream.js
 
-pipeline:
-
-	$(BUILD) frontend/page_mosaic.bc.js
-	cp $(BUILD_DIR)/frontend/page_mosaic.bc.js dist/resources/js/page_mosaic.js
-
 topology:
 	$(BUILD) application/pages_js/page_topology.bc.js
 	cp $(BUILD_DIR)/application/pages_js/page_topology.bc.js dist/resources/js/topology.js
@@ -47,9 +42,13 @@ demo:
 	$(BUILD) frontend/demo/js/demo.bc.js
 	cp $(BUILD_DIR)/frontend/demo/js/demo.bc.js dist/resources/js/demo.js
 
+mosaic_editor:
+	$(BUILD) pipeline/pages/mosaic_editor/js/page_mosaic_editor.bc.js
+	cp $(BUILD_DIR)/pipeline/pages/mosaic_editor/js/page_mosaic_editor.bc.js dist/resources/js/mosaic_editor.js
+
 mosaic_video:
-	$(BUILD) pipeline/pages_js/mosaic_video/js/page_mosaic_video.bc.js
-	cp $(BUILD_DIR)/pipeline/pages_js/mosaic_video/js/page_mosaic_video.bc.js dist/resources/js/mosaic_video.js
+	$(BUILD) pipeline/pages/mosaic_video/js/page_mosaic_video.bc.js
+	cp $(BUILD_DIR)/pipeline/pages/mosaic_video/js/page_mosaic_video.bc.js dist/resources/js/mosaic_video.js
 
 css-components:
 	$(CSS) $(CSS_DIR)/@material/components/components.scss $(CSS_DIR)/components.min.css
@@ -58,11 +57,11 @@ css-components:
 css-pages:
 	$(CSS) $(CSS_DIR)/main.scss $(CSS_DIR)/main.min.css
 	$(CSS) $(CSS_DIR)/frontend/mosaic_video/mosaic_video.scss $(CSS_DIR)/mosaic_video.min.css
+	$(CSS) $(CSS_DIR)/frontend/mosaic_editor/mosaic_editor.scss $(CSS_DIR)/mosaic_editor.min.css
 	$(CSS) $(CSS_DIR)/frontend/demo/demo.scss $(CSS_DIR)/demo.min.css
 	$(CSS) $(CSS_DIR)/frontend/topology/topology.scss $(CSS_DIR)/topology.min.css
 	$(CSS) $(CSS_DIR)/frontend/pipeline/pipeline.scss $(CSS_DIR)/pipeline.min.css
 	$(CSS) $(CSS_DIR)/frontend/user/user.scss $(CSS_DIR)/user.min.css
-	postcss -u autoprefixer -r $(CSS_DIR)/topology.min.css
 
 css: css-components css-pages
 

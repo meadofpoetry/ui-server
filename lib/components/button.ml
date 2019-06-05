@@ -8,7 +8,7 @@ module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 let ( >>= ) = Lwt.bind
 
 class t ?(ripple = true) ?on_click ?loader
-    (elt : Dom_html.buttonElement Js.t) () =
+    (elt : Dom_html.element Js.t) () =
   object(self)
     val mutable _loader = Option.map Widget.coerce loader
     val mutable _loader_container : Dom_html.element Js.t option =
@@ -47,10 +47,18 @@ class t ?(ripple = true) ?on_click ?loader
       _loader <- None
 
     method disabled : bool =
-      Js.to_bool elt##.disabled
+      match Js.to_string elt##.tagName with
+      | "BUTTON" ->
+        let (button : Dom_html.buttonElement Js.t) = Js.Unsafe.coerce elt in
+        Js.to_bool button##.disabled
+      | _ -> false
 
     method set_disabled (x : bool) : unit =
-      elt##.disabled := Js.bool x
+      match Js.to_string elt##.tagName with
+      | "BUTTON" ->
+        let (button : Dom_html.buttonElement Js.t) = Js.Unsafe.coerce elt in
+        button##.disabled := Js.bool x
+      | _ -> ()
 
     method loading : bool =
       super#has_class CSS.loading
@@ -86,16 +94,19 @@ class t ?(ripple = true) ?on_click ?loader
         Option.iter (Element.remove_child_safe super#root) _loader_container)
   end
 
-let make ?typ ?appearance ?icon ?dense ?ripple ?label ?loader ?on_click () : t =
+let make ?(tag = `Button) ?typ
+    ?appearance ?icon ?dense ?ripple ?label ?loader ?on_click () : t =
   let icon = match icon with
     | None -> None
     | Some (i : #Widget.t) ->
       i#add_class CSS.icon;
       Some (Widget.to_markup i) in
-  let (elt : Dom_html.buttonElement Js.t) =
-    Tyxml_js.To_dom.of_button
-    @@ Markup.create ?button_type:typ ?appearance ?dense ?icon ?label () in
+  let (elt : Dom_html.element Js.t) =
+    Tyxml_js.To_dom.of_element
+    @@ match tag with
+    | `Button -> Markup.create ?button_type:typ ?appearance ?dense ?icon ?label ()
+    | `Anchor -> Markup.create_anchor ?appearance ?dense ?icon ?label () in
   new t ?ripple ?on_click ?loader elt ()
 
 let attach ?ripple ?loader ?on_click (elt : #Dom_html.element Js.t) : t =
-  new t ?ripple ?loader ?on_click elt ()
+  new t ?ripple ?loader ?on_click (Element.coerce elt) ()
