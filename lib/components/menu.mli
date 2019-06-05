@@ -36,6 +36,8 @@ class t : ?body:Dom_html.element Js.t
 
     method set_wrap_focus : bool -> unit
 
+    method list : Item_list.t option
+
     method items : Dom_html.element Js.t list
 
     (** Sets the index of the menu item that will be focused every time the menu

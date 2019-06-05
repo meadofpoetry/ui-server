@@ -74,6 +74,8 @@ class t ?body ?viewport ?list ?(focus_on_open = true) (elt : Dom_html.element Js
       | None -> ()
       | Some list -> list#set_wrap_focus x
 
+    method list : Item_list.t option = _list
+
     method items : Dom_html.element Js.t list =
       match _list with
       | None -> []

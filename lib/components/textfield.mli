@@ -220,7 +220,7 @@ class type ['a] t =
     method private auto_complete_focus : unit -> unit
 
     (** Handles input change of text input and text area. *)
-    method private handle_input : unit -> unit
+    method private handle_input : Dom_html.event Js.t -> unit Lwt.t -> unit Lwt.t
 
     (** Handles user interactions with the Text Field. *)
     method private handle_text_field_interaction : unit -> unit
@@ -266,29 +266,38 @@ class type ['a] t =
     method private create_ripple : unit -> Ripple.t
   end
 
-val make_textfield :
-  ?on_input:('a t -> unit) ->
-  ?disabled:bool ->
-  ?fullwidth:bool ->
-  ?outlined:bool ->
-  ?focused:bool ->
-  ?input_id:string ->
-  ?pattern:string ->
-  ?min_length:int ->
-  ?max_length:int ->
-  ?step:float -> (* FIXME should be of float/date type. *)
-  ?value:'a ->
-  ?placeholder:string ->
-  ?required:bool ->
-  ?helper_text:Helper_text.t ->
-  ?character_counter:Character_counter.t ->
-  ?leading_icon:#Widget.t ->
-  ?trailing_icon:#Widget.t ->
-  ?label:string ->
-  'a validation -> 'a t
+val make_textfield : ?on_input:(Dom_html.event Js.t -> 'a t -> unit Lwt.t)
+  -> ?disabled:bool
+  -> ?fullwidth:bool
+  -> ?outlined:bool
+  -> ?focused:bool
+  -> ?input_id:string
+  -> ?pattern:string
+  -> ?min_length:int
+  -> ?max_length:int
+  -> ?step:float (* FIXME should be of float/date type. *)
+  -> ?input_mode:[< `Email
+                 | `Full_width_latin
+                 | `Kana
+                 | `Katakana
+                 | `Latin
+                 | `Latin_name
+                 | `Latin_prose
+                 | `Numeric
+                 | `Tel
+                 | `Url
+                 | `Verbatim ]
+  -> ?value:'a
+  -> ?placeholder:string
+  -> ?required:bool
+  -> ?helper_text:Helper_text.t
+  -> ?character_counter:Character_counter.t
+  -> ?leading_icon:#Widget.t
+  -> ?trailing_icon:#Widget.t
+  -> ?label:string
+  -> 'a validation -> 'a t
 
-val make_textarea :
-  ?on_input:(string t -> unit) ->
+val make_textarea : ?on_input:(Dom_html.event Js.t -> string t -> unit Lwt.t) ->
   ?disabled:bool ->
   ?fullwidth:bool ->
   ?focused:bool ->
@@ -305,8 +314,7 @@ val make_textarea :
   ?label:string ->
   unit -> string t
 
-val attach :
-  ?on_input:('a t -> unit) ->
+val attach : ?on_input:(Dom_html.event Js.t -> 'a t -> unit Lwt.t) ->
   ?helper_text:Helper_text.t ->
   ?character_counter:Character_counter.t ->
   ?validation:'a validation ->

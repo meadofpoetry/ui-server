@@ -67,7 +67,7 @@ let make_port value =
   let event, push = React.E.create () in
   let port =
     Textfield.make_textfield
-      ~on_input:(fun _ -> push ())
+      ~on_input:(fun _ _ -> Lwt.return @@ push ())
       ~label:"UDP порт"
       ~value
       (Integer (Some 0, Some 65535)) in
@@ -77,7 +77,7 @@ let make_multicast value =
   let event, push = React.E.create () in
   let mcast =
     Textfield.make_textfield
-      ~on_input:(fun _ -> push ())
+      ~on_input:(fun _ _ -> Lwt.return @@ push ())
       ~label:"Multicast адрес"
       ~value
       multicast in

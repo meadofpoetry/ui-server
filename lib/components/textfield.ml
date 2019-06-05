@@ -4,6 +4,7 @@ open Utils
 
 (* TODO
    - add 'onchange' callback
+   - add custom validation messages when a custom validation was provided
 *)
 
 include Components_tyxml.Textfield
@@ -409,10 +410,7 @@ class ['a] t ?on_input
         Events.blurs input_elt (fun _ _ ->
             self#deactivate_focus ();
             Lwt.return_unit) in
-      let input =
-        Events.inputs input_elt (fun _ _ ->
-            self#handle_input ();
-            Lwt.return_unit) in
+      let input = Events.inputs input_elt self#handle_input in
       let mousedown =
         Events.mousedowns input_elt (fun e _ ->
             self#set_transform_origin (Mouse e);
@@ -627,12 +625,12 @@ class ['a] t ?on_input
       | None -> false
       | Some elt -> Element.equal (Element.coerce input_elt) elt
 
-    method private handle_input () : unit =
+    method private handle_input e _ : unit Lwt.t =
       self#auto_complete_focus ();
       self#set_character_counter @@ String.length self#value_as_string;
-      match on_input with
-      | None -> ()
-      | Some f -> f (self :> 'a t)
+      (match on_input with
+      | None -> Lwt.return_unit
+      | Some f -> f e (self :> 'a t))
 
     method private handle_text_field_interaction () : unit =
       if not (Js.to_bool input_elt##.disabled)
@@ -717,12 +715,6 @@ class ['a] t ?on_input
     method private is_native_input_valid () : bool =
       let (validity : validity_state Js.t) = (Js.Unsafe.coerce input_elt)##.validity in
       Js.to_bool validity##.valid
-      && (match validation with
-          | Some Custom { of_string; _ } ->
-            (match of_string self#value_as_string with
-             | Ok _ -> true
-             | Error _ -> false)
-          | _ -> true)
 
     method private style_validity (is_valid : bool) : unit =
       super#toggle_class ~force:(not is_valid) CSS.invalid;
@@ -785,7 +777,7 @@ class ['a] t ?on_input
 let make_textfield ?on_input
     ?disabled ?(fullwidth = false)
     ?(outlined = false) ?focused ?input_id
-    ?pattern ?min_length ?max_length ?step
+    ?pattern ?min_length ?max_length ?step ?input_mode
     ?(value : 'a option) ?placeholder ?required
     ?(helper_text : Helper_text.t option)
     ?(character_counter : Character_counter.t option)
@@ -820,7 +812,7 @@ let make_textfield ?on_input
     | Some x -> Some (valid_to_string validation x) in
   (* Create HTML5 <input> element. *)
   let input =
-    Markup.create_input ?pattern ?min_length ?max_length
+    Markup.create_input ?pattern ?min_length ?max_length ?input_mode
       ?step ?value ?placeholder ?required ?disabled ~id ~typ () in
   (* Create textfield element. *)
   let (elt : Dom_html.divElement Js.t) =

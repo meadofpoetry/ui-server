@@ -97,11 +97,12 @@ module Make(Xml : Xml_sigs.NoWrap)
   let create_input ?(classes = []) ?attrs ?id
         ?pattern ?min_length ?max_length ?step
         ?value ?placeholder ?(required = false)
-        ?(disabled = false) ?(typ = `Text)
+        ?(disabled = false) ?(typ = `Text) ?input_mode
         () : 'a elt =
     let classes = CSS.input :: classes in
     input ~a:([ a_class classes
               ; a_input_type typ ]
+              |> map_cons_option a_inputmode input_mode
               |> cons_if_lazy disabled a_disabled
               |> map_cons_option a_id id
               |> map_cons_option a_pattern pattern

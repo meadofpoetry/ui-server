@@ -108,20 +108,30 @@ sig
       unit -> Html_types.div elt
   end
 
-  val create_input :
-    ?classes:string list ->
-    ?attrs:Html_types.input_attrib attrib list ->
-    ?id:string ->
-    ?pattern:string ->
-    ?min_length:int ->
-    ?max_length:int ->
-    ?step:float ->
-    ?value:string ->
-    ?placeholder:string ->
-    ?required:bool ->
-    ?disabled:bool ->
-    ?typ:Html_types.input_type ->
-    unit -> Html_types.input elt
+  val create_input : ?classes:string list
+    -> ?attrs:Html_types.input_attrib attrib list
+    -> ?id:string
+    -> ?pattern:string
+    -> ?min_length:int
+    -> ?max_length:int
+    -> ?step:float
+    -> ?value:string
+    -> ?placeholder:string
+    -> ?required:bool
+    -> ?disabled:bool
+    -> ?typ:Html_types.input_type
+    -> ?input_mode:[< `Email
+                   | `Full_width_latin
+                   | `Kana
+                   | `Katakana
+                   | `Latin
+                   | `Latin_name
+                   | `Latin_prose
+                   | `Numeric
+                   | `Tel
+                   | `Url
+                   | `Verbatim ]
+    -> unit -> Html_types.input elt
 
   val create_helper_line :
     ?classes:string list ->

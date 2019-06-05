@@ -254,12 +254,12 @@ module Input = struct
       let addr =
         Textfield.make_textfield
           ~label:"IP адрес"
-          ~on_input:(fun i -> push_addr i#value)
+          ~on_input:(fun _ i -> Lwt.return @@ push_addr i#value)
           ipv4 in
       let port =
         Textfield.make_textfield
           ~label:"UDP порт"
-          ~on_input:(fun i -> push_port i#value)
+          ~on_input:(fun _ i -> Lwt.return @@ push_port i#value)
           (Integer ((Some 0), (Some 65535))) in
       let accept = Button.make ~label:"применить" () in
       let cancel = Button.make ~label:"отмена" () in
