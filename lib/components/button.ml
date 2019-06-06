@@ -7,8 +7,7 @@ module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
-class t ?(ripple = true) ?on_click ?loader
-    (elt : Dom_html.element Js.t) () =
+class t ?(ripple = true) ?on_click ?loader (elt : Dom_html.element Js.t) () =
   object(self)
     val mutable _loader = Option.map Widget.coerce loader
     val mutable _loader_container : Dom_html.element Js.t option =
@@ -20,9 +19,7 @@ class t ?(ripple = true) ?on_click ?loader
 
     method! init () : unit =
       super#init ();
-      if ripple then
-        let ripple = Ripple.attach super#root in
-        _ripple <- Some ripple
+      if ripple then _ripple <- Some (self#create_ripple ())
 
     method! initial_sync_with_dom () : unit =
       super#initial_sync_with_dom ();
@@ -44,7 +41,9 @@ class t ?(ripple = true) ?on_click ?loader
       Option.iter Ripple.destroy _ripple;
       _ripple <- None;
       Option.iter Widget.destroy _loader;
-      _loader <- None
+      _loader <- None;
+      Option.iter Lwt.cancel _click_listener;
+      _click_listener <- None
 
     method disabled : bool =
       match Js.to_string elt##.tagName with
@@ -92,9 +91,12 @@ class t ?(ripple = true) ?on_click ?loader
         super#remove_class CSS.loading;
         self#set_disabled false;
         Option.iter (Element.remove_child_safe super#root) _loader_container)
+
+    method private create_ripple () : Ripple.t =
+      Ripple.attach super#root
   end
 
-let make ?(tag = `Button) ?typ
+let make ?(tag = `Button) ?typ ?href
     ?appearance ?icon ?dense ?ripple ?label ?loader ?on_click () : t =
   let icon = match icon with
     | None -> None
@@ -105,7 +107,7 @@ let make ?(tag = `Button) ?typ
     Tyxml_js.To_dom.of_element
     @@ match tag with
     | `Button -> Markup.create ?button_type:typ ?appearance ?dense ?icon ?label ()
-    | `Anchor -> Markup.create_anchor ?appearance ?dense ?icon ?label () in
+    | `Anchor -> Markup.create_anchor ?appearance ?href ?dense ?icon ?label () in
   new t ?ripple ?on_click ?loader elt ()
 
 let attach ?ripple ?loader ?on_click (elt : #Dom_html.element Js.t) : t =

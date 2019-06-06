@@ -56,7 +56,7 @@ let icon_of_volume ?(muted = false) (vol : float) : string =
 
 module Action = struct
 
-  class t (elt : #Dom_html.buttonElement Js.t) () =
+  class t (elt : #Dom_html.element Js.t) () =
     object
       inherit Icon_button.t elt ()
 

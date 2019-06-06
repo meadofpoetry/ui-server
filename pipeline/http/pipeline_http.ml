@@ -11,18 +11,23 @@ module Icon = Components_tyxml.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
 module Button = Components_tyxml.Button.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
+module Icon_button = Components_tyxml.Icon_button.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
+
 let make_icon ?classes path =
   let open Icon.SVG in
   let path = create_path path () in
   let icon = create ?classes [path] () in
   Tyxml.Html.toelt icon
 
-let make_anchor_button ?attrs ?classes ?icon ~label () =
-  let icon = match icon with
-    | None -> None
-    | Some x -> Some (Tyxml_html.tot x) in
-  let button = Button.create_anchor ?classes ?attrs ?icon ~label () in
-  Tyxml.Html.toelt button
+let make_anchor_buttons ?href ~class_ ~icon ~label () =
+  let icon = Tyxml_html.tot icon in
+  let compact = Components_tyxml.BEM.add_modifier class_ "compact" in
+  let full = Components_tyxml.BEM.add_modifier class_ "full" in
+  let button = Button.create_anchor
+      ~classes:[class_; full] ?href ~icon ~label () in
+  let icon_button = Icon_button.create_anchor
+      ~classes:[class_; compact] ?href ~icon () in
+  List.map Tyxml.Html.toelt [button; icon_button]
 
 let pages () : Api_template.topmost Api_template.item list =
   let open Api_template in
@@ -40,15 +45,14 @@ let pages () : Api_template.topmost Api_template.item list =
     make_template_props
       ~title:"Мозаика"
       ~side_sheet:(make_side_sheet_props ~clipped:false ())
-      ~top_app_bar_actions:[ make_anchor_button
-                               ~attrs:Tyxml_html.[a_href editor_path]
-                               ~icon:(make_icon
-                                        ~classes:[Components_tyxml.Button.CSS.icon]
-                                        Components_tyxml.Svg_icons.pencil)
-                               ~classes:[Mosaic_video_template.CSS.edit]
-                               ~label:"Редактировать" ()
-                           ; Tyxml.Html.toelt menu_toggle
-                             (* ; Tyxml.Html.toelt side_sheet_toggle *) ]
+      ~top_app_bar_actions:(make_anchor_buttons
+                              ~href:editor_path
+                              ~icon:(make_icon
+                                       ~classes:[Components_tyxml.Button.CSS.icon]
+                                       Components_tyxml.Svg_icons.pencil)
+                              ~class_:Mosaic_video_template.CSS.edit
+                              ~label:"Редактировать" ()
+                            @ [Tyxml.Html.toelt menu_toggle])
       ~pre_scripts:[Src "/js/adapter.min.js"]
       ~post_scripts:[Src "/js/mosaic_video.js"]
       ~stylesheets:[ "/css/pipeline.min.css"
@@ -59,13 +63,13 @@ let pages () : Api_template.topmost Api_template.item list =
   let editor_page_props =
     make_template_props
       ~title:"Редактор мозаики"
-      ~top_app_bar_actions:[make_anchor_button
-                              ~attrs:Tyxml_html.[a_href video_path]
+      ~top_app_bar_actions:(make_anchor_buttons
+                              ~href:video_path
                               ~icon:(make_icon
                                        ~classes:[Components_tyxml.Button.CSS.icon]
                                        Components_tyxml.Svg_icons.video)
-                              ~classes:[Mosaic_editor_template.CSS.video]
-                              ~label:"Видео" ()]
+                              ~class_:Mosaic_editor_template.CSS.video
+                              ~label:"Видео" ())
       ~post_scripts:[Src "/js/mosaic_editor.js"]
       ~stylesheets:[ "/css/pipeline.min.css"
                    ; "/css/mosaic_editor.min.css" ]

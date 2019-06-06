@@ -1,4 +1,5 @@
 @import "@material/button/mixins";
+@import "@material/top-app-bar/variables";
 @import "./player/player";
 @import "./hotkeys/hotkeys";
 
@@ -9,5 +10,18 @@
 .mosaic__edit {
     @include mdc-states(on-primary, false);
     @include mdc-button-ink-color(on-primary);
-    margin-right: 1rem;
+    &--full {
+        margin-right: 1rem;
+    }
+    &--compact {
+        display: none;
+    }
+    @media (max-width: $mdc-top-app-bar-mobile-breakpoint) {
+        &--full {
+            display: none;
+        }
+        &--compact {
+            display: block;
+        }
+    }
 }

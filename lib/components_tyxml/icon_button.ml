@@ -35,4 +35,15 @@ module Make(Xml : Xml_sigs.NoWrap)
                <@> attrs)
       (on_icon ^:: icon :: [])
 
+  let create_anchor ?(classes = []) ?attrs ?href ?(ripple = true)
+      ?(on = false) ?on_icon ~icon () =
+    let classes =
+      classes
+      |> cons_if on CSS.on
+      |> List.cons CSS.root in
+    a ~a:([a_class classes] <@> attrs
+          |> map_cons_option a_href href
+          |> cons_if_lazy ripple (fun () -> a_user_data "ripple" "true"))
+      (on_icon ^:: icon :: [])
+
 end

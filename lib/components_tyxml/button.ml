@@ -61,11 +61,12 @@ module Make(Xml : Xml_sigs.NoWrap)
     cons_option icon @@ map_cons_option make_label label [],
     classes
 
-  let create_anchor ?classes ?attrs ?appearance
+  let create_anchor ?classes ?attrs ?href ?appearance
       ?dense ?icon ?label () =
     let children, classes =
       create_ ?classes ?appearance ?dense ?icon ?label () in
-    a ~a:([a_class classes] <@> attrs) children
+    a ~a:([a_class classes] <@> attrs
+          |> map_cons_option a_href href) children
 
   let create ?classes ?attrs ?button_type ?appearance
       ?(disabled = false) ?dense ?icon ?label () =

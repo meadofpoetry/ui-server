@@ -63,11 +63,14 @@ css-pages:
 	$(CSS) $(CSS_DIR)/frontend/pipeline/pipeline.scss $(CSS_DIR)/pipeline.min.css
 	$(CSS) $(CSS_DIR)/frontend/user/user.scss $(CSS_DIR)/user.min.css
 
-css: css-components css-pages
-
 backend:
 	$(BUILD) backend/backend.exe
 	cp $(BUILD_DIR)/backend/backend.exe dist/backend
+
+frontend: topology mosaic_editor mosaic_video
+	@echo "Done"
+
+css: css-components css-pages
 
 build: backend home pipeline hardware user server_config network demo input stream
 	@echo "Done"
