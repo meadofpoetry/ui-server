@@ -36,25 +36,21 @@ $wm-placeholder-color: text-secondary-on-surface;
     @include wm-layer-prop($i)
 }
 
-.wm {
-    .mdc-dialog {
-        z-index: 101;
-    }
-}
-
 // ---- PROPERTY ROW ----
 
 .wm-property-row {
-    padding-bottom: 10px;
     align-items: center;
+    min-height: 48px;
     &:last-child { padding-bottom: 0; }
     &__value {
         @include mdc-typography(body2);
+        padding-right: 1rem;
         text-align: end;
         width: 50%;
     }
     &__label {
         @include mdc-typography(subtitle1);
+        padding-left: 1rem;
         text-align: left;
         width: 50%;
     }
@@ -87,32 +83,11 @@ $wm-placeholder-color: text-secondary-on-surface;
 
 // ---- ITEMS ----
 
-.wm-item-properties {
-    position: relative;
-    flex: 1 1 200px;
-
-    &__values {
-        table {
-            table-layout: fixed;
-        }
-        thead {
-            display: none;
-        }
-        td {
-            text-overflow: ellipsis;
-            overflow: hidden;
-        }
-    }
-    &__actions {
-        margin-top: auto;
-    }
-}
-
 .wm-items {
 
     flex-grow: 2;
 
-    &__add {
+    &__add, &__properties {
         flex: 1 1 200px;
         position: relative;
     }
@@ -123,13 +98,16 @@ $wm-placeholder-color: text-secondary-on-surface;
     }
 
     &__add__item {
+        cursor: pointer;
+    }
+
+    &__add__item, .wm-property-row  {
         @include mdc-theme-prop(background-color, surface);
 
         display: flex;
         align-items: center;
         align-content: stretch;
         border-bottom: 1px solid rgba(0,0,0,.12);
-        cursor: pointer;
 
         .mdc-icon {
             // FIXME surface
@@ -175,12 +153,12 @@ $wm-placeholder-color: text-secondary-on-surface;
     overflow-x: hidden;
     flex: 1 1 200px; // FIXME try to understand this magic
 
-    .mdc-dynamic-grid__item {
+    .mdc-dynamic-grid-item {
         display: flex;
         align-items: stretch;
     }
 
-    .mdc-dynamic-grid__item--selected {
+    .mdc-dynamic-grid-item--selected {
         .wm-layer-item {
             @include mdc-theme-prop(color, on-primary);
             @include mdc-theme-prop(background-color, primary);
@@ -260,7 +238,7 @@ $wm-placeholder-color: text-secondary-on-surface;
     height: 100%;
 
     .wm-placeholder {
-        z-index: 4;
+        z-index: 1;
         .mdc-placeholder__content {
             @include mdc-theme-prop(background-color, surface);
             border-radius: 4px;
@@ -269,7 +247,7 @@ $wm-placeholder-color: text-secondary-on-surface;
     &__right-menu {
         align-items: center;
         .mdc-menu {
-            z-index: 100;
+            z-index: 2;
         }
     }
 
@@ -287,7 +265,7 @@ $wm-placeholder-color: text-secondary-on-surface;
         height: 100%;
         padding-left: 12px;
 
-        .mdc-menu-anchor {
+        .mdc-menu-surface--anchor {
             cursor: pointer;
             padding-left: 8px;
         }
@@ -329,24 +307,24 @@ $wm-placeholder-color: text-secondary-on-surface;
             outline: none;
         }
 
-        .mdc-dynamic-grid__item {
+        .mdc-dynamic-grid-item {
             overflow: hidden;
             text-overflow: ellipsis;
             @include mdc-elevation(2);
             transition: box-shadow 100ms ease-out;
             transition-delay: 100ms;
         }
-        .mdc-dynamic-grid__item--dragging {
-            z-index: 100 !important;
+        .mdc-dynamic-grid-item--dragging {
+            z-index: 2 !important;
             @include mdc-elevation(8);
         }
-        .mdc-dynamic-grid__item__ghost {
+        .mdc-dynamic-grid__ghost {
             @include mdc-theme-prop(background-color, secondary);
         }
     }
 
     &__grid--invisible {
-        .mdc-dynamic-grid__item {
+        .mdc-dynamic-grid-item {
             display: none;
         }
     }
@@ -360,10 +338,10 @@ $wm-placeholder-color: text-secondary-on-surface;
         outline: none;
         pointer-events: none;
 
-        .mdc-dynamic-grid__item {
+        .mdc-dynamic-grid-item {
             opacity: 0.4;
         }
-        .mdc-dynamic-grid__item__resize {
+        .mdc-dynamic-grid-item__resize-handle {
             display: none;
         }
 

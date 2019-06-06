@@ -31,6 +31,12 @@ module Make(I : Item) = struct
         Utils.Option.iter (React.S.stop ~strong:true) _s;
         _s <- None
 
+      method! layout () : unit =
+        super#layout ();
+        items#layout ();
+        layers#layout ();
+        layers_grid#layout ()
+
       method e_layers_action : List_of_layers.action React.event = layers_grid#e_layer
       method initialize_layers = layers_grid#initialize
     end

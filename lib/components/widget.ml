@@ -16,6 +16,7 @@ class t (elt : #Dom_html.element Js.t) () =
 
     val mutable _destroyed = false
     val mutable _on_destroy = None
+    val mutable _on_layout = None
 
     method init () : unit = ()
 
@@ -30,7 +31,8 @@ class t (elt : #Dom_html.element Js.t) () =
       _destroyed <- true
 
     (** Layout widget in DOM *)
-    method layout () : unit = ()
+    method layout () : unit =
+      Option.iter (fun f -> f ()) _on_layout
 
     (** Returns [true] if a widget is in DOM, [false] otherwise *)
     method in_dom : bool =
@@ -75,6 +77,9 @@ class t (elt : #Dom_html.element Js.t) () =
     (** Removes all children from a widget. *)
     method remove_children () : unit =
       Element.remove_children self#root
+
+    method set_on_layout (f : unit -> unit) : unit =
+      _on_layout <- Some f
 
     method set_on_destroy (f : unit -> unit) : unit =
       _on_destroy <- Some f

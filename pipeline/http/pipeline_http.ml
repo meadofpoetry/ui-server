@@ -55,8 +55,7 @@ let pages () : Api_template.topmost Api_template.item list =
                             @ [Tyxml.Html.toelt menu_toggle])
       ~pre_scripts:[Src "/js/adapter.min.js"]
       ~post_scripts:[Src "/js/mosaic_video.js"]
-      ~stylesheets:[ "/css/pipeline.min.css"
-                   ; "/css/mosaic_video.min.css" ]
+      ~stylesheets:["/css/mosaic_video.min.css"]
       ~content:[Tyxml.Html.toelt @@ Mosaic_video_template.make_player ()]
       ()
   in
@@ -71,8 +70,7 @@ let pages () : Api_template.topmost Api_template.item list =
                               ~class_:Mosaic_editor_template.CSS.video
                               ~label:"Видео" ())
       ~post_scripts:[Src "/js/mosaic_editor.js"]
-      ~stylesheets:[ "/css/pipeline.min.css"
-                   ; "/css/mosaic_editor.min.css" ]
+      ~stylesheets:["/css/mosaic_editor.min.css"]
       ~content:[]
       ()
   in

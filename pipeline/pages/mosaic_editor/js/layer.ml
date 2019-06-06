@@ -212,6 +212,7 @@ module Make(I : Item) = struct
             let pos = grid_pos_of_layout_pos ~resolution ~cols ~rows pos in
             i#set_pos pos) self#items;
         self#s_grid_push { self#grid with cols; rows = Some rows };
+        self#layout ()
 
     end
 

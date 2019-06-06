@@ -43,9 +43,15 @@ module Cell = struct
        end
     | _ -> None
 
-  class t (elt : Dom_html.element Js.t) () =
+  class t ?widgets (elt : Dom_html.element Js.t) () =
   object
     inherit Widget.t elt () as super
+
+    method! layout () : unit =
+      (match widgets with
+       | None -> ()
+       | Some x -> List.iter Widget.layout x);
+      super#layout ()
 
     method span : int option =
       List.find_map (fun (_class : string) ->
@@ -99,12 +105,12 @@ module Cell = struct
   end
 
   let make ?span ?span_phone ?span_tablet ?span_desktop ?align ?order
-        (widgets : #Widget.t list) : t =
+      (widgets : #Widget.t list) : t =
     let (elt : Dom_html.element Js.t) =
       Tyxml_js.To_dom.of_element
       @@ Markup.create_cell ?span ?span_phone ?span_tablet ?span_desktop
-           ?align ?order (List.map Widget.to_markup widgets) () in
-    new t elt ()
+        ?align ?order (List.map Widget.to_markup widgets) () in
+    new t ~widgets elt ()
 
   let attach (elt : #Dom_html.element Js.t) : t =
     new t (Element.coerce elt) ()
@@ -119,6 +125,10 @@ class t (elt : Dom_html.element Js.t) () =
     inherit Widget.t elt () as super
 
     val mutable _cells = cells
+
+    method! layout () : unit =
+      List.iter Widget.layout _cells;
+      super#layout ()
 
     method cells : Cell.t list = _cells
 

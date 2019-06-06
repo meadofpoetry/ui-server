@@ -20,23 +20,23 @@
     $selected-color: nth($color, 2);
 
     .wm-layers-grid {
-        .mdc-dynamic-grid__item[data-layer='#{$layer}'] {
+        .mdc-dynamic-grid-item[data-layer='#{$layer}'] {
             .wm-layer-item__color-indicator {
                 background-color: $base-color;
             }
         }
     }
     .wm-grid__grid[data-layer='#{$layer}'] {
-        .mdc-dynamic-grid__item {
+        .mdc-dynamic-grid-item {
             @include wm-layer-color($base-color);
-            z-index: $max-layers + 1;
+            z-index: $layer + 1;
             &--selected {
                 @include wm-layer-color($selected-color);
             }
         }
     }
     .wm-grid__grid--background[data-layer='#{$layer}'] {
-        .mdc-dynamic-grid__item {
+        .mdc-dynamic-grid-item {
             z-index: $layer + 1;
         }
     }

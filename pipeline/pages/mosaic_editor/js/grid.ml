@@ -1,9 +1,13 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
+open Js_of_ocaml_lwt
 open Components
 open Wm_types
 open Basic_widgets
 
 let base_class = "wm-grid"
+
+let ( >>= ) = Lwt.( >>= )
 
 module Option = Utils.Option
 
@@ -34,22 +38,33 @@ module Make(I : Item) = struct
     let title = Typography.Text.make title in
     let grid_on = Icon.SVG.(make_simple Path.grid) in
     let grid_off = Icon.SVG.(make_simple Path.grid_off) in
+    let s_grid_state, set_grid_state = React.S.create is_grid_on in
     let grid_icon =
       Icon_button.make
+        ~on_change:set_grid_state
         ~on:is_grid_on
         ~on_icon:grid_on
         ~icon:grid_off
         () in
-    (* let menu = new Menu.t ~items:[] () in
-     * let menu_text = new Typography.Text.t ~text:"Сетка:" () in
-     * let menu_sel = new Typography.Text.t ~text:"" () in
-     * let menu_ico = new Icon.Font.t ~icon:"arrow_drop_down" () in
-     * let anchor = new Hbox.t ~widgets:[ menu_sel#widget
-     *                                  ; menu_ico#widget ] () in
-     * let menu_wrap = new Menu.Wrapper.t ~anchor ~menu () in
-     * let menu_block = new Hbox.t ~widgets:[ menu_text#widget
-     *                                      ; menu_wrap#widget ] () in *)
-    let icons = Box.make ~dir:`Row [grid_icon#widget (* ; menu_block#widget *)] in
+    let list = Item_list.make [] in
+    let menu' = Menu.make_of_item_list list in
+    let menu_text = Typography.Text.make "Сетка:" in
+    let menu_sel = Typography.Text.make "" in
+    let menu_ico = Icon.SVG.(make_simple Path.menu_down) in
+    let anchor = Box.make ~dir:`Row
+        [ menu_sel#widget
+        ; menu_ico#widget ] in
+    let menu_wrap =
+      Widget.create
+      @@ Tyxml_js.To_dom.of_element
+      @@ Tyxml_js.Html.(
+          div ~a:[a_class [Menu_surface.CSS.anchor]]
+            [anchor#markup; menu'#markup]) in
+    let menu_block =
+      Box.make ~dir:`Row
+        [ menu_text#widget
+        ; menu_wrap#widget ] in
+    let icons = Box.make ~dir:`Row [grid_icon#widget; menu_block#widget] in
     let header = Box.make ~dir:`Row [title#widget; icons#widget] in
     let elt = Dom_html.(createDiv document) in
     object(self)
@@ -60,8 +75,8 @@ module Make(I : Item) = struct
         let eq = fun _ _ -> false in
         React.S.map ~eq:(==)
           (fun x ->
-            let s = React.S.hold ~eq [] x#e_selected in
-            React.S.map ~eq (function [x] -> Some x | _ -> None) s)
+             let s = React.S.hold ~eq [] x#e_selected in
+             React.S.map ~eq (function [x] -> Some x | _ -> None) s)
           s_active
         |> React.S.switch ~eq
       val e_dblclick =
@@ -89,47 +104,53 @@ module Make(I : Item) = struct
             let grids = Utils.get_grids ~resolution:self#resolution ~positions () in
             set_grids grids) @@ React.S.changes s |> ignore;
         (* update selected grid *)
-        (* React.E.map (fun (_, i) ->
-         *     let s = i##.textContent
-         *             |> Js.Opt.to_option
-         *             |> Option.get_exn
-         *             |> Js.to_string in
-         *     match String.split_on_char 'x' s with
-         *     | [w; h] ->
-         *        (match Int.of_string w, Int.of_string h with
-         *         | Some w, Some h -> set_grid (w, h)
-         *         | _ -> ())
-         *     | _ -> ()) menu#e_selected |> ignore; *)
-        (* React.S.map (fun x ->
-         *     menu_sel#set_text_content @@ grid_to_string x;
-         *     self#update_items_min_size) s_grid
-         * |> ignore; *)
+        Events.listen_lwt menu'#root Menu.Event.selected (fun e _ ->
+            let detail = Widget.event_detail e in
+            let s = detail##.item##.textContent
+                    |> Js.Opt.to_option
+                    |> Utils.Option.get
+                    |> Js.to_string in
+            match String.split_on_char 'x' s with
+            | [w; h] ->
+              (match int_of_string_opt w, int_of_string_opt h with
+               | Some w, Some h -> Lwt.return @@ set_grid (w, h)
+               | _ -> Lwt.return_unit)
+            | _ -> Lwt.return_unit)
+        |> ignore;
+        React.S.map (fun x ->
+            menu_sel#root##.textContent := Js.some @@ Js.string @@ grid_to_string x;
+            self#update_items_min_size) s_grid
+        |> ignore;
         (* show grid menu *)
-        (* anchor#listen_lwt Widget.Event.click (fun _ _ ->
-         *     let item text = new Menu.Item.t ~text ~value:() () in
-         *     let items = List.map (fun (w, h) ->
-         *                     let text = grid_to_string (w, h) in
-         *                     item text) @@ React.S.value s_grids in
-         *     menu#list#set_empty ();
-         *     List.iter menu#list#append_child items;
-         *     menu#show ();
-         *     Lwt.return_unit) |> Lwt.ignore_result; *)
-        (* anchor#set_align_items `Center; *)
-        title#add_class @@ Components_tyxml.BEM.add_element base_class "title";
-        (* menu_block#add_class @@ Components_tyxml.BEM.add_element base_class "grid-select"; *)
-        icons#add_class @@ Components_tyxml.BEM.add_element base_class "right-menu";
-        grid_icon#add_class  @@ Components_tyxml.BEM.add_element base_class "menu";
-        header#add_class @@ Components_tyxml.BEM.add_element base_class "header";
-        (* React.S.l2 (fun conf grid ->
-         *     let value = if conf
-         *                 then (grid#overlay_grid#show ();
-         *                       Js.string "true")
-         *                 else (grid#overlay_grid#hide ();
-         *                       Js.string "false") in
-         *     match Js.Optdef.to_option storage with
-         *     | None -> ()
-         *     | Some x -> x##setItem (Js.string "grid_icon") value)
-         *   grid_icon#s_state s_active |> ignore; *)
+        Events.clicks anchor#root (fun _ _ ->
+            let item text = Item_list.Item.make text in
+            let items = List.map (fun (w, h) ->
+                let text = grid_to_string (w, h) in
+                item text) @@ React.S.value s_grids in
+            list#remove_children ();
+            List.iter list#append_child items;
+            menu'#reveal ())
+        |> Lwt.ignore_result;
+        menu'#set_quick_open true;
+        anchor#set_align_items `Center;
+        title#add_class @@ BEM.add_element base_class "title";
+        menu_block#add_class @@ BEM.add_element base_class "grid-select";
+        icons#add_class @@ BEM.add_element base_class "right-menu";
+        grid_icon#add_class  @@ BEM.add_element base_class "menu";
+        header#add_class @@ BEM.add_element base_class "header";
+        React.S.l2 (fun conf grid ->
+            let value =
+              if conf
+              then (grid#overlay_grid#show ();
+                    Js.string "true")
+              else (grid#overlay_grid#hide ();
+                    Js.string "false") in
+            (match Js.Optdef.to_option storage with
+             | None -> ()
+             | Some x -> x##setItem (Js.string "grid_icon") value);
+            grid#layout ())
+          s_grid_state s_active
+        |> ignore;
         React.S.map (fun x -> x#set_active true) s_active |> ignore;
         React.S.diff (fun _ o ->
             o#set_active false;
@@ -161,6 +182,10 @@ module Make(I : Item) = struct
           e_layers |> ignore;
         super#add_class base_class;
         wrapper#add_class @@ Components_tyxml.BEM.add_element base_class "wrapper"
+
+      method! layout () : unit =
+        (React.S.value s_active)#layout ();
+        super#layout ()
 
       method e_item_dblclick = e_dblclick
       method e_item_delete = e_delete

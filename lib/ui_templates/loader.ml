@@ -1,7 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Components
-open Lwt.Infix
+
+let ( >>= ) = Lwt.( >>= )
 
 let base_class = "mdc-loader"
 
@@ -36,7 +37,9 @@ class ['a] loader
       self#add_class base_class;
       let sleep =
         Lwt_js.sleep timeout
-        >|= (fun () -> self#append_child progress) in
+        >>= fun () ->
+        self#append_child progress;
+        Lwt.return_unit in
       Lwt.try_bind
         (fun () -> t)
         (fun r ->
@@ -77,7 +80,7 @@ class ['a] loader
 
 (* TODO add loader to DOM only after certain timeout *)
 class ['a] widget_loader ?text ?error_icon ?error_prefix
-    ?(parent : #Widget.t option)
+    ?(parent : #Dom_html.element Js.t option)
     (t : ((#Widget.t as 'a), string) Lwt_result.t) () =
   object(self)
     inherit ['a] loader ?text ?error_icon ?error_prefix t () as super
@@ -85,22 +88,29 @@ class ['a] widget_loader ?text ?error_icon ?error_prefix
     method! init () : unit =
       super#init ();
       Lwt_result.Infix.(
-        self#thread
-        >|= (fun (w : #Widget.t) ->
+        Lwt.async (fun () ->
+            self#thread
+            >>= fun (w : #Widget.t) ->
             (match parent with
              | Some p ->
-               p#append_child w;
-               p#remove_child self#widget
-             | None -> self#append_child w)))
-      |> Lwt.ignore_result;
+               Element.append_child p w#root;
+               Element.remove_child_safe p self#widget#root;
+               w#layout ()
+             | None ->
+               self#append_child w;
+               w#layout ());
+            Lwt.return_ok ()));
       match parent with
       | None -> ()
-      | Some p -> p#append_child self#widget
+      | Some p -> Element.append_child p self#widget#root
 
     method! destroy () : unit =
       super#destroy ();
-      Lwt_result.(self#thread >|= Widget.destroy)
-      |> Lwt.ignore_result
+      Lwt.async (fun () ->
+          self#thread
+          >>= function
+          | Ok w -> w#destroy (); Lwt.return_ok ()
+          | Error _ as e -> Lwt.return e)
 
   end
 

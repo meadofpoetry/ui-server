@@ -9,7 +9,7 @@
 
     &__ghost {
         @include mdc-theme-prop(background-color, secondary);
-        z-index: 2;
+        z-index: -1;
         position: absolute;
         opacity: 0.3;
     }
@@ -27,7 +27,6 @@
     position: absolute;
     background-position: center center;
     box-sizing: border-box;
-    z-index: 2;
     /* transition: transform 150ms ease-out; */
 
     &:focus {
@@ -49,7 +48,7 @@
         right: 0px;
         width: 20px;
         height: 20px;
-        z-index: 3;
+        z-index: 1;
         cursor: se-resize;
     }
 

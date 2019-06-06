@@ -41,13 +41,13 @@ let get_bounding_rect (positions : Wm.position list) : Wm.position =
   match positions with
   | [] -> { left = 0; right = 0; top = 0; bottom = 0 }
   | hd :: tl ->
-     List.fold_left (fun acc (x : Wm.position) ->
-         let { left; top; bottom; right } = x in
-         let left = min acc.left left in
-         let top = min acc.top top in
-         let bottom = max acc.bottom bottom in
-         let right = max acc.right right in
-         { left; top; right; bottom}) hd tl
+    List.fold_left (fun acc (x : Wm.position) ->
+        let { left; top; bottom; right } = x in
+        let left = min acc.left left in
+        let top = min acc.top top in
+        let bottom = max acc.bottom bottom in
+        let right = max acc.right right in
+        { left; top; right; bottom}) hd tl
 
 let get_bounding_rect_and_grids (positions : Wm.position list) =
   let rect = get_bounding_rect positions in
@@ -59,43 +59,43 @@ let get_bounding_rect_and_grids (positions : Wm.position list) =
   }
 
 let resize ~(resolution : int * int)
-      ~(to_position : 'a -> Wm.position)
-      ~(f : Wm.position -> 'a -> 'a) = function
+    ~(to_position : 'a -> Wm.position)
+    ~(f : Wm.position -> 'a -> 'a) = function
   | [] -> []
   | l ->
-     let grids = get_bounding_rect_and_grids @@ List.map to_position l in
-     let rect = grids.rect |> Utils.to_grid_position in
-     let nw, nh =
-       Utils.resolution_to_aspect (rect.w, rect.h)
-       |> Dynamic_grid.Position.correct_aspect
-            { x = 0
-            ; y = 0
-            ; w = fst resolution
-            ; h = snd resolution }
-       |> (fun p -> p.w, p.h) in
-     let w, h =
-       if nw > rect.w
-       then List.hd grids.grids
-       else List.fold_left (fun acc (w, h) ->
-                if w > (fst acc) && w <= nw
-                then (w,h) else acc) (0,0) grids.grids in
-     let cw, rh = nw / w, nh / h in
-     let dx = (fst resolution - (w * cw)) / 2 in
-     let dy = (snd resolution - (h * rh)) / 2 in
-     let apply (item : 'a) : 'a =
-       Utils.of_grid_position rect
-       |> pos_absolute_to_relative (to_position item)
-       |> Layer.grid_pos_of_layout_pos
-            ~resolution:(rect.w, rect.h) ~cols:w ~rows:h
-       |> (fun pos -> Dynamic_grid.Position.(
-             { x = (pos.x * cw) + dx
-             ; y = (pos.y * rh) + dy
-             ; w = pos.w * cw
-             ; h = pos.h * rh }))
-       |> Utils.of_grid_position
-       |> (fun x -> f x item)
-     in
-     List.map apply l
+    let grids = get_bounding_rect_and_grids @@ List.map to_position l in
+    let rect = grids.rect |> Utils.to_grid_position in
+    let nw, nh =
+      Utils.resolution_to_aspect (rect.w, rect.h)
+      |> Dynamic_grid.Position.correct_aspect
+        { x = 0
+        ; y = 0
+        ; w = fst resolution
+        ; h = snd resolution }
+      |> (fun p -> p.w, p.h) in
+    let w, h =
+      if nw > rect.w
+      then List.hd grids.grids
+      else List.fold_left (fun acc (w, h) ->
+          if w > (fst acc) && w <= nw
+          then (w,h) else acc) (0,0) grids.grids in
+    let cw, rh = nw / w, nh / h in
+    let dx = (fst resolution - (w * cw)) / 2 in
+    let dy = (snd resolution - (h * rh)) / 2 in
+    let apply (item : 'a) : 'a =
+      Utils.of_grid_position rect
+      |> pos_absolute_to_relative (to_position item)
+      |> Layer.grid_pos_of_layout_pos
+        ~resolution:(rect.w, rect.h) ~cols:w ~rows:h
+      |> (fun pos -> Dynamic_grid.Position.(
+          { x = (pos.x * cw) + dx
+          ; y = (pos.y * rh) + dy
+          ; w = pos.w * cw
+          ; h = pos.h * rh }))
+      |> Utils.of_grid_position
+      |> (fun x -> f x item)
+    in
+    List.map apply l
 
 let resize_container (p : Wm.position) (t : Wm.container wm_item) =
   let resolution = p.right - p.left, p.bottom - p.top in
@@ -180,9 +180,9 @@ module Widget_item : Item with type item = Wm.widget = struct
       match t.item.type_ with
       | Video -> "Видео "
       | Audio -> "Аудио " in
-      match t.item.pid with
-      | Some pid -> typ ^ "PID:" ^ string_of_int pid
-      | None     -> t.name
+    match t.item.pid with
+    | Some pid -> typ ^ "PID:" ^ string_of_int pid
+    | None     -> t.name
 
   let make_item_properties (t : t React.signal) _ _ =
     Item_properties.make_widget_props t
@@ -204,19 +204,19 @@ let serialize ~(cont : Cont.t) () : (string * Wm.container) list =
  *)
 let get_free_widgets containers widgets =
   let used = List.fold_left (fun acc (_, (x : Wm.container)) ->
-                 x.widgets @ acc) [] containers in
+      x.widgets @ acc) [] containers in
   List.filter (fun (k, (v : Wm.widget)) ->
       let eq (k1, _) (k2, _) = String.equal k1 k2 in
       not @@ List.exists (eq (k,v)) used)
     widgets
 
 let create_widgets_grid
-      ~(container : Wm.container wm_item)
-      ~(candidates : Widget_item.t list React.signal)
-      ~(set_candidates : Widget_item.t list -> unit)
-      ~(on_apply : (string * Wm.widget) list -> unit)
-      ~(on_cancel : unit -> unit)
-      () =
+    ~(container : Wm.container wm_item)
+    ~(candidates : Widget_item.t list React.signal)
+    ~(set_candidates : Widget_item.t list -> unit)
+    ~(on_apply : (string * Wm.widget) list -> unit)
+    ~(on_cancel : unit -> unit)
+    () =
   let init_cand = React.S.value candidates in
   let cont_name = container.name in
   let cont_pos = Container_item.position_of_t container in
@@ -240,12 +240,12 @@ let create_widgets_grid
   dlg#add_class "wm-confirmation-dialog";
   let title = Printf.sprintf "%s. Виджеты" cont_name in
   let w = Widg.make ~title
-            ~init
-            ~candidates
-            ~set_candidates
-            ~resolution
-            ~actions:[back; apply]
-            () in
+      ~init
+      ~candidates
+      ~set_candidates
+      ~resolution
+      ~actions:[back; apply]
+      () in
   Lwt.async (fun () ->
       Events.clicks apply#root (fun _ _ ->
           on_apply w.ig#layout_items;
@@ -270,25 +270,25 @@ let create_widgets_grid
   w
 
 let switch ~grid
-      ~(selected : Container_item.t Dynamic_grid.Item.t)
-      ~s_state_push
-      ~candidates
-      ~set_candidates () =
+    ~(selected : Container_item.t Dynamic_grid.Item.t)
+    ~s_state_push
+    ~candidates
+    ~set_candidates () =
   let on_apply widgets =
     let t = selected#value in
     let t = Container_item.update_min_size
-              { t with item = { t.item with widgets }} in
+        { t with item = { t.item with widgets }} in
     selected#set_value t;
     grid#update_item_min_size selected;
     s_state_push `Container
   in
   let on_cancel  = fun () -> s_state_push `Container in
   let w = create_widgets_grid
-            ~container:selected#value
-            ~candidates
-            ~set_candidates
-            ~on_apply
-            ~on_cancel () in
+      ~container:selected#value
+      ~candidates
+      ~set_candidates
+      ~on_apply
+      ~on_cancel () in
   s_state_push (`Widget w)
 
 (* let make_containers (widgets : (string * Wm.widget) list) =
@@ -314,7 +314,7 @@ let switch ~grid
  *            }
  *        } : t)
  *     ) domains
- *)
+*)
 
 let create_cells () =
   let lc =
@@ -337,9 +337,10 @@ let create_cells () =
       [] in
   lc, mc, rc
 
-let create ~(init : Wm.t)
-      ~(post : Wm.t -> unit Lwt.t)
-      () =
+let create
+    ~(init : Wm.t)
+    ~(post : Wm.t -> unit Lwt.t)
+    () =
   (* Convert widgets positions to relative *)
   let wc =
     List.map Widget_item.t_of_layout_item
@@ -421,7 +422,7 @@ let create ~(init : Wm.t)
   let _ =
     React.E.map (fun l ->
         let layers = Container_item.layers_of_t_list
-                     @@ List.map Container_item.t_of_layout_item l in
+          @@ List.map Container_item.t_of_layout_item l in
         cont.rt#initialize_layers layers;
         s_wc_push
         @@ List.map Widget_item.t_of_layout_item
@@ -432,7 +433,14 @@ let create ~(init : Wm.t)
   let add_to_view lt ig rt =
     lc#remove_children (); lc#append_child lt;
     mc#remove_children (); mc#append_child ig;
-    rc#remove_children (); rc#append_child rt in
+    rc#remove_children (); rc#append_child rt;
+    lc#set_on_layout lt#layout;
+    mc#set_on_layout ig#layout;
+    rc#set_on_layout rt#layout;
+    lc#layout ();
+    rc#layout ();
+    mc#layout ()
+  in
   let _ =
     React.S.map (function
         | `Widget (w : Widg.t) -> add_to_view w.lt w.ig w.rt
@@ -475,5 +483,7 @@ let () =
         Api_js.Websocket.close_socket socket);
     Lwt.return_ok grid in
   let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
-  let body = Ui_templates.Loader.create_widget_loader thread in
+  let body = Ui_templates.Loader.create_widget_loader
+      ~parent:scaffold#app_content_inner
+      thread in
   scaffold#set_body body

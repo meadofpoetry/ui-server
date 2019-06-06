@@ -7,9 +7,10 @@
 
 @import './templates/templates';
 
+// TODO of course this should be moved to a separate .css file,
+// we don't need this on every page
 @import './frontend/application/application';
 @import './frontend/pipeline/widgets';
-
 @import './frontend/boards/niitv_dvb';
 @import './frontend/boards/niitv_tsan';
 @import './frontend/boards/dektec_dtm3200';
