@@ -42,5 +42,4 @@ module Make(I : Item) = struct
     end
 
   let make ~layers ~selected = new t ~layers ~selected ()
-
 end

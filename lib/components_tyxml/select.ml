@@ -82,18 +82,17 @@ module Make(Xml : Xml_sigs.NoWrap)
 
     let create_option ?(classes = []) ?attrs ?value ?(disabled = false)
           ?(selected = false) ~text () : 'a elt =
-      option ~a:([a_class classes]
+      option ~a:([a_class classes] <@> attrs
                  |> map_cons_option a_value value
                  |> cons_if_lazy disabled a_disabled
-                 |> cons_if_lazy selected a_selected
-                 <@> attrs)
+                 |> cons_if_lazy selected a_selected)
         (txt text)
 
     let create_optgroup ?(classes = []) ?attrs ~label ~items () : 'a elt =
       optgroup ~a:([a_class classes] <@> attrs) ~label items
 
     let create_select ?(classes = []) ?attrs
-          ?(disabled = false) ~items () : 'a elt =
+        ?(disabled = false) ~items () : 'a elt =
       let classes = CSS.native_control :: classes in
       select ~a:([a_class classes]
                  |> cons_if_lazy disabled a_disabled

@@ -32,7 +32,7 @@ let make ?outlined () =
   Select.make_native
     ?outlined
     ~label:"Стандарт"
-    ~items
+    ~items:(`Markup items)
     standard
 
 let section () =

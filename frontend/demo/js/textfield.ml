@@ -1,10 +1,11 @@
+open Js_of_ocaml_tyxml
 open Components
 
 let section () =
   let cc = Textfield.Character_counter.make () in
   let ht = Textfield.Helper_text.make
-             ~validation:true
-             "Invalid e-mail" in
+      ~validation:true
+      "Invalid e-mail" in
   let textfield =
     Textfield.make_textfield
       ~leading_icon:(Icon.SVG.(make_simple Path.heart))
@@ -16,10 +17,10 @@ let section () =
       ~label:"Label"
       Email in
   let hl = Widget.create
-           @@ Tyxml_js.To_dom.of_element
-           @@ Textfield.Markup.create_helper_line
-                [ Widget.to_markup ht
-                ; Widget.to_markup cc ] () in
+    @@ Tyxml_js.To_dom.of_element
+    @@ Textfield.Markup.create_helper_line
+      [ Widget.to_markup ht
+      ; Widget.to_markup cc ] () in
   let cc = Textfield.Character_counter.make () in
   let textarea =
     Textfield.make_textarea
