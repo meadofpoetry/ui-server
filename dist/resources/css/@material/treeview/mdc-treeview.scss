@@ -4,6 +4,10 @@
 
 @include mdc-treeview-core-styles;
 
+.mdc-treeview > .mdc-treeview-node {
+    margin-left: 0;
+}
+
 .mdc-treeview-node {
     &__expand-icon {
         @include mdc-treeview-dd-arrow-svg-bg_($mdc-treeview-expand-color, $mdc-treeview-expand-opacity);
@@ -12,7 +16,7 @@
         height: 24px;
         transition: transform $mdc-treeview-expand-transition-duration $mdc-animation-standard-curve-timing-function;
 
-        .mdc-treeview-node--expanded & {
+        .mdc-treeview-node--expanded > .mdc-treeview-node__root &:first-of-type {
             transform: rotate(180deg);
             transition: transform $mdc-treeview-expand-transition-duration $mdc-animation-standard-curve-timing-function;
         }

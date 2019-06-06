@@ -11,4 +11,10 @@ module CSS = struct
 
   let node_children = BEM.add_element node "children"
 
+  let node_expanded = BEM.add_modifier node "expanded"
+
+  let node_selected = BEM.add_modifier node "selected"
+
+  let node_activated = BEM.add_modifier node "activated"
+
 end

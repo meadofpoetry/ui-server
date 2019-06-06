@@ -62,16 +62,16 @@ let make () =
   let w = new Treeview.t w () in
   w#root##.style##.maxWidth := Utils.px_js 400;
   log w#root;
-  (match Element.query_selector w#root ".mdc-treeview-node" with
-   | None -> print_endline "no root found"
-   | Some x ->
-     print_endline "all children: ";
-     let children = w#get_node_children x in
-     (match children with
-      | [] -> print_endline "no children found"
-      | x -> List.iter log x);
-     let leafs = w#get_all_descendant_leafs x in
-     (match leafs with
-      | [] -> print_endline "no leafs found"
-      | x -> List.iter log x));
+  (* (match Element.query_selector w#root ".mdc-treeview-node" with
+   *  | None -> print_endline "no root found"
+   *  | Some x ->
+   *    print_endline "all children: ";
+   *    let children = w#get_node_children x in
+   *    (match children with
+   *     | [] -> print_endline "no children found"
+   *     | x -> List.iter log x);
+   *    let leafs = w#get_all_descendant_leafs x in
+   *    (match leafs with
+   *     | [] -> print_endline "no leafs found"
+   *     | x -> List.iter log x)); *)
   w
