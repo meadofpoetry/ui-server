@@ -67,7 +67,7 @@ class t ?on_change (elt : Dom_html.element Js.t) () =
     method! initial_sync_with_dom () : unit =
       super#initial_sync_with_dom ();
       let change_listener =
-        Events.listen_lwt input_elt Events.Typ.change (fun _ _ ->
+        Events.changes input_elt (fun _ _ ->
             self#transition_check_state ();
             self#notify_change ()) in
       _change_listener <- Some change_listener;

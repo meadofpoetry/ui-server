@@ -61,7 +61,6 @@ let make () =
   let w = Tyxml_js.To_dom.of_element @@ make_element () in
   let w = new Treeview.t w () in
   w#root##.style##.maxWidth := Utils.px_js 400;
-  log w#root;
   (* (match Element.query_selector w#root ".mdc-treeview-node" with
    *  | None -> print_endline "no root found"
    *  | Some x ->

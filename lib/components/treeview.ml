@@ -2,6 +2,8 @@ open Js_of_ocaml
 
 include Components_tyxml.Treeview
 
+let ( % ) f g x = f (g x)
+
 type 'a node =
   { name : string (* node label *)
   ; value : 'a option (* Some - render checkbox, None - no checkbox needed *)
@@ -53,6 +55,17 @@ let prevent_default_event (e : #Dom_html.event Js.t) : unit =
           elements_key_allowed_in
       then Dom.preventDefault e)
 
+let get_node_checked_state (item : Dom_html.element Js.t) =
+  match Element.query_selector item Selector.checkbox with
+  | None -> `Unchecked
+  | Some x ->
+    let (checkbox : Dom_html.inputElement Js.t) = Js.Unsafe.coerce x in
+    if Js.to_bool (Js.Unsafe.coerce checkbox)##.indeterminate
+    then `Indeterminate
+    else if Js.to_bool checkbox##.checked
+    then `Checked
+    else `Unchecked
+
 let is_node_checked (item : Dom_html.element Js.t) : bool =
   match Element.query_selector item Selector.checkbox with
   | None -> false
@@ -86,6 +99,13 @@ let set_node_checked (x : bool) (item : Dom_html.element Js.t) : unit =
         (Js.string "Event") in
     ignore @@ event##initEvent (Js.string "change") Js._true Js._true;
     (Js.Unsafe.coerce input)##dispatchEvent event
+
+let set_node_indeterminate (x : bool) (item : Dom_html.element Js.t) : unit =
+  match Element.query_selector item Selector.checkbox_radio with
+  | None -> ()
+  | Some elt ->
+    let (input : Dom_html.inputElement Js.t) = Js.Unsafe.coerce elt in
+    (Js.Unsafe.coerce input)##.indeterminate := Js.bool x
 
 let loop_nodes f (list : Dom_html.element Dom.nodeList Js.t) =
   let length = list##.length in
@@ -245,24 +265,6 @@ class t elt () =
     method set_single_selection (x : bool) : unit =
       _is_single_selection <- x
 
-    method get_all_descendant_leafs (node : Dom_html.element Js.t)
-      : Dom_html.element Js.t list =
-      let rec aux acc node' =
-        let children_wrapper = node'##querySelector (Js.string Selector.children) in
-        Js.Opt.case children_wrapper
-          (fun () -> [])
-          (fun w ->
-             let children =
-               List.filter (fun x -> Element.has_class x CSS.node)
-               @@ Element.children w in
-             match children with
-             | [] ->
-               if not @@ Element.equal node' node
-               then node' :: acc
-               else acc
-             | x -> List.fold_left aux acc children) in
-      aux [] node
-
     method get_node_children (node : Dom_html.element Js.t)
       : Dom_html.element Js.t list =
       let rec aux acc node =
@@ -274,22 +276,26 @@ class t elt () =
              @@ Element.children w) in
       aux [] node
 
-    method update_children checked (elt : Dom_html.element Js.t) =
-      let children = self#get_node_children elt in
-      match children with
-      | [] -> ()
-      | nodes ->
-        print_endline @@ Printf.sprintf "got %d children to update (%B)"
-          (List.length nodes) checked;
-        List.iter (self#toggle_checkbox ~toggle:checked) nodes
-
-    method update_parent () =
-      let rec update () =
-        () in
-      update ()
+    method update_children (checked : bool) (node : Dom_html.element Js.t) : unit =
+      List.iter (self#toggle_checkbox ~checked)
+      @@ self#get_node_children node
 
     method private nodes_ : Dom_html.element Dom.nodeList Js.t =
       super#root##querySelectorAll (Js.string Selector.nodes)
+
+    method private get_parent_node (node : Dom_html.element Js.t) =
+      let rec aux node =
+        Js.Opt.bind (Element.get_parent node)
+          (fun parent ->
+             if Element.has_class parent CSS.node
+             then Js.some parent
+             else aux parent) in
+      aux node
+
+    method private is_leaf (node : Dom_html.element Js.t) : bool =
+      match Element.has_class node CSS.node, self#get_node_children node with
+      | true, [] -> true
+      | _ -> false
 
     method private handle_keydown (e : Dom_html.keyboardEvent Js.t)
         (_ : unit Lwt.t) : unit Lwt.t =
@@ -349,25 +355,25 @@ class t elt () =
         (_ : unit Lwt.t) : unit Lwt.t =
       Utils.Option.iter (fun node ->
           let target = Dom.eventTarget e in
+          let is_checkbox = Element.matches target Selector.checkbox_radio in
+          let is_leaf = self#is_leaf node in
+          if (not is_leaf) && (not is_checkbox)
+          then ignore @@ Element.toggle_class node CSS.node_expanded;
           (* Toggle the checkbox only if it's not the target of the event,
              or the checkbox will have 2 change events. *)
-          let toggle = not @@ Element.matches target Selector.checkbox_radio in
-          if Element.has_class node CSS.node_leaf || not toggle
-          then self#toggle_checkbox ~toggle node
-          else (
-            if toggle
-            then ignore @@ Element.toggle_class node CSS.node_expanded))
+          if is_leaf || is_checkbox
+          then self#set_selected_node_on_action ~toggle:(not is_checkbox) node)
       @@ tree_node_of_event self#nodes_ (e :> Dom_html.event Js.t);
       Lwt.return_unit
 
     method private is_selectable_list : bool = true
-      (* _is_single_selection || _is_checkbox_list || _is_radio_list *)
+    (* _is_single_selection || _is_checkbox_list || _is_radio_list *)
 
-    method private set_selected (items : Dom_html.element Js.t list) : unit =
+    method private set_selected (nodes : Dom_html.element Js.t list) : unit =
       self#layout ();
       if _is_checkbox_tree
-      then self#set_checkbox items
-      else self#set_single_selection_ (List.hd items)
+      then self#set_checkbox nodes
+      else self#set_single_selection_ (List.hd nodes)
 
     method private set_single_selection_ (item : Dom_html.element Js.t) : unit =
       List.iter (fun i ->
@@ -399,61 +405,67 @@ class t elt () =
       Element.set_attribute item aria_attribute value
 
     method private set_selected_node_on_action ?toggle
-        (item : Dom_html.element Js.t) : unit =
+        (node : Dom_html.element Js.t) : unit =
       if _is_checkbox_tree
-      then self#toggle_checkbox ?toggle item
-      else self#set_selected [item]
+      then self#toggle_checkbox ~origin:true ?toggle node
+      else self#set_selected [node]
 
-    method private set_checkbox (selected : Dom_html.element Js.t list) =
-      loop_nodes (fun _ (item : Dom_html.element Js.t) ->
-          let checked = List.exists (Element.equal item) selected in
-          set_node_checked checked item;
-          Element.set_attribute item Attr.aria_checked (string_of_bool checked))
+    method private set_checkbox (selected : Dom_html.element Js.t list) : unit =
+      loop_nodes (fun _ (node : Dom_html.element Js.t) ->
+          let checked = List.exists (Element.equal node) selected in
+          set_node_checked checked node;
+          Element.set_attribute node Attr.aria_checked (string_of_bool checked))
         self#nodes_;
       _selected_items <- selected
 
-    method private toggle_checkbox ?(toggle = true)
+    method update_parent (node : Dom_html.element Js.t) : unit =
+      let rec aux parent =
+        (match self#get_parent_checked_state parent with
+         | `Indeterminate -> set_node_indeterminate true parent
+         | `Checked ->
+           set_node_checked true parent;
+           set_node_indeterminate false parent
+         | `Unchecked ->
+           set_node_checked false parent;
+           set_node_indeterminate false parent);
+        Js.Opt.iter (self#get_parent_node parent) aux in
+      Js.Opt.iter (self#get_parent_node node) aux
+
+    method get_parent_checked_state (node : Dom_html.element Js.t) :
+      [`Checked | `Unchecked | `Indeterminate] =
+      let children = self#get_node_children node in
+      let rec aux (checked, unchecked, indeterminate) = function
+        | [] ->
+          if (not indeterminate) && (not unchecked)
+          then `Checked
+          else if (not indeterminate && (not checked))
+          then `Unchecked
+          else `Indeterminate
+        | hd :: tl ->
+          match get_node_checked_state hd with
+          | `Checked -> aux (true, unchecked, indeterminate) tl
+          | `Unchecked -> aux (checked, true, indeterminate) tl
+          | `Indeterminate -> aux (checked, unchecked, true) tl
+      in
+      aux (false, false, false) children
+
+    method private toggle_checkbox
+        ?(origin = false)
+        ?checked
+        ?(toggle = true)
         (node : Dom_html.element Js.t) : unit =
-      let checked = not @@ is_node_checked node in
-      print_endline @@ Printf.sprintf "checked: %B" checked;
+      let checked = match checked with
+        | Some x -> x
+        | None ->
+          let checked = is_node_checked node in
+          if toggle then not checked else checked in
       if toggle then set_node_checked checked node;
-      self#update_children (not toggle || checked) node
-      (* if checked
-       * then _selected_items <- List.add_nodup ~eq:Element.equal item _selected_items
-       * else _selected_items <- List.remove ~eq:Element.equal item _selected_items *)
+      self#update_children checked node;
+      if origin then self#update_parent node;
+      if checked
+      then (
+        if not @@ List.exists (Element.equal node) _selected_items
+        then _selected_items <- node :: _selected_items)
+      else _selected_items <- List.filter (Element.equal node) _selected_items
 
-    (* TODO *)
-
-    (* method has_children =
-     *   self#nodes##.length <> 0
-     * 
-     * method has_selection = false *)
-
-    (* method all_descendant_leafs_selected =
-     *   let rec aux = function
-     *     | [] -> true
-     *     | hd :: tl ->
-     *       if not @@ is_item_checked hd
-     *       then false else aux tl in
-     *   self#has_children
-     *   && self#has_selection
-     *   && aux self#all_descendant_leafs *)
-
-    (* method some_descendant_leafs_selected =
-     *   let rec aux = function
-     *     | [] -> false
-     *     | hd :: tl ->
-     *       if is_item_checked hd
-     *       then true else aux tl in
-     *   self#has_selection
-     *   && aux self#all_descendant_leafs *)
-
-    (* method indeterminate =
-     *   self#has_selection
-     *   && self#has_children
-     *   && self#some_descendant_leafs_selected
-     *   && not self#all_descendant_leafs_selected *)
-
-    (* method nodes : Dom_html.element Dom.nodeList Js.t =
-     *   get_nodes super#root *)
   end
