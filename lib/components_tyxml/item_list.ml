@@ -127,6 +127,26 @@ module Make(Xml : Xml_sigs.NoWrap)
            <@> attrs)
       (graphic ^:: (text :: (meta ^:: [])))
 
+  let create_item' ?(classes = [])
+      ?(attrs : 'b Html.attrib list option)
+      ?graphic ?meta ?role
+      ?tabindex ?(activated = false) ?selected ?checked
+      ~text
+      (tag : ?a:'b Html.attrib list -> 'c list -> 'a Html.elt) : 'a elt =
+    let classes =
+      classes
+      |> cons_if activated CSS.item_activated
+      |> cons_if (match selected with None -> false | Some x -> x)
+        (if activated then CSS.item_activated else CSS.item_selected)
+      |> List.cons CSS.item in
+    tag ~a:([a_class classes]
+            |> map_cons_option (fun b -> a_aria "checked" [string_of_bool b]) checked
+            |> map_cons_option (fun b -> a_aria "selected" [string_of_bool b]) selected
+            |> map_cons_option a_tabindex tabindex
+            |> map_cons_option (fun x -> a_role [x]) role
+               <@> attrs)
+      (graphic ^:: (text :: (meta ^:: [])))
+
   let create_group_subheader ?(classes = []) ?attrs ?(tag = h3) ~text () : 'a elt =
     let classes = CSS.group_subheader :: classes in
     tag ~a:([a_class classes] <@> attrs) [txt text]

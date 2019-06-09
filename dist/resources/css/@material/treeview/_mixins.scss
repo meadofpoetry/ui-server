@@ -1,25 +1,14 @@
 @import "@material/ripple/mixins";
 
 @mixin mdc-treeview-core-styles($query: mdc-feature-all()) {
-    @include mdc-treeview-base_($query);
-}
-
-@mixin mdc-treeview-ripple($query: mdc-feature-all()) {
-    @include mdc-ripple-common($query);
-
-    // Treeview items should support states by default, but it should be possible to opt out.
-    // Direct child combinator is necessary for non-interactive modifier on parent to not
-    // match this selector.
-    :not(.mdc-treeview--non-interactive) > :not(.mdc-treeview-node--disabled).mdc-treeview-node {
-        @include mdc-treeview-node-interactive-ripple_($query);
+    .mdc-treeview {
+        @include mdc-treeview-base_($query);
     }
-
-    // Set styles only for focus state on disabled list item.
-    :not(.mdc-treeview--non-interactive) > .mdc-treeview-node--disabled {
-        @include mdc-ripple-surface($query: $query);
-        @include mdc-ripple-radius-bounded($query: $query);
-        @include mdc-states-base-color(mdc-theme-prop-value(on-surface), $query: $query);
-        @include mdc-states-focus-opacity(mdc-states-opacity(primary, focus), $query: $query);
+    .mdc-treeview-node {
+        @include mdc-treeview-node-base_($query);
+    }
+    .mdc-treeview-node__children {
+        @include mdc-treeview-node-children-base_($query);
     }
 }
 
@@ -39,27 +28,37 @@
 }
 
 @mixin mdc-treeview-base_($query: mdc-feature-all()) {
-    .mdc-treeview-node {
-        @include mdc-treeview-node_;
+    $feat-structure: mdc-feature-create-target($query, structure);
+
+    @include mdc-feature-targets($feat-structure) {
+        margin: 0;
+        padding: 8px 0;
+        list-style-type: none;
+
+        &:focus {
+            outline: none;
+        }
     }
-    .mdc-treeview-node--leaf {
-        @include mdc-treeview-node-leaf_;
+}
+
+@mixin mdc-treeview-node-base_($query: mdc-feature-all()) {
+    &:focus {
+        outline: none;
+        > .mdc-treeview-node__content {
+            background: lightblue;
+        }
     }
 }
 
-@mixin mdc-treeview-node_ {
-    margin-left: 26px;
-}
+@mixin mdc-treeview-node-children-base_($query: mdc-feature-all()) {
+    $feat-structure: mdc-feature-create-target($query, structure);
+    display: none;
 
-@mixin mdc-treeview-node-leaf_ {
-    margin-left: 50px;
-}
+    @include mdc-feature-targets($feat-structure) {
+        list-style-type: none;
 
-// Ripple styles for an interactive list item (one that is enabled and inside an interactive list).
-@mixin mdc-treeview-node-interactive-ripple_($query: mdc-feature-all()) {
-    @include mdc-ripple-surface($query);
-    @include mdc-ripple-radius-bounded($query: $query);
-    @include mdc-states(mdc-theme-prop-value(on-surface), false, $query);
-    @include mdc-states-activated(primary, false, $query);
-    @include mdc-states-selected(primary, false, $query);
+        &:focus {
+            outline: none;
+        }
+    }
 }

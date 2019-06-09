@@ -69,6 +69,7 @@ module Key = struct
     | `Delete
     | `Page_up
     | `Page_down
+    | `Numpad_multiply
     | `Char of char
     | `Digit of int (* integers in range 0 - 9 *)
     | `Unknown
@@ -93,6 +94,7 @@ module Key = struct
      | Some "ArrowRight", _ | _, Some 39 -> `Arrow_right
      | Some "ArrowDown", _ | _, Some 40 -> `Arrow_down
      | Some "Delete", _ | _, Some 46 -> `Delete
+     | Some "*", _ | _, Some 106 -> `Numpad_multiply
      | _, Some x when x >= 48 && x <= 57 ->
         let d = int_of_string @@ Char.escaped @@ Char.chr x in
         `Digit d

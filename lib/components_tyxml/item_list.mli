@@ -127,6 +127,19 @@ sig
     'a elt ->
     unit -> Html_types.li elt
 
+  val create_item' : ?classes:string list
+    -> ?attrs:([> `Aria | `Class | `Role | `Tabindex ] as 'b) Html.attrib list
+    -> ?graphic:'c
+    -> ?meta:'c
+    -> ?role:string
+    -> ?tabindex:Html_types.number Html.wrap
+    -> ?activated:bool
+    -> ?selected:bool
+    -> ?checked:bool
+    -> text:'c
+    -> (?a:'b Html.attrib list -> 'c list -> 'a Html.elt)
+    -> 'a Html.elt
+
   val create_group_subheader :
     ?classes:string list ->
     ?attrs:(Html_types.h3_attrib as 'a) attrib list ->
