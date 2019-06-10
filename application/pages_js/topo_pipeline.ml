@@ -4,70 +4,40 @@ open Application_types
 
 let base_class = "pipeline-settings"
 
-let make_streams (cpu : Topology.topo_cpu) () =
-  Application_http_js.get_streams ()
-  |> Lwt_result.map_err Api_js.Http.error_to_string
-  >>= fun init ->
-  let event, _ = React.E.create () in
-  (* Application_http_js.Event.get_streams ~f:(fun _ -> function
-   *     | Ok x -> set_event x
-   *     | Error _ -> ()) ()
-   * >>= fun socket -> *)
-  let box = Streams_selector.make ~init ~event cpu () in
-  (* box#set_on_destroy (fun () ->
-   *     React.E.stop ~strong:true event;
-   *     socket##close); *)
-  Lwt_result.return box#widget
+let ( >>= ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
 
-let make_structure () =
-  (Pipeline_http_js.Http_structure.get_streams_with_source ()
-   >>= fun init ->
-   Pipeline_http_js.Http_structure.get_streams_applied ()
-   >>= fun init_applied ->
-   Lwt.return_ok (init, init_applied))
-  |> Lwt_result.map_err Api_js.Http.error_to_string
-  >>= fun (_, _) ->
-  let _, _ = React.E.create () in
-  let _, _ = React.E.create () in
-  (* Pipeline_http_js.Http_structure.Event.get_streams_with_source
-   *   ~f:(fun _ -> function Ok x -> set_event x | _ -> ()) ()
-   * >>= fun socket ->
-   * Pipeline_http_js.Http_structure.Event.get_streams_applied
-   *   ~f:(fun _ -> function Ok x -> set_event_applied x | _ -> ()) ()
-   * >>= fun socket_applied -> *)
-  let w = Widget.create_div () in
-  (* let w, s, set = Pipeline_js.Ui.Structure.make
-   *     ~init ~init_applied ~event ~event_applied () in *)
-  let submit = Button.make ~label:"Применить" () in
-  let buttons = Card.Actions.make_buttons [submit] in
-  let actions = Card.Actions.make [buttons] in
-  let box = Box.make ~dir:`Column [w; actions#widget] in
-  (* box#set_on_destroy (fun () ->
-   *     React.E.stop ~strong:true event;
-   *     socket_applied##close;
-   *     socket##close); *)
-  Lwt_result.return box#widget
-(*
-let make_settings () =
-  Pipeline_api_js.Api_settings.get ()
-  |> Lwt_result.map_err Api_js.Http.error_to_string
-  >>= fun init ->
-  let event, set_event = React.E.create () in
-  Pipeline_api_js.Api_settings.Event.get
-    ~f:(fun _ -> function Ok x -> set_event x | _ -> ()) ()
-  >>= fun socket ->
-  let w, s, set = Pipeline_js.Ui.Settings.make ~init ~event () in
-  let apply = new Ui_templates.Buttons.Set.t s set () in
-  let buttons = new Card.Actions.Buttons.t ~widgets:[apply] () in
-  let actions = new Card.Actions.t ~widgets:[buttons] () in
-  let box = new Vbox.t ~widgets:[w; actions#widget] () in
+let make_streams (cpu : Topology.topo_cpu) socket =
+  let open Application_http_js in
+  get_streams ()
+  >>= fun init -> Event.get_streams socket
+  >>= fun (id, event) ->
+  let box = Streams_selector.make ~init ~event cpu () in
   box#set_on_destroy (fun () ->
       React.E.stop ~strong:true event;
-      socket##close);
+      Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket id));
   Lwt_result.return box#widget
- *)
-let make (cpu : Topology.topo_cpu) () : (#Widget.t,string) Lwt_result.t =
-  let wrap f () = Ui_templates.Loader.create_widget_loader (f ()) in
+
+let make_structure socket =
+  let open Pipeline_http_js.Http_structure in
+  get_streams_with_source ()
+  >>= fun actual -> get_streams_applied ()
+  >>= fun applied -> Event.get_streams_with_source socket
+  >>= fun (id_actual, e_actual) -> Event.get_streams_applied socket
+  >>= fun (id_applied, e_applied) ->
+  let w = Pipeline_widgets_js.Widget_structure.make ~actual ~applied () in
+  let notif =
+    React.E.merge (fun _ -> w#notify) ()
+      [ React.E.map (fun x -> `Actual x) e_actual
+      ; React.E.map (fun x -> `Applied x) e_applied ] in
+  w#set_on_destroy (fun () ->
+      React.E.stop ~strong:true notif;
+      Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket id_actual);
+      Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket id_applied));
+  Lwt.return_ok w#widget
+
+let make (cpu : Topology.topo_cpu)
+    (socket : Api_js.Websocket.JSON.t) : (#Widget.t,string) Lwt_result.t =
+  let wrap f () = Ui_templates.Loader.create_widget_loader (f socket) in
   let tabs =
     [ (wrap (make_streams cpu)), Tab.make ~label:"Выбор потоков" ()
     ; (wrap (make_structure)), Tab.make ~label:"Выбор PID" ()

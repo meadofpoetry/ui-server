@@ -48,38 +48,43 @@ module Make(Xml : Xml_sigs.NoWrap)
     Item_list_.create_item' ~classes ?attrs ?graphic ?meta ?role
       ?tabindex ?activated ?selected ?checked ~text span
 
-  let create_node' ?(classes = []) ?attrs ?children ~content () : 'a elt =
+  let create_node' ?(classes = []) ?attrs ?value ?children ~content () : 'a elt =
     let classes = CSS.node :: classes in
     li ~a:([ a_class classes
-           ; a_role ["treeitem"]] <@> attrs)
+           ; a_role ["treeitem"]] <@> attrs
+           |> map_cons_option (a_user_data "value") value)
       (match children with
        | None -> [content]
        | Some x -> [content; x])
 
-  let create_node ?classes ?attrs ?role
+  let create_node ?classes ?attrs ?value
       ?tabindex ?activated ?selected ?checked
       ?graphic ?meta ?children ?secondary_text text : 'a elt =
-    let meta = match meta, children with
-      | Some _ as x, _ -> x
-      | None, None -> None
-      | None, Some _ -> Some (create_node_expander ()) in
     let text = match secondary_text with
       | None -> create_node_text [txt text] ()
       | Some s ->
         let primary = create_node_primary_text text () in
         let secondary = create_node_secondary_text s () in
         create_node_text [primary; secondary] () in
-    let content = create_node_content ?graphic ?meta ?role
-        ?tabindex ?activated ?selected ?checked text in
     let children = match children with
-      | None -> None
+      | None | Some [] -> None
       | Some x -> Some (create_children x) in
-    create_node' ?classes ?attrs ?children ~content ()
+    let meta = match meta, children with
+      | Some _ as x, _ -> x
+      | None, None -> None
+      | None, Some _ -> Some (create_node_expander ()) in
+    let content = create_node_content ?graphic ?meta
+        ?tabindex ?activated ?selected ?checked text in
+    create_node' ?classes ?attrs ?value ?children ~content ()
 
-  let create ?(classes = []) ?attrs ?(dense = false) nodes =
+  let create ?(classes = []) ?attrs
+      ?(dense = false)
+      ?(two_line = false)
+      nodes =
     let classes =
       classes
       |> cons_if dense Item_list.CSS.dense (* FIXME *)
+      |> cons_if two_line Item_list.CSS.two_line (* FIXME *)
       |> List.cons CSS.root in
     ul ~a:([ a_class classes
            ; a_role ["tree"]]) nodes

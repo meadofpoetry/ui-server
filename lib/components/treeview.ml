@@ -7,11 +7,18 @@ module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 let ( % ) f g x = f (g x)
 
 type 'a node =
-  { name : string (* node label *)
-  ; value : 'a option (* Some - render checkbox, None - no checkbox needed *)
-  (* ; load_children : (unit -> ('a node list, string) result Lwt.t) *)
-  ; children : 'a node list (* node children *)
+  { label : string
+  ; secondary_text : string option
+  ; value : 'a option
+  ; children : 'a node list
   } [@@deriving show]
+
+let make_node ?secondary_text ?value ?(children = []) label =
+  { label
+  ; secondary_text
+  ; value
+  ; children
+  }
 
 let elements_key_allowed_in =
   ["input"; "button"; "textarea"; "select"]
@@ -43,6 +50,11 @@ module Attr = struct
   let aria_current = "aria-current"
   let aria_orientation = "aria-orientation"
   let aria_selected = "aria-selected"
+end
+
+module Event = struct
+  let (action : Dom_html.element Js.t Widget.custom_event Js.t Events.Typ.typ) =
+    Events.Typ.make "treeview:action"
 end
 
 let get_exn (i : int) (list : Dom_html.element Dom.nodeList Js.t) =
@@ -98,6 +110,7 @@ let set_node_checked (x : bool) (item : Dom_html.element Js.t) : unit =
   | Some elt ->
     let (input : Dom_html.inputElement Js.t) = Js.Unsafe.coerce elt in
     input##.checked := Js.bool x;
+    (Js.Unsafe.coerce input)##.indeterminate := Js._false;
     let event =
       (Js.Unsafe.coerce Dom_html.document)##createEvent
         (Js.string "Event") in
@@ -290,28 +303,21 @@ class t elt () =
     method set_single_selection (x : bool) : unit =
       _is_single_selection <- x
 
-    method value =
-      List.map self#dump_node
-      @@ Element.children elt
+    method is_empty : bool =
+      match Element.children super#root with
+      | [] -> true | _ -> false
 
-    (* Private methods *)
+    method selected_nodes : Dom_html.element Js.t list =
+      _selected_items
 
-    (* Returns all nodes of a treeview *)
-    method private nodes_ : Dom_html.element Dom.nodeList Js.t =
-      super#root##querySelectorAll (Js.string Selector.nodes)
+    method selected_leafs : Dom_html.element Js.t list =
+      List.filter self#is_leaf _selected_items
 
-    method private dump_node (node : Dom_html.element Js.t) =
-      let rec loop node =
-        let value = Element.get_attribute node Attr.value in
-        let children = List.map loop @@ self#get_node_children node in
-        { name = ""
-        ; value
-        ; children
-        } in
-      loop node
+    method get_node_value (node : Dom_html.element Js.t) : string option =
+      Element.get_attribute node Attr.value
 
     (* Returns node's parent, if any *)
-    method private get_node_parent (node : Dom_html.element Js.t) =
+    method get_node_parent (node : Dom_html.element Js.t) =
       let rec aux node =
         Js.Opt.bind (Element.get_parent node)
           (fun parent ->
@@ -319,6 +325,12 @@ class t elt () =
              then Js.some parent
              else aux parent) in
       aux node
+
+    (* Private methods *)
+
+    (* Returns all nodes of a treeview *)
+    method private nodes_ : Dom_html.element Dom.nodeList Js.t =
+      super#root##querySelectorAll (Js.string Selector.nodes)
 
     method private get_node_siblings (node : Dom_html.element Js.t)
       : Dom_html.element Js.t list =
@@ -418,7 +430,7 @@ class t elt () =
                   prevent_default_event e;
                   if self#is_selectable_list
                   then self#handle_action active;
-                  (* self#notify_action active; *)
+                  self#notify_action active;
                   None, false))
               else None, false
             | _ -> None, false in
@@ -436,7 +448,8 @@ class t elt () =
       Utils.Option.iter (fun node ->
           let target = Dom.eventTarget e in
           let is_checkbox = Element.matches target Selector.checkbox_radio in
-          self#handle_action ~is_checkbox node)
+          self#handle_action ~is_checkbox node;
+          self#notify_action node)
       @@ tree_node_of_event self#nodes_ (e :> Dom_html.event Js.t);
       Lwt.return_unit
 
@@ -452,8 +465,11 @@ class t elt () =
         else self#set_selected [node])
       else self#toggle_expanded_state node
 
+    method private notify_action (node : Dom_html.element Js.t) : unit =
+      super#emit ~detail:node ~should_bubble:true Event.action
+
     method private is_selectable_list : bool = true
-    (* _is_single_selection || _is_checkbox_list || _is_radio_list *)
+    (* _is_single_selection || _is_checkbox_list *)
 
     method private set_selected (nodes : Dom_html.element Js.t list) : unit =
       self#layout ();

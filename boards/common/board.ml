@@ -219,14 +219,14 @@ let merge_streams (boards : t Map.t)
        | `Done s -> lookup ((x, s) :: acc) await tl
        | `Await s -> lookup acc (s :: await) tl
        | `None -> lookup acc await tl
-       | `Error e -> failwith e)
+       | `Error e -> print_endline e; failwith e)
   and cleanup acc = function
     | [] -> acc
     | x :: tl ->
       (match transform acc x with
        | `Done s -> cleanup ((x, s) :: acc) tl
        | `None -> cleanup acc tl
-       | `Error e -> failwith e
+       | `Error e -> print_endline e; failwith e
        | `Await s ->
          (* XXX What is this case for? *)
          try List.find (fun (p : Raw.t) ->

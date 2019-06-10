@@ -86,7 +86,8 @@ let to_raw_stream
       let info = Stream.Source.T2MI { stream_id; plp } in
       Some { Stream.Raw. node; info }
     | `T2MI _, _ -> None
-    | (`SPI | `ASI), _ -> Some { node = Port stream_id; info = Plain }
+    | `SPI, _ -> Some { node = Port (input_to_enum SPI); info = Plain }
+    | `ASI, _ -> Some { node = Port (input_to_enum ASI); info = Plain }
     | `Unknown, _ -> None in
   match source with
   | None -> None

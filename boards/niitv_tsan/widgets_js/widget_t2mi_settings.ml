@@ -73,19 +73,21 @@ let make_stream_select_items streams =
 
 let make_stream_select
     (streams : Stream.t list)
-    (_ : t2mi_mode) =
+    (mode : t2mi_mode) =
   let event, push = React.E.create () in
+  let streams = match mode.stream with
+    | ID _ -> streams
+    | Full s ->
+      if List.exists (fun x -> Stream.equal x s) streams
+      then streams else s :: streams in
+  let streams = List.sort Stream.compare streams in
   let select =
     Select.make_native
       ~on_change:(fun _ -> push ())
       ~label:"Поток для анализа T2-MI"
       ~items:(`Data (List.map (fun s -> s, Some (stream_to_string s)) streams))
       (Custom stream_select_validation) in
-  let set (x : t2mi_mode) =
-    match x.stream with
-    | ID _ -> ()
-    | Full s -> select#set_value s in
-  select, set, event
+  select, event
 
 let name = "Настройки. T2-MI"
 let settings = None
@@ -104,7 +106,7 @@ class t
   let en, e_en = make_enabled () in
   let pid, e_pid = make_pid () in
   let sid, e_sid = make_sid () in
-  let stream_select, _, e_stream = make_stream_select streams mode in
+  let stream_select, e_stream = make_stream_select streams mode in
   let submit = Button.make ~label:"Применить" () in
   let buttons = Card.Actions.make_buttons [submit] in
   let actions = Card.Actions.make [buttons] in
@@ -167,6 +169,9 @@ class t
       en#input#toggle ~force:mode.enabled ();
       pid#set_value mode.pid;
       sid#set_value mode.t2mi_stream_id;
+      (match mode.stream with
+       | ID _ -> ()
+       | Full s -> stream_select#set_value s);
       self#update_submit_button_state ()
 
     method notify : event -> unit = function
@@ -178,6 +183,7 @@ class t
           | Some s ->
             if List.exists (Stream.equal s) streams
             then streams else s :: streams in
+        let streams = List.sort Stream.compare streams in
         let items = make_stream_select_items streams in
         stream_select#clear ();
         List.iter stream_select#append_item

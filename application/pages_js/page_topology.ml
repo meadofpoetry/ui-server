@@ -120,7 +120,7 @@ let make_nodes topology socket =
     match element with
     | `Entry (Board board) -> `Board (Topo_board.create ~connections socket board)
     | `Entry (Input input) -> `Input (Topo_input.create input)
-    | `CPU cpu -> `CPU (Topo_cpu.create cpu ~connections) in
+    | `CPU cpu -> `CPU (Topo_cpu.create ~connections socket cpu) in
   let rec get_boards acc = function
     | Input _ as i ->
       let i = create_element ~element:(`Entry i) ~connections:[] in

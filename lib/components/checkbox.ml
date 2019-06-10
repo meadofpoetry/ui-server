@@ -153,7 +153,8 @@ class t ?on_change (elt : Dom_html.element Js.t) () =
       ignore super#root##.offsetWidth
 
     (** Handles the `animationend` event for the checkbox *)
-    method private handle_animation_end (_ : Dom_html.animationEvent Js.t)
+    method private handle_animation_end
+        (_ : Dom_html.animationEvent Js.t)
         (_ : unit Lwt.t) : unit Lwt.t =
       if _enable_animationend_handler
       then (
@@ -191,9 +192,11 @@ class t ?on_change (elt : Dom_html.element Js.t) () =
         _cur_check_state <- cur;
         (* Check for parentNode so that animations are only run when
            then element is attached to the DOM *)
-        match Js.Opt.to_option self#root##.parentNode, _cur_animation_class with
-        | None, _ | _, None -> ()
-        | Some _, Some c -> super#add_class c; _enable_animationend_handler <- true)
+        match Js.Opt.to_option super#root##.parentNode,
+              Js.Opt.test super#root##.offsetParent,
+              _cur_animation_class with
+        | None, _, _ | _, false, _ | _, _, None -> ()
+        | Some _, true, Some c -> super#add_class c; _enable_animationend_handler <- true)
 
     method private determine_check_state () : transition_state =
       if self#indeterminate

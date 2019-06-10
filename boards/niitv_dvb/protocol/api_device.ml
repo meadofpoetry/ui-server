@@ -47,10 +47,10 @@ let get_info (api : Protocol.api) force _user _body _env _state =
     | Some x -> return_value @@ info_to_yojson x
 
 let get_receivers (api : Protocol.api) _user _body _env _state =
+  let to_yojson = Util_json.(List.to_yojson Int.to_yojson) in
   match React.S.value api.notifs.devinfo with
-  | None -> return_error Request.Not_responding
+  | None -> return_value @@ to_yojson []
   | Some x ->
-    let to_yojson = Util_json.(List.to_yojson Int.to_yojson) in
     return_value @@ to_yojson x.receivers
 
 let get_mode (api : Protocol.api) (ids : int list) _user _body _env _state =

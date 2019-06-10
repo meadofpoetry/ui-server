@@ -8,11 +8,11 @@ let get_cpu_name (cpu : Topology.topo_cpu) = match cpu.process with
   | "pipeline" -> "Анализатор QoE"
   | s -> Printf.sprintf "Неизвестный модуль: %s" s
 
-let make_cpu_page (cpu : Topology.topo_cpu) =
+let make_cpu_page socket (cpu : Topology.topo_cpu) =
   match cpu.process with
   | "pipeline" ->
      let getter () =
-       Topo_pipeline.make cpu ()
+       Topo_pipeline.make cpu socket
        |> Ui_templates.Loader.create_widget_loader
        |> Widget.coerce in
      Some getter
@@ -64,10 +64,10 @@ module Body = struct
 end
 
 class t ~(connections : (#Topo_node.t * connection_point) list)
-        (cpu : Topology.topo_cpu)
-        () =
+    (socket : Api_js.Websocket.JSON.t)
+    (cpu : Topology.topo_cpu)=
   let e_settings, push_settings = React.E.create () in
-  let make_settings = make_cpu_page cpu in
+  let make_settings = make_cpu_page socket cpu in
   let header = Header.create (Utils.Option.is_some make_settings) cpu in
   let body = Body.create cpu in
   let port_setter = fun _ _ ->
@@ -129,5 +129,5 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
 
   end
 
-let create ~connections (cpu : Topology.topo_cpu) =
-  new t ~connections cpu ()
+let create ~connections socket (cpu : Topology.topo_cpu) =
+  new t ~connections socket cpu

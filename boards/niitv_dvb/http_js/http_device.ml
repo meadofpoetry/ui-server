@@ -48,7 +48,7 @@ let get_info control =
     (ignore_env_bind (Lwt.return % map_err % info_of_yojson))
 
 let get_receivers control =
-  let of_yojson = Util_json.(Option.of_yojson @@ List.of_yojson Int.of_yojson) in
+  let of_yojson = Util_json.(List.of_yojson Int.of_yojson) in
   Api_http.perform
     ~meth:`GET
     ~path:Path.Format.("api/board" @/ Int ^/ "device/receivers" @/ empty)

@@ -102,6 +102,7 @@ let apply_streams (api : Protocol.api) range ports streams =
     | Ok x ->
       let mode =
         List.map (fun (ip, port, stream, socket) ->
+            print_endline @@ Ipaddr.V4.to_string ip;
             { dst_ip = ip
             ; dst_port = port
             ; enabled = true

@@ -1,7 +1,12 @@
 (library
-  (name pipeline_widgets_js)
-  (libraries pipeline_http_js
-             components
-             ui_templates)
+  (name       pipeline_widgets_js)
+  (libraries  pipeline_http_js
+              chartjs
+              chartjs.streaming
+              chartjs.datalabels
+              components
+              ui_templates)
   (preprocess (pps ppx_deriving_yojson
+                   ppx_deriving.eq
+                   ppx_deriving.show
                    js_of_ocaml-ppx)))
