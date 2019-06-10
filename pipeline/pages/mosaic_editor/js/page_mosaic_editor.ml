@@ -340,7 +340,7 @@ let create_cells () =
 let create
     ~(init : Wm.t)
     ~(post : Wm.t -> unit Lwt.t)
-    () =
+    socket =
   (* Convert widgets positions to relative *)
   let wc =
     List.map Widget_item.t_of_layout_item
@@ -360,7 +360,7 @@ let create
   let containers = [new_cont] in
   let s_cc, s_cc_push = React.S.create containers in
   let wz_e, wz_push = React.E.create () in
-  (* let wz_dlg, wz_show = Wizard.to_dialog init wz_push in *)
+  let wz_dlg, wz_show = Wizard.to_dialog socket init wz_push in
   let resolution = init.resolution in
   let s_state, s_state_push = React.S.create `Container in
   let title = "Контейнеры" in
@@ -383,8 +383,8 @@ let create
       { icon = Icon.SVG.(make_simple Path.content_save)#widget
       ; name = "Сохранить"
       } in
-  (* let wz = wizard#listen_click_lwt (fun _ _ -> wz_show ()) in *)
-  (* wizard#set_on_destroy (fun () -> Lwt.cancel wz); *)
+  let wz = Events.clicks wizard#root (fun _ _ -> wz_show ()) in
+  wizard#set_on_destroy (fun () -> Lwt.cancel wz);
   let cont =
     Cont.make ~title
       ~init:(List.map Container_item.t_of_layout_item init.layout)
@@ -446,7 +446,7 @@ let create
         | `Widget (w : Widg.t) -> add_to_view w.lt w.ig w.rt
         | `Container -> add_to_view cont.lt cont.ig cont.rt)
       s_state in
-  (* cont.ig#append_child wz_dlg; *)
+  cont.ig#append_child wz_dlg;
   [lc; mc; rc]
 
 let post = fun w ->
@@ -457,10 +457,10 @@ let post = fun w ->
     print_endline @@ Api_js.Http.error_to_string e;
     Lwt.return ()
 
-let on_data (grid : Layout_grid.t) wm =
+let on_data socket (grid : Layout_grid.t) wm =
   grid#remove_cells ();
   let cells =
-    try create ~init:wm ~post ()
+    try create ~init:wm ~post socket
     with e -> Printf.printf "error: %s\n" @@ Printexc.to_string e; [] in
   List.iter grid#append_cell cells
 
@@ -474,9 +474,9 @@ let () =
     Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
     >>= fun socket -> Http_wm.Event.get socket
     >>= fun (_, event) ->
-    on_data grid wm;
+    on_data socket grid wm;
     grid#add_class "wm";
-    let e = React.E.map (on_data grid) event in
+    let e = React.E.map (on_data socket grid) event in
     grid#set_on_destroy (fun () ->
         React.E.stop ~strong:true e;
         React.E.stop ~strong:true event;

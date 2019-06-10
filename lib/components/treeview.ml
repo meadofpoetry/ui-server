@@ -6,18 +6,27 @@ module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
 let ( % ) f g x = f (g x)
 
-type 'a node =
+(* TODO
+   - fix initial selection
+   - implement "update" method
+   - implement make/attach functions - DONE *)
+
+type node =
   { label : string
   ; secondary_text : string option
-  ; value : 'a option
-  ; children : 'a node list
-  } [@@deriving show]
+  ; graphic : Dom_html.element Js.t option
+  ; meta : Dom_html.element Js.t option
+  ; value : string option
+  ; children : node list
+  }
 
-let make_node ?secondary_text ?value ?(children = []) label =
+let make_node ?secondary_text ?value ?graphic ?meta ?(children = []) label =
   { label
   ; secondary_text
   ; value
   ; children
+  ; graphic
+  ; meta
   }
 
 let elements_key_allowed_in =
@@ -569,3 +578,24 @@ class t elt () =
       else _selected_items <- List.filter (Element.equal node) _selected_items
 
   end
+
+let make ?classes ?attrs ?dense ?two_line (nodes : node list) : t =
+  let rec loop acc = function
+    | [] -> List.rev acc
+    | node :: tl ->
+      let node =
+        Markup.create_node
+          ?value:node.value
+          ?secondary_text:node.secondary_text
+          ?meta:(Utils.Option.map Tyxml_js.Of_dom.of_element node.meta)
+          ?graphic:(Utils.Option.map Tyxml_js.Of_dom.of_element node.graphic)
+          ~children:(loop [] node.children)
+          node.label in
+      loop (node :: acc) tl in
+  let elt =
+    Tyxml_js.To_dom.of_element
+    @@ Markup.create ?classes ?attrs ?dense ?two_line (loop [] nodes) in
+  new t elt ()
+
+let attach (elt : #Dom_html.element Js.t) : t =
+  new t (Element.coerce elt) ()

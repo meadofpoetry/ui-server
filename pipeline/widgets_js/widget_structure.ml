@@ -12,9 +12,9 @@ let make_pid ?(applied : Structure.pid option) (pid : Structure.pid) =
   let checkbox = Checkbox.make
       ~checked:(Utils.Option.is_some applied)
       () in
-  Treeview.Markup.create_node
+  Treeview.make_node
     ~value:(string_of_int pid.pid)
-    ~graphic:checkbox#markup
+    ~graphic:checkbox#root
     text
 
 let make_channel ?(applied : Structure.channel option) (ch : Structure.channel) =
@@ -24,14 +24,19 @@ let make_channel ?(applied : Structure.channel option) (ch : Structure.channel) 
       | Some v -> List.find_opt (fun (x : Structure.pid) -> x.pid = pid.pid) v.pids
     in make_pid ?applied pid
   in
-  let text = Printf.sprintf "%s (%s)" ch.service_name ch.provider_name in
+  let service_name = match ch.service_name with
+    | "" -> Printf.sprintf "Программа %d" ch.number
+    | s -> s in
+  let text = match ch.provider_name with
+    | "" -> service_name
+    | s -> Printf.sprintf "%s (%s)" service_name s in
   let checkbox = Checkbox.make
       ~checked:(Utils.Option.is_some applied)
       () in
   let children = List.map make ch.pids in
-  Treeview.Markup.create_node
+  Treeview.make_node
     ~value:(string_of_int ch.number)
-    ~graphic:checkbox#markup
+    ~graphic:checkbox#root
     ~children
     text
 
@@ -53,9 +58,9 @@ let make_stream ?(applied : Structure.t option) (s : Structure.packed) =
     List.map make
     @@ List.sort (fun (x : Structure.channel) y ->
         compare x.number y.number) s.structure.channels in
-  Treeview.Markup.create_node
+  Treeview.make_node
     ~value:(Stream.ID.to_string s.source.id)
-    ~graphic:checkbox#markup
+    ~graphic:checkbox#root
     ~children
     text
 
@@ -68,9 +73,7 @@ let make_treeview
       ?applied:(List.find_opt (fun x -> Uri.equal x.uri s.structure.uri) applied)
   in
   let nodes = List.map make actual in
-  Treeview.Markup.create
-    ~dense:true
-    nodes
+  Treeview.make ~dense:true nodes
 
 type event =
   [ `Applied of Structure.t list
@@ -108,8 +111,7 @@ let merge_with_structures
     selected
 
 class t ~applied ~actual () =
-  let element = make_treeview ~applied ~actual in
-  let treeview = new Treeview.t (Tyxml_js.To_dom.of_element element) () in
+  let treeview = make_treeview ~applied ~actual in
   let submit = Button.make
       ~label:"Применить"
       () in
