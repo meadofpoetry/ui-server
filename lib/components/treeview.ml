@@ -9,9 +9,9 @@ let ( % ) f g x = f (g x)
 type 'a node =
   { name : string (* node label *)
   ; value : 'a option (* Some - render checkbox, None - no checkbox needed *)
-  ; load_children : (unit -> ('a node list, string) result Lwt.t)
+  (* ; load_children : (unit -> ('a node list, string) result Lwt.t) *)
   ; children : 'a node list (* node children *)
-  }
+  } [@@deriving show]
 
 let elements_key_allowed_in =
   ["input"; "button"; "textarea"; "select"]
@@ -37,6 +37,7 @@ module Selector = struct
 end
 
 module Attr = struct
+  let value = "data-value"
   let aria_expanded = "aria-expanded"
   let aria_checked = "aria-checked"
   let aria_current = "aria-current"
@@ -290,13 +291,24 @@ class t elt () =
       _is_single_selection <- x
 
     method value =
-      ()
+      List.map self#dump_node
+      @@ Element.children elt
 
     (* Private methods *)
 
     (* Returns all nodes of a treeview *)
     method private nodes_ : Dom_html.element Dom.nodeList Js.t =
       super#root##querySelectorAll (Js.string Selector.nodes)
+
+    method private dump_node (node : Dom_html.element Js.t) =
+      let rec loop node =
+        let value = Element.get_attribute node Attr.value in
+        let children = List.map loop @@ self#get_node_children node in
+        { name = ""
+        ; value
+        ; children
+        } in
+      loop node
 
     (* Returns node's parent, if any *)
     method private get_node_parent (node : Dom_html.element Js.t) =

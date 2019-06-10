@@ -33,9 +33,9 @@ let make_element () =
 let log : 'a -> unit = fun x ->
   Js.Unsafe.global##.console##log x
 
-
 let make () =
   let w = Tyxml_js.To_dom.of_element @@ make_element () in
   let w = new Treeview.t w () in
   w#root##.style##.maxWidth := Utils.px_js 400;
+  List.iter (fun x -> print_endline @@ Treeview.show_node Format.pp_print_string x) w#value;
   w
