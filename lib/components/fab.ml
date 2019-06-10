@@ -8,47 +8,45 @@ module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 let ( >>= ) = Lwt.bind
 
 class t ?on_click (elt : Dom_html.buttonElement Js.t) () =
-object(self)
-  val mutable _ripple : Ripple.t option = None
-  val mutable _click_listener = None
+  object(self)
+    val mutable _ripple : Ripple.t option = None
+    val mutable _click_listener = None
 
-  inherit Widget.t elt () as super
+    inherit Widget.t elt () as super
 
-  method! init () : unit =
-    super#init ();
-    _ripple <- Some (self#create_ripple ())
+    method! init () : unit =
+      super#init ();
+      _ripple <- Some (self#create_ripple ())
 
-  method! initial_sync_with_dom () : unit =
-    super#initial_sync_with_dom ();
-    match on_click with
-    | None -> ()
-    | Some f ->
-       let listener =
-         Events.listen_lwt super#root Events.Typ.click (fun e _ ->
-             f e; Lwt.return_unit) in
-       _click_listener <- Some listener
+    method! initial_sync_with_dom () : unit =
+      super#initial_sync_with_dom ();
+      match on_click with
+      | None -> ()
+      | Some f ->
+        let listener = Events.clicks super#root (f (self :> t)) in
+        _click_listener <- Some listener
 
-  method! layout () : unit =
-    super#layout ();
-    Option.iter Ripple.layout _ripple
+    method! layout () : unit =
+      super#layout ();
+      Option.iter Ripple.layout _ripple
 
-  method! destroy () : unit =
-    super#destroy ();
-    (* Destroy internal components *)
-    Option.iter (fun r -> r#destroy ()) _ripple;
-    _ripple <- None
+    method! destroy () : unit =
+      super#destroy ();
+      (* Destroy internal components *)
+      Option.iter (fun r -> r#destroy ()) _ripple;
+      _ripple <- None
 
-  method mini : bool =
-    super#has_class CSS.mini
+    method mini : bool =
+      super#has_class CSS.mini
 
-  method set_mini (x : bool) : unit =
-    super#toggle_class ~force:x CSS.mini
+    method set_mini (x : bool) : unit =
+      super#toggle_class ~force:x CSS.mini
 
-  (* Private methods *)
+    (* Private methods *)
 
-  method private create_ripple () : Ripple.t =
-    Ripple.attach super#root
-end
+    method private create_ripple () : Ripple.t =
+      Ripple.attach super#root
+  end
 
 let make ?mini ?extended ?label ?icon ?on_click () : t =
   let icon = match icon with

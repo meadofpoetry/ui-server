@@ -30,7 +30,7 @@ module Make(I : Item) = struct
     let e_click, set_click = React.E.create () in
     let rm =
       Actions.make_action
-        ~on_click:(fun _ _ ->
+        ~on_click:(fun _ _ _ ->
             React.S.value selected |> Utils.Option.get |> set_click;
             Lwt.return_unit)
         { icon = Icon.SVG.(make_simple Path.delete)#widget
@@ -48,7 +48,7 @@ module Make(I : Item) = struct
           acc, succ i) (init, 0) layers in
     let rt = RT.make ~selected ~layers ~candidates ~set_candidates in
     let ig = IG.make ~title ~resolution ~init ~e_layers:rt#e_layers_action () in
-    let lt = Actions.make (actions @ [ rm ]) in
+    let lt = Actions.make (actions @ [rm]) in
 
     let _ = React.S.map selected_push ig#s_selected in
     let _ = React.S.diff (fun n o ->

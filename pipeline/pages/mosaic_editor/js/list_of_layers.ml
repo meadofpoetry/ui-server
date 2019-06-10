@@ -71,8 +71,8 @@ let make_layer_item s_layers push layer =
       ~resizable:false ~selectable:true ~value ()
   in
   let () = List.iter (fun i ->
-               if i#pos.y >= y
-               then i#set_pos { i#pos with y = i#pos.y + 1 }) layers in
+      if i#pos.y >= y
+      then i#set_pos { i#pos with y = i#pos.y + 1 }) layers in
   vis#add_class show_icon_class;
   drag#add_class drag_handle_class;
   box#add_class _class;
@@ -83,12 +83,12 @@ let on_add grid push =
     let i, s = make_layer_item grid#s_items push layer in
     (match grid#add i with
      | Ok item ->
-        let _ = React.S.map (fun x -> push @@ `Visibility (item#value.actual, x)) s in
-        set_data_layer_attr item item#value.actual;
-        emit_new_pos grid#s_items push;
-        item#set_selected true;
-        push (`Added item#value.actual);
-        push (`Selected item#value.actual);
+       let _ = React.S.map (fun x -> push @@ `Visibility (item#value.actual, x)) s in
+       set_data_layer_attr item item#value.actual;
+       emit_new_pos grid#s_items push;
+       item#set_selected true;
+       push (`Added item#value.actual);
+       push (`Selected item#value.actual);
      | Error _ -> ())
   in
   match React.S.value grid#s_selected with
@@ -172,10 +172,10 @@ class t ~init () =
           match n with
           | [x] -> push @@ `Selected x#value.actual
           | _   ->
-             begin match o with
-             | [x] -> push @@ `Selected x#pos.y
-             | _   -> ()
-             end) self#s_selected
+            begin match o with
+              | [x] -> push @@ `Selected x#pos.y
+              | _   -> ()
+            end) self#s_selected
       |> ignore
 
     method e_layer : action React.event = e_layer

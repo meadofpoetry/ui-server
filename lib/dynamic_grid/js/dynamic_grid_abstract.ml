@@ -194,9 +194,9 @@ class ['a, 'b, 'c] t ~grid
       let items = List.map (fun x -> x#pos) (React.S.value s_items) in
       match Position.get_all_collisions ~f:(fun x -> x) x.pos items with
       | [] ->
-         let item = new_item x in
-         e_modify_push (`Add item);
-         Ok item
+        let item = new_item x in
+        e_modify_push (`Add item);
+        Ok item
       | l -> print_endline "error: collides"; Error (Collides l)
 
     method draggable : bool option =
@@ -226,7 +226,8 @@ class ['a, 'b, 'c] t ~grid
          x#destroy ()
 
     method remove_all () : unit =
-      List.iter (fun x -> e_modify_push (`Remove x)) self#items
+      List.iter (fun x -> e_modify_push (`Remove x)) self#items;
+      s_selected_push []
 
     (* Private methods *)
 

@@ -449,7 +449,7 @@ let to_dialog socket (wm : Wm.t) push =
     | Accept ->
       (thread
        >>= function
-       | Ok (_, f) -> Lwt.return @@ push @@ f ()
+       | Ok (_, set) -> Lwt.return @@ push @@ set ()
        | Error e -> Lwt.return @@ print_endline @@ "Wm_wizard error!: " ^ e)
     | _ -> Lwt.return () in
   dialog, show

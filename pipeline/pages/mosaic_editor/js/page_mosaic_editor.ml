@@ -365,6 +365,7 @@ let create
   let s_state, s_state_push = React.S.create `Container in
   let title = "Контейнеры" in
   let on_remove = fun (t : Wm.container wm_item) ->
+    print_endline "remove";
     let eq = Widget_item.equal in
     let ws = List.map Widget_item.t_of_layout_item t.item.widgets in
     List.iter (fun x -> Editor.remove ~eq s_wc s_wc_push x) ws in
@@ -428,7 +429,9 @@ let create
         @@ List.map Widget_item.t_of_layout_item
         @@ get_free_widgets l init.widgets;
         cont.ig#initialize init.resolution
-        @@ List.map Container_item.t_of_layout_item l) wz_e in
+        @@ List.map Container_item.t_of_layout_item l;
+        cont.rt#layout ();
+        cont.ig#layout ()) wz_e in
   let lc, mc, rc = create_cells () in
   let add_to_view lt ig rt =
     lc#remove_children (); lc#append_child lt;
