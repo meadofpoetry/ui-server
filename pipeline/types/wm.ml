@@ -1,34 +1,41 @@
 open Application_types
 
-include Qoe_backend_types__Wm.Make (Stream.ID)
-   
-let name = "wm"
-
-type annotated =
-  { resolution : int * int
-  ; widgets    : (string * state * widget) list
-  ; layout     : (string * state * container) list
-  } [@@deriving yojson, eq]
-and state = [`Absent | `Presented]
+include Qoe_backend_types.Wm.Make (Stream.ID)
   
-let update _ (b : t) = b
-
 let default : t = { resolution = 1280, 720
                   ; widgets   = []
                   ; layout    = []
                   }
 
-let aspect_to_string = function
-  | None -> "none"
-  | Some (x,y) -> Printf.sprintf "%dx%d" x y
-            
-let to_string w = Yojson.Safe.to_string (to_yojson w)
+module Annotated = struct
 
-let of_string s =
-  match of_yojson (Yojson.Safe.from_string s) with
-  | Ok v -> v
-  | Error e -> failwith e
+  type raw = t
 
+  type state = [`Active | `Stored ] [@@deriving yojson, eq]
+
+  type container =
+    { position : position
+    ; widgets  : (string * state * widget) list
+    } [@@deriving yojson, eq]
+
+  type t =
+    { resolution : int * int
+    ; widgets    : (string * widget) list
+    ; layout     : (string * state * container) list
+    } [@@deriving yojson, eq]
+
+  let annotate ~active ~stored =
+    failwith "not impl"
+
+  let update_stored ~active ~stored =
+    failwith "not impl"
+
+  let filter ~select annotated =
+    failwith "not impl"
+
+end
+
+(*
 let combine ~(set : t) (wm : t) =
   let changed = ref false in
   let rec filter_container = function
@@ -53,3 +60,4 @@ let combine ~(set : t) (wm : t) =
   if !changed
   then `Changed { wm with resolution = set.resolution; layout }
   else `Kept wm
+ *)

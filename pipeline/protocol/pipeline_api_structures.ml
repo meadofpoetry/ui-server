@@ -77,7 +77,7 @@ module Event = struct
                   (Structure_conv.match_streams state.sources)
                   (state.sources)
                   (S.changes state.notifs.streams)
-                |> E.map (Util_json.List.to_yojson Structure.packed_to_yojson)
+                |> E.map (Util_json.List.to_yojson Structure.Packed.to_yojson)
     in
     Lwt.return (`Ev event)
     
@@ -86,7 +86,7 @@ module Event = struct
                   (Structure_conv.match_streams state.sources)
                   (state.sources)
                   (S.changes state.notifs.applied_structs)
-                |> E.map (Util_json.List.to_yojson Structure.packed_to_yojson)
+                |> E.map (Util_json.List.to_yojson Structure.Packed.to_yojson)
     in
     Lwt.return (`Ev event)
 
@@ -129,7 +129,7 @@ let get_streams_with_source (state : Protocol.state) ids inputs _user _body _env
   | None -> Lwt.return (`Error "not ready")
   | Some backend ->
      Protocol.Qoe_backend.Stream_parser.get_structure backend
-     |> Lwt_result.map (Util_json.List.to_yojson Structure.packed_to_yojson
+     |> Lwt_result.map (Util_json.List.to_yojson Structure.Packed.to_yojson
                         % Structure_conv.match_streams state.sources
                         % filter_data ids inputs state.sources)
      >>= function
@@ -141,7 +141,7 @@ let get_streams_applied_with_source (state : Protocol.state) ids inputs _user _b
   | None -> Lwt.return (`Error "not ready")
   | Some backend ->
      Protocol.Qoe_backend.Graph.get_structure backend
-     |> Lwt_result.map (Util_json.List.to_yojson Structure.packed_to_yojson
+     |> Lwt_result.map (Util_json.List.to_yojson Structure.Packed.to_yojson
                         % Structure_conv.match_streams state.sources
                         % filter_data ids inputs state.sources)
      >>= function

@@ -2,9 +2,28 @@ open Application_types
 
 include Qoe_backend_types.Structure.Make (Stream.ID) (Netlib.Uri)
 
-type packed = { source    : Stream.t
-              ; structure : t
-              } [@@deriving yojson,eq]
+module Packed = struct
+      
+  type nonrec t = { source    : Stream.t
+                  ; structure : t
+                  }
+
+  let to_yojson { source; structure } =
+    `Assoc [ "source", Stream.to_yojson source
+           ; "structure", to_yojson structure ]
+
+  let ( >>= ) m f = match m with Ok v -> f v | Error _ as e -> e
+    
+  let of_yojson = function
+    | `Assoc [ "source", src; "structure", str ] ->
+       Stream.of_yojson src
+       >>= fun source ->
+       of_yojson str
+       >>= fun structure ->
+       Ok { source; structure }
+    | _ -> Error "Packed.of_yojson"
+
+end
 
 let pids =
   List.fold_left (fun acc (s : t) ->
@@ -16,7 +35,7 @@ let pids =
                        [] s.channels
       in channels @ acc)
     []
-
+(*
 let unwrap f = function
   | None -> []
   | Some x -> f x
@@ -93,45 +112,38 @@ let combine ~(set : t list) applied strs =
   if !changed
   then `Changed res
   else `Kept applied
+       *)
+module Annotated = struct
+  
+  type state = [`Active_and_stored | `Avail | `Stored ] [@@deriving yojson,eq]
 
-(*
-module Streams = struct
-  type t   = packed list [@@deriving yojson]
-  let name = "streams"
-  let default : t = []
+  type raw = t list [@@deriving yojson,eq]
+  
+  type channel =
+    { number        : int
+    ; service_name  : string
+    ; provider_name : string
+    ; pids          : (state * pid) list
+    } [@@deriving yojson,eq]
 
-  let unwrap : t -> structure list =
-    List.map (fun { structure; _ } -> structure )
+  type structure =
+    { id       : Application_types.Stream.t
+    ; uri      : Netlib.Uri.t
+    ; channels : (state * channel) list
+    } [@@deriving yojson,eq]
+
+  type t = structure list [@@deriving yojson,eq]
+
+  let annotate ~(active:raw) ~(avail:raw) ~(stored:raw) : t =
+    failwith "not impl"
+
+  let update_stored ~(active:raw) ~(avail:raw) ~(stored:raw) =
+    failwith "not impl"
+
+  let filter ~select annotated : raw =
+    failwith "not impl"
+
 end
- 
-let appeared_pids ~past ~pres =
-  let flat (sl : structure list) =
-    List.fold_left (fun acc s ->
-        let l = List.fold_left (fun acc c ->
-                    let channel = c.number in
-                    let l = List.fold_left (fun acc p -> (s.id, channel, p.pid, p.to_be_analyzed)::acc)
-                              [] c.pids in
-                    l @ acc)
-                  [] s.channels in
-        l @ acc) [] sl
-  in
-  let rec not_in_or_diff (s,c,p,tba) = function
-    | [] -> true
-    | (so,co,po,tbao)::_
-         when Common.Stream.ID.equal so s && co = c && po = p && not (tbao = tba) -> true
-    | (so,co,po,tbao)::_
-         when Common.Stream.ID.equal so s && co = c && po = p && (tbao = tba) -> false
-    | _::tl -> not_in_or_diff (s,c,p,tba) tl
-  in                          
-  let past = flat past in
-  let pres = flat pres in
-  let appeared = List.fold_left (fun acc pres ->
-                     let (_,_,_,tba) = pres in
-                     if tba && not_in_or_diff pres past
-                     then pres::acc else acc) [] pres in
-  appeared
- *)
-
                 
 module Many = struct
   type nonrec t = t list

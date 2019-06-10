@@ -87,7 +87,6 @@ let notification_attach_setter
   let make_setter merge set value =
     merge value >>= function
     | `Kept v -> Lwt.return_some v
-    | `Updated v -> (options#set v >>= fun () -> Lwt.return_some v)
     | `Changed v -> Lwt.try_bind (fun () -> set v)
                       (function Ok () -> Lwt.return_some v
                               | Error _e ->
@@ -111,10 +110,12 @@ let notification_attach_setter
 (* TODO annotate with `Stored | `Applied *)
 let make_streams_with_restore_config ~apply_settings ~get_applied stream_options stream_signal =
   let (>>=) = Lwt.bind in
-  let combine ~set structures =
+  let combine ~set avail =
     get_applied () >>= function
-    | Error _ -> Lwt.return (Structure.combine ~set [] structures)
-    | Ok applied -> Lwt.return (Structure.combine ~set applied structures)
+    | Error _ ->
+       Lwt.return (Structure.Annotated.update_stored ~stored:set ~active:[] ~avail)
+    | Ok active ->
+       Lwt.return (Structure.Annotated.update_stored ~stored:set ~active ~avail)
   in
   notification_attach_setter
     ~combine
@@ -125,7 +126,7 @@ let make_streams_with_restore_config ~apply_settings ~get_applied stream_options
 (* TODO annotate with `Stored | `Applied *)
 let make_wm_with_restore_config ~apply_settings wm_options wm =
   let combine ~set wm =
-    Lwt.return @@ Wm.combine ~set wm
+    Lwt.return @@ Wm.Annotated.update_stored ~stored:set ~active:wm
   in
   notification_attach_setter
     ~combine
@@ -230,12 +231,11 @@ let reset state (sources : (Netlib.Uri.t * Stream.t) list) =
   let (>>=) = Lwt.bind in
   let (>>=?) = Lwt_result.bind in
   
-  let ids =
-    List.map (fun (_, s) ->
-        Stream.ID.to_string s.Stream.id) sources in
-  let uris = List.map (fun (a,_) -> Netlib.Uri.to_string a) sources in
-  let args = Array.of_list @@ List.combine ids uris in
-
+  let args =
+    List.map (fun (uri, s) -> s.Stream.id, uri) sources
+    |> Array.of_list
+  in
+         
   begin match state.backend with
   | None -> Lwt.return_unit
   | Some backend ->

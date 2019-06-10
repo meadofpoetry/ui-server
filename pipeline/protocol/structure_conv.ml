@@ -14,20 +14,20 @@ let filter_map f l =
    
 let match_streams
       (sources : (Uri.t * Stream.t) list)
-      (sl : Structure.t list) : Structure.packed list =
+      (sl : Structure.t list) : Structure.Packed.t list =
   let open Structure in
   let rec merge (sources : (Uri.t * Stream.t) list) structure =
     match sources with
     | [] -> None (* TODO fix merging with unsaved streams *)
     | (uri, s)::ss ->
        if Uri.equal uri structure.uri
-       then Some { source = s; structure }
+       then Some Packed.{ source = s; structure }
        else merge ss structure
   in
   filter_map (merge sources) sl
 
-let dump_structures (entries : Structure.packed list) =
-  List.map (fun (x : Structure.packed) ->
+let dump_structures (entries : Structure.Packed.t list) =
+  List.map (fun (x : Structure.Packed.t) ->
       (Yojson.Safe.to_string @@ Stream.ID.to_yojson x.source.id),
       (Yojson.Safe.to_string @@ Structure.to_yojson x.structure))
     entries
