@@ -42,23 +42,39 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   let create_node_text = Item_list_.create_item_text
 
-  let create_node_content ?(classes = []) ?attrs ?graphic ?meta ?role
-      ?tabindex ?activated ?selected ?checked text : 'a elt =
+  let create_node_content ?(classes = []) ?attrs ?graphic ?meta ?role text : 'a elt =
     let classes = CSS.node_content :: classes in
-    Item_list_.create_item' ~classes ?attrs ?graphic ?meta ?role
-      ?tabindex ?activated ?selected ?checked ~text span
+    Item_list_.create_item' ~classes ?attrs ?graphic ?meta ?role ~text span
 
-  let create_node' ?(classes = []) ?attrs ?value ?children ~content () : 'a elt =
+  let create_node' ?(classes = []) ?attrs
+      ?value ?level ?children
+      ?(expanded = false)
+      ?(tabindex = (-1))
+      ?(selected = false)
+      ?(checked = false)
+      ?(indeterminate = false)
+      ~content () : 'a elt =
+    let checked =
+      if indeterminate
+      then "mixed"
+      else if checked
+      then "true"
+      else "false" in
     let classes = CSS.node :: classes in
     li ~a:([ a_class classes
-           ; a_role ["treeitem"]] <@> attrs
+           ; a_role ["treeitem"]
+           ; a_aria "selected" [string_of_bool selected]
+           ; a_aria "checked" [checked]
+           ; a_aria "expanded" [string_of_bool expanded]
+           ; a_tabindex tabindex ] <@> attrs
+           |> map_cons_option (fun x -> a_aria "level" [string_of_int x]) level
            |> map_cons_option (a_user_data "value") value)
       (match children with
        | None -> [content]
        | Some x -> [content; x])
 
   let create_node ?classes ?attrs ?value
-      ?tabindex ?activated ?selected ?checked
+      ?tabindex ?selected ?checked ?indeterminate ?expanded
       ?graphic ?meta ?children ?secondary_text text : 'a elt =
     let text = match secondary_text with
       | None -> create_node_text [txt text] ()
@@ -73,11 +89,13 @@ module Make(Xml : Xml_sigs.NoWrap)
       | Some _ as x, _ -> x
       | None, None -> None
       | None, Some _ -> Some (create_node_expander ()) in
-    let content = create_node_content ?graphic ?meta
-        ?tabindex ?activated ?selected ?checked text in
-    create_node' ?classes ?attrs ?value ?children ~content ()
+    let content = create_node_content ?graphic ?meta text in
+    create_node' ?classes ?attrs ?value ?children
+      ?tabindex ?selected ?checked ?indeterminate ?expanded
+      ~content ()
 
   let create ?(classes = []) ?attrs
+      ?multiselectable
       ?(dense = false)
       ?(two_line = false)
       nodes =
@@ -87,6 +105,11 @@ module Make(Xml : Xml_sigs.NoWrap)
       |> cons_if two_line Item_list.CSS.two_line (* FIXME *)
       |> List.cons CSS.root in
     ul ~a:([ a_class classes
-           ; a_role ["tree"]]) nodes
+           ; a_role ["tree"]] <@> attrs
+           |> map_cons_option (fun x ->
+               let v = string_of_bool x in
+               a_aria "multiselectable" [v])
+             multiselectable)
+      nodes
 
 end

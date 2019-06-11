@@ -6,15 +6,37 @@ open Pipeline_types
 
 type selected = (Stream.ID.t * ((int * int list) list)) list [@@deriving show]
 
+module CSS = struct
+  let root = "pipeline-structure"
+  let checkbox_spacer = BEM.add_element root "checkbox-spacer"
+end
+
+let contains pattern value =
+  let len = String.length value in
+  if len > String.length pattern
+  then false
+  else
+    let sub = String.sub pattern 0 len in
+    String.uppercase_ascii sub = String.uppercase_ascii value
+
 let make_pid ?(applied : Structure.pid option) (pid : Structure.pid) =
   let text = Printf.sprintf "PID %d (0x%04X), %s"
       pid.pid pid.pid pid.stream_type_name in
-  let checkbox = Checkbox.make
-      ~checked:(Utils.Option.is_some applied)
-      () in
+  (* FIXME we should match by pid type, but it is not working at the moment *)
+  let checked, graphic =
+    if contains pid.stream_type_name "video"
+    || contains pid.stream_type_name "audio"
+    then (
+      let checked = Utils.Option.is_some applied in
+      Some checked, (Checkbox.make ~checked ())#root)
+    else (
+      let elt = Dom_html.(createSpan document) in
+      Element.add_class elt CSS.checkbox_spacer;
+      None, elt) in
   Treeview.make_node
     ~value:(string_of_int pid.pid)
-    ~graphic:checkbox#root
+    ~graphic
+    ?checked
     text
 
 let make_channel ?(applied : Structure.channel option) (ch : Structure.channel) =
@@ -30,13 +52,30 @@ let make_channel ?(applied : Structure.channel option) (ch : Structure.channel) 
   let text = match ch.provider_name with
     | "" -> service_name
     | s -> Printf.sprintf "%s (%s)" service_name s in
-  let checkbox = Checkbox.make
-      ~checked:(Utils.Option.is_some applied)
-      () in
   let children = List.map make ch.pids in
+  let checked = match children with
+    | [] -> false
+    | x ->
+      List.for_all (fun (x : Treeview.node) -> match x.checked with
+          | None -> true | Some x -> x) x in
+  let indeterminate =
+    not checked
+    && Utils.Option.is_some
+    @@ List.find_opt (fun (x : Treeview.node) -> match x.checked with
+        | None -> false | Some x -> x) children in
+  let graphic = match ch.pids with
+    | [] ->
+      let elt = Dom_html.(createSpan document) in
+      Element.add_class elt CSS.checkbox_spacer;
+      elt
+    | _ -> (Checkbox.make ~checked ~indeterminate ())#root in
+  print_endline @@ Printf.sprintf "checked: %B, indeterminate: %B"
+    checked (not checked && indeterminate);
   Treeview.make_node
     ~value:(string_of_int ch.number)
-    ~graphic:checkbox#root
+    ~graphic
+    ~checked
+    ~indeterminate
     ~children
     text
 
@@ -51,16 +90,24 @@ let make_stream ?(applied : Structure.t option) (s : Structure.packed) =
   let text =
     Printf.sprintf "%s"
     @@ Stream.Source.to_string s.source.source.info in
-  let checkbox = Checkbox.make
-      ~checked:(Utils.Option.is_some applied)
-      () in
   let children =
     List.map make
     @@ List.sort (fun (x : Structure.channel) y ->
         compare x.number y.number) s.structure.channels in
+  let checked, indeterminate = match applied with
+    | None -> false, false
+    | Some x when List.length x.channels = 0 -> false, false
+    | Some x when List.length x.channels = List.length children -> true, false
+    | _ -> false, true in
+  let checkbox = Checkbox.make
+      ~checked
+      ~indeterminate
+      () in
   Treeview.make_node
     ~value:(Stream.ID.to_string s.source.id)
     ~graphic:checkbox#root
+    ~checked
+    ~indeterminate
     ~children
     text
 
@@ -130,6 +177,7 @@ class t ~applied ~actual () =
 
     method! init () : unit =
       super#init ();
+      super#add_class CSS.root;
       super#add_class Box.CSS.root;
       super#add_class Box.CSS.vertical;
       if treeview#is_empty

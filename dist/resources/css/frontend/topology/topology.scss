@@ -7,7 +7,7 @@
 $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
 $error-surface: $material-color-red-200;
 $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #fff) !default;
-$side-sheet-width: 400px;
+$side-sheet-width: 500px;
 
 @for $i from 1 through length($boards) {
     @include topology-board-type(nth($boards,$i));

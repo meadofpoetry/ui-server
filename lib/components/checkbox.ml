@@ -41,7 +41,7 @@ class checkbox_signals input_elt = object(self)
 
 end
 
-class t ?on_change (elt : Dom_html.element Js.t) () =
+class t ?on_change ?(indeterminate = false) (elt : Dom_html.element Js.t) () =
   let input_elt : Dom_html.inputElement Js.t =
     find_element_by_class_exn elt CSS.native_control in
   object(self)
@@ -59,6 +59,7 @@ class t ?on_change (elt : Dom_html.element Js.t) () =
     method! init () : unit =
       super#init ();
       self#install_property_change_hooks ();
+      if indeterminate then self#set_indeterminate true;
       _cur_check_state <- self#determine_check_state ();
       self#update_aria_checked ();
       super#add_class CSS.upgraded;
@@ -258,11 +259,11 @@ class t ?on_change (elt : Dom_html.element Js.t) () =
         Const.cb_proto_props
   end
 
-let make ?input_id ?checked ?disabled ?on_change () =
+let make ?input_id ?checked ?indeterminate ?disabled ?on_change () =
   let elt =
     Tyxml_js.To_dom.of_div
     @@ Markup.create ?input_id ?checked ?disabled () in
-  new t ?on_change elt ()
+  new t ?on_change ?indeterminate elt ()
 
-let attach ?on_change (elt : #Dom_html.element Js.t) : t =
-  new t ?on_change (elt :> Dom_html.element Js.t) ()
+let attach ?on_change ?indeterminate (elt : #Dom_html.element Js.t) : t =
+  new t ?on_change ?indeterminate (elt :> Dom_html.element Js.t) ()

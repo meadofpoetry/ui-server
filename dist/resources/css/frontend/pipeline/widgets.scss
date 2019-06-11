@@ -17,6 +17,12 @@
     }
 }
 
+.pipeline-structure {
+    &__checkbox-spacer {
+        padding: 11px;
+    }
+}
+
 // FIXME remove absolute positioning - this is a quick dirty hack!
 .pipeline-chart {
     padding: 1rem;

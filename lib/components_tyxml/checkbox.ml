@@ -18,15 +18,18 @@ module CSS = struct
 end
 
 module Make (Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-           and module Svg := Svg) = struct
+    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
+    (Html : Html_sigs.NoWrap
+     with module Xml := Xml
+      and module Svg := Svg) = struct
   open Html
   open Utils
 
   let create ?(classes = []) ?attrs
-        ?input_id ?(disabled = false) ?(checked = false) () : 'a elt =
+      ?input_id
+      ?(disabled = false)
+      ?(checked = false)
+      () : 'a elt =
     let (classes : string list) =
       classes
       |> cons_if disabled CSS.disabled

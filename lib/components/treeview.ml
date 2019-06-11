@@ -17,15 +17,20 @@ type node =
   ; graphic : Dom_html.element Js.t option
   ; meta : Dom_html.element Js.t option
   ; value : string option
+  ; checked : bool option
+  ; indeterminate : bool option
   ; children : node list
   }
 
-let make_node ?secondary_text ?value ?graphic ?meta ?(children = []) label =
+let make_node ?secondary_text ?value ?graphic ?meta
+    ?(children = []) ?checked ?indeterminate label =
   { label
   ; secondary_text
   ; value
   ; children
   ; graphic
+  ; checked
+  ; indeterminate
   ; meta
   }
 
@@ -39,7 +44,7 @@ module Selector = struct
   let single_selected_node =
     Printf.sprintf ".%s, .%s" CSS.node_activated CSS.node_selected
   let aria_role_checkbox = "[role=\"checkbox\"]"
-  let aria_checked_checkbox = "[role=\"checkbox\"][aria-checked=\"true\"]"
+  let aria_checked_checkbox = "[aria-checked=\"true\"]"
   let checkbox_radio = Printf.sprintf "%s, %s" checkbox radio
   let children = "." ^ CSS.node_children
   let node_without_tabindex = Printf.sprintf ".%s:not([tabindex])" CSS.node
@@ -82,7 +87,7 @@ let prevent_default_event (e : #Dom_html.event Js.t) : unit =
 
 let get_node_checked_state (item : Dom_html.element Js.t) =
   match Element.query_selector item Selector.checkbox with
-  | None -> `Unchecked
+  | None -> `Unavailable
   | Some x ->
     let (checkbox : Dom_html.inputElement Js.t) = Js.Unsafe.coerce x in
     if Js.to_bool (Js.Unsafe.coerce checkbox)##.indeterminate
@@ -91,12 +96,12 @@ let get_node_checked_state (item : Dom_html.element Js.t) =
     then `Checked
     else `Unchecked
 
-let is_node_checked (item : Dom_html.element Js.t) : bool =
+let is_node_checked (item : Dom_html.element Js.t) : bool option =
   match Element.query_selector item Selector.checkbox with
-  | None -> false
+  | None -> None
   | Some x ->
     let (checkbox : Dom_html.inputElement Js.t) = Js.Unsafe.coerce x in
-    Js.to_bool checkbox##.checked
+    Some (Js.to_bool checkbox##.checked)
 
 let set_tab_index ?prev (items : Dom_html.element Dom.nodeList Js.t)
     (item : Dom_html.element Js.t) : unit =
@@ -241,9 +246,9 @@ class t elt () =
     val mutable _focused_node = None
     val mutable _selected_items = []
     val mutable _is_single_selection = false
-    val mutable _is_checkbox_tree = true
     val mutable _is_vertical = false
     val mutable _listeners = []
+    val mutable _is_checkbox_tree = true
 
     inherit Widget.t elt () as super
 
@@ -526,7 +531,7 @@ class t elt () =
     method private get_node_checked_state (node : Dom_html.element Js.t) :
       [`Checked | `Unchecked | `Indeterminate] =
       let children = self#get_node_children node in
-      let rec aux (checked, unchecked, indeterminate) = function
+      let rec aux ((checked, unchecked, indeterminate) as acc)= function
         | [] ->
           if (not indeterminate) && (not unchecked)
           then `Checked
@@ -538,6 +543,7 @@ class t elt () =
           | `Checked -> aux (true, unchecked, indeterminate) tl
           | `Unchecked -> aux (checked, true, indeterminate) tl
           | `Indeterminate -> aux (checked, unchecked, true) tl
+          | `Unavailable -> aux acc tl
       in
       aux (false, false, false) children
 
@@ -563,19 +569,20 @@ class t elt () =
         ?checked
         ?(toggle = true)
         (node : Dom_html.element Js.t) : unit =
-      let checked = match checked with
-        | Some x -> x
-        | None ->
-          let checked = is_node_checked node in
-          if toggle then not checked else checked in
-      if toggle then set_node_checked checked node;
-      self#update_children checked node;
-      if origin then self#update_parent node;
-      if checked
-      then (
-        if not @@ List.exists (Element.equal node) _selected_items
-        then _selected_items <- node :: _selected_items)
-      else _selected_items <- List.filter (Element.equal node) _selected_items
+      match is_node_checked node with
+      | None -> ()
+      | Some state ->
+        let checked = match checked with
+          | Some x -> x
+          | None -> if toggle then not state else state in
+        if toggle then set_node_checked checked node;
+        self#update_children checked node;
+        if origin then self#update_parent node;
+        if checked
+        then (
+          if not @@ List.exists (Element.equal node) _selected_items
+          then _selected_items <- node :: _selected_items)
+        else _selected_items <- List.filter (Element.equal node) _selected_items
 
   end
 
@@ -583,12 +590,20 @@ let make ?classes ?attrs ?dense ?two_line (nodes : node list) : t =
   let rec loop acc = function
     | [] -> List.rev acc
     | node :: tl ->
+      Utils.Option.iter (fun x ->
+          Element.add_class x Item_list.CSS.item_graphic)
+        node.graphic;
+      Utils.Option.iter (fun x ->
+          Element.add_class x Item_list.CSS.item_meta)
+        node.meta;
       let node =
         Markup.create_node
           ?value:node.value
           ?secondary_text:node.secondary_text
           ?meta:(Utils.Option.map Tyxml_js.Of_dom.of_element node.meta)
           ?graphic:(Utils.Option.map Tyxml_js.Of_dom.of_element node.graphic)
+          ?checked:node.checked
+          ?indeterminate:node.indeterminate
           ~children:(loop [] node.children)
           node.label in
       loop (node :: acc) tl in
