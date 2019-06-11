@@ -82,7 +82,7 @@ type board_id =
 type t =
   [ `CPU of topo_cpu
   | `Boards of topo_board list
-  ] [@@deriving yojson { strict = false }, show, eq, ord]
+  ] [@@deriving yojson, show, eq, ord]
 
 and topo_entry =
   | Input : topo_input -> topo_entry

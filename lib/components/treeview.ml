@@ -11,6 +11,16 @@ let ( % ) f g x = f (g x)
    - implement "update" method
    - implement make/attach functions - DONE *)
 
+module Js = struct
+  include Js
+  let pp _ ppf _ = Format.pp_print_string ppf "js"
+end
+
+module Dom_html = struct
+  include Dom_html
+  let pp_element ppf _ = Format.pp_print_string ppf "element"
+end
+
 type node =
   { label : string
   ; secondary_text : string option
@@ -20,7 +30,7 @@ type node =
   ; checked : bool option
   ; indeterminate : bool option
   ; children : node list
-  }
+  } [@@deriving show]
 
 let make_node ?secondary_text ?value ?graphic ?meta
     ?(children = []) ?checked ?indeterminate label =
@@ -38,23 +48,19 @@ let elements_key_allowed_in =
   ["input"; "button"; "textarea"; "select"]
 
 module Selector = struct
-  let nodes = Printf.sprintf ".%s" CSS.node
+  let node = Printf.sprintf ".%s" CSS.node
   let checkbox = "input[type=\"checkbox\"]:not(:disabled)"
-  let radio = "input[type=\"radio\"]:not(:disabled)"
-  let single_selected_node =
-    Printf.sprintf ".%s, .%s" CSS.node_activated CSS.node_selected
-  let aria_role_checkbox = "[role=\"checkbox\"]"
-  let aria_checked_checkbox = "[aria-checked=\"true\"]"
-  let checkbox_radio = Printf.sprintf "%s, %s" checkbox radio
-  let children = "." ^ CSS.node_children
+  let single_selected_node = Printf.sprintf ".%s, .%s"
+      CSS.node_activated CSS.node_selected
+  let aria_checked = "[aria-checked=\"true\"]"
+  let children = "[role=\"group\"]"
   let node_without_tabindex = Printf.sprintf ".%s:not([tabindex])" CSS.node
   let focusable_child_elements =
     Printf.sprintf
       ".%s button:not(:disabled), \
        .%s a, \
-       .%s input[type=\"radio\"]:not(:disabled), \
        .%s input[type=\"checkbox\"]:not(:disabled)"
-      CSS.node CSS.node CSS.node CSS.node
+      CSS.node CSS.node CSS.node
 end
 
 module Attr = struct
@@ -119,7 +125,7 @@ let set_tab_index ?prev (items : Dom_html.element Dom.nodeList Js.t)
   set 0 item
 
 let set_node_checked (x : bool) (item : Dom_html.element Js.t) : unit =
-  match Element.query_selector item Selector.checkbox_radio with
+  match Element.query_selector item Selector.checkbox with
   | None -> ()
   | Some elt ->
     let (input : Dom_html.inputElement Js.t) = Js.Unsafe.coerce elt in
@@ -132,7 +138,7 @@ let set_node_checked (x : bool) (item : Dom_html.element Js.t) : unit =
     (Js.Unsafe.coerce input)##dispatchEvent event
 
 let set_node_indeterminate (x : bool) (item : Dom_html.element Js.t) : unit =
-  match Element.query_selector item Selector.checkbox_radio with
+  match Element.query_selector item Selector.checkbox with
   | None -> ()
   | Some elt ->
     let (input : Dom_html.inputElement Js.t) = Js.Unsafe.coerce elt in
@@ -290,17 +296,13 @@ class t elt () =
       _listeners <- []
 
     method initialize_tree_type () : unit =
-      let checkbox_list_items =
-        super#root##querySelectorAll (Js.string Selector.aria_role_checkbox) in
       let single_selected_node =
         super#root##querySelector (Js.string Selector.single_selected_node) in
-      if checkbox_list_items##.length > 0
-      then (
-        let preselected_items =
-          Element.query_selector_all super#root
-            Selector.aria_checked_checkbox in
-        _selected_items <- preselected_items)
-      else if Js.Opt.test single_selected_node
+      let preselected_items =
+        Element.query_selector_all super#root
+          Selector.aria_checked in
+      _selected_items <- preselected_items;
+      if Js.Opt.test single_selected_node
       then (
         let item = Js.Opt.get single_selected_node (fun () -> assert false) in
         if Element.has_class item CSS.node_activated
@@ -327,11 +329,11 @@ class t elt () =
     method selected_leafs : Dom_html.element Js.t list =
       List.filter self#is_leaf _selected_items
 
-    method get_node_value (node : Dom_html.element Js.t) : string option =
+    method node_value (node : Dom_html.element Js.t) : string option =
       Element.get_attribute node Attr.value
 
     (* Returns node's parent, if any *)
-    method get_node_parent (node : Dom_html.element Js.t) =
+    method node_parent (node : Dom_html.element Js.t) =
       let rec aux node =
         Js.Opt.bind (Element.get_parent node)
           (fun parent ->
@@ -344,7 +346,7 @@ class t elt () =
 
     (* Returns all nodes of a treeview *)
     method private nodes_ : Dom_html.element Dom.nodeList Js.t =
-      super#root##querySelectorAll (Js.string Selector.nodes)
+      super#root##querySelectorAll (Js.string Selector.node)
 
     method private get_node_siblings (node : Dom_html.element Js.t)
       : Dom_html.element Js.t list =
@@ -402,7 +404,7 @@ class t elt () =
               then (
                 self#set_node_expanded active false;
                 None, false)
-              else begin match Js.Opt.to_option @@ self#get_node_parent active with
+              else begin match Js.Opt.to_option @@ self#node_parent active with
                 | None -> None, false
                 | Some p -> p##focus; Some p, false
               end
@@ -461,7 +463,7 @@ class t elt () =
         (_ : unit Lwt.t) : unit Lwt.t =
       Utils.Option.iter (fun node ->
           let target = Dom.eventTarget e in
-          let is_checkbox = Element.matches target Selector.checkbox_radio in
+          let is_checkbox = Element.matches target Selector.checkbox in
           self#handle_action ~is_checkbox node;
           self#notify_action node)
       @@ tree_node_of_event self#nodes_ (e :> Dom_html.event Js.t);
@@ -561,8 +563,8 @@ class t elt () =
          | `Unchecked ->
            set_node_checked false parent;
            set_node_indeterminate false parent);
-        Js.Opt.iter (self#get_node_parent parent) aux in
-      Js.Opt.iter (self#get_node_parent node) aux
+        Js.Opt.iter (self#node_parent parent) aux in
+      Js.Opt.iter (self#node_parent node) aux
 
     method private toggle_checkbox
         ?(origin = false)

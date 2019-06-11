@@ -411,7 +411,7 @@ let to_content socket (wm : Wm.t) =
   let box = Box.make ~dir:`Column [tree#widget] in
   let set = fun () ->
     let wds =
-      Utils.List.filter_map tree#get_node_value
+      Utils.List.filter_map tree#node_value
       @@ tree#selected_leafs in
     let widgets =
       List.fold_left (fun acc channel ->

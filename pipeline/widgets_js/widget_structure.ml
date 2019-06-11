@@ -11,6 +11,29 @@ module CSS = struct
   let checkbox_spacer = BEM.add_element root "checkbox-spacer"
 end
 
+let get_checked ?(filter_empty = false) children =
+  let children =
+    if filter_empty
+    then List.filter (fun (x : Treeview.node) ->
+        match x.children with [] -> false | _ -> true)
+        children
+    else children in
+  let checked = match children with
+    | [] -> false
+    | x ->
+      List.for_all (fun (x : Treeview.node) -> match x.checked with
+          | None -> true | Some x -> x) x in
+  let indeterminate =
+    not checked
+    && Utils.Option.is_some
+    @@ List.find_opt (fun (x : Treeview.node) ->
+        match x.checked, x.indeterminate with
+        | None, None -> false
+        | Some x, None | None, Some x -> x
+        | Some x, Some y -> x || y)
+      children in
+  checked, indeterminate
+
 let contains pattern value =
   let len = String.length value in
   if len > String.length pattern
@@ -53,24 +76,13 @@ let make_channel ?(applied : Structure.channel option) (ch : Structure.channel) 
     | "" -> service_name
     | s -> Printf.sprintf "%s (%s)" service_name s in
   let children = List.map make ch.pids in
-  let checked = match children with
-    | [] -> false
-    | x ->
-      List.for_all (fun (x : Treeview.node) -> match x.checked with
-          | None -> true | Some x -> x) x in
-  let indeterminate =
-    not checked
-    && Utils.Option.is_some
-    @@ List.find_opt (fun (x : Treeview.node) -> match x.checked with
-        | None -> false | Some x -> x) children in
+  let checked, indeterminate = get_checked children in
   let graphic = match ch.pids with
     | [] ->
       let elt = Dom_html.(createSpan document) in
       Element.add_class elt CSS.checkbox_spacer;
       elt
     | _ -> (Checkbox.make ~checked ~indeterminate ())#root in
-  print_endline @@ Printf.sprintf "checked: %B, indeterminate: %B"
-    checked (not checked && indeterminate);
   Treeview.make_node
     ~value:(string_of_int ch.number)
     ~graphic
@@ -94,15 +106,8 @@ let make_stream ?(applied : Structure.t option) (s : Structure.packed) =
     List.map make
     @@ List.sort (fun (x : Structure.channel) y ->
         compare x.number y.number) s.structure.channels in
-  let checked, indeterminate = match applied with
-    | None -> false, false
-    | Some x when List.length x.channels = 0 -> false, false
-    | Some x when List.length x.channels = List.length children -> true, false
-    | _ -> false, true in
-  let checkbox = Checkbox.make
-      ~checked
-      ~indeterminate
-      () in
+  let checked, indeterminate = get_checked ~filter_empty:true children in
+  let checkbox = Checkbox.make ~checked ~indeterminate () in
   Treeview.make_node
     ~value:(Stream.ID.to_string s.source.id)
     ~graphic:checkbox#root
@@ -207,13 +212,13 @@ class t ~applied ~actual () =
       @@ List.fold_left (fun acc node ->
           let ( >>= ) x f = match x with None -> None | Some x -> f x in
           let value =
-            treeview#get_node_value node
+            treeview#node_value node
             >>= int_of_string_opt
-            >>= fun pid -> Js.Opt.to_option @@ treeview#get_node_parent node
-            >>= fun channel' -> treeview#get_node_value channel'
+            >>= fun pid -> Js.Opt.to_option @@ treeview#node_parent node
+            >>= fun channel' -> treeview#node_value channel'
             >>= int_of_string_opt
-            >>= fun channel -> Js.Opt.to_option @@ treeview#get_node_parent channel'
-            >>= treeview#get_node_value
+            >>= fun channel -> Js.Opt.to_option @@ treeview#node_parent channel'
+            >>= treeview#node_value
             >>= Stream.ID.of_string_opt
             >>= fun stream -> Some (stream, channel, pid) in
           match value with

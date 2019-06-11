@@ -42,10 +42,15 @@
 }
 
 @mixin mdc-treeview-node-base_($query: mdc-feature-all()) {
-    &:focus {
-        outline: none;
-        > .mdc-treeview-node__content {
-            background: lightblue;
+    // FIXME Dirty hack
+    $color: mdc-theme-prop-value(on-surface);
+    $opacity: mdc-states-opacity($color, focus);
+    &:not(.mdc-ripple-upgraded):focus,
+    &.mdc-ripple-upgraded--background-focused {
+        > .mdc-treeview-node__content::before {
+            // Note that this duration is only effective on focus, not blur
+            transition-duration: 75ms !important;
+            opacity: $opacity !important;
         }
     }
 }
