@@ -401,6 +401,7 @@ let to_content socket (wm : Wm.t) =
   >>= fun init -> Http_structure.Event.get_streams_applied_with_source socket
   >>= fun (id, event) ->
   let s, set_s = React.S.create init in
+  let _e = React.E.map set_s event in
   let widgets = Utils.List.filter_map (fun (name, (widget : widget)) ->
       match (widget.domain : domain) with
       | ((Chan {stream; channel}) : domain) ->
@@ -409,6 +410,10 @@ let to_content socket (wm : Wm.t) =
       | (Nihil : domain) -> None) wm.widgets in
   let tree = Branches.make_streams widgets s in
   let box = Box.make ~dir:`Column [tree#widget] in
+  box#set_on_destroy (fun () ->
+      React.E.stop ~strong:true _e;
+      React.S.stop ~strong:true s;
+      Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket id));
   let set = fun () ->
     let wds =
       Utils.List.filter_map tree#node_value

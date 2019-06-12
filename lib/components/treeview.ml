@@ -260,7 +260,6 @@ class t elt () =
     val mutable _is_single_selection = false
     val mutable _is_vertical = false
     val mutable _listeners = []
-    val mutable _is_checkbox_tree = true
 
     inherit Widget.t elt () as super
 
@@ -289,12 +288,7 @@ class t elt () =
       loop_nodes (fun _ item -> Element.set_attribute item "tabindex" "-1")
       @@ super#root##querySelectorAll (Js.string Selector.focusable_child_elements);
       let nodes = self#nodes_ in
-      Js.Opt.iter (nodes##item 0) (fun x -> Element.set_attribute x "tabindex" "0");
-      (match nodes##.length with
-       | 0 -> ()
-       | _ ->
-         if has_checkbox_at_index 0 nodes
-         then _is_checkbox_tree <- true);
+      Js.Opt.iter (nodes##item 0) (fun x -> Element.set_attribute x "tabindex" "0")
 
     method! destroy () : unit =
       super#destroy ();
@@ -453,8 +447,7 @@ class t elt () =
                 let is_enter = match k with `Enter -> true | _ -> false in
                 if is_a_tag && is_enter then None, true else (
                   prevent_default_event e;
-                  if self#is_selectable_list
-                  then self#handle_action active;
+                  self#handle_action active;
                   self#notify_action active;
                   None, false))
               else None, false
@@ -485,59 +478,11 @@ class t elt () =
       then (
         (* Toggle the checkbox only if it's not the target of the event,
            or the checkbox will have 2 change events. *)
-        if _is_checkbox_tree
-        then self#toggle_checkbox ~origin:true ~toggle:(not is_checkbox) node
-        else self#set_selected [node])
+        self#toggle_checkbox ~origin:true ~toggle:(not is_checkbox) node)
       else self#toggle_expanded_state node
 
     method private notify_action (node : Dom_html.element Js.t) : unit =
       super#emit ~detail:node ~should_bubble:true Event.action
-
-    method private is_selectable_list : bool = true
-    (* _is_single_selection || _is_checkbox_list *)
-
-    method private set_selected (nodes : Dom_html.element Js.t list) : unit =
-      self#layout ();
-      if _is_checkbox_tree
-      then self#set_checkbox nodes
-      else self#set_single_selection_ (List.hd nodes)
-
-    method private set_single_selection_ (item : Dom_html.element Js.t) : unit =
-      List.iter (fun i ->
-          if not @@ Element.equal i item then (
-            Element.remove_class i CSS.node_selected;
-            Element.remove_class i CSS.node_activated)) _selected_items;
-      let _class =
-        if _use_activated_class
-        then CSS.node_activated else CSS.node_selected in
-      Element.add_class item _class;
-      self#set_aria_for_single_selection item;
-      _selected_items <- [item]
-
-    method private set_aria_for_single_selection (item : Dom_html.element Js.t) : unit =
-      (* Detect the presence of aria-current and get the value only during list
-         initialization when it is in unset state. *)
-      (match _selected_items with
-       | [] -> _aria_current_value <- Element.get_attribute item Attr.aria_current
-       | _ -> ());
-      let aria_attribute = match _aria_current_value with
-        | None -> Attr.aria_selected
-        | Some _ -> Attr.aria_current in
-      (match _selected_items with
-       | [] -> ()
-       | l -> List.iter (fun e -> Element.set_attribute e aria_attribute "false") l);
-      let value = match _aria_current_value with
-        | None -> "true"
-        | Some x -> x in
-      Element.set_attribute item aria_attribute value
-
-    method private set_checkbox (selected : Dom_html.element Js.t list) : unit =
-      loop_nodes (fun _ (node : Dom_html.element Js.t) ->
-          let checked = List.exists (Element.equal node) selected in
-          set_node_checked checked node;
-          Element.set_attribute node Attr.aria_checked (string_of_bool checked))
-        self#nodes_;
-      _selected_items <- selected
 
     method private get_node_checked_state (node : Dom_html.element Js.t) :
       [`Checked | `Unchecked | `Indeterminate] =
@@ -593,7 +538,7 @@ class t elt () =
         then (
           if not @@ List.exists (Element.equal node) _selected_items
           then _selected_items <- node :: _selected_items)
-        else _selected_items <- List.filter (Element.equal node) _selected_items
+        else _selected_items <- List.filter (not % Element.equal node) _selected_items
 
   end
 
