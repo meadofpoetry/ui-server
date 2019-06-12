@@ -29,11 +29,16 @@ type node =
   ; value : string option
   ; checked : bool option
   ; indeterminate : bool option
+  ; expanded : bool
   ; children : node list
   } [@@deriving show]
 
 let make_node ?secondary_text ?value ?graphic ?meta
-    ?(children = []) ?checked ?indeterminate label =
+    ?(children = [])
+    ?checked
+    ?indeterminate
+    ?(expanded = false)
+    label =
   { label
   ; secondary_text
   ; value
@@ -41,6 +46,7 @@ let make_node ?secondary_text ?value ?graphic ?meta
   ; graphic
   ; checked
   ; indeterminate
+  ; expanded
   ; meta
   }
 
@@ -342,6 +348,9 @@ class t elt () =
              else aux parent) in
       aux node
 
+    method nodes =
+      Dom.list_of_nodeList self#nodes_
+
     (* Private methods *)
 
     (* Returns all nodes of a treeview *)
@@ -606,6 +615,7 @@ let make ?classes ?attrs ?dense ?two_line (nodes : node list) : t =
           ?graphic:(Utils.Option.map Tyxml_js.Of_dom.of_element node.graphic)
           ?checked:node.checked
           ?indeterminate:node.indeterminate
+          ~expanded:node.expanded
           ~children:(loop [] node.children)
           node.label in
       loop (node :: acc) tl in

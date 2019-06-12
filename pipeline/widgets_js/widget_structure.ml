@@ -162,6 +162,33 @@ let merge_with_structures
         | channels -> Some { x.structure with channels })
     selected
 
+let merge_trees ~(old : Treeview.t) ~(cur : Treeview.t) =
+  let active = Dom_html.document##.activeElement in
+  let try_focus ~old ~cur =
+    Js.Opt.to_option
+    @@ Js.Opt.bind active (fun active ->
+        if Element.equal old active
+        then Js.some cur else Js.null) in
+  List.fold_left (fun acc x ->
+      match cur#node_value x with
+      | None -> acc
+      | Some v ->
+        match List.find_opt (fun x ->
+            match old#node_value x with
+            | None -> false
+            | Some v' -> String.equal v v') old#nodes with
+        | None -> acc
+        | Some node ->
+          let attr = Treeview.Attr.aria_expanded in
+          begin match Element.get_attribute node attr with
+            | None -> ()
+            | Some a -> Element.set_attribute x attr a
+          end;
+          match try_focus ~old:node ~cur:x with
+          | None -> acc
+          | Some _ as x -> x)
+    None cur#nodes
+
 class t ~applied ~actual () =
   let treeview = make_treeview ~applied ~actual in
   let submit = Button.make
@@ -175,7 +202,9 @@ class t ~applied ~actual () =
         ~text:"Потоки не обнаружены"
         ~icon:Icon.SVG.(make_simple Path.information)
         ()
+    val mutable _treeview = treeview
     val mutable _structure : Structure.packed list = actual
+    val mutable _applied : Structure.t list = applied
     val mutable _on_submit = None
 
     inherit Widget.t Dom_html.(createDiv document) () as super
@@ -227,8 +256,35 @@ class t ~applied ~actual () =
         [] selected
 
     method notify : event -> unit = function
-      | `Actual x -> _structure <- x
-      | `Applied _ -> ()
+      | `Actual x ->
+        _structure <- x;
+        let treeview = make_treeview ~applied:_applied ~actual:x in
+        let focus_target = merge_trees ~old:_treeview ~cur:treeview in
+        super#remove_child _treeview;
+        _treeview#destroy ();
+        if treeview#is_empty
+        then self#append_treeview placeholder
+        else (
+          self#append_treeview treeview;
+          super#remove_child placeholder);
+        Utils.Option.iter (fun x -> x##focus) focus_target;
+        _treeview <- treeview
+      | `Applied x ->
+        _applied <- x;
+        let treeview = make_treeview ~applied:x ~actual:_structure in
+        let focus_target = merge_trees ~old:_treeview ~cur:treeview in
+        super#remove_child _treeview;
+        _treeview#destroy ();
+        if treeview#is_empty
+        then self#append_treeview placeholder
+        else (
+          self#append_treeview treeview;
+          super#remove_child placeholder);
+        Utils.Option.iter (fun x -> x##focus) focus_target;
+        _treeview <- treeview
+
+    method private append_treeview : 'a. (#Widget.t as 'a) -> unit =
+      super#insert_child_at_idx 0
   end
 
 let make ~applied ~actual () =
