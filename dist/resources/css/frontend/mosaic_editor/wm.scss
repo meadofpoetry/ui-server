@@ -4,7 +4,7 @@
 @import '@material/theme/_color-palette';
 @import '@material/ripple/_mixins';
 @import '@material/elevation/_mixins';
-@import '@material/fab/_mixins';
+@import '@material/button/mixins';
 @import '@material/typography/_mixins';
 @import '@material/layout-grid/_variables';
 @import '@material/animation/_variables';
@@ -193,19 +193,8 @@ $wm-placeholder-color: text-secondary-on-surface;
 .wm-left-toolbar {
     $phone: map-get($mdc-layout-grid-breakpoints, phone);
     &__action {
-        @include mdc-fab-accessible(mdc-theme-prop-value(surface));
-
-        margin-bottom: 20px;
-        &:last-child {
-            margin-bottom: 0;
-        }
-    }
-    &--exited {
-        transform: scale(0);
-        transition:
-        opacity 15ms linear 150ms,
-        mdc-animation-exit-permanent(transform, 180ms);
-        opacity: 0;
+        @include mdc-states(on-primary, false);
+        @include mdc-button-ink-color(on-primary);
     }
 }
 

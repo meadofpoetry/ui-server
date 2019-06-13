@@ -13,7 +13,7 @@ let make_resolution_input ?range ~id ~label () =
 
 class t () =
   let _class = "wm-resolution-dialog" in
-  let width = make_resolution_input ~id:"wm-width"  ~label:"Ширина" () in
+  let width = make_resolution_input ~id:"wm-width" ~label:"Ширина" () in
   let height = make_resolution_input ~id:"wm-height" ~label:"Высота" () in
   let widget = Box.make ~dir:`Column [width; height] in
   let title = Dialog.Markup.create_title_simple ~title:"Установка разрешения" () in

@@ -317,16 +317,10 @@ let switch ~grid
 *)
 
 let create_cells () =
-  let lc =
-    Layout_grid.Cell.make
-      ~span_desktop:1
-      ~span_tablet:1
-      ~span_phone:4
-      [] in
   let mc =
     Layout_grid.Cell.make
-      ~span_desktop:8
-      ~span_tablet:7
+      ~span_desktop:9
+      ~span_tablet:8
       ~span_phone:4
       [] in
   let rc =
@@ -335,7 +329,15 @@ let create_cells () =
       ~span_tablet:8
       ~span_phone:4
       [] in
-  lc, mc, rc
+  mc, rc
+
+let make_actions_toolbar actions =
+  let start_section = Top_app_bar.Section.make
+      ~align:`Start
+      ~widgets:actions
+      () in
+  let sections = [start_section] in
+  Widget.create_div ~widgets:sections ()
 
 let create
     ~(init : Wm.t)
@@ -392,6 +394,7 @@ let create
   let resolution_dlg = Resolution_dialog.make () in
   let wz = Events.clicks wizard#root (fun _ _ -> wz_show ()) in
   wizard#set_on_destroy (fun () -> Lwt.cancel wz);
+  let actions_toolbar = make_actions_toolbar [save; wizard; size; edit] in
   let cont =
     Cont.make ~title
       ~init:(List.map Container_item.t_of_layout_item init.layout)
@@ -399,7 +402,7 @@ let create
       ~set_candidates:s_cc_push
       ~resolution
       ~on_remove
-      ~actions:[save; wizard; size; edit]
+      ~actions:[]
       () in
   (* FIXME store events and signals *)
   (* let _ =
@@ -447,15 +450,15 @@ let create
         @@ List.map Container_item.t_of_layout_item l;
         cont.rt#layout ();
         cont.ig#layout ()) wz_e in
-  let lc, mc, rc = create_cells () in
+  let mc, rc = create_cells () in
   let add_to_view lt ig rt =
-    lc#remove_children (); lc#append_child lt;
+    (* lc#remove_children (); lc#append_child lt; *)
     mc#remove_children (); mc#append_child ig;
     rc#remove_children (); rc#append_child rt;
-    lc#set_on_layout lt#layout;
+    (* lc#set_on_layout lt#layout; *)
     mc#set_on_layout ig#layout;
     rc#set_on_layout rt#layout;
-    lc#layout ();
+    (* lc#layout (); *)
     rc#layout ();
     mc#layout ()
   in
@@ -466,7 +469,7 @@ let create
       s_state in
   cont.ig#append_child wz_dlg;
   cont.ig#append_child resolution_dlg;
-  [lc; mc; rc]
+  [mc; rc], actions_toolbar
 
 let post = fun w ->
   Http_wm.set_layout w
@@ -476,32 +479,34 @@ let post = fun w ->
     print_endline @@ Api_js.Http.error_to_string e;
     Lwt.return ()
 
-let on_data socket (grid : Layout_grid.t) wm =
+(* TODO seems that it can fail, handle exception *)
+let on_data socket (scaffold : Scaffold.t) (grid : Layout_grid.t) wm =
   grid#remove_cells ();
-  let cells =
-    try create ~init:wm ~post socket
-    with e -> Printf.printf "error: %s\n" @@ Printexc.to_string e; [] in
-  List.iter grid#append_cell cells
+  let cells, actions = create ~init:wm ~post socket in
+  List.iter grid#append_cell cells;
+  match scaffold#top_app_bar with
+  | None -> ()
+  | Some x -> x#append_child actions
 
 let ( >>= ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
 
 let () =
   let grid = Layout_grid.make [] in
+  let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
   let thread =
     Http_wm.get_layout ()
     >>= fun wm ->
     Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
     >>= fun socket -> Http_wm.Event.get socket
     >>= fun (_, event) ->
-    on_data socket grid wm;
+    on_data socket scaffold grid wm;
     grid#add_class "wm";
-    let e = React.E.map (on_data socket grid) event in
+    let e = React.E.map (on_data socket scaffold grid) event in
     grid#set_on_destroy (fun () ->
         React.E.stop ~strong:true e;
         React.E.stop ~strong:true event;
         Api_js.Websocket.close_socket socket);
     Lwt.return_ok grid in
-  let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
   let body = Ui_templates.Loader.create_widget_loader
       ~parent:scaffold#app_content_inner
       thread in

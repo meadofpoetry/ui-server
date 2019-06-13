@@ -24,7 +24,7 @@ module Make(I : Item) = struct
            ~(init : I.t list)
            ~(candidates : I.t list React.signal)
            ~(set_candidates : I.t list -> unit)
-           ~(actions : Fab.t list)
+           ~actions
            () =
     let selected, selected_push = React.S.create None in
     let e_click, set_click = React.E.create () in
