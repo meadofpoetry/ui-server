@@ -384,6 +384,12 @@ let create
       { icon = Icon.SVG.(make_simple Path.content_save)#widget
       ; name = "Сохранить"
       } in
+  let size =
+    Actions.make_action
+      { icon = Icon.SVG.(make_simple Path.aspect_ratio)#widget
+      ; name = "Разрешение"
+      } in
+  let resolution_dlg = Resolution_dialog.make () in
   let wz = Events.clicks wizard#root (fun _ _ -> wz_show ()) in
   wizard#set_on_destroy (fun () -> Lwt.cancel wz);
   let cont =
@@ -393,7 +399,7 @@ let create
       ~set_candidates:s_cc_push
       ~resolution
       ~on_remove
-      ~actions:[save; wizard; edit]
+      ~actions:[save; wizard; size; edit]
       () in
   (* FIXME store events and signals *)
   (* let _ =
@@ -410,6 +416,15 @@ let create
             ~selected
             ())
       @@ E.select [ cont.ig#e_item_dblclick; e_edit ]) in
+  Lwt.async (fun () ->
+      Events.clicks size#root (fun _ _ ->
+          resolution_dlg#show_await_resolution cont.ig#resolution
+          >>= function
+          | None -> Lwt.return_unit
+          | Some resolution ->
+            let new_layout = resize_layout ~resolution cont.ig#items in
+            cont.ig#initialize resolution new_layout;
+            Lwt.return_unit));
   Lwt.async (fun () ->
       Events.clicks edit#root (fun _ _ ->
           React.S.value cont.ig#s_selected |> Utils.Option.get |> set_edit;
@@ -450,6 +465,7 @@ let create
         | `Container -> add_to_view cont.lt cont.ig cont.rt)
       s_state in
   cont.ig#append_child wz_dlg;
+  cont.ig#append_child resolution_dlg;
   [lc; mc; rc]
 
 let post = fun w ->

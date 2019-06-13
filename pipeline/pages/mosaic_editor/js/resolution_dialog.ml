@@ -17,7 +17,9 @@ class t () =
   let height = make_resolution_input ~id:"wm-height" ~label:"Высота" () in
   let widget = Box.make ~dir:`Column [width; height] in
   let title = Dialog.Markup.create_title_simple ~title:"Установка разрешения" () in
-  let content = Widget.to_markup widget in
+  let content = Dialog.Markup.create_content
+      ~content:[Widget.to_markup widget]
+      () in
   let actions =
     [ Dialog.Markup.create_action
         ~action:Accept
@@ -36,14 +38,7 @@ class t () =
 
     method! init () : unit =
       super#init ();
-      super#add_class _class;
-      (* FIXME *)
-      (* let s = React.S.l2 (fun w h ->
-       *             match w,h with
-       *             | Some _, Some _ -> accept#set_disabled false
-       *             | _ -> accept#set_disabled true)
-       *           width#s_input height#s_input in
-       * _s <- Some s *)
+      super#add_class _class
 
     method! destroy () : unit =
       super#destroy ();
@@ -55,13 +50,11 @@ class t () =
       width#set_value (fst init); height#set_value (snd init);
       super#open_await ()
       >>= function
-      | Accept ->
-        (* FIXME *)
-        (* let w = Option.get_exn @@ React.S.value width#s_input in
-         * let h = Option.get_exn @@ React.S.value height#s_input in *)
-        let w, h = 0, 0 in
-        Lwt.return_some (w, h)
       | Close | Destroy | Custom _  -> Lwt.return_none
+      | Accept ->
+        match width#value, height#value with
+        | None, _ | _, None -> Lwt.return_none
+        | Some w, Some h -> Lwt.return_some (w, h)
   end
 
 let make () = new t ()
