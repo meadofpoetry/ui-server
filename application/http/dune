@@ -6,4 +6,4 @@
              api_cohttp
              api_cohttp_template
              api_websocket
-             components_markup))
+             components_tyxml))

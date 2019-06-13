@@ -351,7 +351,7 @@ module Ip_receive = struct
     | IP_to_output_delay : int rw -> int t
     | Multicast_address : Ipaddr.V4.t rw -> Ipaddr.V4.t t
     | TP_per_IP : int t
-    | Status : receiver_status t
+    | Status : state t
     | Protocol : protocol t
     | Index : int32 t
     | Output_type : output t
@@ -411,7 +411,7 @@ module Ip_receive = struct
     | IP_to_output_delay _ -> string_of_int
     | Multicast_address _ -> Ipaddr.V4.to_string
     | TP_per_IP -> string_of_int
-    | Status -> receiver_status_to_string
+    | Status -> state_to_string
     | Protocol -> protocol_to_string
     | Index -> Int32.to_string
     | Output_type -> output_to_string
@@ -510,7 +510,7 @@ module Ip_receive = struct
         | IP_to_output_delay r -> get r `IP_to_output_delay Ascii.Int.get
         | Multicast_address r -> get r `Multicast_address Ascii.Ipaddr.get
         | TP_per_IP -> get `R `TP_per_IP Ascii.Int.get
-        | Status -> get `R `Status (receiver_status_of_enum % Ascii.Int.get)
+        | Status -> get `R `Status (state_of_enum % Ascii.Int.get)
         | Protocol -> get `R `Protocol (protocol_of_enum % Ascii.Int.get)
         | Index -> get `R `Index Ascii.Int32.get
         | Output_type -> get `R `Output_type (output_of_enum % Ascii.Int.get)

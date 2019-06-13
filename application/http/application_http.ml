@@ -5,18 +5,18 @@ module Api_http = Api_cohttp.Make(User)(Body)
 
 module Api_template = Api_cohttp_template.Make(User)
 
-module Api_websocket = Api_websocket.Make(User)(Body)
+module Api_websocket = Api_websocket.Make(User)(Body)(Body_ws)
 
-module Icon = Components_markup.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
+module Icon = Components_tyxml.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
                     
 let user_pages : Api_template.topmost Api_template.item list =
   let open Api_template in
-  let props = { title        = Some "Пользователи"
-              ; pre_scripts  = []
-              ; post_scripts = [ Src "/js/user.js" ]
-              ; stylesheets  = [ "/css/user.min.css" ]
-              ; content      = []
-              } in
+  let props =
+    make_template_props
+      ~title:"Пользователи"
+      ~post_scripts:[Src "/js/user.js"]
+      ~stylesheets:["/css/user.min.css"]
+      () in
   let icon x =
     let open Icon.SVG in
     let path = create_path x () in
@@ -26,7 +26,7 @@ let user_pages : Api_template.topmost Api_template.item list =
     ~restrict:[`Operator; `Guest]
     ~priority:(`Index 10)
     ~title:"Пользователи"
-    ~icon:(icon Icon.SVG.Path.settings)
+    ~icon:(icon Components_tyxml.Svg_icons.settings)
     ~path:(Path.of_string "settings/user")
     props
                 
@@ -57,7 +57,7 @@ let input topo (input : Topology.topo_input) =
   let get_input_href (x : Topology.topo_input) =
     let name = Topology.input_to_string x.input in
     let id = string_of_int x.id in
-    Filename.concat name id
+    List.fold_left Filename.concat "" ["input"; name; id]
   in
   let path =
     Topology.get_paths topo
@@ -80,42 +80,38 @@ let input topo (input : Topology.topo_input) =
        |> Yojson.Safe.to_string in
      let input_string = Topology.Show_topo_input.to_string input in
      let input_template =
-       { title = Some title
-       ; pre_scripts  =
-           [ Raw (Printf.sprintf "var input = \"%s\";\
-                                  var boards = %s;\
-                                  var cpu = %s;"
-                    input_string boards cpu)]
-       ; post_scripts = [Src "/js/input.js"]
-       ; stylesheets = []
-       ; content = []
-       }
+       make_template_props
+       ~title
+       ~pre_scripts:[ Raw (Printf.sprintf "var input = \"%s\";\
+                                           var boards = %s;\
+                                           var cpu = %s;"
+                             input_string boards cpu)]
+       ~post_scripts:[Src "/js/input.js"]
+       ()
      in
      let input_page =
        simple
          ~priority:(`Index input.id)
          ~title
-         ~icon:(icon Icon.SVG.Path.settings)
+         ~icon:(icon Components_tyxml.Svg_icons.arrow_right)
          ~path:(Path.of_string @@ get_input_href input)
          input_template
      in
      let pre = "input/" ^ get_input_href input in
      let stream_template =
-       { title = Some ("Входы / " ^ title)
-       ; pre_scripts =
-           [ Raw (Printf.sprintf "var input = \"%s\";\
-                                  var boards = %s;\
-                                  var cpu = %s;"
-                    input_string boards cpu)
-           ; Src "/js/moment.min.js"
-           ; Src "/js/Chart.min.js"
-           ; Src "/js/chartjs-plugin-streaming.min.js"
-           ; Src "/js/chartjs-plugin-datalabels.min.js"
-           ]
-       ; post_scripts = [Src "/js/stream.js"]
-       ; stylesheets = []
-       ; content = []
-       } in
+       make_template_props
+       ~title:("Входы / " ^ title)
+       ~pre_scripts:[ Raw (Printf.sprintf "var input = \"%s\";\
+                                           var boards = %s;\
+                                           var cpu = %s;"
+                             input_string boards cpu)
+                    ; Src "/js/moment.min.js"
+                    ; Src "/js/Chart.min.js"
+                    ; Src "/js/chartjs-plugin-streaming.min.js"
+                    ; Src "/js/chartjs-plugin-datalabels.min.js"
+                    ]
+       ~post_scripts:[Src "/js/stream.js"]
+       () in
      let stream_page =
        parametric
          ~path:Path.Format.(pre @/ Stream.ID.fmt ^/ empty)
@@ -133,26 +129,26 @@ let application_pages (app : Application.t) =
     Tyxml.Html.toelt icon
   in
   let props =
-    { title = Some "Конфигурация"
-    ; pre_scripts = []
-    ; post_scripts = [Src "/js/topology.js"]
-    ; stylesheets = ["/css/topology.min.css"]
-    ; content = []
-    }
+    make_template_props
+      ~title:"Конфигурация"
+      ~pre_scripts:[Src "/js/ResizeObserver.js"]
+      ~post_scripts:[Src "/js/topology.js"]
+      ~stylesheets:["/css/topology.min.css"]
+      ()
   in
-  (* let _demo_props = (* TODO *)
-    { title = Some "UI Демо"
-    ; pre_scripts =
-        [ Src "/js/moment.min.js"
-        ; Src "/js/Chart.min.js"
-        ]
-    ; post_scripts = [Src "/js/demo.js"]
-    ; stylesheets = ["/css/demo.min.css"]
-    ; content = []
-    } in *)
+  let _demo_props =
+    make_template_props
+      ~title:"UI Демо"
+      ~pre_scripts:[ Src "/js/moment.min.js"
+                   ; Src "/js/Chart.min.js"
+                   ]
+      ~post_scripts:[Src "/js/demo.js"]
+      ~stylesheets:["/css/demo.min.css"]
+      ()
+  in
   let topo = React.S.value app.topo in
   let hw_templates =
-    Hardware.Map.fold (fun _ (x : Boards.Board.t) acc -> x.templates @ acc)
+    Boards.Board.Ports.fold (fun _ (x : Boards.Board.t) acc -> x.templates @ acc)
       app.hw.boards []
   in
   let inputs = Topology.get_inputs topo in
@@ -161,16 +157,23 @@ let application_pages (app : Application.t) =
     |> List.split
   in
   subtree
-    ~priority:(`Index 2)
+    ~priority:(`Index 1)
     ~title:"Входы"
-    ~icon:(icon Icon.SVG.Path.arrow_right_box)
+    ~icon:(icon Components_tyxml.Svg_icons.arrow_right_box)
     (List.flatten input_templates)
   @ simple
-    ~priority:(`Index 3)
+    ~priority:(`Index 4)
     ~title:"Конфигурация"
-    ~icon:(icon Icon.SVG.Path.tournament)
+    ~icon:(icon Components_tyxml.Svg_icons.tournament)
     ~path:(Path.of_string "application")
     props
+  @ simple
+    ~priority:(`Index 5)
+    ~title:"Демо"
+    ~icon:(icon Components_tyxml.Svg_icons.material_design)
+    ~path:(Path.of_string "demo")
+    _demo_props
+  @ List.flatten stream_templates
   @ hw_templates
 
 let application_handlers (app : Application.t) =
@@ -217,28 +220,34 @@ let application_handlers (app : Application.t) =
     ]
 
 let application_ws (app : Application.t) =
-  let open Api_http in
+  let open Api_websocket in
   (* TODO add closing event *)
-  let socket_table = Api_websocket.make_socket_table () in
-  
+  (*let socket_table = Api_websocket.make_socket_table () in*)
   make ~prefix:"topology" (* TODO change to application *)
-    [ Api_websocket.node ~doc:"Pushes device topology to the client"
-        ~socket_table
+    [ event_node ~doc:"Pushes device topology to the client"
         ~path:Path.Format.empty
         ~query:Query.empty
         (Application_api.Event.get_topology app)
-    ; Api_websocket.node ~doc:"Pushes stream table to the client"
-        ~socket_table
+    ; event_node ~doc:"Pushes stream table to the client"
         ~path:Path.Format.("stream_table" @/ empty)
         ~query:Query.empty
         (Application_api.Event.get_streams app)
-    ; Api_websocket.node ~doc:"Log for input (and stream)"
-        ~socket_table
+    ; event_node ~doc:"Log for input (and stream)"
         ~path:Path.Format.("log" @/ empty)
         ~query:Query.["input", (module List(Topology.Show_topo_input));
-                      "id", (module List(Stream.ID))]
+           "id", (module List(Stream.ID))]
         (Application_api.Event.get_log app)
     ]
+
+let tick ?(timeout = 1.) () =
+  let ( >>= ) = Lwt.bind in
+  let e, push = React.E.create () in
+  let rec aux () =
+    Lwt_unix.sleep timeout
+    >>= fun () ->
+    push ();
+    aux () in
+  e, aux ()
 
 let create templates (app : Application.t) foreign_pages foreing_handlers =
   let (>>=) = Lwt_result.bind in
@@ -258,7 +267,7 @@ let create templates (app : Application.t) foreign_pages foreing_handlers =
   in
   let application_api = application_handlers app in
   let board_api =
-    Hardware.Map.fold (fun _ x acc -> x.Boards.Board.http @ acc) app.hw.boards []
+    Boards.Board.Ports.fold (fun _ x acc -> x.Boards.Board.http @ acc) app.hw.boards []
     |> Api_http.merge ~prefix:"board"
   in
   let proc_api_list = match app.proc with
@@ -267,8 +276,8 @@ let create templates (app : Application.t) foreign_pages foreing_handlers =
   in
   let application_ws = application_ws app in
   let board_ws =
-    Hardware.Map.fold (fun _ x acc -> x.Boards.Board.ws @ acc) app.hw.boards []
-    |> Api_http.merge ~prefix:"board"
+    Boards.Board.Map.fold (fun _ x acc -> x.Boards.Board.ws @ acc) app.hw.boards []
+    |> Api_websocket.merge ~prefix:"board"
   in
   let proc_ws_list = match app.proc with
     | None -> []
@@ -287,13 +296,16 @@ let create templates (app : Application.t) foreign_pages foreing_handlers =
                 :: board_api
                 :: proc_api_list)
   in
-  let ws = Api_http.merge ~prefix:"ws"
-              ( application_ws
-                :: board_ws
-                :: proc_ws_list )
+  let ping, loop = tick () in
+  let ws =
+    Api_websocket.to_http ~prefix:"ws" ~ping
+    @@ Api_websocket.merge
+         ( application_ws
+           :: board_ws
+           :: proc_ws_list )
   in
-  Lwt.return_ok @@ Api_http.merge [ api; ws; pages ]
-     
+  Lwt.return_ok (Api_http.merge [api; ws; pages], loop)
+
     
  (*   
 let make_icon path =

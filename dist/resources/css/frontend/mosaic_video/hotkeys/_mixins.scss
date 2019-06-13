@@ -1,0 +1,17 @@
+@import "@material/theme/_functions";
+@import "@material/theme/_mixins";
+@import "./variables";
+
+@mixin hotkeys-option-base_ {
+    $divider-color: if(
+        mdc-theme-tone($mdc-theme-background) == "dark",
+        $hotkeys-divider-color-on-dark-bg,
+        $hotkeys-divider-color-on-light-bg
+    );
+    border-top: 1px solid;
+    @include mdc-theme-prop(border-top-color, $divider-color);
+    padding: 8px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}

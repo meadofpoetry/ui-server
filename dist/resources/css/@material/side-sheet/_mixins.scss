@@ -1,0 +1,279 @@
+//
+// Copyright 2018 Google Inc.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+//
+
+@import "@material/animation/functions";
+@import "@material/animation/variables";
+@import "@material/elevation/mixins";
+@import "@material/rtl/mixins";
+@import "@material/shape/mixins";
+@import "@material/theme/mixins";
+@import "@material/typography/mixins";
+@import "./variables";
+
+//
+// Public
+//
+
+@mixin mdc-side-sheet-outline-color($color) {
+  $value: rgba(mdc-theme-prop-value($color), $mdc-side-sheet-outline-opacity);
+
+  @include mdc-theme-prop(border-color, $value);
+}
+
+@mixin mdc-side-sheet-shape-radius($radius, $side: trailing) {
+  @if length($radius) > 2 {
+    @error "Invalid radius: '#{$radius}'. Component doesn't allow customizing all corners.";
+  }
+
+  @if $side != leading and $side != trailing {
+    @error "mdc-side-sheet-shape-radius() mixin: $side must be 'leading' or 'trailing', but got '#{$side}'";
+  }
+
+  @if $side == leading {
+    @if length($radius) == 2 {
+      $radius: 0 nth($radius, 1) nth($radius, 2) 0;
+    } @else {
+      $radius: 0 $radius $radius 0;
+    }
+  } @else {
+    @if length($radius) == 2 {
+      $radius: nth($radius, 1) 0 0 nth($radius, 2);
+    } @else {
+      $radius: $radius 0 0 $radius;
+    }
+  }
+
+  @include mdc-shape-radius($radius, $rtl-reflexive: true);
+}
+
+@mixin mdc-side-sheet-scrim-fill-color($color) {
+  $value: rgba(mdc-theme-prop-value($color), $mdc-side-sheet-modal-scrim-opacity);
+
+  ~ .mdc-side-sheet-scrim {
+    @include mdc-theme-prop(background-color, $value);
+  }
+}
+
+@mixin mdc-side-sheet-ink-color($color) {
+  $value: rgba(mdc-theme-prop-value($color), $mdc-side-sheet-ink-opacity);
+
+  @include mdc-theme-prop(color, $value);
+}
+
+@mixin mdc-side-sheet-surface-fill-color($color) {
+  @include mdc-theme-prop(background-color, $color);
+}
+
+@mixin mdc-side-sheet-surface-fill-color-accessible($color) {
+  $accessibleColor: mdc-theme-accessible-ink-color($color);
+
+  @include mdc-side-sheet-ink-color($accessibleColor);
+  @include mdc-side-sheet-surface-fill-color($color);
+}
+
+@mixin mdc-side-sheet-z-index($value) {
+  z-index: $value;
+}
+
+@mixin mdc-side-sheet-width($width, $side: trailing) {
+  width: $width;
+
+  &.mdc-side-sheet--open:not(&--closing):not(&--modal) ~ .mdc-side-sheet-app-content {
+    @include mdc-side-sheet-app-content-margin_($width, $side);
+  }
+}
+
+//
+// Private
+//
+
+@mixin mdc-side-sheet-base_() {
+  @include mdc-typography-base;
+
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+
+  // stylelint-disable-next-line declaration-empty-line-before
+  box-sizing: border-box;
+  height: 100%;
+  transition-property: transform;
+  transition-timing-function: $mdc-animation-standard-curve-timing-function;
+  overflow: hidden;
+
+  // stylelint-disable-next-line selector-max-type
+  &--open {
+    transition: mdc-animation-standard(transform, $mdc-side-sheet-animation-enter);
+  }
+}
+
+@mixin mdc-side-sheet-transitions_($side: trailing) {
+  $xFactor: if($side == leading, 1, -1);
+
+  &--animate {
+    transform: translateX(-100% * $xFactor);
+
+    @include mdc-rtl {
+      transform: translateX(100% * $xFactor);
+    }
+  }
+
+  &--opening {
+    transform: translateX(0);
+    transition-duration: $mdc-side-sheet-animation-enter;
+
+    // Required to level the specificity with animate class.
+    @include mdc-rtl {
+      transform: translateX(0);
+    }
+  }
+
+  &--closing {
+    transform: translateX(-100% * $xFactor);
+    transition-duration: $mdc-side-sheet-animation-exit;
+
+    @include mdc-rtl {
+      transform: translateX(100% * $xFactor);
+    }
+  }
+}
+
+@mixin mdc-side-sheet-dismissible_($rootClass, $side: trailing) {
+  display: none;
+  position: absolute;
+  top: 0;
+
+  &.#{$rootClass}--open {
+    display: flex;
+  }
+
+  @if $side == leading {
+    @include mdc-rtl-reflexive-position(left, 0);
+  } @else if $side == trailing {
+    @include mdc-rtl-reflexive-position(right, 0);
+  } @else {
+    @error "mdc-side-sheet-dismissible_() mixin: $side must be 'leading' or 'trailing', but got '#{$side}'";
+  }
+}
+
+@mixin mdc-side-sheet-modal_($rootClass, $side: trailing) {
+  @include mdc-elevation($mdc-side-sheet-modal-elevation);
+
+  display: none;
+  position: fixed;
+
+  &.#{$rootClass}--open {
+    display: flex;
+  }
+
+  @if $side == leading {
+    @include mdc-rtl-reflexive-position(left, 0);
+  } @else if $side == trailing {
+    @include mdc-rtl-reflexive-position(right, 0);
+  } @else {
+    @error "mdc-side-sheet-modal_() mixin: $side must be 'leading' or 'trailing', but got '#{$side}'";
+  }
+}
+
+@mixin mdc-side-sheet-app-content-margin_($width, $side) {
+  @if $side == leading {
+      @include mdc-rtl-reflexive-property(margin, $width, null);
+  } @else if $side == trailing {
+      @include mdc-rtl-reflexive-property(margin, null, $width);
+  } @else {
+      @error "$side must be 'leading' or 'trailing', but got '#{$side}'";
+  }
+}
+
+@mixin mdc-side-sheet-content_ {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@mixin mdc-side-sheet-scrim_($rootClass) {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transition-property: opacity;
+  transition-timing-function: $mdc-animation-standard-curve-timing-function;
+  z-index: $mdc-side-sheet-z-index - 1;
+
+  .#{$rootClass}--open ~ & {
+    display: block;
+  }
+
+  .#{$rootClass}--animate ~ & {
+    opacity: 0;
+  }
+
+  .#{$rootClass}--opening ~ & {
+    transition-duration: $mdc-side-sheet-animation-enter;
+    opacity: 1;
+  }
+
+  .#{$rootClass}--closing ~ & {
+    transition-duration: $mdc-side-sheet-animation-exit;
+    opacity: 0;
+  }
+}
+
+@mixin mdc-side-sheet-app-content_() {
+  position: relative;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+@mixin mdc-side-sheet-outline-right_($width) {
+  border-right-width: $width;
+  border-left-width: 0;
+  border-right-style: solid;
+  border-left-style: none;
+}
+
+@mixin mdc-side-sheet-outline-left_($width) {
+  border-right-width: 0;
+  border-left-width: $width;
+  border-right-style: none;
+  border-left-style: solid;
+}
+
+@mixin mdc-side-sheet-outline-width_($width, $side: trailing) {
+  @if $side == leading {
+    @include mdc-side-sheet-outline-right_($width);
+
+    @include mdc-rtl {
+      @include mdc-side-sheet-outline-left_($width);
+    }
+  } @else if $side == trailing {
+    @include mdc-side-sheet-outline-left_($width);
+
+    @include mdc-rtl {
+      @include mdc-side-sheet-outline-right_($width);
+    }
+  } @else {
+    @error "mdc-side-sheet-outline-width_() mixin: $side must be 'leading' or 'trailing', but got '#{$side}'";
+  }
+}

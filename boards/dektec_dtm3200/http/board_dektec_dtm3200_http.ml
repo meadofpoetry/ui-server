@@ -1,10 +1,7 @@
 open Application_types
 open Netlib.Uri
 open Board_dektec_dtm3200_protocol
-
-module Api_http = Api_cohttp.Make(User)(Body)
-
-module Api_websocket = Api_websocket.Make(User)(Body)
+open Boards.Board
 
 let handlers (control : int) (api : Protocol.api) =
   let open Api_http in
@@ -25,12 +22,6 @@ let handlers (control : int) (api : Protocol.api) =
               ~path:(Path.Format.of_string "config")
               ~query:Query.empty
               (Api_device.get_config api)
-          ; node ~doc:"Resets the board"
-              ~restrict:[`Guest]
-              ~meth:`POST
-              ~path:(Path.Format.of_string "reset")
-              ~query:Query.empty
-              (Api_device.reboot api)
           ; node ~doc:"Version number of the FPGA code on-board of the device"
               ~meth:`GET
               ~path:(Path.Format.of_string "fpga-version")
@@ -59,7 +50,13 @@ let handlers (control : int) (api : Protocol.api) =
               (Api_device.get_type api)
           ]
       ; make ~prefix:"network"
-          [ node ~doc:"Integrated network configuration"
+          [ node ~doc:"Resets the board"
+              ~restrict:[`Guest]
+              ~meth:`POST
+              ~path:(Path.Format.of_string "reboot")
+              ~query:Query.empty
+              (Api_network.reboot api)
+          ; node ~doc:"Integrated network configuration"
               ~meth:`GET
               ~path:(Path.Format.of_string "config")
               ~query:Query.empty
@@ -108,9 +105,19 @@ let handlers (control : int) (api : Protocol.api) =
               ~path:(Path.Format.of_string "dhcp")
               ~query:Query.empty
               (Api_network.set_dhcp api)
+          ; node ~doc:"MAC address"
+              ~meth:`GET
+              ~path:(Path.Format.of_string "mac-address")
+              ~query:Query.empty
+              (Api_network.get_mac_address api)
           ]
-      ; make ~prefix:"ip-receiver"
-          [ node ~doc:"Returns addressing (Unicast or any-source multicast)"
+      ; make ~prefix:"receiver"
+          [ node ~doc:"Integrated IP receiver configuration"
+              ~meth:`GET
+              ~path:(Path.Format.of_string "config")
+              ~query:Query.empty
+              (Api_receiver.get_config api)
+          ; node ~doc:"Returns addressing (Unicast or any-source multicast)"
               ~meth:`GET
               ~path:(Path.Format.of_string "addressing-method")
               ~query:Query.empty
@@ -218,9 +225,9 @@ let handlers (control : int) (api : Protocol.api) =
               (Api_receiver.get_tp_per_ip api)
           ; node ~doc:"Current operational status"
               ~meth:`GET
-              ~path:(Path.Format.of_string "receiver-status")
+              ~path:(Path.Format.of_string "status")
               ~query:Query.empty
-              (Api_receiver.get_receiver_status api)
+              (Api_receiver.get_status api)
           ; node ~doc:"Protocol used by the incoming IP stream"
               ~meth:`GET
               ~path:(Path.Format.of_string "protocol")
@@ -296,49 +303,67 @@ let handlers (control : int) (api : Protocol.api) =
               ~query:Query.empty
               (Api_receiver.get_delay_factor api)
           ]
+      ; make ~prefix:"asi-output"
+          [ node ~doc:"Size of TS packets"
+              ~restrict:[`Guest]
+              ~meth:`POST
+              ~path:(Path.Format.of_string "packet-size")
+              ~query:Query.empty
+              (Api_asi_output.set_packet_size api)
+          ; node ~doc:"Size of TS packets"
+              ~meth:`GET
+              ~path:(Path.Format.of_string "packet-size")
+              ~query:Query.empty
+              (Api_asi_output.get_packet_size api)
+          ; node ~doc:"Physical port number of ASI output; always 1 for the DTM-3200"
+              ~meth:`GET
+              ~path:(Path.Format.of_string "physical-port")
+              ~query:Query.empty
+              (Api_asi_output.get_physical_port api)
+          ; node ~doc:"TS rate (in bps@188) of the generated ASI stream"
+              ~meth:`GET
+              ~path:(Path.Format.of_string "bitrate")
+              ~query:Query.empty
+              (Api_asi_output.get_bitrate api)
+          ]
+      ; make ~prefix:"status"
+          [ node ~doc:"Overall status of a device"
+              ~meth:`GET
+              ~path:Path.Format.empty
+              ~query:Query.["timeout", (module Option(Int))]
+              (Api_status.get_status api)
+          ]
       ]
   ]
 
 let ws (control : int) (api : Protocol.api) =
-  let open Api_http in
-  let open Api_websocket in
-  let socket_table = make_socket_table () in
+  let open Api_events in
   [ merge ~prefix:(string_of_int control)
       [ make ~prefix:"device"
-          [ node ~doc:"Device state socket"
-              ~socket_table
+          [ event_node ~doc:"Device state socket"
               ~path:(Path.Format.of_string "state")
               ~query:Query.empty
               (Api_device.Event.get_state api)
-          ; node ~doc:"Device info socket"
-              ~socket_table
-              ~path:(Path.Format.of_string "info")
-              ~query:Query.empty
-              (Api_device.Event.get_info api)
-          ; node ~doc:"Device configuration socket"
-              ~socket_table
+          ; event_node ~doc:"Device configuration socket"
               ~path:(Path.Format.of_string "config")
               ~query:Query.empty
               (Api_device.Event.get_config api)
           ]
       ; make ~prefix:"network"
-          [ node ~doc:"Network configuration socket"
-              ~socket_table
+          [ event_node ~doc:"Network configuration socket"
               ~path:(Path.Format.of_string "config")
               ~query:Query.empty
               (Api_network.Event.get_config api)
           ]
-      ; make ~prefix:"ip-receiver"
-          [ node ~doc:"IP receiver configuration socket"
-              ~socket_table
+      ; make ~prefix:"receiver"
+          [ event_node ~doc:"IP receiver configuration socket"
               ~path:(Path.Format.of_string "config")
               ~query:Query.empty
               (Api_receiver.Event.get_config api)
-          ; node ~doc:"Integrated status of the device"
-              ~socket_table
+          ; event_node ~doc:"Integrated status of the device"
               ~path:(Path.Format.of_string "status")
               ~query:Query.empty
-              (Api_receiver.Event.get_status api)
+              (Api_status.Event.get_status api)
           ]
       ]
   ]

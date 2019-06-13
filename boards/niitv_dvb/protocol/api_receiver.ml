@@ -16,26 +16,26 @@ module Event = struct
     Util_json.(
       List.to_yojson (Pair.to_yojson Int.to_yojson (ts_to_yojson f)) v)
 
-  let get_measurements (api : Protocol.api) (ids : int list) _user _body _env _state =
+  let get_measurements (api : Protocol.api) (ids : int list) _user =
     let event =
       api.notifs.measures
       |> filter_if_needed ids
       |> E.map (to_json Measure.to_yojson) in
-    Lwt.return (`Ev event)
+    Lwt.return event
 
-  let get_parameters (api : Protocol.api) (ids : int list) _user _body _env _state =
+  let get_parameters (api : Protocol.api) (ids : int list) _user =
     let event =
       api.notifs.params
       |> filter_if_needed ids
       |> E.map (to_json Params.to_yojson) in
-    Lwt.return (`Ev event)
+    Lwt.return event
 
-  let get_plp_list (api : Protocol.api) (ids : int list) _user _body _env _state =
+  let get_plp_list (api : Protocol.api) (ids : int list) _user =
     let event =
       api.notifs.plps
       |> filter_if_needed ids
       |> E.map (to_json Plp_list.to_yojson) in
-    Lwt.return (`Ev event)
+    Lwt.return event
 end
 
 let to_json f x =

@@ -1,0 +1,3 @@
+(library
+  (name      page_mosaic_video_tyxml)
+  (libraries components_tyxml))

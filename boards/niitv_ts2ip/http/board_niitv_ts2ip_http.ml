@@ -1,10 +1,7 @@
 open Application_types
 open Netlib.Uri
 open Board_niitv_ts2ip_protocol
-
-module Api_http = Api_cohttp.Make(User)(Body)
-
-module Api_websocket = Api_websocket.Make(User)(Body)
+open Boards.Board
 
 let handlers (control : int) (api : Protocol.api) =
   let open Api_http in
@@ -133,54 +130,35 @@ let handlers (control : int) (api : Protocol.api) =
   ]
 
 let ws (control : int) (api : Protocol.api) =
-  let open Api_http in
-  let open Api_websocket in
+  let open Api_events in
   (* TODO add closing event *)
-  let socket_table = make_socket_table () in
-
   [ merge ~prefix:(string_of_int control)
       [ make ~prefix:"device"
-          [ node ~doc:"Device state socket"
-              ~socket_table
+          [ event_node ~doc:"Device state socket"
               ~path:(Path.Format.of_string "state")
               ~query:Query.empty
               (Api_device.Event.get_state api)
-          ; node ~doc:"Device config socket"
-              ~socket_table
+          ; event_node ~doc:"Device config socket"
               ~path:(Path.Format.of_string "config")
               ~query:Query.empty
               (Api_device.Event.get_config api)
-          ; node ~doc:"Device mode socket"
-              ~socket_table
-              ~path:(Path.Format.of_string "mode")
-              ~query:Query.empty
-              (Api_device.Event.get_mode api)
-          ; node ~doc:"Device network mode socket"
-              ~socket_table
-              ~path:(Path.Format.of_string "network")
-              ~query:Query.empty
-              (Api_device.Event.get_network_mode api)
-          ; node ~doc:"Device status socket"
-              ~socket_table
+          ; event_node ~doc:"Device status socket"
               ~path:(Path.Format.of_string "status")
               ~query:Query.empty
               (Api_device.Event.get_status api)
           ]
       ; make ~prefix:"streams"
-          [ node ~doc:"Streams socket"
-              ~socket_table
+          [ event_node ~doc:"Streams socket"
               ~path:Path.Format.empty
               ~query:Query.["incoming", (module Option(Bool))]
               (Api_streams.Event.get_streams api)
           ]
       ; make ~prefix:"transmitter"
-          [ node ~doc:"Transmitter status socket"
-              ~socket_table
+          [ event_node ~doc:"Transmitter status socket"
               ~path:(Path.Format.of_string "status")
               ~query:Query.empty
               (Api_transmitter.Event.get_status api)
-          ; node ~doc:"Transmitters mode socket"
-              ~socket_table
+          ; event_node ~doc:"Transmitters mode socket"
               ~path:(Path.Format.of_string "mode")
               ~query:Query.empty
               (Api_transmitter.Event.get_mode api)

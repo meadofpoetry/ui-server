@@ -1,5 +1,0 @@
-@import '../theme/_mixins';
-
-@mixin mdc-icon-ink-color($color) {
-    @include mdc-theme-prop(color,$color);
-}

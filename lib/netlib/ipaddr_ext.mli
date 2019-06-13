@@ -19,6 +19,10 @@ module V4 : sig
 
   val succ : t -> t
 
+  val max_ip : t
+
+  val min_ip : t
+
   val in_range : range -> t -> bool
 
   val range_to_seq : range list -> t Seq.t

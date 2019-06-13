@@ -1,0 +1,41 @@
+@import "./mixins";
+
+.mdc-pagination {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.mdc-pagination__content {
+    padding: 0 24px;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+}
+
+.mdc-pagination__button {
+    @include mdc-pagination-ink-color(primary);
+
+    .mdc-button__text {
+        pointer-events: none;
+    }
+    .mdc-icon {
+        font-size: 24px;
+        width: 24px;
+        height: 24px;
+        margin: 0;
+    }
+
+    &--active {
+        @include mdc-pagination-active-color(primary);
+        @include mdc-pagination-ink-color(on-primary);
+    }
+
+    font-weight: 500;
+    height: 40px;
+    width: 40px;
+    min-width: 40px;
+}

@@ -1,0 +1,17 @@
+@import "@material/side-sheet/mixins";
+@import "./mixins";
+@import "./variables";
+
+.mdc-scaffold {
+    @include mdc-scaffold-base_;
+    @include mdc-scaffold-transitions_;
+    @include mdc-scaffold-fill-color($mdc-scaffold-fill-color);
+}
+
+.mdc-scaffold__app-content {
+    @include mdc-scaffold-app-content_;
+}
+
+.mdc-scaffold__drawer-frame {
+    @include mdc-scaffold-drawer-frame_;
+}

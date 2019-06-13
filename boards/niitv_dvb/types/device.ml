@@ -39,8 +39,18 @@ type config =
   ; source : int
   } [@@deriving yojson, eq]
 
-let standard_to_string = function
-  | T2 -> "T2" | T -> "T" | C -> "C"
+let standard_to_string ?(full = false) x =
+  let suffix = match x with
+    | T2 -> "T2"
+    | T -> "T"
+    | C -> "C" in
+  if full then "DVB-" ^ suffix else suffix
+
+let standard_of_string = function
+  | "DVB-T2" | "T2" -> Some T2
+  | "DVB-T" | "T" -> Some T
+  | "DVB-C" | "C" -> Some C
+  | _ -> None
 
 let bw_to_string = function
   | Bw8 -> "8 MHz" | Bw7 -> "7 MHz" | Bw6 -> "6 MHz"

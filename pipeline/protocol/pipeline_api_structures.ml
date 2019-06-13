@@ -57,38 +57,38 @@ module Event = struct
                   |> uris
        in E.map (f % filter_by_uris uris) event
 
-  let get_streams (state : Protocol.state) ids inputs _user _body _env _state =
+  let get_streams (state : Protocol.state) ids inputs _user =
     let event =
       filter_event ids inputs (state.sources)
         (S.changes state.notifs.streams)
       |> E.map (Util_json.List.to_yojson Structure.to_yojson)
     in
-    Lwt.return (`Ev event)
+    Lwt.return event
 
-  let get_applied (state : Protocol.state) ids inputs _user _body _env _state =
+  let get_applied (state : Protocol.state) ids inputs _user =
     let event = filter_event ids inputs (state.sources)
                   (S.changes state.notifs.applied_structs)
                 |> E.map (Util_json.List.to_yojson Structure.to_yojson)
     in
-    Lwt.return (`Ev event)
+    Lwt.return event
     
-  let get_streams_packed (state : Protocol.state) ids inputs _user _body _env _state =
+  let get_streams_packed (state : Protocol.state) ids inputs _user =
     let event = filter_map_event ids inputs
                   (Structure_conv.match_streams state.sources)
                   (state.sources)
                   (S.changes state.notifs.streams)
                 |> E.map (Util_json.List.to_yojson Structure.packed_to_yojson)
     in
-    Lwt.return (`Ev event)
+    Lwt.return event
     
-  let get_applied_packed (state : Protocol.state) ids inputs _user _body _env _state =
+  let get_applied_packed (state : Protocol.state) ids inputs _user =
     let event = filter_map_event ids inputs
                   (Structure_conv.match_streams state.sources)
                   (state.sources)
                   (S.changes state.notifs.applied_structs)
                 |> E.map (Util_json.List.to_yojson Structure.packed_to_yojson)
     in
-    Lwt.return (`Ev event)
+    Lwt.return event
 
 end
 

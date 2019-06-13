@@ -1,0 +1,19 @@
+@import "./wm";
+@import "@material/button/mixins";
+@import "@material/top-app-bar/variables";
+
+.mosaic__video {
+    @include mdc-states(on-primary, false);
+    @include mdc-button-ink-color(on-primary);
+    &--compact {
+        display: none;
+    }
+    @media (max-width: $mdc-top-app-bar-mobile-breakpoint) {
+        &--full {
+            display: none;
+        }
+        &--compact {
+            display: block;
+        }
+    }
+}

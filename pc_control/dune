@@ -2,5 +2,5 @@
   (name        pc_control)
   (wrapped     true)
   (libraries   application_types nm netlib util_react kv_v
-               api components_markup)
+               api components_tyxml)
   (preprocess (pps ppx_deriving_yojson ppx_deriving.eq)))

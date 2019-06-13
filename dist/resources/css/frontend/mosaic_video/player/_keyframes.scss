@@ -1,0 +1,9 @@
+@keyframes player-state-overlay-fadeout {
+    0% {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+        transform: scale(2);
+    }
+}

@@ -102,6 +102,7 @@ let apply_streams (api : Protocol.api) range ports streams =
     | Ok x ->
       let mode =
         List.map (fun (ip, port, stream, socket) ->
+            print_endline @@ Ipaddr.V4.to_string ip;
             { dst_ip = ip
             ; dst_port = port
             ; enabled = true
@@ -140,10 +141,9 @@ let create (b : Topology.topo_board)
          | _ -> `Forbidden)
       api.notifs.state api.notifs.devinfo in
   let range =
-    (Ipaddr.V4.make 224 1 2 2, Ipaddr.V4.make 239 255 255 255)
+    (Ipaddr.V4.make 224 0 0 0, Ipaddr.V4.make 239 255 255 255)
     |> Ipaddr.V4.range_of_pair
-    |> get_exn
-  in
+    |> get_exn in
   let constraints = { Boards.Board. state = source_state; range = [range] } in
   let board =
     { Boards.Board.

@@ -1,140 +1,114 @@
-
 <!DOCTYPE html>
 <html lang="ru">
     <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="">
-    <title>{{title}}</title>
-    <link rel="stylesheet" href="/css/components.min.css">
-    <link rel="stylesheet" href="/css/icon.css">
-    <link rel="stylesheet" href="/fonts/roboto/roboto.css">
-    <link rel="stylesheet" href="/fonts/robotomono/robotomono.css">
-    <link rel="stylesheet" href="/fonts/opensans/opensans.css">
-    <link rel="stylesheet" href="/css/normalize.css" type="text/css">
-    <link rel="stylesheet" href="/css/main.min.css" type="text/css">
-    <!-- Additional scripts -->
-    <script type="text/javascript">var username="{{user}}"</script>
-    {{#pre_scripts}}
-    <script {{#src}}src="{{script}}"{{/src}} type="text/javascript">{{^src}}{{{script}}}{{/src}}</script>
-    {{/pre_scripts}}
-    <!-- Additional stylesheets -->
-    {{#stylesheets}}
-    <link rel="stylesheet" href={{stylesheet}} type="text/css">
-    {{/stylesheets}}
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="">
+        <title>{{title}}</title>
+        <link rel="stylesheet" href="/css/icon.css">
+        <link rel="stylesheet" href="/fonts/roboto/roboto.css">
+        <link rel="stylesheet" href="/fonts/robotomono/robotomono.css">
+        <link rel="stylesheet" href="/fonts/opensans/opensans.css">
+        <link rel="stylesheet" href="/css/normalize.css" type="text/css">
+        <link rel="stylesheet" href="/css/components.min.css">
+        <link rel="stylesheet" href="/css/main.min.css" type="text/css">
+        <script type="text/javascript">var username="{{user}}"</script>
+        <!-- Additional scripts -->
+        {{#pre_scripts}}
+        <script {{#src}}src="{{script}}"{{/src}} type="text/javascript">{{^src}}{{{script}}}{{/src}}</script>
+        {{/pre_scripts}}
+        <!-- Additional stylesheets -->
+        {{#stylesheets}}
+        <link rel="stylesheet" href={{stylesheet}} type="text/css">
+        {{/stylesheets}}
     </head>
-    <script>
-     var cl = ((localStorage.getItem('toolbar')=='open') && (window.innerWidth >= 1200))
-              ?'hide-sidedrawer':'';
-       document.writeln('<body class="mdc-typography '+ cl +' ">');
-     </script>
-      <script>
-       var cl = ((localStorage.getItem('toolbar')=='open') && (window.innerWidth >= 1200))
-                ?'mdc-drawer--open':'';
-       document.writeln('<aside id="main-drawer" class="mdc-drawer mdc-drawer--custom mdc-drawer--animating ' + cl +' ">');
-      </script>
-      <nav class="mdc-drawer__drawer" onclick="event.stopPropagation()">
-          <header class="mdc-drawer__header mdc-theme--primary-bg mdc-elevation--z4">
-              <div class=" mdc-drawer__header-content mdc-theme--text-primary-on-primary">
-                  <div id="drawer-panel" class="mdc-drawer__panel mdc-theme--text-primary-on-primary">
-                      <script>
-                       var str = ("{{user}}"=="root")?'Администратор':'{{user}}(Пользователь)';
-                       document.write(str);
-                      </script>
-                     <i id="dropdown" class="material-icons mdc-icon icon-dropdown dropdown">
-                        arrow_drop_down
-                     </i>
-                  </div>
-              </div>
-          </header>
-          <div id="drawer-wrapper" class="mdc-drawer__wrapper mdc-drawer__wrapper--hidden">
-            <a href="/" class="mdc-list-item">
-                <i class="material-icons mdc-icon">
-                    exit_to_app
-                </i>
-                     Выйти
-            </a>
-          </div>
-          <hr class="mdc-list-divider">
-          <nav class="mdc_drawer__content mdc-list-group">
-            <div id="navigation" class="mdc-list">
-              {{#navigation}}
-              {{#simple}}
-              <div class="mdc-tree">
-                  <a href="{{href}}" class="mdc-list-item">
-                      {{#icon}}
-                      <div class="mdc-list-item__graphic">
-                          {{{value}}}
-                      </div>
-                      {{/icon}}
-                      {{title}}
-                  </a>
-              </div>
-              {{/simple}}
-              {{^simple}}
-              <div class="mdc-tree mdc-tree__item">
-                  <div class="mdc-list-item">
-                      {{#icon}}
-                      <div class="mdc-list-item__graphic">
-                          {{{value}}}
-                      </div>
-                      {{/icon}}
-                      {{title}}
-                      <i class="material-icons mdc-icon mdc-list-item__meta dropdown">
-                          arrow_drop_down
-                      </i>
-                  </div>
-                   <div class="mdc-tree__list">
-                   {{#subtree}}
-                       <a href="{{href}}" class="mdc-list-item">
-                           {{#icon}}
-                           <div class="mdc-list-item__graphic">
-                               {{{value}}}
-                           </div>
-                           {{/icon}}
-                           {{title}}
-                       </a>
-                   {{/subtree}}
-                   </div>
-              </div>
-           {{/simple}}
-           {{/navigation}}
-           </div>
-          </nav>
-      </nav>
-   </aside>
-   <header id="main-toolbar" class="mdc-top-app-bar">
-        <div class="mdc-top-app-bar__row">
-            <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
-                <button id="demo-menu" class="demo-menu material-icons mdc-top-app-bar__navigation-icon"
-                        style="outline: none;">
-                    <svg xmlns="http://www.w3.org/2000/svg"
-                         xmlns:xlink="http://www.w3.org/1999/xlink"
-                         class="mdc-icon" style="width:24px;height:24px"
-                         viewBox="0 0 24 24">
-                        <path class="" d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z"></path>
-                    </svg>
-                </button>
-                <span id="page-title" class="mdc-top-app-bar__title">{{title}}</span>
-            </section>
+    <body class="mdc-typography">
+        <div id="root" class="mdc-scaffold">
+            <div class="mdc-scaffold__drawer-frame
+                        mdc-scaffold__drawer-frame--full-height">
+                <aside id="main-drawer"
+                       class="mdc-drawer mdc-drawer--dismissible main-drawer">
+                    <!-- <div class="mdc-drawer__header" style="display: none;">
+                         <div class="mdc-avatar" style="background-color: {{usercolor}}">
+                         {{{usericon}}}
+                         </div>
+                         <div class="mdc-drawer__title">{{username}}</div>
+                         </div>
+                         <hr class="mdc-list-divider" style="display: none;"> -->
+                    <div class="mdc-drawer__content">
+                        <nav class="mdc-list">
+                            {{#navigation}}
+                            {{#simple}}
+                            <a href="{{href}}"
+                               class="mdc-list-item{{#active}}
+                                     mdc-list-item--activated{{/active}}">
+                                {{#icon}}
+                                <div class="mdc-list-item__graphic">{{{value}}}</div>
+                                {{/icon}}
+                                {{title}}
+                            </a>
+                            {{/simple}}
+                            {{^simple}}
+                            <h6 class="mdc-list-group__subheader">{{title}}</h6>
+                            {{#subtree}}
+                            <a href="{{href}}"
+                               class="mdc-list-item{{#active}}
+                                     mdc-list-item--activated{{/active}}">
+                                {{#icon}}
+                                <div class="mdc-list-item__graphic">
+                                    {{{value}}}
+                                </div>
+                                {{/icon}}
+                                {{title}}
+                            </a>
+                            {{/subtree}}
+                            <hr class="mdc-list-divider">
+                            {{/simple}}
+                            {{/navigation}}
+                        </nav>
+                    </div>
+                </aside>
+                {{{side_sheet_full_height}}}
+                <div class="mdc-scaffold__app-content
+                            mdc-scaffold__app-content--outer
+                            mdc-side-sheet-app-content">
+                    <header id="main-top-app-bar" class="mdc-top-app-bar main-top-app-bar">
+                        <div class="mdc-top-app-bar__row">
+                            <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
+                                <button class="mdc-top-app-bar__navigation-icon"
+                                        style="outline: none;">
+                                    {{{top_app_bar_leading}}}
+                                </button>
+                                <span id="page-title" class="mdc-top-app-bar__title">{{title}}</span>
+                            </section>
+                            {{#top_app_bar_has_actions}}
+                            <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
+                                {{#top_app_bar_actions}}
+                                {{{action}}}
+                                {{/top_app_bar_actions}}
+                            </section>
+                            {{/top_app_bar_has_actions}}
+                        </div>
+                        {{{top_app_bar_bottom}}}
+                    </header>
+                    <div class="mdc-scaffold__drawer-frame
+                                mdc-scaffold__drawer-frame--clipped">
+                        {{{side_sheet_clipped}}}
+                        <main class="mdc-scaffold__app-content
+                                     mdc-scaffold__app-content--inner
+                                     mdc-side-sheet-app-content
+                                     mdc-top-app-bar--fixed-adjust">
+                            {{#content}}
+                            {{{element}}}
+                            {{/content}}
+                        </main>
+                    </div>
+                </div>
+            </div>
         </div>
-    </header>
-    <main id="main-content">
-        <section id="arbitrary-content">
-            {{#content}}
-            {{{element}}}
-            {{/content}}
-        </section>
-    </main>
-    </script>
-    <!-- Additional scripts -->
-    {{#post_scripts}}
-    <script {{#src}}src="{{script}}"{{/src}} type="text/javascript">
-     {{^src}}
-     {{{script}}}
-     {{/src}}
-    </script>
-    {{/post_scripts}}
-    <script src="/js/drawer.js" type="text/javascript"></script>
-  </body>
+        <!-- Additional post scripts -->
+        {{#post_scripts}}
+        <script {{#src}}src="{{script}}"{{/src}} type="text/javascript">{{^src}}{{{script}}}{{/src}}</script>
+        {{/post_scripts}}
+    </body>
 </html>

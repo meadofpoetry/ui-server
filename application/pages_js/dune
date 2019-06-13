@@ -1,0 +1,26 @@
+(executable
+  (name       page_topology)
+  (modules    streams_selector
+              topo_block
+              topo_board
+              topo_cpu
+              topo_drawer
+              topo_input
+              topo_node
+              topo_path
+              topo_pipeline
+              topo_types
+              page_topology)
+  (libraries  components
+              ui_templates
+              util_react
+              application_http_js
+              pipeline_http_js
+              pipeline_widgets_js
+              board_dektec_dtm3200_widgets_js
+              board_niitv_dvb_widgets_js
+              board_niitv_tsan_widgets_js)
+  (preprocess (pps js_of_ocaml-ppx
+                   ppx_deriving_yojson
+                   ppx_deriving.eq
+                   ppx_deriving.show)))

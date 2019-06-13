@@ -1,0 +1,62 @@
+@import "@material/theme/_mixins";
+@import "@material/typography/_mixins";
+
+.application-stream-selector {
+}
+
+.application-stream-selector__inputs {
+}
+
+.application-stream-selector__block {
+    margin-bottom: 1rem;
+
+    &:last-child {
+        margin-bottom: 0;
+    }
+
+    &--forbidden {
+        // FIXME surface
+        @include mdc-theme-prop(color, text-disabled-on-background, true);
+        .mdc-list-item,
+        .application-stream-selector__empty-placeholder {
+            // FIXME surface
+            @include mdc-theme-prop(color, text-disabled-on-background);
+        }
+    }
+}
+
+.application-stream-selector__stream {
+    &--lost {
+        @include mdc-theme-prop(color, error);
+    }
+}
+
+.application-stream-selector__dialog {
+    .mdc-text-field {
+        margin-bottom: 1rem;
+    }
+    .mdc-text-field:last-child {
+        margin-bottom: 0;
+    }
+}
+
+.application-stream-selector__empty-placeholder {
+    @include mdc-typography(body2);
+    // FIXME surface
+    @include mdc-theme-prop(color, text-secondary-on-background);
+    padding: 1rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+// Log
+
+.application-log {
+    th:nth-of-type(2), td:nth-of-type(2) {
+        max-width: 300px;
+    }
+    th:nth-of-type(3), td:nth-of-type(3) {
+        max-width: 250px;
+    }
+}

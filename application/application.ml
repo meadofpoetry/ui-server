@@ -62,7 +62,7 @@ let create kv db =
 
   (* Attach database to the aggregated log event stream *)
   hw.boards
-  |> Hardware.Map.bindings
+  |> Boards.Board.Ports.bindings
   (* Get boards' logs *)
   |> List.map (fun (_,b) -> Boards.Board.(b.log_source `All))
   (* Add proc's logs *)
@@ -88,7 +88,7 @@ let streams_on_input app input =
   | Some boards ->
      try boards
          |> List.map (fun (topo_board : Topology.topo_board) ->
-                let board = Hardware.Map.find topo_board.control app.hw.boards in
+                let board = Boards.Board.Ports.find topo_board.control app.hw.boards in
                 topo_board.control, S.value board.streams_signal)
          |> (fun v -> Ok v)
      with Not_found -> Error "internal topology error"
@@ -100,7 +100,7 @@ let stream_source app stream_id =
   let topo = S.value app.topo in
   try topo
       |> Topology.iter_boards (fun topo_board ->
-             match Hardware.Map.find_opt topo_board.control app.hw.boards with
+             match Boards.Board.Ports.find_opt topo_board.control app.hw.boards with
              | None -> ()
              | Some board ->
                 S.value board.streams_signal
@@ -138,7 +138,7 @@ let log_for_input app inputs stream_ids =
      try boards
          (* Get boards' log events *)
          |> List.map (fun (topo_board : Topology.topo_board) ->
-                let board = Hardware.Map.find topo_board.control app.hw.boards in
+                let board = Boards.Board.Ports.find topo_board.control app.hw.boards in
                 board.log_source filter)
          (* Add proc's log event *)
          |> (fun logs -> match app.proc with

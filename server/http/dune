@@ -4,4 +4,4 @@
              server_types
              api_cohttp_template
              api_cohttp
-             components_markup))
+             components_tyxml))

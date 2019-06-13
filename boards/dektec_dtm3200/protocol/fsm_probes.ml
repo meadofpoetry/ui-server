@@ -50,7 +50,7 @@ let step
 
   and status acc =
     request src sender rsp_queue config (IP_receive Status)
-    >>=? fun (x : receiver_status) -> protocol GList.(x :: acc)
+    >>=? fun (x : state) -> protocol GList.(x :: acc)
 
   and protocol acc =
     request src sender rsp_queue config (IP_receive Protocol)

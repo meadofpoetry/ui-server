@@ -1,0 +1,53 @@
+@import "@material/icon-button/mixins";
+@import "@material/slider/mixins";
+@import "@material/animation/functions";
+@import "@material/theme/mixins";
+@import "./keyframes";
+@import "./variables";
+@import "./mixins";
+
+.player {
+    @include player-base_($player-background-color);
+}
+
+.player--big-mode {
+    @include player-big-mode_;
+    .player__state-overlay {
+        @include player-state-overlay-size_($player-state-overlay-size-big,
+                                            $player-state-overlay-icon-size-big);
+    }
+}
+
+.player__state-overlay {
+    @include player-state-overlay-base_();
+    @include player-state-overlay-color_($player-controls-color);
+    @include player-state-overlay-size_($player-state-overlay-size,
+                                        $player-state-overlay-icon-size);
+    @include player-state-overlay-animations_();
+    pointer-events: none;
+}
+
+.player__big-button {
+    @include player-big-button-base_();
+    @include player-big-button-color_($player-controls-color);
+}
+
+.player__overlay {
+    @include player-overlay-base_($player-controls-color);
+}
+
+.player-controls-gradient {
+    @include player-controls-gradient-base_;
+    @include player-controls-transitions_;
+}
+
+.player-controls {
+    @include player-controls-base_;
+    @include player-controls-transitions_;
+}
+
+@media screen and (max-width: ($player-tablet-breakpoint - 1)) {
+    .player-controls__volume {
+        display: none;
+    }
+}

@@ -5,7 +5,7 @@ module Api_http = Api_cohttp.Make (User) (Body)
 
 module Api_template = Api_cohttp_template.Make (User)
 
-module Icon = Components_markup.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
+module Icon = Components_tyxml.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
 let network_handlers (network : Pc_control.Network.t) =
   let open Api_http in
@@ -26,12 +26,10 @@ let network_handlers (network : Pc_control.Network.t) =
 let network_pages : Api_template.topmost Api_template.item list =
   let open Api_template in
   let props =
-    { title = Some "Сеть"
-    ; pre_scripts = []
-    ; post_scripts = [ Src "/js/network.js" ]
-    ; stylesheets = []
-    ; content = []
-    }
+    make_template_props
+      ~title:"Сеть"
+      ~post_scripts:[Src "/js/network.js"]
+      ()
   in
   let icon x =
     let open Icon.SVG in
@@ -43,6 +41,6 @@ let network_pages : Api_template.topmost Api_template.item list =
     ~restrict:[`Operator; `Guest]
     ~priority:(`Index 10)
     ~title:"Сеть"
-    ~icon:(icon Icon.SVG.Path.lan)
+    ~icon:(icon Components_tyxml.Svg_icons.lan)
     ~path:(Path.of_string "settings/network")
     props

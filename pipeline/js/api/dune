@@ -1,7 +1,0 @@
-(library
-  (name       pipeline_api_js)
-  (libraries  api_js
-              pipeline_types
-              application_types
-              netlib)
-  (preprocess (pps js_of_ocaml-ppx)))
