@@ -11,16 +11,6 @@ let ( % ) f g x = f (g x)
    - implement "update" method
    - implement make/attach functions - DONE *)
 
-module Js = struct
-  include Js
-  let pp _ ppf _ = Format.pp_print_string ppf "js"
-end
-
-module Dom_html = struct
-  include Dom_html
-  let pp_element ppf _ = Format.pp_print_string ppf "element"
-end
-
 type node =
   { label : string
   ; secondary_text : string option
@@ -31,7 +21,7 @@ type node =
   ; indeterminate : bool option
   ; expanded : bool
   ; children : node list
-  } [@@deriving show]
+  }
 
 let make_node ?secondary_text ?value ?graphic ?meta
     ?(children = [])
