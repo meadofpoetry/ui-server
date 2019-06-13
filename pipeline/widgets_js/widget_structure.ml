@@ -169,25 +169,30 @@ let merge_trees ~(old : Treeview.t) ~(cur : Treeview.t) =
     @@ Js.Opt.bind active (fun active ->
         if Element.equal old active
         then Js.some cur else Js.null) in
-  List.fold_left (fun acc x ->
-      match cur#node_value x with
-      | None -> acc
-      | Some v ->
-        match List.find_opt (fun x ->
-            match old#node_value x with
-            | None -> false
-            | Some v' -> String.equal v v') old#nodes with
+  let rec merge acc old_nodes cur_nodes =
+    List.fold_left (fun acc x ->
+        match cur#node_value x with
         | None -> acc
-        | Some node ->
-          let attr = Treeview.Attr.aria_expanded in
-          begin match Element.get_attribute node attr with
-            | None -> ()
-            | Some a -> Element.set_attribute x attr a
-          end;
-          match try_focus ~old:node ~cur:x with
+        | Some v ->
+          match List.find_opt (fun x ->
+              match old#node_value x with
+              | None -> false
+              | Some v' -> String.equal v v') old_nodes with
           | None -> acc
-          | Some _ as x -> x)
-    None cur#nodes
+          | Some node ->
+            let attr = Treeview.Attr.aria_expanded in
+            begin match Element.get_attribute node attr with
+              | None -> ()
+              | Some a -> Element.set_attribute x attr a
+            end;
+            let acc = match try_focus ~old:node ~cur:x with
+              | None -> acc
+              | Some _ as x -> x in
+            merge acc
+              (old#node_children node)
+              (cur#node_children x))
+      acc cur_nodes in
+  merge None old#root_nodes cur#root_nodes
 
 class t ~applied ~actual () =
   let treeview = make_treeview ~applied ~actual in

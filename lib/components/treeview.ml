@@ -342,8 +342,23 @@ class t elt () =
              else aux parent) in
       aux node
 
+    (* Returns node's children, if any *)
+    method node_children (node : Dom_html.element Js.t)
+      : Dom_html.element Js.t list =
+      let rec aux acc node =
+        let children_wrapper = node##querySelector (Js.string Selector.children) in
+        Js.Opt.case children_wrapper
+          (fun () -> [])
+          (fun w ->
+             List.filter (fun x -> Element.has_class x CSS.node)
+             @@ Element.children w) in
+      aux [] node
+
     method nodes =
       Dom.list_of_nodeList self#nodes_
+
+    method root_nodes =
+      List.filter (fun x -> not @@ Js.Opt.test @@ self#node_parent x) self#nodes
 
     (* Private methods *)
 
@@ -360,21 +375,9 @@ class t elt () =
         | Some x -> loop (x :: acc) x in
       List.rev @@ loop [] node
 
-    (* Returns node's children, if any *)
-    method private get_node_children (node : Dom_html.element Js.t)
-      : Dom_html.element Js.t list =
-      let rec aux acc node =
-        let children_wrapper = node##querySelector (Js.string Selector.children) in
-        Js.Opt.case children_wrapper
-          (fun () -> [])
-          (fun w ->
-             List.filter (fun x -> Element.has_class x CSS.node)
-             @@ Element.children w) in
-      aux [] node
-
     (* Check if a tree node is an end node *)
     method private is_leaf (node : Dom_html.element Js.t) : bool =
-      match Element.has_class node CSS.node, self#get_node_children node with
+      match Element.has_class node CSS.node, self#node_children node with
       | true, [] -> true
       | _ -> false
 
@@ -413,7 +416,7 @@ class t elt () =
               end
             | `Arrow_right, true | `Arrow_down, false ->
               prevent_default_event e;
-              begin match self#node_expanded active, self#get_node_children active with
+              begin match self#node_expanded active, self#node_children active with
                 | _, [] -> None, false
                 | false, _ -> self#set_node_expanded active true; None, false
                 | true, x :: _ -> x##focus; Some x, false
@@ -486,7 +489,7 @@ class t elt () =
 
     method private get_node_checked_state (node : Dom_html.element Js.t) :
       [`Checked | `Unchecked | `Indeterminate] =
-      let children = self#get_node_children node in
+      let children = self#node_children node in
       let rec aux ((checked, unchecked, indeterminate) as acc)= function
         | [] ->
           if (not indeterminate) && (not unchecked)
@@ -505,7 +508,7 @@ class t elt () =
 
     method private update_children (checked : bool) (node : Dom_html.element Js.t) : unit =
       List.iter (self#toggle_checkbox ~checked)
-      @@ self#get_node_children node
+      @@ self#node_children node
 
     method private update_parent (node : Dom_html.element Js.t) : unit =
       let rec aux parent =
