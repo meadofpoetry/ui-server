@@ -33,7 +33,7 @@ type state =
   ; mutable sources : (Netlib.Uri.t * Stream.t) list
   ; options : options
   ; model   : Model.t
-  ; cleanup : < set_cb : (unit -> unit) -> unit; call : unit >
+(* ; cleanup : < set_cb : (unit -> unit) -> unit; call : unit > *)
   }
   
 module Wm_options = Kv_v.RW(Wm)
@@ -111,8 +111,7 @@ let notification_attach_setter
   options#get
   >>= fun default ->
   signal_add_setter signal default merge
-                   
-(* TODO annotate with `Stored | `Applied *)
+
 let make_streams_with_restore_config ~apply_settings ~get_applied stream_options stream_signal =
   let (>>=) = Lwt.bind in
   let combine ~set avail =
@@ -128,7 +127,6 @@ let make_streams_with_restore_config ~apply_settings ~get_applied stream_options
     ~options:stream_options
     ~signal:stream_signal
 
-(* TODO annotate with `Stored | `Applied *)
 let make_wm_with_restore_config ~apply_settings wm_options wm =
   let combine ~set wm =
     Lwt.return @@ Wm.Annotated.update_stored ~stored:set ~active:wm
@@ -218,7 +216,7 @@ let create db kv =
   
   Model.create db notifs.streams notifs.status notifs.vdata notifs.adata
   >>=? fun model ->
-
+(*
   let cleanup =
     let cb = ref (fun () -> ()) in
     object
@@ -226,9 +224,9 @@ let create db kv =
       method call = !cb ()
     end
   in
-  
+ *)
   let state =
-    { backend; running; notifs; sources; options; model; cleanup }
+    { backend; running; notifs; sources; options; model }
   in
   Lwt.return_ok (state)
   
@@ -296,9 +294,9 @@ let reset state (sources : (Netlib.Uri.t * Stream.t) list) =
                   ; streams_reset
                   ; wm_reset
                   };
-
+(*
   state.cleanup#call;
-
+ *)
   (* TODO add state updates if settings are avail *)
 
   Model.set_streams state.model (List.map snd sources);
@@ -307,7 +305,9 @@ let reset state (sources : (Netlib.Uri.t * Stream.t) list) =
 
   state.sources <- sources;
 
-  Lwt.return_ok ()
+  Qoe_backend.Analysis_settings.apply_settings
+    backend
+    (React.S.value state.options.settings#s)
 
 let finalize state =
   let (>>=) = Lwt.bind in
@@ -325,6 +325,6 @@ let finalize state =
   state.backend <- None;
   state.running <- None;
   state.notifs <- notifs_default;
-  state.cleanup#call;
+  (* state.cleanup#call; *)
   Logs.debug (fun m -> m "(Pipeline) finalize");
   Lwt.return_unit

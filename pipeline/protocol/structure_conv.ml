@@ -1,3 +1,4 @@
+(*
 open Netlib
 open Application_types
 open Pipeline_types
@@ -31,3 +32,4 @@ let dump_structures (entries : Structure.Packed.t list) =
       (Yojson.Safe.to_string @@ Stream.ID.to_yojson x.source.id),
       (Yojson.Safe.to_string @@ Structure.to_yojson x.structure))
     entries
+  *)

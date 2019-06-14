@@ -4,20 +4,6 @@ include module type of Qoe_backend_types.Structure.Make
 
 val pids : t list -> (Application_types.Stream.ID.t * int * int) list
 
-module Packed : sig
-  
-  type nonrec t = { source    : Application_types.Stream.t
-                  ; structure : t
-                  }
-(*
-  val equal : t -> t -> bool
- *)
-  val of_yojson : Yojson.Safe.json -> (t, string) result
-
-  val to_yojson : t -> Yojson.Safe.json
-
-end
-
 module Annotated : sig
   
   type state = [`Active_and_stored | `Avail | `Stored ]
