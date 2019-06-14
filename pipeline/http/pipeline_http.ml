@@ -38,7 +38,7 @@ let pages () : Api_template.topmost Api_template.item list =
   let menu_toggle = Mosaic_video_template.(
       make_icon_button
         ~classes:[CSS.menu_icon]
-        Components_tyxml.Svg_icons.dots_horizontal) in
+        Components_tyxml.Svg_icons.dots_vertical) in
   let video_path = "/mosaic/video" in
   let editor_path = "/mosaic/editor" in
   let video_page_props =
@@ -62,13 +62,17 @@ let pages () : Api_template.topmost Api_template.item list =
   let editor_page_props =
     make_template_props
       ~title:"Редактор мозаики"
-      ~top_app_bar_actions:(make_anchor_buttons
-                              ~href:video_path
-                              ~icon:(make_icon
-                                       ~classes:[Components_tyxml.Button.CSS.icon]
-                                       Components_tyxml.Svg_icons.video)
-                              ~class_:Mosaic_editor_template.CSS.video
-                              ~label:"Видео" ())
+      ~side_sheet:(make_side_sheet_props
+                     ~clipped:true
+                     ~typ:`Dismissible
+                     ())
+      (* ~top_app_bar_actions:(make_anchor_buttons
+       *                         ~href:video_path
+       *                         ~icon:(make_icon
+       *                                  ~classes:[Components_tyxml.Button.CSS.icon]
+       *                                  Components_tyxml.Svg_icons.video)
+       *                         ~class_:Mosaic_editor_template.CSS.video
+       *                         ~label:"Видео" ()) *)
       ~post_scripts:[Src "/js/mosaic_editor.js"]
       ~stylesheets:["/css/mosaic_editor.min.css"]
       ~content:[]

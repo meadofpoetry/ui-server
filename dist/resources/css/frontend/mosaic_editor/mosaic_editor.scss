@@ -1,4 +1,6 @@
 @import "./wm";
+@import "@material/theme/mixins";
+@import "@material/animation/functions";
 @import "@material/button/mixins";
 @import "@material/top-app-bar/variables";
 
@@ -16,4 +18,13 @@
             display: block;
         }
     }
+}
+
+.mdc-top-app-bar {
+    transition: mdc-animation-enter(background-color, $duration: 90ms, $delay: 0ms);
+}
+
+.mdc-top-app-bar--contextual-action {
+    @include mdc-theme-prop(background-color, hsl(0, 0%, 7%));
+    transition: mdc-animation-exit-temporary(background-color, $duration: 90ms, $delay: 0ms);
 }

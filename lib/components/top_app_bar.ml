@@ -25,8 +25,12 @@ let align_to_class : align -> string = function
   | `End -> CSS.section_align_end
 
 module Selector = struct
+  let title = "." ^ CSS.title
   let navigation_icon = "." ^ CSS.navigation_icon
   let section_align_start = "." ^ CSS.section_align_start
+  let actions_section =
+    Printf.sprintf ".%s:first-child .%s:last-child:not(:only-child)"
+      CSS.row CSS.section
 end
 
 module Title = struct
@@ -105,17 +109,17 @@ type scroll_target =
   | Element of Dom_html.element Js.t
 
 class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
-        ?(offset = 0)
-        ?(tolerance = { up = 0; down = 0 })
-        ?(imply_leading = true)
-        (elt : #Dom_html.element Js.t)
-        () =
+    ?(offset = 0)
+    ?(tolerance = { up = 0; down = 0 })
+    ?(imply_leading = true)
+    (elt : #Dom_html.element Js.t)
+    () =
   let scroll_target = match scroll_target with
     | None -> Window Dom_html.window
     | Some x ->
-       if (Js.Unsafe.coerce Dom_html.window) == x
-       then Window (Js.Unsafe.coerce x)
-       else Element (Js.Unsafe.coerce x) in
+      if (Js.Unsafe.coerce Dom_html.window) == x
+      then Window (Js.Unsafe.coerce x)
+      else Element (Js.Unsafe.coerce x) in
   object(self)
 
     val mutable ticking : bool = false
@@ -124,9 +128,6 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
     val mutable tolerance : tolerance = tolerance
 
     val mutable scroll_handler = None
-
-    val mutable leading : Widget.t option = None
-    val mutable actions : Widget.t list option = None
     val mutable imply_leading : bool = imply_leading
 
     inherit Widget.t elt () as super
@@ -147,66 +148,62 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
       Option.iter Lwt.cancel scroll_handler;
       scroll_handler <- None
 
+    method title : string =
+      match Element.query_selector super#root Selector.title with
+      | None -> ""
+      | Some x ->
+        Js.Opt.case x##.textContent (fun () -> "") Js.to_string
+
+    method set_title (s : string) : unit =
+      match Element.query_selector super#root Selector.title with
+      | None -> ()
+      | Some x -> x##.textContent := Js.some (Js.string s)
+
     (** Returns leading widget, if any *)
-    method leading : Widget.t option =
-      match leading with
-      | Some w -> Some w
-      | None ->
-         match Element.query_selector super#root Selector.navigation_icon with
-         | None -> None
-         | Some elt ->
-            let w = Widget.create elt in
-            leading <- Some w;
-            Some w
+    method leading : Dom_html.element Js.t option =
+      Element.query_selector super#root Selector.navigation_icon
 
     method hide_leading () : unit =
       match self#leading with
       | None -> ()
-      | Some x -> x#root##.style##.display := Js.string "none"
+      | Some x -> x##.style##.display := Js.string "none"
 
     method show_leading () : unit =
       match self#leading with
       | None -> ()
-      | Some x -> x#root##.style##.display := Js.string ""
+      | Some x -> x##.style##.display := Js.string ""
 
-    method remove_leading ?(hard = false) () : unit =
+    method remove_leading () : unit =
       match self#leading with
       | None -> ()
-      | Some x ->
-         Js.Opt.iter x#root##.parentNode (fun p ->
-             Dom.removeChild p x#root);
-         leading <- None;
-         if hard then x#destroy ()
+      | Some x -> Js.Opt.iter x##.parentNode (fun p -> Dom.removeChild p x)
 
-    method set_leading : 'a. ?hard:bool -> (#Widget.t as 'a) -> unit =
-      fun ?hard (w : #Widget.t) ->
+    method set_leading : 'a. (#Dom_html.element as 'a) Js.t -> unit =
+      fun elt ->
       match Element.query_selector super#root Selector.section_align_start with
       | None -> failwith "top-app-bar: no section found"
       | Some section ->
-         (* Remove previous leading *)
-         self#remove_leading ?hard ();
-         (* Insert the new one *)
-         Element.insert_child_at_index section 0 w#root;
-         leading <- Some w#widget;
+        Element.add_class elt CSS.navigation_icon;
+        (* Remove previous leading *)
+        self#remove_leading ();
+        (* Insert the new one *)
+        Element.insert_child_at_index section 0 elt
 
     (** Returns trailing actions widgets, if any *)
-    method actions : Widget.t list =
-      match actions with
-      | Some l -> l
-      | None ->
-         let class' = CSS.action_item in
-         let l =
-           super#root##querySelectorAll (Js.string class')
-           |> Dom.list_of_nodeList
-           |> List.map (fun (elt : Dom_html.element Js.t) ->
-                  Widget.create elt) in
-         actions <- Some l;
-         l
+    method actions : Dom_html.element Js.t list =
+      match Element.query_selector super#root Selector.actions_section with
+      | None -> []
+      | Some x -> Element.children x
 
-    (**
-     * Controls whether leading widget should be inserted when
-     * the `top app bar` is used inside the `scaffold` widget
-     *)
+    method set_actions (actions : Dom_html.element Js.t list) =
+      match Element.query_selector super#root Selector.actions_section with
+      | None -> () (* TODO maybe create section? *)
+      | Some x ->
+        Element.remove_children x;
+        List.iter (Dom.appendChild x) actions
+
+    (** Controls whether leading widget should be inserted when
+        the `top app bar` is used inside the `scaffold` widget *)
     method imply_leading : bool =
       imply_leading
 
@@ -216,7 +213,7 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
     (* Private methods *)
 
     method private handle_scroll (_ : Dom_html.event Js.t)
-                     (_ : unit Lwt.t) : unit Lwt.t =
+        (_ : unit Lwt.t) : unit Lwt.t =
       if not !Utils.prevent_scroll && not ticking then (
         ticking <- true;
         Animation.request ()
@@ -234,7 +231,7 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
 
     method private unpin () : unit =
       if super#has_class CSS.pinned
-         || not (super#has_class CSS.unpinned)
+      || not (super#has_class CSS.unpinned)
       then (
         super#add_class CSS.unpinned;
         super#remove_class CSS.pinned)
@@ -243,12 +240,12 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
     method private get_scroll_y () : int =
       match scroll_target with
       | Window w ->
-         Js.Optdef.to_option (Js.Unsafe.coerce w)##.pageYOffset
-         |> (function
-             | Some x -> x
-             | None ->
-                let doc = Dom_html.document in
-                doc##.documentElement##.scrollTop)
+        Js.Optdef.to_option (Js.Unsafe.coerce w)##.pageYOffset
+        |> (function
+            | Some x -> x
+            | None ->
+              let doc = Dom_html.document in
+              doc##.documentElement##.scrollTop)
       | Element e -> e##.scrollTop
 
     (** Returns the height of the viewport *)
@@ -258,7 +255,7 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
           Dom_html.document##.documentElement##.clientHeight)
 
     method private get_element_physical_height (elt : Dom_html.element Js.t)
-                   : int =
+      : int =
       max elt##.offsetHeight elt##.clientHeight
 
     method private get_scroller_physical_height () : int =
@@ -298,20 +295,20 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
       past_top || past_bot
 
     method private tolerance_exceeded (cur_scroll_y : int)
-                     (dir : dir) : bool =
+        (dir : dir) : bool =
       let tol = match dir with
         | `Up -> tolerance.up
         | `Down -> tolerance.down in
       abs (cur_scroll_y - last_scroll_y) >= tol
 
     method private should_unpin (cur_scroll_y : int)
-                     (dir : dir) (exceeded : bool) : bool =
+        (dir : dir) (exceeded : bool) : bool =
       match dir with
       | `Up -> false
       | `Down -> exceeded && (cur_scroll_y > offset)
 
     method private should_pin (cur_scroll_y : int)
-                     (dir : dir) (exceeded : bool) : bool =
+        (dir : dir) (exceeded : bool) : bool =
       match dir with
       | `Down -> false
       | `Up -> exceeded || (cur_scroll_y <= offset)
@@ -319,7 +316,7 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
     method private update () : unit =
       let cur_scroll_y = self#get_scroll_y () in
       let dir = if cur_scroll_y > last_scroll_y
-                then `Down else `Up in
+        then `Down else `Up in
       let exceeded = self#tolerance_exceeded cur_scroll_y dir in
       if not (self#is_out_of_bounds cur_scroll_y)
       then (
@@ -333,16 +330,16 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
 
 (** Create new top app bar from scratch *)
 let make' ?(scroll_target : #Dom_html.eventTarget Js.t option)
-      ?offset ?tolerance ?imply_leading
-      ?(rows = []) () : t =
+    ?offset ?tolerance ?imply_leading
+    ?(rows = []) () : t =
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element
     @@ Markup.create ~rows:(List.map Widget.to_markup rows) () in
   new t ?offset ?tolerance ?scroll_target ?imply_leading elt ()
 
 let make ?scroll_target ?offset ?tolerance
-      ?leading ?imply_leading ?title ?actions
-      ?bottom () =
+    ?leading ?imply_leading ?title ?actions
+    ?bottom () =
   ignore bottom;
   let ( ^:: ) = List.cons_maybe in
   let start_section =
@@ -359,6 +356,6 @@ let make ?scroll_target ?offset ?tolerance
 
 (** Attach top app bar widget to existing element *)
 let attach ?scroll_target ?offset ?tolerance
-      (elt : Dom_html.element Js.t) : t =
+    (elt : Dom_html.element Js.t) : t =
   new t ?scroll_target ?offset ?tolerance elt ()
 

@@ -8,7 +8,7 @@ module Make(I : Item) = struct
 
   class t ~layers ~selected ~candidates ~set_candidates () =
     let items, sel = It.make ~selected ~candidates ~set_candidates () in
-    let layers, layers_grid = List_of_layers.make ~init:layers ~max:I.max_layers in
+    let layers = List_of_layers.make ~init:layers ~max:I.max_layers in
     let _class = "wm-right-toolbar" in
     object
       inherit Widget.t Dom_html.(createDiv document) () as super
@@ -34,11 +34,10 @@ module Make(I : Item) = struct
       method! layout () : unit =
         super#layout ();
         items#layout ();
-        layers#layout ();
-        layers_grid#layout ()
+        layers#layout ()
 
-      method e_layers_action : List_of_layers.action React.event = layers_grid#e_layer
-      method initialize_layers = layers_grid#initialize
+      method e_layers_action : List_of_layers.action React.event = layers#grid#e_layer
+      method initialize_layers = layers#grid#initialize
     end
 
   let make ~layers ~selected = new t ~layers ~selected ()

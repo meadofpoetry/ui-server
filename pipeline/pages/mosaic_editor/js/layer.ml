@@ -68,7 +68,7 @@ module Make(I : Item) = struct
           self#s_items |> ignore;
         List.iter self#add_from_candidate init;
         List.iter (fun i -> React.S.map (fun p -> self#update_item_value i p)
-                              i#s_change |> ignore)
+                      i#s_change |> ignore)
           self#items;
         let ghost =
           new Dynamic_grid.Item.cell

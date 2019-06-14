@@ -24,9 +24,9 @@ module Make(I : Item) = struct
       match Js.Optdef.to_option storage with
       | None -> true
       | Some x ->
-         (Js.Opt.get (x##getItem (Js.string "grid_icon"))
-            (fun () -> Js.string "true"))
-         |> Js.to_string |> bool_of_string in
+        (Js.Opt.get (x##getItem (Js.string "grid_icon"))
+           (fun () -> Js.string "true"))
+        |> Js.to_string |> bool_of_string in
     let s_grids, set_grids = React.S.create [(1, 1)] in
     let s_grid, set_grid = React.S.create (1, 1) in
     let s_resolution, set_resolution = React.S.create resolution in
@@ -65,7 +65,7 @@ module Make(I : Item) = struct
         [ menu_text#widget
         ; menu_wrap#widget ] in
     let icons = Box.make ~dir:`Row [grid_icon#widget; menu_block#widget] in
-    let header = Box.make ~dir:`Row [title#widget; icons#widget] in
+    (* let header = Box.make ~dir:`Row [title#widget; icons#widget] in *)
     let elt = Dom_html.(createDiv document) in
     object(self)
 
@@ -93,7 +93,7 @@ module Make(I : Item) = struct
         super#add_class Box.CSS.vertical;
         super#add_class (Box.CSS.justify_content `Center);
         super#add_class Box.CSS.root;
-        super#append_child header#widget;
+        (* super#append_child header#widget; *)
         super#append_child wrapper#widget;
         self#initialize resolution init;
         (* update available grids *)
@@ -137,14 +137,12 @@ module Make(I : Item) = struct
         menu_block#add_class @@ BEM.add_element base_class "grid-select";
         icons#add_class @@ BEM.add_element base_class "right-menu";
         grid_icon#add_class  @@ BEM.add_element base_class "menu";
-        header#add_class @@ BEM.add_element base_class "header";
+        (* header#add_class @@ BEM.add_element base_class "header"; *)
         React.S.l2 (fun conf grid ->
             let value =
               if conf
-              then (grid#overlay_grid#show ();
-                    Js.string "true")
-              else (grid#overlay_grid#hide ();
-                    Js.string "false") in
+              then (grid#overlay_grid#show (); Js.string "true")
+              else (grid#overlay_grid#hide (); Js.string "false") in
             (match Js.Optdef.to_option storage with
              | None -> ()
              | Some x -> x##setItem (Js.string "grid_icon") value);
@@ -160,28 +158,33 @@ module Make(I : Item) = struct
             let grids = React.S.value s_layers in
             match e with
             | `Selected x ->
-               let grid = List.find_opt (fun g -> g#layer = x) grids in
-               Option.iter (fun g -> set_active g) grid
+              let grid = List.find_opt (fun g -> g#layer = x) grids in
+              Option.iter (fun g -> set_active g) grid
             | `Added x ->
-               let grid = new G.t ~layer:x ~init:[] ~s_grid
-                            ~resolution:self#resolution () in
-               wrapper#append_child grid;
-               set_layers (grid :: grids)
+              let grid = new G.t ~layer:x ~init:[] ~s_grid
+                ~resolution:self#resolution () in
+              wrapper#append_child grid;
+              set_layers (grid :: grids)
             | `Removed x ->
-               let grid = List.find_opt (fun g -> g#layer = x) grids in
-               Option.iter (fun x ->  wrapper#remove_child x) grid;
-               set_layers @@ List.filter (fun g -> g#layer <> x) grids
+              let grid = List.find_opt (fun g -> g#layer = x) grids in
+              Option.iter (fun x ->  wrapper#remove_child x) grid;
+              set_layers @@ List.filter (fun g -> g#layer <> x) grids
             | `Visibility (x, b) ->
-               let grid = List.find_opt (fun g -> g#layer = x) grids in
-               Option.iter (fun x -> x#set_visible b) grid
+              let grid = List.find_opt (fun g -> g#layer = x) grids in
+              Option.iter (fun x -> x#set_visible b) grid
             | `Changed l  ->
-               List.iter (fun g ->
-                   match List.assoc_opt g#layer l with
-                   | Some n -> g#set_layer n
-                   | None -> ()) grids)
+              List.iter (fun g ->
+                  match List.assoc_opt g#layer l with
+                  | Some n -> g#set_layer n
+                  | None -> ()) grids)
           e_layers |> ignore;
+        let submit = Button.make ~label:"Применить" () in
+        let buttons = Card.Actions.make_buttons [submit] in
+        let actions = Card.Actions.make [buttons] in
+        wrapper#append_child actions;
         super#add_class base_class;
-        wrapper#add_class @@ Components_tyxml.BEM.add_element base_class "wrapper"
+        wrapper#add_class Card.CSS.root;
+        wrapper#add_class @@ BEM.add_element base_class "wrapper"
 
       method! layout () : unit =
         (React.S.value s_active)#layout ();
@@ -198,23 +201,23 @@ module Make(I : Item) = struct
       method layout_items = List.map I.t_to_layout_item self#items
       method items = List.map (fun x -> x#value) self#wdgs
       method wdgs = List.fold_left (fun acc x -> x#items @ acc) []
-                    @@ React.S.value s_layers
+        @@ React.S.value s_layers
 
       method update_item_min_size (item : I.t Dynamic_grid.Item.t) =
         let t = item#value in
         (match t.min_size with
          | None -> item#set_min_w None;
-                   item#set_min_h None;
+           item#set_min_h None;
          | Some sz ->
-            let cols, rows = React.S.value s_grid in
-            let cw, rh = fst self#resolution / cols,
-                         snd self#resolution / rows in
-            let div = fun x y ->
-              let res = x mod y in
-              let div = x / y in
-              if res > 0 then div + 1 else if res < 0 then div - 1 else div in
-            item#set_min_w @@ Some (div (fst sz) cw);
-            item#set_min_h @@ Some (div (snd sz) rh));
+           let cols, rows = React.S.value s_grid in
+           let cw, rh = fst self#resolution / cols,
+                        snd self#resolution / rows in
+           let div = fun x y ->
+             let res = x mod y in
+             let div = x / y in
+             if res > 0 then div + 1 else if res < 0 then div - 1 else div in
+           item#set_min_w @@ Some (div (fst sz) cw);
+           item#set_min_h @@ Some (div (snd sz) rh));
         item#set_value t
 
       method clear () =

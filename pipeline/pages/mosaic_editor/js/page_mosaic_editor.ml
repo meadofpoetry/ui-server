@@ -17,25 +17,7 @@ type container_grids =
   { rect : Wm.position
   ; grids : (int * int) list
   }
-(*
-let pos_absolute_to_relative
-      (pos : Wm.position)
-      (cont_pos : Wm.position) : Wm.position =
-  { left = pos.left - cont_pos.left
-  ; right = pos.right - cont_pos.left
-  ; top = pos.top - cont_pos.top
-  ; bottom = pos.bottom - cont_pos.top
-  }
 
-let pos_relative_to_absolute
-      (pos : Wm.position)
-      (cont_pos : Wm.position) : Wm.position =
-  { left = pos.left + cont_pos.left
-  ; right = pos.right + cont_pos.left
-  ; top = pos.top + cont_pos.top
-  ; bottom = pos.bottom + cont_pos.top
-  }
- *)
 let get_bounding_rect (positions : Wm.position list) : Wm.position =
   let open Wm in
   match positions with
@@ -191,17 +173,7 @@ end
 
 module Cont = Editor.Make(Container.Container_item)
 module Widg = Editor.Make(Widget_item)
-(*
-let serialize ~(cont : Cont.t) () : (string * Wm.container) list =
-  List.map (fun (n, (v : Wm.container)) ->
-      let widgets =
-        List.map (fun (s,(w:Wm.widget)) ->
-            let position = pos_relative_to_absolute w.position v.position in
-            let nw = { w with position = Some position } in
-            s, nw) v.widgets in
-      n, { v with widgets })
-    cont.ig#layout_items
- *)
+
 let get_free_widgets containers widgets =
   let used = List.fold_left (fun acc (_, (x : Wm.container)) ->
       x.widgets @ acc) [] containers in
@@ -244,7 +216,6 @@ let create_widgets_grid
       ~candidates
       ~set_candidates
       ~resolution
-      ~actions:[back; apply]
       () in
   Lwt.async (fun () ->
       Events.clicks apply#root (fun _ _ ->
@@ -291,59 +262,81 @@ let switch ~grid
       ~on_cancel () in
   s_state_push (`Widget w)
 
-(* let make_containers (widgets : (string * Wm.widget) list) =
- *   let open Wm_container.Container_item in
- *   let open Wm_wizard in
- *   let domains = Find.channels widgets in
- *   List.map (fun domain ->
- *       let widgets =
- *         List.filter (fun (_, (widget : Wm.widget)) ->
- *             String.equal widget.domain domain
- *           ) widgets in
- *       let name, _ = "channel", "provider" in
- *       ({ icon = Icon.SVG.(create_simple Path.contain)#widget
- *        ; name
- *        ; unique = true
- *        ; min_size = None
- *        ; item =
- *            { position = { left   = 0
- *                         ; right  = 0
- *                         ; top    = 0
- *                         ; bottom = 0 }
- *            ; widgets
- *            }
- *        } : t)
- *     ) domains
-*)
+(* Switches top app bar between contextual action mode and normal mode *)
+let transform_top_app_bar
+    ?(actions = [])
+    ~(title : string)
+    ~(class_ : string)
+    ~(leading : #Dom_html.element Js.t)
+    (x : Top_app_bar.t) =
+  let prev_title = x#title in
+  let prev_leading = x#leading in
+  let prev_actions = x#actions in
+  x#set_title title;
+  x#add_class class_;
+  x#set_leading leading;
+  x#set_actions @@ List.map Widget.root actions;
+  (fun () ->
+     List.iter Widget.destroy actions;
+     x#set_title prev_title;
+     x#set_actions prev_actions;
+     x#remove_class class_;
+     Option.iter x#set_leading prev_leading)
 
-let create_cells () =
-  let mc =
-    Layout_grid.Cell.make
-      ~span_desktop:9
-      ~span_tablet:8
-      ~span_phone:4
-      [] in
-  let rc =
-    Layout_grid.Cell.make
-      ~span_desktop:3
-      ~span_tablet:8
-      ~span_phone:4
-      [] in
-  mc, rc
-
-let make_actions_toolbar actions =
-  let start_section = Top_app_bar.Section.make
-      ~align:`Start
-      ~widgets:actions
-      () in
-  let sections = [start_section] in
-  Widget.create_div ~widgets:sections ()
+let handle_item_selected
+    scaffold
+    set_edit
+    (cont : Cont.t) =
+  React.S.fold ~eq:(==) (fun acc -> function
+      | None ->
+        (match acc with
+         | Some f -> f (); None
+         | None -> None)
+      | Some item ->
+        match scaffold#top_app_bar with
+        | None -> acc
+        | Some x ->
+          let (value : Container_item.t) = item#value in
+          let remove =
+            Actions.make_action
+              ~on_click:(fun _ _ -> item#remove (); Lwt.return_unit)
+              { icon = Icon.SVG.(make_simple Path.delete)#widget
+              ; name = "Удалить"
+              } in
+          let edit =
+            Actions.make_action
+              ~on_click:(fun _ _ -> set_edit item; Lwt.return_unit)
+              { icon = Icon.SVG.(make_simple Path.pencil)#widget
+              ; name = "Редактировать"
+              } in
+          let leading =
+            Icon_button.make
+              ~icon:Icon.SVG.(make_simple Path.close)
+              ~on_click:(fun _ _ ->
+                  (React.S.value cont.ig#s_active)#clear_selection ();
+                  Lwt.return_unit)
+              () in
+          let restore =
+            transform_top_app_bar
+              ~class_:Page_mosaic_editor_tyxml.CSS.top_app_bar_contextual
+              ~actions:[edit; remove]
+              ~title:value.name
+              ~leading:leading#root
+              x in
+          match acc with
+          | None -> Some restore
+          | Some _ as acc -> acc)
+    None
+    (React.S.changes cont.ig#s_selected)
 
 let create
     ~(init : Wm.t)
     ~(post : Wm.t -> unit Lwt.t)
+    (scaffold : Scaffold.t)
+    (main : Widget.t)
     socket =
   (* Convert widgets positions to relative *)
+  let open React in
   let wc =
     List.map Widget_item.t_of_layout_item
     @@ get_free_widgets init.layout init.widgets in
@@ -374,27 +367,11 @@ let create
   let wizard =
     Actions.make_action
       { icon = Icon.SVG.(make_simple Path.auto_fix)#widget
-      ; name = "Авто"
-      } in
-  let edit =
-    Actions.make_action
-      { icon = Icon.SVG.(make_simple Path.pencil)#widget
-      ; name = "Редактировать"
-      } in
-  let save =
-    Actions.make_action
-      { icon = Icon.SVG.(make_simple Path.content_save)#widget
-      ; name = "Сохранить"
-      } in
-  let size =
-    Actions.make_action
-      { icon = Icon.SVG.(make_simple Path.aspect_ratio)#widget
-      ; name = "Разрешение"
+      ; name = "Мастер"
       } in
   let resolution_dlg = Resolution_dialog.make () in
   let wz = Events.clicks wizard#root (fun _ _ -> wz_show ()) in
   wizard#set_on_destroy (fun () -> Lwt.cancel wz);
-  let actions_toolbar = make_actions_toolbar [save; wizard; size; edit] in
   let cont =
     Cont.make ~title
       ~init:(List.map Container_item.t_of_layout_item init.layout)
@@ -402,13 +379,50 @@ let create
       ~set_candidates:s_cc_push
       ~resolution
       ~on_remove
-      ~actions:[]
       () in
-  (* FIXME store events and signals *)
-  (* let _ =
-   *   React.S.map (fun x -> edit#set_disabled @@ Option.is_none x)
-   *     cont.ig#s_selected in *)
+  let add =
+    Actions.make_action
+      ~on_click:(fun _ _ ->
+        match scaffold#side_sheet with
+          | None -> Lwt.return_unit
+          | Some x ->
+            x#remove_children ();
+            x#append_child cont.rt;
+            cont.rt#layout ();
+            x#toggle ())
+      { icon = Icon.SVG.(make_simple Path.plus)#widget
+      ; name = "Добавить"
+      } in
+  let layers =
+    Actions.make_action
+      ~on_click:(fun _ _ ->
+          match scaffold#side_sheet with
+          | None -> Lwt.return_unit
+          | Some x ->
+            x#remove_children ();
+            let layers = List_of_layers.make
+                ~init:[]
+                ~max:10 in
+            x#append_child layers;
+            layers#layout ();
+            x#toggle ())
+      { icon = Icon.SVG.(make_simple Path.layers)#widget
+      ; name = "Слои"
+      } in
+  let size =
+    Actions.make_action
+      { icon = Icon.SVG.(make_simple Path.aspect_ratio)#widget
+      ; name = "Разрешение"
+      } in
+  (match scaffold#top_app_bar with
+   | None -> ()
+   | Some app_bar ->
+     let actions =
+       (List.map Widget.root [wizard; size; add; layers])
+       @ app_bar#actions in
+     app_bar#set_actions actions);
   let e_edit, set_edit = React.E.create () in
+  let _s_selected = handle_item_selected scaffold set_edit cont in
   let _ =
     React.(
       E.map (fun selected ->
@@ -428,16 +442,12 @@ let create
             let new_layout = resize_layout ~resolution cont.ig#items in
             cont.ig#initialize resolution new_layout;
             Lwt.return_unit));
-  Lwt.async (fun () ->
-      Events.clicks edit#root (fun _ _ ->
-          React.S.value cont.ig#s_selected |> Utils.Option.get |> set_edit;
-          Lwt.return_unit));
-  Lwt.async (fun () ->
-      Events.clicks save#root (fun _ _ ->
-          post { resolution = cont.ig#resolution
-               ; widgets = init.widgets
-               ; layout = cont.ig#layout_items (*serialize ~cont ()*)
-               }));
+  (* Lwt.async (fun () ->
+   *     Events.clicks save#root (fun _ _ ->
+   *         post { resolution = cont.ig#resolution
+   *              ; widgets = init.widgets
+   *              ; layout = cont.ig#layout_items (\*serialize ~cont ()*\)
+   *              })); *)
   let _ =
     React.E.map (fun l ->
         let layers = Container_item.layers_of_t_list
@@ -450,26 +460,23 @@ let create
         @@ List.map Container_item.t_of_layout_item l;
         cont.rt#layout ();
         cont.ig#layout ()) wz_e in
-  let mc, rc = create_cells () in
-  let add_to_view lt ig rt =
-    (* lc#remove_children (); lc#append_child lt; *)
-    mc#remove_children (); mc#append_child ig;
-    rc#remove_children (); rc#append_child rt;
-    (* lc#set_on_layout lt#layout; *)
-    mc#set_on_layout ig#layout;
-    rc#set_on_layout rt#layout;
-    (* lc#layout (); *)
-    rc#layout ();
-    mc#layout ()
+  let add_to_view ig rt =
+    main#remove_children (); main#append_child ig;
+    main#set_on_layout ig#layout;
+    main#layout ();
+    match scaffold#side_sheet with
+    | None -> ()
+    | Some x ->
+      x#remove_children ();
+      x#append_child rt
   in
   let _ =
     React.S.map (function
-        | `Widget (w : Widg.t) -> add_to_view w.lt w.ig w.rt
-        | `Container -> add_to_view cont.lt cont.ig cont.rt)
+        | `Widget (w : Widg.t) -> add_to_view w.ig w.rt
+        | `Container -> add_to_view cont.ig cont.rt)
       s_state in
   cont.ig#append_child wz_dlg;
-  cont.ig#append_child resolution_dlg;
-  [mc; rc], actions_toolbar
+  cont.ig#append_child resolution_dlg
 
 let post = fun w ->
   Http_wm.set_layout w
@@ -480,18 +487,16 @@ let post = fun w ->
     Lwt.return ()
 
 (* TODO seems that it can fail, handle exception *)
-let on_data socket (scaffold : Scaffold.t) (grid : Layout_grid.t) wm =
-  grid#remove_cells ();
-  let cells, actions = create ~init:wm ~post socket in
-  List.iter grid#append_cell cells;
-  match scaffold#top_app_bar with
-  | None -> ()
-  | Some x -> x#append_child actions
+let on_data socket
+    (scaffold : Scaffold.t)
+    (main : Widget.t)
+    wm =
+  main#remove_children ();
+  create ~init:wm ~post scaffold main socket
 
 let ( >>= ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
 
 let () =
-  let grid = Layout_grid.make [] in
   let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
   let thread =
     Http_wm.get_layout ()
@@ -499,14 +504,15 @@ let () =
     Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
     >>= fun socket -> Http_wm.Event.get socket
     >>= fun (_, event) ->
-    on_data socket scaffold grid wm;
-    grid#add_class "wm";
-    let e = React.E.map (on_data socket scaffold grid) event in
-    grid#set_on_destroy (fun () ->
+    let main = Widget.create_div () in
+    on_data socket scaffold main wm;
+    main#add_class "wm";
+    let e = React.E.map (on_data socket scaffold main) event in
+    main#set_on_destroy (fun () ->
         React.E.stop ~strong:true e;
         React.E.stop ~strong:true event;
         Api_js.Websocket.close_socket socket);
-    Lwt.return_ok grid in
+    Lwt.return_ok main in
   let body = Ui_templates.Loader.create_widget_loader
       ~parent:scaffold#app_content_inner
       thread in

@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Js_of_ocaml_tyxml
 open Components
 
@@ -146,7 +147,7 @@ let move_layer_down s_layers push layer =
       layer#set_pos new_pos;
       emit_new_pos s_layers push
 
-class t ~init () =
+class grid ~init () =
   let _class = "wm-layers-grid" in
   let grid =
     Dynamic_grid.to_grid
@@ -194,7 +195,7 @@ class t ~init () =
   end
 
 let make_layers_grid ~init =
-  new t ~init ()
+  new grid ~init ()
 
 let make_layers_actions max layers_grid push =
   let open Dynamic_grid.Position in
@@ -252,17 +253,40 @@ let make_layers_actions max layers_grid push =
   List.iter a_map l;
   icons
 
-let make ~init ~max =
-  let _class = "wm-layers-card"  in
+class t ~init ~max () =
+  let grid = make_layers_grid ~init in
   let wrapper_class = "wm-layers-grid-wrapper" in
   let layers = Widget.create_div () in
-  let grid = make_layers_grid ~init in
   let actions = Card.Actions.make
       [(make_layers_actions max grid grid#e_layer_push)#widget] in
-  let card = Card.make [layers#widget;actions#widget] in
-  let title = Selectable_title.make [("Слои", card)] in
-  let box = Box.make ~dir:`Column [title#widget; card#widget] in
-  layers#add_class wrapper_class;
-  layers#append_child grid;
-  card#add_class _class;
-  box, grid
+  object
+    inherit Widget.t Dom_html.(createDiv document) () as super
+
+    method! init () : unit =
+      super#init ();
+      super#add_class "wm-layers-card";
+      super#add_class Box.CSS.root;
+      super#add_class Box.CSS.vertical;
+      super#append_child layers;
+      super#append_child actions;
+
+      layers#add_class wrapper_class;
+      layers#append_child grid
+
+    method! destroy () : unit =
+      grid#destroy ();
+      layers#destroy ();
+      actions#destroy ();
+      super#destroy ()
+
+    method! layout () : unit =
+      layers#layout ();
+      grid#layout ();
+      actions#layout ();
+      super#layout ()
+
+    method grid = grid
+  end
+
+let make ~init ~max =
+  new t ~init ~max ()

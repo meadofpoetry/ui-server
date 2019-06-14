@@ -36,6 +36,12 @@ $wm-placeholder-color: text-secondary-on-surface;
     @include wm-layer-prop($i)
 }
 
+.mdc-top-app-bar .mdc-top-app-bar__row:nth-child(2) {
+    height: 52px;
+    border-top: 1px solid;
+    @include mdc-theme-prop(border-color, text-disabled-on-dark);
+}
+
 // ---- PROPERTY ROW ----
 
 .wm-property-row {
@@ -262,7 +268,6 @@ $wm-placeholder-color: text-secondary-on-surface;
 
     &__wrapper {
         @include mdc-theme-prop(background-color, $wm-grid-background-color);
-        @include mdc-elevation(2);
 
         width: 100%;
         height: auto;

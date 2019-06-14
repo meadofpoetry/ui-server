@@ -85,7 +85,7 @@ module Make (User : USER) = struct
   let list_max ~default c = function
     | [] -> default
     | [x] -> x
-    | h::tl -> List.fold_left (fun acc x -> if c x acc > 0 then x else acc) h tl
+    | h :: tl -> List.fold_left (fun acc x -> if c x acc > 0 then x else acc) h tl
 
   let make_top_app_bar ({ top_app_bar_leading = leading
                         ; top_app_bar_actions = actions
@@ -111,9 +111,7 @@ module Make (User : USER) = struct
     let actions' = List.map (fun x ->
         `O ["action", `String (elt_to_string x)])
         actions in
-    let is_empty = function [] -> true | _ -> false in
-    [ "top_app_bar_has_actions", `Bool (not @@ is_empty actions)
-    ; "top_app_bar_leading", `String leading'
+    [ "top_app_bar_leading", `String leading'
     ; "top_app_bar_actions", `A actions'
     ; "top_app_bar_bottom", bottom' ]
 

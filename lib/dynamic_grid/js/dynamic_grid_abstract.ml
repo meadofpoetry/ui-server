@@ -225,6 +225,10 @@ class ['a, 'b, 'c] t ~grid
          self#remove_child x;
          x#destroy ()
 
+    method clear_selection () : unit =
+      List.iter (fun x -> x#set_selected false)
+      @@ React.S.value s_selected
+
     method remove_all () : unit =
       List.iter (fun x -> e_modify_push (`Remove x)) self#items;
       s_selected_push []

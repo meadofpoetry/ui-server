@@ -14,7 +14,6 @@ module Make(I : Item) = struct
 
   type t =
     { ig : IG.t
-    ; lt : Box.t
     ; rt : RT.t
     }
 
@@ -24,18 +23,9 @@ module Make(I : Item) = struct
            ~(init : I.t list)
            ~(candidates : I.t list React.signal)
            ~(set_candidates : I.t list -> unit)
-           ~actions
            () =
     let selected, selected_push = React.S.create None in
     let e_click, set_click = React.E.create () in
-    let rm =
-      Actions.make_action
-        ~on_click:(fun _ _ _ ->
-            React.S.value selected |> Utils.Option.get |> set_click;
-            Lwt.return_unit)
-        { icon = Icon.SVG.(make_simple Path.delete)#widget
-        ; name = "Удалить"
-        } in
     let layers = List.sort compare @@ I.layers_of_t_list init in
     (* fix layers indexes to be from 0 to n *)
     let init =
@@ -48,7 +38,6 @@ module Make(I : Item) = struct
           acc, succ i) (init, 0) layers in
     let rt = RT.make ~selected ~layers ~candidates ~set_candidates in
     let ig = IG.make ~title ~resolution ~init ~e_layers:rt#e_layers_action () in
-    let lt = Actions.make (actions @ [rm]) in
 
     let _ = React.S.map selected_push ig#s_selected in
     let _ = React.S.diff (fun n o ->
@@ -69,9 +58,9 @@ module Make(I : Item) = struct
               remove ~eq:I.equal candidates set_candidates x#value;
               x#remove ())
           @@ React.S.value selected)
-      @@ React.E.select [ ig#e_item_delete; e_click ] in
+      @@ React.E.select [ig#e_item_delete; e_click] in
     (* FIXME *)
     (* let _ = React.S.map (fun x -> rm#set_disabled @@ Option.is_none x) selected in *)
-    { ig; lt; rt }
+    { ig; rt }
 
 end
