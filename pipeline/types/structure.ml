@@ -119,7 +119,7 @@ module Annotated = struct
 
   type raw = t list [@@deriving yojson,eq]
 
-  type raw_pid = pid
+  type raw_pid = pid [@@deriving eq]
 
   type raw_channel = channel
 
@@ -202,7 +202,8 @@ module Annotated = struct
     
     let merge_channels ?active ?avail ?stored () =
       let eq_pid_num (p1 : raw_pid) (p2 : raw_pid) =
-        p1.pid = p2.pid
+        equal_raw_pid p1 p2 (* TODO check this *)
+        (*p1.pid = p2.pid*)
       in
       let deref (c : raw_channel) = c.pids in
       let active_args, avail', stored' =
@@ -303,7 +304,59 @@ module Annotated = struct
     |> filter_opt
 
   let update_stored ~(active:raw) ~(avail:raw) ~(stored:raw) =
-    failwith "not impl"
+    let updated = ref false in
+
+    let for_each_pid ?active_chan ?stored_chan pid =
+      opt_get_list active_chan ~deref:(fun (c : raw_channel) -> c.pids)
+      |> List.find_opt (equal_raw_pid pid)
+      |> function
+        | Some _ ->
+           (* Pid is already active *)
+           pid
+        | None ->
+           (* Pid is not yet active *)
+           opt_get_list stored_chan ~deref:(fun (c : raw_channel) -> c.pids)
+           |> List.find_opt (equal_raw_pid pid)
+           |> function
+             | None ->
+                (* No settings for that pid *)
+                pid
+             | Some stored ->
+                (* Settings were found *)
+                updated := true;
+                stored
+    in
+
+    let for_each_channel ?active_struct ?stored_struct ch =
+      let eq_chan (c1 : raw_channel) (c2 : raw_channel) =
+        c1.number = c2.number
+      in
+      let active_chan =
+        opt_get_list active_struct ~deref:(fun (c : raw_structure) -> c.channels)
+        |> List.find_opt (eq_chan ch)
+      in
+      let stored_chan =
+        opt_get_list stored_struct ~deref:(fun (c : raw_structure) -> c.channels)
+        |> List.find_opt (eq_chan ch)
+      in
+      let pids = List.map (for_each_pid ?active_chan ?stored_chan) ch.pids in
+      { ch with pids }
+    in
+    
+    let for_each_structure s =
+      let eq_struct (s1 : raw_structure) (s2 : raw_structure) =
+        s1.id = s2.id
+      in
+      let active_struct = List.find_opt (eq_struct s) active in
+      let stored_struct = List.find_opt (eq_struct s) stored in
+      let channels = List.map (for_each_channel ?active_struct ?stored_struct) s.channels in
+      { s with channels }
+    in
+
+    let res = List.map for_each_structure avail in
+    match !updated with
+    | true -> `Changed res
+    | false -> `Kept active
 
 (*
   let filter ~select annotated : raw =
