@@ -6,8 +6,6 @@ open Netlib
 (* Here be dragons, desperately needs a complete rewrite *)
 (* TODO rewrite, especially the range constraints part *)
 
-module Map = Board.Ports
-
 module Uri_storage = Kv_v.RW (External_uri_storage)
 (* TODO remove after 4.08 *)
 let flip f x y = f y x
@@ -39,14 +37,14 @@ let partition_map f l =
   in loop [] [] l
 
 module Input_map =
-  CCMap.Make(struct
-      open Topology
-      type t = input * int
-      let compare (li, lid) (ri, rid) =
-        let ci = compare_input li ri in
-        if ci <> 0 then ci
-        else Stdlib.compare lid rid
-    end)
+  Map.Make(struct
+    open Topology
+    type t = input * int
+    let compare (li, lid) (ri, rid) =
+      let ci = compare_input li ri in
+      if ci <> 0 then ci
+      else Stdlib.compare lid rid
+  end)
 
 type in_push = Stream.Table.setting list -> unit
 
@@ -57,7 +55,7 @@ type input_control =
 
 type t =
   { boards : Boards.Board.t Board.Ports.t
-  ; usb : Usb_device.t
+  ; usb : Usb_device.t option
   ; topo : Topology.t signal
   ; sources : input_control
   ; streams : Stream.stream_table signal
@@ -226,6 +224,7 @@ let store_external_uris (storage : Uri_storage.t) streams =
 let create kv db (topo : Topology.t) =
   let open Topology in
   (* TODO rempve in 4.08 *)
+  let ( % ) f g x = f (g x) in
   let (>>=?) = Lwt_result.bind in
   let (>>=) = Lwt.bind in
 
@@ -238,20 +237,24 @@ let create kv db (topo : Topology.t) =
   Uri_storage.create ~default:External_uri_storage.default
     kv ["application"; "uri_storage"]
   >>=? fun uri_storage ->
-  Usb_device.create ~sleep:step_duration ()
-  >>= fun (usb, loop) ->
+  let boards = get_boards topo in
   let topo_entries = Topology.get_entries topo in
-  get_boards topo
-  |> Lwt_list.fold_left_s (fun m (b : topo_board) ->
+  (match boards with
+   | [] -> Lwt.return_ok (None, (fst % Lwt.wait), Board.Map.empty)
+   | boards ->
+     Usb_device.create ~sleep:step_duration ()
+     >>= fun (usb, loop) ->
+     Lwt_list.fold_left_s (fun m (b : topo_board) ->
          match m with
          | Error e -> Lwt.return_error e
          | Ok m ->
-            create_board db usb b m kv
-            >>=? fun (board : Board.t) ->
-            Usb_device.subscribe usb b.control board.loop board.push_data;
-            Lwt.return_ok @@ Board.Map.add b.control board m)
-       (Ok Board.Map.empty)
-  >>=? fun boards -> uri_storage#get
+           create_board db usb b m kv
+           >>=? fun (board : Board.t) ->
+           Usb_device.subscribe usb b.control board.loop board.push_data;
+           Lwt.return_ok @@ Board.Map.add b.control board m)
+       (Ok Board.Map.empty) boards
+     >>=? fun boards -> Lwt.return_ok (Some usb, loop, boards))
+  >>=? fun (usb, loop, boards) -> uri_storage#get
   >>= fun uri_config ->
   let sources, streams = get_sources topo_entries uri_config boards in
   S.limit ~eq:Stream.equal_stream_table (fun () -> Lwt_unix.sleep 0.5) streams
@@ -390,8 +393,10 @@ let set_stream ?(port=1234) (hw : t) (ss : Stream.stream_setting) =
 
 let finalize hw =
   let open Lwt.Infix in
-  Usb_device.finalize hw.usb;
-  Board.Ports.fold
+  (match hw.usb with
+   | None -> ()
+   | Some usb -> Usb_device.finalize usb);
+  Board.Map.fold
     (fun _ (b : Board.t) acc -> acc >>= b.state#finalize)
     hw.boards
     Lwt.return_unit

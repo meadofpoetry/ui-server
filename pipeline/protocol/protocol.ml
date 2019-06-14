@@ -240,7 +240,7 @@ let reset state (sources : (Netlib.Uri.t * Stream.t) list) =
     List.map (fun (uri, s) -> s.Stream.id, uri) sources
     |> Array.of_list
   in
-         
+
   begin match state.backend with
   | None -> Lwt.return_unit
   | Some backend ->

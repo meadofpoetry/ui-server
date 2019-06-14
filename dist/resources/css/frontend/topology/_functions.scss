@@ -1,0 +1,19 @@
+@import '@material/theme/_color-palette';
+
+@function topology-board-color($board) {
+    @if $board == 'TS' {
+        @return $material-color-blue-grey-500;
+    }
+    @else if $board == 'TS2IP' {
+        @return $material-color-brown-500;
+    }
+    @else if $board == 'DVB' {
+        @return $material-color-deep-purple-700;
+    }
+    @else if $board == 'IP2TS' {
+        @return $material-color-blue-500;
+    }
+    @else {
+        @return $material-color-grey-500;
+    }
+}

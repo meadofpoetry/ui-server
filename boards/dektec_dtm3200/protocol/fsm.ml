@@ -79,6 +79,6 @@ let start
     Lwt.choose [wait_msg; timer]
     >>= function
     | `M send -> send rsp_queue >>= idle ~timer
-    | `S -> pull_status ~wait_msg ()
+    | `S -> Lwt.cancel wait_msg; pull_status ~wait_msg ()
   in
   detect

@@ -1,6 +1,10 @@
 open Application_types
 
 module Api_http = Api_cohttp.Make(User)(Body)
+module Api_events = Api_websocket.Make
+                      (User)
+                      (Body)
+                      (Body_ws)
 module Api_template = Api_cohttp_template.Make(User)
 
 (* TODO remove in 4.08 *)
@@ -48,7 +52,7 @@ type stream_handler =
 
 type t =
   { http : Api_http.t list
-  ; ws : Api_http.t list
+  ; ws : Api_events.t list
   ; templates : Api_template.topmost Api_template.item list
   ; control : int
   ; streams_signal : Stream.t list React.signal
@@ -215,14 +219,14 @@ let merge_streams (boards : t Map.t)
        | `Done s -> lookup ((x, s) :: acc) await tl
        | `Await s -> lookup acc (s :: await) tl
        | `None -> lookup acc await tl
-       | `Error e -> failwith e)
+       | `Error e -> print_endline e; failwith e)
   and cleanup acc = function
     | [] -> acc
     | x :: tl ->
       (match transform acc x with
        | `Done s -> cleanup ((x, s) :: acc) tl
        | `None -> cleanup acc tl
-       | `Error e -> failwith e
+       | `Error e -> print_endline e; failwith e
        | `Await s ->
          (* XXX What is this case for? *)
          try List.find (fun (p : Raw.t) ->

@@ -5,12 +5,23 @@ module type S = sig
   type script = Src of string
               | Raw of string
 
+  type side_sheet_props =
+    { clipped : bool
+    ; opened : bool
+    ; typ : [`Modal | `Dismissible | `Permanent]
+    ; content : Tyxml.Xml.elt list
+    }
+
   type template_props =
     { title : string option
+    ; top_app_bar_leading : Tyxml.Xml.elt option
+    ; top_app_bar_actions : Tyxml.Xml.elt list
+    ; top_app_bar_bottom : Tyxml.Xml.elt option
+    ; side_sheet : side_sheet_props option
     ; pre_scripts : script list
     ; post_scripts : script list
     ; stylesheets : string list
-    ; content : string list
+    ; content : Tyxml.Xml.elt list
     }
 
   type topmost
@@ -20,6 +31,25 @@ module type S = sig
   type priority = [ `Index of int | `None ]
 
   type 'a item
+
+  val make_side_sheet_props : ?clipped:bool
+    -> ?opened:bool
+    -> ?typ:[ `Dismissible | `Modal | `Permanent ]
+    -> ?content:Tyxml.Xml.elt list
+    -> unit
+    -> side_sheet_props
+
+  val make_template_props : ?title:string
+    -> ?top_app_bar_leading:Tyxml.Xml.elt
+    -> ?top_app_bar_actions:Tyxml.Xml.elt list
+    -> ?top_app_bar_bottom:Tyxml.Xml.elt
+    -> ?side_sheet:side_sheet_props
+    -> ?pre_scripts:script list
+    -> ?post_scripts:script list
+    -> ?stylesheets:string list
+    -> ?content:Tyxml.Xml.elt list
+    -> unit
+    -> template_props
 
   val reference : ?restrict:user list
                   -> ?priority:priority

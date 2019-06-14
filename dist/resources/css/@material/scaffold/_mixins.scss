@@ -1,0 +1,70 @@
+@import "@material/theme/mixins";
+@import "@material/typography/mixins";
+@import "@material/animation/functions";
+@import "@material/drawer/mixins";
+@import "@material/side-sheet/mixins";
+
+//
+// Public
+//
+
+@mixin mdc-scaffold-fill-color($color) {
+    @include mdc-theme-prop(background-color, $color);
+}
+
+//
+// Private
+//
+
+@mixin mdc-scaffold-base_() {
+    @include mdc-typography-base;
+    position: relative;
+    .mdc-drawer:not(.mdc-drawer--modal) {
+        @include mdc-drawer-z-index(1);
+    }
+    .mdc-side-sheet:not(.mdc-side-sheet--modal) {
+        @include mdc-side-sheet-z-index(1);
+    }
+    .mdc-top-app-bar {
+        position: absolute;
+    }
+}
+
+@mixin mdc-scaffold-transitions_() {
+    .mdc-drawer.mdc-drawer--open:not(.mdc-drawer--closing) ~ &__app-content {
+        transition: mdc-animation-standard(margin, $mdc-side-sheet-animation-enter);
+    }
+    .mdc-drawer.mdc-drawer--closing ~ &__app-content {
+        transition: mdc-animation-standard(margin, $mdc-side-sheet-animation-exit);
+    }
+    .mdc-side-sheet.mdc-side-sheet--open:not(.mdc-side-sheet--closing) ~ &__app-content {
+        transition: mdc-animation-standard(margin, $mdc-side-sheet-animation-enter);
+    }
+    .mdc-side-sheet.mdc-side-sheet--closing ~ &__app-content {
+        transition: mdc-animation-standard(margin, $mdc-side-sheet-animation-exit);
+    }
+}
+
+@mixin mdc-scaffold-drawer-frame_() {
+    display: flex;
+    overflow: hidden;
+    width: 100%;
+    min-height: 100%;
+    height: 100%;
+    position: relative;
+}
+
+@mixin mdc-scaffold-app-content_() {
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+    transition-property: margin;
+    transition-timing-function: $mdc-animation-standard-curve-timing-function;
+    width: 100%;
+    min-height: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    position: relative;
+    margin-left: 0;
+    margin-right: 0;
+}

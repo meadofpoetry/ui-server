@@ -1,0 +1,26 @@
+// Parameter widget
+
+.ip-dektec-parameter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    &__inner {
+        display: flex;
+        flex-direction: column;
+    }
+}
+
+// Common
+
+.ip-dektec-network-settings, .ip-dektec-receiver-settings {
+    .mdc-apply-button {
+        align-self: flex-start;
+    }
+    .mdc-form-field label {
+        width: 100%;
+    }
+    .mdc-select, .mdc-text-field, .mdc-form-field {
+        margin-top: 1rem;
+    }
+    padding: 1rem;
+}

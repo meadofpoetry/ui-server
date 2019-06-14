@@ -180,14 +180,14 @@ let main () =
   let serv_handlers = Server_http.handlers server_conf in
 
   Application_http.create templates app serv_pages serv_handlers
-  >>= fun routes ->
+  >>= fun (routes, ping_loop) ->
   
   let auth_filter = Application.redirect_filter app in
   
   let server = Server.create server_conf auth_filter routes in
   
   ignore db_conf;
-  Lwt.bind (Lwt.pick [app_loop; server]) Lwt.return_ok
+  Lwt.bind (Lwt.pick [app_loop; ping_loop; server]) Lwt.return_ok
 
 let () =
   let log_level =

@@ -1,0 +1,44 @@
+@import "@material/typography/_mixins";
+@import "@material/theme/_mixins";
+@import "./mixins";
+
+.hotkeys {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    flex-direction: row;
+}
+
+.hotkeys__section {
+    display: inline-block;
+    min-width: 370px;
+    flex: 1;
+}
+
+.hotkeys__section-title {
+    @include mdc-typography(overline);
+    display: block;
+    padding: 16px 8px;
+    text-transform: uppercase;
+}
+
+.hotkeys__option {
+    @include mdc-typography(body2);
+    @include hotkeys-option-base_;
+}
+
+.hotkeys__label {
+    @include mdc-theme-prop(color, text-secondary-on-surface);
+    flex: 1;
+}
+
+.hotkeys__hotkey {
+    @include mdc-theme-prop(color, text-primary-on-surface);
+    @include mdc-typography(body1);
+    min-width: 70px;
+    margin-left: 30px;
+    align-items: center;
+    font-family: 'Roboto Mono', monospace;
+}
+

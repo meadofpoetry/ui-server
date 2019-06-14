@@ -1,0 +1,23 @@
+@import "@material/theme/mixins";
+@import "@material/theme/variables";
+@import "./variables";
+
+@mixin mdc-split-icon($direction) {
+    $tall  : if($direction == horizontal, height, width);
+    $short : if($direction == horizontal, width, height);
+    $flow  : if($direction == horizontal, row, column);
+
+    flex-flow: $flow nowrap;
+    display: flex;
+
+    #{$tall}: 20px;
+    #{$short}: 8px;
+
+    div {
+        $border: if($direction == horizontal, border-right, border-bottom);
+        #{$border}: 1px solid;
+        @include mdc-theme-prop(border-color, $mdc-split-outline-color);
+        #{$tall}: 20px;
+        #{$short}: 3px;
+    }
+}

@@ -40,7 +40,19 @@ module Authorize : sig
              -> ('id, 'b) Lwt_result.t
 
 end
-                 
+
+type ws_msg_code =
+  | ERROR
+  | SUBSCRIBE
+  | SUBSCRIBED
+  | UNSUBSCRIBE
+  | UNSUBSCRIBED
+  | EVENT
+
+val ws_msg_code_to_enum : ws_msg_code -> int
+
+val ws_msg_code_of_enum : int -> ws_msg_code option
+
 module type USER = sig
   type t
   val equal : t -> t -> bool
@@ -52,7 +64,22 @@ module type BODY = sig
   val of_string : string -> (t, [>`Conv_error of string]) result
   val content_type : string
 end
-                 
+
+type 'a ws_message =
+  [ `Subscribe of string
+  | `Subscribed of int
+  | `Unsubscribe of int
+  | `Unsubscribed
+  | `Event of 'a
+  | `Error of string
+  ]
+
+module type WS_BODY = sig
+  type t
+  val parse : t -> (int * t ws_message) option
+  val compose : int -> t ws_message -> t
+end
+
 module type S = sig
 
   type t

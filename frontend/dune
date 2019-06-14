@@ -1,16 +1,13 @@
 (executables
-  (names       page_mosaic topology user server_config)
+  (names       user server_config)
   (libraries   js_of_ocaml
                js_of_ocaml.weak
                js_of_ocaml-tyxml
-               application_js
+               application_http_js
                pipeline_js
                wm_js
                server_js
                ;; application_js
                ;; pc_control_js
-               ;; board_dektec_dtm3200_js
-               ;; board_niitv_dvb_js
-               ;; board_niitv_ts2ip_js
-               board_niitv_tsan_widgets_js)
+               )
   (preprocess  (pps ppx_deriving_yojson js_of_ocaml-ppx)))

@@ -1,0 +1,124 @@
+@import "@material/feature-targeting/functions";
+@import "@material/feature-targeting/mixins";
+@import "@material/theme/mixins";
+@import "@material/theme/variables";
+@import "./variables";
+
+//
+// Public
+//
+
+@mixin mdc-hexdump-core-styles($query: mdc-feature-all()) {
+    @include mdc-hexdump-interactive_;
+    .mdc-hexdump {
+        overflow: auto;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+    }
+
+    .mdc-hexdump--non-interactive {
+        pointer-events: none;
+    }
+
+    .mdc-hexdump--no-line-numbers {
+        .mdc-hexdump-block--line-numbers {
+            display: none;
+        }
+    }
+
+    .mdc-hexdump-block {
+        @include mdc-hexdump-block-base_($query);
+    }
+    .mdc-hexdump-block--hex {
+        @include mdc-hexdump-block-hex_;
+    }
+    .mdc-hexdump-block--chars {
+        @include mdc-hexdump-block-chars_($query)
+    }
+    .mdc-hexdump-block--line-numbers {
+        @include mdc-hexdump-block-line-numbers_($query);
+    }
+
+    .mdc-hexdump-item--selected {
+        @include mdc-hexdump-item-fill-color(primary, $query);
+        @include mdc-hexdump-item-ink-color(on-primary, $query);
+    }
+}
+
+@mixin mdc-hexdump-item-ink-color($color, $query: mdc-feature-all()) {
+    $feat-color: mdc-feature-create-target($query, color);
+
+    @include mdc-feature-targets($feat-color) {
+        @include mdc-theme-prop(color, $color);
+    }
+}
+
+@mixin mdc-hexdump-item-fill-color($color, $query: mdc-feature-all()) {
+    $feat-color: mdc-feature-create-target($query, color);
+
+    @include mdc-feature-targets($feat-color) {
+        @include mdc-theme-prop(background-color, $color);
+    }
+}
+
+@mixin mdc-hexdump-block-border-color($color, $query: mdc-feature-all()) {
+    $feat-color: mdc-feature-create-target($query, color);
+
+    @include mdc-feature-targets($feat-color) {
+        @include mdc-theme-prop(border-color, $color);
+    }
+}
+
+@mixin mdc-hexdump-block-fill-color($color, $query: mdc-feature-all()) {
+    $feat-color: mdc-feature-create-target($query, color);
+
+    @include mdc-feature-targets($feat-color) {
+        @include mdc-theme-prop(background-color, $color);
+    }
+}
+
+//
+// Private
+//
+
+@mixin mdc-hexdump-interactive_ {
+    .mdc-hexdump:not(.mdc-hexdump--non-interactive)
+    .mdc-hexdump-block--hex
+    .mdc-hexdump-item[data-id] {
+        cursor: pointer;
+    }
+}
+
+@mixin mdc-hexdump-block-base_($query: mdc-feature-all()) {
+    @include mdc-hexdump-block-fill-color(surface, $query);
+    font-family: monospace, monospace;
+    margin: 0;
+    padding: 15px;
+    display: block;
+    position: relative;
+    font-size: 1.0em;
+    line-height: 1.4em;
+    margin-bottom: auto;
+}
+
+@mixin mdc-hexdump-block-line-numbers_($query: mdc-feature-all()) {
+    border-right: 1px solid;
+    @include mdc-hexdump-block-border-color($mdc-hexdump-outline-color, $query);
+    z-index: 2;
+    position: sticky;
+    left: 0;
+    overflow: visible;
+}
+
+@mixin mdc-hexdump-block-hex_ {
+}
+
+@mixin mdc-hexdump-block-chars_($query: mdc-feature-all()) {
+    border-left: 1px solid;
+    @include mdc-hexdump-block-border-color($mdc-hexdump-outline-color, $query);
+    .mdc-hexdump-item {
+        padding-left: 3px;
+        padding-right: 3px;
+    }
+}

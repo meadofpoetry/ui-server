@@ -1,44 +1,50 @@
+open Js_of_ocaml
+open Js_of_ocaml_tyxml
 open Application_types
 open Board_niitv_tsan_types
 open Board_niitv_tsan_http_js
-open Containers
 open Components
 
 let base_class = "qos-niit-t2mi-settings"
 
 let make_enabled () =
-  let enabled = new Switch.t () in
+  let event, push = React.E.create () in
+  let enabled = Switch.make ~on_change:(fun _ ->
+      push (); Lwt.return_unit) () in
   let form =
-    new Form_field.t
-      ~input:enabled
+    Form_field.make
       ~label:"Включить анализ T2-MI"
       ~align_end:true
-      () in
-  let set (x : t2mi_mode) = enabled#set_checked x.enabled in
-  form#widget, set, enabled#s_state, enabled#set_disabled
+      enabled in
+  form, event
 
 let make_pid () =
+  let event, push = React.E.create () in
   let pid =
-    new Textfield.t
-      (* ~help_text:{ validation = true
-       *            ; persistent = false
-       *            ; text = None } *)
-      ~input_type:(Integer (Some 0, Some 8192))
+    Textfield.make_textfield
+      ~required:true
       ~label:"T2-MI PID"
-      () in
-  let set (x : t2mi_mode) = pid#set_value x.pid in
-  pid#set_required true;
-  pid#widget, set, pid#s_input, pid#set_disabled
+      (Integer (Some 0, Some 8192)) in
+  let listener =
+    Events.inputs pid#input_element (fun _ _ ->
+        push ();
+        Lwt.return_unit) in
+  pid#set_on_destroy (fun () -> Lwt.cancel listener);
+  pid, event
 
 let make_sid () =
+  let event, push = React.E.create () in
   let sid =
-    new Textfield.t
-      ~input_type:(Integer (Some 0, Some 7))
+    Textfield.make_textfield
+      ~required:true
       ~label:"T2-MI Stream ID"
-      () in
-  let set (x : t2mi_mode) = sid#set_value x.t2mi_stream_id in
-  sid#set_required true;
-  sid#widget, set, sid#s_input, sid#set_disabled
+      (Integer (Some 0, Some 7)) in
+  let listener =
+    Events.inputs sid#input_element (fun _ _ ->
+        push ();
+        Lwt.return_unit) in
+  sid#set_on_destroy (fun () -> Lwt.cancel listener);
+  sid, event
 
 let rec stream_to_string (s : Stream.t) =
   let src = match s.source.node with
@@ -49,94 +55,158 @@ let rec stream_to_string (s : Stream.t) =
   | "" -> src
   | s -> Printf.sprintf "%s. %s" src s
 
+let stream_select_validation = Select.(
+    { to_string = Yojson.Safe.to_string % Stream.to_yojson
+    ; of_string =
+        (fun json ->
+           try Stream.of_yojson @@ Yojson.Safe.from_string json
+           with Yojson.Json_error s -> Error s)
+    })
+
+let make_stream_select_items streams =
+  List.map (fun (s : Stream.t) ->
+      let open Select.Markup.Native in
+      create_option
+        ~value:(stream_select_validation.to_string s)
+        ~text:(stream_to_string s)
+        ()) streams
+
 let make_stream_select
-    (streams : Stream.t list React.signal)
-    (mode : t2mi_mode React.signal) =
-  let streams =
-    React.S.l2
-      ~eq:(Equal.list Stream.equal)
-      (fun (set : t2mi_mode) lst ->
-         match set.stream with
-         | ID _ -> lst
-         | Full s ->
-           let streams = List.add_nodup ~eq:Stream.equal s lst in
-           List.sort Stream.compare streams)
-      mode streams in
-  let make_items sms =
-    List.map (fun (s : Stream.t) ->
-        new Select.Item.t
-          ~value:s
-          ~text:(stream_to_string s)
-          ()) sms in
+    (streams : Stream.t list)
+    (mode : t2mi_mode) =
+  let event, push = React.E.create () in
+  let streams = match mode.stream with
+    | ID _ -> streams
+    | Full s ->
+      if List.exists (fun x -> Stream.equal x s) streams
+      then streams else s :: streams in
+  let streams = List.sort Stream.compare streams in
   let select =
-    new Select.t
-      ~default_selected:false
+    Select.make_native
+      ~on_change:(fun _ -> push ())
       ~label:"Поток для анализа T2-MI"
-      ~items:[]
-      () in
-  let _s =
-    React.S.map ~eq:Equal.unit
-      (fun sms ->
-         let eq = Stream.equal in
-         let value = select#value in
-         let items = make_items sms in
-         select#set_empty ();
-         List.iter select#append_item items;
-         Option.iter Fun.(ignore % select#set_selected_value ~eq) value)
-      streams in
-  let set (x : t2mi_mode) =
-    match x.stream with
-    | ID _ -> ()
-    | Full s -> ignore @@ select#set_selected_value ~eq:Stream.equal s in
-  select#set_on_destroy (fun () -> React.S.stop ~strong:true _s);
-  select#widget,
-  set,
-  select#s_selected_value,
-  select#set_disabled
+      ~items:(`Data (List.map (fun s -> s, Some (stream_to_string s)) streams))
+      (Custom stream_select_validation) in
+  select, event
 
 let name = "Настройки. T2-MI"
 let settings = None
 
-let make ~(state : Topology.state React.signal)
-      ~(mode : t2mi_mode React.signal)
-      ~(streams : Stream.t list React.signal)
-      (control : int) =
-  let en, set_en, s_en, dis_en = make_enabled () in
-  let pid, set_pid, s_pid, dis_pid = make_pid () in
-  let sid, set_sid, s_sid, dis_sid = make_sid () in
-  let ss, set_stream, s_stream, dis_stream =
-    make_stream_select streams mode in
-  let (s : t2mi_mode option React.signal) =
-    React.S.l5 ~eq:(Util_equal.Option.equal equal_t2mi_mode)
-      (fun en pid sid stream state ->
-         match en, pid, sid, stream, state with
-         | en, Some pid, Some sid, Some stream, `Fine ->
-           Some { enabled = en
-                ; pid
-                ; t2mi_stream_id = sid
-                ; stream = Full stream
-                }
-         | _ -> None)
-      s_en s_pid s_sid s_stream state in
-  let s_dis =
-    React.S.l2 ~eq:Equal.unit (fun state en ->
-        let is_disabled = match state with
-          | `Fine -> false
-          | _ -> true in
-        dis_en is_disabled;
-        List.iter (fun f -> f (if is_disabled then true else not en))
-          [dis_pid; dis_sid; dis_stream]) state s_en in
-  let s_set =
-    React.S.map ~eq:Equal.unit (fun x ->
-        let setters = [set_en; set_pid; set_sid; set_stream] in
-        List.iter (fun f -> f x) setters) mode in
-  let submit = fun x -> Http_device.set_t2mi_mode x control in
-  let apply = new Ui_templates.Buttons.Set.t s submit () in
-  let buttons = new Card.Actions.Buttons.t ~widgets:[apply] () in
-  let actions = new Card.Actions.t ~widgets:[buttons] () in
-  let box = new Vbox.t ~widgets:[en; ss; pid; sid; actions#widget] () in
-  box#add_class base_class;
-  box#set_on_destroy (fun () ->
-      React.S.stop ~strong:true s_dis;
-      React.S.stop ~strong:true s_set);
-  box#widget
+type event =
+  [ `Mode of t2mi_mode
+  | `State of Topology.state
+  | `Incoming_streams of Stream.t list
+  ]
+
+class t
+    (state : Topology.state)
+    (mode : t2mi_mode)
+    (streams : Stream.t list)
+    (control : int) =
+  let en, e_en = make_enabled () in
+  let pid, e_pid = make_pid () in
+  let sid, e_sid = make_sid () in
+  let stream_select, e_stream = make_stream_select streams mode in
+  let submit = Button.make ~label:"Применить" () in
+  let buttons = Card.Actions.make_buttons [submit] in
+  let actions = Card.Actions.make [buttons] in
+  object(self)
+    val mutable _on_submit = None
+    val mutable _e_change = None
+    inherit Widget.t Dom_html.(createDiv document) () as super
+
+    method! init () : unit =
+      super#init ();
+      super#append_child en;
+      super#append_child stream_select;
+      super#append_child pid;
+      super#append_child sid;
+      super#append_child actions;
+      super#add_class base_class;
+      super#add_class Box.CSS.root;
+      super#add_class Box.CSS.vertical;
+      self#set_value mode;
+      self#notify (`State state);
+      _e_change <- Some (
+          React.E.map self#update_submit_button_state
+          @@ React.E.select [e_en; e_pid; e_sid; e_stream]);
+      _on_submit <- Some (Events.clicks submit#root (fun _ _ ->
+          Lwt.map (fun _ -> ()) @@ self#submit ()))
+
+    method! destroy () : unit =
+      super#destroy ();
+      Utils.Option.iter (React.E.stop ~strong:true) _e_change;
+      Utils.Option.iter Lwt.cancel _on_submit;
+      _e_change <- None;
+      _on_submit <- None
+
+    method submit () : (unit, string) Lwt_result.t =
+      match self#value with
+      | None -> Lwt.return_error "Please fill the settings form"
+      | Some mode ->
+        let t =
+          Lwt_result.map_err Api_js.Http.error_to_string
+          @@ Http_device.set_t2mi_mode mode control in
+        submit#set_loading_lwt t;
+        t
+
+    method value : t2mi_mode option =
+      let disabled =
+        en#input#disabled
+        || pid#disabled
+        || sid#disabled
+        || stream_select#disabled in
+      match disabled, pid#value, sid#value, stream_select#value with
+      | false, Some pid, Some t2mi_stream_id, Some stream ->
+        Some { enabled = en#input#checked
+             ; pid
+             ; t2mi_stream_id
+             ; stream = Full stream
+             }
+      | _ -> None
+
+    method set_value (mode : t2mi_mode) : unit =
+      en#input#toggle ~force:mode.enabled ();
+      pid#set_value mode.pid;
+      sid#set_value mode.t2mi_stream_id;
+      (match mode.stream with
+       | ID _ -> ()
+       | Full s -> stream_select#set_value s);
+      self#update_submit_button_state ()
+
+    method notify : event -> unit = function
+      | `Mode mode -> self#set_value mode
+      | `Incoming_streams streams ->
+        let value = stream_select#value in
+        let streams = match value with
+          | None -> streams
+          | Some s ->
+            if List.exists (Stream.equal s) streams
+            then streams else s :: streams in
+        let streams = List.sort Stream.compare streams in
+        let items = make_stream_select_items streams in
+        stream_select#clear ();
+        List.iter stream_select#append_item
+        @@ List.map Tyxml_js.To_dom.of_option items;
+        stream_select#layout ();
+        Utils.Option.iter stream_select#set_value value;
+        self#update_submit_button_state ()
+      | `State s ->
+        let disabled = match s with `Fine -> false | _ -> true in
+        en#input#set_disabled disabled;
+        stream_select#set_disabled disabled;
+        pid#set_disabled disabled;
+        sid#set_disabled disabled;
+        self#update_submit_button_state ()
+
+    method private update_submit_button_state () =
+      match self#value with
+      | Some _ -> submit#set_disabled false
+      | None -> submit#set_disabled true
+  end
+
+let make (state : Topology.state)
+    (mode : t2mi_mode)
+    (streams : Stream.t list)
+    (control : int) =
+  new t state mode streams control

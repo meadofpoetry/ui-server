@@ -18,6 +18,16 @@ module Option = struct
     | Some a, Some b -> f a b
 end
 
+module Result = struct
+  type ('a, 'e) t = ('a, 'e) result
+
+  let equal ~ok ~error a b =
+    match a, b with
+    | Ok a, Ok b -> ok a b
+    | Error a, Error b -> error a b
+    | _ -> false
+end
+
 module Pair = struct
   type ('a, 'b) t = 'a * 'b
 

@@ -4,11 +4,11 @@ open Api_util
 module Event = struct
   open Util_react
 
-  let get_streams (api : Protocol.api) incoming _user _body _env _state =
+  let get_streams (api : Protocol.api) incoming _user =
     let event = match incoming with
       | None | Some false -> React.S.changes api.notifs.outgoing_streams
       | Some true -> React.S.changes api.notifs.incoming_streams in
-    Lwt.return (`Ev (E.map Util_json.(List.to_yojson Stream.to_yojson) event))
+    Lwt.return (E.map Util_json.(List.to_yojson Stream.to_yojson) event)
 
 end
 

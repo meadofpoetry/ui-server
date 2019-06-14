@@ -7,27 +7,17 @@ module Event = struct
 
   let ( >>= ) = Lwt_result.( >>= )
 
-  let bind_ok f = function
-    | Ok x -> (f x)
-    | Error _ as e -> e
-
-  let get_state f control =
-    Api_websocket.create
-      ~path:Path.Format.("ws/board" @/ Int ^/ "device/state" @/ empty)
+  let get_state sock control =
+    Api_js.Websocket.JSON.subscribe
+      ~path:Path.Format.("board" @/ Int ^/ "device/state" @/ empty)
       ~query:Query.empty
-      control ()
-    >>= fun socket ->
-    Api_websocket.subscribe socket (f socket % bind_ok Topology.state_of_yojson);
-    Lwt.return_ok socket
+      control Topology.state_of_yojson sock
 
-  let get_t2mi_mode f control =
-    Api_websocket.create
-      ~path:Path.Format.("ws/board" @/ Int ^/ "device/mode/t2mi" @/ empty)
+  let get_t2mi_mode sock control =
+    Api_js.Websocket.JSON.subscribe
+      ~path:Path.Format.("board" @/ Int ^/ "device/mode/t2mi" @/ empty)
       ~query:Query.empty
-      control ()
-    >>= fun socket ->
-    Api_websocket.subscribe_map socket t2mi_mode_of_yojson (f socket);
-    Lwt.return_ok socket
+      control t2mi_mode_of_yojson sock
 
 end
 

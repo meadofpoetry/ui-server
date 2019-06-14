@@ -1,0 +1,25 @@
+@import "./variables";
+@import "./mixins";
+@import "@material/animation/variables";
+
+@include mdc-treeview-core-styles;
+
+.mdc-treeview-node {
+    &__expander {
+        @include mdc-treeview-dd-arrow-svg-bg_($mdc-treeview-expand-color, $mdc-treeview-expand-opacity);
+
+        width: 24px;
+        height: 24px;
+        transition: transform $mdc-treeview-expand-transition-duration $mdc-animation-standard-curve-timing-function;
+    }
+}
+
+.mdc-treeview-node[aria-expanded="true"] {
+    > .mdc-treeview-node__children {
+        display: block;
+    }
+    > .mdc-treeview-node__content:first-of-type > .mdc-treeview-node__expander {
+        transform: rotate(180deg);
+        transition: transform $mdc-treeview-expand-transition-duration $mdc-animation-standard-curve-timing-function;
+    }
+}

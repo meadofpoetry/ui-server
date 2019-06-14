@@ -1,0 +1,10 @@
+(library
+  (name      board_dektec_dtm3200_widgets_js)
+  (libraries board_dektec_dtm3200_types
+             board_dektec_dtm3200_http_js
+             application_types
+             components
+             ui_templates
+             util_equal)
+  (preprocess (pps ppx_deriving_yojson
+                   js_of_ocaml-ppx)))

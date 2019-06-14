@@ -1,10 +1,7 @@
 open Application_types
 open Netlib.Uri
 open Board_niitv_dvb_protocol
-
-module Api_http = Api_cohttp.Make(User)(Body)
-
-module Api_websocket = Api_websocket.Make(User)(Body)
+open Boards.Board
 
 let handlers (control : int) (api : Protocol.api) =
   let open Api_http in
@@ -37,7 +34,7 @@ let handlers (control : int) (api : Protocol.api) =
               ~query:Query.["id", (module List(Int))]
               (Api_device.get_mode api)
           ]
-      ; make ~prefix:"receiver"
+      ; make ~prefix:"receivers"
           [ node ~doc:"Sets tuner receiving mode"
               ~restrict:[`Guest]
               ~meth:`POST
@@ -70,7 +67,7 @@ let handlers (control : int) (api : Protocol.api) =
               ~query:Query.empty
               (Api_receiver.get_plp_list api)
           ]
-      ; make ~prefix:"stream"
+      ; make ~prefix:"streams"
           [ node ~doc:"Returns list of available streams"
               ~meth:`GET
               ~path:Path.Format.empty
@@ -107,59 +104,43 @@ let handlers (control : int) (api : Protocol.api) =
   ]
 
 let ws (control : int) (api : Protocol.api) =
-  let open Api_http in
-  let open Api_websocket in
+  let open Api_events in
   (* TODO add closing event *)
-  let socket_table = make_socket_table () in
-  
   [ merge ~prefix:(string_of_int control)
       [ make ~prefix:"device"
-          [ node ~doc:"Device state socket"
-              ~socket_table
+          [ event_node ~doc:"Device state socket"
               ~path:(Path.Format.of_string "state")
               ~query:Query.empty
               (Api_device.Event.get_state api)
-          ; node ~doc:"Tuner receiving mode socket"
-              ~socket_table
+          ; event_node ~doc:"Tuner receiving mode socket"
               ~path:(Path.Format.of_string "mode")
               ~query:Query.["id", (module List(Int))]
               (Api_device.Event.get_mode api)
-          ; node ~doc:"Available tuner indexes socket"
-              ~socket_table
-              ~path:(Path.Format.of_string "receivers")
-              ~query:Query.empty
-              (Api_device.Event.get_receivers api)
           ]
       ; make ~prefix:"receivers"
-          [ node ~doc:"Receiver measurements socket"
-              ~socket_table
+          [ event_node ~doc:"Receiver measurements socket"
               ~path:(Path.Format.of_string "measurements")
               ~query:Query.["id", (module List(Int))]
               (Api_receiver.Event.get_measurements api)
-          ; node ~doc:"Receiver parameters socket"
-              ~socket_table
+          ; event_node ~doc:"Receiver parameters socket"
               ~path:(Path.Format.of_string "parameters")
               ~query:Query.["id", (module List(Int))]
               (Api_receiver.Event.get_parameters api)
-          ; node ~doc:"Receiver PLP list socket"
-              ~socket_table
+          ; event_node ~doc:"Receiver PLP list socket"
               ~path:(Path.Format.of_string "plp-list")
               ~query:Query.["id", (module List(Int))]
               (Api_receiver.Event.get_plp_list api)
           ]
       ; make ~prefix:"streams"
-          [ node ~doc:"Streams socket"
-              ~socket_table
+          [ event_node ~doc:"Streams socket"
               ~path:Path.Format.empty
               ~query:Query.["id", (module List(Stream.ID))]
               (Api_stream.Event.get_streams api)
-          ; node ~doc:"Stream measurements socket"
-              ~socket_table
+          ; event_node ~doc:"Stream measurements socket"
               ~path:(Path.Format.of_string "measurements")
               ~query:Query.["id", (module List(Stream.ID))]
               (Api_stream.Event.get_measurements api)
-          ; node ~doc:"Stream parameters socket"
-              ~socket_table
+          ; event_node ~doc:"Stream parameters socket"
               ~path:(Path.Format.of_string "parameters")
               ~query:Query.["id", (module List(Stream.ID))]
               (Api_stream.Event.get_parameters api)

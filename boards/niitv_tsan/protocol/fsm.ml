@@ -36,11 +36,11 @@ type probe =
 type send_client =
   Request.rsp ts React.event
   -> event Lwt_stream.t
-  -> unit Lwt.t
+  -> (unit, Request.error) result Lwt.t
 
 type api_msg = int * send_client
 
-type pending = (int * unit Lwt.t) list
+type pending = (int * (unit, Request.error) result Lwt.t) list
 
 type sender = { send : 'a. 'a Request.t -> unit Lwt.t }
 
@@ -86,7 +86,8 @@ let to_raw_stream
       let info = Stream.Source.T2MI { stream_id; plp } in
       Some { Stream.Raw. node; info }
     | `T2MI _, _ -> None
-    | (`SPI | `ASI), _ -> Some { node = Port stream_id; info = Plain }
+    | `SPI, _ -> Some { node = Port (input_to_enum SPI); info = Plain }
+    | `ASI, _ -> Some { node = Port (input_to_enum ASI); info = Plain }
     | `Unknown, _ -> None in
   match source with
   | None -> None
@@ -338,14 +339,15 @@ let start
     >>= fun t2mi_mode -> kv#get
     >>= fun { input; _ } ->
     let req = Request.Set_mode { input; t2mi_mode } in
-    request src rsp_event evt_queue sender req
-    >>= function
-    | Ok () -> t2mi_loop ()
-    | Error e ->
-      Logs.err (fun m ->
-          m "Error during internal T2-MI mode setup: %s"
-          @@ Request.error_to_string e);
-      Lwt.return ()
+    sender.send req >>= t2mi_loop
+    (* request src rsp_event evt_queue sender req
+     * >>= function
+     * | Ok () -> t2mi_loop ()
+     * | Error e ->
+     *   Logs.err (fun m ->
+     *       m "Error during internal T2-MI mode setup: %s"
+     *       @@ Request.error_to_string e);
+     *   Lwt.return () *)
 
   and client_loop () : unit Lwt.t =
     Lwt.pick
