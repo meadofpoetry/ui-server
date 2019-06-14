@@ -18,7 +18,7 @@ module Annotated : sig
     }
 
   type structure =
-    { id       : Application_types.Stream.t
+    { id       : Application_types.Stream.ID.t
     ; uri      : Netlib.Uri.t
     ; channels : (state * channel) list
     }
@@ -34,9 +34,9 @@ module Annotated : sig
   val annotate : active:raw -> avail:raw -> stored:raw -> t
 
   val update_stored : active:raw -> avail:raw -> stored:raw -> [`Changed of raw | `Kept of raw ]
-
+(*
   val filter : select:state -> t -> raw
-
+ *)
 end
   
 module Many : sig
