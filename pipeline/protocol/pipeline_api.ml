@@ -5,12 +5,13 @@ module Event = struct
 
   open Protocol
   open Util_react
-  (*
-let get_settings (state : state) _ body sock_data () =
-    let event = S.changes api.notifs.settings in
-    Api.Socket.handler socket_table sock_data event
-      Settings.to_yojson body
-   *)
+
+  let get_settings (state : state) _ body sock_data () =
+    let event =
+      S.changes state.options.settings#s
+      |> E.map Settings.to_yojson
+    in
+    Lwt.return (`Ev event)
 
   let get_wm_layout (state : Protocol.state) _user _body _env _state =
     let event =
@@ -40,18 +41,27 @@ let set body conv apply =
      apply x
      >>= function Ok () -> Lwt.return `Unit
                 | Error (`Qoe_backend e) -> Lwt.return (`Error e) (* TODO respond result *)
-(*
-  let set_settings (state : state) headers body () =
-    set body Settings.of_yojson
-      Pipeline_protocol.(fun x -> state.requests.settings.set x)
 
-  let get_settings (state : state) headers body () =
-    state.requests.settings.get ()
-    >|= (function
-         | Error e -> Error (Json.String.to_yojson e)
-         | Ok v -> Ok (Settings.to_yojson v))
-    >>= respond_result
- *)
+let set_settings (state : Protocol.state) headers body () =
+  let (>>=) = Lwt_result.bind in
+  set body Settings.of_yojson
+    Protocol.(fun x ->
+    match state.backend with
+    | None -> Lwt.return_error (`Qoe_backend "not ready")
+    | Some backend ->
+       Qoe_backend.Analysis_settings.apply_settings backend x
+       >>= fun () ->
+       Lwt_result.ok @@ state.options.settings#set x)
+
+let get_settings (state : Protocol.state) headers body () =
+  match state.backend with
+  | None -> Lwt.return (`Error "not ready")
+  | Some backend ->
+     Protocol.Qoe_backend.Analysis_settings.get_settings backend
+     >>= (function
+          | Error (`Qoe_backend e) -> Lwt.return (`Error e)
+          | Ok v -> Lwt.return (`Value (Settings.to_yojson v)))
+
 let apply_wm_layout (state : Protocol.state) _user body _env _state =
   let (>>=) = Lwt_result.bind in
   set body Wm.of_yojson
@@ -84,8 +94,6 @@ let get_status (state : Protocol.state) ids _user _body _env _state =
 
 
 (*
-
-
 let handlers (state : state) =
   [ State_handler.add_layer "pipeline"
       ; Pipeline_api_measurements.handler api

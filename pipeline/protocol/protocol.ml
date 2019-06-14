@@ -10,18 +10,20 @@ module Qoe_backend = Qoe_backend_lwt.Make
 type options =
   { wm : Wm.t Kv_v.rw
   ; structures : Structure.t list Kv_v.rw
-  ; settings : unit (* Settings.t Kv_v.rw *)
+  ; settings : Settings.t Kv_v.rw
   }
 
 type notifications =
   { streams : Structure.t list React.signal
-  (*; settings : Settings.t React.signal*)
   ; wm : Wm.t React.signal
   ; applied_structs : Structure.t list React.signal
   ; status : Qoe_status.t list React.signal
   ; status_raw : Qoe_status.t React.event
   ; vdata : Qoe_errors.Video_data.t React.event (* TODO to be split by purpose later *)
   ; adata : Qoe_errors.Audio_data.t React.event
+  ; streams_reset : unit React.signal
+  ; settings_reset : unit React.signal
+  ; wm_reset : unit React.signal
   }
   
 type state =
@@ -36,7 +38,7 @@ type state =
   
 module Wm_options = Kv_v.RW(Wm)
 module Structures_options = Kv_v.RW(Structure.Many)
-(*module Settings_options = Kv_v.RW(Settings)*)
+module Settings_options = Kv_v.RW(Settings)
 
 let notifs_default = { streams = React.S.const []
                      ; wm = React.S.const Wm.default
@@ -45,6 +47,9 @@ let notifs_default = { streams = React.S.const []
                      ; status_raw = React.E.never
                      ; vdata = React.E.never
                      ; adata = React.E.never
+                     ; streams_reset = React.S.const ()
+                     ; settings_reset = React.S.const ()
+                     ; wm_reset = React.S.const ()
                      }
 
 (* TODO remove in 4.08 *)
@@ -86,17 +91,17 @@ let notification_attach_setter
   let (>>=) = Lwt.bind in
   let make_setter merge set value =
     merge value >>= function
-    | `Kept v -> Lwt.return_some v
+    | `Kept _v -> Lwt.return_unit
     | `Changed v -> Lwt.try_bind (fun () -> set v)
-                      (function Ok () -> Lwt.return_some v
+                      (function Ok () -> Lwt.return_unit
                               | Error _e ->
                                  
-                                 Lwt.return_none (* TODO add log *))
-                      (function _ -> Lwt.return_none)
+                                 Lwt.return_unit (* TODO add log *))
+                      (function _ -> Lwt.return_unit)
   in                   
   let signal_add_setter signal default setter =
     let signal = limit_inert ~eq:Pervasives.(=) 2.0 signal in
-    Util_react.S.fmap_s ~eq:Pervasives.(=) setter default signal
+    Util_react.S.map_s ~eq:Pervasives.(=) setter signal
   in
   let merge v = Lwt_mutex.with_lock notification_mutex
                   (fun () -> make_setter (fun (x : 'b) ->
@@ -188,17 +193,17 @@ let merge_status stream_options status_raw =
 let create db kv =
   let (>>=?) = Lwt_result.bind in
 
-  Wm_options.create ~default:Wm.default kv ["pipeline";"wm"]
+  Wm_options.create ~default:Wm.default kv ["pipeline"; "wm"]
   >>=? fun wm ->
 
-  Structures_options.create ~default:[] kv ["pipeline";"structures"]
+  Structures_options.create ~default:[] kv ["pipeline"; "structures"]
   >>=? fun structures ->
-(*
-  Settings_options.create ~default:Settings.default kv ["pipeline";"settings"]
+
+  Settings_options.create ~default:Settings.default kv ["pipeline"; "settings"]
   >>=? fun settings ->
- *)
+
   
-  let options = { wm; structures; settings = () } in
+  let options = { wm; structures; settings } in
   let sources = [] in
 
   Qoe_backend.init_logger ();
@@ -256,33 +261,40 @@ let reset state (sources : (Netlib.Uri.t * Stream.t) list) =
     Util_react.S.hold ~eq:Structure.equal_many [] events.streams
   in
 
+  let applied_structs =
+    Util_react.S.hold ~eq:Structure.equal_many [] events.graph
+  in
+
   let wm =
     Util_react.S.hold ~eq:Wm.equal Wm.default events.wm
   in
   
   make_streams_with_restore_config
-    ~apply_settings:(fun st-> Qoe_backend.Graph.apply_structure backend st)
+    ~apply_settings:(fun st -> Qoe_backend.Graph.apply_structure backend st)
     ~get_applied:(fun () -> Qoe_backend.Graph.get_structure backend)
     state.options.structures
     streams
-  >>= fun applied_streams ->
+  >>= fun streams_reset ->
 
   make_wm_with_restore_config
     ~apply_settings:(fun wm -> Qoe_backend.Mosaic.apply_layout backend wm)
     state.options.wm
     wm
-  >>= fun wm ->
+  >>= fun wm_reset ->
 
   let status = merge_status state.options.structures events.status in
 
   state.notifs <- { streams
                   ; wm
-                  (* Saved structures are essentially applied *)
-                  ; applied_structs = state.options.structures#s
+                  ; applied_structs
                   ; status
                   ; status_raw = events.status
                   ; vdata = events.vdata
                   ; adata = events.adata
+                  (*  *)
+                  ; settings_reset = React.S.const ()
+                  ; streams_reset
+                  ; wm_reset
                   };
 
   state.cleanup#call;
