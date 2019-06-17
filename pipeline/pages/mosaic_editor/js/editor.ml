@@ -18,12 +18,12 @@ module Make(I : Item) = struct
     }
 
   let make ?(on_remove : (I.t -> unit) option)
-           ~(title : string)
-           ~(resolution : (int * int))
-           ~(init : I.t list)
-           ~(candidates : I.t list React.signal)
-           ~(set_candidates : I.t list -> unit)
-           () =
+      ~(title : string)
+      ~(resolution : (int * int))
+      ~(init : I.t list)
+      ~(candidates : I.t list React.signal)
+      ~(set_candidates : I.t list -> unit)
+      () =
     let selected, selected_push = React.S.create None in
     let layers = List.sort compare @@ I.layers_of_t_list init in
     let rt = RT.make ~selected ~layers ~candidates ~set_candidates in

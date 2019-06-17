@@ -6,10 +6,6 @@ module Selector = struct
   let resizer = "." ^ Markup.CSS.resizer
 end
 
-type event =
-  | Mouse of Dom_html.mouseEvent Js.t
-  | Touch of Dom_html.touchEvent Js.t
-
 type resize_dir =
   | Top_left
   | Top_right
@@ -22,7 +18,7 @@ module Position = struct
     ; y : int
     ; w : int
     ; h : int
-    } [@@deriving show]
+    }
 
   let empty =
     { x = 0
@@ -64,14 +60,14 @@ let get_touch_by_id (touches : Dom_html.touchList Js.t)
 
 let get_cursor_position ?touch_id (event : #Dom_html.event Js.t) =
   match Js.to_string event##._type with
-  | "mousemove" ->
+  | "mousemove" | "mousedown" ->
     let (e : Dom_html.mouseEvent Js.t) = Js.Unsafe.coerce event in
     begin match Js.Optdef.(to_option e##.pageX,
                            to_option e##.pageY) with
     | Some page_x, Some page_y -> page_x, page_y
     | _ -> failwith "no page coordinates in mouse event"
     end
-  | "touchmove" ->
+  | "touchmove" | "touchstart"->
     let (e : Dom_html.touchEvent Js.t) = Js.Unsafe.coerce event in
     let touches = e##.changedTouches in
     let rec aux acc i =
@@ -87,13 +83,12 @@ let get_cursor_position ?touch_id (event : #Dom_html.event Js.t) =
      | Some t -> t##.pageX, t##.pageY)
   | _ -> 0, 0
 
-class t (elt : Dom_html.element Js.t) () =
+class t ?(min_size = 20) (elt : Dom_html.element Js.t) () =
   object(self)
-    val resizers = Element.query_selector_all elt Selector.resizer
-    val mutable _min_size = 20
+    val mutable _min_size = min_size
 
     val mutable _touchstart_listener = None
-    val mutable _down_listener = None
+    val mutable _mousedown_listener = None
     val mutable _move_listener = None
     val mutable _stop_listener = None
 
@@ -109,7 +104,7 @@ class t (elt : Dom_html.element Js.t) () =
       super#init ()
 
     method! initial_sync_with_dom () : unit =
-      _down_listener <- Some (
+      _mousedown_listener <- Some (
           Events.mousedowns super#root self#handle_mouse_down);
       _touchstart_listener <- Some (
           Events.touchstarts super#root self#handle_touch_start);
@@ -120,30 +115,37 @@ class t (elt : Dom_html.element Js.t) () =
       super#layout ()
 
     method! destroy () : unit =
+      Utils.Option.iter Lwt.cancel _touchstart_listener;
+      Utils.Option.iter Lwt.cancel _mousedown_listener;
+      _touchstart_listener <- None;
+      _mousedown_listener <- None;
+      self#handle_drag_end ();
       super#destroy ()
+
+    method set_min_size (x : int) : unit =
+      _min_size <- x
 
     (* Private methods *)
 
     method private handle_touch_start (e : Dom_html.touchEvent Js.t)
         (_ : unit Lwt.t) : unit Lwt.t =
-      let target = Dom_html.eventTarget e in
       Dom.preventDefault e;
-      _position <- Position.of_element super#root;
-      _coordinate <- ( (Js.Unsafe.coerce e)##.pageX
-                     , (Js.Unsafe.coerce e)##.pageY);
+      self#handle_drag_end ();
       begin match Js.Optdef.to_option (e##.changedTouches##item 0) with
         | None -> ()
         | Some touch -> _touch_id <- Some touch##.identifier
       end;
-      _stop_listener <- Some (Events.touchends Dom_html.window self#handle_touch_end);
+      let target = Dom_html.eventTarget e in
+      _position <- Position.of_element super#root;
+      _coordinate <- get_cursor_position ?touch_id:_touch_id e;
       let action =
         if Element.has_class target Markup.CSS.resizer
-        then (
-          let dir = resize_dir_of_event e in
-          `Resize dir)
+        then `Resize (resize_dir_of_event e)
         else `Move in
       _move_listener <- Some (
           Events.touchmoves Dom_html.window (self#handle_touch_move action));
+      _stop_listener <- Some (
+          Events.touchends Dom_html.window self#handle_touch_end);
       Lwt.return_unit
 
     method private handle_touch_move action (e : Dom_html.touchEvent Js.t)
@@ -173,27 +175,25 @@ class t (elt : Dom_html.element Js.t) () =
 
     method private handle_mouse_down (e : Dom_html.mouseEvent Js.t)
         (_ : unit Lwt.t) : unit Lwt.t =
-      let target = Dom_html.eventTarget e in
       Dom.preventDefault e;
+      self#handle_drag_end ();
+      let target = Dom_html.eventTarget e in
       (* Refresh element position and size *)
       _position <- Position.of_element super#root;
       (* Refresh mouse cursor position *)
-      _coordinate <- ( (Js.Unsafe.coerce e)##.pageX
-                     , (Js.Unsafe.coerce e)##.pageY);
-      _stop_listener <- Some (
-          Events.mouseups Dom_html.window self#handle_mouse_up);
+      _coordinate <- get_cursor_position e;
       let action =
         if Element.has_class target Markup.CSS.resizer
-        then begin match e##.button with
+        then match e##.button with
           | 0 -> `Resize (resize_dir_of_event e)
           | _ -> `None
-        end
-        else begin match e##.button with
+        else match e##.button with
           | 0 -> `Move
-          | _ -> `None
-        end in
+          | _ -> `None in
       _move_listener <- Some (
           Events.mousemoves Dom_html.window (self#handle_mouse_move action));
+      _stop_listener <- Some (
+          Events.mouseups Dom_html.window self#handle_mouse_up);
       Lwt.return_unit
 
     method private handle_mouse_move action (e : Dom_html.mouseEvent Js.t)
@@ -212,11 +212,13 @@ class t (elt : Dom_html.element Js.t) () =
     method private handle_drag_end () : unit =
       Utils.Option.iter Lwt.cancel _move_listener;
       Utils.Option.iter Lwt.cancel _stop_listener;
+      _move_listener <- None;
+      _stop_listener <- None
 
     (* Moves an element *)
     method private move : 'a. (#Dom_html.event as 'a) Js.t -> unit Lwt.t =
       fun e ->
-      let page_x, page_y = get_cursor_position e in
+      let page_x, page_y = get_cursor_position ?touch_id:_touch_id e in
       let x = _position.x + page_x - (fst _coordinate) in
       let y = _position.y + page_y - (snd _coordinate) in
       super#root##.style##.left := Utils.px_js x;
@@ -228,53 +230,53 @@ class t (elt : Dom_html.element Js.t) () =
       -> (#Dom_html.event as 'a) Js.t
       -> unit Lwt.t =
       fun dir e ->
-      let page_x, page_y =
-        (Js.Unsafe.coerce e)##.pageX,
-        (Js.Unsafe.coerce e)##.pageY in
+      let page_x, page_y = get_cursor_position ?touch_id:_touch_id e in
       (match dir with
        | None -> ()
        | Some Top_left ->
-         let w = _position.w - (page_x - (fst _coordinate)) in
-         let h = _position.h - (page_y - (snd _coordinate)) in
-         let x = _position.x + (page_x - (fst _coordinate)) in
-         let y = _position.y + (page_y - (snd _coordinate)) in
-         if w > _min_size
-         then (
-           super#root##.style##.width := Utils.px_js w;
-           super#root##.style##.left := Utils.px_js x);
-         if h > _min_size
-         then (
-           super#root##.style##.height := Utils.px_js h;
-           super#root##.style##.top := Utils.px_js y)
+         let position =
+           { Position.
+             w = _position.w - (page_x - (fst _coordinate))
+           ; h = _position.h - (page_y - (snd _coordinate))
+           ; x = _position.x + (page_x - (fst _coordinate))
+           ; y = _position.y + (page_y - (snd _coordinate))
+           } in
+         self#set_position position
        | Some Top_right ->
-         let w = _position.w + (page_x - (fst _coordinate)) in
-         let h = _position.h - (page_y - (snd _coordinate)) in
-         let y = _position.y + (page_y - (snd _coordinate)) in
-         if w > _min_size
-         then super#root##.style##.width := Utils.px_js w;
-         if h > _min_size
-         then (
-           super#root##.style##.height := Utils.px_js h;
-           super#root##.style##.top := Utils.px_js y)
+         let position =
+           { _position with
+             w = _position.w + (page_x - (fst _coordinate))
+           ; h = _position.h - (page_y - (snd _coordinate))
+           ; y = _position.y + (page_y - (snd _coordinate))
+           } in
+         self#set_position position
        | Some Bottom_left ->
-         let w = _position.w - (page_x - (fst _coordinate)) in
-         let h = _position.h + (page_y - (snd _coordinate)) in
-         let x = _position.x + (page_x - (fst _coordinate)) in
-         if w > _min_size
-         then (
-           super#root##.style##.width := Utils.px_js w;
-           super#root##.style##.left := Utils.px_js x);
-         if h > _min_size
-         then super#root##.style##.height := Utils.px_js h
+         let position =
+           { _position with
+             w = _position.w - (page_x - (fst _coordinate))
+           ; h = _position.h + (page_y - (snd _coordinate))
+           ; x = _position.x + (page_x - (fst _coordinate))
+           } in
+         self#set_position position
        | Some Bottom_right ->
-         let w = _position.w + (page_x - (fst _coordinate)) in
-         let h = _position.h + (page_y - (snd _coordinate)) in
-         if w > _min_size
-         then super#root##.style##.width := Utils.px_js w;
-         if h > _min_size
-         then super#root##.style##.height := Utils.px_js h);
+         let position =
+           { _position with
+             w = _position.w + (page_x - (fst _coordinate))
+           ; h = _position.h + (page_y - (snd _coordinate))
+           } in
+         self#set_position position);
       self#layout ();
       Lwt.return_unit
+
+    method private set_position (x : Position.t) =
+      if x.w > _min_size
+      then (
+        super#root##.style##.width := Utils.px_js x.w;
+        super#root##.style##.left := Utils.px_js x.x);
+      if x.h > _min_size
+      then (
+        super#root##.style##.height := Utils.px_js x.h;
+        super#root##.style##.top := Utils.px_js x.y)
 
     (* Paints 3x3 grid inside an element *)
     method private draw_background () : unit =

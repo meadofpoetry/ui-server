@@ -10,5 +10,4 @@
               uri)
   (preprocess (pps js_of_ocaml-ppx
                    ppx_deriving_yojson
-                   ppx_deriving.show
                    ppx_deriving.eq)))
