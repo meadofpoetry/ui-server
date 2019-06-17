@@ -187,8 +187,31 @@ module Annotated = struct
     match !updated with
     | true -> `Changed res
     | false -> `Kept active
-(*
-  let filter ~select annotated =
-    failwith "not impl"
- *)
+
+  let filter ~select (annotated : t) : raw =
+
+    let rec filter_widgets = function
+      | [] -> []
+      | (id, state, widget)::tl ->
+         if state <> select
+         then filter_widgets tl
+         else (id, widget)::(filter_widgets tl)
+    in
+    
+    let rec filter_layout
+            : (string * state * container) list -> (string * raw_container) list = function
+      | [] -> []
+      | (id, state, cont)::tl ->
+         if state <> select
+         then filter_layout tl
+         else
+           let widgets = filter_widgets cont.widgets in
+           (id, {position = cont.position; widgets})::(filter_layout tl)
+    in
+
+    { resolution = annotated.resolution
+    ; layout = filter_layout annotated.layout
+    ; widgets = annotated.widgets
+    }
+    
 end

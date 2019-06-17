@@ -23,7 +23,7 @@ module Annotated : sig
     ; channels : (state * channel) list
     }
 
-  type t = structure list
+  type t = (state * structure) list
            
   val equal : t -> t -> bool
 
@@ -34,9 +34,9 @@ module Annotated : sig
   val annotate : active:raw -> avail:raw -> stored:raw -> t
 
   val update_stored : active:raw -> avail:raw -> stored:raw -> [`Changed of raw | `Kept of raw ]
-(*
+
   val filter : select:state -> t -> raw
- *)
+
 end
   
 module Many : sig

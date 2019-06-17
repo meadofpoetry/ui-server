@@ -61,7 +61,7 @@ module Annotated = struct
     ; channels : (state * channel) list
     } [@@deriving yojson,eq]
 
-  type t = structure list [@@deriving yojson,eq]
+  type t = (state * structure) list [@@deriving yojson,eq]
 
   (* TODO remove after 4.08 *)
   let rec filter_opt = function
@@ -167,7 +167,7 @@ module Annotated = struct
           | `First -> `Active_and_stored, c)
     in
     
-    let merge_structures ?active ?avail ?stored () : structure option =
+    let merge_structures ?active ?avail ?stored () : (state * structure) option =
       let eq_chan_num (ch1 : raw_channel) (ch2 : raw_channel) =
         ch1.number = ch2.number
       in
@@ -198,7 +198,12 @@ module Annotated = struct
         |> filter_opt
       in
       opt_map_any active avail stored
-        ~f:(fun _ (s : raw_structure) -> ({ id = s.id; uri = s.uri; channels } : structure))
+        ~f:(fun prior (s : raw_structure) ->
+          let s : structure = { id = s.id; uri = s.uri; channels } in
+          match prior with
+          | `Third -> `Stored, s
+          | `Second -> `Avail, s
+          | `First -> `Active_and_stored, s)
     in
 
     let eq_struct_id (s1 : raw_structure) (s2 : raw_structure) =
@@ -281,10 +286,41 @@ module Annotated = struct
     | true -> `Changed res
     | false -> `Kept active
 
-(*
-  let filter ~select annotated : raw =
-    failwith "not impl"
- *)
+
+  let filter ~select (annotated : t) : raw =
+
+    let rec filter_pids = function
+      | [] -> []
+      | (state,_)::tl when state <> select -> filter_pids tl
+      | (_,p)::tl -> p::(filter_pids tl)
+    in
+    
+    let rec filter_channels = function
+      | [] -> []
+      | (state,_)::tl when state <> select -> filter_channels tl
+      | (_, c)::tl ->
+         let c' : raw_channel =
+           { number = c.number
+           ; service_name = c.service_name
+           ; provider_name = c.provider_name
+           ; pids = filter_pids c.pids
+           }
+         in c'::(filter_channels tl)
+    in
+    
+    let rec filter_structs = function
+      | [] -> []
+      | (state,_)::tl when state <> select -> filter_structs tl
+      | (_, s)::tl ->
+         let s' : raw_structure =
+           { id = s.id
+           ; uri = s.uri
+           ; channels = filter_channels s.channels
+           }
+         in s'::(filter_structs tl)
+    in
+    filter_structs annotated
+ 
 end
                 
 module Many = struct

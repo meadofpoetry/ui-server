@@ -28,7 +28,7 @@ module Annotated : sig
   val annotate : active:raw -> stored:raw -> t
 
   val update_stored : active:raw -> stored:raw -> [`Changed of raw | `Kept of raw ]
-(*
+
   val filter : select:state -> t -> raw
- *)
+
 end
