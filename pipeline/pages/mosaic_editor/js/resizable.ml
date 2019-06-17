@@ -109,8 +109,8 @@ class t (elt : Dom_html.element Js.t) () =
       super#init ()
 
     method! initial_sync_with_dom () : unit =
-      (* _down_listener <- Some (
-       *     Events.mousedowns super#root self#handle_mouse_down); *)
+      _down_listener <- Some (
+          Events.mousedowns super#root self#handle_mouse_down);
       _touchstart_listener <- Some (
           Events.touchstarts super#root self#handle_touch_start);
       super#initial_sync_with_dom ()
@@ -171,33 +171,37 @@ class t (elt : Dom_html.element Js.t) () =
       end;
       Lwt.return_unit
 
-    (* method private handle_mouse_down (e : Dom_html.mouseEvent Js.t)
-     *     (_ : unit Lwt.t) : unit Lwt.t =
-     *   let target = Dom_html.eventTarget e in
-     *   Dom.preventDefault e;
-     *   (\* Refresh element position and size *\)
-     *   _position <- Position.of_element super#root;
-     *   (\* Refresh mouse cursor position *\)
-     *   _coordinate <- ( (Js.Unsafe.coerce e)##.pageX
-     *                  , (Js.Unsafe.coerce e)##.pageY);
-     *   _stop_listener <- Some (
-     *       Events.mouseups Dom_html.window self#handle_mouse_up);
-     *   let action =
-     *     if Element.has_class target Markup.CSS.resizer
-     *     then begin match e##.button with
-     *       | 0 ->
-     *         let dir = resize_dir_of_event e in
-     *         `Resize dir
-     *       | _ -> `None
-     *     end
-     *     else begin match e##.button with
-     *       | 0 -> `Resize 
-     *       | _ -> Lwt.return_unit
-     *   end *)
-
-    method private handle_mouse_move (e : Dom_html.mouseEvent Js.t)
+    method private handle_mouse_down (e : Dom_html.mouseEvent Js.t)
         (_ : unit Lwt.t) : unit Lwt.t =
-      self#move e
+      let target = Dom_html.eventTarget e in
+      Dom.preventDefault e;
+      (* Refresh element position and size *)
+      _position <- Position.of_element super#root;
+      (* Refresh mouse cursor position *)
+      _coordinate <- ( (Js.Unsafe.coerce e)##.pageX
+                     , (Js.Unsafe.coerce e)##.pageY);
+      _stop_listener <- Some (
+          Events.mouseups Dom_html.window self#handle_mouse_up);
+      let action =
+        if Element.has_class target Markup.CSS.resizer
+        then begin match e##.button with
+          | 0 -> `Resize (resize_dir_of_event e)
+          | _ -> `None
+        end
+        else begin match e##.button with
+          | 0 -> `Move
+          | _ -> `None
+        end in
+      _move_listener <- Some (
+          Events.mousemoves Dom_html.window (self#handle_mouse_move action));
+      Lwt.return_unit
+
+    method private handle_mouse_move action (e : Dom_html.mouseEvent Js.t)
+        (_ : unit Lwt.t) : unit Lwt.t =
+      match action with
+      | `Resize dir -> self#resize dir e
+      | `Move -> self#move e
+      | `None -> Lwt.return_unit
 
     method private handle_mouse_up (e : Dom_html.mouseEvent Js.t)
         (_ : unit Lwt.t) : unit Lwt.t =

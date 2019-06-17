@@ -195,9 +195,9 @@ let transform_top_app_bar
   x#set_title title;
   x#add_class class_;
   x#set_actions @@ List.map Widget.root actions;
-  scaffold#set_on_navigation_icon_click (fun _ _ ->
-      (React.S.value cont.ig#s_active)#clear_selection ();
-      Lwt.return_unit);
+  (* scaffold#set_on_navigation_icon_click (fun _ _ ->
+   *     (React.S.value cont.ig#s_active)#clear_selection ();
+   *     Lwt.return_unit); *)
   (fun () ->
      scaffold#set_on_navigation_icon_click_default ();
      List.iter Widget.destroy actions;
