@@ -1,0 +1,15 @@
+.mosaic-table {
+    padding: 10px;
+    background-color: silver;
+    position: relative;
+}
+
+.mosaic-table__item {
+    background-color: white;
+    padding-bottom: 25%;
+    width: 32%;
+    margin-right: 2%;
+    margin-bottom: 2%;
+    position: relative;
+    float: left;
+}

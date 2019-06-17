@@ -86,9 +86,7 @@ module Make(I : Item) = struct
           () in
       let wrapper = Tyxml_js.Html.(div ~a:[a_class [wrapper_class]] [])
                     |> Tyxml_js.To_dom.of_element
-                    |> Widget.create  in
-      let card = Card.make [wrapper] in
-      card#add_class base_class;
+                    |> Widget.create in
       let _ =
         React.S.map (function
             | [] -> wrapper#remove_children ();
@@ -98,7 +96,7 @@ module Make(I : Item) = struct
                    @@ List.map (make_item candidates set_candidates) l)
           candidates
       in
-      card
+      wrapper
 
   end
 
@@ -144,18 +142,8 @@ module Make(I : Item) = struct
   end
 
   let make ~selected ~candidates ~set_candidates () =
-    let add_title = "Добавить" in
-    let props_title = "Свойства" in
     let add = Add.make ~candidates ~set_candidates () in
-    let props = Properties.make [] selected in
-    let title = Selectable_title.make [ add_title, add
-                                      ; props_title, props ] in
-    let content = Box.make ~dir:`Column [add#widget; props#widget] in
-    let box = Box.make ~dir:`Column [title#widget; content#widget] in
-    content#add_class base_class;
-    let sel = function
-      | `Add -> title#select_by_name add_title
-      | `Props -> title#select_by_name props_title in
-    box, sel
+    add#add_class base_class;
+    add
 
 end

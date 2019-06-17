@@ -1,0 +1,36 @@
+@import "./variables";
+
+.mosaic-table-divider {
+    position: absolute;
+    z-index: 2;
+
+    &__inner {
+        position: absolute;
+        box-sizing: content-box;
+        width: 100%;
+        height: 100%;
+    }
+
+    &--vertical {
+        width: 5px;
+        height: 100%;
+        top: 0;
+        cursor: col-resize;
+        .mosaic-table-divider__inner {
+            left: -($divider-action-area-size);
+            top: 0;
+            padding: 0 $divider-action-area-size;
+        }
+    }
+    &--horizontal {
+        height: 5px;
+        width: 100%;
+        left: 0;
+        cursor: row-resize;
+        .mosaic-table-divider__inner {
+            top: -($divider-action-area-size);
+            left: 0;
+            padding: $divider-action-area-size 0;
+        }
+    }
+}
