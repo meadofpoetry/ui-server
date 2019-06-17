@@ -162,6 +162,8 @@ module Option = struct
     | None -> None
     | Some x -> Some (f x)
 
+  let bind f = function None -> None | Some x -> f x
+
   let is_some : 'a option -> bool = function
     | None -> false
     | Some _ -> true

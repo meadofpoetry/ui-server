@@ -20,11 +20,34 @@
     }
 }
 
+@mixin nav-icon-hidden {
+    opacity: 0;
+    transform: rotate(225deg);
+}
+
+@mixin nav-icon-visible {
+    opacity: 1;
+    visibility: visible;
+    transform: rotate(360deg);
+}
+
 .mdc-top-app-bar {
     transition: mdc-animation-enter(background-color, $duration: 90ms, $delay: 0ms);
+    &__navigation-icon .mdc-icon {
+        position: absolute;
+        transition: mdc-animation-enter(all, $duration: 200ms, $delay: 0ms);
+    }
+    &__navigation-icon .mdc-icon:nth-child(1),
+    &--contextual-action &__navigation-icon .mdc-icon:nth-child(2) {
+        @include nav-icon-visible;
+    }
+    &__navigation-icon .mdc-icon:nth-child(2),
+    &--contextual-action &__navigation-icon .mdc-icon:nth-child(1) {
+        @include nav-icon-hidden;
+    }
 }
 
 .mdc-top-app-bar--contextual-action {
     @include mdc-theme-prop(background-color, hsl(0, 0%, 7%));
-    transition: mdc-animation-exit-temporary(background-color, $duration: 90ms, $delay: 0ms);
+    transition: mdc-animation-exit-temporary(background-color, $duration: 150ms, $delay: 0ms);
 }

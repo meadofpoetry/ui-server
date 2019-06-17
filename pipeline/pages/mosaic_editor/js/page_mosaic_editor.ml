@@ -267,21 +267,23 @@ let transform_top_app_bar
     ?(actions = [])
     ~(title : string)
     ~(class_ : string)
-    ~(leading : #Dom_html.element Js.t)
+    (scaffold : Scaffold.t)
+    (cont : Cont.t)
     (x : Top_app_bar.t) =
   let prev_title = x#title in
-  let prev_leading = x#leading in
   let prev_actions = x#actions in
   x#set_title title;
   x#add_class class_;
-  x#set_leading leading;
   x#set_actions @@ List.map Widget.root actions;
+  scaffold#set_on_navigation_icon_click (fun _ _ ->
+      (React.S.value cont.ig#s_active)#clear_selection ();
+      Lwt.return_unit);
   (fun () ->
+     scaffold#set_on_navigation_icon_click_default ();
      List.iter Widget.destroy actions;
      x#set_title prev_title;
      x#set_actions prev_actions;
-     x#remove_class class_;
-     Option.iter x#set_leading prev_leading)
+     x#remove_class class_)
 
 let handle_item_selected
     scaffold
@@ -309,19 +311,13 @@ let handle_item_selected
               { icon = Icon.SVG.(make_simple Path.pencil)#widget
               ; name = "Редактировать"
               } in
-          let leading =
-            Icon_button.make
-              ~icon:Icon.SVG.(make_simple Path.close)
-              ~on_click:(fun _ _ ->
-                  (React.S.value cont.ig#s_active)#clear_selection ();
-                  Lwt.return_unit)
-              () in
           let restore =
             transform_top_app_bar
               ~class_:Page_mosaic_editor_tyxml.CSS.top_app_bar_contextual
               ~actions:[edit; remove]
               ~title:value.name
-              ~leading:leading#root
+              scaffold
+              cont
               x in
           match acc with
           | None -> Some restore
@@ -498,6 +494,11 @@ let ( >>= ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
 
 let () =
   let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
+  (match Option.bind (fun x -> x#leading) scaffold#top_app_bar with
+   | None -> ()
+   | Some x ->
+     let icon = Icon.SVG.(make_simple Path.close) in
+     Dom.appendChild x icon#root);
   let thread =
     Http_wm.get_layout ()
     >>= fun wm ->

@@ -85,6 +85,7 @@ class t ?(drawer : #Drawer.t option)
     ?(side_sheet_breakpoints = Breakpoint.default_side_sheet)
     ?(top_app_bar : #Top_app_bar.t option)
     ?(body : #Widget.t option)
+    ?on_navigation_icon_click
     (elt : Dom_html.element Js.t)
     () =
   let drawer_frame_full_height =
@@ -122,6 +123,8 @@ class t ?(drawer : #Drawer.t option)
 
     val mutable side_sheet_breakpoints = side_sheet_breakpoints
     val mutable drawer_breakpoints = drawer_breakpoints
+
+    val mutable on_navigation_icon_click = on_navigation_icon_click
 
     inherit Widget.t elt () as super
 
@@ -162,7 +165,11 @@ class t ?(drawer : #Drawer.t option)
       Option.iter Lwt.cancel resize_listener;
       resize_listener <- None;
 
-      (* Widgets *)
+    method set_on_navigation_icon_click f : unit =
+      on_navigation_icon_click <- Some f
+
+    method set_on_navigation_icon_click_default () : unit =
+      on_navigation_icon_click <- None
 
     method top_app_bar : Top_app_bar.t option =
       top_app_bar
@@ -257,8 +264,10 @@ class t ?(drawer : #Drawer.t option)
       Option.iter app_bar#set_leading leading;
       (match app_bar#leading, drawer with
        | Some l, Some d ->
-         let listener =
-           Events.clicks l (fun _ _ -> d#toggle ()) in
+         let listener = Events.clicks l (fun _ _ ->
+             match on_navigation_icon_click with
+             | None -> d#toggle ()
+             | Some f -> f (self :> t) d) in
          menu_click_listener <- Some listener;
        | _ -> ());
       Element.insert_child_at_index app_content_outer 0 app_bar#root
@@ -380,6 +389,7 @@ let make ?drawer ?drawer_elevation ?drawer_breakpoints
     ?side_sheet ?side_sheet_elevation ?side_sheet_breakpoints
     ?(top_app_bar : #Top_app_bar.t option)
     ?(body : #Widget.t option)
+    ?on_navigation_icon_click
     () =
   let elt =
     Tyxml_js.To_dom.of_element
@@ -394,8 +404,8 @@ let make ?drawer ?drawer_elevation ?drawer_breakpoints
           ()) in
   new t ?drawer ?drawer_elevation ?drawer_breakpoints
     ?side_sheet ?side_sheet_elevation ?side_sheet_breakpoints
-    ?top_app_bar ?body elt ()
+    ?top_app_bar ?body ?on_navigation_icon_click elt ()
 
 (** Attach scaffold widget to existing element *)
-let attach (elt : #Dom_html.element Js.t) : t =
-  new t (Element.coerce elt) ()
+let attach ?on_navigation_icon_click (elt : #Dom_html.element Js.t) : t =
+  new t ?on_navigation_icon_click (Element.coerce elt) ()
