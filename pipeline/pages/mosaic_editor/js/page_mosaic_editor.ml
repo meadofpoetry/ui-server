@@ -182,86 +182,6 @@ let get_free_widgets containers widgets =
       not @@ List.exists (eq (k,v)) used)
     widgets
 
-let create_widgets_grid
-    ~(container : Wm.container wm_item)
-    ~(candidates : Widget_item.t list React.signal)
-    ~(set_candidates : Widget_item.t list -> unit)
-    ~(on_apply : (string * Wm.widget) list -> unit)
-    ~(on_cancel : unit -> unit)
-    () =
-  let init_cand = React.S.value candidates in
-  let cont_name = container.name in
-  let cont_pos = Container_item.position_of_t container in
-  let resolution = cont_pos.right - cont_pos.left,
-                   cont_pos.bottom - cont_pos.top in
-  let init = List.map Widget_item.t_of_layout_item container.item.widgets in
-  let apply =
-    Actions.make_action
-      { icon = Icon.SVG.(make_simple Path.check)#widget
-      ; name = "Применить" } in
-  let back =
-    Actions.make_action
-      { icon = Icon.SVG.(make_simple Path.arrow_left)#widget
-      ; name = "Назад" } in
-  let dlg =
-    Dialog.make
-      ~actions:[ Dialog.Markup.create_action ~label:"Отмена" ~action:Close ()
-               ; Dialog.Markup.create_action ~label:"ОК" ~action:Accept () ]
-      ~title:(Dialog.Markup.create_title_simple "Сохранить изменения?" ())
-      () in
-  dlg#add_class "wm-confirmation-dialog";
-  let title = Printf.sprintf "%s. Виджеты" cont_name in
-  let w = Widg.make ~title
-      ~init
-      ~candidates
-      ~set_candidates
-      ~resolution
-      () in
-  Lwt.async (fun () ->
-      Events.clicks apply#root (fun _ _ ->
-          on_apply w.ig#layout_items;
-          Lwt.return_unit));
-  Lwt.async (fun () ->
-      Events.clicks back#root (fun _ _ ->
-          let eq = Widget_item.equal in
-          let filter, mem = List.(filter, fun x -> exists (eq x)) in
-          let found = filter (fun x -> not @@ mem x init) w.ig#items in
-          let lost = filter (fun x -> not @@ mem x w.ig#items) init in
-          match found, lost with
-          | [], [] ->
-            on_cancel ();
-            Lwt.return_unit
-          | _ ->
-            let open Lwt.Infix in
-            dlg#open_await ()
-            >|= function
-            | Accept -> on_apply w.ig#layout_items
-            | _ -> set_candidates init_cand; on_cancel ()));
-  w.ig#append_child dlg;
-  w
-
-let switch ~grid
-    ~(selected : Container_item.t Dynamic_grid.Item.t)
-    ~s_state_push
-    ~candidates
-    ~set_candidates () =
-  let on_apply widgets =
-    let t = selected#value in
-    let t = Container_item.update_min_size
-        { t with item = { t.item with widgets }} in
-    selected#set_value t;
-    grid#update_item_min_size selected;
-    s_state_push `Container
-  in
-  let on_cancel  = fun () -> s_state_push `Container in
-  let w = create_widgets_grid
-      ~container:selected#value
-      ~candidates
-      ~set_candidates
-      ~on_apply
-      ~on_cancel () in
-  s_state_push (`Widget w)
-
 (* Switches top app bar between contextual action mode and normal mode *)
 let transform_top_app_bar
     ?(actions = [])
@@ -313,7 +233,7 @@ let handle_item_selected
             Icon_button.make
               ~icon:Icon.SVG.(make_simple Path.close)
               ~on_click:(fun _ _ ->
-                  (React.S.value cont.ig#s_active)#clear_selection ();
+                  (* (React.S.value cont.ig#s_active)#clear_selection (); *)
                   Lwt.return_unit)
               () in
           let restore =
@@ -326,8 +246,8 @@ let handle_item_selected
           match acc with
           | None -> Some restore
           | Some _ as acc -> acc)
-    None
-    (React.S.changes cont.ig#s_selected)
+    None React.E.never
+    (* (React.S.changes cont.ig#s_selected) *)
 
 let create
     ~(init : Wm.t)
@@ -369,7 +289,6 @@ let create
       { icon = Icon.SVG.(make_simple Path.auto_fix)#widget
       ; name = "Мастер"
       } in
-  let resolution_dlg = Resolution_dialog.make () in
   let wz = Events.clicks wizard#root (fun _ _ -> wz_show ()) in
   wizard#set_on_destroy (fun () -> Lwt.cancel wz);
   let cont =
@@ -423,43 +342,6 @@ let create
      app_bar#set_actions actions);
   let e_edit, set_edit = React.E.create () in
   let _s_selected = handle_item_selected scaffold set_edit cont in
-  let _ =
-    React.(
-      E.map (fun selected ->
-          switch ~grid:cont.ig
-            ~s_state_push
-            ~candidates:s_wc
-            ~set_candidates:s_wc_push
-            ~selected
-            ())
-      @@ E.select [ cont.ig#e_item_dblclick; e_edit ]) in
-  Lwt.async (fun () ->
-      Events.clicks size#root (fun _ _ ->
-          resolution_dlg#show_await_resolution cont.ig#resolution
-          >>= function
-          | None -> Lwt.return_unit
-          | Some resolution ->
-            let new_layout = resize_layout ~resolution cont.ig#items in
-            cont.ig#initialize resolution new_layout;
-            Lwt.return_unit));
-  (* Lwt.async (fun () ->
-   *     Events.clicks save#root (fun _ _ ->
-   *         post { resolution = cont.ig#resolution
-   *              ; widgets = init.widgets
-   *              ; layout = cont.ig#layout_items (\*serialize ~cont ()*\)
-   *              })); *)
-  let _ =
-    React.E.map (fun l ->
-        let layers = Container_item.layers_of_t_list
-          @@ List.map Container_item.t_of_layout_item l in
-        cont.rt#initialize_layers layers;
-        s_wc_push
-        @@ List.map Widget_item.t_of_layout_item
-        @@ get_free_widgets l init.widgets;
-        cont.ig#initialize init.resolution
-        @@ List.map Container_item.t_of_layout_item l;
-        cont.rt#layout ();
-        cont.ig#layout ()) wz_e in
   let add_to_view ig rt =
     main#remove_children (); main#append_child ig;
     main#set_on_layout ig#layout;
@@ -470,13 +352,11 @@ let create
       x#remove_children ();
       x#append_child rt
   in
-  let _ =
-    React.S.map (function
-        | `Widget (w : Widg.t) -> add_to_view w.ig w.rt
-        | `Container -> add_to_view cont.ig cont.rt)
-      s_state in
-  cont.ig#append_child wz_dlg;
-  cont.ig#append_child resolution_dlg
+  ignore
+  @@ React.S.map (function
+      | `Widget (w : Widg.t) -> add_to_view w.ig w.rt
+      | `Container -> add_to_view cont.ig cont.rt)
+    s_state
 
 let post = fun w ->
   Http_wm.set_layout w

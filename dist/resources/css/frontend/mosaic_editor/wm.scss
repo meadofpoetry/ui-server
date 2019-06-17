@@ -9,6 +9,9 @@
 @import '@material/layout-grid/_variables';
 @import '@material/animation/_variables';
 @import '@material/animation/_functions';
+@import './divider/divider';
+@import './table/table';
+@import './resizable/resizable';
 @import './_variables';
 @import './_mixins';
 
@@ -16,7 +19,7 @@ $wm-grid-background-color: surface;
 $wm-placeholder-color: text-secondary-on-surface;
 
 .wm {
-    margin: 0;
+    margin: 0 1rem;
 }
 
 .wm, .mdc-layout-grid, .mdc-layout-grid__inner, .wm-grid-container {
