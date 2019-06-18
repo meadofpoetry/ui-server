@@ -8,6 +8,7 @@ module CSS = struct
   let table_item = BEM.add_element table "item"
 
   let resizable = "resizable"
+  let resizable_active = BEM.add_modifier resizable "active"
   let resizers = BEM.add_element resizable "resizers"
   let resizer = BEM.add_element resizable "resizer"
   let resizer_top_left = BEM.add_modifier resizer "top-left"

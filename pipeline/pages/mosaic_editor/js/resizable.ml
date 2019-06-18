@@ -2,9 +2,12 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml
 open Components
 
-module Selector = struct
-  let resizer = "." ^ Markup.CSS.resizer
-end
+(* TODO
+   1. Take aspect ratio into account while resizing (if any)
+   2. Respect parent boundaries when resizing/moving
+   3. Check if element collides with its siblings
+   4. Show helper alignment lines
+   5. Stick to neighbour elements *)
 
 type resize_dir =
   | Top_left
@@ -111,7 +114,6 @@ class t ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       super#initial_sync_with_dom ()
 
     method! layout () : unit =
-      self#draw_background ();
       super#layout ()
 
     method! destroy () : unit =
@@ -146,10 +148,12 @@ class t ?(min_size = 20) (elt : Dom_html.element Js.t) () =
           Events.touchmoves Dom_html.window (self#handle_touch_move action));
       _stop_listener <- Some (
           Events.touchends Dom_html.window self#handle_touch_end);
+      super#add_class Markup.CSS.resizable_active;
       Lwt.return_unit
 
     method private handle_touch_move action (e : Dom_html.touchEvent Js.t)
         (_ : unit Lwt.t) : unit Lwt.t =
+      Dom.preventDefault e;
       match _touch_id with
       | None -> self#move e
       | Some id ->
@@ -194,6 +198,7 @@ class t ?(min_size = 20) (elt : Dom_html.element Js.t) () =
           Events.mousemoves Dom_html.window (self#handle_mouse_move action));
       _stop_listener <- Some (
           Events.mouseups Dom_html.window self#handle_mouse_up);
+      super#add_class Markup.CSS.resizable_active;
       Lwt.return_unit
 
     method private handle_mouse_move action (e : Dom_html.mouseEvent Js.t)
@@ -213,7 +218,9 @@ class t ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       Utils.Option.iter Lwt.cancel _move_listener;
       Utils.Option.iter Lwt.cancel _stop_listener;
       _move_listener <- None;
-      _stop_listener <- None
+      _stop_listener <- None;
+      super#root##.style##.backgroundImage := Js.string "";
+      super#remove_class Markup.CSS.resizable_active
 
     (* Moves an element *)
     method private move : 'a. (#Dom_html.event as 'a) Js.t -> unit Lwt.t =
@@ -223,6 +230,7 @@ class t ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       let y = _position.y + page_y - (snd _coordinate) in
       super#root##.style##.left := Utils.px_js x;
       super#root##.style##.top := Utils.px_js y;
+      self#draw_background ();
       Lwt.return_unit
 
     (* Resizes an element *)
@@ -230,43 +238,39 @@ class t ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       -> (#Dom_html.event as 'a) Js.t
       -> unit Lwt.t =
       fun dir e ->
-      let page_x, page_y = get_cursor_position ?touch_id:_touch_id e in
-      (match dir with
-       | None -> ()
-       | Some Top_left ->
-         let position =
-           { Position.
-             w = _position.w - (page_x - (fst _coordinate))
-           ; h = _position.h - (page_y - (snd _coordinate))
-           ; x = _position.x + (page_x - (fst _coordinate))
-           ; y = _position.y + (page_y - (snd _coordinate))
-           } in
-         self#set_position position
-       | Some Top_right ->
-         let position =
-           { _position with
-             w = _position.w + (page_x - (fst _coordinate))
-           ; h = _position.h - (page_y - (snd _coordinate))
-           ; y = _position.y + (page_y - (snd _coordinate))
-           } in
-         self#set_position position
-       | Some Bottom_left ->
-         let position =
-           { _position with
-             w = _position.w - (page_x - (fst _coordinate))
-           ; h = _position.h + (page_y - (snd _coordinate))
-           ; x = _position.x + (page_x - (fst _coordinate))
-           } in
-         self#set_position position
-       | Some Bottom_right ->
-         let position =
-           { _position with
-             w = _position.w + (page_x - (fst _coordinate))
-           ; h = _position.h + (page_y - (snd _coordinate))
-           } in
-         self#set_position position);
-      self#layout ();
-      Lwt.return_unit
+      match dir with
+      | None -> Lwt.return_unit
+      | Some pos ->
+        let page_x, page_y = get_cursor_position ?touch_id:_touch_id e in
+        let position = match pos with
+          | Top_left ->
+            { Position.
+              w = _position.w - (page_x - (fst _coordinate))
+            ; h = _position.h - (page_y - (snd _coordinate))
+            ; x = _position.x + (page_x - (fst _coordinate))
+            ; y = _position.y + (page_y - (snd _coordinate))
+            }
+          | Top_right ->
+            { _position with
+              w = _position.w + (page_x - (fst _coordinate))
+            ; h = _position.h - (page_y - (snd _coordinate))
+            ; y = _position.y + (page_y - (snd _coordinate))
+            }
+          | Bottom_left ->
+            { _position with
+              w = _position.w - (page_x - (fst _coordinate))
+            ; h = _position.h + (page_y - (snd _coordinate))
+            ; x = _position.x + (page_x - (fst _coordinate))
+            }
+          | Bottom_right ->
+            { _position with
+              w = _position.w + (page_x - (fst _coordinate))
+            ; h = _position.h + (page_y - (snd _coordinate))
+            } in
+        self#set_position position;
+        self#layout ();
+        self#draw_background ();
+        Lwt.return_unit
 
     method private set_position (x : Position.t) =
       if x.w > _min_size

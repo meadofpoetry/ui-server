@@ -140,30 +140,29 @@ class t ~(left_node : node_entry)
           sw#root##.style##.left := Utils.px_js x) switch;
       let width = right.x - left.x in
       let path =
-        if abs (left.y - right.y) < 4
-        then Printf.sprintf "M %d %d L %d %d" left.x left.y right.x left.y
+        let offset = step / 4 in
+        if right.x - left.x < step
+        then
+          self#_make_single_path
+            left.x left.y
+            (left.x + width / 2 + offset) left.y
+            (left.x + width / 2) (top - height / 2)
+            (left.x + width / 2 - offset) right.y
+            right.x right.y
         else
-          if right.x - left.x < step
-          then
-            self#_make_straight_path
-              left.x left.y
-              left.x left.y (left.x + width / 2) left.y
-              (left.x + width / 2) (top - height / 2)
-              (left.x + width / 2) (top - height / 2)
-              (left.x + width / 2) right.y right.x right.y
-          else
-            self#_make_curved_path
-              left.x left.y
-              (right.x - step) left.y
-              (right.x - step) left.y (right.x - step / 2) left.y
-              (right.x - step / 2) (top - height / 2)
-              (right.x - step / 2) (top - height / 2)
-              (right.x - step / 2) (right.y) right.x right.y in
+          self#_make_complex_path
+            left.x left.y
+            (right.x - step) left.y
+            (right.x - step / 2 + offset) left.y
+            (right.x - step / 2) (top - height / 2)
+            (right.x - step / 2 - offset) (right.y)
+            right.x right.y in
       self#set_attribute "d" path
 
-    method private _make_straight_path =
-      Printf.sprintf "M %d %d C %d %d %d %d %d %d C %d %d %d %d %d %d"
+    method private _make_single_path =
+      Printf.sprintf "M %d %d Q %d %d, %d %d Q %d %d, %d %d"
 
-    method private _make_curved_path =
-      Printf.sprintf "M %d %d L %d %d C %d %d %d %d %d %d C %d %d %d %d %d %d"
+    method private _make_complex_path =
+      Printf.sprintf "M %d %d L %d %d Q %d %d, %d %d Q %d %d, %d %d"
+
   end
