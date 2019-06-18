@@ -50,11 +50,11 @@ let get_width_for_height (elt : #Dom_html.element Js.t) (h : float) : int =
   (* HACK to eliminate the floating point error. Rewrite later *)
   let width = float_of_string @@ Printf.sprintf "%g" @@ h *. ar in
   (* XXX prove using round is ok *)
-  Float.to_int @@ Js.math##round width
+  Float.to_int @@ Js.math##floor width
 
 let get_height_for_width (elt : #Dom_html.element Js.t) (w : float) : int =
   let ar = get_aspect_ratio elt in
   (* HACK to eliminate the floating point error. Rewrite later *)
   let height = float_of_string @@ Printf.sprintf "%g" @@ w /. ar in
   (* XXX prove using round is ok *)
-  Float.to_int @@ Js.math##round height
+  Float.to_int @@ Js.math##floor height

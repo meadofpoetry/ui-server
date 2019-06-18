@@ -1,12 +1,14 @@
-.mosaic-table {
-    margin: 20px;
-    background-color: silver;
-    position: relative;
-
-    width: 300px;
-    height: 300px;
+.mosaic-table-wrapper {
+    width: 100%;
+    height: 100%;
+    display: flex;
     overflow: hidden;
-    resize: both;
+}
+
+.mosaic-table {
+    margin: auto;
+    background-color: lightblue;
+    position: relative;
 }
 
 .mosaic-table__item {

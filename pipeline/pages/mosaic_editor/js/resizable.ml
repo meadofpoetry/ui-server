@@ -37,6 +37,23 @@ module Position = struct
     ; w = elt##.offsetWidth
     ; h = elt##.offsetHeight
     }
+
+  let to_client_rect (t : t) : Dom_html.clientRect Js.t =
+    object%js
+      val top = float_of_int t.y
+      val left = float_of_int t.x
+      val right = float_of_int @@ t.w - t.x
+      val bottom = float_of_int @@ t.h - t.y
+      val width = Js.def @@ float_of_int t.w
+      val height = Js.def @@ float_of_int t.h
+    end
+
+  let of_client_rect (rect : Dom_html.clientRect Js.t) : t =
+    { x = int_of_float rect##.left
+    ; y = int_of_float rect##.top
+    ; w = Js.Optdef.case rect##.width (fun () -> 0) int_of_float
+    ; h = Js.Optdef.case rect##.height (fun () -> 0) int_of_float
+    }
 end
 
 module Sig : sig
@@ -66,6 +83,23 @@ end = struct
 
   let adjust_position ?aspect_ratio item pos items parent =
     failwith "Implement"
+end
+
+module Event = struct
+  class type detail =
+    object
+      method item : Dom_html.element Js.t Js.readonly_prop
+      method rect : Dom_html.clientRect Js.t Js.readonly_prop
+    end
+  class type event =
+    object
+      inherit [detail Js.t] Widget.custom_event
+    end
+
+  let input : event Js.t Events.Typ.t =
+    Events.Typ.make "mosaic-resizable:input"
+  let change : event Js.t Events.Typ.t =
+    Events.Typ.make "mosaic-resizable:change"
 end
 
 let unwrap x = Js.Optdef.get x (fun () -> assert false)
@@ -160,6 +194,22 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
 
     (* Private methods *)
 
+    method private notify_input () : unit =
+      let (detail : Event.detail Js.t) =
+        object%js
+          val item = super#root
+          val rect = Position.to_client_rect _position
+        end in
+      super#emit ~should_bubble:true ~detail Event.input
+
+    method private notify_change () : unit =
+      let (detail : Event.detail Js.t) =
+        object%js
+          val item = super#root
+          val rect = Position.to_client_rect _position
+        end in
+      super#emit ~should_bubble:true ~detail Event.change
+
     method private handle_touch_start (e : Dom_html.touchEvent Js.t)
         (_ : unit Lwt.t) : unit Lwt.t =
       Dom.preventDefault e;
@@ -251,7 +301,8 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       _move_listener <- None;
       _stop_listener <- None;
       super#root##.style##.backgroundImage := Js.string "";
-      super#remove_class Markup.CSS.resizable_active
+      super#remove_class Markup.CSS.resizable_active;
+      self#notify_change ()
 
     (* Moves an element *)
     method private move : 'a. (#Dom_html.event as 'a) Js.t -> unit Lwt.t =
@@ -259,8 +310,10 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       let page_x, page_y = get_cursor_position ?touch_id:_touch_id e in
       let x = _position.x + page_x - (fst _coordinate) in
       let y = _position.y + page_y - (snd _coordinate) in
+      _position <- { _position with x; y};
       super#root##.style##.left := Utils.px_js x;
       super#root##.style##.top := Utils.px_js y;
+      self#notify_input ();
       self#draw_background ();
       Lwt.return_unit
 
@@ -298,8 +351,10 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
               w = _position.w + (page_x - (fst _coordinate))
             ; h = _position.h + (page_y - (snd _coordinate))
             } in
+        _position <- position;
         self#set_position position;
         self#layout ();
+        self#notify_input ();
         self#draw_background ();
         Lwt.return_unit
 

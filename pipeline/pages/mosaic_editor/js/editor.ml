@@ -27,7 +27,17 @@ module Make(I : Item) = struct
     let selected, selected_push = React.S.create None in
     let layers = List.sort compare @@ I.layers_of_t_list init in
     let rt = RT.make ~selected ~layers ~candidates ~set_candidates in
-    let ig = Widget.coerce @@ Layout_table.make () in
+    let table = Layout_table.make () in
+    let ig =
+      Widget.create_div
+        ~widgets:[table]
+        () in
+    let _ =
+      Ui_templates.Resize_observer.observe
+        ~f:(fun _ -> table#layout ())
+        ~node:ig#root
+        () in
+    ig#add_class "mosaic-table-wrapper";
     { ig; rt }
 
 end

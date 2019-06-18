@@ -35,10 +35,12 @@ module Item = struct
 
 end
 
-class t ?(items = []) elt () =
+class t ~width ~height ?(items = []) elt () =
   object(self)
     inherit Widget.t elt () as super
-    val width = 300
+    val aspect = float_of_int width /. float_of_int height
+    val width = width
+    val height = height
 
     method! init () : unit =
       super#init ();
@@ -47,41 +49,58 @@ class t ?(items = []) elt () =
 
     method! initial_sync_with_dom () : unit =
       let _ = Ui_templates.Resize_observer.observe
-          ~f:(fun _ ->
-              List.iter (fun item ->
-                  let w = float_of_int @@ Position.get_width item in
-                  let h = Position.get_height item in
-                  print_endline @@ Printf.sprintf "old width: %gpx" w;
-                  print_endline @@ Printf.sprintf "old height: %dpx" h;
-                  let left = float_of_int @@ Position.get_left item in
-                  let top = Position.get_top item in
-                  let perc = (w *. 100.) /. (float_of_int width) in
-                  print_endline @@ Printf.sprintf "percent: %g%%" perc;
-                  let cur = float_of_int super#root##.offsetWidth in
-                  let new_w = (cur *. perc) /. 100. in
-                  let new_h = Position.get_height_for_width item new_w in
-                  print_endline @@ Printf.sprintf "new width: %gpx" new_w;
-                  print_endline @@ Printf.sprintf "new height: %dpx" new_h;
-                  let new_left = (left *. new_w) /. w in
-                  let new_top = (top * new_h) / h in
-                  item##.style##.top := Utils.px_js new_top;
-                  item##.style##.left := Utils.px_js @@ Float.to_int @@ Float.floor new_left;
-                  item##.style##.width := Utils.px_js @@ Float.to_int @@ Float.floor new_w;
-                  item##.style##.height := Utils.px_js new_h)
-                self#items)
+          ~f:(fun _ -> self#fit ())
           ~node:super#root
           () in
+      Lwt.async (fun () ->
+          Events.listen_lwt super#root Resizable.Event.input (fun e _ ->
+              Js.Unsafe.global##.console##log e##.detail |> ignore;
+              Lwt.return_unit));
       super#initial_sync_with_dom ()
 
     method! layout () : unit =
       List.iter Widget.layout items;
+      self#fit ();
       super#layout ()
 
     method fit () : unit =
-      ()
+      let scale_factor = self#scale_factor in
+      let width' = int_of_float @@ float_of_int width *. scale_factor in
+      let height' = int_of_float @@ float_of_int height *. scale_factor in
+      super#root##.style##.width := Utils.px_js width';
+      super#root##.style##.height := Utils.px_js height';
+      List.iter (fun item ->
+          let w = float_of_int @@ Position.get_width item in
+          let h = float_of_int @@ Position.get_height item in
+          let left = float_of_int @@ Position.get_left item in
+          let top = Position.get_top item in
+          let new_w, new_h =
+            let w' = w *. scale_factor in
+            w', Position.get_height_for_width item w' in
+          let new_left = (left *. new_w) /. w in
+          let new_top = (top * new_h) / int_of_float h in
+          item##.style##.top := Utils.px_js new_top;
+          item##.style##.left := Utils.px_js @@ Float.to_int @@ Float.floor new_left;
+          item##.style##.width := Utils.px_js @@ Float.to_int @@ Float.floor new_w;
+          item##.style##.height := Utils.px_js new_h)
+        self#items
 
     method items : Dom_html.element Js.t list =
       Element.query_selector_all super#root Selector.item
+
+    method private parent_rect : float * float * float =
+      Js.Opt.case (Element.get_parent super#root)
+        (fun () -> 0., 0., 1.)
+        (fun x ->
+           let width = float_of_int x##.offsetWidth in
+           let height = float_of_int x##.offsetHeight in
+           width, height, width /. height)
+
+    method private scale_factor : float =
+      let cur_width, cur_height, cur_aspect = self#parent_rect in
+      if cur_aspect > aspect
+      then cur_height /. float_of_int height
+      else cur_width /. float_of_int width
   end
 
 let make_item x y w h =
@@ -100,12 +119,12 @@ let make_item x y w h =
 
 let make () =
   let items =
-    [ make_item 0 0 111 100
-    ; make_item 111 0 189 100
-    ; make_item 0 100 200 100
-    ; make_item 200 100 100 100
+    [ make_item 0 0 111 150
+    ; make_item 111 0 189 150
+    ; make_item 0 150 200 150
+    ; make_item 210 150 90 150
     ] in
   let elt =
     Tyxml_js.To_dom.of_element
     @@ Tyxml_js.Html.(div []) in
-  new t ~items elt ()
+  new t ~width:1920 ~height:1080 ~items elt ()

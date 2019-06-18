@@ -18,12 +18,9 @@
 $wm-grid-background-color: surface;
 $wm-placeholder-color: text-secondary-on-surface;
 
-main {
-    padding: 1rem;
-}
-
 .wm {
-    margin: 0 1rem;
+    display: flex;
+    padding: 1rem;
 }
 
 .wm, .mdc-layout-grid, .mdc-layout-grid__inner, .wm-grid-container {
