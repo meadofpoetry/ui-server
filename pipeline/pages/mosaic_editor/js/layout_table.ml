@@ -54,7 +54,22 @@ class t ~width ~height ?(items = []) elt () =
           () in
       Lwt.async (fun () ->
           Events.listen_lwt super#root Resizable.Event.input (fun e _ ->
-              Js.Unsafe.global##.console##log e##.detail |> ignore;
+              let target = Dom_html.eventTarget e in
+              let position =
+                Resizable.Position.of_client_rect
+                @@ Widget.event_detail e in
+              let aspect_ratio =
+                match Element.get_attribute target Position.Attr.keep_aspect_ratio with
+                | Some "true" -> Some (Position.get_aspect_ratio target)
+                | _ -> None in
+              let adjusted, lines =
+                Resizable.Sig.adjust_position
+                  ?aspect_ratio
+                  target
+                  position
+                  self#items
+                  (super#root##.offsetWidth, super#root##.offsetHeight) in
+              Resizable.Position.apply_to_element adjusted target;
               Lwt.return_unit));
       super#initial_sync_with_dom ()
 

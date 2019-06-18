@@ -2,6 +2,7 @@ open Js_of_ocaml
 open Components
 
 module Attr = struct
+  let keep_aspect_ratio = "data-keep-aspect-ratio"
   let aspect_ratio = "data-aspect-ratio"
   let width = "data-width"
   let height = "data-height"

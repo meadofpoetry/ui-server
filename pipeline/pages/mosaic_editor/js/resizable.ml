@@ -31,6 +31,17 @@ module Position = struct
     ; h = 0
     }
 
+  let apply_to_element (pos : t) (elt : #Dom_html.element Js.t) =
+    let min_size = 20 in (* FIXME *)
+    if pos.w > min_size
+    then (
+      elt##.style##.width := Utils.px_js pos.w;
+      elt##.style##.left := Utils.px_js pos.x);
+    if pos.h > min_size
+    then (
+      elt##.style##.height := Utils.px_js pos.h;
+      elt##.style##.top := Utils.px_js pos.y)
+
   let of_element (elt : #Dom_html.element Js.t) =
     { x = elt##.offsetLeft
     ; y = elt##.offsetTop
@@ -42,8 +53,8 @@ module Position = struct
     object%js
       val top = float_of_int t.y
       val left = float_of_int t.x
-      val right = float_of_int @@ t.w - t.x
-      val bottom = float_of_int @@ t.h - t.y
+      val right = float_of_int @@ t.x + t.w
+      val bottom = float_of_int @@ t.y + t.h
       val width = Js.def @@ float_of_int t.w
       val height = Js.def @@ float_of_int t.h
     end
@@ -66,7 +77,7 @@ module Sig : sig
     }
 
   val adjust_position :
-    ?aspect_ratio:int * int (* Aspect ratio of active item, if any *)
+    ?aspect_ratio:float (* Aspect ratio of active item, if any *)
     -> Dom_html.element Js.t (* Active item *)
     -> Position.t (* Active item position *)
     -> Dom_html.element Js.t list (* Active item neighbours (with active item) *)
@@ -82,18 +93,14 @@ end = struct
     }
 
   let adjust_position ?aspect_ratio item pos items parent =
-    failwith "Implement"
+    (* TODO implement me! *)
+    pos, []
 end
 
 module Event = struct
-  class type detail =
-    object
-      method item : Dom_html.element Js.t Js.readonly_prop
-      method rect : Dom_html.clientRect Js.t Js.readonly_prop
-    end
   class type event =
     object
-      inherit [detail Js.t] Widget.custom_event
+      inherit [Dom_html.clientRect Js.t] Widget.custom_event
     end
 
   let input : event Js.t Events.Typ.t =
@@ -169,6 +176,7 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
     inherit Widget.t elt () as super
 
     method! init () : unit =
+      super#add_class @@ Elevation.CSS.elevation 2;
       super#init ()
 
     method! initial_sync_with_dom () : unit =
@@ -179,7 +187,9 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       super#initial_sync_with_dom ()
 
     method! layout () : unit =
-      super#layout ()
+      super#layout ();
+      if super#has_class Markup.CSS.resizable_active
+      then self#draw_background ()
 
     method! destroy () : unit =
       Utils.Option.iter Lwt.cancel _touchstart_listener;
@@ -194,20 +204,12 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
 
     (* Private methods *)
 
-    method private notify_input () : unit =
-      let (detail : Event.detail Js.t) =
-        object%js
-          val item = super#root
-          val rect = Position.to_client_rect _position
-        end in
+    method private notify_input position : unit =
+      let detail = Position.to_client_rect position in
       super#emit ~should_bubble:true ~detail Event.input
 
     method private notify_change () : unit =
-      let (detail : Event.detail Js.t) =
-        object%js
-          val item = super#root
-          val rect = Position.to_client_rect _position
-        end in
+      let detail = Position.to_client_rect _position in
       super#emit ~should_bubble:true ~detail Event.change
 
     method private handle_touch_start (e : Dom_html.touchEvent Js.t)
@@ -308,12 +310,11 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
     method private move : 'a. (#Dom_html.event as 'a) Js.t -> unit Lwt.t =
       fun e ->
       let page_x, page_y = get_cursor_position ?touch_id:_touch_id e in
-      let x = _position.x + page_x - (fst _coordinate) in
-      let y = _position.y + page_y - (snd _coordinate) in
-      _position <- { _position with x; y};
-      super#root##.style##.left := Utils.px_js x;
-      super#root##.style##.top := Utils.px_js y;
-      self#notify_input ();
+      let position =
+        { _position with x = _position.x + page_x - (fst _coordinate)
+                       ; y = _position.y + page_y - (snd _coordinate)
+        } in
+      self#notify_input position;
       self#draw_background ();
       Lwt.return_unit
 
@@ -351,22 +352,9 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
               w = _position.w + (page_x - (fst _coordinate))
             ; h = _position.h + (page_y - (snd _coordinate))
             } in
-        _position <- position;
-        self#set_position position;
-        self#layout ();
-        self#notify_input ();
-        self#draw_background ();
+        (* self#set_position position; *)
+        self#notify_input position;
         Lwt.return_unit
-
-    method private set_position (x : Position.t) =
-      if x.w > _min_size
-      then (
-        super#root##.style##.width := Utils.px_js x.w;
-        super#root##.style##.left := Utils.px_js x.x);
-      if x.h > _min_size
-      then (
-        super#root##.style##.height := Utils.px_js x.h;
-        super#root##.style##.top := Utils.px_js x.y)
 
     (* Paints 3x3 grid inside an element *)
     method private draw_background () : unit =
