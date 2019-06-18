@@ -73,6 +73,7 @@ let pages () : Api_template.topmost Api_template.item list =
        *                                  Components_tyxml.Svg_icons.video)
        *                         ~class_:Mosaic_editor_template.CSS.video
        *                         ~label:"Видео" ()) *)
+      ~pre_scripts:[Src "/js/ResizeObserver.js"]
       ~post_scripts:[Src "/js/mosaic_editor.js"]
       ~stylesheets:["/css/mosaic_editor.min.css"]
       ~content:[]

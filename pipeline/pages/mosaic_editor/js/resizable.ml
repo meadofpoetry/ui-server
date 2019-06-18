@@ -7,7 +7,8 @@ open Components
    2. Respect parent boundaries when resizing/moving
    3. Check if element collides with its siblings
    4. Show helper alignment lines
-   5. Stick to neighbour elements *)
+   5. Stick to neighbour elements
+   6. Extend `resize` dir to handle Top, Left, Right, Bottom dirs *)
 
 type resize_dir =
   | Top_left
@@ -36,6 +37,35 @@ module Position = struct
     ; w = elt##.offsetWidth
     ; h = elt##.offsetHeight
     }
+end
+
+module Sig : sig
+  type line =
+    { is_vertical : bool (* Is line vertical *)
+    ; is_multiple : bool (* Multiple intersection detected *)
+    ; is_center : bool
+    ; x : int
+    ; y : int
+    }
+
+  val adjust_position :
+    ?aspect_ratio:int * int (* Aspect ratio of active item, if any *)
+    -> Dom_html.element Js.t (* Active item *)
+    -> Position.t (* Active item position *)
+    -> Dom_html.element Js.t list (* Active item neighbours (with active item) *)
+    -> int * int (* Parent width & height *)
+    -> Position.t * (line list) (* Adjusted position & lines properties *)
+end = struct
+  type line =
+    { is_vertical : bool (* Is line vertical *)
+    ; is_multiple : bool (* Multiple intersection detected *)
+    ; is_center : bool
+    ; x : int
+    ; y : int
+    }
+
+  let adjust_position ?aspect_ratio item pos items parent =
+    failwith "Implement"
 end
 
 let unwrap x = Js.Optdef.get x (fun () -> assert false)
@@ -86,9 +116,10 @@ let get_cursor_position ?touch_id (event : #Dom_html.event Js.t) =
      | Some t -> t##.pageX, t##.pageY)
   | _ -> 0, 0
 
-class t ?(min_size = 20) (elt : Dom_html.element Js.t) () =
+class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
   object(self)
     val mutable _min_size = min_size
+    val mutable _aspect = aspect
 
     val mutable _touchstart_listener = None
     val mutable _mousedown_listener = None

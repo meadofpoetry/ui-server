@@ -46,9 +46,8 @@ class t ?(items = []) elt () =
       super#add_class Markup.CSS.table
 
     method! initial_sync_with_dom () : unit =
-      let _ = Js_of_ocaml.MutationObserver.observe
-          ~attributes:true
-          ~f:(fun _ _ ->
+      let _ = Ui_templates.Resize_observer.observe
+          ~f:(fun _ ->
               List.iter (fun item ->
                   let w = float_of_int @@ Position.get_width item in
                   let h = Position.get_height item in
@@ -62,7 +61,7 @@ class t ?(items = []) elt () =
                   let new_w = (cur *. perc) /. 100. in
                   let new_h = Position.get_height_for_width item new_w in
                   print_endline @@ Printf.sprintf "new width: %gpx" new_w;
-                  print_endline @@ Printf.sprintf "new height: %dpx" new_h; 
+                  print_endline @@ Printf.sprintf "new height: %dpx" new_h;
                   let new_left = (left *. new_w) /. w in
                   let new_top = (top * new_h) / h in
                   item##.style##.top := Utils.px_js new_top;
