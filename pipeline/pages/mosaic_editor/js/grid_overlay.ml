@@ -22,7 +22,7 @@ class t ?(divider_period = 2) ~size (canvas : Dom_html.canvasElement Js.t) () =
       let height = canvas##.height in
       context##clearRect 0. 0. (float_of_int width) (float_of_int height);
       self#draw_grid ~width ~height;
-      List.iter self#draw_snap_line snap_lines;
+      List.iter (self#draw_snap_line ~width ~height) snap_lines;
       super#layout ()
 
     method show () : unit =
@@ -52,8 +52,28 @@ class t ?(divider_period = 2) ~size (canvas : Dom_html.canvasElement Js.t) () =
 
     (* Private methods *)
 
-    method private draw_snap_line (line : Resizable.Sig.line) : unit =
-      ()
+    method private draw_snap_line ~width ~height (line : Resizable.Sig.line) : unit =
+      (* FIXME get colors from CSS (variables?) *)
+      let color = match line.is_center, line.is_multiple with
+        | true, true -> "rgba(255, 0, 0, 0.9)"
+        | false, true -> "rgba(0, 0, 255, 0.9)"
+        | true, false -> "rgba(255, 0, 0, 0.4)"
+        | false, false -> "rgba(0, 0, 255, 0.4)" in
+      context##.strokeStyle := Js.string color;
+      let start_x, start_y, end_x, end_y =
+        if line.is_vertical then
+          float_of_int line.x, 0.,
+          float_of_int line.x, float_of_int height
+        else
+          0., float_of_int line.y,
+          float_of_int width, float_of_int line.y
+      in
+      context##.strokeStyle := Js.string color;
+      context##beginPath;
+      context##moveTo start_x start_y;
+      context##lineTo end_x end_y;
+      context##closePath;
+      context##stroke
 
     method private draw_rows ~color ~cols ~rows =
       context##.strokeStyle := color;
@@ -105,7 +125,7 @@ class t ?(divider_period = 2) ~size (canvas : Dom_html.canvasElement Js.t) () =
       let cols = width / size in
       let rows = height / size in
       let color = color_from_css canvas in
-      context##.lineWidth := 1.;
+      context##.lineWidth := 0.5;
       self#draw_rows ~color ~cols ~rows;
       self#draw_columns ~color ~cols ~rows;
       if show_dividers then self#draw_dividers ~color ~cols ~rows

@@ -46,9 +46,10 @@ module Make(Xml : Xml_sigs.NoWrap)
     let classes = CSS.grid_overlay :: classes in
     canvas ~a:([a_class classes] <@> attrs) []
 
-  let create_resizable ?(classes = []) ?attrs () : 'a elt =
+  let create_resizable ?(tabindex = -1) ?(classes = []) ?attrs () : 'a elt =
     let classes = CSS.resizable :: classes in
-    div ~a:([a_class classes] <@> attrs)
+    div ~a:([ a_class classes
+            ; a_tabindex tabindex ] <@> attrs)
       [ div ~a:[a_class [CSS.resizers]]
           [ div ~a:[a_class [CSS.resizer; CSS.resizer_top_left]] []
           ; div ~a:[a_class [CSS.resizer; CSS.resizer_top_right]] []

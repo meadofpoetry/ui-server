@@ -273,6 +273,8 @@ module Event = struct
     Events.Typ.make "mosaic-resizable:input"
   let change : event Js.t Events.Typ.t =
     Events.Typ.make "mosaic-resizable:change"
+  let selected : event Js.t Events.Typ.t =
+    Events.Typ.make "mosaic-resizable:selected"
 end
 
 let unwrap x = Js.Optdef.get x (fun () -> assert false)
@@ -333,6 +335,8 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
     val mutable _move_listener = None
     val mutable _stop_listener = None
 
+    val mutable _dragging = false
+
     (* Initial position and size of element relative to parent *)
     val mutable _position = Position.empty
     (* Initial position of mouse cursor (or touch) relative to page *)
@@ -378,10 +382,15 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       let detail = Position.to_client_rect _position in
       super#emit ~should_bubble:true ~detail Event.change
 
+    method private notify_selected () : unit =
+      let detail = Position.to_client_rect _position in
+      super#emit ~should_bubble:true ~detail Event.selected
+
     method private handle_touch_start (e : Dom_html.touchEvent Js.t)
         (_ : unit Lwt.t) : unit Lwt.t =
       Dom.preventDefault e;
-      self#handle_drag_end ();
+      self#stop_move_listeners ();
+      _dragging <- false;
       begin match Js.Optdef.to_option (e##.changedTouches##item 0) with
         | None -> ()
         | Some touch -> _touch_id <- Some touch##.identifier
@@ -429,7 +438,8 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
     method private handle_mouse_down (e : Dom_html.mouseEvent Js.t)
         (_ : unit Lwt.t) : unit Lwt.t =
       Dom.preventDefault e;
-      self#handle_drag_end ();
+      self#stop_move_listeners ();
+      _dragging <- false;
       let target = Dom_html.eventTarget e in
       (* Refresh element position and size *)
       _position <- Position.of_element super#root;
@@ -463,19 +473,26 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       | 0 -> self#handle_drag_end (); Lwt.return_unit
       | _ -> Lwt.return_unit
 
-    method private handle_drag_end () : unit =
+    method private stop_move_listeners () : unit =
       Utils.Option.iter Lwt.cancel _move_listener;
       Utils.Option.iter Lwt.cancel _stop_listener;
       _move_listener <- None;
       _stop_listener <- None;
+
+    method private handle_drag_end () : unit =
+      self#stop_move_listeners ();
       super#root##.style##.backgroundImage := Js.string "";
       super#remove_class Markup.CSS.resizable_active;
-      self#notify_change ()
+      if _dragging
+      then self#notify_change ()
+      else self#notify_selected ()
 
     (* Moves an element *)
     method private move : 'a. (#Dom_html.event as 'a) Js.t -> unit Lwt.t =
       fun e ->
       let page_x, page_y = get_cursor_position ?touch_id:_touch_id e in
+      if page_x <> (fst _coordinate) || page_y <> (snd _coordinate)
+      then _dragging <- true;
       let position =
         { _position with x = _position.x + page_x - (fst _coordinate)
                        ; y = _position.y + page_y - (snd _coordinate)
@@ -489,6 +506,7 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       -> (#Dom_html.event as 'a) Js.t
       -> unit Lwt.t =
       fun dir e ->
+      _dragging <- true;
       match dir with
       | None -> Lwt.return_unit
       | Some pos ->

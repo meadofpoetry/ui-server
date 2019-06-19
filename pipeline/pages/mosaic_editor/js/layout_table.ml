@@ -2,6 +2,24 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml
 open Components
 
+let set_tab_index ?prev
+    (items_lazy : unit -> Dom_html.element Js.t list)
+    (item : Dom_html.element Js.t) : unit =
+  let set (i : int) (elt : Dom_html.element Js.t) =
+    Element.set_attribute elt "tabindex" (string_of_int i) in
+  (match prev with
+   | Some prev -> if not @@ Element.equal item prev then set (-1) prev
+   | None ->
+     (* If no list item was selected, set first list item's tabindex to -1.
+        Generally, tabindex is set to 0 on first list item of list that has
+        no preselected items *)
+     match items_lazy () with
+     | first :: _ -> if not @@ Element.equal first item then (set (-1) first)
+     | _ -> ());
+  print_endline "setting tab index";
+  Js.Unsafe.global##.console##log item |> ignore;
+  set 0 item
+
 module Selector = struct
   let item = ".resizable" (* FIXME *)
 end
@@ -43,8 +61,8 @@ class t ~width ~height ?(items = []) elt () =
     val width = width
     val height = height
 
-    val mutable _input_listener = None
-    val mutable _change_listener = None
+    val mutable _listeners = []
+    val mutable _focused_item = None
 
     method! init () : unit =
       super#init ();
@@ -57,11 +75,17 @@ class t ~width ~height ?(items = []) elt () =
           ~f:(fun _ -> self#fit ())
           ~node:super#root
           () in
-      _input_listener <- Some (
-          Events.listen_lwt super#root Resizable.Event.input self#handle_item_drag);
-      _change_listener <- Some (
-          Events.listen_lwt super#root Resizable.Event.change self#handle_item_change);
+      _listeners <- Events.(
+        [ listen_lwt super#root Resizable.Event.input self#handle_item_drag
+        ; listen_lwt super#root Resizable.Event.change self#handle_item_change
+        ; listen_lwt super#root Resizable.Event.selected self#handle_item_selected
+        ]);
       super#initial_sync_with_dom ()
+
+    method! destroy () : unit =
+      List.iter Lwt.cancel _listeners;
+      _listeners <- [];
+      super#destroy ()
 
     method! layout () : unit =
       List.iter Widget.layout items;
@@ -96,6 +120,13 @@ class t ~width ~height ?(items = []) elt () =
 
     (* Private methods *)
 
+    method private handle_item_selected e _ =
+      let target = Dom_html.eventTarget e in
+      target##focus;
+      set_tab_index ?prev:_focused_item (fun () -> self#items) target;
+      _focused_item <- Some target;
+      Lwt.return_unit
+
     method private handle_item_drag e _ =
       let target = Dom_html.eventTarget e in
       let position =
@@ -112,12 +143,12 @@ class t ~width ~height ?(items = []) elt () =
           position
           self#items
           (super#root##.offsetWidth, super#root##.offsetHeight) in
-      print_endline "lines: ";
-      List.iter (fun x -> print_endline @@ Resizable.Sig.show_line x) lines;
+      grid_overlay#set_snap_lines lines;
       Position.apply_to_element adjusted target;
       Lwt.return_unit
 
     method private handle_item_change e _ =
+      grid_overlay#set_snap_lines [];
       Lwt.return_unit
 
     method private parent_rect : float * float * float =
