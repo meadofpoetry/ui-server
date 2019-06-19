@@ -42,6 +42,8 @@ class t ~width ~height ?(items = []) elt () =
     val width = width
     val height = height
 
+    val mutable _input_listener = None
+
     method! init () : unit =
       super#init ();
       List.iter super#append_child items;
@@ -52,25 +54,8 @@ class t ~width ~height ?(items = []) elt () =
           ~f:(fun _ -> self#fit ())
           ~node:super#root
           () in
-      Lwt.async (fun () ->
-          Events.listen_lwt super#root Resizable.Event.input (fun e _ ->
-              let target = Dom_html.eventTarget e in
-              let position =
-                Resizable.Position.of_client_rect
-                @@ Widget.event_detail e in
-              let aspect_ratio =
-                match Element.get_attribute target Position.Attr.keep_aspect_ratio with
-                | Some "true" -> Some (Position.get_aspect_ratio target)
-                | _ -> None in
-              let adjusted, lines =
-                Resizable.Sig.adjust_position
-                  ?aspect_ratio
-                  target
-                  position
-                  self#items
-                  (super#root##.offsetWidth, super#root##.offsetHeight) in
-              Resizable.Position.apply_to_element adjusted target;
-              Lwt.return_unit));
+      _input_listener <- Some (
+          Events.listen_lwt super#root Resizable.Event.input self#handle_item_drag);
       super#initial_sync_with_dom ()
 
     method! layout () : unit =
@@ -102,6 +87,29 @@ class t ~width ~height ?(items = []) elt () =
 
     method items : Dom_html.element Js.t list =
       Element.query_selector_all super#root Selector.item
+
+    (* Private methods *)
+
+    method private handle_item_drag e _ =
+      let target = Dom_html.eventTarget e in
+      let position =
+        Position.of_client_rect
+        @@ Widget.event_detail e in
+      let aspect_ratio =
+        match Element.get_attribute target Position.Attr.keep_aspect_ratio with
+        | Some "true" -> Some (Position.get_aspect_ratio target)
+        | _ -> None in
+      let adjusted, lines =
+        Resizable.Sig.adjust_position
+          ?aspect_ratio
+          target
+          position
+          self#items
+          (super#root##.offsetWidth, super#root##.offsetHeight) in
+      print_endline "lines: ";
+      List.iter (fun x -> print_endline @@ Resizable.Sig.show_line x) lines;
+      Position.apply_to_element adjusted target;
+      Lwt.return_unit
 
     method private parent_rect : float * float * float =
       Js.Opt.case (Element.get_parent super#root)

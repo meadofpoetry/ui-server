@@ -10,6 +10,55 @@ module Attr = struct
   let top = "data-top"
 end
 
+type t =
+  { x : int
+  ; y : int
+  ; w : int
+  ; h : int
+  }
+
+let empty =
+  { x = 0
+  ; y = 0
+  ; w = 0
+  ; h = 0
+  }
+
+let apply_to_element (pos : t) (elt : #Dom_html.element Js.t) =
+  let min_size = 20 in (* FIXME *)
+  if pos.w > min_size
+  then (
+    elt##.style##.width := Utils.px_js pos.w;
+    elt##.style##.left := Utils.px_js pos.x);
+  if pos.h > min_size
+  then (
+    elt##.style##.height := Utils.px_js pos.h;
+    elt##.style##.top := Utils.px_js pos.y)
+
+let of_element (elt : #Dom_html.element Js.t) =
+  { x = elt##.offsetLeft
+  ; y = elt##.offsetTop
+  ; w = elt##.offsetWidth
+  ; h = elt##.offsetHeight
+  }
+
+let to_client_rect (t : t) : Dom_html.clientRect Js.t =
+  object%js
+    val top = float_of_int t.y
+    val left = float_of_int t.x
+    val right = float_of_int @@ t.x + t.w
+    val bottom = float_of_int @@ t.y + t.h
+    val width = Js.def @@ float_of_int t.w
+    val height = Js.def @@ float_of_int t.h
+  end
+
+let of_client_rect (rect : Dom_html.clientRect Js.t) : t =
+  { x = int_of_float rect##.left
+  ; y = int_of_float rect##.top
+  ; w = Js.Optdef.case rect##.width (fun () -> 0) int_of_float
+  ; h = Js.Optdef.case rect##.height (fun () -> 0) int_of_float
+  }
+
 let default_aspect_ratio = 1.
 
 let string_of_float = Printf.sprintf "%g"
