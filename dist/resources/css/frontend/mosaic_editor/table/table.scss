@@ -5,13 +5,12 @@
     overflow: hidden;
 }
 
-.mosaic__grid {
+.mosaic-grid {
     margin: auto;
     position: relative;
 }
 
-// FIXME name
-.mosaic__grid-overlay {
+.mosaic-grid__overlay {
     width: 100%;
     height: 100%;
     color: rgba(0, 0, 0, 0.2);

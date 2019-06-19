@@ -4,8 +4,8 @@ module CSS = struct
   let root = "mosaic"
   let video = BEM.add_element root "video"
 
-  let grid = BEM.add_element root "grid"
-  let grid_overlay = BEM.add_element root "grid-overlay"
+  let grid = root ^ "-grid"
+  let grid_overlay = BEM.add_element grid "overlay"
 
   let resizable = "resizable"
   let resizable_active = BEM.add_modifier resizable "active"
