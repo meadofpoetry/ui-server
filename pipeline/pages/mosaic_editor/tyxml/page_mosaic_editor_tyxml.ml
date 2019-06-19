@@ -6,6 +6,7 @@ module CSS = struct
 
   let grid = root ^ "-grid"
   let grid_item = BEM.add_element grid "item"
+  let grid_ghost = BEM.add_element grid "ghost"
   let grid_overlay = BEM.add_element grid "overlay"
 
   let resizable = "resizable"
@@ -48,6 +49,10 @@ module Make(Xml : Xml_sigs.NoWrap)
   let create_grid_overlay ?(classes = []) ?attrs () =
     let classes = CSS.grid_overlay :: classes in
     canvas ~a:([a_class classes] <@> attrs) []
+
+  let create_grid_ghost ?(classes = []) ?attrs () =
+    let classes = CSS.grid_ghost :: classes in
+    div ~a:([a_class classes] <@> attrs) []
 
   let create_grid ?(classes = []) ?attrs ?(content = []) () =
     let classes = CSS.grid :: classes in

@@ -314,7 +314,7 @@ let get_touch_by_id (touches : Dom_html.touchList Js.t)
 
 let get_cursor_position ?touch_id (event : #Dom_html.event Js.t) =
   match Js.to_string event##._type with
-  | "mousemove" | "mousedown" ->
+  | "mousemove" | "mousedown" | "dragover" ->
     let (e : Dom_html.mouseEvent Js.t) = Js.Unsafe.coerce event in
     begin match Js.Optdef.(to_option e##.pageX,
                            to_option e##.pageY) with

@@ -9,8 +9,17 @@ type event =
 
 let ( >>= ) = Lwt.bind
 
+let widget_of_yojson =
+  Util_json.(Pair.of_yojson String.of_yojson Wm.widget_of_yojson)
+
 module Attr = struct
   let type_ = "data-type"
+end
+
+module Selector = struct
+  let item = Printf.sprintf ".%s" Markup.CSS.grid_item
+  let grid_overlay = Printf.sprintf ".%s" Markup.CSS.grid_overlay
+  let grid_ghost = Printf.sprintf ".%s" Markup.CSS.grid_ghost
 end
 
 let widget_type_to_string : Wm.widget_type -> string = function
@@ -44,10 +53,6 @@ let set_tab_index ?prev
      | _ -> ());
   set 0 item
 
-module Selector = struct
-  let item = Printf.sprintf ".%s" Markup.CSS.grid_item
-end
-
 let make_item (id, widget : string * Wm.widget) =
   let item = Resizable.make ~classes:[Markup.CSS.grid_item] () in
   let pos = Utils.Option.get widget.position in
@@ -66,15 +71,22 @@ let make_item (id, widget : string * Wm.widget) =
      item#set_attribute Position.Attr.aspect_ratio (Printf.sprintf "%g" ar));
   item
 
-class t ?grid_overlay ?(widgets = []) (position : Position.t) elt () =
+class t ?(widgets = []) (position : Position.t) elt () =
   object(self)
     inherit Widget.t elt () as super
     val aspect = float_of_int position.w /. float_of_int position.h
-    val grid_overlay = Grid_overlay.make 10
+    val grid_overlay = match Element.query_selector elt Selector.grid_overlay with
+      | None -> failwith "widget-editor: grid overlay element not found"
+      | Some x -> Grid_overlay.attach ~size:10 x
+    val ghost = match Element.query_selector elt Selector.grid_ghost with
+      | None -> failwith "widget-editor: grid ghost element not found"
+      | Some x -> x
 
     val mutable _widgets : (string * Wm.widget) list = widgets
     val mutable _listeners = []
     val mutable _focused_item = None
+    val mutable _dragenter_target = Js.null
+    val mutable _dnd_typ = ""
 
     method! init () : unit =
       super#init ();
@@ -91,6 +103,10 @@ class t ?grid_overlay ?(widgets = []) (position : Position.t) elt () =
           ; listen_lwt super#root Resizable.Event.change self#handle_item_change
           ; listen_lwt super#root Resizable.Event.selected self#handle_item_selected
           ; keydowns super#root self#handle_keydown
+          ; dragenters super#root self#handle_dragenter
+          ; dragovers super#root self#handle_dragover
+          ; dragleaves super#root self#handle_dragleave
+          ; drops super#root self#handle_drop
           ]);
       super#initial_sync_with_dom ()
 
@@ -169,6 +185,17 @@ class t ?grid_overlay ?(widgets = []) (position : Position.t) elt () =
 
     (* Private methods *)
 
+    method private items_ ?(sort = false) () : Dom_html.element Js.t list =
+      let items = Element.query_selector_all super#root Selector.item in
+      if sort
+      then
+        List.sort (fun x y ->
+            compare_pair compare compare
+              (Position.get_original_left x, Position.get_original_top x)
+              (Position.get_original_left y, Position.get_original_top y))
+          items
+      else items
+
     method private handle_keydown e _ =
       Js.Opt.iter Dom_html.document##.activeElement (fun active ->
           let items = self#items_ ~sort:true () in
@@ -195,16 +222,71 @@ class t ?grid_overlay ?(widgets = []) (position : Position.t) elt () =
           | _ -> ());
       Lwt.return_unit
 
-    method private items_ ?(sort = false) () : Dom_html.element Js.t list =
-      let items = Element.query_selector_all super#root Selector.item in
-      if sort
-      then
-        List.sort (fun x y ->
-            compare_pair compare compare
-              (Position.get_original_left x, Position.get_original_top x)
-              (Position.get_original_left y, Position.get_original_top y))
-          items
-      else items
+    method private handle_dragenter e _ =
+      Dom_html.stopPropagation e;
+      Dom.preventDefault e;
+      _dragenter_target <- e##.target;
+      ghost##.style##.display := Js.string "";
+      Lwt.return_unit
+
+    method private handle_dragover e _ =
+      print_endline "dragover";
+      (* let a = Js.Unsafe.coerce e##.dataTransfer##.types in *)
+      (* let l = Js.to_array a |> Array.to_list |> List.map Js.to_string in *)
+      (* let t = List.find_opt (fun x ->
+       *     match Utils.String.chop_prefix ~pre:List_of_items.drag_type_prefix x with
+       *     | Some wh -> _dnd_typ <- x; true
+       *     | None -> false) l in *)
+      (* Utils.Option.iter (fun wh -> *)
+          (* let aspect = match String.split_on_char ':' wh with
+           *   | w :: h :: [] ->
+           *     begin match int_of_string_opt w, int_of_string_opt h with
+           *       | Some w, Some h -> Some (w, h)
+           *       | _ -> None
+           *     end
+           *   | _ -> None
+           * in *)
+      let (x, y) = Resizable.get_cursor_position e in
+      print_endline @@ Printf.sprintf "cursor: %d, %d" x y;
+      ghost##.style##.left := Utils.px_js x;
+      ghost##.style##.top := Utils.px_js y;
+      ghost##.style##.width := Utils.px_js 100;
+      ghost##.style##.height := Utils.px_js 100;
+(* ) t; *)
+      Lwt.return_unit
+
+    method private handle_dragleave e _ =
+      Dom_html.stopPropagation e;
+      Dom.preventDefault e;
+      if _dragenter_target == e##.target
+      then ghost##.style##.display := Js.string "none";
+      Lwt.return_unit
+
+    method private handle_drop e _ =
+      print_endline "drop";
+      Dom.preventDefault e;
+      let json = e##.dataTransfer##getData (Js.string _dnd_typ)
+                 |> Js.to_string
+                 |> Yojson.Safe.from_string in
+      (match widget_of_yojson json with
+       | Error _ -> ()
+       | Ok widget ->
+         (* let pos = ghost#pos in
+          * if not @@ equal pos empty
+          * then
+          *   let cols, rows = React.S.value s_grid in
+          *   let pos = layout_pos_of_grid_pos
+          *       ~resolution ~cols ~rows pos in
+          *   let other = List.map (fun x -> x#value) self#items in
+          *   let (t : I.t) =
+          *     if not (t:I.t).unique
+          *     then { t with name = I.make_item_name t other }
+          *     else t in
+          *   let (t : I.t) = I.update_position t pos in *)
+         let item = make_item widget in
+         super#append_child item);
+      (* ghost#set_pos Dynamic_grid.Position.empty; *)
+      Lwt.return_unit
 
     method private handle_item_selected e _ =
       let target = Dom_html.eventTarget e in
@@ -238,19 +320,11 @@ class t ?grid_overlay ?(widgets = []) (position : Position.t) elt () =
 
     method private handle_item_change e _ =
       (* let target = Dom_html.eventTarget e in *)
-      grid_overlay#set_snap_lines [];
-      (* let { Position. x; y; w; h } =
+      (* let position =
        *   Position.of_client_rect
-       *   @@ Widget.event_detail e in
-       * let scale = float_of_int position.w /. float_of_int super#root##.offsetWidth in
-       * let w' = int_of_float @@ float_of_int w *. scale in
-       * let h' = int_of_float @@ float_of_int h *. scale in
-       * let x' = int_of_float @@ float_of_int x *. scale in
-       * let y' = int_of_float @@ float_of_int y *. scale in
-       * Element.set_attribute target Position.Attr.width (Utils.px w');
-       * Element.set_attribute target Position.Attr.height (Utils.px h');
-       * Element.set_attribute target Position.Attr.left (Utils.px x');
-       * Element.set_attribute target Position.Attr.top (Utils.px y'); *)
+       *   @@ Widget.event_detail e in *)
+      grid_overlay#set_snap_lines [];
+      (* TODO update position here *)
       Lwt.return_unit
 
     method private parent_rect : float * float * float =
@@ -270,9 +344,13 @@ class t ?grid_overlay ?(widgets = []) (position : Position.t) elt () =
 
 let make ({ position; widgets } : Wm.container) =
   let items = List.map make_item widgets in
+  let content =
+    Markup.create_grid_overlay ()
+    :: Markup.create_grid_ghost ()
+    :: List.map Widget.to_markup items in
   let elt =
     Tyxml_js.To_dom.of_element
-    @@ Markup.create_grid ~content:(List.map Widget.to_markup items) () in
+    @@ Markup.create_grid ~content () in
   let position =
     { Position.
       w = position.right - position.left
