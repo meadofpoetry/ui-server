@@ -2,19 +2,8 @@
 
 .resizable {
     position: absolute;
-    /* float: left; */
     cursor: pointer;
     background: white;
-    /* box-shadow: */
-    /*     $resizable-border-width 0 0 0 $resizable-border-color, */
-    /*     0 $resizable-border-width 0 0 $resizable-border-color, */
-    /*     $resizable-border-width $resizable-border-width 0 0 $resizable-border-color,   /\* Just to fix the corner *\/ */
-    /*     $resizable-border-width 0 0 0 $resizable-border-color inset, */
-    /*     0 $resizable-border-width 0 0 $resizable-border-color inset; */
-
-    &:focus {
-        background-color: lightblue;
-    }
 
     &--active {
         z-index: 1;

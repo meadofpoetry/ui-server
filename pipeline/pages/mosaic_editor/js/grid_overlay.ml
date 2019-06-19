@@ -129,8 +129,8 @@ class t ?(show_grid = true)
       context##stroke
 
     method private draw_grid ~width ~height : unit =
-      let cols = width / size in
-      let rows = height / size in
+      let cols = (width / size) + 1 in
+      let rows = (height / size) + 1 in
       let color = color_from_css canvas in
       context##.lineWidth := 0.5;
       self#draw_rows ~color ~cols ~rows;

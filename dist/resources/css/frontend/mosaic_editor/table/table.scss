@@ -1,8 +1,16 @@
+@import "@material/theme/mixins";
+@import "@material/theme/functions";
+@import "@material/theme/variables";
+
+$mosaic-grid-colors: (
+    dark: rgba(black, .2),
+    light: rgba(white, .2)
+) !default;
+
 .mosaic-table-wrapper {
     width: 100%;
     height: 100%;
     display: flex;
-    overflow: hidden;
 }
 
 .mosaic-grid {
@@ -10,8 +18,23 @@
     position: relative;
 }
 
+.mosaic-grid__item {
+
+    &:focus {
+        background-color: orange !important;
+    }и
+
+    &[data-type="video"] {
+        background-color: lightblue;
+    }
+    &[data-type="audio"] {
+        background-color: lightgreen;
+    }
+}
+
 .mosaic-grid__overlay {
+    $contrast-tone: mdc-theme-contrast-tone($mdc-theme-surface);
     width: 100%;
     height: 100%;
-    color: rgba(0, 0, 0, 0.2);
+    @include mdc-theme-prop(color, map-get($mosaic-grid-colors, $contrast-tone));
 }

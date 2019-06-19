@@ -5,6 +5,7 @@ module CSS = struct
   let video = BEM.add_element root "video"
 
   let grid = root ^ "-grid"
+  let grid_item = BEM.add_element grid "item"
   let grid_overlay = BEM.add_element grid "overlay"
 
   let resizable = "resizable"

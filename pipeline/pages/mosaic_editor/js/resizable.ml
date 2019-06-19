@@ -369,9 +369,7 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       super#initial_sync_with_dom ()
 
     method! layout () : unit =
-      super#layout ();
-      if super#has_class Markup.CSS.resizable_active
-      then self#draw_background ()
+      super#layout ()
 
     method! destroy () : unit =
       Utils.Option.iter Lwt.cancel _touchstart_listener;
@@ -510,7 +508,6 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
                        ; y = _position.y + page_y - (snd _coordinate)
         } in
       self#notify_input position;
-      self#draw_background ();
       Lwt.return_unit
 
     (* Resizes an element *)
@@ -571,22 +568,10 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
         self#notify_input position;
         Lwt.return_unit
 
-    (* Paints 3x3 grid inside an element *)
-    method private draw_background () : unit =
-      let w = int_of_float @@ (float_of_int elt##.offsetWidth) /. 3. in
-      let h = int_of_float @@ (float_of_int elt##.offsetHeight) /. 3. in
-      let style = Printf.sprintf
-          "repeating-linear-gradient(0deg,transparent,transparent %dpx,#CCC %dpx,#CCC %dpx),\
-           repeating-linear-gradient(-90deg,transparent,transparent %dpx,#CCC %dpx,#CCC %dpx)"
-          h h (succ h)
-          w w (succ w) in
-      let size = Printf.sprintf "%dpx %dpx" (succ w) (succ h) in
-      elt##.style##.backgroundImage := Js.string style;
-      (Js.Unsafe.coerce elt##.style)##.backgroundSize := Js.string size
   end
 
-let make () : t =
+let make ?classes () : t =
   let element =
     Tyxml_js.To_dom.of_element
-    @@ Markup.create_resizable () in
+    @@ Markup.create_resizable ?classes () in
   new t element ()

@@ -81,7 +81,7 @@ let pages () : Api_template.topmost Api_template.item list =
   in
   simple ~priority:(`Index 2)
     ~title:"Мозаика"
-    ~icon:(make_icon Components_tyxml.Svg_icons.collage)
+    ~icon:(make_icon Components_tyxml.Svg_icons.view_grid)
     ~path:(Path.of_string video_path)
     video_page_props
   @ simple ~priority:(`Index 3)
