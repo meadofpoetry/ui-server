@@ -8,8 +8,6 @@ let remove ~eq cs set (t : 'a wm_item) =
     set @@ t :: (List.filter (not % eq t) @@ React.S.value cs)
 
 module Make(I : Item) = struct
-
-  module IG = Grid.Make(I)
   module RT = Controls.Make(I)
 
   type t =

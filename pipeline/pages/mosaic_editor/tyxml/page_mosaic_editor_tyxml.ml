@@ -3,9 +3,11 @@ open Components_tyxml
 module CSS = struct
   let root = "mosaic"
   let video = BEM.add_element root "video"
-  let table = root ^ "-table"
 
+  let table = root ^ "-table"
   let table_item = BEM.add_element table "item"
+
+  let grid_overlay = BEM.add_element root "grid-overlay"
 
   let resizable = "resizable"
   let resizable_active = BEM.add_modifier resizable "active"
@@ -39,6 +41,10 @@ module Make(Xml : Xml_sigs.NoWrap)
     let classes = [CSS.divider; dir_class] @ classes in
     div ~a:([a_class classes] <@> attrs)
       [div ~a:[a_class [CSS.divider_inner]] []]
+
+  let create_grid_overlay ?(classes = []) ?attrs () =
+    let classes = CSS.grid_overlay :: classes in
+    canvas ~a:([a_class classes] <@> attrs) []
 
   let create_resizable ?(classes = []) ?attrs () : 'a elt =
     let classes = CSS.resizable :: classes in

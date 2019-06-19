@@ -38,14 +38,17 @@ end
 class t ~width ~height ?(items = []) elt () =
   object(self)
     inherit Widget.t elt () as super
+    val grid_overlay = Grid_overlay.make 10
     val aspect = float_of_int width /. float_of_int height
     val width = width
     val height = height
 
     val mutable _input_listener = None
+    val mutable _change_listener = None
 
     method! init () : unit =
       super#init ();
+      super#append_child grid_overlay;
       List.iter super#append_child items;
       super#add_class Markup.CSS.table
 
@@ -56,11 +59,14 @@ class t ~width ~height ?(items = []) elt () =
           () in
       _input_listener <- Some (
           Events.listen_lwt super#root Resizable.Event.input self#handle_item_drag);
+      _change_listener <- Some (
+          Events.listen_lwt super#root Resizable.Event.change self#handle_item_change);
       super#initial_sync_with_dom ()
 
     method! layout () : unit =
       List.iter Widget.layout items;
       self#fit ();
+      grid_overlay#layout ();
       super#layout ()
 
     method fit () : unit =
@@ -111,6 +117,9 @@ class t ~width ~height ?(items = []) elt () =
       Position.apply_to_element adjusted target;
       Lwt.return_unit
 
+    method private handle_item_change e _ =
+      Lwt.return_unit
+
     method private parent_rect : float * float * float =
       Js.Opt.case (Element.get_parent super#root)
         (fun () -> 0., 0., 1.)
@@ -144,8 +153,8 @@ let make () =
   let items =
     [ make_item 0 0 111 150
     ; make_item 111 0 189 150
-    ; make_item 0 150 200 150
-    ; make_item 210 150 90 150
+    (* ; make_item 0 150 200 150
+     * ; make_item 210 150 90 150 *)
     ] in
   let elt =
     Tyxml_js.To_dom.of_element

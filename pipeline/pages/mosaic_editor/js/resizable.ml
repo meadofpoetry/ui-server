@@ -54,9 +54,6 @@ end = struct
     | Vertical_Right
     | None
 
-  (* TODO should we make new position structure in every function?
-     Seems it is enough to make it once and then pass as an argument *)
-
   (* min_distance - pixels
      return: minimum distance of several lines of one align *)
   let line_find_closest_align_value
@@ -64,44 +61,41 @@ end = struct
       (items : Dom_html.element Js.t list)
       min_distance
       line_align_val =
-    (* FIXME ref is not necessary *)
-    let distance = ref (min_distance + 1) in
-    let rec count_aligns (items : Dom_html.element Js.t list) line_align_val distance =
-      match items with
-      | [] -> !distance
+    let rec count_aligns line_align_val distance = function
+      | [] -> distance
       | h1 :: h2 ->
         let icompare = Position.of_element h1 in
-        let _ =
+        let distance =
           match line_align_val with
           | Horizontal_Top ->
             let dist = pos.y - icompare.y in
-            if abs dist < min_distance && abs !distance > abs dist
-            then distance := dist
+            if abs dist < min_distance && abs distance > abs dist
+            then dist else distance
           | Horizontal_Center ->
             let dist = pos.y + pos.h / 2 - icompare.y - icompare.h / 2 in
-            if abs dist < min_distance && abs !distance > abs dist
-            then distance := dist
+            if abs dist < min_distance && abs distance > abs dist
+            then dist else distance
           | Horizontal_Bottom ->
             let dist = pos.y + pos.h - icompare.y - icompare.h in
-            if abs dist < min_distance && abs !distance > abs dist
-            then distance := dist
+            if abs dist < min_distance && abs distance > abs dist
+            then dist else distance
           | Vertical_Left ->
             let dist = pos.x - icompare.x in
-            if abs dist < min_distance && abs !distance > abs dist
-            then distance := dist
+            if abs dist < min_distance && abs distance > abs dist
+            then dist else distance
           | Vertical_Center ->
             let dist = pos.x + pos.w / 2 - icompare.x - icompare.w / 2 in
-            if abs dist < min_distance && abs !distance > abs dist
-            then distance := dist
+            if abs dist < min_distance && abs distance > abs dist
+            then dist else distance
           | Vertical_Right ->
             let dist = pos.x + pos.w - icompare.x - icompare.w in
-            if abs dist < min_distance && abs !distance > abs dist
-            then distance := dist
-          | None -> ()
+            if abs dist < min_distance && abs distance > abs dist
+            then dist else distance
+          | None -> distance
         in
-        count_aligns h2 line_align_val distance
+        count_aligns line_align_val distance h2
     in
-    count_aligns items line_align_val distance
+    count_aligns line_align_val (min_distance + 1) items
 
   (* min_distance - pixels
      return: counts of align of selected type in min_distance interval *)
@@ -164,57 +158,45 @@ end = struct
       ] in
     ret_list
 
-  let get_item_snap_y pos (items : Dom_html.element Js.t list) min_distance =
-    let snap_list = lines_aligns_V_list pos items min_distance in
-    let rec get_snap snap_y snap_min_delta = function
-      | [] -> snap_y
-      | h1 :: h2 ->
-        let (_, aligns_count, distance) = h1 in
+  let get_snap coord min_distance items =
+    let rec aux snap snap_min_delta = function
+      | [] -> snap
+      | (_, aligns_count, distance) :: tl ->
         let snap_min_delta =
           if aligns_count > 0 && abs distance < abs snap_min_delta
-          then distance
-          else snap_min_delta in
-        let snap_y =
+          then distance else snap_min_delta in
+        let snap =
           if abs snap_min_delta <= min_distance
-          then pos.y + snap_min_delta
-          else snap_y in
-        get_snap snap_y snap_min_delta h2 in
-    get_snap pos.y (min_distance + 1) snap_list
+          then coord + snap_min_delta else snap in
+        aux snap snap_min_delta tl in
+    aux coord (min_distance + 1) items
 
+  let get_item_snap_y pos min_distance (items : Dom_html.element Js.t list) =
+    let snap_list = lines_aligns_V_list pos items min_distance in
+    get_snap pos.y min_distance snap_list
 
-  let get_item_snap_x pos (items : Dom_html.element Js.t list) min_distance =
+  let get_item_snap_x pos min_distance (items : Dom_html.element Js.t list) =
     let snap_list = lines_aligns_H_list pos items min_distance in
-    let snap_min_delta = ref (min_distance + 1) in
-    (* FIXME remove ref *)
-    let snap_x = ref pos.x in
-    let rec get_snap snap_x snap_min_delta = function
-      | [] -> !snap_x
-      | h1 :: h2 ->
-        let (_, aligns_count, distance) = h1 in
-        if aligns_count > 0 && abs distance < abs !snap_min_delta
-        then snap_min_delta := distance;
-        if abs !snap_min_delta <= min_distance
-        then snap_x := pos.x + !snap_min_delta;
-        get_snap snap_x snap_min_delta h2 in
-    get_snap snap_x snap_min_delta snap_list
+    get_snap pos.x min_distance snap_list
 
   let get_snap_lines
       (pos : Position.t)
       (items : Dom_html.element Js.t list)
       min_distance =
-    let snap_list_V = lines_aligns_V_list pos items min_distance in
-    let snap_list_H = lines_aligns_H_list pos items min_distance in
-    let rec create_lines_V_list = function
-      | [] -> []
-      | h1 :: h2 ->
-        let (direction, aligns_count, distance) = h1 in
-        (* FIXME what is this? *)
-        let _ = if aligns_count > 0 then
+    let snap_list_v = lines_aligns_V_list pos items min_distance in
+    let snap_list_h = lines_aligns_H_list pos items min_distance in
+    let rec create_lines_v_list acc = function
+      | [] -> acc
+      | (direction, aligns_count, distance) :: tl ->
+        let acc =
+          if aligns_count > 0
+          then
             let line_ret =
               { is_vertical = true
               ; is_multiple = aligns_count > 1
               ; is_center = direction = Vertical_Center
-              ; x = if direction = Vertical_Left
+              ; x =
+                  if direction = Vertical_Left
                   then pos.x + distance
                   else if direction = Vertical_Center
                   then pos.x + pos.w / 2 + distance
@@ -223,21 +205,22 @@ end = struct
                   else 0
               ; y = 0
               } in
-            [line_ret]
-          else [] in
-        create_lines_V_list h2 in
-    let rec create_lines_H_list = function
-      | [] -> []
-      | h1 :: h2 ->
-        let (direction, aligns_count, distance) = h1 in
-        (* FIXME what is this? *)
-        let _ = if aligns_count > 0 then
+            line_ret :: acc
+          else acc in
+        create_lines_v_list acc tl in
+    let rec create_lines_h_list acc = function
+      | [] -> acc
+      | (direction, aligns_count, distance) :: tl ->
+        let acc =
+          if aligns_count > 0
+          then
             let line_ret =
               { is_vertical = false
-              ; is_multiple = if aligns_count>1 then true else false
-              ; is_center = if direction = Horizontal_Center then true else false
+              ; is_multiple = aligns_count > 1
+              ; is_center = direction = Horizontal_Center
               ; x = 0
-              ; y = if direction = Horizontal_Top
+              ; y =
+                  if direction = Horizontal_Top
                   then pos.y + distance
                   else if direction = Horizontal_Center
                   then pos.y + pos.h / 2 + distance
@@ -245,12 +228,12 @@ end = struct
                   then pos.y + pos.h + distance
                   else 0
               } in
-            [line_ret]
-          else [] in
-        create_lines_H_list h2 in
+            line_ret :: acc
+          else acc in
+        create_lines_h_list acc tl in
     let list_lines_ret =
-      create_lines_V_list snap_list_V
-      @ create_lines_H_list snap_list_H in
+      create_lines_v_list [] snap_list_v
+      @ create_lines_h_list [] snap_list_h in
     list_lines_ret
 
   let adjust_position ?aspect_ratio
@@ -260,7 +243,7 @@ end = struct
       parent_wh =
     let min_distance = 20 in
     (* FIXME this is broken because these conditions can occur simultaneously *)
-    let adjusted =
+    let pos =
       if pos.x < 0
       then { pos with x = 0 }
       else if pos.y < 0
@@ -271,7 +254,12 @@ end = struct
       then { pos with y = (snd parent_wh) - pos.h }
       else pos
     in
-    adjusted, get_snap_lines pos items min_distance
+    (* let pos =
+     *   { pos with x = get_item_snap_x pos min_distance items
+     *            ; y = get_item_snap_y pos min_distance items
+     *   }
+     * in *)
+    pos, get_snap_lines pos items min_distance
 
 end
 

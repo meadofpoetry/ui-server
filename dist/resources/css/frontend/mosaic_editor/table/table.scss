@@ -7,7 +7,6 @@
 
 .mosaic-table {
     margin: auto;
-    background-color: lightblue;
     position: relative;
 }
 
@@ -19,4 +18,11 @@
     margin-bottom: 2%;
     position: relative;
     float: left;
+}
+
+// FIXME name
+.mosaic__grid-overlay {
+    width: 100%;
+    height: 100%;
+    color: rgba(0, 0, 0, 0.2);
 }
