@@ -4,9 +4,7 @@ module CSS = struct
   let root = "mosaic"
   let video = BEM.add_element root "video"
 
-  let table = root ^ "-table"
-  let table_item = BEM.add_element table "item"
-
+  let grid = BEM.add_element root "grid"
   let grid_overlay = BEM.add_element root "grid-overlay"
 
   let resizable = "resizable"
@@ -17,6 +15,10 @@ module CSS = struct
   let resizer_top_right = BEM.add_modifier resizer "top-right"
   let resizer_bottom_left = BEM.add_modifier resizer "bottom-left"
   let resizer_bottom_right = BEM.add_modifier resizer "bottom-right"
+  let resizer_top = BEM.add_modifier resizer "top"
+  let resizer_bottom = BEM.add_modifier resizer "bottom"
+  let resizer_left = BEM.add_modifier resizer "left"
+  let resizer_right = BEM.add_modifier resizer "right"
 
   let divider = "mosaic-table-divider"
   let divider_inner = BEM.add_element divider "inner"
@@ -46,6 +48,12 @@ module Make(Xml : Xml_sigs.NoWrap)
     let classes = CSS.grid_overlay :: classes in
     canvas ~a:([a_class classes] <@> attrs) []
 
+  let create_grid ?(classes = []) ?attrs ?(content = []) () =
+    let classes = CSS.grid :: classes in
+    div ~a:([ a_class classes
+            ; a_role ["grid"] ])
+      content
+
   let create_resizable ?(tabindex = -1) ?(classes = []) ?attrs () : 'a elt =
     let classes = CSS.resizable :: classes in
     div ~a:([ a_class classes
@@ -58,7 +66,4 @@ module Make(Xml : Xml_sigs.NoWrap)
           ]
       ]
 
-  let create_table_item ?(classes = []) ?attrs ?(content = []) () : 'a elt =
-    let classes = CSS.table_item :: classes in
-    div ~a:([a_class classes] <@> attrs) content
 end

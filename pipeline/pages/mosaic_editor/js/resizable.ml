@@ -15,6 +15,10 @@ type resize_dir =
   | Top_right
   | Bottom_left
   | Bottom_right
+  | Top
+  | Bottom
+  | Left
+  | Right
 
 module Sig : sig
   type line =
@@ -289,6 +293,14 @@ let resize_dir_of_event (e : #Dom_html.event Js.t) : resize_dir option =
   then Some Bottom_left
   else if Element.has_class target Markup.CSS.resizer_bottom_right
   then Some Bottom_right
+  else if Element.has_class target Markup.CSS.resizer_top
+  then Some Top
+  else if Element.has_class target Markup.CSS.resizer_bottom
+  then Some Bottom
+  else if Element.has_class target Markup.CSS.resizer_left
+  then Some Left
+  else if Element.has_class target Markup.CSS.resizer_right
+  then Some Right
   else None
 
 let get_touch_by_id (touches : Dom_html.touchList Js.t)
@@ -535,8 +547,27 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
             { _position with
               w = _position.w + (page_x - (fst _coordinate))
             ; h = _position.h + (page_y - (snd _coordinate))
+            }
+          | Top ->
+            { _position with
+              h = _position.h - (page_y - (snd _coordinate))
+            ; y = _position.y + (page_y - (snd _coordinate))
+            }
+          | Bottom ->
+            { _position with
+              h = _position.h + (page_y - (snd _coordinate))
+            ; y = _position.y + (page_y - (snd _coordinate))
+            }
+          | Left ->
+            { _position with
+              w = _position.w - (page_x - (fst _coordinate))
+            ; x = _position.x + (page_x - (fst _coordinate))
+            }
+          | Right ->
+            { _position with
+              w = _position.w - (page_x - (fst _coordinate))
+            ; x = _position.x + (page_x - (fst _coordinate))
             } in
-        (* self#set_position position; *)
         self#notify_input position;
         Lwt.return_unit
 

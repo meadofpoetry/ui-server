@@ -2,6 +2,8 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml
 open Components
 
+let ( >>= ) = Lwt.bind
+
 let set_tab_index ?prev
     (items_lazy : unit -> Dom_html.element Js.t list)
     (item : Dom_html.element Js.t) : unit =
@@ -16,8 +18,6 @@ let set_tab_index ?prev
      match items_lazy () with
      | first :: _ -> if not @@ Element.equal first item then (set (-1) first)
      | _ -> ());
-  print_endline "setting tab index";
-  Js.Unsafe.global##.console##log item |> ignore;
   set 0 item
 
 module Selector = struct
@@ -39,21 +39,7 @@ module Divider = struct
 
 end
 
-module Item = struct
-
-  class t elt () =
-    object
-      inherit Widget.t elt ()
-    end
-
-  let make () : t =
-    let elt = Tyxml_js.To_dom.of_element
-      @@ Markup.create_table_item () in
-    new t elt ()
-
-end
-
-class t ~width ~height ?(items = []) elt () =
+class t ~width ~height elt () =
   object(self)
     inherit Widget.t elt () as super
     val grid_overlay = Grid_overlay.make 10
@@ -66,9 +52,7 @@ class t ~width ~height ?(items = []) elt () =
 
     method! init () : unit =
       super#init ();
-      super#append_child grid_overlay;
-      List.iter super#append_child items;
-      super#add_class Markup.CSS.table
+      super#append_child grid_overlay
 
     method! initial_sync_with_dom () : unit =
       let _ = Ui_templates.Resize_observer.observe
@@ -79,6 +63,7 @@ class t ~width ~height ?(items = []) elt () =
         [ listen_lwt super#root Resizable.Event.input self#handle_item_drag
         ; listen_lwt super#root Resizable.Event.change self#handle_item_change
         ; listen_lwt super#root Resizable.Event.selected self#handle_item_selected
+        ; keydowns super#root self#handle_keydown
         ]);
       super#initial_sync_with_dom ()
 
@@ -88,10 +73,15 @@ class t ~width ~height ?(items = []) elt () =
       super#destroy ()
 
     method! layout () : unit =
-      List.iter Widget.layout items;
       self#fit ();
       grid_overlay#layout ();
       super#layout ()
+
+    method show_grid (x : bool) : unit =
+      grid_overlay#set_show_grid x
+
+    method show_snap_lines (x : bool) : unit =
+      grid_overlay#set_show_snap_lines x
 
     method fit () : unit =
       let scale_factor = self#scale_factor in
@@ -100,19 +90,21 @@ class t ~width ~height ?(items = []) elt () =
       super#root##.style##.width := Utils.px_js width';
       super#root##.style##.height := Utils.px_js height';
       List.iter (fun item ->
-          let w = float_of_int @@ Position.get_width item in
-          let h = float_of_int @@ Position.get_height item in
-          let left = float_of_int @@ Position.get_left item in
-          let top = Position.get_top item in
+          let w = float_of_int @@ Position.get_original_width item in
+          let h = float_of_int @@ Position.get_original_height item in
+          let left = float_of_int @@ Position.get_original_left item in
+          let top = float_of_int @@ Position.get_original_top item in
           let new_w, new_h =
             let w' = w *. scale_factor in
-            w', Position.get_height_for_width item w' in
+            (* XXX maybe use item aspect ratio to calculate new height? *)
+            let h' = h *. scale_factor in
+            w', h' in
           let new_left = (left *. new_w) /. w in
-          let new_top = (top * new_h) / int_of_float h in
-          item##.style##.top := Utils.px_js new_top;
+          let new_top = (top *. new_h) /. h in
+          item##.style##.top := Utils.px_js @@ Float.to_int @@ Float.floor new_top;
           item##.style##.left := Utils.px_js @@ Float.to_int @@ Float.floor new_left;
           item##.style##.width := Utils.px_js @@ Float.to_int @@ Float.floor new_w;
-          item##.style##.height := Utils.px_js new_h)
+          item##.style##.height := Utils.px_js @@ Float.to_int @@ Float.floor new_h)
         self#items
 
     method items : Dom_html.element Js.t list =
@@ -120,11 +112,32 @@ class t ~width ~height ?(items = []) elt () =
 
     (* Private methods *)
 
+    method private handle_keydown e _ =
+      (* Navigation keys *)
+      (* TODO Implement as described in https://www.w3.org/TR/wai-aria-practices/#layoutGrid *)
+      (match Events.Key.of_event e with
+       | `Arrow_left -> ()
+       | `Arrow_right -> ()
+       | `Arrow_down -> ()
+       | `Arrow_up -> ()
+       | `Page_up -> () (* XXX optional *)
+       | `Page_down -> () (* XXX optional *)
+       | `Home -> ()
+       | `End -> ()
+       (* Other keys *)
+       | `Enter | `Space -> () (* XXX maybe move to the next layer here? *)
+       | `Delete -> ()
+       | _ -> ());
+      Lwt.return_unit
+
     method private handle_item_selected e _ =
       let target = Dom_html.eventTarget e in
       target##focus;
       set_tab_index ?prev:_focused_item (fun () -> self#items) target;
       _focused_item <- Some target;
+      Lwt.async (fun () ->
+          Events.blur target
+          >>= fun _ -> (* TODO do smth *) Lwt.return_unit);
       Lwt.return_unit
 
     method private handle_item_drag e _ =
@@ -134,7 +147,7 @@ class t ~width ~height ?(items = []) elt () =
         @@ Widget.event_detail e in
       let aspect_ratio =
         match Element.get_attribute target Position.Attr.keep_aspect_ratio with
-        | Some "true" -> Some (Position.get_aspect_ratio target)
+        | Some "true" -> Position.get_original_aspect_ratio target
         | _ -> None in
       let adjusted, lines =
         Resizable.Sig.adjust_position
@@ -184,10 +197,10 @@ let make () =
   let items =
     [ make_item 0 0 111 150
     ; make_item 111 0 189 150
-    (* ; make_item 0 150 200 150
-     * ; make_item 210 150 90 150 *)
+    ; make_item 0 150 200 150
+    ; make_item 210 150 90 150
     ] in
   let elt =
     Tyxml_js.To_dom.of_element
-    @@ Tyxml_js.Html.(div []) in
-  new t ~width:1920 ~height:1080 ~items elt ()
+    @@ Markup.create_grid ~content:(List.map Widget.to_markup items) () in
+  new t ~width:1920 ~height:1080 elt ()

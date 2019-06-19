@@ -5,15 +5,21 @@ open Components
 let color_from_css (elt : #Dom_html.element Js.t) =
   (Dom_html.window##getComputedStyle elt)##.color
 
-class t ?(divider_period = 2) ~size (canvas : Dom_html.canvasElement Js.t) () =
+class t ?(show_grid = true)
+    ?(show_snap_lines = true)
+    ?(divider_period = 2)
+    ~size
+    (canvas : Dom_html.canvasElement Js.t) () =
   object(self)
 
     inherit Widget.t canvas () as super
 
     val context = canvas##getContext Dom_html._2d_
-    val mutable show_dividers = true
+    val mutable size = size
     val mutable divider_period = divider_period
     val mutable snap_lines = []
+    val mutable show_grid = show_grid
+    val mutable show_snap_lines = show_snap_lines
 
     method! layout () =
       canvas##.width := canvas##.offsetWidth;
@@ -21,15 +27,16 @@ class t ?(divider_period = 2) ~size (canvas : Dom_html.canvasElement Js.t) () =
       let width = canvas##.width in
       let height = canvas##.height in
       context##clearRect 0. 0. (float_of_int width) (float_of_int height);
-      self#draw_grid ~width ~height;
-      List.iter (self#draw_snap_line ~width ~height) snap_lines;
+      if show_grid then self#draw_grid ~width ~height;
+      if show_snap_lines then List.iter (self#draw_snap_line ~width ~height) snap_lines;
       super#layout ()
 
-    method show () : unit =
-      super#root##.style##.display := Js.string ""
+    method size : int =
+      size
 
-    method hide () : unit =
-      super#root##.style##.display := Js.string "none"
+    method set_size (x : int) : unit =
+      size <- x;
+      self#layout ()
 
     method divider_period : int =
       divider_period
@@ -38,16 +45,16 @@ class t ?(divider_period = 2) ~size (canvas : Dom_html.canvasElement Js.t) () =
       divider_period <- x;
       self#layout ()
 
-    method show_dividers () : unit =
-      show_dividers <- true;
-      self#layout ()
-
-    method hide_dividers () : unit =
-      show_dividers <- false;
-      self#layout ()
-
     method set_snap_lines (x : Resizable.Sig.line list) =
       snap_lines <- x;
+      self#layout ()
+
+    method set_show_grid (x : bool) : unit =
+      show_grid <- x;
+      self#layout ()
+
+    method set_show_snap_lines (x : bool) : unit =
+      show_snap_lines <- x;
       self#layout ()
 
     (* Private methods *)
@@ -128,7 +135,7 @@ class t ?(divider_period = 2) ~size (canvas : Dom_html.canvasElement Js.t) () =
       context##.lineWidth := 0.5;
       self#draw_rows ~color ~cols ~rows;
       self#draw_columns ~color ~cols ~rows;
-      if show_dividers then self#draw_dividers ~color ~cols ~rows
+      self#draw_dividers ~color ~cols ~rows
 
   end
 

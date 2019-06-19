@@ -25,7 +25,7 @@ module Make(I : Item) = struct
     let selected, selected_push = React.S.create None in
     let layers = List.sort compare @@ I.layers_of_t_list init in
     let rt = RT.make ~selected ~layers ~candidates ~set_candidates in
-    let table = Layout_table.make () in
+    let table = Widget_editor.make () in
     let ig =
       Widget.create_div
         ~widgets:[table]
