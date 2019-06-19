@@ -107,6 +107,7 @@ class t ?(widgets = []) (position : Position.t) elt () =
           ; dragovers super#root self#handle_dragover
           ; dragleaves super#root self#handle_dragleave
           ; drops super#root self#handle_drop
+          ; dragends super#root self#handle_drag_end
           ]);
       super#initial_sync_with_dom ()
 
@@ -252,6 +253,7 @@ class t ?(widgets = []) (position : Position.t) elt () =
       ghost##.style##.top := Utils.px_js y;
       ghost##.style##.width := Utils.px_js 100;
       ghost##.style##.height := Utils.px_js 100;
+      Dom.preventDefault e;
 (* ) t; *)
       Lwt.return_unit
 
@@ -263,11 +265,12 @@ class t ?(widgets = []) (position : Position.t) elt () =
       Lwt.return_unit
 
     method private handle_drop e _ =
-      print_endline "drop";
       Dom.preventDefault e;
-      let json = e##.dataTransfer##getData (Js.string _dnd_typ)
-                 |> Js.to_string
-                 |> Yojson.Safe.from_string in
+      Js.Unsafe.global##.console##log (e##.dataTransfer##getData (Js.string _dnd_typ)) |> ignore;
+      let json =
+        e##.dataTransfer##getData (Js.string _dnd_typ)
+        |> Js.to_string
+        |> Yojson.Safe.from_string in
       (match widget_of_yojson json with
        | Error _ -> ()
        | Ok widget ->
@@ -286,6 +289,10 @@ class t ?(widgets = []) (position : Position.t) elt () =
          let item = make_item widget in
          super#append_child item);
       (* ghost#set_pos Dynamic_grid.Position.empty; *)
+      Lwt.return_unit
+
+    method private handle_drag_end e _ =
+      ghost##.style##.display := Js.string "none";
       Lwt.return_unit
 
     method private handle_item_selected e _ =
@@ -320,11 +327,21 @@ class t ?(widgets = []) (position : Position.t) elt () =
 
     method private handle_item_change e _ =
       (* let target = Dom_html.eventTarget e in *)
-      (* let position =
+      (* let pos =
        *   Position.of_client_rect
        *   @@ Widget.event_detail e in *)
       grid_overlay#set_snap_lines [];
       (* TODO update position here *)
+      (* let scale = float_of_int super#root##.offsetWidth /. float_of_int position.w in
+       * let to_string x = Printf.sprintf "%d" @@ Float.to_int x in
+       * let w' = to_string @@ scale *. float_of_int pos.w in
+       * let h' = to_string @@ scale *. float_of_int pos.h in
+       * let x' = to_string @@ scale *. float_of_int pos.x in
+       * let y' = to_string @@ scale *. float_of_int pos.y in
+       * Element.set_attribute target Position.Attr.width w';
+       * Element.set_attribute target Position.Attr.height h';
+       * Element.set_attribute target Position.Attr.left x';
+       * Element.set_attribute target Position.Attr.top y'; *)
       Lwt.return_unit
 
     method private parent_rect : float * float * float =

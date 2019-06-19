@@ -1,18 +1,19 @@
 @import "./variables";
+@import "@material/card/mixins";
 
 .resizable {
+    @include mdc-card-outline($resizable-outline-color);
     position: absolute;
     cursor: pointer;
     background: white;
+    box-sizing: border-box;
 
-    &--active {
-        z-index: 1;
-    }
-
-    &:hover, &--active {
-        .resizable__resizers {
-            opacity: 1;
-        }
+    &--active &__resizer,
+    &--active &__resizers,
+    &:focus &__resizer,
+    &:focus &__resizers {
+        z-index: 999;
+        opacity: 1;
     }
 
     &__resizers {
@@ -20,13 +21,14 @@
         width: 100%;
         height: 100%;
         box-sizing: border-box;
+        @include mdc-card-outline($resizable-outline-active-color);
     }
 
     &__resizer {
         width: 10px;
         height: 10px;
-        border: 4px solid #4286f4;
         position: absolute;
+        @include mdc-card-outline($resizable-outline-active-color, 3px);
 
         &--top-left {
             border-bottom: none;

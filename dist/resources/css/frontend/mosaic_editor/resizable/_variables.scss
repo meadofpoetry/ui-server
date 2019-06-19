@@ -1,2 +1,4 @@
-$resizable-border-width: 2px;
-$resizable-border-color: #888;
+@import "@material/theme/mixins";
+
+$resizable-outline-color: mix(mdc-theme-prop-value(on-surface), mdc-theme-prop-value(surface), 12%) !default;
+$resizable-outline-active-color: mix(mdc-theme-prop-value(on-surface), mdc-theme-prop-value(surface), 45%) !default;

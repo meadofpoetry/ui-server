@@ -358,7 +358,6 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
     inherit Widget.t elt () as super
 
     method! init () : unit =
-      super#add_class @@ Elevation.CSS.elevation 2;
       super#init ()
 
     method! initial_sync_with_dom () : unit =
@@ -389,7 +388,7 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       super#emit ~should_bubble:true ~detail Event.input
 
     method private notify_change () : unit =
-      let detail = Position.to_client_rect _position in
+      let detail = Position.to_client_rect @@ Position.of_element super#root in
       super#emit ~should_bubble:true ~detail Event.change
 
     method private notify_selected () : unit =

@@ -15,7 +15,7 @@ type t =
   ; y : int
   ; w : int
   ; h : int
-  }
+  } [@@deriving show]
 
 let empty =
   { x = 0
@@ -26,11 +26,11 @@ let empty =
 
 let apply_to_element (pos : t) (elt : #Dom_html.element Js.t) =
   let min_size = 20 in (* FIXME *)
-  if pos.w > min_size
+  if pos.w >= min_size
   then (
     elt##.style##.width := Utils.px_js pos.w;
     elt##.style##.left := Utils.px_js pos.x);
-  if pos.h > min_size
+  if pos.h >= min_size
   then (
     elt##.style##.height := Utils.px_js pos.h;
     elt##.style##.top := Utils.px_js pos.y)
