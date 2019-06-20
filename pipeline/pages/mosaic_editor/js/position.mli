@@ -36,7 +36,11 @@ type t =
 
 val empty : t
 
-val apply_to_element : t -> #Dom_html.element Js.t -> unit
+val equal : t -> t -> bool
+
+val compare : t -> t -> int
+
+val apply_to_element : ?min_size:int -> t -> #Dom_html.element Js.t -> unit
 
 val of_element : #Dom_html.element Js.t -> t
 
@@ -63,3 +67,21 @@ val adjust :
   -> parent_size:int * int (* Parent width & height *)
   -> Dom_html.element Js.t (* Active item *)
   -> t * (line list) (* Adjusted position & lines properties *)
+
+val scale :
+  original_parent_size:int * int
+  -> parent_size:int * int
+  -> t
+  -> t
+
+val find_spare :
+  ?compare:(t -> t -> int)
+  -> ?aspect:int * int
+  -> ?min_w:int
+  -> ?min_h:int
+  -> ?max_w:int
+  -> ?max_h:int
+  -> siblings:t list
+  -> parent_size:int * int
+  -> int * int (* Cursor position relative to parent rect *)
+  -> t option

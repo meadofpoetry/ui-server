@@ -4,8 +4,6 @@ open Components
 open Wm_types
 open Basic_widgets
 
-let drag_type_prefix = "application/grid_item-"
-
 module Make(I : Item) = struct
 
   let base_class = "wm-items"
@@ -21,11 +19,11 @@ module Make(I : Item) = struct
                  |> Yojson.Safe.to_string
                  |> Js.string in
       let wh = match I.size_of_t candidate with
-        | Some w, Some h -> string_of_int w ^ ":" ^ string_of_int h
-        | Some w, None -> string_of_int w ^ ":" ^ "null"
-        | None, Some h -> "null" ^ ":" ^ string_of_int h
-        | None, None -> "null:null" in
-      let typ = drag_type_prefix ^ wh in
+        | Some w, Some h -> "-" ^ string_of_int w ^ ":" ^ string_of_int h
+        | Some w, None -> "-" ^ string_of_int w ^ ":" ^ "null"
+        | None, Some h -> "-null" ^ ":" ^ string_of_int h
+        | None, None -> "" in
+      let typ = Resizable.drag_type_prefix ^ wh in
       let box = Box.make ~dir:`Row widgets in
       object
         inherit Widget.t box#root () as super

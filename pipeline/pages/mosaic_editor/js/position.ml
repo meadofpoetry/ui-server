@@ -1,6 +1,8 @@
 open Js_of_ocaml
 open Components
 
+let ( % ) f g x = f (g x)
+
 module Attr = struct
   let keep_aspect_ratio = "data-keep-aspect-ratio"
   let aspect_ratio = "data-aspect-ratio"
@@ -35,7 +37,7 @@ type line_align_direction =
   | Vertical_Left
   | Vertical_Center
   | Vertical_Right
-  | None
+  | Nill
 
 type t =
   { x : int
@@ -51,8 +53,120 @@ let empty =
   ; h = 0
   }
 
-let apply_to_element (pos : t) (elt : #Dom_html.element Js.t) =
-  let min_size = 20 in (* FIXME *)
+let compare (a : t) (b : t) =
+  let c = compare a.x b.x in
+  if c <> 0 then c
+  else (let c = compare a.y b.y in
+        if c <> 0 then c
+        else (let c = compare a.w b.w in
+              if c <> 0 then c
+              else compare a.h b.h))
+
+let equal (a : t) (b : t) =
+  a.x = b.x && a.y = b.y && a.w = b.w && a.h = b.h
+
+(** Checks if two elements collide, returns [true] if so and [false] otherwise *)
+let collides (pos1 : t) (pos2 : t) =
+  if (pos1.x + pos1.w <= pos2.x) then false
+  else if (pos1.x >= pos2.x + pos2.w) then false
+  else if (pos1.y + pos1.h <= pos2.y) then false
+  else if (pos1.y >= pos2.y + pos2.h) then false
+  else true
+
+(** Returns first collision *)
+let collision_map
+    ~(f : 'a -> t)
+    (pos : 'a)
+    (l : 'a list) =
+  let rec aux = function
+    | [] -> None
+    | hd :: tl ->
+      if collides (f pos) (f hd)
+      then Some hd
+      else aux tl
+  in
+  aux l
+
+(** Returns all collisions *)
+let collisions_map
+    ~(f : 'a -> t)
+    (item : 'a)
+    (l : 'a list) =
+  List.fold_left (fun acc (x : 'a) ->
+      if collides (f item) (f x)
+      then x :: acc
+      else acc) [] l
+
+(** Checks if element collides with other elements *)
+let has_collision_map ~f x (l : 'a list) =
+  match collision_map ~f x l with
+  | None -> false | Some _ -> true
+
+let collision x l = collision_map ~f:(fun x -> x) x l
+
+let collisions x l = collisions_map ~f:(fun x -> x) x l
+
+let has_collision x l = has_collision_map ~f:(fun x -> x) x l
+
+(** Changes top and left coordinates to correspond parent dimentions *)
+let fix_xy par_w par_h (p : t) =
+  let x = if p.x < 0 then 0 else if p.x + p.w > par_w then par_w - p.w else p.x in
+  let y =
+    match par_h with
+    | None -> if p.y < 0 then 0 else p.y
+    | Some ph -> if p.y < 0 then 0 else if p.y + p.h > ph then ph - p.h else p.y
+  in
+  { p with x; y }
+
+(** Changes width to correspond provided constraints *)
+let fix_w ?max_w ?(min_w = 1) par_w (p : t) =
+  let w = match max_w with
+    | Some max -> if p.w > max then max else if p.w < min_w then min_w else p.w
+    | None -> if p.w < min_w then min_w else p.w
+  in
+  let w = if p.x + w > par_w then par_w - p.x else w in
+  { p with w }
+
+(** Changes height to correspond provided constraints *)
+let fix_h ?max_h ?(min_h = 1) par_h (p : t) =
+  let h = match max_h with
+    | Some max -> if p.h > max then max else if p.h < min_h then min_h else p.h
+    | None     -> if p.h < min_h then min_h else p.h
+  in
+  let h = match par_h with
+    | Some ph -> if p.y + h > ph then ph - p.y else h
+    | None    -> h
+  in
+  { p with h }
+
+(** Changes width and height to correspond provided constraints *)
+let fix_wh ?max_w ?min_w ?max_h ?min_h par_w par_h =
+  (fix_h ?max_h ?min_h par_h) % (fix_w ?max_w ?min_w par_w)
+
+(** Changes width and height to correspond provided aspect *)
+let fix_aspect (p : t) (aspect : int * int) =
+  let w =
+    if p.w mod (fst aspect) <> 0 then
+      let w = (p.w / (fst aspect)) * (fst aspect) in
+      if w = 0 then (fst aspect)  else w
+    else p.w
+  in
+  let h =
+    if p.h mod (snd aspect) <> 0 then
+      let h = (p.h / (snd aspect)) * (snd aspect) in
+      if h = 0 then (snd aspect) else h
+    else p.h
+  in
+  let sw = w / (fst aspect) in
+  let sh = h / (snd aspect) in
+  let w, h =
+    if sw > sh
+    then (fst aspect) * sh, h
+    else w, (snd aspect) * sw
+  in
+  { p with w; h }
+
+let apply_to_element ?(min_size = 20) (pos : t) (elt : #Dom_html.element Js.t) =
   if pos.w >= min_size
   then (
     elt##.style##.width := Utils.px_js pos.w;
@@ -258,7 +372,7 @@ let line_find_closest_align_value
                  && (abs dist3 <= abs dist2)
             then dist3
             else distance
-          | None -> distance
+          | Nill -> distance
       in
       count_aligns line_align_val distance tl
   in
@@ -473,3 +587,141 @@ let adjust ?aspect_ratio
   in
 
   position, get_snap_lines item position siblings min_distance
+
+let scale
+    ~(original_parent_size : int * int)
+    ~(parent_size : int * int)
+    (position : t) : t =
+  (* TODO implement *)
+  position
+
+let find_spare ?(compare : (t -> t -> int) option)
+    ?(aspect : (int * int) option)
+    ?min_w ?min_h ?max_w ?max_h
+    ~(siblings : t list)
+    ~parent_size
+    (x, y) =
+  let (w, h) = parent_size in
+  let pos = { x; y; w = 1; h = 1 } in
+  if has_collision pos siblings
+  then None
+  else
+    let area pos = pos.w * pos.h in
+    let cmp =
+      match compare with
+      | Some f -> f
+      | None ->
+        (fun new_pos old_pos ->
+           match aspect with
+           | Some a ->
+             let nasp = fix_aspect new_pos a in
+             let oasp = fix_aspect old_pos a in
+             let narea = area nasp in
+             let oarea = area oasp in
+             Stdlib.compare narea oarea
+           | None ->
+             let new_area = area new_pos in
+             let old_area = area old_pos in
+             Stdlib.compare new_area old_area) in
+    (* FIXME obviously not optimized algorithm *)
+    (* get only elements that are on the way to cursor proection to the left/right side *)
+    let x_filtered = List.filter (fun i -> pos.y > i.y && pos.y < i.y + i.h) siblings in
+    (* get cursor proection to the left side *)
+    let l =
+      List.filter (fun i -> i.x < pos.x) x_filtered
+      |> List.fold_left (fun acc i ->
+          if i.x + i.w > acc.x + acc.w
+          then i else acc) empty
+      |> (fun x -> x.x + x.w) in
+    (* get cursor proection to the right side *)
+    let r =
+      List.filter (fun i -> i.x > pos.x) x_filtered
+      |> List.fold_left (fun acc i ->
+          if i.x < acc.x then i else acc)
+        { x = w; y = 0; w = 0; h = 0 }
+      |> (fun x -> x.x) in
+    (* get only elements that are on the way to cursor proection to the top/bottom side *)
+    let y_filtered = List.filter
+        (fun i ->
+           pos.x > i.x
+           && pos.x < i.x + i.w
+           && i.x + i.w > l
+           && i.x < r)
+        siblings in
+    (* get cursor proection to the top side *)
+    let t =
+      List.filter (fun i -> i.y < pos.y) y_filtered
+      |> List.fold_left (fun acc i ->
+          if i.y + i.h > acc.y + acc.h
+          then i else acc) empty
+      |> (fun x -> x.y + x.h) in
+    (* get cursor proection to the bottom side *)
+    let b =
+      List.filter (fun i -> i.y > pos.y) y_filtered
+      |> List.fold_left (fun acc i -> if i.y < acc.y then i else acc)
+        { x = 0; y = h; w = 0; h = 0}
+      |> (fun x -> x.y) in
+    (* get available x points *)
+    (* FIXME obviously we don't need to iterate over all items *)
+    let (xs : int list) =
+      List.fold_left (fun acc i ->
+          let join = fun x lst -> if x >= l && x <= r then x :: lst else lst in
+          let acc  = join i.x acc |> join (i.x + i.w) in
+          acc) [] siblings
+      |> (fun x -> l :: x @ [r])
+      |> List.sort_uniq (Pervasives.compare) in
+    (* get available y points *)
+    (* FIXME obviously we don't need to iterate over all items *)
+    let (ys : int list) =
+      List.fold_left (fun acc i ->
+          let join = fun y lst -> if y >= t && y <= b then y :: lst else lst in
+          let acc  = join i.y acc |> join (i.y + i.h) in
+          acc) [] siblings
+      |> (fun x -> t :: x @ [b])
+      |> List.sort_uniq (Pervasives.compare) in
+    (* get biggest non-overlapping rectangle under the cursor *)
+    (* FIXME obviously not optimized at all *)
+    let a =
+      List.fold_left (fun acc x0 ->
+          let xs = List.filter (fun i -> i > x0) xs in
+          List.fold_left (fun acc x1 ->
+              List.fold_left (fun acc y0 ->
+                  let ys = List.filter (fun i -> i > y0) ys in
+                  List.fold_left (fun acc y1 ->
+                      let (new_pos : t) =
+                        { x = x0
+                        ; y = y0
+                        ; w = x1 - x0
+                        ; h = y1 - y0
+                        } in
+                      (* new rect must be the biggest one available,
+                       * it must not overlap with other rects,
+                       * it must be under the mouse cursor *)
+                      if (not @@ has_collision new_pos siblings) && collides new_pos pos
+                      then
+                        let p = fix_wh ?max_w ?max_h ?min_h ?min_w w (Some h) new_pos in
+                        let p =
+                          match aspect with
+                          | Some asp -> fix_aspect p asp
+                          | None -> new_pos in
+                        let cx = pos.x - new_pos.x in
+                        let cy = pos.y - new_pos.y in
+                        let cp = fix_xy new_pos.w (Some new_pos.h)
+                            { pos with x = cx; y = cy } in
+                        let p = fix_xy new_pos.w (Some new_pos.h)
+                            { p with x = cp.x - (p.w / 2)
+                                   ; y = cp.y - (p.h / 2)
+                            } in
+                        let p = { p with x = p.x + new_pos.x
+                                       ; y = p.y + new_pos.y } in
+                        match (cmp p acc),
+                              p.x + p.w > w,
+                              p.y + p.h > h,
+                              p.w > new_pos.w,
+                              p.h > new_pos.h with
+                        | 1, false, false, false, false -> p
+                        | _ -> acc
+                      else acc) acc ys) acc ys) acc xs)
+        empty xs
+    in
+    if equal a empty then None else Some a

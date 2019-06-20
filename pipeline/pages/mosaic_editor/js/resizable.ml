@@ -10,6 +10,8 @@ open Components
    5. Stick to neighbour elements
    6. Extend `resize` dir to handle Top, Left, Right, Bottom dirs *)
 
+let drag_type_prefix = "application/grid-item"
+
 module Event = struct
   type action =
     | Move

@@ -9,7 +9,7 @@ let icon_to_yojson w =
 
 let icon_of_yojson = function
   | `String s ->
-     Js_of_ocaml.(
+    Js_of_ocaml.(
       let div = Dom_html.(createDiv document) in
       div##.innerHTML := Js.string s;
       let elt : Dom_html.element Js.t =
@@ -32,6 +32,7 @@ type item_properties_action =
   { label : string
   ; on_click : unit -> unit
   }
+
 type item_properties =
   { widget : Widget.t
   ; actions : item_properties_action list
@@ -39,11 +40,6 @@ type item_properties =
 
 type editor_config =
   { show_grid_lines : bool
-  }
-
-type action =
-  { icon : Widget.t
-  ; name : string
   }
 
 module type Item = sig

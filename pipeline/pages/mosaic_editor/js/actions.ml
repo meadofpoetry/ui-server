@@ -1,9 +1,14 @@
 open Components
 
+type action =
+  { icon : Widget.t
+  ; name : string
+  }
+
 let base_class = "wm-left-toolbar"
 let action_class = Components_tyxml.BEM.add_element base_class "action"
 
-let make_action ?on_click (action : Wm_types.action) =
+let make_action ?on_click (action : action) =
   let w = Icon_button.make ?on_click
       ~icon:action.icon
       () in

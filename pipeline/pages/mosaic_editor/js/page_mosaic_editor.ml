@@ -40,45 +40,6 @@ let get_bounding_rect_and_grids (positions : Wm.position list) =
   ; grids = Utils.get_grids ~resolution ~positions ()
   }
 
-let resize ~(resolution : int * int)
-    ~(to_position : 'a -> Wm.position)
-    ~(f : Wm.position -> 'a -> 'a) = function
-  | [] -> []
-  | l ->
-    let grids = get_bounding_rect_and_grids @@ List.map to_position l in
-    let rect = grids.rect |> Utils.to_grid_position in
-    let nw, nh =
-      Utils.resolution_to_aspect (rect.w, rect.h)
-      |> Dynamic_grid.Position.correct_aspect
-        { x = 0
-        ; y = 0
-        ; w = fst resolution
-        ; h = snd resolution }
-      |> (fun p -> p.w, p.h) in
-    let w, h =
-      if nw > rect.w
-      then List.hd grids.grids
-      else List.fold_left (fun acc (w, h) ->
-          if w > (fst acc) && w <= nw
-          then (w,h) else acc) (0,0) grids.grids in
-    let cw, rh = nw / w, nh / h in
-    let dx = (fst resolution - (w * cw)) / 2 in
-    let dy = (snd resolution - (h * rh)) / 2 in
-    let apply (item : 'a) : 'a =
-      Utils.of_grid_position rect
-      |> pos_absolute_to_relative (to_position item)
-      |> Layer.grid_pos_of_layout_pos
-        ~resolution:(rect.w, rect.h) ~cols:w ~rows:h
-      |> (fun pos -> Dynamic_grid.Position.(
-          { x = (pos.x * cw) + dx
-          ; y = (pos.y * rh) + dy
-          ; w = pos.w * cw
-          ; h = pos.h * rh }))
-      |> Utils.of_grid_position
-      |> (fun x -> f x item)
-    in
-    List.map apply l
-
 let resize_container (p : Wm.position) (t : Wm.container wm_item) =
   let resolution = p.right - p.left, p.bottom - p.top in
   let widgets =
