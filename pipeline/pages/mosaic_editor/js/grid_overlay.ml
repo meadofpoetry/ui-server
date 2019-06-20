@@ -45,7 +45,7 @@ class t ?(show_grid = true)
       divider_period <- x;
       self#layout ()
 
-    method set_snap_lines (x : Resizable.Sig.line list) =
+    method set_snap_lines (x : Position.line list) =
       snap_lines <- x;
       self#layout ()
 
@@ -59,7 +59,7 @@ class t ?(show_grid = true)
 
     (* Private methods *)
 
-    method private draw_snap_line ~width ~height (line : Resizable.Sig.line) : unit =
+    method private draw_snap_line ~width ~height (line : Position.line) : unit =
       (* FIXME get colors from CSS (variables?) *)
       let color = match line.is_center, line.is_multiple with
         | true, true -> "rgba(255, 0, 0, 0.9)"

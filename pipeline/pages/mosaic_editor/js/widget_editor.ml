@@ -266,7 +266,6 @@ class t ?(widgets = []) (position : Position.t) elt () =
 
     method private handle_drop e _ =
       Dom.preventDefault e;
-      Js.Unsafe.global##.console##log (e##.dataTransfer##getData (Js.string _dnd_typ)) |> ignore;
       let json =
         e##.dataTransfer##getData (Js.string _dnd_typ)
         |> Js.to_string
@@ -307,20 +306,25 @@ class t ?(widgets = []) (position : Position.t) elt () =
 
     method private handle_item_drag e _ =
       let target = Dom_html.eventTarget e in
-      let position =
-        Position.of_client_rect
-        @@ Widget.event_detail e in
+      let detail = Widget.event_detail e in
+      let position = Position.of_client_rect detail##.rect in
+      let original_position = Position.of_client_rect detail##.originalRect in
       let aspect_ratio =
         match Element.get_attribute target Position.Attr.keep_aspect_ratio with
         | Some "true" -> Position.get_original_aspect_ratio target
         | _ -> None in
       let adjusted, lines =
-        Resizable.Sig.adjust_position
+        Position.adjust
           ?aspect_ratio
+          ~action:(match detail##.action with
+              | Move -> `Move
+              | Resize -> `Resize detail##.direction)
+          ~position
+          ~original_position
+          ~siblings:self#items
+          ~parent_size:(super#root##.offsetWidth, super#root##.offsetHeight)
           target
-          position
-          (self#items_ ())
-          (super#root##.offsetWidth, super#root##.offsetHeight) in
+      in
       grid_overlay#set_snap_lines lines;
       Position.apply_to_element adjusted target;
       Lwt.return_unit
