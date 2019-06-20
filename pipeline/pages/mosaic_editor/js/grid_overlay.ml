@@ -5,7 +5,7 @@ open Components
 let color_from_css (elt : #Dom_html.element Js.t) =
   (Dom_html.window##getComputedStyle elt)##.color
 
-class t ?(show_grid = true)
+class t ?(show_grid_lines = true)
     ?(show_snap_lines = true)
     ?(divider_period = 2)
     ~size
@@ -18,7 +18,7 @@ class t ?(show_grid = true)
     val mutable size = size
     val mutable divider_period = divider_period
     val mutable snap_lines = []
-    val mutable show_grid = show_grid
+    val mutable show_grid_lines = show_grid_lines
     val mutable show_snap_lines = show_snap_lines
 
     method! layout () =
@@ -27,7 +27,7 @@ class t ?(show_grid = true)
       let width = canvas##.width in
       let height = canvas##.height in
       context##clearRect 0. 0. (float_of_int width) (float_of_int height);
-      if show_grid then self#draw_grid ~width ~height;
+      if show_grid_lines then self#draw_grid ~width ~height;
       if show_snap_lines then List.iter (self#draw_snap_line ~width ~height) snap_lines;
       super#layout ()
 
@@ -49,11 +49,17 @@ class t ?(show_grid = true)
       snap_lines <- x;
       self#layout ()
 
-    method set_show_grid (x : bool) : unit =
-      show_grid <- x;
+    method grid_lines_visible : bool =
+      show_grid_lines
+
+    method set_grid_lines_visible (x : bool) : unit =
+      show_grid_lines <- x;
       self#layout ()
 
-    method set_show_snap_lines (x : bool) : unit =
+    method snap_lines_visible : bool =
+      show_snap_lines
+
+    method set_snap_lines_visible (x : bool) : unit =
       show_snap_lines <- x;
       self#layout ()
 
@@ -139,14 +145,17 @@ class t ?(show_grid = true)
 
   end
 
-let make size : t =
+let make ?show_grid_lines ?show_snap_lines size : t =
   let canvas =
     Tyxml_js.To_dom.of_canvas
     @@ Markup.create_grid_overlay () in
-  new t ~size canvas ()
+  new t ?show_grid_lines ?show_snap_lines ~size canvas ()
 
 (* TODO read size from DOM attribute *)
-let attach ?(size = 10) (elt : #Dom_html.element Js.t) : t =
+let attach ?show_grid_lines ?show_snap_lines ?(size = 10)
+    (elt : #Dom_html.element Js.t) : t =
   match String.uppercase_ascii @@ Js.to_string elt##.tagName with
-  | "CANVAS" -> new t ~size (Js.Unsafe.coerce elt) ()
+  | "CANVAS" ->
+    new t ?show_grid_lines ?show_snap_lines ~size
+      (Js.Unsafe.coerce elt) ()
   | _ -> failwith "grid-overlay: host element must have a `canvas` tag"

@@ -1,4 +1,5 @@
 @import "./wm";
+@import "./toggle-button/mdc-toggle-button";
 @import "@material/theme/mixins";
 @import "@material/animation/functions";
 @import "@material/button/mixins";
@@ -45,6 +46,25 @@
     &--contextual-action &__navigation-icon .mdc-icon:nth-child(1) {
         @include nav-icon-hidden;
     }
+    &__row:nth-child(2) {
+        height: $top-app-bar-second-row-height;
+        border-top: 1px solid;
+        @include mdc-theme-prop(background-color, text-primary-on-dark);
+        @include mdc-theme-prop(border-color, text-disabled-on-dark);
+    }
+
+    &--fixed-adjust {
+        padding-top: $mdc-top-app-bar-row-height + $top-app-bar-second-row-height;
+        @media (max-width: $mdc-top-app-bar-mobile-breakpoint) {
+            padding-top: $mdc-top-app-bar-mobile-row-height + $top-app-bar-second-row-height;
+        }
+    }
+}
+
+.editor {
+    width: 100%;
+    height: 100%;
+    display: flex;
 }
 
 .mdc-top-app-bar--contextual-action {

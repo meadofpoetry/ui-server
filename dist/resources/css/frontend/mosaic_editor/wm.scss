@@ -20,75 +20,10 @@ $wm-placeholder-color: text-secondary-on-surface;
 
 .wm {
     display: flex;
-    padding: 1rem;
-}
-
-.wm, .mdc-layout-grid, .mdc-layout-grid__inner, .wm-grid-container {
     height: 100%;
-}
-
-.wm-confirmation-dialog .mdc-dialog__surface {
-    max-width: 400px;
-    min-width: 400px;
-}
-.wm-resolution-dialog .mdc-dialog__surface {
-    max-width: 400px;
-    min-width: 400px;
-}
-
-@for $i from 0 through $max-layers {
-    @include wm-layer-prop($i)
-}
-
-.mdc-top-app-bar .mdc-top-app-bar__row:nth-child(2) {
-    height: 52px;
-    border-top: 1px solid;
-    @include mdc-theme-prop(border-color, text-disabled-on-dark);
-}
-
-// ---- PROPERTY ROW ----
-
-.wm-property-row {
-    align-items: center;
-    min-height: 48px;
-    &:last-child { padding-bottom: 0; }
-    &__value {
-        @include mdc-typography(body2);
-        padding-right: 1rem;
-        text-align: end;
-        width: 50%;
-    }
-    &__label {
-        @include mdc-typography(subtitle1);
-        padding-left: 1rem;
-        text-align: left;
-        width: 50%;
-    }
-}
-
-// ---- PLACEHOLDER ----
-
-.wm-placeholder {
-    position: absolute;
-}
-
-// ---- SELECTABLE TITLE ----
-
-.wm-selectable-title {
-
-    margin-bottom: 15px;
-
-    &__title {
-        @include mdc-theme-prop(color, text-disabled-on-background);
-        margin-left: 15px;
-        cursor: pointer;
-    }
-
-    &__title--active {
-        cursor: default;
-        @include mdc-theme-prop(color, text-primary-on-background);
-    }
-
+    width: 100%;
+    padding: 1rem;
+    box-sizing: border-box;
 }
 
 // ---- ITEMS ----
@@ -196,40 +131,6 @@ $wm-placeholder-color: text-secondary-on-surface;
 .wm-layers-card {
     flex-grow: 1;
     justify-content: space-between;
-}
-
-// ---- LEFT TOOLBAR ----
-
-.wm-left-toolbar {
-    $phone: map-get($mdc-layout-grid-breakpoints, phone);
-    &__action {
-        @include mdc-states(on-primary, false);
-        @include mdc-button-ink-color(on-primary);
-    }
-}
-
-// ---- GRID ----
-
-.wm-grid-item__info {
-    $icon-margin: 10px;
-    $icon-size  : 24px;
-
-    padding: 12px;
-    white-space: nowrap;
-
-    &__line {
-        @include mdc-typography(caption);
-        margin-left: $icon-margin + $icon-size;
-        line-height: 1.5;
-    }
-    &__line--with-icon {
-        margin-left: 0;
-        .mdc-icon {
-            margin-right: $icon-margin;
-            width: $icon-size;
-            height: $icon-size;
-          }
-    }
 }
 
 .wm-grid {

@@ -29,10 +29,10 @@ module Test = struct
     ; domain = Nihil
     ; layer = 0
     }
-  let make_container ?(widgets = []) ~position () : Wm.container =
-    { position
-    ; widgets
-    }
+  let make_container ?(widgets = []) ~position () : string * Wm.container =
+    "Sample container", { position
+                        ; widgets
+                        }
   let container =
     make_container
       ~position:{ left = 0; top = 0; right = 1920; bottom = 1080 }
@@ -92,8 +92,10 @@ let handle_item_selected
 
 class t ~(layout: Wm.t)
     (elt : Dom_html.element Js.t)
+    (scaffold : Scaffold.t)
     () = object(self)
 
+  val mutable _widget_editor = None
   val mutable _listeners = []
 
   inherit Widget.t elt () as super
@@ -114,17 +116,41 @@ class t ~(layout: Wm.t)
     super#layout ()
 
   method notify : event -> unit = function
-    | `Layout wm -> ()
+    | `Layout wm ->
+      (match _widget_editor with
+       | None -> ()
+       | Some (id, editor) ->
+         match List.assoc_opt id wm.layout with
+         | None -> () (* FIXME container lost, handle it somehow *)
+         | Some x -> editor#notify @@ `Container x)
 
   (* Private methods *)
+
+  method switch_state (id, container : string * Wm.container) : unit =
+    let widget_editor = Widget_editor.make container in
+    _widget_editor <- Some (id, widget_editor);
+    (* FIXME for test purposes *)
+    let add_toolbar_actions (scaffold : Scaffold.t) =
+      match scaffold#top_app_bar with
+      | None -> ()
+      | Some (top_app_bar : Top_app_bar.t) ->
+        let selector = ".mdc-top-app-bar__row:nth-child(2)" in
+        match Element.query_selector top_app_bar#root selector with
+        | None -> ()
+        | Some row ->
+          Element.append_child row widget_editor#toolbar#root in
+    add_toolbar_actions scaffold;
+    super#append_child widget_editor;
+    ()
 
   method private handle_widget_selected e _ =
     ignore @@ Js.Unsafe.global##.console##log e;
     Lwt.return_unit
 end
 
-let make layout =
+let make layout scaffold =
   let elt = Dom_html.createDiv Dom_html.document in
-  Element.add_class elt "wm";
-  Element.append_child elt (Widget_editor.make Test.container)#root;
-  new t ~layout elt ()
+  Element.add_class elt "editor";
+  let t = new t ~layout elt scaffold () in
+  t#switch_state Test.container;
+  t

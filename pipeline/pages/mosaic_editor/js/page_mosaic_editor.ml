@@ -19,14 +19,13 @@ let () =
     Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
     >>= fun socket -> Http_wm.Event.get socket
     >>= fun (_, event) ->
-    let editor = Editor.make wm in
+    let editor = Editor.make wm scaffold in
     let e = React.E.map (fun x -> editor#notify (`Layout x)) event in
     editor#set_on_destroy (fun () ->
         React.E.stop ~strong:true e;
         React.E.stop ~strong:true event;
         Api_js.Websocket.close_socket socket);
-    Lwt.return_ok (Editor.make wm) in
-  let body = Ui_templates.Loader.create_widget_loader
-      ~parent:scaffold#app_content_inner
-      thread in
+    Lwt.return_ok editor in
+  let body = Ui_templates.Loader.create_widget_loader thread in
+  body#add_class "wm";
   scaffold#set_body body

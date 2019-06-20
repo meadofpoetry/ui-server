@@ -87,6 +87,20 @@ let make_item (id, widget : string * Wm.widget) =
      item#set_attribute Position.Attr.aspect_ratio (Printf.sprintf "%g" ar));
   item
 
+module Storage = struct
+  open Ui_templates.Storage.Local
+  let show_grid_lines = "show-grid-lines"
+  let show_snap_lines = "show-snap-lines"
+
+  let get_bool ?(default = false) key =
+    match get key with
+    | Some `Bool x -> x
+    | _ -> default
+
+  let set_bool key (x : bool) =
+    put key (`Bool x)
+end
+
 class t ?(widgets = []) (position : Position.t) elt () =
   object(self)
 
@@ -95,7 +109,10 @@ class t ?(widgets = []) (position : Position.t) elt () =
     val aspect = float_of_int position.w /. float_of_int position.h
     val grid_overlay = match Element.query_selector elt Selector.grid_overlay with
       | None -> failwith "widget-editor: grid overlay element not found"
-      | Some x -> Grid_overlay.attach ~size:10 x
+      | Some x ->
+        let show_grid_lines = Storage.(get_bool ~default:true show_grid_lines) in
+        let show_snap_lines = Storage.(get_bool ~default:true show_snap_lines) in
+        Grid_overlay.attach ~show_grid_lines ~show_snap_lines ~size:10 x
     val ghost = match Element.query_selector elt Selector.grid_ghost with
       | None -> failwith "widget-editor: grid ghost element not found"
       | Some x -> x
@@ -105,10 +122,12 @@ class t ?(widgets = []) (position : Position.t) elt () =
     val mutable _focused_item = None
     val mutable _resize_observer = None
     val mutable min_size = 20
+    val mutable toolbar = None
 
     method! init () : unit =
       super#init ();
-      super#add_class Card.CSS.root
+      super#add_class Card.CSS.root;
+      toolbar <- Some (self#make_toolbar ())
 
     method! initial_sync_with_dom () : unit =
       _resize_observer <- Some (
@@ -136,14 +155,10 @@ class t ?(widgets = []) (position : Position.t) elt () =
       grid_overlay#layout ();
       super#layout ()
 
-    method show_grid (x : bool) : unit =
-      grid_overlay#set_show_grid x
-
-    method show_snap_lines (x : bool) : unit =
-      grid_overlay#set_show_snap_lines x
-
     method items : Dom_html.element Js.t list =
       self#items_ ()
+
+    method toolbar = Utils.Option.get toolbar
 
     method remove_item : 'a. (#Dom_html.element as 'a) Js.t -> unit =
       fun item ->
@@ -337,6 +352,28 @@ class t ?(widgets = []) (position : Position.t) elt () =
       | Some x ->
         print_endline @@ Position.show x;
         Dom.preventDefault event; Position.apply_to_element x ghost
+
+    method private make_toolbar () =
+      let button_1 = Toggle_button.make
+          ~selected:grid_overlay#grid_lines_visible
+          [Icon.SVG.(make_simple Path.grid)#markup] in
+      let button_2 = Toggle_button.make
+          ~selected:grid_overlay#snap_lines_visible
+          [Icon.SVG.(make_simple Path.border_inside)#markup] in
+      (* FIXME should be event from toggle button group *)
+      Lwt.async (fun () ->
+          Events.clicks button_1#root (fun _ _ ->
+              let v = button_1#has_class Toggle_button.CSS.selected in
+              grid_overlay#set_grid_lines_visible v;
+              Storage.(set_bool show_grid_lines v);
+              Lwt.return_unit));
+      Lwt.async (fun () ->
+          Events.clicks button_2#root (fun _ _ ->
+              let v = button_2#has_class Toggle_button.CSS.selected in
+              grid_overlay#set_snap_lines_visible v;
+              Storage.(set_bool show_snap_lines v);
+              Lwt.return_unit));
+      Toggle_button.make_group [button_1; button_2]
 
   end
 

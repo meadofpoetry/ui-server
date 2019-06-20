@@ -604,8 +604,16 @@ let scale
     ~(original_parent_size : int * int)
     ~(parent_size : int * int)
     (position : t) : t =
-  (* TODO implement *)
-  position
+  let pos =
+    if (fst parent_size) <> 0
+    then { x = position.x * (fst original_parent_size) / (fst parent_size)
+         ; y = position.y * (fst original_parent_size) / (fst parent_size)
+         ; w = position.w * (fst original_parent_size) / (fst parent_size)
+         ; h = position.h * (fst original_parent_size) / (fst parent_size)
+         }
+    else position
+  in
+  pos
 
 let find_spare ?(compare : (t -> t -> int) option)
     ?(aspect : (int * int) option)

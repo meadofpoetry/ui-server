@@ -13,6 +13,8 @@ module Button = Components_tyxml.Button.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
 module Icon_button = Components_tyxml.Icon_button.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
+module Top_app_bar = Components_tyxml.Top_app_bar.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
+
 let make_icon ?classes path =
   let open Icon.SVG in
   let path = create_path path () in
@@ -28,6 +30,10 @@ let make_anchor_buttons ?href ~class_ ~icon ~label () =
   let icon_button = Icon_button.create_anchor
       ~classes:[class_; compact] ?href ~icon () in
   List.map Tyxml.Html.toelt [button; icon_button]
+
+let make_top_app_bar_row () =
+  Tyxml.Html.toelt
+  @@ Top_app_bar.create_row ~sections:[] ()
 
 let pages () : Api_template.topmost Api_template.item list =
   let open Api_template in
@@ -66,6 +72,7 @@ let pages () : Api_template.topmost Api_template.item list =
                      ~clipped:true
                      ~typ:`Dismissible
                      ())
+      ~top_app_bar_bottom:(make_top_app_bar_row ())
       (* ~top_app_bar_actions:(make_anchor_buttons
        *                         ~href:video_path
        *                         ~icon:(make_icon
