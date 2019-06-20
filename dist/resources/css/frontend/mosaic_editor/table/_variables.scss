@@ -1,0 +1,4 @@
+@import "@material/theme/mixins";
+
+$grid-item-outline-color: mix(mdc-theme-prop-value(primary), mdc-theme-prop-value(surface), 24%) !default;
+$grid-item-outline-active-color: mix(mdc-theme-prop-value(primary), mdc-theme-prop-value(surface), 45%) !default;

@@ -26,11 +26,6 @@ let widget_type_to_string : Wm.widget_type -> string = function
   | Video -> "video"
   | Audio -> "audio"
 
-let widget_type_of_string : string -> Wm.widget_type option = function
-  | "video" -> Some Video
-  | "audio" -> Some Audio
-  | _ -> None
-
 let compare_pair o_x o_y (x1, y1) (x2, y2) =
   let c = o_x x1 x2 in
   if c = 0
@@ -61,16 +56,17 @@ let make_item_icon (widget : Wm.widget) =
 
 let make_item_content (widget : Wm.widget) =
   let pid = match widget.pid with
-    | None -> ""
-    | Some pid -> Printf.sprintf "PID: %d" pid in
-  let text =
-    Typography.Text.make
-    @@ String.concat "\n" [pid; widget.description] in
+    | None -> None
+    | Some pid ->
+      let text = Printf.sprintf "PID: %d" pid in
+      Some (Typography.Text.make text)#markup in
+  let ( ^:: ) x l = match x with None -> l | Some x -> x :: l in
+  let text = Typography.Text.make widget.description in
   let icon = make_item_icon widget in
   Tyxml_js.To_dom.of_element
   @@ Tyxml_js.Html.(
       div ~a:[a_class [Markup.CSS.grid_item_content]]
-        [icon#markup; text#markup])
+        (icon#markup :: (pid ^:: [text#markup])))
 
 let make_item (id, widget : string * Wm.widget) =
   let item = Resizable.make ~classes:[Markup.CSS.grid_item] () in
@@ -107,18 +103,19 @@ class t ?(widgets = []) (position : Position.t) elt () =
     val mutable _widgets : (string * Wm.widget) list = widgets
     val mutable _listeners = []
     val mutable _focused_item = None
+    val mutable _resize_observer = None
     val mutable min_size = 20
 
     method! init () : unit =
       super#init ();
-      super#add_class Card.CSS.root;
-      super#append_child grid_overlay
+      super#add_class Card.CSS.root
 
     method! initial_sync_with_dom () : unit =
-      let _ = Ui_templates.Resize_observer.observe
-          ~f:(fun _ -> self#fit ())
-          ~node:super#root
-          () in
+      _resize_observer <- Some (
+          Ui_templates.Resize_observer.observe
+            ~f:(fun _ -> self#layout ())
+            ~node:super#root
+            ());
       _listeners <- Events.(
           [ listen_lwt super#root Resizable.Event.input self#handle_item_action
           ; listen_lwt super#root Resizable.Event.change self#handle_item_change
@@ -128,6 +125,8 @@ class t ?(widgets = []) (position : Position.t) elt () =
       super#initial_sync_with_dom ()
 
     method! destroy () : unit =
+      Utils.Option.iter Ui_templates.Resize_observer.disconnect _resize_observer;
+      _resize_observer <- None;
       List.iter Lwt.cancel _listeners;
       _listeners <- [];
       super#destroy ()
@@ -145,6 +144,12 @@ class t ?(widgets = []) (position : Position.t) elt () =
 
     method items : Dom_html.element Js.t list =
       self#items_ ()
+
+    method remove_item : 'a. (#Dom_html.element as 'a) Js.t -> unit =
+      fun item ->
+      let id = Js.to_string item##.id in
+      _widgets <- List.remove_assoc id _widgets;
+      Element.remove_child_safe super#root item
 
     method notify : event -> unit = function
       | `Container x ->
