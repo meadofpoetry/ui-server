@@ -22,16 +22,6 @@ module Selector = struct
   let grid_ghost = Printf.sprintf ".%s" Markup.CSS.grid_ghost
 end
 
-let split_string ~prefix pattern =
-  let len = String.length prefix in
-  if len > String.length pattern
-  then None
-  else
-    let sub = String.sub pattern 0 len in
-    if String.uppercase_ascii sub = String.uppercase_ascii prefix
-    then Some (String.sub pattern len (String.length pattern - len))
-    else None
-
 let widget_type_to_string : Wm.widget_type -> string = function
   | Video -> "video"
   | Audio -> "audio"
@@ -83,7 +73,9 @@ let make_item (id, widget : string * Wm.widget) =
 
 class t ?(widgets = []) (position : Position.t) elt () =
   object(self)
-    inherit Widget.t elt () as super
+
+    inherit Drop_target.t elt () as super
+
     val aspect = float_of_int position.w /. float_of_int position.h
     val grid_overlay = match Element.query_selector elt Selector.grid_overlay with
       | None -> failwith "widget-editor: grid overlay element not found"
@@ -95,8 +87,6 @@ class t ?(widgets = []) (position : Position.t) elt () =
     val mutable _widgets : (string * Wm.widget) list = widgets
     val mutable _listeners = []
     val mutable _focused_item = None
-    val mutable _dragenter_target = Js.null
-    val mutable _dnd_typ = ""
 
     method! init () : unit =
       super#init ();
@@ -113,11 +103,6 @@ class t ?(widgets = []) (position : Position.t) elt () =
           ; listen_lwt super#root Resizable.Event.change self#handle_item_change
           ; listen_lwt super#root Resizable.Event.selected self#handle_item_selected
           ; keydowns super#root self#handle_keydown
-          ; dragenters super#root self#handle_dragenter
-          ; dragovers super#root self#handle_dragover
-          ; dragleaves super#root self#handle_dragleave
-          ; drops super#root self#handle_drop
-          ; dragends super#root self#handle_drag_end
           ]);
       super#initial_sync_with_dom ()
 
@@ -233,89 +218,6 @@ class t ?(widgets = []) (position : Position.t) elt () =
           | _ -> ());
       Lwt.return_unit
 
-    method private handle_dragenter e _ =
-      Dom_html.stopPropagation e;
-      Dom.preventDefault e;
-      _dragenter_target <- e##.target;
-      ghost##.style##.display := Js.string "";
-      Lwt.return_unit
-
-    method private handle_dragover e _ =
-      let a = Js.Unsafe.coerce e##.dataTransfer##.types in
-      let l = Js.to_array a |> Array.to_list |> List.map Js.to_string in
-      let rec find_loop = function
-        | [] -> None
-        | x :: tl ->
-          match split_string Resizable.drag_type_prefix x with
-          | None -> find_loop tl
-          | Some "" -> Some None
-          | Some s ->
-            match String.split_on_char '-' s with
-            | "" :: data :: [] ->
-              (match String.split_on_char ':' data with
-               | w :: h :: [] ->
-                 (match int_of_string_opt w, int_of_string_opt h with
-                  | Some w, Some h -> Some (Some (w, h))
-                  | _ -> find_loop tl)
-               | _ -> find_loop tl)
-            | _ -> find_loop tl
-      in
-      match find_loop l with
-      | None -> Lwt.return_unit
-      | Some aspect -> self#move_ghost ?aspect e; Lwt.return_unit
-
-    method private handle_dragleave e _ =
-      Dom_html.stopPropagation e;
-      Dom.preventDefault e;
-      if _dragenter_target == e##.target
-      then ghost##.style##.display := Js.string "none";
-      Lwt.return_unit
-
-    method private handle_drop e _ =
-      Dom.preventDefault e;
-      (* let json =
-       *   e##.dataTransfer##getData (Js.string _dnd_typ)
-       *   |> Js.to_string
-       *   |> Yojson.Safe.from_string in *)
-      (* (match widget_of_yojson json with
-       *  | Error _ -> ()
-       *  | Ok widget -> *)
-      (* TODO this position should be adjusted *)
-      let position =
-        Position.scale
-          ~original_parent_size:(position.w, position.h)
-          ~parent_size:self#size
-          (Position.of_element ghost) in
-      if not @@ Position.equal Position.empty position
-      then (
-        (* FIXME for test purposes, remove later *)
-        let make_widget { Position. x; y; w; h } : string * Wm.widget =
-          let position =
-            Some { Wm.
-                   left = x
-                 ; top = y
-                 ; right = x + w
-                 ; bottom = y + h
-                 } in
-          string_of_int @@ Random.bits (),
-          { position
-          ; description = "Sample widget"
-          ; pid = None
-          ; type_ = Video
-          ; aspect = None
-          ; domain = Nihil
-          ; layer = 0
-          } in
-        let item = make_item (make_widget position) in
-        super#append_child item);
-      (* ); *)
-      ghost##.style##.display := Js.string "none";
-      Lwt.return_unit
-
-    method private handle_drag_end e _ =
-      ghost##.style##.display := Js.string "none";
-      Lwt.return_unit
-
     method private handle_item_selected e _ =
       let target = Dom_html.eventTarget e in
       target##focus;
@@ -370,6 +272,10 @@ class t ?(widgets = []) (position : Position.t) elt () =
       Element.set_attribute target Position.Attr.top @@ string_of_int pos.y;
       Lwt.return_unit
 
+    method private handle_dropped_json (json : Yojson.Safe.json) : unit Lwt.t =
+      print_endline @@ Yojson.Safe.pretty_to_string json;
+      Lwt.return_unit
+
     method private parent_rect : float * float * float =
       Js.Opt.case (Element.get_parent super#root)
         (fun () -> 0., 0., 1.)
@@ -383,9 +289,6 @@ class t ?(widgets = []) (position : Position.t) elt () =
       if cur_aspect > aspect
       then cur_height /. float_of_int position.h
       else cur_width /. float_of_int position.w
-
-    method private size : int * int =
-      super#root##.offsetWidth, super#root##.offsetHeight
 
     method private move_ghost :
       'a. ?aspect:int * int -> (#Dom_html.event as 'a) Js.t -> unit =
