@@ -1,6 +1,9 @@
 @import "@material/theme/mixins";
 @import "@material/theme/functions";
 @import "@material/theme/variables";
+@import "@material/typography/mixins";
+@import "@material/card/mixins";
+@import "./variables";
 
 $mosaic-grid-colors: (
     dark: rgba(black, .2),
@@ -25,16 +28,40 @@ $mosaic-grid-colors: (
 }
 
 .mosaic-grid__item {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    box-sizing: border-box;
+    @include mdc-card-outline($grid-item-outline-color, 2px);
+    @include mdc-theme-prop(background-color, surface);
 
     &:focus {
-        background-color: orange !important;
+        @include mdc-theme-prop(background-color, surface);
+    }
+}
+
+.mosaic-grid__item-content {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+
+    .mdc-typography {
+        @include mdc-typography(caption);
+        @include mdc-theme-prop(color, text-hint-on-surface);
+        width: calc(100% - 10px);
+        padding: 0 10px;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
+        text-align: center;
     }
 
-    &[data-type="video"] {
-        background-color: lightblue;
-    }
-    &[data-type="audio"] {
-        background-color: lightgreen;
+    .mdc-icon {
+        @include mdc-theme-prop(color, text-hint-on-surface);
     }
 }
 

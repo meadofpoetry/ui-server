@@ -53,6 +53,25 @@ let set_tab_index ?prev
      | _ -> ());
   set 0 item
 
+let make_item_icon (widget : Wm.widget) =
+  let path = match widget.type_ with
+    | Video -> Icon.SVG.Path.video
+    | Audio -> Icon.SVG.Path.music in
+  Icon.SVG.make_simple path
+
+let make_item_content (widget : Wm.widget) =
+  let pid = match widget.pid with
+    | None -> ""
+    | Some pid -> Printf.sprintf "PID: %d" pid in
+  let text =
+    Typography.Text.make
+    @@ String.concat "\n" [pid; widget.description] in
+  let icon = make_item_icon widget in
+  Tyxml_js.To_dom.of_element
+  @@ Tyxml_js.Html.(
+      div ~a:[a_class [Markup.CSS.grid_item_content]]
+        [icon#markup; text#markup])
+
 let make_item (id, widget : string * Wm.widget) =
   let item = Resizable.make ~classes:[Markup.CSS.grid_item] () in
   let pos = Utils.Option.get widget.position in
@@ -64,6 +83,7 @@ let make_item (id, widget : string * Wm.widget) =
   item#set_attribute Position.Attr.left (string_of_int pos.left);
   item#set_attribute Position.Attr.top (string_of_int pos.top);
   item#set_attribute Attr.type_ (widget_type_to_string widget.type_);
+  Element.append_child item#root (make_item_content widget);
   (match widget.aspect with
    | None -> ()
    | Some (w, h) ->
@@ -87,6 +107,7 @@ class t ?(widgets = []) (position : Position.t) elt () =
     val mutable _widgets : (string * Wm.widget) list = widgets
     val mutable _listeners = []
     val mutable _focused_item = None
+    val mutable min_size = 20
 
     method! init () : unit =
       super#init ();
@@ -253,7 +274,7 @@ class t ?(widgets = []) (position : Position.t) elt () =
           target
       in
       grid_overlay#set_snap_lines lines;
-      Position.apply_to_element adjusted target;
+      Position.apply_to_element ~min_size adjusted target;
       Lwt.return_unit
 
     (* TODO this is a next task *)
@@ -301,9 +322,16 @@ class t ?(widgets = []) (position : Position.t) elt () =
         y - (int_of_float rect##.top) in
       let siblings = List.map Position.of_element self#items in
       let parent_size = self#size in
-      match Position.find_spare ?aspect ~siblings ~parent_size point with
+      match Position.find_spare ?aspect
+              ~siblings
+              ~parent_size
+              ~min_w:min_size
+              ~min_h:min_size
+              point with
       | None -> Position.apply_to_element Position.empty ghost
-      | Some x -> Dom.preventDefault event; Position.apply_to_element x ghost
+      | Some x ->
+        print_endline @@ Position.show x;
+        Dom.preventDefault event; Position.apply_to_element x ghost
 
   end
 

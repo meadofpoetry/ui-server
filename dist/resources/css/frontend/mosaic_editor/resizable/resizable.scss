@@ -2,11 +2,8 @@
 @import "@material/card/mixins";
 
 .resizable {
-    @include mdc-card-outline($resizable-outline-color);
     position: absolute;
     cursor: pointer;
-    background: white;
-    box-sizing: border-box;
 
     &--active &__resizer,
     &--active &__resizers,
@@ -17,6 +14,7 @@
     }
 
     &__resizers {
+        position: absolute;
         opacity: 0;
         width: 100%;
         height: 100%;

@@ -6,6 +6,7 @@ module CSS = struct
 
   let grid = root ^ "-grid"
   let grid_item = BEM.add_element grid "item"
+  let grid_item_content = BEM.add_element grid "item-content"
   let grid_ghost = BEM.add_element grid "ghost"
   let grid_overlay = BEM.add_element grid "overlay"
 

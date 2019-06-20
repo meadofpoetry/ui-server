@@ -36,6 +36,8 @@ type t =
 
 val empty : t
 
+val show : t -> string
+
 val equal : t -> t -> bool
 
 val compare : t -> t -> int

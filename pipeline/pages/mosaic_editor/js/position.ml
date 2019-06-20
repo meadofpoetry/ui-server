@@ -44,7 +44,7 @@ type t =
   ; y : int
   ; w : int
   ; h : int
-  } [@@deriving show]
+  }
 
 let empty =
   { x = 0
@@ -52,6 +52,10 @@ let empty =
   ; w = 0
   ; h = 0
   }
+
+let show { x; y; w; h } =
+  Printf.sprintf "x=%d, y=%d, w=%d, h=%d"
+    x y w h
 
 let compare (a : t) (b : t) =
   let c = compare a.x b.x in
@@ -121,7 +125,10 @@ let fix_xy par_w par_h (p : t) =
 (** Changes width to correspond provided constraints *)
 let fix_w ?max_w ?(min_w = 1) par_w (p : t) =
   let w = match max_w with
-    | Some max -> if p.w > max then max else if p.w < min_w then min_w else p.w
+    | Some max ->
+      if p.w > max then max
+      else if p.w < min_w then min_w
+      else p.w
     | None -> if p.w < min_w then min_w else p.w
   in
   let w = if p.x + w > par_w then par_w - p.x else w in
@@ -166,15 +173,20 @@ let fix_aspect (p : t) (aspect : int * int) =
   in
   { p with w; h }
 
-let apply_to_element ?(min_size = 20) (pos : t) (elt : #Dom_html.element Js.t) =
-  if pos.w >= min_size
-  then (
+let apply_to_element ?min_size (pos : t) (elt : #Dom_html.element Js.t) =
+  let apply_xw () =
     elt##.style##.width := Utils.px_js pos.w;
-    elt##.style##.left := Utils.px_js pos.x);
-  if pos.h >= min_size
-  then (
+    elt##.style##.left := Utils.px_js pos.x in
+  let apply_yh () =
     elt##.style##.height := Utils.px_js pos.h;
-    elt##.style##.top := Utils.px_js pos.y)
+    elt##.style##.top := Utils.px_js pos.y in
+  match min_size with
+  | None -> apply_xw (); apply_yh ()
+  | Some size ->
+    if pos.w >= size
+    then apply_xw ();
+    if pos.h >= size
+    then apply_yh ()
 
 let of_element (elt : #Dom_html.element Js.t) =
   { x = elt##.offsetLeft
