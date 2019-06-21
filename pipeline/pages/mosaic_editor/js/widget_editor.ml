@@ -347,27 +347,39 @@ class t ?(widgets = []) (position : Position.t) elt () =
         print_endline @@ Position.show x;
         Dom.preventDefault event; Position.apply_to_element x ghost
 
+    (* Primary editor actions *)
+    method private make_actions () =
+      let add = Icon_button.make
+          ~icon:Icon.SVG.(make_simple Path.plus)
+          () in
+      add
+
+    (* Actions that will appear when the widget is selected *)
+    method private make_contextual_actions () =
+      ()
+
+    (* Actions that will appear at toolbar *)
     method private make_toolbar () =
-      let button_1 = Toggle_button.make
+      let show_grid_lines = Toggle_button.make
           ~selected:grid_overlay#grid_lines_visible
           [Icon.SVG.(make_simple Path.grid)#markup] in
-      let button_2 = Toggle_button.make
+      let show_snap_lines = Toggle_button.make
           ~selected:grid_overlay#snap_lines_visible
           [Icon.SVG.(make_simple Path.border_inside)#markup] in
       (* FIXME should be event from toggle button group *)
       Lwt.async (fun () ->
-          Events.clicks button_1#root (fun _ _ ->
-              let v = button_1#has_class Toggle_button.CSS.selected in
+          Events.clicks show_grid_lines#root (fun _ _ ->
+              let v = show_grid_lines#has_class Toggle_button.CSS.selected in
               grid_overlay#set_grid_lines_visible v;
               Storage.(set_bool show_grid_lines v);
               Lwt.return_unit));
       Lwt.async (fun () ->
-          Events.clicks button_2#root (fun _ _ ->
-              let v = button_2#has_class Toggle_button.CSS.selected in
+          Events.clicks show_snap_lines#root (fun _ _ ->
+              let v = show_snap_lines#has_class Toggle_button.CSS.selected in
               grid_overlay#set_snap_lines_visible v;
               Storage.(set_bool show_snap_lines v);
               Lwt.return_unit));
-      Toggle_button.make_group [button_1; button_2]
+      Toggle_button.make_group [show_grid_lines; show_snap_lines]
 
   end
 

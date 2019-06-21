@@ -9,7 +9,9 @@
     &--active &__resizer,
     &--active &__resizers,
     &:focus &__resizer,
-    &:focus &__resizers {
+    &:focus &__resizers,
+    &:hover &__resizer,
+    &:hover &__resizers {
         z-index: 999;
         opacity: 1;
     }

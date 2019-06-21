@@ -16,9 +16,8 @@ type line =
   { is_vertical : bool (* Is line vertical *)
   ; is_multiple : bool (* Multiple intersection detected *)
   ; is_center : bool
-  ; x : int
-  ; y : int
-  } [@@deriving show]
+  ; origin : int
+  }
 
 type resize_direction =
   | Top_left
@@ -31,13 +30,14 @@ type resize_direction =
   | Right
 
 type line_align_direction =
-  | Horizontal_Top
-  | Horizontal_Center
-  | Horizontal_Bottom
-  | Vertical_Left
-  | Vertical_Center
-  | Vertical_Right
+  | Htop
+  | Hcenter
+  | Hbottom
+  | Vleft
+  | Vcenter
+  | Vright
   | Nill
+
 
 type t =
   { x : int
@@ -249,7 +249,7 @@ let get_original_aspect_ratio (elt : #Dom_html.element Js.t) : float option =
       Some ar
 
 (* min_distance - pixels
-     return: minimum distance of several lines of one align *)
+   return: minimum distance of several lines of one align *)
 let line_find_closest_align_value
     (item : Dom_html.element Js.t)
     (pos : t)
@@ -264,7 +264,7 @@ let line_find_closest_align_value
         if Element.equal item hd
         then count_aligns line_align_val distance tl (*distance*) else
           match line_align_val with
-          | Horizontal_Top ->
+          | Htop ->
             let dist1 = pos.y - icompare.y in
             let dist2 = pos.y - icompare.y - icompare.h / 2 in
             let dist3 = pos.y - icompare.y - icompare.h in
@@ -284,7 +284,7 @@ let line_find_closest_align_value
                  && (abs dist3 <= abs dist2)
             then dist3
             else distance
-          | Horizontal_Center ->
+          | Hcenter ->
             let dist1 = pos.y + pos.h / 2 - icompare.y in
             let dist2 = pos.y + pos.h / 2 - icompare.y - icompare.h / 2 in
             let dist3 = pos.y + pos.h / 2 - icompare.y - icompare.h in
@@ -304,7 +304,7 @@ let line_find_closest_align_value
                  && (abs dist3 <= abs dist2)
             then dist3
             else distance
-          | Horizontal_Bottom ->
+          | Hbottom ->
             let dist1 = pos.y + pos.h - icompare.y in
             let dist2 = pos.y + pos.h - icompare.y - icompare.h / 2 in
             let dist3 = pos.y + pos.h - icompare.y - icompare.h in
@@ -324,7 +324,7 @@ let line_find_closest_align_value
                  && (abs dist3 <= abs dist2)
             then dist3
             else distance
-          | Vertical_Left ->
+          | Vleft ->
             let dist1 = pos.x - icompare.x in
             let dist2 = pos.x - icompare.x - icompare.w / 2 in
             let dist3 = pos.x - icompare.x - icompare.w in
@@ -344,7 +344,7 @@ let line_find_closest_align_value
                  && (abs dist3 <= abs dist2)
             then dist3
             else distance
-          | Vertical_Center ->
+          | Vcenter ->
             let dist1 = pos.x + pos.w / 2 - icompare.x in
             let dist2 = pos.x + pos.w / 2 - icompare.x - icompare.w / 2 in
             let dist3 = pos.x + pos.w / 2 - icompare.x - icompare.w in
@@ -364,7 +364,7 @@ let line_find_closest_align_value
                  && (abs dist3 <= abs dist2)
             then dist3
             else distance
-          | Vertical_Right ->
+          | Vright ->
             let dist1 = pos.x + pos.w - icompare.x in
             let dist2 = pos.x + pos.w - icompare.x - icompare.w / 2 in
             let dist3 = pos.x + pos.w - icompare.x - icompare.w in
@@ -398,175 +398,87 @@ let line_align_count
     (items : Dom_html.element Js.t list)
     min_distance
     line_align_val =
-
-  let rec count_aligns line_align_val counts = function
+  let rec aux line_align_val counts = function
     | [] -> counts
     | hd :: tl ->
       let icompare = of_element hd in
       if Element.equal item hd
-      then count_aligns line_align_val counts tl (*counts*)
+      then aux line_align_val counts tl (*counts*)
       else
         let counts =
-          if (line_align_val = Horizontal_Top
+          if (line_align_val = Htop
               && (abs (pos.y - icompare.y) < min_distance
                   || abs (pos.y - icompare.y - icompare.h / 2) < min_distance
                   || abs (pos.y - icompare.y - icompare.h) < min_distance))
-          || (line_align_val = Horizontal_Center
+          || (line_align_val = Hcenter
               && (abs (pos.y + pos.h / 2 - icompare.y) < min_distance
                   || abs (pos.y + pos.h / 2 - icompare.y - icompare.h / 2) < min_distance
                   || abs (pos.y + pos.h / 2 - icompare.y - icompare.h) < min_distance))
-          || (line_align_val = Horizontal_Bottom
+          || (line_align_val = Hbottom
               && (abs (pos.y + pos.h - icompare.y) < min_distance
                   || abs (pos.y + pos.h - icompare.y - icompare.h / 2) < min_distance
                   || abs (pos.y + pos.h - icompare.y - icompare.h) < min_distance))
-          || (line_align_val = Vertical_Left
+          || (line_align_val = Vleft
               && (abs (pos.x - icompare.x) < min_distance
                   || abs (pos.x - icompare.x - icompare.w / 2) < min_distance
                   || abs (pos.x - icompare.x - icompare.w) < min_distance))
-          || (line_align_val = Vertical_Center
+          || (line_align_val = Vcenter
               && (abs (pos.x + pos.w / 2 - icompare.x) < min_distance
                   || abs (pos.x + pos.w / 2 - icompare.x - icompare.w / 2) < min_distance
                   || abs (pos.x + pos.w / 2 - icompare.x - icompare.w) < min_distance))
-          || (line_align_val = Vertical_Right
+          || (line_align_val = Vright
               && (abs (pos.x + pos.w - icompare.x) < min_distance
                   || abs (pos.x + pos.w - icompare.x - icompare.w / 2) < min_distance
                   || abs (pos.x + pos.w - icompare.x - icompare.w) < min_distance))
           then succ counts
           else counts
         in
-        count_aligns line_align_val counts tl
+        aux line_align_val counts tl
   in
-  count_aligns line_align_val 0 items
+  aux line_align_val 0 items
+
+let make_line_properties align item pos min_distance items =
+  align,
+  line_align_count item pos items min_distance align,
+  line_find_closest_align_value item pos items min_distance align
 
 (* return: direction, count aligns (0 = none align lines),
    closest line distance (if distance > min_distance = no find lines) *)
-let horizontal_lines_aligned_list_for_move_action (item : Dom_html.element Js.t)
+let hlines_for_move_action (item : Dom_html.element Js.t)
     pos min_distance
     (items : Dom_html.element Js.t list) =
-  let ret_list =
-    [ Horizontal_Top,
-      line_align_count item pos items min_distance Horizontal_Top,
-      line_find_closest_align_value item pos items min_distance Horizontal_Top
-    ; Horizontal_Center,
-      line_align_count item pos items min_distance Horizontal_Center,
-      line_find_closest_align_value item pos items min_distance Horizontal_Center
-    ; Horizontal_Bottom,
-      line_align_count item pos items min_distance Horizontal_Bottom,
-      line_find_closest_align_value item pos items min_distance Horizontal_Bottom
-    ] in
-  ret_list
+  [ make_line_properties Htop item pos min_distance items
+  ; make_line_properties Hcenter item pos min_distance items
+  ; make_line_properties Hbottom item pos min_distance items
+  ]
 
-let horizontal_lines_aligned_list_for_resize_action (item : Dom_html.element Js.t)
+let hlines_for_resize_action (item : Dom_html.element Js.t)
     pos min_distance
     (items : Dom_html.element Js.t list)
     (direction : resize_direction) =
-  let ret_list =
-    match direction with
-    | Top_left ->
-      [ Horizontal_Top,
-        line_align_count item pos items min_distance Horizontal_Top,
-        line_find_closest_align_value item pos items min_distance Horizontal_Top
-      ]
-    | Top_right ->
-      [ Horizontal_Top,
-        line_align_count item pos items min_distance Horizontal_Top,
-        line_find_closest_align_value item pos items min_distance Horizontal_Top
-      ]
-    | Bottom_left ->
-      [ Horizontal_Bottom,
-        line_align_count item pos items min_distance Horizontal_Bottom,
-        line_find_closest_align_value item pos items min_distance Horizontal_Bottom
-      ]
-    | Bottom_right ->
-      [ Horizontal_Bottom,
-        line_align_count item pos items min_distance Horizontal_Bottom,
-        line_find_closest_align_value item pos items min_distance Horizontal_Bottom
-      ]
-    | Top ->
-      [ Horizontal_Top,
-        line_align_count item pos items min_distance Horizontal_Top,
-        line_find_closest_align_value item pos items min_distance Horizontal_Top
-      ]
-    | Bottom ->
-      [ Horizontal_Bottom,
-        line_align_count item pos items min_distance Horizontal_Bottom,
-        line_find_closest_align_value item pos items min_distance Horizontal_Bottom
-      ]
-    | Left ->
-      [ Horizontal_Center,
-        line_align_count item pos items min_distance Horizontal_Center,
-        line_find_closest_align_value item pos items min_distance Horizontal_Center
-      ]
-    | Right ->
-      [ Horizontal_Center,
-        line_align_count item pos items min_distance Horizontal_Center,
-        line_find_closest_align_value item pos items min_distance Horizontal_Center
-      ]
-  in
-  ret_list
+  let align_direction = match direction with
+    | Top_left | Top_right | Top -> Htop
+    | Bottom_left | Bottom_right | Bottom -> Hbottom
+    | Left | Right -> Hcenter in
+  [make_line_properties align_direction item pos min_distance items]
 
-let vertical_lines_aligned_list_for_move_action (item : Dom_html.element Js.t)
+let vlines_for_move_action (item : Dom_html.element Js.t)
     pos min_distance
     (items : Dom_html.element Js.t list) =
-  let ret_list =
-    [ Vertical_Left,
-      line_align_count item pos items min_distance Vertical_Left,
-      line_find_closest_align_value item pos items min_distance Vertical_Left
-    ; Vertical_Center,
-      line_align_count item pos items min_distance Vertical_Center,
-      line_find_closest_align_value item pos items min_distance Vertical_Center
-    ; Vertical_Right,
-      line_align_count item pos items min_distance Vertical_Right,
-      line_find_closest_align_value item pos items min_distance Vertical_Right
-    ] in
-  ret_list
+  [ make_line_properties Vleft item pos min_distance items
+  ; make_line_properties Vcenter item pos min_distance items
+  ; make_line_properties Vright item pos min_distance items
+  ]
 
-let vertical_lines_aligned_list_for_resize_action (item : Dom_html.element Js.t)
+let vlines_for_resize_action (item : Dom_html.element Js.t)
     pos min_distance
     (items : Dom_html.element Js.t list)
     (direction : resize_direction) =
-  let ret_list = match direction with
-    | Top_left ->
-      [ Vertical_Left,
-        line_align_count item pos items min_distance Vertical_Left,
-        line_find_closest_align_value item pos items min_distance Vertical_Left
-      ]
-    | Top_right ->
-      [ Vertical_Right,
-        line_align_count item pos items min_distance Vertical_Right,
-        line_find_closest_align_value item pos items min_distance Vertical_Right
-      ]
-    | Bottom_left ->
-      [ Vertical_Left,
-        line_align_count item pos items min_distance Vertical_Left,
-        line_find_closest_align_value item pos items min_distance Vertical_Left
-      ]
-    | Bottom_right ->
-      [ Vertical_Right,
-        line_align_count item pos items min_distance Vertical_Right,
-        line_find_closest_align_value item pos items min_distance Vertical_Right
-      ]
-    | Top ->
-      [ Vertical_Center,
-        line_align_count item pos items min_distance Vertical_Center,
-        line_find_closest_align_value item pos items min_distance Vertical_Center
-      ]
-    | Bottom ->
-      [ Vertical_Center,
-        line_align_count item pos items min_distance Vertical_Center,
-        line_find_closest_align_value item pos items min_distance Vertical_Center
-      ]
-    | Left ->
-      [ Vertical_Left,
-        line_align_count item pos items min_distance Vertical_Left,
-        line_find_closest_align_value item pos items min_distance Vertical_Left
-      ]
-    | Right ->
-      [ Vertical_Right,
-        line_align_count item pos items min_distance Vertical_Right,
-        line_find_closest_align_value item pos items min_distance Vertical_Right
-      ] in
-  ret_list
+  let align_direction = match direction with
+    | Top_left | Bottom_left | Left -> Vleft
+    | Top_right | Bottom_right | Right -> Vright
+    | Top | Bottom -> Vcenter in
+  [make_line_properties align_direction item pos min_distance items]
 
 let get_snap (item : Dom_html.element Js.t) coord min_distance items =
   let rec aux snap snap_min_delta = function
@@ -584,14 +496,14 @@ let get_snap (item : Dom_html.element Js.t) coord min_distance items =
 let get_item_snap_y (item : Dom_html.element Js.t)
     pos min_distance
     (items : Dom_html.element Js.t list) =
-  let snap_list = horizontal_lines_aligned_list_for_move_action item pos min_distance items in
-  get_snap item pos.y min_distance snap_list
+  get_snap item pos.y min_distance
+  @@ hlines_for_move_action item pos min_distance items
 
 let get_item_snap_x (item : Dom_html.element Js.t)
     pos min_distance
     (items : Dom_html.element Js.t list) =
-  let snap_list = vertical_lines_aligned_list_for_move_action item pos min_distance items in
-  get_snap item pos.x min_distance snap_list
+  get_snap item pos.x min_distance
+  @@ vlines_for_move_action item pos min_distance items
 
 let get_item_snap_position_for_move_action
     (item : Dom_html.element Js.t)
@@ -610,67 +522,35 @@ let get_item_snap_position_for_resize_action
     min_distance
     (items : Dom_html.element Js.t list)
     (direction : resize_direction) =
+  let make_line align = make_line_properties align item pos min_distance items in
   match direction with
   | Top_left ->
-    let snap_list_x = [
-      Vertical_Left,
-      line_align_count item pos items min_distance Vertical_Left,
-      line_find_closest_align_value item pos items min_distance Vertical_Left]
-    in
-    let snap_list_y = [
-      Horizontal_Top,
-      line_align_count item pos items min_distance Horizontal_Top,
-      line_find_closest_align_value item pos items min_distance Horizontal_Top]
-    in
-    (*let _ = Printf.printf "top left resize\n" in*)
+    let snap_list_x = [make_line Vleft] in
+    let snap_list_y = [make_line Htop] in
     { x = get_snap item pos.x min_distance snap_list_x
     ; y = get_snap item pos.y min_distance snap_list_y
     ; w = pos.x - (get_snap item pos.x min_distance snap_list_x) + pos.w
     ; h = pos.y - (get_snap item pos.y min_distance snap_list_y) + pos.h
     }
   | Top_right ->
-    let snap_list_x = [
-      Vertical_Right,
-      line_align_count item pos items min_distance Vertical_Right,
-      line_find_closest_align_value item pos items min_distance Vertical_Right]
-    in
-    let snap_list_y = [
-      Horizontal_Top,
-      line_align_count item pos items min_distance Horizontal_Top,
-      line_find_closest_align_value item pos items min_distance Horizontal_Top]
-    in
+    let snap_list_x = [make_line Vright] in
+    let snap_list_y = [make_line Htop] in
     { x = pos.x (*get_snap item pos.x min_distance snap_list_x *)
     ; y = get_snap item pos.y min_distance snap_list_y
     ; w = (get_snap item pos.x min_distance snap_list_x) - pos.x + pos.w
     ; h = pos.y - (get_snap item pos.y min_distance snap_list_y) + pos.h
     }
   | Bottom_left ->
-    let snap_list_x = [
-      Vertical_Left,
-      line_align_count item pos items min_distance Vertical_Left,
-      line_find_closest_align_value item pos items min_distance Vertical_Left]
-    in
-    let snap_list_y = [
-      Horizontal_Bottom,
-      line_align_count item pos items min_distance Horizontal_Bottom,
-      line_find_closest_align_value item pos items min_distance Horizontal_Bottom]
-    in
+    let snap_list_x = [make_line Vleft] in
+    let snap_list_y = [make_line Hbottom] in
     { x = get_snap item pos.x min_distance snap_list_x
     ; y = pos.y (*get_snap item pos.y min_distance snap_list_y *)
     ; w = pos.x - (get_snap item pos.x min_distance snap_list_x) + pos.w
     ; h = (get_snap item pos.y min_distance snap_list_y) - pos.y + pos.h
     }
   | Bottom_right ->
-    let snap_list_x = [
-      Vertical_Right,
-      line_align_count item pos items min_distance Vertical_Right,
-      line_find_closest_align_value item pos items min_distance Vertical_Right]
-    in
-    let snap_list_y = [
-      Horizontal_Bottom,
-      line_align_count item pos items min_distance Horizontal_Bottom,
-      line_find_closest_align_value item pos items min_distance Horizontal_Bottom]
-    in
+    let snap_list_x = [make_line Vright] in
+    let snap_list_y = [make_line Hbottom] in
     { x = pos.x (*get_snap item pos.x min_distance snap_list_x *)
     ; y = pos.y (*get_snap item pos.y min_distance snap_list_y *)
     ; w = (get_snap item pos.x min_distance snap_list_x) - pos.x + pos.w
@@ -678,16 +558,8 @@ let get_item_snap_position_for_resize_action
     }
   | Top ->
     (* not tested *)
-    let snap_list_x = [
-      Vertical_Center,
-      line_align_count item pos items min_distance Vertical_Center,
-      line_find_closest_align_value item pos items min_distance Vertical_Center]
-    in
-    let snap_list_y = [
-      Horizontal_Top,
-      line_align_count item pos items min_distance Horizontal_Top,
-      line_find_closest_align_value item pos items min_distance Horizontal_Top]
-    in
+    let snap_list_x = [make_line Vcenter] in
+    let snap_list_y = [make_line Htop] in
     { x = get_snap item pos.x min_distance snap_list_x
     ; y = get_snap item pos.y min_distance snap_list_y
     ; w = pos.x - (get_snap item pos.x min_distance snap_list_x) + pos.w
@@ -695,16 +567,8 @@ let get_item_snap_position_for_resize_action
     }
   | Bottom ->
     (* not tested *)
-    let snap_list_x = [
-      Vertical_Center,
-      line_align_count item pos items min_distance Vertical_Center,
-      line_find_closest_align_value item pos items min_distance Vertical_Center]
-    in
-    let snap_list_y = [
-      Horizontal_Bottom,
-      line_align_count item pos items min_distance Horizontal_Bottom,
-      line_find_closest_align_value item pos items min_distance Horizontal_Bottom]
-    in
+    let snap_list_x = [make_line Vcenter] in
+    let snap_list_y = [make_line Hbottom] in
     { x = get_snap item pos.x min_distance snap_list_x
     ; y = get_snap item pos.y min_distance snap_list_y
     ; w = pos.x - (get_snap item pos.x min_distance snap_list_x) + pos.w
@@ -712,16 +576,8 @@ let get_item_snap_position_for_resize_action
     }
   | Left ->
     (* not tested *)
-    let snap_list_x = [
-      Vertical_Left,
-      line_align_count item pos items min_distance Vertical_Left,
-      line_find_closest_align_value item pos items min_distance Vertical_Left]
-    in
-    let snap_list_y = [
-      Horizontal_Center,
-      line_align_count item pos items min_distance Horizontal_Center,
-      line_find_closest_align_value item pos items min_distance Horizontal_Center]
-    in
+    let snap_list_x = [make_line Vleft] in
+    let snap_list_y = [make_line Hcenter] in
     { x = get_snap item pos.x min_distance snap_list_x
     ; y = get_snap item pos.y min_distance snap_list_y
     ; w = pos.x - (get_snap item pos.x min_distance snap_list_x) + pos.w
@@ -729,16 +585,8 @@ let get_item_snap_position_for_resize_action
     }
   | Right ->
     (* not tested *)
-    let snap_list_x = [
-      Vertical_Right,
-      line_align_count item pos items min_distance Vertical_Right,
-      line_find_closest_align_value item pos items min_distance Vertical_Right]
-    in
-    let snap_list_y = [
-      Horizontal_Center,
-      line_align_count item pos items min_distance Horizontal_Center,
-      line_find_closest_align_value item pos items min_distance Horizontal_Center]
-    in
+    let snap_list_x = [make_line Vright] in
+    let snap_list_y = [make_line Hcenter] in
     { x = get_snap item pos.x min_distance snap_list_x
     ; y = get_snap item pos.y min_distance snap_list_y
     ; w = pos.x - (get_snap item pos.x min_distance snap_list_x) + pos.w
@@ -752,73 +600,46 @@ let get_snap_lines
     (items : Dom_html.element Js.t list)
     min_distance
     (action : [`Resize of resize_direction | `Move]) =
-  let snap_list_v =
+  let snap_list =
     match action with
     | `Move ->
-      vertical_lines_aligned_list_for_move_action item pos
-        min_distance items
-    | `Resize direction ->
-      vertical_lines_aligned_list_for_resize_action item pos
-        min_distance items direction
+      vlines_for_move_action item pos min_distance items
+      @ hlines_for_move_action item pos min_distance items
+    | `Resize dir ->
+      vlines_for_resize_action item pos min_distance items dir
+      @ hlines_for_resize_action item pos min_distance items dir
   in
-  let snap_list_h =
-    match action with
-    | `Move ->
-      horizontal_lines_aligned_list_for_move_action item pos
-        min_distance items
-    | `Resize direction ->
-      horizontal_lines_aligned_list_for_resize_action item pos
-        min_distance items direction
-  in
-  let rec create_lines_v_list (action : [`Resize of resize_direction | `Move])
+  let rec create_lines (action : [`Resize of resize_direction | `Move])
       acc = function
     | [] -> acc
     | (direction, aligns_count, distance) :: tl ->
       let acc =
         if aligns_count > 0
         then
+          let is_vertical = match direction with
+            | Vleft | Vright | Vcenter -> true
+            | Nill | Htop | Hbottom | Hcenter -> false in
+          let is_center = match direction with
+            | Vcenter | Hcenter -> true
+            | _ -> false in
+          let origin = match direction with
+            | Vleft -> pos.x
+            | Vcenter -> pos.x + pos.w / 2
+            | Vright -> pos.x + pos.w
+            | Htop -> pos.y
+            | Hcenter -> pos.y + pos.h / 2
+            | Hbottom -> pos.y + pos.h
+            | Nill -> 0 in
           let line_ret =
-            { is_vertical = true
+            { is_vertical
             ; is_multiple = aligns_count > 1
-            ; is_center = direction = Vertical_Center
-            ; x = if direction = Vertical_Left
-                then pos.x
-                else if direction = Vertical_Center
-                then pos.x + pos.w / 2
-                else if direction = Vertical_Right
-                then pos.x + pos.w
-                else 0
-            ; y = 0
+            ; is_center
+            ; origin
             } in
           line_ret :: acc
         else acc in
-      create_lines_v_list action acc tl in
-
-  let rec create_lines_h_list (action : [`Resize of resize_direction | `Move])
-      acc = function
-    | [] -> acc
-    | (direction, aligns_count, distance) :: tl ->
-      let acc =
-        if aligns_count > 0
-        then
-          let line_ret =
-            { is_vertical = false
-            ; is_multiple = aligns_count > 1
-            ; is_center = direction = Horizontal_Center
-            ; x = 0
-            ; y = if direction = Horizontal_Top
-                then pos.y
-                else if direction = Horizontal_Center
-                then pos.y + pos.h / 2
-                else if direction = Horizontal_Bottom
-                then pos.y + pos.h
-                else 0
-            } in
-          line_ret :: acc
-        else acc in
-      create_lines_h_list action acc tl in
-  create_lines_v_list action [] snap_list_v
-  @ create_lines_h_list action [] snap_list_h
+      create_lines action acc tl in
+  create_lines action [] snap_list
 
 (* FIXME remove *)
 let is_item_collide_others
@@ -858,6 +679,7 @@ let adjust ?aspect_ratio
     ~(parent_size : int * int)
     (item : Dom_html.element Js.t) : t * line list =
   let min_distance = 12 in
+  (* FIXME replace with `fix` functions (keep DRY) *)
   let position =
     if position.x < 0 && position.y < 0
     then { position with x = 0 ; y = 0 }
