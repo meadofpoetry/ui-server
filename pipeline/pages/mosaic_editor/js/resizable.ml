@@ -258,7 +258,6 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
 
     method private handle_drag_end () : unit =
       self#stop_move_listeners ();
-      super#root##.style##.backgroundImage := Js.string "";
       super#remove_class Markup.CSS.resizable_active;
       if _dragging
       then self#notify_change ()

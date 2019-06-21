@@ -143,7 +143,6 @@ class t ?(widgets = []) (position : Position.t) elt () =
       super#destroy ()
 
     method! layout () : unit =
-      print_endline "layout";
       self#fit ();
       grid_overlay#layout ();
       super#layout ()
