@@ -138,7 +138,7 @@ let fix_w ?max_w ?(min_w = 1) par_w (p : t) =
 let fix_h ?max_h ?(min_h = 1) par_h (p : t) =
   let h = match max_h with
     | Some max -> if p.h > max then max else if p.h < min_h then min_h else p.h
-    | None     -> if p.h < min_h then min_h else p.h
+    | None -> if p.h < min_h then min_h else p.h
   in
   let h = match par_h with
     | Some ph -> if p.y + h > ph then ph - p.y else h
@@ -173,20 +173,11 @@ let fix_aspect (p : t) (aspect : int * int) =
   in
   { p with w; h }
 
-let apply_to_element ?min_size (pos : t) (elt : #Dom_html.element Js.t) =
-  let apply_xw () =
+let apply_to_element (pos : t) (elt : #Dom_html.element Js.t) =
     elt##.style##.width := Utils.px_js pos.w;
-    elt##.style##.left := Utils.px_js pos.x in
-  let apply_yh () =
+    elt##.style##.left := Utils.px_js pos.x;
     elt##.style##.height := Utils.px_js pos.h;
-    elt##.style##.top := Utils.px_js pos.y in
-  match min_size with
-  | None -> apply_xw (); apply_yh ()
-  | Some size ->
-    if pos.w >= size
-    then apply_xw ();
-    if pos.h >= size
-    then apply_yh ()
+    elt##.style##.top := Utils.px_js pos.y
 
 let of_element (elt : #Dom_html.element Js.t) =
   { x = elt##.offsetLeft
@@ -672,6 +663,10 @@ let global_saved_position_previous = ref {x=0;y=0;h=0;w=0}
 let adjust ?aspect_ratio
     ?(snap_lines = true)
     ?(collisions = false)
+    ?(min_width = 20) (* XXX Do we need the default value at all? *)
+    ?(min_height = 20)
+    ?max_width
+    ?max_height
     ~(action : [`Resize of resize_direction | `Move])
     ~(original_position : t)
     ~(position : t)

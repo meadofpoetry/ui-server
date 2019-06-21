@@ -41,7 +41,7 @@ val equal : t -> t -> bool
 
 val compare : t -> t -> int
 
-val apply_to_element : ?min_size:int -> t -> #Dom_html.element Js.t -> unit
+val apply_to_element : t -> #Dom_html.element Js.t -> unit
 
 val of_element : #Dom_html.element Js.t -> t
 
@@ -63,6 +63,10 @@ val adjust :
   ?aspect_ratio:float (* Aspect ratio of active item, if any *)
   -> ?snap_lines:bool
   -> ?collisions:bool
+  -> ?min_width:int
+  -> ?min_height:int
+  -> ?max_width:int
+  -> ?max_height:int
   -> action:[`Resize of resize_direction | `Move]
   -> original_position:t
   -> position:t (* Active item position *)

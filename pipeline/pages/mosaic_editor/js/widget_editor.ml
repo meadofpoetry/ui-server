@@ -276,6 +276,8 @@ class t ?(widgets = []) (position : Position.t) elt () =
       let adjusted, lines =
         Position.adjust
           ?aspect_ratio
+          ~min_width:min_size
+          ~min_height:min_size
           ~snap_lines:grid_overlay#snap_lines_visible
           ~action:(match detail##.action with
               | Move -> `Move
@@ -287,7 +289,7 @@ class t ?(widgets = []) (position : Position.t) elt () =
           target
       in
       grid_overlay#set_snap_lines lines;
-      Position.apply_to_element ~min_size adjusted target;
+      Position.apply_to_element adjusted target;
       Lwt.return_unit
 
     (* TODO this is a next task *)
@@ -342,9 +344,7 @@ class t ?(widgets = []) (position : Position.t) elt () =
               ~min_h:min_size
               point with
       | None -> Position.apply_to_element Position.empty ghost
-      | Some x ->
-        print_endline @@ Position.show x;
-        Dom.preventDefault event; Position.apply_to_element x ghost
+      | Some x -> Dom.preventDefault event; Position.apply_to_element x ghost
 
     (* Primary editor actions *)
     method private make_actions () =
