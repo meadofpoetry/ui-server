@@ -44,7 +44,10 @@ end
 class t (elt : Dom_html.element Js.t) () = object
   inherit Button.t ~on_click:(fun _ _ _ ->
       ignore @@ Element.toggle_class elt CSS.selected;
-      Lwt.return_unit) elt ()
+      Lwt.return_unit) elt () as super
+
+  method! private create_ripple () : Ripple.t =
+    Ripple.attach ~unbounded:true super#root
 end
 
 let make ?selected content : t =

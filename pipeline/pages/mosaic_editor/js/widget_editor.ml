@@ -120,7 +120,6 @@ class t ?(widgets = []) (position : Position.t) elt () =
     val mutable _widgets : (string * Wm.widget) list = widgets
     val mutable _listeners = []
     val mutable _focused_item = None
-    val mutable _resize_observer = None
     val mutable min_size = 20
     val mutable toolbar = None
 
@@ -130,11 +129,6 @@ class t ?(widgets = []) (position : Position.t) elt () =
       toolbar <- Some (self#make_toolbar ())
 
     method! initial_sync_with_dom () : unit =
-      _resize_observer <- Some (
-          Ui_templates.Resize_observer.observe
-            ~f:(fun _ -> self#layout ())
-            ~node:super#root
-            ());
       _listeners <- Events.(
           [ listen_lwt super#root Resizable.Event.input self#handle_item_action
           ; listen_lwt super#root Resizable.Event.change self#handle_item_change
@@ -144,13 +138,12 @@ class t ?(widgets = []) (position : Position.t) elt () =
       super#initial_sync_with_dom ()
 
     method! destroy () : unit =
-      Utils.Option.iter Ui_templates.Resize_observer.disconnect _resize_observer;
-      _resize_observer <- None;
       List.iter Lwt.cancel _listeners;
       _listeners <- [];
       super#destroy ()
 
     method! layout () : unit =
+      print_endline "layout";
       self#fit ();
       grid_overlay#layout ();
       super#layout ()
@@ -284,6 +277,7 @@ class t ?(widgets = []) (position : Position.t) elt () =
       let adjusted, lines =
         Position.adjust
           ?aspect_ratio
+          ~snap_lines:grid_overlay#snap_lines_visible
           ~action:(match detail##.action with
               | Move -> `Move
               | Resize -> `Resize detail##.direction)

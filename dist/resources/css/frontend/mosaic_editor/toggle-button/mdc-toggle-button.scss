@@ -10,8 +10,8 @@
 
 .mdc-toggle-button {
     height: 48px;
-    padding: 0 11px 0 12px;
-    min-width: 49px;
+    padding: 0 10px 0 12px;
+    min-width: 48px;
     font-weight: 500;
     line-height: 1.75;
     text-transform: uppercase;
@@ -22,16 +22,15 @@
 
     // Ripple
     @include mdc-ripple-surface();
-    @include mdc-ripple-radius-bounded();
+    @include mdc-ripple-radius-unbounded();
     @include mdc-states(text-secondary-on-surface, false);
 
     &:not(:disabled) {
-        @include mdc-theme-prop(color, text-hint-on-surface);
+        @include mdc-theme-prop(color, text-primary-on-surface);
     }
 
     &--selected:not(:disabled) {
         @include mdc-theme-prop(background-color, $mdc-toggle-button-border-color);
-        @include mdc-theme-prop(color, text-secondary-on-surface);
     }
 
     &__label {

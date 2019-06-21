@@ -9,6 +9,8 @@ type event =
   [ `Layout of Wm.t
   ]
 
+let ( % ) f g x = f (g x)
+
 (* TODO remove later *)
 module Test = struct
 
@@ -97,10 +99,16 @@ class t ~(layout: Wm.t)
 
   val mutable _widget_editor = None
   val mutable _listeners = []
+  val mutable _resize_observer = None
 
   inherit Widget.t elt () as super
 
   method! init () : unit =
+    _resize_observer <- Some (
+        Ui_templates.Resize_observer.observe
+          ~f:(fun _ -> self#layout ())
+          ~node:super#root
+          ());
     super#init ()
 
   method! initial_sync_with_dom () : unit =
@@ -110,9 +118,14 @@ class t ~(layout: Wm.t)
     super#initial_sync_with_dom ()
 
   method! destroy () : unit =
+    Utils.Option.iter Ui_templates.Resize_observer.disconnect _resize_observer;
+    _resize_observer <- None;
+    List.iter Lwt.cancel _listeners;
+    _listeners <- [];
     super#destroy ()
 
   method! layout () : unit =
+    Utils.Option.iter (Widget.layout % snd) _widget_editor;
     super#layout ()
 
   method notify : event -> unit = function

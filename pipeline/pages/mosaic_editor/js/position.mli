@@ -62,6 +62,8 @@ val get_original_aspect_ratio : #Dom_html.element Js.t -> float option
 
 val adjust :
   ?aspect_ratio:float (* Aspect ratio of active item, if any *)
+  -> ?snap_lines:bool
+  -> ?collisions:bool
   -> action:[`Resize of resize_direction | `Move]
   -> original_position:t
   -> position:t (* Active item position *)
