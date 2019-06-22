@@ -1,4 +1,5 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 open Components
 open Pipeline_types
 
@@ -109,6 +110,26 @@ class t ~(layout: Wm.t)
           ~f:(fun _ -> self#layout ())
           ~node:super#root
           ());
+    let make_gutter ?(class_ = "") ~track direction =
+      let t = Gutter.make ~track direction in
+      t#add_class class_;
+      t in
+    let gutters =
+      [ make_gutter ~class_:"container-grid__vertical-gutter" ~track:1 Col
+      ; make_gutter ~class_:"container-grid__horizontal-gutter" ~track:1 Row
+      ] in
+    let elt =
+      Tyxml_js.To_dom.of_element
+      @@ Tyxml_js.Html.(
+          div ~a:[a_class ["container-grid"]]
+            [ div [txt "HTML"]
+            ; div [txt "CSS"]
+            ; div [txt "JS"]
+            ; div [txt "Result"]
+            ; (List.nth gutters 0)#markup
+            ; (List.nth gutters 1)#markup
+            ]) in
+    Element.append_child super#root elt;
     super#init ()
 
   method! initial_sync_with_dom () : unit =
@@ -165,5 +186,5 @@ let make layout scaffold =
   let elt = Dom_html.createDiv Dom_html.document in
   Element.add_class elt "editor";
   let t = new t ~layout elt scaffold () in
-  t#switch_state Test.container;
+  (* t#switch_state Test.container; *)
   t

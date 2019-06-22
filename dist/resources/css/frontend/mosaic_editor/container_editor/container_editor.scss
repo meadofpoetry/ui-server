@@ -1,0 +1,19 @@
+.container-grid {
+    display: grid;
+    grid-template-columns: 1fr 10px 1fr;
+    grid-template-rows: 1fr 10px 1fr;
+    grid-column-gap: 10px;
+    width: 100%;
+}
+
+.container-grid__vertical-gutter {
+    grid-area: 1 / 2 / 4 / 2;
+    background-color: red;
+    cursor: ew-resize;
+}
+
+.container-grid__horizontal-gutter {
+    grid-area: 2 / 1 / 2 / 4;
+    background-color: red;
+    cursor: ns-resize
+}
