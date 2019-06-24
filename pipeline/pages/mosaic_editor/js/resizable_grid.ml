@@ -12,6 +12,10 @@ module Attrs = struct
 
 end
 
+module Selector = struct
+  let cell = Printf.sprintf ".%s" CSS.cell
+end
+
 module Style = struct
   let grid_template_columns = "grid-template-columns"
   let grid_template_rows = "grid-template-rows"
@@ -54,6 +58,18 @@ let ( >>= ) = Lwt.bind
 let coerce_event = function
   | Touch e -> (e :> Dom_html.event Js.t)
   | Mouse e -> (e :> Dom_html.event Js.t)
+
+let cell_of_event
+    (items : Dom_html.element Dom.nodeList Js.t)
+    (e : Dom_html.event Js.t) : Dom_html.element Js.t option =
+  Js.Opt.to_option
+  @@ Js.Opt.bind e##.target (fun (target : Dom_html.element Js.t) ->
+      let selector = Printf.sprintf ".%s, .%s" CSS.cell CSS.root in
+      let nearest_parent = Element.closest target selector in
+      Js.Opt.bind nearest_parent (fun (parent : Dom_html.element Js.t) ->
+          if not @@ Element.matches parent ("." ^ CSS.cell)
+          then Js.null
+          else Element.find (Element.equal parent) items))
 
 (* FIXME merge with same function in `Resizable` module *)
 let get_cursor_position ?touch_id = function
@@ -216,6 +232,9 @@ class t
 
   (* Private methods *)
 
+  method private cells_ =
+    super#root##querySelectorAll (Js.string Selector.cell)
+
   method private notify_change () : unit =
     ()
 
@@ -239,6 +258,7 @@ class t
     Dom_html.stopPropagation (coerce_event e);
     Dom.preventDefault (coerce_event e);
     let target = Dom_html.eventTarget (coerce_event e) in
+    let cell = cell_of_event self#cells_ (coerce_event e) in
     (* FIXME this definetely may not be a cell, rewrite *)
     let direction =
       if Element.has_class target CSS.col_handle
@@ -248,15 +268,13 @@ class t
       else if Element.has_class target CSS.mul_handle
       then Some `Mul
       else None in
-    match direction with
-    | None ->
+    match direction, cell with
+    | _, None -> Lwt.return_unit
+    | None, Some cell ->
       Events.mouseup super#root
-      >>= fun _ ->
-      self#notify_selected target;
-      Lwt.return_unit
-    | Some direction ->
+      >>= fun _ -> self#notify_selected cell; Lwt.return_unit
+    | Some direction, Some cell ->
       let grid = self#parent_grid e in
-      let cell = Js.Opt.get (Element.get_parent target) (fun () -> assert false) in
       let row, col = match direction with
         | `Row ->
           Element.add_class cell CSS.cell_dragging_row;

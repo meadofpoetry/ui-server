@@ -138,6 +138,17 @@ let is_focused (elt : #Dom_html.element Js.t) : bool =
 let is_scrollable (elt : #Dom_html.element Js.t) : bool =
   elt##.scrollHeight > elt##.offsetHeight
 
+let find f (nodes : Dom_html.element Dom.nodeList Js.t) =
+  let rec find = function
+    | 0 -> Js.null
+    | i ->
+      let item =
+        Js.Opt.bind (nodes##item (i - 1)) (fun e ->
+            if f e then Js.some e else Js.null) in
+      if Js.Opt.test item
+      then item else find (pred i) in
+  find nodes##.length
+
 let emit ?(should_bubble = false) ?detail evt_type element =
   let (evt : 'a custom_event Js.t) =
     match Js.(to_string @@ typeof (Unsafe.global##.CustomEvent)) with

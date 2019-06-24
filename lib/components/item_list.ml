@@ -60,17 +60,6 @@ let loop_nodes f (list : Dom_html.element Dom.nodeList Js.t) =
     | i -> f i (get_exn i list); loop (succ i) in
   loop 0
 
-let find_node f (list : Dom_html.element Dom.nodeList Js.t) =
-  let rec find = function
-    | 0 -> Js.null
-    | i ->
-      let item =
-        Js.Opt.bind (list##item (i - 1)) (fun e ->
-            if f e then Js.some e else Js.null) in
-      if Js.Opt.test item
-      then item else find (pred i) in
-  find list##.length
-
 let prevent_default_event (e : #Dom_html.event Js.t) : unit =
   Js.Opt.iter e##.target (fun (elt : Dom_html.element Js.t) ->
       if not @@ List.mem ~eq:String.equal
@@ -87,7 +76,7 @@ let list_item_of_event (items : Dom_html.element Dom.nodeList Js.t)
       Js.Opt.bind nearest_parent (fun (parent : Dom_html.element Js.t) ->
           if not @@ Element.matches parent ("." ^ CSS.item)
           then Js.null
-          else find_node (Element.equal parent) items))
+          else Element.find (Element.equal parent) items))
 
 let set_tab_index_for_list_item_children (index : int)
     (item : Dom_html.element Js.t) : unit =
