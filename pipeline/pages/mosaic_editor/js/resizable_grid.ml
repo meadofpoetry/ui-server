@@ -159,6 +159,7 @@ type dimensions =
 
 type resize_properties =
   { cell : Dom_html.element Js.t
+  ; grid : Dom_html.element Js.t
   ; col : dimensions option
   ; row : dimensions option
   }
@@ -219,20 +220,21 @@ class t
     match direction with
     | None -> Lwt.return_unit
     | Some direction ->
+      let grid = self#parent_grid e in
       let cell = Js.Opt.get (Element.get_parent target) (fun () -> assert false) in
       let row, col = match direction with
         | `Row ->
           Element.add_class cell CSS.cell_dragging_row;
-          Some (self#get_dimensions Row), None
+          Some (self#get_dimensions grid Row), None
         | `Col ->
           Element.add_class cell CSS.cell_dragging_column;
-          None, Some (self#get_dimensions Col)
+          None, Some (self#get_dimensions grid Col)
         | `Mul ->
           Element.add_class cell CSS.cell_dragging_row;
           Element.add_class cell CSS.cell_dragging_column;
-          Some (self#get_dimensions Col),
-          Some (self#get_dimensions Row) in
-      let resize_properties = { cell; row; col } in
+          Some (self#get_dimensions grid Col),
+          Some (self#get_dimensions grid Row) in
+      let resize_properties = { grid; cell; row; col } in
       (match e with
        | Touch e ->
          Dom.preventDefault e;
@@ -260,7 +262,7 @@ class t
     List.iter (function
         | None -> ()
         | Some x ->
-          self#update_position (get_cursor_position e) x)
+          self#update_position props.grid (get_cursor_position e) x)
       [props.col; props.row];
     Lwt.return_unit
 
@@ -277,6 +279,7 @@ class t
   method private adjust_position
       ~(a_track_size : float)
       ~(b_track_size : float)
+      (grid : Dom_html.element Js.t)
       (dimensions : dimensions) =
     let tracks = dimensions.tracks in
     let update_track track track_size =
@@ -294,32 +297,23 @@ class t
     update_track dimensions.a_track a_track_size;
     update_track dimensions.b_track b_track_size;
     let style = (String.concat " " @@ Array.to_list tracks) in
-    self#set_style dimensions style
+    self#set_style grid dimensions style
 
-  method private set_style dimensions (style : string) : unit =
+  method private set_style grid dimensions (style : string) : unit =
     let v = Js.string style in
     match dimensions.direction with
-    | Row -> (Js.Unsafe.coerce super#root##.style)##.gridTemplateRows := v
-    | Col -> (Js.Unsafe.coerce super#root##.style)##.gridTemplateColumns := v
+    | Row -> (Js.Unsafe.coerce grid##.style)##.gridTemplateRows := v
+    | Col -> (Js.Unsafe.coerce grid##.style)##.gridTemplateColumns := v
 
-  method private raw_tracks direction : string array =
-    let prop = match direction with
-      | Col -> Style.grid_template_columns
-      | Row -> Style.grid_template_rows in
-    let elements, matched = [super#root], get_matched_css_rules super#root in
-    let tracks = get_styles prop elements matched in
-    if List.length tracks = 0
-    then failwith "gutter: unable to determine grid template tracks from styles"
-    else Array.of_list @@ String.split_on_char ' ' @@ List.hd tracks
-
-  method private get_dimensions direction : dimensions =
+  method private get_dimensions grid direction : dimensions =
     let start = match direction with
-      | Row -> super#root##getBoundingClientRect##.top
-      | Col -> super#root##getBoundingClientRect##.left in
-    let tracks = self#raw_tracks direction in
+      | Row -> grid##getBoundingClientRect##.top
+      | Col -> grid##getBoundingClientRect##.left in
+    let tracks = self#raw_tracks grid direction in
     let track_values = Array.map parse tracks in
 
-    let computed_values = Array.map parse (self#raw_computed_tracks direction) in
+    let computed_tracks = self#raw_computed_tracks grid direction in
+    let computed_values = Array.map parse computed_tracks in
     let fr_to_pixels = match first_non_zero (function
         | Some `Fr x -> Some x
         | _ -> None) track_values with
@@ -357,14 +351,14 @@ class t
     ; tracks
     ; track_values
     ; computed_values
-    ; computed_gap = match self#raw_computed_gap direction with
+    ; computed_gap = match self#raw_computed_gap grid direction with
         | None -> 0.
         | Some x -> match parse x with
           | Some `Px x -> x
           | _ -> 0.
     }
 
-  method private update_position position (dimensions : dimensions) =
+  method private update_position grid position (dimensions : dimensions) =
     let position = match dimensions.direction with
       | Col -> float_of_int @@ fst position
       | Row -> float_of_int @@ snd position in
@@ -403,10 +397,20 @@ class t
       else a_track_size, b_track_size in
     let a_track_size = max a_track_size min_size_start in
     let b_track_size = max b_track_size min_size_end in
-    self#adjust_position ~a_track_size ~b_track_size dimensions
+    self#adjust_position ~a_track_size ~b_track_size grid dimensions
 
-  method private raw_computed_tracks direction: string array =
-    let style = Dom_html.window##getComputedStyle super#root in
+  method private raw_tracks grid direction : string array =
+    let prop = match direction with
+      | Col -> Style.grid_template_columns
+      | Row -> Style.grid_template_rows in
+    let elements, matched = [grid], get_matched_css_rules grid in
+    let tracks = get_styles prop elements matched in
+    if List.length tracks = 0
+    then failwith "gutter: unable to determine grid template tracks from styles"
+    else Array.of_list @@ String.split_on_char ' ' @@ List.hd tracks
+
+  method private raw_computed_tracks grid direction: string array =
+    let style = Dom_html.window##getComputedStyle grid in
     let v = match direction with
       | Row -> (Js.Unsafe.coerce style)##.gridTemplateRows
       | Col -> (Js.Unsafe.coerce style)##.gridTemplateColumns in
@@ -414,8 +418,8 @@ class t
       (fun () -> [||])
       (Array.of_list % String.split_on_char ' ' % Js.to_string)
 
-  method private raw_computed_gap direction : string option =
-    let style = Dom_html.window##getComputedStyle super#root in
+  method private raw_computed_gap grid direction : string option =
+    let style = Dom_html.window##getComputedStyle grid in
     let v = match direction with
       | Row -> (Js.Unsafe.coerce style)##.gridRowGap
       | Col -> (Js.Unsafe.coerce style)##.gridColumnGap in
@@ -423,6 +427,19 @@ class t
       (fun () -> None)
       (fun x -> Some (Js.to_string x))
 
+  method private parent_grid (e : event) =
+    let target = Dom_html.eventTarget (coerce_event e) in
+    let rec aux elt =
+      if Element.equal super#root elt
+      then elt
+      else
+        Js.Opt.case (Element.get_parent elt)
+          (fun () -> assert false)
+          (fun elt ->
+             if Element.has_class elt CSS.root
+             then elt
+             else aux elt) in
+    aux target
 end
 
 let make ?drag_interval

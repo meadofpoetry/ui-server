@@ -59,7 +59,6 @@ class t ?(containers = []) ~resolution elt () = object(self)
             ; make_cell ()
             ; make_cell ()
             ]) in
-    let _ = Resizable_grid.attach (Tyxml_js.To_dom.of_element nested_grid) in
     let _ = Resizable_grid.attach elt in
     elt
 
