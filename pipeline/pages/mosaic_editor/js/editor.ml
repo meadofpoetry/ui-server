@@ -186,5 +186,5 @@ let make layout scaffold =
   let elt = Dom_html.createDiv Dom_html.document in
   Element.add_class elt "editor";
   let t = new t ~layout elt scaffold () in
-  (* t#switch_state Test.container; *)
+  t#switch_state Test.container;
   t
