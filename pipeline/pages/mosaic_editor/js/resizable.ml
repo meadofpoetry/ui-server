@@ -254,7 +254,7 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       Utils.Option.iter Lwt.cancel _move_listener;
       Utils.Option.iter Lwt.cancel _stop_listener;
       _move_listener <- None;
-      _stop_listener <- None;
+      _stop_listener <- None
 
     method private handle_drag_end () : unit =
       self#stop_move_listeners ();

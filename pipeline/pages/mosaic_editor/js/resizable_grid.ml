@@ -20,6 +20,26 @@ module Style = struct
   let grid_row_gap = "grid-row-gap"
 end
 
+module Event = struct
+  class type item =
+    object
+      method item : Dom_html.element Js.t
+      method rect : Dom_html.clientRect Js.t Js.readonly_prop
+    end
+
+  type detail = item Js.t Js.js_array Js.t
+
+  class type selected = [Dom_html.element Js.t] Widget.custom_event
+
+  class type resize = [detail] Widget.custom_event
+
+  let (selected : selected Js.t Events.Typ.t) =
+    Events.Typ.make "resizable-grid:selected"
+
+  let (resize : resize Js.t Events.Typ.t) =
+    Events.Typ.make "resizable-grid:resize"
+end
+
 type direction =
   | Col
   | Row
@@ -28,6 +48,8 @@ type event = Touch of Dom_html.touchEvent Js.t
            | Mouse of Dom_html.mouseEvent Js.t
 
 let ( % ) f g x = f (g x)
+
+let ( >>= ) = Lwt.bind
 
 let coerce_event = function
   | Touch e -> (e :> Dom_html.event Js.t)
@@ -192,6 +214,14 @@ class t
         ]);
     super#initial_sync_with_dom ()
 
+  (* Private methods *)
+
+  method private notify_change () : unit =
+    ()
+
+  method private notify_selected cell : unit =
+    super#emit ~should_bubble:true ~detail:cell Event.selected
+
   method private get_size_at_track ?(gap = 0) ?(end_ = false)
       track (tracks : value option array) =
     let tracks = Array.sub tracks 0 (if end_ then succ track else track) in
@@ -209,6 +239,7 @@ class t
     Dom_html.stopPropagation (coerce_event e);
     Dom.preventDefault (coerce_event e);
     let target = Dom_html.eventTarget (coerce_event e) in
+    (* FIXME this definetely may not be a cell, rewrite *)
     let direction =
       if Element.has_class target CSS.col_handle
       then Some `Col
@@ -218,7 +249,11 @@ class t
       then Some `Mul
       else None in
     match direction with
-    | None -> Lwt.return_unit
+    | None ->
+      Events.mouseup super#root
+      >>= fun _ ->
+      self#notify_selected target;
+      Lwt.return_unit
     | Some direction ->
       let grid = self#parent_grid e in
       let cell = Js.Opt.get (Element.get_parent target) (fun () -> assert false) in
@@ -270,6 +305,7 @@ class t
     Element.remove_class cell CSS.cell_dragging_column;
     Element.remove_class cell CSS.cell_dragging_row;
     self#stop_move_listeners ();
+    self#notify_change ();
     Lwt.return_unit
 
   method private stop_move_listeners () : unit =

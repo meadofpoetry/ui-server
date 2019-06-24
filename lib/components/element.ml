@@ -1,6 +1,15 @@
 open Js_of_ocaml
 open Utils
 
+class type ['a] custom_event =
+  object
+    inherit Events.event
+    method detail : 'a Js.opt Js.readonly_prop
+  end
+
+let event_detail (e : 'a #custom_event Js.t) =
+  Js.Opt.get e##.detail (fun () -> failwith "No detail")
+
 type t = Dom_html.element Js.t
 
 let equal (a : #Dom_html.element Js.t as 'a) (b : 'a) : bool =
@@ -128,3 +137,24 @@ let is_focused (elt : #Dom_html.element Js.t) : bool =
 
 let is_scrollable (elt : #Dom_html.element Js.t) : bool =
   elt##.scrollHeight > elt##.offsetHeight
+
+let emit ?(should_bubble = false) ?detail evt_type element =
+  let (evt : 'a custom_event Js.t) =
+    match Js.(to_string @@ typeof (Unsafe.global##.CustomEvent)) with
+    | "function" ->
+      let custom : (_ Events.Typ.t -> _ Js.t -> _ custom_event Js.t) Js.constr =
+        Js.Unsafe.global##.CustomEvent in
+      let obj =
+        object%js
+          val detail = Js.Opt.option detail
+          val bubbles = should_bubble
+        end in
+      new%js custom evt_type obj
+    | _ ->
+      let doc = Js.Unsafe.coerce Dom_html.document in
+      let evt = doc##createEvent (Js.string "CustomEvent") in
+      evt##initCustomEvent evt_type
+        (Js.bool should_bubble)
+        Js._false
+        (Js.Opt.option detail) in
+  (Js.Unsafe.coerce element)##dispatchEvent evt

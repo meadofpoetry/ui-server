@@ -125,6 +125,10 @@ class t ~(layout: Wm.t)
              ~label:"Switch"
              () in
          Element.append_child row button#root);
+    Lwt.async (fun () ->
+        Events.listen_lwt container_editor#root Resizable_grid.Event.selected (fun e _ ->
+            Js.Unsafe.global##.console##log e |> ignore;
+            Lwt.return_unit));
     super#append_child container_editor;
     super#init ()
 
