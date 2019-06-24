@@ -1,17 +1,30 @@
 @import "@material/theme/mixins";
 @import "./variables";
 
+.container-editor {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    margin: 0 auto;
+
+    .mosaic-grid__overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+}
+
 .container-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: 1fr 1fr;
     width: 100%;
+    height: 100%;
     overflow: hidden;
 
     &__cell {
         position: relative;
         height: 100%;
-        background: white;
         cursor: pointer;
 
         *, &:before, &:after {
@@ -26,9 +39,9 @@
             width: 100%;
             height: 100%;
             pointer-events: none;
-            outline-style: dashed;
+            outline-style: solid;
             outline-width: 1px;
-            @include mdc-theme-prop(outline-color, text-primary-on-surface);
+            @include mdc-theme-prop(outline-color, secondary);
         }
     }
 

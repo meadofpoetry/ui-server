@@ -1,26 +1,12 @@
-@import "./wm";
 @import "./toggle-button/mdc-toggle-button";
-@import "./container_editor/container_editor";
 @import "@material/theme/mixins";
 @import "@material/animation/functions";
 @import "@material/button/mixins";
 @import "@material/top-app-bar/variables";
-
-.mosaic__video {
-    @include mdc-states(on-primary, false);
-    @include mdc-button-ink-color(on-primary);
-    &--compact {
-        display: none;
-    }
-    @media (max-width: $mdc-top-app-bar-mobile-breakpoint) {
-        &--full {
-            display: none;
-        }
-        &--compact {
-            display: block;
-        }
-    }
-}
+@import './table/table';
+@import "./container_editor/container_editor";
+@import './resizable/resizable';
+@import "./variables";
 
 @mixin nav-icon-hidden {
     opacity: 0;
@@ -33,20 +19,32 @@
     transform: rotate(360deg);
 }
 
+.wm {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    padding: 1rem;
+    box-sizing: border-box;
+}
+
 .mdc-top-app-bar {
     transition: mdc-animation-enter(background-color, $duration: 90ms, $delay: 0ms);
+
     &__navigation-icon .mdc-icon {
         position: absolute;
         transition: mdc-animation-enter(all, $duration: 200ms, $delay: 0ms);
     }
+
     &__navigation-icon .mdc-icon:nth-child(1),
     &--contextual-action &__navigation-icon .mdc-icon:nth-child(2) {
         @include nav-icon-visible;
     }
+
     &__navigation-icon .mdc-icon:nth-child(2),
     &--contextual-action &__navigation-icon .mdc-icon:nth-child(1) {
         @include nav-icon-hidden;
     }
+
     &__row:nth-child(2) {
         height: $top-app-bar-second-row-height;
         border-top: 1px solid;

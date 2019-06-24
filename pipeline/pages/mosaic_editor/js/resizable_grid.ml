@@ -165,9 +165,9 @@ type resize_properties =
 
 class t
     ?(drag_interval = 1)
-    ?(snap_offset = 30.)
-    ?(min_size_start = 0.)
-    ?(min_size_end = 0.)
+    ?(snap_offset = 0.)
+    ?(min_size_start = 30.)
+    ?(min_size_end = 30.)
     (elt : Dom_html.element Js.t) () = object(self)
   inherit Widget.t elt () as super
 
@@ -205,6 +205,8 @@ class t
 
   method private handle_drag_start
       (e : event) _ : unit Lwt.t =
+    Dom_html.stopPropagation (coerce_event e);
+    Dom.preventDefault (coerce_event e);
     let target = Dom_html.eventTarget (coerce_event e) in
     let direction =
       if Element.has_class target CSS.col_handle
@@ -253,6 +255,8 @@ class t
       Lwt.return_unit
 
   method private handle_drag props (e : event) _ : unit Lwt.t =
+    Dom_html.stopPropagation (coerce_event e);
+    Dom.preventDefault (coerce_event e);
     List.iter (function
         | None -> ()
         | Some x ->
