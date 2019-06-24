@@ -110,25 +110,24 @@ class t ~(layout: Wm.t)
           ~f:(fun _ -> self#layout ())
           ~node:super#root
           ());
-    let make_gutter ?(class_ = "") ~track direction =
-      let t = Gutter.make ~track direction in
-      t#add_class class_;
-      t in
-    let gutters =
-      [ make_gutter ~class_:"container-grid__vertical-gutter" ~track:1 Col
-      ; make_gutter ~class_:"container-grid__horizontal-gutter" ~track:1 Row
-      ] in
+    let make_cell text =
+      Tyxml_js.Html.(
+        div ~a:[a_class ["container-grid__cell"]]
+          [ div ~a:[a_class ["container-grid__row-handle"]] []
+          ; div ~a:[a_class ["container-grid__col-handle"]] []
+          ; div ~a:[a_class ["container-grid__mul-handle"]] []
+          ; span [txt text]
+          ]) in
     let elt =
       Tyxml_js.To_dom.of_element
       @@ Tyxml_js.Html.(
           div ~a:[a_class ["container-grid"]]
-            [ div [txt "HTML"]
-            ; div [txt "CSS"]
-            ; div [txt "JS"]
-            ; div [txt "Result"]
-            ; (List.nth gutters 0)#markup
-            ; (List.nth gutters 1)#markup
+            [ make_cell "HTML"
+            ; make_cell "CSS"
+            ; make_cell "JS"
+            ; make_cell "Result"
             ]) in
+    let _ = Gutter.attach elt in
     Element.append_child super#root elt;
     super#init ()
 
@@ -186,5 +185,5 @@ let make layout scaffold =
   let elt = Dom_html.createDiv Dom_html.document in
   Element.add_class elt "editor";
   let t = new t ~layout elt scaffold () in
-  t#switch_state Test.container;
+  (* t#switch_state Test.container; *)
   t

@@ -10,6 +10,17 @@ module CSS = struct
   let grid_ghost = BEM.add_element grid "ghost"
   let grid_overlay = BEM.add_element grid "overlay"
 
+
+  module Container_grid = struct
+    let root = "container-grid"
+    let cell = BEM.add_element root "cell"
+    let col_handle = BEM.add_element root "col-handle"
+    let row_handle = BEM.add_element root "row-handle"
+    let mul_handle = BEM.add_element root "mul-handle"
+    let cell_dragging_column = BEM.add_modifier cell "dragging-column"
+    let cell_dragging_row = BEM.add_modifier cell "dragging-row"
+  end
+
   let resizable = "resizable"
   let resizable_active = BEM.add_modifier resizable "active"
   let resizers = BEM.add_element resizable "resizers"

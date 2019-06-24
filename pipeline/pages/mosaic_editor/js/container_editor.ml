@@ -9,28 +9,15 @@ end
 
 module Grid = struct
 
+  type event = Touch of Dom_html.touchEvent Js.t
+             | Mouse of Dom_html.mouseEvent Js.t
+
   (* TODO implement *)
   class t (elt : Dom_html.element Js.t) = object(self)
     inherit Widget.t elt () as super
 
     method! destroy () : unit =
       super#destroy ()
-
-    method add_column_gutter
-        (element : Dom_html.element Js.t)
-        (track : int) : unit =
-      ()
-
-    method add_row_gutter
-        (element : Dom_html.element Js.t)
-        (track : int) : unit =
-      ()
-
-    method remove_column_gutter (track : int) : unit =
-      ()
-
-    method remove_row_gutter (track : int) : unit =
-      ()
   end
 
 end
@@ -80,9 +67,7 @@ class t ?(containers = []) ~resolution elt () = object(self)
 end
 
 let make (wm : Wm.t) =
-  let content =
-    Markup.create_grid_ghost ()
-    :: [] in
+  let content = Markup.create_grid_ghost () :: [] in
   let elt =
     Tyxml_js.To_dom.of_element
     @@ Tyxml_js.Html.(div content) in
