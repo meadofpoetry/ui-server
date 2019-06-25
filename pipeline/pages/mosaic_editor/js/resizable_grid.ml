@@ -1,5 +1,7 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 open Components
+open Resizable_grid_utils
 
 (* Inspired by
  * https://github.com/nathancahill/split
@@ -7,21 +9,15 @@ open Components
 *)
 
 module CSS = Markup.CSS.Container_grid
+module Markup = Markup.Container_grid
 
-module Attrs = struct
-
+module Attr = struct
+  let row = "data-row"
+  let col = "data-col"
 end
 
 module Selector = struct
   let cell = Printf.sprintf ".%s" CSS.cell
-end
-
-module Style = struct
-  let grid_template_columns = "grid-template-columns"
-  let grid_template_rows = "grid-template-rows"
-
-  let grid_column_gap = "grid-column-gap"
-  let grid_row_gap = "grid-row-gap"
 end
 
 module Event = struct
@@ -46,154 +42,29 @@ end
 
 type direction =
   | Col
-  | Row
-
-type event = Touch of Dom_html.touchEvent Js.t
-           | Mouse of Dom_html.mouseEvent Js.t
+  | Row [@@deriving show]
 
 let ( % ) f g x = f (g x)
 
 let ( >>= ) = Lwt.bind
 
-let coerce_event = function
-  | Touch e -> (e :> Dom_html.event Js.t)
-  | Mouse e -> (e :> Dom_html.event Js.t)
-
-let cell_of_event
-    (items : Dom_html.element Dom.nodeList Js.t)
-    (e : Dom_html.event Js.t) : Dom_html.element Js.t option =
-  Js.Opt.to_option
-  @@ Js.Opt.bind e##.target (fun (target : Dom_html.element Js.t) ->
-      let selector = Printf.sprintf ".%s, .%s" CSS.cell CSS.root in
-      let nearest_parent = Element.closest target selector in
-      Js.Opt.bind nearest_parent (fun (parent : Dom_html.element Js.t) ->
-          if not @@ Element.matches parent ("." ^ CSS.cell)
-          then Js.null
-          else Element.find (Element.equal parent) items))
-
-(* FIXME merge with same function in `Resizable` module *)
-let get_cursor_position ?touch_id = function
-  | Mouse event ->
-    begin match Js.Optdef.(to_option event##.pageX,
-                           to_option event##.pageY) with
-    | Some page_x, Some page_y -> page_x, page_y
-    | _ -> failwith "no page coordinates in mouse event"
-    end
-  | Touch event ->
-    let (e : Dom_html.touchEvent Js.t) = Js.Unsafe.coerce event in
-    let touches = e##.changedTouches in
-    let rec aux acc i =
-      if i >= touches##.length then acc else
-        let touch = Js.Optdef.get (touches##item i) (fun () -> assert false) in
-        match touch_id with
-        | None -> Some touch
-        | Some id ->
-          if touch##.identifier = id then Some touch else
-            aux acc (succ i) in
-    (match aux None 0 with
-     | None -> failwith "no touch event found"
-     | Some t -> t##.pageX, t##.pageY)
-
-let split_string ~suffix pattern =
-  let pattern_len = String.length pattern in
-  let len = String.length suffix in
-  if len > pattern_len
-  then None
-  else
-    let sub = String.sub pattern (pattern_len - len) len in
-    if String.uppercase_ascii sub = String.uppercase_ascii suffix
-    then Some (String.sub pattern 0 (pattern_len - len))
-    else None
-
-type value =
-  [ `Auto
-  | `Px of float
-  | `Fr of float
-  | `Pc of float
-  ]
-
-let parse : string -> value option = function
-  | "auto" -> Some `Auto
-  | s ->
-    let rec aux = function
-      | [] -> None
-      | suffix :: tl ->
-        match split_string ~suffix s with
-        | None -> aux tl
-        | Some x ->
-          match float_of_string_opt x with
-          | None -> None
-          | Some x ->
-            match suffix with
-            | "px" -> Some (`Px x)
-            | "fr" -> Some (`Fr x)
-            | "%" -> Some (`Pc x)
-            | _ -> assert false
-    in
-    aux ["px"; "fr"; "%"]
-
-let first_non_zero f a =
-  let rec aux = function
-    | n when n < 0 -> None
-    | n ->
-      match f a.(n) with
-      | None -> aux (pred n)
-      | Some v ->
-        if v <> 0. then Some (n, v)
-        else aux (pred n) in
-  aux (pred @@ Array.length a)
-
-class type stylish =
-  object
-    method style : Dom_html.cssStyleDeclaration Js.t Js.prop
-  end
-
-let get_matched_css_rules (elt : #Dom_html.element Js.t) : #stylish Js.t list =
-  let stylesheets = (Js.Unsafe.coerce elt)##.ownerDocument##.styleSheets in
-  let make_list coll =
-    let rec aux acc = function
-      | n when n < 0 -> acc
-      | n ->
-        let v = coll##item n in
-        aux (v :: acc) (pred n) in
-    aux [] coll##.length in
-  List.filter (fun x ->
-      try Element.matches elt (Js.to_string x##.selectorText)
-      with _ -> false)
-  @@ List.concat
-  @@ List.map (fun x ->
-      try make_list x##.cssRules
-      with _ -> [])
-  @@ make_list stylesheets
-
-let get_styles (rule : string)
-    (own : Dom_html.element Js.t list)
-    (matched : #stylish Js.t list) =
-  let rule = Js.string rule in
-  let get_style x = Js.Unsafe.get x##.style rule in
-  let styles = (List.map get_style own) @ (List.map get_style matched) in
-  Utils.List.filter_map (fun (x : Js.js_string Js.t Js.optdef) ->
-      Js.Optdef.case x
-        (fun () -> None)
-        (fun x -> match Js.to_string x with
-           | "" -> None
-           | s -> Some s))
-    styles
+let fail s =
+  failwith @@ Printf.sprintf "resizable-grid: %s" s
 
 type dimensions =
-  { a_track : int
+  { direction : direction
+  ; a_track : int
   ; b_track : int
   ; a_track_start : float
-  ; direction : direction
+  ; b_track_end : float
+  ; total_fr : int
   ; percentage_to_pixels : float
   ; fr_to_pixels : float
-  ; total_fr : int
-  ; b_track_end : float
   ; tracks : string array
-  ; track_values : value option array
-  ; computed_values : value option array
-  ; computed_gap : float
-  }
+  ; track_values : value array
+  ; track_values_px : float array
+  ; gap : float
+  } [@@deriving show]
 
 type resize_properties =
   { cell : Dom_html.element Js.t
@@ -230,28 +101,57 @@ class t
         ]);
     super#initial_sync_with_dom ()
 
+  method add_column_before ?size (cell : Dom_html.element Js.t) : unit =
+    self#add_row_or_column ?size ~before:true Col cell
+
+  method add_column_after (cell : Dom_html.element Js.t) : unit =
+    self#add_row_or_column ~before:false Col cell
+
+  method add_row_before (cell : Dom_html.element Js.t) : unit =
+    self#add_row_or_column ~before:true Row cell
+
+  method add_row_after (cell : Dom_html.element Js.t) : unit =
+    self#add_row_or_column ~before:false Row cell
+
+  method cells : Dom_html.element Js.t list =
+    Dom.list_of_nodeList self#cells_
+
   (* Private methods *)
 
   method private cells_ =
     super#root##querySelectorAll (Js.string Selector.cell)
+
+  method private add_row_or_column
+      ?(size = `Fr 1.)
+      ?(before = false)
+      (direction : direction)
+      (cell : Dom_html.element Js.t) : unit =
+    let grid = self#parent_grid cell in
+    let tracks = Array.to_list @@ self#raw_tracks grid direction in
+    let opposite_tracks =
+      self#track_values_px grid
+        (match direction with Col -> Row | Row -> Col) in
+    let n = succ @@ List.length tracks in
+    Array.iteri (fun i _ ->
+        let col, row = match direction with
+          | Row -> succ i, n
+          | Col -> n, succ i in
+        let (elt : Dom_html.element Js.t) =
+          Tyxml_js.To_dom.of_element
+          @@ Markup.create_cell ~row ~col () in
+        (Js.Unsafe.coerce elt##.style)##.gridRow := Js.string (string_of_int row);
+        (Js.Unsafe.coerce elt##.style)##.gridColumn := Js.string (string_of_int col);
+        Element.append_child grid elt) opposite_tracks;
+    let style = Printf.sprintf "%s %s"
+        (String.concat " " tracks)
+        (value_to_string size) in
+    self#set_style grid direction style
 
   method private notify_change () : unit =
     ()
 
   method private notify_selected cell : unit =
     super#emit ~should_bubble:true ~detail:cell Event.selected
-
-  method private get_size_at_track ?(gap = 0) ?(end_ = false)
-      track (tracks : value option array) =
-    let tracks = Array.sub tracks 0 (if end_ then succ track else track) in
-    let rec aux sum = function
-      | n when n = Array.length tracks -> sum
-      | n ->
-        let sum = match tracks.(n) with
-          | Some `Auto | None -> sum
-          | Some (`Px x | `Fr x | `Pc x) -> sum +. x in
-        aux sum (succ n) in
-    (aux 0. 0) +. float_of_int (track * gap)
 
   method private handle_drag_start
       (e : event) _ : unit Lwt.t =
@@ -274,19 +174,19 @@ class t
       Events.mouseup super#root
       >>= fun _ -> self#notify_selected cell; Lwt.return_unit
     | Some direction, Some cell ->
-      let grid = self#parent_grid e in
+      let grid = self#parent_grid target in
       let row, col = match direction with
         | `Row ->
           Element.add_class cell CSS.cell_dragging_row;
-          Some (self#get_dimensions grid Row), None
+          Some (self#get_dimensions ~cell grid Row), None
         | `Col ->
           Element.add_class cell CSS.cell_dragging_column;
-          None, Some (self#get_dimensions grid Col)
+          None, Some (self#get_dimensions ~cell grid Col)
         | `Mul ->
           Element.add_class cell CSS.cell_dragging_row;
           Element.add_class cell CSS.cell_dragging_column;
-          Some (self#get_dimensions grid Col),
-          Some (self#get_dimensions grid Row) in
+          Some (self#get_dimensions ~cell grid Col),
+          Some (self#get_dimensions ~cell grid Row) in
       let resize_properties = { grid; cell; row; col } in
       (match e with
        | Touch e ->
@@ -331,85 +231,67 @@ class t
     _move_listeners <- []
 
   method private adjust_position
-      ~(a_track_size : float)
-      ~(b_track_size : float)
+      ?total_fr
+      ?(fr_to_pixels = 1.)
+      ?(percentage_to_pixels = 1.)
       (grid : Dom_html.element Js.t)
-      (dimensions : dimensions) =
-    let tracks = dimensions.tracks in
+      (direction : direction)
+      tracks
+      track_values
+      tracks_to_update =
     let update_track track track_size =
-      match dimensions.track_values.(track) with
-      | Some `Px x -> tracks.(track) <- Printf.sprintf "%gpx" a_track_size
-      | Some `Fr x ->
-        if dimensions.total_fr = 1
-        then tracks.(track) <- "1fr"
-        else tracks.(track) <- Printf.sprintf "%gfr"
-              (track_size /. dimensions.fr_to_pixels)
-      | Some `Pc x ->
-        tracks.(track) <- Printf.sprintf "%g%%"
-            (track_size /. dimensions.percentage_to_pixels)
+      match track_values.(track) with
+      | `Px x -> tracks.(track) <- Printf.sprintf "%gpx" track_size
+      | `Fr x ->
+        (match total_fr with
+         | Some 1 -> tracks.(track) <- "1fr"
+         | _ -> tracks.(track) <- Printf.sprintf "%gfr" (track_size /. fr_to_pixels))
+      | `Pc x ->
+        tracks.(track) <- Printf.sprintf "%g%%" (track_size /. percentage_to_pixels)
       | _ -> () in
-    update_track dimensions.a_track a_track_size;
-    update_track dimensions.b_track b_track_size;
-    let style = (String.concat " " @@ Array.to_list tracks) in
-    self#set_style grid dimensions style
+    Array.iter (fun (id, size) -> update_track id size) tracks_to_update
 
-  method private set_style grid dimensions (style : string) : unit =
+  method private set_style grid direction (style : string) : unit =
     let v = Js.string style in
-    match dimensions.direction with
+    match direction with
     | Row -> (Js.Unsafe.coerce grid##.style)##.gridTemplateRows := v
     | Col -> (Js.Unsafe.coerce grid##.style)##.gridTemplateColumns := v
 
-  method private get_dimensions grid direction : dimensions =
+  method private get_dimensions ~cell grid direction : dimensions =
     let start = match direction with
       | Row -> grid##getBoundingClientRect##.top
       | Col -> grid##getBoundingClientRect##.left in
     let tracks = self#raw_tracks grid direction in
-    let track_values = Array.map parse tracks in
-
-    let computed_tracks = self#raw_computed_tracks grid direction in
-    let computed_values = Array.map parse computed_tracks in
-    let fr_to_pixels = match first_non_zero (function
-        | Some `Fr x -> Some x
-        | _ -> None) track_values with
-    | None -> 0.
-    | Some (track, v) ->
-      match computed_values.(track) with
-      | Some (`Px x | `Fr x | `Pc x) -> x /. v
-      | Some `Auto | None -> 0. in
-    let percentage_to_pixels = match first_non_zero (function
-        | Some `Pc x -> Some x
-        | _ -> None) track_values with
-    | None -> 0.
-    | Some (track, v) ->
-      match computed_values.(track) with
-      | Some (`Px x | `Fr x | `Pc x) -> x /. v
-      | Some `Auto | None -> 0. in
-    let a_track = 0 in (* FIXME *)
-    let b_track = 1 in (* FIXME *)
+    let track_values = Array.map value_of_string tracks in
+    let track_values_px = self#track_values_px grid direction in
+    let gap = self#gap grid direction in
+    let row, col = self#get_cell_position cell in
+    let a_track, b_track = match direction with
+      | Col -> col - 2, col - 1
+      | Row -> row - 2, row - 1 in
     let a_track_start =
-      self#get_size_at_track ~end_:false a_track computed_values
-      +. start in
+      start
+      +. get_size_at_track
+        ~gap
+        (Array.sub track_values_px 0 a_track) in
     let b_track_end =
-      self#get_size_at_track ~end_:true b_track computed_values
-      +. start in
+      start
+      +. get_size_at_track
+        ~gap
+        (Array.sub track_values_px 0 (succ b_track)) in
     { a_track
     ; b_track
     ; a_track_start
     ; b_track_end
     ; direction
     ; total_fr = Array.fold_left (fun acc -> function
-          | Some `Fr _ -> succ acc
-          | _ -> acc) 0 track_values
-    ; percentage_to_pixels
-    ; fr_to_pixels
+          | `Fr _ -> succ acc | _ -> acc) 0 track_values
+    ; percentage_to_pixels = percentage_to_pixels track_values track_values_px
+    ; fr_to_pixels = fr_to_pixels track_values track_values_px
     ; tracks
     ; track_values
-    ; computed_values
-    ; computed_gap = match self#raw_computed_gap grid direction with
-        | None -> 0.
-        | Some x -> match parse x with
-          | Some `Px x -> x
-          | _ -> 0.
+    ; track_values_px
+    ; gap
     }
 
   method private update_position grid position (dimensions : dimensions) =
@@ -419,11 +301,11 @@ class t
     let min_position =
       dimensions.a_track_start
       +. min_size_start
-      +. dimensions.computed_gap in
+      +. dimensions.gap in
     let max_position =
       dimensions.b_track_end
       -. min_size_end
-      -. dimensions.computed_gap in
+      -. dimensions.gap in
     let min_position_offset = min_position +. snap_offset in
     let max_position_offset = max_position -. snap_offset in
     let position =
@@ -435,11 +317,11 @@ class t
     let a_track_size =
       position
       -. dimensions.a_track_start
-      -. dimensions.computed_gap in
+      -. dimensions.gap in
     let b_track_size =
       dimensions.b_track_end
       -. position
-      -. dimensions.computed_gap in
+      -. dimensions.gap in
     let a_track_size, b_track_size =
       if drag_interval > 1
       then
@@ -449,51 +331,73 @@ class t
         a_track_size_interleaved,
         b_track_size -. a_track_size_interleaved -. a_track_size
       else a_track_size, b_track_size in
-    let a_track_size = max a_track_size min_size_start in
-    let b_track_size = max b_track_size min_size_end in
-    self#adjust_position ~a_track_size ~b_track_size grid dimensions
+    self#adjust_position
+      ~total_fr:dimensions.total_fr
+      ~fr_to_pixels:dimensions.fr_to_pixels
+      ~percentage_to_pixels:dimensions.percentage_to_pixels
+      grid
+      dimensions.direction
+      dimensions.tracks
+      dimensions.track_values
+      [| dimensions.a_track, max a_track_size min_size_start
+       ; dimensions.b_track, max b_track_size min_size_end
+      |];
+    let style = String.concat " " @@ Array.to_list dimensions.tracks in
+    self#set_style grid dimensions.direction style
 
   method private raw_tracks grid direction : string array =
     let prop = match direction with
-      | Col -> Style.grid_template_columns
-      | Row -> Style.grid_template_rows in
-    let elements, matched = [grid], get_matched_css_rules grid in
-    let tracks = get_styles prop elements matched in
+      | Col -> "grid-template-columns"
+      | Row -> "grid-template-rows" in
+    let tracks = get_styles prop grid in
     if List.length tracks = 0
     then failwith "gutter: unable to determine grid template tracks from styles"
     else Array.of_list @@ String.split_on_char ' ' @@ List.hd tracks
 
-  method private raw_computed_tracks grid direction: string array =
+  method private track_values_px grid direction: float array =
     let style = Dom_html.window##getComputedStyle grid in
     let v = match direction with
       | Row -> (Js.Unsafe.coerce style)##.gridTemplateRows
       | Col -> (Js.Unsafe.coerce style)##.gridTemplateColumns in
     Js.Optdef.case v
       (fun () -> [||])
-      (Array.of_list % String.split_on_char ' ' % Js.to_string)
+      (Array.of_list
+       % List.map (fun (x : string) ->
+           match value_of_string x with
+           | `Px v -> v
+           | _ -> fail @@ Printf.sprintf "failed to parse value (%s)" x)
+       % String.split_on_char ' '
+       % Js.to_string)
 
-  method private raw_computed_gap grid direction : string option =
+  method private gap grid direction : float =
     let style = Dom_html.window##getComputedStyle grid in
     let v = match direction with
       | Row -> (Js.Unsafe.coerce style)##.gridRowGap
       | Col -> (Js.Unsafe.coerce style)##.gridColumnGap in
     Js.Optdef.case v
-      (fun () -> None)
-      (fun x -> Some (Js.to_string x))
+      (fun () -> 0.)
+      (fun x ->
+         let s = Js.to_string x in
+         match value_of_string_opt s with
+         | Some `Px v -> v
+         | _ -> 0.)
 
-  method private parent_grid (e : event) =
-    let target = Dom_html.eventTarget (coerce_event e) in
+  method private parent_grid (item : Dom_html.element Js.t) =
     let rec aux elt =
       if Element.equal super#root elt
       then elt
-      else
-        Js.Opt.case (Element.get_parent elt)
+      else Js.Opt.case (Element.get_parent elt)
           (fun () -> assert false)
           (fun elt ->
              if Element.has_class elt CSS.root
-             then elt
-             else aux elt) in
-    aux target
+             then elt else aux elt) in
+    aux item
+
+  method private get_cell_position (cell : Dom_html.element Js.t) : int * int =
+    let style = Dom_html.window##getComputedStyle cell in
+    Js.parseInt (Js.Unsafe.coerce style)##.gridRowStart,
+    Js.parseInt (Js.Unsafe.coerce style)##.gridColumnStart
+
 end
 
 let make ?drag_interval

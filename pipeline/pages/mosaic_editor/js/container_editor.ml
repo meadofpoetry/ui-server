@@ -1,7 +1,10 @@
 open Js_of_ocaml
+open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 open Components
 open Pipeline_types
+
+let ( >>= ) = Lwt.bind
 
 module Selector = struct
   let table_ghost = Printf.sprintf ".%s" Markup.CSS.grid_ghost (* FIXME *)
@@ -33,34 +36,25 @@ class t ?(containers = []) ~resolution elt () = object(self)
     | None -> failwith "container-editor: table ghost element not found"
     | Some x -> x
   val grid =
-    let make_cell ?(classes = []) ?(content = []) ?text () =
-      Tyxml_js.Html.(
-        let text = match text with
-          | None -> []
-          | Some x -> [span [txt x]] in
-        div ~a:[a_class (["container-grid__cell"] @ classes)]
-          ([ div ~a:[a_class ["container-grid__row-handle"]] []
-           ; div ~a:[a_class ["container-grid__col-handle"]] []
-           ; div ~a:[a_class ["container-grid__mul-handle"]] []
-           ] @ text @ content)) in
+    let make_cell ~col ~row ?classes ?content () =
+      Markup.Container_grid.create_cell ?content ?classes ~row ~col () in
     let nested_grid = Tyxml_js.Html.(
         div ~a:[a_class ["container-grid"]]
-          [ make_cell ()
-          ; make_cell ()
-          ; make_cell ()
-          ; make_cell ()
+          [ make_cell ~col:1 ~row:1 ()
+          ; make_cell ~col:1 ~row:2 ()
+          ; make_cell ~col:2 ~row:1 ()
+          ; make_cell ~col:2 ~row:2 ()
           ]) in
     let elt =
       Tyxml_js.To_dom.of_element
       @@ Tyxml_js.Html.(
           div ~a:[a_class ["container-grid"]]
-            [ make_cell ~content:[nested_grid] ()
-            ; make_cell ()
-            ; make_cell ()
-            ; make_cell ()
+            [ make_cell ~col:1 ~row:1 ~content:[nested_grid] ()
+            ; make_cell ~col:1 ~row:2 ()
+            ; make_cell ~col:2 ~row:1 ()
+            ; make_cell ~col:2 ~row:2 ()
             ]) in
-    let _ = Resizable_grid.attach elt in
-    elt
+    Resizable_grid.attach elt
 
   val mutable _containers : (string * Wm.container) list = containers
   val mutable _listeners = []
@@ -70,7 +64,13 @@ class t ?(containers = []) ~resolution elt () = object(self)
   inherit Drop_target.t elt () as super
 
   method! init () : unit =
-    Element.append_child super#root grid;
+    Element.append_child super#root grid#root;
+    Lwt.async (fun () ->
+        Lwt_js.sleep 1.
+        >>= fun () ->
+        grid#add_row_after @@ List.hd grid#cells;
+        grid#add_column_after @@ List.hd grid#cells;
+        Lwt.return_unit);
     super#init ()
 
   method! initial_sync_with_dom () : unit =

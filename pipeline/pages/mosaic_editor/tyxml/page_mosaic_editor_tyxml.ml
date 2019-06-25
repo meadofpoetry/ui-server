@@ -84,4 +84,29 @@ module Make(Xml : Xml_sigs.NoWrap)
           ]
       ]
 
+  module Container_grid = struct
+
+    let create_cell ?(classes = []) ?attrs ?row ?col ?(content = []) () : 'a elt =
+      let classes = CSS.Container_grid.cell :: classes in
+      let style = match row, col with
+        | None, None -> None
+        | Some row, None -> Some (Printf.sprintf "grid-row: %d" row)
+        | None, Some col -> Some (Printf.sprintf "grid-column: %d" col)
+        | Some row, Some col ->
+          Some (Printf.sprintf "grid-row: %d; grid-column: %d" col row)
+      in
+      div ~a:([a_class classes] <@> attrs
+              |> map_cons_option a_style style
+              |> map_cons_option (a_user_data "row" % string_of_int) row
+              |> map_cons_option (a_user_data "col" % string_of_int) col)
+        ([ div ~a:[a_class [CSS.Container_grid.row_handle]] []
+         ; div ~a:[a_class [CSS.Container_grid.col_handle]] []
+         ; div ~a:[a_class [CSS.Container_grid.mul_handle]] []
+         ] @ content)
+
+    let create ?(classes = []) ?attrs ?(content = []) () : 'a elt =
+      let classes = CSS.Container_grid.root :: classes in
+      div ~a:([a_class classes] <@> attrs) content
+  end
+
 end
