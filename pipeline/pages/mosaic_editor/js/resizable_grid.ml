@@ -109,17 +109,51 @@ class t
   method add_row_after (cell : Dom_html.element Js.t) : unit =
     self#add_row_or_column ~before:false Row cell
 
-  method cells ?(grid = super#root) () : Dom_html.element Js.t list =
-    Dom.list_of_nodeList @@ self#cells_ grid
+  method remove_row (cell : Dom_html.element Js.t) : unit =
+    self#remove_row_or_column Row cell
+
+  method remove_column (cell : Dom_html.element Js.t) : unit =
+    self#remove_row_or_column Col cell
+
+  method cells ?include_subgrids
+      ?(grid = super#root)
+      () : Dom_html.element Js.t list =
+    self#cells_ ?include_subgrids grid
 
   (* Private methods *)
 
-  method private cells_ ?(include_subgrids = true) grid =
-    let selector =
-      if include_subgrids
-      then Js.string Selector.cell
-      else Js.string Selector.cell_in_parent in
-    grid##querySelectorAll selector
+  method private cells_ ?(include_subgrids = true) grid : Dom_html.element Js.t list =
+    match include_subgrids with
+    | true ->
+      Element.query_selector_all grid Selector.cell
+    | false ->
+      List.filter (fun x -> Element.has_class x CSS.cell)
+      @@ Element.children grid
+
+  method private remove_row_or_column
+      (direction : direction)
+      (cell : Dom_html.element Js.t) : unit =
+    let grid = self#parent_grid cell in
+    let col, row = self#get_cell_position cell in
+    let tracks = Array.to_list @@ self#raw_tracks grid direction in
+    let n = match direction with Col -> col | Row -> row in
+    (* Update positions and remove cells *)
+    List.iter (fun cell ->
+        let col, row = self#get_cell_position cell in
+        let n' = match direction with Col -> col | Row -> row in
+        if n' > n
+        then begin match direction with
+          | Col -> set_cell_col cell (pred n')
+          | Row -> set_cell_row cell (pred n')
+        end
+        else if n' = n
+        then Element.remove_child_safe grid cell)
+    @@ self#cells ~include_subgrids:false ~grid ();
+    (* Update style *)
+    let style =
+      String.concat " "
+      @@ remove_at_idx (n - 1) tracks in
+    self#set_style grid direction style
 
   method private add_row_or_column
       ?(size = `Fr 1.)
@@ -135,14 +169,16 @@ class t
     let opposite_tracks =
       self#track_values_px grid
         (match direction with Col -> Row | Row -> Col) in
-    let n = match direction with Col -> succ col | Row -> succ row in
+    let n = match direction with
+      | Col -> if before then max 1 (pred col) else succ col
+      | Row -> if before then max 1 (pred row) else succ row in
     (* Update positions of existing elements *)
     List.iter (fun cell ->
         let col, row = self#get_cell_position cell in
         match direction with
         | Col -> if col >= n then set_cell_col cell (succ col)
         | Row -> if row >= n then set_cell_row cell (succ row))
-    @@ self#cells ~grid ();
+    @@ self#cells ~include_subgrids:false ~grid ();
     (* Add new items to each of the opposite tracks *)
     Array.iteri (fun i _ ->
         let col, row = match direction with
@@ -324,8 +360,6 @@ class t
         a_track_size_interleaved,
         b_track_size -. (a_track_size_interleaved -. a_track_size)
       else a_track_size, b_track_size in
-    print_endline @@ Printf.sprintf "a_track_size: %g, b_track_size: %g"
-      a_track_size b_track_size;
     self#adjust_position
       ~a_track_size
       ~b_track_size
@@ -402,7 +436,7 @@ class t
       if Element.equal super#root elt
       then elt
       else Js.Opt.case (Element.get_parent elt)
-          (fun () -> assert false)
+          (fun () -> fail "parent grid not found")
           (fun elt ->
              if Element.has_class elt CSS.root
              then elt else aux elt) in

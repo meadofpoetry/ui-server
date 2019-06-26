@@ -25,13 +25,15 @@ val pp_value : Format.formatter -> value -> unit
 
 val coerce_event : event -> Dom_html.event Js.t
 
-val cell_of_event : Dom_html.element Dom.nodeList Js.t
+val cell_of_event : Dom_html.element Js.t list
   -> Dom_html.event Js.t
   -> Dom_html.element Js.t option
 
 val get_cursor_position : ?touch_id:int -> event -> int * int
 
 val insert_at_idx : int -> 'a -> 'a list -> 'a list
+
+val remove_at_idx : int -> 'a list -> 'a list
 
 (** Returns the number of pixels in one frame *)
 val fr_to_pixels :

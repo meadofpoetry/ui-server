@@ -16,16 +16,17 @@ let coerce_event = function
   | Mouse e -> (e :> Dom_html.event Js.t)
 
 let cell_of_event
-    (items : Dom_html.element Dom.nodeList Js.t)
+    (items : Dom_html.element Js.t list)
     (e : Dom_html.event Js.t) : Dom_html.element Js.t option =
-  Js.Opt.to_option
-  @@ Js.Opt.bind e##.target (fun (target : Dom_html.element Js.t) ->
-      let selector = Printf.sprintf ".%s, .%s" CSS.cell CSS.root in
-      let nearest_parent = Element.closest target selector in
-      Js.Opt.bind nearest_parent (fun (parent : Dom_html.element Js.t) ->
-          if not @@ Element.matches parent ("." ^ CSS.cell)
-          then Js.null
-          else Element.find (Element.equal parent) items))
+  let target = Dom_html.eventTarget e in
+  let selector = Printf.sprintf ".%s, .%s" CSS.cell CSS.root in
+  let nearest_parent = Js.Opt.to_option @@ Element.closest target selector in
+  match nearest_parent with
+  | None -> None
+  | Some parent ->
+    if not @@ Element.matches parent ("." ^ CSS.cell)
+    then None
+    else List.find_opt (Element.equal parent) items
 
 (* FIXME merge with same function in `Resizable` module *)
 let get_cursor_position ?touch_id = function
@@ -58,6 +59,15 @@ let insert_at_idx i x l =
   in
   let i = if i < 0 then List.length l + i else i in
   aux l [] i x
+
+let remove_at_idx i l0 =
+  let rec aux l acc i = match l with
+    | [] -> l0
+    | _ :: l' when i = 0 -> List.rev_append acc l'
+    | y :: l' -> aux l' (y :: acc) (pred i)
+  in
+  let i = if i < 0 then List.length l0 + i else i in
+  aux l0 [] i
 
 let split_string ~suffix pattern =
   let pattern_len = String.length pattern in

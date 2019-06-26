@@ -43,7 +43,7 @@ class t ?(containers = []) ~resolution elt () = object(self)
         ?content ?classes ~row ~col () in
     let nested_grid = Tyxml_js.Html.(
         div ~a:[a_class ["container-grid"]]
-          [ make_cell ~id:"cell" ~col:1 ~row:1 ()
+          [ make_cell ~col:1 ~row:1 ()
           ; make_cell ~col:1 ~row:2 ()
           ; make_cell ~col:2 ~row:1 ()
           ; make_cell ~col:2 ~row:2 ()
@@ -52,7 +52,7 @@ class t ?(containers = []) ~resolution elt () = object(self)
       Tyxml_js.To_dom.of_element
       @@ Tyxml_js.Html.(
           div ~a:[a_class ["container-grid"]]
-            [ make_cell ~col:1 ~row:1 ~content:[nested_grid] ()
+            [ make_cell ~id:"cell" ~col:1 ~row:1 ~content:[nested_grid] ()
             ; make_cell ~col:1 ~row:2 ()
             ; make_cell ~col:2 ~row:1 ()
             ; make_cell ~col:2 ~row:2 ()
@@ -69,11 +69,14 @@ class t ?(containers = []) ~resolution elt () = object(self)
   method! init () : unit =
     Element.append_child super#root grid#root;
     Lwt.async (fun () ->
-        Lwt_js.sleep 3.
+        Lwt_js.sleep 1.
         >>= fun () ->
         let cell = Dom_html.getElementById "cell" in
         grid#add_row_after cell;
-        grid#add_column_after cell;
+        grid#add_column_before cell;
+        Lwt_js.sleep 1.
+        >>= fun () ->
+        grid#remove_row cell;
         Lwt.return_unit);
     super#init ()
 
