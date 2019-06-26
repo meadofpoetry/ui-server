@@ -27,6 +27,12 @@
     box-sizing: border-box;
 }
 
+.editor {
+    width: 100%;
+    height: 100%;
+    display: flex;
+}
+
 .mdc-top-app-bar {
     transition: mdc-animation-enter(background-color, $duration: 90ms, $delay: 0ms);
 
@@ -58,12 +64,6 @@
             padding-top: $mdc-top-app-bar-mobile-row-height + $top-app-bar-second-row-height;
         }
     }
-}
-
-.editor {
-    width: 100%;
-    height: 100%;
-    display: flex;
 }
 
 .mdc-top-app-bar--contextual-action {

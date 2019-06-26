@@ -2,17 +2,36 @@
 @import "@material/ripple/mixins";
 @import "./variables";
 
+$divider-color: if(
+    mdc-theme-tone($mdc-theme-background) == "dark",
+    $divider-color-on-dark-bg,
+    $divider-color-on-light-bg
+);
+
 .container-editor {
     position: relative;
     width: 100%;
-    height: 100%;
-    margin: 0 auto;
-    @include mdc-theme-prop(background-color, surface);
 
-    .mosaic-grid__overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
+    .mdc-card__actions {
+        border-bottom-width: 1px;
+        border-bottom-style: solid;
+        @include mdc-theme-prop(border-bottom-color, $divider-color);
+    }
+    .mdc-card__media {
+        overflow: hidden;
+        width: 100%;
+        height: 100%;
+
+        $color: rgba(0, 0, 0, 0.05);
+        @include mdc-theme-prop(background-color, surface);
+        background-image:
+            linear-gradient(45deg, $color 25%, transparent 25%),
+            linear-gradient(-45deg, $color 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, $color 75%),
+            linear-gradient(-45deg, transparent 75%, $color 75%);
+        background-size:20px 20px;
+        background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        background-repeat: repeat;
     }
 }
 
@@ -26,12 +45,15 @@
 
 .container-grid {
     display: grid;
-    width: 100%;
-    height: 100%;
-    /* gap: 1px; */
-    /* padding: 1px; */
     overflow: hidden;
-    @include mdc-theme-prop(background-color, $container-grid-border-color);
+    margin: 0 auto;
+    border-left-width: 1px;
+    border-left-style: solid;
+    border-right-width: 1px;
+    border-right-style: solid;
+    z-index: 1;
+    @include mdc-theme-prop(border-left-color, $divider-color);
+    @include mdc-theme-prop(border-right-color, $divider-color);
 
     &__cell {
         position: relative;

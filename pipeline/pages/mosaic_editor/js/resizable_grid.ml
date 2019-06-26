@@ -414,9 +414,10 @@ class t
       -. dimensions.gap in
     let drag_interval = match drag_interval with
       | None -> 1.
-      | Some `Fr x -> x *. dimensions.fr_to_pixels
-      | Some `Px x -> x
-      | Some `Pc x -> x *. dimensions.percentage_to_pixels in
+      | Some Fr x -> x *. dimensions.fr_to_pixels
+      | Some Px x -> x
+      | Some Pc x -> x *. dimensions.percentage_to_pixels
+      | Some Auto -> fail "`auto` interval is not supported" in
     let a_track_size, b_track_size =
       if drag_interval > 1.
       then

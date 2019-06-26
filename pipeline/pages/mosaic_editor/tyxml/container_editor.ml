@@ -76,6 +76,8 @@ module Make(Xml : Xml_sigs.NoWrap)
   open Html
   open Utils
 
+  module Card = Card.Make(Xml)(Svg)(Html)
+
   let create_grid_cell ?(classes = []) ?attrs ?row ?col ?(content = []) () : 'a elt =
     let classes = CSS.cell :: classes in
     let style = match row, col with
@@ -113,8 +115,11 @@ module Make(Xml : Xml_sigs.NoWrap)
     div ~a:([a_class classes] <@> attrs
             |> map_cons_option a_style style) content
 
-  let create ?(classes = []) ?attrs ?(content = []) () : 'a elt =
+  let create ?(classes = []) ?attrs ~grid () : 'a elt =
     let classes = CSS.root :: classes in
-    div ~a:([a_class classes] <@> attrs) content
+    div ~a:([a_class classes] <@> attrs)
+      ([ Card.create_actions [Card.create_action_icons [] ()] ()
+       ; Card.create_media [grid] ()
+       ])
 
 end
