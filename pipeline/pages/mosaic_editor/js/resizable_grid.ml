@@ -12,8 +12,8 @@ module CSS = Markup.CSS.Container_grid
 module Markup = Markup.Container_grid
 
 module Selector = struct
+  let grid = Printf.sprintf ".%s" CSS.root
   let cell = Printf.sprintf ".%s" CSS.cell
-  let cell_in_parent = Printf.sprintf "> .%s" CSS.cell
 end
 
 module Event = struct
@@ -72,8 +72,8 @@ type resize_properties =
 class t
     ?drag_interval
     ?(snap_offset = 0.)
-    ?(min_size_start = 50.)
-    ?(min_size_end = 50.)
+    ?(min_size_start = 20.)
+    ?(min_size_end = 20.)
     (elt : Dom_html.element Js.t) () = object(self)
   inherit Widget.t elt () as super
 
@@ -114,6 +114,35 @@ class t
 
   method remove_column (cell : Dom_html.element Js.t) : unit =
     self#remove_row_or_column Col cell
+
+  method split
+      ?(col_size = `Fr 1.)
+      ?(row_size = `Fr 1.)
+      ~(cols : int)
+      ~(rows : int)
+      (cell : Dom_html.element Js.t) : unit =
+    let subgrid = Element.query_selector cell Selector.grid in
+    Utils.Option.iter (Element.remove_child_safe cell) subgrid;
+    let rec gen_rows acc row =
+      let rec gen_cols acc col =
+        if col = 0 then acc
+        else
+          let elt = Markup.create_cell ~col ~row () in
+          gen_cols (elt :: acc) (pred col) in
+      if row = 0 then acc
+      else gen_rows (gen_cols acc cols) (pred row)
+    in
+    let rec loop f acc = function
+      | 0 -> acc
+      | n -> loop f ((f n) :: acc) (pred n) in
+    let grid =
+      Tyxml_js.To_dom.of_element
+      @@ Markup.create ~content:(gen_rows [] rows) () in
+    let col_style = loop (fun _ -> value_to_string @@ col_size) [] cols in
+    let row_style = loop (fun _ -> value_to_string @@ row_size) [] rows in
+    self#set_style grid Col (String.concat " " @@ col_style);
+    self#set_style grid Row (String.concat " " @@ row_style);
+    Element.append_child cell grid
 
   method cells ?include_subgrids
       ?(grid = super#root)

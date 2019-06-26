@@ -72,11 +72,11 @@ class t ?(containers = []) ~resolution elt () = object(self)
         Lwt_js.sleep 1.
         >>= fun () ->
         let cell = Dom_html.getElementById "cell" in
-        grid#add_row_after cell;
+        grid#add_row_before cell;
         grid#add_column_before cell;
         Lwt_js.sleep 1.
         >>= fun () ->
-        grid#remove_row cell;
+        grid#split ~rows:4 ~cols:4 cell;
         Lwt.return_unit);
     super#init ()
 
