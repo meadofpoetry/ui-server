@@ -77,6 +77,9 @@ class t ?(containers = []) ~resolution elt () = object(self)
         Lwt_js.sleep 1.
         >>= fun () ->
         grid#split ~rows:4 ~cols:4 cell;
+        Lwt_js.sleep 1.
+        >>= fun () ->
+        grid#reset ~rows:10 ~cols:10 ();
         Lwt.return_unit);
     super#init ()
 

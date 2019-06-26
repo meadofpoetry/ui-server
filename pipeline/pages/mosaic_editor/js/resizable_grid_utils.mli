@@ -1,4 +1,5 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 
 type event = Touch of Dom_html.touchEvent Js.t
            | Mouse of Dom_html.mouseEvent Js.t
@@ -59,3 +60,7 @@ val set_cell_col : Dom_html.element Js.t -> int -> unit
 val set_cell_row : Dom_html.element Js.t -> int -> unit
 
 val set_cell_position : col:int -> row:int -> Dom_html.element Js.t -> unit
+
+val gen_cells : rows:int -> cols:int -> [> Html_types.div] Tyxml_js.Html.elt list
+
+val gen_template : ?size:value -> int -> string

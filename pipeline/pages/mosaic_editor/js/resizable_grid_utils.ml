@@ -215,3 +215,21 @@ let set_cell_col (cell : Dom_html.element Js.t) (col : int) =
 let set_cell_position ~col ~row (cell : Dom_html.element Js.t) =
   set_cell_col cell col;
   set_cell_row cell row
+
+let gen_cells ~rows ~cols =
+  let rec gen_rows acc row =
+    let rec gen_cols acc col =
+      if col = 0 then acc
+      else
+        let elt = Markup.Container_grid.create_cell ~col ~row () in
+        gen_cols (elt :: acc) (pred col) in
+    if row = 0 then acc
+    else gen_rows (gen_cols acc cols) (pred row) in
+  gen_rows [] rows
+
+let rec loop f acc = function
+  | 0 -> acc
+  | n -> loop f ((f n) :: acc) (pred n)
+
+let gen_template ?(size = `Fr 1.) (rows : int) =
+  String.concat " " @@ loop (fun _ -> value_to_string size) [] rows
