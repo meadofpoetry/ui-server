@@ -1,28 +1,14 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
+open Page_mosaic_editor_tyxml.Container_editor
 
 type event = Touch of Dom_html.touchEvent Js.t
            | Mouse of Dom_html.mouseEvent Js.t
-
-type value =
-  [ `Auto
-  | `Px of float
-  | `Fr of float
-  | `Pc of float
-  ]
 
 class type stylish =
   object
     method style : Dom_html.cssStyleDeclaration Js.t Js.prop
   end
-
-val value_of_string : string -> value
-
-val value_of_string_opt : string -> value option
-
-val value_to_string : value -> string
-
-val pp_value : Format.formatter -> value -> unit
 
 val coerce_event : event -> Dom_html.event Js.t
 
@@ -61,6 +47,8 @@ val set_cell_row : Dom_html.element Js.t -> int -> unit
 
 val set_cell_position : col:int -> row:int -> Dom_html.element Js.t -> unit
 
-val gen_cells : rows:int -> cols:int -> [> Html_types.div] Tyxml_js.Html.elt list
-
-val gen_template : ?size:value -> int -> string
+val gen_cells :
+  f:(col:int -> row:int -> unit -> ([> Html_types.div] Tyxml_js.Html.elt as 'a))
+  -> rows:int
+  -> cols:int
+  -> 'a list

@@ -4,6 +4,12 @@ open Js_of_ocaml_tyxml
 open Components
 open Pipeline_types
 
+(* TODO
+   [ ] undo/redo
+   [ ] selection
+   [ ] editing mode: table, containers
+*)
+
 let ( >>= ) = Lwt.bind
 
 module Selector = struct
@@ -27,36 +33,35 @@ module Grid = struct
 end
 
 class t ?(containers = []) ~resolution elt () = object(self)
-  val grid_overlay = match Element.query_selector elt Selector.table_overlay with
-    | None -> failwith "container-editor: table overlay element not found"
-    | Some x ->
-      let show_grid_lines = Storage.(get_bool ~default:true show_grid_lines) in
-      Grid_overlay.attach ~show_grid_lines ~size:10 x
   val ghost = match Element.query_selector elt Selector.table_ghost with
     | None -> failwith "container-editor: table ghost element not found"
     | Some x -> x
   val grid =
     let make_cell ?id ~col ~row ?classes ?content () =
-      Markup.Container_grid.create_cell
+      Resizable_grid.Markup.create_grid_cell
         ?attrs:(match id with None -> None
                             | Some id -> Some [Tyxml_js.Html.a_id id])
         ?content ?classes ~row ~col () in
     let nested_grid = Tyxml_js.Html.(
-        div ~a:[a_class ["container-grid"]]
-          [ make_cell ~col:1 ~row:1 ()
-          ; make_cell ~col:1 ~row:2 ()
-          ; make_cell ~col:2 ~row:1 ()
-          ; make_cell ~col:2 ~row:2 ()
-          ]) in
+        Resizable_grid.Markup.create_grid
+          ~rows:2 ~cols:2
+          ~content:[ make_cell ~col:1 ~row:1 ()
+                   ; make_cell ~col:1 ~row:2 ()
+                   ; make_cell ~col:2 ~row:1 ()
+                   ; make_cell ~col:2 ~row:2 ()
+                   ]
+          ()) in
     let elt =
       Tyxml_js.To_dom.of_element
       @@ Tyxml_js.Html.(
-          div ~a:[a_class ["container-grid"]]
-            [ make_cell ~id:"cell" ~col:1 ~row:1 ~content:[nested_grid] ()
-            ; make_cell ~col:1 ~row:2 ()
-            ; make_cell ~col:2 ~row:1 ()
-            ; make_cell ~col:2 ~row:2 ()
-            ]) in
+          Resizable_grid.Markup.create_grid
+            ~rows:2 ~cols:2
+            ~content:[ make_cell ~id:"cell" ~col:1 ~row:1 ~content:[nested_grid] ()
+                     ; make_cell ~col:1 ~row:2 ()
+                     ; make_cell ~col:2 ~row:1 ()
+                     ; make_cell ~col:2 ~row:2 ()
+                     ]
+            ()) in
     Resizable_grid.attach ~drag_interval:(`Fr 0.1) elt
 
   val mutable _containers : (string * Wm.container) list = containers
@@ -68,24 +73,13 @@ class t ?(containers = []) ~resolution elt () = object(self)
 
   method! init () : unit =
     Element.append_child super#root grid#root;
-    Lwt.async (fun () ->
-        Lwt_js.sleep 1.
-        >>= fun () ->
-        let cell = Dom_html.getElementById "cell" in
-        grid#add_row_before cell;
-        grid#add_column_before cell;
-        Lwt_js.sleep 1.
-        >>= fun () ->
-        grid#split ~rows:4 ~cols:4 cell;
-        Lwt_js.sleep 1.
-        >>= fun () ->
-        grid#reset ~rows:10 ~cols:10 ();
-        Lwt.return_unit);
+    grid#reset ~rows:5 ~cols:5 ();
     super#init ()
 
   method! initial_sync_with_dom () : unit =
     _listeners <- Events.(
         [ keydowns super#root self#handle_keydown
+        ; listen_lwt grid#root Resizable_grid.Event.selected self#handle_selected
         ]);
     super#initial_sync_with_dom ()
 
@@ -95,7 +89,6 @@ class t ?(containers = []) ~resolution elt () = object(self)
     let height' = int_of_float @@ float_of_int (snd resolution) *. scale_factor in
     super#root##.style##.width := Utils.px_js width';
     super#root##.style##.height := Utils.px_js height';
-    grid_overlay#layout ();
     super#layout ()
 
   method! destroy () : unit =
@@ -106,6 +99,10 @@ class t ?(containers = []) ~resolution elt () = object(self)
   method toolbar = _toolbar
 
   (* Private methods *)
+
+  method private handle_selected e _ : unit Lwt.t =
+    Js.Unsafe.global##.console##log e##.detail |> ignore;
+    Lwt.return_unit
 
   method private handle_keydown _ _ : unit Lwt.t =
     (* TODO implement *)
@@ -133,14 +130,10 @@ class t ?(containers = []) ~resolution elt () = object(self)
 end
 
 let make (wm : Wm.t) =
-  let content =
-    Markup.create_grid_overlay ()
-    :: Markup.create_grid_ghost ()
-    :: [] in
+  let content = Markup.create_grid_ghost () :: [] in
   let elt =
     Tyxml_js.To_dom.of_element
-    @@ Tyxml_js.Html.(div ~a:[a_class ["container-editor"]]
-                        content) in
+    @@ Resizable_grid.Markup.create ~content () in
   new t
     ~resolution:wm.resolution
     ~containers:wm.layout

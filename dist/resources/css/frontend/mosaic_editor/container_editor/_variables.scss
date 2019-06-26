@@ -1,2 +1,7 @@
+@import "@material/theme/mixins";
+
 $container-grid-single-handle-size: 20px;
 $container-grid-multy-handle-size: 30px;
+
+$container-grid-border-color: mix(mdc-theme-prop-value(on-surface), mdc-theme-prop-value(surface), 24%);
+$container-grid-border-active-color: text-secondary-on-surface;

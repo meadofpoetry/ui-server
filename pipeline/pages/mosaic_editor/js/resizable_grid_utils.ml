@@ -1,7 +1,6 @@
 open Js_of_ocaml
 open Components
-
-module CSS = Markup.CSS.Container_grid
+open Page_mosaic_editor_tyxml.Container_editor
 
 module Attr = struct
   let row = "data-row"
@@ -69,66 +68,6 @@ let remove_at_idx i l0 =
   let i = if i < 0 then List.length l0 + i else i in
   aux l0 [] i
 
-let split_string ~suffix pattern =
-  let pattern_len = String.length pattern in
-  let len = String.length suffix in
-  if len > pattern_len
-  then None
-  else
-    let sub = String.sub pattern (pattern_len - len) len in
-    if String.uppercase_ascii sub = String.uppercase_ascii suffix
-    then Some (String.sub pattern 0 (pattern_len - len))
-    else None
-
-type value =
-  [ `Auto
-  | `Px of float
-  | `Fr of float
-  | `Pc of float
-  ]
-
-let pp_value ppf = function
-  | `Auto -> Format.pp_print_string ppf "auto"
-  | `Px x ->
-    Format.pp_print_float ppf x;
-    Format.pp_print_string ppf "px"
-  | `Fr x ->
-    Format.pp_print_float ppf x;
-    Format.pp_print_string ppf "fr"
-  | `Pc x ->
-    Format.pp_print_float ppf x;
-    Format.pp_print_string ppf "%"
-  | _ -> Format.pp_print_string ppf ""
-
-let value_to_string = function
-  | `Auto -> "auto"
-  | `Px x -> Printf.sprintf "%gpx" x
-  | `Fr x -> Printf.sprintf "%gfr" x
-  | `Pc x -> Printf.sprintf "%g%%" x
-
-let value_of_string : string -> value = function
-  | "auto" -> `Auto
-  | s ->
-    let rec aux = function
-      | [] -> failwith @@ Printf.sprintf "parse: unknown unit (%s)" s
-      | suffix :: tl ->
-        match split_string ~suffix s with
-        | None -> aux tl
-        | Some x ->
-          match float_of_string_opt x with
-          | None -> failwith @@ Printf.sprintf "parse: bad value (%s)" x
-          | Some x ->
-            match suffix with
-            | "px" -> `Px x
-            | "fr" -> `Fr x
-            | "%" -> `Pc x
-            | s -> failwith @@ Printf.sprintf "parse: unknown unit (%s)" s
-    in
-    aux ["px"; "fr"; "%"]
-
-let value_of_string_opt (s : string) : value option =
-  try Some (value_of_string s) with _ -> None
-
 let first_non_zero f a =
   let rec aux = function
     | n when n < 0 -> None
@@ -142,14 +81,14 @@ let first_non_zero f a =
 
 let fr_to_pixels track_values computed_values =
   match first_non_zero (function
-      | `Fr x -> Some x
+      | Fr x -> Some x
       | _ -> None) track_values with
   | None -> 0.
   | Some (track, v) -> computed_values.(track) /. v
 
 let percentage_to_pixels track_values computed_values =
   match first_non_zero (function
-      | `Pc x -> Some x
+      | Pc x -> Some x
       | _ -> None) track_values with
   | None -> 0.
   | Some (track, v) -> computed_values.(track) /. v
@@ -216,20 +155,14 @@ let set_cell_position ~col ~row (cell : Dom_html.element Js.t) =
   set_cell_col cell col;
   set_cell_row cell row
 
-let gen_cells ~rows ~cols =
+let gen_cells ~f ~rows ~cols =
   let rec gen_rows acc row =
     let rec gen_cols acc col =
       if col = 0 then acc
       else
-        let elt = Markup.Container_grid.create_cell ~col ~row () in
+        let elt = f ~col ~row () in
         gen_cols (elt :: acc) (pred col) in
     if row = 0 then acc
     else gen_rows (gen_cols acc cols) (pred row) in
   gen_rows [] rows
 
-let rec loop f acc = function
-  | 0 -> acc
-  | n -> loop f ((f n) :: acc) (pred n)
-
-let gen_template ?(size = `Fr 1.) (rows : int) =
-  String.concat " " @@ loop (fun _ -> value_to_string size) [] rows

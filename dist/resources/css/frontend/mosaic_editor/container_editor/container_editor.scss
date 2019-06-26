@@ -1,4 +1,5 @@
 @import "@material/theme/mixins";
+@import "@material/ripple/mixins";
 @import "./variables";
 
 .container-editor {
@@ -6,6 +7,7 @@
     width: 100%;
     height: 100%;
     margin: 0 auto;
+    @include mdc-theme-prop(background-color, surface);
 
     .mosaic-grid__overlay {
         position: absolute;
@@ -14,34 +16,64 @@
     }
 }
 
+@mixin grid-cell-interactive-ripple_($query: mdc-feature-all()) {
+    @include mdc-ripple-surface($query);
+    @include mdc-ripple-radius-bounded($query: $query);
+    @include mdc-states(mdc-theme-prop-value(on-surface), false, $query);
+    @include mdc-states-activated(primary, false, $query);
+    @include mdc-states-selected(primary, false, $query);
+}
+
 .container-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
     width: 100%;
     height: 100%;
+    /* gap: 1px; */
+    /* padding: 1px; */
     overflow: hidden;
+    @include mdc-theme-prop(background-color, $container-grid-border-color);
 
     &__cell {
         position: relative;
         height: 100%;
         cursor: pointer;
+        @include mdc-theme-prop(background-color, surface);
 
-        *, &:before, &:after {
-            box-sizing: border-box;
+        &[data-col="1"], &[data-row="1"] {
+            .container-grid__mul-handle {
+                display: none;
+            }
         }
+        &[data-col="1"] {
+            .container-grid__col-handle {
+                display: none;
+            }
+        }
+        &[data-row="1"] {
+            .container-grid__row-handle {
+                display: none;
+            }
+        }
+
+        &--selected:after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: .12;
+            @include mdc-theme-prop(background-color, primary);
+        }
+
         &:before {
             content: "";
             position: absolute;
-            left: 0;
             top: 0;
-            display: block;
+            left: 0;
             width: 100%;
             height: 100%;
-            pointer-events: none;
-            outline-style: solid;
-            outline-width: 1px;
-            @include mdc-theme-prop(outline-color, secondary);
+            box-shadow: 0 0 0 1px $container-grid-border-color;
         }
     }
 
@@ -75,30 +107,30 @@
     }
 }
 
-/* .container-grid__cell--dragging-column { */
-/*     .container-grid__col-handle:after { */
-/*         content: ""; */
-/*         width: 1px; */
-/*         position: absolute; */
-/*         top: 0; */
-/*         left: $container-grid-single-handle-size / 2 - 1px; */
-/*         height: 100vh; */
-/*         @include mdc-theme-prop(background-color, primary); */
-/*         z-index: 99; // FIXME */
-/*         pointer-events: none; */
-/*     } */
-/* } */
+.container-grid__cell--dragging-column {
+    .container-grid__col-handle:after {
+        content: "";
+        width: 1px;
+        position: absolute;
+        top: 0;
+        left: $container-grid-single-handle-size / 2 - 1px;
+        height: 100vh;
+        @include mdc-theme-prop(background-color, $container-grid-border-active-color);
+        z-index: 99; // FIXME
+        pointer-events: none;
+    }
+}
 
-/* .container-grid__cell--dragging-row { */
-/*     .container-grid__row-handle:after { */
-/*         content: ""; */
-/*         height: 1px; */
-/*         position: absolute; */
-/*         top: $container-grid-single-handle-size / 2 - 1px; */
-/*         left: 0; */
-/*         width: 100vw; */
-/*         @include mdc-theme-prop(background-color, primary); */
-/*         z-index: 99; // FIXME */
-/*         pointer-events: none; */
-/*     } */
-/* } */
+.container-grid__cell--dragging-row {
+    .container-grid__row-handle:after {
+        content: "";
+        height: 1px;
+        position: absolute;
+        top: $container-grid-single-handle-size / 2 - 1px;
+        left: 0;
+        width: 100vw;
+        @include mdc-theme-prop(background-color, $container-grid-border-active-color);
+        z-index: 99; // FIXME
+        pointer-events: none;
+    }
+}

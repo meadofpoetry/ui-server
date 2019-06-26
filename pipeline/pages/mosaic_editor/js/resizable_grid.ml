@@ -8,8 +8,8 @@ open Resizable_grid_utils
  * https://grid.layoutit.com/
 *)
 
-module CSS = Markup.CSS.Container_grid
-module Markup = Markup.Container_grid
+include Page_mosaic_editor_tyxml.Container_editor
+module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
 module Selector = struct
   let grid = Printf.sprintf ".%s" CSS.root
@@ -38,14 +38,13 @@ end
 
 type direction =
   | Col
-  | Row [@@deriving show]
+  | Row
 
 let ( % ) f g x = f (g x)
 
 let ( >>= ) = Lwt.bind
 
-let fail s =
-  failwith @@ Printf.sprintf "resizable-grid: %s" s
+let fail s = failwith @@ Printf.sprintf "resizable-grid: %s" s
 
 type dimensions =
   { direction : direction
@@ -60,10 +59,11 @@ type dimensions =
   ; track_values : value array
   ; track_values_px : float array
   ; gap : float
-  } [@@deriving show]
+  }
 
 type resize_properties =
   { cell : Dom_html.element Js.t
+  ; first_cells : Dom_html.element Js.t list
   ; grid : Dom_html.element Js.t
   ; col : dimensions option
   ; row : dimensions option
@@ -80,6 +80,8 @@ class t
   val mutable _listeners = []
   val mutable _move_listeners = []
 
+  val mutable _selected_cells = []
+
   method! destroy () : unit =
     self#stop_move_listeners ();
     List.iter Lwt.cancel _listeners;
@@ -92,8 +94,7 @@ class t
               match e##.button with
               | 0 -> self#handle_drag_start (Mouse e) t
               | _ -> Lwt.return_unit)
-        ; touchstarts super#root (fun e ->
-              self#handle_drag_start (Touch e))
+        ; touchstarts super#root (fun e -> self#handle_drag_start (Touch e))
         ]);
     super#initial_sync_with_dom ()
 
@@ -116,8 +117,8 @@ class t
     self#remove_row_or_column Col cell
 
   method reset
-      ?(col_size = `Fr 1.)
-      ?(row_size = `Fr 1.)
+      ?(col_size = Fr 1.)
+      ?(row_size = Fr 1.)
       ~(cols : int)
       ~(rows : int)
       () =
@@ -125,21 +126,32 @@ class t
     self#set_style super#root Col (gen_template ~size:col_size cols);
     self#set_style super#root Row (gen_template ~size:row_size rows);
     List.iter (Element.append_child super#root % Tyxml_js.To_dom.of_element)
-    @@ gen_cells ~cols ~rows
+    @@ gen_cells
+      ~f:(fun ~col ~row () -> Markup.create_grid_cell ~col ~row ())
+      ~cols ~rows
 
-  method split
-      ?(col_size = `Fr 1.)
-      ?(row_size = `Fr 1.)
+  method insert_table
+      ?(col_size = Fr 1.)
+      ?(row_size = Fr 1.)
       ~(cols : int)
       ~(rows : int)
       (cell : Dom_html.element Js.t) : unit =
     let subgrid = Element.query_selector cell Selector.grid in
     Utils.Option.iter (Element.remove_child_safe cell) subgrid;
-    let content = gen_cells ~cols ~rows in
-    let grid = Tyxml_js.To_dom.of_element @@ Markup.create ~content () in
-    self#set_style grid Col (gen_template ~size:col_size cols);
-    self#set_style grid Row (gen_template ~size:row_size rows);
+    let content =
+      gen_cells ~f:(fun ~col ~row () -> Markup.create_grid_cell ~col ~row ())
+        ~cols ~rows in
+    let grid =
+      Tyxml_js.To_dom.of_element
+      @@ Markup.create_grid ~cols ~rows ~content () in
     Element.append_child cell grid
+
+  method merge (cells : Dom_html.element Js.t list) : unit =
+    (* TODO check if merge is possible *)
+    fail "not implemented"
+
+  method split (cell : Dom_html.element Js.t) : unit =
+    fail "not implemented"
 
   method cells ?include_subgrids
       ?(grid = super#root)
@@ -182,7 +194,7 @@ class t
     self#set_style grid direction style
 
   method private add_row_or_column
-      ?(size = `Fr 1.)
+      ?(size = Fr 1.)
       ?(before = false)
       (direction : direction)
       (cell : Dom_html.element Js.t) : unit =
@@ -212,7 +224,7 @@ class t
           | Col -> n, succ i in
         let (elt : Dom_html.element Js.t) =
           Tyxml_js.To_dom.of_element
-          @@ Markup.create_cell ~row ~col () in
+          @@ Markup.create_grid_cell ~row ~col () in
         Element.append_child grid elt) opposite_tracks;
     let style =
       String.concat " "
@@ -223,7 +235,7 @@ class t
     ()
 
   method private notify_selected cell : unit =
-    super#emit ~should_bubble:true ~detail:cell Event.selected
+    super#emit ~detail:cell Event.selected
 
   method private handle_drag_start
       (e : event) _ : unit Lwt.t =
@@ -244,22 +256,48 @@ class t
     | _, None -> Lwt.return_unit
     | None, Some cell ->
       Events.mouseup super#root
-      >>= fun _ -> self#notify_selected cell; Lwt.return_unit
+      >>= fun _ ->
+      self#notify_selected cell;
+      List.iter (fun x -> Element.remove_class x CSS.cell_selected) _selected_cells;
+      Element.add_class cell CSS.cell_selected;
+      _selected_cells <- [cell];
+      Lwt.return_unit
     | Some direction, Some cell ->
       let grid = self#parent_grid target in
-      let row, col = match direction with
+      let col, row = self#get_cell_position cell in
+      let cells = self#cells ~include_subgrids:false ~grid () in
+      let first_cells, row, col = match direction with
         | `Row ->
-          Element.add_class cell CSS.cell_dragging_row;
-          Some (self#get_dimensions ~cell grid Row), None
+          let first_cell = List.find (fun cell ->
+              let col, row' = self#get_cell_position cell in
+              col = 1 && row = row') cells in
+          Element.add_class first_cell CSS.cell_dragging_row;
+          [first_cell], Some (self#get_dimensions ~col ~row grid Row), None
         | `Col ->
-          Element.add_class cell CSS.cell_dragging_column;
-          None, Some (self#get_dimensions ~cell grid Col)
+          let first_cell = List.find (fun cell ->
+              let col', row = self#get_cell_position cell in
+              row = 1 && col = col') cells in
+          Element.add_class first_cell CSS.cell_dragging_column;
+          [first_cell], None, Some (self#get_dimensions ~col ~row grid Col)
         | `Mul ->
-          Element.add_class cell CSS.cell_dragging_row;
-          Element.add_class cell CSS.cell_dragging_column;
-          Some (self#get_dimensions ~cell grid Col),
-          Some (self#get_dimensions ~cell grid Row) in
-      let resize_properties = { grid; cell; row; col } in
+          let col_cell = List.find (fun cell ->
+              let col', row = self#get_cell_position cell in
+              row = 1 && col = col') cells in
+          let row_cell = List.find (fun cell ->
+              let col, row' = self#get_cell_position cell in
+              col = 1 && row = row') cells in
+          Element.add_class col_cell CSS.cell_dragging_column;
+          Element.add_class row_cell CSS.cell_dragging_row;
+          [col_cell; row_cell],
+          Some (self#get_dimensions ~col ~row grid Col),
+          Some (self#get_dimensions ~col ~row grid Row) in
+      let resize_properties =
+        { grid
+        ; cell
+        ; row
+        ; col
+        ; first_cells
+        } in
       (match e with
        | Touch e ->
          Dom.preventDefault e;
@@ -267,9 +305,9 @@ class t
              [ touchmoves Dom_html.window (fun e ->
                    self#handle_drag resize_properties (Touch e))
              ; touchends Dom_html.window (fun e ->
-                   self#handle_drag_stop cell (Touch e))
+                   self#handle_drag_stop resize_properties (Touch e))
              ; touchcancels Dom_html.window (fun e ->
-                   self#handle_drag_stop cell (Touch e))
+                   self#handle_drag_stop resize_properties (Touch e))
              ])
        | Mouse e ->
          Dom.preventDefault e;
@@ -277,7 +315,7 @@ class t
              [ mousemoves Dom_html.window (fun e ->
                    self#handle_drag resize_properties (Mouse e))
              ; mouseups Dom_html.window (fun e ->
-                   self#handle_drag_stop cell (Mouse e))
+                   self#handle_drag_stop resize_properties (Mouse e))
              ]));
       Lwt.return_unit
 
@@ -291,9 +329,11 @@ class t
       [props.col; props.row];
     Lwt.return_unit
 
-  method private handle_drag_stop cell (e : event) _ : unit Lwt.t =
-    Element.remove_class cell CSS.cell_dragging_column;
-    Element.remove_class cell CSS.cell_dragging_row;
+  method private handle_drag_stop props (e : event) _ : unit Lwt.t =
+    List.iter (fun cell ->
+        Element.remove_class cell CSS.cell_dragging_column;
+        Element.remove_class cell CSS.cell_dragging_row)
+      props.first_cells;
     self#stop_move_listeners ();
     self#notify_change ();
     Lwt.return_unit
@@ -308,7 +348,7 @@ class t
     | Row -> (Js.Unsafe.coerce grid##.style)##.gridTemplateRows := v
     | Col -> (Js.Unsafe.coerce grid##.style)##.gridTemplateColumns := v
 
-  method private get_dimensions ~cell grid direction : dimensions =
+  method private get_dimensions ~col ~row grid direction : dimensions =
     let start = match direction with
       | Row -> grid##getBoundingClientRect##.top
       | Col -> grid##getBoundingClientRect##.left in
@@ -316,7 +356,6 @@ class t
     let track_values = Array.map value_of_string tracks in
     let track_values_px = self#track_values_px grid direction in
     let gap = self#gap grid direction in
-    let col, row = self#get_cell_position cell in
     let a_track, b_track = match direction with
       | Col -> col - 2, col - 1
       | Row -> row - 2, row - 1 in
@@ -336,7 +375,7 @@ class t
     ; b_track_end
     ; direction
     ; total_fr = Array.fold_left (fun acc -> function
-          | `Fr _ -> succ acc | _ -> acc) 0 track_values
+          | Fr _ -> succ acc | _ -> acc) 0 track_values
     ; percentage_to_pixels = percentage_to_pixels track_values track_values_px
     ; fr_to_pixels = fr_to_pixels track_values track_values_px
     ; tracks
@@ -408,12 +447,12 @@ class t
        ; _ } : dimensions) =
     let update_value track track_size =
       match track_values.(track) with
-      | `Px x -> `Px track_size
-      | `Fr x ->
+      | Px x -> Px track_size
+      | Fr x ->
         (match total_fr with
-         | 1 -> `Fr 1.
-         | _ -> `Fr (track_size /. fr_to_pixels))
-      | `Pc x -> `Pc (track_size /. percentage_to_pixels)
+         | 1 -> Fr 1.
+         | _ -> Fr (track_size /. fr_to_pixels))
+      | Pc x -> Pc (track_size /. percentage_to_pixels)
       | x -> x in
     let a_track_value = update_value a_track a_track_size in
     let b_track_value = update_value b_track b_track_size in
@@ -439,7 +478,7 @@ class t
       (Array.of_list
        % List.map (fun (x : string) ->
            match value_of_string x with
-           | `Px v -> v
+           | Px v -> v
            | _ -> fail @@ Printf.sprintf "failed to parse value (%s)" x)
        % String.split_on_char ' '
        % Js.to_string)
@@ -454,7 +493,7 @@ class t
       (fun x ->
          let s = Js.to_string x in
          match value_of_string_opt s with
-         | Some `Px v -> v
+         | Some Px v -> v
          | _ -> 0.)
 
   method private parent_grid (item : Dom_html.element Js.t) =

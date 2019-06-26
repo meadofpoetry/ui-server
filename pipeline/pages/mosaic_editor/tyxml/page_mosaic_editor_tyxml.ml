@@ -1,5 +1,7 @@
 open Components_tyxml
 
+module Container_editor = Container_editor
+
 module CSS = struct
   let root = "mosaic"
   let video = BEM.add_element root "video"
@@ -9,17 +11,6 @@ module CSS = struct
   let grid_item_content = BEM.add_element grid "item-content"
   let grid_ghost = BEM.add_element grid "ghost"
   let grid_overlay = BEM.add_element grid "overlay"
-
-
-  module Container_grid = struct
-    let root = "container-grid"
-    let cell = BEM.add_element root "cell"
-    let col_handle = BEM.add_element root "col-handle"
-    let row_handle = BEM.add_element root "row-handle"
-    let mul_handle = BEM.add_element root "mul-handle"
-    let cell_dragging_column = BEM.add_modifier cell "dragging-column"
-    let cell_dragging_row = BEM.add_modifier cell "dragging-row"
-  end
 
   let resizable = "resizable"
   let resizable_active = BEM.add_modifier resizable "active"
@@ -83,30 +74,5 @@ module Make(Xml : Xml_sigs.NoWrap)
           ; div ~a:[a_class [CSS.resizer; CSS.resizer_bottom_right]] []
           ]
       ]
-
-  module Container_grid = struct
-
-    let create_cell ?(classes = []) ?attrs ?row ?col ?(content = []) () : 'a elt =
-      let classes = CSS.Container_grid.cell :: classes in
-      let style = match row, col with
-        | None, None -> None
-        | Some row, None -> Some (Printf.sprintf "grid-row: %d" row)
-        | None, Some col -> Some (Printf.sprintf "grid-column: %d" col)
-        | Some row, Some col ->
-          Some (Printf.sprintf "grid-row: %d; grid-column: %d" row col)
-      in
-      div ~a:([a_class classes] <@> attrs
-              |> map_cons_option a_style style
-              |> map_cons_option (a_user_data "row" % string_of_int) row
-              |> map_cons_option (a_user_data "col" % string_of_int) col)
-        ([ div ~a:[a_class [CSS.Container_grid.row_handle]] []
-         ; div ~a:[a_class [CSS.Container_grid.col_handle]] []
-         ; div ~a:[a_class [CSS.Container_grid.mul_handle]] []
-         ] @ content)
-
-    let create ?(classes = []) ?attrs ?(content = []) () : 'a elt =
-      let classes = CSS.Container_grid.root :: classes in
-      div ~a:([a_class classes] <@> attrs) content
-  end
 
 end
