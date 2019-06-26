@@ -58,6 +58,10 @@ module CSS = struct
 
   let grid = "container-grid"
 
+  let grid_bordered = BEM.add_modifier grid "bordered"
+
+  let aspect_ratio_sizer = BEM.add_element root "aspect-ratio-sizer"
+
   let cell = BEM.add_element grid "cell"
 
   let col_handle = BEM.add_element grid "col-handle"
@@ -115,11 +119,22 @@ module Make(Xml : Xml_sigs.NoWrap)
     div ~a:([a_class classes] <@> attrs
             |> map_cons_option a_style style) content
 
-  let create ?(classes = []) ?attrs ~grid () : 'a elt =
+  let create ?(classes = []) ?attrs
+      ~width ~height
+      ~grid () : 'a elt =
     let classes = CSS.root :: classes in
     div ~a:([a_class classes] <@> attrs)
       ([ Card.create_actions [Card.create_action_icons [] ()] ()
-       ; Card.create_media [grid] ()
+       ; Card.create_media
+           [ svg ~a:[ Svg.a_class [CSS.aspect_ratio_sizer]
+                    ; Svg.a_viewBox ( 0.
+                                    , 0.
+                                    , (float_of_int width)
+                                    , (float_of_int height)
+                                    )
+                    ] []
+           ; grid
+           ] ()
        ])
 
 end

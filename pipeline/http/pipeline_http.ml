@@ -72,7 +72,7 @@ let pages () : Api_template.topmost Api_template.item list =
                      ~clipped:true
                      ~typ:`Dismissible
                      ())
-      ~top_app_bar_bottom:(make_top_app_bar_row ())
+      (* ~top_app_bar_bottom:(make_top_app_bar_row ()) *)
       (* ~top_app_bar_actions:(make_anchor_buttons
        *                         ~href:video_path
        *                         ~icon:(make_icon

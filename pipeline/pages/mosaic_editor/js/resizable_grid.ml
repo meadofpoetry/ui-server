@@ -98,6 +98,9 @@ class t
         ]);
     super#initial_sync_with_dom ()
 
+  method selected_cells : Dom_html.element Js.t list =
+    _selected_cells
+
   method add_column_before ?size (cell : Dom_html.element Js.t) : unit =
     self#add_row_or_column ?size ~before:true Col cell
 
@@ -208,8 +211,8 @@ class t
       self#track_values_px grid
         (match direction with Col -> Row | Row -> Col) in
     let n = match direction with
-      | Col -> if before then max 1 (pred col) else succ col
-      | Row -> if before then max 1 (pred row) else succ row in
+      | Col -> if before then col else succ col
+      | Row -> if before then row else succ row in
     (* Update positions of existing elements *)
     List.iter (fun cell ->
         let col, row = self#get_cell_position cell in

@@ -48,11 +48,15 @@ class t ?(containers = []) ~resolution elt () = object(self)
     super#initial_sync_with_dom ()
 
   method! layout () : unit =
-    let scale_factor = self#scale_factor in
-    let width' = int_of_float @@ float_of_int (fst resolution) *. scale_factor in
-    let height' = int_of_float @@ float_of_int (snd resolution) *. scale_factor in
-    grid#root##.style##.width := Utils.px_js width';
-    grid#root##.style##.height := Utils.px_js height';
+    let parent_width, parent_height =
+      Js.Opt.case (Element.get_parent grid#root)
+        (fun () -> 0, 0)
+        (fun parent -> parent##.offsetWidth, parent##.offsetHeight) in
+    let width = parent_height * (fst resolution) / (snd resolution) in
+    grid#root##.style##.width := Utils.px_js width;
+    grid#root##.style##.height := Utils.px_js parent_height;
+    let force = parent_width - 2 > width in
+    grid#toggle_class ~force Resizable_grid.CSS.grid_bordered;
     super#layout ()
 
   method! destroy () : unit =
@@ -65,23 +69,53 @@ class t ?(containers = []) ~resolution elt () = object(self)
   (* Private methods *)
 
   method private create_grid_actions () =
-    let make_action path =
+    let make_action ~on_click path =
       Icon_button.make
+        ~on_click
         ~icon:Icon.SVG.(make_simple path)
-        ~on_click:(fun _ _ -> Lwt.return_unit)
         () in
     let add_row_above =
-      make_action Icon.SVG.Path.table_row_plus_before in
+      make_action
+        ~on_click:(fun _ _ ->
+            grid#add_row_before (List.hd grid#selected_cells);
+            Lwt.return_unit)
+        Icon.SVG.Path.table_row_plus_before in
     let add_row_below =
-      make_action Icon.SVG.Path.table_row_plus_after in
+      make_action
+        ~on_click:(fun _ _ ->
+            grid#add_row_after (List.hd grid#selected_cells);
+            Lwt.return_unit)
+        Icon.SVG.Path.table_row_plus_after in
+    let remove_row =
+      make_action
+        ~on_click:(fun _ _ ->
+            grid#remove_row (List.hd grid#selected_cells);
+            Lwt.return_unit)
+        Icon.SVG.Path.table_row_remove in
     let add_col_left =
-      make_action Icon.SVG.Path.table_column_plus_before in
+      make_action
+        ~on_click:(fun _ _ ->
+            grid#add_column_before (List.hd grid#selected_cells);
+            Lwt.return_unit)
+        Icon.SVG.Path.table_column_plus_before in
     let add_col_right =
-      make_action Icon.SVG.Path.table_column_plus_after in
+      make_action
+        ~on_click:(fun _ _ ->
+            grid#add_column_after (List.hd grid#selected_cells);
+            Lwt.return_unit)
+        Icon.SVG.Path.table_column_plus_after in
+    let remove_col =
+      make_action
+        ~on_click:(fun _ _ ->
+            grid#remove_column (List.hd grid#selected_cells);
+            Lwt.return_unit)
+        Icon.SVG.Path.table_column_remove in
     [ add_row_above
     ; add_row_below
+    ; remove_row
     ; add_col_left
     ; add_col_right
+    ; remove_col
     ]
 
   method private handle_selected e _ : unit Lwt.t =
@@ -91,17 +125,6 @@ class t ?(containers = []) ~resolution elt () = object(self)
   method private handle_keydown _ _ : unit Lwt.t =
     (* TODO implement *)
     Lwt.return_unit
-
-  method private scale_factor : float =
-    Js.Opt.case (Element.get_parent grid#root)
-      (fun () -> 0.)
-      (fun parent ->
-         let cur_width = float_of_int parent##.offsetWidth in
-         let cur_height = float_of_int parent##.offsetHeight in
-         let cur_aspect = cur_width /. cur_height in
-         if cur_aspect > (float_of_int (fst resolution) /. float_of_int (snd resolution))
-         then cur_height /. float_of_int (snd resolution)
-         else cur_width /. float_of_int (fst resolution))
 
   method private handle_dropped_json (json : Yojson.Safe.json) : unit Lwt.t =
     Lwt.return_unit
@@ -124,6 +147,8 @@ let make (wm : Wm.t) =
     Tyxml_js.To_dom.of_element
     @@ Resizable_grid.Markup.create
       ~classes:[Card.CSS.root]
+      ~width:(fst wm.resolution)
+      ~height:(snd wm.resolution)
       ~grid () in
   new t
     ~resolution:wm.resolution
