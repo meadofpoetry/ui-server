@@ -36,11 +36,14 @@ class t ?(containers = []) ~resolution elt () = object(self)
     | None -> failwith "container-editor: table ghost element not found"
     | Some x -> x
   val grid =
-    let make_cell ~col ~row ?classes ?content () =
-      Markup.Container_grid.create_cell ?content ?classes ~row ~col () in
+    let make_cell ?id ~col ~row ?classes ?content () =
+      Markup.Container_grid.create_cell
+        ?attrs:(match id with None -> None
+                            | Some id -> Some [Tyxml_js.Html.a_id id])
+        ?content ?classes ~row ~col () in
     let nested_grid = Tyxml_js.Html.(
         div ~a:[a_class ["container-grid"]]
-          [ make_cell ~col:1 ~row:1 ()
+          [ make_cell ~id:"cell" ~col:1 ~row:1 ()
           ; make_cell ~col:1 ~row:2 ()
           ; make_cell ~col:2 ~row:1 ()
           ; make_cell ~col:2 ~row:2 ()
@@ -54,7 +57,7 @@ class t ?(containers = []) ~resolution elt () = object(self)
             ; make_cell ~col:2 ~row:1 ()
             ; make_cell ~col:2 ~row:2 ()
             ]) in
-    Resizable_grid.attach elt
+    Resizable_grid.attach ~drag_interval:(`Fr 0.1) elt
 
   val mutable _containers : (string * Wm.container) list = containers
   val mutable _listeners = []
@@ -66,10 +69,11 @@ class t ?(containers = []) ~resolution elt () = object(self)
   method! init () : unit =
     Element.append_child super#root grid#root;
     Lwt.async (fun () ->
-        Lwt_js.sleep 1.
+        Lwt_js.sleep 3.
         >>= fun () ->
-        grid#add_row_after @@ List.hd grid#cells;
-        grid#add_column_after @@ List.hd grid#cells;
+        let cell = Dom_html.getElementById "cell" in
+        grid#add_row_after cell;
+        grid#add_column_after cell;
         Lwt.return_unit);
     super#init ()
 

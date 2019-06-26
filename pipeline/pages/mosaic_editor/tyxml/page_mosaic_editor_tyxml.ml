@@ -93,7 +93,7 @@ module Make(Xml : Xml_sigs.NoWrap)
         | Some row, None -> Some (Printf.sprintf "grid-row: %d" row)
         | None, Some col -> Some (Printf.sprintf "grid-column: %d" col)
         | Some row, Some col ->
-          Some (Printf.sprintf "grid-row: %d; grid-column: %d" col row)
+          Some (Printf.sprintf "grid-row: %d; grid-column: %d" row col)
       in
       div ~a:([a_class classes] <@> attrs
               |> map_cons_option a_style style

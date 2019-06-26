@@ -3,6 +3,11 @@ open Components
 
 module CSS = Markup.CSS.Container_grid
 
+module Attr = struct
+  let row = "data-row"
+  let col = "data-col"
+end
+
 type event = Touch of Dom_html.touchEvent Js.t
            | Mouse of Dom_html.mouseEvent Js.t
 
@@ -44,6 +49,15 @@ let get_cursor_position ?touch_id = function
     (match aux None 0 with
      | None -> failwith "no touch event found"
      | Some t -> t##.pageX, t##.pageY)
+
+let insert_at_idx i x l =
+  let rec aux l acc i x = match l with
+    | [] -> List.rev_append acc [x]
+    | y :: l' when i = 0 -> List.rev_append acc (x :: y :: l')
+    | y :: l' -> aux l' (y :: acc) (pred i) x
+  in
+  let i = if i < 0 then List.length l + i else i in
+  aux l [] i x
 
 let split_string ~suffix pattern =
   let pattern_len = String.length pattern in
@@ -172,3 +186,22 @@ let get_size_at_track ?(gap = 0.) (tracks : float array) =
     | n when n = Array.length tracks -> sum
     | n -> aux (sum +. tracks.(n)) (succ n) in
   (aux 0. 0) +. gap
+
+let get_cell_position (cell : Dom_html.element Js.t) =
+  let style = Dom_html.window##getComputedStyle cell in
+  Js.parseInt (Js.Unsafe.coerce style)##.gridColumnStart,
+  Js.parseInt (Js.Unsafe.coerce style)##.gridRowStart
+
+let set_cell_row (cell : Dom_html.element Js.t) (row : int) =
+  let v = Js.string @@ string_of_int row in
+  (Js.Unsafe.coerce cell##.style)##.gridRow := v;
+  cell##setAttribute (Js.string Attr.row) v
+
+let set_cell_col (cell : Dom_html.element Js.t) (col : int) =
+  let v = Js.string @@ string_of_int col in
+  (Js.Unsafe.coerce cell##.style)##.gridColumn := v;
+  cell##setAttribute (Js.string Attr.col) v
+
+let set_cell_position ~col ~row (cell : Dom_html.element Js.t) =
+  set_cell_col cell col;
+  set_cell_row cell row

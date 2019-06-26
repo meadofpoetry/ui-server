@@ -11,13 +11,9 @@ open Resizable_grid_utils
 module CSS = Markup.CSS.Container_grid
 module Markup = Markup.Container_grid
 
-module Attr = struct
-  let row = "data-row"
-  let col = "data-col"
-end
-
 module Selector = struct
   let cell = Printf.sprintf ".%s" CSS.cell
+  let cell_in_parent = Printf.sprintf "> .%s" CSS.cell
 end
 
 module Event = struct
@@ -74,10 +70,10 @@ type resize_properties =
   }
 
 class t
-    ?(drag_interval = 1)
+    ?drag_interval
     ?(snap_offset = 0.)
-    ?(min_size_start = 30.)
-    ?(min_size_end = 30.)
+    ?(min_size_start = 50.)
+    ?(min_size_end = 50.)
     (elt : Dom_html.element Js.t) () = object(self)
   inherit Widget.t elt () as super
 
@@ -113,13 +109,17 @@ class t
   method add_row_after (cell : Dom_html.element Js.t) : unit =
     self#add_row_or_column ~before:false Row cell
 
-  method cells : Dom_html.element Js.t list =
-    Dom.list_of_nodeList self#cells_
+  method cells ?(grid = super#root) () : Dom_html.element Js.t list =
+    Dom.list_of_nodeList @@ self#cells_ grid
 
   (* Private methods *)
 
-  method private cells_ =
-    super#root##querySelectorAll (Js.string Selector.cell)
+  method private cells_ ?(include_subgrids = true) grid =
+    let selector =
+      if include_subgrids
+      then Js.string Selector.cell
+      else Js.string Selector.cell_in_parent in
+    grid##querySelectorAll selector
 
   method private add_row_or_column
       ?(size = `Fr 1.)
@@ -127,11 +127,23 @@ class t
       (direction : direction)
       (cell : Dom_html.element Js.t) : unit =
     let grid = self#parent_grid cell in
+    let col, row = self#get_cell_position cell in
     let tracks = Array.to_list @@ self#raw_tracks grid direction in
+    (* Opposite tracks -
+       rows if a column is being added,
+       columns if a row is being added *)
     let opposite_tracks =
       self#track_values_px grid
         (match direction with Col -> Row | Row -> Col) in
-    let n = succ @@ List.length tracks in
+    let n = match direction with Col -> succ col | Row -> succ row in
+    (* Update positions of existing elements *)
+    List.iter (fun cell ->
+        let col, row = self#get_cell_position cell in
+        match direction with
+        | Col -> if col >= n then set_cell_col cell (succ col)
+        | Row -> if row >= n then set_cell_row cell (succ row))
+    @@ self#cells ~grid ();
+    (* Add new items to each of the opposite tracks *)
     Array.iteri (fun i _ ->
         let col, row = match direction with
           | Row -> succ i, n
@@ -139,12 +151,10 @@ class t
         let (elt : Dom_html.element Js.t) =
           Tyxml_js.To_dom.of_element
           @@ Markup.create_cell ~row ~col () in
-        (Js.Unsafe.coerce elt##.style)##.gridRow := Js.string (string_of_int row);
-        (Js.Unsafe.coerce elt##.style)##.gridColumn := Js.string (string_of_int col);
         Element.append_child grid elt) opposite_tracks;
-    let style = Printf.sprintf "%s %s"
-        (String.concat " " tracks)
-        (value_to_string size) in
+    let style =
+      String.concat " "
+      @@ insert_at_idx (n - 1) (value_to_string size) tracks in
     self#set_style grid direction style
 
   method private notify_change () : unit =
@@ -158,7 +168,7 @@ class t
     Dom_html.stopPropagation (coerce_event e);
     Dom.preventDefault (coerce_event e);
     let target = Dom_html.eventTarget (coerce_event e) in
-    let cell = cell_of_event self#cells_ (coerce_event e) in
+    let cell = cell_of_event (self#cells_ super#root) (coerce_event e) in
     (* FIXME this definetely may not be a cell, rewrite *)
     let direction =
       if Element.has_class target CSS.col_handle
@@ -230,27 +240,6 @@ class t
     List.iter Lwt.cancel _move_listeners;
     _move_listeners <- []
 
-  method private adjust_position
-      ?total_fr
-      ?(fr_to_pixels = 1.)
-      ?(percentage_to_pixels = 1.)
-      (grid : Dom_html.element Js.t)
-      (direction : direction)
-      tracks
-      track_values
-      tracks_to_update =
-    let update_track track track_size =
-      match track_values.(track) with
-      | `Px x -> tracks.(track) <- Printf.sprintf "%gpx" track_size
-      | `Fr x ->
-        (match total_fr with
-         | Some 1 -> tracks.(track) <- "1fr"
-         | _ -> tracks.(track) <- Printf.sprintf "%gfr" (track_size /. fr_to_pixels))
-      | `Pc x ->
-        tracks.(track) <- Printf.sprintf "%g%%" (track_size /. percentage_to_pixels)
-      | _ -> () in
-    Array.iter (fun (id, size) -> update_track id size) tracks_to_update
-
   method private set_style grid direction (style : string) : unit =
     let v = Js.string style in
     match direction with
@@ -265,7 +254,7 @@ class t
     let track_values = Array.map value_of_string tracks in
     let track_values_px = self#track_values_px grid direction in
     let gap = self#gap grid direction in
-    let row, col = self#get_cell_position cell in
+    let col, row = self#get_cell_position cell in
     let a_track, b_track = match direction with
       | Col -> col - 2, col - 1
       | Row -> row - 2, row - 1 in
@@ -322,28 +311,54 @@ class t
       dimensions.b_track_end
       -. position
       -. dimensions.gap in
+    let drag_interval = match drag_interval with
+      | None -> 1.
+      | Some `Fr x -> x *. dimensions.fr_to_pixels
+      | Some `Px x -> x
+      | Some `Pc x -> x *. dimensions.percentage_to_pixels in
     let a_track_size, b_track_size =
-      if drag_interval > 1
+      if drag_interval > 1.
       then
-        let interval = float_of_int drag_interval in
         let a_track_size_interleaved =
-          Js.math##round (a_track_size /. interval) *. interval in
+          Js.math##round (a_track_size /. drag_interval) *. drag_interval in
         a_track_size_interleaved,
-        b_track_size -. a_track_size_interleaved -. a_track_size
+        b_track_size -. (a_track_size_interleaved -. a_track_size)
       else a_track_size, b_track_size in
+    print_endline @@ Printf.sprintf "a_track_size: %g, b_track_size: %g"
+      a_track_size b_track_size;
     self#adjust_position
-      ~total_fr:dimensions.total_fr
-      ~fr_to_pixels:dimensions.fr_to_pixels
-      ~percentage_to_pixels:dimensions.percentage_to_pixels
+      ~a_track_size
+      ~b_track_size
       grid
-      dimensions.direction
-      dimensions.tracks
-      dimensions.track_values
-      [| dimensions.a_track, max a_track_size min_size_start
-       ; dimensions.b_track, max b_track_size min_size_end
-      |];
+      dimensions;
     let style = String.concat " " @@ Array.to_list dimensions.tracks in
     self#set_style grid dimensions.direction style
+
+  method private adjust_position
+      ~a_track_size
+      ~b_track_size
+      (grid : Dom_html.element Js.t)
+      ({ a_track
+       ; b_track
+       ; tracks
+       ; track_values
+       ; total_fr
+       ; fr_to_pixels
+       ; percentage_to_pixels
+       ; _ } : dimensions) =
+    let update_value track track_size =
+      match track_values.(track) with
+      | `Px x -> `Px track_size
+      | `Fr x ->
+        (match total_fr with
+         | 1 -> `Fr 1.
+         | _ -> `Fr (track_size /. fr_to_pixels))
+      | `Pc x -> `Pc (track_size /. percentage_to_pixels)
+      | x -> x in
+    let a_track_value = update_value a_track a_track_size in
+    let b_track_value = update_value b_track b_track_size in
+    tracks.(a_track) <- value_to_string a_track_value;
+    tracks.(b_track) <- value_to_string b_track_value
 
   method private raw_tracks grid direction : string array =
     let prop = match direction with
@@ -394,9 +409,7 @@ class t
     aux item
 
   method private get_cell_position (cell : Dom_html.element Js.t) : int * int =
-    let style = Dom_html.window##getComputedStyle cell in
-    Js.parseInt (Js.Unsafe.coerce style)##.gridRowStart,
-    Js.parseInt (Js.Unsafe.coerce style)##.gridColumnStart
+    get_cell_position cell
 
 end
 
@@ -412,5 +425,6 @@ let make ?drag_interval
     elt
     ()
 
-let attach (elt : Dom_html.element Js.t) : t =
-  new t elt ()
+let attach ?drag_interval ?snap_offset ?min_size_start ?min_size_end
+    (elt : Dom_html.element Js.t) : t =
+  new t ?drag_interval ?snap_offset ?min_size_start ?min_size_end elt ()
