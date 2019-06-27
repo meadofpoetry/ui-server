@@ -136,7 +136,6 @@ class t
   val mutable _added = []
   val mutable _removed = []
   val mutable _single_click = true
-  val mutable _scroll_available = true
   val mutable _selectables = []
   val mutable _container = None
 
@@ -279,7 +278,6 @@ class t
             ]);
         if scroll_available
         then (
-          print_endline "scroll available";
           _temp_listeners <- Events.(
               wheels Dom_html.window (self#handle_mouse_wheel state)
               :: _temp_listeners);
@@ -344,7 +342,7 @@ class t
     let _, x, y = parse_event e in
     state.area_x2 <- float_of_int x;
     state.area_y2 <- float_of_int y;
-    match _scroll_available, state.scroll_speed with
+    match state.scroll_available, state.scroll_speed with
     | true, (Some _, None | None, Some _) ->
       let rec scroll _ =
         match state.scroll_speed with

@@ -31,7 +31,7 @@ class t ?(containers = []) ~resolution elt () = object(self)
     | Some x -> x
   val grid = match Element.query_selector elt Selector.grid with
     | None -> failwith "container-editor: grid element not found"
-    | Some x -> Resizable_grid.attach ~drag_interval:(Fr 0.1) x
+    | Some x -> Resizable_grid.attach ~drag_interval:(Fr 0.05) x
 
   val mutable _containers : (string * Wm.container) list = containers
   val mutable _listeners = []
