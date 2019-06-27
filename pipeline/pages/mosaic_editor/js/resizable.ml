@@ -83,7 +83,7 @@ let get_cursor_position ?touch_id (event : #Dom_html.event Js.t) =
     | Some page_x, Some page_y -> page_x, page_y
     | _ -> failwith "no page coordinates in mouse event"
     end
-  | "touchmove" | "touchstart"->
+  | "touchmove" | "touchstart" ->
     let (e : Dom_html.touchEvent Js.t) = Js.Unsafe.coerce event in
     let touches = e##.changedTouches in
     let rec aux acc i =

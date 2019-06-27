@@ -59,12 +59,12 @@
         @include mdc-theme-prop(border-color, text-disabled-on-dark);
     }
 
-    // &--fixed-adjust {
-    //     padding-top: $mdc-top-app-bar-row-height + $top-app-bar-second-row-height;
-    //     @media (max-width: $mdc-top-app-bar-mobile-breakpoint) {
-    //         padding-top: $mdc-top-app-bar-mobile-row-height + $top-app-bar-second-row-height;
-    //     }
-    // }
+    &--fixed-adjust {
+        padding-top: $mdc-top-app-bar-row-height + $top-app-bar-second-row-height;
+        @media (max-width: $mdc-top-app-bar-mobile-breakpoint) {
+            padding-top: $mdc-top-app-bar-mobile-row-height + $top-app-bar-second-row-height;
+        }
+    }
 }
 
 .mdc-top-app-bar--contextual-action {

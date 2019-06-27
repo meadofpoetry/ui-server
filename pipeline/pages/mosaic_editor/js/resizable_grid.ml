@@ -242,30 +242,18 @@ class t
 
   method private handle_drag_start
       (e : event) _ : unit Lwt.t =
-    Dom_html.stopPropagation (coerce_event e);
-    Dom.preventDefault (coerce_event e);
     let target = Dom_html.eventTarget (coerce_event e) in
     let cell = cell_of_event (self#cells_ super#root) (coerce_event e) in
-    (* FIXME this definetely may not be a cell, rewrite *)
-    let direction =
-      if Element.has_class target CSS.col_handle
-      then Some `Col
-      else if Element.has_class target CSS.row_handle
-      then Some `Row
-      else if Element.has_class target CSS.mul_handle
-      then Some `Mul
-      else None in
+    let direction = Element.(
+        if has_class target CSS.col_handle then Some `Col
+        else if has_class target CSS.row_handle then Some `Row
+        else if has_class target CSS.mul_handle then Some `Mul
+        else None) in
     match direction, cell with
-    | _, None -> Lwt.return_unit
-    | None, Some cell ->
-      Events.mouseup super#root
-      >>= fun _ ->
-      self#notify_selected cell;
-      List.iter (fun x -> Element.remove_class x CSS.cell_selected) _selected_cells;
-      Element.add_class cell CSS.cell_selected;
-      _selected_cells <- [cell];
-      Lwt.return_unit
+    | None, _ | _, None -> Lwt.return_unit
     | Some direction, Some cell ->
+      Dom_html.stopPropagation (coerce_event e);
+      Dom.preventDefault (coerce_event e);
       let grid = self#parent_grid target in
       let col, row = self#get_cell_position cell in
       let cells = self#cells ~include_subgrids:false ~grid () in

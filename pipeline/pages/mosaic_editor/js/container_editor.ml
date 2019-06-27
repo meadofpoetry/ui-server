@@ -15,12 +15,17 @@ let ( % ) f g x = f (g x)
 let ( >>= ) = Lwt.bind
 
 module Selector = struct
+  let grid_wrapper = Printf.sprintf ".%s" Card.CSS.media
+  let cell = Printf.sprintf ".%s" Resizable_grid.CSS.cell
   let grid = Printf.sprintf ".%s" Resizable_grid.CSS.grid
   let actions = Printf.sprintf ".%s" Card.CSS.action_icons
 end
 
 class t ?(containers = []) ~resolution elt () = object(self)
   val ghost = Dom_html.(createDiv document)
+  val grid_wrapper = match Element.query_selector elt Selector.grid_wrapper with
+    | None -> failwith "container-editor: grid wrapper element not found"
+    | Some x -> x
   val actions = match Element.query_selector elt Selector.actions with
     | None -> failwith "container-editor: actions element not found"
     | Some x -> x
@@ -36,6 +41,35 @@ class t ?(containers = []) ~resolution elt () = object(self)
   inherit Drop_target.t elt () as super
 
   method! init () : unit =
+    let class_ = Resizable_grid.CSS.cell_selected in
+    let _ = Selection.make
+        ~validate_start:(fun e ->
+            match Js.to_string e##._type with
+            | "mousedown" ->
+              let (e : Dom_html.mouseEvent Js.t) = Js.Unsafe.coerce e in
+              e##.button = 0
+            | _ -> true)
+        ~selectables:[Query Selector.cell]
+        ~start_areas:[Node grid_wrapper]
+        ~boundaries:[Node grid_wrapper]
+        ~on_start:(fun { selected; selection; _ } ->
+            List.iter (fun x -> Element.remove_class x class_) selected;
+            selection#deselect_all ())
+        ~on_move:(fun { selected; removed; _ } ->
+            List.iter (fun x -> Element.add_class x class_) selected;
+            List.iter (fun x -> Element.remove_class x class_) removed)
+        ~on_stop:(fun { selection; selected; _ } ->
+            selection#keep_selection ())
+        ~on_select:(fun item { selection; selected; _ } ->
+            let is_selected = Element.has_class item class_ in
+            List.iter (fun x -> Element.remove_class x class_) selected;
+            selection#deselect_all ();
+            if is_selected
+            then (Element.remove_class item class_;
+                  selection#deselect item)
+            else (Element.add_class item class_;
+                  selection#keep_selection ()))
+        () in
     grid#reset ~rows:5 ~cols:5 ();
     List.iter (Element.append_child actions % Widget.root) @@ self#create_grid_actions ();
     super#init ()
@@ -49,9 +83,7 @@ class t ?(containers = []) ~resolution elt () = object(self)
 
   method! layout () : unit =
     let parent_width, parent_height =
-      Js.Opt.case (Element.get_parent grid#root)
-        (fun () -> 0, 0)
-        (fun parent -> parent##.offsetWidth, parent##.offsetHeight) in
+      grid_wrapper##.offsetWidth, grid_wrapper##.offsetHeight in
     let width = parent_height * (fst resolution) / (snd resolution) in
     grid#root##.style##.width := Utils.px_js width;
     grid#root##.style##.height := Utils.px_js parent_height;

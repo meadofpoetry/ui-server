@@ -8,6 +8,25 @@ $divider-color: if(
     $divider-color-on-light-bg
 );
 
+.selection-area {
+    position: relative;
+    border-radius: 2px;
+    border-width: 1px;
+    border-style: solid;
+    @include mdc-theme-prop(border-color, primary);
+
+    &:before {
+        content: "";
+        position: absolute;
+        opacity: 0.08;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        @include mdc-theme-prop(background-color, primary);
+    }
+}
+
 .container-editor {
     position: relative;
     width: 100%;
