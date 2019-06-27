@@ -130,7 +130,8 @@ class t
     self#set_style super#root Row (gen_template ~size:row_size rows);
     List.iter (Element.append_child super#root % Tyxml_js.To_dom.of_element)
     @@ gen_cells
-      ~f:(fun ~col ~row () -> Markup.create_grid_cell ~col ~row ())
+      ~f:(fun ~col ~row () ->
+          Markup.create_grid_cell ~col_start:col ~row_start:row ())
       ~cols ~rows
 
   method insert_table
@@ -142,7 +143,8 @@ class t
     let subgrid = Element.query_selector cell Selector.grid in
     Utils.Option.iter (Element.remove_child_safe cell) subgrid;
     let content =
-      gen_cells ~f:(fun ~col ~row () -> Markup.create_grid_cell ~col ~row ())
+      gen_cells ~f:(fun ~col ~row () ->
+          Markup.create_grid_cell ~col_start:col ~row_start:row ())
         ~cols ~rows in
     let grid =
       Tyxml_js.To_dom.of_element
@@ -150,11 +152,27 @@ class t
     Element.append_child cell grid
 
   method merge (cells : Dom_html.element Js.t list) : unit =
-    (* TODO check if merge is possible *)
-    fail "not implemented"
-
-  method split (cell : Dom_html.element Js.t) : unit =
-    fail "not implemented"
+    match cells with
+    | [] | [_] -> ()
+    | x :: tl ->
+      (* FIXME check merge availability *)
+      (* FIXME consider different grids *)
+      let col, row = self#get_cell_position x in
+      let col_start, col_end, row_start, row_end =
+        List.fold_left (fun (cs, ce, rs, re) cell ->
+            let col, row = self#get_cell_position cell in
+            min col cs, max col ce,
+            min row rs, max row re) (col, col, row, row) tl in
+      let (merged : Dom_html.element Js.t) =
+        Tyxml_js.To_dom.of_element
+        @@ Markup.create_grid_cell
+          ~row_start
+          ~col_start
+          ~row_end:(succ row_end)
+          ~col_end:(succ col_end)
+          () in
+      Element.append_child super#root merged;
+      List.iter (Element.remove_child_safe super#root) cells
 
   method cells ?include_subgrids
       ?(grid = super#root)
@@ -227,7 +245,10 @@ class t
           | Col -> n, succ i in
         let (elt : Dom_html.element Js.t) =
           Tyxml_js.To_dom.of_element
-          @@ Markup.create_grid_cell ~row ~col () in
+          @@ Markup.create_grid_cell
+            ~row_start:row
+            ~col_start:col
+            () in
         Element.append_child grid elt) opposite_tracks;
     let style =
       String.concat " "
@@ -259,18 +280,21 @@ class t
       let cells = self#cells ~include_subgrids:false ~grid () in
       let first_cells, row, col = match direction with
         | `Row ->
+          (* FIXME not 1, but with min index *)
           let first_cell = List.find (fun cell ->
               let col, row' = self#get_cell_position cell in
               col = 1 && row = row') cells in
           Element.add_class first_cell CSS.cell_dragging_row;
           [first_cell], Some (self#get_dimensions ~col ~row grid Row), None
         | `Col ->
+          (* FIXME not 1, but with min index *)
           let first_cell = List.find (fun cell ->
               let col', row = self#get_cell_position cell in
               row = 1 && col = col') cells in
           Element.add_class first_cell CSS.cell_dragging_column;
           [first_cell], None, Some (self#get_dimensions ~col ~row grid Col)
         | `Mul ->
+          (* FIXME not 1, but with min index *)
           let col_cell = List.find (fun cell ->
               let col', row = self#get_cell_position cell in
               row = 1 && col = col') cells in

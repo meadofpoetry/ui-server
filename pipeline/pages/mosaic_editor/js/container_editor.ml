@@ -37,39 +37,41 @@ class t ?(containers = []) ~resolution elt () = object(self)
   val mutable _listeners = []
   val mutable _focused_item = None
   val mutable _toolbar = Widget.create_div ()
+  val mutable _selection = None
 
   inherit Drop_target.t elt () as super
 
   method! init () : unit =
     let class_ = Resizable_grid.CSS.cell_selected in
-    let _ = Selection.make
-        ~validate_start:(fun e ->
-            match Js.to_string e##._type with
-            | "mousedown" ->
-              let (e : Dom_html.mouseEvent Js.t) = Js.Unsafe.coerce e in
-              e##.button = 0
-            | _ -> true)
-        ~selectables:[Query Selector.cell]
-        ~start_areas:[Node grid_wrapper]
-        ~boundaries:[Node grid_wrapper]
-        ~on_start:(fun { selected; selection; _ } ->
-            List.iter (fun x -> Element.remove_class x class_) selected;
-            selection#deselect_all ())
-        ~on_move:(fun { selected; removed; _ } ->
-            List.iter (fun x -> Element.add_class x class_) selected;
-            List.iter (fun x -> Element.remove_class x class_) removed)
-        ~on_stop:(fun { selection; selected; _ } ->
-            selection#keep_selection ())
-        ~on_select:(fun item { selection; selected; _ } ->
-            let is_selected = Element.has_class item class_ in
-            List.iter (fun x -> Element.remove_class x class_) selected;
-            selection#deselect_all ();
-            if is_selected
-            then (Element.remove_class item class_;
-                  selection#deselect item)
-            else (Element.add_class item class_;
-                  selection#keep_selection ()))
-        () in
+    _selection <- Some (
+        Selection.make
+          ~validate_start:(fun e ->
+              match Js.to_string e##._type with
+              | "mousedown" ->
+                let (e : Dom_html.mouseEvent Js.t) = Js.Unsafe.coerce e in
+                e##.button = 0
+              | _ -> true)
+          ~selectables:[Query Selector.cell]
+          ~start_areas:[Node grid_wrapper]
+          ~boundaries:[Node grid_wrapper]
+          ~on_start:(fun { selected; selection; _ } ->
+              List.iter (fun x -> Element.remove_class x class_) selected;
+              selection#deselect_all ())
+          ~on_move:(fun { selected; removed; _ } ->
+              List.iter (fun x -> Element.add_class x class_) selected;
+              List.iter (fun x -> Element.remove_class x class_) removed)
+          ~on_stop:(fun { selection; selected; _ } ->
+              selection#keep_selection ())
+          ~on_select:(fun item { selection; selected; _ } ->
+              let is_selected = Element.has_class item class_ in
+              List.iter (fun x -> Element.remove_class x class_) selected;
+              selection#deselect_all ();
+              if is_selected
+              then (Element.remove_class item class_;
+                    selection#deselect item)
+              else (Element.add_class item class_;
+                    selection#keep_selection ()))
+          ());
     grid#reset ~rows:5 ~cols:5 ();
     List.iter (Element.append_child actions % Widget.root) @@ self#create_grid_actions ();
     super#init ()
@@ -92,6 +94,8 @@ class t ?(containers = []) ~resolution elt () = object(self)
     super#layout ()
 
   method! destroy () : unit =
+    Utils.Option.iter (fun x -> x#destroy ()) _selection;
+    _selection <- None;
     List.iter Lwt.cancel _listeners;
     _listeners <- [];
     super#destroy ()
@@ -142,7 +146,15 @@ class t ?(containers = []) ~resolution elt () = object(self)
             grid#remove_column (List.hd grid#selected_cells);
             Lwt.return_unit)
         Icon.SVG.Path.table_column_remove in
-    [ add_row_above
+    let merge =
+      make_action
+        ~on_click:(fun _ _ ->
+            match _selection with
+            | None -> Lwt.return_unit
+            | Some x -> grid#merge x#selected; Lwt.return_unit)
+        Icon.SVG.Path.table_merge_cells in
+    [ merge
+    ; add_row_above
     ; add_row_below
     ; remove_row
     ; add_col_left
@@ -167,7 +179,8 @@ end
 
 let make (wm : Wm.t) =
   let cells = Resizable_grid_utils.gen_cells
-      ~f:(fun ~col ~row () -> Resizable_grid.Markup.create_grid_cell ~col ~row ())
+      ~f:(fun ~col ~row () -> Resizable_grid.Markup.create_grid_cell
+             ~col_start:col ~row_start:row ())
       ~cols:5
       ~rows:5 in
   let grid = Resizable_grid.Markup.create_grid

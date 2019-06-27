@@ -83,19 +83,23 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   module Card = Card.Make(Xml)(Svg)(Html)
 
-  let create_grid_cell ?(classes = []) ?attrs ?row ?col ?(content = []) () : 'a elt =
+  let create_grid_cell ?(classes = []) ?attrs
+      ?row_start
+      ?col_start
+      ?row_end
+      ?col_end
+      ?(content = []) () : 'a elt =
     let classes = CSS.cell :: classes in
-    let style = match row, col with
-      | None, None -> None
-      | Some row, None -> Some (Printf.sprintf "grid-row: %d" row)
-      | None, Some col -> Some (Printf.sprintf "grid-column: %d" col)
-      | Some row, Some col ->
-        Some (Printf.sprintf "grid-row: %d; grid-column: %d" row col)
-    in
-    div ~a:([a_class classes] <@> attrs
-            |> map_cons_option a_style style
-            |> map_cons_option (a_user_data "row" % string_of_int) row
-            |> map_cons_option (a_user_data "col" % string_of_int) col)
+    let get_style = function None -> "auto" | Some x -> Printf.sprintf "%d" x in
+    let style = Printf.sprintf "grid-area: %s / %s / %s / %s;"
+        (get_style row_start)
+        (get_style col_start)
+        (get_style row_end)
+        (get_style col_end) in
+    div ~a:([ a_class classes
+            ; a_style style ] <@> attrs
+            |> map_cons_option (a_user_data "row" % string_of_int) row_start
+            |> map_cons_option (a_user_data "col" % string_of_int) col_start)
       ([ div ~a:[a_class [CSS.row_handle]] []
        ; div ~a:[a_class [CSS.col_handle]] []
        ; div ~a:[a_class [CSS.mul_handle]] []
