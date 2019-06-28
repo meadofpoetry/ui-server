@@ -138,7 +138,6 @@ $divider-color: if(
         left: ($container-grid-single-handle-size - $container-grid-gap) / 2;
         height: 100vh;
         @include mdc-theme-prop(background-color, $container-grid-border-active-color);
-        z-index: 99; // FIXME
         pointer-events: none;
     }
 }
@@ -152,7 +151,6 @@ $divider-color: if(
         left: 0;
         width: 100vw;
         @include mdc-theme-prop(background-color, $container-grid-border-active-color);
-        z-index: 99; // FIXME
         pointer-events: none;
     }
 }

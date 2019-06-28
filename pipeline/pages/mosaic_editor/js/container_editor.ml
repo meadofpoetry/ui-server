@@ -6,8 +6,9 @@ open Pipeline_types
 
 (* TODO
    [ ] undo/redo
-   [ ] selection
+   [X] selection (single/multi with selection area)
    [ ] editing mode: table, containers
+   [ ] actions
 *)
 
 let ( % ) f g x = f (g x)

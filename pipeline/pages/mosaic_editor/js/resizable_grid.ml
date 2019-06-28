@@ -36,10 +36,6 @@ module Event = struct
     Events.Typ.make "resizable-grid:resize"
 end
 
-type direction =
-  | Col
-  | Row
-
 let ( % ) f g x = f (g x)
 
 let ( >>= ) = Lwt.bind
@@ -155,21 +151,21 @@ class t
     match cells with
     | [] | [_] -> ()
     | x :: tl ->
-      (* FIXME check merge availability *)
       (* FIXME consider different grids *)
-      let col, row = self#get_cell_position x in
+      let { col; row; col_span; row_span } = get_cell_position x in
       let col_start, col_end, row_start, row_end =
         List.fold_left (fun (cs, ce, rs, re) cell ->
-            let col, row = self#get_cell_position cell in
-            min col cs, max col ce,
-            min row rs, max row re) (col, col, row, row) tl in
+            let { col; row; col_span; row_span } = get_cell_position cell in
+            min col cs, max (col + col_span) ce,
+            min row rs, max (row + row_span) re)
+          (col, col + col_span, row, row + row_span) tl in
       let (merged : Dom_html.element Js.t) =
         Tyxml_js.To_dom.of_element
         @@ Markup.create_grid_cell
           ~row_start
           ~col_start
-          ~row_end:(succ row_end)
-          ~col_end:(succ col_end)
+          ~row_end
+          ~col_end
           () in
       Element.append_child super#root merged;
       List.iter (Element.remove_child_safe super#root) cells
@@ -192,18 +188,18 @@ class t
   method private remove_row_or_column
       (direction : direction)
       (cell : Dom_html.element Js.t) : unit =
-    let grid = self#parent_grid cell in
-    let col, row = self#get_cell_position cell in
+    let grid = get_parent_grid cell in
+    let ({ col; row; _ } : cell_position) = get_cell_position cell in
     let tracks = Array.to_list @@ self#raw_tracks grid direction in
     let n = match direction with Col -> col | Row -> row in
     (* Update positions and remove cells *)
     List.iter (fun cell ->
-        let col, row = self#get_cell_position cell in
+        let { col; row; col_span; row_span } = get_cell_position cell in
         let n' = match direction with Col -> col | Row -> row in
         if n' > n
         then begin match direction with
-          | Col -> set_cell_col cell (pred n')
-          | Row -> set_cell_row cell (pred n')
+          | Col -> set_cell_col ~span:col_span (pred n') cell
+          | Row -> set_cell_row ~span:row_span (pred n') cell
         end
         else if n' = n
         then Element.remove_child_safe grid cell)
@@ -219,8 +215,8 @@ class t
       ?(before = false)
       (direction : direction)
       (cell : Dom_html.element Js.t) : unit =
-    let grid = self#parent_grid cell in
-    let col, row = self#get_cell_position cell in
+    let grid = get_parent_grid cell in
+    let ({ col; row; _ } : cell_position) = get_cell_position cell in
     let tracks = Array.to_list @@ self#raw_tracks grid direction in
     (* Opposite tracks -
        rows if a column is being added,
@@ -233,10 +229,10 @@ class t
       | Row -> if before then row else succ row in
     (* Update positions of existing elements *)
     List.iter (fun cell ->
-        let col, row = self#get_cell_position cell in
+        let { col; row; col_span; row_span } = get_cell_position cell in
         match direction with
-        | Col -> if col >= n then set_cell_col cell (succ col)
-        | Row -> if row >= n then set_cell_row cell (succ row))
+        | Col -> if col >= n then set_cell_col ~span:col_span (succ col) cell
+        | Row -> if row >= n then set_cell_row ~span:row_span (succ row) cell)
     @@ self#cells ~include_subgrids:false ~grid ();
     (* Add new items to each of the opposite tracks *)
     Array.iteri (fun i _ ->
@@ -275,32 +271,21 @@ class t
     | Some direction, Some cell ->
       Dom_html.stopPropagation (coerce_event e);
       Dom.preventDefault (coerce_event e);
-      let grid = self#parent_grid target in
-      let col, row = self#get_cell_position cell in
+      let grid = get_parent_grid target in
+      let ({ col; row; _ } : cell_position) = get_cell_position cell in
       let cells = self#cells ~include_subgrids:false ~grid () in
       let first_cells, row, col = match direction with
         | `Row ->
-          (* FIXME not 1, but with min index *)
-          let first_cell = List.find (fun cell ->
-              let col, row' = self#get_cell_position cell in
-              col = 1 && row = row') cells in
+          let first_cell = find_first_cell Row row cells in
           Element.add_class first_cell CSS.cell_dragging_row;
           [first_cell], Some (self#get_dimensions ~col ~row grid Row), None
         | `Col ->
-          (* FIXME not 1, but with min index *)
-          let first_cell = List.find (fun cell ->
-              let col', row = self#get_cell_position cell in
-              row = 1 && col = col') cells in
+          let first_cell = find_first_cell Col col cells in
           Element.add_class first_cell CSS.cell_dragging_column;
           [first_cell], None, Some (self#get_dimensions ~col ~row grid Col)
         | `Mul ->
-          (* FIXME not 1, but with min index *)
-          let col_cell = List.find (fun cell ->
-              let col', row = self#get_cell_position cell in
-              row = 1 && col = col') cells in
-          let row_cell = List.find (fun cell ->
-              let col, row' = self#get_cell_position cell in
-              col = 1 && row = row') cells in
+          let col_cell = find_first_cell Col col cells in
+          let row_cell = find_first_cell Row row cells in
           Element.add_class col_cell CSS.cell_dragging_column;
           Element.add_class row_cell CSS.cell_dragging_row;
           [col_cell; row_cell],
@@ -511,20 +496,6 @@ class t
          match value_of_string_opt s with
          | Some Px v -> v
          | _ -> 0.)
-
-  method private parent_grid (item : Dom_html.element Js.t) =
-    let rec aux elt =
-      if Element.equal super#root elt
-      then elt
-      else Js.Opt.case (Element.get_parent elt)
-          (fun () -> fail "parent grid not found")
-          (fun elt ->
-             if Element.has_class elt CSS.root
-             then elt else aux elt) in
-    aux item
-
-  method private get_cell_position (cell : Dom_html.element Js.t) : int * int =
-    get_cell_position cell
 
 end
 

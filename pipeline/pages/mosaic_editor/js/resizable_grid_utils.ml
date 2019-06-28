@@ -7,6 +7,22 @@ module Attr = struct
   let col = "data-col"
 end
 
+type direction = Col | Row
+
+type cell_position =
+  { col : int
+  ; row : int
+  ; col_span : int
+  ; row_span : int
+  }
+
+let make_cell_position ?(col_span = 1) ?(row_span = 1) ~col ~row () =
+  { col
+  ; row
+  ; col_span
+  ; row_span
+  }
+
 type event = Touch of Dom_html.touchEvent Js.t
            | Mouse of Dom_html.mouseEvent Js.t
 
@@ -138,22 +154,58 @@ let get_size_at_track ?(gap = 0.) (tracks : float array) =
 
 let get_cell_position (cell : Dom_html.element Js.t) =
   let style = Dom_html.window##getComputedStyle cell in
-  Js.parseInt (Js.Unsafe.coerce style)##.gridColumnStart,
-  Js.parseInt (Js.Unsafe.coerce style)##.gridRowStart
+  let col = Js.parseInt (Js.Unsafe.coerce style)##.gridColumnStart in
+  let row = Js.parseInt (Js.Unsafe.coerce style)##.gridRowStart in
+  let col_end = (Js.Unsafe.coerce style)##.gridColumnEnd in
+  let row_end = (Js.Unsafe.coerce style)##.gridRowEnd in
+  { col
+  ; row
+  ; col_span = (match Js.to_string col_end with
+        | "auto" -> 1
+        | x -> (Js.parseInt col_end) - col)
+  ; row_span = (match Js.to_string row_end with
+        | "auto" -> 1
+        | x -> (Js.parseInt row_end) - row)
+  }
 
-let set_cell_row (cell : Dom_html.element Js.t) (row : int) =
-  let v = Js.string @@ string_of_int row in
+let set_cell_row ?(span = 1) (row : int) (cell : Dom_html.element Js.t) =
+  let v = Js.string @@ Printf.sprintf "%d / span %d" row span in
   (Js.Unsafe.coerce cell##.style)##.gridRow := v;
   cell##setAttribute (Js.string Attr.row) v
 
-let set_cell_col (cell : Dom_html.element Js.t) (col : int) =
-  let v = Js.string @@ string_of_int col in
+let set_cell_col ?(span = 1) (col : int) (cell : Dom_html.element Js.t) =
+  let v = Js.string @@ Printf.sprintf "%d / span %d" col span in
   (Js.Unsafe.coerce cell##.style)##.gridColumn := v;
   cell##setAttribute (Js.string Attr.col) v
 
-let set_cell_position ~col ~row (cell : Dom_html.element Js.t) =
-  set_cell_col cell col;
-  set_cell_row cell row
+let set_cell_position { col; row; col_span; row_span }
+    (cell : Dom_html.element Js.t) =
+  set_cell_col ~span:col_span col cell;
+  set_cell_row ~span:row_span row cell
+
+let find_first_cell dir n cells =
+  snd
+  @@ Utils.Option.get
+  @@ List.fold_left (fun acc cell ->
+      let pos = get_cell_position cell in
+      let main, aux = match dir with
+        | Col -> pos.col, pos.row
+        | Row -> pos.row, pos.col in
+      match acc with
+      | None -> if main = n then Some (aux, cell) else None
+      | Some (aux', x) ->
+        if n = main && aux < aux'
+        then Some (aux, cell)
+        else acc) None cells
+
+let get_parent_grid (cell : Dom_html.element Js.t) =
+  let rec aux elt =
+    Js.Opt.case (Element.get_parent elt)
+      (fun () -> failwith "parent grid not found")
+      (fun elt ->
+         if Element.has_class elt CSS.grid
+         then elt else aux elt) in
+  aux cell
 
 let gen_cells ~f ~rows ~cols =
   let rec gen_rows acc row =
@@ -166,3 +218,8 @@ let gen_cells ~f ~rows ~cols =
     else gen_rows (gen_cols acc cols) (pred row) in
   gen_rows [] rows
 
+let is_merge_possible (cells : Dom_html.element Js.t list) : bool =
+  (* TODO implement *)
+  (* XXX Merge is only possible when a group of cells forms a rectangle
+     and all cells belong to the same parent grid. *)
+  true

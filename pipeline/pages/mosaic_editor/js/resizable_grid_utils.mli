@@ -2,6 +2,23 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml
 open Page_mosaic_editor_tyxml.Container_editor
 
+type direction = Col | Row
+
+type cell_position =
+  { col : int
+  ; row : int
+  ; col_span : int
+  ; row_span : int
+  }
+
+val make_cell_position :
+  ?col_span:int
+  -> ?row_span:int
+  -> col:int
+  -> row:int
+  -> unit
+  -> cell_position
+
 type event = Touch of Dom_html.touchEvent Js.t
            | Mouse of Dom_html.mouseEvent Js.t
 
@@ -39,16 +56,26 @@ val get_size_at_track : ?gap:float -> float array -> float
 
 val get_styles : string -> Dom_html.element Js.t -> string list
 
-val get_cell_position : Dom_html.element Js.t -> int * int
+val get_cell_position : Dom_html.element Js.t -> cell_position
 
-val set_cell_col : Dom_html.element Js.t -> int -> unit
+val set_cell_col : ?span:int -> int -> Dom_html.element Js.t -> unit
 
-val set_cell_row : Dom_html.element Js.t -> int -> unit
+val set_cell_row : ?span:int -> int -> Dom_html.element Js.t -> unit
 
-val set_cell_position : col:int -> row:int -> Dom_html.element Js.t -> unit
+val set_cell_position : cell_position -> Dom_html.element Js.t -> unit
+
+val find_first_cell : direction
+  -> int
+  -> Dom_html.element Js.t list
+  -> Dom_html.element Js.t
+
+val get_parent_grid : Dom_html.element Js.t -> Dom_html.element Js.t
 
 val gen_cells :
   f:(col:int -> row:int -> unit -> ([> Html_types.div] Tyxml_js.Html.elt as 'a))
   -> rows:int
   -> cols:int
   -> 'a list
+
+(* Checks if a group of cells can be merged into one cell *)
+val is_merge_possible : Dom_html.element Js.t list -> bool
