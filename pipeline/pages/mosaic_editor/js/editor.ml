@@ -65,13 +65,13 @@ end
     mode and normal mode *)
 let transform_top_app_bar
     ?(actions = [])
-    ~(title : string)
+    ?(title : string option)
     ~(class_ : string)
     (scaffold : Scaffold.t)
     (x : Top_app_bar.t) =
   let prev_title = x#title in
   let prev_actions = x#actions in
-  x#set_title title;
+  Utils.Option.iter x#set_title title;
   x#add_class class_;
   x#set_actions @@ List.map Widget.root actions;
   (fun () ->
@@ -81,28 +81,16 @@ let transform_top_app_bar
      x#set_actions prev_actions;
      x#remove_class class_)
 
-let handle_item_selected
+let handle_items_selected
     (scaffold : Scaffold.t)
-    item =
+    (items : Dom_html.element Js.t Js.js_array Js.t) =
   match scaffold#top_app_bar with
   | None -> fun () -> ()
   | Some top_app_bar ->
-    (* let remove =
-     * Actions.make_action
-     *     ~on_click:(fun _ _ -> item#remove (); Lwt.return_unit)
-     *     { icon = Icon.SVG.(make_simple Path.delete)#widget
-     *     ; name = "Удалить"
-     *     } in
-     * let edit =
-     *   Actions.make_action
-     *     ~on_click:(fun _ _ -> Lwt.return_unit)
-     *     { icon = Icon.SVG.(make_simple Path.pencil)#widget
-     *     ; name = "Редактировать"
-     *     } in *)
     transform_top_app_bar
       ~class_:Page_mosaic_editor_tyxml.CSS.top_app_bar_contextual
       ~actions:[] (* [edit; remove] *)
-      ~title:"TODO"
+      ~title:(Printf.sprintf "Выбрано ячеек: %d" items##.length)
       scaffold
       top_app_bar
 
@@ -117,6 +105,7 @@ class t ~(layout: Wm.t)
   val mutable _listeners = []
   val mutable _resize_observer = None
   val mutable _overflow_menu = None
+  val mutable _top_app_bar_context = None
 
   inherit Widget.t elt () as super
 
@@ -137,7 +126,8 @@ class t ~(layout: Wm.t)
 
   method! initial_sync_with_dom () : unit =
     _listeners <- Events.(
-        [ listen_lwt super#root Resizable.Event.selected self#handle_widget_selected
+        [ listen_lwt container_editor#root Container_editor.Event.selected
+            self#handle_container_selected
         ]);
     super#initial_sync_with_dom ()
 
@@ -199,8 +189,27 @@ class t ~(layout: Wm.t)
       editor#destroy ();
       super#append_child container_editor
 
-  method private handle_widget_selected e _ =
-    ignore @@ Js.Unsafe.global##.console##log e;
+  method private restore_top_app_bar_context () : unit =
+    match _top_app_bar_context with
+    | None -> ()
+    | Some f -> f (); _top_app_bar_context <- None
+
+  method private handle_container_selected e _ =
+    let detail = Widget.event_detail e in
+    Js.Unsafe.global##.console##log e |> ignore;
+    begin match detail##.length with
+      | 0 -> self#restore_top_app_bar_context ()
+      | _ ->
+        let undo = handle_items_selected scaffold detail in
+        (match _top_app_bar_context with
+         | Some _ -> ()
+         | None ->
+           scaffold#set_on_navigation_icon_click (fun _ _ ->
+               container_editor#clear_selection ();
+               self#restore_top_app_bar_context ();
+               Lwt.return_unit);
+           _top_app_bar_context <- Some undo)
+    end;
     Lwt.return_unit
 end
 
@@ -208,5 +217,4 @@ let make layout scaffold =
   let elt = Dom_html.createDiv Dom_html.document in
   Element.add_class elt "editor";
   let t = new t ~layout elt scaffold () in
-  (* t#switch_state Test.container; *)
   t

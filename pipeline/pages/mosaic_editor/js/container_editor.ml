@@ -24,11 +24,17 @@ module Selector = struct
   let actions = Printf.sprintf ".%s" Card.CSS.actions
 end
 
+module Event = struct
+  class type selected = [Dom_html.element Js.t Js.js_array Js.t] Widget.custom_event
+
+  let (selected : selected Js.t Events.Typ.t) =
+    Events.Typ.make "container-editor:selected"
+end
+
 class t ?(containers = [])
     ~resolution
     ~(scaffold : Scaffold.t)
     elt () = object(self)
-  val ghost = Dom_html.(createDiv document)
   val grid_wrapper = match Element.query_selector elt Selector.grid_wrapper with
     | None -> failwith "container-editor: grid wrapper element not found"
     | Some x -> x
@@ -46,7 +52,7 @@ class t ?(containers = [])
   val mutable _selection = None
   val mutable _actions : action list = []
 
-  inherit Drop_target.t elt () as super
+  inherit Widget.t elt () as super
 
   method! init () : unit =
     let class_ = Resizable_grid.CSS.cell_selected in
@@ -61,16 +67,15 @@ class t ?(containers = [])
           ~selectables:[Query Selector.cell]
           ~start_areas:[Node grid_wrapper]
           ~boundaries:[Node grid_wrapper]
-          ~on_start:(fun { selected; selection; original_event; _ } ->
-              Dom.preventDefault original_event;
+          ~on_start:(fun { selected; selection; _ } ->
               List.iter (fun x -> Element.remove_class x class_) selected;
               selection#deselect_all ())
-          ~on_move:(fun { selected; removed; original_event; _ } ->
-              Dom.preventDefault original_event;
+          ~on_move:(fun { selected; removed; _ } ->
               List.iter (fun x -> Element.add_class x class_) selected;
               List.iter (fun x -> Element.remove_class x class_) removed)
           ~on_stop:(fun { selection; selected; _ } ->
-              selection#keep_selection ())
+              selection#keep_selection ();
+              self#notify_selected ())
           ~on_select:(fun item { selection; selected; _ } ->
               let is_selected = Element.has_class item class_ in
               List.iter (fun x -> Element.remove_class x class_) selected;
@@ -79,7 +84,8 @@ class t ?(containers = [])
               then (Element.remove_class item class_;
                     selection#deselect item)
               else (Element.add_class item class_;
-                    selection#keep_selection ()))
+                    selection#keep_selection ());
+              self#notify_selected ())
           ());
     grid#reset ~rows:5 ~cols:5 ();
     List.iter (Element.append_child actions % Widget.root) @@ self#create_grid_actions ();
@@ -89,7 +95,6 @@ class t ?(containers = [])
   method! initial_sync_with_dom () : unit =
     _listeners <- Events.(
         [ keydowns super#root self#handle_keydown
-        ; listen_lwt grid#root Resizable_grid.Event.selected self#handle_selected
         ]);
     super#initial_sync_with_dom ()
 
@@ -115,11 +120,24 @@ class t ?(containers = [])
     | None -> []
     | Some x -> x#selected
 
+  method clear_selection () : unit =
+    match _selection with
+    | None -> ()
+    | Some x ->
+      List.iter (fun x ->
+          Element.remove_class x Resizable_grid.CSS.cell_selected)
+        x#selected;
+      x#deselect_all ()
+
   method toolbar = _toolbar
 
   method actions : action list = _actions
 
   (* Private methods *)
+
+  method private notify_selected () : unit =
+    let detail = Js.array @@ Array.of_list self#selected in
+    super#emit ~detail Event.selected
 
   method private create_actions () : action list =
     let merge =
@@ -188,20 +206,10 @@ class t ?(containers = [])
     let submit = Button.make ~label:"Применить" () in
     let buttons = Card.Actions.make_buttons [submit] in
     [icons; buttons]
-
-  method private handle_selected e _ : unit Lwt.t =
-    Js.Unsafe.global##.console##log e##.detail |> ignore;
-    Lwt.return_unit
-
+    
   method private handle_keydown _ _ : unit Lwt.t =
     (* TODO implement *)
     Lwt.return_unit
-
-  method private handle_dropped_json (json : Yojson.Safe.json) : unit Lwt.t =
-    Lwt.return_unit
-
-  method private move_ghost ?aspect event : unit =
-    ()
 
 end
 

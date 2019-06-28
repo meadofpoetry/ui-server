@@ -25,12 +25,7 @@ module Event = struct
 
   type detail = item Js.t Js.js_array Js.t
 
-  class type selected = [Dom_html.element Js.t] Widget.custom_event
-
   class type resize = [detail] Widget.custom_event
-
-  let (selected : selected Js.t Events.Typ.t) =
-    Events.Typ.make "resizable-grid:selected"
 
   let (resize : resize Js.t Events.Typ.t) =
     Events.Typ.make "resizable-grid:resize"
@@ -248,9 +243,6 @@ class t
 
   method private notify_change () : unit =
     ()
-
-  method private notify_selected cell : unit =
-    super#emit ~detail:cell Event.selected
 
   method private handle_drag_start
       (e : event) _ : unit Lwt.t =
