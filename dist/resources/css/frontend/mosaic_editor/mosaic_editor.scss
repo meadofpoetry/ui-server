@@ -6,6 +6,7 @@
 @import './table/table';
 @import "./container_editor/container_editor";
 @import './resizable/resizable';
+@import "./overflow_menu/overflow_menu";
 @import "./variables";
 
 @mixin nav-icon-hidden {
@@ -52,6 +53,10 @@
         @include nav-icon-hidden;
     }
 
+    .mdc-top-app-bar__section:nth-child(2) {
+        flex: 0 1 33%;
+    }
+
     &__row:nth-child(2) {
         height: $top-app-bar-second-row-height;
         border-top: 1px solid;
@@ -59,12 +64,12 @@
         @include mdc-theme-prop(border-color, text-disabled-on-dark);
     }
 
-    &--fixed-adjust {
-        padding-top: $mdc-top-app-bar-row-height + $top-app-bar-second-row-height;
-        @media (max-width: $mdc-top-app-bar-mobile-breakpoint) {
-            padding-top: $mdc-top-app-bar-mobile-row-height + $top-app-bar-second-row-height;
-        }
-    }
+    // &--fixed-adjust {
+    //     padding-top: $mdc-top-app-bar-row-height + $top-app-bar-second-row-height;
+    //     @media (max-width: $mdc-top-app-bar-mobile-breakpoint) {
+    //         padding-top: $mdc-top-app-bar-mobile-row-height + $top-app-bar-second-row-height;
+    //     }
+    // }
 }
 
 .mdc-top-app-bar--contextual-action {

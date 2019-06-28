@@ -3,12 +3,14 @@ open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 open Components
 open Pipeline_types
+open Types
 
 (* TODO
    [ ] undo/redo
    [X] selection (single/multi with selection area)
-   [ ] editing mode: table, containers
-   [ ] actions
+   [ ] editing mode selection: table, containers
+   [X] overflow menu
+   [ ] contextual actions
 *)
 
 let ( % ) f g x = f (g x)
@@ -19,10 +21,13 @@ module Selector = struct
   let grid_wrapper = Printf.sprintf ".%s" Card.CSS.media
   let cell = Printf.sprintf ".%s" Resizable_grid.CSS.cell
   let grid = Printf.sprintf ".%s" Resizable_grid.CSS.grid
-  let actions = Printf.sprintf ".%s" Card.CSS.action_icons
+  let actions = Printf.sprintf ".%s" Card.CSS.actions
 end
 
-class t ?(containers = []) ~resolution elt () = object(self)
+class t ?(containers = [])
+    ~resolution
+    ~(scaffold : Scaffold.t)
+    elt () = object(self)
   val ghost = Dom_html.(createDiv document)
   val grid_wrapper = match Element.query_selector elt Selector.grid_wrapper with
     | None -> failwith "container-editor: grid wrapper element not found"
@@ -39,6 +44,7 @@ class t ?(containers = []) ~resolution elt () = object(self)
   val mutable _focused_item = None
   val mutable _toolbar = Widget.create_div ()
   val mutable _selection = None
+  val mutable _actions : action list = []
 
   inherit Drop_target.t elt () as super
 
@@ -55,10 +61,12 @@ class t ?(containers = []) ~resolution elt () = object(self)
           ~selectables:[Query Selector.cell]
           ~start_areas:[Node grid_wrapper]
           ~boundaries:[Node grid_wrapper]
-          ~on_start:(fun { selected; selection; _ } ->
+          ~on_start:(fun { selected; selection; original_event; _ } ->
+              Dom.preventDefault original_event;
               List.iter (fun x -> Element.remove_class x class_) selected;
               selection#deselect_all ())
-          ~on_move:(fun { selected; removed; _ } ->
+          ~on_move:(fun { selected; removed; original_event; _ } ->
+              Dom.preventDefault original_event;
               List.iter (fun x -> Element.add_class x class_) selected;
               List.iter (fun x -> Element.remove_class x class_) removed)
           ~on_stop:(fun { selection; selected; _ } ->
@@ -75,6 +83,7 @@ class t ?(containers = []) ~resolution elt () = object(self)
           ());
     grid#reset ~rows:5 ~cols:5 ();
     List.iter (Element.append_child actions % Widget.root) @@ self#create_grid_actions ();
+    _actions <- self#create_actions ();
     super#init ()
 
   method! initial_sync_with_dom () : unit =
@@ -101,59 +110,60 @@ class t ?(containers = []) ~resolution elt () = object(self)
     _listeners <- [];
     super#destroy ()
 
+  method selected : Dom_html.element Js.t list =
+    match _selection with
+    | None -> []
+    | Some x -> x#selected
+
   method toolbar = _toolbar
+
+  method actions : action list = _actions
 
   (* Private methods *)
 
-  method private create_grid_actions () =
-    let make_action ~on_click path =
-      Icon_button.make
-        ~on_click
-        ~icon:Icon.SVG.(make_simple path)
-        () in
-    let add_row_above =
-      make_action
-        ~on_click:(fun _ _ ->
-            grid#add_row_before (List.hd grid#selected_cells);
-            Lwt.return_unit)
-        Icon.SVG.Path.table_row_plus_before in
-    let add_row_below =
-      make_action
-        ~on_click:(fun _ _ ->
-            grid#add_row_after (List.hd grid#selected_cells);
-            Lwt.return_unit)
-        Icon.SVG.Path.table_row_plus_after in
-    let remove_row =
-      make_action
-        ~on_click:(fun _ _ ->
-            grid#remove_row (List.hd grid#selected_cells);
-            Lwt.return_unit)
-        Icon.SVG.Path.table_row_remove in
-    let add_col_left =
-      make_action
-        ~on_click:(fun _ _ ->
-            grid#add_column_before (List.hd grid#selected_cells);
-            Lwt.return_unit)
-        Icon.SVG.Path.table_column_plus_before in
-    let add_col_right =
-      make_action
-        ~on_click:(fun _ _ ->
-            grid#add_column_after (List.hd grid#selected_cells);
-            Lwt.return_unit)
-        Icon.SVG.Path.table_column_plus_after in
-    let remove_col =
-      make_action
-        ~on_click:(fun _ _ ->
-            grid#remove_column (List.hd grid#selected_cells);
-            Lwt.return_unit)
-        Icon.SVG.Path.table_column_remove in
+  method private create_actions () : action list =
     let merge =
-      make_action
-        ~on_click:(fun _ _ ->
-            match _selection with
-            | None -> Lwt.return_unit
-            | Some x -> grid#merge x#selected; Lwt.return_unit)
-        Icon.SVG.Path.table_merge_cells in
+      { callback = (fun () -> grid#merge self#selected)
+      ; name = "Объединить ячейки"
+      ; icon = Icon.SVG.Path.table_merge_cells
+      ; context = Selected
+      } in
+    let add_row_above =
+      { callback = (fun () -> grid#add_row_before (List.hd self#selected))
+      ; name = "Добавить ряд сверху"
+      ; icon = Icon.SVG.Path.table_row_plus_before
+      ; context = All
+      } in
+    let add_row_below =
+      { callback = (fun () -> grid#add_row_after (List.hd self#selected))
+      ; name = "Добавить ряд снизу"
+      ; icon = Icon.SVG.Path.table_row_plus_after
+      ; context = All
+      } in
+    let remove_row =
+      { callback = (fun () -> grid#remove_row (List.hd self#selected))
+      ; name = "Удалить ряд"
+      ; icon = Icon.SVG.Path.table_row_remove
+      ; context = Selected
+      } in
+    let add_col_left =
+      { callback = (fun () -> grid#add_column_before (List.hd self#selected))
+      ; name = "Добавить столбец слева"
+      ; icon = Icon.SVG.Path.table_column_plus_before
+      ; context = All
+      } in
+    let add_col_right =
+      { callback = (fun () -> grid#add_column_after (List.hd self#selected))
+      ; name = "Добавить столбец справа"
+      ; icon = Icon.SVG.Path.table_column_plus_after
+      ; context = All
+      } in
+    let remove_col =
+      { callback = (fun () -> grid#remove_column (List.hd self#selected))
+      ; name = "Удалить столбец"
+      ; icon = Icon.SVG.Path.table_column_remove
+      ; context = Selected
+      } in
     [ merge
     ; add_row_above
     ; add_row_below
@@ -162,6 +172,22 @@ class t ?(containers = []) ~resolution elt () = object(self)
     ; add_col_right
     ; remove_col
     ]
+
+  method private create_grid_actions () =
+    let undo = Icon_button.make
+        ~icon:Icon.SVG.(make_simple Path.undo)#root
+        () in
+    let redo = Icon_button.make
+        ~icon:Icon.SVG.(make_simple Path.redo)#root
+        () in
+    let icons =
+      Card.Actions.make_icons
+        [ undo
+        ; redo
+        ] in
+    let submit = Button.make ~label:"Применить" () in
+    let buttons = Card.Actions.make_buttons [submit] in
+    [icons; buttons]
 
   method private handle_selected e _ : unit Lwt.t =
     Js.Unsafe.global##.console##log e##.detail |> ignore;
@@ -176,9 +202,10 @@ class t ?(containers = []) ~resolution elt () = object(self)
 
   method private move_ghost ?aspect event : unit =
     ()
+
 end
 
-let make (wm : Wm.t) =
+let make ~(scaffold : Scaffold.t) (wm : Wm.t) =
   let cells = Resizable_grid_utils.gen_cells
       ~f:(fun ~col ~row () -> Resizable_grid.Markup.create_grid_cell
              ~col_start:col ~row_start:row ())
@@ -199,4 +226,5 @@ let make (wm : Wm.t) =
   new t
     ~resolution:wm.resolution
     ~containers:wm.layout
+    ~scaffold
     elt ()

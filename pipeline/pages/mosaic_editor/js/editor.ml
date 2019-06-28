@@ -2,15 +2,28 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml
 open Components
 open Pipeline_types
-
-(* TODO
-   1. Add placeholder when the mosaic is empty (both for containers & widgets) *)
+open Types
 
 type event =
   [ `Layout of Wm.t
   ]
 
 let ( % ) f g x = f (g x)
+
+let icon_button_of_action action =
+  let icon =
+    Icon_button.make
+      ~on_click:(fun _ _ -> action.callback (); Lwt.return_unit)
+      ~icon:(Icon.SVG.make_simple action.icon)#root
+      () in
+  icon#set_attribute "title" action.name;
+  icon
+
+let menu_item_of_action action =
+  Item_list.Item.make
+    ~role:"menuitem"
+    ~graphic:Icon.SVG.(make_simple action.icon) (* FIXME *)
+    action.name
 
 (* TODO remove later *)
 module Test = struct
@@ -98,11 +111,12 @@ class t ~(layout: Wm.t)
     (scaffold : Scaffold.t)
     () = object(self)
 
-  val container_editor = Container_editor.make layout
+  val container_editor = Container_editor.make ~scaffold layout
 
   val mutable _widget_editor = None
   val mutable _listeners = []
   val mutable _resize_observer = None
+  val mutable _overflow_menu = None
 
   inherit Widget.t elt () as super
 
@@ -115,16 +129,9 @@ class t ~(layout: Wm.t)
     (match scaffold#top_app_bar with
      | None -> ()
      | Some (top_app_bar : Top_app_bar.t) ->
-       let selector = ".mdc-top-app-bar__row:nth-child(2)" in
-       match Element.query_selector top_app_bar#root selector with
-       | None -> ()
-       | Some row ->
-         let button = Button.make ~on_click:(fun _ _ _ ->
-             self#switch_state ();
-             Lwt.return_unit)
-             ~label:"Switch"
-             () in
-         Element.append_child row button#root);
+       let overflow_menu = self#create_overflow_menu container_editor#actions in
+       _overflow_menu <- Some overflow_menu;
+       top_app_bar#set_actions [overflow_menu#root]);
     super#append_child container_editor;
     super#init ()
 
@@ -142,6 +149,7 @@ class t ~(layout: Wm.t)
     super#destroy ()
 
   method! layout () : unit =
+    Utils.Option.iter Widget.layout _overflow_menu;
     container_editor#layout ();
     Utils.Option.iter (Widget.layout % snd) _widget_editor;
     super#layout ()
@@ -157,36 +165,38 @@ class t ~(layout: Wm.t)
 
   (* Private methods *)
 
-  method switch_state () : unit =
-    let add_toolbar_actions prev toolbar (scaffold : Scaffold.t) =
-      match scaffold#top_app_bar with
-      | None -> ()
-      | Some (top_app_bar : Top_app_bar.t) ->
-        let selector = ".mdc-top-app-bar__row:nth-child(2)" in
-        match Element.query_selector top_app_bar#root selector with
-        | None -> ()
-        | Some row ->
-          Element.remove_child_safe row prev;
-          Element.append_child row toolbar in
+  method private create_overflow_menu actions : Overflow_menu.t =
+    let actions, menu_items =
+      List.split
+      @@ List.map (fun x ->
+          icon_button_of_action x,
+          menu_item_of_action x)
+        actions in
+    let menu = Menu.make_of_item_list
+        ~body:scaffold#app_content_inner
+        ~viewport:(Element scaffold#app_content_inner)
+        (Item_list.make menu_items) in
+    let overflow = Icon_button.make
+        ~icon:Icon.SVG.(make_simple Path.dots_vertical)#root
+        () in
+    Overflow_menu.make
+      ~actions:(List.map Widget.root actions)
+      ~overflow:overflow#root
+      ~menu
+      ()
+
+  method private switch_state () : unit =
     match _widget_editor with
     | None ->
       let (id, container : string * Wm.container) = Test.container in
       let widget_editor = Widget_editor.make container in
       super#remove_child container_editor;
       _widget_editor <- Some (id, widget_editor);
-      add_toolbar_actions
-        container_editor#toolbar#root
-        widget_editor#toolbar#root
-        scaffold;
       super#append_child widget_editor
     | Some (_, editor) ->
       _widget_editor <- None;
       super#remove_child editor;
       editor#destroy ();
-      add_toolbar_actions
-        editor#toolbar#root
-        container_editor#toolbar#root
-        scaffold;
       super#append_child container_editor
 
   method private handle_widget_selected e _ =

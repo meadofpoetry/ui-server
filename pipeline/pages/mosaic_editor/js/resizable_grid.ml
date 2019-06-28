@@ -76,8 +76,6 @@ class t
   val mutable _listeners = []
   val mutable _move_listeners = []
 
-  val mutable _selected_cells = []
-
   method! destroy () : unit =
     self#stop_move_listeners ();
     List.iter Lwt.cancel _listeners;
@@ -93,9 +91,6 @@ class t
         ; touchstarts super#root (fun e -> self#handle_drag_start (Touch e))
         ]);
     super#initial_sync_with_dom ()
-
-  method selected_cells : Dom_html.element Js.t list =
-    _selected_cells
 
   method add_column_before ?size (cell : Dom_html.element Js.t) : unit =
     self#add_row_or_column ?size ~before:true Col cell

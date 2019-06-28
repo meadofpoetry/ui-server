@@ -335,7 +335,7 @@ class t ?(widgets = []) (position : Position.t) elt () =
     (* Primary editor actions *)
     method private make_actions () =
       let add = Icon_button.make
-          ~icon:Icon.SVG.(make_simple Path.plus)
+          ~icon:Icon.SVG.(make_simple Path.plus)#root
           () in
       add
 

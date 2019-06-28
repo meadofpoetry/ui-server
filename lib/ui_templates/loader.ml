@@ -20,7 +20,7 @@ let exn_to_string : exn -> string = function
 
 class ['a] loader
     ?(text : string option)
-    ?(error_icon : #Widget.t option)
+    ?(error_icon : #Dom_html.element Js.t option)
     ?(error_prefix : string option)
     ?(on_error : ('a loader -> string -> unit) option)
     ?(on_success : ('a loader -> 'a -> unit) option)

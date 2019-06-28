@@ -38,6 +38,9 @@ $divider-color: if(
         border-bottom-style: solid;
         @include mdc-theme-prop(border-bottom-color, $divider-color);
     }
+    .mdc-card__action-icons {
+        justify-content: flex-start;
+    }
     .mdc-card__media {
         overflow: hidden;
         position: relative;

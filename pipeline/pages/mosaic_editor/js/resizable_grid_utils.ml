@@ -153,19 +153,22 @@ let get_size_at_track ?(gap = 0.) (tracks : float array) =
   (aux 0. 0) +. gap
 
 let get_cell_position (cell : Dom_html.element Js.t) =
+  let parse_span n s =
+    let s = String.split_on_char ' ' s in
+    match s with
+    | ["auto"] -> 1
+    | ["span"; v] -> int_of_string v
+    | [s] -> int_of_string s - n
+    | _ -> failwith "unknown cell span value" in
   let style = Dom_html.window##getComputedStyle cell in
   let col = Js.parseInt (Js.Unsafe.coerce style)##.gridColumnStart in
   let row = Js.parseInt (Js.Unsafe.coerce style)##.gridRowStart in
-  let col_end = (Js.Unsafe.coerce style)##.gridColumnEnd in
-  let row_end = (Js.Unsafe.coerce style)##.gridRowEnd in
+  let col_end = Js.to_string (Js.Unsafe.coerce style)##.gridColumnEnd in
+  let row_end = Js.to_string (Js.Unsafe.coerce style)##.gridRowEnd in
   { col
   ; row
-  ; col_span = (match Js.to_string col_end with
-        | "auto" -> 1
-        | x -> (Js.parseInt col_end) - col)
-  ; row_span = (match Js.to_string row_end with
-        | "auto" -> 1
-        | x -> (Js.parseInt row_end) - row)
+  ; col_span = parse_span col col_end
+  ; row_span = parse_span row row_end
   }
 
 let set_cell_row ?(span = 1) (row : int) (cell : Dom_html.element Js.t) =

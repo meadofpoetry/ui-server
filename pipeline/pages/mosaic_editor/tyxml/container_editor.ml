@@ -81,7 +81,7 @@ module Make(Xml : Xml_sigs.NoWrap)
   open Html
   open Utils
 
-  module Card = Card.Make(Xml)(Svg)(Html)
+  module Card' = Card.Make(Xml)(Svg)(Html)
 
   let create_grid_cell ?(classes = []) ?attrs
       ?row_start
@@ -127,10 +127,9 @@ module Make(Xml : Xml_sigs.NoWrap)
   let create ?(classes = []) ?attrs
       ~width ~height
       ~grid () : 'a elt =
-    let classes = CSS.root :: classes in
+    let classes = CSS.root :: Card.CSS.root :: Card.CSS.outlined :: classes in
     div ~a:([a_class classes] <@> attrs)
-      ([ Card.create_actions [Card.create_action_icons [] ()] ()
-       ; Card.create_media
+      ([ Card'.create_media
            [ svg ~a:[ Svg.a_class [CSS.aspect_ratio_sizer]
                     ; Svg.a_viewBox ( 0.
                                     , 0.
@@ -140,6 +139,7 @@ module Make(Xml : Xml_sigs.NoWrap)
                     ] []
            ; grid
            ] ()
+       ; Card'.create_actions [] ()
        ])
 
 end
