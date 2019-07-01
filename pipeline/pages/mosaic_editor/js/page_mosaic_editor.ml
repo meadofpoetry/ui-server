@@ -19,7 +19,7 @@ let () =
     Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
     >>= fun socket -> Http_wm.Event.get socket
     >>= fun (_, event) ->
-    let editor = Editor.make wm scaffold in
+    let editor = Container_editor.make ~scaffold wm in
     let e = React.E.map (fun x -> editor#notify (`Layout x)) event in
     editor#set_on_destroy (fun () ->
         React.E.stop ~strong:true e;

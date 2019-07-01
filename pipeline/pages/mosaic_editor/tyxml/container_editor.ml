@@ -59,8 +59,6 @@ module CSS = struct
 
   let grid = "container-grid"
 
-  let grid_bordered = BEM.add_modifier grid "bordered"
-
   let aspect_ratio_sizer = BEM.add_element root "aspect-ratio-sizer"
 
   let cell = BEM.add_element grid "cell"

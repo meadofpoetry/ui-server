@@ -226,3 +226,25 @@ let is_merge_possible (cells : Dom_html.element Js.t list) : bool =
   (* XXX Merge is only possible when a group of cells forms a rectangle
      and all cells belong to the same parent grid. *)
   true
+
+let get_cell' f = function
+  | [] -> invalid_arg "list is empty"
+  | x :: tl ->
+    snd @@ List.fold_left (fun ((pos', _) as acc) x ->
+        let pos = get_cell_position x in
+        if f pos' pos then (pos, x) else acc)
+      (get_cell_position x, x) tl
+
+let get_topmost_cell cells =
+  get_cell' (fun acc pos -> pos.row < acc.row) cells
+
+let get_bottommost_cell cells =
+  get_cell' (fun acc pos -> pos.row > acc.row) cells
+
+let get_leftmost_cell cells =
+  get_cell' (fun acc pos -> pos.col < acc.col) cells
+
+let get_rightmost_cell cells =
+  get_cell' (fun acc pos -> pos.col > acc.col) cells
+
+

@@ -79,3 +79,11 @@ val gen_cells :
 
 (* Checks if a group of cells can be merged into one cell *)
 val is_merge_possible : Dom_html.element Js.t list -> bool
+
+val get_topmost_cell : Dom_html.element Js.t list -> Dom_html.element Js.t
+
+val get_bottommost_cell : Dom_html.element Js.t list -> Dom_html.element Js.t
+
+val get_leftmost_cell : Dom_html.element Js.t list -> Dom_html.element Js.t
+
+val get_rightmost_cell : Dom_html.element Js.t list -> Dom_html.element Js.t
