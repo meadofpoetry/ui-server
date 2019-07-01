@@ -14,9 +14,12 @@ object(self)
   method! init () : unit =
     super#init ();
     let listener =
-      Events.listen_lwt super#root Events.Typ.animationend (fun _ _ ->
-          self#handle_shake_animation_end ();
-          Lwt.return_unit) in
+      Events.seq_loop
+        (Events.make_event Dom_html.Event.animationend)
+        super#root
+        (fun _ _ ->
+           self#handle_shake_animation_end ();
+           Lwt.return_unit) in
     _animationend_listener <- Some listener
 
   method! destroy () : unit =

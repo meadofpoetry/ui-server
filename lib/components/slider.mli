@@ -15,8 +15,8 @@ module Event : sig
     object
       inherit [float] Widget.custom_event
     end
-  val input : event Js.t Events.Typ.t
-  val change : event Js.t Events.Typ.t
+  val input : event Js.t Dom_html.Event.typ
+  val change : event Js.t Dom_html.Event.typ
 end
 
 class type t =

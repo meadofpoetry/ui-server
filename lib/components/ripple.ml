@@ -186,18 +186,18 @@ type deactivation_event =
   | Pointerup of Dom_html.event Js.t
   | Mouseup of Dom_html.mouseEvent Js.t
 
-let (activation_event_types : Dom_html.event Js.t Events.Typ.typ list) =
-  [ Events.Typ.make "touchstart"
-  ; Events.Typ.make "pointerdown"
-  ; Events.Typ.make "mousedown"
-  ; Events.Typ.make "keydown"
-  ]
+let (activation_event_types : Dom_html.event Js.t Dom_html.Event.typ list) =
+  Dom_html.Event.[ make "touchstart"
+                 ; make "pointerdown"
+                 ; make "mousedown"
+                 ; make "keydown"
+                 ]
 
-let (pointer_deactivation_event_types : Dom_html.event Js.t Events.Typ.typ list) =
-  [ Events.Typ.make "touchend"
-  ; Events.Typ.make "pointerup"
-  ; Events.Typ.make "mouseup"
-  ]
+let (pointer_deactivation_event_types : Dom_html.event Js.t Dom_html.Event.typ list) =
+  Dom_html.Event.[ make "touchend"
+                 ; make "pointerup"
+                 ; make "mouseup"
+                 ]
 
 class t (adapter : adapter) () =
   object(self)
@@ -358,7 +358,9 @@ class t (adapter : adapter) () =
         _deactivation_listeners <- listener :: _deactivation_listeners;
       | _ ->
         pointer_deactivation_event_types
-        |> List.map (fun x -> Events.listen_lwt adapter.event_target x handler)
+        |> List.map (fun x ->
+            let e = Events.make_event x in
+            Events.seq_loop e adapter.event_target handler)
         |> fun l -> _deactivation_listeners <- _deactivation_listeners @ l
 
     method private deregister_deactivation_handlers () : unit =
@@ -420,8 +422,11 @@ class t (adapter : adapter) () =
         && (match event with
             | None -> false
             | Some (e : Dom_html.event Js.t) ->
-              match Events.Key.of_event e with
-              | `Space -> true | _ -> false)
+              Js.Opt.case
+                (Dom_html.CoerceTo.keyboardEvent e)
+                (fun () -> false)
+                (fun e -> match Dom_html.Keyboard_code.of_event e with
+                   | Space -> true | _ -> false))
         then (
           let was_element_made_active = self#check_element_made_active event in
           if was_element_made_active

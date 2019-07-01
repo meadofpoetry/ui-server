@@ -104,7 +104,7 @@ object(self)
     super#toggle_class ~force:x CSS.non_interactive;
     match x, _click_listener with
     | false, None ->
-       let listener = Events.listen_lwt hex_block Events.Typ.click self#handle_click in
+       let listener = Events.clicks hex_block self#handle_click in
        _click_listener <- Some listener
     | true, Some l -> Lwt.cancel l; _click_listener <- None
     | _ -> ()

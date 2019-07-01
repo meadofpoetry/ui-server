@@ -68,10 +68,10 @@ end
 
 module Event : sig
   (** Event emitted after the menu surface is opened. *)
-  val opened : unit Widget.custom_event Js.t Events.Typ.typ
+  val opened : unit Widget.custom_event Js.t Dom_html.Event.typ
 
   (** Event emitted after the menu surface is closed. *)
-  val closed : unit Widget.custom_event Js.t Events.Typ.typ
+  val closed : unit Widget.custom_event Js.t Dom_html.Event.typ
 end
 
 class t : ?body:Dom_html.element Js.t

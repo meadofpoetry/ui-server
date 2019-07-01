@@ -1,6 +1,7 @@
 (* Inspired by https://github.com/Simonwep/selection *)
 
 open Js_of_ocaml
+open Js_of_ocaml_lwt
 open Components
 
 let ( % ) f g x = f (g x)
@@ -267,7 +268,8 @@ class t
         _removed <- [];
         _single_click <- true;
         _temp_listeners <- Events.(
-            [ listen_lwt doc (Events.Typ.make "selectstart") self#handle_select_start
+            [ seq_loop (make_event @@ Dom_html.Event.make "selectstart")
+                doc self#handle_select_start
             ; mouseups doc (self#handle_drag_end state % coerce)
             ; touchcancels doc (self#handle_drag_end state % coerce)
             ; touchends doc (self#handle_drag_end state % coerce)
@@ -279,7 +281,7 @@ class t
         if scroll_available
         then (
           _temp_listeners <- Events.(
-              wheels Dom_html.window (self#handle_mouse_wheel state)
+              wheels ~passive:false Dom_html.window (self#handle_mouse_wheel state)
               :: _temp_listeners);
           (* The selection-area will also cover other element which are
              out of the current scrollable parent. So find all elements
@@ -321,12 +323,13 @@ class t
     (* Check pixel threshold *)
     if Float.abs ((float_of_int (x + y)) -. (state.area_x1 +. state.area_y1))
        >= float_of_int start_threshold
+
     then (
       List.iter Lwt.cancel _delayed_listeners;
       _delayed_listeners <- [];
       _temp_listeners <- Events.(
           [ mousemoves doc (self#handle_drag_move state % coerce)
-          ; touchmoves doc (self#handle_drag_move state % coerce)
+          ; touchmoves ~passive:false doc (self#handle_drag_move state % coerce)
           ] @ _temp_listeners);
       (* An action is recognized as single-select until
          the user performed a multi-selection *)
@@ -378,8 +381,8 @@ class t
           self#redraw_area state;
           self#update_touching_elements ();
           self#notify_event `Move e;
-          Utils.Animation.request () >>= scroll in
-      Utils.Animation.request () >>= scroll
+          Lwt_js_events.request_animation_frame () >>= scroll in
+      Lwt_js_events.request_animation_frame () >>= scroll
     | _ ->
       (* Perform redraw only if scrolling is not active.
          If scrolling is active this area is getting re-drawed by the
@@ -460,7 +463,7 @@ class t
     | [] ->
       _listeners <- Events.(
           [ mousedowns doc (self#handle_drag_start % coerce)
-          ; touchstarts doc (self#handle_drag_start % coerce)
+          ; touchstarts ~passive:false doc (self#handle_drag_start % coerce)
           ])
 
   method private detach_start_events () : unit =

@@ -27,8 +27,8 @@ module Event = struct
 
   class type resize = [detail] Widget.custom_event
 
-  let (resize : resize Js.t Events.Typ.t) =
-    Events.Typ.make "resizable-grid:resize"
+  let (resize : resize Js.t Dom_html.Event.typ) =
+    Dom_html.Event.make "resizable-grid:resize"
 end
 
 let ( % ) f g x = f (g x)

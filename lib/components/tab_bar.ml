@@ -1,4 +1,5 @@
 open Js_of_ocaml
+open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 open Utils
 
@@ -37,7 +38,10 @@ object(self)
            | Some x -> self#set_active_tab x);
     (* Attach event listeners *)
     let interaction =
-      Events.listen_lwt super#root Tab.Event.interacted self#handle_tab_interaction in
+      Lwt_js_events.seq_loop
+        (Lwt_js_events.make_event Tab.Event.interacted)
+        super#root
+        self#handle_tab_interaction in
     _interaction_listener <- Some interaction;
     let keydown = Events.keydowns super#root self#handle_key_down in
     _keydown_listener <- Some keydown
@@ -214,14 +218,15 @@ object(self)
   (* method for determining the index of the destination tab
    * based on what key was pressed
    *)
-  method private determine_target_from_key (index : int)
-                   (event : Events.Key.t) : int option =
+  method private determine_target_from_key
+      (index : int)
+      (event : Dom_html.Keyboard_code.t) : int option =
     let max_index = (List.length _scroller#tabs) - 1 in
     let index = match event with
-      | `End -> Some max_index
-      | `Arrow_left -> Some (index - 1)
-      | `Arrow_right -> Some (index + 1)
-      | `Home -> Some 0
+      | End -> Some max_index
+      | ArrowLeft -> Some (index - 1)
+      | ArrowRight -> Some (index + 1)
+      | Home -> Some 0
       | _ -> None in
     Option.map (fun x ->
         if x < 0 then max_index
@@ -240,8 +245,8 @@ object(self)
 
   method private handle_key_down (e : Dom_html.keyboardEvent Js.t)
                    (_ : unit Lwt.t) : unit Lwt.t =
-    match Events.Key.of_event e with
-    | (`Arrow_left | `Arrow_right | `End | `Home | `Enter | `Space) as key ->
+    match Dom_html.Keyboard_code.of_event e with
+    | (ArrowLeft | ArrowRight | End | Home | Enter | Space) as key ->
        (* Prevent default behaviour for movement keys, but not for
           activation keys, since :active is used to apply ripple. *)
        if not @@ self#is_activation_key key
@@ -271,8 +276,8 @@ object(self)
                   | Some tab -> tab#root##focus; self#scroll_into_view tab))
     | _ -> Lwt.return_unit
 
-  method private is_activation_key : Events.Key.t -> bool = function
-    | `Space | `Enter -> true
+  method private is_activation_key : Dom_html.Keyboard_code.t -> bool = function
+    | Space | Enter -> true
     | _ -> false
 
   method private get_focused_tab () : Tab.t option =

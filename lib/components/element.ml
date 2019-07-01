@@ -3,7 +3,7 @@ open Utils
 
 class type ['a] custom_event =
   object
-    inherit Events.event
+    inherit Dom_html.event
     method detail : 'a Js.opt Js.readonly_prop
   end
 
@@ -153,7 +153,7 @@ let emit ?(should_bubble = false) ?detail evt_type element =
   let (evt : 'a custom_event Js.t) =
     match Js.(to_string @@ typeof (Unsafe.global##.CustomEvent)) with
     | "function" ->
-      let custom : (_ Events.Typ.t -> _ Js.t -> _ custom_event Js.t) Js.constr =
+      let custom : (_ Dom_html.Event.typ -> _ Js.t -> _ custom_event Js.t) Js.constr =
         Js.Unsafe.global##.CustomEvent in
       let obj =
         object%js

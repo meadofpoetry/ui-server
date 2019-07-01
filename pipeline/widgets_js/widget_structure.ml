@@ -205,7 +205,7 @@ class t ~applied ~actual () =
     val placeholder =
       Ui_templates.Placeholder.With_icon.make
         ~text:"Потоки не обнаружены"
-        ~icon:Icon.SVG.(make_simple Path.information)
+        ~icon:Icon.SVG.(make_simple Path.information)#root
         ()
     val mutable _treeview = treeview
     val mutable _structure : Structure.packed list = actual

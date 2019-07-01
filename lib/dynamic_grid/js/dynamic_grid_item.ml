@@ -11,8 +11,8 @@ type action =
   | Mouse of Dom_html.mouseEvent Js.t
   | Touch of Dom_html.touchEvent Js.t
 
-let remove_event : Dom_html.element Js.t Widget.custom_event Js.t Events.Typ.t =
-  Events.Typ.make "dynamic_grid_item:remove"
+let remove_event : Dom_html.element Js.t Widget.custom_event Js.t Dom_html.Event.typ =
+  Dom_html.Event.make "dynamic_grid_item:remove"
 
 let ( % ) f g x = f (g x)
 

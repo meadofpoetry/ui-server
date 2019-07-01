@@ -19,10 +19,14 @@ let quantize ~(step : float) (v : float) : float =
 
 let unwrap x = Js.Optdef.get x (fun () -> assert false)
 
-let listen_body_lwt (typ : 'a Events.Typ.t)
-    (handler : #Events.event Js.t -> unit Lwt.t -> unit Lwt.t)
+let listen_body_lwt
+    (typ : (#Dom_html.event as 'a) Js.t Dom_html.Event.typ)
+    (handler : 'a Js.t -> unit Lwt.t -> unit Lwt.t)
   : unit Lwt.t =
-  Events.listen_lwt Dom_html.document##.body typ handler
+  Events.seq_loop
+    (Events.make_event typ)
+    Dom_html.document##.body
+    handler
 
 let get_touch_by_id (touches : Dom_html.touchList Js.t)
     (id : int) : Dom_html.touch Js.t option =
@@ -57,11 +61,11 @@ module Event = struct
     object
       inherit [float] Widget.custom_event
     end
-  let input : event Js.t Events.Typ.t =
-    Events.Typ.make "slider:input"
+  let input : event Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "slider:input"
 
-  let change : event Js.t Events.Typ.t =
-    Events.Typ.make "slider:change"
+  let change : event Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "slider:change"
 end
 
 class t (elt : Dom_html.element Js.t) () =
@@ -441,7 +445,8 @@ class t (elt : Dom_html.element Js.t) () =
       end;
       _prevent_focus_state <- true;
       self#set_active_ true;
-      _touchend <- Some (listen_body_lwt Events.Typ.touchend
+      _touchend <- Some (listen_body_lwt
+                           Dom_html.Event.touchend
                            self#handle_touch_end);
       Lwt.return_unit
 
@@ -452,13 +457,17 @@ class t (elt : Dom_html.element Js.t) () =
       (* FIXME workaround, why we don't gain focus on click natively?? *)
       super#root##focus;
       self#set_active_ true;
-      _mouseenter <- Some (listen_body_lwt (Events.Typ.make "mouseenter")
+      _mouseenter <- Some (listen_body_lwt
+                             (Dom_html.Event.make "mouseenter")
                              self#handle_mouse_enter);
-      _mouseleave <- Some (listen_body_lwt (Events.Typ.make "mouseleave")
+      _mouseleave <- Some (listen_body_lwt
+                             (Dom_html.Event.make "mouseleave")
                              self#handle_mouse_leave);
-      _mousemove <- Some (listen_body_lwt Events.Typ.mousemove
+      _mousemove <- Some (listen_body_lwt
+                            Dom_html.Event.mousemove
                             self#handle_mouse_move);
-      _mouseup <- Some (listen_body_lwt Events.Typ.mouseup
+      _mouseup <- Some (listen_body_lwt
+                          Dom_html.Event.mouseup
                           self#handle_mouse_up);
       self#handle_move (Mouse e)
 
@@ -510,19 +519,19 @@ class t (elt : Dom_html.element Js.t) () =
 
     method private handle_keydown (e : Dom_html.keyboardEvent Js.t) _
       : unit Lwt.t =
-      let key = Events.Key.of_event e in
+      let key = Dom_html.Keyboard_code.of_event e in
       let min, max, value = self#min, self#max, self#value in
       let one_percent = Float.abs ((max -. min) /. 100.) in
       let step = match self#step with
         | None -> one_percent
         | Some x -> x in
       let value = match key with
-        | `Arrow_left | `Arrow_down -> Some (value -. step)
-        | `Arrow_right | `Arrow_up -> Some (value +. step)
-        | `Home -> Some min
-        | `End -> Some max
-        | `Page_up -> Some (value +. one_percent *. page_factor)
-        | `Page_down -> Some (value -. one_percent *. page_factor)
+        | ArrowLeft | ArrowDown -> Some (value -. step)
+        | ArrowRight | ArrowUp -> Some (value +. step)
+        | Home -> Some min
+        | End -> Some max
+        | PageUp -> Some (value +. one_percent *. page_factor)
+        | PageDown -> Some (value -. one_percent *. page_factor)
         | _ -> None in
       match value with
       | None -> Lwt.return_unit

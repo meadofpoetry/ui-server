@@ -23,14 +23,14 @@ let reverse_elements (elts : Dom_html.element Js.t list) :
   lst
 
 module Event = struct
-  let opening : unit Widget.custom_event Js.t Events.Typ.typ =
-    Events.Typ.make "opening"
-  let opened : unit Widget.custom_event Js.t Events.Typ.typ =
-    Events.Typ.make "opened"
-  let closing : action Widget.custom_event Js.t Events.Typ.typ =
-    Events.Typ.make "closing"
-  let closed : action Widget.custom_event Js.t Events.Typ.typ =
-    Events.Typ.make "closed"
+  let opening : unit Widget.custom_event Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "opening"
+  let opened : unit Widget.custom_event Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "opened"
+  let closing : action Widget.custom_event Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "closing"
+  let closed : action Widget.custom_event Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "closed"
 end
 
 module Const = struct
@@ -259,10 +259,16 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
         |> fun x -> Js.Opt.get x (fun () -> false) in
       let is_click = match Js.to_string e##._type with
         | "click" -> true | _ -> false in
-      let is_enter = match Events.Key.of_event e with
-        | `Enter -> true | _ -> false in
-      let is_space = match Events.Key.of_event e with
-        | `Space -> true | _ -> false in
+      let is_enter =
+        Js.Opt.case (Dom_html.CoerceTo.keyboardEvent e)
+          (fun () -> false)
+          (fun e -> match Dom_html.Keyboard_code.of_event e with
+             | Enter -> true | _ -> false) in
+      let is_space =
+        Js.Opt.case (Dom_html.CoerceTo.keyboardEvent e)
+          (fun () -> false)
+          (fun e -> match Dom_html.Keyboard_code.of_event e with
+             | Space -> true | _ -> false) in
       match is_click, is_scrim, _scrim_click_action with
       | true, true, Some action ->
         self#close ~action ()
@@ -283,19 +289,16 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
               match _default_button with
               | None -> Lwt.return_unit
               | Some x ->
-                match Js.to_string x##.nodeName with
-                | "BUTTON" ->
-                  let (b : Dom_html.buttonElement Js.t) = Js.Unsafe.coerce x in
-                  b##click;
-                  Lwt.return_unit
-                | _ -> Lwt.return_unit)
+                Js.Opt.case (Dom_html.CoerceTo.button x)
+                  Lwt.return
+                  (fun b -> b##click; Lwt.return_unit))
             else Lwt.return_unit)
         else Lwt.return_unit
 
     method private handle_document_keydown (e : Dom_html.keyboardEvent Js.t)
         (_ : unit Lwt.t) : unit Lwt.t =
-      match Events.Key.of_event e, _escape_key_action with
-      | `Escape, Some x -> self#close ~action:x () >>= (fun _ -> Lwt.return ())
+      match Dom_html.Keyboard_code.of_event e, _escape_key_action with
+      | Escape, Some x -> self#close ~action:x () >>= (fun _ -> Lwt.return ())
       | _ -> Lwt.return_unit
 
     method private handle_animation_timer_end () : unit =

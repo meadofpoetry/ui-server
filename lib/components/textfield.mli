@@ -12,7 +12,7 @@ module Event : sig
       inherit [unit] Widget.custom_event
     end
 
-  val icon : icon Js.t Events.Typ.t
+  val icon : icon Js.t Dom_html.Event.typ
 end
 
 module Character_counter : sig

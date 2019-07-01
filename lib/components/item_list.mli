@@ -7,7 +7,7 @@ module Markup : sig
 end
 
 module Event : sig
-  val action : Dom_html.element Js.t Widget.custom_event Js.t Events.Typ.typ
+  val action : Dom_html.element Js.t Widget.custom_event Js.t Dom_html.Event.typ
 end
 
 module Item : sig

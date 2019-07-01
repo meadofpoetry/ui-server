@@ -35,12 +35,12 @@ module Event = struct
       inherit [Dom_html.clientRect Js.t] Widget.custom_event
     end
 
-  let input : input Js.t Events.Typ.t =
-    Events.Typ.make "mosaic-resizable:resize"
-  let change : event Js.t Events.Typ.t =
-    Events.Typ.make "mosaic-resizable:change"
-  let selected : event Js.t Events.Typ.t =
-    Events.Typ.make "mosaic-resizable:selected"
+  let input : input Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "mosaic-resizable:resize"
+  let change : event Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "mosaic-resizable:change"
+  let selected : event Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "mosaic-resizable:selected"
 end
 
 let unwrap x = Js.Optdef.get x (fun () -> assert false)

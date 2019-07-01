@@ -27,8 +27,8 @@ end
 module Event = struct
   class type selected = [Dom_html.element Js.t Js.js_array Js.t] Widget.custom_event
 
-  let (selected : selected Js.t Events.Typ.t) =
-    Events.Typ.make "container-editor:selected"
+  let (selected : selected Js.t Dom_html.Event.typ) =
+    Dom_html.Event.make "container-editor:selected"
 end
 
 class t ?(containers = [])
@@ -206,7 +206,7 @@ class t ?(containers = [])
     let submit = Button.make ~label:"Применить" () in
     let buttons = Card.Actions.make_buttons [submit] in
     [icons; buttons]
-    
+
   method private handle_keydown _ _ : unit Lwt.t =
     (* TODO implement *)
     Lwt.return_unit

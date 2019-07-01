@@ -37,8 +37,8 @@ module Event = struct
       inherit [unit] Widget.custom_event
     end
 
-  let change : change Js.t Events.Typ.t =
-    Events.Typ.make "toggle-button-group:change"
+  let change : change Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "toggle-button-group:change"
 end
 
 class t (elt : Dom_html.element Js.t) () = object

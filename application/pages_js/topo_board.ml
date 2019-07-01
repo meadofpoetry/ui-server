@@ -149,7 +149,7 @@ module Header = struct
     let settings = match Topology.Env.find_opt "show-settings" board.env with
       | Some "false" -> None
       | _ ->
-        let icon = Icon.SVG.(make_simple Path.settings) in
+        let icon = Icon.SVG.(make_simple Path.settings)#root in
         let button = Icon_button.make ~icon () in
         Some button in
     object(self)

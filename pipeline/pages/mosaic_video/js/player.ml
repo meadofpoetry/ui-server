@@ -88,10 +88,12 @@ module State_overlay = struct
         super#init ();
         self#hide ();
         let listener =
-          Events.listen_lwt super#root Events.Typ.animationend (fun _ _ ->
-              _animation_ended <- true;
-              self#hide ();
-              Lwt.return_unit) in
+          Lwt_js_events.seq_loop
+            (Lwt_js_events.make_event Dom_html.Event.animationend)
+            super#root (fun _ _ ->
+                _animation_ended <- true;
+                self#hide ();
+                Lwt.return_unit) in
         _on_animationend <- Some listener
 
       method! destroy () : unit =
@@ -123,7 +125,7 @@ module State_overlay = struct
 end
 
 let make_big_button () =
-  let icon = Icon.SVG.(make_simple Path.play) in
+  let icon = Icon.SVG.(make_simple Path.play)#root in
   let ph = Ui_templates.Placeholder.With_icon.make ~icon ~text:"" () in
   ph#add_class CSS.big_button;
   ph
@@ -173,28 +175,35 @@ class t (elt : #Dom_html.element Js.t) () =
         | Some x -> Some (new controls (self :> t) x ()) in
       _controls <- controls;
       (* Handle events *)
-      cons @@ Events.keydowns ~use_capture:true super#root self#handle_keydown;
-      cons @@ Events.listen_lwt super#root (Events.Typ.make "mouseenter") (fun _ _ ->
-          if not self#paused then super#remove_class CSS.autohide;
-          Lwt.return_unit);
+      cons @@ Lwt_js_events.keydowns ~use_capture:true super#root
+        self#handle_keydown;
+      cons @@ Lwt_js_events.seq_loop
+        (Lwt_js_events.make_event @@ Dom_html.Event.make "mouseenter")
+        super#root
+        (fun _ _ ->
+           if not self#paused then super#remove_class CSS.autohide;
+           Lwt.return_unit);
       cons @@ Events.mousemoves super#root (fun _ _ ->
           self#remove_class CSS.autohide;
           if not self#paused then self#set_move_timer ();
           Lwt.return_unit);
-      cons @@ Events.listen_lwt super#root (Events.Typ.make "mouseleave") (fun _ _ ->
-          if not self#paused then super#add_class CSS.autohide;
-          Lwt.return_unit);
+      cons @@ Lwt_js_events.seq_loop
+        (Lwt_js_events.make_event @@ Dom_html.Event.make "mouseleave")
+        super#root
+        (fun _ _ ->
+           if not self#paused then super#add_class CSS.autohide;
+           Lwt.return_unit);
       (* Single-click toggles play *)
-      cons @@ Events.clicks super#root (fun _ _ ->
+      cons @@ Lwt_js_events.clicks super#root (fun _ _ ->
           if _video_can_play then self#toggle_play ();
           Lwt.return_unit);
       (* Double-click toggles fullscreen mode *)
       if fullscreen_enabled
-      then cons @@ Events.dblclicks super#root (fun _ _ ->
+      then cons @@ Lwt_js_events.dblclicks super#root (fun _ _ ->
           self#toggle_fullscreen ();
           Lwt.return_unit);
       (* Listen to 'loadstart' event *)
-      cons @@ Events.loadstarts video#root (fun _ _ ->
+      cons @@ Lwt_js_events.loadstarts video#root (fun _ _ ->
           let progress =
             Ui_templates.Placeholder.Progress.make
               ~size:60
@@ -274,15 +283,17 @@ class t (elt : #Dom_html.element Js.t) () =
       (* Listen to 'fullscreenchange' event *)
       let fs_handlers =
         List.map (fun typ ->
-            Events.(listen Dom_html.document (Typ.make typ)
-                      self#handle_fullscreenchange))
+            Lwt_js_events.seq_loop
+              (Lwt_js_events.make_event (Dom_html.Event.make typ))
+              Dom_html.document
+              self#handle_fullscreenchange)
           Fullscreen.events in
       fullscreen_handlers <- fs_handlers;
 
     method! destroy () : unit =
       super#destroy ();
       (* Detach DOM event listeners *)
-      List.iter Dom_events.stop_listen fullscreen_handlers;
+      List.iter Lwt.cancel fullscreen_handlers;
       fullscreen_handlers <- [];
 
     method video_element : Dom_html.videoElement Js.t =
@@ -439,7 +450,7 @@ class t (elt : #Dom_html.element Js.t) () =
     method private set_controls (x : bool) : unit =
       self#video_element##.controls := Js.bool x
 
-    method private handle_fullscreenchange _ _ : bool =
+    method private handle_fullscreenchange _ _ : unit Lwt.t =
       begin match Fullscreen.is_fullscreen () with
         | true ->
           super#add_class CSS.big_mode;
@@ -450,29 +461,29 @@ class t (elt : #Dom_html.element Js.t) () =
           Utils.Option.iter (fun (x : Icon_button.t) ->
               x#toggle ~force:false ()) self#fullscreen_button
       end;
-      true
+      Lwt.return_unit
 
     method private handle_keydown (e : Dom_html.keyboardEvent Js.t)
         (_ : unit Lwt.t) : unit Lwt.t =
-      let key = Events.Key.of_event e in
+      let key = Dom_html.Keyboard_code.of_event e in
       begin match key with
-        | `Arrow_up ->
+        | ArrowUp ->
           Dom.preventDefault e;
           Dom_html.stopPropagation e;
           let cur = self#volume in
           let vol = min (cur +. 0.05) 1. in
           self#set_volume ~show_overlay:true vol
-        | `Arrow_down ->
+        | ArrowDown ->
           Dom.preventDefault e;
           Dom_html.stopPropagation e;
           let cur = self#volume in
           let vol = max (cur -. 0.05) 0. in
           self#set_volume ~show_overlay:true vol
-        | `Space ->
+        | Space ->
           Dom.preventDefault e;
           if _video_can_play then self#toggle_play ~show_overlay:true ()
-        | `Char 'f' | `Char 'F' -> self#toggle_fullscreen ()
-        | `Char 'm' | `Char 'M' -> self#toggle_muted ~show_overlay:true ()
+        | KeyF -> self#toggle_fullscreen ()
+        | KeyM -> self#toggle_muted ~show_overlay:true ()
         | _ -> ()
       end;
       Lwt.return_unit
@@ -541,14 +552,16 @@ and controls (t : t) (elt : #Dom_html.element Js.t) () =
       let volume_change = match volume with
         | None -> None
         | Some slider ->
-          Some (Events.listen_lwt slider#root Slider.Event.input (fun e _ ->
-              match Js.Opt.to_option e##.detail with
-              | None -> Lwt.return_unit
-              | Some v ->
-                if Js.to_bool t#video_element##.muted
-                then t#video_element##.muted := Js._false;
-                t#set_volume ~show_overlay:false (v /. 100.);
-                Lwt.return_unit)) in
+          Some (Lwt_js_events.seq_loop
+                  (Lwt_js_events.make_event Slider.Event.input)
+                  slider#root (fun e _ ->
+                      match Js.Opt.to_option e##.detail with
+                      | None -> Lwt.return_unit
+                      | Some v ->
+                        if Js.to_bool t#video_element##.muted
+                        then t#video_element##.muted := Js._false;
+                        t#set_volume ~show_overlay:false (v /. 100.);
+                        Lwt.return_unit)) in
       _listeners <- Utils.List.filter_map (fun x -> x)
           [ click_play
           ; click_mute

@@ -1,4 +1,5 @@
 open Js_of_ocaml
+open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 open Components
 
@@ -100,7 +101,9 @@ class ['a, 'b, 'c] t ~grid
       (* FIXME save state *)
       super#init ();
       let remove_listener =
-        Events.listen_lwt super#root Item.remove_event (fun e _ ->
+        Lwt_js_events.seq_loop
+          (Lwt_js_events.make_event Item.remove_event)
+          super#root (fun e _ ->
             let item = (Js.Unsafe.coerce e)##.detail in
             begin match List.find_opt (fun x -> x#root == item) self#items with
             | None -> ()

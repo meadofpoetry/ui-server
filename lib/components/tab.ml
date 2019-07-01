@@ -20,8 +20,8 @@ module Event = struct
       inherit [Element.t] Widget.custom_event
     end
 
-  let interacted : interacted Js.t Events.Typ.t =
-    Events.Typ.make "tab:interacted"
+  let interacted : interacted Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "tab:interacted"
 end
 
 class t (elt : Dom_html.buttonElement Js.t) () =

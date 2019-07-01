@@ -1,4 +1,5 @@
 open Js_of_ocaml
+open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 open Utils
 
@@ -75,11 +76,11 @@ module Event = struct
       method value : string Js.readonly_prop
     end
 
-  let icon : unit Widget.custom_event Js.t Events.Typ.t =
-    Events.Typ.make "select:icon"
+  let icon : unit Widget.custom_event Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "select:icon"
 
-  let change : change Js.t Widget.custom_event Js.t Events.Typ.typ =
-    Events.Typ.make "select:change"
+  let change : change Js.t Widget.custom_event Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "select:change"
 end
 
 module Icon = struct
@@ -133,8 +134,8 @@ module Icon = struct
         super#emit ~should_bubble:true Event.icon
 
       method private handle_keydown e _ : unit Lwt.t =
-        (match Events.Key.of_event e with
-         | `Enter -> self#notify_action ()
+        (match Dom_html.Keyboard_code.of_event e with
+         | Enter -> self#notify_action ()
          | _ -> ());
         Lwt.return_unit
 
@@ -340,7 +341,9 @@ class ['a] t
        | Native _ -> ()
        | Enhanced { text; menu; hidden_input } ->
          let keydown = Events.keydowns text self#handle_keydown in
-         let closed = Events.listen_lwt menu#root Menu_surface.Event.closed (fun e t ->
+         let closed = Lwt_js_events.seq_loop
+             (Lwt_js_events.make_event Menu_surface.Event.closed)
+             menu#root (fun e t ->
              self#handle_menu_closed e t
              >>= fun () ->
              (* _is_menu_open is used to track the state of the menu opening
@@ -352,27 +355,31 @@ class ['a] t
              if Dom_html.document##.activeElement != Js.some text
              then self#handle_blur (e :> Dom_html.event Js.t) t
              else Lwt.return_unit) in
-         let opened = Events.listen_lwt menu#root Menu_surface.Event.opened (fun e t ->
-             self#handle_menu_opened e t
-             >>= fun () ->
-             match menu#items with
-             | [] -> Lwt.return_unit
-             | items ->
-               (* Menu should open to the last selected element, should open to
-                  first menu item otherwise *)
-               let focus_index = match _selected_index with
-                 | None -> 0
-                 | Some x when x < 0 -> 0
-                 | Some x -> x in
-               (match List.nth_opt items focus_index with
-                | None -> ()
-                | Some x -> x##focus);
-               Lwt.return_unit) in
-         let selected = Events.listen_lwt menu#root Menu.Event.selected (fun e _ ->
-             (match Js.Opt.to_option e##.detail with
-              | None -> ()
-              | Some d -> _selected_index <- Some d##.index);
-             Lwt.return_unit) in
+         let opened = Lwt_js_events.seq_loop
+             (Lwt_js_events.make_event Menu_surface.Event.opened)
+             menu#root (fun e t ->
+                 self#handle_menu_opened e t
+                 >>= fun () ->
+                 match menu#items with
+                 | [] -> Lwt.return_unit
+                 | items ->
+                   (* Menu should open to the last selected element, should open to
+                      first menu item otherwise *)
+                   let focus_index = match _selected_index with
+                     | None -> 0
+                     | Some x when x < 0 -> 0
+                     | Some x -> x in
+                   (match List.nth_opt items focus_index with
+                    | None -> ()
+                    | Some x -> x##focus);
+                   Lwt.return_unit) in
+         let selected = Lwt_js_events.seq_loop
+             (Lwt_js_events.make_event Menu.Event.selected)
+             menu#root (fun e _ ->
+                 (match Js.Opt.to_option e##.detail with
+                  | None -> ()
+                  | Some d -> _selected_index <- Some d##.index);
+                 Lwt.return_unit) in
          _keydown_listener <- Some keydown;
          _opened_listener <- Some opened;
          _closed_listener <- Some closed;
@@ -625,8 +632,8 @@ class ['a] t
       else Lwt.return_unit
 
     method private handle_keydown (event : Dom_html.keyboardEvent Js.t) _ : unit Lwt.t =
-      match Events.Key.of_event event with
-      | `Enter | `Space | `Arrow_up | `Arrow_down ->
+      match Dom_html.Keyboard_code.of_event event with
+      | Enter | Space | ArrowUp | ArrowDown ->
         if not @@ super#has_class CSS.focused then Lwt.return_unit
         else (Dom.preventDefault event; self#open_menu ())
       | _ -> Lwt.return_unit

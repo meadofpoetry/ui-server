@@ -39,10 +39,10 @@ module Const = struct
 end
 
 module Event = struct
-  let opened : unit Widget.custom_event Js.t Events.Typ.typ =
-    Events.Typ.make "menu-surface:opened"
-  let closed : unit Widget.custom_event Js.t Events.Typ.typ =
-    Events.Typ.make "menu-surface:closed"
+  let opened : unit Widget.custom_event Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "menu-surface:opened"
+  let closed : unit Widget.custom_event Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "menu-surface:closed"
 end
 
 module Selector = struct
@@ -305,9 +305,9 @@ class t ?(body = Dom_html.document##.body)
     method private handle_keydown (e : Dom_html.keyboardEvent Js.t)
         (_ : unit Lwt.t) : unit Lwt.t =
       let shift = Js.to_bool e##.shiftKey in
-      match Events.Key.of_event e with
-      | `Escape -> self#close ()
-      | `Tab ->
+      match Dom_html.Keyboard_code.of_event e with
+      | Escape -> self#close ()
+      | Tab ->
         let check_focused = function
           | None -> false
           | Some x -> is_focused x in

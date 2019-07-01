@@ -17,8 +17,8 @@ module Event = struct
       inherit [bool] Widget.custom_event
     end
 
-  let change : change Js.t Events.Typ.t =
-    Events.Typ.make "icon_button:change"
+  let change : change Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "icon_button:change"
 end
 
 class t ?ripple ?loader ?on_change ?on_click (elt : Dom_html.element Js.t) () =
@@ -33,7 +33,7 @@ class t ?ripple ?loader ?on_change ?on_click (elt : Dom_html.element Js.t) () =
     method! initial_sync_with_dom () : unit =
       super#initial_sync_with_dom ();
       let listener =
-        Events.listen_lwt super#root Events.Typ.click (fun e t ->
+        Events.clicks super#root (fun e t ->
             if _has_on_icon then self#toggle ~notify:true ();
             match on_click with
             | Some f -> f e t

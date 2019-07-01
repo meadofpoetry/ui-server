@@ -188,32 +188,34 @@ let make_frequency ?(value : int option) (standard : standard option React.signa
       Element.add_class next active_class;
       Lwt.return_unit in
   let keydown = Events.keydowns input#input_element (fun e _ ->
-      match Events.Key.of_event e with
-      | `Space -> Dom.preventDefault e; Lwt.return_unit
-      | `Escape -> menu#close ()
-      | `Arrow_down -> next `Down e
-      | `Arrow_up -> next `Up e
-      | `Enter -> begin match menu#is_open, get_selected menu#items with
+      match Dom_html.Keyboard_code.of_event e with
+      | Space -> Dom.preventDefault e; Lwt.return_unit
+      | Escape -> menu#close ()
+      | ArrowDown -> next `Down e
+      | ArrowUp -> next `Up e
+      | Enter -> begin match menu#is_open, get_selected menu#items with
           | true, Some item ->
             Dom.preventDefault e;
             apply_selected item
           | _ -> Lwt.return_unit
         end
       | _ -> Lwt.return_unit) in
-  let open_ = Events.listen_lwt menu#root Menu.Event.opened (fun _ _ ->
-      let closed = Events.make_event Menu.Event.closed menu#root in
-      let select = Events.make_event Menu.Event.selected menu#root in
-      input#set_use_native_validation false;
-      let t =
-        Lwt.pick
-          [ (select >>= fun e -> Lwt.return @@ `Selected e)
-          ; (closed >>= fun _ -> Lwt.return `Closed) ] in
-      Lwt.on_termination t (fun () -> input#set_use_native_validation true);
-      t >>= function
-      | `Closed -> Lwt.return_unit
-      | `Selected e ->
-        input#set_valid input#valid;
-        apply_selected (Widget.event_detail e)##.item) in
+  let open_ =
+    Lwt_js_events.seq_loop (Lwt_js_events.make_event Menu.Event.opened)
+      menu#root (fun _ _ ->
+          let closed = Lwt_js_events.make_event Menu.Event.closed menu#root in
+          let select = Lwt_js_events.make_event Menu.Event.selected menu#root in
+          input#set_use_native_validation false;
+          let t =
+            Lwt.pick
+              [ (select >>= fun e -> Lwt.return @@ `Selected e)
+              ; (closed >>= fun _ -> Lwt.return `Closed) ] in
+          Lwt.on_termination t (fun () -> input#set_use_native_validation true);
+          t >>= function
+          | `Closed -> Lwt.return_unit
+          | `Selected e ->
+            input#set_valid input#valid;
+            apply_selected (Widget.event_detail e)##.item) in
   menu#set_quick_open true;
   menu#set_anchor_element input#root;
   menu#set_anchor_corner Bottom_left;
@@ -260,13 +262,16 @@ let make_plp ?value (plps : int list React.signal) =
             item) plps in
         set_menu_toggle_disabled false;
         List.iter list#append_child items) plps in
-  let selected = Events.listen_lwt menu#root Menu.Event.selected (fun e _ ->
-      let item = (Widget.event_detail e)##.item in
-      Utils.Option.iter input#set_value_as_string
-      @@ Element.get_attribute item "value";
-      Lwt.return_unit) in
-  let icon_click = Events.listen_lwt input#root Textfield.Event.icon (fun _ _ ->
-      menu#reveal ()) in
+  let selected = Lwt_js_events.seq_loop
+      (Lwt_js_events.make_event Menu.Event.selected)
+      menu#root (fun e _ ->
+          let item = (Widget.event_detail e)##.item in
+          Utils.Option.iter input#set_value_as_string
+          @@ Element.get_attribute item "value";
+          Lwt.return_unit) in
+  let icon_click = Lwt_js_events.seq_loop
+      (Lwt_js_events.make_event Textfield.Event.icon)
+      input#root (fun _ _ -> menu#reveal ()) in
   input#set_on_destroy (fun () ->
       React.S.stop ~strong:true s_plps;
       Lwt.cancel selected;

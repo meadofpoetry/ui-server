@@ -116,9 +116,12 @@ class t ?(widgets = []) (position : Position.t) elt () =
 
     method! initial_sync_with_dom () : unit =
       _listeners <- Events.(
-          [ listen_lwt super#root Resizable.Event.input self#handle_item_action
-          ; listen_lwt super#root Resizable.Event.change self#handle_item_change
-          ; listen_lwt super#root Resizable.Event.selected self#handle_item_selected
+          [ seq_loop (make_event Resizable.Event.input) super#root
+              self#handle_item_action
+          ; seq_loop (make_event Resizable.Event.change) super#root
+              self#handle_item_change
+          ; seq_loop (make_event Resizable.Event.selected) super#root
+              self#handle_item_selected
           ; keydowns super#root self#handle_keydown
           ]);
       super#initial_sync_with_dom ()
@@ -214,20 +217,20 @@ class t ?(widgets = []) (position : Position.t) elt () =
     method private handle_keydown e _ =
       Js.Opt.iter Dom_html.document##.activeElement (fun active ->
           let items = self#items_ ~sort:true () in
-          match Events.Key.of_event e with
+          match Dom_html.Keyboard_code.of_event e with
           (* Navigation keys *)
           (* TODO Implement as described in https://www.w3.org/TR/wai-aria-practices/#layoutGrid *)
-          | `Arrow_left -> ()
-          | `Arrow_right -> ()
-          | `Arrow_down -> ()
-          | `Arrow_up -> ()
-          | `Page_up -> () (* XXX optional *)
-          | `Page_down -> () (* XXX optional *)
-          | `Home -> ()
-          | `End -> ()
+          | ArrowLeft -> ()
+          | ArrowRight -> ()
+          | ArrowDown -> ()
+          | ArrowUp -> ()
+          | PageUp -> () (* XXX optional *)
+          | PageDown -> () (* XXX optional *)
+          | Home -> ()
+          | End -> ()
           (* Other keys *)
-          | `Enter | `Space -> () (* XXX maybe move to the next layer here? *)
-          | `Delete ->
+          | Enter | Space -> () (* XXX maybe move to the next layer here? *)
+          | Delete ->
             Element.remove_child_safe super#root active;
             (match items with
              | hd :: _ ->

@@ -1,4 +1,5 @@
 open Js_of_ocaml
+open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 open Utils
 
@@ -69,7 +70,9 @@ object(self)
     let mousedown = Events.mousedowns super#root handle_interaction in
     let keydown = Events.keydowns super#root handle_interaction in
     let transitionend =
-      Events.listen_lwt super#root (Events.Typ.make "transitionend")
+      Lwt_js_events.seq_loop
+        (Lwt_js_events.make_event (Dom_html.Event.make "transitionend"))
+        super#root
         handle_transitionend in
     let listeners =
       [ wheel

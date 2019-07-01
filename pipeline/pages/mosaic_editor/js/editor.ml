@@ -126,7 +126,8 @@ class t ~(layout: Wm.t)
 
   method! initial_sync_with_dom () : unit =
     _listeners <- Events.(
-        [ listen_lwt container_editor#root Container_editor.Event.selected
+        [ seq_loop (make_event Container_editor.Event.selected)
+            container_editor#root
             self#handle_container_selected
         ]);
     super#initial_sync_with_dom ()

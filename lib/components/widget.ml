@@ -124,7 +124,7 @@ class t (elt : #Dom_html.element Js.t) () =
 
     method emit : 'a 'e. ?should_bubble:bool ->
       ?detail:'a ->
-      ('a #custom_event as 'e) Js.t Events.Typ.t ->
+      ('a #custom_event as 'e) Js.t Dom_html.Event.typ ->
       unit = fun ?should_bubble ?detail evt_type ->
       Element.emit ?should_bubble ?detail evt_type self#root
 

@@ -36,8 +36,8 @@ module Selector = struct
 end
 
 module Event = struct
-  let (action : Dom_html.element Js.t Widget.custom_event Js.t Events.Typ.typ) =
-    Events.Typ.make "item-list:action"
+  let (action : Dom_html.element Js.t Widget.custom_event Js.t Dom_html.Event.typ) =
+    Dom_html.Event.make "item-list:action"
 end
 
 let elements_key_allowed_in =
@@ -497,24 +497,24 @@ class t (elt : Dom_html.element Js.t) () =
         | None -> Lwt.return_unit
         | Some active ->
           let next, stop =
-            match Events.Key.of_event e, _is_vertical with
-            | `Arrow_down, true | `Arrow_right, false ->
+            match Dom_html.Keyboard_code.of_event e, _is_vertical with
+            | ArrowDown, true | ArrowRight, false ->
               prevent_default_event e;
               focus_next_element ~wrap:_wrap_focus active items, false
-            | `Arrow_up, true | `Arrow_left, false ->
+            | ArrowUp, true | ArrowLeft, false ->
               prevent_default_event e;
               focus_prev_element ~wrap:_wrap_focus active items, false
-            | `Home, _ ->
+            | Home, _ ->
               prevent_default_event e;
               let first = Js.Opt.to_option (items##item 0) in
               Option.iter (fun x -> x##focus) first;
               first, false
-            | `End, _ ->
+            | End, _ ->
               prevent_default_event e;
               let last = Js.Opt.to_option (items##item (items##.length - 1)) in
               Option.iter (fun x -> x##focus) last;
               last, false
-            | (`Enter as k), _ | (`Space as k), _ ->
+            | (Enter as k), _ | (Space as k), _ ->
               if Element.has_class item CSS.item
               then (
                 (* Return early if enter key is pressed on anchor element
@@ -523,7 +523,7 @@ class t (elt : Dom_html.element Js.t) () =
                   Js.Opt.map e##.target (fun e ->
                       String.equal "A" (Js.to_string e##.tagName))
                   |> fun x -> Js.Opt.get x (fun () -> false) in
-                let is_enter = match k with `Enter -> true | _ -> false in
+                let is_enter = match k with Enter -> true | _ -> false in
                 if is_a_tag && is_enter then None, true else (
                   prevent_default_event e;
                   if self#is_selectable_list
