@@ -1,3 +1,0 @@
-(library
-  (name dynamic_grid_tyxml)
-  (libraries components_tyxml))
