@@ -1,5 +1,6 @@
 open Components_tyxml
 
+module Resizable_grid = Resizable_grid
 module Container_editor = Container_editor
 
 module CSS = struct

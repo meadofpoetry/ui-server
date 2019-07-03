@@ -8,7 +8,7 @@ open Resizable_grid_utils
  * https://grid.layoutit.com/
 *)
 
-include Page_mosaic_editor_tyxml.Container_editor
+include Page_mosaic_editor_tyxml.Resizable_grid
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
 module Selector = struct
@@ -117,7 +117,7 @@ class t
     List.iter (Element.append_child super#root % Tyxml_js.To_dom.of_element)
     @@ gen_cells
       ~f:(fun ~col ~row () ->
-          Markup.create_grid_cell ~col_start:col ~row_start:row ())
+          Markup.create_cell ~col_start:col ~row_start:row ())
       ~cols ~rows
 
   method insert_table
@@ -130,11 +130,11 @@ class t
     Utils.Option.iter (Element.remove_child_safe cell) subgrid;
     let content =
       gen_cells ~f:(fun ~col ~row () ->
-          Markup.create_grid_cell ~col_start:col ~row_start:row ())
+          Markup.create_cell ~col_start:col ~row_start:row ())
         ~cols ~rows in
     let grid =
       Tyxml_js.To_dom.of_element
-      @@ Markup.create_grid ~cols ~rows ~content () in
+      @@ Markup.create ~cols ~rows ~content () in
     Element.append_child cell grid
 
   method merge (cells : Dom_html.element Js.t list) : unit =
@@ -151,7 +151,7 @@ class t
           (col, col + col_span, row, row + row_span) tl in
       let (merged : Dom_html.element Js.t) =
         Tyxml_js.To_dom.of_element
-        @@ Markup.create_grid_cell
+        @@ Markup.create_cell
           ~row_start
           ~col_start
           ~row_end
@@ -231,7 +231,7 @@ class t
           | Col -> n, succ i in
         let (elt : Dom_html.element Js.t) =
           Tyxml_js.To_dom.of_element
-          @@ Markup.create_grid_cell
+          @@ Markup.create_cell
             ~row_start:row
             ~col_start:col
             () in

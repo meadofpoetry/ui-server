@@ -2,14 +2,6 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml
 open Components
 
-(* TODO
-   1. Take aspect ratio into account while resizing (if any)
-   2. Respect parent boundaries when resizing/moving
-   3. Check if element collides with its siblings
-   4. Show helper alignment lines
-   5. Stick to neighbour elements
-   6. Extend `resize` dir to handle Top, Left, Right, Bottom dirs *)
-
 let drag_type_prefix = "application/grid-item"
 
 module Event = struct

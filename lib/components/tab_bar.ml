@@ -37,11 +37,7 @@ object(self)
            | None -> Lwt.return_unit
            | Some x -> self#set_active_tab x);
     (* Attach event listeners *)
-    let interaction =
-      Lwt_js_events.seq_loop
-        (Lwt_js_events.make_event Tab.Event.interacted)
-        super#root
-        self#handle_tab_interaction in
+    let interaction = Tab.Event.interacts super#root self#handle_tab_interaction in
     _interaction_listener <- Some interaction;
     let keydown = Events.keydowns super#root self#handle_key_down in
     _keydown_listener <- Some keydown
@@ -233,7 +229,7 @@ object(self)
         else if x > max_index then 0
         else x) index
 
-  method private handle_tab_interaction (e : Tab.Event.interacted Js.t)
+  method private handle_tab_interaction (e : Tab.Event.interact Js.t)
       (_ : unit Lwt.t) : unit Lwt.t =
     match Js.Opt.to_option e##.detail with
     | None -> Lwt.return_unit

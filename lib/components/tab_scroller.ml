@@ -36,11 +36,9 @@ object(self)
   val mutable _tabs = match tabs with
     | Some x -> x
     | None ->
-       (* If we're attaching to an element, instantiate tabs *)
-       List.filter_map (fun e ->
-           if Element.has_class e Tab.CSS.root
-           then Some (Tab.attach e) else None)
-       @@ Element.children elt
+      (* If we're attaching to an element, instantiate tabs *)
+      List.map Tab.attach
+      @@ Element.query_selector_all elt (Printf.sprintf ".%s" Tab.CSS.root)
 
   inherit Widget.t elt () as super
 

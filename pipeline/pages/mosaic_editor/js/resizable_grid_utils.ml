@@ -1,6 +1,6 @@
 open Js_of_ocaml
 open Components
-open Page_mosaic_editor_tyxml.Container_editor
+open Page_mosaic_editor_tyxml.Resizable_grid
 
 module Attr = struct
   let row = "data-row"
@@ -206,7 +206,7 @@ let get_parent_grid (cell : Dom_html.element Js.t) =
     Js.Opt.case (Element.get_parent elt)
       (fun () -> failwith "parent grid not found")
       (fun elt ->
-         if Element.has_class elt CSS.grid
+         if Element.has_class elt CSS.root
          then elt else aux elt) in
   aux cell
 

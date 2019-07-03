@@ -1,6 +1,6 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
-open Page_mosaic_editor_tyxml.Container_editor
+open Page_mosaic_editor_tyxml.Resizable_grid
 
 type direction = Col | Row
 

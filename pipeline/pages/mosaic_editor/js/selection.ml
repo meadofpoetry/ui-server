@@ -109,6 +109,7 @@ type 'a detail =
   }
 
 class t
+    ?(multiple = true)
     ?(single_click = true)
     ?(validate_start = fun _ -> true)
     ?(start_threshold = 10)
@@ -136,7 +137,9 @@ class t
   val mutable _touched = []
   val mutable _added = []
   val mutable _removed = []
-  val mutable _single_click = true
+  val mutable _is_single_click = true
+  val mutable _single_click = single_click
+  val mutable _multiple = multiple
   val mutable _selectables = []
   val mutable _container = None
 
@@ -169,6 +172,12 @@ class t
     _temp_listeners <- [];
     self#set_disabled true;
     super#destroy ()
+
+  method set_single_click (x : bool) : unit =
+    _single_click <- x
+
+  method set_multiple (x : bool) : unit =
+    _multiple <- x
 
   method set_disabled (x : bool) : unit =
     if x then self#detach_start_events ()
@@ -266,7 +275,7 @@ class t
         _touched <- [];
         _added <- [];
         _removed <- [];
-        _single_click <- true;
+        _is_single_click <- true;
         _temp_listeners <- Events.(
             [ seq_loop (make_event @@ Dom_html.Event.make "selectstart")
                 doc self#handle_select_start
@@ -323,22 +332,24 @@ class t
     (* Check pixel threshold *)
     if Float.abs ((float_of_int (x + y)) -. (state.area_x1 +. state.area_y1))
        >= float_of_int start_threshold
-
     then (
       List.iter Lwt.cancel _delayed_listeners;
       _delayed_listeners <- [];
-      _temp_listeners <- Events.(
-          [ mousemoves doc (self#handle_drag_move state % coerce)
-          ; touchmoves ~passive:false doc (self#handle_drag_move state % coerce)
-          ] @ _temp_listeners);
       (* An action is recognized as single-select until
          the user performed a multi-selection *)
-      _single_click <- false;
-      area##.style##.display := Js.string "block";
-      self#handle_drag_move state e Lwt.return_unit
-      >>= fun () ->
-      self#notify_event `Start e;
-      Lwt.return_unit)
+      _is_single_click <- false;
+      if _multiple
+      then (
+        _temp_listeners <- Events.(
+            [ mousemoves doc (self#handle_drag_move state % coerce)
+            ; touchmoves ~passive:false doc (self#handle_drag_move state % coerce)
+            ] @ _temp_listeners);
+        area##.style##.display := Js.string "block";
+        self#handle_drag_move state e Lwt.return_unit
+        >>= fun () ->
+        self#notify_event `Start e;
+        Lwt.return_unit)
+      else Lwt.return_unit)
     else Lwt.return_unit
 
   method handle_drag_move (state : state) (e : Dom_html.event Js.t) _ : unit Lwt.t =
@@ -428,7 +439,7 @@ class t
     List.iter Lwt.cancel _temp_listeners;
     _delayed_listeners <- [];
     _temp_listeners <- [];
-    if _single_click && single_click
+    if _is_single_click && _single_click
     then (
       self#handle_single_click state e)
     else (
