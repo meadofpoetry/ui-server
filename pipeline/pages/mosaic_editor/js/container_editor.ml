@@ -42,6 +42,10 @@ let ( % ) f g x = f (g x)
 
 let flip f x y = f y x
 
+module Attr = struct
+  let title = "data-title"
+end
+
 module Selector = struct
   let grid_wrapper = Printf.sprintf ".%s" Card.CSS.media
   let cell = Printf.sprintf ".%s" Resizable_grid.CSS.cell
@@ -106,6 +110,41 @@ module Selection = struct
 
 end
 
+let swap (a : Dom_html.element Js.t as 'a) (b : 'a) : unit =
+  let get_attr attr e =
+    Js.Opt.get
+      (e##getAttribute (Js.string attr))
+      (fun () -> Js.string "") in
+  let swap_class e =
+    if Element.has_class a Selection.class_
+    then (Element.add_class b Selection.class_;
+          Element.remove_class a Selection.class_) in
+  let id, title, html =
+    a##.id
+  , get_attr Attr.title a
+  , a##.innerHTML in
+  a##.id := b##.id;
+  a##setAttribute (Js.string Attr.title) (get_attr Attr.title b);
+  a##.innerHTML := b##.innerHTML;
+  b##.id := id;
+  b##setAttribute (Js.string Attr.title) title;
+  b##.innerHTML := html;
+  swap_class a;
+  swap_class b
+
+let cell_title (i : int) =
+  Printf.sprintf "Контейнер #%d" i
+
+let gen_cell_title (cells : Dom_html.element Js.t list) =
+  let idx = List.length cells in
+  cell_title idx
+
+let on_cell_insert
+    (grid : Resizable_grid.t)
+    (cell : Dom_html.element Js.t) =
+  let title = gen_cell_title (grid#cells ()) in
+  Element.set_attribute cell "data-title" title
+
 class t ?(containers = [])
     ~resolution
     ~(scaffold : Scaffold.t)
@@ -118,10 +157,14 @@ class t ?(containers = [])
     | Some x -> x
   val grid = match Element.query_selector elt Selector.grid with
     | None -> failwith "container-editor: grid element not found"
-    | Some x -> Resizable_grid.attach ~drag_interval:(Fr 0.05) x
+    | Some x -> Resizable_grid.attach
+                  ~on_cell_insert
+                  ~drag_interval:(Fr 0.05)
+                  x
 
   val mutable _containers : (string * Wm.container) list = containers
   val mutable _listeners = []
+  val mutable _content_listeners = []
   val mutable _drag_target = Js.null
 
   val mutable _selection = None
@@ -130,7 +173,8 @@ class t ?(containers = [])
   val mutable _edit_mode = Table
 
   val mutable _basic_actions = None
-  val mutable _cells_selected_actions = None
+  val mutable _cell_selected_actions = []
+  val mutable _cont_selected_actions = []
 
   val mutable _widget_editor = None
   val mutable _mode_switch = None
@@ -141,9 +185,9 @@ class t ?(containers = [])
     _resize_observer <- Some (self#create_resize_observer ());
     _selection <- Some (Selection.make self#handle_selected grid_wrapper);
     let basic_actions = self#create_actions () in
-    let cells_selected_actions = self#create_selected_actions () in
     _basic_actions <- Some basic_actions;
-    _cells_selected_actions <- Some cells_selected_actions;
+    _cell_selected_actions <- self#create_cell_selected_actions ();
+    _cont_selected_actions <- self#create_cont_selected_actions ();
     _mode_switch <- begin match Element.query_selector elt Selector.mode_switch with
       | None -> failwith "container-editor: mode switch element not found"
       | Some x ->
@@ -182,7 +226,7 @@ class t ?(containers = [])
     grid#root##.style##.width := Utils.px_js width;
     grid#root##.style##.height := Utils.px_js parent_h;
     Utils.Option.iter Widget.layout _basic_actions;
-    Utils.Option.iter Widget.layout _cells_selected_actions;
+    List.iter Widget.layout _cell_selected_actions;
     super#layout ()
 
   method! destroy () : unit =
@@ -235,22 +279,17 @@ class t ?(containers = [])
   method private handle_dragover e _ =
     let target = Dom_html.eventTarget e in
     if Element.has_class target Resizable_grid.CSS.cell
+    && (not (Js.some target == _drag_target))
     then (Dom.preventDefault e;
           e##.dataTransfer##.dropEffect := Js.string "move");
     Lwt.return_unit
 
   method private handle_drop e _ =
-    print_endline "drop";
     Dom_html.stopPropagation e;
     let target = Dom_html.eventTarget e in
     Js.Opt.iter _drag_target (fun dragged ->
         if not @@ Element.equal dragged target
-        then (
-          let id, html = dragged##.id, dragged##.innerHTML in
-          dragged##.id := target##.id;
-          dragged##.innerHTML := target##.innerHTML;
-          target##.id := id;
-          target##.innerHTML := html));
+        then swap dragged target);
     Lwt.return_unit
 
   method private handle_dragend e _ =
@@ -269,6 +308,20 @@ class t ?(containers = [])
      | _ -> ());
     Lwt.return_unit
 
+  method private handle_click e _ : unit Lwt.t =
+    match Resizable_grid_utils.cell_of_event (grid#cells ()) e with
+    | None -> Lwt.return_unit
+    | Some cell ->
+      let is_selected = List.memq cell self#selected in
+      self#clear_selection ();
+      if is_selected
+      then (self#selection#deselect cell;
+            Element.remove_class cell Selection.class_)
+      else (self#selection#select [cell];
+            Element.add_class cell Selection.class_);
+      self#handle_selected self#selected;
+      Lwt.return_unit
+
   method private restore_top_app_bar_context () : unit =
     Utils.Option.iter (fun f -> f (); _top_app_bar_context <- None)
       _top_app_bar_context
@@ -277,15 +330,18 @@ class t ?(containers = [])
     | [] -> self#restore_top_app_bar_context ()
     | cells ->
       let title = match _edit_mode, cells with
-        | Content, [cell] -> Printf.sprintf "Выбрана ячейка" (* FIXME *)
+        | Content, [cell] ->
+          (match Element.get_attribute cell Attr.title with
+           | None -> "Выбран контейнер"
+           | Some x -> x)
         | _ ->
           Printf.sprintf "Выбрано ячеек: %d"
           @@ List.length cells in
       let restore = Container_editor_actions.transform_top_app_bar
           ~class_:Page_mosaic_editor_tyxml.CSS.top_app_bar_contextual
           ~actions:(match _edit_mode with
-              | Table -> [Utils.Option.get _cells_selected_actions]
-              | Content -> [])
+              | Table -> _cell_selected_actions
+              | Content -> _cont_selected_actions)
           ~title
           scaffold in
       match _top_app_bar_context with
@@ -302,22 +358,33 @@ class t ?(containers = [])
     make_overflow_menu (fun () -> self#selected) scaffold [wizard grid]
 
   (* TODO consider inner grids *)
-  method private create_selected_actions () : Overflow_menu.t =
-  let open Container_editor_actions in
+  method private create_cell_selected_actions () : Widget.t list =
+    let open Container_editor_actions in
     let f () =
       self#clear_selection ();
       self#restore_top_app_bar_context () in
-    make_overflow_menu
-      (fun () -> self#selected)
-      scaffold
-      [ merge ~f grid
-      ; add_row_above grid
-      ; add_row_below grid
-      ; remove_row ~f grid
-      ; add_col_left grid
-      ; add_col_right grid
-      ; remove_col ~f grid
-      ]
+    let menu = make_overflow_menu
+        (fun () -> self#selected)
+        scaffold
+        [ merge ~f grid
+        ; add_row_above grid
+        ; add_row_below grid
+        ; remove_row ~f grid
+        ; add_col_left grid
+        ; add_col_right grid
+        ; remove_col ~f grid
+        ] in
+    [menu#widget]
+
+  method private create_cont_selected_actions () : Widget.t list =
+    let open Container_editor_actions in
+    let menu = make_overflow_menu
+        (fun () -> self#selected)
+        scaffold
+        [ edit ()
+        ; description ()
+        ] in
+    [menu#widget]
 
   method private create_grid_actions () =
     let make_icon path = Icon.SVG.(make_simple path)#root in
@@ -342,13 +409,23 @@ class t ?(containers = [])
     self#clear_selection ();
     self#restore_top_app_bar_context ();
     _edit_mode <- mode;
-    (match mode with
-     | Table ->
-       self#selection#set_disabled false;
-       super#remove_class CSS.content_mode
-     | Content ->
-       self#selection#set_disabled true;
-       super#add_class CSS.content_mode);
+    match mode with
+    | Table -> self#set_table_mode ()
+    | Content -> self#set_content_mode ()
+
+  method private set_content_mode () : unit Lwt.t =
+    self#selection#set_disabled true;
+    super#add_class CSS.content_mode;
+    _content_listeners <- Events.(
+        [ clicks grid#root self#handle_click
+        ]);
+    Lwt.return_unit
+
+  method private set_table_mode () : unit Lwt.t =
+    self#selection#set_disabled false;
+    super#remove_class CSS.content_mode;
+    List.iter Lwt.cancel _content_listeners;
+    _content_listeners <- [];
     Lwt.return_unit
 
 end
@@ -356,22 +433,27 @@ end
 let make
     ~(scaffold : Scaffold.t)
     (wm : Wm.t) =
+  let cols = 5 in
+  let rows = 5 in
   let cells = Resizable_grid_utils.gen_cells
       ~f:(fun ~col ~row () ->
           let content =
             Markup.create_cell_description
-              ~content:[Html.txt @@ Printf.sprintf "%dx%d" col row]
+              ~content:[]
               () in
+          let idx = ((pred row) * cols) + col in
+          let title = cell_title idx in
           Resizable_grid.Markup.create_cell
+            ~attrs:[Html.a_user_data "title" title]
             ~col_start:col
             ~row_start:row
             ~content:[content]
             ())
-      ~cols:5
-      ~rows:5 in
+      ~cols
+      ~rows in
   let grid = Resizable_grid.Markup.create
-      ~rows:5
-      ~cols:5
+      ~rows
+      ~cols
       ~content:cells
       () in
   let elt =

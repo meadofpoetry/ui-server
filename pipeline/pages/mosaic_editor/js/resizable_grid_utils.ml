@@ -32,7 +32,7 @@ let coerce_event = function
 
 let cell_of_event
     (items : Dom_html.element Js.t list)
-    (e : Dom_html.event Js.t) : Dom_html.element Js.t option =
+    (e : #Dom_html.event Js.t) : Dom_html.element Js.t option =
   let target = Dom_html.eventTarget e in
   let selector = Printf.sprintf ".%s, .%s" CSS.cell CSS.root in
   let nearest_parent = Js.Opt.to_option @@ Element.closest target selector in
@@ -172,14 +172,18 @@ let get_cell_position (cell : Dom_html.element Js.t) =
   }
 
 let set_cell_row ?(span = 1) (row : int) (cell : Dom_html.element Js.t) =
-  let v = Js.string @@ Printf.sprintf "%d / span %d" row span in
-  (Js.Unsafe.coerce cell##.style)##.gridRow := v;
-  cell##setAttribute (Js.string Attr.row) v
+  let start = Js.string @@ Printf.sprintf "%d" row in
+  let end' = Js.string @@ Printf.sprintf "%d" (row + span) in
+  (Js.Unsafe.coerce cell##.style)##.gridRowStart := start;
+  (Js.Unsafe.coerce cell##.style)##.gridRowEnd := end';
+  cell##setAttribute (Js.string Attr.row) start
 
 let set_cell_col ?(span = 1) (col : int) (cell : Dom_html.element Js.t) =
-  let v = Js.string @@ Printf.sprintf "%d / span %d" col span in
-  (Js.Unsafe.coerce cell##.style)##.gridColumn := v;
-  cell##setAttribute (Js.string Attr.col) v
+  let start = Js.string @@ Printf.sprintf "%d" col in
+  let end' = Js.string @@ Printf.sprintf "%d" (col + span) in
+  (Js.Unsafe.coerce cell##.style)##.gridColumnStart := start;
+  (Js.Unsafe.coerce cell##.style)##.gridColumnEnd := end';
+  cell##setAttribute (Js.string Attr.col) start
 
 let set_cell_position { col; row; col_span; row_span }
     (cell : Dom_html.element Js.t) =

@@ -30,7 +30,7 @@ class type stylish =
 val coerce_event : event -> Dom_html.event Js.t
 
 val cell_of_event : Dom_html.element Js.t list
-  -> Dom_html.event Js.t
+  -> #Dom_html.event Js.t
   -> Dom_html.element Js.t option
 
 val get_cursor_position : ?touch_id:int -> event -> int * int

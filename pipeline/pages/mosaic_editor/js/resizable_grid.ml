@@ -65,6 +65,7 @@ class t
     ?(snap_offset = 0.)
     ?(min_size_start = 20.)
     ?(min_size_end = 20.)
+    ?(on_cell_insert = fun _ _ -> ())
     (elt : Dom_html.element Js.t) () = object(self)
   inherit Widget.t elt () as super
 
@@ -158,7 +159,8 @@ class t
           ~col_end
           () in
       Element.append_child super#root merged;
-      List.iter (Element.remove_child_safe super#root) cells
+      List.iter (Element.remove_child_safe super#root) cells;
+      on_cell_insert self merged
 
   method cells ?include_subgrids
       ?(grid = super#root)
@@ -235,7 +237,8 @@ class t
             ~row_start:row
             ~col_start:col
             () in
-        Element.append_child grid elt) opposite_tracks;
+        Element.append_child grid elt;
+        on_cell_insert self elt) opposite_tracks;
     let style =
       String.concat " "
       @@ insert_at_idx (n - 1) (value_to_string size) tracks in
@@ -490,14 +493,18 @@ let make ?drag_interval
     ?snap_offset
     ?min_size_start
     ?min_size_end
+    ?on_cell_insert
     () =
   let elt = Dom_html.(createDiv document) in
   new t ?drag_interval ?snap_offset
     ?min_size_start
     ?min_size_end
+    ?on_cell_insert
     elt
     ()
 
 let attach ?drag_interval ?snap_offset ?min_size_start ?min_size_end
+    ?on_cell_insert
     (elt : Dom_html.element Js.t) : t =
-  new t ?drag_interval ?snap_offset ?min_size_start ?min_size_end elt ()
+  new t ?drag_interval ?snap_offset ?min_size_start ?min_size_end
+    ?on_cell_insert elt ()

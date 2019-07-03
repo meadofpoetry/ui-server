@@ -23,6 +23,18 @@ let wizard (grid : Resizable_grid.t) =
   ; icon = Icon.SVG.Path.auto_fix
   }
 
+let description () =
+  { callback = (fun _ -> ())
+  ; name = "Описание"
+  ; icon = Icon.SVG.Path.information
+  }
+
+let edit () =
+  { callback = (fun _ -> ())
+  ; name = "Редактировать"
+  ; icon = Icon.SVG.Path.pencil
+  }
+
 let merge ?f (grid : Resizable_grid.t) =
   { callback = (fun cells ->
         grid#merge cells;
