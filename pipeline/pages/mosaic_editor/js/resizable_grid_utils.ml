@@ -5,6 +5,7 @@ open Page_mosaic_editor_tyxml.Resizable_grid
 module Attr = struct
   let row = "data-row"
   let col = "data-col"
+  let title = "data-title"
 end
 
 type direction = Col | Row
@@ -251,4 +252,10 @@ let get_leftmost_cell cells =
 let get_rightmost_cell cells =
   get_cell' (fun acc pos -> pos.col > acc.col) cells
 
+let get_cell_title (cell : Dom_html.element Js.t) : string =
+  match Element.get_attribute cell Attr.title with
+  | None -> ""
+  | Some s -> s
 
+let set_cell_title (cell : Dom_html.element Js.t) (title : string) : unit =
+  Element.set_attribute cell Attr.title title

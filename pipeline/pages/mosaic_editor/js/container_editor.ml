@@ -13,7 +13,7 @@ open Resizable_grid_utils
    [X] overflow menu
    [X] contextual actions
    [ ] keyboard navigation for widgets/containers
-   [ ] add description to tiles
+   [X] add description to tiles
    [ ] add switching between widget/container mode
    [ ] simple wizard
    [ ] `add` widget ui
@@ -41,10 +41,6 @@ let ( >>= ) = Lwt.bind
 let ( % ) f g x = f (g x)
 
 let flip f x y = f y x
-
-module Attr = struct
-  let title = "data-title"
-end
 
 module Selector = struct
   let grid_wrapper = Printf.sprintf ".%s" Card.CSS.media
@@ -143,7 +139,20 @@ let on_cell_insert
     (grid : Resizable_grid.t)
     (cell : Dom_html.element Js.t) =
   let title = gen_cell_title (grid#cells ()) in
-  Element.set_attribute cell "data-title" title
+  set_cell_title cell title
+
+let make_description_dialog () =
+  let input =
+    Textfield.make_textfield
+      ~label:"Наименование"
+      Text in
+  let title = Dialog.Markup.create_title_simple "Описание" () in
+  let content = Dialog.Markup.create_content [input#markup] () in
+  let actions = Dialog.Markup.(
+      [ create_action ~label:"Отмена" ~action:Close ()
+      ; create_action ~label:"ОК" ~action:Accept ()
+      ]) in
+  input, Dialog.make ~title ~content ~actions ()
 
 class t ?(containers = [])
     ~resolution
@@ -161,6 +170,7 @@ class t ?(containers = [])
                   ~on_cell_insert
                   ~drag_interval:(Fr 0.05)
                   x
+  val description_dialog = make_description_dialog ()
 
   val mutable _containers : (string * Wm.container) list = containers
   val mutable _listeners = []
@@ -206,6 +216,7 @@ class t ?(containers = [])
      | Some x -> x#set_actions @@ List.map Widget.root [basic_actions]);
     (* FIXME *)
     List.iter (Element.append_child actions % Widget.root) @@ self#create_grid_actions ();
+    Dom.appendChild Dom_html.document##.body (snd description_dialog)#root;
     super#init ()
 
   method! initial_sync_with_dom () : unit =
@@ -236,6 +247,7 @@ class t ?(containers = [])
     _selection <- None;
     List.iter Lwt.cancel _listeners;
     _listeners <- [];
+    Dom.removeChild Dom_html.document##.body (snd description_dialog)#root;
     super#destroy ()
 
   method selected : Dom_html.element Js.t list =
@@ -244,6 +256,13 @@ class t ?(containers = [])
   method clear_selection () : unit =
     List.iter (flip Element.remove_class Selection.class_) self#selected;
     self#selection#deselect_all ()
+
+  method value : Wm.t =
+    (* TODO implement *)
+    { resolution
+    ; widgets = []
+    ; layout = []
+    }
 
   method notify : event -> unit = function
     | `Layout wm ->
@@ -382,7 +401,7 @@ class t ?(containers = [])
         (fun () -> self#selected)
         scaffold
         [ edit ()
-        ; description ()
+        ; description description_dialog
         ] in
     [menu#widget]
 

@@ -180,6 +180,7 @@ class t
     _multiple <- x
 
   method set_disabled (x : bool) : unit =
+    _touched <- [];
     if x then self#detach_start_events ()
     else self#attach_start_events ()
 

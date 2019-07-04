@@ -2,6 +2,12 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml
 open Page_mosaic_editor_tyxml.Resizable_grid
 
+module Attr : sig
+  val col : string
+  val row : string
+  val title : string
+end
+
 type direction = Col | Row
 
 type cell_position =
@@ -87,3 +93,7 @@ val get_bottommost_cell : Dom_html.element Js.t list -> Dom_html.element Js.t
 val get_leftmost_cell : Dom_html.element Js.t list -> Dom_html.element Js.t
 
 val get_rightmost_cell : Dom_html.element Js.t list -> Dom_html.element Js.t
+
+val get_cell_title : Dom_html.element Js.t -> string
+
+val set_cell_title : Dom_html.element Js.t -> string -> unit
