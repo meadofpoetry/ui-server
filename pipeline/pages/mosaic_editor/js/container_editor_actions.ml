@@ -4,8 +4,8 @@ open Resizable_grid_utils
 
 (* TODO
    [ ] Add cell split action
-   [ ] Add container info action
-   [ ] Add container edit action *)
+   [X] Add container info action
+   [X] Add container edit action *)
 
 type t =
   { callback : Dom_html.element Js.t list -> unit Lwt.t(* handle selected cells, if any *)
@@ -34,7 +34,9 @@ let description ((input : string Textfield.t), (dialog : Dialog.t)) =
            >>= function
            | Close | Destroy | Custom _ -> Lwt.return_unit
            | Accept ->
-             (* TODO Check empty, change top app bar title *)
+             (* TODO
+                - Check if title is valid (empty, repeating, etc)
+                - Change top app bar title *)
              let value' = input#value_as_string in
              if not (String.equal title value')
              then set_cell_title cell value';
@@ -44,8 +46,10 @@ let description ((input : string Textfield.t), (dialog : Dialog.t)) =
   ; icon = Icon.SVG.Path.information
   }
 
-let edit () =
-  { callback = (fun _ -> Lwt.return_unit)
+let edit f =
+  { callback = (function
+        | [cell] -> f cell
+        | _ -> Lwt.return_unit)
   ; name = "Редактировать"
   ; icon = Icon.SVG.Path.pencil
   }

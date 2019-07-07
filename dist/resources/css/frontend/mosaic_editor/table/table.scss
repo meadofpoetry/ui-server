@@ -19,6 +19,7 @@ $mosaic-grid-colors: (
 .mosaic-grid {
     margin: 0 auto;
     position: relative;
+    @include mdc-theme-prop(background-color, surface);
 }
 
 .mosaic-grid__ghost {

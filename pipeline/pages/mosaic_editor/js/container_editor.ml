@@ -30,7 +30,12 @@ open Resizable_grid_utils
 include Page_mosaic_editor_tyxml.Container_editor
 module Markup = Make(Xml)(Svg)(Html)
 
-type editing_mode = Table | Content
+type editing_mode = Content | Table
+
+let editing_mode_of_enum = function
+  | 0 -> Content
+  | 1 -> Table
+  | _ -> invalid_arg "invalid mode value"
 
 type event =
   [ `Layout of Wm.t
@@ -132,6 +137,7 @@ let cell_title (i : int) =
   Printf.sprintf "Контейнер #%d" i
 
 let gen_cell_title (cells : Dom_html.element Js.t list) =
+  (* FIXME implement *)
   let idx = List.length cells in
   cell_title idx
 
@@ -201,14 +207,15 @@ class t ?(containers = [])
     _mode_switch <- begin match Element.query_selector elt Selector.mode_switch with
       | None -> failwith "container-editor: mode switch element not found"
       | Some x ->
-        let tab_bar =
-          Tab_bar.attach
-            ~on_change:(fun _ tab_bar ->
-                match tab_bar#active_tab_index with
-                | None -> assert false
-                | Some 0 -> self#switch_mode Table
-                | Some _ -> self#switch_mode Content)
+        let on_change = function
+          | None -> assert false
+          | Some x -> self#switch_mode (editing_mode_of_enum x) in
+        let tab_bar = Tab_bar.attach
+            ~on_change:(fun _ x ->
+                on_change x#active_tab_index;
+                Lwt.return_unit)
             x in
+        on_change tab_bar#active_tab_index;
         Some tab_bar
     end;
     (match scaffold#top_app_bar with
@@ -236,6 +243,7 @@ class t ?(containers = [])
     let width = parent_h * (fst resolution) / (snd resolution) in
     grid#root##.style##.width := Utils.px_js width;
     grid#root##.style##.height := Utils.px_js parent_h;
+    Utils.Option.iter (Widget.layout % snd) _widget_editor;
     Utils.Option.iter Widget.layout _basic_actions;
     List.iter Widget.layout _cell_selected_actions;
     super#layout ()
@@ -272,6 +280,16 @@ class t ?(containers = [])
         match List.assoc_opt id wm.layout with
         | None -> () (* FIXME container lost, handle it somehow *)
         | Some x -> editor#notify @@ `Container x
+
+  method edit_container (container : Dom_html.element Js.t) : unit Lwt.t =
+    let cont = Container.container_of_element container in
+    let cont = { cont with widgets = Test.widgets } in
+    let editor = Widget_editor.make cont in
+    Dom.removeChild grid_wrapper grid#root;
+    Dom.appendChild grid_wrapper editor#root;
+    editor#layout ();
+    _widget_editor <- Some ("", editor);
+    Lwt.return_unit
 
   (* Private methods *)
 
@@ -400,7 +418,7 @@ class t ?(containers = [])
     let menu = make_overflow_menu
         (fun () -> self#selected)
         scaffold
-        [ edit ()
+        [ edit self#edit_container
         ; description description_dialog
         ] in
     [menu#widget]
@@ -414,9 +432,6 @@ class t ?(containers = [])
     let buttons = Card.Actions.make_buttons [submit] in
     [icons; buttons]
 
-  method private edit_container (cell : Dom_html.element Js.t) : unit =
-    ()
-
   method private create_resize_observer () =
     let f = fun _ -> self#layout () in
     Ui_templates.Resize_observer.observe ~f ~node:super#root ()
@@ -424,7 +439,7 @@ class t ?(containers = [])
   method private selection : Selection.t =
     Utils.Option.get _selection
 
-  method private switch_mode (mode : editing_mode) : unit Lwt.t =
+  method private switch_mode (mode : editing_mode) : unit =
     self#clear_selection ();
     self#restore_top_app_bar_context ();
     _edit_mode <- mode;
@@ -432,20 +447,18 @@ class t ?(containers = [])
     | Table -> self#set_table_mode ()
     | Content -> self#set_content_mode ()
 
-  method private set_content_mode () : unit Lwt.t =
+  method private set_content_mode () : unit =
     self#selection#set_disabled true;
     super#add_class CSS.content_mode;
     _content_listeners <- Events.(
         [ clicks grid#root self#handle_click
-        ]);
-    Lwt.return_unit
+        ])
 
-  method private set_table_mode () : unit Lwt.t =
+  method private set_table_mode () : unit =
     self#selection#set_disabled false;
     super#remove_class CSS.content_mode;
     List.iter Lwt.cancel _content_listeners;
-    _content_listeners <- [];
-    Lwt.return_unit
+    _content_listeners <- []
 
 end
 

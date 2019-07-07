@@ -111,7 +111,6 @@ class t ?(widgets = []) (position : Position.t) elt () =
 
     method! init () : unit =
       super#init ();
-      super#add_class Card.CSS.root;
       toolbar <- Some (self#make_toolbar ())
 
     method! initial_sync_with_dom () : unit =

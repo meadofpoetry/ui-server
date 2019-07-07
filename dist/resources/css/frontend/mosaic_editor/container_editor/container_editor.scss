@@ -55,7 +55,7 @@ $divider-color: if(
         display: grid;
         @include mdc-theme-prop(background-color, $divider-color);
 
-        & > .container-grid {
+        & > .container-grid, & > .mosaic-grid {
             position: absolute;
             top: 0;
             left: 0;

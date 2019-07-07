@@ -37,8 +37,8 @@ module Make(Xml : Xml_sigs.NoWrap)
         (Tab.create_content ~text_label ())
         () in
     let tabs =
-      [ create_tab ~active:true "Таблица"
-      ; create_tab "Контейнеры" ] in
+      [ create_tab ~active:true "Контейнеры"
+      ; create_tab "Таблица" ] in
     let scroll_area =
       Tab_scroller.create_scroll_area
         ~content:(Tab_scroller.create_scroll_content tabs ())

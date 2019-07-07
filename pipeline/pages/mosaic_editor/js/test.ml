@@ -17,16 +17,23 @@ let make_widget ?(type_ = Wm.Video) ?aspect ~x ~y ~w ~h () : string * Wm.widget 
   ; domain = Nihil
   ; layer = 0
   }
+
 let make_container ?(widgets = []) ~position () : string * Wm.container =
-  "Sample container", { position
-                      ; widgets
-                      }
+  "Sample container",
+  { position
+  ; widgets
+  }
+
+let widgets =
+  [ make_widget ~x:0 ~y:0 ~w:50 ~h:50 ()
+  ; make_widget ~x:50 ~y:0 ~w:50 ~h:50 ()
+  (* ; make_widget ~x:111 ~y:0 ~w:189 ~h:150 ()
+   * ; make_widget ~x:0 ~y:150 ~w:200 ~h:150 ()
+   * ; make_widget ~x:210 ~y:150 ~w:90 ~h:150 ~type_:Audio () *)
+  ]
+
 let container =
   make_container
     ~position:{ left = 0; top = 0; right = 1080; bottom = 1920 }
-    ~widgets:[ make_widget ~x:0 ~y:0 ~w:111 ~h:150 ()
-             ; make_widget ~x:111 ~y:0 ~w:189 ~h:150 ()
-             ; make_widget ~x:0 ~y:150 ~w:200 ~h:150 ()
-             ; make_widget ~x:210 ~y:150 ~w:90 ~h:150 ~type_:Audio ()
-             ]
+    ~widgets
     ()

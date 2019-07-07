@@ -1,8 +1,12 @@
+open Js_of_ocaml
+
 (* XXX Can be rewritten as a flat variant if needed,
    like Top_left | Top | Top_right ... *)
 type halign = Left | HCenter | Right
 type valign = Top | VCenter | Bottom
 type align = halign * valign
+
+val container_of_element : Dom_html.element Js.t -> Pipeline_types.Wm.container
 
 (** Returns the minimum avaiable size for the container *)
 val min_size :
