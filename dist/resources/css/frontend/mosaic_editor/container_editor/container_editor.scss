@@ -70,6 +70,10 @@ $divider-color: if(
         }
     }
 
+    &__widget {
+        position: absolute;
+    }
+
     .container-grid {
     }
 

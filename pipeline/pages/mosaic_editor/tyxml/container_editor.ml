@@ -1,14 +1,19 @@
 open Components_tyxml
+open Pipeline_types
 
 module CSS = struct
   let root = "container-editor"
   let mode_switch = BEM.add_element root "mode-switch"
   let aspect_ratio_sizer = BEM.add_element root "aspect-ratio-sizer"
-  let cell_description = BEM.add_element root "cell-description"
+  let widget = BEM.add_element root "widget"
   let content_mode = BEM.add_modifier root "content-mode"
   let cell_dragover = BEM.add_modifier Resizable_grid.CSS.cell "dragover"
   let cell_dragging = BEM.add_modifier Resizable_grid.CSS.cell "dragging"
 end
+
+let widget_type_to_string = function
+  | Wm.Audio -> "audio"
+  | Video -> "video"
 
 module Make(Xml : Xml_sigs.NoWrap)
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
@@ -23,9 +28,23 @@ module Make(Xml : Xml_sigs.NoWrap)
   module Tab_scroller = Tab_scroller.Make(Xml)(Svg)(Html)
   module Tab_bar = Tab_bar.Make(Xml)(Svg)(Html)
 
-  let create_cell_description ?(classes = []) ?attrs ?(content = []) () : 'a elt =
-    let classes = CSS.cell_description :: classes in
-    span ~a:([a_class classes] <@> attrs) content
+  let create_widget ?(classes = []) ?attrs
+      (id, widget : string * Wm.widget) : 'a elt =
+    let domain = Yojson.Safe.to_string @@ Wm.domain_to_yojson widget.domain in
+    let aspect = match widget.aspect with
+      | None -> None
+      | Some (w, h) -> Some (Printf.sprintf "%dx%d" w h) in
+    let style = Printf.sprintf "z-index: %d" widget.layer in
+    let classes = CSS.widget :: classes in
+    div ~a:([ a_id id
+            ; a_class classes
+            ; a_style style
+            ; a_user_data "type" (widget_type_to_string widget.type_)
+            ; a_user_data "domain" domain
+            ; a_user_data "description" widget.description ] <@> attrs
+            |> map_cons_option (a_user_data "aspect") aspect
+            |> map_cons_option (a_user_data "pid" % string_of_int) widget.pid)
+      []
 
   let create_mode_switch () =
     let create_tab ?active label =

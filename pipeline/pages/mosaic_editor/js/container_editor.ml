@@ -28,7 +28,7 @@ open Resizable_grid_utils
 *)
 
 include Page_mosaic_editor_tyxml.Container_editor
-module Markup = Make(Xml)(Svg)(Html)
+module Markup = Markup.Container_editor
 
 type editing_mode = Content | Table
 
@@ -191,6 +191,15 @@ let make_undo_manager () =
   redo#set_disabled true;
   undo, redo, undo_manager
 
+let get f l =
+  let rec aux acc = function
+    | [] -> None, l
+    | x :: tl ->
+      if f x
+      then Some x, (List.rev acc) @ tl
+      else aux (x :: acc) tl in
+  aux [] l
+
 class t ?(containers = [])
     ~resolution
     ~(scaffold : Scaffold.t)
@@ -333,30 +342,33 @@ class t ?(containers = [])
           | Some x -> editor#notify @@ `Container x
 
     method edit_container (container : Dom_html.element Js.t) : unit Lwt.t =
-      let title = get_cell_title container in
-      let cont = Container.container_of_cell container in
-      let cont = { cont with widgets = Test.widgets } in
+      let id = get_cell_title container in
+      let widgets = Wm_widget.elements container in
+      let cont = Container.of_element container in
       let editor = Widget_editor.make cont in
       Utils.Option.iter (Dom.removeChild heading % Widget.root) _mode_switch;
       Dom.removeChild content grid#root;
       Dom.appendChild content editor#root;
-      _widget_editor <- Some ("", editor);
+      _widget_editor <- Some (id, editor);
       let width = cont.position.right - cont.position.left in
       let height = cont.position.bottom - cont.position.top in
+      (* Set aspect ratio sizer for container dimensions *)
       update_ar_sizer ~width ~height ar_sizer;
       editor#layout ();
+      (* Thread which is resolved when we're back to the container mode *)
       let t, w = Lwt.wait () in
-      let x = Container_editor_actions.transform_top_app_bar
-          ~title
-          scaffold
-      in
+      scaffold#set_on_navigation_icon_click (fun _ _ ->
+          Lwt.wakeup_later w ();
+          Lwt.return_unit);
       t
       >>= fun () ->
+      self#update_widget_elements editor#value.widgets widgets container;
       Dom.removeChild content editor#root;
       Dom.appendChild content grid#root;
       Utils.Option.iter (Dom.appendChild heading % Widget.root) _mode_switch;
       grid#layout ();
       editor#destroy ();
+      (* Restore aspect ratio sizer dimensions *)
       let width, height = self#resolution in
       update_ar_sizer ~width ~height ar_sizer;
       _widget_editor <- None;
@@ -545,6 +557,20 @@ class t ?(containers = [])
       List.iter Lwt.cancel _content_listeners;
       _content_listeners <- []
 
+    method private update_widget_elements
+        (widgets : (string * Wm.widget) list)
+        (elements : Dom_html.element Js.t list)
+        (container : Dom_html.element Js.t) : unit =
+      let rest =
+        List.fold_left (fun acc (elt : Dom_html.element Js.t) ->
+            let id = Js.to_string elt##.id in
+            let w, rest = get (String.equal id % fst) acc in
+            (match w with
+             | Some w -> Wm_widget.update_element elt w
+             | None -> Dom.removeChild container elt);
+            rest) widgets elements in
+      List.iter (Dom.appendChild container % Wm_widget.to_element) rest
+
   end
 
 let make
@@ -554,17 +580,13 @@ let make
   let rows = 5 in
   let cells = Resizable_grid_utils.gen_cells
       ~f:(fun ~col ~row () ->
-          let content =
-            Markup.create_cell_description
-              ~content:[]
-              () in
           let idx = ((pred row) * cols) + col in
           let title = cell_title idx in
           Resizable_grid.Markup.create_cell
             ~attrs:[Html.a_user_data "title" title]
             ~col_start:col
             ~row_start:row
-            ~content:[content]
+            ~content:[]
             ())
       ~cols
       ~rows in

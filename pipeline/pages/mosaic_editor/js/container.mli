@@ -6,7 +6,7 @@ type halign = Left | HCenter | Right
 type valign = Top | VCenter | Bottom
 type align = halign * valign
 
-val container_of_cell : Dom_html.element Js.t -> Pipeline_types.Wm.container
+val of_element : Dom_html.element Js.t -> Pipeline_types.Wm.container
 
 (** Returns the minimum avaiable size for the container *)
 val min_size :

@@ -1,4 +1,8 @@
-open Js_of_ocaml_tyxml
+open Js_of_ocaml_tyxml.Tyxml_js
 
-include Page_mosaic_editor_tyxml
-include Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
+module M = Page_mosaic_editor_tyxml
+
+include M.Make(Xml)(Svg)(Html)
+
+module CSS = M.CSS
+module Container_editor = M.Container_editor.Make(Xml)(Svg)(Html)
