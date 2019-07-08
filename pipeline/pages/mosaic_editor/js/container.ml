@@ -5,10 +5,11 @@ type halign = Left | HCenter | Right
 type valign = Top | VCenter | Bottom
 type align = halign * valign
 
-let container_of_element (elt : Dom_html.element Js.t) : Wm.container =
+let container_of_cell (elt : Dom_html.element Js.t) : Wm.container =
+  (* TODO implement. Seems that it is better to use relative
+     dimensions like 'fr' rather than absolute pixel values. *)
   let width = elt##.offsetWidth in
   let height = elt##.offsetHeight in
-  print_endline @@ Printf.sprintf "width: %d, height: %d" width height;
   let position =
     { Wm. left = 0
     ; right = width

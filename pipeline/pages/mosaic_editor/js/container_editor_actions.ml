@@ -54,11 +54,30 @@ let edit f =
   ; icon = Icon.SVG.Path.pencil
   }
 
-let merge ?f (grid : Resizable_grid.t) =
+let merge ?f
+    (undo_manager : Undo_manager.t)
+    (grid : Resizable_grid.t) =
+  let action = fun cells ->
+    apply_opt_cb f;
+    grid#merge cells in
   { callback = (fun cells ->
-        grid#merge cells;
-        apply_opt_cb f;
-        Lwt.return_unit)
+        match action cells with
+        | None -> Lwt.return_unit
+        | Some merged ->
+          let v =
+            { Undo_manager.
+              undo = (fun () ->
+                  Dom.removeChild grid#root merged;
+                  List.iter (Dom.appendChild grid#root) cells;
+                  print_endline "undo merge";
+                  apply_opt_cb f)
+            ; redo = (fun () ->
+                  List.iter (Dom.removeChild grid#root) cells;
+                  Dom.appendChild grid#root merged;
+                  apply_opt_cb f)
+            } in
+          Undo_manager.add undo_manager v;
+          Lwt.return_unit)
   ; name = "Объединить ячейки"
   ; icon = Icon.SVG.Path.table_merge_cells
   }
@@ -180,7 +199,7 @@ let make_overflow_menu
 let transform_top_app_bar
     ?(actions = [])
     ?(title : string option)
-    ~(class_ : string)
+    ?(class_ : string option)
     (scaffold : Scaffold.t) =
   match scaffold#top_app_bar with
   | None -> fun () -> ()
@@ -188,7 +207,7 @@ let transform_top_app_bar
     let prev_title = x#title in
     let prev_actions = x#actions in
     Utils.Option.iter x#set_title title;
-    x#add_class class_;
+    Utils.Option.iter x#add_class class_;
     x#set_actions @@ List.map Widget.root actions;
     List.iter Widget.layout actions;
     (fun () ->
@@ -196,4 +215,4 @@ let transform_top_app_bar
        List.iter Widget.destroy actions;
        x#set_title prev_title;
        x#set_actions prev_actions;
-       x#remove_class class_)
+       Utils.Option.iter x#remove_class class_)

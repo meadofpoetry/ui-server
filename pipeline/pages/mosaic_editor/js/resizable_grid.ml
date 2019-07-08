@@ -88,6 +88,14 @@ class t
         ]);
     super#initial_sync_with_dom ()
 
+  method rows : value array =
+    Array.map value_of_string
+    @@ self#raw_tracks super#root Row
+
+  method cols : value array =
+    Array.map value_of_string
+    @@ self#raw_tracks super#root Col
+
   method add_column_before ?size (cell : Dom_html.element Js.t) : unit =
     self#add_row_or_column ?size ~before:true Col cell
 
@@ -138,9 +146,9 @@ class t
       @@ Markup.create ~cols ~rows ~content () in
     Element.append_child cell grid
 
-  method merge (cells : Dom_html.element Js.t list) : unit =
+  method merge (cells : Dom_html.element Js.t list) : Dom_html.element Js.t option =
     match cells with
-    | [] | [_] -> ()
+    | [] | [_] -> None
     | x :: tl ->
       (* FIXME consider different grids *)
       let { col; row; col_span; row_span } = get_cell_position x in
@@ -160,7 +168,8 @@ class t
           () in
       Element.append_child super#root merged;
       List.iter (Element.remove_child_safe super#root) cells;
-      on_cell_insert self merged
+      on_cell_insert self merged;
+      Some merged
 
   method cells ?include_subgrids
       ?(grid = super#root)
@@ -171,8 +180,7 @@ class t
 
   method private cells_ ?(include_subgrids = true) grid : Dom_html.element Js.t list =
     match include_subgrids with
-    | true ->
-      Element.query_selector_all grid Selector.cell
+    | true -> Element.query_selector_all grid Selector.cell
     | false ->
       List.filter (fun x -> Element.has_class x CSS.cell)
       @@ Element.children grid
