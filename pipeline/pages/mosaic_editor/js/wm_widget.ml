@@ -77,10 +77,6 @@ let of_element (elt : Dom_html.element Js.t) : string * Wm.widget =
   ; description = Attr.get_description elt
   }
 
-let to_element (widget : string * Wm.widget) : Dom_html.element Js.t =
-  Tyxml_js.To_dom.of_element
-  @@ Markup.Container_editor.create_widget widget
-
 let update_element
     (elt : Dom_html.element Js.t)
     (widget : string * Wm.widget) : unit =

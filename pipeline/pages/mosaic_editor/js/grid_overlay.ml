@@ -145,12 +145,6 @@ class t ?(show_grid_lines = true)
 
   end
 
-let make ?show_grid_lines ?show_snap_lines size : t =
-  let canvas =
-    Tyxml_js.To_dom.of_canvas
-    @@ Markup.create_grid_overlay () in
-  new t ?show_grid_lines ?show_snap_lines ~size canvas ()
-
 (* TODO read size from DOM attribute *)
 let attach ?show_grid_lines ?show_snap_lines ?(size = 10)
     (elt : #Dom_html.element Js.t) : t =

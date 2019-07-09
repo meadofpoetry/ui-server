@@ -1,6 +1,6 @@
 open Js_of_ocaml
 open Js_of_ocaml_lwt
-open Js_of_ocaml_tyxml.Tyxml_js
+open Js_of_ocaml_tyxml
 open Components
 open Pipeline_types
 open Resizable_grid_utils
@@ -28,7 +28,7 @@ open Resizable_grid_utils
 *)
 
 include Page_mosaic_editor_tyxml.Container_editor
-module Markup = Markup.Container_editor
+module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
 type editing_mode = Content | Table
 
@@ -172,24 +172,10 @@ let make_description_dialog () =
 
 let make_undo_manager () =
   let undo_manager = Undo_manager.create () in
-  let undo = Icon_button.make
-      ~icon:(make_icon Icon.SVG.Path.undo)
-      ~on_click:(fun _ _ ->
-          Undo_manager.undo undo_manager;
-          Lwt.return_unit)
-      () in
-  let redo = Icon_button.make
-      ~icon:(make_icon Icon.SVG.Path.redo)
-      ~on_click:(fun _ _ ->
-          Undo_manager.redo undo_manager;
-          Lwt.return_unit)
-      () in
-  Undo_manager.set_callback undo_manager (fun m ->
-      redo#set_disabled (not @@ Undo_manager.has_redo m);
-      undo#set_disabled (not @@ Undo_manager.has_undo m));
-  undo#set_disabled true;
-  redo#set_disabled true;
-  undo, redo, undo_manager
+  (* Undo_manager.set_callback undo_manager (fun m ->
+   *     redo#set_disabled (not @@ Undo_manager.has_redo m);
+   *     undo#set_disabled (not @@ Undo_manager.has_undo m)); *)
+  undo_manager
 
 let get f l =
   let rec aux acc = function
@@ -200,12 +186,53 @@ let get f l =
       else aux (x :: acc) tl in
   aux [] l
 
+let init_top_app_bar_icon (scaffold : Scaffold.t) =
+  match Utils.Option.bind (fun x -> x#leading) scaffold#top_app_bar with
+  | None -> ()
+  | Some x ->
+    let icons =
+      Element.query_selector_all x
+      @@ Printf.sprintf ".%s" Icon.CSS.root in
+    match icons with
+    | [x] -> Element.add_class x CSS.nav_icon_main
+    | [x; y] ->
+      Element.add_class x CSS.nav_icon_main;
+      Element.add_class x CSS.nav_icon_aux
+    | _ -> ()
+
+let set_top_app_bar_icon (scaffold : Scaffold.t) typ icon =
+  let class_, index = match typ with
+    | `Main -> CSS.nav_icon_main, 0
+    | `Aux -> CSS.nav_icon_aux, 1 in
+  match Utils.Option.bind (fun x -> x#leading) scaffold#top_app_bar with
+  | None -> None
+  | Some x ->
+    let prev =
+      Element.query_selector x
+      @@ Printf.sprintf ".%s" class_ in
+    (match prev with
+     | None -> ()
+     | Some prev -> Dom.removeChild x prev);
+    Element.add_class icon class_;
+    Element.insert_child_at_index x index icon;
+    prev
+
+type widget_mode_state =
+  { widgets : Dom_html.element Js.t list
+  ; icon : Dom_html.element Js.t option
+  ; restore : unit -> unit
+  ; editor : Widget_editor.t
+  ; container : Dom_html.element Js.t
+  }
+
 class t ?(containers = [])
     ~resolution
     ~(scaffold : Scaffold.t)
-    elt () =
-  let undo, redo, undo_manager = make_undo_manager () in
+    (elt : Dom_html.element Js.t)
+    () =
   object(self)
+    val close_icon = Icon.SVG.(make_simple Path.close)
+    val back_icon = Icon.SVG.(make_simple Path.arrow_left)
     val heading = match Element.query_selector elt Selector.heading with
       | None -> failwith "container-editor: heading element not found"
       | Some x -> x
@@ -227,8 +254,9 @@ class t ?(containers = [])
                     x
 
     val description_dialog = make_description_dialog ()
+    val undo_manager = Undo_manager.create ()
+    val list_of_widgets = List_of_items.make Test.widgets
 
-    val mutable _containers : (string * Wm.container) list = containers
     val mutable _listeners = []
     val mutable _content_listeners = []
     val mutable _drag_target = Js.null
@@ -248,6 +276,8 @@ class t ?(containers = [])
     inherit Widget.t elt () as super
 
     method! init () : unit =
+      init_top_app_bar_icon scaffold;
+      ignore @@ set_top_app_bar_icon scaffold `Aux close_icon#root;
       _resize_observer <- Some (self#create_resize_observer ());
       _selection <- Some (Selection.make self#handle_selected content);
       let basic_actions = self#create_actions () in
@@ -268,6 +298,9 @@ class t ?(containers = [])
           on_change tab_bar#active_tab_index;
           Some tab_bar
       end;
+      (match scaffold#side_sheet with
+       | None -> ()
+       | Some x -> Dom.appendChild x#root list_of_widgets#root);
       (match scaffold#top_app_bar with
        | None -> ()
        | Some x -> x#set_actions @@ List.map Widget.root [basic_actions]);
@@ -278,8 +311,7 @@ class t ?(containers = [])
 
     method! initial_sync_with_dom () : unit =
       _listeners <- Events.(
-          [ keydowns super#root self#handle_keydown
-          ; dragstarts grid#root self#handle_dragstart
+          [ dragstarts grid#root self#handle_dragstart
           ; dragends grid#root self#handle_dragend
           ; dragenters grid#root self#handle_dragenter
           ; dragleaves grid#root self#handle_dragleave
@@ -342,26 +374,15 @@ class t ?(containers = [])
           | Some x -> editor#notify @@ `Container x
 
     method edit_container (container : Dom_html.element Js.t) : unit Lwt.t =
-      let id = get_cell_title container in
-      let widgets = Wm_widget.elements container in
-      let cont = Container.of_element container in
-      let editor = Widget_editor.make cont in
-      Utils.Option.iter (Dom.removeChild heading % Widget.root) _mode_switch;
-      Dom.removeChild content grid#root;
-      Dom.appendChild content editor#root;
-      _widget_editor <- Some (id, editor);
-      let width = cont.position.right - cont.position.left in
-      let height = cont.position.bottom - cont.position.top in
-      (* Set aspect ratio sizer for container dimensions *)
-      update_ar_sizer ~width ~height ar_sizer;
-      editor#layout ();
-      (* Thread which is resolved when we're back to the container mode *)
-      let t, w = Lwt.wait () in
-      scaffold#set_on_navigation_icon_click (fun _ _ ->
-          Lwt.wakeup_later w ();
-          Lwt.return_unit);
-      t
-      >>= fun () ->
+      self#switch_to_widget_mode container
+      >>= self#switch_to_container_mode
+
+    (* Private methods *)
+
+    method private switch_to_container_mode
+        ({ restore; widgets; icon; editor; container } : widget_mode_state) =
+      restore ();
+      Utils.Option.iter (ignore % set_top_app_bar_icon scaffold `Main) icon;
       self#update_widget_elements editor#value.widgets widgets container;
       Dom.removeChild content editor#root;
       Dom.appendChild content grid#root;
@@ -372,9 +393,38 @@ class t ?(containers = [])
       let width, height = self#resolution in
       update_ar_sizer ~width ~height ar_sizer;
       _widget_editor <- None;
-      Lwt.return_unit
+      (match scaffold#side_sheet with
+       | None -> Lwt.return_unit
+       | Some x -> x#toggle ~force:false ())
 
-    (* Private methods *)
+    method private switch_to_widget_mode (cell : Dom_html.element Js.t) =
+      let id = get_cell_title cell in
+      let widgets = Wm_widget.elements cell in
+      let (container : Wm.container) = Container.of_element cell in
+      let editor = Widget_editor.make ~scaffold content container in
+      Utils.Option.iter (Dom.removeChild heading % Widget.root) _mode_switch;
+      Dom.removeChild content grid#root;
+      Dom.appendChild content editor#root;
+      _widget_editor <- Some (id, editor);
+      let icon = set_top_app_bar_icon scaffold `Main back_icon#root in
+      self#restore_top_app_bar_context ();
+      let restore = Actions.transform_top_app_bar
+          ~title:id
+          ~actions:editor#actions
+          scaffold in
+      (* FIXME switch from pixels to relative coordinates (fr) *)
+      let width = container.position.right - container.position.left in
+      let height = container.position.bottom - container.position.top in
+      (* Set aspect ratio sizer for container dimensions *)
+      update_ar_sizer ~width ~height ar_sizer;
+      editor#layout ();
+      let state = { icon; restore; widgets; editor; container = cell } in
+      (* Thread which is resolved when we're back to the container mode *)
+      let t, w = Lwt.wait () in
+      scaffold#set_on_navigation_icon_click (fun _ _ ->
+          Lwt.wakeup_later w state;
+          Lwt.return_unit);
+      t
 
     method private handle_dragstart e _ =
       let target = Dom_html.eventTarget e in
@@ -425,16 +475,6 @@ class t ?(containers = [])
       List.iter (flip Element.remove_class CSS.cell_dragover) @@ grid#cells ();
       Lwt.return_unit
 
-    (* TODO implement *)
-    method private handle_keydown e _ : unit Lwt.t =
-      (match Dom_html.Keyboard_code.of_event e with
-       | Escape -> begin match self#selected with
-           | [] -> ()
-           | _ -> self#clear_selection ()
-         end
-       | _ -> ());
-      Lwt.return_unit
-
     method private handle_click e _ : unit Lwt.t =
       match Resizable_grid_utils.cell_of_event (grid#cells ()) e with
       | None -> Lwt.return_unit
@@ -465,8 +505,8 @@ class t ?(containers = [])
           | _ ->
             Printf.sprintf "Выбрано ячеек: %d"
             @@ List.length cells in
-        let restore = Container_editor_actions.transform_top_app_bar
-            ~class_:Page_mosaic_editor_tyxml.CSS.top_app_bar_contextual
+        let restore = Actions.transform_top_app_bar
+            ~class_:CSS.top_app_bar_contextual
             ~actions:(match _edit_mode with
                 | Table -> _cell_selected_actions
                 | Content -> _cont_selected_actions)
@@ -482,52 +522,43 @@ class t ?(containers = [])
           _top_app_bar_context <- [restore]
 
     method private create_actions () : Overflow_menu.t =
-      let open Container_editor_actions in
-      make_overflow_menu (fun () -> self#selected) scaffold [wizard grid]
+      Actions.make_overflow_menu (fun () -> self#selected)
+        Actions.[ undo undo_manager
+                ; redo undo_manager
+                ; wizard grid ]
 
     (* TODO consider inner grids *)
     method private create_cell_selected_actions () : Widget.t list =
-      let open Container_editor_actions in
       let f () =
         self#clear_selection ();
         self#restore_top_app_bar_context () in
-      let menu = make_overflow_menu
+      let menu = Actions.make_overflow_menu
           (fun () -> self#selected)
-          scaffold
-          [ merge ~f undo_manager grid
-          ; add_row_above grid
-          ; add_row_below grid
-          ; remove_row ~f grid
-          ; add_col_left grid
-          ; add_col_right grid
-          ; remove_col ~f grid
-          ] in
+          Actions.[ merge ~f undo_manager grid
+                  ; add_row_above grid
+                  ; add_row_below grid
+                  ; remove_row ~f grid
+                  ; add_col_left grid
+                  ; add_col_right grid
+                  ; remove_col ~f grid
+                  ] in
       [menu#widget]
 
     method private create_cont_selected_actions () : Widget.t list =
-      let open Container_editor_actions in
-      let menu = make_overflow_menu
+      let menu = Actions.make_overflow_menu
           (fun () -> self#selected)
-          scaffold
-          [ edit self#edit_container
-          ; description description_dialog
+          [ Actions.edit self#edit_container
+          ; Actions.description description_dialog
           ] in
       [menu#widget]
 
     method private create_grid_actions () =
-      let icons = Card.Actions.make_icons [undo; redo] in
       let submit = Button.make
           ~label:"Применить"
-          ~on_click:(fun _ _ _ ->
-              let open Resizable_grid in
-              print_endline
-              @@ Printf.sprintf "cols: %s, rows: %s"
-                (String.concat " " @@ List.map value_to_string @@ Array.to_list grid#cols)
-                (String.concat " " @@ List.map value_to_string @@ Array.to_list grid#rows);
-              Lwt.return_unit)
+          ~on_click:(fun _ _ _ -> Lwt.return_unit)
           () in
       let buttons = Card.Actions.make_buttons [submit] in
-      [icons; buttons]
+      [buttons]
 
     method private create_resize_observer () =
       let f = fun _ -> self#layout () in
@@ -569,7 +600,10 @@ class t ?(containers = [])
              | Some w -> Wm_widget.update_element elt w
              | None -> Dom.removeChild container elt);
             rest) widgets elements in
-      List.iter (Dom.appendChild container % Wm_widget.to_element) rest
+      let make_element w =
+        Tyxml_js.To_dom.of_element
+        @@ Markup.create_widget w in
+      List.iter (Dom.appendChild container % make_element) rest
 
   end
 
@@ -583,7 +617,7 @@ let make
           let idx = ((pred row) * cols) + col in
           let title = cell_title idx in
           Resizable_grid.Markup.create_cell
-            ~attrs:[Html.a_user_data "title" title]
+            ~attrs:[Tyxml_js.Html.a_user_data "title" title]
             ~col_start:col
             ~row_start:row
             ~content:[]
@@ -596,11 +630,11 @@ let make
       ~content:cells
       () in
   let elt =
-    To_dom.of_element
+    Tyxml_js.To_dom.of_element
     @@ Markup.create
       ~classes:[Card.CSS.root]
-      ~width:(fst wm.resolution)
-      ~height:(snd wm.resolution)
+      ~width:(float_of_int @@ fst wm.resolution)
+      ~height:(float_of_int @@ snd wm.resolution)
       ~grid () in
   new t
     ~resolution:wm.resolution

@@ -1,7 +1,6 @@
 open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
-open Utils
 
 let ( >>= ) = Lwt.bind
 
@@ -171,10 +170,10 @@ class t ?(body = Dom_html.document##.body)
     method! destroy () : unit =
       super#destroy ();
       (* Clear state. *)
-      Option.iter Lwt.cancel _animation_thread;
+      Utils.Option.iter Lwt.cancel _animation_thread;
       _animation_thread <- None;
       (* Detach event listeners. *)
-      Option.iter Lwt.cancel _keydown_listener;
+      Utils.Option.iter Lwt.cancel _keydown_listener;
       _keydown_listener <- None
 
     method close () : unit Lwt.t =
@@ -193,7 +192,7 @@ class t ?(body = Dom_html.document##.body)
       _hoisted_element <- x
 
     method hoist_menu_to_body () : unit =
-      Option.iter (fun parent -> Dom.removeChild parent super#root)
+      Utils.Option.iter (fun parent -> Dom.removeChild parent super#root)
         (Js.Opt.to_option super#root##.parentNode);
       Element.append_child body super#root;
       self#set_is_hoisted true
@@ -239,21 +238,23 @@ class t ?(body = Dom_html.document##.body)
         _body_click_listener <- Some (listener ())
 
     method private handle_close () : unit =
-      Option.iter Lwt.cancel _body_click_listener;
+      Utils.Option.iter Lwt.cancel _body_click_listener;
       _body_click_listener <- None
 
     method private open_ () : unit Lwt.t =
       let focusables = Element.query_selector_all super#root Selector.focusables in
-      let first_focusable' = List.hd_opt focusables in
-      let last_focusable' = List.hd_opt @@ List.rev focusables in
+      let first_focusable' = match focusables with
+        | [] -> None | x :: _ -> Some x in
+      let last_focusable' = match List.rev focusables with
+        | [] -> None | x :: _ -> Some x in
       _first_focusable <- first_focusable';
       _last_focusable <- last_focusable';
       let active = Js.Opt.to_option Dom_html.document##.activeElement in
       _previous_focus <- active;
       if not _quick_open then super#add_class CSS.animating_open;
       let t =
-        Animation.request ()
-        >>= fun _ ->
+        Lwt_js_events.request_animation_frame ()
+        >>= fun () ->
         super#add_class CSS.open_;
         self#auto_position ();
         (* HACK dirty hack to position the element right.
@@ -280,8 +281,8 @@ class t ?(body = Dom_html.document##.body)
     method private close_ () : unit Lwt.t =
       if not _quick_open then super#add_class CSS.animating_closed;
       let t =
-        Animation.request ()
-        >>= fun _ ->
+        Lwt_js_events.request_animation_frame ()
+        >>= fun () ->
         super#remove_class CSS.open_;
         if _quick_open
         then (
@@ -312,11 +313,11 @@ class t ?(body = Dom_html.document##.body)
           | None -> false
           | Some x -> is_focused x in
         if check_focused _last_focusable && not shift
-        then (Option.iter (fun x -> x##focus) _first_focusable;
+        then (Utils.Option.iter (fun x -> x##focus) _first_focusable;
               Dom.preventDefault e;
               Lwt.return_unit)
         else if check_focused _first_focusable && shift
-        then (Option.iter (fun x -> x##focus) _last_focusable;
+        then (Utils.Option.iter (fun x -> x##focus) _last_focusable;
               Dom.preventDefault e;
               Lwt.return_unit)
         else Lwt.return_unit
@@ -356,11 +357,11 @@ class t ?(body = Dom_html.document##.body)
         else dist.right +. anchor_width -. _anchor_margin.left in
       let left_overflow = surface_width -. available_left in
       let right_overflow = surface_width -. available_right in
-      let is_bottom = bot_overflow >. 0. && top_overflow <. bot_overflow in
+      let is_bottom = bot_overflow > 0. && top_overflow < bot_overflow in
       let is_right =
-        (left_overflow <. 0. && is_aligned_right && is_rtl)
-        || (avoid_hor_overlap && not is_aligned_right && left_overflow <. 0.)
-        || (right_overflow >. 0. && left_overflow <. right_overflow) in
+        (left_overflow < 0. && is_aligned_right && is_rtl)
+        || (avoid_hor_overlap && not is_aligned_right && left_overflow < 0.)
+        || (right_overflow > 0. && left_overflow < right_overflow) in
       match is_bottom, is_right with
       | false, false -> Top_left
       | false, true -> Top_right
@@ -369,7 +370,7 @@ class t ?(body = Dom_html.document##.body)
 
     method private maybe_restore_focus () : unit =
       Js.Opt.iter Dom_html.document##.activeElement (fun active ->
-          Option.iter (fun prev ->
+          Utils.Option.iter (fun prev ->
               if Element.contains super#root active then prev##focus)
             _previous_focus)
 
@@ -441,7 +442,7 @@ class t ?(body = Dom_html.document##.body)
       (* Center align when anchor width is comparable or greater than
          menu surface, otherwise keep corner. *)
       let halign =
-        if anchor_width /. surface_width >. Const.anchor_to_menu_surface_width_ratio
+        if anchor_width /. surface_width > Const.anchor_to_menu_surface_width_ratio
         then "center" else halign in
       let position =
         (* If the menu-surface has been hoisted to the body, it's no longer
@@ -455,7 +456,7 @@ class t ?(body = Dom_html.document##.body)
       self#set_position position;
       match self#get_menu_surface_max_height meas corner with
       | 0. -> super#root##.style##.maxHeight := Js.string ""
-      | x -> super#root##.style##.maxHeight := px_js (int_of_float x)
+      | x -> super#root##.style##.maxHeight := Utils.px_js (int_of_float x)
 
     method private adjust_position_for_hoisted_element
         ({ window_scroll = x, y
@@ -482,7 +483,7 @@ class t ?(body = Dom_html.document##.body)
       let body_dimensions =
         body##.offsetWidth,
         body##.offsetHeight in
-      let anchor_rect = Option.map (fun e ->
+      let anchor_rect = Utils.Option.map (fun e ->
           e##getBoundingClientRect) _anchor_element in
       let viewport, window_scroll = match viewport with
         | Window wnd -> get_window_dimensions wnd, get_window_scroll wnd
@@ -525,7 +526,7 @@ class t ?(body = Dom_html.document##.body)
       }
 
     method private set_position (pos : (string * float) list) : unit =
-      let get = List.Assoc.get ~eq:String.equal in
+      let get = Utils.List.Assoc.get ~eq:String.equal in
       let conv = function
         | None -> Js.string ""
         | Some s -> Js.string @@ Printf.sprintf "%gpx" s in

@@ -28,6 +28,14 @@ $divider-color: if(
     }
 }
 
+.list-of-widgets {
+    padding-top: 1rem;
+
+    .mdc-list-group__subheader {
+        @include mdc-theme-prop(color, text-hint-on-surface);
+    }
+}
+
 .container-editor {
     position: relative;
     width: 100%;
@@ -59,15 +67,6 @@ $divider-color: if(
         position: relative;
         display: grid;
         @include mdc-theme-prop(background-color, $divider-color);
-
-        & > .container-grid, & > .mosaic-grid {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            margin-left: auto;
-            margin-right: auto;
-        }
     }
 
     &__widget {
@@ -75,6 +74,12 @@ $divider-color: if(
     }
 
     .container-grid {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        margin-left: auto;
+        margin-right: auto;
     }
 
     .container-grid__cell {

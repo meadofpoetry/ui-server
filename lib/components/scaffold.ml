@@ -325,9 +325,10 @@ class t ?(drawer : #Drawer.t option)
         (typ : Side_sheet.typ)
         (elevation : drawer_elevation)
         (drawer : #Side_sheet.Parent.t) : unit =
-      begin match elevation with
-        | Clipped -> drawer#add_class Top_app_bar.CSS.fixed_adjust
-        | _ -> ()
+      begin match elevation, typ with
+        | Clipped, (Dismissible | Permanent) ->
+          drawer#add_class Top_app_bar.CSS.fixed_adjust
+        | _ -> drawer#remove_class Top_app_bar.CSS.fixed_adjust
       end;
       match typ with
       | Permanent ->

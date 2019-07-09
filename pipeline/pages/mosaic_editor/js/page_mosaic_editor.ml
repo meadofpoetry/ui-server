@@ -8,11 +8,6 @@ let ( >>= ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
 
 let () =
   let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
-  (match Utils.Option.bind (fun x -> x#leading) scaffold#top_app_bar with
-   | None -> ()
-   | Some x ->
-     let icon = Icon.SVG.(make_simple Path.close) in
-     Dom.appendChild x icon#root);
   let thread =
     Http_wm.get_layout ()
     >>= fun wm ->

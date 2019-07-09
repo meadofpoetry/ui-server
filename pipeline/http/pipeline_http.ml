@@ -72,14 +72,6 @@ let pages () : Api_template.topmost Api_template.item list =
                      ~clipped:true
                      ~typ:`Dismissible
                      ())
-      (* ~top_app_bar_bottom:(make_top_app_bar_row ()) *)
-      (* ~top_app_bar_actions:(make_anchor_buttons
-       *                         ~href:video_path
-       *                         ~icon:(make_icon
-       *                                  ~classes:[Components_tyxml.Button.CSS.icon]
-       *                                  Components_tyxml.Svg_icons.video)
-       *                         ~class_:Mosaic_editor_template.CSS.video
-       *                         ~label:"Видео" ()) *)
       ~pre_scripts:[Src "/js/ResizeObserver.js"]
       ~post_scripts:[Src "/js/mosaic_editor.js"]
       ~stylesheets:["/css/mosaic_editor.min.css"]

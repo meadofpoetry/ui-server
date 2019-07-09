@@ -9,11 +9,12 @@ module CSS = struct
   let content_mode = BEM.add_modifier root "content-mode"
   let cell_dragover = BEM.add_modifier Resizable_grid.CSS.cell "dragover"
   let cell_dragging = BEM.add_modifier Resizable_grid.CSS.cell "dragging"
-end
 
-let widget_type_to_string = function
-  | Wm.Audio -> "audio"
-  | Video -> "video"
+  let nav_icon_main = BEM.add_modifier Top_app_bar.CSS.navigation_icon "main"
+  let nav_icon_aux = BEM.add_modifier Top_app_bar.CSS.navigation_icon "aux"
+
+  let top_app_bar_contextual = BEM.add_modifier Top_app_bar.CSS.root "contextual"
+end
 
 module Make(Xml : Xml_sigs.NoWrap)
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
@@ -21,6 +22,8 @@ module Make(Xml : Xml_sigs.NoWrap)
                               and module Svg := Svg) = struct
   open Html
   open Utils
+
+  module Widget' = Widget.Make(Xml)(Svg)(Html)
 
   module Card' = Card.Make(Xml)(Svg)(Html)
   module Tab = Tab.Make(Xml)(Svg)(Html)
@@ -30,20 +33,12 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   let create_widget ?(classes = []) ?attrs
       (id, widget : string * Wm.widget) : 'a elt =
-    let domain = Yojson.Safe.to_string @@ Wm.domain_to_yojson widget.domain in
-    let aspect = match widget.aspect with
-      | None -> None
-      | Some (w, h) -> Some (Printf.sprintf "%dx%d" w h) in
     let style = Printf.sprintf "z-index: %d" widget.layer in
     let classes = CSS.widget :: classes in
-    div ~a:([ a_id id
-            ; a_class classes
-            ; a_style style
-            ; a_user_data "type" (widget_type_to_string widget.type_)
-            ; a_user_data "domain" domain
-            ; a_user_data "description" widget.description ] <@> attrs
-            |> map_cons_option (a_user_data "aspect") aspect
-            |> map_cons_option (a_user_data "pid" % string_of_int) widget.pid)
+    div ~a:([ a_class classes
+            ; a_style style ]
+            @ Widget'.to_html_attributes ~id widget
+            <@> attrs)
       []
 
   let create_mode_switch () =
@@ -70,8 +65,8 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   let create ?(classes = []) ?attrs
       ?(primary_actions = [])
-      ~(width : int)
-      ~(height : int)
+      ~(width : float)
+      ~(height : float)
       ~grid
       () : 'a elt =
     let classes = CSS.root :: Card.CSS.root :: Card.CSS.outlined :: classes in
@@ -79,11 +74,7 @@ module Make(Xml : Xml_sigs.NoWrap)
       ([ Card'.create_primary [create_mode_switch ()] ()
        ; Card'.create_media
            [ svg ~a:[ Svg.a_class [CSS.aspect_ratio_sizer]
-                    ; Svg.a_viewBox ( 0.
-                                    , 0.
-                                    , (float_of_int width)
-                                    , (float_of_int height)
-                                    )
+                    ; Svg.a_viewBox (0., 0., width, height)
                     ] []
            ; grid
            ] ()

@@ -1,147 +1,117 @@
 open Js_of_ocaml
+open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 open Components
-open Wm_types
-open Basic_widgets
+open Pipeline_types
 
-module Make(I : Item) = struct
+include Page_mosaic_editor_tyxml.List_of_widgets
+module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
-  let base_class = "wm-items"
-
-  module Add = struct
-
-    let base_class = Components_tyxml.BEM.add_element base_class "add"
-    let item_class = Components_tyxml.BEM.add_element base_class "item"
-    let wrapper_class = Components_tyxml.BEM.add_element base_class "wrapper"
-
-    class item ~candidate ~candidates ~set_candidates ~widgets () =
-      let data = I.to_yojson candidate
-                 |> Yojson.Safe.to_string
-                 |> Js.string in
-      let wh = match I.size_of_t candidate with
-        | Some w, Some h -> "-" ^ string_of_int w ^ ":" ^ string_of_int h
-        | Some w, None -> "-" ^ string_of_int w ^ ":" ^ "null"
-        | None, Some h -> "-null" ^ ":" ^ string_of_int h
-        | None, None -> "" in
-      let typ = Resizable.drag_type_prefix ^ wh in
-      let box = Box.make ~dir:`Row widgets in
-      object
-        inherit Widget.t box#root () as super
-        inherit Touch_draggable.t ~data ~typ box#root ()
-
-        val mutable _dragstart = None
-        val mutable _dragend = None
-
-        method! init () : unit =
-          super#init ();
-          super#set_attribute "draggable" "true";
-          super#add_class item_class;
-
-          let dragstart =
-            Events.dragstarts super#root (fun e _ ->
-                super#root##.style##.opacity := Js.def @@ Js.string "0.5";
-                super#root##.style##.zIndex  := Js.string "5";
-                e##.dataTransfer##setData (Js.string typ) data;
-                Lwt.return_unit) in
-          let dragend =
-            Events.dragends super#root (fun e _ ->
-                let res = e##.dataTransfer##.dropEffect |> Js.to_string in
-                if (not @@ String.equal res "none") && candidate.unique
-                then (let cs = React.S.value candidates in
-                      let c  = List.filter (fun x -> not @@ I.equal x candidate)
-                          cs in
-                      set_candidates c);
-                box#root##.style##.opacity := Js.def @@ Js.string "";
-                box#root##.style##.zIndex  := Js.string "";
-                Dom.preventDefault e;
-                Lwt.return_unit) in
-          _dragstart <- Some dragstart;
-          _dragend <- Some dragend
-
-        method! destroy () : unit =
-          super#destroy ();
-          Utils.Option.iter Lwt.cancel _dragstart;
-          _dragstart <- None;
-          Utils.Option.iter Lwt.cancel _dragend;
-          _dragend <- None
-      end
-
-    let make_item candidates set_candidates (candidate : I.t) =
-
-      let text = Typography.Text.make candidate.name in
-      let box = new item
-        ~candidate
-        ~candidates
-        ~set_candidates
-        ~widgets:[candidate.icon; text#widget] () in
-      box
-
-    let make ~candidates ~set_candidates () =
-      let ph =
-        Placeholder.make
-          ~text:"Нет доступных виджетов"
-          ~icon:(Icon.SVG.make_simple Icon.SVG.Path.information)
-          () in
-      let wrapper = Tyxml_js.Html.(div ~a:[a_class [wrapper_class]] [])
-                    |> Tyxml_js.To_dom.of_element
-                    |> Widget.create in
-      let _ =
-        React.S.map (function
-            | [] -> wrapper#remove_children ();
-                    wrapper#append_child ph
-            | l -> wrapper#remove_children ();
-                   List.iter wrapper#append_child
-                   @@ List.map (make_item candidates set_candidates) l)
-          candidates
-      in
-      wrapper
-
-  end
-
-  module Properties = struct
-
-    let base_class = Components_tyxml.BEM.add_element base_class "properties"
-
-    let make widgets (s : I.t Dynamic_grid.Item.t option React.signal) =
-      let ph = Placeholder.make
-          ~text:"Выберите элемент в раскладке"
-          ~icon:Icon.SVG.(make_simple Path.gesture_tap)
-          () in
-      let card = Card.make [] in
-      let id = "wm-item-properties" in
-      let actions_id = "wm-item-properties-actions" in
-      let _ =
-        React.S.map (fun selected ->
-            (try
-               Dom.removeChild card#root (Dom_html.getElementById id);
-               Dom.removeChild card#root (Dom_html.getElementById actions_id)
-             with _ -> ());
-            (match selected with
-             | Some x ->
-                card#remove_child ph;
-                let w = I.make_item_properties x#s_value x#set_value widgets in
-                let l =
-                  List.map (fun { label; on_click } ->
-                      Button.make
-                        ~label
-                        ~on_click:(fun _ _ _ -> on_click (); Lwt.return_unit)
-                        ()) w.actions in
-                let buttons = Card.Actions.make_buttons l in
-                let actions = Card.Actions.make [buttons] in
-                actions#root##.id := Js.string actions_id;
-                w.widget#root##.id := Js.string id;
-                card#append_child w.widget;
-                card#append_child actions
-             | None -> card#append_child ph))
-          s in
-      card#add_class base_class;
-      card
-
-  end
-
-  let make ~selected ~candidates ~set_candidates () =
-    let add = Add.make ~candidates ~set_candidates () in
-    add#add_class base_class;
-    add
-
+module Selector = struct
+  let item = Printf.sprintf ".%s" CSS.item
 end
+
+let format = "application/json"
+
+let make_id (s : string) =
+  "add-widget-" ^ s
+
+class t (elt : Dom_html.element Js.t) = object(self)
+  inherit Widget.t elt () as super
+  val placeholder = Ui_templates.Placeholder.With_icon.make
+      ~text:"Нет доступных виджетов"
+      ~icon:Icon.SVG.(make_simple Path.information)#root
+      ()
+  val mutable _listeners = []
+  val mutable _drag_target = Js.null
+
+  method! init () : unit =
+    _listeners <- Lwt_js_events.(
+        [ dragstarts super#root self#handle_dragstart
+        ; dragends super#root self#handle_dragend
+        ]);
+    super#init ()
+
+  method! initial_sync_with_dom () : unit =
+    (match self#items with
+     | [] -> Dom.appendChild super#root placeholder#root
+     | _ -> Element.remove_child_safe super#root placeholder#root);
+    super#initial_sync_with_dom ()
+
+  method! destroy () : unit =
+    List.iter Lwt.cancel _listeners;
+    _listeners <- [];
+    super#destroy ()
+
+  method items : Dom_html.element Js.t list =
+    Element.query_selector_all super#root Selector.item
+
+  method append_item (id, w : string * Wm.widget) =
+    let elt =
+      Tyxml_js.To_dom.of_element
+      @@ Markup.create_item ~id:(make_id id) w in
+    Element.remove_child_safe super#root placeholder#root;
+    Dom.appendChild super#root elt
+
+  method private handle_dragstart e _ =
+    let target = Dom_html.eventTarget e in
+    _drag_target <- e##.target;
+    let to_yojson (id, w) : Yojson.Safe.json =
+      `List [ `String id
+            ; Wm.widget_to_yojson w ] in
+    let data =
+      Js.string
+      @@ Yojson.Safe.to_string
+      @@ to_yojson
+      @@ Wm_widget.of_element target in
+    e##.dataTransfer##setData (Js.string format) data;
+    target##.style##.opacity := Js.def @@ Js.string "0.5";
+    target##.style##.zIndex := Js.string "5";
+    Lwt.return_unit
+
+  method private handle_dragend e _ =
+    let target = Dom_html.eventTarget e in
+    target##.style##.opacity := Js.def @@ Js.string "";
+    target##.style##.zIndex := Js.string "";
+    if Element.has_class target Item_list.CSS.item
+    && (not (Js.some target == _drag_target))
+    then (Dom.preventDefault e;
+          e##.dataTransfer##.dropEffect := Js.string "move");
+    Lwt.return_unit
+end
+
+module Domains = Map.Make(struct
+    type t = Wm.domain
+    let compare = compare
+  end)
+
+let domain_to_string : Wm.domain -> string = function
+  | Wm.Nihil -> "Без группы"
+  | Chan { stream; channel } ->
+    Printf.sprintf "Поток %s, Канал %d"
+      (Application_types.Stream.ID.to_string stream)
+      channel
+
+let group_by_domain (widgets : (string * Wm.widget) list) =
+  let map = Domains.empty in
+  List.fold_left (fun acc (((id, w) as x) : string * Wm.widget) ->
+      Domains.update w.domain (function
+          | None -> Some [x]
+          | Some l -> Some (x :: l)) acc)
+    map widgets
+
+let make (widgets : (string * Wm.widget) list) : t =
+  let grouped = group_by_domain widgets in
+  let items = Domains.map (List.map (fun (id, x) ->
+      Markup.create_item ~id:(make_id id) x)) grouped in
+  let content =
+    List.concat
+    @@ List.map (fun (domain, items) ->
+        [ Markup.create_subheader (domain_to_string domain)
+        ; Markup.create_list items
+        ])
+    @@ Domains.bindings items in
+  let (elt : Dom_html.element Js.t) =
+    Tyxml_js.To_dom.of_element
+    @@ Markup.create content in
+  new t elt

@@ -36,7 +36,7 @@ let append_child (elt : #Dom.node Js.t) (child : #Dom.node Js.t) : unit =
 
 let insert_child_at_index (parent : #Dom.node Js.t) (index : int)
     (child : #Dom.node Js.t) : unit =
-  let sibling = parent##.childNodes##item index in
+  let sibling = (Js.Unsafe.coerce parent)##.children##item index in
   Dom.insertBefore parent child sibling
 
 let remove_child_safe (elt : #Dom.node Js.t)

@@ -3,7 +3,7 @@
 @import "@material/animation/functions";
 @import "@material/button/mixins";
 @import "@material/top-app-bar/variables";
-@import './table/table';
+@import './widget_editor/widget_editor';
 @import "./container_editor/container_editor";
 @import './resizable/resizable';
 @import "./resizable_grid/resizable_grid";
@@ -46,12 +46,16 @@
     }
 
     &__navigation-icon .mdc-icon:nth-child(1),
-    &--contextual-action &__navigation-icon .mdc-icon:nth-child(2) {
+    &--contextual &__navigation-icon .mdc-icon:nth-child(2) {
         @include nav-icon-visible;
     }
 
     &__navigation-icon .mdc-icon:nth-child(2),
-    &--contextual-action &__navigation-icon .mdc-icon:nth-child(1) {
+    &--contextual &__navigation-icon .mdc-icon:nth-child(1) {
+        @include nav-icon-hidden;
+    }
+
+    &__navigation-icon .mdc-icon:nth-child(3) {
         @include nav-icon-hidden;
     }
 
@@ -66,15 +70,9 @@
         @include mdc-theme-prop(border-color, text-disabled-on-dark);
     }
 
-    // &--fixed-adjust {
-    //     padding-top: $mdc-top-app-bar-row-height + $top-app-bar-second-row-height;
-    //     @media (max-width: $mdc-top-app-bar-mobile-breakpoint) {
-    //         padding-top: $mdc-top-app-bar-mobile-row-height + $top-app-bar-second-row-height;
-    //     }
-    // }
 }
 
-.mdc-top-app-bar--contextual-action {
+.mdc-top-app-bar--contextual {
     @include mdc-theme-prop(background-color, hsl(0, 0%, 7%));
     transition: mdc-animation-exit-temporary(background-color, $duration: 150ms, $delay: 0ms);
 }

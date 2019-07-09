@@ -16,19 +16,24 @@ $mosaic-grid-colors: (
     display: flex;
 }
 
-.mosaic-grid {
+.widget-grid {
     margin: 0 auto;
-    position: relative;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    margin-left: auto;
+    margin-right: auto;
     @include mdc-theme-prop(background-color, surface);
 }
 
-.mosaic-grid__ghost {
+.widget-grid__ghost {
     position: absolute;
     background-color: blue;
     opacity: 0.5;
 }
 
-.mosaic-grid__item {
+.widget-grid__item {
     display: flex;
     justify-content: center;
     align-items: center;
@@ -42,7 +47,7 @@ $mosaic-grid-colors: (
     }
 }
 
-.mosaic-grid__item-content {
+.widget-grid__item-content {
     position: absolute;
     display: flex;
     flex-direction: column;
@@ -66,7 +71,7 @@ $mosaic-grid-colors: (
     }
 }
 
-.mosaic-grid__overlay {
+.widget-grid__overlay {
     $contrast-tone: mdc-theme-contrast-tone($mdc-theme-surface);
     width: 100%;
     height: 100%;

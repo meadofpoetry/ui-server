@@ -12,14 +12,17 @@ let ( >>= ) = Lwt.bind
 let widget_of_yojson =
   Util_json.(Pair.of_yojson String.of_yojson Wm.widget_of_yojson)
 
+include Page_mosaic_editor_tyxml.Widget_editor
+module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
+
 module Attr = struct
   let type_ = "data-type"
 end
 
 module Selector = struct
-  let item = Printf.sprintf ".%s" Markup.CSS.grid_item
-  let grid_overlay = Printf.sprintf ".%s" Markup.CSS.grid_overlay
-  let grid_ghost = Printf.sprintf ".%s" Markup.CSS.grid_ghost
+  let item = Printf.sprintf ".%s" CSS.grid_item
+  let grid_overlay = Printf.sprintf ".%s" CSS.grid_overlay
+  let grid_ghost = Printf.sprintf ".%s" CSS.grid_ghost
 end
 
 let widget_type_to_string : Wm.widget_type -> string = function
@@ -65,11 +68,11 @@ let make_item_content (widget : Wm.widget) =
   let icon = make_item_icon widget in
   Tyxml_js.To_dom.of_element
   @@ Tyxml_js.Html.(
-      div ~a:[a_class [Markup.CSS.grid_item_content]]
+      div ~a:[a_class [CSS.grid_item_content]]
         (icon#markup :: (pid ^:: [text#markup])))
 
 let make_item (id, widget : string * Wm.widget) =
-  let item = Resizable.make ~classes:[Markup.CSS.grid_item] () in
+  let item = Resizable.make ~classes:[CSS.grid_item] () in
   let pos = Utils.Option.get widget.position in
   let width = pos.right - pos.left in
   let height = pos.bottom - pos.top in
@@ -87,7 +90,34 @@ let make_item (id, widget : string * Wm.widget) =
      item#set_attribute Position.Attr.aspect_ratio (Printf.sprintf "%g" ar));
   item
 
-class t ?(widgets = []) (position : Position.t) elt () =
+module Selection = struct
+  include Selection
+
+  let selectables = [Query Selector.item]
+
+  let validate_start = fun e ->
+    match Js.to_string e##._type with
+    | "mousedown" ->
+      let (e : Dom_html.mouseEvent Js.t) = Js.Unsafe.coerce e in
+      e##.button = 0
+    | _ -> true
+
+  let make handle_selected elt =
+    let boundaries = [Node elt] in
+    make ~validate_start
+      ~selectables
+      ~boundaries
+      ~start_areas:boundaries
+      ()
+end
+
+class t
+    ~(items : Resizable.t list)
+    ~(parent : Dom_html.element Js.t)
+    (position : Position.t)
+    (scaffold : Scaffold.t)
+    elt
+    () =
   object(self)
 
     inherit Drop_target.t elt () as super
@@ -102,25 +132,28 @@ class t ?(widgets = []) (position : Position.t) elt () =
     val ghost = match Element.query_selector elt Selector.grid_ghost with
       | None -> failwith "widget-editor: grid ghost element not found"
       | Some x -> x
+    val undo_manager = Undo_manager.create ()
 
-    val mutable _widgets : (string * Wm.widget) list = widgets
+    val mutable _items = items
     val mutable _listeners = []
     val mutable _focused_item = None
     val mutable min_size = 20
-    val mutable toolbar = None
+
+    val mutable _selection = None
+
+    val mutable _basic_actions = []
+    val mutable _widget_selected_actions = []
 
     method! init () : unit =
       super#init ();
-      toolbar <- Some (self#make_toolbar ())
+      (* _selection <- Some (Selection.make (fun _ -> ()) parent); *)
+      _basic_actions <- self#create_actions ()
 
     method! initial_sync_with_dom () : unit =
       _listeners <- Events.(
-          [ seq_loop (make_event Resizable.Event.input) super#root
-              self#handle_item_action
-          ; seq_loop (make_event Resizable.Event.change) super#root
-              self#handle_item_change
-          ; seq_loop (make_event Resizable.Event.selected) super#root
-              self#handle_item_selected
+          [ Resizable.Event.inputs super#root self#handle_item_action
+          ; Resizable.Event.changes super#root self#handle_item_change
+          ; Resizable.Event.selects super#root self#handle_item_selected
           ; keydowns super#root self#handle_keydown
           ]);
       super#initial_sync_with_dom ()
@@ -128,23 +161,25 @@ class t ?(widgets = []) (position : Position.t) elt () =
     method! destroy () : unit =
       List.iter Lwt.cancel _listeners;
       _listeners <- [];
+      List.iter Widget.destroy _items;
+      _items <- [];
       super#destroy ()
 
     method! layout () : unit =
       self#fit ();
+      List.iter Widget.layout _items;
       grid_overlay#layout ();
       super#layout ()
 
     method items : Dom_html.element Js.t list =
       self#items_ ()
 
-    method toolbar = Utils.Option.get toolbar
-
-    method remove_item : 'a. (#Dom_html.element as 'a) Js.t -> unit =
-      fun item ->
-      let id = Js.to_string item##.id in
-      _widgets <- List.remove_assoc id _widgets;
-      Element.remove_child_safe super#root item
+    method remove_item (item : Dom_html.element Js.t) =
+      Element.remove_child_safe super#root item;
+      _items <- List.filter (fun (x : Resizable.t) ->
+          let b = Element.equal item x#root in
+          if b then x#destroy ();
+          not b) _items
 
     method notify : event -> unit = function
       | `Container x ->
@@ -161,20 +196,7 @@ class t ?(widgets = []) (position : Position.t) elt () =
         ; right = position.x + position.w
         ; bottom = position.y + position.h
         } in
-      let widgets =
-        List.fold_left (fun acc (item : Dom_html.element Js.t) ->
-            let id = (Js.to_string item##.id) in
-            match List.assoc_opt id _widgets with
-            | None -> acc
-            | Some x ->
-              let left = Position.get_original_left elt in
-              let top = Position.get_original_top elt in
-              let right = Position.get_original_width elt in
-              let bottom = Position.get_original_height elt in
-              let position = Some { Wm. left; top; right; bottom } in
-              (id, { x with position }) :: acc)
-          [] self#items in
-      { Wm. position; widgets }
+      { Wm. position; widgets = []}
 
     method fit () : unit =
       let scale_factor = self#scale_factor in
@@ -200,7 +222,19 @@ class t ?(widgets = []) (position : Position.t) elt () =
           item##.style##.height := Utils.px_js @@ Float.to_int @@ Float.floor new_h)
       @@ self#items_ ()
 
+    method actions : Widget.t list =
+      _basic_actions
+
     (* Private methods *)
+
+    method private create_actions () : Widget.t list =
+      let menu = Actions.make_overflow_menu
+          (fun () -> self#selected)
+          Actions.[ add_widget scaffold
+                  ] in
+      [menu#widget]
+
+    method private selected = []
 
     method private items_ ?(sort = false) () : Dom_html.element Js.t list =
       let items = Element.query_selector_all super#root Selector.item in
@@ -218,7 +252,8 @@ class t ?(widgets = []) (position : Position.t) elt () =
           let items = self#items_ ~sort:true () in
           match Dom_html.Keyboard_code.of_event e with
           (* Navigation keys *)
-          (* TODO Implement as described in https://www.w3.org/TR/wai-aria-practices/#layoutGrid *)
+          (* TODO Implement as described in
+             https://www.w3.org/TR/wai-aria-practices/#layoutGrid *)
           | ArrowLeft -> ()
           | ArrowRight -> ()
           | ArrowDown -> ()
@@ -297,7 +332,17 @@ class t ?(widgets = []) (position : Position.t) elt () =
       Lwt.return_unit
 
     method private handle_dropped_json (json : Yojson.Safe.json) : unit Lwt.t =
-      print_endline @@ Yojson.Safe.pretty_to_string json;
+      let of_yojson = function
+        | `List [`String id; json] ->
+          begin match Wm.widget_of_yojson json with
+            | Ok x -> id, x
+            | Error e -> failwith e
+          end
+        | _ -> failwith "failed to parse json" in
+      let widget = of_yojson json in
+      let item = make_item widget in
+      Dom.appendChild super#root item#root;
+      Position.apply_to_element (Position.of_element ghost) item#root;
       Lwt.return_unit
 
     method private parent_rect : float * float * float =
@@ -323,16 +368,15 @@ class t ?(widgets = []) (position : Position.t) elt () =
       let point =
         x - (int_of_float rect##.left),
         y - (int_of_float rect##.top) in
-      let siblings = List.map Position.of_element self#items in
-      let parent_size = self#size in
-      match Position.find_spare ?aspect
-              ~siblings
-              ~parent_size
-              ~min_w:min_size
-              ~min_h:min_size
-              point with
-      | None -> Position.apply_to_element Position.empty ghost
-      | Some x -> Dom.preventDefault event; Position.apply_to_element x ghost
+      let position =
+        { Position.
+          x = fst point
+        ; y = snd point
+        ; w = 100
+        ; h = 100
+        } in
+      Dom.preventDefault event;
+      Position.apply_to_element position ghost
 
     (* Primary editor actions *)
     method private make_actions () =
@@ -370,7 +414,9 @@ class t ?(widgets = []) (position : Position.t) elt () =
 
   end
 
-let make ({ position; widgets } : Wm.container) =
+let make ~(scaffold : Scaffold.t)
+    (parent : Dom_html.element Js.t)
+    ({ position; widgets } : Wm.container) =
   let items = List.map make_item widgets in
   let content =
     Markup.create_grid_overlay ()
@@ -386,4 +432,4 @@ let make ({ position; widgets } : Wm.container) =
     ; x = position.left
     ; y = position.top
     } in
-  new t ~widgets position elt ()
+  new t ~items ~parent position scaffold elt ()
