@@ -16,7 +16,7 @@ let format = "application/json"
 let make_id (s : string) =
   "add-widget-" ^ s
 
-class t (elt : Dom_html.element Js.t) = object(self)
+class t ?drag_image (elt : Dom_html.element Js.t) = object(self)
   inherit Widget.t elt () as super
   val placeholder = Ui_templates.Placeholder.With_icon.make
       ~text:"Нет доступных виджетов"
@@ -46,6 +46,11 @@ class t (elt : Dom_html.element Js.t) = object(self)
   method items : Dom_html.element Js.t list =
     Element.query_selector_all super#root Selector.item
 
+  method remove_by_id (id : string) =
+    match Dom_html.getElementById_opt (make_id id) with
+    | None -> ()
+    | Some x -> Dom.removeChild super#root x
+
   method append_item (id, w : string * Wm.widget) =
     let elt =
       Tyxml_js.To_dom.of_element
@@ -56,7 +61,7 @@ class t (elt : Dom_html.element Js.t) = object(self)
   method private handle_dragstart e _ =
     let target = Dom_html.eventTarget e in
     _drag_target <- e##.target;
-    let to_yojson (id, w) : Yojson.Safe.json =
+    let to_yojson (id, w) : Yojson.Safe.t =
       `List [ `String id
             ; Wm.widget_to_yojson w ] in
     let data =
@@ -100,7 +105,7 @@ let group_by_domain (widgets : (string * Wm.widget) list) =
           | Some l -> Some (x :: l)) acc)
     map widgets
 
-let make (widgets : (string * Wm.widget) list) : t =
+let make ?drag_image (widgets : (string * Wm.widget) list) : t =
   let grouped = group_by_domain widgets in
   let items = Domains.map (List.map (fun (id, x) ->
       Markup.create_item ~id:(make_id id) x)) grouped in
@@ -114,4 +119,4 @@ let make (widgets : (string * Wm.widget) list) : t =
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element
     @@ Markup.create content in
-  new t elt
+  new t ?drag_image elt

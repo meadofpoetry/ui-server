@@ -1,6 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 open Pipeline_types
+open Page_mosaic_editor_tyxml.Widget
+open Components
 
 module Attr = struct
 
@@ -20,10 +22,15 @@ module Attr = struct
   let get_typ (elt : Dom_html.element Js.t) =
     Js.Opt.case (elt##getAttribute (Js.string typ))
       (fun () -> failwith @@ Printf.sprintf "no `%s` attribute found" typ)
-      (fun s -> match Js.to_string s with
-         | "audio" -> Wm.Audio
-         | "video" -> Video
-         | s -> invalid_value typ s)
+      (fun s ->
+         let s = Js.to_string s in
+         match widget_type_of_string s with
+         | Some x -> x
+         | None -> invalid_value typ s)
+
+  let set_typ (elt : Dom_html.element Js.t) (t : Wm.widget_type) =
+    let t = widget_type_to_string t in
+    Element.set_attribute elt typ t
 
   let get_domain (elt : Dom_html.element Js.t) =
     Js.Opt.case (elt##getAttribute (Js.string domain))
@@ -34,10 +41,20 @@ module Attr = struct
          | Ok x -> x
          | Error e -> failwith e)
 
+  let set_domain (elt : Dom_html.element Js.t) = function
+    | Wm.Nihil -> ()
+    | d ->
+      let v = domain_attr_value d in
+      Element.set_attribute elt domain v
+
   let get_pid (elt : Dom_html.element Js.t) =
     Js.Opt.case (elt##getAttribute (Js.string pid))
       (fun () -> None)
       (fun x -> Some (Js.parseInt x))
+
+  let set_pid (elt : Dom_html.element Js.t) = function
+    | None -> ()
+    | Some x -> Element.set_attribute elt pid (string_of_int x)
 
   let get_aspect (elt : Dom_html.element Js.t) =
     Js.Opt.case (elt##getAttribute (Js.string aspect))
@@ -48,10 +65,18 @@ module Attr = struct
          | [w; h] -> Some (int_of_string w, int_of_string h)
          | _ -> invalid_value aspect s)
 
+  let set_aspect (elt : Dom_html.element Js.t) = function
+    | None -> ()
+    | Some x -> Element.set_attribute elt aspect (aspect_attr_value x)
+
   let get_description (elt : Dom_html.element Js.t) =
     Js.Opt.case (elt##getAttribute (Js.string description))
       (fun () -> "")
       Js.to_string
+
+  let set_description (elt : Dom_html.element Js.t) v =
+    Element.set_attribute elt description v
+
 end
 
 let position_of_element (elt : Dom_html.element Js.t) : Wm.position =
@@ -77,10 +102,15 @@ let of_element (elt : Dom_html.element Js.t) : string * Wm.widget =
   ; description = Attr.get_description elt
   }
 
-let update_element
-    (elt : Dom_html.element Js.t)
-    (widget : string * Wm.widget) : unit =
-  ()
+let apply_to_element ?id (elt : Dom_html.element Js.t) (widget : Wm.widget) : unit =
+  Attr.set_typ elt widget.type_;
+  Attr.set_domain elt widget.domain;
+  Attr.set_pid elt widget.pid;
+  Attr.set_aspect elt widget.aspect;
+  Attr.set_description elt widget.description;
+  match id with
+  | None -> ()
+  | Some id -> elt##.id := Js.string id
 
 let elements (elt : Dom_html.element Js.t) =
   let selector =

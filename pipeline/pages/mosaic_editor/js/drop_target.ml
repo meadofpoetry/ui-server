@@ -84,6 +84,6 @@ class virtual t (elt : Dom_html.element Js.t) () = object(self)
     -> (#Dom_html.event as 'a) Js.t
     -> unit
 
-  method private virtual handle_dropped_json : Yojson.Safe.json -> unit Lwt.t
+  method private virtual handle_dropped_json : Yojson.Safe.t -> unit Lwt.t
 
 end

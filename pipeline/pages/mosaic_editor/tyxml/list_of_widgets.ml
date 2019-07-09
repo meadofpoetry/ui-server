@@ -20,16 +20,28 @@ module Make(Xml : Xml_sigs.NoWrap)
     let classes = CSS.item :: Item_list.CSS.item :: classes in
     let path = Widget.widget_type_to_svg_path widget.type_ in
     let graphic = Icon_.SVG.create [Icon_.SVG.create_path path ()] () in
+    let typ = match widget.type_, widget.aspect with
+      | Wm.Video, None -> "Видео"
+      | Video, Some (w, h) -> Printf.sprintf "Видео %dx%d" w h
+      | Audio, _ -> "Аудио" in
+    let secondary = match widget.pid with
+      | None -> typ
+      | Some x -> Printf.sprintf "%s, PID %d" typ x in
     li ~a:([ a_class classes
            ; a_draggable true ]
            @ Widget'.to_html_attributes ?id widget
            <@> attrs)
       [ span ~a:[a_class [Item_list.CSS.item_graphic]] [graphic]
-      ; span [txt widget.description]
+      ; span ~a:[a_class [Item_list.CSS.item_text]]
+          [ span ~a:[a_class [Item_list.CSS.item_primary_text]]
+              [txt widget.description]
+          ; span ~a:[a_class [Item_list.CSS.item_secondary_text]]
+              [txt secondary]
+          ]
       ]
 
   let create_list ?(classes = []) ?attrs items : 'a elt =
-    let classes = Item_list.CSS.root :: classes in
+    let classes = Item_list.CSS.root :: Item_list.CSS.two_line :: classes in
     ul ~a:([a_class classes] <@> attrs) items
 
   let create_subheader ?(classes = []) ?attrs title : 'a elt =

@@ -15,10 +15,6 @@ let widget_of_yojson =
 include Page_mosaic_editor_tyxml.Widget_editor
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
-module Attr = struct
-  let type_ = "data-type"
-end
-
 module Selector = struct
   let item = Printf.sprintf ".%s" CSS.grid_item
   let grid_overlay = Printf.sprintf ".%s" CSS.grid_overlay
@@ -81,7 +77,7 @@ let make_item (id, widget : string * Wm.widget) =
   item#set_attribute Position.Attr.height (string_of_int height);
   item#set_attribute Position.Attr.left (string_of_int pos.left);
   item#set_attribute Position.Attr.top (string_of_int pos.top);
-  item#set_attribute Attr.type_ (widget_type_to_string widget.type_);
+  Wm_widget.apply_to_element item#root widget;
   Element.append_child item#root (make_item_content widget);
   (match widget.aspect with
    | None -> ()
@@ -196,7 +192,10 @@ class t
         ; right = position.x + position.w
         ; bottom = position.y + position.h
         } in
-      { Wm. position; widgets = []}
+      let widgets = List.map Wm_widget.of_element self#items in
+      { Wm. position
+      ; widgets
+      }
 
     method fit () : unit =
       let scale_factor = self#scale_factor in
@@ -331,20 +330,6 @@ class t
       Element.set_attribute target Position.Attr.top @@ string_of_int pos.y;
       Lwt.return_unit
 
-    method private handle_dropped_json (json : Yojson.Safe.json) : unit Lwt.t =
-      let of_yojson = function
-        | `List [`String id; json] ->
-          begin match Wm.widget_of_yojson json with
-            | Ok x -> id, x
-            | Error e -> failwith e
-          end
-        | _ -> failwith "failed to parse json" in
-      let widget = of_yojson json in
-      let item = make_item widget in
-      Dom.appendChild super#root item#root;
-      Position.apply_to_element (Position.of_element ghost) item#root;
-      Lwt.return_unit
-
     method private parent_rect : float * float * float =
       Js.Opt.case (Element.get_parent super#root)
         (fun () -> 0., 0., 1.)
@@ -358,6 +343,23 @@ class t
       if cur_aspect > aspect
       then cur_height /. float_of_int position.h
       else cur_width /. float_of_int position.w
+
+    method private handle_dropped_json (json : Yojson.Safe.t) : unit Lwt.t =
+      print_endline @@ Yojson.Safe.pretty_to_string json;
+      let of_yojson = function
+        | `List [`String id; json] ->
+          begin match Wm.widget_of_yojson json with
+            | Ok x -> id, x
+            | Error e -> failwith e
+          end
+        | _ -> failwith "failed to parse json" in
+      let id, widget = of_yojson json in
+      let ghost_position = Position.of_element ghost in
+      let item = make_item (id, widget) in
+      Dom.appendChild super#root item#root;
+      Position.apply_to_element ghost_position item#root;
+      grid_overlay#set_snap_lines [];
+      Lwt.return_unit
 
     method private move_ghost :
       'a. ?aspect:int * int -> (#Dom_html.event as 'a) Js.t -> unit =
@@ -376,7 +378,21 @@ class t
         ; h = 100
         } in
       Dom.preventDefault event;
-      Position.apply_to_element position ghost
+      let adjusted, lines =
+        Position.adjust
+          ?aspect_ratio:None
+          ~min_width:min_size
+          ~min_height:min_size
+          ~snap_lines:grid_overlay#snap_lines_visible
+          ~action:`Move
+          ~position
+          ~original_position:position
+          ~siblings:self#items
+          ~parent_size:self#size
+          ghost
+      in
+      grid_overlay#set_snap_lines lines;
+      Position.apply_to_element adjusted ghost
 
     (* Primary editor actions *)
     method private make_actions () =

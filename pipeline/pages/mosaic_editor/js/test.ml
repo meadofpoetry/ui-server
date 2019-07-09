@@ -1,6 +1,9 @@
 open Pipeline_types
 
-let make_widget ?(type_ = Wm.Video) ?aspect ~x ~y ~w ~h () : string * Wm.widget =
+let make_widget ?(type_ = Wm.Video)
+    ?(domain = Wm.Nihil)
+    ?aspect
+    ~x ~y ~w ~h () : string * Wm.widget =
   let position =
     Some { Wm.
            left = x
@@ -14,7 +17,7 @@ let make_widget ?(type_ = Wm.Video) ?aspect ~x ~y ~w ~h () : string * Wm.widget 
   ; pid = Some 4096
   ; type_
   ; aspect
-  ; domain = Nihil
+  ; domain
   ; layer = 0
   }
 
@@ -25,8 +28,12 @@ let make_container ?(widgets = []) ~position () : string * Wm.container =
   }
 
 let widgets =
-  [ make_widget ~x:0 ~y:0 ~w:50 ~h:50 ()
-  ; make_widget ~x:50 ~y:0 ~w:50 ~h:50 ()
+  [ make_widget ~type_:Audio ~x:0 ~y:0 ~w:50 ~h:50 ()
+  ; make_widget ~aspect:(16, 9) ~x:50 ~y:0 ~w:50 ~h:50 ()
+  ; make_widget ~domain:(Chan { stream = Application_types.Stream.ID.make "id"
+                              ; channel = 2
+                              })
+      ~x:10 ~y:0 ~w:50 ~h:50 ()
   (* ; make_widget ~x:111 ~y:0 ~w:189 ~h:150 ()
    * ; make_widget ~x:0 ~y:150 ~w:200 ~h:150 ()
    * ; make_widget ~x:210 ~y:150 ~w:90 ~h:150 ~type_:Audio () *)

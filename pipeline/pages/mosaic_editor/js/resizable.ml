@@ -93,29 +93,27 @@ let get_touch_by_id (touches : Dom_html.touchList Js.t)
   aux None 0
 
 let get_cursor_position ?touch_id (event : #Dom_html.event Js.t) =
-  match Js.to_string event##._type with
-  | "mousemove" | "mousedown" | "dragover" ->
-    let (e : Dom_html.mouseEvent Js.t) = Js.Unsafe.coerce event in
-    begin match Js.Optdef.(to_option e##.pageX,
-                           to_option e##.pageY) with
-    | Some page_x, Some page_y -> page_x, page_y
-    | _ -> failwith "no page coordinates in mouse event"
-    end
-  | "touchmove" | "touchstart" ->
-    let (e : Dom_html.touchEvent Js.t) = Js.Unsafe.coerce event in
-    let touches = e##.changedTouches in
-    let rec aux acc i =
-      if i >= touches##.length then acc else
-        let touch = unwrap (touches##item i) in
-        match touch_id with
-        | None -> Some touch
-        | Some id ->
-          if touch##.identifier = id then Some touch else
-            aux acc (succ i) in
-    (match aux None 0 with
-     | None -> failwith "no touch event found"
-     | Some t -> t##.pageX, t##.pageY)
-  | _ -> 0, 0
+  Js.Opt.case (Dom_html.CoerceTo.mouseEvent event)
+    (fun () ->
+       let (e : Dom_html.touchEvent Js.t) = Js.Unsafe.coerce event in
+       let touches = e##.changedTouches in
+       let rec aux acc i =
+         if i >= touches##.length then acc else
+           let touch = unwrap (touches##item i) in
+           match touch_id with
+           | None -> Some touch
+           | Some id ->
+             if touch##.identifier = id then Some touch else
+               aux acc (succ i) in
+       (match aux None 0 with
+        | None -> failwith "no touch event found"
+        | Some t -> t##.pageX, t##.pageY))
+    (fun (e : Dom_html.mouseEvent Js.t) ->
+       begin match Js.Optdef.(to_option e##.pageX,
+                              to_option e##.pageY) with
+       | Some page_x, Some page_y -> page_x, page_y
+       | _ -> failwith "no page coordinates in mouse event"
+       end)
 
 class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
   object(self)
