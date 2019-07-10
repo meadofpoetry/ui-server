@@ -602,13 +602,13 @@ class t ~(scaffold : Scaffold.t)
 type grid_properties =
   { rows : Resizable_grid.value list
   ; cols : Resizable_grid.value list
-  ; cells : (string * (Wm.container * Resizable_grid_utils.cell_position)) list
+  ; cells : (string * (Wm.container * Resizable_grid.cell_position)) list
   }
 
 let grid_properties_of_layout (layout : (string * Wm.container) list) =
   (* FIXME implement *)
   let cells = List.map (fun (id, c) ->
-      id, (c, { Resizable_grid_utils.
+      id, (c, { Resizable_grid.
                 row = 0
               ; col = 0
               ; row_span = 0
@@ -620,8 +620,16 @@ let grid_properties_of_layout (layout : (string * Wm.container) list) =
   ; cells
   }
 
+let content_of_container (container : Wm.container) =
+  List.map Markup.create_widget container.widgets
+
 let make_grid (props : grid_properties) =
-  let cells = [] in
+  let cells = List.map (fun (id, (container, pos)) ->
+      Resizable_grid.Markup.create_cell
+        ~attrs:Tyxml_js.Html.([a_user_data "title" id])
+        ~content:(content_of_container container)
+        pos)
+      props.cells in
   Resizable_grid.Markup.create
     ~rows:(`Value props.rows)
     ~cols:(`Value props.cols)
@@ -633,7 +641,7 @@ let make
     (streams : Structure.packed list)
     (wm : Wm.t) =
   let grid = make_grid @@ grid_properties_of_layout wm.layout in
-  let elt =
+  let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element
     @@ Markup.create
       ~width:(float_of_int @@ fst wm.resolution)

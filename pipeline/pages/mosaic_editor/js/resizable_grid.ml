@@ -125,8 +125,7 @@ class t
     self#set_style super#root Row (gen_template ~size:row_size rows);
     List.iter (Element.append_child super#root % Tyxml_js.To_dom.of_element)
     @@ gen_cells
-      ~f:(fun ~col ~row () ->
-          Markup.create_cell ~col_start:col ~row_start:row ())
+      ~f:(fun ~col ~row () -> Markup.create_cell (make_cell_position ~col ~row ()))
       ~cols ~rows
 
   method insert_table
@@ -139,7 +138,7 @@ class t
     Utils.Option.iter (Element.remove_child_safe cell) subgrid;
     let content =
       gen_cells ~f:(fun ~col ~row () ->
-          Markup.create_cell ~col_start:col ~row_start:row ())
+          Markup.create_cell (make_cell_position ~col ~row ()))
         ~cols ~rows in
     let grid =
       Tyxml_js.To_dom.of_element
@@ -162,14 +161,15 @@ class t
             min col cs, max (col + col_span) ce,
             min row rs, max (row + row_span) re)
           (col, col + col_span, row, row + row_span) tl in
+      let position =
+        { col
+        ; row
+        ; col_span = col_end - col_start
+        ; row_span = row_end - row_start
+        } in
       let (merged : Dom_html.element Js.t) =
         Tyxml_js.To_dom.of_element
-        @@ Markup.create_cell
-          ~row_start
-          ~col_start
-          ~row_end
-          ~col_end
-          () in
+        @@ Markup.create_cell position in
       Element.append_child super#root merged;
       List.iter (Element.remove_child_safe super#root) cells;
       on_cell_insert self merged;
@@ -245,10 +245,7 @@ class t
           | Col -> n, succ i in
         let (elt : Dom_html.element Js.t) =
           Tyxml_js.To_dom.of_element
-          @@ Markup.create_cell
-            ~row_start:row
-            ~col_start:col
-            () in
+          @@ Markup.create_cell (make_cell_position ~col ~row ()) in
         Element.append_child grid elt;
         on_cell_insert self elt) opposite_tracks;
     let style =

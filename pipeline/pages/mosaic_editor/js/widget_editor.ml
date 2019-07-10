@@ -384,7 +384,7 @@ class t
     method private move_ghost :
       'a. ?aspect:int * int -> (#Dom_html.event as 'a) Js.t -> unit =
       fun ?aspect event ->
-      (* FIXME too complext to call this every time *)
+      (* FIXME too expensive to call getBoundingClientRect every time *)
       let rect = super#root##getBoundingClientRect in
       let (x, y) = Resizable.get_cursor_position event in
       let point =
@@ -394,8 +394,8 @@ class t
         { Position.
           x = fst point
         ; y = snd point
-        ; w = 100
-        ; h = 100
+        ; w = 100 (* FIXME *)
+        ; h = 100 (* FIXME *)
         } in
       Dom.preventDefault event;
       let adjusted, lines =

@@ -10,7 +10,8 @@ let () =
   let open React in
   let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
   let thread =
-    Http_wm.get_layout ()
+    Lwt.return_ok Test.wm
+    (* Http_wm.get_layout () *)
     >>= fun wm ->
     Http_structure.get_streams_applied_with_source ()
     >>= fun streams ->

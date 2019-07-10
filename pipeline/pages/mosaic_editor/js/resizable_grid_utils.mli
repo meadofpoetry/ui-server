@@ -10,21 +10,6 @@ end
 
 type direction = Col | Row
 
-type cell_position =
-  { col : int
-  ; row : int
-  ; col_span : int
-  ; row_span : int
-  }
-
-val make_cell_position :
-  ?col_span:int
-  -> ?row_span:int
-  -> col:int
-  -> row:int
-  -> unit
-  -> cell_position
-
 type event = Touch of Dom_html.touchEvent Js.t
            | Mouse of Dom_html.mouseEvent Js.t
 
