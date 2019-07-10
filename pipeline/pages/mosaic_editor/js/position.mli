@@ -1,14 +1,5 @@
 open Js_of_ocaml
 
-module Attr : sig
-  val keep_aspect_ratio : string
-  val aspect_ratio : string
-  val width : string
-  val height : string
-  val left : string
-  val top : string
-end
-
 type line =
   { is_vertical : bool (* Is line vertical *)
   ; is_multiple : bool (* Multiple intersection detected *)
@@ -49,18 +40,8 @@ val to_client_rect : t -> Dom_html.clientRect Js.t
 
 val of_client_rect : Dom_html.clientRect Js.t -> t
 
-val get_original_width : #Dom_html.element Js.t -> int
-
-val get_original_height : #Dom_html.element Js.t -> int
-
-val get_original_left : #Dom_html.element Js.t -> int
-
-val get_original_top : #Dom_html.element Js.t -> int
-
-val get_original_aspect_ratio : #Dom_html.element Js.t -> float option
-
 val adjust :
-  ?aspect_ratio:float (* Aspect ratio of active item, if any *)
+  ?aspect_ratio:(int * int) (* Aspect ratio of active item, if any *)
   -> ?snap_lines:bool
   -> ?collisions:bool
   -> ?min_width:int

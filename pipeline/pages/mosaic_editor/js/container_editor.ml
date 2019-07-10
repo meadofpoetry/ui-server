@@ -597,7 +597,9 @@ class t ?(containers = [])
             let id = Js.to_string elt##.id in
             let w, rest = get (String.equal id % fst) acc in
             (match w with
-             | Some (_, w) -> Wm_widget.apply_to_element elt w
+             | Some (_, w) ->
+               print_endline @@ Yojson.Safe.to_string @@ Wm.widget_to_yojson w;
+               Wm_widget.apply_to_element elt w
              | None -> Dom.removeChild container elt);
             rest) widgets elements in
       let make_element w =

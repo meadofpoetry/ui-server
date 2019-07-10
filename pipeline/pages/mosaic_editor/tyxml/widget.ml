@@ -30,10 +30,19 @@ module Make(Xml : Xml_sigs.NoWrap)
     let aspect = match widget.aspect with
       | None -> None
       | Some ar -> Some (aspect_attr_value ar) in
+    let position = match widget.position with
+      | None -> []
+      | Some { left; right; top; bottom } ->
+        Html.[ a_user_data "left" (string_of_int left)
+             ; a_user_data "right" (string_of_int right)
+             ; a_user_data "top" (string_of_int top)
+             ; a_user_data "bottom" (string_of_int bottom)
+             ] in
     Html.(
       [ a_user_data "type" (widget_type_to_string widget.type_)
       ; a_user_data "domain" (domain_attr_value widget.domain)
       ; a_user_data "description" widget.description ]
+      @ position
       |> map_cons_option a_id id
       |> map_cons_option (a_user_data "aspect") aspect
       |> map_cons_option (a_user_data "pid" % string_of_int) widget.pid)

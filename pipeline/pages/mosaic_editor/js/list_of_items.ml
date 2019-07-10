@@ -13,8 +13,17 @@ end
 
 let format = "application/json"
 
+let id_prefix = "add"
+
+let splitter = '-'
+
 let make_id (s : string) =
-  "add-widget-" ^ s
+  Printf.sprintf "%s%c%s" id_prefix splitter s
+
+let parse_id (s : string) =
+  match String.split_on_char splitter s with
+  | [_; id] -> id
+  | _ -> s
 
 class t ?drag_image (elt : Dom_html.element Js.t) = object(self)
   inherit Widget.t elt () as super
@@ -62,7 +71,7 @@ class t ?drag_image (elt : Dom_html.element Js.t) = object(self)
     let target = Dom_html.eventTarget e in
     _drag_target <- e##.target;
     let to_yojson (id, w) : Yojson.Safe.t =
-      `List [ `String id
+      `List [ `String (parse_id id)
             ; Wm.widget_to_yojson w ] in
     let data =
       Js.string

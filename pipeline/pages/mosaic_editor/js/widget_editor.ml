@@ -69,21 +69,9 @@ let make_item_content (widget : Wm.widget) =
 
 let make_item (id, widget : string * Wm.widget) =
   let item = Resizable.make ~classes:[CSS.grid_item] () in
-  let pos = Utils.Option.get widget.position in
-  let width = pos.right - pos.left in
-  let height = pos.bottom - pos.top in
   item#root##.id := Js.string id;
-  item#set_attribute Position.Attr.width (string_of_int width);
-  item#set_attribute Position.Attr.height (string_of_int height);
-  item#set_attribute Position.Attr.left (string_of_int pos.left);
-  item#set_attribute Position.Attr.top (string_of_int pos.top);
   Wm_widget.apply_to_element item#root widget;
   Element.append_child item#root (make_item_content widget);
-  (match widget.aspect with
-   | None -> ()
-   | Some (w, h) ->
-     let ar = float_of_int w /. float_of_int h in
-     item#set_attribute Position.Attr.aspect_ratio (Printf.sprintf "%g" ar));
   item
 
 module Selection = struct
@@ -142,7 +130,7 @@ class t
 
     method! init () : unit =
       super#init ();
-      (* _selection <- Some (Selection.make (fun _ -> ()) parent); *)
+      _selection <- Some (Selection.make (fun _ -> ()) parent);
       _basic_actions <- self#create_actions ()
 
     method! initial_sync_with_dom () : unit =
@@ -204,17 +192,16 @@ class t
       super#root##.style##.width := Utils.px_js width';
       super#root##.style##.height := Utils.px_js height';
       List.iter (fun item ->
-          let w = float_of_int @@ Position.get_original_width item in
-          let h = float_of_int @@ Position.get_original_height item in
-          let left = float_of_int @@ Position.get_original_left item in
-          let top = float_of_int @@ Position.get_original_top item in
+          let pos = Wm_widget.Attr.get_position item in
+          let w = float_of_int @@ pos.right - pos.left in
+          let h = float_of_int @@ pos.bottom - pos.top in
           let new_w, new_h =
             let w' = w *. scale_factor in
             (* XXX maybe use item aspect ratio to calculate new height? *)
             let h' = h *. scale_factor in
             w', h' in
-          let new_left = (left *. new_w) /. w in
-          let new_top = (top *. new_h) /. h in
+          let new_left = (float_of_int pos.left *. new_w) /. w in
+          let new_top = (float_of_int pos.top *. new_h) /. h in
           item##.style##.top := Utils.px_js @@ Float.to_int @@ Float.floor new_top;
           item##.style##.left := Utils.px_js @@ Float.to_int @@ Float.floor new_left;
           item##.style##.width := Utils.px_js @@ Float.to_int @@ Float.floor new_w;
@@ -240,9 +227,10 @@ class t
       if sort
       then
         List.sort (fun x y ->
+            let pos_x, pos_y = Wm_widget.Attr.(get_position x, get_position y) in
             compare_pair compare compare
-              (Position.get_original_left x, Position.get_original_top x)
-              (Position.get_original_left y, Position.get_original_top y))
+              (pos_x.left, pos_x.top)
+              (pos_y.left, pos_y.top))
           items
       else items
 
@@ -291,13 +279,9 @@ class t
       let detail = Widget.event_detail e in
       let position = Position.of_client_rect detail##.rect in
       let original_position = Position.of_client_rect detail##.originalRect in
-      let aspect_ratio =
-        match Element.get_attribute target Position.Attr.keep_aspect_ratio with
-        | Some "true" -> Position.get_original_aspect_ratio target
-        | _ -> None in
       let adjusted, lines =
         Position.adjust
-          ?aspect_ratio
+          ?aspect_ratio:(Wm_widget.Attr.get_aspect target)
           ~min_width:min_size
           ~min_height:min_size
           ~snap_lines:grid_overlay#snap_lines_visible
@@ -318,17 +302,26 @@ class t
     method private handle_item_change e _ =
       let target = Dom_html.eventTarget e in
       grid_overlay#set_snap_lines [];
+      self#set_position_attributes target
+        (Position.of_client_rect @@ Widget.event_detail e);
+      Lwt.return_unit
+
+    method private set_position_attributes
+        (elt : Dom_html.element Js.t)
+        (pos : Position.t) =
       let pos =
         Position.scale
           ~original_parent_size:(position.w, position.h)
           ~parent_size:self#size
-        @@ Position.of_client_rect
-        @@ Widget.event_detail e in
-      Element.set_attribute target Position.Attr.width @@ string_of_int pos.w;
-      Element.set_attribute target Position.Attr.height @@ string_of_int pos.h;
-      Element.set_attribute target Position.Attr.left @@ string_of_int pos.x;
-      Element.set_attribute target Position.Attr.top @@ string_of_int pos.y;
-      Lwt.return_unit
+          pos in
+      let pos =
+        { Wm.
+          left = pos.x
+        ; top = pos.y
+        ; right = pos.w + pos.x
+        ; bottom = pos.h + pos.y
+        } in
+      Wm_widget.Attr.set_position elt pos
 
     method private parent_rect : float * float * float =
       Js.Opt.case (Element.get_parent super#root)
@@ -345,7 +338,6 @@ class t
       else cur_width /. float_of_int position.w
 
     method private handle_dropped_json (json : Yojson.Safe.t) : unit Lwt.t =
-      print_endline @@ Yojson.Safe.pretty_to_string json;
       let of_yojson = function
         | `List [`String id; json] ->
           begin match Wm.widget_of_yojson json with
@@ -358,6 +350,7 @@ class t
       let item = make_item (id, widget) in
       Dom.appendChild super#root item#root;
       Position.apply_to_element ghost_position item#root;
+      self#set_position_attributes item#root ghost_position;
       grid_overlay#set_snap_lines [];
       Lwt.return_unit
 

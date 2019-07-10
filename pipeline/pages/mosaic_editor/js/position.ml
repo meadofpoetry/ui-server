@@ -3,15 +3,6 @@ open Components
 
 let ( % ) f g x = f (g x)
 
-module Attr = struct
-  let keep_aspect_ratio = "data-keep-aspect-ratio"
-  let aspect_ratio = "data-aspect-ratio"
-  let width = "data-width"
-  let height = "data-height"
-  let left = "data-left"
-  let top = "data-top"
-end
-
 type line =
   { is_vertical : bool (* Is line vertical *)
   ; is_multiple : bool (* Multiple intersection detected *)
@@ -244,38 +235,6 @@ let of_client_rect (rect : Dom_html.clientRect Js.t) : t =
 let default_aspect_ratio = 1.
 
 let string_of_float = Printf.sprintf "%g"
-
-let get_int_attribute (elt : #Dom_html.element Js.t) attr : int =
-  match Element.get_attribute elt attr with
-  | None -> 0
-  | Some x ->
-    match int_of_string_opt x with
-    | None -> 0
-    | Some x -> x
-
-let get_original_width (elt : #Dom_html.element Js.t) : int =
-  get_int_attribute elt Attr.width
-
-let get_original_height (elt : #Dom_html.element Js.t) : int =
-  get_int_attribute elt Attr.height
-
-let get_original_left (elt : #Dom_html.element Js.t) : int =
-  get_int_attribute elt Attr.left
-
-let get_original_top (elt : #Dom_html.element Js.t) : int =
-  get_int_attribute elt Attr.top
-
-let get_original_aspect_ratio (elt : #Dom_html.element Js.t) : float option =
-  match Element.get_attribute elt Attr.aspect_ratio with
-  | Some x -> Some (float_of_string x)
-  | None ->
-    let w, h = get_original_width elt, get_original_height elt in
-    if w = 0 || h = 0
-    then None
-    else
-      let ar = (float_of_int w) /. (float_of_int h) in
-      Element.set_attribute elt Attr.aspect_ratio (string_of_float ar);
-      Some ar
 
 (* min_distance - pixels
    return: (other element align as line_align_direction *

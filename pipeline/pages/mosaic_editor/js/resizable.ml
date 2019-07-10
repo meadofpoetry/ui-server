@@ -182,6 +182,7 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
     method private handle_touch_start (e : Dom_html.touchEvent Js.t)
         (_ : unit Lwt.t) : unit Lwt.t =
       Dom.preventDefault e;
+      Dom_html.stopPropagation e;
       self#stop_move_listeners ();
       _dragging <- false;
       begin match Js.Optdef.to_option (e##.changedTouches##item 0) with
@@ -231,6 +232,7 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
     method private handle_mouse_down (e : Dom_html.mouseEvent Js.t)
         (_ : unit Lwt.t) : unit Lwt.t =
       Dom.preventDefault e;
+      Dom_html.stopPropagation e;
       self#stop_move_listeners ();
       _dragging <- false;
       let target = Dom_html.eventTarget e in
