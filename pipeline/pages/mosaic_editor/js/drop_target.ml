@@ -3,21 +3,12 @@ open Components
 
 let ( >>= ) = Lwt.bind
 
-let split_string ~prefix pattern =
-  let len = String.length prefix in
-  if len > String.length pattern
-  then None
-  else
-    let sub = String.sub pattern 0 len in
-    if String.uppercase_ascii sub = String.uppercase_ascii prefix
-    then Some (String.sub pattern len (String.length pattern - len))
-    else None
-
 class virtual t (elt : Dom_html.element Js.t) () = object(self)
 
   inherit Widget.t elt () as super
 
   val virtual ghost  : Dom_html.element Js.t
+  val virtual mutable format : string
   val mutable _dnd_typ = ""
   val mutable _dragenter_target = Js.null
   val mutable _drag_listeners = []
@@ -47,7 +38,7 @@ class virtual t (elt : Dom_html.element Js.t) () = object(self)
   method private handle_dragover e _ =
     let a = Js.Unsafe.coerce e##.dataTransfer##.types in
     let l = Js.to_array a |> Array.to_list |> List.map Js.to_string in
-    match List.find_opt (String.equal List_of_items.format) l with
+    match List.find_opt (String.equal format) l with
     | None -> print_endline "not found"; Lwt.return_unit
     | Some typ ->
       _dnd_typ <- typ;

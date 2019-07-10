@@ -1,0 +1,43 @@
+* Mosaic editor goals
+** container_editor.ml
+- [ ] XXX initialize grid
+- [ ] generate grid from Wm.t type
+- [ ] redraw according to the server updates
+- [ ] `handle_keydown` method
+- [ ] XXX fill cells with predefined widget groups
+- [ ] split cell into subtable or elementary cells
+** widget_editor.ml
+- [ ] `handle_keydown` method
+- [ ] `bring_to_front` method
+- [ ] `send_to_back` method
+- [ ] implement layers logic
+- [ ] fix widgets scaling
+- [ ] XXX take aspect ratio into account when adding widget
+** position.ml
+- [ ] take aspect ratio into account in `adjust` function
+- [ ] switch from current position type to Wm.position
+- [ ] consider floating point coordinates
+- [-] fix snap lines generation
+** resizable.ml
+- [ ] XXX extend widget resize direction to Top, Left, Right, Bottom
+** grid_overlay.ml
+- [ ] XXX read `size` from DOM attribute
+- [ ] XXX get snap line color from CSS
+** list_of_widgets.ml
+- [ ] XXX add human-readable subheader names
+- [ ] XXX add lists/items according to sorting - optional
+** overflow_menu.ml
+- [ ] XXX click event listener is missing sometimes
+- [ ] XXX move markup to `page_mosaic_editor_tyxml` lib
+** resizable_grid.ml
+- [ ] XXX fix merge/add/remove col/row methods
+      (especially for multi-span cells and nested grids)
+- [ ] implement `is_merge_possible` function
+** undo_manager.ml
+- [ ] XXX add limit for undo/redo actions
+** wizard.ml
+- [ ] implement `layout_of_widgets` function
+** Other 
+- [ ] XXX Undo/redo for every defined action
+** Optional
+- [ ] XXX add an ability to disable an action (like undo, redo...)

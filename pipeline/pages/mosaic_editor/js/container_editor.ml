@@ -5,28 +5,6 @@ open Components
 open Pipeline_types
 open Resizable_grid_utils
 
-(* TODO
-   [ ] undo/redo
-   [X] container selection (single/multi with selection area)
-   [ ] widget selection
-   [X] editing mode selection: table, containers
-   [X] overflow menu
-   [X] contextual actions
-   [ ] keyboard navigation for widgets/containers
-   [X] add description to tiles
-   [ ] add switching between widget/container mode
-   [ ] simple wizard
-   [ ] `add` widget ui
-   [ ] `add` container ui (predefined)
-   [ ] container table split ui
-   [ ] migrate to 'selection' module in widget editor
-   [ ] Take aspect ratio into account (if any) while resizing widget
-   [X] Respect parent boundaries when resizing/moving widgets
-   [X] Show helper alignment lines in widgets editor
-   [X] Stick widget to neighbour elements
-   [ ] Extend widget `resize` dir to handle Top, Left, Right, Bottom dirs
-*)
-
 include Page_mosaic_editor_tyxml.Container_editor
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
@@ -256,7 +234,7 @@ class t ?(containers = [])
 
     val description_dialog = make_description_dialog ()
     val undo_manager = Undo_manager.create ()
-    val list_of_widgets = List_of_items.make Test.widgets
+    val list_of_widgets = List_of_widgets.make Test.widgets (* FIXME *)
 
     val mutable _listeners = []
     val mutable _content_listeners = []

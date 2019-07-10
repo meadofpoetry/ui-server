@@ -3,13 +3,6 @@ open Js_of_ocaml_lwt
 open Components
 open Resizable_grid_utils
 
-(* TODO
-   [ ] Add cell split action
-   [X] Add container info action
-   [X] Add container edit action
-   [ ] Add an ability to disable action
-*)
-
 type t =
   { callback : Dom_html.element Js.t list -> unit Lwt.t
   ; name : string

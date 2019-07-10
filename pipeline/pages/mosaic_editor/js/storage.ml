@@ -1,4 +1,5 @@
 open Ui_templates.Storage.Local
+
 let show_grid_lines = "show-grid-lines"
 let show_snap_lines = "show-snap-lines"
 

@@ -66,7 +66,6 @@ class t ?(show_grid_lines = true)
     (* Private methods *)
 
     method private draw_snap_line ~width ~height (line : Position.line) : unit =
-      (* FIXME get colors from CSS (variables?) *)
       let color = match line.is_center, line.is_multiple with
         | true, true -> "rgba(255, 0, 0, 0.9)"
         | false, true -> "rgba(0, 0, 255, 0.9)"
@@ -145,11 +144,9 @@ class t ?(show_grid_lines = true)
 
   end
 
-(* TODO read size from DOM attribute *)
 let attach ?show_grid_lines ?show_snap_lines ?(size = 10)
     (elt : #Dom_html.element Js.t) : t =
-  match String.uppercase_ascii @@ Js.to_string elt##.tagName with
-  | "CANVAS" ->
-    new t ?show_grid_lines ?show_snap_lines ~size
-      (Js.Unsafe.coerce elt) ()
-  | _ -> failwith "grid-overlay: host element must have a `canvas` tag"
+  Js.Opt.case (Dom_html.CoerceTo.canvas elt)
+    (fun () -> failwith "grid-overlay: host element must have a `canvas` tag")
+    (fun (canvas : Dom_html.canvasElement Js.t) ->
+       new t ?show_grid_lines ?show_snap_lines ~size canvas ())

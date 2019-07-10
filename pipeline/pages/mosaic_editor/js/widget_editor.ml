@@ -98,7 +98,7 @@ end
 class t
     ~(items : Resizable.t list)
     ~(parent : Dom_html.element Js.t)
-    ~(list_of_widgets : List_of_items.t)
+    ~(list_of_widgets : List_of_widgets.t)
     (position : Position.t)
     (scaffold : Scaffold.t)
     elt
@@ -119,6 +119,7 @@ class t
       | Some x -> x
     val undo_manager = Undo_manager.create ()
 
+    val mutable format = List_of_widgets.format
     val mutable _items = items
     val mutable _listeners = []
     val mutable _focused_item = None
@@ -239,12 +240,12 @@ class t
       else items
 
     method private handle_keydown e _ =
+      (* TODO Implement as described in
+         https://www.w3.org/TR/wai-aria-practices/#layoutGrid *)
       Js.Opt.iter Dom_html.document##.activeElement (fun active ->
           let items = self#items_ ~sort:true () in
           match Dom_html.Keyboard_code.of_event e with
           (* Navigation keys *)
-          (* TODO Implement as described in
-             https://www.w3.org/TR/wai-aria-practices/#layoutGrid *)
           | ArrowLeft -> ()
           | ArrowRight -> ()
           | ArrowDown -> ()
@@ -405,7 +406,7 @@ class t
   end
 
 let make ~(scaffold : Scaffold.t)
-    ~(list_of_widgets : List_of_items.t)
+    ~(list_of_widgets : List_of_widgets.t)
     (parent : Dom_html.element Js.t)
     ({ position; widgets } : Wm.container) =
   let items = List.map make_item widgets in

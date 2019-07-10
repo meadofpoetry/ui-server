@@ -3,8 +3,6 @@ open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 open Components
 
-let drag_type_prefix = "application/grid-item"
-
 include Page_mosaic_editor_tyxml.Resizable
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
@@ -92,6 +90,7 @@ let get_touch_by_id (touches : Dom_html.touchList Js.t)
       then Some touch else aux acc (succ i) in
   aux None 0
 
+(* FIXME remove *)
 let get_cursor_position ?touch_id (event : #Dom_html.event Js.t) =
   Js.Opt.case (Dom_html.CoerceTo.mouseEvent event)
     (fun () ->

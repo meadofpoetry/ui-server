@@ -141,6 +141,11 @@ module Branches = struct
 
 end
 
+let layout_of_widgets (widgets : (string * Wm.widget) list)
+  : ((string * Wm.container) list) =
+  (* TODO implement *)
+  []
+
 (* makes a dialog which shows a tree of available
  * streams
  *    |_ channels
