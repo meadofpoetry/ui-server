@@ -162,14 +162,6 @@ class t
     method items : Dom_html.element Js.t list =
       self#items_ ()
 
-    method remove_item (item : Dom_html.element Js.t) =
-      list_of_widgets#append_item @@ Wm_widget.of_element item;
-      Element.remove_child_safe super#root item;
-      _items <- List.filter (fun (x : Resizable.t) ->
-          let b = Element.equal item x#root in
-          if b then x#destroy ();
-          not b) _items
-
     method notify : event -> unit = function
       | `Container x ->
         (* TODO add notification if widget layout is changed
@@ -218,10 +210,45 @@ class t
 
     (* Private methods *)
 
+    method private add_item_ id item (position : Position.t) =
+      list_of_widgets#remove_by_id id;
+      Dom.appendChild super#root item;
+      Position.apply_to_element position item;
+      self#set_position_attributes item position
+
+    (** Add item with undo *)
+    method private add_item w p =
+      let item = make_item w in
+      self#add_item_ (fst w) item#root p;
+      Undo_manager.add undo_manager
+        { undo = (fun () -> self#remove_item_ item#root)
+        ; redo = (fun () -> self#add_item_ (fst w) item#root p)
+        }
+
+    method private remove_item_ (item : Dom_html.element Js.t) =
+      list_of_widgets#append_item @@ Wm_widget.of_element item;
+      Element.remove_child_safe super#root item;
+      _items <- List.filter (fun (x : Resizable.t) ->
+          let b = Element.equal item x#root in
+          if b then x#destroy ();
+          not b) _items
+
+    (** Remove item with undo *)
+    method private remove_item item =
+      let id = Js.to_string item##.id in
+      let position = Position.of_element item in
+      self#remove_item_ item;
+      Undo_manager.add undo_manager
+        { undo = (fun () -> self#add_item_ id item position)
+        ; redo = (fun () -> self#remove_item_ item)
+        }
+
     method private create_actions () : Widget.t list =
       let menu = Actions.make_overflow_menu
           (fun () -> self#selected)
-          Actions.[ add_widget scaffold
+          Actions.[ undo undo_manager
+                  ; redo undo_manager
+                  ; add_widget scaffold
                   ] in
       [menu#widget]
 
@@ -350,13 +377,7 @@ class t
             | Error e -> failwith e
           end
         | _ -> failwith "failed to parse json" in
-      let id, widget = of_yojson json in
-      let ghost_position = Position.of_element ghost in
-      let item = make_item (id, widget) in
-      list_of_widgets#remove_by_id id;
-      Dom.appendChild super#root item#root;
-      Position.apply_to_element ghost_position item#root;
-      self#set_position_attributes item#root ghost_position;
+      self#add_item (of_yojson json) (Position.of_element ghost);
       grid_overlay#set_snap_lines [];
       Lwt.return_unit
 

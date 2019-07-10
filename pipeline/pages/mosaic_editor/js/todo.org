@@ -6,6 +6,7 @@
 - [ ] `handle_keydown` method
 - [ ] XXX fill cells with predefined widget groups
 - [ ] split cell into subtable or elementary cells
+- [ ] generate unique container name
 ** widget_editor.ml
 - [ ] `handle_keydown` method
 - [ ] `bring_to_front` method
