@@ -4,5 +4,5 @@
   (modes       native)
   (synopsis   "sender implementation")
   (libraries  containers yojson caqti-lwt cohttp angstrom
-              lwt storage process))
+              lwt db process))
  ;; (preprocess (pps (ppx_deriving_yojson)))))
