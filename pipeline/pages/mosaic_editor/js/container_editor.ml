@@ -149,12 +149,20 @@ let make_description_dialog () =
       ]) in
   input, Dialog.make ~title ~content ~actions ()
 
-let make_undo_manager () =
-  let undo_manager = Undo_manager.create () in
-  (* Undo_manager.set_callback undo_manager (fun m ->
-   *     redo#set_disabled (not @@ Undo_manager.has_redo m);
-   *     undo#set_disabled (not @@ Undo_manager.has_undo m)); *)
-  undo_manager
+let container_of_element (elt : Dom_html.element Js.t) : Wm.container =
+  (* TODO implement. Seems that it is better to use relative
+     dimensions like 'fr' rather than absolute pixel values. *)
+  let width = elt##.offsetWidth in
+  let height = elt##.offsetHeight in
+  let position =
+    { Wm. left = 0
+    ; right = width
+    ; top = 0
+    ; bottom = height
+    } in
+  { position
+  ; widgets = Wm_widget.of_container elt
+  }
 
 let get f l =
   let rec aux acc = function
@@ -204,9 +212,8 @@ type widget_mode_state =
   ; container : Dom_html.element Js.t
   }
 
-class t ?(containers = [])
-    ~resolution
-    ~(scaffold : Scaffold.t)
+class t ~(scaffold : Scaffold.t)
+    (wm : Wm.t)
     (elt : Dom_html.element Js.t)
     () =
   object(self)
@@ -249,6 +256,7 @@ class t ?(containers = [])
     val mutable _cell_selected_actions = []
     val mutable _cont_selected_actions = []
 
+    val mutable _resolution = wm.resolution
     val mutable _widget_editor = None
     val mutable _mode_switch = None
 
@@ -301,7 +309,7 @@ class t ?(containers = [])
 
     method! layout () : unit =
       let parent_h = content##.offsetHeight in
-      let width = parent_h * (fst resolution) / (snd resolution) in
+      let width = parent_h * (fst _resolution) / (snd _resolution) in
       grid#root##.style##.width := Utils.px_js width;
       grid#root##.style##.height := Utils.px_js parent_h;
       Utils.Option.iter (Widget.layout % snd) _widget_editor;
@@ -327,7 +335,7 @@ class t ?(containers = [])
       self#selection#deselect_all ()
 
     method resolution : int * int =
-      resolution
+      _resolution
 
     (* TODO implement *)
     method value : Wm.t =
@@ -380,7 +388,7 @@ class t ?(containers = [])
     method private switch_to_widget_mode (cell : Dom_html.element Js.t) =
       let id = get_cell_title cell in
       let widgets = Wm_widget.elements cell in
-      let (container : Wm.container) = Container.of_element cell in
+      let (container : Wm.container) = container_of_element cell in
       let editor = Widget_editor.make
           ~scaffold
           ~list_of_widgets
@@ -591,38 +599,44 @@ class t ?(containers = [])
 
   end
 
+type grid_properties =
+  { rows : Resizable_grid.value list
+  ; cols : Resizable_grid.value list
+  ; cells : (string * (Wm.container * Resizable_grid_utils.cell_position)) list
+  }
+
+let grid_properties_of_layout (layout : (string * Wm.container) list) =
+  (* FIXME implement *)
+  let cells = List.map (fun (id, c) ->
+      id, (c, { Resizable_grid_utils.
+                row = 0
+              ; col = 0
+              ; row_span = 0
+              ; col_span = 0
+              }))
+      layout in
+  { rows = []
+  ; cols = []
+  ; cells
+  }
+
+let make_grid (props : grid_properties) =
+  let cells = [] in
+  Resizable_grid.Markup.create
+    ~rows:(`Value props.rows)
+    ~cols:(`Value props.cols)
+    ~content:cells
+    ()
+
 let make
     ~(scaffold : Scaffold.t)
     (streams : Structure.packed list)
     (wm : Wm.t) =
-  let cols = 5 in
-  let rows = 5 in
-  let cells = Resizable_grid_utils.gen_cells
-      ~f:(fun ~col ~row () ->
-          let idx = ((pred row) * cols) + col in
-          let title = cell_title idx in
-          Resizable_grid.Markup.create_cell
-            ~attrs:[Tyxml_js.Html.a_user_data "title" title]
-            ~col_start:col
-            ~row_start:row
-            ~content:[]
-            ())
-      ~cols
-      ~rows in
-  let grid = Resizable_grid.Markup.create
-      ~rows
-      ~cols
-      ~content:cells
-      () in
+  let grid = make_grid @@ grid_properties_of_layout wm.layout in
   let elt =
     Tyxml_js.To_dom.of_element
     @@ Markup.create
-      ~classes:[Card.CSS.root]
       ~width:(float_of_int @@ fst wm.resolution)
       ~height:(float_of_int @@ snd wm.resolution)
       ~grid () in
-  new t
-    ~resolution:wm.resolution
-    ~containers:wm.layout
-    ~scaffold
-    elt ()
+  new t ~scaffold wm elt ()

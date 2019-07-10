@@ -143,7 +143,11 @@ class t
         ~cols ~rows in
     let grid =
       Tyxml_js.To_dom.of_element
-      @@ Markup.create ~cols ~rows ~content () in
+      @@ Markup.create
+        ~cols:(`Repeat (cols, col_size))
+        ~rows:(`Repeat (rows, row_size))
+        ~content
+        () in
     Element.append_child cell grid
 
   method merge (cells : Dom_html.element Js.t list) : Dom_html.element Js.t option =

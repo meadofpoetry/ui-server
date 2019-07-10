@@ -1,12 +1,13 @@
 * Mosaic editor goals
 ** container_editor.ml
 - [ ] XXX initialize grid
-- [ ] generate grid from Wm.t type
+- [ ] implement `grid_properties_of_layout` function
 - [ ] redraw according to the server updates
 - [ ] `handle_keydown` method
 - [ ] XXX fill cells with predefined widget groups
 - [ ] split cell into subtable or elementary cells
 - [ ] generate unique container name
+- [ ] XXX restore cell selection after exit from widget editor mode
 ** widget_editor.ml
 - [ ] `handle_keydown` method
 - [ ] `bring_to_front` method

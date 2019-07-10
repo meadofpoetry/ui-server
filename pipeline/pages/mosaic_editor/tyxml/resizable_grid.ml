@@ -53,6 +53,15 @@ let rec loop f acc = function
 let gen_template ?(size = Fr 1.) (rows : int) =
   String.concat " " @@ loop (fun _ -> value_to_string size) [] rows
 
+type property =
+  [ `Repeat of int * value
+  | `Value of value list
+  ]
+
+let property_to_string : property -> string = function
+  | `Repeat (n, v) -> gen_template ~size:v n
+  | `Value v -> String.concat " " @@ List.map value_to_string v
+
 module CSS = struct
   let root = "container-grid"
 
@@ -97,21 +106,20 @@ module Make(Xml : Xml_sigs.NoWrap)
        ] @ content)
 
   let create ?(classes = []) ?attrs
-      ?(row_size = Fr 1.) ?(col_size = Fr 1.)
-      ?rows ?cols ?(content = []) () : 'a elt =
+      ?(rows : property option)
+      ?(cols : property option)
+      ?(content = []) () : 'a elt =
     let classes = CSS.root :: classes in
     let style = match rows, cols with
       | None, None -> None
       | Some rows, None ->
-        Some (Printf.sprintf "grid-template-rows: %s"
-                (gen_template ~size:row_size rows))
+        Some (Printf.sprintf "grid-template-rows: %s" @@ property_to_string rows)
       | None, Some cols ->
-        Some (Printf.sprintf "grid-template-columns: %s"
-                (gen_template ~size:col_size cols))
+        Some (Printf.sprintf "grid-template-columns: %s" @@ property_to_string cols)
       | Some rows, Some cols ->
         Some (Printf.sprintf "grid-template-rows: %s; grid-template-columns: %s"
-                (gen_template ~size:row_size rows)
-                (gen_template ~size:col_size cols)) in
+                (property_to_string rows)
+                (property_to_string cols)) in
     div ~a:([a_class classes] <@> attrs
             |> map_cons_option a_style style) content
 end
