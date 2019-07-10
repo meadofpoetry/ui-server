@@ -98,6 +98,7 @@ end
 class t
     ~(items : Resizable.t list)
     ~(parent : Dom_html.element Js.t)
+    ~(list_of_widgets : List_of_items.t)
     (position : Position.t)
     (scaffold : Scaffold.t)
     elt
@@ -147,6 +148,8 @@ class t
       _listeners <- [];
       List.iter Widget.destroy _items;
       _items <- [];
+      Utils.Option.iter Widget.destroy _selection;
+      _selection <- None;
       super#destroy ()
 
     method! layout () : unit =
@@ -159,6 +162,7 @@ class t
       self#items_ ()
 
     method remove_item (item : Dom_html.element Js.t) =
+      list_of_widgets#append_item @@ Wm_widget.of_element item;
       Element.remove_child_safe super#root item;
       _items <- List.filter (fun (x : Resizable.t) ->
           let b = Element.equal item x#root in
@@ -252,7 +256,7 @@ class t
           (* Other keys *)
           | Enter | Space -> () (* XXX maybe move to the next layer here? *)
           | Delete ->
-            Element.remove_child_safe super#root active;
+            self#remove_item active;
             (match items with
              | hd :: _ ->
                set_tab_index ~prev:active (Lazy.from_val items) hd;
@@ -348,6 +352,7 @@ class t
       let id, widget = of_yojson json in
       let ghost_position = Position.of_element ghost in
       let item = make_item (id, widget) in
+      list_of_widgets#remove_by_id id;
       Dom.appendChild super#root item#root;
       Position.apply_to_element ghost_position item#root;
       self#set_position_attributes item#root ghost_position;
@@ -387,43 +392,20 @@ class t
       grid_overlay#set_snap_lines lines;
       Position.apply_to_element adjusted ghost
 
-    (* Primary editor actions *)
-    method private make_actions () =
-      let add = Icon_button.make
-          ~icon:Icon.SVG.(make_simple Path.plus)#root
-          () in
-      add
-
-    (* Actions that will appear when the widget is selected *)
-    method private make_contextual_actions () =
+    method private bring_to_front (items : Dom_html.element Js.t) : unit =
+      (* TODO implement. Should set z-indexes of the provided elements higher
+         than indexes of other colliding elements *)
       ()
 
-    (* Actions that will appear at toolbar *)
-    method private make_toolbar () =
-      let show_grid_lines = Toggle_button.make
-          ~selected:grid_overlay#grid_lines_visible
-          [Icon.SVG.(make_simple Path.grid)#markup] in
-      let show_snap_lines = Toggle_button.make
-          ~selected:grid_overlay#snap_lines_visible
-          [Icon.SVG.(make_simple Path.border_inside)#markup] in
-      (* FIXME should be event from toggle button group *)
-      Lwt.async (fun () ->
-          Events.clicks show_grid_lines#root (fun _ _ ->
-              let v = show_grid_lines#has_class Toggle_button.CSS.selected in
-              grid_overlay#set_grid_lines_visible v;
-              Storage.(set_bool show_grid_lines v);
-              Lwt.return_unit));
-      Lwt.async (fun () ->
-          Events.clicks show_snap_lines#root (fun _ _ ->
-              let v = show_snap_lines#has_class Toggle_button.CSS.selected in
-              grid_overlay#set_snap_lines_visible v;
-              Storage.(set_bool show_snap_lines v);
-              Lwt.return_unit));
-      Toggle_button.make_group [show_grid_lines; show_snap_lines]
+    method private send_to_back (items : Dom_html.element Js.t) : unit =
+      (* TODO implement. Should set z-indexes of the provided elements lower
+         than indexes of other colliding elements *)
+      ()
 
   end
 
 let make ~(scaffold : Scaffold.t)
+    ~(list_of_widgets : List_of_items.t)
     (parent : Dom_html.element Js.t)
     ({ position; widgets } : Wm.container) =
   let items = List.map make_item widgets in
@@ -441,4 +423,4 @@ let make ~(scaffold : Scaffold.t)
     ; x = position.left
     ; y = position.top
     } in
-  new t ~items ~parent position scaffold elt ()
+  new t ~items ~parent ~list_of_widgets position scaffold elt ()

@@ -28,9 +28,10 @@ $mosaic-grid-colors: (
 }
 
 .widget-grid__ghost {
+    @include mdc-theme-prop(background-color, primary);
     position: absolute;
-    background-color: blue;
     opacity: 0.5;
+    z-index: 1000;
 }
 
 .widget-grid__item {

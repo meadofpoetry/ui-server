@@ -39,6 +39,7 @@ let editing_mode_of_enum = function
 
 type event =
   [ `Layout of Wm.t
+  | `Streams of Structure.packed list
   ]
 
 let ( >>= ) = Lwt.bind
@@ -365,6 +366,7 @@ class t ?(containers = [])
 
     (* TODO implement layout update *)
     method notify : event -> unit = function
+      | `Streams _ -> ()
       | `Layout wm ->
         match _widget_editor with
         | None -> ()
@@ -401,7 +403,11 @@ class t ?(containers = [])
       let id = get_cell_title cell in
       let widgets = Wm_widget.elements cell in
       let (container : Wm.container) = Container.of_element cell in
-      let editor = Widget_editor.make ~scaffold content container in
+      let editor = Widget_editor.make
+          ~scaffold
+          ~list_of_widgets
+          content
+          container in
       Utils.Option.iter (Dom.removeChild heading % Widget.root) _mode_switch;
       Dom.removeChild content grid#root;
       Dom.appendChild content editor#root;
@@ -597,9 +603,7 @@ class t ?(containers = [])
             let id = Js.to_string elt##.id in
             let w, rest = get (String.equal id % fst) acc in
             (match w with
-             | Some (_, w) ->
-               print_endline @@ Yojson.Safe.to_string @@ Wm.widget_to_yojson w;
-               Wm_widget.apply_to_element elt w
+             | Some (_, w) -> Wm_widget.apply_to_element elt w
              | None -> Dom.removeChild container elt);
             rest) widgets elements in
       let make_element w =
@@ -611,6 +615,7 @@ class t ?(containers = [])
 
 let make
     ~(scaffold : Scaffold.t)
+    (streams : Structure.packed list)
     (wm : Wm.t) =
   let cols = 5 in
   let rows = 5 in
