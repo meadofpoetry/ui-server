@@ -547,7 +547,15 @@ class t ~(scaffold : Scaffold.t)
     method private create_grid_actions () =
       let submit = Button.make
           ~label:"Применить"
-          ~on_click:(fun _ _ _ -> Lwt.return_unit)
+          ~on_click:(fun _ _ _ ->
+              let value = self#value in
+              let log x : unit = Js.Unsafe.global##.console##log x in
+              log
+              @@ Json.unsafe_input
+              @@ Js.string
+              @@ Yojson.Safe.to_string
+              @@ Wm.to_yojson value;
+              Lwt.return_unit)
           () in
       let buttons = Card.Actions.make_buttons [submit] in
       [buttons]
@@ -609,10 +617,10 @@ let grid_properties_of_layout (layout : (string * Wm.container) list) =
   (* FIXME implement *)
   let cells = List.map (fun (id, c) ->
       id, (c, { Resizable_grid.
-                row = 0
-              ; col = 0
-              ; row_span = 0
-              ; col_span = 0
+                row = 1
+              ; col = 1
+              ; row_span = 1
+              ; col_span = 1
               }))
       layout in
   { rows = []
