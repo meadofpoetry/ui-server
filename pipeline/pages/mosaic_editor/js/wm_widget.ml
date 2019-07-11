@@ -27,12 +27,12 @@ module Attr = struct
   let invalid_value a v =
     failwith @@ Printf.sprintf "invalid `%s` attribute value (%s)" typ v
 
-  let get_int_attribute (elt : #Dom_html.element Js.t) attr : int =
+  let get_float_attribute (elt : #Dom_html.element Js.t) attr : float =
     match Element.get_attribute elt attr with
-    | None -> 0
+    | None -> 0.
     | Some x ->
-      match int_of_string_opt x with
-      | None -> 0
+      match float_of_string_opt x with
+      | None -> 0.
       | Some x -> x
 
   let get_position
@@ -41,10 +41,10 @@ module Attr = struct
       (elt : Dom_html.element Js.t) =
     let pos =
       { Position.
-        x = get_int_attribute elt left
-      ; y = get_int_attribute elt top
-      ; w = get_int_attribute elt width
-      ; h = get_int_attribute elt height
+        x = get_float_attribute elt left
+      ; y = get_float_attribute elt top
+      ; w = get_float_attribute elt width
+      ; h = get_float_attribute elt height
       } in
     Position.to_wm_position ?parent_aspect ~parent_position pos
 
@@ -55,10 +55,10 @@ module Attr = struct
       (pos : Wm.position) =
     let pos = Position.of_wm_position ?parent_aspect ~parent_position pos in
     Element.(
-      set_attribute elt left (string_of_int pos.x);
-      set_attribute elt top (string_of_int pos.y);
-      set_attribute elt width (string_of_int pos.w);
-      set_attribute elt height (string_of_int pos.h))
+      set_attribute elt left (string_of_float pos.x);
+      set_attribute elt top (string_of_float pos.y);
+      set_attribute elt width (string_of_float pos.w);
+      set_attribute elt height (string_of_float pos.h))
 
   let get_typ (elt : Dom_html.element Js.t) =
     Js.Opt.case (elt##getAttribute (Js.string typ))
@@ -162,5 +162,5 @@ let elements (elt : Dom_html.element Js.t) =
   @@ elt##querySelectorAll (Js.string selector)
 
 let of_container (cell : Dom_html.element Js.t) : (string * Wm.widget) list =
-  List.map (of_element ~parent_position:{ left = 0; right = 0; top = 0; bottom = 0 }) (* FIXME *)
+  List.map (of_element ~parent_position:{ left = 0; top = 0; right = 0; bottom = 0 }) (* FIXME *)
   @@ elements cell

@@ -385,10 +385,10 @@ class t
       let point = x -. rect##.left, y -. rect##.top in
       let position =
         { Position.
-          x = int_of_float @@ fst point
-        ; y = int_of_float @@ snd point
-        ; w = 100 (* FIXME *)
-        ; h = 100 (* FIXME *)
+          x = fst point
+        ; y = snd point
+        ; w = 100. (* FIXME *)
+        ; h = 100. (* FIXME *)
         } in
       Dom.preventDefault event;
       let adjusted, lines =

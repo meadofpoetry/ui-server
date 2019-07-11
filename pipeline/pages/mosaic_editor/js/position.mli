@@ -19,10 +19,10 @@ type resize_direction =
 
 (* XXX Should use float type *)
 type t =
-  { x : int
-  ; y : int
-  ; w : int
-  ; h : int
+  { x : float
+  ; y : float
+  ; w : float
+  ; h : float
   }
 
 val empty : t
@@ -30,12 +30,12 @@ val empty : t
 val show : t -> string
 
 val equal : t -> t -> bool
-
+(*
 val compare : t -> t -> int
-
+*)
 val apply_to_element : t -> #Dom_html.element Js.t -> unit
 
-val of_element : #Dom_html.element Js.t -> t
+val of_element : ?parent_f:float * float -> #Dom_html.element Js.t -> t
 
 val to_client_rect : t -> Dom_html.clientRect Js.t
 
@@ -62,7 +62,6 @@ val of_wm_position :
   -> parent_position:Pipeline_types.Wm.position
   -> Pipeline_types.Wm.position
   -> t
-
 val to_wm_position :
   ?parent_aspect:int * int
   -> parent_position:Pipeline_types.Wm.position
