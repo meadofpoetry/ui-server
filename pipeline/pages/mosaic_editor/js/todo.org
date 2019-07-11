@@ -1,7 +1,7 @@
 * Mosaic editor goals
 ** container_editor.ml
 - [ ] XXX initialize grid
-- [ ] implement `grid_properties_of_layout` function
+- [X] implement `grid_properties_of_layout` function
 - [ ] redraw according to the server updates
 - [ ] `handle_keydown` method
 - [ ] XXX fill cells with predefined widget groups
@@ -19,7 +19,7 @@
 - [ ] take aspect ratio into account in `adjust` function
 - [ ] switch from current position type to Wm.position
 - [ ] consider floating point coordinates
-- [-] fix snap lines generation
+- [ ] fix snap lines generation
 ** resizable.ml
 - [ ] XXX extend widget resize direction to Top, Left, Right, Bottom
 ** grid_overlay.ml
