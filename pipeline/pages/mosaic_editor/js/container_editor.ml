@@ -547,15 +547,14 @@ class t ~(scaffold : Scaffold.t)
     method private create_grid_actions () =
       let submit = Button.make
           ~label:"Применить"
-          ~on_click:(fun _ _ _ ->
+          ~on_click:(fun btn _ _ ->
               let value = self#value in
               let log x : unit = Js.Unsafe.global##.console##log x in
-              log
-              @@ Json.unsafe_input
-              @@ Js.string
-              @@ Yojson.Safe.to_string
-              @@ Wm.to_yojson value;
-              Lwt.return_unit)
+              log @@ Json.unsafe_input @@ Js.string
+              @@ Yojson.Safe.to_string @@ Wm.to_yojson value;
+              let t = Pipeline_http_js.Http_wm.set_layout value in
+              btn#set_loading_lwt t;
+              t >>= fun _ -> Lwt.return_unit)
           () in
       let buttons = Card.Actions.make_buttons [submit] in
       [buttons]
@@ -648,11 +647,13 @@ let get_cell_positions ~lefts ~tops =
               }))
 
 let grid_properties_of_layout ({ resolution = w, h; layout; _ } : Wm.t) =
+  let sort = List.sort_uniq compare in
   let lefts, tops =
     List.split @@ List.map (fun (_, { position; _ } : _ * Wm.container) ->
-        position.right, position.bottom) layout in
-  let cols = points_to_frs w (get_deltas @@ List.sort_uniq compare lefts) in
-  let rows = points_to_frs h (get_deltas @@ List.sort_uniq compare tops) in
+        position.right, position.bottom) layout
+    |> fun (x, y) -> sort x, sort y in
+  let cols = points_to_frs w (get_deltas lefts) in
+  let rows = points_to_frs h (get_deltas tops) in
   let cells = get_cell_positions ~lefts ~tops layout in
   { rows; cols; cells }
 

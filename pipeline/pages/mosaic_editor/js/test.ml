@@ -50,12 +50,12 @@ let containers =
       ()
   ; make_container
       ~title:"Первый канал"
-      ~position:{ left = 0; top = 360; right = 540; bottom = 720 }
+      ~position:{ left = 0; top = 360; right = 740; bottom = 720 }
       ~widgets
       ()
   ; make_container
       ~title:"СТС"
-      ~position:{ left = 540; top = 360; right = 1280; bottom = 720 }
+      ~position:{ left = 740; top = 360; right = 1280; bottom = 720 }
       ~widgets
       ()
   ]
