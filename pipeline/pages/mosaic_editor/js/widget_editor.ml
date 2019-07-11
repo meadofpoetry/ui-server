@@ -67,10 +67,10 @@ let make_item_content (widget : Wm.widget) =
       div ~a:[a_class [CSS.grid_item_content]]
         (icon#markup :: (pid ^:: [text#markup])))
 
-let make_item (id, widget : string * Wm.widget) =
+let make_item ?parent_aspect ~parent_position (id, widget : string * Wm.widget) =
   let item = Resizable.make ~classes:[CSS.grid_item] () in
   item#root##.id := Js.string id;
-  Wm_widget.apply_to_element item#root widget;
+  Wm_widget.apply_to_element ~parent_position item#root widget;
   Element.append_child item#root (make_item_content widget);
   item
 
@@ -95,11 +95,15 @@ module Selection = struct
       ()
 end
 
+
+let aspect_of_wm_position (p : Wm.position) =
+  Utils.resolution_to_aspect ((p.right - p.left), (p.bottom - p.top))
+
 class t
     ~(items : Resizable.t list)
     ~(parent : Dom_html.element Js.t)
     ~(list_of_widgets : List_of_widgets.t)
-    (position : Position.t)
+    (container : Wm.container)
     (scaffold : Scaffold.t)
     elt
     () =
@@ -107,7 +111,9 @@ class t
 
     inherit Drop_target.t elt () as super
 
-    val aspect = float_of_int position.w /. float_of_int position.h
+    val aspect =
+      let w, h = aspect_of_wm_position container.position in
+      float_of_int w /. float_of_int h
     val grid_overlay = match Element.query_selector elt Selector.grid_overlay with
       | None -> failwith "widget-editor: grid overlay element not found"
       | Some x ->
@@ -119,6 +125,8 @@ class t
       | Some x -> x
     val undo_manager = Undo_manager.create ()
 
+    val mutable parent_position = container.position
+    val mutable parent_aspect = aspect_of_wm_position container.position
     val mutable format = List_of_widgets.format
     val mutable _items = items
     val mutable _listeners = []
@@ -170,26 +178,19 @@ class t
         ()
 
     method value : Wm.container =
-      let position =
-        { Wm.
-          left = position.x
-        ; top = position.y
-        ; right = position.x + position.w
-        ; bottom = position.y + position.h
-        } in
-      let widgets = List.map Wm_widget.of_element self#items in
-      { Wm. position
-      ; widgets
-      }
+      let widgets = List.map (Wm_widget.of_element ~parent_position) self#items in
+      { container with widgets }
 
     method fit () : unit =
+      let w = container.position.right - container.position.left in
+      let h = container.position.bottom - container.position.top in
       let scale_factor = self#scale_factor in
-      let width' = int_of_float @@ float_of_int position.w *. scale_factor in
-      let height' = int_of_float @@ float_of_int position.h *. scale_factor in
+      let width' = int_of_float @@ float_of_int w *. scale_factor in
+      let height' = int_of_float @@ float_of_int h *. scale_factor in
       super#root##.style##.width := Utils.px_js width';
       super#root##.style##.height := Utils.px_js height';
       List.iter (fun item ->
-          let pos = Wm_widget.Attr.get_position item in
+          let pos = Wm_widget.Attr.get_position ~parent_position item in
           let w = float_of_int @@ pos.right - pos.left in
           let h = float_of_int @@ pos.bottom - pos.top in
           let new_w, new_h =
@@ -218,7 +219,7 @@ class t
 
     (** Add item with undo *)
     method private add_item w p =
-      let item = make_item w in
+      let item = make_item ~parent_position ~parent_aspect w in
       self#add_item_ (fst w) item#root p;
       Undo_manager.add undo_manager
         { undo = (fun () -> self#remove_item_ item#root)
@@ -226,7 +227,7 @@ class t
         }
 
     method private remove_item_ (item : Dom_html.element Js.t) =
-      list_of_widgets#append_item @@ Wm_widget.of_element item;
+      list_of_widgets#append_item @@ Wm_widget.of_element ~parent_position item;
       Element.remove_child_safe super#root item;
       _items <- List.filter (fun (x : Resizable.t) ->
           let b = Element.equal item x#root in
@@ -255,11 +256,14 @@ class t
     method private selected = []
 
     method private items_ ?(sort = false) () : Dom_html.element Js.t list =
+      let get_position = Wm_widget.Attr.get_position
+          ~parent_position
+          ~parent_aspect in
       let items = Element.query_selector_all super#root Selector.item in
       if sort
       then
         List.sort (fun x y ->
-            let pos_x, pos_y = Wm_widget.Attr.(get_position x, get_position y) in
+            let pos_x, pos_y = get_position x, get_position y in
             compare_pair compare compare
               (pos_x.left, pos_x.top)
               (pos_y.left, pos_y.top))
@@ -354,9 +358,11 @@ class t
 
     method private scale_factor : float =
       let cur_width, cur_height, cur_aspect = self#parent_rect in
+      let w = container.position.right - container.position.left in
+      let h = container.position.bottom - container.position.top in
       if cur_aspect > aspect
-      then cur_height /. float_of_int position.h
-      else cur_width /. float_of_int position.w
+      then cur_height /. float_of_int h
+      else cur_width /. float_of_int w
 
     method private handle_dropped_json (json : Yojson.Safe.t) : unit Lwt.t =
       let of_yojson = function
@@ -376,13 +382,11 @@ class t
       (* FIXME too expensive to call getBoundingClientRect every time *)
       let rect = super#root##getBoundingClientRect in
       let (x, y) = Resizable.get_cursor_position event in
-      let point =
-        x - (int_of_float rect##.left),
-        y - (int_of_float rect##.top) in
+      let point = x -. rect##.left, y -. rect##.top in
       let position =
         { Position.
-          x = fst point
-        ; y = snd point
+          x = int_of_float @@ fst point
+        ; y = int_of_float @@ snd point
         ; w = 100 (* FIXME *)
         ; h = 100 (* FIXME *)
         } in
@@ -418,8 +422,12 @@ class t
 let make ~(scaffold : Scaffold.t)
     ~(list_of_widgets : List_of_widgets.t)
     (parent : Dom_html.element Js.t)
-    ({ position; widgets } : Wm.container) =
-  let items = List.map make_item widgets in
+    (container : Wm.container) =
+  let items = List.map (fun x ->
+      make_item
+        ~parent_aspect:(aspect_of_wm_position container.position)
+        ~parent_position:container.position
+        x) container.widgets in
   let content =
     Markup.create_grid_overlay ()
     :: Markup.create_grid_ghost ()
@@ -427,11 +435,4 @@ let make ~(scaffold : Scaffold.t)
   let elt =
     Tyxml_js.To_dom.of_element
     @@ Markup.create_grid ~content () in
-  let position =
-    { Position.
-      w = position.right - position.left
-    ; h = position.bottom - position.top
-    ; x = position.left
-    ; y = position.top
-    } in
-  new t ~items ~parent ~list_of_widgets position scaffold elt ()
+  new t ~items ~parent ~list_of_widgets container scaffold elt ()

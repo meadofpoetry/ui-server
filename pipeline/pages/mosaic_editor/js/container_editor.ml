@@ -34,6 +34,7 @@ module Selector = struct
   let cell = Printf.sprintf ".%s" Resizable_grid.CSS.cell
   let grid = Printf.sprintf ".%s" Resizable_grid.CSS.root
   let mode_switch = Printf.sprintf ".%s" CSS.mode_switch
+  let widget_wrapper = Printf.sprintf ".%s" CSS.widget_wrapper
 end
 
 module Selection = struct
@@ -205,11 +206,11 @@ let set_top_app_bar_icon (scaffold : Scaffold.t) typ icon =
     prev
 
 type widget_mode_state =
-  { widgets : Dom_html.element Js.t list
-  ; icon : Dom_html.element Js.t option
+  { icon : Dom_html.element Js.t option
   ; restore : unit -> unit
   ; editor : Widget_editor.t
-  ; container : Dom_html.element Js.t
+  ; cell : Dom_html.element Js.t
+  ; container : Wm.container
   }
 
 class t ~(scaffold : Scaffold.t)
@@ -368,10 +369,10 @@ class t ~(scaffold : Scaffold.t)
     (* Private methods *)
 
     method private switch_to_container_mode
-        ({ restore; widgets; icon; editor; container } : widget_mode_state) =
+        ({ restore; icon; editor; cell; container } : widget_mode_state) =
       restore ();
       Utils.Option.iter (ignore % set_top_app_bar_icon scaffold `Main) icon;
-      self#update_widget_elements editor#value.widgets widgets container;
+      self#update_widget_elements editor#value.widgets container cell;
       Dom.removeChild content editor#root;
       Dom.appendChild content grid#root;
       Utils.Option.iter (Dom.appendChild heading % Widget.root) _mode_switch;
@@ -387,7 +388,6 @@ class t ~(scaffold : Scaffold.t)
 
     method private switch_to_widget_mode (cell : Dom_html.element Js.t) =
       let id = get_cell_title cell in
-      let widgets = Wm_widget.elements cell in
       let (container : Wm.container) = container_of_element cell in
       let editor = Widget_editor.make
           ~scaffold
@@ -410,7 +410,7 @@ class t ~(scaffold : Scaffold.t)
       (* Set aspect ratio sizer for container dimensions *)
       update_ar_sizer ~width ~height ar_sizer;
       editor#layout ();
-      let state = { icon; restore; widgets; editor; container = cell } in
+      let state = { icon; restore; editor; cell; container } in
       (* Thread which is resolved when we're back to the container mode *)
       let t, w = Lwt.wait () in
       scaffold#set_on_navigation_icon_click (fun _ _ ->
@@ -589,20 +589,29 @@ class t ~(scaffold : Scaffold.t)
 
     method private update_widget_elements
         (widgets : (string * Wm.widget) list)
-        (elements : Dom_html.element Js.t list)
-        (container : Dom_html.element Js.t) : unit =
-      let rest =
-        List.fold_left (fun acc (elt : Dom_html.element Js.t) ->
-            let id = Js.to_string elt##.id in
-            let w, rest = get (String.equal id % fst) acc in
-            (match w with
-             | Some (_, w) -> Wm_widget.apply_to_element elt w
-             | None -> Dom.removeChild container elt);
-            rest) widgets elements in
-      let make_element w =
-        Tyxml_js.To_dom.of_element
-        @@ Markup.create_widget w in
-      List.iter (Dom.appendChild container % make_element) rest
+        (container : Wm.container)
+        (cell : Dom_html.element Js.t) : unit =
+      match Element.query_selector cell Selector.widget_wrapper with
+      | None -> ()
+      | Some wrapper ->
+        let elements = Wm_widget.elements wrapper in
+        let rest =
+          List.fold_left (fun acc (elt : Dom_html.element Js.t) ->
+              let id = Js.to_string elt##.id in
+              let w, rest = get (String.equal id % fst) acc in
+              (match w with
+               | Some (_, w) ->
+                 Wm_widget.apply_to_element
+                   ~parent_aspect:(16, 9) (* FIXME *)
+                   ~parent_position:container.position
+                   elt
+                   w
+               | None -> Dom.removeChild cell elt);
+              rest) widgets elements in
+        let make_element w =
+          Tyxml_js.To_dom.of_element
+          @@ Markup.create_widget w in
+        List.iter (Dom.appendChild cell % make_element) rest
 
   end
 
@@ -658,7 +667,8 @@ let grid_properties_of_layout ({ resolution = w, h; layout; _ } : Wm.t) =
   { rows; cols; cells }
 
 let content_of_container (container : Wm.container) =
-  List.map Markup.create_widget container.widgets
+  let widgets = List.map Markup.create_widget container.widgets in
+  [Markup.create_widget_wrapper widgets]
 
 let make_grid (props : grid_properties) =
   let cells = List.map (fun (id, (container, pos)) ->

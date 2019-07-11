@@ -5,6 +5,7 @@ module CSS = struct
   let root = "container-editor"
   let mode_switch = BEM.add_element root "mode-switch"
   let aspect_ratio_sizer = BEM.add_element root "aspect-ratio-sizer"
+  let widget_wrapper = BEM.add_element root "widget-wrapper"
   let widget = BEM.add_element root "widget"
   let content_mode = BEM.add_modifier root "content-mode"
   let cell_dragover = BEM.add_modifier Resizable_grid.CSS.cell "dragover"
@@ -40,6 +41,10 @@ module Make(Xml : Xml_sigs.NoWrap)
             @ Widget'.to_html_attributes ~id widget
             <@> attrs)
       []
+
+  let create_widget_wrapper ?(classes = []) ?attrs widgets : 'a elt =
+    let classes = CSS.widget_wrapper :: classes in
+    div ~a:([a_class classes] <@> attrs) widgets
 
   let create_mode_switch () =
     let create_tab ?active label =

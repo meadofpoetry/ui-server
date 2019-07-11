@@ -29,7 +29,6 @@ type line_align_direction =
   | Vright
   | Nill
 
-
 type t =
   { x : int
   ; y : int
@@ -932,8 +931,8 @@ let adjust ?aspect_ratio
   global_saved_position_previous := position_not_collide_others;
   position_not_collide_others, snap_lines
 
-let of_wm_position ?aspect ~parent pos =
+let of_wm_position ?parent_aspect ~parent_position pos =
   empty
 
-let to_wm_position ?aspect ~parent t =
+let to_wm_position ?parent_aspect ~parent_position t =
   Pipeline_types.Wm.{ top = 0; left = 0; right = 0; bottom = 0 }

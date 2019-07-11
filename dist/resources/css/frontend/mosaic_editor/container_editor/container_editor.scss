@@ -86,6 +86,9 @@ $divider-color: if(
         @include mdc-theme-prop(background-color, $divider-color);
     }
 
+    &__widget-wrapper {
+    }
+
     &__widget {
         position: absolute;
     }

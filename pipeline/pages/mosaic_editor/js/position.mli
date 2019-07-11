@@ -58,13 +58,13 @@ val adjust :
   -> t * (line list) (* Adjusted position & lines properties *)
 
 val of_wm_position :
-  ?aspect:int * int
-  -> parent:int * int
+  ?parent_aspect:int * int
+  -> parent_position:Pipeline_types.Wm.position
   -> Pipeline_types.Wm.position
   -> t
 
 val to_wm_position :
-  ?aspect:int * int
-  -> parent:int * int
+  ?parent_aspect:int * int
+  -> parent_position:Pipeline_types.Wm.position
   -> t
   -> Pipeline_types.Wm.position

@@ -6,6 +6,30 @@ open Components
 include Page_mosaic_editor_tyxml.Resizable
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
+type position =
+  { x : float
+  ; y : float
+  ; w : float
+  ; h : float
+  }
+
+let to_client_rect (p : position) : Dom_html.clientRect Js.t =
+  object%js
+    val top = p.y
+    val left = p.x
+    val right = p.x +. p.w
+    val bottom = p.y +. p.h
+    val width = Js.def p.w
+    val height = Js.def p.h
+  end
+
+let of_client_rect (r : Dom_html.clientRect Js.t) : position =
+  { x = r##.left
+  ; y = r##.top
+  ; w = Js.Optdef.get r##.width (fun () -> r##.right -. r##.left)
+  ; h = Js.Optdef.get r##.height (fun () -> r##.bottom -. r##.top)
+  }
+
 module Event = struct
   type action =
     | Move
@@ -106,11 +130,11 @@ let get_cursor_position ?touch_id (event : #Dom_html.event Js.t) =
                aux acc (succ i) in
        (match aux None 0 with
         | None -> failwith "no touch event found"
-        | Some t -> t##.pageX, t##.pageY))
+        | Some t -> float_of_int t##.pageX, float_of_int t##.pageY))
     (fun (e : Dom_html.mouseEvent Js.t) ->
        begin match Js.Optdef.(to_option e##.pageX,
                               to_option e##.pageY) with
-       | Some page_x, Some page_y -> page_x, page_y
+       | Some page_x, Some page_y -> float_of_int page_x, float_of_int page_y
        | _ -> failwith "no page coordinates in mouse event"
        end)
 
@@ -127,9 +151,9 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
     val mutable _dragging = false
 
     (* Initial position and size of element relative to parent *)
-    val mutable _position = Position.empty
+    val mutable _position : position = { x = 0.; y = 0.; w = 0.; h = 0. }
     (* Initial position of mouse cursor (or touch) relative to page *)
-    val mutable _coordinate = 0, 0
+    val mutable _coordinate = 0., 0.
 
     val mutable _touch_id = None
     inherit Widget.t elt () as super
@@ -163,19 +187,19 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
     method private notify_input ?(direction = Position.Top_left) action position : unit =
       let (detail : Event.detail Js.t) =
         object%js
-          val rect = Position.to_client_rect position
-          val originalRect = Position.to_client_rect _position
+          val rect = to_client_rect position
+          val originalRect = to_client_rect _position
           val action = action
           val direction = direction
         end in
       super#emit ~should_bubble:true ~detail Event.Typ.input
 
     method private notify_change () : unit =
-      let detail = Position.to_client_rect @@ Position.of_element super#root in
+      let detail = super#root##getBoundingClientRect in
       super#emit ~should_bubble:true ~detail Event.Typ.change
 
     method private notify_selected () : unit =
-      let detail = Position.to_client_rect _position in
+      let detail = to_client_rect _position in
       super#emit ~should_bubble:true ~detail Event.Typ.select
 
     method private handle_touch_start (e : Dom_html.touchEvent Js.t)
@@ -189,7 +213,7 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
         | Some touch -> _touch_id <- Some touch##.identifier
       end;
       let target = Dom_html.eventTarget e in
-      _position <- Position.of_element super#root;
+      _position <- of_client_rect super#root##getBoundingClientRect;
       _coordinate <- get_cursor_position ?touch_id:_touch_id e;
       let action =
         if Element.has_class target CSS.resizer
@@ -236,7 +260,7 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       _dragging <- false;
       let target = Dom_html.eventTarget e in
       (* Refresh element position and size *)
-      _position <- Position.of_element super#root;
+      _position <- of_client_rect super#root##getBoundingClientRect;
       (* Refresh mouse cursor position *)
       _coordinate <- get_cursor_position e;
       let action =
@@ -287,8 +311,8 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       if page_x <> (fst _coordinate) || page_y <> (snd _coordinate)
       then _dragging <- true;
       let position =
-        { _position with x = _position.x + page_x - (fst _coordinate)
-                       ; y = _position.y + page_y - (snd _coordinate)
+        { _position with x = _position.x +. page_x -. (fst _coordinate)
+                       ; y = _position.y +. page_y -. (snd _coordinate)
         } in
       self#notify_input Move position;
       Lwt.return_unit
@@ -305,48 +329,47 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
         let page_x, page_y = get_cursor_position ?touch_id:_touch_id e in
         let position = match direction with
           | Top_left ->
-            { Position.
-              w = _position.w - (page_x - (fst _coordinate))
-            ; h = _position.h - (page_y - (snd _coordinate))
-            ; x = _position.x + (page_x - (fst _coordinate))
-            ; y = _position.y + (page_y - (snd _coordinate))
+            { w = _position.w -. (page_x -. (fst _coordinate))
+            ; h = _position.h -. (page_y -. (snd _coordinate))
+            ; x = _position.x +. (page_x -. (fst _coordinate))
+            ; y = _position.y +. (page_y -. (snd _coordinate))
             }
           | Top_right ->
             { _position with
-              w = _position.w + (page_x - (fst _coordinate))
-            ; h = _position.h - (page_y - (snd _coordinate))
-            ; y = _position.y + (page_y - (snd _coordinate))
+              w = _position.w +. (page_x -. (fst _coordinate))
+            ; h = _position.h -. (page_y -. (snd _coordinate))
+            ; y = _position.y +. (page_y -. (snd _coordinate))
             }
           | Bottom_left ->
             { _position with
-              w = _position.w - (page_x - (fst _coordinate))
-            ; h = _position.h + (page_y - (snd _coordinate))
-            ; x = _position.x + (page_x - (fst _coordinate))
+              w = _position.w -. (page_x -. (fst _coordinate))
+            ; h = _position.h +. (page_y -. (snd _coordinate))
+            ; x = _position.x +. (page_x -. (fst _coordinate))
             }
           | Bottom_right ->
             { _position with
-              w = _position.w + (page_x - (fst _coordinate))
-            ; h = _position.h + (page_y - (snd _coordinate))
+              w = _position.w +. (page_x -. (fst _coordinate))
+            ; h = _position.h +. (page_y -. (snd _coordinate))
             }
           | Top ->
             { _position with
-              h = _position.h - (page_y - (snd _coordinate))
-            ; y = _position.y + (page_y - (snd _coordinate))
+              h = _position.h -. (page_y -. (snd _coordinate))
+            ; y = _position.y +. (page_y -. (snd _coordinate))
             }
           | Bottom ->
             { _position with
-              h = _position.h + (page_y - (snd _coordinate))
-            ; y = _position.y + (page_y - (snd _coordinate))
+              h = _position.h +. (page_y -. (snd _coordinate))
+            ; y = _position.y +. (page_y -. (snd _coordinate))
             }
           | Left ->
             { _position with
-              w = _position.w - (page_x - (fst _coordinate))
-            ; x = _position.x + (page_x - (fst _coordinate))
+              w = _position.w -. (page_x -. (fst _coordinate))
+            ; x = _position.x +. (page_x -. (fst _coordinate))
             }
           | Right ->
             { _position with
-              w = _position.w - (page_x - (fst _coordinate))
-            ; x = _position.x + (page_x - (fst _coordinate))
+              w = _position.w -. (page_x -. (fst _coordinate))
+            ; x = _position.x +. (page_x -. (fst _coordinate))
             } in
         self#notify_input ~direction Resize position;
         Lwt.return_unit
