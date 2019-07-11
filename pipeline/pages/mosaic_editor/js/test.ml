@@ -40,22 +40,22 @@ let widgets =
 let containers =
   [ make_container
       ~title:"Россия 1"
-      ~position:{ left = 0; top = 0; right = 640; bottom = 360 }
+      ~position:{ left = 0; top = 0; right = 540; bottom = 360 }
       ~widgets
       ()
   ; make_container
       ~title:"ТНТ"
-      ~position:{ left = 640; top = 0; right = 1280; bottom = 360 }
+      ~position:{ left = 540; top = 0; right = 1280; bottom = 360 }
       ~widgets
       ()
   ; make_container
       ~title:"Первый канал"
-      ~position:{ left = 0; top = 360; right = 640; bottom = 720 }
+      ~position:{ left = 0; top = 360; right = 540; bottom = 720 }
       ~widgets
       ()
   ; make_container
       ~title:"СТС"
-      ~position:{ left = 640; top = 360; right = 1280; bottom = 720 }
+      ~position:{ left = 540; top = 360; right = 1280; bottom = 720 }
       ~widgets
       ()
   ]

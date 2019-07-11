@@ -613,20 +613,48 @@ type grid_properties =
   ; cells : (string * (Wm.container * Resizable_grid.cell_position)) list
   }
 
-let grid_properties_of_layout (layout : (string * Wm.container) list) =
-  (* FIXME implement *)
-  let cells = List.map (fun (id, c) ->
+let first_grid_index = 1
+
+let rec get_deltas points =
+  List.rev @@ snd @@ List.fold_left (fun (prev, deltas) x ->
+      let delta = x - prev in
+      (prev + delta, delta :: deltas)) (0, []) points
+
+let points_to_frs resolution deltas : (Resizable_grid.value list) =
+  let res = float_of_int resolution in
+  let len = float_of_int @@ List.length deltas in
+  try List.map (fun x -> Resizable_grid.Fr ((float_of_int x) /. res *. len)) deltas
+  with Division_by_zero -> []
+
+let get_cell_pos_part (edge : int) points =
+  let rec aux cnt = function
+    | [] -> failwith "Corresponding cell edge not found" (* FIXME *)
+    | x :: _ when x = edge -> cnt
+    | _ :: tl -> aux (cnt + 1) tl in
+  if edge = 0 then first_grid_index
+  else aux (first_grid_index + 1) points
+
+let get_cell_positions ~lefts ~tops =
+  List.map (fun (id, ({ position = x; _ } as c) : string * Wm.container) ->
+      let col = get_cell_pos_part x.left lefts in
+      let row = get_cell_pos_part x.top tops in
+      let col_end = get_cell_pos_part x.right lefts in
+      let row_end = get_cell_pos_part x.bottom tops in
       id, (c, { Resizable_grid.
-                row = 1
-              ; col = 1
-              ; row_span = 1
-              ; col_span = 1
+                col
+              ; row
+              ; col_span = col_end - col
+              ; row_span = row_end - row
               }))
-      layout in
-  { rows = []
-  ; cols = []
-  ; cells
-  }
+
+let grid_properties_of_layout ({ resolution = w, h; layout; _ } : Wm.t) =
+  let lefts, tops =
+    List.split @@ List.map (fun (_, { position; _ } : _ * Wm.container) ->
+        position.right, position.bottom) layout in
+  let cols = points_to_frs w (get_deltas @@ List.sort_uniq compare lefts) in
+  let rows = points_to_frs h (get_deltas @@ List.sort_uniq compare tops) in
+  let cells = get_cell_positions ~lefts ~tops layout in
+  { rows; cols; cells }
 
 let content_of_container (container : Wm.container) =
   List.map Markup.create_widget container.widgets
@@ -648,7 +676,7 @@ let make
     ~(scaffold : Scaffold.t)
     (streams : Structure.packed list)
     (wm : Wm.t) =
-  let grid = make_grid @@ grid_properties_of_layout wm.layout in
+  let grid = make_grid @@ grid_properties_of_layout wm in
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element
     @@ Markup.create

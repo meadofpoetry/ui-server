@@ -1,6 +1,7 @@
 open Js_of_ocaml
 open Components
 open Page_mosaic_editor_tyxml.Resizable_grid
+open Pipeline_types
 
 module Attr = struct
   let row = "data-row"
