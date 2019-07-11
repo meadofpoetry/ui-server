@@ -932,16 +932,8 @@ let adjust ?aspect_ratio
   global_saved_position_previous := position_not_collide_others;
   position_not_collide_others, snap_lines
 
-let scale
-    ~(original_parent_size : int * int)
-    ~(parent_size : int * int)
-    (position : t) : t =
-  let pos = if (fst parent_size) <> 0 then
-      { x = position.x * (fst original_parent_size) / (fst parent_size)
-      ; y = position.y * (fst original_parent_size) / (fst parent_size)
-      ; w = position.w * (fst original_parent_size) / (fst parent_size)
-      ; h = position.h * (fst original_parent_size) / (fst parent_size)
-      }
-    else position
-  in
-  pos
+let of_wm_position ?aspect ~parent pos =
+  empty
+
+let to_wm_position ?aspect ~parent t =
+  Pipeline_types.Wm.{ top = 0; left = 0; right = 0; bottom = 0 }

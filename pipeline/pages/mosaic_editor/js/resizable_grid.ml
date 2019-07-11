@@ -17,6 +17,7 @@ module Selector = struct
 end
 
 module Event = struct
+
   class type item =
     object
       method item : Dom_html.element Js.t
@@ -27,8 +28,10 @@ module Event = struct
 
   class type resize = [detail] Widget.custom_event
 
-  let (resize : resize Js.t Dom_html.Event.typ) =
-    Dom_html.Event.make "resizable-grid:resize"
+  module Typ = struct
+    let (resize : resize Js.t Dom_html.Event.typ) =
+      Dom_html.Event.make "resizable-grid:resize"
+  end
 end
 
 let ( % ) f g x = f (g x)

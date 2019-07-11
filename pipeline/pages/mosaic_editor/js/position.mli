@@ -17,6 +17,7 @@ type resize_direction =
   | Left
   | Right
 
+(* XXX Should use float type *)
 type t =
   { x : int
   ; y : int
@@ -56,8 +57,14 @@ val adjust :
   -> Dom_html.element Js.t (* Active item *)
   -> t * (line list) (* Adjusted position & lines properties *)
 
-val scale :
-  original_parent_size:int * int
-  -> parent_size:int * int
+val of_wm_position :
+  ?aspect:int * int
+  -> parent:int * int
+  -> Pipeline_types.Wm.position
   -> t
+
+val to_wm_position :
+  ?aspect:int * int
+  -> parent:int * int
   -> t
+  -> Pipeline_types.Wm.position

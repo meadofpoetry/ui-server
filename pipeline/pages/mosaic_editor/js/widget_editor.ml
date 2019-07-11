@@ -341,19 +341,8 @@ class t
     method private set_position_attributes
         (elt : Dom_html.element Js.t)
         (pos : Position.t) =
-      let pos =
-        Position.scale
-          ~original_parent_size:(position.w, position.h)
-          ~parent_size:self#size
-          pos in
-      let pos =
-        { Wm.
-          left = pos.x
-        ; top = pos.y
-        ; right = pos.w + pos.x
-        ; bottom = pos.h + pos.y
-        } in
-      Wm_widget.Attr.set_position elt pos
+      (* TODO Implement me! *)
+      ()
 
     method private parent_rect : float * float * float =
       Js.Opt.case (Element.get_parent super#root)
