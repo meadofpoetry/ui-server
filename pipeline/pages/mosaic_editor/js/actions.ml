@@ -244,7 +244,6 @@ let transform_top_app_bar
     List.iter Widget.layout actions;
     (fun () ->
        scaffold#set_on_navigation_icon_click_default ();
-       List.iter Widget.destroy actions;
        x#set_title prev_title;
        x#set_actions prev_actions;
        Utils.Option.iter x#remove_class class_)

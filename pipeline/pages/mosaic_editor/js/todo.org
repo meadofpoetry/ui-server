@@ -29,8 +29,8 @@
 - [ ] XXX add human-readable subheader names
 - [ ] XXX add lists/items according to sorting - optional
 ** overflow_menu.ml
-- [ ] XXX click event listener is missing sometimes
-- [ ] XXX move markup to `page_mosaic_editor_tyxml` lib
+- [X] XXX click event listener is missing sometimes
+- [X] XXX move markup to `page_mosaic_editor_tyxml` lib
 ** resizable_grid.ml
 - [ ] XXX fix merge/add/remove col/row methods
       (especially for multi-span cells and nested grids)
