@@ -16,21 +16,21 @@
         /* @include grid-cell-interactive-ripple_; */
         @include mdc-theme-prop(background-color, surface);
 
-        /* &[data-col="1"], &[data-row="1"] { */
-        /*     .container-grid__mul-handle { */
-        /*         display: none; */
-        /*     } */
-        /* } */
-        /* &[data-col="1"] { */
-        /*     .container-grid__col-handle { */
-        /*         display: none; */
-        /*     } */
-        /* } */
-        /* &[data-row="1"] { */
-        /*     .container-grid__row-handle { */
-        /*         display: none; */
-        /*     } */
-        /* } */
+        &[aria-colindex="1"], &[aria-rowindex="1"] {
+            .container-grid__mul-handle {
+                display: none;
+            }
+        }
+        &[aria-colindex="1"] {
+            .container-grid__col-handle {
+                display: none;
+            }
+        }
+        &[aria-rowindex="1"] {
+            .container-grid__row-handle {
+                display: none;
+            }
+        }
 
         &--selected {
             @include mdc-theme-prop(background-color, $container-grid-cell-selected-color);

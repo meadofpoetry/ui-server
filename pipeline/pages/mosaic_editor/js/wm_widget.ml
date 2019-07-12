@@ -53,6 +53,7 @@ module Attr = struct
       ~parent_position
       (elt : Dom_html.element Js.t)
       (pos : Wm.position) =
+    let string_of_float = Printf.sprintf "%g" in
     let pos = Position.of_wm_position ?parent_aspect ~parent_position pos in
     Element.(
       set_attribute elt left (string_of_float pos.x);

@@ -1,7 +1,6 @@
 open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Components
-open Resizable_grid_utils
 
 type t =
   { callback : Dom_html.element Js.t list -> unit Lwt.t
@@ -33,7 +32,7 @@ let redo (undo_manager : Undo_manager.t) =
     ~icon:Icon.SVG.Path.redo
     ()
 
-let wizard (grid : Resizable_grid.t) =
+let wizard (grid : Grid.t) =
   make ~callback:(fun _ -> Lwt.return_unit)
     ~name:"Мастер"
     ~icon:Icon.SVG.Path.auto_fix
@@ -42,7 +41,7 @@ let wizard (grid : Resizable_grid.t) =
 let description ((input : string Textfield.t), (dialog : Dialog.t)) =
   make ~callback:(function
       | [cell] ->
-        let title = get_cell_title cell in
+        let title = Container_utils.get_cell_title cell in
         input#set_value title;
         (dialog#open_await ()
          >>= function
@@ -53,7 +52,7 @@ let description ((input : string Textfield.t), (dialog : Dialog.t)) =
               - Change top app bar title *)
            let value' = input#value_as_string in
            if not (String.equal title value')
-           then set_cell_title cell value';
+           then Container_utils.set_cell_title cell value';
            Lwt.return_unit)
       | _ -> Lwt.return_unit)
     ~name:"Описание"
@@ -70,7 +69,7 @@ let edit f =
 
 let merge ?f
     (undo_manager : Undo_manager.t)
-    (grid : Resizable_grid.t) =
+    (grid : Grid.t) =
   let action = fun cells ->
     apply_opt_cb f;
     grid#merge cells in
@@ -95,7 +94,27 @@ let merge ?f
     ~icon:Icon.SVG.Path.table_merge_cells
     ()
 
-let add_row_above (grid : Resizable_grid.t) =
+let get_cell' f = function
+  | [] -> invalid_arg "list is empty"
+  | x :: tl ->
+    snd @@ List.fold_left (fun ((pos', _) as acc) x ->
+        let pos = Grid.Util.get_cell_position x in
+        if f pos' pos then (pos, x) else acc)
+      (Grid.Util.get_cell_position x, x) tl
+
+let get_topmost_cell cells =
+  get_cell' (fun acc pos -> pos.row < acc.row) cells
+
+let get_bottommost_cell cells =
+  get_cell' (fun acc pos -> pos.row > acc.row) cells
+
+let get_leftmost_cell cells =
+  get_cell' (fun acc pos -> pos.col < acc.col) cells
+
+let get_rightmost_cell cells =
+  get_cell' (fun acc pos -> pos.col > acc.col) cells
+
+let add_row_above (grid : Grid.t) =
   make ~callback:(function
       | [] -> Lwt.return_unit
       | cells ->
@@ -106,7 +125,7 @@ let add_row_above (grid : Resizable_grid.t) =
     ~icon:Icon.SVG.Path.table_row_plus_before
     ()
 
-let add_row_below (grid : Resizable_grid.t) =
+let add_row_below (grid : Grid.t) =
   make ~callback:(function
       | [] -> Lwt.return_unit
       | cells ->
@@ -117,12 +136,12 @@ let add_row_below (grid : Resizable_grid.t) =
     ~icon:Icon.SVG.Path.table_row_plus_after
     ()
 
-let remove_row ?f (grid : Resizable_grid.t) =
+let remove_row ?f (grid : Grid.t) =
   make ~callback:(fun cells ->
       let _, cells =
         List.split
         @@ List.fold_left (fun acc x ->
-            let pos = get_cell_position x in
+            let pos = Grid.Util.get_cell_position x in
             if List.mem_assoc pos.row acc
             then acc else (pos.row, x) :: acc)
           [] cells in
@@ -133,7 +152,7 @@ let remove_row ?f (grid : Resizable_grid.t) =
     ~icon:Icon.SVG.Path.table_row_remove
     ()
 
-let add_col_left (grid : Resizable_grid.t) =
+let add_col_left (grid : Grid.t) =
   make ~callback:(function
       | [] -> Lwt.return_unit
       | cells ->
@@ -143,7 +162,7 @@ let add_col_left (grid : Resizable_grid.t) =
     ~icon:Icon.SVG.Path.table_column_plus_before
     ()
 
-let add_col_right (grid : Resizable_grid.t) =
+let add_col_right (grid : Grid.t) =
   make ~callback:(function
       | [] -> Lwt.return_unit
       | cells ->
@@ -153,12 +172,12 @@ let add_col_right (grid : Resizable_grid.t) =
     ~icon:Icon.SVG.Path.table_column_plus_after
     ()
 
-let remove_col ?f (grid : Resizable_grid.t) =
+let remove_col ?f (grid : Grid.t) =
   make ~callback:(fun cells ->
       let _, cells =
         List.split
         @@ List.fold_left (fun acc x ->
-            let pos = get_cell_position x in
+            let pos = Grid.Util.get_cell_position x in
             if List.mem_assoc pos.col acc
             then acc else (pos.col, x) :: acc)
           [] cells in

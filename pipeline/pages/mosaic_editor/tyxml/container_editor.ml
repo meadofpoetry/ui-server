@@ -8,14 +8,17 @@ module CSS = struct
   let widget_wrapper = BEM.add_element root "widget-wrapper"
   let widget = BEM.add_element root "widget"
   let content_mode = BEM.add_modifier root "content-mode"
-  let cell_dragover = BEM.add_modifier Resizable_grid.CSS.cell "dragover"
-  let cell_dragging = BEM.add_modifier Resizable_grid.CSS.cell "dragging"
+  let cell_dragover = BEM.add_modifier Grid.CSS.cell "dragover"
+  let cell_dragging = BEM.add_modifier Grid.CSS.cell "dragging"
 
   let nav_icon_main = BEM.add_modifier Top_app_bar.CSS.navigation_icon "main"
   let nav_icon_aux = BEM.add_modifier Top_app_bar.CSS.navigation_icon "aux"
 
   let top_app_bar_contextual = BEM.add_modifier Top_app_bar.CSS.root "contextual"
 end
+
+let aspect_attr_value (w, h : int * int) =
+  Printf.sprintf "%dx%d" w h
 
 module Make(Xml : Xml_sigs.NoWrap)
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)

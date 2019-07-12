@@ -4,7 +4,7 @@ type line =
   { is_vertical : bool (* Is line vertical *)
   ; is_multiple : bool (* Multiple intersection detected *)
   ; is_center : bool
-  ; origin : int
+  ; origin : float
   }
 
 type resize_direction =

@@ -74,11 +74,11 @@ class t ?(show_grid_lines = true)
       context##.strokeStyle := Js.string color;
       let start_x, start_y, end_x, end_y =
         if line.is_vertical then
-          float_of_int line.origin, 0.,
-          float_of_int line.origin, float_of_int height
+          line.origin, 0.,
+          line.origin, float_of_int height
         else
-          0., float_of_int line.origin,
-          float_of_int width, float_of_int line.origin
+          0., line.origin,
+          float_of_int width, line.origin
       in
       context##.strokeStyle := Js.string color;
       context##beginPath;

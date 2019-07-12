@@ -8,6 +8,7 @@
 - [ ] split cell into subtable or elementary cells
 - [ ] generate unique container name
 - [ ] XXX restore cell selection after exit from widget editor mode
+- [ ] filter available widgets
 ** widget_editor.ml
 - [ ] `handle_keydown` method
 - [ ] `bring_to_front` method

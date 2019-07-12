@@ -6,30 +6,6 @@ open Components
 include Page_mosaic_editor_tyxml.Resizable
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
-type position =
-  { x : float
-  ; y : float
-  ; w : float
-  ; h : float
-  }
-
-let to_client_rect (p : position) : Dom_html.clientRect Js.t =
-  object%js
-    val top = p.y
-    val left = p.x
-    val right = p.x +. p.w
-    val bottom = p.y +. p.h
-    val width = Js.def p.w
-    val height = Js.def p.h
-  end
-
-let of_client_rect (r : Dom_html.clientRect Js.t) : position =
-  { x = r##.left
-  ; y = r##.top
-  ; w = Js.Optdef.get r##.width (fun () -> r##.right -. r##.left)
-  ; h = Js.Optdef.get r##.height (fun () -> r##.bottom -. r##.top)
-  }
-
 module Event = struct
   type action =
     | Move
@@ -151,7 +127,7 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
     val mutable _dragging = false
 
     (* Initial position and size of element relative to parent *)
-    val mutable _position : position = { x = 0.; y = 0.; w = 0.; h = 0. }
+    val mutable _position : Position.t = { x = 0.; y = 0.; w = 0.; h = 0. }
     (* Initial position of mouse cursor (or touch) relative to page *)
     val mutable _coordinate = 0., 0.
 
@@ -187,8 +163,8 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
     method private notify_input ?(direction = Position.Top_left) action position : unit =
       let (detail : Event.detail Js.t) =
         object%js
-          val rect = to_client_rect position
-          val originalRect = to_client_rect _position
+          val rect = Position.to_client_rect position
+          val originalRect = Position.to_client_rect _position
           val action = action
           val direction = direction
         end in
@@ -199,7 +175,7 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       super#emit ~should_bubble:true ~detail Event.Typ.change
 
     method private notify_selected () : unit =
-      let detail = to_client_rect _position in
+      let detail = Position.to_client_rect _position in
       super#emit ~should_bubble:true ~detail Event.Typ.select
 
     method private handle_touch_start (e : Dom_html.touchEvent Js.t)
@@ -213,7 +189,7 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
         | Some touch -> _touch_id <- Some touch##.identifier
       end;
       let target = Dom_html.eventTarget e in
-      _position <- of_client_rect super#root##getBoundingClientRect;
+      _position <- Position.of_client_rect super#root##getBoundingClientRect;
       _coordinate <- get_cursor_position ?touch_id:_touch_id e;
       let action =
         if Element.has_class target CSS.resizer
@@ -260,7 +236,7 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       _dragging <- false;
       let target = Dom_html.eventTarget e in
       (* Refresh element position and size *)
-      _position <- of_client_rect super#root##getBoundingClientRect;
+      _position <- Position.of_client_rect super#root##getBoundingClientRect;
       (* Refresh mouse cursor position *)
       _coordinate <- get_cursor_position e;
       let action =
@@ -329,7 +305,8 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
         let page_x, page_y = get_cursor_position ?touch_id:_touch_id e in
         let position = match direction with
           | Top_left ->
-            { w = _position.w -. (page_x -. (fst _coordinate))
+            { Position.
+              w = _position.w -. (page_x -. (fst _coordinate))
             ; h = _position.h -. (page_y -. (snd _coordinate))
             ; x = _position.x +. (page_x -. (fst _coordinate))
             ; y = _position.y +. (page_y -. (snd _coordinate))

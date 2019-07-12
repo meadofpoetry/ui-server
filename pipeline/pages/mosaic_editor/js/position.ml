@@ -16,16 +16,8 @@ type line =
   { is_vertical : bool (* Is line vertical *)
   ; is_multiple : bool (* Multiple intersection detected *)
   ; is_center : bool
-  ; origin : int
+  ; origin : float
   }
-
-type line_f =
-  { is_vertical : bool (* Is line vertical *)
-  ; is_multiple : bool (* Multiple intersection detected *)
-  ; is_center : bool
-  ; origin_f : float
-  }
-
 
 type resize_direction =
   | Top_left
@@ -83,7 +75,6 @@ let compare (a : t) (b : t) =
         else (let c = compare a.w b.w in
               if c <> 0 then c
               else compare a.h b.h))
-
 
 let equal (a : t) (b : t) =
   fabs( a.x -. b.x ) < 0.00001 &&
@@ -204,41 +195,13 @@ let fix_h ?max_h ?(min_h = 0.0) (p : t) =
 let fix_wh ?max_w ?min_w ?max_h ?min_h =
   (fix_h ?max_h ?min_h) % (fix_w ?max_w ?min_w)
 
-(*
-(** Changes width and height to correspond provided aspect *)
-let fix_aspect (p : t) (aspect : int * int) =
-  let w =
-    if p.w mod (fst aspect) <> 0 then
-      let w = (p.w / (fst aspect)) * (fst aspect) in
-      if w = 0 then (fst aspect)  else w
-    else p.w
-  in
-  let h =
-    if p.h mod (snd aspect) <> 0 then
-      let h = (p.h / (snd aspect)) * (snd aspect) in
-      if h = 0 then (snd aspect) else h
-    else p.h
-  in
-  let sw = w / (fst aspect) in
-  let sh = h / (snd aspect) in
-  let w, h =
-    if sw > sh
-    then (fst aspect) * sh, h
-    else w, (snd aspect) * sw
-  in
-  { p with w; h }
-*)
-
-
-
 let apply_to_element (pos : t) (elt : #Dom_html.element Js.t) =
   elt##.style##.width := Utils.px_js (int_of_float pos.w);
   elt##.style##.left := Utils.px_js (int_of_float pos.x);
   elt##.style##.height := Utils.px_js (int_of_float pos.h);
   elt##.style##.top := Utils.px_js (int_of_float pos.y)
 
-
-let of_element ?(parent_f = (100.0, 100.0)) 
+let of_element ?(parent_f = (100.0, 100.0))
     (elt : #Dom_html.element Js.t) =
   let (parent_w_f, parent_h_f) = parent_f in
   { x = float_of_int( elt##.offsetLeft ) /. parent_w_f
@@ -247,27 +210,22 @@ let of_element ?(parent_f = (100.0, 100.0))
   ; h = float_of_int( elt##.offsetHeight ) /. parent_w_f
   }
 
-
-
-let to_client_rect (t : t) : Dom_html.clientRect Js.t =
+let to_client_rect (p : t) : Dom_html.clientRect Js.t =
   object%js
-    val top = t.y
-    val left = t.x
-    val right = t.x +. t.w
-    val bottom = t.y +. t.h
-    val width = Js.def @@ t.w
-    val height = Js.def @@ t.h
+    val top = p.y
+    val left = p.x
+    val right = p.x +. p.w
+    val bottom = p.y +. p.h
+    val width = Js.def p.w
+    val height = Js.def p.h
   end
 
-
-
-let of_client_rect (rect : Dom_html.clientRect Js.t) : t =
-  { x = rect##.left
-  ; y = rect##.top
-  ; w = Js.Optdef.get rect##.width (fun () -> 0.)
-  ; h = Js.Optdef.get rect##.height (fun () -> 0.)
+let of_client_rect (r : Dom_html.clientRect Js.t) : t =
+  { x = r##.left
+  ; y = r##.top
+  ; w = Js.Optdef.get r##.width (fun () -> r##.right -. r##.left)
+  ; h = Js.Optdef.get r##.height (fun () -> r##.bottom -. r##.top)
   }
-
 
 let default_aspect_ratio = 1.
 
@@ -731,8 +689,8 @@ let get_snap_lines
             ({ is_vertical
              ; is_multiple = aligns_count > 1
              ; is_center
-             ; origin_f = origin
-             } : line_f) in
+             ; origin
+             } : line) in
           line_ret :: acc
         else acc in
       create_lines action acc tl in
@@ -783,17 +741,11 @@ let fix_collisions
   else position
 
 let snap_to_grid position (grid_step : float) =
-  { x = position.x -. ( fmod position.x grid_step )
-  ; y = position.y -. ( fmod position.y grid_step )
-  ; w = position.w -. ( fmod position.w grid_step )
-  ; h = position.h -. ( fmod position.h grid_step )
+  { x = position.x -. (fmod position.x grid_step)
+  ; y = position.y -. (fmod position.y grid_step)
+  ; w = position.w -. (fmod position.w grid_step)
+  ; h = position.h -. (fmod position.h grid_step)
   }
-
-(*
-(* FIXME remove*)
-let global_saved_original_position = ref {x_f=0.0;y_f=0.0;h_f=0.0;w_f=0.0}
-let global_saved_position_previous = ref {x_f=0.0;y_f=0.0;h_f=0.0;w_f=0.0}
-*)
 
 let adjust ?aspect_ratio
     ?(snap_lines = true)
@@ -808,7 +760,7 @@ let adjust ?aspect_ratio
     ~(position : t) (* int coordinatrs to float [0;1.0] *)
     ~(siblings : Dom_html.element Js.t list) (* widget positions int coordinatrs to float [0;1.0] *)
     ~(parent_size : int * int) (* need if input positions is int pixel coordinates *)
-    (item : Dom_html.element Js.t) : t * line list 
+    (item : Dom_html.element Js.t) : t * line list
     (*
     add:
     (input_container_aspect : float)    = width/height in float
@@ -819,11 +771,11 @@ let adjust ?aspect_ratio
   let min_distance = 12 in
   (* FIXME values to function declaration? *)
   let grid_step = 15 in
-  let par_max_w_f = if (float_of_int (fst parent_size)) > 0.0 
+  let par_max_w_f = if (float_of_int (fst parent_size)) > 0.
     then  (float_of_int (fst parent_size))
     else 100.0
   in
-  let par_max_h_f = if (float_of_int (snd parent_size)) > 0.0 
+  let par_max_h_f = if (float_of_int (snd parent_size)) > 0.
     then  (float_of_int (snd parent_size))
     else 100.0
   in
@@ -832,27 +784,11 @@ let adjust ?aspect_ratio
   let grid_step_f = (float_of_int grid_step) /. max_of_parent_size in
   let min_width_f = (float_of_int min_width) /. max_of_parent_size in
   let min_height_f = (float_of_int min_height) /. max_of_parent_size in
-  let position_f = (
-    { x = position.x
-    ; y = position.y
-    ; w = position.w
-    ; h = position.h
-    } : t)
-  in
-  (* original_position need if used collides: *)
-  let original_position_f = (
-    { x = original_position.x
-    ; y = original_position.y
-    ; w = original_position.w
-    ; h = original_position.h
-    } : t)
-  in
-  (*let _ = Printf.printf "%f %f %f %f\n" position_f.x position_f.y position_f.w position_f.h in*)
   let grid_enable = false in
   let position_to_grid =
     if grid_enable
-    then snap_to_grid position_f grid_step_f
-    else position_f
+    then snap_to_grid position grid_step_f
+    else position
   in
   let position_snaped = match snap_lines, action with
     | false, _ -> position_to_grid
@@ -864,67 +800,26 @@ let adjust ?aspect_ratio
         min_distance_f siblings (par_max_w_f, par_max_h_f) resz
   in
   let position_clipped_parent =
-    position_clipped_parent position_snaped (par_max_w_f, par_max_h_f) min_width_f min_height_f action
+    position_clipped_parent position_snaped
+      (par_max_w_f, par_max_h_f)
+      min_width_f
+      min_height_f
+      action
   in
-  (* FIXME remove *)
-  (*
-  let last_pos =
-    if !global_saved_original_position <> original_position_f
-    then begin
-      global_saved_original_position:=original_position_f;
-      global_saved_position_previous:=original_position_f;
-      original_position_f
-    end
-    else !global_saved_position_previous in
-    *)
-  let position_not_collide_others = (* no collisions *)
-    position_clipped_parent in (* pos snapped*)
-  let snap_lines_f =
+  let position_not_collide_others = position_clipped_parent in
+  let snap_lines =
     if snap_lines
-    then get_snap_lines item position_not_collide_others siblings (par_max_w_f, par_max_h_f) min_distance_f action
+    then get_snap_lines item position_not_collide_others
+        siblings
+        (par_max_w_f, par_max_h_f)
+        min_distance_f
+        action
     else [] in
-  (* FIXME remove *)
-  (*global_saved_position_previous := position_not_collide_others;*)
-  (* 
-  transform to pixel, for out: 
-  *)
-(*
-  let out = (
-    { x = (int_of_float (floor (position_not_collide_others.x *. par_max_w_f)))
-    ; y = (int_of_float (floor (position_not_collide_others.y *. par_max_h_f)))
-    ; w = (int_of_float (floor (position_not_collide_others.w *. par_max_w_f)))
-    ; h = (int_of_float (floor (position_not_collide_others.h *. par_max_h_f)))
-    } : t)
-  in
-*)
-  let out = (
-    { x = position_not_collide_others.x
-    ; y = position_not_collide_others.y
-    ; w = position_not_collide_others.w
-    ; h = position_not_collide_others.h
-    } : t)
-  in
-  (*
-  let _ = Printf.printf "in %d %d %d %d\n" position.x position.y position.w position.h in
-  let _ = Printf.printf "in %f %f %f %f\n" position_f.x position_f.y position_f.w position_f.h in
-  let _ = Printf.printf "out %d %d %d %d\n" out.x out.y out.w out.h in
-  *)
-  let rec snap_lines_t_f_to_t (acc : line list) (in_list_t: line_f list) = match in_list_t with
-    | [] -> acc
-    | hd :: tl ->
-      let acc =  
-        { is_vertical = hd.is_vertical
-        ; is_multiple = hd.is_multiple
-        ; is_center = hd.is_center
-        ; origin =if hd.is_vertical
-            then (int_of_float (floor (hd.origin_f *. par_max_w_f)))
-            else (int_of_float (floor (hd.origin_f *. par_max_h_f)))
-        } :: acc
-      in
-      snap_lines_t_f_to_t acc tl
-  in
-  let snap_lines = snap_lines_t_f_to_t [] snap_lines_f in      
-  out, snap_lines
+  { x = position_not_collide_others.x
+  ; y = position_not_collide_others.y
+  ; w = position_not_collide_others.w
+  ; h = position_not_collide_others.h
+  }, snap_lines
 
 (* convert pixel positions of widgets of input container
    to floats [0.0, 1.0]
@@ -936,9 +831,46 @@ let adjust ?aspect_ratio
    w/h widget = 1.0 = size of holst
    container area bigger then holst
 *)
-let of_wm_position ?parent_aspect ~parent_position pos =
-  empty
+
+let of_wm_position ?parent_aspect
+    ~(parent_position : Pipeline_types.Wm.position)
+    (pos : Pipeline_types.Wm.position) =
+  let (asp_x, asp_y) = match parent_aspect with
+    | None -> (0, 0)
+    | Some x -> x in
+  let pw =
+    if parent_position.right - parent_position.left = 0
+    then 1.0
+    else float_of_int (parent_position.right - parent_position.left) in
+  let ph =
+    if parent_position.bottom - parent_position.top = 0
+    then 1.0
+    else float_of_int (parent_position.bottom - parent_position.top) in
+  { x = float_of_int (pos.left - parent_position.left)
+  ; y = float_of_int (pos.top - parent_position.top)
+  ; w = float_of_int (pos.right - pos.left)
+  ; h = float_of_int (pos.bottom - pos.top)
+  }
+(*empty*)
 
 
-let to_wm_position ?parent_aspect ~parent_position t =
-  Pipeline_types.Wm.{ top = 0; left = 0; right = 0; bottom = 0 }
+let to_wm_position ?parent_aspect
+    ~(parent_position : Pipeline_types.Wm.position)
+    (t : t) =
+  let (asp_x, asp_y) = match parent_aspect with
+    | None -> (0, 0)
+    | Some x -> x in
+  let pw =
+    if parent_position.right - parent_position.left = 0
+    then 1.0
+    else float_of_int (parent_position.right - parent_position.left) in
+  let ph =
+    if parent_position.bottom - parent_position.top = 0
+    then 1.0
+    else float_of_int (parent_position.bottom - parent_position.top) in
+  { Pipeline_types.Wm.
+    top = int_of_float ((t.y +. float_of_int parent_position.top /. ph) *. ph)
+  ; left = int_of_float ((t.x +. float_of_int parent_position.left /. pw) *. pw)
+  ; right = int_of_float ((t.x +. t.w) *. pw)
+  ; bottom = int_of_float ((t.y +. t.h) *. ph)
+  }

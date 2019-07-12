@@ -3,7 +3,6 @@ open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 open Components
 open Pipeline_types
-open Resizable_grid_utils
 
 include Page_mosaic_editor_tyxml.Container_editor
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
@@ -31,8 +30,8 @@ module Selector = struct
   let content = Printf.sprintf ".%s" Card.CSS.media
   let actions = Printf.sprintf ".%s" Card.CSS.actions
   let ar_sizer = Printf.sprintf ".%s" CSS.aspect_ratio_sizer
-  let cell = Printf.sprintf ".%s" Resizable_grid.CSS.cell
-  let grid = Printf.sprintf ".%s" Resizable_grid.CSS.root
+  let cell = Printf.sprintf ".%s" Grid.CSS.cell
+  let grid = Printf.sprintf ".%s" Grid.CSS.root
   let mode_switch = Printf.sprintf ".%s" CSS.mode_switch
   let widget_wrapper = Printf.sprintf ".%s" CSS.widget_wrapper
 end
@@ -40,7 +39,7 @@ end
 module Selection = struct
   include Selection
 
-  let class_ = Resizable_grid.CSS.cell_selected
+  let class_ = Grid.CSS.cell_selected
 
   let selectables = [Query Selector.cell]
 
@@ -102,15 +101,18 @@ let swap (a : Dom_html.element Js.t as 'a) (b : 'a) : unit =
     if Element.has_class a Selection.class_
     then (Element.add_class b Selection.class_;
           Element.remove_class a Selection.class_) in
-  let id, title, html =
+  let id, title, aspect, html =
     a##.id
-  , get_attr Attr.title a
+  , get_attr Container_utils.Attr.title a
+  , get_attr Container_utils.Attr.aspect a
   , a##.innerHTML in
   a##.id := b##.id;
-  a##setAttribute (Js.string Attr.title) (get_attr Attr.title b);
+  a##setAttribute
+    (Js.string Container_utils.Attr.title)
+    (get_attr Container_utils.Attr.title b);
   a##.innerHTML := b##.innerHTML;
   b##.id := id;
-  b##setAttribute (Js.string Attr.title) title;
+  b##setAttribute (Js.string Container_utils.Attr.title) title;
   b##.innerHTML := html;
   swap_class a;
   swap_class b
@@ -124,10 +126,10 @@ let gen_cell_title (cells : Dom_html.element Js.t list) =
   cell_title idx
 
 let on_cell_insert
-    (grid : Resizable_grid.t)
+    (grid : Grid.t)
     (cell : Dom_html.element Js.t) =
-  let title = gen_cell_title (grid#cells ()) in
-  set_cell_title cell title
+  let title = gen_cell_title grid#cells in
+  Container_utils.set_cell_title cell title
 
 (** Updates properties of the aspect ratio sizer according to the new
     area resolution *)
@@ -205,6 +207,16 @@ let set_top_app_bar_icon (scaffold : Scaffold.t) typ icon =
     Element.insert_child_at_index x index icon;
     prev
 
+let content_aspect_of_element (cell : Dom_html.element Js.t) =
+  Js.Unsafe.global##.console##log cell |> ignore;
+  match Wm_widget.Attr.get_aspect cell with
+  | Some x -> x
+  | None -> failwith "no aspect provided"
+
+let filter_available_widgets (wm : Wm.t) : (string * Wm.widget) list =
+  (* TODO implement *)
+  []
+
 type widget_mode_state =
   { icon : Dom_html.element Js.t option
   ; restore : unit -> unit
@@ -232,17 +244,14 @@ class t ~(scaffold : Scaffold.t)
     val ar_sizer = match Element.query_selector elt Selector.ar_sizer with
       | None -> failwith "container-editor: aspect ratio sizer element not found"
       | Some x -> x
-    val grid : Resizable_grid.t =
+    val grid : Grid.t =
       match Element.query_selector elt Selector.grid with
       | None -> failwith "container-editor: grid element not found"
-      | Some x -> Resizable_grid.attach
-                    ~on_cell_insert
-                    ~drag_interval:(Fr 0.05)
-                    x
+      | Some x -> Grid.attach ~on_cell_insert ~drag_interval:(Fr 0.05) x
 
     val description_dialog = make_description_dialog ()
     val undo_manager = Undo_manager.create ()
-    val list_of_widgets = List_of_widgets.make Test.widgets (* FIXME *)
+    val list_of_widgets = List_of_widgets.make wm.widgets (* FIXME filter available *)
 
     val mutable _listeners = []
     val mutable _content_listeners = []
@@ -299,7 +308,8 @@ class t ~(scaffold : Scaffold.t)
 
     method! initial_sync_with_dom () : unit =
       _listeners <- Events.(
-          [ dragstarts grid#root self#handle_dragstart
+          [ Grid.Event.inputs grid#root self#handle_grid_resize
+          ; dragstarts grid#root self#handle_dragstart
           ; dragends grid#root self#handle_dragend
           ; dragenters grid#root self#handle_dragenter
           ; dragleaves grid#root self#handle_dragleave
@@ -316,6 +326,7 @@ class t ~(scaffold : Scaffold.t)
       Utils.Option.iter (Widget.layout % snd) _widget_editor;
       Utils.Option.iter Widget.layout _basic_actions;
       List.iter Widget.layout _cell_selected_actions;
+      List.iter self#layout_cell grid#cells;
       super#layout ()
 
     method! destroy () : unit =
@@ -362,11 +373,35 @@ class t ~(scaffold : Scaffold.t)
           | None -> () (* FIXME container lost, handle it somehow *)
           | Some x -> editor#notify @@ `Container x
 
+    (* Private methods *)
+
     method edit_container (container : Dom_html.element Js.t) : unit Lwt.t =
       self#switch_to_widget_mode container
       >>= self#switch_to_container_mode
 
-    (* Private methods *)
+    method private scale_container
+        ~(cell : Dom_html.element Js.t)
+        (container : Wm.container) =
+      let cur_width = float_of_int cell##.offsetWidth in
+      let cur_height = float_of_int cell##.offsetHeight in
+      let cur_aspect = cur_width /. cur_height in
+      let aw, ah = content_aspect_of_element cell in
+      let aspect = float_of_int aw /. float_of_int ah in
+      let scale_factor =
+        if cur_aspect > aspect
+        then cur_height /. float_of_int ah
+        else cur_width /. float_of_int aw in
+      scale_factor *. float_of_int aw,
+      scale_factor *. float_of_int ah
+
+    method private layout_cell ?aspect (cell : Dom_html.element Js.t) =
+      match Element.query_selector cell Selector.widget_wrapper with
+      | None -> ()
+      | Some wrapper ->
+        let container = container_of_element cell in
+        let w, h = self#scale_container ~cell container in
+        wrapper##.style##.width := Utils.px_js (int_of_float w);
+        wrapper##.style##.height := Utils.px_js (int_of_float h)
 
     method private switch_to_container_mode
         ({ restore; icon; editor; cell; container } : widget_mode_state) =
@@ -387,7 +422,7 @@ class t ~(scaffold : Scaffold.t)
        | Some x -> x#toggle ~force:false ())
 
     method private switch_to_widget_mode (cell : Dom_html.element Js.t) =
-      let id = get_cell_title cell in
+      let id = Container_utils.get_cell_title cell in
       let (container : Wm.container) = container_of_element cell in
       let editor = Widget_editor.make
           ~scaffold
@@ -418,6 +453,13 @@ class t ~(scaffold : Scaffold.t)
           Lwt.return_unit);
       t
 
+    method private handle_grid_resize (e : Grid.Event.resize Js.t)
+        (_ : unit Lwt.t) : unit Lwt.t =
+      let cells = Widget.event_detail e in
+      cells##forEach (Js.wrap_callback (fun x _ _ -> self#layout_cell x##.item));
+      self#layout ();
+      Lwt.return_unit
+
     method private handle_dragstart e _ =
       let target = Dom_html.eventTarget e in
       _drag_target <- e##.target;
@@ -428,7 +470,7 @@ class t ~(scaffold : Scaffold.t)
 
     method private handle_dragenter e _ =
       let target = Dom_html.eventTarget e in
-      if Element.has_class target Resizable_grid.CSS.cell
+      if Element.has_class target Grid.CSS.cell
       && (Js.Opt.case _drag_target (fun () -> true) (not % Element.equal target))
       then Element.add_class target CSS.cell_dragover;
       Lwt.return_unit
@@ -440,7 +482,7 @@ class t ~(scaffold : Scaffold.t)
 
     method private handle_dragover e _ =
       let target = Dom_html.eventTarget e in
-      if Element.has_class target Resizable_grid.CSS.cell
+      if Element.has_class target Grid.CSS.cell
       && (not (Js.some target == _drag_target))
       then (Dom.preventDefault e;
             e##.dataTransfer##.dropEffect := Js.string "move");
@@ -464,11 +506,11 @@ class t ~(scaffold : Scaffold.t)
     method private handle_dragend e _ =
       let target = Dom_html.eventTarget e in
       Element.remove_class target CSS.cell_dragging;
-      List.iter (flip Element.remove_class CSS.cell_dragover) @@ grid#cells ();
+      List.iter (flip Element.remove_class CSS.cell_dragover) grid#cells;
       Lwt.return_unit
 
     method private handle_click e _ : unit Lwt.t =
-      match Resizable_grid_utils.cell_of_event (grid#cells ()) e with
+      match Grid.Util.cell_of_event grid#cells e with
       | None -> Lwt.return_unit
       | Some cell ->
         let is_selected = List.memq cell self#selected in
@@ -491,7 +533,7 @@ class t ~(scaffold : Scaffold.t)
       | cells ->
         let title = match _edit_mode, cells with
           | Content, [cell] ->
-            (match Element.get_attribute cell Attr.title with
+            (match Element.get_attribute cell Container_utils.Attr.title with
              | None -> "Выбран контейнер"
              | Some x -> x)
           | _ ->
@@ -616,9 +658,9 @@ class t ~(scaffold : Scaffold.t)
   end
 
 type grid_properties =
-  { rows : Resizable_grid.value list
-  ; cols : Resizable_grid.value list
-  ; cells : (string * (Wm.container * Resizable_grid.cell_position)) list
+  { rows : Grid.value list
+  ; cols : Grid.value list
+  ; cells : (string * (Wm.container * Grid.cell_position)) list
   }
 
 let first_grid_index = 1
@@ -628,10 +670,10 @@ let rec get_deltas points =
       let delta = x - prev in
       (prev + delta, delta :: deltas)) (0, []) points
 
-let points_to_frs resolution deltas : (Resizable_grid.value list) =
+let points_to_frs resolution deltas : (Grid.value list) =
   let res = float_of_int resolution in
   let len = float_of_int @@ List.length deltas in
-  try List.map (fun x -> Resizable_grid.Fr ((float_of_int x) /. res *. len)) deltas
+  try List.map (fun x -> Grid.Fr ((float_of_int x) /. res *. len)) deltas
   with Division_by_zero -> []
 
 let get_cell_pos_part (edge : int) points =
@@ -648,7 +690,7 @@ let get_cell_positions ~lefts ~tops =
       let row = get_cell_pos_part x.top tops in
       let col_end = get_cell_pos_part x.right lefts in
       let row_end = get_cell_pos_part x.bottom tops in
-      id, (c, { Resizable_grid.
+      id, (c, { Grid.
                 col
               ; row
               ; col_span = col_end - col
@@ -671,13 +713,19 @@ let content_of_container (container : Wm.container) =
   [Markup.create_widget_wrapper widgets]
 
 let make_grid (props : grid_properties) =
-  let cells = List.map (fun (id, (container, pos)) ->
-      Resizable_grid.Markup.create_cell
-        ~attrs:Tyxml_js.Html.([a_user_data "title" id])
+  let cells = List.map (fun (id, ((container : Wm.container), pos)) ->
+      let resolution =
+        container.position.right - container.position.left,
+        container.position.bottom - container.position.top in
+      let aspect = Utils.resolution_to_aspect resolution in
+      Grid.Markup.create_cell
+        ~attrs:Tyxml_js.Html.(
+            [ a_user_data "title" id
+            ; a_user_data "aspect" (aspect_attr_value aspect)])
         ~content:(content_of_container container)
         pos)
       props.cells in
-  Resizable_grid.Markup.create
+  Grid.Markup.create
     ~rows:(`Value props.rows)
     ~cols:(`Value props.cols)
     ~content:cells

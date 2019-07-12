@@ -87,10 +87,14 @@ $divider-color: if(
     }
 
     &__widget-wrapper {
+        pointer-events: none;
+        position: absolute;
+        opacity: 0.5;
     }
 
     &__widget {
         position: absolute;
+        @include mdc-theme-prop(background-color, secondary);
     }
 
     .container-grid {
@@ -126,7 +130,7 @@ $divider-color: if(
 
 .container-editor:not(.container-editor--content-mode) {
     .container-grid__cell:before {
-        content: attr(data-col) 'x' attr(data-row);
+        content: attr(aria-colindex) 'x' attr(aria-rowindex);
     }
 }
 

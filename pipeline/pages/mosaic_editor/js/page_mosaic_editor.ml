@@ -6,6 +6,80 @@ open Pipeline_http_js
 
 let ( >>= ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
 
+module Test = struct
+  let make_widget ?(type_ = Wm.Video)
+      ?(domain = Wm.Nihil)
+      ?aspect
+      ~x ~y ~w ~h () : string * Wm.widget =
+    let position =
+      Some { Wm.
+             left = x
+           ; top = y
+           ; right = x + w
+           ; bottom = y + h
+           } in
+    string_of_int @@ Random.bits (),
+    { position
+    ; description = "Sample widget"
+    ; pid = Some 4096
+    ; type_
+    ; aspect
+    ; domain
+    ; layer = 0
+    }
+
+  let make_container
+      ?(title = "Sample container")
+      ?(widgets = [])
+      ~position () : string * Wm.container =
+    title, { position; widgets }
+
+  let widgets =
+    [ make_widget ~type_:Audio ~x:0 ~y:0 ~w:50 ~h:50 ()
+    ; make_widget ~aspect:(16, 9) ~x:50 ~y:0 ~w:50 ~h:50 ()
+    ; make_widget
+        ~domain:(Chan { stream = Application_types.Stream.ID.make "id"
+                      ; channel = 2
+                      })
+        ~x:0 ~y:50 ~w:50 ~h:50 ()
+    ]
+
+  let containers =
+    [ make_container
+        ~title:"Россия 1"
+        ~position:{ left = 0; top = 0; right = 240; bottom = 160 }
+        ~widgets
+        ()
+    ; make_container
+        ~title:"ТНТ"
+        ~position:{ left = 240; top = 0; right = 760; bottom = 160 }
+        ~widgets
+        ()
+    ; make_container
+        ~title:"Канал"
+        ~position:{ left = 760; top = 0; right = 1280; bottom = 360 }
+        ~widgets
+        ()
+    ; make_container
+        ~title:"Первый канал"
+        ~position:{ left = 0; top = 160; right = 760; bottom = 720 }
+        ~widgets
+        ()
+    ; make_container
+        ~title:"СТС"
+        ~position:{ left = 760; top = 360; right = 1280; bottom = 720 }
+        ~widgets
+        ()
+    ]
+
+  let (wm : Wm.t) =
+    { layout = containers
+    ; widgets = widgets
+    ; resolution = 1280, 720
+    }
+
+end
+
 let () =
   let open React in
   let scaffold = Scaffold.attach (Dom_html.getElementById "root") in

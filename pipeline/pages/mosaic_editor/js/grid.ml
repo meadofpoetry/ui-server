@@ -1,44 +1,17 @@
 open Js_of_ocaml
+open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 open Components
-open Resizable_grid_utils
 
 (* Inspired by
  * https://github.com/nathancahill/split
  * https://grid.layoutit.com/
 *)
 
-include Page_mosaic_editor_tyxml.Resizable_grid
+include Page_mosaic_editor_tyxml.Grid
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
-module Selector = struct
-  let grid = Printf.sprintf ".%s" CSS.root
-  let cell = Printf.sprintf ".%s" CSS.cell
-end
-
-module Event = struct
-
-  class type item =
-    object
-      method item : Dom_html.element Js.t
-      method rect : Dom_html.clientRect Js.t Js.readonly_prop
-    end
-
-  type detail = item Js.t Js.js_array Js.t
-
-  class type resize = [detail] Widget.custom_event
-
-  module Typ = struct
-    let (resize : resize Js.t Dom_html.Event.typ) =
-      Dom_html.Event.make "resizable-grid:resize"
-  end
-end
-
-let ( % ) f g x = f (g x)
-
-let ( >>= ) = Lwt.bind
-
-let fail s = failwith @@ Printf.sprintf "resizable-grid: %s" s
+type direction = Col | Row
 
 type dimensions =
   { direction : direction
@@ -63,6 +36,263 @@ type resize_properties =
   ; row : dimensions option
   }
 
+let ( % ) f g x = f (g x)
+
+let ( >>= ) = Lwt.bind
+
+let name = "resizable-grid"
+
+let fail s = failwith @@ Printf.sprintf "%s: %s" name s
+
+module Attr = struct
+  let rowindex = "aria-rowindex"
+  let colindex = "aria-colindex"
+  let colspan = "aria-colspan"
+  let rowspan = "aria-rowspan"
+end
+
+module Selector = struct
+  let grid = Printf.sprintf ".%s" CSS.root
+  let cell = Printf.sprintf ".%s" CSS.cell
+end
+
+module Event = struct
+
+  class type item =
+    object
+      method item : Dom_html.element Js.t Js.readonly_prop
+      method rect : Dom_html.clientRect Js.t Js.readonly_prop
+    end
+
+  type detail = item Js.t Js.js_array Js.t
+
+  class type resize = [detail] Widget.custom_event
+
+  module Typ = struct
+    let (input : resize Js.t Dom_html.Event.typ) =
+      Dom_html.Event.make (name ^ ":input")
+
+    let (change : resize Js.t Dom_html.Event.typ) =
+      Dom_html.Event.make (name ^ ":change")
+  end
+
+  let input ?use_capture t =
+    Lwt_js_events.make_event ?use_capture Typ.input t
+
+  let inputs ?cancel_handler ?use_capture t h =
+    Lwt_js_events.seq_loop input t h
+
+  let change ?use_capture t =
+    Lwt_js_events.make_event ?use_capture Typ.change t
+
+  let changes ?cancel_handler ?use_capture t h =
+    Lwt_js_events.seq_loop ?cancel_handler ?use_capture change t h
+end
+
+module Util = struct
+
+  let insert_at_idx i x l =
+    let rec aux l acc i x = match l with
+      | [] -> List.rev_append acc [x]
+      | y :: l' when i = 0 -> List.rev_append acc (x :: y :: l')
+      | y :: l' -> aux l' (y :: acc) (pred i) x
+    in
+    let i = if i < 0 then List.length l + i else i in
+    aux l [] i x
+
+  let remove_at_idx i l0 =
+    let rec aux l acc i = match l with
+      | [] -> l0
+      | _ :: l' when i = 0 -> List.rev_append acc l'
+      | y :: l' -> aux l' (y :: acc) (pred i)
+    in
+    let i = if i < 0 then List.length l0 + i else i in
+    aux l0 [] i
+
+  let get_cursor_position ?touch_id (event : Dom_html.event Js.t) =
+    Js.Opt.case (Dom_html.CoerceTo.mouseEvent event)
+      (fun () ->
+         let (e : Dom_html.touchEvent Js.t) = Js.Unsafe.coerce event in
+         let touches = e##.changedTouches in
+         let rec aux acc i =
+           if i >= touches##.length then acc else
+             let touch = Js.Optdef.get (touches##item i) (fun () -> assert false) in
+             match touch_id with
+             | None -> Some touch
+             | Some id ->
+               if touch##.identifier = id then Some touch else
+                 aux acc (succ i) in
+         (match aux None 0 with
+          | None -> failwith "no touch event found"
+          | Some t -> t##.pageX, t##.pageY))
+      (fun event -> match Js.Optdef.(to_option event##.pageX,
+                                     to_option event##.pageY) with
+      | Some page_x, Some page_y -> page_x, page_y
+      | _ -> failwith "no page coordinates in mouse event")
+
+  let cell_of_event
+      (items : Dom_html.element Js.t list)
+      (e : #Dom_html.event Js.t) : Dom_html.element Js.t option =
+    let target = Dom_html.eventTarget e in
+    let selector = Printf.sprintf ".%s, .%s" CSS.cell CSS.root in
+    let nearest_parent = Js.Opt.to_option @@ Element.closest target selector in
+    match nearest_parent with
+    | None -> None
+    | Some parent ->
+      if not @@ Element.matches parent ("." ^ CSS.cell)
+      then None
+      else List.find_opt (Element.equal parent) items
+
+  let get_size_at_track ?(gap = 0.) (tracks : float array) =
+    let gap = gap *. (float_of_int @@ pred @@ Array.length tracks) in
+    let rec aux sum = function
+      | n when n = Array.length tracks -> sum
+      | n -> aux (sum +. tracks.(n)) (succ n) in
+    (aux 0. 0) +. gap
+
+  let get_parent_grid (cell : Dom_html.element Js.t) =
+  let rec aux elt =
+    Js.Opt.case (Element.get_parent elt)
+      (fun () -> failwith "parent grid not found")
+      (fun elt ->
+         if Element.has_class elt CSS.root
+         then elt else aux elt) in
+  aux cell
+
+  let get_cell_position (cell : Dom_html.element Js.t) =
+    let parse_span n s =
+      let s = String.split_on_char ' ' s in
+      match s with
+      | ["auto"] -> 1
+      | ["span"; v] -> int_of_string v
+      | [s] -> int_of_string s - n
+      | _ -> failwith "unknown cell span value" in
+    let style = Dom_html.window##getComputedStyle cell in
+    let col = Js.parseInt (Js.Unsafe.coerce style)##.gridColumnStart in
+    let row = Js.parseInt (Js.Unsafe.coerce style)##.gridRowStart in
+    let col_end = Js.to_string (Js.Unsafe.coerce style)##.gridColumnEnd in
+    let row_end = Js.to_string (Js.Unsafe.coerce style)##.gridRowEnd in
+    { col
+    ; row
+    ; col_span = parse_span col col_end
+    ; row_span = parse_span row row_end
+    }
+
+  let set_cell_row ?(span = 1) (row : int) (cell : Dom_html.element Js.t) =
+    let start = Js.string @@ Printf.sprintf "%d" row in
+    let end' = Js.string @@ Printf.sprintf "%d" (row + span) in
+    (Js.Unsafe.coerce cell##.style)##.gridRowStart := start;
+    (Js.Unsafe.coerce cell##.style)##.gridRowEnd := end';
+    cell##setAttribute (Js.string Attr.rowindex) start;
+    cell##setAttribute (Js.string Attr.rowspan) (Js.string @@ string_of_int span)
+
+  let set_cell_col ?(span = 1) (col : int) (cell : Dom_html.element Js.t) =
+    let start = Js.string @@ Printf.sprintf "%d" col in
+    let end' = Js.string @@ Printf.sprintf "%d" (col + span) in
+    (Js.Unsafe.coerce cell##.style)##.gridColumnStart := start;
+    (Js.Unsafe.coerce cell##.style)##.gridColumnEnd := end';
+    cell##setAttribute (Js.string Attr.colindex) start;
+    cell##setAttribute (Js.string Attr.colspan) (Js.string @@ string_of_int span)
+
+  let set_cell_position { col; row; col_span; row_span }
+      (cell : Dom_html.element Js.t) =
+    set_cell_col ~span:col_span col cell;
+    set_cell_row ~span:row_span row cell
+
+  let find_first_cell dir n cells =
+    snd
+    @@ Utils.Option.get
+    @@ List.fold_left (fun acc cell ->
+        let pos = get_cell_position cell in
+        let main, aux = match dir with
+          | Col -> pos.col, pos.row
+          | Row -> pos.row, pos.col in
+        match acc with
+        | None -> if main = n then Some (aux, cell) else None
+        | Some (aux', x) ->
+          if n = main && aux < aux'
+          then Some (aux, cell)
+          else acc) None cells
+
+  let first_non_zero f a =
+    let rec aux = function
+      | n when n < 0 -> None
+      | n ->
+        match f a.(n) with
+        | None -> aux (pred n)
+        | Some v ->
+          if v <> 0. then Some (n, v)
+          else aux (pred n) in
+    aux (pred @@ Array.length a)
+
+  let fr_to_pixels track_values computed_values =
+    match first_non_zero (function
+        | Fr x -> Some x
+        | _ -> None) track_values with
+    | None -> 0.
+    | Some (track, v) -> computed_values.(track) /. v
+
+  let percentage_to_pixels track_values computed_values =
+    match first_non_zero (function
+        | Pc x -> Some x
+        | _ -> None) track_values with
+    | None -> 0.
+    | Some (track, v) -> computed_values.(track) /. v
+
+  class type stylish =
+    object
+      method style : Dom_html.cssStyleDeclaration Js.t Js.prop
+    end
+
+  let get_matched_css_rules (elt : #Dom_html.element Js.t) : #stylish Js.t list =
+    let stylesheets = (Js.Unsafe.coerce elt)##.ownerDocument##.styleSheets in
+    let make_list coll =
+      let rec aux acc = function
+        | n when n < 0 -> acc
+        | n ->
+          let v = coll##item n in
+          aux (v :: acc) (pred n) in
+      aux [] coll##.length in
+    List.filter (fun x ->
+        try Element.matches elt (Js.to_string x##.selectorText)
+        with _ -> false)
+    @@ List.concat
+    @@ List.map (fun x ->
+        try make_list x##.cssRules
+        with _ -> [])
+    @@ make_list stylesheets
+
+  let get_styles (rule : string) (elt : Dom_html.element Js.t) =
+    let rule = Js.string rule in
+    let matched = get_matched_css_rules elt in
+    let get_style x = Js.Unsafe.get x##.style rule in
+    let styles = get_style elt :: (List.map get_style matched) in
+    Utils.List.filter_map (fun (x : Js.js_string Js.t Js.optdef) ->
+        Js.Optdef.case x
+          (fun () -> None)
+          (fun x -> match Js.to_string x with
+             | "" -> None
+             | s -> Some s))
+      styles
+
+  let gen_cells ~f ~rows ~cols =
+    let rec gen_rows acc row =
+      let rec gen_cols acc col =
+        if col = 0 then acc
+        else
+          let elt = f ~col ~row () in
+          gen_cols (elt :: acc) (pred col) in
+      if row = 0 then acc
+      else gen_rows (gen_cols acc cols) (pred row) in
+    gen_rows [] rows
+
+  let is_merge_possible (cells : Dom_html.element Js.t list) : bool =
+    (* TODO implement *)
+    (* XXX Merge is only possible when a group of cells forms a rectangle
+       and all cells belong to the same parent grid. *)
+    true
+end
+
 class t
     ?drag_interval
     ?(snap_offset = 0.)
@@ -79,15 +309,18 @@ class t
     self#stop_move_listeners ();
     List.iter Lwt.cancel _listeners;
     _listeners <- [];
+    List.iter Lwt.cancel _move_listeners;
+    _move_listeners <- [];
     super#destroy ()
 
   method! initial_sync_with_dom () : unit =
     _listeners <- Events.(
         [ mousedowns super#root (fun e t ->
               match e##.button with
-              | 0 -> self#handle_drag_start (Mouse e) t
+              | 0 -> self#handle_drag_start (e :> Dom_html.event Js.t) t
               | _ -> Lwt.return_unit)
-        ; touchstarts super#root (fun e -> self#handle_drag_start (Touch e))
+        ; touchstarts super#root (fun e ->
+              self#handle_drag_start (e :> Dom_html.event Js.t))
         ]);
     super#initial_sync_with_dom ()
 
@@ -123,13 +356,8 @@ class t
       ~(cols : int)
       ~(rows : int)
       () =
-    Element.remove_children super#root;
-    self#set_style super#root Col (gen_template ~size:col_size cols);
-    self#set_style super#root Row (gen_template ~size:row_size rows);
-    List.iter (Element.append_child super#root % Tyxml_js.To_dom.of_element)
-    @@ gen_cells
-      ~f:(fun ~col ~row () -> Markup.create_cell (make_cell_position ~col ~row ()))
-      ~cols ~rows
+    (* TODO implement *)
+    ()
 
   method insert_table
       ?(col_size = Fr 1.)
@@ -139,10 +367,7 @@ class t
       (cell : Dom_html.element Js.t) : unit =
     let subgrid = Element.query_selector cell Selector.grid in
     Utils.Option.iter (Element.remove_child_safe cell) subgrid;
-    let content =
-      gen_cells ~f:(fun ~col ~row () ->
-          Markup.create_cell (make_cell_position ~col ~row ()))
-        ~cols ~rows in
+    let content = [] in (* TODO implement *)
     let grid =
       Tyxml_js.To_dom.of_element
       @@ Markup.create
@@ -157,10 +382,10 @@ class t
     | [] | [_] -> None
     | x :: tl ->
       (* FIXME consider different grids *)
-      let { col; row; col_span; row_span } = get_cell_position x in
+      let { col; row; col_span; row_span } = Util.get_cell_position x in
       let col_start, col_end, row_start, row_end =
         List.fold_left (fun (cs, ce, rs, re) cell ->
-            let { col; row; col_span; row_span } = get_cell_position cell in
+            let { col; row; col_span; row_span } = Util.get_cell_position cell in
             min col cs, max (col + col_span) ce,
             min row rs, max (row + row_span) re)
           (col, col + col_span, row, row + row_span) tl in
@@ -178,10 +403,13 @@ class t
       on_cell_insert self merged;
       Some merged
 
-  method cells ?include_subgrids
+  method cells' ?include_subgrids
       ?(grid = super#root)
       () : Dom_html.element Js.t list =
     self#cells_ ?include_subgrids grid
+
+  method cells : Dom_html.element Js.t list =
+    self#cells_ super#root
 
   (* Private methods *)
 
@@ -195,26 +423,26 @@ class t
   method private remove_row_or_column
       (direction : direction)
       (cell : Dom_html.element Js.t) : unit =
-    let grid = get_parent_grid cell in
-    let ({ col; row; _ } : cell_position) = get_cell_position cell in
+    let grid = Util.get_parent_grid cell in
+    let ({ col; row; _ } : cell_position) = Util.get_cell_position cell in
     let tracks = Array.to_list @@ self#raw_tracks grid direction in
     let n = match direction with Col -> col | Row -> row in
     (* Update positions and remove cells *)
     List.iter (fun cell ->
-        let { col; row; col_span; row_span } = get_cell_position cell in
+        let { col; row; col_span; row_span } = Util.get_cell_position cell in
         let n' = match direction with Col -> col | Row -> row in
         if n' > n
         then begin match direction with
-          | Col -> set_cell_col ~span:col_span (pred n') cell
-          | Row -> set_cell_row ~span:row_span (pred n') cell
+          | Col -> Util.set_cell_col ~span:col_span (pred n') cell
+          | Row -> Util.set_cell_row ~span:row_span (pred n') cell
         end
         else if n' = n
         then Element.remove_child_safe grid cell)
-    @@ self#cells ~include_subgrids:false ~grid ();
+    @@ self#cells' ~include_subgrids:false ~grid ();
     (* Update style *)
     let style =
       String.concat " "
-      @@ remove_at_idx (n - 1) tracks in
+      @@ Util.remove_at_idx (n - 1) tracks in
     self#set_style grid direction style
 
   method private add_row_or_column
@@ -222,8 +450,8 @@ class t
       ?(before = false)
       (direction : direction)
       (cell : Dom_html.element Js.t) : unit =
-    let grid = get_parent_grid cell in
-    let ({ col; row; _ } : cell_position) = get_cell_position cell in
+    let grid = Util.get_parent_grid cell in
+    let ({ col; row; _ } : cell_position) = Util.get_cell_position cell in
     let tracks = Array.to_list @@ self#raw_tracks grid direction in
     (* Opposite tracks -
        rows if a column is being added,
@@ -236,11 +464,11 @@ class t
       | Row -> if before then row else succ row in
     (* Update positions of existing elements *)
     List.iter (fun cell ->
-        let { col; row; col_span; row_span } = get_cell_position cell in
+        let { col; row; col_span; row_span } = Util.get_cell_position cell in
         match direction with
-        | Col -> if col >= n then set_cell_col ~span:col_span (succ col) cell
-        | Row -> if row >= n then set_cell_row ~span:row_span (succ row) cell)
-    @@ self#cells ~include_subgrids:false ~grid ();
+        | Col -> if col >= n then Util.set_cell_col ~span:col_span (succ col) cell
+        | Row -> if row >= n then Util.set_cell_row ~span:row_span (succ row) cell)
+    @@ self#cells' ~include_subgrids:false ~grid ();
     (* Add new items to each of the opposite tracks *)
     Array.iteri (fun i _ ->
         let col, row = match direction with
@@ -253,16 +481,18 @@ class t
         on_cell_insert self elt) opposite_tracks;
     let style =
       String.concat " "
-      @@ insert_at_idx (n - 1) (value_to_string size) tracks in
+      @@ Util.insert_at_idx (n - 1) (value_to_string size) tracks in
     self#set_style grid direction style
 
-  method private notify_change () : unit =
-    ()
+  method private notify_input () : unit =
+    super#emit ~detail:(new%js Js.array_empty) Event.Typ.input
 
-  method private handle_drag_start
-      (e : event) _ : unit Lwt.t =
-    let target = Dom_html.eventTarget (coerce_event e) in
-    let cell = cell_of_event (self#cells_ super#root) (coerce_event e) in
+  method private notify_change () : unit =
+    super#emit ~detail:(new%js Js.array_empty) Event.Typ.change
+
+  method private handle_drag_start (e : Dom_html.event Js.t) _ : unit Lwt.t =
+    let target = Dom_html.eventTarget e in
+    let cell = Util.cell_of_event (self#cells_ super#root) e in
     let direction = Element.(
         if has_class target CSS.col_handle then Some `Col
         else if has_class target CSS.row_handle then Some `Row
@@ -271,23 +501,23 @@ class t
     match direction, cell with
     | None, _ | _, None -> Lwt.return_unit
     | Some direction, Some cell ->
-      Dom_html.stopPropagation (coerce_event e);
-      Dom.preventDefault (coerce_event e);
-      let grid = get_parent_grid target in
-      let ({ col; row; _ } : cell_position) = get_cell_position cell in
-      let cells = self#cells ~include_subgrids:false ~grid () in
+      Dom_html.stopPropagation e;
+      Dom.preventDefault e;
+      let grid = Util.get_parent_grid target in
+      let ({ col; row; _ } : cell_position) = Util.get_cell_position cell in
+      let cells = self#cells' ~include_subgrids:false ~grid () in
       let first_cells, row, col = match direction with
         | `Row ->
-          let first_cell = find_first_cell Row row cells in
+          let first_cell = Util.find_first_cell Row row cells in
           Element.add_class first_cell CSS.cell_dragging_row;
           [first_cell], Some (self#get_dimensions ~col ~row grid Row), None
         | `Col ->
-          let first_cell = find_first_cell Col col cells in
+          let first_cell = Util.find_first_cell Col col cells in
           Element.add_class first_cell CSS.cell_dragging_column;
           [first_cell], None, Some (self#get_dimensions ~col ~row grid Col)
         | `Mul ->
-          let col_cell = find_first_cell Col col cells in
-          let row_cell = find_first_cell Row row cells in
+          let col_cell = Util.find_first_cell Col col cells in
+          let row_cell = Util.find_first_cell Row row cells in
           Element.add_class col_cell CSS.cell_dragging_column;
           Element.add_class row_cell CSS.cell_dragging_row;
           [col_cell; row_cell],
@@ -300,38 +530,36 @@ class t
         ; col
         ; first_cells
         } in
-      (match e with
-       | Touch e ->
-         Dom.preventDefault e;
-         _move_listeners <- Events.(
-             [ touchmoves Dom_html.window (fun e ->
-                   self#handle_drag resize_properties (Touch e))
-             ; touchends Dom_html.window (fun e ->
-                   self#handle_drag_stop resize_properties (Touch e))
-             ; touchcancels Dom_html.window (fun e ->
-                   self#handle_drag_stop resize_properties (Touch e))
-             ])
-       | Mouse e ->
-         Dom.preventDefault e;
-         _move_listeners <- Events.(
-             [ mousemoves Dom_html.window (fun e ->
-                   self#handle_drag resize_properties (Mouse e))
-             ; mouseups Dom_html.window (fun e ->
-                   self#handle_drag_stop resize_properties (Mouse e))
-             ]));
+      let wnd = Dom_html.window in
+      let coerce e = (e :> Dom_html.event Js.t) in
+      Js.Opt.case (Dom_html.CoerceTo.mouseEvent e)
+        (fun () ->
+           Dom.preventDefault e;
+           _move_listeners <- Events.(
+               [ touchmoves wnd (self#handle_drag resize_properties % coerce)
+               ; touchends wnd (self#handle_drag_stop resize_properties % coerce)
+               ; touchcancels wnd (self#handle_drag_stop resize_properties % coerce)
+               ]))
+        (fun _ ->
+           Dom.preventDefault e;
+           _move_listeners <- Events.(
+               [ mousemoves wnd (self#handle_drag resize_properties % coerce)
+               ; mouseups wnd (self#handle_drag_stop resize_properties % coerce)
+               ]));
       Lwt.return_unit
 
-  method private handle_drag props (e : event) _ : unit Lwt.t =
-    Dom_html.stopPropagation (coerce_event e);
-    Dom.preventDefault (coerce_event e);
+  method private handle_drag props (e : Dom_html.event Js.t) _ : unit Lwt.t =
+    Dom_html.stopPropagation e;
+    Dom.preventDefault e;
     List.iter (function
         | None -> ()
         | Some x ->
-          self#update_position props.grid (get_cursor_position e) x)
+          self#update_position props.grid (Util.get_cursor_position e) x;
+          self#notify_input ();)
       [props.col; props.row];
     Lwt.return_unit
 
-  method private handle_drag_stop props (e : event) _ : unit Lwt.t =
+  method private handle_drag_stop props (e : Dom_html.event Js.t) _ : unit Lwt.t =
     List.iter (fun cell ->
         Element.remove_class cell CSS.cell_dragging_column;
         Element.remove_class cell CSS.cell_dragging_row)
@@ -363,12 +591,12 @@ class t
       | Row -> row - 2, row - 1 in
     let a_track_start =
       start
-      +. get_size_at_track
+      +. Util.get_size_at_track
         ~gap
         (Array.sub track_values_px 0 a_track) in
     let b_track_end =
       start
-      +. get_size_at_track
+      +. Util.get_size_at_track
         ~gap
         (Array.sub track_values_px 0 (succ b_track)) in
     { a_track
@@ -378,8 +606,8 @@ class t
     ; direction
     ; total_fr = Array.fold_left (fun acc -> function
           | Fr _ -> succ acc | _ -> acc) 0 track_values
-    ; percentage_to_pixels = percentage_to_pixels track_values track_values_px
-    ; fr_to_pixels = fr_to_pixels track_values track_values_px
+    ; percentage_to_pixels = Util.percentage_to_pixels track_values track_values_px
+    ; fr_to_pixels = Util.fr_to_pixels track_values track_values_px
     ; tracks
     ; track_values
     ; track_values_px
@@ -466,9 +694,9 @@ class t
     let prop = match direction with
       | Col -> "grid-template-columns"
       | Row -> "grid-template-rows" in
-    let tracks = get_styles prop grid in
+    let tracks = Util.get_styles prop grid in
     if List.length tracks = 0
-    then failwith "gutter: unable to determine grid template tracks from styles"
+    then fail "unable to determine grid template tracks from styles"
     else Array.of_list @@ String.split_on_char ' ' @@ List.hd tracks
 
   method private track_values_px grid direction: float array =

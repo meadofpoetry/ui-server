@@ -111,8 +111,11 @@ module Make(Xml : Xml_sigs.NoWrap)
         (cell_position_to_string position) in
     div ~a:([ a_class classes ; a_draggable true
             ; a_style style
-            ; a_user_data "row" (string_of_int position.col)
-            ; a_user_data "col" (string_of_int position.row)
+            ; a_aria "colindex" [string_of_int position.col]
+            ; a_aria "rowindex" [string_of_int position.row]
+            ; a_aria "colspan" [string_of_int position.col_span]
+            ; a_aria "rowspan" [string_of_int position.row_span]
+            ; a_role ["gridcell"]
             ] <@> attrs)
       ([ div ~a:[a_class [CSS.row_handle]] []
        ; div ~a:[a_class [CSS.col_handle]] []
@@ -134,6 +137,7 @@ module Make(Xml : Xml_sigs.NoWrap)
         Some (Printf.sprintf "grid-template-rows: %s; grid-template-columns: %s"
                 (property_to_string rows)
                 (property_to_string cols)) in
-    div ~a:([a_class classes] <@> attrs
+    div ~a:([ a_class classes
+            ; a_role ["grid"] ] <@> attrs
             |> map_cons_option a_style style) content
 end
