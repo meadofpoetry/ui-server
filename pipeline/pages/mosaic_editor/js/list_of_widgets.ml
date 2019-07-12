@@ -129,7 +129,7 @@ class t ?drag_image (elt : Dom_html.element Js.t) = object(self)
         let w, rest = get (String.equal id % fst) acc in
         (match w with
          (* FIXME parent size *)
-         | Some (_, w) -> Wm_widget.apply_to_element ~parent_position elt w
+         | Some (_, w) -> Widget_utils.set_attributes ~parent_position elt w
          | None -> self#remove_item elt);
         rest) widgets self#items in
     List.iter self#append_item rest
@@ -155,7 +155,7 @@ class t ?drag_image (elt : Dom_html.element Js.t) = object(self)
       Js.string
       @@ Yojson.Safe.to_string
       @@ to_yojson
-      @@ Wm_widget.of_element ~parent_position target in
+      @@ Widget_utils.widget_of_element ~parent_position target in
     e##.dataTransfer##.effectAllowed := Js.string "move";
     e##.dataTransfer##setData (Js.string format) data;
     target##.style##.opacity := Js.def @@ Js.string "0.5";

@@ -70,7 +70,7 @@ let make_item_content (widget : Wm.widget) =
 let make_item ?parent_aspect ~parent_position (id, widget : string * Wm.widget) =
   let item = Resizable.make ~classes:[CSS.grid_item] () in
   item#root##.id := Js.string id;
-  Wm_widget.apply_to_element ~parent_position item#root widget;
+  Widget_utils.set_attributes ~parent_position item#root widget;
   Element.append_child item#root (make_item_content widget);
   item
 
@@ -178,7 +178,10 @@ class t
         ()
 
     method value : Wm.container =
-      let widgets = List.map (Wm_widget.of_element ~parent_position) self#items in
+      let widgets = List.map (fun x ->
+          Widget_utils.widget_of_element
+            ~parent_position
+            x) self#items in
       { container with widgets }
 
     method fit () : unit =
@@ -190,7 +193,7 @@ class t
       super#root##.style##.width := Utils.px_js width';
       super#root##.style##.height := Utils.px_js height';
       List.iter (fun item ->
-          let pos = Wm_widget.Attr.get_position ~parent_position item in
+          let pos = Widget_utils.Attr.get_position ~parent_position item in
           let w = float_of_int @@ pos.right - pos.left in
           let h = float_of_int @@ pos.bottom - pos.top in
           let new_w, new_h =
@@ -227,7 +230,8 @@ class t
         }
 
     method private remove_item_ (item : Dom_html.element Js.t) =
-      list_of_widgets#append_item @@ Wm_widget.of_element ~parent_position item;
+      list_of_widgets#append_item
+      @@ Widget_utils.widget_of_element ~parent_position item;
       Element.remove_child_safe super#root item;
       _items <- List.filter (fun (x : Resizable.t) ->
           let b = Element.equal item x#root in
@@ -256,7 +260,7 @@ class t
     method private selected = []
 
     method private items_ ?(sort = false) () : Dom_html.element Js.t list =
-      let get_position = Wm_widget.Attr.get_position
+      let get_position = Widget_utils.Attr.get_position
           ~parent_position
           ~parent_aspect in
       let items = Element.query_selector_all super#root Selector.item in
@@ -317,7 +321,7 @@ class t
       let original_position = Position.of_client_rect detail##.originalRect in
       let adjusted, lines =
         Position.adjust
-          ?aspect_ratio:(Wm_widget.Attr.get_aspect target)
+          ?aspect_ratio:(Widget_utils.Attr.get_aspect target)
           ~min_width:min_size
           ~min_height:min_size
           ~snap_lines:grid_overlay#snap_lines_visible

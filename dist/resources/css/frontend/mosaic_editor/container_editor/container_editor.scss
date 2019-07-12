@@ -58,6 +58,23 @@ $divider-color: if(
     width: 100%;
     max-height: 100%;
 
+    .mdc-placeholder {
+        &__widget {
+            width: auto;
+            height: auto;
+        }
+        @media (min-width: 599px) {
+            .mdc-icon-button {
+                height: 96px;
+                width: 96px;
+                .mdc-icon {
+                    height: 48px;
+                    width: 48px;
+                }
+            }
+        }
+    }
+
     .mdc-card__primary {
         padding: 0;
         height: 48px;

@@ -244,7 +244,6 @@ let make_overflow_menu
     ~menu
     ()
 
-
 (** Switches top app bar between contextual action
     mode and normal mode *)
 let transform_top_app_bar

@@ -164,7 +164,7 @@ let container_of_element (elt : Dom_html.element Js.t) : Wm.container =
     ; bottom = height
     } in
   { position
-  ; widgets = Wm_widget.of_container elt
+  ; widgets = Widget_utils.widgets_of_container elt
   }
 
 let get f l =
@@ -209,7 +209,7 @@ let set_top_app_bar_icon (scaffold : Scaffold.t) typ icon =
 
 let content_aspect_of_element (cell : Dom_html.element Js.t) =
   Js.Unsafe.global##.console##log cell |> ignore;
-  match Wm_widget.Attr.get_aspect cell with
+  match Widget_utils.Attr.get_aspect cell with
   | Some x -> x
   | None -> failwith "no aspect provided"
 
@@ -304,6 +304,8 @@ class t ~(scaffold : Scaffold.t)
       (* FIXME *)
       List.iter (Element.append_child actions % Widget.root) @@ self#create_grid_actions ();
       Dom.appendChild Dom_html.document##.body (snd description_dialog)#root;
+      let empty_placeholder = Container_utils.UI.make_empty_placeholder () in
+      Dom.appendChild grid#root empty_placeholder#root;
       super#init ()
 
     method! initial_sync_with_dom () : unit =
@@ -636,14 +638,14 @@ class t ~(scaffold : Scaffold.t)
       match Element.query_selector cell Selector.widget_wrapper with
       | None -> ()
       | Some wrapper ->
-        let elements = Wm_widget.elements wrapper in
+        let elements = Widget_utils.elements wrapper in
         let rest =
           List.fold_left (fun acc (elt : Dom_html.element Js.t) ->
               let id = Js.to_string elt##.id in
               let w, rest = get (String.equal id % fst) acc in
               (match w with
                | Some (_, w) ->
-                 Wm_widget.apply_to_element
+                 Widget_utils.set_attributes
                    ~parent_aspect:(16, 9) (* FIXME *)
                    ~parent_position:container.position
                    elt

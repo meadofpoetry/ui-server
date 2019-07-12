@@ -73,7 +73,7 @@ module Test = struct
     ]
 
   let (wm : Wm.t) =
-    { layout = containers
+    { layout = (* containers *) []
     ; widgets = widgets
     ; resolution = 1280, 720
     }

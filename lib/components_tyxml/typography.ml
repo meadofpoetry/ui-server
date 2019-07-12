@@ -41,3 +41,60 @@ module CSS = struct
   (** Sets font properties as Overline *)
   let overline = BEM.add_modifier root "overline"
 end
+
+type font =
+  | Headline_1
+  | Headline_2
+  | Headline_3
+  | Headline_4
+  | Headline_5
+  | Headline_6
+  | Subtitle_1
+  | Subtitle_2
+  | Body_1
+  | Body_2
+  | Button
+  | Caption
+  | Overline
+
+let font_to_class : font -> string = function
+  | Headline_1 -> CSS.headline1
+  | Headline_2 -> CSS.headline2
+  | Headline_3 -> CSS.headline3
+  | Headline_4 -> CSS.headline4
+  | Headline_5 -> CSS.headline5
+  | Headline_6 -> CSS.headline6
+  | Subtitle_1 -> CSS.subtitle1
+  | Subtitle_2 -> CSS.subtitle2
+  | Body_1 -> CSS.body1
+  | Body_2 -> CSS.body2
+  | Button -> CSS.button
+  | Caption -> CSS.caption
+  | Overline -> CSS.overline
+
+module Make(Xml : Xml_sigs.NoWrap)
+    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
+    (Html : Html_sigs.NoWrap
+     with module Xml := Xml
+      and module Svg := Svg) = struct
+  open Html
+  open Utils
+
+  let make_inner text =
+    let rec aux acc = function
+      | [] -> List.rev acc
+      | [x] -> List.rev ((txt x) :: acc)
+      | x :: tl -> aux (br () :: txt x :: acc) tl in
+    aux [] (String.split_on_char '\n' text)
+
+  let make ?(classes = []) ?attrs ?font text =
+    let font_class = match font with
+      | None -> None
+      | Some x -> Some (font_to_class x) in
+    let classes =
+      classes
+      |> cons_option font_class
+      |> List.cons CSS.root in
+    span ~a:([a_class classes] <@> attrs) (make_inner text)
+
+end
