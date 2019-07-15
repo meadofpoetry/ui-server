@@ -59,17 +59,22 @@ module Attr = struct
     let pos = get_relative_position elt in
     Position.(to_wm_position @@ of_relative ~parent_size pos)
 
-  let set_position
-      ~parent_size
-      (elt : Dom_html.element Js.t)
-      (pos : Wm.position) =
-    let string_of_float = Printf.sprintf "%g" in
-    let pos = Position.(to_relative ~parent_size @@ of_wm_position pos) in
+  let string_of_float = Printf.sprintf "%g"
+
+  let set_position (elt : Dom_html.element Js.t)
+      (pos : Position.t) =
     Element.(
       set_attribute elt left (string_of_float pos.x);
       set_attribute elt top (string_of_float pos.y);
       set_attribute elt width (string_of_float pos.w);
       set_attribute elt height (string_of_float pos.h))
+
+  let set_wm_position
+      ~parent_size
+      (elt : Dom_html.element Js.t)
+      (pos : Wm.position) =
+    set_position elt
+    @@ Position.(to_relative ~parent_size @@ of_wm_position pos)
 
   let get_typ (elt : Dom_html.element Js.t) =
     Js.Opt.case (elt##getAttribute (Js.string typ))
@@ -173,7 +178,8 @@ let set_attributes ?id
   Attr.set_description elt widget.description;
   (match parent_size, widget.position with
    | None, _ | _, None -> ()
-   | Some parent_size, Some position -> Attr.set_position ~parent_size elt position);
+   | Some parent_size, Some position ->
+     Attr.set_wm_position ~parent_size elt position);
   elt##.style##.zIndex := Js.string (string_of_int widget.layer);
   match id with
   | None -> ()

@@ -35,7 +35,7 @@ val compare : t -> t -> int
 
 val fix_aspect : t -> int * int -> t
 
-val apply_to_element : t -> #Dom_html.element Js.t -> unit
+val apply_to_element : ?unit:[`Px | `Pc] -> t -> #Dom_html.element Js.t -> unit
 
 val of_element : #Dom_html.element Js.t -> t
 

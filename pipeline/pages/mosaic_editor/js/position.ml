@@ -212,11 +212,14 @@ let fix ?min_x ?min_y ?max_x ?max_y
   fix_xy ?min_x ?min_y ?max_x ?max_y ?parent_w ?parent_h
   % fix_wh ?max_w ?min_w ?max_h ?min_h ?parent_w ?parent_h
 
-let apply_to_element (pos : t) (elt : #Dom_html.element Js.t) =
-  elt##.style##.width := Utils.px_js (int_of_float pos.w);
-  elt##.style##.left := Utils.px_js (int_of_float pos.x);
-  elt##.style##.height := Utils.px_js (int_of_float pos.h);
-  elt##.style##.top := Utils.px_js (int_of_float pos.y)
+let apply_to_element ?(unit = `Pc) (pos : t) (elt : #Dom_html.element Js.t) =
+  let fn = match unit with
+    | `Px -> Printf.sprintf "%gpx"
+    | `Pc -> Printf.sprintf "%g%%" in
+  elt##.style##.width := Js.string @@ fn pos.w;
+  elt##.style##.left := Js.string @@ fn pos.x;
+  elt##.style##.height := Js.string @@ fn pos.h;
+  elt##.style##.top := Js.string @@ fn pos.y
 
 let of_element (elt : #Dom_html.element Js.t) =
   { x = float_of_int elt##.offsetLeft
@@ -825,17 +828,17 @@ let to_relative ~(parent_size : float * float) (pos : t) =
   let parent_width, parent_height = parent_size in
   let w, h =
     if parent_width > pos.w
-    then (pos.w /. parent_width,
-          pos.h /. parent_height)
-    else (parent_width /. pos.w,
-          parent_height /. pos.h) in
+    then (pos.w /. parent_width *. 100.,
+          pos.h /. parent_height *. 100.)
+    else (parent_width /. pos.w *. 100.,
+          parent_height /. pos.h *. 100.) in
   let x = (pos.x *. w) /. pos.w in
   let y = (pos.y *. h) /. pos.h in
   { x; y; w; h }
 
 let of_relative ~(parent_size : float * float) (pos : t) =
-  let w = pos.w *. (fst parent_size) in
-  let h = pos.h *. (snd parent_size) in
+  let w = pos.w *. (fst parent_size) /. 100. in
+  let h = pos.h *. (snd parent_size) /. 100. in
   let x = pos.x *. w /. pos.w in
   let y = pos.y *. h /. pos.h in
   { x; y; w; h }

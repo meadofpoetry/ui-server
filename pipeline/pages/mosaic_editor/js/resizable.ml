@@ -62,7 +62,7 @@ end
 let unwrap x = Js.Optdef.get x (fun () -> assert false)
 
 let resize_dir_of_event (e : #Dom_html.event Js.t) : Position.resize_direction option =
-  let target = Dom_html.eventTarget e in
+  let target = Dom.eventTarget e in
   if Element.has_class target CSS.resizer_top_left
   then Some Top_left
   else if Element.has_class target CSS.resizer_top_right
@@ -119,10 +119,8 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
     val mutable _min_size = min_size
     val mutable _aspect = aspect
 
-    val mutable _touchstart_listener = None
-    val mutable _mousedown_listener = None
-    val mutable _move_listener = None
-    val mutable _stop_listener = None
+    val mutable _listeners = []
+    val mutable _temp_listeners = []
 
     val mutable _dragging = false
 
@@ -138,21 +136,17 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       super#init ()
 
     method! initial_sync_with_dom () : unit =
-      _mousedown_listener <- Some (
-          Events.mousedowns super#root self#handle_mouse_down);
-      _touchstart_listener <- Some (
-          Events.touchstarts super#root self#handle_touch_start);
+      _listeners <- Lwt_js_events.(
+          [ mousedowns super#root self#handle_drag_start
+          ; touchstarts super#root self#handle_drag_start
+          ]);
       super#initial_sync_with_dom ()
 
-    method! layout () : unit =
-      super#layout ()
-
     method! destroy () : unit =
-      Utils.Option.iter Lwt.cancel _touchstart_listener;
-      Utils.Option.iter Lwt.cancel _mousedown_listener;
-      _touchstart_listener <- None;
-      _mousedown_listener <- None;
-      self#handle_drag_end ();
+      List.iter Lwt.cancel _listeners;
+      List.iter Lwt.cancel _temp_listeners;
+      _listeners <- [];
+      _temp_listeners <- [];
       super#destroy ()
 
     method set_min_size (x : int) : unit =
@@ -178,107 +172,89 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       let detail = Position.to_client_rect _position in
       super#emit ~should_bubble:true ~detail Event.Typ.select
 
-    method private handle_touch_start (e : Dom_html.touchEvent Js.t)
-        (_ : unit Lwt.t) : unit Lwt.t =
-      Dom.preventDefault e;
-      Dom_html.stopPropagation e;
-      self#stop_move_listeners ();
+    method private handle_drag_start
+      : 'a. (#Dom_html.event as 'a) Js.t -> unit Lwt.t -> unit Lwt.t =
+      fun (event : #Dom_html.event Js.t) _ ->
+      Dom.preventDefault event;
+      Dom_html.stopPropagation event;
       _dragging <- false;
-      begin match Js.Optdef.to_option (e##.changedTouches##item 0) with
-        | None -> ()
-        | Some touch -> _touch_id <- Some touch##.identifier
-      end;
-      let target = Dom_html.eventTarget e in
-      _position <- Position.of_element super#root;
-      _coordinate <- get_cursor_position ?touch_id:_touch_id e;
-      let action =
-        if Element.has_class target CSS.resizer
-        then `Resize (resize_dir_of_event e)
-        else `Move in
-      _move_listener <- Some (
-          Events.touchmoves Dom_html.window (self#handle_touch_move action));
-      _stop_listener <- Some (
-          Events.touchends Dom_html.window self#handle_touch_end);
-      super#add_class CSS.active;
-      Lwt.return_unit
-
-    method private handle_touch_move action (e : Dom_html.touchEvent Js.t)
-        (_ : unit Lwt.t) : unit Lwt.t =
-      Dom.preventDefault e;
-      match _touch_id with
-      | None -> self#move e
-      | Some id ->
-        let touches = e##.changedTouches in
-        match get_touch_by_id touches id with
-        | None -> Lwt.return_unit
-        | Some _ ->
-          match action with
-          | `Move -> self#move e
-          | `Resize dir -> self#resize dir e
-
-    method private handle_touch_end (e : Dom_html.touchEvent Js.t)
-        (_ : unit Lwt.t) : unit Lwt.t =
-      begin match _touch_id with
-        | None -> self#handle_drag_end ()
-        | Some id ->
-          let touches = e##.changedTouches in
-          match get_touch_by_id touches id with
-          | None -> ()
-          | Some _ -> self#handle_drag_end ()
-      end;
-      Lwt.return_unit
-
-    method private handle_mouse_down (e : Dom_html.mouseEvent Js.t)
-        (_ : unit Lwt.t) : unit Lwt.t =
-      Dom.preventDefault e;
-      Dom_html.stopPropagation e;
-      self#stop_move_listeners ();
+      let target = Dom.eventTarget event in
       _dragging <- false;
-      let target = Dom_html.eventTarget e in
+      let button =
+        Js.Opt.case
+          (Dom_html.CoerceTo.mouseEvent event)
+          (fun () ->
+             let (event : Dom_html.touchEvent Js.t) = Js.Unsafe.coerce event in
+             Js.Optdef.iter (event##.changedTouches##item 0)
+               (fun touch -> _touch_id <- Some touch##.identifier);
+             None)
+          (fun (event : Dom_html.mouseEvent Js.t) ->
+             Some event##.button) in
+      let action = match button with
+        | None | Some 0 ->
+          if Element.has_class target CSS.resizer
+          then `Resize (resize_dir_of_event event)
+          else `Move
+        | _ -> `None in
       (* Refresh element position and size *)
       _position <- Position.of_element super#root;
       (* Refresh mouse cursor position *)
-      _coordinate <- get_cursor_position e;
-      let action =
-        if Element.has_class target CSS.resizer
-        then match e##.button with
-          | 0 -> `Resize (resize_dir_of_event e)
-          | _ -> `None
-        else match e##.button with
-          | 0 -> `Move
-          | _ -> `None in
-      _move_listener <- Some (
-          Events.mousemoves Dom_html.window (self#handle_mouse_move action));
-      _stop_listener <- Some (
-          Events.mouseups Dom_html.window self#handle_mouse_up);
+      _coordinate <- get_cursor_position event;
+      let doc = Dom_html.document in
+      _temp_listeners <- Lwt_js_events.(
+          [ mouseups doc self#handle_drag_end
+          ; touchcancels doc self#handle_drag_end
+          ; touchends doc self#handle_drag_end
+          ; mousemoves doc (self#handle_drag_move action)
+          ; touchmoves doc (fun e t ->
+                match _touch_id with
+                | None -> self#move e
+                | Some id ->
+                  let touches = e##.changedTouches in
+                  match get_touch_by_id touches id with
+                  | None -> Lwt.return_unit
+                  | Some _ -> self#handle_drag_move action e t)
+          ]);
       super#add_class CSS.active;
       Lwt.return_unit
 
-    method private handle_mouse_move action (e : Dom_html.mouseEvent Js.t)
-        (_ : unit Lwt.t) : unit Lwt.t =
+    method private handle_drag_move
+      : 'a. [`Resize of Position.resize_direction option | `Move | `None]
+        -> (#Dom_html.event as 'a) Js.t
+        -> unit Lwt.t
+        -> unit Lwt.t =
+      fun action e _ ->
       match action with
       | `Resize dir -> self#resize dir e
       | `Move -> self#move e
       | `None -> Lwt.return_unit
 
-    method private handle_mouse_up (e : Dom_html.mouseEvent Js.t)
-        (_ : unit Lwt.t) : unit Lwt.t =
-      match e##.button with
-      | 0 -> self#handle_drag_end (); Lwt.return_unit
-      | _ -> Lwt.return_unit
-
-    method private stop_move_listeners () : unit =
-      Utils.Option.iter Lwt.cancel _move_listener;
-      Utils.Option.iter Lwt.cancel _stop_listener;
-      _move_listener <- None;
-      _stop_listener <- None
-
-    method private handle_drag_end () : unit =
-      self#stop_move_listeners ();
-      super#remove_class CSS.active;
-      if _dragging
-      then self#notify_change ()
-      else self#notify_selected ()
+    method private handle_drag_end
+      : 'a. (#Dom_html.event as 'a) Js.t -> unit Lwt.t -> unit Lwt.t =
+      fun event _ ->
+      let f () =
+        List.iter Lwt.cancel _temp_listeners;
+        _temp_listeners <- [];
+        super#remove_class CSS.active;
+        if _dragging
+        then self#notify_change ()
+        else self#notify_selected ();
+        Lwt.return_unit in
+      Js.Opt.case
+        (Dom_html.CoerceTo.mouseEvent event)
+        (fun () ->
+           let (e : Dom_html.touchEvent Js.t) = Js.Unsafe.coerce event in
+           match _touch_id with
+           | None -> f ()
+           | Some id ->
+             let touches = e##.changedTouches in
+             match get_touch_by_id touches id with
+             | None -> Lwt.return_unit
+             | Some _ -> f ())
+        (fun (e : Dom_html.mouseEvent Js.t) ->
+           match e##.button with
+           | 0 -> f ()
+           | _ -> Lwt.return_unit)
 
     (* Moves an element *)
     method private move : 'a. (#Dom_html.event as 'a) Js.t -> unit Lwt.t =

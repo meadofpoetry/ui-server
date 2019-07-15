@@ -213,12 +213,32 @@ let filter_available_widgets (wm : Wm.t) : (string * Wm.widget) list =
           else acc) acc x.widgets)
     wm.widgets wm.layout
 
+let sum x = Array.fold_left (fun acc -> function
+    | Grid.Fr x -> acc +. x
+    | _ -> acc) 0. x
+
+let fr_to_px fr px =
+  (float_of_int px) /. (sum fr)
+
+let cell_position_to_wm_position
+    ~px_in_fr_w
+    ~px_in_fr_h
+    ~cols
+    ~rows
+    { Grid. row; col; row_span; col_span } : Wm.position =
+  let get_cell_size stop side = sum @@ Array.sub side 0 (pred stop) in
+  let floor x = int_of_float @@ Float.floor x in
+  { left = floor @@ (get_cell_size col cols) *. px_in_fr_w
+  ; top = floor @@ (get_cell_size row rows) *. px_in_fr_h
+  ; right = floor @@ (get_cell_size (col + col_span) cols) *. px_in_fr_w
+  ; bottom = floor @@ (get_cell_size (row + row_span) rows) *. px_in_fr_h
+  }
+
 type widget_mode_state =
   { icon : Dom_html.element Js.t option
   ; restore : unit -> unit
   ; editor : Widget_editor.t
   ; cell : Dom_html.element Js.t
-  ; container : Wm.container
   }
 
 class t ~(scaffold : Scaffold.t)
@@ -361,28 +381,16 @@ class t ~(scaffold : Scaffold.t)
       _resolution
 
     method value : Wm.t =
-      let resolution = self#resolution in
-      let width, height =
-        float_of_int (fst resolution),
-        float_of_int (snd resolution) in
-      let cols = grid#cols in
-      let rows = grid#rows in
-      let sum x = Array.fold_left (fun acc -> function
-          | Grid.Fr x -> acc +. x
-          | _ -> acc) 0. x in
-      let fr_w = width /. (sum cols) in
-      let fr_h = height /. (sum rows) in
-      let get_cell_size (stop : int) side = sum @@ Array.sub side 0 (pred stop) in
-      let floor x = int_of_float @@ Float.floor x in
-      let map_pos { Grid. row; col; row_span; col_span } : Wm.position =
-        { left = floor @@ (get_cell_size col cols) *. fr_w
-        ; top = floor @@ (get_cell_size row rows) *. fr_h
-        ; right = floor @@ (get_cell_size (col + col_span) cols) *. fr_w
-        ; bottom = floor @@ (get_cell_size (row + row_span) rows) *. fr_h
-        } in
+      let cols, rows, resolution = grid#cols, grid#rows, self#resolution in
       let layout =
         List.map (fun cell ->
-            let position = map_pos @@ Grid.Util.get_cell_position cell in
+            let position =
+              cell_position_to_wm_position
+                ~px_in_fr_w:(fr_to_px cols (fst resolution))
+                ~px_in_fr_h:(fr_to_px rows (snd resolution))
+                ~cols
+                ~rows
+              @@ Grid.Util.get_cell_position cell in
             let parent_size =
               float_of_int @@ position.right - position.left,
               float_of_int @@ position.bottom - position.top in
@@ -438,7 +446,7 @@ class t ~(scaffold : Scaffold.t)
          * wrapper##.style##.height := Utils.px_js (int_of_float h) *)
 
     method private switch_to_container_mode
-        ({ restore; icon; editor; cell; container } : widget_mode_state) =
+        ({ restore; icon; editor; cell } : widget_mode_state) =
       restore ();
       Utils.Option.iter (ignore % set_top_app_bar_icon scaffold `Main) icon;
       self#update_widget_elements editor#items cell;
@@ -457,20 +465,19 @@ class t ~(scaffold : Scaffold.t)
 
     method private switch_to_widget_mode (cell : Dom_html.element Js.t) =
       let id = Container_utils.get_cell_title cell in
-      (* FIXME calc rect only for one container? *)
-      let (container : Wm.container) = List.assoc id self#value.layout in
-      print_endline
-      @@ Yojson.Safe.pretty_to_string
-      @@ Wm.container_to_yojson container;
+      let cols, rows, resolution = grid#cols, grid#rows, self#resolution in
+      let position = cell_position_to_wm_position
+          ~px_in_fr_w:(fr_to_px cols (fst resolution))
+          ~px_in_fr_h:(fr_to_px rows (snd resolution))
+          ~rows ~cols
+        @@ Grid.Util.get_cell_position cell in
       let editor = Widget_editor.make
           ~scaffold
+          ~position
           ~list_of_widgets
-          content
-          container in
+          (`Nodes (Widget_utils.elements cell))
+      in
       self#clear_selection ();
-      Utils.Option.iter (Dom.removeChild heading % Widget.root) _mode_switch;
-      Dom.removeChild content grid#root;
-      Dom.appendChild content editor#root;
       _widget_editor <- Some (id, editor);
       let icon = set_top_app_bar_icon scaffold `Main back_icon#root in
       self#restore_top_app_bar_context ();
@@ -478,18 +485,20 @@ class t ~(scaffold : Scaffold.t)
           ~title:id
           ~actions:editor#actions
           scaffold in
-      (* FIXME switch from pixels to relative coordinates (fr) *)
-      let width = container.position.right - container.position.left in
-      let height = container.position.bottom - container.position.top in
       (* Set aspect ratio sizer for container dimensions *)
+      let width = position.right - position.left in
+      let height = position.bottom - position.top in
       update_ar_sizer ~width ~height ar_sizer;
-      editor#layout ();
-      let state = { icon; restore; editor; cell; container } in
-      (* Thread which is resolved when we're back to the container mode *)
+      let state = { icon; restore; editor; cell } in
       let t, w = Lwt.wait () in
       scaffold#set_on_navigation_icon_click (fun _ _ ->
           Lwt.wakeup_later w state;
           Lwt.return_unit);
+      (* Update view *)
+      Utils.Option.iter (Dom.removeChild heading % Widget.root) _mode_switch;
+      Dom.removeChild content grid#root;
+      Dom.appendChild content editor#root;
+      editor#layout ();
       t
 
     method private handle_grid_resize (e : Grid.Event.resize Js.t)
