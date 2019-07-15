@@ -24,6 +24,18 @@ module Attr = struct
 
   let top = "data-top"
 
+  let attributes =
+    [ typ
+    ; pid
+    ; domain
+    ; aspect
+    ; description
+    ; width
+    ; height
+    ; left
+    ; top
+    ]
+
   let invalid_value a v =
     failwith @@ Printf.sprintf "invalid `%s` attribute value (%s)" typ v
 
@@ -140,6 +152,15 @@ let widget_of_element ?parent_size
   ; aspect = Attr.get_aspect elt
   ; description = Attr.get_description elt
   }
+
+let copy_attributes
+    (from : Dom_html.element Js.t)
+    (to_ : Dom_html.element Js.t) =
+  let copy attr =
+    let attr = Js.string attr in
+    Js.Opt.iter (from##getAttribute attr)
+      (fun value -> to_##setAttribute attr value) in
+  List.iter copy Attr.attributes
 
 let set_attributes ?id
     ?parent_size

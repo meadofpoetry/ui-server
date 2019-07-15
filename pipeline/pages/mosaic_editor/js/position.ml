@@ -268,7 +268,7 @@ let line_find_closest_align
   let rec count_aligns line_align_val (distance: (line_align_direction * float)) = function
     | [] -> distance
     | hd :: tl ->
-      let icompare = 
+      let icompare =
         { x = (of_element (* ~parent_f:(parent_w_f, parent_h_f) *) hd ).x
         ; y = (of_element (* ~parent_f:(parent_w_f, parent_h_f) *) hd ).y
         ; w = (of_element (* ~parent_f:(parent_w_f, parent_h_f) *) hd ).w

@@ -129,19 +129,8 @@ module Util = struct
       let acc = (z, hd, is_z_in_list false z selected_items_z) :: acc in
       create_all_z_list acc tl selected_items_z
 
-  let rec pack_list
-      (counter : int) (* initial 1*)
-      (acc : (int * (Dom_html.element Js.t) * bool ) list)  (* (z *
-                                                               one of all_items *
-                                                               true if it's selected item)
-                                                            *)
-      (zib_items  : (int * (Dom_html.element Js.t) * bool ) list) =
-    match zib_items with
-    | [] -> acc
-    | hd :: tl ->
-      let (_, i, b) = hd in
-      let acc = (counter, i, b) :: acc in
-      pack_list (counter + 1) acc tl
+  let rec pack_list (zib_items  : (int * (Dom_html.element Js.t) * bool ) list) =
+    List.mapi (fun cnt (_, i, b) -> (cnt + 1, i, b)) zib_items
 
   let rec get_upper_selected_z
       (counter : int) (* initial 1 *)
@@ -506,7 +495,7 @@ class t
             let (z1, _, _) = x in
             let (z2, _, _) = y in
             compare z1 z2) zib_all_list in
-      let zib_all_list_packed = Util.pack_list 1 [] zib_all_list_sorted in
+      let zib_all_list_packed = Util.pack_list zib_all_list_sorted in
       let upper_selected_z = Util.get_upper_selected_z
           1 (List.length z_selected_items) zib_all_list_packed in
       let insert_position_z = upper_selected_z + 1 - (List.length z_selected_items) in
@@ -523,7 +512,7 @@ class t
               [] false
               (upper_selected_z + 1) (List.length zib_all_list_packed)
               zib_all_list_packed in
-          Util.pack_list 1 []
+          Util.pack_list
             (List.append zib_non_selected_begin (List.append zib_selected zib_non_selected_end))
       in
       List.iter (fun (z, i, _) -> Util.set_z_index i z) all_zib_list_result
@@ -539,7 +528,7 @@ class t
             let (z1, _, _) = x in
             let (z2, _, _) = y in
             compare z1 z2) zib_all_list in
-      let zib_all_list_packed = Util.pack_list 1 [] zib_all_list_sorted in
+      let zib_all_list_packed = Util.pack_list zib_all_list_sorted in
       let first_selected_z = Util.get_first_selected_z zib_all_list_packed in
       let insert_position_z = first_selected_z - 1 in
       let all_zib_list_result =
@@ -554,7 +543,7 @@ class t
               [] false
               (first_selected_z + 1) (List.length zib_all_list_packed)
               zib_all_list_packed in
-          Util.pack_list 1 []
+          Util.pack_list
             (List.append zib_non_selected_begin (List.append zib_selected zib_non_selected_end))
       in
       List.iter (fun (z, i, _) -> Util.set_z_index i z) all_zib_list_result

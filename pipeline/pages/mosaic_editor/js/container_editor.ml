@@ -206,7 +206,6 @@ let content_aspect_of_element (cell : Dom_html.element Js.t) =
   | None -> failwith "no aspect provided"
 
 let filter_available_widgets (wm : Wm.t) : (string * Wm.widget) list =
-  print_endline @@ Printf.sprintf "widgets: %d" @@ List.length wm.widgets;
   List.fold_left (fun acc (_, (x : Wm.container)) ->
       List.fold_left (fun acc (id, _) ->
           if List.mem_assoc id wm.widgets
@@ -383,11 +382,13 @@ class t ~(scaffold : Scaffold.t)
         } in
       let layout =
         List.map (fun cell ->
+            let position = map_pos @@ Grid.Util.get_cell_position cell in
+            let parent_size =
+              float_of_int @@ position.right - position.left,
+              float_of_int @@ position.bottom - position.top in
+            let widgets = Widget_utils.widgets_of_container ~parent_size cell in
             Container_utils.get_cell_title cell,
-            { Wm.
-              position = map_pos @@ Grid.Util.get_cell_position cell
-            ; widgets = []
-            })
+            { Wm. position; widgets })
           grid#cells in
       { resolution = self#resolution
       ; widgets = []
@@ -440,7 +441,7 @@ class t ~(scaffold : Scaffold.t)
         ({ restore; icon; editor; cell; container } : widget_mode_state) =
       restore ();
       Utils.Option.iter (ignore % set_top_app_bar_icon scaffold `Main) icon;
-      self#update_widget_elements editor#value.widgets container cell;
+      self#update_widget_elements editor#items cell;
       Dom.removeChild content editor#root;
       Dom.appendChild content grid#root;
       Utils.Option.iter (Dom.appendChild heading % Widget.root) _mode_switch;
@@ -458,6 +459,9 @@ class t ~(scaffold : Scaffold.t)
       let id = Container_utils.get_cell_title cell in
       (* FIXME calc rect only for one container? *)
       let (container : Wm.container) = List.assoc id self#value.layout in
+      print_endline
+      @@ Yojson.Safe.pretty_to_string
+      @@ Wm.container_to_yojson container;
       let editor = Widget_editor.make
           ~scaffold
           ~list_of_widgets
@@ -665,32 +669,17 @@ class t ~(scaffold : Scaffold.t)
       _content_listeners <- []
 
     method private update_widget_elements
-        (widgets : (string * Wm.widget) list)
-        (container : Wm.container)
+        (widgets : Dom_html.element Js.t list)
         (cell : Dom_html.element Js.t) : unit =
       match Element.query_selector cell Selector.widget_wrapper with
       | None -> ()
       | Some wrapper ->
-        let elements = Widget_utils.elements wrapper in
-        let parent_size =
-          float_of_int @@ container.position.right - container.position.left,
-          float_of_int @@ container.position.bottom - container.position.top in
-        let rest =
-          List.fold_left (fun acc (elt : Dom_html.element Js.t) ->
-              let id = Js.to_string elt##.id in
-              let w, rest = get (String.equal id % fst) acc in
-              (match w with
-               | Some (_, w) ->
-                 Widget_utils.set_attributes
-                   ~parent_size
-                   elt
-                   w
-               | None -> Dom.removeChild cell elt);
-              rest) widgets elements in
-        let make_element w =
-          Tyxml_js.To_dom.of_element
-          @@ Markup.create_widget w in
-        List.iter (Dom.appendChild cell % make_element) rest
+        Element.remove_children wrapper;
+        List.iter (fun (x : Dom_html.element Js.t) ->
+            let elt = Dom_html.(createDiv document) in
+            Widget_utils.copy_attributes x elt;
+            Element.add_class elt CSS.widget;
+            Dom.appendChild wrapper elt) widgets
 
   end
 
