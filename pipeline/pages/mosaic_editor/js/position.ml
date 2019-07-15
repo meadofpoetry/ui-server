@@ -3,15 +3,6 @@ open Components
 
 let ( % ) f g x = f (g x)
 
-module Attr = struct
-  let keep_aspect_ratio = "data-keep-aspect-ratio"
-  let aspect_ratio = "data-aspect-ratio"
-  let width = "data-width"
-  let height = "data-height"
-  let left = "data-left"
-  let top = "data-top"
-end
-
 type line =
   { is_vertical : bool (* Is line vertical *)
   ; is_multiple : bool (* Multiple intersection detected *)
@@ -50,22 +41,21 @@ let empty =
   ; y = 0.0
   ; w = 0.0
   ; h = 0.0
-  }  
+  }
 
 let fmod v1 v2 =
-  if v2 = 0.0 
+  if v2 = 0.0
   then 0.0
   else let val1 = floor (v1 /. v2) in
-    let ost = v1 -. val1 in 
+    let ost = v1 -. val1 in
     ost
 
-let fabs (v1 : float) = if v1 >= 0.0 
+let fabs (v1 : float) = if v1 >= 0.0
   then v1
   else (-. v1)
 
 let show { x; y; w; h } =
-  Printf.sprintf "x=%f, y=%f, w=%f, h=%f"
-    x y w h
+  Printf.sprintf "x=%g, y=%g, w=%g, h=%g" x y w h
 
 let compare (a : t) (b : t) =
   let c = compare a.x b.x in
@@ -125,22 +115,41 @@ let collisions x l = collisions_map ~f:(fun x -> x) x l
 
 let has_collision x l = has_collision_map ~f:(fun x -> x) x l
 
-(** Changes top and left coordinates to correspond parent dimentions *)
-(* original
-   let fix_xy par_w par_h (p : t) =
-   let x = if p.x < 0 then 0 else if p.x + p.w > par_w then par_w - p.w else p.x in
-   let y =
-    match par_h with
-    | None -> if p.y < 0 then 0 else p.y
-    | Some ph -> if p.y < 0 then 0 else if p.y + p.h > ph then ph - p.h else p.y
-   in
-   { p with x; y }
-*)
+(** Changes width and height to correspond provided aspect **)
+let fix_aspect (p : t) (aspect : int * int) =
+  let w =
+    let w = int_of_float p.w in
+    if w mod (fst aspect) <> 0 then
+      let w = w / (fst aspect) * (fst aspect) in
+      if w = 0 then (fst aspect) else w
+    else w
+  in
+  let h =
+    let h = int_of_float p.h in
+    if h mod (snd aspect) <> 0 then
+      let h = (h / (snd aspect)) * (snd aspect) in
+      if h = 0 then (snd aspect) else h
+    else h
+  in
+  let sw = w / (fst aspect) in
+  let sh = h / (snd aspect) in
+  let w, h =
+    if sw > sh
+    then (fst aspect) * sh, h
+    else w, (snd aspect) * sw
+  in
+  { p with w = float_of_int w; h = float_of_int h }
 
 (** Changes top and left coordinates to correspond parent dimentions *)
-let fix_xy ?min_x ?min_y ?max_x ?max_y (*par_w par_h*) (p : t) =
-  let x = if p.x < 0.0 then 0.0 else if p.x +. p.w > 1.0 then 1.0 -. p.w else p.x in
-  let y = if p.y < 0.0 then 0.0 else if p.y +. p.h > 1.0 then 1.0 -. p.h else p.y
+let fix_xy ?min_x ?min_y ?max_x ?max_y ?(parent_w = 1.) ?(parent_h = 1.) (p : t) =
+  let x =
+    if p.x < 0. then 0.
+    else if p.x +. p.w > parent_w then parent_w -. p.w
+    else p.x in
+  let y =
+    if p.y < 0. then 0.
+    else if p.y +. p.h > parent_h then parent_h -. p.h
+    else p.y
   in
   let x = match max_x with
     | Some max -> if x > max then max else x
@@ -158,10 +167,10 @@ let fix_xy ?min_x ?min_y ?max_x ?max_y (*par_w par_h*) (p : t) =
     | Some min -> if y > min then min else y
     | None -> y
   in
-  { p with x = x; y = y }
+  { p with x; y }
 
 (** Changes width to correspond provided constraints *)
-let fix_w ?max_w ?(min_w = 0.0) (p : t) =
+let fix_w ?max_w ?(min_w = 0.) ?(parent_w = 1.) (p : t) =
   let w = match max_w with
     | Some max ->
       if p.w > max then max
@@ -170,30 +179,38 @@ let fix_w ?max_w ?(min_w = 0.0) (p : t) =
     | None -> if p.w < min_w then min_w else p.w
   in
   let w =
-    if p.x +. w > 1.0
-    then 1.0 -. p.x
+    if p.x +. w > parent_w
+    then parent_w -. p.x
     else if p.x < 0.0
     then w +. p.x
     else w in
-  { p with w = w }
+  { p with w }
 
 (** Changes height to correspond provided constraints *)
-let fix_h ?max_h ?(min_h = 0.0) (p : t) =
+let fix_h ?max_h ?(min_h = 0.) ?(parent_h = 1.) (p : t) =
   let h = match max_h with
-    | Some max -> if p.h > max then max else if p.h < min_h then min_h else p.h
+    | Some max ->
+      if p.h > max then max
+      else if p.h < min_h then min_h
+      else p.h
     | None -> if p.h < min_h then min_h else p.h
   in
-  let h = if p.y +. h > 1.0
-    then 1.0 -. p.y
+  let h = if p.y +. h > parent_h
+    then parent_h -. p.y
     else if p.y < 0.0
     then h +. p.y
     else h
   in
-  { p with h = h }
+  { p with h }
 
 (** Changes width and height to correspond provided constraints *)
-let fix_wh ?max_w ?min_w ?max_h ?min_h =
-  (fix_h ?max_h ?min_h) % (fix_w ?max_w ?min_w)
+let fix_wh ?max_w ?min_w ?max_h ?min_h ?parent_w ?parent_h =
+  (fix_h ?max_h ?min_h ?parent_h) % (fix_w ?max_w ?min_w ?parent_w)
+
+let fix ?min_x ?min_y ?max_x ?max_y
+    ?max_w ?min_w ?max_h ?min_h ?parent_w ?parent_h =
+  fix_xy ?min_x ?min_y ?max_x ?max_y ?parent_w ?parent_h
+  % fix_wh ?max_w ?min_w ?max_h ?min_h ?parent_w ?parent_h
 
 let apply_to_element (pos : t) (elt : #Dom_html.element Js.t) =
   elt##.style##.width := Utils.px_js (int_of_float pos.w);
@@ -201,13 +218,11 @@ let apply_to_element (pos : t) (elt : #Dom_html.element Js.t) =
   elt##.style##.height := Utils.px_js (int_of_float pos.h);
   elt##.style##.top := Utils.px_js (int_of_float pos.y)
 
-let of_element ?(parent_f = (100.0, 100.0))
-    (elt : #Dom_html.element Js.t) =
-  let (parent_w_f, parent_h_f) = parent_f in
-  { x = float_of_int( elt##.offsetLeft ) /. parent_w_f
-  ; y = float_of_int( elt##.offsetTop ) /. parent_w_f
-  ; w = float_of_int( elt##.offsetWidth ) /. parent_w_f
-  ; h = float_of_int( elt##.offsetHeight ) /. parent_w_f
+let of_element (elt : #Dom_html.element Js.t) =
+  { x = float_of_int elt##.offsetLeft
+  ; y = float_of_int elt##.offsetTop
+  ; w = float_of_int elt##.offsetWidth
+  ; h = float_of_int elt##.offsetHeight
   }
 
 let to_client_rect (p : t) : Dom_html.clientRect Js.t =
@@ -239,30 +254,6 @@ let get_int_attribute (elt : #Dom_html.element Js.t) attr : int =
     | None -> 0
     | Some x -> x
 
-let get_original_width (elt : #Dom_html.element Js.t) : int =
-  get_int_attribute elt Attr.width
-
-let get_original_height (elt : #Dom_html.element Js.t) : int =
-  get_int_attribute elt Attr.height
-
-let get_original_left (elt : #Dom_html.element Js.t) : int =
-  get_int_attribute elt Attr.left
-
-let get_original_top (elt : #Dom_html.element Js.t) : int =
-  get_int_attribute elt Attr.top
-
-let get_original_aspect_ratio (elt : #Dom_html.element Js.t) : float option =
-  match Element.get_attribute elt Attr.aspect_ratio with
-  | Some x -> Some (float_of_string x)
-  | None ->
-    let w, h = get_original_width elt, get_original_height elt in
-    if w = 0 || h = 0
-    then None
-    else
-      let ar = (float_of_int w) /. (float_of_int h) in
-      Element.set_attribute elt Attr.aspect_ratio (string_of_float ar);
-      Some ar
-
 (* min_distance - pixels
    return: (other element align as line_align_direction *
             minimum distance of several lines of one align as int) 
@@ -278,10 +269,10 @@ let line_find_closest_align
     | [] -> distance
     | hd :: tl ->
       let icompare = 
-        { x = (of_element ~parent_f:(parent_w_f, parent_h_f) hd ).x
-        ; y = (of_element ~parent_f:(parent_w_f, parent_h_f) hd ).y
-        ; w = (of_element ~parent_f:(parent_w_f, parent_h_f) hd ).w
-        ; h = (of_element ~parent_f:(parent_w_f, parent_h_f) hd ).h
+        { x = (of_element (* ~parent_f:(parent_w_f, parent_h_f) *) hd ).x
+        ; y = (of_element (* ~parent_f:(parent_w_f, parent_h_f) *) hd ).y
+        ; w = (of_element (* ~parent_f:(parent_w_f, parent_h_f) *) hd ).w
+        ; h = (of_element (* ~parent_f:(parent_w_f, parent_h_f) *) hd ).h
         }
       in
       let (distance : line_align_direction * float) =
@@ -426,13 +417,7 @@ let line_align_count
   let rec aux line_align_val counts = function
     | [] -> counts
     | hd :: tl ->
-      let icompare = 
-        { x = (of_element ~parent_f:(parent_w_f, parent_h_f) hd).x 
-        ; y = (of_element ~parent_f:(parent_w_f, parent_h_f) hd).y 
-        ; w = (of_element ~parent_f:(parent_w_f, parent_h_f) hd).w 
-        ; h = (of_element ~parent_f:(parent_w_f, parent_h_f) hd).h 
-        }
-      in
+      let icompare = of_element hd in
       if Element.equal item hd
       then aux line_align_val counts tl (*counts*)
       else
@@ -641,8 +626,6 @@ let get_item_snap_position_for_resize_action
     ; h = pos.y -. (get_snap item pos.y min_distance snap_list_y) +. pos.h
     }
 
-
-
 (* glue lines to its item *)
 let get_snap_lines
     (item : Dom_html.element Js.t)
@@ -698,28 +681,28 @@ let get_snap_lines
 
 let position_clipped_parent
     ({ w; h; x; y } as pos : t)
-    (parent_w_f, parent_h_f : float * float)
-    (min_w_f : float)
-    (min_h_f : float) = function
-  | `Move -> fix_xy pos
+    ?parent_w
+    ?parent_h
+    (min_w : float)
+    (min_h : float) = function
+  | `Move -> fix_xy ?parent_w ?parent_h pos
   | `Resize direction ->
     let (max_x, max_y, min_x, min_y) =
       match direction with
-      | Top_left -> Some (x +. w -. min_w_f), Some (y +. h -. min_h_f), None, None
-      | Top_right -> None, Some (y +. h -. min_h_f), Some x, None
-      | Bottom_left -> Some (x +. w -. min_w_f), None, None, Some y
+      | Top_left -> Some (x +. w -. min_w), Some (y +. h -. min_h), None, None
+      | Top_right -> None, Some (y +. h -. min_h), Some x, None
+      | Bottom_left -> Some (x +. w -. min_w), None, None, Some y
       | Bottom_right -> None, None, Some x, Some y
       (* not tested *)
-      | Top -> Some (x +. w -. min_w_f), None, None, None
+      | Top -> Some (x +. w -. min_w), None, None, None
       (* not tested *)
       | Bottom -> None, None, None, Some y
       (* not tested *)
-      | Left -> Some (x +. w -. min_h_f), None, None, None
+      | Left -> Some (x +. w -. min_h), None, None, None
       (* not tested *)
       | Right -> None, None, Some x, None
     in
-    fix_xy ?min_x ?max_x ?min_y ?max_y
-      (fix_wh ~min_w:min_w_f ~min_h:min_h_f pos)
+    fix ?min_x ?max_x ?min_y ?max_y ~min_w ~min_h ?parent_w ?parent_h pos
 
 (* alternative position_not_collide_others_glide *)
 let fix_collisions
@@ -734,7 +717,7 @@ let fix_collisions
       let acc =
         if Element.equal item hd
         then acc
-        else (of_element ~parent_f:(parent_w_f, parent_h_f) hd) :: acc in
+        else (of_element hd) :: acc in
       positions_at_items acc tl in
   if has_collision position (positions_at_items [] items)
   then original_position
@@ -759,7 +742,7 @@ let adjust ?aspect_ratio
     ~(original_position : t) (* need if we use collides *) (* int coordinatrs to float [0;1.0] *)
     ~(position : t) (* int coordinatrs to float [0;1.0] *)
     ~(siblings : Dom_html.element Js.t list) (* widget positions int coordinatrs to float [0;1.0] *)
-    ~(parent_size : int * int) (* need if input positions is int pixel coordinates *)
+    ~(parent_size : float * float) (* need if input positions is int pixel coordinates *)
     (item : Dom_html.element Js.t) : t * line list
     (*
     add:
@@ -771,39 +754,42 @@ let adjust ?aspect_ratio
   let min_distance = 12 in
   (* FIXME values to function declaration? *)
   let grid_step = 15 in
-  let par_max_w_f = if (float_of_int (fst parent_size)) > 0.
-    then  (float_of_int (fst parent_size))
+  let parent_w =
+    if (fst parent_size) > 0.
+    then (fst parent_size)
     else 100.0
   in
-  let par_max_h_f = if (float_of_int (snd parent_size)) > 0.
-    then  (float_of_int (snd parent_size))
+  let parent_h =
+    if (snd parent_size) > 0.
+    then (snd parent_size)
     else 100.0
   in
-  let max_of_parent_size =  max par_max_w_f par_max_h_f in
-  let min_distance_f = (float_of_int min_distance) /. max_of_parent_size in
-  let grid_step_f = (float_of_int grid_step) /. max_of_parent_size in
-  let min_width_f = (float_of_int min_width) /. max_of_parent_size in
-  let min_height_f = (float_of_int min_height) /. max_of_parent_size in
+  let max_of_parent_size =  max parent_w parent_h in
+  let min_distance = (float_of_int min_distance) /. max_of_parent_size in
+  let grid_step = (float_of_int grid_step) /. max_of_parent_size in
+  let min_width = (float_of_int min_width) /. max_of_parent_size in
+  let min_height = (float_of_int min_height) /. max_of_parent_size in
   let grid_enable = false in
   let position_to_grid =
     if grid_enable
-    then snap_to_grid position grid_step_f
+    then snap_to_grid position grid_step
     else position
   in
   let position_snaped = match snap_lines, action with
     | false, _ -> position_to_grid
     | true, `Move ->
       get_item_snap_position_for_move_action item position_to_grid
-        min_distance_f siblings (par_max_w_f, par_max_h_f)
+        min_distance siblings (parent_w, parent_h)
     | true, `Resize resz ->
       get_item_snap_position_for_resize_action item position_to_grid
-        min_distance_f siblings (par_max_w_f, par_max_h_f) resz
+        min_distance siblings (parent_w, parent_h) resz
   in
   let position_clipped_parent =
     position_clipped_parent position_snaped
-      (par_max_w_f, par_max_h_f)
-      min_width_f
-      min_height_f
+      ~parent_w
+      ~parent_h
+      min_width
+      min_height
       action
   in
   let position_not_collide_others = position_clipped_parent in
@@ -811,8 +797,8 @@ let adjust ?aspect_ratio
     if snap_lines
     then get_snap_lines item position_not_collide_others
         siblings
-        (par_max_w_f, par_max_h_f)
-        min_distance_f
+        (parent_w, parent_h)
+        min_distance
         action
     else [] in
   { x = position_not_collide_others.x
@@ -821,56 +807,35 @@ let adjust ?aspect_ratio
   ; h = position_not_collide_others.h
   }, snap_lines
 
-(* convert pixel positions of widgets of input container
-   to floats [0.0, 1.0]
-   pos = widget position in pixels
-   aspect - aspect of holst
-   parent - aspect of container (width and height of container)
-   -
-   zero positions of widget - begin of holst
-   w/h widget = 1.0 = size of holst
-   container area bigger then holst
-*)
-
-let of_wm_position ?parent_aspect
-    ~(parent_position : Pipeline_types.Wm.position)
-    (pos : Pipeline_types.Wm.position) =
-  let (asp_x, asp_y) = match parent_aspect with
-    | None -> (0, 0)
-    | Some x -> x in
-  let pw =
-    if parent_position.right - parent_position.left = 0
-    then 1.0
-    else float_of_int (parent_position.right - parent_position.left) in
-  let ph =
-    if parent_position.bottom - parent_position.top = 0
-    then 1.0
-    else float_of_int (parent_position.bottom - parent_position.top) in
-  { x = float_of_int (pos.left - parent_position.left)
-  ; y = float_of_int (pos.top - parent_position.top)
-  ; w = float_of_int (pos.right - pos.left)
-  ; h = float_of_int (pos.bottom - pos.top)
+let to_wm_position (t : t) : Pipeline_types.Wm.position =
+  { left = int_of_float t.x
+  ; top = int_of_float t.y
+  ; right = int_of_float @@ t.x +. t.w
+  ; bottom = int_of_float @@ t.y +. t.h
   }
-(*empty*)
 
-
-let to_wm_position ?parent_aspect
-    ~(parent_position : Pipeline_types.Wm.position)
-    (t : t) =
-  let (asp_x, asp_y) = match parent_aspect with
-    | None -> (0, 0)
-    | Some x -> x in
-  let pw =
-    if parent_position.right - parent_position.left = 0
-    then 1.0
-    else float_of_int (parent_position.right - parent_position.left) in
-  let ph =
-    if parent_position.bottom - parent_position.top = 0
-    then 1.0
-    else float_of_int (parent_position.bottom - parent_position.top) in
-  { Pipeline_types.Wm.
-    top = int_of_float ((t.y +. float_of_int parent_position.top /. ph) *. ph)
-  ; left = int_of_float ((t.x +. float_of_int parent_position.left /. pw) *. pw)
-  ; right = int_of_float ((t.x +. t.w) *. pw)
-  ; bottom = int_of_float ((t.y +. t.h) *. ph)
+let of_wm_position (t : Pipeline_types.Wm.position) : t =
+  { x = float_of_int t.left
+  ; y = float_of_int t.top
+  ; w = float_of_int (t.right - t.left)
+  ; h = float_of_int (t.bottom - t.top)
   }
+
+let to_relative ~(parent_size : float * float) (pos : t) =
+  let parent_width, parent_height = parent_size in
+  let w, h =
+    if parent_width > pos.w
+    then (pos.w /. parent_width,
+          pos.h /. parent_height)
+    else (parent_width /. pos.w,
+          parent_height /. pos.h) in
+  let x = (pos.x *. w) /. pos.w in
+  let y = (pos.y *. h) /. pos.h in
+  { x; y; w; h }
+
+let of_relative ~(parent_size : float * float) (pos : t) =
+  let w = pos.w *. (fst parent_size) in
+  let h = pos.h *. (snd parent_size) in
+  let x = pos.x *. w /. pos.w in
+  let y = pos.y *. h /. pos.h in
+  { x; y; w; h }

@@ -68,9 +68,6 @@ class virtual t (elt : Dom_html.element Js.t) () = object(self)
     ghost##.style##.display := Js.string "none";
     Lwt.return_unit
 
-  method private size : int * int =
-    elt##.offsetWidth, elt##.offsetHeight
-
   method private virtual move_ghost : 'a. ?aspect:int * int
     -> (#Dom_html.event as 'a) Js.t
     -> unit

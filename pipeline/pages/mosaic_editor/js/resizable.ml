@@ -171,7 +171,7 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       super#emit ~should_bubble:true ~detail Event.Typ.input
 
     method private notify_change () : unit =
-      let detail = super#root##getBoundingClientRect in
+      let detail = Position.(to_client_rect @@ of_element super#root) in
       super#emit ~should_bubble:true ~detail Event.Typ.change
 
     method private notify_selected () : unit =
@@ -189,7 +189,7 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
         | Some touch -> _touch_id <- Some touch##.identifier
       end;
       let target = Dom_html.eventTarget e in
-      _position <- Position.of_client_rect super#root##getBoundingClientRect;
+      _position <- Position.of_element super#root;
       _coordinate <- get_cursor_position ?touch_id:_touch_id e;
       let action =
         if Element.has_class target CSS.resizer
@@ -236,7 +236,7 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       _dragging <- false;
       let target = Dom_html.eventTarget e in
       (* Refresh element position and size *)
-      _position <- Position.of_client_rect super#root##getBoundingClientRect;
+      _position <- Position.of_element super#root;
       (* Refresh mouse cursor position *)
       _coordinate <- get_cursor_position e;
       let action =

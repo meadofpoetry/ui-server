@@ -9,6 +9,10 @@ module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
 type editing_mode = Content | Table
 
+let name = "container-editor"
+
+let failwith s = failwith @@ Printf.sprintf "%s: %s" name s
+
 let editing_mode_of_enum = function
   | 0 -> Content
   | 1 -> Table
@@ -156,21 +160,6 @@ let make_description_dialog () =
       ]) in
   input, Dialog.make ~title ~content ~actions ()
 
-let container_of_element (elt : Dom_html.element Js.t) : Wm.container =
-  (* TODO implement. Seems that it is better to use relative
-     dimensions like 'fr' rather than absolute pixel values. *)
-  let width = elt##.offsetWidth in
-  let height = elt##.offsetHeight in
-  let position =
-    { Wm. left = 0
-    ; right = width
-    ; top = 0
-    ; bottom = height
-    } in
-  { position
-  ; widgets = Widget_utils.widgets_of_container elt
-  }
-
 let get f l =
   let rec aux acc = function
     | [] -> None, l
@@ -212,17 +201,18 @@ let set_top_app_bar_icon (scaffold : Scaffold.t) typ icon =
     prev
 
 let content_aspect_of_element (cell : Dom_html.element Js.t) =
-  Js.Unsafe.global##.console##log cell |> ignore;
   match Widget_utils.Attr.get_aspect cell with
   | Some x -> x
   | None -> failwith "no aspect provided"
 
 let filter_available_widgets (wm : Wm.t) : (string * Wm.widget) list =
+  print_endline @@ Printf.sprintf "widgets: %d" @@ List.length wm.widgets;
   List.fold_left (fun acc (_, (x : Wm.container)) ->
-      List.fold_left (fun acc ((id, _) as w) ->
+      List.fold_left (fun acc (id, _) ->
           if List.mem_assoc id wm.widgets
-          then acc else w :: acc) [] x.widgets)
-    [] wm.layout
+          then List.remove_assoc id acc
+          else acc) acc x.widgets)
+    wm.widgets wm.layout
 
 type widget_mode_state =
   { icon : Dom_html.element Js.t option
@@ -238,28 +228,30 @@ class t ~(scaffold : Scaffold.t)
     () =
   let (grid : Grid.t) =
     match Element.query_selector elt Selector.grid with
-    | None -> failwith "container-editor: grid element not found"
+    | None -> failwith "grid element not found"
     | Some x -> Grid.attach ~on_cell_insert ~drag_interval:(Fr 0.05) x in
   let table_dialog = Container_utils.UI.add_table_dialog () in
   object(self)
     val close_icon = Icon.SVG.(make_simple Path.close)
     val back_icon = Icon.SVG.(make_simple Path.arrow_left)
     val heading = match Element.query_selector elt Selector.heading with
-      | None -> failwith "container-editor: heading element not found"
+      | None -> failwith "heading element not found"
       | Some x -> x
     val content = match Element.query_selector elt Selector.content with
-      | None -> failwith "container-editor: content element not found"
+      | None -> failwith "content element not found"
       | Some x -> x
     val actions = match Element.query_selector elt Selector.actions with
-      | None -> failwith "container-editor: actions element not found"
+      | None -> failwith "actions element not found"
       | Some x -> x
     val ar_sizer = match Element.query_selector elt Selector.ar_sizer with
-      | None -> failwith "container-editor: aspect ratio sizer element not found"
+      | None -> failwith "aspect ratio sizer element not found"
       | Some x -> x
 
     val description_dialog = make_description_dialog ()
     val undo_manager = Undo_manager.create ()
-    val list_of_widgets = List_of_widgets.make wm.widgets (* FIXME filter available *)
+    val list_of_widgets =
+      List_of_widgets.make
+        (filter_available_widgets wm)
     val empty_placeholder =
       Container_utils.UI.make_empty_placeholder
         table_dialog
@@ -437,11 +429,12 @@ class t ~(scaffold : Scaffold.t)
     method private layout_cell ?aspect (cell : Dom_html.element Js.t) =
       match Element.query_selector cell Selector.widget_wrapper with
       | None -> ()
-      | Some wrapper ->
-        let container = container_of_element cell in
-        let w, h = self#scale_container ~cell container in
-        wrapper##.style##.width := Utils.px_js (int_of_float w);
-        wrapper##.style##.height := Utils.px_js (int_of_float h)
+      | Some wrapper -> ()
+        (* FIXME *)
+        (* let container = container_of_element cell in
+         * let w, h = self#scale_container ~cell container in
+         * wrapper##.style##.width := Utils.px_js (int_of_float w);
+         * wrapper##.style##.height := Utils.px_js (int_of_float h) *)
 
     method private switch_to_container_mode
         ({ restore; icon; editor; cell; container } : widget_mode_state) =
@@ -463,12 +456,14 @@ class t ~(scaffold : Scaffold.t)
 
     method private switch_to_widget_mode (cell : Dom_html.element Js.t) =
       let id = Container_utils.get_cell_title cell in
-      let (container : Wm.container) = container_of_element cell in
+      (* FIXME calc rect only for one container? *)
+      let (container : Wm.container) = List.assoc id self#value.layout in
       let editor = Widget_editor.make
           ~scaffold
           ~list_of_widgets
           content
           container in
+      self#clear_selection ();
       Utils.Option.iter (Dom.removeChild heading % Widget.root) _mode_switch;
       Dom.removeChild content grid#root;
       Dom.appendChild content editor#root;
@@ -634,9 +629,6 @@ class t ~(scaffold : Scaffold.t)
           ~label:"Применить"
           ~on_click:(fun btn _ _ ->
               let value = self#value in
-              let log x : unit = Js.Unsafe.global##.console##log x in
-              log @@ Json.unsafe_input @@ Js.string
-              @@ Yojson.Safe.to_string @@ Wm.to_yojson value;
               let t = Pipeline_http_js.Http_wm.set_layout value in
               btn#set_loading_lwt t;
               t >>= fun _ -> Lwt.return_unit)
@@ -680,6 +672,9 @@ class t ~(scaffold : Scaffold.t)
       | None -> ()
       | Some wrapper ->
         let elements = Widget_utils.elements wrapper in
+        let parent_size =
+          float_of_int @@ container.position.right - container.position.left,
+          float_of_int @@ container.position.bottom - container.position.top in
         let rest =
           List.fold_left (fun acc (elt : Dom_html.element Js.t) ->
               let id = Js.to_string elt##.id in
@@ -687,8 +682,7 @@ class t ~(scaffold : Scaffold.t)
               (match w with
                | Some (_, w) ->
                  Widget_utils.set_attributes
-                   ~parent_aspect:(16, 9) (* FIXME *)
-                   ~parent_position:container.position
+                   ~parent_size
                    elt
                    w
                | None -> Dom.removeChild cell elt);

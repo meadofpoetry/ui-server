@@ -53,7 +53,6 @@ class t ?drag_image (elt : Dom_html.element Js.t) = object(self)
       ~text:"Нет доступных виджетов"
       ~icon:Icon.SVG.(make_simple Path.information)#root
       ()
-  val mutable parent_position = { Wm. left = 0; top = 0; bottom = 0; right = 0 }
   val mutable _listeners = []
   val mutable _drag_target = Js.null
 
@@ -128,8 +127,7 @@ class t ?drag_image (elt : Dom_html.element Js.t) = object(self)
         let id = parse_id @@ Js.to_string elt##.id in
         let w, rest = get (String.equal id % fst) acc in
         (match w with
-         (* FIXME parent size *)
-         | Some (_, w) -> Widget_utils.set_attributes ~parent_position elt w
+         | Some (_, w) -> Widget_utils.set_attributes elt w
          | None -> self#remove_item elt);
         rest) widgets self#items in
     List.iter self#append_item rest
@@ -155,7 +153,7 @@ class t ?drag_image (elt : Dom_html.element Js.t) = object(self)
       Js.string
       @@ Yojson.Safe.to_string
       @@ to_yojson
-      @@ Widget_utils.widget_of_element ~parent_position target in
+      @@ Widget_utils.widget_of_element target in
     e##.dataTransfer##.effectAllowed := Js.string "move";
     e##.dataTransfer##setData (Js.string format) data;
     target##.style##.opacity := Js.def @@ Js.string "0.5";

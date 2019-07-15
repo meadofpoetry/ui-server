@@ -711,7 +711,7 @@ class t
       | Row -> "grid-template-rows" in
     let tracks = Util.get_styles prop grid in
     if List.length tracks = 0
-    then fail "unable to determine grid template tracks from styles"
+    then [||]
     else Array.of_list @@ String.split_on_char ' ' @@ List.hd tracks
 
   method private track_values_px grid direction: float array =

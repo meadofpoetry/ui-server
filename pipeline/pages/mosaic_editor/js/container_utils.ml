@@ -24,7 +24,7 @@ module UI = struct
   let make_input ~label () : int Textfield.t =
     Textfield.make_textfield
       ~label
-      (Integer (None, None))
+      (Integer (Some 1, None))
 
   let make_empty_placeholder
       (table_dialog, value : Dialog.t * (unit -> int option * int option))

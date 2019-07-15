@@ -30,12 +30,14 @@ val empty : t
 val show : t -> string
 
 val equal : t -> t -> bool
-(*
+
 val compare : t -> t -> int
-*)
+
+val fix_aspect : t -> int * int -> t
+
 val apply_to_element : t -> #Dom_html.element Js.t -> unit
 
-val of_element : ?parent_f:float * float -> #Dom_html.element Js.t -> t
+val of_element : #Dom_html.element Js.t -> t
 
 val to_client_rect : t -> Dom_html.clientRect Js.t
 
@@ -53,17 +55,14 @@ val adjust :
   -> original_position:t
   -> position:t (* Active item position *)
   -> siblings:Dom_html.element Js.t list (* Active item neighbours (with active item) *)
-  -> parent_size:int * int (* Parent width & height *)
+  -> parent_size:float * float (* Parent width & height *)
   -> Dom_html.element Js.t (* Active item *)
   -> t * (line list) (* Adjusted position & lines properties *)
 
-val of_wm_position :
-  ?parent_aspect:int * int
-  -> parent_position:Pipeline_types.Wm.position
-  -> Pipeline_types.Wm.position
-  -> t
-val to_wm_position :
-  ?parent_aspect:int * int
-  -> parent_position:Pipeline_types.Wm.position
-  -> t
-  -> Pipeline_types.Wm.position
+val to_wm_position : t -> Pipeline_types.Wm.position
+
+val of_wm_position : Pipeline_types.Wm.position -> t
+
+val to_relative : parent_size:(float * float) -> t -> t
+
+val of_relative : parent_size:(float * float) -> t -> t
