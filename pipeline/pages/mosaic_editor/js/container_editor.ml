@@ -250,6 +250,7 @@ class t ~(scaffold : Scaffold.t)
       | Some x -> Grid.attach ~on_cell_insert ~drag_interval:(Fr 0.05) x
 
     val description_dialog = make_description_dialog ()
+    val table_dialog = Container_utils.UI.add_table_dialog ()
     val undo_manager = Undo_manager.create ()
     val list_of_widgets = List_of_widgets.make wm.widgets (* FIXME filter available *)
 
@@ -304,7 +305,8 @@ class t ~(scaffold : Scaffold.t)
       (* FIXME *)
       List.iter (Element.append_child actions % Widget.root) @@ self#create_grid_actions ();
       Dom.appendChild Dom_html.document##.body (snd description_dialog)#root;
-      let empty_placeholder = Container_utils.UI.make_empty_placeholder () in
+      Dom.appendChild Dom_html.document##.body table_dialog#root;
+      let empty_placeholder = Container_utils.UI.make_empty_placeholder table_dialog grid in
       Dom.appendChild grid#root empty_placeholder#root;
       super#init ()
 
@@ -339,6 +341,7 @@ class t ~(scaffold : Scaffold.t)
       List.iter Lwt.cancel _listeners;
       _listeners <- [];
       Dom.removeChild Dom_html.document##.body (snd description_dialog)#root;
+      Dom.removeChild Dom_html.document##.body table_dialog#root;
       super#destroy ()
 
     method selected : Dom_html.element Js.t list =

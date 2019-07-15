@@ -356,8 +356,16 @@ class t
       ~(cols : int)
       ~(rows : int)
       () =
-    (* TODO implement *)
-    ()
+    Element.remove_children super#root;
+    self#set_style super#root Col (gen_template ~size:col_size cols);
+    self#set_style super#root Row (gen_template ~size:row_size rows);
+    List.iter (fun x ->
+        let elt = Tyxml_js.To_dom.of_element x in
+        Element.append_child super#root elt;
+        on_cell_insert self elt)
+    @@ Util.gen_cells
+      ~f:(fun ~col ~row () -> Markup.create_cell (make_cell_position ~col ~row ()))
+      ~cols ~rows
 
   method insert_table
       ?(col_size = Fr 1.)
@@ -383,7 +391,7 @@ class t
     | x :: tl ->
       (* FIXME consider different grids *)
       let { col; row; col_span; row_span } = Util.get_cell_position x in
-      let col_start, col_end, row_start, row_end =
+      let col, col_end, row, row_end =
         List.fold_left (fun (cs, ce, rs, re) cell ->
             let { col; row; col_span; row_span } = Util.get_cell_position cell in
             min col cs, max (col + col_span) ce,
@@ -392,8 +400,8 @@ class t
       let position =
         { col
         ; row
-        ; col_span = col_end - col_start
-        ; row_span = row_end - row_start
+        ; col_span = col_end - col
+        ; row_span = row_end - row
         } in
       let (merged : Dom_html.element Js.t) =
         Tyxml_js.To_dom.of_element

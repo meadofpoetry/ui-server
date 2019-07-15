@@ -65,6 +65,9 @@ $divider-color: if(
         }
         @media (min-width: 599px) {
             .mdc-icon-button {
+                display: flex;
+                align-items: center;
+                justify-content: center;
                 height: 96px;
                 width: 96px;
                 .mdc-icon {

@@ -15,14 +15,20 @@ let set_cell_title (cell : Dom_html.element Js.t) (title : string) : unit =
   Element.set_attribute cell Attr.title title
 
 module UI = struct
+
+  let ( >>= ) = Lwt.bind
+
   let make_input ~label () : int Textfield.t =
     Textfield.make_textfield
       ~label
       (Integer (None, None))
 
-  let make_empty_placeholder () =
+  let make_empty_placeholder (table_dialog : Dialog.t) (grid : Grid.t) =
     let table =
       Icon_button.make
+        ~on_click:(fun _ _ ->
+            table_dialog#open_await ()
+            >>= fun _ -> Lwt.return_unit)
         ~icon:Icon.SVG.(make_simple Path.table_plus)#root
         () in
     let wizard =
@@ -44,6 +50,7 @@ module UI = struct
     Dialog.make
       ~title:(Dialog.Markup.create_title_simple ~title:"Добавление таблицы" ())
       ~content:(Dialog.Markup.create_content
+                  ~classes:[Box.CSS.root; Box.CSS.vertical]
                   ~content:[cols#markup; rows#markup]
                   ())
       ~actions:Dialog.Markup.(
