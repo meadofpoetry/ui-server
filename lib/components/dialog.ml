@@ -112,8 +112,8 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
       Option.iter Lwt.cancel _layout_thread;
       super#layout ();
       let t =
-        Animation.request ()
-        >>= fun _ ->
+        Lwt_js_events.request_animation_frame ()
+        >>= fun () ->
         if _auto_stack_buttons
         then self#detect_stacked_buttons ();
         self#detect_scrollable_content ();
@@ -155,8 +155,8 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
       (* Wait a frame once display is no longer "none",
          to establish basis for animation. *)
       let t =
-        Animation.request ()
-        >>= fun _ -> Lwt_js.yield ()
+        Lwt_js_events.request_animation_frame ()
+        >>= fun () -> Lwt_js.yield ()
         >>= fun () ->
         super#add_class CSS.open_;
         Element.add_class Dom_html.document##.body CSS.scroll_lock;
@@ -325,24 +325,39 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
         then super#add_class CSS.scrollable
   end
 
-let make_element ?title ?content ?actions () : Dom_html.element Js.t =
-  let title_id = match title with
+let make_action ?classes ?attrs ?button_type ?appearance
+    ?icon ?dense ?ripple ?label ?default ?action () =
+  let icon = match icon with
     | None -> None
-    | Some x -> Some (Js.to_string @@ (Tyxml_js.To_dom.of_element x)##.id) in
-  let content_id = match content with
-    | None -> None
-    | Some x -> Some (Js.to_string @@ (Tyxml_js.To_dom.of_element x)##.id) in
-  let scrim = Markup.create_scrim () in
-  let actions = match actions with
-    | None -> None
-    | Some l -> Some (Markup.create_actions ~actions:l ()) in
-  let surface = Markup.create_surface ?title ?content ?actions () in
-  let container = Markup.create_container ~surface () in
-  Tyxml_js.To_dom.of_element
-  @@ Markup.create ?title_id ?content_id ~scrim ~container ()
+    | Some x -> Some (Tyxml_js.Of_dom.of_element x) in
+  Tyxml_js.To_dom.of_button
+  @@ Markup.create_action ?classes ?attrs ?button_type ?appearance
+    ?icon ?dense ?label ?default ?action ()
 
-let make ?title ?content ?actions () : t =
-  let elt = make_element ?title ?content ?actions () in
+let make ?classes ?title ?content ?actions () : t =
+  let (elt : Dom_html.element Js.t) =
+    let title_id = match title with
+      | None -> None
+      | Some x -> Some (Js.to_string x##.id) in
+    let content_id = match content with
+      | None -> None
+      | Some x -> Some (Js.to_string x##.id) in
+    let scrim = Markup.create_scrim () in
+    let actions = match actions with
+      | None -> None
+      | Some actions ->
+        let actions = List.map (fun x ->
+            Tyxml_js.Of_dom.of_element
+            @@ Element.coerce x) actions in
+        Some (Markup.create_actions ~actions ()) in
+    let surface = Markup.create_surface
+        ?title:(Utils.Option.map Tyxml_js.Of_dom.of_element title)
+        ?content:(Utils.Option.map Tyxml_js.Of_dom.of_element content)
+        ?actions
+        () in
+    let container = Markup.create_container ~surface () in
+    Tyxml_js.To_dom.of_element
+    @@ Markup.create ?classes ?title_id ?content_id ~scrim ~container () in
   new t elt ()
 
 let attach (elt : #Dom_html.element Js.t) : t =

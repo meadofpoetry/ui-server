@@ -324,6 +324,8 @@ class t
         ]);
     super#initial_sync_with_dom ()
 
+  method empty : bool = match self#cells with [] -> true | _ -> false
+
   method rows : value array =
     Array.map value_of_string
     @@ self#raw_tracks super#root Row
@@ -428,6 +430,10 @@ class t
       List.filter (fun x -> Element.has_class x CSS.cell)
       @@ Element.children grid
 
+  method private clear_styles_ () : unit =
+    self#set_style super#root Col "";
+    self#set_style super#root Row ""
+
   method private remove_row_or_column
       (direction : direction)
       (cell : Dom_html.element Js.t) : unit =
@@ -451,7 +457,8 @@ class t
     let style =
       String.concat " "
       @@ Util.remove_at_idx (n - 1) tracks in
-    self#set_style grid direction style
+    self#set_style grid direction style;
+    if self#empty then self#clear_styles_ ()
 
   method private add_row_or_column
       ?(size = Fr 1.)

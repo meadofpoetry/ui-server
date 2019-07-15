@@ -144,11 +144,15 @@ let make_description_dialog () =
     Textfield.make_textfield
       ~label:"Наименование"
       Text in
-  let title = Dialog.Markup.create_title_simple "Описание" () in
-  let content = Dialog.Markup.create_content [input#markup] () in
-  let actions = Dialog.Markup.(
-      [ create_action ~label:"Отмена" ~action:Close ()
-      ; create_action ~label:"ОК" ~action:Accept ()
+  let title =
+    Tyxml_js.To_dom.of_element
+    @@ Dialog.Markup.create_title_simple "Описание" () in
+  let content =
+    Tyxml_js.To_dom.of_element
+    @@ Dialog.Markup.create_content [input#markup] () in
+  let actions = Dialog.(
+      [ make_action ~label:"Отмена" ~action:Close ()
+      ; make_action ~label:"ОК" ~action:Accept ()
       ]) in
   input, Dialog.make ~title ~content ~actions ()
 
@@ -229,6 +233,11 @@ class t ~(scaffold : Scaffold.t)
     (wm : Wm.t)
     (elt : Dom_html.element Js.t)
     () =
+  let (grid : Grid.t) =
+    match Element.query_selector elt Selector.grid with
+    | None -> failwith "container-editor: grid element not found"
+    | Some x -> Grid.attach ~on_cell_insert ~drag_interval:(Fr 0.05) x in
+  let table_dialog = Container_utils.UI.add_table_dialog () in
   object(self)
     val close_icon = Icon.SVG.(make_simple Path.close)
     val back_icon = Icon.SVG.(make_simple Path.arrow_left)
@@ -244,15 +253,14 @@ class t ~(scaffold : Scaffold.t)
     val ar_sizer = match Element.query_selector elt Selector.ar_sizer with
       | None -> failwith "container-editor: aspect ratio sizer element not found"
       | Some x -> x
-    val grid : Grid.t =
-      match Element.query_selector elt Selector.grid with
-      | None -> failwith "container-editor: grid element not found"
-      | Some x -> Grid.attach ~on_cell_insert ~drag_interval:(Fr 0.05) x
 
     val description_dialog = make_description_dialog ()
-    val table_dialog = Container_utils.UI.add_table_dialog ()
     val undo_manager = Undo_manager.create ()
     val list_of_widgets = List_of_widgets.make wm.widgets (* FIXME filter available *)
+    val empty_placeholder =
+      Container_utils.UI.make_empty_placeholder
+        table_dialog
+        grid
 
     val mutable _listeners = []
     val mutable _content_listeners = []
@@ -268,6 +276,7 @@ class t ~(scaffold : Scaffold.t)
     val mutable _cont_selected_actions = []
 
     val mutable _resolution = wm.resolution
+
     val mutable _widget_editor = None
     val mutable _mode_switch = None
 
@@ -305,9 +314,12 @@ class t ~(scaffold : Scaffold.t)
       (* FIXME *)
       List.iter (Element.append_child actions % Widget.root) @@ self#create_grid_actions ();
       Dom.appendChild Dom_html.document##.body (snd description_dialog)#root;
-      Dom.appendChild Dom_html.document##.body table_dialog#root;
-      let empty_placeholder = Container_utils.UI.make_empty_placeholder table_dialog grid in
-      Dom.appendChild grid#root empty_placeholder#root;
+      Dom.appendChild Dom_html.document##.body (fst table_dialog)#root;
+      let empty_placeholder =
+        Container_utils.UI.make_empty_placeholder
+          table_dialog
+          grid in
+      if grid#empty then Dom.appendChild grid#root empty_placeholder#root;
       super#init ()
 
     method! initial_sync_with_dom () : unit =
@@ -341,7 +353,7 @@ class t ~(scaffold : Scaffold.t)
       List.iter Lwt.cancel _listeners;
       _listeners <- [];
       Dom.removeChild Dom_html.document##.body (snd description_dialog)#root;
-      Dom.removeChild Dom_html.document##.body table_dialog#root;
+      Dom.removeChild Dom_html.document##.body (fst table_dialog)#root;
       super#destroy ()
 
     method selected : Dom_html.element Js.t list =
@@ -570,7 +582,10 @@ class t ~(scaffold : Scaffold.t)
     method private create_cell_selected_actions () : Widget.t list =
       let f () =
         self#clear_selection ();
-        self#restore_top_app_bar_context () in
+        self#restore_top_app_bar_context ();
+        if grid#empty
+        then Dom.appendChild grid#root empty_placeholder#root
+        else Element.remove_child_safe grid#root empty_placeholder#root in
       let menu = Actions.make_overflow_menu
           (fun () -> self#selected)
           Actions.[ merge ~f undo_manager grid

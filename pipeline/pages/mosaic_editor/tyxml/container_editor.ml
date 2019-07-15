@@ -11,6 +11,8 @@ module CSS = struct
   let cell_dragover = BEM.add_modifier Grid.CSS.cell "dragover"
   let cell_dragging = BEM.add_modifier Grid.CSS.cell "dragging"
 
+  let dialog_add_table = BEM.add_modifier Dialog.CSS.root "add-table"
+
   let nav_icon_main = BEM.add_modifier Top_app_bar.CSS.navigation_icon "main"
   let nav_icon_aux = BEM.add_modifier Top_app_bar.CSS.navigation_icon "aux"
 
