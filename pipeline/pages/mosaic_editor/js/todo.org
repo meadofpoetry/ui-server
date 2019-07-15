@@ -1,6 +1,6 @@
 * Mosaic editor goals
 ** container_editor.ml
-- [ ] XXX initialize grid
+- [X] XXX initialize grid
 - [X] implement `grid_properties_of_layout` function
 - [ ] redraw according to the server updates
 - [ ] `handle_keydown` method

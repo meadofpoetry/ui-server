@@ -218,8 +218,11 @@ let content_aspect_of_element (cell : Dom_html.element Js.t) =
   | None -> failwith "no aspect provided"
 
 let filter_available_widgets (wm : Wm.t) : (string * Wm.widget) list =
-  (* TODO implement *)
-  []
+  List.fold_left (fun acc (_, (x : Wm.container)) ->
+      List.fold_left (fun acc ((id, _) as w) ->
+          if List.mem_assoc id wm.widgets
+          then acc else w :: acc) [] x.widgets)
+    [] wm.layout
 
 type widget_mode_state =
   { icon : Dom_html.element Js.t option
@@ -366,17 +369,37 @@ class t ~(scaffold : Scaffold.t)
     method resolution : int * int =
       _resolution
 
-    (* TODO implement *)
     method value : Wm.t =
-      (* let cols = grid#cols in
-       * let rows = grid#rows in
-       * let cells = grid#cells () in
-       * let _ = List.map (fun (cell : Dom_html.element Js.t) ->
-       *     let pos = get_cell_position cell in
-       *     ()) cells in *)
+      let resolution = self#resolution in
+      let width, height =
+        float_of_int (fst resolution),
+        float_of_int (snd resolution) in
+      let cols = grid#cols in
+      let rows = grid#rows in
+      let sum x = Array.fold_left (fun acc -> function
+          | Grid.Fr x -> acc +. x
+          | _ -> acc) 0. x in
+      let fr_w = width /. (sum cols) in
+      let fr_h = height /. (sum rows) in
+      let get_cell_size (stop : int) side = sum @@ Array.sub side 0 (pred stop) in
+      let floor x = int_of_float @@ Float.floor x in
+      let map_pos { Grid. row; col; row_span; col_span } : Wm.position =
+        { left = floor @@ (get_cell_size col cols) *. fr_w
+        ; top = floor @@ (get_cell_size row rows) *. fr_h
+        ; right = floor @@ (get_cell_size (col + col_span) cols) *. fr_w
+        ; bottom = floor @@ (get_cell_size (row + row_span) rows) *. fr_h
+        } in
+      let layout =
+        List.map (fun cell ->
+            Container_utils.get_cell_title cell,
+            { Wm.
+              position = map_pos @@ Grid.Util.get_cell_position cell
+            ; widgets = []
+            })
+          grid#cells in
       { resolution = self#resolution
       ; widgets = []
-      ; layout = []
+      ; layout
       }
 
     (* TODO implement layout update *)
