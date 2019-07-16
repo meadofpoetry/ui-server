@@ -767,19 +767,14 @@ let grid_properties_of_layout ({ resolution = w, h; layout; _ } : Wm.t) =
   { rows; cols; cells }
 
 let content_of_container (container : Wm.container) =
-  let widgets = List.map Markup.create_widget container.widgets in
+  let widgets = List.map (Markup.create_widget container.position)
+      container.widgets in
   [Markup.create_widget_wrapper widgets]
 
 let make_grid (props : grid_properties) =
   let cells = List.map (fun (id, ((container : Wm.container), pos)) ->
-      let resolution =
-        container.position.right - container.position.left,
-        container.position.bottom - container.position.top in
-      let aspect = Utils.resolution_to_aspect resolution in
       Grid.Markup.create_cell
-        ~attrs:Tyxml_js.Html.(
-            [ a_user_data "title" id
-            ; a_user_data "aspect" (aspect_attr_value aspect)])
+        ~attrs:Tyxml_js.Html.([a_user_data "title" id])
         ~content:(content_of_container container)
         pos)
       props.cells in

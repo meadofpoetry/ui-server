@@ -26,17 +26,19 @@ module Make(Xml : Xml_sigs.NoWrap)
     (Html : Html_sigs.NoWrap with module Xml := Xml
                               and module Svg := Svg) = struct
 
-  let to_html_attributes ?id (widget : Wm.widget) =
+  let to_html_attributes ?id ?parent_size (widget : Wm.widget) =
     let aspect = match widget.aspect with
       | None -> None
       | Some ar -> Some (aspect_attr_value ar) in
-    let position = match widget.position with
-      | None -> []
-      | Some { left; right; top; bottom } ->
-        Html.[ a_user_data "left" (string_of_int left)
-             ; a_user_data "right" (string_of_int right)
-             ; a_user_data "top" (string_of_int top)
-             ; a_user_data "bottom" (string_of_int bottom)
+    let position = match parent_size, widget.position with
+      | None, _ | _, None -> []
+      | Some parent_size, Some wpos ->
+        let string_of_float = Printf.sprintf "%g" in
+        let pos = Position.(to_relative ~parent_size @@ of_wm_position wpos) in
+        Html.[ a_user_data "left" (string_of_float pos.x)
+             ; a_user_data "top" (string_of_float pos.y)
+             ; a_user_data "width" (string_of_float pos.w)
+             ; a_user_data "height" (string_of_float pos.h)
              ] in
     Html.(
       [ a_user_data "type" (widget_type_to_string widget.type_)

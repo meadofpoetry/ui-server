@@ -1,5 +1,7 @@
 open Js_of_ocaml
 
+include module type of Page_mosaic_editor_tyxml.Position
+
 type line =
   { is_vertical : bool (* Is line vertical *)
   ; is_multiple : bool (* Multiple intersection detected *)
@@ -16,22 +18,6 @@ type resize_direction =
   | Bottom
   | Left
   | Right
-
-(* XXX Should use float type *)
-type t =
-  { x : float
-  ; y : float
-  ; w : float
-  ; h : float
-  }
-
-val empty : t
-
-val show : t -> string
-
-val equal : t -> t -> bool
-
-val compare : t -> t -> int
 
 val fix_aspect : t -> int * int -> t
 
@@ -60,11 +46,3 @@ val adjust :
   -> parent_size:float * float (* Parent width & height *)
   -> Dom_html.element Js.t (* Active item *)
   -> t * (line list) (* Adjusted position & lines properties *)
-
-val to_wm_position : t -> Pipeline_types.Wm.position
-
-val of_wm_position : Pipeline_types.Wm.position -> t
-
-val to_relative : parent_size:(float * float) -> t -> t
-
-val of_relative : parent_size:(float * float) -> t -> t

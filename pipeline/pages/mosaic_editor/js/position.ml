@@ -1,6 +1,8 @@
 open Js_of_ocaml
 open Components
 
+include Page_mosaic_editor_tyxml.Position
+
 let ( % ) f g x = f (g x)
 
 type line =
@@ -29,27 +31,6 @@ type line_align_direction =
   | Vright
   | Nill
 
-type t =
-  { x : float
-  ; y : float
-  ; w : float
-  ; h : float
-  }
-
-let empty =
-  { x = 0.0
-  ; y = 0.0
-  ; w = 0.0
-  ; h = 0.0
-  }
-
-let fmod v1 v2 =
-  if v2 = 0.0
-  then 0.0
-  else let val1 = floor (v1 /. v2) in
-    let ost = v1 -. val1 in
-    ost
-
 let fabs (v1 : float) = if v1 >= 0.0
   then v1
   else (-. v1)
@@ -57,24 +38,6 @@ let fabs (v1 : float) = if v1 >= 0.0
 let show_line (x : line) : string =
   Printf.sprintf "is vertical: %B, is multiple: %B, is center: %B, origin: %g"
     x.is_vertical x.is_multiple x.is_center x.origin
-
-let show { x; y; w; h } =
-  Printf.sprintf "x=%g, y=%g, w=%g, h=%g" x y w h
-
-let compare (a : t) (b : t) =
-  let c = compare a.x b.x in
-  if c <> 0 then c
-  else (let c = compare a.y b.y in
-        if c <> 0 then c
-        else (let c = compare a.w b.w in
-              if c <> 0 then c
-              else compare a.h b.h))
-
-let equal (a : t) (b : t) =
-  fabs( a.x -. b.x ) < 0.00001 &&
-  fabs( a.y -. b.y ) < 0.00001 &&
-  fabs( a.w -. b.w ) < 0.00001 &&
-  fabs( a.h -. b.h ) < 0.00001
 
 (** Checks if two elements collide, returns [true] if so and [false] otherwise *)
 let collides (pos1 : t) (pos2 : t) =
@@ -248,18 +211,6 @@ let of_client_rect (r : Dom_html.clientRect Js.t) : t =
   ; w = Js.Optdef.get r##.width (fun () -> r##.right -. r##.left)
   ; h = Js.Optdef.get r##.height (fun () -> r##.bottom -. r##.top)
   }
-
-let default_aspect_ratio = 1.
-
-let string_of_float = Printf.sprintf "%g"
-
-let get_int_attribute (elt : #Dom_html.element Js.t) attr : int =
-  match Element.get_attribute elt attr with
-  | None -> 0
-  | Some x ->
-    match int_of_string_opt x with
-    | None -> 0
-    | Some x -> x
 
 (* min_distance - pixels
    return: (other element align as line_align_direction *
@@ -759,36 +710,3 @@ let adjust ?aspect_ratio
     then get_snap_lines item position siblings min_distance action
     else [] in
   position, snap_lines
-
-let to_wm_position (t : t) : Pipeline_types.Wm.position =
-  { left = int_of_float t.x
-  ; top = int_of_float t.y
-  ; right = int_of_float @@ t.x +. t.w
-  ; bottom = int_of_float @@ t.y +. t.h
-  }
-
-let of_wm_position (t : Pipeline_types.Wm.position) : t =
-  { x = float_of_int t.left
-  ; y = float_of_int t.top
-  ; w = float_of_int (t.right - t.left)
-  ; h = float_of_int (t.bottom - t.top)
-  }
-
-let to_relative ~(parent_size : float * float) (pos : t) =
-  let parent_width, parent_height = parent_size in
-  let w, h =
-    if parent_width > pos.w
-    then (pos.w /. parent_width *. 100.,
-          pos.h /. parent_height *. 100.)
-    else (parent_width /. pos.w *. 100.,
-          parent_height /. pos.h *. 100.) in
-  let x = (pos.x *. w) /. pos.w in
-  let y = (pos.y *. h) /. pos.h in
-  { x; y; w; h }
-
-let of_relative ~(parent_size : float * float) (pos : t) =
-  let w = pos.w *. (fst parent_size) /. 100. in
-  let h = pos.h *. (snd parent_size) /. 100. in
-  let x = pos.x *. w /. pos.w in
-  let y = pos.y *. h /. pos.h in
-  { x; y; w; h }

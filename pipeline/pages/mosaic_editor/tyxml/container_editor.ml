@@ -38,12 +38,16 @@ module Make(Xml : Xml_sigs.NoWrap)
   module Tab_bar = Tab_bar.Make(Xml)(Svg)(Html)
 
   let create_widget ?(classes = []) ?attrs
+      (container : Wm.position)
       (id, widget : string * Wm.widget) : 'a elt =
     let style = Printf.sprintf "z-index: %d" widget.layer in
     let classes = CSS.widget :: classes in
+    let parent_size =
+      float_of_int @@ container.right - container.left,
+      float_of_int @@ container.bottom - container.top in
     div ~a:([ a_class classes
             ; a_style style ]
-            @ Widget'.to_html_attributes ~id widget
+            @ Widget'.to_html_attributes ~id ~parent_size widget
             <@> attrs)
       []
 
