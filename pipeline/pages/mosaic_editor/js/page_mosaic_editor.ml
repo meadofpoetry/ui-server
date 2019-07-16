@@ -28,11 +28,14 @@ module Test = struct
     ; layer = 0
     }
 
+  let annotate_widgets ?(state = `Active) w =
+    List.map (fun (id, w) -> id, state, w) w
+
   let make_container
       ?(title = "Sample container")
       ?(widgets = [])
-      ~position () : string * Wm.container =
-    title, { position; widgets }
+      ~position () : string * Wm.Annotated.state * Wm.Annotated.container =
+    title, `Active, { position; widgets }
 
   let widgets =
     [ make_widget ~type_:Audio ~x:0 ~y:0 ~w:50 ~h:50 ()
@@ -48,32 +51,32 @@ module Test = struct
     [ make_container
         ~title:"Россия 1"
         ~position:{ left = 0; top = 0; right = 240; bottom = 160 }
-        ~widgets
+        ~widgets:(annotate_widgets widgets)
         ()
     ; make_container
         ~title:"ТНТ"
         ~position:{ left = 240; top = 0; right = 760; bottom = 160 }
-        ~widgets
+        ~widgets:(annotate_widgets widgets)
         ()
     ; make_container
         ~title:"Канал"
         ~position:{ left = 760; top = 0; right = 1280; bottom = 360 }
-        ~widgets
+        ~widgets:(annotate_widgets widgets)
         ()
     ; make_container
         ~title:"Первый канал"
         ~position:{ left = 0; top = 160; right = 760; bottom = 720 }
-        ~widgets
+        ~widgets:(annotate_widgets widgets)
         ()
     ; make_container
         ~title:"СТС"
         ~position:{ left = 760; top = 360; right = 1280; bottom = 720 }
-        ~widgets
+        ~widgets:(annotate_widgets widgets)
         ()
     ]
 
-  let (wm : Wm.t) =
-    { layout = (* containers *) []
+  let (wm : Wm.Annotated.t) =
+    { layout = containers
     ; widgets = widgets
     ; resolution = 1280, 720
     }

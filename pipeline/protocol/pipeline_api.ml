@@ -205,7 +205,9 @@ let get_wm_layout (state : Protocol.state) _user _body _env _state =
      >>= fun stored ->
      match active with
      | Error (`Qoe_backend e) -> Lwt.return (`Error e)
-     | Ok v -> Lwt.return (`Value (Wm.to_yojson v))
+     | Ok active ->
+       let v = Wm.Annotated.annotate ~active ~stored in
+       Lwt.return (`Value (Wm.Annotated.to_yojson v))
 
 let get_status (state : Protocol.state) ids _user _body _env _state =
   React.S.value state.notifs.status
