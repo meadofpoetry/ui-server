@@ -6,15 +6,16 @@
 - [ ] `handle_keydown` method
 - [ ] XXX fill cells with predefined widget groups
 - [ ] split cell into subtable or elementary cells
-- [ ] generate unique container name
+- [X] generate unique container name
 - [ ] XXX restore cell selection after exit from widget editor mode
 - [X] filter available widgets
+- [ ] scale widgets when resizing/swapping cells
 ** widget_editor.ml
 - [ ] `handle_keydown` method
 - [ ] `bring_to_front` method
 - [ ] `send_to_back` method
 - [ ] implement layers logic
-- [ ] fix widgets scaling
+- [X] fix widgets scaling
 - [ ] XXX take aspect ratio into account when adding widget
 ** position.ml
 - [ ] take aspect ratio into account in `adjust` function

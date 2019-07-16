@@ -32,8 +32,14 @@ let redo (undo_manager : Undo_manager.t) =
     ~icon:Icon.SVG.Path.redo
     ()
 
-let wizard (grid : Grid.t) =
-  make ~callback:(fun _ -> Lwt.return_unit)
+let wizard (wizard : Wizard.t) (grid : Grid.t) =
+  make ~callback:(fun _ ->
+      wizard#open_await ()
+      >>= function
+      | Close | Destroy | Custom _ -> Lwt.return_unit
+      | Accept ->
+        (* TODO implement *)
+        Lwt.return_unit)
     ~name:"Мастер"
     ~icon:Icon.SVG.Path.auto_fix
     ()

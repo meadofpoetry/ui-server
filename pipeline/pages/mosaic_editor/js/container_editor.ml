@@ -260,6 +260,7 @@ type widget_mode_state =
   }
 
 class t ~(scaffold : Scaffold.t)
+    (structure : Structure.packed list)
     (wm : Wm.t)
     (elt : Dom_html.element Js.t)
     () =
@@ -268,6 +269,7 @@ class t ~(scaffold : Scaffold.t)
     | None -> failwith "grid element not found"
     | Some x -> Grid.attach ~on_cell_insert ~drag_interval:(Fr 0.05) x in
   let table_dialog = Container_utils.UI.add_table_dialog () in
+  let wizard_dialog = Wizard.make structure wm in
   object(self)
     val close_icon = Icon.SVG.(make_simple Path.close)
     val back_icon = Icon.SVG.(make_simple Path.arrow_left)
@@ -283,6 +285,7 @@ class t ~(scaffold : Scaffold.t)
     val ar_sizer = match Element.query_selector elt Selector.ar_sizer with
       | None -> failwith "aspect ratio sizer element not found"
       | Some x -> x
+    val body = Dom_html.document##.body
 
     val description_dialog = make_description_dialog ()
     val undo_manager = Undo_manager.create ()
@@ -291,6 +294,7 @@ class t ~(scaffold : Scaffold.t)
         (filter_available_widgets wm)
     val empty_placeholder =
       Container_utils.UI.make_empty_placeholder
+        wizard_dialog
         table_dialog
         grid
 
@@ -345,12 +349,9 @@ class t ~(scaffold : Scaffold.t)
        | Some x -> x#set_actions @@ List.map Widget.root [basic_actions]);
       (* FIXME *)
       List.iter (Element.append_child actions % Widget.root) @@ self#create_grid_actions ();
-      Dom.appendChild Dom_html.document##.body (snd description_dialog)#root;
-      Dom.appendChild Dom_html.document##.body (fst table_dialog)#root;
-      let empty_placeholder =
-        Container_utils.UI.make_empty_placeholder
-          table_dialog
-          grid in
+      Dom.appendChild body wizard_dialog#root;
+      Dom.appendChild body (snd description_dialog)#root;
+      Dom.appendChild body (fst table_dialog)#root;
       if grid#empty then Dom.appendChild grid#root empty_placeholder#root;
       super#init ()
 
@@ -384,8 +385,12 @@ class t ~(scaffold : Scaffold.t)
       _selection <- None;
       List.iter Lwt.cancel _listeners;
       _listeners <- [];
-      Dom.removeChild Dom_html.document##.body (snd description_dialog)#root;
-      Dom.removeChild Dom_html.document##.body (fst table_dialog)#root;
+      Dom.removeChild body wizard_dialog#root;
+      Dom.removeChild body (snd description_dialog)#root;
+      Dom.removeChild body (fst table_dialog)#root;
+      wizard_dialog#destroy ();
+      (snd description_dialog)#destroy ();
+      (fst table_dialog)#destroy ();
       super#destroy ()
 
     method selected : Dom_html.element Js.t list =
@@ -625,7 +630,7 @@ class t ~(scaffold : Scaffold.t)
       Actions.make_overflow_menu (fun () -> self#selected)
         Actions.[ undo undo_manager
                 ; redo undo_manager
-                ; wizard grid ]
+                ; wizard wizard_dialog grid ]
 
     (* TODO consider inner grids *)
     method private create_cell_selected_actions () : Widget.t list =
@@ -786,7 +791,7 @@ let make_grid (props : grid_properties) =
 
 let make
     ~(scaffold : Scaffold.t)
-    (streams : Structure.packed list)
+    (structure : Structure.packed list)
     (wm : Wm.t) =
   let grid = make_grid @@ grid_properties_of_layout wm in
   let (elt : Dom_html.element Js.t) =
@@ -795,4 +800,4 @@ let make
       ~width:(float_of_int @@ fst wm.resolution)
       ~height:(float_of_int @@ snd wm.resolution)
       ~grid () in
-  new t ~scaffold wm elt ()
+  new t ~scaffold structure wm elt ()

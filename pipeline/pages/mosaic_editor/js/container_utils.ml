@@ -27,6 +27,7 @@ module UI = struct
       (Integer (Some 1, None))
 
   let make_empty_placeholder
+      (wizard_dialog : Wizard.t)
       (table_dialog, value : Dialog.t * (unit -> int option * int option))
       (grid : Grid.t) =
     let table =
@@ -45,6 +46,11 @@ module UI = struct
         () in
     let wizard =
       Icon_button.make
+        ~on_click:(fun _ _ ->
+            wizard_dialog#open_await ()
+            >>= function
+            | Close | Destroy | Custom _ -> Lwt.return_unit
+            | Accept -> Lwt.return_unit)
         ~icon:Icon.SVG.(make_simple Path.auto_fix)#root
         () in
     let content = Box.make ~dir:`Row [wizard; table] in

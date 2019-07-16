@@ -269,12 +269,14 @@ module Input = struct
           | Error _ -> accept#set_disabled true
           | Ok _ -> accept#set_disabled false) result in
       let box = Box.make ~dir:`Column [addr#widget; port#widget] in
-      let dialog =
-        Dialog.make
-          ~title:(Dialog.Markup.create_title_simple ~title:"Добавление потока" ())
-          ~content:(Dialog.Markup.create_content ~content:[box#markup] ())
-          ~actions:[accept#markup; cancel#markup]
-          () in
+      let title =
+        Tyxml_js.To_dom.of_element
+        @@ Dialog.Markup.create_title_simple ~title:"Добавление потока" () in
+      let content =
+        Tyxml_js.To_dom.of_element
+        @@ Dialog.Markup.create_content ~content:[box#markup] () in
+      let actions = [accept#root; cancel#root] in
+      let dialog = Dialog.make ~title ~content ~actions () in
       dialog#add_class dialog_class;
       dialog#set_on_destroy (fun () ->
           React.S.stop ~strong:true s_addr;

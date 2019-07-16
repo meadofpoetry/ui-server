@@ -1,9 +1,15 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 open Components
 open Application_types
 open Pipeline_types
 
 let ( >>= ) = Lwt.( >>= )
+
+type event =
+  [ `Streams of Structure.packed list
+  | `Layout of Wm.t
+  ]
 
 type channel =
   { stream : Stream.ID.t
@@ -16,22 +22,32 @@ let split_three l =
 
 module Parse_struct = struct
 
-  let stream id (signal : Structure.packed list React.signal) =
+  let stream id (signal : Structure.packed list) =
     let packed =
-      List.find (fun (x : Structure.packed) ->
-          Stream.ID.equal x.structure.id id) (React.S.value signal) in
-    Stream.Source.to_string packed.source.source.info,
-    Uri.to_string packed.structure.uri, packed
+      List.find_opt (fun (x : Structure.packed) ->
+          Stream.ID.equal x.structure.id id) signal in
+    match packed with
+    | None -> None
+    | Some packed ->
+      Some (Stream.Source.to_string packed.source.source.info,
+            Uri.to_string packed.structure.uri, packed)
 
   let channel (channel_ : int) (packed : Structure.packed) =
     let channel =
-      List.find (fun (ch : Structure.channel) -> ch.number = channel_)
+      List.find_opt (fun (ch : Structure.channel) -> ch.number = channel_)
         packed.structure.channels in
-    channel.service_name, channel.provider_name, channel
+    match channel with
+    | None -> None
+    | Some channel -> Some (channel.service_name, channel.provider_name, channel)
 
   let widget pid_ (channel : Structure.channel) =
-    let pid = List.find (fun (pid : Structure.pid) -> pid.pid = pid_) channel.pids in
-    "PID " ^ (string_of_int pid.pid) ^ (Printf.sprintf " (0x%04X)" pid.pid)
+    let pid = List.find_opt (fun (pid : Structure.pid) ->
+        pid.pid = pid_) channel.pids in
+    match pid with
+    | None -> None
+    | Some pid -> Some ("PID "
+                        ^ (string_of_int pid.pid)
+                        ^ (Printf.sprintf " (0x%04X)" pid.pid))
 
 end
 
@@ -65,7 +81,10 @@ module Branches = struct
       | Audio -> "Виджет аудио" in
     let secondary_text =
       match (snd widget).pid with
-      | Some pid -> Parse_struct.widget pid channel_struct
+      | Some pid ->
+        (match Parse_struct.widget pid channel_struct with
+         | None -> Printf.sprintf "PID: %d (0x%04X)" pid pid
+         | Some s -> s)
       | None -> "" in
     let checkbox = Checkbox.make () in
     let widget_typ =
@@ -84,29 +103,37 @@ module Branches = struct
       (widgets : ((string * Wm.widget) * channel) list)
       (packed : Structure.packed) =
     let channels = Find.channels widgets in
-    List.map (fun channel ->
+    List.rev
+    @@ List.fold_left (fun acc channel ->
         let channel, stream = channel.channel, channel.stream in
         let channel_struct =
-          List.find (fun (ch : Structure.channel) ->
+          List.find_opt (fun (ch : Structure.channel) ->
               channel = ch.number) packed.structure.channels in
-        let text, secondary_text =
-          channel_struct.service_name, string_of_int channel in
-        let widgets =
-          List.filter (fun (_, (ch : channel)) ->
-              Stream.ID.equal ch.stream stream
-              && channel = ch.channel) widgets in
-        let children = List.map (fun widget ->
-            make_widget widget channel_struct) widgets in
-        let checkbox = Checkbox.make () in
-        Treeview.make_node
-          ~value:text
-          ~graphic:checkbox#root
-          ~secondary_text
-          ~children
-          text) channels
+        match channel_struct with
+        | None -> acc
+        | Some channel_struct ->
+          let text, secondary_text =
+            channel_struct.service_name, string_of_int channel in
+          let widgets =
+            List.filter (fun (_, (ch : channel)) ->
+                Stream.ID.equal ch.stream stream
+                && channel = ch.channel) widgets in
+          let children = List.map (fun widget ->
+              make_widget widget channel_struct) widgets in
+          let checkbox = Checkbox.make () in
+          let node =
+            Treeview.make_node
+              ~value:text
+              ~graphic:checkbox#root
+              ~secondary_text
+              ~children
+              text in
+          node :: acc)
+      [] channels
 
   (* makes all the widget checkboxes with IDs, and a Tree.t containing all streams *)
-  let make_streams (widgets : ((string * Wm.widget) * channel) list) signal =
+  let make_streams (widgets : ((string * Wm.widget) * channel) list)
+      (structure : Structure.packed list) =
     let streams =
       List.fold_left (fun acc (x : (string * Wm.widget) * channel) ->
           let channel = snd x in
@@ -124,78 +151,83 @@ module Branches = struct
           stream, wds) streams in
     let nodes =
       List.fold_left (fun acc (stream, wds) ->
-          let text, secondary_text, packed =
-            Parse_struct.stream stream signal in
-          let channels = make_channels wds packed in
-          let checkbox = Checkbox.make () in
-          let stream_node =
-            Treeview.make_node
-              ~secondary_text
-              ~graphic:checkbox#root
-              ~children:channels
-              ~value:(Stream.ID.to_string stream)
-              text in
-          stream_node :: acc)
+          match Parse_struct.stream stream structure with
+          | None -> acc
+          | Some (text, secondary_text, packed) ->
+            let channels = make_channels wds packed in
+            let checkbox = Checkbox.make () in
+            let stream_node =
+              Treeview.make_node
+                ~secondary_text
+                ~graphic:checkbox#root
+                ~children:channels
+                ~value:(Stream.ID.to_string stream)
+                text in
+            stream_node :: acc)
         [] streams_of_widgets in
     Treeview.make ~dense:true ~two_line:true nodes
 
 end
 
-let layout_of_widgets (widgets : (string * Wm.widget) list)
+let layout_of_widgets ~resolution (widgets : (string * Wm.widget) list)
   : ((string * Wm.container) list) =
   (* TODO implement *)
   []
 
-(* makes a dialog which shows a tree of available
- * streams
- *    |_ channels
- *        |_ widgets,
- * all with checkboxes.
- * it returns dialog, react event and a fun showing dialog *)
+let widgets_of_treeview
+    widgets
+    (tree : Treeview.t) =
+  let wds =
+    Utils.List.filter_map tree#node_value
+    @@ tree#selected_leafs in
+  List.fold_left (fun acc channel ->
+      let typ =
+        match String.sub channel (String.length channel - 5) 5 with
+        | "Video" -> Wm.Video
+        | "Audio" -> Audio
+        | _ -> failwith "Wrong widget type!" in
+      let channel =
+        String.sub channel 0 (String.length channel - 6)
+        |> int_of_string in
+      match List.filter (fun ((wdg : (string * Wm.widget)), (ch : channel)) ->
+          channel = ch.channel
+          && Wm.widget_type_equal (snd wdg).type_ typ) widgets with
+      | [] -> acc
+      | l -> l @ acc) [] wds
 
-let to_content socket (wm : Wm.t) =
-  let open Wm in
-  let open Pipeline_http_js in
-  let ( >>= ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f) in
-  Http_structure.get_streams_applied_with_source ()
-  >>= fun init -> Http_structure.Event.get_streams_applied_with_source socket
-  >>= fun (id, event) ->
-  let s, set_s = React.S.create init in
-  let _e = React.E.map set_s event in
-  let widgets = Utils.List.filter_map (fun (name, (widget : widget)) ->
-      match (widget.domain : domain) with
-      | (Chan {stream; channel} : domain) ->
+let to_content (streams : Structure.packed list) (wm : Wm.t) =
+  let widgets = Utils.List.filter_map (fun (name, (widget : Wm.widget)) ->
+      match (widget.domain : Wm.domain) with
+      | (Chan {stream; channel} : Wm.domain) ->
         Some ((name, widget), ({ stream; channel } : channel))
-      | (Nihil : domain) -> None) wm.widgets in
-  let tree = Branches.make_streams widgets s in
-  let box = Box.make ~dir:`Column [tree#widget] in
-  box#set_on_destroy (fun () ->
-      React.E.stop ~strong:true _e;
-      React.S.stop ~strong:true s;
-      Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket id));
-  let set = fun () ->
-    failwith "FIXME Not impelemented" in
-  Lwt.return_ok (box, set)
+      | (Nihil : Wm.domain) -> None) wm.widgets in
+  Branches.make_streams widgets streams
 
-let to_dialog socket (wm : Wm.t) =
-  let thread = to_content socket wm in
-  let content =
-    Ui_templates.Loader.create_widget_loader
-    @@ Lwt_result.map fst thread in
-  let dialog = Dialog.make
-      ~title:(Dialog.Markup.create_title_simple ~title:"Выберите виджеты" ())
-      ~content:(Dialog.Markup.create_content ~content:[content#markup] ())
-      ~actions:[ Dialog.Markup.create_action ~action:Close ~label:"Отмена" ()
-               ; Dialog.Markup.create_action ~action:Accept ~label:"Применить" () ]
-      () in
-  let show () =
-    let open Lwt.Infix in
-    dialog#open_await ()
-    >>= function
-    | Custom _ | Close | Destroy -> Lwt.return_unit
-    | Accept ->
-      thread
-      >>= function
-      | Ok (_, set) -> Lwt.return @@ set ()
-      | Error e -> Lwt.return @@ print_endline @@ "Wm_wizard error!: " ^ e in
-  dialog, show
+class t (elt : Dom_html.element Js.t) () =
+  object
+    inherit Dialog.t elt ()
+
+    method notify : event -> unit = function
+      | _ -> ()
+  end
+
+let make (streams : Structure.packed list) (wm : Wm.t) =
+  let content = to_content streams wm in
+  let actions =
+    List.map Tyxml_js.Of_dom.of_button
+      [ Dialog.make_action ~action:Close ~label:"Отмена" ()
+      ; Dialog.make_action ~action:Accept ~label:"Применить" () ] in
+  let surface = Dialog.Markup.(
+      create_surface
+        ~title:(create_title_simple ~title:"Выберите виджеты" ())
+        ~content:(create_content ~content:[content#markup] ())
+        ~actions:(create_actions ~actions ())
+        ()) in
+  let (elt : Dom_html.element Js.t) =
+    Tyxml_js.To_dom.of_element
+    @@ Dialog.Markup.(
+        create
+          ~scrim:(create_scrim ())
+          ~container:(create_container ~surface ())
+          ()) in
+  new t elt ()
