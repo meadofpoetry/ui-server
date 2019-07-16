@@ -280,10 +280,12 @@ module Pid_state = struct
 end
          
 module Structure = struct
+
+  (* TODO entries *)
   let insert_structures db streams : unit Lwt.t =
     let open Printf in
     let table   = (Conn.names db).structs in
-    let entries = Structure_conv.dump_structures streams in
+    let entries = [] in (*Structure_conv.dump_structures streams in*)
     let insert  = R.exec Caqti_type.(tup2 string string)
                     (sprintf "INSERT INTO %s(id, struct) VALUES (?,?)" table)
     in Conn.request db Db.Request.(with_trans (List.fold_left (fun acc e -> acc >>= fun () -> exec insert e)

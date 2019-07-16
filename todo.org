@@ -99,7 +99,7 @@
 - [ ] Update mechanism
 - [ ] Data server interaction
   - [ ] Send-dependency graph
-  - [ ] Shared resources sending
+  - [ ] Shared data sending
   - [ ] Sender implementation
 - [ ] Add support for the new IP receiver board
 - [ ] Dashboard GUI
