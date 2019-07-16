@@ -121,13 +121,31 @@ let swap (a : Dom_html.element Js.t as 'a) (b : 'a) : unit =
   swap_class a;
   swap_class b
 
+let cell_title_prefix = "Контейнер #"
+
 let cell_title (i : int) =
   Printf.sprintf "Контейнер #%d" i
 
+let find_min_spare ?(min = 0) l =
+  let rec aux acc = function
+    | [] -> acc
+    | x :: tl -> if acc = x then aux (succ x) tl else acc in
+  aux min l
+
 let gen_cell_title (cells : Dom_html.element Js.t list) =
-  (* FIXME implement *)
-  let idx = List.length cells in
-  cell_title idx
+  let titles = List.map Container_utils.get_cell_title cells in
+  let indexes =
+    List.sort_uniq compare
+    @@ List.fold_left (fun acc s ->
+        try
+          let start = String.length cell_title_prefix in
+          let len = String.length s - start in
+          let s' = String.sub s start len in
+          print_endline s';
+          (int_of_string s') :: acc
+        with exn -> acc)
+      [] titles in
+  cell_title (find_min_spare ~min:1 indexes)
 
 let on_cell_insert
     (grid : Grid.t)

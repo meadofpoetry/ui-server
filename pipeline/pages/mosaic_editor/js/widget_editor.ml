@@ -201,7 +201,7 @@ class t
     val mutable _items = items
     val mutable _listeners = []
     val mutable _focused_item = None
-    val mutable min_size = 20
+    val mutable min_size = 20.
 
     val mutable _selection = None
 
@@ -383,6 +383,7 @@ class t
         Position.adjust
           ?aspect_ratio:(Widget_utils.Attr.get_aspect target)
           ~min_width:min_size
+          ~grid_step:(float_of_int grid_overlay#size)
           ~min_height:min_size
           ~snap_lines:grid_overlay#snap_lines_visible
           ~action:(match detail##.action with
@@ -454,6 +455,7 @@ class t
           ?aspect_ratio:None
           ~min_width:min_size
           ~min_height:min_size
+          ~grid_step:(float_of_int grid_overlay#size)
           ~snap_lines:grid_overlay#snap_lines_visible
           ~action:`Move
           ~position

@@ -47,10 +47,12 @@ val adjust :
   ?aspect_ratio:(int * int) (* Aspect ratio of active item, if any *)
   -> ?snap_lines:bool
   -> ?collisions:bool
-  -> ?min_width:int
-  -> ?min_height:int
-  -> ?max_width:int
-  -> ?max_height:int
+  -> ?min_width:float
+  -> ?min_height:float
+  -> ?min_distance:float
+  -> ?grid_step:float
+  -> ?max_width:float
+  -> ?max_height:float
   -> action:[`Resize of resize_direction | `Move]
   -> original_position:t
   -> position:t (* Active item position *)
