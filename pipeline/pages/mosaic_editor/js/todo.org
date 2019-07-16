@@ -10,6 +10,7 @@
 - [ ] XXX restore cell selection after exit from widget editor mode
 - [X] filter available widgets
 - [ ] scale widgets when resizing/swapping cells
+- [ ] add states
 ** widget_editor.ml
 - [ ] `handle_keydown` method
 - [ ] `bring_to_front` method
@@ -17,10 +18,12 @@
 - [ ] implement layers logic
 - [X] fix widgets scaling
 - [ ] XXX take aspect ratio into account when adding widget
+- [ ] add states
 ** position.ml
 - [ ] take aspect ratio into account in `adjust` function
 - [X] consider floating point coordinates
 - [ ] fix snap lines generation
+- [ ] improve `of_relative`, `to_relative`
 ** resizable.ml
 - [ ] XXX extend widget resize direction to Top, Left, Right, Bottom
 ** grid_overlay.ml

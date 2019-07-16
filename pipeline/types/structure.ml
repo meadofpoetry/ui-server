@@ -294,7 +294,7 @@ module Annotated = struct
       | (state,_)::tl when state <> select -> filter_pids tl
       | (_,p)::tl -> p::(filter_pids tl)
     in
-    
+
     let rec filter_channels = function
       | [] -> []
       | (state,_)::tl when state <> select -> filter_channels tl
@@ -307,7 +307,7 @@ module Annotated = struct
            }
          in c'::(filter_channels tl)
     in
-    
+
     let rec filter_structs = function
       | [] -> []
       | (state,_)::tl when state <> select -> filter_structs tl

@@ -19,20 +19,16 @@ let make_streams (cpu : Topology.topo_cpu) socket =
 
 let make_structure socket =
   let open Pipeline_http_js.Http_structure in
-  get_streams_with_source ()
-  >>= fun actual -> get_streams_applied ()
-  >>= fun applied -> Event.get_streams_with_source socket
-  >>= fun (id_actual, e_actual) -> Event.get_streams_applied socket
-  >>= fun (id_applied, e_applied) ->
-  let w = Pipeline_widgets_js.Widget_structure.make ~actual ~applied () in
+  get_annotated ()
+  >>= fun structure -> Event.get_annotated socket
+  >>= fun (id, e) ->
+  let w = Pipeline_widgets_js.Widget_structure.make structure () in
   let notif =
     React.E.merge (fun _ -> w#notify) ()
-      [ React.E.map (fun x -> `Actual x) e_actual
-      ; React.E.map (fun x -> `Applied x) e_applied ] in
+      [ React.E.map (fun x -> `Structure x) e ] in
   w#set_on_destroy (fun () ->
       React.E.stop ~strong:true notif;
-      Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket id_actual);
-      Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket id_applied));
+      Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket id));
   Lwt.return_ok w#widget
 
 let make (cpu : Topology.topo_cpu)
