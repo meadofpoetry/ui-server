@@ -45,9 +45,14 @@ module Parse_struct = struct
         pid.pid = pid_) channel.pids in
     match pid with
     | None -> None
-    | Some pid -> Some ("PID "
-                        ^ (string_of_int pid.pid)
-                        ^ (Printf.sprintf " (0x%04X)" pid.pid))
+    | Some pid ->
+      let stream_type =
+        Application_types.MPEG_TS.stream_type_to_string
+          pid.stream_type in
+      Some (stream_type,
+            "PID "
+            ^ (string_of_int pid.pid)
+            ^ (Printf.sprintf " (0x%04X)" pid.pid))
 
 end
 
@@ -71,31 +76,40 @@ end
 
 module Branches = struct
 
+  type data =
+    { widget : string * Wm.widget
+    ; service_name : string
+    ; provider_name : string
+    } [@@deriving yojson]
+
   (* makes a checkbox with id of domains and typ, and a tree item named by channel*)
   let make_widget (widget : (string * Wm.widget) * channel) channel_struct =
     let widget, channel = widget in
     let typ = (snd widget).type_ in
-    let text =
+    let default_text () =
       match typ with
-      | Video -> "Виджет видео"
-      | Audio -> "Виджет аудио" in
-    let secondary_text =
+      | Video -> "Видео"
+      | Audio -> "Аудио" in
+    let text, secondary_text =
       match (snd widget).pid with
       | Some pid ->
         (match Parse_struct.widget pid channel_struct with
-         | None -> Printf.sprintf "PID: %d (0x%04X)" pid pid
+         | None -> default_text (), Printf.sprintf "PID: %d (0x%04X)" pid pid
          | Some s -> s)
-      | None -> "" in
+      | None -> default_text (), "" in
     let checkbox = Checkbox.make () in
-    let widget_typ =
-      match typ with
-      | Video -> "Video"
-      | Audio -> "Audio" in
-    Treeview.make_node
-      ~secondary_text
-      ~graphic:checkbox#root
-      ~value:(string_of_int channel.channel ^ "|" ^ widget_typ)
-      text
+    let data =
+      { widget
+      ; service_name = channel_struct.service_name
+      ; provider_name = channel_struct.provider_name
+      } in
+    let node =
+      Treeview.make_node
+        ~secondary_text
+        ~graphic:checkbox#root
+        ~value:(Yojson.Safe.to_string @@ data_to_yojson data)
+        text in
+    node
 
   (* makes all the widgets checkboxes with IDs, checkboxes of channels Tree items,
    * and a Tree.t containing all given channels *)
@@ -169,31 +183,10 @@ module Branches = struct
 
 end
 
-let layout_of_widgets ~resolution (widgets : (string * Wm.widget) list)
+let layout_of_widgets ~resolution (data : Branches.data list)
   : ((string * Wm.container) list) =
   (* TODO implement *)
   []
-
-let widgets_of_treeview
-    widgets
-    (tree : Treeview.t) =
-  let wds =
-    Utils.List.filter_map tree#node_value
-    @@ tree#selected_leafs in
-  List.fold_left (fun acc channel ->
-      let typ =
-        match String.sub channel (String.length channel - 5) 5 with
-        | "Video" -> Wm.Video
-        | "Audio" -> Audio
-        | _ -> failwith "Wrong widget type!" in
-      let channel =
-        String.sub channel 0 (String.length channel - 6)
-        |> int_of_string in
-      match List.filter (fun ((wdg : (string * Wm.widget)), (ch : channel)) ->
-          channel = ch.channel
-          && Wm.widget_type_equal (snd wdg).type_ typ) widgets with
-      | [] -> acc
-      | l -> l @ acc) [] wds
 
 let to_content (streams : Structure.packed list) (wm : Wm.t) =
   let widgets = Utils.List.filter_map (fun (name, (widget : Wm.widget)) ->
@@ -203,16 +196,36 @@ let to_content (streams : Structure.packed list) (wm : Wm.t) =
       | (Nihil : Wm.domain) -> None) wm.widgets in
   Branches.make_streams widgets streams
 
-class t (elt : Dom_html.element Js.t) () =
+class t ~resolution ~treeview (elt : Dom_html.element Js.t) () =
   object
     inherit Dialog.t elt ()
 
+    val mutable resolution = resolution
+    val mutable _treeview : Treeview.t = treeview
+
+    method value =
+      let data =
+        Utils.List.filter_map (fun x ->
+            match _treeview#node_value x with
+            | None -> None
+            | Some json ->
+              try
+                match Branches.data_of_yojson @@ Yojson.Safe.from_string json with
+                | Error _ -> None
+                | Ok x -> Some x
+              with _ -> None)
+        @@ _treeview#selected_leafs in
+      layout_of_widgets ~resolution data
+
+    (* TODO implement *)
     method notify : event -> unit = function
       | `Streams streams -> ()
-      | `Layout layout -> ()
+      | `Layout layout -> resolution <- layout.resolution
   end
 
-let make (streams : Structure.packed list) (wm : Wm.t) =
+let make
+    (streams : Structure.packed list)
+    (wm : Wm.t) =
   let content = to_content streams wm in
   let actions =
     List.map Tyxml_js.Of_dom.of_button
@@ -231,4 +244,7 @@ let make (streams : Structure.packed list) (wm : Wm.t) =
           ~scrim:(create_scrim ())
           ~container:(create_container ~surface ())
           ()) in
-  new t elt ()
+  new t
+    ~resolution:wm.resolution
+    ~treeview:content
+    elt ()

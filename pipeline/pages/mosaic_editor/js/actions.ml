@@ -38,6 +38,7 @@ let wizard (wizard : Wizard.t) (grid : Grid.t) =
       >>= function
       | Close | Destroy | Custom _ -> Lwt.return_unit
       | Accept ->
+        ignore wizard#value;
         (* TODO implement *)
         Lwt.return_unit)
     ~name:"Мастер"
