@@ -70,8 +70,7 @@ let make_item_content (widget : Wm.widget) =
 
 let make_item ~parent_size (id, widget : string * Wm.widget) =
   let item = Resizable.make ~classes:[CSS.grid_item] () in
-  item#root##.id := Js.string id;
-  Widget_utils.set_attributes ~parent_size item#root widget;
+  Widget_utils.set_attributes ~id ~parent_size item#root widget;
   Element.append_child item#root (make_item_content widget);
   item
 
@@ -300,7 +299,7 @@ class t
 
     (** Remove item with undo *)
     method private remove_item item =
-      let id = Js.to_string item##.id in
+      let id = Widget_utils.Attr.get_id item in
       let position = Position.of_element item in
       self#remove_item_ item;
       Undo_manager.add undo_manager
@@ -434,6 +433,7 @@ class t
     method private move_ghost :
       'a. ?aspect:int * int -> (#Dom_html.event as 'a) Js.t -> unit =
       fun ?aspect event ->
+      Js.Unsafe.global##.console##log event |> ignore;
       (* FIXME too expensive to call getBoundingClientRect every time *)
       let rect = super#root##getBoundingClientRect in
       let (x, y) = Resizable.get_cursor_position event in
@@ -542,7 +542,6 @@ let make ~(scaffold : Scaffold.t)
     | `Nodes x ->
       List.map (fun (x : Dom_html.element Js.t) ->
           let item = Resizable.make ~classes:[CSS.grid_item] () in
-          item#root##.id := x##.id;
           Widget_utils.copy_attributes x item#root;
           let _, widget = Widget_utils.widget_of_element x in
           let pos = Widget_utils.Attr.get_relative_position item#root in

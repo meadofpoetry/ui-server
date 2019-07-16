@@ -24,19 +24,7 @@ end
 
 let format = "application/json"
 
-let id_prefix = "add"
-
-let splitter = '-'
-
 let ( % ) f g x = f (g x)
-
-let make_id (s : string) =
-  Printf.sprintf "%s%c%s" id_prefix splitter s
-
-let parse_id (s : string) =
-  match String.split_on_char splitter s with
-  | [_; id] -> id
-  | _ -> s
 
 let get f l =
   let rec aux acc = function
@@ -93,15 +81,20 @@ class t ?drag_image (elt : Dom_html.element Js.t) = object(self)
          self#handle_change ())
 
   method remove_by_id (id : string) =
-    Utils.Option.iter self#remove_item
-    @@ Dom_html.getElementById_opt (make_id id)
+    let selector = Printf.sprintf ".%s[%s=\"%s\"]"
+        CSS.item
+        Widget_utils.Attr.id
+        id in
+    match Element.query_selector super#root selector with
+    | None -> ()
+    | Some x -> self#remove_item x
 
   method append_item (id, w : string * Wm.widget) =
     (* Hide the empty placeholder *)
     placeholder#add_class CSS.placeholder_hidden;
     let elt =
       Tyxml_js.To_dom.of_element
-      @@ Markup.create_item ~id:(make_id id) w in
+      @@ Markup.create_item ~id w in
     (* TODO insert to DOM according to sorting? *)
     match Element.query_selector
             super#root
@@ -111,7 +104,7 @@ class t ?drag_image (elt : Dom_html.element Js.t) = object(self)
     | Some l -> Dom.appendChild l elt
     (* If no corresponding list was found, create one. *)
     | None ->
-      let items = [Markup.create_item ~id:(make_id id) w] in
+      let items = [Markup.create_item ~id w] in
       let subheader =
         Tyxml_js.To_dom.of_element
         @@ Markup.create_subheader w.domain
@@ -124,7 +117,7 @@ class t ?drag_image (elt : Dom_html.element Js.t) = object(self)
 
   method sync (widgets : (string * Wm.widget) list) =
     let rest = List.fold_left (fun acc (elt : Dom_html.element Js.t) ->
-        let id = parse_id @@ Js.to_string elt##.id in
+        let id = Widget_utils.Attr.get_id elt in
         let w, rest = get (String.equal id % fst) acc in
         (match w with
          | Some (_, w) -> Widget_utils.set_attributes elt w
@@ -146,9 +139,7 @@ class t ?drag_image (elt : Dom_html.element Js.t) = object(self)
     let target = Dom_html.eventTarget e in
     _drag_target <- e##.target;
     let to_yojson (id, w) : Yojson.Safe.t =
-      `List [ `String (parse_id id)
-            ; Wm.widget_to_yojson w ] in
-    (* FIXME parent size *)
+      `List [`String id; Wm.widget_to_yojson w] in
     let data =
       Js.string
       @@ Yojson.Safe.to_string
@@ -194,7 +185,7 @@ let group_by_domain (widgets : (string * Wm.widget) list) =
 let make ?drag_image (widgets : (string * Wm.widget) list) : t =
   let grouped = group_by_domain widgets in
   let items = Domains.map (List.map (fun (id, x) ->
-      Markup.create_item ~id:(make_id id) x)) grouped in
+      Markup.create_item ~id x)) grouped in
   let content =
     List.concat
     @@ List.map (fun (domain, items) ->

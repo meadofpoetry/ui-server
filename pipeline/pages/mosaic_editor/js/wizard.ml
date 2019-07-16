@@ -208,7 +208,8 @@ class t (elt : Dom_html.element Js.t) () =
     inherit Dialog.t elt ()
 
     method notify : event -> unit = function
-      | _ -> ()
+      | `Streams streams -> ()
+      | `Layout layout -> ()
   end
 
 let make (streams : Structure.packed list) (wm : Wm.t) =

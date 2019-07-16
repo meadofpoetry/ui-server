@@ -43,7 +43,7 @@ module Make(Xml : Xml_sigs.NoWrap)
       ; a_user_data "domain" (domain_attr_value widget.domain)
       ; a_user_data "description" widget.description ]
       @ position
-      |> map_cons_option a_id id
+      |> map_cons_option (a_user_data "id") id
       |> map_cons_option (a_user_data "aspect") aspect
       |> map_cons_option (a_user_data "pid" % string_of_int) widget.pid)
 

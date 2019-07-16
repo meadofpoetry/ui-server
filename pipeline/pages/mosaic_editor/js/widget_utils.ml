@@ -6,6 +6,8 @@ open Components
 
 module Attr = struct
 
+  let id = "data-id"
+
   let typ = "data-type"
 
   let pid = "data-pid"
@@ -25,7 +27,8 @@ module Attr = struct
   let top = "data-top"
 
   let attributes =
-    [ typ
+    [ id
+    ; typ
     ; pid
     ; domain
     ; aspect
@@ -46,6 +49,14 @@ module Attr = struct
       match float_of_string_opt x with
       | None -> 0.
       | Some x -> x
+
+  let get_id (elt : Dom_html.element Js.t) =
+    match Element.get_attribute elt id with
+    | None -> ""
+    | Some s -> s
+
+  let set_id (elt : Dom_html.element Js.t) (id' : string) =
+    Element.set_attribute elt id id'
 
   let get_relative_position (elt : Dom_html.element Js.t) =
     { Position.
@@ -142,17 +153,15 @@ let layer_of_element (elt : Dom_html.element Js.t) : int =
 
 let widget_of_element ?parent_size
     (elt : Dom_html.element Js.t) : string * Wm.widget =
-  let id = Js.to_string elt##.id in
-  id,
-  let position = match parent_size with
-    | None -> None
-    | Some x ->
-      try Some (Attr.get_position ~parent_size:x elt)
-      with _ -> None in
+  Attr.get_id elt,
   { type_ = Attr.get_typ elt
   ; domain = Attr.get_domain elt
   ; pid = Attr.get_pid elt
-  ; position
+  ; position = (match parent_size with
+        | None -> None
+        | Some x ->
+          try Some (Attr.get_position ~parent_size:x elt)
+          with _ -> None)
   ; layer = layer_of_element elt
   ; aspect = Attr.get_aspect elt
   ; description = Attr.get_description elt
@@ -164,7 +173,7 @@ let copy_attributes
   let copy attr =
     let attr = Js.string attr in
     Js.Opt.iter (from##getAttribute attr)
-      (fun value -> to_##setAttribute attr value) in
+      (fun x -> to_##setAttribute attr x) in
   List.iter copy Attr.attributes
 
 let set_attributes ?id
@@ -183,7 +192,7 @@ let set_attributes ?id
   elt##.style##.zIndex := Js.string (string_of_int widget.layer);
   match id with
   | None -> ()
-  | Some id -> elt##.id := Js.string id
+  | Some id -> Attr.set_id elt id
 
 let elements (elt : Dom_html.element Js.t) =
   let selector =
@@ -194,4 +203,5 @@ let elements (elt : Dom_html.element Js.t) =
 
 let widgets_of_container ~parent_size
     (cell : Dom_html.element Js.t) : (string * Wm.widget) list =
-  List.map (widget_of_element ~parent_size) @@ elements cell
+  List.map (widget_of_element ~parent_size)
+  @@ elements cell

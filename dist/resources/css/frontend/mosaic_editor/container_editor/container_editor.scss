@@ -63,6 +63,7 @@ $divider-color: if(
     position: relative;
     width: 100%;
     max-height: 100%;
+    align-self: flex-start;
 
     .mdc-placeholder {
         &__widget {
