@@ -77,6 +77,8 @@ let make_item ~parent_size (id, widget : string * Wm.widget) =
 module Selection = struct
   include Selection
 
+  let class_ = Resizable.CSS.active
+
   let selectables = [Query Selector.item]
 
   let boundaries = [Query Selector.parent]
@@ -86,11 +88,26 @@ module Selection = struct
       (fun () -> true)
       (fun e -> e##.button = 0)
 
+  let on_start = fun { selected; selection; _ } ->
+    List.iter (fun x -> Element.remove_class x class_) selected;
+    selection#deselect_all ()
+
+  let on_move = fun { selected; removed; _ } ->
+    List.iter (fun x -> Element.add_class x class_) selected;
+    List.iter (fun x -> Element.remove_class x class_) removed
+
+  let on_stop = fun handle_selected { selected; selection; _ } ->
+    selection#keep_selection ();
+    handle_selected selection#selected
+
   let make handle_selected =
     make ~validate_start
       ~selectables
       ~boundaries
       ~start_areas:boundaries
+      ~on_start
+      ~on_move
+      ~on_stop:(on_stop handle_selected)
       ()
 end
 
@@ -433,7 +450,6 @@ class t
     method private move_ghost :
       'a. ?aspect:int * int -> (#Dom_html.event as 'a) Js.t -> unit =
       fun ?aspect event ->
-      Js.Unsafe.global##.console##log event |> ignore;
       (* FIXME too expensive to call getBoundingClientRect every time *)
       let rect = super#root##getBoundingClientRect in
       let (x, y) = Resizable.get_cursor_position event in

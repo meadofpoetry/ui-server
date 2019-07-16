@@ -90,7 +90,7 @@ let () =
     (* Lwt.return_ok Test.wm *)
     Http_wm.get_layout ()
     >>= fun wm ->
-    (* let wm = { wm with widgets = Test.widgets } in *)
+    let wm = { wm with widgets = Test.widgets } in
     Http_structure.get_annotated ()
     >>= fun streams ->
     Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()

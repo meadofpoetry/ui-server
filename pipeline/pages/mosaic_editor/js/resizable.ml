@@ -121,6 +121,7 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
 
     val mutable _listeners = []
     val mutable _temp_listeners = []
+    val mutable _ripple = None
 
     val mutable _dragging = false
 
@@ -133,7 +134,8 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
     inherit Widget.t elt () as super
 
     method! init () : unit =
-      super#init ()
+      super#init ()(* ;
+       * _ripple <- Some (self#create_ripple ()) *)
 
     method! initial_sync_with_dom () : unit =
       _listeners <- Lwt_js_events.(
@@ -142,11 +144,17 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
           ]);
       super#initial_sync_with_dom ()
 
+    method! layout () : unit =
+      Utils.Option.iter Ripple.layout _ripple;
+      super#layout ()
+
     method! destroy () : unit =
       List.iter Lwt.cancel _listeners;
       List.iter Lwt.cancel _temp_listeners;
       _listeners <- [];
       _temp_listeners <- [];
+      Utils.Option.iter Ripple.destroy _ripple;
+      _ripple <- None;
       super#destroy ()
 
     method set_min_size (x : int) : unit =
@@ -215,7 +223,6 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
                   | None -> Lwt.return_unit
                   | Some _ -> self#handle_drag_move action e t)
           ]);
-      super#add_class CSS.active;
       Lwt.return_unit
 
     method private handle_drag_move
@@ -235,7 +242,6 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       let f () =
         List.iter Lwt.cancel _temp_listeners;
         _temp_listeners <- [];
-        super#remove_class CSS.active;
         if _dragging
         then self#notify_change ()
         else self#notify_selected ();
@@ -324,8 +330,12 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
               w = _position.w -. (page_x -. (fst _coordinate))
             ; x = _position.x +. (page_x -. (fst _coordinate))
             } in
+        self#layout ();
         self#notify_input ~direction Resize position;
         Lwt.return_unit
+
+    method private create_ripple () : Ripple.t =
+      Ripple.attach super#root
 
   end
 

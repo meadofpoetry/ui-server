@@ -3,6 +3,7 @@
 @import "@material/theme/variables";
 @import "@material/typography/mixins";
 @import "@material/card/mixins";
+@import "./mixins";
 @import "./variables";
 
 $mosaic-grid-colors: (
@@ -25,6 +26,7 @@ $mosaic-grid-colors: (
     margin-left: auto;
     margin-right: auto;
     @include mdc-theme-prop(background-color, surface);
+    @include widget-grid-ripple();
 }
 
 .widget-grid__ghost {
@@ -42,10 +44,6 @@ $mosaic-grid-colors: (
     box-sizing: border-box;
     @include mdc-card-outline($grid-item-outline-color, 2px);
     @include mdc-theme-prop(background-color, surface);
-
-    &:focus {
-        @include mdc-theme-prop(background-color, surface);
-    }
 }
 
 .widget-grid__item-content {

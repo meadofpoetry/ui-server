@@ -1,0 +1,17 @@
+@import "@material/ripple/mixins";
+
+@mixin widget-grid-ripple($query: mdc-feature-all()) {
+    @include mdc-ripple-common($query);
+
+    .widget-grid__item {
+        @include widget-grid-item-interactive-ripple_($query);
+    }
+}
+
+@mixin widget-grid-item-interactive-ripple_($query: mdc-feature-all()) {
+    @include mdc-ripple-surface($query);
+    @include mdc-ripple-radius-bounded($query: $query);
+    @include mdc-states(mdc-theme-prop-value(on-surface), false, $query);
+    @include mdc-states-activated(primary, false, $query);
+    @include mdc-states-selected(primary, false, $query);
+}
