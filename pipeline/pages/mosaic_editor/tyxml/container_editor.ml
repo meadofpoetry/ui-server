@@ -39,7 +39,7 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   let create_widget ?(classes = []) ?attrs
       (container : Wm.position)
-      (id, widget : string * Wm.widget) : 'a elt =
+      (id, state, widget : string * Wm.Annotated.state * Wm.widget) : 'a elt =
     let style = Printf.sprintf "z-index: %d" widget.layer in
     let classes = CSS.widget :: classes in
     let parent_size =

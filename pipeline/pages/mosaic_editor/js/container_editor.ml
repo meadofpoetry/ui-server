@@ -19,8 +19,8 @@ let editing_mode_of_enum = function
   | _ -> invalid_arg "invalid mode value"
 
 type event =
-  [ `Layout of Wm.t
-  | `Streams of Structure.packed list
+  [ `Layout of Wm.Annotated.t
+  | `Streams of Structure.Annotated.t
   ]
 
 let ( >>= ) = Lwt.bind
@@ -223,9 +223,9 @@ let content_aspect_of_element (cell : Dom_html.element Js.t) =
   | Some x -> x
   | None -> failwith "no aspect provided"
 
-let filter_available_widgets (wm : Wm.t) : (string * Wm.widget) list =
-  List.fold_left (fun acc (_, (x : Wm.container)) ->
-      List.fold_left (fun acc (id, _) ->
+let filter_available_widgets (wm : Wm.Annotated.t) : (string * Wm.widget) list =
+  List.fold_left (fun acc (_, _, (x : Wm.Annotated.container)) ->
+      List.fold_left (fun acc (id, _, _) ->
           if List.mem_assoc id wm.widgets
           then List.remove_assoc id acc
           else acc) acc x.widgets)
@@ -260,8 +260,8 @@ type widget_mode_state =
   }
 
 class t ~(scaffold : Scaffold.t)
-    (structure : Structure.packed list)
-    (wm : Wm.t)
+    (structure : Structure.Annotated.t)
+    (wm : Wm.Annotated.t)
     (elt : Dom_html.element Js.t)
     () =
   let (grid : Grid.t) =
@@ -433,9 +433,11 @@ class t ~(scaffold : Scaffold.t)
         match _widget_editor with
         | None -> ()
         | Some (id, editor) ->
-          match List.assoc_opt id wm.layout with
+          match List.find_opt (fun (id', _, _) ->
+              String.equal id' id) wm.layout with
           | None -> () (* FIXME container lost, handle it somehow *)
-          | Some x -> editor#notify @@ `Container x
+          | Some (_, state, container) ->
+            editor#notify @@ `Container (state, container)
 
     (* Private methods *)
 
@@ -718,7 +720,7 @@ class t ~(scaffold : Scaffold.t)
 type grid_properties =
   { rows : Grid.value list
   ; cols : Grid.value list
-  ; cells : (string * (Wm.container * Grid.cell_position)) list
+  ; cells : (string * (Wm.Annotated.container * Grid.cell_position)) list
   }
 
 let first_grid_index = 1
@@ -743,7 +745,7 @@ let get_cell_pos_part (edge : int) points =
   else aux (first_grid_index + 1) points
 
 let get_cell_positions ~lefts ~tops =
-  List.map (fun (id, ({ position = x; _ } as c) : string * Wm.container) ->
+  List.map (fun (id, _, ({ Wm.Annotated. position = x; _ } as c)) ->
       let col = get_cell_pos_part x.left lefts in
       let row = get_cell_pos_part x.top tops in
       let col_end = get_cell_pos_part x.right lefts in
@@ -755,24 +757,24 @@ let get_cell_positions ~lefts ~tops =
               ; row_span = row_end - row
               }))
 
-let grid_properties_of_layout ({ resolution = w, h; layout; _ } : Wm.t) =
+let grid_properties_of_layout ({ resolution = w, h; layout; _ } : Wm.Annotated.t) =
   let sort = List.sort_uniq compare in
   let lefts, tops =
-    List.split @@ List.map (fun (_, { position; _ } : _ * Wm.container) ->
-        position.right, position.bottom) layout
+    List.split @@ List.map (fun (_, _, (c : Wm.Annotated.container)) ->
+        c.position.right, c.position.bottom) layout
     |> fun (x, y) -> sort x, sort y in
   let cols = points_to_frs w (get_deltas lefts) in
   let rows = points_to_frs h (get_deltas tops) in
   let cells = get_cell_positions ~lefts ~tops layout in
   { rows; cols; cells }
 
-let content_of_container (container : Wm.container) =
+let content_of_container (container : Wm.Annotated.container) =
   let widgets = List.map (Markup.create_widget container.position)
       container.widgets in
   [Markup.create_widget_wrapper widgets]
 
 let make_grid (props : grid_properties) =
-  let cells = List.map (fun (id, ((container : Wm.container), pos)) ->
+  let cells = List.map (fun (id, ((container : Wm.Annotated.container), pos)) ->
       Grid.Markup.create_cell
         ~attrs:Tyxml_js.Html.([a_user_data "title" id])
         ~content:(content_of_container container)
@@ -786,8 +788,8 @@ let make_grid (props : grid_properties) =
 
 let make
     ~(scaffold : Scaffold.t)
-    (structure : Structure.packed list)
-    (wm : Wm.t) =
+    (structure : Structure.Annotated.t)
+    (wm : Wm.Annotated.t) =
   let grid = make_grid @@ grid_properties_of_layout wm in
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element

@@ -4,7 +4,7 @@ open Pipeline_types
 open Components
 
 type event =
-  [ `Container of Wm.container
+  [ `Container of Wm.Annotated.state * Wm.Annotated.container
   ]
 
 let ( >>= ) = Lwt.bind

@@ -7,7 +7,7 @@ open Pipeline_types
 let ( >>= ) = Lwt.( >>= )
 
 type event =
-  [ `Streams of Structure.packed list
+  [ `Streams of Structure.Annotated.t
   | `Layout of Wm.t
   ]
 
@@ -20,41 +20,41 @@ let split_three l =
   List.fold_left (fun (first, second, third) (a, b, c) ->
       a :: first, b :: second, c :: third) ([], [], []) l
 
-module Parse_struct = struct
-
-  let stream id (signal : Structure.packed list) =
-    let packed =
-      List.find_opt (fun (x : Structure.packed) ->
-          Stream.ID.equal x.structure.id id) signal in
-    match packed with
-    | None -> None
-    | Some packed ->
-      Some (Stream.Source.to_string packed.source.source.info,
-            Uri.to_string packed.structure.uri, packed)
-
-  let channel (channel_ : int) (packed : Structure.packed) =
-    let channel =
-      List.find_opt (fun (ch : Structure.channel) -> ch.number = channel_)
-        packed.structure.channels in
-    match channel with
-    | None -> None
-    | Some channel -> Some (channel.service_name, channel.provider_name, channel)
-
-  let widget pid_ (channel : Structure.channel) =
-    let pid = List.find_opt (fun (pid : Structure.pid) ->
-        pid.pid = pid_) channel.pids in
-    match pid with
-    | None -> None
-    | Some pid ->
-      let stream_type =
-        Application_types.MPEG_TS.stream_type_to_string
-          pid.stream_type in
-      Some (stream_type,
-            "PID "
-            ^ (string_of_int pid.pid)
-            ^ (Printf.sprintf " (0x%04X)" pid.pid))
-
-end
+(* module Parse_struct = struct
+ * 
+ *   let stream id (signal : Structure.Annotated.t) =
+ *     let packed =
+ *       List.find_opt (fun (state, (structure : Structure.Annotated.structure)) ->
+ *           Stream.ID.equal structure.id id) signal in
+ *     match packed with
+ *     | None -> None
+ *     | Some (_, structure) ->
+ *       Some (Stream.Source.to_string structure.source.info,
+ *             Uri.to_string packed.structure.uri, packed)
+ * 
+ *   let channel (channel_ : int) (structure : Structure.Annotated.structure) =
+ *     let channel =
+ *       List.find_opt (fun (ch : Structure.channel) -> ch.number = channel_)
+ *         structure.channels in
+ *     match channel with
+ *     | None -> None
+ *     | Some channel -> Some (channel.service_name, channel.provider_name, channel)
+ * 
+ *   let widget pid_ (channel : Structure.channel) =
+ *     let pid = List.find_opt (fun (pid : Structure.pid) ->
+ *         pid.pid = pid_) channel.pids in
+ *     match pid with
+ *     | None -> None
+ *     | Some pid ->
+ *       let stream_type =
+ *         Application_types.MPEG_TS.stream_type_to_string
+ *           pid.stream_type in
+ *       Some (stream_type,
+ *             "PID "
+ *             ^ (string_of_int pid.pid)
+ *             ^ (Printf.sprintf " (0x%04X)" pid.pid))
+ * 
+ * end *)
 
 module Find = struct
 
@@ -83,7 +83,8 @@ module Branches = struct
     } [@@deriving yojson]
 
   (* makes a checkbox with id of domains and typ, and a tree item named by channel*)
-  let make_widget (widget : (string * Wm.widget) * channel) channel_struct =
+  let make_widget (widget : (string * Wm.widget) * channel)
+      (channel_struct : Structure.Annotated.channel) =
     let widget, channel = widget in
     let typ = (snd widget).type_ in
     let default_text () =
@@ -92,10 +93,10 @@ module Branches = struct
       | Audio -> "Аудио" in
     let text, secondary_text =
       match (snd widget).pid with
-      | Some pid ->
-        (match Parse_struct.widget pid channel_struct with
-         | None -> default_text (), Printf.sprintf "PID: %d (0x%04X)" pid pid
-         | Some s -> s)
+      | Some pid -> "", ""
+        (* (match Parse_struct.widget pid channel_struct with
+         *  | None -> default_text (), Printf.sprintf "PID: %d (0x%04X)" pid pid
+         *  | Some s -> s) *)
       | None -> default_text (), "" in
     let checkbox = Checkbox.make () in
     let data =
@@ -115,17 +116,18 @@ module Branches = struct
    * and a Tree.t containing all given channels *)
   let make_channels
       (widgets : ((string * Wm.widget) * channel) list)
-      (packed : Structure.packed) =
+      (state,
+       (structure : Structure.Annotated.structure)) =
     let channels = Find.channels widgets in
     List.rev
     @@ List.fold_left (fun acc channel ->
         let channel, stream = channel.channel, channel.stream in
         let channel_struct =
-          List.find_opt (fun (ch : Structure.channel) ->
-              channel = ch.number) packed.structure.channels in
+          List.find_opt (fun (_, (ch : Structure.Annotated.channel)) ->
+              channel = ch.number) structure.channels in
         match channel_struct with
         | None -> acc
-        | Some channel_struct ->
+        | Some (_, channel_struct) ->
           let text, secondary_text =
             channel_struct.service_name, string_of_int channel in
           let widgets =
@@ -147,7 +149,7 @@ module Branches = struct
 
   (* makes all the widget checkboxes with IDs, and a Tree.t containing all streams *)
   let make_streams (widgets : ((string * Wm.widget) * channel) list)
-      (structure : Structure.packed list) =
+      (structure : Structure.Annotated.t) =
     let streams =
       List.fold_left (fun acc (x : (string * Wm.widget) * channel) ->
           let channel = snd x in
@@ -165,36 +167,38 @@ module Branches = struct
           stream, wds) streams in
     let nodes =
       List.fold_left (fun acc (stream, wds) ->
-          match Parse_struct.stream stream structure with
-          | None -> acc
-          | Some (text, secondary_text, packed) ->
-            let channels = make_channels wds packed in
-            let checkbox = Checkbox.make () in
-            let stream_node =
-              Treeview.make_node
-                ~secondary_text
-                ~graphic:checkbox#root
-                ~children:channels
-                ~value:(Stream.ID.to_string stream)
-                text in
-            stream_node :: acc)
+          acc
+          (* match Parse_struct.stream stream structure with
+           * | None -> acc
+           * | Some (text, secondary_text, packed) ->
+           *   let channels = make_channels wds packed in
+           *   let checkbox = Checkbox.make () in
+           *   let stream_node =
+           *     Treeview.make_node
+           *       ~secondary_text
+           *       ~graphic:checkbox#root
+           *       ~children:channels
+           *       ~value:(Stream.ID.to_string stream)
+           *       text in
+           *   stream_node :: acc *))
         [] streams_of_widgets in
     Treeview.make ~dense:true ~two_line:true nodes
 
 end
 
-let layout_of_widgets ~resolution (data : Branches.data list)
-  : ((string * Wm.container) list) =
-  (* TODO implement *)
-  []
-
-let to_content (streams : Structure.packed list) (wm : Wm.t) =
+let to_content (streams : Structure.Annotated.t)
+    (wm : Wm.Annotated.t) =
   let widgets = Utils.List.filter_map (fun (name, (widget : Wm.widget)) ->
       match (widget.domain : Wm.domain) with
       | (Chan {stream; channel} : Wm.domain) ->
         Some ((name, widget), ({ stream; channel } : channel))
       | (Nihil : Wm.domain) -> None) wm.widgets in
   Branches.make_streams widgets streams
+
+let layout_of_widgets ~resolution (data : Branches.data list)
+  : ((string * Wm.container) list) =
+  (* TODO implement *)
+  []
 
 class t ~resolution ~treeview (elt : Dom_html.element Js.t) () =
   object
@@ -224,8 +228,8 @@ class t ~resolution ~treeview (elt : Dom_html.element Js.t) () =
   end
 
 let make
-    (streams : Structure.packed list)
-    (wm : Wm.t) =
+    (streams : Structure.Annotated.t)
+    (wm : Wm.Annotated.t) =
   let content = to_content streams wm in
   let actions =
     List.map Tyxml_js.Of_dom.of_button
