@@ -165,6 +165,9 @@ class t ?(drawer : #Drawer.t option)
       Option.iter Lwt.cancel resize_listener;
       resize_listener <- None;
 
+    method on_navigation_icon_click =
+      on_navigation_icon_click
+
     method set_on_navigation_icon_click f : unit =
       on_navigation_icon_click <- Some f
 

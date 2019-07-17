@@ -48,45 +48,36 @@ let set_tab_index ?prev
      | _ -> ());
   set 0 item
 
-let make_item_icon (widget : Wm.widget) =
-  let path = match widget.type_ with
-    | Video -> Icon.SVG.Path.video
-    | Audio -> Icon.SVG.Path.music in
-  Icon.SVG.make_simple path
-
-let make_item_content (widget : Wm.widget) =
-  let pid = match widget.pid with
-    | None -> None
-    | Some pid ->
-      let text = Printf.sprintf "PID: %d" pid in
-      Some (Typography.Text.make text)#markup in
-  let ( ^:: ) x l = match x with None -> l | Some x -> x :: l in
-  let text = Typography.Text.make widget.description in
-  let icon = make_item_icon widget in
-  Tyxml_js.To_dom.of_element
-  @@ Tyxml_js.Html.(
-      div ~a:[a_class [CSS.item_content]]
-        (icon#markup :: (pid ^:: [text#markup])))
-
 let make_item ~parent_size (id, widget : string * Wm.widget) =
-  let item = Resizable.make ~classes:[CSS.item] () in
-  Widget_utils.set_attributes ~id ~parent_size item#root widget;
-  Element.append_child item#root (make_item_content widget);
+  let item = Tyxml_js.To_dom.of_element @@ Markup.create_item widget in
+  Widget_utils.set_attributes ~id ~parent_size item widget;
   item
 
 module Selection = struct
   include Selection
 
-  let class_ = Resizable.CSS.active
+  let class_ = CSS.item_selected
 
   let selectables = [Query Selector.item]
 
   let boundaries = [Query Selector.parent]
 
+  let item_of_event (e : #Dom_html.event Js.t) =
+    let target = Dom.eventTarget e in
+    let selector = Printf.sprintf ".%s, .%s" CSS.item CSS.root in
+    let nearest_parent = Element.closest target selector in
+    Js.Opt.bind nearest_parent (fun (parent : Dom_html.element Js.t) ->
+        if not @@ Element.matches parent ("." ^ CSS.item)
+        then Js.null else Js.some parent)
+
   let validate_start = fun e ->
-    Js.Opt.case (Dom_html.CoerceTo.mouseEvent e)
-      (fun () -> true)
-      (fun e -> e##.button = 0)
+    let item = item_of_event e in
+    Js.Opt.case item
+      (fun () ->
+         Js.Opt.case (Dom_html.CoerceTo.mouseEvent e)
+           (fun () -> true)
+           (fun e -> e##.button = 0))
+      (fun _ -> false)
 
   let on_start = fun { selected; selection; _ } ->
     List.iter (fun x -> Element.remove_class x class_) selected;
@@ -108,6 +99,7 @@ module Selection = struct
       ~on_start
       ~on_move
       ~on_stop:(on_stop handle_selected)
+      ~on_outside_click:(fun _ -> ())
       ()
 end
 
@@ -189,7 +181,6 @@ module Util = struct
 end
 
 class t
-    ~(items : Resizable.t list)
     ~(list_of_widgets : List_of_widgets.t)
     ~(position : Wm.position)
     (scaffold : Scaffold.t)
@@ -211,12 +202,13 @@ class t
     val ghost = match Element.query_selector elt Selector.grid_ghost with
       | None -> failwith "widget-editor: grid ghost element not found"
       | Some x -> x
+    val transform = Transform.make ()
     val undo_manager = Undo_manager.create ()
 
     val mutable format = List_of_widgets.format
-    val mutable _items = items
     val mutable _listeners = []
     val mutable _focused_item = None
+    val mutable _top_app_bar_context = None
     val mutable min_size = 20.
 
     val mutable _selection = None
@@ -226,21 +218,21 @@ class t
 
     method! init () : unit =
       super#init ();
-      _selection <- Some (Selection.make (fun _ -> ()));
+      Dom.appendChild super#root transform#root;
+      _selection <- Some (Selection.make self#handle_selected);
       _basic_actions <- self#create_actions ()
 
     method! initial_sync_with_dom () : unit =
       _listeners <- Events.(
-          [ Resizable.Event.inputs super#root self#handle_item_action
-          ; Resizable.Event.changes super#root self#handle_item_change
-          ; Resizable.Event.selects super#root self#handle_item_selected
+          [ Transform.Event.inputs super#root self#handle_item_action
+          ; Transform.Event.changes super#root self#handle_item_change
           ; keydowns super#root self#handle_keydown
           ]);
       super#initial_sync_with_dom ()
 
     method! destroy () : unit =
+      self#restore_top_app_bar_context ~hard:true ();
       List.iter Lwt.cancel _listeners; _listeners <- [];
-      List.iter Widget.destroy _items; _items <- [];
       Utils.Option.iter Widget.destroy _selection;
       _selection <- None;
       super#destroy ()
@@ -260,7 +252,6 @@ class t
       let height' = h *. scale_factor in
       super#root##.style##.width := Js.string (Printf.sprintf "%gpx" width');
       super#root##.style##.height := Js.string (Printf.sprintf "%gpx" height');
-      List.iter Widget.layout _items;
       grid_overlay#layout ();
       super#layout ()
 
@@ -300,19 +291,15 @@ class t
     (** Add item with undo *)
     method private add_item w p =
       let item = make_item ~parent_size:self#size w in
-      self#add_item_ (fst w) item#root p;
+      self#add_item_ (fst w) item p;
       Undo_manager.add undo_manager
-        { undo = (fun () -> self#remove_item_ item#root)
-        ; redo = (fun () -> self#add_item_ (fst w) item#root p)
+        { undo = (fun () -> self#remove_item_ item)
+        ; redo = (fun () -> self#add_item_ (fst w) item p)
         }
 
     method private remove_item_ (item : Dom_html.element Js.t) =
       list_of_widgets#append_item @@ Widget_utils.widget_of_element item;
       Element.remove_child_safe super#root item;
-      _items <- List.filter (fun (x : Resizable.t) ->
-          let b = Element.equal item x#root in
-          if b then x#destroy ();
-          not b) _items
 
     (** Remove item with undo *)
     method private remove_item item =
@@ -332,8 +319,6 @@ class t
                   ; add_widget scaffold
                   ] in
       [menu#widget]
-
-    method private selected = []
 
     method private items_ ?(sort = false) () : Dom_html.element Js.t list =
       let get_position = Widget_utils.Attr.get_position ~parent_size:self#size in
@@ -375,6 +360,61 @@ class t
           | _ -> ());
       Lwt.return_unit
 
+    method private restore_top_app_bar_context ?hard () : unit =
+      match _top_app_bar_context with
+      | None -> ()
+      | Some f -> f (); _top_app_bar_context <- None
+
+    method private transform_top_app_bar items =
+      let title = match items with
+        | [] -> assert false
+        | [x] -> "Выбран виджет" (* FIXME *)
+        | x -> Printf.sprintf "Выбрано виджетов: %d" @@ List.length x in
+      let restore = Actions.transform_top_app_bar
+          ~title
+          (* FIXME move class to some common module *)
+          ~class_:Page_mosaic_editor_tyxml.Container_editor.CSS.top_app_bar_contextual
+          ~actions:[] (* TODO *)
+          ~on_navigation_icon_click:(fun _ _ ->
+              self#clear_selection ();
+              self#restore_top_app_bar_context ();
+              Lwt.return_unit)
+          scaffold in
+      match _top_app_bar_context with
+      | Some _ -> ()
+      | None -> _top_app_bar_context <- Some restore
+
+    method private selection : Selection.t =
+      match _selection with
+      | None -> failwith "`selection` instance is not initialized"
+      | Some x -> x
+
+    method private clear_selection () : unit =
+      transform#root##.style##.visibility := Js.string "hidden";
+      Position.apply_to_element ~unit:`Px Position.empty transform#root;
+      List.iter (fun x -> Element.remove_class x Selection.class_) self#selected;
+
+      self#selection#deselect_all ()
+
+    method private selected = self#selection#selected
+
+    method private handle_selected (items : Dom_html.element Js.t list) =
+      match items with
+      | [] -> self#restore_top_app_bar_context ()
+      | l ->
+        let rect =
+          Position.bounding_rect
+          @@ List.map (fun x ->
+              { Position.
+                x = Js.parseFloat x##.style##.left
+              ; y = Js.parseFloat x##.style##.top
+              ; w = Js.parseFloat x##.style##.width
+              ; h = Js.parseFloat x##.style##.height
+              }) l in
+        transform#root##.style##.visibility := Js.string "visible";
+        Position.apply_to_element ~unit:`Pc rect transform#root;
+        self#transform_top_app_bar l
+
     method private handle_item_selected e _ =
       let target = Dom_html.eventTarget e in
       target##focus;
@@ -414,7 +454,6 @@ class t
       let adjusted = Position.to_relative ~parent_size adjusted in
       grid_overlay#set_snap_lines lines;
       Position.apply_to_element adjusted target;
-      Element.add_class target CSS.item_dragging;
       Lwt.return_unit
 
     (* TODO this is a next task *)
@@ -426,7 +465,6 @@ class t
         @@ Position.of_client_rect
         @@ Widget.event_detail e in
       self#set_position_attributes target position;
-      Element.remove_class target CSS.item_dragging;
       Lwt.return_unit
 
     method private set_position_attributes
@@ -454,7 +492,7 @@ class t
       fun ?aspect event ->
       (* FIXME too expensive to call getBoundingClientRect every time *)
       let rect = super#root##getBoundingClientRect in
-      let (x, y) = Resizable.get_cursor_position event in
+      let (x, y) = Transform.get_cursor_position event in
       let point = x -. rect##.left, y -. rect##.top in
       let position =
         { Position.
@@ -559,12 +597,11 @@ let make ~(scaffold : Scaffold.t)
   let items = match widgets with
     | `Nodes x ->
       List.map (fun (x : Dom_html.element Js.t) ->
-          let item = Resizable.make ~classes:[CSS.item] () in
-          Widget_utils.copy_attributes x item#root;
           let _, widget = Widget_utils.widget_of_element x in
-          let pos = Widget_utils.Attr.get_relative_position item#root in
-          Dom.appendChild item#root (make_item_content widget);
-          Position.apply_to_element ~unit:`Pc pos item#root;
+          let item = Tyxml_js.To_dom.of_element @@ Markup.create_item widget in
+          Widget_utils.copy_attributes x item;
+          let pos = Widget_utils.Attr.get_relative_position item in
+          Position.apply_to_element ~unit:`Pc pos item;
           item) x
     | `Data x ->
       let parent_size =
@@ -574,8 +611,8 @@ let make ~(scaffold : Scaffold.t)
   let content =
     Markup.create_overlay ()
     :: Markup.create_ghost ()
-    :: List.map Widget.to_markup items in
+    :: List.map Tyxml_js.Of_dom.of_element items in
   let elt =
     Tyxml_js.To_dom.of_element
-    @@ Markup.create_grid ~content () in
-  new t ~items ~list_of_widgets ~position scaffold elt ()
+    @@ Markup.create ~content () in
+  new t ~list_of_widgets ~position scaffold elt ()

@@ -137,7 +137,7 @@ class t ?(show_grid_lines = true)
       let cols = (width / size) + 1 in
       let rows = (height / size) + 1 in
       let color = color_from_css canvas in
-      context##.lineWidth := 0.5;
+      context##.lineWidth := 0.3;
       self#draw_rows ~color ~cols ~rows;
       self#draw_columns ~color ~cols ~rows;
       self#draw_dividers ~color ~cols ~rows

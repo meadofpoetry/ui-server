@@ -124,6 +124,7 @@ class t
     ?on_select
     ?on_move
     ?on_stop
+    ?on_outside_click
     (clip : Dom_html.element Js.t)
     () = object(self)
 
@@ -223,6 +224,7 @@ class t
       | `Start -> on_start
       | `Move -> on_move
       | `Stop -> on_stop
+      | `Outside_click -> on_outside_click
       | `Selected x ->
         match on_select with
         | None -> None
@@ -424,8 +426,15 @@ class t
       if List.memq el _selectables
       then Some el
       else Js.Opt.case (Element.get_parent el) (fun () -> None) loop in
+    (* Resolve selectables again.
+       If the user starded in a scrollable area they will be reduced
+       to the current area. Prevent the exclusion of these if a range-selection
+       gets performed. *)
+    self#resolve_selectables ();
     match loop (Dom_html.eventTarget e) with
-    | None -> Lwt.return_unit
+    | None ->
+      self#notify_event `Outside_click e;
+      Lwt.return_unit
     | Some target ->
       if false (* FIXME *)
       then (
@@ -555,11 +564,11 @@ type event = t detail
 let make
     ?single_click ?validate_start ?start_threshold ?scroll_speed_divider
     ?start_areas ?boundaries ?selectables ?mode ?class_ ?container
-    ?on_start ?on_select ?on_move ?on_stop () =
+    ?on_start ?on_select ?on_move ?on_stop ?on_outside_click () =
   let elt = Dom_html.(createDiv document) in
   new t ?single_click ?validate_start
     ?start_threshold ?scroll_speed_divider
     ?start_areas ?boundaries ?selectables
     ?mode ?class_ ?container
-    ?on_start ?on_select ?on_move ?on_stop
+    ?on_start ?on_select ?on_move ?on_stop ?on_outside_click
     elt ()

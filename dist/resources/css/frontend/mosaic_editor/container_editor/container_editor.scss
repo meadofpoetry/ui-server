@@ -14,7 +14,7 @@ $divider-color: if(
     position: relative;
     border-radius: 2px;
     border-width: 1px;
-    border-style: solid;
+    border-style: dashed;
     @include mdc-theme-prop(border-color, primary);
 
     &:before {
@@ -124,7 +124,7 @@ $divider-color: if(
         @include mdc-theme-prop(background-color, secondary);
     }
 
-    .container-grid {
+    .grid {
         position: absolute;
         top: 0;
         left: 0;
@@ -133,7 +133,7 @@ $divider-color: if(
         margin-right: auto;
     }
 
-    .container-grid__cell {
+    .grid__cell {
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -156,25 +156,25 @@ $divider-color: if(
 }
 
 .container-editor:not(.container-editor--content-mode) {
-    .container-grid__cell:before {
+    .grid__cell:before {
         content: attr(aria-colindex) 'x' attr(aria-rowindex);
     }
 }
 
 .container-editor--content-mode {
-    .container-grid {
+    .grid {
         &__mul-handle, &__row-handle, &__col-handle {
             display: none;
         }
     }
 }
 
-.container-grid__cell--dragging {
+.grid__cell--dragging {
     transform: scale(0.8);
     opacity: 0.75;
 }
 
-.container-grid__cell--dragover {
+.grid__cell--dragover {
     border-width: 2px;
     border-style: dashed;
     @include mdc-theme-prop(border-color, primary);

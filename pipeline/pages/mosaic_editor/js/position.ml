@@ -236,6 +236,22 @@ let of_client_rect (r : Dom_html.clientRect Js.t) : t =
   ; h = Js.Optdef.get r##.height (fun () -> r##.bottom -. r##.top)
   }
 
+let bounding_rect = function
+  | [] -> empty
+  | [x] -> x
+  | hd :: tl ->
+    let acc = hd.x, hd.y, hd.x +. hd.w, hd.y +. hd.h in
+    let (x, y, r, b) =
+      List.fold_left (fun (x, y, r, b) pos ->
+          let pos_right = pos.w +. pos.x in
+          let pos_bottom = pos.h +. pos.y in
+          min x pos.x,
+          min y pos.y,
+          max r pos_right,
+          max b pos_bottom)
+        acc tl in
+    { x; y; w = r -. x; h = b -. y }
+
 (* min_distance - pixels
    return: (other element align as line_align_direction *
             minimum distance of several lines of one align as int) 

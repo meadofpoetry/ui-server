@@ -614,19 +614,19 @@ class t ~(scaffold : Scaffold.t)
             Printf.sprintf "Выбрано ячеек: %d"
             @@ List.length cells in
         let restore = Actions.transform_top_app_bar
+            ~title
             ~class_:CSS.top_app_bar_contextual
             ~actions:(match _edit_mode with
                 | Table -> _cell_selected_actions
                 | Content -> _cont_selected_actions)
-            ~title
+            ~on_navigation_icon_click:(fun _ _ ->
+                self#clear_selection ();
+                self#restore_top_app_bar_context ();
+                Lwt.return_unit)
             scaffold in
         match _top_app_bar_context with
         | _ :: _ -> ()
         | [] ->
-          scaffold#set_on_navigation_icon_click (fun _ _ ->
-              self#clear_selection ();
-              self#restore_top_app_bar_context ();
-              Lwt.return_unit);
           _top_app_bar_context <- [restore]
 
     method private create_actions () : Overflow_menu.t =

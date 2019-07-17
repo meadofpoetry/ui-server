@@ -29,6 +29,8 @@ val to_client_rect : t -> Dom_html.clientRect Js.t
 
 val of_client_rect : Dom_html.clientRect Js.t -> t
 
+val bounding_rect : t list -> t
+
 val adjust :
   ?aspect_ratio:(int * int) (* Aspect ratio of active item, if any *)
   -> ?snap_lines:bool

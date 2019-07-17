@@ -3,8 +3,10 @@ open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 open Components
 
-include Page_mosaic_editor_tyxml.Resizable
+include Page_mosaic_editor_tyxml.Transform
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
+
+let name = "transform"
 
 module Attr = struct
   let up = "data-up"
@@ -38,13 +40,10 @@ module Event = struct
 
   module Typ = struct
     let input : input Js.t Dom_html.Event.typ =
-      Dom_html.Event.make "mosaic-resizable:resize"
+      Dom_html.Event.make @@ Printf.sprintf "%s:resize" name
 
     let change : event Js.t Dom_html.Event.typ =
-      Dom_html.Event.make "mosaic-resizable:change"
-
-    let select : event Js.t Dom_html.Event.typ =
-      Dom_html.Event.make "mosaic-resizable:selected"
+      Dom_html.Event.make @@ Printf.sprintf "%s:change" name
   end
 
   let input ?use_capture h =
@@ -58,12 +57,6 @@ module Event = struct
 
   let changes ?cancel_handler ?use_capture h =
     Lwt_js_events.seq_loop ?cancel_handler ?use_capture change h
-
-  let select ?use_capture h =
-    Lwt_js_events.make_event Typ.select h
-
-  let selects ?cancel_handler ?use_capture h =
-    Lwt_js_events.seq_loop ?cancel_handler ?use_capture select h
 end
 
 let unwrap x = Js.Optdef.get x (fun () -> assert false)
@@ -127,7 +120,6 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
 
     val mutable _listeners = []
     val mutable _temp_listeners = []
-    val mutable _ripple = None
 
     val mutable _dragging = false
 
@@ -140,8 +132,7 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
     inherit Widget.t elt () as super
 
     method! init () : unit =
-      super#init ()(* ;
-       * _ripple <- Some (self#create_ripple ()) *)
+      super#init ()
 
     method! initial_sync_with_dom () : unit =
       _listeners <- Lwt_js_events.(
@@ -150,17 +141,11 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
           ]);
       super#initial_sync_with_dom ()
 
-    method! layout () : unit =
-      Utils.Option.iter Ripple.layout _ripple;
-      super#layout ()
-
     method! destroy () : unit =
       List.iter Lwt.cancel _listeners;
       List.iter Lwt.cancel _temp_listeners;
       _listeners <- [];
       _temp_listeners <- [];
-      Utils.Option.iter Ripple.destroy _ripple;
-      _ripple <- None;
       super#destroy ()
 
     method set_min_size (x : int) : unit =
@@ -182,14 +167,9 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       let detail = Position.(to_client_rect @@ of_element super#root) in
       super#emit ~should_bubble:true ~detail Event.Typ.change
 
-    method private notify_selected () : unit =
-      let detail = Position.to_client_rect _position in
-      super#emit ~should_bubble:true ~detail Event.Typ.select
-
     method private handle_drag_start
       : 'a. (#Dom_html.event as 'a) Js.t -> unit Lwt.t -> unit Lwt.t =
       fun (event : #Dom_html.event Js.t) _ ->
-      Js.Unsafe.global##.console##log event |> ignore;
       Dom.preventDefault event;
       Dom_html.stopPropagation event;
       _dragging <- false;
@@ -248,9 +228,7 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       let f () =
         List.iter Lwt.cancel _temp_listeners;
         _temp_listeners <- [];
-        if _dragging
-        then self#notify_change ()
-        else self#notify_selected ();
+        self#notify_change ();
         Lwt.return_unit in
       Js.Opt.case
         (Dom_html.CoerceTo.mouseEvent event)

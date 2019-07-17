@@ -1,11 +1,8 @@
 open Components_tyxml
 
 module CSS = struct
-
-  let root = "resizable"
-  let active = BEM.add_modifier root "active"
+  let root = "transform"
   let resizer = BEM.add_element root "resizer"
-  let ripple = BEM.add_element root "ripple"
 end
 
 module Make(Xml : Xml_sigs.NoWrap)
@@ -14,10 +11,6 @@ module Make(Xml : Xml_sigs.NoWrap)
                               and module Svg := Svg) = struct
   open Html
   open Utils
-
-  let create_ripple_surface ?(classes = []) ?attrs () : 'a elt =
-    let classes = CSS.ripple :: classes in
-    div ~a:([a_class classes] <@> attrs) []
 
   let create_resizer ?(classes = []) ?attrs ?up ?left ?right ?down () : 'a elt =
     let classes = CSS.resizer :: classes in
@@ -46,8 +39,7 @@ module Make(Xml : Xml_sigs.NoWrap)
     div ~a:([ a_class classes
             ; a_tabindex tabindex
             ; a_role ["slider"]] <@> attrs)
-      [ create_ripple_surface ()
-      ; create_resizer ~up:true ~left:true ()
+      [ create_resizer ~up:true ~left:true ()
       ; create_resizer ~up:true ~right:true ()
       ; create_resizer ~down:true ~left:true ()
       ; create_resizer ~down:true ~right:true ()

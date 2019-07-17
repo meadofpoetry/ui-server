@@ -2,10 +2,10 @@
 @import "@material/animation/functions";
 @import "@material/button/mixins";
 @import "@material/top-app-bar/variables";
-@import './widget_editor/widget_editor';
+@import "./widget_editor/widget_editor";
 @import "./container_editor/container_editor";
-@import './resizable/resizable';
-@import "./resizable_grid/resizable_grid";
+@import "./transform/transform";
+@import "./grid/grid";
 @import "./overflow_menu/overflow_menu";
 @import "./variables";
 

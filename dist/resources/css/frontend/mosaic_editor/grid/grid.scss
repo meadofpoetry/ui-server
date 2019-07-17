@@ -1,7 +1,7 @@
 @import "@material/theme/mixins";
 @import "./variables";
 
-.container-grid {
+.grid {
     display: grid;
     overflow: hidden;
     gap: $container-grid-gap;
@@ -67,8 +67,8 @@
     }
 }
 
-.container-grid__cell--dragging-column {
-    .container-grid__col-handle:after {
+.grid__cell--dragging-column {
+    .grid__col-handle:after {
         content: "";
         width: $container-grid-gap;
         position: absolute;
@@ -80,8 +80,8 @@
     }
 }
 
-.container-grid__cell--dragging-row {
-    .container-grid__row-handle:after {
+.grid__cell--dragging-row {
+    .grid__row-handle:after {
         content: "";
         height: $container-grid-gap;
         position: absolute;

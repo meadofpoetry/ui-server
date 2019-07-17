@@ -257,18 +257,23 @@ let transform_top_app_bar
     ?(actions = [])
     ?(title : string option)
     ?(class_ : string option)
+    ?on_navigation_icon_click
     (scaffold : Scaffold.t) =
   match scaffold#top_app_bar with
   | None -> fun () -> ()
   | Some x ->
+    let prev_nav_icon_click = scaffold#on_navigation_icon_click in
     let prev_title = x#title in
     let prev_actions = x#actions in
+    Utils.Option.iter scaffold#set_on_navigation_icon_click on_navigation_icon_click;
     Utils.Option.iter x#set_title title;
     Utils.Option.iter x#add_class class_;
     x#set_actions @@ List.map Widget.root actions;
     List.iter Widget.layout actions;
     (fun () ->
-       scaffold#set_on_navigation_icon_click_default ();
+       (match prev_nav_icon_click with
+        | None -> scaffold#set_on_navigation_icon_click_default ()
+        | Some f -> scaffold#set_on_navigation_icon_click f);
        x#set_title prev_title;
        x#set_actions prev_actions;
        Utils.Option.iter x#remove_class class_)

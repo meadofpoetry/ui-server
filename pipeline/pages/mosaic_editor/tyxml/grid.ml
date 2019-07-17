@@ -84,7 +84,7 @@ let property_to_string : property -> string = function
   | `Value v -> String.concat " " @@ List.map value_to_string v
 
 module CSS = struct
-  let root = "container-grid"
+  let root = "grid"
 
   let cell = BEM.add_element root "cell"
 
