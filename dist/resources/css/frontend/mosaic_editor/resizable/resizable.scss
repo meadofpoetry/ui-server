@@ -7,9 +7,7 @@
     cursor: pointer;
 
     &--active &__resizer,
-    &--active &__resizers,
-    &:focus &__resizer,
-    &:focus &__resizers {
+    &--active &__resizers {
         z-index: 999;
         opacity: 1;
     }

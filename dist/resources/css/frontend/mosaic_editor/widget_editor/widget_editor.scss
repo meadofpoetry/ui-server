@@ -11,12 +11,6 @@ $mosaic-grid-colors: (
     light: rgba(white, .2)
 ) !default;
 
-.mosaic-table-wrapper {
-    width: 100%;
-    height: 100%;
-    display: flex;
-}
-
 .widget-grid {
     margin: 0 auto;
     position: absolute;
@@ -42,8 +36,15 @@ $mosaic-grid-colors: (
     align-items: center;
     overflow: hidden;
     box-sizing: border-box;
-    @include mdc-card-outline($grid-item-outline-color, 2px);
+    @include mdc-card-outline($grid-item-outline-color, 1px);
     @include mdc-theme-prop(background-color, surface);
+
+    &--dragging {
+        @include mdc-elevation(8);
+        :before, :after {
+            display: none;
+        }
+    }
 }
 
 .widget-grid__item-content {

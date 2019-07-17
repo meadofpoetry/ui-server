@@ -1,11 +1,12 @@
 open Components_tyxml
 
 module CSS = struct
-  let grid = "widget-grid"
-  let grid_item = BEM.add_element grid "item"
-  let grid_item_content = BEM.add_element grid "item-content"
-  let grid_ghost = BEM.add_element grid "ghost"
-  let grid_overlay = BEM.add_element grid "overlay"
+  let root = "widget-grid"
+  let item = BEM.add_element root "item"
+  let item_content = BEM.add_element root "item-content"
+  let item_dragging = BEM.add_modifier item "dragging"
+  let ghost = BEM.add_element root "ghost"
+  let overlay = BEM.add_element root "overlay"
 end
 
 module Make(Xml : Xml_sigs.NoWrap)
@@ -17,16 +18,16 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   module Card' = Card.Make(Xml)(Svg)(Html)
 
-  let create_grid_overlay ?(classes = []) ?attrs () =
-    let classes = CSS.grid_overlay :: classes in
+  let create_overlay ?(classes = []) ?attrs () =
+    let classes = CSS.overlay :: classes in
     canvas ~a:([a_class classes] <@> attrs) []
 
-  let create_grid_ghost ?(classes = []) ?attrs () =
-    let classes = CSS.grid_ghost :: classes in
+  let create_ghost ?(classes = []) ?attrs () =
+    let classes = CSS.ghost :: classes in
     div ~a:([a_class classes] <@> attrs) []
 
   let create_grid ?(classes = []) ?attrs ?(content = []) () =
-    let classes = CSS.grid :: classes in
+    let classes = CSS.root :: classes in
     div ~a:([ a_class classes
             ; a_role ["grid"] ])
       content

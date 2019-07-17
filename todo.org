@@ -1,5 +1,5 @@
 * Project goals
-
+  
 ** TODO Alpha goals [6/16]:
 - [X] Rearrange project libraries
   - [X] Separate utility libraries
@@ -112,3 +112,4 @@
 
 ** TODO After release [0/1]:
 - [ ] SNMP
+- [ ] Static gstreamer pipeline

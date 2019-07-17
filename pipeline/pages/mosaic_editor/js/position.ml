@@ -107,6 +107,30 @@ let fix_aspect (p : t) (aspect : int * int) =
   in
   { p with w = float_of_int w; h = float_of_int h }
 
+let fix_aspect2
+    (dir : resize_direction)
+    (p : t)
+    (orig_pos : t)
+    (aspect : int * int) =
+  let asp =
+    if fst aspect = 0
+    then 1.0
+    else (float_of_int (snd aspect)) /. (float_of_int (fst aspect)) in
+  let asp = if asp <= 0.0 then 1.0 else asp in
+  match dir with
+  | Top_left -> { p with y = orig_pos.y ; h = p.w *. asp  }
+  | Top_right -> { p with y = orig_pos.y ; h = p.w *. asp }
+  | Bottom_left -> { p with h = p.w *. asp }
+  | Bottom_right -> { p with h = p.w *. asp }
+  (* not tested *)
+  | Top -> p
+  (* not tested *)
+  | Bottom -> p
+  (* not tested *)
+  | Left -> p
+  (* not tested *)
+  | Right -> p
+
 (** Changes top and left coordinates to correspond parent dimentions *)
 let fix_xy ?min_x ?min_y ?max_x ?max_y ?(parent_w = 1.) ?(parent_h = 1.) (p : t) =
   let x =
@@ -225,13 +249,7 @@ let line_find_closest_align
   let rec count_aligns line_align_val (distance: (line_align_direction * float)) = function
     | [] -> distance
     | hd :: tl ->
-      let icompare =
-        { x = (of_element (* ~parent_f:(parent_w_f, parent_h_f) *) hd ).x
-        ; y = (of_element (* ~parent_f:(parent_w_f, parent_h_f) *) hd ).y
-        ; w = (of_element (* ~parent_f:(parent_w_f, parent_h_f) *) hd ).w
-        ; h = (of_element (* ~parent_f:(parent_w_f, parent_h_f) *) hd ).h
-        }
-      in
+      let icompare = of_element hd in
       let (distance : line_align_direction * float) =
         if Element.equal item hd
         then count_aligns line_align_val distance tl (*distance*) else
@@ -581,11 +599,11 @@ let get_snap_lines
   let snap_list =
     match action with
     | `Move ->
-      vlines_for_move_action item pos min_distance items
-      @ hlines_for_move_action item pos min_distance items
+      vlines_for_move_action item pos 1.0 items
+      @ hlines_for_move_action item pos 1.0 items
     | `Resize dir ->
-      vlines_for_resize_action item pos min_distance items dir
-      @ hlines_for_resize_action item pos min_distance items dir
+      vlines_for_resize_action item pos 1.0 items dir
+      @ hlines_for_resize_action item pos 1.0 items dir
   in
   let rec create_lines action acc = function
     (* (inplist: (line_align_direction * int * (line_align_direction * int)) list )  (*= function *)
@@ -649,8 +667,7 @@ let fix_collisions
     (original_position : t)
     (position : t)
     (item : Dom_html.element Js.t)
-    (items : Dom_html.element Js.t list)
-    (parent_w_f, parent_h_f : float * float) =
+    (items : Dom_html.element Js.t list) =
   let rec positions_at_items acc = function
     | [] -> acc
     | hd :: tl ->
@@ -663,10 +680,41 @@ let fix_collisions
   then original_position
   else position
 
-let snap_to_grid pos (grid_step : float) =
+let snap_to_grid_move pos (grid_step : float) =
   let x = Js.math##round (pos.x /. grid_step) *. grid_step in
   let y = Js.math##round (pos.y /. grid_step) *. grid_step in
   { pos with x; y }
+
+let snap_to_grid_resize (direction : resize_direction)  pos (grid_step : float) =
+  match direction with
+    | Top_left ->
+      let x = Js.math##round (pos.x /. grid_step) *. grid_step in
+      let y = Js.math##round (pos.y /. grid_step) *. grid_step in
+      let w = pos.w +. pos.x -. x in
+      let h = pos.h +. pos.y -. y in
+      { x; y; h; w }
+    | Top_right ->
+      let y = Js.math##round (pos.y /. grid_step) *. grid_step in
+      let w = Js.math##round (pos.w /. grid_step) *. grid_step in
+      let h = pos.h +. pos.y -. y in
+      { pos with y; h; w }
+    | Bottom_left ->
+      let x = Js.math##round (pos.x /. grid_step) *. grid_step in
+      let w = pos.w +. pos.x -. x in
+      let h = Js.math##round (pos.h /. grid_step) *. grid_step in
+      { pos with x; w; h }
+    | Bottom_right ->
+      let w = Js.math##round (pos.w /. grid_step) *. grid_step in
+      let h = Js.math##round (pos.h /. grid_step) *. grid_step in
+      { pos with w; h }
+    (* not tested *)
+    | Top -> pos
+    (* not tested *)
+    | Bottom -> pos
+    (* not tested *)
+    | Left -> pos
+    (* not tested *)
+    | Right -> pos
 
 let adjust ?aspect_ratio
     ?(snap_lines = true)
@@ -684,11 +732,19 @@ let adjust ?aspect_ratio
     ~(parent_size : float * float) (* need if input positions is int pixel coordinates *)
     (item : Dom_html.element Js.t) : t * line list =
   let parent_w, parent_h = parent_size in
-  (* FIXME fix this *)
-  (* let position = match grid_step with
-   *   | None -> position
-   *   | Some grid_step -> snap_to_grid position grid_step
-   *    in *)
+  (* let position = match grid_step, action with
+   *   | None, _ -> position
+   *   | Some step, `Move -> snap_to_grid_move position step
+   *   | Some step, `Resize dir -> snap_to_grid_resize dir position step
+   * in *)
+  let position =
+    match aspect_ratio with
+    | None -> position
+    | Some x ->
+      match action with
+      | `Move -> fix_aspect2 Bottom_right position original_position x
+      | `Resize resz -> fix_aspect2 resz position original_position x
+  in
   let position = match snap_lines, action with
     | false, _ -> position
     | true, `Move ->

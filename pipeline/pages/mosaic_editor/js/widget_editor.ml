@@ -16,9 +16,9 @@ include Page_mosaic_editor_tyxml.Widget_editor
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
 module Selector = struct
-  let item = Printf.sprintf ".%s" CSS.grid_item
-  let grid_overlay = Printf.sprintf ".%s" CSS.grid_overlay
-  let grid_ghost = Printf.sprintf ".%s" CSS.grid_ghost
+  let item = Printf.sprintf ".%s" CSS.item
+  let grid_overlay = Printf.sprintf ".%s" CSS.overlay
+  let grid_ghost = Printf.sprintf ".%s" CSS.ghost
   let parent = Printf.sprintf ".%s" Card.CSS.media
 end
 
@@ -65,11 +65,11 @@ let make_item_content (widget : Wm.widget) =
   let icon = make_item_icon widget in
   Tyxml_js.To_dom.of_element
   @@ Tyxml_js.Html.(
-      div ~a:[a_class [CSS.grid_item_content]]
+      div ~a:[a_class [CSS.item_content]]
         (icon#markup :: (pid ^:: [text#markup])))
 
 let make_item ~parent_size (id, widget : string * Wm.widget) =
-  let item = Resizable.make ~classes:[CSS.grid_item] () in
+  let item = Resizable.make ~classes:[CSS.item] () in
   Widget_utils.set_attributes ~id ~parent_size item#root widget;
   Element.append_child item#root (make_item_content widget);
   item
@@ -414,6 +414,7 @@ class t
       let adjusted = Position.to_relative ~parent_size adjusted in
       grid_overlay#set_snap_lines lines;
       Position.apply_to_element adjusted target;
+      Element.add_class target CSS.item_dragging;
       Lwt.return_unit
 
     (* TODO this is a next task *)
@@ -425,6 +426,7 @@ class t
         @@ Position.of_client_rect
         @@ Widget.event_detail e in
       self#set_position_attributes target position;
+      Element.remove_class target CSS.item_dragging;
       Lwt.return_unit
 
     method private set_position_attributes
@@ -557,7 +559,7 @@ let make ~(scaffold : Scaffold.t)
   let items = match widgets with
     | `Nodes x ->
       List.map (fun (x : Dom_html.element Js.t) ->
-          let item = Resizable.make ~classes:[CSS.grid_item] () in
+          let item = Resizable.make ~classes:[CSS.item] () in
           Widget_utils.copy_attributes x item#root;
           let _, widget = Widget_utils.widget_of_element x in
           let pos = Widget_utils.Attr.get_relative_position item#root in
@@ -570,8 +572,8 @@ let make ~(scaffold : Scaffold.t)
         float_of_int @@ position.bottom - position.top in
       List.map (make_item ~parent_size) x in
   let content =
-    Markup.create_grid_overlay ()
-    :: Markup.create_grid_ghost ()
+    Markup.create_overlay ()
+    :: Markup.create_ghost ()
     :: List.map Widget.to_markup items in
   let elt =
     Tyxml_js.To_dom.of_element
