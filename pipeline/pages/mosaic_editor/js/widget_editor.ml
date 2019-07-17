@@ -7,6 +7,8 @@ type event =
   [ `Container of Wm.Annotated.state * Wm.Annotated.container
   ]
 
+let ( % ) f g x = f (g x)
+
 let ( >>= ) = Lwt.bind
 
 let widget_of_yojson =
@@ -214,13 +216,14 @@ class t
     val mutable _selection = None
 
     val mutable _basic_actions = []
-    val mutable _widget_selected_actions = []
+    val mutable _selected_actions = []
 
     method! init () : unit =
       super#init ();
       Dom.appendChild super#root transform#root;
       _selection <- Some (Selection.make self#handle_selected);
-      _basic_actions <- self#create_actions ()
+      _basic_actions <- self#create_actions ();
+      _selected_actions <- self#create_selected_actions ()
 
     method! initial_sync_with_dom () : unit =
       _listeners <- Events.(
@@ -235,6 +238,8 @@ class t
       List.iter Lwt.cancel _listeners; _listeners <- [];
       Utils.Option.iter Widget.destroy _selection;
       _selection <- None;
+      List.iter Widget.destroy _basic_actions; _basic_actions <- [];
+      List.iter Widget.destroy _selected_actions; _selected_actions <- [];
       super#destroy ()
 
     method! layout () : unit =
@@ -282,19 +287,19 @@ class t
       float_of_int elt##.offsetWidth,
       float_of_int elt##.offsetHeight
 
-    method private add_item_ id item (position : Position.t) =
-      list_of_widgets#remove_by_id id;
-      Dom.appendChild super#root item;
-      Position.apply_to_element position item;
-      self#set_position_attributes item position
+    method private add_item_ item =
+      list_of_widgets#remove_by_id (Widget_utils.Attr.get_id item);
+      Dom.appendChild super#root item
 
     (** Add item with undo *)
     method private add_item w p =
       let item = make_item ~parent_size:self#size w in
-      self#add_item_ (fst w) item p;
+      Position.apply_to_element ~unit:`Pc p item;
+      self#set_position_attributes item p;
+      self#add_item_ item;
       Undo_manager.add undo_manager
         { undo = (fun () -> self#remove_item_ item)
-        ; redo = (fun () -> self#add_item_ (fst w) item p)
+        ; redo = (fun () -> self#add_item_ item)
         }
 
     method private remove_item_ (item : Dom_html.element Js.t) =
@@ -303,20 +308,55 @@ class t
 
     (** Remove item with undo *)
     method private remove_item item =
-      let id = Widget_utils.Attr.get_id item in
-      let position = Position.of_element item in
       self#remove_item_ item;
       Undo_manager.add undo_manager
-        { undo = (fun () -> self#add_item_ id item position)
+        { undo = (fun () -> self#add_item_ item)
         ; redo = (fun () -> self#remove_item_ item)
         }
 
+    method private remove_items items =
+      self#clear_selection ();
+      List.iter self#remove_item_ items;
+      Undo_manager.add undo_manager
+        { undo = (fun () -> List.iter self#add_item_ items)
+        ; redo = (fun () -> List.iter self#remove_item_ items)
+        }
+
+    method private create_selected_actions () : Widget.t list =
+      let menu = Actions.make_overflow_menu
+          Actions.(
+            [ make ~callback:(fun _ _ ->
+                  self#bring_to_front self#selected;
+                  Lwt.return_unit)
+                  ~name:"На передний план"
+                  ~icon:Icon.SVG.Path.arrange_bring_to_front
+                  ()
+            ; make ~callback:(fun _ _ ->
+                  self#send_to_back self#selected;
+                  Lwt.return_unit)
+                  ~name:"На задний план"
+                  ~icon:Icon.SVG.Path.arrange_send_to_back
+                  ()
+            ; make ~callback:(fun _ _ ->
+                  self#remove_items self#selected;
+                  Lwt.return_unit)
+                  ~name:"Удалить"
+                  ~icon:Icon.SVG.Path.delete
+                  ()
+            ]) in
+      [menu#widget]
+
     method private create_actions () : Widget.t list =
       let menu = Actions.make_overflow_menu
-          (fun () -> self#selected)
-          Actions.[ undo undo_manager
-                  ; redo undo_manager
-                  ; add_widget scaffold
+          Actions.[ Undo.undo undo_manager
+                  ; Undo.redo undo_manager
+                  ; make ~callback:(fun _ _ ->
+                        match scaffold#side_sheet with
+                        | None -> Lwt.return_unit
+                        | Some sidesheet -> sidesheet#toggle ())
+                      ~name:"Добавить виджет"
+                      ~icon:Icon.SVG.Path.plus
+                      ()
                   ] in
       [menu#widget]
 
@@ -368,16 +408,15 @@ class t
     method private transform_top_app_bar items =
       let title = match items with
         | [] -> assert false
-        | [x] -> "Выбран виджет" (* FIXME *)
+        | [x] -> Widget_utils.(title @@ snd @@ widget_of_element x)
         | x -> Printf.sprintf "Выбрано виджетов: %d" @@ List.length x in
       let restore = Actions.transform_top_app_bar
           ~title
           (* FIXME move class to some common module *)
           ~class_:Page_mosaic_editor_tyxml.Container_editor.CSS.top_app_bar_contextual
-          ~actions:[] (* TODO *)
+          ~actions:_selected_actions
           ~on_navigation_icon_click:(fun _ _ ->
               self#clear_selection ();
-              self#restore_top_app_bar_context ();
               Lwt.return_unit)
           scaffold in
       match _top_app_bar_context with
@@ -393,10 +432,11 @@ class t
       transform#root##.style##.visibility := Js.string "hidden";
       Position.apply_to_element ~unit:`Px Position.empty transform#root;
       List.iter (fun x -> Element.remove_class x Selection.class_) self#selected;
+      self#selection#deselect_all ();
+      self#restore_top_app_bar_context ()
 
-      self#selection#deselect_all ()
-
-    method private selected = self#selection#selected
+    method private selected : Dom_html.element Js.t list =
+      self#selection#selected
 
     method private handle_selected (items : Dom_html.element Js.t list) =
       match items with

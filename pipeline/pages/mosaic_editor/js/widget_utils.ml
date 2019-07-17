@@ -147,6 +147,14 @@ module Attr = struct
 
 end
 
+let title (w : Wm.widget) : string =
+  let typ = match w.type_ with
+    | Wm.Video -> "Видео"
+    | Audio -> "Аудио" in
+  match w.pid with
+  | None -> typ
+  | Some pid -> Printf.sprintf "%s. PID %d" typ pid
+
 let layer_of_element (elt : Dom_html.element Js.t) : int =
   let zi = (Dom_html.window##getComputedStyle elt)##.zIndex in
   try Js.parseInt zi with _ -> 0 (* TODO implement normally *)

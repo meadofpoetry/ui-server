@@ -59,7 +59,7 @@ class t ?ripple ?loader ?on_change ?on_click (elt : Dom_html.element Js.t) () =
   end
 
 (** Create new icon button widget from scratch *)
-let make ?(tag = `Button) ?href
+let make ?(tag = `Button) ?classes ?href
     ?on ?ripple ?on_icon ?disabled ?on_change ?on_click
     ~icon () : t =
   Option.iter (fun i ->
@@ -70,12 +70,12 @@ let make ?(tag = `Button) ?href
     Tyxml_js.To_dom.of_element
     @@ match tag with
     | `Button ->
-      Markup.create ?ripple ?on ?disabled
+      Markup.create ?classes ?ripple ?on ?disabled
         ?on_icon:(Option.map Widget.to_markup on_icon)
         ~icon:(Tyxml_js.Of_dom.of_element icon)
         ()
     | `Anchor ->
-      Markup.create_anchor ?ripple ?on ?href
+      Markup.create_anchor ?classes ?ripple ?on ?href
         ?on_icon:(Option.map Widget.to_markup on_icon)
         ~icon:(Tyxml_js.Of_dom.of_element icon)
         () in

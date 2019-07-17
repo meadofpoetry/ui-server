@@ -2,12 +2,12 @@
 @import "@material/animation/functions";
 @import "@material/button/mixins";
 @import "@material/top-app-bar/variables";
+@import "@material/icon-button/mixins";
 @import "./widget_editor/widget_editor";
 @import "./container_editor/container_editor";
 @import "./transform/transform";
 @import "./grid/grid";
 @import "./overflow_menu/overflow_menu";
-@import "./variables";
 
 @mixin nav-icon-hidden {
     opacity: 0;
@@ -51,13 +51,6 @@
 
     .mdc-top-app-bar__section:nth-child(2) {
         flex: 0 1 33%;
-    }
-
-    &__row:nth-child(2) {
-        height: $top-app-bar-second-row-height;
-        border-top: 1px solid;
-        @include mdc-theme-prop(background-color, text-primary-on-dark);
-        @include mdc-theme-prop(border-color, text-disabled-on-dark);
     }
 
 }
