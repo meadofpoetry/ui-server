@@ -4,18 +4,8 @@ module CSS = struct
 
   let root = "resizable"
   let active = BEM.add_modifier root "active"
-  let resizers = BEM.add_element root "resizers"
-
   let resizer = BEM.add_element root "resizer"
-  let resizer_top_left = BEM.add_modifier resizer "top-left"
-  let resizer_top_right = BEM.add_modifier resizer "top-right"
-  let resizer_bottom_left = BEM.add_modifier resizer "bottom-left"
-  let resizer_bottom_right = BEM.add_modifier resizer "bottom-right"
-  let resizer_top = BEM.add_modifier resizer "top"
-  let resizer_bottom = BEM.add_modifier resizer "bottom"
-  let resizer_left = BEM.add_modifier resizer "left"
-  let resizer_right = BEM.add_modifier resizer "right"
-
+  let ripple = BEM.add_element root "ripple"
 end
 
 module Make(Xml : Xml_sigs.NoWrap)
@@ -25,16 +15,42 @@ module Make(Xml : Xml_sigs.NoWrap)
   open Html
   open Utils
 
+  let create_ripple_surface ?(classes = []) ?attrs () : 'a elt =
+    let classes = CSS.ripple :: classes in
+    div ~a:([a_class classes] <@> attrs) []
+
+  let create_resizer ?(classes = []) ?attrs ?up ?left ?right ?down () : 'a elt =
+    let classes = CSS.resizer :: classes in
+    div ~a:([ a_class classes
+            ; a_role ["slider"]
+            ] <@> attrs
+            |> map_cons_option (a_user_data "left" % string_of_bool) left
+            |> map_cons_option (a_user_data "up" % string_of_bool) up
+            |> map_cons_option (a_user_data "right" % string_of_bool) right
+            |> map_cons_option (a_user_data "down" % string_of_bool) down)
+      [svg ~a:Svg.[ a_x (0., Some `Px)
+                  ; a_y (0., Some `Px)
+                  ; a_width (64., Some `Px)
+                  ; a_height (64., Some `Px)
+                  ; a_viewBox (0., 0., 64., 64.)
+                  ]
+         Svg.[circle ~a:[ a_cx (4., None)
+                        ; a_cy (4., None)
+                        ; a_r (4., None)
+                        ]
+                []]
+      ]
+
   let create ?(tabindex = -1) ?(classes = []) ?attrs () : 'a elt =
     let classes = CSS.root :: classes in
     div ~a:([ a_class classes
-            ; a_tabindex tabindex ] <@> attrs)
-      [ div ~a:[a_class [CSS.resizers]]
-          [ div ~a:[a_class [CSS.resizer; CSS.resizer_top_left]] []
-          ; div ~a:[a_class [CSS.resizer; CSS.resizer_top_right]] []
-          ; div ~a:[a_class [CSS.resizer; CSS.resizer_bottom_left]] []
-          ; div ~a:[a_class [CSS.resizer; CSS.resizer_bottom_right]] []
-          ]
+            ; a_tabindex tabindex
+            ; a_role ["slider"]] <@> attrs)
+      [ create_ripple_surface ()
+      ; create_resizer ~up:true ~left:true ()
+      ; create_resizer ~up:true ~right:true ()
+      ; create_resizer ~down:true ~left:true ()
+      ; create_resizer ~down:true ~right:true ()
       ]
 
 end

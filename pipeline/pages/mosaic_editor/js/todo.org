@@ -48,3 +48,4 @@
 - [ ] XXX Undo/redo for every defined action
 ** Optional
 - [ ] XXX add an ability to disable an action (like undo, redo...)
+- [ ] switch to relative coordinates on backend

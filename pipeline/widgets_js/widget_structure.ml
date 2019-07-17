@@ -189,7 +189,6 @@ let merge_trees ~(old : Treeview.t) ~(cur : Treeview.t) =
   merge None old#root_nodes cur#root_nodes
 
 class t (structure : Structure.Annotated.t) () =
-  let treeview = make_treeview structure in
   let submit = Button.make
       ~label:"Применить"
       () in
@@ -201,7 +200,7 @@ class t (structure : Structure.Annotated.t) () =
         ~text:"Потоки не обнаружены"
         ~icon:Icon.SVG.(make_simple Path.information)#root
         ()
-    val mutable _treeview = treeview
+    val mutable _treeview = make_treeview structure
     val mutable _structure : Structure.Annotated.t = structure
     val mutable _on_submit = None
 
@@ -212,9 +211,9 @@ class t (structure : Structure.Annotated.t) () =
       super#add_class CSS.root;
       super#add_class Box.CSS.root;
       super#add_class Box.CSS.vertical;
-      if treeview#is_empty
+      if _treeview#is_empty
       then super#append_child placeholder
-      else super#append_child treeview;
+      else super#append_child _treeview;
       super#append_child actions;
       _on_submit <- Some (Events.clicks submit#root (fun _ _ ->
           Lwt.map ignore @@ self#submit ()))
@@ -234,18 +233,19 @@ class t (structure : Structure.Annotated.t) () =
       Lwt_result.map_err Api_js.Http.error_to_string req
 
     method value : Structure.Many.t =
-      let selected = treeview#selected_leafs in
+      let selected = _treeview#selected_leafs in
+      print_endline @@ Printf.sprintf "selected: %d" @@ List.length selected;
       merge_with_structures _structure
       @@ List.fold_left (fun acc node ->
           let ( >>= ) x f = match x with None -> None | Some x -> f x in
           let value =
-            treeview#node_value node
+            _treeview#node_value node
             >>= int_of_string_opt
-            >>= fun pid -> Js.Opt.to_option @@ treeview#node_parent node
-            >>= fun channel' -> treeview#node_value channel'
+            >>= fun pid -> Js.Opt.to_option @@ _treeview#node_parent node
+            >>= fun channel' -> _treeview#node_value channel'
             >>= int_of_string_opt
-            >>= fun channel -> Js.Opt.to_option @@ treeview#node_parent channel'
-            >>= treeview#node_value
+            >>= fun channel -> Js.Opt.to_option @@ _treeview#node_parent channel'
+            >>= _treeview#node_value
             >>= Stream.ID.of_string_opt
             >>= fun stream -> Some (stream, channel, pid) in
           match value with
@@ -256,17 +256,18 @@ class t (structure : Structure.Annotated.t) () =
     method notify : event -> unit = function
       | `Structure x ->
         _structure <- x;
-        let treeview = make_treeview x in
-        let focus_target = merge_trees ~old:_treeview ~cur:treeview in
-        super#remove_child _treeview;
-        _treeview#destroy ();
-        if treeview#is_empty
+        let old = _treeview in
+        let cur = make_treeview x in
+        let focus_target = merge_trees ~old ~cur in
+        super#remove_child old;
+        old#destroy ();
+        if cur#is_empty
         then self#append_treeview placeholder
         else (
-          self#append_treeview treeview;
+          self#append_treeview cur;
           super#remove_child placeholder);
         Utils.Option.iter (fun x -> x##focus) focus_target;
-        _treeview <- treeview
+        _treeview <- cur
 
     method private append_treeview : 'a. (#Widget.t as 'a) -> unit =
       super#insert_child_at_idx 0

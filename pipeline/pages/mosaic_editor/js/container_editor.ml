@@ -298,6 +298,7 @@ class t ~(scaffold : Scaffold.t)
         table_dialog
         grid
 
+    val mutable _widgets = wm.widgets
     val mutable _listeners = []
     val mutable _content_listeners = []
     val mutable _drag_target = Js.null

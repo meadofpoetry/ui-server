@@ -732,11 +732,11 @@ let adjust ?aspect_ratio
     ~(parent_size : float * float) (* need if input positions is int pixel coordinates *)
     (item : Dom_html.element Js.t) : t * line list =
   let parent_w, parent_h = parent_size in
-  (* let position = match grid_step, action with
-   *   | None, _ -> position
-   *   | Some step, `Move -> snap_to_grid_move position step
-   *   | Some step, `Resize dir -> snap_to_grid_resize dir position step
-   * in *)
+  let position = match grid_step, action with
+    | None, _ -> position
+    | Some step, `Move -> snap_to_grid_move position step
+    | Some step, `Resize dir -> snap_to_grid_resize dir position step
+  in
   let position =
     match aspect_ratio with
     | None -> position

@@ -45,10 +45,10 @@ let to_relative ~(parent_size : float * float) (pos : t) =
   let parent_width, parent_height = parent_size in
   let w, h =
     if parent_width > pos.w
-    then (pos.w /. parent_width *. 100.,
-          pos.h /. parent_height *. 100.)
-    else (parent_width /. pos.w *. 100.,
-          parent_height /. pos.h *. 100.) in
+    then (pos.w *. 100. /. parent_width,
+          pos.h *. 100. /. parent_height)
+    else (parent_width *. 100. /. pos.w,
+          parent_height *. 100. /. pos.h) in
   let x = (pos.x *. w) /. pos.w in
   let y = (pos.y *. h) /. pos.h in
   { x; y; w; h }

@@ -6,6 +6,13 @@ open Components
 include Page_mosaic_editor_tyxml.Resizable
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
+module Attr = struct
+  let up = "data-up"
+  let down = "data-down"
+  let right = "data-right"
+  let left = "data-left"
+end
+
 module Event = struct
   type action =
     | Move
@@ -63,23 +70,22 @@ let unwrap x = Js.Optdef.get x (fun () -> assert false)
 
 let resize_dir_of_event (e : #Dom_html.event Js.t) : Position.resize_direction option =
   let target = Dom.eventTarget e in
-  if Element.has_class target CSS.resizer_top_left
-  then Some Top_left
-  else if Element.has_class target CSS.resizer_top_right
-  then Some Top_right
-  else if Element.has_class target CSS.resizer_bottom_left
-  then Some Bottom_left
-  else if Element.has_class target CSS.resizer_bottom_right
-  then Some Bottom_right
-  else if Element.has_class target CSS.resizer_top
-  then Some Top
-  else if Element.has_class target CSS.resizer_bottom
-  then Some Bottom
-  else if Element.has_class target CSS.resizer_left
-  then Some Left
-  else if Element.has_class target CSS.resizer_right
-  then Some Right
-  else None
+  let get_bool_attr e attr =
+    match Element.get_attribute e attr with
+    | None -> false
+    | Some x -> match bool_of_string_opt x with
+      | None -> false
+      | Some x -> x in
+  let left = get_bool_attr target Attr.left in
+  let right = get_bool_attr target Attr.right in
+  let up = get_bool_attr target Attr.up in
+  let down = get_bool_attr target Attr.down in
+  match left, up, right, down with
+  | true, true, false, false -> print_endline "top left"; Some Top_left
+  | false, true, true, false -> print_endline "top right"; Some Top_right
+  | true, false, false, true -> print_endline "bottom left"; Some Bottom_left
+  | false, false, true, true -> print_endline "bottom right"; Some Bottom_right
+  | _ -> None
 
 let get_touch_by_id (touches : Dom_html.touchList Js.t)
     (id : int) : Dom_html.touch Js.t option =
@@ -183,11 +189,11 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
     method private handle_drag_start
       : 'a. (#Dom_html.event as 'a) Js.t -> unit Lwt.t -> unit Lwt.t =
       fun (event : #Dom_html.event Js.t) _ ->
+      Js.Unsafe.global##.console##log event |> ignore;
       Dom.preventDefault event;
       Dom_html.stopPropagation event;
       _dragging <- false;
       let target = Dom.eventTarget event in
-      _dragging <- false;
       let button =
         Js.Opt.case
           (Dom_html.CoerceTo.mouseEvent event)

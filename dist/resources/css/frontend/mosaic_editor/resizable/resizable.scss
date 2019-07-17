@@ -1,59 +1,60 @@
 @import "./variables";
-@import "@material/card/mixins";
-@import "@material/animation/functions";
 
 .resizable {
+    @include mdc-theme-prop(border-color, text-hint-on-surface);
     position: absolute;
     cursor: pointer;
-
-    &--active &__resizer,
-    &--active &__resizers {
-        z-index: 999;
-        opacity: 1;
-    }
-
-    &__resizers {
-        position: absolute;
-        opacity: 0;
-        width: 100%;
-        height: 100%;
-        box-sizing: border-box;
-        @include mdc-card-outline($resizable-outline-active-color);
-    }
+    border-style: solid;
+    border-width: 2px;
+    // margin: -2px;
+    box-sizing: border-box;
+    outline: none;
 
     &__resizer {
-        width: 10px;
-        height: 10px;
         position: absolute;
-        @include mdc-card-outline($resizable-outline-active-color, 3px);
+        color: white;
+        fill: #fff;
+        max-height: 100%;
+        max-width: 100%;
+        outline: none;
+        overflow: visible;
+        > * { pointer-events: none };
 
-        &--top-left {
-            border-bottom: none;
-            border-right: none;
-            top: 0;
-            left: 0;
+        &[data-up="true"][data-left="true"] {
+            left: -4px;
+            top: -4px;
             cursor: nwse-resize;
         }
-        &--top-right {
-            border-bottom: none;
-            border-left: none;
-            top: 0;
-            right: 0;
+        &[data-up="true"][data-right="true"] {
+            right: -4px;
+            top: -4px;
+            transform: scaleX(-1);
             cursor: nesw-resize;
         }
-        &--bottom-left {
-            border-top: none;
-            border-right: none;
-            bottom: 0;
-            left: 0;
+        &[data-down="true"][data-left="true"] {
+            left: -4px;
+            bottom: -4px;
+            transform: scaleY(-1);
             cursor: nesw-resize;
         }
-        &--bottom-right {
-            border-left: none;
-            border-top: none;
-            bottom: 0;
-            right: 0;
+        &[data-down="true"][data-right="true"] {
+            right: -4px;
+            bottom: -4px;
+            transform: scale(-1, -1);
             cursor: nwse-resize;
         }
     }
+}
+
+.resizable__ripple {
+    @include mdc-ripple-surface;
+    @include mdc-ripple-radius-bounded;
+    @include mdc-states(primary);
+
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
 }

@@ -163,7 +163,7 @@ let apply_structures (state : Protocol.state) _user body _env _state =
            state.options.structures#set x
            >>= fun () ->
            Lwt.return `Unit
-                                          
+
 let apply_settings (state : Protocol.state) _user body _env _state =
   let (>>=) = Lwt_result.bind in
   set body Settings.of_yojson
@@ -184,6 +184,14 @@ let get_settings (state : Protocol.state) _user _body _env _state =
           | Error (`Qoe_backend e) -> Lwt.return (`Error e)
           | Ok v -> Lwt.return (`Value (Settings.to_yojson v)))
 
+let filter_wm (wm : Wm.t) : Wm.t =
+  let layout = List.map (fun (id, (c : Wm.container)) ->
+      let widgets = List.filter (fun (id, _) ->
+          List.exists (fun (id', _) -> String.equal id' id)
+            wm.widgets) c.widgets in
+      id, { c with widgets }) wm.layout in
+  { wm with layout }
+
 let apply_wm_layout (state : Protocol.state) _user body _env _state =
   let (>>=) = Lwt_result.bind in
   set body Wm.of_yojson
@@ -191,10 +199,11 @@ let apply_wm_layout (state : Protocol.state) _user body _env _state =
     match state.backend with
     | None -> Lwt.return_error (`Qoe_backend "not ready")
     | Some backend ->
-      (* Protocol.Qoe_backend.Mosaic.get_layout backend
-       * >>= fun active ->
-       * let x = { x with widgets = active.widgets } in *)
-      Qoe_backend.Mosaic.apply_layout backend x
+      Protocol.Qoe_backend.Mosaic.get_layout backend
+      >>= fun active ->
+      let x = { x with widgets = active.widgets } in
+      let filtered = filter_wm x in
+      Qoe_backend.Mosaic.apply_layout backend filtered
       >>= fun () ->
       Lwt_result.ok @@ state.options.wm#set x)
 
