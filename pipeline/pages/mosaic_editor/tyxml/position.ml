@@ -54,19 +54,15 @@ let equal (a : t) (b : t) =
 let show ({ x; y; w; h } : t)=
   Printf.sprintf "x=%g, y=%g, w=%g, h=%g" x y w h
 
-let to_relative ~(parent_size : float * float) (pos : t) : t =
-  let parent_width, parent_height = parent_size in
+let to_normalized ~(parent_size : float * float) (pos : t) : t =
   let w, h =
-    if parent_width > pos.w
-    then (pos.w *. 100. /. parent_width,
-          pos.h *. 100. /. parent_height)
-    else (parent_width *. 100. /. pos.w,
-          parent_height *. 100. /. pos.h) in
+    pos.w /. (fst parent_size),
+    pos.h /. (snd parent_size) in
   let x = (pos.x *. w) /. pos.w in
   let y = (pos.y *. h) /. pos.h in
   { x; y; w; h }
 
-let of_relative ~(parent_size : float * float) (pos : t) : t =
+let to_absolute ~(parent_size : float * float) (pos : t) : t =
   let w = pos.w *. (fst parent_size) /. 100. in
   let h = pos.h *. (snd parent_size) /. 100. in
   let x = pos.x *. w /. pos.w in

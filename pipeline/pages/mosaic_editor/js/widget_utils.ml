@@ -58,33 +58,22 @@ module Attr = struct
   let set_id (elt : Dom_html.element Js.t) (id' : string) =
     Element.set_attribute elt id id'
 
-  let get_relative_position (elt : Dom_html.element Js.t) : Position.t =
-    { x = get_float_attribute elt left
-    ; y = get_float_attribute elt top
-    ; w = get_float_attribute elt width
-    ; h = get_float_attribute elt height
-    }
-
-  let get_position ~parent_size (elt : Dom_html.element Js.t) =
-    let pos = get_relative_position elt in
-    Position.(of_relative ~parent_size pos)
+  let get_position (elt : Dom_html.element Js.t) : Position.t option =
+    try Some { x = get_float_attribute elt left
+             ; y = get_float_attribute elt top
+             ; w = get_float_attribute elt width
+             ; h = get_float_attribute elt height
+             }
+    with _ -> None
 
   let string_of_float = Printf.sprintf "%g"
 
-  let set_position (elt : Dom_html.element Js.t)
-      (pos : Position.t) =
+  let set_position (elt : Dom_html.element Js.t) (pos : Position.t) =
     Element.(
       set_attribute elt left (string_of_float pos.x);
       set_attribute elt top (string_of_float pos.y);
       set_attribute elt width (string_of_float pos.w);
       set_attribute elt height (string_of_float pos.h))
-
-  let set_wm_position
-      ~parent_size
-      (elt : Dom_html.element Js.t)
-      (pos : Wm.position) =
-    set_position elt
-    @@ Position.(to_relative ~parent_size pos)
 
   let get_typ (elt : Dom_html.element Js.t) =
     Js.Opt.case (elt##getAttribute (Js.string typ))
@@ -158,17 +147,12 @@ let layer_of_element (elt : Dom_html.element Js.t) : int =
   let zi = (Dom_html.window##getComputedStyle elt)##.zIndex in
   try Js.parseInt zi with _ -> 0 (* TODO implement normally *)
 
-let widget_of_element ?parent_size
-    (elt : Dom_html.element Js.t) : string * Wm.widget =
+let widget_of_element (elt : Dom_html.element Js.t) : string * Wm.widget =
   Attr.get_id elt,
   { type_ = Attr.get_typ elt
   ; domain = Attr.get_domain elt
   ; pid = Attr.get_pid elt
-  ; position = (match parent_size with
-        | None -> None
-        | Some x ->
-          try Some (Attr.get_position ~parent_size:x elt)
-          with _ -> None)
+  ; position = Attr.get_position elt
   ; layer = layer_of_element elt
   ; aspect = Attr.get_aspect elt
   ; description = Attr.get_description elt
@@ -184,7 +168,6 @@ let copy_attributes
   List.iter copy Attr.attributes
 
 let set_attributes ?id
-    ?parent_size
     (elt : Dom_html.element Js.t)
     (widget : Wm.widget) : unit =
   Attr.set_typ elt widget.type_;
@@ -192,10 +175,9 @@ let set_attributes ?id
   Attr.set_pid elt widget.pid;
   Attr.set_aspect elt widget.aspect;
   Attr.set_description elt widget.description;
-  (match parent_size, widget.position with
-   | None, _ | _, None -> ()
-   | Some parent_size, Some position ->
-     Attr.set_wm_position ~parent_size elt position);
+  (match widget.position with
+   | None -> ()
+   | Some position -> Attr.set_position elt position);
   elt##.style##.zIndex := Js.string (string_of_int widget.layer);
   match id with
   | None -> ()
@@ -208,10 +190,8 @@ let elements (elt : Dom_html.element Js.t) =
   Dom.list_of_nodeList
   @@ elt##querySelectorAll (Js.string selector)
 
-let widgets_of_container ~parent_size
-    (cell : Dom_html.element Js.t) : (string * Wm.widget) list =
-  List.map (widget_of_element ~parent_size)
-  @@ elements cell
+let widgets_of_container (cell : Dom_html.element Js.t) : (string * Wm.widget) list =
+  List.map widget_of_element @@ elements cell
 
 let get_relative_position (x : Dom_html.element Js.t) : Position.t =
   { x = Js.parseFloat x##.style##.left

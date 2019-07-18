@@ -49,17 +49,17 @@ let fr_to_px fr px =
   (float_of_int px) /. (sum fr)
 
 let cell_position_to_wm_position
-    ~px_in_fr_w
-    ~px_in_fr_h
     ~cols
     ~rows
     { Grid. row; col; row_span; col_span } : Wm.position =
+  let total_w = sum cols in
+  let total_h = sum rows in
   let get_cell_size ?(start = 0) ~len side =
     sum @@ Array.sub side start len in
-  { x = (get_cell_size ~len:(pred col) cols) *. px_in_fr_w
-  ; y = (get_cell_size ~len:(pred row) rows) *. px_in_fr_h
-  ; w = (get_cell_size ~start:(pred col) ~len:col_span cols) *. px_in_fr_w
-  ; h = (get_cell_size ~start:(pred row) ~len:row_span rows) *. px_in_fr_h
+  { x = (get_cell_size ~len:(pred col) cols) /. total_w
+  ; y = (get_cell_size ~len:(pred row) rows) /. total_h
+  ; w = (get_cell_size ~start:(pred col) ~len:col_span cols) /. total_w
+  ; h = (get_cell_size ~start:(pred row) ~len:row_span rows) /. total_h
   }
 
 type grid_properties =
@@ -100,9 +100,9 @@ let rec get_deltas points =
       let delta = x -. prev in
       (prev +. delta, delta :: deltas)) (0., []) points
 
-let points_to_frs resolution (deltas : float list) : (Grid.value list) =
+let points_to_frs (deltas : float list) : (Grid.value list) =
   let len = float_of_int @@ List.length deltas in
-  try List.map (fun x -> Grid.Fr (x /. resolution *. len)) deltas
+  try List.map (fun x -> Grid.Fr (x *. len)) deltas
   with Division_by_zero -> []
 
 let get_cell_pos_part (edge : float) points =
@@ -133,8 +133,8 @@ let grid_properties_of_layout ({ resolution = w, h; layout; _ } : Wm.Annotated.t
         (c.position.w +. c.position.x),
         (c.position.h +. c.position.y)) layout
     |> fun (x, y) -> sort x, sort y in
-  let cols = points_to_frs (float_of_int w) (get_deltas lefts) in
-  let rows = points_to_frs (float_of_int h) (get_deltas tops) in
+  let cols = points_to_frs (get_deltas lefts) in
+  let rows = points_to_frs (get_deltas tops) in
   let cells = get_cell_positions ~lefts ~tops layout in
   { rows; cols; cells }
 

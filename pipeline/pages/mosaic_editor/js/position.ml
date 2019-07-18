@@ -190,10 +190,18 @@ let fix ?min_x ?min_y ?max_x ?max_y
   fix_xy ?min_x ?min_y ?max_x ?max_y ?parent_w ?parent_h
   % fix_wh ?max_w ?min_w ?max_h ?min_h ?parent_w ?parent_h
 
-let apply_to_element ?(unit = `Pc) (pos : t) (elt : #Dom_html.element Js.t) =
+let apply_to_element ~unit (pos : t) (elt : #Dom_html.element Js.t) =
   let fn = match unit with
     | `Px -> Printf.sprintf "%gpx"
-    | `Pc -> Printf.sprintf "%g%%" in
+    | `Pct | `Norm -> Printf.sprintf "%g%%" in
+  let pos = match unit with
+    | `Px | `Pct -> pos
+    | `Norm ->
+      { x = pos.x *. 100.
+      ; y = pos.y *. 100.
+      ; w = pos.w *. 100.
+      ; h = pos.h *. 100.
+      } in
   elt##.style##.width := Js.string @@ fn pos.w;
   elt##.style##.left := Js.string @@ fn pos.x;
   elt##.style##.height := Js.string @@ fn pos.h;

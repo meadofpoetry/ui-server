@@ -52,7 +52,7 @@ let set_tab_index ?prev
 
 let make_item ~parent_size (id, widget : string * Wm.widget) =
   let item = Tyxml_js.To_dom.of_element @@ Markup.create_item widget in
-  Widget_utils.set_attributes ~id ~parent_size item widget;
+  Widget_utils.set_attributes ~id item widget;
   item
 
 module Selection = struct
@@ -121,9 +121,6 @@ module Selection = struct
       ~on_outside_click:(fun x -> on_start x; handle_selected [])
       ()
 end
-
-let aspect_of_wm_position (p : Wm.position) =
-  Utils.resolution_to_aspect (int_of_float p.w, int_of_float p.h)
 
 module Util = struct
 
@@ -201,27 +198,34 @@ end
 
 class t
     ~(list_of_widgets : List_of_widgets.t)
-    ~(position : Wm.position)
+    ~(resolution : int * int)
+    ~(position : Position.t)
     (scaffold : Scaffold.t)
     elt
     () =
+  let width, height, aspect =
+    let w, h =
+      float_of_int (fst resolution),
+      float_of_int (snd resolution) in
+    let w, h = w *. position.w, (h *. position.h) in
+    w, h, w /. h in
   object(self)
 
     inherit Drop_target.t elt () as super
 
-    val aspect =
-      let w, h = aspect_of_wm_position position in
-      float_of_int w /. float_of_int h
     val grid_overlay = match Element.query_selector elt Selector.grid_overlay with
       | None -> failwith "widget-editor: grid overlay element not found"
       | Some x ->
         let show_grid_lines = Storage.(get_bool ~default:true show_grid_lines) in
         let show_snap_lines = Storage.(get_bool ~default:true show_snap_lines) in
         Grid_overlay.attach ~show_grid_lines ~show_snap_lines ~size:10 x
+
     val ghost = match Element.query_selector elt Selector.grid_ghost with
       | None -> failwith "widget-editor: grid ghost element not found"
       | Some x -> x
+
     val transform = Transform.make ()
+
     val undo_manager = Undo_manager.create ()
 
     val mutable format = List_of_widgets.format
@@ -236,11 +240,12 @@ class t
     val mutable _selected_actions = []
 
     method! init () : unit =
-      super#init ();
       Dom.appendChild super#root transform#root;
       _selection <- Some (Selection.make self#handle_selected);
       _basic_actions <- self#create_actions ();
-      _selected_actions <- self#create_selected_actions ()
+      _selected_actions <- self#create_selected_actions ();
+      self#clear_selection ();
+      super#init ()
 
     method! initial_sync_with_dom () : unit =
       _listeners <- Events.(
@@ -267,10 +272,12 @@ class t
              let width = float_of_int x##.offsetWidth in
              let height = float_of_int x##.offsetHeight in
              width, height, width /. height) in
-      let ({ w; h; _ } : Position.t) = position in
-      let scale_factor = if cur_aspect > aspect then cur_h /. h else cur_w /. w in
-      let width' = w *. scale_factor in
-      let height' = h *. scale_factor in
+      let scale_factor =
+        if cur_aspect > aspect
+        then cur_h /. height
+        else cur_w /. width in
+      let width' = width *. scale_factor in
+      let height' = height *. scale_factor in
       super#root##.style##.width := Js.string (Printf.sprintf "%gpx" width');
       super#root##.style##.height := Js.string (Printf.sprintf "%gpx" height');
       grid_overlay#layout ();
@@ -287,9 +294,8 @@ class t
         ()
 
     method value : Wm.container =
-      let parent_size = position.w, position.h in
       { position
-      ; widgets = List.map (Widget_utils.widget_of_element ~parent_size) self#items
+      ; widgets = List.map Widget_utils.widget_of_element self#items
       }
 
     method actions : Widget.t list =
@@ -306,10 +312,13 @@ class t
       Dom.appendChild super#root item
 
     (** Add item with undo *)
-    method private add_item w p =
-      let item = make_item ~parent_size:self#size w in
-      Position.apply_to_element ~unit:`Pc p item;
-      self#set_position_attributes item p;
+    method private add_item ((_, { position; _ }) as x : string * Wm.widget) =
+      let item = make_item ~parent_size:self#size x in
+      (match position with
+       | None -> ()
+       | Some p ->
+         Position.apply_to_element ~unit:`Norm p item;
+         self#set_position_attributes item p);
       self#add_item_ item;
       Undo_manager.add undo_manager
         { undo = (fun () -> self#remove_item_ item)
@@ -375,15 +384,17 @@ class t
       [menu#widget]
 
     method private items_ ?(sort = false) () : Dom_html.element Js.t list =
-      let get_position = Widget_utils.Attr.get_position ~parent_size:self#size in
+      let get_position = Widget_utils.Attr.get_position in
       let items = Element.query_selector_all super#root Selector.item in
       if sort
       then
         List.sort (fun x y ->
-            let pos_x, pos_y = get_position x, get_position y in
-            compare_pair compare compare
-              (pos_x.x, pos_x.y)
-              (pos_y.x, pos_y.y))
+            let compare f a b = match a, b with
+              | None, None -> 0
+              | Some a, Some b -> compare a b
+              | None, Some _ -> -1
+              | Some _, None -> 1 in
+            compare Position.compare (get_position x) (get_position y))
           items
       else items
 
@@ -460,7 +471,7 @@ class t
           Position.bounding_rect
           @@ List.map Widget_utils.get_relative_position l in
         transform#root##.style##.visibility := Js.string "visible";
-        Position.apply_to_element ~unit:`Pc rect transform#root;
+        Position.apply_to_element ~unit:`Pct rect transform#root;
         self#transform_top_app_bar l
 
     method private handle_transform_action e _ =
@@ -488,17 +499,16 @@ class t
           ~parent_size
           target
       in
-      let adjusted = Position.to_relative ~parent_size adjusted in
+      let adjusted = Position.to_normalized  ~parent_size adjusted in
+      Position.apply_to_element ~unit:`Norm adjusted target;
       grid_overlay#set_snap_lines lines;
-      Position.apply_to_element ~unit:`Pc adjusted target;
       Lwt.return_unit
 
-    (* TODO this is a next task *)
     method private handle_transform_change e _ =
       let target = Dom_html.eventTarget e in
       grid_overlay#set_snap_lines [];
       let position =
-        Position.to_relative ~parent_size:self#size
+        Position.to_normalized ~parent_size:self#size
         @@ Position.of_client_rect
         @@ Widget.event_detail e in
       self#set_position_attributes target position;
@@ -517,10 +527,12 @@ class t
             | Error e -> failwith e
           end
         | _ -> failwith "failed to parse json" in
-      let position = Position.to_relative
-          ~parent_size:self#size
-          (Position.of_element ghost) in
-      self#add_item (of_yojson json) position;
+      let position = Some (
+          Position.to_normalized
+            ~parent_size:self#size
+            (Position.of_element ghost)) in
+      let (id, widget) = of_yojson json in
+      self#add_item (id, { widget with position });
       grid_overlay#set_snap_lines [];
       Lwt.return_unit
 
@@ -556,9 +568,9 @@ class t
           ~parent_size
           ghost
       in
-      let adjusted = Position.to_relative ~parent_size adjusted in
-      grid_overlay#set_snap_lines lines;
-      Position.apply_to_element adjusted ghost
+      let adjusted = Position.to_normalized ~parent_size adjusted in
+      Position.apply_to_element ~unit:`Norm adjusted ghost;
+      grid_overlay#set_snap_lines lines
 
     method private bring_to_front (items : Dom_html.element Js.t list) : unit =
       let z_selected_items = List.map Util.get_z_index items in
@@ -628,6 +640,7 @@ class t
 
 let make ~(scaffold : Scaffold.t)
     ~(list_of_widgets : List_of_widgets.t)
+    ~(resolution : int * int)
     ~(position : Wm.position)
     widgets =
   let items = match widgets with
@@ -636,8 +649,10 @@ let make ~(scaffold : Scaffold.t)
           let _, widget = Widget_utils.widget_of_element x in
           let item = Tyxml_js.To_dom.of_element @@ Markup.create_item widget in
           Widget_utils.copy_attributes x item;
-          let pos = Widget_utils.Attr.get_relative_position item in
-          Position.apply_to_element ~unit:`Pc pos item;
+          let pos = Widget_utils.Attr.get_position item in
+          (match pos with
+           | None -> ()
+           | Some x -> Position.apply_to_element ~unit:`Norm x item);
           item) x
     | `Data x ->
       let parent_size = position.w, position.h in
@@ -649,4 +664,4 @@ let make ~(scaffold : Scaffold.t)
   let elt =
     Tyxml_js.To_dom.of_element
     @@ Markup.create ~content () in
-  new t ~list_of_widgets ~position scaffold elt ()
+  new t ~list_of_widgets ~resolution ~position scaffold elt ()

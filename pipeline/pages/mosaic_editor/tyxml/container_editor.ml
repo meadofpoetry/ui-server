@@ -42,10 +42,9 @@ module Make(Xml : Xml_sigs.NoWrap)
       (id, state, widget : string * Wm.Annotated.state * Wm.widget) : 'a elt =
     let style = Printf.sprintf "z-index: %d" widget.layer in
     let classes = CSS.widget :: classes in
-    let parent_size = container.w, container.h in
     div ~a:([ a_class classes
             ; a_style style ]
-            @ Widget'.to_html_attributes ~id ~parent_size widget
+            @ Widget'.to_html_attributes ~id widget
             <@> attrs)
       []
 

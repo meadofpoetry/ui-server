@@ -11,7 +11,7 @@ type line =
 
 val fix_aspect : t -> int * int -> t
 
-val apply_to_element : ?unit:[`Px | `Pc] -> t -> #Dom_html.element Js.t -> unit
+val apply_to_element : unit:[`Px | `Pct | `Norm] -> t -> #Dom_html.element Js.t -> unit
 
 val of_element : #Dom_html.element Js.t -> t
 

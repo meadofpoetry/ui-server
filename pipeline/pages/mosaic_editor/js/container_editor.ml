@@ -316,13 +316,10 @@ class t ~(scaffold : Scaffold.t)
         List.map (fun cell ->
             let position =
               Container_utils.cell_position_to_wm_position
-                ~px_in_fr_w:(Container_utils.fr_to_px cols (fst resolution))
-                ~px_in_fr_h:(Container_utils.fr_to_px rows (snd resolution))
                 ~cols
                 ~rows
               @@ Grid.Util.get_cell_position cell in
-            let parent_size = position.w, position.h in
-            let widgets = Widget_utils.widgets_of_container ~parent_size cell in
+            let widgets = Widget_utils.widgets_of_container cell in
             Container_utils.get_cell_title cell,
             { Wm. position; widgets })
           grid#cells in
@@ -389,12 +386,11 @@ class t ~(scaffold : Scaffold.t)
       let id = Container_utils.get_cell_title cell in
       let cols, rows, resolution = grid#cols, grid#rows, self#resolution in
       let position = Container_utils.cell_position_to_wm_position
-          ~px_in_fr_w:(Container_utils.fr_to_px cols (fst resolution))
-          ~px_in_fr_h:(Container_utils.fr_to_px rows (snd resolution))
           ~rows ~cols
         @@ Grid.Util.get_cell_position cell in
       let editor = Widget_editor.make
           ~scaffold
+          ~resolution
           ~position
           ~list_of_widgets
           (`Nodes (Widget_utils.elements cell))
@@ -407,8 +403,8 @@ class t ~(scaffold : Scaffold.t)
           ~actions:editor#actions
           scaffold in
       (* Set aspect ratio sizer for container dimensions *)
-      let width = position.w in
-      let height = position.h in
+      let width = position.w *. (float_of_int (fst resolution)) in
+      let height = position.h *. (float_of_int (snd resolution)) in
       update_ar_sizer ~width ~height ar_sizer;
       let state = { icon; restore; editor; cell } in
       let t, w = Lwt.wait () in
@@ -582,15 +578,19 @@ class t ~(scaffold : Scaffold.t)
     method private update_widget_elements
         (widgets : Dom_html.element Js.t list)
         (cell : Dom_html.element Js.t) : unit =
-      match Element.query_selector cell Selector.widget_wrapper with
-      | None -> ()
-      | Some wrapper ->
-        Element.remove_children wrapper;
-        List.iter (fun (x : Dom_html.element Js.t) ->
-            let elt = Dom_html.(createDiv document) in
-            Widget_utils.copy_attributes x elt;
-            Element.add_class elt CSS.widget;
-            Dom.appendChild wrapper elt) widgets
+      let wrapper = match Element.query_selector cell Selector.widget_wrapper with
+        | None ->
+          let elt =
+            Tyxml_js.To_dom.of_element
+            @@ Markup.create_widget_wrapper [] in
+          Dom.appendChild cell elt;
+          elt
+        | Some x -> Element.remove_children x; x in
+      List.iter (fun (x : Dom_html.element Js.t) ->
+          let elt = Dom_html.(createDiv document) in
+          Widget_utils.copy_attributes x elt;
+          Element.add_class elt CSS.widget;
+          Dom.appendChild wrapper elt) widgets
 
   end
 
