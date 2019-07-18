@@ -8,6 +8,11 @@ module Attr = struct
   let aspect = "data-aspect"
 end
 
+let ( = ) (x : int) y = x = y
+
+let equal_float ?(epsilon = epsilon_float) a b =
+  abs_float (a-.b) < epsilon
+
 let get_cell_title (cell : Dom_html.element Js.t) : string =
   match Element.get_attribute cell Attr.title with
   | None -> ""
@@ -108,9 +113,9 @@ let points_to_frs (deltas : float list) : (Grid.value list) =
 let get_cell_pos_part (edge : float) points =
   let rec aux cnt = function
     | [] -> failwith "Corresponding cell edge not found" (* FIXME *)
-    | x :: _ when x = edge -> cnt
-    | _ :: tl -> aux (cnt + 1) tl in
-  if edge = 0. then first_grid_index
+    | x :: _ when equal_float x edge -> cnt
+    | x :: tl -> aux (cnt + 1) tl in
+  if equal_float edge 0. then first_grid_index
   else aux (first_grid_index + 1) points
 
 let get_cell_positions ~lefts ~tops =
