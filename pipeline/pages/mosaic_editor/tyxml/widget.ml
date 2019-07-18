@@ -34,7 +34,7 @@ module Make(Xml : Xml_sigs.NoWrap)
       | None, _ | _, None -> []
       | Some parent_size, Some wpos ->
         let string_of_float = Printf.sprintf "%g" in
-        let pos = Position.(to_relative ~parent_size @@ of_wm_position wpos) in
+        let pos = Position.(to_relative ~parent_size wpos) in
         Html.[ a_user_data "left" (string_of_float pos.x)
              ; a_user_data "top" (string_of_float pos.y)
              ; a_user_data "width" (string_of_float pos.w)

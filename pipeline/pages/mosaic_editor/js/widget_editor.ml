@@ -73,7 +73,7 @@ module Selection = struct
         then Js.null else Js.some parent)
 
   let validate_start = fun e ->
-    let item = item_of_event e in
+    let item = Js.null in (* item_of_event e in *)
     Js.Opt.case item
       (fun () ->
          Js.Opt.case (Dom_html.CoerceTo.mouseEvent e)
@@ -93,6 +93,22 @@ module Selection = struct
     selection#keep_selection ();
     handle_selected selection#selected
 
+  let on_select = fun handle_selected item ({ selection; _ } : 'a detail) ->
+    let is_selected = Element.has_class item class_ in
+    List.iter (fun x -> Element.remove_class x class_) selection#selected;
+    (match List.length selection#selected > 1
+           && List.memq item selection#selected with
+    | true ->
+      selection#deselect_all ();
+      selection#keep_selection ();
+      Element.add_class item class_
+    | _ ->
+      selection#deselect_all ();
+      if is_selected
+      then (Element.remove_class item class_; selection#deselect item)
+      else (Element.add_class item class_; selection#keep_selection ()));
+    handle_selected selection#selected
+
   let make handle_selected =
     make ~validate_start
       ~selectables
@@ -101,12 +117,13 @@ module Selection = struct
       ~on_start
       ~on_move
       ~on_stop:(on_stop handle_selected)
-      ~on_outside_click:(fun _ -> ())
+      ~on_select:(on_select handle_selected)
+      ~on_outside_click:(fun x -> on_start x; handle_selected [])
       ()
 end
 
 let aspect_of_wm_position (p : Wm.position) =
-  Utils.resolution_to_aspect ((p.right - p.left), (p.bottom - p.top))
+  Utils.resolution_to_aspect (int_of_float p.w, int_of_float p.h)
 
 module Util = struct
 
@@ -227,8 +244,8 @@ class t
 
     method! initial_sync_with_dom () : unit =
       _listeners <- Events.(
-          [ Transform.Event.inputs super#root self#handle_item_action
-          ; Transform.Event.changes super#root self#handle_item_change
+          [ Transform.Event.inputs transform#root self#handle_transform_action
+          ; Transform.Event.changes transform#root self#handle_transform_change
           ; keydowns super#root self#handle_keydown
           ]);
       super#initial_sync_with_dom ()
@@ -250,8 +267,7 @@ class t
              let width = float_of_int x##.offsetWidth in
              let height = float_of_int x##.offsetHeight in
              width, height, width /. height) in
-      let w = float_of_int @@ position.right - position.left in
-      let h = float_of_int @@ position.bottom - position.top in
+      let ({ w; h; _ } : Position.t) = position in
       let scale_factor = if cur_aspect > aspect then cur_h /. h else cur_w /. w in
       let width' = w *. scale_factor in
       let height' = h *. scale_factor in
@@ -271,9 +287,7 @@ class t
         ()
 
     method value : Wm.container =
-      let parent_size =
-        float_of_int @@ position.right - position.left,
-        float_of_int @@ position.bottom - position.top in
+      let parent_size = position.w, position.h in
       { position
       ; widgets = List.map (Widget_utils.widget_of_element ~parent_size) self#items
       }
@@ -368,8 +382,8 @@ class t
         List.sort (fun x y ->
             let pos_x, pos_y = get_position x, get_position y in
             compare_pair compare compare
-              (pos_x.left, pos_x.top)
-              (pos_y.left, pos_y.top))
+              (pos_x.x, pos_x.y)
+              (pos_y.x, pos_y.y))
           items
       else items
 
@@ -440,33 +454,16 @@ class t
 
     method private handle_selected (items : Dom_html.element Js.t list) =
       match items with
-      | [] -> self#restore_top_app_bar_context ()
+      | [] -> self#clear_selection ()
       | l ->
         let rect =
           Position.bounding_rect
-          @@ List.map (fun x ->
-              { Position.
-                x = Js.parseFloat x##.style##.left
-              ; y = Js.parseFloat x##.style##.top
-              ; w = Js.parseFloat x##.style##.width
-              ; h = Js.parseFloat x##.style##.height
-              }) l in
+          @@ List.map Widget_utils.get_relative_position l in
         transform#root##.style##.visibility := Js.string "visible";
         Position.apply_to_element ~unit:`Pc rect transform#root;
         self#transform_top_app_bar l
 
-    method private handle_item_selected e _ =
-      let target = Dom_html.eventTarget e in
-      target##focus;
-      set_tab_index ?prev:_focused_item (Lazy.from_fun self#items_) target;
-      _focused_item <- Some target;
-      Lwt.async (fun () ->
-          Events.blur target
-          >>= fun _ -> (* TODO do smth *)
-          Lwt.return_unit);
-      Lwt.return_unit
-
-    method private handle_item_action e _ =
+    method private handle_transform_action e _ =
       let target = Dom_html.eventTarget e in
       (match _focused_item with
        | None -> ()
@@ -493,11 +490,11 @@ class t
       in
       let adjusted = Position.to_relative ~parent_size adjusted in
       grid_overlay#set_snap_lines lines;
-      Position.apply_to_element adjusted target;
+      Position.apply_to_element ~unit:`Pc adjusted target;
       Lwt.return_unit
 
     (* TODO this is a next task *)
-    method private handle_item_change e _ =
+    method private handle_transform_change e _ =
       let target = Dom_html.eventTarget e in
       grid_overlay#set_snap_lines [];
       let position =
@@ -534,9 +531,8 @@ class t
       let rect = super#root##getBoundingClientRect in
       let (x, y) = Transform.get_cursor_position event in
       let point = x -. rect##.left, y -. rect##.top in
-      let position =
-        { Position.
-          x = fst point
+      let (position : Position.t) =
+        { x = fst point
         ; y = snd point
         ; w = 100. (* FIXME *)
         ; h = 100. (* FIXME *)
@@ -644,9 +640,7 @@ let make ~(scaffold : Scaffold.t)
           Position.apply_to_element ~unit:`Pc pos item;
           item) x
     | `Data x ->
-      let parent_size =
-        float_of_int @@ position.right - position.left,
-        float_of_int @@ position.bottom - position.top in
+      let parent_size = position.w, position.h in
       List.map (make_item ~parent_size) x in
   let content =
     Markup.create_overlay ()

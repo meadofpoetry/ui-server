@@ -58,9 +58,8 @@ module Attr = struct
   let set_id (elt : Dom_html.element Js.t) (id' : string) =
     Element.set_attribute elt id id'
 
-  let get_relative_position (elt : Dom_html.element Js.t) =
-    { Position.
-      x = get_float_attribute elt left
+  let get_relative_position (elt : Dom_html.element Js.t) : Position.t =
+    { x = get_float_attribute elt left
     ; y = get_float_attribute elt top
     ; w = get_float_attribute elt width
     ; h = get_float_attribute elt height
@@ -68,7 +67,7 @@ module Attr = struct
 
   let get_position ~parent_size (elt : Dom_html.element Js.t) =
     let pos = get_relative_position elt in
-    Position.(to_wm_position @@ of_relative ~parent_size pos)
+    Position.(of_relative ~parent_size pos)
 
   let string_of_float = Printf.sprintf "%g"
 
@@ -85,7 +84,7 @@ module Attr = struct
       (elt : Dom_html.element Js.t)
       (pos : Wm.position) =
     set_position elt
-    @@ Position.(to_relative ~parent_size @@ of_wm_position pos)
+    @@ Position.(to_relative ~parent_size pos)
 
   let get_typ (elt : Dom_html.element Js.t) =
     Js.Opt.case (elt##getAttribute (Js.string typ))
@@ -213,3 +212,10 @@ let widgets_of_container ~parent_size
     (cell : Dom_html.element Js.t) : (string * Wm.widget) list =
   List.map (widget_of_element ~parent_size)
   @@ elements cell
+
+let get_relative_position (x : Dom_html.element Js.t) : Position.t =
+  { x = Js.parseFloat x##.style##.left
+  ; y = Js.parseFloat x##.style##.top
+  ; w = Js.parseFloat x##.style##.width
+  ; h = Js.parseFloat x##.style##.height
+  }

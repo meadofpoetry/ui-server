@@ -253,10 +253,9 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       fun direction e ->
       _dragging <- true;
       let page_x, page_y = get_cursor_position ?touch_id:_touch_id e in
-      let position = match direction with
+      let (position : Position.t) = match direction with
         | NW ->
-          { Position.
-            w = _position.w -. (page_x -. (fst _coordinate))
+          { w = _position.w -. (page_x -. (fst _coordinate))
           ; h = _position.h -. (page_y -. (snd _coordinate))
           ; x = _position.x +. (page_x -. (fst _coordinate))
           ; y = _position.y +. (page_y -. (snd _coordinate))

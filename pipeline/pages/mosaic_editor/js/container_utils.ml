@@ -36,7 +36,6 @@ let gen_cell_title (cells : Dom_html.element Js.t list) =
           let start = String.length cell_title_prefix in
           let len = String.length s - start in
           let s' = String.sub s start len in
-          print_endline s';
           (int_of_string s') :: acc
         with exn -> acc)
       [] titles in
@@ -55,12 +54,12 @@ let cell_position_to_wm_position
     ~cols
     ~rows
     { Grid. row; col; row_span; col_span } : Wm.position =
-  let get_cell_size stop side = sum @@ Array.sub side 0 (pred stop) in
-  let floor x = int_of_float @@ Float.floor x in
-  { left = floor @@ (get_cell_size col cols) *. px_in_fr_w
-  ; top = floor @@ (get_cell_size row rows) *. px_in_fr_h
-  ; right = floor @@ (get_cell_size (col + col_span) cols) *. px_in_fr_w
-  ; bottom = floor @@ (get_cell_size (row + row_span) rows) *. px_in_fr_h
+  let get_cell_size ?(start = 0) ~len side =
+    sum @@ Array.sub side start len in
+  { x = (get_cell_size ~len:(pred col) cols) *. px_in_fr_w
+  ; y = (get_cell_size ~len:(pred row) rows) *. px_in_fr_h
+  ; w = (get_cell_size ~start:(pred col) ~len:col_span cols) *. px_in_fr_w
+  ; h = (get_cell_size ~start:(pred row) ~len:row_span rows) *. px_in_fr_h
   }
 
 type grid_properties =
@@ -98,29 +97,28 @@ let first_grid_index = 1
 
 let rec get_deltas points =
   List.rev @@ snd @@ List.fold_left (fun (prev, deltas) x ->
-      let delta = x - prev in
-      (prev + delta, delta :: deltas)) (0, []) points
+      let delta = x -. prev in
+      (prev +. delta, delta :: deltas)) (0., []) points
 
-let points_to_frs resolution deltas : (Grid.value list) =
-  let res = float_of_int resolution in
+let points_to_frs resolution (deltas : float list) : (Grid.value list) =
   let len = float_of_int @@ List.length deltas in
-  try List.map (fun x -> Grid.Fr ((float_of_int x) /. res *. len)) deltas
+  try List.map (fun x -> Grid.Fr (x /. resolution *. len)) deltas
   with Division_by_zero -> []
 
-let get_cell_pos_part (edge : int) points =
+let get_cell_pos_part (edge : float) points =
   let rec aux cnt = function
     | [] -> failwith "Corresponding cell edge not found" (* FIXME *)
     | x :: _ when x = edge -> cnt
     | _ :: tl -> aux (cnt + 1) tl in
-  if edge = 0 then first_grid_index
+  if edge = 0. then first_grid_index
   else aux (first_grid_index + 1) points
 
 let get_cell_positions ~lefts ~tops =
   List.map (fun (id, _, ({ Wm.Annotated. position = x; _ } as c)) ->
-      let col = get_cell_pos_part x.left lefts in
-      let row = get_cell_pos_part x.top tops in
-      let col_end = get_cell_pos_part x.right lefts in
-      let row_end = get_cell_pos_part x.bottom tops in
+      let col = get_cell_pos_part x.x lefts in
+      let row = get_cell_pos_part x.y tops in
+      let col_end = get_cell_pos_part (x.x +. x.w) lefts in
+      let row_end = get_cell_pos_part (x.y +. x.h) tops in
       id, (c, { Grid.
                 col
               ; row
@@ -132,10 +130,11 @@ let grid_properties_of_layout ({ resolution = w, h; layout; _ } : Wm.Annotated.t
   let sort = List.sort_uniq compare in
   let lefts, tops =
     List.split @@ List.map (fun (_, _, (c : Wm.Annotated.container)) ->
-        c.position.right, c.position.bottom) layout
+        (c.position.w +. c.position.x),
+        (c.position.h +. c.position.y)) layout
     |> fun (x, y) -> sort x, sort y in
-  let cols = points_to_frs w (get_deltas lefts) in
-  let rows = points_to_frs h (get_deltas tops) in
+  let cols = points_to_frs (float_of_int w) (get_deltas lefts) in
+  let rows = points_to_frs (float_of_int h) (get_deltas tops) in
   let cells = get_cell_positions ~lefts ~tops layout in
   { rows; cols; cells }
 

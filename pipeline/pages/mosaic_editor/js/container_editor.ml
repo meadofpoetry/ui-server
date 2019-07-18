@@ -105,7 +105,7 @@ let on_cell_insert
 (** Updates properties of the aspect ratio sizer according to the new
     area resolution *)
 let update_ar_sizer ~width ~height (sizer : Dom_html.element Js.t) =
-  let viewbox = Printf.sprintf "0 0 %d %d" width height in
+  let viewbox = Printf.sprintf "0 0 %g %g" width height in
   Element.set_attribute sizer "viewBox" viewbox
 
 let get f l =
@@ -321,9 +321,7 @@ class t ~(scaffold : Scaffold.t)
                 ~cols
                 ~rows
               @@ Grid.Util.get_cell_position cell in
-            let parent_size =
-              float_of_int @@ position.right - position.left,
-              float_of_int @@ position.bottom - position.top in
+            let parent_size = position.w, position.h in
             let widgets = Widget_utils.widgets_of_container ~parent_size cell in
             Container_utils.get_cell_title cell,
             { Wm. position; widgets })
@@ -378,7 +376,9 @@ class t ~(scaffold : Scaffold.t)
       grid#layout ();
       editor#destroy ();
       (* Restore aspect ratio sizer dimensions *)
-      let width, height = self#resolution in
+      let width, height =
+        float_of_int (fst self#resolution),
+        float_of_int (snd self#resolution) in
       update_ar_sizer ~width ~height ar_sizer;
       _widget_editor <- None;
       (match scaffold#side_sheet with
@@ -407,8 +407,8 @@ class t ~(scaffold : Scaffold.t)
           ~actions:editor#actions
           scaffold in
       (* Set aspect ratio sizer for container dimensions *)
-      let width = position.right - position.left in
-      let height = position.bottom - position.top in
+      let width = position.w in
+      let height = position.h in
       update_ar_sizer ~width ~height ar_sizer;
       let state = { icon; restore; editor; cell } in
       let t, w = Lwt.wait () in

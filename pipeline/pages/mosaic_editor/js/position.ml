@@ -199,7 +199,7 @@ let apply_to_element ?(unit = `Pc) (pos : t) (elt : #Dom_html.element Js.t) =
   elt##.style##.height := Js.string @@ fn pos.h;
   elt##.style##.top := Js.string @@ fn pos.y
 
-let of_element (elt : #Dom_html.element Js.t) =
+let of_element (elt : #Dom_html.element Js.t) : t =
   { x = float_of_int elt##.offsetLeft
   ; y = float_of_int elt##.offsetTop
   ; w = float_of_int elt##.offsetWidth
@@ -223,13 +223,13 @@ let of_client_rect (r : Dom_html.clientRect Js.t) : t =
   ; h = Js.Optdef.get r##.height (fun () -> r##.bottom -. r##.top)
   }
 
-let bounding_rect = function
+let bounding_rect : t list -> t = function
   | [] -> empty
   | [x] -> x
   | hd :: tl ->
     let acc = hd.x, hd.y, hd.x +. hd.w, hd.y +. hd.h in
     let (x, y, r, b) =
-      List.fold_left (fun (x, y, r, b) pos ->
+      List.fold_left (fun (x, y, r, b) (pos : t) ->
           let pos_right = pos.w +. pos.x in
           let pos_bottom = pos.h +. pos.y in
           min x pos.x,
@@ -496,19 +496,20 @@ let get_snap
   aux coord (min_distance +. 1.0) items  (* FIX + 1.0; (1.0 != 1 pixel) *)
 
 let get_item_snap_y (item : Dom_html.element Js.t)
-    pos min_distance
+    (pos : t) min_distance
     (items : Dom_html.element Js.t list) =
   get_snap item pos.y min_distance
   @@ hlines_for_move_action item pos min_distance items
 
 let get_item_snap_x (item : Dom_html.element Js.t)
-    pos min_distance
+    (pos : t) min_distance
     (items : Dom_html.element Js.t list) =
   get_snap item pos.x min_distance
   @@ vlines_for_move_action item pos min_distance items
 
 let get_item_snap_position_for_move (item : Dom_html.element Js.t)
-    (pos : t) min_distance (items : Dom_html.element Js.t list) =
+    (pos : t) min_distance
+    (items : Dom_html.element Js.t list) : t =
   { x = get_item_snap_x item pos min_distance items
   ; y = get_item_snap_y item pos min_distance items
   ; w = pos.w
@@ -520,7 +521,7 @@ let get_item_snap_position_for_resize
     pos
     min_distance
     (items : Dom_html.element Js.t list)
-    (direction : direction) =
+    (direction : direction) : t =
   let make_line align = make_line_properties align item pos min_distance items in
   match direction with
   | NW ->
@@ -680,12 +681,12 @@ let fix_collisions
   then original_position
   else position
 
-let snap_to_grid_move pos (grid_step : float) =
+let snap_to_grid_move (pos : t) (grid_step : float) : t =
   let x = Js.math##round (pos.x /. grid_step) *. grid_step in
   let y = Js.math##round (pos.y /. grid_step) *. grid_step in
   { pos with x; y }
 
-let snap_to_grid_resize (direction : direction)  pos (grid_step : float) =
+let snap_to_grid_resize (direction : direction) (pos : t) (grid_step : float) : t =
   match direction with
     | NW ->
       let x = Js.math##round (pos.x /. grid_step) *. grid_step in

@@ -11,15 +11,9 @@ module Test = struct
       ?(domain = Wm.Nihil)
       ?aspect
       ~x ~y ~w ~h () : string * Wm.widget =
-    let position =
-      Some { Wm.
-             left = x
-           ; top = y
-           ; right = x + w
-           ; bottom = y + h
-           } in
+    let (position : Wm.position) = { x; y; w; h } in
     string_of_int @@ Random.bits (),
-    { position
+    { position = Some position
     ; description = "Sample widget"
     ; pid = Some 4096
     ; type_
@@ -38,39 +32,39 @@ module Test = struct
     title, `Active, { position; widgets }
 
   let widgets =
-    [ make_widget ~type_:Audio ~x:0 ~y:0 ~w:50 ~h:50 ()
-    ; make_widget ~aspect:(16, 9) ~x:50 ~y:0 ~w:50 ~h:50 ()
+    [ make_widget ~type_:Audio ~x:0. ~y:0. ~w:50. ~h:50. ()
+    ; make_widget ~aspect:(16, 9) ~x:50. ~y:0. ~w:50. ~h:50. ()
     ; make_widget
         ~domain:(Chan { stream = Application_types.Stream.ID.make "id"
                       ; channel = 2
                       })
-        ~x:0 ~y:50 ~w:50 ~h:50 ()
+        ~x:0. ~y:50. ~w:50. ~h:50. ()
     ]
 
   let containers =
     [ make_container
         ~title:"Россия 1"
-        ~position:{ left = 0; top = 0; right = 240; bottom = 160 }
+        ~position:{ x = 0.; y = 0.; w = 240.; h = 160. }
         ~widgets:(annotate_widgets widgets)
         ()
     ; make_container
         ~title:"ТНТ"
-        ~position:{ left = 240; top = 0; right = 760; bottom = 160 }
+        ~position:{ x = 240.; y = 0.; w = 520.; h = 160. }
         ~widgets:(annotate_widgets widgets)
         ()
     ; make_container
         ~title:"Канал"
-        ~position:{ left = 760; top = 0; right = 1280; bottom = 360 }
+        ~position:{ x = 760.; y = 0.; w = 520.; h = 360. }
         ~widgets:(annotate_widgets widgets)
         ()
     ; make_container
         ~title:"Первый канал"
-        ~position:{ left = 0; top = 160; right = 760; bottom = 720 }
+        ~position:{ x = 0.; y = 160.; w = 760.; h = 560. }
         ~widgets:(annotate_widgets widgets)
         ()
     ; make_container
         ~title:"СТС"
-        ~position:{ left = 760; top = 360; right = 1280; bottom = 720 }
+        ~position:{ x = 760.; y = 360.; w = 520.; h = 360. }
         ~widgets:(annotate_widgets widgets)
         ()
     ]
