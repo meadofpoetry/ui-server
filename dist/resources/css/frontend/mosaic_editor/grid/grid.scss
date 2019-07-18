@@ -4,8 +4,8 @@
 .grid {
     display: grid;
     overflow: hidden;
-    gap: $container-grid-gap;
-    padding: $container-grid-gap;
+    gap: $grid-gap;
+    padding: $grid-gap;
     box-sizing: border-box;
 
     &__cell {
@@ -17,33 +17,33 @@
         @include mdc-theme-prop(background-color, surface);
 
         &[aria-colindex="1"], &[aria-rowindex="1"] {
-            .container-grid__mul-handle {
+            .grid__mul-handle {
                 display: none;
             }
         }
         &[aria-colindex="1"] {
-            .container-grid__col-handle {
+            .grid__col-handle {
                 display: none;
             }
         }
         &[aria-rowindex="1"] {
-            .container-grid__row-handle {
+            .grid__row-handle {
                 display: none;
             }
         }
 
         &--selected {
-            @include mdc-theme-prop(background-color, $container-grid-cell-selected-color);
+            @include mdc-theme-prop(background-color, $grid-cell-selected-color);
         }
     }
 
     &__mul-handle {
         position: absolute;
-        width: $container-grid-multy-handle-size;
-        height: $container-grid-multy-handle-size;
+        width: $grid-multy-handle-size;
+        height: $grid-multy-handle-size;
         border-radius: 50%;
-        top: -(($container-grid-multy-handle-size + $container-grid-gap) / 2);
-        left: -(($container-grid-multy-handle-size + $container-grid-gap) / 2);
+        top: -(($grid-multy-handle-size + $grid-gap) / 2);
+        left: -(($grid-multy-handle-size + $grid-gap) / 2);
         z-index: 9;
         cursor: move;
     }
@@ -51,17 +51,17 @@
     &__row-handle {
         position: absolute;
         width: 100%;
-        height: $container-grid-single-handle-size;
+        height: $grid-single-handle-size;
         left: 0;
-        top: -(($container-grid-single-handle-size + $container-grid-gap) / 2);
+        top: -(($grid-single-handle-size + $grid-gap) / 2);
         cursor: row-resize;
     }
 
     &__col-handle {
         position: absolute;
-        width: $container-grid-single-handle-size;
+        width: $grid-single-handle-size;
         height: 100%;
-        left: -(($container-grid-single-handle-size + $container-grid-gap) / 2);
+        left: -(($grid-single-handle-size + $grid-gap) / 2);
         top: 0;
         cursor: col-resize;
     }
@@ -70,12 +70,12 @@
 .grid__cell--dragging-column {
     .grid__col-handle:after {
         content: "";
-        width: $container-grid-gap;
+        width: $grid-gap;
         position: absolute;
         top: 0;
-        left: ($container-grid-single-handle-size - $container-grid-gap) / 2;
+        left: ($grid-single-handle-size - $grid-gap) / 2;
         height: 100vh;
-        @include mdc-theme-prop(background-color, $container-grid-border-active-color);
+        @include mdc-theme-prop(background-color, $grid-border-active-color);
         pointer-events: none;
     }
 }
@@ -83,12 +83,12 @@
 .grid__cell--dragging-row {
     .grid__row-handle:after {
         content: "";
-        height: $container-grid-gap;
+        height: $grid-gap;
         position: absolute;
-        top: ($container-grid-single-handle-size - $container-grid-gap) / 2;
+        top: ($grid-single-handle-size - $grid-gap) / 2;
         left: 0;
         width: 100vw;
-        @include mdc-theme-prop(background-color, $container-grid-border-active-color);
+        @include mdc-theme-prop(background-color, $grid-border-active-color);
         pointer-events: none;
     }
 }

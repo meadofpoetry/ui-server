@@ -1,11 +1,11 @@
 @import "@material/theme/mixins";
 
-$container-grid-gap: 6px;
+$grid-gap: 6px;
 
-$container-grid-single-handle-size: 10px;
-$container-grid-multy-handle-size: 20px;
+$grid-single-handle-size: 10px;
+$grid-multy-handle-size: 20px;
 
-$container-grid-border-color: mix(mdc-theme-prop-value(on-surface), mdc-theme-prop-value(surface), 34%);
-$container-grid-border-active-color: mix(mdc-theme-prop-value(on-surface), mdc-theme-prop-value(surface), 34%);
+$grid-border-color: mix(mdc-theme-prop-value(on-surface), mdc-theme-prop-value(surface), 34%);
+$grid-border-active-color: mix(mdc-theme-prop-value(on-surface), mdc-theme-prop-value(surface), 34%);
 
-$container-grid-cell-selected-color: mix(mdc-theme-prop-value(primary), mdc-theme-prop-value(surface), 50%);
+$grid-cell-selected-color: mix(mdc-theme-prop-value(primary), mdc-theme-prop-value(surface), 50%);
