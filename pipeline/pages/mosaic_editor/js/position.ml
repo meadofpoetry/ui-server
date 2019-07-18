@@ -12,16 +12,6 @@ type line =
   ; origin : float
   }
 
-type resize_direction =
-  | Top_left
-  | Top_right
-  | Bottom_left
-  | Bottom_right
-  | Top
-  | Bottom
-  | Left
-  | Right
-
 type line_align_direction =
   | Htop
   | Hcenter
@@ -108,7 +98,7 @@ let fix_aspect (p : t) (aspect : int * int) =
   { p with w = float_of_int w; h = float_of_int h }
 
 let fix_aspect2
-    (dir : resize_direction)
+    (dir : direction)
     (p : t)
     (orig_pos : t)
     (aspect : int * int) =
@@ -118,18 +108,15 @@ let fix_aspect2
     else (float_of_int (snd aspect)) /. (float_of_int (fst aspect)) in
   let asp = if asp <= 0.0 then 1.0 else asp in
   match dir with
-  | Top_left -> { p with y = orig_pos.y ; h = p.w *. asp  }
-  | Top_right -> { p with y = orig_pos.y ; h = p.w *. asp }
-  | Bottom_left -> { p with h = p.w *. asp }
-  | Bottom_right -> { p with h = p.w *. asp }
+  | NW -> { p with y = orig_pos.y ; h = p.w *. asp  }
+  | NE -> { p with y = orig_pos.y ; h = p.w *. asp }
+  | SW -> { p with h = p.w *. asp }
+  | SE -> { p with h = p.w *. asp }
   (* not tested *)
-  | Top -> p
-  (* not tested *)
-  | Bottom -> p
-  (* not tested *)
-  | Left -> p
-  (* not tested *)
-  | Right -> p
+  | N -> p
+  | S -> p
+  | W -> p
+  | E -> p
 
 (** Changes top and left coordinates to correspond parent dimentions *)
 let fix_xy ?min_x ?min_y ?max_x ?max_y ?(parent_w = 1.) ?(parent_h = 1.) (p : t) =
@@ -462,11 +449,11 @@ let hlines_for_move_action (item : Dom_html.element Js.t)
 let hlines_for_resize_action (item : Dom_html.element Js.t)
     pos min_distance
     (items : Dom_html.element Js.t list)
-    (direction : resize_direction) =
+    (direction : direction) =
   let align_direction = match direction with
-    | Top_left | Top_right | Top -> Htop
-    | Bottom_left | Bottom_right | Bottom -> Hbottom
-    | Left | Right -> Hcenter in
+    | NW | NE | N -> Htop
+    | SW | SE | S -> Hbottom
+    | W | E -> Hcenter in
   [make_line_properties align_direction item pos min_distance items]
 
 let vlines_for_move_action (item : Dom_html.element Js.t)
@@ -480,11 +467,11 @@ let vlines_for_move_action (item : Dom_html.element Js.t)
 let vlines_for_resize_action (item : Dom_html.element Js.t)
     pos min_distance
     (items : Dom_html.element Js.t list)
-    (direction : resize_direction) =
+    (direction : direction) =
   let align_direction = match direction with
-    | Top_left | Bottom_left | Left -> Vleft
-    | Top_right | Bottom_right | Right -> Vright
-    | Top | Bottom -> Vcenter in
+    | NW | SW | W -> Vleft
+    | NE | SE | E -> Vright
+    | N | S -> Vcenter in
   [make_line_properties align_direction item pos min_distance items]
 
 let get_snap
@@ -533,10 +520,10 @@ let get_item_snap_position_for_resize
     pos
     min_distance
     (items : Dom_html.element Js.t list)
-    (direction : resize_direction) =
+    (direction : direction) =
   let make_line align = make_line_properties align item pos min_distance items in
   match direction with
-  | Top_left ->
+  | NW ->
     let snap_list_x = [make_line Vleft] in
     let snap_list_y = [make_line Htop] in
     { x = get_snap item pos.x min_distance snap_list_x
@@ -544,7 +531,7 @@ let get_item_snap_position_for_resize
     ; w = pos.x -. (get_snap item pos.x min_distance snap_list_x) +. pos.w
     ; h = pos.y -. (get_snap item pos.y min_distance snap_list_y) +. pos.h
     }
-  | Top_right ->
+  | NE ->
     let snap_list_x = [make_line Vright] in
     let snap_list_y = [make_line Htop] in
     { x = pos.x (*get_snap item pos.x min_distance snap_list_x *)
@@ -552,7 +539,7 @@ let get_item_snap_position_for_resize
     ; w = (get_snap item pos.x min_distance snap_list_x) -. pos.x +. pos.w
     ; h = pos.y -. (get_snap item pos.y min_distance snap_list_y) +. pos.h
     }
-  | Bottom_left ->
+  | SW ->
     let snap_list_x = [make_line Vleft] in
     let snap_list_y = [make_line Hbottom] in
     { x = get_snap item pos.x min_distance snap_list_x
@@ -560,7 +547,7 @@ let get_item_snap_position_for_resize
     ; w = pos.x -. (get_snap item pos.x min_distance snap_list_x) +. pos.w
     ; h = (get_snap item pos.y min_distance snap_list_y) -. pos.y +. pos.h
     }
-  | Bottom_right ->
+  | SE ->
     let snap_list_x = [make_line Vright] in
     let snap_list_y = [make_line Hbottom] in
     { x = pos.x (*get_snap item pos.x min_distance snap_list_x *)
@@ -568,8 +555,8 @@ let get_item_snap_position_for_resize
     ; w = (get_snap item pos.x min_distance snap_list_x) -. pos.x +. pos.w
     ; h = (get_snap item pos.y min_distance snap_list_y) -. pos.y +. pos.h
     }
-  | Top ->
-    (* not tested *)
+  (* not tested *)
+  | N ->
     let snap_list_x = [make_line Vcenter] in
     let snap_list_y = [make_line Htop] in
     { x = get_snap item pos.x min_distance snap_list_x
@@ -577,7 +564,7 @@ let get_item_snap_position_for_resize
     ; w = pos.x -. (get_snap item pos.x min_distance snap_list_x) +. pos.w
     ; h = pos.y -. (get_snap item pos.y min_distance snap_list_y) +. pos.h
     }
-  | Bottom ->
+  | S ->
     (* not tested *)
     let snap_list_x = [make_line Vcenter] in
     let snap_list_y = [make_line Hbottom] in
@@ -586,7 +573,7 @@ let get_item_snap_position_for_resize
     ; w = pos.x -. (get_snap item pos.x min_distance snap_list_x) +. pos.w
     ; h = pos.y -. (get_snap item pos.y min_distance snap_list_y) +. pos.h
     }
-  | Left ->
+  | W ->
     (* not tested *)
     let snap_list_x = [make_line Vleft] in
     let snap_list_y = [make_line Hcenter] in
@@ -595,7 +582,7 @@ let get_item_snap_position_for_resize
     ; w = pos.x -. (get_snap item pos.x min_distance snap_list_x) +. pos.w
     ; h = pos.y -. (get_snap item pos.y min_distance snap_list_y) +. pos.h
     }
-  | Right ->
+  | E ->
     (* not tested *)
     let snap_list_x = [make_line Vright] in
     let snap_list_y = [make_line Hcenter] in
@@ -611,7 +598,7 @@ let get_snap_lines
     (pos : t)
     (items : Dom_html.element Js.t list)
     min_distance
-    (action : [`Resize of resize_direction | `Move]) =
+    (action : [`Resize of direction | `Move]) =
   let snap_list =
     match action with
     | `Move ->
@@ -663,18 +650,15 @@ let clip_to_parent ({ w; h; x; y } as pos : t) ?parent_w ?parent_h
   | `Resize direction ->
     let (max_x, max_y, min_x, min_y) =
       match direction with
-      | Top_left -> Some (x +. w -. min_w), Some (y +. h -. min_h), None, None
-      | Top_right -> None, Some (y +. h -. min_h), Some x, None
-      | Bottom_left -> Some (x +. w -. min_w), None, None, Some y
-      | Bottom_right -> None, None, Some x, Some y
+      | NW -> Some (x +. w -. min_w), Some (y +. h -. min_h), None, None
+      | NE -> None, Some (y +. h -. min_h), Some x, None
+      | SW -> Some (x +. w -. min_w), None, None, Some y
+      | SE -> None, None, Some x, Some y
       (* not tested *)
-      | Top -> Some (x +. w -. min_w), None, None, None
-      (* not tested *)
-      | Bottom -> None, None, None, Some y
-      (* not tested *)
-      | Left -> Some (x +. w -. min_h), None, None, None
-      (* not tested *)
-      | Right -> None, None, Some x, None
+      | N -> Some (x +. w -. min_w), None, None, None
+      | S -> None, None, None, Some y
+      | W -> Some (x +. w -. min_h), None, None, None
+      | E -> None, None, Some x, None
     in
     fix ?min_x ?max_x ?min_y ?max_y ~min_w ~min_h ?parent_w ?parent_h pos
 
@@ -701,36 +685,30 @@ let snap_to_grid_move pos (grid_step : float) =
   let y = Js.math##round (pos.y /. grid_step) *. grid_step in
   { pos with x; y }
 
-let snap_to_grid_resize (direction : resize_direction)  pos (grid_step : float) =
+let snap_to_grid_resize (direction : direction)  pos (grid_step : float) =
   match direction with
-    | Top_left ->
+    | NW ->
       let x = Js.math##round (pos.x /. grid_step) *. grid_step in
       let y = Js.math##round (pos.y /. grid_step) *. grid_step in
       let w = pos.w +. pos.x -. x in
       let h = pos.h +. pos.y -. y in
       { x; y; h; w }
-    | Top_right ->
+    | NE ->
       let y = Js.math##round (pos.y /. grid_step) *. grid_step in
       let w = Js.math##round (pos.w /. grid_step) *. grid_step in
       let h = pos.h +. pos.y -. y in
       { pos with y; h; w }
-    | Bottom_left ->
+    | SW ->
       let x = Js.math##round (pos.x /. grid_step) *. grid_step in
       let w = pos.w +. pos.x -. x in
       let h = Js.math##round (pos.h /. grid_step) *. grid_step in
       { pos with x; w; h }
-    | Bottom_right ->
+    | SE ->
       let w = Js.math##round (pos.w /. grid_step) *. grid_step in
       let h = Js.math##round (pos.h /. grid_step) *. grid_step in
       { pos with w; h }
     (* not tested *)
-    | Top -> pos
-    (* not tested *)
-    | Bottom -> pos
-    (* not tested *)
-    | Left -> pos
-    (* not tested *)
-    | Right -> pos
+    | N | S | W | E -> pos
 
 let adjust ?aspect_ratio
     ?(snap_lines = true)
@@ -741,7 +719,7 @@ let adjust ?aspect_ratio
     ?grid_step
     ?max_width (* not need *)
     ?max_height (* not need *)
-    ~(action : [`Resize of resize_direction | `Move])
+    ~(action : [`Resize of direction | `Move])
     ~(original_position : t) (* need if we use collides *) (* int coordinatrs to float [0;1.0] *)
     ~(position : t)
     ~(siblings : Dom_html.element Js.t list) (* widget positions int coordinatrs to float [0;1.0] *)
@@ -758,7 +736,7 @@ let adjust ?aspect_ratio
     | None -> position
     | Some x ->
       match action with
-      | `Move -> fix_aspect2 Bottom_right position original_position x
+      | `Move -> fix_aspect2 SE position original_position x
       | `Resize resz -> fix_aspect2 resz position original_position x
   in
   let position = match snap_lines, action with

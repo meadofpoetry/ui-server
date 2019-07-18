@@ -3,6 +3,7 @@ open Components_tyxml
 module CSS = struct
   let root = "transform"
   let resizer = BEM.add_element root "resizer"
+  let circle = BEM.add_element root "circle"
 end
 
 module Make(Xml : Xml_sigs.NoWrap)
@@ -12,37 +13,31 @@ module Make(Xml : Xml_sigs.NoWrap)
   open Html
   open Utils
 
-  let create_resizer ?(classes = []) ?attrs ?up ?left ?right ?down () : 'a elt =
+  let content_of_direction = function
+    | Position.N | E | S | W -> []
+    | NW | NE | SW | SE -> [div ~a:[a_class [CSS.circle]] []]
+
+  let create_resizer ?(classes = []) ?attrs direction : 'a elt =
     let classes = CSS.resizer :: classes in
     div ~a:([ a_class classes
             ; a_role ["slider"]
-            ] <@> attrs
-            |> map_cons_option (a_user_data "left" % string_of_bool) left
-            |> map_cons_option (a_user_data "up" % string_of_bool) up
-            |> map_cons_option (a_user_data "right" % string_of_bool) right
-            |> map_cons_option (a_user_data "down" % string_of_bool) down)
-      [svg ~a:Svg.[ a_x (0., Some `Px)
-                  ; a_y (0., Some `Px)
-                  ; a_width (64., Some `Px)
-                  ; a_height (64., Some `Px)
-                  ; a_viewBox (0., 0., 64., 64.)
-                  ]
-         Svg.[circle ~a:[ a_cx (4., None)
-                        ; a_cy (4., None)
-                        ; a_r (4., None)
-                        ]
-                []]
-      ]
+            ; a_user_data "direction" (Position.direction_to_string direction)
+            ] <@> attrs)
+      (content_of_direction direction)
 
   let create ?(tabindex = -1) ?(classes = []) ?attrs () : 'a elt =
     let classes = CSS.root :: classes in
     div ~a:([ a_class classes
             ; a_tabindex tabindex
             ; a_role ["slider"]] <@> attrs)
-      [ create_resizer ~up:true ~left:true ()
-      ; create_resizer ~up:true ~right:true ()
-      ; create_resizer ~down:true ~left:true ()
-      ; create_resizer ~down:true ~right:true ()
+      [ create_resizer N
+      ; create_resizer E
+      ; create_resizer S
+      ; create_resizer W
+      ; create_resizer NW
+      ; create_resizer NE
+      ; create_resizer SW
+      ; create_resizer SE
       ]
 
 end

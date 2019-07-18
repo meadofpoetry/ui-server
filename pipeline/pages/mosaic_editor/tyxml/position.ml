@@ -5,6 +5,38 @@ type t =
   ; h : float
   }
 
+type direction =
+  | N
+  | E
+  | S
+  | W
+  | NW
+  | NE
+  | SE
+  | SW
+
+let direction_to_string = function
+  | N -> "n"
+  | E -> "e"
+  | S -> "s"
+  | W -> "w"
+  | NW -> "nw"
+  | NE -> "ne"
+  | SE -> "se"
+  | SW -> "sw"
+
+let direction_of_string (s : string) : direction option =
+  match String.lowercase_ascii s with
+  | "n" -> Some N
+  | "e" -> Some E
+  | "s" -> Some S
+  | "w" -> Some W
+  | "nw" -> Some NW
+  | "ne" -> Some NE
+  | "se" -> Some SE
+  | "sw" -> Some SW
+  | _ -> None
+
 let empty =
   { x = 0.0
   ; y = 0.0

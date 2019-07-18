@@ -9,16 +9,6 @@ type line =
   ; origin : float
   }
 
-type resize_direction =
-  | Top_left
-  | Top_right
-  | Bottom_left
-  | Bottom_right
-  | Top
-  | Bottom
-  | Left
-  | Right
-
 val fix_aspect : t -> int * int -> t
 
 val apply_to_element : ?unit:[`Px | `Pc] -> t -> #Dom_html.element Js.t -> unit
@@ -41,7 +31,7 @@ val adjust :
   -> ?grid_step:float
   -> ?max_width:float
   -> ?max_height:float
-  -> action:[`Resize of resize_direction | `Move]
+  -> action:[`Resize of direction | `Move]
   -> original_position:t
   -> position:t (* Active item position *)
   -> siblings:Dom_html.element Js.t list (* Active item neighbours (with active item) *)

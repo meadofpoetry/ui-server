@@ -9,10 +9,7 @@ module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 let name = "transform"
 
 module Attr = struct
-  let up = "data-up"
-  let down = "data-down"
-  let right = "data-right"
-  let left = "data-left"
+  let direction = "data-direction"
 end
 
 module Event = struct
@@ -25,7 +22,7 @@ module Event = struct
       method originalRect : Dom_html.clientRect Js.t Js.readonly_prop
       method rect : Dom_html.clientRect Js.t Js.readonly_prop
       method action : action Js.readonly_prop
-      method direction : Position.resize_direction Js.readonly_prop
+      method direction : Position.direction Js.readonly_prop
     end
 
   class type input =
@@ -61,24 +58,11 @@ end
 
 let unwrap x = Js.Optdef.get x (fun () -> assert false)
 
-let resize_dir_of_event (e : #Dom_html.event Js.t) : Position.resize_direction option =
+let direction_of_event (e : #Dom_html.event Js.t) : Position.direction option =
   let target = Dom.eventTarget e in
-  let get_bool_attr e attr =
-    match Element.get_attribute e attr with
-    | None -> false
-    | Some x -> match bool_of_string_opt x with
-      | None -> false
-      | Some x -> x in
-  let left = get_bool_attr target Attr.left in
-  let right = get_bool_attr target Attr.right in
-  let up = get_bool_attr target Attr.up in
-  let down = get_bool_attr target Attr.down in
-  match left, up, right, down with
-  | true, true, false, false -> print_endline "top left"; Some Top_left
-  | false, true, true, false -> print_endline "top right"; Some Top_right
-  | true, false, false, true -> print_endline "bottom left"; Some Bottom_left
-  | false, false, true, true -> print_endline "bottom right"; Some Bottom_right
-  | _ -> None
+  match Element.get_attribute target Attr.direction with
+  | None -> None
+  | Some x -> Position.direction_of_string x
 
 let get_touch_by_id (touches : Dom_html.touchList Js.t)
     (id : int) : Dom_html.touch Js.t option =
@@ -153,7 +137,7 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
 
     (* Private methods *)
 
-    method private notify_input ?(direction = Position.Top_left) action position : unit =
+    method private notify_input ?(direction = Position.NW) action position : unit =
       let (detail : Event.detail Js.t) =
         object%js
           val rect = Position.to_client_rect position
@@ -187,7 +171,10 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       let action = match button with
         | None | Some 0 ->
           if Element.has_class target CSS.resizer
-          then `Resize (resize_dir_of_event event)
+          then begin match direction_of_event event with
+            | None -> `None
+            | Some dir -> `Resize dir
+          end
           else `Move
         | _ -> `None in
       (* Refresh element position and size *)
@@ -212,7 +199,7 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       Lwt.return_unit
 
     method private handle_drag_move
-      : 'a. [`Resize of Position.resize_direction option | `Move | `None]
+      : 'a. [`Resize of Position.direction | `Move | `None]
         -> (#Dom_html.event as 'a) Js.t
         -> unit Lwt.t
         -> unit Lwt.t =
@@ -260,63 +247,60 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       Lwt.return_unit
 
     (* Resizes an element *)
-    method private resize : 'a. Position.resize_direction option
+    method private resize : 'a. Position.direction
       -> (#Dom_html.event as 'a) Js.t
       -> unit Lwt.t =
-      fun dir e ->
+      fun direction e ->
       _dragging <- true;
-      match dir with
-      | None -> Lwt.return_unit
-      | Some direction ->
-        let page_x, page_y = get_cursor_position ?touch_id:_touch_id e in
-        let position = match direction with
-          | Top_left ->
-            { Position.
-              w = _position.w -. (page_x -. (fst _coordinate))
-            ; h = _position.h -. (page_y -. (snd _coordinate))
-            ; x = _position.x +. (page_x -. (fst _coordinate))
-            ; y = _position.y +. (page_y -. (snd _coordinate))
-            }
-          | Top_right ->
-            { _position with
-              w = _position.w +. (page_x -. (fst _coordinate))
-            ; h = _position.h -. (page_y -. (snd _coordinate))
-            ; y = _position.y +. (page_y -. (snd _coordinate))
-            }
-          | Bottom_left ->
-            { _position with
-              w = _position.w -. (page_x -. (fst _coordinate))
-            ; h = _position.h +. (page_y -. (snd _coordinate))
-            ; x = _position.x +. (page_x -. (fst _coordinate))
-            }
-          | Bottom_right ->
-            { _position with
-              w = _position.w +. (page_x -. (fst _coordinate))
-            ; h = _position.h +. (page_y -. (snd _coordinate))
-            }
-          | Top ->
-            { _position with
-              h = _position.h -. (page_y -. (snd _coordinate))
-            ; y = _position.y +. (page_y -. (snd _coordinate))
-            }
-          | Bottom ->
-            { _position with
-              h = _position.h +. (page_y -. (snd _coordinate))
-            ; y = _position.y +. (page_y -. (snd _coordinate))
-            }
-          | Left ->
-            { _position with
-              w = _position.w -. (page_x -. (fst _coordinate))
-            ; x = _position.x +. (page_x -. (fst _coordinate))
-            }
-          | Right ->
-            { _position with
-              w = _position.w -. (page_x -. (fst _coordinate))
-            ; x = _position.x +. (page_x -. (fst _coordinate))
-            } in
-        self#layout ();
-        self#notify_input ~direction Resize position;
-        Lwt.return_unit
+      let page_x, page_y = get_cursor_position ?touch_id:_touch_id e in
+      let position = match direction with
+        | NW ->
+          { Position.
+            w = _position.w -. (page_x -. (fst _coordinate))
+          ; h = _position.h -. (page_y -. (snd _coordinate))
+          ; x = _position.x +. (page_x -. (fst _coordinate))
+          ; y = _position.y +. (page_y -. (snd _coordinate))
+          }
+        | NE ->
+          { _position with
+            w = _position.w +. (page_x -. (fst _coordinate))
+          ; h = _position.h -. (page_y -. (snd _coordinate))
+          ; y = _position.y +. (page_y -. (snd _coordinate))
+          }
+        | SW ->
+          { _position with
+            w = _position.w -. (page_x -. (fst _coordinate))
+          ; h = _position.h +. (page_y -. (snd _coordinate))
+          ; x = _position.x +. (page_x -. (fst _coordinate))
+          }
+        | SE ->
+          { _position with
+            w = _position.w +. (page_x -. (fst _coordinate))
+          ; h = _position.h +. (page_y -. (snd _coordinate))
+          }
+        | N ->
+          { _position with
+            h = _position.h -. (page_y -. (snd _coordinate))
+          ; y = _position.y +. (page_y -. (snd _coordinate))
+          }
+        | S ->
+          { _position with
+            h = _position.h +. (page_y -. (snd _coordinate))
+          ; y = _position.y +. (page_y -. (snd _coordinate))
+          }
+        | W ->
+          { _position with
+            w = _position.w -. (page_x -. (fst _coordinate))
+          ; x = _position.x +. (page_x -. (fst _coordinate))
+          }
+        | E ->
+          { _position with
+            w = _position.w -. (page_x -. (fst _coordinate))
+          ; x = _position.x +. (page_x -. (fst _coordinate))
+          } in
+      self#layout ();
+      self#notify_input ~direction Resize position;
+      Lwt.return_unit
 
     method private create_ripple () : Ripple.t =
       Ripple.attach super#root
