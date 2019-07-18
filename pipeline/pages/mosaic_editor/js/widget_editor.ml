@@ -480,9 +480,13 @@ class t
        | None -> ()
        | Some x -> if not @@ Element.equal x target then x##blur);
       let detail = Widget.event_detail e in
-      let position = Position.of_client_rect detail##.rect in
-      let original_position = Position.of_client_rect detail##.originalRect in
       let parent_size = self#size in
+      let siblings, items =
+        List.split
+        @@ Utils.List.filter_map (fun x ->
+            if List.mem x self#selected
+            then None else Some (Position.of_element x, x))
+          self#items in
       let adjusted, lines =
         Position.adjust
           ?aspect_ratio:(Widget_utils.Attr.get_aspect target)
@@ -493,14 +497,21 @@ class t
           ~action:(match detail##.action with
               | Move -> `Move
               | Resize -> `Resize detail##.direction)
-          ~position
-          ~original_position
-          ~siblings:self#items
+          ~siblings
           ~parent_size
-          target
+          (List.map (fun x ->
+               let (_, widget) = Widget_utils.widget_of_element x in
+               Position.of_element x, widget.aspect)
+              self#selected)
       in
-      let adjusted = Position.to_normalized  ~parent_size adjusted in
-      Position.apply_to_element ~unit:`Norm adjusted target;
+      let bounding =
+        Position.to_normalized ~parent_size
+        @@ Position.bounding_rect adjusted in
+      List.iter2 (fun (x : Position.t) (item : Dom_html.element Js.t) ->
+          let pos = Position.to_normalized ~parent_size x in
+          Position.apply_to_element ~unit:`Norm pos item)
+        adjusted self#selected;
+      Position.apply_to_element ~unit:`Norm bounding target;
       grid_overlay#set_snap_lines lines;
       Lwt.return_unit
 
@@ -539,6 +550,7 @@ class t
     method private move_ghost :
       'a. ?aspect:int * int -> (#Dom_html.event as 'a) Js.t -> unit =
       fun ?aspect event ->
+      Dom.preventDefault event;
       (* FIXME too expensive to call getBoundingClientRect every time *)
       let rect = super#root##getBoundingClientRect in
       let (x, y) = Transform.get_cursor_position event in
@@ -552,7 +564,6 @@ class t
       let position = match aspect with
         | None -> position
         | Some aspect -> Position.fix_aspect position aspect in
-      Dom.preventDefault event;
       let parent_size = self#size in
       let adjusted, lines =
         Position.adjust
@@ -562,13 +573,14 @@ class t
           ~grid_step:(float_of_int grid_overlay#size)
           ~snap_lines:grid_overlay#snap_lines_visible
           ~action:`Move
-          ~position
-          ~original_position:position
-          ~siblings:self#items
+          ~siblings:(Utils.List.filter_map (fun x ->
+              if Element.equal x ghost
+              then None else Some (Position.of_element x))
+              self#items)
           ~parent_size
-          ghost
+          [position, None]
       in
-      let adjusted = Position.to_normalized ~parent_size adjusted in
+      let adjusted = Position.to_normalized ~parent_size @@ List.hd adjusted in
       Position.apply_to_element ~unit:`Norm adjusted ghost;
       grid_overlay#set_snap_lines lines
 

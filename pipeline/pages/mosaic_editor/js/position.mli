@@ -9,6 +9,8 @@ type line =
   ; origin : float
   }
 
+type aspect = int * int
+
 val fix_aspect : t -> int * int -> t
 
 val apply_to_element : unit:[`Px | `Pct | `Norm] -> t -> #Dom_html.element Js.t -> unit
@@ -22,7 +24,7 @@ val of_client_rect : Dom_html.clientRect Js.t -> t
 val bounding_rect : t list -> t
 
 val adjust :
-  ?aspect_ratio:(int * int) (* Aspect ratio of active item, if any *)
+  ?aspect_ratio:aspect (* Aspect ratio of active item, if any *)
   -> ?snap_lines:bool
   -> ?collisions:bool
   -> ?min_width:float
@@ -32,9 +34,7 @@ val adjust :
   -> ?max_width:float
   -> ?max_height:float
   -> action:[`Resize of direction | `Move]
-  -> original_position:t
-  -> position:t (* Active item position *)
-  -> siblings:Dom_html.element Js.t list (* Active item neighbours (with active item) *)
+  -> siblings:t list (* Active item neighbours (with active item) *)
   -> parent_size:float * float (* Parent width & height *)
-  -> Dom_html.element Js.t (* Active item *)
-  -> t * (line list) (* Adjusted position & lines properties *)
+  -> (t * aspect option) list
+  -> t list * line list (* Adjusted position & lines properties *)
