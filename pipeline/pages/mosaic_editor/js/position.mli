@@ -36,5 +36,6 @@ val adjust :
   -> action:[`Resize of direction | `Move]
   -> siblings:t list (* Active item neighbours (with active item) *)
   -> parent_size:float * float (* Parent width & height *)
+  -> rect_position:t
   -> (t * aspect option) list
-  -> t list * line list (* Adjusted position & lines properties *)
+  -> t * t list * line list (* Adjusted position & lines properties *)

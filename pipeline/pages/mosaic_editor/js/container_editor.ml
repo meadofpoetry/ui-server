@@ -366,6 +366,7 @@ class t ~(scaffold : Scaffold.t)
         ({ restore; icon; editor; cell } : widget_mode_state) =
       restore ();
       Utils.Option.iter (ignore % set_top_app_bar_icon scaffold `Main) icon;
+      super#remove_class CSS.widget_mode;
       self#update_widget_elements editor#items cell;
       Dom.removeChild content editor#root;
       Dom.appendChild content grid#root;
@@ -412,6 +413,7 @@ class t ~(scaffold : Scaffold.t)
           Lwt.wakeup_later w state;
           Lwt.return_unit);
       (* Update view *)
+      super#add_class CSS.widget_mode;
       Utils.Option.iter (Dom.removeChild heading % Widget.root) _mode_switch;
       Dom.removeChild content grid#root;
       Dom.appendChild content editor#root;

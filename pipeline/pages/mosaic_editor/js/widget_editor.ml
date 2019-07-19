@@ -481,13 +481,14 @@ class t
        | Some x -> if not @@ Element.equal x target then x##blur);
       let detail = Widget.event_detail e in
       let parent_size = self#size in
+      let rect_position = Position.of_client_rect detail##.rect in
       let siblings, items =
         List.split
         @@ Utils.List.filter_map (fun x ->
             if List.mem x self#selected
             then None else Some (Position.of_element x, x))
           self#items in
-      let adjusted, lines =
+      let adjusted_rect, adjusted, lines =
         Position.adjust
           ?aspect_ratio:(Widget_utils.Attr.get_aspect target)
           ~min_width:min_size
@@ -499,19 +500,23 @@ class t
               | Resize -> `Resize detail##.direction)
           ~siblings
           ~parent_size
+          ~rect_position
           (List.map (fun x ->
                let (_, widget) = Widget_utils.widget_of_element x in
                Position.of_element x, widget.aspect)
               self#selected)
       in
-      let bounding =
-        Position.to_normalized ~parent_size
-        @@ Position.bounding_rect adjusted in
+      let adjusted_rect = Position.to_normalized ~parent_size adjusted_rect in
+      (* let bounding =
+       *   Position.to_normalized ~parent_size
+       *   @@ Position.bounding_rect adjusted in *)
       List.iter2 (fun (x : Position.t) (item : Dom_html.element Js.t) ->
           let pos = Position.to_normalized ~parent_size x in
-          Position.apply_to_element ~unit:`Norm pos item)
+          Position.apply_to_element ~unit:`Norm pos item;
+          Widget_utils.Attr.set_position item pos)
         adjusted self#selected;
-      Position.apply_to_element ~unit:`Norm bounding target;
+      Position.apply_to_element ~unit:`Norm adjusted_rect target;
+      (* Position.apply_to_element ~unit:`Norm bounding target; *)
       grid_overlay#set_snap_lines lines;
       Lwt.return_unit
 
@@ -565,7 +570,7 @@ class t
         | None -> position
         | Some aspect -> Position.fix_aspect position aspect in
       let parent_size = self#size in
-      let adjusted, lines =
+      let _, adjusted, lines =
         Position.adjust
           ?aspect_ratio:None
           ~min_width:min_size
@@ -578,6 +583,7 @@ class t
               then None else Some (Position.of_element x))
               self#items)
           ~parent_size
+          ~rect_position:position
           [position, None]
       in
       let adjusted = Position.to_normalized ~parent_size @@ List.hd adjusted in

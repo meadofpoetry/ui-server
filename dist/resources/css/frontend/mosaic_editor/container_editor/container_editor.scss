@@ -155,6 +155,11 @@ $divider-color: if(
     }
 }
 
+.container-editor--widget-mode {
+    .mdc-card__media {
+    }
+}
+
 .container-editor:not(.container-editor--content-mode) {
     .grid__cell:before {
         content: attr(aria-colindex) 'x' attr(aria-rowindex);

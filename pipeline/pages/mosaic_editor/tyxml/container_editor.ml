@@ -7,6 +7,7 @@ module CSS = struct
   let aspect_ratio_sizer = BEM.add_element root "aspect-ratio-sizer"
   let widget_wrapper = BEM.add_element root "widget-wrapper"
   let widget = BEM.add_element root "widget"
+  let widget_mode = BEM.add_modifier root "widget-mode"
   let content_mode = BEM.add_modifier root "content-mode"
   let cell_dragover = BEM.add_modifier Grid.CSS.cell "dragover"
   let cell_dragging = BEM.add_modifier Grid.CSS.cell "dragging"
