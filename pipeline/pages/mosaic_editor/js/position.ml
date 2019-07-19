@@ -702,6 +702,7 @@ let adjust ?aspect_ratio
     ~(siblings : t list) (* widget positions int coordinatrs to float [0;1.0] *)
     ~(parent_size : float * float) (* need if input positions is int pixel coordinates *)
     ~(frame_position : t)
+    (original_frame_position : t)
     (positions : t list) =
   let parent_w, parent_h = parent_size in
   let position = frame_position in

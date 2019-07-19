@@ -37,5 +37,6 @@ val adjust :
   -> siblings:t list (* Active item neighbours (with active item) *)
   -> parent_size:float * float (* Parent width & height *)
   -> frame_position:t
+  -> t
   -> t list
   -> t * t list * line list (* Adjusted position & lines properties *)

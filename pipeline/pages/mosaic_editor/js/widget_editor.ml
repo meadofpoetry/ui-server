@@ -235,6 +235,7 @@ class t
     val mutable min_size = 20.
 
     val mutable _selection = None
+    val mutable _original_rects = []
 
     val mutable _basic_actions = []
     val mutable _selected_actions = []
@@ -488,6 +489,12 @@ class t
             if List.mem x self#selected
             then None else Some (Position.of_element x, x))
           self#items in
+      let original_position = Position.of_client_rect @@ detail##.originalRect in
+      let original_positions = match _original_rects with
+        | [] ->
+          _original_rects <- List.map Position.of_element self#selected;
+          _original_rects
+        | l -> l in
       let frame, adjusted, lines =
         Position.adjust
           ?aspect_ratio:(Widget_utils.Attr.get_aspect target)
@@ -501,7 +508,8 @@ class t
           ~siblings
           ~parent_size
           ~frame_position
-          (List.map Position.of_element self#selected)
+          original_position
+          original_positions
       in
       List.iter2 (fun (x : Position.t) (item : Dom_html.element Js.t) ->
           let pos = Position.to_normalized ~parent_size x in
@@ -516,6 +524,7 @@ class t
 
     method private handle_transform_change e _ =
       let target = Dom_html.eventTarget e in
+      _original_rects <- [];
       grid_overlay#set_snap_lines [];
       let position =
         Position.to_normalized ~parent_size:self#size
@@ -578,6 +587,7 @@ class t
               self#items)
           ~parent_size
           ~frame_position:position
+          position
           [position]
       in
       let adjusted = Position.to_normalized ~parent_size @@ List.hd adjusted in
