@@ -590,6 +590,10 @@ class t ~(scaffold : Scaffold.t)
         | Some x -> Element.remove_children x; x in
       List.iter (fun (x : Dom_html.element Js.t) ->
           let elt = Dom_html.(createDiv document) in
+          elt##.style##.left := x##.style##.left;
+          elt##.style##.top := x##.style##.top;
+          elt##.style##.width := x##.style##.width;
+          elt##.style##.height := x##.style##.height;
           Widget_utils.copy_attributes x elt;
           Element.add_class elt CSS.widget;
           Dom.appendChild wrapper elt) widgets
@@ -597,8 +601,7 @@ class t ~(scaffold : Scaffold.t)
   end
 
 let content_of_container (container : Wm.Annotated.container) =
-  let widgets = List.map (Markup.create_widget container.position)
-      container.widgets in
+  let widgets = List.map Markup.create_widget container.widgets in
   [Markup.create_widget_wrapper widgets]
 
 let make_grid (props : Container_utils.grid_properties) =

@@ -20,13 +20,17 @@
 - [ ] XXX take aspect ratio into account when adding widget
 - [ ] add states
 - [X] implement widget selection
-- [ ] implement widget transform
+- [-] implement widget transform
+- [ ] implement widget move without prior selection
+- [ ] implement selection reset (e.g. on outside click)
+- [ ] allow transform handles overflow parent
 ** position.ml
 - [ ] take aspect ratio into account in `adjust` function
 - [X] consider floating point coordinates
-- [ ] fix snap lines generation
+- [X] fix snap lines generation
 - [ ] improve `of_relative`, `to_relative`
-** resizable.ml
+- [ ] implement different types for pixel/pct/normalized coordinates
+** transform.ml
 - [ ] XXX extend widget resize direction to Top, Left, Right, Bottom
 ** grid_overlay.ml
 - [ ] XXX read `size` from DOM attribute
@@ -37,7 +41,7 @@
 ** overflow_menu.ml
 - [X] XXX click event listener is missing sometimes
 - [X] XXX move markup to `page_mosaic_editor_tyxml` lib
-** resizable_grid.ml
+** grid.ml
 - [ ] XXX fix merge/add/remove col/row methods
       (especially for multi-span cells and nested grids)
 - [ ] implement `is_merge_possible` function
@@ -48,6 +52,7 @@
 - [ ] implement `notify` method
 ** Other 
 - [ ] XXX Undo/redo for every defined action
+- [ ] when applying, unobvious intersections/invalid positions are often detected by backend
 ** Optional
 - [ ] XXX add an ability to disable an action (like undo, redo...)
-- [ ] switch to relative coordinates on backend
+- [X] switch to relative coordinates on backend

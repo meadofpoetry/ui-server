@@ -4,7 +4,6 @@ module CSS = struct
   let root = "widget-grid"
   let item = root ^ "-item"
   let item_content = BEM.add_element item "content"
-  let item_ripple = BEM.add_element item "ripple"
   let item_selected = BEM.add_modifier item "selected"
   let item_dragging = BEM.add_modifier item "dragging"
   let ghost = BEM.add_element root "ghost"
@@ -47,8 +46,7 @@ module Make(Xml : Xml_sigs.NoWrap)
     let ( ^:: ) x l = match x with None -> l | Some x -> x :: l in
     let text = Text'.make widget.description in
     let icon = create_icon widget in
-    div ~a:[a_class [CSS.item_content]]
-      (icon :: (pid ^:: [text]))
+    div ~a:[a_class [CSS.item_content]] (icon :: (pid ^:: [text]))
 
   let create_item ?(classes = []) ?attrs ?content
       (widget : Pipeline_types.Wm.widget) : 'a elt =
@@ -56,8 +54,7 @@ module Make(Xml : Xml_sigs.NoWrap)
     let content = match content with
       | None -> [create_content widget]
       | Some x -> x in
-    div ~a:([a_class classes] <@> attrs)
-      ((div ~a:[a_class [CSS.item_ripple]] []) :: content)
+    div ~a:([a_class classes] <@> attrs) content
 
   let create ?(classes = []) ?attrs ?(content = []) () : 'a elt =
     let classes = CSS.root :: classes in

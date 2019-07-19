@@ -20,6 +20,7 @@ $mosaic-grid-colors: (
     margin-left: auto;
     margin-right: auto;
     @include mdc-theme-prop(background-color, surface);
+    @include widget-grid-ripple();
 }
 
 .widget-grid__ghost {
@@ -37,6 +38,7 @@ $mosaic-grid-colors: (
     border-width: 2px;
     box-sizing: border-box;
     outline: none;
+    overflow: hidden;
 
     &--dragging {
         @include mdc-elevation(8);
@@ -47,20 +49,6 @@ $mosaic-grid-colors: (
             opacity: 0.5;
         }
     }
-}
-
-.widget-grid-item__ripple {
-    @include mdc-ripple-surface;
-    @include mdc-ripple-radius-bounded;
-    @include mdc-states(primary);
-
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    z-index: 1;
 }
 
 .widget-grid-item__content {

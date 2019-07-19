@@ -1,0 +1,11 @@
+@import "@material/theme/mixins";
+@import "@material/theme/color-palette";
+
+@mixin widget-background-color() {
+    &[data-type="video"] {
+        @include mdc-theme-prop(background-color, $material-color-blue-grey-500);
+    }
+    &[data-type="audio"] {
+        @include mdc-theme-prop(background-color, $material-color-green-500);
+    }
+}

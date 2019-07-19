@@ -223,7 +223,7 @@ let bounding_rect : t list -> t = function
 
 (* min_distance - pixels
    return: (other element align as line_align_direction *
-            minimum distance of several lines of one align as int) 
+            minimum distance of several lines of one align as int)
 *)
 let line_find_closest_align
     (pos : t)
@@ -701,26 +701,10 @@ let adjust ?aspect_ratio
     ~(action : [`Resize of direction | `Move])
     ~(siblings : t list) (* widget positions int coordinatrs to float [0;1.0] *)
     ~(parent_size : float * float) (* need if input positions is int pixel coordinates *)
-    ~(rect_position : t)
-    (positions : (t * aspect option) list) =
+    ~(frame_position : t)
+    (positions : t list) =
   let parent_w, parent_h = parent_size in
-  let position = rect_position in
-  (*let position = fst @@ List.hd positions in*)
-  (*let  _ = Printf.printf "p: x=%f y=%f w=%f h=%f \n" position.x position.y position.w position.h in*)
-  (*let position = match grid_step, action with
-    | None, _ -> position
-    | Some step, `Move -> snap_to_grid_move position step
-    | Some step, `Resize dir -> snap_to_grid_resize dir position step
-    in*)
-  (*
-   let position =
-      match aspect_ratio with
-      | None -> position
-      | Some x ->
-        match action with
-        | `Move -> fix_aspect2 SE position original_position x
-        | `Resize resz -> fix_aspect2 resz position original_position x
-    in *)
+  let position = frame_position in
   let position = match snap_lines, action with
     | false, _ -> position
     | true, `Move ->
@@ -729,8 +713,9 @@ let adjust ?aspect_ratio
       get_item_snap_position_for_resize position min_distance siblings resz
   in
   let min_rect_width, min_rect_height = get_min_rect_size
-      (List.map fst positions) min_width min_height in
-  let _ = Printf.printf "wh: %f %f\n" position.w position.h in
+      positions
+      min_width
+      min_height in
   let position =
     clip_to_parent
       ~parent_w
@@ -744,7 +729,6 @@ let adjust ?aspect_ratio
     if snap_lines
     then get_snap_lines position siblings min_distance action
     else [] in
-  let positions = List.map fst positions in
   let children = match action with
     | `Move -> move_children position positions
     | `Resize resz -> resize_children position positions min_width min_height
