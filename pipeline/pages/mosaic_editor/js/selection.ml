@@ -158,7 +158,7 @@ class t
     clip##.style##.position := Js.string "fixed";
     clip##.style##.transform := Js.string "translate3d(0, 0, 0)";
     clip##.style##.pointerEvents := Js.string "none";
-    clip##.style##.zIndex := Js.string "1";
+    clip##.style##.zIndex := Js.string "101"; (* FIXME *)
     self#set_disabled false;
     Element.append_child clip area;
     Element.append_child container clip;

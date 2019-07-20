@@ -154,7 +154,8 @@ module Util = struct
       create_all_z_list acc tl selected_items_z
 
   let rec pack_list (zib_items  : (int * (Dom_html.element Js.t) * bool ) list) =
-    List.mapi (fun cnt (_, i, b) -> (cnt + 1, i, b)) zib_items
+    (*List.mapi (fun cnt (_, i, b) -> ( (List.length zib_items) - cnt (* cnt + 1 *), i, b)) zib_items*)
+    List.mapi (fun cnt (_, i, b) -> ( cnt + 1, i, b)) zib_items
 
   let rec get_upper_selected_z
       (counter : int) (* initial 1 *)
@@ -164,8 +165,8 @@ module Util = struct
     match zib_items with
     | [] -> -1
     | hd :: tl -> let (_, _, b) = hd in
-      if counter = selected_list_len
-      then counter
+      if b && counter = selected_list_len
+      then let (z, _, _) = hd in z
       else get_upper_selected_z
           (if b then (counter + 1) else counter)
           selected_list_len tl
@@ -190,10 +191,25 @@ module Util = struct
     match zib_items with
     | [] -> acc
     | hd :: tl -> let (z, _, b) = hd in
-      let acc = if b = is_selected && z_begin >= z && z_end < z
+      let acc = if b = is_selected && z_begin <= z && z <= z_end
         then hd :: acc
         else acc in
       separate_selected acc is_selected z_begin z_end tl
+
+  let get_description1 (elt : Dom_html.element Js.t) =
+        Js.Opt.case (elt##getAttribute (Js.string "data-description"))
+          (fun () -> "")
+          Js.to_string   
+
+  let print_zib
+      (zib_items  : (int * (Dom_html.element Js.t) * bool ) list)
+      (title : string) =
+    let _ = List.map (fun v -> let (z,i,b) = v in let _ = 
+      Printf.printf "%s z=%d %s %b\n"
+      title z (get_description1 i) b in v) 
+      zib_items in    
+    ()
+
 end
 
 class t
@@ -224,7 +240,9 @@ class t
       | None -> failwith "widget-editor: grid ghost element not found"
       | Some x -> x
 
-    val transform = Transform.make ()
+    val transform = Transform.make
+        ~transformables:[Query (Printf.sprintf ".%s" CSS.item_selected)]
+        ()
 
     val undo_manager = Undo_manager.create ()
 
@@ -252,6 +270,7 @@ class t
       _listeners <- Events.(
           [ Transform.Event.inputs transform#root self#handle_transform_action
           ; Transform.Event.changes transform#root self#handle_transform_change
+          ; Transform.Event.select transform#root self#handle_transform_select
           ; keydowns super#root self#handle_keydown
           ]);
       super#initial_sync_with_dom ()
@@ -475,6 +494,12 @@ class t
         Position.apply_to_element ~unit:`Pct rect transform#root;
         self#transform_top_app_bar l
 
+    method private handle_transform_select e _ =
+      Js.Opt.case e##.detail
+        (fun () -> self#clear_selection ())
+        (fun i -> self#handle_selected [i]); (* FIXME check CSS classes *)
+      Lwt.return_unit
+
     method private handle_transform_action e _ =
       let target = Dom_html.eventTarget e in
       (match _focused_item with
@@ -595,6 +620,7 @@ class t
       grid_overlay#set_snap_lines lines
 
     method private bring_to_front (items : Dom_html.element Js.t list) : unit =
+      let _ = Printf.printf "bring_to_front\n" in
       let z_selected_items = List.map Util.get_z_index items in
       let all_items = self#items in
       let zib_all_list = Util.create_all_z_list [] all_items z_selected_items in
@@ -608,26 +634,29 @@ class t
       let zib_all_list_packed = Util.pack_list zib_all_list_sorted in
       let upper_selected_z = Util.get_upper_selected_z
           1 (List.length z_selected_items) zib_all_list_packed in
-      let insert_position_z = upper_selected_z + 1 - (List.length z_selected_items) in
+      let insert_position_z = upper_selected_z + 1 in
       let all_zib_list_result =
-        if insert_position_z <= 0 || insert_position_z > (List.length zib_all_list_packed)
-        then zib_all_list_packed
-        else
-          let zib_non_selected_begin = Util.separate_selected
-              [] false 1 upper_selected_z zib_all_list_packed in
-          let zib_selected = Util.separate_selected
-              [] true 1 (List.length zib_all_list_packed) zib_all_list_packed in
-          let zib_non_selected_end =
-            Util.separate_selected
-              [] false
-              (upper_selected_z + 1) (List.length zib_all_list_packed)
-              zib_all_list_packed in
-          Util.pack_list
-            (List.append zib_non_selected_begin (List.append zib_selected zib_non_selected_end))
+        let zib_non_selected_begin = Util.separate_selected
+          [] false 1 insert_position_z zib_all_list_packed in
+        let _ = Util.print_zib zib_non_selected_begin "zib_non_selected_begin" in
+        let zib_selected = Util.separate_selected
+          [] true 1 (List.length zib_all_list_packed) zib_all_list_packed in
+        let _ = Util.print_zib zib_selected "zib_selected" in
+        let zib_non_selected_end =
+          Util.separate_selected
+            [] false
+            (insert_position_z + 1) (List.length zib_all_list_packed)
+            zib_all_list_packed in
+        let _ = Util.print_zib zib_non_selected_end "zib_non_selected_end" in
+          Util.pack_list (List.rev
+            (zib_non_selected_end @ zib_selected @
+            zib_non_selected_begin))
       in
+      let _ = Util.print_zib all_zib_list_result "all_zib_list_result" in
       List.iter (fun (z, i, _) -> Util.set_z_index i z) all_zib_list_result
 
     method private send_to_back (items : Dom_html.element Js.t list) : unit =
+      let _ = Printf.printf "send_to_back\n" in
       let z_selected_items = List.map Util.get_z_index items in
       let all_items = self#items in
       let zib_all_list = Util.create_all_z_list [] all_items z_selected_items in
@@ -642,20 +671,22 @@ class t
       let first_selected_z = Util.get_first_selected_z zib_all_list_packed in
       let insert_position_z = first_selected_z - 1 in
       let all_zib_list_result =
-        if insert_position_z <= 0 || insert_position_z > (List.length zib_all_list_packed)
-        then zib_all_list_packed
-        else
-          let zib_non_selected_begin = Util.separate_selected
-              [] false 1 first_selected_z zib_all_list_packed in
-          let zib_selected = Util.separate_selected
-              [] true 1 (List.length zib_all_list_packed) zib_all_list_packed in
-          let zib_non_selected_end = Util.separate_selected
-              [] false
-              (first_selected_z + 1) (List.length zib_all_list_packed)
-              zib_all_list_packed in
-          Util.pack_list
-            (List.append zib_non_selected_begin (List.append zib_selected zib_non_selected_end))
+        let zib_non_selected_begin = Util.separate_selected
+           [] false 1 (insert_position_z - 1) zib_all_list_packed in
+        let _ = Util.print_zib zib_non_selected_begin "zib_non_selected_begin" in
+        let zib_selected = Util.separate_selected
+           [] true 1 (List.length zib_all_list_packed) zib_all_list_packed in
+        let _ = Util.print_zib zib_selected "zib_selected" in
+        let zib_non_selected_end = Util.separate_selected
+           [] false
+           insert_position_z (List.length zib_all_list_packed)
+           zib_all_list_packed in
+        let _ = Util.print_zib zib_non_selected_end "zib_non_selected_end" in
+          Util.pack_list (List.rev
+            (zib_non_selected_end @ zib_selected @
+            zib_non_selected_begin))
       in
+      let _ = Util.print_zib all_zib_list_result "all_zib_list_result" in
       List.iter (fun (z, i, _) -> Util.set_z_index i z) all_zib_list_result
 
   end
@@ -665,11 +696,14 @@ let make ~(scaffold : Scaffold.t)
     ~(resolution : int * int)
     ~(position : Wm.position)
     widgets =
+  let counter = ref 1 in
   let items = match widgets with
     | `Nodes x ->
       List.map (fun (x : Dom_html.element Js.t) ->
           let _, widget = Widget_utils.widget_of_element x in
           let item = Tyxml_js.To_dom.of_element @@ Markup.create_item widget in
+          (* TODO remove*)
+          let _ = Util.set_z_index item !counter; counter := !counter + 1 in
           Widget_utils.copy_attributes x item;
           let pos = Widget_utils.Attr.get_position item in
           (match pos with

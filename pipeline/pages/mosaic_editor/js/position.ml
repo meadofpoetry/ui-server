@@ -188,16 +188,6 @@ let of_element (elt : #Dom_html.element Js.t) : t =
   ; h = float_of_int elt##.offsetHeight
   }
 
-let to_client_rect (p : t) : Dom_html.clientRect Js.t =
-  object%js
-    val top = p.y
-    val left = p.x
-    val right = p.x +. p.w
-    val bottom = p.y +. p.h
-    val width = Js.def p.w
-    val height = Js.def p.h
-  end
-
 let of_client_rect (r : Dom_html.clientRect Js.t) : t =
   { x = r##.left
   ; y = r##.top

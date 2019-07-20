@@ -17,8 +17,6 @@ val apply_to_element : unit:[`Px | `Pct | `Norm] -> t -> #Dom_html.element Js.t 
 
 val of_element : #Dom_html.element Js.t -> t
 
-val to_client_rect : t -> Dom_html.clientRect Js.t
-
 val of_client_rect : Dom_html.clientRect Js.t -> t
 
 val bounding_rect : t list -> t

@@ -8,9 +8,59 @@ module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
 let name = "transform"
 
+type elt =
+  | Query of string
+  | Node of Dom_html.element Js.t
+
+let select_all (elts : elt list) =
+  List.fold_left (fun acc -> function
+      | Query q ->
+        let nodes = Dom_html.document##querySelectorAll (Js.string q) in
+        Dom.list_of_nodeList nodes @ acc
+      | Node e -> e :: acc) [] elts
+
 module Attr = struct
   let direction = "data-direction"
 end
+
+let get_z_index (x : Dom_html.element Js.t) : int option =
+  int_of_string_opt @@ Js.to_string (Dom_html.window##getComputedStyle x)##.zIndex
+
+let get_topmost_item (items : Dom_html.element Js.t list) =
+  match List.rev items with
+  | [] -> None
+  | [x] -> Some x
+  | x :: tl ->
+    Some (snd @@ List.fold_left (fun ((z, _) as acc) x ->
+        match z, get_z_index x with
+        | None, None | Some _, None -> acc
+        | None, (Some _ as z) -> (z, x)
+        | Some z, Some z' -> if z >= z' then acc else (Some z', x))
+        (get_z_index x, x) tl)
+
+type position =
+  { left : float
+  ; top : float
+  ; width : float
+  ; height : float
+  }
+
+let position_of_element (elt : #Dom_html.element Js.t) : position =
+  { left = float_of_int elt##.offsetLeft
+  ; top = float_of_int elt##.offsetTop
+  ; width = float_of_int elt##.offsetWidth
+  ; height = float_of_int elt##.offsetHeight
+  }
+
+let position_to_client_rect (p : position) : Dom_html.clientRect Js.t =
+  object%js
+    val top = p.top
+    val left = p.left
+    val right = p.left +. p.width
+    val bottom = p.top +. p.height
+    val width = Js.def p.width
+    val height = Js.def p.height
+  end
 
 module Event = struct
   type action =
@@ -25,6 +75,8 @@ module Event = struct
       method direction : Position.direction Js.readonly_prop
     end
 
+  class type select = [Dom_html.element Js.t] Widget.custom_event
+
   class type input =
     object
       inherit [detail Js.t] Widget.custom_event
@@ -36,12 +88,21 @@ module Event = struct
     end
 
   module Typ = struct
+    let select : select Js.t Dom_html.Event.typ =
+      Dom_html.Event.make @@ Printf.sprintf "%s:select" name
+
     let input : input Js.t Dom_html.Event.typ =
       Dom_html.Event.make @@ Printf.sprintf "%s:resize" name
 
     let change : event Js.t Dom_html.Event.typ =
       Dom_html.Event.make @@ Printf.sprintf "%s:change" name
   end
+
+  let select ?use_capture h =
+    Lwt_js_events.make_event ?use_capture Typ.select h
+
+  let select ?cancel_handler ?use_capture h =
+    Lwt_js_events.seq_loop ?cancel_handler ?use_capture select h
 
   let input ?use_capture h =
     Lwt_js_events.make_event ?use_capture Typ.input h
@@ -97,31 +158,45 @@ let get_cursor_position ?touch_id (event : #Dom_html.event Js.t) =
        | _ -> failwith "no page coordinates in mouse event"
        end)
 
-class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
+let check_touch f touch_id (e : Dom_html.touchEvent Js.t) t =
+  match touch_id with
+  | None -> f e t
+  | Some id ->
+    let touches = e##.changedTouches in
+    match get_touch_by_id touches id with
+    | None -> Lwt.return_unit
+    | Some _ -> f e t
+
+type state =
+  { (* Initial position and size of element relative to parent *)
+    position : position
+  (* Initial position of mouse cursor (or touch) relative to page *)
+  ; point : (float * float)
+  ; action : [`Resize of Position.direction | `Move]
+  ; touch_id : int option
+  ; transformables : Dom_html.element Js.t list
+  ; mutable single_click : bool
+  }
+
+class t
+    ?(transformables = [])
+    ?(move_threshold = 10.)
+    (elt : Dom_html.element Js.t) () =
   object(self)
-    val mutable _min_size = min_size
-    val mutable _aspect = aspect
 
     val mutable _listeners = []
+    val mutable _delayed_listeners = []
     val mutable _temp_listeners = []
 
-    val mutable _dragging = false
-
-    (* Initial position and size of element relative to parent *)
-    val mutable _position : Position.t = { x = 0.; y = 0.; w = 0.; h = 0. }
-    (* Initial position of mouse cursor (or touch) relative to page *)
-    val mutable _coordinate = 0., 0.
-
-    val mutable _touch_id = None
     inherit Widget.t elt () as super
 
     method! init () : unit =
       super#init ()
 
     method! initial_sync_with_dom () : unit =
-      _listeners <- Lwt_js_events.(
+      _listeners <- Events.(
           [ mousedowns super#root self#handle_drag_start
-          ; touchstarts super#root self#handle_drag_start
+          ; touchstarts ~passive:false super#root self#handle_drag_start
           ]);
       super#initial_sync_with_dom ()
 
@@ -132,23 +207,26 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       _temp_listeners <- [];
       super#destroy ()
 
-    method set_min_size (x : int) : unit =
-      _min_size <- x
-
     (* Private methods *)
 
-    method private notify_input ?(direction = Position.NW) action position : unit =
+    method private notify_select item : unit =
+      super#emit ~should_bubble:true ?detail:item Event.Typ.select
+
+    method private notify_input (state : state) position : unit =
+      let action, direction = match state.action with
+        | `Resize dir -> Event.Resize, dir
+        | `Move -> Move, N in
       let (detail : Event.detail Js.t) =
         object%js
-          val rect = Position.to_client_rect position
-          val originalRect = Position.to_client_rect _position
+          val rect = position_to_client_rect position
+          val originalRect = position_to_client_rect state.position
           val action = action
           val direction = direction
         end in
       super#emit ~should_bubble:true ~detail Event.Typ.input
 
     method private notify_change () : unit =
-      let detail = Position.(to_client_rect @@ of_element super#root) in
+      let detail = position_to_client_rect @@ position_of_element super#root in
       super#emit ~should_bubble:true ~detail Event.Typ.change
 
     method private handle_drag_start
@@ -156,72 +234,99 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
       fun (event : #Dom_html.event Js.t) _ ->
       Dom.preventDefault event;
       Dom_html.stopPropagation event;
-      _dragging <- false;
       let target = Dom.eventTarget event in
-      let button =
+      let button, touch_id =
         Js.Opt.case
           (Dom_html.CoerceTo.mouseEvent event)
           (fun () ->
              let (event : Dom_html.touchEvent Js.t) = Js.Unsafe.coerce event in
-             Js.Optdef.iter (event##.changedTouches##item 0)
-               (fun touch -> _touch_id <- Some touch##.identifier);
-             None)
-          (fun (event : Dom_html.mouseEvent Js.t) ->
-             Some event##.button) in
+             let touch =
+               Js.Optdef.to_option
+               @@ Js.Optdef.map (event##.changedTouches##item 0)
+                 (fun touch -> touch##.identifier) in
+             None, touch)
+          (fun e -> Some e##.button, None) in
       let action = match button with
         | None | Some 0 ->
           if Element.has_class target CSS.resizer
           then begin match direction_of_event event with
-            | None -> `None
-            | Some dir -> `Resize dir
+            | None -> None
+            | Some dir -> Some (`Resize dir)
           end
-          else `Move
-        | _ -> `None in
-      (* Refresh element position and size *)
-      _position <- Position.of_element super#root;
-      (* Refresh mouse cursor position *)
-      _coordinate <- get_cursor_position event;
-      let doc = Dom_html.document in
-      _temp_listeners <- Lwt_js_events.(
-          [ mouseups doc self#handle_drag_end
-          ; touchcancels doc self#handle_drag_end
-          ; touchends doc self#handle_drag_end
-          ; mousemoves doc (self#handle_drag_move action)
-          ; touchmoves doc (fun e t ->
-                match _touch_id with
-                | None -> self#move e
-                | Some id ->
-                  let touches = e##.changedTouches in
-                  match get_touch_by_id touches id with
-                  | None -> Lwt.return_unit
-                  | Some _ -> self#handle_drag_move action e t)
-          ]);
-      Lwt.return_unit
+          else Some `Move
+        | _ -> None in
+      match action with
+      | None -> Lwt.return_unit
+      | Some action ->
+        let state =
+          { action
+          ; point = get_cursor_position event
+          ; position = position_of_element elt
+          ; touch_id
+          ; transformables = select_all transformables
+          ; single_click = true
+          } in
+        let doc = Dom_html.document in
+        _temp_listeners <- Lwt_js_events.(
+            [ mouseups doc (self#handle_drag_end state)
+            ; touchcancels doc (self#handle_drag_end state)
+            ; touchends doc (self#handle_drag_end state)
+            ]);
+        _delayed_listeners <- Events.(
+            [ mousemoves doc (self#handle_delayed_drag_move state)
+            ; touchmoves ~passive:false doc
+                (check_touch (self#handle_delayed_drag_move state) touch_id)
+            ]);
+        Lwt.return_unit
 
-    method private handle_drag_move
-      : 'a. [`Resize of Position.direction | `Move | `None]
+    method private handle_delayed_drag_move
+      : 'a. state
         -> (#Dom_html.event as 'a) Js.t
         -> unit Lwt.t
         -> unit Lwt.t =
-      fun action e _ ->
-      match action with
-      | `Resize dir -> self#resize dir e
-      | `Move -> self#move e
-      | `None -> Lwt.return_unit
+      fun ({ point; action; touch_id; _ } as state) event _ ->
+      let (x, y) = get_cursor_position ?touch_id event in
+      (* Check pixel threshold *)
+      if Float.abs ((x +. y) -. ((fst point) +. (snd point))) >= move_threshold
+      then (
+        List.iter Lwt.cancel _delayed_listeners;
+        _delayed_listeners <- [];
+        state.single_click <- false;
+        let doc = Dom_html.document in
+        _temp_listeners <- Events.(
+            [ mousemoves doc (self#handle_drag_move state)
+            ; touchmoves ~passive:false doc
+                (check_touch (self#handle_drag_move state) touch_id)
+            ] @ _temp_listeners);
+        Lwt.return_unit)
+      else Lwt.return_unit
+
+    method private handle_drag_move
+      : 'a. state
+        -> (#Dom_html.event as 'a) Js.t
+        -> unit Lwt.t
+        -> unit Lwt.t =
+      fun state e _ -> match state.action with
+        | `Resize dir -> self#resize dir state e
+        | `Move -> self#move state e
 
     method private handle_drag_end
-      : 'a. (#Dom_html.event as 'a) Js.t -> unit Lwt.t -> unit Lwt.t =
-      fun event _ ->
+      : 'a. state -> (#Dom_html.event as 'a) Js.t -> unit Lwt.t -> unit Lwt.t =
+      fun state event _ ->
       let f () =
+        List.iter Lwt.cancel _delayed_listeners;
+        _delayed_listeners <- [];
         List.iter Lwt.cancel _temp_listeners;
         _temp_listeners <- [];
-        self#notify_change ();
-        Lwt.return_unit in
+        if state.single_click
+        then self#handle_single_click state event
+        else (self#notify_change ();
+              Lwt.return_unit) in
       Js.Opt.case
         (Dom_html.CoerceTo.mouseEvent event)
         (fun () ->
            let (e : Dom_html.touchEvent Js.t) = Js.Unsafe.coerce event in
-           match _touch_id with
+           match state.touch_id with
            | None -> f ()
            | Some id ->
              let touches = e##.changedTouches in
@@ -233,81 +338,92 @@ class t ?aspect ?(min_size = 20) (elt : Dom_html.element Js.t) () =
            | 0 -> f ()
            | _ -> Lwt.return_unit)
 
+    method private handle_single_click
+      : 'a. state -> (#Dom_html.event as 'a) Js.t -> unit Lwt.t =
+      fun { transformables; touch_id; _ } event ->
+      let (x, y) = get_cursor_position ?touch_id event in
+      let item =
+        get_topmost_item
+        @@ List.find_all (fun (elt : Dom_html.element Js.t) ->
+            let rect = elt##getBoundingClientRect in
+            x >= rect##.left
+            && y >= rect##.top
+            && x <= rect##.right
+            && y <= rect##.bottom) transformables in
+      self#notify_select item;
+      Lwt.return_unit
+
     (* Moves an element *)
-    method private move : 'a. (#Dom_html.event as 'a) Js.t -> unit Lwt.t =
-      fun e ->
-      let page_x, page_y = get_cursor_position ?touch_id:_touch_id e in
-      if page_x <> (fst _coordinate) || page_y <> (snd _coordinate)
-      then _dragging <- true;
+    method private move : 'a. state -> (#Dom_html.event as 'a) Js.t -> unit Lwt.t =
+      fun ({ touch_id; point; position; _ } as state) e ->
+      let page_x, page_y = get_cursor_position ?touch_id e in
       let position =
-        { _position with x = _position.x +. page_x -. (fst _coordinate)
-                       ; y = _position.y +. page_y -. (snd _coordinate)
+        { position with left = position.left +. page_x -. (fst point)
+                      ; top = position.top +. page_y -. (snd point)
         } in
-      self#notify_input Move position;
+      self#notify_input state position;
       Lwt.return_unit
 
     (* Resizes an element *)
-    method private resize : 'a. Position.direction
+    method private resize :
+      'a. Position.direction
+      -> state
       -> (#Dom_html.event as 'a) Js.t
       -> unit Lwt.t =
-      fun direction e ->
-      _dragging <- true;
-      let page_x, page_y = get_cursor_position ?touch_id:_touch_id e in
-      let (position : Position.t) = match direction with
+      fun direction ({ touch_id; point = (x, y); position; _ } as state) e ->
+      let page_x, page_y = get_cursor_position ?touch_id e in
+      let (position : position) = match direction with
         | NW ->
-          { w = _position.w -. (page_x -. (fst _coordinate))
-          ; h = _position.h -. (page_y -. (snd _coordinate))
-          ; x = _position.x +. (page_x -. (fst _coordinate))
-          ; y = _position.y +. (page_y -. (snd _coordinate))
+          { width = position.width -. (page_x -. x)
+          ; height = position.height -. (page_y -. y)
+          ; left = position.left +. (page_x -. x)
+          ; top = position.top +. (page_y -. y)
           }
         | NE ->
-          { _position with
-            w = _position.w +. (page_x -. (fst _coordinate))
-          ; h = _position.h -. (page_y -. (snd _coordinate))
-          ; y = _position.y +. (page_y -. (snd _coordinate))
+          { position with
+            width = position.width +. (page_x -. x)
+          ; height = position.height -. (page_y -. y)
+          ; top = position.top +. (page_y -. y)
           }
         | SW ->
-          { _position with
-            w = _position.w -. (page_x -. (fst _coordinate))
-          ; h = _position.h +. (page_y -. (snd _coordinate))
-          ; x = _position.x +. (page_x -. (fst _coordinate))
+          { position with
+            width = position.width -. (page_x -. x)
+          ; height = position.height +. (page_y -. y)
+          ; left = position.left +. (page_x -. x)
           }
         | SE ->
-          { _position with
-            w = _position.w +. (page_x -. (fst _coordinate))
-          ; h = _position.h +. (page_y -. (snd _coordinate))
+          { position with
+            width = position.width +. (page_x -. x)
+          ; height = position.height +. (page_y -. y)
           }
         | N ->
-          { _position with
-            h = _position.h -. (page_y -. (snd _coordinate))
-          ; y = _position.y +. (page_y -. (snd _coordinate))
+          { position with
+            height = position.height -. (page_y -. y)
+          ; top = position.top +. (page_y -. y)
           }
         | S ->
-          { _position with
-            h = _position.h +. (page_y -. (snd _coordinate))
-          ; y = _position.y +. (page_y -. (snd _coordinate))
+          { position with
+            height = position.height +. (page_y -. y)
+          ; top = position.top +. (page_y -. y)
           }
         | W ->
-          { _position with
-            w = _position.w -. (page_x -. (fst _coordinate))
-          ; x = _position.x +. (page_x -. (fst _coordinate))
+          { position with
+            width = position.width -. (page_x -. x)
+          ; left = position.left +. (page_x -. x)
           }
         | E ->
-          { _position with
-            w = _position.w -. (page_x -. (fst _coordinate))
-          ; x = _position.x +. (page_x -. (fst _coordinate))
+          { position with
+            width = position.width -. (page_x -. x)
+          ; left = position.left +. (page_x -. x)
           } in
       self#layout ();
-      self#notify_input ~direction Resize position;
+      self#notify_input state position;
       Lwt.return_unit
-
-    method private create_ripple () : Ripple.t =
-      Ripple.attach super#root
 
   end
 
-let make ?classes () : t =
+let make ?transformables ?classes () : t =
   let element =
     Tyxml_js.To_dom.of_element
     @@ Markup.create ?classes () in
-  new t element ()
+  new t ?transformables element ()

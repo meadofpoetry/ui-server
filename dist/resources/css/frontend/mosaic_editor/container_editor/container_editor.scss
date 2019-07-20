@@ -12,7 +12,8 @@ $divider-color: if(
 );
 
 .selection-area {
-    position: relative;
+    z-index: 101;
+    position: absolute;
     border-radius: 2px;
     border-width: 1px;
     border-style: dashed;
