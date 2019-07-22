@@ -77,20 +77,12 @@ module Selection = struct
     selection#keep_selection ();
     handle_selected selection#selected
 
-  let on_select = fun handle_selected item ({ selection; _ } : 'a detail) ->
-    let is_selected = Element.has_class item class_ in
-    List.iter (fun x -> Element.remove_class x class_) selection#selected;
-    (match List.length selection#selected > 1
-           && List.memq item selection#selected with
-    | true ->
-      selection#deselect_all ();
-      selection#keep_selection ();
-      Element.add_class item class_
-    | _ ->
-      selection#deselect_all ();
-      if is_selected
-      then (Element.remove_class item class_; selection#deselect item)
-      else (Element.add_class item class_; selection#keep_selection ()));
+  let on_select = fun handle_selected item selected selection ->
+    List.iter (fun x -> Element.remove_class x class_) selected;
+    selection#keep_selection ();
+    selection#deselect_all ();
+    selection#select [item];
+    Element.add_class item class_;
     handle_selected selection#selected
 
   let make handle_selected =
@@ -101,7 +93,8 @@ module Selection = struct
       ~on_start
       ~on_move
       ~on_stop:(on_stop handle_selected)
-      ~on_select:(on_select handle_selected)
+      ~on_select:(fun item { selected; selection; _ } ->
+          on_select handle_selected item selected selection)
       ~on_outside_click:(fun x -> on_start x; handle_selected [])
       ()
 end
@@ -392,7 +385,11 @@ class t
     method private handle_transform_select e _ =
       Js.Opt.case e##.detail
         (fun () -> self#clear_selection ())
-        (fun i -> self#handle_selected [i]); (* FIXME check CSS classes *)
+        (fun item ->
+           Selection.on_select self#handle_selected
+             item
+             self#selection#selected
+             self#selection); (* FIXME check CSS classes *)
       Lwt.return_unit
 
     method private handle_transform_action e _ =

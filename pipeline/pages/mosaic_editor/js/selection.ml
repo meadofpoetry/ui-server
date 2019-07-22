@@ -193,7 +193,8 @@ class t
     _touched <- List.filter (not % Element.equal elt) _touched
 
   method deselect_all () : unit =
-    _selected <- []
+    _selected <- [];
+    _touched <- []
 
   method keep_selection () : unit =
     let new' = List.filter (fun x -> not @@ List.memq x _selected) _touched in
@@ -216,7 +217,9 @@ class t
       { selection = self
       ; original_event = e
       ; area
-      ; selected = _touched @ _selected
+      ; selected = List.fold_left (fun acc x ->
+            if List.exists (Element.equal x) acc
+            then acc else x :: acc) _selected _touched
       ; removed = _removed
       ; added = _added
       } in

@@ -66,11 +66,10 @@ module Selection = struct
     selection#keep_selection ();
     handle_selected selection#selected
 
-  let on_select handle_selected = fun item { selection; _ } ->
+  let on_select handle_selected = fun item { selection; selected; _ } ->
     let is_selected = Element.has_class item class_ in
-    List.iter (fun x -> Element.remove_class x class_) selection#selected;
-    (match List.length selection#selected > 1
-           && List.memq item selection#selected with
+    List.iter (fun x -> Element.remove_class x class_) selected;
+    (match List.length selected > 1 && List.memq item selected with
     | true ->
       selection#deselect_all ();
       selection#keep_selection ();
@@ -183,6 +182,7 @@ class t ~(scaffold : Scaffold.t)
   object(self)
     val close_icon = Icon.SVG.(make_simple Path.close)
     val back_icon = Icon.SVG.(make_simple Path.arrow_left)
+    val submit = Button.make ~label:"Применить" ()
     val heading = match Element.query_selector elt Selector.heading with
       | None -> failwith "heading element not found"
       | Some x -> x
@@ -258,7 +258,8 @@ class t ~(scaffold : Scaffold.t)
        | None -> ()
        | Some x -> x#set_actions @@ List.map Widget.root [basic_actions]);
       (* FIXME *)
-      List.iter (Element.append_child actions % Widget.root) @@ self#create_grid_actions ();
+      List.iter (Element.append_child actions % Widget.root)
+      @@ self#create_main_actions ();
       Dom.appendChild body wizard_dialog#root;
       Dom.appendChild body (fst table_dialog)#root;
       if grid#empty then Dom.appendChild grid#root empty_placeholder#root;
@@ -365,23 +366,25 @@ class t ~(scaffold : Scaffold.t)
     method private switch_to_container_mode
         ({ restore; icon; editor; cell } : widget_mode_state) =
       restore ();
+      _widget_editor <- None;
+      (* Update view *)
       Utils.Option.iter (ignore % set_top_app_bar_icon scaffold `Main) icon;
-      super#remove_class CSS.widget_mode;
       self#update_widget_elements editor#items cell;
+      super#remove_class CSS.widget_mode;
+      update_ar_sizer
+        ~width:(float_of_int @@ fst self#resolution)
+        ~height:(float_of_int @@ snd self#resolution)
+        ar_sizer;
+      submit#root##.style##.display := Js.string "";
       Dom.removeChild content editor#root;
       Dom.appendChild content grid#root;
       Utils.Option.iter (Dom.appendChild heading % Widget.root) _mode_switch;
       grid#layout ();
       editor#destroy ();
-      (* Restore aspect ratio sizer dimensions *)
-      let width, height =
-        float_of_int (fst self#resolution),
-        float_of_int (snd self#resolution) in
-      update_ar_sizer ~width ~height ar_sizer;
-      _widget_editor <- None;
+      (* Hide side sheet *)
       (match scaffold#side_sheet with
        | None -> Lwt.return_unit
-       | Some x -> x#toggle ~force:false ())
+       | Some x -> x#toggle ~force:false ());
 
     method private switch_to_widget_mode (cell : Dom_html.element Js.t) =
       let id = Container_utils.get_cell_title cell in
@@ -414,6 +417,7 @@ class t ~(scaffold : Scaffold.t)
           Lwt.return_unit);
       (* Update view *)
       super#add_class CSS.widget_mode;
+      submit#root##.style##.display := Js.string "none";
       Utils.Option.iter (Dom.removeChild heading % Widget.root) _mode_switch;
       Dom.removeChild content grid#root;
       Dom.appendChild content editor#root;
@@ -538,15 +542,7 @@ class t ~(scaffold : Scaffold.t)
           () in
       [menu#widget]
 
-    method private create_grid_actions () =
-      let submit = Button.make
-          ~label:"Применить"
-          ~on_click:(fun btn _ _ ->
-              let value = self#value in
-              let t = Pipeline_http_js.Http_wm.set_layout value in
-              btn#set_loading_lwt t;
-              t >>= fun _ -> Lwt.return_unit)
-          () in
+    method private create_main_actions () =
       let buttons = Card.Actions.make_buttons [submit] in
       [buttons]
 

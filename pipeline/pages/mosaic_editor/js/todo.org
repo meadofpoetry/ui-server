@@ -9,13 +9,13 @@
 - [X] generate unique container name
 - [ ] XXX restore cell selection after exit from widget editor mode
 - [X] filter available widgets
-- [ ] scale widgets when resizing/swapping cells
+- [X] scale widgets when resizing/swapping cells
 - [ ] add states
 ** widget_editor.ml
 - [ ] `handle_keydown` method
-- [ ] `bring_to_front` method
-- [ ] `send_to_back` method
-- [ ] implement layers logic
+- [-] `bring_to_front` method
+- [-] `send_to_back` method
+- [-] implement layers logic
 - [X] fix widgets scaling
 - [ ] XXX take aspect ratio into account when adding widget
 - [ ] add states
@@ -25,13 +25,13 @@
 - [ ] implement selection reset (e.g. on outside click)
 - [ ] allow transform handles overflow parent
 ** position.ml
-- [ ] take aspect ratio into account in `adjust` function
+- [X] take aspect ratio into account in `adjust` function
 - [X] consider floating point coordinates
 - [X] fix snap lines generation
 - [ ] improve `of_relative`, `to_relative`
 - [ ] implement different types for pixel/pct/normalized coordinates
 ** transform.ml
-- [ ] XXX extend widget resize direction to Top, Left, Right, Bottom
+- [X] XXX extend widget resize direction to Top, Left, Right, Bottom
 ** grid_overlay.ml
 - [ ] XXX read `size` from DOM attribute
 - [ ] XXX get snap line color from CSS
@@ -39,8 +39,9 @@
 - [ ] XXX add human-readable subheader names
 - [ ] XXX add lists/items according to sorting - optional
 ** overflow_menu.ml
-- [X] XXX click event listener is missing sometimes
-- [X] XXX move markup to `page_mosaic_editor_tyxml` lib
+- [X] click event listener is missing sometimes
+- [X] move markup to `page_mosaic_editor_tyxml` lib
+- [ ] each menu listens for window resize event, call `layout` from parent element
 ** grid.ml
 - [ ] XXX fix merge/add/remove col/row methods
       (especially for multi-span cells and nested grids)
