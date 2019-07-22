@@ -58,6 +58,10 @@
         @include nav-icon-hidden;
     }
 
+    &__section:nth-child(1) {
+        flex-shrink: 0;
+    }
+
     &__section:nth-child(2) {
         @include mdc-theme-prop(background-color, primary);
         padding: 0;
@@ -75,7 +79,7 @@
 }
 
 @media screen and (max-width: $mdc-top-app-bar-mobile-breakpoint) {
-    .mdc-top-app-bar--fixed-adjust {
+    body:not(.widget-mode) .mdc-top-app-bar--fixed-adjust {
         padding-top: 2 * $mdc-top-app-bar-mobile-row-height;
     }
     .mdc-top-app-bar__section:nth-child(2) {

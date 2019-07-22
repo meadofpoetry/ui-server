@@ -179,7 +179,6 @@ class t ~(scaffold : Scaffold.t)
   object(self)
     val close_icon = Icon.SVG.(make_simple Path.close)
     val back_icon = Icon.SVG.(make_simple Path.arrow_left)
-    val submit = Button.make ~label:"Применить" ()
     val content = match Element.query_selector elt Selector.content with
       | None -> failwith "content element not found"
       | Some x -> x
@@ -369,12 +368,11 @@ class t ~(scaffold : Scaffold.t)
        | Some x -> x#remove_class CSS.mode_switch_hidden);
       Utils.Option.iter (ignore % set_top_app_bar_icon scaffold `Main) icon;
       self#update_widget_elements editor#items cell;
-      super#remove_class CSS.widget_mode;
+      Element.remove_class Dom_html.document##.body CSS.widget_mode;
       update_ar_sizer
         ~width:(float_of_int @@ fst self#resolution)
         ~height:(float_of_int @@ snd self#resolution)
         ar_sizer;
-      submit#root##.style##.display := Js.string "";
       Dom.removeChild content editor#root;
       Dom.appendChild content grid#root;
       grid#layout ();
@@ -414,11 +412,10 @@ class t ~(scaffold : Scaffold.t)
           Lwt.wakeup_later w state;
           Lwt.return_unit);
       (* Update view *)
+      Element.add_class Dom_html.document##.body CSS.widget_mode;
       (match _mode_switch with
        | None -> ()
        | Some x -> x#add_class CSS.mode_switch_hidden);
-      super#add_class CSS.widget_mode;
-      submit#root##.style##.display := Js.string "none";
       Dom.removeChild content grid#root;
       Dom.appendChild content editor#root;
       editor#layout ();
@@ -551,6 +548,14 @@ class t ~(scaffold : Scaffold.t)
       [menu#widget]
 
     method private create_main_actions () =
+      let submit = Button.make
+          ~label:"Применить"
+          ~on_click:(fun btn _ _ ->
+              let value = self#value in
+              let t = Pipeline_http_js.Http_wm.set_layout value in
+              btn#set_loading_lwt t;
+              t >>= fun _ -> Lwt.return_unit)
+          () in
       let buttons = Card.Actions.make_buttons [submit] in
       [buttons]
 
@@ -570,14 +575,14 @@ class t ~(scaffold : Scaffold.t)
 
     method private set_content_mode () : unit =
       self#selection#set_disabled true;
-      super#add_class CSS.content_mode;
+      Element.add_class Dom_html.document##.body CSS.content_mode;
       _content_listeners <- Events.(
           [ clicks grid#root self#handle_click
           ])
 
     method private set_table_mode () : unit =
       self#selection#set_disabled false;
-      super#remove_class CSS.content_mode;
+      Element.remove_class Dom_html.document##.body CSS.content_mode;
       List.iter Lwt.cancel _content_listeners;
       _content_listeners <- []
 

@@ -181,19 +181,20 @@ $divider-color: if(
     }
 }
 
-.container-editor--widget-mode {
-    .mdc-card__media {
-    }
-}
-
 .container-editor:not(.container-editor--content-mode) {
     .grid__cell:before {
         content: attr(aria-colindex) 'x' attr(aria-rowindex);
     }
 }
 
-.container-editor--content-mode {
-    .grid {
+.widget-mode {
+    .container-editor .mdc-card__actions, .container-editor__mode-switch {
+        display: none;
+    }
+}
+
+.content-mode {
+    .container-editor .grid {
         &__mul-handle, &__row-handle, &__col-handle {
             display: none;
         }
