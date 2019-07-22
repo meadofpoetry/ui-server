@@ -595,6 +595,7 @@ class t ~(scaffold : Scaffold.t)
           elt##.style##.width := x##.style##.width;
           elt##.style##.height := x##.style##.height;
           Widget_utils.copy_attributes x elt;
+          Widget_utils.Z_index.set elt (Widget_utils.Z_index.of_element x);
           Element.add_class elt CSS.widget;
           Dom.appendChild wrapper elt) widgets
 

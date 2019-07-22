@@ -36,6 +36,7 @@ let set_tab_index ?prev
 let make_item ~parent_size (id, widget : string * Wm.widget) =
   let item = Tyxml_js.To_dom.of_element @@ Markup.create_item widget in
   Widget_utils.set_attributes ~id item widget;
+  Widget_utils.Z_index.set item widget.layer;
   item
 
 module Selection = struct
@@ -103,81 +104,6 @@ module Selection = struct
       ~on_select:(on_select handle_selected)
       ~on_outside_click:(fun x -> on_start x; handle_selected [])
       ()
-end
-
-module Util = struct
-
-  (* need functions:*)
-  let get_z_index (elt : Dom_html.element Js.t) : int =
-    Widget_utils.layer_of_element elt
-
-  let set_z_index (elt : Dom_html.element Js.t) (z : int) : unit =
-    elt##.style##.zIndex := Js.string (string_of_int z)
-
-  let rec is_z_in_list
-      (is_in : bool) (* init false *)
-      (z : int)
-      (z_list : int list) =
-    match z_list with
-    | [] -> is_in
-    | hd :: tl ->  is_z_in_list (is_in || (z = hd)) z tl
-
-  let rec create_all_z_list
-      (acc : (int * (Dom_html.element Js.t) * bool ) list)  (* (z *
-                                                               one of all_items *
-                                                               true if it's selected item)
-                                                            *)
-      (all_items : Dom_html.element Js.t list)
-      (selected_items_z : int list) =
-    match all_items with
-    | [] -> acc
-    | hd :: tl ->
-      let z = get_z_index hd in
-      let acc = (z, hd, is_z_in_list false z selected_items_z) :: acc in
-      create_all_z_list acc tl selected_items_z
-
-  let rec pack_list (zib_items  : (int * (Dom_html.element Js.t) * bool ) list) =
-    (*List.mapi (fun cnt (_, i, b) -> ( (List.length zib_items) - cnt (* cnt + 1 *), i, b)) zib_items*)
-    List.mapi (fun cnt (_, i, b) -> ( cnt + 1, i, b)) zib_items
-
-  let rec get_upper_selected_z
-      (counter : int) (* initial 1 *)
-      (selected_list_len : int)
-      (zib_items  : (int * (Dom_html.element Js.t) * bool ) list)
-    : int =
-    match zib_items with
-    | [] -> -1
-    | hd :: tl -> let (_, _, b) = hd in
-      if b && counter = selected_list_len
-      then let (z, _, _) = hd in z
-      else get_upper_selected_z
-          (if b then (counter + 1) else counter)
-          selected_list_len tl
-
-  let rec get_first_selected_z
-      (zib_items  : (int * (Dom_html.element Js.t) * bool ) list)
-    : int =
-    match zib_items with
-    | [] -> ( -1)
-    | hd :: tl ->
-      let (z, _, b) = hd in
-      if b then z else get_first_selected_z tl
-
-  (* separate selected and not selected items,
-     assign z numbers continuosly*)
-  let rec separate_selected
-      (acc  : (int * (Dom_html.element Js.t) * bool ) list)
-      (is_selected : bool)
-      (z_begin : int)
-      (z_end : int)
-      (zib_items  : (int * (Dom_html.element Js.t) * bool ) list) =
-    match zib_items with
-    | [] -> acc
-    | hd :: tl -> let (z, _, b) = hd in
-      let acc = if b = is_selected && z_begin <= z && z <= z_end
-        then hd :: acc
-        else acc in
-      separate_selected acc is_selected z_begin z_end tl
 end
 
 class t
@@ -607,64 +533,67 @@ class t
       grid_overlay#set_snap_lines lines
 
     method private bring_to_front (items : Dom_html.element Js.t list) : unit =
-      let z_selected_items = List.map Util.get_z_index items in
+      let open Widget_utils in
       let all_items = self#items in
-      let zib_all_list = Util.create_all_z_list [] all_items z_selected_items in
-      let zib_all_list_sorted = List.sort
-          (fun
-            (x : (int * (Dom_html.element Js.t) * bool ))
-            (y : (int * (Dom_html.element Js.t) * bool )) ->
-            let (z1, _, _) = x in
-            let (z2, _, _) = y in
-            compare z1 z2) zib_all_list in
-      let zib_all_list_packed = Util.pack_list zib_all_list_sorted in
-      let upper_selected_z = Util.get_upper_selected_z
-          1 (List.length z_selected_items) zib_all_list_packed in
+      let zib_all_list =
+        Z_index.pack
+        @@ List.sort (fun (a : Z_index.item) b -> compare a.z_index b.z_index)
+        @@ Z_index.create_all_z_list ~selected:items all_items in
+      let upper_selected_z =
+        Z_index.get_upper_selected_z
+          1 (List.length items) zib_all_list in
       let insert_position_z = upper_selected_z + 1 in
       let all_zib_list_result =
-        let zib_non_selected_begin = Util.separate_selected
-            [] false 1 insert_position_z zib_all_list_packed in
-        let zib_selected = Util.separate_selected
-            [] true 1 (List.length zib_all_list_packed) zib_all_list_packed in
+        let zib_non_selected_begin =
+          Z_index.separate_selected
+            false 1 insert_position_z zib_all_list in
+        let zib_selected =
+          Z_index.separate_selected
+            true 1 (List.length zib_all_list) zib_all_list in
         let zib_non_selected_end =
-          Util.separate_selected
-            [] false
-            (insert_position_z + 1) (List.length zib_all_list_packed)
-            zib_all_list_packed in
-        Util.pack_list (List.rev
-                          (zib_non_selected_end @ zib_selected @
-                           zib_non_selected_begin))
+          Z_index.separate_selected
+            false
+            (insert_position_z + 1)
+            (List.length zib_all_list)
+            zib_all_list in
+        Z_index.pack (List.rev
+                        (zib_non_selected_end
+                         @ zib_selected
+                         @ zib_non_selected_begin))
       in
-      List.iter (fun (z, i, _) -> Util.set_z_index i z) all_zib_list_result
+      List.iter (fun (x : Z_index.item) ->
+          Z_index.set x.item x.z_index)
+        all_zib_list_result
 
     method private send_to_back (items : Dom_html.element Js.t list) : unit =
-      let z_selected_items = List.map Util.get_z_index items in
+      let open Widget_utils in
       let all_items = self#items in
-      let zib_all_list = Util.create_all_z_list [] all_items z_selected_items in
-      let zib_all_list_sorted = List.sort
-          (fun
-            (x : (int * (Dom_html.element Js.t) * bool ))
-            (y : (int * (Dom_html.element Js.t) * bool )) ->
-            let (z1, _, _) = x in
-            let (z2, _, _) = y in
-            compare z1 z2) zib_all_list in
-      let zib_all_list_packed = Util.pack_list zib_all_list_sorted in
-      let first_selected_z = Util.get_first_selected_z zib_all_list_packed in
+      let zib_all_list =
+        Z_index.pack
+        @@ List.sort (fun (a : Z_index.item) b -> compare a.z_index b.z_index)
+        @@ Z_index.create_all_z_list ~selected:items all_items in
+      let first_selected_z = Z_index.get_first_selected_z zib_all_list in
       let insert_position_z = first_selected_z - 1 in
       let all_zib_list_result =
-        let zib_non_selected_begin = Util.separate_selected
-            [] false 1 (insert_position_z - 1) zib_all_list_packed in
-        let zib_selected = Util.separate_selected
-            [] true 1 (List.length zib_all_list_packed) zib_all_list_packed in
-        let zib_non_selected_end = Util.separate_selected
-            [] false
-            insert_position_z (List.length zib_all_list_packed)
-            zib_all_list_packed in
-        Util.pack_list (List.rev
-                          (zib_non_selected_end @ zib_selected @
-                           zib_non_selected_begin))
+        let zib_non_selected_begin =
+          Z_index.separate_selected
+            false 1 (insert_position_z - 1) zib_all_list in
+        let zib_selected =
+          Z_index.separate_selected
+            true 1 (List.length zib_all_list) zib_all_list in
+        let zib_non_selected_end =
+          Z_index.separate_selected
+            false
+            insert_position_z (List.length zib_all_list)
+            zib_all_list in
+        Z_index.pack (List.rev
+                        (zib_non_selected_end
+                         @ zib_selected
+                         @ zib_non_selected_begin))
       in
-      List.iter (fun (z, i, _) -> Util.set_z_index i z) all_zib_list_result
+      List.iter (fun (x : Z_index.item) ->
+          Z_index.set x.item x.z_index)
+        all_zib_list_result
 
   end
 
@@ -673,17 +602,14 @@ let make ~(scaffold : Scaffold.t)
     ~(resolution : int * int)
     ~(position : Wm.position)
     widgets =
-  let counter = ref 1 in
   let items = match widgets with
     | `Nodes x ->
       List.map (fun (x : Dom_html.element Js.t) ->
           let _, widget = Widget_utils.widget_of_element x in
           let item = Tyxml_js.To_dom.of_element @@ Markup.create_item widget in
-          (* TODO remove*)
-          let _ = Util.set_z_index item !counter; counter := !counter + 1 in
           Widget_utils.copy_attributes x item;
-          let pos = Widget_utils.Attr.get_position item in
-          (match pos with
+          Widget_utils.Z_index.set item widget.layer;
+          (match Widget_utils.Attr.get_position item with
            | None -> ()
            | Some x -> Position.apply_to_element ~unit:`Norm x item);
           item) x

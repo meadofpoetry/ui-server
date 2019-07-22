@@ -135,6 +135,70 @@ module Attr = struct
 
 end
 
+module Z_index = struct
+
+  type item =
+    { item : Dom_html.element Js.t
+    ; z_index : int
+    ; selected : bool
+    }
+
+  let of_element (elt : Dom_html.element Js.t) : int =
+    let zi = (Dom_html.window##getComputedStyle elt)##.zIndex in
+    try Js.parseInt zi with _ -> 0
+
+  let set (elt : Dom_html.element Js.t) (z : int) : unit =
+    elt##.style##.zIndex := Js.string (string_of_int z)
+
+  let rec create_all_z_list
+      ~(selected : Dom_html.element Js.t list)
+      items =
+    let selected = List.map of_element selected in
+    List.map (fun (x : Dom_html.element Js.t) ->
+        let z_index = of_element x in
+        { item = x
+        ; z_index = of_element x
+        ; selected = List.mem z_index selected
+        }) items
+
+  let rec pack (zib_items : item list) =
+    List.mapi (fun cnt x -> { x with z_index = cnt + 1 }) zib_items
+
+  let rec get_upper_selected_z
+      (counter : int) (* initial 1 *)
+      (selected_list_len : int)
+      (zib_items : item list) : int =
+    match zib_items with
+    | [] -> -1
+    | x :: tl ->
+      if x.selected && counter = selected_list_len
+      then x.z_index
+      else get_upper_selected_z
+          (if x.selected then (counter + 1) else counter)
+          selected_list_len tl
+
+  let rec get_first_selected_z
+      (zib_items : item list) : int =
+    match zib_items with
+    | [] -> (-1)
+    | x :: tl ->
+      if x.selected then x.z_index
+      else get_first_selected_z tl
+
+  (* separate selected and not selected items,
+     assign z numbers continuosly*)
+  let rec separate_selected
+      (is_selected : bool)
+      (z_begin : int)
+      (z_end : int)
+      (zib_items : item list) =
+    List.filter (fun x ->
+        x.selected = is_selected
+        && z_begin <= x.z_index
+        && x.z_index <= z_end)
+      zib_items
+end
+
 let title (w : Wm.widget) : string =
   let typ = match w.type_ with
     | Wm.Video -> "Видео"
@@ -143,17 +207,13 @@ let title (w : Wm.widget) : string =
   | None -> typ
   | Some pid -> Printf.sprintf "%s. PID %d" typ pid
 
-let layer_of_element (elt : Dom_html.element Js.t) : int =
-  let zi = (Dom_html.window##getComputedStyle elt)##.zIndex in
-  try Js.parseInt zi with _ -> 0 (* TODO implement normally *)
-
 let widget_of_element (elt : Dom_html.element Js.t) : string * Wm.widget =
   Attr.get_id elt,
   { type_ = Attr.get_typ elt
   ; domain = Attr.get_domain elt
   ; pid = Attr.get_pid elt
   ; position = Attr.get_position elt
-  ; layer = layer_of_element elt
+  ; layer = Z_index.of_element elt
   ; aspect = Attr.get_aspect elt
   ; description = Attr.get_description elt
   }
