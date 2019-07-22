@@ -7,13 +7,6 @@ type event =
   [ `Container of Wm.Annotated.state * Wm.Annotated.container
   ]
 
-let ( % ) f g x = f (g x)
-
-let ( >>= ) = Lwt.bind
-
-let widget_of_yojson =
-  Util_json.(Pair.of_yojson String.of_yojson Wm.widget_of_yojson)
-
 include Page_mosaic_editor_tyxml.Widget_editor
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
@@ -23,16 +16,6 @@ module Selector = struct
   let grid_ghost = Printf.sprintf ".%s" CSS.ghost
   let parent = Printf.sprintf ".%s" Card.CSS.media
 end
-
-let widget_type_to_string : Wm.widget_type -> string = function
-  | Video -> "video"
-  | Audio -> "audio"
-
-let compare_pair o_x o_y (x1, y1) (x2, y2) =
-  let c = o_x x1 x2 in
-  if c = 0
-  then o_y y1 y2
-  else c
 
 let set_tab_index ?prev
     (items : Dom_html.element Js.t list Lazy.t)
