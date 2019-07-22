@@ -15,7 +15,7 @@ module type S = sig
   type template_props =
     { title : string option
     ; top_app_bar_leading : Tyxml.Xml.elt option
-    ; top_app_bar_actions : Tyxml.Xml.elt list
+    ; top_app_bar_content : Tyxml.Xml.elt list
     ; top_app_bar_bottom : Tyxml.Xml.elt option
     ; side_sheet : side_sheet_props option
     ; pre_scripts : script list
@@ -41,7 +41,7 @@ module type S = sig
 
   val make_template_props : ?title:string
     -> ?top_app_bar_leading:Tyxml.Xml.elt
-    -> ?top_app_bar_actions:Tyxml.Xml.elt list
+    -> ?top_app_bar_content:Tyxml.Xml.elt list
     -> ?top_app_bar_bottom:Tyxml.Xml.elt
     -> ?side_sheet:side_sheet_props
     -> ?pre_scripts:script list

@@ -28,7 +28,16 @@
 }
 
 .mdc-top-app-bar {
-    transition: mdc-animation-enter(background-color, $duration: 90ms, $delay: 0ms);
+    &, &__section:nth-child(2) {
+        transition: mdc-animation-enter(background-color, $duration: 90ms, $delay: 0ms);
+    }
+
+    &--contextual  {
+        &, .mdc-top-app-bar__section:nth-child(2) {
+            @include mdc-theme-prop(background-color, hsl(0, 0%, 7%));
+            transition: mdc-animation-exit-temporary(background-color, $duration: 150ms, $delay: 0ms);
+        }
+    }
 
     &__navigation-icon .mdc-icon {
         position: absolute;
@@ -49,13 +58,33 @@
         @include nav-icon-hidden;
     }
 
-    .mdc-top-app-bar__section:nth-child(2) {
-        flex: 0 1 33%;
+    &__section:nth-child(2) {
+        @include mdc-theme-prop(background-color, primary);
+        padding: 0;
+        display: flex;
+        align-items: flex-end;
+        .mdc-tab {
+            height: 64px;
+        }
+    }
+
+    &__section:nth-child(2), &__section:nth-child(3) {
+        flex-grow: 0;
     }
 
 }
 
-.mdc-top-app-bar--contextual {
-    @include mdc-theme-prop(background-color, hsl(0, 0%, 7%));
-    transition: mdc-animation-exit-temporary(background-color, $duration: 150ms, $delay: 0ms);
+@media screen and (max-width: $mdc-top-app-bar-mobile-breakpoint) {
+    .mdc-top-app-bar--fixed-adjust {
+        padding-top: 2 * $mdc-top-app-bar-mobile-row-height;
+    }
+    .mdc-top-app-bar__section:nth-child(2) {
+        left: 0;
+        position: absolute;
+        right: 0;
+        top: $mdc-top-app-bar-mobile-row-height;
+        .mdc-tab {
+            height: 48px;
+        }
+    }
 }

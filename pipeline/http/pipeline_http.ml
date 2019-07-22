@@ -29,7 +29,7 @@ let make_anchor_buttons ?href ~class_ ~icon ~label () =
       ~classes:[class_; full] ?href ~icon ~label () in
   let icon_button = Icon_button.create_anchor
       ~classes:[class_; compact] ?href ~icon () in
-  List.map Tyxml.Html.toelt [button; icon_button]
+  [button; icon_button]
 
 let make_top_app_bar_row () =
   Tyxml.Html.toelt
@@ -51,14 +51,18 @@ let pages () : Api_template.topmost Api_template.item list =
     make_template_props
       ~title:"Мозаика"
       ~side_sheet:(make_side_sheet_props ~clipped:false ())
-      ~top_app_bar_actions:(make_anchor_buttons
-                              ~href:editor_path
-                              ~icon:(make_icon
-                                       ~classes:[Components_tyxml.Button.CSS.icon]
-                                       Components_tyxml.Svg_icons.pencil)
-                              ~class_:Mosaic_video_template.CSS.edit
-                              ~label:"Редактировать" ()
-                            @ [Tyxml.Html.toelt menu_toggle])
+      ~top_app_bar_content:[
+        Tyxml.Html.toelt
+        @@ Top_app_bar.create_section ~align:`End
+          ~content:(make_anchor_buttons
+                      ~href:editor_path
+                      ~icon:(make_icon
+                               ~classes:[Components_tyxml.Button.CSS.icon]
+                               Components_tyxml.Svg_icons.pencil)
+                      ~class_:Mosaic_video_template.CSS.edit
+                      ~label:"Редактировать" ()
+                    @ [menu_toggle])
+          ()]
       ~pre_scripts:[Src "/js/adapter.min.js"]
       ~post_scripts:[Src "/js/mosaic_video.js"]
       ~stylesheets:["/css/mosaic_video.min.css"]
@@ -67,11 +71,16 @@ let pages () : Api_template.topmost Api_template.item list =
   in
   let editor_page_props =
     let open Mosaic_editor_template in
-    let mode_switch = Mosaic_editor_template.Container_editor.(
-        create_mode_switch ()) in
     make_template_props
       ~title:"Редактор мозаики"
-      ~top_app_bar_bottom:(Tyxml.Html.toelt mode_switch)
+      ~top_app_bar_content:(
+        List.map Tyxml.Html.toelt
+          Top_app_bar.(
+            [ create_section ~align:`End
+                ~content:[Container_editor.create_mode_switch ()]
+                ()
+            ; create_section ~align:`End ~content:[] ()
+            ]))
       ~side_sheet:(make_side_sheet_props
                      ~clipped:true
                      ~typ:`Dismissible

@@ -81,11 +81,9 @@
                                 </button>
                                 <span id="page-title" class="mdc-top-app-bar__title">{{title}}</span>
                             </section>
-                            <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
-                                {{#top_app_bar_actions}}
-                                {{{action}}}
-                                {{/top_app_bar_actions}}
-                            </section>
+                            {{#top_app_bar_content}}
+                            {{{element}}}
+                            {{/top_app_bar_content}}
                         </div>
                         {{{top_app_bar_bottom}}}
                     </header>

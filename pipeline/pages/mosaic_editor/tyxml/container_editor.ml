@@ -80,10 +80,7 @@ module Make(Xml : Xml_sigs.NoWrap)
       Tab_scroller.create_scroll_area
         ~content:(Tab_scroller.create_scroll_content tabs ())
         () in
-    let scroller = Tab_scroller.create
-        ~align:End
-        ~scroll_area
-        () in
+    let scroller = Tab_scroller.create ~scroll_area () in
     Tab_bar.create ~classes:[CSS.mode_switch] ~scroller ()
 
   let create ?(classes = []) ?attrs

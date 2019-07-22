@@ -56,13 +56,10 @@ $divider-color: if(
 }
 
 .container-editor__mode-switch {
-    transition: all 0.2s;
-    height: 48px;
+    transition: opacity 0.2s;
     &--hidden {
-        height: 0;
-        .mdc-tab {
-            height: 0;
-        }
+        opacity: 0;
+        visibility: hidden;
     }
 }
 

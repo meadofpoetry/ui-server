@@ -508,6 +508,9 @@ class t ~(scaffold : Scaffold.t)
           | _ ->
             Printf.sprintf "Выбрано ячеек: %d"
             @@ List.length cells in
+        (match _mode_switch with
+         | None -> ()
+         | Some x -> x#add_class CSS.mode_switch_hidden);
         let restore = Actions.transform_top_app_bar
             ~title
             ~class_:CSS.top_app_bar_contextual
@@ -521,6 +524,11 @@ class t ~(scaffold : Scaffold.t)
         match _top_app_bar_context with
         | _ :: _ -> ()
         | [] ->
+          let restore = fun () ->
+            (match _mode_switch with
+             | None -> ()
+             | Some x -> x#remove_class CSS.mode_switch_hidden);
+            restore () in
           _top_app_bar_context <- [restore]
 
     method private create_actions () : Overflow_menu.t =
