@@ -55,6 +55,17 @@ $divider-color: if(
     }
 }
 
+.container-editor__mode-switch {
+    transition: all 0.2s;
+    height: 48px;
+    &--hidden {
+        height: 0;
+        .mdc-tab {
+            height: 0;
+        }
+    }
+}
+
 .mdc-dialog--add-table {
     .mdc-text-field:not(:last-child) {
         margin-bottom: 1rem;

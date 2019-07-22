@@ -529,68 +529,27 @@ class t
       Position.apply_to_element ~unit:`Norm adjusted ghost;
       grid_overlay#set_snap_lines lines
 
-    method private bring_to_front (items : Dom_html.element Js.t list) : unit =
+    method private bring_to_front (selected : Dom_html.element Js.t list) : unit =
       let open Widget_utils in
-      let all_items = self#items in
-      let zib_all_list =
-        Z_index.pack
-        @@ List.sort (fun (a : Z_index.item) b -> compare a.z_index b.z_index)
-        @@ Z_index.create_all_z_list ~selected:items all_items in
-      let upper_selected_z =
-        Z_index.get_upper_selected_z
-          1 (List.length items) zib_all_list in
-      let insert_position_z = upper_selected_z + 1 in
-      let all_zib_list_result =
-        let zib_non_selected_begin =
-          Z_index.separate_selected
-            false 1 insert_position_z zib_all_list in
-        let zib_selected =
-          Z_index.separate_selected
-            true 1 (List.length zib_all_list) zib_all_list in
-        let zib_non_selected_end =
-          Z_index.separate_selected
-            false
-            (insert_position_z + 1)
-            (List.length zib_all_list)
-            zib_all_list in
-        Z_index.pack (List.rev
-                        (zib_non_selected_end
-                         @ zib_selected
-                         @ zib_non_selected_begin))
-      in
-      List.iter (fun (x : Z_index.item) ->
-          Z_index.set x.item x.z_index)
-        all_zib_list_result
+      let upper_selected_z = succ @@ Z_index.max_selected selected in
+      Z_index.pack
+      @@ List.sort (fun (a : Z_index.item) b ->
+          match a.selected, b.selected with
+          | false, true -> if a.z_index > upper_selected_z then 1 else -1
+          | true, false -> if b.z_index > upper_selected_z then -1 else 1
+          | true, true | false, false -> compare a.z_index b.z_index)
+      @@ Z_index.make_item_list ~selected self#items
 
-    method private send_to_back (items : Dom_html.element Js.t list) : unit =
+    method private send_to_back (selected : Dom_html.element Js.t list) : unit =
       let open Widget_utils in
-      let all_items = self#items in
-      let zib_all_list =
-        Z_index.pack
-        @@ List.sort (fun (a : Z_index.item) b -> compare a.z_index b.z_index)
-        @@ Z_index.create_all_z_list ~selected:items all_items in
-      let first_selected_z = Z_index.get_first_selected_z zib_all_list in
-      let insert_position_z = first_selected_z - 1 in
-      let all_zib_list_result =
-        let zib_non_selected_begin =
-          Z_index.separate_selected
-            false 1 (insert_position_z - 1) zib_all_list in
-        let zib_selected =
-          Z_index.separate_selected
-            true 1 (List.length zib_all_list) zib_all_list in
-        let zib_non_selected_end =
-          Z_index.separate_selected
-            false
-            insert_position_z (List.length zib_all_list)
-            zib_all_list in
-        Z_index.pack (List.rev
-                        (zib_non_selected_end
-                         @ zib_selected
-                         @ zib_non_selected_begin))
-      in
-      List.iter (fun (x : Z_index.item) ->
-          Z_index.set x.item x.z_index)
-        all_zib_list_result
+      let first_selected_z = pred @@ Z_index.first_selected selected in
+      Z_index.pack
+      @@ List.sort (fun (a : Z_index.item) b ->
+          match a.selected, b.selected with
+          | false, true -> if a.z_index < first_selected_z then -1 else 1
+          | true, false -> if b.z_index < first_selected_z then 1 else -1
+          | true, true | false, false -> compare a.z_index b.z_index)
+      @@ Z_index.make_item_list ~selected self#items
 
   end
 

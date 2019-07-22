@@ -143,60 +143,31 @@ module Z_index = struct
     ; selected : bool
     }
 
-  let of_element (elt : Dom_html.element Js.t) : int =
-    let zi = (Dom_html.window##getComputedStyle elt)##.zIndex in
-    try Js.parseInt zi with _ -> 0
+  let get (elt : Dom_html.element Js.t) : int =
+    try Js.parseInt @@ (Dom_html.window##getComputedStyle elt)##.zIndex
+    with _ -> 0
 
   let set (elt : Dom_html.element Js.t) (z : int) : unit =
     elt##.style##.zIndex := Js.string (string_of_int z)
 
-  let rec create_all_z_list
-      ~(selected : Dom_html.element Js.t list)
-      items =
-    let selected = List.map of_element selected in
-    List.map (fun (x : Dom_html.element Js.t) ->
-        let z_index = of_element x in
+  let rec make_item_list ~(selected : Dom_html.element Js.t list) items =
+    List.map (fun x ->
         { item = x
-        ; z_index = of_element x
-        ; selected = List.mem z_index selected
+        ; z_index = get x
+        ; selected = List.exists (Element.equal x) selected
         }) items
 
   let rec pack (zib_items : item list) =
-    List.mapi (fun cnt x -> { x with z_index = cnt + 1 }) zib_items
+    List.iteri (fun cnt x -> set x.item cnt) zib_items
 
-  let rec get_upper_selected_z
-      (counter : int) (* initial 1 *)
-      (selected_list_len : int)
-      (zib_items : item list) : int =
-    match zib_items with
-    | [] -> -1
-    | x :: tl ->
-      if x.selected && counter = selected_list_len
-      then x.z_index
-      else get_upper_selected_z
-          (if x.selected then (counter + 1) else counter)
-          selected_list_len tl
+  let rec max_selected = function
+    | [] -> 0
+    | x :: tl -> List.fold_left (fun acc x -> max acc (get x)) (get x) tl
 
-  let rec get_first_selected_z
-      (zib_items : item list) : int =
-    match zib_items with
-    | [] -> (-1)
-    | x :: tl ->
-      if x.selected then x.z_index
-      else get_first_selected_z tl
+  let rec first_selected = function
+    | [] -> 0
+    | x :: tl -> List.fold_left (fun acc x -> min acc (get x)) (get x) tl
 
-  (* separate selected and not selected items,
-     assign z numbers continuosly*)
-  let rec separate_selected
-      (is_selected : bool)
-      (z_begin : int)
-      (z_end : int)
-      (zib_items : item list) =
-    List.filter (fun x ->
-        x.selected = is_selected
-        && z_begin <= x.z_index
-        && x.z_index <= z_end)
-      zib_items
 end
 
 let title (w : Wm.widget) : string =
@@ -213,7 +184,7 @@ let widget_of_element (elt : Dom_html.element Js.t) : string * Wm.widget =
   ; domain = Attr.get_domain elt
   ; pid = Attr.get_pid elt
   ; position = Attr.get_position elt
-  ; layer = Z_index.of_element elt
+  ; layer = Z_index.get elt
   ; aspect = Attr.get_aspect elt
   ; description = Attr.get_description elt
   }

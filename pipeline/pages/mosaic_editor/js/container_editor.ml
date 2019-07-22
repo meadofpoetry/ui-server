@@ -69,16 +69,13 @@ module Selection = struct
   let on_select handle_selected = fun item { selection; selected; _ } ->
     let is_selected = Element.has_class item class_ in
     List.iter (fun x -> Element.remove_class x class_) selected;
+    selection#deselect_all ();
     (match List.length selected > 1 && List.memq item selected with
-    | true ->
-      selection#deselect_all ();
-      selection#keep_selection ();
-      Element.add_class item class_
-    | _ ->
-      selection#deselect_all ();
-      if is_selected
-      then (Element.remove_class item class_; selection#deselect item)
-      else (Element.add_class item class_; selection#keep_selection ()));
+     | true -> Element.add_class item class_; selection#select [item]
+     | _ ->
+       if is_selected
+       then (Element.remove_class item class_; selection#deselect item)
+       else (Element.add_class item class_; selection#select [item]));
     handle_selected selection#selected
 
   let make handle_selected elt =
@@ -183,9 +180,6 @@ class t ~(scaffold : Scaffold.t)
     val close_icon = Icon.SVG.(make_simple Path.close)
     val back_icon = Icon.SVG.(make_simple Path.arrow_left)
     val submit = Button.make ~label:"Применить" ()
-    val heading = match Element.query_selector elt Selector.heading with
-      | None -> failwith "heading element not found"
-      | Some x -> x
     val content = match Element.query_selector elt Selector.content with
       | None -> failwith "content element not found"
       | Some x -> x
@@ -237,7 +231,9 @@ class t ~(scaffold : Scaffold.t)
       _basic_actions <- Some basic_actions;
       _cell_selected_actions <- self#create_cell_selected_actions ();
       _cont_selected_actions <- self#create_cont_selected_actions ();
-      _mode_switch <- begin match Element.query_selector elt Selector.mode_switch with
+      _mode_switch <- begin match Element.query_selector
+                                    Dom_html.document##.body
+                                    Selector.mode_switch with
         | None -> failwith @@ Printf.sprintf "%s: mode switch element not found" name
         | Some x ->
           let on_change = function
@@ -368,6 +364,9 @@ class t ~(scaffold : Scaffold.t)
       restore ();
       _widget_editor <- None;
       (* Update view *)
+      (match _mode_switch with
+       | None -> ()
+       | Some x -> x#remove_class CSS.mode_switch_hidden);
       Utils.Option.iter (ignore % set_top_app_bar_icon scaffold `Main) icon;
       self#update_widget_elements editor#items cell;
       super#remove_class CSS.widget_mode;
@@ -378,7 +377,6 @@ class t ~(scaffold : Scaffold.t)
       submit#root##.style##.display := Js.string "";
       Dom.removeChild content editor#root;
       Dom.appendChild content grid#root;
-      Utils.Option.iter (Dom.appendChild heading % Widget.root) _mode_switch;
       grid#layout ();
       editor#destroy ();
       (* Hide side sheet *)
@@ -416,9 +414,11 @@ class t ~(scaffold : Scaffold.t)
           Lwt.wakeup_later w state;
           Lwt.return_unit);
       (* Update view *)
+      (match _mode_switch with
+       | None -> ()
+       | Some x -> x#add_class CSS.mode_switch_hidden);
       super#add_class CSS.widget_mode;
       submit#root##.style##.display := Js.string "none";
-      Utils.Option.iter (Dom.removeChild heading % Widget.root) _mode_switch;
       Dom.removeChild content grid#root;
       Dom.appendChild content editor#root;
       editor#layout ();
@@ -591,7 +591,7 @@ class t ~(scaffold : Scaffold.t)
           elt##.style##.width := x##.style##.width;
           elt##.style##.height := x##.style##.height;
           Widget_utils.copy_attributes x elt;
-          Widget_utils.Z_index.set elt (Widget_utils.Z_index.of_element x);
+          Widget_utils.Z_index.set elt (Widget_utils.Z_index.get x);
           Element.add_class elt CSS.widget;
           Dom.appendChild wrapper elt) widgets
 

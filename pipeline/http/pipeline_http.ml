@@ -66,8 +66,12 @@ let pages () : Api_template.topmost Api_template.item list =
       ()
   in
   let editor_page_props =
+    let open Mosaic_editor_template in
+    let mode_switch = Mosaic_editor_template.Container_editor.(
+        create_mode_switch ()) in
     make_template_props
       ~title:"Редактор мозаики"
+      ~top_app_bar_bottom:(Tyxml.Html.toelt mode_switch)
       ~side_sheet:(make_side_sheet_props
                      ~clipped:true
                      ~typ:`Dismissible

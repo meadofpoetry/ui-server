@@ -13,8 +13,8 @@
 - [ ] add states
 ** widget_editor.ml
 - [ ] `handle_keydown` method
-- [-] `bring_to_front` method
-- [-] `send_to_back` method
+- [X] `bring_to_front` method
+- [X] `send_to_back` method
 - [-] implement layers logic
 - [X] fix widgets scaling
 - [ ] XXX take aspect ratio into account when adding widget
