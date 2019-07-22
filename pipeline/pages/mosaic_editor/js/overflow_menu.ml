@@ -19,7 +19,9 @@ let fail_no_element ?base name =
   | None -> failwith error
   | Some s -> failwith @@ s ^ ": " ^ error
 
-class t (elt : Dom_html.element Js.t) () = object(self)
+class t ?(resize_handler = true)
+    (elt : Dom_html.element Js.t)
+    () = object(self)
 
   val menu = match Element.query_selector elt Selector.menu with
     | None -> fail_no_element ~base:name Selector.menu
@@ -43,7 +45,9 @@ class t (elt : Dom_html.element Js.t) () = object(self)
 
   method! initial_sync_with_dom () : unit =
     _listeners <- Events.(
-        [ onresizes self#handle_resize
+        [ (if resize_handler
+           then onresizes (fun _ _ -> self#layout (); Lwt.return_unit)
+           else Lwt.return_unit)
         ; clicks overflow self#handle_click
         ]);
     super#initial_sync_with_dom ()
@@ -83,13 +87,10 @@ class t (elt : Dom_html.element Js.t) () = object(self)
     then menu#reveal ()
     else Lwt.return_unit
 
-  method private handle_resize _ _ : unit Lwt.t =
-    self#layout ();
-    Lwt.return_unit
-
 end
 
 let make
+    ?resize_handler
     ~(menu : Menu.t)
     ~(overflow : Dom_html.element Js.t)
     ~(actions : Dom_html.element Js.t list)
@@ -101,7 +102,7 @@ let make
       ~actions:(List.map Tyxml_js.Of_dom.of_element actions)
       ~overflow:(Tyxml_js.Of_dom.of_element overflow)
       () in
-  new t elt ()
+  new t ?resize_handler elt ()
 
-let attach (elt : #Dom_html.element Js.t) : t =
-  new t (Element.coerce elt) ()
+let attach ?resize_handler (elt : #Dom_html.element Js.t) : t =
+  new t ?resize_handler (Element.coerce elt) ()

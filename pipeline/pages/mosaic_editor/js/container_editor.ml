@@ -33,7 +33,6 @@ module Selector = struct
   let heading = Printf.sprintf ".%s" Card.CSS.primary
   let content = Printf.sprintf ".%s" Card.CSS.media
   let actions = Printf.sprintf ".%s" Card.CSS.actions
-  let ar_sizer = Printf.sprintf ".%s" CSS.aspect_ratio_sizer
   let cell = Printf.sprintf ".%s" Grid.CSS.cell
   let grid = Printf.sprintf ".%s" Grid.CSS.root
   let mode_switch = Printf.sprintf ".%s" CSS.mode_switch
@@ -150,13 +149,13 @@ let content_aspect_of_element (cell : Dom_html.element Js.t) =
   | Some x -> x
   | None -> failwith "no aspect provided"
 
-let filter_available_widgets (wm : Wm.Annotated.t) : (string * Wm.widget) list =
-  List.fold_left (fun acc (_, _, (x : Wm.Annotated.container)) ->
-      List.fold_left (fun acc (id, _, _) ->
-          if List.mem_assoc id wm.widgets
-          then List.remove_assoc id acc
-          else acc) acc x.widgets)
-    wm.widgets wm.layout
+let filter_available_widgets
+    (widgets : (string * Wm.widget) list)
+    (wm : (string * Wm.widget) list list)
+  : (string * Wm.widget) list =
+  List.fold_left (fun acc container ->
+      List.filter (fun (id, _) -> not @@ List.mem_assoc id container) acc)
+    widgets wm
 
 type widget_mode_state =
   { icon : Dom_html.element Js.t option
@@ -185,15 +184,13 @@ class t ~(scaffold : Scaffold.t)
     val actions = match Element.query_selector elt Selector.actions with
       | None -> failwith "actions element not found"
       | Some x -> x
-    val ar_sizer = match Element.query_selector elt Selector.ar_sizer with
-      | None -> failwith "aspect ratio sizer element not found"
-      | Some x -> x
     val body = Dom_html.document##.body
 
     val undo_manager = Undo_manager.create ()
     val list_of_widgets =
-      List_of_widgets.make
-        (filter_available_widgets wm)
+      let layout = List.map (fun (_, _, (x : Wm.Annotated.container)) ->
+          List.map (fun (id, _, x) -> id, x) x.widgets) wm.layout in
+      List_of_widgets.make (filter_available_widgets wm.widgets layout)
     val empty_placeholder =
       Container_utils.UI.make_empty_placeholder
         wizard_dialog
@@ -252,12 +249,11 @@ class t ~(scaffold : Scaffold.t)
       (match scaffold#top_app_bar with
        | None -> ()
        | Some x -> x#set_actions @@ List.map Widget.root [basic_actions]);
-      (* FIXME *)
       List.iter (Element.append_child actions % Widget.root)
       @@ self#create_main_actions ();
       Dom.appendChild body wizard_dialog#root;
       Dom.appendChild body (fst table_dialog)#root;
-      if grid#empty then Dom.appendChild grid#root empty_placeholder#root;
+      Dom.appendChild content empty_placeholder#root;
       super#init ()
 
     method! initial_sync_with_dom () : unit =
@@ -273,13 +269,27 @@ class t ~(scaffold : Scaffold.t)
       super#initial_sync_with_dom ()
 
     method! layout () : unit =
-      let parent_h = content##.offsetHeight in
-      let width = parent_h * (fst _resolution) / (snd _resolution) in
-      grid#root##.style##.width := Utils.px_js width;
-      grid#root##.style##.height := Utils.px_js parent_h;
+      let frame_width = float_of_int @@ content##.offsetWidth in
+      let frame_height = float_of_int @@ content##.offsetHeight in
+      let frame_aspect = frame_width /. frame_height in
+      let content_aspect =
+        (float_of_int @@ fst _resolution)
+        /. (float_of_int @@ snd _resolution) in
+      if frame_aspect < content_aspect
+      then (
+        (* Letterbox *)
+        let height = (frame_height *. frame_aspect) /. content_aspect in
+        grid#root##.style##.width := Js.string "100%";
+        grid#root##.style##.height := Js.string @@ Printf.sprintf "%gpx" height)
+      else (
+        (* Pillarbox *)
+        let width = (frame_width *. content_aspect) /. frame_aspect in
+        grid#root##.style##.height := Js.string "100%";
+        grid#root##.style##.width := Js.string @@ Printf.sprintf "%gpx" width);
       Utils.Option.iter (Widget.layout % snd) _widget_editor;
       Utils.Option.iter Widget.layout _basic_actions;
       List.iter Widget.layout _cell_selected_actions;
+      List.iter Widget.layout _cont_selected_actions;
       super#layout ()
 
     method! destroy () : unit =
@@ -289,6 +299,12 @@ class t ~(scaffold : Scaffold.t)
       _selection <- None;
       List.iter Lwt.cancel _listeners;
       _listeners <- [];
+      Utils.Option.iter (Widget.destroy % snd) _widget_editor;
+      (* Destroy menus *)
+      Utils.Option.iter Widget.destroy _basic_actions;
+      List.iter Widget.destroy _cell_selected_actions;
+      List.iter Widget.destroy _cont_selected_actions;
+      (* Destroy dialogs *)
       Dom.removeChild body wizard_dialog#root;
       Dom.removeChild body (fst table_dialog)#root;
       wizard_dialog#destroy ();
@@ -320,7 +336,7 @@ class t ~(scaffold : Scaffold.t)
             { Wm. position; widgets })
           grid#cells in
       { resolution = self#resolution
-      ; widgets = []
+      ; widgets = _widgets
       ; layout
       }
 
@@ -358,30 +374,6 @@ class t ~(scaffold : Scaffold.t)
       scale_factor *. float_of_int aw,
       scale_factor *. float_of_int ah
 
-    method private switch_to_container_mode
-        ({ restore; icon; editor; cell } : widget_mode_state) =
-      restore ();
-      _widget_editor <- None;
-      (* Update view *)
-      (match _mode_switch with
-       | None -> ()
-       | Some x -> x#remove_class CSS.mode_switch_hidden);
-      Utils.Option.iter (ignore % set_top_app_bar_icon scaffold `Main) icon;
-      self#update_widget_elements editor#items cell;
-      Element.remove_class Dom_html.document##.body CSS.widget_mode;
-      update_ar_sizer
-        ~width:(float_of_int @@ fst self#resolution)
-        ~height:(float_of_int @@ snd self#resolution)
-        ar_sizer;
-      Dom.removeChild content editor#root;
-      Dom.appendChild content grid#root;
-      grid#layout ();
-      editor#destroy ();
-      (* Hide side sheet *)
-      (match scaffold#side_sheet with
-       | None -> Lwt.return_unit
-       | Some x -> x#toggle ~force:false ());
-
     method private switch_to_widget_mode (cell : Dom_html.element Js.t) =
       let id = Container_utils.get_cell_title cell in
       let cols, rows, resolution = grid#cols, grid#rows, self#resolution in
@@ -402,24 +394,41 @@ class t ~(scaffold : Scaffold.t)
           ~title:id
           ~actions:editor#actions
           scaffold in
-      (* Set aspect ratio sizer for container dimensions *)
-      let width = position.w *. (float_of_int (fst resolution)) in
-      let height = position.h *. (float_of_int (snd resolution)) in
-      update_ar_sizer ~width ~height ar_sizer;
       let state = { icon; restore; editor; cell } in
       let t, w = Lwt.wait () in
       scaffold#set_on_navigation_icon_click (fun _ _ ->
           Lwt.wakeup_later w state;
           Lwt.return_unit);
       (* Update view *)
+      list_of_widgets#sync
+      @@ filter_available_widgets _widgets
+      @@ List.map (fun x -> Widget_utils.widgets_of_container x) grid#cells;
       Element.add_class Dom_html.document##.body CSS.widget_mode;
       (match _mode_switch with
        | None -> ()
        | Some x -> x#add_class CSS.mode_switch_hidden);
-      Dom.removeChild content grid#root;
       Dom.appendChild content editor#root;
       editor#layout ();
       t
+
+    method private switch_to_container_mode
+        ({ restore; icon; editor; cell } : widget_mode_state) =
+      restore ();
+      _widget_editor <- None;
+      (* Update view *)
+      (match _mode_switch with
+       | None -> ()
+       | Some x -> x#remove_class CSS.mode_switch_hidden);
+      Utils.Option.iter (ignore % set_top_app_bar_icon scaffold `Main) icon;
+      self#update_widget_elements editor#items cell;
+      Element.remove_class Dom_html.document##.body CSS.widget_mode;
+      Dom.removeChild content editor#root;
+      grid#layout ();
+      editor#destroy ();
+      (* Hide side sheet *)
+      (match scaffold#side_sheet with
+       | None -> Lwt.return_unit
+       | Some x -> x#toggle ~force:false ())
 
     method private handle_grid_resize (e : Grid.Event.resize Js.t)
         (_ : unit Lwt.t) : unit Lwt.t =
@@ -533,9 +542,8 @@ class t ~(scaffold : Scaffold.t)
 
     method private create_cell_selected_actions () : Widget.t list =
       let menu = Actions.Cell_selected_actions.make_menu
-          ~clear_selection:self#clear_selection
+          ~on_remove:(fun () -> self#clear_selection ())
           ~get_selected:(fun () -> self#selected)
-          ~empty_placeholder
           undo_manager
           grid in
       [menu#widget]

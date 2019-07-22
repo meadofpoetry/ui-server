@@ -173,22 +173,27 @@ class t
       super#destroy ()
 
     method! layout () : unit =
-      let cur_w, cur_h, cur_aspect =
+      let frame_width, frame_height, frame_aspect =
         Js.Opt.case (Element.get_parent super#root)
           (fun () -> 0., 0., 1.)
           (fun x ->
              let width = float_of_int x##.offsetWidth in
              let height = float_of_int x##.offsetHeight in
              width, height, width /. height) in
-      let scale_factor =
-        if cur_aspect > aspect
-        then cur_h /. height
-        else cur_w /. width in
-      let width' = width *. scale_factor in
-      let height' = height *. scale_factor in
-      super#root##.style##.width := Js.string (Printf.sprintf "%gpx" width');
-      super#root##.style##.height := Js.string (Printf.sprintf "%gpx" height');
+      if frame_aspect < aspect
+      then (
+        (* Letterbox *)
+        let height = (frame_height *. frame_aspect) /. aspect in
+        super#root##.style##.width := Js.string "100%";
+        super#root##.style##.height := Js.string @@ Printf.sprintf "%gpx" height)
+      else (
+        (* Pillarbox *)
+        let width = (frame_width *. aspect) /. frame_aspect in
+        super#root##.style##.height := Js.string "100%";
+        super#root##.style##.width := Js.string @@ Printf.sprintf "%gpx" width);
       grid_overlay#layout ();
+      List.iter Widget.layout _basic_actions;
+      List.iter Widget.layout _selected_actions;
       super#layout ()
 
     method items : Dom_html.element Js.t list =
@@ -398,7 +403,6 @@ class t
        | None -> ()
        | Some x -> if not @@ Element.equal x target then x##blur);
       let detail = Widget.event_detail e in
-      let parent_size = self#size in
       let siblings, items =
         List.split
         @@ Utils.List.filter_map (fun x ->
@@ -432,6 +436,7 @@ class t
                      int_of_float height)) in
           _transform_aspect <- aspect;
           aspect in
+      let parent_size = self#size in
       let frame, adjusted, lines =
         Position.adjust
           ?aspect_ratio

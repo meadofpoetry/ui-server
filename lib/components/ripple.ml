@@ -328,9 +328,9 @@ class t (adapter : adapter) () =
           _on_touchstart <- touchstarts elt handler;
           _on_pointerdown <- pointerdowns elt handler;
           _on_mousedown <- mousedowns elt handler;
-          _on_keydown <- keydowns elt handler;
-          if adapter.is_unbounded () then (
-            _on_resize <- onresizes (fun _ _ -> self#layout (); Lwt.return_unit))
+          _on_keydown <- keydowns elt handler(* ;
+           * if adapter.is_unbounded () then (
+           *   _on_resize <- onresizes (fun _ _ -> self#layout (); Lwt.return_unit)) *)
         );
         _on_focus <- focuses elt self#handle_focus;
         _on_blur <- blurs elt self#handle_blur)

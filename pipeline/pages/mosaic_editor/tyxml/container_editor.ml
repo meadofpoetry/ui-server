@@ -5,7 +5,6 @@ module CSS = struct
   let root = "container-editor"
   let mode_switch = BEM.add_element root "mode-switch"
   let mode_switch_hidden = BEM.add_modifier mode_switch "hidden"
-  let aspect_ratio_sizer = BEM.add_element root "aspect-ratio-sizer"
   let widget_wrapper = BEM.add_element root "widget-wrapper"
   let widget = BEM.add_element root "widget"
   let cell_dragover = BEM.add_modifier Grid.CSS.cell "dragover"
@@ -90,15 +89,9 @@ module Make(Xml : Xml_sigs.NoWrap)
       ~(height : float)
       ~grid
       () : 'a elt =
-    let classes = CSS.root :: Card.CSS.root :: Card.CSS.outlined :: classes in
-    div ~a:([a_class classes] <@> attrs)
-      ([ Card'.create_media
-           [ svg ~a:[ Svg.a_class [CSS.aspect_ratio_sizer]
-                    ; Svg.a_viewBox (0., 0., width, height)
-                    ] []
-           ; grid
-           ] ()
-       ; Card'.create_actions [] ()
-       ])
+    Card'.create ~classes:(CSS.root :: classes) ?attrs
+      [ Card'.create_media [grid] ()
+      ; Card'.create_actions [] ()
+      ]
 
 end

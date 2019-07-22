@@ -58,6 +58,7 @@ css-pages:
 	$(CSS) $(CSS_DIR)/frontend/topology/topology.scss $(CSS_DIR)/topology.min.css
 	$(CSS) $(CSS_DIR)/frontend/mosaic_video/mosaic_video.scss $(CSS_DIR)/mosaic_video.min.css
 	$(CSS) $(CSS_DIR)/frontend/mosaic_editor/mosaic_editor.scss $(CSS_DIR)/mosaic_editor.min.css
+	postcss -u autoprefixer -r $(CSS_DIR)/mosaic_editor.min.css
 	$(CSS) $(CSS_DIR)/frontend/demo/demo.scss $(CSS_DIR)/demo.min.css
 	$(CSS) $(CSS_DIR)/frontend/user/user.scss $(CSS_DIR)/user.min.css
 	$(CSS) $(CSS_DIR)/main.scss $(CSS_DIR)/main.min.css

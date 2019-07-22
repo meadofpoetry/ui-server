@@ -58,6 +58,7 @@ let make_overflow_menu
          Lwt.return_unit) in
   menu#set_on_destroy (fun () -> Lwt.cancel listener);
   Overflow_menu.make
+    ~resize_handler:false
     ~actions:(List.map Widget.root actions)
     ~overflow:overflow#root
     ~menu
@@ -318,16 +319,10 @@ module Cell_selected_actions = struct
       ()
 
   let make_menu
-      ~clear_selection
+      ~on_remove
       ~get_selected
-      ~empty_placeholder
       undo_manager
       (grid : Grid.t) =
-    let on_remove () =
-      clear_selection ();
-      if grid#empty
-      then Dom.appendChild grid#root empty_placeholder#root
-      else Element.remove_child_safe grid#root empty_placeholder#root in
     make_overflow_menu
       [ merge ~on_remove ~get_selected undo_manager grid
       ; add_row_above ~get_selected grid

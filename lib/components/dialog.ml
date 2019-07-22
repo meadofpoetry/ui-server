@@ -81,11 +81,8 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
     val mutable _auto_stack_buttons = true
     val mutable _are_buttons_stacked = false
     (* Event listeners. *)
-    val mutable _click_listener = None
-    val mutable _keydown_listener = None
-    val mutable _doc_keydown_listener = None
-    val mutable _resize_listener = None
-    val mutable _orientation_change_listener = None
+    val mutable _listeners = []
+    val mutable _temp_listeners = []
 
     inherit Widget.t elt () as super
 
@@ -103,10 +100,10 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
           _container in
       _focus_trap <- Some focus_trap;
       (* Attach event listeners. *)
-      let click = Events.clicks super#root self#handle_interaction in
-      let keydown = Events.keydowns super#root self#handle_interaction in
-      _click_listener <- Some click;
-      _keydown_listener <- Some keydown
+      _listeners <- Lwt_js_events.(
+          [ clicks super#root self#handle_interaction
+          ; keydowns super#root self#handle_interaction
+          ])
 
     method! layout () : unit =
       Option.iter Lwt.cancel _layout_thread;
@@ -137,10 +134,8 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
          Lwt.cancel x;
          _layout_thread <- None);
       (* Detach event listeners. *)
-      Option.iter Lwt.cancel _click_listener;
-      Option.iter Lwt.cancel _keydown_listener;
-      _click_listener <- None;
-      _keydown_listener <- None;
+      List.iter Lwt.cancel _listeners;
+      _listeners <- [];
       self#handle_closing ();
       (* Destroy internal components. *)
       List.iter Ripple.destroy _button_ripples;
@@ -220,24 +215,16 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
     (* Private methods. *)
 
     method private handle_closing () : unit =
-      Option.iter Lwt.cancel _resize_listener;
-      Option.iter Lwt.cancel _orientation_change_listener;
-      Option.iter Lwt.cancel _doc_keydown_listener;
-      _resize_listener <- None;
-      _orientation_change_listener <- None;
-      _doc_keydown_listener <- None
+      List.iter Lwt.cancel _temp_listeners;
+      _temp_listeners <- []
 
     method private handle_opening () : unit =
       self#handle_closing ();
-      let resize =
-        Events.onresizes (fun _ _ -> self#layout (); Lwt.return_unit) in
-      let orientation_change =
-        Events.onorientationchanges (fun _ _ -> self#layout (); Lwt.return_unit) in
-      let keydown =
-        Events.keydowns Dom_html.document self#handle_document_keydown in
-      _resize_listener <- Some resize;
-      _orientation_change_listener <- Some orientation_change;
-      _doc_keydown_listener <- Some keydown
+      _temp_listeners <- Lwt_js_events.(
+          [ onresizes (fun _ _ -> self#layout (); Lwt.return_unit)
+          ; onorientationchanges (fun _ _ -> self#layout (); Lwt.return_unit)
+          ; keydowns Dom_html.document self#handle_document_keydown
+          ])
 
     method private notify_closing (action : action) : unit =
       super#emit ~detail:action Event.closing

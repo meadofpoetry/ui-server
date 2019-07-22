@@ -155,8 +155,7 @@ class t ?(drawer : #Drawer.t option)
       (* Setup body *)
       Option.iter self#set_body body;
       (* Handle window resize *)
-      Lwt_js_events.limited_onresizes ~elapsed_time:0.05
-        (fun _ _ -> self#handle_resize ())
+      Lwt_js_events.limited_onresizes ~elapsed_time:0.05 self#handle_resize
       |> (fun x -> resize_listener <- Some x);
 
     method! destroy () : unit =
@@ -370,7 +369,7 @@ class t ?(drawer : #Drawer.t option)
           then drawer_type <- cur
           else side_sheet_type <- cur)
 
-    method private handle_resize () : unit Lwt.t =
+    method private handle_resize _ _ : unit Lwt.t =
       let screen = Breakpoint.get_screen_width () in
       let drawer_lwt =
         match self#drawer, self#drawer_elevation_ self#drawer with

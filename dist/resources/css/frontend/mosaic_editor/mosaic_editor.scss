@@ -1,13 +1,11 @@
 @import "@material/theme/mixins";
 @import "@material/animation/functions";
-@import "@material/button/mixins";
 @import "@material/top-app-bar/variables";
-@import "@material/icon-button/mixins";
-@import "./widget_editor/widget_editor";
 @import "./container_editor/container_editor";
+@import "./widget_editor/widget_editor";
 @import "./transform/transform";
-@import "./grid/grid";
 @import "./overflow_menu/overflow_menu";
+@import "./grid/grid";
 
 @mixin nav-icon-hidden {
     opacity: 0;
@@ -90,5 +88,49 @@
         .mdc-tab {
             height: 48px;
         }
+    }
+}
+
+.selection-area {
+    z-index: 101;
+    position: absolute;
+    border-radius: 2px;
+    border-width: 1px;
+    border-style: dashed;
+    @include mdc-theme-prop(border-color, primary);
+
+    &:before {
+        content: "";
+        position: absolute;
+        opacity: 0.08;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        @include mdc-theme-prop(background-color, primary);
+    }
+}
+
+.list-of-widgets {
+    padding-top: 1rem;
+    height: 100%;
+    overflow-y: auto;
+    position: relative;
+
+    .mdc-placeholder {
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: -1;
+        transition: mdc-animation-exit-temporary(opacity, $duration: 150ms, $delay: 0ms);
+    }
+
+    .mdc-placeholder--hidden {
+        opacity: 0;
+        transition: mdc-animation-enter(opacity, $duration: 150ms, $delay: 0ms);
+    }
+
+    .mdc-list-group__subheader {
+        @include mdc-theme-prop(color, text-hint-on-surface);
     }
 }

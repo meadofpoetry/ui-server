@@ -22,8 +22,8 @@
 - [X] implement widget selection
 - [-] implement widget transform
 - [ ] implement widget move without prior selection
-- [ ] implement selection reset (e.g. on outside click)
-- [ ] allow transform handles overflow parent
+- [X] implement selection reset (e.g. on outside click)
+- [X] allow transform handles overflow parent
 ** position.ml
 - [X] take aspect ratio into account in `adjust` function
 - [X] consider floating point coordinates
@@ -41,7 +41,7 @@
 ** overflow_menu.ml
 - [X] click event listener is missing sometimes
 - [X] move markup to `page_mosaic_editor_tyxml` lib
-- [ ] each menu listens for window resize event, call `layout` from parent element
+- [X] each menu listens for window resize event, call `layout` from parent element
 ** grid.ml
 - [ ] XXX fix merge/add/remove col/row methods
       (especially for multi-span cells and nested grids)

@@ -11,50 +11,6 @@ $divider-color: if(
     $divider-color-on-light-bg
 );
 
-.selection-area {
-    z-index: 101;
-    position: absolute;
-    border-radius: 2px;
-    border-width: 1px;
-    border-style: dashed;
-    @include mdc-theme-prop(border-color, primary);
-
-    &:before {
-        content: "";
-        position: absolute;
-        opacity: 0.08;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        @include mdc-theme-prop(background-color, primary);
-    }
-}
-
-.list-of-widgets {
-    padding-top: 1rem;
-    height: 100%;
-    overflow-y: auto;
-    position: relative;
-
-    .mdc-placeholder {
-        position: absolute;
-        top: 0;
-        left: 0;
-        z-index: -1;
-        transition: mdc-animation-exit-temporary(opacity, $duration: 150ms, $delay: 0ms);
-    }
-
-    .mdc-placeholder--hidden {
-        opacity: 0;
-        transition: mdc-animation-enter(opacity, $duration: 150ms, $delay: 0ms);
-    }
-
-    .mdc-list-group__subheader {
-        @include mdc-theme-prop(color, text-hint-on-surface);
-    }
-}
-
 .container-editor__mode-switch {
     transition: opacity 0.2s;
     &--hidden {
@@ -72,6 +28,7 @@ $divider-color: if(
 .container-editor {
     position: relative;
     width: 100%;
+    height: 100%;
     max-height: 100%;
     align-self: flex-start;
 
@@ -95,11 +52,13 @@ $divider-color: if(
         }
     }
 
-    .mdc-card__primary {
-        padding: 0;
-        height: 48px;
-        min-height: 48px;
-        justify-content: flex-end;
+    .mdc-card__media {
+        display: flex;
+        flex-grow: 1;
+        align-items: center;
+        justify-content: center;
+        max-height: 100%;
+        @include mdc-theme-prop(background-color, $divider-color);
     }
 
     .mdc-card__actions {
@@ -107,20 +66,6 @@ $divider-color: if(
         border-bottom-width: 1px;
         border-bottom-style: solid;
         @include mdc-theme-prop(border-bottom-color, $divider-color);
-    }
-
-    .mdc-card__action-icons {
-        justify-content: flex-start;
-        .mdc-icon-button:not(:disabled) {
-            @include mdc-theme-prop(color, text-secondary-on-surface);
-        }
-    }
-
-    .mdc-card__media {
-        overflow: hidden;
-        position: relative;
-        display: grid;
-        @include mdc-theme-prop(background-color, $divider-color);
     }
 
     &__widget-wrapper {
@@ -144,13 +89,17 @@ $divider-color: if(
     }
 
     .grid {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
         margin-left: auto;
         margin-right: auto;
+        border-radius: 4px;
         @include mdc-theme-prop(background-color, text-secondary-on-surface);
+        &:empty {
+            display: none;
+        }
+    }
+
+    .grid:not(:empty) ~ .mdc-placeholder {
+        display: none;
     }
 
     .grid__cell {
@@ -160,6 +109,10 @@ $divider-color: if(
         justify-content: center;
         min-width: 0;
         min-height: 0;
+
+        &--selected .container-editor__widget-wrapper {
+            opacity: 0;
+        }
 
         &:before, &:after {
             pointer-events: none;
@@ -175,20 +128,17 @@ $divider-color: if(
     }
 }
 
-.grid__cell--selected {
-    .container-editor__widget-wrapper {
-        opacity: 0;
-    }
-}
-
-.container-editor:not(.container-editor--content-mode) {
-    .grid__cell:before {
+body:not(.content-mode) {
+    .container-editor .grid__cell:before {
         content: attr(aria-colindex) 'x' attr(aria-rowindex);
     }
 }
 
 .widget-mode {
-    .container-editor .mdc-card__actions, .container-editor__mode-switch {
+    .container-editor .mdc-card__actions,
+    .container-editor__mode-switch,
+    .mdc-card__media .mdc-placeholder,
+    .grid {
         display: none;
     }
 }
