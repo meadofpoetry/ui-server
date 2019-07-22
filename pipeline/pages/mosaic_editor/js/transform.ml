@@ -69,6 +69,7 @@ module Event = struct
 
   class type detail =
     object
+      method originalEvent : Dom_html.event Js.t Js.readonly_prop
       method originalRect : Dom_html.clientRect Js.t Js.readonly_prop
       method rect : Dom_html.clientRect Js.t Js.readonly_prop
       method action : action Js.readonly_prop
@@ -212,13 +213,14 @@ class t
     method private notify_select item : unit =
       super#emit ~should_bubble:true ?detail:item Event.Typ.select
 
-    method private notify_input (state : state) position : unit =
+    method private notify_input (state : state) position event : unit =
       let action, direction = match state.action with
         | `Resize dir -> Event.Resize, dir
         | `Move -> Move, N in
       let (detail : Event.detail Js.t) =
         object%js
           val rect = position_to_client_rect position
+          val originalEvent = event
           val originalRect = position_to_client_rect state.position
           val action = action
           val direction = direction
@@ -355,13 +357,14 @@ class t
 
     (* Moves an element *)
     method private move : 'a. state -> (#Dom_html.event as 'a) Js.t -> unit Lwt.t =
-      fun ({ touch_id; point; position; _ } as state) e ->
+      fun ({ touch_id
+           ; point = (x, y)
+           ; position = ({ left; top; _ } as position)
+           ; _ } as state) e ->
       let page_x, page_y = get_cursor_position ?touch_id e in
-      let position =
-        { position with left = position.left +. page_x -. (fst point)
-                      ; top = position.top +. page_y -. (snd point)
-        } in
-      self#notify_input state position;
+      let dx, dy = page_x -. x, page_y -. y in
+      let position = { position with left = left +. dx; top = top +. dy } in
+      self#notify_input state position (e :> Dom_html.event Js.t);
       Lwt.return_unit
 
     (* Resizes an element *)
@@ -370,54 +373,37 @@ class t
       -> state
       -> (#Dom_html.event as 'a) Js.t
       -> unit Lwt.t =
-      fun direction ({ touch_id; point = (x, y); position; _ } as state) e ->
+      fun direction ({ touch_id
+                     ; point = (x, y)
+                     ; position = ({ left; top; width; height } as position)
+                     ; _ } as state) e ->
       let page_x, page_y = get_cursor_position ?touch_id e in
-      let (position : position) = match direction with
+      let dx, dy = page_x -. x, page_y -. y in
+      let position = match direction with
         | NW ->
-          { width = position.width -. (page_x -. x)
-          ; height = position.height -. (page_y -. y)
-          ; left = position.left +. (page_x -. x)
-          ; top = position.top +. (page_y -. y)
+          { width = width -. dx
+          ; height = height -. dy
+          ; left = left +. dx
+          ; top = top +. dy
           }
         | NE ->
-          { position with
-            width = position.width +. (page_x -. x)
-          ; height = position.height -. (page_y -. y)
-          ; top = position.top +. (page_y -. y)
+          { position with width = width +. dx
+                        ; height = height -. dy
+                        ; top = top +. dy
           }
         | SW ->
-          { position with
-            width = position.width -. (page_x -. x)
-          ; height = position.height +. (page_y -. y)
-          ; left = position.left +. (page_x -. x)
+          { position with width = width -. dx
+                        ; height = height +. dy
+                        ; left = left +. dx
           }
-        | SE ->
-          { position with
-            width = position.width +. (page_x -. x)
-          ; height = position.height +. (page_y -. y)
-          }
-        | N ->
-          { position with
-            height = position.height -. (page_y -. y)
-          ; top = position.top +. (page_y -. y)
-          }
-        | S ->
-          { position with
-            height = position.height +. (page_y -. y)
-          ; top = position.top +. (page_y -. y)
-          }
-        | W ->
-          { position with
-            width = position.width -. (page_x -. x)
-          ; left = position.left +. (page_x -. x)
-          }
-        | E ->
-          { position with
-            width = position.width -. (page_x -. x)
-          ; left = position.left +. (page_x -. x)
-          } in
+        | SE -> { position with width = width +. dx; height = height +. dy }
+        | N -> { position with height = height -. dy; top = top +. dy }
+        | W -> { position with width = width -. dx; left = left +. dx }
+        | S -> { position with height = position.height +. dy }
+        | E -> { position with width = position.width +. dx }
+      in
       self#layout ();
-      self#notify_input state position;
+      self#notify_input state position (e :> Dom_html.event Js.t);
       Lwt.return_unit
 
   end

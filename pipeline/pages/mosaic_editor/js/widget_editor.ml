@@ -178,21 +178,6 @@ module Util = struct
         then hd :: acc
         else acc in
       separate_selected acc is_selected z_begin z_end tl
-
-  let get_description1 (elt : Dom_html.element Js.t) =
-        Js.Opt.case (elt##getAttribute (Js.string "data-description"))
-          (fun () -> "")
-          Js.to_string   
-
-  let print_zib
-      (zib_items  : (int * (Dom_html.element Js.t) * bool ) list)
-      (title : string) =
-    let _ = List.map (fun v -> let (z,i,b) = v in let _ = 
-      Printf.printf "%s z=%d %s %b\n"
-      title z (get_description1 i) b in v) 
-      zib_items in    
-    ()
-
 end
 
 class t
@@ -240,6 +225,7 @@ class t
 
     val mutable _basic_actions = []
     val mutable _selected_actions = []
+    val mutable _transform_aspect = None
 
     method! init () : unit =
       Dom.appendChild super#root transform#root;
@@ -332,7 +318,7 @@ class t
       list_of_widgets#append_item @@ Widget_utils.widget_of_element item;
       Element.remove_child_safe super#root item;
 
-    (** Remove item with undo *)
+      (** Remove item with undo *)
     method private remove_item item =
       self#remove_item_ item;
       Undo_manager.add undo_manager
@@ -490,22 +476,42 @@ class t
        | Some x -> if not @@ Element.equal x target then x##blur);
       let detail = Widget.event_detail e in
       let parent_size = self#size in
-      let frame_position = Position.of_client_rect detail##.rect in
       let siblings, items =
         List.split
         @@ Utils.List.filter_map (fun x ->
             if List.mem x self#selected
             then None else Some (Position.of_element x, x))
           self#items in
-      let original_position = Position.of_client_rect @@ detail##.originalRect in
       let original_positions = match _original_rects with
         | [] ->
           _original_rects <- List.map Position.of_element self#selected;
           _original_rects
         | l -> l in
+      (* FIXME aspect should be calculated from last rect position before
+         then user pressed shift key *)
+      let shift_key = Js.Opt.case
+          (Dom_html.CoerceTo.mouseEvent detail##.originalEvent)
+          (fun () -> false)
+          (fun e -> Js.to_bool e##.shiftKey) in
+      let aspect_ratio = match shift_key, _transform_aspect with
+        | false, Some _ -> _transform_aspect <- None; None
+        | false, None -> None
+        | true, (Some _ as x) -> x
+        | true, None ->
+          let rect = detail##.rect in
+          let width = Js.Optdef.get rect##.width
+              (fun () -> rect##.right -. rect##.left) in
+          let height = Js.Optdef.get rect##.height
+              (fun () -> rect##.bottom -. rect##.top) in
+          let aspect =
+            Some (Utils.resolution_to_aspect
+                    (int_of_float width,
+                     int_of_float height)) in
+          _transform_aspect <- aspect;
+          aspect in
       let frame, adjusted, lines =
         Position.adjust
-          ?aspect_ratio:(Widget_utils.Attr.get_aspect target)
+          ?aspect_ratio
           ~min_width:min_size
           ~grid_step:(float_of_int grid_overlay#size)
           ~min_height:min_size
@@ -515,8 +521,7 @@ class t
               | Resize -> `Resize detail##.direction)
           ~siblings
           ~parent_size
-          ~frame_position
-          original_position
+          ~frame_position:(Position.of_client_rect detail##.rect)
           original_positions
       in
       List.iter2 (fun (x : Position.t) (item : Dom_html.element Js.t) ->
@@ -595,7 +600,6 @@ class t
               self#items)
           ~parent_size
           ~frame_position:position
-          position
           [position]
       in
       let adjusted = Position.to_normalized ~parent_size @@ List.hd adjusted in
@@ -603,7 +607,6 @@ class t
       grid_overlay#set_snap_lines lines
 
     method private bring_to_front (items : Dom_html.element Js.t list) : unit =
-      let _ = Printf.printf "bring_to_front\n" in
       let z_selected_items = List.map Util.get_z_index items in
       let all_items = self#items in
       let zib_all_list = Util.create_all_z_list [] all_items z_selected_items in
@@ -620,26 +623,21 @@ class t
       let insert_position_z = upper_selected_z + 1 in
       let all_zib_list_result =
         let zib_non_selected_begin = Util.separate_selected
-          [] false 1 insert_position_z zib_all_list_packed in
-        let _ = Util.print_zib zib_non_selected_begin "zib_non_selected_begin" in
+            [] false 1 insert_position_z zib_all_list_packed in
         let zib_selected = Util.separate_selected
-          [] true 1 (List.length zib_all_list_packed) zib_all_list_packed in
-        let _ = Util.print_zib zib_selected "zib_selected" in
+            [] true 1 (List.length zib_all_list_packed) zib_all_list_packed in
         let zib_non_selected_end =
           Util.separate_selected
             [] false
             (insert_position_z + 1) (List.length zib_all_list_packed)
             zib_all_list_packed in
-        let _ = Util.print_zib zib_non_selected_end "zib_non_selected_end" in
-          Util.pack_list (List.rev
-            (zib_non_selected_end @ zib_selected @
-            zib_non_selected_begin))
+        Util.pack_list (List.rev
+                          (zib_non_selected_end @ zib_selected @
+                           zib_non_selected_begin))
       in
-      let _ = Util.print_zib all_zib_list_result "all_zib_list_result" in
       List.iter (fun (z, i, _) -> Util.set_z_index i z) all_zib_list_result
 
     method private send_to_back (items : Dom_html.element Js.t list) : unit =
-      let _ = Printf.printf "send_to_back\n" in
       let z_selected_items = List.map Util.get_z_index items in
       let all_items = self#items in
       let zib_all_list = Util.create_all_z_list [] all_items z_selected_items in
@@ -655,21 +653,17 @@ class t
       let insert_position_z = first_selected_z - 1 in
       let all_zib_list_result =
         let zib_non_selected_begin = Util.separate_selected
-           [] false 1 (insert_position_z - 1) zib_all_list_packed in
-        let _ = Util.print_zib zib_non_selected_begin "zib_non_selected_begin" in
+            [] false 1 (insert_position_z - 1) zib_all_list_packed in
         let zib_selected = Util.separate_selected
-           [] true 1 (List.length zib_all_list_packed) zib_all_list_packed in
-        let _ = Util.print_zib zib_selected "zib_selected" in
+            [] true 1 (List.length zib_all_list_packed) zib_all_list_packed in
         let zib_non_selected_end = Util.separate_selected
-           [] false
-           insert_position_z (List.length zib_all_list_packed)
-           zib_all_list_packed in
-        let _ = Util.print_zib zib_non_selected_end "zib_non_selected_end" in
-          Util.pack_list (List.rev
-            (zib_non_selected_end @ zib_selected @
-            zib_non_selected_begin))
+            [] false
+            insert_position_z (List.length zib_all_list_packed)
+            zib_all_list_packed in
+        Util.pack_list (List.rev
+                          (zib_non_selected_end @ zib_selected @
+                           zib_non_selected_begin))
       in
-      let _ = Util.print_zib all_zib_list_result "all_zib_list_result" in
       List.iter (fun (z, i, _) -> Util.set_z_index i z) all_zib_list_result
 
   end
