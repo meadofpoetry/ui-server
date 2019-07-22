@@ -45,7 +45,7 @@ class t ?(show_grid_lines = true)
       divider_period <- x;
       self#layout ()
 
-    method set_snap_lines (x : Position.line list) =
+    method set_snap_lines (x : Snap_line.t list) =
       snap_lines <- x;
       self#layout ()
 
@@ -65,7 +65,7 @@ class t ?(show_grid_lines = true)
 
     (* Private methods *)
 
-    method private draw_snap_line ~width ~height (line : Position.line) : unit =
+    method private draw_snap_line ~width ~height (line : Snap_line.t) : unit =
       let color = match line.is_center, line.is_multiple with
         | true, true -> "rgba(255, 0, 0, 0.9)"
         | false, true -> "rgba(0, 0, 255, 0.9)"

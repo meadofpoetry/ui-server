@@ -102,7 +102,7 @@ end
 class t
     ~(list_of_widgets : List_of_widgets.t)
     ~(resolution : int * int)
-    ~(position : Position.t)
+    ~(position : Position.Normalized.t)
     (scaffold : Scaffold.t)
     elt
     () =
@@ -230,8 +230,8 @@ class t
       (match position with
        | None -> ()
        | Some p ->
-         Position.apply_to_element ~unit:`Norm p item;
-         self#set_position_attributes item p);
+         Position.Normalized.apply_to_element p item;
+         Widget_utils.Attr.set_position p item);
       self#add_item_ item;
       Undo_manager.add undo_manager
         { undo = (fun () -> self#remove_item_ item)
@@ -307,7 +307,7 @@ class t
               | Some a, Some b -> compare a b
               | None, Some _ -> -1
               | Some _, None -> 1 in
-            compare Position.compare (get_position x) (get_position y))
+            compare Position.Normalized.compare (get_position x) (get_position y))
           items
       else items
 
@@ -368,7 +368,6 @@ class t
 
     method private clear_selection () : unit =
       transform#root##.style##.visibility := Js.string "hidden";
-      Position.apply_to_element ~unit:`Px Position.empty transform#root;
       List.iter (fun x -> Element.remove_class x Selection.class_) self#selected;
       self#selection#deselect_all ();
       self#restore_top_app_bar_context ()
@@ -381,10 +380,11 @@ class t
       | [] -> self#clear_selection ()
       | l ->
         let rect =
-          Position.bounding_rect
-          @@ List.map Widget_utils.get_relative_position l in
+          Position.absolute_to_normalized ~parent_size:self#size
+          @@ Position.Absolute.bounding_rect
+          @@ List.map Position.Absolute.of_element l in
         transform#root##.style##.visibility := Js.string "visible";
-        Position.apply_to_element ~unit:`Pct rect transform#root;
+        Position.Normalized.apply_to_element rect transform#root;
         self#transform_top_app_bar l
 
     method private handle_transform_select e _ =
@@ -394,7 +394,7 @@ class t
            Selection.on_select self#handle_selected
              item
              self#selection#selected
-             self#selection); (* FIXME check CSS classes *)
+             self#selection);
       Lwt.return_unit
 
     method private handle_transform_action e _ =
@@ -407,15 +407,13 @@ class t
         List.split
         @@ Utils.List.filter_map (fun x ->
             if List.mem x self#selected
-            then None else Some (Position.of_element x, x))
+            then None else Some (Position.Absolute.of_element x, x))
           self#items in
       let original_positions = match _original_rects with
         | [] ->
-          _original_rects <- List.map Position.of_element self#selected;
+          _original_rects <- List.map Position.Absolute.of_element self#selected;
           _original_rects
         | l -> l in
-      (* FIXME aspect should be calculated from last rect position before
-         then user pressed shift key *)
       let shift_key = Js.Opt.case
           (Dom_html.CoerceTo.mouseEvent detail##.originalEvent)
           (fun () -> false)
@@ -438,7 +436,7 @@ class t
           aspect in
       let parent_size = self#size in
       let frame, adjusted, lines =
-        Position.adjust
+        Position.Absolute.adjust
           ?aspect_ratio
           ~min_width:min_size
           ~grid_step:(float_of_int grid_overlay#size)
@@ -449,35 +447,30 @@ class t
               | Resize -> `Resize detail##.direction)
           ~siblings
           ~parent_size
-          ~frame_position:(Position.of_client_rect detail##.rect)
+          ~frame_position:(Position.Absolute.of_client_rect detail##.rect)
           original_positions
       in
-      List.iter2 (fun (x : Position.t) (item : Dom_html.element Js.t) ->
-          let pos = Position.to_normalized ~parent_size x in
-          Position.apply_to_element ~unit:`Norm pos item;
-          Widget_utils.Attr.set_position item pos)
+      List.iter2 (fun (x : Position.Absolute.t) (item : Dom_html.element Js.t) ->
+          let pos = Position.absolute_to_normalized ~parent_size x in
+          Position.Normalized.apply_to_element pos item;
+          Widget_utils.Attr.set_position pos item)
         adjusted self#selected;
-      Position.apply_to_element ~unit:`Norm
-        (Position.to_normalized ~parent_size frame)
+      Position.Normalized.apply_to_element
+        (Position.absolute_to_normalized ~parent_size frame)
         target;
       grid_overlay#set_snap_lines lines;
       Lwt.return_unit
 
     method private handle_transform_change e _ =
-      let target = Dom_html.eventTarget e in
+      (* let target = Dom_html.eventTarget e in *)
       _original_rects <- [];
       grid_overlay#set_snap_lines [];
-      let position =
-        Position.to_normalized ~parent_size:self#size
-        @@ Position.of_client_rect
-        @@ Widget.event_detail e in
-      self#set_position_attributes target position;
+      (* let position =
+       *   Position.absolute_to_normalized ~parent_size:self#size
+       *   @@ Position.Absolute.of_client_rect
+       *   @@ Widget.event_detail e in
+       * Widget_utils.Attr.set_position target position; *)
       Lwt.return_unit
-
-    method private set_position_attributes
-        (elt : Dom_html.element Js.t)
-        (pos : Position.t) =
-      Widget_utils.Attr.set_position elt pos
 
     method private handle_dropped_json (json : Yojson.Safe.t) : unit Lwt.t =
       let of_yojson = function
@@ -488,9 +481,9 @@ class t
           end
         | _ -> failwith "failed to parse json" in
       let position = Some (
-          Position.to_normalized
+          Position.absolute_to_normalized
             ~parent_size:self#size
-            (Position.of_element ghost)) in
+            (Position.Absolute.of_element ghost)) in
       let (id, widget) = of_yojson json in
       self#add_item (id, { widget with position });
       grid_overlay#set_snap_lines [];
@@ -504,18 +497,18 @@ class t
       let rect = super#root##getBoundingClientRect in
       let (x, y) = Transform.get_cursor_position event in
       let point = x -. rect##.left, y -. rect##.top in
-      let (position : Position.t) =
+      let (position : Position.Absolute.t) =
         { x = fst point
         ; y = snd point
         ; w = 100. (* FIXME *)
         ; h = 100. (* FIXME *)
         } in
-      let position = match aspect with
-        | None -> position
-        | Some aspect -> Position.fix_aspect position aspect in
+      (* let position = match aspect with
+       *   | None -> position
+       *   | Some aspect -> Position.fix_aspect position aspect in *)
       let parent_size = self#size in
       let _, adjusted, lines =
-        Position.adjust
+        Position.Absolute.adjust
           ?aspect_ratio:None
           ~min_width:min_size
           ~min_height:min_size
@@ -524,14 +517,13 @@ class t
           ~action:`Move
           ~siblings:(Utils.List.filter_map (fun x ->
               if Element.equal x ghost
-              then None else Some (Position.of_element x))
+              then None else Some (Position.Absolute.of_element x))
               self#items)
           ~parent_size
           ~frame_position:position
           [position]
       in
-      let adjusted = Position.to_normalized ~parent_size @@ List.hd adjusted in
-      Position.apply_to_element ~unit:`Norm adjusted ghost;
+      Position.Absolute.apply_to_element (List.hd adjusted) ghost;
       grid_overlay#set_snap_lines lines
 
     method private bring_to_front (selected : Dom_html.element Js.t list) : unit =
@@ -572,7 +564,7 @@ let make ~(scaffold : Scaffold.t)
           Widget_utils.Z_index.set item widget.layer;
           (match Widget_utils.Attr.get_position item with
            | None -> ()
-           | Some x -> Position.apply_to_element ~unit:`Norm x item);
+           | Some x -> Position.Normalized.apply_to_element x item);
           item) x
     | `Data x ->
       let parent_size = position.w, position.h in

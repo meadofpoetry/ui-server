@@ -1,6 +1,7 @@
 open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
+open Page_mosaic_editor_tyxml
 open Components
 
 include Page_mosaic_editor_tyxml.Transform
@@ -73,7 +74,7 @@ module Event = struct
       method originalRect : Dom_html.clientRect Js.t Js.readonly_prop
       method rect : Dom_html.clientRect Js.t Js.readonly_prop
       method action : action Js.readonly_prop
-      method direction : Position.direction Js.readonly_prop
+      method direction : Direction.t Js.readonly_prop
     end
 
   class type select = [Dom_html.element Js.t] Widget.custom_event
@@ -120,11 +121,11 @@ end
 
 let unwrap x = Js.Optdef.get x (fun () -> assert false)
 
-let direction_of_event (e : #Dom_html.event Js.t) : Position.direction option =
+let direction_of_event (e : #Dom_html.event Js.t) : Direction.t option =
   let target = Dom.eventTarget e in
   match Element.get_attribute target Attr.direction with
   | None -> None
-  | Some x -> Position.direction_of_string x
+  | Some x -> Direction.of_string x
 
 let get_touch_by_id (touches : Dom_html.touchList Js.t)
     (id : int) : Dom_html.touch Js.t option =
@@ -173,7 +174,7 @@ type state =
     position : position
   (* Initial position of mouse cursor (or touch) relative to page *)
   ; point : (float * float)
-  ; action : [`Resize of Position.direction | `Move]
+  ; action : [`Resize of Direction.t | `Move]
   ; touch_id : int option
   ; transformables : Dom_html.element Js.t list
   ; mutable single_click : bool
@@ -369,7 +370,7 @@ class t
 
     (* Resizes an element *)
     method private resize :
-      'a. Position.direction
+      'a. Direction.t
       -> state
       -> (#Dom_html.event as 'a) Js.t
       -> unit Lwt.t =

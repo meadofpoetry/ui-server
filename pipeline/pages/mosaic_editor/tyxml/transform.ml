@@ -14,14 +14,14 @@ module Make(Xml : Xml_sigs.NoWrap)
   open Utils
 
   let content_of_direction = function
-    | Position.N | E | S | W -> []
+    | Direction.N | E | S | W -> []
     | NW | NE | SW | SE -> [div ~a:[a_class [CSS.circle]] []]
 
   let create_resizer ?(classes = []) ?attrs direction : 'a elt =
     let classes = CSS.resizer :: classes in
     div ~a:([ a_class classes
             ; a_role ["slider"]
-            ; a_user_data "direction" (Position.direction_to_string direction)
+            ; a_user_data "direction" (Direction.to_string direction)
             ] <@> attrs)
       (content_of_direction direction)
 

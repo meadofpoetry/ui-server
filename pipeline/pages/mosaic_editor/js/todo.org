@@ -20,7 +20,7 @@
 - [ ] XXX take aspect ratio into account when adding widget
 - [ ] add states
 - [X] implement widget selection
-- [-] implement widget transform
+- [X] implement widget transform
 - [ ] implement widget move without prior selection
 - [X] implement selection reset (e.g. on outside click)
 - [X] allow transform handles overflow parent
@@ -28,8 +28,8 @@
 - [X] take aspect ratio into account in `adjust` function
 - [X] consider floating point coordinates
 - [X] fix snap lines generation
-- [ ] improve `of_relative`, `to_relative`
-- [ ] implement different types for pixel/pct/normalized coordinates
+- [X] improve `of_relative`, `to_relative`
+- [X] implement different types for pixel/pct/normalized coordinates
 ** transform.ml
 - [X] XXX extend widget resize direction to Top, Left, Right, Bottom
 ** grid_overlay.ml

@@ -1,6 +1,7 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 open Pipeline_types
+open Page_mosaic_editor_tyxml
 open Page_mosaic_editor_tyxml.Widget
 open Components
 
@@ -58,7 +59,7 @@ module Attr = struct
   let set_id (elt : Dom_html.element Js.t) (id' : string) =
     Element.set_attribute elt id id'
 
-  let get_position (elt : Dom_html.element Js.t) : Position.t option =
+  let get_position (elt : Dom_html.element Js.t) : Wm.position option =
     try Some { x = get_float_attribute elt left
              ; y = get_float_attribute elt top
              ; w = get_float_attribute elt width
@@ -68,7 +69,7 @@ module Attr = struct
 
   let string_of_float = Printf.sprintf "%g"
 
-  let set_position (elt : Dom_html.element Js.t) (pos : Position.t) =
+  let set_position (pos : Wm.position) (elt : Dom_html.element Js.t) =
     Element.(
       set_attribute elt left (string_of_float pos.x);
       set_attribute elt top (string_of_float pos.y);
@@ -208,7 +209,7 @@ let set_attributes ?id
   Attr.set_description elt widget.description;
   (match widget.position with
    | None -> ()
-   | Some position -> Attr.set_position elt position);
+   | Some position -> Attr.set_position position elt);
   elt##.style##.zIndex := Js.string (string_of_int widget.layer);
   match id with
   | None -> ()
@@ -223,10 +224,3 @@ let elements (elt : Dom_html.element Js.t) =
 
 let widgets_of_container (cell : Dom_html.element Js.t) : (string * Wm.widget) list =
   List.map widget_of_element @@ elements cell
-
-let get_relative_position (x : Dom_html.element Js.t) : Position.t =
-  { x = Js.parseFloat x##.style##.left
-  ; y = Js.parseFloat x##.style##.top
-  ; w = Js.parseFloat x##.style##.width
-  ; h = Js.parseFloat x##.style##.height
-  }

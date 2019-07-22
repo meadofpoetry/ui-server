@@ -61,11 +61,12 @@ let cell_position_to_wm_position
   let total_h = sum rows in
   let get_cell_size ?(start = 0) ~len side =
     sum @@ Array.sub side start len in
-  { x = (get_cell_size ~len:(pred col) cols) /. total_w
-  ; y = (get_cell_size ~len:(pred row) rows) /. total_h
-  ; w = (get_cell_size ~start:(pred col) ~len:col_span cols) /. total_w
-  ; h = (get_cell_size ~start:(pred row) ~len:row_span rows) /. total_h
-  }
+  Position.Normalized.validate
+  @@ { x = (get_cell_size ~len:(pred col) cols) /. total_w
+     ; y = (get_cell_size ~len:(pred row) rows) /. total_h
+     ; w = (get_cell_size ~start:(pred col) ~len:col_span cols) /. total_w
+     ; h = (get_cell_size ~start:(pred row) ~len:row_span rows) /. total_h
+     }
 
 type grid_properties =
   { rows : Grid.value list
