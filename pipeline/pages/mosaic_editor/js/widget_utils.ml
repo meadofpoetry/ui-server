@@ -186,95 +186,62 @@ end = struct
     | [] -> 0
     | x :: tl -> List.fold_left (fun acc x -> min acc (get x)) (get x) tl
 
-  let rec separate
-      ((acc_i : Dom_html.element Js.t list), (acc_ni : Dom_html.element Js.t list))
-      (items : Dom_html.element Js.t list)
-      (all_items : Dom_html.element Js.t list)
-    : (Dom_html.element Js.t list * Dom_html.element Js.t list) =
-    match items with
-    | [] -> (acc_i, acc_ni)
-    | hd :: tl ->
-      let is_intersect =
-        List.fold_left
-          (fun acc (v : Dom_html.element Js.t) ->
-             if not acc
-             then (Position.Normalized.collides
-                     (Position.Normalized.of_element hd)
-                     (Position.Normalized.of_element v))
-                  && not (Element.equal hd v)
-             else true)
-          false all_items in
-      let (acc_i, acc_ni) =
-        if is_intersect
-        then (hd :: acc_i, acc_ni)
-        else (acc_i, hd :: acc_ni)
-      in
-      separate (acc_i, acc_ni) tl all_items
+  let partition (items : Dom_html.element Js.t list) =
+    List.partition (fun (v : Dom_html.element Js.t) ->
+        List.exists (fun (x : Dom_html.element Js.t) ->
+            not (Element.equal x v)
+            && Position.Normalized.(collides (of_element x) (of_element v)))
+          items) items
 
-  (* заменитель стандартного List.sort_uniq, т.к. с ним не работало:
-     List.sort_uniq (fun x y -> if (Element.equal x y) then 0 else (-1) ) acc
-     заменил на uniq acc
-  *)
-  let uniq l =
-    let rec tail_uniq a l =
-      match l with
-      | [] -> a
+  let dedup ?(eq = (=)) l =
+    let rec aux acc = function
+      | [] -> List.rev acc
       | hd :: tl ->
-        tail_uniq (hd::a) (List.filter (fun x -> not (Element.equal x hd)) tl) in
-    tail_uniq [] l
+        let acc =
+          if List.exists (eq hd) acc
+          then acc else hd :: acc in
+        aux acc tl in
+    aux [] l
 
-  let rec get_group_for_item
-      (acc : Dom_html.element Js.t list)
+  let get_group_for_item
       (search_item_rect : Position.Normalized.t)
       (items : Dom_html.element Js.t list) =
-    match items with
-    | [] ->
-      let result = uniq acc in
-      List.filter (fun v ->
-          List.exists (Element.equal v) result)
-        result
-    | hd :: tl ->
-      let siblings =
-        List.fold_left
-          (fun acc (v : Dom_html.element Js.t) ->
-             if (Position.Normalized.collides
-                   (search_item_rect)
-                   (Position.Normalized.of_element v))
-             then v :: acc else acc)
-          [] items
-      in
-      let bounds = Position.Normalized.bounding_rect
-          (List.map (fun v ->
-               Position.Normalized.of_element v)
-              siblings) in
-      let (bounds, rect_growth) =
-        if (bounds.h = search_item_rect.h && bounds.w = search_item_rect.w)
-        || (bounds.h <= search_item_rect.h && bounds.w < search_item_rect.w)
-        || (bounds.h < search_item_rect.h && bounds.w <= search_item_rect.w)
-        then (search_item_rect, false)
-        else (bounds, true) in
-      let acc = siblings @ acc in
-      if rect_growth
-      then get_group_for_item acc bounds items
-      else get_group_for_item acc bounds tl
+    let rec aux search_item_rect acc = function
+      | [] -> dedup ~eq:Element.equal acc
+      | (hd :: tl) as items ->
+        let siblings =
+          List.filter (fun (v : Dom_html.element Js.t) ->
+              Position.Normalized.collides search_item_rect
+              @@ Position.Normalized.of_element v)
+            items in
+        let bounds =
+          Position.Normalized.bounding_rect
+          @@ List.map Position.Normalized.of_element siblings in
+        let (bounds, rect_growth) =
+          if (bounds.h = search_item_rect.h && bounds.w = search_item_rect.w)
+          || (bounds.h <= search_item_rect.h && bounds.w < search_item_rect.w)
+          || (bounds.h < search_item_rect.h && bounds.w <= search_item_rect.w)
+          then (search_item_rect, false)
+          else (bounds, true) in
+        let acc = siblings @ acc in
+        if rect_growth
+        then aux bounds acc items
+        else aux bounds acc tl in
+    aux search_item_rect [] items
 
-  let rec get_all_groups
-      (acc : (Dom_html.element Js.t list) list)
-      (items : Dom_html.element Js.t list)
-    : (Dom_html.element Js.t list) list =
-    match items with
-    | [] -> acc
-    | hd :: tl ->
-      let siblings = get_group_for_item
-          [] (Position.Normalized.of_element hd) items in
-      let items = List.filter (fun v ->
-          not @@ List.exists (Element.equal v) siblings) tl in
-      let acc = siblings :: acc in
-      get_all_groups acc items
+  let get_all_groups (items : Dom_html.element Js.t list) =
+    let rec aux acc = function
+      | [] -> acc
+      | hd :: tl ->
+        let siblings = get_group_for_item (Position.Normalized.of_element hd) items in
+        let items = List.filter (fun v ->
+            not @@ List.exists (Element.equal v) siblings) tl in
+        aux (siblings :: acc) items in
+    aux [] items
 
   let validate (items : Dom_html.element Js.t list) : unit =
-    let (list_intersect, list_non_intersect) = separate ([], []) items items in
-    let list_intersect_groups = get_all_groups [] list_intersect in
+    let (list_intersect, list_non_intersect) = partition items in
+    let list_intersect_groups = get_all_groups list_intersect in
     List.iter (set 0) list_non_intersect;
     List.iter (List.iteri set) list_intersect_groups
 
