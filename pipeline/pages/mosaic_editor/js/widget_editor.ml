@@ -36,7 +36,7 @@ let set_tab_index ?prev
 let make_item ~parent_size (id, widget : string * Wm.widget) =
   let item = Tyxml_js.To_dom.of_element @@ Markup.create_item widget in
   Widget_utils.set_attributes ~id item widget;
-  Widget_utils.Z_index.set item widget.layer;
+  Widget_utils.Z_index.set widget.layer item;
   item
 
 module Selection = struct
@@ -183,12 +183,12 @@ class t
       if frame_aspect < aspect
       then (
         (* Letterbox *)
-        let height = (frame_height *. frame_aspect) /. aspect in
+        let height = Js.math##round ((frame_height *. frame_aspect) /. aspect) in
         super#root##.style##.width := Js.string "100%";
         super#root##.style##.height := Js.string @@ Printf.sprintf "%gpx" height)
       else (
         (* Pillarbox *)
-        let width = (frame_width *. aspect) /. frame_aspect in
+        let width = Js.math##round ((frame_width *. aspect) /. frame_aspect) in
         super#root##.style##.height := Js.string "100%";
         super#root##.style##.width := Js.string @@ Printf.sprintf "%gpx" width);
       grid_overlay#layout ();
@@ -380,9 +380,8 @@ class t
       | [] -> self#clear_selection ()
       | l ->
         let rect =
-          Position.absolute_to_normalized ~parent_size:self#size
-          @@ Position.Absolute.bounding_rect
-          @@ List.map Position.Absolute.of_element l in
+          Position.Normalized.bounding_rect
+          @@ List.map Position.Normalized.of_element l in
         transform#root##.style##.visibility := Js.string "visible";
         Position.Normalized.apply_to_element rect transform#root;
         self#transform_top_app_bar l
@@ -435,6 +434,7 @@ class t
           _transform_aspect <- aspect;
           aspect in
       let parent_size = self#size in
+      let frame_position = Position.Absolute.of_client_rect detail##.rect in
       let frame, adjusted, lines =
         Position.Absolute.adjust
           ?aspect_ratio
@@ -447,7 +447,7 @@ class t
               | Resize -> `Resize detail##.direction)
           ~siblings
           ~parent_size
-          ~frame_position:(Position.Absolute.of_client_rect detail##.rect)
+          ~frame_position
           original_positions
       in
       List.iter2 (fun (x : Position.Absolute.t) (item : Dom_html.element Js.t) ->
@@ -539,7 +539,7 @@ class t
 
     method private send_to_back (selected : Dom_html.element Js.t list) : unit =
       let open Widget_utils in
-      let first_selected_z = pred @@ Z_index.first_selected selected in
+      let first_selected_z = pred @@ Z_index.min_selected selected in
       Z_index.pack
       @@ List.sort (fun (a : Z_index.item) b ->
           match a.selected, b.selected with
@@ -561,7 +561,7 @@ let make ~(scaffold : Scaffold.t)
           let _, widget = Widget_utils.widget_of_element x in
           let item = Tyxml_js.To_dom.of_element @@ Markup.create_item widget in
           Widget_utils.copy_attributes x item;
-          Widget_utils.Z_index.set item widget.layer;
+          Widget_utils.Z_index.set widget.layer item;
           (match Widget_utils.Attr.get_position item with
            | None -> ()
            | Some x -> Position.Normalized.apply_to_element x item);

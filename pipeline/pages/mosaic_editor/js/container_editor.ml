@@ -278,12 +278,12 @@ class t ~(scaffold : Scaffold.t)
       if frame_aspect < content_aspect
       then (
         (* Letterbox *)
-        let height = (frame_height *. frame_aspect) /. content_aspect in
+        let height = Js.math##round ((frame_height *. frame_aspect) /. content_aspect) in
         grid#root##.style##.width := Js.string "100%";
         grid#root##.style##.height := Js.string @@ Printf.sprintf "%gpx" height)
       else (
         (* Pillarbox *)
-        let width = (frame_width *. content_aspect) /. frame_aspect in
+        let width = Js.math##round ((frame_width *. content_aspect) /. frame_aspect) in
         grid#root##.style##.height := Js.string "100%";
         grid#root##.style##.width := Js.string @@ Printf.sprintf "%gpx" width);
       Utils.Option.iter (Widget.layout % snd) _widget_editor;
@@ -420,7 +420,9 @@ class t ~(scaffold : Scaffold.t)
        | None -> ()
        | Some x -> x#remove_class CSS.mode_switch_hidden);
       Utils.Option.iter (ignore % set_top_app_bar_icon scaffold `Main) icon;
-      self#update_widget_elements editor#items cell;
+      let items = editor#items in
+      Widget_utils.Z_index.validate items;
+      self#update_widget_elements items cell;
       Element.remove_class Dom_html.document##.body CSS.widget_mode;
       Dom.removeChild content editor#root;
       grid#layout ();
@@ -612,7 +614,7 @@ class t ~(scaffold : Scaffold.t)
           elt##.style##.width := x##.style##.width;
           elt##.style##.height := x##.style##.height;
           Widget_utils.copy_attributes x elt;
-          Widget_utils.Z_index.set elt (Widget_utils.Z_index.get x);
+          Widget_utils.Z_index.set (Widget_utils.Z_index.get x) elt;
           Element.add_class elt CSS.widget;
           Dom.appendChild wrapper elt) widgets
 

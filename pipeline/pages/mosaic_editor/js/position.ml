@@ -2,27 +2,31 @@ open Js_of_ocaml
 open Components
 open Page_mosaic_editor_tyxml
 
+include Position_intf
+
 let ( % ) f g x = f (g x)
 
-module type Pos = sig
-  type t
+type absolute =
+  { x : float
+  ; y : float
+  ; w : float
+  ; h : float
+  }
 
-  val width : t -> float
-  val height : t -> float
-  val top : t -> float
-  val left : t -> float
+module Make(Pos : S) : Position with type t = Pos.t = struct
 
-  val set_width : t -> float -> t
-  val set_height : t -> float -> t
-  val set_top : t -> float -> t
-  val set_left : t -> float -> t
+  include Pos
 
-  val make : left:float -> top:float -> width:float -> height:float -> t
-end
+  let equal (a : t) (b : t) =
+    let (=) a b = abs_float (a -. b) < epsilon_float in
+    Pos.top a = Pos.top b
+    && Pos.left a = Pos.left b
+    && Pos.height a = Pos.height b
+    && Pos.width a = Pos.width b
 
-module Make(Pos : Pos) = struct
-
-  type t = Pos.t
+  let show (x : t)=
+    Printf.sprintf "left=%g, top=%g, width=%g, height=%g"
+      (left x) (top x) (width x) (height x)
 
   let right (t : t) =
     Pos.left t +. Pos.width t
@@ -40,92 +44,99 @@ module Make(Pos : Pos) = struct
     && (Pos.top a) <= (bottom b)
 
   (** Changes width to correspond provided constraints *)
-  let validate_width ?max_w ?(min_w = 0.) ?(parent_w = 1.) (p : t) =
+  let validate_width ?max_width ?(min_width = 0.) ?parent_width (p : t) =
     let w = Pos.width p in
-    let w = match max_w with
+    let w = match max_width with
       | Some max ->
         if w > max then max
-        else if w < min_w then min_w
+        else if w < min_width then min_width
         else w
-      | None -> if w < min_w then min_w else w
+      | None -> if w < min_width then min_width else w
     in
     let left = Pos.left p in
-    let w =
-      if left +. w > parent_w
-      then parent_w -. left
-      else if left < 0.0
-      then w +. left
-      else w
+    let w = match parent_width with
+      | None -> w
+      | Some parent_width ->
+        if left +. w > parent_width
+        then parent_width -. left
+        else if left < 0.0
+        then w +. left
+        else w
     in
-    let w = if w < min_w then min_w else w in
+    let w = if w < min_width then min_width else w in
     Pos.set_width p w
 
   (** Changes height to correspond provided constraints *)
-  let validate_height ?max_h ?(min_h = 0.) ?(parent_h = 1.) (p : t) =
+  let validate_height ?max_height ?(min_height = 0.) ?parent_height (p : t) =
     let h = Pos.height p in
-    let h = match max_h with
+    let h = match max_height with
       | Some max ->
         if h > max then max
-        else if h < min_h then min_h
+        else if h < min_height then min_height
         else h
-      | None -> if h < min_h then min_h else h
+      | None -> if h < min_height then min_height else h
     in
     let top = Pos.top p in
-    let h =
-      if top +. h > parent_h
-      then parent_h -. top
-      else if top < 0.0
-      then h +. top
-      else h
+    let h = match parent_height with
+      | None -> h
+      | Some parent_height ->
+        if top +. h > parent_height
+        then parent_height -. top
+        else if top < 0.0
+        then h +. top
+        else h
     in
     let h =
-      if h < min_h
-      then min_h
+      if h < min_height
+      then min_height
       else h
     in
     Pos.set_height p h
 
   (** Changes width and height to correspond provided constraints *)
-  let validate_size ?max_w ?min_w ?max_h ?min_h ?parent_w ?parent_h =
-    validate_height ?max_h ?min_h ?parent_h
-    % validate_width ?max_w ?min_w ?parent_w
+  let validate_size ?max_width ?min_width ?max_height ?min_height
+      ?parent_width ?parent_height =
+    validate_height ?max_height ?min_height ?parent_height
+    % validate_width ?max_width ?min_width ?parent_width
 
   (** Changes top and left coordinates to correspond parent dimentions *)
-  let validate_left_top ?min_x ?min_y ?max_x ?max_y
-      ?(parent_w = 1.) ?(parent_h = 1.) (p : t) =
+  let validate_left_top ?min_left ?min_top ?max_left ?max_top
+      ?(parent_width = 1.) ?(parent_height = 1.) (p : t) =
     let x, y, w, h = Pos.left p, Pos.top p, Pos.width p, Pos.height p in
     let x =
       if x < 0. then 0.
-      else if x +. w > parent_w then parent_w -. w
+      else if x +. w > parent_width then parent_width -. w
       else x in
     let y =
       if y < 0. then 0.
-      else if y +. h > parent_h then parent_h -. h
+      else if y +. h > parent_height then parent_height -. h
       else y
     in
-    let x = match max_x with
+    let x = match max_left with
       | Some max -> if x > max then max else x
       | None -> x
     in
-    let x = match min_x with
+    let x = match min_left with
       | Some min -> if x < min then min else x
       | None -> x
     in
-    let y = match max_y with
+    let y = match max_top with
       | Some max -> if y > max then max else y
       | None -> y
     in
-    let y = match min_y with
+    let y = match min_top with
       | Some min -> if y < min then min else y
       | None -> y
     in
-    let p = Pos.set_left p x in
-    Pos.set_top p y
+    Pos.set_top (Pos.set_left p x) y
 
-  let validate ?min_x ?min_y ?max_x ?max_y
-      ?max_w ?min_w ?max_h ?min_h ?parent_w ?parent_h =
-    validate_left_top ?min_x ?min_y ?max_x ?max_y ?parent_w ?parent_h
-    % validate_size ?max_w ?min_w ?max_h ?min_h ?parent_w ?parent_h
+  let validate ?min_left ?min_top ?max_left ?max_top
+      ?max_width ?min_width ?max_height ?min_height
+      ?parent_width ?parent_height =
+    validate_left_top ?min_left ?min_top ?max_left ?max_top
+      ?parent_width ?parent_height
+    % validate_size ?max_width ?min_width ?max_height ?min_height
+      ?parent_width ?parent_height
 
   let bounding_rect : t list -> t = function
     | [] -> empty
@@ -146,12 +157,7 @@ module Make(Pos : Pos) = struct
 end
 
 module Abs = struct
-  type t =
-    { x : float
-    ; y : float
-    ; w : float
-    ; h : float
-    }
+  type t = absolute
 
   let width t = t.w
   let height t = t.h
@@ -212,11 +218,14 @@ module Normalized = struct
                 if c <> 0 then c
                 else compare a.h b.h))
 
-  let equal (a : t) (b : t) =
-    compare a b = 0
-
-  let show ({ x; y; w; h } : t)=
-    Printf.sprintf "x=%g, y=%g, w=%g, h=%g" x y w h
+  (* FIXME this function relies on percentage styles of an element,
+     which is not always satisfied *)
+  let of_element (elt : #Dom_html.element Js.t) : t =
+    { x = (Js.parseFloat elt##.style##.left) /. 100.
+    ; y = (Js.parseFloat elt##.style##.top) /. 100.
+    ; w = (Js.parseFloat elt##.style##.width) /. 100.
+    ; h = (Js.parseFloat elt##.style##.height) /. 100.
+    }
 
   let apply_to_element (pos : t) (elt : #Dom_html.element Js.t) =
     let fn = Printf.sprintf "%g%%" in
@@ -606,24 +615,36 @@ module Absolute = struct
         create_lines action acc tl in
     create_lines action [] snap_list
 
-  let clip_to_parent ({ w; h; x; y } as pos : t)
-      ~parent_size:(parent_w, parent_h)
-      (min_w : float)
-      (min_h : float) = function
-    | `Move -> validate_left_top ~parent_w ~parent_h pos
+  let clip_to_parent ~parent_size:(parent_width, parent_height)
+      ~(min_width : float)
+      ~(min_height : float)
+      ({ w; h; x; y } as pos : t) = function
+    | `Move ->
+      validate_left_top
+        ~min_left:0.
+        ~min_top:0.
+        ~parent_width
+        ~parent_height
+        pos
     | `Resize direction ->
-      let (max_x, max_y, min_x, min_y) =
+      let (max_left, max_top, min_left, min_top) =
         match direction with
-        | Direction.NW -> Some (x +. w -. min_w), Some (y +. h -. min_h), None, None
-        | NE -> None, Some (y +. h -. min_h), Some x, None
-        | SW -> Some (x +. w -. min_w), None, None, Some y
+        | Direction.NW ->
+          Some (x +. w -. min_width),
+          Some (y +. h -. min_height),
+          None, None
+        | NE -> None, Some (y +. h -. min_height), Some x, None
+        | SW -> Some (x +. w -. min_width), None, None, Some y
         | SE -> None, None, Some x, Some y
-        | N -> Some (x +. w -. min_w), Some (y +. h -. min_h), None, None
+        | N -> Some (x +. w -. min_width), Some (y +. h -. min_height), None, None
         | E -> None, None, Some (x), None
-        | W -> Some (x +. w -. min_w), None, None, Some y
-        | S -> Some (x +. w -. min_w), None, None, None
+        | W -> Some (x +. w -. min_width), None, None, Some y
+        | S -> Some (x +. w -. min_width), None, None, None
       in
-      validate ?min_x ?max_x ?min_y ?max_y ~min_w ~min_h ~parent_w ~parent_h pos
+      validate ?min_left ?max_left ?min_top ?max_top
+        ~min_width ~min_height
+        ~parent_width ~parent_height
+        pos
 
   let snap_to_grid_move (pos : t) (grid_step : float) : t =
     let x = Js.math##round (pos.x /. grid_step) *. grid_step in
@@ -674,7 +695,9 @@ module Absolute = struct
       (fun (v : t) ->
          let x = v.x -. pos_left in
          let y = v.y -. pos_top in
-         {v with x = rect_position.x +. x ;  y = rect_position.y +. y} )
+         { v with x = rect_position.x +. x
+                ; y = rect_position.y +. y
+         })
       children
 
   let get_float_aspect (aspect : int * int)  =
@@ -973,7 +996,6 @@ module Absolute = struct
 
   let adjust ?aspect_ratio
       ?(snap_lines = true)
-      ?(collisions = false) (* need if we used collides *)
       ?(min_width = 20.)
       ?(min_height = 20.)
       ?(min_distance = 12.)
@@ -1025,10 +1047,20 @@ module Absolute = struct
         parent_w
         parent_h
     in
-    let min_w, min_h = get_min_rect_size ~min_width ~min_height positions in
+    let min_width, min_height = get_min_rect_size ~min_width ~min_height positions in
     let position_clip_parent = match aspect_ratio with
-      | None -> clip_to_parent ~parent_size position_asp min_w min_h action
-      | Some _ -> clip_to_parent ~parent_size position_asp 0.0 0.0 action  (* not calc min sizes *)
+      | None ->
+        clip_to_parent ~parent_size
+          ~min_width
+          ~min_height
+          position_asp
+          action
+      | Some _ ->
+        clip_to_parent ~parent_size
+          ~min_width:0.0
+          ~min_height:0.0
+          position_asp
+          action  (* not calc min sizes *)
     in
     let snap_lines =
       if snap_lines
@@ -1038,9 +1070,9 @@ module Absolute = struct
       | `Move ->
         move_children
           position_clip_parent
-          (resize_children position_clip_parent positions min_w min_h)
+          (resize_children position_clip_parent positions min_width min_height)
       | `Resize resz ->
-        resize_children position_clip_parent positions min_w min_h
+        resize_children position_clip_parent positions min_width min_height
     in
     position_clip_parent, children, snap_lines
 
@@ -1053,4 +1085,4 @@ let absolute_to_normalized ~(parent_size : float * float)
     pos.h /. (snd parent_size) in
   let x = (pos.x *. w) /. pos.w in
   let y = (pos.y *. h) /. pos.h in
-  { x; y; w; h }
+  Normalized.validate { x; y; w; h }
