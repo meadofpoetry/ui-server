@@ -12,7 +12,7 @@ type t =
   ; mutable callback : (t -> unit) option
   }
 
-let create ?callback ?(limit = 100) () : t =
+let create ?callback ?(_limit = 100) () : t =
   { stack = new%js Js.array_empty
   ; index = -1
   ; limit = 0

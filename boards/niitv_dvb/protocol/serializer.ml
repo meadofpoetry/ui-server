@@ -1,4 +1,3 @@
-open Board_niitv_dvb_types
 open Message
 
 let to_prefix (msg : Request.msg) : Cstruct.t =

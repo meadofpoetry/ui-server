@@ -99,7 +99,7 @@ let notification_attach_setter
                                  Lwt.return_unit (* TODO add log *))
                       (function _ -> Lwt.return_unit)
   in                   
-  let signal_add_setter signal default setter =
+  let signal_add_setter signal _default setter =
     let signal = limit_inert ~eq:Pervasives.(=) 2.0 signal in
     Util_react.S.map_s ~eq:Pervasives.(=) setter signal
   in

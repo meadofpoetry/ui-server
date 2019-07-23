@@ -38,8 +38,6 @@ module Absolute : sig
     -> ?min_height:float
     -> ?min_distance:float
     -> ?grid_step:float
-    -> ?max_width:float
-    -> ?max_height:float
     -> action:[`Resize of Page_mosaic_editor_tyxml.Direction.t | `Move]
     -> siblings:t list
     -> parent_size:float * float

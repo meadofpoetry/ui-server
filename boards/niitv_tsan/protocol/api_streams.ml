@@ -140,7 +140,7 @@ let get_t2mi_sequence (api : Protocol.api) id duration t2mi_stream_ids
     | Some x -> min 120 x in
   let streams = React.S.value api.notifs.streams in
   (match Stream.find_by_id id streams with
-   | Some { orig_id = TS_multi stream_id; _ } ->
+   | Some { orig_id = TS_multi _stream_id; _ } ->
      let request_id = Request_id.next () in
      let req = Request.Get_t2mi_seq { request_id; duration } in
      api.channel req

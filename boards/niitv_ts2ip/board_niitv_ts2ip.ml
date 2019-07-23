@@ -1,7 +1,6 @@
 open Application_types
 open Board_niitv_ts2ip_types
 open Board_niitv_ts2ip_protocol
-open Util_react
 open Netlib
 
 module List = Boards.Util.List
@@ -121,14 +120,14 @@ let create (b : Topology.topo_board)
      Stream.Raw.t list React.signal ->
      Stream.t list React.signal)
     (send : Cstruct.t -> unit Lwt.t)
-    (db : Db.t)
+    (_ : Db.t)
     (kv : Kv.RW.t) : (Boards.Board.t, [> Boards.Board.error]) Lwt_result.t =
   Lwt.return @@ Boards.Board.create_log_src b
   >>=? fun (src : Logs.src) ->
   let default = Board_settings.default in
   Config.create ~default kv ["board"; (string_of_int b.control)]
   >>=? fun (cfg : config Kv_v.rw) ->
-  Protocol.create src send streams (convert_streams b) cfg b.ports b.control
+  Protocol.create src send streams (convert_streams b) cfg b.ports
   >>=? fun (api : Protocol.api) ->
   let state = object
     method finalize () = Lwt.return ()

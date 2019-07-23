@@ -33,7 +33,7 @@ let set_tab_index ?prev
      | _ -> ());
   set 0 item
 
-let make_item ~parent_size (id, widget : string * Wm.widget) =
+let make_item (id, widget : string * Wm.widget) =
   let item = Tyxml_js.To_dom.of_element @@ Markup.create_item widget in
   Widget_utils.set_attributes ~id item widget;
   Widget_utils.Z_index.set widget.layer item;
@@ -73,7 +73,7 @@ module Selection = struct
     List.iter (fun x -> Element.add_class x class_) selected;
     List.iter (fun x -> Element.remove_class x class_) removed
 
-  let on_stop = fun handle_selected { selected; selection; _ } ->
+  let on_stop = fun handle_selected { selection; _ } ->
     selection#keep_selection ();
     handle_selected selection#selected
 
@@ -106,12 +106,12 @@ class t
     (scaffold : Scaffold.t)
     elt
     () =
-  let width, height, aspect =
+  let aspect =
     let w, h =
       float_of_int (fst resolution),
       float_of_int (snd resolution) in
     let w, h = w *. position.w, (h *. position.h) in
-    w, h, w /. h in
+    w /. h in
   object(self)
 
     inherit Drop_target.t elt () as super
@@ -164,7 +164,7 @@ class t
       super#initial_sync_with_dom ()
 
     method! destroy () : unit =
-      self#restore_top_app_bar_context ~hard:true ();
+      self#restore_top_app_bar_context ();
       List.iter Lwt.cancel _listeners; _listeners <- [];
       Utils.Option.iter Widget.destroy _selection;
       _selection <- None;
@@ -200,7 +200,7 @@ class t
       self#items_ ()
 
     method notify : event -> unit = function
-      | `Container x ->
+      | `Container _ ->
         (* TODO add notification if widget layout is changed
            & we have some unsaved work *)
         (* TODO implement simple update *)
@@ -226,7 +226,7 @@ class t
 
     (** Add item with undo *)
     method private add_item ((_, { position; _ }) as x : string * Wm.widget) =
-      let item = make_item ~parent_size:self#size x in
+      let item = make_item x in
       (match position with
        | None -> ()
        | Some p ->
@@ -304,7 +304,7 @@ class t
         List.sort (fun x y ->
             let compare f a b = match a, b with
               | None, None -> 0
-              | Some a, Some b -> compare a b
+              | Some a, Some b -> f a b
               | None, Some _ -> -1
               | Some _, None -> 1 in
             compare Position.Normalized.compare (get_position x) (get_position y))
@@ -338,7 +338,7 @@ class t
           | _ -> ());
       Lwt.return_unit
 
-    method private restore_top_app_bar_context ?hard () : unit =
+    method private restore_top_app_bar_context () : unit =
       match _top_app_bar_context with
       | None -> ()
       | Some f -> f (); _top_app_bar_context <- None
@@ -402,11 +402,10 @@ class t
        | None -> ()
        | Some x -> if not @@ Element.equal x target then x##blur);
       let detail = Widget.event_detail e in
-      let siblings, items =
-        List.split
-        @@ Utils.List.filter_map (fun x ->
+      let siblings =
+        Utils.List.filter_map (fun x ->
             if List.mem x self#selected
-            then None else Some (Position.Absolute.of_element x, x))
+            then None else Some (Position.Absolute.of_element x))
           self#items in
       let original_positions = match _original_rects with
         | [] ->
@@ -461,7 +460,7 @@ class t
       grid_overlay#set_snap_lines lines;
       Lwt.return_unit
 
-    method private handle_transform_change e _ =
+    method private handle_transform_change _ _ =
       (* let target = Dom_html.eventTarget e in *)
       _original_rects <- [];
       grid_overlay#set_snap_lines [];
@@ -509,7 +508,7 @@ class t
       let parent_size = self#size in
       let _, adjusted, lines =
         Position.Absolute.adjust
-          ?aspect_ratio:None
+          ?aspect_ratio:aspect
           ~min_width:min_size
           ~min_height:min_size
           ~grid_step:(float_of_int grid_overlay#size)
@@ -566,9 +565,7 @@ let make ~(scaffold : Scaffold.t)
            | None -> ()
            | Some x -> Position.Normalized.apply_to_element x item);
           item) x
-    | `Data x ->
-      let parent_size = position.w, position.h in
-      List.map (make_item ~parent_size) x in
+    | `Data x -> List.map make_item x in
   let content =
     Markup.create_overlay ()
     :: Markup.create_ghost ()

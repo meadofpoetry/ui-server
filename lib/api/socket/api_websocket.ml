@@ -1,4 +1,3 @@
-open Websocket_cohttp_lwt
 open Websocket
 open Lwt.Infix
 
@@ -93,7 +92,7 @@ module Make
          let subscribe (uri : string) =
            let subid = Hashtbl.hash uri in
            match Hashtbl.find_opt subscriptions subid with
-           | Some (n, e) -> incr n; Lwt.return_ok subid
+           | Some (n, _) -> incr n; Lwt.return_ok subid
            | None ->
              try
                Netlib.Uri.Dispatcher.dispatch

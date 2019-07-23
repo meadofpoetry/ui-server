@@ -21,9 +21,9 @@ module Annotated : sig
 
   val equal : t -> t -> bool
 
-  val to_yojson : t -> Yojson.Safe.json
+  val to_yojson : t -> Yojson.Safe.t
 
-  val of_yojson : Yojson.Safe.json -> (t, string) result
+  val of_yojson : Yojson.Safe.t -> (t, string) result
 
   val annotate : active:raw -> stored:raw -> t
 

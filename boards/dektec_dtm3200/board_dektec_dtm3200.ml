@@ -1,5 +1,4 @@
 open Boards
-open Util_react
 open Application_types
 open Board_dektec_dtm3200_types
 open Board_dektec_dtm3200_protocol

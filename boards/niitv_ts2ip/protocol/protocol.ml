@@ -163,8 +163,7 @@ let create (src : Logs.src)
     (incoming_streams : Stream.t list React.signal)
     (streams_conv : Stream.Raw.t list React.signal -> Stream.t list React.signal)
     (kv : config Kv_v.rw)
-    (ports : Topology.topo_port list)
-    (control : int) =
+    (ports : Topology.topo_port list) =
   let state, set_state =
     React.S.create ~eq:Topology.equal_state `No_response in
   let devinfo, set_devinfo =

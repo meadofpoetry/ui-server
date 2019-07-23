@@ -1,4 +1,3 @@
-open Application_types
 open Netlib.Uri
 open Board_dektec_dtm3200_protocol
 open Boards.Board

@@ -400,10 +400,10 @@ let wheels ?cancel_handler ?use_capture ?passive t =
   seq_loop wheel ?cancel_handler ?use_capture ?passive t
 
 let pointerdown ?use_capture ?passive target =
-  make_event Typ.pointerdown ?use_capture target
+  make_event Typ.pointerdown ?use_capture ?passive target
 
 let pointerdowns ?cancel_handler ?use_capture ?passive t =
-  seq_loop pointerdown ?cancel_handler ?use_capture t
+  seq_loop pointerdown ?cancel_handler ?use_capture ?passive t
 
 let focusin ?use_capture ?passive target =
   make_event Typ.focusin ?use_capture ?passive target

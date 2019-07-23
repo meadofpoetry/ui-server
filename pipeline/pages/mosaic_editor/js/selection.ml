@@ -424,7 +424,7 @@ class t
     Dom.preventDefault e;
     self#handle_drag_move state (coerce e) Lwt.return_unit
 
-  method handle_single_click (state : state) (e : Dom_html.event Js.t) : unit Lwt.t =
+  method handle_single_click (_state : state) (e : Dom_html.event Js.t) : unit Lwt.t =
     let rec loop el =
       if List.memq el _selectables
       then Some el

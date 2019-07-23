@@ -42,7 +42,7 @@ let gen_cell_title (cells : Dom_html.element Js.t list) =
           let len = String.length s - start in
           let s' = String.sub s start len in
           (int_of_string s') :: acc
-        with exn -> acc)
+        with _ -> acc)
       [] titles in
   cell_title (find_min_spare ~min:1 indexes)
 
@@ -79,14 +79,13 @@ let swap (a : Dom_html.element Js.t as 'a) (b : 'a) : unit =
     Js.Opt.get
       (e##getAttribute (Js.string attr))
       (fun () -> Js.string "") in
-  let swap_class e =
+  let swap_class ()=
     if Element.has_class a Grid.CSS.cell_selected
     then (Element.add_class b Grid.CSS.cell_selected;
           Element.remove_class a Grid.CSS.cell_selected) in
-  let id, title, aspect, html =
+  let id, title, html =
     a##.id
   , get_attr Attr.title a
-  , get_attr Attr.aspect a
   , a##.innerHTML in
   a##.id := b##.id;
   a##setAttribute
@@ -96,12 +95,11 @@ let swap (a : Dom_html.element Js.t as 'a) (b : 'a) : unit =
   b##.id := id;
   b##setAttribute (Js.string Attr.title) title;
   b##.innerHTML := html;
-  swap_class a;
-  swap_class b
+  swap_class ()
 
 let first_grid_index = 1
 
-let rec get_deltas points =
+let get_deltas points =
   List.rev @@ snd @@ List.fold_left (fun (prev, deltas) x ->
       let delta = x -. prev in
       (prev +. delta, delta :: deltas)) (0., []) points
@@ -115,7 +113,7 @@ let get_cell_pos_part (edge : float) points =
   let rec aux cnt = function
     | [] -> failwith "Corresponding cell edge not found" (* FIXME *)
     | x :: _ when equal_float x edge -> cnt
-    | x :: tl -> aux (cnt + 1) tl in
+    | _ :: tl -> aux (cnt + 1) tl in
   if equal_float edge 0. then first_grid_index
   else aux (first_grid_index + 1) points
 
@@ -132,7 +130,7 @@ let get_cell_positions ~lefts ~tops =
               ; row_span = row_end - row
               }))
 
-let grid_properties_of_layout ({ resolution = w, h; layout; _ } : Wm.Annotated.t) =
+let grid_properties_of_layout ({ layout; _ } : Wm.Annotated.t) =
   let sort = List.sort_uniq compare in
   let lefts, tops =
     List.split @@ List.map (fun (_, _, (c : Wm.Annotated.container)) ->

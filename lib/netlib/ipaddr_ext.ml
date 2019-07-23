@@ -17,10 +17,10 @@ module V4 = struct
   let equal (t1:t) (t2:t) =
     Int32.equal (to_int32 t1) (to_int32 t2)
 
-  let to_yojson (x:t) : Yojson.Safe.json =
+  let to_yojson (x:t) : Yojson.Safe.t =
     let s = to_string x in `String s
 
-  let of_yojson : Yojson.Safe.json -> (t,string) result = function
+  let of_yojson : Yojson.Safe.t -> (t,string) result = function
     | `String s -> (match of_string s with
                     | Ok _ as a -> a
                     | Error (`Msg m) -> Error ("bad address: " ^ m))
@@ -247,10 +247,10 @@ module V6 = struct
     let eq (xl,yl) (xr,yr) = Int64.equal xl xr && Int64.equal yl yr in
     eq (to_int64 t1) (to_int64 t2)
 
-  let to_yojson (x:t) : Yojson.Safe.json =
+  let to_yojson (x:t) : Yojson.Safe.t =
     let s = to_string x in `String s
 
-  let of_yojson : Yojson.Safe.json -> (t,string) result = function
+  let of_yojson : Yojson.Safe.t -> (t,string) result = function
     | `String s -> (match of_string s with
                     | Ok _ as a -> a
                     | Error (`Msg m) -> Error ("bad address: " ^ m))

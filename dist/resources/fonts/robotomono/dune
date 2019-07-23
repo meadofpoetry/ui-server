@@ -1,0 +1,4 @@
+(install
+  (files (robotomono.css as fonts/robotomono/robotomono.css))
+  (section share)
+  (package ui-server))

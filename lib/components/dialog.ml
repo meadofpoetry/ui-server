@@ -313,7 +313,7 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
   end
 
 let make_action ?classes ?attrs ?button_type ?appearance
-    ?icon ?dense ?ripple ?label ?default ?action () =
+    ?icon ?dense ?label ?default ?action () =
   let icon = match icon with
     | None -> None
     | Some x -> Some (Tyxml_js.Of_dom.of_element x) in

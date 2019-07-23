@@ -40,11 +40,11 @@ let of_human_string_exn ?(tz_offset_s = 0) s =
   | _ -> failwith "not a human-readable date time string"
 
 (* TODO
-let to_yojson' (v : t) : Yojson.Safe.json =
+let to_yojson' (v : t) : Yojson.Safe.t =
   let d, ps = Ptime.to_span v |> Ptime.Span.to_d_ps in
   `List [`Int d; `Intlit (Int64.to_string ps)]
 
-let of_yojson' (j : Yojson.Safe.json) : (t, string) result =
+let of_yojson' (j : Yojson.Safe.t) : (t, string) result =
   let to_err j =
     Printf.sprintf "of_yojson: bad json value (%s)"
     @@ Yojson.Safe.to_string j in
@@ -56,11 +56,11 @@ let of_yojson' (j : Yojson.Safe.json) : (t, string) result =
       >>= fun ps -> return (v (d,ps)))
   | _ -> Error (to_err j)
  *)
-let to_yojson (v : t) : Yojson.Safe.json =
+let to_yojson (v : t) : Yojson.Safe.t =
   let t = to_rfc3339 ~frac_s:6 v in
   `String t
 
-let of_yojson (j : Yojson.Safe.json) : (t, string) result =
+let of_yojson (j : Yojson.Safe.t) : (t, string) result =
   let to_err j =
     Printf.sprintf "of_yojson: bad json value (%s)"
     @@ Yojson.Safe.to_string j in
@@ -174,13 +174,13 @@ module Conv64 (M : sig val second : int64 end) = struct
   let to_string (x : t) : string =
     Int64.to_string @@ to_int64 x
 
-  let of_yojson (x : Yojson.Safe.json) : (t, string) result = match x with
+  let of_yojson (x : Yojson.Safe.t) : (t, string) result = match x with
     | `Intlit x -> Ok (of_string x)
     | `Int x -> Ok (of_int64 @@ Int64.of_int x)
     | _ -> Error "of_yojson"
     | exception _ -> Error "of_yojson"
 
-  let to_yojson (x : t) : Yojson.Safe.json =
+  let to_yojson (x : t) : Yojson.Safe.t =
     `Intlit (to_string x)
 
 end
@@ -202,11 +202,11 @@ module Useconds = Conv64(struct let second = 1000_000L end)
 module Period = struct
   include Ptime.Span
 
-  let to_yojson (v:t) : Yojson.Safe.json =
+  let to_yojson (v:t) : Yojson.Safe.t =
     let d, ps = Ptime.Span.to_d_ps v in
     `List [ `Int d;`Intlit (Int64.to_string ps) ]
 
-  let of_yojson (j:Yojson.Safe.json) : (t,string) result =
+  let of_yojson (j:Yojson.Safe.t) : (t,string) result =
     let to_err j = Printf.sprintf "span_of_yojson: bad json value (%s)" @@ Yojson.Safe.to_string j in
     match j with
     | `List [ `Int d; `Intlit ps] -> (match Int64.of_string_opt ps with
@@ -259,13 +259,13 @@ module Period = struct
     let to_string (x : t) : string =
       Int64.to_string @@ to_int64 x
 
-    let of_yojson (x : Yojson.Safe.json) : (t, string) result = match x with
+    let of_yojson (x : Yojson.Safe.t) : (t, string) result = match x with
       | `Intlit x -> Ok(of_string x)
       | `Int x -> Ok(of_int64 @@ Int64.of_int x)
       | _ -> Error "of_yojson"
       | exception _ -> Error "of_yojson"
 
-    let to_yojson (x : t) : Yojson.Safe.json =
+    let to_yojson (x : t) : Yojson.Safe.t =
       `Intlit (to_string x)
 
   end

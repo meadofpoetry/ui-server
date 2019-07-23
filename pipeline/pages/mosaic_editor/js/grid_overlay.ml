@@ -1,5 +1,4 @@
 open Js_of_ocaml
-open Js_of_ocaml_tyxml
 open Components
 
 let color_from_css (elt : #Dom_html.element Js.t) =

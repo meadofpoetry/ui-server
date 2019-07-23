@@ -53,8 +53,12 @@ module Nm = struct
         Int32.logand,
         Int32.add in
       let mask = 0xFFl in
-      let (a,b,c,d) = Int32.(((x lsr 24) land mask), ((x lsr 16) land mask), ((x lsr 8) land mask), (x land mask)) in
-      Int32.((d lsl 24) + (c lsl 16) + (b lsl 8) + a)
+      let (a,b,c,d) =
+        ((x lsr 24) land mask),
+        ((x lsr 16) land mask),
+        ((x lsr 8) land mask),
+        (x land mask) in
+      ((d lsl 24) + (c lsl 16) + (b lsl 8) + a)
 
     let unwrap_string = function OBus_value.V.Basic OBus_value.V.String s -> Some s | _ -> None
 

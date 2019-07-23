@@ -111,7 +111,7 @@ let send usb port data =
 
 let apply (subscribers : ((Cstruct.t -> unit) * unit Lwt.t) Int_map.t)
     (msgs : Cstruct.t list Int_map.t) =
-  Int_map.merge (fun id sub msgs ->
+  Int_map.merge (fun _id sub msgs ->
       match sub, msgs with
       | None, _ -> None
       | Some sub, None -> Some sub

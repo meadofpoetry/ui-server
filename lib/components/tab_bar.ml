@@ -1,5 +1,4 @@
 open Js_of_ocaml
-open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 open Utils
 

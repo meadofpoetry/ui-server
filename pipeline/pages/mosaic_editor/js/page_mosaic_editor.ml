@@ -1,7 +1,6 @@
 open Js_of_ocaml
 open Netlib
 open Components
-open Pipeline_types
 open Pipeline_http_js
 
 let ( >>= ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)

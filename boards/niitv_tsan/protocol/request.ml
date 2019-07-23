@@ -277,8 +277,8 @@ let timeout (type a) : a t -> float = function
   | Set_jitter_mode _ -> 5.
   (* Requests with responses *)
   | Get_devinfo -> 5.
-  | Get_deverr { timeout = Some x } -> x
-  | Get_deverr { timeout = None } -> 5.
+  | Get_deverr { timeout = Some x; _ } -> x
+  | Get_deverr { timeout = None; _ } -> 5.
   | Get_mode -> 5.
   | Get_t2mi_seq { duration; _ } -> 10. +. float_of_int duration
   | Get_section _ -> 125.
@@ -349,6 +349,6 @@ let to_string (type a) : a t -> string = function
       pp_input input
       enabled pid t2mi_stream_id
       pp_stream stream
-  | Set_jitter_mode { stream; pid } ->
+  | Set_jitter_mode { stream; pid; _ } ->
     Format.asprintf "Set jitter mode (stream=%a, PID=%d)"
       Stream.Multi_TS_ID.pp stream pid

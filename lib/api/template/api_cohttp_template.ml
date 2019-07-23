@@ -174,7 +174,7 @@ module Make (User : USER) = struct
       | Some v -> v
     in List.map convert lst
 
-  let make_node ~template paths gen_item_list (Item (path, items, cont)) =
+  let make_node ~template paths gen_item_list (Item (path, _items, cont)) =
     let table = Hashtbl.create 16 in
     (* Check if the same path was added twice *)
     if Uri.Path.Format.has_template paths path

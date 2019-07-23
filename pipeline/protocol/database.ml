@@ -282,7 +282,7 @@ end
 module Structure = struct
 
   (* TODO entries *)
-  let insert_structures db streams : unit Lwt.t =
+  let insert_structures db _streams : unit Lwt.t =
     let open Printf in
     let table   = (Conn.names db).structs in
     let entries = [] in (*Structure_conv.dump_structures streams in*)

@@ -225,13 +225,13 @@ let make_hotkeys_dialog () =
     @@ Markup.create_hotkeys () in
   let title =
     To_dom.of_element
-    @@ Dialog.Markup.create_title_simple "Быстрые клавиши" () in
+    @@ Dialog.Markup.create_title_simple ~title:"Быстрые клавиши" () in
   let cancel =
     To_dom.of_element
     @@ Dialog.Markup.create_action ~label:"Закрыть" ~action:Close () in
   let content =
     To_dom.of_element
-    @@ Dialog.Markup.create_content [hotkeys#markup] () in
+    @@ Dialog.Markup.create_content ~content:[hotkeys#markup] () in
   Dialog.make ~title ~content ~actions:[cancel] ()
 
 let make_menu ?body ?viewport () =

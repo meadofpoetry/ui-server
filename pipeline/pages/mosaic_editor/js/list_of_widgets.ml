@@ -35,7 +35,7 @@ let get f l =
       else aux (x :: acc) tl in
   aux [] l
 
-class t ?drag_image (elt : Dom_html.element Js.t) = object(self)
+class t (elt : Dom_html.element Js.t) = object(self)
   inherit Widget.t elt () as super
   val placeholder = Ui_templates.Placeholder.With_icon.make
       ~text:"Нет доступных виджетов"
@@ -176,13 +176,13 @@ module Domains = Map.Make(struct
 
 let group_by_domain (widgets : (string * Wm.widget) list) =
   let map = Domains.empty in
-  List.fold_left (fun acc (((id, w) as x) : string * Wm.widget) ->
+  List.fold_left (fun acc (((_id, w) as x) : string * Wm.widget) ->
       Domains.update w.domain (function
           | None -> Some [x]
           | Some l -> Some (x :: l)) acc)
     map widgets
 
-let make ?drag_image (widgets : (string * Wm.widget) list) : t =
+let make (widgets : (string * Wm.widget) list) : t =
   let grouped = group_by_domain widgets in
   let items = Domains.map (List.map (fun (id, x) ->
       Markup.create_item ~id x)) grouped in
@@ -196,4 +196,4 @@ let make ?drag_image (widgets : (string * Wm.widget) list) : t =
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element
     @@ Markup.create content in
-  new t ?drag_image elt
+  new t elt

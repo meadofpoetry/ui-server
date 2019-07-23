@@ -61,7 +61,7 @@ let get_mode (api : Protocol.api) id _user _body _env _state =
       @@ Pair.to_yojson Int.to_yojson Device.mode_to_yojson) in
   return_value @@ to_yojson value
 
-let get_stream (api : Protocol.api) (id : int) _user _body _env state =
+let get_stream (api : Protocol.api) (id : int) _user _body _env _state =
   api.kv#get
   >>= fun { source; _ } ->
   let stream =

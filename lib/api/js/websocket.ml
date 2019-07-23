@@ -1,13 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml.WebSockets
 open Js_of_ocaml_lwt
-open Application_types
 
-let ( % ) f g x = f (g x)
-
-let ( >>= ) = Lwt.( >>= )
-
-let return_ok x = Ok x
+let ( >>= ) = Lwt.bind
 
 type 'a t =
   { socket : WebSockets.webSocket Js.t
@@ -37,10 +32,6 @@ module Make
   type 'a req =
     | Subscribe : int * Uri.t -> int req
     | Unsubscribe : int * int -> unit req
-
-  let request_to_string (type a) : a req -> string = function
-    | Subscribe (_, uri) -> Printf.sprintf "Subscribe (%s)" @@ Uri.to_string uri
-    | Unsubscribe (_, id) -> Printf.sprintf "Unsubscribe (%d)" id
 
   let request (type a) ?(timeout = 2.) socket
       (req : a req) =

@@ -85,7 +85,7 @@ end
 let to_json f (v : int * 'a ts) =
   Util_json.(Pair.to_yojson Int.to_yojson (ts_to_yojson f)) v
 
-let get_measurements (api : Protocol.api) (id : Stream.ID.t) _user _body _env state =
+let get_measurements (api : Protocol.api) (id : Stream.ID.t) _user _body _env _state =
   match find_receiver_by_stream_id id api.notifs.streams with
   | None -> Lwt.return stream_not_found
   | Some id ->

@@ -155,7 +155,7 @@ let make_frequency ?(value : int option) (standard : standard option React.signa
       ~required:true
       ~input_mode:`Numeric
       ~max_length:11
-      ~on_input:(fun e input -> push (); handle_input menu input standard)
+      ~on_input:(fun _ input -> push (); handle_input menu input standard)
       ~trailing_icon
       ~label:"Частота"
       (Integer (Some min_frequency, Some max_frequency)) in
@@ -285,13 +285,13 @@ let make_mode_box ~(id : int) (state : Topology.state) (mode : mode option) plps
   let std, s_std = make_standard
       ?value:(Utils.Option.map (fun x -> x.standard) mode)
       () in
-  let freq, e_freq = make_frequency
+  let freq, _e_freq = make_frequency
       ?value:(Utils.Option.map (fun x -> x.channel.freq) mode)
       s_std in
-  let bw, e_bw = make_bw
+  let bw, _e_bw = make_bw
       ?value:(Utils.Option.map (fun x -> x.channel.bw) mode)
       () in
-  let plp, e_plp = make_plp
+  let plp, _e_plp = make_plp
       ?value:(Utils.Option.map (fun x -> x.channel.plp) mode)
       plps in
   object(self)

@@ -39,7 +39,7 @@ let to_msg (type a) : a Request.t -> Request.req_tag Request.msg = function
         | ID x -> x
         | Full x -> Stream.to_multi_id x);
     `Simple { tag = `Set_mode; body }
-  | Set_jitter_mode { stream; pid } ->
+  | Set_jitter_mode { stream; pid; _ } ->
     let body = Cstruct.create Message.sizeof_req_set_jitter_mode in
     Message.set_req_set_jitter_mode_stream_id body
     @@ Stream.Multi_TS_ID.to_int32_pure stream;

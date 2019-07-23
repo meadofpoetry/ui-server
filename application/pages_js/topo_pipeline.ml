@@ -1,5 +1,4 @@
 open Components
-open Lwt_result.Infix
 open Application_types
 
 let base_class = "pipeline-settings"

@@ -1,4 +1,3 @@
-open Application_types
 open Board_niitv_dvb_types
 open Api
 
@@ -66,8 +65,8 @@ module Measurements = struct
   let typ =
     Caqti_type.custom
       Caqti_type.(let ( & ) = tup2 in
-                  List.(int & bool & option float & option float & option float
-                        & option int & option int & ptime))
+                  (int & bool & option float & option float & option float
+                   & option int & option int & ptime))
       ~encode:(fun (id, ({ data = { lock; power; mer; ber; freq; bitrate }
                          ; timestamp } : Measure.t ts)) ->
         Ok (id, (lock, (power, (mer, (ber, (freq, (bitrate, timestamp))))))))
@@ -88,7 +87,8 @@ module Measurements = struct
                     (return ()) meas))
 
   let select db ?(streams = []) ?(tuners = []) ?(limit = 500) ?(order = `Desc)
-        ~from ~till () =
+      ~from ~till () =
+    ignore streams; (* FIXME *)
     let open Printf in
     let table = (Conn.names db).measurements in
     (* let streams = is_in "stream" SID.to_value_string streams in *)

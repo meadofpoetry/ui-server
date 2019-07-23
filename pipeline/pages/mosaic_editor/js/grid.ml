@@ -80,7 +80,7 @@ module Event = struct
     Lwt_js_events.make_event ?use_capture Typ.input t
 
   let inputs ?cancel_handler ?use_capture t h =
-    Lwt_js_events.seq_loop input t h
+    Lwt_js_events.seq_loop ?cancel_handler ?use_capture input t h
 
   let change ?use_capture t =
     Lwt_js_events.make_event ?use_capture Typ.change t
@@ -209,7 +209,7 @@ module Util = struct
           | Row -> pos.row, pos.col in
         match acc with
         | None -> if main = n then Some (aux, cell) else None
-        | Some (aux', x) ->
+        | Some (aux', _) ->
           if n = main && aux < aux'
           then Some (aux, cell)
           else acc) None cells
@@ -286,7 +286,7 @@ module Util = struct
       else gen_rows (gen_cols acc cols) (pred row) in
     gen_rows [] rows
 
-  let is_merge_possible (cells : Dom_html.element Js.t list) : bool =
+  let is_merge_possible (_cells : Dom_html.element Js.t list) : bool =
     (* TODO implement *)
     (* XXX Merge is only possible when a group of cells forms a rectangle
        and all cells belong to the same parent grid. *)
@@ -574,7 +574,7 @@ class t
       [props.col; props.row];
     Lwt.return_unit
 
-  method private handle_drag_stop props (e : Dom_html.event Js.t) _ : unit Lwt.t =
+  method private handle_drag_stop props _ _ : unit Lwt.t =
     List.iter (fun cell ->
         Element.remove_class cell CSS.cell_dragging_column;
         Element.remove_class cell CSS.cell_dragging_row)
@@ -674,7 +674,6 @@ class t
     self#adjust_position
       ~a_track_size
       ~b_track_size
-      grid
       dimensions;
     let style = String.concat " " @@ Array.to_list dimensions.tracks in
     self#set_style grid dimensions.direction style
@@ -682,7 +681,6 @@ class t
   method private adjust_position
       ~a_track_size
       ~b_track_size
-      (grid : Dom_html.element Js.t)
       ({ a_track
        ; b_track
        ; tracks
@@ -693,12 +691,12 @@ class t
        ; _ } : dimensions) =
     let update_value track track_size =
       match track_values.(track) with
-      | Px x -> Px track_size
-      | Fr x ->
+      | Px _ -> Px track_size
+      | Fr _ ->
         (match total_fr with
          | 1 -> Fr 1.
          | _ -> Fr (track_size /. fr_to_pixels))
-      | Pc x -> Pc (track_size /. percentage_to_pixels)
+      | Pc _ -> Pc (track_size /. percentage_to_pixels)
       | x -> x in
     let a_track_value = update_value a_track a_track_size in
     let b_track_value = update_value b_track b_track_size in
