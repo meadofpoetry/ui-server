@@ -1,4 +1,5 @@
 open Js_of_ocaml
+open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 open Utils
 
@@ -15,13 +16,21 @@ type dimensions =
   }
 
 module Event = struct
-  class type interacted =
+  class type interact =
     object
       inherit [Element.t] Widget.custom_event
     end
 
-  let interacted : interacted Js.t Events.Typ.t =
-    Events.Typ.make "tab:interacted"
+  module Typ = struct
+    let interact : interact Js.t Dom_html.Event.typ =
+      Dom_html.Event.make "tab:interact"
+  end
+
+  let interact ?use_capture x =
+    Lwt_js_events.make_event ?use_capture Typ.interact x
+
+  let interacts ?cancel_handler ?use_capture x =
+    Lwt_js_events.seq_loop ?cancel_handler ?use_capture interact x
 end
 
 class t (elt : Dom_html.buttonElement Js.t) () =
@@ -47,7 +56,7 @@ class t (elt : Dom_html.buttonElement Js.t) () =
       (* Attach event handlers *)
       let click =
         Events.clicks super#root (fun _ _ ->
-            super#emit ~should_bubble:true ~detail:super#root Event.interacted;
+            super#emit ~should_bubble:true ~detail:super#root Event.Typ.interact;
             Lwt.return_unit) in
       _click_listener <- Some click
 
@@ -150,6 +159,7 @@ let make ?min_width ?disabled ?active ?stacked
   new t elt ()
 
 let attach (elt : #Dom_html.element Js.t) : t =
-  match Js.to_string elt##.tagName with
-  | "BUTTON" -> new t (Js.Unsafe.coerce elt) ()
-  | _ -> failwith "tab: host element must have a `button` tag"
+  Js.Opt.case
+    (Dom_html.CoerceTo.button elt)
+    (fun () -> failwith "tab: host element must have a `button` tag")
+    (fun btn -> new t (Js.Unsafe.coerce elt) ())

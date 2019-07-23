@@ -91,7 +91,8 @@ module Make(Xml : Xml_sigs.NoWrap)
     let classes = CSS.content :: classes in
     section ~a:([a_class classes] <@> attrs) content
 
-  let create_action ?(classes = []) ?(attrs = []) ?(default = false) ?action =
+  let create_action ?(classes = []) ?(attrs = [])
+      ?(default = false) ?action =
     let classes =
       classes
       |> cons_if default CSS.button_default
@@ -99,8 +100,8 @@ module Make(Xml : Xml_sigs.NoWrap)
     let attrs = match action with
       | None -> attrs
       | Some action ->
-         let attr = action_to_string action in
-         (a_user_data "mdc-dialog-action" attr) :: attrs in
+        let attr = action_to_string action in
+        (a_user_data "mdc-dialog-action" attr) :: attrs in
     Button.create ~classes ~attrs
 
   let create_actions ?(classes = []) ?attrs ~actions () : 'a elt =
@@ -108,7 +109,7 @@ module Make(Xml : Xml_sigs.NoWrap)
     footer ~a:([a_class classes] <@> attrs) actions
 
   let create_surface ?(classes = []) ?attrs
-        ?title ?content ?actions () : 'a elt =
+      ?title ?content ?actions () : 'a elt =
     let classes = CSS.surface :: classes in
     let content = title ^:: content ^:: actions ^:: [] in
     div ~a:([a_class classes] <@> attrs) content
@@ -122,7 +123,7 @@ module Make(Xml : Xml_sigs.NoWrap)
     div ~a:([a_class classes] <@> attrs) []
 
   let create ?(classes = []) ?attrs ?title_id ?content_id
-        ?(scrollable = false) ~scrim ~container () : 'a elt =
+      ?(scrollable = false) ~scrim ~container () : 'a elt =
     let aria n v = a_aria n [v] in
     let classes =
       classes
@@ -130,10 +131,9 @@ module Make(Xml : Xml_sigs.NoWrap)
       |> List.cons CSS.root in
     div ~a:([ a_class classes
             ; a_role ["alertdialog"]
-            ; a_aria "modal" ["true"]]
+            ; a_aria "modal" ["true"]] <@> attrs
             |> map_cons_option (aria "labelledby") title_id
-            |> map_cons_option (aria "describedby") content_id
-            <@> attrs)
+            |> map_cons_option (aria "describedby") content_id)
       [container; scrim]
 
 end

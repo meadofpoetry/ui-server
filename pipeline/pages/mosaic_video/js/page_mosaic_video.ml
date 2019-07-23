@@ -1,4 +1,5 @@
 open Js_of_ocaml
+open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml.Tyxml_js
 open Components
 
@@ -222,9 +223,15 @@ let make_hotkeys_dialog () =
     Widget.create
     @@ To_dom.of_element
     @@ Markup.create_hotkeys () in
-  let title = Dialog.Markup.create_title_simple "Быстрые клавиши" () in
-  let cancel = Dialog.Markup.create_action ~label:"Закрыть" ~action:Close () in
-  let content = Dialog.Markup.create_content [hotkeys#markup] () in
+  let title =
+    To_dom.of_element
+    @@ Dialog.Markup.create_title_simple "Быстрые клавиши" () in
+  let cancel =
+    To_dom.of_element
+    @@ Dialog.Markup.create_action ~label:"Закрыть" ~action:Close () in
+  let content =
+    To_dom.of_element
+    @@ Dialog.Markup.create_content [hotkeys#markup] () in
   Dialog.make ~title ~content ~actions:[cancel] ()
 
 let make_menu ?body ?viewport () =
@@ -255,18 +262,20 @@ let tie_menu_with_toggle (scaffold : Scaffold.t) =
         && not @@ Element.equal menu#root target
         then menu#reveal ()
         else Lwt.return_unit) in
-    let selected = Events.listen_lwt menu#root Menu.Event.selected (fun e _ ->
-        let detail = Js.Opt.get e##.detail (fun () -> failwith "No detail in event") in
-        match detail##.index with
-        | 0 ->
-          let dialog = make_hotkeys_dialog () in
-          Dom.appendChild Dom_html.document##.body dialog#root;
-          dialog#open_await ()
-          >>= fun _ ->
-          dialog#destroy ();
-          Element.remove_child_safe Dom_html.document##.body dialog#root;
-          Lwt.return_unit
-        | _ ->Lwt.return_unit) in
+    let selected = Lwt_js_events.(
+        seq_loop (make_event Menu.Event.selected)
+          menu#root  (fun e _ ->
+              let detail = Js.Opt.get e##.detail (fun () -> failwith "No detail in event") in
+              match detail##.index with
+              | 0 ->
+                let dialog = make_hotkeys_dialog () in
+                Dom.appendChild Dom_html.document##.body dialog#root;
+                dialog#open_await ()
+                >>= fun _ ->
+                dialog#destroy ();
+                Element.remove_child_safe Dom_html.document##.body dialog#root;
+                Lwt.return_unit
+              | _ -> Lwt.return_unit)) in
     menu#set_on_destroy (fun () ->
         icon#destroy ();
         Lwt.cancel click;

@@ -29,7 +29,7 @@
 }
 .mdc-placeholder--icon {
     .mdc-placeholder__widget {
-        @include mdc-theme-prop(color,text-icon-on-background);
+        @include mdc-theme-prop(color, text-icon-on-background);
     }
 }
 .mdc-placeholder--error {

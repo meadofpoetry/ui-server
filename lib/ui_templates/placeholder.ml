@@ -37,11 +37,11 @@ end
 
 module With_icon = struct
 
-  class ['a] t ?action ?(text = "") ~(icon : (#Widget.t) as 'a) () =
+  class ['a] t ?font ?action ?(text = "") ~(icon : Dom_html.element Js.t) () =
     let ico = match action with
       | Some f -> Widget.coerce @@ Icon_button.make ~icon ~on_click:f ()
-      | None -> icon#widget in
-    let text = Typography.Text.make text in
+      | None -> Widget.create icon in
+    let text = Typography.Text.make ?font text in
     object(self)
       inherit Base.t ~widget:ico ~text () as super
 
@@ -67,8 +67,8 @@ module With_icon = struct
 
     end
 
-  let make ?action ~text ~icon () =
-    new t ?action ~text ~icon ()
+  let make ?font ?action ~text ~icon () =
+    new t ?font ?action ~text ~icon ()
 
 end
 
@@ -106,7 +106,7 @@ end
 module Err = struct
 
   let create_error_icon () =
-    Icon.SVG.(make_simple error_svg_path)
+    Icon.SVG.(make_simple error_svg_path)#root
 
   let make ?action ?icon ?(text = "error") () =
     let icon = match icon with

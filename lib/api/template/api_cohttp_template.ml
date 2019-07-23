@@ -22,7 +22,7 @@ module Make (User : USER) = struct
   type template_props =
     { title : string option
     ; top_app_bar_leading : Tyxml.Xml.elt option
-    ; top_app_bar_actions : Tyxml.Xml.elt list
+    ; top_app_bar_content : Tyxml.Xml.elt list
     ; top_app_bar_bottom : Tyxml.Xml.elt option
     ; side_sheet : side_sheet_props option
     ; pre_scripts : script list
@@ -32,13 +32,13 @@ module Make (User : USER) = struct
     }
 
   let make_template_props ?title
-      ?top_app_bar_leading ?(top_app_bar_actions = []) ?top_app_bar_bottom
+      ?top_app_bar_leading ?(top_app_bar_content = []) ?top_app_bar_bottom
       ?side_sheet
       ?(pre_scripts = []) ?(post_scripts = []) ?(stylesheets = [])
       ?(content = []) () =
     { title
     ; top_app_bar_leading
-    ; top_app_bar_actions
+    ; top_app_bar_content
     ; top_app_bar_bottom
     ; side_sheet
     ; pre_scripts
@@ -85,10 +85,10 @@ module Make (User : USER) = struct
   let list_max ~default c = function
     | [] -> default
     | [x] -> x
-    | h::tl -> List.fold_left (fun acc x -> if c x acc > 0 then x else acc) h tl
+    | h :: tl -> List.fold_left (fun acc x -> if c x acc > 0 then x else acc) h tl
 
   let make_top_app_bar ({ top_app_bar_leading = leading
-                        ; top_app_bar_actions = actions
+                        ; top_app_bar_content = content
                         ; top_app_bar_bottom = bottom
                         ; _ } : template_props) =
     let leading' = match leading with
@@ -108,13 +108,11 @@ module Make (User : USER) = struct
     let bottom' = match bottom with
       | None -> `String ""
       | Some elt -> `String (elt_to_string elt) in
-    let actions' = List.map (fun x ->
-        `O ["action", `String (elt_to_string x)])
-        actions in
-    let is_empty = function [] -> true | _ -> false in
-    [ "top_app_bar_has_actions", `Bool (not @@ is_empty actions)
-    ; "top_app_bar_leading", `String leading'
-    ; "top_app_bar_actions", `A actions'
+    let content' = List.map (fun x ->
+        `O ["element", `String (elt_to_string x)])
+        content in
+    [ "top_app_bar_leading", `String leading'
+    ; "top_app_bar_content", `A content'
     ; "top_app_bar_bottom", bottom' ]
 
   let make_side_sheet = function

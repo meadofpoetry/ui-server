@@ -69,8 +69,8 @@ module Attr = struct
 end
 
 module Event = struct
-  let (action : Dom_html.element Js.t Widget.custom_event Js.t Events.Typ.typ) =
-    Events.Typ.make "treeview:action"
+  let (action : Dom_html.element Js.t Widget.custom_event Js.t Dom_html.Event.typ) =
+    Dom_html.Event.make "treeview:action"
 end
 
 let get_exn (i : int) (list : Dom_html.element Dom.nodeList Js.t) =
@@ -393,8 +393,8 @@ class t elt () =
         | None -> Lwt.return_unit
         | Some active ->
           let next, stop =
-            match Events.Key.of_event e, _is_vertical with
-            | `Arrow_left, true | `Arrow_up, false ->
+            match Dom_html.Keyboard_code.of_event e, _is_vertical with
+            | ArrowLeft, true | ArrowUp, false ->
               prevent_default_event e;
               if self#node_expanded active
               then (
@@ -404,31 +404,31 @@ class t elt () =
                 | None -> None, false
                 | Some p -> p##focus; Some p, false
               end
-            | `Arrow_right, true | `Arrow_down, false ->
+            | ArrowRight, true | ArrowDown, false ->
               prevent_default_event e;
               begin match self#node_expanded active, self#node_children active with
                 | _, [] -> None, false
                 | false, _ -> self#set_node_expanded active true; None, false
                 | true, x :: _ -> x##focus; Some x, false
               end
-            | `Arrow_up, true | `Arrow_left, false ->
+            | ArrowUp, true | ArrowLeft, false ->
               prevent_default_event e;
               focus_prev_node active nodes, false
-            | `Arrow_down, true | `Arrow_right, false ->
+            | ArrowDown, true | ArrowRight, false ->
               prevent_default_event e;
               focus_next_node active nodes, false
-            | `Home, _ ->
+            | Home, _ ->
               prevent_default_event e;
               focus_first_node active nodes, false
-            | `End, _ ->
+            | End, _ ->
               prevent_default_event e;
               focus_last_node active nodes, false
-            | `Numpad_multiply, _ ->
+            | NumpadMultiply, _ ->
               prevent_default_event e;
               List.iter (fun x -> self#set_node_expanded x true)
               @@ active :: self#get_node_siblings active;
               None, false
-            | (`Enter as k), _ | (`Space as k), _ ->
+            | (Enter as k), _ | (Space as k), _ ->
               if Element.has_class item CSS.node
               then (
                 (* Return early if enter key is pressed on anchor element
@@ -437,7 +437,7 @@ class t elt () =
                   Js.Opt.map e##.target (fun e ->
                       String.equal "A" (Js.to_string e##.tagName))
                   |> fun x -> Js.Opt.get x (fun () -> false) in
-                let is_enter = match k with `Enter -> true | _ -> false in
+                let is_enter = match k with Enter -> true | _ -> false in
                 if is_a_tag && is_enter then None, true else (
                   prevent_default_event e;
                   self#handle_action active;

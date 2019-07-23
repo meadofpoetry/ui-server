@@ -18,7 +18,7 @@ module Event : sig
   (** Used to indicate when an element has been selected.
       This event also includes the item selected and the list index
       of that item. *)
-  val selected : selected Js.t Widget.custom_event Js.t Events.Typ.typ
+  val selected : selected Js.t Widget.custom_event Js.t Dom_html.Event.typ
 end
 
 class t : ?body:Dom_html.element Js.t

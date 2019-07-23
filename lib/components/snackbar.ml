@@ -39,14 +39,14 @@ module Event = struct
   class type close = object inherit [dismiss_reason] Widget.custom_event end
   class type open_ = object inherit [unit] Widget.custom_event end
 
-  let closing : close Js.t Events.Typ.t =
-    Events.Typ.make "snackbar:closing"
-  let closed : close Js.t Events.Typ.t =
-    Events.Typ.make "snackbar:closed"
-  let opening : open_ Js.t Events.Typ.t =
-    Events.Typ.make "snackbar:opening"
-  let opened : open_ Js.t Events.Typ.t =
-    Events.Typ.make "snackbar:opened"
+  let closing : close Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "snackbar:closing"
+  let closed : close Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "snackbar:closed"
+  let opening : open_ Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "snackbar:opening"
+  let opened : open_ Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "snackbar:opened"
 end
 
 let announce ?(label_elt : Element.t option) (aria_elt : Element.t) =
@@ -277,8 +277,8 @@ object(self)
 
   method private handle_keydown (e : Dom_html.keyboardEvent Js.t)
                    (_ : unit Lwt.t) : unit Lwt.t =
-    match Events.Key.of_event e, self#close_on_escape with
-    | `Escape, true ->
+    match Dom_html.Keyboard_code.of_event e, self#close_on_escape with
+    | Escape, true ->
        self#close ~reason:Dismiss ()
        >>= fun _ -> Lwt.return_unit
     | _ -> Lwt.return_unit

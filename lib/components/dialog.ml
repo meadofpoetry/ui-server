@@ -23,14 +23,14 @@ let reverse_elements (elts : Dom_html.element Js.t list) :
   lst
 
 module Event = struct
-  let opening : unit Widget.custom_event Js.t Events.Typ.typ =
-    Events.Typ.make "opening"
-  let opened : unit Widget.custom_event Js.t Events.Typ.typ =
-    Events.Typ.make "opened"
-  let closing : action Widget.custom_event Js.t Events.Typ.typ =
-    Events.Typ.make "closing"
-  let closed : action Widget.custom_event Js.t Events.Typ.typ =
-    Events.Typ.make "closed"
+  let opening : unit Widget.custom_event Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "opening"
+  let opened : unit Widget.custom_event Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "opened"
+  let closing : action Widget.custom_event Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "closing"
+  let closed : action Widget.custom_event Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "closed"
 end
 
 module Const = struct
@@ -81,11 +81,8 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
     val mutable _auto_stack_buttons = true
     val mutable _are_buttons_stacked = false
     (* Event listeners. *)
-    val mutable _click_listener = None
-    val mutable _keydown_listener = None
-    val mutable _doc_keydown_listener = None
-    val mutable _resize_listener = None
-    val mutable _orientation_change_listener = None
+    val mutable _listeners = []
+    val mutable _temp_listeners = []
 
     inherit Widget.t elt () as super
 
@@ -103,17 +100,17 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
           _container in
       _focus_trap <- Some focus_trap;
       (* Attach event listeners. *)
-      let click = Events.clicks super#root self#handle_interaction in
-      let keydown = Events.keydowns super#root self#handle_interaction in
-      _click_listener <- Some click;
-      _keydown_listener <- Some keydown
+      _listeners <- Lwt_js_events.(
+          [ clicks super#root self#handle_interaction
+          ; keydowns super#root self#handle_interaction
+          ])
 
     method! layout () : unit =
       Option.iter Lwt.cancel _layout_thread;
       super#layout ();
       let t =
-        Animation.request ()
-        >>= fun _ ->
+        Lwt_js_events.request_animation_frame ()
+        >>= fun () ->
         if _auto_stack_buttons
         then self#detect_stacked_buttons ();
         self#detect_scrollable_content ();
@@ -137,10 +134,8 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
          Lwt.cancel x;
          _layout_thread <- None);
       (* Detach event listeners. *)
-      Option.iter Lwt.cancel _click_listener;
-      Option.iter Lwt.cancel _keydown_listener;
-      _click_listener <- None;
-      _keydown_listener <- None;
+      List.iter Lwt.cancel _listeners;
+      _listeners <- [];
       self#handle_closing ();
       (* Destroy internal components. *)
       List.iter Ripple.destroy _button_ripples;
@@ -155,8 +150,8 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
       (* Wait a frame once display is no longer "none",
          to establish basis for animation. *)
       let t =
-        Animation.request ()
-        >>= fun _ -> Lwt_js.yield ()
+        Lwt_js_events.request_animation_frame ()
+        >>= fun () -> Lwt_js.yield ()
         >>= fun () ->
         super#add_class CSS.open_;
         Element.add_class Dom_html.document##.body CSS.scroll_lock;
@@ -220,24 +215,16 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
     (* Private methods. *)
 
     method private handle_closing () : unit =
-      Option.iter Lwt.cancel _resize_listener;
-      Option.iter Lwt.cancel _orientation_change_listener;
-      Option.iter Lwt.cancel _doc_keydown_listener;
-      _resize_listener <- None;
-      _orientation_change_listener <- None;
-      _doc_keydown_listener <- None
+      List.iter Lwt.cancel _temp_listeners;
+      _temp_listeners <- []
 
     method private handle_opening () : unit =
       self#handle_closing ();
-      let resize =
-        Events.onresizes (fun _ _ -> self#layout (); Lwt.return_unit) in
-      let orientation_change =
-        Events.onorientationchanges (fun _ _ -> self#layout (); Lwt.return_unit) in
-      let keydown =
-        Events.keydowns Dom_html.document self#handle_document_keydown in
-      _resize_listener <- Some resize;
-      _orientation_change_listener <- Some orientation_change;
-      _doc_keydown_listener <- Some keydown
+      _temp_listeners <- Lwt_js_events.(
+          [ onresizes (fun _ _ -> self#layout (); Lwt.return_unit)
+          ; onorientationchanges (fun _ _ -> self#layout (); Lwt.return_unit)
+          ; keydowns Dom_html.document self#handle_document_keydown
+          ])
 
     method private notify_closing (action : action) : unit =
       super#emit ~detail:action Event.closing
@@ -259,10 +246,16 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
         |> fun x -> Js.Opt.get x (fun () -> false) in
       let is_click = match Js.to_string e##._type with
         | "click" -> true | _ -> false in
-      let is_enter = match Events.Key.of_event e with
-        | `Enter -> true | _ -> false in
-      let is_space = match Events.Key.of_event e with
-        | `Space -> true | _ -> false in
+      let is_enter =
+        Js.Opt.case (Dom_html.CoerceTo.keyboardEvent e)
+          (fun () -> false)
+          (fun e -> match Dom_html.Keyboard_code.of_event e with
+             | Enter -> true | _ -> false) in
+      let is_space =
+        Js.Opt.case (Dom_html.CoerceTo.keyboardEvent e)
+          (fun () -> false)
+          (fun e -> match Dom_html.Keyboard_code.of_event e with
+             | Space -> true | _ -> false) in
       match is_click, is_scrim, _scrim_click_action with
       | true, true, Some action ->
         self#close ~action ()
@@ -283,19 +276,16 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
               match _default_button with
               | None -> Lwt.return_unit
               | Some x ->
-                match Js.to_string x##.nodeName with
-                | "BUTTON" ->
-                  let (b : Dom_html.buttonElement Js.t) = Js.Unsafe.coerce x in
-                  b##click;
-                  Lwt.return_unit
-                | _ -> Lwt.return_unit)
+                Js.Opt.case (Dom_html.CoerceTo.button x)
+                  Lwt.return
+                  (fun b -> b##click; Lwt.return_unit))
             else Lwt.return_unit)
         else Lwt.return_unit
 
     method private handle_document_keydown (e : Dom_html.keyboardEvent Js.t)
         (_ : unit Lwt.t) : unit Lwt.t =
-      match Events.Key.of_event e, _escape_key_action with
-      | `Escape, Some x -> self#close ~action:x () >>= (fun _ -> Lwt.return ())
+      match Dom_html.Keyboard_code.of_event e, _escape_key_action with
+      | Escape, Some x -> self#close ~action:x () >>= (fun _ -> Lwt.return ())
       | _ -> Lwt.return_unit
 
     method private handle_animation_timer_end () : unit =
@@ -322,24 +312,39 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
         then super#add_class CSS.scrollable
   end
 
-let make_element ?title ?content ?actions () : Dom_html.element Js.t =
-  let title_id = match title with
+let make_action ?classes ?attrs ?button_type ?appearance
+    ?icon ?dense ?ripple ?label ?default ?action () =
+  let icon = match icon with
     | None -> None
-    | Some x -> Some (Js.to_string @@ (Tyxml_js.To_dom.of_element x)##.id) in
-  let content_id = match content with
-    | None -> None
-    | Some x -> Some (Js.to_string @@ (Tyxml_js.To_dom.of_element x)##.id) in
-  let scrim = Markup.create_scrim () in
-  let actions = match actions with
-    | None -> None
-    | Some l -> Some (Markup.create_actions ~actions:l ()) in
-  let surface = Markup.create_surface ?title ?content ?actions () in
-  let container = Markup.create_container ~surface () in
-  Tyxml_js.To_dom.of_element
-  @@ Markup.create ?title_id ?content_id ~scrim ~container ()
+    | Some x -> Some (Tyxml_js.Of_dom.of_element x) in
+  Tyxml_js.To_dom.of_button
+  @@ Markup.create_action ?classes ?attrs ?button_type ?appearance
+    ?icon ?dense ?label ?default ?action ()
 
-let make ?title ?content ?actions () : t =
-  let elt = make_element ?title ?content ?actions () in
+let make ?classes ?title ?content ?actions () : t =
+  let (elt : Dom_html.element Js.t) =
+    let title_id = match title with
+      | None -> None
+      | Some x -> Some (Js.to_string x##.id) in
+    let content_id = match content with
+      | None -> None
+      | Some x -> Some (Js.to_string x##.id) in
+    let scrim = Markup.create_scrim () in
+    let actions = match actions with
+      | None -> None
+      | Some actions ->
+        let actions = List.map (fun x ->
+            Tyxml_js.Of_dom.of_element
+            @@ Element.coerce x) actions in
+        Some (Markup.create_actions ~actions ()) in
+    let surface = Markup.create_surface
+        ?title:(Utils.Option.map Tyxml_js.Of_dom.of_element title)
+        ?content:(Utils.Option.map Tyxml_js.Of_dom.of_element content)
+        ?actions
+        () in
+    let container = Markup.create_container ~surface () in
+    Tyxml_js.To_dom.of_element
+    @@ Markup.create ?classes ?title_id ?content_id ~scrim ~container () in
   new t elt ()
 
 let attach (elt : #Dom_html.element Js.t) : t =

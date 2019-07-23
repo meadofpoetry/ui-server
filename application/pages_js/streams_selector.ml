@@ -269,12 +269,14 @@ module Input = struct
           | Error _ -> accept#set_disabled true
           | Ok _ -> accept#set_disabled false) result in
       let box = Box.make ~dir:`Column [addr#widget; port#widget] in
-      let dialog =
-        Dialog.make
-          ~title:(Dialog.Markup.create_title_simple ~title:"Добавление потока" ())
-          ~content:(Dialog.Markup.create_content ~content:[box#markup] ())
-          ~actions:[accept#markup; cancel#markup]
-          () in
+      let title =
+        Tyxml_js.To_dom.of_element
+        @@ Dialog.Markup.create_title_simple ~title:"Добавление потока" () in
+      let content =
+        Tyxml_js.To_dom.of_element
+        @@ Dialog.Markup.create_content ~content:[box#markup] () in
+      let actions = [accept#root; cancel#root] in
+      let dialog = Dialog.make ~title ~content ~actions () in
       dialog#add_class dialog_class;
       dialog#set_on_destroy (fun () ->
           React.S.stop ~strong:true s_addr;
@@ -300,7 +302,7 @@ module Input = struct
   let make_stream_list stream_list =
     let make_board_stream_entry del_item del_stream (stream : Stream.t) =
       let text = Stream.Source.to_string stream.source.info in
-      let icon = Icon.SVG.(make_simple Path.delete) in
+      let icon = Icon.SVG.(make_simple Path.delete)#root in
       let del_button = Icon_button.make
           ~ripple:false
           ~icon

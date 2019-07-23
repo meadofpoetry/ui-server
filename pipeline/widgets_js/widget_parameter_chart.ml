@@ -132,22 +132,22 @@ let convert_audio_data (config : widget_config)
             | Some l -> Some (point :: l))
           src acc) [] d
 
-let data_source_to_string (structures : Structure.packed list)
+let data_source_to_string (structures : Structure.Annotated.t)
       (src : data_source) : string =
   let open Structure in
-  match Utils.List.find_map (fun ({ structure = x; _ } : packed) ->
+  match Utils.List.find_map (fun (_, (x : Annotated.structure)) ->
       if Stream.ID.equal x.id src.stream
       then Some x else None) structures with
   | None -> ""
   | Some { channels; _ } ->
-     begin match List.find_opt (fun (x : channel) ->
+     begin match List.find_opt (fun (_, (x : Annotated.channel)) ->
                      src.service = x.number) channels with
      | None -> ""
-     | Some channel ->
-        begin match List.find_opt (fun (x : pid) ->
+     | Some (_, channel) ->
+        begin match List.find_opt (fun (_, (x : pid)) ->
                         x.pid = src.pid) channel.pids with
         | None -> ""
-        | Some pid ->
+        | Some (_, pid) ->
            Printf.sprintf "%s. PID %d (%s)"
              channel.service_name
              pid.pid
@@ -271,7 +271,7 @@ let make_dataset id src structures data =
 
 let make_datasets (init : data)
       (sources : data_source list)
-      (structures : Structure.packed list)
+      (structures : Structure.Annotated.t)
     : (data_source * Dataset.t) list =
   let map id (src : data_source) =
     let data =
@@ -283,7 +283,7 @@ let make_datasets (init : data)
   List.mapi map sources
 
 class t ~(init : 'a list)
-        ~(structures : Structure.packed list React.signal)
+        ~(structures : Structure.Annotated.t React.signal)
         ~(config : widget_config)
         () =
   let x_axis = make_x_axis config in
@@ -338,7 +338,7 @@ class t ~(init : 'a list)
 
     (* Private methods *)
 
-    method private update_structures (structures : Structure.packed list) : unit =
+    method private update_structures (structures : Structure.Annotated.t) : unit =
       List.iter (fun (src, (ds : Dataset.t)) ->
           let label = data_source_to_string structures src in
           Dataset.set_label ds label) _datasets

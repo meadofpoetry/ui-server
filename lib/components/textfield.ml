@@ -27,8 +27,8 @@ module Event = struct
       inherit [unit] Widget.custom_event
     end
 
-  let icon : icon Js.t Events.Typ.t =
-    Events.Typ.make "textfield:icon"
+  let icon : icon Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "textfield:icon"
 end
 
 module Character_counter = struct
@@ -103,8 +103,8 @@ module Icon = struct
         super#emit ~should_bubble:true Event.icon
 
       method private handle_keydown e _ : unit Lwt.t =
-        (match Events.Key.of_event e with
-         | `Enter -> self#notify_action ()
+        (match Dom_html.Keyboard_code.of_event e with
+         | Enter -> self#notify_action ()
          | _ -> ());
         Lwt.return_unit
 

@@ -37,7 +37,7 @@ object(self)
     | None -> ()
     | Some label ->
        let listener =
-         Events.listen_lwt label Events.Typ.click (fun _ _ -> self#handle_click ()) in
+         Events.clicks label (fun _ _ -> self#handle_click ()) in
        _click_listener <- Some listener
 
   method! destroy () : unit =

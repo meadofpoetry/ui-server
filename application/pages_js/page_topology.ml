@@ -1,4 +1,5 @@
 open Js_of_ocaml
+open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 open Components
 open Application_types
@@ -267,7 +268,9 @@ let () =
     let s_settings =
       React.S.hold None
       @@ React.E.map (fun x -> Some x) page#e_settings in
-    let close = Events.listen_lwt side_sheet#root Side_sheet.Event.close
+    let close = Lwt_js_events.seq_loop
+        (Lwt_js_events.make_event Side_sheet.Event.close)
+        side_sheet#root
         (fun _ _ ->
            match React.S.value s_settings with
            | None -> Lwt.return_unit

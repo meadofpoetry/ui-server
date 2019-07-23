@@ -22,9 +22,9 @@ object(self)
     super#initial_sync_with_dom ();
     let change_listener =
       if Option.is_none on_change then None else
-        Some (Events.listen_lwt input_elt Events.Typ.change (fun _ _ ->
-                  self#notify_change ();
-                  Lwt.return_unit)) in
+        Some (Events.changes input_elt (fun _ _ ->
+            self#notify_change ();
+            Lwt.return_unit)) in
     _change_listener <- change_listener
 
   method! layout () : unit =

@@ -96,7 +96,7 @@ class t ?(ripple = true) ?on_click ?loader (elt : Dom_html.element Js.t) () =
       Ripple.attach super#root
   end
 
-let make ?(tag = `Button) ?typ ?href
+let make ?classes ?(tag = `Button) ?typ ?href
     ?appearance ?icon ?dense ?ripple ?label ?loader ?on_click () : t =
   let icon = match icon with
     | None -> None
@@ -106,8 +106,10 @@ let make ?(tag = `Button) ?typ ?href
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element
     @@ match tag with
-    | `Button -> Markup.create ?button_type:typ ?appearance ?dense ?icon ?label ()
-    | `Anchor -> Markup.create_anchor ?appearance ?href ?dense ?icon ?label () in
+    | `Button ->
+      Markup.create ?classes ?button_type:typ ?appearance ?dense ?icon ?label ()
+    | `Anchor ->
+      Markup.create_anchor ?classes ?appearance ?href ?dense ?icon ?label () in
   new t ?ripple ?on_click ?loader elt ()
 
 let attach ?ripple ?loader ?on_click (elt : #Dom_html.element Js.t) : t =

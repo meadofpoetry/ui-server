@@ -25,7 +25,7 @@ type 'a t =
   ; mutable load_count : int
   ; mutable window_height : int
   ; mutable top : int
-  ; mutable scroll_listener : Dom_events.listener option
+  ; mutable scroll_listener : unit Lwt.t option
   }
 
 let measure (t : 'a t) =
@@ -93,7 +93,7 @@ let destroy (t : 'a t) : unit =
   match t.scroll_listener with
   | None -> ()
   | Some x ->
-     Dom_events.stop_listen x;
+     Lwt.cancel x;
      t.scroll_listener <- None
 
 let make ~(element : Dom_html.element Js.t)
@@ -130,7 +130,10 @@ let make ~(element : Dom_html.element Js.t)
     | None -> (Dom_html.window :> Dom_html.eventTarget Js.t)
     | Some x -> (x :> Dom_html.eventTarget Js.t) in
   let listener = Events.(
-      listen target Typ.scroll (fun _ _ -> on_scroll t; true)) in
+      seq_loop
+        (Events.make_event Dom_html.Event.scroll)
+        target
+        (fun _ _ -> on_scroll t; Lwt.return_unit)) in
   t.scroll_listener <- Some listener;
   measure t;
   if prefill then do_prefill t;

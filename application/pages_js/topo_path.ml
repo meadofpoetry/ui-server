@@ -166,4 +166,5 @@ class t ~(left_node : node_entry)
 
     method private _make_curved_path =
       Printf.sprintf "M %d %d L %d %d C %d %d %d %d %d %d C %d %d %d %d %d %d"
+
   end

@@ -5,13 +5,11 @@ module Api_http = Api_js.Http.Make(Body)
 
 module Event = struct
 
-  let ( >>= ) = Lwt_result.( >>= )
-
   let get sock =
     Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("pipeline/wm" @/ empty)
       ~query:Query.empty
-      Wm.of_yojson sock
+      Wm.Annotated.of_yojson sock
 
 end
 
@@ -31,6 +29,6 @@ let get_layout () =
     (fun _env -> function
        | Error e -> Lwt.return_error e
        | Ok x ->
-         match Wm.of_yojson x with
+         match Wm.Annotated.of_yojson x with
          | Error e -> Lwt.return_error (`Conv_error e)
          | Ok x -> Lwt.return_ok x)

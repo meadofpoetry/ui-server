@@ -32,12 +32,12 @@ module Attr = struct
 end
 
 class checkbox_signals input_elt = object(self)
-  method connect : 'a. (#Dom_html.event as 'a) Js.t Events.Typ.t
+  method connect : 'a. (#Dom_html.event as 'a) Js.t Dom_html.Event.typ
     -> ('a Js.t -> unit Lwt.t -> unit Lwt.t)
     -> unit Lwt.t =
-    fun e cb -> Events.listen_lwt input_elt e cb
+    fun e cb -> Events.seq_loop (Events.make_event e) input_elt cb
 
-  method change = self#connect Events.Typ.change
+  method change = self#connect Dom_html.Event.change
 
 end
 
@@ -73,7 +73,8 @@ class t ?on_change ?(indeterminate = false) (elt : Dom_html.element Js.t) () =
             self#notify_change ()) in
       _change_listener <- Some change_listener;
       let animationend_listener =
-        Events.listen_lwt super#root Events.Typ.animationend
+        Events.seq_loop (Events.make_event Dom_html.Event.animationend)
+          super#root
           self#handle_animation_end in
       _animationend_listener <- Some animationend_listener
 

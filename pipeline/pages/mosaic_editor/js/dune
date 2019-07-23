@@ -2,12 +2,13 @@
   (name       page_mosaic_editor)
   (libraries  page_mosaic_editor_tyxml
               components
-              dynamic_grid
               ui_templates
               pipeline_types
               application_types
               pipeline_http_js
+              util_json
               uri)
   (preprocess (pps js_of_ocaml-ppx
                    ppx_deriving_yojson
-                   ppx_deriving.eq)))
+                   ppx_deriving.eq
+                   ppx_deriving.show)))

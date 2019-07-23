@@ -30,8 +30,10 @@ object(self)
     super#init ();
     (* Attach event listeners *)
     let transitionend_listener =
-      Events.listen_lwt super#root (Events.Typ.make "transitionend") (fun e _ ->
-          Lwt.return @@ self#handle_transition_end e) in
+      Events.seq_loop
+        (Events.make_event @@ Dom_html.Event.make "transitionend")
+        super#root
+        (fun e _ -> Lwt.return @@ self#handle_transition_end e) in
     _transitionend_listener <- Some transitionend_listener
 
   method! destroy () : unit =

@@ -1,0 +1,94 @@
+@import "@material/theme/mixins";
+@import "./variables";
+
+.grid {
+    display: grid;
+    overflow: hidden;
+    gap: $grid-gap;
+    padding: $grid-gap;
+    box-sizing: border-box;
+
+    &__cell {
+        position: relative;
+        cursor: pointer;
+        transition: background-color 0.3s;
+        border-radius: 2px;
+        /* @include grid-cell-interactive-ripple_; */
+        @include mdc-theme-prop(background-color, surface);
+
+        &[aria-colindex="1"], &[aria-rowindex="1"] {
+            .grid__mul-handle {
+                display: none;
+            }
+        }
+        &[aria-colindex="1"] {
+            .grid__col-handle {
+                display: none;
+            }
+        }
+        &[aria-rowindex="1"] {
+            .grid__row-handle {
+                display: none;
+            }
+        }
+
+        &--selected {
+            @include mdc-theme-prop(background-color, $grid-cell-selected-color);
+        }
+    }
+
+    &__mul-handle {
+        position: absolute;
+        width: $grid-multy-handle-size;
+        height: $grid-multy-handle-size;
+        border-radius: 50%;
+        top: -(($grid-multy-handle-size + $grid-gap) / 2);
+        left: -(($grid-multy-handle-size + $grid-gap) / 2);
+        z-index: 9;
+        cursor: move;
+    }
+
+    &__row-handle {
+        position: absolute;
+        width: 100%;
+        height: $grid-single-handle-size;
+        left: 0;
+        top: -(($grid-single-handle-size + $grid-gap) / 2);
+        cursor: row-resize;
+    }
+
+    &__col-handle {
+        position: absolute;
+        width: $grid-single-handle-size;
+        height: 100%;
+        left: -(($grid-single-handle-size + $grid-gap) / 2);
+        top: 0;
+        cursor: col-resize;
+    }
+}
+
+.grid__cell--dragging-column {
+    .grid__col-handle:after {
+        content: "";
+        width: $grid-gap;
+        position: absolute;
+        top: 0;
+        left: ($grid-single-handle-size - $grid-gap) / 2;
+        height: 100vh;
+        @include mdc-theme-prop(background-color, $grid-border-active-color);
+        pointer-events: none;
+    }
+}
+
+.grid__cell--dragging-row {
+    .grid__row-handle:after {
+        content: "";
+        height: $grid-gap;
+        position: absolute;
+        top: ($grid-single-handle-size - $grid-gap) / 2;
+        left: 0;
+        width: 100vw;
+        @include mdc-theme-prop(background-color, $grid-border-active-color);
+        pointer-events: none;
+    }
+}

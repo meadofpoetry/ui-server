@@ -1,4 +1,5 @@
 open Js_of_ocaml
+open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 open Utils
 
@@ -35,11 +36,9 @@ object(self)
   val mutable _tabs = match tabs with
     | Some x -> x
     | None ->
-       (* If we're attaching to an element, instantiate tabs *)
-       List.filter_map (fun e ->
-           if Element.has_class e Tab.CSS.root
-           then Some (Tab.attach e) else None)
-       @@ Element.children elt
+      (* If we're attaching to an element, instantiate tabs *)
+      List.map Tab.attach
+      @@ Element.query_selector_all elt (Printf.sprintf ".%s" Tab.CSS.root)
 
   inherit Widget.t elt () as super
 
@@ -69,7 +68,9 @@ object(self)
     let mousedown = Events.mousedowns super#root handle_interaction in
     let keydown = Events.keydowns super#root handle_interaction in
     let transitionend =
-      Events.listen_lwt super#root (Events.Typ.make "transitionend")
+      Lwt_js_events.seq_loop
+        (Lwt_js_events.make_event (Dom_html.Event.make "transitionend"))
+        super#root
         handle_transitionend in
     let listeners =
       [ wheel
