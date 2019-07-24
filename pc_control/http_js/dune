@@ -1,0 +1,8 @@
+(library
+  (name       pc_control_http_js)
+  (libraries  api_js
+              application_types
+              netlib
+              pc_control_types)
+  (preprocess (pps ppx_deriving_yojson
+                   ppx_deriving.eq)))

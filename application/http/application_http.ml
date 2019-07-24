@@ -8,7 +8,13 @@ module Api_template = Api_cohttp_template.Make(User)
 module Api_websocket = Api_websocket.Make(User)(Body)(Body_ws)
 
 module Icon = Components_tyxml.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
-                    
+
+let icon x =
+  let open Icon.SVG in
+  let path = create_path x () in
+  let icon = create [path] () in
+  Tyxml.Html.toelt icon
+
 let user_pages : Api_template.topmost Api_template.item list =
   let open Api_template in
   let props =
@@ -17,11 +23,6 @@ let user_pages : Api_template.topmost Api_template.item list =
       ~post_scripts:[Src "/js/user.js"]
       ~stylesheets:["/css/user.min.css"]
       () in
-  let icon x =
-    let open Icon.SVG in
-    let path = create_path x () in
-    let icon = create [path] () in
-    Tyxml.Html.toelt icon in
   simple
     ~restrict:[`Operator; `Guest]
     ~priority:(`Index 10)
@@ -29,7 +30,7 @@ let user_pages : Api_template.topmost Api_template.item list =
     ~icon:(icon Components_tyxml.Svg_icons.settings)
     ~path:(Path.of_string "settings/user")
     props
-                
+
 let user_handlers (users : Application.User_api.t) =
   let open Api_http in
   make ~prefix:"user"
@@ -48,12 +49,6 @@ let user_handlers (users : Application.User_api.t) =
 
 let input topo (input : Topology.topo_input) =
   let open Api_template in
-  let icon x =
-    let open Icon.SVG in
-    let path = create_path x () in
-    let icon = create [path] () in
-    Tyxml.Html.toelt icon
-  in
   let get_input_href (x : Topology.topo_input) =
     let name = Topology.input_to_string x.input in
     let id = string_of_int x.id in
@@ -133,7 +128,7 @@ let application_pages (app : Application.t) =
       ~title:"Конфигурация"
       ~pre_scripts:[Src "/js/ResizeObserver.js"]
       ~post_scripts:[Src "/js/page-topology.js"]
-      ~stylesheets:["/css/topology.min.css"]
+      ~stylesheets:["/css/page-topology.min.css"]
       ()
   in
   let _demo_props =

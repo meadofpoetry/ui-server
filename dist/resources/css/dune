@@ -1,9 +1,58 @@
+(rule
+ (targets components.min.css)
+ (deps
+       (:src ./@material/components/components.scss)
+       (source_tree ./@material))
+ (action (progn
+          (run %{bin:scss} --style compressed --load-path ./ %{src} %{targets})
+          (run %{bin:postcss} -u autoprefixer -r %{targets}))))
+
+(rule
+ (targets page-mosaic-editor.min.css)
+ (deps
+       (:src ./frontend/mosaic_editor/mosaic_editor.scss)
+       (source_tree ./frontend/mosaic_editor/)
+       (source_tree ./@material))
+ (action (progn
+          (run %{bin:scss} --style compressed --load-path ./ %{src} %{targets})
+          (run %{bin:postcss} -u autoprefixer -r %{targets}))))
+
+(rule
+ (targets page-mosaic-video.min.css)
+ (deps
+       (:src ./frontend/mosaic_video/mosaic_video.scss)
+       (source_tree ./frontend/mosaic_video/)
+       (source_tree ./@material))
+ (action (progn
+          (run %{bin:scss} --load-path ./ %{src} %{targets})
+          (run %{bin:postcss} -u autoprefixer -r %{targets}))))
+
+(rule
+ (targets page-topology.min.css)
+ (deps
+       (:src ./frontend/topology/topology.scss)
+       (source_tree ./frontend)
+       (source_tree ./@material))
+ (action (progn
+          (run %{bin:scss} --load-path ./ %{src} %{targets})
+          (run %{bin:postcss} -u autoprefixer -r %{targets}))))
+
+(rule
+ (targets main.min.css)
+ (deps
+       (:src ./main.scss)
+       (source_tree ./templates)
+       (source_tree ./@material))
+ (action (progn
+          (run %{bin:scss} --load-path ./ %{src} %{targets})
+          (run %{bin:postcss} -u autoprefixer -r %{targets}))))
+
 (install
   (files (normalize.css as css/normalize.css)
          (components.min.css as css/components.min.css)
          (main.min.css as css/main.min.css)
-         (mosaic_editor.min.css as css/mosaic_editor.min.css)
-         (mosaic_video.min.css as css/mosaic_video.min.css)
-         (topology.min.css as css/topology.min.css))
+         (page-mosaic-editor.min.css as css/page-mosaic-editor.min.css)
+         (page-mosaic-video.min.css as css/page-mosaic-video.min.css)
+         (page-topology.min.css as css/page-topology.min.css))
   (section share)
   (package ui-server))

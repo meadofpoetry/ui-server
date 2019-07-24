@@ -1,4 +1,5 @@
 open Lwt.Infix
+open Pc_control_types
 
 let set_config (network : Network.t) _user body _env _state =
   Network_config.of_yojson body
