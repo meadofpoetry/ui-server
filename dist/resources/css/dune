@@ -1,7 +1,6 @@
 (install
-  (files (icon.css as css/icon.css)
+  (files (normalize.css as css/normalize.css)
          (components.min.css as css/components.min.css)
-         (normalize.css as css/normalize.css)
          (main.min.css as css/main.min.css)
          (mosaic_editor.min.css as css/mosaic_editor.min.css)
          (mosaic_video.min.css as css/mosaic_video.min.css)

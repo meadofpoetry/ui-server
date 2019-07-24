@@ -1,4 +1,0 @@
-(install
-  (files (opensans.css as fonts/opensans/opensans.css))
-  (section share)
-  (package ui-server))
