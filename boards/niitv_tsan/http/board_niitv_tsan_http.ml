@@ -1,6 +1,5 @@
 open Application_types
 open Netlib.Uri
-open Board_niitv_tsan_types
 open Board_niitv_tsan_protocol
 open Boards.Board
 

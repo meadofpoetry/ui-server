@@ -1,5 +1,4 @@
 open Board_niitv_ts2ip_types
-open Application_types
 open Netlib
 
 type api_msg = Request.msg Lwt_stream.t -> unit Lwt.t

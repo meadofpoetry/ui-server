@@ -162,4 +162,4 @@ let attach (elt : #Dom_html.element Js.t) : t =
   Js.Opt.case
     (Dom_html.CoerceTo.button elt)
     (fun () -> failwith "tab: host element must have a `button` tag")
-    (fun btn -> new t (Js.Unsafe.coerce elt) ())
+    (fun btn -> new t btn ())

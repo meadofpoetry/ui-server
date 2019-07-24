@@ -110,7 +110,7 @@ end
 module Container_actions = struct
   include Undo
 
-  let wizard (wizard : Wizard.t) (grid : Grid.t) =
+  let wizard (wizard : Wizard.t) (_grid : Grid.t) =
     make ~callback:(fun _ _ ->
         wizard#open_await ()
         >>= function
@@ -137,10 +137,10 @@ module Container_selected_actions = struct
     let input = Textfield.make_textfield ~label:"Наименование" Text in
     let title =
       Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-      @@ Dialog.Markup.create_title_simple "Описание" () in
+      @@ Dialog.Markup.create_title_simple ~title:"Описание" () in
     let content =
       Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-      @@ Dialog.Markup.create_content [input#markup] () in
+      @@ Dialog.Markup.create_content ~content:[input#markup] () in
     let actions = Dialog.(
         [ make_action ~label:"Отмена" ~action:Close ()
         ; make_action ~label:"ОК" ~action:Accept ()

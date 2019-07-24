@@ -25,10 +25,6 @@ module Annotated = struct
     ; widgets    : (string * widget) list
     ; layout     : (string * state * container) list
     } [@@deriving yojson, eq]
-
-  let opt_map f = function
-    | None -> None
-    | Some x -> Some (f x)
               
   (* TODO remove after 4.08 *)
   let rec filter_opt = function

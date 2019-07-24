@@ -17,11 +17,11 @@ let user_of_string = function
 
 type key = string [@@deriving yojson,eq]
 
-type data = (key * Yojson.Safe.json) list [@@deriving yojson]
+type data = (key * Yojson.Safe.t) list [@@deriving yojson]
 
 module type Store = sig
-  val put : key -> Yojson.Safe.json -> unit
-  val get : key -> Yojson.Safe.json option
+  val put : key -> Yojson.Safe.t -> unit
+  val get : key -> Yojson.Safe.t option
   val remove : key -> unit
 end
 
@@ -52,8 +52,8 @@ module Session =
     end)
 
 module type Storage = sig
-  val put : key -> Yojson.Safe.json -> unit
-  val get : key -> Yojson.Safe.json option
+  val put : key -> Yojson.Safe.t -> unit
+  val get : key -> Yojson.Safe.t option
   val remove : key -> unit
   val clear : unit -> unit
 end
@@ -66,7 +66,7 @@ module Make(M : Store) : Storage = struct
     | Some u -> u
     | None -> failwith @@ Printf.sprintf "Unknown user type: %s" s
 
-  let put (key : key) (data : Yojson.Safe.json) : unit =
+  let put (key : key) (data : Yojson.Safe.t) : unit =
     let user = get_user () in
     let upd  = match M.get @@ user_to_string user with
       | Some (`Assoc l) -> (key, data) :: l
@@ -74,7 +74,7 @@ module Make(M : Store) : Storage = struct
     in
     M.put (user_to_string user) (`Assoc upd)
 
-  let get (key : key) : Yojson.Safe.json option =
+  let get (key : key) : Yojson.Safe.t option =
     let user = get_user () in
     match M.get @@ user_to_string user with
     | Some (`Assoc l) -> List.assoc_opt key l

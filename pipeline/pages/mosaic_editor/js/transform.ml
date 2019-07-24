@@ -287,7 +287,7 @@ class t
         -> (#Dom_html.event as 'a) Js.t
         -> unit Lwt.t
         -> unit Lwt.t =
-      fun ({ point; action; touch_id; _ } as state) event _ ->
+      fun ({ point; touch_id; _ } as state) event _ ->
       let (x, y) = get_cursor_position ?touch_id event in
       (* Check pixel threshold *)
       if Float.abs ((x +. y) -. ((fst point) +. (snd point))) >= move_threshold

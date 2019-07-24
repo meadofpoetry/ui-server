@@ -16,7 +16,7 @@ let set ~font (w : #Widget.t) =
 
 module Text = struct
   class t (elt : Dom_html.element Js.t) () =
-  object(self)
+  object
 
     inherit Widget.t elt () as super
 

@@ -1,8 +1,5 @@
 open Js_of_ocaml
-open Js_of_ocaml_tyxml
 open Pipeline_types
-open Page_mosaic_editor_tyxml
-open Page_mosaic_editor_tyxml.Widget
 open Components
 
 module Attr = struct
@@ -41,7 +38,7 @@ module Attr = struct
     ]
 
   let invalid_value a v =
-    failwith @@ Printf.sprintf "invalid `%s` attribute value (%s)" typ v
+    failwith @@ Printf.sprintf "invalid `%s` attribute value (%s)" a v
 
   let get_float_attribute (elt : #Dom_html.element Js.t) attr : float =
     match Element.get_attribute elt attr with
@@ -81,12 +78,12 @@ module Attr = struct
       (fun () -> failwith @@ Printf.sprintf "no `%s` attribute found" typ)
       (fun s ->
          let s = Js.to_string s in
-         match widget_type_of_string s with
+         match Page_mosaic_editor_tyxml.Widget.widget_type_of_string s with
          | Some x -> x
          | None -> invalid_value typ s)
 
   let set_typ (elt : Dom_html.element Js.t) (t : Wm.widget_type) =
-    let t = widget_type_to_string t in
+    let t = Page_mosaic_editor_tyxml.Widget.widget_type_to_string t in
     Element.set_attribute elt typ t
 
   let get_domain (elt : Dom_html.element Js.t) =
@@ -101,7 +98,7 @@ module Attr = struct
   let set_domain (elt : Dom_html.element Js.t) = function
     | Wm.Nihil -> ()
     | d ->
-      let v = domain_attr_value d in
+      let v = Page_mosaic_editor_tyxml.Widget.domain_attr_value d in
       Element.set_attribute elt domain v
 
   let get_pid (elt : Dom_html.element Js.t) =
@@ -124,7 +121,9 @@ module Attr = struct
 
   let set_aspect (elt : Dom_html.element Js.t) = function
     | None -> ()
-    | Some x -> Element.set_attribute elt aspect (aspect_attr_value x)
+    | Some x ->
+      Element.set_attribute elt aspect
+      @@ Page_mosaic_editor_tyxml.Widget.aspect_attr_value x
 
   let get_description (elt : Dom_html.element Js.t) =
     Js.Opt.case (elt##getAttribute (Js.string description))
@@ -208,7 +207,7 @@ end = struct
       (items : Dom_html.element Js.t list) =
     let rec aux search_item_rect acc = function
       | [] -> dedup ~eq:Element.equal acc
-      | (hd :: tl) as items ->
+      | (_ :: tl) as items ->
         let siblings =
           List.filter (fun (v : Dom_html.element Js.t) ->
               Position.Normalized.collides search_item_rect

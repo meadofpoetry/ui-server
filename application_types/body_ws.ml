@@ -1,4 +1,4 @@
-type t = Yojson.Safe.json
+type t = Yojson.Safe.t
 
 
 let parse = function

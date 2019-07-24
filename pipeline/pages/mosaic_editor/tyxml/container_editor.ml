@@ -40,7 +40,7 @@ module Make(Xml : Xml_sigs.NoWrap)
   module Tab_bar = Tab_bar.Make(Xml)(Svg)(Html)
 
   let create_widget ?(classes = []) ?attrs
-      (id, state, widget : string * Wm.Annotated.state * Wm.widget) : 'a elt =
+      (id, _, widget : string * Wm.Annotated.state * Wm.widget) : 'a elt =
     let position = match widget.position with
       | None -> ""
       | Some pos ->
@@ -83,12 +83,7 @@ module Make(Xml : Xml_sigs.NoWrap)
     let scroller = Tab_scroller.create ~scroll_area () in
     Tab_bar.create ~classes:[CSS.mode_switch] ~scroller ()
 
-  let create ?(classes = []) ?attrs
-      ?(primary_actions = [])
-      ~(width : float)
-      ~(height : float)
-      ~grid
-      () : 'a elt =
+  let create ?(classes = []) ?attrs grid : 'a elt =
     Card'.create ~classes:(CSS.root :: classes) ?attrs
       [ Card'.create_media [grid] ()
       ; Card'.create_actions [] ()

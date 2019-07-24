@@ -58,7 +58,7 @@ let start
           idle ())
       src sender rsp_queue kv ()
 
-  and pull_status ~wait_msg () =
+  and pull_status () =
     Fsm_probes.step
       ~return:(fun e -> Logs.err (fun m ->
           m "Error during pulling status: %s"
@@ -79,6 +79,6 @@ let start
     Lwt.choose [wait_msg; timer]
     >>= function
     | `M send -> send rsp_queue >>= idle ~timer
-    | `S -> Lwt.cancel wait_msg; pull_status ~wait_msg ()
+    | `S -> Lwt.cancel wait_msg; pull_status ()
   in
   detect

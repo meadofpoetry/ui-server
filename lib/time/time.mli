@@ -4,9 +4,9 @@ val to_human_string : ?tz_offset_s:tz_offset_s -> t -> string
 
 val of_human_string_exn : ?tz_offset_s:tz_offset_s -> string -> t
 
-val to_yojson : t -> Yojson.Safe.json
+val to_yojson : t -> Yojson.Safe.t
 
-val of_yojson : Yojson.Safe.json -> (t, string) result
+val of_yojson : Yojson.Safe.t -> (t, string) result
 
 val split : from:t -> till:t -> (t * t) list
 
@@ -33,8 +33,8 @@ module Hours : sig
   val to_int : t -> int
   val of_string : string -> t
   val to_string : t -> string
-  val of_yojson : Yojson.Safe.json -> (t, string) result
-  val to_yojson : t -> Yojson.Safe.json
+  val of_yojson : Yojson.Safe.t -> (t, string) result
+  val to_yojson : t -> Yojson.Safe.t
 end
 
 module Seconds : sig
@@ -43,8 +43,8 @@ module Seconds : sig
   val to_int : t -> int
   val of_string : string -> t
   val to_string : t -> string
-  val of_yojson : Yojson.Safe.json -> (t, string) result
-  val to_yojson : t -> Yojson.Safe.json
+  val of_yojson : Yojson.Safe.t -> (t, string) result
+  val to_yojson : t -> Yojson.Safe.t
 end
 
 module Seconds64 : sig
@@ -53,8 +53,8 @@ module Seconds64 : sig
   val to_int64 : t -> int64
   val of_string : string -> t
   val to_string : t -> string
-  val of_yojson : Yojson.Safe.json -> (t, string) result
-  val to_yojson : t -> Yojson.Safe.json
+  val of_yojson : Yojson.Safe.t -> (t, string) result
+  val to_yojson : t -> Yojson.Safe.t
 end
 
 module Useconds : sig
@@ -63,16 +63,16 @@ module Useconds : sig
   val to_int64 : t -> int64
   val of_string : string -> t
   val to_string : t -> string
-  val of_yojson : Yojson.Safe.json -> (t, string) result
-  val to_yojson : t -> Yojson.Safe.json
+  val of_yojson : Yojson.Safe.t -> (t, string) result
+  val to_yojson : t -> Yojson.Safe.t
 end
 
 module Period : sig
   include module type of Ptime.Span
 
-  val to_yojson : t -> Yojson.Safe.json
+  val to_yojson : t -> Yojson.Safe.t
 
-  val of_yojson : Yojson.Safe.json -> (t, string) result
+  val of_yojson : Yojson.Safe.t -> (t, string) result
     
   module Hours : sig
     type nonrec t = t
@@ -80,8 +80,8 @@ module Period : sig
     val to_int : t -> int
     val of_string : string -> t
     val to_string : t -> string
-    val of_yojson : Yojson.Safe.json -> (t, string) result
-    val to_yojson : t -> Yojson.Safe.json
+    val of_yojson : Yojson.Safe.t -> (t, string) result
+    val to_yojson : t -> Yojson.Safe.t
   end
        
   module Seconds : sig
@@ -90,8 +90,8 @@ module Period : sig
     val to_int : t -> int
     val of_string : string -> t
     val to_string : t -> string
-    val of_yojson : Yojson.Safe.json -> (t, string) result
-    val to_yojson : t -> Yojson.Safe.json
+    val of_yojson : Yojson.Safe.t -> (t, string) result
+    val to_yojson : t -> Yojson.Safe.t
   end
        
   module Seconds64 : sig
@@ -100,8 +100,8 @@ module Period : sig
     val to_int64 : t -> int64
     val of_string : string -> t
     val to_string : t -> string
-    val of_yojson : Yojson.Safe.json -> (t, string) result
-    val to_yojson : t -> Yojson.Safe.json
+    val of_yojson : Yojson.Safe.t -> (t, string) result
+    val to_yojson : t -> Yojson.Safe.t
   end
 
   module Useconds : sig
@@ -110,8 +110,8 @@ module Period : sig
     val to_int64 : t -> int64
     val of_string : string -> t
     val to_string : t -> string
-    val of_yojson : Yojson.Safe.json -> (t, string) result
-    val to_yojson : t -> Yojson.Safe.json
+    val of_yojson : Yojson.Safe.t -> (t, string) result
+    val to_yojson : t -> Yojson.Safe.t
   end
 
 end

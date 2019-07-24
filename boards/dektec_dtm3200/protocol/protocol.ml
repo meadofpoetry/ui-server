@@ -47,7 +47,7 @@ let send (type a) (src : Logs.src)
 let to_streams_s (config : config signal) (status : status event) =
   S.hold ~eq:(Util_equal.List.equal Stream.Raw.equal) []
   @@ S.sample (fun ({ asi_bitrate; protocol; _ } : status)
-                ({ ip_receive; nw } : config) ->
+                ({ ip_receive; nw; _ } : config) ->
                 if asi_bitrate <= 0 then [] else (
                   let scheme = match protocol with
                     | RTP -> "rtp"

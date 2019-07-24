@@ -1,0 +1,24 @@
+(install
+  (files (robotomono.css as fonts/robotomono/robotomono.css)
+         ; Roboto Mono Thin
+         (Robotomonothin.woff2 as fonts/robotomono/Robotomonothin.woff2)
+         ; Roboto Mono Thin Italic
+         (Robotomonothinitalic.woff2 as fonts/robotomono/Robotomonothinitalic.woff2)
+         ; Roboto Mono Light
+         (Robotomonolight.woff2 as fonts/robotomono/Robotomonolight.woff2)
+         ; Roboto Mono Light Italic
+         (Robotomonolightitalic.woff2 as fonts/robotomono/Robotomonolightitalic.woff2)
+         ; Roboto Mono
+         (Robotomono.woff2 as fonts/robotomono/Robotomono.woff2)
+         ; Roboto Mono Italic
+         (Robotomonoitalic.woff2 as fonts/robotomono/Robotomonoitalic.woff2)
+         ; Roboto Mono Medium
+         (Robotomonomedium.woff2 as fonts/robotomono/Robotomonomedium.woff2)
+         ; Roboto Mono Medium Italic
+         (Robotomonomediumitalic.woff2 as fonts/robotomono/Robotomonomediumitalic.woff2)
+         ; Roboto Mono Bold
+         (Robotomonobold.woff2 as fonts/robotomono/Robotomonobold.woff2)
+         ; Roboto Mono Bold Italic
+         (Robotomonobolditalic.woff2 as fonts/robotomono/Robotomonobolditalic.woff2))
+  (section share)
+  (package ui-server))

@@ -68,12 +68,12 @@ let update_config_with_env src (config : config) (b : Topology.topo_board) =
   | Some t2mi_source -> { config with t2mi_source }
 
 let create (b : Topology.topo_board)
-    (streams : Stream.t list React.signal)
+    (_streams : Stream.t list React.signal)
     (convert_streams : Topology.topo_board ->
      Stream.Raw.t list React.signal ->
      Stream.t list React.signal)
     (send : Cstruct.t -> unit Lwt.t)
-    (db : Db.t)
+    (_db : Db.t)
     (kv : Kv.RW.t) : (Board.t, [> Board.error]) Lwt_result.t =
   Lwt.return @@ Boards.Board.create_log_src b
   >>=? fun (src : Logs.src) ->

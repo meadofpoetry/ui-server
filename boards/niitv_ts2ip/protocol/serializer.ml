@@ -4,7 +4,7 @@ open Application_types
 let take (n : int) (l : 'a list) =
   let rec aux i acc = function
     | [] -> List.rev acc
-    | l when i = 0 -> List.rev acc
+    | _ when i = 0 -> List.rev acc
     | hd :: tl -> aux (pred i) (hd :: acc) tl
   in
   aux n [] l

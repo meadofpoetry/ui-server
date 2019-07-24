@@ -6,3 +6,8 @@
               ui_templates
               page_mosaic_video_tyxml)
   (preprocess (pps js_of_ocaml-ppx)))
+
+(install
+  (files (page_mosaic_video.bc.js as js/page-mosaic-video.js))
+  (section share)
+  (package ui-server))

@@ -51,10 +51,10 @@ module Env = Map.Make(String)
 
 type env = string Env.t [@@deriving ord]
 
-let env_to_yojson (e : env) : Yojson.Safe.json =
+let env_to_yojson (e : env) : Yojson.Safe.t =
   `Assoc (Env.fold (fun k v a -> (k, `String v) :: a) e [])
 
-let env_of_yojson : Yojson.Safe.json -> (env, string) result = function
+let env_of_yojson : Yojson.Safe.t -> (env, string) result = function
   | `Assoc ls -> begin
       try ls
           |> List.map (function

@@ -198,7 +198,7 @@ let deserialize (src : Logs.src) buf =
       | Ok (x, rest) -> aux (x :: responses) rest
       | Error e ->
         match e with
-        | Insufficient_payload x -> responses, b
+        | Insufficient_payload _ -> responses, b
         | e ->
           Logs.err ~src (fun m -> m "parser error: %s" @@ error_to_string e);
           aux responses (Cstruct.shift b 1)
@@ -214,7 +214,7 @@ let is_response (type a) (req : a Request.t)
   then None
   else begin match req with
     | Reset -> Some (parse_devinfo msg.data)
-    | Set_src_id id -> Some (parse_source_id msg.data)
+    | Set_src_id _ -> Some (parse_source_id msg.data)
     | Get_devinfo -> Some (parse_devinfo msg.data)
     | Set_mode (id, _) -> Some (parse_mode msg.data >>= fun x -> Ok (id, x))
     | Get_measure id -> Some (parse_measures msg.data >>= fun x -> Ok (id, x))

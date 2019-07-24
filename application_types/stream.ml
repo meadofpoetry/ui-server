@@ -12,8 +12,8 @@ module ID : sig
   val to_string : t -> string
   val of_string_opt : string -> t option
   val of_string : string -> t
-  val to_yojson : t -> Yojson.Safe.json
-  val of_yojson : Yojson.Safe.json -> (t, string) result
+  val to_yojson : t -> Yojson.Safe.t
+  val of_yojson : Yojson.Safe.t -> (t, string) result
   val compare : t -> t -> int
   val equal : t -> t -> bool
   val pp : Format.formatter -> t -> unit
@@ -39,9 +39,9 @@ end = struct
   let of_string_opt (s : string) = of_string s
   let of_string (s : string) = get_exn @@ of_string_opt s
 
-  let to_yojson (x : t) : Yojson.Safe.json =
+  let to_yojson (x : t) : Yojson.Safe.t =
     `String (Uuidm.to_string x)
-  let of_yojson : Yojson.Safe.json -> (t, string) result = function
+  let of_yojson : Yojson.Safe.t -> (t, string) result = function
     | `String s -> of_opt @@ Uuidm.of_string s
     | _ -> Error "uuid_of_yojson: not a string"
 
@@ -163,8 +163,8 @@ module Multi_TS_ID : sig
   type t
 
   val forbidden : t
-  val to_yojson : t -> Yojson.Safe.json
-  val of_yojson : Yojson.Safe.json -> (t, string) result
+  val to_yojson : t -> Yojson.Safe.t
+  val of_yojson : Yojson.Safe.t -> (t, string) result
   val compare : t -> t -> int
   val equal : t -> t -> bool
   val pp : Format.formatter -> t -> unit
@@ -270,7 +270,7 @@ end = struct
   let to_yojson (t : t) =
     Util_json.Int32.to_yojson (to_int32_pure t)
 
-  let of_yojson (json : Yojson.Safe.json) =
+  let of_yojson (json : Yojson.Safe.t) =
     match Util_json.Int32.of_yojson json with
     | Error _ as e -> e
     | Ok v -> Ok (of_int32_pure v)

@@ -1,5 +1,4 @@
 open Js_of_ocaml
-open Components
 open Page_mosaic_editor_tyxml
 
 include Position_intf
@@ -573,8 +572,7 @@ module Absolute = struct
       }
 
   (* glue lines to its item *)
-  let get_snap_lines (pos : t) siblings min_distance
-      (action : [`Resize of Direction.t | `Move]) =
+  let get_snap_lines (pos : t) siblings (action : [`Resize of Direction.t | `Move]) =
     let snap_list =
       match action with
       | `Move ->
@@ -751,7 +749,6 @@ module Absolute = struct
       (children : t list)
       (min_width : float)
       (min_height : float) : t =
-    let open Pipeline_types.Wm in
     let (min_w, min_h) = get_min_rect_size_for_aspect
         ~aspect:asp
         ~min_width
@@ -890,13 +887,7 @@ module Absolute = struct
       (orig_pos : t)
       (before_pos : t)
       (after_pos : t)
-      (aspect : int * int)
-      (min_width : float)
-      (min_height : float)
-      (children : t list)
-      (max_width : float)
-      (max_height : float) =
-    let open Pipeline_types.Wm in
+      (aspect : int * int) =
     let asp = get_float_aspect aspect in
     let h = after_pos.w *. asp in
     let w = after_pos.h /. asp in
@@ -951,7 +942,6 @@ module Absolute = struct
       | `Move ->
         let p1 = fix_aspect_after_snap SE
             orig_pos before_pos after_pos x
-            min_width min_height children max_width max_height
         in
         let p2 = fix_aspect_min
             SE
@@ -965,7 +955,6 @@ module Absolute = struct
       | `Resize resz ->
         let p1 = fix_aspect_after_snap resz
             orig_pos before_pos after_pos x
-            min_width min_height children max_width max_height
         in
         let p2 = fix_aspect_min
             resz
@@ -979,9 +968,7 @@ module Absolute = struct
 
   let resize_children
       ({ x; y; w; h } : t)
-      (children : t list)
-      (min_width : float)
-      (min_height : float) : t list =
+      (children : t list) : t list =
     let bound = bounding_rect children in (* FIXME what is this? *)
     let scale_w = w /. (if bound.w <= 0.0 then 1.0 else bound.w) in
     let scale_h = h /. (if bound.h <= 0.0 then 1.0 else bound.h) in
@@ -1000,8 +987,6 @@ module Absolute = struct
       ?(min_height = 20.)
       ?(min_distance = 12.)
       ?grid_step
-      ?max_width
-      ?max_height
       ~(action : [`Resize of Direction.t | `Move])
       ~(siblings : t list) (* widget positions int coordinatrs to float [0;1.0] *)
       ~(parent_size : float * float) (* need if input positions is int pixel coordinates *)
@@ -1064,15 +1049,14 @@ module Absolute = struct
     in
     let snap_lines =
       if snap_lines
-      then get_snap_lines position_clip_parent siblings min_distance action
+      then get_snap_lines position_clip_parent siblings action
       else [] in
     let children = match action with
       | `Move ->
         move_children
           position_clip_parent
-          (resize_children position_clip_parent positions min_width min_height)
-      | `Resize resz ->
-        resize_children position_clip_parent positions min_width min_height
+          (resize_children position_clip_parent positions)
+      | `Resize _ -> resize_children position_clip_parent positions
     in
     position_clip_parent, children, snap_lines
 

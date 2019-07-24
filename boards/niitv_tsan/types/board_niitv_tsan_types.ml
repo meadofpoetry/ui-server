@@ -127,7 +127,7 @@ let packet_sz_of_string_option : string -> packet_sz option = function
   | "Ts204" -> Some Ts204
   | _ -> None
 
-let packet_sz_to_yojson x : Yojson.Safe.json =
+let packet_sz_to_yojson x : Yojson.Safe.t =
   `String (packet_sz_to_string x)
 
 let packet_sz_of_yojson = function

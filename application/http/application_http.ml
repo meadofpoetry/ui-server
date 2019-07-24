@@ -132,7 +132,7 @@ let application_pages (app : Application.t) =
     make_template_props
       ~title:"Конфигурация"
       ~pre_scripts:[Src "/js/ResizeObserver.js"]
-      ~post_scripts:[Src "/js/topology.js"]
+      ~post_scripts:[Src "/js/page-topology.js"]
       ~stylesheets:["/css/topology.min.css"]
       ()
   in

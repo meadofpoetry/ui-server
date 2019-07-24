@@ -335,14 +335,12 @@ class t elt () =
     (* Returns node's children, if any *)
     method node_children (node : Dom_html.element Js.t)
       : Dom_html.element Js.t list =
-      let rec aux acc node =
-        let children_wrapper = node##querySelector (Js.string Selector.children) in
-        Js.Opt.case children_wrapper
-          (fun () -> [])
-          (fun w ->
-             List.filter (fun x -> Element.has_class x CSS.node)
-             @@ Element.children w) in
-      aux [] node
+      let children_wrapper = node##querySelector (Js.string Selector.children) in
+      Js.Opt.case children_wrapper
+        (fun () -> [])
+        (fun w ->
+           List.filter (fun x -> Element.has_class x CSS.node)
+           @@ Element.children w)
 
     method nodes =
       Dom.list_of_nodeList self#nodes_

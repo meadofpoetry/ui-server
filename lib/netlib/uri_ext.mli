@@ -167,9 +167,9 @@ end
 (* TODO move to a more approp place *)
 val typ : string
      
-val to_yojson : t -> Yojson.Safe.json
+val to_yojson : t -> Yojson.Safe.t
 
-val of_yojson : Yojson.Safe.json -> (t, string) result
+val of_yojson : Yojson.Safe.t -> (t, string) result
 
 val host_v4 : t -> Ipaddr_ext.V4.t option
 

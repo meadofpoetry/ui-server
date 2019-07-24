@@ -3,7 +3,8 @@ open Application_types
 include Qoe_backend_types.Structure.Make (Stream.ID) (Netlib.Uri)
 
 module Packed = struct
-      
+
+  [@@@ocaml.warning "-32"]
   type nonrec t = { source    : Stream.t
                   ; structure : t
                   }
@@ -22,7 +23,7 @@ module Packed = struct
        >>= fun structure ->
        Ok { source; structure }
     | _ -> Error "Packed.of_yojson"
-
+  [@@@ocaml.warning "+32"]
 end
 
 let pids =
@@ -40,7 +41,7 @@ module Annotated = struct
   
   type state = [`Active_and_stored | `Avail | `Stored ] [@@deriving yojson,eq]
 
-  type raw = t list [@@deriving yojson,eq]
+  type raw = t list [@@deriving yojson]
 
   type raw_pid = pid [@@deriving eq]
 
@@ -322,10 +323,10 @@ module Annotated = struct
     filter_structs annotated
  
 end
-                
+
 module Many = struct
   type nonrec t = t list
-  let name = "structures"
+  (* let name = "structures" *)
   let default : t = []
   (* TODO test this *)
   let equal l r =

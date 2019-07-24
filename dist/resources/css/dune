@@ -1,0 +1,9 @@
+(install
+  (files (normalize.css as css/normalize.css)
+         (components.min.css as css/components.min.css)
+         (main.min.css as css/main.min.css)
+         (mosaic_editor.min.css as css/mosaic_editor.min.css)
+         (mosaic_video.min.css as css/mosaic_video.min.css)
+         (topology.min.css as css/topology.min.css))
+  (section share)
+  (package ui-server))

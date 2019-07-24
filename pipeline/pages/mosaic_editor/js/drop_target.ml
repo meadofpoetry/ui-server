@@ -64,7 +64,7 @@ class virtual t (elt : Dom_html.element Js.t) () = object(self)
     ghost##.style##.display := Js.string "none";
     Lwt.return_unit
 
-  method private handle_drag_end e _ =
+  method private handle_drag_end _ _ =
     ghost##.style##.display := Js.string "none";
     Lwt.return_unit
 

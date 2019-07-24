@@ -86,7 +86,6 @@ let make_board_niitv_tsan_settings state socket control =
 
 let make_board_niitv_dvb4ch_settings state socket control =
   let open React in
-  let open Board_niitv_dvb_types in
   let open Board_niitv_dvb_http_js in
   let open Board_niitv_dvb_widgets_js in
   let rec get_plps acc = function

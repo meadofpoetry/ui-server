@@ -1,5 +1,4 @@
 open Js_of_ocaml
-open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 open Components
 open Pipeline_types
@@ -61,7 +60,7 @@ module Selection = struct
     List.iter (fun x -> Element.add_class x class_) selected;
     List.iter (fun x -> Element.remove_class x class_) removed
 
-  let on_stop handle_selected = fun { selection; selected; _ } ->
+  let on_stop handle_selected = fun { selection; _ } ->
     selection#keep_selection ();
     handle_selected selection#selected
 
@@ -123,7 +122,7 @@ let init_top_app_bar_icon (scaffold : Scaffold.t) =
     | [x] -> Element.add_class x CSS.nav_icon_main
     | [x; y] ->
       Element.add_class x CSS.nav_icon_main;
-      Element.add_class x CSS.nav_icon_aux
+      Element.add_class y CSS.nav_icon_aux
     | _ -> ()
 
 let set_top_app_bar_icon (scaffold : Scaffold.t) typ icon =
@@ -323,7 +322,7 @@ class t ~(scaffold : Scaffold.t)
       _resolution
 
     method value : Wm.t =
-      let cols, rows, resolution = grid#cols, grid#rows, self#resolution in
+      let cols, rows = grid#cols, grid#rows in
       let layout =
         List.map (fun cell ->
             let position =
@@ -358,21 +357,6 @@ class t ~(scaffold : Scaffold.t)
     method edit_container (container : Dom_html.element Js.t) : unit Lwt.t =
       self#switch_to_widget_mode container
       >>= self#switch_to_container_mode
-
-    method private scale_container
-        ~(cell : Dom_html.element Js.t)
-        (container : Wm.container) =
-      let cur_width = float_of_int cell##.offsetWidth in
-      let cur_height = float_of_int cell##.offsetHeight in
-      let cur_aspect = cur_width /. cur_height in
-      let aw, ah = content_aspect_of_element cell in
-      let aspect = float_of_int aw /. float_of_int ah in
-      let scale_factor =
-        if cur_aspect > aspect
-        then cur_height /. float_of_int ah
-        else cur_width /. float_of_int aw in
-      scale_factor *. float_of_int aw,
-      scale_factor *. float_of_int ah
 
     method private switch_to_widget_mode (cell : Dom_html.element Js.t) =
       let id = Container_utils.get_cell_title cell in
@@ -432,8 +416,7 @@ class t ~(scaffold : Scaffold.t)
        | None -> Lwt.return_unit
        | Some x -> x#toggle ~force:false ())
 
-    method private handle_grid_resize (e : Grid.Event.resize Js.t)
-        (_ : unit Lwt.t) : unit Lwt.t =
+    method private handle_grid_resize _ _ : unit Lwt.t =
       self#layout ();
       Lwt.return_unit
 
@@ -644,8 +627,5 @@ let make
   let grid = make_grid @@ Container_utils.grid_properties_of_layout wm in
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element
-    @@ Markup.create
-      ~width:(float_of_int @@ fst wm.resolution)
-      ~height:(float_of_int @@ snd wm.resolution)
-      ~grid () in
+    @@ Markup.create grid in
   new t ~scaffold structure wm elt ()

@@ -63,7 +63,7 @@ let rec map_response prev ({ data; timestamp } as rsp : Request.rsp ts) =
        (match map_response None prev with
         | `R _ -> `R rsp
         | `E _ -> `E { data; timestamp }))
-  | r -> `R rsp
+  | _r -> `R rsp
 
 let map_stream_id
     (streams : Stream.t list React.signal)

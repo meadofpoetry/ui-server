@@ -128,7 +128,7 @@ module Status = struct
     ; versions : versions
     } [@@deriving eq, show]
 
-  let rec parse_t2mi_versions (buf : Cstruct.t) =
+  let parse_t2mi_versions (buf : Cstruct.t) =
     let v = Message.get_status_t2mi_ver_lst buf in
     let rec aux acc = function
       | 8 -> acc
@@ -898,7 +898,7 @@ module T2MI_error = struct
     List.map (fun (error : error) ->
         let param_1 = match get_relevant_t2mi_adv_code error.code with
           | None -> 0l
-          | Some code ->
+          | Some _code -> (* FIXME *)
             match List.find_opt (equal_error error) param with
             | None -> 0l
             | Some x -> Int32.of_int x.param

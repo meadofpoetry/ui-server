@@ -1,5 +1,5 @@
-open Components
-(* open Qoe_status
+(* open Components
+   open Qoe_status
  * 
  * let base_class = "pipeline-pids-summary"
  * 

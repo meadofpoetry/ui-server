@@ -71,7 +71,7 @@ class t state mode plps receivers control =
       super#destroy ()
 
     method notify : event -> unit = function
-      | `Mode x -> ()
+      | `Mode _x -> ()
       | `PLPs x ->
         List.iter (fun (id, ({ data; _ } : Plp_list.t ts)) ->
             match List.find_opt (fun w -> w#id = id) modules with

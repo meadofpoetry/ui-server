@@ -1,5 +1,4 @@
 open Js_of_ocaml
-open Js_of_ocaml_tyxml
 open Components
 open Application_types
 open Pipeline_types
@@ -64,7 +63,7 @@ let make_pid ((state : Structure.Annotated.state), (pid : Structure.pid)) =
     ?checked
     text
 
-let make_channel ((state : Structure.Annotated.state),
+let make_channel ((_state : Structure.Annotated.state),
                   (ch : Structure.Annotated.channel)) =
   let service_name = match ch.service_name with
     | "" -> Printf.sprintf "Программа %d" ch.number
@@ -88,8 +87,8 @@ let make_channel ((state : Structure.Annotated.state),
     ~children
     text
 
-let make_stream ((state : Structure.Annotated.state),
-                 ({ id; channels } : Structure.Annotated.structure)) =
+let make_stream ((_state : Structure.Annotated.state),
+                 ({ id; channels; _ } : Structure.Annotated.structure)) =
   (* FIXME stream name *)
   let text = Printf.sprintf "%s" @@ Stream.ID.to_string id in
   let compare (_, (a : Structure.Annotated.channel as 'a)) (_, (b : 'a)) =
@@ -106,7 +105,6 @@ let make_stream ((state : Structure.Annotated.state),
     text
 
 let make_treeview (structure : Structure.Annotated.t) =
-  let open Structure.Annotated in
   let nodes = List.map make_stream structure in
   Treeview.make ~dense:true nodes
 

@@ -301,7 +301,7 @@ let start
     sender.send Request.(Set_src_id { input_source; t2mi_source })
     >>= fun () ->
     let t2mi_mode = match t2mi_mode.stream with
-      | ID x -> t2mi_mode
+      | ID _id -> t2mi_mode
       | Full _ -> { t2mi_mode with enabled = false } in
     sender.send Request.(Set_mode { input; t2mi_mode })
     >>= fun () -> sender.send Request.(Set_jitter_mode jitter_mode)
@@ -542,11 +542,11 @@ let start
       >>= get_t2mi_info prev status)
 
   and finalize_events
-      ({ prev; status; streams; errors } as acc) =
+      ({ status; streams; errors; _ } as acc) =
     let rec wait_status () =
       Lwt_stream.next evt_queue
       >>= function
-      | `Status status ->
+      | `Status _status ->
         Lwt.return_error (Request.Custom "Got status earlier than probes")
       | _ -> wait_status () in
     Lwt.pick [get_probes acc; wait_status ()]

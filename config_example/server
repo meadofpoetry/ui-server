@@ -1,0 +1,9 @@
+{
+    "https_enabled": true,
+    "tls_path": "$HOME/.local/share/ui_server/tls",
+    "tls_key": null,
+    "tls_cert": null,
+    "resources": "$HOME/.local/share/ui-server",
+    "https_port": 8443,
+    "http_port": 8080
+}

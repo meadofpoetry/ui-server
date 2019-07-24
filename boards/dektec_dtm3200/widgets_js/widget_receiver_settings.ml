@@ -25,8 +25,7 @@ let multicast = Textfield.(
 
 let make_checkbox ~label checked =
   let event, push = React.E.create () in
-  let en = Switch.make ~checked ~on_change:(fun x ->
-      Lwt.return @@ push ()) () in
+  let en = Switch.make ~checked ~on_change:(fun _ -> Lwt.return @@ push ()) () in
   let form =
     Form_field.make ~label
       ~align_end:true
@@ -35,7 +34,7 @@ let make_checkbox ~label checked =
 
 let make_method multicast value =
   let hide w = w#root##.style##.display := Js.string "none" in
-  let show w = multicast#root##.style##.display := Js.string "" in
+  let show w = w#root##.style##.display := Js.string "" in
   (match value with
    | Multicast -> show multicast
    | Unicast -> hide multicast);

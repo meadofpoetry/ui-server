@@ -1,5 +1,4 @@
 open Netlib
-open Application_types
 
 type t = Board_niitv_ts2ip_types.config
 

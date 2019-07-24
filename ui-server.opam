@@ -1,0 +1,28 @@
+opam-version: "2.0"
+bug-reports: "https://github.com/Freyr666/ui-server/issues"
+homepage: "https://github.com/Freyr666/ui-server"
+dev-repo: "git+https://github.com/Freyr666/ui-server.git"
+
+build: [["dune" "build" "-p" name "-j" jobs]]
+
+depends: [
+  "dune"
+  "yojson" {>= "1.7.0"}
+  "react"
+  "lwt"
+  "logs"
+  "ptime"
+  "obus"
+  "bitstring"
+  "angstrom"
+  "caqti"
+  "color"
+  "cohttp"
+  "cstruct"
+  "ipaddr"
+  "qoe_backend"
+  "qoe_backend_lwt"
+  "gstbuffer"
+  "uuidm"
+  "js_of_ocaml"
+]

@@ -85,7 +85,7 @@ module Branches = struct
   (* makes a checkbox with id of domains and typ, and a tree item named by channel*)
   let make_widget (widget : (string * Wm.widget) * channel)
       (channel_struct : Structure.Annotated.channel) =
-    let widget, channel = widget in
+    let widget, _channel = widget in
     let typ = (snd widget).type_ in
     let default_text () =
       match typ with
@@ -93,7 +93,7 @@ module Branches = struct
       | Audio -> "Аудио" in
     let text, secondary_text =
       match (snd widget).pid with
-      | Some pid -> "", ""
+      | Some _pid -> "", ""
         (* (match Parse_struct.widget pid channel_struct with
          *  | None -> default_text (), Printf.sprintf "PID: %d (0x%04X)" pid pid
          *  | Some s -> s) *)
@@ -116,8 +116,7 @@ module Branches = struct
    * and a Tree.t containing all given channels *)
   let make_channels
       (widgets : ((string * Wm.widget) * channel) list)
-      (state,
-       (structure : Structure.Annotated.structure)) =
+      (_state, (structure : Structure.Annotated.structure)) =
     let channels = Find.channels widgets in
     List.rev
     @@ List.fold_left (fun acc channel ->
@@ -149,7 +148,7 @@ module Branches = struct
 
   (* makes all the widget checkboxes with IDs, and a Tree.t containing all streams *)
   let make_streams (widgets : ((string * Wm.widget) * channel) list)
-      (structure : Structure.Annotated.t) =
+      (_structure : Structure.Annotated.t) =
     let streams =
       List.fold_left (fun acc (x : (string * Wm.widget) * channel) ->
           let channel = snd x in
@@ -166,7 +165,7 @@ module Branches = struct
                 Stream.ID.equal wdg_stream stream) widgets in
           stream, wds) streams in
     let nodes =
-      List.fold_left (fun acc (stream, wds) ->
+      List.fold_left (fun acc (_stream, _wds) ->
           acc
           (* match Parse_struct.stream stream structure with
            * | None -> acc
@@ -198,6 +197,8 @@ let to_content (streams : Structure.Annotated.t)
 let layout_of_widgets ~resolution (data : Branches.data list)
   : ((string * Wm.container) list) =
   (* TODO implement *)
+  ignore resolution;
+  ignore data;
   []
 
 class t ~resolution ~treeview (elt : Dom_html.element Js.t) () =
@@ -223,7 +224,7 @@ class t ~resolution ~treeview (elt : Dom_html.element Js.t) () =
 
     (* TODO implement *)
     method notify : event -> unit = function
-      | `Streams streams -> ()
+      | `Streams _streams -> ()
       | `Layout layout -> resolution <- layout.resolution
   end
 

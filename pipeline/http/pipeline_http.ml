@@ -64,7 +64,7 @@ let pages () : Api_template.topmost Api_template.item list =
                     @ [menu_toggle])
           ()]
       ~pre_scripts:[Src "/js/adapter.min.js"]
-      ~post_scripts:[Src "/js/mosaic_video.js"]
+      ~post_scripts:[Src "/js/page-mosaic-video.js"]
       ~stylesheets:["/css/mosaic_video.min.css"]
       ~content:[Tyxml.Html.toelt @@ Mosaic_video_template.make_player ()]
       ()
@@ -86,7 +86,7 @@ let pages () : Api_template.topmost Api_template.item list =
                      ~typ:`Dismissible
                      ())
       ~pre_scripts:[Src "/js/ResizeObserver.js"]
-      ~post_scripts:[Src "/js/mosaic_editor.js"]
+      ~post_scripts:[Src "/js/page-mosaic-editor.js"]
       ~stylesheets:["/css/mosaic_editor.min.css"]
       ~content:[]
       ()
