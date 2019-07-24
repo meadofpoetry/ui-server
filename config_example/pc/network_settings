@@ -1,0 +1,15 @@
+{
+  "extern": null,
+  "intern": {
+    "interface": "enp2s0",
+    "address": [
+      "192.168.111.68",
+      24
+    ],
+    "routes": {
+      "gateway": "192.168.111.1",
+      "static": []
+    },
+    "mac_address": null
+  }
+}
