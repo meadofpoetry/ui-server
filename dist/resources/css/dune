@@ -4,7 +4,7 @@
        (:src ./@material/components/components.scss)
        (source_tree ./@material))
  (action (progn
-          (run %{bin:scss} --style compressed --load-path ./ %{src} %{targets})
+          (run %{bin:scss} -t compressed -I ./ %{src} %{targets})
           (run %{bin:postcss} -u autoprefixer -r %{targets}))))
 
 (rule
@@ -14,7 +14,7 @@
        (source_tree ./frontend/mosaic_editor/)
        (source_tree ./@material))
  (action (progn
-          (run %{bin:scss} --style compressed --load-path ./ %{src} %{targets})
+          (run %{bin:scss} -t compressed -I ./ %{src} %{targets})
           (run %{bin:postcss} -u autoprefixer -r %{targets}))))
 
 (rule
@@ -24,7 +24,7 @@
        (source_tree ./frontend/mosaic_video/)
        (source_tree ./@material))
  (action (progn
-          (run %{bin:scss} --load-path ./ %{src} %{targets})
+          (run %{bin:scss} -t compressed -I ./ %{src} %{targets})
           (run %{bin:postcss} -u autoprefixer -r %{targets}))))
 
 (rule
@@ -34,7 +34,17 @@
        (source_tree ./frontend)
        (source_tree ./@material))
  (action (progn
-          (run %{bin:scss} --load-path ./ %{src} %{targets})
+          (run %{bin:scss} -t compressed -I ./ %{src} %{targets})
+          (run %{bin:postcss} -u autoprefixer -r %{targets}))))
+
+(rule
+ (targets page-network-settings.min.css)
+ (deps
+       (:src ./frontend/network-settings/network-settings.scss)
+       (source_tree ./frontend/network-settings)
+       (source_tree ./@material))
+ (action (progn
+          (run %{bin:scss} -t compressed -I ./ %{src} %{targets})
           (run %{bin:postcss} -u autoprefixer -r %{targets}))))
 
 (rule
@@ -44,7 +54,7 @@
        (source_tree ./templates)
        (source_tree ./@material))
  (action (progn
-          (run %{bin:scss} --load-path ./ %{src} %{targets})
+          (run %{bin:scss} -t compressed -I ./ %{src} %{targets})
           (run %{bin:postcss} -u autoprefixer -r %{targets}))))
 
 (install
@@ -53,6 +63,7 @@
          (main.min.css as css/main.min.css)
          (page-mosaic-editor.min.css as css/page-mosaic-editor.min.css)
          (page-mosaic-video.min.css as css/page-mosaic-video.min.css)
-         (page-topology.min.css as css/page-topology.min.css))
+         (page-topology.min.css as css/page-topology.min.css)
+         (page-network-settings.min.css as css/page-network-settings.min.css))
   (section share)
   (package ui-server))

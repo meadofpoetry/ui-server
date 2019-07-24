@@ -29,6 +29,7 @@ let network_pages : Api_template.topmost Api_template.item list =
     make_template_props
       ~title:"Сеть"
       ~post_scripts:[Src "/js/page-network-settings.js"]
+      ~stylesheets:["/css/page-network-settings.min.css"]
       ()
   in
   let icon x =
