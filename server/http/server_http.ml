@@ -86,17 +86,18 @@ let handlers (config : Server.config) =
         (add_key config)
     ]
   
-let pages () : Api_template.topmost Api_template.item list =
+let pages : 'a. unit -> 'a Api_template.item list =
+  fun () ->
   let open Api_template in
   let props =
     make_template_props
-      ~title:"Сервер"
+      ~title:"HTTPS"
       ~post_scripts:[Src "/js/server_config.js"]
       () in
   simple
     ~restrict:[`Operator; `Guest]
     ~priority:(`Index 10)
-    ~title:"Сервер"
-    ~icon:(make_icon Components_tyxml.Svg_icons.lan)
+    ~title:"HTTPS сервер"
+    ~icon:(make_icon Components_tyxml.Svg_icons.server_security)
     ~path:(Path.of_string "settings/server")
     props

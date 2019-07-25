@@ -15,7 +15,8 @@ let icon x =
   let icon = create [path] () in
   Tyxml.Html.toelt icon
 
-let user_pages : Api_template.topmost Api_template.item list =
+let user_pages : 'a. unit -> 'a Api_template.item list =
+  fun () ->
   let open Api_template in
   let props =
     make_template_props
@@ -27,7 +28,7 @@ let user_pages : Api_template.topmost Api_template.item list =
     ~restrict:[`Operator; `Guest]
     ~priority:(`Index 10)
     ~title:"Пользователи"
-    ~icon:(icon Components_tyxml.Svg_icons.settings)
+    ~icon:(icon Components_tyxml.Svg_icons.account)
     ~path:(Path.of_string "settings/user")
     props
 
@@ -253,12 +254,16 @@ let create templates (app : Application.t) foreign_pages foreing_handlers =
   let proc_pages = match app.proc with
     | None -> []
     | Some proc -> proc#pages () in
+  let settings_subtree =
+    Api_template.subtree
+      ~title:"Настройки"
+      (Pc_control_http.network_pages ()
+       @ user_pages ()
+       @ foreign_pages) in
   let templates =
-    Pc_control_http.network_pages
+    settings_subtree
     @ (application_pages app)
     @ proc_pages
-    @ user_pages
-    @ foreign_pages
   in
   let application_api = application_handlers app in
   let board_api =

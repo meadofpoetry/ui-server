@@ -68,6 +68,14 @@ html, body {
     }
 }
 
+.main-drawer {
+    .mdc-list-divider {
+        &:first-child, &:last-child {
+            display: none;
+        }
+    }
+}
+
 .mdc-drawer .mdc-drawer__header {
     display: flex;
     padding: 16px;

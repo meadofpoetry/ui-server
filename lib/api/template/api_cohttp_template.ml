@@ -54,10 +54,12 @@ module Make (User : USER) = struct
   type priority = [ `Index of int | `None ]
 
   type 'a item_local =
-    Item : ('b, user -> Mustache.Json.value option) Netlib.Uri.Path.Format.t (* PATH *)
-           * (user -> Mustache.Json.value option) (* Item generator *)
-           * (user -> Mustache.Json.value option) (* Content generator, 'b if args will be needed *)
-           -> 'a item_local
+      Item : ('b, user -> Mustache.Json.value option) Netlib.Uri.Path.Format.t (* PATH *)
+             * subitems
+             * (user -> Mustache.Json.value option) (* Item generator *)
+             * (user -> Mustache.Json.value option) (* Content generator, 'b if args will be needed *)
+        -> 'a item_local
+  and subitems = [`Subtree of inner item_local list | `Simple ]
 
   type 'a item = priority * 'a item_local
 
@@ -168,13 +170,13 @@ module Make (User : USER) = struct
     | None   -> `Null
 
   let make_subitems user lst : Mustache.Json.value list =
-    let convert (Item (_, it, _)) =
+    let convert (Item (_, _, it, _)) =
       match it user with
       | None -> `Null
       | Some v -> v
     in List.map convert lst
 
-  let make_node ~template paths gen_item_list (Item (path, _items, cont)) =
+  let make_node ~template paths gen_item_list (Item (path, _, _, cont)) =
     let table = Hashtbl.create 16 in
     (* Check if the same path was added twice *)
     if Uri.Path.Format.has_template paths path
@@ -192,21 +194,26 @@ module Make (User : USER) = struct
                       ; "username", `String (User.to_string user)
                       ; "usericon", `String ""
                       ; "usercolor", `String "" ] in
-             match cont user with
-             | Some `O c -> `O (c @ nav)
-             | _ -> `O nav
-           in
-           let v = Mustache.render template params in
-           Hashtbl.replace table user v;
-           Some (`String v)
+            match cont user with
+            | Some `O c -> `O (c @ nav)
+            | _ -> `O nav
+          in
+          let v = Mustache.render template params in
+          Hashtbl.replace table user v;
+          Some (`String v)
       in Uri.Path.Format.kprint gen_template path
     in
     Uri.Dispatcher.make ~path ~query:Uri.Query.[] generate
     |> Uri.Dispatcher.map_node (fun f ->
-           fun user _body _env _state ->
-           match f user with
-           | Some `String s -> Lwt.return (`Instant (respond_string s ()))
-           | _ -> Lwt.return (`Error "unknown template error"))
+        fun user _body _env _state ->
+          match f user with
+          | Some `String s -> Lwt.return (`Instant (respond_string s ()))
+          | _ -> Lwt.return (`Error "unknown template error"))
+
+  let make_nodes ~template paths gen_item_list item =
+    match item with
+    | Item (_, `Simple, _, _) as item -> [make_node ~template paths gen_item_list item]
+    | Item (_, `Subtree x, _, _) -> List.map (make_node ~template paths gen_item_list) x
 
   let reference ?(restrict=[]) ?(priority=`None) ~title ~href =
     let not_allowed id = List.exists (User.equal id) restrict in
@@ -221,9 +228,23 @@ module Make (User : USER) = struct
           ])
     in
     let it = Item ( Uri.Path.Format.of_string @@ Uri.to_string href
+                  , `Simple
                   , item
                   , fun _ -> None)
     in [ priority, it ]
+
+  let parametric ?(restrict=[]) ~path  props : 'a item list =
+    let not_allowed id = List.exists (User.equal id) restrict in
+    let content user =
+      if not_allowed user
+      then None
+      else Some (`O (make_template user props))
+    in
+    let it = Item ( path
+                  , `Simple
+                  , (fun _ -> None)
+                  , content)
+    in [ `None, it ]
 
   let simple ?(restrict=[]) ?(priority=`None) ~title ?icon ~path props =
     let not_allowed id = List.exists (User.equal id) restrict in
@@ -243,21 +264,10 @@ module Make (User : USER) = struct
       else Some (`O (make_template user props))
     in
     let it = Item ( Uri.Path.Format.of_string @@ Uri.Path.to_string path
+                  , `Simple
                   , item
                   , content)
     in [ priority, it ]
-
-  let parametric ?(restrict=[]) ~path  props : 'a item list =
-    let not_allowed id = List.exists (User.equal id) restrict in
-    let content user =
-      if not_allowed user
-      then None
-      else Some (`O (make_template user props))
-    in
-    let it = Item ( path
-                  , (fun _ -> None)
-                  , content)
-    in [ `None, it ]
 
   let subtree ?(restrict=[]) ?priority ~title ?icon (list : inner item list) =
     let not_allowed id = List.exists (User.equal id) restrict in
@@ -266,10 +276,8 @@ module Make (User : USER) = struct
       | None -> list_max ~default:`None priority_compare (List.map fst list)
     in
     let list =
-      list
-      |> List.sort priority_compare_pair
-      |> List.map snd
-    in
+      List.map snd
+      @@ List.sort priority_compare_pair list in
     let item user =
       if not_allowed user
       then None
@@ -282,6 +290,7 @@ module Make (User : USER) = struct
                  ; "subtree", `A subtree ])
     in
     let it = Item ( Uri.Path.Format.of_string ""
+                  , `Subtree list
                   , item
                   , fun _ -> None) in
     [ priority, it ]
@@ -294,7 +303,7 @@ module Make (User : USER) = struct
       | None -> filter_opt tl
       | Some v -> v :: filter_opt tl
 
-  let make ~template list =
+  let make ~template (list : topmost item list) =
     let template = Mustache.of_string template in
     let paths = Uri.Path.Format.templates () in
     let list =
@@ -303,9 +312,11 @@ module Make (User : USER) = struct
       |> List.map snd
     in
     let gen_item_list user =
-      List.map (fun (Item (_,f,_)) -> f user) list
+      List.map (fun (Item (_, _, f, _)) -> f user) list
       |> filter_opt
     in
-    List.map (fun node -> `GET, make_node paths ~template gen_item_list node) list
-                       
+    List.flatten
+    @@ List.map (fun node ->
+        List.map (fun x -> `GET, x)
+        @@ make_nodes paths ~template gen_item_list node) list
 end

@@ -23,11 +23,12 @@ let network_handlers (network : Pc_control.Network.t) =
         (Pc_control.Network_api.set_config network)
     ]
 
-let network_pages : Api_template.topmost Api_template.item list =
+let network_pages : 'a. unit -> 'a Api_template.item list =
+  fun () ->
   let open Api_template in
   let props =
     make_template_props
-      ~title:"Сеть"
+      ~title:"Настройки LAN"
       ~post_scripts:[Src "/js/page-network-settings.js"]
       ~stylesheets:["/css/page-network-settings.min.css"]
       ()
@@ -41,7 +42,7 @@ let network_pages : Api_template.topmost Api_template.item list =
   simple
     ~restrict:[`Operator; `Guest]
     ~priority:(`Index 10)
-    ~title:"Сеть"
+    ~title:"LAN"
     ~icon:(icon Components_tyxml.Svg_icons.lan)
     ~path:(Path.of_string "settings/network")
     props
