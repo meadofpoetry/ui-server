@@ -262,7 +262,7 @@ let create templates (app : Application.t) foreign_pages foreing_handlers =
        @ foreign_pages) in
   let templates =
     settings_subtree
-    @ (application_pages app)
+    @ application_pages app
     @ proc_pages
   in
   let application_api = application_handlers app in

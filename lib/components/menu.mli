@@ -50,7 +50,7 @@ class t : ?body:Dom_html.element Js.t
 
     method private notify_selected : Dom_html.element Js.t -> unit
 
-    method private handle_item_action : Dom_html.element Js.t -> unit Lwt.t
+    method private handle_item_action : Item_list.Event.detail Js.t -> unit Lwt.t
 
     (** Handles toggling the selected classes in a selection group
         when a selection is made. *)

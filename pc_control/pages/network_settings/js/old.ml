@@ -28,42 +28,6 @@ let equal_option (f : 'a -> 'a -> bool) o1 o2 = match o1, o2 with
   | None, Some _ | Some _, None -> false
   | Some a, Some b -> f a b
 
-let make_eth (eth : Network_config.ethernet_conf) =
-  let eth_head = Card.Primary.make
-      [Card.Primary.make_title "Настройки устройства"] in
-
-  let of_string x = match Macaddr.of_string x with
-    | Ok _ as v -> v
-    | Error (`Msg m) -> Error ("Неверный мак адрес " ^ m)
-  in
-  let to_string x = Macaddr.to_string x in
-  let address = Textfield.make_textfield
-      ~label:"MAC адрес"
-      (Custom { of_string
-              ; to_string
-              ; input_type = `Text
-              }) in
-  (* let signal, push =
-   *   S.create ~eq:Network_config.equal_ethernet_conf eth in *)
-
-  let set (eth : Network_config.ethernet_conf) = address#set_value eth.mac_address in
-
-  let media = Card.Media.make [Box.make ~dir:`Column [address#widget]] in
-  media#root##.style##.margin := Utils.px_js 15;
-  let eth_sets  = Card.make [eth_head#widget; media#widget] in
-
-  let signal =
-    (* S.l2 ~eq:Network_config.equal_ethernet_conf
-     *   (fun (config : Network_config.ethernet_conf) mac_address ->
-     *      match mac_address with
-     *      | None -> config
-     *      | Some mac_address -> { mac_address })
-     *   signal address#s_input *)
-    React.S.const eth
-  in
-
-  eth_sets, signal, set
-
 let make_dns (_dns : Ipaddr.V4.t list) =
   let make_dns_entry del_dns addr =
     let text = Ipaddr.V4.to_string addr in

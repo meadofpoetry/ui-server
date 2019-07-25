@@ -91,13 +91,13 @@ let pages : 'a. unit -> 'a Api_template.item list =
   let open Api_template in
   let props =
     make_template_props
-      ~title:"HTTPS"
+      ~title:"Безопасность"
       ~post_scripts:[Src "/js/server_config.js"]
       () in
   simple
     ~restrict:[`Operator; `Guest]
     ~priority:(`Index 10)
-    ~title:"HTTPS сервер"
+    ~title:"Безопасность"
     ~icon:(make_icon Components_tyxml.Svg_icons.server_security)
     ~path:(Path.of_string "settings/server")
     props
