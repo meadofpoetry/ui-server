@@ -37,6 +37,13 @@
     align-items: center;
 }
 
+.settings-section__dialog {
+    .mdc-dialog__content {
+        display: flex;
+        flex-direction: column;
+    }
+}
+
 .mdc-list:empty {
     display: none;
 }
@@ -45,7 +52,7 @@
     display: none;
 }
 
-.settings-section#ip-config {
+.settings-section#ip-config, .settings-section__dialog {
     .mdc-form-field {
         margin-bottom: 1rem;
         label {

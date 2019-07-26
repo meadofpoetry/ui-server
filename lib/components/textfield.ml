@@ -570,9 +570,11 @@ class ['a] t ?on_input
            let set_custom_validity s : unit =
              (Js.Unsafe.coerce input_elt)##setCustomValidity
                (Js.string s) in
-           (match of_string self#value_as_string with
-            | Ok _ -> set_custom_validity ""
-            | Error e -> set_custom_validity e)
+           let raw_value = self#value_as_string in
+           (match raw_value, of_string raw_value with
+            | _, Ok _ -> set_custom_validity ""
+            | "", Error _ -> set_custom_validity ""
+            | _, Error e -> set_custom_validity e)
          | _ -> ());
         self#is_native_input_valid ())
       else _is_valid

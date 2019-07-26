@@ -29,7 +29,9 @@ class t (elt : Dom_html.element Js.t) = object
     mac#set_value x.mac_address
 
   method value : Network_config.ethernet_conf option =
-    None
+    match mac#value with
+    | None -> None
+    | Some mac_address -> Some { Network_config. mac_address }
 
 end
 

@@ -5,6 +5,7 @@ module CSS = struct
   let root = "settings-section"
   let title = BEM.add_element root "title"
   let header = BEM.add_element root "header"
+  let dialog = BEM.add_element root "dialog"
   let empty_placeholder = BEM.add_element root "empty-placeholder"
 end
 
@@ -87,17 +88,12 @@ module Make(Xml : Xml_sigs.NoWrap)
 
     let gateway_input_id = "gateway"
 
-    let mask_of_int32 (x : int32) =
-      Ipaddr.V4.of_int32
-      @@ Int32.logxor
-        0xFFFF_FFFFl
-        Int32.(sub (shift_left 1l (32 - to_int x)) 1l)
-
     let make ?classes ?(attrs = []) (v : Network_config.ipv4_conf) : 'a elt =
       let ip_value = Ipaddr.V4.to_string (fst v.address) in
       let mask_value =
         Ipaddr.V4.to_string
-        @@ mask_of_int32
+        @@ Ipaddr.V4.Prefix.mask
+        @@ Int32.to_int
         @@ snd v.address in
       let gateway_value = match v.routes.gateway with
         | None -> None

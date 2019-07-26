@@ -10,15 +10,6 @@ let ( >>= ) = Lwt.bind
 
 let name = "DNS"
 
-let validation = Textfield.(
-    Custom { input_type = `Text
-           ; to_string = Ipaddr.V4.to_string
-           ; of_string = fun x ->
-               match Ipaddr.V4.of_string x with
-               | Error `Msg s -> Error s
-               | Ok _ as x -> x
-           })
-
 let make_dialog () =
   let accept =
     Button.attach
@@ -30,7 +21,7 @@ let make_dialog () =
     Textfield.make_textfield
       ~on_input:(fun _ x -> check_input x; Lwt.return_unit)
       ~label:"IP адрес"
-      validation in
+      Util.ipv4_validation in
   let title =
     Tyxml_js.To_dom.of_element
     @@ Dialog.Markup.create_title_simple ~title:"Добавление DNS сервера" () in
@@ -49,7 +40,6 @@ let make_dialog () =
      >>= function
      | Close | Destroy | Custom _ -> Lwt.return_none
      | Accept -> Lwt.return address#value)
-
 
 let failwith s = failwith @@ Printf.sprintf "%s: %s" name s
 
@@ -82,10 +72,13 @@ class t (elt : Dom_html.element Js.t) = object(self)
 
   method! initial_sync_with_dom () : unit =
     _listeners <- Lwt_js_events.(
-        [ seq_loop (make_event Item_list.Event.action) super#root self#handle_item_action
+        [ seq_loop (make_event Item_list.Event.action) super#root
+            self#handle_item_action
         ; clicks add#root (fun _ _ ->
               (snd dialog) ()
-              >>= fun _ -> Lwt.return_unit)
+              >>= function
+              | None -> Lwt.return_unit
+              | Some addr -> self#append_address addr; Lwt.return_unit)
         ]);
     super#initial_sync_with_dom ()
 
@@ -98,6 +91,20 @@ class t (elt : Dom_html.element Js.t) = object(self)
     _ripples <- [];
     super#destroy ()
 
+  method set_value (x : Ipaddr.V4.t list) =
+    let rec aux = function
+      | [], addr -> List.iter self#append_address addr
+      | items, [] -> List.iter self#remove_item items
+      | item :: x, addr :: y ->
+        let s = Ipaddr.V4.to_string addr in
+        let children = Dom.list_of_nodeList item##.childNodes in
+        let text = List.find (fun x -> match x##.nodeType with
+            | Dom.TEXT -> true
+            | _ -> false) children in
+        (Js.Unsafe.coerce text)##.textContent := Js.some @@ Js.string s;
+        aux (x, y) in
+    aux (dns_list#items, x)
+
   method value : Ipaddr.V4.t list =
     let result_to_option = function
       | Ok x -> Some x | Error _ -> None in
@@ -107,10 +114,20 @@ class t (elt : Dom_html.element Js.t) = object(self)
           (result_to_option % Ipaddr.V4.of_string % Js.to_string))
       dns_list#items
 
+  method private append_address (x : Ipaddr.V4.t) =
+    let item =
+      Tyxml_js.To_dom.of_element
+      @@ Settings_section.DNS.make_item x in
+    Element.append_child dns_list#root item;
+    _ripples <- (item, Ripple.attach item) :: _ripples;
+    dns_list#layout ()
+
   method private remove_item (item : Dom_html.element Js.t) : unit =
     (match List.find_opt (Element.equal item % fst) _ripples with
      | None -> ()
-     | Some (_, r) -> Ripple.destroy r);
+     | Some (_, r) ->
+       _ripples <- List.filter (Element.equal item % fst) _ripples;
+       Ripple.destroy r);
     Element.remove_child_safe dns_list#root item
 
   method private handle_item_action e _ : unit Lwt.t =
