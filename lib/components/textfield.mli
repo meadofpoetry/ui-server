@@ -96,10 +96,6 @@ module Helper_text : sig
   val attach : #Dom_html.element Js.t -> t
 end
 
-type event =
-  | Mouse of Dom_html.mouseEvent Js.t
-  | Touch of Dom_html.touchEvent Js.t
-
 type 'a validation =
   | Email : string validation
   | Integer : (int option * int option) -> int validation
@@ -213,7 +209,10 @@ class type ['a] t =
 
     (** Sets the line ripple's transform origin, so that the line ripple activate
         animation will animate out from the user's click location. *)
-    method private set_transform_origin : event -> unit
+    method private set_transform_origin :
+      'a. (#Dom_html.event as 'a) Js.t
+      -> unit Lwt.t
+      -> unit Lwt.t
 
     (** Activates the Text Field's focus state in cases when the input value
         changes without user input (e.g. programmatically). *)
@@ -223,7 +222,10 @@ class type ['a] t =
     method private handle_input : Dom_html.event Js.t -> unit Lwt.t -> unit Lwt.t
 
     (** Handles user interactions with the Text Field. *)
-    method private handle_text_field_interaction : unit -> unit
+    method private handle_text_field_interaction :
+      'a. (#Dom_html.event as 'a) Js.t
+      -> unit Lwt.t
+      -> unit Lwt.t
 
     (** Handles validation attribute changes. *)
     method private handle_validation_attribute_change : string list -> unit
@@ -295,27 +297,30 @@ val make_textfield : ?on_input:(Dom_html.event Js.t -> 'a t -> unit Lwt.t)
   -> ?leading_icon:#Widget.t
   -> ?trailing_icon:#Widget.t
   -> ?label:string
+  -> ?use_native_validation:bool
   -> 'a validation -> 'a t
 
-val make_textarea : ?on_input:(Dom_html.event Js.t -> string t -> unit Lwt.t) ->
-  ?disabled:bool ->
-  ?fullwidth:bool ->
-  ?focused:bool ->
-  ?input_id:string ->
-  ?min_length:int ->
-  ?max_length:int ->
-  ?rows:int ->
-  ?cols:int ->
-  ?value:string ->
-  ?placeholder:string ->
-  ?required:bool ->
-  ?helper_text:Helper_text.t ->
-  ?character_counter:Character_counter.t ->
-  ?label:string ->
-  unit -> string t
+val make_textarea : ?on_input:(Dom_html.event Js.t -> string t -> unit Lwt.t)
+  -> ?disabled:bool
+  -> ?fullwidth:bool
+  -> ?focused:bool
+  -> ?input_id:string
+  -> ?min_length:int
+  -> ?max_length:int
+  -> ?rows:int
+  -> ?cols:int
+  -> ?value:string
+  -> ?placeholder:string
+  -> ?required:bool
+  -> ?helper_text:Helper_text.t
+  -> ?character_counter:Character_counter.t
+  -> ?label:string
+  -> unit
+  -> string t
 
-val attach : ?on_input:(Dom_html.event Js.t -> 'a t -> unit Lwt.t) ->
-  ?helper_text:Helper_text.t ->
-  ?character_counter:Character_counter.t ->
-  ?validation:'a validation ->
-  #Dom_html.element Js.t -> 'a t
+val attach : ?on_input:(Dom_html.event Js.t -> 'a t -> unit Lwt.t)
+  -> ?helper_text:Helper_text.t
+  -> ?character_counter:Character_counter.t
+  -> ?use_native_validation:bool
+  -> ?validation:'a validation
+  -> #Dom_html.element Js.t -> 'a t
