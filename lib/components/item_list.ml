@@ -36,7 +36,12 @@ module Selector = struct
 end
 
 module Event = struct
-  let (action : Dom_html.element Js.t Widget.custom_event Js.t Dom_html.Event.typ) =
+  class type detail = object
+    method item : Dom_html.element Js.t Js.readonly_prop
+    method originalEvent : Dom_html.event Js.t Js.readonly_prop
+  end
+
+  let (action : detail Js.t Widget.custom_event Js.t Dom_html.Event.typ) =
     Dom_html.Event.make "item-list:action"
 end
 
@@ -484,8 +489,12 @@ class t (elt : Dom_html.element Js.t) () =
       then self#toggle_checkbox ?toggle item
       else self#set_selected [item]
 
-    method private notify_action (item : Dom_html.element Js.t) : unit =
-      super#emit ~detail:item ~should_bubble:true Event.action
+    method private notify_action e (item : Dom_html.element Js.t) : unit =
+      let (detail : Event.detail Js.t) = object%js
+        val item = item
+        val originalEvent = e
+      end in
+      super#emit ~detail ~should_bubble:true Event.action
 
     method private handle_keydown (e : Dom_html.keyboardEvent Js.t)
         (_ : unit Lwt.t) : unit Lwt.t =
@@ -528,7 +537,7 @@ class t (elt : Dom_html.element Js.t) () =
                   prevent_default_event e;
                   if self#is_selectable_list
                   then self#set_selected_item_on_action active;
-                  self#notify_action active;
+                  self#notify_action (e :> Dom_html.event Js.t) active;
                   None, false))
               else None, false
             | _ -> None, false in
@@ -551,7 +560,7 @@ class t (elt : Dom_html.element Js.t) () =
           let toggle = not @@ Element.matches target Selector.checkbox_radio in
           if self#is_selectable_list
           then self#set_selected_item_on_action ~toggle item;
-          self#notify_action item;
+          self#notify_action (e :> Dom_html.event Js.t) item;
           set_tab_index ?prev:_focused_item items item;
           _focused_item <- Some item)
       @@ list_item_of_event items (e :> Dom_html.event Js.t);

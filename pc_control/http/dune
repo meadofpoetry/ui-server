@@ -1,3 +1,5 @@
 (library
   (name      pc_control_http)
-  (libraries pc_control api_cohttp_template))
+  (libraries pc_control
+             api_cohttp_template
+             page_network_settings_tyxml))

@@ -1,0 +1,84 @@
+@import "@material/theme/mixins";
+@import "@material/typography/mixins";
+@import "@material/card/variables";
+@import "./variables";
+
+.network-settings {
+    max-width: $max-width;
+    width: 100%;
+    margin: 0 auto;
+
+    > .mdc-button {
+        margin-top: 25px;
+    }
+}
+
+.settings-section {
+    display: flex;
+    flex-direction: column;
+    outline: none;
+    position: relative;
+
+    &__title {
+        @include mdc-typography(subtitle1);
+        margin-top: 21px;
+        margin-bottom: 12px;
+        padding-top: 8px;
+        padding-bottom: 4px;
+    }
+}
+
+.settings-section__empty-placeholder {
+    @include mdc-typography(body2);
+    @include mdc-theme-prop(color, text-hint-on-surface);
+    padding: 1rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.settings-section__dialog {
+    .mdc-dialog__content {
+        display: flex;
+        flex-direction: column;
+    }
+}
+
+.mdc-list:empty {
+    display: none;
+}
+
+.mdc-list:not(:empty) ~ .settings-section__empty-placeholder {
+    display: none;
+}
+
+.settings-section#ip-config, .settings-section__dialog {
+    .mdc-form-field {
+        margin-bottom: 1rem;
+        label {
+            margin-left: 0;
+        }
+    }
+    .mdc-text-field:not(:last-child) {
+        margin-bottom: 1rem;
+    }
+}
+
+.settings-section#ip-config, .settings-section#ethernet-config {
+    .mdc-card {
+        padding: 1rem;
+    }
+}
+
+.settings-section#dns-config, .settings-section#routes-config {
+    .mdc-card__actions {
+        border-top-style: solid;
+        border-top-width: $mdc-card-outline-width;
+        @include mdc-theme-prop(border-top-color, $mdc-card-outline-color);
+    }
+    .mdc-list-item__meta {
+        * {
+            pointer-events: none;
+        }
+    }
+}

@@ -23,12 +23,14 @@ let network_handlers (network : Pc_control.Network.t) =
         (Pc_control.Network_api.set_config network)
     ]
 
-let network_pages : Api_template.topmost Api_template.item list =
+let network_pages : 'a. unit -> 'a Api_template.item list =
+  fun () ->
   let open Api_template in
   let props =
     make_template_props
-      ~title:"Сеть"
-      ~post_scripts:[Src "/js/network.js"]
+      ~title:"Сетевые настройки"
+      ~post_scripts:[Src "/js/page-network-settings.js"]
+      ~stylesheets:["/css/page-network-settings.min.css"]
       ()
   in
   let icon x =

@@ -8,8 +8,15 @@ module Api_template = Api_cohttp_template.Make(User)
 module Api_websocket = Api_websocket.Make(User)(Body)(Body_ws)
 
 module Icon = Components_tyxml.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
-                    
-let user_pages : Api_template.topmost Api_template.item list =
+
+let icon x =
+  let open Icon.SVG in
+  let path = create_path x () in
+  let icon = create [path] () in
+  Tyxml.Html.toelt icon
+
+let user_pages : 'a. unit -> 'a Api_template.item list =
+  fun () ->
   let open Api_template in
   let props =
     make_template_props
@@ -17,19 +24,14 @@ let user_pages : Api_template.topmost Api_template.item list =
       ~post_scripts:[Src "/js/user.js"]
       ~stylesheets:["/css/user.min.css"]
       () in
-  let icon x =
-    let open Icon.SVG in
-    let path = create_path x () in
-    let icon = create [path] () in
-    Tyxml.Html.toelt icon in
   simple
     ~restrict:[`Operator; `Guest]
     ~priority:(`Index 10)
     ~title:"Пользователи"
-    ~icon:(icon Components_tyxml.Svg_icons.settings)
+    ~icon:(icon Components_tyxml.Svg_icons.account)
     ~path:(Path.of_string "settings/user")
     props
-                
+
 let user_handlers (users : Application.User_api.t) =
   let open Api_http in
   make ~prefix:"user"
@@ -48,12 +50,6 @@ let user_handlers (users : Application.User_api.t) =
 
 let input topo (input : Topology.topo_input) =
   let open Api_template in
-  let icon x =
-    let open Icon.SVG in
-    let path = create_path x () in
-    let icon = create [path] () in
-    Tyxml.Html.toelt icon
-  in
   let get_input_href (x : Topology.topo_input) =
     let name = Topology.input_to_string x.input in
     let id = string_of_int x.id in
@@ -133,7 +129,7 @@ let application_pages (app : Application.t) =
       ~title:"Конфигурация"
       ~pre_scripts:[Src "/js/ResizeObserver.js"]
       ~post_scripts:[Src "/js/page-topology.js"]
-      ~stylesheets:["/css/topology.min.css"]
+      ~stylesheets:["/css/page-topology.min.css"]
       ()
   in
   let _demo_props =
@@ -258,12 +254,16 @@ let create templates (app : Application.t) foreign_pages foreing_handlers =
   let proc_pages = match app.proc with
     | None -> []
     | Some proc -> proc#pages () in
+  let settings_subtree =
+    Api_template.subtree
+      ~title:"Настройки"
+      (Pc_control_http.network_pages ()
+       @ user_pages ()
+       @ foreign_pages) in
   let templates =
-    Pc_control_http.network_pages
-    @ (application_pages app)
+    settings_subtree
+    @ application_pages app
     @ proc_pages
-    @ user_pages
-    @ foreign_pages
   in
   let application_api = application_handlers app in
   let board_api =

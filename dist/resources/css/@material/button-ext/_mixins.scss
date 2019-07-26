@@ -6,7 +6,7 @@
             opacity: 0;
         }
         .mdc-button__loader-container {
-            display: block;
+            display: flex;
         }
     }
 
@@ -17,10 +17,9 @@
 
 @mixin mdc-button__loader-container_ {
     display: none;
-    align-items: center;
-    display: flex;
     height: 100%;
     justify-content: center;
+    align-items: center;
     left: 0;
     position: absolute;
     top: 0;

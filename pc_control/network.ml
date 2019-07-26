@@ -1,4 +1,5 @@
 open Nm
+open Pc_control_types
 
 module String_map = Map.Make(String)
 module React = Util_react
@@ -397,9 +398,10 @@ module Conf = Storage.Config.Make(Network_settings)
  *)
 module Net_options = Kv_v.RW (Network_config)
 
-type t = { intern : eth_connection
-         ; extern : (eth_connection * Net_options.t) option
-         }
+type t =
+  { intern : eth_connection
+  ; extern : (eth_connection * Net_options.t) option
+  }
 
 type error =
   [ apply_error

@@ -132,7 +132,8 @@ class t ?body ?viewport ?list ?(focus_on_open = true) (elt : Dom_html.element Js
         Lwt.return ()
       | _ -> Lwt.return ()
 
-    method private handle_item_action (item : Dom_html.element Js.t) : unit Lwt.t =
+    method private handle_item_action detail : unit Lwt.t =
+      let item = detail##.item in
       self#notify_selected item;
       super#close ()
       >>= fun () -> Lwt_js.sleep Menu_surface.Const.transition_close_duration_s

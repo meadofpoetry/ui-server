@@ -65,7 +65,7 @@ let pages () : Api_template.topmost Api_template.item list =
           ()]
       ~pre_scripts:[Src "/js/adapter.min.js"]
       ~post_scripts:[Src "/js/page-mosaic-video.js"]
-      ~stylesheets:["/css/mosaic_video.min.css"]
+      ~stylesheets:["/css/page-mosaic-video.min.css"]
       ~content:[Tyxml.Html.toelt @@ Mosaic_video_template.make_player ()]
       ()
   in
@@ -87,7 +87,7 @@ let pages () : Api_template.topmost Api_template.item list =
                      ())
       ~pre_scripts:[Src "/js/ResizeObserver.js"]
       ~post_scripts:[Src "/js/page-mosaic-editor.js"]
-      ~stylesheets:["/css/mosaic_editor.min.css"]
+      ~stylesheets:["/css/page-mosaic-editor.min.css"]
       ~content:[]
       ()
   in

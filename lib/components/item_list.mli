@@ -7,7 +7,11 @@ module Markup : sig
 end
 
 module Event : sig
-  val action : Dom_html.element Js.t Widget.custom_event Js.t Dom_html.Event.typ
+  class type detail = object
+    method item : Dom_html.element Js.t Js.readonly_prop
+    method originalEvent : Dom_html.event Js.t Js.readonly_prop
+  end
+  val action : detail Js.t Widget.custom_event Js.t Dom_html.Event.typ
 end
 
 module Item : sig
@@ -123,7 +127,7 @@ class type t =
                      unit
 
     (** Notifies a user that item was selected. *)
-    method private notify_action : Dom_html.element Js.t -> unit
+    method private notify_action : Dom_html.event Js.t -> Dom_html.element Js.t -> unit
 
     (** Handles `keydown` event. *)
     method private handle_keydown :

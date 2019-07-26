@@ -1,0 +1,12 @@
+(executable
+  (name       page_network_settings)
+  (libraries  page_network_settings_tyxml
+              pc_control_http_js
+              components
+              ui_templates)
+  (preprocess (pps js_of_ocaml-ppx)))
+
+(install
+  (files (page_network_settings.bc.js as js/page-network-settings.js))
+  (section share)
+  (package ui-server))

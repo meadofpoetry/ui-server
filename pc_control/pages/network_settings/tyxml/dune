@@ -1,0 +1,4 @@
+(library
+  (name page_network_settings_tyxml)
+  (libraries components_tyxml
+             pc_control_types))

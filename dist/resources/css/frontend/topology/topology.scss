@@ -4,6 +4,12 @@
 @import '@material/side-sheet/mixins';
 @import './_mixins';
 
+@import "../application/application";
+@import "../pipeline/widgets";
+@import "../boards/niitv_dvb";
+@import "../boards/niitv_tsan";
+@import "../boards/dektec_dtm3200";
+
 $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
 $error-surface: $material-color-red-200;
 $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #fff) !default;
