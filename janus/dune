@@ -1,6 +1,0 @@
-(library
-  (name        janus)
-  (wrapped     false)
-  (synopsis    "jsoo wrapper for janus webrtc lib")
-  (libraries   lwt react js_of_ocaml)
-  (preprocess  (pps js_of_ocaml-ppx)))

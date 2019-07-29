@@ -23,9 +23,9 @@ let () =
         ; E.map (fun x -> `Streams x) streams_event
         ] in
     editor#set_on_destroy (fun () ->
-        React.E.stop ~strong:true notif;
-        React.E.stop ~strong:true wm_event;
-        React.E.stop ~strong:true streams_event;
+        E.stop ~strong:true notif;
+        E.stop ~strong:true wm_event;
+        E.stop ~strong:true streams_event;
         Api_js.Websocket.close_socket socket);
     Lwt.return_ok editor in
   let body = Ui_templates.Loader.create_widget_loader thread in

@@ -1,9 +1,0 @@
-(library
-  (name      server_js)
-  (libraries server_types
-             api_js
-             application_types
-             components
-             lwt
-             util_react)
-  (preprocess (pps js_of_ocaml-ppx)))

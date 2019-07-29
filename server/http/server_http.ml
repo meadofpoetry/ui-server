@@ -92,7 +92,7 @@ let pages : 'a. unit -> 'a Api_template.item list =
   let props =
     make_template_props
       ~title:"Безопасность"
-      ~post_scripts:[Src "/js/server_config.js"]
+      ~post_scripts:[Src "/js/page-server-settings.js"]
       () in
   simple
     ~restrict:[`Operator; `Guest]

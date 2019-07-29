@@ -3,8 +3,6 @@ open Application_types
 open Netlib.Uri
 open Js_of_ocaml
 
-open Lwt.Infix
-
 module Api_http = Api_js.Http.Make(Body)
 
 let make_card user =
@@ -95,5 +93,11 @@ let make_card user =
       ] in
   cont
 
-let page user =
-  (make_card user)#widget
+let () =
+  let user = Js_of_ocaml.(Js.to_string @@ Js.Unsafe.variable "username") in
+  let user = match Application_types.User.of_string user with
+    | Error e -> failwith e
+    | Ok user -> user
+  in
+  let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
+  scaffold#set_body (make_card user)#widget

@@ -1,0 +1,11 @@
+(executable
+  (name       page_server_settings)
+  (libraries  components
+              application_types
+              api_js)
+  (preprocess (pps js_of_ocaml-ppx)))
+
+(install
+  (files (page_server_settings.bc.js as js/page-server-settings.js))
+  (section share)
+  (package ui-server))
