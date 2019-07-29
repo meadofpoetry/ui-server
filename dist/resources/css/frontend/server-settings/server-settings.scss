@@ -1,0 +1,33 @@
+@import "@material/theme/mixins";
+@import "@material/typography/mixins";
+
+.certificate-viewer {
+    
+}
+
+.certificate-viewer-groups {
+    display: table;
+    &__row {
+        display: table-row;
+    }
+
+    &__title h3 {
+        @include mdc-typography(caption);
+    }
+
+    &__attribute {
+        white-space: nowrap;
+    }
+
+    &__value {
+        white-space: pre-wrap;
+    }
+
+    &__attribute, &__value {
+        @include mdc-typography(caption);
+        @include mdc-theme-prop(color, text-hint-on-surface);
+        display: table-cell;
+        line-height: 18px;
+        padding-inline-start: 20px;
+    }
+}

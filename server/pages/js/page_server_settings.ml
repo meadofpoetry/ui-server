@@ -1,9 +1,26 @@
+open Js_of_ocaml
+open Js_of_ocaml_tyxml
 open Components
 open Application_types
 open Netlib.Uri
-open Js_of_ocaml
+open Page_server_settings_tyxml
+
+(* let ( >>= ) = Lwt.bind *)
+
+let ( >>=? ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
 
 module Api_http = Api_js.Http.Make(Body)
+
+let read_file filename =
+  let lines = ref "" in
+  let chan = open_in filename in
+  try
+    while true; do
+      lines := !lines ^ input_line chan ^ "\n";
+    done; !lines
+  with End_of_file ->
+    close_in chan;
+    !lines
 
 let make_card user =
   let _username = match user with
@@ -93,11 +110,26 @@ let make_card user =
       ] in
   cont
 
+module Markup = Cert_viewer.Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
+
 let () =
+  let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
   let user = Js_of_ocaml.(Js.to_string @@ Js.Unsafe.variable "username") in
   let user = match Application_types.User.of_string user with
     | Error e -> failwith e
     | Ok user -> user
   in
-  let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
-  scaffold#set_body (make_card user)#widget
+  let thread =
+    Server_http_js.get_config ()
+    >>=? fun _config ->
+    let tz_offset_s = Ptime_clock.current_tz_offset_s () in
+    let cert =
+      Tyxml_js.To_dom.of_element
+      @@ Markup.of_certificate ?tz_offset_s (match _config.tls_cert with
+          | None -> assert false
+          | Some x -> snd x) in
+    let card = make_card user in
+    Dom.appendChild card#root cert;
+    Lwt.return_ok card in
+  let body = Ui_templates.Loader.create_widget_loader thread in
+  scaffold#set_body body

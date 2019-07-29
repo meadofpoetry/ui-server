@@ -1,8 +1,12 @@
 (executable
   (name       page_server_settings)
-  (libraries  components
+  (libraries  page_server_settings_tyxml
+              components
+              ui_templates
               application_types
-              api_js)
+              api_js
+              server_http_js
+              ptime.clock.jsoo)
   (preprocess (pps js_of_ocaml-ppx)))
 
 (install
