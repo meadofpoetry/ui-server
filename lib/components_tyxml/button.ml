@@ -42,9 +42,9 @@ module Make(Xml : Xml_sigs.NoWrap)
   open Html
   open Utils
 
-  let create_loader_container ?(classes = []) ?attrs loader () : 'a elt =
+  let create_loader_container ?(classes = []) ?(attrs = []) loader () : 'a elt =
     let classes = CSS.loader_container :: classes in
-    div ~a:([a_class classes] <@> attrs) [loader]
+    div ~a:([a_class classes] @ attrs) [loader]
 
   let create_ ?(classes = []) ?appearance
       ?(dense = false) ?icon ?label () =
@@ -61,19 +61,19 @@ module Make(Xml : Xml_sigs.NoWrap)
     cons_option icon @@ map_cons_option make_label label [],
     classes
 
-  let create_anchor ?classes ?attrs ?href ?appearance
+  let create_anchor ?classes ?(attrs = []) ?href ?appearance
       ?dense ?icon ?label () =
     let children, classes =
       create_ ?classes ?appearance ?dense ?icon ?label () in
-    a ~a:([a_class classes] <@> attrs
+    a ~a:([a_class classes] @ attrs
           |> map_cons_option a_href href) children
 
-  let create ?classes ?attrs ?button_type ?appearance
+  let create ?classes ?(attrs = []) ?button_type ?appearance
       ?(disabled = false) ?dense ?icon ?label () =
     let children, classes =
       create_ ?classes ?appearance ?dense ?icon ?label () in
-    button ~a:([a_class classes]
+    button ~a:([a_class classes] @ attrs
                |> map_cons_option a_button_type button_type
-               |> cons_if disabled @@ a_disabled () <@> attrs)
+               |> cons_if disabled @@ a_disabled ())
       children
 end

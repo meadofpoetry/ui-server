@@ -29,6 +29,6 @@ module Make(Xml : Xml_sigs.NoWrap)
          (Html : Html_sigs.NoWrap
           with module Xml := Xml
            and module Svg := Svg) = struct
-  open Html
-  let unbounded_attr = a_user_data "mdc-ripple-is-unbounded" ""
+
+  let unbounded_attr = Html.a_user_data "mdc-ripple-is-unbounded" ""
 end

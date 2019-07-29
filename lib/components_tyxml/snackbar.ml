@@ -47,37 +47,37 @@ module Make(Xml : Xml_sigs.NoWrap)
            and module Svg := Svg) = struct
   open Html
 
-  let create_label ?(classes = []) ?attrs (text : string) () : 'a elt =
+  let create_label ?(classes = []) ?(attrs = []) (text : string) () : 'a elt =
     let classes = CSS.label :: classes in
     div ~a:([ a_class classes
             ; a_aria "live" ["polite"]
             ; a_role ["status"]]
-            <@> attrs)
+            @ attrs)
       [txt text]
 
-  let create_action ?(classes = []) ?attrs (label : string) () : 'a elt =
+  let create_action ?(classes = []) ?(attrs = []) (label : string) () : 'a elt =
     let classes = CSS.action :: Button.CSS.root :: classes in
-    button ~a:([a_class classes] <@> attrs) [txt label]
+    button ~a:([a_class classes] @ attrs) [txt label]
 
-  let create_actions ?(classes = []) ?attrs ?action ?dismiss () : 'a elt =
+  let create_actions ?(classes = []) ?(attrs = []) ?action ?dismiss () : 'a elt =
     let classes = CSS.actions :: classes in
     let actions = action ^:: dismiss ^:: [] in
-    div ~a:([a_class classes] <@> attrs) actions
+    div ~a:([a_class classes] @ attrs) actions
 
-  let create_surface ?(classes = []) ?attrs ?actions ~label () : 'a elt =
+  let create_surface ?(classes = []) ?(attrs = []) ?actions ~label () : 'a elt =
     let classes = CSS.surface :: classes in
-    div ~a:([a_class classes] <@> attrs)
+    div ~a:([a_class classes] @ attrs)
       (match actions with
        | None -> [label]
        | Some actions -> [label; actions])
 
-  let create ?(classes = []) ?attrs ?(leading = false) ?(stacked = false)
+  let create ?(classes = []) ?(attrs = []) ?(leading = false) ?(stacked = false)
         ~(surface : 'a elt) () : 'a elt =
     let (classes : string list) =
       classes
       |> cons_if leading CSS.leading
       |> cons_if stacked CSS.stacked
       |> List.cons CSS.root in
-    div ~a:([a_class classes] <@> attrs) [surface]
+    div ~a:([a_class classes] @ attrs) [surface]
 
 end

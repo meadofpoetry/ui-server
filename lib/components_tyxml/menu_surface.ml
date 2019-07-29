@@ -18,12 +18,12 @@ module Make(Xml : Xml_sigs.NoWrap)
           with module Xml := Xml and module Svg := Svg) = struct
   open Utils
 
-  let create ?(classes = []) ?attrs ?(fixed = false) ?(open_ = false)
+  let create ?(classes = []) ?(attrs = []) ?(fixed = false) ?(open_ = false)
         content () : 'a Html.elt =
     let classes =
       classes
       |> cons_if fixed CSS.fixed
       |> cons_if open_ CSS.open_
       |> List.cons CSS.root in
-    Html.div ~a:([Html.a_class classes] <@> attrs) content
+    Html.div ~a:([Html.a_class classes] @ attrs) content
 end

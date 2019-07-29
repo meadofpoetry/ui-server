@@ -15,31 +15,31 @@ module Make(Xml : Xml_sigs.NoWrap)
   open Utils
 
   module Image = struct
-    let create ?(classes = []) ?attrs ?(dense = false) ~src () =
+    let create ?(classes = []) ?(attrs = []) ?(dense = false) ~src () =
       let classes =
         classes
         |> cons_if dense CSS.dense
         |> List.cons CSS.root in
-      img ~a:([a_class classes] <@> attrs) ~src:(uri_of_string src) ~alt:""
+      img ~a:([a_class classes] @ attrs) ~src:(uri_of_string src) ~alt:""
   end
 
   module Font_icon = struct
-    let create ?(classes = []) ?attrs ?(dense = false) ~icon () =
+    let create ?(classes = []) ?(attrs = []) ?(dense = false) ~icon () =
       let classes =
         classes
         |> cons_if dense CSS.dense
         |> List.cons CSS.root in
-      div ~a:([a_class classes] <@> attrs) [icon]
+      div ~a:([a_class classes] @ attrs) [icon]
   end
 
   module Letter = struct
-    let create ?(classes = []) ?attrs ?(dense = false) ~text () =
+    let create ?(classes = []) ?(attrs = []) ?(dense = false) ~text () =
       let classes =
         classes
         |> cons_if dense CSS.dense
         |> List.cons CSS.letter
         |> List.cons CSS.root in
-      div ~a:([a_class classes] <@> attrs) [txt text]
+      div ~a:([a_class classes] @ attrs) [txt text]
   end
 
 end

@@ -14,10 +14,8 @@ module Make(Xml : Xml_sigs.NoWrap)
          (Html : Html_sigs.NoWrap
           with module Xml := Xml
            and module Svg := Svg) = struct
-  open Html
-  open Utils
 
-  let create ?(classes = []) ?attrs () : 'a elt =
+  let create ?(classes = []) ?(attrs = []) () : 'a Html.elt =
     let classes = CSS.root :: classes in
-    div ~a:([a_class classes] <@> attrs) []
+    Html.(div ~a:([a_class classes] @ attrs) [])
 end

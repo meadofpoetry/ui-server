@@ -88,7 +88,7 @@ module Make(Xml : Xml_sigs.NoWrap)
   open Html
   open Utils
 
-  let create_divider ?(classes = []) ?attrs
+  let create_divider ?(classes = []) ?(attrs = [])
       ?(padded = false) ?(inset = false) ~tag () : 'a elt =
     let (classes : string list) =
       classes
@@ -96,21 +96,23 @@ module Make(Xml : Xml_sigs.NoWrap)
       |> cons_if padded CSS.divider_padded
       |> List.cons CSS.divider in
     tag ~a:([ a_class classes
-            ; a_role ["separator"]] <@> attrs) []
+            ; a_role ["separator"]
+            ]
+            @ attrs) []
 
-  let create_item_primary_text ?(classes = []) ?attrs text () : 'a elt =
+  let create_item_primary_text ?(classes = []) ?(attrs = []) text () : 'a elt =
     let classes = CSS.item_primary_text :: classes in
-    span ~a:([a_class classes] <@> attrs) [txt text]
+    span ~a:([a_class classes] @ attrs) [txt text]
 
-  let create_item_secondary_text ?(classes = []) ?attrs text () : 'a elt =
+  let create_item_secondary_text ?(classes = []) ?(attrs = []) text () : 'a elt =
     let classes = CSS.item_secondary_text :: classes in
-    span ~a:([a_class classes] <@> attrs) [txt text]
+    span ~a:([a_class classes] @ attrs) [txt text]
 
-  let create_item_text ?(classes = []) ?attrs content () : 'a elt =
+  let create_item_text ?(classes = []) ?(attrs = []) content () : 'a elt =
     let classes = CSS.item_text :: classes in
-    span ~a:([a_class classes] <@> attrs) content
+    span ~a:([a_class classes] @ attrs) content
 
-  let create_item ?(classes = []) ?attrs ?graphic ?meta ?role
+  let create_item ?(classes = []) ?(attrs = []) ?graphic ?meta ?role
       ?tabindex ?(activated = false) ?selected ?checked
       text () : 'a elt =
     let classes =
@@ -119,7 +121,8 @@ module Make(Xml : Xml_sigs.NoWrap)
       |> cons_if (match selected with None -> false | Some x -> x)
         (if activated then CSS.item_activated else CSS.item_selected)
       |> List.cons CSS.item in
-    li ~a:([a_class classes] <@> attrs
+    li ~a:([a_class classes]
+           @ attrs
            |> map_cons_option (fun b -> a_aria "checked" [string_of_bool b]) checked
            |> map_cons_option (fun b -> a_aria "selected" [string_of_bool b]) selected
            |> map_cons_option a_tabindex tabindex
@@ -127,7 +130,7 @@ module Make(Xml : Xml_sigs.NoWrap)
       (graphic ^:: (text :: (meta ^:: [])))
 
   let create_item' ?(classes = [])
-      ?(attrs : 'b Html.attrib list option)
+      ?(attrs = [])
       ?graphic ?meta ?role
       ?tabindex ?(activated = false) ?selected ?checked
       ~text
@@ -140,22 +143,24 @@ module Make(Xml : Xml_sigs.NoWrap)
          then CSS.item_activated
          else CSS.item_selected)
       |> List.cons CSS.item in
-    tag ~a:([a_class classes] <@> attrs
+    tag ~a:([a_class classes]
+            @ attrs
             |> map_cons_option (fun b -> a_aria "checked" [string_of_bool b]) checked
             |> map_cons_option (fun b -> a_aria "selected" [string_of_bool b]) selected
             |> map_cons_option a_tabindex tabindex
             |> map_cons_option (fun x -> a_role [x]) role)
       (graphic ^:: (text :: (meta ^:: [])))
 
-  let create_group_subheader ?(classes = []) ?attrs ?(tag = h3) ~text () : 'a elt =
+  let create_group_subheader ?(classes = []) ?(attrs = []) ?(tag = h3)
+      ~text () : 'a elt =
     let classes = CSS.group_subheader :: classes in
-    tag ~a:([a_class classes] <@> attrs) [txt text]
+    tag ~a:([a_class classes] @ attrs) [txt text]
 
-  let create_group ?(classes = []) ?attrs ~content () =
+  let create_group ?(classes = []) ?(attrs = []) ~content () =
     let classes = CSS.group :: classes in
-    div ~a:([a_class classes] <@> attrs) content
+    div ~a:([a_class classes] @ attrs) content
 
-  let create ?(classes = []) ?attrs
+  let create ?(classes = []) ?(attrs = [])
       ?(avatar_list = false)
       ?(dense = false)
       ?(two_line = false)
@@ -169,6 +174,7 @@ module Make(Xml : Xml_sigs.NoWrap)
       |> cons_if avatar_list CSS.avatar_list
       |> cons_if non_interactive CSS.non_interactive
       |> List.cons CSS.root in
-    ul ~a:([a_class classes] <@> attrs
+    ul ~a:([a_class classes]
+           @ attrs
            |> map_cons_option (fun x -> a_role [x]) role) items
 end

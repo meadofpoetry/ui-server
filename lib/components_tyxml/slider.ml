@@ -32,7 +32,7 @@ module Make
   open Html
   open Utils
 
-  let create ?(classes = []) ?attrs ?(discrete = false)
+  let create ?(classes = []) ?(attrs = []) ?(discrete = false)
         ?(markers = false) ?(disabled = false)
         ?label ?step ?(min = 0.) ?(max = 100.) ?(value = 0.) () : 'a elt =
     let discrete = if markers then true else discrete in
@@ -47,10 +47,10 @@ module Make
             ; a_aria "valuemin" [string_of_float min]
             ; a_aria "valuemax" [string_of_float max]
             ; a_aria "valuenow" [string_of_float value]]
+            @ attrs
             |> map_cons_option (fun x -> a_aria "label" [x]) label
             |> map_cons_option (a_user_data "step" % string_of_float) step
-            |> cons_if disabled @@ a_aria "disabled" ["true"]
-            <@> attrs)
+            |> cons_if disabled @@ a_aria "disabled" ["true"])
       [div ~a:[a_class [CSS.container]]
          ([ div ~a:[a_class [CSS.track; CSS.track_before]] []
           ; div ~a:([a_class [CSS.thumb_container]])

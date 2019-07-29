@@ -16,7 +16,6 @@ module Make(Xml : Xml_sigs.NoWrap)
   module Components = Components_tyxml.Bundle.Make(Xml)(Svg)(Html)
 
   open Html
-  open Utils
   open Components
 
   let make_remove_button () =
@@ -42,20 +41,20 @@ module Make(Xml : Xml_sigs.NoWrap)
       ~line_ripple
       ()
 
-  let make_title ?(classes = []) ?attrs title : 'a elt =
+  let make_title ?(classes = []) ?(attrs = []) title : 'a elt =
     let classes = CSS.title :: classes in
-    h2 ~a:([a_class classes] <@> attrs) [txt title]
+    h2 ~a:([a_class classes] @ attrs) [txt title]
 
-  let make_header ?(classes = []) ?attrs ?title content : 'a elt =
+  let make_header ?(classes = []) ?(attrs = []) ?title content : 'a elt =
     let classes = CSS.header :: classes in
-    div ~a:([a_class classes] <@> attrs)
+    div ~a:([a_class classes] @ attrs)
       (match title with
        | None -> content
        | Some x -> make_title x :: content)
 
-  let make ?(classes = []) ?attrs ~header content : 'a elt =
+  let make ?(classes = []) ?(attrs = []) ~header content : 'a elt =
     let classes = CSS.root :: classes in
-    div ~a:([a_class classes] <@> attrs)
+    div ~a:([a_class classes] @ attrs)
       (header :: Card.create content :: [])
 
   module Ethernet = struct

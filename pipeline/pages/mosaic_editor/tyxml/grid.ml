@@ -104,7 +104,7 @@ module Make(Xml : Xml_sigs.NoWrap)
   open Html
   open Utils
 
-  let create_cell ?(classes = []) ?attrs ?(content = []) position : 'a elt =
+  let create_cell ?(classes = []) ?(attrs = []) ?(content = []) position : 'a elt =
     let classes = CSS.cell :: classes in
     let style = Printf.sprintf
         "grid-area: %s;"
@@ -115,14 +115,14 @@ module Make(Xml : Xml_sigs.NoWrap)
             ; a_aria "rowindex" [string_of_int position.row]
             ; a_aria "colspan" [string_of_int position.col_span]
             ; a_aria "rowspan" [string_of_int position.row_span]
-            ; a_role ["gridcell"]
-            ] <@> attrs)
+            ; a_role ["gridcell"]]
+            @ attrs)
       ([ div ~a:[a_class [CSS.row_handle]] []
        ; div ~a:[a_class [CSS.col_handle]] []
        ; div ~a:[a_class [CSS.mul_handle]] []
        ] @ content)
 
-  let create ?(classes = []) ?attrs
+  let create ?(classes = []) ?(attrs = [])
       ?(rows : property option)
       ?(cols : property option)
       ?(content = []) () : 'a elt =
@@ -138,6 +138,7 @@ module Make(Xml : Xml_sigs.NoWrap)
                 (property_to_string rows)
                 (property_to_string cols)) in
     div ~a:([ a_class classes
-            ; a_role ["grid"] ] <@> attrs
+            ; a_role ["grid"] ]
+            @ attrs
             |> map_cons_option a_style style) content
 end

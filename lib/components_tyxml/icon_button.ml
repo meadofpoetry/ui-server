@@ -22,7 +22,7 @@ module Make(Xml : Xml_sigs.NoWrap)
   open Html
   open Utils
 
-  let create ?(classes = []) ?attrs ?(ripple = true)
+  let create ?(classes = []) ?(attrs = []) ?(ripple = true)
         ?(on = false) ?(disabled = false) ?on_icon ~icon
         () : 'a elt =
     let classes =
@@ -30,18 +30,18 @@ module Make(Xml : Xml_sigs.NoWrap)
       |> cons_if on CSS.on
       |> List.cons CSS.root in
     button ~a:([a_class classes]
+               @ attrs
                |> cons_if_lazy ripple (fun () -> a_user_data "ripple" "true")
-               |> cons_if_lazy disabled a_disabled
-               <@> attrs)
+               |> cons_if_lazy disabled a_disabled)
       (on_icon ^:: icon :: [])
 
-  let create_anchor ?(classes = []) ?attrs ?href ?(ripple = true)
+  let create_anchor ?(classes = []) ?(attrs = []) ?href ?(ripple = true)
       ?(on = false) ?on_icon ~icon () =
     let classes =
       classes
       |> cons_if on CSS.on
       |> List.cons CSS.root in
-    a ~a:([a_class classes] <@> attrs
+    a ~a:([a_class classes] @ attrs
           |> map_cons_option a_href href
           |> cons_if_lazy ripple (fun () -> a_user_data "ripple" "true"))
       (on_icon ^:: icon :: [])

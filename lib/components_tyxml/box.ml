@@ -77,7 +77,7 @@ module Make(Xml : Xml_sigs.NoWrap)
   open Html
   open Utils
 
-  let create ?(classes = []) ?attrs ?tag
+  let create ?(classes = []) ?(attrs = []) ?tag
         ?justify_content ?align_items ?align_content ?wrap
         ?(vertical = false) ~content () : 'a elt =
     let tag = match tag with
@@ -91,6 +91,6 @@ module Make(Xml : Xml_sigs.NoWrap)
       |> map_cons_option CSS.align_items align_items
       |> map_cons_option CSS.align_content align_content
       |> List.cons CSS.root in
-    tag ~a:([a_class classes] <@> attrs) content
+    tag ~a:([a_class classes] @ attrs) content
 
 end

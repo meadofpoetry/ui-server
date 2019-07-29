@@ -28,7 +28,7 @@ module Make(Xml : Xml_sigs.NoWrap)
   open Html
   open Utils
 
-  let create ?(classes = []) ?attrs ?(mini = false) ?(extended = false)
+  let create ?(classes = []) ?(attrs = []) ?(mini = false) ?(extended = false)
         ?label ?icon () : 'a elt =
     let (classes : string list) =
       classes
@@ -42,5 +42,5 @@ module Make(Xml : Xml_sigs.NoWrap)
       | None -> None
       | Some x -> Some (span ~a:[a_class [CSS.label]] [txt x]) in
     let content = icon ^:: label ^:: [] in
-    button ~a:([a_class classes] <@> attrs) content
+    button ~a:([a_class classes] @ attrs) content
 end

@@ -107,7 +107,7 @@ module Make(Xml : Xml_sigs.NoWrap)
   open Html
   open Utils
 
-  let create_cell ?(classes = []) ?attrs ?align ?order
+  let create_cell ?(classes = []) ?(attrs = []) ?align ?order
         ?span ?span_phone ?span_tablet ?span_desktop
         content () : 'a elt =
     let (classes : string list) =
@@ -118,18 +118,18 @@ module Make(Xml : Xml_sigs.NoWrap)
       |> map_cons_option (CSS.cell_span ~device:Desktop) span_desktop
       |> map_cons_option CSS.cell_align align
       |> map_cons_option CSS.cell_order order in
-    div ~a:([a_class classes] <@> attrs) content
+    div ~a:([a_class classes] @ attrs) content
 
-  let create_inner ?(classes = []) ?attrs ~cells () : 'a elt =
+  let create_inner ?(classes = []) ?(attrs = []) ~cells () : 'a elt =
     let classes = CSS.inner :: classes in
-    div ~a:([a_class classes] <@> attrs) cells
+    div ~a:([a_class classes] @ attrs) cells
 
-  let create ?(classes = []) ?attrs ?align
+  let create ?(classes = []) ?(attrs = []) ?align
         ?(fixed_column_width = false) ~inner () : 'a elt =
     let (classes : string list) =
       classes
       |> map_cons_option CSS.align align
       |> cons_if fixed_column_width CSS.fixed_column_width
       |> List.cons CSS.root in
-    div ~a:([a_class classes] <@> attrs) [inner]
+    div ~a:([a_class classes] @ attrs) [inner]
 end

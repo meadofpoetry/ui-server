@@ -25,7 +25,7 @@ module Make (Xml : Xml_sigs.NoWrap)
   open Html
   open Utils
 
-  let create ?(classes = []) ?attrs
+  let create ?(classes = []) ?(attrs = [])
       ?input_id
       ?(disabled = false)
       ?(checked = false)
@@ -34,7 +34,7 @@ module Make (Xml : Xml_sigs.NoWrap)
       classes
       |> cons_if disabled CSS.disabled
       |> List.cons CSS.root in
-    div ~a:([a_class classes] <@> attrs)
+    div ~a:([a_class classes] @ attrs)
       [ input ~a:([ a_input_type `Checkbox
                   ; a_class [CSS.native_control]]
                   |> map_cons_option a_id input_id

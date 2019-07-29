@@ -29,7 +29,6 @@ module Make(Xml : Xml_sigs.NoWrap)
     (Html : Html_sigs.NoWrap with module Xml := Xml
                               and module Svg := Svg) = struct
   open Html
-  open Utils
 
   module Widget' = Widget.Make(Xml)(Svg)(Html)
 
@@ -39,7 +38,7 @@ module Make(Xml : Xml_sigs.NoWrap)
   module Tab_scroller = Tab_scroller.Make(Xml)(Svg)(Html)
   module Tab_bar = Tab_bar.Make(Xml)(Svg)(Html)
 
-  let create_widget ?(classes = []) ?attrs
+  let create_widget ?(classes = []) ?(attrs = [])
       (id, _, widget : string * Wm.Annotated.state * Wm.widget) : 'a elt =
     let position = match widget.position with
       | None -> ""
@@ -57,12 +56,12 @@ module Make(Xml : Xml_sigs.NoWrap)
     div ~a:([ a_class classes
             ; a_style style ]
             @ Widget'.to_html_attributes ~id widget
-            <@> attrs)
+            @ attrs)
       []
 
-  let create_widget_wrapper ?(classes = []) ?attrs widgets : 'a elt =
+  let create_widget_wrapper ?(classes = []) ?(attrs = []) widgets : 'a elt =
     let classes = CSS.widget_wrapper :: classes in
-    div ~a:([a_class classes] <@> attrs) widgets
+    div ~a:([a_class classes] @ attrs) widgets
 
   let create_mode_switch () =
     let create_tab ?active label =

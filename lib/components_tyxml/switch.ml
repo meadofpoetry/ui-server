@@ -31,14 +31,14 @@ module Make
            and module Svg := Svg) = struct
   open Html
 
-  let create ?input_id ?(classes = []) ?attrs
+  let create ?input_id ?(classes = []) ?(attrs = [])
         ?(checked = false) ?(disabled = false) () : 'a elt =
     let classes =
       classes
       |> cons_if checked CSS.checked
       |> cons_if disabled CSS.disabled
       |> List.cons CSS.root in
-    div ~a:([a_class classes] <@> attrs)
+    div ~a:([a_class classes] @ attrs)
       [ div ~a:([a_class [CSS.track]]) []
       ; div ~a:([a_class [CSS.thumb_underlay]])
           [div ~a:([a_class [CSS.thumb]])

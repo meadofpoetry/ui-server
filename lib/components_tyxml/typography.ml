@@ -87,7 +87,7 @@ module Make(Xml : Xml_sigs.NoWrap)
       | x :: tl -> aux (br () :: txt x :: acc) tl in
     aux [] (String.split_on_char '\n' text)
 
-  let make ?(classes = []) ?attrs ?font text =
+  let make ?(classes = []) ?(attrs = []) ?font text =
     let font_class = match font with
       | None -> None
       | Some x -> Some (font_to_class x) in
@@ -95,6 +95,6 @@ module Make(Xml : Xml_sigs.NoWrap)
       classes
       |> cons_option font_class
       |> List.cons CSS.root in
-    span ~a:([a_class classes] <@> attrs) (make_inner text)
+    span ~a:([a_class classes] @ attrs) (make_inner text)
 
 end

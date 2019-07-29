@@ -30,20 +30,20 @@ module Make
   open Html
   open Utils
 
-  let create_content ?(classes = []) ?attrs ?icon () : 'a elt =
+  let create_content ?(classes = []) ?(attrs = []) ?icon () : 'a elt =
     let content, content_class = match icon with
       | None -> [], CSS.content_underline
       | Some i -> [i], CSS.content_icon in
     let classes = CSS.content :: content_class :: classes in
-    span ~a:([a_class classes] <@> attrs) content
+    span ~a:([a_class classes] @ attrs) content
 
-  let create ?(classes = []) ?attrs ?(active = false)
+  let create ?(classes = []) ?(attrs = []) ?(active = false)
         ?(fade = false) content () : 'a elt =
     let (classes : string list) =
       classes
       |> cons_if fade CSS.fade
       |> cons_if active CSS.active
       |> List.cons CSS.root in
-    span ~a:([a_class classes] <@> attrs) [content]
+    span ~a:([a_class classes] @ attrs) [content]
 
 end

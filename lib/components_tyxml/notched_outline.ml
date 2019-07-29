@@ -30,7 +30,7 @@ module Make(Xml : Xml_sigs.NoWrap)
   open Html
   open Utils
 
-  let create ?(classes = []) ?attrs ?label () : 'a elt =
+  let create ?(classes = []) ?(attrs = []) ?label () : 'a elt =
     let classes = CSS.root :: classes in
     let leading = div ~a:[a_class [CSS.leading]] [] in
     let trailing = div ~a:[a_class [CSS.trailing]] [] in
@@ -38,6 +38,6 @@ module Make(Xml : Xml_sigs.NoWrap)
       | None -> None
       | Some x -> Some (div ~a:[a_class [CSS.notch]] [x]) in
     let content = leading :: (notch ^:: (trailing :: [])) in
-    div ~a:([a_class classes] <@> attrs) content
+    div ~a:([a_class classes] @ attrs) content
 
 end

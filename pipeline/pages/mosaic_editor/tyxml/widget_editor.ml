@@ -15,19 +15,18 @@ module Make(Xml : Xml_sigs.NoWrap)
     (Html : Html_sigs.NoWrap with module Xml := Xml
                               and module Svg := Svg) = struct
   open Html
-  open Utils
 
   module Text' = Typography.Make(Xml)(Svg)(Html)
   module Icon' = Icon.Make(Xml)(Svg)(Html)
   module Card' = Card.Make(Xml)(Svg)(Html)
 
-  let create_overlay ?(classes = []) ?attrs () : 'a elt =
+  let create_overlay ?(classes = []) ?(attrs = []) () : 'a elt =
     let classes = CSS.overlay :: classes in
-    canvas ~a:([a_class classes] <@> attrs) []
+    canvas ~a:([a_class classes] @ attrs) []
 
-  let create_ghost ?(classes = []) ?attrs () : 'a elt =
+  let create_ghost ?(classes = []) ?(attrs = []) () : 'a elt =
     let classes = CSS.ghost :: classes in
-    div ~a:([a_class classes] <@> attrs) []
+    div ~a:([a_class classes] @ attrs) []
 
   let create_icon ?classes ?attrs
       (widget : Pipeline_types.Wm.widget) : 'a elt =
@@ -36,7 +35,7 @@ module Make(Xml : Xml_sigs.NoWrap)
       | Audio -> Svg_icons.music in
     Icon'.SVG.(create ?classes ?attrs [create_path path ()] ())
 
-  let create_content ?(classes = []) ?attrs
+  let create_content ?(classes = []) ?(attrs = [])
       (widget : Pipeline_types.Wm.widget) : 'a elt =
     let pid = match widget.pid with
       | None -> None
@@ -47,22 +46,22 @@ module Make(Xml : Xml_sigs.NoWrap)
     let text = Text'.make widget.description in
     let icon = create_icon widget in
     let classes = CSS.item_content :: classes in
-    div ~a:([a_class classes] <@> attrs)
+    div ~a:([a_class classes] @ attrs)
       (icon :: (pid ^:: [text]))
 
-  let create_item ?(classes = []) ?attrs ?content
+  let create_item ?(classes = []) ?(attrs = []) ?content
       (widget : Pipeline_types.Wm.widget) : 'a elt =
     let classes = CSS.item :: classes in
     let content = match content with
       | None -> [create_content widget]
       | Some x -> x in
-    div ~a:([a_class classes] <@> attrs) content
+    div ~a:([a_class classes] @ attrs) content
 
-  let create ?(classes = []) ?attrs ?(content = []) () : 'a elt =
+  let create ?(classes = []) ?(attrs = []) ?(content = []) () : 'a elt =
     let classes = CSS.root :: classes in
     div ~a:([ a_class classes
             ; a_role ["grid"]
-            ] <@> attrs)
+            ] @ attrs)
       content
 
 end
