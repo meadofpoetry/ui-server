@@ -8,6 +8,8 @@ module Selector = struct
 end
 
 class t (elt : Dom_html.element Js.t) = object
+  val loader : Circular_progress.t =
+    Circular_progress.make ~indeterminate:false ()
   val button : Button.t =
     match Element.query_selector elt Selector.button with
     | None -> failwith "file-button: no `button` element found"
@@ -21,6 +23,10 @@ class t (elt : Dom_html.element Js.t) = object
 
   inherit Widget.t elt () as super
 
+  method! init () : unit =
+    button#set_loader loader;
+    super#init ()
+
   method! initial_sync_with_dom () : unit =
     listeners_ <- Lwt_js_events.(
         [ clicks super#root (fun _ _ -> file_input##click; Lwt.return_unit)
@@ -28,10 +34,13 @@ class t (elt : Dom_html.element Js.t) = object
     super#initial_sync_with_dom ()
 
   method! destroy () : unit =
+    loader#destroy ();
     button#destroy ();
     List.iter Lwt.cancel listeners_;
     listeners_ <- [];
     super#destroy ()
+
+  method loader : Circular_progress.t = loader
 
   method file_input : Dom_html.inputElement Js.t = file_input
 

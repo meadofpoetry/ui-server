@@ -1,4 +1,5 @@
 open Js_of_ocaml
+open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 open Utils
 
@@ -32,13 +33,13 @@ class t ?ripple ?loader ?on_change ?on_click (elt : Dom_html.element Js.t) () =
 
     method! initial_sync_with_dom () : unit =
       super#initial_sync_with_dom ();
-      let listener =
-        Events.clicks super#root (fun e t ->
-            if _has_on_icon then self#toggle ~notify:true ();
-            match on_click with
-            | Some f -> f e t
-            | None -> Lwt.return_unit) in
-      _click_listener <- Some listener
+      listeners_ <- Lwt_js_events.(
+          [ clicks super#root (fun e t ->
+                if _has_on_icon then self#toggle ~notify:true ();
+                match on_click with
+                | Some f -> f e t
+                | None -> Lwt.return_unit)
+          ])
 
     method toggle ?(notify = false) ?(force : bool option) () : unit =
       super#toggle_class ?force CSS.on;

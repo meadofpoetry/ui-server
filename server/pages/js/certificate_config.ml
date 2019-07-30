@@ -13,6 +13,7 @@ end
 
 class t
     ?(init : Server_types.settings option)
+    ~set_snackbar
     (elt : Dom_html.element Js.t) = object
   val certificate : _ X509_file_config.t =
     match Element.query_selector elt Selector.certificate with
@@ -21,7 +22,7 @@ class t
       let value = match init with
         | None -> None
         | Some x -> Some x.tls_cert in
-      new X509_file_config.t ?value ~typ:Crt x
+      new X509_file_config.t ?value ~set_snackbar ~typ:Crt x
 
   val private_key : _ X509_file_config.t =
     match Element.query_selector elt Selector.private_key with
@@ -30,7 +31,7 @@ class t
       let value = match init with
         | None -> None
         | Some x -> Some x.tls_key in
-      new X509_file_config.t ?value ~typ:Key x
+      new X509_file_config.t ?value ~set_snackbar ~typ:Key x
 
   inherit Widget.t elt () as super
 
@@ -38,8 +39,10 @@ class t
     super#destroy ()
 end
 
-let make (init : Server_types.settings) : t =
+let make
+    ~set_snackbar
+    (init : Server_types.settings) : t =
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element
     @@ Markup.Certificate.make init in
-  new t ~init elt
+  new t ~set_snackbar ~init elt

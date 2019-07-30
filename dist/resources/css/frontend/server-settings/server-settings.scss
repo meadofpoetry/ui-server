@@ -49,6 +49,7 @@
     .mdc-icon {
         @include mdc-theme-prop(color, text-hint-on-surface);
         margin-right: 10px;
+        flex-shrink: 0;
     }
 }
 
@@ -62,17 +63,17 @@
     }
 
     > :first-child {
-        @inlcude mdc-theme-prop(color, text-secondary-on-surface);
         @include mdc-typography(body2);
         display: flex;
         align-items: center;
+        white-space: nowrap;
     }
 
     &__filename {
         @include mdc-theme-prop(color, text-hint-on-surface);
         @include mdc-typography(caption);
-        display: flex;
-        justify-content: center;
+        @include mdc-typography-overflow-ellipsis;
+        text-align: center;
     }
 
     &__actions {

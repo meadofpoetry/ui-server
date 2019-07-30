@@ -21,7 +21,9 @@ let () =
     Server_http_js.get_config ()
     >>=? fun config ->
     let https = Https_config.make config in
-    let certificate = Certificate_config.make config in
+    let certificate = Certificate_config.make
+        ~set_snackbar:scaffold#show_snackbar
+        config in
     let page =
       Widget.create
       @@ Tyxml_js.To_dom.of_element

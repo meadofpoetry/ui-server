@@ -74,15 +74,15 @@ let () =
             | Some x -> open_dialog btn x)
         ~label:"Применить"
         () in
-    let form = Widget.create Dom_html.(createDiv document) in
-    form#append_child ethernet;
-    form#append_child ipv4;
-    form#append_child dns;
-    form#append_child routes;
-    form#append_child submit;
     Dom.appendChild Dom_html.document##.body confirmation_dialog#root;
-    form#add_class Page_network_settings_tyxml.CSS.root;
-    Lwt.return_ok form in
+    Lwt.return_ok
+    @@ Widget.create
+    @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
+    @@ Markup.make [ ethernet#markup
+                   ; ipv4#markup
+                   ; dns#markup
+                   ; routes#markup
+                   ; submit#markup ] in
   let loader = Ui_templates.Loader.create_widget_loader thread in
   scaffold#set_body loader
 

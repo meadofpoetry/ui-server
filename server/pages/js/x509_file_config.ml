@@ -9,19 +9,33 @@ type _ typ =
   | Key : string option typ
   | Crt : (string * Server_types.certificate) option typ
 
+let max_file_size = 500_000 (* bytes *)
+
+let file_size_to_string (x : int) =
+  let threshold = 1000. in
+  let units = ["kB"; "MB"; "GB"; "TB"] in
+  let rec aux acc = function
+    | [] -> acc
+    | unit :: tl ->
+      if (fst acc) > threshold
+      then aux ((fst acc) /. threshold, unit) tl
+      else acc in
+  aux (float_of_int x, "B") units
+
 let remove_file (type a) : a typ -> (unit, Api_js.Http.error) Lwt_result.t =
   function
   | Key -> Server_http_js.delete_tls_key ()
   | Crt -> Server_http_js.delete_tls_crt ()
 
-let send_file (type a) :
-  string
+let upload_file (type a) :
+  ?upload_progress:(int -> int -> unit)
+  -> string
   -> File.blob Js.t
   -> a typ
   -> (unit, Api_js.Http.error) Lwt_result.t =
-  fun name blob -> function
-    | Key -> Server_http_js.set_tls_key ~name blob
-    | Crt -> Server_http_js.set_tls_crt ~name blob
+  fun ?upload_progress name blob -> function
+    | Key -> Server_http_js.set_tls_key ?upload_progress ~name blob
+    | Crt -> Server_http_js.set_tls_crt ?upload_progress ~name blob
 
 let fetch_value (type a) typ =
   let value : Server_types.settings -> a typ -> a = fun s ->
@@ -91,7 +105,10 @@ module Selector = struct
   let action_import = Printf.sprintf ".%s" Markup.CSS.Certificate.action_import
 end
 
-class ['a] t ?value ~(typ : 'a typ) (elt : Dom_html.element Js.t) = object(self)
+class ['a] t ?value
+    ~(typ : 'a typ)
+    ~(set_snackbar : Snackbar.t -> Snackbar.dismiss_reason Lwt.t)
+    (elt : Dom_html.element Js.t) = object(self)
 
   val filename : Dom_html.element Js.t =
     match Element.query_selector elt Selector.filename with
@@ -191,16 +208,38 @@ class ['a] t ?value ~(typ : 'a typ) (elt : Dom_html.element Js.t) = object(self)
                  (fun () -> Lwt.return_error (`Error "Не удалось открыть файл"))
                  (fun data ->
                     let name = Js.to_string file##.name in
-                    let blob = File.blob_from_any [`js_string data] in
-                    send_file name blob typ
-                    >>= fun () -> fetch_value typ
-                    >>= fun v -> (* TODO handle error at each stage *)
-                    self#set_value v;
-                    Lwt.return_ok ()) in
+                    let size = file##.size in
+                    if size > max_file_size
+                    then
+                      let sz, unit = file_size_to_string max_file_size in
+                      let error = Printf.sprintf
+                          "Превышен допустимый размер файла \
+                           (%g %s)" sz unit in
+                      Lwt.return_error (`Error error)
+                    else
+                      let blob = File.blob_from_any [`js_string data] in
+                      upload_file ~upload_progress:(fun cur tot ->
+                          let v = (float_of_int cur) /. (float_of_int tot) in
+                          import#loader#set_value v)
+                        name blob typ
+                      >>= fun () -> fetch_value typ
+                      >>= fun v -> (* TODO handle error at each stage *)
+                      self#set_value v;
+                      Lwt.return_ok ()) in
+             Lwt.(async (fun () ->
+                 thread
+                 >>= function
+                 | Ok _ -> Lwt.return_unit
+                 | Error e ->
+                   let label = Api_js.Http.error_to_string e in
+                   let snackbar = Snackbar.make ~label () in
+                   set_snackbar snackbar
+                   >>= fun _ -> snackbar#destroy (); Lwt.return_unit));
              import#button#set_loading_lwt thread;
              Js._true in
            freader##.onload := Dom.handler handler;
            freader##readAsBinaryString file;
+           import#file_input##.value := Js.string "";
            Lwt.return_unit)
 
   method private handle_info _ _ : unit Lwt.t =
@@ -237,5 +276,9 @@ class ['a] t ?value ~(typ : 'a typ) (elt : Dom_html.element Js.t) = object(self)
       >>=? (fun () -> fetch_value typ)
       >>= function
       | Ok v -> self#set_value v; Lwt.return_unit
-      | Error _ -> Lwt.return_unit (* TODO handle error *)
+      | Error e ->
+        let label = Api_js.Http.error_to_string e in
+        let snackbar = Snackbar.make ~label () in
+        set_snackbar snackbar
+        >>= fun _ -> snackbar#destroy (); Lwt.return_unit
 end

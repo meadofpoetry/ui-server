@@ -21,20 +21,22 @@ let restart () =
     ~query:Query.empty
     (fun _env x -> Lwt.return x)
 
-let set_tls_crt
+let set_tls_crt ?upload_progress
     ~(name : string)
     (cert : Js_of_ocaml.File.blob Js_of_ocaml.Js.t) =
   Api_js.Http.perform_file
+    ?upload_progress
     ~file:cert
     ~path:Path.Format.("api/server/config/crt" @/ String ^/ empty)
     ~query:Query.empty
     name
     (fun _env x -> Lwt.return x)
 
-let set_tls_key
+let set_tls_key ?upload_progress
     ~(name : string)
     (key : Js_of_ocaml.File.blob Js_of_ocaml.Js.t) =
   Api_js.Http.perform_file
+    ?upload_progress
     ~file:key
     ~path:Path.Format.("api/server/config/key" @/ String ^/ empty)
     ~query:Query.empty
