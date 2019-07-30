@@ -21,20 +21,36 @@ let restart () =
     ~query:Query.empty
     (fun _env x -> Lwt.return x)
 
-let set_tls_cert_blob (cert : #Js_of_ocaml.File.blob Js_of_ocaml.Js.t) =
-  let open Js_of_ocaml in
+let set_tls_crt
+    ~(name : string)
+    (cert : Js_of_ocaml.File.blob Js_of_ocaml.Js.t) =
   Api_js.Http.perform_file
     ~file:cert
-    ~path:Path.Format.("api/server/config/cert" @/ String ^/ empty)
+    ~path:Path.Format.("api/server/config/crt" @/ String ^/ empty)
     ~query:Query.empty
-    (Js.to_string cert##.name)
+    name
     (fun _env x -> Lwt.return x)
 
-let set_tls_key_blob (key : #Js_of_ocaml.File.blob Js_of_ocaml.Js.t) =
-  let open Js_of_ocaml in
+let set_tls_key
+    ~(name : string)
+    (key : Js_of_ocaml.File.blob Js_of_ocaml.Js.t) =
   Api_js.Http.perform_file
     ~file:key
     ~path:Path.Format.("api/server/config/key" @/ String ^/ empty)
     ~query:Query.empty
-    (Js.to_string key##.name)
+    name
+    (fun _env x -> Lwt.return x)
+
+let delete_tls_crt () =
+  Api_http.perform_unit
+    ~meth:`DELETE
+    ~path:Path.Format.("api/server/config/crt" @/ empty)
+    ~query:Query.empty
+    (fun _env x -> Lwt.return x)
+
+let delete_tls_key () =
+  Api_http.perform_unit
+    ~meth:`DELETE
+    ~path:Path.Format.("api/server/config/key" @/ empty)
+    ~query:Query.empty
     (fun _env x -> Lwt.return x)

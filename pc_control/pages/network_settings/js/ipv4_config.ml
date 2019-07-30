@@ -9,10 +9,10 @@ let name = "IPV4"
 let failwith s = failwith @@ Printf.sprintf "%s: %s" name s
 
 module Selector = struct
-  let dhcp = Printf.sprintf "#%s" Settings_section.IPV4.dhcp_id
-  let ip = Printf.sprintf "#%s" Settings_section.IPV4.ip_address_input_id
-  let mask = Printf.sprintf "#%s" Settings_section.IPV4.mask_input_id
-  let gateway = Printf.sprintf "#%s" Settings_section.IPV4.gateway_input_id
+  let dhcp = Printf.sprintf "#%s" Markup.IPV4.dhcp_id
+  let ip = Printf.sprintf "#%s" Markup.IPV4.ip_address_input_id
+  let mask = Printf.sprintf "#%s" Markup.IPV4.mask_input_id
+  let gateway = Printf.sprintf "#%s" Markup.IPV4.gateway_input_id
 end
 
 class t (elt : Dom_html.element Js.t) = object(self)
@@ -113,5 +113,5 @@ end
 let make (init : Network_config.ipv4_conf) : t =
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element
-    @@ Settings_section.IPV4.make init in
+    @@ Markup.IPV4.make init in
   new t elt

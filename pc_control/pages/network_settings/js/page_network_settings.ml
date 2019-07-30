@@ -82,7 +82,6 @@ let () =
     form#append_child submit;
     Dom.appendChild Dom_html.document##.body confirmation_dialog#root;
     form#add_class Page_network_settings_tyxml.CSS.root;
-    form#add_class Layout_grid.CSS.root;
     Lwt.return_ok form in
   let loader = Ui_templates.Loader.create_widget_loader thread in
   scaffold#set_body loader

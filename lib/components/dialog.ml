@@ -212,6 +212,9 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
     method set_auto_stack_buttons (x : bool) : unit =
       _auto_stack_buttons <- x
 
+    method content : Dom_html.element Js.t option =
+      _content
+
     (* Private methods. *)
 
     method private handle_closing () : unit =

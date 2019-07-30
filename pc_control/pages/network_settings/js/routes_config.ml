@@ -46,7 +46,7 @@ let make_dialog () =
     Dialog.[ Element.coerce (make_action ~action:Close ~label:"Отмена" ())
            ; accept#root
            ] in
-  let dialog = Dialog.make ~classes:[Settings_section.CSS.dialog]
+  let dialog = Dialog.make ~classes:[Markup.CSS.dialog]
       ~title ~content ~actions () in
   dialog#set_on_destroy (fun () -> List.iter Lwt.cancel listeners);
   dialog,
@@ -136,7 +136,7 @@ class t (elt : Dom_html.element Js.t) = object(self)
   method private append_route (x : Network_config.address) =
     let item =
       Tyxml_js.To_dom.of_element
-      @@ Settings_section.Routes.make_item x in
+      @@ Markup.Routes.make_item x in
     Element.append_child routes_list#root item;
     _ripples <- (item, Ripple.attach item) :: _ripples;
     routes_list#layout ()
@@ -161,5 +161,5 @@ end
 let make (init : Network_config.ipv4_conf) : t =
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element
-    @@ Settings_section.Routes.make init in
+    @@ Markup.Routes.make init in
   new t elt

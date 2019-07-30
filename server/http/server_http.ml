@@ -59,48 +59,79 @@ let add_file setter (conf : Server.config) name _user body _env _state =
     >>= function
     | Error _ -> Lwt.return (`Error "could not save the file")
     | Ok () ->
-       conf#set (setter settings (Some name))
-       >>= fun () ->
-       Lwt.return `Unit
+      conf#set (setter settings (Some name))
+      >>= fun () -> Lwt.return `Unit
+
+let remove_file getter setter (conf : Server.config) _user _body _env _state =
+  conf#get >>= fun settings ->
+  match getter settings with
+  | None -> Lwt.return `Unit
+  | Some name ->
+    let path = settings.tls_path / name in
+    Futil_lwt.File.delete path
+    >>= function
+    | Error _ -> Lwt.return (`Error "could not remove the file")
+    | Ok () ->
+      conf#set (setter settings)
+      >>= fun () -> Lwt.return `Unit
 
 let add_cert = add_file (fun x v -> { x with tls_cert = v })
 
 let add_key = add_file (fun x v -> { x with tls_key = v })
 
+let remove_cert = remove_file
+    (fun x -> x.tls_cert)
+    (fun x -> { x with tls_cert = None })
+
+let remove_key = remove_file
+    (fun x -> x.tls_key)
+    (fun x -> { x with tls_key = None })
+
 let handlers (config : Server.config) =
   let open Api_http in
-  Api_http.
-  make ~prefix:"server"
+  Api_http.make ~prefix:"server"
     [ node ~doc:"Server configuration"
         ~meth:`GET
         ~path:Path.Format.("config" @/ empty)
         ~query:Query.empty
         (get_config config)
     ; node ~doc:"Restart"
-        ~restrict:[`Operator; `Guest ]
+        ~restrict:[`Operator; `Guest]
         ~meth:`POST
         ~path:Path.Format.("restart" @/empty)
         ~query:Query.empty
         (fun _user _body _env _state ->
-          Server.kill_server (); Lwt.return `Unit)
+           Server.kill_server (); Lwt.return `Unit)
     ; node ~doc:"Set https flag"
-        ~restrict:[`Operator; `Guest ]
+        ~restrict:[`Operator; `Guest]
         ~meth:`POST
         ~path:Path.Format.("config/https-enabled" @/empty)
         ~query:Query.[ "value", (module Single(Bool)) ]
         (set_https config)
-    ; node_raw ~doc:"Set tls cert"
-        ~restrict:[`Operator; `Guest ]
+    ; node_raw ~doc:"Set tls certificate"
+        ~restrict:[`Operator; `Guest]
         ~meth:`POST
-        ~path:Path.Format.("config/cert" @/ String ^/empty)
+        ~path:Path.Format.("config/crt" @/ String ^/empty)
         ~query:Query.empty
         (add_cert config)
-    ; node_raw ~doc:"Set tls key"
-        ~restrict:[`Operator; `Guest ]
+    ; node_raw ~doc:"Set tls private key"
+        ~restrict:[`Operator; `Guest]
         ~meth:`POST
         ~path:Path.Format.("config/key" @/ String ^/empty)
         ~query:Query.empty
         (add_key config)
+    ; node_raw ~doc:"Delete tls certificate"
+        ~restrict:[`Operator; `Guest]
+        ~meth:`DELETE
+        ~path:Path.Format.("config/crt" @/ empty)
+        ~query:Query.empty
+        (remove_cert config)
+    ; node_raw ~doc:"Delete tls private key"
+        ~restrict:[`Operator; `Guest]
+        ~meth:`DELETE
+        ~path:Path.Format.("config/key" @/ empty)
+        ~query:Query.empty
+        (remove_key config)
     ]
 
 let pages : 'a. unit -> 'a Api_template.item list =
@@ -108,14 +139,14 @@ let pages : 'a. unit -> 'a Api_template.item list =
   let open Api_template in
   let props =
     make_template_props
-      ~title:"Безопасность"
+      ~title:"Настройки сервера"
       ~post_scripts:[Src "/js/page-server-settings.js"]
       ~stylesheets:["/css/page-server-settings.min.css"]
       () in
   simple
     ~restrict:[`Operator; `Guest]
     ~priority:(`Index 10)
-    ~title:"Безопасность"
-    ~icon:(make_icon Components_tyxml.Svg_icons.server_security)
+    ~title:"Сервер"
+    ~icon:(make_icon Components_tyxml.Svg_icons.server)
     ~path:(Path.of_string "settings/server")
     props

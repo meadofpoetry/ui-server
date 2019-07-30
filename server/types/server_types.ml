@@ -42,8 +42,9 @@ module Distinguished_name = struct
 
 end
 
-module Cstruct = struct
-  include Cstruct
+module Show_cstruct = struct
+  type t = Cstruct.t
+
   let of_yojson = function
     | `String s -> Ok (Cstruct.of_string @@ Base64.decode_exn s)
     | _ -> Error "cstruct_of_yojson: invalid json"
@@ -57,16 +58,16 @@ type settings =
   ; tls_key : string option
   } [@@deriving yojson]
 and certificate =
-  { serial : Cstruct.t
+  { serial : Show_cstruct.t
   ; issuer : Distinguished_name.t
   ; validity : Time.t * Time.t
   ; subject : Distinguished_name.t
   ; public_key : public_key
-  ; fingerprints : (hash * Cstruct.t) list
+  ; fingerprints : (hash * Show_cstruct.t) list
   }
 and public_key =
   { typ : [`RSA]
-  ; fingerprint : (hash * Cstruct.t) list
+  ; fingerprint : (hash * Show_cstruct.t) list
   }
 and hash =
   [ `SHA1

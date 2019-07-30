@@ -7,6 +7,7 @@ module CSS = struct
   let row = BEM.add_element groups "row"
   let attribute = BEM.add_element groups "attribute"
   let value = BEM.add_element groups "value"
+  let serial = BEM.add_element groups "serial"
 end
 
 module Make(Xml : Xml_sigs.NoWrap)
@@ -30,6 +31,20 @@ module Make(Xml : Xml_sigs.NoWrap)
     let classes = CSS.groups :: classes in
     div ~a:([a_class classes] @ attrs) content
 
+  let serial ({ serial; _ } : Server_types.certificate) =
+    let sprintf = Printf.sprintf in
+    let iter =
+      Cstruct.iter
+        (fun _ -> Some 1)
+        (fun x -> sprintf "%02X" @@ Cstruct.get_uint8 x 0)
+        serial in
+    let value = Cstruct.fold (function
+        | "" -> fun x -> x
+        | acc -> sprintf "%s %s" acc) iter "" in
+    [ make_group_title "Serial number"
+    ; div ~a:[a_class [CSS.row]] [div ~a:[a_class [CSS.serial]] [txt value]]
+    ]
+
   let issuer ({ issuer; _ } : Server_types.certificate) =
     let rows =
       List.map (fun (k, value) ->
@@ -52,12 +67,15 @@ module Make(Xml : Xml_sigs.NoWrap)
           let attribute = match hash with
             | `SHA1 -> "SHA1 Fingerprint"
             | `SHA256 -> "SHA256 Fingerprint" in
+          let sprintf = Printf.sprintf in
           let iter =
             Cstruct.iter
               (fun _ -> Some 1)
-              (fun x -> Printf.sprintf "%02X" @@ Cstruct.get_uint8 x 0)
+              (fun x -> sprintf "%02X" @@ Cstruct.get_uint8 x 0)
               value in
-          let value = Cstruct.fold (fun acc x -> acc ^ " " ^ x) iter "" in
+          let value = Cstruct.fold (function
+              | "" -> fun x -> x
+              | acc -> sprintf "%s %s" acc) iter "" in
           make_group_record ~attribute ~value ())
         fingerprints in
     make_group_title "Fingerprints" :: rows
@@ -79,7 +97,8 @@ module Make(Xml : Xml_sigs.NoWrap)
       (cert : Server_types.certificate) =
     let classes = CSS.root :: classes in
     div ~a:([a_class classes] @ attrs)
-      [ make_groups (issuer cert
+      [ make_groups (serial cert)
+      ; make_groups (issuer cert
                      @ subject cert
                      @ validity ?tz_offset_s cert
                      @ fingerprints cert)

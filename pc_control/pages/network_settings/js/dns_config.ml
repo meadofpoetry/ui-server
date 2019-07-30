@@ -117,7 +117,7 @@ class t (elt : Dom_html.element Js.t) = object(self)
   method private append_address (x : Ipaddr.V4.t) =
     let item =
       Tyxml_js.To_dom.of_element
-      @@ Settings_section.DNS.make_item x in
+      @@ Markup.DNS.make_item x in
     Element.append_child dns_list#root item;
     _ripples <- (item, Ripple.attach item) :: _ripples;
     dns_list#layout ()
@@ -142,5 +142,5 @@ end
 let make (init : Network_config.ipv4_conf) : t =
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element
-    @@ Settings_section.DNS.make init in
+    @@ Markup.DNS.make init in
   new t elt
