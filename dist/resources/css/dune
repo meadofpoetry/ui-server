@@ -4,7 +4,7 @@
        (:src ./@material/components/components.scss)
        (source_tree ./@material))
  (action (progn
-          (run %{bin:scss} -t compressed -I ./ %{src} %{targets})
+          (run %{bin:sassc} -t compressed -I ./ %{src} %{targets})
           (run %{bin:postcss} -u autoprefixer -r %{targets}))))
 
 (rule
@@ -14,7 +14,7 @@
        (source_tree ./frontend/mosaic_editor/)
        (source_tree ./@material))
  (action (progn
-          (run %{bin:scss} -t compressed -I ./ %{src} %{targets})
+          (run %{bin:sassc} -t compressed -I ./ %{src} %{targets})
           (run %{bin:postcss} -u autoprefixer -r %{targets}))))
 
 (rule
@@ -24,7 +24,7 @@
        (source_tree ./frontend/mosaic_video/)
        (source_tree ./@material))
  (action (progn
-          (run %{bin:scss} -t compressed -I ./ %{src} %{targets})
+          (run %{bin:sassc} -t compressed -I ./ %{src} %{targets})
           (run %{bin:postcss} -u autoprefixer -r %{targets}))))
 
 (rule
@@ -34,7 +34,7 @@
        (source_tree ./frontend)
        (source_tree ./@material))
  (action (progn
-          (run %{bin:scss} -t compressed -I ./ %{src} %{targets})
+          (run %{bin:sassc} -t compressed -I ./ %{src} %{targets})
           (run %{bin:postcss} -u autoprefixer -r %{targets}))))
 
 (rule
@@ -44,7 +44,7 @@
        (source_tree ./frontend/network-settings)
        (source_tree ./@material))
  (action (progn
-          (run %{bin:scss} -t compressed -I ./ %{src} %{targets})
+          (run %{bin:sassc} -t compressed -I ./ %{src} %{targets})
           (run %{bin:postcss} -u autoprefixer -r %{targets}))))
 
 (rule
@@ -54,7 +54,7 @@
        (source_tree ./frontend/server-settings)
        (source_tree ./@material))
  (action (progn
-          (run %{bin:scss} -t compressed -I ./ %{src} %{targets})
+          (run %{bin:sassc} -t compressed -I ./ %{src} %{targets})
           (run %{bin:postcss} -u autoprefixer -r %{targets}))))
 
 (rule
@@ -64,7 +64,7 @@
        (source_tree ./templates)
        (source_tree ./@material))
  (action (progn
-          (run %{bin:scss} -t compressed -I ./ %{src} %{targets})
+          (run %{bin:sassc} -t compressed -I ./ %{src} %{targets})
           (run %{bin:postcss} -u autoprefixer -r %{targets}))))
 
 (install
