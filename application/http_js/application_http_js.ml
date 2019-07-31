@@ -116,3 +116,10 @@ let get_log ?(boards = []) ?(cpu = [])?(inputs = []) ?(streams = [])
          match of_json x with
          | Error e -> Lwt.return_error (`Conv_error e)
          | Ok x -> Lwt.return_ok x)
+
+let set_user_password (pass : User.pass_change) =
+  Api_http.perform_unit
+    ~path:Path.Format.("/api/user/password" @/ empty)
+    ~query:Query.empty
+    ~body:(User.pass_change_to_yojson pass)
+    (fun _env x -> Lwt.return x)

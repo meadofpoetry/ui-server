@@ -18,6 +18,7 @@ depends: [
   "chartjs-streaming"
   "cohttp-lwt-unix"
   "color"
+  "conf-libev"
   "cstruct"
   "ctypes"
   "ctypes-foreign"

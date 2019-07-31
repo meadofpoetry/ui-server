@@ -20,9 +20,9 @@ let user_pages : 'a. unit -> 'a Api_template.item list =
   let open Api_template in
   let props =
     make_template_props
-      ~title:"Пользователи"
-      ~post_scripts:[Src "/js/user.js"]
-      ~stylesheets:["/css/user.min.css"]
+      ~title:"Настройки пользователей"
+      ~post_scripts:[Src "/js/page-user-settings.js"]
+      ~stylesheets:["/css/page-user-settings.min.css"]
       () in
   simple
     ~restrict:[`Operator; `Guest]

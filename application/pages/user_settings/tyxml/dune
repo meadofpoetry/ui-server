@@ -1,0 +1,3 @@
+(library
+  (name page_user_settings_tyxml)
+  (libraries ui_templates_tyxml application_types))
