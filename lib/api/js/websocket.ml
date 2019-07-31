@@ -66,8 +66,8 @@ module Make
       | Some true, _ -> Some "wss"
       | None, false -> None
       | None, true -> match Url.Current.protocol with
-        | "https" -> Some "wss"
-        | "http" -> Some "ws"
+        | "https:" -> Some "wss"
+        | "http:" -> Some "ws"
         | _ -> Some "ws" in
     Uri.kconstruct ?scheme ?host ?port ~path ~query ~f
 
