@@ -58,6 +58,16 @@
           (run %{bin:postcss} -u autoprefixer -r %{targets}))))
 
 (rule
+ (targets page-user-settings.min.css)
+ (deps
+       (:src ./frontend/user-settings/user-settings.scss)
+       (source_tree ./frontend/user-settings)
+       (source_tree ./@material))
+ (action (progn
+          (run %{bin:sassc} -t compressed -I ./ %{src} %{targets})
+          (run %{bin:postcss} -u autoprefixer -r %{targets}))))
+
+(rule
  (targets main.min.css)
  (deps
        (:src ./main.scss)
@@ -75,6 +85,7 @@
          (page-mosaic-video.min.css as css/page-mosaic-video.min.css)
          (page-topology.min.css as css/page-topology.min.css)
          (page-network-settings.min.css as css/page-network-settings.min.css)
-         (page-server-settings.min.css as css/page-server-settings.min.css))
+         (page-server-settings.min.css as css/page-server-settings.min.css)
+         (page-server-settings.min.css as css/page-user-settings.min.css))
   (section share)
   (package ui-server))

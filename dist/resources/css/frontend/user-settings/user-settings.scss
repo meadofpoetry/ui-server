@@ -1,0 +1,9 @@
+@import "@material/theme/mixins";
+
+.settings-section#password-config {
+    .mdc-card__actions {
+        border-top-style: solid;
+        border-top-width: $mdc-card-outline-width;
+        @include mdc-theme-prop(border-top-color, $mdc-card-outline-color);
+    }
+}
