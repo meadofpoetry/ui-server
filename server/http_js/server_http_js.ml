@@ -2,6 +2,15 @@ open Netlib.Uri
 
 module Api_http = Api_js.Http.Make(Application_types.Body)
 
+module Event = struct
+  let get_config sock =
+    let of_yojson = Server_types.settings_of_yojson in
+    Api_js.Websocket.JSON.subscribe
+      ~path:Path.Format.("server/config" @/ empty)
+      ~query:Query.empty
+      of_yojson sock
+end
+
 let get_config () =
   Api_http.perform
     ~meth:`GET
@@ -20,6 +29,14 @@ let restart () =
     ~path:Path.Format.("api/server/restart" @/ empty)
     ~query:Query.empty
     (fun _env x -> Lwt.return x)
+
+let set_https_enabled (x : bool) =
+  Api_http.perform_unit
+    ~meth:`POST
+    ~body:(`Bool x)
+    ~path:Path.Format.("api/server/config/https-enabled" @/ empty)
+    ~query:Query.empty
+    (fun _env -> Lwt.return)
 
 let set_tls_crt ?upload_progress
     ~(name : string)

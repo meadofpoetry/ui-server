@@ -245,7 +245,10 @@ let tick ?(timeout = 1.) () =
     aux () in
   e, aux ()
 
-let create templates (app : Application.t) foreign_pages foreing_handlers =
+let create templates (app : Application.t)
+    foreign_pages
+    foreing_handlers
+    foreign_ws =
   let (>>=) = Lwt_result.bind in
   
   Kv.RO.read templates [ "base.html" ]
@@ -300,9 +303,10 @@ let create templates (app : Application.t) foreign_pages foreing_handlers =
   let ws =
     Api_websocket.to_http ~prefix:"ws" ~ping
     @@ Api_websocket.merge
-         ( application_ws
-           :: board_ws
-           :: proc_ws_list )
+      ( foreign_ws
+        :: application_ws
+        :: board_ws
+        :: proc_ws_list )
   in
   Lwt.return_ok (Api_http.merge [api; ws; pages], loop)
 

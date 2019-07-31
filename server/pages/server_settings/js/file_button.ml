@@ -9,7 +9,7 @@ end
 
 class t (elt : Dom_html.element Js.t) = object
   val loader : Circular_progress.t =
-    Circular_progress.make ~indeterminate:false ()
+    Circular_progress.make ~size:25 ~indeterminate:false ()
   val button : Button.t =
     match Element.query_selector elt Selector.button with
     | None -> failwith "file-button: no `button` element found"

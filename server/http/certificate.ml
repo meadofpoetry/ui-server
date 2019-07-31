@@ -46,6 +46,7 @@ let of_x509 (file : string) =
                [`SHA1, Public_key.fingerprint ~hash:`SHA1 pk]
            }
        ; fingerprints =
-           [ `SHA1, Certificate.fingerprint `SHA1 x
-           ; `SHA256, Certificate.fingerprint `SHA256 x]
+           [ `SHA256, Certificate.fingerprint `SHA256 x
+           ; `SHA1, Certificate.fingerprint `SHA1 x
+           ]
        }

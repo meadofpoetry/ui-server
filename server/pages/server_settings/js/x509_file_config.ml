@@ -3,7 +3,11 @@ open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 open Components
 
-let ( >>= ) = Lwt_result.bind
+let ( % ) f g x = f (g x)
+
+let ( >>= ) = Lwt.bind
+
+let ( >>=? ) = Lwt_result.bind
 
 type _ typ =
   | Key : string option typ
@@ -20,7 +24,8 @@ let file_size_to_string (x : int) =
       if (fst acc) > threshold
       then aux ((fst acc) /. threshold, unit) tl
       else acc in
-  aux (float_of_int x, "B") units
+  let size, unit = aux (float_of_int x, "B") units in
+  Printf.sprintf "%g %s" size unit
 
 let remove_file (type a) : a typ -> (unit, Api_js.Http.error) Lwt_result.t =
   function
@@ -38,10 +43,12 @@ let upload_file (type a) :
     | Crt -> Server_http_js.set_tls_crt ?upload_progress ~name blob
 
 let fetch_value (type a) typ =
-  let value : Server_types.settings -> a typ -> a = fun s ->
-    function Key -> s.tls_key | Crt -> s.tls_cert in
+  let value : a typ -> Server_types.settings -> a =
+    fun typ s -> match typ with
+      | Key -> s.tls_key
+      | Crt -> s.tls_cert in
   Server_http_js.get_config ()
-  >>= fun x -> Lwt.return_ok (value x typ)
+  >>=? Lwt.return_ok % value typ
 
 let make_info (type a) : a typ -> a -> Dom_html.element Js.t =
   fun typ v ->
@@ -66,6 +73,44 @@ let filename_of_value (type a) : a -> a typ -> string option =
     | Key -> v
     | Crt -> match v with None -> None | Some (n, _) -> Some n
 
+class type dialog = object
+  inherit Dialog.t
+  method do_not_show : bool
+  method reset : unit -> unit
+end
+
+let make_disclaimer_dialog () =
+  let title = "Сохранить приватный ключ?" in
+  let message =
+    "Сохранение приватного ключа требует отправки \
+     содержимого файла по сети. В случае, если передача \
+     приватного ключа осуществляется через публичную сеть \
+     или с использованием незащищенного канала связи, \
+     доступ к содержимому файла может быть получен третьми лицами." in
+  let do_not_show =
+    Form_field.make
+      ~label:"Больше не показывать это сообщение"
+      (Checkbox.make ()) in
+  let title = Dialog.Markup.create_title_simple ~title () in
+  let content =
+    Dialog.Markup.create_content
+      ~content:[ Tyxml_js.Html.txt message
+               ; do_not_show#markup
+               ]
+      () in
+  let actions =
+    [ Dialog.Markup.create_action ~action:Close ~label:"Отмена" ()
+    ; Dialog.Markup.create_action ~action:Accept ~label:"Сохранить" ()
+    ] in
+  let elt =
+    Tyxml_js.To_dom.of_element
+    @@ Dialog.Markup.create_simple ~title ~content ~actions () in
+  object
+    inherit Dialog.t elt ()
+    method reset () : unit = do_not_show#input#toggle ~force:false ()
+    method do_not_show : bool = do_not_show#input#checked
+  end
+
 let make_warning_dialog (type a) (typ : a typ) =
   let title, file = match typ with
     | Key -> "Удалить приватный ключ?", "приватного ключа"
@@ -74,8 +119,8 @@ let make_warning_dialog (type a) (typ : a typ) =
     Printf.sprintf
       "Удаление %s приведет к невозможности использования \
        защищенного протокола передачи данных HTTPS для доступа к \
-       анализатору. Изменения вступят в силу при перезапуске прибора. \
-       Хотите продолжить?" file in
+       анализатору. Изменения вступят в силу при перезапуске прибора."
+      file in
   let title =
     Tyxml_js.To_dom.of_element
     @@ Dialog.Markup.create_title_simple ~title () in
@@ -115,13 +160,18 @@ class ['a] t ?value
     | None -> failwith @@ "settings row: no filename element found"
     | Some x -> x
 
-  val warning_dialog : Dialog.t =
-    make_warning_dialog typ
+  val warning_dialog : Dialog.t = make_warning_dialog typ
 
   val info_dialog : Dialog.t option =
     let f (type a) : a typ -> Dialog.t option = function
       | Key -> None
       | Crt -> Some (make_certificate_dialog ()) in
+    f typ
+
+  val disclaimer_dialog : dialog option =
+    let f (type a) : a typ -> dialog option = function
+      | Key -> Some (make_disclaimer_dialog ())
+      | Crt -> None in
     f typ
 
   val info : Icon_button.t option =
@@ -148,11 +198,19 @@ class ['a] t ?value
     (match info_dialog with
      | None -> ()
      | Some dialog -> Dom.appendChild Dom_html.document##.body dialog#root);
+    (match disclaimer_dialog with
+     | None -> ()
+     | Some dialog -> Dom.appendChild Dom_html.document##.body dialog#root);
     Dom.appendChild Dom_html.document##.body warning_dialog#root;
     super#init ()
 
   method! destroy () : unit =
     (match info_dialog with
+     | None -> ()
+     | Some dialog ->
+       dialog#destroy ();
+       Element.remove_child_safe Dom_html.document##.body dialog#root);
+    (match disclaimer_dialog with
      | None -> ()
      | Some dialog ->
        dialog#destroy ();
@@ -192,6 +250,48 @@ class ['a] t ?value
 
   (* Private methods *)
 
+  method private handle_file_loaded ~name ~size e =
+    let upload_progress = fun cur tot ->
+      let v = (float_of_int cur) /. (float_of_int tot) in
+      import#loader#set_value v in
+    let upload_file blob =
+      Lwt_result.map_err Api_js.Http.error_to_string
+        (upload_file ~upload_progress name blob typ
+         >>=? fun () -> fetch_value typ
+         >>=? Lwt.return_ok % self#set_value) in
+    let thread =
+      Js.Opt.case (File.CoerceTo.string @@ (Dom.eventTarget e)##.result)
+        (fun () -> Lwt.return_error "Не удалось открыть файл")
+        (fun data ->
+           if size > max_file_size
+           then
+             Lwt.return_error
+             @@ Printf.sprintf "Превышен допустимый размер файла (%s)"
+             @@ file_size_to_string max_file_size
+           else
+             let blob = File.blob_from_any [`js_string data] in
+             match Storage.get_show_private_key_disclaimer (),
+                   disclaimer_dialog with
+             | false, _ | _, None -> upload_file blob
+             | true, Some dialog ->
+               dialog#reset ();
+               dialog#open_await ()
+               >>= function
+               | Close | Destroy | Custom _ -> Lwt.return_ok ()
+               | Accept ->
+                 Storage.set_show_private_key_disclaimer @@ not dialog#do_not_show;
+                 upload_file blob) in
+    import#button#set_loading_lwt thread;
+    Lwt.on_termination thread (fun () -> import#loader#set_value 0.);
+    Lwt.async (fun () ->
+        thread >>= function
+        | Ok () -> Lwt.return_unit
+        | Error e ->
+          let snackbar = Snackbar.make ~label:e () in
+          set_snackbar snackbar
+          >>= fun _ -> Lwt.return @@ snackbar#destroy ());
+    Js._true
+
   method private handle_files _ _ : unit Lwt.t =
     match Js.Optdef.to_option @@ import#file_input##.files with
     | None -> Lwt.return_unit
@@ -200,44 +300,10 @@ class ['a] t ?value
         (fun () -> Lwt.return_unit)
         (fun file ->
            let freader = new%js File.fileReader in
-           let handler = fun e ->
-             let target = Dom.eventTarget e in
-             let blob = target##.result in
-             let thread =
-               Js.Opt.case (File.CoerceTo.string blob)
-                 (fun () -> Lwt.return_error (`Error "Не удалось открыть файл"))
-                 (fun data ->
-                    let name = Js.to_string file##.name in
-                    let size = file##.size in
-                    if size > max_file_size
-                    then
-                      let sz, unit = file_size_to_string max_file_size in
-                      let error = Printf.sprintf
-                          "Превышен допустимый размер файла \
-                           (%g %s)" sz unit in
-                      Lwt.return_error (`Error error)
-                    else
-                      let blob = File.blob_from_any [`js_string data] in
-                      upload_file ~upload_progress:(fun cur tot ->
-                          let v = (float_of_int cur) /. (float_of_int tot) in
-                          import#loader#set_value v)
-                        name blob typ
-                      >>= fun () -> fetch_value typ
-                      >>= fun v -> (* TODO handle error at each stage *)
-                      self#set_value v;
-                      Lwt.return_ok ()) in
-             Lwt.(async (fun () ->
-                 thread
-                 >>= function
-                 | Ok _ -> Lwt.return_unit
-                 | Error e ->
-                   let label = Api_js.Http.error_to_string e in
-                   let snackbar = Snackbar.make ~label () in
-                   set_snackbar snackbar
-                   >>= fun _ -> snackbar#destroy (); Lwt.return_unit));
-             import#button#set_loading_lwt thread;
-             Js._true in
-           freader##.onload := Dom.handler handler;
+           freader##.onload := Dom.handler (
+               self#handle_file_loaded
+                 ~name:(Js.to_string file##.name)
+                 ~size:file##.size);
            freader##readAsBinaryString file;
            import#file_input##.value := Js.string "";
            Lwt.return_unit)
@@ -246,28 +312,23 @@ class ['a] t ?value
     match info_dialog with
     | None -> Lwt.return_unit
     | Some dialog ->
-      let value = match self#value with
-        | Some x -> Lwt.return_ok x
-        | None -> fetch_value typ in
-      let info =
-        Ui_templates.Loader.create_widget_loader
-          (value
-           |> Lwt_result.map_err Api_js.Http.error_to_string
-           >>= fun x ->
-           self#set_value x;
-           Lwt.return_ok
-           @@ Widget.create
-           @@ make_info typ x) in
-      (match dialog#content with
-       | None -> ()
-       | Some content ->
-         Element.remove_children content;
-         Dom.appendChild content info#root);
-      Lwt.(dialog#open_await () >>= fun _ -> Lwt.return_unit)
+      match dialog#content with
+      | None -> Lwt.return_unit
+      | Some content ->
+        let value = match self#value with
+          | Some x -> Lwt.return_ok x
+          | None -> fetch_value typ in
+        let info =
+          Ui_templates.Loader.create_widget_loader
+            (Lwt_result.map_err Api_js.Http.error_to_string value
+             >>=? fun x ->
+             self#set_value x;
+             Lwt.return_ok @@ Widget.create @@ make_info typ x) in
+        Element.remove_children content;
+        Dom.appendChild content info#root;
+        dialog#open_await () >>= fun _ -> Lwt.return_unit
 
   method private handle_remove _ _ : unit Lwt.t =
-    let ( >>=? ) = Lwt_result.bind in
-    let ( >>= ) = Lwt.bind in
     warning_dialog#open_await ()
     >>= function
     | Close | Destroy | Custom _ -> Lwt.return_unit
@@ -275,10 +336,10 @@ class ['a] t ?value
       remove_file typ
       >>=? (fun () -> fetch_value typ)
       >>= function
-      | Ok v -> self#set_value v; Lwt.return_unit
+      | Ok v -> Lwt.return @@ self#set_value v
       | Error e ->
         let label = Api_js.Http.error_to_string e in
         let snackbar = Snackbar.make ~label () in
         set_snackbar snackbar
-        >>= fun _ -> snackbar#destroy (); Lwt.return_unit
+        >>= fun _ -> Lwt.return @@ snackbar#destroy ()
 end

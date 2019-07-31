@@ -2,7 +2,9 @@
   (name      server_http)
   (libraries server
              server_types
+             api_websocket
              api_cohttp_template
              api_cohttp
              components_tyxml
-             x509))
+             x509
+             util_react))

@@ -36,7 +36,13 @@ class t
   inherit Widget.t elt () as super
 
   method! destroy () : unit =
+    certificate#destroy ();
+    private_key#destroy ();
     super#destroy ()
+
+  method set_value (x : Server_types.settings) : unit =
+    certificate#set_value x.tls_cert;
+    private_key#set_value x.tls_key
 end
 
 let make

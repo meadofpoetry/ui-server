@@ -25,4 +25,5 @@ depends: [
   "gstbuffer"
   "uuidm"
   "js_of_ocaml"
+  "x509" {>= "0.7.0"}
 ]

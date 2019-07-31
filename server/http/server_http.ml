@@ -6,6 +6,8 @@ module Api_http = Api_cohttp.Make(User)(Body)
 
 module Api_template = Api_cohttp_template.Make(User)
 
+module Api_websocket = Api_websocket.Make(User)(Body)(Body_ws)
+
 module Icon = Components_tyxml.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
 let ( / ) = Filename.concat
@@ -22,37 +24,58 @@ let get_certificate (path: string) =
   | Ok x -> Lwt.return (Certificate.of_x509 x)
   | Error _ -> Lwt.return_error "Certificate file read error"
 
-let get_config (conf : Server.config) _user _body _env _state =
-  conf#get
-  >>= fun settings ->
-  (match settings.tls_cert with
+let settings_of_config (config : Server.Config.t) =
+  (match config.tls_cert with
    | None -> Lwt.return_ok None
    | Some name ->
-     get_certificate (settings.tls_path / name)
+     get_certificate (config.tls_path / name)
      >>= function
      | Ok x -> Lwt.return_ok (Some (Uri.pct_decode name, x))
      | Error _ as e -> Lwt.return e)
   (* TODO cert parser may fail, but this is not a reason
      to return an error in this case *)
-  >>= function
-  | Error e -> Lwt.return (`Error e)
-  | Ok tls_cert ->
-    let tls_key = match settings.tls_key with
-      | None -> None
-      | Some x -> Some (Uri.pct_decode x) in
-    let res =
-      { Server_types.
-        https_enabled = settings.https_enabled
-      ; tls_cert
-      ; tls_key
-      } in
-    Lwt.return (`Value (Server_types.settings_to_yojson res))
+  >>= fun res ->
+  let tls_cert = match res with
+    | Ok x -> x
+    | Error _ -> None in
+  let tls_key = match config.tls_key with
+    | None -> None
+    | Some x -> Some (Uri.pct_decode x) in
+  Lwt.return
+    { Server_types.
+      https_enabled = config.https_enabled
+    ; tls_cert
+    ; tls_key
+    }
 
-let set_https (conf : Server.config) flag _user _body _env _state =
-  conf#get >>= fun settings ->
-  let new_settings = { settings with https_enabled = flag } in
-  conf#set new_settings >>= fun () ->
-  Lwt.return `Unit
+module Event = struct
+
+  open Util_react
+
+  let get_config_ws (conf : Server.config) _user =
+    let event =
+      E.map_s (fun x ->
+          settings_of_config x
+          >>= fun x -> Lwt.return @@ Server_types.settings_to_yojson x)
+      @@ S.changes conf#s in
+    Lwt.return event
+
+end
+
+let get_config (conf : Server.config) _user _body _env _state =
+  conf#get
+  >>= fun config ->settings_of_config config
+  >>= fun x -> Lwt.return (`Value (Server_types.settings_to_yojson x))
+
+let set_https (conf : Server.config) _user body _env _state =
+  match Util_json.Bool.of_yojson body with
+  | Error e -> Lwt.return (`Error e)
+  | Ok https_enabled ->
+    conf#get
+    >>= fun settings ->
+    let new_settings = { settings with https_enabled } in
+    conf#set new_settings
+    >>= fun () -> Lwt.return `Unit
 
 let add_file validate setter (conf : Server.config) name _user body _env _state =
   conf#get >>= fun settings ->
@@ -144,7 +167,7 @@ let handlers (config : Server.config) =
         ~restrict:[`Operator; `Guest]
         ~meth:`POST
         ~path:Path.Format.("config/https-enabled" @/empty)
-        ~query:Query.[ "value", (module Single(Bool)) ]
+        ~query:Query.empty
         (set_https config)
     ; node_raw ~doc:"Set tls certificate"
         ~restrict:[`Operator; `Guest]
@@ -172,19 +195,29 @@ let handlers (config : Server.config) =
         (remove_key config)
     ]
 
+let ws (config : Server.config) =
+  let open Api_websocket in
+  make ~prefix:"server"
+    [ event_node ~doc:"Server configuration"
+        ~restrict:[`Operator; `Guest]
+        ~path:Path.Format.("config" @/ empty)
+        ~query:Query.empty
+        (Event.get_config_ws config)
+    ]
+
 let pages : 'a. unit -> 'a Api_template.item list =
   fun () ->
   let open Api_template in
   let props =
     make_template_props
-      ~title:"Настройки сервера"
+      ~title:"Настройки безопасности"
       ~post_scripts:[Src "/js/page-server-settings.js"]
       ~stylesheets:["/css/page-server-settings.min.css"]
       () in
   simple
     ~restrict:[`Operator; `Guest]
     ~priority:(`Index 10)
-    ~title:"Сервер"
-    ~icon:(make_icon Components_tyxml.Svg_icons.server)
+    ~title:"Безопасность"
+    ~icon:(make_icon Components_tyxml.Svg_icons.server_security)
     ~path:(Path.of_string "settings/server")
     props

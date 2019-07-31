@@ -137,4 +137,15 @@ module Make(Xml : Xml_sigs.NoWrap)
             |> map_cons_option (aria "describedby") content_id)
       [container; scrim]
 
+  let create_simple ?classes ?attrs ?title_id ?content_id
+      ?title ?content ?actions () =
+    let scrim = create_scrim () in
+    let actions = match actions with
+      | None -> None
+      | Some actions ->
+        Some (create_actions ~actions ()) in
+    let surface = create_surface ?title ?content ?actions () in
+    let container = create_container ~surface () in
+    create ?classes ?attrs ?title_id ?content_id ~scrim ~container ()
+
 end

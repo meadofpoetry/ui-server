@@ -61,7 +61,7 @@ end
 module Make(M : Store) : Storage = struct
 
   let get_user () =
-    let s = Js.to_string @@ Js.Unsafe.variable "username" in
+    let s = Js.to_string @@ Js.Unsafe.global##.username in
     match user_of_string s with
     | Some u -> u
     | None -> failwith @@ Printf.sprintf "Unknown user type: %s" s
