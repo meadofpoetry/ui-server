@@ -86,6 +86,6 @@
          (page-topology.min.css as css/page-topology.min.css)
          (page-network-settings.min.css as css/page-network-settings.min.css)
          (page-server-settings.min.css as css/page-server-settings.min.css)
-         (page-server-settings.min.css as css/page-user-settings.min.css))
+         (page-user-settings.min.css as css/page-user-settings.min.css))
   (section share)
   (package ui-server))

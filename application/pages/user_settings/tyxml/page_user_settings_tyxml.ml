@@ -19,9 +19,24 @@ module Make(Xml : Xml_sigs.NoWrap)
 
     let id = "password-config"
 
-    let make_textfield ?value ~label ~id () : 'a elt =
+    let old_password_id = "old-password"
+
+    let new_password_id = "new-password"
+
+    let confirm_password_id = "confirm-password"
+
+    let make_textfield ?(autocomplete = "off") ?value
+        ~name ~label ~id () : 'a elt =
       let id' = id ^ "-input" in
-      let input = Unsafe.coerce_elt @@ Textfield.create_input ~id:id' ?value () in
+      let input =
+        Unsafe.coerce_elt
+        @@ Textfield.create_input
+          ~id:id'
+          ~attrs:[ Unsafe.string_attrib "autocomplete" autocomplete
+                 ; Unsafe.string_attrib "spellcheck" "false"
+                 ; a_name name ]
+          ~typ:`Password
+          ?value () in
       let label = Floating_label.create
           ~classes:(match value with
               | None -> []
@@ -35,7 +50,43 @@ module Make(Xml : Xml_sigs.NoWrap)
         ~line_ripple
         ()
 
-    let make ?classes ?(attrs = []) () =
+    let make_user_tabs () =
+      let create_tab ?active user =
+        let username = Application_types.User.to_string user in
+        let human = match user with
+          | `Guest -> "Гость"
+          | `Operator -> "Оператор"
+          | `Root -> "Администратор" in
+        let indicator = Tab_indicator.create ?active
+            (Tab_indicator.create_content ())
+            () in
+        let text_label = Tab.create_text_label human () in
+        Tab.create ?active
+          ~attrs:[a_user_data "username" username]
+          ~indicator
+          (Tab.create_content ~text_label ())
+          () in
+      let tabs =
+        [ create_tab ~active:true `Guest
+        ; create_tab `Operator
+        ; create_tab `Root
+        ] in
+      let scroll_area =
+        Tab_scroller.create_scroll_area
+          ~content:(Tab_scroller.create_scroll_content tabs ())
+          () in
+      let scroller = Tab_scroller.create ~scroll_area () in
+      Tab_bar.create ~scroller ()
+
+    let make_username user =
+      Unsafe.coerce_elt
+      @@ input ~a:[ Unsafe.string_attrib "autocomplete" "username"
+                  ; a_input_type `Text
+                  ; a_name "username"
+                  ; a_value user ]
+        ()
+
+    let make ?(classes = []) ?(attrs = []) () =
       let make_helper_text ?(persistent = true) text =
         Textfield.Helper_text.create
           ~validation:true
@@ -47,16 +98,31 @@ module Make(Xml : Xml_sigs.NoWrap)
           ~appearance:Raised
           ~label:"Сменить пароль"
           () in
-      make_section ?classes ~attrs:(a_id id :: attrs)
+      let classes = CSS.Password.root :: classes in
+      make_section ~classes ~attrs:(a_id id :: attrs)
         ~header:(make_section_header ~title:"Пароль" [])
-        [ Card.create_media ~classes:[CSS.Password.root]
-            [ make_textfield ~label:"Старый пароль" ~id:"old-password" ()
+        [ make_user_tabs ()
+        ; Card.create_media ~tag:form
+            [ make_username (Application_types.User.to_string `Guest)
+            ; make_textfield
+                ~id:old_password_id
+                ~name:"current_password"
+                ~autocomplete:"current-password"
+                ~label:"Старый пароль"
+                ()
             ; make_helper_text ~persistent:false ""
-            ; make_textfield ~label:"Новый пароль" ~id:"new-password" ()
+            ; make_textfield
+                ~id:new_password_id
+                ~name:"new_password"
+                ~autocomplete:"new-password"
+                ~label:"Новый пароль"
+                ()
             ; make_helper_text "Минимум 4 символа"
             ; make_textfield
+                ~id:confirm_password_id
+                ~name:"confirm_password"
+                ~autocomplete:"new-password"
                 ~label:"Подтвердите новый пароль"
-                ~id:"new-password-confirm"
                 ()
             ; make_helper_text ~persistent:false ""
             ]

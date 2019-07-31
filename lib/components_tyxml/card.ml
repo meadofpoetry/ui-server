@@ -64,9 +64,9 @@ module Make(Xml : Xml_sigs.NoWrap)
   open Html
   open Utils
 
-  let create_media ?(classes = []) ?(attrs = []) children () : 'a elt =
+  let create_media ?(classes = []) ?(attrs = []) ?(tag = div) children () : 'a elt =
     let classes = CSS.media :: classes in
-    section ~a:([a_class classes] @ attrs) children
+    tag ~a:([a_class classes] @ attrs) children
 
   let create_action_buttons ?(classes = []) ?(attrs = []) buttons () : 'a elt =
     let classes = CSS.action_buttons :: classes in

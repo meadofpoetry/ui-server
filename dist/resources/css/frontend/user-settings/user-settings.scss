@@ -1,9 +1,33 @@
 @import "@material/theme/mixins";
+@import "@material/card/variables";
 
-.settings-section#password-config {
+.password-section {
+    padding: 24px;
+}
+
+#password-config.settings-section {
+
+    input[name="username"] {
+        display: none;
+    }
+
+    .mdc-tab-bar {
+        width: 100%;
+    }
+
+    .mdc-card__media {
+        padding: 24px;
+    }
+
     .mdc-card__actions {
-        border-top-style: solid;
-        border-top-width: $mdc-card-outline-width;
-        @include mdc-theme-prop(border-top-color, $mdc-card-outline-color);
+
+        .mdc-button {
+            margin-left: 24px;
+        }
+
+        padding: 0 0 24px 0;
+        // border-top-style: solid;
+        // border-top-width: $mdc-card-outline-width;
+        // @include mdc-theme-prop(border-top-color, $mdc-card-outline-color);
     }
 }
