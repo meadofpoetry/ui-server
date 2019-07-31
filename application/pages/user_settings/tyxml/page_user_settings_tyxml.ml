@@ -83,7 +83,8 @@ module Make(Xml : Xml_sigs.NoWrap)
       @@ input ~a:[ Unsafe.string_attrib "autocomplete" "username"
                   ; a_input_type `Text
                   ; a_name "username"
-                  ; a_value user ]
+                  ; a_value user
+                  ; a_aria "hidden" ["true"]]
         ()
 
     let make ?(classes = []) ?(attrs = []) () =

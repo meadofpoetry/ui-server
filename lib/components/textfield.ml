@@ -299,6 +299,27 @@ let get_helper_line (elt : Dom_html.element Js.t) =
     if Element.has_class next CSS.helper_line
     then Some next else None
 
+let custom_validation (type a) ~init input_elt (v : a validation option) =
+  let set_custom_validity s : unit =
+    (Js.Unsafe.coerce input_elt)##setCustomValidity
+      (Js.string s) in
+  let validate : a validation option
+    -> (string -> (unit, string) result) option = function
+    | Some Password validate -> Some validate
+    | Some Custom { of_string; _ } ->
+      Some (fun s -> match of_string s with
+          | Ok _ -> Ok ()
+          | Error _ as e -> e)
+    | _ -> None in
+  match init, validate v with
+  | true, _ | _, None -> ()
+  | false, Some validate ->
+    let raw_value = Js.to_string input_elt##.value in
+    match raw_value, validate raw_value with
+    | _, Ok _ -> set_custom_validity ""
+    | "", Error _ -> set_custom_validity ""
+    | _, Error e -> set_custom_validity e
+
 class ['a] t ?on_input
     ?(helper_text : Helper_text.t option)
     ?(character_counter : Character_counter.t option)
@@ -565,17 +586,7 @@ class ['a] t ?on_input
     method private valid_ ?(init = false) () =
       if _use_native_validation
       then (
-        (match init, validation with
-         | false, Some Custom { of_string; _ } ->
-           let set_custom_validity s : unit =
-             (Js.Unsafe.coerce input_elt)##setCustomValidity
-               (Js.string s) in
-           let raw_value = self#value_as_string in
-           (match raw_value, of_string raw_value with
-            | _, Ok _ -> set_custom_validity ""
-            | "", Error _ -> set_custom_validity ""
-            | _, Error e -> set_custom_validity e)
-         | _ -> ());
+        custom_validation ~init input_elt validation;
         self#is_native_input_valid ())
       else _is_valid
 

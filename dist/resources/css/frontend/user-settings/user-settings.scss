@@ -11,6 +11,10 @@
         display: none;
     }
 
+    .mdc-tab {
+        flex-basis: 33.333%;
+    }
+
     .mdc-tab-bar {
         width: 100%;
     }
@@ -26,8 +30,5 @@
         }
 
         padding: 0 0 24px 0;
-        // border-top-style: solid;
-        // border-top-width: $mdc-card-outline-width;
-        // @include mdc-theme-prop(border-top-color, $mdc-card-outline-color);
     }
 }

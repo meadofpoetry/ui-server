@@ -3,7 +3,12 @@ open Components
 
 let name = "Password config"
 
+module Attr = struct
+  let username = "data-username"
+end
+
 module Selector = struct
+  let username = Printf.sprintf "input[name=\"username\"]"
   let old_password = Printf.sprintf "#%s" Markup.Password.old_password_id
   let new_password = Printf.sprintf "#%s" Markup.Password.new_password_id
   let confirm_password = Printf.sprintf "#%s" Markup.Password.confirm_password_id
@@ -29,28 +34,36 @@ module Validation = struct
 end
 
 class t (elt : Dom_html.element Js.t) =
+  let username : Dom_html.inputElement Js.t =
+    match Element.query_selector elt Selector.username with
+    | None -> failwith @@ name ^ ": username input not found"
+    | Some x -> Js.Unsafe.coerce x in
+
   let old_password : string Textfield.t =
     match Element.query_selector elt Selector.old_password with
-    | None -> failwith @@ name ^ ": not old password input found"
+    | None -> failwith @@ name ^ ": old password input not found"
     | Some x -> Textfield.attach ~validation:Validation.new_password x in
 
   let new_password : string Textfield.t =
     match Element.query_selector elt Selector.new_password with
-    | None -> failwith @@ name ^ ": not new password input found"
+    | None -> failwith @@ name ^ ": new password input not found"
     | Some x -> Textfield.attach ~validation:Validation.new_password x in
 
   let confirm_password : string Textfield.t =
     match Element.query_selector elt Selector.confirm_password with
-    | None -> failwith @@ name ^ ": not new confirm password input found"
-    | Some x -> Textfield.attach ~validation:Validation.new_password x in
+    | None -> failwith @@ name ^ ": new confirm password input not found"
+    | Some x -> Textfield.attach ~validation:(Validation.confirm new_password) x in
   object
     val user_tabs : Tab_bar.t =
       match Element.query_selector elt Selector.user_tabs with
       | None -> failwith @@ name ^ ": no tab bar element found"
       | Some x -> Tab_bar.attach ~on_change:(fun _ bar ->
           match bar#active_tab with
-          | None -> Lwt.return_unit
-          | Some _tab -> Lwt.return_unit) x
+          | None -> print_endline "no active tab"; Lwt.return_unit
+          | Some tab ->
+            Js.Opt.iter (tab#root##getAttribute (Js.string Attr.username))
+              (fun attr -> username##.value := attr);
+            Lwt.return_unit) x
 
     inherit Widget.t elt () as super
 
