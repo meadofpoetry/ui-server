@@ -3,6 +3,15 @@ open Netlib.Uri
 
 module Api_http = Api_js.Http.Make(Application_types.Body)
 
+module Event = struct
+  let get_config sock =
+    let of_yojson = Network_config.of_yojson in
+    Api_js.Websocket.JSON.subscribe
+      ~path:Path.Format.("network/config" @/ empty)
+      ~query:Query.empty
+      of_yojson sock
+end
+
 let get_config () =
   Api_http.perform
     ~meth:`GET

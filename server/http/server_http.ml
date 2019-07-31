@@ -49,17 +49,15 @@ let settings_of_config (config : Server.Config.t) =
     }
 
 module Event = struct
-
   open Util_react
 
-  let get_config_ws (conf : Server.config) _user =
+  let get_config (conf : Server.config) _user =
     let event =
       E.map_s (fun x ->
           settings_of_config x
           >>= fun x -> Lwt.return @@ Server_types.settings_to_yojson x)
       @@ S.changes conf#s in
     Lwt.return event
-
 end
 
 let get_config (conf : Server.config) _user _body _env _state =
@@ -202,7 +200,7 @@ let ws (config : Server.config) =
         ~restrict:[`Operator; `Guest]
         ~path:Path.Format.("config" @/ empty)
         ~query:Query.empty
-        (Event.get_config_ws config)
+        (Event.get_config config)
     ]
 
 let pages : 'a. unit -> 'a Api_template.item list =

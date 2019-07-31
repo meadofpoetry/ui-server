@@ -304,6 +304,7 @@ let create templates (app : Application.t)
     Api_websocket.to_http ~prefix:"ws" ~ping
     @@ Api_websocket.merge
       ( foreign_ws
+        :: Pc_control_http.network_ws app.network
         :: application_ws
         :: board_ws
         :: proc_ws_list )

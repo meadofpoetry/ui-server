@@ -62,15 +62,13 @@ class t (elt : Dom_html.element Js.t) = object(self)
     super#destroy ()
 
   method set_value ({ address; routes; meth; _ } as v : Network_config.ipv4_conf) =
-    dhcp#input#toggle
-      ~notify:true
-      ~force:(match meth with Auto -> true | Manual -> false)
-      ();
+    dhcp#input#toggle ~force:(match meth with Auto -> true | Manual -> false) ();
     ip#set_value @@ fst address;
     mask#set_value @@ snd address;
     (match routes.gateway with
      | None -> gateway#clear ()
      | Some x -> gateway#set_value x);
+    self#handle_dhcp_change ();
     _value <- Some v
 
   method value : Network_config.ipv4_conf option =
