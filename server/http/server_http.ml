@@ -18,7 +18,7 @@ let make_icon path =
   let icon = create [path] () in
   Tyxml.Html.toelt icon
 
-let get_certificate (path: string) =
+let get_certificate_info (path : string) =
   Futil_lwt.File.read path
   >>= function
   | Ok x -> Lwt.return (Certificate.of_x509 x)
@@ -28,7 +28,7 @@ let settings_of_config (config : Server.Config.t) =
   (match config.tls_cert with
    | None -> Lwt.return_ok None
    | Some name ->
-     get_certificate (config.tls_path / name)
+     get_certificate_info (config.tls_path / name)
      >>= function
      | Ok x -> Lwt.return_ok (Some (Uri.pct_decode name, x))
      | Error _ as e -> Lwt.return e)

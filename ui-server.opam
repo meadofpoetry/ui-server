@@ -28,4 +28,5 @@ depends: [
   "uuidm"
   "js_of_ocaml"
   "x509" {>= "0.7.0"}
+  "lwt_ssl"
 ]
