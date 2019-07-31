@@ -1,14 +1,29 @@
 @import "@material/theme/mixins";
 @import "@material/card/variables";
+@import "@material/ripple/mixins";
 
-.password-section {
-    padding: 24px;
+.text-field-container {
+    display: block;
+}
+
+.mdc-text-field__icon {
+    @include mdc-states;
+    @include mdc-ripple-surface;
+    @include mdc-ripple-radius-unbounded;
 }
 
 #password-config.settings-section {
 
+    .mdc-card {
+        position: relative;
+    }
+
     input[name="username"] {
         display: none;
+    }
+
+    .mdc-text-field {
+        margin-top: 24px;
     }
 
     .mdc-tab {
@@ -19,8 +34,21 @@
         width: 100%;
     }
 
+    hr {
+        height: 1px;
+        margin: 0;
+        border: none;
+        box-sizing: border-box;
+        @include mdc-theme-prop(background-color, $mdc-card-outline-color);
+    }
+
     .mdc-card__media {
         padding: 24px;
+    }
+
+    form {
+        max-width: 300px;
+        margin-right: auto;
     }
 
     .mdc-card__actions {

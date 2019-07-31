@@ -1,5 +1,7 @@
 module CSS = struct
   include Ui_templates_tyxml.Settings_page.CSS
+  let text_field_container = "text-field-container"
+
   module Password = struct
     let root = "password-section"
   end
@@ -19,6 +21,8 @@ module Make(Xml : Xml_sigs.NoWrap)
 
     let id = "password-config"
 
+    let form_id = "password-config-form"
+
     let old_password_id = "old-password"
 
     let new_password_id = "new-password"
@@ -28,6 +32,13 @@ module Make(Xml : Xml_sigs.NoWrap)
     let make_textfield ?(autocomplete = "off") ?value
         ~name ~label ~id () : 'a elt =
       let id' = id ^ "-input" in
+      let path = Icon.SVG.create_path Components_tyxml.Svg_icons.eye_off () in
+      let icon = Icon.SVG.create
+          ~attrs:[ Svg.Unsafe.string_attrib "role" "button"
+                 ; Svg.Unsafe.string_attrib "tabindex" "0" ]
+          ~classes:[Textfield.CSS.icon]
+          [path]
+          () in
       let input =
         Unsafe.coerce_elt
         @@ Textfield.create_input
@@ -45,6 +56,7 @@ module Make(Xml : Xml_sigs.NoWrap)
       let line_ripple = Line_ripple.create () in
       Textfield.create
         ~attrs:[a_id id]
+        ~trailing_icon:icon
         ~input
         ~label
         ~line_ripple
@@ -88,38 +100,45 @@ module Make(Xml : Xml_sigs.NoWrap)
         ()
 
     let make ?(classes = []) ?(attrs = []) () =
+      let text_field_container content =
+        div ~a:[a_class [CSS.text_field_container]] content in
       let make_helper_text ?(persistent = true) text =
-        Textfield.Helper_text.create
-          ~validation:true
-          ~persistent
-          ~text
-          () in
+        Textfield.create_helper_line
+          [Textfield.Helper_text.create
+             ~validation:true
+             ~persistent
+             ~text
+             ()] in
       let submit = Button.create
           ~classes:[Card.CSS.action]
+          ~attrs:[a_form form_id]
           ~appearance:Raised
+          ~button_type:`Submit
           ~label:"Сменить пароль"
           () in
       let classes = CSS.Password.root :: classes in
-      make_section ~classes ~attrs:(a_id id :: attrs)
-        ~header:(make_section_header ~title:"Пароль" [])
-        [ make_user_tabs ()
-        ; Card.create_media ~tag:form
-            [ make_username (Application_types.User.to_string `Guest)
-            ; make_textfield
+      let form_content =
+        [ make_username (Application_types.User.to_string `Guest)
+        ; text_field_container
+            [ make_textfield
                 ~id:old_password_id
                 ~name:"current_password"
                 ~autocomplete:"current-password"
                 ~label:"Старый пароль"
                 ()
             ; make_helper_text ~persistent:false ""
-            ; make_textfield
+            ]
+        ; text_field_container
+            [ make_textfield
                 ~id:new_password_id
                 ~name:"new_password"
                 ~autocomplete:"new-password"
                 ~label:"Новый пароль"
                 ()
             ; make_helper_text "Минимум 4 символа"
-            ; make_textfield
+            ]
+        ; text_field_container
+            [ make_textfield
                 ~id:confirm_password_id
                 ~name:"confirm_password"
                 ~autocomplete:"new-password"
@@ -127,7 +146,12 @@ module Make(Xml : Xml_sigs.NoWrap)
                 ()
             ; make_helper_text ~persistent:false ""
             ]
-            ()
+        ] in
+      make_section ~classes ~attrs:(a_id id :: attrs)
+        ~header:(make_section_header ~title:"Пароль" [])
+        [ make_user_tabs ()
+        ; hr ()
+        ; Card.create_media [form ~a:[a_id form_id] form_content] ()
         ; Card.create_actions [Card.create_action_buttons [submit] ()] ()
         ]
 

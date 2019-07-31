@@ -6,6 +6,21 @@ module Markup : sig
   include module type of Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 end
 
+class type validity_state =
+  object
+    method badInput : bool Js.t Js.readonly_prop
+    method customError : bool Js.t Js.readonly_prop
+    method patternMismatch : bool Js.t Js.readonly_prop
+    method rangeOverflow : bool Js.t Js.readonly_prop
+    method rangeUnderflow : bool Js.t Js.readonly_prop
+    method stepMismatch : bool Js.t Js.readonly_prop
+    method tooLong : bool Js.t Js.readonly_prop
+    method tooShort : bool Js.t Js.readonly_prop
+    method typeMismatch : bool Js.t Js.readonly_prop
+    method valid : bool Js.t Js.readonly_prop
+    method valueMissing : bool Js.t Js.readonly_prop
+  end
+
 module Event : sig
   class type icon =
     object
@@ -268,7 +283,9 @@ class type ['a] t =
     method private create_ripple : unit -> Ripple.t
   end
 
-val make_textfield : ?on_input:(Dom_html.event Js.t -> 'a t -> unit Lwt.t)
+val make_textfield :
+  ?validate_on_blur:bool
+  -> ?on_input:(Dom_html.event Js.t -> 'a t -> unit Lwt.t)
   -> ?disabled:bool
   -> ?fullwidth:bool
   -> ?outlined:bool
@@ -300,7 +317,8 @@ val make_textfield : ?on_input:(Dom_html.event Js.t -> 'a t -> unit Lwt.t)
   -> ?use_native_validation:bool
   -> 'a validation -> 'a t
 
-val make_textarea : ?on_input:(Dom_html.event Js.t -> string t -> unit Lwt.t)
+val make_textarea :
+  ?on_input:(Dom_html.event Js.t -> string t -> unit Lwt.t)
   -> ?disabled:bool
   -> ?fullwidth:bool
   -> ?focused:bool
@@ -318,7 +336,9 @@ val make_textarea : ?on_input:(Dom_html.event Js.t -> string t -> unit Lwt.t)
   -> unit
   -> string t
 
-val attach : ?on_input:(Dom_html.event Js.t -> 'a t -> unit Lwt.t)
+val attach :
+  ?validate_on_blur:bool
+  -> ?on_input:(Dom_html.event Js.t -> 'a t -> unit Lwt.t)
   -> ?helper_text:Helper_text.t
   -> ?character_counter:Character_counter.t
   -> ?use_native_validation:bool

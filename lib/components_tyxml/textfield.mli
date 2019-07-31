@@ -63,49 +63,53 @@ sig
 
   module Helper_text : sig
     val create :
-      ?classes:string list ->
-      ?attrs:Html_types.div_attrib attrib list ->
-      ?persistent:bool ->
-      ?validation:bool ->
-      ?text:string ->
-      unit -> Html_types.div elt
+      ?classes:string list
+      -> ?attrs:Html_types.div_attrib attrib list
+      -> ?persistent:bool
+      -> ?validation:bool
+      -> ?text:string
+      -> unit
+      -> Html_types.div elt
   end
 
   module Character_counter : sig
     val create :
-      ?classes:string list ->
-      ?attrs:Html_types.div_attrib attrib list ->
-      ?current_length:int ->
-      ?max_length:int ->
-      unit -> Html_types.div elt
+      ?classes:string list
+      -> ?attrs:Html_types.div_attrib attrib list
+      -> ?current_length:int
+      -> ?max_length:int
+      -> unit
+      -> Html_types.div elt
   end
 
   module Textarea : sig
     val create_textarea :
-      ?classes:string list ->
-      ?attrs:Html_types.textarea_attrib attrib list ->
-      ?id:string ->
-      ?value:string ->
-      ?placeholder:string ->
-      ?required:bool ->
-      ?min_length:int ->
-      ?max_length:int ->
-      ?rows:int ->
-      ?cols:int ->
-      ?disabled:bool ->
-      unit -> Html_types.textarea elt
+      ?classes:string list
+      -> ?attrs:Html_types.textarea_attrib attrib list
+      -> ?id:string
+      -> ?value:string
+      -> ?placeholder:string
+      -> ?required:bool
+      -> ?min_length:int
+      -> ?max_length:int
+      -> ?rows:int
+      -> ?cols:int
+      -> ?disabled:bool
+      -> unit
+      -> Html_types.textarea elt
 
     val create :
-      ?classes:string list ->
-      ?attrs:Html_types.div_attrib attrib list ->
-      ?disabled:bool ->
-      ?no_label:bool ->
-      ?fullwidth:bool ->
-      ?focused:bool ->
-      ?character_counter:([< Html_types.div_content_fun ] as 'a) Html.elt ->
-      ?outline:'a elt ->
-      input:'a elt ->
-      unit -> Html_types.div elt
+      ?classes:string list
+      -> ?attrs:Html_types.div_attrib attrib list
+      -> ?disabled:bool
+      -> ?no_label:bool
+      -> ?fullwidth:bool
+      -> ?focused:bool
+      -> ?character_counter:([< Html_types.div_content_fun ] as 'a) Html.elt
+      -> ?outline:'a elt
+      -> input:'a elt
+      -> unit
+      -> Html_types.div elt
   end
 
   val create_input : ?classes:string list
@@ -134,24 +138,25 @@ sig
     -> unit -> Html_types.input elt
 
   val create_helper_line :
-    ?classes:string list ->
-    ?attrs:Html_types.div_attrib attrib list ->
-    [< Html_types.div_content_fun ] Html.elt list ->
-    unit -> [> Html_types.div ] Html.elt
+    ?classes:string list
+    -> ?attrs:Html_types.div_attrib attrib list
+    -> [< Html_types.div_content_fun ] Html.elt list
+    -> [> Html_types.div ] Html.elt
 
   val create :
-    ?classes:string list_wrap ->
-    ?attrs:Html_types.div_attrib attrib list ->
-    ?disabled:bool ->
-    ?leading_icon:([< Html_types.div_content_fun ] as 'a) elt ->
-    ?trailing_icon:'a elt ->
-    ?no_label:bool ->
-    ?fullwidth:bool ->
-    ?textarea:bool ->
-    ?focused:bool ->
-    ?line_ripple:'a elt ->
-    ?label:'a elt ->
-    ?outline:'a elt ->
-    input:'a elt ->
-    unit -> Html_types.div elt
+    ?classes:string list_wrap
+    -> ?attrs:Html_types.div_attrib attrib list
+    -> ?disabled:bool
+    -> ?leading_icon:([< Html_types.div_content_fun ] as 'a) elt
+    -> ?trailing_icon:'a elt
+    -> ?no_label:bool
+    -> ?fullwidth:bool
+    -> ?textarea:bool
+    -> ?focused:bool
+    -> ?line_ripple:'a elt
+    -> ?label:'a elt
+    -> ?outline:'a elt
+    -> input:'a elt
+    -> unit
+    -> Html_types.div elt
 end

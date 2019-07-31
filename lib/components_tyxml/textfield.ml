@@ -114,7 +114,7 @@ module Make(Xml : Xml_sigs.NoWrap)
               |> map_cons_option a_placeholder placeholder
               |> map_cons_option a_value value) ()
 
-  let create_helper_line ?(classes = []) ?(attrs = []) content () : 'a elt =
+  let create_helper_line ?(classes = []) ?(attrs = []) content : 'a elt =
     let classes = CSS.helper_line :: classes in
     div ~a:([a_class classes] @ attrs) content
 
