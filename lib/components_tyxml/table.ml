@@ -35,7 +35,7 @@ module Make(Xml : Xml_sigs.NoWrap)
   open Html
   open Utils
 
-  let create_cell ?(classes = []) ?attrs ?colspan ?(is_numeric = false)
+  let create_cell ?(classes = []) ?(attrs = []) ?colspan ?(is_numeric = false)
         ?(dense = false) content () : 'a elt =
     let classes =
       classes
@@ -43,10 +43,10 @@ module Make(Xml : Xml_sigs.NoWrap)
       |> cons_if dense CSS.cell_dense
       |> List.cons CSS.cell in
     td ~a:([a_class classes]
-           |> map_cons_option a_colspan colspan
-           <@> attrs) content
+           @ attrs
+           |> map_cons_option a_colspan colspan) content
 
-  let create_column ?(classes = []) ?attrs
+  let create_column ?(classes = []) ?(attrs = [])
         ?(is_numeric = false) ?(sortable = false)
         ?(dense = false) content () : 'a elt =
     let classes =
@@ -55,51 +55,51 @@ module Make(Xml : Xml_sigs.NoWrap)
       |> cons_if is_numeric CSS.column_numeric
       |> cons_if dense CSS.column_dense
       |> List.cons CSS.column in
-    th ~a:([a_class classes] <@> attrs) [content]
+    th ~a:([a_class classes] @ attrs) [content]
 
-  let create_row ?(classes = []) ?attrs ~cells () : 'a elt =
+  let create_row ?(classes = []) ?(attrs = []) ~cells () : 'a elt =
     let classes = CSS.row :: classes in
-    tr ~a:([a_class classes] <@> attrs) cells
+    tr ~a:([a_class classes] @ attrs) cells
 
-  let create_header ?(classes = []) ?attrs ~row () : 'a elt =
-    thead ~a:([a_class classes] <@> attrs) [row]
+  let create_header ?(classes = []) ?(attrs = []) ~row () : 'a elt =
+    thead ~a:([a_class classes] @ attrs) [row]
 
-  let create_body ?(classes = []) ?attrs ~rows () : 'a elt =
-    tbody ~a:([a_class classes] <@> attrs) rows
+  let create_body ?(classes = []) ?(attrs = []) ~rows () : 'a elt =
+    tbody ~a:([a_class classes] @ attrs) rows
 
-  let create_footer_caption ?(classes = []) ?attrs text () : 'a elt =
+  let create_footer_caption ?(classes = []) ?(attrs = []) text () : 'a elt =
     let classes = CSS.footer_caption :: classes in
-    span ~a:([a_class classes] <@> attrs) [txt text]
+    span ~a:([a_class classes] @ attrs) [txt text]
 
-  let create_footer_spacer ?(classes = []) ?attrs () : 'a elt =
+  let create_footer_spacer ?(classes = []) ?(attrs = []) () : 'a elt =
     let classes = CSS.footer_spacer :: classes in
-    div ~a:([a_class classes] <@> attrs) []
+    div ~a:([a_class classes] @ attrs) []
 
-  let create_footer_select ?(classes = []) ?attrs select () =
+  let create_footer_select ?(classes = []) ?(attrs = []) select () =
     let classes = CSS.footer_select :: classes in
-    div ~a:([a_class classes] <@> attrs) [select]
+    div ~a:([a_class classes] @ attrs) [select]
 
-  let create_footer_actions ?(classes = []) ?attrs actions () : 'a elt =
+  let create_footer_actions ?(classes = []) ?(attrs = []) actions () : 'a elt =
     let classes = CSS.footer_actions :: classes in
-    div ~a:([a_class classes] <@> attrs) actions
+    div ~a:([a_class classes] @ attrs) actions
 
-  let create_footer_toolbar ?(classes = []) ?attrs content () : 'a elt =
+  let create_footer_toolbar ?(classes = []) ?(attrs = []) content () : 'a elt =
     let classes = CSS.footer_toolbar :: classes in
-    div ~a:([a_class classes] <@> attrs) content
+    div ~a:([a_class classes] @ attrs) content
 
-  let create_footer ?(classes = []) ?attrs ~row () : 'a elt =
+  let create_footer ?(classes = []) ?(attrs = []) ~row () : 'a elt =
     let classes = CSS.footer :: classes in
-    tfoot ~a:([a_class classes] <@> attrs) [row]
+    tfoot ~a:([a_class classes] @ attrs) [row]
 
-  let create_table ?(classes = []) ?attrs ?header ?footer ~body () : 'a elt =
+  let create_table ?(classes = []) ?(attrs = []) ?header ?footer ~body () : 'a elt =
     let classes = CSS.table :: classes in
-    table ?thead:header ?tfoot:footer ~a:([a_class classes] <@> attrs) [body]
+    table ?thead:header ?tfoot:footer ~a:([a_class classes] @ attrs) [body]
 
-  let create_content ?(classes = []) ?attrs ~table () : 'a elt =
+  let create_content ?(classes = []) ?(attrs = []) ~table () : 'a elt =
     let classes = CSS.content :: classes in
-    div ~a:([a_class classes] <@> attrs) [table]
+    div ~a:([a_class classes] @ attrs) [table]
 
-  let create ?(classes = []) ?attrs ?selection ?footer ~content () : 'a elt =
+  let create ?(classes = []) ?(attrs = []) ?selection ?footer ~content () : 'a elt =
     let selection_class = match selection with
       | None -> None
       | Some `Single -> Some CSS.select
@@ -107,6 +107,6 @@ module Make(Xml : Xml_sigs.NoWrap)
     let classes =
       CSS.root :: (selection_class ^:: classes)
       |> map_cons_option (fun _ -> CSS.with_footer) footer in
-    div ~a:([a_class classes] <@> attrs) (content :: (footer ^:: []))
+    div ~a:([a_class classes] @ attrs) (content :: (footer ^:: []))
 
 end

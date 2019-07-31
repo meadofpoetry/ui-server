@@ -2,4 +2,5 @@
   (name      pc_control_http)
   (libraries pc_control
              api_cohttp_template
+             api_websocket
              page_network_settings_tyxml))

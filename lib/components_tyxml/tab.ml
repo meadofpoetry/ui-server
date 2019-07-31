@@ -35,17 +35,17 @@ module Make
   open Html
   open Utils
 
-  let create_text_label ?(classes = []) ?attrs text () : 'a elt =
+  let create_text_label ?(classes = []) ?(attrs = []) text () : 'a elt =
     let classes = CSS.text_label :: classes in
-    span ~a:([a_class classes] <@> attrs) [txt text]
+    span ~a:([a_class classes] @ attrs) [txt text]
 
-  let create_content ?(classes = []) ?attrs
+  let create_content ?(classes = []) ?(attrs = [])
         ?indicator ?icon ?text_label () : 'a elt =
     let classes = CSS.content :: classes in
-    span ~a:([a_class classes] <@> attrs)
+    span ~a:([a_class classes] @ attrs)
       (icon ^:: text_label ^:: indicator ^:: [])
 
-  let create ?(classes = []) ?attrs ?(active = false) ?(stacked = false)
+  let create ?(classes = []) ?(attrs = []) ?(active = false) ?(stacked = false)
         ?(disabled = false) ?(min_width = false) ?indicator content () : 'a elt =
     let classes =
       classes
@@ -55,7 +55,7 @@ module Make
       |> List.cons CSS.root in
     button ~a:([ a_class classes
                ; a_role ["tab"] ]
-               |> cons_if_lazy disabled a_disabled
-               <@> attrs)
+               @ attrs
+               |> cons_if_lazy disabled a_disabled)
       (content :: (indicator ^:: (span ~a:[a_class [CSS.ripple]] [] :: [])))
 end

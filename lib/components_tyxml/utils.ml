@@ -18,9 +18,6 @@ let is_some : 'a option -> bool = function
   | None -> false
   | Some _ -> true
 
-let ( <@> ) l x =
-  match x with Some x -> l @ x | None -> l
-
 let ( ^:: ) = cons_option
 
 let ( % ) f g x = f (g x)

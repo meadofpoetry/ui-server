@@ -12,13 +12,12 @@ module Make (Xml : Xml_sigs.NoWrap)
           with module Xml := Xml
            and module Svg := Svg) = struct
   open Html
-  open Utils
-
-  let create_content ?(classes = []) ?attrs content : 'a elt =
+      
+  let create_content ?(classes = []) ?(attrs = []) content : 'a elt =
     let classes = CSS.content :: classes in
-    div ~a:([a_class classes] <@> attrs) content
+    div ~a:([a_class classes] @ attrs) content
 
-  let create ?(classes = []) ?attrs content =
+  let create ?(classes = []) ?(attrs = []) content =
     let classes = CSS.root :: classes in
-    div ~a:([a_class classes] <@> attrs) content
+    div ~a:([a_class classes] @ attrs) content
 end

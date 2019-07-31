@@ -33,7 +33,7 @@ module Make(Xml : Xml_sigs.NoWrap)
   open Utils
 
   module Helper_text = struct
-    let create ?(classes = []) ?attrs
+    let create ?(classes = []) ?(attrs = [])
           ?(persistent = false) ?(validation = false) ?text () : 'a elt =
       let classes =
         classes
@@ -44,21 +44,21 @@ module Make(Xml : Xml_sigs.NoWrap)
         | None -> ""
         | Some s -> s in
       div ~a:([a_class classes]
-              |> cons_if (not persistent) @@ a_aria "hidden" ["true"]
-              <@> attrs)
+              @ attrs
+              |> cons_if (not persistent) @@ a_aria "hidden" ["true"])
         [txt text]
   end
 
   module Character_counter = struct
-    let create ?(classes = []) ?attrs ?(current_length = 0)
+    let create ?(classes = []) ?(attrs = []) ?(current_length = 0)
           ?(max_length = 0) () : 'a elt =
       let classes = CSS.Character_counter.root :: classes in
       let text = Printf.sprintf "%d / %d" current_length max_length in
-      div ~a:([a_class classes] <@> attrs) [txt text]
+      div ~a:([a_class classes] @ attrs) [txt text]
   end
 
   module Textarea = struct
-    let create_textarea ?(classes = []) ?attrs ?id
+    let create_textarea ?(classes = []) ?(attrs = []) ?id
           ?value ?placeholder ?(required = false)
           ?min_length ?max_length ?rows ?cols
           ?(disabled = false) () : 'a elt =
@@ -67,6 +67,7 @@ module Make(Xml : Xml_sigs.NoWrap)
         | None -> ""
         | Some s -> s in
       textarea ~a:([a_class classes]
+                   @ attrs
                    |> map_cons_option a_id id
                    |> cons_if_lazy disabled a_disabled
                    |> cons_if_lazy required a_required
@@ -74,11 +75,10 @@ module Make(Xml : Xml_sigs.NoWrap)
                    |> map_cons_option a_minlength min_length
                    |> map_cons_option a_maxlength max_length
                    |> map_cons_option a_rows rows
-                   |> map_cons_option a_cols cols
-                   <@> attrs)
+                   |> map_cons_option a_cols cols)
         (txt text)
 
-    let create ?(classes = []) ?attrs ?(disabled = false) ?(no_label = false)
+    let create ?(classes = []) ?(attrs = []) ?(disabled = false) ?(no_label = false)
           ?(fullwidth = false) ?(focused = false)
           ?character_counter ?outline ~input
           () : 'a elt =
@@ -90,11 +90,11 @@ module Make(Xml : Xml_sigs.NoWrap)
         |> cons_if focused CSS.focused
         |> List.cons CSS.textarea
         |> List.cons CSS.root in
-      div ~a:([a_class classes] <@> attrs)
+      div ~a:([a_class classes] @ attrs)
         (character_counter ^:: (input :: (outline ^:: [])))
   end
 
-  let create_input ?(classes = []) ?attrs ?id
+  let create_input ?(classes = []) ?(attrs = []) ?id
         ?pattern ?min_length ?max_length ?step
         ?value ?placeholder ?(required = false)
         ?(disabled = false) ?(typ = `Text) ?input_mode
@@ -102,6 +102,7 @@ module Make(Xml : Xml_sigs.NoWrap)
     let classes = CSS.input :: classes in
     input ~a:([ a_class classes
               ; a_input_type typ ]
+              @ attrs
               |> map_cons_option a_inputmode input_mode
               |> cons_if_lazy disabled a_disabled
               |> map_cons_option a_id id
@@ -111,14 +112,13 @@ module Make(Xml : Xml_sigs.NoWrap)
               |> map_cons_option (fun x -> a_step @@ Some x) step
               |> cons_if_lazy required a_required
               |> map_cons_option a_placeholder placeholder
-              |> map_cons_option a_value value
-              <@> attrs) ()
+              |> map_cons_option a_value value) ()
 
-  let create_helper_line ?(classes = []) ?attrs content () : 'a elt =
+  let create_helper_line ?(classes = []) ?(attrs = []) content () : 'a elt =
     let classes = CSS.helper_line :: classes in
-    div ~a:([a_class classes] <@> attrs) content
+    div ~a:([a_class classes] @ attrs) content
 
-  let create ?(classes = []) ?attrs ?(disabled = false)
+  let create ?(classes = []) ?(attrs = []) ?(disabled = false)
         ?leading_icon ?trailing_icon ?(no_label = false)
         ?(fullwidth = false) ?(textarea = false) ?(focused = false)
         ?line_ripple ?label ?outline ~input () : 'a elt =
@@ -145,7 +145,7 @@ module Make(Xml : Xml_sigs.NoWrap)
       |> cons_if with_leading_icon CSS.with_leading_icon
       |> cons_if with_trailing_icon CSS.with_trailing_icon
       |> List.cons CSS.root in
-    div ~a:([a_class classes] <@> attrs)
+    div ~a:([a_class classes] @ attrs)
       (leading_icon
        ^:: (input
             :: (label ^:: trailing_icon

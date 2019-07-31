@@ -15,13 +15,13 @@ module Make(Xml : Xml_sigs.NoWrap)
   open Html
   open Utils
 
-  let create ?(classes = []) ?attrs ?input_id
+  let create ?(classes = []) ?(attrs = []) ?input_id
         ?(checked = false) ?(disabled = false) ?name () : 'a elt =
     let classes =
       classes
       |> cons_if disabled CSS.disabled
       |> List.cons CSS.root in
-    div ~a:([a_class classes] <@> attrs)
+    div ~a:([a_class classes] @ attrs)
       [ input ~a:([ a_class [CSS.native_control]
                   ; a_input_type `Radio ]
                   |> map_cons_option a_name name

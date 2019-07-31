@@ -27,14 +27,14 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   module Item_list_ = Item_list.Make(Xml)(Svg)(Html)
 
-  let create_children ?(classes = []) ?attrs nodes : 'a elt =
+  let create_children ?(classes = []) ?(attrs = []) nodes : 'a elt =
     let classes = CSS.node_children :: classes in
     ul ~a:([ a_class classes
-           ; a_role ["group"]] <@> attrs) nodes
+           ; a_role ["group"]] @ attrs) nodes
 
-  let create_node_expander ?(classes = []) ?attrs () =
+  let create_node_expander ?(classes = []) ?(attrs = []) () =
     let classes = CSS.node_expander :: Item_list.CSS.item_meta :: classes in
-    span ~a:([a_class classes] <@> attrs) []
+    span ~a:([a_class classes] @ attrs) []
 
   let create_node_primary_text = Item_list_.create_item_primary_text
 
@@ -46,7 +46,7 @@ module Make(Xml : Xml_sigs.NoWrap)
     let classes = CSS.node_content :: classes in
     Item_list_.create_item' ~classes ?attrs ?graphic ?meta ?role ~text span
 
-  let create_node' ?(classes = []) ?attrs
+  let create_node' ?(classes = []) ?(attrs = [])
       ?value ?level ?children
       ?(expanded = false)
       ?(tabindex = (-1))
@@ -66,7 +66,7 @@ module Make(Xml : Xml_sigs.NoWrap)
            ; a_aria "selected" [string_of_bool selected]
            ; a_aria "checked" [checked]
            ; a_aria "expanded" [string_of_bool expanded]
-           ; a_tabindex tabindex ] <@> attrs
+           ; a_tabindex tabindex ] @ attrs
            |> map_cons_option (fun x -> a_aria "level" [string_of_int x]) level
            |> map_cons_option (a_user_data "value") value)
       (match children with
@@ -94,7 +94,7 @@ module Make(Xml : Xml_sigs.NoWrap)
       ?tabindex ?selected ?checked ?indeterminate ?expanded
       ~content ()
 
-  let create ?(classes = []) ?attrs
+  let create ?(classes = []) ?(attrs = [])
       ?multiselectable
       ?(dense = false)
       ?(two_line = false)
@@ -105,7 +105,7 @@ module Make(Xml : Xml_sigs.NoWrap)
       |> cons_if two_line Item_list.CSS.two_line (* FIXME *)
       |> List.cons CSS.root in
     ul ~a:([ a_class classes
-           ; a_role ["tree"]] <@> attrs
+           ; a_role ["tree"]] @ attrs
            |> map_cons_option (fun x ->
                let v = string_of_bool x in
                a_aria "multiselectable" [v])

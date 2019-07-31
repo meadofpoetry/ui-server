@@ -1,5 +1,3 @@
-open Utils
-
 module CSS = struct
   (** Mandatory. *)
   let root = "mdc-tab-bar"
@@ -13,9 +11,10 @@ module Make
            and module Svg := Svg) = struct
   open Html
 
-  let create ?(classes = []) ?attrs ~scroller () : 'a elt =
+  let create ?(classes = []) ?(attrs = []) ~scroller () : 'a elt =
     let classes = CSS.root :: classes in
     div ~a:([ a_class classes
-            ; a_role  ["tablist"]] <@> attrs) [scroller]
+            ; a_role  ["tablist"]]
+            @ attrs) [scroller]
 
 end

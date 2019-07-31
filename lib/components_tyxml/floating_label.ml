@@ -17,9 +17,8 @@ module Make(Xml : Xml_sigs.NoWrap)
   open Html
   open Utils
 
-  let create ?(classes = []) ?attrs ?for_ text () : 'a elt =
+  let create ?(classes = []) ?(attrs = []) ?for_ text () : 'a elt =
     let classes = CSS.root :: classes in
-    label ~a:([a_class classes]
-              |> map_cons_option a_label_for for_
-              <@> attrs) [txt text]
+    label ~a:([a_class classes] @ attrs
+              |> map_cons_option a_label_for for_) [txt text]
 end

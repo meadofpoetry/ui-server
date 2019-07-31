@@ -1,0 +1,123 @@
+@import "@material/theme/mixins";
+@import "@material/typography/mixins";
+@import "@material/card/mixins";
+
+.certificate-viewer {
+    
+}
+
+.certificate-viewer-groups {
+    display: table;
+    &__row {
+        display: table-row;
+    }
+
+    &__title h3 {
+        @include mdc-typography(caption);
+    }
+
+    &__attribute {
+        white-space: nowrap;
+    }
+
+    &__value {
+        white-space: pre-wrap;
+    }
+
+    &__attribute, &__value, &__serial {
+        @include mdc-typography(caption);
+        @include mdc-theme-prop(color, text-hint-on-surface);
+        line-height: 18px;
+        padding-inline-start: 20px;
+    }
+
+    &__attribute, &__value {
+        display: table-cell;
+    }
+}
+
+.file-button {
+    input[type="file"] {
+        display: none;
+    }
+}
+
+.certificate-config {
+    display: flex;
+    flex-direction: column;
+
+    .mdc-icon {
+        @include mdc-theme-prop(color, text-hint-on-surface);
+        margin-right: 10px;
+        flex-shrink: 0;
+    }
+}
+
+.certificate-config-row {
+    padding: 0 1rem;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    > * {
+        width: calc(100% / 3);
+    }
+
+    > :first-child {
+        @include mdc-typography(body2);
+        display: flex;
+        align-items: center;
+        white-space: nowrap;
+    }
+
+    &__filename {
+        @include mdc-theme-prop(color, text-hint-on-surface);
+        @include mdc-typography(caption);
+        @include mdc-typography-overflow-ellipsis;
+        text-align: center;
+    }
+
+    &__actions {
+        .certificate-config-row__action--import {
+            display: none;
+        }
+        display: flex;
+        justify-content: flex-end;
+    }
+}
+
+.certificate-config-row--empty {
+    .certificate-config-row__actions {
+        .certificate-config-row__action--import {
+            display: block;
+        }
+        .certificate-config-row__action--remove,
+        .certificate-config-row__action--info {
+            display: none;
+        }
+    }
+}
+
+.certificate-config-row:nth-child(2) {
+    border-top-style: solid;
+    border-top-width: $mdc-card-outline-width;
+    @include mdc-theme-prop(border-top-color, $mdc-card-outline-color);
+}
+
+.settings-section {
+    .mdc-card__actions {
+        border-top-style: solid;
+        border-top-width: $mdc-card-outline-width;
+        @include mdc-theme-prop(border-top-color, $mdc-card-outline-color);
+    }
+}
+
+.settings-section#https-config {
+    .mdc-form-field label {
+        margin-left: 0;
+    }
+    .mdc-card__media {
+        display: flex;
+        flex-direction: column;
+        padding: 1rem;
+    }
+}

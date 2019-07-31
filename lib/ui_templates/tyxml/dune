@@ -1,0 +1,3 @@
+(library
+  (name ui_templates_tyxml)
+  (libraries components_tyxml))

@@ -22,12 +22,11 @@ module Make(Xml : Xml_sigs.NoWrap)
     (Html : Html_sigs.NoWrap with module Xml := Xml
                               and module Svg := Svg) = struct
   open Html
-  open Utils
 
   module Widget' = Widget.Make(Xml)(Svg)(Html)
   module Icon_ = Icon.Make(Xml)(Svg)(Html)
 
-  let create_item ?(classes = []) ?attrs ?id (widget : Wm.widget) : 'a elt =
+  let create_item ?(classes = []) ?(attrs = []) ?id (widget : Wm.widget) : 'a elt =
     let classes = CSS.item :: Item_list.CSS.item :: classes in
     let path = Widget.widget_type_to_svg_path widget.type_ in
     let graphic = Icon_.SVG.create [Icon_.SVG.create_path path ()] () in
@@ -41,7 +40,7 @@ module Make(Xml : Xml_sigs.NoWrap)
     li ~a:([ a_class classes
            ; a_draggable true ]
            @ Widget'.to_html_attributes ?id widget
-           <@> attrs)
+           @ attrs)
       [ span ~a:[a_class [Item_list.CSS.item_graphic]] [graphic]
       ; span ~a:[a_class [Item_list.CSS.item_text]]
           [ span ~a:[a_class [Item_list.CSS.item_primary_text]]
@@ -51,19 +50,19 @@ module Make(Xml : Xml_sigs.NoWrap)
           ]
       ]
 
-  let create_list ?(classes = []) ?attrs domain items : 'a elt =
+  let create_list ?(classes = []) ?(attrs = []) domain items : 'a elt =
     let classes = Item_list.CSS.root :: Item_list.CSS.two_line :: classes in
     ul ~a:([ a_class classes
-           ; a_id (make_list_id domain) ] <@> attrs) items
+           ; a_id (make_list_id domain) ] @ attrs) items
 
-  let create_subheader ?(classes = []) ?attrs domain title : 'a elt =
+  let create_subheader ?(classes = []) ?(attrs = []) domain title : 'a elt =
     let classes = Item_list.CSS.group_subheader :: classes in
     h3 ~a:([ a_class classes
            ; a_user_data "list" (make_list_id domain)
-           ] <@> attrs) [txt title]
+           ] @ attrs) [txt title]
 
-  let create ?(classes = []) ?attrs content : 'a elt =
+  let create ?(classes = []) ?(attrs = []) content : 'a elt =
     let classes = CSS.root :: Item_list.CSS.group :: classes in
-    div ~a:([a_class classes] <@> attrs) content
+    div ~a:([a_class classes] @ attrs) content
 
 end

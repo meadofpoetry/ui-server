@@ -58,7 +58,7 @@ let perform_file ?headers ?progress ?upload_progress
       ?progress
       ?upload_progress
       ~content_type:"application/octet-stream"
-      ~contents:(`Blob file) 
+      ~contents:(`Blob file)
       ?override_method:meth
       ?with_credentials
       uri

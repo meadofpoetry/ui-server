@@ -13,7 +13,7 @@ let validation = Textfield.(
            })
 
 module Selector = struct
-  let mac = Printf.sprintf "#%s" Settings_section.Ethernet.mac_input_id
+  let mac = Printf.sprintf "#%s" Markup.Ethernet.mac_input_id
 end
 
 class t (elt : Dom_html.element Js.t) = object
@@ -23,7 +23,7 @@ class t (elt : Dom_html.element Js.t) = object
     | None -> failwith "mac address input field not found"
     | Some x -> Textfield.attach ~validation x
 
-  inherit Widget.t elt () as _super
+  inherit Widget.t elt ()
 
   method set_value (x : Network_config.ethernet_conf) : unit =
     mac#set_value x.mac_address
@@ -38,5 +38,5 @@ end
 let make (init : Network_config.ethernet_conf) : t =
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element
-    @@ Settings_section.Ethernet.make init in
+    @@ Markup.Ethernet.make init in
   new t elt

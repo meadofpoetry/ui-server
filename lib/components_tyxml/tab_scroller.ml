@@ -41,21 +41,21 @@ module Make
   open Html
   open Utils
 
-  let create_scroll_content ?(classes = []) ?attrs tabs () : 'a elt =
+  let create_scroll_content ?(classes = []) ?(attrs = []) tabs () : 'a elt =
     let classes = CSS.scroll_content :: classes in
-    div ~a:([a_class classes] <@> attrs) tabs
+    div ~a:([a_class classes] @ attrs) tabs
 
-  let create_scroll_area ?(classes = []) ?attrs ~content () : 'a elt =
+  let create_scroll_area ?(classes = []) ?(attrs = []) ~content () : 'a elt =
     let classes = CSS.scroll_area :: classes in
-    div ~a:([a_class classes] <@> attrs) [content]
+    div ~a:([a_class classes] @ attrs) [content]
 
-  let create ?(classes = []) ?attrs ?align ~scroll_area () : 'a elt =
+  let create ?(classes = []) ?(attrs = []) ?align ~scroll_area () : 'a elt =
     let align = match align with
       | None -> None
       | Some Start -> Some CSS.align_start
       | Some Center -> Some CSS.align_center
       | Some End -> Some CSS.align_end in
     let classes = CSS.root :: (align ^:: classes) in
-    div ~a:([a_class classes] <@> attrs) [scroll_area]
+    div ~a:([a_class classes] @ attrs) [scroll_area]
 
 end

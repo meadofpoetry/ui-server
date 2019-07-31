@@ -17,7 +17,7 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   let sz = 50.
 
-  let create ?(classes = []) ?attrs
+  let create ?(classes = []) ?(attrs = [])
         ?(min = 0.) ?(max = 1.) ?(value = 0.)
         ?(indeterminate = true) ?(thickness = 3.6)
         ?(size = 40) () : 'a elt =
@@ -32,7 +32,7 @@ module Make(Xml : Xml_sigs.NoWrap)
             ; a_aria "valuenow" [string_of_float value]
             ; a_aria "valuemin" [string_of_float min]
             ; a_aria "valuemax" [string_of_float max]
-            ] <@> attrs)
+            ] @ attrs)
       [svg ~a:[Svg.a_class []; Svg.a_viewBox (0., 0., sz, sz)]
          [Svg.circle ~a:[ Svg.a_class [CSS.circle]
                         ; Svg.a_cx (sz /. 2., None)

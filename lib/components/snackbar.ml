@@ -184,8 +184,8 @@ object(self)
     match _action_button with
     | None -> None
     | Some button ->
-       Js.Opt.to_option
-       @@ Js.Opt.map button##.textContent Js.to_string
+      Js.Opt.to_option
+      @@ Js.Opt.map button##.textContent Js.to_string
 
   method set_action_button_text (s : string) : unit =
     match _action_button with
@@ -207,8 +207,8 @@ object(self)
        to establish basis for animation *)
     Option.iter Lwt.cancel _animation_thread;
     let t =
-      Animation.request ()
-      >>= fun _ -> Lwt_js.yield ()
+      Lwt_js_events.request_animation_frame ()
+      >>= Lwt_js.yield
       >>= fun () ->
       super#add_class CSS.open_;
       Lwt_js.sleep Const.animation_open_time_s
@@ -219,37 +219,37 @@ object(self)
     let dismiss_timer =
       t
       >>= fun () -> Lwt_js.sleep self#timeout
-      >>= fun () -> self#close ~reason:Timeout () in
+      >>= self#close ~reason:Timeout in
     _animation_thread <- Some t;
     _auto_dismiss_timer <- Some dismiss_timer;
-    Lwt.on_success t (fun () -> _animation_thread <- None);
+    Lwt.on_termination t (fun () -> _animation_thread <- None);
     t
 
-  method open_await () : dismiss_reason option Lwt.t =
+  method open_await () : dismiss_reason Lwt.t =
     self#open_ ()
     >>= fun () -> Events.make_event Event.closed super#root
-    >>= fun e -> Lwt.return @@ Js.Opt.to_option e##.detail
+    >>= fun e -> Lwt.return @@ Widget.event_detail e
 
-  method close ?(reason : dismiss_reason option) () :
-           dismiss_reason option Lwt.t =
+  method close ?(reason = Dismiss) () :
+    dismiss_reason Lwt.t =
     match self#is_open with
     | false -> Lwt.return reason
     | true ->
-       Option.iter Lwt.cancel _animation_thread;
-       self#clear_auto_dismiss_timer ();
-       self#notify_closing reason;
-       super#add_class CSS.closing;
-       super#remove_class CSS.open_;
-       super#remove_class CSS.opening;
-       let t =
-         Lwt_js.sleep Const.animation_close_time_s
-         >>= fun () ->
-         super#remove_class CSS.closing;
-         self#notify_closed reason;
-         Lwt.return () in
-       Lwt.on_success t (fun () -> _animation_thread <- None);
-       _animation_thread <- Some t;
-       t >>= fun () -> Lwt.return reason
+      Option.iter Lwt.cancel _animation_thread;
+      self#clear_auto_dismiss_timer ();
+      self#notify_closing reason;
+      super#add_class CSS.closing;
+      super#remove_class CSS.open_;
+      super#remove_class CSS.opening;
+      let t =
+        Lwt_js.sleep Const.animation_close_time_s
+        >>= fun () ->
+        super#remove_class CSS.closing;
+        self#notify_closed reason;
+        Lwt.return () in
+      Lwt.on_termination t (fun () -> _animation_thread <- None);
+      _animation_thread <- Some t;
+      t >>= fun () -> Lwt.return reason
 
   (* Private methods *)
 
@@ -259,11 +259,11 @@ object(self)
   method private notify_opened () : unit =
     super#emit Event.opened
 
-  method private notify_closing (reason : dismiss_reason option) : unit =
-    super#emit ?detail:reason Event.closing
+  method private notify_closing (reason : dismiss_reason) : unit =
+    super#emit ~detail:reason Event.closing
 
-  method private notify_closed (reason : dismiss_reason option) : unit =
-    super#emit ?detail:reason Event.closed
+  method private notify_closed (reason : dismiss_reason) : unit =
+    super#emit ~detail:reason Event.closed
 
   method private handle_surface_click (e : #Dom_html.event Js.t)
                    (_ : unit Lwt.t) : unit Lwt.t =

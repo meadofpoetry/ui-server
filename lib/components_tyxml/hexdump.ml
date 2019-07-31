@@ -1,5 +1,3 @@
-open Utils
-
 module Const = struct
   let line_number_len = 4
 end
@@ -119,19 +117,20 @@ module Make(Xml : Xml_sigs.NoWrap)
           with module Xml := Xml
            and module Svg := Svg) = struct
   open Html
+  open Utils
 
-  let create_line_number ?(classes = []) ?attrs n () : 'a elt =
-    span ~a:([a_class classes] <@> attrs)
+  let create_line_number ?(classes = []) ?(attrs = []) n () : 'a elt =
+    span ~a:([a_class classes] @ attrs)
       [txt @@ line_number_to_string n]
 
-  let create_char_empty ?(classes = []) ?attrs () : 'a elt =
+  let create_char_empty ?(classes = []) ?(attrs = []) () : 'a elt =
     let classes = CSS.item :: classes in
     span ~a:([ a_class classes
              ; a_user_data "empty" "true"
-             ] <@> attrs)
+             ] @ attrs)
       [txt (String.make 2 ' ')]
 
-  let create_char ?(classes = []) ?attrs ?(selected = false)
+  let create_char ?(classes = []) ?(attrs = []) ?(selected = false)
         ~(id : int) (chr : char) () : 'a elt =
     let classes =
       classes
@@ -140,20 +139,20 @@ module Make(Xml : Xml_sigs.NoWrap)
     let chr = map_char_printable chr in
     span ~a:([ a_class classes
              ; a_user_data "id" (string_of_int id)
-             ] <@> attrs)
+             ] @ attrs)
       [txt (String.make 1 chr)]
 
-  let create_hex_empty ?(classes = []) ?attrs ?(grouping = 1)
+  let create_hex_empty ?(classes = []) ?(attrs = []) ?(grouping = 1)
         ~(base : base) ~id () : 'a elt =
     let classes = CSS.item :: classes in
     let text = String.make (get_padding base) '.' in
     span ~a:([ a_class classes
              ; a_user_data "empty" "true"
-             ] <@> attrs)
+             ] @ attrs)
       [txt (if should_insert_space ~grouping id
             then text ^ " " else text)]
 
-  let create_hex ?(classes = []) ?attrs ?(grouping = 1) ?(selected = false)
+  let create_hex ?(classes = []) ?(attrs = []) ?(grouping = 1) ?(selected = false)
         ~(base : base) ~(id : int) (hex : int) () : 'a elt =
     let classes =
       classes
@@ -162,7 +161,7 @@ module Make(Xml : Xml_sigs.NoWrap)
     let text = pad (get_padding base) '0' @@ to_base_string base hex in
     span ~a:([ a_class classes
              ; a_user_data "id" (string_of_int id)
-             ] <@> attrs)
+             ] @ attrs)
       [txt (if should_insert_space ~grouping id
             then text ^ " " else text)]
 
@@ -207,15 +206,15 @@ module Make(Xml : Xml_sigs.NoWrap)
     List.rev hex,
     List.rev chr
 
-  let create_block ?(classes = []) ?attrs ~typ cells () : 'a elt =
+  let create_block ?(classes = []) ?(attrs = []) ~typ cells () : 'a elt =
     let typ_class = match typ with
       | Num -> CSS.block_line_numbers
       | Hex -> CSS.block_hex
       | Chr -> CSS.block_chars in
     let classes = CSS.block :: typ_class :: classes in
-    div ~a:([a_class classes] <@> attrs) cells
+    div ~a:([a_class classes] @ attrs) cells
 
-  let create ?(classes = []) ?attrs ?(no_line_numbers = false)
+  let create ?(classes = []) ?(attrs = []) ?(no_line_numbers = false)
         ?(non_interactive = false) ~width ~grouping ~base ~blocks
         () : 'a elt =
     let classes =
@@ -227,7 +226,7 @@ module Make(Xml : Xml_sigs.NoWrap)
             ; a_user_data "width" (string_of_int width)
             ; a_user_data "grouping" (string_of_int grouping)
             ; a_user_data "base" (base_to_string base)
-            ] <@> attrs) blocks
+            ] @ attrs) blocks
 
   let of_bytes ?classes ?attrs ?(width = 16) ?(grouping = 1)
         ?no_line_numbers ?non_interactive

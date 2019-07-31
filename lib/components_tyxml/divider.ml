@@ -11,11 +11,11 @@ module Make(Xml : Xml_sigs.NoWrap)
   open Html
   open Utils
 
-  let create ?(classes = []) ?attrs ?(inset = false) () : 'a elt =
+  let create ?(classes = []) ?(attrs = []) ?(inset = false) () : 'a elt =
     let classes =
       classes
       |> cons_if inset CSS.inset
       |> List.cons CSS.root in
-    hr ~a:([a_class classes] <@> attrs) ()
+    hr ~a:([a_class classes] @ attrs) ()
 
 end

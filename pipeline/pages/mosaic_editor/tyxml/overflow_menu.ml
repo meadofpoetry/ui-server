@@ -11,11 +11,10 @@ module Make(Xml : Xml_sigs.NoWrap)
     (Html : Html_sigs.NoWrap with module Xml := Xml
                               and module Svg := Svg) = struct
   open Html
-  open Utils
 
-  let create ?(classes = []) ?attrs ~overflow ~actions ~menu () : 'a elt =
+  let create ?(classes = []) ?(attrs = []) ~overflow ~actions ~menu () : 'a elt =
     let classes = CSS.root :: classes in
-    div ~a:([a_class classes] <@> attrs)
+    div ~a:([a_class classes] @ attrs)
       [ div ~a:[a_class [CSS.actions]] actions
       ; div ~a:[a_class [CSS.overflow]] [overflow; menu]
       ]

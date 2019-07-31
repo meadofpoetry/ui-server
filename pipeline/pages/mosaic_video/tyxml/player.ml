@@ -72,11 +72,11 @@ module Make(Xml : Xml_sigs.NoWrap)
       Icon_button.create ?attrs ?ripple ?disabled
         ?on_icon ~classes ~icon ()
 
-    let create_volume_panel ?(classes = []) ?attrs content () : 'a elt =
+    let create_volume_panel ?(classes = []) ?(attrs = []) content () : 'a elt =
       let classes = CSS.Controls.volume_panel :: classes in
-      div ~a:([a_class classes] <@> attrs) content
+      div ~a:([a_class classes] @ attrs) content
 
-    let create_section ?(classes = []) ?attrs ?(align : align option)
+    let create_section ?(classes = []) ?(attrs = []) ?(align : align option)
           content () : 'a elt =
       let classes =
         classes
@@ -84,15 +84,15 @@ module Make(Xml : Xml_sigs.NoWrap)
                | `End -> CSS.Controls.section_end
                | `Start -> CSS.Controls.section_start) align
         |> List.cons CSS.Controls.section in
-      div ~a:([a_class classes] <@> attrs) content
+      div ~a:([a_class classes] @ attrs) content
 
-    let create ?(classes = []) ?attrs sections () : 'a elt =
+    let create ?(classes = []) ?(attrs = []) sections () : 'a elt =
       let classes = CSS.Controls.root :: classes in
-      div ~a:([a_class classes] <@> attrs) sections
+      div ~a:([a_class classes] @ attrs) sections
 
   end
 
-  let create_audio ?(classes = []) ?attrs
+  let create_audio ?(classes = []) ?(attrs = [])
         ?(controls = true)
         ?(autoplay = false)
         ?(playsinline = false)
@@ -101,13 +101,14 @@ module Make(Xml : Xml_sigs.NoWrap)
     audio ~a:(
         [ a_class classes
         ; Unsafe.string_attrib "preload" "auto" ]
+        @ attrs
         |> cons_if_lazy controls a_controls
         |> cons_if_lazy autoplay a_autoplay
         |> cons_if_lazy playsinline (fun () ->
-               Unsafe.string_attrib "playsinline" "true")
-        <@> attrs) []
+            Unsafe.string_attrib "playsinline" "true"))
+      []
 
-  let create_video ?(classes = []) ?attrs
+  let create_video ?(classes = []) ?(attrs = [])
         ?(autoplay = false)
         ?(playsinline = false)
         ?(controls = true)
@@ -116,32 +117,33 @@ module Make(Xml : Xml_sigs.NoWrap)
     video ~a:(
         [ a_class classes
         ; Unsafe.string_attrib "preload" "auto" ]
+        @ attrs
         |> cons_if_lazy controls a_controls
         |> cons_if_lazy autoplay a_autoplay
         |> cons_if_lazy playsinline (fun () ->
-               Unsafe.string_attrib "playsinline" "true")
-        <@> attrs) []
+            Unsafe.string_attrib "playsinline" "true"))
+      []
 
-  let create_state_overlay ?(classes = []) ?attrs path () : 'a elt =
+  let create_state_overlay ?(classes = []) ?(attrs = []) path () : 'a elt =
     let classes = CSS.state_overlay_wrapper :: classes in
     div ~a:([ a_class classes
             ; a_style "display: none;" ]
-            <@> attrs)
+            @ attrs)
       [div ~a:([a_class [CSS.state_overlay]])
          [Icon.SVG.create ~classes:[CSS.state_overlay_icon]
             [Icon.SVG.create_path path ()] ()]]
 
-  let create_gradient ?(classes = []) ?attrs () : 'a elt =
+  let create_gradient ?(classes = []) ?(attrs = []) () : 'a elt =
     let classes = CSS.gradient :: classes in
-    div ~a:([a_class classes] <@> attrs) []
+    div ~a:([a_class classes] @ attrs) []
 
-  let create ?(classes = []) ?attrs ?controls ?gradient
+  let create ?(classes = []) ?(attrs = []) ?controls ?gradient
         ?state_overlay ?audio ~video ()
       : 'a elt =
     let classes = CSS.root :: classes in
     div ~a:([ a_class classes
             ; a_tabindex (-1) ]
-            <@> attrs)
+            @ attrs)
       (video :: (audio ^:: state_overlay ^:: gradient ^:: controls ^:: []))
 
 end

@@ -10,6 +10,8 @@ open Utils
 include Components_tyxml.Scaffold
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
+let ( >>= ) = Lwt.bind
+
 type drawer_elevation =
   | Full_height
   | Clipped
@@ -247,9 +249,14 @@ class t ?(drawer : #Drawer.t option)
     method side_sheet_type : Side_sheet.typ =
       side_sheet_type
 
-    method show_snackbar (snackbar : Snackbar.t) : unit =
-      ignore snackbar;
-      ()
+    (* TODO implement snackbar stacking *)
+    method show_snackbar (snackbar : Snackbar.t)
+      : Snackbar.dismiss_reason Lwt.t =
+      Dom.appendChild app_content_inner snackbar#root;
+      snackbar#open_await ()
+      >>= fun reason ->
+      Dom.removeChild app_content_inner snackbar#root;
+      Lwt.return reason
 
     (* Private methods *)
 

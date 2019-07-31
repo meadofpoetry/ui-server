@@ -25,14 +25,16 @@ module Make (Xml : Xml_sigs.NoWrap)
   open Html
   open Utils
 
-  let create ?(classes = []) ?attrs
+  let create ?(classes = []) ?(attrs = [])
         ?(indeterminate = false) ?(reversed = false) () : 'a elt =
     let classes =
       classes
       |> cons_if indeterminate CSS.indeterminate
       |> cons_if reversed CSS.reversed
       |> List.cons CSS.root in
-    div ~a:([a_role ["progressbar"]; a_class classes] <@> attrs)
+    div ~a:([ a_role ["progressbar"]
+            ; a_class classes]
+            @ attrs)
       [ div ~a:[a_class [CSS.buffering_dots]] []
       ; div ~a:[a_class [CSS.buffer]] []
       ; div ~a:[a_class [CSS.bar; CSS.primary_bar]]

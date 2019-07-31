@@ -178,8 +178,9 @@ let main () =
 
   let serv_pages = Server_http.pages () in
   let serv_handlers = Server_http.handlers server_conf in
+  let serv_ws = Server_http.ws server_conf in
 
-  Application_http.create templates app serv_pages serv_handlers
+  Application_http.create templates app serv_pages serv_handlers serv_ws
   >>= fun (routes, ping_loop) ->
   
   let auth_filter = Application.redirect_filter app in

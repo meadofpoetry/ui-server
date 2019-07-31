@@ -11,25 +11,24 @@ module Make(Xml : Xml_sigs.NoWrap)
     (Html : Html_sigs.NoWrap with module Xml := Xml
                               and module Svg := Svg) = struct
   open Html
-  open Utils
 
   let content_of_direction = function
     | Direction.N | E | S | W -> []
     | NW | NE | SW | SE -> [div ~a:[a_class [CSS.circle]] []]
 
-  let create_resizer ?(classes = []) ?attrs direction : 'a elt =
+  let create_resizer ?(classes = []) ?(attrs = []) direction : 'a elt =
     let classes = CSS.resizer :: classes in
     div ~a:([ a_class classes
             ; a_role ["slider"]
             ; a_user_data "direction" (Direction.to_string direction)
-            ] <@> attrs)
+            ] @ attrs)
       (content_of_direction direction)
 
-  let create ?(tabindex = -1) ?(classes = []) ?attrs () : 'a elt =
+  let create ?(tabindex = -1) ?(classes = []) ?(attrs = []) () : 'a elt =
     let classes = CSS.root :: classes in
     div ~a:([ a_class classes
             ; a_tabindex tabindex
-            ; a_role ["slider"]] <@> attrs)
+            ; a_role ["slider"]] @ attrs)
       [ create_resizer N
       ; create_resizer E
       ; create_resizer S

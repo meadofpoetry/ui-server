@@ -17,7 +17,7 @@ module Make(Xml : Xml_sigs.NoWrap)
   open Html
   open Utils
 
-  let create_app_content ?(classes = []) ?attrs
+  let create_app_content ?(classes = []) ?(attrs = [])
         ?(inner = false) ?(outer = false)
         content () : 'a elt =
     let classes =
@@ -25,9 +25,9 @@ module Make(Xml : Xml_sigs.NoWrap)
       |> cons_if inner CSS.app_content_inner
       |> cons_if outer CSS.app_content_outer
       |> List.cons CSS.app_content in
-    div ~a:([a_class classes] <@> attrs) content
+    div ~a:([a_class classes] @ attrs) content
 
-  let create_drawer_frame ?(classes = []) ?attrs
+  let create_drawer_frame ?(classes = []) ?(attrs = [])
         ?(full_height = false) ?(clipped = false)
         content () : 'a elt =
     let classes =
@@ -35,10 +35,10 @@ module Make(Xml : Xml_sigs.NoWrap)
       |> cons_if full_height CSS.drawer_frame_full_height
       |> cons_if clipped CSS.drawer_frame_clipped
       |> List.cons CSS.drawer_frame in
-    div ~a:([a_class classes] <@> attrs) content
+    div ~a:([a_class classes] @ attrs) content
 
-  let create ?(classes = []) ?attrs content () : 'a elt =
+  let create ?(classes = []) ?(attrs = []) content () : 'a elt =
     let classes = CSS.root :: classes in
-    div ~a:([a_class classes] <@> attrs) content
+    div ~a:([a_class classes] @ attrs) content
 
 end
