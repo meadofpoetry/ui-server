@@ -21,13 +21,18 @@ module Id = struct
 end
 
 module Event = struct
-  class type icon =
-    object
-      inherit [unit] Widget.custom_event
-    end
+  class type icon = [unit] Widget.custom_event
 
-  let icon : icon Js.t Dom_html.Event.typ =
-    Dom_html.Event.make @@ Printf.sprintf "%s:icon" name
+  module Typ = struct
+    let icon : icon Js.t Dom_html.Event.typ =
+      Dom_html.Event.make @@ Printf.sprintf "%s:icon" name
+  end
+
+  let icon ?use_capture x =
+    Lwt_js_events.make_event ?use_capture Typ.icon x
+
+  let icons ?cancel_handler ?use_capture x =
+    Lwt_js_events.seq_loop ?cancel_handler ?use_capture icon x
 end
 
 module Character_counter = struct
@@ -103,7 +108,7 @@ module Icon = struct
       (* Private methods *)
 
       method private notify_action () : unit =
-        super#emit ~should_bubble:true Event.icon
+        super#emit ~should_bubble:true Event.Typ.icon
 
       method private handle_keydown e _ : unit Lwt.t =
         (match Dom_html.Keyboard_code.of_event e with
@@ -512,6 +517,15 @@ class ['a] t ?on_input
       if x then _is_valid <- true;
       _use_native_validation <- x
 
+    method force_custom_validation () : unit =
+      custom_validation self#input_element validation
+
+    method check_validity () : bool =
+      Js.to_bool @@ (Js.Unsafe.coerce self#input_element)##checkValidity
+
+    method validity : validity_state Js.t =
+      (Js.Unsafe.coerce self#input_element)##.validity
+
     method valid : bool =
       if _use_native_validation
       then (self#is_native_input_valid ())
@@ -687,8 +701,8 @@ class ['a] t ?on_input
       Option.iter (fun (line_ripple : Line_ripple.t) ->
           line_ripple#deactivate ()) line_ripple;
       custom_validation input_elt validation;
-      if validate_on_blur
-      then (Js.Unsafe.coerce input_elt)##checkValidity;
+      if validate_on_blur && not _use_native_validation
+      then ignore @@ self#check_validity ();
       self#style_validity self#valid;
       self#style_focused _is_focused;
       Option.iter (fun (label : Floating_label.t) ->
@@ -707,12 +721,10 @@ class ['a] t ?on_input
           cc#set_value ~max_length cur_length) character_counter
 
     method private is_bad_input () : bool =
-      let (validity : validity_state Js.t) = (Js.Unsafe.coerce input_elt)##.validity in
-      Js.to_bool validity##.badInput
+      Js.to_bool self#validity##.badInput
 
     method private is_native_input_valid () : bool =
-      let (validity : validity_state Js.t) = (Js.Unsafe.coerce input_elt)##.validity in
-      Js.to_bool validity##.valid
+      Js.to_bool self#validity##.valid
 
     method private style_validity (is_valid : bool) : unit =
       super#toggle_class ~force:(not is_valid) CSS.invalid;

@@ -269,9 +269,7 @@ let make_plp ?value (plps : int list React.signal) =
           Utils.Option.iter input#set_value_as_string
           @@ Element.get_attribute item "value";
           Lwt.return_unit) in
-  let icon_click = Lwt_js_events.seq_loop
-      (Lwt_js_events.make_event Textfield.Event.icon)
-      input#root (fun _ _ -> menu#reveal ()) in
+  let icon_click = Textfield.Event.icons input#root (fun _ _ -> menu#reveal ()) in
   input#set_on_destroy (fun () ->
       React.S.stop ~strong:true s_plps;
       Lwt.cancel selected;

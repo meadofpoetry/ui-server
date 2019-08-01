@@ -22,12 +22,19 @@ class type validity_state =
   end
 
 module Event : sig
-  class type icon =
-    object
-      inherit [unit] Widget.custom_event
-    end
+  class type icon = [unit] Widget.custom_event
 
-  val icon : icon Js.t Dom_html.Event.typ
+  module Typ : sig val icon : icon Js.t Dom.Event.typ end
+
+  val icon : ?use_capture:bool -> #Dom_html.eventTarget Js.t -> icon Js.t Lwt.t
+
+  val icons :
+    ?cancel_handler:bool
+    -> ?use_capture:bool
+    -> #Dom_html.eventTarget Js.t
+    -> (icon Js.t -> unit Lwt.t -> unit Lwt.t)
+    -> unit Lwt.t
+
 end
 
 module Character_counter : sig
@@ -167,6 +174,12 @@ class type ['a] t =
     (** Enables or disables the use of native validation.
         Set to [false] to ignore native input validation. *)
     method set_use_native_validation : bool -> unit
+
+    method force_custom_validation : unit -> unit
+
+    method check_validity : unit -> bool
+
+    method validity : validity_state Js.t
 
     (** The custom validity state, if set;
         otherwise, the result of a native validity check. *)

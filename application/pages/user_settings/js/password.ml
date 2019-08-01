@@ -5,6 +5,8 @@ open Application_types
 
 let name = "Password config"
 
+let ( >>= ) = Lwt.bind
+
 module Attr = struct
   let username = "data-username"
 end
@@ -62,6 +64,11 @@ class t (elt : Dom_html.element Js.t) =
     | Some x -> Textfield.attach ~validation:(Validation.confirm new_password) x in
   object(self)
 
+    val user : User.t =
+      match User.of_string @@ Js.to_string Js.Unsafe.global##.username with
+      | Error _ -> failwith @@ name ^ ": invalid user"
+      | Ok x -> x
+
     val submit_button : Button.t =
       match Element.query_selector elt Selector.submit with
       | None -> failwith @@ name ^ ": submit button not found"
@@ -95,6 +102,9 @@ class t (elt : Dom_html.element Js.t) =
           ; seq_loop invalid new_password#input_element (self#handle_invalid `N)
           ; seq_loop invalid confirm_password#input_element (self#handle_invalid `C)
           ; inputs new_password#input_element self#handle_new_password_input
+          ; Textfield.Event.icons old_password#root (self#handle_icon `O)
+          ; Textfield.Event.icons new_password#root (self#handle_icon `N)
+          ; Textfield.Event.icons confirm_password#root (self#handle_icon `C)
           ]);
       form##.onsubmit := Dom.handler self#handle_submit;
       super#initial_sync_with_dom ()
@@ -114,8 +124,21 @@ class t (elt : Dom_html.element Js.t) =
       let thread = match User.of_string @@ Js.to_string username##.value,
                          old_password#value,
                          new_password#value with
-      | Ok user, Some old_pass, Some new_pass ->
-        Application_http_js.set_user_password { User. user; old_pass; new_pass }
+      | Ok usr, Some old_pass, Some new_pass ->
+        let pass = { User. user = usr; old_pass; new_pass } in
+        (Application_http_js.set_user_password pass
+         >>= function
+         | Ok () ->
+           if User.equal user usr
+           then Dom_html.window##.location##reload;
+           Lwt.return_ok ()
+         | Error e ->
+           let msg = Api_js.Http.error_to_string e in
+           old_password#set_helper_text_content msg;
+           old_password#set_use_native_validation false;
+           old_password#set_valid false;
+           old_password#set_use_native_validation true;
+           Lwt.return_error e)
       | _ -> Lwt.return_ok () in
       submit_button#set_loading_lwt thread;
       Js._false
@@ -134,7 +157,28 @@ class t (elt : Dom_html.element Js.t) =
       Lwt.return_unit
 
     method private handle_new_password_input _ _ : unit Lwt.t =
-      confirm_password#update ();
+      confirm_password#force_custom_validation ();
+      Lwt.return_unit
+
+    method private handle_icon typ e _ : unit Lwt.t =
+      let target = Dom_html.eventTarget e in
+      let input = match typ with
+        | `O -> old_password
+        | `N -> new_password
+        | `C -> confirm_password in
+      let typ, icon = match Js.to_string input#input_element##._type with
+        | "password" -> "text", Some Icon.SVG.Path.eye
+        | "text" -> "password", Some Icon.SVG.Path.eye_off
+        | s -> s, None in
+      (match icon with
+       | None -> ()
+       | Some icon ->
+         match Element.query_selector target "path" with
+         | None -> ()
+         | Some path ->
+           let (path : Dom_svg.pathElement Js.t) = Js.Unsafe.coerce path in
+           path##setAttribute (Js.string "d") (Js.string icon));
+      Element.set_attribute input#input_element "type" typ;
       Lwt.return_unit
 
   end

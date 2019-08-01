@@ -117,8 +117,18 @@ let get_log ?(boards = []) ?(cpu = [])?(inputs = []) ?(streams = [])
          | Error e -> Lwt.return_error (`Conv_error e)
          | Ok x -> Lwt.return_ok x)
 
+let logout () =
+  (* let auth = Base64.encode_exn "logmeout:123456" in *)
+  Api_http.perform_unit
+    ~meth:`GET
+    ~path:Path.Format.("/api/user/logout" @/ empty)
+    ~query:Query.empty
+    (* ~headers:["Authorization", Printf.sprintf "Basic %s" auth] *)
+    (fun _env x -> print_endline "logout req"; Lwt.return x)
+
 let set_user_password (pass : User.pass_change) =
   Api_http.perform_unit
+    ~meth:`POST
     ~path:Path.Format.("/api/user/password" @/ empty)
     ~query:Query.empty
     ~body:(User.pass_change_to_yojson pass)
