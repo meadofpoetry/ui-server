@@ -203,12 +203,11 @@ module Make (User : USER) = struct
           match page_gen user with
           | `Template content ->
             let params =
-              content
-              @ [ "navigation", `A (gen_item_list user)
-                ; "username", `String (User.to_string user)
-                ; "usericon", `String ""
-                ; "usercolor", `String ""
-                ]
+              [ "navigation", `A (gen_item_list user)
+              ; "username", `String (User.to_string user)
+              ; "usericon", `String ""
+              ; "usercolor", `String ""
+              ] @ content
             in
             let v = Mustache.render template (`O params) in
             Hashtbl.replace table user v;

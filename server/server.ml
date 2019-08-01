@@ -52,12 +52,23 @@ let get_exn = function Some x -> x | _ -> failwith "get_exn: none"
                                         
 let handler ~resources_path ~auth_filter ~routes =
 
+  let respond_not_found () =
+    let headers = Cohttp.Header.of_list
+        ["Content-Type", "text/html; charset=utf-8"] in
+    let body = "<html>Page not found</html>" in
+    Cohttp_lwt_unix.Server.respond_string ~headers ~status:`Not_found ~body ()
+    >>= fun rsp -> Lwt.return (`Response rsp)
+  in
+
   let resource base uri =
     let fname = Filename.concat base uri in
     Cohttp_lwt_unix.Server.respond_file ~fname ()
-    >>= fun resp -> Lwt.return (`Response resp)
+    >>= fun ((resp, _) as rsp) ->
+    match Cohttp.Response.status resp with
+    | `Not_found -> respond_not_found ()
+    | _ -> Lwt.return (`Response rsp)
   in
-  
+
   fun (conn : Conduit_lwt_unix.flow * Cohttp.Connection.t)
       (req  : Cohttp_lwt_unix.Request.t)
       (body : Cohttp_lwt.Body.t)
