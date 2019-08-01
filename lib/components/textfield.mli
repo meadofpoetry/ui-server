@@ -158,8 +158,6 @@ class type ['a] t =
     (** Focuses the input element. *)
     method focus : unit -> unit
 
-    method update : unit -> unit
-
     method ripple : Ripple.t option
 
     (** Validation API. *)

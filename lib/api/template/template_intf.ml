@@ -24,6 +24,13 @@ module type S = sig
     ; content : Tyxml.Xml.elt list
     }
 
+  type gen_result =
+    [ `Null
+    | `Not_allowed
+    | `Template of (string * Mustache.Json.value) list
+    | `HTML of string
+    ]
+
   type topmost
    
   type inner
@@ -66,7 +73,7 @@ module type S = sig
                -> 'a item list
 
   val parametric : ?restrict:user list
-                   -> path:('a, user -> Mustache.Json.value option) Netlib.Uri.Path.Format.t
+                   -> path:('a, user -> gen_result) Netlib.Uri.Path.Format.t
                    -> template_props
                    -> 'c item list
     

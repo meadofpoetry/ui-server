@@ -1,11 +1,6 @@
 type env = Api.env
 
 type 'a response = 'a Api.response
-(*
-let is_ws headers = match Cohttp.Header.get headers "upgrade" with
-  | Some "websocket" -> true
-  | _                -> false
- *)
 
 let env_of_headers headers : env =
   let env : type a. a Api.key -> a option = function
@@ -137,7 +132,7 @@ end = struct
   type answer = [ Api.Authorize.error
                 | Body.t response
                 | `Instant of Cohttp_lwt_unix.Server.response_action Lwt.t
-                ] 
+                ]
 
   type response = Cohttp_lwt_unix.Server.response_action Lwt.t
 
@@ -150,42 +145,37 @@ end = struct
   type t =
     (user -> string -> env -> state -> answer Lwt.t)
       Netlib.Uri.Dispatcher.t
-      Meth_map.t 
+      Meth_map.t
 
   let handle (tbl : t) ~state ?(meth=`GET) ?default ~env ~redir uri body =
     let open Lwt.Infix in
     let default = match default with
       | None -> fun (_user : user) _body _env _state ->
-                Lwt.return (`Error "bad request")
+        Lwt.return (`Error "bad request")
       | Some v -> fun (_user : user) _body _env _state ->
-                  Lwt.return (`Instant (v ()))
+        Lwt.return (`Instant (v ()))
     in
     redir env >>= function
     | Error #Api.Authorize.error ->
-       respond_need_auth ~auth:(`Basic "User Visible Realm") ()
+      respond_need_auth ~auth:(`Basic "User Visible Realm") ()
     | Ok user ->
-       let ans = match Meth_map.find_opt meth tbl with
-         | None ->
-            default user body env state
-         | Some tbl ->
-            Uri.Dispatcher.dispatch ~default tbl uri user body env state
-       in ans >>= function (* TODO check resp types *)
-          | `Unknown e ->
-             respond_error e ()
-          | #Api.Authorize.error -> (* TODO check resp types *)
-             respond_need_auth ~auth:(`Basic "User Visible Realm") ()
-          | `Instant resp ->
-             resp
-          | `Value body ->
-            respond_string
-              ~headers:(Cohttp.Header.of_list ["Content-Type", Body.content_type])
-              (Body.to_string body) ()
-          | `Unit ->
-             respond_string "" () (* TODO there should be something better that string *)
-          | `Not_implemented ->
-             respond_error ~status:`Not_implemented "FIXME" ()
-          | `Error e ->
-             respond_error e ()  
+      let ans = match Meth_map.find_opt meth tbl with
+        | None -> default user body env state
+        | Some tbl ->
+          Uri.Dispatcher.dispatch ~default tbl uri user body env state
+      in ans >>= function (* TODO check resp types *)
+      | `Unknown e -> respond_error e ()
+      | #Api.Authorize.error -> (* TODO check resp types *)
+        respond_need_auth ~auth:(`Basic "User Visible Realm") ()
+      | `Instant resp -> resp
+      | `Value body ->
+        respond_string
+          ~headers:(Cohttp.Header.of_list ["Content-Type", Body.content_type])
+          (Body.to_string body) ()
+      (* TODO there should be something better that string *)
+      | `Unit -> respond_string "" ()
+      | `Not_implemented -> respond_error ~status:`Not_implemented "FIXME" ()
+      | `Error e -> respond_error e ()
 
   let make ?prefix nodes =
     let add_node map (meth, node) =

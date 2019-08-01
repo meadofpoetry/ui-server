@@ -493,9 +493,6 @@ class ['a] t ?on_input
       Option.iter (fun (x : Helper_text.t) ->
           x#set_content s) helper_text
 
-    method update () : unit =
-      self#deactivate_focus ()
-
     method focus () : unit =
       self#activate_focus ();
       input_elt##focus
