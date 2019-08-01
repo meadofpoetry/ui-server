@@ -15,6 +15,20 @@ let icon x =
   let icon = create [path] () in
   Tyxml.Html.toelt icon
 
+let page_403_props =
+  Api_template.make_template_props
+    ~title:"Доступ запрещен"
+    ~post_scripts:[Src "/js/page-404.js"]
+    ~stylesheets:["/css/page-404.min.css"]
+    ()
+
+let page_404_props =
+  Api_template.make_template_props
+    ~title:"Страница не найдена"
+    ~post_scripts:[Src "/js/page-404.js"]
+    ~stylesheets:["/css/page-404.min.css"]
+    ()
+
 let user_pages : 'a. unit -> 'a Api_template.item list =
   fun () ->
   let open Api_template in
@@ -214,7 +228,7 @@ let application_ws (app : Application.t) =
         (Application_api.Event.get_log app)
     ]
 
-let redirect_handlers () =
+let other_handlers () =
   let open Api_http in
   make
     [ node ~doc:"Home page redirect"
@@ -222,12 +236,8 @@ let redirect_handlers () =
         ~path:Path.Format.empty
         ~query:Query.empty
         (fun _user _body _env _state ->
-           let ( >>= ) = Lwt.bind in
            let uri = Uri.make ~path:topo_page_path () in
-           let rsp =
-             Cohttp_lwt_unix.Server.respond_redirect ~uri ()
-             >>= fun x -> Lwt.return @@ `Response x
-           in Lwt.return @@ `Instant rsp)
+           Lwt.return (`Redirect uri))
     ]
 
 let tick ?(timeout = 1.) () =
@@ -239,6 +249,18 @@ let tick ?(timeout = 1.) () =
     push ();
     aux () in
   e, aux ()
+
+type t =
+  { ping_loop : unit Lwt.t
+  ; routes : Api_http.t
+  ; error_page : [`Forbidden | `Not_found] -> User.t -> string
+  }
+
+let make_error_page ~template templates status user =
+  let template_props = match status with
+    | `Forbidden -> page_403_props
+    | `Not_found -> page_404_props in
+  Api_template.make_page ~template templates template_props user
 
 let create templates (app : Application.t)
     foreign_pages
@@ -281,11 +303,8 @@ let create templates (app : Application.t)
     | None -> []
     | Some proc -> proc#ws ()
   in
-  let pages =
-    templates
-    |> Api_template.make ~template
-    |> Api_http.make
-  in
+  let pages = Api_http.make @@ Api_template.make ~template templates in
+  
   let api = Api_http.merge ~prefix:"api"
       ( foreing_handlers
         :: user_handlers app.users
@@ -294,7 +313,7 @@ let create templates (app : Application.t)
         :: board_api
         :: proc_api_list)
   in
-  let redirect = redirect_handlers () in
+  let other = other_handlers () in
   let ping, loop = tick () in
   let ws =
     Api_websocket.to_http ~prefix:"ws" ~ping
@@ -305,4 +324,8 @@ let create templates (app : Application.t)
         :: board_ws
         :: proc_ws_list )
   in
-  Lwt.return_ok (Api_http.merge [api; ws; pages; redirect], loop)
+  Lwt.return_ok
+    { ping_loop = loop
+    ; routes = Api_http.merge [api; ws; pages; other]
+    ; error_page = make_error_page ~template templates
+    }

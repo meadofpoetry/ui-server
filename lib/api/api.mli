@@ -113,6 +113,7 @@ module type S = sig
                -> ?default:(unit -> response)
                -> env:env
                -> redir:(env -> (user, Authorize.error) Lwt_result.t)
+               -> error:(user -> [`Forbidden | `Not_found] -> response)
                -> path
                -> string
                -> response

@@ -20,55 +20,23 @@ let respond_need_auth ?headers ~auth () =
   Cohttp_lwt_unix.Server.respond_need_auth ?headers ~auth ()
   >>= to_resp_action
 
-(*
-let respond_not_found = Cohttp_lwt_unix.Server.respond_not_found
-
-let respond_file base path =
-  Cohttp_lwt_unix.Server.respond_file
-    ~fname:(Filename.concat base path)
- *)
 let respond_string ?(status = `OK) ?headers body () =
   let open Lwt.Infix in
   Cohttp_lwt_unix.Server.respond_string ~status ?headers ~body ()
   >>= to_resp_action
-(*
-let respond_html_elt ?(status = `OK) body =
-  Cohttp_lwt_unix.Server.respond ~status
-    ~body:(Cohttp_lwt.Body.of_string
-           @@ Format.asprintf "%a" (Tyxml.Html.pp_elt ()) body)
 
-let respond_redirect path =
-  Cohttp_lwt_unix.Server.respond_redirect
-    ~uri:(Uri.with_path Uri.empty path)
- *)
 let respond_error ?(status = `Forbidden) error () =
   let open Lwt.Infix in
   Cohttp_lwt_unix.Server.respond_error ~status ~body:error ()
   >>= to_resp_action
 
-(* TODO make use of Result resp types
-  
-let respond' ?headers ?flush ?(status = `OK) ~body () =
-  let headers = match M.content_type with
-    | Some s -> Some (Cohttp.Header.add_opt_unless_exists headers "Content-Type" s)
-    | None -> None
-  in Cohttp_lwt_unix.Server.respond ?headers ?flush ~status ~body ()
-
-let respond ?headers ?flush ?status x () =
-  respond' ?headers ?flush ?status ~body:(to_body x) ()
-
-let respond_result ?(err_status=`Bad_request) = function
-  | Ok x -> respond x ()
-  | Error x -> respond ~status:err_status x ()
-
-let respond_result_unit ?(err_status=`Bad_request) = function
-  | Ok () -> respond' ~body:Cohttp_lwt.Body.empty ()
-  | Error x -> respond ~status:err_status x ()
-
- *)
+let respond_redirect uri () =
+  let open Lwt.Infix in
+  Cohttp_lwt_unix.Server.respond_redirect ~uri ()
+  >>= to_resp_action
 
 module Redirect = Redirect
-                
+
 module Make (User : Api.USER) (Body : Api.BODY) : sig
 
   include Api.S
@@ -79,6 +47,9 @@ module Make (User : Api.USER) (Body : Api.BODY) : sig
            and type path = Netlib.Uri.t
            and type answer = [ Api.Authorize.error
                              | Body.t response
+                             | `Not_found
+                             | `Forbidden
+                             | `Redirect of Uri.t
                              | `Instant of Cohttp_lwt_unix.Server.response_action Lwt.t
                              ]
            and type response = Cohttp_lwt_unix.Server.response_action Lwt.t
@@ -131,6 +102,9 @@ end = struct
 
   type answer = [ Api.Authorize.error
                 | Body.t response
+                | `Not_found
+                | `Forbidden
+                | `Redirect of Uri.t
                 | `Instant of Cohttp_lwt_unix.Server.response_action Lwt.t
                 ]
 
@@ -147,13 +121,19 @@ end = struct
       Netlib.Uri.Dispatcher.t
       Meth_map.t
 
-  let handle (tbl : t) ~state ?(meth=`GET) ?default ~env ~redir uri body =
+  let handle (tbl : t) ~state ?(meth=`GET) ?default ~env ~redir ~error uri body =
     let open Lwt.Infix in
     let default = match default with
       | None -> fun (_user : user) _body _env _state ->
-        Lwt.return (`Error "bad request")
+        Lwt.return `Not_found
       | Some v -> fun (_user : user) _body _env _state ->
-        Lwt.return (`Instant (v ()))
+        v () >>= fun r ->
+        let rsp = match r with
+          | `Response (rsp, _) -> rsp
+          | `Expert (rsp, _) -> rsp in
+        match Cohttp.Response.status rsp with
+        | `Not_found -> Lwt.return `Not_found
+        | _ -> Lwt.return (`Instant (Lwt.return r))
     in
     redir env >>= function
     | Error #Api.Authorize.error ->
@@ -161,9 +141,9 @@ end = struct
     | Ok user ->
       let ans = match Meth_map.find_opt meth tbl with
         | None -> default user body env state
-        | Some tbl ->
-          Uri.Dispatcher.dispatch ~default tbl uri user body env state
-      in ans >>= function (* TODO check resp types *)
+        | Some tbl -> Uri.Dispatcher.dispatch ~default tbl uri user body env state
+      in
+      ans >>= function (* TODO check resp types *)
       | `Unknown e -> respond_error e ()
       | #Api.Authorize.error -> (* TODO check resp types *)
         respond_need_auth ~auth:(`Basic "User Visible Realm") ()
@@ -172,8 +152,9 @@ end = struct
         respond_string
           ~headers:(Cohttp.Header.of_list ["Content-Type", Body.content_type])
           (Body.to_string body) ()
-      (* TODO there should be something better that string *)
       | `Unit -> respond_string "" ()
+      | `Redirect uri -> respond_redirect uri ()
+      | (`Not_found | `Forbidden) as e -> error user e
       | `Not_implemented -> respond_error ~status:`Not_implemented "FIXME" ()
       | `Error e -> respond_error e ()
 

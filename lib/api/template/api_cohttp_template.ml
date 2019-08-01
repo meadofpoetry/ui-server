@@ -187,6 +187,13 @@ module Make (User : USER) = struct
     | Some e -> `O ["value", `String (elt_to_string e)]
     | None   -> `Null
 
+  let make_page_params gen_item_list content user =
+    `O ([ "navigation", `A (gen_item_list user)
+        ; "username", `String (User.to_string user)
+        ; "usericon", `String ""
+        ; "usercolor", `String ""
+        ] @ content)
+
   let make_node ~template paths gen_item_list (Item { path; page_gen; _ }) =
     let table = Hashtbl.create 16 in
     (* Check if the same path was added twice *)
@@ -202,14 +209,8 @@ module Make (User : USER) = struct
         | None ->
           match page_gen user with
           | `Template content ->
-            let params =
-              [ "navigation", `A (gen_item_list user)
-              ; "username", `String (User.to_string user)
-              ; "usericon", `String ""
-              ; "usercolor", `String ""
-              ] @ content
-            in
-            let v = Mustache.render template (`O params) in
+            let params = make_page_params gen_item_list content user in
+            let v = Mustache.render template params in
             Hashtbl.replace table user v;
             `HTML v
           | x -> x
@@ -221,7 +222,7 @@ module Make (User : USER) = struct
           match f user with
           | `Null -> Lwt.return (`Instant (respond_string "" ()))
           | `HTML s -> Lwt.return (`Instant (respond_string s ()))
-          | `Not_allowed -> Lwt.return (`Error "Forbidden")
+          | `Not_allowed -> Lwt.return `Forbidden
           | `Template _ -> Lwt.return (`Error "Template"))
 
   let make_nodes ~template paths gen_item_list item =
@@ -343,4 +344,19 @@ module Make (User : USER) = struct
     @@ List.map (fun node ->
         List.map (fun x -> `GET, x)
         @@ make_nodes paths ~template gen_item_list node) list
+
+  let make_page ~template
+      (list : topmost item list)
+      (props : template_props)
+      (user : User.t) =
+    let template = Mustache.of_string template in
+    let list = List.map snd @@ List.sort priority_compare_pair list in
+    let gen_item_list user =
+      filter_map (fun (Item { item_gen; _ }) ->
+          match item_gen user with
+          | `Template x -> Some (`O x)
+          | _ -> None) list in
+    let content = make_template user props in
+    let params = make_page_params gen_item_list content user in
+    Mustache.render template params
 end

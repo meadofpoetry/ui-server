@@ -17,11 +17,13 @@ module Make (User : Api.USER) (Body : Api.BODY) : sig
            and type path = Netlib.Uri.t
            and type answer = [ Api.Authorize.error
                              | Body.t response
+                             | `Not_found
+                             | `Forbidden
+                             | `Redirect of Uri.t
                              | `Instant of Cohttp_lwt_unix.Server.response_action Lwt.t
                              ]
            and type response = Cohttp_lwt_unix.Server.response_action Lwt.t
-           and type 'a handler =
-                      Cohttp.Code.meth * 'a Netlib.Uri.Dispatcher.node
+           and type 'a handler = Cohttp.Code.meth * 'a Netlib.Uri.Dispatcher.node
 
   (* raises Ambiguity on ambiguous path *)
   val make : ?prefix:string

@@ -6,10 +6,14 @@
     display: block;
 }
 
-.mdc-text-field__icon {
+.mdc-text-field--with-trailing-icon .mdc-text-field__icon {
     @include mdc-states;
     @include mdc-ripple-surface;
     @include mdc-ripple-radius-unbounded;
+    height: 24px;
+    bottom: 4px;
+    right: 0;
+    padding: 12px;
 }
 
 #password-config.settings-section {

@@ -33,12 +33,11 @@ module Make(Xml : Xml_sigs.NoWrap)
         ~name ~label ~id () : 'a elt =
       let id' = id ^ "-input" in
       let path = Icon.SVG.create_path Components_tyxml.Svg_icons.eye_off () in
-      let icon = Icon.SVG.create
-          ~attrs:[ Svg.Unsafe.string_attrib "role" "button"
-                 ; Svg.Unsafe.string_attrib "tabindex" "0" ]
-          ~classes:[Textfield.CSS.icon]
-          [path]
-          () in
+      let icon =
+        div ~a:[ a_class [Textfield.CSS.icon]
+               ; a_role ["button"]
+               ; a_tabindex 0 ]
+          [Icon.SVG.create [path] ()] in
       let input =
         Unsafe.coerce_elt
         @@ Textfield.create_input

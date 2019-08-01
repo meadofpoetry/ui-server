@@ -89,6 +89,14 @@ module type S = sig
              -> (Cohttp.Code.meth
                  * (user -> 'a -> 'b -> 'c ->
                     [> `Instant of  Cohttp_lwt_unix.Server.response_action Lwt.t
+                    |  `Forbidden
                     |  `Error of string ] Lwt.t) Netlib.Uri.Dispatcher.node) list
+
+  val make_page :
+    template:string
+    -> topmost item list
+    -> template_props
+    -> user
+    -> string
 
 end
