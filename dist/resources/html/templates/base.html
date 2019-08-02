@@ -26,13 +26,10 @@
                         mdc-scaffold__drawer-frame--full-height">
                 <aside id="main-drawer"
                        class="mdc-drawer mdc-drawer--dismissible main-drawer">
-                    <div class="mdc-drawer__header" style="display: none;">
-                        <div class="mdc-avatar" style="background-color: {{usercolor}}">
-                            {{{usericon}}}
-                        </div>
-                        <div class="mdc-drawer__title">{{username}}</div>
+                    <div class="mdc-drawer__header mdc-top-app-bar__row">
+                        <div class="mdc-drawer__title">{{brand}}</div>
                     </div>
-                    <hr class="mdc-list-divider" style="display: none;">
+                    <hr class="mdc-list-divider">
                     <div class="mdc-drawer__content">
                         <nav class="mdc-list">
                             {{#navigation}}
@@ -74,10 +71,7 @@
                     <header id="main-top-app-bar" class="mdc-top-app-bar main-top-app-bar">
                         <div class="mdc-top-app-bar__row">
                             <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
-                                <button class="mdc-top-app-bar__navigation-icon"
-                                        style="outline: none;">
-                                    {{{top_app_bar_leading}}}
-                                </button>
+                                {{{top_app_bar_leading}}}
                                 <span id="page-title" class="mdc-top-app-bar__title">{{title}}</span>
                             </section>
                             {{#top_app_bar_content}}

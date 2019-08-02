@@ -115,15 +115,19 @@ module Make (User : USER) = struct
       | None ->
         elt_to_string
         @@ Tyxml_html.toelt
-        @@ Tyxml.Svg.(
-            Tyxml_html.svg
-              ~a:[ a_class ["mdc-icon"]
-                 ; a_style "width: 24px; height: 24px"
-                 ; a_viewBox (0., 0., 24., 24.) ]
-              [path ~a:[a_d "M3,6H21V8H3V6M3,\
-                             11H21V13H3V11M3,\
-                             16H21V18H3V16Z"]
-                 []])
+        @@ Tyxml.Html.(
+            button ~a:[a_class [ "mdc-icon-button"
+                               ; "mdc-top-app-bar__navigation-icon"
+                               ]]
+              [Tyxml.Svg.(
+                  Tyxml_html.svg
+                    ~a:[ a_class ["mdc-icon"]
+                       ; a_style "width: 24px; height: 24px"
+                       ; a_viewBox (0., 0., 24., 24.) ]
+                    [path ~a:[a_d "M3,6H21V8H3V6M3,\
+                                   11H21V13H3V11M3,\
+                                   16H21V18H3V16Z"]
+                       []])])
       | Some elt -> elt_to_string elt in
     let bottom' = match bottom with
       | None -> `String ""
@@ -189,6 +193,7 @@ module Make (User : USER) = struct
 
   let make_page_params gen_item_list content user =
     `O ([ "navigation", `A (gen_item_list user)
+        ; "brand", `String "АТС-3"
         ; "username", `String (User.to_string user)
         ; "usericon", `String ""
         ; "usercolor", `String ""

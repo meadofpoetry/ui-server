@@ -15,7 +15,3 @@ let set_password (users : t) _user body _env _state =
            >>= fun () -> Lwt.return `Unit
          | false -> Lwt.return (`Error "Wrong password"))
       (fun _ -> Lwt.return (`Error "internal password db error, please report"))
-
-let logout _user _body _env _state =
-  Lwt.return `Need_auth
-

@@ -68,23 +68,23 @@ html, body {
     }
 }
 
-.main-drawer {
-    .mdc-list-divider {
-        &:first-child, &:last-child {
-            display: none;
-        }
+.mdc-drawer__header ~ .mdc-list-divider {
+    margin: 0;
+}
+
+.mdc-drawer__content .mdc-list-divider {
+    &:first-child, &:last-child {
+        display: none;
     }
 }
 
 .mdc-drawer .mdc-drawer__header {
     display: flex;
-    padding: 16px;
     align-items: center;
-    .mdc-avatar {
-        color: #fff;
-        flex: 0 0 auto;
-        margin-right: 16px;
-    }
+    padding: 0 16px;
+    min-height: auto;
+    width: auto;
+
     .mdc-drawer__title {
         align-items: center;
         font-size: 0.875rem;

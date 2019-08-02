@@ -37,6 +37,13 @@
         }
     }
 
+    &__navigation-icon {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
     &__navigation-icon .mdc-icon {
         position: absolute;
         transition: mdc-animation-enter(all, $duration: 200ms, $delay: 0ms);

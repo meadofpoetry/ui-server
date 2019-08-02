@@ -215,6 +215,13 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
     method content : Dom_html.element Js.t option =
       _content
 
+    method append_to_body ?(body = Dom_html.document##.body) () : unit =
+      Dom.appendChild body super#root
+
+    method remove_from_dom () : unit =
+      Js.Opt.iter (Element.get_parent super#root)
+        (fun parent -> Dom.removeChild parent super#root)
+
     (* Private methods. *)
 
     method private handle_closing () : unit =

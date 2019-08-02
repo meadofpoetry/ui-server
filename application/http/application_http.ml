@@ -39,8 +39,7 @@ let user_pages : 'a. unit -> 'a Api_template.item list =
       ~stylesheets:["/css/page-user-settings.min.css"]
       () in
   simple
-    ~restrict:[`Operator; `Guest]
-    ~priority:(`Index 10)
+    ~priority:(`Index 1)
     ~title:"Пользователи"
     ~icon:(icon Components_tyxml.Svg_icons.account)
     ~path:(Path.of_string "settings/user")
@@ -55,11 +54,6 @@ let user_handlers (users : Application.User_api.t) =
         ~path:Path.Format.("password" @/ empty)
         ~query:Query.empty
         (Application.User_api.set_password users)
-    ; node ~doc:"Log out from current session"
-        ~meth:`POST
-        ~path:Path.Format.("logout" @/ empty)
-        ~query:Query.empty
-        Application.User_api.logout
     ]
 
 let input topo (input : Topology.topo_input) =
