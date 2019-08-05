@@ -116,9 +116,10 @@ module Make (User : USER) = struct
         elt_to_string
         @@ Tyxml_html.toelt
         @@ Tyxml.Html.(
-            button ~a:[a_class [ "mdc-icon-button"
-                               ; "mdc-top-app-bar__navigation-icon"
-                               ]]
+            button ~a:[ a_class [ "mdc-icon-button"
+                                ; "mdc-top-app-bar__navigation-icon"
+                                ]
+                      ; a_style "display: none" ]
               [Tyxml.Svg.(
                   Tyxml_html.svg
                     ~a:[ a_class ["mdc-icon"]
@@ -237,13 +238,14 @@ module Make (User : USER) = struct
     | Item { subitems = `Subtree x; _ } ->
       List.map (make_node ~template paths gen_item_list) x
 
-  let reference ?(restrict=[]) ?(priority=`None) ~title ~href =
+  let reference ?(restrict=[]) ?icon ?(priority=`None) ~title href =
     let not_allowed id = List.exists (User.equal id) restrict in
     let item_gen user =
       if not_allowed user
       then `Not_allowed
       else `Template [ "title",  `String title
                      ; "active", `Bool false
+                     ; "icon",   (make_icon icon)
                      ; "href",   `String (Uri.to_string href)
                      ; "simple", `Bool true
                      ]

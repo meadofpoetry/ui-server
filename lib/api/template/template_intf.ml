@@ -59,9 +59,10 @@ module type S = sig
     -> template_props
 
   val reference : ?restrict:user list
+                  -> ?icon:Tyxml.Xml.elt
                   -> ?priority:priority
                   -> title:string
-                  -> href:Netlib.Uri.t
+                  -> Netlib.Uri.t
                   -> 'a item list
 
   val simple : ?restrict:user list

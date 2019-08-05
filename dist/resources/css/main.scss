@@ -5,6 +5,7 @@
 @import '@material/layout-grid/variables';
 @import '@material/layout-grid/mixins';
 @import "@material/elevation/mixins";
+@import "@material/drawer/mixins";
 @import './templates/templates';
 
 // TODO of course this should be moved to a separate .css file,
@@ -64,8 +65,11 @@ html, body {
     }
     .mdc-top-app-bar__title {
         font-weight: 300;
-        font-size: 24px;
     }
+}
+
+.mdc-drawer {
+    @include mdc-drawer-width(240px);
 }
 
 .mdc-drawer__header ~ .mdc-list-divider {
@@ -86,10 +90,9 @@ html, body {
     width: auto;
 
     .mdc-drawer__title {
+        @include mdc-typography(headline6);
+        font-weight: 300;
         align-items: center;
-        font-size: 0.875rem;
-        font-weight: 400;
-        line-height: 1.5;
         margin: 0;
     }
 }

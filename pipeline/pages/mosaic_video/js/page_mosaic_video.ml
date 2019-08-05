@@ -46,7 +46,7 @@ module RTC = struct
   let server =
     let location = Dom_html.window##.location in
     let protocol = Js.to_string location##.protocol in
-    let hostname = "192.168.111.205" in (* Js.to_string location##.hostname in *)
+    let hostname = Js.to_string location##.hostname in
     protocol ^ "//" ^ hostname ^ ":8088/janus"
 
   let main =

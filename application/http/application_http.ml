@@ -145,6 +145,13 @@ let application_pages (app : Application.t) =
       ~post_scripts:[Src "/js/page-topology.js"]
       ~stylesheets:["/css/page-topology.min.css"]
       () in
+  let logout =
+    reference
+      ?restrict:None
+      ~priority:(`Index 999)
+      ~title:"Выйти"
+      ~icon:(icon Components_tyxml.Svg_icons.logout_variant)
+      (Uri.of_string "logout") in
   subtree
     ~priority:(`Index 1)
     ~title:"Входы"
@@ -158,6 +165,7 @@ let application_pages (app : Application.t) =
     topology_props
   @ List.flatten stream_templates
   @ hw_templates
+  @ logout
 
 let application_handlers (app : Application.t) =
   let open Api_http in

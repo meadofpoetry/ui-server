@@ -52,6 +52,7 @@
 #account.settings-section {
     .greetings {
         @include mdc-typography(headline5);
+        text-align: center;
         margin: 24px 0;
     }
     .permissions {
