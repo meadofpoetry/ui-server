@@ -75,27 +75,10 @@ type grid_properties =
   }
 
 let swap (a : Dom_html.element Js.t as 'a) (b : 'a) : unit =
-  let get_attr attr e =
-    Js.Opt.get
-      (e##getAttribute (Js.string attr))
-      (fun () -> Js.string "") in
-  let swap_class ()=
-    if Element.has_class a Grid.CSS.cell_selected
-    then (Element.add_class b Grid.CSS.cell_selected;
-          Element.remove_class a Grid.CSS.cell_selected) in
-  let id, title, html =
-    a##.id
-  , get_attr Attr.title a
-  , a##.innerHTML in
-  a##.id := b##.id;
-  a##setAttribute
-    (Js.string Attr.title)
-    (get_attr Attr.title b);
-  a##.innerHTML := b##.innerHTML;
-  b##.id := id;
-  b##setAttribute (Js.string Attr.title) title;
-  b##.innerHTML := html;
-  swap_class ()
+  let apos = Grid.Util.get_cell_position a in
+  let bpos = Grid.Util.get_cell_position b in
+  Grid.Util.set_cell_position apos b;
+  Grid.Util.set_cell_position bpos a
 
 let first_grid_index = 1
 
