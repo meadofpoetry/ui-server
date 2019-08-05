@@ -52,19 +52,24 @@ let is_none = function None -> true | _ -> false
 
 let get_exn = function Some x -> x | _ -> failwith "get_exn: none"
 
-let handler ~resources_path ~auth_filter ~error_page ~routes =
+let handler ~resources_path ~auth_filter ~forbidden ~not_found ~routes =
 
-  let error_page user status =
-    let body = error_page status user in
-    let status = (status :> Cohttp.Code.status_code) in
-    Cohttp_lwt_unix.Server.respond_string ~status ~body ()
+  let forbidden user =
+    let body = forbidden user in
+    Cohttp_lwt_unix.Server.respond_string ~status:`Forbidden ~body ()
     >>= fun rsp -> Lwt.return (`Response rsp)
   in
 
-  let resource base uri =
-    let fname = Filename.concat base uri in
-    Cohttp_lwt_unix.Server.respond_file ~fname ()
-    >>= fun rsp -> Lwt.return (`Response rsp)
+  let resource base uri user =
+    Cohttp_lwt_unix.Server.(
+      let fname = Filename.concat base uri in
+      respond_file ~fname ()
+      >>= fun ((rsp, _body) as resp) ->
+      match Cohttp.Response.status rsp with
+      | `Not_found ->
+        respond_string ~status:`Not_found ~body:(not_found user) ()
+        >>= fun x -> Lwt.return (`Response x)
+      | _ -> Lwt.return (`Response resp))
   in
 
   fun (conn : Conduit_lwt_unix.flow * Cohttp.Connection.t)
@@ -79,7 +84,7 @@ let handler ~resources_path ~auth_filter ~error_page ~routes =
       let env = Api_cohttp.env_of_headers headers in
       let sock_data = (req, (fst conn)) in
 
-      let respond_page () =
+      let default =
         resource resources_path path
       in
       (*let root, path = Common.Uri.(Path.next uri.path) in*)
@@ -89,15 +94,15 @@ let handler ~resources_path ~auth_filter ~error_page ~routes =
       Api_http.handle
         routes
         ~state:sock_data
-        ~default:respond_page
+        ~forbidden
+        ~default
         ~meth
         ~env
         ~redir:auth_filter
-        ~error:error_page
         uri
         body
 
-let create (config : config) auth_filter error_page (routes : Api_http.t) =
+let create ~forbidden ~not_found (config : config) auth_filter (routes : Api_http.t) =
   config#get >>= fun settings ->
 
   let resources_path = try
@@ -108,7 +113,8 @@ let create (config : config) auth_filter error_page (routes : Api_http.t) =
   let callback = handler
       ~resources_path
       ~auth_filter
-      ~error_page
+      ~forbidden
+      ~not_found
       ~routes
   in
 

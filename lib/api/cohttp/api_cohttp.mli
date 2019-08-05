@@ -17,7 +17,6 @@ module Make (User : Api.USER) (Body : Api.BODY) : sig
            and type path = Netlib.Uri.t
            and type answer = [ Api.Authorize.error
                              | Body.t response
-                             | `Not_found
                              | `Forbidden
                              | `Redirect of Uri.t
                              | `Instant of Cohttp_lwt_unix.Server.response_action Lwt.t

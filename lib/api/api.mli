@@ -110,10 +110,10 @@ module type S = sig
   val handle : t
                -> state:state
                -> ?meth:meth
-               -> ?default:(unit -> response)
+               -> ?forbidden:(user -> response)
+               -> ?default:(user -> response)
                -> env:env
                -> redir:(env -> (user, Authorize.error) Lwt_result.t)
-               -> error:(user -> [`Forbidden | `Not_found] -> response)
                -> path
                -> string
                -> response

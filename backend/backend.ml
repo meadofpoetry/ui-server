@@ -181,10 +181,10 @@ let main () =
   let serv_ws = Server_http.ws server_conf in
 
   Application_http.create templates app serv_pages serv_handlers serv_ws
-  >>= fun { routes; ping_loop; error_page } ->
+  >>= fun { routes; ping_loop; forbidden; not_found } ->
 
   let auth_filter = Application.redirect_filter app in
-  let server = Server.create server_conf auth_filter error_page routes in
+  let server = Server.create ~forbidden ~not_found server_conf auth_filter routes in
   ignore db_conf;
   Lwt.bind (Lwt.pick [app_loop; ping_loop; server]) Lwt.return_ok
 

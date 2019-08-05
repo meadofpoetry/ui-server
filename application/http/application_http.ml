@@ -274,7 +274,8 @@ let tick ?(timeout = 1.) () =
 type t =
   { ping_loop : unit Lwt.t
   ; routes : Api_http.t
-  ; error_page : [`Forbidden | `Not_found] -> User.t -> string
+  ; not_found : User.t -> string
+  ; forbidden : User.t -> string
   }
 
 let make_error_page ~template templates status user =
@@ -346,5 +347,6 @@ let create templates (app : Application.t)
   Lwt.return_ok
     { ping_loop = loop
     ; routes = Api_http.merge [api; ws; pages; other]
-    ; error_page = make_error_page ~template templates
+    ; not_found = make_error_page ~template templates `Not_found
+    ; forbidden = make_error_page ~template templates `Forbidden
     }

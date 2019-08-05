@@ -47,7 +47,6 @@ module Make (User : Api.USER) (Body : Api.BODY) : sig
            and type path = Netlib.Uri.t
            and type answer = [ Api.Authorize.error
                              | Body.t response
-                             | `Not_found
                              | `Forbidden
                              | `Redirect of Uri.t
                              | `Instant of Cohttp_lwt_unix.Server.response_action Lwt.t
@@ -102,7 +101,6 @@ end = struct
 
   type answer = [ Api.Authorize.error
                 | Body.t response
-                | `Not_found
                 | `Forbidden
                 | `Redirect of Uri.t
                 | `Instant of Cohttp_lwt_unix.Server.response_action Lwt.t
@@ -121,19 +119,16 @@ end = struct
       Netlib.Uri.Dispatcher.t
       Meth_map.t
 
-  let handle (tbl : t) ~state ?(meth=`GET) ?default ~env ~redir ~error uri body =
+  let handle (tbl : t) ~state ?(meth=`GET) ?forbidden ?default ~env ~redir uri body =
     let open Lwt.Infix in
+    let forbidden = match forbidden with
+      | None -> fun _ -> respond_error ~status:`Forbidden "Forbidden" ()
+      | Some v -> fun (user : user) -> v user in
     let default = match default with
       | None -> fun (_user : user) _body _env _state ->
-        Lwt.return `Not_found
-      | Some v -> fun (_user : user) _body _env _state ->
-        v () >>= fun r ->
-        let rsp = match r with
-          | `Response (rsp, _) -> rsp
-          | `Expert (rsp, _) -> rsp in
-        match Cohttp.Response.status rsp with
-        | `Not_found -> Lwt.return `Not_found
-        | _ -> Lwt.return (`Instant (Lwt.return r))
+        Lwt.return (`Error "Not_found")
+      | Some v -> fun (user : user) _body _env _state ->
+        Lwt.return (`Instant (v user))
     in
     redir env >>= function
     | Error #Api.Authorize.error ->
@@ -154,7 +149,7 @@ end = struct
           (Body.to_string body) ()
       | `Unit -> respond_string "" ()
       | `Redirect uri -> respond_redirect uri ()
-      | (`Not_found | `Forbidden) as e -> error user e
+      | `Forbidden -> forbidden user
       | `Not_implemented -> respond_error ~status:`Not_implemented "FIXME" ()
       | `Error e -> respond_error e ()
 
