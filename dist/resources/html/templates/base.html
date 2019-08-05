@@ -24,6 +24,7 @@
         <div id="root" class="mdc-scaffold" style="visibility: hidden">
             <div class="mdc-scaffold__drawer-frame
                         mdc-scaffold__drawer-frame--full-height">
+                {{#has_navigation}}
                 <aside id="main-drawer" class="mdc-drawer mdc-drawer--modal main-drawer">
                     <div class="mdc-drawer__header mdc-top-app-bar__row">
                         <div class="mdc-drawer__title">{{brand}}</div>
@@ -63,10 +64,12 @@
                         </nav>
                     </div>
                 </aside>
+                {{/has_navigation}}
                 {{{side_sheet_full_height}}}
                 <div class="mdc-scaffold__app-content
                             mdc-scaffold__app-content--outer
                             mdc-side-sheet-app-content">
+                    {{#has_top_app_bar}}
                     <header id="main-top-app-bar" class="mdc-top-app-bar main-top-app-bar">
                         <div class="mdc-top-app-bar__row">
                             <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
@@ -79,13 +82,16 @@
                         </div>
                         {{{top_app_bar_bottom}}}
                     </header>
+                    {{/has_top_app_bar}}
                     <div class="mdc-scaffold__drawer-frame
                                 mdc-scaffold__drawer-frame--clipped">
                         {{{side_sheet_clipped}}}
                         <main class="mdc-scaffold__app-content
                                      mdc-scaffold__app-content--inner
                                      mdc-side-sheet-app-content
-                                     mdc-top-app-bar--fixed-adjust">
+                                     {{#has_top_app_bar}}
+                                     mdc-top-app-bar--fixed-adjust
+                                     {{/has_top_app_bar}}">
                             {{#content}}
                             {{{element}}}
                             {{/content}}

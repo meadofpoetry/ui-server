@@ -158,14 +158,14 @@ end = struct
       let node = match prefix with
         | None -> node
         | Some prefix ->
-           assert (String.length prefix <> 0);
-           Uri.Dispatcher.prepend (Uri.Path.of_string prefix) node
+          assert (String.length prefix <> 0);
+          Uri.Dispatcher.prepend (Uri.Path.of_string prefix) node
       in
       let update = function
         | None ->
-           Some Uri.Dispatcher.(add empty node)
+          Some Uri.Dispatcher.(add empty node)
         | Some disp ->
-           Some Uri.Dispatcher.(add disp node)
+          Some Uri.Dispatcher.(add disp node)
       in Meth_map.update meth update map
     in 
     nodes

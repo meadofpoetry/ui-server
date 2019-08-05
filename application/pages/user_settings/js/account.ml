@@ -1,36 +1,18 @@
 open Js_of_ocaml
 open Components
-(* open Netlib.Uri *)
 
 let name = "account"
 
 let ( >>= ) = Lwt.bind
 
 module Selector = struct
+  let logout = "a[href=\"/logout\"]"
   let change_role = Printf.sprintf ".%s" Card.CSS.action
   let accounts_info = Printf.sprintf ".%s" Markup.CSS.Account.accounts_info_link
 end
 
-let logout () =
-  let open XmlHttpRequest in
-  let req = create () in
-  let location = Dom_html.window##.location in
-  let password =
-    Js.some
-    @@ Js.string
-    @@ string_of_float
-    @@ (new%js Js.date_now)##getTime in
-  req##_open_full
-    (Js.string "HEAD") (* meth *)
-    location##.href (* url *)
-    Js._true (* async *)
-    (Js.some @@ Js.string "logout") (*username *)
-    password;
-  req##.onreadystatechange := Js.wrap_callback (fun _ ->
-      match req##.readyState with
-      | DONE -> Dom_html.window##.location##reload
-      | _ -> ());
-  req##send Js.null
+let logout ?(reload = true) () : unit =
+  Js.Unsafe.global##logout (Js.bool reload)
 
 let make_accounts_info_dialog () =
   let section (user : Application_types.User.t) =
@@ -67,11 +49,22 @@ class t (elt : Dom_html.element Js.t) = object
     | None -> failwith @@ name ^ ": accounts info link not found"
     | Some x -> x
 
-  val change : Button.t =
+  val logout_button : Button.t option =
+    match Element.query_selector elt Selector.logout with
+    | None -> None
+    | Some x ->
+      let on_click = fun _ e _ ->
+        Dom.preventDefault e;
+        logout ~reload:false ();
+        Dom_html.window##.location##replace (Js.string "/");
+        Lwt.return_unit in
+      Some (Button.attach ~on_click x)
+
+  val change_button : Button.t =
     match Element.query_selector elt Selector.change_role with
     | None -> failwith @@ name ^ ": change role button not found"
     | Some x ->
-      let on_click = fun _ _ _ -> logout (); Lwt.return_unit in
+      let on_click = fun _ _ _ -> Lwt.return @@ logout ~reload:true () in
       Button.attach ~on_click x
 
   val mutable _listeners = []
@@ -92,7 +85,8 @@ class t (elt : Dom_html.element Js.t) = object
     List.iter Lwt.cancel _listeners;
     _listeners <- [];
     info_dialog#destroy ();
-    change#destroy ();
+    Utils.Option.iter Widget.destroy logout_button;
+    change_button#destroy ();
     super#destroy ()
 end
 

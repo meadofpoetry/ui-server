@@ -86,7 +86,10 @@ module Make(Xml : Xml_sigs.NoWrap)
           () in
       let path = Icon.SVG.create_path Svg_icons.logout_variant () in
       let icon = Icon.SVG.create ~classes:[Button.CSS.icon] [path] () in
-      let _exit = Button.create ~icon ~label:"Выйти" () in
+      let _exit = Button.create_anchor ~icon
+          ~href:(uri_of_string "/logout")
+          ~label:"Выйти"
+          () in
       make_section ~classes ~attrs:(a_id id :: attrs)
         ~header:(make_section_header ~title:"Аккаунт" [])
         [ Card.create_media

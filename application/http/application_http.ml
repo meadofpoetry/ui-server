@@ -35,13 +35,10 @@ let error_page_props error =
       List.map Html.toelt
         Html.(
           [div ~a:[a_class ["error-page"]]
-             [ div ~a:[a_class ["error-page__code"]]
-                 [txt error_code]
-             ; div ~a:[a_class ["error-page__status"]]
-                 [txt status]
-             ; div ~a:[a_class ["error-page__message"]]
-                 [txt message]
-             ; ul ~a:[a_class ["error-page__links"]]
+             [ div ~a:[a_class ["error-page__code"]] [txt error_code]
+             ; div ~a:[a_class ["error-page__status"]] [txt status]
+             ; div ~a:[a_class ["error-page__message"]] [txt message]
+             ; ul  ~a:[a_class ["error-page__links"]]
                  [li [a ~a:[a_href @@ uri_of_string "/"]
                         [txt "домашнюю страницу."]]]
              ]
@@ -170,7 +167,7 @@ let application_pages (app : Application.t) =
       ~priority:(`Index 999)
       ~title:"Выйти"
       ~icon:(icon Components_tyxml.Svg_icons.logout_variant)
-      (Uri.of_string "logout") in
+      (Uri.of_string "/logout") in
   subtree
     ~priority:(`Index 1)
     ~title:"Входы"
@@ -313,14 +310,19 @@ let create templates (app : Application.t)
   in
   let pages =
     Api_http.make
-      (Api_http.node ~doc:"Home page redirect"
-         ~meth:`GET
-         ~path:Path.Format.empty
-         ~query:Query.empty
-         (fun _user _body _env _state ->
-            let uri = Uri.make ~path:topo_page_path () in
-            Lwt.return (`Redirect uri))
-       :: Api_template.make ~template templates) in
+      ([ Api_http.node ~doc:"Home page redirect"
+           ~meth:`GET
+           ~path:Path.Format.empty
+           ~query:Query.empty
+           (fun _user _body _env _state ->
+              let uri = Uri.make ~path:topo_page_path () in
+              Lwt.return (`Redirect uri))
+       ; Api_http.node ~doc:"Logout page"
+           ~meth:`GET
+           ~path:Path.Format.("logout" @/ empty)
+           ~query:Query.empty
+           (fun _user _body _env _state -> Lwt.return `Unit)
+       ] @ Api_template.make ~template templates) in
   let api =
     Api_http.merge ~prefix:"api"
       ( foreing_handlers

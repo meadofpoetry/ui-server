@@ -30,6 +30,7 @@ module Make (User : USER) = struct
 
   type template_props =
     { title : string option
+    ; has_top_app_bar : bool
     ; top_app_bar_leading : Tyxml.Xml.elt option
     ; top_app_bar_content : Tyxml.Xml.elt list
     ; top_app_bar_bottom : Tyxml.Xml.elt option
@@ -40,12 +41,13 @@ module Make (User : USER) = struct
     ; content : Tyxml.Xml.elt list
     }
 
-  let make_template_props ?title
+  let make_template_props ?title ?(has_top_app_bar = true)
       ?top_app_bar_leading ?(top_app_bar_content = []) ?top_app_bar_bottom
       ?side_sheet
       ?(pre_scripts = []) ?(post_scripts = []) ?(stylesheets = [])
       ?(content = []) () =
     { title
+    ; has_top_app_bar
     ; top_app_bar_leading
     ; top_app_bar_content
     ; top_app_bar_bottom
@@ -110,6 +112,7 @@ module Make (User : USER) = struct
   let make_top_app_bar ({ top_app_bar_leading = leading
                         ; top_app_bar_content = content
                         ; top_app_bar_bottom = bottom
+                        ; has_top_app_bar
                         ; _ } : template_props) =
     let leading' = match leading with
       | None ->
@@ -138,7 +141,9 @@ module Make (User : USER) = struct
         content in
     [ "top_app_bar_leading", `String leading'
     ; "top_app_bar_content", `A content'
-    ; "top_app_bar_bottom", bottom' ]
+    ; "top_app_bar_bottom", bottom'
+    ; "has_top_app_bar", `Bool has_top_app_bar
+    ]
 
   let make_side_sheet = function
     | None -> [ "side_sheet_full_height", `String ""
@@ -193,7 +198,9 @@ module Make (User : USER) = struct
     | None   -> `Null
 
   let make_page_params gen_item_list content user =
-    `O ([ "navigation", `A (gen_item_list user)
+    let nav = gen_item_list user in
+    `O ([ "navigation", `A nav
+        ; "has_navigation", `Bool (List.length nav > 0)
         ; "brand", `String "АТС-3"
         ; "username", `String (User.to_string user)
         ; "usericon", `String ""
