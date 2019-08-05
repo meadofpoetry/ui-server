@@ -1,9 +1,9 @@
 (executable
-  (name       page_404)
+  (name       scaffold)
   (libraries  components)
   (preprocess (pps js_of_ocaml-ppx)))
 
 (install
-  (files (page_404.bc.js as js/page-404.js))
+  (files (scaffold.bc.js as js/scaffold.js))
   (section share)
   (package ui-server))

@@ -7,7 +7,7 @@ let ( >>= ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
 
 let () =
   let open React in
-  let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
+  let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
   let thread =
     Http_wm.get_layout ()
     >>= fun wm -> Http_structure.get_annotated ()

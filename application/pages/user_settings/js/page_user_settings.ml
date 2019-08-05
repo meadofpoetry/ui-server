@@ -4,7 +4,7 @@ open Components
 let ( >>= ) = Lwt_result.bind
 
 let () =
-  let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
+  let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
   let thread =
     Lwt.return
     @@ Application_types.User.of_string

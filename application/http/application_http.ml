@@ -18,14 +18,12 @@ let icon x =
 let page_403_props =
   Api_template.make_template_props
     ~title:"Доступ запрещен"
-    ~post_scripts:[Src "/js/page-404.js"]
     ~stylesheets:["/css/page-404.min.css"]
     ()
 
 let page_404_props =
   Api_template.make_template_props
     ~title:"Страница не найдена"
-    ~post_scripts:[Src "/js/page-404.js"]
     ~stylesheets:["/css/page-404.min.css"]
     ()
 

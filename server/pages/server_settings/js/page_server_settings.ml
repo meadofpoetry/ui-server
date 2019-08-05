@@ -17,7 +17,7 @@ let get_user () =
   | Ok user -> user
 
 let () =
-  let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
+  let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
   let thread =
     Server_http_js.get_config ()
     >>=? fun config ->
