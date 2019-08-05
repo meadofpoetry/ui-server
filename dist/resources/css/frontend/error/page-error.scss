@@ -1,0 +1,33 @@
+@import "@material/theme/mixins";
+@import "@material/typography/mixins";
+
+.error-page {
+    margin: 0 auto;
+    max-width: 500px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+    box-sizing: border-box;
+    padding: 1rem;
+
+    &__code {
+        @include mdc-typography(headline4);
+        padding: 24px 0;
+    }
+
+    &__status, &__message, &__links {
+        @include mdc-typography(body1);
+    }
+
+    &__links {
+        margin: 0;
+        padding: 0;
+        list-style-type: none;
+    }
+
+    &__links a {
+        @include mdc-theme-prop(color, primary);
+    }
+}

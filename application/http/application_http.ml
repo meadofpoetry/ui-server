@@ -15,16 +15,37 @@ let icon x =
   let icon = create [path] () in
   Tyxml.Html.toelt icon
 
-let page_403_props =
+let error_page_props error =
+  let open Tyxml in
+  let module Components = Components_tyxml.Bundle.Make(Xml)(Svg)(Html) in
+  let error_code, status, message = match error with
+    | `Not_found ->
+      "404 - Page Not Found",
+      "Страница не найдена.",
+      "Потерялись? Вы можете вернуться на "
+    | `Forbidden ->
+      "403 - Forbidden",
+      "Похоже, что доступ к данной странице Вам запрещён...",
+      "Не расстраивайтесь, Вы можете вернуться на "
+  in
   Api_template.make_template_props
-    ~title:"Доступ запрещен"
-    ~stylesheets:["/css/page-404.min.css"]
-    ()
-
-let page_404_props =
-  Api_template.make_template_props
-    ~title:"Страница не найдена"
-    ~stylesheets:["/css/page-404.min.css"]
+    ~title:"Что-то пошло не так..."
+    ~stylesheets:["/css/page-error.min.css"]
+    ~content:(
+      List.map Html.toelt
+        Html.(
+          [div ~a:[a_class ["error-page"]]
+             [ div ~a:[a_class ["error-page__code"]]
+                 [txt error_code]
+             ; div ~a:[a_class ["error-page__status"]]
+                 [txt status]
+             ; div ~a:[a_class ["error-page__message"]]
+                 [txt message]
+             ; ul ~a:[a_class ["error-page__links"]]
+                 [li [a ~a:[a_href @@ uri_of_string "/"]
+                        [txt "домашнюю страницу."]]]
+             ]
+          ]))
     ()
 
 let user_pages : 'a. unit -> 'a Api_template.item list =
@@ -257,9 +278,7 @@ type t =
   }
 
 let make_error_page ~template templates status user =
-  let template_props = match status with
-    | `Forbidden -> page_403_props
-    | `Not_found -> page_404_props in
+  let template_props = error_page_props status in
   Api_template.make_page ~template templates template_props user
 
 let create templates (app : Application.t)
