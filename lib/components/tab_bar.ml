@@ -4,12 +4,34 @@ open Utils
 
 (* TODO
    - add rtl support
- *)
+*)
+
+let name = "tab-bar"
 
 let ( >>= ) = Lwt.( >>= )
 
 include Components_tyxml.Tab_bar
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
+
+module Event = struct
+  open Js_of_ocaml_lwt
+
+  class type detail = object
+    method index : int Js.readonly_prop
+    method tab : Dom_html.element Js.t Js.readonly_prop
+  end
+
+  module Typ = struct
+    let (change : detail Js.t Widget.custom_event Js.t Dom_html.Event.typ) =
+      Dom_html.Event.make @@ Printf.sprintf "%s:change" name
+  end
+
+  let change ?use_capture x =
+    Lwt_js_events.make_event ?use_capture Typ.change x
+
+  let changes ?cancel_handler ?use_capture x =
+    Lwt_js_events.seq_loop ?use_capture ?cancel_handler change x
+end
 
 class t ?on_change ?scroller ?(auto_activation = false)
     (elt : Dom_html.element Js.t) () =
@@ -81,6 +103,7 @@ object(self)
         _scroller#set_active_tab tab;
         self#scroll_into_view tab
         >>= fun () ->
+        self#notify_tab_activated tab;
         (match on_change with
          | None -> Lwt.return_unit
          | Some f -> f previous (self :> t)))
@@ -123,6 +146,13 @@ object(self)
     _scroller#insert_tab_at_index i tab
 
   (* Private methods *)
+
+  method private notify_tab_activated (tab : Tab.t) : unit =
+    let detail = object%js
+      val index = tab#index
+      val tab = tab#root
+    end in
+    super#emit ~detail Event.Typ.change
 
   method private is_index_in_range (i : int) : bool =
     i >= 0 && i < (List.length _scroller#tabs)

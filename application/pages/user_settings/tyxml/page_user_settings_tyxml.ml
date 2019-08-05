@@ -221,6 +221,7 @@ module Make(Xml : Xml_sigs.NoWrap)
                 ()
             ; make_helper_text ~persistent:false ""
             ]
+        ; input ~a:([a_input_type `Submit]) ()
         ]
 
     let make ?(classes = []) ?(attrs = []) () =

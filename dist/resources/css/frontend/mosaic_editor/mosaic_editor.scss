@@ -31,6 +31,9 @@
     }
 
     &--contextual  {
+        .mdc-top-app-bar__navigation-icon {
+            display: flex !important; // FIXME 
+        }
         &, .mdc-top-app-bar__section:nth-child(2) {
             @include mdc-theme-prop(background-color, hsl(0, 0%, 7%));
             transition: mdc-animation-exit-temporary(background-color, $duration: 150ms, $delay: 0ms);

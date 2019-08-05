@@ -131,18 +131,12 @@ class t ?(drawer : #Drawer.t option)
 
     method! init () : unit =
       super#init ();
-      ignore @@ MutationObserver.observe
-        ~node:Dom_html.document
-        ~f:(fun _ obs ->
-            self#handle_content_loaded obs;
-            super#root##.style##.visibility := Js.string "")
-        ~child_list:true
-        ~attributes:true
-        ~character_data:true
-        ~subtree:true
-        ~attribute_old_value:true
-        ~character_data_old_value:true
-        ()
+      Lwt.async (fun () ->
+          Lwt_js_events.domContentLoaded ()
+          >>= self#handle_content_loaded
+          >>= fun () ->
+          super#root##.style##.visibility := Js.string "";
+          Lwt.return_unit)
 
     method! destroy () : unit =
       super#destroy ();
@@ -256,7 +250,7 @@ class t ?(drawer : #Drawer.t option)
       Option.iter app_bar#set_leading leading;
       Element.insert_child_at_index app_content_outer 0 app_bar#root;
       match app_bar#leading, drawer with
-      | Some l, Some d -> Some l
+      | Some l, Some _ -> Some l
       | _ -> None
 
     (** Determines drawer or side sheet elevation *)
@@ -354,11 +348,7 @@ class t ?(drawer : #Drawer.t option)
           else side_sheet_type <- cur;
           Lwt.return_unit)
 
-    method private handle_content_loaded observer =
-      print_endline "content loaded";
-      observer##disconnect;
-      let screen = Breakpoint.get_screen_width () in
-      print_endline @@ Printf.sprintf "screen: %d" screen;
+    method private handle_content_loaded () =
       (* Setup drawer *)
       begin match self#drawer with
         | None -> ()
@@ -369,10 +359,6 @@ class t ?(drawer : #Drawer.t option)
             | None -> match self#drawer_elevation with
               | None -> Clipped
               | Some x -> x in
-          print_endline (match typ with
-              | Modal -> "modal"
-              | Dismissible -> "dismissible"
-              | Permanent -> "permanent");
           self#set_drawer_properties_ ~is_leading:true typ elv drawer
       end;
       (* Setup side sheet *)
@@ -402,7 +388,8 @@ class t ?(drawer : #Drawer.t option)
        | Some leading ->
          listeners <- Lwt_js_events.(
              clicks leading self#handle_navigation_icon_click
-             :: listeners))
+             :: listeners));
+      Lwt.return_unit
 
     method private handle_navigation_icon_click _ _ : unit Lwt.t =
       match drawer, on_navigation_icon_click with

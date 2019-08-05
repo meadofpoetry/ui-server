@@ -14,7 +14,7 @@ let () =
     let account = Account.make user in
     let content = match user with
       | `Root ->
-        let password = Password.make () in
+        let password = Password.make ~set_snackbar:scaffold#show_snackbar user in
         [password#markup]
       | `Guest | `Operator -> [] in
     let page =

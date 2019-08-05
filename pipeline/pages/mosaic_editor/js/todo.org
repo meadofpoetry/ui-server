@@ -56,4 +56,5 @@
 - [ ] when applying, unobvious intersections/invalid positions are often detected by backend
 ** Optional
 - [ ] XXX add an ability to disable an action (like undo, redo...)
+      When action is not possible it should be hidden (like in WhatsApp)
 - [X] switch to relative coordinates on backend

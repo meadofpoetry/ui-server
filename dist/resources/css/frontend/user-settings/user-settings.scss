@@ -114,7 +114,7 @@
         padding: 0 24px;
         min-width: 100%;
 
-        input[name="username"] {
+        input[name="username"], input[type="submit"] {
             display: none;
         }
 
