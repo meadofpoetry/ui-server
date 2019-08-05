@@ -7,33 +7,54 @@ module Api_template = Api_cohttp_template.Make(User)
 
 module Api_websocket = Api_websocket.Make(User)(Body)(Body_ws)
 
-module Icon = Components_tyxml.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
+module Components = Components_tyxml.Bundle.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
 let icon x =
-  let open Icon.SVG in
+  let open Components.Icon.SVG in
   let path = create_path x () in
-  let icon = create [path] () in
-  Tyxml.Html.toelt icon
+  create [path] ()
+
+let logout_page_props () =
+  let goodbye = "До новых встреч!" in
+  let message = "Передумали и хотите обратно? Нажмите" in
+  Api_template.make_template_props
+    ~has_navigation_drawer:false
+    ~has_top_app_bar:false
+    ~stylesheets:["/css/page-logout.min.css"]
+    ~content:(
+      List.map Tyxml.Html.toelt
+        Tyxml.Html.(
+          [ div ~a:[a_class ["logout-page"]]
+              [ icon Components_tyxml.Svg_icons.human_greeting
+              ; div ~a:[a_class ["logout-page__goodbye"]] [txt goodbye]
+              ; div ~a:[a_class ["logout-page__message"]] [txt message]
+              ; Components.Button.create_anchor
+                  ~label:"Войти"
+                  ~appearance:Raised
+                  ~href:(uri_of_string "/")
+                  ()
+              ]
+          ]))
+    ()
 
 let error_page_props error =
-  let open Tyxml in
-  let module Components = Components_tyxml.Bundle.Make(Xml)(Svg)(Html) in
   let error_code, status, message = match error with
     | `Not_found ->
-      "404 - Page Not Found",
-      "Страница не найдена.",
+      "404",
+      "Страница не найдена",
       "Потерялись? Вы можете вернуться на "
     | `Forbidden ->
-      "403 - Forbidden",
-      "Похоже, что доступ к данной странице Вам запрещён...",
-      "Не расстраивайтесь, Вы можете вернуться на "
+      "403",
+      "Доступ запрещён",
+      "Похоже, что доступ к данной странице Вам запрещён... \
+       Не расстраивайтесь, Вы можете вернуться на "
   in
   Api_template.make_template_props
     ~title:"Что-то пошло не так..."
     ~stylesheets:["/css/page-error.min.css"]
     ~content:(
-      List.map Html.toelt
-        Html.(
+      List.map Tyxml.Html.toelt
+        Tyxml.Html.(
           [div ~a:[a_class ["error-page"]]
              [ div ~a:[a_class ["error-page__code"]] [txt error_code]
              ; div ~a:[a_class ["error-page__status"]] [txt status]
@@ -57,7 +78,7 @@ let user_pages : 'a. unit -> 'a Api_template.item list =
   simple
     ~priority:(`Index 1)
     ~title:"Пользователи"
-    ~icon:(icon Components_tyxml.Svg_icons.account)
+    ~icon:(Tyxml.Html.toelt @@ icon Components_tyxml.Svg_icons.account)
     ~path:(Path.of_string "settings/user")
     props
 
@@ -113,7 +134,7 @@ let input topo (input : Topology.topo_input) =
        simple
          ~priority:(`Index input.id)
          ~title
-         ~icon:(icon Components_tyxml.Svg_icons.arrow_right)
+         ~icon:(Tyxml.Html.toelt @@ icon Components_tyxml.Svg_icons.arrow_right)
          ~path:(Path.of_string @@ get_input_href input)
          input_template
      in
@@ -161,27 +182,25 @@ let application_pages (app : Application.t) =
       ~post_scripts:[Src "/js/page-topology.js"]
       ~stylesheets:["/css/page-topology.min.css"]
       () in
-  let logout =
-    reference
-      ?restrict:None
-      ~priority:(`Index 999)
-      ~title:"Выйти"
-      ~icon:(icon Components_tyxml.Svg_icons.logout_variant)
-      (Uri.of_string "/logout") in
   subtree
     ~priority:(`Index 1)
     ~title:"Входы"
-    ~icon:(icon Components_tyxml.Svg_icons.arrow_right_box)
+    ~icon:(Tyxml.Html.toelt @@ icon Components_tyxml.Svg_icons.arrow_right_box)
     (List.flatten input_props)
   @ simple
     ~priority:(`Index 4)
     ~title:"Конфигурация"
-    ~icon:(icon Components_tyxml.Svg_icons.tournament)
+    ~icon:(Tyxml.Html.toelt @@ icon Components_tyxml.Svg_icons.tournament)
     ~path:(Path.of_string topo_page_path)
     topology_props
+  @ simple
+    ~priority:(`Index 999)
+    ~title:"Выйти"
+    ~icon:(Tyxml.Html.toelt @@ icon Components_tyxml.Svg_icons.logout_variant)
+    ~path:(Path.of_string "logout")
+    (logout_page_props ())
   @ List.flatten stream_templates
   @ hw_templates
-  @ logout
 
 let application_handlers (app : Application.t) =
   let open Api_http in
@@ -310,19 +329,14 @@ let create templates (app : Application.t)
   in
   let pages =
     Api_http.make
-      ([ Api_http.node ~doc:"Home page redirect"
-           ~meth:`GET
-           ~path:Path.Format.empty
-           ~query:Query.empty
-           (fun _user _body _env _state ->
-              let uri = Uri.make ~path:topo_page_path () in
-              Lwt.return (`Redirect uri))
-       ; Api_http.node ~doc:"Logout page"
-           ~meth:`GET
-           ~path:Path.Format.("logout" @/ empty)
-           ~query:Query.empty
-           (fun _user _body _env _state -> Lwt.return `Unit)
-       ] @ Api_template.make ~template templates) in
+      (Api_http.node ~doc:"Home page redirect"
+         ~meth:`GET
+         ~path:Path.Format.empty
+         ~query:Query.empty
+         (fun _user _body _env _state ->
+            let uri = Uri.make ~path:topo_page_path () in
+            Lwt.return (`Redirect uri))
+       :: Api_template.make ~template templates) in
   let api =
     Api_http.merge ~prefix:"api"
       ( foreing_handlers

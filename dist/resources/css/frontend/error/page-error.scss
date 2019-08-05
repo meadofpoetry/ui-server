@@ -13,8 +13,12 @@
     padding: 1rem;
 
     &__code {
-        @include mdc-typography(headline4);
-        padding: 24px 0;
+        @include mdc-typography(headline1);
+    }
+
+    &__status {
+        @include mdc-typography(headline3);
+        padding-bottom: 24px;
     }
 
     &__status, &__message, &__links {

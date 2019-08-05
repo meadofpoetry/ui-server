@@ -53,10 +53,8 @@ class t (elt : Dom_html.element Js.t) = object
     match Element.query_selector elt Selector.logout with
     | None -> None
     | Some x ->
-      let on_click = fun _ e _ ->
-        Dom.preventDefault e;
+      let on_click = fun _ _ _ ->
         logout ~reload:false ();
-        Dom_html.window##.location##replace (Js.string "/");
         Lwt.return_unit in
       Some (Button.attach ~on_click x)
 

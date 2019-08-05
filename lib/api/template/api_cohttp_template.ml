@@ -34,6 +34,7 @@ module Make (User : USER) = struct
     ; top_app_bar_leading : Tyxml.Xml.elt option
     ; top_app_bar_content : Tyxml.Xml.elt list
     ; top_app_bar_bottom : Tyxml.Xml.elt option
+    ; has_navigation_drawer : bool
     ; side_sheet : side_sheet_props option
     ; pre_scripts : script list
     ; post_scripts : script list
@@ -43,7 +44,7 @@ module Make (User : USER) = struct
 
   let make_template_props ?title ?(has_top_app_bar = true)
       ?top_app_bar_leading ?(top_app_bar_content = []) ?top_app_bar_bottom
-      ?side_sheet
+      ?(has_navigation_drawer = true) ?side_sheet
       ?(pre_scripts = []) ?(post_scripts = []) ?(stylesheets = [])
       ?(content = []) () =
     { title
@@ -51,6 +52,7 @@ module Make (User : USER) = struct
     ; top_app_bar_leading
     ; top_app_bar_content
     ; top_app_bar_bottom
+    ; has_navigation_drawer
     ; side_sheet
     ; pre_scripts
     ; post_scripts
@@ -68,7 +70,7 @@ module Make (User : USER) = struct
       Item : { path : ('b, user -> gen_result) Netlib.Uri.Path.Format.t
              ; subitems : subitems
              ; item_gen : user -> gen_result
-             ; page_gen : user -> gen_result
+             ; page_gen : Mustache.Json.value list -> user -> gen_result
              } -> 'a item_local
   and subitems =
     [ `Subtree of inner item_local list
@@ -168,13 +170,15 @@ module Make (User : USER) = struct
         [ "side_sheet_full_height", `String ""
         ; "side_sheet_clipped", `String (make ()) ]
 
-  let make_template (user : user)
+  let make_template ~(navigation : Mustache.Json.value list)
+      (user : user)
       ({ pre_scripts
        ; post_scripts
        ; stylesheets
        ; title
        ; content
        ; side_sheet
+       ; has_navigation_drawer
        ; _ } as props : template_props) =
     let ( % ) f g x = f (g x) in
     let script_to_object = function
@@ -188,7 +192,13 @@ module Make (User : USER) = struct
     ; "pre_scripts", `A (List.map script_to_object pre_scripts)
     ; "post_scripts", `A (List.map script_to_object post_scripts)
     ; "stylesheets", `A (List.map (make_obj "stylesheet") stylesheets)
-    ; "content", `A (List.map (make_obj "element" % elt_to_string) content) ]
+    ; "content", `A (List.map (make_obj "element" % elt_to_string) content)
+    ; "username", `String (User.to_string user)
+    ; "usericon", `String ""
+    ; "usercolor", `String ""
+    ; "brand", `String "АТС-3"
+    ; "navigation", `A navigation
+    ; "has_navigation", `Bool (List.length navigation > 0 && has_navigation_drawer) ]
     @ make_top_app_bar props
     @ make_side_sheet side_sheet
 
@@ -197,17 +207,9 @@ module Make (User : USER) = struct
     | Some e -> `O ["value", `String (elt_to_string e)]
     | None   -> `Null
 
-  let make_page_params gen_item_list content user =
-    let nav = gen_item_list user in
-    `O ([ "navigation", `A nav
-        ; "has_navigation", `Bool (List.length nav > 0)
-        ; "brand", `String "АТС-3"
-        ; "username", `String (User.to_string user)
-        ; "usericon", `String ""
-        ; "usercolor", `String ""
-        ] @ content)
-
-  let make_node ~template paths gen_item_list (Item { path; page_gen; _ }) =
+  let make_node ~template paths
+      (gen_item_list : user -> Mustache.Json.value list)
+      (Item { path; page_gen; _ }) =
     let table = Hashtbl.create 16 in
     (* Check if the same path was added twice *)
     if Uri.Path.Format.has_template paths path
@@ -220,10 +222,9 @@ module Make (User : USER) = struct
         match Hashtbl.find_opt table user with
         | Some v -> `HTML v
         | None ->
-          match page_gen user with
-          | `Template content ->
-            let params = make_page_params gen_item_list content user in
-            let v = Mustache.render template params in
+          match page_gen (gen_item_list user) user with
+          | `Template params ->
+            let v = Mustache.render template (`O params) in
             Hashtbl.replace table user v;
             `HTML v
           | x -> x
@@ -261,16 +262,16 @@ module Make (User : USER) = struct
       Item { path = Uri.Path.Format.of_string @@ Uri.to_string href
            ; subitems = `Simple
            ; item_gen
-           ; page_gen = fun _ -> `Null
+           ; page_gen = fun _ _ -> `Null
            }
     in [ priority, it ]
 
   let parametric ?(restrict=[]) ~path props : 'a item list =
     let not_allowed id = List.exists (User.equal id) restrict in
-    let page_gen user =
+    let page_gen navigation user =
       if not_allowed user
       then `Not_allowed
-      else `Template (make_template user props)
+      else `Template (make_template ~navigation user props)
     in
     let it =
       Item { path
@@ -292,10 +293,10 @@ module Make (User : USER) = struct
                      ; "href", `String ("/" ^ Uri.Path.to_string path)
                      ; "simple", `Bool true ]
     in
-    let page_gen user =
+    let page_gen navigation user =
       if not_allowed user
       then `Not_allowed
-      else `Template (make_template user props)
+      else `Template (make_template ~navigation user props)
     in
     let it =
       Item { path = Uri.Path.Format.of_string @@ Uri.Path.to_string path
@@ -336,7 +337,7 @@ module Make (User : USER) = struct
       Item { path = Uri.Path.Format.of_string ""
            ; subitems = `Subtree list
            ; item_gen
-           ; page_gen = fun _ -> `Null
+           ; page_gen = fun _ _ -> `Null
            }
     in [ priority, it ]
 
@@ -370,7 +371,6 @@ module Make (User : USER) = struct
           match item_gen user with
           | `Template x -> Some (`O x)
           | _ -> None) list in
-    let content = make_template user props in
-    let params = make_page_params gen_item_list content user in
-    Mustache.render template params
+    let params = make_template ~navigation:(gen_item_list user) user props in
+    Mustache.render template (`O params)
 end

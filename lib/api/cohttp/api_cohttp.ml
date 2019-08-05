@@ -218,7 +218,7 @@ end = struct
     let not_allowed id = List.exists (User.equal id) restrict in
     Uri.Dispatcher.make ?docstring:doc ~path ~query handler
     |> Uri.Dispatcher.map_node (transform_raw not_allowed)
-    |> fun node -> meth, node        
+    |> fun node -> meth, node
 
   let doc (t : t) =
     List.map (fun (meth, v) ->

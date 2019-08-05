@@ -71,7 +71,15 @@
  (targets page-error.min.css)
  (deps
        (:src ./frontend/error/page-error.scss)
-       (source_tree ./frontend/error)
+       (source_tree ./@material))
+ (action (progn
+          (run %{bin:sassc} -t compressed -I ./ %{src} %{targets})
+          (run %{bin:postcss} -u autoprefixer -r %{targets}))))
+
+(rule
+ (targets page-logout.min.css)
+ (deps
+       (:src ./frontend/logout/page-logout.scss)
        (source_tree ./@material))
  (action (progn
           (run %{bin:sassc} -t compressed -I ./ %{src} %{targets})
@@ -97,6 +105,7 @@
          (page-network-settings.min.css as css/page-network-settings.min.css)
          (page-server-settings.min.css as css/page-server-settings.min.css)
          (page-user-settings.min.css as css/page-user-settings.min.css)
-         (page-error.min.css as css/page-error.min.css))
+         (page-error.min.css as css/page-error.min.css)
+         (page-logout.min.css as css/page-logout.min.css))
   (section share)
   (package ui-server))
