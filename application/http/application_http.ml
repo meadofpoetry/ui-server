@@ -249,18 +249,6 @@ let application_ws (app : Application.t) =
         (Application_api.Event.get_log app)
     ]
 
-let other_handlers () =
-  let open Api_http in
-  make
-    [ node ~doc:"Home page redirect"
-        ~meth:`GET
-        ~path:Path.Format.empty
-        ~query:Query.empty
-        (fun _user _body _env _state ->
-           let uri = Uri.make ~path:topo_page_path () in
-           Lwt.return (`Redirect uri))
-    ]
-
 let tick ?(timeout = 1.) () =
   let ( >>= ) = Lwt.bind in
   let e, push = React.E.create () in
@@ -323,9 +311,18 @@ let create templates (app : Application.t)
     | None -> []
     | Some proc -> proc#ws ()
   in
-  let pages = Api_http.make @@ Api_template.make ~template templates in
-  
-  let api = Api_http.merge ~prefix:"api"
+  let pages =
+    Api_http.make
+      (Api_http.node ~doc:"Home page redirect"
+         ~meth:`GET
+         ~path:Path.Format.empty
+         ~query:Query.empty
+         (fun _user _body _env _state ->
+            let uri = Uri.make ~path:topo_page_path () in
+            Lwt.return (`Redirect uri))
+       :: Api_template.make ~template templates) in
+  let api =
+    Api_http.merge ~prefix:"api"
       ( foreing_handlers
         :: user_handlers app.users
         :: Pc_control_http.network_handlers app.network
@@ -333,7 +330,6 @@ let create templates (app : Application.t)
         :: board_api
         :: proc_api_list)
   in
-  let other = other_handlers () in
   let ping, loop = tick () in
   let ws =
     Api_websocket.to_http ~prefix:"ws" ~ping
@@ -346,7 +342,7 @@ let create templates (app : Application.t)
   in
   Lwt.return_ok
     { ping_loop = loop
-    ; routes = Api_http.merge [api; ws; pages; other]
+    ; routes = Api_http.merge [api; ws; pages]
     ; not_found = make_error_page ~template templates `Not_found
     ; forbidden = make_error_page ~template templates `Forbidden
     }
