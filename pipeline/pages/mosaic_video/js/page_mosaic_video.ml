@@ -47,7 +47,10 @@ module RTC = struct
     let location = Dom_html.window##.location in
     let protocol = Js.to_string location##.protocol in
     let hostname = Js.to_string location##.hostname in
-    protocol ^ "//" ^ hostname ^ ":8088/janus"
+    let port = match protocol with
+      | "https:" -> 8089
+      | _ -> 8088 in
+    Printf.sprintf "%s//%s:%d/janus" protocol hostname port
 
   let main =
     { id = 1
@@ -56,7 +59,7 @@ module RTC = struct
         Some { videomcast = None
              ; videoport = 5004
              ; videopt = 100
-             ; videortpmap = "H264/90000" (* FIXME should be configurable *)
+             ; videortpmap = "VP9/90000" (* FIXME should be configurable *)
              ; videofmtp = None
              ; videoiface = None
              ; videobufferkf = None }
