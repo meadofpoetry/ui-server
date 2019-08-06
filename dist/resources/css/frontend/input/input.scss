@@ -1,0 +1,19 @@
+@import "@material/layout-grid/variables";
+
+$screen-width-desktop: map-get($mdc-layout-grid-breakpoints, desktop);
+
+.mdc-top-app-bar {
+    .mdc-tab {
+        flex: 0 1 auto;
+    }
+
+    .mdc-tab:only-child {
+        display: none;
+    }
+
+    @media (max-width: $screen-width-desktop) {
+        .mdc-tab {
+            flex: 1 1 auto;
+        }
+    }
+}

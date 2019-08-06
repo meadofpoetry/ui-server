@@ -122,26 +122,32 @@ let input topo (input : Topology.topo_input) =
   | None -> failwith "input not found"
   | Some (boards, cpu) ->
      let title = Topology.get_input_name input in
-     let boards =
+     let boards_json =
        List.map (fun { Topology. control; manufacturer; model; version; _ } ->
            { Topology. control; manufacturer; model; version }) boards
        |> Util_json.List.to_yojson Topology.board_id_to_yojson
        |> Yojson.Safe.to_string in
-     let cpu = (* TODO remove after 4.08 *)
+     let cpu_json = (* TODO remove after 4.08 *)
        cpu
        |> (function Some (x : Topology.topo_cpu) -> Some x.process | None -> None)
        |> Util_json.Option.to_yojson Topology.process_type_to_yojson
        |> Yojson.Safe.to_string in
      let input_string = Topology.Show_topo_input.to_string input in
+     let vars =
+       Printf.sprintf "var input = \"%s\";\
+                       var boards = %s;\
+                       var cpu = %s;"
+         input_string boards_json cpu_json in
      let input_template =
        make_template_props
-       ~title
-       ~pre_scripts:[ Raw (Printf.sprintf "var input = \"%s\";\
-                                           var boards = %s;\
-                                           var cpu = %s;"
-                             input_string boards cpu)]
-       ~post_scripts:[Src "/js/input.js"]
-       ()
+         ~title
+         ~stylesheets:["/css/page-input.min.css"]
+         ~pre_scripts:[Raw vars]
+         ~post_scripts:[Src "/js/page-input.js"]
+         ~top_app_bar_bottom:(
+           Tyxml.Html.toelt
+           @@ Input_template.make_tab_bar cpu boards)
+         ()
      in
      let input_page =
        simple
@@ -158,7 +164,7 @@ let input topo (input : Topology.topo_input) =
        ~pre_scripts:[ Raw (Printf.sprintf "var input = \"%s\";\
                                            var boards = %s;\
                                            var cpu = %s;"
-                             input_string boards cpu)
+                             input_string boards_json cpu_json)
                     ; Src "/js/moment.min.js"
                     ; Src "/js/Chart.min.js"
                     ; Src "/js/chartjs-plugin-streaming.min.js"

@@ -38,6 +38,15 @@ $side-sheet-width: 500px;
     }
 }
 
+.topology--non-interactive {
+    .topology__switch {
+        display: none;
+    }
+    .topology-block__header__action--settings {
+        visibility: hidden;
+    }
+}
+
 .topology__switch {
     position: absolute;
     z-index: 2;
@@ -151,27 +160,27 @@ $side-sheet-width: 500px;
     }
 }
 
-.topology__block {
+.topology-block {
     margin: 20px;
     max-width: 300px;
     z-index: 2;
 
     &--fail {
-        .topology__block__body {
+        .topology-block__body {
             @include mdc-theme-prop(background-color, $error-surface);
             @include mdc-theme-prop(color, $on-error-surface);
         }
     }
 
     &--init {
-        .topology__block__body {
+        .topology-block__body {
             background-color: $material-color-grey-400;
             @include mdc-theme-prop(color, text-secondary-on-light);
         }
     }
 
     &--fine {
-        .topology__block__body {
+        .topology-block__body {
             background-color: transparent;
         }
     }
@@ -198,7 +207,7 @@ $side-sheet-width: 500px;
     }
 }
 
-.topology__cpu {
+.topology-cpu {
     &__header {
         $bg-color: $material-color-teal-500;
         $tone: mdc-theme-tone($bg-color);
