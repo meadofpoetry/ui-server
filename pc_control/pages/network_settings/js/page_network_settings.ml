@@ -55,7 +55,7 @@ let make_submit_button ethernet ipv4 dns routes config open_dialog =
     ()
 
 let () =
-  let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
+  let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
   let snackbar = Snackbar.make ~label:"" () in
   let thread =
     Pc_control_http_js.get_config ()

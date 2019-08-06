@@ -117,7 +117,6 @@ module Nm = struct
         opts.%{"mac-address"} --> unwrap_bytes >>= fun x -> result_to_opt @@ Macaddr.of_octets @@ Bytes.to_string x
         >>= fun mac_address -> Some { mac_address }
       in
-      
       let of_conn opts =
         opts.%{"id"} --> unwrap_string
         >>= fun id ->

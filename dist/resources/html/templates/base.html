@@ -21,18 +21,15 @@
         {{/stylesheets}}
     </head>
     <body class="mdc-typography">
-        <div id="root" class="mdc-scaffold">
+        <div id="root" class="mdc-scaffold" style="visibility: hidden">
             <div class="mdc-scaffold__drawer-frame
                         mdc-scaffold__drawer-frame--full-height">
-                <aside id="main-drawer"
-                       class="mdc-drawer mdc-drawer--dismissible main-drawer">
-                    <!-- <div class="mdc-drawer__header" style="display: none;">
-                         <div class="mdc-avatar" style="background-color: {{usercolor}}">
-                         {{{usericon}}}
-                         </div>
-                         <div class="mdc-drawer__title">{{username}}</div>
-                         </div>
-                         <hr class="mdc-list-divider" style="display: none;"> -->
+                {{#has_navigation}}
+                <aside id="main-drawer" class="mdc-drawer mdc-drawer--modal main-drawer">
+                    <div class="mdc-drawer__header mdc-top-app-bar__row">
+                        <div class="mdc-drawer__title">{{brand}}</div>
+                    </div>
+                    <hr class="mdc-list-divider">
                     <div class="mdc-drawer__content">
                         <nav class="mdc-list">
                             {{#navigation}}
@@ -67,17 +64,16 @@
                         </nav>
                     </div>
                 </aside>
+                {{/has_navigation}}
                 {{{side_sheet_full_height}}}
                 <div class="mdc-scaffold__app-content
                             mdc-scaffold__app-content--outer
                             mdc-side-sheet-app-content">
+                    {{#has_top_app_bar}}
                     <header id="main-top-app-bar" class="mdc-top-app-bar main-top-app-bar">
                         <div class="mdc-top-app-bar__row">
                             <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
-                                <button class="mdc-top-app-bar__navigation-icon"
-                                        style="outline: none;">
-                                    {{{top_app_bar_leading}}}
-                                </button>
+                                {{{top_app_bar_leading}}}
                                 <span id="page-title" class="mdc-top-app-bar__title">{{title}}</span>
                             </section>
                             {{#top_app_bar_content}}
@@ -86,13 +82,16 @@
                         </div>
                         {{{top_app_bar_bottom}}}
                     </header>
+                    {{/has_top_app_bar}}
                     <div class="mdc-scaffold__drawer-frame
                                 mdc-scaffold__drawer-frame--clipped">
                         {{{side_sheet_clipped}}}
                         <main class="mdc-scaffold__app-content
                                      mdc-scaffold__app-content--inner
                                      mdc-side-sheet-app-content
-                                     mdc-top-app-bar--fixed-adjust">
+                                     {{#has_top_app_bar}}
+                                     mdc-top-app-bar--fixed-adjust
+                                     {{/has_top_app_bar}}">
                             {{#content}}
                             {{{element}}}
                             {{/content}}
@@ -101,6 +100,7 @@
                 </div>
             </div>
         </div>
+        <script src="/js/scaffold.js" type="text/javascript"></script>
         <!-- Additional post scripts -->
         {{#post_scripts}}
         <script {{#src}}src="{{script}}"{{/src}} type="text/javascript">{{^src}}{{{script}}}{{/src}}</script>

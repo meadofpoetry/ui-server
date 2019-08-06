@@ -5,6 +5,15 @@ module type USER = sig
   val to_string : t -> string
 end
 
+(* TODO remove after 4.08 *)
+let filter_map f l =
+  let rec aux acc = function
+    | [] -> List.rev acc
+    | x :: l' ->
+      let acc' = match f x with | None -> acc | Some y -> y :: acc in
+      aux acc' l'
+  in aux [] l
+
 module Make (User : USER) = struct
 
   type user = User.t
@@ -21,9 +30,11 @@ module Make (User : USER) = struct
 
   type template_props =
     { title : string option
+    ; has_top_app_bar : bool
     ; top_app_bar_leading : Tyxml.Xml.elt option
     ; top_app_bar_content : Tyxml.Xml.elt list
     ; top_app_bar_bottom : Tyxml.Xml.elt option
+    ; has_navigation_drawer : bool
     ; side_sheet : side_sheet_props option
     ; pre_scripts : script list
     ; post_scripts : script list
@@ -31,15 +42,17 @@ module Make (User : USER) = struct
     ; content : Tyxml.Xml.elt list
     }
 
-  let make_template_props ?title
+  let make_template_props ?title ?(has_top_app_bar = true)
       ?top_app_bar_leading ?(top_app_bar_content = []) ?top_app_bar_bottom
-      ?side_sheet
+      ?(has_navigation_drawer = true) ?side_sheet
       ?(pre_scripts = []) ?(post_scripts = []) ?(stylesheets = [])
       ?(content = []) () =
     { title
+    ; has_top_app_bar
     ; top_app_bar_leading
     ; top_app_bar_content
     ; top_app_bar_bottom
+    ; has_navigation_drawer
     ; side_sheet
     ; pre_scripts
     ; post_scripts
@@ -54,12 +67,21 @@ module Make (User : USER) = struct
   type priority = [ `Index of int | `None ]
 
   type 'a item_local =
-      Item : ('b, user -> Mustache.Json.value option) Netlib.Uri.Path.Format.t (* PATH *)
-             * subitems
-             * (user -> Mustache.Json.value option) (* Item generator *)
-             * (user -> Mustache.Json.value option) (* Content generator, 'b if args will be needed *)
-        -> 'a item_local
-  and subitems = [`Subtree of inner item_local list | `Simple ]
+      Item : { path : ('b, user -> gen_result) Netlib.Uri.Path.Format.t
+             ; subitems : subitems
+             ; item_gen : user -> gen_result
+             ; page_gen : Mustache.Json.value list -> user -> gen_result
+             } -> 'a item_local
+  and subitems =
+    [ `Subtree of inner item_local list
+    | `Simple
+    ]
+  and gen_result =
+    [ `Null
+    | `Not_allowed
+    | `Template of (string * Mustache.Json.value) list
+    | `HTML of string
+    ]
 
   type 'a item = priority * 'a item_local
 
@@ -92,20 +114,26 @@ module Make (User : USER) = struct
   let make_top_app_bar ({ top_app_bar_leading = leading
                         ; top_app_bar_content = content
                         ; top_app_bar_bottom = bottom
+                        ; has_top_app_bar
                         ; _ } : template_props) =
     let leading' = match leading with
       | None ->
         elt_to_string
         @@ Tyxml_html.toelt
-        @@ Tyxml.Svg.(
-            Tyxml_html.svg
-              ~a:[ a_class ["mdc-icon"]
-                 ; a_style "width: 24px; height: 24px"
-                 ; a_viewBox (0., 0., 24., 24.) ]
-              [path ~a:[a_d "M3,6H21V8H3V6M3,\
-                             11H21V13H3V11M3,\
-                             16H21V18H3V16Z"]
-                 []])
+        @@ Tyxml.Html.(
+            button ~a:[ a_class [ "mdc-icon-button"
+                                ; "mdc-top-app-bar__navigation-icon"
+                                ]
+                      ; a_style "display: none" ]
+              [Tyxml.Svg.(
+                  Tyxml_html.svg
+                    ~a:[ a_class ["mdc-icon"]
+                       ; a_style "width: 24px; height: 24px"
+                       ; a_viewBox (0., 0., 24., 24.) ]
+                    [path ~a:[a_d "M3,6H21V8H3V6M3,\
+                                   11H21V13H3V11M3,\
+                                   16H21V18H3V16Z"]
+                       []])])
       | Some elt -> elt_to_string elt in
     let bottom' = match bottom with
       | None -> `String ""
@@ -115,7 +143,9 @@ module Make (User : USER) = struct
         content in
     [ "top_app_bar_leading", `String leading'
     ; "top_app_bar_content", `A content'
-    ; "top_app_bar_bottom", bottom' ]
+    ; "top_app_bar_bottom", bottom'
+    ; "has_top_app_bar", `Bool has_top_app_bar
+    ]
 
   let make_side_sheet = function
     | None -> [ "side_sheet_full_height", `String ""
@@ -140,13 +170,15 @@ module Make (User : USER) = struct
         [ "side_sheet_full_height", `String ""
         ; "side_sheet_clipped", `String (make ()) ]
 
-  let make_template (user : user)
+  let make_template ~(navigation : Mustache.Json.value list)
+      (user : user)
       ({ pre_scripts
        ; post_scripts
        ; stylesheets
        ; title
        ; content
        ; side_sheet
+       ; has_navigation_drawer
        ; _ } as props : template_props) =
     let ( % ) f g x = f (g x) in
     let script_to_object = function
@@ -160,7 +192,13 @@ module Make (User : USER) = struct
     ; "pre_scripts", `A (List.map script_to_object pre_scripts)
     ; "post_scripts", `A (List.map script_to_object post_scripts)
     ; "stylesheets", `A (List.map (make_obj "stylesheet") stylesheets)
-    ; "content", `A (List.map (make_obj "element" % elt_to_string) content) ]
+    ; "content", `A (List.map (make_obj "element" % elt_to_string) content)
+    ; "username", `String (User.to_string user)
+    ; "usericon", `String ""
+    ; "usercolor", `String ""
+    ; "brand", `String "АТС-3"
+    ; "navigation", `A navigation
+    ; "has_navigation", `Bool (List.length navigation > 0 && has_navigation_drawer) ]
     @ make_top_app_bar props
     @ make_side_sheet side_sheet
 
@@ -169,14 +207,9 @@ module Make (User : USER) = struct
     | Some e -> `O ["value", `String (elt_to_string e)]
     | None   -> `Null
 
-  let make_subitems user lst : Mustache.Json.value list =
-    let convert (Item (_, _, it, _)) =
-      match it user with
-      | None -> `Null
-      | Some v -> v
-    in List.map convert lst
-
-  let make_node ~template paths gen_item_list (Item (path, _, _, cont)) =
+  let make_node ~template paths
+      (gen_item_list : user -> Mustache.Json.value list)
+      (Item { path; page_gen; _ }) =
     let table = Hashtbl.create 16 in
     (* Check if the same path was added twice *)
     if Uri.Path.Format.has_template paths path
@@ -185,89 +218,100 @@ module Make (User : USER) = struct
     Uri.Path.Format.store_template paths path;
     let generate =
       (* Use args if memoized templates are different *)
-      let gen_template _args user : Mustache.Json.value option =
+      let gen_template _args user : gen_result =
         match Hashtbl.find_opt table user with
-        | Some v -> Some (`String v)
+        | Some v -> `HTML v
         | None ->
-          let params =
-            let nav = [ "navigation", `A (gen_item_list user)
-                      ; "username", `String (User.to_string user)
-                      ; "usericon", `String ""
-                      ; "usercolor", `String "" ] in
-            match cont user with
-            | Some `O c -> `O (c @ nav)
-            | _ -> `O nav
-          in
-          let v = Mustache.render template params in
-          Hashtbl.replace table user v;
-          Some (`String v)
+          match page_gen (gen_item_list user) user with
+          | `Template params ->
+            let v = Mustache.render template (`O params) in
+            Hashtbl.replace table user v;
+            `HTML v
+          | x -> x
       in Uri.Path.Format.kprint gen_template path
     in
     Uri.Dispatcher.make ~path ~query:Uri.Query.[] generate
     |> Uri.Dispatcher.map_node (fun f ->
         fun user _body _env _state ->
           match f user with
-          | Some `String s -> Lwt.return (`Instant (respond_string s ()))
-          | _ -> Lwt.return (`Error "unknown template error"))
+          | `Null -> Lwt.return (`Instant (respond_string "" ()))
+          | `HTML s -> Lwt.return (`Instant (respond_string s ()))
+          | `Not_allowed -> Lwt.return `Forbidden
+          | `Template _ -> Lwt.return (`Error "Template"))
 
   let make_nodes ~template paths gen_item_list item =
     match item with
-    | Item (_, `Simple, _, _) as item -> [make_node ~template paths gen_item_list item]
-    | Item (_, `Subtree x, _, _) -> List.map (make_node ~template paths gen_item_list) x
+    | Item { subitems = `Simple; _ } as item ->
+      [make_node ~template paths gen_item_list item]
+    | Item { subitems = `Subtree x; _ } ->
+      List.map (make_node ~template paths gen_item_list) x
 
-  let reference ?(restrict=[]) ?(priority=`None) ~title ~href =
+  let reference ?(restrict=[]) ?icon ?(priority=`None) ~title href =
     let not_allowed id = List.exists (User.equal id) restrict in
-    let item user =
+    let item_gen user =
       if not_allowed user
-      then None
-      else
-        Some (`O [ "title",  `String title
-                 ; "active", `Bool false
-                 ; "href",   `String (Uri.to_string href)
-                 ; "simple", `Bool true
-          ])
+      then `Not_allowed
+      else `Template [ "title",  `String title
+                     ; "active", `Bool false
+                     ; "icon",   (make_icon icon)
+                     ; "href",   `String (Uri.to_string href)
+                     ; "simple", `Bool true
+                     ]
     in
-    let it = Item ( Uri.Path.Format.of_string @@ Uri.to_string href
-                  , `Simple
-                  , item
-                  , fun _ -> None)
+    let it =
+      Item { path = Uri.Path.Format.of_string @@ Uri.to_string href
+           ; subitems = `Simple
+           ; item_gen
+           ; page_gen = fun _ _ -> `Null
+           }
     in [ priority, it ]
 
-  let parametric ?(restrict=[]) ~path  props : 'a item list =
+  let parametric ?(restrict=[]) ~path props : 'a item list =
     let not_allowed id = List.exists (User.equal id) restrict in
-    let content user =
+    let page_gen navigation user =
       if not_allowed user
-      then None
-      else Some (`O (make_template user props))
+      then `Not_allowed
+      else `Template (make_template ~navigation user props)
     in
-    let it = Item ( path
-                  , `Simple
-                  , (fun _ -> None)
-                  , content)
+    let it =
+      Item { path
+           ; subitems = `Simple
+           ; item_gen = (fun _ -> `Null)
+           ; page_gen
+           }
     in [ `None, it ]
 
   let simple ?(restrict=[]) ?(priority=`None) ~title ?icon ~path props =
     let not_allowed id = List.exists (User.equal id) restrict in
-    let item user =
+    let item_gen user =
       if not_allowed user
-      then None
-      else
-        Some (`O [ "title", `String title
-                 ; "active", `Bool false
-                 ; "icon", (make_icon icon)
-                 ; "href", `String ("/" ^ Uri.Path.to_string path) (* TODO refactor later *)
-                 ; "simple", `Bool true ])
+      then `Not_allowed
+      else `Template [ "title", `String title
+                     ; "active", `Bool false
+                     ; "icon", (make_icon icon)
+                     (* TODO refactor later *)
+                     ; "href", `String ("/" ^ Uri.Path.to_string path)
+                     ; "simple", `Bool true ]
     in
-    let content user =
+    let page_gen navigation user =
       if not_allowed user
-      then None
-      else Some (`O (make_template user props))
+      then `Not_allowed
+      else `Template (make_template ~navigation user props)
     in
-    let it = Item ( Uri.Path.Format.of_string @@ Uri.Path.to_string path
-                  , `Simple
-                  , item
-                  , content)
+    let it =
+      Item { path = Uri.Path.Format.of_string @@ Uri.Path.to_string path
+           ; subitems = `Simple
+           ; item_gen
+           ; page_gen
+           }
     in [ priority, it ]
+
+  let make_subitems user lst : Mustache.Json.value list =
+    let convert (Item { item_gen; _ }) =
+      match item_gen user with
+      | `Template x -> Some (`O x)
+      | _ -> None in
+    filter_map convert lst
 
   let subtree ?(restrict=[]) ?priority ~title ?icon (list : inner item list) =
     let not_allowed id = List.exists (User.equal id) restrict in
@@ -278,30 +322,24 @@ module Make (User : USER) = struct
     let list =
       List.map snd
       @@ List.sort priority_compare_pair list in
-    let item user =
+    let item_gen user =
       if not_allowed user
-      then None
-      else
-        let subtree = make_subitems user list in
-        Some (`O [ "title", `String title
-                 ; "active", `Bool false
-                 ; "icon", (make_icon icon)
-                 ; "simple", `Bool false
-                 ; "subtree", `A subtree ])
+      then `Not_allowed
+      else match make_subitems user list with
+        | [] -> `Null
+        | st -> `Template [ "title", `String title
+                          ; "active", `Bool false
+                          ; "icon", (make_icon icon)
+                          ; "simple", `Bool false
+                          ; "subtree", `A st ]
     in
-    let it = Item ( Uri.Path.Format.of_string ""
-                  , `Subtree list
-                  , item
-                  , fun _ -> None) in
-    [ priority, it ]
-
-  (* TODO remove after 4.08 *)
-  let rec filter_opt = function
-    | [] -> []
-    | h::tl ->
-      match h with
-      | None -> filter_opt tl
-      | Some v -> v :: filter_opt tl
+    let it =
+      Item { path = Uri.Path.Format.of_string ""
+           ; subitems = `Subtree list
+           ; item_gen
+           ; page_gen = fun _ _ -> `Null
+           }
+    in [ priority, it ]
 
   let make ~template (list : topmost item list) =
     let template = Mustache.of_string template in
@@ -312,11 +350,27 @@ module Make (User : USER) = struct
       |> List.map snd
     in
     let gen_item_list user =
-      List.map (fun (Item (_, _, f, _)) -> f user) list
-      |> filter_opt
+      filter_map (fun (Item { item_gen; _ }) ->
+          match item_gen user with
+          | `Template x -> Some (`O x)
+          | _ -> None) list
     in
     List.flatten
     @@ List.map (fun node ->
         List.map (fun x -> `GET, x)
         @@ make_nodes paths ~template gen_item_list node) list
+
+  let make_page ~template
+      (list : topmost item list)
+      (props : template_props)
+      (user : User.t) =
+    let template = Mustache.of_string template in
+    let list = List.map snd @@ List.sort priority_compare_pair list in
+    let gen_item_list user =
+      filter_map (fun (Item { item_gen; _ }) ->
+          match item_gen user with
+          | `Template x -> Some (`O x)
+          | _ -> None) list in
+    let params = make_template ~navigation:(gen_item_list user) user props in
+    Mustache.render template (`O params)
 end

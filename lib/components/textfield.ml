@@ -21,13 +21,18 @@ module Id = struct
 end
 
 module Event = struct
-  class type icon =
-    object
-      inherit [unit] Widget.custom_event
-    end
+  class type icon = [unit] Widget.custom_event
 
-  let icon : icon Js.t Dom_html.Event.typ =
-    Dom_html.Event.make @@ Printf.sprintf "%s:icon" name
+  module Typ = struct
+    let icon : icon Js.t Dom_html.Event.typ =
+      Dom_html.Event.make @@ Printf.sprintf "%s:icon" name
+  end
+
+  let icon ?use_capture x =
+    Lwt_js_events.make_event ?use_capture Typ.icon x
+
+  let icons ?cancel_handler ?use_capture x =
+    Lwt_js_events.seq_loop ?cancel_handler ?use_capture icon x
 end
 
 module Character_counter = struct
@@ -61,26 +66,30 @@ module Icon = struct
   class t (elt : Dom_html.element Js.t) () =
     object(self)
       val mutable _saved_tab_index = None
-      val mutable _click_listener = None
-      val mutable _keydown_listener = None
+      val mutable listeners_ = []
+      val mutable ripple_ = None
       inherit Widget.t elt () as super
 
       method! init () : unit =
-        super#init ();
         _saved_tab_index <- Element.get_attribute super#root "tabindex";
+        ripple_ <- Some (self#create_ripple ());
+        super#init ()
+
+      method! initial_sync_with_dom () : unit =
         (* Attach event listeners *)
-        let click = Events.clicks super#root self#handle_click in
-        let keydown = Events.keydowns super#root self#handle_keydown in
-        _click_listener <- Some click;
-        _keydown_listener <- Some keydown
+        listeners_ <- Lwt_js_events.(
+            [ clicks super#root self#handle_click
+            ; keydowns super#root self#handle_keydown
+            ]);
+        super#initial_sync_with_dom ()
 
       method! destroy () : unit =
-        super#destroy ();
+        Utils.Option.iter Ripple.destroy ripple_;
+        ripple_ <- None;
         (* Detach event listeners *)
-        Option.iter Lwt.cancel _click_listener;
-        Option.iter Lwt.cancel _keydown_listener;
-        _click_listener <- None;
-        _keydown_listener <- None
+        List.iter Lwt.cancel listeners_;
+        listeners_ <- [];
+        super#destroy ()
 
       method set_aria_label (label : string) : unit =
         Element.set_attribute super#root Attr.aria_label label
@@ -99,7 +108,7 @@ module Icon = struct
       (* Private methods *)
 
       method private notify_action () : unit =
-        super#emit ~should_bubble:true Event.icon
+        super#emit ~should_bubble:true Event.Typ.icon
 
       method private handle_keydown e _ : unit Lwt.t =
         (match Dom_html.Keyboard_code.of_event e with
@@ -110,6 +119,9 @@ module Icon = struct
       method private handle_click _ _ : unit Lwt.t =
         self#notify_action ();
         Lwt.return_unit
+
+      method private create_ripple () : Ripple.t =
+        Ripple.attach ~unbounded:true super#root
     end
 
   let attach (elt : #Dom_html.element Js.t) : t =
@@ -299,7 +311,26 @@ let get_helper_line (elt : Dom_html.element Js.t) =
     if Element.has_class next CSS.helper_line
     then Some next else None
 
+let custom_validation (type a) input_elt (v : a validation option) =
+  let set_custom_validity s : unit =
+    (Js.Unsafe.coerce input_elt)##setCustomValidity
+      (Js.string s) in
+  let validate : a validation option
+    -> (string -> (unit, string) result) option = function
+    | Some Password validate -> Some validate
+    | Some Custom { of_string; _ } ->
+      Some (fun s -> match s, of_string s with
+          | "", _ | _, Ok _ -> Ok ()
+          | _, (Error _ as e) -> e)
+    | _ -> None in
+  match validate v with
+  | None -> ()
+  | Some validate -> match validate @@ Js.to_string input_elt##.value with
+    | Ok () -> set_custom_validity ""
+    | Error e -> set_custom_validity e
+
 class ['a] t ?on_input
+    ?(validate_on_blur = true)
     ?(helper_text : Helper_text.t option)
     ?(character_counter : Character_counter.t option)
     ?(line_ripple : Line_ripple.t option)
@@ -405,13 +436,13 @@ class ['a] t ?on_input
           ; clicks input_elt self#handle_text_field_interaction
           ; keydowns input_elt self#handle_text_field_interaction
           ]);
+      custom_validation input_elt validation;
       (* Attach mutation observer *)
       let (observer : MutationObserver.mutationObserver Js.t) =
         let handler = self#handle_validation_attribute_change in
         self#register_validation_handler handler in
       _validation_observer <- Some observer;
       self#set_character_counter (String.length self#value_as_string);
-      self#style_validity @@ self#valid_ ~init:true ();
       (* Initialize ripple, if needed *)
       if not (super#has_class CSS.textarea) && not (super#has_class CSS.outlined)
       then _ripple <- Some (self#create_ripple ());
@@ -462,9 +493,6 @@ class ['a] t ?on_input
       Option.iter (fun (x : Helper_text.t) ->
           x#set_content s) helper_text
 
-    method update () : unit =
-      self#deactivate_focus ()
-
     method focus () : unit =
       self#activate_focus ();
       input_elt##focus
@@ -486,13 +514,24 @@ class ['a] t ?on_input
       if x then _is_valid <- true;
       _use_native_validation <- x
 
-    method valid : bool = self#valid_ ()
+    method force_custom_validation () : unit =
+      custom_validation self#input_element validation
+
+    method check_validity () : bool =
+      Js.to_bool @@ (Js.Unsafe.coerce self#input_element)##checkValidity
+
+    method validity : validity_state Js.t =
+      (Js.Unsafe.coerce self#input_element)##.validity
+
+    method valid : bool =
+      if _use_native_validation
+      then (self#is_native_input_valid ())
+      else _is_valid
 
     method set_valid (x : bool) : unit =
       if not _use_native_validation then _is_valid <- x;
       self#style_validity x;
-      let shold_shake = not x && not _is_focused in
-      Option.iter (fun x -> x#shake shold_shake) floating_label
+      Option.iter (fun x -> x#shake self#should_shake) floating_label
 
     method pattern : string =
       Js.to_string (Js.Unsafe.coerce input_elt)##.pattern
@@ -546,6 +585,7 @@ class ['a] t ?on_input
       if not @@ String.equal self#value_as_string s
       then (
         input_elt##.value := Js.string s;
+        custom_validation input_elt validation;
         self#set_character_counter (String.length s));
       self#style_validity self#valid;
       Option.iter (fun (label : Floating_label.t) ->
@@ -561,23 +601,6 @@ class ['a] t ?on_input
         self#set_value_as_string v'
 
     (* Private methods *)
-
-    method private valid_ ?(init = false) () =
-      if _use_native_validation
-      then (
-        (match init, validation with
-         | false, Some Custom { of_string; _ } ->
-           let set_custom_validity s : unit =
-             (Js.Unsafe.coerce input_elt)##setCustomValidity
-               (Js.string s) in
-           let raw_value = self#value_as_string in
-           (match raw_value, of_string raw_value with
-            | _, Ok _ -> set_custom_validity ""
-            | "", Error _ -> set_custom_validity ""
-            | _, Error e -> set_custom_validity e)
-         | _ -> ());
-        self#is_native_input_valid ())
-      else _is_valid
 
     method private should_always_float : bool =
       let typ = Js.to_string input_elt##._type in
@@ -601,6 +624,7 @@ class ['a] t ?on_input
     method private handle_input e _ : unit Lwt.t =
       self#auto_complete_focus ();
       self#set_character_counter @@ String.length self#value_as_string;
+      custom_validation input_elt validation;
       (match on_input with
        | None -> Lwt.return_unit
        | Some f -> f e (self :> 'a t))
@@ -673,6 +697,9 @@ class ['a] t ?on_input
       _is_focused <- false;
       Option.iter (fun (line_ripple : Line_ripple.t) ->
           line_ripple#deactivate ()) line_ripple;
+      custom_validation input_elt validation;
+      if validate_on_blur && not _use_native_validation
+      then ignore @@ self#check_validity ();
       self#style_validity self#valid;
       self#style_focused _is_focused;
       Option.iter (fun (label : Floating_label.t) ->
@@ -691,12 +718,10 @@ class ['a] t ?on_input
           cc#set_value ~max_length cur_length) character_counter
 
     method private is_bad_input () : bool =
-      let (validity : validity_state Js.t) = (Js.Unsafe.coerce input_elt)##.validity in
-      Js.to_bool validity##.badInput
+      Js.to_bool self#validity##.badInput
 
     method private is_native_input_valid () : bool =
-      let (validity : validity_state Js.t) = (Js.Unsafe.coerce input_elt)##.validity in
-      Js.to_bool validity##.valid
+      Js.to_bool self#validity##.valid
 
     method private style_validity (is_valid : bool) : unit =
       super#toggle_class ~force:(not is_valid) CSS.invalid;
@@ -756,7 +781,9 @@ class ['a] t ?on_input
       new Ripple.t adapter ()
   end
 
-let make_textfield ?on_input
+let make_textfield
+    ?validate_on_blur
+    ?on_input
     ?disabled ?(fullwidth = false)
     ?(outlined = false) ?focused ?input_id
     ?pattern ?min_length ?max_length ?step ?input_mode
@@ -809,10 +836,17 @@ let make_textfield ?on_input
       ~no_label:(Option.is_none floating_label)
       ~input () in
   (* Instantiate new Text Field object. *)
-  new t ?on_input ?helper_text ?character_counter ?line_ripple ?notched_outline
-    ?floating_label ?use_native_validation ~validation elt ()
+  new t ?validate_on_blur ?on_input ?helper_text
+    ?character_counter
+    ?line_ripple
+    ?notched_outline
+    ?floating_label
+    ?use_native_validation
+    ~validation
+    elt ()
 
-let make_textarea ?on_input
+let make_textarea
+    ?on_input
     ?disabled ?(fullwidth = false) ?focused ?input_id
     ?min_length ?max_length ?rows ?cols
     ?(value : string option) ?placeholder ?required
@@ -845,9 +879,12 @@ let make_textarea ?on_input
   new t ?on_input ?helper_text ?floating_label ?character_counter
     ~notched_outline ~validation:Text elt ()
 
-let attach ?on_input ?helper_text ?character_counter
+let attach ?validate_on_blur ?on_input ?helper_text ?character_counter
     ?use_native_validation
     ?(validation : 'a validation option)
     (elt : #Dom_html.element Js.t) : 'a t =
-  new t ?on_input ?helper_text ?character_counter ?validation ?use_native_validation
+  new t ?validate_on_blur ?on_input ?helper_text
+    ?character_counter
+    ?validation
+    ?use_native_validation
     (Element.coerce elt) ()

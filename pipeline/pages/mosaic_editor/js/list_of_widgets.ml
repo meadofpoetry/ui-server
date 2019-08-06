@@ -16,10 +16,16 @@ let domain_to_string : Wm.domain -> string = function
 
 module Selector = struct
   let item = Printf.sprintf ".%s" CSS.item
-  let list id =
-    Printf.sprintf "#%s.%s" id Item_list.CSS.root
-  let subheader id =
-    Printf.sprintf ".%s[data-list=\"%s\"]" Item_list.CSS.group_subheader id
+
+  let list (domain : Wm.domain) =
+    Printf.sprintf "%s[data-domain=\"%s\"]"
+      Item_list.CSS.root
+      (Page_mosaic_editor_tyxml.Widget.domain_attr_value domain)
+
+  let subheader (domain : string) =
+    Printf.sprintf ".%s[data-domain=\"%s\"]"
+      Item_list.CSS.group_subheader
+      domain
 end
 
 let format = "application/json"
@@ -73,8 +79,13 @@ class t (elt : Dom_html.element Js.t) = object(self)
          (match Element.children list with
           | [] ->
             let subheader =
-              Element.query_selector super#root
-                (Selector.subheader @@ Js.to_string list##.id) in
+              match Element.get_attribute list Widget_utils.Attr.domain with
+              | None -> None
+              | Some domain ->
+                Element.query_selector
+                  super#root
+                  (Selector.subheader domain)
+            in
             Utils.Option.iter (Dom.removeChild super#root) subheader;
             Dom.removeChild super#root list
           | _ -> ());
@@ -98,7 +109,7 @@ class t (elt : Dom_html.element Js.t) = object(self)
     (* TODO insert to DOM according to sorting? *)
     match Element.query_selector
             super#root
-            (Selector.list (make_list_id w.domain)) with
+            (Selector.list w.domain) with
     (* If a list for the corresponding domain already present, just
        append the widget item. *)
     | Some l -> Dom.appendChild l elt

@@ -1,14 +1,105 @@
 @import "@material/theme/mixins";
 @import "@material/card/variables";
+@import "@material/ripple/mixins";
+@import "@material/typography/mixins";
+@import "@material/animation/functions";
 
-.password-section {
-    padding: 24px;
+.text-field-container {
+    display: block;
+}
+
+.mdc-text-field--with-trailing-icon .mdc-text-field__icon {
+    @include mdc-states;
+    @include mdc-ripple-surface;
+    @include mdc-ripple-radius-unbounded;
+    height: 24px;
+    bottom: 4px;
+    right: 0;
+    padding: 12px;
+}
+
+.account-info {
+    padding: 16px 0;
+    &__title {
+        @include mdc-typography(headline6);
+        @include mdc-theme-prop(color, text-primary-on-surface);
+        display: flex;
+        align-items: center;
+        .mdc-icon {
+            margin-right: 12px;
+            @include mdc-theme-prop(color, text-secondary-on-surface);
+        }
+    }
+
+    &__text {
+        @include mdc-typography(body2);
+    }
+}
+
+// Common styles for settings section
+.settings-section {
+
+    .mdc-card__media {
+        padding: 0 24px 24px;
+    }
+
+    .mdc-card__actions {
+
+        .mdc-card__action-icons {
+            .mdc-button {
+                @include mdc-theme-prop(color, text-secondary-on-surface);
+            }
+        }
+
+        padding: 24px;
+    }
+}
+
+#account.settings-section {
+    .greetings {
+        @include mdc-typography(headline5);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        margin: 24px 0;
+
+        .mdc-icon {
+            width: 72px;
+            height: 72px;
+            @include mdc-theme-prop(color, text-secondary-on-surface);
+        }
+    }
+    .permissions {
+        text-align: center;
+        margin: 0 24px 24px;
+    }
+    .accounts-info-link {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        @include mdc-typography(body2);
+        @include mdc-theme-prop(color, primary);
+    }
+    .mdc-card__actions {
+        padding-top: 24px;
+    }
+    .mdc-card__media {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding-top: 24px;
+    }
 }
 
 #password-config.settings-section {
 
-    input[name="username"] {
-        display: none;
+    .mdc-card {
+        position: relative;
+    }
+
+    .mdc-tab {
+        flex-basis: 33.333%;
     }
 
     .mdc-tab-bar {
@@ -16,18 +107,36 @@
     }
 
     .mdc-card__media {
-        padding: 24px;
+        overflow: hidden;
+        padding: 0;
     }
 
-    .mdc-card__actions {
+    hr {
+        height: 1px;
+        margin: 0;
+        border: none;
+        box-sizing: border-box;
+        @include mdc-theme-prop(background-color, $mdc-card-outline-color);
+    }
 
-        .mdc-button {
-            margin-left: 24px;
+    .slider {
+        display: flex;
+        transition: 350ms transform $mdc-animation-standard-curve-timing-function;
+    }
+
+    form {
+        box-sizing: border-box;
+        padding: 0 24px;
+        min-width: 100%;
+
+        input[name="username"], input[type="submit"] {
+            display: none;
         }
 
-        padding: 0 0 24px 0;
-        // border-top-style: solid;
-        // border-top-width: $mdc-card-outline-width;
-        // @include mdc-theme-prop(border-top-color, $mdc-card-outline-color);
+        .mdc-text-field {
+            margin-top: 24px;
+            min-width: 300px;
+        }
     }
+
 }

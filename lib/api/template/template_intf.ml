@@ -14,15 +14,24 @@ module type S = sig
 
   type template_props =
     { title : string option
+    ; has_top_app_bar : bool
     ; top_app_bar_leading : Tyxml.Xml.elt option
     ; top_app_bar_content : Tyxml.Xml.elt list
     ; top_app_bar_bottom : Tyxml.Xml.elt option
+    ; has_navigation_drawer : bool
     ; side_sheet : side_sheet_props option
     ; pre_scripts : script list
     ; post_scripts : script list
     ; stylesheets : string list
     ; content : Tyxml.Xml.elt list
     }
+
+  type gen_result =
+    [ `Null
+    | `Not_allowed
+    | `Template of (string * Mustache.Json.value) list
+    | `HTML of string
+    ]
 
   type topmost
    
@@ -40,9 +49,11 @@ module type S = sig
     -> side_sheet_props
 
   val make_template_props : ?title:string
+    -> ?has_top_app_bar:bool
     -> ?top_app_bar_leading:Tyxml.Xml.elt
     -> ?top_app_bar_content:Tyxml.Xml.elt list
     -> ?top_app_bar_bottom:Tyxml.Xml.elt
+    -> ?has_navigation_drawer:bool
     -> ?side_sheet:side_sheet_props
     -> ?pre_scripts:script list
     -> ?post_scripts:script list
@@ -52,9 +63,10 @@ module type S = sig
     -> template_props
 
   val reference : ?restrict:user list
+                  -> ?icon:Tyxml.Xml.elt
                   -> ?priority:priority
                   -> title:string
-                  -> href:Netlib.Uri.t
+                  -> Netlib.Uri.t
                   -> 'a item list
 
   val simple : ?restrict:user list
@@ -66,7 +78,7 @@ module type S = sig
                -> 'a item list
 
   val parametric : ?restrict:user list
-                   -> path:('a, user -> Mustache.Json.value option) Netlib.Uri.Path.Format.t
+                   -> path:('a, user -> gen_result) Netlib.Uri.Path.Format.t
                    -> template_props
                    -> 'c item list
     
@@ -82,6 +94,14 @@ module type S = sig
              -> (Cohttp.Code.meth
                  * (user -> 'a -> 'b -> 'c ->
                     [> `Instant of  Cohttp_lwt_unix.Server.response_action Lwt.t
+                    |  `Forbidden
                     |  `Error of string ] Lwt.t) Netlib.Uri.Dispatcher.node) list
+
+  val make_page :
+    template:string
+    -> topmost item list
+    -> template_props
+    -> user
+    -> string
 
 end

@@ -28,7 +28,7 @@ module Breakpoint = struct
     make ~points:[1160, (Modal : Side_sheet.typ)] Dismissible
 
   let default_drawer : Side_sheet.typ t =
-    make ~points:[1160, (Modal : Side_sheet.typ)] Dismissible
+    make ~points:[1280, (Modal : Side_sheet.typ)] Permanent
 
   let get_screen_width () : int =
     Dom_html.document##.body##.offsetWidth
@@ -115,8 +115,7 @@ class t ?(drawer : #Drawer.t option)
       | Some x -> Some x
 
     (* Event listeners *)
-    val mutable menu_click_listener = None
-    val mutable resize_listener = None
+    val mutable listeners = []
 
     val mutable drawer_type =
       Breakpoint.(current (get_screen_width ()) drawer_breakpoints)
@@ -132,39 +131,17 @@ class t ?(drawer : #Drawer.t option)
 
     method! init () : unit =
       super#init ();
-      (* Setup top app bar *)
-      Option.iter self#setup_app_bar top_app_bar;
-      (* Setup drawer *)
-      Option.iter (fun drawer ->
-          let typ = drawer_type in
-          let elv = match drawer_elevation with
-            | None -> (match self#drawer_elevation with
-                | None -> Clipped
-                | Some x -> x)
-            | Some x -> x in
-          self#set_drawer_properties_ ~is_leading:true typ elv drawer)
-        self#drawer;
-      (* Setup side sheet *)
-      Option.iter (fun side_sheet ->
-          let typ = side_sheet_type in
-          let elv = match side_sheet_elevation with
-            | None -> (match self#side_sheet_elevation with
-                | None -> Clipped
-                | Some x -> x)
-            | Some x -> x in
-          self#set_drawer_properties_ ~is_leading:false typ elv side_sheet)
-        self#side_sheet;
-      (* Setup body *)
-      Option.iter self#set_body body;
-      (* Handle window resize *)
-      Lwt_js_events.limited_onresizes ~elapsed_time:0.05 self#handle_resize
-      |> (fun x -> resize_listener <- Some x);
+      Lwt.async (fun () ->
+          Lwt_js_events.domContentLoaded ()
+          >>= self#handle_content_loaded
+          >>= fun () ->
+          super#root##.style##.visibility := Js.string "";
+          Lwt.return_unit)
 
     method! destroy () : unit =
       super#destroy ();
-      (* Stop window resize listener *)
-      Option.iter Lwt.cancel resize_listener;
-      resize_listener <- None;
+      List.iter Lwt.cancel listeners;
+      listeners <- []
 
     method on_navigation_icon_click =
       on_navigation_icon_click
@@ -260,7 +237,7 @@ class t ?(drawer : #Drawer.t option)
 
     (* Private methods *)
 
-    method private setup_app_bar (app_bar : #Top_app_bar.t) : unit =
+    method private setup_app_bar (app_bar : #Top_app_bar.t) =
       (* FIXME rework, not very readable *)
       let leading = match app_bar#leading, drawer with
         | None, Some _ ->
@@ -271,15 +248,10 @@ class t ?(drawer : #Drawer.t option)
           Some w#root
         | _ -> None in
       Option.iter app_bar#set_leading leading;
-      (match app_bar#leading, drawer with
-       | Some l, Some d ->
-         let listener = Events.clicks l (fun _ _ ->
-             match on_navigation_icon_click with
-             | None -> d#toggle ()
-             | Some f -> f (self :> t) d) in
-         menu_click_listener <- Some listener;
-       | _ -> ());
-      Element.insert_child_at_index app_content_outer 0 app_bar#root
+      Element.insert_child_at_index app_content_outer 0 app_bar#root;
+      match app_bar#leading, drawer with
+      | Some l, Some _ -> Some l
+      | _ -> None
 
     (** Determines drawer or side sheet elevation *)
     method private drawer_elevation_ (drawer : #Widget.t option)
@@ -326,8 +298,7 @@ class t ?(drawer : #Drawer.t option)
         | None -> true
         | Some p when not (Element.equal p parent) -> true
         | _ -> false in
-      if need_insert then
-        Dom.insertBefore parent drawer#root parent##.firstChild
+      if need_insert then Dom.insertBefore parent drawer#root parent##.firstChild
 
     method private set_drawer_properties_
         ~(is_leading : bool)
@@ -370,13 +341,63 @@ class t ?(drawer : #Drawer.t option)
       if equal_drawer_type typ cur then Lwt.return_unit else
         Lwt.Infix.(
           drawer#toggle ~force:false ()
-          >|= fun () ->
+          >>= fun () ->
           self#set_drawer_properties_ ~is_leading cur elevation drawer;
           if is_leading
           then drawer_type <- cur
-          else side_sheet_type <- cur)
+          else side_sheet_type <- cur;
+          Lwt.return_unit)
 
-    method private handle_resize _ _ : unit Lwt.t =
+    method private handle_content_loaded () =
+      (* Setup drawer *)
+      begin match self#drawer with
+        | None -> ()
+        | Some drawer ->
+          let typ = drawer_type in
+          let elv = match drawer_elevation with
+            | Some x -> x
+            | None -> match self#drawer_elevation with
+              | None -> Clipped
+              | Some x -> x in
+          self#set_drawer_properties_ ~is_leading:true typ elv drawer
+      end;
+      (* Setup side sheet *)
+      begin match self#side_sheet with
+        | None -> ()
+        | Some side_sheet ->
+          let typ = side_sheet_type in
+          let elv = match side_sheet_elevation with
+            | Some x -> x
+            | None -> match self#side_sheet_elevation with
+              | None -> Clipped
+              | Some x -> x in
+          self#set_drawer_properties_ ~is_leading:false typ elv side_sheet
+      end;
+      (* Setup body *)
+      Option.iter self#set_body body;
+      (* Setup top app bar *)
+      let leading = match top_app_bar with
+        | None -> None
+        | Some top_app_bar -> self#setup_app_bar top_app_bar in
+      (* Handle window resize *)
+      listeners <- Lwt_js_events.(
+          [ limited_onresizes ~elapsed_time:0.05 (fun _ _ -> self#handle_resize ())
+          ]);
+      (match leading with
+       | None -> ()
+       | Some leading ->
+         listeners <- Lwt_js_events.(
+             clicks leading self#handle_navigation_icon_click
+             :: listeners));
+      Lwt.return_unit
+
+    method private handle_navigation_icon_click _ _ : unit Lwt.t =
+      match drawer, on_navigation_icon_click with
+      | drawer, Some f -> f (self :> t) drawer
+      | Some d, None -> d#toggle ()
+      | None, None -> Lwt.return_unit
+
+    method private handle_resize () : unit Lwt.t =
       let screen = Breakpoint.get_screen_width () in
       let drawer_lwt =
         match self#drawer, self#drawer_elevation_ self#drawer with

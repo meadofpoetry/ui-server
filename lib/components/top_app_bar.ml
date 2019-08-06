@@ -183,11 +183,12 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
       match Element.query_selector super#root Selector.section_align_start with
       | None -> failwith "top-app-bar: no section found"
       | Some section ->
-        Element.add_class elt CSS.navigation_icon;
         (* Remove previous leading *)
         self#remove_leading ();
         (* Insert the new one *)
-        Element.insert_child_at_index section 0 elt
+        Element.add_class elt CSS.navigation_icon;
+        Element.insert_child_at_index section 0 elt;
+        self#show_leading ()
 
     (** Returns trailing actions widgets, if any *)
     method actions : Dom_html.element Js.t list =

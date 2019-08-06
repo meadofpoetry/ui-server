@@ -8,15 +8,6 @@ module CSS = struct
   let placeholder_hidden = BEM.add_modifier "mdc-placeholder" "hidden"
 end
 
-let nihil_id = "nihil-widgets"
-
-let make_list_id : Wm.domain -> string = function
-  | Nihil -> nihil_id
-  | Chan { stream; channel } ->
-    Printf.sprintf "%s-%d"
-      (Application_types.Stream.ID.to_string stream)
-      channel
-
 module Make(Xml : Xml_sigs.NoWrap)
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
     (Html : Html_sigs.NoWrap with module Xml := Xml
@@ -53,12 +44,13 @@ module Make(Xml : Xml_sigs.NoWrap)
   let create_list ?(classes = []) ?(attrs = []) domain items : 'a elt =
     let classes = Item_list.CSS.root :: Item_list.CSS.two_line :: classes in
     ul ~a:([ a_class classes
-           ; a_id (make_list_id domain) ] @ attrs) items
+           ; a_user_data "domain" (Widget.domain_attr_value domain)
+           ] @ attrs) items
 
   let create_subheader ?(classes = []) ?(attrs = []) domain title : 'a elt =
     let classes = Item_list.CSS.group_subheader :: classes in
     h3 ~a:([ a_class classes
-           ; a_user_data "list" (make_list_id domain)
+           ; a_user_data "domain" (Widget.domain_attr_value domain)
            ] @ attrs) [txt title]
 
   let create ?(classes = []) ?(attrs = []) content : 'a elt =

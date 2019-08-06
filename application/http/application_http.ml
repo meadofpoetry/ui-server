@@ -7,13 +7,65 @@ module Api_template = Api_cohttp_template.Make(User)
 
 module Api_websocket = Api_websocket.Make(User)(Body)(Body_ws)
 
-module Icon = Components_tyxml.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
+module Components = Components_tyxml.Bundle.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
 let icon x =
-  let open Icon.SVG in
+  let open Components.Icon.SVG in
   let path = create_path x () in
-  let icon = create [path] () in
-  Tyxml.Html.toelt icon
+  create [path] ()
+
+let logout_page_props () =
+  let goodbye = "До новых встреч!" in
+  let message = "Передумали и хотите обратно? Нажмите" in
+  Api_template.make_template_props
+    ~has_navigation_drawer:false
+    ~has_top_app_bar:false
+    ~stylesheets:["/css/page-logout.min.css"]
+    ~post_scripts:[Raw "logout();"]
+    ~content:(
+      List.map Tyxml.Html.toelt
+        Tyxml.Html.(
+          [ div ~a:[a_class ["logout-page"]]
+              [ icon Components_tyxml.Svg_icons.human_greeting
+              ; div ~a:[a_class ["logout-page__goodbye"]] [txt goodbye]
+              ; div ~a:[a_class ["logout-page__message"]] [txt message]
+              ; Components.Button.create_anchor
+                  ~label:"Войти"
+                  ~appearance:Raised
+                  ~href:(uri_of_string "/")
+                  ()
+              ]
+          ]))
+    ()
+
+let error_page_props error =
+  let error_code, status, message = match error with
+    | `Not_found ->
+      "404",
+      "Страница не найдена",
+      "Потерялись? Вы можете вернуться на "
+    | `Forbidden ->
+      "403",
+      "Доступ запрещён",
+      "Похоже, что доступ к данной странице Вам запрещён... \
+       Не расстраивайтесь, Вы можете вернуться на "
+  in
+  Api_template.make_template_props
+    ~title:"Что-то пошло не так..."
+    ~stylesheets:["/css/page-error.min.css"]
+    ~content:(
+      List.map Tyxml.Html.toelt
+        Tyxml.Html.(
+          [div ~a:[a_class ["error-page"]]
+             [ div ~a:[a_class ["error-page__code"]] [txt error_code]
+             ; div ~a:[a_class ["error-page__status"]] [txt status]
+             ; div ~a:[a_class ["error-page__message"]] [txt message]
+             ; ul  ~a:[a_class ["error-page__links"]]
+                 [li [a ~a:[a_href @@ uri_of_string "/"]
+                        [txt "домашнюю страницу."]]]
+             ]
+          ]))
+    ()
 
 let user_pages : 'a. unit -> 'a Api_template.item list =
   fun () ->
@@ -25,10 +77,9 @@ let user_pages : 'a. unit -> 'a Api_template.item list =
       ~stylesheets:["/css/page-user-settings.min.css"]
       () in
   simple
-    ~restrict:[`Operator; `Guest]
-    ~priority:(`Index 10)
+    ~priority:(`Index 1)
     ~title:"Пользователи"
-    ~icon:(icon Components_tyxml.Svg_icons.account)
+    ~icon:(Tyxml.Html.toelt @@ icon Components_tyxml.Svg_icons.account)
     ~path:(Path.of_string "settings/user")
     props
 
@@ -41,11 +92,18 @@ let user_handlers (users : Application.User_api.t) =
         ~path:Path.Format.("password" @/ empty)
         ~query:Query.empty
         (Application.User_api.set_password users)
-    ; node ~doc:"Log out from current session"
-        ~meth:`POST
+    ; node ~doc:"Logout"
+        ~meth:`GET
         ~path:Path.Format.("logout" @/ empty)
         ~query:Query.empty
-        Application.User_api.logout
+        (fun _ _ _ _ ->
+           let status = `Unauthorized in
+           let headers = Cohttp.Header.of_list ["www-authenticate", "xBasic "] in
+           let rsp =
+             Lwt.Infix.(
+               Cohttp_lwt_unix.Server.respond ~body:`Empty ~headers ~status ()
+               >>= fun x -> Lwt.return (`Response x)) in
+           Lwt.return (`Instant rsp))
     ]
 
 let input topo (input : Topology.topo_input) =
@@ -89,7 +147,7 @@ let input topo (input : Topology.topo_input) =
        simple
          ~priority:(`Index input.id)
          ~title
-         ~icon:(icon Components_tyxml.Svg_icons.arrow_right)
+         ~icon:(Tyxml.Html.toelt @@ icon Components_tyxml.Svg_icons.arrow_right)
          ~path:(Path.of_string @@ get_input_href input)
          input_template
      in
@@ -115,80 +173,65 @@ let input topo (input : Topology.topo_input) =
      in
      (*`Index input.id,*)
      input_page, stream_page
-  
+
+let topo_page_path = "topology"
+
 let application_pages (app : Application.t) =
   let open Api_template in
-  let icon x =
-    let open Icon.SVG in
-    let path = create_path x () in
-    let icon = create [path] () in
-    Tyxml.Html.toelt icon
+  let hw_templates =
+    Boards.Board.Ports.fold (fun _ (x : Boards.Board.t) acc -> x.templates @ acc)
+      app.hw.boards []
   in
-  let props =
+  let topo = React.S.value app.topo in
+  let input_props, stream_templates =
+    List.split
+    @@ List.map (input topo)
+    @@ Topology.get_inputs topo
+  in
+  let topology_props =
     make_template_props
       ~title:"Конфигурация"
       ~pre_scripts:[Src "/js/ResizeObserver.js"]
       ~post_scripts:[Src "/js/page-topology.js"]
       ~stylesheets:["/css/page-topology.min.css"]
-      ()
-  in
-  let _demo_props =
-    make_template_props
-      ~title:"UI Демо"
-      ~pre_scripts:[ Src "/js/moment.min.js"
-                   ; Src "/js/Chart.min.js"
-                   ]
-      ~post_scripts:[Src "/js/demo.js"]
-      ~stylesheets:["/css/demo.min.css"]
-      ()
-  in
-  let topo = React.S.value app.topo in
-  let hw_templates =
-    Boards.Board.Ports.fold (fun _ (x : Boards.Board.t) acc -> x.templates @ acc)
-      app.hw.boards []
-  in
-  let inputs = Topology.get_inputs topo in
-  let input_templates, stream_templates =
-    List.map (input topo) inputs
-    |> List.split
-  in
+      () in
   subtree
     ~priority:(`Index 1)
     ~title:"Входы"
-    ~icon:(icon Components_tyxml.Svg_icons.arrow_right_box)
-    (List.flatten input_templates)
+    ~icon:(Tyxml.Html.toelt @@ icon Components_tyxml.Svg_icons.arrow_right_box)
+    (List.flatten input_props)
   @ simple
     ~priority:(`Index 4)
     ~title:"Конфигурация"
-    ~icon:(icon Components_tyxml.Svg_icons.tournament)
-    ~path:(Path.of_string "application")
-    props
+    ~icon:(Tyxml.Html.toelt @@ icon Components_tyxml.Svg_icons.tournament)
+    ~path:(Path.of_string topo_page_path)
+    topology_props
   @ simple
-    ~priority:(`Index 5)
-    ~title:"Демо"
-    ~icon:(icon Components_tyxml.Svg_icons.material_design)
-    ~path:(Path.of_string "demo")
-    _demo_props
+    ~priority:(`Index 999)
+    ~title:"Выйти"
+    ~icon:(Tyxml.Html.toelt @@ icon Components_tyxml.Svg_icons.logout_variant)
+    ~path:(Path.of_string "logout")
+    (logout_page_props ())
   @ List.flatten stream_templates
   @ hw_templates
 
 let application_handlers (app : Application.t) =
   let open Api_http in
-  make ~prefix:"topology" (* TODO change to application *)
+  make ~prefix:"application"
     [ node ~doc:"Sets streams that are received by PC process"
         ~restrict:[`Guest]
         ~meth:`POST
-        ~path:Path.Format.("stream_table" @/ empty)
+        ~path:Path.Format.("stream-table" @/ empty)
         ~query:Query.empty
         (Application_api.set_streams app)
     ; node ~doc:"Returns device topology"
         ~meth:`GET
-        ~path:Path.Format.empty
+        ~path:Path.Format.("topology" @/ empty)
         ~query:Query.empty
         (Application_api.get_topology app)
     ; node ~doc:"Returns stream table"
         ~meth:`GET
-        ~path:Path.Format.("stream_table" @/ empty)
+        ~path:Path.Format.("stream-table" @/ empty)
         ~query:Query.empty
         (Application_api.get_streams app)
     ; node ~doc:"Returns all streams"
@@ -198,7 +241,7 @@ let application_handlers (app : Application.t) =
         (Application_api.get_all_streams app)
     ; node ~doc:"Returns the source of a last suitable stream"
         ~meth:`GET
-        ~path:Path.Format.("source" @/ empty)
+        ~path:Path.Format.("stream-source" @/ empty)
         ~query:Query.["id", (module Single(Stream.ID))]
         (Application_api.get_stream_source app)
     ; node ~doc:"Log for input (and stream)"
@@ -219,13 +262,13 @@ let application_ws (app : Application.t) =
   let open Api_websocket in
   (* TODO add closing event *)
   (*let socket_table = Api_websocket.make_socket_table () in*)
-  make ~prefix:"topology" (* TODO change to application *)
+  make ~prefix:"application"
     [ event_node ~doc:"Pushes device topology to the client"
-        ~path:Path.Format.empty
+        ~path:Path.Format.("topology" @/ empty)
         ~query:Query.empty
         (Application_api.Event.get_topology app)
     ; event_node ~doc:"Pushes stream table to the client"
-        ~path:Path.Format.("stream_table" @/ empty)
+        ~path:Path.Format.("stream-table" @/ empty)
         ~query:Query.empty
         (Application_api.Event.get_streams app)
     ; event_node ~doc:"Log for input (and stream)"
@@ -245,15 +288,26 @@ let tick ?(timeout = 1.) () =
     aux () in
   e, aux ()
 
+type t =
+  { ping_loop : unit Lwt.t
+  ; routes : Api_http.t
+  ; not_found : User.t -> string
+  ; forbidden : User.t -> string
+  }
+
+let make_error_page ~template templates status user =
+  let template_props = error_page_props status in
+  Api_template.make_page ~template templates template_props user
+
 let create templates (app : Application.t)
     foreign_pages
     foreing_handlers
     foreign_ws =
   let (>>=) = Lwt_result.bind in
-  
+
   Kv.RO.read templates [ "base.html" ]
   >>= fun template ->
-  
+
   let proc_pages = match app.proc with
     | None -> []
     | Some proc -> proc#pages () in
@@ -287,17 +341,23 @@ let create templates (app : Application.t)
     | Some proc -> proc#ws ()
   in
   let pages =
-    templates
-    |> Api_template.make ~template
-    |> Api_http.make
-  in
-  let api = Api_http.merge ~prefix:"api"
-              ( foreing_handlers
-                :: user_handlers app.users
-                :: Pc_control_http.network_handlers app.network
-                :: application_api
-                :: board_api
-                :: proc_api_list)
+    Api_http.make
+      (Api_http.node ~doc:"Home page redirect"
+         ~meth:`GET
+         ~path:Path.Format.empty
+         ~query:Query.empty
+         (fun _user _body _env _state ->
+            let uri = Uri.make ~path:topo_page_path () in
+            Lwt.return (`Redirect uri))
+       :: Api_template.make ~template templates) in
+  let api =
+    Api_http.merge ~prefix:"api"
+      ( foreing_handlers
+        :: user_handlers app.users
+        :: Pc_control_http.network_handlers app.network
+        :: application_api
+        :: board_api
+        :: proc_api_list)
   in
   let ping, loop = tick () in
   let ws =
@@ -309,140 +369,9 @@ let create templates (app : Application.t)
         :: board_ws
         :: proc_ws_list )
   in
-  Lwt.return_ok (Api_http.merge [api; ws; pages], loop)
-
-    
- (*   
-let make_icon path =
-  let open Icon.SVG in
-  let path = create_path path () in
-  let icon = create [path] () in
-  Tyxml.Html.toelt icon
-
-let get_input_href (x : Topology.topo_input) =
-  let name = Topology.input_to_string x.input in
-  let id = string_of_int x.id in
-  Filename.concat name id
-
-let input topo (input : Topology.topo_input) =
-  let path =
-    List.find_map (fun (i, p, c) ->
-        if Topology.equal_topo_input i input
-        then Some (p, c) else None)
-      (Topology.get_paths topo) in
-  match path with
-  | None              -> failwith "input not found"
-  | Some (boards, cpu) ->
-     let title = Topology.get_input_name input in
-     let boards =
-       List.map (fun (x : Topology.topo_board) -> x.control, x.typ) boards
-       |> Topology.boards_to_yojson
-       |> Yojson.Safe.to_string in
-     let cpu =
-       Option.map (fun (x : Topology.topo_cpu) -> x.process) cpu
-       |> Json.Option.to_yojson Topology.process_type_to_yojson
-       |> Yojson.Safe.to_string in
-     let input_string = Topology.Show_topo_input.to_string input in
-     let input_template =
-       { title = Some title
-       ; pre_scripts  =
-           [ Raw (Printf.sprintf "var input = \"%s\";\
-                                  var boards = %s;\
-                                  var cpu = %s;"
-                    input_string boards cpu)]
-       ; post_scripts = [Src "/js/input.js"]
-       ; stylesheets = []
-       ; content = []
-       } in
-     let input_page =
-       `Index input.id,
-       Simple { title
-              ; icon = None
-              ; href = Uri.Path.of_string @@ get_input_href input
-              ; template = input_template } in
-     let pre = "input/" ^ get_input_href input in
-     let stream_template =
-       { title = Some ("Входы / " ^ title)
-       ; pre_scripts =
-           [ Raw (Printf.sprintf "var input = \"%s\";\
-                                  var boards = %s;\
-                                  var cpu = %s;"
-                    input_string boards cpu)
-           ; Src "/js/moment.min.js"
-           ; Src "/js/Chart.min.js"
-           ; Src "/js/chartjs-plugin-streaming.min.js"
-           ; Src "/js/chartjs-plugin-datalabels.min.js"
-           ]
-       ; post_scripts = [Src "/js/stream.js"]
-       ; stylesheets = []
-       ; content = []
-       } in
-     let stream_page =
-       `Index input.id,
-       Pure { path = Uri.Path.Format.(pre @/ Stream.ID.fmt ^/ empty)
-            ; template = stream_template } in
-     input_page, stream_page
-
-let create (app : Application.t)
-    : upper ordered_item list User.user_table =
-  let topo  = React.S.value app.topo in
-  let hw_templates =
-    Hardware.Map.fold (fun _ (x : Boards.Board.t) acc ->
-        List.cons_maybe x.templates acc) app.hw.boards [] in
-  let props =
-    { title = Some "Конфигурация"
-    ; pre_scripts = []
-    ; post_scripts = [Src "js/topology.js"]
-    ; stylesheets = ["/css/topology.min.css"]
-    ; content = []
-    } in
-  let _demo_props = (* TODO *)
-    { title = Some "UI Демо"
-    ; pre_scripts =
-        [ Src "/js/moment.min.js"
-        ; Src "/js/Chart.min.js"
-        ]
-    ; post_scripts = [Src "/js/demo.js"]
-    ; stylesheets = ["/css/demo.min.css"]
-    ; content = []
-    } in
-  let inputs = Topology.get_inputs topo in
-  let input_templates, stream_templates =
-    List.map (input topo) inputs
-    |> List.split in
-  let app_template =
-    [ `Index 2,
-      Subtree { title = "Входы"
-              ; icon = Some (make_icon Icon.SVG.Path.arrow_right_box)
-              ; href = Uri.Path.of_string "input"
-              ; templates = input_templates }
-    ; `Index 3,
-      Simple { title = "Конфигурация"
-             ; icon = Some (make_icon Icon.SVG.Path.tournament)
-             ; href = Uri.Path.of_string "application"
-             ; template = props }
-    (* ; `Index 4,
-     *   Simple  { title = "UI Демо"
-     *           ; icon = Some (make_icon Icon.SVG.Path.material_design)
-     *           ; href = Uri.Path.of_string "demo"
-     *           ; template = demo_props } *)
-    ]
-  in
-  let proc = match app.proc with
-    | None -> Common.User.empty_table
-    | Some p -> p#template ()
-  in
-  Common.User.concat_table
-    ([ Responses.home_template ()
-     ; User_template.create ()
-     ; Pc_control.Network_template.create ()
-     ; proc
-     ; { root = app_template
-       ; operator = app_template
-       ; guest = app_template }
-     ; { root = stream_templates
-       ; operator = stream_templates
-       ; guest = stream_templates }
-     ]
-     @ hw_templates)
-  *)
+  Lwt.return_ok
+    { ping_loop = loop
+    ; routes = Api_http.merge [api; ws; pages]
+    ; not_found = make_error_page ~template templates `Not_found
+    ; forbidden = make_error_page ~template templates `Forbidden
+    }

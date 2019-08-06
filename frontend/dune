@@ -1,0 +1,9 @@
+(executable
+  (name       scaffold)
+  (libraries  components)
+  (preprocess (pps js_of_ocaml-ppx)))
+
+(install
+  (files (scaffold.bc.js as js/scaffold.js))
+  (section share)
+  (package ui-server))

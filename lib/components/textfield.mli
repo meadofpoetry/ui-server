@@ -6,13 +6,35 @@ module Markup : sig
   include module type of Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 end
 
-module Event : sig
-  class type icon =
-    object
-      inherit [unit] Widget.custom_event
-    end
+class type validity_state =
+  object
+    method badInput : bool Js.t Js.readonly_prop
+    method customError : bool Js.t Js.readonly_prop
+    method patternMismatch : bool Js.t Js.readonly_prop
+    method rangeOverflow : bool Js.t Js.readonly_prop
+    method rangeUnderflow : bool Js.t Js.readonly_prop
+    method stepMismatch : bool Js.t Js.readonly_prop
+    method tooLong : bool Js.t Js.readonly_prop
+    method tooShort : bool Js.t Js.readonly_prop
+    method typeMismatch : bool Js.t Js.readonly_prop
+    method valid : bool Js.t Js.readonly_prop
+    method valueMissing : bool Js.t Js.readonly_prop
+  end
 
-  val icon : icon Js.t Dom_html.Event.typ
+module Event : sig
+  class type icon = [unit] Widget.custom_event
+
+  module Typ : sig val icon : icon Js.t Dom.Event.typ end
+
+  val icon : ?use_capture:bool -> #Dom_html.eventTarget Js.t -> icon Js.t Lwt.t
+
+  val icons :
+    ?cancel_handler:bool
+    -> ?use_capture:bool
+    -> #Dom_html.eventTarget Js.t
+    -> (icon Js.t -> unit Lwt.t -> unit Lwt.t)
+    -> unit Lwt.t
+
 end
 
 module Character_counter : sig
@@ -136,8 +158,6 @@ class type ['a] t =
     (** Focuses the input element. *)
     method focus : unit -> unit
 
-    method update : unit -> unit
-
     method ripple : Ripple.t option
 
     (** Validation API. *)
@@ -152,6 +172,12 @@ class type ['a] t =
     (** Enables or disables the use of native validation.
         Set to [false] to ignore native input validation. *)
     method set_use_native_validation : bool -> unit
+
+    method force_custom_validation : unit -> unit
+
+    method check_validity : unit -> bool
+
+    method validity : validity_state Js.t
 
     (** The custom validity state, if set;
         otherwise, the result of a native validity check. *)
@@ -268,7 +294,9 @@ class type ['a] t =
     method private create_ripple : unit -> Ripple.t
   end
 
-val make_textfield : ?on_input:(Dom_html.event Js.t -> 'a t -> unit Lwt.t)
+val make_textfield :
+  ?validate_on_blur:bool
+  -> ?on_input:(Dom_html.event Js.t -> 'a t -> unit Lwt.t)
   -> ?disabled:bool
   -> ?fullwidth:bool
   -> ?outlined:bool
@@ -300,7 +328,8 @@ val make_textfield : ?on_input:(Dom_html.event Js.t -> 'a t -> unit Lwt.t)
   -> ?use_native_validation:bool
   -> 'a validation -> 'a t
 
-val make_textarea : ?on_input:(Dom_html.event Js.t -> string t -> unit Lwt.t)
+val make_textarea :
+  ?on_input:(Dom_html.event Js.t -> string t -> unit Lwt.t)
   -> ?disabled:bool
   -> ?fullwidth:bool
   -> ?focused:bool
@@ -318,7 +347,9 @@ val make_textarea : ?on_input:(Dom_html.event Js.t -> string t -> unit Lwt.t)
   -> unit
   -> string t
 
-val attach : ?on_input:(Dom_html.event Js.t -> 'a t -> unit Lwt.t)
+val attach :
+  ?validate_on_blur:bool
+  -> ?on_input:(Dom_html.event Js.t -> 'a t -> unit Lwt.t)
   -> ?helper_text:Helper_text.t
   -> ?character_counter:Character_counter.t
   -> ?use_native_validation:bool

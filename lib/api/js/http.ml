@@ -110,7 +110,6 @@ end = struct
       | Some _ -> Some Body.content_type in
     let contents = match body with
       | None -> None
-
       | Some x -> Some (`String (Body.to_string x)) in
     let f uri cb : 'a Lwt.t =
       XmlHttpRequest.perform_raw_url

@@ -17,13 +17,18 @@ let get_user () =
   | Ok user -> user
 
 let () =
-  let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
+  let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
   let thread =
     Server_http_js.get_config ()
     >>=? fun config ->
     Api_js.Websocket.JSON.open_socket ~path:(Path.Format.of_string "ws") ()
     >>=? fun socket -> Server_http_js.Event.get_config socket
     >>=? fun (event_id, event) ->
+    let disclaimer =
+      Tyxml_js.Html.(
+        div ~a:[a_class ["disclaimer"]]
+          [txt "Внимание! Настройки безопасности вступают в силу \
+                только после перезагрузки прибора."]) in
     let https = Https_config.make
         ~set_snackbar:scaffold#show_snackbar
         config in
@@ -33,7 +38,8 @@ let () =
     let page =
       Widget.create
       @@ Tyxml_js.To_dom.of_element
-      @@ Markup.make [ https#markup
+      @@ Markup.make [ disclaimer
+                     ; https#markup
                      ; certificate#markup ] in
     let event' = React.E.map (fun (config : Server_types.settings) ->
         https#set_value config.https_enabled;

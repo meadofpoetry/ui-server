@@ -4,10 +4,8 @@ open Js_of_ocaml_tyxml.Tyxml_js
 open Components
 
 (* TODO
-   - add hotkeys legend
    - add stats inside the side sheet
    - add settings inside the side sheet
-   - add switch to the editor mode
 *)
 
 let ( >>= ) = Lwt.bind
@@ -47,7 +45,10 @@ module RTC = struct
     let location = Dom_html.window##.location in
     let protocol = Js.to_string location##.protocol in
     let hostname = Js.to_string location##.hostname in
-    protocol ^ "//" ^ hostname ^ ":8088/janus"
+    let port = match protocol with
+      | "https:" -> 8089
+      | _ -> 8088 in
+    Printf.sprintf "%s//%s:%d/janus" protocol hostname port
 
   let main =
     { id = 1
@@ -56,7 +57,7 @@ module RTC = struct
         Some { videomcast = None
              ; videoport = 5004
              ; videopt = 100
-             ; videortpmap = "H264/90000" (* FIXME should be configurable *)
+             ; videortpmap = "VP9/90000" (* FIXME should be configurable *)
              ; videofmtp = None
              ; videoiface = None
              ; videobufferkf = None }
@@ -282,7 +283,7 @@ let tie_menu_with_toggle (scaffold : Scaffold.t) =
         Lwt.cancel selected)
 
 let () =
-  let scaffold = Scaffold.attach (Dom_html.getElementById "root") in
+  let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
   let player = match scaffold#body with
     | None -> failwith "no video player element found"
     | Some x -> Player.attach x#root in

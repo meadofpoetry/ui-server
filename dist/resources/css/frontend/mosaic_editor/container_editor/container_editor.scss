@@ -141,6 +141,9 @@ body:not(.content-mode) {
     .grid {
         display: none;
     }
+    .mdc-top-app-bar__navigation-icon {
+        display: flex !important; // FIXME 
+    }
 }
 
 .content-mode {

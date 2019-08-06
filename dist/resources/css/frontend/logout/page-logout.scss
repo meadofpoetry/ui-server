@@ -1,0 +1,32 @@
+@import "@material/theme/mixins";
+@import "@material/typography/mixins";
+
+.logout-page {
+    margin: 0 auto;
+    max-width: 500px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    box-sizing: border-box;
+    padding: 1rem;
+
+    .mdc-icon {
+        width: 72px;
+        height: 72px;
+        @include mdc-theme-prop(color, text-secondary-on-background);
+    }
+
+    &__goodbye {
+        @include mdc-typography(headline3);
+        font-weight: 300;
+        padding-bottom: 32px;
+    }
+
+    &__message {
+        @include mdc-typography(body2);
+        padding: 12px 0;
+    }
+}

@@ -1,69 +1,87 @@
 open Js_of_ocaml
+open Js_of_ocaml_lwt
 open Components
 
 let name = "Password config"
 
+let ( >>= ) = Lwt.bind
+
 module Selector = struct
-  let old_password = Printf.sprintf "#%s" Markup.Password.old_password_id
-  let new_password = Printf.sprintf "#%s" Markup.Password.new_password_id
-  let confirm_password = Printf.sprintf "#%s" Markup.Password.confirm_password_id
-  let user_tabs = Printf.sprintf ".%s" Tab_bar.CSS.root
+  open Printf
+  let form user = sprintf "#%s" @@ Markup.Password.form_id user
+  let user_tabs = sprintf ".%s" Tab_bar.CSS.root
+  let submit = sprintf ".%s.%s" Card.CSS.action Button.CSS.root
+  let slider = sprintf ".%s" Markup.CSS.Password.slider
 end
 
-module Validation = struct
-  open Textfield
+class t ~set_snackbar
+    (user : Application_types.User.t)
+    (elt : Dom_html.element Js.t) = object(self)
 
-  let old_password = Password (fun _ -> Ok ())
+  val slider : Dom_html.element Js.t =
+    match Element.query_selector elt Selector.slider with
+    | None -> failwith @@ name ^ ": slider element not found"
+    | Some x -> x
 
-  let new_password = Password (fun pass ->
-      if String.length pass < 4
-      then Error "Слишком короткий пароль"
-      else Ok ())
+  val submit_button : Button.t =
+    match Element.query_selector elt Selector.submit with
+    | None -> failwith @@ name ^ ": submit button not found"
+    | Some x -> Button.attach x
 
-  let confirm (new_password : string Textfield.t) = Password (fun pass ->
-      match new_password#value with
-      | None -> Ok ()
-      | Some new_ ->
-        if String.equal new_ pass then Ok ()
-        else Error "Пароли не совпадают")
+  val user_tabs : Tab_bar.t =
+    match Element.query_selector elt Selector.user_tabs with
+    | None -> failwith @@ name ^ ": tab bar element not found"
+    | Some x -> Tab_bar.attach x
+
+  val mutable forms = []
+  val mutable listeners = []
+
+  inherit Widget.t elt () as super
+
+  method! init () : unit =
+    forms <- (
+      List.mapi (fun i form ->
+          let form = new Password_form.t
+            ~set_snackbar
+            user
+            submit_button
+            (Js.Unsafe.coerce form) in
+          form#set_disabled (i <> 0);
+          form)
+      @@ Element.query_selector_all elt "form");
+    super#init ()
+
+  method! initial_sync_with_dom () : unit =
+    listeners <- Lwt_js_events.(
+        [ clicks submit_button#root self#handle_submit_click
+        ; Tab_bar.Event.changes user_tabs#root self#handle_user_change
+        ]);
+    super#initial_sync_with_dom ()
+
+  method! destroy () : unit =
+    List.iter Widget.destroy forms;
+    forms <- [];
+    user_tabs#destroy ();
+    super#destroy ()
+
+  method private handle_user_change e _ =
+    let id = (Widget.event_detail e)##.index in
+    let translate = Printf.sprintf "translate3d(%d%%, 0, 0)" (-100 * id) in
+    List.iteri (fun i form -> form#set_disabled (i <> id)) forms;
+    slider##.style##.transform := Js.string translate;
+    Lwt.return_unit
+
+  method private handle_submit_click _ _ : unit Lwt.t =
+    match user_tabs#active_tab_index with
+    | None -> Lwt.return_unit
+    | Some i ->
+      (List.nth forms i)#submit_input##click;
+      Lwt.return_unit
+
 end
 
-class t (elt : Dom_html.element Js.t) =
-  let old_password : string Textfield.t =
-    match Element.query_selector elt Selector.old_password with
-    | None -> failwith @@ name ^ ": not old password input found"
-    | Some x -> Textfield.attach ~validation:Validation.new_password x in
-
-  let new_password : string Textfield.t =
-    match Element.query_selector elt Selector.new_password with
-    | None -> failwith @@ name ^ ": not new password input found"
-    | Some x -> Textfield.attach ~validation:Validation.new_password x in
-
-  let confirm_password : string Textfield.t =
-    match Element.query_selector elt Selector.confirm_password with
-    | None -> failwith @@ name ^ ": not new confirm password input found"
-    | Some x -> Textfield.attach ~validation:Validation.new_password x in
-  object
-    val user_tabs : Tab_bar.t =
-      match Element.query_selector elt Selector.user_tabs with
-      | None -> failwith @@ name ^ ": no tab bar element found"
-      | Some x -> Tab_bar.attach ~on_change:(fun _ bar ->
-          match bar#active_tab with
-          | None -> Lwt.return_unit
-          | Some _tab -> Lwt.return_unit) x
-
-    inherit Widget.t elt () as super
-
-    method! destroy () : unit =
-      old_password#destroy ();
-      new_password#destroy ();
-      confirm_password#destroy ();
-      super#destroy ()
-
-  end
-
-let make () : t =
+let make ~set_snackbar user : t =
   let (elt : Dom_html.element Js.t) =
     Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
     @@ Markup.Password.make () in
-  new t elt
+  new t ~set_snackbar user elt
