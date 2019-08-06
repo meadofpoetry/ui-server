@@ -138,15 +138,16 @@ let input topo (input : Topology.topo_input) =
                        var boards = %s;\
                        var cpu = %s;"
          input_string boards_json cpu_json in
+     let input_page_tabs, input_page_content =
+       Input_template.make_tabs cpu boards in
      let input_template =
        make_template_props
          ~title
          ~stylesheets:["/css/page-input.min.css"]
          ~pre_scripts:[Raw vars]
          ~post_scripts:[Src "/js/page-input.js"]
-         ~top_app_bar_bottom:(
-           Tyxml.Html.toelt
-           @@ Input_template.make_tab_bar cpu boards)
+         ~top_app_bar_bottom:(Tyxml.Html.toelt input_page_tabs)
+         ~content:(List.map Tyxml.Html.toelt input_page_content)
          ()
      in
      let input_page =

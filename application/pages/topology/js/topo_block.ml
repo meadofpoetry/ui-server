@@ -76,7 +76,7 @@ class virtual t ~port_setter
         ~(body : #Body.t)
         () =
   let card = Card.make [header#widget; body#widget] in
-  object(self)
+  object
     inherit Topo_node.parent
               ~port_setter
               ~node
