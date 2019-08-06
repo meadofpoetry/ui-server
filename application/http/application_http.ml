@@ -21,6 +21,7 @@ let logout_page_props () =
     ~has_navigation_drawer:false
     ~has_top_app_bar:false
     ~stylesheets:["/css/page-logout.min.css"]
+    ~post_scripts:[Raw "logout();"]
     ~content:(
       List.map Tyxml.Html.toelt
         Tyxml.Html.(
@@ -91,6 +92,18 @@ let user_handlers (users : Application.User_api.t) =
         ~path:Path.Format.("password" @/ empty)
         ~query:Query.empty
         (Application.User_api.set_password users)
+    ; node ~doc:"Logout"
+        ~meth:`GET
+        ~path:Path.Format.("logout" @/ empty)
+        ~query:Query.empty
+        (fun _ _ _ _ ->
+           let status = `Unauthorized in
+           let headers = Cohttp.Header.of_list ["www-authenticate", "xBasic "] in
+           let rsp =
+             Lwt.Infix.(
+               Cohttp_lwt_unix.Server.respond ~body:`Empty ~headers ~status ()
+               >>= fun x -> Lwt.return (`Response x)) in
+           Lwt.return (`Instant rsp))
     ]
 
 let input topo (input : Topology.topo_input) =

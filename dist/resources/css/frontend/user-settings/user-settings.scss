@@ -23,6 +23,12 @@
     &__title {
         @include mdc-typography(headline6);
         @include mdc-theme-prop(color, text-primary-on-surface);
+        display: flex;
+        align-items: center;
+        .mdc-icon {
+            margin-right: 12px;
+            @include mdc-theme-prop(color, text-secondary-on-surface);
+        }
     }
 
     &__text {
@@ -52,8 +58,17 @@
 #account.settings-section {
     .greetings {
         @include mdc-typography(headline5);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
         text-align: center;
         margin: 24px 0;
+
+        .mdc-icon {
+            width: 72px;
+            height: 72px;
+            @include mdc-theme-prop(color, text-secondary-on-surface);
+        }
     }
     .permissions {
         text-align: center;

@@ -6,21 +6,23 @@ let name = "account"
 let ( >>= ) = Lwt.bind
 
 module Selector = struct
-  let logout = "a[href=\"/logout\"]"
-  let change_role = Printf.sprintf ".%s" Card.CSS.action
+  let action = Printf.sprintf ".%s" Card.CSS.action
   let accounts_info = Printf.sprintf ".%s" Markup.CSS.Account.accounts_info_link
 end
 
-let logout ?(reload = true) () : unit =
-  Js.Unsafe.global##logout (Js.bool reload)
+let logout ?href () : unit =
+  Js.Unsafe.global##logout (Js.Optdef.option href)
 
 let make_accounts_info_dialog () =
   let section (user : Application_types.User.t) =
     let title' = Format.asprintf "%a" Markup.pp_user_human user in
     let text = Markup.Account.permissions ~pesonal_appeal:false user in
+    let icon = Icon.SVG.make_simple @@ Markup.user_icon_path user in
     Js_of_ocaml_tyxml.Tyxml_js.Html.(
       div ~a:[a_class [Markup.CSS.Account.account_info]]
-        [ div ~a:[a_class [Markup.CSS.Account.account_info_title]] [txt title']
+        [ div ~a:[a_class [Markup.CSS.Account.account_info_title]]
+            [ icon#markup
+            ; txt title' ]
         ; div ~a:[a_class [Markup.CSS.Account.account_info_text]] [txt text]
         ]) in
   let title = "Типы учётных записей" in
@@ -49,21 +51,10 @@ class t (elt : Dom_html.element Js.t) = object
     | None -> failwith @@ name ^ ": accounts info link not found"
     | Some x -> x
 
-  val logout_button : Button.t option =
-    match Element.query_selector elt Selector.logout with
-    | None -> None
-    | Some x ->
-      let on_click = fun _ _ _ ->
-        logout ~reload:false ();
-        Lwt.return_unit in
-      Some (Button.attach ~on_click x)
-
-  val change_button : Button.t =
-    match Element.query_selector elt Selector.change_role with
-    | None -> failwith @@ name ^ ": change role button not found"
-    | Some x ->
-      let on_click = fun _ _ _ -> Lwt.return @@ logout ~reload:true () in
-      Button.attach ~on_click x
+  val exit_button : Button.t =
+    match Element.query_selector elt Selector.action with
+    | None -> failwith @@ name ^ ": exit button not found"
+    | Some x -> Button.attach x
 
   val mutable _listeners = []
 
@@ -83,8 +74,7 @@ class t (elt : Dom_html.element Js.t) = object
     List.iter Lwt.cancel _listeners;
     _listeners <- [];
     info_dialog#destroy ();
-    Utils.Option.iter Widget.destroy logout_button;
-    change_button#destroy ();
+    exit_button#destroy ();
     super#destroy ()
 end
 

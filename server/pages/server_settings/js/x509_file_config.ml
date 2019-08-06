@@ -27,6 +27,10 @@ let file_size_to_string (x : int) =
   let size, unit = aux (float_of_int x, "B") units in
   Printf.sprintf "%g %s" size unit
 
+let typ_to_string (type a) : a typ -> string = function
+  | Key -> "Приватный ключ"
+  | Crt -> "Сертификат"
+
 let remove_file (type a) : a typ -> (unit, Api_js.Http.error) Lwt_result.t =
   function
   | Key -> Server_http_js.delete_tls_key ()
@@ -285,7 +289,15 @@ class ['a] t ?value
     Lwt.on_termination thread (fun () -> import#loader#set_value 0.);
     Lwt.async (fun () ->
         thread >>= function
-        | Ok () -> Lwt.return_unit
+        | Ok () ->
+          let label =
+            Printf.sprintf
+              "%s применён. Настройки вступят в силу после \
+               перезагрузки прибора."
+              (typ_to_string typ) in
+          let snackbar = Snackbar.make ~label () in
+          set_snackbar snackbar
+          >>= fun _ -> Lwt.return @@ snackbar#destroy ()
         | Error e ->
           let snackbar = Snackbar.make ~label:e () in
           set_snackbar snackbar
@@ -336,7 +348,15 @@ class ['a] t ?value
       remove_file typ
       >>=? (fun () -> fetch_value typ)
       >>= function
-      | Ok v -> Lwt.return @@ self#set_value v
+      | Ok v ->
+        let label =
+          Printf.sprintf
+            "%s удалён. Настройки вступят в силу после \
+             перезагрузки прибора."
+            (typ_to_string typ) in
+        let snackbar = Snackbar.make ~label () in
+        set_snackbar snackbar
+        >>= fun _ -> self#set_value v; Lwt.return @@ snackbar#destroy ()
       | Error e ->
         let label = Api_js.Http.error_to_string e in
         let snackbar = Snackbar.make ~label () in

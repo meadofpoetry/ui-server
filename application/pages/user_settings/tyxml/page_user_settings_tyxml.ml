@@ -35,6 +35,12 @@ module Make(Xml : Xml_sigs.NoWrap)
     | `Operator -> Format.pp_print_string ppf "Оператор"
     | `Root -> Format.pp_print_string ppf "Администратор"
 
+
+  let user_icon_path = function
+    | `Guest -> Svg_icons.account
+    | `Operator -> Svg_icons.worker
+    | `Root -> Svg_icons.account_tie
+
   module Account = struct
 
     let id = "account"
@@ -64,8 +70,9 @@ module Make(Xml : Xml_sigs.NoWrap)
     let make_greetings ?(classes = []) ?(attrs = []) user =
       let classes = CSS.Account.greetings :: classes in
       let username_human = Format.asprintf "%a" pp_user_human user in
+      let icon = Icon.SVG.(create [create_path (user_icon_path user) ()] ()) in
       let text = Printf.sprintf "Добро пожаловать, %s!" username_human in
-      div ~a:([a_class classes] @ attrs) [txt text]
+      div ~a:([a_class classes] @ attrs) [icon; txt text]
 
     let make_permissions ?(classes = []) ?(attrs = []) user =
       let classes = CSS.Account.permissions :: classes in
@@ -78,15 +85,9 @@ module Make(Xml : Xml_sigs.NoWrap)
         [txt "Узнать больше об учётных записях"]
 
     let make ?(classes = []) ?(attrs = []) user =
-      let change = Button.create
+      let _exit = Button.create_anchor
           ~classes:[Card.CSS.action]
           ~appearance:Raised
-          ~button_type:`Submit
-          ~label:"Сменить аккаунт"
-          () in
-      let path = Icon.SVG.create_path Svg_icons.logout_variant () in
-      let icon = Icon.SVG.create ~classes:[Button.CSS.icon] [path] () in
-      let _exit = Button.create_anchor ~icon
           ~href:(uri_of_string "/logout")
           ~label:"Выйти"
           () in
@@ -97,10 +98,7 @@ module Make(Xml : Xml_sigs.NoWrap)
             ; make_permissions user
             ; make_accounts_info_link ()
             ] ()
-        ; Card.create_actions
-            [ Card.create_action_buttons [change] ()
-            ; Card.create_action_icons [_exit] ()]
-            ()
+        ; Card.create_actions [Card.create_action_buttons [_exit] ()] ()
         ]
 
   end
@@ -151,6 +149,11 @@ module Make(Xml : Xml_sigs.NoWrap)
 
     let make_user_tabs () =
       let create_tab ?active user =
+        let icon = Icon.SVG.(
+            create
+              ~classes:[Tab.CSS.icon]
+              [create_path (user_icon_path user) ()]
+              ()) in
         let username = Application_types.User.to_string user in
         let indicator = Tab_indicator.create ?active
             (Tab_indicator.create_content ())
@@ -160,7 +163,7 @@ module Make(Xml : Xml_sigs.NoWrap)
         Tab.create ?active
           ~attrs:[a_user_data "username" username]
           ~indicator
-          (Tab.create_content ~text_label ())
+          (Tab.create_content ~text_label ~icon ())
           () in
       let tabs =
         [ create_tab ~active:true `Guest

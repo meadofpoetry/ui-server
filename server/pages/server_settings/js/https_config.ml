@@ -53,7 +53,7 @@ class t
       let label =
         Printf.sprintf
           "HTTPS %s. Настройки вступят в силу после \
-           перезагрузки прибора"
+           перезагрузки прибора."
           (if enable#input#checked
            then "включен" else "выключен") in
       let snackbar = Snackbar.make ~label () in
