@@ -30,4 +30,4 @@ let () =
     Lwt.return_ok editor in
   let body = Ui_templates.Loader.create_widget_loader thread in
   body#add_class "wm";
-  scaffold#set_body body
+  scaffold#set_body body#root

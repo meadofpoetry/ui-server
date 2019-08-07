@@ -109,5 +109,5 @@ let () =
         Api_js.Websocket.close_socket socket);
     Lwt.return_ok page in
   let loader = Ui_templates.Loader.create_widget_loader thread in
-  scaffold#set_body loader
+  scaffold#set_body loader#root
 

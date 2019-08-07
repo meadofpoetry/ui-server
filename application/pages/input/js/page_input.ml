@@ -1,6 +1,5 @@
 open Js_of_ocaml
 open Components
-open Netlib
 
 let ( >>= ) = Lwt.bind
 
@@ -41,10 +40,10 @@ let set_active_page container (tab_bar : Tab_bar.t) =
   let active = match active_tab_id with
     | None -> default ()
     | Some id ->
-      let tab = List.find (fun (tab : Tab.t) ->
+      try Some (List.find (fun (tab : Tab.t) ->
           String.equal id (Js.to_string tab#root##.id))
-          tab_bar#tabs in
-      try Some tab with _ -> default () in
+          tab_bar#tabs)
+      with _ -> default () in
   match active with
   | None -> ()
   | Some tab ->
@@ -80,6 +79,8 @@ class t (elt : Dom_html.element Js.t) = object(self)
     tab_bar#destroy ();
     super#destroy ()
 
+  (* Private methods *)
+
   method private handle_tab_change e _ : unit Lwt.t =
     let tab = (Widget.event_detail e)##.tab in
     update_url_hash (Js.to_string tab##.id);
@@ -90,20 +91,11 @@ end
 let () =
   let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
   let thread =
-    Application_http_js.get_topology ()
-    >>=? fun _topo ->
-    Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
-    >>=? fun socket -> Application_http_js.Event.get_topology socket
-    >>=? fun (_, topo_event) ->
-    let slides = Element.query_selector_exn
-        scaffold#app_content_inner
-        Selector.slider in
-    let page = new t slides in
-    page#set_on_destroy (fun () ->
-        React.E.stop ~strong:true topo_event;
-        Api_js.Websocket.close_socket socket);
-    Lwt.return_ok page in
+    scaffold#loaded
+    >>= fun () ->
+    let body = new t scaffold#body in
+    Lwt.return_ok body in
   let body = Ui_templates.Loader.create_widget_loader
       ~parent:scaffold#app_content_inner
       thread in
-  scaffold#set_body body
+  scaffold#set_body body#root

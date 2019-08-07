@@ -2,8 +2,10 @@ module type S = sig
 
   type user
 
-  type script = Src of string
-              | Raw of string
+  type script =
+    [ `Src of string
+    | `Raw of string
+    ]
 
   type side_sheet_props =
     { clipped : bool

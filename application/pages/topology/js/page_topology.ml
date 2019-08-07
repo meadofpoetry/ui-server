@@ -294,4 +294,4 @@ let () =
   let body = Ui_templates.Loader.create_widget_loader thread in
   body#add_class Layout_grid.CSS.root;
   scaffold#set_side_sheet ~elevation:Full_height side_sheet;
-  scaffold#set_body body
+  scaffold#set_body body#root

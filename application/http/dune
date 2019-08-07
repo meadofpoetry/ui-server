@@ -6,4 +6,9 @@
              api_cohttp
              api_cohttp_template
              api_websocket
-             components_tyxml))
+             components_tyxml
+             pipeline_page_input
+             board_dektec_dtm3200_page_input
+             board_niitv_dvb_page_input
+             board_niitv_tsan_page_input
+             page_input))

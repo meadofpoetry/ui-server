@@ -2,7 +2,8 @@
   (name       page_input)
   (libraries  components
               ui_templates
-              application_http_js)
+              application_http_js
+              board_niitv_dvb_http_js)
   (preprocess (pps js_of_ocaml-ppx)))
 
 (install

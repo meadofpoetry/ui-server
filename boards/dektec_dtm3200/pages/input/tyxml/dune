@@ -1,0 +1,4 @@
+(library
+  (name      board_dektec_dtm3200_page_input)
+  (libraries components_tyxml
+             application_types))

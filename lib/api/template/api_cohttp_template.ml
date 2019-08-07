@@ -18,8 +18,10 @@ module Make (User : USER) = struct
 
   type user = User.t
 
-  type script = Src of string
-              | Raw of string
+  type script =
+    [ `Src of string
+    | `Raw of string
+    ]
 
   type side_sheet_props =
     { clipped : bool
@@ -182,8 +184,8 @@ module Make (User : USER) = struct
        ; _ } as props : template_props) =
     let ( % ) f g x = f (g x) in
     let script_to_object = function
-      | Raw s -> `O [ "script", `String s; "src", `Bool false ]
-      | Src s -> `O [ "script", `String s; "src", `Bool true  ] in
+      | `Raw s -> `O [ "script", `String s; "src", `Bool false ]
+      | `Src s -> `O [ "script", `String s; "src", `Bool true  ] in
     let make_obj k v = `O [k, `String v] in
     [ "title", `String (match title with
           | None -> "АТС-3"

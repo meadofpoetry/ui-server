@@ -49,6 +49,28 @@ let make_uri ?scheme ?host ?port ~f ~path ~query =
   Uri.kconstruct ?scheme ~host ?port
     ~f:(f % Uri.pct_decode % Uri.to_string) ~path ~query
 
+let perform ?headers ?progress ?upload_progress ?contents ?content_type
+    ?meth ?with_credentials ?scheme ?host ?port ~path ~query =
+  let f uri cb : 'a Lwt.t =
+    XmlHttpRequest.perform_raw_url
+      ?headers
+      ?progress
+      ?upload_progress
+      ?contents
+      ?content_type
+      ?override_method:meth
+      ?with_credentials
+      uri
+    >>= fun (x : XmlHttpRequest.http_frame) ->
+    let res = match Code.of_int x.code with
+      | `Unauthorized -> Error `Unauthorized
+      | `Not_implemented -> Error `Not_implemented
+      | `Forbidden -> Error (`Error x.content)
+      | `OK -> Ok x.content
+      | _ -> Error (`Unknown x.code) in
+    cb x.headers res in
+  make_uri ?scheme ?host ?port ~f ~path ~query
+
 let perform_file ?headers ?progress ?upload_progress
       ~file ?meth ?with_credentials ?scheme
       ?host ?port ~path ~query =
