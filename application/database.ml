@@ -84,7 +84,7 @@ let log_entry =
 module Model = struct
   open Db.Key
 
-  type init = ()
+  type init = unit
 
   type names = { log : string }
 

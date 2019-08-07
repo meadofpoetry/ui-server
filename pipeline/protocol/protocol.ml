@@ -100,8 +100,8 @@ let notification_attach_setter
                       (function _ -> Lwt.return_unit)
   in                   
   let signal_add_setter signal _default setter =
-    let signal = limit_inert ~eq:Pervasives.(=) 2.0 signal in
-    Util_react.S.map_s ~eq:Pervasives.(=) setter signal
+    let signal = limit_inert ~eq:Stdlib.(=) 2.0 signal in
+    Util_react.S.map_s ~eq:Stdlib.(=) setter signal
   in
   let merge v = Lwt_mutex.with_lock notification_mutex
                   (fun () -> make_setter (fun (x : 'b) ->

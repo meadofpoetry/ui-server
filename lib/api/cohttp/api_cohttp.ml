@@ -86,7 +86,7 @@ end = struct
 
   module Meth_map = Map.Make (struct
                         type t = Cohttp.Code.meth
-                        let compare : t -> t -> int = Pervasives.compare
+                        let compare : t -> t -> int = Stdlib.compare
                       end)
 
   type state = Cohttp_lwt_unix.Request.t * Conduit_lwt_unix.flow
