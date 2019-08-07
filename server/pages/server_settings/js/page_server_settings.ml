@@ -50,5 +50,8 @@ let () =
         Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket event_id);
         Api_js.Websocket.close_socket socket);
     Lwt.return_ok page in
-  let body = Ui_templates.Loader.create_widget_loader thread in
-  scaffold#set_body body#root
+  let (_ : Dom_html.element Js.t) =
+    Ui_templates.Loader.make_widget_loader
+      ~elt:scaffold#app_content_inner
+      thread in
+  ()

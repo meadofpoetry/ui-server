@@ -1,5 +1,5 @@
 (library
-  (name        board_niitv_dvb_widgets_js)
+  (name        board_niitv_dvb_widgets)
   (libraries   board_niitv_dvb_types
                board_niitv_dvb_http_js
                application_types
@@ -9,6 +9,7 @@
                gen_js_api
                ui_templates
                chartjs
+               chartjs.streaming
                chartjs.datalabels
                ptime.clock.jsoo)
   (preprocess  (pps ppx_deriving_yojson

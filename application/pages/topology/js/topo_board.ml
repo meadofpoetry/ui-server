@@ -91,7 +91,7 @@ let make_board_niitv_tsan_settings state socket control =
 let make_board_niitv_dvb4ch_settings state socket control =
   let open React in
   let open Board_niitv_dvb_http_js in
-  let open Board_niitv_dvb_widgets_js in
+  let open Board_niitv_dvb_widgets in
   let rec get_plps acc = function
     | [] -> Lwt.return_ok acc
     | id :: tl -> Lwt_result.(
@@ -248,8 +248,9 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
     (* Private methods *)
 
     method private make_settings_widget () : Widget.t =
-      let t = make_board_page state socket in
-      Widget.coerce @@ Ui_templates.Loader.create_widget_loader t
+      Widget.create
+      @@ Ui_templates.Loader.make_widget_loader
+      @@ make_board_page state socket
 
     method private set_ports (l : Topology.topo_port list) : unit =
       let find (port : Topology.topo_port) (p : Topo_path.t) : bool =

@@ -121,6 +121,9 @@ module Range : sig
   type nonrec t = t * Period.t
 
   val after : Ptime.t -> Period.t -> t
+  val equal : t -> t -> bool
+  val of_yojson : Yojson.Safe.t -> (t, string) result
+  val to_yojson : t -> Yojson.Safe.t
 
 end
 

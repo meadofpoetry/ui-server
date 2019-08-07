@@ -7,7 +7,7 @@
               pipeline_http_js
               pipeline_widgets_js
               board_dektec_dtm3200_widgets_js
-              board_niitv_dvb_widgets_js
+              board_niitv_dvb_widgets
               board_niitv_tsan_widgets_js)
   (preprocess (pps js_of_ocaml-ppx
                    ppx_deriving_yojson

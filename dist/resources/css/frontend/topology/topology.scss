@@ -19,15 +19,15 @@ $side-sheet-width: 500px;
     @include topology-board-type(nth($boards,$i));
 }
 
-.mdc-loader.mdc-layout-grid {
-    width: initial;
-}
-
 .mdc-side-sheet {
     @include mdc-side-sheet-width($side-sheet-width);
 }
 
 .topology {
+    height: 100%;
+}
+
+.topology .mdc-layout-grid__inner {
     position: relative;
     height: 100%;
     grid-template-columns: 1fr auto auto;

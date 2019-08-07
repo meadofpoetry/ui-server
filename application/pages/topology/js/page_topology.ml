@@ -206,7 +206,6 @@ let create (init : Topology.t) (socket : Api_js.Websocket.JSON.t) =
       let non_interactive = match User.of_string username with
         | Ok `Guest | Error _ -> true
         | Ok (`Operator | `Root) -> false in
-      super#add_class CSS.root;
       super#add_class Layout_grid.CSS.inner;
       if non_interactive then super#add_class CSS.non_interactive;
       iter_paths (fun _ x ->
@@ -291,7 +290,8 @@ let () =
         Api_js.Websocket.close_socket socket);
     Lwt_react.(E.keep @@ S.diff_s on_settings s_settings);
     Lwt.return_ok page in
-  let body = Ui_templates.Loader.create_widget_loader thread in
-  body#add_class Layout_grid.CSS.root;
+  let body = Ui_templates.Loader.make_widget_loader thread in
+  Element.add_class body CSS.root;
+  Element.add_class body Layout_grid.CSS.root;
   scaffold#set_side_sheet ~elevation:Full_height side_sheet;
-  scaffold#set_body body#root
+  scaffold#set_body body

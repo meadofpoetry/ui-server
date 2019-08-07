@@ -293,6 +293,19 @@ module Range = struct
 
   let after time span : t = (time, span)
 
+  let equal (a : t) (b : t) =
+    equal (fst a) (fst b) && Period.equal (snd a) (snd b)
+
+  let to_yojson (t, s : t) : Yojson.Safe.t =
+    `List [to_yojson t; Period.to_yojson s]
+
+  let of_yojson : Yojson.Safe.t -> (t, string) result = function
+    | `List [t; s] ->
+      (match of_yojson t, Period.of_yojson s with
+       | Ok t, Ok s -> Ok (t, s)
+       | _ -> Error "of_yojson")
+    | _ -> Error "of_yojson"
+
 end
 
 module Relative = struct

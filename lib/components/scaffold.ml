@@ -73,12 +73,6 @@ let attach_side_sheet (elt : Dom_html.element Js.t) () =
   Selector.by_class_opt elt Side_sheet.CSS.root
   |> Option.map Side_sheet.attach
 
-let attach_body (app_content_inner : Dom_html.element Js.t) () =
-  let elt = (Js.Unsafe.coerce app_content_inner)##.firstElementChild in
-  match Js.Opt.to_option elt with
-  | None -> Dom_html.(createDiv document)
-  | Some (node : Dom_html.element Js.t) -> node
-
 class t ?(drawer : #Drawer.t option)
     ?(drawer_elevation : drawer_elevation option)
     ?(drawer_breakpoints = Breakpoint.default_drawer)
@@ -110,9 +104,6 @@ class t ?(drawer : #Drawer.t option)
     val mutable side_sheet = match side_sheet with
       | None -> attach_side_sheet elt ()
       | Some x -> Some x
-    val mutable body = match body with
-      | None -> attach_body app_content_inner ()
-      | Some x -> x
 
     (* Event listeners *)
     val mutable listeners = []
@@ -170,8 +161,7 @@ class t ?(drawer : #Drawer.t option)
       top_app_bar <- Some x;
       previous
 
-    method drawer : Drawer.t option =
-      drawer
+    method drawer : Drawer.t option = drawer
 
     method set_drawer : 'a. ?elevation:drawer_elevation ->
       ?breakpoints:Side_sheet.typ Breakpoint.t ->
@@ -211,7 +201,9 @@ class t ?(drawer : #Drawer.t option)
 
     method app_content_outer = app_content_outer
 
-    method body : Dom_html.element Js.t = body
+    method body : Dom_html.element Js.t option =
+      Js.Opt.to_option
+      @@ (Js.Unsafe.coerce app_content_inner)##.firstElementChild
 
     method set_body (body : Dom_html.element Js.t) =
       let attached =
@@ -383,7 +375,7 @@ class t ?(drawer : #Drawer.t option)
           self#set_drawer_properties_ ~is_leading:false typ elv side_sheet
       end;
       (* Setup body *)
-      self#set_body body;
+      Option.iter self#set_body body;
       (* Setup top app bar *)
       let leading = match top_app_bar with
         | None -> None

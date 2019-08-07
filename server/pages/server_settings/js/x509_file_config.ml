@@ -331,13 +331,13 @@ class ['a] t ?value
           | Some x -> Lwt.return_ok x
           | None -> fetch_value typ in
         let info =
-          Ui_templates.Loader.create_widget_loader
+          Ui_templates.Loader.make_widget_loader
             (Lwt_result.map_err Api_js.Http.error_to_string value
              >>=? fun x ->
              self#set_value x;
              Lwt.return_ok @@ Widget.create @@ make_info typ x) in
         Element.remove_children content;
-        Dom.appendChild content info#root;
+        Dom.appendChild content info;
         dialog#open_await () >>= fun _ -> Lwt.return_unit
 
   method private handle_remove _ _ : unit Lwt.t =

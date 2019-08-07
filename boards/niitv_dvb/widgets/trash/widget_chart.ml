@@ -11,6 +11,7 @@ module Point = struct
   open Chartjs.Types
   include Chartjs.Line.Dataset.Make_point(Time)(Float)
 end
+
 module Dataset = Chartjs.Line.Dataset.Make(Point)
 
 type data = (Stream.ID.t * Point.t list) list
@@ -48,24 +49,22 @@ let get_suggested_range = function
 
 let make_settings (_ : widget_settings) =
   let range_min =
-    new Textfield.t
+    Textfield.make_textfield
       ~label:"Min"
-      ~input_type:(Float (None, None))
-      () in
+      (Float (None, None)) in
   let range_max =
-    new Textfield.t
+    Textfield.make_textfield
       ~label:"Max"
-      ~input_type:(Float (None, None))
-      () in
-  let box = new Hbox.t ~widgets:[range_min; range_max] () in
-  let s =
-    React.S.l2 ~eq:(Equal.option equal_widget_settings)
-      (fun min max ->
-        match min, max with
-        | Some min, Some max -> Some { range = Some (min, max) }
-        | _ -> None) range_min#s_input range_max#s_input
-  in
-  box, s
+      (Float (None, None)) in
+  let box = Box.make ~dir:`Row [range_min; range_max] in
+  (* let s =
+   *   React.S.l2 ~eq:(Util_equal.Option.equal equal_widget_settings)
+   *     (fun min max ->
+   *        match min, max with
+   *        | Some min, Some max -> Some { range = Some (min, max) }
+   *        | _ -> None) range_min#s_input range_max#s_input
+   * in *)
+  box(* , s *)
 
 let make_x_axis ?(id = "x-axis") (config : widget_config)
     : Chartjs.Scales.t =

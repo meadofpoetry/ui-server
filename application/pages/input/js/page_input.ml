@@ -55,47 +55,38 @@ let update_url_hash hash =
   let hash = "#" ^ hash in
   history##replaceState Js.undefined (Js.string "") (Js.some @@ Js.string hash)
 
-class t (elt : Dom_html.element Js.t) = object(self)
-  val tab_bar : Tab_bar.t =
-    match Element.query_selector Dom_html.document##.body Selector.tab_bar with
-    | None -> failwith "tab bar element not found"
-    | Some x -> Tab_bar.attach x
+let attach_tab_bar () =
+  match Element.query_selector Dom_html.document##.body Selector.tab_bar with
+  | None -> failwith "tab bar element not found"
+  | Some x -> Tab_bar.attach x
 
-  val mutable listeners = []
-
-  inherit Widget.t elt () as super
-
-  method! init () : unit =
-    set_active_page super#root tab_bar;
-    super#init ()
-
-  method! initial_sync_with_dom () : unit =
-    listeners <- [
-      Tab_bar.Event.changes tab_bar#root self#handle_tab_change
-    ];
-    super#initial_sync_with_dom ()
-
-  method! destroy () : unit =
-    tab_bar#destroy ();
-    super#destroy ()
-
-  (* Private methods *)
-
-  method private handle_tab_change e _ : unit Lwt.t =
-    let tab = (Widget.event_detail e)##.tab in
-    update_url_hash (Js.to_string tab##.id);
-    set_active_page super#root tab_bar;
-    Lwt.return_unit
-end
+let handle_tab_change body tab_bar e _ : unit Lwt.t =
+  let tab = (Widget.event_detail e)##.tab in
+  update_url_hash (Js.to_string tab##.id);
+  set_active_page body tab_bar;
+  Lwt.return_unit
 
 let () =
   let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
+  let get_body () = match scaffold#body with
+    | None -> Lwt.fail_with "page body element not found"
+    | Some x -> Lwt.return x in
   let thread =
     scaffold#loaded
-    >>= fun () ->
-    let body = new t scaffold#body in
-    Lwt.return_ok body in
-  let body = Ui_templates.Loader.create_widget_loader
-      ~parent:scaffold#app_content_inner
-      thread in
-  scaffold#set_body body#root
+    >>= get_body
+    >>= fun body ->
+    let tab_bar = attach_tab_bar () in
+    let changes =
+      Tab_bar.Event.changes
+        tab_bar#root
+        (handle_tab_change body tab_bar) in
+    tab_bar#set_on_destroy (fun () -> Lwt.cancel changes);
+    set_active_page body tab_bar;
+    Lwt.return_ok ()
+  in
+  let (_ : Dom_html.element Js.t) =
+    Ui_templates.Loader.make_loader
+      ~elt:scaffold#app_content_inner
+      thread
+  in
+  ()

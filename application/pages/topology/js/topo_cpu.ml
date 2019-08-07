@@ -16,8 +16,8 @@ let make_cpu_page socket (cpu : Topology.topo_cpu) =
   | "pipeline" ->
      let getter () =
        Topo_pipeline.make cpu socket
-       |> Ui_templates.Loader.create_widget_loader
-       |> Widget.coerce in
+       |> Ui_templates.Loader.make_widget_loader
+       |> Widget.create in
      Some getter
   | _ -> None
 
