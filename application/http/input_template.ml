@@ -33,6 +33,10 @@ let tabs_of_board ({ model; manufacturer; _ } as b : Topology.topo_board) =
     [(module Board_niitv_tsan_page_input.Make(M))]
   | _ -> []
 
+let cons_uniq ~eq l x = if List.exists (eq x) l then l else x :: l
+
+let dedup ~eq l = List.rev (List.fold_left (cons_uniq ~eq) [] l)
+
 let make_template
     (input : Topology.topo_input)
     (cpu : Topology.topo_cpu option)
@@ -60,11 +64,15 @@ let make_template
   let slides =
     Markup.make_content
     @@ List.map (fun (id, _, c) -> Markup.make_tabpanel ~id @@ Html.totl c) tabs in
+  let eq a b =
+    match a, b with
+    | `Src a, `Src b | `Raw a, `Raw b -> String.equal a b
+    | _ -> false in
   Api_template.make_template_props
     ~title
-    ~stylesheets
-    ~pre_scripts
-    ~post_scripts
+    ~stylesheets:(dedup ~eq:String.equal stylesheets)
+    ~pre_scripts:(dedup ~eq pre_scripts)
+    ~post_scripts:(dedup ~eq post_scripts)
     ~top_app_bar_bottom:(Tyxml.Html.toelt tab_bar)
     ~content:[Tyxml.Html.toelt slides]
     ()

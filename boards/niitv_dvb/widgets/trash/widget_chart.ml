@@ -47,25 +47,6 @@ let get_suggested_range = function
   | `Freq -> (-10.0, 10.0)
   | `Bitrate -> (0.0, 1.0)
 
-let make_settings (_ : widget_settings) =
-  let range_min =
-    Textfield.make_textfield
-      ~label:"Min"
-      (Float (None, None)) in
-  let range_max =
-    Textfield.make_textfield
-      ~label:"Max"
-      (Float (None, None)) in
-  let box = Box.make ~dir:`Row [range_min; range_max] in
-  (* let s =
-   *   React.S.l2 ~eq:(Util_equal.Option.equal equal_widget_settings)
-   *     (fun min max ->
-   *        match min, max with
-   *        | Some min, Some max -> Some { range = Some (min, max) }
-   *        | _ -> None) range_min#s_input range_max#s_input
-   * in *)
-  box(* , s *)
-
 let make_x_axis ?(id = "x-axis") (config : widget_config)
     : Chartjs.Scales.t =
   let open Chartjs in
@@ -106,52 +87,6 @@ let make_x_axis ?(id = "x-axis") (config : widget_config)
   let streaming = make ~duration () in
   Per_axis.set axis streaming;
   axis
-
-let make_y_axis ?(id = "y-axis") (config : widget_config) =
-  let open Chartjs in
-  let open Chartjs.Scales.Cartesian in
-  let range = get_suggested_range config.typ in
-  let scale_label =
-    Scales.Scale_label.make
-      ~display:true
-      ~label_string:(measure_type_to_unit config.typ)
-      () in
-  let position = `Left in
-  let axis, set_range = match config.typ with
-    | `Ber ->
-       let axis = Logarithmic.make ~id ~scale_label ~position () in
-       let set_range = function
-         | None ->
-            let open Logarithmic in
-            let ticks = ticks axis in
-            Ticks.set_min ticks None;
-            Ticks.set_max ticks None
-         | Some (min, max) ->
-            let open Logarithmic in
-            let ticks = ticks axis in
-            Ticks.set_max ticks (Some max);
-            Ticks.set_min ticks (Some min) in
-       axis, set_range
-    | _ ->
-       let ticks =
-         Linear.Ticks.make
-           ~suggested_min:(fst range)
-           ~suggested_max:(snd range)
-           () in
-       let axis = Linear.make ~id ~ticks ~scale_label ~position () in
-       let set_range = function
-         | None ->
-            let open Linear in
-            let ticks = ticks axis in
-            Ticks.set_min ticks None;
-            Ticks.set_max ticks None
-         | Some (min, max) ->
-            let open Linear in
-            let ticks = ticks axis in
-            Ticks.set_max ticks (Some max);
-            Ticks.set_min ticks (Some min) in
-       axis, set_range in
-  axis, set_range
 
 let format_value (v : float) (config : widget_config) : string =
   let unit = measure_type_to_unit config.typ in
