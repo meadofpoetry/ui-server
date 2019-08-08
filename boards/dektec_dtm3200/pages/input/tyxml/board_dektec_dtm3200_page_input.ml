@@ -9,7 +9,7 @@ module Make(M : S) = struct
   let pre_scripts = []
 
   let post_scripts =
-    [`Src "/js/board-dektec-dtm3200-page-input.js"]
+    [(* `Src "/js/board-dektec-dtm3200-page-input.js" *)]
 
   let tabs =
     [ "tsoip", "TSoIP", [Tyxml.Html.toelt @@ Tyxml.Html.txt "this is DTM-3200 tab"]

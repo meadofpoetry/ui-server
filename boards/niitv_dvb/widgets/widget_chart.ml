@@ -143,7 +143,7 @@ module Make(S : S) = struct
         ~auto_skip_padding:2
         () in
     let axis_type = match config.settings.period with
-      | `Realtime _ -> Chartjs_streaming.axis_type
+      | `Realtime _ -> `Time (* Chartjs_streaming.axis_type *)
       | `Archive _ -> `Time in
     let axis =
       Chartjs.Scales.Cartesian.Time.make
@@ -154,15 +154,6 @@ module Make(S : S) = struct
         ~position:`Bottom
         ~type_:axis_type
         () in
-    (match config.settings.period with
-     | `Realtime period ->
-       let duration =
-         int_of_float
-         @@ Float.mul 1000.
-         @@ Ptime.Span.to_float_s period in
-       let streaming = Chartjs_streaming.make ~duration () in
-       Chartjs_streaming.Per_axis.set axis streaming;
-     | `Archive _ -> ());
     axis
 
   let make_options ~x_axes ~y_axes
@@ -188,6 +179,18 @@ module Make(S : S) = struct
         ~mode:`Nearest
         ~intersect:false
         () in
+    (* (match config.settings.period with
+     *  | `Realtime period ->
+     *    let duration =
+     *      int_of_float
+     *      @@ Float.mul 1000.
+     *      @@ Ptime.Span.to_float_s period in
+     *    let streaming = Chartjs_streaming.make
+     *        ~delay:3000
+     *        ~duration
+     *        () in
+     *    Chartjs_streaming.Per_chart.set plugins (Some streaming);
+     *  | `Archive _ -> ()); *)
     Chartjs_datalabels.Per_chart.set plugins None;
     Options.make
       ~scales
@@ -262,7 +265,7 @@ module Make(S : S) = struct
     val canvas : Dom_html.canvasElement Js.t =
       Js.Unsafe.coerce @@ Element.query_selector_exn elt "canvas"
 
-    val datasets = make_datasets
+    val mutable datasets = make_datasets
         (data_of_init (getter config.typ) init)
         config.sources
 
@@ -276,6 +279,7 @@ module Make(S : S) = struct
       let options = make_options ~x_axes:[x_axis] ~y_axes:[y_axis] config in
       let data = Chartjs.Data.make ~datasets:(List.map snd datasets) () in
       chart <- Some (Chartjs.make ~options ~data `Line (`Canvas canvas));
+      Js.Unsafe.global##.console##log self#chart |> ignore;
       super#init ()
 
     method! destroy () : unit =
@@ -295,12 +299,25 @@ module Make(S : S) = struct
         let data = data_of_init (getter config.typ) data in
         List.iter (fun ((s : S.t), data) ->
             match Utils.List.Assoc.get ~eq:S.equal s datasets with
-            | None -> ()
+            | None ->
+              let id = List.length datasets in
+              let dataset = make_dataset id s data in
+              datasets <- dataset :: datasets;
+              Chartjs.Data.set_datasets
+                (Chartjs.data self#chart)
+                (List.map snd datasets);
+              Chartjs.update self#chart
+                (Some (Chartjs_streaming.make_config
+                         ~preservation:true
+                         ()))
             | Some ds ->
               let data' = Dataset.data ds in
               let push v = Dataset.(Values.push data' [v]) in
               List.iter (ignore % push) data;
-              Chartjs.update self#chart None) data
+              Chartjs.update self#chart
+                (Some (Chartjs_streaming.make_config
+                         ~preservation:true
+                         ()))) data
   end
 
   let make (init : (S.t * Measure.t ts list) list)

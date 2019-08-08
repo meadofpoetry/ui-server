@@ -9,7 +9,7 @@ module Make(M : S) = struct
   let pre_scripts = []
 
   let post_scripts =
-    [`Src "/js/board-niitv-tsan-page-input.js"]
+    [(* `Src "/js/board-niitv-tsan-page-input.js" *)]
 
   let tabs =
     [ "tsan", "QoS", [Tyxml.Html.toelt @@ Tyxml.Html.txt "this is tsan tab"]

@@ -107,6 +107,7 @@
 
 (install
   (files (normalize.css as css/normalize.css)
+         (Chart.min.css as css/Chart.min.css)
          (components.min.css as css/components.min.css)
          (main.min.css as css/main.min.css)
          (page-input.min.css as css/page-input.min.css)
