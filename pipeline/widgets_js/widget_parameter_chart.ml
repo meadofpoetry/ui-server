@@ -41,8 +41,24 @@ and typ =
   ]
 
 type event =
-  [ `Data of (data_source * (Qoe_errors.point array)) list
+  [ `Data of (data_source * kind) list
   ]
+and kind =
+  [ `Video of Qoe_errors.Video_data.data
+  | `Audio of Qoe_errors.Audio_data.data
+  ]
+
+let filter_data typ (data : (data_source * kind) list) =
+  Utils.List.filter_map (fun (src, kind) ->
+      match typ, (kind : kind) with
+      | `Black, `Video x -> Some (src, x.black)
+      | `Luma, `Video x -> Some (src, x.luma)
+      | `Freeze, `Video x -> Some (src, x.freeze)
+      | `Diff, `Video x -> Some (src, x.diff)
+      | `Blocky, `Video x -> Some (src, x.blocky)
+      | `Shortt, `Audio x -> Some (src, x.shortt)
+      | `Moment, `Audio x -> Some (src, x.moment)
+      | _ -> None) data
 
 let colors =
   Random.init 255;
@@ -233,6 +249,7 @@ class t
     (structures : Structure.Annotated.t)
     (config : widget_config)
     (elt : Dom_html.element Js.t) = object(self)
+
   val canvas : Dom_html.canvasElement Js.t =
     Js.Unsafe.coerce @@ Element.query_selector_exn elt "canvas"
 
@@ -242,7 +259,7 @@ class t
 
   val mutable chart = None
 
-  inherit Widget.t Dom_html.(createDiv document) () as super
+  inherit Widget.t elt () as super
 
   method! init () : unit =
     let x_axis = make_x_axis config in
@@ -264,7 +281,7 @@ class t
   method notify : event -> unit = function
     (* TODO add structures and state update *)
     | `Data data ->
-      match convert_data config data with
+      match convert_data config (filter_data config.typ data) with
       | [] -> ()
       | data ->
         List.iter (fun (src, data) ->

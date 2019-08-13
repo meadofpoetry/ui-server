@@ -2,21 +2,21 @@ open Js_of_ocaml
 open Netlib
 open Components
 open Board_niitv_dvb_http_js
-open Board_niitv_dvb_widgets
+(* open Board_niitv_dvb_widgets *)
 
 let ( >>= ) = Lwt.bind
 
 let ( >>=? ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
 
-module Chart = Widget_chart.Make(struct
-    include Util_json.Int
-    let to_string = string_of_int
-    let equal = ( = )
-  end)
-
-let make_config ?(sources = []) ?range
-    ?(period = `Realtime (Time.Span.of_int_s 60)) typ =
-  { Chart. sources; typ; settings = { range; period }}
+(* module Chart = Widget_chart.Make(struct
+ *     include Util_json.Int
+ *     let to_string = string_of_int
+ *     let equal = ( = )
+ *   end)
+ * 
+ * let make_config ?(sources = []) ?range
+ *     ?(period = `Realtime (Time.Span.of_int_s 60)) typ =
+ *   { Chart. sources; typ; settings = { range; period }} *)
 
 let () =
   let (_scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
@@ -25,12 +25,12 @@ let () =
     Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
     >>=? fun socket -> Http_receivers.Event.get_measurements socket 1
     >>=? fun (_, meas_ev) ->
-    let pwr = Chart.make [] (make_config `Power) in
-    let mer = Chart.make [] (make_config `Mer) in
-    let ber = Chart.make [] (make_config `Ber) in
-    let frq = Chart.make [] (make_config `Freq) in
-    let btr = Chart.make [] (make_config `Bitrate) in
-    let charts = [pwr; mer; ber; frq; btr] in
+    (* let pwr = Chart.make [] (make_config `Power) in
+     * let mer = Chart.make [] (make_config `Mer) in
+     * let ber = Chart.make [] (make_config `Ber) in
+     * let frq = Chart.make [] (make_config `Freq) in
+     * let btr = Chart.make [] (make_config `Bitrate) in *)
+    let charts = [(* pwr; mer; ber; frq; btr *)] in
     let notif =
       E.merge (fun _ data -> List.iter (fun x -> x#notify data) charts) ()
         [ E.map (fun x -> `Data (List.map (fun (id, x) -> id, [x]) x)) meas_ev
