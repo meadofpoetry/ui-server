@@ -37,17 +37,19 @@ let create kv db =
       let sf =
         Log_converters.Status.to_log_messages state.sources state.options.structures#s filter
       in
+      (* TODO
       let vf =
         Log_converters.Video.to_log_messages state.sources state.options.structures#s filter
       in
       let af =
         Log_converters.Audio.to_log_messages state.sources state.options.structures#s filter
       in
+       *)
       Util_react.E.aggregate_merge
         ~merge:(fun acc x -> x @ acc)
         (fun () -> Lwt_unix.sleep 1.0)
-        [ React.E.map vf state.notifs.vdata
+        [ (*React.E.map vf state.notifs.vdata
         ; React.E.map af state.notifs.adata
-        ; React.E.map sf state.notifs.status_raw
+        ; *) React.E.map sf state.notifs.status_raw
         ])
   end

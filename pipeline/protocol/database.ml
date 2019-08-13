@@ -1,6 +1,6 @@
 open Application_types
 open Pipeline_types   
-open Pipeline_types.Qoe_errors
+(*open Pipeline_types.Qoe_errors*)
 open Api
 
 (* TODO remove 4.08 *)
@@ -29,7 +29,8 @@ module SID = struct
                   ~decode:(fun x -> try Ok (to_stream_id x) with _ -> Error "Bad SID")
                   Caqti_type.string
 end
-   
+
+(* TODO
 let data_t =
   Caqti_type.custom
     Caqti_type.(let (&) = tup2 in
@@ -60,13 +61,13 @@ let data_t =
                   ; peak_flag
                   ; cont_flag
                   ; timestamp }))
-
+ *)
 (* TODO testing *)
   
 module Model = struct
   open Db.Key
 
-  type init = ()
+  type init = unit
 
   type names = { streams     : string
                ; pid_state   : string
@@ -348,6 +349,7 @@ module Stream_status = struct
 end 
 
 module Errors = struct
+  (* TODO
   let insert_data db data =
     let open Printf in
     let table   = (Conn.names db).errors in
@@ -361,7 +363,7 @@ module Errors = struct
   let insert_audio db data = insert_data db (audio_data_to_list data)
 
   let insert_video db data = insert_data db (video_data_to_list data)
-
+  
   let coords_conv = is_in "(stream,channel,pid)" (fun (s,c,p) -> Printf.sprintf "(%s,%d,%d)"
                                                                    (SID.of_stream_id s) c p)
                            
@@ -499,5 +501,5 @@ module Errors = struct
                     (return []) intvals)
       >>= fun data ->
       return @@ Compressed (List.rev data) )
-
+   *)
 end

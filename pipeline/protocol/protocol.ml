@@ -5,6 +5,7 @@ module Qoe_backend = Qoe_backend_lwt.Make
                        (Stream.ID)
                        (Netlib.Uri)
                        (Time.Useconds)
+                       (Time.Period.Useconds)
 (* TODO rename Qoe_...types.Basic.Time to Usec period *)
    
 type options =
