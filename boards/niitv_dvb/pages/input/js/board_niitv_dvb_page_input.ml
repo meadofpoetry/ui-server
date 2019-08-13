@@ -10,11 +10,12 @@ let ( >>=? ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
 
 module Chart = Widget_chart.Make(struct
     include Util_json.Int
+    let to_string = string_of_int
     let equal = ( = )
   end)
 
 let make_config ?(sources = []) ?range
-    ?(period = `Realtime (Time.Span.of_int_s 20)) typ =
+    ?(period = `Realtime (Time.Span.of_int_s 60)) typ =
   { Chart. sources; typ; settings = { range; period }}
 
 let () =

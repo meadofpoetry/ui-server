@@ -13,6 +13,7 @@ end
 module type S = sig
   type t
   val equal : t -> t -> bool
+  val to_string : t -> string
   val to_yojson : t -> Yojson.Safe.t
   val of_yojson : Yojson.Safe.t -> (t, string) result
 end
@@ -143,7 +144,7 @@ module Make(S : S) = struct
         ~auto_skip_padding:2
         () in
     let axis_type = match config.settings.period with
-      | `Realtime _ -> `Time (* Chartjs_streaming.axis_type *)
+      | `Realtime _ -> Chartjs_streaming.axis_type
       | `Archive _ -> `Time in
     let axis =
       Chartjs.Scales.Cartesian.Time.make
@@ -176,21 +177,21 @@ module Make(S : S) = struct
     let tooltips =
       Options.Tooltips.make
         ~callbacks
-        ~mode:`Nearest
+        ~mode:`Index
         ~intersect:false
         () in
-    (* (match config.settings.period with
-     *  | `Realtime period ->
-     *    let duration =
-     *      int_of_float
-     *      @@ Float.mul 1000.
-     *      @@ Ptime.Span.to_float_s period in
-     *    let streaming = Chartjs_streaming.make
-     *        ~delay:3000
-     *        ~duration
-     *        () in
-     *    Chartjs_streaming.Per_chart.set plugins (Some streaming);
-     *  | `Archive _ -> ()); *)
+    (match config.settings.period with
+     | `Realtime period ->
+       let duration =
+         int_of_float
+         @@ Float.mul 1000.
+         @@ Ptime.Span.to_float_s period in
+       let streaming = Chartjs_streaming.make
+           ~delay:3000
+           ~duration
+           () in
+       Chartjs_streaming.Per_chart.set plugins (Some streaming);
+     | `Archive _ -> ());
     Chartjs_datalabels.Per_chart.set plugins None;
     Options.make
       ~scales
@@ -204,7 +205,7 @@ module Make(S : S) = struct
 
   let make_dataset id src (data : Point.t list) =
     let data = List.sort (fun (a : Point.t) b -> Ptime.compare a.x b.x) data in
-    let label = Printf.sprintf "%s" module_name in
+    let label = Printf.sprintf "%s %s" module_name (S.to_string src) in
     let (r, g, b) = colors.(id) in
     let color = Color.to_hexstring @@ Color.of_rgb r g b in
     let ds =
