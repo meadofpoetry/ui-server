@@ -3,11 +3,13 @@ open Components
 open Application_types
 open Pipeline_types
 
-let base_class = "pipeline-chart"
+module CSS = struct
+  let root = "pipeline-chart"
+end
 
 type widget_config =
   { duration : Time.Period.t
-  ; typ : Qoe_errors.labels
+  ; typ : typ
   ; sources : data_source list
   ; filter : data_filter list
   ; settings : widget_settings option
@@ -28,14 +30,19 @@ and data_source =
   ; service : int
   ; pid : int
   } [@@deriving eq, yojson]
+and typ =
+  [ `Black
+  | `Luma
+  | `Freeze
+  | `Diff
+  | `Blocky
+  | `Shortt
+  | `Moment
+  ]
 
-module Point = struct
-  open Chartjs.Types
-  include Chartjs.Line.Dataset.Make_point(Time)(Float)
-end
-module Dataset = Chartjs.Line.Dataset.Make(Point)
-
-type data = (data_source * Point.t list) list
+type event =
+  [ `Data of (data_source * (Qoe_errors.point array)) list
+  ]
 
 let colors =
   Random.init 255;
@@ -44,13 +51,13 @@ let colors =
       (Random.int 255),
       (Random.int 255))
 
-let get_suggested_range = function
+let get_suggested_range : typ -> float * float = function
   | `Black -> 0.0, 100.0
   | `Luma -> 16.0, 235.0
   | `Freeze -> 0.0, 100.0
   | `Diff -> 0.0, 216.0
   | `Blocky -> 0.0, 100.0
-  | _ -> -40., 0.
+  | `Shortt | `Moment -> -40., 0.
 
 let filter (src : data_source) (filter : data_filter list) : bool =
   let check_pid pid = function
@@ -67,189 +74,133 @@ let filter (src : data_source) (filter : data_filter list) : bool =
   let rec aux = function
     | [] -> false
     | (hd : data_filter) :: tl ->
-       if Stream.ID.equal hd.stream_id stream
-       then check_service service pid hd.services
-       else aux tl in
+      if Stream.ID.equal hd.stream_id stream
+      then check_service service pid hd.services
+      else aux tl in
   match filter with
   | [] -> true
   | filter -> aux filter
 
-let convert_video_data (config : widget_config)
-      (d : Qoe_errors.Video_data.t list) : data =
-  List.fold_left (fun acc (point : Qoe_errors.Video_data.t) ->
-      let (src : data_source) =
-        { stream = point.stream
-        ; service = point.channel
-        ; pid = point.pid
-        } in
-      if not (filter src config.filter) then [] else
-        let (error : Qoe_errors.error) = match config.typ with
-          | `Black -> point.errors.black
-          | `Luma -> point.errors.luma
-          | `Freeze -> point.errors.freeze
-          | `Diff -> point.errors.diff
-          | `Blocky -> point.errors.blocky
-          | (`Silence_shortt | `Silence_moment
-            | `Loudness_shortt | `Loudness_moment) ->
-             failwith "not an audio chart" in
-        let (point : Point.t) =
-          { x = error.timestamp
-          ; y = match config.typ with
-                | `Black -> error.params.max
-                | `Luma -> error.params.min
-                | `Freeze -> error.params.max
-                | `Diff -> error.params.min
-                | `Blocky -> error.params.min
-                | _ -> failwith "not an audio chart"
-          } in
-        Utils.List.Assoc.update ~eq:equal_data_source
-          (function None -> Some [point]
-                  | Some l -> Some (point :: l))
-          src acc) [] d
-
-let convert_audio_data (config : widget_config)
-      (d : Qoe_errors.Audio_data.t list) : data =
-  List.fold_left (fun acc (point : Qoe_errors.Audio_data.t) ->
-      let (src : data_source) =
-        { stream = point.stream
-        ; service = point.channel
-        ; pid = point.pid
-        } in
-      if not (filter src config.filter) then [] else
-        let (error : Qoe_errors.error) = match config.typ with
-          | `Silence_shortt -> point.errors.silence_shortt
-          | `Silence_moment -> point.errors.silence_moment
-          | `Loudness_shortt -> point.errors.loudness_shortt
-          | `Loudness_moment -> point.errors.loudness_moment
-          | _ -> failwith "not an audio chart" in
-        let (point : Point.t) =
-          { x = error.timestamp
-          ; y = error.params.avg
-          } in
-        Utils.List.Assoc.update ~eq:equal_data_source
-          (function
-            | None -> Some [point]
-            | Some l -> Some (point :: l))
-          src acc) [] d
+let convert_data
+    (config : widget_config)
+    (d : (data_source * (Qoe_errors.point array)) list) =
+  let data =
+    List.fold_left (fun acc (src, points) ->
+        if not (filter src config.filter)
+        then acc
+        else Utils.List.Assoc.update ~eq:equal_data_source
+            (function
+              | None -> Some points
+              | Some l -> Some (Array.append l points))
+            src acc) [] d in
+  List.map (fun (src, points) ->
+      Array.sort (fun (a : Qoe_errors.point) b ->
+        Ptime.compare a.time b.time) points;
+      src, Array.map (fun (x : Qoe_errors.point) ->
+          Chartjs.createDataPoint
+            ~x:x.time
+            ~y:x.data)
+        points) data
 
 let data_source_to_string (structures : Structure.Annotated.t)
-      (src : data_source) : string =
+    (src : data_source) : string =
   let open Structure in
   match Utils.List.find_map (fun (_, (x : Annotated.structure)) ->
       if Stream.ID.equal x.id src.stream
       then Some x else None) structures with
   | None -> ""
   | Some { channels; _ } ->
-     begin match List.find_opt (fun (_, (x : Annotated.channel)) ->
-                     src.service = x.number) channels with
-     | None -> ""
-     | Some (_, channel) ->
-        begin match List.find_opt (fun (_, (x : pid)) ->
-                        x.pid = src.pid) channel.pids with
-        | None -> ""
-        | Some (_, pid) ->
-           Printf.sprintf "%s. PID %d (%s)"
-             channel.service_name
-             pid.pid
-             pid.stream_type_name
-        end
-     end
+    begin match List.find_opt (fun (_, (x : Annotated.channel)) ->
+        src.service = x.number) channels with
+    | None -> ""
+    | Some (_, channel) ->
+      begin match List.find_opt (fun (_, (x : pid)) ->
+          x.pid = src.pid) channel.pids with
+      | None -> ""
+      | Some (_, pid) ->
+        Printf.sprintf "%s. PID %d (%s)"
+          channel.service_name
+          pid.pid
+          pid.stream_type_name
+      end
+    end
 
-let typ_to_content : Qoe_errors.labels -> [`Video | `Audio] = function
+let typ_to_content : typ -> [`Video | `Audio] = function
   | `Black | `Luma | `Freeze | `Diff | `Blocky -> `Video
-  | `Silence_shortt | `Silence_moment | `Loudness_shortt | `Loudness_moment ->
-     `Audio
+  | `Shortt | `Moment -> `Audio
 
-let typ_to_string : Qoe_errors.labels -> string = function
+let typ_to_string : typ -> string = function
   | `Black -> "Чёрный кадр"
   | `Luma -> "Средняя яркость"
   | `Freeze -> "Заморозка видео"
   | `Diff -> "Средняя разность"
   | `Blocky -> "Блочность"
-  | `Silence_shortt | `Loudness_shortt -> "Громкость (short term)"
-  | `Silence_moment | `Loudness_moment -> "Громкость (momentary)"
+  | `Shortt -> "Громкость (short term)"
+  | `Moment -> "Громкость (momentary)"
 
-let typ_to_unit_string : Qoe_errors.labels -> string = function
+let typ_to_unit_string : typ -> string = function
   | `Black | `Freeze | `Blocky -> "%"
   | `Luma | `Diff -> ""
-  | `Silence_shortt | `Silence_moment | `Loudness_shortt | `Loudness_moment ->
-     "LUFS"
+  | `Shortt | `Moment -> "LUFS"
 
-let make_x_axis ?(id = "x-axis") (config : widget_config) : Chartjs.Scales.t =
+let make_x_axis ?(id = "x-axis") (config : widget_config)
+  : Chartjs.timeCartesianAxis Js.t =
   let open Chartjs in
-  let open Chartjs_streaming in
   let duration =
     int_of_float
     @@ Ptime.Span.to_float_s config.duration *. 1000. in
-  let scale_label =
-    Scales.Scale_label.make
-      ~display:true
-      ~label_string:"Время"
+  let scale_label = createScaleLabel () in
+  scale_label##.display := Js._true;
+  scale_label##.labelString := Js.string "Время";
+  let time_format = "HH:mm:ss" in
+  let display_formats = createTimeDisplayFormats () in
+  display_formats##.second := Js.string time_format;
+  display_formats##.minute := Js.string time_format;
+  display_formats##.hour := Js.string time_format;
+  let time_options = createTimeCartesianOptions () in
+  time_options##.isoWeekday := Js._true;
+  time_options##.displayFormats := display_formats;
+  time_options##.tooltipFormat := Js.string "ll HH:mm:ss";
+  let ticks = createTimeCartesianTicks () in
+  ticks##.autoSkipPadding := 2;
+  let axis = createTimeCartesianAxis () in
+  axis##.id := Js.string id;
+  axis##.scaleLabel := scale_label;
+  axis##.ticks := ticks;
+  axis##.time := time_options;
+  axis##.position := Position.bottom;
+  axis##._type := Js.string "realtime";
+  let streaming = Chartjs_streaming.create
+      ~duration
       () in
-  let display_formats =
-    Scales.Cartesian.Time.Time.Display_formats.make
-      ~minute:"HH:mm:ss"
-      ~second:"HH:mm:ss"
-      ~hour:"HH:mm:ss"
-      () in
-  let time =
-    Scales.Cartesian.Time.Time.make
-      ~iso_weekday:true
-      ~display_formats
-      ~tooltip_format:"ll HH:mm:ss"
-      () in
-  let ticks =
-    Scales.Cartesian.Time.Ticks.make
-      ~auto_skip_padding:2
-      () in
-  let axis =
-    Scales.Cartesian.Time.make
-      ~id
-      ~scale_label
-      ~ticks
-      ~time
-      ~position:`Bottom
-      ~type_:axis_type
-      () in
-  let streaming = make ~duration () in
-  Per_axis.set axis streaming;
+  Chartjs_streaming.set_per_axis axis streaming;
   axis
 
-let make_y_axis ?(id = "y-axis") (config : widget_config) : Chartjs.Scales.t =
+let make_y_axis ?(id = "y-axis") (config : widget_config)
+  : Chartjs.linearCartesianAxis Js.t =
   let open Chartjs in
-  let open Chartjs.Scales.Cartesian in
   let (min, max) = get_suggested_range config.typ in
-  let scale_label =
-    Scales.Scale_label.make
-      ~display:true
-      ~label_string:(typ_to_unit_string config.typ)
-      () in
-  let ticks =
-    Linear.Ticks.make
-      ~suggested_min:min
-      ~suggested_max:max
-      () in
-  Linear.make
-    ~id
-    ~ticks
-    ~scale_label
-    ~position:`Left
-    ()
+  let scale_label = createScaleLabel () in
+  scale_label##.display := Js._true;
+  scale_label##.labelString := Js.string @@ typ_to_unit_string config.typ;
+  let ticks = createLinearCartesianTicks () in
+  ticks##.suggestedMin := min;
+  ticks##.suggestedMax := max;
+  let axis = createLinearCartesianAxis () in
+  axis##.id := Js.string id;
+  axis##.ticks := ticks;
+  axis##.scaleLabel := scale_label;
+  axis##.position := Position.left;
+  axis
 
-let make_options ~x_axes ~y_axes : Chartjs.Options.t =
-  let scales = Chartjs.Scales.make ~x_axes ~y_axes () in
-  let plugins = Chartjs.Options.Plugins.make () in
-  Chartjs_datalabels.Per_chart.set plugins None;
-  let options =
-    Chartjs.Options.make
-      ~scales
-      ~responsive_animation_duration:0
-      ~maintain_aspect_ratio:false
-      ~responsive:true
-      ~plugins
-      () in
-  (* options#animation#set_duration 0;
-   * options#hover#set_animation_duration 0; *)
+let make_options ~xAxes ~yAxes =
+  let open Chartjs in
+  let scales = createLineScales ~xAxes ~yAxes () in
+  let options = createLineOptions () in
+  options##.scales := scales;
+  options##.responsiveAnimationDuration := 0;
+  options##.maintainAspectRatio := Js._false;
+  options##.responsive := Js._true;
   options
 
 let make_dataset id src structures data =
@@ -257,96 +208,95 @@ let make_dataset id src structures data =
   let color = Color.to_hexstring @@ Color.of_rgb r g b in
   (* TODO implement label update on structure update *)
   let label = data_source_to_string structures src in
-  let ds =
-    Dataset.make
-      ~data
-      ~label
-      ~line_tension:0.
-      ~point_radius:(`Single 2)
-      ~fill:`Off
-      ~background_color:color
-      ~border_color:color
-      () in
+  let ds = Chartjs.createLineDataset @@ Js.array data in
+  ds##.label := Js.string label;
+  ds##.lineTension := 0.;
+  ds##.pointRadius := Chartjs.Scriptable_indexable.of_single 2;
+  ds##.backgroundColor := Chartjs.Color.of_string color;
+  ds##.borderColor := Chartjs.Color.of_string color;
   src, ds
 
-let make_datasets (init : data)
-      (sources : data_source list)
-      (structures : Structure.Annotated.t)
-    : (data_source * Dataset.t) list =
+let make_datasets init
+    (sources : data_source list)
+    (structures : Structure.Annotated.t) =
   let map id (src : data_source) =
     let data =
       Utils.List.find_map (fun (src', data) ->
           if equal_data_source src src'
           then Some data else None) init
-      |> function None -> [] | Some x -> x in
+      |> function None -> [||] | Some x -> x in
     make_dataset id src structures data in
   List.mapi map sources
 
-class t ~(init : 'a list)
-        ~(structures : Structure.Annotated.t React.signal)
-        ~(config : widget_config)
-        () =
-  let x_axis = make_x_axis config in
-  let y_axis = make_y_axis config in
-  let (options : Chartjs.Options.t) =
-    make_options ~x_axes:[x_axis] ~y_axes:[y_axis] in
-  let datasets = make_datasets init config.sources
-                   (React.S.value structures) in
-  let data = Chartjs.Data.make ~datasets:(List.map snd datasets) () in
-  let canvas = Dom_html.(createCanvas document) in
-  let chart = Chartjs.make ~options ~data `Line (`Canvas canvas) in
-  object(self)
+class t
+    (init : 'a list)
+    (structures : Structure.Annotated.t)
+    (config : widget_config)
+    (elt : Dom_html.element Js.t) = object(self)
+  val canvas : Dom_html.canvasElement Js.t =
+    Js.Unsafe.coerce @@ Element.query_selector_exn elt "canvas"
 
-    val mutable _datasets = datasets
+  val mutable datasets =
+    let data = convert_data config init in
+    make_datasets data config.sources structures
 
-    inherit Widget.t Dom_html.(createDiv document) () as super
+  val mutable chart = None
 
-    method! init () : unit =
-      super#init ();
-      super#add_class base_class;
-      super#append_child @@ Widget.create canvas;
-      (* FIXME maybe remove this map and call 'udpdate'
-       * from the top level if needed? *)
-      Lwt_react.S.keep @@ React.S.map ~eq:(=) self#update_structures structures
+  inherit Widget.t Dom_html.(createDiv document) () as super
 
-    method append_data (data : data) : unit =
-      List.iter (fun (src, (data : Point.t list)) ->
-          let data = List.sort (fun (a : Point.t) (b : Point.t) ->
-                         Ptime.compare a.x b.x) data in
-          match Utils.List.Assoc.get ~eq:equal_data_source src _datasets with
-          | None ->
-             begin match config.sources with
-             | [] ->
-                let id = List.length _datasets in
-                let structs = React.S.value structures in
-                let ds = make_dataset id src structs data in
-                _datasets <- ds :: _datasets;
-                let data' = Chartjs.data chart in
-                let datasets = Chartjs.Data.datasets data' in
-                let (_ : int) = Chartjs.Data.Datasets.push datasets [snd ds] in
-                let config = Chartjs_streaming.make_config ~preservation:true () in
-                Chartjs.update chart (Some config)
-             | _ -> ()
-             end
-          | Some (ds : Dataset.t) ->
-             let data' = Dataset.data ds in
-             List.iter (fun (point : Point.t) ->
-                 let (_ : int) = Dataset.Values.push data' [point] in
-                 ()) data;
-             let config = Chartjs_streaming.make_config ~preservation:true () in
-             Chartjs.update chart (Some config)) data
+  method! init () : unit =
+    let x_axis = make_x_axis config in
+    let y_axis = make_y_axis config in
+    let options = make_options ~xAxes:[x_axis] ~yAxes:[y_axis] in
+    let data = Chartjs.createData ~datasets:(List.map snd datasets) () in
+    chart <- Some (Chartjs.chart_from_canvas Chartjs.Chart.line data options canvas);
+    super#init ()
 
-    (* Private methods *)
+  method! destroy () : unit =
+    Utils.Option.iter (fun x -> x##destroy) chart;
+    super#destroy ()
 
-    method private update_structures (structures : Structure.Annotated.t) : unit =
-      List.iter (fun (src, (ds : Dataset.t)) ->
-          let label = data_source_to_string structures src in
-          Dataset.set_label ds label) _datasets
+  method chart : Chartjs.lineChart Js.t =
+    match chart with
+    | None -> raise Not_found
+    | Some x -> x
 
-  end
+  method notify : event -> unit = function
+    (* TODO add structures and state update *)
+    | `Data data ->
+      match convert_data config data with
+      | [] -> ()
+      | data ->
+        List.iter (fun (src, data) ->
+            match Utils.List.Assoc.get ~eq:equal_data_source src datasets with
+            | None ->
+              (match config.sources with
+               | [] ->
+                 let id = List.length datasets in
+                 let ds = make_dataset id src structures data in
+                 datasets <- ds :: datasets;
+                 let (_ : int) = self#chart##.data##.datasets##push
+                     (Chartjs.coerce_dataset @@ snd ds) in
+                 ()
+               | _ -> ())
+            | Some (ds : _ Chartjs.lineDataset Js.t) ->
+              let data = ds##.data##concat (Js.array data) in
+              ds##.data := data) data;
+        let update_config = Chartjs_streaming.createUpdateConfig () in
+        update_config##.preservation := Js._true;
+        self#chart##update_withConfig update_config
 
-(* let make_dashboard_item ~init ~structures ~config () =
- *   let widget = new t ~init ~structures ~config () in
- *   Dashboard.Item.make_item
- *     ~name:(typ_to_string config.typ)
- *     widget *)
+  (* Private methods *)
+
+  method private update_structures (structures : Structure.Annotated.t) : unit =
+    List.iter (fun (src, (ds : _ Chartjs.lineDataset Js.t)) ->
+        let label = data_source_to_string structures src in
+        ds##.label := Js.string label) datasets
+end
+
+let make init structures config =
+  let elt = Js_of_ocaml_tyxml.Tyxml_js.Html.(
+      Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
+      @@ div ~a:[a_class [CSS.root]] [canvas []]) in
+  new t init structures config elt
+

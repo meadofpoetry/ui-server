@@ -2,8 +2,7 @@
   (name       pipeline_widgets_js)
   (libraries  pipeline_http_js
               chartjs
-              chartjs.streaming
-              chartjs.datalabels
+              chartjs-streaming
               components
               ui_templates)
   (preprocess (pps ppx_deriving_yojson

@@ -10,7 +10,6 @@
                gen_js_api
                ui_templates
                chartjs
-               chartjs.datalabels
                ptime.clock.jsoo)
   (preprocess  (pps ppx_deriving_yojson
                     ppx_deriving.eq
