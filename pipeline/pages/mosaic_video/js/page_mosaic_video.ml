@@ -286,7 +286,7 @@ let () =
   let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
   let player = match scaffold#body with
     | None -> failwith "no video player element found"
-    | Some x -> Player.attach x#root in
+    | Some x -> Player.attach x in
   tie_side_sheet_with_toggle scaffold;
   tie_menu_with_toggle scaffold;
   Lwt.async (fun () ->

@@ -39,36 +39,36 @@ let set_streams (app : Application.t) _user body _env _state =
        | Error ejs -> (* TODO proper string *)
           Lwt.return (`Error (Yojson.Safe.to_string @@ Stream.Table.set_error_to_yojson ejs))
 
-  let get_topology (app : Application.t) _user _body _env _state =
-    app.topo
-    |> React.S.value
-    |> Topology.to_yojson
-    |> fun v -> Lwt.return (`Value v)
+let get_topology (app : Application.t) _user _body _env _state =
+  app.topo
+  |> React.S.value
+  |> Topology.to_yojson
+  |> fun v -> Lwt.return (`Value v)
 
-  let get_streams (app : Application.t) _user _body _env _state =
-    app.hw.streams
-    |> React.S.value
-    |> Stream.stream_table_to_yojson
-    |> fun v -> Lwt.return (`Value v)
+let get_streams (app : Application.t) _user _body _env _state =
+  app.hw.streams
+  |> React.S.value
+  |> Stream.stream_table_to_yojson
+  |> fun v -> Lwt.return (`Value v)
 
-  let get_all_streams (app : Application.t) input _user _body _env _state =
-    match Application.streams_on_input app input with
-    | Ok v -> Lwt.return (`Value (Stream.stream_list_to_yojson v))
-    | Error e -> Lwt.return (`Error e)
+let get_all_streams (app : Application.t) input _user _body _env _state =
+  match Application.streams_on_input app input with
+  | Ok v -> Lwt.return (`Value (Stream.stream_list_to_yojson v))
+  | Error e -> Lwt.return (`Error e)
 
-  let get_stream_source (app : Application.t) id _user _body _env _state =
-    match Application.stream_source app id with
-    | Ok v -> Lwt.return (`Value (Stream.source_to_yojson v))
-    | Error e -> Lwt.return (`Error e)
+let get_stream_source (app : Application.t) id _user _body _env _state =
+  match Application.stream_source app id with
+  | Ok v -> Lwt.return (`Value (Stream.source_to_yojson v))
+  | Error e -> Lwt.return (`Error e)
 
-  let get_log (app : Application.t) boards cpu inputs streams
-        limit from till duration _user _body _env _state =
-    match Interval.make ?from ?till ?duration () with
-    | Ok `Range (from, till) ->
-       Database.Log.select app.db ~boards ~cpu ~inputs ~streams
-         ?limit ~from ~till ()
-       |> Lwt.map (Api.rows_to_yojson
-                     (Util_json.List.to_yojson Stream.Log_message.to_yojson)
-                     (fun () -> `Null))
-       >>= fun x -> Lwt.return (`Value x)
-    | _ -> Lwt.return `Not_implemented
+let get_log (app : Application.t) boards cpu inputs streams
+    limit from till duration _user _body _env _state =
+  match Interval.make ?from ?till ?duration () with
+  | Ok `Range (from, till) ->
+    Database.Log.select app.db ~boards ~cpu ~inputs ~streams
+      ?limit ~from ~till ()
+    |> Lwt.map (Api.rows_to_yojson
+                  (Util_json.List.to_yojson Stream.Log_message.to_yojson)
+                  (fun () -> `Null))
+    >>= fun x -> Lwt.return (`Value x)
+  | _ -> Lwt.return `Not_implemented

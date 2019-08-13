@@ -1,0 +1,12 @@
+(executable
+  (name       page_input)
+  (libraries  components
+              ui_templates
+              application_http_js
+              board_niitv_dvb_http_js)
+  (preprocess (pps js_of_ocaml-ppx)))
+
+(install
+  (files (page_input.bc.js as js/page-input.js))
+  (section share)
+  (package ui-server))

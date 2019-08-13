@@ -40,7 +40,7 @@ let network_pages : 'a. unit -> 'a Api_template.item list =
   let props =
     make_template_props
       ~title:"Сетевые настройки"
-      ~post_scripts:[Src "/js/page-network-settings.js"]
+      ~post_scripts:[`Src "/js/page-network-settings.js"]
       ~stylesheets:["/css/page-network-settings.min.css"]
       ()
   in

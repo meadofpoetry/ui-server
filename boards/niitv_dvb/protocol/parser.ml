@@ -87,7 +87,7 @@ let parse_measures (buf : Cstruct.t) =
         | None -> None
         | Some x -> Some (Int32.to_int x) in
       let data = { Measure. lock; power; mer; ber; freq; bitrate } in
-      Ok { data; timestamp = Ptime_clock.now () }
+      Ok { data; timestamp = Ptime.truncate ~frac_s:0 @@ Ptime_clock.now () }
   with Invalid_argument _ -> Error Invalid_length
 
 let parse_params (buf : Cstruct.t) =

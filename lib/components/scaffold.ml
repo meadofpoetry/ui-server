@@ -73,12 +73,6 @@ let attach_side_sheet (elt : Dom_html.element Js.t) () =
   Selector.by_class_opt elt Side_sheet.CSS.root
   |> Option.map Side_sheet.attach
 
-let attach_body (app_content_inner : Dom_html.element Js.t) () =
-  let elt = (Js.Unsafe.coerce app_content_inner)##.firstElementChild in
-  match Js.Opt.to_option elt with
-  | None -> None
-  | Some (node : Dom_html.element Js.t) -> Some (Widget.create node)
-
 class t ?(drawer : #Drawer.t option)
     ?(drawer_elevation : drawer_elevation option)
     ?(drawer_breakpoints = Breakpoint.default_drawer)
@@ -86,7 +80,7 @@ class t ?(drawer : #Drawer.t option)
     ?(side_sheet_elevation : drawer_elevation option)
     ?(side_sheet_breakpoints = Breakpoint.default_side_sheet)
     ?(top_app_bar : #Top_app_bar.t option)
-    ?(body : #Widget.t option)
+    ?(body : #Dom_html.element Js.t option)
     ?on_navigation_icon_click
     (elt : Dom_html.element Js.t)
     () =
@@ -110,38 +104,40 @@ class t ?(drawer : #Drawer.t option)
     val mutable side_sheet = match side_sheet with
       | None -> attach_side_sheet elt ()
       | Some x -> Some x
-    val mutable body = match body with
-      | None -> attach_body app_content_inner ()
-      | Some x -> Some x
 
     (* Event listeners *)
     val mutable listeners = []
 
     val mutable drawer_type =
       Breakpoint.(current (get_screen_width ()) drawer_breakpoints)
+
     val mutable side_sheet_type =
       Breakpoint.(current (get_screen_width ()) side_sheet_breakpoints)
 
     val mutable side_sheet_breakpoints = side_sheet_breakpoints
+
     val mutable drawer_breakpoints = drawer_breakpoints
 
     val mutable on_navigation_icon_click = on_navigation_icon_click
+
+    val mutable loaded = Lwt.return_unit
 
     inherit Widget.t elt () as super
 
     method! init () : unit =
       super#init ();
-      Lwt.async (fun () ->
-          Lwt_js_events.domContentLoaded ()
-          >>= self#handle_content_loaded
-          >>= fun () ->
-          super#root##.style##.visibility := Js.string "";
-          Lwt.return_unit)
+      loaded <- Lwt_js_events.domContentLoaded ()
+        >>= self#handle_content_loaded
+        >>= fun () ->
+        super#root##.style##.visibility := Js.string "";
+        Lwt.return_unit
 
     method! destroy () : unit =
       super#destroy ();
       List.iter Lwt.cancel listeners;
       listeners <- []
+
+    method loaded : unit Lwt.t = loaded
 
     method on_navigation_icon_click =
       on_navigation_icon_click
@@ -165,8 +161,7 @@ class t ?(drawer : #Drawer.t option)
       top_app_bar <- Some x;
       previous
 
-    method drawer : Drawer.t option =
-      drawer
+    method drawer : Drawer.t option = drawer
 
     method set_drawer : 'a. ?elevation:drawer_elevation ->
       ?breakpoints:Side_sheet.typ Breakpoint.t ->
@@ -206,13 +201,19 @@ class t ?(drawer : #Drawer.t option)
 
     method app_content_outer = app_content_outer
 
-    method body : Widget.t option =
-      body
+    method body : Dom_html.element Js.t option =
+      Js.Opt.to_option
+      @@ (Js.Unsafe.coerce app_content_inner)##.firstElementChild
 
-    method set_body : 'a. (#Widget.t as 'a) -> unit =
-      fun (body : #Widget.t) ->
-      Element.remove_children app_content_inner;
-      Dom.appendChild app_content_inner body#root
+    method set_body (body : Dom_html.element Js.t) =
+      let attached =
+        List.fold_left (fun acc (x : Dom.node Js.t) ->
+            if x != (body :> Dom.node Js.t)
+            then (Dom.removeChild app_content_inner x; acc)
+            else true) false
+        @@ Dom.list_of_nodeList
+        @@ app_content_inner##.childNodes in
+      if not attached then Dom.appendChild app_content_inner body
 
     method drawer_elevation : drawer_elevation option =
       self#drawer_elevation_ self#drawer
@@ -419,7 +420,7 @@ class t ?(drawer : #Drawer.t option)
 let make ?drawer ?drawer_elevation ?drawer_breakpoints
     ?side_sheet ?side_sheet_elevation ?side_sheet_breakpoints
     ?(top_app_bar : #Top_app_bar.t option)
-    ?(body : #Widget.t option)
+    ?(body : #Dom_html.element Js.t option)
     ?on_navigation_icon_click
     () =
   let elt =

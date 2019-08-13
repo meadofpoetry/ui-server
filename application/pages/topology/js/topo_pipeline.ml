@@ -32,7 +32,9 @@ let make_structure socket =
 
 let make (cpu : Topology.topo_cpu)
     (socket : Api_js.Websocket.JSON.t) : (#Widget.t,string) Lwt_result.t =
-  let wrap f () = Ui_templates.Loader.create_widget_loader (f socket) in
+  let wrap f () =
+    Widget.create
+    @@ Ui_templates.Loader.make_widget_loader (f socket) in
   let tabs =
     [ (wrap (make_streams cpu)), Tab.make ~label:"Выбор потоков" ()
     ; (wrap (make_structure)), Tab.make ~label:"Выбор PID" ()

@@ -48,29 +48,29 @@
 - [ ] API
   - [ ] Add API to fetch archived streams (from all sources)
 - [ ] UI
-  - [ ] Implement common scaffold widget for every page
-  - [ ] Reduce generated JS files size
+  - [X] Implement common scaffold widget for every page
+  - [X] Reduce generated JS files size
   - [ ] Render initial content on the server side where possible
-  - [ ] Refactor mosaic video page
+  - [-] Refactor mosaic video page
     - [ ] Show stats and settings inside dismissible side sheet widget
-    - [ ] Add quick navigation to mosaic editor
-    - [ ] Video controls should be common across browsers
-  - [ ] Refactor mosaic editor page
-    - [ ] Adaptive design
+    - [X] Add quick navigation to mosaic editor
+    - [X] Video controls should be common across browsers
+  - [-] Refactor mosaic editor page
+    - [X] Adaptive design
     - [ ] Show layers and widgets cards inside dismissible side sheet widget
-    - [ ] Grid should never scroll
-    - [ ] Rethink grid size principles
+    - [X] Grid should never scroll
+    - [X] Rethink grid size principles
     - [ ] Add fast available widget selection mechanism
     - [ ] Show when the widget on mosaic in unavailable
-  - [ ] Refactor topology page
-    - [ ] Show/hide settings dependent on the current user
+  - [X] Refactor topology page
+    - [X] Show/hide settings dependent on the current user
   - [ ] Refactor input page
     - [ ] Add board tabs to show info for boards, not streams
     - [ ] Add archived streams to streams tab
-  - [ ] Refactor network settings page
-    - [ ] Just put things in order
-  - [ ] Refactor user settings page
-    - [ ] Just put things in order
+  - [X] Refactor network settings page
+    - [X] Just put things in order
+  - [X] Refactor user settings page
+    - [X] Just put things in order
 
 ** TODO Beta goals [0/9]:
 - [ ] Refactor topology so that graph were represented as directed graph (as in dot files)
@@ -105,7 +105,7 @@
 - [ ] Dashboard GUI
 - [ ] Archive GUI
 - [ ] Jitter measurements
-- [ ] Logout
+- [X] Logout
 - [ ] Swagger like api page
   - [ ] Proper api docstrings on backend
   - [ ] Related http-page
