@@ -96,7 +96,7 @@ object(self)
 
   method set_active_tab (tab : Tab.t) : unit Lwt.t =
     if not tab#active then (
-      let eq = Option.equal ~eq:Widget.equal in
+      let eq = Option.equal Widget.equal in
       let previous = _scroller#active_tab in
       if not @@ eq (Some tab) previous
       then (

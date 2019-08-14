@@ -6,7 +6,6 @@
                util_equal
                api_js
                components
-               gen_js_api
                ui_templates
                chartjs
                chartjs-streaming

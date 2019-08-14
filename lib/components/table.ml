@@ -1,6 +1,5 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
-open Utils
 
 (** TODO
     1. Using Infinite Scroll, there is no way to scroll horizontally on desktop
@@ -98,7 +97,7 @@ let rec is_numeric : type a. a fmt -> bool = function
 
 let rec compare : type a. a fmt -> (a -> a -> int) = fun fmt ->
   match fmt with
-  | Int _ -> Pervasives.compare
+  | Int _ -> Stdlib.compare
   | Int32 _ -> Int32.compare
   | Int64 _ -> Int64.compare
   | Float _ -> Float.compare
@@ -293,7 +292,8 @@ module Row = struct
     let cells' = cells_to_widgets cells in
     let elt =
       Markup.create_row
-        ~cells:List.(map Widget.to_markup cells' |> cons_maybe (Cell.wrap_checkbox cb))
+        ~cells:(List.map Widget.to_markup cells'
+                |> Utils.List.cons_maybe (Cell.wrap_checkbox cb))
         () in
     object(self)
       val mutable _fmt : 'a Format.t = fmt
@@ -389,7 +389,7 @@ module Header = struct
     let elt =
       Markup.create_row
         ~cells:(List.map Widget.to_markup columns
-                |> List.cons_maybe (Column.wrap_checkbox cb)) ()
+                |> Utils.List.cons_maybe (Column.wrap_checkbox cb)) ()
       |> Tyxml_js.To_dom.of_element in
     object
       inherit Widget.t elt ()

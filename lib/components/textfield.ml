@@ -84,7 +84,7 @@ module Icon = struct
         super#initial_sync_with_dom ()
 
       method! destroy () : unit =
-        Utils.Option.iter Ripple.destroy ripple_;
+        Option.iter Ripple.destroy ripple_;
         ripple_ <- None;
         (* Detach event listeners *)
         List.iter Lwt.cancel listeners_;
@@ -275,15 +275,15 @@ let parse_valid (type a)
   | Float (Some min, None) ->
     (match float_of_string_opt s with
      | None -> None
-     | Some (v : float) -> if v >=. min then Some v else None)
+     | Some (v : float) -> if v >= min then Some v else None)
   | Float (None, Some max) ->
     (match float_of_string_opt s with
      | None -> None
-     | Some (v : float) -> if v <=. max then Some v else None)
+     | Some (v : float) -> if v <= max then Some v else None)
   | Float (Some min, Some max) ->
     (match float_of_string_opt s with
      | None -> None
-     | Some (v : float) -> if v <=. max && v >=. min then Some v else None)
+     | Some (v : float) -> if v <= max && v >= min then Some v else None)
   | Password vf  ->
     (match vf s with
      | Ok () -> Some s
@@ -604,7 +604,7 @@ class ['a] t ?on_input
 
     method private should_always_float : bool =
       let typ = Js.to_string input_elt##._type in
-      List.mem ~eq:String.equal typ Const.always_float_types
+      List.exists (String.equal typ) Const.always_float_types
 
     method private should_float : bool =
       self#should_always_float
@@ -642,7 +642,7 @@ class ['a] t ?on_input
         | attr :: tl ->
           if String.equal "maxlength" attr
           then self#set_character_counter @@ String.length self#value_as_string;
-          if List.mem ~eq:String.equal attr Const.validation_attr_whitelist
+          if List.exists (String.equal attr) Const.validation_attr_whitelist
           then self#style_validity true else aux tl in
       aux attrs
 

@@ -69,7 +69,7 @@ module Section = struct
 
       method align : align option = align
       method set_align (x : align option) : unit =
-        if not @@ (Option.equal ~eq:equal_align) align x then
+        if not @@ (Option.equal equal_align) align x then
           (Option.iter (super#remove_class % align_to_class) align;
            Option.iter (super#add_class % align_to_class) x;
            align <- x)
@@ -217,8 +217,8 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
         (_ : unit Lwt.t) : unit Lwt.t =
       if not !Utils.prevent_scroll && not ticking then (
         ticking <- true;
-        Animation.request ()
-        >>= fun _ -> self#update (); ticking <- false; Lwt.return_unit)
+        Lwt_js_events.request_animation_frame ()
+        >>= fun () -> self#update (); ticking <- false; Lwt.return_unit)
       else if !Utils.prevent_scroll then (
         Lwt_js.yield ()
         >>= fun () -> Utils.prevent_scroll := false; Lwt.return_unit)

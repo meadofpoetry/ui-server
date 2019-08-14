@@ -397,7 +397,7 @@ class t (adapter : adapter) () =
           | Some e ->
             let typ = Js.to_string e##._type in
             let lst = ["mousedown"; "touchstart"; "pointerdown"] in
-            List.mem ~eq:String.equal typ lst in
+            List.exists (String.equal typ) lst in
         let was_element_made_active = self#check_element_made_active event in
         let state = { _activation_state with is_activated
                                            ; is_programmatic
@@ -584,8 +584,8 @@ class t (adapter : adapter) () =
       self#update_css_var CSS.Var.fg_scale fg_scale;
       if self#unbounded
       then (
-        let x = Float.(round ((_frame.width / 2.) - (_initial_size / 2.))) in
-        let y = Float.(round ((_frame.height / 2.) - (_initial_size / 2.))) in
+        let x = Float.(round ((_frame.width /. 2.) -. (_initial_size /. 2.))) in
+        let y = Float.(round ((_frame.height /. 2.) -. (_initial_size /. 2.))) in
         _unbounded_coords <- { x; y };
         self#update_css_var CSS.Var.left (Some (Printf.sprintf "%gpx" x));
         self#update_css_var CSS.Var.top (Some (Printf.sprintf "%gpx" y)))

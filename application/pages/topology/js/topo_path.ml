@@ -101,7 +101,7 @@ class t ~(left_node : node_entry)
     method switch : switch option = switch
     method set_state (x : connection_state) : unit =
       state <- x;
-      Utils.Option.iter (fun sw -> sw#set_state x) switch;
+      Option.iter (fun sw -> sw#set_state x) switch;
       match state with
       | `Muted | `Unavailable ->
          super#add_class muted_class;
@@ -133,7 +133,7 @@ class t ~(left_node : node_entry)
         if left.y > right.y
         then left.y, left.y  - right.y
         else right.y, right.y - left.y in
-      Utils.Option.iter (fun sw ->
+      Option.iter (fun sw ->
           let x = right.x + 15 in
           let y = right.y - (sw#root##.offsetHeight / 2) in
           sw#root##.style##.top := Utils.px_js y;

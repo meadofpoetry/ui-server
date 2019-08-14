@@ -166,7 +166,7 @@ class t
     method! destroy () : unit =
       self#restore_top_app_bar_context ();
       List.iter Lwt.cancel _listeners; _listeners <- [];
-      Utils.Option.iter Widget.destroy _selection;
+      Option.iter Widget.destroy _selection;
       _selection <- None;
       List.iter Widget.destroy _basic_actions; _basic_actions <- [];
       List.iter Widget.destroy _selected_actions; _selected_actions <- [];

@@ -308,7 +308,7 @@ class t
     super#init ()
 
   method! destroy () : unit =
-    Utils.Option.iter (fun x -> x##destroy) chart;
+    Option.iter (fun x -> x##destroy) chart;
     super#destroy ()
 
   method chart : Chartjs.lineChart Js.t =

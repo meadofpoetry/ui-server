@@ -164,7 +164,7 @@ module Header = struct
 
       method! layout () : unit =
         super#layout ();
-        Utils.Option.iter Widget.layout self#settings_icon
+        Option.iter Widget.layout self#settings_icon
 
       method settings_icon =
         settings
@@ -214,7 +214,7 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
       self#notify (`State board);
       super#add_class CSS.root;
       super#set_attribute "data-board" @@ get_board_type board;
-      Utils.Option.iter (fun (w : Icon_button.t) ->
+      Option.iter (fun (w : Icon_button.t) ->
           let listener =
             Events.clicks w#root (fun _ _ ->
                 let name = get_board_name self#board in
@@ -226,7 +226,7 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
 
     method! destroy () : unit =
       super#destroy ();
-      Utils.Option.iter Lwt.cancel _click_listener;
+      Option.iter Lwt.cancel _click_listener;
       _click_listener <- None
 
     method! layout () : unit =

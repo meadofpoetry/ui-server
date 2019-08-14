@@ -23,7 +23,7 @@ module Header = struct
 
   class t ?action ?subtitle ~title () =
     let title_w = Card.Primary.make_title title in
-    let subtitle_w = Utils.Option.map
+    let subtitle_w = Option.map
         (Widget.coerce % Card.Primary.make_subtitle)
         subtitle in
     let box =
@@ -33,7 +33,7 @@ module Header = struct
          |> List.cons title_w#widget) in
     let widgets =
       []
-      |> Utils.List.cons_maybe @@ Utils.Option.map Widget.coerce action
+      |> Utils.List.cons_maybe @@ Option.map Widget.coerce action
       |> List.cons box#widget in
     let elt =
       Tyxml_js.To_dom.of_element
@@ -44,7 +44,7 @@ module Header = struct
 
       method! init () : unit =
         super#init ();
-        Utils.Option.iter (fun a -> a#add_class CSS.header_action) action;
+        Option.iter (fun a -> a#add_class CSS.header_action) action;
         self#add_class CSS.header
 
     end

@@ -80,7 +80,7 @@ module Cell = struct
     method set_span ?(device : device option) (x : int option) : unit =
       List.iter (fun (_class : string) ->
           match parse_span _class with
-          | Some (_, d) when Option.equal ~eq:equal_device device d ->
+          | Some (_, d) when Option.equal equal_device device d ->
              super#remove_class _class
           | _ -> ()) super#classes;
       Option.iter (super#add_class % CSS.cell_span ?device) x

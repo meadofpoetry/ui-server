@@ -24,7 +24,7 @@ let get_checked ?(filter_empty = false) children =
           | None -> true | Some x -> x) x in
   let indeterminate =
     not checked
-    && Utils.Option.is_some
+    && Option.is_some
     @@ List.find_opt (fun (x : Treeview.node) ->
         match x.checked, x.indeterminate with
         | None, None -> false
@@ -222,7 +222,7 @@ class t (structure : Structure.Annotated.t) () =
       placeholder#destroy ();
       buttons#destroy ();
       actions#destroy ();
-      Utils.Option.iter Lwt.cancel _on_submit;
+      Option.iter Lwt.cancel _on_submit;
       _on_submit <- None
 
     method submit () : (unit, string) Lwt_result.t =
@@ -264,7 +264,7 @@ class t (structure : Structure.Annotated.t) () =
         else (
           self#append_treeview cur;
           super#remove_child placeholder);
-        Utils.Option.iter (fun x -> x##focus) focus_target;
+        Option.iter (fun x -> x##focus) focus_target;
         _treeview <- cur
 
     method private append_treeview : 'a. (#Widget.t as 'a) -> unit =

@@ -1,44 +1,6 @@
 open Js_of_ocaml
 
-let (=.) : float -> float -> bool = Pervasives.(=)
-let (<>.) : float -> float -> bool = Pervasives.(<>)
-let (<.) : float -> float -> bool = Pervasives.(<)
-let (>.) : float -> float -> bool = Pervasives.(>)
-let (<=.) : float -> float -> bool = Pervasives.(<=)
-let (>=.) : float -> float -> bool = Pervasives.(>=)
-
 let ( % ) f g x = f (g x)
-
-module Bool = struct
-  type t = bool
-
-  let equal (a : t) (b : t) : t = Pervasives.( = ) a b
-end
-
-module Float = struct
-  include Float
-
-  module Infix = struct
-    let (=) : t -> t -> bool = Pervasives.(=)
-    let (<>) : t -> t -> bool = Pervasives.(<>)
-    let (<) : t -> t -> bool = Pervasives.(<)
-    let (>) : t -> t -> bool = Pervasives.(>)
-    let (<=) : t -> t -> bool = Pervasives.(<=)
-    let (>=) : t -> t -> bool = Pervasives.(>=)
-    let (~-) : t -> t = Pervasives.(~-.)
-    let (+) : t -> t -> t = Pervasives.(+.)
-    let (-) : t -> t -> t = Pervasives.(-.)
-    let ( * ) : t -> t -> t = Pervasives.( *. )
-    let (/) : t -> t -> t = Pervasives.(/.)
-  end
-  include Infix
-
-  let min (a : t) (b : t) : t = Pervasives.min a b
-  let max (a : t) (b : t) : t = Pervasives.max a b
-
-  let round (x : float) : float =
-    floor (x +. 0.5)
-end
 
 module List = struct
   include List
@@ -48,14 +10,8 @@ module List = struct
     | [], _ | _, [] -> false
     | x1 :: l1', x2 :: l2' -> eq x1 x2 && equal ~eq l1' l2'
 
-  let mem ~eq x l =
-    let rec aux eq x = function
-      | [] -> false
-      | y :: l' -> eq x y || aux eq x l'
-    in aux eq x l
-
   let add_nodup ~eq x l =
-    if mem ~eq x l then l else x :: l
+    if exists (eq x) l then l else x :: l
 
   let find_mapi f l =
     let rec aux f i = function
@@ -68,9 +24,6 @@ module List = struct
 
   let find_map f l = find_mapi (fun _ -> f) l
 
-  let hd_opt = function
-    | x :: _ -> Some x | [] -> None
-
   let remove ~eq x l =
     let rec aux eq x acc = function
       | [] -> rev acc
@@ -82,14 +35,6 @@ module List = struct
     match x with
     | None -> l
     | Some x -> x :: l
-
-  let filter_map f l =
-    let rec aux acc = function
-      | [] -> List.rev acc
-      | x :: l' ->
-         let acc' = match f x with | None -> acc | Some y -> y :: acc in
-         aux acc' l'
-    in aux [] l
 
   let rec fold_while f acc = function
     | [] -> acc
@@ -145,34 +90,6 @@ module List = struct
   end
 end
 
-module Option = struct
-  let equal ~(eq : 'a -> 'a -> bool) (a : 'a option) (b : 'a option) : bool =
-    match a, b with
-    | None, None -> true
-    | Some a, Some b -> eq a b
-    | _, _ -> false
-
-  let get = function Some x -> x | None -> invalid_arg "value is None"
-
-  let iter (f : 'a -> unit) : 'a option -> unit = function
-    | None -> ()
-    | Some x -> f x
-
-  let map (f : 'a -> 'b) : 'a option -> 'b option = function
-    | None -> None
-    | Some x -> Some (f x)
-
-  let bind f = function None -> None | Some x -> f x
-
-  let is_some : 'a option -> bool = function
-    | None -> false
-    | Some _ -> true
-
-  let is_none : 'a option -> bool = function
-    | None -> true
-    | Some _ -> false
-end
-
 module String = struct
   include String
 
@@ -183,7 +100,7 @@ module String = struct
       let off = String.length s - len in
       let rec check i =
         if i = len then true
-        else if Pervasives.(<>) (String.unsafe_get s (off + i)) (String.unsafe_get suf i)
+        else if (String.unsafe_get s (off + i)) <> (String.unsafe_get suf i)
         then false
         else check (i + 1)
       in
@@ -200,9 +117,7 @@ module String = struct
     else (
       let rec check i =
         if i = len then true
-        else if Pervasives.(<>)
-                  (String.unsafe_get s i)
-                  (String.unsafe_get pre i) then false
+        else if (String.unsafe_get s i) <> (String.unsafe_get pre i) then false
         else check (i + 1)
       in
       check 0)
@@ -229,10 +144,10 @@ let is_in_viewport ?(vertical = true) ?(horizontal = true)
   let rect = e##getBoundingClientRect in
   let vertical =
     not vertical
-    || (rect##.top >. 0. && rect##.bottom <=. (float_of_int height)) in
+    || (rect##.top > 0. && rect##.bottom <= (float_of_int height)) in
   let horizontal =
     not horizontal
-    || (rect##.left >. 0. && rect##.right <=. (float_of_int width)) in
+    || (rect##.left > 0. && rect##.right <= (float_of_int width)) in
   vertical && horizontal
 
 (** Tail-recursive append that does not raise stack overflow on lagre lists *)
@@ -294,15 +209,6 @@ let find_element_by_class_exn (elt : #Dom_html.element Js.t)
   |> Js.Unsafe.coerce
 
 module Animation = struct
-
-  let request () : float Lwt.t =
-    let t, w = Lwt.task () in
-    let id =
-      Dom_html.window##requestAnimationFrame
-        (Js.wrap_callback (Lwt.wakeup w)) in
-    Lwt.on_cancel t (fun () -> Dom_html.window##cancelAnimationFrame id);
-    t
-
   type vendor_property_map =
     { no_prefix : string
     ; webkit_prefix : string

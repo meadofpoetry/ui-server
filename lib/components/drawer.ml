@@ -12,7 +12,7 @@ module Parent =
       let slide = `Leading
     end)
 
-class t (elt : Dom_html.element Js.t) () =
+class drawer (elt : Dom_html.element Js.t) () =
 object
   inherit Parent.t elt ()
 
@@ -23,7 +23,7 @@ object
 
 end
 
-include (Parent : module type of Parent with type t := t)
+include (Parent : module type of Parent with type t = drawer)
 
 (** Creates new widget from scratch *)
 let make (widgets : #Widget.t list) () : t =

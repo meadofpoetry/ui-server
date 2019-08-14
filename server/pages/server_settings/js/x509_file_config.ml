@@ -68,8 +68,8 @@ let make_info (type a) : a typ -> a -> Dom_html.element Js.t =
 let update_row_state (type a) : a -> Dom_html.element Js.t -> a typ -> unit =
   fun v row typ ->
   let force = match typ with
-    | Key -> Utils.Option.is_none v
-    | Crt -> Utils.Option.is_none v in
+    | Key -> Option.is_none v
+    | Crt -> Option.is_none v in
   ignore @@ Element.toggle_class ~force row Markup.CSS.Certificate.empty
 
 let filename_of_value (type a) : a -> a typ -> string option =

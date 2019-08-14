@@ -201,7 +201,7 @@ module Util = struct
 
   let find_first_cell dir n cells =
     snd
-    @@ Utils.Option.get
+    @@ Option.get
     @@ List.fold_left (fun acc cell ->
         let pos = get_cell_position cell in
         let main, aux = match dir with
@@ -376,7 +376,7 @@ class t
       ~(rows : int)
       (cell : Dom_html.element Js.t) : unit =
     let subgrid = Element.query_selector cell Selector.grid in
-    Utils.Option.iter (Element.remove_child_safe cell) subgrid;
+    Option.iter (Element.remove_child_safe cell) subgrid;
     let content = [] in (* TODO implement *)
     let grid =
       Tyxml_js.To_dom.of_element

@@ -233,8 +233,8 @@ object(self)
       (* Force repaint *)
       ignore @@ _scroll_area##getBoundingClientRect;
       _animating <- true;
-      Animation.request ()
-      >>= fun _ ->
+      Lwt_js_events.request_animation_frame ()
+      >>= fun () ->
       super#add_class CSS.animating;
       _scroll_content##.style##.transform := Js.string "none";
       Lwt.return_unit)

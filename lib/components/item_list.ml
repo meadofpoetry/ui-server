@@ -67,8 +67,8 @@ let loop_nodes f (list : Dom_html.element Dom.nodeList Js.t) =
 
 let prevent_default_event (e : #Dom_html.event Js.t) : unit =
   Js.Opt.iter e##.target (fun (elt : Dom_html.element Js.t) ->
-      if not @@ List.mem ~eq:String.equal
-          (Js.to_string elt##.tagName##toLowerCase)
+      if not @@ List.exists
+          (String.equal (Js.to_string elt##.tagName##toLowerCase))
           elements_key_allowed_in
       then Dom.preventDefault e)
 
@@ -597,7 +597,7 @@ class t (elt : Dom_html.element Js.t) () =
 
     method private set_checkbox (selected : Dom_html.element Js.t list) =
       loop_nodes (fun _ (item : Dom_html.element Js.t) ->
-          let checked = List.mem ~eq:Element.equal item selected in
+          let checked = List.exists (Element.equal item) selected in
           set_item_checked checked item;
           Element.set_attribute item Attr.aria_checked (string_of_bool checked))
         self#items_;

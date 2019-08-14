@@ -348,8 +348,8 @@ let make ?classes ?title ?content ?actions () : t =
             @@ Element.coerce x) actions in
         Some (Markup.create_actions ~actions ()) in
     let surface = Markup.create_surface
-        ?title:(Utils.Option.map Tyxml_js.Of_dom.of_element title)
-        ?content:(Utils.Option.map Tyxml_js.Of_dom.of_element content)
+        ?title:(Option.map Tyxml_js.Of_dom.of_element title)
+        ?content:(Option.map Tyxml_js.Of_dom.of_element content)
         ?actions
         () in
     let container = Markup.create_container ~surface () in

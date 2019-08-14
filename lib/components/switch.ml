@@ -1,6 +1,5 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
-open Utils
 
 include Components_tyxml.Switch
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
@@ -10,7 +9,7 @@ let ( >>= ) = Lwt.bind
 class t ?on_change (elt : #Dom_html.element Js.t) () =
 object(self)
   val input_elt : Dom_html.inputElement Js.t =
-    find_element_by_class_exn elt CSS.native_control
+    Utils.find_element_by_class_exn elt CSS.native_control
   val mutable _ripple : Ripple.t option = None
   val mutable _change_listener = None
 
@@ -38,10 +37,10 @@ object(self)
   method! destroy () : unit =
     super#destroy ();
     (* Destroy internal components *)
-    Utils.Option.iter Ripple.destroy _ripple;
+    Option.iter Ripple.destroy _ripple;
     _ripple <- None;
     (* Detach event listeners *)
-    Utils.Option.iter Lwt.cancel _change_listener;
+    Option.iter Lwt.cancel _change_listener;
     _change_listener <- None
 
   method disabled : bool =

@@ -209,7 +209,7 @@ let create (init : Topology.t) (socket : Api_js.Websocket.JSON.t) =
       super#add_class Layout_grid.CSS.inner;
       if non_interactive then super#add_class CSS.non_interactive;
       iter_paths (fun _ x ->
-          Utils.Option.iter super#append_child x#switch;
+          Option.iter super#append_child x#switch;
           svg#append_child x) nodes;
       super#append_child svg;
       List.iter (fun x ->
@@ -224,7 +224,7 @@ let create (init : Topology.t) (socket : Api_js.Websocket.JSON.t) =
 
     method! destroy () : unit =
       super#destroy ();
-      Utils.Option.iter Ui_templates.Resize_observer.disconnect _resize_observer;
+      Option.iter Ui_templates.Resize_observer.disconnect _resize_observer;
       _resize_observer <- None
 
     method! layout () : unit =

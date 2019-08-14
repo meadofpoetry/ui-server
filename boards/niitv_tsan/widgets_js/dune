@@ -7,7 +7,6 @@
                ts_error
                api_js
                components
-               gen_js_api
                ui_templates
                chartjs
                ptime.clock.jsoo)

@@ -44,7 +44,7 @@ module Header = struct
 
       method! layout () : unit =
         super#layout ();
-        Utils.Option.iter Widget.layout self#settings_icon
+        Option.iter Widget.layout self#settings_icon
 
     end
 
@@ -71,7 +71,7 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
     (cpu : Topology.topo_cpu)=
   let e_settings, push_settings = React.E.create () in
   let make_settings = make_cpu_page socket cpu in
-  let header = Header.create (Utils.Option.is_some make_settings) cpu in
+  let header = Header.create (Option.is_some make_settings) cpu in
   let body = Body.create cpu in
   let port_setter = fun _ _ ->
     Lwt_result.fail "CPU ports are not switchable" in
@@ -92,7 +92,7 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
       List.iter (fun p -> p#set_state `Active) self#paths;
       self#add_class CSS.root;
       self#set_attribute "data-cpu" cpu.process;
-      Utils.Option.iter (fun (w : #Widget.t) ->
+      Option.iter (fun (w : #Widget.t) ->
           let listener =
             Events.clicks w#root (fun _ _ ->
                 let name = get_cpu_name self#cpu in
@@ -104,7 +104,7 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
 
     method! destroy () : unit =
       super#destroy ();
-      Utils.Option.iter Lwt.cancel _click_listener;
+      Option.iter Lwt.cancel _click_listener;
       _click_listener <- None
 
     method! layout () : unit =

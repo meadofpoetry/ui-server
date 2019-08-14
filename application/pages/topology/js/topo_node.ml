@@ -63,7 +63,7 @@ class parent ~port_setter
 
     method! destroy () : unit =
       super#destroy ();
-      Utils.Option.iter (React.S.stop ~strong:true) _s;
+      Option.iter (React.S.stop ~strong:true) _s;
       _s <- None
 
     method paths = paths

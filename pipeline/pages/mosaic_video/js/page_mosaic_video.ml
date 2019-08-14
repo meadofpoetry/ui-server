@@ -92,8 +92,8 @@ module RTC = struct
         ; name = None
         ; description = Some track.description
         ; is_private = false
-        ; audio = Utils.Option.is_some track.audio
-        ; video = Utils.Option.is_some track.video
+        ; audio = Option.is_some track.audio
+        ; video = Option.is_some track.video
         ; data = false
         } in
       let (rtp : Mp_rtp.t) =
