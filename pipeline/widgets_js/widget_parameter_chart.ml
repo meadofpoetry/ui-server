@@ -113,8 +113,9 @@ let convert_data
       Array.sort (fun (a : Qoe_errors.point) b ->
         Ptime.compare a.time b.time) points;
       src, Array.map (fun (x : Qoe_errors.point) ->
+          print_endline @@ Ptime.to_rfc3339 x.time;
           Chartjs.createDataPoint
-            ~x:x.time
+            ~x:(Chartjs.Time.of_float_s @@ Ptime.to_float_s x.time)
             ~y:x.data)
         points) data
 
