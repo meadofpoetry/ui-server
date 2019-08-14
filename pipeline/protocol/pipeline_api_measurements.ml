@@ -39,7 +39,6 @@ module Event = struct
        in
        Lwt.return event
     | _ ->
-      E.keep @@ E.map (fun _ -> prerr_endline "vdata!") state.notifs.vdata;
        let event =
          E.aggregate (fun () -> Lwt_unix.sleep 1.0) [state.notifs.vdata]
          |> E.map (Util_json.List.to_yojson Video_data.to_yojson)

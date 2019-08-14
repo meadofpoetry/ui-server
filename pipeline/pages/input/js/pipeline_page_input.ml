@@ -66,11 +66,14 @@ let () =
               `Data data) a_ev
         ] in
     List.iter (fun chart ->
-        chart#root##.style##.height := Js.string "200px";
-        chart#root##.style##.padding := Js.string "1rem";
+        (Js.Unsafe.coerce chart#root##.style)##.boxSizing := Js.string "border-box";
+        chart#root##.style##.height := Js.string "350px";
+        chart#root##.style##.padding := Js.string "24px";
         chart#root##.style##.marginBottom := Js.string "20px";
         chart#add_class Card.CSS.root) charts;
     let box = Box.make ~dir:`Column charts in
+    box#root##.style##.margin := Js.string "1rem";
+    box#root##.style##.padding := Js.string "24px";
     box#set_on_destroy (fun () ->
         E.stop ~strong:true notif;
         E.stop ~strong:true v_ev;
