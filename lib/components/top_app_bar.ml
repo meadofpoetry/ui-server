@@ -1,7 +1,6 @@
 open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
-open Utils
 
 (* TODO
    - add 'attach' function for all subcomponents
@@ -9,6 +8,8 @@ open Utils
    - do we really need these subcomponent classes? *)
 
 let ( >>= ) = Lwt.bind
+
+let ( % ) f g x = f (g x)
 
 include Components_tyxml.Top_app_bar
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
@@ -342,7 +343,7 @@ let make ?scroll_target ?offset ?tolerance
     ?leading ?imply_leading ?title ?actions
     ?bottom () =
   ignore bottom;
-  let ( ^:: ) = List.cons_maybe in
+  let ( ^:: ) = Utils.List.cons_maybe in
   let start_section =
     Section.make ~align:`Start ~widgets:(leading ^:: title ^:: []) () in
   let end_section = match actions with

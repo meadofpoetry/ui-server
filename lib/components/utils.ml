@@ -2,132 +2,6 @@ open Js_of_ocaml
 
 let ( % ) f g x = f (g x)
 
-module List = struct
-  include List
-
-  let rec equal ~eq l1 l2 = match l1, l2 with
-    | [], [] -> true
-    | [], _ | _, [] -> false
-    | x1 :: l1', x2 :: l2' -> eq x1 x2 && equal ~eq l1' l2'
-
-  let add_nodup ~eq x l =
-    if exists (eq x) l then l else x :: l
-
-  let find_mapi f l =
-    let rec aux f i = function
-      | [] -> None
-      | x :: l' ->
-         match f i x with
-         | Some _ as res -> res
-         | None -> aux f (i + 1) l'
-    in aux f 0 l
-
-  let find_map f l = find_mapi (fun _ -> f) l
-
-  let remove ~eq x l =
-    let rec aux eq x acc = function
-      | [] -> rev acc
-      | y :: tl when eq x y -> aux eq x acc tl
-      | y :: tl -> aux eq x (y :: acc) tl in
-    aux eq x [] l
-
-  let cons_maybe (x : 'a option) (l : 'a list) : 'a list =
-    match x with
-    | None -> l
-    | Some x -> x :: l
-
-  let rec fold_while f acc = function
-    | [] -> acc
-    | e :: l -> let acc, cont = f acc e in
-              match cont with
-              | `Stop -> acc
-              | `Continue -> fold_while f acc l
-
-  module Assoc = struct
-    type ('a, 'b) t = ('a * 'b) list
-
-    let rec search_exn eq l x = match l with
-      | [] -> raise Not_found
-      | (y, z) :: l' ->
-         if eq x y then z else search_exn eq l' x
-
-    let get_exn ~eq x l = search_exn eq l x
-
-    let get ~eq x l =
-      try Some (search_exn eq l x)
-      with Not_found -> None
-
-    (* search for a binding for [x] in [l], and calls [f x (Some v) rest]
-     or [f x None rest] depending on whether it finds the binding.
-     [rest] is the list of the other bindings *)
-    let rec search_set eq acc l x ~f = match l with
-      | [] -> f x None acc
-      | (x',y')::l' ->
-         if eq x x'
-         then f x (Some y') (List.rev_append acc l')
-         else search_set eq ((x',y')::acc) l' x ~f
-
-    let set ~eq x y l =
-      search_set eq [] l x
-        ~f:(fun x _ l -> (x,y)::l)
-
-    let mem ~eq x l =
-      try ignore (search_exn eq l x); true
-      with Not_found -> false
-
-    let update ~eq f x l =
-      search_set eq [] l x
-        ~f:(fun x opt_y rest ->
-          match f opt_y with
-          | None -> rest (* drop *)
-          | Some y' -> (x, y') :: rest)
-
-    let remove ~eq x l =
-      search_set eq [] l x
-        ~f:(fun _ opt_y rest -> match opt_y with
-                                | None -> l  (* keep as is *)
-                                | Some _ -> rest)
-  end
-end
-
-module String = struct
-  include String
-
-  let suffix ~suf s =
-    let len = String.length suf in
-    if len > String.length s then false
-    else (
-      let off = String.length s - len in
-      let rec check i =
-        if i = len then true
-        else if (String.unsafe_get s (off + i)) <> (String.unsafe_get suf i)
-        then false
-        else check (i + 1)
-      in
-      check 0)
-
-  let chop_suffix ~suf s =
-    if suffix ~suf s
-    then Some (String.sub s 0 (String.length s - String.length suf))
-    else None
-
-  let prefix ~pre s =
-    let len = String.length pre in
-    if len > String.length s then false
-    else (
-      let rec check i =
-        if i = len then true
-        else if (String.unsafe_get s i) <> (String.unsafe_get pre i) then false
-        else check (i + 1)
-      in
-      check 0)
-
-  let chop_prefix ~pre s =
-    if prefix ~pre s
-    then Some (String.sub s (String.length pre) (String.length s - String.length pre))
-    else None
-end
-
 let prevent_scroll = ref false
 
 let clamp ?(min = 0.) ?(max = 100.) (v : float) : float =
@@ -156,33 +30,10 @@ let append (a : 'a list) (b : 'a list) : 'a list =
 
 let ( @ ) = append
 
-let time (name : string) : unit =
-  Js.Unsafe.global##.console##time (Js.string name)
-
-let time_end (name : string) : unit =
-  Js.Unsafe.global##.console##timeEnd (Js.string name)
-
 let px : int -> string = Printf.sprintf "%dpx"
 
 let px_js (v : int) : Js.js_string Js.t =
   Js.string @@ px v
-
-let translate = Printf.sprintf "translate(%dpx, %dpx)"
-
-let ( // ) x y =
-  Float.round @@ (float_of_int x) /. (float_of_int y)
-  |> int_of_float
-
-let rec gcd a b =
-  if a <> 0 && b <> 0
-  then
-    let a, b =
-      if a > b then a mod b, b
-      else a, b mod a in gcd a b
-  else a + b
-
-let resolution_to_aspect (w,h) =
-  let d = gcd w h in w / d, h / d
 
 let sum_scroll_offsets (e : Dom_html.element Js.t) =
   let rec aux cur acc_left acc_top =
@@ -285,10 +136,9 @@ module Animation = struct
     then map.no_prefix else map.webkit_prefix
 
   let get_animation_name ~(window : 'a Js.t) (event_type : string) : string =
-    let eq = String.equal in
     match has_proper_shape ~window,
-          List.Assoc.get ~eq event_type event_type_map,
-          List.Assoc.get ~eq event_type css_property_map with
+          List.assoc_opt event_type event_type_map,
+          List.assoc_opt event_type css_property_map with
     | false, _, _ | _, None, None -> event_type
     | _, Some t, _ ->
        let (wnd : Dom_html.window Js.t) = Js.Unsafe.coerce window in
@@ -305,4 +155,87 @@ module Animation = struct
   let get_correct_property_name ~(window : 'a Js.t) (event_type : string) =
     get_animation_name ~window event_type
 
+end
+
+module List = struct
+  let rec equal ~eq l1 l2 = match l1, l2 with
+    | [], [] -> true
+    | [], _ | _, [] -> false
+    | x1 :: l1', x2 :: l2' -> eq x1 x2 && equal ~eq l1' l2'
+
+  let add_nodup ~eq x l =
+    if List.exists (eq x) l then l else x :: l
+
+  let find_mapi f l =
+    let rec aux f i = function
+      | [] -> None
+      | x :: l' ->
+         match f i x with
+         | Some _ as res -> res
+         | None -> aux f (i + 1) l'
+    in aux f 0 l
+
+  let find_map f l = find_mapi (fun _ -> f) l
+
+  let cons_maybe (x : 'a option) (l : 'a list) : 'a list =
+    match x with
+    | None -> l
+    | Some x -> x :: l
+
+  module Assoc = struct
+    type ('a, 'b) t = ('a * 'b) list
+
+    (* search for a binding for [x] in [l], and calls [f x (Some v) rest]
+     or [f x None rest] depending on whether it finds the binding.
+     [rest] is the list of the other bindings *)
+    let rec search_set eq acc l x ~f = match l with
+      | [] -> f x None acc
+      | (x',y')::l' ->
+         if eq x x'
+         then f x (Some y') (List.rev_append acc l')
+         else search_set eq ((x',y')::acc) l' x ~f
+
+    let update ~eq f x l =
+      search_set eq [] l x
+        ~f:(fun x opt_y rest ->
+          match f opt_y with
+          | None -> rest (* drop *)
+          | Some y' -> (x, y') :: rest)
+  end
+end
+
+module String = struct
+  let suffix ~suf s =
+    let len = String.length suf in
+    if len > String.length s then false
+    else (
+      let off = String.length s - len in
+      let rec check i =
+        if i = len then true
+        else if (String.unsafe_get s (off + i)) <> (String.unsafe_get suf i)
+        then false
+        else check (i + 1)
+      in
+      check 0)
+
+  let chop_suffix ~suf s =
+    if suffix ~suf s
+    then Some (String.sub s 0 (String.length s - String.length suf))
+    else None
+
+  let prefix ~pre s =
+    let len = String.length pre in
+    if len > String.length s then false
+    else (
+      let rec check i =
+        if i = len then true
+        else if (String.unsafe_get s i) <> (String.unsafe_get pre i) then false
+        else check (i + 1)
+      in
+      check 0)
+
+  let chop_prefix ~pre s =
+    if prefix ~pre s
+    then Some (String.sub s (String.length pre) (String.length s - String.length pre))
+    else None
 end

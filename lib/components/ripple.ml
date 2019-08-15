@@ -1,6 +1,5 @@
 open Js_of_ocaml
 open Js_of_ocaml_lwt
-open Utils
 
 include Components_tyxml.Ripple
 
@@ -578,7 +577,7 @@ class t (adapter : adapter) () =
       self#update_layout_css_vars ()
 
     method private update_layout_css_vars () : unit =
-      let fg_size = Some (px @@ int_of_float _initial_size) in
+      let fg_size = Some (Utils.px @@ int_of_float _initial_size) in
       self#update_css_var CSS.Var.fg_size fg_size;
       let fg_scale = Some (Printf.sprintf "%g" _fg_scale) in
       self#update_css_var CSS.Var.fg_scale fg_scale;

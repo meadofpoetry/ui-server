@@ -1,5 +1,4 @@
 open Js_of_ocaml
-open Utils
 
 class type ['a] custom_event =
   object

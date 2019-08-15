@@ -1,6 +1,5 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
-open Utils
 
 (* TODO
    - add rtl support
@@ -40,7 +39,7 @@ object(self)
     | Some x -> x
     | None ->
        (* If we're attaching to an element, instantiate scroller *)
-       Tab_scroller.attach @@ find_element_by_class_exn elt Tab_scroller.CSS.root
+       Tab_scroller.attach @@ Utils.find_element_by_class_exn elt Tab_scroller.CSS.root
   val mutable _auto_activation = auto_activation
   val mutable _keydown_listener = None
   val mutable _interaction_listener = None
@@ -128,7 +127,8 @@ object(self)
          let other = match _scroller#get_tab_at_index (i - 1) with
            | None -> _scroller#get_tab_at_index (i + 1) (* Try next tab *)
            | Some x -> Some x in
-         Option.iter (Lwt.ignore_result % self#set_active_tab) other);
+         Option.iter (fun tab ->
+             Lwt.async (fun () -> self#set_active_tab tab)) other);
        _scroller#remove_tab tab;
        if destroy then tab#destroy ()
 

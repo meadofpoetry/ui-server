@@ -1,21 +1,22 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
-open Utils
 
 include Components_tyxml.Layout_grid
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
+let ( % ) f g x = f (g x)
+
 module Cell = struct
 
   let parse_align (c : string) =
-    let pre = Components_tyxml.BEM.add_modifier CSS.cell "align" in
+    let pre = BEM.add_modifier CSS.cell "align" in
     match String.split_on_char '-' c with
     | [prefix; align] when String.equal prefix pre ->
        align_of_string align
     | _ -> None
 
   let parse_order (c : string) =
-    let pre = Components_tyxml.BEM.add_modifier CSS.cell "order" in
+    let pre = BEM.add_modifier CSS.cell "order" in
     match String.split_on_char '-' c with
     | [prefix; order] when String.equal prefix pre ->
        begin match int_of_string_opt order with
@@ -25,7 +26,7 @@ module Cell = struct
     | _ -> None
 
   let parse_span (c : string) : (int * device option) option =
-    let pre = Components_tyxml.BEM.add_modifier CSS.cell "span" in
+    let pre = BEM.add_modifier CSS.cell "span" in
     match String.split_on_char '-' c with
     | [prefix; span] when String.equal prefix pre ->
        begin match int_of_string_opt span with
@@ -54,25 +55,25 @@ module Cell = struct
       super#layout ()
 
     method span : int option =
-      List.find_map (fun (_class : string) ->
+      Utils.List.find_map (fun (_class : string) ->
           match parse_span _class with
           | Some (x, None) -> Some x
           | _ -> None) super#classes
 
     method span_phone : int option =
-      List.find_map (fun (_class : string) ->
+      Utils.List.find_map (fun (_class : string) ->
           match parse_span _class with
           | Some (x, Some Phone) -> Some x
           | _ -> None) super#classes
 
     method span_tablet : int option =
-      List.find_map (fun (_class : string) ->
+      Utils.List.find_map (fun (_class : string) ->
           match parse_span _class with
           | Some (x, Some Tablet) -> Some x
           | _ -> None) super#classes
 
     method span_desktop : int option =
-      List.find_map (fun (_class : string) ->
+      Utils.List.find_map (fun (_class : string) ->
           match parse_span _class with
           | Some (x, Some Desktop) -> Some x
           | _ -> None) super#classes
@@ -86,20 +87,20 @@ module Cell = struct
       Option.iter (super#add_class % CSS.cell_span ?device) x
 
     method order : int option =
-      List.find_map parse_order super#classes
+      Utils.List.find_map parse_order super#classes
 
     method set_order (x : int option) : unit =
       List.iter (fun (_class : string) ->
-          if String.prefix ~pre:CSS.cell_order_prefix _class
+          if Utils.String.prefix ~pre:CSS.cell_order_prefix _class
           then super#remove_class _class) super#classes;
       Option.iter (super#add_class % CSS.cell_order) x
 
     method align : cell_align option =
-      List.find_map parse_align super#classes
+      Utils.List.find_map parse_align super#classes
 
     method set_align (x : cell_align option) : unit =
       List.iter (fun (_class : string) ->
-          if String.prefix ~pre:CSS.cell_align_prefix _class
+          if Utils.String.prefix ~pre:CSS.cell_align_prefix _class
           then super#remove_class _class) super#classes;
       Option.iter (super#add_class % CSS.cell_align) x
   end
@@ -117,7 +118,7 @@ module Cell = struct
 end
 
 class t (elt : Dom_html.element Js.t) () =
-  let inner = find_element_by_class_exn elt CSS.inner in
+  let inner = Utils.find_element_by_class_exn elt CSS.inner in
   let cells =
     List.map Cell.attach
     @@ Element.children inner in
@@ -133,15 +134,15 @@ class t (elt : Dom_html.element Js.t) () =
     method cells : Cell.t list = _cells
 
     method insert_cell_at_idx (i : int) (x : Cell.t) =
-      _cells <- List.add_nodup ~eq:Widget.equal x _cells;
+      _cells <- Utils.List.add_nodup ~eq:Widget.equal x _cells;
       Element.insert_child_at_index inner i x#root
 
     method append_cell (x : Cell.t) =
-      _cells <- List.add_nodup ~eq:Widget.equal x _cells;
+      _cells <- Utils.List.add_nodup ~eq:Widget.equal x _cells;
       Dom.appendChild inner x#root
 
     method remove_cell (x : Cell.t) =
-      _cells <- List.remove ~eq:Widget.equal x _cells;
+      _cells <- List.filter (fun cell -> not @@ Widget.equal cell x) _cells;
       try Dom.removeChild inner x#root with _ -> ()
 
     method remove_cells () =
@@ -157,7 +158,7 @@ class t (elt : Dom_html.element Js.t) () =
 
     method set_align (x : grid_align option) : unit =
       List.iter (fun (_class : string) ->
-          if String.prefix ~pre:CSS.align_prefix _class
+          if Utils.String.prefix ~pre:CSS.align_prefix _class
           then super#remove_class _class) super#classes;
       Option.iter (super#add_class % CSS.align) x
 

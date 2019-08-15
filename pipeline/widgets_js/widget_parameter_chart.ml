@@ -11,15 +11,10 @@ type widget_config =
   { duration : Time.Period.t
   ; typ : typ
   ; sources : data_source list
-  ; filter : data_filter list
   ; settings : widget_settings option
   }
 and widget_settings =
   { range : (float * float) option
-  }
-and data_filter =
-  { stream_id : Stream.ID.t
-  ; services : service_filter list
   }
 and service_filter =
   { service_id : int
@@ -49,7 +44,7 @@ and kind =
   ]
 
 let filter_data typ (data : (data_source * kind) list) =
-  Utils.List.filter_map (fun (src, kind) ->
+  List.filter_map (fun (src, kind) ->
       match typ, (kind : kind) with
       | `Black, `Video x -> Some (src, x.black)
       | `Luma, `Video x -> Some (src, x.luma)
@@ -88,41 +83,10 @@ let interpolate : typ -> Qoe_errors.point array -> float = fun typ arr ->
     arr.(0).data
     arr
 
-let filter (src : data_source) (filter : data_filter list) : bool =
-  let check_pid pid = function
-    | [] -> true
-    | pids -> List.mem pid pids in
-  let check_service service pid = function
-    | [] -> true
-    | services ->
-      Utils.List.fold_while (fun _ (x : service_filter) ->
-          if service = x.service_id
-          then check_pid pid x.pids, `Stop
-          else false, `Continue) false services in
-  let { stream; service; pid } = src in
-  let rec aux = function
-    | [] -> false
-    | (hd : data_filter) :: tl ->
-      if Stream.ID.equal hd.stream_id stream
-      then check_service service pid hd.services
-      else aux tl in
-  match filter with
-  | [] -> true
-  | filter -> aux filter
-
 let convert_data
     (config : widget_config)
-    (d : (data_source * (Qoe_errors.point array)) list) =
-  let data =
-    List.fold_left (fun acc (src, points) ->
-        if not (filter src config.filter)
-        then acc
-        else Utils.List.Assoc.update ~eq:equal_data_source
-            (function
-              | None -> Some points
-              | Some l -> Some (Array.append l points))
-            src acc) [] d in
-  Utils.List.filter_map (fun (src, points) ->
+    (data : (data_source * (Qoe_errors.point array)) list) =
+  List.filter_map (fun (src, points) ->
       Array.sort (fun (a : Qoe_errors.point) b ->
           Ptime.compare a.time b.time) points;
       match Array.length points with
@@ -139,11 +103,10 @@ let convert_data
 let data_source_to_string (structures : Structure.Annotated.t)
     (src : data_source) : string =
   let open Structure in
-  match Utils.List.find_map (fun (_, (x : Annotated.structure)) ->
-      if Stream.ID.equal x.id src.stream
-      then Some x else None) structures with
+  match List.find_opt (fun (_, (x : Annotated.structure)) ->
+      Stream.ID.equal x.id src.stream) structures with
   | None -> ""
-  | Some { channels; _ } ->
+  | Some (_, { channels; _ }) ->
     begin match List.find_opt (fun (_, (x : Annotated.channel)) ->
         src.service = x.number) channels with
     | None -> ""
@@ -274,10 +237,8 @@ let make_datasets init
     (structures : Structure.Annotated.t) =
   let map id (src : data_source) =
     let data =
-      Utils.List.find_map (fun (src', data) ->
-          if equal_data_source src src'
-          then Some data else None) init
-      |> function None -> [||] | Some x -> x in
+      List.find_opt (fun (src', _) -> equal_data_source src src') init
+      |> function None -> [||] | Some (_, x) -> x in
     make_dataset id src structures data in
   List.mapi map sources
 
@@ -323,7 +284,8 @@ class t
       | [] -> ()
       | data ->
         List.iter (fun (src, data) ->
-            match Utils.List.Assoc.get ~eq:equal_data_source src datasets with
+            match List.find_opt (fun (x, _) ->
+                equal_data_source src x) datasets with
             | None ->
               (match config.sources with
                | [] ->
@@ -334,7 +296,7 @@ class t
                      (Chartjs.coerce_dataset @@ snd ds) in
                  ()
                | _ -> ())
-            | Some (ds : _ Chartjs.lineDataset Js.t) ->
+            | Some (_, (ds : _ Chartjs.lineDataset Js.t)) ->
               let data = ds##.data##concat (Js.array data) in
               ds##.data := data) data;
         let config = Chartjs_streaming.create_update_config () in

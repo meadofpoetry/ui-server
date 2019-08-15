@@ -108,7 +108,7 @@ class t (elt : Dom_html.element Js.t) = object(self)
   method value : Ipaddr.V4.t list =
     let result_to_option = function
       | Ok x -> Some x | Error _ -> None in
-    Utils.List.filter_map (fun (x : Dom_html.element Js.t) ->
+    List.filter_map (fun (x : Dom_html.element Js.t) ->
         Js.Opt.case x##.textContent
           (fun () -> None)
           (result_to_option % Ipaddr.V4.of_string % Js.to_string))

@@ -13,7 +13,6 @@ let make_config typ : widget_config =
   { duration = Time.Period.of_int_s 60
   ; typ
   ; sources = []
-  ; filter = []
   ; settings = None
   }
 

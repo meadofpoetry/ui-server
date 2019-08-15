@@ -190,7 +190,7 @@ let create (init : Topology.t) (socket : Api_js.Websocket.JSON.t) =
     Printf.sprintf "grid-template-areas: %s;"
       (grid_template_areas init) in
   let e_settings =
-    Utils.List.filter_map (function
+    List.filter_map (function
         | `Board (b : Topo_board.t) -> Some b#settings_event
         | `CPU (c : Topo_cpu.t) -> Some c#settings_event
         | `Input _ -> None) nodes

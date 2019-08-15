@@ -267,7 +267,7 @@ module Util = struct
     let matched = get_matched_css_rules elt in
     let get_style x = Js.Unsafe.get x##.style rule in
     let styles = get_style elt :: (List.map get_style matched) in
-    Utils.List.filter_map (fun (x : Js.js_string Js.t Js.optdef) ->
+    List.filter_map (fun (x : Js.js_string Js.t Js.optdef) ->
         Js.Optdef.case x
           (fun () -> None)
           (fun x -> match Js.to_string x with

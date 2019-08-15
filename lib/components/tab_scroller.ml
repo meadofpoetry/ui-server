@@ -1,7 +1,6 @@
 open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
-open Utils
 
 (* TODO
    - add RTL support
@@ -28,8 +27,8 @@ let compute_horizontal_scroll_height () : int option =
 
 class t ?tabs (elt : Dom_html.element Js.t) () =
 object(self)
-  val _scroll_content = find_element_by_class_exn elt CSS.scroll_content
-  val _scroll_area = find_element_by_class_exn elt CSS.scroll_area
+  val _scroll_content = Utils.find_element_by_class_exn elt CSS.scroll_content
+  val _scroll_area = Utils.find_element_by_class_exn elt CSS.scroll_area
   val mutable _hscroll_height = 0
   val mutable _animating : bool = false
   val mutable _listeners = []
@@ -96,7 +95,7 @@ object(self)
     _tabs
 
   method remove_tab (tab : Tab.t) : unit =
-    _tabs <- List.remove ~eq:Widget.equal tab _tabs;
+    _tabs <- List.filter (fun x -> not @@ Widget.equal tab x) _tabs;
     Element.remove_child_safe super#root tab#root;
     self#layout ()
 

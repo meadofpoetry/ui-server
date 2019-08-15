@@ -133,7 +133,7 @@ module Board = struct
       let eq = Util_equal.List.equal Stream.equal in
       React.S.merge ~eq:Util_equal.(List.equal (Option.equal Stream.equal))
         (fun acc v -> v :: acc) [] stream_signals
-      |> React.S.map ~eq (Utils.List.filter_map (fun x -> x)) in
+      |> React.S.map ~eq (List.filter_map (fun x -> x)) in
     let non_interactive = match state with
       | `Forbidden -> true | _ -> false in
     let list =
@@ -192,7 +192,7 @@ module Board = struct
       | Some b -> Topology.get_inputs (`Boards [b]) in
     let counter, counter_push =
       let init_list =
-        Utils.List.filter_map (function
+        List.filter_map (function
             | ({ url = Some _; stream; _ } : stream) -> Some stream
             | { url = None;  _ } -> None) stream_list in
       React.S.create ~eq:(=) (List.length init_list) in
@@ -350,7 +350,7 @@ module Input = struct
       | _ -> failwith "impossible" in
     let (topo_input : Topology.topo_input) = { input; id } in
     let init_list =
-      Utils.List.filter_map (function
+      List.filter_map (function
           | ({ url = Some _; stream; _ } : stream) -> Some stream
           | { url = None;  _ } -> None)
         stream_list in

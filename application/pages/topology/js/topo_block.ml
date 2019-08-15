@@ -19,6 +19,10 @@ end
 
 let ( % ) f g x = f (g x)
 
+let cons_maybe x l = match x with
+  | None -> l
+  | Some x -> x :: l
+
 module Header = struct
 
   class t ?action ?subtitle ~title () =
@@ -29,11 +33,11 @@ module Header = struct
     let box =
       Box.make ~dir:`Column
         ([]
-         |> Utils.List.cons_maybe subtitle_w
+         |> cons_maybe subtitle_w
          |> List.cons title_w#widget) in
     let widgets =
       []
-      |> Utils.List.cons_maybe @@ Option.map Widget.coerce action
+      |> cons_maybe @@ Option.map Widget.coerce action
       |> List.cons box#widget in
     let elt =
       Tyxml_js.To_dom.of_element
@@ -63,7 +67,8 @@ module Body = struct
         self#set_n n
 
       method set_n n =
-        super#root##.style##.height := Utils.px_js (n * port_section_height)
+        let height = n * port_section_height in
+        super#root##.style##.height := Js.string @@ Printf.sprintf "%dpx" height
 
     end
 

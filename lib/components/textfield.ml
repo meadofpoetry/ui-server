@@ -1,7 +1,6 @@
 open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
-open Utils
 
 (* TODO
    - add 'onchange' callback
@@ -10,6 +9,8 @@ open Utils
 
 include Components_tyxml.Textfield
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
+
+let ( % ) f g x = f (g x)
 
 let name = "text-field"
 
@@ -298,7 +299,7 @@ let valid_to_string (type a) (v : a validation) (e : a) : string =
   | Custom c -> c.to_string e
   | Float _ ->
     let s = string_of_float e in
-    if String.suffix ~suf:"." s then s ^ "0" else s
+    if Utils.String.suffix ~suf:"." s then s ^ "0" else s
   | Integer _ -> string_of_int e
   | Email -> e
   | Password _ -> e
@@ -344,7 +345,7 @@ class ['a] t ?on_input
   object(self)
     (* Internal components *)
     val input_elt : Dom_html.inputElement Js.t =
-      find_element_by_class_exn elt CSS.input
+      Utils.find_element_by_class_exn elt CSS.input
     val line_ripple : Line_ripple.t option =
       match line_ripple with
       | Some x -> Some x

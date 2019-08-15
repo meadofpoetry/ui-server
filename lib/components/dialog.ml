@@ -1,7 +1,6 @@
 open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
-open Utils
 
 let ( >>= ) = Lwt.bind
 
@@ -67,7 +66,7 @@ let action_of_event (e : #Dom_html.event Js.t) : action option =
 
 class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
   object(self)
-    val _container = find_element_by_class_exn elt CSS.container
+    val _container = Utils.find_element_by_class_exn elt CSS.container
     val _content = Element.query_selector elt Selector.content
     val _default_button = Element.query_selector elt Selector.default_button
     val mutable _buttons = Element.query_selector_all elt Selector.button

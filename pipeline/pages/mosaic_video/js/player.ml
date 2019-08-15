@@ -382,7 +382,7 @@ class t (elt : #Dom_html.element Js.t) () =
       self#video_element##.volume
 
     method set_volume ?(show_overlay = true) (v : float) : unit =
-      let v = Utils.clamp ~min:0. ~max:1. v in
+      let v = Float.(min 1. (max v 0.)) in
       self#video_element##.volume := v;
       self#audio_element##.volume := v;
       self#on_action ();
@@ -562,7 +562,7 @@ and controls (t : t) (elt : #Dom_html.element Js.t) () =
                         then t#video_element##.muted := Js._false;
                         t#set_volume ~show_overlay:false (v /. 100.);
                         Lwt.return_unit)) in
-      _listeners <- Utils.List.filter_map (fun x -> x)
+      _listeners <- List.filter_map (fun x -> x)
           [ click_play
           ; click_mute
           ; dblclick

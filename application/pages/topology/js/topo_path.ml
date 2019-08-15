@@ -136,8 +136,8 @@ class t ~(left_node : node_entry)
       Option.iter (fun sw ->
           let x = right.x + 15 in
           let y = right.y - (sw#root##.offsetHeight / 2) in
-          sw#root##.style##.top := Utils.px_js y;
-          sw#root##.style##.left := Utils.px_js x) switch;
+          sw#root##.style##.top := Js.string @@ Printf.sprintf "%dpx" y;
+          sw#root##.style##.left := Js.string @@ Printf.sprintf "%dpx" x) switch;
       let width = right.x - left.x in
       let path =
         if abs (left.y - right.y) < 4

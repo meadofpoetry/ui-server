@@ -526,14 +526,13 @@ class t ?(body = Dom_html.document##.body)
       }
 
     method private set_position (pos : (string * float) list) : unit =
-      let get = Utils.List.Assoc.get ~eq:String.equal in
       let conv = function
         | None -> Js.string ""
         | Some s -> Js.string @@ Printf.sprintf "%gpx" s in
-      super#root##.style##.top := conv (get "top" pos);
-      super#root##.style##.bottom := conv (get "bottom" pos);
-      super#root##.style##.right := conv (get "right" pos);
-      super#root##.style##.left := conv (get "left" pos)
+      super#root##.style##.top := conv (List.assoc_opt "top" pos);
+      super#root##.style##.bottom := conv (List.assoc_opt "bottom" pos);
+      super#root##.style##.right := conv (List.assoc_opt "right" pos);
+      super#root##.style##.left := conv (List.assoc_opt "left" pos)
   end
 
 let make ?body ?viewport
