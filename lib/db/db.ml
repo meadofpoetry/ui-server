@@ -1,13 +1,5 @@
 open Lwt.Infix
 
-(* TODO remove after 4.08 *)
-let filter_map f l =
-  let rec loop acc = function
-    | [] -> List.rev acc
-    | h::tl -> match f h with
-               | None -> loop acc tl
-               | Some v -> loop (v::acc) tl
-  in loop [] l
   (* 
 let error s e =
   Printf.sprintf s (Caqti_error.show e)
@@ -115,7 +107,7 @@ module Make (M : MODEL) : (CONN with type init := M.init and type names := M.nam
 
   let make_init_query name keys =
     let primary =
-      filter_map (fun (k, t) ->
+      List.filter_map (fun (k, t) ->
           if Key.is_primary t then Some k else None) keys
       |> function
         | [] -> None
@@ -134,7 +126,7 @@ module Make (M : MODEL) : (CONN with type init := M.init and type names := M.nam
 
   let workers_trans tables =
     let open Request in
-    filter_map (fun (_,_,w) -> w) tables
+    List.filter_map (fun (_,_,w) -> w) tables
     |> function [] -> None
               | lst -> Some (with_trans (List.fold_left (fun acc m -> acc >>= fun () -> m) (return ()) lst))
 

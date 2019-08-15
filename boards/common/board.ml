@@ -7,13 +7,6 @@ module Api_events = Api_websocket.Make
                       (Body_ws)
 module Api_template = Api_cohttp_template.Make(User)
 
-(* TODO remove in 4.08 *)
-module Int = struct
-  type t = int
-
-  let compare = compare
-end
-
 let ( ^:: ) l x = match x with
   | None -> l
   | Some x -> x :: l

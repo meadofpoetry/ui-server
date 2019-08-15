@@ -13,8 +13,6 @@ open Application_types
    9. implement jitter measurements - NEXT
    10. check device typ & version equality before continue *)
 
-module List = Boards.Util.List
-
 let ( % ) f g x = f (g x)
 
 type event =
@@ -408,14 +406,14 @@ let start
       >>= function
       | `T2mi_errors (stream, errors) ->
         let errors =
-          List.Assoc.update ~eq:(=) (function
+          Boards.Util.List.Assoc.update ~eq:(=) (function
               | None -> (match errors with [] -> None | l -> Some l)
               | Some x -> Some (errors @ x))
             stream acc.errors in
         Lwt.return_ok (`E { acc with errors })
       | `Ts_errors (stream, errors) ->
         let errors =
-          List.Assoc.update ~eq:(=) (function
+          Boards.Util.List.Assoc.update ~eq:(=) (function
               | None -> (match errors with [] -> None | l -> Some l)
               | Some x -> Some (errors @ x))
             stream acc.errors in

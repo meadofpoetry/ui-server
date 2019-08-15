@@ -3,17 +3,6 @@ open Pipeline_types
 (*open Pipeline_types.Qoe_errors*)
 open Api
 
-(* TODO remove 4.08 *)
-
-let filter_map f l =
-  let rec loop acc = function
-    | [] -> List.rev acc
-    | x::tl ->
-       match f x with
-       | None -> loop acc tl
-       | Some v -> loop (v::acc) tl
-  in loop [] l
-
 (* TODO when used in [is_in], stream id should be wrapped with type signature,
    like ['550e8400-e29b-41d4-a716-446655440000'::UUID] *)
 module SID = struct
@@ -153,7 +142,7 @@ let merge_intervals =
   let (<=) l r = Time.compare l r <= 0 in
   let (>=) l r = Time.compare l r >= 0 in
   let join l r = List.fold_left (fun acc (f,t) ->
-                     List.append acc @@ filter_map
+                     List.append acc @@ List.filter_map
                                           (fun (ff,tt) ->
                                             if f <= ff && t >= tt then Some (ff,tt)
                                             else if f <=ff && t >= ff then Some (ff, t)

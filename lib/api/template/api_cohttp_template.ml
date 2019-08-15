@@ -5,15 +5,6 @@ module type USER = sig
   val to_string : t -> string
 end
 
-(* TODO remove after 4.08 *)
-let filter_map f l =
-  let rec aux acc = function
-    | [] -> List.rev acc
-    | x :: l' ->
-      let acc' = match f x with | None -> acc | Some y -> y :: acc in
-      aux acc' l'
-  in aux [] l
-
 module Make (User : USER) = struct
 
   type user = User.t
@@ -313,7 +304,7 @@ module Make (User : USER) = struct
       match item_gen user with
       | `Template x -> Some (`O x)
       | _ -> None in
-    filter_map convert lst
+    List.filter_map convert lst
 
   let subtree ?(restrict=[]) ?priority ~title ?icon (list : inner item list) =
     let not_allowed id = List.exists (User.equal id) restrict in
@@ -352,7 +343,7 @@ module Make (User : USER) = struct
       |> List.map snd
     in
     let gen_item_list user =
-      filter_map (fun (Item { item_gen; _ }) ->
+      List.filter_map (fun (Item { item_gen; _ }) ->
           match item_gen user with
           | `Template x -> Some (`O x)
           | _ -> None) list
@@ -369,7 +360,7 @@ module Make (User : USER) = struct
     let template = Mustache.of_string template in
     let list = List.map snd @@ List.sort priority_compare_pair list in
     let gen_item_list user =
-      filter_map (fun (Item { item_gen; _ }) ->
+      List.filter_map (fun (Item { item_gen; _ }) ->
           match item_gen user with
           | `Template x -> Some (`O x)
           | _ -> None) list in

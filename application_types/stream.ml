@@ -3,10 +3,9 @@ open Topology
 let (>>=) m f = match m with
   | None -> None
   | Some v -> f v
-   
+
 (** Main stream ID *)
 module ID : sig
-
   type t = Uuidm.t
   type api_fmt = t
   val to_string : t -> string
@@ -22,11 +21,6 @@ module ID : sig
   val fmt : api_fmt Netlib.Uri.Path.Format.fmt
 
 end = struct
-  (* TODO remove in 4.08 *)
-  let get_exn = function Some v -> v | None -> failwith "None"
-
-  let of_opt = function Some v -> Ok v | None -> Error "None"
-
   include Uuidm
 
   type api_fmt = t
@@ -37,12 +31,12 @@ end = struct
 
   let to_string (x : t) = to_string x
   let of_string_opt (s : string) = of_string s
-  let of_string (s : string) = get_exn @@ of_string_opt s
+  let of_string (s : string) = Option.get @@ of_string_opt s
 
   let to_yojson (x : t) : Yojson.Safe.t =
     `String (Uuidm.to_string x)
   let of_yojson : Yojson.Safe.t -> (t, string) result = function
-    | `String s -> of_opt @@ Uuidm.of_string s
+    | `String s -> Option.to_result ~none:"None" @@ Uuidm.of_string s
     | _ -> Error "uuid_of_yojson: not a string"
 
   let make (s : string) =

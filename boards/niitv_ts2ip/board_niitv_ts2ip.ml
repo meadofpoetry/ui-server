@@ -3,11 +3,6 @@ open Board_niitv_ts2ip_types
 open Board_niitv_ts2ip_protocol
 open Netlib
 
-module List = Boards.Util.List
-
-(* TODO remove in 4.08 *)
-let get_exn = function Some x -> x | _ -> failwith "get_exn"
-
 let ( >>=? ) = Lwt_result.( >>= )
 
 let ( >>= ) = Lwt.( >>= )
@@ -142,7 +137,7 @@ let create (b : Topology.topo_board)
   let range =
     (Ipaddr.V4.make 224 0 0 0, Ipaddr.V4.make 239 255 255 255)
     |> Ipaddr.V4.range_of_pair
-    |> get_exn in
+    |> Option.get in
   let constraints = { Boards.Board. state = source_state; range = [range] } in
   let board =
     { Boards.Board.

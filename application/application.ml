@@ -24,7 +24,7 @@ let proc_table = Data_processor.create_dispatcher [(module Pipeline)]
 
 let filter_stream_table =
   let open Application_types.Stream.Table in
-  Hardware.filter_map (function
+  List.filter_map (function
       | ({ url = None; _ } : stream) -> None
       | { url = Some uri; stream; _ } -> Some (uri, stream))
 
@@ -45,20 +45,18 @@ let create kv db =
   >>=? fun db ->
   (* Attach the process' reset mechanism to the stream_table signal
      containing uris of the streams being measured *)
-  begin match proc with (* TODO iter in 4.08 *)
-  | None -> ()
-  | Some proc ->
-     hw.streams
-     |> S.limit ~eq:Application_types.Stream.equal_stream_table (fun () ->
-            Lwt_unix.sleep 2.)
-     |> S.map ~eq:(=) (*TODO*) (fun (l : Application_types.Stream.stream_table) ->
-            let open Application_types.Stream in
-            List.fold_left (fun acc (_, _, ss) -> (filter_stream_table ss) @ acc) [] l
-            |> List.sort (fun (_,l) (_,r) -> ID.compare l.id r.id))
-     |> S.map ~eq:(=) (* TODO proper eq *)
-          proc#reset
-     |> S.keep
-  end;
+  Option.iter (fun proc ->
+      hw.streams
+      |> S.limit ~eq:Application_types.Stream.equal_stream_table (fun () ->
+          Lwt_unix.sleep 2.)
+      |> S.map ~eq:(=) (*TODO*) (fun (l : Application_types.Stream.stream_table) ->
+          let open Application_types.Stream in
+          List.fold_left (fun acc (_, _, ss) -> (filter_stream_table ss) @ acc) [] l
+          |> List.sort (fun (_,l) (_,r) -> ID.compare l.id r.id))
+      |> S.map ~eq:(=) (* TODO proper eq *)
+        proc#reset
+      |> S.keep)
+    proc;
 
   (* Attach database to the aggregated log event stream *)
   hw.boards

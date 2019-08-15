@@ -127,9 +127,9 @@ let input topo (input : Topology.topo_input) =
            { Topology. control; manufacturer; model; version }) boards
        |> Util_json.List.to_yojson Topology.board_id_to_yojson
        |> Yojson.Safe.to_string in
-     let cpu_json = (* TODO remove after 4.08 *)
+     let cpu_json =
        cpu
-       |> (function Some (x : Topology.topo_cpu) -> Some x.process | None -> None)
+       |> Option.map (fun (x : Topology.topo_cpu) -> x.process)
        |> Util_json.Option.to_yojson Topology.process_type_to_yojson
        |> Yojson.Safe.to_string in
      let input_string = Topology.Show_topo_input.to_string input in

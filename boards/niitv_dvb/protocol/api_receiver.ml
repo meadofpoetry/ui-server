@@ -48,7 +48,9 @@ let set_mode (api : Protocol.api) id _user body _env _state =
     api.channel (Set_mode (id, mode))
     >>=? fun x -> api.kv#get
     >>= fun config ->
-    let mode = Boards.Util.List.Assoc.set ~eq:(=) id mode config.mode in
+    let set id value list =
+      (id, value) :: List.filter (fun (id', _) -> id <> id') list in
+    let mode = set id mode config.mode in
     api.kv#set { config with mode }
     >>= fun () -> return_value @@ Device.mode_rsp_to_yojson @@ snd x
 

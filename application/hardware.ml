@@ -7,8 +7,6 @@ open Netlib
 (* TODO rewrite, especially the range constraints part *)
 
 module Uri_storage = Kv_v.RW (External_uri_storage)
-(* TODO remove after 4.08 *)
-let flip f x y = f y x
 
 let equal_list compare l r =
   let sort_uniq = List.sort_uniq compare in
@@ -17,15 +15,6 @@ let equal_list compare l r =
   try List.iter2 (fun l r -> if not (compare l r = 0) then raise_notrace Exit) l r;
       true
   with _ -> false
-(* TODO remove after 4.08 *)
-let filter_map f l =
-  let rec loop acc = function
-    | [] -> List.rev acc
-    | x :: xs ->
-       match f x with
-       | Some v -> loop (v::acc) xs
-       | None -> loop acc xs
-  in loop [] l
 
 let partition_map f l =
   let rec loop accl accr = function
@@ -79,7 +68,7 @@ let create_board db usb (b : Topology.topo_board) boards kv =
 (* TODO do some refactoring later on *)
 let topo_to_signal topo (boards : Board.t Board.Ports.t) : Topology.t React.signal =
   let open Topology in
-  let cons l v = (flip List.cons) l v in
+  let cons l v = (Fun.flip List.cons) l v in
   let get_port m p = Board.Ports.find p m in
   let build_board b connection ports =
     let eq = equal_topo_entry in
@@ -136,16 +125,15 @@ let topo_to_signal topo (boards : Board.t Board.Ports.t) : Topology.t React.sign
      List.map (fun b -> Board b) l
      |> merge_entries
      |> React.S.map ~eq:Topology.equal (fun x ->
-            `Boards (filter_map (function
+            `Boards (List.filter_map (function
                          | Input _ -> None
                          | Board b -> Some b)
                        x))
 
 let get_sources (topo : Topology.topo_entry list) uri_table boards =
   let open Topology in
-  (* TODO remove 4.08 *)
-  let (>|=) o f = match o with None -> None | Some x -> Some (f x) in
-  let (>>=) o f = match o with None -> None | Some x -> f x in
+  let ( >|= ) o f = Option.map f o in
+  let ( >>= ) = Option.bind in
   let eq_row = Stream.equal_stream_table_row in
   let rec get_sources' controls signals = function
     | [] -> controls, signals
@@ -207,7 +195,7 @@ let get_sources (topo : Topology.topo_entry list) uri_table boards =
 let store_external_uris (storage : Uri_storage.t) streams =
   let open Stream.Table in
   let filter_streams =
-    filter_map (function
+    List.filter_map (function
         | ({ url = Some url; stream; _ } : stream) ->
            Some ({ url; stream } : setting)
         | _ -> None) in
@@ -225,8 +213,8 @@ let create kv db (topo : Topology.t) =
   let open Topology in
   (* TODO rempve in 4.08 *)
   let ( % ) f g x = f (g x) in
-  let (>>=?) = Lwt_result.bind in
-  let (>>=) = Lwt.bind in
+  let ( >>=? ) = Lwt_result.bind in
+  let ( >>= ) = Lwt.bind in
 
   (* let rec traverse acc = function
    *   | Board b -> List.fold_left (fun a x -> traverse a x.child) (b :: acc) b.ports
@@ -334,7 +322,7 @@ let set_stream ?(port=1234) (hw : t) (ss : Stream.stream_setting) =
     let inputs = List.map input_add_uri inputs in
     let forbidden =
       grep_input_uris [] inputs
-      |> filter_map Uri.host_v4
+      |> List.filter_map Uri.host_v4
     in
     let boards = (*match Ipaddr.V4.gen_in_ranges ~forbidden (List.concat boards) with*)
       Ipaddr.V4.gen_in_ranges

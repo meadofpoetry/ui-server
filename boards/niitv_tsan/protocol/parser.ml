@@ -1,8 +1,6 @@
 open Application_types
 open Board_niitv_tsan_types
 
-module List = Boards.Util.List
-
 type error =
   | Bad_prefix of int
   | Bad_length of int
@@ -149,7 +147,7 @@ module Status = struct
     let ts =
       Cstruct.fold (fun acc el -> el :: acc) iter []
       |> List.rev
-      |> List.take ts_num in
+      |> Boards.Util.List.take ts_num in
     { status = Message.get_status_version buf
     ; streams = Message.get_status_streams_ver buf
     ; ts_common = Message.get_status_ts_ver_com buf
@@ -556,7 +554,7 @@ module Structure = struct
 
   let update_if_in_services elements (pid, (info : PID_info.t)) =
     let ( >>= ) o f = match o with None -> None | Some x -> f x in
-    List.find_map (fun ((sid, (sinfo : Service_info.t)), elts) ->
+    Boards.Util.List.find_map (fun ((sid, (sinfo : Service_info.t)), elts) ->
         match find_in_elements (pid, info) elts with
         | None -> None
         | Some t -> Some (sid, sinfo.name, sinfo.pcr_pid, t)) elements
