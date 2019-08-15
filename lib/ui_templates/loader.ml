@@ -43,6 +43,8 @@ let make_loader ?(text : string option)
      | Some f -> f elt text);
     Lwt.return_unit in
   Element.add_class elt CSS.root;
+  List.iter (Element.remove_child_safe elt)
+  @@ Element.query_selector_all elt ("." ^ Placeholder.CSS.root);
   let sleep =
     Lwt_js.sleep timeout
     >>= fun () ->

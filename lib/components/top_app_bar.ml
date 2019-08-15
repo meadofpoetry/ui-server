@@ -226,17 +226,12 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
       else Lwt.return_unit
 
     method private pin () : unit =
-      if super#has_class CSS.unpinned
-      then (
-        super#remove_class CSS.unpinned;
-        super#add_class CSS.pinned)
+      if super#has_class CSS.fixed_scrolled
+      then super#remove_class CSS.fixed_scrolled
 
     method private unpin () : unit =
-      if super#has_class CSS.pinned
-      || not (super#has_class CSS.unpinned)
-      then (
-        super#add_class CSS.unpinned;
-        super#remove_class CSS.pinned)
+      if not (super#has_class CSS.fixed_scrolled)
+      then super#add_class CSS.fixed_scrolled
 
     (** Returns the Y scroll position *)
     method private get_scroll_y () : int =
@@ -305,20 +300,21 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
 
     method private should_unpin (cur_scroll_y : int)
         (dir : dir) (exceeded : bool) : bool =
-      match dir with
+      super#has_class CSS.fixed
+      && match dir with
       | `Up -> false
       | `Down -> exceeded && (cur_scroll_y > offset)
 
     method private should_pin (cur_scroll_y : int)
         (dir : dir) (exceeded : bool) : bool =
-      match dir with
+      super#has_class CSS.fixed
+      && match dir with
       | `Down -> false
       | `Up -> exceeded || (cur_scroll_y <= offset)
 
     method private update () : unit =
       let cur_scroll_y = self#get_scroll_y () in
-      let dir = if cur_scroll_y > last_scroll_y
-        then `Down else `Up in
+      let dir = if cur_scroll_y > last_scroll_y then `Down else `Up in
       let exceeded = self#tolerance_exceeded cur_scroll_y dir in
       if not (self#is_out_of_bounds cur_scroll_y)
       then (

@@ -26,16 +26,20 @@ end
  *     ?(period = `Realtime (Time.Span.of_int_s 60)) typ =
  *   { Chart. sources; typ; settings = { range; period }} *)
 
-let on_visible (socket_ref : 'a ref) elt =
+let on_visible (socket_ref : 'a ref) control elt =
   let thread =
     Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
     >>=? fun socket ->
     Option.iter Api_js.Websocket.close_socket !socket_ref;
     socket_ref := Some socket;
-    Http_receivers.Event.get_measurements socket 1
+    Http_receivers.Event.get_measurements socket control
     >>=? fun (_, _meas_ev) ->
     Lwt.return_ok () in
-  let _loader = Ui_templates.Loader.make_loader ~elt thread in
+  (* FIXME added everytime after *)
+  let _loader = Ui_templates.Loader.make_loader
+      ~elt
+      ~on_error:(fun _ _ -> ())
+      thread in
   ()
 
 let on_hidden socket_ref =
@@ -45,7 +49,7 @@ let on_hidden socket_ref =
     Api_js.Websocket.close_socket socket;
     socket_ref := None
 
-let observe socket records _observer =
+let observe socket control records _observer =
   let open MutationObserver in
   let record =
     List.find_opt (fun (x : mutationRecord Js.t) ->
@@ -59,7 +63,7 @@ let observe socket records _observer =
     let current = target##getAttribute (Js.string "hidden") in
     if x##.oldValue != current
     then Js.Opt.case current
-        (fun () -> on_visible socket target)
+        (fun () -> on_visible socket control target)
         (fun _ -> on_hidden socket)
 
 let initialize id control =
@@ -71,13 +75,13 @@ let initialize id control =
   let elt = Dom_html.getElementById id in
   let _observer = MutationObserver.observe
       ~node:elt
-      ~f:(observe socket)
+      ~f:(observe socket control)
       ~attributes:true
       ~attribute_old_value:true
       ~attribute_filter:[Js.string "hidden"]
       () in
   Js.Opt.case (elt##getAttribute (Js.string Attr.hidden))
-    (fun () -> on_visible socket elt)
+    (fun () -> on_visible socket control elt)
     (fun _ -> on_hidden socket)
 
 let () =
