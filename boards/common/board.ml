@@ -52,12 +52,6 @@ type tab =
   ; path : Netlib.Uri.Path.t
   >
 
-let path_of_topo_board (b : Topology.topo_board) =
-  Printf.sprintf "board/%s/%s/%d"
-    (String.lowercase_ascii b.manufacturer)
-    (String.lowercase_ascii b.model)
-    b.control
-
 type tab_tag =
   [ `Input of Topology.topo_input
   | `Stream
@@ -69,6 +63,7 @@ type t =
   ; templates : Api_template.topmost Api_template.item list
   ; gui_tabs : (tab_tag * tab list) list
   ; control : int
+  ; id : Topology.board_id
   ; streams_signal : Stream.t list React.signal
   ; log_source : Stream.Log_message.source
   ; loop : unit -> unit Lwt.t
@@ -83,6 +78,8 @@ type t =
 
 module type BOARD = sig
   open React
+  val board_id : Topology.board_id
+
   val create :
     Topology.topo_board ->
     Stream.t list signal ->

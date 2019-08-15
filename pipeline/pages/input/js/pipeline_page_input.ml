@@ -81,7 +81,7 @@ let () =
     Lwt.return_ok box in
   let _loader =
     Ui_templates.Loader.make_widget_loader
-      ~elt:(Dom_html.getElementById "qoe-tabpanel")
+      ~elt:(Dom_html.getElementById "pipeline")
       thread
   in
   ()

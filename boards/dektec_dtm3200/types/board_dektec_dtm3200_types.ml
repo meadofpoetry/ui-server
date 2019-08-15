@@ -153,3 +153,9 @@ let nw_to_string (x : nw) =
     (Ipaddr.V4.to_string x.mask)
     (Ipaddr.V4.to_string x.gateway)
     x.dhcp
+
+let board_id : Application_types.Topology.board_id =
+  { manufacturer = "DekTec"
+  ; model = "DTM-3200"
+  ; version = 1
+  }

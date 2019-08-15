@@ -18,6 +18,8 @@ let get_address_from_env src (b : Topology.topo_board) =
           m "Failed to parse address value from environment: %s" s);
       None
 
+let board_id = Board_dektec_dtm3200_types.board_id
+
 let create (b : Topology.topo_board)
     (_ : Stream.t list React.signal)
     (convert_streams : Topology.topo_board ->
@@ -43,6 +45,7 @@ let create (b : Topology.topo_board)
     ; ws = Board_dektec_dtm3200_http.ws b.control api
     ; templates = []
     ; control = b.control
+    ; id = Topology.board_id_of_topo_board b
     ; streams_signal = api.notifs.streams
     ; log_source = (fun _ -> React.E.never) (* TODO implement source *)
     ; loop = api.loop

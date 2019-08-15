@@ -51,19 +51,26 @@ type t =
   ; uri_storage : Uri_storage.t
   }
 
+let available_boards =
+  [ (module Board_niitv_tsan : Board.BOARD)
+  ; (module Board_niitv_ts2ip : Board.BOARD)
+  ; (module Board_niitv_dvb : Board.BOARD)
+  ; (module Board_dektec_dtm3200 : Board.BOARD)
+  ]
+
 let create_board db usb (b : Topology.topo_board) boards kv =
-  let (module B : Board.BOARD) =
-    match b.manufacturer, b.model, b.version with (* TODO add boards *)
-    | "NIITV", "TSAN", 5 -> (module Board_niitv_tsan : Board.BOARD)
-    | "NIITV", "TS2IP", 2 -> (module Board_niitv_ts2ip : Board.BOARD)
-    | "NIITV", "DVB4CH", 1 -> (module Board_niitv_dvb : Board.BOARD)
-    | "DekTec", "DTM-3200", 1 -> (module Board_dektec_dtm3200 : Board.BOARD)
-    | _ -> raise (Failure ("create board: unknown board ")) in
-  B.create b
-    (Board.get_streams boards b)
-    (Board.merge_streams boards)
-    (Usb_device.get_send usb b.control)
-    db kv
+  let id = Topology.board_id_of_topo_board b in
+  match List.find_opt (fun board ->
+      let (module B : Board.BOARD) = board in
+      Topology.equal_board_id id B.board_id) available_boards with
+  | None -> raise (Failure ("create board: unknown board "))
+  | Some board ->
+    let (module B : Board.BOARD) = board in
+    B.create b
+      (Board.get_streams boards b)
+      (Board.merge_streams boards)
+      (Usb_device.get_send usb b.control)
+      db kv
 
 (* TODO do some refactoring later on *)
 let topo_to_signal topo (boards : Board.t Board.Ports.t) : Topology.t React.signal =

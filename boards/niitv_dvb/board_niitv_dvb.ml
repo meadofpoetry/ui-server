@@ -25,7 +25,7 @@ let get_source_from_env src (b : Topology.topo_board) =
           m "Failed to parse source ID value from environment: %s" s);
       None
 
-let make_input_tab_template b =
+let make_input_tab_template (b : Topology.topo_board) =
   object
     method stylesheets =
       ["/css/Chart.min.css"]
@@ -44,8 +44,14 @@ let make_input_tab_template b =
 
     method title = "RF"
 
-    method path = Netlib.Uri.Path.of_string @@ Board.path_of_topo_board b
+    method path =
+      Netlib.Uri.Path.of_string
+      @@ Topology.make_board_path
+        (Topology.board_id_of_topo_board b)
+        b.control
   end
+
+let board_id = Board_niitv_dvb_types.board_id
 
 let create (b : Topology.topo_board)
     (_ : Stream.t list React.signal)
@@ -75,6 +81,7 @@ let create (b : Topology.topo_board)
     ; ws = Board_niitv_dvb_http.ws b.control api
     ; templates = []
     ; control = b.control
+    ; id = Topology.board_id_of_topo_board b
     ; streams_signal = api.notifs.streams
     ; log_source = (fun _ -> React.E.never) (* TODO implement source *)
     ; loop = api.loop

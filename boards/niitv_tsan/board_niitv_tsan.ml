@@ -67,7 +67,7 @@ let update_config_with_env src (config : config) (b : Topology.topo_board) =
   | None -> config
   | Some t2mi_source -> { config with t2mi_source }
 
-let make_input_tab_template b =
+let make_input_tab_template (b : Topology.topo_board) =
   object
     method stylesheets = []
 
@@ -79,8 +79,14 @@ let make_input_tab_template b =
 
     method title = "QoS"
 
-    method path = Netlib.Uri.Path.of_string @@ Board.path_of_topo_board b
+    method path =
+      Netlib.Uri.Path.of_string
+      @@ Topology.make_board_path
+        (Topology.board_id_of_topo_board b)
+        b.control
   end
+
+let board_id = Board_niitv_tsan_types.board_id
 
 let create (b : Topology.topo_board)
     (_streams : Stream.t list React.signal)
@@ -112,6 +118,7 @@ let create (b : Topology.topo_board)
     ; ws = Board_niitv_tsan_http.ws b.control api
     ; templates = []
     ; control = b.control
+    ; id = Topology.board_id_of_topo_board b
     ; streams_signal = api.notifs.streams
     ; log_source = (fun src -> Board_logger.create b.control api src)
     ; loop = api.loop

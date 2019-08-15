@@ -109,6 +109,8 @@ let apply_streams (api : Protocol.api) range ports streams =
       | `Error e -> Lwt.return_error @@ `Internal_error e
       | `Unit -> Lwt.return_ok ()
 
+let board_id = Board_niitv_ts2ip_types.board_id
+
 let create (b : Topology.topo_board)
     (streams : Stream.t list React.signal)
     (convert_streams : Topology.topo_board ->
@@ -145,6 +147,7 @@ let create (b : Topology.topo_board)
     ; ws = Board_niitv_ts2ip_http.ws b.control api
     ; templates = []
     ; control = b.control
+    ; id = Topology.board_id_of_topo_board b
     ; streams_signal = api.notifs.outgoing_streams
     ; log_source = (fun _ -> React.E.never) (* TODO implement source *)
     ; loop = api.loop

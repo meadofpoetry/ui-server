@@ -1,8 +1,12 @@
 open Js_of_ocaml
 open Netlib
 open Components
+open Application_types
+open Board_niitv_dvb_types
 open Board_niitv_dvb_http_js
 (* open Board_niitv_dvb_widgets *)
+
+let ( % ) f g x = f (g x)
 
 let ( >>= ) = Lwt.bind
 
@@ -58,10 +62,13 @@ let observe socket records _observer =
         (fun () -> on_visible socket target)
         (fun _ -> on_hidden socket)
 
-let () =
+let initialize id control =
+  let id =
+    String.map (function '/' -> '-' | c -> c)
+    @@ Topology.make_board_path id control in
   let (_scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
   let socket = ref None in
-  let elt = Dom_html.getElementById "rf-tabpanel" in
+  let elt = Dom_html.getElementById id in
   let _observer = MutationObserver.observe
       ~node:elt
       ~f:(observe socket)
@@ -72,6 +79,18 @@ let () =
   Js.Opt.case (elt##getAttribute (Js.string Attr.hidden))
     (fun () -> on_visible socket elt)
     (fun _ -> on_hidden socket)
+
+let () =
+  let boards =
+    Topology.boards_of_yojson
+    @@ Yojson.Safe.from_string
+    @@ Js.to_string Js.Unsafe.global##.boards in
+  match boards with
+  | Error _ -> ()
+  | Ok boards ->
+    match List.find_opt (Topology.equal_board_id board_id % fst) boards with
+    | None -> ()
+    | Some (id, controls) -> List.iter (initialize id) controls
 
 
   (* let thread =

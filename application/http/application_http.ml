@@ -124,8 +124,7 @@ let input (app : Application.t) (input : Topology.topo_input) =
   | Some (boards, cpu) ->
      let title = Topology.get_input_name input in
      let boards_json =
-       List.map (fun { Topology. control; manufacturer; model; version; _ } ->
-           { Topology. control; manufacturer; model; version }) boards
+       List.map Topology.board_id_of_topo_board boards
        |> Util_json.List.to_yojson Topology.board_id_to_yojson
        |> Yojson.Safe.to_string in
      let cpu_json =

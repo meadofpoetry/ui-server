@@ -72,13 +72,6 @@ let env_of_yojson : Yojson.Safe.t -> (env, string) result = function
 let pp_env _ppf _ = () (* Format. Env. String.pp String.pp*)
 let equal_env = Env.equal String.equal
 
-type board_id =
-  { manufacturer : string
-  ; model : string
-  ; version : version
-  ; control : int
-  } [@@deriving eq, yojson]
-
 type t =
   [ `CPU of topo_cpu
   | `Boards of topo_board list
@@ -249,11 +242,30 @@ let topo_inputs_of_topo_board (board : topo_board) =
       match port.child with
       | Board b -> aux ((aux acc b.ports) @ acc) tl
       | Input i -> aux (i :: acc) tl in
-  aux [] board.ports
+  List.sort_uniq compare_topo_input
+  @@ aux [] board.ports
 
 let topo_inputs_of_topo_cpu (cpu : topo_cpu) =
-  List.fold_left (fun acc ({ conn; _ } : topo_interface)->
+  List.sort_uniq compare_topo_input
+  @@ List.fold_left (fun acc ({ conn; _ } : topo_interface)->
       match conn with
       | Input i -> i :: acc
       | Board b -> topo_inputs_of_topo_board b @ acc)
     [] cpu.ifaces
+
+type board_id =
+  { manufacturer : string
+  ; model : string
+  ; version : int
+  } [@@deriving eq, ord, yojson]
+
+let make_board_path (b : board_id) (control : int) =
+  Printf.sprintf "board/%s/%s/%d"
+    (String.lowercase_ascii b.manufacturer)
+    (String.lowercase_ascii b.model)
+    control
+
+let board_id_of_topo_board ({ model; manufacturer; version; _ } : topo_board) =
+  { manufacturer; model; version }
+
+type boards = (board_id * int list) list [@@deriving yojson]

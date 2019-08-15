@@ -114,3 +114,4 @@
 - [ ] SNMP
 - [ ] Static gstreamer pipeline
 - [X] Network settings websockets
+- [ ] Generic interface for page with tabs

@@ -1,4 +1,5 @@
 open Tyxml
+open Boards
 open Application_types
 
 let ( % ) f g x = f (g x)
@@ -19,7 +20,7 @@ let tabs_of_cpu input = function
           then Some tabs else None
         | _ -> None) process#tabs
 
-let tabs_of_board input (_control, (board : Boards.Board.t)) =
+let tabs_of_board input (board : Boards.Board.t) =
   List.flatten
   @@ List.filter_map (function
       | `Input i, tabs ->
@@ -31,33 +32,57 @@ let cons_uniq ~eq l x = if List.exists (eq x) l then l else x :: l
 
 let dedup ~eq l = List.rev (List.fold_left (cons_uniq ~eq) [] l)
 
+module Boards = Map.Make(struct
+    type t = Topology.board_id
+    let compare = Topology.compare_board_id
+  end)
+
 let make_template
     (input : Topology.topo_input)
     (cpu : Data_processor.t option)
-    (boards : Boards.Board.t Boards.Board.Map.t) =
+    (boards : Board.t Board.Map.t) =
+  let board_tabs =
+    List.flatten
+    @@ List.map (fun (_, b) -> tabs_of_board input b)
+    @@ Board.Map.bindings boards in
+  let boards_var =
+    Board.Map.fold (fun control (board : Board.t) acc ->
+        Boards.update board.id (function
+            | None -> Some [control]
+            | Some acc -> Some (control :: acc))
+          acc) boards Boards.empty
+    |> Boards.bindings
+    |> Topology.boards_to_yojson
+    |> Yojson.Safe.pretty_to_string in
   let tabs =
     common_tabs ()
-    @ (List.flatten
-       @@ List.map (tabs_of_board input)
-       @@ Boards.Board.Map.bindings boards)
+    @ board_tabs
     @ tabs_of_cpu input cpu in
   let title = Topology.get_input_name input in
   let tabs, slides, stylesheets, pre_scripts, post_scripts =
     List.fold_left (fun (tabs, slides, css, pre_js, post_js) template ->
-        let id = Netlib.Uri.Path.to_string template#path in
-        let tab = Markup.make_tab ~id template#title in
-        let slide = Markup.make_tabpanel ~id @@ Html.totl template#content in
-        ( tab :: tabs
-        , slide :: slides
-        , template#stylesheets @ css
-        , template#pre_scripts @ pre_js
-        , template#post_scripts @ post_js))
+        let id =
+          String.map (function '/' -> '-' | c -> c)
+          @@ Netlib.Uri.Path.to_string template#path in
+        let tab_id = id ^ "-tab" in
+        let tab = Markup.make_tab
+            ~id:tab_id
+            ~controls:id
+            template#title in
+        let slide =
+          Markup.make_tabpanel ~id ~labelledby:tab_id
+          @@ Html.totl template#content in
+        ( tabs @ [tab]
+        , slides @ [slide]
+        , css @ template#stylesheets
+        , pre_js @ template#pre_scripts
+        , post_js @ template#post_scripts))
       ( []
       , []
       , ["/css/page-input.min.css"]
-      , []
+      , [`Raw (Printf.sprintf "var boards = `%s`;" boards_var)]
       , [`Src "/js/page-input.js"])
-    @@ List.rev tabs in
+      tabs in
   let tab_bar = Markup.make_tab_bar tabs in
   let slides = Markup.make_content slides in
   let eq a b =
