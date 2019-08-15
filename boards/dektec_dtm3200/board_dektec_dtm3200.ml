@@ -65,5 +65,6 @@ let create (b : Topology.topo_board)
           Board.Ports.empty b.ports
     ; stream_handler = None
     ; state = (state :> < finalize : unit -> unit Lwt.t >)
+    ; gui_tabs = []
     } in
   Lwt.return_ok board

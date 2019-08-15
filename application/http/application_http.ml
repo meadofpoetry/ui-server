@@ -106,7 +106,8 @@ let user_handlers (users : Application.User_api.t) =
            Lwt.return (`Instant rsp))
     ]
 
-let input topo (input : Topology.topo_input) =
+let input (app : Application.t) (input : Topology.topo_input) =
+  let topo = React.S.value app.topo in
   let open Api_template in
   let get_input_href (x : Topology.topo_input) =
     let name = Topology.input_to_string x.input in
@@ -139,7 +140,7 @@ let input topo (input : Topology.topo_input) =
          ~title
          ~icon:(Tyxml.Html.toelt @@ icon Components_tyxml.Svg_icons.arrow_right)
          ~path:(Path.of_string @@ get_input_href input)
-         (Input_template.make_template input cpu boards)
+         (Input_template.make_template input app.proc app.hw.boards)
      in
      let pre = "input/" ^ get_input_href input in
      let stream_template =
@@ -175,7 +176,7 @@ let application_pages (app : Application.t) =
   let topo = React.S.value app.topo in
   let input_props, stream_templates =
     List.split
-    @@ List.map (input topo)
+    @@ List.map (input app)
     @@ Topology.get_inputs topo
   in
   let topology_props =
@@ -300,7 +301,7 @@ let create templates (app : Application.t)
 
   let proc_pages = match app.proc with
     | None -> []
-    | Some proc -> proc#pages () in
+    | Some proc -> proc#pages in
   let settings_subtree =
     Api_template.subtree
       ~title:"Настройки"
@@ -319,7 +320,7 @@ let create templates (app : Application.t)
   in
   let proc_api_list = match app.proc with
     | None -> []
-    | Some proc -> proc#http ()
+    | Some proc -> proc#http
   in
   let application_ws = application_ws app in
   let board_ws =
@@ -328,7 +329,7 @@ let create templates (app : Application.t)
   in
   let proc_ws_list = match app.proc with
     | None -> []
-    | Some proc -> proc#ws ()
+    | Some proc -> proc#ws
   in
   let pages =
     Api_http.make

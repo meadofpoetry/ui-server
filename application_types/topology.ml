@@ -242,4 +242,18 @@ let board_list_for_input input : t -> 'a =
          fmap_first (fun port -> traverse [] port.child) board.ports)
        bs
 
-       
+let topo_inputs_of_topo_board (board : topo_board) =
+  let rec aux acc = function
+    | [] -> acc
+    | port :: tl ->
+      match port.child with
+      | Board b -> aux ((aux acc b.ports) @ acc) tl
+      | Input i -> aux (i :: acc) tl in
+  aux [] board.ports
+
+let topo_inputs_of_topo_cpu (cpu : topo_cpu) =
+  List.fold_left (fun acc ({ conn; _ } : topo_interface)->
+      match conn with
+      | Input i -> i :: acc
+      | Board b -> topo_inputs_of_topo_board b @ acc)
+    [] cpu.ifaces

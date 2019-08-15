@@ -43,10 +43,31 @@ type stream_handler =
   ; constraints : constraints
   >
 
+type tab =
+  < stylesheets : string list
+  ; pre_scripts : Api_template.script list
+  ; post_scripts : Api_template.script list
+  ; content : Tyxml.Xml.elt list
+  ; title : string
+  ; path : Netlib.Uri.Path.t
+  >
+
+let path_of_topo_board (b : Topology.topo_board) =
+  Printf.sprintf "board/%s/%s/%d"
+    (String.lowercase_ascii b.manufacturer)
+    (String.lowercase_ascii b.model)
+    b.control
+
+type tab_tag =
+  [ `Input of Topology.topo_input
+  | `Stream
+  ]
+
 type t =
   { http : Api_http.t list
   ; ws : Api_events.t list
   ; templates : Api_template.topmost Api_template.item list
+  ; gui_tabs : (tab_tag * tab list) list
   ; control : int
   ; streams_signal : Stream.t list React.signal
   ; log_source : Stream.Log_message.source

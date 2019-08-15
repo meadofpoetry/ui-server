@@ -163,5 +163,6 @@ let create (b : Topology.topo_board)
           method constraints = constraints
         end)
     ; state = (state :> < finalize : unit -> unit Lwt.t >)
+    ; gui_tabs = []
     } in
   Lwt.return_ok board

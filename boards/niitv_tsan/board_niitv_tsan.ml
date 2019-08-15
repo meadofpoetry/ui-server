@@ -67,6 +67,21 @@ let update_config_with_env src (config : config) (b : Topology.topo_board) =
   | None -> config
   | Some t2mi_source -> { config with t2mi_source }
 
+let make_input_tab_template b =
+  object
+    method stylesheets = []
+
+    method pre_scripts = []
+
+    method post_scripts = []
+
+    method content = []
+
+    method title = "QoS"
+
+    method path = Netlib.Uri.Path.of_string @@ Board.path_of_topo_board b
+  end
+
 let create (b : Topology.topo_board)
     (_streams : Stream.t list React.signal)
     (convert_streams : Topology.topo_board ->
@@ -88,6 +103,9 @@ let create (b : Topology.topo_board)
   let input =
     React.S.hold ~eq:equal_input config.input
     @@ React.E.map (fun (s : Parser.Status.t) -> s.input) api.notifs.status in
+  let input_tabs =
+    List.map (fun x -> `Input x, [make_input_tab_template b])
+    @@ Topology.topo_inputs_of_topo_board b in
   let board =
     { Board.
       http = Board_niitv_tsan_http.handlers b.control api
@@ -103,5 +121,6 @@ let create (b : Topology.topo_board)
     ; ports_active = ports_active src b input
     ; stream_handler = None
     ; state = (state :> < finalize : unit -> unit Lwt.t >)
+    ; gui_tabs = input_tabs
     } in
   Lwt.return_ok board

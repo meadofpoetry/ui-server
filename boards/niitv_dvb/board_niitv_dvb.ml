@@ -25,6 +25,28 @@ let get_source_from_env src (b : Topology.topo_board) =
           m "Failed to parse source ID value from environment: %s" s);
       None
 
+let make_input_tab_template b =
+  object
+    method stylesheets =
+      ["/css/Chart.min.css"]
+
+    method pre_scripts =
+      [ `Src "/js/moment.min.js"
+      ; `Src "/js/Chart.min.js"
+      ; `Src "/js/chartjs-plugin-streaming.min.js"
+      ; `Src "/js/chartjs-plugin-datalabels.min.js"
+      ]
+
+    method post_scripts =
+      [`Src "/js/board-niitv-dvb-page-input.js"]
+
+    method content = []
+
+    method title = "RF"
+
+    method path = Netlib.Uri.Path.of_string @@ Board.path_of_topo_board b
+  end
+
 let create (b : Topology.topo_board)
     (_ : Stream.t list React.signal)
     (convert_streams : Topology.topo_board ->
@@ -45,6 +67,9 @@ let create (b : Topology.topo_board)
   let state = object
     method finalize () = Lwt.return ()
   end in
+  let input_tabs =
+    List.map (fun x -> `Input x, [make_input_tab_template b])
+    @@ Topology.topo_inputs_of_topo_board b in
   let (board : Board.t) =
     { http = Board_niitv_dvb_http.handlers b.control api
     ; ws = Board_niitv_dvb_http.ws b.control api
@@ -72,5 +97,6 @@ let create (b : Topology.topo_board)
           Board.Ports.empty b.ports
     ; stream_handler = None
     ; state = (state :> < finalize : unit -> unit Lwt.t >)
+    ; gui_tabs = input_tabs
     } in
   Lwt.return_ok board

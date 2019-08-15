@@ -38,7 +38,7 @@ let create kv db =
   >>=? fun network ->
   begin match topology with
     | `Boards _ -> Lwt.return_none
-    | `CPU c -> Data_processor.create proc_table c.process kv db
+    | `CPU c -> Data_processor.create proc_table c kv db
   end
   >>= fun proc -> Hardware.create kv db topology
   >>=? fun (hw, loop) -> Database.Conn.create db ()

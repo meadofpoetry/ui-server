@@ -3,8 +3,6 @@ open Components
 
 let ( >>= ) = Lwt.bind
 
-let ( >>=? ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
-
 module Attr = struct
   let hidden = "hidden"
   let aria_hidden = "aria-hidden"
