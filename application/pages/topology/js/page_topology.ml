@@ -5,7 +5,11 @@ open Components
 open Application_types
 open Netlib
 
-let _class = "topology"
+module CSS = struct
+  let root = "topology"
+  let paths = BEM.add_element root "paths"
+  let non_interactive = BEM.add_modifier root "non-interactive"
+end
 
 let is_ts2ip_niitv (b : Topology.topo_board) =
   match b.manufacturer, b.model with
@@ -85,7 +89,7 @@ let grid_template_areas t =
 
 let wrap area elt =
   let div = Widget.create_div () in
-  div#add_class @@ BEM.add_element _class "node-wrapper";
+  div#add_class @@ BEM.add_element CSS.root "node-wrapper";
   div#root##.style##.cssText := Js_of_ocaml.Js.string @@ "grid-area: " ^ area ^ ";";
   div#append_child elt;
   div
@@ -177,7 +181,7 @@ type event =
 
 let create (init : Topology.t) (socket : Api_js.Websocket.JSON.t) =
   let svg = Tyxml_js.Svg.(
-      svg ~a:[a_class [BEM.add_element _class "paths"]] []
+      svg ~a:[a_class [CSS.paths]] []
       |> toelt
       |> Js.Unsafe.coerce
       |> Widget.create) in
@@ -186,7 +190,7 @@ let create (init : Topology.t) (socket : Api_js.Websocket.JSON.t) =
     Printf.sprintf "grid-template-areas: %s;"
       (grid_template_areas init) in
   let e_settings =
-    Utils.List.filter_map (function
+    List.filter_map (function
         | `Board (b : Topo_board.t) -> Some b#settings_event
         | `CPU (c : Topo_cpu.t) -> Some c#settings_event
         | `Input _ -> None) nodes
@@ -198,10 +202,14 @@ let create (init : Topology.t) (socket : Api_js.Websocket.JSON.t) =
 
     method! init () : unit =
       super#init ();
+      let username = Js.to_string @@ Js.Unsafe.global##.username in
+      let non_interactive = match User.of_string username with
+        | Ok `Guest | Error _ -> true
+        | Ok (`Operator | `Root) -> false in
       super#add_class Layout_grid.CSS.inner;
-      super#add_class _class;
+      if non_interactive then super#add_class CSS.non_interactive;
       iter_paths (fun _ x ->
-          Utils.Option.iter super#append_child x#switch;
+          Option.iter super#append_child x#switch;
           svg#append_child x) nodes;
       super#append_child svg;
       List.iter (fun x ->
@@ -216,7 +224,7 @@ let create (init : Topology.t) (socket : Api_js.Websocket.JSON.t) =
 
     method! destroy () : unit =
       super#destroy ();
-      Utils.Option.iter Ui_templates.Resize_observer.disconnect _resize_observer;
+      Option.iter Ui_templates.Resize_observer.disconnect _resize_observer;
       _resize_observer <- None
 
     method! layout () : unit =
@@ -253,6 +261,7 @@ let on_settings (side_sheet : #Side_sheet.Parent.t)
     side_sheet#toggle ~force:true ()
 
 let () =
+  let (scaffold : Scaffold.t)= Js.Unsafe.global##.scaffold in
   let side_sheet, side_sheet_content, set_side_sheet_title =
     Topo_drawer.make ~title:"" () in
   let on_settings =
@@ -281,8 +290,8 @@ let () =
         Api_js.Websocket.close_socket socket);
     Lwt_react.(E.keep @@ S.diff_s on_settings s_settings);
     Lwt.return_ok page in
-  let (scaffold : Scaffold.t)= Js.Unsafe.global##.scaffold in
-  let body = Ui_templates.Loader.create_widget_loader thread in
-  body#add_class Layout_grid.CSS.root;
+  let body = Ui_templates.Loader.make_widget_loader thread in
+  Element.add_class body CSS.root;
+  Element.add_class body Layout_grid.CSS.root;
   scaffold#set_side_sheet ~elevation:Full_height side_sheet;
   scaffold#set_body body

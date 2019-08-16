@@ -7,7 +7,19 @@ let connect_db streams_events dbs =
  *)
 let typ = "pipeline"
 
-let create kv db =
+let make_input_tab_template (cpu : Application_types.Topology.topo_cpu) =
+  object
+    method stylesheets = ["/css/Chart.min.css"]
+    method pre_scripts = [ `Src "/js/moment.min.js"
+                         ; `Src "/js/Chart.min.js"
+                         ; `Src "/js/chartjs-plugin-streaming.min.js"]
+    method post_scripts = [`Src "/js/pipeline-page-input.js"]
+    method content = []
+    method title = "QoE"
+    method path = Netlib.Uri.Path.of_string cpu.process
+  end
+
+let create (cpu : Application_types.Topology.topo_cpu) kv db =
   let (>>=) = Lwt.bind in
   let (>>=?) = Lwt_result.bind in
 (*
@@ -29,25 +41,30 @@ let create kv db =
   Lwt.return_ok @@ object
     val state = state
     method reset ss = reset state ss
-    method http () = Pipeline_http.handlers state
-    method ws () = Pipeline_http.ws state
-    method pages () = Pipeline_http.pages ()
+    method http = Pipeline_http.handlers state
+    method ws = Pipeline_http.ws state
+    method pages = Pipeline_http.pages ()
+    method tabs =
+      List.map (fun i -> `Input i, [make_input_tab_template cpu])
+      @@ Application_types.Topology.topo_inputs_of_topo_cpu cpu
     method finalize () = Pipeline_protocol.Protocol.finalize state
     method log_source  = (fun filter ->
       let sf =
         Log_converters.Status.to_log_messages state.sources state.options.structures#s filter
       in
+      (* TODO
       let vf =
         Log_converters.Video.to_log_messages state.sources state.options.structures#s filter
       in
       let af =
         Log_converters.Audio.to_log_messages state.sources state.options.structures#s filter
       in
+       *)
       Util_react.E.aggregate_merge
         ~merge:(fun acc x -> x @ acc)
         (fun () -> Lwt_unix.sleep 1.0)
-        [ React.E.map vf state.notifs.vdata
+        [ (*React.E.map vf state.notifs.vdata
         ; React.E.map af state.notifs.adata
-        ; React.E.map sf state.notifs.status_raw
+        ; *) React.E.map sf state.notifs.status_raw
         ])
   end

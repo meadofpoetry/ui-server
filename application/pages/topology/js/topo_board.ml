@@ -2,7 +2,11 @@ open Application_types
 open Components
 open Topo_types
 
-let base_class = "topology__board"
+module CSS = struct
+  let root = "topology-board"
+  let header = BEM.add_element root "header"
+  let body = BEM.add_element root "body"
+end
 
 let rec eq_port
     (p1 : Topology.topo_port)
@@ -87,7 +91,7 @@ let make_board_niitv_tsan_settings state socket control =
 let make_board_niitv_dvb4ch_settings state socket control =
   let open React in
   let open Board_niitv_dvb_http_js in
-  let open Board_niitv_dvb_widgets_js in
+  let open Board_niitv_dvb_widgets in
   let rec get_plps acc = function
     | [] -> Lwt.return_ok acc
     | id :: tl -> Lwt_result.(
@@ -143,24 +147,24 @@ let make_board_page (signal : Topology.topo_board React.signal) socket =
 module Header = struct
 
   class t (board : Topology.topo_board) () =
-    let _class = BEM.add_element base_class "header" in
     let title = get_board_name board in
     let settings = match Topology.Env.find_opt "show-settings" board.env with
       | Some "false" -> None
       | _ ->
         let icon = Icon.SVG.(make_simple Path.settings)#root in
         let button = Icon_button.make ~icon () in
+        button#add_class Topo_block.CSS.header_action_settings;
         Some button in
     object(self)
       inherit Topo_block.Header.t ?action:settings ~title () as super
 
       method! init () : unit =
         super#init ();
-        self#add_class _class
+        super#add_class CSS.header
 
       method! layout () : unit =
         super#layout ();
-        Utils.Option.iter Widget.layout self#settings_icon
+        Option.iter Widget.layout self#settings_icon
 
       method settings_icon =
         settings
@@ -173,14 +177,12 @@ end
 
 module Body = struct
 
-  let _class = BEM.add_element base_class "body"
-
   class t (board : Topology.topo_board) () =
   object
     inherit Topo_block.Body.t (List.length board.ports) () as super
     method! init () : unit =
       super#init ();
-      super#add_class _class
+      super#add_class CSS.body
   end
 
   let create (board : Topology.topo_board) : t =
@@ -210,9 +212,9 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
     method! init () : unit =
       super#init ();
       self#notify (`State board);
-      super#add_class base_class;
+      super#add_class CSS.root;
       super#set_attribute "data-board" @@ get_board_type board;
-      Utils.Option.iter (fun (w : Icon_button.t) ->
+      Option.iter (fun (w : Icon_button.t) ->
           let listener =
             Events.clicks w#root (fun _ _ ->
                 let name = get_board_name self#board in
@@ -224,7 +226,7 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
 
     method! destroy () : unit =
       super#destroy ();
-      Utils.Option.iter Lwt.cancel _click_listener;
+      Option.iter Lwt.cancel _click_listener;
       _click_listener <- None
 
     method! layout () : unit =
@@ -246,8 +248,9 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
     (* Private methods *)
 
     method private make_settings_widget () : Widget.t =
-      let t = make_board_page state socket in
-      Widget.coerce @@ Ui_templates.Loader.create_widget_loader t
+      Widget.create
+      @@ Ui_templates.Loader.make_widget_loader
+      @@ make_board_page state socket
 
     method private set_ports (l : Topology.topo_port list) : unit =
       let find (port : Topology.topo_port) (p : Topo_path.t) : bool =

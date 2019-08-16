@@ -48,12 +48,6 @@ let partition_map f l =
   in
   iter f [] [] l
 
-(* TODO remove after 4.08 *)
-module Option = struct
-  let map f = function Some x -> Some (f x) | None -> None
-  let get = function Some x -> x | None -> invalid_arg "value is None"
-end
-
 let setter ?(previous : 'a option) (model : 'a) (s : ('a,'b) setter) =
   match previous with
   | Some prev ->

@@ -112,7 +112,7 @@ let get f l =
   aux [] l
 
 let init_top_app_bar_icon (scaffold : Scaffold.t) =
-  match Utils.Option.bind (fun x -> x#leading) scaffold#top_app_bar with
+  match Option.bind scaffold#top_app_bar (fun x -> x#leading) with
   | None -> ()
   | Some x ->
     let icons =
@@ -129,7 +129,7 @@ let set_top_app_bar_icon (scaffold : Scaffold.t) typ icon =
   let class_, index = match typ with
     | `Main -> CSS.nav_icon_main, 0
     | `Aux -> CSS.nav_icon_aux, 1 in
-  match Utils.Option.bind (fun x -> x#leading) scaffold#top_app_bar with
+  match Option.bind scaffold#top_app_bar (fun x -> x#leading) with
   | None -> None
   | Some x ->
     let prev =
@@ -285,22 +285,22 @@ class t ~(scaffold : Scaffold.t)
         let width = Js.math##round ((frame_width *. content_aspect) /. frame_aspect) in
         grid#root##.style##.height := Js.string "100%";
         grid#root##.style##.width := Js.string @@ Printf.sprintf "%gpx" width);
-      Utils.Option.iter (Widget.layout % snd) _widget_editor;
-      Utils.Option.iter Widget.layout _basic_actions;
+      Option.iter (Widget.layout % snd) _widget_editor;
+      Option.iter Widget.layout _basic_actions;
       List.iter Widget.layout _cell_selected_actions;
       List.iter Widget.layout _cont_selected_actions;
       super#layout ()
 
     method! destroy () : unit =
-      Utils.Option.iter Ui_templates.Resize_observer.disconnect _resize_observer;
+      Option.iter Ui_templates.Resize_observer.disconnect _resize_observer;
       _resize_observer <- None;
-      Utils.Option.iter (fun x -> x#destroy ()) _selection;
+      Option.iter (fun x -> x#destroy ()) _selection;
       _selection <- None;
       List.iter Lwt.cancel _listeners;
       _listeners <- [];
-      Utils.Option.iter (Widget.destroy % snd) _widget_editor;
+      Option.iter (Widget.destroy % snd) _widget_editor;
       (* Destroy menus *)
-      Utils.Option.iter Widget.destroy _basic_actions;
+      Option.iter Widget.destroy _basic_actions;
       List.iter Widget.destroy _cell_selected_actions;
       List.iter Widget.destroy _cont_selected_actions;
       (* Destroy dialogs *)
@@ -403,7 +403,7 @@ class t ~(scaffold : Scaffold.t)
       (match _mode_switch with
        | None -> ()
        | Some x -> x#remove_class CSS.mode_switch_hidden);
-      Utils.Option.iter (ignore % set_top_app_bar_icon scaffold `Main) icon;
+      Option.iter (ignore % set_top_app_bar_icon scaffold `Main) icon;
       let items = editor#items in
       Widget_utils.Z_index.validate items;
       self#update_widget_elements items cell;
@@ -557,7 +557,7 @@ class t ~(scaffold : Scaffold.t)
       Ui_templates.Resize_observer.observe ~f ~node:super#root ()
 
     method private selection : Selection.t =
-      Utils.Option.get _selection
+      Option.get _selection
 
     method private switch_mode (mode : editing_mode) : unit =
       self#clear_selection ();

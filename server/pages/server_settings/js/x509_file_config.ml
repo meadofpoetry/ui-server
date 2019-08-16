@@ -68,8 +68,8 @@ let make_info (type a) : a typ -> a -> Dom_html.element Js.t =
 let update_row_state (type a) : a -> Dom_html.element Js.t -> a typ -> unit =
   fun v row typ ->
   let force = match typ with
-    | Key -> Utils.Option.is_none v
-    | Crt -> Utils.Option.is_none v in
+    | Key -> Option.is_none v
+    | Crt -> Option.is_none v in
   ignore @@ Element.toggle_class ~force row Markup.CSS.Certificate.empty
 
 let filename_of_value (type a) : a -> a typ -> string option =
@@ -331,13 +331,13 @@ class ['a] t ?value
           | Some x -> Lwt.return_ok x
           | None -> fetch_value typ in
         let info =
-          Ui_templates.Loader.create_widget_loader
+          Ui_templates.Loader.make_widget_loader
             (Lwt_result.map_err Api_js.Http.error_to_string value
              >>=? fun x ->
              self#set_value x;
              Lwt.return_ok @@ Widget.create @@ make_info typ x) in
         Element.remove_children content;
-        Dom.appendChild content info#root;
+        Dom.appendChild content info;
         dialog#open_await () >>= fun _ -> Lwt.return_unit
 
   method private handle_remove _ _ : unit Lwt.t =

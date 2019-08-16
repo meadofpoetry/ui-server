@@ -64,7 +64,7 @@ class t state mode plps receivers control =
     method! init () : unit =
       super#init ();
       super#add_class base_class;
-      Utils.Option.iter super#append_child inner
+      Option.iter super#append_child inner
 
     method! destroy () : unit =
       List.iter Widget.destroy modules;

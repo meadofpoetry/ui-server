@@ -17,8 +17,8 @@
     $color: topology-board-color($board);
     $tone:  mdc-theme-tone($color);
 
-    .topology__board[data-board='#{$board}'] {
-        .topology__board__header {
+    .topology-board[data-board='#{$board}'] {
+        .topology-board__header {
             background-color: $color;
             .mdc-icon {
                 @include topology-board-header-color($color,primary);

@@ -13,7 +13,7 @@ let tick () =
   in
   e, loop
        
-let create db _s_struct _s_status e_video e_audio =
+let create db _s_struct _s_status _e_video _e_audio =
   let (>>=) = Lwt_result.bind in
   
   Database.Conn.create db ()
@@ -77,8 +77,8 @@ let create db _s_struct _s_status e_video e_audio =
          | `Lost pids -> Db.Stream_status.init db pids)
   @@ React.E.select [stream_status; stream_status_diff];
    *)
-  (* Errors *)
-  e_video
+  (* Errors (TODO) *)
+  (*e_video
   |> Util_react.E.map_p (fun x -> Lwt.catch
                                (fun () -> Database.Errors.insert_video db x)
                                (function Failure e -> Lwt_io.printf "vdata error: %s\n" e
@@ -90,6 +90,7 @@ let create db _s_struct _s_status e_video e_audio =
                                (function Failure e -> Lwt_io.printf "adata error: %s\n" e
                                        | _ -> Lwt_io.printf "adata error: UNKNOWN\n"))
   |> Util_react.E.keep;
+   *)
        
   Lwt.return_ok { db; tick; _loop = loop () }
   

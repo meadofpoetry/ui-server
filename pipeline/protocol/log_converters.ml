@@ -18,10 +18,10 @@ let id_in id list =
   List.exists (Stream.ID.equal id) list
    
 module Video = struct
-  open Qoe_errors.Video_data
+  (* open Qoe_errors.Video_data*)
 
-  (* *)
-
+  (* TODO *)
+         (*
   let convert sources structures x =
     let (_, stream) = List.find
                         (fun (_,s) -> Stream.(ID.equal s.id x.stream))
@@ -103,13 +103,16 @@ module Video = struct
     | `Id ids when id_in x.stream ids ->
        convert sources structures x
     | _ -> []
+          *)
 
 end
              
 module Audio = struct
-  open Qoe_errors.Audio_data
+  (*open Qoe_errors.Audio_data*)
 
-  (* *)
+  (* TODO *)
+
+         (*
   let convert sources structures x =
     let (_, stream) = List.find
                         (fun (_,s) -> Stream.(ID.equal s.id x.stream))
@@ -173,6 +176,7 @@ module Audio = struct
     | `Id ids when id_in x.stream ids ->
        convert sources structures x
     | _ -> []
+          *)
 
 end
 

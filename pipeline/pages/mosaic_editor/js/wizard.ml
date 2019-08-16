@@ -187,7 +187,7 @@ end
 
 let to_content (streams : Structure.Annotated.t)
     (wm : Wm.Annotated.t) =
-  let widgets = Utils.List.filter_map (fun (name, (widget : Wm.widget)) ->
+  let widgets = List.filter_map (fun (name, (widget : Wm.widget)) ->
       match (widget.domain : Wm.domain) with
       | (Chan {stream; channel} : Wm.domain) ->
         Some ((name, widget), ({ stream; channel } : channel))
@@ -210,7 +210,7 @@ class t ~resolution ~treeview (elt : Dom_html.element Js.t) () =
 
     method value =
       let data =
-        Utils.List.filter_map (fun x ->
+        List.filter_map (fun x ->
             match _treeview#node_value x with
             | None -> None
             | Some json ->

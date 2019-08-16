@@ -6,17 +6,6 @@ module React = Util_react
 
 open Lwt.Infix
 
-(* TODO remove after 4.08 *)
-let filter_map f l =
-  let rec recurse acc l = match l with
-    | [] -> List.rev acc
-    | x :: l' ->
-      let acc' = match f x with
-        | None -> acc
-        | Some y -> y :: acc in
-      recurse acc' l'
-  in recurse [] l
-
 let properties_changed interface =
   let open OBus_value in
   OBus_member.Signal.make
@@ -79,12 +68,12 @@ module Nm = struct
       in
       match v with
       | OBus_value.V.Array (OBus_value.T.Array (OBus_value.T.Basic OBus_value.T.Uint32), ars) -> 
-         Some (filter_map unwrap' ars)
+         Some (List.filter_map unwrap' ars)
       | _ -> None
 
     let unwrap_ip_list = function
       | OBus_value.V.Array (OBus_value.T.Basic OBus_value.T.Uint32, lst) ->
-         Some (filter_map
+         Some (List.filter_map
                  (function OBus_value.V.Basic OBus_value.V.Uint32 i -> Some (Ipaddr.V4.of_int32 @@ reverse_int32 i)
                          | _ -> None)
                  lst)
@@ -92,7 +81,7 @@ module Nm = struct
 
     let unwrap_bytes = function
       | OBus_value.V.Array (OBus_value.T.Basic OBus_value.T.Byte, lst) ->
-        let s = String.of_seq @@ List.to_seq (filter_map (function
+        let s = String.of_seq @@ List.to_seq (List.filter_map (function
             | OBus_value.V.Basic OBus_value.V.Byte c -> Some c
             | _ -> None) lst)
         in

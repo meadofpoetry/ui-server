@@ -9,11 +9,6 @@ let all_ok l =
     | (Error _ as e)::_ -> e
   in loop [] l
 
-(* TODO remove in 4.08 *)
-let (>>=) m f = match m with
-  | Ok v -> f v
-  | Error _ as e -> e
-
 let equal (x : t) y = x = y
 
 let compare (x : t) y = compare x y
@@ -114,6 +109,7 @@ module Pair = struct
       (f1 : Yojson.Safe.t -> 'a res)
       (f2 : Yojson.Safe.t -> 'b res) = function
     | `List [x; y] ->
+       let ( >>= ) = Result.bind in
        f1 x >>= fun x' ->
        f2 y >>= fun y' ->
        Ok (x', y')

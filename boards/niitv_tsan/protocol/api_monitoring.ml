@@ -2,8 +2,6 @@ open Application_types
 open Board_niitv_tsan_types
 open Api_util
 
-module List = Boards.Util.List
-
 let filter_errors f x =
   match List.filter_map (fun (id, errors) ->
       match List.filter f errors with
@@ -123,7 +121,7 @@ let get_t2mi_info (api : Protocol.api) force ids t2mi_stream_ids
          let request_id = Request_id.next () in
          api.channel (Get_t2mi_info { request_id; t2mi_stream_id })
          >>= fun x ->
-         let id = List.find_map (fun (s : Stream.t) ->
+         let id = Boards.Util.List.find_map (fun (s : Stream.t) ->
              match s.typ with
              | T2MI -> Some s.id
              | _ -> None)
@@ -131,7 +129,7 @@ let get_t2mi_info (api : Protocol.api) force ids t2mi_stream_ids
          match id with
          | None -> loop acc tl
          | Some id ->
-           let acc = List.Assoc.update ~eq:Stream.ID.equal (function
+           let acc = Boards.Util.List.Assoc.update ~eq:Stream.ID.equal (function
                | None -> Some [x]
                | Some l -> Some (x :: l)) id acc in
            loop acc tl in

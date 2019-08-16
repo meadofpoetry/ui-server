@@ -69,7 +69,7 @@ let map_stream_id
     (streams : Stream.t list React.signal)
     (event : (Stream.Multi_TS_ID.t * 'a) list React.event) =
   Util_react.S.sample (fun event streams ->
-      Boards.Util.List.filter_map (fun (id, v) ->
+      List.filter_map (fun (id, v) ->
           match Stream.find_by_multi_id id streams with
           | None -> None
           | Some s -> Some (s.id, v)) event)

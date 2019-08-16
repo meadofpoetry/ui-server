@@ -43,7 +43,7 @@ module Event = struct
       (event : (int * 'a) list event) =
     S.sample (fun (data : (int * 'a) list)
                (streams : Stream.t list) ->
-               Boards.Util.List.filter_map (fun (id, x) ->
+               List.filter_map (fun (id, x) ->
                    match find_stream_by_receiver_id ~source_id id streams with
                    | None -> None
                    | Some s -> Some (s.id, x)) data) event streams

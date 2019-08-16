@@ -1,25 +1,39 @@
+open Application_types
+
 type url = Netlib.Uri.t
 
-module Api_http = Api_cohttp.Make (Application_types.User) (Application_types.Body)
-module Api_events = Api_websocket.Make
-                      (Application_types.User)
-                      (Application_types.Body)
-                      (Application_types.Body_ws)
-module Api_template = Api_cohttp_template.Make (Application_types.User)
+module Api_http = Api_cohttp.Make (User) (Body)
+module Api_events = Api_websocket.Make (User) (Body) (Body_ws)
+module Api_template = Api_cohttp_template.Make (User)
+
+type tab =
+  < stylesheets : string list
+  ; pre_scripts : Api_template.script list
+  ; post_scripts : Api_template.script list
+  ; content : Tyxml.Xml.elt list
+  ; title : string
+  ; path : Netlib.Uri.Path.t
+  >
+
+type tag =
+  [ `Input of Topology.topo_input
+  | `Stream
+  ]
 
 type t =
-  < reset    : (url * Application_types.Stream.t) list -> unit Lwt.t
-  ; http : unit -> Api_http.t list
-  ; ws : unit -> Api_events.t list
-  ; pages : unit -> Api_template.topmost Api_template.item list
-  ; log_source : Application_types.Stream.Log_message.source
+  < reset : (url * Stream.t) list -> unit Lwt.t
+  ; http : Api_http.t list
+  ; ws : Api_events.t list
+  ; pages : Api_template.topmost Api_template.item list
+  ; tabs : (tag * tab list) list
+  ; log_source : Stream.Log_message.source
   ; finalize : unit -> unit Lwt.t >
 
 type error = [ Db.conn_error | Kv.RW.parse_error | Kv_v.error ]
-                         
+
 module type PROCESS = sig
   val typ    : string
-  val create : Kv.RW.t -> Db.t -> (t, [> error]) Lwt_result.t
+  val create : Topology.topo_cpu -> Kv.RW.t -> Db.t -> (t, [> error]) Lwt_result.t
 end
 
 let create_dispatcher l =
@@ -29,12 +43,12 @@ let create_dispatcher l =
 
 let pp_error _ppf = failwith "todo"
 
-let create tbl typ config db =
+let create tbl (cpu : Topology.topo_cpu) config db =
   let (>>=) = Lwt.bind in
-  match Hashtbl.find_opt tbl typ with
+  match Hashtbl.find_opt tbl cpu.process with
   | None -> Lwt.return_none
   | Some (module P : PROCESS) ->
-     P.create config db
+     P.create cpu config db
      >>= function
      | Error e ->
         Logs.err (fun m -> m "Software data processor error %a" pp_error e);

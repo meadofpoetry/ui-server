@@ -41,9 +41,6 @@ html, body {
 }
 
 .main-top-app-bar {
-    &.mdc-top-app-bar--unpinned {
-        @include mdc-elevation(0);
-    }
     .mdc-top-app-bar__row:nth-child(2) .mdc-top-app-bar__section {
         padding: 0;
     }

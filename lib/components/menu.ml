@@ -1,7 +1,6 @@
 open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
-open Utils
 
 (* TODO
    - selected item is indexed only between active (not disabled) items.
@@ -101,7 +100,7 @@ class t ?body ?viewport ?list ?(focus_on_open = true) (elt : Dom_html.element Js
 
     method private notify_selected (item : Dom_html.element Js.t) : unit =
       let index =
-        List.find_mapi (fun i x ->
+        Utils.List.find_mapi (fun i x ->
             if Element.equal x item
             then Some i else None) self#items
         |> function None -> raise Not_found | Some x -> x in

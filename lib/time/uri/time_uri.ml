@@ -1,14 +1,3 @@
-let get_exn = function Some v -> v | None -> failwith "None"
-
-let filter_map f l =
-  let rec loop acc = function
-    | [] -> List.rev acc
-    | h::tl -> match f h with
-               | None -> loop acc tl
-               | Some v -> loop (v::acc) tl
-  in loop [] l
-(* TODO remove after 4.08 *)
-
 module I64 = struct
   include Int64
   let ( * ) = mul
@@ -46,7 +35,7 @@ module Show_float = struct
 
   let typ = "UNIX timestamp (float)"
 
-  let of_string x = get_exn @@ Time.of_float_s @@ Float.of_string x
+  let of_string x = Option.get @@ Time.of_float_s @@ Float.of_string x
   let to_string (x : t) = Float.to_string @@ Time.to_float_s x
 (*
   let of_yojson x = match x with
@@ -113,7 +102,7 @@ module Show_relative = struct
     let minutes' = I64.(of_int minutes * s_in_minute * ps_in_s) in
     let seconds' = I64.(of_int seconds * ps_in_s) in
     let ps = I64.(add (add hours' minutes') seconds') in
-    get_exn @@ Ptime.Span.of_d_ps (days, ps)
+    Option.get @@ Ptime.Span.of_d_ps (days, ps)
 
   let to_string (x : t) : string =
     let if_z (v, suf) =
@@ -123,8 +112,8 @@ module Show_relative = struct
     then "P0S"
     else
       let weeks, days, hours, minutes, seconds = split_units x in
-      let big   = filter_map if_z [ weeks, "W"; days,  "D"] |> String.concat "" in
-      let small = filter_map if_z [ hours, "H"; minutes, "M"; seconds, "S"]  |> String.concat "" in
+      let big   = List.filter_map if_z [ weeks, "W"; days,  "D"] |> String.concat "" in
+      let small = List.filter_map if_z [ hours, "H"; minutes, "M"; seconds, "S"]  |> String.concat "" in
       let part = "P" ^ big in
       if String.length small = 0
       then part

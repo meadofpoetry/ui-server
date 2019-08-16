@@ -53,9 +53,7 @@ let finalizer res f ~fin =
     fin res;
     raise e
        
-let (>>=) e f = match e with
-  | Ok v -> f v
-  | Error _ as e -> e
+let ( >>= ) = Result.bind
 
 let exists path =
   try Unix.access path []; true

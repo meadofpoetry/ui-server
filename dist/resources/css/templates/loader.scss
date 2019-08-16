@@ -1,15 +1,25 @@
-@import "@material/theme/_mixins";
+@import "@material/theme/mixins";
 
 .mdc-loader {
-    height: 100%;
-    width: 100%;
+    > :not(.mdc-placeholder) {
+        opacity: 0.2;
+    }
 
-    > .mdc-placeholder__widget {
-        height: 40px;
-        width: 40px;
-        font-size: 40px;
-        svg circle {
-            @include mdc-theme-prop(stroke, primary);
+    > .mdc-placeholder {
+        z-index: 2;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+
+        &__widget {
+            height: 40px;
+            width: 40px;
+            font-size: 40px;
+            svg circle {
+                @include mdc-theme-prop(stroke, primary);
+            }
         }
     }
 }

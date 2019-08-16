@@ -40,7 +40,7 @@ class parent ~port_setter
           ~right_point:p
           ~f_lp ~f_rp ~port_setter ()) connections
   in
-  let switches = Utils.List.filter_map (fun x -> x#switch) paths in
+  let switches = List.filter_map (fun x -> x#switch) paths in
   let s_switch_changing =
     List.map (fun x -> x#forbidden) switches
     |> React.S.merge ~eq:(=)
@@ -63,7 +63,7 @@ class parent ~port_setter
 
     method! destroy () : unit =
       super#destroy ();
-      Utils.Option.iter (React.S.stop ~strong:true) _s;
+      Option.iter (React.S.stop ~strong:true) _s;
       _s <- None
 
     method paths = paths

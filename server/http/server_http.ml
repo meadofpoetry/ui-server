@@ -209,7 +209,7 @@ let pages : 'a. unit -> 'a Api_template.item list =
   let props =
     make_template_props
       ~title:"Настройки безопасности"
-      ~post_scripts:[Src "/js/page-server-settings.js"]
+      ~post_scripts:[`Src "/js/page-server-settings.js"]
       ~stylesheets:["/css/page-server-settings.min.css"]
       () in
   simple

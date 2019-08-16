@@ -22,5 +22,5 @@ let () =
       @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
       @@ Markup.make (account#markup :: content) in
     Lwt.return_ok page in
-  let loader = Ui_templates.Loader.create_widget_loader thread in
+  let loader = Ui_templates.Loader.make_widget_loader thread in
   scaffold#set_body loader

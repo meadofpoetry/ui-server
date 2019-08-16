@@ -127,7 +127,7 @@ class t (elt : Dom_html.element Js.t) = object(self)
     aux (routes_list#items, x)
 
   method value : Network_config.address list =
-    Utils.List.filter_map (fun (x : Dom_html.element Js.t) ->
+    List.filter_map (fun (x : Dom_html.element Js.t) ->
         Js.Opt.case x##.textContent
           (fun () -> None)
           (parse_address % Js.to_string))

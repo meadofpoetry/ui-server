@@ -70,7 +70,7 @@ let to_streams_s
     (meas : (int * Measure.t ts) list React.event)
   : Stream.Raw.t list React.signal =
   React.S.sample (fun meas (config : Device.config) ->
-      Boards.Util.List.filter_map (fun ((id, _) as mode)->
+      List.filter_map (fun ((id, _) as mode)->
           match List.find_opt (fun (id', _) -> id = id') meas with
           | None -> None
           | Some (_, { data = { Measure. lock; bitrate; _ }; _ }) ->
@@ -86,7 +86,7 @@ let map_measures (config : Device.config React.signal)
     (e : (int * Measure.t ts) list React.event)
   : (int * Measure.t ts) list React.event =
   React.S.sample (fun l (config : Device.config) ->
-      Boards.Util.List.filter_map
+      List.filter_map
         (fun (id, ({ data; timestamp } : Measure.t ts)) ->
            match List.assoc_opt id config.mode with
            | None -> None

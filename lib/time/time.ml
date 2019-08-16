@@ -1,22 +1,11 @@
 include Ptime
 
-let get_exn = function Some v -> v | None -> failwith "None"
-
-let to_result = function Some v -> Ok v | None -> Error "None"
-
 module I64 = struct
   include Int64
   let ( * ) = mul
   let ( / ) = div
 end
 
-module Int = struct
-  let (mod) = (mod)
-end
-(* TODO remove this
-  [@@deprecated "Remove after 4.08"]
- *)
-                                                
 let to_human_string ?tz_offset_s (t : t) =
   let (y, m, d), ((h, min, s), _) = to_date_time ?tz_offset_s t in
   Printf.sprintf "%02d.%02d.%04d %02d:%02d:%02d" d m y h min s
@@ -36,7 +25,7 @@ let of_human_string_exn ?(tz_offset_s = 0) s =
           int_of_string min,
           int_of_string sec
        | _ -> failwith "bad time value(s)" in
-     of_date_time ((y, m, d), ((h, min, s), tz_offset_s)) |> get_exn
+     of_date_time ((y, m, d), ((h, min, s), tz_offset_s)) |> Option.get
   | _ -> failwith "not a human-readable date time string"
 
 (* TODO
@@ -101,10 +90,10 @@ let split ~from ~till =
     if sz <= 0 then failwith "invariant is broken";
     let sz = Span.of_int_s sz in
     let rec loop acc st =
-      if compare st (sub_span til sz |> get_exn) > 0 then (st,til)::acc
-      else let nst = get_exn @@ add_span st sz in
+      if compare st (sub_span til sz |> Option.get) > 0 then (st,til)::acc
+      else let nst = Option.get @@ add_span st sz in
            loop ((st,nst)::acc) nst
-    in let s = get_exn @@ add_span (truncate ~frac_s:0 from) (Span.of_int_s 1) in
+    in let s = Option.get @@ add_span (truncate ~frac_s:0 from) (Span.of_int_s 1) in
        (from,s)::(List.rev @@ loop [] s)
   in
   let merge (from, til) = unsafe_of_d_ps from, unsafe_of_d_ps til in
@@ -128,9 +117,9 @@ module Conv (M : sig
   type t = Ptime.t
 
   let of_int x =
-    get_exn
+    Option.get
     @@ Ptime.of_span
-    @@ get_exn
+    @@ Option.get
     @@ Ptime.Span.of_d_ps (M.of_int x)
 
   let to_int x =
@@ -158,9 +147,9 @@ module Conv64 (M : sig val second : int64 end) = struct
 
   let of_int64 (x : int64) : t =
     let s = (Int64.to_float x) /. (Int64.to_float M.second) in
-    get_exn
+    Option.get
     @@ Ptime.of_span
-    @@ get_exn
+    @@ Option.get
     @@ Ptime.Span.of_float_s s
 
   let to_int64 (x : t) : int64 =
@@ -186,13 +175,13 @@ module Conv64 (M : sig val second : int64 end) = struct
 end
 
 module Hours = Conv(struct
-    let of_int x = (x / 24, I64.(of_int Int.(x mod 24) * 3600L * ps_in_s))
+    let of_int x = (x / 24, I64.(of_int (x mod 24) * 3600L * ps_in_s))
     let to_int (d,ps) = (d * 24) + I64.(to_int (ps / (3600L * ps_in_s)))
   end)
 
 module Seconds = Conv(struct
     let of_int x = Ptime.Span.to_d_ps @@ Ptime.Span.of_int_s x
-    let to_int x = get_exn @@ Ptime.Span.to_int_s @@ Ptime.Span.v x
+    let to_int x = Option.get @@ Ptime.Span.to_int_s @@ Ptime.Span.v x
   end)
 
 module Seconds64 = Conv64(struct let second = 1L end)
@@ -209,9 +198,10 @@ module Period = struct
   let of_yojson (j:Yojson.Safe.t) : (t,string) result =
     let to_err j = Printf.sprintf "span_of_yojson: bad json value (%s)" @@ Yojson.Safe.to_string j in
     match j with
-    | `List [ `Int d; `Intlit ps] -> (match Int64.of_string_opt ps with
-                                      | Some ps -> to_result (Ptime.Span.of_d_ps (d,ps))
-                                      | None    -> Error (to_err j))
+    | `List [ `Int d; `Intlit ps] ->
+      (match Int64.of_string_opt ps with
+       | Some ps -> Option.to_result ~none:"None" (Ptime.Span.of_d_ps (d,ps))
+       | None    -> Error (to_err j))
     | _ -> Error (to_err j)
 
   module Conv (M : sig
@@ -220,7 +210,7 @@ module Period = struct
              end) = struct
     type t = Ptime.Span.t
 
-    let of_int x = get_exn @@ Ptime.Span.of_d_ps (M.of_int x)
+    let of_int x = Option.get @@ Ptime.Span.of_d_ps (M.of_int x)
     let to_int x = M.to_int @@ Ptime.Span.to_d_ps x
     let of_string s = of_int @@ int_of_string s
     let to_string x = string_of_int @@ to_int x
@@ -239,7 +229,7 @@ module Period = struct
 
     let of_int64 (x : int64) : t =
       Ptime.Span.of_float_s ((Int64.to_float x) /. (Int64.to_float M.second))
-      |> get_exn
+      |> Option.get
     (* let d  = Int64.(to_int (x / (24L * 60L * 60L * M.second))) in
      * let ps = Int64.((x mod (24L * 60L * 60L)) * (ps_in_s / M.second)) in
      * Option.get_exn
@@ -272,14 +262,14 @@ module Period = struct
 
   module Hours =
     Conv(struct
-      let of_int x = (x / 24, I64.(of_int Int.(x mod 24) * 3600L * ps_in_s))
+      let of_int x = (x / 24, I64.(of_int (x mod 24) * 3600L * ps_in_s))
       let to_int (d,ps) = (d * 24) + I64.(to_int (ps / (3600L * ps_in_s)))
     end)
 
   module Seconds =
     Conv(struct
       let of_int x = Ptime.Span.to_d_ps @@ Ptime.Span.of_int_s x
-      let to_int x = get_exn @@ Ptime.Span.to_int_s @@ Ptime.Span.v x
+      let to_int x = Option.get @@ Ptime.Span.to_int_s @@ Ptime.Span.v x
     end)
 
   module Seconds64 = Conv64(struct let second = 1L end)
@@ -293,12 +283,25 @@ module Range = struct
 
   let after time span : t = (time, span)
 
+  let equal (a : t) (b : t) =
+    equal (fst a) (fst b) && Period.equal (snd a) (snd b)
+
+  let to_yojson (t, s : t) : Yojson.Safe.t =
+    `List [to_yojson t; Period.to_yojson s]
+
+  let of_yojson : Yojson.Safe.t -> (t, string) result = function
+    | `List [t; s] ->
+      (match of_yojson t, Period.of_yojson s with
+       | Ok t, Ok s -> Ok (t, s)
+       | _ -> Error "of_yojson")
+    | _ -> Error "of_yojson"
+
 end
 
 module Relative = struct
   include Ptime.Span
 
-  let to_seconds : t -> int = fun x -> get_exn @@ Ptime.Span.to_int_s x
+  let to_seconds : t -> int = fun x -> Option.get @@ Ptime.Span.to_int_s x
 
   let of_seconds : int -> t = Ptime.Span.of_int_s
 

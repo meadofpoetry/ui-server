@@ -7,13 +7,6 @@ module Api_events = Api_websocket.Make
                       (Body_ws)
 module Api_template = Api_cohttp_template.Make(User)
 
-(* TODO remove in 4.08 *)
-module Int = struct
-  type t = int
-
-  let compare = compare
-end
-
 let ( ^:: ) l x = match x with
   | None -> l
   | Some x -> x :: l
@@ -50,11 +43,27 @@ type stream_handler =
   ; constraints : constraints
   >
 
+type tab =
+  < stylesheets : string list
+  ; pre_scripts : Api_template.script list
+  ; post_scripts : Api_template.script list
+  ; content : Tyxml.Xml.elt list
+  ; title : string
+  ; path : Netlib.Uri.Path.t
+  >
+
+type tab_tag =
+  [ `Input of Topology.topo_input
+  | `Stream
+  ]
+
 type t =
   { http : Api_http.t list
   ; ws : Api_events.t list
   ; templates : Api_template.topmost Api_template.item list
+  ; gui_tabs : (tab_tag * tab list) list
   ; control : int
+  ; id : Topology.board_id
   ; streams_signal : Stream.t list React.signal
   ; log_source : Stream.Log_message.source
   ; loop : unit -> unit Lwt.t
@@ -69,6 +78,8 @@ type t =
 
 module type BOARD = sig
   open React
+  val board_id : Topology.board_id
+
   val create :
     Topology.topo_board ->
     Stream.t list signal ->

@@ -132,3 +132,9 @@ type 'a ts =
 let devinfo_to_string (x : devinfo) =
   Printf.sprintf "type: 0x%02X, version: %d, packers: %d"
     x.typ x.ver x.packers_num
+
+let board_id : Application_types.Topology.board_id =
+  { manufacturer = "NIITV"
+  ; model = "TS2IP"
+  ; version = 2
+  }

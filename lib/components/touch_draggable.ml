@@ -56,12 +56,12 @@ class t ~data ~typ elt () = object(self)
     let touch = touch e in
     Js.Opt.iter (elt_from_point touch##.clientX touch##.clientY)
       (fun x -> dispatch touch "drop" x ?data:(Some ((Js.string typ),data)));
-    Utils.Option.iter (fun cln ->
+    Option.iter (fun cln ->
         (try Dom.removeChild Dom_html.document##.body cln with _ -> ());
         clone <- None) clone;
     dispatch touch "dragend" elt;
-    Utils.Option.iter Lwt.cancel _move_listener;
-    Utils.Option.iter Lwt.cancel _end_listener;
+    Option.iter Lwt.cancel _move_listener;
+    Option.iter Lwt.cancel _end_listener;
     _move_listener <- None;
     _end_listener <- None;
     Lwt.return_unit
@@ -87,7 +87,7 @@ class t ~data ~typ elt () = object(self)
          Js.Opt.iter (elt_from_point touch##.clientX touch##.clientY)
            (fun x -> dispatch touch "dragover" x
                ?data:(Some ((Js.string typ),data)));
-         Utils.Option.iter (fun cln ->
+         Option.iter (fun cln ->
              let dx, dy = delta in
              cln##.style##.left :=
                Js.string @@ (string_of_int (touch##.pageX - dx))^"px";
