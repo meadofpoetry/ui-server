@@ -5,8 +5,9 @@
 @import './_mixins';
 
 @import "../application/application";
+// FIXME remove
 @import "../pipeline/widgets";
-@import "../boards/niitv_dvb";
+@import "../boards/niitv-dvb4ch/niitv-dvb4ch";
 @import "../boards/niitv_tsan";
 @import "../boards/dektec_dtm3200";
 
