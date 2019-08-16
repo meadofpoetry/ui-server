@@ -95,6 +95,19 @@
           (run %{bin:sassc} -t compressed -I ./ %{src} %{targets})
           (run %{bin:postcss} -u autoprefixer -r %{targets}))))
 
+;; Boards
+
+(rule
+ (targets board-niitv-dvb4ch.min.css)
+ (deps
+       (:src ./frontend/boards/niitv-dvb4ch/niitv-dvb4ch.scss)
+       (source_tree ./@material))
+ (action (progn
+          (run %{bin:sassc} -t compressed -I ./ %{src} %{targets})
+          (run %{bin:postcss} -u autoprefixer -r %{targets}))))
+
+;; Main
+
 (rule
  (targets main.min.css)
  (deps
@@ -118,6 +131,7 @@
          (page-server-settings.min.css as css/page-server-settings.min.css)
          (page-user-settings.min.css as css/page-user-settings.min.css)
          (page-error.min.css as css/page-error.min.css)
-         (page-logout.min.css as css/page-logout.min.css))
+         (page-logout.min.css as css/page-logout.min.css)
+         (board-niitv-dvb4ch.min.css as css/board-niitv-dvb4ch.min.css))
   (section share)
   (package ui-server))

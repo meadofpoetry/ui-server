@@ -16,7 +16,7 @@ module Attr = struct
 end
 
 let make_charts () =
-  let open Board_niitv_dvb_widgets.Widget_chart.Index in
+  let open Board_niitv_dvb_widgets.Widget_chart in
   let pwr = make [] (make_config `Power) in
   let mer = make [] (make_config `Mer) in
   let ber = make [] (make_config `Ber) in
@@ -24,7 +24,7 @@ let make_charts () =
   let btr = make [] (make_config `Bitrate) in
   let charts = [pwr; mer; ber; frq; btr] in
   List.iter (fun chart ->
-      chart#root##.style##.height := Js.string "200px";
+      chart#root##.style##.height := Js.string "350px";
       chart#root##.style##.padding := Js.string "1rem";
       chart#root##.style##.marginBottom := Js.string "20px";
       chart#add_class Card.CSS.root) charts;
@@ -39,30 +39,30 @@ let make_charts () =
       List.iter (fun x -> x#notify data) charts
   end
 
-let on_visible charts (socket_ref : 'a ref) control elt =
+let on_visible charts state control elt =
   let thread =
     Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
     >>=? fun socket ->
-    Option.iter Api_js.Websocket.close_socket !socket_ref;
-    socket_ref := Some socket;
+    Option.iter (fun f -> f ()) !state;
     Http_receivers.Event.get_measurements socket control
     >>=? fun (_, meas_ev) ->
-    let _notif = React.E.merge (fun _ x -> charts#notify x) ()
+    let notif = React.E.merge (fun _ x -> charts#notify x) ()
         [ React.E.map (fun x ->
               `Data (List.map (fun (id, x) -> id, [x]) x)) meas_ev
         ] in
+    state := Some (fun () ->
+        React.E.stop ~strong:true meas_ev;
+        React.E.stop ~strong:true notif;
+        Api_js.Websocket.close_socket socket);
     Lwt.return_ok () in
   let _loader = Ui_templates.Loader.make_loader ~elt thread in
   ()
 
-let on_hidden socket_ref =
-  match !socket_ref with
+let on_hidden state = match !state with
   | None -> ()
-  | Some socket ->
-    Api_js.Websocket.close_socket socket;
-    socket_ref := None
+  | Some finalize -> finalize (); state := None
 
-let observe charts socket control records _observer =
+let observe charts state control records _observer =
   let open MutationObserver in
   let record =
     List.find_opt (fun (x : mutationRecord Js.t) ->
@@ -76,28 +76,28 @@ let observe charts socket control records _observer =
     let current = target##getAttribute (Js.string "hidden") in
     if x##.oldValue != current
     then Js.Opt.case current
-        (fun () -> on_visible charts socket control target)
-        (fun _ -> on_hidden socket)
+        (fun () -> on_visible charts state control target)
+        (fun _ -> on_hidden state)
 
 let initialize id control =
   let id =
     String.map (function '/' -> '-' | c -> c)
     @@ Topology.make_board_path id control in
   let (_scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
-  let socket = ref None in
+  let state = ref None in
   let elt = Dom_html.getElementById id in
   let charts = make_charts () in
   Dom.appendChild elt charts#root;
   let _observer = MutationObserver.observe
       ~node:elt
-      ~f:(observe charts socket control)
+      ~f:(observe charts state control)
       ~attributes:true
       ~attribute_old_value:true
       ~attribute_filter:[Js.string "hidden"]
       () in
   Js.Opt.case (elt##getAttribute (Js.string Attr.hidden))
-    (fun () -> on_visible charts socket control elt)
-    (fun _ -> on_hidden socket)
+    (fun () -> on_visible charts state control elt)
+    (fun _ -> on_hidden state)
 
 let () =
   let boards =

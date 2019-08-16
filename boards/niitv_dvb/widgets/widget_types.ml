@@ -6,7 +6,22 @@ type measure_type =
   | `Bitrate
   ] [@@deriving yojson, eq]
 
-let module_name = "Канал"
+let module_name = "Модуль"
+
+let bw_to_string = function
+  | Board_niitv_dvb_types.Device.Bw8 -> "8 МГц"
+  | Bw7 -> "7 МГц"
+  | Bw6 -> "6 МГц"
+
+let hz_in_mhz = 1_000_000
+let hz_in_khz = 1_000
+
+let freq_to_string (x : int) =
+  if x mod hz_in_mhz = 0
+  then Printf.sprintf "%d МГц" @@ x / hz_in_mhz
+  else if x mod hz_in_khz = 0
+  then Printf.sprintf "%d кГц" @@ x / hz_in_khz
+  else Printf.sprintf "%d Гц" x
 
 let measure_type_to_string = function
   | `Power -> "Мощность"

@@ -28,7 +28,9 @@ let get_source_from_env src (b : Topology.topo_board) =
 let make_input_tab_template (b : Topology.topo_board) =
   object
     method stylesheets =
-      ["/css/Chart.min.css"]
+      [ "/css/Chart.min.css"
+      ; "/css/board-niitv-dvb4ch.min.css"
+      ]
 
     method pre_scripts =
       [ `Src "/js/moment.min.js"
