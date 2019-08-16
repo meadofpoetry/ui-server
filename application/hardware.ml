@@ -60,9 +60,12 @@ let available_boards =
 
 let create_board db usb (b : Topology.topo_board) boards kv =
   let id = Topology.board_id_of_topo_board b in
-  match List.find_opt (fun board ->
+  let board = List.find_opt (fun board ->
       let (module B : Board.BOARD) = board in
-      Topology.equal_board_id id B.board_id) available_boards with
+      Topology.equal_board_id id B.board_id)
+      available_boards
+  in
+  match board with
   | None -> raise (Failure ("create board: unknown board "))
   | Some board ->
     let (module B : Board.BOARD) = board in
