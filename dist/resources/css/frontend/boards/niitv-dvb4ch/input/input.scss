@@ -1,4 +1,10 @@
+@import "@material/elevation/mixins";
+@import "@material/card/mixins";
+
 .niitv-dvb4ch-measurements-chart {
+    @include mdc-card-shape-radius(medium);
+    @include mdc-card-fill-color(surface);
+    @include mdc-elevation(1);
     margin-bottom: 20px;
 
     .chartjs-render-monitor {

@@ -6,14 +6,20 @@ open Widget_types
 
 let ( % ) f g x = f (g x)
 
+module Attr = struct
+  let datasets = "data-datasets"
+end
+
 module CSS = struct
   let root = "niitv-dvb4ch-measurements-chart"
   let chart_wrapper = BEM.add_element root "chart-wrapper"
+  let title = BEM.add_element root "title"
   let legend = BEM.add_element root "legend"
   let legend_wrapper = BEM.add_element root "legend-wrapper"
   let legend_module = BEM.add_element root "legend-module"
   let legend_dataset = BEM.add_element root "legend-dataset"
   let legend_color = BEM.add_element root "legend-color"
+  let legend_hidden = BEM.add_modifier legend "hidden"
 end
 
 type data = (int * Measure.t ts list) list
@@ -52,6 +58,12 @@ let colors =
       Random.int 255,
       Random.int 255,
       Random.int 255)
+
+let id_of_dataset (ds : _ Chartjs.lineDataset Js.t) : int =
+  (Js.Unsafe.coerce ds)##.id
+
+let set_dataset_id (ds : _ Chartjs.lineDataset Js.t) (id : int) : unit =
+  (Js.Unsafe.coerce ds)##.id := id
 
 let duration_of_period : period -> Time.Period.t = function
   | `Realtime x -> x
@@ -141,10 +153,33 @@ let make_x_axis ?(id = "x-axis") (config : widget_config) =
 
 module Modules = Map.Make(Int)
 
-let make_module_elt ?(classes = []) ?(attrs = []) (id : int) =
+let datasets_of_event (e : #Dom_html.event Js.t) =
+  let target = Dom.eventTarget e in
+  let selector = Printf.sprintf "[data-datasets]" in
+  Js.Opt.case (Element.closest target selector)
+    (fun () -> None)
+    (fun elt ->
+       match Element.get_attribute elt Attr.datasets with
+       | None -> None
+       | Some attr ->
+         let hidden = Element.has_class elt CSS.legend_hidden in
+         try
+           Some (elt,
+                 hidden,
+                 List.map (Js.parseInt % Js.string)
+                 @@ String.split_on_char ',' attr)
+         with _ -> None)
+
+let make_module_elt ?(classes = []) ?(attrs = []) (id : int)
+    (datasets : _ Chartjs.lineDataset Js.t list) =
   let open Tyxml.Html in
+  let datasets =
+    String.concat ", "
+    @@ List.map (string_of_int % id_of_dataset) datasets in
   let classes = CSS.legend_module :: classes in
-  td [span ~a:([a_class classes] @ attrs)
+  td [span ~a:([ a_class classes
+               ; a_user_data "datasets" datasets
+               ] @ attrs)
         [txt @@ format_module id]]
 
 let make_dataset_elt ?(classes = []) ?(attrs = [])
@@ -166,7 +201,10 @@ let make_dataset_elt ?(classes = []) ?(attrs = [])
          @@ Js.Unsafe.coerce x) in
   let color_style = background ^ border in
   let classes = CSS.legend_dataset :: classes in
-  div ~a:([a_class classes] @ attrs)
+  let hidden = Js.to_bool (Js.Unsafe.coerce dataset)##.hidden in
+  div ~a:([ a_class (if hidden then CSS.legend_hidden :: classes else classes)
+          ; a_user_data "datasets" @@ string_of_int (id_of_dataset dataset)
+          ] @ attrs)
     [ span ~a:[ a_class [CSS.legend_color]
               ; a_style color_style ] []
     ; txt (Js.to_string dataset##.label)
@@ -174,7 +212,7 @@ let make_dataset_elt ?(classes = []) ?(attrs = [])
 
 let make_modules_row id datasets =
   let open Tyxml.Html in
-  tr [ make_module_elt id
+  tr [ make_module_elt id datasets
      ; td (List.map make_dataset_elt datasets)
      ]
 
@@ -189,7 +227,7 @@ let legend_callback = fun (chart : Chartjs.chart Js.t) ->
   let modules =
     Modules.bindings
     @@ List.fold_left (fun acc dataset ->
-        Modules.update (Js.Unsafe.coerce dataset)##.id
+        Modules.update (id_of_dataset dataset)
           (function
             | None -> Some [dataset]
             | Some datasets -> Some (dataset :: datasets))
@@ -220,7 +258,7 @@ let make_options ~x_axes ~y_axes (config : widget_config) =
                 Js.Optdef.case (Js.array_get dataset##.data item##.index)
                   (fun () -> "")
                   (fun v -> Printf.sprintf "%s: %s"
-                      (format_module (Js.Unsafe.coerce dataset)##.id)
+                      (format_module (id_of_dataset dataset))
                       (format_value v##.y config)))
          in
          Indexable.of_single @@ Js.string text);
@@ -262,7 +300,7 @@ let make_dataset src data mode =
   let color = Color.to_hexstring @@ Color.of_rgb r g b in
   Chartjs.(
     let dataset = create_line_dataset () in
-    (Js.Unsafe.coerce dataset)##.id := src;
+    set_dataset_id dataset src;
     dataset##.data := Js.array @@ Array.of_list data;
     dataset##.label := Js.string (format_config mode);
     dataset##.fill := Line_fill._false;
@@ -310,13 +348,14 @@ class t ~init
     (config : widget_config)
     (elt : Dom_html.element Js.t) = object(self)
 
-  val legend : Dom_html.element Js.t option =
-    Element.query_selector elt (Printf.sprintf ".%s" CSS.legend_wrapper)
+  val legend : Dom_html.element Js.t =
+    Option.get @@ Element.query_selector elt (Printf.sprintf ".%s" CSS.legend_wrapper)
 
   val canvas : Dom_html.canvasElement Js.t =
     Js.Unsafe.coerce @@ Element.query_selector_exn elt "canvas"
 
   val mutable chart = None
+  val mutable listeners = []
 
   inherit Widget.t elt () as super
 
@@ -335,6 +374,12 @@ class t ~init
     self#generate_legend ();
     super#init ()
 
+  method! initial_sync_with_dom () : unit =
+    listeners <- Js_of_ocaml_lwt.Lwt_js_events.(
+        [ clicks legend self#handle_legend_click
+        ]);
+    super#initial_sync_with_dom ()
+
   method! destroy () : unit =
     Option.iter (fun x -> x##destroy) chart;
     super#destroy ()
@@ -349,11 +394,9 @@ class t ~init
       let mode = List.sort (fun a b -> compare (fst a) (fst b)) mode in
       let datasets = Array.to_list @@ Js.to_array self#chart##.data##.datasets in
       let datasets =
-        List.sort (fun a b -> compare
-                      (Js.Unsafe.coerce a)##.id
-                      (Js.Unsafe.coerce b)##.id)
+        List.sort (fun a b -> compare (id_of_dataset a) (id_of_dataset b))
         @@ List.map (fun ((s : int), mode) ->
-            match List.find_opt (fun ds -> ds##.id = s) datasets with
+            match List.find_opt (fun ds -> (id_of_dataset ds) = s) datasets with
             | None -> make_dataset s [] mode
             | Some ds ->
               ds##.label := Js.string (format_config mode);
@@ -361,25 +404,46 @@ class t ~init
           mode in
       self#chart##.data##.datasets := Js.array @@ Array.of_list datasets;
       self#generate_legend ();
-      let config = Chartjs_streaming.create_update_config () in
-      config##.preservation := Js._true;
-      self#chart##update_withConfig config
+      self#update_chart ()
     | `Data data ->
       let data = List.map (fun (src, x) -> src, convert_data config.typ x) data in
       let datasets = Array.to_list @@ Js.to_array self#chart##.data##.datasets in
       List.iter (fun ((s : int), data) ->
-          match List.find_opt (fun ds -> ds##.id = s) datasets with
+          match List.find_opt (fun ds -> (id_of_dataset ds) = s) datasets with
           | None -> ()
           | Some ds -> ds##.data := ds##.data##concat (Js.array @@ Array.of_list data))
         data;
-      let config = Chartjs_streaming.create_update_config () in
-      config##.preservation := Js._true;
-      self#chart##update_withConfig config
+      self#update_chart ()
+
+  method private handle_legend_click e _ : unit Lwt.t =
+    match datasets_of_event e with
+    | None -> Lwt.return_unit
+    | Some (target, hidden, datasets) ->
+      ignore @@ Element.toggle_class target CSS.legend_hidden;
+      self#chart##.data##.datasets##forEach (Js.wrap_callback (fun ds _ _ ->
+          let id = id_of_dataset ds in
+          if List.mem id datasets
+          then (Js.Unsafe.coerce ds)##.hidden := Js.bool (not hidden);
+          let selector = Printf.sprintf ".%s[data-datasets=\"%d\"]"
+              CSS.legend_dataset
+              id in
+          List.iter (fun item ->
+              ignore
+              @@ Element.toggle_class
+                ~force:(not hidden)
+                item
+                CSS.legend_hidden)
+          @@ Element.query_selector_all legend selector));
+      self#update_chart ();
+      Lwt.return_unit
+
+  method private update_chart () : unit =
+    let config = Chartjs_streaming.create_update_config () in
+    config##.preservation := Js._true;
+    self#chart##update_withConfig config
 
   method private generate_legend () : unit =
-    Option.iter (fun legend ->
-        legend##.innerHTML := self#chart##generateLegend)
-      legend
+    legend##.innerHTML := self#chart##generateLegend
 end
 
 let make
@@ -389,7 +453,8 @@ let make
   let elt = Js_of_ocaml_tyxml.Tyxml_js.Html.(
       Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
       @@ div ~a:[a_class [CSS.root]]
-        [ div ~a:[a_class [CSS.legend_wrapper]] []
+        [ div ~a:[a_class [CSS.title]] [txt (measure_type_to_string config.typ)]
+        ; div ~a:[a_class [CSS.legend_wrapper]] []
         ; div ~a:[a_class [CSS.chart_wrapper]] [canvas []]
         ]) in
   new t ~init ~mode config elt

@@ -1,5 +1,7 @@
 @import "@material/animation/functions";
 @import "@material/layout-grid/variables";
+@import "@material/top-app-bar/variables";
+@import "@material/tab/variables";
 
 $screen-width-desktop: map-get($mdc-layout-grid-breakpoints, desktop);
 
@@ -16,7 +18,13 @@ $screen-width-desktop: map-get($mdc-layout-grid-breakpoints, desktop);
 }
 
 .mdc-top-app-bar--fixed-adjust {
-    margin-top: 48px;
+    padding-top: $mdc-tab-height + $mdc-top-app-bar-row-height;
+
+    @media (max-width: $mdc-top-app-bar-mobile-breakpoint) {
+        .mdc-top-app-bar--fixed-adjust {
+            padding-top: $mdc-tab-height + $mdc-top-app-bar-mobile-row-height;
+        }
+    }
 }
 
 main.mdc-scaffold__app-content--inner {

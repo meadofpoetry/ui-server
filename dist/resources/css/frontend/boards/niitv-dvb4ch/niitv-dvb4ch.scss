@@ -54,8 +54,14 @@
 // Chart
 
 .niitv-dvb4ch-measurements-chart {
+    &__title {
+        padding: 1rem 1rem 0.5rem;
+        @include mdc-typography(headline6);
+        font-weight: 300;
+    }
+
     &__legend {
-        padding: 12px;
+        padding: 0.5rem 1rem 1rem;
         font-size: 12px;
         border-spacing: 0;
 
@@ -63,6 +69,10 @@
             border-right-width: 1px;
             border-right-style: solid;
             @include mdc-theme-prop(border-right-color, $legend-divider-color);
+        }
+
+        td:first-child {
+            padding-left: 0;
         }
 
         td {
@@ -89,10 +99,8 @@
         align-items: center;
     }
 
-    &__legend-dataset, &--legend-module {
-        &--hidden {
-            text-decoration: line-through;
-        }
+    &__legend--hidden {
+        text-decoration: line-through;
     }
 
     &__chart-wrapper {
@@ -101,5 +109,7 @@
         height: 100%;
         max-height: 100%;
         overflow: hidden;
+        padding: 1rem;
+        box-sizing: border-box;
     }
 }
