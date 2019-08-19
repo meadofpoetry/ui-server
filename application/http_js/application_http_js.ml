@@ -40,7 +40,7 @@ end
 let set_streams streams =
   Api_http.perform_unit
     ~meth:`POST
-    ~path:Path.Format.("api/application/stream_table" @/ empty)
+    ~path:Path.Format.("api/application/stream-table" @/ empty)
     ~body:(Stream.stream_setting_to_yojson streams)
     ~query:Query.empty
     (fun _env res -> Lwt.return res)
