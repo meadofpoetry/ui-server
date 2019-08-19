@@ -64,7 +64,7 @@ let parse_mode (buf : Cstruct.t) =
     | Some x -> Ok x
   with Invalid_argument _ -> Error Invalid_length
 
-let parse_measures (buf : Cstruct.t) =
+let parse_measures ?(timestamp = Ptime_clock.now ()) (buf : Cstruct.t) =
   let int_to_opt x = if x = max_uint16 then None else Some x in
   let int32_to_opt x = if Int32.equal x max_uint32 then None else Some x in
   try
@@ -87,7 +87,7 @@ let parse_measures (buf : Cstruct.t) =
         | None -> None
         | Some x -> Some (Int32.to_int x) in
       let data = { Measure. lock; power; mer; ber; freq; bitrate } in
-      Ok { data; timestamp = Ptime.truncate ~frac_s:0 @@ Ptime_clock.now () }
+      Ok { data; timestamp }
   with Invalid_argument _ -> Error Invalid_length
 
 let parse_params (buf : Cstruct.t) =
@@ -207,17 +207,24 @@ let deserialize (src : Logs.src) buf =
   List.rev responses,
   if Cstruct.len rest > 0 then Some rest else None
 
-let is_response (type a) (req : a Request.t)
+let is_response (type a) ?timestamp (req : a Request.t)
     (msg : Request.msg) : (a, Request.error) result option =
   let ( >>= ) r f = match r with Ok x -> f x | Error e -> Error e in
   if not Request.(equal_tag msg.tag (to_tag req))
   then None
   else begin match req with
-    | Reset -> Some (parse_devinfo msg.data)
-    | Set_src_id _ -> Some (parse_source_id msg.data)
-    | Get_devinfo -> Some (parse_devinfo msg.data)
-    | Set_mode (id, _) -> Some (parse_mode msg.data >>= fun x -> Ok (id, x))
-    | Get_measure id -> Some (parse_measures msg.data >>= fun x -> Ok (id, x))
-    | Get_params id -> Some (parse_params msg.data >>= fun x -> Ok (id, x))
-    | Get_plp_list id -> Some (parse_plp_list msg.data >>= fun x -> Ok (id, x))
+    | Reset ->
+      Some (parse_devinfo msg.data)
+    | Set_src_id _ ->
+      Some (parse_source_id msg.data)
+    | Get_devinfo ->
+      Some (parse_devinfo msg.data)
+    | Set_mode (id, _) ->
+      Some (parse_mode msg.data >>= fun x -> Ok (id, x))
+    | Get_measure id ->
+      Some (parse_measures ?timestamp msg.data >>= fun x -> Ok (id, x))
+    | Get_params id ->
+      Some (parse_params msg.data >>= fun x -> Ok (id, x))
+    | Get_plp_list id ->
+      Some (parse_plp_list msg.data >>= fun x -> Ok (id, x))
   end

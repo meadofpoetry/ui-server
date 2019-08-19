@@ -15,16 +15,15 @@ module Attr = struct
   let hidden = "hidden"
 end
 
-let make_charts () =
+let make_charts mode =
   let open Board_niitv_dvb_widgets.Widget_chart in
-  let pwr = make [] (make_config `Power) in
-  let mer = make [] (make_config `Mer) in
-  let ber = make [] (make_config `Ber) in
-  let frq = make [] (make_config `Freq) in
-  let btr = make [] (make_config `Bitrate) in
+  let pwr = make ~init:[] ~mode (make_config `Power) in
+  let mer = make ~init:[] ~mode (make_config `Mer) in
+  let ber = make ~init:[] ~mode (make_config `Ber) in
+  let frq = make ~init:[] ~mode (make_config `Freq) in
+  let btr = make ~init:[] ~mode (make_config `Bitrate) in
   let charts = [pwr; mer; ber; frq; btr] in
   List.iter (fun chart ->
-      chart#root##.style##.height := Js.string "350px";
       chart#root##.style##.padding := Js.string "1rem";
       chart#root##.style##.marginBottom := Js.string "20px";
       chart#add_class Card.CSS.root) charts;
@@ -40,19 +39,26 @@ let make_charts () =
   end
 
 let on_visible charts state control elt =
+  let open React in
   let thread =
+    Http_device.get_mode control
+    >>=? fun mode ->
+    charts#notify (`Mode mode);
     Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
     >>=? fun socket ->
     Option.iter (fun f -> f ()) !state;
     Http_receivers.Event.get_measurements socket control
     >>=? fun (_, meas_ev) ->
-    let notif = React.E.merge (fun _ x -> charts#notify x) ()
-        [ React.E.map (fun x ->
-              `Data (List.map (fun (id, x) -> id, [x]) x)) meas_ev
+    Http_device.Event.get_mode socket control
+    >>=? fun (_, mode_ev) ->
+    let notif = E.merge (fun _ x -> charts#notify x) ()
+        [ E.map (fun x -> `Data (List.map (fun (id, x) -> id, [x]) x)) meas_ev
+        ; E.map (fun x -> `Mode x) mode_ev
         ] in
     state := Some (fun () ->
-        React.E.stop ~strong:true meas_ev;
-        React.E.stop ~strong:true notif;
+        E.stop ~strong:true mode_ev;
+        E.stop ~strong:true meas_ev;
+        E.stop ~strong:true notif;
         Api_js.Websocket.close_socket socket);
     Lwt.return_ok () in
   let _loader = Ui_templates.Loader.make_loader ~elt thread in
@@ -86,7 +92,7 @@ let initialize id control =
   let (_scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
   let state = ref None in
   let elt = Dom_html.getElementById id in
-  let charts = make_charts () in
+  let charts = make_charts [] in
   Dom.appendChild elt charts#root;
   let _observer = MutationObserver.observe
       ~node:elt

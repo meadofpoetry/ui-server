@@ -30,6 +30,7 @@ let make_input_tab_template (b : Topology.topo_board) =
     method stylesheets =
       [ "/css/Chart.min.css"
       ; "/css/board-niitv-dvb4ch.min.css"
+      ; "/css/board-niitv-dvb4ch-page-input.min.css"
       ]
 
     method pre_scripts =

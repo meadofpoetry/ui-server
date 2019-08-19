@@ -1,5 +1,6 @@
 @import "@material/theme/mixins";
 @import "@material/typography/mixins";
+@import "./variables";
 
 // Module settings widget
 
@@ -54,7 +55,44 @@
 
 .niitv-dvb4ch-measurements-chart {
     &__legend {
-        padding: 24px;
+        padding: 12px;
+        font-size: 12px;
+        border-spacing: 0;
+
+        td:nth-child(1) {
+            border-right-width: 1px;
+            border-right-style: solid;
+            @include mdc-theme-prop(border-right-color, $legend-divider-color);
+        }
+
+        td {
+            padding: 2px 12px;
+        }
+    }
+
+    &__legend-color {
+        border-width: 2px;
+        border-style: solid;
+        width: 11px;
+        height: 11px;
+        display: inline-block;
+        margin-right: 5px;
+    }
+
+    &__legend-module {
+        cursor: pointer;
+    }
+
+    &__legend-dataset {
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+    }
+
+    &__legend-dataset, &--legend-module {
+        &--hidden {
+            text-decoration: line-through;
+        }
     }
 
     &__chart-wrapper {

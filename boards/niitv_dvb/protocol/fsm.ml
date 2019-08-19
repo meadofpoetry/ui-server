@@ -43,17 +43,18 @@ let rec wait_ack stream =
   | Ok ({ tag = `Ack; _ } : Request.msg) -> Lwt.return_ok ()
   | Ok _ -> wait_ack stream
 
-let wait_rsp (type a) stream (req : a Request.t) () =
+let wait_rsp (type a) ?timestamp stream (req : a Request.t) () =
   let rec loop () =
     Lwt_stream.next stream
     >>= fun x ->
-    match Parser.is_response req x with
+    match Parser.is_response ?timestamp req x with
     | None -> loop ()
     | Some (Ok x) -> Lwt.return_ok x
     | Some (Error e) -> Lwt.return_error e in
   Lwt.pick [loop (); sleep (Request.timeout req)]
 
 let request (type a)
+    ?timestamp
     (src : Logs.src)
     (stream : Request.msg Lwt_stream.t)
     (sender : Cstruct.t -> unit Lwt.t)
@@ -62,7 +63,7 @@ let request (type a)
     | 0 -> Lwt.return_error Request.Not_responding
     | n ->
       sender @@ Serializer.serialize req
-      >>= fun () -> Lwt_result.Infix.(wait_ack stream >>= wait_rsp stream req)
+      >>= fun () -> Lwt_result.Infix.(wait_ack stream >>= wait_rsp ?timestamp stream req)
       >>= function
       | Ok x -> log_ok src req x; Lwt.return_ok x
       | Error e -> log_error src req e; loop (pred n) in
@@ -212,10 +213,11 @@ let start (src : Logs.src)
       t >>= function Ok () -> idle tuners () | Error _ -> restart ()
 
   and pull_measurements tuners =
+    let timestamp = Ptime.truncate ~frac_s:0 @@ Ptime_clock.now () in
     let rec aux acc = function
       | [] -> Lwt.return_ok acc
       | id :: tl ->
-        request src rsp_queue sender (Request.Get_measure id)
+        request ~timestamp src rsp_queue sender (Request.Get_measure id)
         >>= function
         | Error _ as e -> Lwt.return e
         | Ok x -> aux (x :: acc) tl
