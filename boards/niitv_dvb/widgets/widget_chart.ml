@@ -306,6 +306,7 @@ let make_streaming generate_legend period =
     @@ Ptime.Span.to_float_s period in
   let streaming = Chartjs_streaming.create () in
   let delay = 3000 in
+  (* streaming##.frameRate := 1.; *)
   streaming##.ttl := Js.def (3000 + delay + duration);
   streaming##.delay := delay;
   streaming##.duration := duration;
@@ -357,6 +358,18 @@ let make_options ~x_axes ~y_axes generate_legend (config : widget_config) =
   scales##.xAxes := Js.array @@ Array.of_list x_axes;
   scales##.yAxes := Js.array @@ Array.of_list y_axes;
   let plugins = Js.Unsafe.obj [||] in
+  let annotation = Chartjs_annotation.create () in
+  let box = Chartjs_annotation.create_box () in
+  let now = Ptime.to_float_s @@ Ptime_clock.now () in
+  box##.id := Js.string "box";
+  box##.drawTime := Js.def Chartjs_annotation.Draw_time.afterDraw;
+  box##.xMax := Js.def @@ Time.of_float_s @@ now +. 10.;
+  box##.xMin := Js.def @@ Time.of_float_s now;
+  box##.xScaleID := Js.string "x-axis";
+  box##.yScaleID := Js.string "y-axis";
+  box##.backgroundColor := Color.of_string "rgba(255, 0, 0, 0.3)";
+  annotation##.drawTime := Chartjs_annotation.Draw_time.afterDraw;
+  annotation##.annotations := Js.array [|box|];
   plugins##.datalabels := Js._false;
   (match config.settings.period with
    | `Realtime period ->
@@ -372,6 +385,7 @@ let make_options ~x_axes ~y_axes generate_legend (config : widget_config) =
   options##.responsive := Js._true;
   options##.responsiveAnimationDuration := 0;
   options##.legendCallback := Js.wrap_callback legend_callback;
+  (Js.Unsafe.coerce options)##.annotation := annotation;
   options
 
 let make_dataset src data (mode : Device.mode) =

@@ -9,6 +9,7 @@
                ui_templates
                chartjs
                chartjs-streaming
+               chartjs-annotation
                ptime.clock.jsoo)
   (preprocess  (pps ppx_deriving_yojson
                     ppx_deriving.eq

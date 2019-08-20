@@ -38,6 +38,7 @@ let make_input_tab_template (b : Topology.topo_board) =
       ; `Src "/js/Chart.min.js"
       ; `Src "/js/chartjs-plugin-streaming.min.js"
       ; `Src "/js/chartjs-plugin-datalabels.min.js"
+      ; `Src "/js/chartjs-plugin-annotation.min.js"
       ]
 
     method post_scripts =
