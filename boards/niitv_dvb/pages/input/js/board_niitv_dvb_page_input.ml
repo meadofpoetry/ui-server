@@ -22,6 +22,7 @@ let make_charts mode =
   let ber = make ~init:[] ~mode (make_config `Ber) in
   let frq = make ~init:[] ~mode (make_config `Freq) in
   let btr = make ~init:[] ~mode (make_config `Bitrate) in
+  Js.Unsafe.global##.chart := pwr#chart;
   let charts = [pwr; mer; ber; frq; btr] in
   object
     inherit Widget.t Dom_html.(createDiv document) () as super
@@ -47,23 +48,23 @@ let on_visible charts state control elt =
     >>=? fun (_, meas_ev) ->
     Http_device.Event.get_mode socket control
     >>=? fun (_, mode_ev) ->
-    let _ev = Lwt_react.E.from (fun () ->
-        Js_of_ocaml_lwt.Lwt_js.sleep 1.
-        >>= fun () ->
-        let data =
-          { Measure.
-            power = Some (Random.float @@ -50.)
-          ; ber = Some (Random.float 0.00001)
-          ; mer = Some (Random.float 40.)
-          ; freq = Some (Random.int 5)
-          ; bitrate = Some (Random.int 50000000)
-          ; lock = true
-          } in
-        Lwt.return [0, [{ data; timestamp = Ptime_clock.now ()}]]) in
+    (* let _ev = Lwt_react.E.from (fun () ->
+     *     Js_of_ocaml_lwt.Lwt_js.sleep 1.
+     *     >>= fun () ->
+     *     let data =
+     *       { Measure.
+     *         power = Some (Random.float @@ -50.)
+     *       ; ber = Some (Random.float 0.00001)
+     *       ; mer = Some (Random.float 40.)
+     *       ; freq = Some (Random.int 5)
+     *       ; bitrate = Some (Random.int 50000000)
+     *       ; lock = true
+     *       } in
+     *     Lwt.return [0, [{ data; timestamp = Ptime_clock.now ()}]]) in *)
     let notif = E.merge (fun _ x -> charts#notify x) ()
         [ E.map (fun x -> `Data (List.map (fun (id, x) -> id, [x]) x)) meas_ev
         ; E.map (fun x -> `Mode x) mode_ev
-        ; E.map (fun x -> `Data x) _ev
+        (* ; E.map (fun x -> `Data x) _ev *)
         ] in
     state := Some (fun () ->
         E.stop ~strong:true mode_ev;

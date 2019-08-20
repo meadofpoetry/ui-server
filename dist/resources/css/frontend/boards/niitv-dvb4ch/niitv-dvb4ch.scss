@@ -94,13 +94,18 @@
     }
 
     &__legend-dataset {
+        margin-right: 10px;
         cursor: pointer;
-        display: flex;
+        display: inline-flex;
         align-items: center;
     }
 
     &__legend--hidden {
         text-decoration: line-through;
+    }
+
+    &__legend--history {
+        @include mdc-theme-prop(color, text-hint-on-surface);
     }
 
     &__chart-wrapper {
