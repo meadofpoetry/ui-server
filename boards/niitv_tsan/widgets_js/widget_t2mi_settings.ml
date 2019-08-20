@@ -135,8 +135,8 @@ class t
 
     method! destroy () : unit =
       super#destroy ();
-      Utils.Option.iter (React.E.stop ~strong:true) _e_change;
-      Utils.Option.iter Lwt.cancel _on_submit;
+      Option.iter (React.E.stop ~strong:true) _e_change;
+      Option.iter Lwt.cancel _on_submit;
       _e_change <- None;
       _on_submit <- None
 
@@ -189,7 +189,7 @@ class t
         List.iter stream_select#append_item
         @@ List.map Tyxml_js.To_dom.of_option items;
         stream_select#layout ();
-        Utils.Option.iter stream_select#set_value value;
+        Option.iter stream_select#set_value value;
         self#update_submit_button_state ()
       | `State s ->
         let disabled = match s with `Fine -> false | _ -> true in

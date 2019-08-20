@@ -1,12 +1,13 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
-open Utils
 
 include Components_tyxml.Typography
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
+let ( % ) f g x = f (g x)
+
 let remove (w : #Widget.t) : unit =
-  List.iter (fun x -> if String.prefix ~pre:CSS.root x then w#remove_class x)
+  List.iter (fun x -> if Utils.String.prefix ~pre:CSS.root x then w#remove_class x)
   @@ Element.classes w#root
 
 let set ~font (w : #Widget.t) =
@@ -24,7 +25,7 @@ module Text = struct
       let rec aux = function
         | [] -> None
         | hd :: tl ->
-           match String.chop_prefix ~pre:(CSS.root ^ "--") hd with
+           match Utils.String.chop_prefix ~pre:(CSS.root ^ "--") hd with
            | Some "headline1" -> Some Headline_1
            | Some "headline2" -> Some Headline_2
            | Some "headline3" -> Some Headline_3
@@ -43,7 +44,8 @@ module Text = struct
 
     method set_font (x : font) : unit =
       List.iter (function
-          | s when String.prefix ~pre:(CSS.root ^ "--") s -> super#remove_class s
+          | s when Utils.String.prefix ~pre:(CSS.root ^ "--") s ->
+            super#remove_class s
           | _ -> ()) @@ Element.classes super#root;
       super#add_class @@ font_to_class x
 

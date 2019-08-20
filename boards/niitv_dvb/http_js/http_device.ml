@@ -5,7 +5,7 @@ open Util
 
 module Event = struct
 
-  let ( >>= ) = Lwt_result.( >>= )
+  let ( >>= ) = Lwt_result.bind
 
   let get_state sock control =
     Api_js.Websocket.JSON.subscribe

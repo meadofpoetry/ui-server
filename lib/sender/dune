@@ -3,6 +3,6 @@
   ;(public_name sender)
   (modes       native)
   (synopsis   "sender implementation")
-  (libraries  containers yojson caqti-lwt cohttp angstrom
+  (libraries  yojson caqti-lwt cohttp angstrom
               lwt db process))
  ;; (preprocess (pps (ppx_deriving_yojson)))))

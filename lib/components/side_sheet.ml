@@ -1,7 +1,6 @@
 open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
-open Utils
 
 include Components_tyxml.Side_sheet
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
@@ -169,8 +168,8 @@ module Make_parent(M : M) = struct
         super#add_class M.animate;
         self#save_focus ();
         Option.iter Lwt.cancel _animation_thread;
-        Animation.request ()
-        >>= fun _ -> Lwt_js.yield ()
+        Lwt_js_events.request_animation_frame ()
+        >>= Lwt_js.yield
         >>= (fun () ->
           super#add_class M.opening;
           Lwt.catch (fun () ->
@@ -270,12 +269,7 @@ module Parent =
       let slide = `Trailing
     end)
 
-class t (elt : Dom_html.element Js.t) () =
-object
-  inherit Parent.t elt ()
-end
-
-include (Parent : module type of Parent with type t := t)
+include (Parent : module type of Parent)
 
 let make_element widgets =
   Tyxml_js.To_dom.of_element

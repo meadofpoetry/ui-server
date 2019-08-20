@@ -77,7 +77,7 @@ class t (state : Topology.state) (mode : nw) (control : int) =
 
     method! destroy () : unit =
       super#destroy ();
-      Utils.Option.iter (React.E.stop ~strong:true) _e_change;
+      Option.iter (React.E.stop ~strong:true) _e_change;
       (match _on_submit with
        | None -> ()
        | Some x -> Lwt.cancel x; _on_submit <- None)

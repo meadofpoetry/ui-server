@@ -62,7 +62,7 @@ class base ?actions ~body
     | Some s ->
       React.S.map ~eq:(=) (fun n ->
           let s = Printf.sprintf "Лимит: %d" n in
-          Utils.Option.iter (fun st ->
+          Option.iter (fun st ->
               st#root##.textContent := Js.some @@ Js.string s)
             subtitle) s in
   let elt =
@@ -101,7 +101,7 @@ module Board = struct
         if w#checked then push @@ Some stream else push None;
         Lwt.return_unit)
         () in
-    checkbox#toggle ~force:(Utils.Option.is_some url) ();
+    checkbox#toggle ~force:(Option.is_some url) ();
     let _s =
       React.S.map ~eq:(=)
         (fun v -> checkbox#set_disabled (not v)) check.avail in
@@ -133,7 +133,7 @@ module Board = struct
       let eq = Util_equal.List.equal Stream.equal in
       React.S.merge ~eq:Util_equal.(List.equal (Option.equal Stream.equal))
         (fun acc v -> v :: acc) [] stream_signals
-      |> React.S.map ~eq (Utils.List.filter_map (fun x -> x)) in
+      |> React.S.map ~eq (List.filter_map (fun x -> x)) in
     let non_interactive = match state with
       | `Forbidden -> true | _ -> false in
     let list =
@@ -165,7 +165,7 @@ module Board = struct
         super#destroy ();
         React.S.stop ~strong:true counter;
         React.S.stop ~strong:true settings;
-        Utils.Option.iter (React.S.stop ~strong:true) left
+        Option.iter (React.S.stop ~strong:true) left
 
       method private check_empty items : unit =
         match items with
@@ -192,7 +192,7 @@ module Board = struct
       | Some b -> Topology.get_inputs (`Boards [b]) in
     let counter, counter_push =
       let init_list =
-        Utils.List.filter_map (function
+        List.filter_map (function
             | ({ url = Some _; stream; _ } : stream) -> Some stream
             | { url = None;  _ } -> None) stream_list in
       React.S.create ~eq:(=) (List.length init_list) in
@@ -350,7 +350,7 @@ module Input = struct
       | _ -> failwith "impossible" in
     let (topo_input : Topology.topo_input) = { input; id } in
     let init_list =
-      Utils.List.filter_map (function
+      List.filter_map (function
           | ({ url = Some _; stream; _ } : stream) -> Some stream
           | { url = None;  _ } -> None)
         stream_list in
@@ -393,7 +393,7 @@ module Input = struct
         super#destroy ();
         Element.remove_child_safe Dom_html.document##.body dialog.dialog#root;
         React.S.stop ~strong:true settings;
-        Utils.Option.iter (React.S.stop ~strong:true) _s;
+        Option.iter (React.S.stop ~strong:true) _s;
         _s <- None
 
       method settings = settings

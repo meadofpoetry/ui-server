@@ -25,6 +25,36 @@ let get_source_from_env src (b : Topology.topo_board) =
           m "Failed to parse source ID value from environment: %s" s);
       None
 
+let make_input_tab_template (b : Topology.topo_board) =
+  object
+    method stylesheets =
+      [ "/css/Chart.min.css"
+      ; "/css/board-niitv-dvb4ch.min.css"
+      ]
+
+    method pre_scripts =
+      [ `Src "/js/moment.min.js"
+      ; `Src "/js/Chart.min.js"
+      ; `Src "/js/chartjs-plugin-streaming.min.js"
+      ; `Src "/js/chartjs-plugin-datalabels.min.js"
+      ]
+
+    method post_scripts =
+      [`Src "/js/board-niitv-dvb-page-input.js"]
+
+    method content = []
+
+    method title = "RF"
+
+    method path =
+      Netlib.Uri.Path.of_string
+      @@ Topology.make_board_path
+        (Topology.board_id_of_topo_board b)
+        b.control
+  end
+
+let board_id = Board_niitv_dvb_types.board_id
+
 let create (b : Topology.topo_board)
     (_ : Stream.t list React.signal)
     (convert_streams : Topology.topo_board ->
@@ -45,11 +75,15 @@ let create (b : Topology.topo_board)
   let state = object
     method finalize () = Lwt.return ()
   end in
+  let input_tabs =
+    List.map (fun x -> `Input x, [make_input_tab_template b])
+    @@ Topology.topo_inputs_of_topo_board b in
   let (board : Board.t) =
     { http = Board_niitv_dvb_http.handlers b.control api
     ; ws = Board_niitv_dvb_http.ws b.control api
     ; templates = []
     ; control = b.control
+    ; id = Topology.board_id_of_topo_board b
     ; streams_signal = api.notifs.streams
     ; log_source = (fun _ -> React.E.never) (* TODO implement source *)
     ; loop = api.loop
@@ -72,5 +106,6 @@ let create (b : Topology.topo_board)
           Board.Ports.empty b.ports
     ; stream_handler = None
     ; state = (state :> < finalize : unit -> unit Lwt.t >)
+    ; gui_tabs = input_tabs
     } in
   Lwt.return_ok board

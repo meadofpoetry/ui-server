@@ -42,9 +42,7 @@ module CSS = struct
   let short_fixed_adjust =
     BEM.add_modifier root "short-fixed-adjust"
 
-  let pinned = BEM.add_modifier root "pinned"
-
-  let unpinned = BEM.add_modifier root "unpinned"
+  let fixed_scrolled = fixed ^ "-scrolled"
 
   let row = BEM.add_element root "row"
 

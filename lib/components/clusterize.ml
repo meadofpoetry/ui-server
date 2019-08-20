@@ -8,7 +8,6 @@
 
 open Js_of_ocaml
 open Js_of_ocaml_lwt
-open Utils
 
 include Components_tyxml.Clusterize
 
@@ -183,7 +182,7 @@ let check_changes typ (cache : cache) : bool =
   let changed = match typ with
     | `Top x -> cache.top <> x
     | `Bottom x -> cache.bottom <> x
-    | `Data x -> not (List.equal ~eq:(==) x cache.data) in
+    | `Data x -> not (Utils.List.equal ~eq:(==) x cache.data) in
   let set = function
     | `Top x -> cache.top <- x
     | `Bottom x -> cache.bottom <- x
@@ -223,7 +222,7 @@ let insert_to_dom (t : t) : unit =
     begin match Option.map Js.Unsafe.coerce @@ Js.Opt.to_option first with
     | None -> ()
     | Some (first : Dom_html.element Js.t) ->
-       first##.style##.height := px_js data.top_offset
+       first##.style##.height := Utils.px_js data.top_offset
     end
   else if this_cluster_content_changed || top_offset_changed
   then
@@ -232,7 +231,7 @@ let insert_to_dom (t : t) : unit =
         Some (render_extra_row t "keep-parity") in
     let top = render_extra_row ~height:data.top_offset t CSS.top_space in
     let bot = render_extra_row ~height:data.bottom_offset t CSS.bottom_space in
-    let layout = (List.cons_maybe parity (top :: data.rows)) @ [bot] in
+    let layout = (Utils.List.cons_maybe parity (top :: data.rows)) @ [bot] in
     (* TODO Call 'cluster will change' here *)
     html t layout;
     (* TODO Call 'cluster changed' here *)
@@ -243,7 +242,7 @@ let insert_to_dom (t : t) : unit =
     begin match Option.map Js.Unsafe.coerce @@ Js.Opt.to_option last with
     | None -> ()
     | Some (last : Dom_html.element Js.t) ->
-       last##.style##.height := px_js data.bottom_offset
+       last##.style##.height := Utils.px_js data.bottom_offset
     end
 
 let add (t : t) = function

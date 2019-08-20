@@ -17,6 +17,17 @@ module Selector = struct
   let parent = Printf.sprintf ".%s" Card.CSS.media
 end
 
+let rec gcd a b =
+  if a <> 0 && b <> 0
+  then
+    let a, b =
+      if a > b then a mod b, b
+      else a, b mod a in gcd a b
+  else a + b
+
+let resolution_to_aspect (w,h) =
+  let d = gcd w h in w / d, h / d
+
 let set_tab_index ?prev
     (items : Dom_html.element Js.t list Lazy.t)
     (item : Dom_html.element Js.t) : unit =
@@ -166,7 +177,7 @@ class t
     method! destroy () : unit =
       self#restore_top_app_bar_context ();
       List.iter Lwt.cancel _listeners; _listeners <- [];
-      Utils.Option.iter Widget.destroy _selection;
+      Option.iter Widget.destroy _selection;
       _selection <- None;
       List.iter Widget.destroy _basic_actions; _basic_actions <- [];
       List.iter Widget.destroy _selected_actions; _selected_actions <- [];
@@ -403,7 +414,7 @@ class t
        | Some x -> if not @@ Element.equal x target then x##blur);
       let detail = Widget.event_detail e in
       let siblings =
-        Utils.List.filter_map (fun x ->
+        List.filter_map (fun x ->
             if List.mem x self#selected
             then None else Some (Position.Absolute.of_element x))
           self#items in
@@ -427,9 +438,8 @@ class t
           let height = Js.Optdef.get rect##.height
               (fun () -> rect##.bottom -. rect##.top) in
           let aspect =
-            Some (Utils.resolution_to_aspect
-                    (int_of_float width,
-                     int_of_float height)) in
+            Some (resolution_to_aspect (int_of_float width,
+                                        int_of_float height)) in
           _transform_aspect <- aspect;
           aspect in
       let parent_size = self#size in
@@ -514,7 +524,7 @@ class t
           ~grid_step:(float_of_int grid_overlay#size)
           ~snap_lines:grid_overlay#snap_lines_visible
           ~action:`Move
-          ~siblings:(Utils.List.filter_map (fun x ->
+          ~siblings:(List.filter_map (fun x ->
               if Element.equal x ghost
               then None else Some (Position.Absolute.of_element x))
               self#items)

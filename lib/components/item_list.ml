@@ -1,7 +1,6 @@
 open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
-open Utils
 
 include Components_tyxml.Item_list
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
@@ -67,8 +66,8 @@ let loop_nodes f (list : Dom_html.element Dom.nodeList Js.t) =
 
 let prevent_default_event (e : #Dom_html.event Js.t) : unit =
   Js.Opt.iter e##.target (fun (elt : Dom_html.element Js.t) ->
-      if not @@ List.mem ~eq:String.equal
-          (Js.to_string elt##.tagName##toLowerCase)
+      if not @@ List.exists
+          (String.equal (Js.to_string elt##.tagName##toLowerCase))
           elements_key_allowed_in
       then Dom.preventDefault e)
 
@@ -199,7 +198,7 @@ module Item = struct
   class t ?(ripple = false) (elt : Dom_html.element Js.t) () =
     object(self)
       val _text : Dom_html.element Js.t =
-        find_element_by_class_exn elt CSS.item_text
+        Utils.find_element_by_class_exn elt CSS.item_text
       val _ripple : Ripple.t option =
         if not ripple then None else Some (Ripple.attach elt)
       inherit Widget.t elt () as super
@@ -597,7 +596,7 @@ class t (elt : Dom_html.element Js.t) () =
 
     method private set_checkbox (selected : Dom_html.element Js.t list) =
       loop_nodes (fun _ (item : Dom_html.element Js.t) ->
-          let checked = List.mem ~eq:Element.equal item selected in
+          let checked = List.exists (Element.equal item) selected in
           set_item_checked checked item;
           Element.set_attribute item Attr.aria_checked (string_of_bool checked))
         self#items_;
@@ -607,9 +606,11 @@ class t (elt : Dom_html.element Js.t) () =
         (item : Dom_html.element Js.t) : unit =
       let checked = not @@ is_item_checked item in
       if toggle then set_item_checked checked item;
+      let eq = Element.equal in
+      let add x l = if List.exists (eq x) l then l else x :: l in
       if checked
-      then _selected_items <- List.add_nodup ~eq:Element.equal item _selected_items
-      else _selected_items <- List.remove ~eq:Element.equal item _selected_items
+      then _selected_items <- add item _selected_items
+      else _selected_items <- List.filter (fun x -> not @@ eq item x) _selected_items
   end
 
 let make ?avatar_list ?dense ?two_line ?non_interactive

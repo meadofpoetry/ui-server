@@ -25,12 +25,6 @@ module Annotated = struct
     ; widgets    : (string * widget) list
     ; layout     : (string * state * container) list
     } [@@deriving yojson, eq]
-              
-  (* TODO remove after 4.08 *)
-  let rec filter_opt = function
-    | [] -> []
-    | None::tl -> filter_opt tl
-    | (Some h)::tl -> h::(filter_opt tl)
     
   let opt_get_list opt ~deref =
     match opt with
@@ -79,7 +73,7 @@ module Annotated = struct
       in
       let stored_widgs = List.map (fun x -> None, Some x) stored_widgs' in
 
-      let widgets = filter_opt
+      let widgets = List.filter_map Fun.id
                     @@ List.map (fun (active, stored) ->
                         merge_widgets ?active ?stored ())
                       (stored_widgs @ active_widgs)
@@ -98,7 +92,7 @@ module Annotated = struct
     in
     let stored_conts = List.map (fun x -> None, Some x) stored_conts' in
 
-    let layout = filter_opt
+    let layout = List.filter_map Fun.id
                  @@ List.map
                    (fun (active, stored) -> merge_containers ?active ?stored ())
                    (stored_conts @ active_conts)
@@ -150,7 +144,7 @@ module Annotated = struct
       let stored_widgets = List.map (fun x -> None, Some x) stored_widgets' in
 
       let widgets =
-        filter_opt
+        List.filter_map Fun.id
         @@ List.map (fun (active_widget, stored_widget) ->
                for_each_widg ?active_widget ?stored_widget ())
              (stored_widgets @ active_widgets)
@@ -173,7 +167,7 @@ module Annotated = struct
     let stored_conts = List.map (fun x -> None, Some x) stored_conts' in
     
     let layout =
-      filter_opt
+      List.filter_map Fun.id
       @@ List.map
            (fun (active, stored) -> for_each_cont ?active ?stored ())
            (stored_conts @ active_conts)

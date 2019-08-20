@@ -1,7 +1,6 @@
 open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
-open Utils
 
 include Components_tyxml.Snackbar
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
@@ -129,9 +128,9 @@ object(self)
   val _action_button : Element.t option =
     Element.query_selector elt Selector.action
   val _label_element : Element.t =
-    find_element_by_class_exn elt CSS.label
+    Utils.find_element_by_class_exn elt CSS.label
   val _surface_element : Element.t =
-    find_element_by_class_exn elt CSS.surface
+    Utils.find_element_by_class_exn elt CSS.surface
 
   inherit Widget.t elt () as super
 
@@ -156,8 +155,8 @@ object(self)
   method timeout : float = _auto_dismiss_timeout
 
   method set_timeout (x : float) : unit =
-    if x <=. Const.max_auto_dismiss_timeout_s
-       && x >=. Const.min_auto_dismiss_timeout_s
+    if x <= Const.max_auto_dismiss_timeout_s
+       && x >= Const.min_auto_dismiss_timeout_s
     then _auto_dismiss_timeout <- x
     else (
       let s =

@@ -64,12 +64,6 @@ module Annotated = struct
 
   type t = (state * structure) list [@@deriving yojson,eq]
 
-  (* TODO remove after 4.08 *)
-  let rec filter_opt = function
-    | [] -> []
-    | None::tl -> filter_opt tl
-    | (Some h)::tl -> h::(filter_opt tl)
-
   let opt_map_any ~f opt1 opt2 opt3 =
     match opt1 with
     | Some v -> Some (f `First v)
@@ -152,7 +146,7 @@ module Annotated = struct
         |> List.filter (function (None,None,None) -> false | _ -> true)
         |> List.map (fun (active,avail,stored) ->
                merge_pids ?active ?avail ?stored ())
-        |> filter_opt
+        |> List.filter_map Fun.id
       in
       opt_map_any active avail stored
         ~f:(fun prior (ch : raw_channel) ->
@@ -196,7 +190,7 @@ module Annotated = struct
         |> List.map
              (fun (active, avail, stored) ->
                merge_channels ?active ?avail ?stored ())
-        |> filter_opt
+        |> List.filter_map Fun.id
       in
       opt_map_any active avail stored
         ~f:(fun prior (s : raw_structure) ->
@@ -230,7 +224,7 @@ module Annotated = struct
     (stored_structs @ avail_structs @ active_structs)
     |> List.map (fun (active, avail, stored) ->
            merge_structures ?active ?avail ?stored ())
-    |> filter_opt
+    |> List.filter_map Fun.id
 
   let update_stored ~(active:raw) ~(avail:raw) ~(stored:raw) =
     let updated = ref false in

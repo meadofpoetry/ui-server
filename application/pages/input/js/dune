@@ -1,0 +1,9 @@
+(executable
+  (name       page_input)
+  (libraries  ui_templates)
+  (preprocess (pps js_of_ocaml-ppx)))
+
+(install
+  (files (page_input.bc.js as js/page-input.js))
+  (section share)
+  (package ui-server))

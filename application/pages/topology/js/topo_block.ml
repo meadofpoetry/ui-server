@@ -4,31 +4,40 @@ open Components
 open Topo_types
 
 let port_section_height = 50
-let base_class = "topology__block"
-let fine_class = BEM.add_modifier base_class "fine"
-let init_class = BEM.add_modifier base_class "init"
-let fail_class = BEM.add_modifier base_class "fail"
+
+module CSS = struct
+  let root = "topology-block"
+  let header = BEM.add_element root "header"
+  let header_action = BEM.add_element header "action"
+  let header_action_settings = BEM.add_modifier header_action "settings"
+  let body = BEM.add_element root "body"
+
+  let fine = BEM.add_modifier root "fine"
+  let init = BEM.add_modifier root "init"
+  let fail = BEM.add_modifier root "fail"
+end
 
 let ( % ) f g x = f (g x)
 
-module Header = struct
+let cons_maybe x l = match x with
+  | None -> l
+  | Some x -> x :: l
 
-  let _class = BEM.add_element base_class "header"
-  let action_class = BEM.add_element _class "action"
+module Header = struct
 
   class t ?action ?subtitle ~title () =
     let title_w = Card.Primary.make_title title in
-    let subtitle_w = Utils.Option.map
+    let subtitle_w = Option.map
         (Widget.coerce % Card.Primary.make_subtitle)
         subtitle in
     let box =
       Box.make ~dir:`Column
         ([]
-         |> Utils.List.cons_maybe subtitle_w
+         |> cons_maybe subtitle_w
          |> List.cons title_w#widget) in
     let widgets =
       []
-      |> Utils.List.cons_maybe @@ Utils.Option.map Widget.coerce action
+      |> cons_maybe @@ Option.map Widget.coerce action
       |> List.cons box#widget in
     let elt =
       Tyxml_js.To_dom.of_element
@@ -39,8 +48,8 @@ module Header = struct
 
       method! init () : unit =
         super#init ();
-        Utils.Option.iter (fun a -> a#add_class action_class) action;
-        self#add_class _class
+        Option.iter (fun a -> a#add_class CSS.header_action) action;
+        self#add_class CSS.header
 
     end
 
@@ -48,19 +57,18 @@ end
 
 module Body = struct
 
-  let _class = BEM.add_element base_class "body"
-
   class t n () =
     object(self)
       inherit Widget.t Dom_html.(createDiv document) () as super
 
       method! init () : unit =
         super#init ();
-        self#set_n n;
-        self#add_class _class;
+        super#add_class CSS.body;
+        self#set_n n
 
       method set_n n =
-        super#root##.style##.height := Utils.px_js (n * port_section_height)
+        let height = n * port_section_height in
+        super#root##.style##.height := Js.string @@ Printf.sprintf "%dpx" height
 
     end
 
@@ -73,7 +81,7 @@ class virtual t ~port_setter
         ~(body : #Body.t)
         () =
   let card = Card.make [header#widget; body#widget] in
-  object(self)
+  object
     inherit Topo_node.parent
               ~port_setter
               ~node
@@ -83,22 +91,22 @@ class virtual t ~port_setter
 
     method! init () : unit =
       super#init ();
-      body#set_n @@ List.length connections;
-      self#add_class base_class
+      super#add_class CSS.root;
+      body#set_n @@ List.length connections
 
     method virtual settings_event : (Widget.t * string) React.event
 
     method private set_state : Application_types.Topology.state -> unit = function
       | `Fine ->
-         self#add_class fine_class;
-         self#remove_class init_class;
-         self#remove_class fail_class
+         super#add_class CSS.fine;
+         super#remove_class CSS.init;
+         super#remove_class CSS.fail
       | `Init ->
-         self#add_class init_class;
-         self#remove_class fine_class;
-         self#remove_class fail_class
+         super#add_class CSS.init;
+         super#remove_class CSS.fine;
+         super#remove_class CSS.fail
       | `No_response | `Detect ->
-         self#add_class fail_class;
-         self#remove_class init_class;
-         self#remove_class fine_class
+         super#add_class CSS.fail;
+         super#remove_class CSS.init;
+         super#remove_class CSS.fine
   end

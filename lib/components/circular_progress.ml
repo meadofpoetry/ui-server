@@ -1,6 +1,5 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
-open Utils
 
 include Components_tyxml.Circular_progress
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
@@ -22,7 +21,7 @@ let get_float_attribute (elt : Dom_html.element Js.t) (a : string) =
 
 class t (elt : #Dom_html.element Js.t) () =
 object(self)
-  val circle = find_element_by_class_exn elt CSS.circle
+  val circle = Utils.find_element_by_class_exn elt CSS.circle
   val mutable _min : float = 0.
   val mutable _max : float = 1.
   val mutable _value : float = 0.
@@ -38,7 +37,7 @@ object(self)
       | None -> _min | Some x -> x in
     let max' = match get_float_attribute elt Attr.max with
       | None -> _max | Some x -> x in
-    if min' >=. self#max
+    if min' >= self#max
     then (self#set_max max'; self#set_min min')
     else (self#set_min min'; self#set_max max');
     let val' = match get_float_attribute elt Attr.now with
@@ -49,7 +48,7 @@ object(self)
     _min
 
   method set_min (x : float) : unit =
-    if x >. self#max
+    if x > self#max
     then raise (Invalid_argument "Min cannot be greater than max")
     else (
       _min <- x;
@@ -60,7 +59,7 @@ object(self)
     _max
 
   method set_max (x : float) : unit =
-    if x <. self#min
+    if x < self#min
     then raise (Invalid_argument "Max cannot be less than min")
     else (
       _max <- x;
@@ -94,7 +93,7 @@ object(self)
   method private set_value_ ?(force = false) (v : float) : unit =
     let min, max, prev = self#min, self#max, self#value in
     let v = Utils.clamp ~min ~max v in
-    if force || v <>. prev
+    if force || v <> prev
     then (
       _value <- v;
       super#set_attribute Attr.now (string_of_float v);
@@ -105,9 +104,9 @@ object(self)
     let rel_val = (value -. min) /. (max -. min) *. 100. in
     let circumference = 2. *. Float.pi *. (Markup.sz /. 2. -. 5.) in
     let dash_offset = Float.(
-        (round ((100. - rel_val) / 100. * circumference * 1000.)) / 1000.) in
+        (round ((100. -. rel_val) /. 100. *. circumference *. 1000.)) /. 1000.) in
     let dash_array = Float.(
-        (round (circumference * 1000.)) / 1000.) in
+        (round (circumference *. 1000.)) /. 1000.) in
     let dash_offset' = Js.string (Printf.sprintf "%gpx" dash_offset) in
     let dash_array' = Js.string (Printf.sprintf "%g" dash_array) in
     (Js.Unsafe.coerce circle##.style)##.strokeDashoffset := dash_offset';

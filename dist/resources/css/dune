@@ -8,6 +8,16 @@
           (run %{bin:postcss} -u autoprefixer -r %{targets}))))
 
 (rule
+ (targets page-input.min.css)
+ (deps
+       (:src ./frontend/input/input.scss)
+       (source_tree ./frontend/input/)
+       (source_tree ./@material))
+ (action (progn
+          (run %{bin:sassc} -t compressed -I ./ %{src} %{targets})
+          (run %{bin:postcss} -u autoprefixer -r %{targets}))))
+
+(rule
  (targets page-mosaic-editor.min.css)
  (deps
        (:src ./frontend/mosaic_editor/mosaic_editor.scss)
@@ -85,6 +95,19 @@
           (run %{bin:sassc} -t compressed -I ./ %{src} %{targets})
           (run %{bin:postcss} -u autoprefixer -r %{targets}))))
 
+;; Boards
+
+(rule
+ (targets board-niitv-dvb4ch.min.css)
+ (deps
+       (:src ./frontend/boards/niitv-dvb4ch/niitv-dvb4ch.scss)
+       (source_tree ./@material))
+ (action (progn
+          (run %{bin:sassc} -t compressed -I ./ %{src} %{targets})
+          (run %{bin:postcss} -u autoprefixer -r %{targets}))))
+
+;; Main
+
 (rule
  (targets main.min.css)
  (deps
@@ -97,8 +120,10 @@
 
 (install
   (files (normalize.css as css/normalize.css)
+         (Chart.min.css as css/Chart.min.css)
          (components.min.css as css/components.min.css)
          (main.min.css as css/main.min.css)
+         (page-input.min.css as css/page-input.min.css)
          (page-mosaic-editor.min.css as css/page-mosaic-editor.min.css)
          (page-mosaic-video.min.css as css/page-mosaic-video.min.css)
          (page-topology.min.css as css/page-topology.min.css)
@@ -106,6 +131,7 @@
          (page-server-settings.min.css as css/page-server-settings.min.css)
          (page-user-settings.min.css as css/page-user-settings.min.css)
          (page-error.min.css as css/page-error.min.css)
-         (page-logout.min.css as css/page-logout.min.css))
+         (page-logout.min.css as css/page-logout.min.css)
+         (board-niitv-dvb4ch.min.css as css/board-niitv-dvb4ch.min.css))
   (section share)
   (package ui-server))

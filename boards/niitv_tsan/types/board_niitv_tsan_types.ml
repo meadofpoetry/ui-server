@@ -510,3 +510,9 @@ module Error = struct
     } [@@deriving yojson]
 
 end
+
+let board_id : Topology.board_id =
+  { manufacturer = "NIITV"
+  ; model = "TSAN"
+  ; version = 5
+  }

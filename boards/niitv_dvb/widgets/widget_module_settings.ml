@@ -133,14 +133,14 @@ let handle_input
       | None -> []
       | Some (T | T2) -> Channel.Terrestrial.lst
       | Some C -> Channel.Cable.lst in
-    Utils.Option.iter (fun x -> x#remove_children ()) menu#list;
+    Option.iter (fun x -> x#remove_children ()) menu#list;
     (match matching with
      | [] -> menu#close ()
      | x ->
        List.iter (fun (c : Channel.t) ->
            let item = Item_list.Item.make c.name in
            item#set_attribute "value" (string_of_int c.freq);
-           Utils.Option.iter (fun (x : Item_list.t) ->
+           Option.iter (fun (x : Item_list.t) ->
                x#append_child item) menu#list) x;
        menu#reveal ())
 
@@ -266,7 +266,7 @@ let make_plp ?value (plps : int list React.signal) =
       (Lwt_js_events.make_event Menu.Event.selected)
       menu#root (fun e _ ->
           let item = (Widget.event_detail e)##.item in
-          Utils.Option.iter input#set_value_as_string
+          Option.iter input#set_value_as_string
           @@ Element.get_attribute item "value";
           Lwt.return_unit) in
   let icon_click = Textfield.Event.icons input#root (fun _ _ -> menu#reveal ()) in
@@ -281,16 +281,16 @@ let make_plp ?value (plps : int list React.signal) =
 let make_mode_box ~(id : int) (state : Topology.state) (mode : mode option) plps =
   let plps, push_plps = React.S.create plps in
   let std, s_std = make_standard
-      ?value:(Utils.Option.map (fun x -> x.standard) mode)
+      ?value:(Option.map (fun x -> x.standard) mode)
       () in
   let freq, _e_freq = make_frequency
-      ?value:(Utils.Option.map (fun x -> x.channel.freq) mode)
+      ?value:(Option.map (fun x -> x.channel.freq) mode)
       s_std in
   let bw, _e_bw = make_bw
-      ?value:(Utils.Option.map (fun x -> x.channel.bw) mode)
+      ?value:(Option.map (fun x -> x.channel.bw) mode)
       () in
   let plp, _e_plp = make_plp
-      ?value:(Utils.Option.map (fun x -> x.channel.plp) mode)
+      ?value:(Option.map (fun x -> x.channel.plp) mode)
       plps in
   object(self)
     val mutable _state = state

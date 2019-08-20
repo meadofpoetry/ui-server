@@ -3,16 +3,6 @@ open Components
 
 let ( % ) f g x = f (g x)
 
-(* TODO remove after 4.08 *)
-module Option = struct
-  let equal f a b = match a, b with
-    | None, None -> true
-    | Some _, None | None, Some _ -> false
-    | Some a, Some b -> f a b
-  let iter f = function None -> () | Some x -> f x
-  let map f = function None -> None | Some x -> Some (f x)
-end
-
 type 'a dynamic_value = (unit -> #Widget.t as 'a)
 
 let create_simple ?body (tabs : (#Widget.t * Tab.t) list) =

@@ -1,13 +1,5 @@
 open Application_types.Stream
 
-(* TODO remove after 4.08 *)
-module Option = struct
-  let map f = function None -> None | Some x -> Some (f x)
-  let bind f = function None -> None | Some x -> f x
-  let join = function Some (Some _ as o) -> o | _ -> None
-  let get = function Some v -> v | None -> invalid_arg "option is None"
-end
-
 module SID = struct
 
   type t = ID.t
@@ -76,7 +68,7 @@ let log_entry =
         | Some x, None -> Some (Log_message.Board x)
         | None, Some x -> Some (Cpu x)
         | Some _, Some _ -> assert false in
-      let input = match Option.bind input_of_enum input_typ, input_id with
+      let input = match Option.bind input_typ input_of_enum, input_id with
         | Some input, Some id -> Some { input; id }
         | _ -> None in
       Ok { time; level; node; input; message; info; stream; pid; service })

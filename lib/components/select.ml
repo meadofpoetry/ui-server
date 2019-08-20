@@ -1,7 +1,6 @@
 open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
-open Utils
 
 include Components_tyxml.Select
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
@@ -450,7 +449,7 @@ class ['a] t
         | None -> None
         | Some elt ->
           (* XXX maybe just read menu#selected? *)
-          List.find_mapi (fun i item ->
+          Utils.List.find_mapi (fun i item ->
               if Element.equal elt item then Some i else None) menu#items
 
     method set_selected_index (i : int) : unit =
@@ -666,7 +665,7 @@ class ['a] t
           | None -> -1
           | Some item ->
             Option.get
-            @@ List.find_mapi (fun i x ->
+            @@ Utils.List.find_mapi (fun i x ->
                 if Element.equal item x then Some i else None) menu#items in
         self#set_enhanced_selected_index index
 

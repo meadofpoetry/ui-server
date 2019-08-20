@@ -1,7 +1,6 @@
 open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
-open Utils
 
 (* TODO
    - add 'onchange' callback
@@ -10,6 +9,8 @@ open Utils
 
 include Components_tyxml.Textfield
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
+
+let ( % ) f g x = f (g x)
 
 let name = "text-field"
 
@@ -84,7 +85,7 @@ module Icon = struct
         super#initial_sync_with_dom ()
 
       method! destroy () : unit =
-        Utils.Option.iter Ripple.destroy ripple_;
+        Option.iter Ripple.destroy ripple_;
         ripple_ <- None;
         (* Detach event listeners *)
         List.iter Lwt.cancel listeners_;
@@ -275,15 +276,15 @@ let parse_valid (type a)
   | Float (Some min, None) ->
     (match float_of_string_opt s with
      | None -> None
-     | Some (v : float) -> if v >=. min then Some v else None)
+     | Some (v : float) -> if v >= min then Some v else None)
   | Float (None, Some max) ->
     (match float_of_string_opt s with
      | None -> None
-     | Some (v : float) -> if v <=. max then Some v else None)
+     | Some (v : float) -> if v <= max then Some v else None)
   | Float (Some min, Some max) ->
     (match float_of_string_opt s with
      | None -> None
-     | Some (v : float) -> if v <=. max && v >=. min then Some v else None)
+     | Some (v : float) -> if v <= max && v >= min then Some v else None)
   | Password vf  ->
     (match vf s with
      | Ok () -> Some s
@@ -298,7 +299,7 @@ let valid_to_string (type a) (v : a validation) (e : a) : string =
   | Custom c -> c.to_string e
   | Float _ ->
     let s = string_of_float e in
-    if String.suffix ~suf:"." s then s ^ "0" else s
+    if Utils.String.suffix ~suf:"." s then s ^ "0" else s
   | Integer _ -> string_of_int e
   | Email -> e
   | Password _ -> e
@@ -344,7 +345,7 @@ class ['a] t ?on_input
   object(self)
     (* Internal components *)
     val input_elt : Dom_html.inputElement Js.t =
-      find_element_by_class_exn elt CSS.input
+      Utils.find_element_by_class_exn elt CSS.input
     val line_ripple : Line_ripple.t option =
       match line_ripple with
       | Some x -> Some x
@@ -604,7 +605,7 @@ class ['a] t ?on_input
 
     method private should_always_float : bool =
       let typ = Js.to_string input_elt##._type in
-      List.mem ~eq:String.equal typ Const.always_float_types
+      List.exists (String.equal typ) Const.always_float_types
 
     method private should_float : bool =
       self#should_always_float
@@ -642,7 +643,7 @@ class ['a] t ?on_input
         | attr :: tl ->
           if String.equal "maxlength" attr
           then self#set_character_counter @@ String.length self#value_as_string;
-          if List.mem ~eq:String.equal attr Const.validation_attr_whitelist
+          if List.exists (String.equal attr) Const.validation_attr_whitelist
           then self#style_validity true else aux tl in
       aux attrs
 

@@ -1,7 +1,6 @@
 open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
-open Utils
 
 (* TODO
    - add 'attach' function for all subcomponents
@@ -9,6 +8,8 @@ open Utils
    - do we really need these subcomponent classes? *)
 
 let ( >>= ) = Lwt.bind
+
+let ( % ) f g x = f (g x)
 
 include Components_tyxml.Top_app_bar
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
@@ -69,7 +70,7 @@ module Section = struct
 
       method align : align option = align
       method set_align (x : align option) : unit =
-        if not @@ (Option.equal ~eq:equal_align) align x then
+        if not @@ (Option.equal equal_align) align x then
           (Option.iter (super#remove_class % align_to_class) align;
            Option.iter (super#add_class % align_to_class) x;
            align <- x)
@@ -217,25 +218,20 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
         (_ : unit Lwt.t) : unit Lwt.t =
       if not !Utils.prevent_scroll && not ticking then (
         ticking <- true;
-        Animation.request ()
-        >>= fun _ -> self#update (); ticking <- false; Lwt.return_unit)
+        Lwt_js_events.request_animation_frame ()
+        >>= fun () -> self#update (); ticking <- false; Lwt.return_unit)
       else if !Utils.prevent_scroll then (
         Lwt_js.yield ()
         >>= fun () -> Utils.prevent_scroll := false; Lwt.return_unit)
       else Lwt.return_unit
 
     method private pin () : unit =
-      if super#has_class CSS.unpinned
-      then (
-        super#remove_class CSS.unpinned;
-        super#add_class CSS.pinned)
+      if super#has_class CSS.fixed_scrolled
+      then super#remove_class CSS.fixed_scrolled
 
     method private unpin () : unit =
-      if super#has_class CSS.pinned
-      || not (super#has_class CSS.unpinned)
-      then (
-        super#add_class CSS.unpinned;
-        super#remove_class CSS.pinned)
+      if not (super#has_class CSS.fixed_scrolled)
+      then super#add_class CSS.fixed_scrolled
 
     (** Returns the Y scroll position *)
     method private get_scroll_y () : int =
@@ -304,20 +300,21 @@ class t ?(scroll_target : #Dom_html.eventTarget Js.t option)
 
     method private should_unpin (cur_scroll_y : int)
         (dir : dir) (exceeded : bool) : bool =
-      match dir with
+      super#has_class CSS.fixed
+      && match dir with
       | `Up -> false
       | `Down -> exceeded && (cur_scroll_y > offset)
 
     method private should_pin (cur_scroll_y : int)
         (dir : dir) (exceeded : bool) : bool =
-      match dir with
+      super#has_class CSS.fixed
+      && match dir with
       | `Down -> false
       | `Up -> exceeded || (cur_scroll_y <= offset)
 
     method private update () : unit =
       let cur_scroll_y = self#get_scroll_y () in
-      let dir = if cur_scroll_y > last_scroll_y
-        then `Down else `Up in
+      let dir = if cur_scroll_y > last_scroll_y then `Down else `Up in
       let exceeded = self#tolerance_exceeded cur_scroll_y dir in
       if not (self#is_out_of_bounds cur_scroll_y)
       then (
@@ -342,7 +339,7 @@ let make ?scroll_target ?offset ?tolerance
     ?leading ?imply_leading ?title ?actions
     ?bottom () =
   ignore bottom;
-  let ( ^:: ) = List.cons_maybe in
+  let ( ^:: ) = Utils.List.cons_maybe in
   let start_section =
     Section.make ~align:`Start ~widgets:(leading ^:: title ^:: []) () in
   let end_section = match actions with

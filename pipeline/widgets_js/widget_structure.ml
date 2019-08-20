@@ -24,7 +24,7 @@ let get_checked ?(filter_empty = false) children =
           | None -> true | Some x -> x) x in
   let indeterminate =
     not checked
-    && Utils.Option.is_some
+    && Option.is_some
     @@ List.find_opt (fun (x : Treeview.node) ->
         match x.checked, x.indeterminate with
         | None, None -> false
@@ -112,29 +112,37 @@ type event =
   [ `Structure of Structure.Annotated.t
   ]
 
+module Streams = Map.Make(Stream.ID)
+
+module Channels = Map.Make(Int)
+
 let merge acc ((stream : Stream.ID.t), (chan : int), (pid : int)) =
-  Utils.List.Assoc.update ~eq:Stream.ID.equal (function
-      | None -> Some [chan, [pid]]
-      | Some x -> Some (Utils.List.Assoc.update ~eq:(=) (function
-          | None -> Some [pid]
-          | Some x -> Some (pid :: x)) chan x))
-    stream acc
+  Streams.update stream (function
+      | None ->
+        let empty = Channels.empty in
+        Some (Channels.add chan [pid] empty)
+      | Some x ->
+        Some (Channels.update chan
+                (function
+                  | None -> Some [pid]
+                  | Some x -> Some (pid :: x)) x))
+    acc
 
 let merge_with_structures
     (structures : Structure.Annotated.t)
-    (selected : selected) : Structure.t list =
+    (selected : int list Channels.t Streams.t) : Structure.t list =
   let open Structure.Annotated in
-  Utils.List.filter_map (fun (id, channels) ->
+  List.filter_map (fun (id, channels) ->
       match List.find_opt (fun (_, (s : structure)) ->
           Stream.ID.equal id s.id) structures with
       | None -> None
       | Some (_, (x : structure)) ->
-        let channels = Utils.List.filter_map (fun (chan, pids) ->
+        let channels = List.filter_map (fun (chan, pids) ->
             match List.find_opt (fun (_, (ch : channel)) ->
                 ch.number = chan) x.channels with
             | None -> None
             | Some (_, (ch : channel)) ->
-              match Utils.List.filter_map (fun (_, (pid : Structure.pid)) ->
+              match List.filter_map (fun (_, (pid : Structure.pid)) ->
                   if List.mem pid.pid pids
                   then Some pid else None) ch.pids with
               | [] -> None
@@ -143,7 +151,8 @@ let merge_with_structures
                              ; provider_name = ch.provider_name
                              ; service_name = ch.service_name
                              ; pids
-                             }) channels in
+                             })
+          @@ Channels.bindings channels in
         match channels with
         | [] -> None
         | channels ->
@@ -152,7 +161,7 @@ let merge_with_structures
                ; uri = x.uri
                ; channels
                })
-    selected
+    (Streams.bindings selected)
 
 let merge_trees ~(old : Treeview.t) ~(cur : Treeview.t) =
   let active = Dom_html.document##.activeElement in
@@ -222,7 +231,7 @@ class t (structure : Structure.Annotated.t) () =
       placeholder#destroy ();
       buttons#destroy ();
       actions#destroy ();
-      Utils.Option.iter Lwt.cancel _on_submit;
+      Option.iter Lwt.cancel _on_submit;
       _on_submit <- None
 
     method submit () : (unit, string) Lwt_result.t =
@@ -249,7 +258,7 @@ class t (structure : Structure.Annotated.t) () =
           match value with
           | None -> acc
           | Some v -> merge acc v)
-        [] selected
+        Streams.empty selected
 
     method notify : event -> unit = function
       | `Structure x ->
@@ -264,7 +273,7 @@ class t (structure : Structure.Annotated.t) () =
         else (
           self#append_treeview cur;
           super#remove_child placeholder);
-        Utils.Option.iter (fun x -> x##focus) focus_target;
+        Option.iter (fun x -> x##focus) focus_target;
         _treeview <- cur
 
     method private append_treeview : 'a. (#Widget.t as 'a) -> unit =

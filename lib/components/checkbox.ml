@@ -1,7 +1,6 @@
 open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
-open Utils
 
 include Components_tyxml.Checkbox
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
@@ -43,7 +42,7 @@ end
 
 class t ?on_change ?(indeterminate = false) (elt : Dom_html.element Js.t) () =
   let input_elt : Dom_html.inputElement Js.t =
-    find_element_by_class_exn elt CSS.native_control in
+    Utils.find_element_by_class_exn elt CSS.native_control in
   object(self)
     val connect = new checkbox_signals input_elt
     val mutable _ripple : Ripple.t option = None

@@ -1,6 +1,5 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
-open Utils
 
 include Components_tyxml.Notched_outline
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
@@ -23,8 +22,8 @@ object
     | Some label ->
        (Js.Unsafe.coerce label##.style)##.transitionDuration := Js.string "0s";
        super#add_class CSS.upgraded;
-       (Animation.request ()
-        >>= fun _ ->
+       (Js_of_ocaml_lwt.Lwt_js_events.request_animation_frame ()
+        >>= fun () ->
         (Js.Unsafe.coerce label##.style)##.transitionDuration := Js.string "";
         Lwt.return_unit)
        |> Lwt.ignore_result
@@ -37,7 +36,7 @@ object
     | None -> ()
     | Some notch ->
        let notch_width = match notch_width with
-         | x when x >. 0. -> x +. (float_of_int Const.padding)
+         | x when x > 0. -> x +. (float_of_int Const.padding)
          | x -> x in
        let px = Printf.sprintf "%gpx" notch_width in
        notch##.style##.width := Js.string px

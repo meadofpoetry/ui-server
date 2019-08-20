@@ -133,7 +133,7 @@ class t (elt : Dom_html.element Js.t) () =
       let max' = match get_float_attribute super#root Attr.max with
         | None -> _max
         | Some x -> x in
-      if min' >=. self#max
+      if min' >= self#max
       then (self#set_max max'; self#set_min min')
       else (self#set_min min'; self#set_max max');
       _disabled <- (match super#get_attribute Attr.disabled with
@@ -189,7 +189,7 @@ class t (elt : Dom_html.element Js.t) () =
       _min
 
     method set_min (v : float) : unit =
-      if v >. self#max
+      if v > self#max
       then raise (Invalid_argument "Min cannot be greater than max")
       else (
         _min <- v;
@@ -201,7 +201,7 @@ class t (elt : Dom_html.element Js.t) () =
       _max
 
     method set_max (v : float) : unit =
-      if v <. self#min
+      if v < self#min
       then raise (Invalid_argument "Max cannot be less than min")
       else (
         _max <- v;
@@ -219,10 +219,10 @@ class t (elt : Dom_html.element Js.t) () =
         super#remove_attribute Attr.step;
         self#set_value_ ~fire_input:false ~force:true self#value;
         self#setup_track_marker ()
-      | Some v when v <. 0. ->
+      | Some v when v < 0. ->
         raise (Invalid_argument "Step cannot be negative")
       | Some v ->
-        let v = if self#discrete && v <. 1. then 1. else v in
+        let v = if self#discrete && v < 1. then 1. else v in
         _step <- Some v;
         super#set_attribute Attr.step (string_of_float v);
         self#set_value_ ~fire_input:false ~force:true self#value;
@@ -378,7 +378,7 @@ class t (elt : Dom_html.element Js.t) () =
           let markers = ceil markers' in
           self#remove_track_markers ();
           self#append_track_markers (int_of_float markers);
-          if markers' <>. markers
+          if markers' <> markers
           then
             let last_step_ratio =
               string_of_float

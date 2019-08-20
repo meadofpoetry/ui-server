@@ -170,10 +170,10 @@ class t ?(body = Dom_html.document##.body)
     method! destroy () : unit =
       super#destroy ();
       (* Clear state. *)
-      Utils.Option.iter Lwt.cancel _animation_thread;
+      Option.iter Lwt.cancel _animation_thread;
       _animation_thread <- None;
       (* Detach event listeners. *)
-      Utils.Option.iter Lwt.cancel _keydown_listener;
+      Option.iter Lwt.cancel _keydown_listener;
       _keydown_listener <- None
 
     method close () : unit Lwt.t =
@@ -192,7 +192,7 @@ class t ?(body = Dom_html.document##.body)
       _hoisted_element <- x
 
     method hoist_menu_to_body () : unit =
-      Utils.Option.iter (fun parent -> Dom.removeChild parent super#root)
+      Option.iter (fun parent -> Dom.removeChild parent super#root)
         (Js.Opt.to_option super#root##.parentNode);
       Element.append_child body super#root;
       self#set_is_hoisted true
@@ -238,7 +238,7 @@ class t ?(body = Dom_html.document##.body)
         _body_click_listener <- Some (listener ())
 
     method private handle_close () : unit =
-      Utils.Option.iter Lwt.cancel _body_click_listener;
+      Option.iter Lwt.cancel _body_click_listener;
       _body_click_listener <- None
 
     method private open_ () : unit Lwt.t =
@@ -313,11 +313,11 @@ class t ?(body = Dom_html.document##.body)
           | None -> false
           | Some x -> is_focused x in
         if check_focused _last_focusable && not shift
-        then (Utils.Option.iter (fun x -> x##focus) _first_focusable;
+        then (Option.iter (fun x -> x##focus) _first_focusable;
               Dom.preventDefault e;
               Lwt.return_unit)
         else if check_focused _first_focusable && shift
-        then (Utils.Option.iter (fun x -> x##focus) _last_focusable;
+        then (Option.iter (fun x -> x##focus) _last_focusable;
               Dom.preventDefault e;
               Lwt.return_unit)
         else Lwt.return_unit
@@ -370,7 +370,7 @@ class t ?(body = Dom_html.document##.body)
 
     method private maybe_restore_focus () : unit =
       Js.Opt.iter Dom_html.document##.activeElement (fun active ->
-          Utils.Option.iter (fun prev ->
+          Option.iter (fun prev ->
               if Element.contains super#root active then prev##focus)
             _previous_focus)
 
@@ -483,7 +483,7 @@ class t ?(body = Dom_html.document##.body)
       let body_dimensions =
         body##.offsetWidth,
         body##.offsetHeight in
-      let anchor_rect = Utils.Option.map (fun e ->
+      let anchor_rect = Option.map (fun e ->
           e##getBoundingClientRect) _anchor_element in
       let viewport, window_scroll = match viewport with
         | Window wnd -> get_window_dimensions wnd, get_window_scroll wnd
@@ -526,14 +526,13 @@ class t ?(body = Dom_html.document##.body)
       }
 
     method private set_position (pos : (string * float) list) : unit =
-      let get = Utils.List.Assoc.get ~eq:String.equal in
       let conv = function
         | None -> Js.string ""
         | Some s -> Js.string @@ Printf.sprintf "%gpx" s in
-      super#root##.style##.top := conv (get "top" pos);
-      super#root##.style##.bottom := conv (get "bottom" pos);
-      super#root##.style##.right := conv (get "right" pos);
-      super#root##.style##.left := conv (get "left" pos)
+      super#root##.style##.top := conv (List.assoc_opt "top" pos);
+      super#root##.style##.bottom := conv (List.assoc_opt "bottom" pos);
+      super#root##.style##.right := conv (List.assoc_opt "right" pos);
+      super#root##.style##.left := conv (List.assoc_opt "left" pos)
   end
 
 let make ?body ?viewport

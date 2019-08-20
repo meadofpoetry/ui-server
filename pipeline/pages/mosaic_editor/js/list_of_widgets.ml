@@ -86,7 +86,7 @@ class t (elt : Dom_html.element Js.t) = object(self)
                   super#root
                   (Selector.subheader domain)
             in
-            Utils.Option.iter (Dom.removeChild super#root) subheader;
+            Option.iter (Dom.removeChild super#root) subheader;
             Dom.removeChild super#root list
           | _ -> ());
          self#handle_change ())

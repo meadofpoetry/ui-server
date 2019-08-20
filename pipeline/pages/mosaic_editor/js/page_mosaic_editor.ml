@@ -28,6 +28,6 @@ let () =
         E.stop ~strong:true streams_event;
         Api_js.Websocket.close_socket socket);
     Lwt.return_ok editor in
-  let body = Ui_templates.Loader.create_widget_loader thread in
-  body#add_class "wm";
-  scaffold#set_body body
+  let loader = Ui_templates.Loader.make_widget_loader thread in
+  Element.add_class loader "wm";
+  scaffold#set_body loader

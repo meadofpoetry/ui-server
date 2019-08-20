@@ -221,7 +221,7 @@ let focus_first_node
       then Some x
       else aux (succ i) in
   let first = aux 0 in
-  Utils.Option.iter (fun x -> x##focus) first;
+  Option.iter (fun x -> x##focus) first;
   first
 
 let focus_last_node
@@ -237,7 +237,7 @@ let focus_last_node
       then Some x
       else aux (pred i) in
   let last = aux (nodes##.length - 1) in
-  Utils.Option.iter (fun x -> x##focus) last;
+  Option.iter (fun x -> x##focus) last;
   last
 
 class t elt () =
@@ -454,7 +454,7 @@ class t elt () =
 
     method private handle_click (e : Dom_html.mouseEvent Js.t)
         (_ : unit Lwt.t) : unit Lwt.t =
-      Utils.Option.iter (fun node ->
+      Option.iter (fun node ->
           let target = Dom.eventTarget e in
           let is_checkbox = Element.matches target Selector.checkbox in
           self#handle_action ~is_checkbox node;
@@ -537,18 +537,18 @@ let make ?classes ?attrs ?dense ?two_line (nodes : node list) : t =
   let rec loop acc = function
     | [] -> List.rev acc
     | node :: tl ->
-      Utils.Option.iter (fun x ->
+      Option.iter (fun x ->
           Element.add_class x Item_list.CSS.item_graphic)
         node.graphic;
-      Utils.Option.iter (fun x ->
+      Option.iter (fun x ->
           Element.add_class x Item_list.CSS.item_meta)
         node.meta;
       let node =
         Markup.create_node
           ?value:node.value
           ?secondary_text:node.secondary_text
-          ?meta:(Utils.Option.map Tyxml_js.Of_dom.of_element node.meta)
-          ?graphic:(Utils.Option.map Tyxml_js.Of_dom.of_element node.graphic)
+          ?meta:(Option.map Tyxml_js.Of_dom.of_element node.meta)
+          ?graphic:(Option.map Tyxml_js.Of_dom.of_element node.graphic)
           ?checked:node.checked
           ?indeterminate:node.indeterminate
           ~expanded:node.expanded

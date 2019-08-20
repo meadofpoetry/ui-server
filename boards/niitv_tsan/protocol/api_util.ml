@@ -12,7 +12,7 @@ let return_error e =
   Lwt.return (`Error (Request.error_to_string e))
 
 let map_stream_id streams =
-  Boards.Util.List.filter_map (fun (id, v) ->
+  List.filter_map (fun (id, v) ->
       match Stream.find_by_multi_id id streams with
       | None -> None
       | Some s -> Some (s.id, v))

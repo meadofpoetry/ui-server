@@ -21,7 +21,7 @@ let logout_page_props () =
     ~has_navigation_drawer:false
     ~has_top_app_bar:false
     ~stylesheets:["/css/page-logout.min.css"]
-    ~post_scripts:[Raw "logout();"]
+    ~post_scripts:[`Raw "logout();"]
     ~content:(
       List.map Tyxml.Html.toelt
         Tyxml.Html.(
@@ -73,7 +73,7 @@ let user_pages : 'a. unit -> 'a Api_template.item list =
   let props =
     make_template_props
       ~title:"Настройки пользователей"
-      ~post_scripts:[Src "/js/page-user-settings.js"]
+      ~post_scripts:[`Src "/js/page-user-settings.js"]
       ~stylesheets:["/css/page-user-settings.min.css"]
       () in
   simple
@@ -106,7 +106,8 @@ let user_handlers (users : Application.User_api.t) =
            Lwt.return (`Instant rsp))
     ]
 
-let input topo (input : Topology.topo_input) =
+let input (app : Application.t) (input : Topology.topo_input) =
+  let topo = React.S.value app.topo in
   let open Api_template in
   let get_input_href (x : Topology.topo_input) =
     let name = Topology.input_to_string x.input in
@@ -122,49 +123,38 @@ let input topo (input : Topology.topo_input) =
   | None -> failwith "input not found"
   | Some (boards, cpu) ->
      let title = Topology.get_input_name input in
-     let boards =
-       List.map (fun { Topology. control; manufacturer; model; version; _ } ->
-           { Topology. control; manufacturer; model; version }) boards
+     let boards_json =
+       List.map Topology.board_id_of_topo_board boards
        |> Util_json.List.to_yojson Topology.board_id_to_yojson
        |> Yojson.Safe.to_string in
-     let cpu = (* TODO remove after 4.08 *)
+     let cpu_json =
        cpu
-       |> (function Some (x : Topology.topo_cpu) -> Some x.process | None -> None)
+       |> Option.map (fun (x : Topology.topo_cpu) -> x.process)
        |> Util_json.Option.to_yojson Topology.process_type_to_yojson
        |> Yojson.Safe.to_string in
      let input_string = Topology.Show_topo_input.to_string input in
-     let input_template =
-       make_template_props
-       ~title
-       ~pre_scripts:[ Raw (Printf.sprintf "var input = \"%s\";\
-                                           var boards = %s;\
-                                           var cpu = %s;"
-                             input_string boards cpu)]
-       ~post_scripts:[Src "/js/input.js"]
-       ()
-     in
      let input_page =
        simple
          ~priority:(`Index input.id)
          ~title
          ~icon:(Tyxml.Html.toelt @@ icon Components_tyxml.Svg_icons.arrow_right)
          ~path:(Path.of_string @@ get_input_href input)
-         input_template
+         (Input_template.make_template input app.proc app.hw.boards)
      in
      let pre = "input/" ^ get_input_href input in
      let stream_template =
        make_template_props
        ~title:("Входы / " ^ title)
-       ~pre_scripts:[ Raw (Printf.sprintf "var input = \"%s\";\
-                                           var boards = %s;\
-                                           var cpu = %s;"
-                             input_string boards cpu)
-                    ; Src "/js/moment.min.js"
-                    ; Src "/js/Chart.min.js"
-                    ; Src "/js/chartjs-plugin-streaming.min.js"
-                    ; Src "/js/chartjs-plugin-datalabels.min.js"
+       ~pre_scripts:[ `Raw (Printf.sprintf "var input = \"%s\";\
+                                            var boards = %s;\
+                                            var cpu = %s;"
+                             input_string boards_json cpu_json)
+                    ; `Src "/js/moment.min.js"
+                    ; `Src "/js/Chart.min.js"
+                    ; `Src "/js/chartjs-plugin-streaming.min.js"
+                    ; `Src "/js/chartjs-plugin-datalabels.min.js"
                     ]
-       ~post_scripts:[Src "/js/stream.js"]
+       ~post_scripts:[`Src "/js/stream.js"]
        () in
      let stream_page =
        parametric
@@ -185,14 +175,14 @@ let application_pages (app : Application.t) =
   let topo = React.S.value app.topo in
   let input_props, stream_templates =
     List.split
-    @@ List.map (input topo)
+    @@ List.map (input app)
     @@ Topology.get_inputs topo
   in
   let topology_props =
     make_template_props
       ~title:"Конфигурация"
-      ~pre_scripts:[Src "/js/ResizeObserver.js"]
-      ~post_scripts:[Src "/js/page-topology.js"]
+      ~pre_scripts:[`Src "/js/ResizeObserver.js"]
+      ~post_scripts:[`Src "/js/page-topology.js"]
       ~stylesheets:["/css/page-topology.min.css"]
       () in
   subtree
@@ -310,7 +300,7 @@ let create templates (app : Application.t)
 
   let proc_pages = match app.proc with
     | None -> []
-    | Some proc -> proc#pages () in
+    | Some proc -> proc#pages in
   let settings_subtree =
     Api_template.subtree
       ~title:"Настройки"
@@ -329,7 +319,7 @@ let create templates (app : Application.t)
   in
   let proc_api_list = match app.proc with
     | None -> []
-    | Some proc -> proc#http ()
+    | Some proc -> proc#http
   in
   let application_ws = application_ws app in
   let board_ws =
@@ -338,7 +328,7 @@ let create templates (app : Application.t)
   in
   let proc_ws_list = match app.proc with
     | None -> []
-    | Some proc -> proc#ws ()
+    | Some proc -> proc#ws
   in
   let pages =
     Api_http.make
