@@ -94,9 +94,9 @@ module Branches = struct
     let text, secondary_text =
       match (snd widget).pid with
       | Some _pid -> "", ""
-        (* (match Parse_struct.widget pid channel_struct with
-         *  | None -> default_text (), Printf.sprintf "PID: %d (0x%04X)" pid pid
-         *  | Some s -> s) *)
+      (* (match Parse_struct.widget pid channel_struct with
+       *  | None -> default_text (), Printf.sprintf "PID: %d (0x%04X)" pid pid
+       *  | Some s -> s) *)
       | None -> default_text (), "" in
     let checkbox = Checkbox.make () in
     let data =
@@ -227,6 +227,254 @@ class t ~resolution ~treeview (elt : Dom_html.element Js.t) () =
       | `Streams _streams -> ()
       | `Layout layout -> resolution <- layout.resolution
   end
+
+(* module LayoutOfWidget = struct
+ * 
+ *   let equal_aspect (ax, ay) (bx, by) = ax = bx && ay = by
+ * 
+ *   let fmod v1 v2 =
+ *     if v2 = 0.0 then 0.0
+ *     else
+ *       let val1 = floor (v1 /. v2) in
+ *       v1 -. val1 *. v2
+ * 
+ *   module Aspects = Map.Make(struct
+ *       type t = int * int
+ *       let compare = compare
+ *     end)
+ * 
+ *   let get_all_aspects (widgets : Wm.widget list) =
+ *     List.sort (fun (_, a) (_, b) -> compare a b)
+ *     @@ Aspects.bindings
+ *     @@ List.fold_left (fun acc (x : Wm.widget) ->
+ *         match x.aspect with
+ *         | None -> acc
+ *         | Some aspect ->
+ *           Aspects.update aspect (function
+ *               | None -> Some 1
+ *               | Some x -> Some (succ x)) acc)
+ *       Aspects.empty widgets
+ * 
+ *   (\* Возвращает первый элемент из списка aspects_weighted_sorted, с проверкой на то что есть
+ *      хотябы 1 элемент в списке. Иначе возвращает аспект по-умолчанию *\)
+ *   let get_main_aspect (aspects_weighted_sorted : ((int * int) * int) list)
+ *       (default_aspect : (int * int)) =
+ *     match aspects_weighted_sorted with
+ *     | [] -> default_aspect
+ *     | (asp, _) :: _ ->
+ *       if equal_aspect asp (0, 0)
+ *       then default_aspect
+ *       else asp
+ * 
+ *   let compare_widgets_by_strm_chnl (a : Wm.widget) (b : Wm.widget) =
+ *     let ((a_stream: Stream.ID.t option), a_channel) =
+ *       match (a.domain : Wm.domain) with
+ *       | Nihil -> (None, (-1))
+ *       | Chan x -> (Some x.stream, x.channel)
+ *     in
+ *     let (b_stream : Stream.ID.t option), b_channel = match b.domain with
+ *       | Wm.Nihil -> None, (-1)
+ *       | Chan x -> Some x.stream, x.channel
+ *     in
+ *     let stream_compared =
+ *       match a_stream, b_stream with
+ *       | None, None -> 0
+ *       | Some _, None -> 1
+ *       | None, Some _ -> 1
+ *       | Some x, Some y -> compare x y
+ *     in
+ *     let channel_compared =
+ *       if a_channel = b_channel then 0
+ *       else if a_channel > b_channel then 1
+ *       else -1
+ *     in
+ *     if stream_compared = 0 && channel_compared = 0 then 0
+ *     else if stream_compared > 0 && channel_compared > 0 then 1
+ *     else if stream_compared < 0 && channel_compared > 0 then 1
+ *     else -1
+ * 
+ *   let get_widgets_uniq_chnl_strm (widgets : Wm.widget list) =
+ *     List.sort_uniq compare_widgets_by_strm_chnl widgets
+ * 
+ *   (\* Формирует пары из видео и аудио виджетов с одинаковым каналом и потоком*\)
+ *   let get_av_widget_pairs
+ *       (video_widgets_uniq_chnl_strm : Wm.widget list)
+ *       (audio_widgets_uniq_chnl_strm : Wm.widget list) =
+ *     let rec aux acc audio_widgets_uniq_chnl_strm = function
+ *       | [] -> acc
+ *       | hd :: tl ->
+ *         let res = List.find_opt (fun w ->
+ *             compare_widgets_by_strm_chnl hd w = 0)
+ *             audio_widgets_uniq_chnl_strm in
+ *         let acc = match res with
+ *           | None -> acc
+ *           | Some a -> (Some hd, Some a) :: acc
+ *         in
+ *         aux acc audio_widgets_uniq_chnl_strm tl
+ *     in
+ *     aux [] audio_widgets_uniq_chnl_strm video_widgets_uniq_chnl_strm
+ * 
+ *   (\* Ищет видео/аудио виджеты без аудио/видео пары*\)
+ *   let get_non_paired_av_widgets
+ *       (widgets_with_uniq_chnl_strm : Wm.widget list)
+ *       (selector : Wm.widget_type)
+ *       (av_pairs : (Wm.widget option * Wm.widget option) list) =
+ *     let rec aux acc
+ *         (av_pairs: (Wm.widget option * Wm.widget option) list) = function
+ *       | [] -> acc
+ *       | hd :: tl ->
+ *         let res = List.find_opt
+ *             (fun (v, a) -> match selector with
+ *                | Video -> (match v with
+ *                    | None -> false
+ *                    | Some x -> compare_widgets_by_strm_chnl x hd = 0)
+ *                | Audio -> (match a with
+ *                    | None -> false
+ *                    | Some y -> compare_widgets_by_strm_chnl y hd = 0))
+ *             av_pairs in
+ *         let acc = match res with
+ *           | Some _va -> acc
+ *           | None ->
+ *             match selector with
+ *             | Video -> (Some hd, None) :: acc
+ *             | Audio -> (None, Some hd) :: acc
+ *         in
+ *         aux acc av_pairs tl
+ *     in
+ *     aux [] av_pairs widgets_with_uniq_chnl_strm
+ * 
+ *   (\* Итоговое создание контейнеров *\)
+ *   let generate_containers
+ *       ~(nx : float)
+ *       ~(ny : float)
+ *       ~(video_asp : float)
+ *       ~(audio_asp : float)
+ *       (av_pairs : (Wm.widget option * Wm.widget option) list) =
+ *     let rec aux
+ *         (acc : (string * Wm.container) list)
+ *         (x : float) (\* initial 0.0 *\)
+ *         (y : float) (\* initial 0.0 *\)
+ *         (index : float) (\* initial 0.0 *\)
+ *         (video_asp_inv : float)
+ *         (audio_asp_inv : float) = function
+ *       | [] -> acc
+ *       | (v, a) :: tl ->
+ *         let (container_pos : Wm.position) =
+ *           { x = (fmod index nx) /. nx
+ *           ; y = floor (index /. nx) /. ny
+ *           ; w = 1.0 /. nx
+ *           ; h = 1.0 /. ny
+ *           } in
+ *         let wv = match v with
+ *           | None -> None
+ *           | Some (w : Wm.widget) ->
+ *             let position =
+ *               Some { Wm.
+ *                      x = 0.0
+ *                    ; y = 0.0
+ *                    ; w = video_asp_inv /. (video_asp_inv +. audio_asp_inv)
+ *                    ; h = 1.0 }
+ *             in
+ *             Some { w with position }
+ *         in
+ *         let wa = match a with
+ *           | None -> None
+ *           | Some (w : Wm.widget) ->
+ *             let position =
+ *               Some { Wm.
+ *                      x = video_asp_inv /. (video_asp_inv +. audio_asp_inv)
+ *                    ; y = 0.0
+ *                    ; w = 1.0 -. video_asp_inv /. (video_asp_inv +. audio_asp_inv)
+ *                    ; h = 1.0
+ *                    }
+ *             in
+ *             Some { w with position }
+ *         in
+ *         let container = match wv, wa with
+ *           | None, None ->
+ *             "", { Wm. position = container_pos; widgets = []}
+ *           | Some x, None ->
+ *             x.description,
+ *             { position = container_pos; widgets = [x.description, x] }
+ *           | None, Some y ->
+ *             y.description,
+ *             { position = container_pos; widgets = [y.description, y] }
+ *           | Some x, Some y ->
+ *             x.description,
+ *             { position = container_pos
+ *             ; widgets = [x.description, x; y.description, y]
+ *             }
+ *         in
+ *         aux (container :: acc) x y (index +. 1.0)
+ *           video_asp_inv
+ *           audio_asp_inv
+ *           tl
+ *     in
+ *     if nx > 0.0 && ny > 0.0
+ *     then aux [] 0.0 0.0 0.0 (1.0 /. video_asp) (1.0 /. audio_asp) av_pairs
+ *     else []
+ * 
+ *   let default_video_aspect = 16, 9
+ * 
+ *   let default_audio_aspect = 1, 10
+ * 
+ *   let split_widgets data =
+ *     List.fold_left (fun (video, audio) (v : Branches.data) ->
+ *         let (widget : Wm.widget) = snd v.widget in
+ *         match widget.domain with
+ *         | Wm.Nihil -> video, audio
+ *         | Chan _ ->
+ *           match widget.type_ with
+ *           | Video -> widget :: video, audio
+ *           | Audio -> video, widget :: audio) ([], []) data
+ * 
+ *   let layout_of_widgets ~resolution (data : Branches.data list) =
+ *     let video_widgets, audio_widgets = split_widgets data in
+ *     (\* Считаем количество одинаковых аспектов и
+ *        сортируем аспекты по их количеству, первым большее количество. *\)
+ *     let video_uniq_aspects_weight_sorted =
+ *       get_all_aspects video_widgets in
+ *     (\* Получаем наиболее часто используемый аспект для видео *\)
+ *     let video_main_aspect = get_main_aspect
+ *         video_uniq_aspects_weight_sorted default_video_aspect in
+ *     (\* Считаем количество одинаковых аспектов и
+ *        сортируем аспекты по их количеству, первым большее количество. *\)
+ *     let audio_uniq_aspects_weight_sorted =
+ *       get_all_aspects audio_widgets in
+ *     (\* Получаем наиболее часто используемый аспект для аудио *\)
+ *     let audio_main_aspect = get_main_aspect
+ *         audio_uniq_aspects_weight_sorted default_audio_aspect in
+ *     (\* Вычисляем главный аспект, как сумму длин по ширине для 1 видео и 1 аудио виджета,
+ *        деленые на высоту и результат инвертируем (для того чтобы можно было использовать
+ *        функцию из position:get_float_aspect (хотя она объявлена в LayoutOfWidget) - она такая же)*\)
+ *     let main_aspect = 1.0 /. ( 1.0 /. video_main_aspect +. 1.0 /. audio_main_aspect) in
+ *     (\* Оставляем виджеты у которых уникальный канал и поток *\)
+ *     let video_widgets_with_uniq_chnl_strm = get_widgets_uniq_chnl_strm video_widgets in
+ *     let audio_widgets_with_uniq_chnl_strm = get_widgets_uniq_chnl_strm audio_widgets in
+ *     (\* Находим пары видео и аудио виджетов *\)
+ *     let av_pairs = get_av_widget_pairs video_widgets_with_uniq_chnl_strm audio_widgets_with_uniq_chnl_strm in
+ *     (\* Находим видео без аудио пары *\)
+ *     let v_non_paired = get_non_paired_av_widgets video_widgets_with_uniq_chnl_strm Video av_pairs in
+ *     (\* Находим аудио без видео пары *\)
+ *     let a_non_paired = get_non_paired_av_widgets audio_widgets_with_uniq_chnl_strm Audio av_pairs in
+ *     (\* Объединяем все виджеты с парами и без *\)
+ *     let common_av_pairs = av_pairs @ v_non_paired @ a_non_paired in
+ *     let n = List.length common_av_pairs in
+ *     (\* Аспект 'экрана' *\)
+ *     let asp_res = float_of_int (fst resolution) /. float_of_int (snd resolution) in
+ *     (\* Высчитыаем количество колонок и рядов в зависимости от аспекта экрана и основного аспекта *\)
+ *     let nx = int_of_float (Float.round (sqrt (float_of_int n) *. asp_res /. main_aspect)) in
+ *     let ny = int_of_float (Float.round (float_of_int n /. (float_of_int (if nx > 0 then nx else 1)))) in
+ *     if nx <= 0 || ny <= 0 || n <= 0
+ *     then []
+ *     else generate_containers
+ *         ~nx:(float_of_int nx)
+ *         ~ny:(float_of_int ny)
+ *         ~video_asp:video_main_aspect
+ *         ~audio_asp:audio_main_aspect
+ *         common_av_pairs
+ * 
+ * end *)
 
 let make
     (streams : Structure.Annotated.t)
