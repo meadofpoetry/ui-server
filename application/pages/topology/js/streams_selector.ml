@@ -275,7 +275,7 @@ module Input = struct
       let content =
         Tyxml_js.To_dom.of_element
         @@ Dialog.Markup.create_content ~content:[box#markup] () in
-      let actions = [accept#root; cancel#root] in
+      let actions = [cancel#root; accept#root] in
       let dialog = Dialog.make ~title ~content ~actions () in
       dialog#add_class dialog_class;
       dialog#set_on_destroy (fun () ->

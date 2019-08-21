@@ -17,15 +17,23 @@ let domain_to_string : Wm.domain -> string = function
 module Selector = struct
   let item = Printf.sprintf ".%s" CSS.item
 
-  let list (domain : Wm.domain) =
-    Printf.sprintf "%s[data-domain=\"%s\"]"
-      Item_list.CSS.root
-      (Page_mosaic_editor_tyxml.Widget.domain_attr_value domain)
+  let domain _class = function
+    | Wm.Nihil ->
+      Printf.sprintf ".%s:not([%s]):not([%s])"
+        _class
+        Widget_utils.Attr.stream
+        Widget_utils.Attr.channel
+    | Chan x ->
+      Printf.sprintf ".%s[%s=\"%s\"][%s=\"%s\"]"
+        _class
+        Widget_utils.Attr.stream
+        (Page_mosaic_editor_tyxml.Widget.stream_attr_value x.stream)
+        Widget_utils.Attr.channel
+        (Page_mosaic_editor_tyxml.Widget.channel_attr_value x.channel)
 
-  let subheader (domain : string) =
-    Printf.sprintf ".%s[data-domain=\"%s\"]"
-      Item_list.CSS.group_subheader
-      domain
+  let list = domain Item_list.CSS.root
+
+  let subheader = domain Item_list.CSS.group_subheader
 end
 
 let format = "application/json"
@@ -78,15 +86,11 @@ class t (elt : Dom_html.element Js.t) = object(self)
          Dom.removeChild list item;
          (match Element.children list with
           | [] ->
-            let subheader =
-              match Element.get_attribute list Widget_utils.Attr.domain with
-              | None -> None
-              | Some domain ->
-                Element.query_selector
-                  super#root
-                  (Selector.subheader domain)
-            in
-            Option.iter (Dom.removeChild super#root) subheader;
+            (* Remove corresponding subheader. *)
+            Option.iter (Dom.removeChild super#root)
+            @@ Element.query_selector super#root
+            @@ Selector.subheader
+            @@ Widget_utils.Attr.get_domain list;
             Dom.removeChild super#root list
           | _ -> ());
          self#handle_change ())

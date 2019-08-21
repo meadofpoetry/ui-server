@@ -43,15 +43,13 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   let create_list ?(classes = []) ?(attrs = []) domain items : 'a elt =
     let classes = Item_list.CSS.root :: Item_list.CSS.two_line :: classes in
-    ul ~a:([ a_class classes
-           ; a_user_data "domain" (Widget.domain_attr_value domain)
-           ] @ attrs) items
+    let domain_attrs = Widget'.domain_attrs domain in
+    ul ~a:([a_class classes] @ domain_attrs @ attrs) items
 
   let create_subheader ?(classes = []) ?(attrs = []) domain title : 'a elt =
     let classes = Item_list.CSS.group_subheader :: classes in
-    h3 ~a:([ a_class classes
-           ; a_user_data "domain" (Widget.domain_attr_value domain)
-           ] @ attrs) [txt title]
+    let domain_attrs = Widget'.domain_attrs domain in
+    h3 ~a:([a_class classes] @ domain_attrs @ attrs) [txt title]
 
   let create ?(classes = []) ?(attrs = []) content : 'a elt =
     let classes = CSS.root :: Item_list.CSS.group :: classes in

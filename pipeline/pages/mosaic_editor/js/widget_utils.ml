@@ -10,7 +10,9 @@ module Attr = struct
 
   let pid = "data-pid"
 
-  let domain = "data-domain"
+  let stream = "data-stream"
+
+  let channel = "data-channel"
 
   let aspect = "data-aspect"
 
@@ -28,7 +30,8 @@ module Attr = struct
     [ id
     ; typ
     ; pid
-    ; domain
+    ; stream
+    ; channel
     ; aspect
     ; description
     ; width
@@ -57,11 +60,12 @@ module Attr = struct
     Element.set_attribute elt id id'
 
   let get_position (elt : Dom_html.element Js.t) : Wm.position option =
-    try Some { x = get_float_attribute elt left
-             ; y = get_float_attribute elt top
-             ; w = get_float_attribute elt width
-             ; h = get_float_attribute elt height
-             }
+    try Some (Position.Normalized.validate
+              @@ { x = get_float_attribute elt left
+                 ; y = get_float_attribute elt top
+                 ; w = get_float_attribute elt width
+                 ; h = get_float_attribute elt height
+                 })
     with _ -> None
 
   let string_of_float = Printf.sprintf "%g"
@@ -86,20 +90,23 @@ module Attr = struct
     let t = Page_mosaic_editor_tyxml.Widget.widget_type_to_string t in
     Element.set_attribute elt typ t
 
-  let get_domain (elt : Dom_html.element Js.t) =
-    Js.Opt.case (elt##getAttribute (Js.string domain))
-      (fun () -> Wm.Nihil)
-      (fun s ->
-         let json = Yojson.Safe.from_string (Js.to_string s) in
-         match Wm.domain_of_yojson json with
-         | Ok x -> x
-         | Error e -> failwith e)
+  let get_domain (elt : Dom_html.element Js.t) : Wm.domain =
+    let stream = Element.get_attribute elt stream in
+    let channel = Element.get_attribute elt channel in
+    match stream, channel with
+    | None, _ | _, None ->
+      Nihil
+    | Some s, Some c ->
+      Chan { stream = Application_types.Stream.ID.of_string s
+           ; channel = int_of_string c
+           }
 
   let set_domain (elt : Dom_html.element Js.t) = function
     | Wm.Nihil -> ()
-    | d ->
-      let v = Page_mosaic_editor_tyxml.Widget.domain_attr_value d in
-      Element.set_attribute elt domain v
+    | Chan x ->
+      Page_mosaic_editor_tyxml.Widget.(
+        Element.set_attribute elt stream (stream_attr_value x.stream);
+        Element.set_attribute elt channel (channel_attr_value x.channel))
 
   let get_pid (elt : Dom_html.element Js.t) =
     Js.Opt.case (elt##getAttribute (Js.string pid))
