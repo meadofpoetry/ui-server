@@ -13,11 +13,6 @@ let ( = ) (x : int) y = x = y
 let equal_float ?(epsilon = epsilon_float) a b =
   abs_float (a-.b) < epsilon
 
-let get_cell_title (cell : Dom_html.element Js.t) : string =
-  match Element.get_attribute cell Attr.title with
-  | None -> ""
-  | Some s -> s
-
 let set_cell_title (cell : Dom_html.element Js.t) (title : string) : unit =
   Element.set_attribute cell Attr.title title
 
@@ -31,6 +26,11 @@ let find_min_spare ?(min = 0) l =
     | [] -> acc
     | x :: tl -> if acc = x then aux (succ x) tl else acc in
   aux min l
+
+let get_cell_title (cell : Dom_html.element Js.t) : string =
+  match Element.get_attribute cell Attr.title with
+  | None -> ""
+  | Some x -> x
 
 let gen_cell_title (cells : Dom_html.element Js.t list) =
   let titles = List.map get_cell_title cells in
@@ -150,7 +150,10 @@ module UI = struct
               match value () with
               | None, _ | _, None -> Lwt.return_unit
               | Some cols, Some rows ->
-                grid#reset ~cols ~rows ();
+                grid#reset
+                  ~cols:(`Repeat (cols, Fr 1.))
+                  ~rows:(`Repeat (rows, Fr 1.))
+                  ();
                 Lwt.return_unit)
         ~icon:Icon.SVG.(make_simple Path.table_plus)#root
         () in

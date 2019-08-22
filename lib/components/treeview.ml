@@ -240,6 +240,14 @@ let focus_last_node
   Option.iter (fun x -> x##focus) last;
   last
 
+
+let compare_by_dom_position a b =
+  if Element.equal a b then 0
+  else
+    let pos = a##compareDocumentPosition (b :> Dom.node Js.t) in
+    if Dom.DocumentPosition.(has pos preceding)
+    then 1 else -1
+
 class t elt () =
   object(self)
 
@@ -314,10 +322,11 @@ class t elt () =
       | [] -> true | _ -> false
 
     method selected_nodes : Dom_html.element Js.t list =
-      _selected_items
+      List.sort compare_by_dom_position _selected_items
 
     method selected_leafs : Dom_html.element Js.t list =
-      List.filter self#is_leaf _selected_items
+      List.sort compare_by_dom_position
+      @@ List.filter self#is_leaf _selected_items
 
     method node_value (node : Dom_html.element Js.t) : string option =
       Element.get_attribute node Attr.value

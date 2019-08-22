@@ -110,24 +110,24 @@ end
 module Container_actions = struct
   include Undo
 
-  let wizard (wizard : Wizard.t) (_grid : Grid.t) =
+  let wizard (wizard : Wizard.t) (notify : Pipeline_types.Wm.t -> unit Lwt.t) =
     make ~callback:(fun _ _ ->
         wizard#open_await ()
         >>= function
         | Close | Destroy | Custom _ -> Lwt.return_unit
-        | Accept ->
-          ignore wizard#value;
-          (* TODO implement *)
-          Lwt.return_unit)
+        | Accept -> notify wizard#value)
       ~name:"Мастер"
       ~icon:Icon.SVG.Path.auto_fix
       ()
 
-  let make_menu (wizard_widget : Wizard.t) undo_manager (grid : Grid.t) =
+  let make_menu
+      undo_manager
+      (wizard_widget : Wizard.t)
+      wizard_notify =
     make_overflow_menu
       [ Undo.undo undo_manager
       ; Undo.redo undo_manager
-      ; wizard wizard_widget grid
+      ; wizard wizard_widget wizard_notify
       ]
 end
 

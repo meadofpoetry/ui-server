@@ -353,21 +353,30 @@ class t
     self#remove_row_or_column Col cell
 
   method reset
-      ?(col_size = Fr 1.)
-      ?(row_size = Fr 1.)
-      ~(cols : int)
-      ~(rows : int)
+      ?cells
+      ~(cols : property)
+      ~(rows : property)
       () =
     Element.remove_children super#root;
-    self#set_style super#root Col (gen_template ~size:col_size cols);
-    self#set_style super#root Row (gen_template ~size:row_size rows);
-    List.iter (fun x ->
-        let elt = Tyxml_js.To_dom.of_element x in
-        Element.append_child super#root elt;
-        on_cell_insert self elt)
-    @@ Util.gen_cells
-      ~f:(fun ~col ~row () -> Markup.create_cell (make_cell_position ~col ~row ()))
-      ~cols ~rows
+    self#set_style super#root Col (property_to_string cols);
+    self#set_style super#root Row (property_to_string rows);
+    let cells = match cells with
+      | Some cells -> cells
+      | None ->
+        let property_to_num = function
+          | `Repeat (x, _) -> x
+          | `Value x -> List.length x in
+        Util.gen_cells
+          ~f:(fun ~col ~row () ->
+              Tyxml_js.To_dom.of_element
+              @@ Markup.create_cell
+              @@ make_cell_position ~col ~row ())
+          ~cols:(property_to_num cols)
+          ~rows:(property_to_num rows) in
+    List.iter (fun cell ->
+        Element.append_child super#root cell;
+        on_cell_insert self cell)
+      cells
 
   method insert_table
       ?(col_size = Fr 1.)
