@@ -16,10 +16,6 @@ type channel =
   ; channel : int
   }
 
-let split_three l =
-  List.fold_left (fun (first, second, third) (a, b, c) ->
-      a :: first, b :: second, c :: third) ([], [], []) l
-
 module Parse_struct = struct
   let stream id (signal : Structure.Annotated.t) =
     let packed =
@@ -57,14 +53,12 @@ module Find = struct
 end
 
 module Branches = struct
-
   type data =
     { widget : string * Wm.widget
     ; service_name : string
     ; provider_name : string
     } [@@deriving yojson]
 
-  (* makes a checkbox with id of domains and typ, and a tree item named by channel*)
   let make_widget (widget : (string * Wm.widget) * channel)
       (channel_struct : Structure.Annotated.channel) =
     let widget, _channel = widget in
@@ -83,8 +77,6 @@ module Branches = struct
         text in
     node
 
-  (* makes all the widgets checkboxes with IDs, checkboxes of channels Tree items,
-   * and a Tree.t containing all given channels *)
   let make_channels
       (widgets : ((string * Wm.widget) * channel) list)
       (_state, (structure : Structure.Annotated.structure)) =
@@ -117,7 +109,6 @@ module Branches = struct
           node :: acc)
       [] channels
 
-  (* makes all the widget checkboxes with IDs, and a Tree.t containing all streams *)
   let make_streams (widgets : ((string * Wm.widget) * channel) list)
       (structure : Structure.Annotated.t) =
     let streams =
@@ -151,17 +142,7 @@ module Branches = struct
             stream_node :: acc)
         [] streams_of_widgets in
     Treeview.make ~dense:true nodes
-
 end
-
-let to_content (streams : Structure.Annotated.t)
-    (wm : Wm.Annotated.t) =
-  let widgets = List.filter_map (fun (name, (widget : Wm.widget)) ->
-      match (widget.domain : Wm.domain) with
-      | (Chan {stream; channel} : Wm.domain) ->
-        Some ((name, widget), ({ stream; channel } : channel))
-      | (Nihil : Wm.domain) -> None) wm.widgets in
-  Branches.make_streams widgets streams
 
 let compare_domain a b = match a, b with
   | Wm.Nihil, Wm.Nihil -> 0
@@ -210,16 +191,17 @@ module Make(S : S) = struct
     | Wm.Video -> 16, 9
     | Audio -> 1, 10
 
-  let container_position i cols rows =
+  let container_position ~cols ~rows i =
     { Wm.
-      x = float_of_int (i mod rows) /. float_of_int cols
+      x = float_of_int (i mod rows) /. float_of_int rows
     ; y = float_of_int (i / rows) /. float_of_int cols
     ; w = 1. /. float_of_int rows
     ; h = 1. /. float_of_int cols
     }
 
   let make_container ~cols ~rows ~video_asp ~audio_asp index (_domain, (v, a)) =
-    let position = container_position index cols rows in
+    print_endline @@ Printf.sprintf "cols: %d, rows: %d" cols rows;
+    let position = container_position ~cols ~rows index in
     let vwidth = video_asp /. (video_asp +. audio_asp) in
     let awidth = 1. -. vwidth in
     let v = Option.map (S.set_position { x = 0.; y = 0.; w = vwidth; h = 1. }) v in
@@ -301,51 +283,79 @@ module Layout = Make(struct
       { x with widget = (fst x.widget, widget) }
   end)
 
-class t ~resolution ~treeview (elt : Dom_html.element Js.t) () =
-  object
-    inherit Dialog.t elt ()
+let make_treeview (streams : Structure.Annotated.t)
+    (wm : Wm.Annotated.t) =
+  let widgets = List.filter_map (fun (name, (widget : Wm.widget)) ->
+      match (widget.domain : Wm.domain) with
+      | (Chan {stream; channel} : Wm.domain) ->
+        Some ((name, widget), ({ stream; channel } : channel))
+      | (Nihil : Wm.domain) -> None) wm.widgets in
+  Branches.make_streams widgets streams
 
-    val mutable resolution = resolution
-    val mutable _treeview : Treeview.t = treeview
+class t ~resolution ~treeview (elt : Dom_html.element Js.t) () = object(self)
+  inherit Dialog.t elt () as super
 
-    method value : Wm.t =
-      let data =
-        List.filter_map (fun x ->
-            match _treeview#node_value x with
-            | None -> None
-            | Some json ->
-              try
-                match Branches.data_of_yojson @@ Yojson.Safe.from_string json with
-                | Error _ -> None
-                | Ok x -> Some x
-              with _ -> None)
-        @@ _treeview#selected_leafs
-      in
-      { Wm.
-        resolution
-      ; widgets = []
-      ; layout = Layout.layout_of_widgets ~resolution data
-      }
+  val mutable resolution = resolution
+  val mutable _treeview : Treeview.t = treeview
+  val mutable listeners = []
 
-    (* TODO implement *)
-    method notify : event -> unit = function
-      | `Streams _streams -> ()
-      | `Layout layout -> resolution <- layout.resolution
-  end
+  method! initial_sync_with_dom () : unit =
+    listeners <- Js_of_ocaml_lwt.Lwt_js_events.(
+        [ seq_loop (make_event Treeview.Event.action)
+            super#root self#handle_treeview_action
+        ]
+      );
+    super#initial_sync_with_dom ()
+
+  method value : Wm.t =
+    let data =
+      List.filter_map (fun x ->
+          match _treeview#node_value x with
+          | None -> None
+          | Some json ->
+            try
+              match Branches.data_of_yojson @@ Yojson.Safe.from_string json with
+              | Error _ -> None
+              | Ok x -> Some x
+            with _ -> None)
+      @@ _treeview#selected_leafs
+    in
+    { Wm.
+      resolution
+    ; widgets = []
+    ; layout = Layout.layout_of_widgets ~resolution data
+    }
+
+  (* TODO implement *)
+  method notify : event -> unit = function
+    | `Streams _streams -> ()
+    | `Layout layout -> resolution <- layout.resolution
+
+  method private handle_treeview_action _ _ : unit Lwt.t =
+    super#layout ();
+    Lwt.return_unit
+end
 
 let make
     (structure : Structure.Annotated.t)
     (wm : Wm.Annotated.t) =
-  let content = to_content structure wm in
+  let treeview = make_treeview structure wm in
+  let hint = "Выберите виджеты, которые необходимо добавить в мозаику" in
+  let content =
+    Tyxml_js.Html.[div [ span [txt hint]
+                       ; treeview#markup]] in
   let actions =
     List.map Tyxml_js.Of_dom.of_button
       [ Dialog.make_action ~action:Close ~label:"Отмена" ()
       ; Dialog.make_action ~action:Accept ~label:"Применить" ()
       ] in
+  let title = Dialog.Markup.create_title_simple
+      ~title:"Мастер автоматической расстановки" (* TODO better title *)
+      () in
   let surface = Dialog.Markup.(
       create_surface
-        ~title:(create_title_simple ~title:"Выберите виджеты" ())
-        ~content:(create_content ~content:[content#markup] ())
+        ~title
+        ~content:(create_content ~content ())
         ~actions:(create_actions ~actions ())
         ()) in
   let (elt : Dom_html.element Js.t) =
@@ -355,7 +365,4 @@ let make
           ~scrim:(create_scrim ())
           ~container:(create_container ~surface ())
           ()) in
-  new t
-    ~resolution:wm.resolution
-    ~treeview:content
-    elt ()
+  new t ~resolution:wm.resolution ~treeview elt ()

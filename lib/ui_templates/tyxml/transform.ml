@@ -6,6 +6,40 @@ module CSS = struct
   let circle = BEM.add_element root "circle"
 end
 
+module Direction = struct
+  type t =
+    | N
+    | E
+    | S
+    | W
+    | NW
+    | NE
+    | SE
+    | SW
+
+  let to_string = function
+    | N -> "n"
+    | E -> "e"
+    | S -> "s"
+    | W -> "w"
+    | NW -> "nw"
+    | NE -> "ne"
+    | SE -> "se"
+    | SW -> "sw"
+
+  let of_string (s : string) : t option =
+    match String.lowercase_ascii s with
+    | "n" -> Some N
+    | "e" -> Some E
+    | "s" -> Some S
+    | "w" -> Some W
+    | "nw" -> Some NW
+    | "ne" -> Some NE
+    | "se" -> Some SE
+    | "sw" -> Some SW
+    | _ -> None
+end
+
 module Make(Xml : Xml_sigs.NoWrap)
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
     (Html : Html_sigs.NoWrap with module Xml := Xml
@@ -38,5 +72,4 @@ module Make(Xml : Xml_sigs.NoWrap)
       ; create_resizer SW
       ; create_resizer SE
       ]
-
 end

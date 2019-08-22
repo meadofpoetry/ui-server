@@ -57,7 +57,7 @@ let make_overflow_menu
            (fun (button : Dom_html.buttonElement Js.t) -> button##click);
          Lwt.return_unit) in
   menu#set_on_destroy (fun () -> Lwt.cancel listener);
-  Overflow_menu.make
+  Ui_templates.Overflow_menu.make
     ~resize_handler:false
     ~actions:(List.map Widget.root actions)
     ~overflow:overflow#root
@@ -92,7 +92,6 @@ let transform_top_app_bar
        Option.iter x#remove_class class_)
 
 module Undo = struct
-
   let undo (undo_manager : Undo_manager.t) =
     make ~callback:(fun _ _ -> Undo_manager.undo undo_manager; Lwt.return_unit)
       ~name:"Отменить"
@@ -104,35 +103,47 @@ module Undo = struct
       ~name:"Повторить"
       ~icon:Icon.SVG.Path.redo
       ()
-
 end
 
 module Container_actions = struct
   include Undo
 
-  let wizard (wizard : Wizard.t) (notify : Pipeline_types.Wm.t -> unit Lwt.t) =
+  let wizard (wizard : Pipeline_widgets.Wizard.t) (grid : Grid.t) =
     make ~callback:(fun _ _ ->
         wizard#open_await ()
         >>= function
         | Close | Destroy | Custom _ -> Lwt.return_unit
-        | Accept -> notify wizard#value)
+        | Accept ->
+          let open Pipeline_types in
+          let wm = wizard#value in
+          let wm = Wm.Annotated.annotate ~active:wm ~stored:wm in
+          let grid_props = Container_utils.grid_properties_of_layout wm in
+          let cells = List.map (fun (id, (container, pos)) ->
+              Js_of_ocaml_tyxml.Tyxml_js.(
+                To_dom.of_element
+                @@ Grid.Markup.create_cell
+                  ~attrs:Html.([a_user_data "title" id])
+                  ~content:(Container_utils.content_of_container container)
+                  pos))
+              grid_props.cells in
+          grid#reset ~cells
+            ~rows:(`Value grid_props.rows)
+            ~cols:(`Value grid_props.cols)
+            ();
+          Lwt.return_unit)
       ~name:"Мастер"
       ~icon:Icon.SVG.Path.auto_fix
       ()
 
-  let make_menu
-      undo_manager
-      (wizard_widget : Wizard.t)
-      wizard_notify =
+  let make_menu undo_manager wizard_widget grid =
     make_overflow_menu
       [ Undo.undo undo_manager
       ; Undo.redo undo_manager
-      ; wizard wizard_widget wizard_notify
+      ; wizard wizard_widget grid
       ]
 end
 
 module Container_selected_actions = struct
-
   let make_description_dialog () =
     let input = Textfield.make_textfield ~label:"Наименование" Text in
     let title =
@@ -191,11 +202,9 @@ module Container_selected_actions = struct
         Element.remove_child_safe Dom_html.document##.body (snd dialog)#root;
         (snd dialog)#destroy ());
     menu
-
 end
 
 module Cell_selected_actions = struct
-
   let merge ~on_remove ~get_selected undo_manager grid =
     make ~callback:(fun _ _ ->
         let cells = get_selected () in

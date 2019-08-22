@@ -38,7 +38,7 @@ module Absolute : sig
     -> ?min_height:float
     -> ?min_distance:float
     -> ?grid_step:float
-    -> action:[`Resize of Page_mosaic_editor_tyxml.Direction.t | `Move]
+    -> action:[`Resize of Ui_templates.Transform.Direction.t | `Move]
     -> siblings:t list
     -> parent_size:float * float
     -> frame_position:t

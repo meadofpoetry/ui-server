@@ -1,10 +1,9 @@
 open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
-open Page_mosaic_editor_tyxml
 open Components
 
-include Page_mosaic_editor_tyxml.Transform
+include Ui_templates_tyxml.Transform
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
 let name = "transform"

@@ -1,0 +1,3 @@
+(library
+  (name pipeline_widgets_tyxml)
+  (libraries components_tyxml))

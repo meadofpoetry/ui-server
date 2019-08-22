@@ -1,5 +1,4 @@
 open Js_of_ocaml
-open Page_mosaic_editor_tyxml
 
 include Position_intf
 
@@ -460,7 +459,8 @@ module Absolute = struct
     ; make_line_properties Hbottom pos min_distance siblings
     ]
 
-  let hlines_for_resize_action pos min_distance siblings (direction : Direction.t) =
+  let hlines_for_resize_action pos min_distance siblings
+      (direction : Ui_templates.Transform.Direction.t) =
     let align_direction = match direction with
       | NW | NE | N -> Snap_line.Htop
       | SW | SE | S -> Hbottom
@@ -473,7 +473,8 @@ module Absolute = struct
     ; make_line_properties Vright pos min_distance siblings
     ]
 
-  let vlines_for_resize_action pos min_distance siblings (direction : Direction.t) =
+  let vlines_for_resize_action pos min_distance siblings
+      (direction : Ui_templates.Transform.Direction.t) =
     let align_direction = match direction with
       | NW | SW | W -> Snap_line.Vleft
       | NE | SE | E -> Vright
@@ -510,7 +511,7 @@ module Absolute = struct
   let snap_to_siblings_resize (pos : t) min_distance siblings =
     let make_line align = make_line_properties align pos min_distance siblings in
     function
-    | Direction.NW ->
+    | Ui_templates.Transform.Direction.NW ->
       let snap_list_x = [make_line Vleft] in
       let snap_list_y = [make_line Htop] in
       ({ x = get_snap pos.x min_distance snap_list_x
@@ -572,7 +573,8 @@ module Absolute = struct
       }
 
   (* glue lines to its item *)
-  let get_snap_lines (pos : t) siblings (action : [`Resize of Direction.t | `Move]) =
+  let get_snap_lines (pos : t) siblings
+      (action : [`Resize of Ui_templates.Transform.Direction.t | `Move]) =
     let snap_list =
       match action with
       | `Move ->
@@ -627,7 +629,7 @@ module Absolute = struct
     | `Resize direction ->
       let (max_left, max_top, min_left, min_top) =
         match direction with
-        | Direction.NW ->
+        | Ui_templates.Transform.Direction.NW ->
           Some (x +. w -. min_width),
           Some (y +. h -. min_height),
           None, None
@@ -649,7 +651,9 @@ module Absolute = struct
     let y = Js.math##round (pos.y /. grid_step) *. grid_step in
     { pos with x; y }
 
-  let snap_to_grid_resize (direction : Direction.t) (pos : t) (grid_step : float) : t =
+  let snap_to_grid_resize (direction : Ui_templates.Transform.Direction.t)
+      (pos : t)
+      (grid_step : float) : t =
     match direction with
     | NW ->
       let x = Js.math##round (pos.x /. grid_step) *. grid_step in
@@ -742,7 +746,7 @@ module Absolute = struct
       bound.h *. min_height /. child_min_h.h
 
   let fix_aspect_min
-      (dir : Direction.t)
+      (dir : Ui_templates.Transform.Direction.t)
       (pos : t)
       (orig_pos : t)
       (asp : float)
@@ -783,7 +787,7 @@ module Absolute = struct
     else pos
 
   let get_max_wh_for_aspect
-      (dir : Direction.t)
+      (dir : Ui_templates.Transform.Direction.t)
       (x, y, w, h) (* input orig_pos *)
       (max_w : float)
       (max_h : float)
@@ -829,7 +833,7 @@ module Absolute = struct
     if w1 < w2 then (w1, h1) else (w2, h2)
 
   let fix_aspect_max
-      (dir : Direction.t)
+      (dir : Ui_templates.Transform.Direction.t)
       (pos : t)
       (orig_pos : t)
       (asp : float)
@@ -883,7 +887,7 @@ module Absolute = struct
     else pos
 
   let fix_aspect_after_snap
-      (dir : Direction.t)
+      (dir : Ui_templates.Transform.Direction.t)
       (orig_pos : t)
       (before_pos : t)
       (after_pos : t)
@@ -927,7 +931,7 @@ module Absolute = struct
   (* FIXME cannot read arguments purpose from signature *)
   let fix_aspect2
       (aspect_ratio : (int * int) option)
-      (action : [`Resize of Direction.t | `Move])
+      (action : [`Resize of Ui_templates.Transform.Direction.t | `Move])
       (children : t list)
       (orig_pos : t)
       (before_pos : t)
@@ -987,7 +991,7 @@ module Absolute = struct
       ?(min_height = 20.)
       ?(min_distance = 12.)
       ?grid_step
-      ~(action : [`Resize of Direction.t | `Move])
+      ~(action : [`Resize of Ui_templates.Transform.Direction.t | `Move])
       ~(siblings : t list) (* widget positions int coordinatrs to float [0;1.0] *)
       ~(parent_size : float * float) (* need if input positions is int pixel coordinates *)
       ~(frame_position : t)

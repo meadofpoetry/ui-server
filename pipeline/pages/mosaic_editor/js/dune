@@ -6,6 +6,7 @@
                pipeline_types
                application_types
                pipeline_http_js
+               pipeline_widgets
                util_json
                uri)
   (preprocess  (pps js_of_ocaml-ppx

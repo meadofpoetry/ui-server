@@ -3,6 +3,9 @@ open Js_of_ocaml_tyxml
 open Components
 open Pipeline_types
 
+include Page_mosaic_editor_tyxml.Container_editor
+module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
+
 module Attr = struct
   let title = "data-title"
   let aspect = "data-aspect"
@@ -67,6 +70,10 @@ let cell_position_to_wm_position
      ; w = (get_cell_size ~start:(pred col) ~len:col_span cols) /. total_w
      ; h = (get_cell_size ~start:(pred row) ~len:row_span rows) /. total_h
      }
+
+let content_of_container (container : Wm.Annotated.container) =
+  let widgets = List.map Markup.create_widget container.widgets in
+  [Markup.create_widget_wrapper widgets]
 
 type grid_properties =
   { rows : Grid.value list
@@ -137,7 +144,7 @@ module UI = struct
       (Integer (Some 1, None))
 
   let make_empty_placeholder
-      (wizard_dialog : Wizard.t)
+      (wizard_dialog : Pipeline_widgets.Wizard.t)
       (table_dialog, value : Dialog.t * (unit -> int option * int option))
       (grid : Grid.t) =
     let table =

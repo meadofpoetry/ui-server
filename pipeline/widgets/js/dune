@@ -1,0 +1,7 @@
+(library
+  (name       pipeline_widgets)
+  (libraries  components
+              application_types
+              pipeline_types)
+  (preprocess (pps js_of_ocaml-ppx
+                   ppx_deriving_yojson)))

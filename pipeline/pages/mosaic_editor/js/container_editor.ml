@@ -2,9 +2,7 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml
 open Components
 open Pipeline_types
-
-include Page_mosaic_editor_tyxml.Container_editor
-module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
+open Container_utils
 
 type editing_mode = Content | Table
 
@@ -40,7 +38,7 @@ module Selector = struct
 end
 
 module Selection = struct
-  include Selection
+  include Ui_templates.Selection
 
   let class_ = Grid.CSS.cell_selected
 
@@ -79,7 +77,7 @@ module Selection = struct
 
   let make handle_selected elt =
     let boundaries = [Node elt] in
-    Selection.make ~validate_start
+    make ~validate_start
       ~selectables
       ~boundaries
       ~start_areas:boundaries
@@ -154,10 +152,6 @@ let filter_available_widgets
       List.filter (fun (id, _) -> not @@ List.mem_assoc id container) acc)
     widgets wm
 
-let content_of_container (container : Wm.Annotated.container) =
-  let widgets = List.map Markup.create_widget container.widgets in
-  [Markup.create_widget_wrapper widgets]
-
 type widget_mode_state =
   { icon : Dom_html.element Js.t option
   ; restore : unit -> unit
@@ -175,7 +169,7 @@ class t ~(scaffold : Scaffold.t)
     | None -> failwith "grid element not found"
     | Some x -> Grid.attach ~on_cell_insert ~drag_interval:(Fr 0.05) x in
   let table_dialog = Container_utils.UI.add_table_dialog () in
-  let wizard_dialog = Wizard.make structure wm in
+  let wizard_dialog = Pipeline_widgets.Wizard.make structure wm in
   object(self)
     val close_icon = Icon.SVG.(make_simple Path.close)
     val back_icon = Icon.SVG.(make_simple Path.arrow_left)
@@ -541,11 +535,11 @@ class t ~(scaffold : Scaffold.t)
             restore () in
           _top_app_bar_context <- [restore]
 
-    method private create_actions () : Overflow_menu.t =
+    method private create_actions () : Ui_templates.Overflow_menu.t =
       Actions.Container_actions.make_menu
         undo_manager
         wizard_dialog
-        (fun x -> self#notify (`Wizard x); Lwt.return_unit)
+        grid
 
     method private create_cell_selected_actions () : Widget.t list =
       let menu = Actions.Cell_selected_actions.make_menu

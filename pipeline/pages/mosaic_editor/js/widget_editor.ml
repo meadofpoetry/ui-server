@@ -51,7 +51,7 @@ let make_item (id, widget : string * Wm.widget) =
   item
 
 module Selection = struct
-  include Selection
+  include Ui_templates.Selection
 
   let class_ = CSS.item_selected
 
@@ -138,7 +138,7 @@ class t
       | None -> failwith "widget-editor: grid ghost element not found"
       | Some x -> x
 
-    val transform = Transform.make
+    val transform = Ui_templates.Transform.make
         ~transformables:[Query (Printf.sprintf ".%s" CSS.item_selected)]
         ()
 
@@ -166,7 +166,8 @@ class t
       super#init ()
 
     method! initial_sync_with_dom () : unit =
-      _listeners <- Events.(
+      let open Ui_templates in
+      _listeners <- Js_of_ocaml_lwt.Lwt_js_events.(
           [ Transform.Event.inputs transform#root self#handle_transform_action
           ; Transform.Event.changes transform#root self#handle_transform_change
           ; Transform.Event.select transform#root self#handle_transform_select
@@ -504,7 +505,8 @@ class t
       Dom.preventDefault event;
       (* FIXME too expensive to call getBoundingClientRect every time *)
       let rect = super#root##getBoundingClientRect in
-      let (x, y) = Transform.get_cursor_position event in
+      (* FIXME define own function *)
+      let (x, y) = Ui_templates.Transform.get_cursor_position event in
       let point = x -. rect##.left, y -. rect##.top in
       let (position : Position.Absolute.t) =
         { x = fst point
