@@ -1,3 +1,5 @@
+;; Components
+
 (rule
  (targets components.min.css)
  (deps
@@ -6,6 +8,19 @@
  (action (progn
           (run %{bin:sassc} -t compressed -I ./ %{src} %{targets})
           (run %{bin:postcss} -u autoprefixer -r %{targets}))))
+
+;; Components lab
+
+(rule
+ (targets components-lab.min.css)
+ (deps
+       (:src ./@material-lab/components-lab/components-lab.scss)
+       (source_tree ./@material-lab))
+ (action (progn
+          (run %{bin:sassc} -t compressed -I ./ %{src} %{targets})
+          (run %{bin:postcss} -u autoprefixer -r %{targets}))))
+
+;; Pages
 
 (rule
  (targets page-input.min.css)
@@ -52,6 +67,7 @@
  (deps
        (:src ./frontend/network-settings/network-settings.scss)
        (source_tree ./frontend/network-settings)
+       (source_tree ./ui-templates)
        (source_tree ./@material))
  (action (progn
           (run %{bin:sassc} -t compressed -I ./ %{src} %{targets})
@@ -62,6 +78,7 @@
  (deps
        (:src ./frontend/server-settings/server-settings.scss)
        (source_tree ./frontend/server-settings)
+       (source_tree ./ui-templates)
        (source_tree ./@material))
  (action (progn
           (run %{bin:sassc} -t compressed -I ./ %{src} %{targets})
@@ -72,6 +89,7 @@
  (deps
        (:src ./frontend/user-settings/user-settings.scss)
        (source_tree ./frontend/user-settings)
+       (source_tree ./ui-templates)
        (source_tree ./@material))
  (action (progn
           (run %{bin:sassc} -t compressed -I ./ %{src} %{targets})
@@ -131,6 +149,7 @@
   (files (normalize.css as css/normalize.css)
          (Chart.min.css as css/Chart.min.css)
          (components.min.css as css/components.min.css)
+         (components-lab.min.css as css/components-lab.min.css)
          (main.min.css as css/main.min.css)
          (page-input.min.css as css/page-input.min.css)
          (page-mosaic-editor.min.css as css/page-mosaic-editor.min.css)

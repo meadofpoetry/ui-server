@@ -6,6 +6,7 @@
 @import "./transform/transform";
 @import "./overflow_menu/overflow_menu";
 @import "./grid/grid";
+@import "../pipeline/wizard";
 
 @mixin nav-icon-hidden {
     opacity: 0;

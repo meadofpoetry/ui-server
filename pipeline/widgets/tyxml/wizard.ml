@@ -6,7 +6,6 @@ module CSS = struct
   let root = "pipeline-wizard"
 
   let hint = BEM.add_element root "hint"
-
 end
 
 type channel =
@@ -58,9 +57,11 @@ module Make(Xml : Xml_sigs.NoWrap)
     (Html : Html_sigs.NoWrap with module Xml := Xml
                               and module Svg := Svg) = struct
 
+  module Icon = Icon.Make(Xml)(Svg)(Html)
   module Checkbox = Checkbox.Make(Xml)(Svg)(Html)
   module Treeview = Treeview.Make(Xml)(Svg)(Html)
   module Dialog = Dialog.Make(Xml)(Svg)(Html)
+  module Placeholder = Components_lab_tyxml.Placeholder.Make(Xml)(Svg)(Html)
 
   let make_widget_node
       (channel_struct : Structure.Annotated.channel)
@@ -159,22 +160,27 @@ module Make(Xml : Xml_sigs.NoWrap)
         | (Nihil : Wm.domain) -> None) wm.widgets in
     make_stream_nodes widgets streams
 
+  let make_empty_placeholder ?classes ?attrs () =
+    Placeholder.make_simple ?classes ?attrs
+      Icon.SVG.(create [create_path Svg_icons.information ()] ())
+      "Нет доступных виджетов"
+
   let make ?(classes = []) ?(attrs = []) ~treeview () =
     let classes = CSS.root :: classes in
     let title = Dialog.create_title_simple
-        ~title:"Мастер автоматической расстановки" (* TODO better title *)
+        ~title:"Автоматическая расстановка виджетов" (* TODO better title *)
         () in
+    let content =
+      Html.div [ treeview
+               ; make_empty_placeholder ()
+               ] in
     let actions =
       Dialog.create_actions
         ~actions:[ Dialog.create_action ~action:Close ~label:"Отмена" ()
                  ; Dialog.create_action ~action:Accept ~label:"Применить" ()
                  ]
         () in
-    let surface = Dialog.create_surface
-        ~title
-        ~content:treeview
-        ~actions
-        () in
+    let surface = Dialog.create_surface ~title ~content ~actions () in
     Dialog.create
       ~classes
       ~attrs
