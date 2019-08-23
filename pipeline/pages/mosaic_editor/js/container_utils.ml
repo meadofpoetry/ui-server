@@ -174,13 +174,11 @@ module UI = struct
         ~icon:Icon.SVG.(make_simple Path.auto_fix)#root
         () in
     let content = Box.make ~dir:`Row [wizard; table] in
-    Components_lab.Placeholder.With_icon.make
-      ~font:Body_1
-      ~icon:content#root
-      ~text:"Мозаика пуста. \n\
-             Воспользуйтесь мастером настройки \n\
-             или начните с создания таблицы!"
-      ()
+    Components_lab.Placeholder.make
+      content#root
+      "Мозаика пуста. \n\
+       Воспользуйтесь мастером настройки \n\
+       или начните с создания таблицы!"
 
   let add_table_dialog () =
     let cols = make_input ~label:"Число столбцов" () in

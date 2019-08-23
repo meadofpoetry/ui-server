@@ -28,7 +28,7 @@ let make_loader ?(text : string option)
     ?(on_success : (Dom_html.element Js.t -> 'a -> unit) option)
     ?(elt = Dom_html.(createDiv document))
     (t : ('a, string) Lwt_result.t) =
-  let progress = Placeholder.Progress.make ?text () in
+  let progress = Placeholder.make_progress ?text () in
   let on_success (v : 'a) : unit Lwt.t =
     Element.remove_class elt CSS.root;
     (match on_success with
@@ -36,7 +36,7 @@ let make_loader ?(text : string option)
      | Some f -> f elt v);
     Lwt.return_unit in
   let on_error text =
-    let error = Placeholder.Err.make ?icon:error_icon ~text () in
+    let error = Placeholder.make_error ?icon:error_icon text in
     Element.append_child elt error#root;
     (match on_error with
      | None -> ()

@@ -159,7 +159,7 @@ module RTC = struct
       create_session
         ~server
         ~on_error:(fun s ->
-          let ph = Components_lab.Placeholder.Err.make ~text:s () in
+          let ph = Components_lab.Placeholder.make_error s in
           player#set_overlay ph)
         (create ~log_level:Error ())
       >>= function
@@ -174,7 +174,7 @@ module RTC = struct
                 (handle_jsep jsep plugin
                  >|= function
                  | Error e ->
-                    let ph = Components_lab.Placeholder.Err.make ~text:e () in
+                    let ph = Components_lab.Placeholder.make_error e in
                     player#set_overlay ph
                  | Ok _ -> ())
                 |> Lwt.ignore_result)
@@ -295,7 +295,7 @@ let () =
       | Ok (_ : RTC.t) -> Lwt.return player#root##focus
       | Error e ->
         (* Show error overlay in case of failure while starting webrtc session *)
-        let ph = Components_lab.Placeholder.Err.make ~text:e () in
+        let ph = Components_lab.Placeholder.make_error e in
         ph#add_class Player.CSS.overlay;
         player#append_child ph;
         Lwt.return_unit)

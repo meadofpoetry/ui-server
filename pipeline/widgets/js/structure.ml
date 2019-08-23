@@ -203,10 +203,9 @@ class t (structure : Structure.Annotated.t) () =
   let actions = Card.Actions.make [buttons] in
   object(self)
     val placeholder =
-      Components_lab.Placeholder.With_icon.make
-        ~text:"Потоки не обнаружены"
-        ~icon:Icon.SVG.(make_simple Path.information)#root
-        ()
+      Components_lab.Placeholder.make
+        Icon.SVG.(make_simple Path.information)#root
+        "Потоки не обнаружены"
     val mutable _treeview = make_treeview structure
     val mutable _structure : Structure.Annotated.t = structure
     val mutable _on_submit = None

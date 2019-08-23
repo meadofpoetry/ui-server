@@ -120,15 +120,13 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
 
     method private make_settings_widget () : Widget.t =
       match make_settings with
-      | None ->
-         let icon = Icon.SVG.(make_simple Path.stop)#root in
-         let ph =
-           Components_lab.Placeholder.With_icon.make
-             ~icon
-             ~text:"Нет доступных настроек для модуля"
-             () in
-         ph#widget
       | Some make -> make ()
+      | None ->
+        let icon = Icon.SVG.(make_simple Path.stop)#root in
+        let ph =
+          Components_lab.Placeholder.make icon
+            "Нет доступных настроек для модуля" in
+        ph#widget
 
   end
 

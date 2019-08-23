@@ -4,145 +4,15 @@ open Components
 open Application_types
 open Pipeline_types
 
+include Pipeline_widgets_tyxml.Wizard
+module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
+
 let ( >>= ) = Lwt.bind
 
 type event =
   [ `Streams of Structure.Annotated.t
   | `Layout of Wm.t
   ]
-
-type channel =
-  { stream : Stream.ID.t
-  ; channel : int
-  }
-
-module Parse_struct = struct
-  let stream id (signal : Structure.Annotated.t) =
-    let packed =
-      List.find_opt (fun (_state, (structure : Structure.Annotated.structure)) ->
-          Stream.ID.equal structure.id id) signal in
-    match packed with
-    | None -> None
-    | Some ((_, structure) as s) ->
-      Some (Stream.ID.to_string structure.id, s)
-
-  let widget typ pid_ ({ pids; _ } : Structure.Annotated.channel) =
-    let widget_typ_to_string = function
-      | Wm.Video -> "Video"
-      | Audio -> "Audio" in
-    match pid_ with
-    | None -> widget_typ_to_string typ
-    | Some pid_ ->
-      let prefix = Printf.sprintf "PID %d (0x%04X)" pid_ pid_ in
-      let pid = List.find_opt (fun (_, (pid : Structure.pid)) ->
-          pid.pid = pid_) pids in
-      let stream_type = match pid with
-        | Some x -> MPEG_TS.stream_type_to_string (snd x).stream_type
-        | None -> widget_typ_to_string typ in
-      Printf.sprintf "%s, %s" prefix stream_type
-end
-
-module Find = struct
-  let channels (widgets : ((string * Wm.widget) * channel) list) =
-    List.sort (fun a b -> compare a.channel b.channel)
-    @@ List.fold_left (fun acc (widget : ((string * Wm.widget) * channel)) ->
-        if List.exists (fun ch -> (snd widget).channel = ch.channel) acc
-        then acc
-        else (snd widget) :: acc)
-      [] widgets
-end
-
-module Branches = struct
-  type data =
-    { widget : string * Wm.widget
-    ; service_name : string
-    ; provider_name : string
-    } [@@deriving yojson]
-
-  let make_widget (widget : (string * Wm.widget) * channel)
-      (channel_struct : Structure.Annotated.channel) =
-    let widget, _channel = widget in
-    let typ = (snd widget).type_ in
-    let text = Parse_struct.widget typ (snd widget).pid channel_struct in
-    let checkbox = Checkbox.make () in
-    let data =
-      { widget
-      ; service_name = channel_struct.service_name
-      ; provider_name = channel_struct.provider_name
-      } in
-    let node =
-      Treeview.make_node
-        ~graphic:checkbox#root
-        ~value:(Yojson.Safe.to_string @@ data_to_yojson data)
-        text in
-    node
-
-  let make_channels
-      (widgets : ((string * Wm.widget) * channel) list)
-      (_state, (structure : Structure.Annotated.structure)) =
-    let channels = Find.channels widgets in
-    List.rev
-    @@ List.fold_left (fun acc channel ->
-        let channel, stream = channel.channel, channel.stream in
-        let channel_struct =
-          List.find_opt (fun (_, (ch : Structure.Annotated.channel)) ->
-              channel = ch.number) structure.channels in
-        match channel_struct with
-        | None -> acc
-        | Some (_, channel_struct) ->
-          let text = channel_struct.service_name in
-          let widgets =
-            List.sort (fun ((_, (a : Wm.widget)), _) ((_, b), _) ->
-                compare a.type_ b.type_)
-            @@ List.filter (fun (_, (ch : channel)) ->
-                Stream.ID.equal ch.stream stream
-                && channel = ch.channel) widgets in
-          let children = List.map (fun widget ->
-              make_widget widget channel_struct) widgets in
-          let checkbox = Checkbox.make () in
-          let node =
-            Treeview.make_node
-              ~value:text
-              ~graphic:checkbox#root
-              ~children
-              text in
-          node :: acc)
-      [] channels
-
-  let make_streams (widgets : ((string * Wm.widget) * channel) list)
-      (structure : Structure.Annotated.t) =
-    let streams =
-      List.fold_left (fun acc (x : (string * Wm.widget) * channel) ->
-          let channel = snd x in
-          if List.exists (fun stream ->
-              Stream.ID.equal channel.stream stream) acc then
-            acc
-          else
-            channel.stream :: acc) [] widgets in
-    let streams_of_widgets =
-      List.map (fun stream ->
-          let wds =
-            List.filter (fun (x : (string * Wm.widget) * channel) ->
-                let wdg_stream = (snd x).stream in
-                Stream.ID.equal wdg_stream stream) widgets in
-          stream, wds) streams in
-    let nodes =
-      List.fold_left (fun acc (stream, wds) ->
-          match Parse_struct.stream stream structure with
-          | None -> acc
-          | Some (text, packed) ->
-            let channels = make_channels wds packed in
-            let checkbox = Checkbox.make () in
-            let stream_node =
-              Treeview.make_node
-                ~graphic:checkbox#root
-                ~children:channels
-                ~value:(Stream.ID.to_string stream)
-                text in
-            stream_node :: acc)
-        [] streams_of_widgets in
-    Treeview.make ~dense:true nodes
-end
 
 let compare_domain a b = match a, b with
   | Wm.Nihil, Wm.Nihil -> 0
@@ -155,23 +25,29 @@ let compare_domain a b = match a, b with
 
 module type S = sig
   type t
+
   val container_title : t -> string
+
   val set_position : Wm.position -> t -> t
+
   val to_widget : t -> string * Wm.widget
 end
 
 module Pair = struct
   type t = int * int
+
   let compare a b = Int.neg @@ compare a b
 end
 
 module Widget_type = struct
   type t = Wm.widget_type
+
   let compare = compare
 end
 
 module Domain = struct
   type t = Wm.domain
+
   let compare = compare_domain
 end
 
@@ -272,7 +148,7 @@ module Make(S : S) = struct
 end
 
 module Layout = Make(struct
-    type t = Branches.data
+    type t = data
 
     let container_title (x : t) = x.service_name
 
@@ -282,15 +158,6 @@ module Layout = Make(struct
       let widget = { (snd @@ to_widget x) with position = Some p } in
       { x with widget = (fst x.widget, widget) }
   end)
-
-let make_treeview (streams : Structure.Annotated.t)
-    (wm : Wm.Annotated.t) =
-  let widgets = List.filter_map (fun (name, (widget : Wm.widget)) ->
-      match (widget.domain : Wm.domain) with
-      | (Chan {stream; channel} : Wm.domain) ->
-        Some ((name, widget), ({ stream; channel } : channel))
-      | (Nihil : Wm.domain) -> None) wm.widgets in
-  Branches.make_streams widgets streams
 
 class t ~resolution ~treeview (elt : Dom_html.element Js.t) () = object(self)
   inherit Dialog.t elt () as super
@@ -314,7 +181,7 @@ class t ~resolution ~treeview (elt : Dom_html.element Js.t) () = object(self)
           | None -> None
           | Some json ->
             try
-              match Branches.data_of_yojson @@ Yojson.Safe.from_string json with
+              match data_of_yojson @@ Yojson.Safe.from_string json with
               | Error _ -> None
               | Ok x -> Some x
             with _ -> None)
@@ -339,30 +206,11 @@ end
 let make
     (structure : Structure.Annotated.t)
     (wm : Wm.Annotated.t) =
-  let treeview = make_treeview structure wm in
-  let hint = "Выберите виджеты, которые необходимо добавить в мозаику" in
-  let content =
-    Tyxml_js.Html.[div [ span [txt hint]
-                       ; treeview#markup]] in
-  let actions =
-    List.map Tyxml_js.Of_dom.of_button
-      [ Dialog.make_action ~action:Close ~label:"Отмена" ()
-      ; Dialog.make_action ~action:Accept ~label:"Применить" ()
-      ] in
-  let title = Dialog.Markup.create_title_simple
-      ~title:"Мастер автоматической расстановки" (* TODO better title *)
-      () in
-  let surface = Dialog.Markup.(
-      create_surface
-        ~title
-        ~content:(create_content ~content ())
-        ~actions:(create_actions ~actions ())
-        ()) in
+  let treeview =
+    Treeview.attach
+    @@ Tyxml_js.To_dom.of_element
+    @@ Markup.make_treeview structure wm in
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element
-    @@ Dialog.Markup.(
-        create
-          ~scrim:(create_scrim ())
-          ~container:(create_container ~surface ())
-          ()) in
+    @@ Markup.make ~treeview:treeview#markup () in
   new t ~resolution:wm.resolution ~treeview elt ()

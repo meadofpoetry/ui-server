@@ -1,0 +1,5 @@
+.pipeline-wizard {
+    .mdc-treeview:not(empty) ~ .mdc-placeholder {
+        display: none;
+    }
+}

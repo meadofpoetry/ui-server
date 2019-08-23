@@ -1,3 +1,4 @@
 (library
   (name pipeline_widgets_tyxml)
-  (libraries components_tyxml))
+  (libraries components_tyxml application_types pipeline_types)
+  (preprocess (pps ppx_deriving_yojson)))

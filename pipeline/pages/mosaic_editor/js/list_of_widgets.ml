@@ -51,11 +51,13 @@ let get f l =
 
 class t (elt : Dom_html.element Js.t) = object(self)
   inherit Widget.t elt () as super
-  val placeholder = Components_lab.Placeholder.With_icon.make
-      ~text:"Нет доступных виджетов"
-      ~icon:Icon.SVG.(make_simple Path.information)#root
-      ()
+
+  val placeholder = Components_lab.Placeholder.make
+      Icon.SVG.(make_simple Path.information)#root
+      "Нет доступных виджетов"
+
   val mutable _listeners = []
+
   val mutable _drag_target = Js.null
 
   method! init () : unit =

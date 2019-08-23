@@ -33,10 +33,19 @@ $divider-color: if(
     align-self: flex-start;
 
     .mdc-placeholder {
-        &__widget {
+        &__content > :nth-child(1) {
             width: auto;
             height: auto;
         }
+
+        &__text {
+            line-height: 1.5;
+        }
+
+        .mdc-icon-button {
+            @include mdc-theme-prop(color, text-icon-on-background);
+        }
+
         @media (min-width: 599px) {
             .mdc-icon-button {
                 display: flex;
