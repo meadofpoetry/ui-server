@@ -1,16 +1,15 @@
 (executable
   (name        page_mosaic_editor)
-  (libraries   page_mosaic_editor_tyxml
-               components
+  (libraries   components
                components_lab
                resize_observer
                browser_storage
-               pipeline_types
+               undo_manager
                application_types
+               pipeline_types
                pipeline_http_js
                pipeline_widgets
-               util_json
-               uri)
+               page_mosaic_editor_tyxml)
   (preprocess  (pps js_of_ocaml-ppx
                     ppx_deriving_yojson
                     ppx_deriving.eq

@@ -69,4 +69,3 @@ let has_redo v =
 
 let set_callback v cb =
   v.callback <- Some cb
-
