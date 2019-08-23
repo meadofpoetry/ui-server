@@ -57,7 +57,7 @@ let make_overflow_menu
            (fun (button : Dom_html.buttonElement Js.t) -> button##click);
          Lwt.return_unit) in
   menu#set_on_destroy (fun () -> Lwt.cancel listener);
-  Ui_templates.Overflow_menu.make
+  Components_lab.Overflow_menu.make
     ~resize_handler:false
     ~actions:(List.map Widget.root actions)
     ~overflow:overflow#root

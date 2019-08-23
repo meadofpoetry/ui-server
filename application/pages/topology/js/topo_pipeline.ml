@@ -21,7 +21,7 @@ let make_structure socket =
   get_annotated ()
   >>= fun structure -> Event.get_annotated socket
   >>= fun (id, e) ->
-  let w = Pipeline_widgets_js.Widget_structure.make structure () in
+  let w = Pipeline_widgets.Structure.make structure () in
   let notif =
     React.E.merge (fun _ -> w#notify) ()
       [ React.E.map (fun x -> `Structure x) e ] in
@@ -34,13 +34,16 @@ let make (cpu : Topology.topo_cpu)
     (socket : Api_js.Websocket.JSON.t) : (#Widget.t,string) Lwt_result.t =
   let wrap f () =
     Widget.create
-    @@ Ui_templates.Loader.make_widget_loader (f socket) in
+    @@ Components_lab.Loader.make_widget_loader (f socket) in
   let tabs =
-    [ (wrap (make_streams cpu)), Tab.make ~label:"Выбор потоков" ()
-    ; (wrap (make_structure)), Tab.make ~label:"Выбор PID" ()
+    [ `Fun (wrap (make_streams cpu)), Tab.make ~label:"Выбор потоков" ()
+    ; `Fun (wrap (make_structure)), Tab.make ~label:"Выбор PID" ()
     ] in
-  let bar, body = Ui_templates.Tabs.create_dynamic tabs in
-  let box = Ui_templates.Tabs.wrap bar body in
+  let bar, body = Tab_bar.make_bind tabs in
   body#add_class @@ BEM.add_element base_class "body";
+  let box = Widget.create_div () in
+  box#append_child bar;
+  box#append_child body;
   box#add_class base_class;
+  box#set_on_destroy (fun () -> bar#destroy (); body#destroy ());
   Lwt_result.return box

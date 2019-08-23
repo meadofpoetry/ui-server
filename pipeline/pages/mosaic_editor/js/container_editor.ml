@@ -38,7 +38,7 @@ module Selector = struct
 end
 
 module Selection = struct
-  include Ui_templates.Selection
+  include Components_lab.Selection
 
   let class_ = Grid.CSS.cell_selected
 
@@ -290,7 +290,7 @@ class t ~(scaffold : Scaffold.t)
       super#layout ()
 
     method! destroy () : unit =
-      Option.iter Ui_templates.Resize_observer.disconnect _resize_observer;
+      Option.iter Resize_observer.disconnect _resize_observer;
       _resize_observer <- None;
       Option.iter (fun x -> x#destroy ()) _selection;
       _selection <- None;
@@ -535,7 +535,7 @@ class t ~(scaffold : Scaffold.t)
             restore () in
           _top_app_bar_context <- [restore]
 
-    method private create_actions () : Ui_templates.Overflow_menu.t =
+    method private create_actions () : Components_lab.Overflow_menu.t =
       Actions.Container_actions.make_menu
         undo_manager
         wizard_dialog
@@ -570,7 +570,7 @@ class t ~(scaffold : Scaffold.t)
 
     method private create_resize_observer () =
       let f = fun _ -> self#layout () in
-      Ui_templates.Resize_observer.observe ~f ~node:super#root ()
+      Resize_observer.observe ~f ~node:super#root ()
 
     method private selection : Selection.t =
       Option.get _selection

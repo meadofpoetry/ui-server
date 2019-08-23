@@ -38,7 +38,7 @@ module Absolute : sig
     -> ?min_height:float
     -> ?min_distance:float
     -> ?grid_step:float
-    -> action:[`Resize of Ui_templates.Transform.Direction.t | `Move]
+    -> action:[`Resize of Components_lab.Transform.direction | `Move]
     -> siblings:t list
     -> parent_size:float * float
     -> frame_position:t

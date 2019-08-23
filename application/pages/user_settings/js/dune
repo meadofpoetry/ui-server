@@ -1,7 +1,7 @@
 (executable
   (name       page_user_settings)
   (libraries  components
-              ui_templates
+              components_lab
               application_http_js
               page_user_settings_tyxml)
   (preprocess (pps js_of_ocaml-ppx)))

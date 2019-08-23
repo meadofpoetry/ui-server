@@ -51,7 +51,7 @@ let make_item (id, widget : string * Wm.widget) =
   item
 
 module Selection = struct
-  include Ui_templates.Selection
+  include Components_lab.Selection
 
   let class_ = CSS.item_selected
 
@@ -110,6 +110,28 @@ module Selection = struct
       ()
 end
 
+module Storage = struct
+  module Local = Browser_storage.Make_local(Application_types.User)
+
+  let show_grid_lines = "show-grid-lines"
+
+  let show_snap_lines = "show-snap-lines"
+
+  let user =
+    let user = Js.to_string @@ Js.Unsafe.global##.username in
+    match Application_types.User.of_string user with
+    | Error e -> failwith e
+    | Ok user -> user
+
+  let get_bool ?(default = false) key =
+    match Local.get user key with
+    | Some `Bool x -> x
+    | _ -> default
+
+  let set_bool key (x : bool) =
+    Local.put user key (`Bool x)
+end
+
 class t
     ~(list_of_widgets : List_of_widgets.t)
     ~(resolution : int * int)
@@ -138,7 +160,7 @@ class t
       | None -> failwith "widget-editor: grid ghost element not found"
       | Some x -> x
 
-    val transform = Ui_templates.Transform.make
+    val transform = Components_lab.Transform.make
         ~transformables:[Query (Printf.sprintf ".%s" CSS.item_selected)]
         ()
 
@@ -166,7 +188,7 @@ class t
       super#init ()
 
     method! initial_sync_with_dom () : unit =
-      let open Ui_templates in
+      let open Components_lab in
       _listeners <- Js_of_ocaml_lwt.Lwt_js_events.(
           [ Transform.Event.inputs transform#root self#handle_transform_action
           ; Transform.Event.changes transform#root self#handle_transform_change
@@ -506,7 +528,7 @@ class t
       (* FIXME too expensive to call getBoundingClientRect every time *)
       let rect = super#root##getBoundingClientRect in
       (* FIXME define own function *)
-      let (x, y) = Ui_templates.Transform.get_cursor_position event in
+      let (x, y) = Components_lab.Transform.get_cursor_position event in
       let point = x -. rect##.left, y -. rect##.top in
       let (position : Position.Absolute.t) =
         { x = fst point

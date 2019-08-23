@@ -72,7 +72,7 @@ let on_visible charts state control elt =
         E.stop ~strong:true notif;
         Api_js.Websocket.close_socket socket);
     Lwt.return_ok () in
-  let _loader = Ui_templates.Loader.make_loader ~elt thread in
+  let _loader = Components_lab.Loader.make_loader ~elt thread in
   ()
 
 let on_hidden state = match !state with

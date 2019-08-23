@@ -6,7 +6,6 @@
                util_equal
                api_js
                components
-               ui_templates
                chartjs
                chartjs-streaming
                chartjs-annotation

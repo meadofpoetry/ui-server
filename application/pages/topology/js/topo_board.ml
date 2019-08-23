@@ -249,7 +249,7 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
 
     method private make_settings_widget () : Widget.t =
       Widget.create
-      @@ Ui_templates.Loader.make_widget_loader
+      @@ Components_lab.Loader.make_widget_loader
       @@ make_board_page state socket
 
     method private set_ports (l : Topology.topo_port list) : unit =

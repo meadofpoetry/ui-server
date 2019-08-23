@@ -331,7 +331,7 @@ class ['a] t ?value
           | Some x -> Lwt.return_ok x
           | None -> fetch_value typ in
         let info =
-          Ui_templates.Loader.make_widget_loader
+          Components_lab.Loader.make_widget_loader
             (Lwt_result.map_err Api_js.Http.error_to_string value
              >>=? fun x ->
              self#set_value x;

@@ -16,7 +16,7 @@ let make_cpu_page socket (cpu : Topology.topo_cpu) =
   | "pipeline" ->
      let getter () =
        Topo_pipeline.make cpu socket
-       |> Ui_templates.Loader.make_widget_loader
+       |> Components_lab.Loader.make_widget_loader
        |> Widget.create in
      Some getter
   | _ -> None
@@ -123,7 +123,7 @@ class t ~(connections : (#Topo_node.t * connection_point) list)
       | None ->
          let icon = Icon.SVG.(make_simple Path.stop)#root in
          let ph =
-           Ui_templates.Placeholder.With_icon.make
+           Components_lab.Placeholder.With_icon.make
              ~icon
              ~text:"Нет доступных настроек для модуля"
              () in

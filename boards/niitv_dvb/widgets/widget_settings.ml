@@ -46,11 +46,25 @@ let make_inner state mode plps receivers control =
         let plps = match List.assoc_opt id plps with
           | None -> []
           | Some (x : Plp_list.t ts) -> x.data.plps in
-        make {id} state mode plps control, Tab.make ~label:name ())
+        `Widget (make {id} state mode plps control),
+        Tab.make ~label:name ())
     @@ List.sort compare receivers in
-  let bar, body = Ui_templates.Tabs.create_simple tabs in
+  let bar, body = Tab_bar.make_bind tabs in
   body#add_class body_class;
-  List.map fst tabs, Ui_templates.Tabs.wrap bar body
+  List.filter_map (function `Widget x, _ -> Some x | _ -> None) tabs,
+  object
+    inherit Widget.t Dom_html.(createDiv document) () as super
+
+    method! init () : unit =
+      super#append_child bar;
+      super#append_child body;
+      super#init ()
+
+    method! destroy () : unit =
+      bar#destroy ();
+      body#destroy ();
+      super#destroy ()
+  end
 
 class t state mode plps receivers control =
   let modules, inner = match receivers with

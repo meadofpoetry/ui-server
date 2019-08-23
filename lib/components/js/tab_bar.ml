@@ -321,3 +321,52 @@ let make ?on_change ?auto_activation
 
 let attach ?on_change ?auto_activation (elt : Dom_html.element Js.t) : t =
   new t ?on_change ?auto_activation (Element.coerce elt) ()
+
+type 'a page =
+  [ `Fun of unit -> (#Widget.t as 'a)
+  | `Widget of (#Widget.t as 'a)
+  ]
+
+let make_bind ?body ?auto_activation ?align (tabs : ('a page * Tab.t) list) =
+  let previous_page = ref None in
+  let hide = fun w -> w#root##.style##.display := Js.string "none" in
+  let show = fun w -> w#root##.style##.display := Js.string "" in
+  let body = match body with
+    | Some x -> x
+    | None -> Widget.create_div () in
+  let scroller = Tab_scroller.make ?align (List.map snd tabs) in
+  (* Initial setup *)
+  List.iter (fun (page, _) -> match page with
+      | `Widget w -> hide w; body#append_child w
+      | `Fun _ -> ()) tabs;
+  let on_tab_change previous tab_bar =
+    begin match previous with
+      | None -> ()
+      | Some n -> match List.nth_opt tabs n#index with
+        | None -> ()
+        | Some (page, _) -> match page with
+          | `Widget w -> hide w
+          | `Fun _ -> match !previous_page with
+            | None -> ()
+            | Some prev ->
+              prev#destroy ();
+              body#remove_child prev;
+              previous_page := None
+    end;
+    begin match tab_bar#active_tab_index with
+      | None -> ()
+      | Some n -> match List.nth_opt tabs n with
+        | None -> ()
+        | Some (page, _) -> match page with
+          | `Widget w -> show w
+          | `Fun make ->
+            let widget = make () in
+            body#append_child widget;
+            widget#layout ();
+            previous_page := Some widget
+    end in
+  let bar = make ?auto_activation ~on_change:(fun previous x ->
+      on_tab_change previous x;
+      Lwt.return_unit)
+      scroller in
+  bar, body

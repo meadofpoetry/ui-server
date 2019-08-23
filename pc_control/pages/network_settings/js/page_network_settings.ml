@@ -109,7 +109,7 @@ let () =
         Api_js.Websocket.close_socket socket);
     Lwt.return_ok page in
   let (_ : Dom_html.element Js.t) =
-    Ui_templates.Loader.make_widget_loader
+    Components_lab.Loader.make_widget_loader
       ~elt:scaffold#app_content_inner
       thread
   in

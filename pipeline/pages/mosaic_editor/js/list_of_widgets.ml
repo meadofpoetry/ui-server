@@ -51,7 +51,7 @@ let get f l =
 
 class t (elt : Dom_html.element Js.t) = object(self)
   inherit Widget.t elt () as super
-  val placeholder = Ui_templates.Placeholder.With_icon.make
+  val placeholder = Components_lab.Placeholder.With_icon.make
       ~text:"Нет доступных виджетов"
       ~icon:Icon.SVG.(make_simple Path.information)#root
       ()

@@ -218,13 +218,13 @@ let create (init : Topology.t) (socket : Api_js.Websocket.JSON.t) =
           super#append_child w) nodes;
       super#root##.style##.cssText := Js.string gta;
       let obs =
-        Ui_templates.Resize_observer.observe ~node:super#root
+        Resize_observer.observe ~node:super#root
           ~f:(fun _ -> self#layout ()) () in
       _resize_observer <- Some obs
 
     method! destroy () : unit =
       super#destroy ();
-      Option.iter Ui_templates.Resize_observer.disconnect _resize_observer;
+      Option.iter Resize_observer.disconnect _resize_observer;
       _resize_observer <- None
 
     method! layout () : unit =
@@ -290,7 +290,7 @@ let () =
         Api_js.Websocket.close_socket socket);
     Lwt_react.(E.keep @@ S.diff_s on_settings s_settings);
     Lwt.return_ok page in
-  let body = Ui_templates.Loader.make_widget_loader thread in
+  let body = Components_lab.Loader.make_widget_loader thread in
   Element.add_class body CSS.root;
   Element.add_class body Layout_grid.CSS.root;
   scaffold#set_side_sheet ~elevation:Full_height side_sheet;

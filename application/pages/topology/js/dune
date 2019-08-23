@@ -1,11 +1,11 @@
 (executable
   (name       page_topology)
   (libraries  components
-              ui_templates
+              resize_observer
               util_react
               application_http_js
               pipeline_http_js
-              pipeline_widgets_js
+              pipeline_widgets
               board_dektec_dtm3200_widgets_js
               board_niitv_dvb_widgets
               board_niitv_tsan_widgets_js)

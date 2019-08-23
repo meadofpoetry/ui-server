@@ -3,7 +3,7 @@ open Components
 open Application_types
 open Pipeline_types
 
-type selected = (Stream.ID.t * ((int * int list) list)) list [@@deriving show]
+type selected = (Stream.ID.t * ((int * int list) list)) list
 
 module CSS = struct
   let root = "pipeline-structure"
@@ -203,7 +203,7 @@ class t (structure : Structure.Annotated.t) () =
   let actions = Card.Actions.make [buttons] in
   object(self)
     val placeholder =
-      Ui_templates.Placeholder.With_icon.make
+      Components_lab.Placeholder.With_icon.make
         ~text:"Потоки не обнаружены"
         ~icon:Icon.SVG.(make_simple Path.information)#root
         ()

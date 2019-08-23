@@ -10,12 +10,6 @@ let ( >>=? ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
 
 module Api_http = Api_js.Http.Make(Body)
 
-let get_user () =
-  let user = Js.to_string @@ Js.Unsafe.global##.username in
-  match Application_types.User.of_string user with
-  | Error e -> failwith e
-  | Ok user -> user
-
 let () =
   let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
   let thread =
@@ -51,7 +45,7 @@ let () =
         Api_js.Websocket.close_socket socket);
     Lwt.return_ok page in
   let (_ : Dom_html.element Js.t) =
-    Ui_templates.Loader.make_widget_loader
+    Components_lab.Loader.make_widget_loader
       ~elt:scaffold#app_content_inner
       thread in
   ()

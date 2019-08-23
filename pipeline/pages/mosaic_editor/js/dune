@@ -2,7 +2,9 @@
   (name        page_mosaic_editor)
   (libraries   page_mosaic_editor_tyxml
                components
-               ui_templates
+               components_lab
+               resize_observer
+               browser_storage
                pipeline_types
                application_types
                pipeline_http_js

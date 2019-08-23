@@ -1,6 +1,6 @@
 (executable
   (name       page_input)
-  (libraries  ui_templates)
+  (libraries  components_lab)
   (preprocess (pps js_of_ocaml-ppx)))
 
 (install

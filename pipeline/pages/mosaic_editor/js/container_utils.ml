@@ -174,7 +174,7 @@ module UI = struct
         ~icon:Icon.SVG.(make_simple Path.auto_fix)#root
         () in
     let content = Box.make ~dir:`Row [wizard; table] in
-    Ui_templates.Placeholder.With_icon.make
+    Components_lab.Placeholder.With_icon.make
       ~font:Body_1
       ~icon:content#root
       ~text:"Мозаика пуста. \n\
