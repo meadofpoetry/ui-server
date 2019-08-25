@@ -1,0 +1,17 @@
+(library
+  (name        board_niitv_dvb4ch_widgets)
+  (libraries   board_niitv_dvb4ch_types
+               board_niitv_dvb4ch_http_js
+               application_types
+               util_equal
+               api_js
+               components
+               chartjs
+               chartjs-streaming
+               chartjs-annotation
+               ptime.clock.jsoo)
+  (preprocess  (pps ppx_deriving_yojson
+                    ppx_deriving.eq
+                    ppx_deriving.show
+                    ppx_deriving.ord
+                    js_of_ocaml-ppx)))

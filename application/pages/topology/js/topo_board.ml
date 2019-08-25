@@ -90,8 +90,8 @@ let make_board_niitv_tsan_settings state socket control =
 
 let make_board_niitv_dvb4ch_settings state socket control =
   let open React in
-  let open Board_niitv_dvb_http_js in
-  let open Board_niitv_dvb_widgets in
+  let open Board_niitv_dvb4ch_http_js in
+  let open Board_niitv_dvb4ch_widgets in
   let rec get_plps acc = function
     | [] -> Lwt.return_ok acc
     | id :: tl -> Lwt_result.(
@@ -104,7 +104,7 @@ let make_board_niitv_dvb4ch_settings state socket control =
   >>= fun (mode_id, e_mode) -> Http_receivers.Event.get_plp_list socket control
   >>= fun (plps_id, e_plps) ->
   (* FIXME *)
-  let w = Widget_settings.make (S.value state) mode plps (Some receivers) control in
+  let w = Settings.make (S.value state) mode plps (Some receivers) control in
   let notif =
     E.merge (fun _ -> w#notify) ()
       [ E.map (fun x -> `Mode x) e_mode
