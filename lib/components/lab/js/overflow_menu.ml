@@ -3,11 +3,14 @@ open Js_of_ocaml_tyxml
 open Components
 
 include Components_lab_tyxml.Overflow_menu
+
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
 module Selector = struct
   let actions = Printf.sprintf ".%s" CSS.actions
+
   let overflow = Printf.sprintf ".%s" CSS.overflow
+
   let menu = Printf.sprintf ".%s" Menu.CSS.root
 end
 
@@ -19,21 +22,20 @@ let fail_no_element ?base name =
   | None -> failwith error
   | Some s -> failwith @@ s ^ ": " ^ error
 
-class t ?(resize_handler = true)
-    (elt : Dom_html.element Js.t)
-    () = object(self)
-
+class t ?(resize_handler = true) (elt : Dom_html.element Js.t) () = object(self)
   val menu = match Element.query_selector elt Selector.menu with
     | None -> fail_no_element ~base:name Selector.menu
     | Some x -> Menu.attach x
+
   val overflow = match Element.query_selector elt Selector.overflow with
     | None -> fail_no_element ~base:name Selector.overflow
     | Some x -> x
+
   val actions = match Element.query_selector elt Selector.actions with
     | None -> fail_no_element ~base:name Selector.actions
     | Some x -> x
 
-  val mutable _listeners = []
+  val mutable listeners = []
 
   inherit Widget.t elt () as super
 
@@ -44,7 +46,7 @@ class t ?(resize_handler = true)
     super#init ()
 
   method! initial_sync_with_dom () : unit =
-    _listeners <- Events.(
+    listeners <- Js_of_ocaml_lwt.Lwt_js_events.(
         [ (if resize_handler
            then onresizes (fun _ _ -> self#layout (); Lwt.return_unit)
            else Lwt.return_unit)
@@ -73,8 +75,8 @@ class t ?(resize_handler = true)
     super#layout ()
 
   method! destroy () : unit =
-    List.iter Lwt.cancel _listeners;
-    _listeners <- [];
+    List.iter Lwt.cancel listeners;
+    listeners <- [];
     menu#destroy ();
     super#destroy ()
 
@@ -86,7 +88,6 @@ class t ?(resize_handler = true)
     && not @@ Element.equal menu#root target
     then menu#reveal ()
     else Lwt.return_unit
-
 end
 
 let make

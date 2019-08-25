@@ -56,13 +56,13 @@ class t (elt : Dom_html.element Js.t) = object(self)
       Icon.SVG.(make_simple Path.information)#root
       "Нет доступных виджетов"
 
-  val mutable _listeners = []
+  val mutable listeners = []
 
-  val mutable _drag_target = Js.null
+  val mutable drag_target = Js.null
 
   method! init () : unit =
     Dom.appendChild super#root placeholder#root;
-    _listeners <- Lwt_js_events.(
+    listeners <- Lwt_js_events.(
         [ dragstarts super#root self#handle_dragstart
         ; dragends super#root self#handle_dragend
         ]);
@@ -75,8 +75,8 @@ class t (elt : Dom_html.element Js.t) = object(self)
     super#initial_sync_with_dom ()
 
   method! destroy () : unit =
-    List.iter Lwt.cancel _listeners;
-    _listeners <- [];
+    List.iter Lwt.cancel listeners;
+    listeners <- [];
     super#destroy ()
 
   method items : Dom_html.element Js.t list =
@@ -154,7 +154,7 @@ class t (elt : Dom_html.element Js.t) = object(self)
 
   method private handle_dragstart e _ =
     let target = Dom_html.eventTarget e in
-    _drag_target <- e##.target;
+    drag_target <- e##.target;
     let to_yojson (id, w) : Yojson.Safe.t =
       `List [`String id; Wm.widget_to_yojson w] in
     let data =
@@ -173,7 +173,7 @@ class t (elt : Dom_html.element Js.t) = object(self)
     target##.style##.opacity := Js.def @@ Js.string "";
     target##.style##.zIndex := Js.string "";
     if Element.has_class target Item_list.CSS.item
-    && (not (Js.some target == _drag_target))
+    && (not (Js.some target == drag_target))
     then Dom.preventDefault e;
     Lwt.return_unit
 end

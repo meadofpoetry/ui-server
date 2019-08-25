@@ -12,7 +12,6 @@ type absolute =
   }
 
 module Make(Pos : S) : Position with type t = Pos.t = struct
-
   include Pos
 
   let equal (a : t) (b : t) =
@@ -236,7 +235,6 @@ module Normalized = struct
     elt##.style##.left := Js.string @@ fn pos.x;
     elt##.style##.height := Js.string @@ fn pos.h;
     elt##.style##.top := Js.string @@ fn pos.y
-
 end
 
 module Absolute = struct
@@ -1062,7 +1060,6 @@ module Absolute = struct
       | `Resize _ -> resize_children position_clip_parent positions
     in
     position_clip_parent, children, snap_lines
-
 end
 
 let absolute_to_normalized ~(parent_size : float * float)

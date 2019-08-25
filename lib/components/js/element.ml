@@ -59,6 +59,10 @@ let toggle_class ?(force : bool option)
   | Some true -> add_class elt _class; true
   | Some false -> remove_class elt _class; false
 
+let toggle_class_unit ?force elt _class =
+  let (_ : bool) = toggle_class ?force elt _class in
+  ()
+
 let has_class (elt : #Dom_html.element Js.t) (_class : string) : bool =
   Js.to_bool @@ elt##.classList##contains (Js.string _class)
 

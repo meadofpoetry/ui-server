@@ -7,15 +7,15 @@ type v =
 
 type t =
   { mutable stack : v Js.js_array Js.t
-  ; mutable limit : int
+  ; mutable limit : int option
   ; mutable index : int
   ; mutable callback : (t -> unit) option
   }
 
-let create ?callback ?(_limit = 100) () : t =
+let create ?callback ?limit () : t =
   { stack = new%js Js.array_empty
   ; index = -1
-  ; limit = 0
+  ; limit
   ; callback
   }
 
@@ -25,8 +25,15 @@ let add v x =
       (v.index + 1)
       (v.stack##.length - v.index) in
   let (_ : int) = v.stack##push x in
-  if v.limit > 0 && v.stack##.length > v.limit
-  then ();
+  (* If limit is set, remove items from start. *)
+  begin match v.limit with
+    | None -> ()
+    | Some limit ->
+      if v.stack##.length > limit
+      then
+        let length = v.stack##.length in
+        v.stack <- v.stack##slice (length - limit) length
+  end;
   (* Set the index to the end *)
   v.index <- v.stack##.length - 1;
   match v.callback with

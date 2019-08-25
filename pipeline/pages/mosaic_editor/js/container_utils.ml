@@ -14,7 +14,7 @@ end
 let ( = ) (x : int) y = x = y
 
 let equal_float ?(epsilon = epsilon_float) a b =
-  abs_float (a-.b) < epsilon
+  abs_float (a -. b) < epsilon
 
 let set_cell_title (cell : Dom_html.element Js.t) (title : string) : unit =
   Element.set_attribute cell Attr.title title
@@ -133,7 +133,6 @@ let grid_properties_of_layout ({ layout; _ } : Wm.Annotated.t) =
   { rows; cols; cells }
 
 module UI = struct
-
   open Js_of_ocaml_lwt
 
   let ( >>= ) = Lwt.bind
@@ -218,5 +217,4 @@ module UI = struct
     dialog#set_on_destroy (fun () ->
         List.iter Lwt.cancel listeners);
     dialog, (fun () -> cols#value, rows#value)
-
 end
