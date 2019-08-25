@@ -1,7 +1,7 @@
 open Components_tyxml
 
 module CSS = struct
-  let root = "overflow-menu"
+  let root = "mdc-overflow-menu"
   let actions = BEM.add_element root "actions"
   let overflow = BEM.add_element root "overflow"
 end

@@ -1,7 +1,7 @@
 open Components_tyxml
 
 module CSS = struct
-  let root = "transform"
+  let root = "mdc-transform"
   let resizer = BEM.add_element root "resizer"
   let circle = BEM.add_element root "circle"
 end
