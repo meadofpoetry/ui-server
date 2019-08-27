@@ -199,7 +199,7 @@ class t
     else self#attach_start_events ()
 
   method selected : Dom_html.element Js.t list =
-    _selected
+    _stored
 
   method remove_from_selection (elt : Dom_html.element Js.t) : unit =
     _removed <- elt :: _removed;
@@ -222,7 +222,7 @@ class t
       Allowes multiple selections. *)
   method keep_selection () : unit =
     _stored <- List.fold_left (fun acc x ->
-        if not @@ List.memq x _stored
+        if not @@ List.memq x acc
         then x :: acc else acc) _stored _selected
 
   method select (items : Dom_html.element Js.t list) : unit =
@@ -242,7 +242,7 @@ class t
     ; original_event = e
     ; area
     ; selected = List.fold_left (fun acc x ->
-          if List.exists (Element.equal x) acc
+          if List.memq x acc
           then acc else x :: acc) _selected _stored
     ; removed = _removed
     ; added = _added
@@ -312,12 +312,13 @@ class t
         (* To detect single click *)
         _is_single_click <- true;
         _selected <- [];
-        self#clear_selection ();
+        self#clear_selection ~store:false ();
         _temp_listeners <- Events.(
             [ (* Prevent default select event *)
               seq_loop (make_event @@ Dom_html.Event.make "selectstart")
                 doc self#handle_select_start
             ; mouseups doc (self#handle_drag_end state % coerce)
+            ; dragends doc (self#handle_drag_end ~no_event:true state % coerce)
             ; touchcancels doc (self#handle_drag_end state % coerce)
             ; touchends doc (self#handle_drag_end state % coerce)
             ]);
@@ -328,11 +329,12 @@ class t
         Lwt.return_unit
       else Lwt.return_unit
 
-  method handle_select_start (e : Dom_html.event Js.t) _ : unit Lwt.t =
+  method private handle_select_start (e : Dom_html.event Js.t) _ : unit Lwt.t =
     Dom.preventDefault e;
     Lwt.return_unit
 
-  method handle_single_click (_state : state) (e : Dom_html.event Js.t) : unit =
+  method private handle_single_click (_state : state)
+      (e : Dom_html.event Js.t) : unit =
     let target = Dom.eventTarget e in
     (* Resolve selectables again.
        If the user starded in a scrollable area they will be reduced
@@ -360,82 +362,83 @@ class t
         self#notify_event `Move e;
         self#notify_event `Stop e;
 
-  method handle_delayed_drag_move ({ ax1
-                                   ; ay1
-                                   ; target_container
-                                   ; _ } as state : state)
+  method private init_multiple_selection e ({ target_container; _ } as state) =
+    _temp_listeners <- Events.(
+        [ mousemoves doc (self#handle_drag_move state % coerce)
+        ; touchmoves ~passive:false doc (self#handle_drag_move state % coerce)
+        ] @ _temp_listeners);
+    (* Make area element visible. *)
+    area##.style##.display := Js.string "block";
+    (* Append selection-area to the dom *)
+    Element.append_child container clip;
+    (* Now after the threshold is reached resolve all selectables. *)
+    self#resolve_selectables ();
+    let target_boundary = target_container##getBoundingClientRect in
+    state.target_boundary <- target_boundary;
+    let top, left = target_boundary##.top, target_boundary##.left in
+    let width, height = get_w_h target_boundary in
+    let round x = int_of_float @@ Float.round x in
+    let scroll_available =
+      (target_container##.scrollHeight <> round height)
+      && (target_container##.scrollWidth <> round width) in
+    state.scroll_available <- scroll_available;
+    if scroll_available
+    then (
+      (* Detect mouse scrolling *)
+      _temp_listeners <- Events.(
+          wheels ~passive:false Dom_html.window (self#manual_scroll state)
+          :: _temp_listeners);
+      (* The selection-area will also cover other element which are
+         out of the current scrollable parent. So find all elements
+         which are in the current scrollable element. Later these are
+         the only selectables instead of all. *)
+      _selectables <- List.filter (Element.contains target_container) _selectables;
+      (* To clip the area, the selection area has a parent
+         which has exact the same dimensions as the scrollable elemeent.
+         Now if the area exeeds these boundaries it will be cropped. *)
+      clip##.style##.top := px top;
+      clip##.style##.left := px left;
+      clip##.style##.width := px width;
+      clip##.style##.height := px height;
+      (* The area element is relative to the clipping element,
+         but when this is moved or transformed we need to correct
+         the positions via a negative margin. *)
+      area##.style##.marginTop := px (Float.neg top);
+      area##.style##.marginLeft := px (Float.neg left))
+    else (
+      (* Reset margin and clipping element dimensions *)
+      clip##.style##.top := Js.string "0";
+      clip##.style##.left := Js.string "0";
+      clip##.style##.width := Js.string "100%";
+      clip##.style##.height := Js.string "100%";
+
+      area##.style##.marginTop := Js.string "0";
+      area##.style##.marginLeft := Js.string "0");
+
+    (* Trigger recalc and fire event *)
+    self#handle_drag_move state e Lwt.return_unit
+    >>= fun () -> self#notify_event `Start e;
+    Lwt.return_unit
+
+  method private handle_delayed_drag_move ({ ax1; ay1; _ } as state : state)
       (e : Dom_html.event Js.t) _ : unit Lwt.t =
     let _, x, y = parse_event e in
     (* Check pixel threshold *)
-    if Float.abs ((x +. y) -. (ax1 +. ay1)) >= float_of_int start_threshold
-    then (
-      List.iter Lwt.cancel _delayed_listeners;
-      _delayed_listeners <- [];
-      _temp_listeners <- Events.(
-          [ mousemoves doc (self#handle_drag_move state % coerce)
-          ; touchmoves ~passive:false doc (self#handle_drag_move state % coerce)
-          ] @ _temp_listeners);
-      (* Make area element visible. *)
-      area##.style##.display := Js.string "block";
-      (* Append selection-area to the dom *)
-      Element.append_child container clip;
-      (* Now after the threshold is reached resolve all selectables. *)
-      self#resolve_selectables ();
-      (* An action is recognized as single-select until
-         the user performed a multi-selection *)
-      _is_single_click <- false;
-      let target_boundary = target_container##getBoundingClientRect in
-      state.target_boundary <- target_boundary;
-      let top, left = target_boundary##.top, target_boundary##.left in
-      let width, height = get_w_h target_boundary in
-      let round x = int_of_float @@ Float.round x in
-      let scroll_available =
-        (target_container##.scrollHeight <> round height)
-        && (target_container##.scrollWidth <> round width) in
-      state.scroll_available <- scroll_available;
-      if scroll_available
-      then (
-        (* Detect mouse scrolling *)
-        _temp_listeners <- Events.(
-            wheels ~passive:false Dom_html.window (self#manual_scroll state)
-            :: _temp_listeners);
-        (* The selection-area will also cover other element which are
-           out of the current scrollable parent. So find all elements
-           which are in the current scrollable element. Later these are
-           the only selectables instead of all. *)
-        _selectables <- List.filter (Element.contains target_container) _selectables;
-        (* To clip the area, the selection area has a parent
-           which has exact the same dimensions as the scrollable elemeent.
-           Now if the area exeeds these boundaries it will be cropped. *)
-        clip##.style##.top := px top;
-        clip##.style##.left := px left;
-        clip##.style##.width := px width;
-        clip##.style##.height := px height;
-        (* The area element is relative to the clipping element,
-           but when this is moved or transformed we need to correct
-           the positions via a negative margin. *)
-        area##.style##.marginTop := px (Float.neg top);
-        area##.style##.marginLeft := px (Float.neg left))
-      else (
-        (* Reset margin and clipping element dimensions *)
-        clip##.style##.top := Js.string "0";
-        clip##.style##.left := Js.string "0";
-        clip##.style##.width := Js.string "100%";
-        clip##.style##.height := Js.string "100%";
+    (if Float.abs ((x +. y) -. (ax1 +. ay1)) >= float_of_int start_threshold
+     then (
+       List.iter Lwt.cancel _delayed_listeners;
+       _delayed_listeners <- [];
+       (* An action is recognized as single-select until
+          the user performed a multi-selection *)
+       _is_single_click <- false;
+       if _multiple
+       then self#init_multiple_selection e state
+       else Lwt.return_unit)
+     else Lwt.return_unit)
+    >>= fun () -> Dom.preventDefault e; Lwt.return_unit
 
-        area##.style##.marginTop := Js.string "0";
-        area##.style##.marginLeft := Js.string "0");
-
-      (* Trigger recalc and fire event *)
-      self#handle_drag_move state e Lwt.return_unit
-      >>= fun () -> self#notify_event `Start e;
-      Dom.preventDefault e;
-      Lwt.return_unit)
-    else (
-      Dom.preventDefault e;
-      Lwt.return_unit)
-
-  method handle_drag_move (state : state) (e : Dom_html.event Js.t) _ : unit Lwt.t =
+  method private handle_drag_move (state : state)
+      (e : Dom_html.event Js.t) _ : unit Lwt.t =
     let _, x, y = parse_event e in
     state.ax2 <- x;
     state.ay2 <- y;
@@ -492,14 +495,15 @@ class t
       self#notify_event `Move e;
       Lwt.return_unit
 
-  method handle_drag_end (state : state) (e : Dom_html.event Js.t) _ : unit Lwt.t =
+  method private handle_drag_end ?(no_event = false) (state : state)
+      (e : Dom_html.event Js.t) _ : unit Lwt.t =
     List.iter Lwt.cancel _delayed_listeners;
     List.iter Lwt.cancel _temp_listeners;
     _delayed_listeners <- [];
     _temp_listeners <- [];
     if _is_single_click && _single_click
     then self#handle_single_click state e
-    else if not _is_single_click
+    else if not _is_single_click && not no_event
     then (
       self#update_touching_elements ();
       self#notify_event `Stop e);
@@ -515,13 +519,14 @@ class t
         if collides area_rect item##getBoundingClientRect mode
         then (
           let added =
+            (* Check if the element wasn't in the last selection *)
             if not @@ List.memq item _selected
             then item :: added else added in
           added, item :: touched)
         else acc) ([], []) _selectables in
+
     (* Check which elements were removed since last selection *)
-    let removed = List.filter (fun item ->
-        not @@ List.memq item touched) touched in
+    let removed = List.filter (not % Fun.flip List.memq touched) _selected in
 
     (* Save *)
     _selected <- touched;
@@ -541,7 +546,7 @@ class t
     List.iter Lwt.cancel _listeners;
     _listeners <- []
 
-  method manual_scroll state e _ =
+  method private manual_scroll state e _ =
     let add x = function None -> x | Some o -> o +. x in
     state.scroll_speed <- (
       let dy = scroll_speed_divider *. (float_of_int e##.deltaY *. (-1.)) in

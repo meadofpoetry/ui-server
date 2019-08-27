@@ -52,17 +52,14 @@ let make_overflow_menu
       ~actions:(List.map (fun x -> x.icon#markup) actions)
       ~overflow:overflow#markup
       () in
-  object
+  object(self)
     inherit Components_lab.Overflow_menu.t ~resize_handler:false elt () as super
 
-    val _s = React.S.map (fun state ->
-        List.iter (fun { menu; icon; active; _ } ->
-            let display = match active with
-              | None -> ""
-              | Some f -> if f state then "" else "none" in
-            menu#root##.style##.display := Js.string display;
-            icon#root##.style##.display := Js.string display)
-          actions) state
+    val mutable _s = None
+
+    method! init () : unit =
+      _s <- Some (React.S.map (fun _ -> self#layout ()) state);
+      super#init ()
 
     method! initial_sync_with_dom () : unit =
       let action_listeners =
@@ -81,6 +78,16 @@ let make_overflow_menu
           @ listeners);
       super#initial_sync_with_dom ()
 
+    method! layout () : unit =
+      List.iter (fun { menu; icon; active; _ } ->
+          let display = match active with
+            | None -> ""
+            | Some f -> if f @@ React.S.value state then "" else "none" in
+          menu#root##.style##.display := Js.string display;
+          icon#root##.style##.display := Js.string display)
+        actions;
+      super#layout ()
+
     method! destroy () : unit =
       menu#destroy ();
       overflow#destroy ();
@@ -88,7 +95,7 @@ let make_overflow_menu
           menu#destroy ();
           icon#destroy ())
         actions;
-      React.S.stop ~strong:true _s;
+      Option.iter (React.S.stop ~strong:true) _s;
       super#destroy ()
   end
 

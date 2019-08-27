@@ -38,22 +38,34 @@ module Selection = struct
 
   let selectables = [Query Selector.cell]
 
-  let before_start = fun { original_event = e; _ } ->
-    match Js.to_string e##._type with
-    | "mousedown" ->
-      let (e : Dom_html.mouseEvent Js.t) = Js.Unsafe.coerce e in
-      e##.button = 0
-    | _ -> true
+  let before_start = fun { original_event = e; selected; selection; _ } ->
+    let is_multiple = match selected with
+      | [x] when Element.equal x (Dom.eventTarget e) -> false
+      | _ -> true in
+    selection#set_multiple is_multiple;
+    if is_multiple then Dom.preventDefault e;
+    Js.Opt.case (Dom_html.CoerceTo.mouseEvent e)
+      (fun () -> true)
+      (fun e -> e##.button = 0)
 
-  let on_start = fun ({ selected; selection; _ } : t detail) ->
-    List.iter (fun x -> Element.remove_class x class_) selected;
-    selection#clear_selection ()
+  let on_start = fun ({ selected; selection; _ } : event) ->
+    match selected with
+    | [_] -> ()
+    | _ ->
+      List.iter (fun x ->
+          Element.remove_class x class_;
+          selection#remove_from_selection x) selected;
+      selection#clear_selection ()
 
-  let on_move = fun { selected; removed; _ } ->
-    List.iter (fun x -> Element.add_class x class_) selected;
+  let on_move = fun { removed; added; _ } ->
+    List.iter (fun x -> Element.add_class x class_) added;
     List.iter (fun x -> Element.remove_class x class_) removed
 
-  let on_stop handle_selected = fun { selection; _ } ->
+  let on_stop handle_selected = fun ({ selection; _ } : event) ->
+    begin match selection#selected with
+      | [x] -> selection#remove_from_selection x; Element.remove_class x class_
+      | _ -> ()
+    end;
     selection#keep_selection ();
     handle_selected selection#selected
 
@@ -197,7 +209,9 @@ class t ~(scaffold : Scaffold.t)
     (* Set top app bar actions *)
     begin match scaffold#top_app_bar, top_app_bar_menu with
       | None, _ | _, None -> ()
-      | Some top_app_bar, Some menu -> top_app_bar#set_actions [menu#root]
+      | Some top_app_bar, Some menu ->
+        Undo_manager.set_callback undo_manager (fun _ -> menu#layout ());
+        top_app_bar#set_actions [menu#root]
     end;
     List.iter (Element.append_child actions % Widget.root)
     @@ self#create_main_actions ();
@@ -435,27 +449,28 @@ class t ~(scaffold : Scaffold.t)
     | f :: tl -> f (); top_app_bar_context <- tl
 
   method private handle_selected cells =
-    self#set_state cells;
-    match cells with
-    | [] -> self#restore_top_app_bar_context ()
-    | cells ->
-      let title = match cells with
-        | [x] ->
-          (match Element.get_attribute x Attr.title with
-           | Some x -> x
-           | None -> "Выбран контейнер")
-        | _ ->
-          Printf.sprintf "Выбрано ячеек: %d" @@ List.length cells in
-      let restore = Actions.transform_top_app_bar
-          ~title
-          ~class_:CSS.top_app_bar_contextual
-          ~on_navigation_icon_click:(fun _ _ ->
-              self#clear_selection ();
-              Lwt.return_unit)
-          scaffold in
-      match top_app_bar_context with
-      | [] -> top_app_bar_context <- [restore]
-      | _ -> ()
+    begin match cells with
+      | [] -> self#restore_top_app_bar_context ()
+      | cells ->
+        let title = match cells with
+          | [x] ->
+            (match Element.get_attribute x Attr.title with
+             | Some x -> x
+             | None -> "Выбран контейнер")
+          | _ ->
+            Printf.sprintf "Выбрано ячеек: %d" @@ List.length cells in
+        let restore = Actions.transform_top_app_bar
+            ~title
+            ~class_:CSS.top_app_bar_contextual
+            ~on_navigation_icon_click:(fun _ _ ->
+                self#clear_selection ();
+                Lwt.return_unit)
+            scaffold in
+        match top_app_bar_context with
+        | [] -> top_app_bar_context <- [restore]
+        | _ -> ()
+    end;
+    self#set_state cells
 
   method private create_top_app_bar_menu () : Components_lab.Overflow_menu.t =
     Actions.Container_actions.make_menu (fst s_state)
