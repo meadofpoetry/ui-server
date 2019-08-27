@@ -8,4 +8,5 @@ $grid-multy-handle-size: 20px;
 $grid-border-color: mix(mdc-theme-prop-value(on-surface), mdc-theme-prop-value(surface), 34%);
 $grid-border-active-color: text-primary-on-surface;// mix(mdc-theme-prop-value(on-surface), mdc-theme-prop-value(surface), 34%);
 
-$grid-cell-selected-color: mix(mdc-theme-prop-value(primary), mdc-theme-prop-value(surface), 50%);
+$grid-cell-selected-text-color: mdc-theme-prop-value(on-primary);
+$grid-cell-selected-color: mix(mdc-theme-prop-value(primary), mdc-theme-prop-value(surface), 60%);

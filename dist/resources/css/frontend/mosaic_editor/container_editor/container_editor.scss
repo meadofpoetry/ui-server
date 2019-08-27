@@ -11,14 +11,6 @@ $divider-color: if(
     $divider-color-on-light-bg
 );
 
-.container-editor__mode-switch {
-    transition: opacity 0.2s;
-    &--hidden {
-        opacity: 0;
-        visibility: hidden;
-    }
-}
-
 .mdc-dialog--add-table {
     .mdc-text-field:not(:last-child) {
         margin-bottom: 1rem;
@@ -91,10 +83,7 @@ $divider-color: if(
     &__widget {
         position: absolute;
         box-sizing: border-box;
-        border-style: solid;
-        border-width: 1px;
-        @include widget-background-color();
-        @include mdc-theme-prop(border-color, text-hint-on-surface);
+        @include widget-background();
     }
 
     .grid {
@@ -119,27 +108,16 @@ $divider-color: if(
         min-width: 0;
         min-height: 0;
 
-        &--selected .container-editor__widget-wrapper {
-            opacity: 0;
-        }
-
         &:before, &:after {
             pointer-events: none;
             max-width: 100%;
             max-height: 100%;
             @include mdc-typography(caption);
             @include mdc-typography-overflow-ellipsis();
-            @include mdc-theme-prop(color, text-secondary-on-surface);
         }
         &:after {
             content: attr(data-title);
         }
-    }
-}
-
-body:not(.content-mode) {
-    .container-editor .grid__cell:before {
-        content: attr(aria-colindex) 'x' attr(aria-rowindex);
     }
 }
 
@@ -152,14 +130,6 @@ body:not(.content-mode) {
     }
     .mdc-top-app-bar__navigation-icon {
         display: flex !important; // FIXME 
-    }
-}
-
-.content-mode {
-    .container-editor .grid {
-        &__mul-handle, &__row-handle, &__col-handle {
-            display: none;
-        }
     }
 }
 

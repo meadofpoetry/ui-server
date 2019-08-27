@@ -1,11 +1,24 @@
 @import "@material/theme/mixins";
 @import "@material/theme/color-palette";
+@import "./variables";
 
-@mixin widget-background-color() {
+@mixin widget-background() {
     &[data-type="video"] {
-        @include mdc-theme-prop(background-color, $material-color-blue-grey-500);
+        background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHN0eWxlPSJ3aWR0aDoyNHB4O2hlaWdodDoyNHB4IiB2aWV3Qm94PSIwIDAgMjQgMjQiPgo8cGF0aCBmaWxsPSJyZ2JhKDAsIDAsIDAsIDAuNSkiIGQ9Ik0xOCw5SDE2VjdIMThNMTgsMTNIMTZWMTFIMThNMTgsMTdIMTZWMTVIMThNOCw5SDZWN0g4TTgsMTNINlYxMUg4TTgsMTdINlYxNUg4TTE4LDNWNUgxNlYzSDhWNUg2VjNINFYyMUg2VjE5SDhWMjFIMTZWMTlIMThWMjFIMjBWM0gxOFoiLz4KPC9zdmc+");
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: 50% 50%;
+        @include mdc-theme-prop(background-color, text-hint-on-background);
     }
     &[data-type="audio"] {
-        @include mdc-theme-prop(background-color, $material-color-green-500);
+        background-image: linear-gradient(
+            to bottom,
+            map-get($soundbar-colors, peak) 0%, map-get($soundbar-colors, peak) 5%,
+            map-get($soundbar-colors, warn) 6%, map-get($soundbar-colors, warn) 24%,
+            map-get($soundbar-colors, medium) 25%, map-get($soundbar-colors, medium) 43%,
+            map-get($soundbar-colors, low) 42%, map-get($soundbar-colors, low) 60%,
+            map-get($soundbar-colors, silence) 61%, map-get($soundbar-colors, silence) 100%);
+        background-repeat: space;
+        background-size: 45% 100%;
     }
 }

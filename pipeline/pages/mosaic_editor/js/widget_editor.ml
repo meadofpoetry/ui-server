@@ -8,12 +8,16 @@ type event =
   ]
 
 include Page_mosaic_editor_tyxml.Widget_editor
+
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
 module Selector = struct
   let item = Printf.sprintf ".%s" CSS.item
+
   let grid_overlay = Printf.sprintf ".%s" CSS.overlay
+
   let grid_ghost = Printf.sprintf ".%s" CSS.ghost
+
   let parent = Printf.sprintf ".%s" Card.CSS.media
 end
 
@@ -71,7 +75,7 @@ module Selection = struct
         if not @@ Element.matches parent ("." ^ CSS.item)
         then Js.null else Js.some parent)
 
-  let validate_start = fun e ->
+  let before_start = fun { original_event = e; _ } ->
     let item = Js.null in (* item_of_event e in *)
     Js.Opt.case item
       (fun () ->
@@ -80,9 +84,9 @@ module Selection = struct
            (fun e -> e##.button = 0))
       (fun _ -> false)
 
-  let on_start = fun { selected; selection; _ } ->
+  let on_start = fun ({ selected; selection; _ } : t detail) ->
     List.iter (fun x -> Element.remove_class x class_) selected;
-    selection#deselect_all ()
+    selection#clear_selection ()
 
   let on_move = fun { selected; removed; _ } ->
     List.iter (fun x -> Element.add_class x class_) selected;
@@ -92,24 +96,14 @@ module Selection = struct
     selection#keep_selection ();
     handle_selected selection#selected
 
-  let on_select = fun handle_selected item selected selection ->
-    List.iter (fun x -> Element.remove_class x class_) selected;
-    selection#keep_selection ();
-    selection#deselect_all ();
-    selection#select [item];
-    Element.add_class item class_;
-    handle_selected selection#selected
-
   let make handle_selected =
-    make ~validate_start
+    make ~before_start
       ~selectables
       ~boundaries
       ~start_areas:boundaries
       ~on_start
       ~on_move
       ~on_stop:(on_stop handle_selected)
-      ~on_select:(fun item { selected; selection; _ } ->
-          on_select handle_selected item selected selection)
       ~on_outside_click:(fun x -> on_start x; handle_selected [])
       ()
 end
@@ -140,8 +134,7 @@ class t ~(list_of_widgets : List_of_widgets.t)
     ~(resolution : int * int)
     ~(position : Position.Normalized.t)
     (scaffold : Scaffold.t)
-    elt
-    () = object(self)
+    elt = object(self)
   inherit Drop_target.t elt () as super
 
   val aspect =
@@ -305,34 +298,33 @@ class t ~(list_of_widgets : List_of_widgets.t)
       }
 
   method private create_selected_actions () : Widget.t list =
-    let menu = Actions.make_overflow_menu
-        Actions.(
-          [ make ~callback:(fun _ _ ->
-                self#bring_to_front self#selected;
-                Lwt.return_unit)
-                ~name:"На передний план"
-                ~icon:Icon.SVG.Path.arrange_bring_to_front
-                ()
-          ; make ~callback:(fun _ _ ->
-                self#send_to_back self#selected;
-                Lwt.return_unit)
-                ~name:"На задний план"
-                ~icon:Icon.SVG.Path.arrange_send_to_back
-                ()
-          ; make ~callback:(fun _ _ ->
-                self#remove_items self#selected;
-                Lwt.return_unit)
-                ~name:"Удалить"
-                ~icon:Icon.SVG.Path.delete
-                ()
-          ]) in
+    let menu = Actions.make_overflow_menu (React.S.const ())
+        [ (* make ~callback:(fun _ _ ->
+           *       self#bring_to_front self#selected;
+           *       Lwt.return_unit)
+           *       ~name:"На передний план"
+           *       ~icon:Icon.SVG.Path.arrange_bring_to_front
+           *       ()
+           * ; make ~callback:(fun _ _ ->
+           *       self#send_to_back self#selected;
+           *       Lwt.return_unit)
+           *       ~name:"На задний план"
+           *       ~icon:Icon.SVG.Path.arrange_send_to_back
+           *       ()
+           * ; make ~callback:(fun _ _ ->
+           *       self#remove_items self#selected;
+           *       Lwt.return_unit)
+           *       ~name:"Удалить"
+           *       ~icon:Icon.SVG.Path.delete
+           *       () *)
+          ] in
     [menu#widget]
 
   method private create_actions () : Widget.t list =
-    let menu = Actions.make_overflow_menu
+    let menu = Actions.make_overflow_menu (React.S.const ())
         Actions.[ Undo.undo undo_manager
                 ; Undo.redo undo_manager
-                ; make ~callback:(fun _ _ ->
+                ; make ~callback:(fun _ _ _ ->
                       match scaffold#side_sheet with
                       | None -> Lwt.return_unit
                       | Some sidesheet -> sidesheet#toggle ())
@@ -398,7 +390,6 @@ class t ~(list_of_widgets : List_of_widgets.t)
         ~title
         (* FIXME move class to some common module *)
         ~class_:Page_mosaic_editor_tyxml.Container_editor.CSS.top_app_bar_contextual
-        ~actions:_selected_actions
         ~on_navigation_icon_click:(fun _ _ ->
             self#clear_selection ();
             Lwt.return_unit)
@@ -415,7 +406,7 @@ class t ~(list_of_widgets : List_of_widgets.t)
   method private clear_selection () : unit =
     transform#root##.style##.visibility := Js.string "hidden";
     List.iter (fun x -> Element.remove_class x Selection.class_) self#selected;
-    self#selection#deselect_all ();
+    self#selection#clear_selection ();
     self#restore_top_app_bar_context ()
 
   method private selected : Dom_html.element Js.t list =
@@ -432,14 +423,14 @@ class t ~(list_of_widgets : List_of_widgets.t)
       Position.Normalized.apply_to_element rect transform#root;
       self#transform_top_app_bar l
 
-  method private handle_transform_select e _ =
-    Js.Opt.case e##.detail
-      (fun () -> self#clear_selection ())
-      (fun item ->
-         Selection.on_select self#handle_selected
-           item
-           self#selection#selected
-           self#selection);
+  method private handle_transform_select _e _ =
+    (* Js.Opt.case e##.detail
+     *   (fun () -> self#clear_selection ())
+     *   (fun item ->
+     *      Selection.on_select self#handle_selected
+     *        item
+     *        self#selection#selected
+     *        self#selection); *)
     Lwt.return_unit
 
   method private handle_transform_action e _ =
@@ -618,4 +609,4 @@ let make ~(scaffold : Scaffold.t)
   let elt =
     Tyxml_js.To_dom.of_element
     @@ Markup.create ~content () in
-  new t ~list_of_widgets ~resolution ~position scaffold elt ()
+  new t ~list_of_widgets ~resolution ~position scaffold elt

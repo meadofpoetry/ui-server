@@ -5,16 +5,9 @@ open Components
 open Pipeline_types
 open Container_utils
 
-type editing_mode = Content | Table
-
 let name = "container-editor"
 
 let failwith s = failwith @@ Printf.sprintf "%s: %s" name s
-
-let editing_mode_of_enum = function
-  | 0 -> Content
-  | 1 -> Table
-  | _ -> invalid_arg "invalid mode value"
 
 type event =
   [ `Layout of Wm.Annotated.t
@@ -27,12 +20,14 @@ let ( >>= ) = Lwt.bind
 let ( % ) f g x = f (g x)
 
 module Selector = struct
-  let heading = Printf.sprintf ".%s" Card.CSS.primary
   let content = Printf.sprintf ".%s" Card.CSS.media
+
   let actions = Printf.sprintf ".%s" Card.CSS.actions
+
   let cell = Printf.sprintf ".%s" Grid.CSS.cell
+
   let grid = Printf.sprintf ".%s" Grid.CSS.root
-  let mode_switch = Printf.sprintf ".%s" CSS.mode_switch
+
   let widget_wrapper = Printf.sprintf ".%s" CSS.widget_wrapper
 end
 
@@ -43,16 +38,16 @@ module Selection = struct
 
   let selectables = [Query Selector.cell]
 
-  let validate_start = fun e ->
+  let before_start = fun { original_event = e; _ } ->
     match Js.to_string e##._type with
     | "mousedown" ->
       let (e : Dom_html.mouseEvent Js.t) = Js.Unsafe.coerce e in
       e##.button = 0
     | _ -> true
 
-  let on_start = fun { selected; selection; _ } ->
+  let on_start = fun ({ selected; selection; _ } : t detail) ->
     List.iter (fun x -> Element.remove_class x class_) selected;
-    selection#deselect_all ()
+    selection#clear_selection ()
 
   let on_move = fun { selected; removed; _ } ->
     List.iter (fun x -> Element.add_class x class_) selected;
@@ -62,54 +57,23 @@ module Selection = struct
     selection#keep_selection ();
     handle_selected selection#selected
 
-  let on_select handle_selected = fun item { selection; selected; _ } ->
-    let is_selected = Element.has_class item class_ in
-    List.iter (fun x -> Element.remove_class x class_) selected;
-    selection#deselect_all ();
-    (match List.length selected > 1 && List.memq item selected with
-     | true -> Element.add_class item class_; selection#select [item]
-     | _ ->
-       if is_selected
-       then (Element.remove_class item class_; selection#deselect item)
-       else (Element.add_class item class_; selection#select [item]));
-    handle_selected selection#selected
-
   let make handle_selected elt =
     let boundaries = [Node elt] in
-    make ~validate_start
+    make ~before_start
       ~selectables
       ~boundaries
       ~start_areas:boundaries
       ~on_start
       ~on_move
       ~on_stop:(on_stop handle_selected)
-      ~on_select:(on_select handle_selected)
+      ~on_outside_click:(fun x -> on_start x; handle_selected [])
       ()
 end
 
-let on_cell_insert
-    (grid : Grid.t)
-    (cell : Dom_html.element Js.t) =
-  match Container_utils.get_cell_title cell with
-  | "" ->
-    let title = Container_utils.gen_cell_title grid#cells in
-    Container_utils.set_cell_title cell title
+let on_cell_insert (grid : Grid.t) (cell : Dom_html.element Js.t) =
+  match get_cell_title cell with
+  | "" -> set_cell_title cell (gen_cell_title grid#cells)
   | _ -> ()
-
-(** Updates properties of the aspect ratio sizer according to the new
-    area resolution *)
-let update_ar_sizer ~width ~height (sizer : Dom_html.element Js.t) =
-  let viewbox = Printf.sprintf "0 0 %g %g" width height in
-  Element.set_attribute sizer "viewBox" viewbox
-
-let get f l =
-  let rec aux acc = function
-    | [] -> None, l
-    | x :: tl ->
-      if f x
-      then Some x, (List.rev acc) @ tl
-      else aux (x :: acc) tl in
-  aux [] l
 
 let init_top_app_bar_icon (scaffold : Scaffold.t) =
   match Option.bind scaffold#top_app_bar (fun x -> x#leading) with
@@ -160,8 +124,9 @@ type widget_mode_state =
 class t ~(scaffold : Scaffold.t)
     (structure : Structure.Annotated.t)
     (wm : Wm.Annotated.t)
-    (elt : Dom_html.element Js.t)
-    () = object(self)
+    (elt : Dom_html.element Js.t) = object(self)
+  val s_state = React.S.create []
+
   val close_icon = Icon.SVG.(make_simple Path.close)
 
   val back_icon = Icon.SVG.(make_simple Path.arrow_left)
@@ -171,7 +136,7 @@ class t ~(scaffold : Scaffold.t)
     | None -> failwith "grid element not found"
     | Some x -> Grid.attach ~on_cell_insert ~drag_interval:(Fr 0.05) x
 
-  val table_dialog = Container_utils.UI.add_table_dialog ()
+  val table_dialog = UI.add_table_dialog ()
 
   val wizard_dialog = Pipeline_widgets.Wizard.make structure wm
 
@@ -204,60 +169,39 @@ class t ~(scaffold : Scaffold.t)
 
   val mutable resize_observer = None
 
-  val mutable _top_app_bar_context = []
+  val mutable top_app_bar_context = []
 
-  val mutable edit_mode = Table
-
-  val mutable _basic_actions = None
-
-  val mutable _cell_selected_actions = []
-
-  val mutable _cont_selected_actions = []
+  val mutable top_app_bar_menu = None
 
   val mutable resolution = wm.resolution
 
   val mutable widget_editor = None
-
-  val mutable mode_switch = None
 
   inherit Widget.t elt () as super
 
   method! init () : unit =
     init_top_app_bar_icon scaffold;
     ignore @@ set_top_app_bar_icon scaffold `Aux close_icon#root;
-    (* Create resize observer *)
-    resize_observer <- Some (self#create_resize_observer ());
+    resize_observer <- Some (
+        Resize_observer.observe
+          ~f:(fun _ -> self#layout ())
+          ~node:super#root
+          ());
     (* Create selection widget *)
     selection <- Some (Selection.make self#handle_selected content);
-    let basic_actions = self#create_actions () in
-    _basic_actions <- Some basic_actions;
-    _cell_selected_actions <- self#create_cell_selected_actions ();
-    _cont_selected_actions <- self#create_cont_selected_actions ();
-    mode_switch <- (match Element.query_selector body Selector.mode_switch with
-        | None -> failwith "mode switch element not found"
-        | Some x ->
-          let on_change = function
-            | None -> assert false
-            | Some x -> self#switch_mode (editing_mode_of_enum x) in
-          let tab_bar = Tab_bar.attach
-              ~on_change:(fun _ x ->
-                  on_change x#active_tab_index;
-                  Lwt.return_unit)
-              x in
-          on_change tab_bar#active_tab_index;
-          Some tab_bar);
+    top_app_bar_menu <- Some (self#create_top_app_bar_menu ());
     (* Set list of widgets *)
     Option.iter (fun side_sheet ->
         Dom.appendChild side_sheet#root list_of_widgets#root)
       scaffold#side_sheet;
     (* Set top app bar actions *)
-    Option.iter (fun top_app_bar ->
-        top_app_bar#set_actions @@ List.map Widget.root [basic_actions])
-      scaffold#top_app_bar;
+    begin match scaffold#top_app_bar, top_app_bar_menu with
+      | None, _ | _, None -> ()
+      | Some top_app_bar, Some menu -> top_app_bar#set_actions [menu#root]
+    end;
     List.iter (Element.append_child actions % Widget.root)
     @@ self#create_main_actions ();
-    let empty_placeholder =
-      Container_utils.UI.make_empty_placeholder
+    let empty_placeholder = UI.make_empty_placeholder
         wizard_dialog
         table_dialog
         grid in
@@ -297,9 +241,7 @@ class t ~(scaffold : Scaffold.t)
       grid#root##.style##.height := Js.string "100%";
       grid#root##.style##.width := Js.string @@ Printf.sprintf "%gpx" width);
     Option.iter Widget.layout widget_editor;
-    Option.iter Widget.layout _basic_actions;
-    List.iter Widget.layout _cell_selected_actions;
-    List.iter Widget.layout _cont_selected_actions;
+    Option.iter Widget.layout top_app_bar_menu;
     super#layout ()
 
   method! destroy () : unit =
@@ -311,9 +253,7 @@ class t ~(scaffold : Scaffold.t)
     listeners <- [];
     Option.iter Widget.destroy widget_editor;
     (* Destroy menus *)
-    Option.iter Widget.destroy _basic_actions;
-    List.iter Widget.destroy _cell_selected_actions;
-    List.iter Widget.destroy _cont_selected_actions;
+    Option.iter Widget.destroy top_app_bar_menu;
     (* Destroy dialogs *)
     Dom.removeChild body wizard_dialog#root;
     Dom.removeChild body (fst table_dialog)#root;
@@ -326,7 +266,7 @@ class t ~(scaffold : Scaffold.t)
 
   method clear_selection () : unit =
     List.iter (Fun.flip Element.remove_class Selection.class_) self#selected;
-    self#selection#deselect_all ();
+    self#selection#clear_selection ();
     self#restore_top_app_bar_context ()
 
   method resolution : int * int = resolution
@@ -337,12 +277,10 @@ class t ~(scaffold : Scaffold.t)
     let layout =
       List.map (fun cell ->
           let position =
-            Container_utils.cell_position_to_wm_position
-              ~cols
-              ~rows
+            cell_position_to_wm_position ~cols ~rows
             @@ Grid.Util.get_cell_position cell in
           let widgets = Widget_utils.widgets_of_container cell in
-          let title = Container_utils.get_cell_title cell in
+          let title = get_cell_title cell in
           title, { Wm. position; widgets })
         cells in
     { resolution = self#resolution
@@ -355,7 +293,7 @@ class t ~(scaffold : Scaffold.t)
     | `Streams _ -> ()
     | `Wizard wm ->
       let wm = Wm.Annotated.annotate ~active:wm ~stored:wm in
-      let grid_props = Container_utils.grid_properties_of_layout wm in
+      let grid_props = grid_properties_of_layout wm in
       let cells = List.map (fun (id, ((container : Wm.Annotated.container), pos)) ->
           Tyxml_js.To_dom.of_element
           @@ Grid.Markup.create_cell
@@ -379,15 +317,19 @@ class t ~(scaffold : Scaffold.t)
 
   (* Private methods *)
 
-  method edit_container (container : Dom_html.element Js.t) : unit Lwt.t =
-    self#switch_to_widget_mode container
-    >>= self#switch_to_container_mode
+  method private state =
+    React.S.value @@ fst s_state
+
+  method private set_state state =
+    (snd s_state) state
+
+  method private selection : Selection.t = Option.get selection
 
   method private switch_to_widget_mode (cell : Dom_html.element Js.t) =
-    let title = Container_utils.get_cell_title cell in
+    let title = get_cell_title cell in
     let cols, rows, resolution = grid#cols, grid#rows, self#resolution in
     let position =
-      Container_utils.cell_position_to_wm_position ~rows ~cols
+      cell_position_to_wm_position ~rows ~cols
       @@ Grid.Util.get_cell_position cell in
     let editor = Widget_editor.make
         ~scaffold
@@ -401,7 +343,6 @@ class t ~(scaffold : Scaffold.t)
     let icon = set_top_app_bar_icon scaffold `Main back_icon#root in
     let restore = Actions.transform_top_app_bar
         ~title
-        ~actions:editor#actions
         scaffold in
     let state = { icon; restore; editor; cell } in
     let t, w = Lwt.wait () in
@@ -413,9 +354,6 @@ class t ~(scaffold : Scaffold.t)
     @@ filter_available_widgets _widgets
     @@ List.map Widget_utils.widgets_of_container grid#cells;
     Element.add_class body CSS.widget_mode;
-    (match mode_switch with
-     | None -> ()
-     | Some x -> x#add_class CSS.mode_switch_hidden);
     Dom.appendChild content editor#root;
     editor#layout ();
     t
@@ -425,7 +363,6 @@ class t ~(scaffold : Scaffold.t)
     restore ();
     widget_editor <- None;
     (* Update view *)
-    Option.iter (fun x -> x#remove_class CSS.mode_switch_hidden) mode_switch;
     Option.iter (ignore % set_top_app_bar_icon scaffold `Main) icon;
     let items = editor#items in
     Widget_utils.Z_index.validate items;
@@ -477,11 +414,11 @@ class t ~(scaffold : Scaffold.t)
     Js.Opt.iter drag_target (fun dragged ->
         if not @@ Element.equal dragged target
         then (
-          Container_utils.swap dragged target;
+          swap dragged target;
           let action =
             { Undo_manager.
-              undo = (fun () -> Container_utils.swap target dragged)
-            ; redo = (fun () -> Container_utils.swap dragged target)
+              undo = (fun () -> swap target dragged)
+            ; redo = (fun () -> swap dragged target)
             } in
           Undo_manager.add undo_manager action));
     Lwt.return_unit
@@ -492,73 +429,43 @@ class t ~(scaffold : Scaffold.t)
     List.iter (Fun.flip Element.remove_class CSS.cell_dragover) grid#cells;
     Lwt.return_unit
 
-  method private handle_click e _ : unit Lwt.t =
-    match Grid.Util.cell_of_event grid#cells e with
-    | None -> Lwt.return_unit
-    | Some cell ->
-      let is_selected = List.memq cell self#selected in
-      Element.toggle_class_unit ~force:(not is_selected) cell Selection.class_;
-      self#clear_selection ();
-      if is_selected
-      then self#selection#deselect cell
-      else self#selection#select [cell];
-      self#handle_selected self#selected;
-      Lwt.return_unit
-
   method private restore_top_app_bar_context () : unit =
-    match _top_app_bar_context with
+    match top_app_bar_context with
     | [] -> ()
-    | f :: tl -> f (); _top_app_bar_context <- tl
+    | f :: tl -> f (); top_app_bar_context <- tl
 
-  method private handle_selected = function
+  method private handle_selected cells =
+    self#set_state cells;
+    match cells with
     | [] -> self#restore_top_app_bar_context ()
     | cells ->
-      let title = match edit_mode, cells with
-        | Content, [cell] ->
-          (match Element.get_attribute cell Container_utils.Attr.title with
-           | None -> "Выбран контейнер"
-           | Some x -> x)
+      let title = match cells with
+        | [x] ->
+          (match Element.get_attribute x Attr.title with
+           | Some x -> x
+           | None -> "Выбран контейнер")
         | _ ->
           Printf.sprintf "Выбрано ячеек: %d" @@ List.length cells in
-      Option.iter (fun x -> x#add_class CSS.mode_switch_hidden) mode_switch;
       let restore = Actions.transform_top_app_bar
           ~title
           ~class_:CSS.top_app_bar_contextual
-          ~actions:(match edit_mode with
-              | Table -> _cell_selected_actions
-              | Content -> _cont_selected_actions)
           ~on_navigation_icon_click:(fun _ _ ->
               self#clear_selection ();
               Lwt.return_unit)
           scaffold in
-      match _top_app_bar_context with
-      | _ :: _ -> ()
-      | [] ->
-        let restore = fun () ->
-          Option.iter (fun x -> x#remove_class CSS.mode_switch_hidden) mode_switch;
-          restore () in
-        _top_app_bar_context <- [restore]
+      match top_app_bar_context with
+      | [] -> top_app_bar_context <- [restore]
+      | _ -> ()
 
-  method private create_actions () : Components_lab.Overflow_menu.t =
-    Actions.Container_actions.make_menu
+  method private create_top_app_bar_menu () : Components_lab.Overflow_menu.t =
+    Actions.Container_actions.make_menu (fst s_state)
+      ~edit_container:(fun x ->
+          self#switch_to_widget_mode x
+          >>= self#switch_to_container_mode)
+      ~on_remove:(fun () -> self#clear_selection ())
       undo_manager
       wizard_dialog
       grid
-
-  method private create_cell_selected_actions () : Widget.t list =
-    let menu = Actions.Cell_selected_actions.make_menu
-        ~on_remove:(fun () -> self#clear_selection ())
-        ~get_selected:(fun () -> self#selected)
-        undo_manager
-        grid in
-    [menu#widget]
-
-  method private create_cont_selected_actions () : Widget.t list =
-    let menu = Actions.Container_selected_actions.make_menu
-        ~get_selected:(fun () -> self#selected)
-        ~edit_container:self#edit_container
-        () in
-    [menu#widget]
 
   method private create_main_actions () =
     let submit = Button.make
@@ -569,34 +476,7 @@ class t ~(scaffold : Scaffold.t)
             btn#set_loading_lwt t;
             t >>= fun _ -> Lwt.return_unit)
         () in
-    let buttons = Card.Actions.make_buttons [submit] in
-    [buttons]
-
-  method private create_resize_observer () =
-    let f = fun _ -> self#layout () in
-    Resize_observer.observe ~f ~node:super#root ()
-
-  method private selection : Selection.t = Option.get selection
-
-  method private switch_mode (mode : editing_mode) : unit =
-    self#clear_selection ();
-    edit_mode <- mode;
-    match mode with
-    | Table -> self#set_table_mode ()
-    | Content -> self#set_content_mode ()
-
-  method private set_content_mode () : unit =
-    self#selection#set_disabled true;
-    Element.add_class body CSS.content_mode;
-    content_listeners <- Lwt_js_events.(
-        [ clicks grid#root self#handle_click
-        ])
-
-  method private set_table_mode () : unit =
-    self#selection#set_disabled false;
-    Element.remove_class body CSS.content_mode;
-    List.iter Lwt.cancel content_listeners;
-    content_listeners <- []
+    [Card.Actions.make_buttons [submit]]
 
   method private update_widget_elements
       (widgets : Dom_html.element Js.t list)
@@ -619,10 +499,9 @@ class t ~(scaffold : Scaffold.t)
         Widget_utils.Z_index.set (Widget_utils.Z_index.get x) elt;
         Element.add_class elt CSS.widget;
         Dom.appendChild wrapper elt) widgets
-
 end
 
-let make_grid (props : Container_utils.grid_properties) =
+let make_grid (props : grid_properties) =
   let cells = List.map (fun (id, ((container : Wm.Annotated.container), pos)) ->
       Grid.Markup.create_cell
         ~attrs:Tyxml_js.Html.([a_user_data "title" id])
@@ -639,8 +518,8 @@ let make
     ~(scaffold : Scaffold.t)
     (structure : Structure.Annotated.t)
     (wm : Wm.Annotated.t) =
-  let grid = make_grid @@ Container_utils.grid_properties_of_layout wm in
+  let grid = make_grid @@ grid_properties_of_layout wm in
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element
     @@ Markup.create grid in
-  new t ~scaffold structure wm elt ()
+  new t ~scaffold structure wm elt
