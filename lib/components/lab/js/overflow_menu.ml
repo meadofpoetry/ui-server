@@ -11,7 +11,17 @@ module Selector = struct
 
   let overflow = Printf.sprintf ".%s" CSS.overflow
 
+  let overflow_icon = Printf.sprintf ".%s > .%s" CSS.overflow Icon_button.CSS.root
+
   let menu = Printf.sprintf ".%s" Menu.CSS.root
+
+  let icon = Printf.sprintf ".%s" Icon_button.CSS.icon
+end
+
+module Attr = struct
+  let aria_label = "aria-label"
+
+  let title = "title"
 end
 
 let name = "overflow-menu"
@@ -22,11 +32,33 @@ let fail_no_element ?base name =
   | None -> failwith error
   | Some s -> failwith @@ s ^ ": " ^ error
 
-class t ?(resize_handler = true) (elt : Dom_html.element Js.t) () = object(self)
-  val menu_elt = match Element.query_selector elt Selector.menu with
-    | None -> fail_no_element ~base:name Selector.menu
-    | Some x -> Menu.attach x
+let menu_of_actions actions =
+  Menu.make_of_item_list
+  @@ Item_list.make
+  @@ List.map (fun x ->
+      let icon = match Element.query_selector x Selector.icon with
+        | None -> None
+        | Some x ->
+          let elt = Js.Unsafe.coerce @@ x##cloneNode Js._true in
+          Element.remove_class elt Icon_button.CSS.icon;
+          Some elt in
+      let name = match Element.get_attribute x Attr.title with
+        | Some x -> x
+        | None ->
+          match Element.get_attribute x Attr.aria_label with
+          | Some x -> x
+          | None ->
+            let err =
+              Printf.sprintf "%s: `title` or `aria-label` attribute \
+                              should be provided for every action"
+                name in
+            failwith err in
+      Item_list.Item.make
+        ?graphic:(Option.map Widget.create icon)
+        ~role:"menuitem" name)
+    actions
 
+class t ?(resize_handler = true) (elt : Dom_html.element Js.t) () = object(self)
   val overflow_elt = match Element.query_selector elt Selector.overflow with
     | None -> fail_no_element ~base:name Selector.overflow
     | Some x -> x
@@ -35,14 +67,25 @@ class t ?(resize_handler = true) (elt : Dom_html.element Js.t) () = object(self)
     | None -> fail_no_element ~base:name Selector.actions
     | Some x -> x
 
+  val overflow_icon = match Element.query_selector elt Selector.overflow_icon with
+    | None -> fail_no_element ~base:name Selector.overflow_icon
+    | Some x -> Icon_button.attach x
+
+  val mutable menu_elt = None
+
   val mutable listeners = []
 
   inherit Widget.t elt () as super
 
   method! init () : unit =
-    menu_elt#set_quick_open true;
-    menu_elt#set_anchor_element overflow_elt;
-    menu_elt#set_anchor_corner Bottom_left;
+    let menu = match Element.query_selector elt Selector.menu with
+      | Some x -> Menu.attach x
+      | None -> menu_of_actions @@ Element.children actions_elt in
+    Dom.insertBefore overflow_elt menu#root overflow_icon#root##.nextSibling;
+    menu_elt <- Some menu;
+    menu#set_quick_open true;
+    menu#set_anchor_element overflow_elt;
+    menu#set_anchor_corner Bottom_left;
     super#init ()
 
   method! initial_sync_with_dom () : unit =
@@ -50,14 +93,22 @@ class t ?(resize_handler = true) (elt : Dom_html.element Js.t) () = object(self)
         [ (if resize_handler
            then onresizes (fun _ _ -> self#layout (); Lwt.return_unit)
            else Lwt.return_unit)
-        ; clicks overflow_elt self#handle_click
+        ; seq_loop (make_event Menu.Event.selected) self#menu#root (fun e _ ->
+              let detail = Widget.event_detail e in
+              let actions = Element.children actions_elt in
+              match List.nth_opt actions detail##.index with
+              | None -> Lwt.return_unit
+              | Some button ->
+                Js.Opt.iter (Dom_html.CoerceTo.button button) (fun x -> x##click);
+                Lwt.return_unit)
+        ; clicks overflow_icon#root self#handle_click
         ] @ listeners);
     super#initial_sync_with_dom ()
 
   method! layout () : unit =
     let offset_top = super#root##.offsetTop in
     let nav_items = Element.children actions_elt in
-    let menu_items = menu_elt#items in
+    let menu_items = Option.fold ~none:[] ~some:(fun x -> x#items) menu_elt in
     let rec loop acc = function
       | _, [] -> acc
       | [], menu ->
@@ -77,31 +128,34 @@ class t ?(resize_handler = true) (elt : Dom_html.element Js.t) () = object(self)
   method! destroy () : unit =
     List.iter Lwt.cancel listeners;
     listeners <- [];
-    menu_elt#destroy ();
+    Option.iter Widget.destroy menu_elt;
+    overflow_icon#destroy ();
+    menu_elt <- None;
     super#destroy ()
 
-  method menu : Menu.t = menu_elt
+  method menu : Menu.t = Option.get menu_elt
 
   method private handle_click e _ : unit Lwt.t =
     let target = Dom_html.eventTarget e in
-    if not @@ Element.contains menu_elt#root target
-    && not @@ Element.equal menu_elt#root target
-    then menu_elt#reveal ()
+    if not @@ Element.contains self#menu#root target
+    && not @@ Element.equal self#menu#root target
+    then self#menu#reveal ()
     else Lwt.return_unit
 end
 
 let make
     ?resize_handler
-    ~(menu : Menu.t)
-    ~(overflow : Dom_html.element Js.t)
+    ?overflow
+    ?menu
     ~(actions : Dom_html.element Js.t list)
     () : t =
+  let overflow = Option.map Tyxml_js.Of_dom.of_element overflow in
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element
     @@ Markup.create
-      ~menu:menu#markup
+      ?overflow
+      ?menu:(Option.map (fun x -> x#markup) menu)
       ~actions:(List.map Tyxml_js.Of_dom.of_element actions)
-      ~overflow:(Tyxml_js.Of_dom.of_element overflow)
       () in
   new t ?resize_handler elt ()
 

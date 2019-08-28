@@ -5,8 +5,7 @@ open Components
 let ( >>= ) = Lwt.bind
 
 type 'a t =
-  { menu : Item_list.Item.t
-  ; icon : Icon_button.t
+  { icon : Icon_button.t
   ; active : ('a -> bool) option
   ; callback : ('a -> Dom_html.event Js.t -> unit Lwt.t -> unit Lwt.t)
   }
@@ -20,37 +19,19 @@ let make_icon_button ~icon name =
   icon#set_attribute "title" name;
   icon
 
-let make_menu_item ~icon name =
-  Item_list.Item.make
-    ~role:"menuitem"
-    ~graphic:Icon.SVG.(make_simple icon) (* FIXME *)
-    name
-
 let make ?active ~name ~icon ~callback () =
-  { menu = make_menu_item ~icon name
-  ; icon = make_icon_button ~icon name
+  { icon = make_icon_button ~icon name
   ; active
   ; callback
   }
 
 let make_overflow_menu
-    ?body
-    ?viewport
     (state : 'a React.signal)
     (actions : 'a t list) =
-  let menu =
-    Menu.make_of_item_list ?body ?viewport
-    @@ Item_list.make
-    @@ List.map (fun x -> x.menu) actions in
-  let overflow = Icon_button.make
-      ~icon:Icon.SVG.(make_simple Path.dots_vertical)#root
-      () in
   let elt =
     Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
     @@ Components_lab.Overflow_menu.Markup.create
-      ~menu:menu#markup
       ~actions:(List.map (fun x -> x.icon#markup) actions)
-      ~overflow:overflow#markup
       () in
   object(self)
     inherit Components_lab.Overflow_menu.t ~resize_handler:false elt () as super
@@ -67,34 +48,20 @@ let make_overflow_menu
             Lwt_js_events.clicks icon#root (fun e ->
                 callback (React.S.value state) (e :> Dom_html.event Js.t)))
           actions in
-      listeners <- Lwt_js_events.(
-          [ seq_loop (make_event Menu.Event.selected) menu#root (fun e _ ->
-                let detail = Widget.event_detail e in
-                let button = (List.nth actions detail##.index).icon in
-                Js.Opt.iter (Dom_html.CoerceTo.button button#root)
-                  (fun (button : Dom_html.buttonElement Js.t) -> button##click);
-                Lwt.return_unit) ]
-          @ action_listeners
-          @ listeners);
+      listeners <- action_listeners @ listeners;
       super#initial_sync_with_dom ()
 
     method! layout () : unit =
-      List.iter (fun { menu; icon; active; _ } ->
+      List.iter (fun { icon; active; _ } ->
           let display = match active with
             | None -> ""
             | Some f -> if f @@ React.S.value state then "" else "none" in
-          menu#root##.style##.display := Js.string display;
           icon#root##.style##.display := Js.string display)
         actions;
       super#layout ()
 
     method! destroy () : unit =
-      menu#destroy ();
-      overflow#destroy ();
-      List.iter (fun { menu; icon; _ } ->
-          menu#destroy ();
-          icon#destroy ())
-        actions;
+      List.iter (fun { icon; _ } -> icon#destroy ()) actions;
       Option.iter (React.S.stop ~strong:true) _s;
       super#destroy ()
   end
