@@ -67,32 +67,20 @@ module Selection = struct
 
   let boundaries = [Query Selector.parent]
 
-  let item_of_event (e : #Dom_html.event Js.t) =
-    let target = Dom.eventTarget e in
-    let selector = Printf.sprintf ".%s, .%s" CSS.item CSS.root in
-    let nearest_parent = Element.closest target selector in
-    Js.Opt.bind nearest_parent (fun (parent : Dom_html.element Js.t) ->
-        if not @@ Element.matches parent ("." ^ CSS.item)
-        then Js.null else Js.some parent)
+  let before_start = fun _ { original_event = e; _ } ->
+    Js.Opt.case (Dom_html.CoerceTo.mouseEvent e)
+      (fun () -> true)
+      (fun e -> e##.button = 0)
 
-  let before_start = fun { original_event = e; _ } ->
-    let item = Js.null in (* item_of_event e in *)
-    Js.Opt.case item
-      (fun () ->
-         Js.Opt.case (Dom_html.CoerceTo.mouseEvent e)
-           (fun () -> true)
-           (fun e -> e##.button = 0))
-      (fun _ -> false)
-
-  let on_start = fun ({ selected; selection; _ } : t detail) ->
+  let on_start = fun (selection : t) ({ selected; _ } : event) ->
     List.iter (fun x -> Element.remove_class x class_) selected;
     selection#clear_selection ()
 
-  let on_move = fun { selected; removed; _ } ->
+  let on_move = fun _ { selected; removed; _ } ->
     List.iter (fun x -> Element.add_class x class_) selected;
     List.iter (fun x -> Element.remove_class x class_) removed
 
-  let on_stop = fun handle_selected { selection; _ } ->
+  let on_stop = fun handle_selected selection _ ->
     selection#keep_selection ();
     handle_selected selection#selected
 
@@ -104,7 +92,10 @@ module Selection = struct
       ~on_start
       ~on_move
       ~on_stop:(on_stop handle_selected)
-      ~on_outside_click:(fun x -> on_start x; handle_selected [])
+      ~on_outside_click:(fun selection event ->
+          List.iter (fun x -> Element.remove_class x class_) event.selected;
+          selection#clear_selection ();
+          handle_selected [])
       ()
 end
 
@@ -137,6 +128,8 @@ class t ~(list_of_widgets : List_of_widgets.t)
     elt = object(self)
   inherit Drop_target.t elt () as super
 
+  val s_state = React.S.create []
+
   val aspect =
     let w, h =
       float_of_int (fst resolution),
@@ -165,27 +158,26 @@ class t ~(list_of_widgets : List_of_widgets.t)
 
   val mutable listeners = []
 
-  val mutable _focused_item = None
+  val mutable focused_item = None
 
-  val mutable _top_app_bar_context = None
+  val mutable top_app_bar_context = None
+
+  val mutable top_app_bar_menu = None
 
   val mutable min_size = 20.
 
   val mutable selection = None
 
-  val mutable _original_rects = []
+  val mutable original_rects = []
 
-  val mutable _basic_actions = []
-
-  val mutable _selected_actions = []
-
-  val mutable _transform_aspect = None
+  val mutable transform_aspect = None
 
   method! init () : unit =
     Dom.appendChild super#root transform#root;
+    (* Create top app bar actions *)
+    top_app_bar_menu <- Some (self#create_top_app_bar_menu ());
+    (* Create selection widget *)
     selection <- Some (Selection.make self#handle_selected);
-    _basic_actions <- self#create_actions ();
-    _selected_actions <- self#create_selected_actions ();
     self#clear_selection ();
     super#init ()
 
@@ -194,7 +186,6 @@ class t ~(list_of_widgets : List_of_widgets.t)
     listeners <- Js_of_ocaml_lwt.Lwt_js_events.(
         [ Transform.Event.inputs transform#root self#handle_transform_action
         ; Transform.Event.changes transform#root self#handle_transform_change
-        ; Transform.Event.select transform#root self#handle_transform_select
         ; keydowns super#root self#handle_keydown
         ]);
     super#initial_sync_with_dom ()
@@ -205,10 +196,8 @@ class t ~(list_of_widgets : List_of_widgets.t)
     listeners <- [];
     Option.iter Widget.destroy selection;
     selection <- None;
-    List.iter Widget.destroy _basic_actions;
-    _basic_actions <- [];
-    List.iter Widget.destroy _selected_actions;
-    _selected_actions <- [];
+    Option.iter Widget.destroy top_app_bar_menu;
+    top_app_bar_menu <- None;
     super#destroy ()
 
   method! layout () : unit =
@@ -231,8 +220,7 @@ class t ~(list_of_widgets : List_of_widgets.t)
       super#root##.style##.height := Js.string "100%";
       super#root##.style##.width := Js.string @@ Printf.sprintf "%gpx" width);
     grid_overlay#layout ();
-    List.iter Widget.layout _basic_actions;
-    List.iter Widget.layout _selected_actions;
+    Option.iter Widget.layout top_app_bar_menu;
     super#layout ()
 
   method items : Dom_html.element Js.t list =
@@ -250,10 +238,43 @@ class t ~(list_of_widgets : List_of_widgets.t)
     ; widgets = List.map Widget_utils.widget_of_element self#items
     }
 
-  method actions : Widget.t list =
-    _basic_actions
+  method top_app_bar_menu : Components_lab.Overflow_menu.t =
+    Option.get top_app_bar_menu
+
+  method bring_to_front (selected : Dom_html.element Js.t list) : unit =
+    let open Widget_utils in
+    let upper_selected_z = succ @@ Z_index.max_selected selected in
+    Z_index.pack
+    @@ List.sort (fun (a : Z_index.item) b ->
+        match a.selected, b.selected with
+        | false, true -> if a.z_index > upper_selected_z then 1 else -1
+        | true, false -> if b.z_index > upper_selected_z then -1 else 1
+        | true, true | false, false -> compare a.z_index b.z_index)
+    @@ Z_index.make_item_list ~selected self#items
+
+  method send_to_back (selected : Dom_html.element Js.t list) : unit =
+    let open Widget_utils in
+    let first_selected_z = pred @@ Z_index.min_selected selected in
+    Z_index.pack
+    @@ List.sort (fun (a : Z_index.item) b ->
+        match a.selected, b.selected with
+        | false, true -> if a.z_index < first_selected_z then -1 else 1
+        | true, false -> if b.z_index < first_selected_z then 1 else -1
+        | true, true | false, false -> compare a.z_index b.z_index)
+    @@ Z_index.make_item_list ~selected self#items
+
+  method remove items =
+    self#clear_selection ();
+    List.iter self#remove_item_ items;
+    Undo_manager.add undo_manager
+      { undo = (fun () -> List.iter self#add_item_ items)
+      ; redo = (fun () -> List.iter self#remove_item_ items)
+      }
 
   (* Private methods *)
+
+  method private set_state state =
+    (snd s_state) state
 
   method private size : float * float =
     float_of_int elt##.offsetWidth,
@@ -289,50 +310,11 @@ class t ~(list_of_widgets : List_of_widgets.t)
       ; redo = (fun () -> self#remove_item_ item)
       }
 
-  method private remove_items items =
-    self#clear_selection ();
-    List.iter self#remove_item_ items;
-    Undo_manager.add undo_manager
-      { undo = (fun () -> List.iter self#add_item_ items)
-      ; redo = (fun () -> List.iter self#remove_item_ items)
-      }
-
-  method private create_selected_actions () : Widget.t list =
-    let menu = Actions.make_overflow_menu (React.S.const ())
-        [ (* make ~callback:(fun _ _ ->
-           *       self#bring_to_front self#selected;
-           *       Lwt.return_unit)
-           *       ~name:"На передний план"
-           *       ~icon:Icon.SVG.Path.arrange_bring_to_front
-           *       ()
-           * ; make ~callback:(fun _ _ ->
-           *       self#send_to_back self#selected;
-           *       Lwt.return_unit)
-           *       ~name:"На задний план"
-           *       ~icon:Icon.SVG.Path.arrange_send_to_back
-           *       ()
-           * ; make ~callback:(fun _ _ ->
-           *       self#remove_items self#selected;
-           *       Lwt.return_unit)
-           *       ~name:"Удалить"
-           *       ~icon:Icon.SVG.Path.delete
-           *       () *)
-          ] in
-    [menu#widget]
-
-  method private create_actions () : Widget.t list =
-    let menu = Actions.make_overflow_menu (React.S.const ())
-        Actions.[ Undo.undo undo_manager
-                ; Undo.redo undo_manager
-                ; make ~callback:(fun _ _ _ ->
-                      match scaffold#side_sheet with
-                      | None -> Lwt.return_unit
-                      | Some sidesheet -> sidesheet#toggle ())
-                    ~name:"Добавить виджет"
-                    ~icon:Icon.SVG.Path.plus
-                    ()
-                ] in
-    [menu#widget]
+  method private create_top_app_bar_menu () : Components_lab.Overflow_menu.t =
+    Actions.Widgets.make_menu (fst s_state)
+      undo_manager
+      scaffold
+      self
 
   method private items_ ?(sort = false) () : Dom_html.element Js.t list =
     let get_position = Widget_utils.Attr.get_position in
@@ -371,15 +353,15 @@ class t ~(list_of_widgets : List_of_widgets.t)
           (match items with
            | hd :: _ ->
              set_tab_index ~prev:active (Lazy.from_val items) hd;
-             _focused_item <- Some hd
+             focused_item <- Some hd
            | _ -> ())
         | _ -> ());
     Lwt.return_unit
 
   method private restore_top_app_bar_context () : unit =
-    match _top_app_bar_context with
+    match top_app_bar_context with
     | None -> ()
-    | Some f -> f (); _top_app_bar_context <- None
+    | Some f -> f (); top_app_bar_context <- None
 
   method private transform_top_app_bar items =
     let title = match items with
@@ -394,48 +376,37 @@ class t ~(list_of_widgets : List_of_widgets.t)
             self#clear_selection ();
             Lwt.return_unit)
         scaffold in
-    match _top_app_bar_context with
+    match top_app_bar_context with
     | Some _ -> ()
-    | None -> _top_app_bar_context <- Some restore
+    | None -> top_app_bar_context <- Some restore
 
-  method private selection : Selection.t =
-    match selection with
-    | None -> failwith "`selection` instance is not initialized"
-    | Some x -> x
+  method private selection = Option.get selection
+
+  method private selected = self#selection#selected
 
   method private clear_selection () : unit =
     transform#root##.style##.visibility := Js.string "hidden";
     List.iter (fun x -> Element.remove_class x Selection.class_) self#selected;
     self#selection#clear_selection ();
+    self#set_state [];
     self#restore_top_app_bar_context ()
 
-  method private selected : Dom_html.element Js.t list =
-    self#selection#selected
-
   method private handle_selected (items : Dom_html.element Js.t list) =
-    match items with
-    | [] -> self#clear_selection ()
-    | l ->
-      let rect =
-        Position.Normalized.bounding_rect
-        @@ List.map Position.Normalized.of_element l in
-      transform#root##.style##.visibility := Js.string "visible";
-      Position.Normalized.apply_to_element rect transform#root;
-      self#transform_top_app_bar l
-
-  method private handle_transform_select _e _ =
-    (* Js.Opt.case e##.detail
-     *   (fun () -> self#clear_selection ())
-     *   (fun item ->
-     *      Selection.on_select self#handle_selected
-     *        item
-     *        self#selection#selected
-     *        self#selection); *)
-    Lwt.return_unit
+    begin match items with
+      | [] -> self#clear_selection ()
+      | l ->
+        let rect =
+          Position.Normalized.bounding_rect
+          @@ List.map Position.Normalized.of_element l in
+        transform#root##.style##.visibility := Js.string "visible";
+        Position.Normalized.apply_to_element rect transform#root;
+        self#transform_top_app_bar l
+    end;
+    self#set_state items
 
   method private handle_transform_action e _ =
     let target = Dom_html.eventTarget e in
-    (match _focused_item with
+    (match focused_item with
      | None -> ()
      | Some x -> if not @@ Element.equal x target then x##blur);
     let detail = Widget.event_detail e in
@@ -444,21 +415,22 @@ class t ~(list_of_widgets : List_of_widgets.t)
           if List.mem x self#selected
           then None else Some (Position.Absolute.of_element x))
         self#items in
-    let original_positions = match _original_rects with
+    let original_positions = match original_rects with
       | [] ->
-        _original_rects <- List.map Position.Absolute.of_element self#selected;
-        _original_rects
+        original_rects <- List.map Position.Absolute.of_element self#selected;
+        original_rects
       | l -> l in
     let shift_key = Js.Opt.case
         (Dom_html.CoerceTo.mouseEvent detail##.originalEvent)
         (fun () -> false)
         (fun e -> Js.to_bool e##.shiftKey) in
-    let aspect_ratio = match shift_key, _transform_aspect with
-      | false, Some _ -> _transform_aspect <- None; None
+    let aspect_ratio = match shift_key, transform_aspect with
+      | false, Some _ -> transform_aspect <- None; None
       | false, None -> None
       | true, (Some _ as x) -> x
       | true, None ->
-        let rect = detail##.rect in
+        let rect = detail##.originalRect in
+        Js.Unsafe.global##.console##log detail##.rect |> ignore;
         let width = Js.Optdef.get rect##.width
             (fun () -> rect##.right -. rect##.left) in
         let height = Js.Optdef.get rect##.height
@@ -466,7 +438,7 @@ class t ~(list_of_widgets : List_of_widgets.t)
         let aspect =
           Some (resolution_to_aspect (int_of_float width,
                                       int_of_float height)) in
-        _transform_aspect <- aspect;
+        transform_aspect <- aspect;
         aspect in
     let parent_size = self#size in
     let frame_position = Position.Absolute.of_client_rect detail##.rect in
@@ -497,14 +469,8 @@ class t ~(list_of_widgets : List_of_widgets.t)
     Lwt.return_unit
 
   method private handle_transform_change _ _ =
-    (* let target = Dom_html.eventTarget e in *)
-    _original_rects <- [];
+    original_rects <- [];
     grid_overlay#set_snap_lines [];
-    (* let position =
-     *   Position.absolute_to_normalized ~parent_size:self#size
-     *   @@ Position.Absolute.of_client_rect
-     *   @@ Widget.event_detail e in
-     * Widget_utils.Attr.set_position target position; *)
     Lwt.return_unit
 
   method private handle_dropped_json (json : Yojson.Safe.t) : unit Lwt.t =
@@ -561,28 +527,6 @@ class t ~(list_of_widgets : List_of_widgets.t)
     in
     Position.Absolute.apply_to_element (List.hd adjusted) ghost;
     grid_overlay#set_snap_lines lines
-
-  method private bring_to_front (selected : Dom_html.element Js.t list) : unit =
-    let open Widget_utils in
-    let upper_selected_z = succ @@ Z_index.max_selected selected in
-    Z_index.pack
-    @@ List.sort (fun (a : Z_index.item) b ->
-        match a.selected, b.selected with
-        | false, true -> if a.z_index > upper_selected_z then 1 else -1
-        | true, false -> if b.z_index > upper_selected_z then -1 else 1
-        | true, true | false, false -> compare a.z_index b.z_index)
-    @@ Z_index.make_item_list ~selected self#items
-
-  method private send_to_back (selected : Dom_html.element Js.t list) : unit =
-    let open Widget_utils in
-    let first_selected_z = pred @@ Z_index.min_selected selected in
-    Z_index.pack
-    @@ List.sort (fun (a : Z_index.item) b ->
-        match a.selected, b.selected with
-        | false, true -> if a.z_index < first_selected_z then -1 else 1
-        | true, false -> if b.z_index < first_selected_z then 1 else -1
-        | true, true | false, false -> compare a.z_index b.z_index)
-    @@ Z_index.make_item_list ~selected self#items
 end
 
 let make ~(scaffold : Scaffold.t)

@@ -147,10 +147,6 @@ module Make(Xml : Xml_sigs.NoWrap)
         [] streams_of_widgets in
     Treeview.create ~dense:true nodes
 
-  let make_placeholder ?(classes = []) ?(attrs = []) () =
-    ignore (classes, attrs);
-    ()
-
   let make_treeview (streams : Structure.Annotated.t)
       (wm : Wm.Annotated.t) =
     let widgets = List.filter_map (fun (name, (widget : Wm.widget)) ->
@@ -171,9 +167,11 @@ module Make(Xml : Xml_sigs.NoWrap)
         ~title:"Автоматическая расстановка виджетов" (* TODO better title *)
         () in
     let content =
-      Html.div [ treeview
-               ; make_empty_placeholder ()
-               ] in
+      Dialog.create_content
+        ~content:[ treeview
+                 ; make_empty_placeholder ()
+                 ]
+        () in
     let actions =
       Dialog.create_actions
         ~actions:[ Dialog.create_action ~action:Close ~label:"Отмена" ()

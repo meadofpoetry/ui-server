@@ -7,10 +7,10 @@
 - [ ] XXX fill cells with predefined widget groups
 - [ ] split cell into subtable or elementary cells
 - [X] generate unique container name
-- [ ] XXX restore cell selection after exit from widget editor mode
 - [X] filter available widgets
 - [X] scale widgets when resizing/swapping cells
 - [ ] add states
+- [X] http error & success notifications
 ** widget_editor.ml
 - [ ] `handle_keydown` method
 - [X] `bring_to_front` method
@@ -21,7 +21,6 @@
 - [ ] add states
 - [X] implement widget selection
 - [X] implement widget transform
-- [ ] implement widget move without prior selection
 - [X] implement selection reset (e.g. on outside click)
 - [X] allow transform handles overflow parent
 ** position.ml
@@ -47,14 +46,14 @@
       (especially for multi-span cells and nested grids)
 - [ ] implement `is_merge_possible` function
 ** undo_manager.ml
-- [ ] XXX add limit for undo/redo actions
+- [X] XXX add limit for undo/redo actions
 ** wizard.ml
 - [X] implement `layout_of_widgets` function
-- [ ] implement `notify` method
+- [X] implement `notify` method
 ** Other 
 - [ ] XXX Undo/redo for every defined action
 - [X] when applying, unobvious intersections/invalid positions are often detected by backend
 ** Optional
-- [ ] XXX add an ability to disable an action (like undo, redo...)
+- [X] XXX add an ability to disable an action (like undo, redo...)
       When action is not possible it should be hidden (like in WhatsApp)
 - [X] switch to relative coordinates on backend

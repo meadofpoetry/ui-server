@@ -22,12 +22,13 @@
 }
 
 @mixin widget-background($opacity: 1.0) {
+    $bg-color: mix(mdc-theme-prop-value(on-surface), mdc-theme-prop-value(surface), 24%);
     &[data-type="video"] {
         background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHN0eWxlPSJ3aWR0aDoyNHB4O2hlaWdodDoyNHB4IiB2aWV3Qm94PSIwIDAgMjQgMjQiPgo8cGF0aCBmaWxsPSJyZ2JhKDAsIDAsIDAsIDAuNSkiIGQ9Ik0xOCw5SDE2VjdIMThNMTgsMTNIMTZWMTFIMThNMTgsMTdIMTZWMTVIMThNOCw5SDZWN0g4TTgsMTNINlYxMUg4TTgsMTdINlYxNUg4TTE4LDNWNUgxNlYzSDhWNUg2VjNINFYyMUg2VjE5SDhWMjFIMTZWMTlIMThWMjFIMjBWM0gxOFoiLz4KPC9zdmc+");
         background-repeat: no-repeat;
         background-position: center;
         background-size: 50% 50%;
-        @include mdc-theme-prop(background-color, text-hint-on-background);
+        @include mdc-theme-prop(background-color, $bg-color);
     }
     &[data-type="audio"] {
         @include widget-audio-background($opacity);

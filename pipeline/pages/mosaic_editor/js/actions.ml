@@ -122,6 +122,7 @@ let get_rightmost_cell cells =
 (** Switches top app bar between contextual action
     mode and normal mode *)
 let transform_top_app_bar
+    ?actions
     ?(title : string option)
     ?(class_ : string option)
     ?on_navigation_icon_click
@@ -131,6 +132,12 @@ let transform_top_app_bar
   | Some x ->
     let prev_nav_icon_click = scaffold#on_navigation_icon_click in
     let prev_title = x#title in
+    let prev_actions = match actions with
+      | None -> None
+      | Some actions ->
+        let prev = x#actions in
+        x#set_actions actions;
+        Some prev in
     Option.iter scaffold#set_on_navigation_icon_click on_navigation_icon_click;
     Option.iter x#set_title title;
     Option.iter x#add_class class_;
@@ -139,6 +146,7 @@ let transform_top_app_bar
         | None -> scaffold#set_on_navigation_icon_click_default ()
         | Some f -> scaffold#set_on_navigation_icon_click f);
        x#set_title prev_title;
+       Option.iter x#set_actions prev_actions;
        Option.iter x#remove_class class_)
 
 module Undo = struct
@@ -157,7 +165,7 @@ module Undo = struct
       ()
 end
 
-module Container_actions = struct
+module Containers = struct
   type state = Dom_html.element Js.t list
 
   let wizard (wizard : Pipeline_widgets.Wizard.t) (grid : Grid.t) =
@@ -333,9 +341,9 @@ module Container_actions = struct
     let textfield, dialog = Container_utils.UI.make_description_dialog () in
     Dom.appendChild body dialog#root;
     let menu = make_overflow_menu s_state
-        [ Undo.undo undo_manager
-        ; Undo.redo undo_manager
-        ; wizard wizard_widget grid
+        [ (* Undo.undo undo_manager
+         * ; Undo.redo undo_manager
+         * ;  *)wizard wizard_widget grid
         ; edit ~edit_container
         ; description textfield dialog
         ; merge ~on_remove undo_manager grid
@@ -351,4 +359,65 @@ module Container_actions = struct
         textfield#destroy ();
         dialog#destroy ());
     menu
+end
+
+module Widgets = struct
+  type state = Dom_html.element Js.t list
+
+  class type obj = object
+    method send_to_back : Dom_html.element Js.t list -> unit
+
+    method bring_to_front : Dom_html.element Js.t list -> unit
+
+    method remove : Dom_html.element Js.t list -> unit
+  end
+
+  let add (scaffold : Scaffold.t) =
+    make ~callback:(fun _ _ _ ->
+        match scaffold#side_sheet with
+        | None -> Lwt.return_unit
+        | Some sidesheet -> sidesheet#toggle ())
+      ~active:(function
+          | [] -> Option.is_some scaffold#side_sheet
+          | _ -> false)
+      ~name:"Добавить виджет"
+      ~icon:Icon.SVG.Path.plus
+      ()
+
+  let bring_to_front (obj : #obj) =
+    make ~callback:(fun selected _ _ ->
+        obj#bring_to_front selected;
+        Lwt.return_unit)
+      ~active:(function [] -> false | _ -> true)
+      ~name:"На передний план"
+      ~icon:Icon.SVG.Path.arrange_bring_to_front
+      ()
+
+  let send_to_back (obj : #obj) =
+    make ~callback:(fun selected _ _ ->
+        obj#send_to_back selected;
+        Lwt.return_unit)
+      ~active:(function [] -> false | _ -> true)
+      ~name:"На задний план"
+      ~icon:Icon.SVG.Path.arrange_send_to_back
+      ()
+
+  let remove (obj : #obj) =
+    make ~callback:(fun selected _ _ ->
+        obj#remove selected;
+        Lwt.return_unit)
+      ~active:(function [] -> false | _ -> true)
+      ~name:"Удалить"
+      ~icon:Icon.SVG.Path.delete
+      ()
+
+  let make_menu s_state _undo_manager scaffold obj =
+    make_overflow_menu s_state
+      [ (* Undo.undo undo_manager
+       * ; Undo.redo undo_manager
+       * ;  *)add scaffold
+      ; bring_to_front obj
+      ; send_to_back obj
+      ; remove obj
+      ]
 end

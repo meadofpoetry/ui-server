@@ -1,5 +1,3 @@
-(* Inspired by https://github.com/Simonwep/selection *)
-
 open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Components
@@ -99,13 +97,12 @@ type state =
   ; mutable scroll_speed : float option * float option
   }
 
-type 'a detail =
+type event =
   { area : Dom_html.element Js.t
   ; original_event : Dom_html.event Js.t
   ; selected : Dom_html.element Js.t list
   ; removed : Dom_html.element Js.t list
   ; added : Dom_html.element Js.t list
-  ; selection : 'a
   }
 
 class t
@@ -153,9 +150,9 @@ class t
 
   val mutable _multiple = multiple
 
-  val mutable _selectables = []
+  val mutable _mode = mode
 
-  val mutable _container = None
+  val mutable _selectables = []
 
   inherit Widget.t clip () as super
 
@@ -188,6 +185,9 @@ class t
     self#set_disabled true;
     super#destroy ()
 
+  method set_mode mode : unit =
+    _mode <- mode
+
   method set_single_click (x : bool) : unit =
     _single_click <- x
 
@@ -206,20 +206,15 @@ class t
     _stored <- List.filter (not % Element.equal elt) _stored;
     _selected <- List.filter (not % Element.equal elt) _selected
 
-  (** Clear the elements which were saved by 'keep_selection' *)
   method clear_selection ?(store = true) () : unit =
     if store then _stored <- [];
     _selected <- [];
     _added <- [];
     _removed <- []
 
-  (** Can be used if during a selection elements have been added.
-      Will update everything which can be selected. *)
   method resolve_selectables () : unit =
     _selectables <- select_all selectables
 
-  (** Saves the current selection for the next selection.
-      Allowes multiple selections. *)
   method keep_selection () : unit =
     _stored <- List.fold_left (fun acc x ->
         if not @@ List.memq x acc
@@ -238,8 +233,7 @@ class t
   (* Private methods *)
 
   method private make_detail e =
-    { selection = self
-    ; original_event = e
+    { original_event = e
     ; area
     ; selected = List.fold_left (fun acc x ->
           if List.memq x acc
@@ -253,7 +247,7 @@ class t
       | `Before_start -> before_start in
     match f with
     | None -> true
-    | Some f -> f (self#make_detail e)
+    | Some f -> f (self :> t) (self#make_detail e)
 
   method private notify_event typ (e : Dom_html.event Js.t) : unit =
     let f = match typ with
@@ -263,7 +257,7 @@ class t
       | `Outside_click -> on_outside_click in
     match f with
     | None -> ()
-    | Some f -> f (self#make_detail e)
+    | Some f -> f (self :> t) (self#make_detail e)
 
   method private handle_drag_start (e : Dom_html.event Js.t) _ : unit Lwt.t =
     let target, x, y = parse_event e in
@@ -273,7 +267,7 @@ class t
     let boundaries = select_all boundaries in
     (* Check in which container the use currently acts *)
     let target_container = List.find_opt (fun x ->
-        collides x##getBoundingClientRect rect mode)
+        collides x##getBoundingClientRect rect _mode)
         boundaries in
     (* Check if area starts in one of the start area / boundaries *)
     let evt_path = event_path e in
@@ -516,7 +510,7 @@ class t
     let area_rect = area##getBoundingClientRect in
     (* Iterate over selectable elements *)
     let added, touched = List.fold_left (fun ((added, touched) as acc) item ->
-        if collides area_rect item##getBoundingClientRect mode
+        if collides area_rect item##getBoundingClientRect _mode
         then (
           let added =
             (* Check if the element wasn't in the last selection *)
@@ -621,14 +615,11 @@ class t
     area##.style##.height := px (y4 -. y3)
 end
 
-type event = t detail
-
-let make
-    ?single_click ?start_threshold ?scroll_speed_divider
+let make ?multiple ?single_click ?start_threshold ?scroll_speed_divider
     ?start_areas ?boundaries ?selectables ?mode ?class_ ?container
     ?before_start ?on_start ?on_move ?on_stop ?on_outside_click () =
   let elt = Dom_html.(createDiv document) in
-  new t ?single_click ?before_start
+  new t ?multiple ?single_click ?before_start
     ?start_threshold ?scroll_speed_divider
     ?start_areas ?boundaries ?selectables
     ?mode ?class_ ?container

@@ -38,7 +38,7 @@ module Selection = struct
 
   let selectables = [Query Selector.cell]
 
-  let before_start = fun { original_event = e; selected; selection; _ } ->
+  let before_start = fun selection { original_event = e; selected; _ } ->
     let is_multiple = match selected with
       | [x] when Element.equal x (Dom.eventTarget e) -> false
       | _ -> true in
@@ -48,7 +48,7 @@ module Selection = struct
       (fun () -> true)
       (fun e -> e##.button = 0)
 
-  let on_start = fun ({ selected; selection; _ } : event) ->
+  let on_start = fun (selection : t) ({ selected; _ } : event) ->
     match selected with
     | [_] -> ()
     | _ ->
@@ -57,11 +57,11 @@ module Selection = struct
           selection#remove_from_selection x) selected;
       selection#clear_selection ()
 
-  let on_move = fun { removed; added; _ } ->
-    List.iter (fun x -> Element.add_class x class_) added;
-    List.iter (fun x -> Element.remove_class x class_) removed
+  let on_move = fun _ { removed; added; _ } ->
+    List.iter (Fun.flip Element.add_class class_) added;
+    List.iter (Fun.flip Element.remove_class class_) removed
 
-  let on_stop handle_selected = fun ({ selection; _ } : event) ->
+  let on_stop handle_selected selection _ =
     begin match selection#selected with
       | [x] -> selection#remove_from_selection x; Element.remove_class x class_
       | _ -> ()
@@ -78,7 +78,10 @@ module Selection = struct
       ~on_start
       ~on_move
       ~on_stop:(on_stop handle_selected)
-      ~on_outside_click:(fun x -> on_start x; handle_selected [])
+      ~on_outside_click:(fun selection event ->
+          List.iter (Fun.flip Element.remove_class class_) event.selected;
+          selection#clear_selection ();
+          handle_selected [])
       ()
 end
 
@@ -162,7 +165,7 @@ class t ~(scaffold : Scaffold.t)
 
   val body = Dom_html.document##.body
 
-  val undo_manager = Undo_manager.create ()
+  val undo_manager = Undo_manager.create ~limit:50 ()
 
   val list_of_widgets =
     let layout = List.map (fun (_, _, (x : Wm.Annotated.container)) ->
@@ -172,8 +175,6 @@ class t ~(scaffold : Scaffold.t)
   val mutable _widgets = wm.widgets
 
   val mutable listeners = []
-
-  val mutable content_listeners = []
 
   val mutable drag_target = Js.null
 
@@ -278,11 +279,6 @@ class t ~(scaffold : Scaffold.t)
   method selected : Dom_html.element Js.t list =
     self#selection#selected
 
-  method clear_selection () : unit =
-    List.iter (Fun.flip Element.remove_class Selection.class_) self#selected;
-    self#selection#clear_selection ();
-    self#restore_top_app_bar_context ()
-
   method resolution : int * int = resolution
 
   method value : Wm.t =
@@ -304,7 +300,10 @@ class t ~(scaffold : Scaffold.t)
 
   (* TODO implement layout update *)
   method notify : event -> unit = function
-    | `Streams _ -> ()
+    | `Streams s ->
+      wizard_dialog#notify (`Streams s)
+    | `Layout wm ->
+      wizard_dialog#notify (`Layout wm)
     | `Wizard wm ->
       let wm = Wm.Annotated.annotate ~active:wm ~stored:wm in
       let grid_props = grid_properties_of_layout wm in
@@ -319,20 +318,8 @@ class t ~(scaffold : Scaffold.t)
         ~rows:(`Value grid_props.rows)
         ~cols:(`Value grid_props.cols)
         ()
-    | `Layout _wm -> ()
-  (* match _widget_editor with
-   * | None -> ()
-   * | Some (id, editor) ->
-   *   match List.find_opt (fun (id', _, _) ->
-   *       String.equal id' id) wm.layout with
-   *   | None -> () (\* FIXME container lost, handle it somehow *\)
-   *   | Some (_, state, container) ->
-   *     editor#notify @@ `Container (state, container) *)
 
   (* Private methods *)
-
-  method private state =
-    React.S.value @@ fst s_state
 
   method private set_state state =
     (snd s_state) state
@@ -356,6 +343,7 @@ class t ~(scaffold : Scaffold.t)
     widget_editor <- Some editor;
     let icon = set_top_app_bar_icon scaffold `Main back_icon#root in
     let restore = Actions.transform_top_app_bar
+        ~actions:[editor#top_app_bar_menu#root]
         ~title
         scaffold in
     let state = { icon; restore; editor; cell } in
@@ -448,9 +436,15 @@ class t ~(scaffold : Scaffold.t)
     | [] -> ()
     | f :: tl -> f (); top_app_bar_context <- tl
 
+  method private clear_selection () : unit =
+    List.iter (Fun.flip Element.remove_class Selection.class_) self#selected;
+    self#selection#clear_selection ();
+    self#set_state [];
+    self#restore_top_app_bar_context ()
+
   method private handle_selected cells =
     begin match cells with
-      | [] -> self#restore_top_app_bar_context ()
+      | [] -> self#clear_selection ()
       | cells ->
         let title = match cells with
           | [x] ->
@@ -473,7 +467,7 @@ class t ~(scaffold : Scaffold.t)
     self#set_state cells
 
   method private create_top_app_bar_menu () : Components_lab.Overflow_menu.t =
-    Actions.Container_actions.make_menu (fst s_state)
+    Actions.Containers.make_menu (fst s_state)
       ~edit_container:(fun x ->
           self#switch_to_widget_mode x
           >>= self#switch_to_container_mode)
@@ -484,12 +478,25 @@ class t ~(scaffold : Scaffold.t)
 
   method private create_main_actions () =
     let submit = Button.make
-        ~label:"Применить"
+        ~label:"Сохранить"
         ~on_click:(fun btn _ _ ->
             let value = self#value in
             let t = Pipeline_http_js.Http_wm.set_layout value in
             btn#set_loading_lwt t;
-            t >>= fun _ -> Lwt.return_unit)
+            t >>= function
+            | Ok _ ->
+              let label = "Мозаика сохранена" in
+              let snackbar = Snackbar.make ~dismiss:True ~label () in
+              snackbar#set_timeout 4.;
+              scaffold#show_snackbar snackbar
+              >>= fun _ -> Lwt.return @@ snackbar#destroy ()
+            | Error e ->
+              let label =
+                Printf.sprintf "Ошибка. %s"
+                @@ Api_js.Http.error_to_string e in
+              let snackbar = Snackbar.make ~label () in
+              scaffold#show_snackbar snackbar
+              >>= fun _ -> Lwt.return @@ snackbar#destroy ())
         () in
     [Card.Actions.make_buttons [submit]]
 

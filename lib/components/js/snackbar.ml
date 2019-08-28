@@ -162,8 +162,8 @@ object(self)
       let s =
         Printf.sprintf
           "timeout must be in the range (%g - %g), but got %g"
-          Const.max_auto_dismiss_timeout_s
           Const.min_auto_dismiss_timeout_s
+          Const.max_auto_dismiss_timeout_s
           x in
       failwith s)
 

@@ -150,17 +150,22 @@ module Z_index : sig
     }
 
   val get : Dom_html.element Js.t -> int
+
   val set : int -> Dom_html.element Js.t -> unit
+
   val make_item_list :
     selected:Dom_html.element Js.t list
     -> Dom_html.element Js.t list
     -> item list
+
   val pack : item list -> unit
+
   val max_selected : Dom_html.element Js.t list -> int
+
   val min_selected : Dom_html.element Js.t list -> int
+
   val validate : Dom_html.element Js.t list -> unit
 end = struct
-
   type item =
     { item : Dom_html.element Js.t
     ; z_index : int
@@ -201,7 +206,7 @@ end = struct
 
   let dedup ?(eq = (=)) l =
     let rec aux acc = function
-      | [] -> List.rev acc
+      | [] -> (* List.rev *) acc
       | hd :: tl ->
         let acc =
           if List.exists (eq hd) acc
@@ -210,36 +215,33 @@ end = struct
     aux [] l
 
   let get_group_for_item
-      (search_item_rect : Position.Normalized.t)
+      (search_group : Dom_html.element Js.t list)
       (items : Dom_html.element Js.t list) =
-    let rec aux search_item_rect acc = function
+    let rec aux search_group acc = function
       | [] -> dedup ~eq:Element.equal acc
       | (_ :: tl) as items ->
-        let siblings =
-          List.filter (fun (v : Dom_html.element Js.t) ->
-              Position.Normalized.collides search_item_rect
-              @@ Position.Normalized.of_element v)
+        let siblings = List.filter
+            (fun (i : Dom_html.element Js.t) ->
+               let ipos = Position.Normalized.of_element i in
+               List.exists (fun s ->
+                   Position.Normalized.collides ipos
+                     (Position.Normalized.of_element s))
+                 search_group)
             items in
-        let bounds =
-          Position.Normalized.bounding_rect
-          @@ List.map Position.Normalized.of_element siblings in
-        let (bounds, rect_growth) =
-          if (bounds.h = search_item_rect.h && bounds.w = search_item_rect.w)
-          || (bounds.h <= search_item_rect.h && bounds.w < search_item_rect.w)
-          || (bounds.h < search_item_rect.h && bounds.w <= search_item_rect.w)
-          then (search_item_rect, false)
-          else (bounds, true) in
+        let search_group_new =
+          dedup ~eq:Element.equal (siblings @ search_group) in
         let acc = siblings @ acc in
-        if rect_growth
-        then aux bounds acc items
-        else aux bounds acc tl in
-    aux search_item_rect [] items
+        let items =
+          if List.compare_lengths search_group_new search_group > 0
+          then items else tl in
+        aux search_group_new acc items in
+    aux search_group [] items
 
   let get_all_groups (items : Dom_html.element Js.t list) =
     let rec aux acc = function
       | [] -> acc
       | hd :: tl ->
-        let siblings = get_group_for_item (Position.Normalized.of_element hd) items in
+        let siblings = get_group_for_item [hd] items in
         let items = List.filter (fun v ->
             not @@ List.exists (Element.equal v) siblings) tl in
         aux (siblings :: acc) items in
@@ -250,7 +252,6 @@ end = struct
     let list_intersect_groups = get_all_groups list_intersect in
     List.iter (set 0) list_non_intersect;
     List.iter (List.iteri set) list_intersect_groups
-
 end
 
 let title (w : Wm.widget) : string =

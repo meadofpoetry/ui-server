@@ -5,13 +5,18 @@ open Application_types
 open Pipeline_types
 
 include Pipeline_widgets_tyxml.Wizard
+
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
+module Selector = struct
+  let content = Printf.sprintf ".%s" Dialog.CSS.content
+end
+
 type event =
   [ `Streams of Structure.Annotated.t
-  | `Layout of Wm.t
+  | `Layout of Wm.Annotated.t
   ]
 
 let compare_domain a b = match a, b with
@@ -159,22 +164,60 @@ module Layout = Make(struct
       { x with widget = (fst x.widget, widget) }
   end)
 
-class t ~resolution ~treeview (elt : Dom_html.element Js.t) () = object(self)
+let merge_trees ~(old : Treeview.t) ~(cur : Treeview.t) =
+  let active = Dom_html.document##.activeElement in
+  let try_focus ~old ~cur =
+    Js.Opt.to_option
+    @@ Js.Opt.bind active (fun active ->
+        if Element.equal old active
+        then Js.some cur else Js.null) in
+  let rec merge acc old_nodes cur_nodes =
+    List.fold_left (fun acc x ->
+        match cur#node_value x with
+        | None -> acc
+        | Some v ->
+          match List.find_opt (fun x ->
+              match old#node_value x with
+              | None -> false
+              | Some v' -> String.equal v v') old_nodes with
+          | None -> acc
+          | Some node ->
+            let attr = Treeview.Attr.aria_expanded in
+            begin match Element.get_attribute node attr with
+              | None -> ()
+              | Some a -> Element.set_attribute x attr a
+            end;
+            let acc = match try_focus ~old:node ~cur:x with
+              | None -> acc
+              | Some _ as x -> x in
+            merge acc
+              (old#node_children node)
+              (cur#node_children x))
+      acc cur_nodes in
+  merge None old#root_nodes cur#root_nodes
+
+class t ~treeview ~layout ~structure (elt : Dom_html.element Js.t) () = object(self)
   inherit Dialog.t elt () as super
 
-  val mutable resolution = resolution
+  val content = Element.query_selector_exn elt Selector.content
+
+  val mutable _layout : Wm.Annotated.t = layout
+
+  val mutable _structure = structure
+
   val mutable _treeview : Treeview.t = treeview
+
   val mutable listeners = []
 
   method! initial_sync_with_dom () : unit =
     listeners <- Js_of_ocaml_lwt.Lwt_js_events.(
         [ seq_loop (make_event Treeview.Event.action)
             super#root self#handle_treeview_action
-        ]
-      );
+        ]);
     super#initial_sync_with_dom ()
 
   method value : Wm.t =
+    let resolution = _layout.resolution in
     let data =
       List.filter_map (fun x ->
           match _treeview#node_value x with
@@ -193,10 +236,30 @@ class t ~resolution ~treeview (elt : Dom_html.element Js.t) () = object(self)
     ; layout = Layout.layout_of_widgets ~resolution data
     }
 
-  (* TODO implement *)
   method notify : event -> unit = function
-    | `Streams _streams -> ()
-    | `Layout layout -> resolution <- layout.resolution
+    | (`Streams _ | `Layout _) as evt ->
+      (match evt with
+       | `Layout l -> _layout <- l
+       | `Streams s -> _structure <- s);
+      let structure, layout = match evt with
+        | `Layout layout ->
+          _structure, layout
+        | `Streams structure ->
+          structure, _layout in
+      let old = _treeview in
+      let cur =
+        Treeview.attach
+        @@ Tyxml_js.To_dom.of_element
+        @@ Markup.make_treeview structure layout in
+      let focus_target = merge_trees ~old ~cur in
+      Element.remove_child_safe content old#root;
+      old#destroy ();
+      self#append_treeview cur;
+      Option.iter (fun x -> x##focus) focus_target;
+      _treeview <- cur
+
+  method private append_treeview treeview =
+    Element.insert_child_at_index content 0 treeview#root
 
   method private handle_treeview_action _ _ : unit Lwt.t =
     super#layout ();
@@ -213,4 +276,4 @@ let make
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element
     @@ Markup.make ~treeview:treeview#markup () in
-  new t ~resolution:wm.resolution ~treeview elt ()
+  new t ~layout:wm ~structure ~treeview elt ()
