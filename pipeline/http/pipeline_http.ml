@@ -1,5 +1,7 @@
 open Application_types
 open Netlib.Uri
+open Components_tyxml
+open Components_lab_tyxml
 
 module Api_http = Api_cohttp.Make(User)(Body)
 
@@ -7,13 +9,15 @@ module Api_template = Api_cohttp_template.Make(User)
 
 module Api_websocket = Api_websocket.Make(User)(Body)(Body_ws)
 
-module Icon = Components_tyxml.Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
+module Icon = Icon.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
-module Button = Components_tyxml.Button.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
+module Button = Button.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
-module Icon_button = Components_tyxml.Icon_button.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
+module Icon_button = Icon_button.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
-module Top_app_bar = Components_tyxml.Top_app_bar.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
+module Top_app_bar = Top_app_bar.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
+
+module Overflow_menu = Overflow_menu.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
 
 let make_icon ?classes path =
   let open Icon.SVG in
@@ -21,15 +25,18 @@ let make_icon ?classes path =
   let icon = create ?classes [path] () in
   Tyxml.Html.toelt icon
 
-let make_anchor_buttons ?href ~class_ ~icon ~label () =
-  let icon = Tyxml_html.tot icon in
-  let compact = Components_tyxml.BEM.add_modifier class_ "compact" in
-  let full = Components_tyxml.BEM.add_modifier class_ "full" in
-  let button = Button.create_anchor
-      ~classes:[class_; full] ?href ~icon ~label () in
-  let icon_button = Icon_button.create_anchor
-      ~classes:[class_; compact] ?href ~icon () in
-  [button; icon_button]
+let make_overflow_menu actions =
+  let actions = List.map (fun (href, id, icon, name) ->
+      let ( ^:: ) x l = match x with None -> l | Some x -> x :: l in
+      let icon_class = Components_tyxml.Icon_button.CSS.icon in
+      let icon = Tyxml.Html.tot @@ make_icon ~classes:[icon_class] icon in
+      let attrs = Tyxml.Html.(Option.map a_id id ^:: [a_title name]) in
+      let classes = [Components_tyxml.Top_app_bar.CSS.action_item] in
+      match href with
+      | None -> Icon_button.create ~icon ~classes ~attrs ()
+      | Some href -> Icon_button.create_anchor ~href ~icon ~classes ~attrs ())
+      actions in
+  Overflow_menu.create ~actions ()
 
 let make_top_app_bar_row () =
   Tyxml.Html.toelt
@@ -37,16 +44,14 @@ let make_top_app_bar_row () =
 
 let pages () : Api_template.topmost Api_template.item list =
   let open Api_template in
-  (* let side_sheet_toggle = Mosaic_video_template.(
-   *     make_icon_button
-   *       ~classes:[CSS.side_sheet_icon]
-   *       Components_tyxml.Svg_icons.tune) in *)
-  let menu_toggle = Mosaic_video_template.(
-      make_icon_button
-        ~classes:[CSS.menu_icon]
-        Components_tyxml.Svg_icons.dots_vertical) in
   let video_path = "/mosaic/video" in
   let editor_path = "/mosaic/editor" in
+  let video_page_overflow_menu =
+    make_overflow_menu
+      [ Some editor_path, None, Svg_icons.pencil, "Редактировать"
+      ; None, Some "wizard", Svg_icons.auto_fix, "Мастер"
+      ; None, Some "hotkeys", Svg_icons.keyboard, "Горячие клавиши"
+      ] in
   let video_page_props =
     make_template_props
       ~title:"Мозаика"
@@ -54,14 +59,7 @@ let pages () : Api_template.topmost Api_template.item list =
       ~top_app_bar_content:[
         Tyxml.Html.toelt
         @@ Top_app_bar.create_section ~align:`End
-          ~content:(make_anchor_buttons
-                      ~href:editor_path
-                      ~icon:(make_icon
-                               ~classes:[Components_tyxml.Button.CSS.icon]
-                               Components_tyxml.Svg_icons.pencil)
-                      ~class_:Mosaic_video_template.CSS.edit
-                      ~label:"Редактировать" ()
-                    @ [menu_toggle])
+          ~content:[video_page_overflow_menu]
           ()]
       ~pre_scripts:[`Src "/js/adapter.min.js"]
       ~post_scripts:[`Src "/js/page-mosaic-video.js"]

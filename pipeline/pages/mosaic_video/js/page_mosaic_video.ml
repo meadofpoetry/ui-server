@@ -1,22 +1,19 @@
 open Js_of_ocaml
-open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml.Tyxml_js
 open Components
-
-(* TODO
-   - add stats inside the side sheet
-   - add settings inside the side sheet
-*)
+open Pipeline_http_js
 
 let ( >>= ) = Lwt.bind
 
 module CSS = Page_mosaic_video_tyxml.CSS
+
 module Markup = Page_mosaic_video_tyxml.Make(Xml)(Svg)(Html)
+
 module Hotkeys = Page_mosaic_video_tyxml.Hotkeys.Make(Xml)(Svg)(Html)
 
 module Selectors = struct
-  let menu_icon = "." ^ CSS.menu_icon
-  let edit = "." ^ CSS.edit
+  let overflow_menu = "." ^ Components_lab.Overflow_menu.CSS.root
+
   let side_sheet_icon = "." ^ CSS.side_sheet_icon
 end
 
@@ -235,60 +232,66 @@ let make_hotkeys_dialog () =
     @@ Dialog.Markup.create_content ~content:[hotkeys#markup] () in
   Dialog.make ~title ~content ~actions:[cancel] ()
 
-let make_menu ?body ?viewport () =
-  let hotkeys_item =
-    let graphic = Icon.SVG.(make_simple Path.keyboard) in
-    Item_list.Item.make ~role:"menuitem" ~graphic "Горячие клавиши" in
-  let items =
-    [ hotkeys_item
-    ] in
-  Menu.make_of_item_list ?body ?viewport (Item_list.make ~role:"menu" items)
-
-let tie_menu_with_toggle (scaffold : Scaffold.t) =
-  match Element.query_selector scaffold#root Selectors.menu_icon with
-  | None -> ()
-  | Some i ->
-    let icon = Icon_button.attach i in
-    let menu = make_menu
-        ~body:scaffold#app_content_inner
-        ~viewport:(Element scaffold#app_content_inner)
-        () in
-    menu#set_quick_open true;
-    icon#append_child menu;
-    menu#set_anchor_element icon#root;
-    menu#set_anchor_corner Bottom_left;
-    let click = Events.clicks icon#root (fun e _ ->
-        let target = Dom.eventTarget e in
-        if not @@ Element.contains menu#root target
-        && not @@ Element.equal menu#root target
-        then menu#reveal ()
-        else Lwt.return_unit) in
-    let selected = Lwt_js_events.(
-        seq_loop (make_event Menu.Event.selected)
-          menu#root  (fun e _ ->
-              let detail = Js.Opt.get e##.detail (fun () -> failwith "No detail in event") in
-              match detail##.index with
-              | 0 ->
-                let dialog = make_hotkeys_dialog () in
-                Dom.appendChild Dom_html.document##.body dialog#root;
-                dialog#open_await ()
-                >>= fun _ ->
-                dialog#destroy ();
-                Element.remove_child_safe Dom_html.document##.body dialog#root;
-                Lwt.return_unit
-              | _ -> Lwt.return_unit)) in
+let tie_menu_with_toggle (scaffold : Scaffold.t) wizard_dialog =
+  match Element.query_selector scaffold#root Selectors.overflow_menu with
+  | None -> None
+  | Some elt ->
+    let menu = Components_lab.Overflow_menu.attach elt in
+    let hotkeys = Dom_html.getElementById "hotkeys" in
+    let wizard = Dom_html.getElementById "wizard" in
+    let hotkeys_dialog = make_hotkeys_dialog () in
+    let listeners = Js_of_ocaml_lwt.Lwt_js_events.(
+        [ clicks hotkeys (fun _ _ ->
+              hotkeys_dialog#open_await ()
+              >>= fun _ -> Lwt.return_unit)
+        ; clicks wizard (fun _ _ ->
+              wizard_dialog
+              >>= function
+              | Error _ -> Lwt.return_unit
+              | Ok x ->
+                if not x#in_dom
+                then Dom.appendChild Dom_html.document##.body x#root;
+                x#open_await ()
+                >>= fun _ -> Lwt.return_unit)
+        ]) in
+    Dom.appendChild Dom_html.document##.body hotkeys_dialog#root;
     menu#set_on_destroy (fun () ->
-        icon#destroy ();
-        Lwt.cancel click;
-        Lwt.cancel selected)
+        Dom.removeChild Dom_html.document##.body hotkeys_dialog#root;
+        List.iter Lwt.cancel listeners);
+    menu#layout ();
+    Some menu
+
+let ( >>=? ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
 
 let () =
   let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
+  let wizard =
+    let open React in
+    Http_wm.get_layout ()
+    >>=? fun wm -> Http_structure.get_annotated ()
+    >>=? fun streams ->
+    Api_js.Websocket.JSON.open_socket ~path:(Netlib.Uri.Path.Format.of_string "ws") ()
+    >>=? fun socket -> Http_wm.Event.get socket
+    >>=? fun (_, wm_event) -> Http_structure.Event.get_annotated socket
+    >>=? fun (_, streams_event) ->
+    let wizard = Pipeline_widgets.Wizard.make streams wm in
+    let notif =
+      E.merge (fun _ -> wizard#notify) ()
+        [ E.map (fun x -> `Layout x) wm_event
+        ; E.map (fun x -> `Streams x) streams_event
+        ] in
+    wizard#set_on_destroy (fun () ->
+        E.stop ~strong:true notif;
+        E.stop ~strong:true wm_event;
+        E.stop ~strong:true streams_event;
+        Api_js.Websocket.close_socket socket);
+    Lwt.return_ok wizard in
   let player = match scaffold#body with
     | None -> failwith "no video player element found"
     | Some x -> Player.attach x in
   tie_side_sheet_with_toggle scaffold;
-  tie_menu_with_toggle scaffold;
+  let menu = tie_menu_with_toggle scaffold wizard in
+  scaffold#set_on_destroy (fun () -> Option.iter Widget.destroy menu);
   Lwt.async (fun () ->
       RTC.start_webrtc player
       >>= function

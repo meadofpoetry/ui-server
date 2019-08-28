@@ -4,6 +4,7 @@
               janus-js
               components
               components_lab
+              pipeline_widgets
               page_mosaic_video_tyxml)
   (preprocess (pps js_of_ocaml-ppx)))
 
