@@ -1,0 +1,25 @@
+@import "@material/theme/mixins";
+@import "./variables";
+
+.grid-overlay {
+    $contrast-tone: mdc-theme-contrast-tone($mdc-theme-surface);
+    width: 100%;
+    height: 100%;
+    @include mdc-theme-prop(color, map-get($mosaic-grid-colors, $contrast-tone));
+}
+
+.grid-overlay-snap-line {
+    color: rgba(0, 0, 255, 0.3);
+
+    &--center {
+        color: rgba(255, 0, 0, 0.3);
+    }
+
+    &--multiple {
+        color: rgba(0, 0, 255, 0.5);
+    }
+
+    &--center-multiple {
+        color: rgba(255, 0, 0, 0.5);
+    }
+}

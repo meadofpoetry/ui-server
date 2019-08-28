@@ -4,6 +4,7 @@
 @import "./container_editor/container_editor";
 @import "./widget_editor/widget_editor";
 @import "./grid/grid";
+@import "./grid_overlay/grid_overlay";
 @import "../pipeline/wizard";
 
 @mixin nav-icon-hidden {

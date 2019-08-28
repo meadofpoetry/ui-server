@@ -32,8 +32,8 @@
 ** transform.ml
 - [X] XXX extend widget resize direction to Top, Left, Right, Bottom
 ** grid_overlay.ml
-- [ ] XXX read `size` from DOM attribute
-- [ ] XXX get snap line color from CSS
+- [X] XXX read `size` from DOM attribute
+- [X] XXX get snap line color from CSS
 ** list_of_widgets.ml
 - [ ] XXX add human-readable subheader names
 - [ ] XXX add lists/items according to sorting - optional

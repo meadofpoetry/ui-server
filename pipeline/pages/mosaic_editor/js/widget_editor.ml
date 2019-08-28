@@ -14,7 +14,7 @@ module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 module Selector = struct
   let item = Printf.sprintf ".%s" CSS.item
 
-  let grid_overlay = Printf.sprintf ".%s" CSS.overlay
+  let grid_overlay = Printf.sprintf ".%s" Grid_overlay.CSS.root
 
   let grid_ghost = Printf.sprintf ".%s" CSS.ghost
 
@@ -142,7 +142,7 @@ class t ~(list_of_widgets : List_of_widgets.t)
     | Some x ->
       let show_grid_lines = Storage.(get_bool ~default:true show_grid_lines) in
       let show_snap_lines = Storage.(get_bool ~default:true show_snap_lines) in
-      Grid_overlay.attach ~show_grid_lines ~show_snap_lines ~size:10 x
+      Grid_overlay.attach ~show_grid_lines ~show_snap_lines x
 
   val ghost = match Element.query_selector elt Selector.grid_ghost with
     | None -> failwith "widget-editor: grid ghost element not found"
@@ -547,7 +547,7 @@ let make ~(scaffold : Scaffold.t)
           item) x
     | `Data x -> List.map make_item x in
   let content =
-    Markup.create_overlay ()
+    Grid_overlay.Markup.create ~size:10 ()
     :: Markup.create_ghost ()
     :: List.map Tyxml_js.Of_dom.of_element items in
   let elt =

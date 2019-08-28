@@ -1,18 +1,57 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 
-let color_from_css (elt : #Dom_html.element Js.t) =
+include Page_mosaic_editor_tyxml.Grid_overlay
+
+module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
+
+module Attr = struct
+  let size = "data-size"
+end
+
+let name = "grid-overlay"
+
+let color_from_css elt =
   (Dom_html.window##getComputedStyle elt)##.color
+
+let color_from_css_class class_ =
+  let elt = Dom_html.(createDiv document) in
+  elt##.style##.cssText := Js.string "position: fixed; \
+                                      left:-100px; \
+                                      width:1px; \
+                                      height:1px;";
+  elt##.className := Js.string class_;
+  Dom.appendChild Dom_html.document##.body elt;
+  let color = color_from_css elt in
+  Dom.removeChild Dom_html.document##.body elt;
+  color
+
+let snap_line_color () =
+  let center = color_from_css_class CSS.snap_line_center in
+  let multiple = color_from_css_class CSS.snap_line_multiple in
+  let center_multiple = color_from_css_class CSS.snap_line_center_multiple in
+  let basic = color_from_css_class CSS.snap_line in
+  fun ~is_center ~is_multiple ->
+    match is_center, is_multiple with
+    | true, true -> center_multiple
+    | false, true -> multiple
+    | true, false -> center
+    | false, false -> basic
 
 class t ?(show_grid_lines = true)
     ?(show_snap_lines = true)
     ?(divider_period = 2)
-    ~size
     (canvas : Dom_html.canvasElement Js.t) () = object(self)
   inherit Components.Widget.t canvas () as super
 
+  val get_color = snap_line_color ()
+
   val context = canvas##getContext Dom_html._2d_
 
-  val mutable size = size
+  val mutable size =
+    match Components.Element.get_attribute canvas Attr.size with
+    | None -> 10
+    | Some x -> int_of_string x
 
   val mutable divider_period = divider_period
 
@@ -66,22 +105,24 @@ class t ?(show_grid_lines = true)
 
   (* Private methods *)
 
-  method private draw_snap_line ~width ~height (line : Snap_line.t) : unit =
-    let color = match line.is_center, line.is_multiple with
-      | true, true -> "rgba(255, 0, 0, 0.9)"
-      | false, true -> "rgba(0, 0, 255, 0.9)"
-      | true, false -> "rgba(255, 0, 0, 0.4)"
-      | false, false -> "rgba(0, 0, 255, 0.4)" in
-    context##.strokeStyle := Js.string color;
+  method private draw_snap_line ~width ~height
+      ({ is_vertical
+       ; is_multiple
+       ; is_center
+       ; origin
+       } : Snap_line.t) : unit =
+    print_endline
+    @@ Printf.sprintf "draw snap line: v=%B, m=%B, c=%B, o=%f"
+      is_vertical
+      is_multiple
+      is_center
+      origin;
     let start_x, start_y, end_x, end_y =
-      if line.is_vertical then
-        line.origin, 0.,
-        line.origin, float_of_int height
-      else
-        0., line.origin,
-        float_of_int width, line.origin
-    in
-    context##.strokeStyle := Js.string color;
+      if is_vertical
+      then origin, 0., origin, float_of_int height
+      else 0., origin, float_of_int width, origin in
+    context##.strokeStyle := get_color ~is_center ~is_multiple;
+    context##.lineWidth := 2.;
     context##beginPath;
     context##moveTo start_x start_y;
     context##lineTo end_x end_y;
@@ -142,12 +183,18 @@ class t ?(show_grid_lines = true)
     self#draw_rows ~color ~cols ~rows;
     self#draw_columns ~color ~cols ~rows;
     self#draw_dividers ~color ~cols ~rows
-
 end
 
-let attach ?show_grid_lines ?show_snap_lines ?(size = 10)
+let make ?classes ?attrs ?show_grid_lines ?show_snap_lines ?size () =
+  let canvas =
+    Tyxml_js.To_dom.of_canvas
+    @@ Markup.create ?classes ?attrs ?size () in
+  new t ?show_grid_lines ?show_snap_lines canvas ()
+
+let attach ?show_grid_lines ?show_snap_lines ?divider_period
     (elt : #Dom_html.element Js.t) : t =
   Js.Opt.case (Dom_html.CoerceTo.canvas elt)
-    (fun () -> failwith "grid-overlay: host element must have a `canvas` tag")
+    (fun () ->
+       failwith @@ Printf.sprintf "%s: host element must have a `canvas` tag" name)
     (fun (canvas : Dom_html.canvasElement Js.t) ->
-       new t ?show_grid_lines ?show_snap_lines ~size canvas ())
+       new t ?show_grid_lines ?show_snap_lines ?divider_period canvas ())
