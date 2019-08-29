@@ -404,7 +404,9 @@ module Util = struct
             let c = match what_add with
               | Row -> if before then sel.row else (sel.row + sel.row_span)
               | Col -> if before then sel.col else (sel.col + sel.col_span) in
-            compare (abs ((snd a) - c)) (abs ((snd b) - c)))
+            match what_add with
+            | Row -> compare (abs ((snd a) - c)) (abs ((snd b) - c))
+            | Col -> compare (abs ((fst a) - c)) (abs ((fst b) - c)))
             steps in
         match steps_sorted with
         | [] -> acc

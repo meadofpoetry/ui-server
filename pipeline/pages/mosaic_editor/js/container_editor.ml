@@ -50,7 +50,8 @@ module Selection = struct
 
   let on_start = fun (selection : t) _ ->
     match selection#selected with
-    | [] | [_] -> ()
+    | [] -> ()
+    | [x] -> Element.remove_class x class_
     | selected ->
       List.iter (fun x -> Element.remove_class x class_) selected;
       selection#clear_selection ()
@@ -63,6 +64,7 @@ module Selection = struct
     begin match selection#selected with
       | [x] when not @@ List.memq x selected ->
         selection#remove_from_selection x; Element.remove_class x class_
+      | [x] -> Element.add_class x class_
       | _ -> ()
     end;
     selection#keep_selection ();
@@ -169,7 +171,7 @@ class t ~(scaffold : Scaffold.t)
   val list_of_widgets =
     let layout = List.map (fun (_, _, (x : Wm.Annotated.container)) ->
         List.map (fun (id, _, x) -> id, x) x.widgets) wm.layout in
-    List_of_widgets.make (filter_available_widgets wm.widgets layout)
+    List_of_widgets.make scaffold (filter_available_widgets wm.widgets layout)
 
   val mutable _widgets = wm.widgets
 
@@ -304,8 +306,6 @@ class t ~(scaffold : Scaffold.t)
     | `Layout wm ->
       wizard_dialog#wizard#notify (`Layout wm)
     | `Wizard wm ->
-      Js.Unsafe.global##.console##log (Json.unsafe_input (Js.string @@ Yojson.Safe.to_string @@ Wm.to_yojson wm))
-      |> ignore;
       let wm = Wm.Annotated.annotate ~active:wm ~stored:wm in
       let grid_props = grid_properties_of_layout wm in
       let cells = List.map (fun (id, ((container : Wm.Annotated.container), pos)) ->

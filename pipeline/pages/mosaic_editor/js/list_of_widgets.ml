@@ -49,7 +49,7 @@ let get f l =
       else aux (x :: acc) tl in
   aux [] l
 
-class t (elt : Dom_html.element Js.t) = object(self)
+class t (scaffold : Scaffold.t) (elt : Dom_html.element Js.t) = object(self)
   inherit Widget.t elt () as super
 
   val placeholder = Components_lab.Placeholder.make
@@ -166,7 +166,9 @@ class t (elt : Dom_html.element Js.t) = object(self)
     e##.dataTransfer##setData (Js.string format) data;
     target##.style##.opacity := Js.def @@ Js.string "0.5";
     target##.style##.zIndex := Js.string "5";
-    Lwt.return_unit
+    match scaffold#side_sheet with
+    | None -> Lwt.return_unit
+    | Some x -> x#toggle ~force:false ()
 
   method private handle_dragend e _ =
     let target = Dom_html.eventTarget e in
@@ -199,7 +201,7 @@ let group_by_domain (widgets : (string * Wm.widget) list) =
           | Some l -> Some (x :: l)) acc)
     map widgets
 
-let make (widgets : (string * Wm.widget) list) : t =
+let make (scaffold : Scaffold.t) (widgets : (string * Wm.widget) list) : t =
   let grouped = group_by_domain widgets in
   let items = Domains.map (List.map (fun (id, x) ->
       Markup.create_item ~id x)) grouped in
@@ -213,4 +215,4 @@ let make (widgets : (string * Wm.widget) list) : t =
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element
     @@ Markup.create content in
-  new t elt
+  new t scaffold elt

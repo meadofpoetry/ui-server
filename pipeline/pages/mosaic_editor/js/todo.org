@@ -15,7 +15,7 @@
 - [ ] `handle_keydown` method
 - [X] `bring_to_front` method
 - [X] `send_to_back` method
-- [-] implement layers logic
+- [X] implement layers logic
 - [X] fix widgets scaling
 - [ ] XXX take aspect ratio into account when adding widget
 - [ ] add states
@@ -44,7 +44,7 @@
 ** grid.ml
 - [ ] XXX fix merge/add/remove col/row methods
       (especially for multi-span cells and nested grids)
-- [ ] implement `is_merge_possible` function
+- [X] implement `is_merge_possible` function
 ** undo_manager.ml
 - [X] XXX add limit for undo/redo actions
 ** wizard.ml
