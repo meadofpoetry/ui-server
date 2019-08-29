@@ -194,6 +194,8 @@ class t ~(scaffold : Scaffold.t)
   inherit Widget.t elt () as super
 
   method! init () : unit =
+    Option.iter (fun x -> x#root##.style##.display := Js.string "none")
+      scaffold#side_sheet;
     init_top_app_bar_icon scaffold;
     ignore @@ set_top_app_bar_icon scaffold `Aux close_icon#root;
     resize_observer <- Some (
@@ -359,7 +361,15 @@ class t ~(scaffold : Scaffold.t)
     Element.add_class body CSS.widget_mode;
     Dom.appendChild content editor#root;
     editor#layout ();
-    t
+    Option.fold
+      ~none:Lwt.return_unit
+      ~some:(fun (x : Side_sheet.t) ->
+          x#root##.style##.display := Js.string "";
+          match scaffold#side_sheet_type with
+          | Modal | Permanent -> Lwt.return_unit
+          | Dismissible -> x#toggle ~force:true ())
+      scaffold#side_sheet
+    >>= fun () -> t
 
   method private switch_to_container_mode
       ({ restore; icon; editor; cell } : widget_mode_state) =
@@ -377,7 +387,11 @@ class t ~(scaffold : Scaffold.t)
     (* Hide side sheet *)
     match scaffold#side_sheet with
     | None -> Lwt.return_unit
-    | Some x -> x#toggle ~force:false ()
+    | Some x ->
+      x#toggle ~force:false ()
+      >>= fun () ->
+      x#root##.style##.display := Js.string "none";
+      Lwt.return_unit
 
   method private handle_grid_resize _ _ : unit Lwt.t =
     self#layout ();
@@ -475,6 +489,7 @@ class t ~(scaffold : Scaffold.t)
       ~on_remove:(fun () -> self#clear_selection ())
       undo_manager
       wizard_dialog
+      scaffold
       grid
 
   method private create_main_actions () =

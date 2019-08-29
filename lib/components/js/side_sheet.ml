@@ -7,6 +7,8 @@ module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
+let ( % ) f g x = f (g x)
+
 type slide = [`Leading | `Trailing]
 
 let equal_slide (a : slide) (b : slide) : bool =
@@ -16,12 +18,13 @@ let equal_slide (a : slide) (b : slide) : bool =
 
 module type M = sig
   include Components_tyxml.Side_sheet.Common_css
+
   val name : string
+
   val slide : slide
 end
 
 module Make_parent(M : M) = struct
-
   module Scrim = struct
     class t (elt : Dom_html.element Js.t) () =
     object
@@ -53,18 +56,16 @@ module Make_parent(M : M) = struct
       Dom_html.Event.make (Printf.sprintf "%s:close" M.name)
   end
 
-  let get_target (e : #Dom_html.event Js.t) : Dom_html.element Js.t =
-    Js.Opt.get (e##.target) (fun () -> raise Not_found)
-
-  class t (elt : Dom_html.element Js.t) () =
-  object(self)
+  class t (elt : Dom_html.element Js.t) () = object(self)
     val mutable _previous_focus = None
 
-    (* Animation *)
     val mutable _animation_thread = None
-    (* Event listeners *)
+
     val mutable _keydown_listener = None
+
     val mutable _scrim_click_listener = None
+
+    val mutable _quick_open = false
 
     inherit Widget.t elt () as super
 
@@ -77,9 +78,9 @@ module Make_parent(M : M) = struct
         then Dismissible
         else Permanent in
       begin match typ with
-      | Modal -> self#set_modal ()
-      | Permanent -> self#set_permanent ()
-      | Dismissible -> self#set_dismissible ()
+        | Modal -> self#set_modal ()
+        | Permanent -> self#set_permanent ()
+        | Dismissible -> self#set_dismissible ()
       end;
       (* Connect event listeners *)
       let keydown = Events.keydowns super#root self#handle_keydown in
@@ -99,6 +100,8 @@ module Make_parent(M : M) = struct
       super#remove_class M.animate;
       super#remove_class M.closing;
       super#remove_class M.opening;
+
+    method set_quick_open x = _quick_open <- x
 
     method permanent : bool =
       not (super#has_class M.modal || super#has_class M.dismissible)
@@ -134,16 +137,16 @@ module Make_parent(M : M) = struct
       let scrim = match scrim with
         | Some x -> Some x
         | None ->
-           match Js.Opt.to_option @@ Element.get_parent elt with
-           | None -> None
-           | Some p -> Element.query_selector p ("." ^ M.scrim) in
+          match Js.Opt.to_option @@ Element.get_parent elt with
+          | None -> None
+          | Some p -> Element.query_selector p ("." ^ M.scrim) in
       match scrim with
       | None -> ()
       | Some scrim ->
-         let listener =
-           Events.clicks scrim (fun _ _ ->
-               self#handle_scrim_click ()) in
-         _scrim_click_listener <- Some listener
+        let listener =
+          Events.clicks scrim (fun _ _ ->
+              self#handle_scrim_click ()) in
+        _scrim_click_listener <- Some listener
 
     (** Returns [true] if drawer is in open state *)
     method is_open : bool =
@@ -160,42 +163,53 @@ module Make_parent(M : M) = struct
 
     method private show () : unit Lwt.t =
       if not self#permanent
-         && not self#is_open
-         && not self#is_opening
-         && not self#is_closing
+      && not self#is_open
+      && not self#is_opening
+      && not self#is_closing
       then (
         super#add_class M.open_;
-        super#add_class M.animate;
         self#save_focus ();
-        Option.iter Lwt.cancel _animation_thread;
-        Lwt_js_events.request_animation_frame ()
-        >>= Lwt_js.yield
-        >>= (fun () ->
-          super#add_class M.opening;
-          Lwt.catch (fun () ->
-              Events.seq_loop
-                (Events.make_event (Dom_html.Event.make "transitionend"))
-                super#root
-                self#handle_transition_end)
-            (function
-             | Lwt.Canceled -> Lwt.return_unit
-             | exn -> Lwt.fail exn)))
-      else Lwt.return_unit
-
-    method private hide () : unit Lwt.t =
-      if not self#permanent
-         && self#is_open
-         && not self#is_opening
-         && not self#is_closing
-      then (super#add_class M.closing;
+        if not _quick_open
+        then (
+          super#add_class M.animate;
+          Option.iter Lwt.cancel _animation_thread;
+          Lwt_js_events.request_animation_frame ()
+          >>= Lwt_js.yield
+          >>= fun () ->
+          let waiter =
             Lwt.catch (fun () ->
                 Events.seq_loop
                   (Events.make_event (Dom_html.Event.make "transitionend"))
                   super#root
-                  self#handle_transition_end)
+                  (self#handle_transition_end ~closing:false % Option.some))
               (function
-               | Lwt.Canceled -> Lwt.return_unit
-               | exn -> Lwt.fail exn))
+                | Lwt.Canceled -> Lwt.return_unit
+                | exn -> Lwt.fail exn) in
+          super#add_class M.opening;
+          waiter)
+        else self#handle_transition_end ~closing:false None Lwt.return_unit)
+      else Lwt.return_unit
+
+    method private hide () : unit Lwt.t =
+      if not self#permanent
+      && self#is_open
+      && not self#is_opening
+      && not self#is_closing
+      then (
+        if not _quick_open
+        then (
+          let waiter =
+            Lwt.catch (fun () ->
+                Events.seq_loop
+                  (Events.make_event (Dom_html.Event.make "transitionend"))
+                  super#root
+                  (self#handle_transition_end ~closing:true % Option.some))
+              (function
+                | Lwt.Canceled -> Lwt.return_unit
+                | exn -> Lwt.fail exn) in
+          super#add_class M.closing;
+          waiter)
+        else self#handle_transition_end ~closing:true None Lwt.return_unit)
       else Lwt.return_unit
 
     method private notify_open () : unit =
@@ -214,8 +228,8 @@ module Make_parent(M : M) = struct
       match _previous_focus with
       | None -> ()
       | Some elt ->
-         if Js.to_bool @@ (Js.Unsafe.coerce self#root)##contains elt
-         then elt##focus
+        if Js.to_bool @@ (Js.Unsafe.coerce self#root)##contains elt
+        then elt##focus
 
     method private focus_active_navigation_item () : unit =
       (* TODO improve query *)
@@ -231,27 +245,31 @@ module Make_parent(M : M) = struct
       super#has_class M.closing
 
     method private handle_keydown (e : Dom_html.keyboardEvent Js.t)
-                     (_ : unit Lwt.t) : unit Lwt.t =
+        (_ : unit Lwt.t) : unit Lwt.t =
       match Dom_html.Keyboard_code.of_event e with
       | Escape -> self#hide ()
       | _ -> Lwt.return_unit
 
-    method private handle_transition_end (e : #Dom_html.event Js.t)
-                     (t : unit Lwt.t) : unit Lwt.t =
+    method private handle_transition_end ~closing
+        (e : #Dom_html.event Js.t option)
+        (t : unit Lwt.t) : unit Lwt.t =
+      let is_root = match e with
+        | None -> true
+        | Some e -> Element.has_class (Dom.eventTarget e) M.root in
       try
-        if Element.has_class (get_target e) M.root
+        if is_root
         then begin
-            if self#is_closing
-            then (super#remove_class M.open_;
-                  self#restore_focus ();
-                  self#notify_close ())
-            else (self#focus_active_navigation_item ();
-                  self#notify_open ());
-            super#remove_class M.animate;
-            super#remove_class M.opening;
-            super#remove_class M.closing;
-            Lwt.cancel t;
-          end;
+          if closing
+          then (super#remove_class M.open_;
+                self#restore_focus ();
+                self#notify_close ())
+          else (self#focus_active_navigation_item ();
+                self#notify_open ());
+          super#remove_class M.animate;
+          super#remove_class M.opening;
+          super#remove_class M.closing;
+          Lwt.cancel t;
+        end;
         Lwt.return_unit
       with Not_found -> Lwt.return_unit
 
@@ -264,10 +282,12 @@ end
 
 module Parent =
   Make_parent(struct
-      include CSS
-      let name = "side_sheet"
-      let slide = `Trailing
-    end)
+    include CSS
+
+    let name = "side_sheet"
+
+    let slide = `Trailing
+  end)
 
 include (Parent : module type of Parent)
 

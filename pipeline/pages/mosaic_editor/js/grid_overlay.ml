@@ -111,12 +111,6 @@ class t ?(show_grid_lines = true)
        ; is_center
        ; origin
        } : Snap_line.t) : unit =
-    print_endline
-    @@ Printf.sprintf "draw snap line: v=%B, m=%B, c=%B, o=%f"
-      is_vertical
-      is_multiple
-      is_center
-      origin;
     let start_x, start_y, end_x, end_y =
       if is_vertical
       then origin, 0., origin, float_of_int height

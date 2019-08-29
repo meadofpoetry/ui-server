@@ -176,22 +176,60 @@ module Containers = struct
       ~icon:Icon.SVG.Path.auto_fix
       ()
 
-  let description (input : string Textfield.t) (dialog : Dialog.t) =
+  let description_error_to_string = function
+    | `Empty -> "Введите значение"
+    | `Not_unique -> "Такое описание уже есть"
+
+  let description_input_handler input accept titles = fun _ _ ->
+    let result = match input#value_as_string with
+      | "" -> Error `Empty
+      | value ->
+        if List.exists (String.equal value) titles
+        then Error `Not_unique
+        else Ok () in
+    (match result with
+     | Ok () ->
+       input#set_valid true;
+       accept#set_disabled false
+     | Error e ->
+       let msg = description_error_to_string e in
+       input#set_helper_text_content msg;
+       input#set_valid false;
+       accept#set_disabled true);
+    Lwt.return_unit
+
+  let description
+      (input : string Textfield.t)
+      (accept : Button.t)
+      (dialog : Dialog.t)
+      (grid : Grid.t)
+      (scaffold : Scaffold.t) =
+    input#set_use_native_validation false;
     make ~callback:(fun selected _ _ ->
         match selected with
         | [cell] ->
           let title = Container_utils.get_cell_title cell in
+          let titles =
+            List.filter_map (fun x ->
+                if Element.equal cell x then None
+                else Some (Container_utils.get_cell_title x))
+              grid#cells in
+          let listener = Lwt_js_events.inputs input#input_element
+              (description_input_handler input accept titles) in
           input#set_value title;
           (dialog#open_await ()
-           >>= function
+           >>= fun action ->
+           Lwt.cancel listener;
+           match action with
            | Close | Destroy | Custom _ -> Lwt.return_unit
            | Accept ->
-             (* TODO
-                - Check if title is valid (empty, repeating, etc)
-                - Change top app bar title *)
              let value' = input#value_as_string in
              if not (String.equal title value')
-             then Container_utils.set_cell_title cell value';
+             then (
+               Container_utils.set_cell_title cell value';
+               match scaffold#top_app_bar with
+               | None -> ()
+               | Some x -> x#set_title value');
              Lwt.return_unit)
         | _ -> Lwt.return_unit)
       ~active:(function [_] -> true | _ -> false)
@@ -316,9 +354,10 @@ module Containers = struct
       ()
 
   let make_menu ~on_remove ~edit_container
-      s_state undo_manager wizard_widget grid =
+      s_state undo_manager wizard_widget scaffold grid =
     let body = Dom_html.document##.body in
-    let textfield, dialog = Container_utils.UI.make_description_dialog () in
+    let textfield, accept, dialog =
+      Container_utils.UI.make_description_dialog () in
     Dom.appendChild body dialog#root;
     let menu = make_overflow_menu s_state
         [ (* Undo.undo undo_manager
@@ -327,7 +366,7 @@ module Containers = struct
           video ()
         ; wizard wizard_widget grid
         ; edit ~edit_container
-        ; description textfield dialog
+        ; description textfield accept dialog grid scaffold
         ; merge ~on_remove undo_manager grid
         ; add_row_above grid
         ; add_row_below grid
@@ -339,6 +378,7 @@ module Containers = struct
     menu#set_on_destroy (fun () ->
         Element.remove_child_safe body dialog#root;
         textfield#destroy ();
+        accept#destroy ();
         dialog#destroy ());
     menu
 end
@@ -363,7 +403,7 @@ module Widgets = struct
           | [] -> Option.is_some scaffold#side_sheet
           | _ -> false)
       ~name:"Добавить виджет"
-      ~icon:Icon.SVG.Path.plus
+      ~icon:Icon.SVG.Path.view_grid_plus
       ()
 
   let bring_to_front (obj : #obj) =

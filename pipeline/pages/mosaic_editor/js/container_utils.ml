@@ -217,18 +217,33 @@ module UI = struct
     dialog, (fun () -> cols#value, rows#value)
 
   let make_description_dialog () =
-    let input = Textfield.make_textfield ~label:"Наименование" Text in
+    let helper_text =
+      Textfield.Helper_text.make
+        ~validation:true
+        "" in
+    let textfield = Textfield.make_textfield
+        ~label:"Наименование"
+        ~helper_text
+        Text in
     let title =
       Tyxml_js.To_dom.of_element
       @@ Dialog.Markup.create_title_simple ~title:"Описание" () in
     let content =
       Tyxml_js.To_dom.of_element
-      @@ Dialog.Markup.create_content ~content:[input#markup] () in
+      @@ Dialog.Markup.create_content
+        ~content:[ textfield#markup
+                 ; Textfield.Markup.create_helper_line [helper_text#markup]
+                 ]
+        () in
+    let accept =
+      Button.attach
+      @@ Dialog.make_action ~label:"OK" ~action:Accept () in
     let actions = Dialog.(
-        [ make_action ~label:"Отмена" ~action:Close ()
-        ; make_action ~label:"ОК" ~action:Accept ()
+        [ Element.coerce @@ make_action ~label:"Отмена" ~action:Close ()
+        ; accept#root
         ]) in
-    input, Dialog.make ~title ~content ~actions ()
+    let dialog = Dialog.make ~title ~content ~actions () in
+    textfield, accept, dialog
 
   let make_wizard_dialog structure wm =
     let wizard = Pipeline_widgets.Wizard.make structure wm in

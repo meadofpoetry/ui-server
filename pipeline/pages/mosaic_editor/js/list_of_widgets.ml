@@ -168,7 +168,10 @@ class t (scaffold : Scaffold.t) (elt : Dom_html.element Js.t) = object(self)
     target##.style##.zIndex := Js.string "5";
     match scaffold#side_sheet with
     | None -> Lwt.return_unit
-    | Some x -> x#toggle ~force:false ()
+    | Some x ->
+      match scaffold#side_sheet_type with
+      | Modal -> x#toggle ~force:false ()
+      | Dismissible | Permanent -> Lwt.return_unit
 
   method private handle_dragend e _ =
     let target = Dom_html.eventTarget e in

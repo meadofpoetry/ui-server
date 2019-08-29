@@ -7,6 +7,7 @@ open Js_of_ocaml_tyxml
 *)
 
 include Components_tyxml.Scaffold
+
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
@@ -31,7 +32,6 @@ module Breakpoint = struct
 
   let get_screen_width () : int =
     Dom_html.document##.body##.offsetWidth
-
 end
 
 let drawer_type_to_enum : Side_sheet.typ -> int = function
@@ -43,7 +43,6 @@ let equal_drawer_type (a : Side_sheet.typ as 'a) (b : 'a) : bool =
   (drawer_type_to_enum a) = (drawer_type_to_enum b)
 
 module Selector = struct
-
   let not_found (name : string) : string =
     Printf.sprintf "%s: %s not found" CSS.root name
 
@@ -57,7 +56,6 @@ module Selector = struct
     match by_class_opt elt c with
     | Some x -> x
     | None -> failwith (not_found c)
-
 end
 
 let attach_top_app_bar ?scroll_target (elt : Dom_html.element Js.t) () =
@@ -97,9 +95,11 @@ class t ?(drawer : #Drawer.t option)
     val mutable top_app_bar = match top_app_bar with
       | None -> attach_top_app_bar ~scroll_target:app_content_inner elt ()
       | Some x -> Some x
+
     val mutable drawer = match drawer with
       | None -> attach_drawer elt ()
       | Some x -> Some x
+
     val mutable side_sheet = match side_sheet with
       | None -> attach_side_sheet elt ()
       | Some x -> Some x
@@ -189,8 +189,7 @@ class t ?(drawer : #Drawer.t option)
       self#set_drawer_properties_ ~is_leading:false typ elevation w;
       side_sheet <- Some w
 
-    method set_side_sheet_breakpoints (bp : Side_sheet.typ Breakpoint.t)
-      : unit =
+    method set_side_sheet_breakpoints (bp : Side_sheet.typ Breakpoint.t) : unit =
       side_sheet_breakpoints <- bp
 
     method set_drawer_breakpoints (bp : Side_sheet.typ Breakpoint.t) : unit =
@@ -421,7 +420,6 @@ class t ?(drawer : #Drawer.t option)
             screen elevation side_sheet
         | _ -> Lwt.return_unit in
       Lwt.join [drawer_lwt; side_sheet_lwt]
-
   end
 
 (** Create new scaffold widget from scratch *)
