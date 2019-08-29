@@ -235,9 +235,7 @@ class t
   method private make_detail e =
     { original_event = e
     ; area
-    ; selected = List.fold_left (fun acc x ->
-          if List.memq x acc
-          then acc else x :: acc) _selected _stored
+    ; selected = _selected
     ; removed = _removed
     ; added = _added
     }

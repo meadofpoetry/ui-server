@@ -3,7 +3,6 @@ open Pipeline_types
 open Components
 
 module Attr = struct
-
   let id = "data-id"
 
   let typ = "data-type"
@@ -139,7 +138,6 @@ module Attr = struct
 
   let set_description (elt : Dom_html.element Js.t) v =
     Element.set_attribute elt description v
-
 end
 
 module Z_index : sig

@@ -72,8 +72,8 @@ module Selection = struct
       (fun () -> true)
       (fun e -> e##.button = 0)
 
-  let on_start = fun (selection : t) ({ selected; _ } : event) ->
-    List.iter (fun x -> Element.remove_class x class_) selected;
+  let on_start = fun (selection : t) _ ->
+    List.iter (fun x -> Element.remove_class x class_) selection#selected;
     selection#clear_selection ()
 
   let on_move = fun _ { selected; removed; _ } ->
@@ -92,8 +92,8 @@ module Selection = struct
       ~on_start
       ~on_move
       ~on_stop:(on_stop handle_selected)
-      ~on_outside_click:(fun selection event ->
-          List.iter (fun x -> Element.remove_class x class_) event.selected;
+      ~on_outside_click:(fun selection _ ->
+          List.iter (fun x -> Element.remove_class x class_) selection#selected;
           selection#clear_selection ();
           handle_selected [])
       ()

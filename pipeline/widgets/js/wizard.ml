@@ -70,14 +70,13 @@ module Make(S : S) = struct
 
   let container_position ~cols ~rows i =
     { Wm.
-      x = float_of_int (i mod rows) /. float_of_int rows
-    ; y = float_of_int (i / rows) /. float_of_int cols
-    ; w = 1. /. float_of_int rows
-    ; h = 1. /. float_of_int cols
+      x = float_of_int (i mod cols) /. float_of_int cols
+    ; y = float_of_int (i / cols) /. float_of_int rows
+    ; w = 1. /. float_of_int cols
+    ; h = 1. /. float_of_int rows
     }
 
   let make_container ~cols ~rows ~video_asp ~audio_asp index (_domain, (v, a)) =
-    print_endline @@ Printf.sprintf "cols: %d, rows: %d" cols rows;
     let position = container_position ~cols ~rows index in
     let vwidth = video_asp /. (video_asp +. audio_asp) in
     let awidth = 1. -. vwidth in
@@ -132,18 +131,41 @@ module Make(S : S) = struct
           acc)
       Domains.empty data
 
+  let get_cols_rows ~resolution ~aspect num =
+    let w, h =
+      float_of_int (fst resolution),
+      float_of_int (snd resolution) in
+    let rec aux ((_, _, sq') as acc) = function
+      | 0 -> acc
+      | i ->
+        let rows = float_of_int i in
+        let cols = ceil (float_of_int num /. rows) in
+        let total_height = (w /. cols /. aspect) *. rows in
+        let sq =
+          if total_height <= h
+          then
+            let item_w = w /. cols in
+            item_w *. item_w *. aspect
+          else
+            let item_h = h /. rows in
+            item_h *. item_h /. aspect in
+        let acc =
+          if sq' > sq then acc
+          else (int_of_float cols, i, sq) in
+        aux acc (pred i) in
+    let (cols, rows, _) = aux (0, 0, 0.) num in
+    cols, rows
+
   let layout_of_widgets ~resolution = function
     | [] -> []
     | data ->
       let widgets = widgets data in
-      let asp_res = aspect_to_float resolution in
       let video_asp = aspect_to_float @@ get_primary_aspect Video widgets in
       let audio_asp = aspect_to_float @@ get_primary_aspect Audio widgets in
       let total_asp = video_asp +. audio_asp in
       let av_pairs = get_pairs widgets in
-      let n = float_of_int @@ Domains.cardinal av_pairs in
-      let rows = int_of_float @@ Float.round @@ sqrt n /. asp_res *. total_asp in
-      let cols = int_of_float @@ Float.round @@ n /. float_of_int rows in
+      let n = Domains.cardinal av_pairs in
+      let cols, rows = get_cols_rows ~resolution ~aspect:total_asp n in
       List.mapi (make_container ~cols ~rows ~video_asp ~audio_asp)
       @@ Domains.bindings av_pairs
 end

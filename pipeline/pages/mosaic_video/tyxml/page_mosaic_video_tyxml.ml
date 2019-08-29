@@ -29,8 +29,11 @@ module Hotkeys = Hotkeys
 
 module CSS = struct
   let root = "mosaic"
+
   let side_sheet_icon = BEM.add_element root "side-sheet-icon"
+
   let menu_icon = BEM.add_element root "menu-icon"
+
   let edit = BEM.add_element root "edit"
 end
 
@@ -39,7 +42,6 @@ module Make(Xml : Xml_sigs.NoWrap)
          (Html : Html_sigs.NoWrap
           with module Xml := Xml
            and module Svg := Svg) = struct
-
   let create_hotkeys ?classes ?attrs () : 'a Html.elt =
     let module M = Hotkeys.Make(Xml)(Svg)(Html) in
     let create_option (label, hotkey) =
@@ -51,6 +53,5 @@ module Make(Xml : Xml_sigs.NoWrap)
       let options = List.map create_option gp in
       M.create_section ~title ~options () in
     M.create ?classes ?attrs ~sections:(List.map create_section hotkeys) ()
-
 end
 
