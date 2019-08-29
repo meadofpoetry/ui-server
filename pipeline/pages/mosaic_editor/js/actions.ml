@@ -226,7 +226,7 @@ module Containers = struct
             } in
           Undo_manager.add undo_manager v;
           Lwt.return_unit)
-      ~active:(function [] | [_] -> false | _ -> true)
+      ~active:(function [] | [_] -> false | x -> Grid.Util.is_merge_possible x)
       ~name:"Объединить ячейки"
       ~icon:Icon.SVG.Path.table_merge_cells
       ()
