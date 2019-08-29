@@ -242,14 +242,16 @@ end = struct
         let siblings = get_group_for_item [hd] items in
         let items = List.filter (fun v ->
             not @@ List.exists (Element.equal v) siblings) tl in
+        let siblings = List.sort (fun a b ->
+            compare (get a) (get b))
+            siblings in
         aux (siblings :: acc) items in
     aux [] items
 
   let validate (items : Dom_html.element Js.t list) : unit =
     let (list_intersect, list_non_intersect) = partition items in
-    let list_intersect_groups = get_all_groups list_intersect in
-    List.iter (set 0) list_non_intersect;
-    List.iter (List.iteri set) list_intersect_groups
+    List.iter (fun x -> set 0 x) list_non_intersect;
+    List.iter (List.iteri set) @@ get_all_groups list_intersect
 end
 
 let title (w : Wm.widget) : string =
