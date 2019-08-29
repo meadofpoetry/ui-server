@@ -105,10 +105,13 @@
         background-color: rgba(238, 238, 238, 0.4);
         cursor: pointer;
     }
+    .mdc-placeholder__text {
+        display: none;
+    }
 }
 
 @mixin player-big-button-color_($color) {
-    .mdc-placeholder__widget {
+    .mdc-placeholder__content .mdc-icon {
         @include mdc-theme-prop(color, $color);
     }
 }

@@ -18,7 +18,7 @@
         map-get($soundbar-colors, low) 42%, map-get($soundbar-colors, low) 60%,
         map-get($soundbar-colors, silence) 50%, map-get($soundbar-colors, silence) 100%);
     background-repeat: space;
-    background-size: 49% 100%;
+    background-size: 47% 100%;
 }
 
 @mixin widget-background($opacity: 1.0) {

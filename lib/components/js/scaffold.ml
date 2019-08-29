@@ -227,13 +227,22 @@ class t ?(drawer : #Drawer.t option)
       side_sheet_type
 
     (* TODO implement snackbar stacking *)
-    method show_snackbar (snackbar : Snackbar.t)
+    method show_snackbar_await (snackbar : Snackbar.t)
       : Snackbar.dismiss_reason Lwt.t =
       Dom.appendChild app_content_inner snackbar#root;
       snackbar#open_await ()
       >>= fun reason ->
       Dom.removeChild app_content_inner snackbar#root;
       Lwt.return reason
+
+    (* TODO implement snackbar stacking *)
+    method show_snackbar ?on_close (snackbar : Snackbar.t) =
+      Dom.appendChild app_content_inner snackbar#root;
+      let closed = Lwt_js_events.make_event Snackbar.Event.closed snackbar#root in
+      Lwt.on_termination closed (fun () ->
+          Option.iter (fun f -> f ()) on_close;
+          Dom.removeChild app_content_inner snackbar#root);
+      snackbar#open_ ()
 
     (* Private methods *)
 

@@ -141,7 +141,7 @@ module UI = struct
       (Integer (Some 1, None))
 
   let make_empty_placeholder
-      (wizard_dialog : Pipeline_widgets.Wizard.t)
+      wizard_dialog
       (table_dialog, value : Dialog.t * (unit -> int option * int option))
       (grid : Grid.t) =
     let table =
@@ -166,7 +166,7 @@ module UI = struct
         ~on_click:(fun _ _ ->
             wizard_dialog#open_await ()
             >>= function
-            | Close | Destroy | Custom _ -> Lwt.return_unit
+            | Dialog.Close | Destroy | Custom _ -> Lwt.return_unit
             | Accept -> Lwt.return_unit)
         ~icon:Icon.SVG.(make_simple Path.auto_fix)#root
         () in
@@ -219,14 +219,46 @@ module UI = struct
   let make_description_dialog () =
     let input = Textfield.make_textfield ~label:"Наименование" Text in
     let title =
-      Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
+      Tyxml_js.To_dom.of_element
       @@ Dialog.Markup.create_title_simple ~title:"Описание" () in
     let content =
-      Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
+      Tyxml_js.To_dom.of_element
       @@ Dialog.Markup.create_content ~content:[input#markup] () in
     let actions = Dialog.(
         [ make_action ~label:"Отмена" ~action:Close ()
         ; make_action ~label:"ОК" ~action:Accept ()
         ]) in
     input, Dialog.make ~title ~content ~actions ()
+
+  let make_wizard_dialog structure wm =
+    let wizard = Pipeline_widgets.Wizard.make structure wm in
+    let title =
+      Tyxml_js.To_dom.of_element
+      @@ Dialog.Markup.create_title_simple
+        ~title:Pipeline_widgets.Wizard.title
+        () in
+    let content =
+      Tyxml_js.To_dom.of_element
+      @@ Dialog.Markup.create_content ~content:[wizard#markup] () in
+    let actions = Dialog.(
+        [ make_action ~label:"Отмена" ~action:Close ()
+        ; make_action ~label:"Применить" ~action:Accept ()
+        ]) in
+    let dialog = Dialog.make_element ~title ~content ~actions () in
+    object
+      inherit Dialog.t dialog () as super
+
+      method! initial_sync_with_dom () : unit =
+        _listeners <- Js_of_ocaml_lwt.Lwt_js_events.(
+            [ seq_loop (make_event Treeview.Event.action)
+                wizard#root (fun _ _ -> super#layout (); Lwt.return_unit)
+            ] @ _listeners);
+        super#initial_sync_with_dom ()
+
+      method! destroy () : unit =
+        wizard#destroy ();
+        super#destroy ()
+
+      method wizard = wizard
+    end
 end

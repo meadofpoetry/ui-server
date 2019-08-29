@@ -232,7 +232,7 @@ let make_hotkeys_dialog () =
     @@ Dialog.Markup.create_content ~content:[hotkeys#markup] () in
   Dialog.make ~title ~content ~actions:[cancel] ()
 
-let tie_menu_with_toggle (scaffold : Scaffold.t) wizard_dialog =
+let tie_menu_with_toggle (scaffold : Scaffold.t) (wizard_dialog, show_wizard) =
   match Element.query_selector scaffold#root Selectors.overflow_menu with
   | None -> None
   | Some elt ->
@@ -244,17 +244,10 @@ let tie_menu_with_toggle (scaffold : Scaffold.t) wizard_dialog =
         [ clicks hotkeys (fun _ _ ->
               hotkeys_dialog#open_await ()
               >>= fun _ -> Lwt.return_unit)
-        ; clicks wizard (fun _ _ ->
-              wizard_dialog
-              >>= function
-              | Error _ -> Lwt.return_unit
-              | Ok x ->
-                if not x#in_dom
-                then Dom.appendChild Dom_html.document##.body x#root;
-                x#open_await ()
-                >>= fun _ -> Lwt.return_unit)
+        ; clicks wizard (fun _ _ -> show_wizard ())
         ]) in
     Dom.appendChild Dom_html.document##.body hotkeys_dialog#root;
+    Dom.appendChild Dom_html.document##.body wizard_dialog#root;
     menu#set_on_destroy (fun () ->
         Dom.removeChild Dom_html.document##.body hotkeys_dialog#root;
         List.iter Lwt.cancel listeners);
@@ -263,9 +256,23 @@ let tie_menu_with_toggle (scaffold : Scaffold.t) wizard_dialog =
 
 let ( >>=? ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
 
-let () =
-  let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
-  let wizard =
+let submit_wizard (scaffold : Scaffold.t) value =
+  Pipeline_http_js.Http_wm.set_layout value
+  >>= function
+  | Ok _ ->
+    let label = "Мозаика сохранена" in
+    let snackbar = Snackbar.make ~dismiss:True ~label () in
+    snackbar#set_timeout 4.;
+    scaffold#show_snackbar ~on_close:snackbar#destroy snackbar
+  | Error e ->
+    let label =
+      Printf.sprintf "Ошибка. %s"
+      @@ Api_js.Http.error_to_string e in
+    let snackbar = Snackbar.make ~label () in
+    scaffold#show_snackbar ~on_close:snackbar#destroy snackbar
+
+let make_wizard (scaffold : Scaffold.t) =
+  let thread =
     let open React in
     Http_wm.get_layout ()
     >>=? fun wm -> Http_structure.get_annotated ()
@@ -286,10 +293,62 @@ let () =
         E.stop ~strong:true streams_event;
         Api_js.Websocket.close_socket socket);
     Lwt.return_ok wizard in
+  let title =
+    To_dom.of_element
+    @@ Dialog.Markup.create_title_simple
+      ~title:Pipeline_widgets.Wizard.title
+      () in
+  let loader = Components_lab.Loader.make_widget_loader thread in
+  let content =
+    To_dom.of_element
+    @@ Dialog.Markup.create_content
+      ~content:[Of_dom.of_element loader]
+      () in
+  let cancel =
+    To_dom.of_element
+    @@ Dialog.Markup.create_action
+      ~action:Close
+      ~label:"Отмена"
+      () in
+  let accept =
+    Button.attach
+    @@ To_dom.of_element
+    @@ Dialog.Markup.create_action
+      ~disabled:true
+      ~action:Accept
+      ~label:"Применить"
+      () in
+  let actions = [cancel; accept#root] in
+  let dialog = Dialog.make ~title ~content ~actions () in
+  Lwt.on_success thread (fun _ -> accept#set_disabled false);
+  let show () =
+    dialog#open_await ()
+    >>= function
+    | Close | Destroy | Custom _ -> Lwt.return_unit
+    | Accept ->
+      thread
+      >>= function
+      | Error _ -> Lwt.return_unit
+      | Ok wizard ->
+        submit_wizard scaffold wizard#value
+        >>= fun _ -> Lwt.return_unit in
+  let listeners =
+    Js_of_ocaml_lwt.Lwt_js_events.(
+      [ seq_loop (make_event Treeview.Event.action)
+          dialog#root (fun _ _ -> dialog#layout (); Lwt.return_unit)
+      ]) in
+  dialog#set_on_destroy (fun () ->
+      List.iter Lwt.cancel listeners;
+      accept#destroy ());
+  dialog, show
+
+let () =
+  let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
   let player = match scaffold#body with
     | None -> failwith "no video player element found"
     | Some x -> Player.attach x in
   tie_side_sheet_with_toggle scaffold;
+  let wizard = make_wizard scaffold in
   let menu = tie_menu_with_toggle scaffold wizard in
   scaffold#set_on_destroy (fun () -> Option.iter Widget.destroy menu);
   Lwt.async (fun () ->

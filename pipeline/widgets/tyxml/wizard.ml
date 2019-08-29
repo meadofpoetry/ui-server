@@ -19,6 +19,8 @@ type data =
   ; provider_name : string
   } [@@deriving yojson]
 
+let title = "Автоматическая расстановка виджетов"
+
 module Parse_struct = struct
   open Structure.Annotated
 
@@ -161,28 +163,12 @@ module Make(Xml : Xml_sigs.NoWrap)
       Icon.SVG.(create [create_path Svg_icons.information ()] ())
       "Нет доступных виджетов"
 
-  let make ?(classes = []) ?(attrs = []) ~treeview () =
+  let make ?(classes = []) ?(attrs = [])
+      ?(placeholder = make_empty_placeholder ())
+      ~treeview () =
     let classes = CSS.root :: classes in
-    let title = Dialog.create_title_simple
-        ~title:"Автоматическая расстановка виджетов" (* TODO better title *)
-        () in
-    let content =
-      Dialog.create_content
-        ~content:[ treeview
-                 ; make_empty_placeholder ()
-                 ]
-        () in
-    let actions =
-      Dialog.create_actions
-        ~actions:[ Dialog.create_action ~action:Close ~label:"Отмена" ()
-                 ; Dialog.create_action ~action:Accept ~label:"Применить" ()
-                 ]
-        () in
-    let surface = Dialog.create_surface ~title ~content ~actions () in
-    Dialog.create
-      ~classes
-      ~attrs
-      ~scrim:Dialog.(create_scrim ())
-      ~container:Dialog.(create_container ~surface ())
-      ()
+    Html.(div ~a:([a_class classes] @ attrs)
+            [ treeview
+            ; placeholder
+            ])
 end

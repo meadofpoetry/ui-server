@@ -102,7 +102,7 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
       _listeners <- Lwt_js_events.(
           [ clicks super#root self#handle_interaction
           ; keydowns super#root self#handle_interaction
-          ])
+          ] @ _listeners)
 
     method! layout () : unit =
       Option.iter Lwt.cancel _layout_thread;
@@ -330,30 +330,32 @@ let make_action ?classes ?attrs ?button_type ?appearance
   @@ Markup.create_action ?classes ?attrs ?button_type ?appearance
     ?icon ?dense ?label ?default ?action ()
 
+let make_element ?classes ?title ?content ?actions () : Dom_html.element Js.t =
+  let title_id = match title with
+    | None -> None
+    | Some x -> Some (Js.to_string x##.id) in
+  let content_id = match content with
+    | None -> None
+    | Some x -> Some (Js.to_string x##.id) in
+  let scrim = Markup.create_scrim () in
+  let actions = match actions with
+    | None -> None
+    | Some actions ->
+      let actions = List.map (fun x ->
+          Tyxml_js.Of_dom.of_element
+          @@ Element.coerce x) actions in
+      Some (Markup.create_actions ~actions ()) in
+  let surface = Markup.create_surface
+      ?title:(Option.map Tyxml_js.Of_dom.of_element title)
+      ?content:(Option.map Tyxml_js.Of_dom.of_element content)
+      ?actions
+      () in
+  let container = Markup.create_container ~surface () in
+  Tyxml_js.To_dom.of_element
+  @@ Markup.create ?classes ?title_id ?content_id ~scrim ~container ()
+
 let make ?classes ?title ?content ?actions () : t =
-  let (elt : Dom_html.element Js.t) =
-    let title_id = match title with
-      | None -> None
-      | Some x -> Some (Js.to_string x##.id) in
-    let content_id = match content with
-      | None -> None
-      | Some x -> Some (Js.to_string x##.id) in
-    let scrim = Markup.create_scrim () in
-    let actions = match actions with
-      | None -> None
-      | Some actions ->
-        let actions = List.map (fun x ->
-            Tyxml_js.Of_dom.of_element
-            @@ Element.coerce x) actions in
-        Some (Markup.create_actions ~actions ()) in
-    let surface = Markup.create_surface
-        ?title:(Option.map Tyxml_js.Of_dom.of_element title)
-        ?content:(Option.map Tyxml_js.Of_dom.of_element content)
-        ?actions
-        () in
-    let container = Markup.create_container ~surface () in
-    Tyxml_js.To_dom.of_element
-    @@ Markup.create ?classes ?title_id ?content_id ~scrim ~container () in
+  let elt = make_element ?classes ?title ?content ?actions () in
   new t elt ()
 
 let attach (elt : #Dom_html.element Js.t) : t =

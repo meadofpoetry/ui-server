@@ -85,8 +85,7 @@ let () =
       | Error e ->
         let label = Api_js.Http.error_to_string e in
         snackbar#set_label_text label;
-        scaffold#show_snackbar snackbar
-        >>= fun _ -> Lwt.return_unit in
+        scaffold#show_snackbar snackbar in
     let confirmation_dialog, open_dialog = make_dialog set in
     let submit = make_submit_button ethernet ipv4 dns routes config open_dialog in
     Dom.appendChild Dom_html.document##.body confirmation_dialog#root;

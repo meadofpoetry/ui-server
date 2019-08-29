@@ -10,10 +10,6 @@ module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
-module Selector = struct
-  let content = Printf.sprintf ".%s" Dialog.CSS.content
-end
-
 type event =
   [ `Streams of Structure.Annotated.t
   | `Layout of Wm.Annotated.t
@@ -197,24 +193,13 @@ let merge_trees ~(old : Treeview.t) ~(cur : Treeview.t) =
   merge None old#root_nodes cur#root_nodes
 
 class t ~treeview ~layout ~structure (elt : Dom_html.element Js.t) () = object(self)
-  inherit Dialog.t elt () as super
-
-  val content = Element.query_selector_exn elt Selector.content
+  inherit Widget.t elt () as super
 
   val mutable _layout : Wm.Annotated.t = layout
 
   val mutable _structure = structure
 
   val mutable _treeview : Treeview.t = treeview
-
-  val mutable listeners = []
-
-  method! initial_sync_with_dom () : unit =
-    listeners <- Js_of_ocaml_lwt.Lwt_js_events.(
-        [ seq_loop (make_event Treeview.Event.action)
-            super#root self#handle_treeview_action
-        ]);
-    super#initial_sync_with_dom ()
 
   method value : Wm.t =
     let resolution = _layout.resolution in
@@ -252,18 +237,14 @@ class t ~treeview ~layout ~structure (elt : Dom_html.element Js.t) () = object(s
         @@ Tyxml_js.To_dom.of_element
         @@ Markup.make_treeview structure layout in
       let focus_target = merge_trees ~old ~cur in
-      Element.remove_child_safe content old#root;
+      Element.remove_child_safe super#root old#root;
       old#destroy ();
       self#append_treeview cur;
       Option.iter (fun x -> x##focus) focus_target;
       _treeview <- cur
 
   method private append_treeview treeview =
-    Element.insert_child_at_index content 0 treeview#root
-
-  method private handle_treeview_action _ _ : unit Lwt.t =
-    super#layout ();
-    Lwt.return_unit
+    Element.insert_child_at_index super#root 0 treeview#root
 end
 
 let make

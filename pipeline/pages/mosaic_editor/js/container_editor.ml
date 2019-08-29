@@ -153,7 +153,7 @@ class t ~(scaffold : Scaffold.t)
 
   val table_dialog = UI.add_table_dialog ()
 
-  val wizard_dialog = Pipeline_widgets.Wizard.make structure wm
+  val wizard_dialog = UI.make_wizard_dialog structure wm
 
   val content = match Element.query_selector elt Selector.content with
     | None -> failwith "content element not found"
@@ -301,10 +301,12 @@ class t ~(scaffold : Scaffold.t)
   (* TODO implement layout update *)
   method notify : event -> unit = function
     | `Streams s ->
-      wizard_dialog#notify (`Streams s)
+      wizard_dialog#wizard#notify (`Streams s)
     | `Layout wm ->
-      wizard_dialog#notify (`Layout wm)
+      wizard_dialog#wizard#notify (`Layout wm)
     | `Wizard wm ->
+      Js.Unsafe.global##.console##log (Json.unsafe_input (Js.string @@ Yojson.Safe.to_string @@ Wm.to_yojson wm))
+      |> ignore;
       let wm = Wm.Annotated.annotate ~active:wm ~stored:wm in
       let grid_props = grid_properties_of_layout wm in
       let cells = List.map (fun (id, ((container : Wm.Annotated.container), pos)) ->
@@ -488,15 +490,13 @@ class t ~(scaffold : Scaffold.t)
               let label = "Мозаика сохранена" in
               let snackbar = Snackbar.make ~dismiss:True ~label () in
               snackbar#set_timeout 4.;
-              scaffold#show_snackbar snackbar
-              >>= fun _ -> Lwt.return @@ snackbar#destroy ()
+              scaffold#show_snackbar ~on_close:snackbar#destroy snackbar
             | Error e ->
               let label =
                 Printf.sprintf "Ошибка. %s"
                 @@ Api_js.Http.error_to_string e in
               let snackbar = Snackbar.make ~label () in
-              scaffold#show_snackbar snackbar
-              >>= fun _ -> Lwt.return @@ snackbar#destroy ())
+              scaffold#show_snackbar ~on_close:snackbar#destroy snackbar)
         () in
     [Card.Actions.make_buttons [submit]]
 
