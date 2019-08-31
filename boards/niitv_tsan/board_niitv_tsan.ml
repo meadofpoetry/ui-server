@@ -69,11 +69,20 @@ let update_config_with_env src (config : config) (b : Topology.topo_board) =
 
 let make_input_tab_template (b : Topology.topo_board) =
   object
-    method stylesheets = []
+    method stylesheets =
+      [ "/css/Chart.min.css"
+      ; "/css/board-niitv-tsan.min.css"
+      ; "/css/board-niitv-tsan-page-input.min.css"
+      ]
 
-    method pre_scripts = []
+    method pre_scripts =
+      [ `Src "/js/moment.min.js" (* TODO remove *)
+      ; `Src "/js/Chart.min.js"
+      ; `Src "/js/chartjs-plugin-datalabels.min.js"
+      ]
 
-    method post_scripts = []
+    method post_scripts =
+      [`Src "/js/board-niitv-tsan-page-input.js"]
 
     method content = []
 

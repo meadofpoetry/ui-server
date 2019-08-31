@@ -1,0 +1,3 @@
+(library
+  (name board_niitv_tsan_widgets_tyxml)
+  (libraries components_tyxml))

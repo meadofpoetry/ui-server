@@ -4,13 +4,11 @@ type widget_state =
   | No_response
 
 module PID = struct
-
   let to_hex_string =
     Printf.sprintf "0x%04X"
 
   let to_dec_string =
     Printf.sprintf "%d"
-
 end
 
 let make_timestamp_string (timestamp : Ptime.t option) =

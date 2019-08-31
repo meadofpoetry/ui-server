@@ -114,6 +114,7 @@
           (run %{bin:postcss} -u autoprefixer -r %{targets}))))
 
 ;; Boards
+;; NIITV DVB4CH
 
 (rule
  (targets board-niitv-dvb4ch.min.css)
@@ -128,6 +129,26 @@
  (targets board-niitv-dvb4ch-page-input.min.css)
  (deps
        (:src ./frontend/boards/niitv-dvb4ch/input/input.scss)
+       (source_tree ./@material))
+ (action (progn
+          (run %{bin:sassc} -t compressed -I ./ %{src} %{targets})
+          (run %{bin:postcss} -u autoprefixer -r %{targets}))))
+
+;; NIITV TSAN
+
+(rule
+ (targets board-niitv-tsan.min.css)
+ (deps
+       (:src ./frontend/boards/niitv-tsan/niitv-tsan.scss)
+       (source_tree ./@material))
+ (action (progn
+          (run %{bin:sassc} -t compressed -I ./ %{src} %{targets})
+          (run %{bin:postcss} -u autoprefixer -r %{targets}))))
+
+(rule
+ (targets board-niitv-tsan-page-input.min.css)
+ (deps
+       (:src ./frontend/boards/niitv-tsan/input/input.scss)
        (source_tree ./@material))
  (action (progn
           (run %{bin:sassc} -t compressed -I ./ %{src} %{targets})
@@ -161,6 +182,8 @@
          (page-error.min.css as css/page-error.min.css)
          (page-logout.min.css as css/page-logout.min.css)
          (board-niitv-dvb4ch.min.css as css/board-niitv-dvb4ch.min.css)
-         (board-niitv-dvb4ch-page-input.min.css as css/board-niitv-dvb4ch-page-input.min.css))
+         (board-niitv-dvb4ch-page-input.min.css as css/board-niitv-dvb4ch-page-input.min.css)
+         (board-niitv-tsan.min.css as css/board-niitv-tsan.min.css)
+         (board-niitv-tsan-page-input.min.css as css/board-niitv-tsan-page-input.min.css))
   (section share)
   (package ui-server))

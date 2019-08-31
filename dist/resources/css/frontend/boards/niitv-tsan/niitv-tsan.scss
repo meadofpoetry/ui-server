@@ -1,0 +1,21 @@
+@import "@material/typography/mixins";
+
+.board-niitv-tsan-pid-bitrate-pie {
+    align-self: flex-start;
+    padding: 1rem;
+    flex-shrink: 0;
+    width: 250px;
+
+    &__title {
+        @include mdc-typography(caption);
+        display: flex;
+        justify-content: center;
+        padding-bottom: 1rem;
+    }
+
+    &__wrapper {
+        position: relative;
+        width: 250px;
+        height: 250px;
+    }
+}

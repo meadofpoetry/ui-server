@@ -1,0 +1,9 @@
+(executable
+  (name       board_niitv_tsan_page_input)
+  (libraries  board_niitv_tsan_widgets components_lab)
+  (preprocess (pps js_of_ocaml-ppx)))
+
+(install
+  (files (board_niitv_tsan_page_input.bc.js as js/board-niitv-tsan-page-input.js))
+  (section share)
+  (package ui-server))
