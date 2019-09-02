@@ -27,6 +27,10 @@ module Make (Xml : Xml_sigs.NoWrap)
     include Circular_progress
     include Circular_progress.Make(Xml)(Svg)(Html)
   end
+  module Data_table = struct
+    include Data_table
+    include Data_table.Make(Xml)(Svg)(Html)
+  end
   module Dialog = struct
     include Dialog
     include Dialog.Make(Xml)(Svg)(Html)
@@ -138,10 +142,6 @@ module Make (Xml : Xml_sigs.NoWrap)
   module Tab_indicator = struct
     include Tab_indicator
     include Tab_indicator.Make(Xml)(Svg)(Html)
-  end
-  module Table = struct
-    include Table
-    include Table.Make(Xml)(Svg)(Html)
   end
   module Tab = struct
     include Tab

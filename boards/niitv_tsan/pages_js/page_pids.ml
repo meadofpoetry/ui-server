@@ -5,36 +5,6 @@ open Lwt_result.Infix
 open Board_types
 open Page_common
 
-let make_summary init pids rate state =
-  let open React in
-  let item = Widget_pids_summary.make_dashboard_item None in
-  let widget = item.widget in
-  let thread =
-    init
-    >>= fun init -> state
-    >|= (fun state ->
-      widget#set_state @@ React.S.value state;
-      Option.iter widget#update init;
-      widget) in
-  let loader = Ui_templates.Loader.create_widget_loader thread in
-  let item = { item with widget = loader } in
-  let pids =
-    E.map (function
-        | [(_, x)] -> widget#update x
-        | _ -> ()) pids in
-  let rate =
-    E.map (function
-        | [(_, (x : Bitrate.t Time.timestamped))] ->
-           widget#set_rate @@ Option.return x.data
-        | _ -> ()) rate in
-  let state = state >|= (fun s -> S.map ~eq:Equal.unit widget#set_state s) in
-  let close = (fun () ->
-      React.E.stop ~strong:true pids;
-      React.E.stop ~strong:true rate;
-      state >|= (React.S.stop ~strong:true)
-      |> Lwt.ignore_result;) in
-  Dashboard.Item.make item, close
-
 let make_overview init pids rate state =
   let open React in
   let item = Widget_pids_overview.make_dashboard_item None in

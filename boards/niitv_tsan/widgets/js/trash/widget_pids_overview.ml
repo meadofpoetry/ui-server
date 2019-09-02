@@ -4,49 +4,6 @@ open Containers
 open Components
 open Widget_common
 
-type pid_flags =
-  { has_pcr : bool
-  ; scrambled : bool
-  } [@@deriving ord]
-
-let name = "PIDs"
-
-let base_class = "qos-niit-pids-overview"
-let no_sync_class = Markup.CSS.add_modifier base_class "no-sync"
-let no_response_class = Markup.CSS.add_modifier base_class "no-response"
-let row_class = Markup.CSS.add_element base_class "row"
-let absent_class = Markup.CSS.add_modifier row_class "lost"
-
-let ( % ) = Fun.( % )
-
-module Settings = struct
-
-  type t = { hex : bool }
-
-  let (default : t) = { hex = false }
-
-  let make_hex_switch state =
-    let input = new Switch.t ~state () in
-    new Form_field.t ~input ~align_end:true ~label:"HEX IDs" ()
-
-  class view ?(settings = default) () =
-    let hex_switch = make_hex_switch settings.hex in
-    object
-      val mutable value = settings
-      inherit Vbox.t ~widgets:[hex_switch] ()
-      method value : t = value
-      method apply () : unit =
-        let hex = hex_switch#input_widget#checked in
-        value <- { hex }
-      method reset () : unit =
-        let { hex } = value in
-        hex_switch#input_widget#set_checked hex
-    end
-
-  let make ?settings () = new view ?settings ()
-
-end
-
 module Pid_info = struct
   type t = Pid.t
 
@@ -56,85 +13,9 @@ end
 
 module Set = Set.Make(Pid_info)
 
-let to_pid_flags { has_pcr; scrambled } =
-  let pcr = match has_pcr with
-    | false -> None
-    | true ->
-       Some Icon.SVG.(new t ~paths:Path.[ new t clock_outline () ] ()) in
-  let scr = match scrambled with
-    | false -> None
-    | true ->
-       Some Icon.SVG.(new t ~paths:Path.[new t lock ()] ()) in
-  let widgets = List.(cons_maybe pcr (cons_maybe scr [])) in
-  (new Hbox.t ~widgets ())#node
-
-let update_row row total br =
-  let cur, per, min, max =
-    let open Table in
-    match row#cells with
-    | _ :: _ :: _ :: _ :: a :: b :: c :: d :: _ ->
-       a, b, c, d in
-  let pct = 100. *. (float_of_int br)
-            /. (float_of_int total) in
-  let br = (float_of_int br) /. 1_000_000. in
-  cur#set_value @@ Some br;
-  per#set_value @@ Some pct;
-  (match min#value with
-   | None -> min#set_value (Some br)
-   | Some v -> if br <. v then min#set_value (Some br));
-  (match max#value with
-   | None -> max#set_value (Some br)
-   | Some v -> if br >. v then max#set_value (Some br));
-  br, pct
-
-let pid_type_fmt : MPEG_TS.PID.Type.t Table.custom =
-  MPEG_TS.PID.Type.{ to_string
-                   ; compare
-                   ; is_numeric = false
-                   }
-
-let pid_flags_fmt : pid_flags Table.custom_elt =
-  { to_elt = to_pid_flags
-  ; compare = compare_pid_flags
-  ; is_numeric = false
-  }
-
-let dec_pid_fmt = Table.(Int None)
-let hex_pid_fmt = Table.(Int (Some (Printf.sprintf "0x%04X")))
-
-(* TODO add table empty state *)
-let make_table_fmt ?(is_hex = false) () =
-  let open Table in
-  let open Format in
-  let br_fmt = Option (Float None, "-") in
-  let pct_fmt = Option (Float (Some (Printf.sprintf "%.2f")), "-") in
-  let to_sort_column = to_column ~sortable:true in
-    (to_sort_column "PID", if is_hex then hex_pid_fmt else dec_pid_fmt)
-    :: (to_sort_column "Тип", Custom pid_type_fmt)
-    :: (to_column "Доп. инфо", Custom_elt pid_flags_fmt)
-    :: (to_sort_column "Сервис", Option (String None, ""))
-    :: (to_sort_column "Битрейт, Мбит/с", br_fmt)
-    :: (to_sort_column "%", pct_fmt)
-    :: (to_sort_column "Min, Мбит/с", br_fmt)
-    :: (to_sort_column "Max, Мбит/с", br_fmt)
-    :: []
-
-let add_row (table : 'a Table.t) ((pid, info) : int * PID_info.t) =
-  let open Table in
-  let flags =
-    { has_pcr = info.has_pcr
-    ; scrambled = info.scrambled
-    } in
-  let data = Data.(
-      pid :: info.typ :: flags :: info.service_name
-      :: None :: None :: None :: None :: []) in
-  let row = table#push data in
-  if not info.present then row#add_class absent_class;
-  row
-
 class t ?(settings : Settings.t option)
-        (init : (int * PID_info.t) list ts option)
-        () =
+    (init : (int * PID_info.t) list ts option)
+    () =
   let init, timestamp = match init with
     | None -> [], None
     | Some { data; timestamp } -> data, Some timestamp in

@@ -4,3 +4,6 @@
 
 * PID summary
   [ ] Add PIDs with sorting
+
+* Other
+  [ ] Add HEX switch
