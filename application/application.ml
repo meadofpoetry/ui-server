@@ -14,6 +14,7 @@ let all_ok = List.fold_left (fun acc v ->
 type t =
   { proc : Data_processor.t option
   ; network : Pc_control.Network.t
+  ; updates : Pc_control.Software_updates.t
   ; users : User.passwd
   ; hw : Hardware.t
   ; db : Database.Conn.t
@@ -35,7 +36,9 @@ let create kv db =
   Kv.RW.parse Application_types.Topology.of_string kv ["topology"]
   >>=? fun topology -> User.create kv
   >>=? fun users -> Pc_control.Network.create kv
-  >>=? fun network ->
+                    (* TODO version check *)                                     
+  >>=? fun network -> Pc_control.Software_updates.create "" ()
+  >>=? fun updates ->
   begin match topology with
     | `Boards _ -> Lwt.return_none
     | `CPU c -> Data_processor.create proc_table c kv db
@@ -71,7 +74,7 @@ let create kv db =
   |> E.map_p (fun x -> Database.Log.insert db @@ List.concat x)
   |> E.keep;
 
-  Lwt.return_ok ({ users; proc; network; hw; db; topo = hw.topo }, loop)
+  Lwt.return_ok ({ users; proc; network; updates; hw; db; topo = hw.topo }, loop)
 
 let redirect_filter app =
   Api.Authorize.auth (User.validate app.users)

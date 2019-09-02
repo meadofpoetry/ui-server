@@ -3,6 +3,7 @@
   (wrapped     true)
   (libraries   application_types
                nm
+               packagekit
                netlib
                util_react
                kv_v

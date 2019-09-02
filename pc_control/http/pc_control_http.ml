@@ -57,3 +57,58 @@ let network_pages : 'a. unit -> 'a Api_template.item list =
     ~icon:(icon Components_tyxml.Svg_icons.lan)
     ~path:(Path.of_string "settings/network")
     props
+
+let software_updates_handlers (su : Pc_control.Software_updates.t) =
+  let open Api_http in
+  make ~prefix:"updates"
+    [ node ~doc:"Check for available packages"
+        ~restrict:[ `Guest; `Operator ]
+        ~meth:`POST
+        ~path:Path.Format.("check_updates" @/ empty)
+        ~query:Query.empty
+        (Pc_control.Software_updates_api.check_for_upgrades su)
+    ; node ~doc:"Upgrade"
+        ~restrict:[ `Guest; `Operator ]
+        ~meth:`POST
+        ~path:Path.Format.("upgrade" @/ empty)
+        ~query:Query.empty
+        (Pc_control.Software_updates_api.do_upgrade su)
+    ; node ~doc:"Current state"
+        ~meth:`GET
+        ~path:Path.Format.("state" @/ empty)
+        ~query:Query.empty
+        (Pc_control.Software_updates_api.get_state su)
+    ]
+
+let software_updates_ws (su : Pc_control.Software_updates.t) =
+  let open Api_websocket in
+  make ~prefix:"updates"
+    [ event_node ~doc:"Update state"
+        ~path:Path.Format.("state" @/ empty)
+        ~query:Query.empty
+        (Pc_control.Software_updates_api.Event.get_state su)
+    ]
+
+let software_updates_pages : 'a. unit -> 'a Api_template.item list =
+  fun () ->
+  let open Api_template in
+  let props =
+    make_template_props
+      ~title:"Обновления"
+      ~post_scripts:[`Src "/js/page-software-updates.js"]
+      (*~stylesheets:["/css/page-software-updates.min.css"]*)
+      ()
+  in
+  let icon x =
+    let open Icon.SVG in
+    let path = create_path x () in
+    let icon = create [path] () in
+    Tyxml.Html.toelt icon
+  in
+  simple
+    ~restrict:[`Operator; `Guest]
+    ~priority:(`Index 10)
+    ~title:"Обновления"
+    ~icon:(icon Components_tyxml.Svg_icons.lan)
+    ~path:(Path.of_string "settings/updates")
+    props

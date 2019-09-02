@@ -229,3 +229,6 @@ let () =
   | Error (#Pc_control.Network.error as e) ->
      Logs.err (fun m -> m "Terminated with network error: %a"
                           Pc_control.Network.pp_error e)
+  | Error (#Pc_control.Software_updates.error as e) ->
+     Logs.err (fun m -> m "Terminated with packagekit error: %a"
+                          Pc_control.Software_updates.pp_error e)

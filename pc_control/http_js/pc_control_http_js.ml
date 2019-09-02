@@ -10,6 +10,7 @@ module Event = struct
       ~path:Path.Format.("network/config" @/ empty)
       ~query:Query.empty
       of_yojson sock
+
 end
 
 let get_config () =

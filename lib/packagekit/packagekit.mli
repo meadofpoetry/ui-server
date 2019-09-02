@@ -12,6 +12,8 @@ type transaction =
 
   ; percentage : int32 React.signal Lwt.t
 
+  ; status : int32 React.signal Lwt.t
+
   ; update_packages : string list -> unit Lwt.t
     
   >

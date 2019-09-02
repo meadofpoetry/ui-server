@@ -5,6 +5,8 @@ module PK_trans_iface = Packagekit_transaction_interfaces
 
 let ( let* ) = Lwt.bind
 
+(* TODO add Lwt_switch or ensure that resources are being freed properly *)
+              
 class transaction obj = object
 
   val obj = obj
@@ -32,6 +34,10 @@ class transaction obj = object
 
   method percentage =
     OBus_property.make PK_trans_iface.Org_freedesktop_PackageKit_Transaction.p_Percentage obj
+    |> OBus_property.monitor
+
+  method status =
+    OBus_property.make PK_trans_iface.Org_freedesktop_PackageKit_Transaction.p_Status obj
     |> OBus_property.monitor
     
 end

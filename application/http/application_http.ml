@@ -305,6 +305,7 @@ let create templates (app : Application.t)
     Api_template.subtree
       ~title:"Настройки"
       (Pc_control_http.network_pages ()
+       @ Pc_control_http.software_updates_pages ()
        @ user_pages ()
        @ foreign_pages) in
   let templates =
@@ -345,6 +346,7 @@ let create templates (app : Application.t)
       ( foreing_handlers
         :: user_handlers app.users
         :: Pc_control_http.network_handlers app.network
+        :: Pc_control_http.software_updates_handlers app.updates
         :: application_api
         :: board_api
         :: proc_api_list)
@@ -355,6 +357,7 @@ let create templates (app : Application.t)
     @@ Api_websocket.merge
       ( foreign_ws
         :: Pc_control_http.network_ws app.network
+        :: Pc_control_http.software_updates_ws app.updates
         :: application_ws
         :: board_ws
         :: proc_ws_list )
