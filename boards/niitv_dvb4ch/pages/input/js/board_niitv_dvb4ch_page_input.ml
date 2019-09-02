@@ -27,6 +27,8 @@ let make_charts mode =
   object
     inherit Widget.t Dom_html.(createDiv document) () as super
 
+    method charts = charts
+
     method! init () : unit =
       List.iter super#append_child charts;
       super#init ()
@@ -37,6 +39,7 @@ let make_charts mode =
 
 let on_visible charts state control elt =
   let open React in
+  List.iter (fun x -> x#clear ()) charts#charts;
   let thread =
     Http_device.get_mode control
     >>=? fun mode ->

@@ -214,8 +214,8 @@ class t ?(hex = false) ?rate (elt : Dom_html.element Js.t) = object(self)
 
   method private make_labels pids oth : Js.js_string Js.t Js.js_array Js.t =
     let to_string =
-      if _hex then Util.PID.to_hex_string
-      else Util.PID.to_dec_string in
+      if _hex then Util.pid_to_hex_string
+      else Util.pid_to_dec_string in
     let pids = List.map (Js.string % to_string % fst) pids in
     Js.array @@ Array.of_list @@ match oth with
     | [] -> pids

@@ -98,7 +98,7 @@ let get_pids (api : Protocol.api) id force _user _body _env _state =
     check_state api.notifs.state
     >>=? fun () ->
     return_value_or_not_found
-    @@ find_map_by_id id (pids_to_yojson % Structure.pids)
+    @@ find_map_by_id id (pids_ts_to_yojson % Structure.pids_ts)
     @@ React.S.value api.notifs.structure
   | Some true ->
     match find_multi_id id api.notifs.streams with
@@ -110,7 +110,7 @@ let get_pids (api : Protocol.api) id force _user _body _env _state =
       >>=? fun structures ->
       match List.assoc_opt id structures with
       | None -> return_error stream_not_found
-      | Some x -> return_value (pids_to_yojson x.pids)
+      | Some x -> return_value (pids_ts_to_yojson (Structure.pids_ts x))
 
 let get_si_psi_tables (api : Protocol.api) id _user _body _env _state =
   check_state api.notifs.state

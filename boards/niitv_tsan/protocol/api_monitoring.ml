@@ -2,6 +2,39 @@ open Application_types
 open Board_niitv_tsan_types
 open Api_util
 
+module Event = struct
+  open Util_react
+
+  let filter_ids ids v =
+    match filter_ids ids v with
+    | [] -> None
+    | x -> Some x
+
+  let get_bitrate (api : Protocol.api) ids _user =
+    let to_yojson = stream_assoc_list_to_yojson Bitrate.to_yojson in
+    let event = E.fmap (Option.map to_yojson % filter_ids ids)
+        api.notifs.bitrate in
+    Lwt.return event
+
+  let get_ts_info (api : Protocol.api) ids _user =
+    let to_yojson = stream_assoc_list_to_yojson TS_info.to_yojson in
+    let get_info = List.map (fun (id, (x : Structure.t)) -> id, x.info)  in
+    let event =
+      api.notifs.structure
+      |> S.changes
+      |> E.fmap (Option.map to_yojson % filter_ids ids % get_info) in
+    Lwt.return event
+
+  let get_pids (api : Protocol.api) ids _user =
+    let to_yojson = stream_assoc_list_to_yojson pids_ts_to_yojson in
+    let get_pids = List.map (fun (id, x) -> id, Structure.pids_ts x) in
+    let event =
+      api.notifs.structure
+      |> S.changes
+      |> E.fmap (Option.map to_yojson % filter_ids ids % get_pids) in
+    Lwt.return event
+end
+
 let filter_errors f x =
   match List.filter_map (fun (id, errors) ->
       match List.filter f errors with
@@ -62,9 +95,9 @@ let get_pids (api : Protocol.api) force ids _user _body _env _state =
      check_state api.notifs.state
      >>= fun () -> Lwt.return_ok @@ React.S.value api.notifs.structure)
   >>=? return_value
-       % stream_assoc_list_to_yojson pids_to_yojson
+       % stream_assoc_list_to_yojson pids_ts_to_yojson
        % filter_ids ids
-       % List.map (fun (id, (x : Structure.t)) -> id, x.pids)
+       % List.map (fun (id, x) -> id, Structure.pids_ts x)
 
 let get_si_psi_tables (api : Protocol.api) force ids _user _body _env _state =
   (match force with

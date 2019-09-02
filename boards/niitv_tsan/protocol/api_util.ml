@@ -63,6 +63,8 @@ let pids_to_yojson = Util_json.(
       Int.to_yojson
       PID_info.to_yojson)
 
+let pids_ts_to_yojson = ts_to_yojson pids_to_yojson
+
 let si_psi_tables_to_yojson = Util_json.(
     List.to_yojson
     @@ Pair.to_yojson

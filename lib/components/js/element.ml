@@ -84,6 +84,9 @@ let get_attribute (elt : #Dom_html.element Js.t)
   |> Js.Opt.to_option
   |> function None -> None | Some x -> Some (Js.to_string x)
 
+let has_attribute (elt : #Dom_html.element Js.t) (a : string) : bool =
+  Js.to_bool @@ elt##hasAttribute (Js.string a)
+
 let set_attribute (elt : #Dom_html.element Js.t)
     (a : string) (v : string) : unit =
   elt##setAttribute (Js.string a) (Js.string v)
@@ -172,3 +175,8 @@ let emit ?(should_bubble = false) ?detail evt_type element =
         Js._false
         (Js.Opt.option detail) in
   (Js.Unsafe.coerce element)##dispatchEvent evt
+
+let remove (x : #Dom.node Js.t) =
+  if Js.Optdef.test (Js.Unsafe.coerce x)##.remove
+  then (Js.Unsafe.coerce x)##remove
+  else Js.Opt.iter (get_parent x) (fun p -> Dom.removeChild p x)

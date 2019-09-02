@@ -198,6 +198,16 @@ let ws (control : int) (api : Protocol.api) =
               ~query:Query.empty
               (Api_device.Event.get_t2mi_mode api)
           ]
+      ; make ~prefix:"monitoring"
+          [ event_node ~doc:"Bitrate socket"
+              ~path:(Path.Format.of_string "bitrate")
+              ~query:Query.["id", (module List(Stream.ID))]
+              (Api_monitoring.Event.get_bitrate api)
+          ; event_node ~doc:"PIDs socket"
+              ~path:(Path.Format.of_string "pids")
+              ~query:Query.["id", (module List(Stream.ID))]
+              (Api_monitoring.Event.get_pids api)
+          ]
       ; make ~prefix:"streams"
           [ event_node ~doc:"Streams socket"
               ~path:Path.Format.empty

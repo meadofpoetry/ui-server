@@ -477,6 +477,10 @@ class t ~init
     | `Mode mode -> self#handle_new_mode mode
     | `Data data -> self#handle_new_data data
 
+  method clear () : unit =
+    let datasets = Array.to_list @@ Js.to_array self#chart##.data##.datasets in
+    List.iter (fun ds -> ds##.data := Js.array [||]) datasets
+
   method print s =
     if config.typ = `Power
     then print_endline s
