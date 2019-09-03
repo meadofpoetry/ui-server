@@ -58,10 +58,10 @@ let () =
   let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
   let snackbar = Snackbar.make ~label:"" () in
   let thread =
-    Pc_control_http_js.get_config ()
+    Pc_control_http_js.Network.get_config ()
     >>=? fun config ->
     Api_js.Websocket.JSON.open_socket ~path:(Path.Format.of_string "ws") ()
-    >>=? fun socket -> Pc_control_http_js.Event.get_config socket
+    >>=? fun socket -> Pc_control_http_js.Network.Event.get_config socket
     >>=? fun (event_id, event) ->
     let ethernet = Ethernet_config.make config.ethernet in
     let ipv4 = Ipv4_config.make config.ipv4 in
@@ -75,8 +75,8 @@ let () =
     let set value =
       let ( >>=? ) = Lwt_result.bind in
       let thread =
-        Pc_control_http_js.set_config value
-        >>=? fun () -> Pc_control_http_js.get_config ()
+        Pc_control_http_js.Network.set_config value
+        >>=? fun () -> Pc_control_http_js.Network.get_config ()
         >>=? fun (conf : Pc_control_types.Network_config.t) ->
         update_config conf;
         Lwt.return_ok () in

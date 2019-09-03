@@ -109,7 +109,7 @@ let software_updates_pages : 'a. unit -> 'a Api_template.item list =
     ~restrict:[`Operator; `Guest]
     ~priority:(`Index 10)
     ~title:"Обновления"
-    ~icon:(icon Components_tyxml.Svg_icons.lan)
+    ~icon:(icon Components_tyxml.Svg_icons.update)
     ~path:(Path.of_string "settings/updates")
     props
 
@@ -135,7 +135,7 @@ let power_pages : 'a. unit -> 'a Api_template.item list =
   let open Api_template in
   let props =
     make_template_props
-      ~title:"Обновления"
+      ~title:"Управление питанием"
       ~post_scripts:[`Src "/js/page-power.js"]
       (*~stylesheets:["/css/page-software-updates.min.css"]*)
       ()
@@ -150,6 +150,6 @@ let power_pages : 'a. unit -> 'a Api_template.item list =
     ~restrict:[`Operator; `Guest]
     ~priority:(`Index 10)
     ~title:"Управление питанием"
-    ~icon:(icon Components_tyxml.Svg_icons.lan)
+    ~icon:(icon Components_tyxml.Svg_icons.power)
     ~path:(Path.of_string "settings/power")
     props

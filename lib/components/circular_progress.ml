@@ -2,11 +2,14 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml
 
 include Components_tyxml.Circular_progress
+
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
 module Attr = struct
   let now = "aria-valuenow"
+
   let max = "aria-valuemax"
+
   let min = "aria-valuemin"
 end
 
@@ -19,17 +22,16 @@ let get_float_attribute (elt : Dom_html.element Js.t) (a : string) =
   | None -> None
   | Some a -> float_of_string_opt a
 
-class t (elt : #Dom_html.element Js.t) () =
-object(self)
+class t (elt : #Dom_html.element Js.t) () = object(self)
   val circle = Utils.find_element_by_class_exn elt CSS.circle
+
   val mutable _min : float = 0.
+
   val mutable _max : float = 1.
+
   val mutable _value : float = 0.
 
   inherit Widget.t elt () as super
-
-  method! init () : unit =
-    super#init ()
 
   method! initial_sync_with_dom () : unit =
     super#initial_sync_with_dom ();
@@ -44,8 +46,7 @@ object(self)
       | None -> _value | Some x -> x in
     self#set_value val'
 
-  method min : float =
-    _min
+  method min : float = _min
 
   method set_min (x : float) : unit =
     if x > self#max
@@ -55,8 +56,7 @@ object(self)
       self#set_value_ ~force:true self#value;
       super#set_attribute Attr.min (string_of_float x))
 
-  method max : float =
-    _max
+  method max : float = _max
 
   method set_max (x : float) : unit =
     if x < self#min
@@ -66,8 +66,7 @@ object(self)
       self#set_value_ ~force:true self#value;
       super#set_attribute Attr.max (string_of_float x))
 
-  method value : float =
-    _value
+  method value : float = _value
 
   method set_value (v : float) : unit =
     self#set_value_ v
@@ -111,7 +110,6 @@ object(self)
     let dash_array' = Js.string (Printf.sprintf "%g" dash_array) in
     (Js.Unsafe.coerce circle##.style)##.strokeDashoffset := dash_offset';
     (Js.Unsafe.coerce circle##.style)##.strokeDasharray := dash_array';
-
 end
 
 let make ?min ?max ?value

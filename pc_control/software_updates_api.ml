@@ -107,11 +107,14 @@ let check_for_upgrades (su : Software_updates.t) _user _body _env _state =
          | `Error e ->
             Logs.err (fun m ->
                 m "Software_updates.check_for_upgrades: error %s during obtaining info" e);
+            push_state `Unchecked;
             Lwt.return res
          | _ ->
             Logs.info (fun m ->
                 m "Software_updates.check_for_upgrades: info update succeded");
-            push_state `Updates_avail;
+            if Stack.is_empty !packages
+            then push_state `Unchecked
+            else push_state `Updates_avail;
             add_update_info_timeout su;
             Lwt.return res)
 

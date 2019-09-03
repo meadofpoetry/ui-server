@@ -26,9 +26,11 @@ module Make (Xml : Xml_sigs.NoWrap)
   open Utils
 
   let create ?(classes = []) ?(attrs = [])
-        ?(indeterminate = false) ?(reversed = false) () : 'a elt =
+      ?(indeterminate = false) ?(reversed = false) ?(closed = false)
+      () : 'a elt =
     let classes =
       classes
+      |> cons_if closed CSS.closed
       |> cons_if indeterminate CSS.indeterminate
       |> cons_if reversed CSS.reversed
       |> List.cons CSS.root in
@@ -42,5 +44,4 @@ module Make (Xml : Xml_sigs.NoWrap)
       ; div ~a:[a_class [CSS.bar; CSS.secondary_bar]]
           [span ~a:[a_class [CSS.bar_inner]] []]
       ]
-
 end
