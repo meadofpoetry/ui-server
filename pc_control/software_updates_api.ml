@@ -31,6 +31,11 @@ let add_update_info_timeout (su : Software_updates.t) =
     Lwt.return_unit
   in
   su.update_info_tm <- Some t
+
+let cleanup_update_info_timeout (su : Software_updates.t) =
+  Option.iter Lwt.cancel su.update_info_tm;
+  packages := Stack.create ();
+  su.update_info_tm <- None
              
 let status_signal f trans =
   let ( let* ) = Lwt.bind in
@@ -89,17 +94,26 @@ let check_for_upgrades (su : Software_updates.t) _user _body _env _state =
                           finished
          in
          let* () = trans#get_updates 0L in
-
-         push_state `Updates_avail;
-
-         add_update_info_timeout su;
          
-         Lwt.finalize
-           (fun () ->
-             Lwt_react.E.next @@ Lwt_react.E.select [finished; status])
-           (fun () ->
-             Lwt_react.E.stop status;
-             Lwt.return_unit))
+         let* res = Lwt.finalize
+                      (fun () ->
+                        Lwt_react.E.next @@ Lwt_react.E.select [finished; status])
+                      (fun () ->
+                        Lwt_react.E.stop status;
+                        Lwt.return_unit)
+         in
+
+         match res with
+         | `Error e ->
+            Logs.err (fun m ->
+                m "Software_updates.check_for_upgrades: error %s during obtaining info" e);
+            Lwt.return res
+         | _ ->
+            Logs.info (fun m ->
+                m "Software_updates.check_for_upgrades: info update succeded");
+            push_state `Updates_avail;
+            add_update_info_timeout su;
+            Lwt.return res)
 
 let do_upgrade (su : Software_updates.t) _user _body _env _state =
   let ( let* ) = Lwt.bind in
@@ -135,13 +149,24 @@ let do_upgrade (su : Software_updates.t) _user _body _env _state =
 
          push_state `Need_reboot;
          
-         Lwt.finalize
-         (fun () ->
-           Lwt_react.E.next @@ Lwt_react.E.select [finished; status])
-           (fun () ->
-             Lwt_react.E.stop status;
-             packages := Stack.create ();
-             Lwt.return_unit))
+         let* res = Lwt.finalize
+                      (fun () ->
+                        Lwt_react.E.next @@ Lwt_react.E.select [finished; status])
+                      (fun () ->
+                        Lwt_react.E.stop status;
+                        Lwt.return_unit)
+         in
+
+         match res with
+         | `Error e ->
+            Logs.err (fun m -> m "Software_updates.update: error %s during update" e);
+            Lwt.return res
+         | _ ->
+            Logs.info (fun m -> m "Software_updates.update: update succeded, rebooting...");
+            cleanup_update_info_timeout su;
+            let* () = Power.off () in
+            Lwt.return res)
+         
 
 let get_state (_su : Software_updates.t) _user _body _env _state =
   let open Pc_control_types.Software_updates in

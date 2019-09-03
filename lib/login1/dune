@@ -1,0 +1,3 @@
+(library
+  (name   login1)
+  (libraries obus))

@@ -4,10 +4,12 @@
   (libraries   application_types
                nm
                packagekit
+               login1
                netlib
                util_react
                kv_v
                api
                components_tyxml
-               pc_control_types)
+               pc_control_types
+               logs)
   (preprocess (pps ppx_deriving_yojson ppx_deriving.eq)))

@@ -64,7 +64,7 @@ let software_updates_handlers (su : Pc_control.Software_updates.t) =
     [ node ~doc:"Check for available packages"
         ~restrict:[ `Guest; `Operator ]
         ~meth:`POST
-        ~path:Path.Format.("check_updates" @/ empty)
+        ~path:Path.Format.("check-updates" @/ empty)
         ~query:Query.empty
         (Pc_control.Software_updates_api.check_for_upgrades su)
     ; node ~doc:"Upgrade"
@@ -111,4 +111,45 @@ let software_updates_pages : 'a. unit -> 'a Api_template.item list =
     ~title:"Обновления"
     ~icon:(icon Components_tyxml.Svg_icons.lan)
     ~path:(Path.of_string "settings/updates")
+    props
+
+let power_handlers =
+  let open Api_http in
+  make ~prefix:"power"
+    [ node ~doc:"Reboot"
+        ~restrict:[ `Guest; `Operator ]
+        ~meth:`POST
+        ~path:Path.Format.("reboot" @/ empty)
+        ~query:Query.empty
+        Pc_control.Power_api.reboot
+    ; node ~doc:"Off"
+        ~restrict:[ `Guest; `Operator ]
+        ~meth:`POST
+        ~path:Path.Format.("off" @/ empty)
+        ~query:Query.empty
+        Pc_control.Power_api.off
+    ]
+
+let power_pages : 'a. unit -> 'a Api_template.item list =
+  fun () ->
+  let open Api_template in
+  let props =
+    make_template_props
+      ~title:"Обновления"
+      ~post_scripts:[`Src "/js/page-power.js"]
+      (*~stylesheets:["/css/page-software-updates.min.css"]*)
+      ()
+  in
+  let icon x =
+    let open Icon.SVG in
+    let path = create_path x () in
+    let icon = create [path] () in
+    Tyxml.Html.toelt icon
+  in
+  simple
+    ~restrict:[`Operator; `Guest]
+    ~priority:(`Index 10)
+    ~title:"Управление питанием"
+    ~icon:(icon Components_tyxml.Svg_icons.lan)
+    ~path:(Path.of_string "settings/power")
     props
