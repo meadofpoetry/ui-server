@@ -1,0 +1,4 @@
+(library
+  (name browser_storage)
+  (libraries js_of_ocaml yojson)
+  (preprocess (pps js_of_ocaml-ppx)))

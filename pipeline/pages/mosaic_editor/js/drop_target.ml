@@ -1,20 +1,22 @@
 open Js_of_ocaml
-open Components
 
 let ( >>= ) = Lwt.bind
 
 class virtual t (elt : Dom_html.element Js.t) () = object(self)
+  inherit Components.Widget.t elt () as super
 
-  inherit Widget.t elt () as super
+  val virtual ghost : Dom_html.element Js.t
 
-  val virtual ghost  : Dom_html.element Js.t
   val virtual mutable format : string
-  val mutable _dnd_typ = ""
-  val mutable _dragenter_target = Js.null
-  val mutable _drag_listeners = []
+
+  val mutable dnd_typ = ""
+
+  val mutable dragenter_target = Js.null
+
+  val mutable drag_listeners = []
 
   method! initial_sync_with_dom () : unit =
-    _drag_listeners <- Events.(
+    drag_listeners <- Js_of_ocaml_lwt.Lwt_js_events.(
         [ dragenters super#root self#handle_dragenter
         ; dragovers super#root self#handle_dragover
         ; dragleaves super#root self#handle_dragleave
@@ -24,14 +26,14 @@ class virtual t (elt : Dom_html.element Js.t) () = object(self)
     super#initial_sync_with_dom ()
 
   method! destroy () : unit =
-    List.iter Lwt.cancel _drag_listeners;
-    _drag_listeners <- [];
+    List.iter Lwt.cancel drag_listeners;
+    drag_listeners <- [];
     super#destroy ()
 
   method private handle_dragenter e _ =
     Dom_html.stopPropagation e;
     Dom.preventDefault e;
-    _dragenter_target <- e##.target;
+    dragenter_target <- e##.target;
     ghost##.style##.display := Js.string "";
     Lwt.return_unit
 
@@ -41,21 +43,21 @@ class virtual t (elt : Dom_html.element Js.t) () = object(self)
     match List.find_opt (String.equal format) l with
     | None -> print_endline "not found"; Lwt.return_unit
     | Some typ ->
-      _dnd_typ <- typ;
+      dnd_typ <- typ;
       self#move_ghost e;
       Lwt.return_unit
 
   method private handle_dragleave e _ =
     Dom_html.stopPropagation e;
     Dom.preventDefault e;
-    if _dragenter_target == e##.target
+    if dragenter_target == e##.target
     then ghost##.style##.display := Js.string "none";
     Lwt.return_unit
 
   method private handle_drop e _ =
     Dom.preventDefault e;
     let json =
-      try e##.dataTransfer##getData (Js.string _dnd_typ)
+      try e##.dataTransfer##getData (Js.string dnd_typ)
           |> Js.to_string
           |> Yojson.Safe.from_string
       with _ -> `Null in
@@ -73,5 +75,4 @@ class virtual t (elt : Dom_html.element Js.t) () = object(self)
     -> unit
 
   method private virtual handle_dropped_json : Yojson.Safe.t -> unit Lwt.t
-
 end

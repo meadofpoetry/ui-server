@@ -17,15 +17,23 @@ let domain_to_string : Wm.domain -> string = function
 module Selector = struct
   let item = Printf.sprintf ".%s" CSS.item
 
-  let list (domain : Wm.domain) =
-    Printf.sprintf "%s[data-domain=\"%s\"]"
-      Item_list.CSS.root
-      (Page_mosaic_editor_tyxml.Widget.domain_attr_value domain)
+  let domain _class = function
+    | Wm.Nihil ->
+      Printf.sprintf ".%s:not([%s]):not([%s])"
+        _class
+        Widget_utils.Attr.stream
+        Widget_utils.Attr.channel
+    | Chan x ->
+      Printf.sprintf ".%s[%s=\"%s\"][%s=\"%s\"]"
+        _class
+        Widget_utils.Attr.stream
+        (Page_mosaic_editor_tyxml.Widget.stream_attr_value x.stream)
+        Widget_utils.Attr.channel
+        (Page_mosaic_editor_tyxml.Widget.channel_attr_value x.channel)
 
-  let subheader (domain : string) =
-    Printf.sprintf ".%s[data-domain=\"%s\"]"
-      Item_list.CSS.group_subheader
-      domain
+  let list = domain Item_list.CSS.root
+
+  let subheader = domain Item_list.CSS.group_subheader
 end
 
 let format = "application/json"
@@ -41,18 +49,20 @@ let get f l =
       else aux (x :: acc) tl in
   aux [] l
 
-class t (elt : Dom_html.element Js.t) = object(self)
+class t (scaffold : Scaffold.t) (elt : Dom_html.element Js.t) = object(self)
   inherit Widget.t elt () as super
-  val placeholder = Ui_templates.Placeholder.With_icon.make
-      ~text:"Нет доступных виджетов"
-      ~icon:Icon.SVG.(make_simple Path.information)#root
-      ()
-  val mutable _listeners = []
-  val mutable _drag_target = Js.null
+
+  val placeholder = Components_lab.Placeholder.make
+      Icon.SVG.(make_simple Path.information)#root
+      "Нет доступных виджетов"
+
+  val mutable listeners = []
+
+  val mutable drag_target = Js.null
 
   method! init () : unit =
     Dom.appendChild super#root placeholder#root;
-    _listeners <- Lwt_js_events.(
+    listeners <- Lwt_js_events.(
         [ dragstarts super#root self#handle_dragstart
         ; dragends super#root self#handle_dragend
         ]);
@@ -65,8 +75,8 @@ class t (elt : Dom_html.element Js.t) = object(self)
     super#initial_sync_with_dom ()
 
   method! destroy () : unit =
-    List.iter Lwt.cancel _listeners;
-    _listeners <- [];
+    List.iter Lwt.cancel listeners;
+    listeners <- [];
     super#destroy ()
 
   method items : Dom_html.element Js.t list =
@@ -78,15 +88,11 @@ class t (elt : Dom_html.element Js.t) = object(self)
          Dom.removeChild list item;
          (match Element.children list with
           | [] ->
-            let subheader =
-              match Element.get_attribute list Widget_utils.Attr.domain with
-              | None -> None
-              | Some domain ->
-                Element.query_selector
-                  super#root
-                  (Selector.subheader domain)
-            in
-            Option.iter (Dom.removeChild super#root) subheader;
+            (* Remove corresponding subheader. *)
+            Option.iter (Dom.removeChild super#root)
+            @@ Element.query_selector super#root
+            @@ Selector.subheader
+            @@ Widget_utils.Attr.get_domain list;
             Dom.removeChild super#root list
           | _ -> ());
          self#handle_change ())
@@ -148,7 +154,7 @@ class t (elt : Dom_html.element Js.t) = object(self)
 
   method private handle_dragstart e _ =
     let target = Dom_html.eventTarget e in
-    _drag_target <- e##.target;
+    drag_target <- e##.target;
     let to_yojson (id, w) : Yojson.Safe.t =
       `List [`String id; Wm.widget_to_yojson w] in
     let data =
@@ -160,14 +166,19 @@ class t (elt : Dom_html.element Js.t) = object(self)
     e##.dataTransfer##setData (Js.string format) data;
     target##.style##.opacity := Js.def @@ Js.string "0.5";
     target##.style##.zIndex := Js.string "5";
-    Lwt.return_unit
+    match scaffold#side_sheet with
+    | None -> Lwt.return_unit
+    | Some x ->
+      match scaffold#side_sheet_type with
+      | Modal -> x#toggle ~force:false ()
+      | Dismissible | Permanent -> Lwt.return_unit
 
   method private handle_dragend e _ =
     let target = Dom_html.eventTarget e in
     target##.style##.opacity := Js.def @@ Js.string "";
     target##.style##.zIndex := Js.string "";
     if Element.has_class target Item_list.CSS.item
-    && (not (Js.some target == _drag_target))
+    && (not (Js.some target == drag_target))
     then Dom.preventDefault e;
     Lwt.return_unit
 end
@@ -193,7 +204,7 @@ let group_by_domain (widgets : (string * Wm.widget) list) =
           | Some l -> Some (x :: l)) acc)
     map widgets
 
-let make (widgets : (string * Wm.widget) list) : t =
+let make (scaffold : Scaffold.t) (widgets : (string * Wm.widget) list) : t =
   let grouped = group_by_domain widgets in
   let items = Domains.map (List.map (fun (id, x) ->
       Markup.create_item ~id x)) grouped in
@@ -207,4 +218,4 @@ let make (widgets : (string * Wm.widget) list) : t =
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element
     @@ Markup.create content in
-  new t elt
+  new t scaffold elt

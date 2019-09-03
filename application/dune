@@ -4,7 +4,7 @@
   (synopsis    "app")
   (libraries   application_types
                boards
-               board_niitv_dvb
+               board_niitv_dvb4ch
                board_niitv_tsan
                board_niitv_ts2ip
                board_dektec_dtm3200

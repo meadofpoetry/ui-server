@@ -126,7 +126,7 @@ end
 
 let make_big_button () =
   let icon = Icon.SVG.(make_simple Path.play)#root in
-  let ph = Ui_templates.Placeholder.With_icon.make ~icon ~text:"" () in
+  let ph = Components_lab.Placeholder.make icon "" in
   ph#add_class CSS.big_button;
   ph
 
@@ -205,7 +205,7 @@ class t (elt : #Dom_html.element Js.t) () =
       (* Listen to 'loadstart' event *)
       cons @@ Lwt_js_events.loadstarts video#root (fun _ _ ->
           let progress =
-            Ui_templates.Placeholder.Progress.make
+            Components_lab.Placeholder.make_progress
               ~size:60
               ~text:"Загружаем видео"
               () in

@@ -1,27 +1,29 @@
 * Mosaic editor goals
 ** container_editor.ml
-- [X] XXX initialize grid
+- [X] initialize grid
 - [X] implement `grid_properties_of_layout` function
 - [ ] redraw according to the server updates
 - [ ] `handle_keydown` method
-- [ ] XXX fill cells with predefined widget groups
+- [ ] fill cells with predefined widget groups
 - [ ] split cell into subtable or elementary cells
 - [X] generate unique container name
-- [ ] XXX restore cell selection after exit from widget editor mode
 - [X] filter available widgets
 - [X] scale widgets when resizing/swapping cells
-- [ ] add states
+- [ ] add container states
+- [X] http error & success notifications
+- [ ] add resolution setup
+- [X] check if title is available while changing
+- [X] change top app bar title after container title setup
 ** widget_editor.ml
 - [ ] `handle_keydown` method
 - [X] `bring_to_front` method
 - [X] `send_to_back` method
-- [-] implement layers logic
+- [X] implement layers logic
 - [X] fix widgets scaling
-- [ ] XXX take aspect ratio into account when adding widget
-- [ ] add states
+- [ ] take aspect ratio into account when adding widget
+- [ ] add widget states
 - [X] implement widget selection
 - [X] implement widget transform
-- [ ] implement widget move without prior selection
 - [X] implement selection reset (e.g. on outside click)
 - [X] allow transform handles overflow parent
 ** position.ml
@@ -31,30 +33,33 @@
 - [X] improve `of_relative`, `to_relative`
 - [X] implement different types for pixel/pct/normalized coordinates
 ** transform.ml
-- [X] XXX extend widget resize direction to Top, Left, Right, Bottom
+- [X] extend widget resize direction to Top, Left, Right, Bottom
 ** grid_overlay.ml
-- [ ] XXX read `size` from DOM attribute
-- [ ] XXX get snap line color from CSS
+- [X] read `size` from DOM attribute
+- [X] get snap line color from CSS
 ** list_of_widgets.ml
-- [ ] XXX add human-readable subheader names
-- [ ] XXX add lists/items according to sorting - optional
+- [ ] add human-readable subheader names
+- [ ] add lists/items according to sorting - optional
 ** overflow_menu.ml
 - [X] click event listener is missing sometimes
 - [X] move markup to `page_mosaic_editor_tyxml` lib
 - [X] each menu listens for window resize event, call `layout` from parent element
 ** grid.ml
-- [ ] XXX fix merge/add/remove col/row methods
+- [ ] fix merge/add/remove col/row methods
       (especially for multi-span cells and nested grids)
-- [ ] implement `is_merge_possible` function
+- [X] implement `is_merge_possible` function
 ** undo_manager.ml
-- [ ] XXX add limit for undo/redo actions
+- [X] add limit for undo/redo actions
 ** wizard.ml
-- [ ] implement `layout_of_widgets` function
-- [ ] implement `notify` method
+- [X] implement `layout_of_widgets` function
+- [X] implement `notify` method
 ** Other 
-- [ ] XXX Undo/redo for every defined action
-- [ ] when applying, unobvious intersections/invalid positions are often detected by backend
+- [ ] Undo/redo for every defined action
+- [X] when applying, unobvious intersections/invalid positions are often detected by backend
+- [ ] add widgets on mobile
+- [ ] widget selection on mobile
+- [ ] disable default touch handler when selecting on mobile
 ** Optional
-- [ ] XXX add an ability to disable an action (like undo, redo...)
+- [X] add an ability to disable an action (like undo, redo...)
       When action is not possible it should be hidden (like in WhatsApp)
 - [X] switch to relative coordinates on backend

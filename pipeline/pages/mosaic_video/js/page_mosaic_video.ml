@@ -1,22 +1,19 @@
 open Js_of_ocaml
-open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml.Tyxml_js
 open Components
-
-(* TODO
-   - add stats inside the side sheet
-   - add settings inside the side sheet
-*)
+open Pipeline_http_js
 
 let ( >>= ) = Lwt.bind
 
 module CSS = Page_mosaic_video_tyxml.CSS
+
 module Markup = Page_mosaic_video_tyxml.Make(Xml)(Svg)(Html)
+
 module Hotkeys = Page_mosaic_video_tyxml.Hotkeys.Make(Xml)(Svg)(Html)
 
 module Selectors = struct
-  let menu_icon = "." ^ CSS.menu_icon
-  let edit = "." ^ CSS.edit
+  let overflow_menu = "." ^ Components_lab.Overflow_menu.CSS.root
+
   let side_sheet_icon = "." ^ CSS.side_sheet_icon
 end
 
@@ -159,7 +156,7 @@ module RTC = struct
       create_session
         ~server
         ~on_error:(fun s ->
-          let ph = Ui_templates.Placeholder.Err.make ~text:s () in
+          let ph = Components_lab.Placeholder.make_error s in
           player#set_overlay ph)
         (create ~log_level:Error ())
       >>= function
@@ -174,7 +171,7 @@ module RTC = struct
                 (handle_jsep jsep plugin
                  >|= function
                  | Error e ->
-                    let ph = Ui_templates.Placeholder.Err.make ~text:e () in
+                    let ph = Components_lab.Placeholder.make_error e in
                     player#set_overlay ph
                  | Ok _ -> ())
                 |> Lwt.ignore_result)
@@ -226,7 +223,7 @@ let make_hotkeys_dialog () =
     @@ Markup.create_hotkeys () in
   let title =
     To_dom.of_element
-    @@ Dialog.Markup.create_title_simple ~title:"Быстрые клавиши" () in
+    @@ Dialog.Markup.create_title_simple ~title:"Горячие клавиши" () in
   let cancel =
     To_dom.of_element
     @@ Dialog.Markup.create_action ~label:"Закрыть" ~action:Close () in
@@ -235,52 +232,115 @@ let make_hotkeys_dialog () =
     @@ Dialog.Markup.create_content ~content:[hotkeys#markup] () in
   Dialog.make ~title ~content ~actions:[cancel] ()
 
-let make_menu ?body ?viewport () =
-  let hotkeys_item =
-    let graphic = Icon.SVG.(make_simple Path.keyboard) in
-    Item_list.Item.make ~role:"menuitem" ~graphic "Горячие клавиши" in
-  let items =
-    [ hotkeys_item
-    ] in
-  Menu.make_of_item_list ?body ?viewport (Item_list.make ~role:"menu" items)
-
-let tie_menu_with_toggle (scaffold : Scaffold.t) =
-  match Element.query_selector scaffold#root Selectors.menu_icon with
-  | None -> ()
-  | Some i ->
-    let icon = Icon_button.attach i in
-    let menu = make_menu
-        ~body:scaffold#app_content_inner
-        ~viewport:(Element scaffold#app_content_inner)
-        () in
-    menu#set_quick_open true;
-    icon#append_child menu;
-    menu#set_anchor_element icon#root;
-    menu#set_anchor_corner Bottom_left;
-    let click = Events.clicks icon#root (fun e _ ->
-        let target = Dom.eventTarget e in
-        if not @@ Element.contains menu#root target
-        && not @@ Element.equal menu#root target
-        then menu#reveal ()
-        else Lwt.return_unit) in
-    let selected = Lwt_js_events.(
-        seq_loop (make_event Menu.Event.selected)
-          menu#root  (fun e _ ->
-              let detail = Js.Opt.get e##.detail (fun () -> failwith "No detail in event") in
-              match detail##.index with
-              | 0 ->
-                let dialog = make_hotkeys_dialog () in
-                Dom.appendChild Dom_html.document##.body dialog#root;
-                dialog#open_await ()
-                >>= fun _ ->
-                dialog#destroy ();
-                Element.remove_child_safe Dom_html.document##.body dialog#root;
-                Lwt.return_unit
-              | _ -> Lwt.return_unit)) in
+let tie_menu_with_toggle (scaffold : Scaffold.t) (wizard_dialog, show_wizard) =
+  match Element.query_selector scaffold#root Selectors.overflow_menu with
+  | None -> None
+  | Some elt ->
+    let menu = Components_lab.Overflow_menu.attach elt in
+    let hotkeys = Dom_html.getElementById "hotkeys" in
+    let wizard = Dom_html.getElementById "wizard" in
+    let hotkeys_dialog = make_hotkeys_dialog () in
+    let listeners = Js_of_ocaml_lwt.Lwt_js_events.(
+        [ clicks hotkeys (fun _ _ ->
+              hotkeys_dialog#open_await ()
+              >>= fun _ -> Lwt.return_unit)
+        ; clicks wizard (fun _ _ -> show_wizard ())
+        ]) in
+    Dom.appendChild Dom_html.document##.body hotkeys_dialog#root;
+    Dom.appendChild Dom_html.document##.body wizard_dialog#root;
     menu#set_on_destroy (fun () ->
-        icon#destroy ();
-        Lwt.cancel click;
-        Lwt.cancel selected)
+        Dom.removeChild Dom_html.document##.body hotkeys_dialog#root;
+        List.iter Lwt.cancel listeners);
+    menu#layout ();
+    Some menu
+
+let ( >>=? ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
+
+let submit_wizard (scaffold : Scaffold.t) value =
+  Pipeline_http_js.Http_wm.set_layout value
+  >>= function
+  | Ok _ ->
+    let label = "Мозаика сохранена" in
+    let snackbar = Snackbar.make ~dismiss:True ~label () in
+    snackbar#set_timeout 4.;
+    scaffold#show_snackbar ~on_close:snackbar#destroy snackbar
+  | Error e ->
+    let label =
+      Printf.sprintf "Ошибка. %s"
+      @@ Api_js.Http.error_to_string e in
+    let snackbar = Snackbar.make ~label () in
+    scaffold#show_snackbar ~on_close:snackbar#destroy snackbar
+
+let make_wizard (scaffold : Scaffold.t) =
+  let thread =
+    let open React in
+    Http_wm.get_layout ()
+    >>=? fun wm -> Http_structure.get_annotated ()
+    >>=? fun streams ->
+    Api_js.Websocket.JSON.open_socket ~path:(Netlib.Uri.Path.Format.of_string "ws") ()
+    >>=? fun socket -> Http_wm.Event.get socket
+    >>=? fun (_, wm_event) -> Http_structure.Event.get_annotated socket
+    >>=? fun (_, streams_event) ->
+    let wizard = Pipeline_widgets.Wizard.make streams wm in
+    let notif =
+      E.merge (fun _ -> wizard#notify) ()
+        [ E.map (fun x -> `Layout x) wm_event
+        ; E.map (fun x -> `Streams x) streams_event
+        ] in
+    wizard#set_on_destroy (fun () ->
+        E.stop ~strong:true notif;
+        E.stop ~strong:true wm_event;
+        E.stop ~strong:true streams_event;
+        Api_js.Websocket.close_socket socket);
+    Lwt.return_ok wizard in
+  let title =
+    To_dom.of_element
+    @@ Dialog.Markup.create_title_simple
+      ~title:Pipeline_widgets.Wizard.title
+      () in
+  let loader = Components_lab.Loader.make_widget_loader thread in
+  let content =
+    To_dom.of_element
+    @@ Dialog.Markup.create_content
+      ~content:[Of_dom.of_element loader]
+      () in
+  let cancel =
+    To_dom.of_element
+    @@ Dialog.Markup.create_action
+      ~action:Close
+      ~label:"Отмена"
+      () in
+  let accept =
+    Button.attach
+    @@ To_dom.of_element
+    @@ Dialog.Markup.create_action
+      ~disabled:true
+      ~action:Accept
+      ~label:"Применить"
+      () in
+  let actions = [cancel; accept#root] in
+  let dialog = Dialog.make ~title ~content ~actions () in
+  Lwt.on_success thread (fun _ -> accept#set_disabled false);
+  let show () =
+    dialog#open_await ()
+    >>= function
+    | Close | Destroy | Custom _ -> Lwt.return_unit
+    | Accept ->
+      thread
+      >>= function
+      | Error _ -> Lwt.return_unit
+      | Ok wizard ->
+        submit_wizard scaffold wizard#value
+        >>= fun _ -> Lwt.return_unit in
+  let listeners =
+    Js_of_ocaml_lwt.Lwt_js_events.(
+      [ seq_loop (make_event Treeview.Event.action)
+          dialog#root (fun _ _ -> dialog#layout (); Lwt.return_unit)
+      ]) in
+  dialog#set_on_destroy (fun () ->
+      List.iter Lwt.cancel listeners;
+      accept#destroy ());
+  dialog, show
 
 let () =
   let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
@@ -288,14 +348,16 @@ let () =
     | None -> failwith "no video player element found"
     | Some x -> Player.attach x in
   tie_side_sheet_with_toggle scaffold;
-  tie_menu_with_toggle scaffold;
+  let wizard = make_wizard scaffold in
+  let menu = tie_menu_with_toggle scaffold wizard in
+  scaffold#set_on_destroy (fun () -> Option.iter Widget.destroy menu);
   Lwt.async (fun () ->
       RTC.start_webrtc player
       >>= function
       | Ok (_ : RTC.t) -> Lwt.return player#root##focus
       | Error e ->
         (* Show error overlay in case of failure while starting webrtc session *)
-        let ph = Ui_templates.Placeholder.Err.make ~text:e () in
+        let ph = Components_lab.Placeholder.make_error e in
         ph#add_class Player.CSS.overlay;
         player#append_child ph;
         Lwt.return_unit)

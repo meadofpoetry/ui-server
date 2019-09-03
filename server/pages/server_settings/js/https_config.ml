@@ -58,12 +58,12 @@ class t
            then "включен" else "выключен") in
       let snackbar = Snackbar.make ~label () in
       set_snackbar snackbar
-      >>= fun _ -> Lwt.return @@ snackbar#destroy ()
+      >>= fun () -> Lwt.return @@ snackbar#destroy ()
     | Error e ->
       let label = Api_js.Http.error_to_string e in
       let snackbar = Snackbar.make ~label () in
       set_snackbar snackbar
-      >>= fun _ -> Lwt.return @@ snackbar#destroy ()
+      >>= fun () -> Lwt.return @@ snackbar#destroy ()
 end
 
 let make ~set_snackbar (init : Server_types.settings) : t =

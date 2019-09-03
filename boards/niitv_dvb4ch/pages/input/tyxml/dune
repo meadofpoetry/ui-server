@@ -1,0 +1,4 @@
+(library
+  (name      board_niitv_dvb4ch_page_input)
+  (libraries components_tyxml
+             application_types))

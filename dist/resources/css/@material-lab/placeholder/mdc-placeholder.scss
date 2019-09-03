@@ -1,0 +1,64 @@
+@import '@material/theme/_mixins';
+@import '@material/theme/_color-palette';
+@import '@material/typography/_mixins';
+
+.mdc-placeholder {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+
+    &__content {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+
+        > *:not(.mdc-placeholder__text) {
+            width: 70px;
+            height: 70px;
+
+            &.mdc-icon {
+                @include mdc-theme-prop(color, text-icon-on-background);
+            }
+        }
+    }
+
+    &__text {
+        margin-top: 10px;
+        text-align: center;
+        white-space: pre-line;
+        @include mdc-theme-prop(color,text-secondary-on-background);
+    }
+}
+
+.mdc-placeholder--error {
+    .mdc-placeholder__content > *:not(.mdc-placeholder__text) {
+        color: $material-color-red-300;
+    }
+}
+.mdc-placeholder__dots {
+    @keyframes blink {
+        0%   { opacity: .2; }
+        20%  { opacity:  1; }
+        100% { opacity: .2; }
+    }
+
+    span {
+        animation-name: blink;
+        animation-duration: 1.4s;
+        animation-iteration-count: infinite;
+        animation-fill-mode: both;
+    }
+
+    span:nth-child(2) {
+        animation-delay: .2s;
+    }
+
+    span:nth-child(3) {
+        animation-delay: .4s;
+    }
+}

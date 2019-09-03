@@ -7,7 +7,6 @@
                ts_error
                api_js
                components
-               ui_templates
                chartjs
                ptime.clock.jsoo)
   (preprocess  (pps ppx_deriving_yojson

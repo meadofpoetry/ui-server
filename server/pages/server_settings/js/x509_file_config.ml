@@ -156,7 +156,7 @@ end
 
 class ['a] t ?value
     ~(typ : 'a typ)
-    ~(set_snackbar : Snackbar.t -> Snackbar.dismiss_reason Lwt.t)
+    ~(set_snackbar : Snackbar.t -> unit Lwt.t)
     (elt : Dom_html.element Js.t) = object(self)
 
   val filename : Dom_html.element Js.t =
@@ -331,7 +331,7 @@ class ['a] t ?value
           | Some x -> Lwt.return_ok x
           | None -> fetch_value typ in
         let info =
-          Ui_templates.Loader.make_widget_loader
+          Components_lab.Loader.make_widget_loader
             (Lwt_result.map_err Api_js.Http.error_to_string value
              >>=? fun x ->
              self#set_value x;
@@ -356,10 +356,10 @@ class ['a] t ?value
             (typ_to_string typ) in
         let snackbar = Snackbar.make ~label () in
         set_snackbar snackbar
-        >>= fun _ -> self#set_value v; Lwt.return @@ snackbar#destroy ()
+        >>= fun () -> self#set_value v; Lwt.return @@ snackbar#destroy ()
       | Error e ->
         let label = Api_js.Http.error_to_string e in
         let snackbar = Snackbar.make ~label () in
         set_snackbar snackbar
-        >>= fun _ -> Lwt.return @@ snackbar#destroy ()
+        >>= fun () -> Lwt.return @@ snackbar#destroy ()
 end

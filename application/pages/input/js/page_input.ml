@@ -83,7 +83,7 @@ let () =
     Lwt.return_ok ()
   in
   let (_ : Dom_html.element Js.t) =
-    Ui_templates.Loader.make_loader
+    Components_lab.Loader.make_loader
       ~elt:scaffold#app_content_inner
       thread
   in

@@ -1,5 +1,4 @@
 _build/
-dist/db
 *.byte
 *.native
 *.bak
@@ -7,15 +6,4 @@ dist/db
 *.merlin
 tmp
 .sass-cache/*
-dist/resources/css/table.css
 dist/resources/css/*.map
-dist/resources/js/*.js
-!dist/resources/js/ResizeObserver.js
-!dist/resources/js/moment.min.js
-!dist/resources/js/chartjs-plugin-deferred.min.js
-!dist/resources/js/chartjs-plugin-streaming.min.js
-!dist/resources/js/chartjs-plugin-datalabels.min.js
-!dist/resources/js/Chart.min.js
-!dist/resources/js/adapter.min.js
-dist/backend
-dist/config.json
