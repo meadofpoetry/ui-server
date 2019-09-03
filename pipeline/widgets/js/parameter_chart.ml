@@ -202,6 +202,8 @@ let make_options ~x_axes ~y_axes =
   let animation = create_animation () in
   let hover = create_hover () in
   let options = create_line_options () in
+  let plugins = Js.Unsafe.obj [||] in
+  plugins##.datalabels := Js._false;
   animation##.duration := 0;
   tooltips##.mode := Interaction_mode.index;
   tooltips##.intersect := Js._false;
@@ -215,6 +217,7 @@ let make_options ~x_axes ~y_axes =
   options##.responsiveAnimationDuration := 0;
   options##.maintainAspectRatio := Js._false;
   options##.responsive := Js._true;
+  options##.plugins := plugins;
   options
 
 let make_dataset id src structures data =
@@ -297,7 +300,10 @@ class t
                  ()
                | _ -> ())
             | Some (_, (ds : _ Chartjs.lineDataset Js.t)) ->
-              let data = ds##.data##concat (Js.array data) in
+              Array.iter (fun x -> ignore @@ ds##.data##push x) data;
+              let sort = fun (a : _ Chartjs.dataPoint Js.t as 'c) (b : 'c) ->
+                float_of_int @@ compare a##.x b##.x in
+              let data = ds##.data##sort (Js.wrap_callback sort) in
               ds##.data := data) data;
         let config = Chartjs_streaming.create_update_config () in
         config##.preservation := Js._true;
