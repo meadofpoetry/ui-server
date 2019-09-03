@@ -300,7 +300,10 @@ class t
                  ()
                | _ -> ())
             | Some (_, (ds : _ Chartjs.lineDataset Js.t)) ->
-              let data = ds##.data##concat (Js.array data) in
+              Array.iter (fun x -> ignore @@ ds##.data##push x) data;
+              let sort = fun (a : _ Chartjs.dataPoint Js.t as 'c) (b : 'c) ->
+                float_of_int @@ compare a##.x b##.x in
+              let data = ds##.data##sort (Js.wrap_callback sort) in
               ds##.data := data) data;
         let config = Chartjs_streaming.create_update_config () in
         config##.preservation := Js._true;
