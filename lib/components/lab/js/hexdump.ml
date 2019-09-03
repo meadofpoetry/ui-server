@@ -1,11 +1,13 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
+open Components
 
 (* TODO
    * add range selection by holding shift
  *)
 
-include Components_tyxml.Hexdump
+include Components_lab_tyxml.Hexdump
+
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
 let ( % ) f g x = f (g x)
@@ -18,16 +20,20 @@ let string_of_chars (l : char list) =
   List.iter (Buffer.add_char buf) l;
   Buffer.contents buf
 
-class t (elt : Dom_html.element Js.t) () =
-object(self)
+class t (elt : Dom_html.element Js.t) () = object(self)
   val num_block : Dom_html.element Js.t =
     Utils.find_element_by_class_exn elt CSS.block_line_numbers
+
   val hex_block : Dom_html.element Js.t =
     Utils.find_element_by_class_exn elt CSS.block_hex
+
   val chr_block : Dom_html.element Js.t =
     Utils.find_element_by_class_exn elt CSS.block_chars
+
   val mutable _click_listener = None
+
   val mutable _selected : #Dom_html.element Js.t list = []
+
   val mutable _bytes : string = ""
 
   (* Config *)
@@ -35,14 +41,17 @@ object(self)
     match Option.map base_of_string @@ Element.get_attribute elt "data-base" with
     | None -> Hex
     | Some x -> x
+
   val mutable _width : int =
     match Option.map int_of_string @@ Element.get_attribute elt "data-width" with
     | None -> (* TODO we can count number of <span> elements in a row *) 16
     | Some x -> x
+
   val mutable _grouping : int =
     match Option.map int_of_string @@ Element.get_attribute elt "data-grouping" with
     | None -> 1
     | Some x -> x
+
   val mutable _no_line_numbers : bool =
     Element.has_class elt CSS.no_line_numbers
 

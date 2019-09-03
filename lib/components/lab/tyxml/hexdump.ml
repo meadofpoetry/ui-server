@@ -1,17 +1,26 @@
+open Components_tyxml
+
 module Const = struct
   let line_number_len = 4
 end
 
 module CSS = struct
   let root = "mdc-hexdump"
+
   let block = root ^ "-block"
+
   let item = root ^ "-item"
 
   let no_line_numbers = BEM.add_modifier root "no-line-numbers"
+
   let non_interactive = BEM.add_modifier root "non-interactive"
+
   let block_hex = BEM.add_modifier block "hex"
+
   let block_chars = BEM.add_modifier block "chars"
+
   let block_line_numbers = BEM.add_modifier block "line-numbers"
+
   let item_selected = BEM.add_modifier item "selected"
 end
 

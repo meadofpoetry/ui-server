@@ -8,8 +8,9 @@
 
 open Js_of_ocaml
 open Js_of_ocaml_lwt
+open Components
 
-include Components_tyxml.Clusterize
+include Components_lab_tyxml.Clusterize
 
 type row = Dom_html.element Js.t
 

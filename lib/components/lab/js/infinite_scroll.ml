@@ -129,9 +129,9 @@ let make ~(element : Dom_html.element Js.t)
   let target = match t.options.scroll_target with
     | None -> (Dom_html.window :> Dom_html.eventTarget Js.t)
     | Some x -> (x :> Dom_html.eventTarget Js.t) in
-  let listener = Events.(
+  let listener = Js_of_ocaml_lwt.Lwt_js_events.(
       seq_loop
-        (Events.make_event Dom_html.Event.scroll)
+        (make_event Dom_html.Event.scroll)
         target
         (fun _ _ -> on_scroll t; Lwt.return_unit)) in
   t.scroll_listener <- Some listener;

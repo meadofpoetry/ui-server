@@ -1,11 +1,12 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
-open Utils
+open Components
 
 (* TODO
    - test touch support *)
 
-include Components_tyxml.Split
+include Components_lab_tyxml.Split
+
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
 type event =
@@ -15,20 +16,30 @@ type event =
 class t (elt : Dom_html.element Js.t) () =
 object(self)
   val splitter : Dom_html.element Js.t =
-    find_element_by_class_exn elt CSS.splitter
+    Utils.find_element_by_class_exn elt CSS.splitter
+
   val panels : Dom_html.element Js.t * Dom_html.element Js.t =
     match Element.query_selector_all elt CSS.panel with
     | [x; y] -> x, y
     | _ -> failwith "split: two panels must be provided"
-  inherit Widget.t elt () as super
+
   val mutable _mousedown : unit Lwt.t option = None
+
   val mutable _mouseup : unit Lwt.t option = None
+
   val mutable _mousemove : unit Lwt.t option = None
+
   val mutable _mouseout : unit Lwt.t option = None
+
   val mutable _touchstart : unit Lwt.t option = None
+
   val mutable _touchmove : unit Lwt.t option = None
+
   val mutable _touchend : unit Lwt.t option = None
+
   val mutable _touchcancel : unit Lwt.t option = None
+
+  inherit Widget.t elt () as super
 
   method! initial_sync_with_dom () : unit =
     super#initial_sync_with_dom ();
@@ -140,7 +151,6 @@ object(self)
       let offsets = Utils.sum_scroll_offsets super#root in
       let rel_x = (client_x - (int_of_float rect##.left)) + (fst offsets) in
       (100. *. ((float_of_int rel_x) /. (float_of_int width))))
-
 end
 
 let make ?(vertical = false) (side1 : #Widget.t) (side2 : #Widget.t) : t =

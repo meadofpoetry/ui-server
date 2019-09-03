@@ -1,5 +1,7 @@
 open Js_of_ocaml_tyxml
-include Components_tyxml.Avatar
+
+include Components_lab_tyxml.Avatar
+
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
 module Image = struct
@@ -16,7 +18,7 @@ module Letter = struct
       Tyxml_js.To_dom.of_div
       @@ Markup.Letter.create ~text () in
     object
-      inherit Widget.t elt () as super
+      inherit Components.Widget.t elt () as super
 
       method dense : bool =
         super#has_class CSS.dense

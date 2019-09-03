@@ -181,6 +181,11 @@ module Make(Xml : Xml_sigs.NoWrap)
     td ~a:([a_class classes] @ attrs
            |> Utils.map_cons_option a_colspan colspan) content
 
+  let cell_of_fmt ?classes ?attrs ?colspan fmt v =
+    let content = make_cell_content fmt v in
+    make_cell ?classes ?attrs ?colspan ~numeric:(Fmt.is_numeric fmt)
+      [content]
+
   let make_header_cell ?(classes = []) ?(attrs = [])
       ?(numeric = false) ?(sortable = false) content : 'a elt =
     let classes =

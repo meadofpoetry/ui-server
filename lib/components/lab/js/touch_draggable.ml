@@ -1,4 +1,5 @@
 open Js_of_ocaml
+open Js_of_ocaml_lwt
 
 let touch e = Js.Optdef.get (e##.changedTouches##item 0)
     (fun () -> failwith "touch fail")
@@ -104,10 +105,11 @@ class t ~data ~typ elt () = object(self)
     let del_x, del_y = touch##.pageX - rect##.left, 0 in
     delta <- del_x, del_y;
     id <- Some touch##.identifier;
-    _move_listener <- Some (Events.touchmoves Dom_html.window self#handle_touch_move);
-    _end_listener <- Some (Events.touchends elt self#handle_touch_end);
+    let wnd = Dom_html.window in
+    _move_listener <- Some (Lwt_js_events.touchmoves wnd self#handle_touch_move);
+    _end_listener <- Some (Lwt_js_events.touchends elt self#handle_touch_end);
     Lwt.return_unit
 
   initializer
-    _start_listener <- Some (Events.touchstarts elt self#handle_touch_start)
+    _start_listener <- Some (Lwt_js_events.touchstarts elt self#handle_touch_start)
 end

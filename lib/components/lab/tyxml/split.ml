@@ -1,10 +1,16 @@
 module CSS = struct
+  open Components_tyxml
+
   let root = "mdc-split"
+
   let horizontal = BEM.add_modifier root "horizontal"
+
   let vertical = BEM.add_modifier root "vertical"
 
   let panel = BEM.add_element root "panel"
+
   let splitter = BEM.add_element root "splitter"
+
   let splitter_icon = BEM.add_element root "splitter-icon"
 end
 
