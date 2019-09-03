@@ -131,7 +131,9 @@ let do_upgrade (su : Software_updates.t) _user _body _env _state =
          in
          
          let error_msg = error_msg error in
-         let finished_thead = E.next finished in
+         let finished_thread = E.next @@ React.E.fmap (function
+             | (_, 18l) as x -> Some x
+             | _ -> None) finished in
          let package_list = List.of_seq @@ Stack.to_seq !packages in
          let new_version = match ui_server_version package_list with
            | Some v -> v
@@ -141,7 +143,7 @@ let do_upgrade (su : Software_updates.t) _user _body _env _state =
          let* () = trans#update_packages package_list in
          let* () = su.updated new_version in
 
-         let* res = finished_thead in
+         let* res = finished_thread in
          S.stop status;
          match res with
          | (1l, _) ->

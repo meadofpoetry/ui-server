@@ -75,6 +75,8 @@ class t (elt : Dom_html.element Js.t) = object(self)
 
   val mutable listeners = []
 
+  val mutable _state = `Unchecked
+
   method! initial_sync_with_dom () : unit =
     listeners <- Js_of_ocaml_lwt.Lwt_js_events.(
         [ clicks action#root self#handle_action
@@ -90,6 +92,7 @@ class t (elt : Dom_html.element Js.t) = object(self)
     | `State state -> self#handle_state_change state
 
   method private handle_state_change (state : state) : unit Lwt.t =
+    _state <- state;
     match state with
     | `Checking (_status, v) | `Upgrading (_status, v) ->
       let v = min 100l v in
@@ -117,19 +120,29 @@ class t (elt : Dom_html.element Js.t) = object(self)
       self#close_progress ()
 
   method private handle_action _ _ : unit Lwt.t =
-    let thread =
-      Pc_control_http_js.Updates.check_updates ()
-      >>= function
-      | Ok _ -> Lwt.return_unit
-      | Error err ->
-        placeholder#set_text
-        @@ Printf.sprintf
-          "Не удалось проверить наличие обновлений. \n%s"
-          (Api_js.Http.error_to_string err);
-        placeholder#set_error true;
-        Lwt.return_unit in
-    action#set_loading_lwt thread;
-    thread
+    match _state with
+    | `Updates_avail ->
+      let thread =
+        Pc_control_http_js.Updates.upgrade ()
+        >>= function
+        | Ok _ -> Lwt.return_unit
+        | Error _ -> Lwt.return_unit in
+      action#set_loading_lwt thread;
+      thread
+    | _ ->
+      let thread =
+        Pc_control_http_js.Updates.check_updates ()
+        >>= function
+        | Ok _ -> Lwt.return_unit
+        | Error err ->
+          placeholder#set_text
+          @@ Printf.sprintf
+            "Не удалось проверить наличие обновлений. \n%s"
+            (Api_js.Http.error_to_string err);
+          placeholder#set_error true;
+          Lwt.return_unit in
+      action#set_loading_lwt thread;
+      thread
 
   method private close_progress () =
     if progress#has_class Linear_progress.CSS.closed
