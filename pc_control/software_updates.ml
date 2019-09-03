@@ -8,9 +8,10 @@ type version = string
 type t = { pk : Packagekit.t
          ; updated : version -> unit Lwt.t
          ; current : version
+         ; mutable update_info_tm : unit Lwt.t option
          }
              
 let create version ?(updated = fun (_ : version) -> Lwt.return_unit) () =
   let ( let* ) = Lwt_result.bind in
   let* pk = Packagekit.create () in
-  Lwt_result.return { pk; current = version; updated }
+  Lwt_result.return { pk; current = version; updated; update_info_tm = None }

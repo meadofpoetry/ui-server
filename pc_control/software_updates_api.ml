@@ -21,6 +21,17 @@ module Event = struct
 
 end
 
+let add_update_info_timeout (su : Software_updates.t) =
+  let ( let* ) = Lwt.bind in
+  Option.iter Lwt.cancel su.update_info_tm;
+  let t =
+    let* () = Lwt_unix.sleep 3600.0 in
+    packages := Stack.create ();
+    push_state `Unchecked;
+    Lwt.return_unit
+  in
+  su.update_info_tm <- Some t
+             
 let status_signal f trans =
   let ( let* ) = Lwt.bind in
   let open Pc_control_types.Software_updates in
@@ -80,6 +91,8 @@ let check_for_upgrades (su : Software_updates.t) _user _body _env _state =
          let* () = trans#get_updates 0L in
 
          push_state `Updates_avail;
+
+         add_update_info_timeout su;
          
          Lwt.finalize
            (fun () ->
