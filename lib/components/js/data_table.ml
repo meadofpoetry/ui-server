@@ -7,6 +7,16 @@ module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
 module Fmt = Markup.Fmt
 
+module Selector = struct
+  let row = Printf.sprintf ".%s" CSS.row
+
+  let row_checkbox = Printf.sprintf ".%s" CSS.row_checkbox
+
+  let row_selected = Printf.sprintf ".%s" CSS.row_selected
+
+  let header_row_checkbox = Printf.sprintf ".%s" CSS.header_row_checkbox
+end
+
 let ( >>= ) = Lwt.bind
 
 type column =
@@ -79,6 +89,8 @@ class ['a] t ~(fmt : 'a Format.t) (elt : Dom_html.element Js.t) = object(self)
 
   val mutable _fmt : 'a Format.t = fmt
 
+  val mutable row_checkboxes : Checkbox.t array = [||]
+
   method! init () : unit =
     super#init ()
 
@@ -91,5 +103,50 @@ class ['a] t ~(fmt : 'a Format.t) (elt : Dom_html.element Js.t) = object(self)
 
   method set_dense (x : bool) : unit = super#toggle_class ~force:x CSS.dense
 
-  method rows : Dom_html.element Js.t list = []
+  method rows : Dom_html.element Js.t list =
+    Element.query_selector_all super#root Selector.row
+
+  (* Private methods *)
+
+  method private notify_row_selection_changed () : unit =
+    ()
+
+  method private notify_selected_all () : unit =
+    (* TODO *)
+    ()
+
+  method private notify_unselected_all () : unit =
+    (* TODO *)
+    ()
+
+  method private handle_row_checkbox_change e _ : unit Lwt.t =
+    let target = Dom.eventTarget e in
+    let row = self#get_row_by_child_element target in
+    Js.Opt.case row
+      Lwt.return
+      (fun _row ->
+         (* TODO *)
+         Lwt.return_unit)
+
+  method private rows_arr : Dom_html.element Js.t array =
+    Element.array_of_node_list
+    @@ super#root##querySelectorAll (Js.string Selector.row)
+
+  method private is_checkbox_at_row_index_selected index =
+    row_checkboxes.(index)#checked
+
+  method private get_row_by_child_element elt =
+    Element.closest elt Selector.row
+
+  method private get_selected_row_count () : int =
+    (super#root##querySelectorAll (Js.string Selector.row_selected))##.length
+
+  method private register_row_checkboxes () : unit =
+    Array.iter Widget.destroy row_checkboxes;
+    let checkboxes =
+      Array.map (fun row ->
+          Checkbox.attach
+          @@ Element.query_selector_exn row Selector.row_checkbox)
+      @@ Array.of_list self#rows in
+    row_checkboxes <- checkboxes
 end

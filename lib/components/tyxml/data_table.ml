@@ -43,7 +43,12 @@ module CSS = struct
   (** Optional. Table cell element that contains mdc-checkbox.
       Added to [thead > th > td:first-child] HTML tag. *)
 
-  let row_checkbox = BEM.add_element row "checkbox"
+  let header_row_checkbox = BEM.add_element root "header-row-checkbox"
+  (** Optional. Checkbox element rendered inside table header row element.
+      Add this class name to [mdc-checkbox] element to override styles required
+      for data-table. *)
+
+  let row_checkbox = BEM.add_element root "row-checkbox"
   (** Optional. Checkbox element rendered inside table row element.
       Add this class name to [mdc-checkbox] element to override styles
       required for data-table. *)

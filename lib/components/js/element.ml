@@ -180,3 +180,10 @@ let remove (x : #Dom.node Js.t) =
   if Js.Optdef.test (Js.Unsafe.coerce x)##.remove
   then (Js.Unsafe.coerce x)##remove
   else Js.Opt.iter (get_parent x) (fun p -> Dom.removeChild p x)
+
+let array_of_node_list (nodeList : 'a Dom.nodeList Js.t) =
+  let length = nodeList##.length in
+  Array.init length (fun i ->
+      Js.Opt.case (nodeList##item i)
+        (fun () -> assert false)
+        (fun x -> x))
