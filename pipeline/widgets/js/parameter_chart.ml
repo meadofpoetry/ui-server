@@ -202,6 +202,8 @@ let make_options ~x_axes ~y_axes =
   let animation = create_animation () in
   let hover = create_hover () in
   let options = create_line_options () in
+  let plugins = Js.Unsafe.obj [||] in
+  plugins##.datalabels := Js._false;
   animation##.duration := 0;
   tooltips##.mode := Interaction_mode.index;
   tooltips##.intersect := Js._false;
@@ -215,6 +217,7 @@ let make_options ~x_axes ~y_axes =
   options##.responsiveAnimationDuration := 0;
   options##.maintainAspectRatio := Js._false;
   options##.responsive := Js._true;
+  options##.plugins := plugins;
   options
 
 let make_dataset id src structures data =
