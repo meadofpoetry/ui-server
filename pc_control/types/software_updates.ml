@@ -124,6 +124,7 @@ type progress = int32 [@@deriving yojson]
 type state = [ `Unchecked
              | `Checking of status * progress
              | `Updates_avail
+             | `Updates_not_avail
              | `Upgrading of status * progress
              | `Need_reboot
              ] [@@deriving yojson]

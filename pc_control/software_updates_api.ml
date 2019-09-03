@@ -44,8 +44,12 @@ let status_signal f trans =
   let* perc   = trans#percentage in
   let status = S.map ~eq:status_equal status_of_int32 status in
   S.l2 ~eq:Unit.equal f status perc
-  |> S.changes
-  |> E.map (fun () -> `Error "internal error")
+  |> Lwt.return
+
+let package_processor trans =
+  let ( let* ) = Lwt.bind in
+  let* package = trans#package in
+  E.map (fun (_, pkg, _) -> Stack.push pkg !packages) package
   |> Lwt.return
 
 let ui_server_version list =
@@ -82,41 +86,34 @@ let check_for_upgrades (su : Software_updates.t) _user _body _env _state =
          let* trans = su.pk#create_transaction in
          let* finished = trans#finished in
          let* error = trans#error_code in
+         let* package_ev = package_processor trans in
          let* status =
            status_signal (fun stat perc -> push_state (`Checking (stat, perc))) trans
          in
-         
          let error_msg = error_msg error in
-         let finished = React.E.map (function (0l, _) -> `Unit
-                                            | _ -> error_msg
-                                                     ~msg:(fun s -> `Error s)
-                                                     ~no_msg:(fun () -> `Error "Unknown error"))
-                          finished
-         in
+         let finished_thread = E.next finished in
          let* () = trans#get_updates 0L in
-         
-         let* res = Lwt.finalize
-                      (fun () ->
-                        Lwt_react.E.next @@ Lwt_react.E.select [finished; status])
-                      (fun () ->
-                        Lwt_react.E.stop status;
-                        Lwt.return_unit)
-         in
-
+         let* res = finished_thread in
+         S.stop status;
+         E.stop package_ev;
          match res with
-         | `Error e ->
-            Logs.err (fun m ->
-                m "Software_updates.check_for_upgrades: error %s during obtaining info" e);
-            push_state `Unchecked;
-            Lwt.return res
+         | (1l, _) ->
+           Logs.info (fun m ->
+               m "Software_updates.check_for_upgrades: info update succeded");
+           if Stack.is_empty !packages
+           then push_state `Updates_not_avail
+           else push_state `Updates_avail;
+           add_update_info_timeout su;
+           Lwt.return (`Value (Util_json.Int.to_yojson (Stack.length !packages)))
          | _ ->
-            Logs.info (fun m ->
-                m "Software_updates.check_for_upgrades: info update succeded");
-            if Stack.is_empty !packages
-            then push_state `Unchecked
-            else push_state `Updates_avail;
-            add_update_info_timeout su;
-            Lwt.return res)
+           let msg = error_msg
+               ~msg:(fun s -> s)
+               ~no_msg:(fun () -> "Unknown error") in
+           Logs.err (fun m ->
+               m "Software_updates.check_for_upgrades: \
+                  error `%s` during obtaining info" msg);
+           push_state `Unchecked;
+           Lwt.return (`Error msg))
 
 let do_upgrade (su : Software_updates.t) _user _body _env _state =
   let ( let* ) = Lwt.bind in
@@ -134,13 +131,7 @@ let do_upgrade (su : Software_updates.t) _user _body _env _state =
          in
          
          let error_msg = error_msg error in
-         let finished = React.E.map (function (0l, _) -> `Unit
-                                            | _ -> error_msg
-                                                     ~msg:(fun s -> `Error s)
-                                                     ~no_msg:(fun () -> `Error "Unknown error"))
-                          finished
-         in
-
+         let finished_thead = E.next finished in
          let package_list = List.of_seq @@ Stack.to_seq !packages in
          let new_version = match ui_server_version package_list with
            | Some v -> v
@@ -150,25 +141,22 @@ let do_upgrade (su : Software_updates.t) _user _body _env _state =
          let* () = trans#update_packages package_list in
          let* () = su.updated new_version in
 
-         push_state `Need_reboot;
-         
-         let* res = Lwt.finalize
-                      (fun () ->
-                        Lwt_react.E.next @@ Lwt_react.E.select [finished; status])
-                      (fun () ->
-                        Lwt_react.E.stop status;
-                        Lwt.return_unit)
-         in
-
+         let* res = finished_thead in
+         S.stop status;
          match res with
-         | `Error e ->
-            Logs.err (fun m -> m "Software_updates.update: error %s during update" e);
-            Lwt.return res
+         | (1l, _) ->
+           push_state `Need_reboot;
+           Logs.info (fun m -> m "Software_updates.update: update succeded, rebooting...");
+           cleanup_update_info_timeout su;
+           (* let* () = Power.reboot () in *)
+           Lwt.return `Unit
          | _ ->
-            Logs.info (fun m -> m "Software_updates.update: update succeded, rebooting...");
-            cleanup_update_info_timeout su;
-            let* () = Power.off () in
-            Lwt.return res)
+           push_state `Unchecked;
+           let msg = error_msg
+               ~msg:(fun s -> s)
+               ~no_msg:(fun () -> "Unknown error") in
+           Logs.err (fun m -> m "Software_updates.update: error %s during update" msg);
+           Lwt.return (`Error msg))
          
 
 let get_state (_su : Software_updates.t) _user _body _env _state =

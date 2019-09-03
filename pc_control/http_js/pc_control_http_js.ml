@@ -62,11 +62,17 @@ module Updates = struct
            | Ok _ as x -> Lwt.return x)
 
   let check_updates () =
-    Api_http.perform_unit
+    Api_http.perform
       ~meth:`POST
       ~path:Path.Format.("api/updates/check-updates" @/ empty)
       ~query:Query.empty
-      (fun _env res -> Lwt.return res)
+      (fun _env res ->
+         match res with
+         | Error _ as e -> Lwt.return e
+         | Ok x ->
+           match Util_json.Int.of_yojson x with
+           | Error e -> Lwt.return_error (`Conv_error e)
+           | Ok _ as x -> Lwt.return x)
 
   let upgrade () =
     Api_http.perform_unit

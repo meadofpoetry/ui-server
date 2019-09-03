@@ -96,7 +96,7 @@ let software_updates_pages : 'a. unit -> 'a Api_template.item list =
     make_template_props
       ~title:"Обновления"
       ~post_scripts:[`Src "/js/page-software-updates.js"]
-      (*~stylesheets:["/css/page-software-updates.min.css"]*)
+      ~stylesheets:["/css/page-software-updates.min.css"]
       ()
   in
   let icon x =
@@ -137,7 +137,6 @@ let power_pages : 'a. unit -> 'a Api_template.item list =
     make_template_props
       ~title:"Управление питанием"
       ~post_scripts:[`Src "/js/page-power.js"]
-      (*~stylesheets:["/css/page-software-updates.min.css"]*)
       ()
   in
   let icon x =

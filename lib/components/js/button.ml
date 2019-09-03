@@ -10,9 +10,12 @@ let ( >>= ) = Lwt.bind
 class t ?(ripple = true) ?on_click ?loader (elt : Dom_html.element Js.t) () =
   object(self)
     val mutable loader_ = Option.map Widget.coerce loader
+
     val mutable loader_container_ : Dom_html.element Js.t option =
       Element.query_selector elt CSS.loader_container
+
     val mutable ripple_ : Ripple.t option = None
+
     val mutable listeners_ : unit Lwt.t list = []
 
     inherit Widget.t elt () as super
@@ -30,20 +33,20 @@ class t ?(ripple = true) ?on_click ?loader (elt : Dom_html.element Js.t) () =
           ])
 
     method! layout () : unit =
-      super#layout ();
       (* Layout internal components. *)
       Option.iter Ripple.layout ripple_;
-      Option.iter Widget.layout loader_
+      Option.iter Widget.layout loader_;
+      super#layout ()
 
     method! destroy () : unit =
-      super#destroy ();
       (* Destroy internal components. *)
       Option.iter Ripple.destroy ripple_;
       ripple_ <- None;
       Option.iter Widget.destroy loader_;
       loader_ <- None;
       List.iter Lwt.cancel listeners_;
-      listeners_ <- []
+      listeners_ <- [];
+      super#destroy ()
 
     method disabled : bool =
       match Js.to_string elt##.tagName with
