@@ -1,5 +1,0 @@
-(library
-  (name board_niitv_dvb)
-  (libraries board_niitv_dvb_types
-             board_niitv_dvb_protocol
-             board_niitv_dvb_http))

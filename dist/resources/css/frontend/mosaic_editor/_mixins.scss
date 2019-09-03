@@ -1,11 +1,36 @@
 @import "@material/theme/mixins";
 @import "@material/theme/color-palette";
+@import "./variables";
 
-@mixin widget-background-color() {
+@mixin widget-audio-background($opacity: 1.0) {
+    $soundbar-colors: (
+    peak: rgba(255, 0, 0, $opacity),
+    warn: rgba(255, 255, 0, $opacity),
+    medium: rgba(0, 255, 0, $opacity),
+    low: rgba(0, 153, 0, $opacity),
+    silence: rgba(0, 115, 0, $opacity));
+
+    background-image: linear-gradient(
+        to bottom,
+        map-get($soundbar-colors, peak) 0%, map-get($soundbar-colors, peak) 7%,
+        map-get($soundbar-colors, warn) 6%, map-get($soundbar-colors, warn) 26%,
+        map-get($soundbar-colors, medium) 25%, map-get($soundbar-colors, medium) 43%,
+        map-get($soundbar-colors, low) 42%, map-get($soundbar-colors, low) 60%,
+        map-get($soundbar-colors, silence) 50%, map-get($soundbar-colors, silence) 100%);
+    background-repeat: space;
+    background-size: 47% 100%;
+}
+
+@mixin widget-background($opacity: 1.0) {
+    $bg-color: mix(mdc-theme-prop-value(on-surface), mdc-theme-prop-value(surface), 24%);
     &[data-type="video"] {
-        @include mdc-theme-prop(background-color, $material-color-blue-grey-500);
+        background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHN0eWxlPSJ3aWR0aDoyNHB4O2hlaWdodDoyNHB4IiB2aWV3Qm94PSIwIDAgMjQgMjQiPgo8cGF0aCBmaWxsPSJyZ2JhKDAsIDAsIDAsIDAuNSkiIGQ9Ik0xOCw5SDE2VjdIMThNMTgsMTNIMTZWMTFIMThNMTgsMTdIMTZWMTVIMThNOCw5SDZWN0g4TTgsMTNINlYxMUg4TTgsMTdINlYxNUg4TTE4LDNWNUgxNlYzSDhWNUg2VjNINFYyMUg2VjE5SDhWMjFIMTZWMTlIMThWMjFIMjBWM0gxOFoiLz4KPC9zdmc+");
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: 50% 50%;
+        @include mdc-theme-prop(background-color, $bg-color);
     }
     &[data-type="audio"] {
-        @include mdc-theme-prop(background-color, $material-color-green-500);
+        @include widget-audio-background($opacity);
     }
 }

@@ -3,9 +3,9 @@
 @import "@material/top-app-bar/variables";
 @import "./container_editor/container_editor";
 @import "./widget_editor/widget_editor";
-@import "./transform/transform";
-@import "./overflow_menu/overflow_menu";
 @import "./grid/grid";
+@import "./grid_overlay/grid_overlay";
+@import "../pipeline/wizard";
 
 @mixin nav-icon-hidden {
     opacity: 0;
@@ -27,17 +27,13 @@
 }
 
 .mdc-top-app-bar {
-    &, &__section:nth-child(2) {
-        transition: mdc-animation-enter(background-color, $duration: 90ms, $delay: 0ms);
-    }
+    transition: mdc-animation-enter(background-color, $duration: 90ms, $delay: 0ms);
 
     &--contextual  {
+        @include mdc-theme-prop(background-color, hsl(0, 0%, 7%));
+        transition: mdc-animation-exit-temporary(background-color, $duration: 150ms, $delay: 0ms);
         .mdc-top-app-bar__navigation-icon {
             display: flex !important; // FIXME 
-        }
-        &, .mdc-top-app-bar__section:nth-child(2) {
-            @include mdc-theme-prop(background-color, hsl(0, 0%, 7%));
-            transition: mdc-animation-exit-temporary(background-color, $duration: 150ms, $delay: 0ms);
         }
     }
 
@@ -72,33 +68,14 @@
     }
 
     &__section:nth-child(2) {
-        @include mdc-theme-prop(background-color, primary);
-        padding: 0;
-        display: flex;
-        align-items: flex-end;
-        .mdc-tab {
-            height: 64px;
-        }
-    }
-
-    &__section:nth-child(2), &__section:nth-child(3) {
         flex-grow: 0;
     }
 
 }
 
-@media screen and (max-width: $mdc-top-app-bar-mobile-breakpoint) {
-    body:not(.widget-mode) .mdc-top-app-bar--fixed-adjust {
-        padding-top: 2 * $mdc-top-app-bar-mobile-row-height;
-    }
-    .mdc-top-app-bar__section:nth-child(2) {
-        left: 0;
-        position: absolute;
-        right: 0;
-        top: $mdc-top-app-bar-mobile-row-height;
-        .mdc-tab {
-            height: 48px;
-        }
+.mdc-overflow-menu__overflow {
+    .mdc-menu .mdc-icon {
+        @include mdc-theme-prop(color, text-secondary-on-surface);
     }
 }
 

@@ -1,6 +1,0 @@
-(library
-  (name       board_niitv_dvb_http)
-  (libraries  board_niitv_dvb_protocol
-              api_websocket
-              api_cohttp_template
-              time_uri))

@@ -6,10 +6,6 @@
 @import '@material/layout-grid/mixins';
 @import "@material/elevation/mixins";
 @import "@material/drawer/mixins";
-@import './templates/templates';
-
-// TODO of course this should be moved to a separate .css file,
-// we don't need this on every page
 
 :root.mdc-theme-dark {
     --mdc-theme-background: #121212;

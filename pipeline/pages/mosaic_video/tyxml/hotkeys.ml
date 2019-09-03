@@ -2,10 +2,15 @@ open Components_tyxml
 
 module CSS = struct
   let root = "hotkeys"
+
   let section = BEM.add_element root "section"
+
   let section_title = BEM.add_element root "section-title"
+
   let option = BEM.add_element root "option"
+
   let label = BEM.add_element root "label"
+
   let hotkey = BEM.add_element root "hotkey"
 end
 
@@ -42,5 +47,4 @@ module Make(Xml : Xml_sigs.NoWrap)
   let create ?(classes = []) ?(attrs = []) ~sections () : 'a elt =
     let classes = CSS.root :: classes in
     div ~a:([a_class classes] @ attrs) sections
-
 end

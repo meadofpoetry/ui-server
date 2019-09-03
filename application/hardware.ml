@@ -54,7 +54,7 @@ type t =
 let available_boards =
   [ (module Board_niitv_tsan : Board.BOARD)
   ; (module Board_niitv_ts2ip : Board.BOARD)
-  ; (module Board_niitv_dvb : Board.BOARD)
+  ; (module Board_niitv_dvb4ch : Board.BOARD)
   ; (module Board_dektec_dtm3200 : Board.BOARD)
   ]
 

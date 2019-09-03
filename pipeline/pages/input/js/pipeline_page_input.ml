@@ -3,7 +3,7 @@ open Netlib
 open Components
 open Pipeline_types
 open Pipeline_http_js
-open Pipeline_widgets_js.Widget_parameter_chart
+open Pipeline_widgets.Parameter_chart
 
 let ( >>= ) = Lwt.bind
 
@@ -80,7 +80,7 @@ let () =
         Api_js.Websocket.close_socket socket);
     Lwt.return_ok box in
   let _loader =
-    Ui_templates.Loader.make_widget_loader
+    Components_lab.Loader.make_widget_loader
       ~elt:(Dom_html.getElementById "pipeline")
       thread
   in

@@ -3,14 +3,15 @@ open Pipeline_types
 open Components
 
 module Attr = struct
-
   let id = "data-id"
 
   let typ = "data-type"
 
   let pid = "data-pid"
 
-  let domain = "data-domain"
+  let stream = "data-stream"
+
+  let channel = "data-channel"
 
   let aspect = "data-aspect"
 
@@ -28,7 +29,8 @@ module Attr = struct
     [ id
     ; typ
     ; pid
-    ; domain
+    ; stream
+    ; channel
     ; aspect
     ; description
     ; width
@@ -57,11 +59,12 @@ module Attr = struct
     Element.set_attribute elt id id'
 
   let get_position (elt : Dom_html.element Js.t) : Wm.position option =
-    try Some { x = get_float_attribute elt left
-             ; y = get_float_attribute elt top
-             ; w = get_float_attribute elt width
-             ; h = get_float_attribute elt height
-             }
+    try Some (Position.Normalized.validate
+              @@ { x = get_float_attribute elt left
+                 ; y = get_float_attribute elt top
+                 ; w = get_float_attribute elt width
+                 ; h = get_float_attribute elt height
+                 })
     with _ -> None
 
   let string_of_float = Printf.sprintf "%g"
@@ -86,20 +89,23 @@ module Attr = struct
     let t = Page_mosaic_editor_tyxml.Widget.widget_type_to_string t in
     Element.set_attribute elt typ t
 
-  let get_domain (elt : Dom_html.element Js.t) =
-    Js.Opt.case (elt##getAttribute (Js.string domain))
-      (fun () -> Wm.Nihil)
-      (fun s ->
-         let json = Yojson.Safe.from_string (Js.to_string s) in
-         match Wm.domain_of_yojson json with
-         | Ok x -> x
-         | Error e -> failwith e)
+  let get_domain (elt : Dom_html.element Js.t) : Wm.domain =
+    let stream = Element.get_attribute elt stream in
+    let channel = Element.get_attribute elt channel in
+    match stream, channel with
+    | None, _ | _, None ->
+      Nihil
+    | Some s, Some c ->
+      Chan { stream = Application_types.Stream.ID.of_string s
+           ; channel = int_of_string c
+           }
 
   let set_domain (elt : Dom_html.element Js.t) = function
     | Wm.Nihil -> ()
-    | d ->
-      let v = Page_mosaic_editor_tyxml.Widget.domain_attr_value d in
-      Element.set_attribute elt domain v
+    | Chan x ->
+      Page_mosaic_editor_tyxml.Widget.(
+        Element.set_attribute elt stream (stream_attr_value x.stream);
+        Element.set_attribute elt channel (channel_attr_value x.channel))
 
   let get_pid (elt : Dom_html.element Js.t) =
     Js.Opt.case (elt##getAttribute (Js.string pid))
@@ -132,7 +138,6 @@ module Attr = struct
 
   let set_description (elt : Dom_html.element Js.t) v =
     Element.set_attribute elt description v
-
 end
 
 module Z_index : sig
@@ -143,17 +148,22 @@ module Z_index : sig
     }
 
   val get : Dom_html.element Js.t -> int
+
   val set : int -> Dom_html.element Js.t -> unit
+
   val make_item_list :
     selected:Dom_html.element Js.t list
     -> Dom_html.element Js.t list
     -> item list
+
   val pack : item list -> unit
+
   val max_selected : Dom_html.element Js.t list -> int
+
   val min_selected : Dom_html.element Js.t list -> int
+
   val validate : Dom_html.element Js.t list -> unit
 end = struct
-
   type item =
     { item : Dom_html.element Js.t
     ; z_index : int
@@ -194,7 +204,7 @@ end = struct
 
   let dedup ?(eq = (=)) l =
     let rec aux acc = function
-      | [] -> List.rev acc
+      | [] -> (* List.rev *) acc
       | hd :: tl ->
         let acc =
           if List.exists (eq hd) acc
@@ -203,47 +213,45 @@ end = struct
     aux [] l
 
   let get_group_for_item
-      (search_item_rect : Position.Normalized.t)
+      (search_group : Dom_html.element Js.t list)
       (items : Dom_html.element Js.t list) =
-    let rec aux search_item_rect acc = function
+    let rec aux search_group acc = function
       | [] -> dedup ~eq:Element.equal acc
       | (_ :: tl) as items ->
-        let siblings =
-          List.filter (fun (v : Dom_html.element Js.t) ->
-              Position.Normalized.collides search_item_rect
-              @@ Position.Normalized.of_element v)
+        let siblings = List.filter
+            (fun (i : Dom_html.element Js.t) ->
+               let ipos = Position.Normalized.of_element i in
+               List.exists (fun s ->
+                   Position.Normalized.collides ipos
+                     (Position.Normalized.of_element s))
+                 search_group)
             items in
-        let bounds =
-          Position.Normalized.bounding_rect
-          @@ List.map Position.Normalized.of_element siblings in
-        let (bounds, rect_growth) =
-          if (bounds.h = search_item_rect.h && bounds.w = search_item_rect.w)
-          || (bounds.h <= search_item_rect.h && bounds.w < search_item_rect.w)
-          || (bounds.h < search_item_rect.h && bounds.w <= search_item_rect.w)
-          then (search_item_rect, false)
-          else (bounds, true) in
+        let search_group_new =
+          dedup ~eq:Element.equal (siblings @ search_group) in
         let acc = siblings @ acc in
-        if rect_growth
-        then aux bounds acc items
-        else aux bounds acc tl in
-    aux search_item_rect [] items
+        let items =
+          if List.compare_lengths search_group_new search_group > 0
+          then items else tl in
+        aux search_group_new acc items in
+    aux search_group [] items
 
   let get_all_groups (items : Dom_html.element Js.t list) =
     let rec aux acc = function
       | [] -> acc
       | hd :: tl ->
-        let siblings = get_group_for_item (Position.Normalized.of_element hd) items in
+        let siblings = get_group_for_item [hd] items in
         let items = List.filter (fun v ->
             not @@ List.exists (Element.equal v) siblings) tl in
+        let siblings = List.sort (fun a b ->
+            compare (get a) (get b))
+            siblings in
         aux (siblings :: acc) items in
     aux [] items
 
   let validate (items : Dom_html.element Js.t list) : unit =
     let (list_intersect, list_non_intersect) = partition items in
-    let list_intersect_groups = get_all_groups list_intersect in
-    List.iter (set 0) list_non_intersect;
-    List.iter (List.iteri set) list_intersect_groups
-
+    List.iter (fun x -> set 0 x) list_non_intersect;
+    List.iter (List.iteri set) @@ get_all_groups list_intersect
 end
 
 let title (w : Wm.widget) : string =

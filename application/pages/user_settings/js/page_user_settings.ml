@@ -14,7 +14,9 @@ let () =
     let account = Account.make user in
     let content = match user with
       | `Root ->
-        let password = Password.make ~set_snackbar:scaffold#show_snackbar user in
+        let password = Password.make
+            ~set_snackbar:scaffold#show_snackbar_await
+            user in
         [password#markup]
       | `Guest | `Operator -> [] in
     let page =
@@ -22,5 +24,5 @@ let () =
       @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
       @@ Markup.make (account#markup :: content) in
     Lwt.return_ok page in
-  let loader = Ui_templates.Loader.make_widget_loader thread in
+  let loader = Components_lab.Loader.make_widget_loader thread in
   scaffold#set_body loader

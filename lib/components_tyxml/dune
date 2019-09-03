@@ -1,5 +1,0 @@
-(library
-  (name      components_tyxml)
-  (libraries tyxml
-             color))
-

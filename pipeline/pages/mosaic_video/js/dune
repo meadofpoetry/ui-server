@@ -3,7 +3,8 @@
   (libraries  js_of_ocaml
               janus-js
               components
-              ui_templates
+              components_lab
+              pipeline_widgets
               page_mosaic_video_tyxml)
   (preprocess (pps js_of_ocaml-ppx)))
 

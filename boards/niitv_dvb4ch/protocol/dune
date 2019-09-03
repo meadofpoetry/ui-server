@@ -1,0 +1,9 @@
+(library
+  (name       board_niitv_dvb4ch_protocol)
+  (libraries  boards
+              board_niitv_dvb4ch_types
+              ptime.clock.os)
+  (preprocess (pps ppx_cstruct
+                   ppx_deriving_yojson
+                   ppx_deriving.eq
+                   ppx_deriving.show)))

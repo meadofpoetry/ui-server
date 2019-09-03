@@ -1,0 +1,13 @@
+(library
+  (name       pipeline_widgets)
+  (libraries  components
+              components_lab
+              application_types
+              pipeline_types
+              pipeline_http_js
+              chartjs
+              chartjs-streaming
+              pipeline_widgets_tyxml)
+  (preprocess (pps js_of_ocaml-ppx
+                   ppx_deriving_yojson
+                   ppx_deriving.eq)))

@@ -1,0 +1,102 @@
+.mdc-transform {
+    @include mdc-theme-prop(border-color, primary);
+    position: absolute;
+    cursor: move;
+    border-style: solid;
+    border-width: 2px;
+    box-sizing: border-box;
+    outline: none;
+    z-index: 101;
+
+    &__circle {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        border-style: solid;
+        border-width: 2px;
+        box-sizing: border-box;
+        pointer-events: none;
+        @include mdc-theme-prop(border-color, primary);
+        @include mdc-theme-prop(background-color, surface);
+    }
+
+    &__resizer {
+        position: absolute;
+        width: 1em;
+        height: 1em;
+        pointer-events: all;
+        color: white;
+        fill: #fff;
+        outline: none;
+        overflow: visible;
+
+        &[data-direction="n"] {
+            left: 10px;
+            right: 10px;
+            bottom: 100%;
+            width: auto;
+            margin-bottom: -0.4em;
+            cursor: ns-resize;
+        }
+
+        &[data-direction="e"] {
+            top: 10px;
+            bottom: 10px;
+            left: 100%;
+            height: auto;
+            margin-left: -0.4em;
+            cursor: ew-resize;
+        }
+
+        &[data-direction="s"] {
+            left: 10px;
+            right: 10px;
+            top: 100%;
+            width: auto;
+            margin-top: -0.4em;
+            cursor: ns-resize;
+        }
+
+        &[data-direction="w"] {
+            top: 10px;
+            bottom: 10px;
+            right: 100%;
+            height: auto;
+            margin-right: -0.4em;
+            cursor: ew-resize;
+        }
+
+        &[data-direction="nw"] {
+            right: 100%;
+            bottom: 100%;
+            margin-right: -0.4em;
+            margin-bottom: -0.4em;
+            cursor: nw-resize;
+        }
+
+        &[data-direction="ne"] {
+            left: 100%;
+            bottom: 100%;
+            margin-left: -0.4em;
+            margin-bottom: -0.4em;
+            cursor: ne-resize;
+        }
+
+        &[data-direction="se"] {
+            left: 100%;
+            top: 100%;
+            margin-left: -0.4em;
+            margin-top: -0.4em;
+            cursor: se-resize;
+        }
+
+        &[data-direction="sw"] {
+            right: 100%;
+            top: 100%;
+            margin-right: -0.4em;
+            margin-top: -0.4em;
+            cursor: sw-resize;
+        }
+    }
+}

@@ -4,6 +4,8 @@
          (chartjs-plugin-datalabels.min.js as js/chartjs-plugin-datalabels.min.js)
          (chartjs-plugin-deferred.min.js as js/chartjs-plugin-deferred.min.js)
          (chartjs-plugin-streaming.min.js as js/chartjs-plugin-streaming.min.js)
+         (chartjs-plugin-colorschemes.min.js as js/chartjs-plugin-colorschemes.min.js)
+         (chartjs-plugin-annotation.min.js as js/chartjs-plugin-annotation.min.js)
          (moment.min.js as js/moment.min.js)
          (ResizeObserver.js as js/ResizeObserver.js))
   (section share)

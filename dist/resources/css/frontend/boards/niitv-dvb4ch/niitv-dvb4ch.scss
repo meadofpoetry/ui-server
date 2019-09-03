@@ -1,5 +1,6 @@
 @import "@material/theme/mixins";
 @import "@material/typography/mixins";
+@import "./variables";
 
 // Module settings widget
 
@@ -53,8 +54,58 @@
 // Chart
 
 .niitv-dvb4ch-measurements-chart {
+    &__title {
+        padding: 1rem 1rem 0.5rem;
+        @include mdc-typography(headline6);
+        font-weight: 300;
+    }
+
     &__legend {
-        padding: 24px;
+        padding: 0.5rem 1rem 1rem;
+        font-size: 12px;
+        border-spacing: 0;
+
+        td:nth-child(1) {
+            border-right-width: 1px;
+            border-right-style: solid;
+            @include mdc-theme-prop(border-right-color, $legend-divider-color);
+        }
+
+        td:first-child {
+            padding-left: 0;
+        }
+
+        td {
+            padding: 2px 12px;
+        }
+    }
+
+    &__legend-color {
+        border-width: 2px;
+        border-style: solid;
+        width: 11px;
+        height: 11px;
+        display: inline-block;
+        margin-right: 5px;
+    }
+
+    &__legend-module {
+        cursor: pointer;
+    }
+
+    &__legend-dataset {
+        margin-right: 10px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    &__legend--hidden {
+        text-decoration: line-through;
+    }
+
+    &__legend--history {
+        @include mdc-theme-prop(color, text-hint-on-surface);
     }
 
     &__chart-wrapper {
@@ -63,5 +114,7 @@
         height: 100%;
         max-height: 100%;
         overflow: hidden;
+        padding: 1rem;
+        box-sizing: border-box;
     }
 }

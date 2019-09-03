@@ -2,7 +2,8 @@
   (name       page_server_settings)
   (libraries  page_server_settings_tyxml
               components
-              ui_templates
+              components_lab
+              browser_storage
               application_types
               api_js
               server_http_js

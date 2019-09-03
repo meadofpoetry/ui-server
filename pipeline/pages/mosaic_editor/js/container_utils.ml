@@ -3,34 +3,38 @@ open Js_of_ocaml_tyxml
 open Components
 open Pipeline_types
 
+include Page_mosaic_editor_tyxml.Container_editor
+
+module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
+
 module Attr = struct
   let title = "data-title"
+
   let aspect = "data-aspect"
 end
 
 let ( = ) (x : int) y = x = y
 
 let equal_float ?(epsilon = epsilon_float) a b =
-  abs_float (a-.b) < epsilon
-
-let get_cell_title (cell : Dom_html.element Js.t) : string =
-  match Element.get_attribute cell Attr.title with
-  | None -> ""
-  | Some s -> s
+  abs_float (a -. b) < epsilon
 
 let set_cell_title (cell : Dom_html.element Js.t) (title : string) : unit =
   Element.set_attribute cell Attr.title title
 
 let cell_title_prefix = "Контейнер #"
 
-let cell_title (i : int) =
-  Printf.sprintf "Контейнер #%d" i
+let cell_title (i : int) = Printf.sprintf "%s%d" cell_title_prefix i
 
 let find_min_spare ?(min = 0) l =
   let rec aux acc = function
     | [] -> acc
     | x :: tl -> if acc = x then aux (succ x) tl else acc in
   aux min l
+
+let get_cell_title (cell : Dom_html.element Js.t) : string =
+  match Element.get_attribute cell Attr.title with
+  | None -> ""
+  | Some x -> x
 
 let gen_cell_title (cells : Dom_html.element Js.t list) =
   let titles = List.map get_cell_title cells in
@@ -50,9 +54,6 @@ let sum x = Array.fold_left (fun acc -> function
     | Grid.Fr x -> acc +. x
     | _ -> acc) 0. x
 
-let fr_to_px fr px =
-  (float_of_int px) /. (sum fr)
-
 let cell_position_to_wm_position
     ~cols
     ~rows
@@ -67,6 +68,10 @@ let cell_position_to_wm_position
      ; w = (get_cell_size ~start:(pred col) ~len:col_span cols) /. total_w
      ; h = (get_cell_size ~start:(pred row) ~len:row_span rows) /. total_h
      }
+
+let content_of_container (container : Wm.Annotated.container) =
+  let widgets = List.map Markup.create_widget container.widgets in
+  [Markup.create_widget_wrapper widgets]
 
 type grid_properties =
   { rows : Grid.value list
@@ -126,7 +131,6 @@ let grid_properties_of_layout ({ layout; _ } : Wm.Annotated.t) =
   { rows; cols; cells }
 
 module UI = struct
-
   open Js_of_ocaml_lwt
 
   let ( >>= ) = Lwt.bind
@@ -137,7 +141,7 @@ module UI = struct
       (Integer (Some 1, None))
 
   let make_empty_placeholder
-      (wizard_dialog : Wizard.t)
+      wizard_dialog
       (table_dialog, value : Dialog.t * (unit -> int option * int option))
       (grid : Grid.t) =
     let table =
@@ -150,7 +154,10 @@ module UI = struct
               match value () with
               | None, _ | _, None -> Lwt.return_unit
               | Some cols, Some rows ->
-                grid#reset ~cols ~rows ();
+                grid#reset
+                  ~cols:(`Repeat (cols, Fr 1.))
+                  ~rows:(`Repeat (rows, Fr 1.))
+                  ();
                 Lwt.return_unit)
         ~icon:Icon.SVG.(make_simple Path.table_plus)#root
         () in
@@ -159,18 +166,16 @@ module UI = struct
         ~on_click:(fun _ _ ->
             wizard_dialog#open_await ()
             >>= function
-            | Close | Destroy | Custom _ -> Lwt.return_unit
+            | Dialog.Close | Destroy | Custom _ -> Lwt.return_unit
             | Accept -> Lwt.return_unit)
         ~icon:Icon.SVG.(make_simple Path.auto_fix)#root
         () in
     let content = Box.make ~dir:`Row [wizard; table] in
-    Ui_templates.Placeholder.With_icon.make
-      ~font:Body_1
-      ~icon:content#root
-      ~text:"Мозаика пуста. \n\
-             Воспользуйтесь мастером настройки \n\
-             или начните с создания таблицы!"
-      ()
+    Components_lab.Placeholder.make
+      content#root
+      "Мозаика пуста. \n\
+       Воспользуйтесь мастером настройки \n\
+       или начните с создания таблицы!"
 
   let add_table_dialog () =
     let cols = make_input ~label:"Число столбцов" () in
@@ -211,4 +216,64 @@ module UI = struct
         List.iter Lwt.cancel listeners);
     dialog, (fun () -> cols#value, rows#value)
 
+  let make_description_dialog () =
+    let helper_text =
+      Textfield.Helper_text.make
+        ~validation:true
+        "" in
+    let textfield = Textfield.make_textfield
+        ~label:"Наименование"
+        ~helper_text
+        Text in
+    let title =
+      Tyxml_js.To_dom.of_element
+      @@ Dialog.Markup.create_title_simple ~title:"Описание" () in
+    let content =
+      Tyxml_js.To_dom.of_element
+      @@ Dialog.Markup.create_content
+        ~content:[ textfield#markup
+                 ; Textfield.Markup.create_helper_line [helper_text#markup]
+                 ]
+        () in
+    let accept =
+      Button.attach
+      @@ Dialog.make_action ~label:"OK" ~action:Accept () in
+    let actions = Dialog.(
+        [ Element.coerce @@ make_action ~label:"Отмена" ~action:Close ()
+        ; accept#root
+        ]) in
+    let dialog = Dialog.make ~title ~content ~actions () in
+    textfield, accept, dialog
+
+  let make_wizard_dialog structure wm =
+    let wizard = Pipeline_widgets.Wizard.make structure wm in
+    let title =
+      Tyxml_js.To_dom.of_element
+      @@ Dialog.Markup.create_title_simple
+        ~title:Pipeline_widgets.Wizard.title
+        () in
+    let content =
+      Tyxml_js.To_dom.of_element
+      @@ Dialog.Markup.create_content ~content:[wizard#markup] () in
+    let actions = Dialog.(
+        [ make_action ~label:"Отмена" ~action:Close ()
+        ; make_action ~label:"Применить" ~action:Accept ()
+        ]) in
+    let dialog = Dialog.make_element ~title ~content ~actions () in
+    object
+      inherit Dialog.t dialog () as super
+
+      method! initial_sync_with_dom () : unit =
+        _listeners <- Js_of_ocaml_lwt.Lwt_js_events.(
+            [ seq_loop (make_event Treeview.Event.action)
+                wizard#root (fun _ _ -> super#layout (); Lwt.return_unit)
+            ] @ _listeners);
+        super#initial_sync_with_dom ()
+
+      method! destroy () : unit =
+        wizard#destroy ();
+        super#destroy ()
+
+      method wizard = wizard
+    end
 end

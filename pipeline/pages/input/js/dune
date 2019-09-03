@@ -1,6 +1,6 @@
 (executable
   (name       pipeline_page_input)
-  (libraries  pipeline_widgets_js)
+  (libraries  pipeline_widgets)
   (preprocess (pps js_of_ocaml-ppx)))
 
 (install

@@ -6,4 +6,5 @@
               page_mosaic_editor_tyxml
               api_cohttp_template
               components_tyxml
+              components_lab_tyxml
               time_uri))

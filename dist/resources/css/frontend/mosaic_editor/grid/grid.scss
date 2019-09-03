@@ -33,6 +33,7 @@
         }
 
         &--selected {
+            @include mdc-theme-prop(color, $grid-cell-selected-text-color);
             @include mdc-theme-prop(background-color, $grid-cell-selected-color);
         }
     }
