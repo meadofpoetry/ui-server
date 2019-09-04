@@ -6,10 +6,6 @@ module CSS = struct
   let root = "software-updates"
 
   let action = BEM.add_element root "action"
-
-  let action_check = BEM.add_modifier action "check"
-
-  let action_update = BEM.add_modifier action "update"
 end
 
 module Remote_update = Remote_update

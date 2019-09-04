@@ -130,13 +130,20 @@ let power_handlers =
         Pc_control.Power_api.off
     ]
 
+module Power_page_markup = struct
+  include Page_power_management_tyxml.Make(Tyxml.Xml)(Tyxml.Svg)(Tyxml.Html)
+end
+
 let power_pages : 'a. unit -> 'a Api_template.item list =
   fun () ->
   let open Api_template in
+  let markup = Tyxml.Html.toelt @@ Power_page_markup.make () in
   let props =
     make_template_props
       ~title:"Управление питанием"
-      ~post_scripts:[`Src "/js/page-power.js"]
+      ~post_scripts:[`Src "/js/page-power-management.js"]
+      ~stylesheets:["/css/page-power-management.min.css"]
+      ~content:[markup]
       ()
   in
   let icon x =
@@ -148,7 +155,7 @@ let power_pages : 'a. unit -> 'a Api_template.item list =
   simple
     ~restrict:[`Operator; `Guest]
     ~priority:(`Index 10)
-    ~title:"Управление питанием"
+    ~title:"Питание"
     ~icon:(icon Components_tyxml.Svg_icons.power)
     ~path:(Path.of_string "settings/power")
     props

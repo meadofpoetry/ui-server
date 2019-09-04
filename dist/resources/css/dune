@@ -85,6 +85,17 @@
           (run %{bin:postcss} -u autoprefixer -r %{targets}))))
 
 (rule
+ (targets page-power-management.min.css)
+ (deps
+       (:src ./frontend/power-management/power-management.scss)
+       (source_tree ./frontend/power-management)
+       (source_tree ./ui-templates)
+       (source_tree ./@material))
+ (action (progn
+          (run %{bin:sassc} -t compressed -I ./ %{src} %{targets})
+          (run %{bin:postcss} -u autoprefixer -r %{targets}))))
+
+(rule
  (targets page-server-settings.min.css)
  (deps
        (:src ./frontend/server-settings/server-settings.scss)
@@ -168,6 +179,7 @@
          (page-topology.min.css as css/page-topology.min.css)
          (page-network-settings.min.css as css/page-network-settings.min.css)
          (page-software-updates.min.css as css/page-software-updates.min.css)
+         (page-power-management.min.css as css/page-power-management.min.css)
          (page-server-settings.min.css as css/page-server-settings.min.css)
          (page-user-settings.min.css as css/page-user-settings.min.css)
          (page-error.min.css as css/page-error.min.css)

@@ -1,0 +1,7 @@
+@import "ui-templates/settings-page/settings-page";
+
+.settings-section#shutdown, .settings-section#reboot {
+    .mdc-card__media {
+        padding: 1rem;
+    }
+}
