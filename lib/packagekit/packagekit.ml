@@ -18,7 +18,7 @@ class transaction obj = object
     OBus_method.call PK_trans_iface.Org_freedesktop_PackageKit_Transaction.m_GetUpdates obj flags
 
   method update_packages lst =
-    OBus_method.call PK_trans_iface.Org_freedesktop_PackageKit_Transaction.m_UpdatePackages obj (Int64.of_int @@ List.length lst, lst)
+    OBus_method.call PK_trans_iface.Org_freedesktop_PackageKit_Transaction.m_UpdatePackages obj (0L, lst)
 
   method package =
     OBus_signal.make PK_trans_iface.Org_freedesktop_PackageKit_Transaction.s_Package obj

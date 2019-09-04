@@ -238,8 +238,9 @@ class t ?(drawer : #Drawer.t option)
     method show_snackbar ?on_close (snackbar : Snackbar.t) =
       Dom.appendChild app_content_inner snackbar#root;
       let closed = Lwt_js_events.make_event Snackbar.Event.closed snackbar#root in
-      Lwt.on_termination closed (fun () ->
-          Option.iter (fun f -> f ()) on_close;
+      Lwt.on_success closed (fun e ->
+          let detail = Widget.event_detail e in
+          Option.iter (fun f -> f detail) on_close;
           Dom.removeChild app_content_inner snackbar#root);
       snackbar#open_ ()
 

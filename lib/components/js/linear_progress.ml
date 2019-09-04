@@ -53,11 +53,25 @@ class t (elt : Dom_html.element Js.t) () = object(self)
   method set_reverse (x : bool) : unit =
     super#toggle_class ~force:x CSS.reversed
 
-  method open_ () : unit =
-    super#remove_class CSS.closed
+  method open_ () : unit Lwt.t =
+    if not @@ super#has_class CSS.closed
+    then Lwt.return_unit
+    else (
+      let thread = Js_of_ocaml_lwt.Lwt_js_events.transitionend super#root in
+      super#remove_class CSS.closed;
+      Lwt.pick
+        [ Js_of_ocaml_lwt.Lwt_js.sleep 1.
+        ; thread ])
 
-  method close () : unit =
-    super#add_class CSS.closed
+  method close () : unit Lwt.t =
+    if super#has_class CSS.closed
+    then Lwt.return_unit
+    else (
+      let thread = Js_of_ocaml_lwt.Lwt_js_events.transitionend super#root in
+      super#add_class CSS.closed;
+      Lwt.pick
+        [ Js_of_ocaml_lwt.Lwt_js.sleep 1.
+        ; thread ])
 
   method private set_scale value = function
     | None -> ()

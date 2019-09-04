@@ -7,6 +7,8 @@ let upg_lock = Lwt_mutex.create ()
 
 let packages = ref @@ Stack.create ()
 
+let src = Logs.Src.create "Software Updates"
+
 let is_upgraded () =
   match S.value state with
   | `Need_reboot -> true
@@ -74,7 +76,17 @@ let error_msg event =
     (fun () -> match Lwt.state error_thread with
                | Return (_,v) -> msg v
                | _ -> no_msg ())
-  
+
+let kept = Hashtbl.create 10
+
+let hash = ref 0
+
+let keep ev =
+  let key = !hash in
+  Hashtbl.add kept key ev;
+  incr hash;
+  fun () -> Hashtbl.remove kept key
+
 let check_for_upgrades (su : Software_updates.t) _user _body _env _state =
   let ( let* ) = Lwt.bind in
   Lwt_mutex.with_lock upg_lock (fun () ->
@@ -82,24 +94,27 @@ let check_for_upgrades (su : Software_updates.t) _user _body _env _state =
       | true -> Lwt.return (`Error "Need reboot")
       | _ ->
          packages := Stack.create ();
-         
+
          let* trans = su.pk#create_transaction in
          let* finished = trans#finished in
+         let waiter, waker = Lwt.task () in
+         let unkeep = keep @@ E.map (fun x -> Lwt.wakeup waker x) finished in
          let* error = trans#error_code in
          let* package_ev = package_processor trans in
          let* status =
            status_signal (fun stat perc -> push_state (`Checking (stat, perc))) trans
          in
          let error_msg = error_msg error in
-         let finished_thread = E.next finished in
+         let finished_thread = waiter in
          let* () = trans#get_updates 0L in
          let* res = finished_thread in
+         unkeep ();
          S.stop status;
          E.stop package_ev;
          match res with
          | (1l, _) ->
-           Logs.info (fun m ->
-               m "Software_updates.check_for_upgrades: info update succeded");
+           Logs.info ~src (fun m ->
+               m "check_for_upgrades: info update succeded");
            if Stack.is_empty !packages
            then push_state `Updates_not_avail
            else push_state `Updates_avail;
@@ -109,57 +124,63 @@ let check_for_upgrades (su : Software_updates.t) _user _body _env _state =
            let msg = error_msg
                ~msg:(fun s -> s)
                ~no_msg:(fun () -> "Unknown error") in
-           Logs.err (fun m ->
-               m "Software_updates.check_for_upgrades: \
+           Logs.err ~src (fun m ->
+               m "check_for_upgrades: \
                   error `%s` during obtaining info" msg);
            push_state `Unchecked;
            Lwt.return (`Error msg))
 
-let do_upgrade (su : Software_updates.t) _user _body _env _state =
+let do_upgrade (su : Software_updates.t) reboot _user _body _env _state =
   let ( let* ) = Lwt.bind in
   Lwt_mutex.with_lock upg_lock (fun () ->
       match is_upgraded (), Stack.length !packages = 0 with
       | true, _ -> Lwt.return (`Error "Need reboot")
       | _, true -> Lwt.return (`Error "No new packages available")
       | _ ->
-
-         let* trans = su.pk#create_transaction in
-         let* finished = trans#finished in
-         let* error = trans#error_code in
-         let* status =
-           status_signal (fun stat perc -> push_state (`Upgrading (stat, perc))) trans
-         in
-         
-         let error_msg = error_msg error in
-         let finished_thread = E.next @@ React.E.fmap (function
-             | (_, 18l) as x -> Some x
-             | _ -> None) finished in
-         let package_list = List.of_seq @@ Stack.to_seq !packages in
-         let new_version = match ui_server_version package_list with
-           | Some v -> v
-           | None -> su.current
-         in
-
-         let* () = trans#update_packages package_list in
-         let* () = su.updated new_version in
-
-         let* res = finished_thread in
-         S.stop status;
-         match res with
-         | (1l, _) ->
-           push_state `Need_reboot;
-           Logs.info (fun m -> m "Software_updates.update: update succeded, rebooting...");
-           cleanup_update_info_timeout su;
-           (* let* () = Power.reboot () in *)
-           Lwt.return `Unit
-         | _ ->
-           push_state `Unchecked;
-           let msg = error_msg
-               ~msg:(fun s -> s)
-               ~no_msg:(fun () -> "Unknown error") in
-           Logs.err (fun m -> m "Software_updates.update: error %s during update" msg);
-           Lwt.return (`Error msg))
-         
+        let* trans = su.pk#create_transaction in
+        let* finished = trans#finished in
+        let waiter, waker = Lwt.task () in
+        let unkeep = keep @@ E.map (fun x -> Lwt.wakeup waker x) finished in
+        let* error = trans#error_code in
+        let* status =
+          status_signal (fun stat perc ->
+              push_state (`Upgrading (stat, perc))) trans
+        in
+        let error_msg = error_msg error in
+        let package_list = List.of_seq @@ Stack.to_seq !packages in
+        let new_version = match ui_server_version package_list with
+          | Some v -> v
+          | None -> su.current
+        in
+        Logs.info ~src (fun m ->
+            m "upgrading packages: \n%s"
+            @@ String.concat "\n" package_list);
+        Logs.info ~src (fun m -> m "running upgrade transaction...");
+        let* () = trans#update_packages package_list in
+        Logs.info ~src (fun m -> m "upgrade transaction succeeded.");
+        let* () = su.updated new_version in
+        let* res = waiter in
+        Logs.info ~src (fun m ->
+            m "upgraded: \n%s" @@ String.concat "\n" package_list);
+        unkeep ();
+        S.stop status;
+        match res with
+        | (1l, _) ->
+          push_state `Need_reboot;
+          Logs.info ~src (fun m -> m "upgrade succeded, rebooting...");
+          cleanup_update_info_timeout su;
+          let* () =
+            if Option.value reboot ~default:true
+            then Power.reboot ()
+            else Lwt.return_unit in
+          Lwt.return `Unit
+        | _ ->
+          push_state `Unchecked;
+          let msg = error_msg
+              ~msg:(fun s -> s)
+              ~no_msg:(fun () -> "Unknown error") in
+          Logs.err (fun m -> m "error %s during upgrade" msg);
+          Lwt.return (`Error msg))
 
 let get_state (_su : Software_updates.t) _user _body _env _state =
   let open Pc_control_types.Software_updates in

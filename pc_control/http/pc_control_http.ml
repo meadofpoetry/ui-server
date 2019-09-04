@@ -71,7 +71,7 @@ let software_updates_handlers (su : Pc_control.Software_updates.t) =
         ~restrict:[ `Guest; `Operator ]
         ~meth:`POST
         ~path:Path.Format.("upgrade" @/ empty)
-        ~query:Query.empty
+        ~query:Query.["reboot", (module Option(Bool))]
         (Pc_control.Software_updates_api.do_upgrade su)
     ; node ~doc:"Current state"
         ~meth:`GET

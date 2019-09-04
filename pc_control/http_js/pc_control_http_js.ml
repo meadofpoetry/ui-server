@@ -4,7 +4,6 @@ open Netlib.Uri
 module Api_http = Api_js.Http.Make(Application_types.Body)
 
 module Network = struct
-  
   module Event = struct
     let get_config sock =
       let of_yojson = Network_config.of_yojson in
@@ -34,11 +33,9 @@ module Network = struct
       ~path:Path.Format.("api/network/config" @/ empty)
       ~query:Query.empty
       (fun _env res -> Lwt.return res)
-
 end
 
 module Updates = struct
-
   module Event = struct
     let get_state sock =
       let of_yojson = Software_updates.state_of_yojson in
@@ -74,13 +71,13 @@ module Updates = struct
            | Error e -> Lwt.return_error (`Conv_error e)
            | Ok _ as x -> Lwt.return x)
 
-  let upgrade () =
+  let upgrade ?reboot () =
     Api_http.perform_unit
       ~meth:`POST
       ~path:Path.Format.("api/updates/upgrade" @/ empty)
-      ~query:Query.empty
+      ~query:Query.["reboot", (module Option(Bool))]
+      reboot
       (fun _env res -> Lwt.return res)
-    
 end
 
 module Power = struct

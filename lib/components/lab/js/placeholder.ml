@@ -7,24 +7,31 @@ include Components_lab_tyxml.Placeholder
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
 module Selector = struct
+  let icon = Printf.sprintf ".%s > *:not(.%s)" CSS.content CSS.text
+
   let text = Printf.sprintf ".%s" CSS.text
 end
 
 class t (elt : Dom_html.element Js.t) () = object
   inherit Widget.t elt () as super
 
+  method icon : Dom_html.element Js.t option =
+    Element.query_selector super#root Selector.icon
+
   method set_error (x : bool) : unit =
     super#toggle_class ~force:x CSS.error
 
-  method set_text ?loading s =
+  method set_text ?(loading = false) s =
     match Element.query_selector elt Selector.text with
     | None ->
       let text =
         Tyxml_js.To_dom.of_element
-        @@ Markup.make_text_string ?loading s in
+        @@ Markup.make_text_string ~loading s in
       Dom.appendChild super#root text
     | Some x ->
-      x##.textContent := Js.some @@ Js.string s
+      x##.textContent := Js.some @@ Js.string s;
+      if loading
+      then Dom.appendChild x (Tyxml_js.To_dom.of_element @@ Markup.make_dots ())
 end
 
 let make ?classes ?attrs ?error ?loading widget text =
