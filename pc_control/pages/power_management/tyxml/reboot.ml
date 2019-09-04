@@ -1,8 +1,5 @@
 open Components_tyxml
 
-let warning_hint =
-  "Hint"
-
 module Make(Xml : Xml_sigs.NoWrap)
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
     (Html : Html_sigs.NoWrap with module Xml := Xml
@@ -16,7 +13,16 @@ module Make(Xml : Xml_sigs.NoWrap)
   let make ?classes ?(attrs = []) () =
     make_section ?classes ~attrs:([Html.a_id "reboot"] @ attrs)
       ~header:(make_section_header ~title:"Перезагрузка прибора" [])
-      [ Card'.create_media [txt warning_hint] ()
+      [ Card'.create_media
+          [ div [txt "Нажмите эту кнопку, чтобы перезагрузить прибор."]
+          ; div [span
+                 [ strong [txt "Внимание! "]
+                 ; txt "Перезагрузка приведет к временной потере \
+                        связи с прибором."
+                 ]
+              ]
+          ]
+          ()
       ; hr ~a:[a_class [Divider.CSS.root]] ()
       ; Card'.create_actions
           [Card'.create_action_buttons

@@ -1,8 +1,5 @@
 open Components_tyxml
 
-let warning_hint =
-  "Hint"
-
 module Make(Xml : Xml_sigs.NoWrap)
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
     (Html : Html_sigs.NoWrap with module Xml := Xml
@@ -16,7 +13,17 @@ module Make(Xml : Xml_sigs.NoWrap)
   let make ?classes ?(attrs = []) () =
     make_section ?classes ~attrs:([Html.a_id "shutdown"] @ attrs)
       ~header:(make_section_header ~title:"Выключение питания" [])
-      [ Card'.create_media [txt warning_hint] ()
+      [ Card'.create_media
+          [ div [txt "Нажмите эту кнопку, чтобы выключить прибор."]
+          ; div [span
+                 [ strong [txt "Внимание! "]
+                 ; txt "Выключение приведет к потере связи с прибором. \
+                        Дальнейшая работа с прибором будет возможна только \
+                        после его включения нажатием кнопки на лицевой панели."
+                 ]
+              ]
+          ]
+          ()
       ; hr ~a:[a_class [Divider.CSS.root]] ()
       ; Card'.create_actions
           [Card'.create_action_buttons
