@@ -3,4 +3,4 @@
   (libraries pc_control
              api_cohttp_template
              api_websocket
-             page_network_settings_tyxml))
+             page_power_management_tyxml))

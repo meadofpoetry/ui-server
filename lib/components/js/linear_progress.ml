@@ -2,31 +2,89 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml
 
 include Components_tyxml.Linear_progress
+
 module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
 
-(* TODO remove *)
-class type mdc =
-  object
-    method determinate : bool Js.t Js.writeonly_prop
-    method progress : float Js.writeonly_prop
-    method buffer : float Js.writeonly_prop
-    method reverse : bool Js.t Js.writeonly_prop
-    method open_ : unit -> unit Js.meth
-    method close : unit -> unit Js.meth
-  end
+module Selector = struct
+  let buffer = Printf.sprintf ".%s" CSS.buffer
 
-class t () =
-  let elt = Tyxml_js.To_dom.of_div @@ Markup.create () in
-  object
-    inherit Widget.t elt ()
+  let primary_bar = Printf.sprintf ".%s" CSS.primary_bar
+end
 
-    val mdc : mdc Js.t = Js.Unsafe.global##.mdc##.linearProgress##.MDCLinearProgress##attachTo elt
+class t (elt : Dom_html.element Js.t) () = object(self)
+  inherit Widget.t elt () as super
 
-    method set_indeterminate x = mdc##.determinate := Js.bool @@ not x
-    method set_progress x = mdc##.progress := x
-    method set_buffer x = mdc##.buffer := x
-    method set_reversed x = mdc##.reverse := Js.bool x
+  val mutable _progress = 0.
 
-    method show () = mdc##open_ ()
-    method hide () = mdc##close ()
-  end
+  val transform : Js.js_string Js.t =
+    Js.string
+    @@ Utils.Animation.get_correct_property_name
+      ~window:Dom_html.window
+      "transform"
+
+  val buffer = Element.query_selector elt Selector.buffer
+
+  val primary_bar = Element.query_selector elt Selector.primary_bar
+
+  method indeterminate : bool =
+    super#has_class CSS.indeterminate
+
+  method set_indeterminate (indeterminate : bool) =
+    super#toggle_class ~force:indeterminate CSS.indeterminate;
+    if indeterminate
+    then (
+      self#set_scale 1. primary_bar;
+      self#set_scale 1. buffer)
+    else
+      self#set_scale _progress primary_bar
+
+  method set_progress x =
+    _progress <- x;
+    if not @@ self#indeterminate
+    then self#set_scale x primary_bar
+
+  method set_buffer x =
+    if not @@ self#indeterminate
+    then self#set_scale x buffer
+
+  method reversed : bool =
+    super#has_class CSS.reversed
+
+  method set_reverse (x : bool) : unit =
+    super#toggle_class ~force:x CSS.reversed
+
+  method open_ () : unit Lwt.t =
+    if not @@ super#has_class CSS.closed
+    then Lwt.return_unit
+    else (
+      let thread = Js_of_ocaml_lwt.Lwt_js_events.transitionend super#root in
+      super#remove_class CSS.closed;
+      Lwt.pick
+        [ Js_of_ocaml_lwt.Lwt_js.sleep 1.
+        ; thread ])
+
+  method close () : unit Lwt.t =
+    if super#has_class CSS.closed
+    then Lwt.return_unit
+    else (
+      let thread = Js_of_ocaml_lwt.Lwt_js_events.transitionend super#root in
+      super#add_class CSS.closed;
+      Lwt.pick
+        [ Js_of_ocaml_lwt.Lwt_js.sleep 1.
+        ; thread ])
+
+  method private set_scale value = function
+    | None -> ()
+    | Some (elt : Dom_html.element Js.t) ->
+      let scale = Js.string @@ Printf.sprintf "scaleX(%g)" value in
+      (Js.Unsafe.coerce elt##.style)##setProperty transform scale
+end
+
+let make ?classes ?attrs ?indeterminate ?reversed ?closed () : t =
+  let elt =
+    Tyxml_js.To_dom.of_element
+    @@ Markup.create ?classes ?attrs ?indeterminate ?reversed ?closed () in
+  new t elt ()
+
+let attach (elt : #Dom_html.element Js.t) : t =
+  new t (elt :> Dom_html.element Js.t) ()

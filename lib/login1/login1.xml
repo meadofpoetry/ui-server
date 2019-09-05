@@ -1,0 +1,369 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node>
+  <interface name="org.freedesktop.login1.Manager">
+    <property name="EnableWallMessages" type="b" access="readwrite">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="false"/>
+      <annotation name="org.freedesktop.systemd1.Privileged" value="true"/>
+    </property>
+    <property name="WallMessage" type="s" access="readwrite">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="false"/>
+      <annotation name="org.freedesktop.systemd1.Privileged" value="true"/>
+    </property>
+    <property name="NAutoVTs" type="u" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="const"/>
+    </property>
+    <property name="KillOnlyUsers" type="as" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="const"/>
+    </property>
+    <property name="KillExcludeUsers" type="as" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="const"/>
+    </property>
+    <property name="KillUserProcesses" type="b" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="const"/>
+    </property>
+    <property name="RebootParameter" type="s" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="false"/>
+    </property>
+    <property name="RebootToFirmwareSetup" type="b" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="false"/>
+    </property>
+    <property name="RebootToBootLoaderMenu" type="t" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="false"/>
+    </property>
+    <property name="RebootToBootLoaderEntry" type="s" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="false"/>
+    </property>
+    <property name="BootLoaderEntries" type="as" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="const"/>
+    </property>
+    <property name="IdleHint" type="b" access="read"/>
+    <property name="IdleSinceHint" type="t" access="read"/>
+    <property name="IdleSinceHintMonotonic" type="t" access="read"/>
+    <property name="BlockInhibited" type="s" access="read"/>
+    <property name="DelayInhibited" type="s" access="read"/>
+    <property name="InhibitDelayMaxUSec" type="t" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="const"/>
+    </property>
+    <property name="UserStopDelayUSec" type="t" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="const"/>
+    </property>
+    <property name="HandlePowerKey" type="s" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="const"/>
+    </property>
+    <property name="HandleSuspendKey" type="s" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="const"/>
+    </property>
+    <property name="HandleHibernateKey" type="s" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="const"/>
+    </property>
+    <property name="HandleLidSwitch" type="s" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="const"/>
+    </property>
+    <property name="HandleLidSwitchExternalPower" type="s" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="const"/>
+    </property>
+    <property name="HandleLidSwitchDocked" type="s" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="const"/>
+    </property>
+    <property name="HoldoffTimeoutUSec" type="t" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="const"/>
+    </property>
+    <property name="IdleAction" type="s" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="const"/>
+    </property>
+    <property name="IdleActionUSec" type="t" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="const"/>
+    </property>
+    <property name="PreparingForShutdown" type="b" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="false"/>
+    </property>
+    <property name="PreparingForSleep" type="b" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="false"/>
+    </property>
+    <property name="ScheduledShutdown" type="(st)" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="false"/>
+    </property>
+    <property name="Docked" type="b" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="false"/>
+    </property>
+    <property name="LidClosed" type="b" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="false"/>
+    </property>
+    <property name="OnExternalPower" type="b" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="false"/>
+    </property>
+    <property name="RemoveIPC" type="b" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="const"/>
+    </property>
+    <property name="RuntimeDirectorySize" type="t" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="const"/>
+    </property>
+    <property name="InhibitorsMax" type="t" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="const"/>
+    </property>
+    <property name="NCurrentInhibitors" type="t" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="false"/>
+    </property>
+    <property name="SessionsMax" type="t" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="const"/>
+    </property>
+    <property name="NCurrentSessions" type="t" access="read">
+      <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="false"/>
+    </property>
+    <method name="GetSession">
+      <arg direction="in" type="s"/>
+      <arg direction="out" type="o"/>
+    </method>
+    <method name="GetSessionByPID">
+      <arg direction="in" type="u"/>
+      <arg direction="out" type="o"/>
+    </method>
+    <method name="GetUser">
+      <arg direction="in" type="u"/>
+      <arg direction="out" type="o"/>
+    </method>
+    <method name="GetUserByPID">
+      <arg direction="in" type="u"/>
+      <arg direction="out" type="o"/>
+    </method>
+    <method name="GetSeat">
+      <arg direction="in" type="s"/>
+      <arg direction="out" type="o"/>
+    </method>
+    <method name="ListSessions">
+      <arg direction="out" type="a(susso)"/>
+    </method>
+    <method name="ListUsers">
+      <arg direction="out" type="a(uso)"/>
+    </method>
+    <method name="ListSeats">
+      <arg direction="out" type="a(so)"/>
+    </method>
+    <method name="ListInhibitors">
+      <arg direction="out" type="a(ssssuu)"/>
+    </method>
+    <method name="CreateSession">
+      <arg direction="in" type="u"/>
+      <arg direction="in" type="u"/>
+      <arg direction="in" type="s"/>
+      <arg direction="in" type="s"/>
+      <arg direction="in" type="s"/>
+      <arg direction="in" type="s"/>
+      <arg direction="in" type="s"/>
+      <arg direction="in" type="u"/>
+      <arg direction="in" type="s"/>
+      <arg direction="in" type="s"/>
+      <arg direction="in" type="b"/>
+      <arg direction="in" type="s"/>
+      <arg direction="in" type="s"/>
+      <arg direction="in" type="a(sv)"/>
+      <arg direction="out" type="s"/>
+      <arg direction="out" type="o"/>
+      <arg direction="out" type="s"/>
+      <arg direction="out" type="h"/>
+      <arg direction="out" type="u"/>
+      <arg direction="out" type="s"/>
+      <arg direction="out" type="u"/>
+      <arg direction="out" type="b"/>
+      <annotation name="org.freedesktop.systemd1.Privileged" value="true"/>
+    </method>
+    <method name="ReleaseSession">
+      <arg direction="in" type="s"/>
+      <annotation name="org.freedesktop.systemd1.Privileged" value="true"/>
+    </method>
+    <method name="ActivateSession">
+      <arg direction="in" type="s"/>
+    </method>
+    <method name="ActivateSessionOnSeat">
+      <arg direction="in" type="s"/>
+      <arg direction="in" type="s"/>
+    </method>
+    <method name="LockSession">
+      <arg direction="in" type="s"/>
+    </method>
+    <method name="UnlockSession">
+      <arg direction="in" type="s"/>
+    </method>
+    <method name="LockSessions"/>
+    <method name="UnlockSessions"/>
+    <method name="KillSession">
+      <arg direction="in" type="s"/>
+      <arg direction="in" type="s"/>
+      <arg direction="in" type="i"/>
+    </method>
+    <method name="KillUser">
+      <arg direction="in" type="u"/>
+      <arg direction="in" type="i"/>
+    </method>
+    <method name="TerminateSession">
+      <arg direction="in" type="s"/>
+    </method>
+    <method name="TerminateUser">
+      <arg direction="in" type="u"/>
+    </method>
+    <method name="TerminateSeat">
+      <arg direction="in" type="s"/>
+    </method>
+    <method name="SetUserLinger">
+      <arg direction="in" type="u"/>
+      <arg direction="in" type="b"/>
+      <arg direction="in" type="b"/>
+    </method>
+    <method name="AttachDevice">
+      <arg direction="in" type="s"/>
+      <arg direction="in" type="s"/>
+      <arg direction="in" type="b"/>
+    </method>
+    <method name="FlushDevices">
+      <arg direction="in" type="b"/>
+    </method>
+    <method name="PowerOff">
+      <arg direction="in" type="b"/>
+    </method>
+    <method name="Reboot">
+      <arg direction="in" type="b"/>
+    </method>
+    <method name="Halt">
+      <arg direction="in" type="b"/>
+    </method>
+    <method name="Suspend">
+      <arg direction="in" type="b"/>
+    </method>
+    <method name="Hibernate">
+      <arg direction="in" type="b"/>
+    </method>
+    <method name="HybridSleep">
+      <arg direction="in" type="b"/>
+    </method>
+    <method name="SuspendThenHibernate">
+      <arg direction="in" type="b"/>
+    </method>
+    <method name="CanPowerOff">
+      <arg direction="out" type="s"/>
+    </method>
+    <method name="CanReboot">
+      <arg direction="out" type="s"/>
+    </method>
+    <method name="CanHalt">
+      <arg direction="out" type="s"/>
+    </method>
+    <method name="CanSuspend">
+      <arg direction="out" type="s"/>
+    </method>
+    <method name="CanHibernate">
+      <arg direction="out" type="s"/>
+    </method>
+    <method name="CanHybridSleep">
+      <arg direction="out" type="s"/>
+    </method>
+    <method name="CanSuspendThenHibernate">
+      <arg direction="out" type="s"/>
+    </method>
+    <method name="ScheduleShutdown">
+      <arg direction="in" type="s"/>
+      <arg direction="in" type="t"/>
+    </method>
+    <method name="CancelScheduledShutdown">
+      <arg direction="out" type="b"/>
+    </method>
+    <method name="Inhibit">
+      <arg direction="in" type="s"/>
+      <arg direction="in" type="s"/>
+      <arg direction="in" type="s"/>
+      <arg direction="in" type="s"/>
+      <arg direction="out" type="h"/>
+    </method>
+    <method name="CanRebootParameter">
+      <arg direction="out" type="s"/>
+    </method>
+    <method name="SetRebootParameter">
+      <arg direction="in" type="s"/>
+    </method>
+    <method name="CanRebootToFirmwareSetup">
+      <arg direction="out" type="s"/>
+    </method>
+    <method name="SetRebootToFirmwareSetup">
+      <arg direction="in" type="b"/>
+    </method>
+    <method name="CanRebootToBootLoaderMenu">
+      <arg direction="out" type="s"/>
+    </method>
+    <method name="SetRebootToBootLoaderMenu">
+      <arg direction="in" type="t"/>
+    </method>
+    <method name="CanRebootToBootLoaderEntry">
+      <arg direction="out" type="s"/>
+    </method>
+    <method name="SetRebootToBootLoaderEntry">
+      <arg direction="in" type="s"/>
+    </method>
+    <method name="SetWallMessage">
+      <arg direction="in" type="s"/>
+      <arg direction="in" type="b"/>
+    </method>
+    <signal name="SessionNew">
+      <arg type="s"/>
+      <arg type="o"/>
+    </signal>
+    <signal name="SessionRemoved">
+      <arg type="s"/>
+      <arg type="o"/>
+    </signal>
+    <signal name="UserNew">
+      <arg type="u"/>
+      <arg type="o"/>
+    </signal>
+    <signal name="UserRemoved">
+      <arg type="u"/>
+      <arg type="o"/>
+    </signal>
+    <signal name="SeatNew">
+      <arg type="s"/>
+      <arg type="o"/>
+    </signal>
+    <signal name="SeatRemoved">
+      <arg type="s"/>
+      <arg type="o"/>
+    </signal>
+    <signal name="PrepareForShutdown">
+      <arg type="b"/>
+    </signal>
+    <signal name="PrepareForSleep">
+      <arg type="b"/>
+    </signal>
+  </interface>
+  <interface name="org.freedesktop.DBus.Properties">
+    <method name="Get">
+      <arg name="interface" direction="in" type="s"/>
+      <arg name="property" direction="in" type="s"/>
+      <arg name="value" direction="out" type="v"/>
+    </method>
+    <method name="GetAll">
+      <arg name="interface" direction="in" type="s"/>
+      <arg name="properties" direction="out" type="a{sv}"/>
+    </method>
+    <method name="Set">
+      <arg name="interface" direction="in" type="s"/>
+      <arg name="property" direction="in" type="s"/>
+      <arg name="value" direction="in" type="v"/>
+    </method>
+    <signal name="PropertiesChanged">
+      <arg name="interface" type="s"/>
+      <arg name="changed_properties" type="a{sv}"/>
+      <arg name="invalidated_properties" type="as"/>
+    </signal>
+  </interface>
+  <interface name="org.freedesktop.DBus.Peer">
+    <method name="Ping"/>
+    <method name="GetMachineId">
+      <arg name="machine_uuid" direction="out" type="s"/>
+    </method>
+  </interface>
+  <interface name="org.freedesktop.DBus.Introspectable">
+    <method name="Introspect">
+      <arg name="data" direction="out" type="s"/>
+    </method>
+  </interface>
+</node>

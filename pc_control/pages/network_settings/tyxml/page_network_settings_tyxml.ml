@@ -3,7 +3,9 @@ open Pc_control_types
 
 module CSS = struct
   include Ui_templates_tyxml.Settings_page.CSS
+
   let dialog = BEM.add_element section "dialog"
+
   let empty_placeholder = BEM.add_element section "empty-placeholder"
 end
 
@@ -173,7 +175,5 @@ module Make(Xml : Xml_sigs.NoWrap)
         [ Card.create_media [make_list v.routes.static; empty] ()
         ; Card.create_actions [Card.create_action_buttons [add] ()] ()
         ]
-
   end
-
 end

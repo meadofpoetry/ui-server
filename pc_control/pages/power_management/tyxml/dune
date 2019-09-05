@@ -1,0 +1,3 @@
+(library
+  (name page_power_management_tyxml)
+  (libraries ui_templates_tyxml components_tyxml))

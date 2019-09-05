@@ -504,13 +504,17 @@ class t ~(scaffold : Scaffold.t)
               let label = "Мозаика сохранена" in
               let snackbar = Snackbar.make ~dismiss:True ~label () in
               snackbar#set_timeout 4.;
-              scaffold#show_snackbar ~on_close:snackbar#destroy snackbar
+              scaffold#show_snackbar
+                ~on_close:(fun _ -> snackbar#destroy ())
+                snackbar
             | Error e ->
               let label =
                 Printf.sprintf "Ошибка. %s"
                 @@ Api_js.Http.error_to_string e in
               let snackbar = Snackbar.make ~label () in
-              scaffold#show_snackbar ~on_close:snackbar#destroy snackbar)
+              scaffold#show_snackbar
+                ~on_close:(fun _ -> snackbar#destroy ())
+                snackbar)
         () in
     [Card.Actions.make_buttons [submit]]
 

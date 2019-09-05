@@ -30,21 +30,21 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   module Typography = Typography.Make(Xml)(Svg)(Html)
 
+  let make_dots ?(classes = []) ?(attrs = []) () =
+    let classes = CSS.dots :: classes in
+    span ~a:([a_class classes] @ attrs)
+      [ span [txt "."]
+      ; span [txt "."]
+      ; span [txt "."]
+      ]
+
   let make_text ?(classes = []) ?(attrs = []) ?(loading = false) text =
     let classes =
       classes
       |> Utils.cons_if loading CSS.text_loading
       |> List.cons CSS.text in
-    let content =
-      if loading
-      then [ span ~a:[a_class [CSS.dots]]
-               [ span [txt "."]
-               ; span [txt "."]
-               ; span [txt "."]
-               ]
-           ]
-      else [] in
-    span ~a:([a_class classes] @ attrs) ([text] @ content)
+    let content = if loading then [make_dots ()] else [] in
+    span ~a:([a_class classes] @ attrs) (text :: content)
 
   let make_text_string ?classes ?attrs ?loading text =
     make_text ?classes ?attrs ?loading (txt text)
