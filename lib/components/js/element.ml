@@ -155,26 +155,33 @@ let find f (nodes : Dom_html.element Dom.nodeList Js.t) =
       then item else find (pred i) in
   find nodes##.length
 
-let emit ?(should_bubble = false) ?detail evt_type element =
-  let (evt : 'a custom_event Js.t) =
-    match Js.(to_string @@ typeof (Unsafe.global##.CustomEvent)) with
-    | "function" ->
-      let custom : (_ Dom_html.Event.typ -> _ Js.t -> _ custom_event Js.t) Js.constr =
-        Js.Unsafe.global##.CustomEvent in
-      let obj =
-        object%js
-          val detail = Js.Opt.option detail
-          val bubbles = should_bubble
-        end in
-      new%js custom evt_type obj
-    | _ ->
-      let doc = Js.Unsafe.coerce Dom_html.document in
-      let evt = doc##createEvent (Js.string "CustomEvent") in
-      evt##initCustomEvent evt_type
-        (Js.bool should_bubble)
-        Js._false
-        (Js.Opt.option detail) in
-  (Js.Unsafe.coerce element)##dispatchEvent evt
+(* let emit ?(should_bubble = false) ?detail evt_type element =
+ *   let (evt : 'a custom_event Js.t) =
+ *     match Js.(to_string @@ typeof (Unsafe.global##._CustomEvent)) with
+ *     | "function" ->
+ *       let custom : (_ Dom_html.Event.typ -> _ Js.t -> _ custom_event Js.t) Js.constr =
+ *         Js.Unsafe.global##.CustomEvent in
+ *       let obj =
+ *         object%js
+ *           val detail = Js.Opt.option detail
+ *           val bubbles = should_bubble
+ *         end in
+ *       new%js custom evt_type obj
+ *     | _ ->
+ *       let doc = Js.Unsafe.coerce Dom_html.document in
+ *       let evt = doc##createEvent (Js.string "CustomEvent") in
+ *       evt##initCustomEvent evt_type
+ *         (Js.bool should_bubble)
+ *         Js._false
+ *         (Js.Opt.option detail) in
+ *   (Js.Unsafe.coerce element)##dispatchEvent evt *)
+
+let emit ?(should_bubble = false) ?detail evt_type (element : Dom_html.element Js.t) =
+  let event = Dom_html.createCustomEvent
+      ?detail
+      ~bubbles:should_bubble
+      evt_type in
+  element##dispatchEvent (event :> Dom_html.event Js.t)
 
 let remove (x : #Dom.node Js.t) =
   if Js.Optdef.test (Js.Unsafe.coerce x)##.remove
@@ -187,3 +194,4 @@ let array_of_node_list (nodeList : 'a Dom.nodeList Js.t) =
       Js.Opt.case (nodeList##item i)
         (fun () -> assert false)
         (fun x -> x))
+

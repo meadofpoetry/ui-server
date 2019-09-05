@@ -219,12 +219,12 @@ let create (init : Topology.t) (socket : Api_js.Websocket.JSON.t) =
       super#root##.style##.cssText := Js.string gta;
       let obs =
         Resize_observer.observe ~node:super#root
-          ~f:(fun _ -> self#layout ()) () in
+          ~f:(fun _ _ -> self#layout ()) () in
       _resize_observer <- Some obs
 
     method! destroy () : unit =
       super#destroy ();
-      Option.iter Resize_observer.disconnect _resize_observer;
+      Option.iter (fun x -> x##disconnect) _resize_observer;
       _resize_observer <- None
 
     method! layout () : unit =

@@ -76,17 +76,17 @@ module Event = struct
       Dom_html.Event.make (name ^ ":change")
   end
 
-  let input ?use_capture t =
-    Lwt_js_events.make_event ?use_capture Typ.input t
+  let input ?use_capture ?passive t =
+    Lwt_js_events.make_event ?use_capture ?passive Typ.input t
 
-  let inputs ?cancel_handler ?use_capture t h =
-    Lwt_js_events.seq_loop ?cancel_handler ?use_capture input t h
+  let inputs ?cancel_handler ?use_capture ?passive t h =
+    Lwt_js_events.seq_loop ?cancel_handler ?use_capture ?passive input t h
 
-  let change ?use_capture t =
-    Lwt_js_events.make_event ?use_capture Typ.change t
+  let change ?use_capture ?passive t =
+    Lwt_js_events.make_event ?use_capture ?passive Typ.change t
 
-  let changes ?cancel_handler ?use_capture t h =
-    Lwt_js_events.seq_loop ?cancel_handler ?use_capture change t h
+  let changes ?cancel_handler ?use_capture ?passive t h =
+    Lwt_js_events.seq_loop ?cancel_handler ?use_capture ?passive change t h
 end
 
 module Util = struct

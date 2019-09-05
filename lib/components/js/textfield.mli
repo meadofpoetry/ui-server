@@ -26,15 +26,19 @@ module Event : sig
 
   module Typ : sig val icon : icon Js.t Dom.Event.typ end
 
-  val icon : ?use_capture:bool -> #Dom_html.eventTarget Js.t -> icon Js.t Lwt.t
+  val icon :
+       ?use_capture:bool
+    -> ?passive:bool
+    -> #Dom_html.eventTarget Js.t
+    -> icon Js.t Lwt.t
 
   val icons :
-    ?cancel_handler:bool
+       ?cancel_handler:bool
     -> ?use_capture:bool
+    -> ?passive:bool
     -> #Dom_html.eventTarget Js.t
     -> (icon Js.t -> unit Lwt.t -> unit Lwt.t)
     -> unit Lwt.t
-
 end
 
 module Character_counter : sig

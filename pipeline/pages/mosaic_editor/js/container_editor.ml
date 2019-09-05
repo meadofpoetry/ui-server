@@ -200,7 +200,7 @@ class t ~(scaffold : Scaffold.t)
     ignore @@ set_top_app_bar_icon scaffold `Aux close_icon#root;
     resize_observer <- Some (
         Resize_observer.observe
-          ~f:(fun _ -> self#layout ())
+          ~f:(fun _ _ -> self#layout ())
           ~node:super#root
           ());
     (* Create selection widget *)
@@ -263,7 +263,7 @@ class t ~(scaffold : Scaffold.t)
     super#layout ()
 
   method! destroy () : unit =
-    Option.iter Resize_observer.disconnect resize_observer;
+    Option.iter (fun x -> x##disconnect) resize_observer;
     resize_observer <- None;
     Option.iter (fun x -> x#destroy ()) selection;
     selection <- None;

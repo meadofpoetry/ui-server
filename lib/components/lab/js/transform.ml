@@ -99,23 +99,23 @@ module Event = struct
       Dom_html.Event.make @@ Printf.sprintf "%s:change" name
   end
 
-  let select ?use_capture h =
-    Lwt_js_events.make_event ?use_capture Typ.select h
+  let select ?use_capture ?passive h =
+    Lwt_js_events.make_event ?use_capture ?passive Typ.select h
 
-  let select ?cancel_handler ?use_capture h =
-    Lwt_js_events.seq_loop ?cancel_handler ?use_capture select h
+  let select ?cancel_handler ?use_capture ?passive h =
+    Lwt_js_events.seq_loop ?cancel_handler ?use_capture ?passive select h
 
-  let input ?use_capture h =
-    Lwt_js_events.make_event ?use_capture Typ.input h
+  let input ?use_capture ?passive h =
+    Lwt_js_events.make_event ?use_capture ?passive Typ.input h
 
-  let inputs ?cancel_handler ?use_capture h =
-    Lwt_js_events.seq_loop ?cancel_handler ?use_capture input h
+  let inputs ?cancel_handler ?use_capture ?passive h =
+    Lwt_js_events.seq_loop ?cancel_handler ?use_capture ?passive input h
 
-  let change ?use_capture h =
-    Lwt_js_events.make_event ?use_capture Typ.change h
+  let change ?use_capture ?passive h =
+    Lwt_js_events.make_event ?use_capture ?passive Typ.change h
 
-  let changes ?cancel_handler ?use_capture h =
-    Lwt_js_events.seq_loop ?cancel_handler ?use_capture change h
+  let changes ?cancel_handler ?use_capture ?passive h =
+    Lwt_js_events.seq_loop ?cancel_handler ?use_capture ?passive change h
 end
 
 let unwrap x = Js.Optdef.get x (fun () -> assert false)

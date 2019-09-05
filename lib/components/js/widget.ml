@@ -123,7 +123,7 @@ class t (elt : #Dom_html.element Js.t) () =
       ?detail:'a ->
       ('a #custom_event as 'e) Js.t Dom_html.Event.typ ->
       unit = fun ?should_bubble ?detail evt_type ->
-      Element.emit ?should_bubble ?detail evt_type self#root
+      ignore @@ Element.emit ?should_bubble ?detail evt_type self#root
 
     initializer
       self#init ();

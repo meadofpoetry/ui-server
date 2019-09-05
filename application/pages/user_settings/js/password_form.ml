@@ -85,8 +85,9 @@ class t ~set_snackbar (user : User.t)
     inherit Widget.t form () as super
 
     method! initial_sync_with_dom () : unit =
-      let invalid ?use_capture x =
-        Lwt_js_events.make_event ?use_capture (Dom_html.Event.make "invalid") x in
+      let invalid ?use_capture ?passive x =
+        Lwt_js_events.make_event ?use_capture ?passive
+          (Dom_html.Event.make "invalid") x in
       listeners_ <- Lwt_js_events.(
           [ seq_loop invalid old_password#input_element (self#handle_invalid `O)
           ; seq_loop invalid new_password#input_element (self#handle_invalid `N)
