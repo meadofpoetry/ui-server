@@ -1,10 +1,10 @@
 @import "@material/theme/mixins";
 @import "@material/animation/functions";
 @import "@material/top-app-bar/variables";
-@import "./container_editor/container_editor";
-@import "./widget_editor/widget_editor";
+@import "./container-editor/container-editor";
+@import "./widget-editor/widget-editor";
 @import "./grid/grid";
-@import "./grid_overlay/grid_overlay";
+@import "./grid-overlay/grid-overlay";
 @import "../pipeline/wizard";
 
 @mixin nav-icon-hidden {
