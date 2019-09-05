@@ -1,0 +1,79 @@
+@import "@material/typography/mixins";
+@import "@material/theme/mixins";
+
+// Bitrate pie chart
+
+.board-niitv-tsan-pid-bitrate-pie {
+    align-self: flex-start;
+    padding: 1rem;
+    flex-shrink: 0;
+
+    &__title {
+        @include mdc-typography(caption);
+        display: flex;
+        justify-content: center;
+        padding-bottom: 1rem;
+    }
+
+    &__wrapper {
+        position: relative;
+    }
+}
+
+// Bitrate summary
+
+.board-niitv-tsan-bitrate-summary {
+    .mdc-list-item__meta {
+        white-space: nowrap;
+        font-size: 1em;
+        @include mdc-theme-prop(color, text-primary-on-surface);
+    }
+}
+
+// PID summary
+
+.board-niitv-tsan-pid-summary {
+    &__title {
+        @include mdc-typography(caption);
+        padding-bottom: 1rem;
+    }
+
+    &__pids {
+        padding: 1rem;
+        font-size: 13px;
+        align-self: stretch;
+        display: flex;
+        align-items: flex-start;
+        align-content: flex-start;
+        flex-wrap: wrap;
+    }
+
+    &__pids:empty {
+        visibility: hidden;
+    }
+
+    &__pid {
+        width: 56px;
+        line-height: 2rem;
+        text-align: center;
+    }
+
+    &__pid[data-lost] {
+        @include mdc-theme-prop(color, error);
+        font-weight: 600;
+    }
+}
+
+.qos-niit-pids-summary-box {
+    &__wrapper {
+        /* @include mdc-card-outline($mdc-card-outline-color); */
+        .mdc-button {
+            height: initial;
+            &__icon {
+                width: initial;
+                height: initial;
+                margin-right: 0;
+            }
+        }
+    }
+}

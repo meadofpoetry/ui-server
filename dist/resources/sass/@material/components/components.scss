@@ -22,31 +22,12 @@
 
 $mdc-text-field-trailing-icon-position: 8px;
 
-@import "@material/avatar/mdc-avatar";
-@import "@material/box/mdc-box";
-@import "@material/circular-progress/mdc-circular-progress";
-@import "@material/clusterize/mdc-clusterize";
-@import "@material/dashboard/mdc-dashboard";
-@import "@material/divider/mdc-divider";
-@import "@material/dynamic-grid/mdc-dynamic-grid";
-@import "@material/expansion-panel/mdc-expansion-panel";
-@import "@material/fab-speed-dial/mdc-fab-speed-dial";
-@import "@material/hexdump/mdc-hexdump";
-@import "@material/pagination/mdc-pagination";
-@import "@material/scaffold/mdc-scaffold";
-@import "@material/side-sheet/mdc-side-sheet";
-@import "@material/split/mdc-split";
-@import "@material/data-table/mdc-data-table";
-@import "@material/treeview/mdc-treeview";
-@import "@material/icon/mdc-icon";
-// Extension styles for the button widget
-@import "@material/button-ext/mdc-button";
-@import "@material/list-ext/mdc-list";
-
+// Standard MDC components
 @import "@material/button/mdc-button";
 @import "@material/card/mdc-card";
 @import "@material/checkbox/mdc-checkbox";
 @import "@material/chips/mdc-chips";
+@import "@material/data-table/mdc-data-table";
 @import "@material/dialog/mdc-dialog";
 @import "@material/drawer/mdc-drawer";
 @import "@material/elevation/mdc-elevation";
@@ -60,8 +41,8 @@ $mdc-text-field-trailing-icon-position: 8px;
 @import "@material/line-ripple/mdc-line-ripple";
 @import "@material/linear-progress/mdc-linear-progress";
 @import "@material/list/mdc-list";
-@import "@material/menu/mdc-menu";
 @import "@material/menu-surface/mdc-menu-surface";
+@import "@material/menu/mdc-menu";
 @import "@material/notched-outline/mdc-notched-outline";
 @import "@material/radio/mdc-radio";
 @import "@material/ripple/mdc-ripple";
@@ -69,11 +50,23 @@ $mdc-text-field-trailing-icon-position: 8px;
 @import "@material/slider/mdc-slider";
 @import "@material/snackbar/mdc-snackbar";
 @import "@material/switch/mdc-switch";
-@import "@material/tab/mdc-tab";
 @import "@material/tab-bar/mdc-tab-bar";
 @import "@material/tab-indicator/mdc-tab-indicator";
 @import "@material/tab-scroller/mdc-tab-scroller";
+@import "@material/tab/mdc-tab";
 @import "@material/textfield/mdc-text-field";
 @import "@material/theme/mdc-theme";
 @import "@material/top-app-bar/mdc-top-app-bar";
 @import "@material/typography/mdc-typography";
+
+// Non-MDC extensions
+@import "@material/box/mdc-box";
+@import "@material/button-ext/mdc-button";
+@import "@material/circular-progress/mdc-circular-progress";
+@import "@material/data-table-ext/mdc-data-table";
+@import "@material/divider/mdc-divider";
+@import "@material/icon/mdc-icon";
+@import "@material/list-ext/mdc-list";
+@import "@material/scaffold/mdc-scaffold";
+@import "@material/side-sheet/mdc-side-sheet";
+@import "@material/treeview/mdc-treeview";

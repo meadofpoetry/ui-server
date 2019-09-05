@@ -1,0 +1,9 @@
+* Bitrate pie chart
+  [ ] Add pid types
+  [ ] Allow different bitrate units
+
+* PID summary
+  [ ] Add PIDs with sorting
+
+* Other
+  [ ] Add HEX switch

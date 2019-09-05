@@ -22,6 +22,8 @@ let pids_of_yojson = Util_json.(
       Int.of_yojson
       PID_info.of_yojson)
 
+let pids_ts_of_yojson = ts_of_yojson pids_of_yojson
+
 let si_psi_tables_of_yojson = Util_json.(
     List.of_yojson
     @@ Pair.of_yojson

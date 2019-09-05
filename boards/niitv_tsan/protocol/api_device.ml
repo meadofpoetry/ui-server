@@ -33,7 +33,6 @@ module Event = struct
         t2mi_mode_to_yojson x.t2mi_mode)
       @@ S.changes api.kv#s in
     Lwt.return event
-
 end
 
 let reset (api : Protocol.api) _user _body _env _state =

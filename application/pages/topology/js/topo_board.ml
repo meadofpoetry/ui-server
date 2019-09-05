@@ -69,14 +69,14 @@ let ( >>= ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
 let make_board_niitv_tsan_settings state socket control =
   let open React in
   let open Board_niitv_tsan_http_js in
-  let open Board_niitv_tsan_widgets_js in
+  let open Board_niitv_tsan_widgets in
   Http_device.get_t2mi_mode control
   >>= fun mode -> Http_streams.get_streams ~incoming:true control
   >>= fun streams -> Http_device.Event.get_t2mi_mode socket control
   >>= fun (mid, e_mode) ->
   Http_streams.Event.get_streams ~incoming:true socket control
   >>= fun (sid, e_strm) ->
-  let w = Widget_t2mi_settings.make (S.value state) mode streams control in
+  let w = T2mi_settings.make (S.value state) mode streams control in
   let notif =
     E.merge (fun _ -> w#notify) ()
       [ E.map (fun x -> `Mode x) e_mode
