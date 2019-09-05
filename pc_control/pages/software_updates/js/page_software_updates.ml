@@ -6,8 +6,7 @@ let ( >>= ) = Lwt.bind
 
 let ( >>=? ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
 
-let () =
-  let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
+let on_loaded (scaffold : Scaffold.t) () =
   let thread =
     let open Lwt_react in
     Pc_control_http_js.Updates.get_state ()
@@ -41,4 +40,8 @@ let () =
       ~elt:scaffold#app_content_inner
       thread
   in
-  ()
+  Lwt.return_unit
+
+let () = Lwt.async (fun () ->
+    let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
+    scaffold#loaded >>= on_loaded scaffold)
