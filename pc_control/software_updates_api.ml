@@ -77,14 +77,16 @@ let error_msg event =
                | Return (_,v) -> msg v
                | _ -> no_msg ())
 
-let kept = Hashtbl.create 10
+let kept_size = 10
+
+let kept = Hashtbl.create kept_size
 
 let hash = ref 0
 
 let keep ev =
   let key = !hash in
   Hashtbl.add kept key ev;
-  incr hash;
+  hash := (!hash + 1) mod kept_size;
   fun () -> Hashtbl.remove kept key
 
 let check_for_upgrades (su : Software_updates.t) _user _body _env _state =
@@ -153,15 +155,15 @@ let do_upgrade (su : Software_updates.t) reboot _user _body _env _state =
           | None -> su.current
         in
         Logs.info ~src (fun m ->
-            m "upgrading packages: \n%s"
-            @@ String.concat "\n" package_list);
+            m "upgrading packages: %s"
+            @@ String.concat ", " package_list);
         Logs.info ~src (fun m -> m "running upgrade transaction...");
         let* () = trans#update_packages package_list in
         Logs.info ~src (fun m -> m "upgrade transaction succeeded.");
         let* () = su.updated new_version in
         let* res = waiter in
         Logs.info ~src (fun m ->
-            m "upgraded: \n%s" @@ String.concat "\n" package_list);
+            m "upgraded: %s" @@ String.concat ", " package_list);
         unkeep ();
         S.stop status;
         match res with
