@@ -2,35 +2,45 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml
 
 include module type of Components_tyxml.Textfield
+
 module Markup : sig
-  include module type of Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
+  include module type of Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 end
 
 class type validity_state =
   object
     method badInput : bool Js.t Js.readonly_prop
+
     method customError : bool Js.t Js.readonly_prop
+
     method patternMismatch : bool Js.t Js.readonly_prop
+
     method rangeOverflow : bool Js.t Js.readonly_prop
+
     method rangeUnderflow : bool Js.t Js.readonly_prop
+
     method stepMismatch : bool Js.t Js.readonly_prop
+
     method tooLong : bool Js.t Js.readonly_prop
+
     method tooShort : bool Js.t Js.readonly_prop
+
     method typeMismatch : bool Js.t Js.readonly_prop
+
     method valid : bool Js.t Js.readonly_prop
+
     method valueMissing : bool Js.t Js.readonly_prop
   end
 
 module Event : sig
-  class type icon = [unit] Widget.custom_event
+  class type icon = [unit] Dom_html.customEvent
 
-  module Typ : sig val icon : icon Js.t Dom.Event.typ end
+  module Typ : sig
+    val icon : icon Js.t Dom.Event.typ
+  end
 
   val icon :
-       ?use_capture:bool
-    -> ?passive:bool
-    -> #Dom_html.eventTarget Js.t
-    -> icon Js.t Lwt.t
+    ?use_capture:bool -> ?passive:bool -> #Dom_html.eventTarget Js.t -> icon Js.t Lwt.t
 
   val icons :
        ?cancel_handler:bool
@@ -57,8 +67,10 @@ end
 module Icon : sig
   module Attr : sig
     val icon_role : string
+
     val aria_label : string
   end
+
   class type t =
     object
       inherit Widget.t
@@ -75,13 +87,10 @@ module Icon : sig
           the icon, which bubbles to the top-level text field element. *)
       method private notify_action : unit -> unit
 
-      method private handle_keydown : Dom_html.keyboardEvent Js.t
-        -> unit Lwt.t
-        -> unit Lwt.t
+      method private handle_keydown :
+        Dom_html.keyboardEvent Js.t -> unit Lwt.t -> unit Lwt.t
 
-      method private handle_click : Dom_html.mouseEvent Js.t
-        -> unit Lwt.t
-        -> unit Lwt.t
+      method private handle_click : Dom_html.mouseEvent Js.t -> unit Lwt.t -> unit Lwt.t
     end
 
   val attach : #Dom_html.element Js.t -> t
@@ -129,11 +138,11 @@ type 'a validation =
   | Text : string validation
   | Password : (string -> (unit, string) result) -> string validation
   | Custom : 'a custom_validation -> 'a validation
+
 and 'a custom_validation =
   { input_type : Html_types.input_type
   ; of_string : string -> ('a, string) result
-  ; to_string : 'a -> string
-  }
+  ; to_string : 'a -> string }
 
 class type ['a] t =
   object
@@ -240,9 +249,7 @@ class type ['a] t =
     (** Sets the line ripple's transform origin, so that the line ripple activate
         animation will animate out from the user's click location. *)
     method private set_transform_origin :
-      'a. (#Dom_html.event as 'a) Js.t
-      -> unit Lwt.t
-      -> unit Lwt.t
+      'a. (#Dom_html.event as 'a) Js.t -> unit Lwt.t -> unit Lwt.t
 
     (** Activates the Text Field's focus state in cases when the input value
         changes without user input (e.g. programmatically). *)
@@ -253,9 +260,7 @@ class type ['a] t =
 
     (** Handles user interactions with the Text Field. *)
     method private handle_text_field_interaction :
-      'a. (#Dom_html.event as 'a) Js.t
-      -> unit Lwt.t
-      -> unit Lwt.t
+      'a. (#Dom_html.event as 'a) Js.t -> unit Lwt.t -> unit Lwt.t
 
     (** Handles validation attribute changes. *)
     method private handle_validation_attribute_change : string list -> unit
@@ -299,7 +304,7 @@ class type ['a] t =
   end
 
 val make_textfield :
-  ?validate_on_blur:bool
+     ?validate_on_blur:bool
   -> ?on_input:(Dom_html.event Js.t -> 'a t -> unit Lwt.t)
   -> ?disabled:bool
   -> ?fullwidth:bool
@@ -310,17 +315,18 @@ val make_textfield :
   -> ?min_length:int
   -> ?max_length:int
   -> ?step:float (* FIXME should be of float/date type. *)
-  -> ?input_mode:[< `Email
-                 | `Full_width_latin
-                 | `Kana
-                 | `Katakana
-                 | `Latin
-                 | `Latin_name
-                 | `Latin_prose
-                 | `Numeric
-                 | `Tel
-                 | `Url
-                 | `Verbatim ]
+  -> ?input_mode:
+       [< `Email
+       | `Full_width_latin
+       | `Kana
+       | `Katakana
+       | `Latin
+       | `Latin_name
+       | `Latin_prose
+       | `Numeric
+       | `Tel
+       | `Url
+       | `Verbatim ]
   -> ?value:'a
   -> ?placeholder:string
   -> ?required:bool
@@ -330,10 +336,11 @@ val make_textfield :
   -> ?trailing_icon:#Widget.t
   -> ?label:string
   -> ?use_native_validation:bool
-  -> 'a validation -> 'a t
+  -> 'a validation
+  -> 'a t
 
 val make_textarea :
-  ?on_input:(Dom_html.event Js.t -> string t -> unit Lwt.t)
+     ?on_input:(Dom_html.event Js.t -> string t -> unit Lwt.t)
   -> ?disabled:bool
   -> ?fullwidth:bool
   -> ?focused:bool
@@ -352,10 +359,11 @@ val make_textarea :
   -> string t
 
 val attach :
-  ?validate_on_blur:bool
+     ?validate_on_blur:bool
   -> ?on_input:(Dom_html.event Js.t -> 'a t -> unit Lwt.t)
   -> ?helper_text:Helper_text.t
   -> ?character_counter:Character_counter.t
   -> ?use_native_validation:bool
   -> ?validation:'a validation
-  -> #Dom_html.element Js.t -> 'a t
+  -> #Dom_html.element Js.t
+  -> 'a t

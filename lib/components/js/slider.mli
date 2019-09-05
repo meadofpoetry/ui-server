@@ -2,8 +2,9 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml
 
 include module type of Components_tyxml.Slider
+
 module Markup : sig
-  include module type of Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
+  include module type of Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 end
 
 type event =
@@ -11,11 +12,10 @@ type event =
   | Touch of Dom_html.touchEvent Js.t
 
 module Event : sig
-  class type event =
-    object
-      inherit [float] Widget.custom_event
-    end
+  class type event = [float] Dom_html.customEvent
+
   val input : event Js.t Dom_html.Event.typ
+
   val change : event Js.t Dom_html.Event.typ
 end
 
@@ -73,7 +73,7 @@ class type t =
 
     method private calculate_thumb_styles : float -> unit
 
-    method private calculate_track_styles : #Dom_html.element Js.t -> float -> unit
+    method private calculate_track_styles : Dom_html.element Js.t -> float -> unit
 
     method private remove_track_markers : unit -> unit
 
@@ -92,40 +92,30 @@ class type t =
     method private handle_blur : Dom_html.event Js.t -> unit Lwt.t -> unit Lwt.t
 
     method private handle_mouse_enter :
-                     Dom_html.mouseEvent Js.t ->
-                     unit Lwt.t -> unit Lwt.t
+      Dom_html.mouseEvent Js.t -> unit Lwt.t -> unit Lwt.t
 
     method private handle_mouse_leave :
-                     Dom_html.mouseEvent Js.t ->
-                     unit Lwt.t -> unit Lwt.t
+      Dom_html.mouseEvent Js.t -> unit Lwt.t -> unit Lwt.t
 
     method private handle_touch_start :
-                     Dom_html.touchEvent Js.t ->
-                     unit Lwt.t -> unit Lwt.t
+      Dom_html.touchEvent Js.t -> unit Lwt.t -> unit Lwt.t
 
     method private handle_mouse_down :
-                     Dom_html.mouseEvent Js.t ->
-                     unit Lwt.t -> unit Lwt.t
+      Dom_html.mouseEvent Js.t -> unit Lwt.t -> unit Lwt.t
 
     method private handle_touch_end :
-                     Dom_html.touchEvent Js.t ->
-                     unit Lwt.t -> unit Lwt.t
+      Dom_html.touchEvent Js.t -> unit Lwt.t -> unit Lwt.t
 
-    method private handle_mouse_up :
-                     Dom_html.mouseEvent Js.t ->
-                     unit Lwt.t -> unit Lwt.t
+    method private handle_mouse_up : Dom_html.mouseEvent Js.t -> unit Lwt.t -> unit Lwt.t
 
     method private handle_touch_move :
-                     Dom_html.touchEvent Js.t ->
-                     unit Lwt.t -> unit Lwt.t
+      Dom_html.touchEvent Js.t -> unit Lwt.t -> unit Lwt.t
 
     method private handle_mouse_move :
-                     Dom_html.mouseEvent Js.t ->
-                     unit Lwt.t -> unit Lwt.t
+      Dom_html.mouseEvent Js.t -> unit Lwt.t -> unit Lwt.t
 
     method private handle_keydown :
-                     Dom_html.keyboardEvent Js.t ->
-                     unit Lwt.t -> unit Lwt.t
+      Dom_html.keyboardEvent Js.t -> unit Lwt.t -> unit Lwt.t
 
     method private handle_move : ?fire_input:bool -> event -> unit Lwt.t
 
@@ -133,15 +123,16 @@ class type t =
   end
 
 val make :
-  ?classes:string list ->
-  ?discrete:bool ->
-  ?markers:bool ->
-  ?disabled:bool ->
-  ?label:string ->
-  ?step:float ->
-  ?min:float ->
-  ?max:float ->
-  ?value:float ->
-  unit -> t
+     ?classes:string list
+  -> ?discrete:bool
+  -> ?markers:bool
+  -> ?disabled:bool
+  -> ?label:string
+  -> ?step:float
+  -> ?min:float
+  -> ?max:float
+  -> ?value:float
+  -> unit
+  -> t
 
 val attach : #Dom_html.element Js.t -> t

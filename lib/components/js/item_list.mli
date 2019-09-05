@@ -2,20 +2,23 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml
 
 include module type of Components_tyxml.Item_list
+
 module Markup : sig
-  include module type of Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
+  include module type of Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 end
 
 module Event : sig
-  class type detail = object
-    method item : Dom_html.element Js.t Js.readonly_prop
-    method originalEvent : Dom_html.event Js.t Js.readonly_prop
-  end
-  val action : detail Js.t Widget.custom_event Js.t Dom_html.Event.typ
+  class type detail =
+    object
+      method item : Dom_html.element Js.t Js.readonly_prop
+
+      method originalEvent : Dom_html.event Js.t Js.readonly_prop
+    end
+
+  val action : detail Js.t Dom_html.customEvent Js.t Dom_html.Event.typ
 end
 
 module Item : sig
-
   class type t =
     object
       inherit Widget.t
@@ -33,21 +36,20 @@ module Item : sig
       method selected : bool
 
       method ripple : Ripple.t option
-
     end
 
   val make :
-    ?ripple:bool ->
-    ?activated:bool ->
-    ?selected:bool ->
-    ?secondary_text:string ->
-    ?graphic:#Widget.t ->
-    ?meta:#Widget.t ->
-    ?role:string ->
-    string -> t
+       ?ripple:bool
+    -> ?activated:bool
+    -> ?selected:bool
+    -> ?secondary_text:string
+    -> ?graphic:#Widget.t
+    -> ?meta:#Widget.t
+    -> ?role:string
+    -> string
+    -> t
 
   val attach : ?ripple:bool -> #Dom_html.element Js.t -> t
-
 end
 
 class type t =
@@ -108,7 +110,6 @@ class type t =
     method items : Dom_html.element Js.t list
 
     (* Private methods *)
-
     method private items_ : Dom_html.element Dom.nodeList Js.t
 
     (** Return [true] if it is single selection list, checkbox list or radio list. *)
@@ -122,32 +123,23 @@ class type t =
     method private set_aria_for_single_selection : Dom_html.element Js.t -> unit
 
     method private set_selected_item_on_action :
-                     ?toggle:bool ->
-                     Dom_html.element Js.t ->
-                     unit
+      ?toggle:bool -> Dom_html.element Js.t -> unit
 
     (** Notifies a user that item was selected. *)
     method private notify_action : Dom_html.event Js.t -> Dom_html.element Js.t -> unit
 
     (** Handles `keydown` event. *)
     method private handle_keydown :
-                     Dom_html.keyboardEvent Js.t ->
-                     unit Lwt.t -> unit Lwt.t
+      Dom_html.keyboardEvent Js.t -> unit Lwt.t -> unit Lwt.t
 
     (** Handles `click` event. *)
-    method private handle_click :
-                     Dom_html.mouseEvent Js.t ->
-                     unit Lwt.t -> unit Lwt.t
+    method private handle_click : Dom_html.mouseEvent Js.t -> unit Lwt.t -> unit Lwt.t
 
     (** Handles `focusin` event. *)
-    method private handle_focus_in :
-                     Dom_html.event Js.t ->
-                     unit Lwt.t -> unit Lwt.t
+    method private handle_focus_in : Dom_html.event Js.t -> unit Lwt.t -> unit Lwt.t
 
     (** Handles `focusout` event *)
-    method private handle_focus_out :
-                     Dom_html.event Js.t ->
-                     unit Lwt.t -> unit Lwt.t
+    method private handle_focus_out : Dom_html.event Js.t -> unit Lwt.t -> unit Lwt.t
 
     (** Toggles nested radio of given item.
         Radio doesn't change the checked state if it is already checked. *)
@@ -158,19 +150,16 @@ class type t =
     method private set_checkbox : Dom_html.element Js.t list -> unit
 
     (** Toggles nested checkbox of given item. *)
-    method private toggle_checkbox :
-                     ?toggle:bool ->
-                     Dom_html.element Js.t ->
-                     unit
-
+    method private toggle_checkbox : ?toggle:bool -> Dom_html.element Js.t -> unit
   end
 
 val make :
-  ?avatar_list:bool ->
-  ?dense:bool ->
-  ?two_line:bool ->
-  ?non_interactive:bool ->
-  ?role:string ->
-  #Widget.t list -> t
+     ?avatar_list:bool
+  -> ?dense:bool
+  -> ?two_line:bool
+  -> ?non_interactive:bool
+  -> ?role:string
+  -> #Widget.t list
+  -> t
 
 val attach : #Dom_html.element Js.t -> t

@@ -1,92 +1,99 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
-open Utils
-
 include Components_tyxml.Radio
-module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
+module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+
+module Selector = struct
+  let native_control = Printf.sprintf "input.%s" CSS.native_control
+end
 
 class t ?on_change (elt : Dom_html.element Js.t) () =
-object(self)
-  val input_elt : Dom_html.inputElement Js.t =
-    find_element_by_class_exn elt CSS.native_control
-  val mutable _ripple : Ripple.t option = None
-  val mutable _change_listener = None
+  object (self)
+    val input_elt : Dom_html.inputElement Js.t =
+      let element = Element.query_selector_exn elt Selector.native_control in
+      Js.Opt.get (Dom_html.CoerceTo.input element) (fun () -> assert false)
 
-  inherit Widget.t elt () as super
+    val mutable _ripple : Ripple.t option = None
 
-  method! init () : unit =
-    super#init ();
-    _ripple <- Some (self#create_ripple ())
+    val mutable _change_listener = None
 
-  method! initial_sync_with_dom () : unit =
-    super#initial_sync_with_dom ();
-    let change_listener =
-      if Option.is_none on_change then None else
-        Some (Events.changes input_elt (fun _ _ ->
-            self#notify_change ();
-            Lwt.return_unit)) in
-    _change_listener <- change_listener
+    inherit Widget.t elt () as super
 
-  method! layout () : unit =
-    super#layout ();
-    match _ripple with
-    | None -> ()
-    | Some r -> Ripple.layout r
+    method! init () : unit =
+      super#init ();
+      _ripple <- Some (self#create_ripple ())
 
-  method! destroy () : unit =
-    super#destroy ();
-    (* Destroy internal components *)
-    Option.iter (fun r -> r#destroy ()) _ripple;
-    _ripple <- None
+    method! initial_sync_with_dom () : unit =
+      super#initial_sync_with_dom ();
+      let change_listener =
+        if Option.is_none on_change
+        then None
+        else
+          Some
+            (Js_of_ocaml_lwt.Lwt_js_events.changes input_elt (fun _ _ ->
+                 self#notify_change ();
+                 Lwt.return_unit))
+      in
+      _change_listener <- change_listener
 
-  method value : string =
-    Js.to_string input_elt##.value
+    method! layout () : unit =
+      super#layout ();
+      match _ripple with
+      | None -> ()
+      | Some r -> Ripple.layout r
 
-  method set_value (s : string) : unit =
-    input_elt##.value := Js.string s
+    method! destroy () : unit =
+      super#destroy ();
+      (* Destroy internal components *)
+      Option.iter (fun r -> r#destroy ()) _ripple;
+      _ripple <- None
 
-  method disabled : bool =
-    Js.to_bool input_elt##.disabled
+    method value : string = Js.to_string input_elt##.value
 
-  method set_disabled (x : bool) : unit =
-    input_elt##.disabled := Js.bool x;
-    super#toggle_class ~force:x CSS.disabled
+    method set_value (s : string) : unit = input_elt##.value := Js.string s
 
-  method checked : bool =
-    Js.to_bool input_elt##.checked
+    method disabled : bool = Js.to_bool input_elt##.disabled
 
-  method toggle ?(notify = false) ?(force : bool option) () : unit =
-    let v = match force with None -> not self#checked | Some x -> x in
-    input_elt##.checked := Js.bool v;
-    if notify then self#notify_change ()
+    method set_disabled (x : bool) : unit =
+      input_elt##.disabled := Js.bool x;
+      super#toggle_class ~force:x CSS.disabled
 
-  method input_element : Dom_html.inputElement Js.t =
-    input_elt
+    method checked : bool = Js.to_bool input_elt##.checked
 
-  method ripple : Ripple.t option =
-    _ripple
+    method toggle ?(notify = false) ?(force : bool option) () : unit =
+      let v =
+        match force with
+        | None -> not self#checked
+        | Some x -> x
+      in
+      input_elt##.checked := Js.bool v;
+      if notify then self#notify_change ()
 
-  (* Private methods *)
+    method input_element : Dom_html.inputElement Js.t = input_elt
 
-  method private notify_change () : unit =
-    Option.iter (fun f -> f self#checked) on_change
+    method ripple : Ripple.t option = _ripple
 
-  method private create_ripple () : Ripple.t =
-    let adapter = Ripple.make_default_adapter super#root in
-    let is_unbounded = fun () -> true in
-    let is_surface_active = fun () -> false in
-    let adapter =
-      { adapter with event_target = Element.coerce input_elt
-                   ; is_unbounded
-                   ; is_surface_active } in
-    new Ripple.t adapter ()
+    (* Private methods *)
+    method private notify_change () : unit =
+      Option.iter (fun f -> f self#checked) on_change
 
-end
+    method private create_ripple () : Ripple.t =
+      let adapter = Ripple.make_default_adapter super#root in
+      let is_unbounded () = true in
+      let is_surface_active () = false in
+      let adapter =
+        { adapter with
+          event_target = Element.coerce input_elt
+        ; is_unbounded
+        ; is_surface_active }
+      in
+      new Ripple.t adapter ()
+  end
 
 let make ?input_id ?name ?checked ?disabled ?on_change () : t =
   let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element
-    @@ Markup.create ?input_id ?name ?checked ?disabled () in
+    Tyxml_js.To_dom.of_element @@ Markup.create ?input_id ?name ?checked ?disabled ()
+  in
   new t ?on_change elt ()
 
 let attach ?on_change (elt : #Dom_html.element Js.t) : t =
