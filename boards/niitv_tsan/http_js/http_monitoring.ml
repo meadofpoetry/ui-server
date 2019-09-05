@@ -4,7 +4,19 @@ open Netlib.Uri
 open Util
 
 module Event = struct
+  let get_bitrate ?(ids = []) sock control =
+    let of_yojson = stream_assoc_list_of_yojson Bitrate.of_yojson in
+    Api_js.Websocket.JSON.subscribe
+      ~path:Path.Format.("board" @/ Int ^/ "monitoring/bitrate" @/ empty)
+      ~query:Query.["id", (module List(Stream.ID))]
+      control ids of_yojson sock
 
+  let get_pids ?(ids = []) sock control =
+    let of_yojson = stream_assoc_list_of_yojson pids_ts_of_yojson in
+    Api_js.Websocket.JSON.subscribe
+      ~path:Path.Format.("board" @/ Int ^/ "monitoring/pids" @/ empty)
+      ~query:Query.["id", (module List(Stream.ID))]
+      control ids of_yojson sock
 end
 
 let get_errors ?(ids = []) ?timeout ?(pids = []) ?(priority = []) control =
@@ -42,7 +54,7 @@ let get_ts_info ?force ?(ids = []) control =
     (ignore_env_bind (Lwt.return % map_err % of_yojson))
 
 let get_pids ?force ?(ids = []) control =
-  let of_yojson = stream_assoc_list_of_yojson pids_of_yojson in
+  let of_yojson = stream_assoc_list_of_yojson pids_ts_of_yojson in
   Api_http.perform
     ~meth:`GET
     ~path:Path.Format.("api/board" @/ Int ^/ "monitoring/pids" @/ empty)

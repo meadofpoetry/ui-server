@@ -7,7 +7,7 @@ type 'a ts =
   ; timestamp : Time.t
   } [@@deriving yojson, eq, show]
 
-let stamp (data : 'a) (timestamp : Time.t) =
+let stamp (timestamp : Time.t) (data : 'a) =
   { data; timestamp }
 
 type 'a tspan =
@@ -312,7 +312,6 @@ module SI_PSI_table = struct
 end
 
 module Structure = struct
-
   type t =
     { info : TS_info.t
     ; services : (int * Service_info.t) list
@@ -321,14 +320,23 @@ module Structure = struct
     ; timestamp : Time.t
     } [@@deriving eq, yojson]
 
+  let time (t : t) = t.timestamp
+
   let info (t : t) = t.info
+
+  let info_ts (t : t) = stamp (time t) t.info
 
   let pids (t : t) = t.pids
 
+  let pids_ts (t : t) = stamp (time t) t.pids
+
   let services (t : t) = t.services
+
+  let services_ts (t : t) = stamp (time t) t.services
 
   let tables (t : t) = t.tables
 
+  let tables_ts (t : t) = stamp (time t) t.tables
 end
 
 module T2mi_info = struct

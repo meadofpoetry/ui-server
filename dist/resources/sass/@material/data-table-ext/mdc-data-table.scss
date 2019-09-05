@@ -1,0 +1,23 @@
+.mdc-data-table--sticky-header {
+    thead tr:nth-child(1) {
+        border-bottom: none;
+    }
+    thead tr:nth-child(1) th {
+        top: 0;
+        position: sticky;
+        z-index: 5;
+        background-color: inherit;
+    }
+}
+
+.mdc-data-table--dense {
+    .mdc-data-table__cell, .mdc-data-table__column {
+        height: 32px;
+    }
+    thead .mdc-data-table__row {
+        height: 32px;
+    }
+    tbody .mdc-data-table__row {
+        height: 32px;
+    }
+}

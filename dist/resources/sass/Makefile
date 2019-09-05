@@ -24,5 +24,7 @@ pages:
 	$(CC) -I ./ ./frontend/logout/logout.scss $(BUILD_DIR)/page-logout.min.css
 	$(CC) -I ./ ./frontend/boards/niitv-dvb4ch/niitv-dvb4ch.scss $(BUILD_DIR)/board-niitv-dvb4ch.min.css
 	$(CC) -I ./ ./frontend/boards/niitv-dvb4ch/input/input.scss $(BUILD_DIR)/board-niitv-dvb4ch-page-input.min.css
+	$(CC) -I ./ ./frontend/boards/niitv-tsan/niitv-tsan.scss $(BUILD_DIR)/board-niitv-tsan.min.css
+	$(CC) -I ./ ./frontend/boards/niitv-tsan/input/input.scss $(BUILD_DIR)/board-niitv-tsan-page-input.min.css
 
 .PHONY: all main components pages

@@ -47,10 +47,16 @@ let make_template
     @@ Board.Map.bindings boards in
   let boards_var =
     Board.Map.fold (fun control (board : Board.t) acc ->
-        Boards.update board.id (function
+        let has_input = List.exists (function
+            | `Input i, _ -> Topology.equal_topo_input input i
+            | _ -> false) board.gui_tabs in
+        if has_input
+        then Boards.update board.id (
+            function
             | None -> Some [control]
             | Some acc -> Some (control :: acc))
-          acc) boards Boards.empty
+            acc
+        else acc) boards Boards.empty
     |> Boards.bindings
     |> Topology.boards_to_yojson
     |> Yojson.Safe.pretty_to_string in
@@ -72,6 +78,7 @@ let make_template
         let slide =
           Markup.make_tabpanel ~id ~labelledby:tab_id
           @@ Html.totl template#content in
+        (* FIXME scripts order *)
         ( tabs @ [tab]
         , slides @ [slide]
         , css @ template#stylesheets

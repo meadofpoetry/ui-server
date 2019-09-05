@@ -4,7 +4,6 @@ open Netlib.Uri
 open Util
 
 module Event = struct
-
   let ( >>= ) = Lwt_result.( >>= )
 
   let get_state sock control =
@@ -18,7 +17,6 @@ module Event = struct
       ~path:Path.Format.("board" @/ Int ^/ "device/mode/t2mi" @/ empty)
       ~query:Query.empty
       control t2mi_mode_of_yojson sock
-
 end
 
 let reset control =
