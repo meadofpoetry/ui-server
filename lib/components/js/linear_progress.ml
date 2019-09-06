@@ -17,7 +17,7 @@ class t (elt : Dom_html.element Js.t) () =
 
     val transform : Js.js_string Js.t =
       Js.string
-      @@ Utils.Animation.get_correct_property_name ~window:Dom_html.window "transform"
+      @@ Animation.get_correct_property_name ~window:Dom_html.window "transform"
 
     val buffer = Element.query_selector elt Selector.buffer
 

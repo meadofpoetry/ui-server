@@ -328,7 +328,7 @@ class t (adapter : adapter) () =
         if supports_press_ripple
         then (
           let handler e _ = self#activate ~event:(e :> Dom_html.event Js.t) () in
-          _on_touchstart <- touchstarts elt handler;
+          _on_touchstart <- touchstarts ~passive:true elt handler;
           _on_pointerdown <- pointerdowns elt handler;
           _on_mousedown <- mousedowns elt handler;
           _on_keydown <- keydowns elt handler

@@ -14,6 +14,7 @@ depends: [
   "caqti-driver-postgresql"
   "caqti-lwt"
   "chartjs"
+  "chartjs-annotation"
   "chartjs-datalabels"
   "chartjs-streaming"
   "cohttp-lwt-unix"

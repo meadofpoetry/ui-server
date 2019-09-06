@@ -8,12 +8,22 @@
 
 open Js_of_ocaml
 open Js_of_ocaml_lwt
-open Components
 include Components_lab_tyxml.Clusterize
 
 type row = Dom_html.element Js.t
 
 let ( >>= ) = Lwt.bind
+
+let cons_maybe x l =
+  match x with
+  | None -> l
+  | Some x -> x :: l
+
+let rec equal_list ~eq l1 l2 =
+  match l1, l2 with
+  | [], [] -> true
+  | [], _ | _, [] -> false
+  | x1 :: l1', x2 :: l2' -> eq x1 x2 && equal_list ~eq l1' l2'
 
 let px_js x = Js.string @@ Printf.sprintf "%dpx" x
 
@@ -168,7 +178,7 @@ let check_changes typ (cache : cache) : bool =
     match typ with
     | `Top x -> cache.top <> x
     | `Bottom x -> cache.bottom <> x
-    | `Data x -> not (Utils.List.equal ~eq:( == ) x cache.data)
+    | `Data x -> not (equal_list ~eq:( == ) x cache.data)
   in
   let set = function
     | `Top x -> cache.top <- x
@@ -213,7 +223,7 @@ let insert_to_dom (t : t) : unit =
     in
     let top = render_extra_row ~height:data.top_offset t CSS.top_space in
     let bot = render_extra_row ~height:data.bottom_offset t CSS.bottom_space in
-    let layout = Utils.List.cons_maybe parity (top :: data.rows) @ [bot] in
+    let layout = cons_maybe parity (top :: data.rows) @ [bot] in
     (* TODO Call 'cluster will change' here *)
     html t layout;
     (* TODO Call 'cluster changed' here *)

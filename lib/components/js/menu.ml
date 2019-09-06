@@ -11,6 +11,16 @@ module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
+let find_mapi f l =
+  let rec aux f i = function
+    | [] -> None
+    | x :: l' -> (
+      match f i x with
+      | Some _ as res -> res
+      | None -> aux f (i + 1) l')
+  in
+  aux f 0 l
+
 module Attr = struct
   let aria_selected = "aria-selected"
 end
@@ -103,9 +113,7 @@ class t ?body ?viewport ?list ?(focus_on_open = true) (elt : Dom_html.element Js
 
     method private notify_selected (item : Dom_html.element Js.t) : unit =
       let index =
-        Utils.List.find_mapi
-          (fun i x -> if Element.equal x item then Some i else None)
-          self#items
+        find_mapi (fun i x -> if Element.equal x item then Some i else None) self#items
         |> function
         | None -> raise Not_found
         | Some x -> x

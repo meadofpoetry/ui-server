@@ -15,6 +15,8 @@ module Selector = struct
   let circle = "." ^ CSS.circle
 end
 
+let clamp ~min ~max v = Float.min (Float.max v min) max
+
 let get_float_attribute (elt : Dom_html.element Js.t) (a : string) =
   match Element.get_attribute elt a with
   | None -> None
@@ -99,7 +101,7 @@ class t (elt : #Dom_html.element Js.t) () =
     (* Private methods *)
     method private set_value_ ?(force = false) (v : float) : unit =
       let min, max, prev = self#min, self#max, self#value in
-      let v = Utils.clamp ~min ~max v in
+      let v = clamp ~min ~max v in
       if force || v <> prev
       then (
         _value <- v;

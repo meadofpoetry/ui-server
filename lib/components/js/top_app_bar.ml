@@ -1,6 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
+include Components_tyxml.Top_app_bar
+module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 (* TODO
    - add 'attach' function for all subcomponents
@@ -11,8 +13,7 @@ let ( >>= ) = Lwt.bind
 
 let ( % ) f g x = f (g x)
 
-include Components_tyxml.Top_app_bar
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+let prevent_scroll = ref false
 
 type align =
   [ `Start
@@ -218,7 +219,7 @@ class t
     (* Private methods *)
     method private handle_scroll (_ : Dom_html.event Js.t) (_ : unit Lwt.t) : unit Lwt.t
         =
-      if (not !Utils.prevent_scroll) && not ticking
+      if (not !prevent_scroll) && not ticking
       then (
         ticking <- true;
         Lwt_js_events.request_animation_frame ()
@@ -226,11 +227,11 @@ class t
         self#update ();
         ticking <- false;
         Lwt.return_unit)
-      else if !Utils.prevent_scroll
+      else if !prevent_scroll
       then (
         Lwt_js.yield ()
         >>= fun () ->
-        Utils.prevent_scroll := false;
+        prevent_scroll := false;
         Lwt.return_unit)
       else Lwt.return_unit
 
@@ -354,7 +355,11 @@ let make
     ?bottom
     () =
   ignore bottom;
-  let ( ^:: ) = Utils.List.cons_maybe in
+  let ( ^:: ) x l =
+    match x with
+    | None -> l
+    | Some x -> x :: l
+  in
   let start_section =
     Section.make ~align:`Start ~widgets:(leading ^:: title ^:: []) ()
   in

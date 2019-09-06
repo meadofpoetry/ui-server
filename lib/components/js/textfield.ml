@@ -286,12 +286,14 @@ let parse_valid (type a) (v : a validation) (s : string) : a option =
     | Ok v -> Some v
     | Error _ -> None)
 
+let last_char s = s.[String.length s - 1]
+
 let valid_to_string (type a) (v : a validation) (e : a) : string =
   match v with
   | Custom c -> c.to_string e
   | Float _ ->
       let s = string_of_float e in
-      if Utils.String.suffix ~suf:"." s then s ^ "0" else s
+      if last_char s = '.' then s ^ "0" else s
   | Integer _ -> string_of_int e
   | Email -> e
   | Password _ -> e

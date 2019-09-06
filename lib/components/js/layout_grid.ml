@@ -9,6 +9,18 @@ module Selector = struct
   let inner = Printf.sprintf ".%s" CSS.inner
 end
 
+let find_map f l =
+  let rec aux f = function
+    | [] -> None
+    | x :: l' -> (
+      match f x with
+      | Some _ as res -> res
+      | None -> aux f l')
+  in
+  aux f l
+
+let add_nodup ~eq x l = if List.exists (eq x) l then l else x :: l
+
 module Cell = struct
   let parse_align (c : string) =
     let pre = BEM.add_modifier CSS.cell "align" in
@@ -52,7 +64,7 @@ module Cell = struct
         super#layout ()
 
       method span : int option =
-        Utils.List.find_map
+        find_map
           (fun (_class : string) ->
             match parse_span _class with
             | Some (x, None) -> Some x
@@ -60,7 +72,7 @@ module Cell = struct
           super#classes
 
       method span_phone : int option =
-        Utils.List.find_map
+        find_map
           (fun (_class : string) ->
             match parse_span _class with
             | Some (x, Some Phone) -> Some x
@@ -68,7 +80,7 @@ module Cell = struct
           super#classes
 
       method span_tablet : int option =
-        Utils.List.find_map
+        find_map
           (fun (_class : string) ->
             match parse_span _class with
             | Some (x, Some Tablet) -> Some x
@@ -76,7 +88,7 @@ module Cell = struct
           super#classes
 
       method span_desktop : int option =
-        Utils.List.find_map
+        find_map
           (fun (_class : string) ->
             match parse_span _class with
             | Some (x, Some Desktop) -> Some x
@@ -93,23 +105,27 @@ module Cell = struct
           super#classes;
         Option.iter (super#add_class % CSS.cell_span ?device) x
 
-      method order : int option = Utils.List.find_map parse_order super#classes
+      method order : int option = find_map parse_order super#classes
 
       method set_order (x : int option) : unit =
         List.iter
-          (fun (_class : string) ->
-            if Utils.String.prefix ~pre:CSS.cell_order_prefix _class
-            then super#remove_class _class)
+          (fun (class' : string) ->
+            match BEM.get_block class' with
+            | Some b when String.equal b CSS.cell_order_prefix ->
+                super#remove_class class'
+            | _ -> ())
           super#classes;
         Option.iter (super#add_class % CSS.cell_order) x
 
-      method align : cell_align option = Utils.List.find_map parse_align super#classes
+      method align : cell_align option = find_map parse_align super#classes
 
       method set_align (x : cell_align option) : unit =
         List.iter
-          (fun (_class : string) ->
-            if Utils.String.prefix ~pre:CSS.cell_align_prefix _class
-            then super#remove_class _class)
+          (fun (class' : string) ->
+            match BEM.get_block class' with
+            | Some b when String.equal b CSS.cell_align_prefix ->
+                super#remove_class class'
+            | _ -> ())
           super#classes;
         Option.iter (super#add_class % CSS.cell_align) x
     end
@@ -154,11 +170,11 @@ class t (elt : Dom_html.element Js.t) () =
     method cells : Cell.t list = _cells
 
     method insert_cell_at_idx (i : int) (x : Cell.t) =
-      _cells <- Utils.List.add_nodup ~eq:Widget.equal x _cells;
+      _cells <- add_nodup ~eq:Widget.equal x _cells;
       Element.insert_child_at_index inner i x#root
 
     method append_cell (x : Cell.t) =
-      _cells <- Utils.List.add_nodup ~eq:Widget.equal x _cells;
+      _cells <- add_nodup ~eq:Widget.equal x _cells;
       Dom.appendChild inner x#root
 
     method remove_cell (x : Cell.t) =
@@ -178,9 +194,10 @@ class t (elt : Dom_html.element Js.t) () =
 
     method set_align (x : grid_align option) : unit =
       List.iter
-        (fun (_class : string) ->
-          if Utils.String.prefix ~pre:CSS.align_prefix _class
-          then super#remove_class _class)
+        (fun (class' : string) ->
+          match BEM.get_block class' with
+          | Some b when String.equal b CSS.align_prefix -> super#remove_class class'
+          | _ -> ())
         super#classes;
       Option.iter (super#add_class % CSS.align) x
 

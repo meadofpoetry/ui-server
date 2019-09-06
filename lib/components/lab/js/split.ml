@@ -15,6 +15,21 @@ module Selector = struct
   let splitter = Printf.sprintf ".%s" CSS.splitter
 end
 
+let sum_scroll_offsets (e : Dom_html.element Js.t) =
+  let rec aux cur acc_left acc_top =
+    match Js.Opt.to_option cur with
+    | None -> acc_left, acc_top
+    | Some cur -> (
+      match Js.to_string cur##.nodeName##toLowerCase with
+      | "body" -> acc_left, acc_top
+      | _ ->
+          aux
+            cur##.parentNode
+            (acc_left + (Js.Unsafe.coerce cur)##.scrollLeft)
+            (acc_top + (Js.Unsafe.coerce cur)##.scrollTop))
+  in
+  aux e##.parentNode 0 0
+
 class t (elt : Dom_html.element Js.t) () =
   object (self)
     val splitter : Dom_html.element Js.t =
@@ -157,12 +172,12 @@ class t (elt : Dom_html.element Js.t) () =
       if self#vertical
       then
         let height = super#root##.clientHeight in
-        let offsets = Utils.sum_scroll_offsets super#root in
+        let offsets = sum_scroll_offsets super#root in
         let rel_y = client_y - int_of_float rect##.top + snd offsets in
         100. *. (float_of_int rel_y /. float_of_int height)
       else
         let width = super#root##.clientWidth in
-        let offsets = Utils.sum_scroll_offsets super#root in
+        let offsets = sum_scroll_offsets super#root in
         let rel_x = client_x - int_of_float rect##.left + fst offsets in
         100. *. (float_of_int rel_x /. float_of_int width)
   end

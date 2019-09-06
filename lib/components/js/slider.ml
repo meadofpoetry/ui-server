@@ -1,6 +1,5 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
-open Utils
 include Components_tyxml.Slider
 module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
@@ -16,6 +15,8 @@ let page_factor = 10.
 let quantize ~(step : float) (v : float) : float = Js.math##round (v /. step) *. step
 
 let unwrap x = Js.Optdef.get x (fun () -> assert false)
+
+let clamp ?(min = 0.) ?(max = 100.) v = Float.min (Float.max v min) max
 
 let listen_body_lwt
     (typ : (#Dom_html.event as 'a) Js.t Dom_html.Event.typ)

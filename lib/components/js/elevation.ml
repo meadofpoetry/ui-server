@@ -1,11 +1,13 @@
 include Components_tyxml.Elevation
 
-let remove (w : #Widget.t) =
-  List.iter
-    (fun x -> if Utils.String.prefix ~pre:CSS.root x then w#remove_class x)
-    w#classes
+let remove elt =
+  List.iter (fun class' ->
+      match BEM.get_block class' with
+      | Some s when String.equal s CSS.root -> Element.remove_class elt class'
+      | _ -> ())
+  @@ Element.classes elt
 
-let set (w : #Widget.t) (x : int) =
-  remove w;
-  w#add_class CSS.transition;
-  w#add_class @@ CSS.elevation x
+let set elt (x : int) =
+  remove elt;
+  Element.add_class elt CSS.transition;
+  Element.add_class elt (CSS.elevation x)

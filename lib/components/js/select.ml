@@ -37,6 +37,16 @@ let parse_valid (type a) (v : a validation) (s : string) : a option =
     | Ok x -> Some x
     | Error _ -> None)
 
+let find_mapi f l =
+  let rec aux f i = function
+    | [] -> None
+    | x :: l' -> (
+      match f i x with
+      | Some _ as res -> res
+      | None -> aux f (i + 1) l')
+  in
+  aux f 0 l
+
 module Attr = struct
   let required = "required"
 
@@ -491,7 +501,7 @@ class ['a] t
           | None -> None
           | Some elt ->
               (* XXX maybe just read menu#selected? *)
-              Utils.List.find_mapi
+              find_mapi
                 (fun i item -> if Element.equal elt item then Some i else None)
                 menu#items)
 
@@ -714,7 +724,7 @@ class ['a] t
             | None -> -1
             | Some item ->
                 Option.get
-                @@ Utils.List.find_mapi
+                @@ find_mapi
                      (fun i x -> if Element.equal item x then Some i else None)
                      menu#items
           in
