@@ -22,7 +22,8 @@ let exn_to_string : exn -> string = function
   | Division_by_zero -> "Division by zero"
   | e -> Printexc.to_string e
 
-let make_loader ?(text : string option)
+let make_loader
+    ?(text : string option)
     ?(error_icon : #Dom_html.element Js.t option)
     ?(on_error : (Dom_html.element Js.t -> string -> unit) option)
     ?(on_success : (Dom_html.element Js.t -> 'a -> unit) option)
@@ -32,16 +33,18 @@ let make_loader ?(text : string option)
   let on_success (v : 'a) : unit Lwt.t =
     Element.remove_class elt CSS.root;
     (match on_success with
-     | None -> ()
-     | Some f -> f elt v);
-    Lwt.return_unit in
+    | None -> ()
+    | Some f -> f elt v);
+    Lwt.return_unit
+  in
   let on_error text =
     let error = Placeholder.make_error ?icon:error_icon text in
     Element.append_child elt error#root;
     (match on_error with
-     | None -> ()
-     | Some f -> f elt text);
-    Lwt.return_unit in
+    | None -> ()
+    | Some f -> f elt text);
+    Lwt.return_unit
+  in
   Element.add_class elt CSS.root;
   List.iter (Element.remove_child_safe elt)
   @@ Element.query_selector_all elt ("." ^ Placeholder.CSS.root);
@@ -49,26 +52,31 @@ let make_loader ?(text : string option)
     Lwt_js.sleep timeout
     >>= fun () ->
     Element.append_child elt progress#root;
-    Lwt.return_unit in
+    Lwt.return_unit
+  in
   let thread =
     Lwt.try_bind
       (fun () -> t)
       (fun r ->
-         Lwt.cancel sleep;
-         Element.remove_child_safe elt progress#root;
-         match r with
-         | Error e -> on_error e
-         | Ok x -> on_success x)
+        Lwt.cancel sleep;
+        Element.remove_child_safe elt progress#root;
+        match r with
+        | Error e -> on_error e
+        | Ok x -> on_success x)
       (fun e ->
-         Lwt.cancel sleep;
-         Element.remove_child_safe elt progress#root;
-         on_error @@ exn_to_string e) in
+        Lwt.cancel sleep;
+        Element.remove_child_safe elt progress#root;
+        on_error @@ exn_to_string e)
+  in
   Lwt.on_termination thread (fun () -> progress#destroy ());
   elt
 
-let make_widget_loader ?text ?error_icon ?elt
-    (t : (#Widget.t, string) Lwt_result.t) =
-  make_loader ?text ?error_icon ?elt
+let make_widget_loader ?text ?error_icon ?elt (t : (#Widget.t, string) Lwt_result.t) =
+  make_loader
+    ?text
+    ?error_icon
+    ?elt
     ~on_success:(fun elt widget ->
-        Dom.appendChild elt widget#root;
-        widget#layout ()) t
+      Dom.appendChild elt widget#root;
+      widget#layout ())
+    t
