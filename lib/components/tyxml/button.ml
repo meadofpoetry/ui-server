@@ -4,7 +4,6 @@ type appearance =
   | Unelevated
 
 module CSS = struct
-
   (** Mandatory. Defaults to a text button that in flush with the surface. *)
   let root = "mdc-button"
 
@@ -31,14 +30,13 @@ module CSS = struct
 
   (** Optional. Styles a button to show loading indicator. *)
   let loading = BEM.add_modifier root "loading"
-
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
+module Make
+    (Xml : Xml_sigs.NoWrap)
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap
-     with module Xml := Xml
-      and module Svg := Svg) = struct
+    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+struct
   open Html
   open Utils
 
@@ -46,34 +44,40 @@ module Make(Xml : Xml_sigs.NoWrap)
     let classes = CSS.loader_container :: classes in
     div ~a:([a_class classes] @ attrs) [loader]
 
-  let create_ ?(classes = []) ?appearance
-      ?(dense = false) ?icon ?label () =
-    let make_label (x : string) : _ elt =
-      span ~a:[a_class [CSS.label]] [txt x] in
+  let create_ ?(classes = []) ?appearance ?(dense = false) ?icon ?label () =
+    let make_label (x : string) : _ elt = span ~a:[a_class [CSS.label]] [txt x] in
     let (classes : string list) =
       classes
-      |> map_cons_option (function
-          | Raised -> CSS.raised
-          | Outlined -> CSS.outlined
-          | Unelevated -> CSS.unelevated) appearance
+      |> map_cons_option
+           (function
+             | Raised -> CSS.raised
+             | Outlined -> CSS.outlined
+             | Unelevated -> CSS.unelevated)
+           appearance
       |> cons_if dense CSS.dense
-      |> List.cons CSS.root in
-    cons_option icon @@ map_cons_option make_label label [],
-    classes
+      |> List.cons CSS.root
+    in
+    cons_option icon @@ map_cons_option make_label label [], classes
 
-  let create_anchor ?classes ?(attrs = []) ?href ?appearance
-      ?dense ?icon ?label () =
-    let children, classes =
-      create_ ?classes ?appearance ?dense ?icon ?label () in
-    a ~a:([a_class classes] @ attrs
-          |> map_cons_option a_href href) children
+  let create_anchor ?classes ?(attrs = []) ?href ?appearance ?dense ?icon ?label () =
+    let children, classes = create_ ?classes ?appearance ?dense ?icon ?label () in
+    a ~a:([a_class classes] @ attrs |> map_cons_option a_href href) children
 
-  let create ?classes ?(attrs = []) ?button_type ?appearance
-      ?(disabled = false) ?dense ?icon ?label () =
-    let children, classes =
-      create_ ?classes ?appearance ?dense ?icon ?label () in
-    button ~a:([a_class classes] @ attrs
-               |> map_cons_option a_button_type button_type
-               |> cons_if disabled @@ a_disabled ())
+  let create
+      ?classes
+      ?(attrs = [])
+      ?button_type
+      ?appearance
+      ?(disabled = false)
+      ?dense
+      ?icon
+      ?label
+      () =
+    let children, classes = create_ ?classes ?appearance ?dense ?icon ?label () in
+    button
+      ~a:
+        ([a_class classes] @ attrs
+        |> map_cons_option a_button_type button_type
+        |> cons_if disabled @@ a_disabled ())
       children
 end

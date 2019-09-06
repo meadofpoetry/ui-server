@@ -65,15 +65,14 @@ module CSS = struct
   let scroll_lock = "mdc-dialog-scroll-lock"
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-           and module Svg := Svg) = struct
+module Make
+    (Xml : Xml_sigs.NoWrap)
+    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
+    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+struct
   open Html
   open Utils
-
-  module Button = Button.Make(Xml)(Svg)(Html)
+  module Button = Button.Make (Xml) (Svg) (Html)
 
   let create_title_simple ?(classes = []) ?(attrs = []) ~title () : 'a elt =
     let classes = CSS.title :: classes in
@@ -91,25 +90,24 @@ module Make(Xml : Xml_sigs.NoWrap)
     let classes = CSS.content :: classes in
     section ~a:([a_class classes] @ attrs) content
 
-  let create_action ?(classes = []) ?(attrs = [])
-      ?(default = false) ?action =
+  let create_action ?(classes = []) ?(attrs = []) ?(default = false) ?action =
     let classes =
-      classes
-      |> cons_if default CSS.button_default
-      |> List.cons CSS.button in
-    let attrs = match action with
+      classes |> cons_if default CSS.button_default |> List.cons CSS.button
+    in
+    let attrs =
+      match action with
       | None -> attrs
       | Some action ->
-        let attr = action_to_string action in
-        (a_user_data "mdc-dialog-action" attr) :: attrs in
+          let attr = action_to_string action in
+          a_user_data "mdc-dialog-action" attr :: attrs
+    in
     Button.create ~classes ~attrs
 
   let create_actions ?(classes = []) ?(attrs = []) ~actions () : 'a elt =
     let classes = CSS.actions :: classes in
     footer ~a:([a_class classes] @ attrs) actions
 
-  let create_surface ?(classes = []) ?(attrs = [])
-      ?title ?content ?actions () : 'a elt =
+  let create_surface ?(classes = []) ?(attrs = []) ?title ?content ?actions () : 'a elt =
     let classes = CSS.surface :: classes in
     let content = title ^:: content ^:: actions ^:: [] in
     div ~a:([a_class classes] @ attrs) content
@@ -122,30 +120,32 @@ module Make(Xml : Xml_sigs.NoWrap)
     let classes = CSS.scrim :: classes in
     div ~a:([a_class classes] @ attrs) []
 
-  let create ?(classes = []) ?(attrs = []) ?title_id ?content_id
-      ?(scrollable = false) ~scrim ~container () : 'a elt =
+  let create
+      ?(classes = [])
+      ?(attrs = [])
+      ?title_id
+      ?content_id
+      ?(scrollable = false)
+      ~scrim
+      ~container
+      () : 'a elt =
     let aria n v = a_aria n [v] in
-    let classes =
-      classes
-      |> cons_if scrollable CSS.scrollable
-      |> List.cons CSS.root in
-    div ~a:([ a_class classes
-            ; a_role ["alertdialog"]
-            ; a_aria "modal" ["true"]]
-            @ attrs
-            |> map_cons_option (aria "labelledby") title_id
-            |> map_cons_option (aria "describedby") content_id)
+    let classes = classes |> cons_if scrollable CSS.scrollable |> List.cons CSS.root in
+    div
+      ~a:
+        ([a_class classes; a_role ["alertdialog"]; a_aria "modal" ["true"]] @ attrs
+        |> map_cons_option (aria "labelledby") title_id
+        |> map_cons_option (aria "describedby") content_id)
       [container; scrim]
 
-  let create_simple ?classes ?attrs ?title_id ?content_id
-      ?title ?content ?actions () =
+  let create_simple ?classes ?attrs ?title_id ?content_id ?title ?content ?actions () =
     let scrim = create_scrim () in
-    let actions = match actions with
+    let actions =
+      match actions with
       | None -> None
-      | Some actions ->
-        Some (create_actions ~actions ()) in
+      | Some actions -> Some (create_actions ~actions ())
+    in
     let surface = create_surface ?title ?content ?actions () in
     let container = create_container ~surface () in
     create ?classes ?attrs ?title_id ?content_id ~scrim ~container ()
-
 end

@@ -9,12 +9,11 @@ module CSS = struct
   let deactivating = BEM.add_modifier root "deactivating"
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-           and module Svg := Svg) = struct
-
+module Make
+    (Xml : Xml_sigs.NoWrap)
+    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
+    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+struct
   let create ?(classes = []) ?(attrs = []) () : 'a Html.elt =
     let classes = CSS.root :: classes in
     Html.(div ~a:([a_class classes] @ attrs) [])

@@ -37,22 +37,19 @@ module CSS = struct
   (** Optional. Positions the action button/icon below the label instead
       of alongside it. *)
   let stacked = BEM.add_modifier root "stacked"
-
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-           and module Svg := Svg) = struct
+module Make
+    (Xml : Xml_sigs.NoWrap)
+    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
+    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+struct
   open Html
 
   let create_label ?(classes = []) ?(attrs = []) (text : string) () : 'a elt =
     let classes = CSS.label :: classes in
-    div ~a:([ a_class classes
-            ; a_aria "live" ["polite"]
-            ; a_role ["status"]]
-            @ attrs)
+    div
+      ~a:([a_class classes; a_aria "live" ["polite"]; a_role ["status"]] @ attrs)
       [txt text]
 
   let create_action ?(classes = []) ?(attrs = []) (label : string) () : 'a elt =
@@ -66,18 +63,24 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   let create_surface ?(classes = []) ?(attrs = []) ?actions ~label () : 'a elt =
     let classes = CSS.surface :: classes in
-    div ~a:([a_class classes] @ attrs)
+    div
+      ~a:([a_class classes] @ attrs)
       (match actions with
-       | None -> [label]
-       | Some actions -> [label; actions])
+      | None -> [label]
+      | Some actions -> [label; actions])
 
-  let create ?(classes = []) ?(attrs = []) ?(leading = false) ?(stacked = false)
-        ~(surface : 'a elt) () : 'a elt =
+  let create
+      ?(classes = [])
+      ?(attrs = [])
+      ?(leading = false)
+      ?(stacked = false)
+      ~(surface : 'a elt)
+      () : 'a elt =
     let (classes : string list) =
       classes
       |> cons_if leading CSS.leading
       |> cons_if stacked CSS.stacked
-      |> List.cons CSS.root in
+      |> List.cons CSS.root
+    in
     div ~a:([a_class classes] @ attrs) [surface]
-
 end

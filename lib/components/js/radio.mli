@@ -2,8 +2,9 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml
 
 include module type of Components_tyxml.Radio
+
 module Markup : sig
-  include module type of Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
+  include module type of Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 end
 
 class type t =
@@ -34,11 +35,12 @@ class type t =
   end
 
 val make :
-  ?input_id:string ->
-  ?name:string ->
-  ?checked:bool ->
-  ?disabled:bool ->
-  ?on_change:(bool -> unit) ->
-  unit -> t
+     ?input_id:string
+  -> ?name:string
+  -> ?checked:bool
+  -> ?disabled:bool
+  -> ?on_change:(bool -> unit)
+  -> unit
+  -> t
 
 val attach : ?on_change:(bool -> unit) -> #Dom_html.element Js.t -> t

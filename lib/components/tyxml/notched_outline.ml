@@ -22,11 +22,11 @@ module CSS = struct
   let upgraded = BEM.add_modifier root "upgraded"
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-           and module Svg := Svg) = struct
+module Make
+    (Xml : Xml_sigs.NoWrap)
+    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
+    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+struct
   open Html
   open Utils
 
@@ -34,10 +34,11 @@ module Make(Xml : Xml_sigs.NoWrap)
     let classes = CSS.root :: classes in
     let leading = div ~a:[a_class [CSS.leading]] [] in
     let trailing = div ~a:[a_class [CSS.trailing]] [] in
-    let notch = match label with
+    let notch =
+      match label with
       | None -> None
-      | Some x -> Some (div ~a:[a_class [CSS.notch]] [x]) in
-    let content = leading :: (notch ^:: (trailing :: [])) in
+      | Some x -> Some (div ~a:[a_class [CSS.notch]] [x])
+    in
+    let content = leading :: (notch ^:: [trailing]) in
     div ~a:([a_class classes] @ attrs) content
-
 end

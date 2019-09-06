@@ -24,29 +24,37 @@ module CSS = struct
 end
 
 module Make
-         (Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-           and module Svg := Svg) = struct
+    (Xml : Xml_sigs.NoWrap)
+    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
+    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+struct
   open Html
 
-  let create ?input_id ?(classes = []) ?(attrs = [])
-        ?(checked = false) ?(disabled = false) () : 'a elt =
+  let create
+      ?input_id
+      ?(classes = [])
+      ?(attrs = [])
+      ?(checked = false)
+      ?(disabled = false)
+      () : 'a elt =
     let classes =
       classes
       |> cons_if checked CSS.checked
       |> cons_if disabled CSS.disabled
-      |> List.cons CSS.root in
-    div ~a:([a_class classes] @ attrs)
-      [ div ~a:([a_class [CSS.track]]) []
-      ; div ~a:([a_class [CSS.thumb_underlay]])
-          [div ~a:([a_class [CSS.thumb]])
-             [input ~a:([ a_input_type `Checkbox
-                        ; a_class [CSS.native_control]]
-                        |> cons_if_lazy checked a_checked
-                        |> cons_if_lazy disabled a_disabled
-                        |> map_cons_option a_id input_id) ()]]
-      ]
-
+      |> List.cons CSS.root
+    in
+    div
+      ~a:([a_class classes] @ attrs)
+      [ div ~a:[a_class [CSS.track]] []
+      ; div
+          ~a:[a_class [CSS.thumb_underlay]]
+          [ div
+              ~a:[a_class [CSS.thumb]]
+              [ input
+                  ~a:
+                    ([a_input_type `Checkbox; a_class [CSS.native_control]]
+                    |> cons_if_lazy checked a_checked
+                    |> cons_if_lazy disabled a_disabled
+                    |> map_cons_option a_id input_id)
+                  () ] ] ]
 end

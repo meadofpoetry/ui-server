@@ -1,69 +1,66 @@
 module CSS : sig
-  (** Mandatory. *)
   val root : string
+  (** Mandatory. *)
 
-  (** Styles the text field as an outlined text field. *)
   val outlined : string
+  (** Styles the text field as an outlined text field. *)
 
-  (** Styles the text field as a full width text field. *)
   val fullwidth : string
+  (** Styles the text field as a full width text field. *)
 
-  (** Indicates the text field is a <textarea>. *)
   val textarea : string
+  (** Indicates the text field is a <textarea>. *)
 
-  (** Styles the text field as a disabled text field. *)
   val disabled : string
+  (** Styles the text field as a disabled text field. *)
 
   val invalid : string
 
-  (** Styles the text field as a text field with a leading icon. *)
   val with_leading_icon : string
+  (** Styles the text field as a text field with a leading icon. *)
 
-  (** Styles the text field as a text field with a trailing icon. *)
   val with_trailing_icon : string
+  (** Styles the text field as a text field with a trailing icon. *)
 
-  (** Styles the text field as a text field in focus. *)
   val focused : string
+  (** Styles the text field as a text field in focus. *)
 
-  (** Styles the text field that has no label. *)
   val no_label : string
+  (** Styles the text field that has no label. *)
 
-  (** Styles the container of helper text and character counter elements. *)
   val helper_line : string
+  (** Styles the container of helper text and character counter elements. *)
 
   val icon : string
 
   val input : string
 
   module Helper_text : sig
-    (** Mandatory. *)
     val root : string
+    (** Mandatory. *)
 
-    (** Makes the helper text permanently visible. *)
     val persistent : string
+    (** Makes the helper text permanently visible. *)
 
-    (** Indicates the helper text is a validation message. *)
     val validation_msg : string
+    (** Indicates the helper text is a validation message. *)
   end
 
   module Character_counter : sig
-    (** Mandatory. *)
     val root : string
+    (** Mandatory. *)
   end
 end
 
-module Make :
-functor(Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-          with module Svg := Svg) ->
-sig
+module Make
+    (Xml : Xml_sigs.NoWrap)
+    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
+    (Html : Html_sigs.NoWrap with module Xml := Xml with module Svg := Svg) : sig
   open Html
 
   module Helper_text : sig
     val create :
-      ?classes:string list
+         ?classes:string list
       -> ?attrs:Html_types.div_attrib attrib list
       -> ?persistent:bool
       -> ?validation:bool
@@ -74,7 +71,7 @@ sig
 
   module Character_counter : sig
     val create :
-      ?classes:string list
+         ?classes:string list
       -> ?attrs:Html_types.div_attrib attrib list
       -> ?current_length:int
       -> ?max_length:int
@@ -84,7 +81,7 @@ sig
 
   module Textarea : sig
     val create_textarea :
-      ?classes:string list
+         ?classes:string list
       -> ?attrs:Html_types.textarea_attrib attrib list
       -> ?id:string
       -> ?value:string
@@ -99,20 +96,21 @@ sig
       -> Html_types.textarea elt
 
     val create :
-      ?classes:string list
+         ?classes:string list
       -> ?attrs:Html_types.div_attrib attrib list
       -> ?disabled:bool
       -> ?no_label:bool
       -> ?fullwidth:bool
       -> ?focused:bool
-      -> ?character_counter:([< Html_types.div_content_fun ] as 'a) Html.elt
+      -> ?character_counter:([< Html_types.div_content_fun] as 'a) Html.elt
       -> ?outline:'a elt
       -> input:'a elt
       -> unit
       -> Html_types.div elt
   end
 
-  val create_input : ?classes:string list
+  val create_input :
+       ?classes:string list
     -> ?attrs:Html_types.input_attrib attrib list
     -> ?id:string
     -> ?pattern:string
@@ -124,30 +122,32 @@ sig
     -> ?required:bool
     -> ?disabled:bool
     -> ?typ:Html_types.input_type
-    -> ?input_mode:[< `Email
-                   | `Full_width_latin
-                   | `Kana
-                   | `Katakana
-                   | `Latin
-                   | `Latin_name
-                   | `Latin_prose
-                   | `Numeric
-                   | `Tel
-                   | `Url
-                   | `Verbatim ]
-    -> unit -> Html_types.input elt
+    -> ?input_mode:
+         [< `Email
+         | `Full_width_latin
+         | `Kana
+         | `Katakana
+         | `Latin
+         | `Latin_name
+         | `Latin_prose
+         | `Numeric
+         | `Tel
+         | `Url
+         | `Verbatim ]
+    -> unit
+    -> Html_types.input elt
 
   val create_helper_line :
-    ?classes:string list
+       ?classes:string list
     -> ?attrs:Html_types.div_attrib attrib list
-    -> [< Html_types.div_content_fun ] Html.elt list
-    -> [> Html_types.div ] Html.elt
+    -> [< Html_types.div_content_fun] Html.elt list
+    -> [> Html_types.div] Html.elt
 
   val create :
-    ?classes:string list_wrap
+       ?classes:string list_wrap
     -> ?attrs:Html_types.div_attrib attrib list
     -> ?disabled:bool
-    -> ?leading_icon:([< Html_types.div_content_fun ] as 'a) elt
+    -> ?leading_icon:([< Html_types.div_content_fun] as 'a) elt
     -> ?trailing_icon:'a elt
     -> ?no_label:bool
     -> ?fullwidth:bool

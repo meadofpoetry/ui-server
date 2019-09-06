@@ -9,6 +9,8 @@ module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let transform_prop_name = ref None
 
+let px_js v = Js.string @@ Printf.sprintf "%dpx" v
+
 let get_transform_property_name ?(force = false) () : string =
   match !transform_prop_name, force with
   | None, _ | _, true ->
@@ -486,7 +488,7 @@ class t
       self#set_position position;
       match self#get_menu_surface_max_height meas corner with
       | 0. -> super#root##.style##.maxHeight := Js.string ""
-      | x -> super#root##.style##.maxHeight := Utils.px_js (int_of_float x)
+      | x -> super#root##.style##.maxHeight := px_js (int_of_float x)
 
     method private adjust_position_for_hoisted_element
         ({window_scroll = x, y; viewport_distance = dist; _} : layout)

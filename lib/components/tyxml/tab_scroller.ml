@@ -33,11 +33,10 @@ module CSS = struct
 end
 
 module Make
-         (Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-           and module Svg := Svg) = struct
+    (Xml : Xml_sigs.NoWrap)
+    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
+    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+struct
   open Html
   open Utils
 
@@ -50,12 +49,13 @@ module Make
     div ~a:([a_class classes] @ attrs) [content]
 
   let create ?(classes = []) ?(attrs = []) ?align ~scroll_area () : 'a elt =
-    let align = match align with
+    let align =
+      match align with
       | None -> None
       | Some Start -> Some CSS.align_start
       | Some Center -> Some CSS.align_center
-      | Some End -> Some CSS.align_end in
+      | Some End -> Some CSS.align_end
+    in
     let classes = CSS.root :: (align ^:: classes) in
     div ~a:([a_class classes] @ attrs) [scroll_area]
-
 end

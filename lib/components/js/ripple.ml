@@ -29,6 +29,8 @@ let default_activation_state =
   ; is_programmatic = false }
 
 module Util = struct
+  let px = Printf.sprintf "%dpx"
+
   let supports_passive : bool option ref = ref None
 
   let suppots_css_variables_ : bool option ref = ref None
@@ -600,7 +602,7 @@ class t (adapter : adapter) () =
       self#update_layout_css_vars ()
 
     method private update_layout_css_vars () : unit =
-      let fg_size = Some (Utils.px @@ int_of_float _initial_size) in
+      let fg_size = Some (Util.px @@ int_of_float _initial_size) in
       self#update_css_var CSS.Var.fg_size fg_size;
       let fg_scale = Some (Printf.sprintf "%g" _fg_scale) in
       self#update_css_var CSS.Var.fg_scale fg_scale;

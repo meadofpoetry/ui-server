@@ -53,8 +53,7 @@ let grid_align_of_string : string -> grid_align option = function
 let max_columns = 12
 
 let check_columns_number_exn n =
-  if n > max_columns || n < 0
-  then failwith "Layout grid: bad columns number"
+  if n > max_columns || n < 0 then failwith "Layout grid: bad columns number"
 
 module CSS = struct
   (** Mandatory, for the layout grid element. *)
@@ -99,17 +98,25 @@ module CSS = struct
   let fixed_column_width = BEM.add_modifier root "fixed-column-width"
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-           and module Svg := Svg) = struct
+module Make
+    (Xml : Xml_sigs.NoWrap)
+    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
+    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+struct
   open Html
   open Utils
 
-  let create_cell ?(classes = []) ?(attrs = []) ?align ?order
-        ?span ?span_phone ?span_tablet ?span_desktop
-        content () : 'a elt =
+  let create_cell
+      ?(classes = [])
+      ?(attrs = [])
+      ?align
+      ?order
+      ?span
+      ?span_phone
+      ?span_tablet
+      ?span_desktop
+      content
+      () : 'a elt =
     let (classes : string list) =
       CSS.cell :: classes
       |> map_cons_option CSS.cell_span span
@@ -117,19 +124,21 @@ module Make(Xml : Xml_sigs.NoWrap)
       |> map_cons_option (CSS.cell_span ~device:Tablet) span_tablet
       |> map_cons_option (CSS.cell_span ~device:Desktop) span_desktop
       |> map_cons_option CSS.cell_align align
-      |> map_cons_option CSS.cell_order order in
+      |> map_cons_option CSS.cell_order order
+    in
     div ~a:([a_class classes] @ attrs) content
 
   let create_inner ?(classes = []) ?(attrs = []) ~cells () : 'a elt =
     let classes = CSS.inner :: classes in
     div ~a:([a_class classes] @ attrs) cells
 
-  let create ?(classes = []) ?(attrs = []) ?align
-        ?(fixed_column_width = false) ~inner () : 'a elt =
+  let create ?(classes = []) ?(attrs = []) ?align ?(fixed_column_width = false) ~inner ()
+      : 'a elt =
     let (classes : string list) =
       classes
       |> map_cons_option CSS.align align
       |> cons_if fixed_column_width CSS.fixed_column_width
-      |> List.cons CSS.root in
+      |> List.cons CSS.root
+    in
     div ~a:([a_class classes] @ attrs) [inner]
 end

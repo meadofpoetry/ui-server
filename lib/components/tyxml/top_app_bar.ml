@@ -14,22 +14,19 @@ module CSS = struct
 
   (** Class used to style the content below the prominent top app bar
       to prevent the top app bar from covering it. *)
-  let prominent_fixed_adjust =
-    BEM.add_modifier root "prominent-fixed-adjust"
+  let prominent_fixed_adjust = BEM.add_modifier root "prominent-fixed-adjust"
 
   (** Class used to style the top app bar as a dense top app bar. *)
   let dense = BEM.add_modifier root "dense"
 
   (** Class used to style the content below the dense top app bar
       to prevent the top app bar from covering it. *)
-  let dense_fixed_adjust =
-    BEM.add_modifier root "dense-fixed-adjust"
+  let dense_fixed_adjust = BEM.add_modifier root "dense-fixed-adjust"
 
   (** Class used to style the content below the top app bar when
       styled as both prominent and dense, to prevent the top app bar
       from covering it. *)
-  let dense_prominent_fixed_adjust =
-    BEM.add_modifier root "dense-prominent-fixed-adjust"
+  let dense_prominent_fixed_adjust = BEM.add_modifier root "dense-prominent-fixed-adjust"
 
   (** Class used to style the top app bar as a short top app bar. *)
   let short = BEM.add_modifier root "short"
@@ -39,8 +36,7 @@ module CSS = struct
 
   (** Class used to style the content below the short top app bar
       to prevent the top app bar from covering it. *)
-  let short_fixed_adjust =
-    BEM.add_modifier root "short-fixed-adjust"
+  let short_fixed_adjust = BEM.add_modifier root "short-fixed-adjust"
 
   let fixed_scrolled = fixed ^ "-scrolled"
 
@@ -59,21 +55,23 @@ module CSS = struct
   let title = BEM.add_element root "title"
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-           and module Svg := Svg) = struct
+module Make
+    (Xml : Xml_sigs.NoWrap)
+    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
+    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+struct
   open Html
 
   let create_title ?(classes = []) ?(attrs = []) ~content () : 'a elt =
     span ~a:([a_class (CSS.title :: classes)] @ attrs) content
 
   let create_section ?(classes = []) ?(attrs = []) ?align ~content () : 'a elt =
-    let classes = match align with
+    let classes =
+      match align with
       | None -> classes
       | Some `Start -> CSS.section_align_start :: classes
-      | Some `End -> CSS.section_align_end :: classes in
+      | Some `End -> CSS.section_align_end :: classes
+    in
     section ~a:([a_class (CSS.section :: classes)] @ attrs) content
 
   let create_row ?(classes = []) ?(attrs = []) ~sections () : 'a elt =
@@ -82,4 +80,3 @@ module Make(Xml : Xml_sigs.NoWrap)
   let create ?(classes = []) ?(attrs = []) ~rows () : 'a elt =
     header ~a:([a_class (CSS.root :: classes)] @ attrs) rows
 end
-

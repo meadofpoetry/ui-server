@@ -72,29 +72,28 @@ let font_to_class : font -> string = function
   | Caption -> CSS.caption
   | Overline -> CSS.overline
 
-module Make(Xml : Xml_sigs.NoWrap)
+module Make
+    (Xml : Xml_sigs.NoWrap)
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap
-     with module Xml := Xml
-      and module Svg := Svg) = struct
+    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+struct
   open Html
   open Utils
 
   let make_inner text =
     let rec aux acc = function
       | [] -> List.rev acc
-      | [x] -> List.rev ((txt x) :: acc)
-      | x :: tl -> aux (br () :: txt x :: acc) tl in
+      | [x] -> List.rev (txt x :: acc)
+      | x :: tl -> aux (br () :: txt x :: acc) tl
+    in
     aux [] (String.split_on_char '\n' text)
 
   let make ?(classes = []) ?(attrs = []) ?font text =
-    let font_class = match font with
+    let font_class =
+      match font with
       | None -> None
-      | Some x -> Some (font_to_class x) in
-    let classes =
-      classes
-      |> cons_option font_class
-      |> List.cons CSS.root in
+      | Some x -> Some (font_to_class x)
+    in
+    let classes = classes |> cons_option font_class |> List.cons CSS.root in
     span ~a:([a_class classes] @ attrs) (make_inner text)
-
 end

@@ -182,3 +182,22 @@ let array_of_node_list (nodeList : 'a Dom.nodeList Js.t) =
   let length = nodeList##.length in
   Array.init length (fun i ->
       Js.Opt.case (nodeList##item i) (fun () -> assert false) (fun x -> x))
+
+let is_in_viewport ?(vertical = true) ?(horizontal = true) (e : Dom_html.element Js.t) :
+    bool =
+  let height =
+    Js.Optdef.get Dom_html.window##.innerHeight (fun () ->
+        Dom_html.document##.documentElement##.clientHeight)
+  in
+  let width =
+    Js.Optdef.get Dom_html.window##.innerWidth (fun () ->
+        Dom_html.document##.documentElement##.clientWidth)
+  in
+  let rect = e##getBoundingClientRect in
+  let vertical =
+    (not vertical) || (rect##.top > 0. && rect##.bottom <= float_of_int height)
+  in
+  let horizontal =
+    (not horizontal) || (rect##.left > 0. && rect##.right <= float_of_int width)
+  in
+  vertical && horizontal

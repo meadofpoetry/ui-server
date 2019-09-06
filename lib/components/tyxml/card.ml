@@ -50,17 +50,21 @@ module CSS = struct
   let action_icon = BEM.add_modifier action "icon"
 
   let primary = BEM.add_element root "primary"
+
   let title = BEM.add_element root "title"
+
   let subtitle = BEM.add_element root "subtitle"
+
   let overline = BEM.add_element root "overline"
+
   let title_large = BEM.add_modifier title "large"
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-           and module Svg := Svg) = struct
+module Make
+    (Xml : Xml_sigs.NoWrap)
+    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
+    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+struct
   open Html
   open Utils
 
@@ -85,10 +89,7 @@ module Make(Xml : Xml_sigs.NoWrap)
     h5 ~a:([a_class classes] @ attrs) [txt text]
 
   let create_title ?(classes = []) ?(attrs = []) ?(large = false) text () : 'a elt =
-    let classes =
-      classes
-      |> cons_if large CSS.title_large
-      |> List.cons CSS.title in
+    let classes = classes |> cons_if large CSS.title_large |> List.cons CSS.title in
     h2 ~a:([a_class classes] @ attrs) [txt text]
 
   let create_subtitle ?(classes = []) ?(attrs = []) text () : 'a elt =
@@ -99,11 +100,8 @@ module Make(Xml : Xml_sigs.NoWrap)
     let classes = CSS.primary :: classes in
     section ~a:([a_class classes] @ attrs) content
 
-  let create ?(classes=[]) ?(attrs = []) ?(tag = div) ?(outlined = false)
-      sections : 'a elt =
-    let classes =
-      classes
-      |> cons_if outlined CSS.outlined
-      |> List.cons CSS.root in
+  let create ?(classes = []) ?(attrs = []) ?(tag = div) ?(outlined = false) sections :
+      'a elt =
+    let classes = classes |> cons_if outlined CSS.outlined |> List.cons CSS.root in
     tag ~a:([a_class classes] @ attrs) sections
 end

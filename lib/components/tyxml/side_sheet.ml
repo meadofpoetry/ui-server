@@ -1,17 +1,28 @@
 module type Common_css = sig
   val root : string
+
   val dismissible : string
+
   val modal : string
+
   val open_ : string
+
   val opening : string
+
   val closing : string
+
   val animate : string
+
   val content : string
+
   val scrim : string
 end
 
-module Make_css(M : sig val root : string end) : sig
+module Make_css (M : sig
+  val root : string
+end) : sig
   include Common_css
+
   val scrim : string
 end = struct
   (** Mandatory. *)
@@ -52,18 +63,20 @@ let typ_to_string = function
   | Permanent -> "permanent"
 
 module CSS = struct
-  include Make_css(struct let root = "mdc-side-sheet" end)
+  include Make_css (struct
+    let root = "mdc-side-sheet"
+  end)
 
   (** Mandatory for dismissible variant only. Sibling element that is resized
       when the side-sheet opens/closes. *)
   let app_content = root ^ "-app-content"
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-           and module Svg := Svg) = struct
+module Make
+    (Xml : Xml_sigs.NoWrap)
+    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
+    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+struct
   open Html
 
   let create_scrim ?(classes = []) ?(attrs = []) () : 'a elt =

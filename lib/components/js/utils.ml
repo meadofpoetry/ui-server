@@ -1,38 +1,8 @@
 open Js_of_ocaml
 
-let ( % ) f g x = f (g x)
-
 let prevent_scroll = ref false
 
 let clamp ?(min = 0.) ?(max = 100.) (v : float) : float = Float.min (Float.max v min) max
-
-let is_in_viewport ?(vertical = true) ?(horizontal = true) (e : Dom_html.element Js.t) :
-    bool =
-  let height =
-    Js.Optdef.get Dom_html.window##.innerHeight (fun () ->
-        Dom_html.document##.documentElement##.clientHeight)
-  in
-  let width =
-    Js.Optdef.get Dom_html.window##.innerWidth (fun () ->
-        Dom_html.document##.documentElement##.clientWidth)
-  in
-  let rect = e##getBoundingClientRect in
-  let vertical =
-    (not vertical) || (rect##.top > 0. && rect##.bottom <= float_of_int height)
-  in
-  let horizontal =
-    (not horizontal) || (rect##.left > 0. && rect##.right <= float_of_int width)
-  in
-  vertical && horizontal
-
-(** Tail-recursive append that does not raise stack overflow on lagre lists *)
-let append (a : 'a list) (b : 'a list) : 'a list = List.rev_append (List.rev a) b
-
-let ( @ ) = append
-
-let px : int -> string = Printf.sprintf "%dpx"
-
-let px_js (v : int) : Js.js_string Js.t = Js.string @@ px v
 
 let sum_scroll_offsets (e : Dom_html.element Js.t) =
   let rec aux cur acc_left acc_top =

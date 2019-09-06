@@ -14,36 +14,45 @@ module CSS = struct
   let icon_on = BEM.add_modifier icon "on"
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-           and module Svg := Svg) = struct
+module Make
+    (Xml : Xml_sigs.NoWrap)
+    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
+    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+struct
   open Html
   open Utils
 
-  let create ?(classes = []) ?(attrs = []) ?(ripple = true)
-        ?(on = false) ?(disabled = false) ?on_icon ~icon
-        () : 'a elt =
-    let classes =
-      classes
-      |> cons_if on CSS.on
-      |> List.cons CSS.root in
-    button ~a:([a_class classes]
-               @ attrs
-               |> cons_if_lazy ripple (fun () -> a_user_data "ripple" "true")
-               |> cons_if_lazy disabled a_disabled)
-      (on_icon ^:: icon :: [])
+  let create
+      ?(classes = [])
+      ?(attrs = [])
+      ?(ripple = true)
+      ?(on = false)
+      ?(disabled = false)
+      ?on_icon
+      ~icon
+      () : 'a elt =
+    let classes = classes |> cons_if on CSS.on |> List.cons CSS.root in
+    button
+      ~a:
+        ([a_class classes] @ attrs
+        |> cons_if_lazy ripple (fun () -> a_user_data "ripple" "true")
+        |> cons_if_lazy disabled a_disabled)
+      (on_icon ^:: [icon])
 
-  let create_anchor ?(classes = []) ?(attrs = []) ?href ?(ripple = true)
-      ?(on = false) ?on_icon ~icon () =
-    let classes =
-      classes
-      |> cons_if on CSS.on
-      |> List.cons CSS.root in
-    a ~a:([a_class classes] @ attrs
-          |> map_cons_option a_href href
-          |> cons_if_lazy ripple (fun () -> a_user_data "ripple" "true"))
-      (on_icon ^:: icon :: [])
-
+  let create_anchor
+      ?(classes = [])
+      ?(attrs = [])
+      ?href
+      ?(ripple = true)
+      ?(on = false)
+      ?on_icon
+      ~icon
+      () =
+    let classes = classes |> cons_if on CSS.on |> List.cons CSS.root in
+    a
+      ~a:
+        ([a_class classes] @ attrs
+        |> map_cons_option a_href href
+        |> cons_if_lazy ripple (fun () -> a_user_data "ripple" "true"))
+      (on_icon ^:: [icon])
 end
