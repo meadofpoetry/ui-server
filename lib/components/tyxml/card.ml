@@ -66,42 +66,45 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  open Utils
 
-  let create_media ?(classes = []) ?(attrs = []) ?(tag = div) children () : 'a elt =
+  let create_media ?(classes = []) ?(attrs = []) ?(tag = div) children : 'a elt =
     let classes = CSS.media :: classes in
     tag ~a:([a_class classes] @ attrs) children
 
-  let create_action_buttons ?(classes = []) ?(attrs = []) buttons () : 'a elt =
+  let create_action_buttons ?(classes = []) ?(attrs = []) buttons : 'a elt =
     let classes = CSS.action_buttons :: classes in
     div ~a:([a_class classes] @ attrs) buttons
 
-  let create_action_icons ?(classes = []) ?(attrs = []) icons () : 'a elt =
+  let create_action_icons ?(classes = []) ?(attrs = []) icons : 'a elt =
     let classes = CSS.action_icons :: classes in
     div ~a:([a_class classes] @ attrs) icons
 
-  let create_actions ?(classes = []) ?(attrs = []) content () : 'a elt =
+  let create_actions ?(classes = []) ?(attrs = []) content : 'a elt =
     let classes = CSS.actions :: classes in
     section ~a:([a_class classes] @ attrs) content
 
-  let create_overline ?(classes = []) ?(attrs = []) text () : 'a elt =
+  let create_overline ?(classes = []) ?(attrs = []) text : 'a elt =
     let classes = CSS.overline :: classes in
     h5 ~a:([a_class classes] @ attrs) [txt text]
 
-  let create_title ?(classes = []) ?(attrs = []) ?(large = false) text () : 'a elt =
-    let classes = classes |> cons_if large CSS.title_large |> List.cons CSS.title in
+  let create_title ?(classes = []) ?(attrs = []) ?(large = false) text : 'a elt =
+    let classes =
+      classes |> Utils.cons_if large CSS.title_large |> List.cons CSS.title
+    in
     h2 ~a:([a_class classes] @ attrs) [txt text]
 
-  let create_subtitle ?(classes = []) ?(attrs = []) text () : 'a elt =
+  let create_subtitle ?(classes = []) ?(attrs = []) text : 'a elt =
     let classes = CSS.subtitle :: classes in
     h3 ~a:([a_class classes] @ attrs) [txt text]
 
-  let create_primary ?(classes = []) ?(attrs = []) content () : 'a elt =
+  let create_primary ?(classes = []) ?(attrs = []) content : 'a elt =
     let classes = CSS.primary :: classes in
     section ~a:([a_class classes] @ attrs) content
 
   let create ?(classes = []) ?(attrs = []) ?(tag = div) ?(outlined = false) sections :
       'a elt =
-    let classes = classes |> cons_if outlined CSS.outlined |> List.cons CSS.root in
+    let classes = classes |> Utils.cons_if outlined CSS.outlined |> List.cons CSS.root in
     tag ~a:([a_class classes] @ attrs) sections
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

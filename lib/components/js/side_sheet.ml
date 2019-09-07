@@ -1,8 +1,7 @@
 open Js_of_ocaml
-open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 include Components_tyxml.Side_sheet
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -26,23 +25,6 @@ module type M = sig
 end
 
 module Make_parent (M : M) = struct
-  module Scrim = struct
-    class t (elt : Dom_html.element Js.t) () =
-      object
-        inherit Widget.t elt ()
-      end
-
-    (** Creates new widget from scratch *)
-    let make () : t =
-      let (elt : Dom_html.element Js.t) =
-        Tyxml_js.To_dom.of_element @@ Markup.create_scrim ()
-      in
-      new t elt ()
-
-    (** Attach widget to existing element *)
-    let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
-  end
-
   module Event = struct
     class type change = [unit] Dom_html.customEvent
 
@@ -81,7 +63,9 @@ module Make_parent (M : M) = struct
         | Permanent -> self#set_permanent ()
         | Dismissible -> self#set_dismissible ());
         (* Connect event listeners *)
-        let keydown = Lwt_js_events.keydowns super#root self#handle_keydown in
+        let keydown =
+          Js_of_ocaml_lwt.Lwt_js_events.keydowns super#root self#handle_keydown
+        in
         _keydown_listener <- Some keydown
 
       method! destroy () : unit =
@@ -141,7 +125,9 @@ module Make_parent (M : M) = struct
         match scrim with
         | None -> ()
         | Some scrim ->
-            let listener = Lwt_js_events.clicks scrim self#handle_scrim_click in
+            let listener =
+              Js_of_ocaml_lwt.Lwt_js_events.clicks scrim self#handle_scrim_click
+            in
             _scrim_click_listener <- Some listener
 
       method is_open : bool = super#has_class M.open_
@@ -171,16 +157,17 @@ module Make_parent (M : M) = struct
           then (
             super#add_class M.animate;
             Option.iter Lwt.cancel _animation_thread;
-            Lwt_js_events.request_animation_frame ()
-            >>= Lwt_js.yield
+            Js_of_ocaml_lwt.Lwt_js_events.request_animation_frame ()
+            >>= Js_of_ocaml_lwt.Lwt_js.yield
             >>= fun () ->
             let waiter =
               Lwt.catch
                 (fun () ->
-                  Lwt_js_events.seq_loop
-                    (Lwt_js_events.make_event (Dom_html.Event.make "transitionend"))
-                    super#root
-                    (self#handle_transition_end ~closing:false % Option.some))
+                  Js_of_ocaml_lwt.Lwt_js_events.(
+                    seq_loop
+                      (make_event (Dom_html.Event.make "transitionend"))
+                      super#root
+                      (self#handle_transition_end ~closing:false % Option.some)))
                 (function
                   | Lwt.Canceled -> Lwt.return_unit
                   | exn -> Lwt.fail exn)
@@ -201,10 +188,11 @@ module Make_parent (M : M) = struct
             let waiter =
               Lwt.catch
                 (fun () ->
-                  Lwt_js_events.seq_loop
-                    (Lwt_js_events.make_event (Dom_html.Event.make "transitionend"))
-                    super#root
-                    (self#handle_transition_end ~closing:true % Option.some))
+                  Js_of_ocaml_lwt.Lwt_js_events.(
+                    seq_loop
+                      (make_event (Dom_html.Event.make "transitionend"))
+                      super#root
+                      (self#handle_transition_end ~closing:true % Option.some)))
                 (function
                   | Lwt.Canceled -> Lwt.return_unit
                   | exn -> Lwt.fail exn)
@@ -294,12 +282,16 @@ end)
 
 include (Parent : module type of Parent)
 
-let make_element widgets =
-  Tyxml_js.To_dom.of_element @@ Markup.create (List.map Widget.to_markup widgets) ()
-
 (** Creates new widget from scratch *)
-let make (widgets : #Widget.t list) () : t =
-  let elt = make_element widgets in
+let make ?classes ?attrs content : t =
+  let elt =
+    Tyxml_js.To_dom.of_element
+    @@ Markup_js.create
+         ?classes
+         ?attrs
+         ~content:(List.map Tyxml_js.Of_dom.of_element content)
+         ()
+  in
   new t elt ()
 
 (** Attach widget to existing element *)

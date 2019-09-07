@@ -119,8 +119,8 @@ class t
   let sid, e_sid = make_sid () in
   let stream_select, e_stream = make_stream_select streams mode in
   let submit = Button.make ~label:"Применить" () in
-  let buttons = Card.Actions.make_buttons [submit] in
-  let actions = Card.Actions.make [buttons] in
+  let buttons = Card.Markup_js.create_action_buttons [submit#markup] in
+  let actions = Card.Markup_js.create_actions [buttons] in
   object (self)
     val mutable _on_submit = None
 
@@ -134,7 +134,7 @@ class t
       super#append_child stream_select;
       super#append_child pid;
       super#append_child sid;
-      super#append_child actions;
+      Dom.appendChild super#root @@ Tyxml_js.To_dom.of_element actions;
       super#add_class base_class;
       super#add_class Box.CSS.root;
       super#add_class Box.CSS.vertical;

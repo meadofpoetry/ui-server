@@ -1,10 +1,14 @@
 open Js_of_ocaml
-open Js_of_ocaml_lwt
-open Js_of_ocaml_tyxml
 include Components_tyxml.Item_list
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js =
+  Components_tyxml.Item_list.Make
+    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
+    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
+    (Js_of_ocaml_tyxml.Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
+
+let name = "item-list"
 
 module Attr = struct
   let aria_checked = "aria-checked"
@@ -55,7 +59,15 @@ module Event = struct
     end
 
   let (action : detail Js.t Dom_html.customEvent Js.t Dom_html.Event.typ) =
-    Dom_html.Event.make "item-list:action"
+    Dom_html.Event.make (name ^ ":action")
+end
+
+module Lwt_js_events = struct
+  let action ?use_capture ?passive t =
+    Js_of_ocaml_lwt.Lwt_js_events.make_event ?use_capture ?passive Event.action t
+
+  let actions ?cancel_handler ?use_capture ?passive t =
+    Js_of_ocaml_lwt.Lwt_js_events.seq_loop ?cancel_handler ?use_capture ?passive action t
 end
 
 let elements_key_allowed_in = ["input"; "button"; "textarea"; "select"]
@@ -273,11 +285,13 @@ module Item = struct
                   | Some s -> s
                 in
                 let x =
-                  Tyxml_js.To_dom.of_element @@ Markup.create_item_primary_text text ()
+                  Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
+                  @@ Markup_js.create_item_primary_text text ()
                 in
                 Element.insert_child_at_index _text 0 x);
             let secondary =
-              Tyxml_js.To_dom.of_element @@ Markup.create_item_secondary_text s ()
+              Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
+              @@ Markup_js.create_item_secondary_text s ()
             in
             Element.insert_child_at_index _text 1 secondary
 
@@ -299,26 +313,27 @@ module Item = struct
     end
 
   let make ?ripple ?activated ?selected ?secondary_text ?graphic ?meta ?role text : t =
-    Option.iter (fun x -> x#add_class CSS.item_graphic) graphic;
-    Option.iter (fun x -> x#add_class CSS.item_meta) meta;
+    Option.iter
+      (fun x ->
+        Element.add_class
+          (Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element x)
+          CSS.item_graphic)
+      graphic;
+    Option.iter
+      (fun x ->
+        Element.add_class (Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element x) CSS.item_meta)
+      meta;
     let text_elt =
       match secondary_text with
       | Some st ->
-          let primary = Markup.create_item_primary_text text () in
-          let secondary = Markup.create_item_secondary_text st () in
-          Markup.create_item_text [primary; secondary] ()
-      | None -> Markup.create_item_text [Tyxml_js.Html.txt text] ()
+          let primary = Markup_js.create_item_primary_text text () in
+          let secondary = Markup_js.create_item_secondary_text st () in
+          Markup_js.create_item_text [primary; secondary] ()
+      | None -> Markup_js.create_item_text [Js_of_ocaml_tyxml.Tyxml_js.Html.txt text] ()
     in
     let (elt : Dom_html.liElement Js.t) =
-      Tyxml_js.To_dom.of_li
-      @@ Markup.create_item
-           ?graphic:(Option.map Widget.to_markup graphic)
-           ?meta:(Option.map Widget.to_markup meta)
-           ?activated
-           ?selected
-           ?role
-           text_elt
-           ()
+      Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_li
+      @@ Markup_js.create_item ?graphic ?meta ?activated ?selected ?role text_elt ()
     in
     new t ?ripple elt ()
 
@@ -346,28 +361,26 @@ class t (elt : Dom_html.element Js.t) () =
 
     val mutable _aria_current_value = None
 
-    (* Event handlers *)
-    val mutable _click_listener = None
-
-    val mutable _keydown_listener = None
-
-    val mutable _focusin_listener = None
-
-    val mutable _focusout_listener = None
+    val mutable listeners = []
 
     inherit Widget.t elt () as super
 
     method! initial_sync_with_dom () : unit =
       super#initial_sync_with_dom ();
       (* Attach event listeners *)
-      let click = Lwt_js_events.clicks super#root self#handle_click in
-      let keydown = Lwt_js_events.keydowns super#root self#handle_keydown in
-      let focusin = Events.focusins super#root self#handle_focus_in in
-      let focusout = Events.focusouts super#root self#handle_focus_out in
-      _click_listener <- Some click;
-      _keydown_listener <- Some keydown;
-      _focusin_listener <- Some focusin;
-      _focusout_listener <- Some focusout;
+      listeners <-
+        Js_of_ocaml_lwt.Lwt_js_events.
+          [ clicks super#root self#handle_click
+          ; keydowns super#root self#handle_keydown
+          ; seq_loop
+              (make_event (Dom_html.Event.make "focusin"))
+              super#root
+              self#handle_focus_in
+          ; seq_loop
+              (make_event (Dom_html.Event.make "focusout"))
+              super#root
+              self#handle_focus_out ]
+        @ listeners;
       (* Other initialization *)
       self#layout ();
       self#initialize_list_type ()
@@ -375,14 +388,8 @@ class t (elt : Dom_html.element Js.t) () =
     method! destroy () : unit =
       super#destroy ();
       (* Detach event listeners *)
-      Option.iter Lwt.cancel _click_listener;
-      Option.iter Lwt.cancel _keydown_listener;
-      Option.iter Lwt.cancel _focusin_listener;
-      Option.iter Lwt.cancel _focusout_listener;
-      _click_listener <- None;
-      _keydown_listener <- None;
-      _focusin_listener <- None;
-      _focusout_listener <- None
+      List.iter Lwt.cancel listeners;
+      listeners <- []
 
     method! layout () : unit =
       super#layout ();
@@ -653,7 +660,7 @@ class t (elt : Dom_html.element Js.t) () =
       @@ list_item_of_event items e;
       (* Between `focusout` and `focusin` some browsers do not have focus on any
          element. Setting a delay to wait till the focus is moved to next element *)
-      Lwt_js.yield ()
+      Js_of_ocaml_lwt.Lwt_js.yield ()
       >>= fun () ->
       if not @@ Element.is_focus_inside super#root
       then set_tab_index_to_first_selected_item ~selected:_selected_items items;
@@ -701,8 +708,8 @@ let make ?avatar_list ?dense ?two_line ?non_interactive ?role (items : #Widget.t
              items
   in
   let (elt : Dom_html.uListElement Js.t) =
-    Tyxml_js.To_dom.of_ul
-    @@ Markup.create
+    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_ul
+    @@ Markup_js.create
          ?role
          ?avatar_list
          ?dense

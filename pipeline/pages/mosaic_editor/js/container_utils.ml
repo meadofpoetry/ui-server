@@ -1,9 +1,12 @@
 open Js_of_ocaml
-open Js_of_ocaml_tyxml
 open Components
 open Pipeline_types
 include Page_mosaic_editor_tyxml.Container_editor
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js =
+  Page_mosaic_editor_tyxml.Container_editor.Make
+    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
+    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
+    (Js_of_ocaml_tyxml.Tyxml_js.Html)
 
 module Attr = struct
   let title = "data-title"
@@ -144,9 +147,7 @@ module UI = struct
       wizard_dialog
       ((table_dialog, value) : Dialog.t * (unit -> int option * int option))
       (grid : Grid.t) =
-    let table_icon =
-      Tyxml_js.To_dom.of_element @@ Icon.SVG.(Markup_js.create_of_d Path.table_plus)
-    in
+    let table_icon = Icon.SVG.(Markup_js.create_of_d Path.table_plus) in
     let table =
       Icon_button.make
         ~on_click:(fun _ _ ->
@@ -162,9 +163,7 @@ module UI = struct
         ~icon:table_icon
         ()
     in
-    let wizard_icon =
-      Tyxml_js.To_dom.of_element @@ Icon.SVG.(Markup_js.create_of_d Path.table_plus)
-    in
+    let wizard_icon = Icon.SVG.(Markup_js.create_of_d Path.table_plus) in
     let wizard =
       Icon_button.make
         ~on_click:(fun _ _ ->
@@ -186,24 +185,21 @@ module UI = struct
     let cols = make_input ~label:"Число столбцов" () in
     let rows = make_input ~label:"Число строк" () in
     let title =
-      Tyxml_js.To_dom.of_element
-      @@ Dialog.Markup.create_title_simple
-           ~title:"Добавление таблицы"
-           ()
+      Dialog.Markup_js.create_title ~title:"Добавление таблицы" ()
     in
     let content =
-      Tyxml_js.To_dom.of_element
-      @@ Dialog.Markup.create_content
-           ~classes:[Box.CSS.root; Box.CSS.vertical]
-           ~content:[cols#markup; rows#markup]
-           ()
+      Dialog.Markup_js.create_content
+        ~classes:[Box.CSS.root; Box.CSS.vertical]
+        [cols#markup; rows#markup]
     in
     let submit =
-      Button.attach @@ Dialog.make_action ~action:Accept ~label:"Применить" ()
+      Button.attach
+      @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
+      @@ Dialog.Markup_js.create_action ~action:Accept ~label:"Применить" ()
     in
     let actions =
-      Dialog.
-        [make_action ~action:Close ~label:"Отмена" (); Js.Unsafe.coerce submit#root]
+      Dialog.Markup_js.
+        [create_action ~action:Close ~label:"Отмена" (); submit#markup]
     in
     let check_input () =
       match cols#value, rows#value with
@@ -234,46 +230,41 @@ module UI = struct
     dialog, fun () -> cols#value, rows#value
 
   let make_description_dialog () =
+    let title = "Описание" in
     let helper_text = Textfield.Helper_text.make ~validation:true "" in
     let textfield =
       Textfield.make_textfield ~label:"Наименование" ~helper_text Text
     in
-    let title =
-      Tyxml_js.To_dom.of_element
-      @@ Dialog.Markup.create_title_simple ~title:"Описание" ()
-    in
+    let title = Dialog.Markup_js.create_title ~title () in
     let content =
-      Tyxml_js.To_dom.of_element
-      @@ Dialog.Markup.create_content
-           ~content:
-             [textfield#markup; Textfield.Markup.create_helper_line [helper_text#markup]]
-           ()
+      Dialog.Markup_js.create_content
+        [textfield#markup; Textfield.Markup.create_helper_line [helper_text#markup]]
     in
-    let accept = Button.attach @@ Dialog.make_action ~label:"OK" ~action:Accept () in
+    let accept =
+      Button.attach
+      @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
+      @@ Dialog.Markup_js.create_action ~label:"OK" ~action:Accept ()
+    in
     let actions =
-      Dialog.
-        [ Element.coerce @@ make_action ~label:"Отмена" ~action:Close ()
-        ; accept#root ]
+      Dialog.Markup_js.
+        [create_action ~label:"Отмена" ~action:Close (); accept#markup]
     in
     let dialog = Dialog.make ~title ~content ~actions () in
     textfield, accept, dialog
 
   let make_wizard_dialog structure wm =
     let wizard = Pipeline_widgets.Wizard.make structure wm in
-    let title =
-      Tyxml_js.To_dom.of_element
-      @@ Dialog.Markup.create_title_simple ~title:Pipeline_widgets.Wizard.title ()
-    in
-    let content =
-      Tyxml_js.To_dom.of_element
-      @@ Dialog.Markup.create_content ~content:[wizard#markup] ()
-    in
+    let title = Dialog.Markup_js.create_title ~title:Pipeline_widgets.Wizard.title () in
+    let content = Dialog.Markup_js.create_content [wizard#markup] in
     let actions =
-      Dialog.
-        [ make_action ~label:"Отмена" ~action:Close ()
-        ; make_action ~label:"Применить" ~action:Accept () ]
+      Dialog.Markup_js.
+        [ create_action ~label:"Отмена" ~action:Close ()
+        ; create_action ~label:"Применить" ~action:Accept () ]
     in
-    let dialog = Dialog.make_element ~title ~content ~actions () in
+    let dialog =
+      Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
+      @@ Dialog.Markup_js.create ~title ~content ~actions ()
+    in
     object
       inherit Dialog.t dialog () as super
 

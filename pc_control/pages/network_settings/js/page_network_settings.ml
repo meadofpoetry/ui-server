@@ -1,28 +1,29 @@
 open Js_of_ocaml
 open Components
-open Netlib.Uri
 open Pc_control_types.Network_config
+module Markup_js =
+  Page_network_settings_tyxml.Make
+    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
+    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
+    (Js_of_ocaml_tyxml.Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
 let ( >>=? ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
 
 let make_dialog set =
-  let title =
-    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-    @@ Dialog.Markup.create_title_simple ~title:"Внимание" ()
-  in
+  let title = Dialog.Markup_js.create_title ~title:"Внимание" () in
   let content =
-    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-    @@ Dialog.Markup.create_content_simple
-         "Применение настроек может привести к \
-          разрыву соединения. Хотите продолжить?"
-         ()
+    Dialog.Markup_js.create_content
+      [ Js_of_ocaml_tyxml.Tyxml_js.Html.txt
+          "Применение настроек может привести к \
+           разрыву соединения. Хотите продолжить?" ]
   in
   let actions =
-    Dialog.
-      [ make_action ~action:Close ~label:"Отмена" ()
-      ; make_action ~appearance:Raised ~action:Accept ~label:"Продолжить" () ]
+    Dialog.Markup_js.
+      [ create_action ~action:Close ~label:"Отмена" ()
+      ; create_action ~appearance:Raised ~action:Accept ~label:"Продолжить" ()
+      ]
   in
   let dialog = Dialog.make ~title ~content ~actions () in
   ( dialog
@@ -63,7 +64,7 @@ let () =
   let thread =
     Pc_control_http_js.Network.get_config ()
     >>=? fun config ->
-    Api_js.Websocket.JSON.open_socket ~path:(Path.Format.of_string "ws") ()
+    Api_js.Websocket.JSON.open_socket ~path:(Netlib.Uri.Path.Format.of_string "ws") ()
     >>=? fun socket ->
     Pc_control_http_js.Network.Event.get_config socket
     >>=? fun (event_id, event) ->
@@ -101,7 +102,7 @@ let () =
     let page =
       Widget.create
       @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-      @@ Markup.make
+      @@ Markup_js.create
            [ethernet#markup; ipv4#markup; dns#markup; routes#markup; submit#markup]
     in
     let event' = React.E.map update_config event in

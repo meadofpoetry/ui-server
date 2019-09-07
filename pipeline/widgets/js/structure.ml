@@ -227,8 +227,8 @@ let merge_trees ~(old : Treeview.t) ~(cur : Treeview.t) =
 
 class t (structure : Structure.Annotated.t) () =
   let submit = Button.make ~label:"Применить" () in
-  let buttons = Card.Actions.make_buttons [submit] in
-  let actions = Card.Actions.make [buttons] in
+  let buttons = Card.Markup_js.create_action_buttons [submit#markup] in
+  let actions = Card.Markup_js.create_actions [buttons] in
   object (self)
     val placeholder =
       let icon =
@@ -253,7 +253,7 @@ class t (structure : Structure.Annotated.t) () =
       if _treeview#is_empty
       then super#append_child placeholder
       else super#append_child _treeview;
-      super#append_child actions;
+      Dom.appendChild super#root (Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element actions);
       _on_submit <-
         Some
           (Js_of_ocaml_lwt.Lwt_js_events.clicks submit#root (fun _ _ ->
@@ -263,8 +263,6 @@ class t (structure : Structure.Annotated.t) () =
       super#destroy ();
       submit#destroy ();
       placeholder#destroy ();
-      buttons#destroy ();
-      actions#destroy ();
       Option.iter Lwt.cancel _on_submit;
       _on_submit <- None
 

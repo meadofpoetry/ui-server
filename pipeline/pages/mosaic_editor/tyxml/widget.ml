@@ -67,3 +67,5 @@ struct
       |> map_cons_option (a_user_data "aspect") aspect
       |> map_cons_option (a_user_data "pid" % string_of_int) widget.pid)
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

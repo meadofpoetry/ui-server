@@ -10,27 +10,26 @@ module CSS = struct
   let letter = BEM.add_modifier root "letter"
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap with module Xml := Xml
-                                   and module Svg := Svg) = struct
+module Make
+    (Xml : Xml_sigs.NoWrap)
+    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
+    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+struct
   open Html
 
   module Image = struct
     let create ?(classes = []) ?(attrs = []) ?(dense = false) ~src () =
       let classes =
-        classes
-        |> Components_tyxml.Utils.cons_if dense CSS.dense
-        |> List.cons CSS.root in
+        classes |> Components_tyxml.Utils.cons_if dense CSS.dense |> List.cons CSS.root
+      in
       img ~a:([a_class classes] @ attrs) ~src:(uri_of_string src) ~alt:""
   end
 
   module Font_icon = struct
     let create ?(classes = []) ?(attrs = []) ?(dense = false) ~icon () =
       let classes =
-        classes
-        |> Components_tyxml.Utils.cons_if dense CSS.dense
-        |> List.cons CSS.root in
+        classes |> Components_tyxml.Utils.cons_if dense CSS.dense |> List.cons CSS.root
+      in
       div ~a:([a_class classes] @ attrs) [icon]
   end
 
@@ -40,7 +39,10 @@ module Make(Xml : Xml_sigs.NoWrap)
         classes
         |> Components_tyxml.Utils.cons_if dense CSS.dense
         |> List.cons CSS.letter
-        |> List.cons CSS.root in
+        |> List.cons CSS.root
+      in
       div ~a:([a_class classes] @ attrs) [txt text]
   end
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

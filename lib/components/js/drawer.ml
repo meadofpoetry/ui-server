@@ -1,7 +1,7 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Drawer
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 module Parent = Side_sheet.Make_parent (struct
   include CSS
@@ -24,9 +24,14 @@ class drawer (elt : Dom_html.element Js.t) () =
 include (Parent : module type of Parent with type t = drawer)
 
 (** Creates new widget from scratch *)
-let make (widgets : #Widget.t list) () : t =
-  let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element @@ Markup.create (List.map Widget.to_markup widgets) ()
+let make ?classes ?attrs content : t =
+  let elt =
+    Tyxml_js.To_dom.of_element
+    @@ Markup_js.create
+         ?classes
+         ?attrs
+         ~content:(List.map Tyxml_js.Of_dom.of_element content)
+         ()
   in
   new t elt ()
 

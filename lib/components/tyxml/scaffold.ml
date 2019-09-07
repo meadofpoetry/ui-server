@@ -20,19 +20,18 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  open Utils
 
   let create_app_content
       ?(classes = [])
       ?(attrs = [])
       ?(inner = false)
       ?(outer = false)
-      content
+      ?(content = [])
       () : 'a elt =
     let classes =
       classes
-      |> cons_if inner CSS.app_content_inner
-      |> cons_if outer CSS.app_content_outer
+      |> Utils.cons_if inner CSS.app_content_inner
+      |> Utils.cons_if outer CSS.app_content_outer
       |> List.cons CSS.app_content
     in
     div ~a:([a_class classes] @ attrs) content
@@ -42,17 +41,19 @@ struct
       ?(attrs = [])
       ?(full_height = false)
       ?(clipped = false)
-      content
+      ?(content = [])
       () : 'a elt =
     let classes =
       classes
-      |> cons_if full_height CSS.drawer_frame_full_height
-      |> cons_if clipped CSS.drawer_frame_clipped
+      |> Utils.cons_if full_height CSS.drawer_frame_full_height
+      |> Utils.cons_if clipped CSS.drawer_frame_clipped
       |> List.cons CSS.drawer_frame
     in
     div ~a:([a_class classes] @ attrs) content
 
-  let create ?(classes = []) ?(attrs = []) content () : 'a elt =
+  let create ?(classes = []) ?(attrs = []) ?(content = []) () : 'a elt =
     let classes = CSS.root :: classes in
     div ~a:([a_class classes] @ attrs) content
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

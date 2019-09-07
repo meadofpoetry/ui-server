@@ -1,6 +1,11 @@
 open Js_of_ocaml
 open Components
 open Netlib.Uri
+module Markup_js =
+  Page_software_updates_tyxml.Make
+    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
+    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
+    (Js_of_ocaml_tyxml.Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -15,11 +20,7 @@ let on_loaded (scaffold : Scaffold.t) () =
     >>=? fun socket ->
     Pc_control_http_js.Updates.Event.get_state socket
     >>=? fun (_, state_ev) ->
-    let remote_updates =
-      Remote_update.attach
-      @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-      @@ Markup.Remote_update_section.make ()
-    in
+    let remote_updates = Remote_update.make () in
     let notify =
       E.merge
         (fun _ _ -> ())
@@ -29,7 +30,7 @@ let on_loaded (scaffold : Scaffold.t) () =
     let page =
       Widget.create
       @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-      @@ Markup.make [remote_updates#markup]
+      @@ Markup_js.create [remote_updates#markup]
     in
     page#set_on_destroy (fun () ->
         remote_updates#destroy ();

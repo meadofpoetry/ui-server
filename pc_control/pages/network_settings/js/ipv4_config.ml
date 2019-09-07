@@ -1,44 +1,41 @@
 open Js_of_ocaml
-open Js_of_ocaml_lwt
-open Js_of_ocaml_tyxml
 open Components
-open Pc_control_types
+include Page_network_settings_tyxml.Ipv4
+module Markup_js =
+  Page_network_settings_tyxml.Ipv4.Make
+    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
+    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
+    (Js_of_ocaml_tyxml.Tyxml_js.Html)
 
 let name = "IPV4"
 
-let failwith s = failwith @@ Printf.sprintf "%s: %s" name s
-
 module Selector = struct
-  let dhcp = Printf.sprintf "#%s" Markup.IPV4.dhcp_id
+  let dhcp = Printf.sprintf "#%s" dhcp_id
 
-  let ip = Printf.sprintf "#%s" Markup.IPV4.ip_address_input_id
+  let ip = Printf.sprintf "#%s" ip_address_input_id
 
-  let mask = Printf.sprintf "#%s" Markup.IPV4.mask_input_id
+  let mask = Printf.sprintf "#%s" mask_input_id
 
-  let gateway = Printf.sprintf "#%s" Markup.IPV4.gateway_input_id
+  let gateway = Printf.sprintf "#%s" gateway_input_id
 end
 
 class t (elt : Dom_html.element Js.t) =
   object (self)
     val dhcp : Switch.t Form_field.t =
-      match Element.query_selector elt Selector.dhcp with
-      | None -> failwith "dhcp input field not found"
-      | Some x -> Form_field.attach Switch.attach x
+      let dhcp_elt = Element.query_selector_exn elt Selector.dhcp in
+      Form_field.attach Switch.attach dhcp_elt
 
     val ip : 'a Textfield.t =
-      match Element.query_selector elt Selector.ip with
-      | None -> failwith "ip address input field not found"
-      | Some x -> Textfield.attach ~validation:Util.ipv4_validation x
+      let ip_elt = Element.query_selector_exn elt Selector.ip in
+      Textfield.attach ~validation:Util.ipv4_validation ip_elt
 
     val mask : int32 Textfield.t =
-      match Element.query_selector elt Selector.mask with
-      | None -> failwith "subnet mask input field not found"
-      | Some x -> Textfield.attach ~validation:Util.mask_validation x
+      let mask_elt = Element.query_selector_exn elt Selector.mask in
+      Textfield.attach ~validation:Util.mask_validation mask_elt
 
     val gateway : 'a Textfield.t =
-      match Element.query_selector elt Selector.gateway with
-      | None -> failwith "gateway input field not found"
-      | Some x -> Textfield.attach ~validation:Util.ipv4_validation x
+      let gateway_elt = Element.query_selector_exn elt Selector.gateway in
+      Textfield.attach ~validation:Util.ipv4_validation gateway_elt
 
     inherit Widget.t elt () as super
 
@@ -53,7 +50,7 @@ class t (elt : Dom_html.element Js.t) =
 
     method! initial_sync_with_dom () : unit =
       _listeners <-
-        Lwt_js_events.
+        Js_of_ocaml_lwt.Lwt_js_events.
           [ changes (dhcp#input)#input_element (fun _ _ ->
                 self#handle_dhcp_change ();
                 Lwt.return_unit) ];
@@ -65,7 +62,8 @@ class t (elt : Dom_html.element Js.t) =
       gateway#destroy ();
       super#destroy ()
 
-    method set_value ({address; routes; meth; _} as v : Network_config.ipv4_conf) =
+    method set_value
+        ({address; routes; meth; _} as v : Pc_control_types.Network_config.ipv4_conf) =
       (dhcp#input)#toggle
         ~force:
           (match meth with
@@ -80,7 +78,7 @@ class t (elt : Dom_html.element Js.t) =
       self#handle_dhcp_change ();
       _value <- Some v
 
-    method value : Network_config.ipv4_conf option =
+    method value : Pc_control_types.Network_config.ipv4_conf option =
       match ip#value, mask#value, (dhcp#input)#checked with
       | _, _, true ->
           let get_or x = function
@@ -98,13 +96,13 @@ class t (elt : Dom_html.element Js.t) =
             | None -> gateway#value
           in
           Some
-            { Network_config.meth = Auto
+            { Pc_control_types.Network_config.meth = Auto
             ; address
             ; routes = {gateway; static = []}
             ; dns = [] }
       | Some ip, Some mask, false ->
           Some
-            { Network_config.meth = Manual
+            { Pc_control_types.Network_config.meth = Manual
             ; address = ip, mask
             ; routes = {gateway = gateway#value; static = []}
             ; dns = [] }
@@ -117,8 +115,8 @@ class t (elt : Dom_html.element Js.t) =
       gateway#set_disabled disabled
   end
 
-let make (init : Network_config.ipv4_conf) : t =
+let make (init : Pc_control_types.Network_config.ipv4_conf) : t =
   let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element @@ Markup.IPV4.make init
+    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ Markup_js.create init
   in
   new t elt

@@ -104,7 +104,6 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  open Utils
 
   let create_cell
       ?(classes = [])
@@ -115,30 +114,38 @@ struct
       ?span_phone
       ?span_tablet
       ?span_desktop
-      content
+      ?(content = [])
       () : 'a elt =
     let (classes : string list) =
       CSS.cell :: classes
-      |> map_cons_option CSS.cell_span span
-      |> map_cons_option (CSS.cell_span ~device:Phone) span_phone
-      |> map_cons_option (CSS.cell_span ~device:Tablet) span_tablet
-      |> map_cons_option (CSS.cell_span ~device:Desktop) span_desktop
-      |> map_cons_option CSS.cell_align align
-      |> map_cons_option CSS.cell_order order
+      |> Utils.map_cons_option CSS.cell_span span
+      |> Utils.map_cons_option (CSS.cell_span ~device:Phone) span_phone
+      |> Utils.map_cons_option (CSS.cell_span ~device:Tablet) span_tablet
+      |> Utils.map_cons_option (CSS.cell_span ~device:Desktop) span_desktop
+      |> Utils.map_cons_option CSS.cell_align align
+      |> Utils.map_cons_option CSS.cell_order order
     in
     div ~a:([a_class classes] @ attrs) content
 
-  let create_inner ?(classes = []) ?(attrs = []) ~cells () : 'a elt =
+  let create_inner ?(classes = []) ?(attrs = []) ?(cells = []) () : 'a elt =
     let classes = CSS.inner :: classes in
     div ~a:([a_class classes] @ attrs) cells
 
-  let create ?(classes = []) ?(attrs = []) ?align ?(fixed_column_width = false) ~inner ()
-      : 'a elt =
+  let create
+      ?(classes = [])
+      ?(attrs = [])
+      ?align
+      ?(fixed_column_width = false)
+      ?cells
+      ?(inner = create_inner ?cells ())
+      () : 'a elt =
     let (classes : string list) =
       classes
-      |> map_cons_option CSS.align align
-      |> cons_if fixed_column_width CSS.fixed_column_width
+      |> Utils.map_cons_option CSS.align align
+      |> Utils.cons_if fixed_column_width CSS.fixed_column_width
       |> List.cons CSS.root
     in
     div ~a:([a_class classes] @ attrs) [inner]
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

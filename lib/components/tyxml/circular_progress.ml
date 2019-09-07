@@ -14,7 +14,6 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  open Utils
 
   let sz = 50.
 
@@ -29,7 +28,7 @@ struct
       ?(size = 40)
       () : 'a elt =
     let classes =
-      classes |> cons_if indeterminate CSS.indeterminate |> List.cons CSS.root
+      classes |> Utils.cons_if indeterminate CSS.indeterminate |> List.cons CSS.root
     in
     let style = Printf.sprintf "width: %dpx; height: %dpx" size size in
     div
@@ -53,3 +52,5 @@ struct
                 ; Svg.a_r ((sz /. 2.) -. 5., None) ]
               [] ] ]
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

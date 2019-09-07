@@ -188,5 +188,3 @@ struct
     include Typography.Make (Xml) (Svg) (Html)
   end
 end
-
-include Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

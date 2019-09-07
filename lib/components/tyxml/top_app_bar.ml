@@ -62,23 +62,28 @@ module Make
 struct
   open Html
 
-  let create_title ?(classes = []) ?(attrs = []) content : 'a elt =
-    span ~a:([a_class (CSS.title :: classes)] @ attrs) content
+  let create_title ?(classes = []) ?(attrs = []) ?title ?(content = []) () : 'a elt =
+    span
+      ~a:([a_class (CSS.title :: classes)] @ attrs)
+      (Utils.map_cons_option txt title content)
 
-  let create_section ?(classes = []) ?(attrs = []) ?align content : 'a elt =
-    let classes =
+  let create_section ?(classes = []) ?(attrs = []) ?align ?(content = []) () : 'a elt =
+    let align_class =
       match align with
-      | None -> classes
-      | Some `Start -> CSS.section_align_start :: classes
-      | Some `End -> CSS.section_align_end :: classes
+      | None -> None
+      | Some `Start -> Some CSS.section_align_start
+      | Some `End -> Some CSS.section_align_end
     in
-    section ~a:([a_class (CSS.section :: classes)] @ attrs) content
+    let classes = classes |> Utils.cons_option align_class |> List.cons CSS.section in
+    section ~a:([a_class classes] @ attrs) content
 
-  let create_row ?(classes = []) ?(attrs = []) ~sections () : 'a elt =
-    div ~a:([a_class (CSS.row :: classes)] @ attrs) sections
+  let create_row ?(classes = []) ?(attrs = []) ?(sections = []) () : 'a elt =
+    let classes = CSS.row :: classes in
+    div ~a:([a_class classes] @ attrs) sections
 
-  let create ?(classes = []) ?(attrs = []) ~rows () : 'a elt =
-    header ~a:([a_class (CSS.root :: classes)] @ attrs) rows
+  let create ?(classes = []) ?(attrs = []) ?(rows = []) () : 'a elt =
+    let classes = CSS.root :: classes in
+    header ~a:([a_class classes] @ attrs) rows
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

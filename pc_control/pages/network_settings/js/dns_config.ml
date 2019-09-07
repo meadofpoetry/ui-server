@@ -1,8 +1,11 @@
 open Js_of_ocaml
-open Js_of_ocaml_lwt
-open Js_of_ocaml_tyxml
 open Components
-open Pc_control_types
+include Page_network_settings_tyxml.Dns
+module Markup_js =
+  Page_network_settings_tyxml.Dns.Make
+    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
+    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
+    (Js_of_ocaml_tyxml.Tyxml_js.Html)
 
 let ( % ) f g x = f (g x)
 
@@ -12,7 +15,9 @@ let name = "DNS"
 
 let make_dialog () =
   let accept =
-    Button.attach @@ Dialog.make_action ~action:Accept ~label:"Добавить" ()
+    Button.attach
+    @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
+    @@ Dialog.Markup_js.create_action ~action:Accept ~label:"Добавить" ()
   in
   let check_input input =
     match input#value with
@@ -27,21 +32,17 @@ let make_dialog () =
       ~label:"IP адрес"
       Util.ipv4_validation
   in
-  let title =
-    Tyxml_js.To_dom.of_element
-    @@ Dialog.Markup.create_title_simple
-         ~title:"Добавление DNS сервера"
-         ()
-  in
-  let content =
-    Tyxml_js.To_dom.of_element
-    @@ Dialog.Markup.create_content ~content:[address#markup] ()
-  in
+  let title = "Добавление DNS сервера" in
+  let title = Dialog.Markup_js.create_title ~title () in
+  let content = Dialog.Markup_js.create_content [address#markup] in
   let actions =
-    Dialog.
-      [Element.coerce (make_action ~action:Close ~label:"Отмена" ()); accept#root]
+    Dialog.Markup_js.
+      [create_action ~action:Close ~label:"Отмена" (); accept#markup]
   in
   let dialog = Dialog.make ~title ~content ~actions () in
+  dialog#set_on_destroy (fun () ->
+      accept#destroy ();
+      address#destroy ());
   ( dialog
   , fun () ->
       check_input address;
@@ -61,14 +62,9 @@ end
 class t (elt : Dom_html.element Js.t) =
   object (self)
     val dns_list : Item_list.t =
-      match Element.query_selector elt Selector.dns_list with
-      | None -> failwith "DNS list element not found"
-      | Some x -> Item_list.attach x
+      Item_list.attach (Element.query_selector_exn elt Selector.dns_list)
 
-    val add : Button.t =
-      match Element.query_selector elt Selector.button with
-      | None -> failwith "Add button element not found"
-      | Some x -> Button.attach x
+    val add : Button.t = Button.attach (Element.query_selector_exn elt Selector.button)
 
     val dialog : Dialog.t * (unit -> Ipaddr.V4.t option Lwt.t) = make_dialog ()
 
@@ -85,7 +81,7 @@ class t (elt : Dom_html.element Js.t) =
 
     method! initial_sync_with_dom () : unit =
       _listeners <-
-        Lwt_js_events.
+        Js_of_ocaml_lwt.Lwt_js_events.
           [ seq_loop
               (make_event Item_list.Event.action)
               super#root
@@ -142,7 +138,9 @@ class t (elt : Dom_html.element Js.t) =
         dns_list#items
 
     method private append_address (x : Ipaddr.V4.t) =
-      let item = Tyxml_js.To_dom.of_element @@ Markup.DNS.make_item x in
+      let item =
+        Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ Markup_js.create_item x
+      in
       Element.append_child dns_list#root item;
       _ripples <- (item, Ripple.attach item) :: _ripples;
       dns_list#layout ()
@@ -163,8 +161,8 @@ class t (elt : Dom_html.element Js.t) =
       Lwt.return_unit
   end
 
-let make (init : Network_config.ipv4_conf) : t =
+let make (init : Pc_control_types.Network_config.ipv4_conf) : t =
   let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element @@ Markup.DNS.make init
+    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ Markup_js.create init
   in
   new t elt

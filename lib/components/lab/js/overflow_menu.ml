@@ -1,8 +1,11 @@
 open Js_of_ocaml
-open Js_of_ocaml_tyxml
 open Components
 include Components_lab_tyxml.Overflow_menu
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js =
+  Components_lab_tyxml.Overflow_menu.Make
+    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
+    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
+    (Js_of_ocaml_tyxml.Tyxml_js.Html)
 
 module Selector = struct
   let actions = Printf.sprintf ".%s" CSS.actions
@@ -41,7 +44,7 @@ let menu_of_actions actions =
            | Some x ->
                let elt = Js.Unsafe.coerce @@ x##cloneNode Js._true in
                Element.remove_class elt Icon_button.CSS.icon;
-               Some elt
+               Some (Js_of_ocaml_tyxml.Tyxml_js.Of_dom.of_element elt)
          in
          let name =
            match Element.get_attribute x Attr.title with
@@ -58,10 +61,7 @@ let menu_of_actions actions =
                  in
                  failwith err)
          in
-         Item_list.Item.make
-           ?graphic:(Option.map Widget.create icon)
-           ~role:"menuitem"
-           name)
+         Item_list.Item.make ?graphic:icon ~role:"menuitem" name)
        actions
 
 class t ?(resize_handler = true) (elt : Dom_html.element Js.t) () =
@@ -165,14 +165,15 @@ class t ?(resize_handler = true) (elt : Dom_html.element Js.t) () =
       else Lwt.return_unit
   end
 
-let make ?resize_handler ?overflow ?menu ~(actions : Dom_html.element Js.t list) () : t =
-  let overflow = Option.map Tyxml_js.Of_dom.of_element overflow in
+let make ?classes ?attrs ?resize_handler ?overflow ?menu ~actions () : t =
   let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element
-    @@ Markup.create
+    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
+    @@ Markup_js.create
+         ?classes
+         ?attrs
          ?overflow
          ?menu:(Option.map (fun x -> x#markup) menu)
-         ~actions:(List.map Tyxml_js.Of_dom.of_element actions)
+         ~actions
          ()
   in
   new t ?resize_handler elt ()

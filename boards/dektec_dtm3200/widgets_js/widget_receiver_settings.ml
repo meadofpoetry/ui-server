@@ -94,8 +94,8 @@ class t (state : Topology.state) (mode : ip_receive) (control : int) =
   let meth, e_meth = make_method mcast mode.addressing_method in
   let port, e_port = make_port mode.udp_port in
   let submit = Button.make ~label:"Применить" () in
-  let buttons = Card.Actions.make_buttons [submit] in
-  let actions = Card.Actions.make [buttons] in
+  let buttons = Card.Markup_js.create_action_buttons [submit#markup] in
+  let actions = Card.Markup_js.create_actions [buttons] in
   object (self)
     val mutable _e_change = None
 
@@ -112,7 +112,7 @@ class t (state : Topology.state) (mode : ip_receive) (control : int) =
       super#append_child meth;
       super#append_child mcast;
       super#append_child port;
-      super#append_child actions;
+      Dom.appendChild super#root @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element actions;
       super#add_class base_class;
       super#add_class Box.CSS.root;
       super#add_class Box.CSS.vertical;

@@ -3,7 +3,7 @@ open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 open Components
 include Components_lab_tyxml.Transform
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let name = "transform"
 
@@ -420,5 +420,5 @@ class t ?(transformables = []) ?(move_threshold = 10.) (elt : Dom_html.element J
   end
 
 let make ?transformables ?classes () : t =
-  let element = Tyxml_js.To_dom.of_element @@ Markup.create ?classes () in
+  let element = Tyxml_js.To_dom.of_element @@ Markup_js.create ?classes () in
   new t ?transformables element ()

@@ -52,8 +52,8 @@ class t (state : Topology.state) (mode : nw) (control : int) =
   let gw, e_gw = make_ip ~id:"gw" ~label:"Шлюз" mode.gateway in
   let dhcp, e_dhcp = make_dhcp mode.dhcp [ip; mask; gw] in
   let submit = Button.make ~label:"Применить" () in
-  let buttons = Card.Actions.make_buttons [submit] in
-  let actions = Card.Actions.make [buttons] in
+  let buttons = Card.Markup_js.create_action_buttons [submit#markup] in
+  let actions = Card.Markup_js.create_actions [buttons] in
   object (self)
     val mutable _on_submit = None
 
@@ -69,7 +69,7 @@ class t (state : Topology.state) (mode : nw) (control : int) =
       super#append_child ip;
       super#append_child mask;
       super#append_child gw;
-      super#append_child actions;
+      Dom.appendChild super#root @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element actions;
       super#add_class base_class;
       super#add_class Box.CSS.root;
       super#add_class Box.CSS.vertical;

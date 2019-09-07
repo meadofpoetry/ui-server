@@ -11,9 +11,7 @@ type 'a t =
   ; callback : ('a -> Dom_html.event Js.t -> unit Lwt.t -> unit Lwt.t) option }
 
 let make_icon_button ?href ~icon name =
-  let icon =
-    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ Icon.SVG.Markup_js.create_of_d icon
-  in
+  let icon = Icon.SVG.Markup_js.create_of_d icon in
   let icon_button =
     Icon_button.make
       ?href
@@ -31,7 +29,7 @@ let make ?active ?href ?callback ~name ~icon () =
 let make_overflow_menu (state : 'a React.signal) (actions : 'a t list) =
   let elt =
     Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-    @@ Components_lab.Overflow_menu.Markup.create
+    @@ Components_lab.Overflow_menu.Markup_js.create
          ~actions:(List.map (fun x -> (x.icon)#markup) actions)
          ()
   in

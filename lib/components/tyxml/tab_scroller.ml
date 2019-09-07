@@ -38,17 +38,27 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  open Utils
 
-  let create_scroll_content ?(classes = []) ?(attrs = []) tabs () : 'a elt =
+  let create_scroll_content ?(classes = []) ?(attrs = []) ?(tabs = []) () : 'a elt =
     let classes = CSS.scroll_content :: classes in
     div ~a:([a_class classes] @ attrs) tabs
 
-  let create_scroll_area ?(classes = []) ?(attrs = []) ~content () : 'a elt =
+  let create_scroll_area
+      ?(classes = [])
+      ?(attrs = [])
+      ?tabs
+      ?(scroll_content = create_scroll_content ?tabs ())
+      () : 'a elt =
     let classes = CSS.scroll_area :: classes in
-    div ~a:([a_class classes] @ attrs) [content]
+    div ~a:([a_class classes] @ attrs) [scroll_content]
 
-  let create ?(classes = []) ?(attrs = []) ?align ~scroll_area () : 'a elt =
+  let create
+      ?(classes = [])
+      ?(attrs = [])
+      ?align
+      ?tabs
+      ?(scroll_area = create_scroll_area ?tabs ())
+      () : 'a elt =
     let align =
       match align with
       | None -> None
@@ -56,6 +66,8 @@ struct
       | Some Center -> Some CSS.align_center
       | Some End -> Some CSS.align_end
     in
-    let classes = CSS.root :: (align ^:: classes) in
+    let classes = CSS.root :: Utils.(align ^:: classes) in
     div ~a:([a_class classes] @ attrs) [scroll_area]
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

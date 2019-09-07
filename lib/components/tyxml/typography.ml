@@ -78,22 +78,15 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  open Utils
 
-  let make_inner text =
-    let rec aux acc = function
-      | [] -> List.rev acc
-      | [x] -> List.rev (txt x :: acc)
-      | x :: tl -> aux (br () :: txt x :: acc) tl
-    in
-    aux [] (String.split_on_char '\n' text)
-
-  let make ?(classes = []) ?(attrs = []) ?font text =
+  let create ?(classes = []) ?(attrs = []) ?font ?text ?(content = []) () =
     let font_class =
       match font with
       | None -> None
       | Some x -> Some (font_to_class x)
     in
-    let classes = classes |> cons_option font_class |> List.cons CSS.root in
-    span ~a:([a_class classes] @ attrs) (make_inner text)
+    let classes = classes |> Utils.cons_option font_class |> List.cons CSS.root in
+    span ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt text content)
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

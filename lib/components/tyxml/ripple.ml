@@ -33,3 +33,5 @@ module Make
 struct
   let unbounded_attr = Html.a_user_data "mdc-ripple-is-unbounded" ""
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

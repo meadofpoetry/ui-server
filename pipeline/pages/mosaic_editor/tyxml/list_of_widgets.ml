@@ -59,3 +59,5 @@ struct
     let classes = CSS.root :: Item_list.CSS.group :: classes in
     div ~a:([a_class classes] @ attrs) content
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

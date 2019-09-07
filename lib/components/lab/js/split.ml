@@ -2,7 +2,7 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml
 open Components
 include Components_lab_tyxml.Split
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 (* TODO
    - test touch support *)
@@ -183,10 +183,10 @@ class t (elt : Dom_html.element Js.t) () =
   end
 
 let make ?(vertical = false) (side1 : #Widget.t) (side2 : #Widget.t) : t =
-  let panel1 = Markup.create_panel [Widget.to_markup side1] () in
-  let panel2 = Markup.create_panel [Widget.to_markup side2] () in
+  let panel1 = Markup_js.create_panel [Widget.to_markup side1] in
+  let panel2 = Markup_js.create_panel [Widget.to_markup side2] in
   let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element @@ Markup.create ~vertical panel1 panel2 ()
+    Tyxml_js.To_dom.of_element @@ Markup_js.create ~vertical panel1 panel2
   in
   new t elt ()
 

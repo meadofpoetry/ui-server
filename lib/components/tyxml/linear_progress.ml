@@ -29,7 +29,6 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  open Utils
 
   let create
       ?(classes = [])
@@ -40,9 +39,9 @@ struct
       () : 'a elt =
     let classes =
       classes
-      |> cons_if closed CSS.closed
-      |> cons_if indeterminate CSS.indeterminate
-      |> cons_if reversed CSS.reversed
+      |> Utils.cons_if closed CSS.closed
+      |> Utils.cons_if indeterminate CSS.indeterminate
+      |> Utils.cons_if reversed CSS.reversed
       |> List.cons CSS.root
     in
     div

@@ -1,7 +1,12 @@
 open Js_of_ocaml
-open Js_of_ocaml_tyxml
 open Components
 open Pc_control_types
+include Page_network_settings_tyxml.Ethernet
+module Markup_js =
+  Page_network_settings_tyxml.Ethernet.Make
+    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
+    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
+    (Js_of_ocaml_tyxml.Tyxml_js.Html)
 
 let validation =
   Textfield.(
@@ -13,7 +18,7 @@ let validation =
     Custom {of_string; to_string = Macaddr.to_string; input_type = `Text})
 
 module Selector = struct
-  let mac = Printf.sprintf "#%s" Markup.Ethernet.mac_input_id
+  let mac = Printf.sprintf "#%s" Markup_js.mac_input_id
 end
 
 class t (elt : Dom_html.element Js.t) =
@@ -36,6 +41,6 @@ class t (elt : Dom_html.element Js.t) =
 
 let make (init : Network_config.ethernet_conf) : t =
   let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element @@ Markup.Ethernet.make init
+    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ Markup_js.create init
   in
   new t elt

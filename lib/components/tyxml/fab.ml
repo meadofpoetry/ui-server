@@ -25,7 +25,6 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  open Utils
 
   let create
       ?(classes = [])
@@ -37,8 +36,8 @@ struct
       () : 'a elt =
     let (classes : string list) =
       classes
-      |> cons_if mini CSS.mini
-      |> cons_if extended CSS.extended
+      |> Utils.cons_if mini CSS.mini
+      |> Utils.cons_if extended CSS.extended
       |> List.cons CSS.root
     in
     let label =
@@ -51,6 +50,8 @@ struct
       | None -> None
       | Some x -> Some (span ~a:[a_class [CSS.label]] [txt x])
     in
-    let content = icon ^:: label ^:: [] in
+    let content = Utils.(icon ^:: label ^:: []) in
     button ~a:([a_class classes] @ attrs) content
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

@@ -116,33 +116,37 @@ module Make
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
-  module Progress = Linear_progress.Make (Xml) (Svg) (Html)
-  module Button = Button.Make (Xml) (Svg) (Html)
-  module Placeholder = Placeholder.Make (Xml) (Svg) (Html)
-  module Icon = Icon.Make (Xml) (Svg) (Html)
+  module Progress_markup = Linear_progress.Make (Xml) (Svg) (Html)
+  module Button_markup = Button.Make (Xml) (Svg) (Html)
+  module Placeholder_markup = Placeholder.Make (Xml) (Svg) (Html)
+  module Icon_markup = Icon.Make (Xml) (Svg) (Html)
 
   open Ui_templates_tyxml.Settings_page.Make (Xml) (Svg) (Html)
 
-  let make_placeholder ?classes ?attrs () =
+  let create_placeholder ?classes ?attrs () =
     let path = state_to_svg_path default_state in
-    let widget = Icon.SVG.create_of_d path in
-    Placeholder.make_simple
+    let widget = Icon_markup.SVG.create_of_d path in
+    Placeholder_markup.create_simple
       ?classes
       ?attrs
       widget
       (state_to_hint ~auto_reboot default_state)
 
-  let make ?classes ?(attrs = []) () =
-    make_section
+  let create ?classes ?(attrs = []) () =
+    create_section
       ?classes
       ~attrs:([Html.a_id "remote-update"] @ attrs)
       ~header:
-        (make_section_header ~title:"Дистанционное обновление" [])
-      [ Card'.create_media [make_placeholder (); Progress.create ~closed:true ()] ()
-      ; Card'.create_actions
-          [ Button.create
+        (create_section_header
+           ~title:"Дистанционное обновление"
+           [])
+      [ Card_markup.create_media
+          [create_placeholder (); Progress_markup.create ~closed:true ()]
+      ; Card_markup.create_actions
+          [ Button_markup.create
               ~appearance:Raised
               ~label:(state_to_action_label ~auto_reboot default_state)
-              () ]
-          () ]
+              () ] ]
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

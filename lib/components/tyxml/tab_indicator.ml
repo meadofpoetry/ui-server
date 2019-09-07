@@ -27,7 +27,6 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  open Utils
 
   let create_content ?(classes = []) ?(attrs = []) ?icon () : 'a elt =
     let content, content_class =
@@ -38,10 +37,21 @@ struct
     let classes = CSS.content :: content_class :: classes in
     span ~a:([a_class classes] @ attrs) content
 
-  let create ?(classes = []) ?(attrs = []) ?(active = false) ?(fade = false) content () :
-      'a elt =
+  let create
+      ?(classes = [])
+      ?(attrs = [])
+      ?(active = false)
+      ?(fade = false)
+      ?icon
+      ?(content = create_content ?icon ())
+      () =
     let (classes : string list) =
-      classes |> cons_if fade CSS.fade |> cons_if active CSS.active |> List.cons CSS.root
+      classes
+      |> Utils.cons_if fade CSS.fade
+      |> Utils.cons_if active CSS.active
+      |> List.cons CSS.root
     in
     span ~a:([a_class classes] @ attrs) [content]
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

@@ -1,5 +1,3 @@
-open Utils
-
 module CSS = struct
   (** Mandatory, for the parent element. *)
   let root = "mdc-switch"
@@ -30,31 +28,62 @@ module Make
 struct
   open Html
 
+  let create_track ?(classes = []) ?(attrs = []) () =
+    let classes = CSS.track :: classes in
+    div ~a:([a_class classes] @ attrs) []
+
+  let create_native_control
+      ?(classes = [])
+      ?(attrs = [])
+      ?id
+      ?(checked = false)
+      ?(disabled = false)
+      () =
+    let classes = CSS.native_control :: classes in
+    input
+      ~a:
+        ([a_input_type `Checkbox; a_class classes] @ attrs
+        |> Utils.cons_if_lazy checked a_checked
+        |> Utils.cons_if_lazy disabled a_disabled
+        |> Utils.map_cons_option a_id id)
+      ()
+
+  let create_thumb
+      ?(classes = [])
+      ?(attrs = [])
+      ?input_id
+      ?checked
+      ?disabled
+      ?(native_control = create_native_control ?id:input_id ?checked ?disabled ())
+      () =
+    let classes = CSS.thumb :: classes in
+    div ~a:([a_class classes] @ attrs) [native_control]
+
+  let create_thumb_underlay
+      ?(classes = [])
+      ?(attrs = [])
+      ?input_id
+      ?checked
+      ?disabled
+      ?(thumb = create_thumb ?input_id ?checked ?disabled ())
+      () =
+    let classes = CSS.thumb_underlay :: classes in
+    div ~a:([a_class classes] @ attrs) [thumb]
+
   let create
       ?input_id
       ?(classes = [])
       ?(attrs = [])
       ?(checked = false)
       ?(disabled = false)
+      ?(track = create_track ())
+      ?(thumb_underlay = create_thumb_underlay ?input_id ~checked ~disabled ())
       () : 'a elt =
     let classes =
       classes
-      |> cons_if checked CSS.checked
-      |> cons_if disabled CSS.disabled
+      |> Utils.cons_if checked CSS.checked
+      |> Utils.cons_if disabled CSS.disabled
       |> List.cons CSS.root
     in
-    div
-      ~a:([a_class classes] @ attrs)
-      [ div ~a:[a_class [CSS.track]] []
-      ; div
-          ~a:[a_class [CSS.thumb_underlay]]
-          [ div
-              ~a:[a_class [CSS.thumb]]
-              [ input
-                  ~a:
-                    ([a_input_type `Checkbox; a_class [CSS.native_control]]
-                    |> cons_if_lazy checked a_checked
-                    |> cons_if_lazy disabled a_disabled
-                    |> map_cons_option a_id input_id)
-                  () ] ] ]
+    div ~a:([a_class classes] @ attrs) [track; thumb_underlay]
 end

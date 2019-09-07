@@ -18,7 +18,6 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  open Utils
 
   let create
       ?(classes = [])
@@ -28,19 +27,21 @@ struct
       ?(disabled = false)
       ?name
       () : 'a elt =
-    let classes = classes |> cons_if disabled CSS.disabled |> List.cons CSS.root in
-    div
-      ~a:([a_class classes] @ attrs)
-      [ input
-          ~a:
-            ([a_class [CSS.native_control]; a_input_type `Radio]
-            |> map_cons_option a_name name
-            |> cons_if_lazy checked a_checked
-            |> cons_if_lazy disabled a_disabled
-            |> map_cons_option a_id input_id)
-          ()
-      ; div
-          ~a:[a_class [CSS.background]]
-          [div ~a:[a_class [CSS.outer_circle]] []; div ~a:[a_class [CSS.inner_circle]] []]
-      ]
+    let classes = classes |> Utils.cons_if disabled CSS.disabled |> List.cons CSS.root in
+    let outer_circle = div ~a:[a_class [CSS.outer_circle]] [] in
+    let inner_circle = div ~a:[a_class [CSS.inner_circle]] [] in
+    let background = div ~a:[a_class [CSS.background]] [outer_circle; inner_circle] in
+    let input =
+      input
+        ~a:
+          ([a_class [CSS.native_control]; a_input_type `Radio]
+          |> Utils.map_cons_option a_name name
+          |> Utils.cons_if_lazy checked a_checked
+          |> Utils.cons_if_lazy disabled a_disabled
+          |> Utils.map_cons_option a_id input_id)
+        ()
+    in
+    div ~a:([a_class classes] @ attrs) [input; background]
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

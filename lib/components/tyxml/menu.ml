@@ -20,7 +20,7 @@ module Make
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
-  module Menu_surface = Menu_surface.Make (Xml) (Svg) (Html)
+  module Menu_surface_markup = Menu_surface.Make (Xml) (Svg) (Html)
 
   module Item_list = struct
     include Item_list.Make (Xml) (Svg) (Html)
@@ -33,5 +33,7 @@ struct
   let create ?(classes = []) ?(attrs = []) ?fixed ?open_ list () : 'a Html.elt =
     let classes = CSS.root :: classes in
     let attrs = attrs |> List.cons (Html.a_tabindex (-1)) in
-    Menu_surface.create ~classes ~attrs ?fixed ?open_ [list] ()
+    Menu_surface_markup.create ~classes ~attrs ?fixed ?open_ ~content:[list] ()
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

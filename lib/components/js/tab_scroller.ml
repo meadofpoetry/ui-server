@@ -74,19 +74,20 @@ class t ?tabs (elt : Dom_html.element Js.t) () =
         self#handle_transition_end e;
         Lwt.return_unit
       in
-      let wheel = Events.wheels super#root handle_interaction in
-      let touchstart = Lwt_js_events.touchstarts super#root handle_interaction in
-      let pointerdown = Lwt_js_events.pointerdowns super#root handle_interaction in
-      let mousedown = Lwt_js_events.mousedowns super#root handle_interaction in
-      let keydown = Lwt_js_events.keydowns super#root handle_interaction in
-      let transitionend =
-        Lwt_js_events.seq_loop
-          (Lwt_js_events.make_event (Dom_html.Event.make "transitionend"))
-          super#root
-          handle_transitionend
-      in
       let listeners =
-        [wheel; touchstart; pointerdown; mousedown; keydown; transitionend]
+        Lwt_js_events.
+          [ touchstarts super#root handle_interaction
+          ; pointerdowns super#root handle_interaction
+          ; mousedowns super#root handle_interaction
+          ; keydowns super#root handle_interaction
+          ; seq_loop
+              (make_event @@ Dom_html.Event.make "wheel")
+              super#root
+              handle_interaction
+          ; seq_loop
+              (make_event @@ Dom_html.Event.make "transitionend")
+              super#root
+              handle_transitionend ]
       in
       _listeners <- listeners
 

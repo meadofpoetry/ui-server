@@ -2,6 +2,12 @@ open Js_of_ocaml
 open Components
 open Pc_control_http_js.Updates
 open Pc_control_types.Software_updates
+include Page_software_updates_tyxml.Remote_update
+module Markup_js =
+  Page_software_updates_tyxml.Remote_update.Make
+    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
+    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
+    (Js_of_ocaml_tyxml.Tyxml_js.Html)
 
 type event = [`State of state]
 
@@ -20,24 +26,19 @@ module Selector = struct
 end
 
 let make_warning_dialog () =
-  let title =
-    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-    @@ Dialog.Markup.create_title_simple ~title:"Внимание!" ()
-  in
+  let title = Dialog.Markup_js.create_title ~title:"Внимание!" () in
   let content =
-    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-    @@ Dialog.Markup.create_content_simple
-         "После завершения обновления прибор будет \
-          автоматически перезагружен.\n\
-          Во время перезагрузки доступ к прибору \
-          будет недоступен.\n"
-         ()
+    Dialog.Markup_js.create_content
+      [ Js_of_ocaml_tyxml.Tyxml_js.Html.txt
+          "После завершения обновления прибор будет \
+           автоматически перезагружен.\n\
+           Во время перезагрузки доступ к прибору \
+           будет недоступен.\n" ]
   in
   let actions =
-    List.map
-      Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-      [ Dialog.Markup.create_action ~action:Close ~label:"Отмена" ()
-      ; Dialog.Markup.create_action
+    Dialog.Markup_js.
+      [ create_action ~action:Close ~label:"Отмена" ()
+      ; create_action
           ~action:Accept
           ~label:"Продолжить обновление"
           () ]
@@ -61,7 +62,7 @@ class t (elt : Dom_html.element Js.t) =
 
     val mutable listeners = []
 
-    val mutable _state = Markup.Remote_update.default_state
+    val mutable _state = default_state
 
     method! init () : unit =
       warning_dialog#append_to_body ();
@@ -85,7 +86,6 @@ class t (elt : Dom_html.element Js.t) =
       | `State state -> self#handle_state_change state
 
     method private handle_state_change (state : state) : unit Lwt.t =
-      let open Markup.Remote_update in
       let loading = is_loading state in
       let hint = state_to_hint ~auto_reboot state in
       let icon = state_to_svg_path state in
@@ -107,7 +107,7 @@ class t (elt : Dom_html.element Js.t) =
       | _ -> self#close_progress ()
 
     method private handle_action _ _ : unit Lwt.t =
-      let auto_reboot = Markup.Remote_update.auto_reboot in
+      let auto_reboot = auto_reboot in
       let rec aux () =
         action#set_disabled true;
         let thread =
@@ -202,5 +202,11 @@ class t (elt : Dom_html.element Js.t) =
       | None -> ()
       | Some x -> x##.textContent := Js.some @@ Js.string label
   end
+
+let make ?classes ?attrs () =
+  let elt =
+    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ Markup_js.create ?classes ?attrs ()
+  in
+  new t elt
 
 let attach (elt : #Dom_html.element Js.t) = new t (elt :> Dom_html.element Js.t)

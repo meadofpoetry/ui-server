@@ -1,7 +1,7 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Fab
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -46,13 +46,8 @@ class t ?on_click (elt : Dom_html.buttonElement Js.t) () =
   end
 
 let make ?mini ?extended ?label ?icon ?on_click () : t =
-  let icon =
-    match icon with
-    | None -> None
-    | Some x -> Some (Widget.to_markup x)
-  in
   let (elt : Dom_html.buttonElement Js.t) =
-    Tyxml_js.To_dom.of_button @@ Markup.create ?mini ?extended ?label ?icon ()
+    Tyxml_js.To_dom.of_button @@ Markup_js.create ?mini ?extended ?label ?icon ()
   in
   new t ?on_click elt ()
 

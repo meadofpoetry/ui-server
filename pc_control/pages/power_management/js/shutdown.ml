@@ -1,5 +1,10 @@
 open Js_of_ocaml
 open Components
+module Markup_js =
+  Page_power_management_tyxml.Reboot.Make
+    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
+    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
+    (Js_of_ocaml_tyxml.Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -9,14 +14,12 @@ end
 
 let make_warning_dialog () =
   let title =
-    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-    @@ Dialog.Markup.create_title_simple ~title:"Выключить прибор?" ()
+    Dialog.Markup_js.create_title ~title:"Выключить прибор?" ()
   in
   let actions =
-    List.map
-      Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-      [ Dialog.Markup.create_action ~action:Close ~label:"Отмена" ()
-      ; Dialog.Markup.create_action ~action:Accept ~label:"Выключить" () ]
+    Dialog.Markup_js.
+      [ create_action ~action:Close ~label:"Отмена" ()
+      ; create_action ~action:Accept ~label:"Выключить" () ]
   in
   Dialog.make ~title ~actions ()
 
@@ -83,7 +86,7 @@ class t (elt : Dom_html.element Js.t) =
 
 let make ?classes ?attrs () =
   let elt =
-    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ Markup.make ?classes ?attrs ()
+    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ Markup_js.create ?classes ?attrs ()
   in
   new t elt
 

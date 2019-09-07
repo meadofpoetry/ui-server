@@ -31,10 +31,7 @@ module Header = struct
       match has_settings_button with
       | false -> None
       | true ->
-          let icon =
-            Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-            @@ Icon.SVG.(Markup_js.create_of_d Path.settings)
-          in
+          let icon = Icon.SVG.(Markup_js.create_of_d Path.settings) in
           let button = Icon_button.make ~icon () in
           button#add_class Topo_block.CSS.header_action_settings;
           Some button

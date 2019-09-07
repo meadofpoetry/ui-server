@@ -392,8 +392,12 @@ class t
       then (
         (* Detect mouse scrolling *)
         _temp_listeners <-
-          Events.(
-            wheels ~passive:false Dom_html.window (self#manual_scroll state)
+          Lwt_js_events.(
+            seq_loop
+              (make_event @@ Dom_html.Event.make "wheel")
+              ~passive:false
+              Dom_html.window
+              (self#manual_scroll state)
             :: _temp_listeners);
         (* The selection-area will also cover other element which are
          out of the current scrollable parent. So find all elements

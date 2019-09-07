@@ -205,17 +205,9 @@ let tie_side_sheet_with_toggle (scaffold : Scaffold.t) =
 
 let make_hotkeys_dialog () =
   let hotkeys = Widget.create @@ To_dom.of_element @@ Markup.create_hotkeys () in
-  let title =
-    To_dom.of_element
-    @@ Dialog.Markup.create_title_simple ~title:"Горячие клавиши" ()
-  in
-  let cancel =
-    To_dom.of_element
-    @@ Dialog.Markup.create_action ~label:"Закрыть" ~action:Close ()
-  in
-  let content =
-    To_dom.of_element @@ Dialog.Markup.create_content ~content:[hotkeys#markup] ()
-  in
+  let title = Dialog.Markup_js.create_title ~title:"Горячие клавиши" () in
+  let cancel = Dialog.Markup_js.create_action ~label:"Закрыть" ~action:Close () in
+  let content = Dialog.Markup_js.create_content [hotkeys#markup] in
   Dialog.make ~title ~content ~actions:[cancel] ()
 
 let tie_menu_with_toggle (scaffold : Scaffold.t) (wizard_dialog, show_wizard) =
@@ -282,29 +274,20 @@ let make_wizard (scaffold : Scaffold.t) =
         Api_js.Websocket.close_socket socket);
     Lwt.return_ok wizard
   in
-  let title =
-    To_dom.of_element
-    @@ Dialog.Markup.create_title_simple ~title:Pipeline_widgets.Wizard.title ()
-  in
+  let title = Dialog.Markup_js.create_title ~title:Pipeline_widgets.Wizard.title () in
   let loader = Components_lab.Loader.make_widget_loader thread in
-  let content =
-    To_dom.of_element
-    @@ Dialog.Markup.create_content ~content:[Of_dom.of_element loader] ()
-  in
-  let cancel =
-    To_dom.of_element
-    @@ Dialog.Markup.create_action ~action:Close ~label:"Отмена" ()
-  in
+  let content = Dialog.Markup_js.create_content [Of_dom.of_element loader] in
+  let cancel = Dialog.Markup_js.create_action ~action:Close ~label:"Отмена" () in
   let accept =
     Button.attach
     @@ To_dom.of_element
-    @@ Dialog.Markup.create_action
+    @@ Dialog.Markup_js.create_action
          ~disabled:true
          ~action:Accept
          ~label:"Применить"
          ()
   in
-  let actions = [cancel; accept#root] in
+  let actions = [cancel; accept#markup] in
   let dialog = Dialog.make ~title ~content ~actions () in
   Lwt.on_success thread (fun _ -> accept#set_disabled false);
   let show () =

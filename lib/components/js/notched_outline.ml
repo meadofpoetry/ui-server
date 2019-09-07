@@ -1,7 +1,7 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Notched_outline
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -52,13 +52,8 @@ class t (elt : Dom_html.element Js.t) () =
   end
 
 let make ?label () : t =
-  let label =
-    match label with
-    | None -> None
-    | Some x -> Some (Widget.to_markup x)
-  in
   let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element @@ Markup.create ?label ()
+    Tyxml_js.To_dom.of_element @@ Markup_js.create ?label ()
   in
   new t elt ()
 

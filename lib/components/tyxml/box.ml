@@ -34,44 +34,48 @@ module CSS = struct
   let horizontal = BEM.add_modifier root "horizontal"
 
   let wrap (x : wrap) : string =
-    BEM.add_modifier
-      root
-      (match x with
+    let modifier =
+      match x with
       | `Nowrap -> "nowrap"
       | `Wrap -> "wrap"
-      | `Wrap_reverse -> "wrap-reverse")
+      | `Wrap_reverse -> "wrap-reverse"
+    in
+    BEM.add_modifier root modifier
 
   let justify_content (x : justify_content) : string =
-    BEM.add_modifier root "justify-content-"
-    ^
-    match x with
-    | `Start -> "start"
-    | `End -> "end"
-    | `Center -> "center"
-    | `Space_between -> "space-between"
-    | `Space_around -> "space-around"
-    | `Space_evenly -> "space-evenly"
+    let suffix =
+      match x with
+      | `Start -> "start"
+      | `End -> "end"
+      | `Center -> "center"
+      | `Space_between -> "space-between"
+      | `Space_around -> "space-around"
+      | `Space_evenly -> "space-evenly"
+    in
+    BEM.add_modifier root "justify-content-" ^ suffix
 
   let align_items (x : align_items) : string =
-    BEM.add_modifier root "align-items-"
-    ^
-    match x with
-    | `Start -> "start"
-    | `End -> "end"
-    | `Center -> "center"
-    | `Stretch -> "stretch"
-    | `Baseline -> "baseline"
+    let suffix =
+      match x with
+      | `Start -> "start"
+      | `End -> "end"
+      | `Center -> "center"
+      | `Stretch -> "stretch"
+      | `Baseline -> "baseline"
+    in
+    BEM.add_modifier root "align-items-" ^ suffix
 
   let align_content (x : align_content) : string =
-    BEM.add_modifier root "align-content-"
-    ^
-    match x with
-    | `Start -> "start"
-    | `End -> "end"
-    | `Center -> "center"
-    | `Stretch -> "stretch"
-    | `Space_between -> "space-between"
-    | `Space_around -> "space-around"
+    let suffix =
+      match x with
+      | `Start -> "start"
+      | `End -> "end"
+      | `Center -> "center"
+      | `Stretch -> "stretch"
+      | `Space_between -> "space-between"
+      | `Space_around -> "space-around"
+    in
+    BEM.add_modifier root "align-content-" ^ suffix
 end
 
 module Make
@@ -80,7 +84,6 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  open Utils
 
   let create
       ?(classes = [])
@@ -99,12 +102,14 @@ struct
     in
     let classes =
       classes
-      |> cons_if vertical CSS.vertical
-      |> map_cons_option CSS.wrap wrap
-      |> map_cons_option CSS.justify_content justify_content
-      |> map_cons_option CSS.align_items align_items
-      |> map_cons_option CSS.align_content align_content
+      |> Utils.cons_if vertical CSS.vertical
+      |> Utils.map_cons_option CSS.wrap wrap
+      |> Utils.map_cons_option CSS.justify_content justify_content
+      |> Utils.map_cons_option CSS.align_items align_items
+      |> Utils.map_cons_option CSS.align_content align_content
       |> List.cons CSS.root
     in
     tag ~a:([a_class classes] @ attrs) content
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

@@ -2,6 +2,12 @@ let ( >>= ) = Lwt.bind
 
 let ( >>=? ) = Lwt_result.bind
 
+module Markup_js =
+  Page_user_settings_tyxml.Make
+    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
+    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
+    (Js_of_ocaml_tyxml.Tyxml_js.Html)
+
 let () =
   let (scaffold : Components.Scaffold.t) = Js_of_ocaml.Js.Unsafe.global##.scaffold in
   let thread =
@@ -23,7 +29,7 @@ let () =
     let page =
       Components.Widget.create
       @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-      @@ Markup.make (account#markup :: content)
+      @@ Markup_js.create (account#markup :: content)
     in
     Lwt.return_ok page
   in

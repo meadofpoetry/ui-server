@@ -156,10 +156,7 @@ module Header = struct
       match Topology.Env.find_opt "show-settings" board.env with
       | Some "false" -> None
       | _ ->
-          let icon =
-            Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-            @@ Icon.SVG.(Markup_js.create_of_d Path.settings)
-          in
+          let icon = Icon.SVG.(Markup_js.create_of_d Path.settings) in
           let button = Icon_button.make ~icon () in
           button#add_class Topo_block.CSS.header_action_settings;
           Some button

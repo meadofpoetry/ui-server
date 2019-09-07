@@ -83,11 +83,13 @@ struct
     let classes = CSS.scrim :: classes in
     div ~a:([a_class classes] @ attrs) []
 
-  let create_content ?(classes = []) ?(attrs = []) content () : 'a elt =
+  let create_content ?(classes = []) ?(attrs = []) ?(content = []) () : 'a elt =
     let classes = CSS.content :: classes in
     div ~a:([a_class classes] @ attrs) content
 
-  let create ?(classes = []) ?(attrs = []) content () : 'a elt =
+  let create ?(classes = []) ?(attrs = []) ?(content = []) () : 'a elt =
     let classes = CSS.root :: classes in
     aside ~a:([a_class classes] @ attrs) content
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

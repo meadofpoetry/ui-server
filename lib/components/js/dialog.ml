@@ -1,10 +1,14 @@
 open Js_of_ocaml
-open Js_of_ocaml_lwt
-open Js_of_ocaml_tyxml
 include Components_tyxml.Dialog
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js =
+  Components_tyxml.Dialog.Make
+    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
+    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
+    (Js_of_ocaml_tyxml.Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
+
+let name = "dialog"
 
 let are_tops_misaligned (elts : Dom_html.element Js.t list) : bool =
   List.map (fun (e : Dom_html.element Js.t) -> e##.offsetTop) elts
@@ -24,16 +28,52 @@ let reverse_elements (elts : Dom_html.element Js.t list) : Dom_html.element Js.t
 
 module Event = struct
   let opening : unit Dom_html.customEvent Js.t Dom_html.Event.typ =
-    Dom_html.Event.make "opening"
+    Dom_html.Event.make (name ^ ":opening")
 
-  let opened : unit Dom_html.customEvent Js.t Dom_html.Event.typ =
-    Dom_html.Event.make "opened"
+  let open_ : unit Dom_html.customEvent Js.t Dom_html.Event.typ =
+    Dom_html.Event.make (name ^ ":open")
 
   let closing : action Dom_html.customEvent Js.t Dom_html.Event.typ =
-    Dom_html.Event.make "closing"
+    Dom_html.Event.make (name ^ ":closing")
 
-  let closed : action Dom_html.customEvent Js.t Dom_html.Event.typ =
-    Dom_html.Event.make "closed"
+  let close : action Dom_html.customEvent Js.t Dom_html.Event.typ =
+    Dom_html.Event.make (name ^ ":close")
+end
+
+module Lwt_js_events = struct
+  let opening ?use_capture ?passive t =
+    Js_of_ocaml_lwt.Lwt_js_events.make_event ?use_capture ?passive Event.opening t
+
+  let openings ?cancel_handler ?use_capture ?passive t =
+    Js_of_ocaml_lwt.Lwt_js_events.seq_loop
+      ?cancel_handler
+      ?use_capture
+      ?passive
+      opening
+      t
+
+  let open_ ?use_capture ?passive t =
+    Js_of_ocaml_lwt.Lwt_js_events.make_event ?use_capture ?passive Event.open_ t
+
+  let opens ?cancel_handler ?use_capture ?passive t =
+    Js_of_ocaml_lwt.Lwt_js_events.seq_loop ?cancel_handler ?use_capture ?passive open_ t
+
+  let closing ?use_capture ?passive t =
+    Js_of_ocaml_lwt.Lwt_js_events.make_event ?use_capture ?passive Event.closing t
+
+  let closings ?cancel_handler ?use_capture ?passive t =
+    Js_of_ocaml_lwt.Lwt_js_events.seq_loop
+      ?cancel_handler
+      ?use_capture
+      ?passive
+      closing
+      t
+
+  let close ?use_capture ?passive t =
+    Js_of_ocaml_lwt.Lwt_js_events.make_event ?use_capture ?passive Event.close t
+
+  let closes ?cancel_handler ?use_capture ?passive t =
+    Js_of_ocaml_lwt.Lwt_js_events.seq_loop ?cancel_handler ?use_capture ?passive close t
 end
 
 module Const = struct
@@ -125,7 +165,7 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
       _focus_trap <- Some focus_trap;
       (* Attach event listeners. *)
       _listeners <-
-        Lwt_js_events.(
+        Js_of_ocaml_lwt.Lwt_js_events.(
           [ clicks super#root self#handle_interaction
           ; keydowns super#root self#handle_interaction ]
           @ _listeners)
@@ -134,7 +174,7 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
       Option.iter Lwt.cancel _layout_thread;
       super#layout ();
       let t =
-        Lwt_js_events.request_animation_frame ()
+        Js_of_ocaml_lwt.Lwt_js_events.request_animation_frame ()
         >>= fun () ->
         if _auto_stack_buttons then self#detect_stacked_buttons ();
         self#detect_scrollable_content ();
@@ -175,13 +215,13 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
       (* Wait a frame once display is no longer "none",
          to establish basis for animation. *)
       let t =
-        Lwt_js_events.request_animation_frame ()
+        Js_of_ocaml_lwt.Lwt_js_events.request_animation_frame ()
         >>= fun () ->
-        Lwt_js.yield ()
+        Js_of_ocaml_lwt.Lwt_js.yield ()
         >>= fun () ->
         super#add_class CSS.open_;
         Element.add_class Dom_html.document##.body CSS.scroll_lock;
-        Lwt_js.sleep Const.animation_open_time_s
+        Js_of_ocaml_lwt.Lwt_js.sleep Const.animation_open_time_s
         >>= fun () ->
         self#handle_animation_timer_end ();
         Option.iter Focus_trap.activate _focus_trap;
@@ -195,7 +235,7 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
     method open_await () : action Lwt.t =
       self#open_ ()
       >>= fun () ->
-      Lwt_js_events.make_event Event.closed super#root
+      Lwt_js_events.close super#root
       >>= fun e -> Lwt.return @@ Js.Opt.get e##.detail (fun () -> Close)
 
     method close ?(action = Close) () : action Lwt.t =
@@ -210,7 +250,7 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
           super#remove_class CSS.open_;
           Element.remove_class Dom_html.document##.body CSS.scroll_lock;
           let t =
-            Lwt_js.sleep Const.animation_close_time_s
+            Js_of_ocaml_lwt.Lwt_js.sleep Const.animation_close_time_s
             >>= fun () ->
             Option.iter Focus_trap.deactivate _focus_trap;
             self#handle_animation_timer_end ();
@@ -251,7 +291,7 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
     method private handle_opening () : unit =
       self#handle_closing ();
       _temp_listeners <-
-        Lwt_js_events.
+        Js_of_ocaml_lwt.Lwt_js_events.
           [ onresizes (fun _ _ ->
                 self#layout ();
                 Lwt.return_unit)
@@ -264,19 +304,17 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
       super#emit ~detail:action Event.closing
 
     method private notify_closed (action : action) : unit =
-      super#emit ~detail:action Event.closed
+      super#emit ~detail:action Event.close
 
     method private notify_opening () : unit = super#emit Event.opening
 
-    method private notify_opened () : unit = super#emit Event.opened
+    method private notify_opened () : unit = super#emit Event.open_
 
     method private handle_interaction
         : 'a. (#Dom_html.event as 'a) Js.t -> unit Lwt.t -> unit Lwt.t =
       fun (e : #Dom_html.event Js.t) (_ : unit Lwt.t) ->
-        let is_scrim =
-          Js.Opt.map e##.target (fun target -> Element.matches target Selector.scrim)
-          |> fun x -> Js.Opt.get x (fun () -> false)
-        in
+        let target = Dom.eventTarget e in
+        let is_scrim = Element.matches target Selector.scrim in
         let is_click =
           match Js.to_string e##._type with
           | "click" -> true
@@ -309,10 +347,7 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
               | Some action -> self#close ~action () >>= fun _ -> Lwt.return ()
               | None ->
                   let is_default =
-                    Js.Opt.map e##.target (fun target ->
-                        Element.matches target Selector.suppress_default_press)
-                    |> (fun x -> Js.Opt.get x (fun () -> false))
-                    |> not
+                    not @@ Element.matches target Selector.suppress_default_press
                   in
                   if is_enter && is_default
                   then
@@ -356,69 +391,37 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
           if Element.is_scrollable content then super#add_class CSS.scrollable
   end
 
-let make_action
-    ?classes
-    ?attrs
-    ?button_type
-    ?appearance
-    ?icon
-    ?dense
-    ?label
-    ?default
-    ?action
-    () =
-  let icon =
-    match icon with
-    | None -> None
-    | Some x -> Some (Tyxml_js.Of_dom.of_element x)
-  in
-  Tyxml_js.To_dom.of_button
-  @@ Markup.create_action
-       ?classes
-       ?attrs
-       ?button_type
-       ?appearance
-       ?icon
-       ?dense
-       ?label
-       ?default
-       ?action
-       ()
-
-let make_element ?classes ?title ?content ?actions () : Dom_html.element Js.t =
+let make ?classes ?attrs ?title ?content ?actions ?container ?scrim () : t =
   let title_id =
     match title with
     | None -> None
-    | Some x -> Some (Js.to_string x##.id)
+    | Some x ->
+        let elt = Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element x in
+        Some (Js.to_string @@ elt##.id)
   in
   let content_id =
     match content with
     | None -> None
-    | Some x -> Some (Js.to_string x##.id)
+    | Some x ->
+        let elt = Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element x in
+        Some (Js.to_string @@ elt##.id)
   in
-  let scrim = Markup.create_scrim () in
-  let actions =
-    match actions with
-    | None -> None
-    | Some actions ->
-        let actions =
-          List.map (fun x -> Tyxml_js.Of_dom.of_element @@ Element.coerce x) actions
-        in
-        Some (Markup.create_actions ~actions ())
+  let elt =
+    Js_of_ocaml_tyxml.(
+      Tyxml_js.To_dom.of_element
+      @@ Markup_js.create
+           ?classes
+           ?attrs
+           ?title_id
+           ?content_id
+           ?container
+           ?scrim
+           ?title
+           ?content
+           ?actions
+           ())
   in
-  let surface =
-    Markup.create_surface
-      ?title:(Option.map Tyxml_js.Of_dom.of_element title)
-      ?content:(Option.map Tyxml_js.Of_dom.of_element content)
-      ?actions
-      ()
-  in
-  let container = Markup.create_container ~surface () in
-  Tyxml_js.To_dom.of_element
-  @@ Markup.create ?classes ?title_id ?content_id ~scrim ~container ()
-
-let make ?classes ?title ?content ?actions () : t =
-  let elt = make_element ?classes ?title ?content ?actions () in
   new t elt ()
 
-let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
+let attach ?initial_focus_element (elt : #Dom_html.element Js.t) : t =
+  new t ?initial_focus_element (Element.coerce elt) ()

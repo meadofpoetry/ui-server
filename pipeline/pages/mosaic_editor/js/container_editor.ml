@@ -225,8 +225,7 @@ class t
       | Some top_app_bar, Some menu ->
           Undo_manager.set_callback undo_manager (fun _ -> menu#layout ());
           top_app_bar#set_actions [menu#root]);
-      List.iter (Element.append_child actions % Widget.root)
-      @@ self#create_main_actions ();
+      List.iter (Element.append_child actions) @@ self#create_main_actions ();
       let empty_placeholder =
         UI.make_empty_placeholder wizard_dialog table_dialog grid
       in
@@ -528,7 +527,7 @@ class t
                 scaffold#show_snackbar ~on_close:(fun _ -> snackbar#destroy ()) snackbar)
           ()
       in
-      [Card.Actions.make_buttons [submit]]
+      [Tyxml_js.To_dom.of_element @@ Card.Markup_js.create_action_buttons [submit#markup]]
 
     method private update_widget_elements
         (widgets : Dom_html.element Js.t list)

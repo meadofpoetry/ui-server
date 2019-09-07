@@ -1,6 +1,12 @@
 open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Components
+include Page_user_settings_tyxml.Password
+module Markup_js =
+  Page_user_settings_tyxml.Password.Make
+    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
+    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
+    (Js_of_ocaml_tyxml.Tyxml_js.Html)
 
 let name = "Password config"
 
@@ -9,13 +15,13 @@ let ( >>= ) = Lwt.bind
 module Selector = struct
   open Printf
 
-  let form user = sprintf "#%s" @@ Markup.Password.form_id user
+  let form user = sprintf "#%s" @@ Markup_js.form_id user
 
   let user_tabs = sprintf ".%s" Tab_bar.CSS.root
 
   let submit = sprintf ".%s.%s" Card.CSS.action Button.CSS.root
 
-  let slider = sprintf ".%s" Markup.CSS.Password.slider
+  let slider = sprintf ".%s" CSS.slider
 end
 
 class t ~set_snackbar (user : Application_types.User.t) (elt : Dom_html.element Js.t) =
@@ -86,6 +92,6 @@ class t ~set_snackbar (user : Application_types.User.t) (elt : Dom_html.element 
 
 let make ~set_snackbar user : t =
   let (elt : Dom_html.element Js.t) =
-    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ Markup.Password.make ()
+    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ Markup_js.create ()
   in
   new t ~set_snackbar user elt

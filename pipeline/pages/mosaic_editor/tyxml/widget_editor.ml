@@ -43,14 +43,14 @@ struct
       | None -> None
       | Some pid ->
           let text = Printf.sprintf "PID: %d" pid in
-          Some (Text_markup.make text)
+          Some (Text_markup.create text)
     in
     let ( ^:: ) x l =
       match x with
       | None -> l
       | Some x -> x :: l
     in
-    let text = Text_markup.make widget.description in
+    let text = Text_markup.create widget.description in
     let icon = create_icon widget in
     let classes = CSS.item_content :: classes in
     div ~a:([a_class classes] @ attrs) (icon :: (pid ^:: [text]))
@@ -72,3 +72,5 @@ struct
     let classes = CSS.root :: classes in
     div ~a:([a_class classes; a_role ["grid"]] @ attrs) content
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

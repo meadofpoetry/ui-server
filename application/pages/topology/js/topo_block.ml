@@ -32,17 +32,21 @@ let cons_maybe x l =
 
 module Header = struct
   class t ?action ?subtitle ~title () =
-    let title_w = Card.Primary.make_title title in
-    let subtitle_w = Option.map (Widget.coerce % Card.Primary.make_subtitle) subtitle in
+    let title_w = Tyxml_js.To_dom.of_element @@ Card.Markup_js.create_title title in
+    let subtitle_w =
+      Option.map (Tyxml_js.To_dom.of_element % Card.Markup_js.create_subtitle) subtitle
+    in
+    (* FIXME do not create widgets *)
     let box =
-      Box.make ~dir:`Column ([] |> cons_maybe subtitle_w |> List.cons title_w#widget)
+      Box.make ~dir:`Column
+      @@ List.map Widget.create ([] |> cons_maybe subtitle_w |> List.cons title_w)
     in
     let widgets =
       [] |> cons_maybe @@ Option.map Widget.coerce action |> List.cons box#widget
     in
     let elt =
       Tyxml_js.To_dom.of_element
-      @@ Card.Markup.create_primary (List.map Widget.to_markup widgets) ()
+      @@ Card.Markup_js.create_primary (List.map Widget.to_markup widgets)
     in
     object (self)
       inherit Widget.t elt () as super
@@ -77,15 +81,22 @@ class virtual t
   ~(header : #Header.t)
   ~(body : #Body.t)
   () =
-  let card = Card.make [header#widget; body#widget] in
   object
     inherit
-      Topo_node.parent ~port_setter ~node ~connections ~body:body#root card#root () as super
+      Topo_node.parent
+        ~port_setter ~node ~connections ~body:body#root
+        (Tyxml_js.To_dom.of_element @@ Card.Markup_js.create [header#markup; body#markup])
+        () as super
 
     method! init () : unit =
-      super#init ();
       super#add_class CSS.root;
-      body#set_n @@ List.length connections
+      body#set_n @@ List.length connections;
+      super#init ()
+
+    method! destroy () : unit =
+      header#destroy ();
+      body#destroy ();
+      super#destroy ()
 
     method virtual settings_event : (Widget.t * string) React.event
 

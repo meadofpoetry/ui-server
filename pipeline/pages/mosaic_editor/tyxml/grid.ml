@@ -150,3 +150,5 @@ struct
         |> Utils.map_cons_option a_style style)
       content
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

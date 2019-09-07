@@ -1,8 +1,7 @@
 open Js_of_ocaml
-open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 include Components_tyxml.Button
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -27,7 +26,8 @@ class t ?(ripple = true) ?on_click ?loader (elt : Dom_html.element Js.t) () =
       super#initial_sync_with_dom ();
       match on_click with
       | None -> ()
-      | Some f -> listeners_ <- Lwt_js_events.[clicks super#root (f (self :> t))]
+      | Some f ->
+          listeners_ <- Js_of_ocaml_lwt.Lwt_js_events.[clicks super#root (f (self :> t))]
 
     method! layout () : unit =
       (* Layout internal components. *)
@@ -88,7 +88,7 @@ class t ?(ripple = true) ?on_click ?loader (elt : Dom_html.element Js.t) () =
               in
               let container =
                 Tyxml_js.To_dom.of_element
-                @@ Markup.create_loader_container (Widget.to_markup loader) ()
+                @@ Markup_js.create_loader_container (Widget.to_markup loader) ()
               in
               loader_container_ <- Some container;
               container
@@ -115,21 +115,15 @@ let make
     ?loader
     ?on_click
     () : t =
-  let icon =
-    match icon with
-    | None -> None
-    | Some (i : #Widget.t) ->
-        i#add_class CSS.icon;
-        Some (Widget.to_markup i)
-  in
-  let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element
-    @@
+  Option.iter (fun x -> Element.add_class (Tyxml_js.To_dom.of_element x) CSS.icon) icon;
+  let markup =
     match tag with
     | `Button ->
-        Markup.create ?classes ?button_type:typ ?appearance ?dense ?icon ?label ()
-    | `Anchor -> Markup.create_anchor ?classes ?appearance ?href ?dense ?icon ?label ()
+        Markup_js.create ?classes ?button_type:typ ?appearance ?dense ?icon ?label ()
+    | `Anchor ->
+        Markup_js.create_anchor ?classes ?appearance ?href ?dense ?icon ?label ()
   in
+  let (elt : Dom_html.element Js.t) = Tyxml_js.To_dom.of_element markup in
   new t ?ripple ?on_click ?loader elt ()
 
 let attach ?ripple ?loader ?on_click (elt : #Dom_html.element Js.t) : t =

@@ -18,3 +18,5 @@ struct
     let classes = CSS.root :: classes in
     Html.(div ~a:([a_class classes] @ attrs) [])
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

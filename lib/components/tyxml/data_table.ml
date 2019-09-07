@@ -158,7 +158,7 @@ struct
   open Html
   module Fmt = Make_fmt (Xml)
 
-  let make_cell_content fmt v : 'a elt =
+  let create_cell_content fmt v : 'a elt =
     let rec aux : type a. a Fmt.t -> a -> Xml.elt =
      fun fmt v ->
       match fmt with
@@ -174,7 +174,7 @@ struct
     in
     tot @@ aux fmt v
 
-  let make_cell ?(classes = []) ?(attrs = []) ?colspan ?(numeric = false) content :
+  let create_cell ?(classes = []) ?(attrs = []) ?colspan ?(numeric = false) content :
       'a elt =
     let classes =
       classes |> Utils.cons_if numeric CSS.cell_numeric |> List.cons CSS.cell
@@ -182,10 +182,10 @@ struct
     td ~a:([a_class classes] @ attrs |> Utils.map_cons_option a_colspan colspan) content
 
   let cell_of_fmt ?classes ?attrs ?colspan fmt v =
-    let content = make_cell_content fmt v in
-    make_cell ?classes ?attrs ?colspan ~numeric:(Fmt.is_numeric fmt) [content]
+    let content = create_cell_content fmt v in
+    create_cell ?classes ?attrs ?colspan ~numeric:(Fmt.is_numeric fmt) [content]
 
-  let make_header_cell
+  let create_header_cell
       ?(classes = [])
       ?(attrs = [])
       ?(numeric = false)
@@ -199,25 +199,27 @@ struct
     in
     th ~a:([a_class classes] @ attrs) [content]
 
-  let make_row ?(classes = []) ?(attrs = []) cells : 'a elt =
+  let create_row ?(classes = []) ?(attrs = []) cells : 'a elt =
     let classes = CSS.row :: classes in
     tr ~a:([a_class classes] @ attrs) cells
 
-  let make_header ?(classes = []) ?(attrs = []) row : 'a elt =
+  let create_header ?(classes = []) ?(attrs = []) row : 'a elt =
     thead ~a:([a_class classes] @ attrs) [row]
 
-  let make_body ?(classes = []) ?(attrs = []) rows : 'a elt =
+  let create_body ?(classes = []) ?(attrs = []) rows : 'a elt =
     tbody ~a:([a_class classes] @ attrs) rows
 
-  let make_table ?(classes = []) ?(attrs = []) ?header ~body () : 'a elt =
+  let create_table ?(classes = []) ?(attrs = []) ?header ~body () : 'a elt =
     let classes = CSS.table :: classes in
     table ?thead:header ~a:([a_class classes] @ attrs) [body]
 
-  let make_content ?(classes = []) ?(attrs = []) ~table () : 'a elt =
+  let create_content ?(classes = []) ?(attrs = []) ~table () : 'a elt =
     let classes = CSS.content :: classes in
     div ~a:([a_class classes] @ attrs) [table]
 
-  let make ?(classes = []) ?(attrs = []) ~content () : 'a elt =
+  let create ?(classes = []) ?(attrs = []) ~content () : 'a elt =
     let classes = CSS.root :: classes in
     div ~a:([a_class classes] @ attrs) [content]
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

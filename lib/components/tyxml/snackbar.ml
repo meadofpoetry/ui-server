@@ -1,5 +1,3 @@
-open Utils
-
 module CSS = struct
   (** Mandatory. Container for the snackbar elements. *)
   let root = "mdc-snackbar"
@@ -45,42 +43,63 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
+  module Button_markup = Button.Make (Xml) (Svg) (Html)
+  module Icon_markup = Icon.Make (Xml) (Svg) (Html)
+  module Icon_button_markup = Icon_button.Make (Xml) (Svg) (Html)
 
-  let create_label ?(classes = []) ?(attrs = []) (text : string) () : 'a elt =
-    let classes = CSS.label :: classes in
-    div
-      ~a:([a_class classes; a_aria "live" ["polite"]; a_role ["status"]] @ attrs)
-      [txt text]
+  let create_action ?(classes = []) =
+    let classes = CSS.action :: classes in
+    Button_markup.create ~classes
 
-  let create_action ?(classes = []) ?(attrs = []) (label : string) () : 'a elt =
-    let classes = CSS.action :: Button.CSS.root :: classes in
-    button ~a:([a_class classes] @ attrs) [txt label]
+  let create_dismiss ?(classes = []) ?icon =
+    let classes = CSS.dismiss :: classes in
+    let icon =
+      match icon with
+      | Some x -> x
+      | None -> Icon_markup.SVG.create_of_d Svg_icons.close
+    in
+    Icon_button_markup.create ~classes ?on_icon:None ?on:None ~icon
 
   let create_actions ?(classes = []) ?(attrs = []) ?action ?dismiss () : 'a elt =
     let classes = CSS.actions :: classes in
-    let actions = action ^:: dismiss ^:: [] in
+    let actions = Utils.(action ^:: dismiss ^:: []) in
     div ~a:([a_class classes] @ attrs) actions
 
-  let create_surface ?(classes = []) ?(attrs = []) ?actions ~label () : 'a elt =
-    let classes = CSS.surface :: classes in
+  let create_label ?(classes = []) ?(attrs = []) ?label ?(content = []) () : 'a elt =
+    let classes = CSS.label :: classes in
     div
-      ~a:([a_class classes] @ attrs)
-      (match actions with
-      | None -> [label]
-      | Some actions -> [label; actions])
+      ~a:([a_class classes; a_aria "live" ["polite"]; a_role ["status"]] @ attrs)
+      (Utils.map_cons_option txt label content)
+
+  let create_surface ?(classes = []) ?(attrs = []) ?action ?dismiss ?actions ?label () :
+      'a elt =
+    let classes = CSS.surface :: classes in
+    let actions =
+      match actions, action, dismiss with
+      | (Some _ as x), _, _ -> x
+      | None, None, None -> None
+      | None, Some _, _ | None, _, Some _ -> Some (create_actions ?action ?dismiss ())
+    in
+    div ~a:([a_class classes] @ attrs) Utils.(label ^:: actions ^:: [])
 
   let create
       ?(classes = [])
       ?(attrs = [])
       ?(leading = false)
       ?(stacked = false)
-      ~(surface : 'a elt)
+      ?dismiss
+      ?action
+      ?actions
+      ?label
+      ?(surface = create_surface ?action ?dismiss ?actions ?label ())
       () : 'a elt =
     let (classes : string list) =
       classes
-      |> cons_if leading CSS.leading
-      |> cons_if stacked CSS.stacked
+      |> Utils.cons_if leading CSS.leading
+      |> Utils.cons_if stacked CSS.stacked
       |> List.cons CSS.root
     in
     div ~a:([a_class classes] @ attrs) [surface]
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

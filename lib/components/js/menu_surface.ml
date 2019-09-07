@@ -1,5 +1,4 @@
 open Js_of_ocaml
-open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 
 let ( >>= ) = Lwt.bind
@@ -178,7 +177,9 @@ class t
       if super#has_class CSS.open_ then _is_open <- true;
       if super#has_class CSS.fixed then self#set_fixed_position true;
       (* Attach event listeners. *)
-      let keydown = Lwt_js_events.keydowns super#root self#handle_keydown in
+      let keydown =
+        Js_of_ocaml_lwt.Lwt_js_events.keydowns super#root self#handle_keydown
+      in
       _keydown_listener <- Some keydown
 
     method! destroy () : unit =
@@ -234,7 +235,7 @@ class t
       | Some _ -> ()
       | None ->
           let rec listener () =
-            Lwt_js_events.click Dom_html.document##.body
+            Js_of_ocaml_lwt.Lwt_js_events.click Dom_html.document##.body
             >>= fun e ->
             let target = Dom_html.eventTarget e in
             if not (Element.contains super#root target)
@@ -265,7 +266,7 @@ class t
       _previous_focus <- active;
       if not _quick_open then super#add_class CSS.animating_open;
       let t =
-        Lwt_js_events.request_animation_frame ()
+        Js_of_ocaml_lwt.Lwt_js_events.request_animation_frame ()
         >>= fun () ->
         super#add_class CSS.open_;
         self#auto_position ();
@@ -279,7 +280,7 @@ class t
           self#handle_open ();
           Lwt.return ())
         else
-          Lwt_js.sleep Const.transition_open_duration_s
+          Js_of_ocaml_lwt.Lwt_js.sleep Const.transition_open_duration_s
           >>= fun () ->
           super#remove_class CSS.animating_open;
           self#notify_open ();
@@ -294,7 +295,7 @@ class t
     method private close_ () : unit Lwt.t =
       if not _quick_open then super#add_class CSS.animating_closed;
       let t =
-        Lwt_js_events.request_animation_frame ()
+        Js_of_ocaml_lwt.Lwt_js_events.request_animation_frame ()
         >>= fun () ->
         super#remove_class CSS.open_;
         if _quick_open
@@ -303,7 +304,7 @@ class t
           self#handle_close ();
           Lwt.return ())
         else
-          Lwt_js.sleep Const.transition_close_duration_s
+          Js_of_ocaml_lwt.Lwt_js.sleep Const.transition_close_duration_s
           >>= fun () ->
           super#remove_class CSS.animating_closed;
           self#notify_close ();
@@ -578,9 +579,9 @@ class t
 
 let make ?body ?viewport ?fixed ?open_ (content : Dom_html.element Js.t list) : t =
   let body = (body :> Dom_html.element Js.t option) in
-  let content' = List.map Tyxml_js.Of_dom.of_element content in
+  let content = List.map Tyxml_js.Of_dom.of_element content in
   let (elt : Dom_html.divElement Js.t) =
-    Tyxml_js.To_dom.of_element @@ Markup.create ?fixed ?open_ content' ()
+    Tyxml_js.To_dom.of_element @@ Markup.create ?fixed ?open_ ~content ()
   in
   new t ?body ?viewport elt ()
 

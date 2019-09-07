@@ -23,3 +23,5 @@ struct
     let classes = CSS.root :: classes in
     canvas ~a:([a_class classes; a_user_data "size" (string_of_int size)] @ attrs) []
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

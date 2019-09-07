@@ -24,23 +24,36 @@ struct
     let classes = CSS.scrim :: classes in
     div ~a:([a_class classes] @ attrs) []
 
-  let create_title ?(tag = h3) ?(classes = []) ?(attrs = []) content () : 'a elt =
+  let create_title ?(tag = h3) ?(classes = []) ?(attrs = []) ?title ?(content = []) () =
     let classes = CSS.title :: classes in
-    tag ~a:([a_class classes] @ attrs) content
+    tag ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt title content)
 
-  let create_subtitle ?(tag = h6) ?(classes = []) ?(attrs = []) content () : 'a elt =
+  let create_subtitle
+      ?(tag = h6)
+      ?(classes = [])
+      ?(attrs = [])
+      ?subtitle
+      ?(content = [])
+      () =
     let classes = CSS.subtitle :: classes in
-    tag ~a:([a_class classes] @ attrs) content
+    tag ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt subtitle content)
 
-  let create_header ?(classes = []) ?(attrs = []) content () : 'a elt =
+  let create_header ?(classes = []) ?(attrs = []) ?(content = []) () : 'a elt =
     let classes = CSS.header :: classes in
     div ~a:([a_class classes] @ attrs) content
 
-  let create_content ?(classes = []) ?(attrs = []) content () : 'a elt =
+  let create_content ?(classes = []) ?(attrs = []) ?(content = []) () : 'a elt =
     let classes = CSS.content :: classes in
     div ~a:([a_class classes] @ attrs) content
 
-  let create ?(classes = []) ?(attrs = []) content () : 'a elt =
+  let create
+      ?(classes = [])
+      ?(attrs = [])
+      ?content
+      ?(content_element = create_content ?content ())
+      () =
     let classes = CSS.root :: classes in
-    aside ~a:([a_class classes] @ attrs) content
+    aside ~a:([a_class classes] @ attrs) [content_element]
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

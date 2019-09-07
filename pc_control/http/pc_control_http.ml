@@ -132,14 +132,10 @@ let power_handlers =
         ~query:Query.empty
         Pc_control.Power_api.off ]
 
-module Power_page_markup = struct
-  include Page_power_management_tyxml.Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
-end
-
 let power_pages : 'a. unit -> 'a Api_template.item list =
  fun () ->
   let open Api_template in
-  let markup = Tyxml.Html.toelt @@ Power_page_markup.make () in
+  let markup = Tyxml.Html.toelt @@ Page_power_management_tyxml.Markup.create () in
   let props =
     make_template_props
       ~title:"Управление питанием"

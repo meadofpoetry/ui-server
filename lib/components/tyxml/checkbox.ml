@@ -36,7 +36,6 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  open Utils
 
   let create
       ?(classes = [])
@@ -46,16 +45,16 @@ struct
       ?(checked = false)
       () : 'a elt =
     let (classes : string list) =
-      classes |> cons_if disabled CSS.disabled |> List.cons CSS.root
+      classes |> Utils.cons_if disabled CSS.disabled |> List.cons CSS.root
     in
     div
       ~a:([a_class classes] @ attrs)
       [ input
           ~a:
             ([a_input_type `Checkbox; a_class [CSS.native_control]]
-            |> map_cons_option a_id input_id
-            |> cons_if disabled @@ a_disabled ()
-            |> cons_if checked @@ a_checked ())
+            |> Utils.map_cons_option a_id input_id
+            |> Utils.cons_if disabled @@ a_disabled ()
+            |> Utils.cons_if checked @@ a_checked ())
           ()
       ; div
           ~a:[a_class [CSS.background]]
@@ -70,3 +69,5 @@ struct
                   [] ]
           ; div ~a:[a_class [CSS.mixedmark]] [] ] ]
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

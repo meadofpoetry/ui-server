@@ -1,7 +1,10 @@
 open Js_of_ocaml
-open Js_of_ocaml_tyxml
 include Components_tyxml.Form_field
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js =
+  Components_tyxml.Form_field.Make
+    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
+    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
+    (Js_of_ocaml_tyxml.Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -92,10 +95,10 @@ let make ?align_end ~label (input : #input_widget as 'a) : 'a t =
     | id -> id
   in
   let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element
-    @@ Markup.create
+    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
+    @@ Markup_js.create
          ?align_end
-         ~label:(Markup.create_label ~for_id label ())
+         ~label:(Markup_js.create_label ~for_id ~label ())
          ~input:(Widget.to_markup input)
          ()
   in

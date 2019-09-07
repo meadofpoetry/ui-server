@@ -32,16 +32,19 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  open Utils
+  module Tab_indicator_markup = Tab_indicator.Make (Xml) (Svg) (Html)
 
-  let create_text_label ?(classes = []) ?(attrs = []) text () : 'a elt =
+  let create_text_label ?(classes = []) ?(attrs = []) ?label ?(content = []) () =
     let classes = CSS.text_label :: classes in
-    span ~a:([a_class classes] @ attrs) [txt text]
+    span ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt label content)
 
-  let create_content ?(classes = []) ?(attrs = []) ?indicator ?icon ?text_label () :
-      'a elt =
+  let create_content ?(classes = []) ?(attrs = []) ?indicator ?icon ?text_label () =
     let classes = CSS.content :: classes in
-    span ~a:([a_class classes] @ attrs) (icon ^:: text_label ^:: indicator ^:: [])
+    span ~a:([a_class classes] @ attrs) Utils.(icon ^:: text_label ^:: indicator ^:: [])
+
+  let create_ripple ?(classes = []) ?(attrs = []) () =
+    let classes = CSS.ripple :: classes in
+    span ~a:([a_class classes] @ attrs) []
 
   let create
       ?(classes = [])
@@ -50,17 +53,34 @@ struct
       ?(stacked = false)
       ?(disabled = false)
       ?(min_width = false)
-      ?indicator
-      content
-      () : 'a elt =
+      ?(indicator_span_content = false)
+      ?indicator_icon
+      ?icon
+      ?text_label
+      ?(ripple = create_ripple ())
+      ?(indicator = Tab_indicator_markup.create ?icon:indicator_icon ())
+      ?(content =
+        create_content
+          ?indicator:(if indicator_span_content then Some indicator else None)
+          ?icon
+          ?text_label
+          ())
+      () =
     let classes =
       classes
-      |> cons_if active CSS.active
-      |> cons_if stacked CSS.stacked
-      |> cons_if min_width CSS.min_width
+      |> Utils.cons_if active CSS.active
+      |> Utils.cons_if stacked CSS.stacked
+      |> Utils.cons_if min_width CSS.min_width
       |> List.cons CSS.root
     in
+    let children =
+      if indicator_span_content then [content; ripple] else [content; indicator; ripple]
+    in
     button
-      ~a:([a_class classes; a_role ["tab"]] @ attrs |> cons_if_lazy disabled a_disabled)
-      (content :: (indicator ^:: [span ~a:[a_class [CSS.ripple]] []]))
+      ~a:
+        ([a_class classes; a_role ["tab"]] @ attrs
+        |> Utils.cons_if_lazy disabled a_disabled)
+      children
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

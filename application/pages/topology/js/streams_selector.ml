@@ -47,11 +47,11 @@ class base
     | Topology.Board b ->
         Printf.sprintf "Плата %s %s v%d" b.manufacturer b.model b.version
   in
-  let title = Card.Primary.make_title title in
+  let title = Card.Markup_js.create_title title in
   let subtitle =
     match left with
     | None -> None
-    | Some _ -> Some (Card.Primary.make_subtitle "")
+    | Some _ -> Some (Card.Markup_js.create_subtitle "")
   in
   let primary_widgets =
     match subtitle with
@@ -61,20 +61,20 @@ class base
   let primary =
     match primary_widgets with
     | [] -> None
-    | widgets -> Some (Card.Primary.make widgets)
+    | widgets -> Some (Card.Markup_js.create_primary widgets)
   in
-  let media = Card.Media.make [body] in
+  let media = Card.Markup_js.create_media [body] in
   let actions =
     match actions with
     | None -> None
-    | Some a -> Some (Card.Actions.make a)
+    | Some a -> Some (Card.Markup_js.create_actions a)
   in
   let widgets =
     match primary, actions with
-    | None, None -> [media#widget]
-    | Some p, None -> [p#widget; media#widget]
-    | None, Some a -> [media#widget; a#widget]
-    | Some p, Some a -> [p#widget; media#widget; a#widget]
+    | None, None -> [media]
+    | Some p, None -> [p; media]
+    | None, Some a -> [media; a]
+    | Some p, Some a -> [p; media; a]
   in
   let s =
     match left with
@@ -85,15 +85,13 @@ class base
           (fun n ->
             let s = Printf.sprintf "Лимит: %d" n in
             Option.iter
-              (fun st -> st#root##.textContent := Js.some @@ Js.string s)
+              (fun st ->
+                let elt = Tyxml_js.To_dom.of_element st in
+                elt##.textContent := Js.some @@ Js.string s)
               subtitle)
           s
   in
-  let elt =
-    Tyxml_js.To_dom.of_element
-    @@ Card.Markup.create ~outlined:true
-    @@ List.map Widget.to_markup widgets
-  in
+  let elt = Tyxml_js.To_dom.of_element @@ Card.Markup_js.create ~outlined:true widgets in
   object
     inherit Widget.t elt () as super
 
@@ -125,10 +123,12 @@ module Board = struct
     let _s =
       React.S.map ~eq:( = ) (fun v -> checkbox#set_disabled (not v)) check.avail
     in
-    let item = Item_list.Item.make ~meta:checkbox text in
+    let item = Item_list.Item.make ~meta:checkbox#markup text in
     item#add_class stream_class;
     if not present then item#add_class lost_class;
-    item#set_on_destroy (fun () -> React.S.stop ~strong:true _s);
+    item#set_on_destroy (fun () ->
+        checkbox#destroy ();
+        React.S.stop ~strong:true _s);
     item, signal
 
   let make_list state counter counter_push (stream_list : Stream.Table.stream list) =
@@ -178,9 +178,10 @@ module Board = struct
     (entry : Topology.topo_entry)
     () =
     let empty = make_empty_placeholder () in
-    let body = Widget.create_div () in
+    let body = Tyxml_js.To_dom.of_element @@ Tyxml_js.Html.div [] in
     object (self)
-      inherit base ?left ~body ~entry ~state () as super
+      inherit
+        base ?left ~body:(Tyxml_js.Of_dom.of_element body) ~entry ~state () as super
 
       method! init () : unit =
         super#init ();
@@ -196,11 +197,11 @@ module Board = struct
       method private check_empty items : unit =
         match items with
         | [] ->
-            body#remove_child list;
-            body#append_child empty
+            Dom.removeChild body list#root;
+            Dom.appendChild body empty#root
         | _ ->
-            body#remove_child empty;
-            body#append_child list
+            Dom.removeChild body empty#root;
+            Dom.appendChild body list#root
     end
 
   let make_entry state counter counter_push left stream_list input =
@@ -313,19 +314,15 @@ module Input = struct
       in
       let box = Box.make ~dir:`Column [addr#widget; port#widget] in
       let title =
-        Tyxml_js.To_dom.of_element
-        @@ Dialog.Markup.create_title_simple
-             ~title:"Добавление потока"
-             ()
+        Dialog.Markup_js.create_title ~title:"Добавление потока" ()
       in
-      let content =
-        Tyxml_js.To_dom.of_element
-        @@ Dialog.Markup.create_content ~content:[box#markup] ()
-      in
-      let actions = [cancel#root; accept#root] in
+      let content = Dialog.Markup_js.create_content [box#markup] in
+      let actions = [cancel#markup; accept#markup] in
       let dialog = Dialog.make ~title ~content ~actions () in
       dialog#add_class dialog_class;
       dialog#set_on_destroy (fun () ->
+          accept#destroy ();
+          cancel#destroy ();
           React.S.stop ~strong:true s_addr;
           React.S.stop ~strong:true s_port);
       let show () = dialog#open_await () in
@@ -348,18 +345,18 @@ module Input = struct
   let make_stream_list stream_list =
     let make_board_stream_entry del_item del_stream (stream : Stream.t) =
       let text = Stream.Source.to_string stream.source.info in
-      let icon =
-        Tyxml_js.To_dom.of_element @@ Icon.SVG.(Markup_js.create_of_d Path.delete)
-      in
+      let icon = Icon.SVG.(Markup_js.create_of_d Path.delete) in
       let del_button = Icon_button.make ~ripple:false ~icon () in
-      let item = Item_list.Item.make ~meta:del_button text in
+      let item = Item_list.Item.make ~meta:del_button#markup text in
       let click =
         Js_of_ocaml_lwt.Lwt_js_events.clicks del_button#root (fun _ _ ->
             del_item item;
             del_stream stream;
             Lwt.return_unit)
       in
-      item#set_on_destroy (fun () -> Lwt.cancel click);
+      item#set_on_destroy (fun () ->
+          del_button#destroy ();
+          Lwt.cancel click);
       item
     in
     let signal, push =
@@ -428,13 +425,17 @@ module Input = struct
     let apply =
       Button.make ~on_click:(fun _ _ _ -> add ()) ~label:"Добавить поток" ()
     in
-    let buttons = Card.Actions.make_buttons [apply] in
-    let body = Widget.create_div () in
+    let buttons = Card.Markup_js.create_action_buttons [apply#markup] in
+    let body = Tyxml_js.To_dom.of_element @@ Tyxml_js.Html.div [] in
     let empty = make_empty_placeholder () in
     object (self)
       val mutable _s = None
 
-      inherit base ~state ~body ~actions:[buttons] ~entry:(Input topo_input) () as super
+      inherit
+        base
+          ~state
+          ~body:(Tyxml_js.Of_dom.of_element body)
+          ~actions:[buttons] ~entry:(Input topo_input) () as super
 
       method! init () : unit =
         super#init ();
@@ -454,11 +455,11 @@ module Input = struct
       method private check_empty items : unit =
         match items with
         | [] ->
-            body#remove_child list;
-            body#append_child empty
+            Dom.removeChild body list#root;
+            Dom.appendChild body empty#root
         | _ ->
-            body#remove_child empty;
-            body#append_child list
+            Dom.removeChild body empty#root;
+            Dom.appendChild body list#root
     end
 
   let make (row : Stream.stream_table_row) =
@@ -542,8 +543,8 @@ class t
             t)
       ()
   in
-  let buttons = Card.Actions.make_buttons [submit] in
-  let actions = Card.Actions.make [buttons] in
+  let buttons = Card.Markup_js.create_action_buttons [submit#markup] in
+  let actions = Card.Markup_js.create_actions [buttons] in
   object
     inherit Widget.t Dom_html.(createDiv document) () as super
 
@@ -552,13 +553,11 @@ class t
       div#add_class inputs_class;
       super#add_class base_class;
       super#append_child div;
-      super#append_child actions
+      Dom.appendChild super#root (Tyxml_js.To_dom.of_element actions)
 
     method! destroy () : unit =
       super#destroy ();
       submit#destroy ();
-      actions#destroy ();
-      buttons#destroy ();
       React.E.stop ~strong:true e_div;
       React.S.stop ~strong:true s;
       React.S.stop ~strong:true s_div;

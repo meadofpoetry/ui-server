@@ -399,15 +399,15 @@ class t config state mode plps control =
       ~label:"Применить"
       ()
   in
-  let buttons = Card.Actions.make_buttons [submit] in
-  let actions = Card.Actions.make [buttons] in
+  let buttons = Card.Markup_js.create_action_buttons [submit#markup] in
+  let actions = Card.Markup_js.create_actions [buttons] in
   object
     inherit Widget.t Dom_html.(createDiv document) () as super
 
     method! init () : unit =
       super#init ();
       super#append_child mode_box;
-      super#append_child actions;
+      Dom.appendChild super#root (Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element actions);
       super#add_class base_class
 
     method! destroy () : unit =

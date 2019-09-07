@@ -22,10 +22,9 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  open Utils
-  module Item_list_ = Item_list.Make (Xml) (Svg) (Html)
+  module Item_list_markup = Item_list.Make (Xml) (Svg) (Html)
 
-  let create_children ?(classes = []) ?(attrs = []) nodes : 'a elt =
+  let create_children ?(classes = []) ?(attrs = []) ?(nodes = []) () : 'a elt =
     let classes = CSS.node_children :: classes in
     ul ~a:([a_class classes; a_role ["group"]] @ attrs) nodes
 
@@ -33,31 +32,74 @@ struct
     let classes = CSS.node_expander :: Item_list.CSS.item_meta :: classes in
     span ~a:([a_class classes] @ attrs) []
 
-  let create_node_primary_text = Item_list_.create_item_primary_text
+  let create_node_content
+      ?(classes = [])
+      ?(attrs = [])
+      ?graphic
+      ?meta
+      ?role
+      ?primary_text
+      ?secondary_text
+      ?force_wrap
+      ?(content =
+        Item_list_markup.create_item_text ?force_wrap ?primary_text ?secondary_text ())
+      () : 'a elt =
+    let classes =
+      classes |> List.cons Item_list.CSS.item |> List.cons CSS.node_content
+    in
+    span
+      ~a:([a_class classes] @ attrs |> Utils.map_cons_option (fun x -> a_role [x]) role)
+      Utils.(graphic ^:: (content :: (meta ^:: [])))
 
-  let create_node_secondary_text = Item_list_.create_item_secondary_text
-
-  let create_node_text = Item_list_.create_item_text
-
-  let create_node_content ?(classes = []) ?attrs ?graphic ?meta ?role text : 'a elt =
-    let classes = CSS.node_content :: classes in
-    Item_list_.create_item' ~classes ?attrs ?graphic ?meta ?role ~text span
-
-  let create_node'
+  let create_node
       ?(classes = [])
       ?(attrs = [])
       ?value
       ?level
+      ?child_nodes
       ?children
       ?(expanded = false)
       ?(tabindex = -1)
       ?(selected = false)
       ?(checked = false)
       ?(indeterminate = false)
-      ~content
+      ?graphic
+      ?meta
+      ?role
+      ?primary_text
+      ?secondary_text
+      ?force_wrap
+      ?content
       () : 'a elt =
+    let content =
+      match content with
+      | Some x -> x
+      | None ->
+          let meta =
+            match meta, children, child_nodes with
+            | (Some _ as x), _, _ -> x
+            | None, None, Some [] | None, None, None -> None
+            | None, Some _, _ | None, _, Some _ -> Some (create_node_expander ())
+          in
+          create_node_content
+            ?graphic
+            ?meta
+            ?role
+            ?primary_text
+            ?secondary_text
+            ?force_wrap
+            ()
+    in
     let checked =
       if indeterminate then "mixed" else if checked then "true" else "false"
+    in
+    let children =
+      match children with
+      | Some _ as x -> x
+      | None -> (
+        match child_nodes with
+        | None | Some [] -> None
+        | Some nodes -> Some (create_children ~nodes ()))
     in
     let classes = CSS.node :: classes in
     li
@@ -69,58 +111,9 @@ struct
          ; a_aria "expanded" [string_of_bool expanded]
          ; a_tabindex tabindex ]
          @ attrs
-        |> map_cons_option (fun x -> a_aria "level" [string_of_int x]) level
-        |> map_cons_option (a_user_data "value") value)
-      (match children with
-      | None -> [content]
-      | Some x -> [content; x])
-
-  let create_node
-      ?classes
-      ?attrs
-      ?value
-      ?tabindex
-      ?selected
-      ?checked
-      ?indeterminate
-      ?expanded
-      ?graphic
-      ?meta
-      ?children
-      ?secondary_text
-      text : 'a elt =
-    let text =
-      match secondary_text with
-      | None -> create_node_text [txt text] ()
-      | Some s ->
-          let primary = create_node_primary_text text () in
-          let secondary = create_node_secondary_text s () in
-          create_node_text [primary; secondary] ()
-    in
-    let children =
-      match children with
-      | None | Some [] -> None
-      | Some x -> Some (create_children x)
-    in
-    let meta =
-      match meta, children with
-      | (Some _ as x), _ -> x
-      | None, None -> None
-      | None, Some _ -> Some (create_node_expander ())
-    in
-    let content = create_node_content ?graphic ?meta text in
-    create_node'
-      ?classes
-      ?attrs
-      ?value
-      ?children
-      ?tabindex
-      ?selected
-      ?checked
-      ?indeterminate
-      ?expanded
-      ~content
-      ()
+        |> Utils.map_cons_option (fun x -> a_aria "level" [string_of_int x]) level
+        |> Utils.map_cons_option (a_user_data "value") value)
+      Utils.(content :: (children ^:: []))
 
   let create
       ?(classes = [])
@@ -131,14 +124,14 @@ struct
       nodes =
     let classes =
       classes
-      |> cons_if dense Item_list.CSS.dense (* FIXME *)
-      |> cons_if two_line Item_list.CSS.two_line (* FIXME *)
+      |> Utils.cons_if dense Item_list.CSS.dense (* FIXME *)
+      |> Utils.cons_if two_line Item_list.CSS.two_line (* FIXME *)
       |> List.cons CSS.root
     in
     ul
       ~a:
         ([a_class classes; a_role ["tree"]] @ attrs
-        |> map_cons_option
+        |> Utils.map_cons_option
              (fun x ->
                let v = string_of_bool x in
                a_aria "multiselectable" [v])

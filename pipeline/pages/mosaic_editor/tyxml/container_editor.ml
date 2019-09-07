@@ -35,8 +35,8 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  module Widget' = Widget.Make (Xml) (Svg) (Html)
-  module Card' = Card.Make (Xml) (Svg) (Html)
+  module Widget_markup = Widget.Make (Xml) (Svg) (Html)
+  module Card_markup = Card.Make (Xml) (Svg) (Html)
 
   let create_widget
       ?(classes = [])
@@ -57,7 +57,9 @@ struct
     let classes = CSS.widget :: classes in
     div
       ~a:
-        ([a_class classes; a_style style] @ Widget'.to_html_attributes ~id widget @ attrs)
+        ([a_class classes; a_style style]
+        @ Widget_markup.to_html_attributes ~id widget
+        @ attrs)
       []
 
   let create_widget_wrapper ?(classes = []) ?(attrs = []) widgets : 'a elt =
@@ -65,8 +67,10 @@ struct
     div ~a:([a_class classes] @ attrs) widgets
 
   let create ?(classes = []) ?attrs grid : 'a elt =
-    Card'.create
+    Card_markup.create
       ~classes:(CSS.root :: classes)
       ?attrs
-      [Card'.create_media [grid] (); Card'.create_actions [] ()]
+      [Card_markup.create_media [grid]; Card_markup.create_actions []]
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

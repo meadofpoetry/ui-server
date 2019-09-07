@@ -65,33 +65,18 @@ let make
     ~icon
     () : t =
   Option.iter
-    (fun i ->
-      i#add_class CSS.icon;
-      i#add_class CSS.icon_on)
+    (fun icon ->
+      let icon = Tyxml_js.To_dom.of_element icon in
+      Element.add_class icon CSS.icon;
+      Element.add_class icon CSS.icon_on)
     on_icon;
-  Element.add_class icon CSS.icon;
+  Element.add_class (Tyxml_js.To_dom.of_element icon) CSS.icon;
   let elt =
     Tyxml_js.To_dom.of_element
     @@
     match tag with
-    | `Button ->
-        Markup_js.create
-          ?classes
-          ?ripple
-          ?on
-          ?disabled
-          ?on_icon:(Option.map Widget.to_markup on_icon)
-          ~icon:(Tyxml_js.Of_dom.of_element icon)
-          ()
-    | `Anchor ->
-        Markup_js.create_anchor
-          ?classes
-          ?ripple
-          ?on
-          ?href
-          ?on_icon:(Option.map Widget.to_markup on_icon)
-          ~icon:(Tyxml_js.Of_dom.of_element icon)
-          ()
+    | `Button -> Markup_js.create ?classes ?ripple ?on ?disabled ?on_icon ~icon ()
+    | `Anchor -> Markup_js.create_anchor ?classes ?ripple ?on ?href ?on_icon ~icon ()
   in
   new t ?on_change ?on_click elt ()
 

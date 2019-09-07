@@ -28,17 +28,45 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  open Utils
+  module Floating_label_markup = Floating_label.Make (Xml) (Svg) (Html)
 
-  let create ?(classes = []) ?(attrs = []) ?label () : 'a elt =
-    let classes = CSS.root :: classes in
-    let leading = div ~a:[a_class [CSS.leading]] [] in
-    let trailing = div ~a:[a_class [CSS.trailing]] [] in
-    let notch =
+  let create_leading ?(classes = []) ?(attrs = []) () =
+    let classes = CSS.leading :: classes in
+    div ~a:([a_class classes] @ attrs) []
+
+  let create_trailing ?(classes = []) ?(attrs = []) () =
+    let classes = CSS.trailing :: classes in
+    div ~a:([a_class classes] @ attrs) []
+
+  let create_notch ?(classes = []) ?(attrs = []) ?label_for ~label () =
+    let label =
       match label with
-      | None -> None
-      | Some x -> Some (div ~a:[a_class [CSS.notch]] [x])
+      | `Text s -> Floating_label_markup.create ?for_:label_for ~label:s ()
+      | `Element e -> e
     in
-    let content = leading :: (notch ^:: [trailing]) in
+    let classes = CSS.notch :: classes in
+    div ~a:([a_class classes] @ attrs) [label]
+
+  let create
+      ?(classes = [])
+      ?(attrs = [])
+      ?(leading = create_leading ())
+      ?(trailing = create_trailing ())
+      ?notch
+      ?label_for
+      ?label
+      () : 'a elt =
+    let classes = CSS.root :: classes in
+    let notch =
+      match notch with
+      | Some _ as x -> x
+      | None -> (
+        match label with
+        | None -> None
+        | Some label -> Some (create_notch ?label_for ~label ()))
+    in
+    let content = leading :: Utils.(notch ^:: [trailing]) in
     div ~a:([a_class classes] @ attrs) content
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

@@ -1,8 +1,7 @@
 open Js_of_ocaml
-open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 include Components_tyxml.Checkbox
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -68,16 +67,17 @@ class t ?on_change ?(indeterminate = false) (elt : Dom_html.element Js.t) () =
     method! initial_sync_with_dom () : unit =
       super#initial_sync_with_dom ();
       let change_listener =
-        Lwt_js_events.changes input_elt (fun _ _ ->
+        Js_of_ocaml_lwt.Lwt_js_events.changes input_elt (fun _ _ ->
             self#transition_check_state ();
             self#notify_change ())
       in
       _change_listener <- Some change_listener;
       let animationend_listener =
-        Lwt_js_events.seq_loop
-          (Lwt_js_events.make_event Dom_html.Event.animationend)
-          super#root
-          self#handle_animation_end
+        Js_of_ocaml_lwt.Lwt_js_events.(
+          seq_loop
+            (make_event Dom_html.Event.animationend)
+            super#root
+            self#handle_animation_end)
       in
       _animationend_listener <- Some animationend_listener
 
@@ -132,7 +132,6 @@ class t ?on_change ?(indeterminate = false) (elt : Dom_html.element Js.t) () =
 
     method ripple : Ripple.t option = _ripple
 
-    (* Private methods *)
     method private notify_change () : unit Lwt.t =
       match on_change with
       | None -> Lwt.return_unit
@@ -161,7 +160,7 @@ class t ?on_change ?(indeterminate = false) (elt : Dom_html.element Js.t) () =
         let t =
           Lwt.catch
             (fun () ->
-              Lwt_js.sleep Const.anim_end_latch_s
+              Js_of_ocaml_lwt.Lwt_js.sleep Const.anim_end_latch_s
               >>= fun () ->
               Option.iter super#remove_class _cur_animation_class;
               _enable_animationend_handler <- false;
@@ -275,9 +274,10 @@ class t ?on_change ?(indeterminate = false) (elt : Dom_html.element Js.t) () =
       List.iter uninstall Const.cb_proto_props
   end
 
-let make ?input_id ?checked ?indeterminate ?disabled ?on_change () =
-  let elt = Tyxml_js.To_dom.of_div @@ Markup.create ?input_id ?checked ?disabled () in
-  new t ?on_change ?indeterminate elt ()
-
 let attach ?on_change ?indeterminate (elt : #Dom_html.element Js.t) : t =
   new t ?on_change ?indeterminate (elt :> Dom_html.element Js.t) ()
+
+let make ?classes ?attrs ?input_id ?checked ?indeterminate ?disabled ?on_change () =
+  Markup_js.create ?classes ?attrs ?input_id ?checked ?disabled ()
+  |> Tyxml_js.To_dom.of_div
+  |> attach ?on_change ?indeterminate

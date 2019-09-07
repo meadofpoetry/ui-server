@@ -2,7 +2,9 @@ open Components_tyxml
 
 module CSS = struct
   let root = "mdc-transform"
+
   let resizer = BEM.add_element root "resizer"
+
   let circle = BEM.add_element root "circle"
 end
 
@@ -38,10 +40,11 @@ let direction_of_string s =
   | "sw" -> Some SW
   | _ -> None
 
-module Make(Xml : Xml_sigs.NoWrap)
+module Make
+    (Xml : Xml_sigs.NoWrap)
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml
-                              and module Svg := Svg) = struct
+    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+struct
   open Html
 
   let content_of_direction = function
@@ -50,17 +53,18 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   let create_resizer ?(classes = []) ?(attrs = []) direction : 'a elt =
     let classes = CSS.resizer :: classes in
-    div ~a:([ a_class classes
-            ; a_role ["slider"]
-            ; a_user_data "direction" (direction_to_string direction)
-            ] @ attrs)
+    div
+      ~a:
+        ([ a_class classes
+         ; a_role ["slider"]
+         ; a_user_data "direction" (direction_to_string direction) ]
+        @ attrs)
       (content_of_direction direction)
 
   let create ?(tabindex = -1) ?(classes = []) ?(attrs = []) () : 'a elt =
     let classes = CSS.root :: classes in
-    div ~a:([ a_class classes
-            ; a_tabindex tabindex
-            ; a_role ["slider"]] @ attrs)
+    div
+      ~a:([a_class classes; a_tabindex tabindex; a_role ["slider"]] @ attrs)
       [ create_resizer N
       ; create_resizer E
       ; create_resizer S
@@ -68,6 +72,7 @@ module Make(Xml : Xml_sigs.NoWrap)
       ; create_resizer NW
       ; create_resizer NE
       ; create_resizer SW
-      ; create_resizer SE
-      ]
+      ; create_resizer SE ]
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

@@ -46,7 +46,7 @@ let shake (x : t) v = x#shake v
 
 let make ?(for_ : string option) (label : string) : t =
   let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element @@ Markup.create ?for_ label ()
+    Tyxml_js.To_dom.of_element @@ Markup.create ?for_ ~label ()
   in
   new t elt ()
 

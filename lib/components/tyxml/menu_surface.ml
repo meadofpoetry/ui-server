@@ -17,12 +17,20 @@ module Make
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
-  open Utils
-
-  let create ?(classes = []) ?(attrs = []) ?(fixed = false) ?(open_ = false) content () :
-      'a Html.elt =
+  let create
+      ?(classes = [])
+      ?(attrs = [])
+      ?(fixed = false)
+      ?(open_ = false)
+      ?(content = [])
+      () : 'a Html.elt =
     let classes =
-      classes |> cons_if fixed CSS.fixed |> cons_if open_ CSS.open_ |> List.cons CSS.root
+      classes
+      |> Utils.cons_if fixed CSS.fixed
+      |> Utils.cons_if open_ CSS.open_
+      |> List.cons CSS.root
     in
     Html.div ~a:([Html.a_class classes] @ attrs) content
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

@@ -15,9 +15,12 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  open Utils
 
-  let create ?(classes = []) ?(attrs = []) ?for_ text () : 'a elt =
+  let create ?(classes = []) ?(attrs = []) ?for_ ?label ?(content = []) () : 'a elt =
     let classes = CSS.root :: classes in
-    label ~a:([a_class classes] @ attrs |> map_cons_option a_label_for for_) [txt text]
+    Html.label
+      ~a:([a_class classes] @ attrs |> Utils.map_cons_option a_label_for for_)
+      (Utils.map_cons_option txt label content)
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

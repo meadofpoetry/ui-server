@@ -38,7 +38,6 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  open Utils
 
   let create_loader_container ?(classes = []) ?(attrs = []) loader () : 'a elt =
     let classes = CSS.loader_container :: classes in
@@ -48,20 +47,20 @@ struct
     let make_label (x : string) : _ elt = span ~a:[a_class [CSS.label]] [txt x] in
     let (classes : string list) =
       classes
-      |> map_cons_option
+      |> Utils.map_cons_option
            (function
              | Raised -> CSS.raised
              | Outlined -> CSS.outlined
              | Unelevated -> CSS.unelevated)
            appearance
-      |> cons_if dense CSS.dense
+      |> Utils.cons_if dense CSS.dense
       |> List.cons CSS.root
     in
-    cons_option icon @@ map_cons_option make_label label [], classes
+    Utils.cons_option icon @@ Utils.map_cons_option make_label label [], classes
 
   let create_anchor ?classes ?(attrs = []) ?href ?appearance ?dense ?icon ?label () =
     let children, classes = create_ ?classes ?appearance ?dense ?icon ?label () in
-    a ~a:([a_class classes] @ attrs |> map_cons_option a_href href) children
+    a ~a:([a_class classes] @ attrs |> Utils.map_cons_option a_href href) children
 
   let create
       ?classes
@@ -77,8 +76,8 @@ struct
     button
       ~a:
         ([a_class classes] @ attrs
-        |> map_cons_option a_button_type button_type
-        |> cons_if disabled @@ a_disabled ())
+        |> Utils.map_cons_option a_button_type button_type
+        |> Utils.cons_if disabled @@ a_disabled ())
       children
 end
 

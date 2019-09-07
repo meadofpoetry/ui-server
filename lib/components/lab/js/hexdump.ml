@@ -2,7 +2,7 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml
 open Components
 include Components_lab_tyxml.Hexdump
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 (* TODO
    * add range selection by holding shift
@@ -106,9 +106,8 @@ class t (elt : Dom_html.element Js.t) () =
 
     method set_bytes (bytes : string) : unit =
       _bytes <- bytes;
-      let module M = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html) in
       let num, hex, chr =
-        M.create_rows ~width:_width ~grouping:_grouping ~base:_base bytes
+        Markup.create_rows ~width:_width ~grouping:_grouping ~base:_base bytes
       in
       let to_string x = String.concat "" @@ List.map elt_to_string x in
       num_block##.innerHTML := Js.string (to_string num);
@@ -230,11 +229,16 @@ class t (elt : Dom_html.element Js.t) () =
       Lwt.return_unit
   end
 
-let make ?width ?grouping ?no_line_numbers ?non_interactive ?base (bytes : string) () : t
-    =
+let make_of_bytes
+    ?width
+    ?grouping
+    ?no_line_numbers
+    ?non_interactive
+    ?base
+    (bytes : string) : t =
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element
-    @@ Markup.of_bytes ?width ?grouping ?no_line_numbers ?non_interactive ?base bytes
+    @@ Markup_js.of_bytes ?width ?grouping ?no_line_numbers ?non_interactive ?base bytes
   in
   new t elt ()
 

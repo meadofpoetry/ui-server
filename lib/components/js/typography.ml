@@ -1,7 +1,7 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Typography
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( % ) f g x = f (g x)
 
@@ -56,12 +56,12 @@ module Text = struct
       method set_text (s : string) : unit =
         Element.remove_children super#root;
         List.iter (Dom.appendChild super#root % Tyxml_js.To_dom.of_element)
-        @@ Markup.make_inner s
+        @@ Markup_js.create_inner s
     end
 
   let make ?font (text : string) : t =
     let (elt : Dom_html.element Js.t) =
-      Tyxml_js.To_dom.of_element @@ Markup.make ?font text
+      Tyxml_js.To_dom.of_element @@ Markup_js.create ?font text
     in
     new t elt ()
 
