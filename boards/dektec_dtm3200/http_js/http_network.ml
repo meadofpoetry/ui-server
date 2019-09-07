@@ -4,14 +4,15 @@ open Netlib.Uri
 open Util
 
 module Event = struct
-
   let ( >>= ) = Lwt_result.( >>= )
 
   let get_config sock control =
     Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("board" @/ Int ^/ "network/config" @/ empty)
       ~query:Query.empty
-      control nw_of_yojson sock
+      control
+      nw_of_yojson
+      sock
 end
 
 let get_config control =
@@ -67,7 +68,8 @@ let reboot control =
     ~meth:`POST
     ~path:Path.Format.("api/board" @/ Int ^/ "network/reboot" @/ empty)
     ~query:Query.empty
-    control ignore_env
+    control
+    ignore_env
 
 let set_ip_address ip control =
   Api_http.perform

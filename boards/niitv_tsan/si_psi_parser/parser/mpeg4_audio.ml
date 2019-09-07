@@ -54,15 +54,15 @@ let audio_value_of_int = function
   | 0x62 -> "High efficiency AAC v2 profile, level 4"
   | 0x63 -> "High efficiency AAC v2 profile, level 5"
   | 0xFF -> "Not_specified"
-  | _    -> "Reserved"
+  | _ -> "Reserved"
 
 let parse bs off =
   match%bitstring bs with
   | {| mpeg_4_audio : 8 |} ->
-    let parsed = audio_value_of_int mpeg_4_audio in
-    [ Node.make
-        ~parsed
-        ~offset:off
-        7
-        "MPEG-4_audio_profile_and_level"
-        (Hex (Int mpeg_4_audio)) ]
+      let parsed = audio_value_of_int mpeg_4_audio in
+      [ Node.make
+          ~parsed
+          ~offset:off
+          7
+          "MPEG-4_audio_profile_and_level"
+          (Hex (Int mpeg_4_audio)) ]

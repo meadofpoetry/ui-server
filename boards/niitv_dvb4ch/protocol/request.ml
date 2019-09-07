@@ -8,13 +8,12 @@ type tag =
   | `Params of int
   | `PLP_list of int
   | `Source_id
-  | `Ack
-  ] [@@deriving eq, show]
+  | `Ack ]
+[@@deriving eq, show]
 
 type msg =
   { tag : tag
-  ; data : Cstruct.t
-  }
+  ; data : Cstruct.t }
 
 type error =
   | Timeout
@@ -54,28 +53,20 @@ let value_to_string (type a) (t : a t) : a -> string =
   | Reset -> Device.info_to_string
   | Set_src_id _ -> string_of_int
   | Set_mode _ ->
-    (fun (id, rsp) ->
-       Printf.sprintf "tuner: %d, %s"
-         id (Device.mode_rsp_to_string rsp))
+      fun (id, rsp) -> Printf.sprintf "tuner: %d, %s" id (Device.mode_rsp_to_string rsp)
   | Get_measure _ ->
-    (fun (id, rsp) ->
-       Printf.sprintf "tuner: %d, %s"
-         id (Measure.to_string rsp.data))
+      fun (id, rsp) -> Printf.sprintf "tuner: %d, %s" id (Measure.to_string rsp.data)
   | Get_params _ ->
-    (fun (id, rsp) ->
-       Printf.sprintf "tuner: %d, %s"
-         id (Params.show rsp.data))
+      fun (id, rsp) -> Printf.sprintf "tuner: %d, %s" id (Params.show rsp.data)
   | Get_plp_list _ ->
-    (fun (id, rsp) ->
-       Printf.sprintf "tuner: %d, %s"
-         id (Plp_list.to_string rsp.data))
+      fun (id, rsp) -> Printf.sprintf "tuner: %d, %s" id (Plp_list.to_string rsp.data)
 
 let to_string (type a) : a t -> string = function
   | Get_devinfo -> "Get device info"
   | Reset -> "Reset"
   | Set_src_id id -> Printf.sprintf "Set source ID (src_id=%d)" id
   | Set_mode (id, mode) ->
-    Printf.sprintf "Set mode (id=%d, mode=%s)" id Device.(mode_to_string mode)
+      Printf.sprintf "Set mode (id=%d, mode=%s)" id Device.(mode_to_string mode)
   | Get_measure id -> Printf.sprintf "Get measure (id=%d)" id
   | Get_params id -> Printf.sprintf "Get params (id=%d)" id
   | Get_plp_list id -> Printf.sprintf "Get PLP list (id=%d)" id
@@ -90,6 +81,7 @@ let to_tag (type a) : a t -> tag = function
   | Get_plp_list id -> `PLP_list id
 
 let min_tuner_id = 0
+
 let max_tuner_id = 3
 
 let tag_to_enum = function
@@ -105,38 +97,40 @@ let tag_of_enum = function
   | 0xEE -> Some `Ack
   | 0xD0 -> Some `Source_id
   | 0x10 -> Some `Devinfo
-  | x ->
-    let code, id = x land 0xF0, x land 0x0F in
-    if id < min_tuner_id || id > max_tuner_id
-    then None else begin match code with
-      | 0x20 -> Some (`Mode id)
-      | 0x30 -> Some (`Measure id)
-      | 0x40 -> Some (`Params id)
-      | 0x50 -> Some (`PLP_list id)
-      | _ -> None
-    end
+  | x -> (
+      let code, id = x land 0xF0, x land 0x0F in
+      if id < min_tuner_id || id > max_tuner_id
+      then None
+      else
+        match code with
+        | 0x20 -> Some (`Mode id)
+        | 0x30 -> Some (`Measure id)
+        | 0x40 -> Some (`Params id)
+        | 0x50 -> Some (`PLP_list id)
+        | _ -> None)
 
 let to_msg (type a) (t : a t) : msg =
   let tag = to_tag t in
-  let data = match t with
+  let data =
+    match t with
     | Get_devinfo -> Cstruct.create sizeof_cmd_devinfo
     | Reset ->
-      let data = Cstruct.create sizeof_cmd_devinfo in
-      set_cmd_devinfo_reset data 0xFF;
-      data
+        let data = Cstruct.create sizeof_cmd_devinfo in
+        set_cmd_devinfo_reset data 0xFF;
+        data
     | Set_src_id id ->
-      let data = Cstruct.create sizeof_cmd_src_id in
-      set_cmd_src_id_source_id data id;
-      data
+        let data = Cstruct.create sizeof_cmd_src_id in
+        set_cmd_src_id_source_id data id;
+        data
     | Set_mode (_, mode) ->
-      let data = Cstruct.create sizeof_mode in
-      set_mode_standard data (Device.standard_to_enum mode.standard);
-      set_mode_bw data (Device.bw_to_enum mode.channel.bw);
-      set_mode_freq data @@ Int32.of_int mode.channel.freq;
-      set_mode_plp data mode.channel.plp;
-      data
+        let data = Cstruct.create sizeof_mode in
+        set_mode_standard data (Device.standard_to_enum mode.standard);
+        set_mode_bw data (Device.bw_to_enum mode.channel.bw);
+        set_mode_freq data @@ Int32.of_int mode.channel.freq;
+        set_mode_plp data mode.channel.plp;
+        data
     | Get_measure _ -> Cstruct.create 1
     | Get_params _ -> Cstruct.create 1
     | Get_plp_list _ -> Cstruct.create 1
   in
-  { tag; data }
+  {tag; data}

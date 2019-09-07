@@ -5,6 +5,9 @@ let parse bs off =
   | {| reserved     : 5
      ; service_type : 3 : save_offset_to (off_1)
      |} ->
-    [ Node.make ~offset:off 5 "reserved" (Bits (Int reserved))
-    ; Node.make ~offset:(off + off_1) 3 "stereoscopic_service_type" (Bits (Int service_type))
-    ]
+      [ Node.make ~offset:off 5 "reserved" (Bits (Int reserved))
+      ; Node.make
+          ~offset:(off + off_1)
+          3
+          "stereoscopic_service_type"
+          (Bits (Int service_type)) ]

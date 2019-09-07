@@ -8,19 +8,20 @@ module CSS = struct
   let wrapper = BEM.add_element root "wrapper"
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
+module Make
+    (Xml : Xml_sigs.NoWrap)
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml
-                              and module Svg := Svg) = struct
+    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+struct
   open Html
 
-  let make_title ?(classes = []) ?(attrs = []) title =
+  let create_title ?(classes = []) ?(attrs = []) title =
     let classes = CSS.title :: classes in
     span ~a:([a_class classes] @ attrs) [txt title]
 
-  let make ?(classes = []) ?(attrs = []) ~title ~canvas () =
+  let create ?(classes = []) ?(attrs = []) ~title ~canvas () =
     let classes = CSS.root :: classes in
-    div ~a:([a_class classes] @ attrs)
-      [ title
-      ; div ~a:[a_class [CSS.wrapper]] [canvas]]
+    div ~a:([a_class classes] @ attrs) [title; div ~a:[a_class [CSS.wrapper]] [canvas]]
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

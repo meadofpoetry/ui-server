@@ -7,7 +7,8 @@ type widget_state =
 
 let make_timestamp_string (timestamp : Ptime.t option) =
   let tz_offset_s = Ptime_clock.current_tz_offset_s () in
-  let s = match timestamp with
+  let s =
+    match timestamp with
     | None -> "-"
     | Some t -> Time.to_human_string ?tz_offset_s t
   in

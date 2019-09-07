@@ -25,13 +25,22 @@ let parse (bs : Bitstring.t) off =
      ; true            : 1 : save_offset_to (off_2)
      ; const_par_flag  : 1 : save_offset_to (off_3)
      ; still_pict_flag : 1 : save_offset_to (off_4)
-     |} ->
-    let fr = frame_rate_to_string frame_rate in
-    [ Node.make ~offset:off 1 "mfr_flag" (Bits (Bool mfr_flag))
-    ; Node.make ~parsed:fr ~offset:(off + off_1) 4 "frame_rate" (Hex (Int frame_rate))
-    ; Node.make ~offset:(off + off_2) 1 "MPEG_1_only_flag" (Bits (Bool true))
-    ; Node.make ~offset:(off + off_3) 1 "constrained_parameter_flag" (Bits (Bool const_par_flag))
-    ; Node.make ~offset:(off + off_4) 1 "still_picture_flag" (Bits (Bool still_pict_flag)) ]
+     |}
+    ->
+      let fr = frame_rate_to_string frame_rate in
+      [ Node.make ~offset:off 1 "mfr_flag" (Bits (Bool mfr_flag))
+      ; Node.make ~parsed:fr ~offset:(off + off_1) 4 "frame_rate" (Hex (Int frame_rate))
+      ; Node.make ~offset:(off + off_2) 1 "MPEG_1_only_flag" (Bits (Bool true))
+      ; Node.make
+          ~offset:(off + off_3)
+          1
+          "constrained_parameter_flag"
+          (Bits (Bool const_par_flag))
+      ; Node.make
+          ~offset:(off + off_4)
+          1
+          "still_picture_flag"
+          (Bits (Bool still_pict_flag)) ]
   | {| mfr_flag        : 1
      ; frame_rate      : 4 : save_offset_to (off_1)
      ; false           : 1 : save_offset_to (off_2)
@@ -41,16 +50,37 @@ let parse (bs : Bitstring.t) off =
      ; chroma_format   : 2 : save_offset_to (off_6)
      ; fr_ext_flag     : 1 : save_offset_to (off_7)
      ; reserved        : 5 : save_offset_to (off_8)
-     |} ->
-    let chroma = chroma_format_to_string chroma_format in
-    let fr = frame_rate_to_string frame_rate in
-    [ Node.make ~offset:off 1 "mfr_flag" (Bits (Bool mfr_flag))
-    ; Node.make ~parsed:fr ~offset:(off + off_1) 4 "frame_rate" (Hex (Int frame_rate))
-    ; Node.make ~offset:(off + off_2) 1 "MPEG_1_only_flag" (Bits (Bool true))
-    ; Node.make ~offset:(off + off_3) 1 "constrained_parameter_flag" (Bits (Bool const_par_flag))
-    ; Node.make ~offset:(off + off_4) 1 "still_picture_flag" (Bits (Bool still_pict_flag))
-    ; Node.make ~offset:(off + off_5) 8 "profile_and_level_indication" (Hex (Int profile_lvl_ind))
-    ; Node.make ~parsed:chroma ~offset:(off + off_6) 2 "chroma_format" (Bits (Bool true))
-    ; Node.make ~offset:(off + off_7) 1 "frame_rate_extension_flag" (Bits (Bool fr_ext_flag))
-    ; Node.make ~offset:(off + off_8) 5 "reserved" (Bits (Int reserved))
-    ]
+     |}
+    ->
+      let chroma = chroma_format_to_string chroma_format in
+      let fr = frame_rate_to_string frame_rate in
+      [ Node.make ~offset:off 1 "mfr_flag" (Bits (Bool mfr_flag))
+      ; Node.make ~parsed:fr ~offset:(off + off_1) 4 "frame_rate" (Hex (Int frame_rate))
+      ; Node.make ~offset:(off + off_2) 1 "MPEG_1_only_flag" (Bits (Bool true))
+      ; Node.make
+          ~offset:(off + off_3)
+          1
+          "constrained_parameter_flag"
+          (Bits (Bool const_par_flag))
+      ; Node.make
+          ~offset:(off + off_4)
+          1
+          "still_picture_flag"
+          (Bits (Bool still_pict_flag))
+      ; Node.make
+          ~offset:(off + off_5)
+          8
+          "profile_and_level_indication"
+          (Hex (Int profile_lvl_ind))
+      ; Node.make
+          ~parsed:chroma
+          ~offset:(off + off_6)
+          2
+          "chroma_format"
+          (Bits (Bool true))
+      ; Node.make
+          ~offset:(off + off_7)
+          1
+          "frame_rate_extension_flag"
+          (Bits (Bool fr_ext_flag))
+      ; Node.make ~offset:(off + off_8) 5 "reserved" (Bits (Int reserved)) ]

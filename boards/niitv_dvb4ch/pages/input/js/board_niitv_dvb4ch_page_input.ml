@@ -33,8 +33,7 @@ let make_charts mode =
       List.iter super#append_child charts;
       super#init ()
 
-    method notify data =
-      List.iter (fun x -> x#notify data) charts
+    method notify data = List.iter (fun x -> x#notify data) charts
   end
 
 let on_visible charts state control elt =
@@ -64,23 +63,33 @@ let on_visible charts state control elt =
      *       ; lock = true
      *       } in
      *     Lwt.return [0, [{ data; timestamp = Ptime_clock.now ()}]]) in *)
-    let notif = E.merge (fun _ x -> charts#notify x) ()
+    let notif =
+      E.merge
+        (fun _ x -> charts#notify x)
+        ()
         [ E.map (fun x -> `Data (List.map (fun (id, x) -> id, [x]) x)) meas_ev
         ; E.map (fun x -> `Mode x) mode_ev
-        (* ; E.map (fun x -> `Data x) _ev *)
-        ] in
-    state := Some (fun () ->
-        E.stop ~strong:true mode_ev;
-        E.stop ~strong:true meas_ev;
-        E.stop ~strong:true notif;
-        Api_js.Websocket.close_socket socket);
-    Lwt.return_ok () in
+          (* ; E.map (fun x -> `Data x) _ev *)
+         ]
+    in
+    state :=
+      Some
+        (fun () ->
+          E.stop ~strong:true mode_ev;
+          E.stop ~strong:true meas_ev;
+          E.stop ~strong:true notif;
+          Api_js.Websocket.close_socket socket);
+    Lwt.return_ok ()
+  in
   let _loader = Components_lab.Loader.make_loader ~elt thread in
   ()
 
-let on_hidden state = match !state with
+let on_hidden state =
+  match !state with
   | None -> ()
-  | Some finalize -> finalize (); state := None
+  | Some finalize ->
+      finalize ();
+      state := None
 
 let observe charts state control records _observer =
   let open MutationObserver in
@@ -88,34 +97,44 @@ let observe charts state control records _observer =
     List.find_opt (fun (x : mutationRecord Js.t) ->
         x##._type == Js.string "attributes"
         && x##.attributeName == Js.some @@ Js.string Attr.hidden)
-    @@ Array.to_list @@ Js.to_array records in
+    @@ Array.to_list
+    @@ Js.to_array records
+  in
   match record with
   | None -> ()
   | Some x ->
-    let (target : Dom_html.element Js.t) = Js.Unsafe.coerce x##.target in
-    let current = target##getAttribute (Js.string "hidden") in
-    if x##.oldValue != current
-    then Js.Opt.case current
-        (fun () -> on_visible charts state control target)
-        (fun _ -> on_hidden state)
+      let (target : Dom_html.element Js.t) = Js.Unsafe.coerce x##.target in
+      let current = target##getAttribute (Js.string "hidden") in
+      if x##.oldValue != current
+      then
+        Js.Opt.case
+          current
+          (fun () -> on_visible charts state control target)
+          (fun _ -> on_hidden state)
 
 let initialize id control =
   let id =
-    String.map (function '/' -> '-' | c -> c)
-    @@ Topology.make_board_path id control in
+    String.map (function
+        | '/' -> '-'
+        | c -> c)
+    @@ Topology.make_board_path id control
+  in
   let (_scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
   let state = ref None in
   let elt = Dom_html.getElementById id in
   let charts = make_charts [] in
   Dom.appendChild elt charts#root;
-  let _observer = MutationObserver.observe
+  let _observer =
+    MutationObserver.observe
       ~node:elt
       ~f:(observe charts state control)
       ~attributes:true
       ~attribute_old_value:true
       ~attribute_filter:[Js.string "hidden"]
-      () in
-  Js.Opt.case (elt##getAttribute (Js.string Attr.hidden))
+      ()
+  in
+  Js.Opt.case
+    (elt##getAttribute (Js.string Attr.hidden))
     (fun () -> on_visible charts state control elt)
     (fun _ -> on_hidden state)
 
@@ -123,10 +142,11 @@ let () =
   let boards =
     Topology.boards_of_yojson
     @@ Yojson.Safe.from_string
-    @@ Js.to_string Js.Unsafe.global##.boards in
+    @@ Js.to_string Js.Unsafe.global##.boards
+  in
   match boards with
   | Error _ -> ()
-  | Ok boards ->
+  | Ok boards -> (
     match List.find_opt (Topology.equal_board_id board_id % fst) boards with
     | None -> ()
-    | Some (id, controls) -> List.iter (initialize id) controls
+    | Some (id, controls) -> List.iter (initialize id) controls)

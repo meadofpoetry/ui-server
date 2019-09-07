@@ -20,4 +20,4 @@ let pp ppf = Format.pp_print_int ppf
 
 external to_int : t -> int = "%identity"
 
-let of_int ( x : int) : t = x land max_int
+let of_int (x : int) : t = x land max_int

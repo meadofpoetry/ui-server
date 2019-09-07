@@ -6,22 +6,16 @@ module Event = struct
   open Util_react
 
   let get_state (api : Protocol.api) _user =
-    let event =
-      S.changes api.notifs.state
-      |> E.map Topology.state_to_yojson in
+    let event = S.changes api.notifs.state |> E.map Topology.state_to_yojson in
     Lwt.return event
 
   let get_config (api : Protocol.api) _user =
-    let event =
-      S.changes api.notifs.config
-      |> E.map config_to_yojson in
+    let event = S.changes api.notifs.config |> E.map config_to_yojson in
     Lwt.return event
 end
 
 let get_state (api : Protocol.api) _user _body _env _state =
-  return_value
-  @@ Topology.state_to_yojson
-  @@ React.S.value api.notifs.state
+  return_value @@ Topology.state_to_yojson @@ React.S.value api.notifs.state
 
 let get_info (api : Protocol.api) _user _body _env _state =
   match React.S.value api.notifs.devinfo with
@@ -32,8 +26,7 @@ let get_config (api : Protocol.api) _user _body _env _state =
   return_value @@ config_to_yojson @@ React.S.value api.notifs.config
 
 let get_fpga_version (api : Protocol.api) _user _body _env _state =
-  api.channel Request.(Device FPGA_version)
-  >>=? return_value % Util_json.Int.to_yojson
+  api.channel Request.(Device FPGA_version) >>=? return_value % Util_json.Int.to_yojson
 
 let get_hardware_version (api : Protocol.api) _user _body _env _state =
   api.channel Request.(Device Hardware_version)
@@ -44,9 +37,7 @@ let get_firmware_version (api : Protocol.api) _user _body _env _state =
   >>=? return_value % Util_json.Int.to_yojson
 
 let get_serial_number (api : Protocol.api) _user _body _env _state =
-  api.channel Request.(Device Serial_number)
-  >>=? return_value % Util_json.Int.to_yojson
+  api.channel Request.(Device Serial_number) >>=? return_value % Util_json.Int.to_yojson
 
 let get_type (api : Protocol.api) _user _body _env _state =
-  api.channel Request.(Device Type)
-  >>=? return_value % Util_json.Int.to_yojson
+  api.channel Request.(Device Type) >>=? return_value % Util_json.Int.to_yojson

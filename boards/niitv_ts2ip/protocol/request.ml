@@ -19,13 +19,12 @@ type tag =
   | `Devinfo_rsp
   | `MAC
   | `Mode
-  | `Status
-  ] [@@deriving eq, show]
+  | `Status ]
+[@@deriving eq, show]
 
 type msg =
   { tag : tag
-  ; data : Cstruct.t
-  }
+  ; data : Cstruct.t }
 
 type _ t =
   (* Requests device info. *)
@@ -94,4 +93,4 @@ let take_drop (n : int) (l : 'a list) =
 let split_mode (mode : mode) =
   let main_pkrs, aux = take_drop Message.n_udp_main mode.udp in
   let aux_1, aux_2 = take_drop Message.n_udp_aux aux in
-  { mode with udp = main_pkrs }, aux_1, aux_2
+  {mode with udp = main_pkrs}, aux_1, aux_2
