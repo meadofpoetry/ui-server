@@ -51,9 +51,9 @@ let make_progress ?classes ?attrs ?(text = "Загрузка") ?size ?progress (
 let make_error ?classes ?attrs ?icon text =
   let icon =
     match icon with
-    | None -> Widget.coerce @@ Icon.SVG.(make_simple error_svg_path)
-    | Some x -> Widget.create x
+    | None -> Tyxml_js.To_dom.of_element @@ Icon.SVG.Markup_js.create_of_d error_svg_path
+    | Some x -> x
   in
-  make ?classes ?attrs ~error:true icon#root text
+  make ?classes ?attrs ~error:true icon text
 
 let attach (elt : #Dom_html.element Js.t) : t = new t (elt :> Dom_html.element Js.t) ()

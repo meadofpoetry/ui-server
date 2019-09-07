@@ -14,53 +14,61 @@ module CSS = struct
   let ghost = BEM.add_element root "ghost"
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
+module Make
+    (Xml : Xml_sigs.NoWrap)
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml
-                              and module Svg := Svg) = struct
+    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+struct
   open Html
-
-  module Text' = Typography.Make(Xml)(Svg)(Html)
-  module Icon' = Icon.Make(Xml)(Svg)(Html)
-  module Card' = Card.Make(Xml)(Svg)(Html)
+  module Text_markup = Typography.Make (Xml) (Svg) (Html)
+  module Icon_markup = Icon.Make (Xml) (Svg) (Html)
+  module Card_markup = Card.Make (Xml) (Svg) (Html)
 
   let create_ghost ?(classes = []) ?(attrs = []) () : 'a elt =
     let classes = CSS.ghost :: classes in
     div ~a:([a_class classes] @ attrs) []
 
-  let create_icon ?classes ?attrs
-      (widget : Pipeline_types.Wm.widget) : 'a elt =
-    let path = match widget.type_ with
+  let create_icon ?classes ?attrs (widget : Pipeline_types.Wm.widget) : 'a elt =
+    let path =
+      match widget.type_ with
       | Video -> Svg_icons.video
-      | Audio -> Svg_icons.music in
-    Icon'.SVG.(create ?classes ?attrs [create_path path ()] ())
+      | Audio -> Svg_icons.music
+    in
+    Icon_markup.SVG.(create_of_d ?classes ?attrs path)
 
-  let create_content ?(classes = []) ?(attrs = [])
-      (widget : Pipeline_types.Wm.widget) : 'a elt =
-    let pid = match widget.pid with
+  let create_content ?(classes = []) ?(attrs = []) (widget : Pipeline_types.Wm.widget) :
+      'a elt =
+    let pid =
+      match widget.pid with
       | None -> None
       | Some pid ->
-        let text = Printf.sprintf "PID: %d" pid in
-        Some (Text'.make text) in
-    let ( ^:: ) x l = match x with None -> l | Some x -> x :: l in
-    let text = Text'.make widget.description in
+          let text = Printf.sprintf "PID: %d" pid in
+          Some (Text_markup.make text)
+    in
+    let ( ^:: ) x l =
+      match x with
+      | None -> l
+      | Some x -> x :: l
+    in
+    let text = Text_markup.make widget.description in
     let icon = create_icon widget in
     let classes = CSS.item_content :: classes in
-    div ~a:([a_class classes] @ attrs)
-      (icon :: (pid ^:: [text]))
+    div ~a:([a_class classes] @ attrs) (icon :: (pid ^:: [text]))
 
-  let create_item ?(classes = []) ?(attrs = []) ?content
+  let create_item
+      ?(classes = [])
+      ?(attrs = [])
+      ?content
       (widget : Pipeline_types.Wm.widget) : 'a elt =
     let classes = CSS.item :: classes in
-    let content = match content with
+    let content =
+      match content with
       | None -> [create_content widget]
-      | Some x -> x in
+      | Some x -> x
+    in
     div ~a:([a_class classes] @ attrs) content
 
   let create ?(classes = []) ?(attrs = []) ?(content = []) () : 'a elt =
     let classes = CSS.root :: classes in
-    div ~a:([ a_class classes
-            ; a_role ["grid"]
-            ] @ attrs)
-      content
+    div ~a:([a_class classes; a_role ["grid"]] @ attrs) content
 end

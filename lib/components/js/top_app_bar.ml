@@ -2,7 +2,7 @@ open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 include Components_tyxml.Top_app_bar
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 (* TODO
    - add 'attach' function for all subcomponents
@@ -50,7 +50,7 @@ module Title = struct
       | `Text x -> [Tyxml_js.Html.txt x]
       | `Widgets x -> List.map Widget.to_markup x
     in
-    let elt = Markup.create_title ~content:content' () |> Tyxml_js.To_dom.of_element in
+    let elt = Markup_js.create_title content' |> Tyxml_js.To_dom.of_element in
     object
       inherit Widget.t elt ()
     end
@@ -62,7 +62,7 @@ module Section = struct
   class t ?(align : align option) ~(widgets : #Widget.t list) () =
     let content = List.map Widget.to_markup widgets in
     let elt : Dom_html.element Js.t =
-      Markup.create_section ?align ~content () |> Tyxml_js.To_dom.of_element
+      Markup_js.create_section ?align content |> Tyxml_js.To_dom.of_element
     in
     object
       val mutable align : align option = align
@@ -85,7 +85,7 @@ end
 module Row = struct
   class t ~(sections : Section.t list) () =
     let elt : Dom_html.element Js.t =
-      Markup.create_row ~sections:(List.map Widget.to_markup sections) ()
+      Markup_js.create_row ~sections:(List.map Widget.to_markup sections) ()
       |> Tyxml_js.To_dom.of_element
     in
     object
@@ -340,7 +340,8 @@ let make'
     ?(rows = [])
     () : t =
   let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element @@ Markup.create ~rows:(List.map Widget.to_markup rows) ()
+    Tyxml_js.To_dom.of_element
+    @@ Markup_js.create ~rows:(List.map Widget.to_markup rows) ()
   in
   new t ?offset ?tolerance ?scroll_target ?imply_leading elt ()
 

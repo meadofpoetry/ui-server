@@ -28,7 +28,8 @@ let status_to_string = function
   | Download_filelist -> "Загрузка списка файлов"
   | Download_changelog -> "Загрузка лога изменений"
   | Download_group -> "Загрука группы"
-  | Download_updateinfo -> "Загрузка информации об обновлениях"
+  | Download_updateinfo ->
+      "Загрузка информации об обновлениях"
   | Repackaging -> "Перепаковка"
   | Loading_cache -> "Загрузка кэша"
   | Scan_applications -> "Сканирование приложений"
@@ -47,7 +48,8 @@ let action_label_update = "Обновить"
 
 let action_label_reboot = "Перезагрузить"
 
-let equal_state (a : state) (b : state) = match a, b with
+let equal_state (a : state) (b : state) =
+  match a, b with
   | `Updates_avail, `Updates_avail -> true
   | `Updates_not_avail, `Updates_not_avail -> true
   | `Unchecked, `Unchecked -> true
@@ -67,10 +69,11 @@ let state_to_action_label ~auto_reboot = function
   | `Checking _ | `Upgrading _ -> "Загрузка..."
   | `Updates_avail -> "Обновить"
   | `Need_reboot ->
-    if auto_reboot
-    then "Обновить страницу"
-    else "Перезагрузить прибор"
-  | `Unchecked | `Updates_not_avail -> "Проверить наличие обновлений"
+      if auto_reboot
+      then "Обновить страницу"
+      else "Перезагрузить прибор"
+  | `Unchecked | `Updates_not_avail ->
+      "Проверить наличие обновлений"
 
 let state_to_action_disabled = function
   | `Checking _ | `Upgrading _ -> true
@@ -78,25 +81,27 @@ let state_to_action_disabled = function
 
 let state_to_hint ~auto_reboot = function
   | `Checking (status, _) ->
-    Printf.sprintf
-      "Идёт проверка наличия обновлений.\n%s"
-      (status_to_string status)
+      Printf.sprintf
+        "Идёт проверка наличия обновлений.\n%s"
+        (status_to_string status)
   | `Upgrading (status, _) ->
-    Printf.sprintf
-      "Идёт обновление.\n%s"
-      (status_to_string status)
-  | `Updates_avail ->
-    "Обнаружены доступные обновления."
+      Printf.sprintf "Идёт обновление.\n%s" (status_to_string status)
+  | `Updates_avail -> "Обнаружены доступные обновления."
   | `Need_reboot ->
-    let suffix =
-      if auto_reboot
-      then "Прибор перезагружен, обновите страницу для продолжения работы."
-      else "Требуется перезагрузка прибора." in
-    Printf.sprintf "Обновления успешно установлены.\n%s" suffix
-  | `Unchecked ->
-    "Нет данных о доступных обновлениях."
+      let suffix =
+        if auto_reboot
+        then
+          "Прибор перезагружен, обновите страницу \
+           для продолжения работы."
+        else "Требуется перезагрузка прибора."
+      in
+      Printf.sprintf
+        "Обновления успешно установлены.\n%s"
+        suffix
+  | `Unchecked -> "Нет данных о доступных обновлениях."
   | `Updates_not_avail ->
-    "На приборе установлены все доступные обновления."
+      "На приборе установлены все доступные \
+       обновления."
 
 let is_loading = function
   | `Checking _ | `Upgrading _ -> true
@@ -106,40 +111,38 @@ let auto_reboot = true
 
 let default_state = `Unchecked
 
-module Make(Xml : Xml_sigs.NoWrap)
+module Make
+    (Xml : Xml_sigs.NoWrap)
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml
-                              and module Svg := Svg) = struct
-  module Progress = Linear_progress.Make(Xml)(Svg)(Html)
+    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+struct
+  module Progress = Linear_progress.Make (Xml) (Svg) (Html)
+  module Button = Button.Make (Xml) (Svg) (Html)
+  module Placeholder = Placeholder.Make (Xml) (Svg) (Html)
+  module Icon = Icon.Make (Xml) (Svg) (Html)
 
-  module Button = Button.Make(Xml)(Svg)(Html)
-
-  module Placeholder = Placeholder.Make(Xml)(Svg)(Html)
-
-  module Icon = Icon.Make(Xml)(Svg)(Html)
-
-  open Ui_templates_tyxml.Settings_page.Make(Xml)(Svg)(Html)
+  open Ui_templates_tyxml.Settings_page.Make (Xml) (Svg) (Html)
 
   let make_placeholder ?classes ?attrs () =
     let path = state_to_svg_path default_state in
-    let widget = Icon.SVG.(create [create_path path ()] ()) in
-    Placeholder.make_simple ?classes ?attrs widget
+    let widget = Icon.SVG.create_of_d path in
+    Placeholder.make_simple
+      ?classes
+      ?attrs
+      widget
       (state_to_hint ~auto_reboot default_state)
 
   let make ?classes ?(attrs = []) () =
-    make_section ?classes ~attrs:([Html.a_id "remote-update"] @ attrs)
-      ~header:(make_section_header ~title:"Дистанционное обновление" [])
-      [ Card'.create_media
-          [ make_placeholder ()
-          ; Progress.create ~closed:true ()
-          ]
-          ()
+    make_section
+      ?classes
+      ~attrs:([Html.a_id "remote-update"] @ attrs)
+      ~header:
+        (make_section_header ~title:"Дистанционное обновление" [])
+      [ Card'.create_media [make_placeholder (); Progress.create ~closed:true ()] ()
       ; Card'.create_actions
           [ Button.create
               ~appearance:Raised
               ~label:(state_to_action_label ~auto_reboot default_state)
-              ()
-          ]
-          ()
-      ]
+              () ]
+          () ]
 end

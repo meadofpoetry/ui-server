@@ -3,7 +3,11 @@ open Components
 let base_class = "topology__drawer"
 
 let make_header ~title () =
-  let close = Icon_button.make ~icon:Icon.SVG.(make_simple Path.close)#root () in
+  let icon =
+    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
+    @@ Icon.SVG.(Markup_js.create_of_d Path.close)
+  in
+  let close = Icon_button.make ~icon () in
   let title = Typography.Text.make ~font:Headline_5 title in
   let box = Box.make ~dir:`Row [title#widget; close#widget] in
   box#add_class @@ BEM.add_element base_class "header";

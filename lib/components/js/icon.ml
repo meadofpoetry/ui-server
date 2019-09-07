@@ -1,10 +1,10 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Icon
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 module Font = struct
-  module Markup = Markup.Font
+  module Markup_js = Markup_js.Font
 
   class t (elt : Dom_html.element Js.t) () =
     object
@@ -20,7 +20,7 @@ module Font = struct
 
   let make (icon : string) : t =
     let (elt : Dom_html.element Js.t) =
-      Tyxml_js.To_dom.of_element @@ Markup.create ~icon ()
+      Tyxml_js.To_dom.of_element @@ Markup_js.create ~icon ()
     in
     new t elt ()
 
@@ -28,7 +28,7 @@ module Font = struct
 end
 
 module SVG = struct
-  module Markup = Markup.SVG
+  module Markup_js = Markup_js.SVG
   module Path = Components_tyxml.Svg_icons
 
   (* paths variable is passed to avoid double allocation of paths objects *)
@@ -51,13 +51,14 @@ module SVG = struct
         @@ Element.children super#root
     end
 
-  let make_path ?fill d = Markup.create_path ?fill d ()
-
-  let make ?size paths () : t =
-    let elt = Tyxml_js.To_dom.of_element @@ Markup.create ?size paths () in
+  let make ?classes ?attrs ?size paths : t =
+    let elt =
+      Tyxml_js.To_dom.of_element @@ Markup_js.create ?classes ?attrs ?size paths
+    in
     new t elt ()
 
-  let make_simple ?fill ?size (d : string) : t = make ?size [make_path ?fill d] ()
+  let make_of_d ?fill ?size (d : string) : t =
+    make ?size [Markup_js.create_path ?fill ~d ()]
 
   let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
 end

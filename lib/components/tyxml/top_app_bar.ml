@@ -62,10 +62,10 @@ module Make
 struct
   open Html
 
-  let create_title ?(classes = []) ?(attrs = []) ~content () : 'a elt =
+  let create_title ?(classes = []) ?(attrs = []) content : 'a elt =
     span ~a:([a_class (CSS.title :: classes)] @ attrs) content
 
-  let create_section ?(classes = []) ?(attrs = []) ?align ~content () : 'a elt =
+  let create_section ?(classes = []) ?(attrs = []) ?align content : 'a elt =
     let classes =
       match align with
       | None -> classes
@@ -80,3 +80,5 @@ struct
   let create ?(classes = []) ?(attrs = []) ~rows () : 'a elt =
     header ~a:([a_class (CSS.root :: classes)] @ attrs) rows
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

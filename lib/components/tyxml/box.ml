@@ -91,8 +91,7 @@ struct
       ?align_content
       ?wrap
       ?(vertical = false)
-      ~content
-      () : 'a elt =
+      content : 'a elt =
     let tag =
       match tag with
       | None -> div

@@ -81,3 +81,5 @@ struct
         |> cons_if disabled @@ a_disabled ())
       children
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

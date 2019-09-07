@@ -11,6 +11,7 @@ let on_loaded (scaffold : Scaffold.t) () =
       shutdown#destroy ());
   Lwt.return_unit
 
-let () = Lwt.async (fun () ->
-    let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
-    scaffold#loaded >>= on_loaded scaffold)
+let () =
+  Lwt.async (fun () ->
+      let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
+      scaffold#loaded >>= on_loaded scaffold)

@@ -2,6 +2,8 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml.Tyxml_js
 open Js_of_ocaml_lwt
 open Components
+include Page_mosaic_video_tyxml.Player
+module Markup = Make (Xml) (Svg) (Html)
 
 let ( >>= ) = Lwt.( >>= )
 
@@ -17,9 +19,6 @@ let get_boolean_attr ?(default = false) (elt : #Dom_html.element Js.t) (attr : s
 
 let set_boolean_attr (elt : #Dom_html.element Js.t) (attr : string) (v : bool) : unit =
   elt##setAttribute (Js.string attr) (Js.string @@ string_of_bool v)
-
-include Page_mosaic_video_tyxml.Player
-module Markup = Make (Xml) (Svg) (Html)
 
 module Selectors = struct
   let video = "." ^ CSS.video
@@ -121,7 +120,7 @@ module State_overlay = struct
 end
 
 let make_big_button () =
-  let icon = Icon.SVG.(make_simple Path.play)#root in
+  let icon = To_dom.of_element @@ Icon.SVG.(Markup_js.create_of_d Path.play) in
   let ph = Components_lab.Placeholder.make icon "" in
   ph#add_class CSS.big_button;
   ph

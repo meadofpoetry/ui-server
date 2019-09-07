@@ -14,11 +14,11 @@ module CSS = struct
   let hotkey = BEM.add_element root "hotkey"
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-           and module Svg := Svg) = struct
+module Make
+    (Xml : Xml_sigs.NoWrap)
+    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
+    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+struct
   open Html
 
   let create_hotkey ?(classes = []) ?(attrs = []) hotkey () : 'a elt =
@@ -39,10 +39,7 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   let create_section ?(classes = []) ?(attrs = []) ~title ~options () : 'a elt =
     let classes = CSS.section :: classes in
-    div ~a:([a_class classes] @ attrs)
-      [ title
-      ; div options
-      ]
+    div ~a:([a_class classes] @ attrs) [title; div options]
 
   let create ?(classes = []) ?(attrs = []) ~sections () : 'a elt =
     let classes = CSS.root :: classes in

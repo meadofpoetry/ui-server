@@ -2,7 +2,7 @@ open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 include Components_tyxml.Icon_button
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -75,7 +75,7 @@ let make
     @@
     match tag with
     | `Button ->
-        Markup.create
+        Markup_js.create
           ?classes
           ?ripple
           ?on
@@ -84,7 +84,7 @@ let make
           ~icon:(Tyxml_js.Of_dom.of_element icon)
           ()
     | `Anchor ->
-        Markup.create_anchor
+        Markup_js.create_anchor
           ?classes
           ?ripple
           ?on

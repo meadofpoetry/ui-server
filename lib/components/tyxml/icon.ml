@@ -8,7 +8,6 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  open Utils
 
   module Font = struct
     let create ?(classes = []) ?(attrs = []) ~icon () : 'a elt =
@@ -16,12 +15,14 @@ struct
   end
 
   module SVG = struct
-    let create_path ?(classes = []) ?(attrs = []) ?fill d () : 'a Svg.elt =
+    let create_path ?(classes = []) ?(attrs = []) ?fill ~d () : 'a Svg.elt =
       Svg.path
-        ~a:([Svg.a_class classes; Svg.a_d d] @ attrs |> map_cons_option Svg.a_fill fill)
+        ~a:
+          ([Svg.a_class classes; Svg.a_d d] @ attrs
+          |> Utils.map_cons_option Svg.a_fill fill)
         []
 
-    let create ?(classes = []) ?(attrs = []) ?(size = 24) paths () : 'a elt =
+    let create ?(classes = []) ?(attrs = []) ?(size = 24) paths : 'a elt =
       let sz = float_of_int size in
       svg
         ~a:
@@ -32,5 +33,10 @@ struct
             ; a_viewBox (0., 0., sz, sz) ]
             @ attrs)
         paths
+
+    let create_of_d ?classes ?attrs ?size ?fill d : 'a elt =
+      create ?classes ?attrs ?size [create_path ?fill ~d ()]
   end
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

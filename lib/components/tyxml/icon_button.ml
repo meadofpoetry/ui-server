@@ -20,7 +20,6 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  open Utils
 
   let create
       ?(classes = [])
@@ -31,13 +30,13 @@ struct
       ?on_icon
       ~icon
       () : 'a elt =
-    let classes = classes |> cons_if on CSS.on |> List.cons CSS.root in
+    let classes = classes |> Utils.cons_if on CSS.on |> List.cons CSS.root in
     button
       ~a:
         ([a_class classes] @ attrs
-        |> cons_if_lazy ripple (fun () -> a_user_data "ripple" "true")
-        |> cons_if_lazy disabled a_disabled)
-      (on_icon ^:: [icon])
+        |> Utils.cons_if_lazy ripple (fun () -> a_user_data "ripple" "true")
+        |> Utils.cons_if_lazy disabled a_disabled)
+      Utils.(on_icon ^:: [icon])
 
   let create_anchor
       ?(classes = [])
@@ -48,11 +47,13 @@ struct
       ?on_icon
       ~icon
       () =
-    let classes = classes |> cons_if on CSS.on |> List.cons CSS.root in
+    let classes = classes |> Utils.cons_if on CSS.on |> List.cons CSS.root in
     a
       ~a:
         ([a_class classes] @ attrs
-        |> map_cons_option a_href href
-        |> cons_if_lazy ripple (fun () -> a_user_data "ripple" "true"))
-      (on_icon ^:: [icon])
+        |> Utils.map_cons_option a_href href
+        |> Utils.cons_if_lazy ripple (fun () -> a_user_data "ripple" "true"))
+      Utils.(on_icon ^:: [icon])
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

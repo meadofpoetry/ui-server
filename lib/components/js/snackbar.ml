@@ -332,9 +332,8 @@ let make
     | None -> None
     | Some True ->
         let d = Components_tyxml.Svg_icons.close in
-        let path = Icon.SVG.Markup.(create_path d ()) in
-        let icon = Icon.SVG.Markup.create [path] () in
-        Some (Icon_button.Markup.create ~classes:[CSS.dismiss] ~ripple:false ~icon ())
+        let icon = Icon.SVG.Markup_js.create_of_d d in
+        Some (Icon_button.Markup_js.create ~classes:[CSS.dismiss] ~ripple:false ~icon ())
     | Some (Widget w) -> Some (Widget.to_markup w)
   in
   let actions =

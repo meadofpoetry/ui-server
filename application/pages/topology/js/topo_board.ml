@@ -10,15 +10,7 @@ module CSS = struct
   let body = BEM.add_element root "body"
 end
 
-let rec eq_port (p1 : Topology.topo_port) (p2 : Topology.topo_port) =
-  p1.port = p2.port
-  &&
-  match p1.child, p2.child with
-  | Input i1, Input i2 -> Topology.equal_topo_input i1 i2
-  | Board b1, Board b2 -> eq_board b1 b2
-  | _, _ -> false
-
-and eq_board (b1 : Topology.topo_board) (b2 : Topology.topo_board) =
+let eq_board (b1 : Topology.topo_board) (b2 : Topology.topo_board) =
   let open Topology in
   String.equal b1.model b2.model
   && String.equal b1.manufacturer b2.manufacturer
@@ -164,7 +156,10 @@ module Header = struct
       match Topology.Env.find_opt "show-settings" board.env with
       | Some "false" -> None
       | _ ->
-          let icon = Icon.SVG.(make_simple Path.settings)#root in
+          let icon =
+            Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
+            @@ Icon.SVG.(Markup_js.create_of_d Path.settings)
+          in
           let button = Icon_button.make ~icon () in
           button#add_class Topo_block.CSS.header_action_settings;
           Some button

@@ -251,7 +251,7 @@ let make_plp ?value (plps : int list React.signal) =
   let event, push = React.S.create None in
   let list = Item_list.make [] in
   let menu = Menu.make_of_item_list ~focus_on_open:false list in
-  let trailing_icon = Icon.SVG.(make_simple Path.menu_down) in
+  let trailing_icon = Icon.SVG.(make_of_d Path.menu_down) in
   trailing_icon#set_attribute "tabindex" "0";
   let input =
     Textfield.make_textfield

@@ -238,8 +238,9 @@ class t
       let leading =
         match app_bar#leading, drawer with
         | None, Some _ ->
-            let d = Components_tyxml.Svg_icons.menu in
-            let icon = Icon.SVG.(make_simple d)#root in
+            let icon =
+              Tyxml_js.To_dom.of_element @@ Icon.SVG.(Markup_js.create_of_d Path.menu)
+            in
             let w = Icon_button.make ~icon () in
             w#add_class Top_app_bar.CSS.navigation_icon;
             Some w#root

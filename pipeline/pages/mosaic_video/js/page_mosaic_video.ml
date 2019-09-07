@@ -2,18 +2,17 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml.Tyxml_js
 open Components
 open Pipeline_http_js
-
-let ( >>= ) = Lwt.bind
-
 module CSS = Page_mosaic_video_tyxml.CSS
 module Markup = Page_mosaic_video_tyxml.Make (Xml) (Svg) (Html)
 module Hotkeys = Page_mosaic_video_tyxml.Hotkeys.Make (Xml) (Svg) (Html)
 
-module Selectors = struct
+module Selector = struct
   let overflow_menu = "." ^ Components_lab.Overflow_menu.CSS.root
 
   let side_sheet_icon = "." ^ CSS.side_sheet_icon
 end
+
+let ( >>= ) = Lwt.bind
 
 module RTC = struct
   open Janus_js
@@ -197,7 +196,7 @@ end
 
 let tie_side_sheet_with_toggle (scaffold : Scaffold.t) =
   match
-    Element.query_selector scaffold#root Selectors.side_sheet_icon, scaffold#side_sheet
+    Element.query_selector scaffold#root Selector.side_sheet_icon, scaffold#side_sheet
   with
   | Some i, Some side_sheet ->
       Lwt.async (fun () ->
@@ -220,7 +219,7 @@ let make_hotkeys_dialog () =
   Dialog.make ~title ~content ~actions:[cancel] ()
 
 let tie_menu_with_toggle (scaffold : Scaffold.t) (wizard_dialog, show_wizard) =
-  match Element.query_selector scaffold#root Selectors.overflow_menu with
+  match Element.query_selector scaffold#root Selector.overflow_menu with
   | None -> None
   | Some elt ->
       let menu = Components_lab.Overflow_menu.attach elt in

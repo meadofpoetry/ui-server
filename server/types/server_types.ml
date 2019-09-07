@@ -1,5 +1,4 @@
 module Distinguished_name = struct
-
   type k =
     | CN
     | Serialnumber
@@ -17,7 +16,8 @@ module Distinguished_name = struct
     | Initials
     | Pseudonym
     | Generation
-    | Other of string [@@deriving yojson]
+    | Other of string
+  [@@deriving yojson]
 
   let k_to_string = function
     | CN -> "Common Name (CN)"
@@ -39,7 +39,6 @@ module Distinguished_name = struct
     | Other oid -> oid
 
   type t = (k * string) list [@@deriving yojson]
-
 end
 
 module Show_cstruct = struct
@@ -48,6 +47,7 @@ module Show_cstruct = struct
   let of_yojson = function
     | `String s -> Ok (Cstruct.of_string @@ Base64.decode_exn s)
     | _ -> Error "cstruct_of_yojson: invalid json"
+
   let to_yojson (x : Cstruct.t) : Yojson.Safe.t =
     `String (Base64.encode_exn @@ Cstruct.to_string x)
 end
@@ -55,21 +55,21 @@ end
 type settings =
   { https_enabled : bool
   ; tls_cert : (string * certificate) option
-  ; tls_key : string option
-  } [@@deriving yojson]
+  ; tls_key : string option }
+[@@deriving yojson]
+
 and certificate =
   { serial : Show_cstruct.t
   ; issuer : Distinguished_name.t
   ; validity : Time.t * Time.t
   ; subject : Distinguished_name.t
   ; public_key : public_key
-  ; fingerprints : (hash * Show_cstruct.t) list
-  }
+  ; fingerprints : (hash * Show_cstruct.t) list }
+
 and public_key =
   { typ : [`RSA]
-  ; fingerprint : (hash * Show_cstruct.t) list
-  }
+  ; fingerprint : (hash * Show_cstruct.t) list }
+
 and hash =
   [ `SHA1
-  | `SHA256
-  ]
+  | `SHA256 ]

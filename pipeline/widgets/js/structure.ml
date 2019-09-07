@@ -231,9 +231,11 @@ class t (structure : Structure.Annotated.t) () =
   let actions = Card.Actions.make [buttons] in
   object (self)
     val placeholder =
-      Components_lab.Placeholder.make
-        Icon.SVG.(make_simple Path.information)#root
-        "Потоки не обнаружены"
+      let icon =
+        Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
+        @@ Icon.SVG.(Markup_js.create_of_d Path.information)
+      in
+      Components_lab.Placeholder.make icon "Потоки не обнаружены"
 
     val mutable _treeview = make_treeview structure
 

@@ -1,5 +1,5 @@
 (** CSS class constructors according to BEM methodology
-    @see <https://en.bem.info/>
+    @see <http://getbem.com/naming/>
 *)
 
 let elt_delim = "__"

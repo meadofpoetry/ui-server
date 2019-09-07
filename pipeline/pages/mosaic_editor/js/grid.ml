@@ -2,14 +2,13 @@ open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 open Components
+include Page_mosaic_editor_tyxml.Grid
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 (* Inspired by
  * https://github.com/nathancahill/split
  * https://grid.layoutit.com/
  *)
-
-include Page_mosaic_editor_tyxml.Grid
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 type direction =
   | Col
@@ -584,7 +583,7 @@ class t
             Util.gen_cells
               ~f:(fun ~col ~row () ->
                 Tyxml_js.To_dom.of_element
-                @@ Markup.create_cell
+                @@ Markup_js.create_cell
                 @@ make_cell_position ~col ~row ())
               ~cols:(property_to_num cols)
               ~rows:(property_to_num rows)
@@ -608,7 +607,7 @@ class t
       (* TODO implement *)
       let grid =
         Tyxml_js.To_dom.of_element
-        @@ Markup.create
+        @@ Markup_js.create
              ~cols:(`Repeat (cols, col_size))
              ~rows:(`Repeat (rows, row_size))
              ~content
@@ -634,7 +633,7 @@ class t
             {col; row; col_span = col_end - col; row_span = row_end - row}
           in
           let (merged : Dom_html.element Js.t) =
-            Tyxml_js.To_dom.of_element @@ Markup.create_cell position
+            Tyxml_js.To_dom.of_element @@ Markup_js.create_cell position
           in
           Element.append_child super#root merged;
           List.iter (Element.remove_child_safe super#root) cells;
@@ -720,7 +719,7 @@ class t
           let col, row = v in
           let (elt : Dom_html.element Js.t) =
             Tyxml_js.To_dom.of_element
-            @@ Markup.create_cell (make_cell_position ~col ~row ())
+            @@ Markup_js.create_cell (make_cell_position ~col ~row ())
           in
           on_cell_insert self elt;
           Element.append_child grid elt)

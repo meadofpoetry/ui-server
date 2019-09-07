@@ -1,6 +1,5 @@
 open Netlib.Uri
-
-module Api_http = Api_js.Http.Make(Application_types.Body)
+module Api_http = Api_js.Http.Make (Application_types.Body)
 
 module Event = struct
   let get_config sock =
@@ -8,7 +7,8 @@ module Event = struct
     Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("server/config" @/ empty)
       ~query:Query.empty
-      of_yojson sock
+      of_yojson
+      sock
 end
 
 let get_config () =
@@ -17,11 +17,11 @@ let get_config () =
     ~path:Path.Format.("api/server/config" @/ empty)
     ~query:Query.empty
     (fun _env -> function
-       | Error _ as e -> Lwt.return e
-       | Ok x ->
-         match Server_types.settings_of_yojson x with
-         | Error e -> Lwt.return_error (`Conv_error e)
-         | Ok _ as x -> Lwt.return x)
+      | Error _ as e -> Lwt.return e
+      | Ok x -> (
+        match Server_types.settings_of_yojson x with
+        | Error e -> Lwt.return_error (`Conv_error e)
+        | Ok _ as x -> Lwt.return x))
 
 let restart () =
   Api_http.perform_unit
@@ -38,7 +38,8 @@ let set_https_enabled (x : bool) =
     ~query:Query.empty
     (fun _env -> Lwt.return)
 
-let set_tls_crt ?upload_progress
+let set_tls_crt
+    ?upload_progress
     ~(name : string)
     (cert : Js_of_ocaml.File.blob Js_of_ocaml.Js.t) =
   Api_js.Http.perform_file
@@ -49,7 +50,8 @@ let set_tls_crt ?upload_progress
     name
     (fun _env x -> Lwt.return x)
 
-let set_tls_key ?upload_progress
+let set_tls_key
+    ?upload_progress
     ~(name : string)
     (key : Js_of_ocaml.File.blob Js_of_ocaml.Js.t) =
   Api_js.Http.perform_file

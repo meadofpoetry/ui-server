@@ -13,35 +13,37 @@ end
 
 type pid_flags =
   { has_pcr : bool
-  ; scrambled : bool
-  } [@@deriving ord]
+  ; scrambled : bool }
+[@@deriving ord]
 
-let make_pid_flags_widget { has_pcr; scrambled } =
-  let pcr = match has_pcr with
+let make_pid_flags_element {has_pcr; scrambled} =
+  let pcr =
+    match has_pcr with
     | false -> None
-    | true ->
-      Some Icon.SVG.(make_simple Path.clock_outline) in
-  let scr = match scrambled with
+    | true -> Some Icon.SVG.(Markup_js.create_of_d Path.clock_outline)
+  in
+  let scr =
+    match scrambled with
     | false -> None
-    | true ->
-      Some Icon.SVG.(make_simple Path.lock) in
-  let ( ^:: ) x l = match x with None -> l | Some x -> x :: l in
+    | true -> Some Icon.SVG.(Markup_js.create_of_d Path.lock)
+  in
+  let ( ^:: ) x l =
+    match x with
+    | None -> l
+    | Some x -> x :: l
+  in
   let widgets = scr ^:: pcr ^:: [] in
-  (Box.make ~dir:`Row widgets)#node
+  Js_of_ocaml_tyxml.Tyxml_js.Html.toelt @@ Box.Markup_js.create widgets
 
 let pid_type_fmt : MPEG_TS.PID.Type.t Data_table.Fmt.custom =
-  MPEG_TS.PID.Type.{ to_string
-                   ; of_string = (fun _ -> assert false)
-                   ; compare
-                   ; is_numeric = false
-                   }
+  MPEG_TS.PID.Type.
+    {to_string; of_string = (fun _ -> assert false); compare; is_numeric = false}
 
 let pid_flags_fmt : pid_flags Data_table.Fmt.custom_elt =
-  { to_elt = make_pid_flags_widget
+  { to_elt = make_pid_flags_element
   ; of_elt = (fun _ -> assert false)
   ; compare = compare_pid_flags
-  ; is_numeric = false
-  }
+  ; is_numeric = false }
 
 let dec_pid_fmt = Data_table.Fmt.Int
 
@@ -49,9 +51,8 @@ let hex_pid_fmt =
   Data_table.Fmt.Custom
     { to_string = Util.pid_to_hex_string
     ; of_string = int_of_string
-    ; compare = compare
-    ; is_numeric = true
-    }
+    ; compare
+    ; is_numeric = true }
 
 let make_table_fmt ?(is_hex = false) () =
   let open Data_table in
@@ -60,15 +61,14 @@ let make_table_fmt ?(is_hex = false) () =
   let br_fmt = Option (Float, "-") in
   let pct_fmt = Option (Float, "-") in
   let pid_fmt = if is_hex then hex_pid_fmt else dec_pid_fmt in
-  (make_column ~sortable:true ~title:"PID" (), pid_fmt)
-  :: (make_column ~sortable:true ~title:"Тип" (), Custom pid_type_fmt)
-  :: (make_column ~title:"Доп. инфо" (), Custom_elt pid_flags_fmt)
-  :: (make_column ~sortable:true ~title:"Сервис" (), Option (String, ""))
-  :: (make_column ~sortable:true ~title:"Битрейт, Мбит/с" (), br_fmt)
-  :: (make_column ~sortable:true ~title:"%" (), pct_fmt)
-  :: (make_column ~sortable:true ~title:"Min, Мбит/с" (), br_fmt)
-  :: (make_column ~sortable:true ~title:"Max, Мбит/с" (), br_fmt)
-  :: []
+  [ make_column ~sortable:true ~title:"PID" (), pid_fmt
+  ; make_column ~sortable:true ~title:"Тип" (), Custom pid_type_fmt
+  ; make_column ~title:"Доп. инфо" (), Custom_elt pid_flags_fmt
+  ; make_column ~sortable:true ~title:"Сервис" (), Option (String, "")
+  ; make_column ~sortable:true ~title:"Битрейт, Мбит/с" (), br_fmt
+  ; make_column ~sortable:true ~title:"%" (), pct_fmt
+  ; make_column ~sortable:true ~title:"Min, Мбит/с" (), br_fmt
+  ; make_column ~sortable:true ~title:"Max, Мбит/с" (), br_fmt ]
 
 (* let add_row (table : 'a Data_table.t) ((pid, info) : int * PID_info.t) =
  *   let open Data_table in

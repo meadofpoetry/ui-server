@@ -1,7 +1,7 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Box
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 class t (elt : Dom_html.element Js.t) () =
   object
@@ -41,15 +41,14 @@ let make
   in
   let elt =
     Tyxml_js.To_dom.of_element
-    @@ Markup.create
+    @@ Markup_js.create
          ?tag
          ?justify_content
          ?align_items
          ?align_content
          ?wrap
          ~vertical
-         ~content
-         ()
+         content
   in
   new t elt ()
 

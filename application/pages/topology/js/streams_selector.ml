@@ -348,7 +348,9 @@ module Input = struct
   let make_stream_list stream_list =
     let make_board_stream_entry del_item del_stream (stream : Stream.t) =
       let text = Stream.Source.to_string stream.source.info in
-      let icon = Icon.SVG.(make_simple Path.delete)#root in
+      let icon =
+        Tyxml_js.To_dom.of_element @@ Icon.SVG.(Markup_js.create_of_d Path.delete)
+      in
       let del_button = Icon_button.make ~ripple:false ~icon () in
       let item = Item_list.Item.make ~meta:del_button text in
       let click =
