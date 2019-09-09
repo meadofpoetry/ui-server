@@ -183,8 +183,8 @@ class t (elt : Dom_html.element Js.t) () =
   end
 
 let make ?(vertical = false) (side1 : #Widget.t) (side2 : #Widget.t) : t =
-  let panel1 = Markup_js.create_panel [Widget.to_markup side1] in
-  let panel2 = Markup_js.create_panel [Widget.to_markup side2] in
+  let panel1 = Markup_js.create_panel [Widget.markup side1] in
+  let panel2 = Markup_js.create_panel [Widget.markup side2] in
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element @@ Markup_js.create ~vertical panel1 panel2
   in

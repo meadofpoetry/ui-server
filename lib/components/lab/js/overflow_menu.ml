@@ -34,35 +34,42 @@ let fail_no_element ?base name =
   | Some s -> failwith @@ s ^ ": " ^ error
 
 let menu_of_actions actions =
-  Menu.make_of_item_list
-  @@ Item_list.make
-  @@ List.map
-       (fun x ->
-         let icon =
-           match Element.query_selector x Selector.icon with
-           | None -> None
-           | Some x ->
-               let elt = Js.Unsafe.coerce @@ x##cloneNode Js._true in
-               Element.remove_class elt Icon_button.CSS.icon;
-               Some (Js_of_ocaml_tyxml.Tyxml_js.Of_dom.of_element elt)
-         in
-         let name =
-           match Element.get_attribute x Attr.title with
-           | Some x -> x
-           | None -> (
-             match Element.get_attribute x Attr.aria_label with
-             | Some x -> x
-             | None ->
-                 let err =
-                   Printf.sprintf
-                     "%s: `title` or `aria-label` attribute should be provided for \
-                      every action"
-                     name
-                 in
-                 failwith err)
-         in
-         Item_list.Item.make ?graphic:icon ~role:"menuitem" name)
-       actions
+  Menu.make
+    ~list:
+      (Item_list.Markup_js.create
+         ~children:
+           (List.map
+              (fun x ->
+                let icon =
+                  match Element.query_selector x Selector.icon with
+                  | None -> None
+                  | Some x ->
+                      let elt = Js.Unsafe.coerce @@ x##cloneNode Js._true in
+                      Element.remove_class elt Icon_button.CSS.icon;
+                      Some (Js_of_ocaml_tyxml.Tyxml_js.Of_dom.of_element elt)
+                in
+                let name =
+                  match Element.get_attribute x Attr.title with
+                  | Some x -> x
+                  | None -> (
+                    match Element.get_attribute x Attr.aria_label with
+                    | Some x -> x
+                    | None ->
+                        let err =
+                          Printf.sprintf
+                            "%s: `title` or `aria-label` attribute should be provided \
+                             for every action"
+                            name
+                        in
+                        failwith err)
+                in
+                Menu.Markup_js.Item_list.create_item
+                  ?graphic:icon
+                  ~primary_text:(`Text name)
+                  ())
+              actions)
+         ())
+    ()
 
 class t ?(resize_handler = true) (elt : Dom_html.element Js.t) () =
   object (self)
@@ -109,7 +116,7 @@ class t ?(resize_handler = true) (elt : Dom_html.element Js.t) () =
                   self#layout ();
                   Lwt.return_unit)
             else Lwt.return_unit)
-          ; seq_loop (make_event Menu.Event.selected) (self#menu)#root (fun e _ ->
+          ; Menu.Lwt_js_events.selects (self#menu)#root (fun e _ ->
                 let detail = Widget.event_detail e in
                 let actions = Element.children actions_elt in
                 match List.nth_opt actions detail##.index with

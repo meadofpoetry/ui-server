@@ -97,11 +97,14 @@ let initialize id control =
   let pie = Pid_bitrate_pie_chart.make () in
   let rate = Bitrate_summary.make () in
   let pids = Pid_summary.make () in
-  let pie_cell = Layout_grid.Cell.make ~span:4 ~span_tablet:8 [pie] in
+  let pie_cell =
+    Layout_grid.Cell.make ~span:4 ~span_tablet:8 ~children:[pie#markup] ()
+  in
   let rate_cell =
     Layout_grid.Cell.make
       ~span:8
-      [rate#widget; Widget.coerce @@ Divider.make (); pids#widget]
+      ~children:[rate#markup; Divider.Markup_js.create_hr (); pids#markup]
+      ()
   in
   let cells = [pie_cell; rate_cell] in
   Element.add_class elt Layout_grid.CSS.inner;

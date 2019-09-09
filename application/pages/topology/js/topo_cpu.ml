@@ -31,23 +31,31 @@ module Header = struct
       match has_settings_button with
       | false -> None
       | true ->
-          let icon = Icon.SVG.(Markup_js.create_of_d Path.settings) in
-          let button = Icon_button.make ~icon () in
-          button#add_class Topo_block.CSS.header_action_settings;
+          let button =
+            Icon_button.make
+              ~classes:[Topo_block.CSS.header_action_settings]
+              ~icon:Icon.SVG.(Markup_js.create ~d:Path.settings ())
+              ()
+          in
           Some button
     in
-    object (self)
-      inherit Topo_block.Header.t ?action:settings ~title () as super
+    object
+      inherit
+        Topo_block.Header.t ?action:(Option.map Widget.markup settings) ~title () as super
 
       method settings_icon = settings
 
       method! init () : unit =
-        super#init ();
-        super#add_class CSS.header
+        super#add_class CSS.header;
+        super#init ()
 
       method! layout () : unit =
-        super#layout ();
-        Option.iter Widget.layout self#settings_icon
+        Option.iter Widget.layout settings;
+        super#layout ()
+
+      method! destroy () : unit =
+        Option.iter Widget.destroy settings;
+        super#destroy ()
     end
 
   let create (has_settings_button : bool) (cpu : Topology.topo_cpu) =
@@ -113,14 +121,12 @@ class t
       match make_settings with
       | Some make -> make ()
       | None ->
-          let icon =
-            Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-            @@ Icon.SVG.(Markup_js.create_of_d Path.stop)
-          in
           let ph =
             Components_lab.Placeholder.make
-              icon
-              "Нет доступных настроек для модуля"
+              ~icon:Icon.SVG.(Markup_js.create ~d:Path.stop ())
+              ~text:
+                (`Text "Нет доступных настроек для модуля")
+              ()
           in
           ph#widget
   end

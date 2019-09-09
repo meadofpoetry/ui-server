@@ -38,10 +38,13 @@ let make (cpu : Topology.topo_cpu) (socket : Api_js.Websocket.JSON.t) :
   in
   let tabs =
     [ ( `Fun (wrap (make_streams cpu))
-      , Components.Tab.make ~label:"Выбор потоков" () )
-    ; `Fun (wrap make_structure), Components.Tab.make ~label:"Выбор PID" () ]
+      , Components.Tab.Markup_js.create
+          ~text_label:(`Text "Выбор потоков")
+          () )
+    ; ( `Fun (wrap make_structure)
+      , Components.Tab.Markup_js.create ~text_label:(`Text "Выбор PID") () ) ]
   in
-  let bar, body = Components.Tab_bar.make_bind tabs in
+  let bar, body = Components.Tab_bar.make_bind ~tabs () in
   body#add_class @@ Components.BEM.add_element base_class "body";
   let box = Components.Widget.create_div () in
   box#append_child bar;

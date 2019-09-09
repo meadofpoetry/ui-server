@@ -18,7 +18,7 @@ let get_input_point ~num i (elt : #Dom_html.element Js.t) : point =
 class switch (port : Topology.topo_port) setter () =
   let _class = "topology__switch" in
   let s_forbidden, set_forbidden = React.S.create ~eq:( = ) false in
-  let elt = Tyxml_js.To_dom.of_element @@ Components.Switch.Markup.create () in
+  let elt = Tyxml_js.To_dom.of_element @@ Components.Switch.Markup_js.create () in
   object (self)
     inherit Components.Switch.t elt () as super
 

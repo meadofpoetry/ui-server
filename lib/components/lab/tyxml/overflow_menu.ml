@@ -22,7 +22,7 @@ struct
     let icon =
       match icon with
       | Some x -> x
-      | None -> Icon.SVG.(create_of_d Svg_icons.dots_vertical)
+      | None -> Icon.SVG.(create ~d:Svg_icons.dots_vertical ())
     in
     Icon_button.create ~classes ?attrs ~icon ()
 

@@ -8,10 +8,11 @@ let markup (input : Topology.topo_input) =
       ~a:[a_class ["mdc-chip"; "topology__input"]]
       [ div ~a:[a_class ["mdc-chip__text"]] [txt name]
       ; Components.Icon.SVG.(
-          Markup_js.create_of_d
+          Markup_js.create
             ~size:24
             ~classes:["mdc-chip__icon"; "mdc-chip__icon--trailing"]
-            Path.arrow_right) ])
+            ~d:Path.arrow_right
+            ()) ])
 
 class t ~input () =
   let body = Tyxml_js.To_dom.of_element @@ markup input in

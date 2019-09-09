@@ -16,8 +16,17 @@ module Make
 struct
   open Html
 
-  let create ?(classes = []) ?(attrs = []) ?for_ ?label ?(children = []) () : 'a elt =
-    let classes = CSS.root :: classes in
+  let create
+      ?(classes = [])
+      ?(attrs = [])
+      ?(float_above = false)
+      ?for_
+      ?label
+      ?(children = [])
+      () : 'a elt =
+    let classes =
+      classes |> Utils.cons_if float_above CSS.float_above |> List.cons CSS.root
+    in
     Html.label
       ~a:([a_class classes] @ attrs |> Utils.map_cons_option a_label_for for_)
       (Utils.map_cons_option txt label children)

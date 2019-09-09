@@ -60,7 +60,7 @@ let make_submit_button ethernet ipv4 dns routes config open_dialog =
 
 let () =
   let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
-  let snackbar = Snackbar.make ~label:"" () in
+  let snackbar = Snackbar.make ~label:(`Text "") () in
   let thread =
     Pc_control_http_js.Network.get_config ()
     >>=? fun config ->
@@ -103,7 +103,9 @@ let () =
       Widget.create
       @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
       @@ Markup_js.create
-           [ethernet#markup; ipv4#markup; dns#markup; routes#markup; submit#markup]
+           ~children:
+             [ethernet#markup; ipv4#markup; dns#markup; routes#markup; submit#markup]
+           ()
     in
     let event' = React.E.map update_config event in
     page#set_on_destroy (fun () ->

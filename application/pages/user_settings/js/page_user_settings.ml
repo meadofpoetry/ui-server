@@ -29,7 +29,7 @@ let () =
     let page =
       Components.Widget.create
       @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-      @@ Markup_js.create (account#markup :: content)
+      @@ Markup_js.create ~children:(account#markup :: content) ()
     in
     Lwt.return_ok page
   in

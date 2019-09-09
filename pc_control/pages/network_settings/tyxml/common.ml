@@ -28,20 +28,8 @@ struct
       ()
 
   let create_textfield ?value ~label ~id () : 'a elt =
-    let id' = id ^ "-input" in
-    let input = Unsafe.coerce_elt @@ Textfield_markup.create_input ~id:id' ?value () in
-    let label =
-      Floating_label_markup.create
-        ~classes:
-          (match value with
-          | None -> []
-          | Some _ -> [Components_tyxml.Floating_label.CSS.float_above])
-        ~for_:id'
-        label
-        ()
-    in
-    let line_ripple = Line_ripple_markup.create () in
-    Textfield_markup.create ~attrs:[a_id id] ~input ~label ~line_ripple ()
+    let input_id = id ^ "-input" in
+    Textfield_markup.create ?value ~attrs:[a_id id] ~input_id ~label:(`Text label) ()
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

@@ -14,20 +14,17 @@ struct
   open Components
 
   let make_tab ?active ~id ~controls label =
-    let indicator = Tab_indicator.(create ?active (create_content ()) ()) in
-    let text_label = Tab.create_text_label label () in
     Tab.create
       ?active
+      ~text_label:(`Text label)
       ~attrs:[a_id id; a_aria "controls" [controls]]
-      ~indicator
-      (Tab.create_content ~text_label ())
       ()
 
   let make_tab_bar ?classes ?attrs tabs =
     let scroll_content =
-      Tab_scroller.create_scroll_content ~attrs:[a_role ["tablist"]] tabs ()
+      Tab_scroller.create_scroll_content ~attrs:[a_role ["tablist"]] ~tabs ()
     in
-    let scroll_area = Tab_scroller.create_scroll_area ~content:scroll_content () in
+    let scroll_area = Tab_scroller.create_scroll_area ~scroll_content () in
     let scroller = Tab_scroller.create ~scroll_area () in
     Tab_bar.create ?classes ?attrs ~scroller ()
 

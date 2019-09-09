@@ -67,10 +67,10 @@ class t (elt : Dom_html.element Js.t) =
                 let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
                 let snackbar =
                   Snackbar.make
-                    ~label:msg
-                    ~dismiss:True
+                    ~label:(`Text msg)
+                    ~dismiss:`True
                     ~stacked:true
-                    ~action:(Label "Повторить")
+                    ~action:(`Text "Повторить")
                     ()
                 in
                 scaffold#show_snackbar

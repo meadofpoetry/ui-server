@@ -59,7 +59,7 @@ module Text = struct
 
   let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
 
-  let create ?classes ?attrs ?font ?text ?children () =
+  let make ?classes ?attrs ?font ?text ?children () =
     Markup_js.create ?classes ?attrs ?font ?text ?children ()
     |> Tyxml_js.To_dom.of_element
     |> attach

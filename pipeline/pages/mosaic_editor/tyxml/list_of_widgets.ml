@@ -22,7 +22,7 @@ struct
   let create_item ?(classes = []) ?(attrs = []) ?id (widget : Wm.widget) : 'a elt =
     let classes = CSS.item :: Item_list.CSS.item :: classes in
     let path = Widget.widget_type_to_svg_path widget.type_ in
-    let graphic = Icon_markup.SVG.(create_of_d path) in
+    let graphic = Icon_markup.SVG.(create ~d:path ()) in
     let typ =
       match widget.type_, widget.aspect with
       | Wm.Video, None -> "Видео"

@@ -120,8 +120,12 @@ module State_overlay = struct
 end
 
 let make_big_button () =
-  let icon = To_dom.of_element @@ Icon.SVG.(Markup_js.create_of_d Path.play) in
-  let ph = Components_lab.Placeholder.make icon "" in
+  let ph =
+    Components_lab.Placeholder.make
+      ~icon:Icon.SVG.(Markup_js.create ~d:Path.play ())
+      ~text:(`Text "")
+      ()
+  in
   ph#add_class CSS.big_button;
   ph
 
@@ -215,7 +219,7 @@ class t (elt : #Dom_html.element Js.t) () =
              let progress =
                Components_lab.Placeholder.make_progress
                  ~size:60
-                 ~text:"Загружаем видео"
+                 ~text:(`Text "Загружаем видео")
                  ()
              in
              self#set_overlay progress;

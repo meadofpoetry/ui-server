@@ -30,7 +30,7 @@ let on_loaded (scaffold : Scaffold.t) () =
     let page =
       Widget.create
       @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-      @@ Markup_js.create [remote_updates#markup]
+      @@ Markup_js.create ~children:[remote_updates#markup] ()
     in
     page#set_on_destroy (fun () ->
         remote_updates#destroy ();

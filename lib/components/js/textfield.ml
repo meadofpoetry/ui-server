@@ -916,6 +916,15 @@ let make
       | Some v -> Some (input_type_of_validation v)
       | None -> None)
   in
+  (* Stringify value, if any *)
+  let value =
+    match value with
+    | None -> None
+    | Some x -> (
+      match validation with
+      | None -> None
+      | Some validation -> Some (valid_to_string validation x))
+  in
   Markup_js.create
     ?classes
     ?attrs

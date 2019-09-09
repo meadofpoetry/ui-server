@@ -4,9 +4,7 @@ module Api_http = Api_cohttp.Make (User) (Body)
 module Api_template = Api_cohttp_template.Make (User)
 module Api_websocket = Api_websocket.Make (User) (Body) (Body_ws)
 
-let icon x =
-  let open Components_tyxml.Icon.Markup.SVG in
-  create_of_d x
+let icon x = Components_tyxml.Icon.Markup.SVG.create ~d:x ()
 
 let logout_page_props () =
   let goodbye = "До новых встреч!" in

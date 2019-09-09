@@ -20,8 +20,11 @@ struct
       ?classes
       ~attrs:(a_id id :: attrs)
       ~header:
-        (Common_markup.create_section_header ~title:"Настройки Ethernet" [])
-      [mac]
+        (Common_markup.create_section_header
+           ~title:(`Text "Настройки Ethernet")
+           ())
+      ~children:[mac]
+      ()
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

@@ -80,7 +80,7 @@ struct
     let remove =
       Icon_button_markup.create
         ~classes:[CSS.action; CSS.action_remove]
-        ~icon:(Icon_markup.SVG.create_of_d Svg_icons.delete)
+        ~icon:(Icon_markup.SVG.create ~d:Svg_icons.delete ())
         ()
     in
     let info =
@@ -90,12 +90,12 @@ struct
           Some
             (Icon_button_markup.create
                ~classes:[CSS.action; CSS.action_info]
-               ~icon:(Icon_markup.SVG.create_of_d Svg_icons.information)
+               ~icon:(Icon_markup.SVG.create ~d:Svg_icons.information ())
                ())
     in
     div
       ~a:([a_class classes] @ attrs)
-      [ span [Icon_markup.SVG.create_of_d icon; txt title]
+      [ span [Icon_markup.SVG.create ~d:icon (); txt title]
       ; span ~a:[a_class [CSS.filename]] [txt name]
       ; div ~a:[a_class [CSS.actions]] (import :: (info ^:: [remove])) ]
 
@@ -103,16 +103,20 @@ struct
     create_section
       ?classes
       ~attrs:(a_id id :: attrs)
-      ~header:(create_section_header ~title:"Сертификат" [])
-      [ Card_markup.create_media
-          ~classes:[CSS.root]
-          [ create_row
-              ?name:
-                (match v.tls_cert with
-                | None -> None
-                | Some (n, _) -> Some n)
-              `Crt
-          ; create_row ?name:v.tls_key `Key ] ]
+      ~header:(create_section_header ~title:(`Text "Сертификат") ())
+      ~children:
+        [ Card_markup.create_media
+            ~classes:[CSS.root]
+            ~children:
+              [ create_row
+                  ?name:
+                    (match v.tls_cert with
+                    | None -> None
+                    | Some (n, _) -> Some n)
+                  `Crt
+              ; create_row ?name:v.tls_key `Key ]
+            () ]
+      ()
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

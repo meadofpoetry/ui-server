@@ -58,11 +58,11 @@ class t ~set_snackbar (elt : Dom_html.element Js.t) =
                перезагрузки прибора."
               (if (enable#input)#checked then "включен" else "выключен")
           in
-          let snackbar = Snackbar.make ~label () in
+          let snackbar = Snackbar.make ~label:(`Text label) () in
           set_snackbar snackbar >>= fun () -> Lwt.return @@ snackbar#destroy ()
       | Error e ->
           let label = Api_js.Http.error_to_string e in
-          let snackbar = Snackbar.make ~label () in
+          let snackbar = Snackbar.make ~label:(`Text label) () in
           set_snackbar snackbar >>= fun () -> Lwt.return @@ snackbar#destroy ()
   end
 

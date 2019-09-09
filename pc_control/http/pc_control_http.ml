@@ -4,6 +4,10 @@ module Api_http = Api_cohttp.Make (User) (Body)
 module Api_template = Api_cohttp_template.Make (User)
 module Api_websocket = Api_websocket.Make (User) (Body) (Body_ws)
 
+let icon x =
+  let icon = Components_tyxml.Icon.Markup.SVG.create ~d:x () in
+  Tyxml.Html.toelt icon
+
 let network_handlers (network : Pc_control.Network.t) =
   let open Api_http in
   make
@@ -41,11 +45,6 @@ let network_pages : 'a. unit -> 'a Api_template.item list =
       ~post_scripts:[`Src "/js/page-network-settings.js"]
       ~stylesheets:["/css/page-network-settings.min.css"]
       ()
-  in
-  let icon x =
-    let open Components_tyxml.Icon.Markup.SVG in
-    let icon = create_of_d x in
-    Tyxml.Html.toelt icon
   in
   simple
     ~restrict:[`Operator; `Guest]
@@ -100,11 +99,6 @@ let software_updates_pages : 'a. unit -> 'a Api_template.item list =
       ~stylesheets:["/css/page-software-updates.min.css"]
       ()
   in
-  let icon x =
-    let open Components_tyxml.Icon.Markup.SVG in
-    let icon = create_of_d x in
-    Tyxml.Html.toelt icon
-  in
   simple
     ~restrict:[`Operator; `Guest]
     ~priority:(`Index 10)
@@ -143,11 +137,6 @@ let power_pages : 'a. unit -> 'a Api_template.item list =
       ~stylesheets:["/css/page-power-management.min.css"]
       ~content:[markup]
       ()
-  in
-  let icon x =
-    let open Components_tyxml.Icon.Markup.SVG in
-    let icon = create_of_d x in
-    Tyxml.Html.toelt icon
   in
   simple
     ~restrict:[`Operator; `Guest]

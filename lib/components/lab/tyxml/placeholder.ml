@@ -33,27 +33,51 @@ struct
     let classes = CSS.dots :: classes in
     span ~a:([a_class classes] @ attrs) [span [txt "."]; span [txt "."]; span [txt "."]]
 
-  let create_text ?(classes = []) ?(attrs = []) ?(loading = false) text =
+  let create_text ?(classes = []) ?(attrs = []) ?(loading = false) ?text () =
     let classes =
       classes |> Utils.cons_if loading CSS.text_loading |> List.cons CSS.text
     in
     let content = if loading then [create_dots ()] else [] in
-    span ~a:([a_class classes] @ attrs) (text :: content)
+    let text =
+      match text with
+      | None -> None
+      | Some (`Text s) -> Some (txt s)
+      | Some (`Element e) -> Some e
+    in
+    span ~a:([a_class classes] @ attrs) Utils.(text ^:: content)
 
-  let create_text_string ?classes ?attrs ?loading text =
-    create_text ?classes ?attrs ?loading (txt text)
-
-  let create_content ?(classes = []) ?(attrs = []) content =
+  let create_content ?(classes = []) ?(attrs = []) ?loading ?icon ?text ?children () =
     let classes = CSS.content :: classes in
-    div ~a:([a_class classes] @ attrs) content
+    let children =
+      match children with
+      | Some x -> x
+      | None ->
+          let text =
+            match text with
+            | None -> None
+            | Some (`Text s) -> Some (create_text ?loading ~text:(`Text s) ())
+            | Some (`Element e) -> Some e
+          in
+          Utils.(icon ^:: text ^:: [])
+    in
+    div ~a:([a_class classes] @ attrs) children
 
-  let make ?(classes = []) ?(attrs = []) ?(error = false) ~content () =
+  let create
+      ?(classes = [])
+      ?(attrs = [])
+      ?(error = false)
+      ?loading
+      ?icon
+      ?text
+      ?children
+      () =
     let classes = classes |> Utils.cons_if error CSS.error |> List.cons CSS.root in
-    div ~a:([a_class classes] @ attrs) [content]
-
-  let create_simple ?classes ?attrs ?error ?loading widget text =
-    let content = create_content [widget; create_text_string ?loading text] in
-    make ?classes ?attrs ?error ~content ()
+    let children =
+      match children with
+      | Some x -> x
+      | None -> [create_content ?loading ?icon ?text ()]
+    in
+    div ~a:([a_class classes] @ attrs) children
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

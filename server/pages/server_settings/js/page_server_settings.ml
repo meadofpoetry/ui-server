@@ -32,14 +32,16 @@ let () =
                вступают в силу только после \
                перезагрузки прибора." ])
     in
-    let https = Https_config.make ~set_snackbar:scaffold#show_snackbar config in
+    let (https : Https_config.t) =
+      Https_config.make ~set_snackbar:scaffold#show_snackbar config
+    in
     let certificate =
       Certificate_config.make ~set_snackbar:scaffold#show_snackbar config
     in
     let page =
       Widget.create
       @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-      @@ Markup_js.create [disclaimer; https#markup; certificate#markup]
+      @@ Markup_js.create ~children:[disclaimer; https#markup; certificate#markup] ()
     in
     let event' =
       React.E.map

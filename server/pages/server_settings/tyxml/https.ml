@@ -28,11 +28,8 @@ struct
     let enable =
       Form_field_markup.create
         ~attrs:[a_id enable_id]
-        ~label:
-          (Form_field_markup.create_label
-             ~for_id:enable_input_id
-             ~label:"Использовать HTTPS протокол"
-             ())
+        ~label:(`Text "Использовать HTTPS протокол")
+        ~label_for:enable_input_id
         ~align_end:true
         ~input:switch
         ()
@@ -40,9 +37,13 @@ struct
     create_section
       ?classes
       ~attrs:(a_id id :: attrs)
-      ~header:(create_section_header ~title:"HTTPS" [])
-      [ Card_markup.create_media [enable]
-      ; Card_markup.create_actions [Card_markup.create_action_buttons [submit]] ]
+      ~header:(create_section_header ~title:(`Text "HTTPS") ())
+      ~children:
+        [ Card_markup.create_media ~children:[enable] ()
+        ; Card_markup.create_actions
+            ~children:[Card_markup.create_action_buttons ~children:[submit] ()]
+            () ]
+      ()
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

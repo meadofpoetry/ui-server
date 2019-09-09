@@ -110,9 +110,9 @@ class t
           ; seq_loop invalid new_password#input_element (self#handle_invalid `N)
           ; seq_loop invalid confirm_password#input_element (self#handle_invalid `C)
           ; inputs new_password#input_element self#handle_new_password_input
-          ; Textfield.Event.icons old_password#root (self#handle_icon `O)
-          ; Textfield.Event.icons new_password#root (self#handle_icon `N)
-          ; Textfield.Event.icons confirm_password#root (self#handle_icon `C) ];
+          ; Textfield.Lwt_js_events.icons old_password#root (self#handle_icon `O)
+          ; Textfield.Lwt_js_events.icons new_password#root (self#handle_icon `N)
+          ; Textfield.Lwt_js_events.icons confirm_password#root (self#handle_icon `C) ];
       form##.onsubmit := Dom.handler self#handle_submit;
       super#initial_sync_with_dom ()
 
@@ -216,7 +216,7 @@ class t
                 Printf.sprintf "Не удалось изменить пароль. %s"
                 @@ Api_js.Http.error_to_string e
           in
-          let snackbar = Snackbar.make ~label () in
+          let snackbar = Snackbar.make ~label:(`Text label) () in
           set_snackbar snackbar
           >>= fun _ ->
           snackbar#destroy ();

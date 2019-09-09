@@ -32,28 +32,26 @@ let cons_maybe x l =
 
 module Header = struct
   class t ?action ?subtitle ~title () =
-    let title_w = Tyxml_js.To_dom.of_element @@ Card.Markup_js.create_title title in
+    let title_w = Card.Markup_js.create_title ~title () in
     let subtitle_w =
-      Option.map (Tyxml_js.To_dom.of_element % Card.Markup_js.create_subtitle) subtitle
+      Option.map (fun subtitle -> Card.Markup_js.create_subtitle ~subtitle ()) subtitle
     in
-    (* FIXME do not create widgets *)
     let box =
-      Box.make ~dir:`Column
-      @@ List.map Widget.create ([] |> cons_maybe subtitle_w |> List.cons title_w)
+      Box.Markup_js.create
+        ~vertical:true
+        ~children:([] |> cons_maybe subtitle_w |> List.cons title_w)
+        ()
     in
-    let widgets =
-      [] |> cons_maybe @@ Option.map Widget.coerce action |> List.cons box#widget
-    in
-    let elt =
-      Tyxml_js.To_dom.of_element
-      @@ Card.Markup_js.create_primary (List.map Widget.to_markup widgets)
-    in
+    let children = [] |> cons_maybe action |> List.cons box in
+    let elt = Tyxml_js.To_dom.of_element @@ Card.Markup_js.create_primary ~children () in
     object (self)
       inherit Widget.t elt () as super
 
       method! init () : unit =
         super#init ();
-        Option.iter (fun a -> a#add_class CSS.header_action) action;
+        Option.iter
+          (fun a -> Element.add_class (Tyxml_js.To_dom.of_element a) CSS.header_action)
+          action;
         self#add_class CSS.header
     end
 end
@@ -85,7 +83,8 @@ class virtual t
     inherit
       Topo_node.parent
         ~port_setter ~node ~connections ~body:body#root
-        (Tyxml_js.To_dom.of_element @@ Card.Markup_js.create [header#markup; body#markup])
+        (Tyxml_js.To_dom.of_element
+        @@ Card.Markup_js.create ~children:[header#markup; body#markup] ())
         () as super
 
     method! init () : unit =

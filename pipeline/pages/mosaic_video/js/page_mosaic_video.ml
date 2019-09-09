@@ -135,7 +135,7 @@ module RTC = struct
       create_session
         ~server
         ~on_error:(fun s ->
-          let ph = Components_lab.Placeholder.make_error s in
+          let ph = Components_lab.Placeholder.make_error ~text:(`Text s) () in
           player#set_overlay ph)
         (create ~log_level:Error ())
       >>= function
@@ -150,7 +150,9 @@ module RTC = struct
                   handle_jsep jsep plugin
                   >|= (function
                         | Error e ->
-                            let ph = Components_lab.Placeholder.make_error e in
+                            let ph =
+                              Components_lab.Placeholder.make_error ~text:(`Text e) ()
+                            in
                             player#set_overlay ph
                         | Ok _ -> ())
                   |> Lwt.ignore_result)
@@ -239,12 +241,12 @@ let submit_wizard (scaffold : Scaffold.t) value =
   >>= function
   | Ok _ ->
       let label = "Мозаика сохранена" in
-      let snackbar = Snackbar.make ~dismiss:True ~label () in
+      let snackbar = Snackbar.make ~dismiss:`True ~label:(`Text label) () in
       snackbar#set_timeout 4.;
       scaffold#show_snackbar ~on_close:(fun _ -> snackbar#destroy ()) snackbar
   | Error e ->
       let label = Printf.sprintf "Ошибка. %s" @@ Api_js.Http.error_to_string e in
-      let snackbar = Snackbar.make ~label () in
+      let snackbar = Snackbar.make ~label:(`Text label) () in
       scaffold#show_snackbar ~on_close:(fun _ -> snackbar#destroy ()) snackbar
 
 let make_wizard (scaffold : Scaffold.t) =
@@ -328,7 +330,7 @@ let () =
       | Ok (_ : RTC.t) -> Lwt.return player#root##focus
       | Error e ->
           (* Show error overlay in case of failure while starting webrtc session *)
-          let ph = Components_lab.Placeholder.make_error e in
+          let ph = Components_lab.Placeholder.make_error ~text:(`Text e) () in
           ph#add_class Player.CSS.overlay;
           player#append_child ph;
           Lwt.return_unit)

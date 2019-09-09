@@ -191,8 +191,18 @@ let attach ?body ?viewport ?focus_on_open (elt : #Dom_html.element Js.t) : t =
   let body = (body :> Dom_html.element Js.t option) in
   new t ?body ?viewport ?focus_on_open (Element.coerce elt) ()
 
-let make ?classes ?attrs ?fixed ?open_ ?list_children ?list ?children ?body ?viewport ()
-    : t =
+let make
+    ?classes
+    ?attrs
+    ?fixed
+    ?open_
+    ?list_children
+    ?list
+    ?children
+    ?body
+    ?viewport
+    ?focus_on_open
+    () : t =
   Markup_js.create ?classes ?attrs ?fixed ?open_ ?list_children ?list ?children ()
   |> Tyxml_js.To_dom.of_div
-  |> attach ?body ?viewport
+  |> attach ?body ?viewport ?focus_on_open

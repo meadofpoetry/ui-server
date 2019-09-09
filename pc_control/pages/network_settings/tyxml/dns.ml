@@ -14,11 +14,10 @@ struct
   let create_item (ip : Ipaddr.V4.t) =
     let meta = Common_markup.create_remove_button () in
     let text = Ipaddr.V4.to_string ip in
-    Item_list_markup.create_item ~meta (txt text) ()
+    Item_list_markup.create_item ~meta ~primary_text:(`Text text) ()
 
   let create_list (ip : Ipaddr.V4.t list) =
-    let items = List.map create_item ip in
-    Item_list_markup.create ~items ()
+    Item_list_markup.create ~children:(List.map create_item ip) ()
 
   let create ?classes ?(attrs = []) (v : Pc_control_types.Network_config.ipv4_conf) :
       'a elt =
@@ -37,10 +36,13 @@ struct
     Common_markup.create_section
       ?classes
       ~attrs:(a_id id :: attrs)
-      ~header:(Common_markup.create_section_header ~title:"DNS серверы" [])
+      ~header:
+        (Common_markup.create_section_header ~title:(`Text "DNS серверы") ())
       ~children:
-        [ Card_markup.create_media [create_list v.dns; empty]
-        ; Card_markup.create_actions [Card_markup.create_action_buttons [add]] ]
+        [ Card_markup.create_media ~children:[create_list v.dns; empty] ()
+        ; Card_markup.create_actions
+            ~children:[Card_markup.create_action_buttons ~children:[add] ()]
+            () ]
       ()
 end
 

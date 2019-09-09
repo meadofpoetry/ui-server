@@ -32,7 +32,7 @@ type stream_dialog =
   ; show : unit -> Dialog.action Lwt.t
   ; result : (Stream.t, string) result React.signal }
 
-let make_empty_placeholder () = Typography.Text.make "Нет потоков"
+let make_empty_placeholder () = Typography.Text.make ~text:"Нет потоков" ()
 
 class base
   ?actions
@@ -47,11 +47,11 @@ class base
     | Topology.Board b ->
         Printf.sprintf "Плата %s %s v%d" b.manufacturer b.model b.version
   in
-  let title = Card.Markup_js.create_title title in
+  let title = Card.Markup_js.create_title ~title () in
   let subtitle =
     match left with
     | None -> None
-    | Some _ -> Some (Card.Markup_js.create_subtitle "")
+    | Some _ -> Some (Card.Markup_js.create_subtitle ~subtitle:"" ())
   in
   let primary_widgets =
     match subtitle with
@@ -61,13 +61,13 @@ class base
   let primary =
     match primary_widgets with
     | [] -> None
-    | widgets -> Some (Card.Markup_js.create_primary widgets)
+    | widgets -> Some (Card.Markup_js.create_primary ~children:widgets ())
   in
-  let media = Card.Markup_js.create_media [body] in
+  let media = Card.Markup_js.create_media ~children:[body] () in
   let actions =
     match actions with
     | None -> None
-    | Some a -> Some (Card.Markup_js.create_actions a)
+    | Some a -> Some (Card.Markup_js.create_actions ~children:a ())
   in
   let widgets =
     match primary, actions with
@@ -91,7 +91,10 @@ class base
               subtitle)
           s
   in
-  let elt = Tyxml_js.To_dom.of_element @@ Card.Markup_js.create ~outlined:true widgets in
+  let elt =
+    Tyxml_js.To_dom.of_element
+    @@ Card.Markup_js.create ~outlined:true ~children:widgets ()
+  in
   object
     inherit Widget.t elt () as super
 
@@ -123,7 +126,7 @@ module Board = struct
     let _s =
       React.S.map ~eq:( = ) (fun v -> checkbox#set_disabled (not v)) check.avail
     in
-    let item = Item_list.Item.make ~meta:checkbox#markup text in
+    let item = Item_list.Item.make ~meta:checkbox#markup ~primary_text:(`Text text) () in
     item#add_class stream_class;
     if not present then item#add_class lost_class;
     item#set_on_destroy (fun () ->
@@ -166,7 +169,9 @@ module Board = struct
       | `Forbidden -> true
       | _ -> false
     in
-    let list = Item_list.make ~non_interactive ~dense items in
+    let list =
+      Item_list.make ~non_interactive ~dense ~children:(List.map Widget.markup items) ()
+    in
     list, settings
 
   class t
@@ -290,16 +295,18 @@ module Input = struct
       let eq = Util_equal.Result.equal ~error:String.equal ~ok:equal in
       let result = React.S.l2 ~eq (merge input) s_addr s_port in
       let addr =
-        Textfield.make_textfield
-          ~label:"IP адрес"
+        Textfield.make
+          ~label:(`Text "IP адрес")
           ~on_input:(fun _ i -> Lwt.return @@ push_addr i#value)
-          ipv4
+          ~validation:ipv4
+          ()
       in
       let port =
-        Textfield.make_textfield
-          ~label:"UDP порт"
+        Textfield.make
+          ~label:(`Text "UDP порт")
           ~on_input:(fun _ i -> Lwt.return @@ push_port i#value)
-          (Integer (Some 0, Some 65535))
+          ~validation:(Integer (Some 0, Some 65535))
+          ()
       in
       let accept = Button.make ~label:"применить" () in
       let cancel = Button.make ~label:"отмена" () in
@@ -312,15 +319,19 @@ module Input = struct
             | Ok _ -> accept#set_disabled false)
           result
       in
-      let box = Box.make ~dir:`Column [addr#widget; port#widget] in
+      let box =
+        Box.Markup_js.create ~vertical:true ~children:[addr#markup; port#markup] ()
+      in
       let title =
         Dialog.Markup_js.create_title ~title:"Добавление потока" ()
       in
-      let content = Dialog.Markup_js.create_content [box#markup] in
+      let content = Dialog.Markup_js.create_content [box] in
       let actions = [cancel#markup; accept#markup] in
       let dialog = Dialog.make ~title ~content ~actions () in
       dialog#add_class dialog_class;
       dialog#set_on_destroy (fun () ->
+          addr#destroy ();
+          port#destroy ();
           accept#destroy ();
           cancel#destroy ();
           React.S.stop ~strong:true s_addr;
@@ -345,9 +356,11 @@ module Input = struct
   let make_stream_list stream_list =
     let make_board_stream_entry del_item del_stream (stream : Stream.t) =
       let text = Stream.Source.to_string stream.source.info in
-      let icon = Icon.SVG.(Markup_js.create_of_d Path.delete) in
+      let icon = Icon.SVG.(Markup_js.create ~d:Path.delete ()) in
       let del_button = Icon_button.make ~ripple:false ~icon () in
-      let item = Item_list.Item.make ~meta:del_button#markup text in
+      let item =
+        Item_list.Item.make ~meta:del_button#markup ~primary_text:(`Text text) ()
+      in
       let click =
         Js_of_ocaml_lwt.Lwt_js_events.clicks del_button#root (fun _ _ ->
             del_item item;
@@ -362,7 +375,7 @@ module Input = struct
     let signal, push =
       React.S.create ~eq:(Util_equal.List.equal Stream.equal) stream_list
     in
-    let list = Item_list.make ~dense [] in
+    let list = Item_list.make ~dense ~children:[] () in
     let del_item i =
       list#remove_child i;
       list#layout ()
@@ -425,7 +438,7 @@ module Input = struct
     let apply =
       Button.make ~on_click:(fun _ _ _ -> add ()) ~label:"Добавить поток" ()
     in
-    let buttons = Card.Markup_js.create_action_buttons [apply#markup] in
+    let buttons = Card.Markup_js.create_action_buttons ~children:[apply#markup] () in
     let body = Tyxml_js.To_dom.of_element @@ Tyxml_js.Html.div [] in
     let empty = make_empty_placeholder () in
     object (self)
@@ -489,7 +502,7 @@ let make_entry :
 let make_table cpu (table : Stream.stream_table) =
   let widgets, signals = List.split @@ List.map (make_entry cpu) table in
   let widgets = List.concat widgets in
-  let list = Box.make ~dir:`Column widgets in
+  let list = Box.make ~vertical:true ~children:(List.map Widget.markup widgets) () in
   list#set_on_destroy (fun () -> List.iter (fun w -> w#destroy ()) widgets);
   let eq = Stream.equal_stream_setting in
   ( list
@@ -543,8 +556,8 @@ class t
             t)
       ()
   in
-  let buttons = Card.Markup_js.create_action_buttons [submit#markup] in
-  let actions = Card.Markup_js.create_actions [buttons] in
+  let buttons = Card.Markup_js.create_action_buttons ~children:[submit#markup] () in
+  let actions = Card.Markup_js.create_actions ~children:[buttons] () in
   object
     inherit Widget.t Dom_html.(createDiv document) () as super
 

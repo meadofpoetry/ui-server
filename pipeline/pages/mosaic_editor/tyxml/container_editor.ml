@@ -70,7 +70,10 @@ struct
     Card_markup.create
       ~classes:(CSS.root :: classes)
       ?attrs
-      [Card_markup.create_media [grid]; Card_markup.create_actions []]
+      ~children:
+        [ Card_markup.create_media ~children:[grid] ()
+        ; Card_markup.create_actions ~children:[] () ]
+      ()
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

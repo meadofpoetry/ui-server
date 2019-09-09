@@ -141,13 +141,12 @@ module UI = struct
   let ( >>= ) = Lwt.bind
 
   let make_input ~label () : int Textfield.t =
-    Textfield.make_textfield ~label (Integer (Some 1, None))
+    Textfield.make ~label:(`Text label) ~validation:(Integer (Some 1, None)) ()
 
   let make_empty_placeholder
       wizard_dialog
       ((table_dialog, value) : Dialog.t * (unit -> int option * int option))
       (grid : Grid.t) =
-    let table_icon = Icon.SVG.(Markup_js.create_of_d Path.table_plus) in
     let table =
       Icon_button.make
         ~on_click:(fun _ _ ->
@@ -160,10 +159,9 @@ module UI = struct
             | Some cols, Some rows ->
                 grid#reset ~cols:(`Repeat (cols, Fr 1.)) ~rows:(`Repeat (rows, Fr 1.)) ();
                 Lwt.return_unit))
-        ~icon:table_icon
+        ~icon:Icon.SVG.(Markup_js.create ~d:Path.table_plus ())
         ()
     in
-    let wizard_icon = Icon.SVG.(Markup_js.create_of_d Path.table_plus) in
     let wizard =
       Icon_button.make
         ~on_click:(fun _ _ ->
@@ -171,15 +169,24 @@ module UI = struct
           >>= function
           | Dialog.Close | Destroy | Custom _ -> Lwt.return_unit
           | Accept -> Lwt.return_unit)
-        ~icon:wizard_icon
+        ~icon:Icon.SVG.(Markup_js.create ~d:Path.table_plus ())
         ()
     in
-    let content = Box.make ~dir:`Row [wizard; table] in
-    Components_lab.Placeholder.make
-      content#root
-      "Мозаика пуста. \n\
-       Воспользуйтесь мастером настройки \n\
-       или начните с создания таблицы!"
+    let content = Box.Markup_js.create ~children:[wizard#markup; table#markup] () in
+    let placeholder =
+      Components_lab.Placeholder.make
+        ~icon:content
+        ~text:
+          (`Text
+            "Мозаика пуста. \n\
+             Воспользуйтесь мастером настройки \n\
+             или начните с создания таблицы!")
+        ()
+    in
+    placeholder#set_on_destroy (fun () ->
+        wizard#destroy ();
+        table#destroy ());
+    placeholder
 
   let add_table_dialog () =
     let cols = make_input ~label:"Число столбцов" () in
@@ -231,14 +238,19 @@ module UI = struct
 
   let make_description_dialog () =
     let title = "Описание" in
-    let helper_text = Textfield.Helper_text.make ~validation:true "" in
+    let helper_text = Textfield.Helper_text.make ~validation:true ~text:"" () in
     let textfield =
-      Textfield.make_textfield ~label:"Наименование" ~helper_text Text
+      Textfield.make
+        ~label:(`Text "Наименование")
+        ~helper_text
+        ~validation:Text
+        ()
     in
     let title = Dialog.Markup_js.create_title ~title () in
     let content =
       Dialog.Markup_js.create_content
-        [textfield#markup; Textfield.Markup.create_helper_line [helper_text#markup]]
+        [ textfield#markup
+        ; Textfield.Markup_js.create_helper_line ~children:[helper_text#markup] () ]
     in
     let accept =
       Button.attach
@@ -269,12 +281,12 @@ module UI = struct
       inherit Dialog.t dialog () as super
 
       method! initial_sync_with_dom () : unit =
-        _listeners <-
+        listeners <-
           Js_of_ocaml_lwt.Lwt_js_events.(
             [ seq_loop (make_event Treeview.Event.action) wizard#root (fun _ _ ->
                   super#layout ();
                   Lwt.return_unit) ]
-            @ _listeners);
+            @ listeners);
         super#initial_sync_with_dom ()
 
       method! destroy () : unit =

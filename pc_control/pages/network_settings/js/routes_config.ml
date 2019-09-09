@@ -25,9 +25,14 @@ let make_dialog () =
     | _ -> accept#set_disabled true);
     Lwt.return_unit
   in
-  let address = Textfield.make_textfield ~label:"IP адрес" Util.ipv4_validation in
+  let address =
+    Textfield.make ~label:(`Text "IP адрес") ~validation:Util.ipv4_validation ()
+  in
   let mask =
-    Textfield.make_textfield ~label:"Маска подсети" Util.mask_validation
+    Textfield.make
+      ~label:(`Text "Маска подсети")
+      ~validation:Util.mask_validation
+      ()
   in
   let listeners =
     Js_of_ocaml_lwt.Lwt_js_events.

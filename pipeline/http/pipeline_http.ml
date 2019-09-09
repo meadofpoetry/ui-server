@@ -7,7 +7,7 @@ module Api_template = Api_cohttp_template.Make (User)
 module Api_websocket = Api_websocket.Make (User) (Body) (Body_ws)
 
 let make_icon ?classes path =
-  let icon = Icon.Markup.SVG.create_of_d ?classes path in
+  let icon = Icon.Markup.SVG.create ?classes ~d:path () in
   Tyxml.Html.toelt icon
 
 let make_overflow_menu actions =
@@ -49,7 +49,10 @@ let pages () : Api_template.topmost Api_template.item list =
       ~side_sheet:(make_side_sheet_props ~clipped:false ())
       ~top_app_bar_content:
         [ Tyxml.Html.toelt
-          @@ Top_app_bar.Markup.create_section ~align:`End [video_page_overflow_menu] ]
+          @@ Top_app_bar.Markup.create_section
+               ~align:`End
+               ~children:[video_page_overflow_menu]
+               () ]
       ~pre_scripts:[`Src "/js/adapter.min.js"]
       ~post_scripts:[`Src "/js/page-mosaic-video.js"]
       ~stylesheets:["/css/page-mosaic-video.min.css"]
@@ -60,7 +63,9 @@ let pages () : Api_template.topmost Api_template.item list =
     make_template_props
       ~title:"Редактор мозаики"
       ~top_app_bar_content:
-        (List.map Tyxml.Html.toelt Top_app_bar.Markup.[create_section ~align:`End []])
+        (List.map
+           Tyxml.Html.toelt
+           Top_app_bar.Markup.[create_section ~align:`End ~children:[] ()])
       ~side_sheet:(make_side_sheet_props ~clipped:true ~typ:`Dismissible ())
       ~pre_scripts:[`Src "/js/ResizeObserver.js"]
       ~post_scripts:[`Src "/js/page-mosaic-editor.js"]

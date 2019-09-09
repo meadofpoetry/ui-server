@@ -32,17 +32,17 @@ struct
       | Some x -> Some (Ipaddr.V4.to_string x)
     in
     let dhcp =
-      let id' = dhcp_id ^ "-input" in
       let checked =
         match v.meth with
         | Manual -> false
         | Auto -> true
       in
-      let label = Form_field_markup.create_label ~for_id:id' ~label:"DHCP" () in
-      let switch = Switch_markup.create ~input_id:id' ~checked () in
+      let dhcp_input_id = dhcp_id ^ "-input" in
+      let switch = Switch_markup.create ~input_id:dhcp_input_id ~checked () in
       Form_field_markup.create
         ~attrs:[a_id dhcp_id]
-        ~label
+        ~label_for:dhcp_input_id
+        ~label:(`Text "DHCP")
         ~align_end:true
         ~input:switch
         ()
@@ -71,8 +71,10 @@ struct
     Common_markup.create_section
       ?classes
       ~attrs:(a_id id :: attrs)
-      ~header:(Common_markup.create_section_header ~title:"Настройки IP" [])
-      [dhcp; ip_address; subnet_mask; gateway]
+      ~header:
+        (Common_markup.create_section_header ~title:(`Text "Настройки IP") ())
+      ~children:[dhcp; ip_address; subnet_mask; gateway]
+      ()
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

@@ -125,12 +125,12 @@ struct
 
   let create_placeholder ?classes ?attrs () =
     let path = state_to_svg_path default_state in
-    let widget = Icon_markup.SVG.create ~d:path () in
-    Placeholder_markup.create_simple
+    Placeholder_markup.create
       ?classes
       ?attrs
-      widget
-      (state_to_hint ~auto_reboot default_state)
+      ~icon:(Icon_markup.SVG.create ~d:path ())
+      ~text:(`Text (state_to_hint ~auto_reboot default_state))
+      ()
 
   let create ?classes ?(attrs = []) () =
     create_section

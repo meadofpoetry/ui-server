@@ -47,7 +47,7 @@ let shake (x : t) v = x#shake v
 
 let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
 
-let make ?classes ?attrs ?for_ ?label ?children () =
-  Markup_js.create ?classes ?attrs ?for_ ?label ?children ()
+let make ?classes ?attrs ?float_above ?for_ ?label ?children () =
+  Markup_js.create ?classes ?attrs ?float_above ?for_ ?label ?children ()
   |> Tyxml_js.To_dom.of_label
   |> attach

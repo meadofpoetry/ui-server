@@ -25,12 +25,13 @@ let make_dialog () =
     | Some _ -> accept#set_disabled false
   in
   let address =
-    Textfield.make_textfield
+    Textfield.make
       ~on_input:(fun _ x ->
         check_input x;
         Lwt.return_unit)
-      ~label:"IP адрес"
-      Util.ipv4_validation
+      ~label:(`Text "IP адрес")
+      ~validation:Util.ipv4_validation
+      ()
   in
   let title = "Добавление DNS сервера" in
   let title = Dialog.Markup_js.create_title ~title () in

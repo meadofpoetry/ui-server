@@ -155,7 +155,7 @@ struct
       ~a:([a_class classes; a_style "display: none;"] @ attrs)
       [ div
           ~a:[a_class [CSS.state_overlay]]
-          [Icon.SVG.create_of_d ~classes:[CSS.state_overlay_icon] path] ]
+          [Icon.SVG.create ~classes:[CSS.state_overlay_icon] ~d:path ()] ]
 
   let create_gradient ?(classes = []) ?(attrs = []) () : 'a elt =
     let classes = CSS.gradient :: classes in

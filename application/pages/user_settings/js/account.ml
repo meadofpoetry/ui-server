@@ -24,7 +24,7 @@ let make_accounts_info_dialog () =
     let title' = Format.asprintf "%a" Page_user_settings_tyxml.Util.pp_user_human user in
     let text = permissions ~pesonal_appeal:false user in
     let icon =
-      Icon.SVG.Markup_js.create_of_d (Page_user_settings_tyxml.Util.user_icon_path user)
+      Icon.SVG.Markup_js.create ~d:(Page_user_settings_tyxml.Util.user_icon_path user) ()
     in
     Js_of_ocaml_tyxml.Tyxml_js.Html.(
       div

@@ -11,14 +11,12 @@ type 'a t =
   ; callback : ('a -> Dom_html.event Js.t -> unit Lwt.t -> unit Lwt.t) option }
 
 let make_icon_button ?href ~icon name =
-  let icon = Icon.SVG.Markup_js.create_of_d icon in
+  let icon = Icon.SVG.Markup_js.create ~d:icon () in
+  let classes = [Top_app_bar.CSS.action_item] in
   let icon_button =
-    Icon_button.make
-      ?href
-      ~tag:(if Option.is_some href then `Anchor else `Button)
-      ~classes:[Top_app_bar.CSS.action_item]
-      ~icon
-      ()
+    if Option.is_some href
+    then Icon_button.make_anchor ?href ~classes ~icon ()
+    else Icon_button.make ~classes ~icon ()
   in
   icon_button#set_attribute "title" name;
   icon_button

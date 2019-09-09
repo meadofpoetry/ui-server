@@ -8,8 +8,6 @@ module Markup_js =
     (Js_of_ocaml_tyxml.Tyxml_js.Svg)
     (Js_of_ocaml_tyxml.Tyxml_js.Html)
 
-let name = "Password config"
-
 let ( >>= ) = Lwt.bind
 
 module Selector = struct
@@ -28,17 +26,17 @@ class t ~set_snackbar (user : Application_types.User.t) (elt : Dom_html.element 
   object (self)
     val slider : Dom_html.element Js.t =
       match Element.query_selector elt Selector.slider with
-      | None -> failwith @@ name ^ ": slider element not found"
+      | None -> failwith @@ CSS.root ^ ": slider element not found"
       | Some x -> x
 
     val submit_button : Button.t =
       match Element.query_selector elt Selector.submit with
-      | None -> failwith @@ name ^ ": submit button not found"
+      | None -> failwith @@ CSS.root ^ ": submit button not found"
       | Some x -> Button.attach x
 
     val user_tabs : Tab_bar.t =
       match Element.query_selector elt Selector.user_tabs with
-      | None -> failwith @@ name ^ ": tab bar element not found"
+      | None -> failwith @@ CSS.root ^ ": tab bar element not found"
       | Some x -> Tab_bar.attach x
 
     val mutable forms = []
@@ -66,7 +64,7 @@ class t ~set_snackbar (user : Application_types.User.t) (elt : Dom_html.element 
       listeners <-
         Lwt_js_events.
           [ clicks submit_button#root self#handle_submit_click
-          ; Tab_bar.Event.changes user_tabs#root self#handle_user_change ];
+          ; Tab_bar.Lwt_js_events.changes user_tabs#root self#handle_user_change ];
       super#initial_sync_with_dom ()
 
     method! destroy () : unit =

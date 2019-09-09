@@ -34,7 +34,7 @@ struct
       | Video -> Svg_icons.video
       | Audio -> Svg_icons.music
     in
-    Icon_markup.SVG.(create_of_d ?classes ?attrs path)
+    Icon_markup.SVG.(create ?classes ?attrs ~d:path ())
 
   let create_content ?(classes = []) ?(attrs = []) (widget : Pipeline_types.Wm.widget) :
       'a elt =
@@ -43,14 +43,14 @@ struct
       | None -> None
       | Some pid ->
           let text = Printf.sprintf "PID: %d" pid in
-          Some (Text_markup.create text)
+          Some (Text_markup.create ~text ())
     in
     let ( ^:: ) x l =
       match x with
       | None -> l
       | Some x -> x :: l
     in
-    let text = Text_markup.create widget.description in
+    let text = Text_markup.create ~text:widget.description () in
     let icon = create_icon widget in
     let classes = CSS.item_content :: classes in
     div ~a:([a_class classes] @ attrs) (icon :: (pid ^:: [text]))

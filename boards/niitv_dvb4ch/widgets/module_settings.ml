@@ -1,4 +1,5 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 open Js_of_ocaml_lwt
 open Application_types
 open Board_niitv_dvb4ch_types.Device
@@ -42,28 +43,30 @@ let bw =
 
 let make_standard ?value () =
   let signal, push = React.S.create None in
-  let items = Select.native_options_of_values ~with_empty:true standard [T2; T; C] in
+  let options = Select.native_options_of_values ~with_empty:true standard [T2; T; C] in
   let select =
     Select.make_native
       ?value
       ~on_change:(fun s -> push s#value)
-      ~label:"Стандарт"
-      ~items:(`Markup items)
-      standard
+      ~label:(`Text "Стандарт")
+      ~options
+      ~validation:standard
+      ()
   in
   select#add_class @@ BEM.add_element base_class "mode";
   select, signal
 
 let make_bw ?value () =
   let event, push = React.E.create () in
-  let items = Select.native_options_of_values ~with_empty:true bw [Bw6; Bw7; Bw8] in
+  let options = Select.native_options_of_values ~with_empty:true bw [Bw6; Bw7; Bw8] in
   let bw =
     Select.make_native
       ?value
       ~on_change:(fun _ -> push ())
-      ~label:"Полоса пропускания"
-      ~items:(`Markup items)
-      bw
+      ~label:(`Text "Полоса пропускания")
+      ~options
+      ~validation:bw
+      ()
   in
   bw, event
 
@@ -141,19 +144,24 @@ let handle_input
       | x ->
           List.iter
             (fun (c : Channel.t) ->
-              let item = Item_list.Item.make c.name in
-              item#set_attribute "value" (string_of_int c.freq);
-              Option.iter (fun (x : Item_list.t) -> x#append_child item) menu#list)
+              let item =
+                Item_list.Markup_js.create_item
+                  ~attrs:Tyxml_js.Html.[a_user_data "value" (string_of_int c.freq)]
+                  ~primary_text:(`Text c.name)
+                  ()
+              in
+              Option.iter
+                (fun (x : Item_list.t) ->
+                  Dom.appendChild x#root (Tyxml_js.To_dom.of_element item))
+                menu#list)
             x;
           menu#reveal ())
 
 let make_frequency ?(value : int option) (standard : standard option React.signal) =
   let event, push = React.E.create () in
-  let trailing_icon = Typography.Text.make "Гц" in
-  let list = Item_list.make [] in
-  let menu = Menu.make_of_item_list ~focus_on_open:false list in
+  let menu = Menu.make ~focus_on_open:false ~list:(Item_list.Markup_js.create ()) () in
   let input =
-    Textfield.make_textfield
+    Textfield.make
       ?value
       ~required:true
       ~input_mode:`Numeric
@@ -161,13 +169,14 @@ let make_frequency ?(value : int option) (standard : standard option React.signa
       ~on_input:(fun _ input ->
         push ();
         handle_input menu input standard)
-      ~trailing_icon
-      ~label:"Частота"
-      (Integer (Some min_frequency, Some max_frequency))
+      ~trailing_icon:(Typography.Markup_js.create ~text:"Гц" ())
+      ~label:(`Text "Частота")
+      ~validation:(Integer (Some min_frequency, Some max_frequency))
+      ()
   in
   let active_class = Item_list.CSS.item_activated in
   let apply_selected item =
-    let v = item##getAttribute (Js.string "value") in
+    let v = item##getAttribute (Js.string "data-value") in
     Js.Opt.iter v (fun v -> input#input_element##.value := v);
     (* Js.Opt.iter v (fun v -> match frequency_of_js_string v with
      *     | None -> ()
@@ -216,12 +225,9 @@ let make_frequency ?(value : int option) (standard : standard option React.signa
         | _ -> Lwt.return_unit)
   in
   let open_ =
-    Lwt_js_events.seq_loop
-      (Lwt_js_events.make_event Menu.Event.opened)
-      menu#root
-      (fun _ _ ->
-        let closed = Lwt_js_events.make_event Menu.Event.closed menu#root in
-        let select = Lwt_js_events.make_event Menu.Event.selected menu#root in
+    Menu.Lwt_js_events.opens menu#root (fun _ _ ->
+        let closed = Menu.Lwt_js_events.close menu#root in
+        let select = Menu.Lwt_js_events.select menu#root in
         input#set_use_native_validation false;
         let t =
           Lwt.pick
@@ -249,20 +255,22 @@ let make_frequency ?(value : int option) (standard : standard option React.signa
 
 let make_plp ?value (plps : int list React.signal) =
   let event, push = React.S.create None in
-  let list = Item_list.make [] in
-  let menu = Menu.make_of_item_list ~focus_on_open:false list in
-  let trailing_icon = Icon.SVG.(make_of_d Path.menu_down) in
-  trailing_icon#set_attribute "tabindex" "0";
+  let menu = Menu.make ~focus_on_open:false ~list:(Item_list.Markup_js.create ()) () in
   let input =
-    Textfield.make_textfield
+    Textfield.make
       ?value
-      ~trailing_icon
+      ~trailing_icon:
+        (Icon.Markup_js.SVG.create
+           ~attrs:[Tyxml_js.Svg.Unsafe.int_attrib "tabindex" 0]
+           ~d:Icon.SVG.Path.menu_down
+           ())
       ~on_input:(fun _ i ->
         push i#value;
         Lwt.return_unit)
-      ~label:"PLP ID"
+      ~label:(`Text "PLP ID")
       ~required:true
-      (Integer (Some 0, Some 255))
+      ~validation:(Integer (Some 0, Some 255))
+      ()
   in
   let set_menu_toggle_disabled disabled =
     match input#trailing_icon with
@@ -280,30 +288,33 @@ let make_plp ?value (plps : int list React.signal) =
       (function
         | [] ->
             set_menu_toggle_disabled true;
-            list#remove_children ()
+            Option.iter (fun x -> x#remove_children ()) menu#list
         | plps ->
             let items =
               List.map
                 (fun x ->
-                  let item = Item_list.Item.make @@ string_of_int x in
-                  item#set_attribute "value" (string_of_int x);
-                  item)
+                  Tyxml_js.To_dom.of_li
+                  @@ Item_list.Markup_js.create_item
+                       ~attrs:Tyxml_js.Html.[a_user_data "value" (string_of_int x)]
+                       ~primary_text:(`Text (string_of_int x))
+                       ())
                 plps
             in
             set_menu_toggle_disabled false;
-            List.iter list#append_child items)
+            List.iter
+              (fun x -> Option.iter (fun list -> Dom.appendChild list#root x) menu#list)
+              items)
       plps
   in
   let selected =
-    Lwt_js_events.seq_loop
-      (Lwt_js_events.make_event Menu.Event.selected)
-      menu#root
-      (fun e _ ->
+    Menu.Lwt_js_events.selects menu#root (fun e _ ->
         let item = (Widget.event_detail e)##.item in
         Option.iter input#set_value_as_string @@ Element.get_attribute item "value";
         Lwt.return_unit)
   in
-  let icon_click = Textfield.Event.icons input#root (fun _ _ -> menu#reveal ()) in
+  let icon_click =
+    Textfield.Lwt_js_events.icons input#root (fun _ _ -> menu#reveal ())
+  in
   input#set_on_destroy (fun () ->
       React.S.stop ~strong:true s_plps;
       Lwt.cancel selected;
@@ -399,15 +410,15 @@ class t config state mode plps control =
       ~label:"Применить"
       ()
   in
-  let buttons = Card.Markup_js.create_action_buttons [submit#markup] in
-  let actions = Card.Markup_js.create_actions [buttons] in
+  let buttons = Card.Markup_js.create_action_buttons ~children:[submit#markup] () in
+  let actions = Card.Markup_js.create_actions ~children:[buttons] () in
   object
     inherit Widget.t Dom_html.(createDiv document) () as super
 
     method! init () : unit =
       super#init ();
       super#append_child mode_box;
-      Dom.appendChild super#root (Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element actions);
+      Dom.appendChild super#root (Tyxml_js.To_dom.of_element actions);
       super#add_class base_class
 
     method! destroy () : unit =

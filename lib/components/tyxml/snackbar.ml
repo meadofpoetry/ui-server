@@ -83,9 +83,15 @@ struct
       ~a:([a_class classes; a_aria "live" ["polite"]; a_role ["status"]] @ attrs)
       (Utils.map_cons_option txt label children)
 
-  let create_surface ?(classes = []) ?(attrs = []) ?action ?dismiss ?actions ?label () :
+  let create_surface ?(classes = []) ?(attrs = []) ?label ?action ?dismiss ?actions () :
       'a elt =
     let classes = CSS.surface :: classes in
+    let label =
+      match label with
+      | None -> None
+      | Some (`Text s) -> Some (create_label ~label:s ())
+      | Some (`Element e) -> Some e
+    in
     let actions =
       match actions, action, dismiss with
       | (Some _ as x), _, _ -> x

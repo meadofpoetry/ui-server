@@ -230,6 +230,7 @@ class ['a] t
   ?(on_change : ('a t -> unit) option)
   ?(helper_text : Helper_text.t option)
   ?(validation : 'a validation option)
+  ?value
   (elt : Dom_html.element Js.t)
   () =
   let native_control : Dom_html.selectElement Js.t option =
@@ -239,7 +240,8 @@ class ['a] t
         | s ->
             let err =
               Printf.sprintf
-                "select: native control should have a `select` tag, but got `%s`"
+                "%s: native control should have a `select` tag, but got `%s`"
+                CSS.root
                 (String.lowercase_ascii s)
             in
             failwith err)
@@ -259,7 +261,8 @@ class ['a] t
               | s ->
                   let err =
                     Printf.sprintf
-                      "select: hidden input should have an `input` tag, but got `%s`"
+                      "%s: hidden input should have an `input` tag, but got `%s`"
+                      CSS.root
                       (String.lowercase_ascii s)
                   in
                   failwith err)
@@ -275,8 +278,9 @@ class ['a] t
     | None, None ->
         let err =
           Printf.sprintf
-            "select: missing required element: one of the following selectors must be \
+            "%s: missing required element, one of the following selectors must be \
              present: %s or %s"
+            CSS.root
             CSS.native_control
             CSS.selected_text
         in
@@ -322,6 +326,7 @@ class ['a] t
     inherit Widget.t elt () as super
 
     method! init () : unit =
+      Option.iter self#set_value value;
       if not @@ super#has_class CSS.outlined then ripple_ <- Some (self#create_ripple ());
       (* The required state need to be sync'd before the mutation observer is added *)
       self#initial_sync_required_state ();
@@ -809,8 +814,8 @@ let native_options_of_values
     in
     empty :: options
 
-let attach ?helper_text ?validation ?on_change (elt : #Dom_html.element Js.t) : 'a t =
-  new t ?helper_text ?validation ?on_change (Element.coerce elt) ()
+let attach ?helper_text ?validation ?on_change ?value (elt : #Dom_html.element Js.t) =
+  new t ?helper_text ?validation ?on_change ?value (Element.coerce elt) ()
 
 let make_native
     ?classes
@@ -830,6 +835,7 @@ let make_native
     ?helper_text
     ?validation
     ?on_change
+    ?value
     () =
   Markup_js.Native.create
     ?classes
@@ -848,7 +854,7 @@ let make_native
     ?select
     ()
   |> Tyxml_js.To_dom.of_div
-  |> attach ?helper_text ?validation ?on_change
+  |> attach ?helper_text ?validation ?on_change ?value
 
 let make_enhanced
     ?classes
@@ -863,6 +869,7 @@ let make_enhanced
     ?helper_text
     ?validation
     ?on_change
+    ?value
     ~menu
     () =
   Markup_js.Enhanced.create
@@ -878,4 +885,4 @@ let make_enhanced
     ~menu
     ()
   |> Tyxml_js.To_dom.of_div
-  |> attach ?helper_text ?validation ?on_change
+  |> attach ?helper_text ?validation ?on_change ?value

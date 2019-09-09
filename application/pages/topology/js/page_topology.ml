@@ -280,19 +280,20 @@ let ( >>=? ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
 
 let on_settings
     (side_sheet : #Side_sheet.Parent.t)
-    (content : #Widget.t)
+    content
     (set_title : string -> unit)
     cur
     old =
+  let content = Tyxml_js.To_dom.of_element content in
   (match old with
   | Some (w, _) -> w#destroy ()
   | None -> ());
-  content#remove_children ();
+  Element.remove_children content;
   match cur with
   | None -> Lwt.return_unit
   | Some (widget, name) ->
-      content#remove_children ();
-      content#append_child widget;
+      Element.remove_children content;
+      Dom.appendChild content widget#root;
       set_title name;
       side_sheet#toggle ~force:true ()
 

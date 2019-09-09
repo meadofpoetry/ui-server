@@ -85,7 +85,8 @@ struct
       Treeview_markup.create_node
         ~graphic:(Html.Unsafe.coerce_elt checkbox)
         ~value:(Yojson.Safe.to_string @@ data_to_yojson data)
-        text
+        ~primary_text:(`Text text)
+        ()
     in
     node
 
@@ -114,14 +115,15 @@ struct
                         Stream.ID.equal ch.stream stream && channel = ch.channel)
                       widgets
                in
-               let children = List.map (create_widget_node channel_struct) widgets in
+               let child_nodes = List.map (create_widget_node channel_struct) widgets in
                let checkbox = Checkbox_markup.create () in
                let node =
                  Treeview_markup.create_node
                    ~value:text
                    ~graphic:(Html.Unsafe.coerce_elt checkbox)
-                   ~children
-                   text
+                   ~child_nodes
+                   ~primary_text:(`Text text)
+                   ()
                in
                node :: acc)
          []
@@ -159,20 +161,21 @@ struct
           match Parse_struct.stream stream structure with
           | None -> acc
           | Some (text, packed) ->
-              let channels = create_channel_nodes wds packed in
+              let child_nodes = create_channel_nodes wds packed in
               let checkbox = Checkbox_markup.create () in
               let stream_node =
                 Treeview_markup.create_node
                   ~graphic:(Html.Unsafe.coerce_elt checkbox)
-                  ~children:channels
+                  ~child_nodes
                   ~value:(Stream.ID.to_string stream)
-                  text
+                  ~primary_text:(`Text text)
+                  ()
               in
               stream_node :: acc)
         []
         streams_of_widgets
     in
-    Treeview_markup.create ~dense:true nodes
+    Treeview_markup.create ~dense:true ~children:nodes ()
 
   let create_treeview (streams : Structure.Annotated.t) (wm : Wm.Annotated.t) =
     let widgets =
@@ -187,11 +190,12 @@ struct
     create_stream_nodes widgets streams
 
   let create_empty_placeholder ?classes ?attrs () =
-    Placeholder_markup.create_simple
+    Placeholder_markup.create
       ?classes
       ?attrs
-      Icon_markup.SVG.(create_of_d Svg_icons.information)
-      "Нет доступных виджетов"
+      ~icon:Icon_markup.SVG.(create ~d:Svg_icons.information ())
+      ~text:(`Text "Нет доступных виджетов")
+      ()
 
   let create
       ?(classes = [])

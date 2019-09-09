@@ -106,9 +106,10 @@ let make_disclaimer_dialog () =
      получен третьми лицами."
   in
   let do_not_show =
-    Form_field.make
-      ~label:"Больше не показывать это сообщение"
-      (Checkbox.make ())
+    Form_field.make_of_widget
+      ~label:(`Text "Больше не показывать это сообщение")
+      ~input:(Checkbox.make ())
+      ()
   in
   let content =
     Dialog.Markup_js.create_content
@@ -331,10 +332,10 @@ class ['a] t
                    после перезагрузки прибора."
                   (typ_to_string typ)
               in
-              let snackbar = Snackbar.make ~label () in
+              let snackbar = Snackbar.make ~label:(`Text label) () in
               set_snackbar snackbar >>= fun _ -> Lwt.return @@ snackbar#destroy ()
           | Error e ->
-              let snackbar = Snackbar.make ~label:e () in
+              let snackbar = Snackbar.make ~label:(`Text e) () in
               set_snackbar snackbar >>= fun _ -> Lwt.return @@ snackbar#destroy ());
       Js._true
 
@@ -394,13 +395,13 @@ class ['a] t
                    после перезагрузки прибора."
                   (typ_to_string typ)
               in
-              let snackbar = Snackbar.make ~label () in
+              let snackbar = Snackbar.make ~label:(`Text label) () in
               set_snackbar snackbar
               >>= fun () ->
               self#set_value v;
               Lwt.return @@ snackbar#destroy ()
           | Error e ->
               let label = Api_js.Http.error_to_string e in
-              let snackbar = Snackbar.make ~label () in
+              let snackbar = Snackbar.make ~label:(`Text label) () in
               set_snackbar snackbar >>= fun () -> Lwt.return @@ snackbar#destroy ())
   end

@@ -23,7 +23,8 @@ class t (elt : Dom_html.element Js.t) () =
       match Element.query_selector elt Selector.text with
       | None ->
           let text =
-            Tyxml_js.To_dom.of_element @@ Markup_js.create_text_string ~loading s
+            Tyxml_js.To_dom.of_element
+            @@ Markup_js.create_text ~loading ~text:(`Text s) ()
           in
           Dom.appendChild super#root text
       | Some x ->
@@ -32,30 +33,27 @@ class t (elt : Dom_html.element Js.t) () =
           then Dom.appendChild x (Tyxml_js.To_dom.of_element @@ Markup_js.create_dots ())
   end
 
-let make ?classes ?attrs ?error ?loading widget text =
-  let widget = Tyxml_js.Of_dom.of_element widget in
-  let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element
-    @@ Markup_js.create_simple ?classes ?attrs ?error ?loading widget text
-  in
-  new t elt ()
+let attach (elt : #Dom_html.element Js.t) : t = new t (elt :> Dom_html.element Js.t) ()
 
-let make_progress ?classes ?attrs ?(text = "Загрузка") ?size ?progress () =
+let make ?classes ?attrs ?error ?loading ?icon ?text () =
+  Markup_js.create ?classes ?attrs ?error ?loading ?icon ?text ()
+  |> Tyxml_js.To_dom.of_element
+  |> attach
+
+let make_progress ?classes ?attrs ?(text = `Text "Загрузка") ?size ?progress () =
   let progress =
     match progress with
     | None -> Widget.coerce @@ Circular_progress.make ?size ~indeterminate:true ()
     | Some x -> Widget.coerce x
   in
-  let x = make ?classes ?attrs ~loading:true progress#root text in
+  let x = make ?classes ?attrs ~loading:true ~icon:progress#markup ~text () in
   x#set_on_destroy (fun () -> progress#destroy ());
   x
 
-let make_error ?classes ?attrs ?icon text =
+let make_error ?classes ?attrs ?icon ?text () =
   let icon =
     match icon with
-    | None -> Tyxml_js.To_dom.of_element @@ Icon.SVG.Markup_js.create_of_d error_svg_path
+    | None -> Icon.SVG.Markup_js.create ~d:error_svg_path ()
     | Some x -> x
   in
-  make ?classes ?attrs ~error:true icon text
-
-let attach (elt : #Dom_html.element Js.t) : t = new t (elt :> Dom_html.element Js.t) ()
+  make ?classes ?attrs ~error:true ~icon ?text ()

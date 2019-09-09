@@ -27,7 +27,9 @@ let multicast =
 let make_checkbox ~label checked =
   let event, push = React.E.create () in
   let en = Switch.make ~checked ~on_change:(fun _ -> Lwt.return @@ push ()) () in
-  let form = Form_field.make ~label ~align_end:true en in
+  let form =
+    Form_field.make_of_widget ~label:(`Text label) ~align_end:true ~input:en ()
+  in
   form, event
 
 let make_method multicast value =
@@ -50,40 +52,51 @@ let make_method multicast value =
                 | Some x -> Ok x
                 | None -> Error "Bad method value")) })
   in
+  let options =
+    Select.native_options_of_values
+      ~label:(function
+        | Unicast -> "Unicast"
+        | Multicast -> "Multicast")
+      validation
+      [Unicast; Multicast]
+  in
   let select =
     Select.make_native
       ~value
-      ~label:"Метод"
+      ~label:(`Text "Метод")
       ~on_change:(fun x ->
         (match x#value with
         | None -> ()
         | Some Unicast -> hide multicast
         | Some Multicast -> show multicast);
         push ())
-      ~items:(`Data [Unicast, Some "Unicast"; Multicast, Some "Multicast"])
-      validation
+      ~options
+      ~validation
+      ()
   in
   select, event
 
 let make_port value =
   let event, push = React.E.create () in
   let port =
-    Textfield.make_textfield
+    Textfield.make
       ~on_input:(fun _ _ -> Lwt.return @@ push ())
-      ~label:"UDP порт"
+      ~label:(`Text "UDP порт")
       ~value
-      (Integer (Some 0, Some 65535))
+      ~validation:(Integer (Some 0, Some 65535))
+      ()
   in
   port, event
 
 let make_multicast value =
   let event, push = React.E.create () in
   let mcast =
-    Textfield.make_textfield
+    Textfield.make
       ~on_input:(fun _ _ -> Lwt.return @@ push ())
-      ~label:"Multicast адрес"
+      ~label:(`Text "Multicast адрес")
       ~value
-      multicast
+      ~validation:multicast
+      ()
   in
   mcast, event
 
@@ -94,8 +107,8 @@ class t (state : Topology.state) (mode : ip_receive) (control : int) =
   let meth, e_meth = make_method mcast mode.addressing_method in
   let port, e_port = make_port mode.udp_port in
   let submit = Button.make ~label:"Применить" () in
-  let buttons = Card.Markup_js.create_action_buttons [submit#markup] in
-  let actions = Card.Markup_js.create_actions [buttons] in
+  let buttons = Card.Markup_js.create_action_buttons ~children:[submit#markup] () in
+  let actions = Card.Markup_js.create_actions ~children:[buttons] () in
   object (self)
     val mutable _e_change = None
 

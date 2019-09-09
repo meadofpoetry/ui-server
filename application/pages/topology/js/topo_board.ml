@@ -156,21 +156,29 @@ module Header = struct
       match Topology.Env.find_opt "show-settings" board.env with
       | Some "false" -> None
       | _ ->
-          let icon = Icon.SVG.(Markup_js.create_of_d Path.settings) in
-          let button = Icon_button.make ~icon () in
-          button#add_class Topo_block.CSS.header_action_settings;
+          let button =
+            Icon_button.make
+              ~classes:[Topo_block.CSS.header_action_settings]
+              ~icon:Icon.SVG.(Markup_js.create ~d:Path.settings ())
+              ()
+          in
           Some button
     in
-    object (self)
-      inherit Topo_block.Header.t ?action:settings ~title () as super
+    object
+      inherit
+        Topo_block.Header.t ?action:(Option.map Widget.markup settings) ~title () as super
 
       method! init () : unit =
-        super#init ();
-        super#add_class CSS.header
+        super#add_class CSS.header;
+        super#init ()
 
       method! layout () : unit =
-        super#layout ();
-        Option.iter Widget.layout self#settings_icon
+        Option.iter Widget.layout settings;
+        super#layout ()
+
+      method! destroy () : unit =
+        Option.iter Widget.destroy settings;
+        super#destroy ()
 
       method settings_icon = settings
     end

@@ -23,8 +23,8 @@ let exn_to_string : exn -> string = function
   | e -> Printexc.to_string e
 
 let make_loader
-    ?(text : string option)
-    ?(error_icon : #Dom_html.element Js.t option)
+    ?text
+    ?error_icon
     ?(on_error : (Dom_html.element Js.t -> string -> unit) option)
     ?(on_success : (Dom_html.element Js.t -> 'a -> unit) option)
     ?(elt = Dom_html.(createDiv document))
@@ -38,7 +38,7 @@ let make_loader
     Lwt.return_unit
   in
   let on_error text =
-    let error = Placeholder.make_error ?icon:error_icon text in
+    let error = Placeholder.make_error ?icon:error_icon ~text:(`Text text) () in
     Element.append_child elt error#root;
     (match on_error with
     | None -> ()

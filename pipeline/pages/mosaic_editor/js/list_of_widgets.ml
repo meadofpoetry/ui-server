@@ -54,10 +54,10 @@ class t (scaffold : Scaffold.t) (elt : Dom_html.element Js.t) =
     inherit Widget.t elt () as super
 
     val placeholder =
-      let icon =
-        Tyxml_js.To_dom.of_element @@ Icon.SVG.(Markup_js.create_of_d Path.information)
-      in
-      Components_lab.Placeholder.make icon "Нет доступных виджетов"
+      Components_lab.Placeholder.make
+        ~icon:Icon.SVG.(Markup_js.create ~d:Path.information ())
+        ~text:(`Text "Нет доступных виджетов")
+        ()
 
     val mutable listeners = []
 

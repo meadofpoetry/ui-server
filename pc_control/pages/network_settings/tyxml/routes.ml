@@ -16,11 +16,10 @@ struct
   let create_item ((ip, mask) : Ipaddr.V4.t * int32) =
     let meta = Common_markup.create_remove_button () in
     let text = Printf.sprintf "%s/%ld" (Ipaddr.V4.to_string ip) mask in
-    Item_list_markup.create_item ~meta (txt text) ()
+    Item_list_markup.create_item ~meta ~primary_text:(`Text text) ()
 
   let create_list routes =
-    let items = List.map create_item routes in
-    Item_list_markup.create ~items ()
+    Item_list_markup.create ~children:(List.map create_item routes) ()
 
   let create ?classes ?(attrs = []) (v : Pc_control_types.Network_config.ipv4_conf) :
       'a elt =
@@ -38,10 +37,14 @@ struct
       ~attrs:(a_id id :: attrs)
       ~header:
         (Common_markup.create_section_header
-           ~title:"Статические маршруты"
-           [])
-      [ Card_markup.create_media [create_list v.routes.static; empty]
-      ; Card_markup.create_actions [Card_markup.create_action_buttons [add]] ]
+           ~title:(`Text "Статические маршруты")
+           ())
+      ~children:
+        [ Card_markup.create_media ~children:[create_list v.routes.static; empty] ()
+        ; Card_markup.create_actions
+            ~children:[Card_markup.create_action_buttons ~children:[add] ()]
+            () ]
+      ()
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

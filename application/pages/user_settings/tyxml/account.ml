@@ -58,7 +58,7 @@ struct
   let create_greetings ?(classes = []) ?(attrs = []) user =
     let classes = CSS.greetings :: classes in
     let username_human = Format.asprintf "%a" Util.pp_user_human user in
-    let icon = Icon_markup.SVG.(create_of_d (Util.user_icon_path user)) in
+    let icon = Icon_markup.SVG.(create ~d:(Util.user_icon_path user) ()) in
     let text = Printf.sprintf "Добро пожаловать, %s!" username_human in
     div ~a:([a_class classes] @ attrs) [icon; txt text]
 
@@ -85,10 +85,18 @@ struct
     create_section
       ~classes
       ~attrs:(a_id id :: attrs)
-      ~header:(create_section_header ~title:"Аккаунт" [])
-      [ Card_markup.create_media
-          [create_greetings user; create_permissions user; create_accounts_info_link ()]
-      ; Card_markup.create_actions [Card_markup.create_action_buttons [_exit]] ]
+      ~header:(create_section_header ~title:(`Text "Аккаунт") ())
+      ~children:
+        [ Card_markup.create_media
+            ~children:
+              [ create_greetings user
+              ; create_permissions user
+              ; create_accounts_info_link () ]
+            ()
+        ; Card_markup.create_actions
+            ~children:[Card_markup.create_action_buttons ~children:[_exit] ()]
+            () ]
+      ()
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

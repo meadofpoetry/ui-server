@@ -1,4 +1,5 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 open Components
 open Application_types
 open Pipeline_types
@@ -11,38 +12,55 @@ module CSS = struct
   let checkbox_spacer = BEM.add_element root "checkbox-spacer"
 end
 
+module Attr = struct
+  let aria_checked = "aria-checked"
+end
+
+(* TODO rewrite *)
 let get_checked ?(filter_empty = false) children =
   let children =
     if filter_empty
     then
+      let child_wrapper_selector = Printf.sprintf ".%s" Treeview.CSS.node_children in
       List.filter
-        (fun (x : Treeview.node) ->
-          match x.children with
-          | [] -> false
-          | _ -> true)
+        (fun x ->
+          let child_wrapper =
+            Element.query_selector (Tyxml_js.To_dom.of_element x) child_wrapper_selector
+          in
+          match child_wrapper with
+          | None -> false
+          | Some x -> (
+            match Element.children x with
+            | [] -> false
+            | _ -> true))
         children
     else children
   in
   let checked =
     match children with
     | [] -> false
-    | x ->
+    | children ->
         List.for_all
-          (fun (x : Treeview.node) ->
-            match x.checked with
-            | None -> true
-            | Some x -> x)
-          x
+          (fun x ->
+            let aria_checked =
+              Element.get_attribute (Tyxml_js.To_dom.of_element x) Attr.aria_checked
+            in
+            match aria_checked with
+            | Some "true" -> true
+            | _ -> false)
+          children
   in
   let indeterminate =
     (not checked)
     && (Option.is_some
        @@ List.find_opt
-            (fun (x : Treeview.node) ->
-              match x.checked, x.indeterminate with
-              | None, None -> false
-              | Some x, None | None, Some x -> x
-              | Some x, Some y -> x || y)
+            (fun x ->
+              let aria_checked =
+                Element.get_attribute (Tyxml_js.To_dom.of_element x) Attr.aria_checked
+              in
+              match aria_checked with
+              | Some "mixed" | Some "true" -> true
+              | _ -> false)
             children)
   in
   checked, indeterminate
@@ -55,6 +73,8 @@ let contains pattern value =
     let sub = String.sub pattern 0 len in
     String.uppercase_ascii sub = String.uppercase_ascii value
 
+let make_checkbox_spacer () = Tyxml_js.Html.(span ~a:[a_class [CSS.checkbox_spacer]] [])
+
 let make_pid ((state : Structure.Annotated.state), (pid : Structure.pid)) =
   let text = Printf.sprintf "PID %d (0x%04X), %s" pid.pid pid.pid pid.stream_type_name in
   (* FIXME we should match by pid type, but it is not working at the moment *)
@@ -66,13 +86,16 @@ let make_pid ((state : Structure.Annotated.state), (pid : Structure.pid)) =
         | `Stored | `Active_and_stored -> true
         | `Avail -> false
       in
-      Some checked, (Checkbox.make ~checked ())#root
-    else
-      let elt = Dom_html.(createSpan document) in
-      Element.add_class elt CSS.checkbox_spacer;
-      None, elt
+      (* FIXME do not instantiate checkbox js object *)
+      Some checked, (Checkbox.make ~checked ())#markup
+    else None, make_checkbox_spacer ()
   in
-  Treeview.make_node ~value:(string_of_int pid.pid) ~graphic ?checked text
+  Treeview.Markup_js.create_node
+    ~value:(string_of_int pid.pid)
+    ~graphic
+    ?checked
+    ~primary_text:(`Text text)
+    ()
 
 let make_channel
     ((_state : Structure.Annotated.state), (ch : Structure.Annotated.channel)) =
@@ -86,23 +109,23 @@ let make_channel
     | "" -> service_name
     | s -> Printf.sprintf "%s (%s)" service_name s
   in
-  let children = List.map make_pid ch.pids in
-  let checked, indeterminate = get_checked children in
+  let child_nodes = List.map make_pid ch.pids in
+  let checked, indeterminate = get_checked child_nodes in
   let graphic =
     match ch.pids with
-    | [] ->
-        let elt = Dom_html.(createSpan document) in
-        Element.add_class elt CSS.checkbox_spacer;
-        elt
-    | _ -> (Checkbox.make ~checked ~indeterminate ())#root
+    | [] -> make_checkbox_spacer ()
+    | _ ->
+        (* FIXME do not instantiate checkbox js object*)
+        (Checkbox.make ~checked ~indeterminate ())#markup
   in
-  Treeview.make_node
+  Treeview.Markup_js.create_node
     ~value:(string_of_int ch.number)
     ~graphic
     ~checked
     ~indeterminate
-    ~children
-    text
+    ~child_nodes
+    ~primary_text:(`Text text)
+    ()
 
 let make_stream
     ( (_state : Structure.Annotated.state)
@@ -112,20 +135,22 @@ let make_stream
   let compare (_, (a : Structure.Annotated.channel as 'a)) (_, (b : 'a)) =
     compare a.number b.number
   in
-  let children = List.map make_channel @@ List.sort compare channels in
-  let checked, indeterminate = get_checked ~filter_empty:true children in
+  let child_nodes = List.map make_channel @@ List.sort compare channels in
+  let checked, indeterminate = get_checked ~filter_empty:true child_nodes in
+  (* FIXME do not instantiate checkbox js object*)
   let checkbox = Checkbox.make ~checked ~indeterminate () in
-  Treeview.make_node
+  Treeview.Markup_js.create_node
     ~value:(Stream.ID.to_string id)
-    ~graphic:checkbox#root
+    ~graphic:checkbox#markup
     ~checked
     ~indeterminate
-    ~children
-    text
+    ~child_nodes
+    ~primary_text:(`Text text)
+    ()
 
 let make_treeview (structure : Structure.Annotated.t) =
-  let nodes = List.map make_stream structure in
-  Treeview.make ~dense:true nodes
+  let children = List.map make_stream structure in
+  Treeview.make ~dense:true ~children ()
 
 type event = [`Structure of Structure.Annotated.t]
 
@@ -227,15 +252,14 @@ let merge_trees ~(old : Treeview.t) ~(cur : Treeview.t) =
 
 class t (structure : Structure.Annotated.t) () =
   let submit = Button.make ~label:"Применить" () in
-  let buttons = Card.Markup_js.create_action_buttons [submit#markup] in
-  let actions = Card.Markup_js.create_actions [buttons] in
+  let buttons = Card.Markup_js.create_action_buttons ~children:[submit#markup] () in
+  let actions = Card.Markup_js.create_actions ~children:[buttons] () in
   object (self)
     val placeholder =
-      let icon =
-        Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-        @@ Icon.SVG.(Markup_js.create_of_d Path.information)
-      in
-      Components_lab.Placeholder.make icon "Потоки не обнаружены"
+      Components_lab.Placeholder.make
+        ~icon:Icon.SVG.(Markup_js.create ~d:Path.information ())
+        ~text:(`Text "Потоки не обнаружены")
+        ()
 
     val mutable _treeview = make_treeview structure
 
