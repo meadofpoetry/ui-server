@@ -25,31 +25,29 @@ class t (elt : Dom_html.element Js.t) () =
     method set_align_content x = super#add_class @@ CSS.align_content x
   end
 
+let attach (elt : #Dom_html.element Js.t) : t = new t (elt :> Dom_html.element Js.t) ()
+
 let make
+    ?classes
+    ?attrs
     ?tag
     ?justify_content
     ?align_items
     ?align_content
     ?wrap
-    ~dir
-    (widgets : #Widget.t list) : t =
-  let content = List.map Widget.to_markup widgets in
-  let vertical =
-    match dir with
-    | `Row -> false
-    | `Column -> true
-  in
-  let elt =
-    Tyxml_js.To_dom.of_element
-    @@ Markup_js.create
-         ?tag
-         ?justify_content
-         ?align_items
-         ?align_content
-         ?wrap
-         ~vertical
-         content
-  in
-  new t elt ()
-
-let attach (elt : #Dom_html.element Js.t) : t = new t (elt :> Dom_html.element Js.t) ()
+    ?vertical
+    ?children
+    () =
+  Markup_js.create
+    ?classes
+    ?attrs
+    ?tag
+    ?justify_content
+    ?align_items
+    ?align_content
+    ?wrap
+    ?vertical
+    ?children
+    ()
+  |> Tyxml_js.To_dom.of_element
+  |> attach

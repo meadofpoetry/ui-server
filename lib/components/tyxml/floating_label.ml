@@ -16,11 +16,11 @@ module Make
 struct
   open Html
 
-  let create ?(classes = []) ?(attrs = []) ?for_ ?label ?(content = []) () : 'a elt =
+  let create ?(classes = []) ?(attrs = []) ?for_ ?label ?(children = []) () : 'a elt =
     let classes = CSS.root :: classes in
     Html.label
       ~a:([a_class classes] @ attrs |> Utils.map_cons_option a_label_for for_)
-      (Utils.map_cons_option txt label content)
+      (Utils.map_cons_option txt label children)
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

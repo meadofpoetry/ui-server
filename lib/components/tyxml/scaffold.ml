@@ -26,7 +26,7 @@ struct
       ?(attrs = [])
       ?(inner = false)
       ?(outer = false)
-      ?(content = [])
+      ?(children = [])
       () : 'a elt =
     let classes =
       classes
@@ -34,14 +34,14 @@ struct
       |> Utils.cons_if outer CSS.app_content_outer
       |> List.cons CSS.app_content
     in
-    div ~a:([a_class classes] @ attrs) content
+    div ~a:([a_class classes] @ attrs) children
 
   let create_drawer_frame
       ?(classes = [])
       ?(attrs = [])
       ?(full_height = false)
       ?(clipped = false)
-      ?(content = [])
+      ?(children = [])
       () : 'a elt =
     let classes =
       classes
@@ -49,11 +49,11 @@ struct
       |> Utils.cons_if clipped CSS.drawer_frame_clipped
       |> List.cons CSS.drawer_frame
     in
-    div ~a:([a_class classes] @ attrs) content
+    div ~a:([a_class classes] @ attrs) children
 
-  let create ?(classes = []) ?(attrs = []) ?(content = []) () : 'a elt =
+  let create ?(classes = []) ?(attrs = []) ?(children = []) () : 'a elt =
     let classes = CSS.root :: classes in
-    div ~a:([a_class classes] @ attrs) content
+    div ~a:([a_class classes] @ attrs) children
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

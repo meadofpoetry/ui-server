@@ -1,8 +1,7 @@
 open Js_of_ocaml
-open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 include Components_tyxml.Snackbar
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -42,17 +41,31 @@ module Selector = struct
 end
 
 module Event = struct
-  class type close = [dismiss_reason] Dom_html.customEvent
+  let closing : dismiss_reason Dom_html.customEvent Js.t Dom_html.Event.typ =
+    Dom_html.Event.make (CSS.root ^ ":closing")
 
-  class type open_ = [unit] Dom_html.customEvent
+  let close : dismiss_reason Dom_html.customEvent Js.t Dom_html.Event.typ =
+    Dom_html.Event.make (CSS.root ^ ":close")
 
-  let closing : close Js.t Dom_html.Event.typ = Dom_html.Event.make "snackbar:closing"
+  let opening : unit Dom_html.customEvent Js.t Dom_html.Event.typ =
+    Dom_html.Event.make (CSS.root ^ ":opening")
 
-  let closed : close Js.t Dom_html.Event.typ = Dom_html.Event.make "snackbar:closed"
+  let open_ : unit Dom_html.customEvent Js.t Dom_html.Event.typ =
+    Dom_html.Event.make (CSS.root ^ ":open")
+end
 
-  let opening : open_ Js.t Dom_html.Event.typ = Dom_html.Event.make "snackbar:opening"
+module Lwt_js_events = struct
+  open Js_of_ocaml_lwt.Lwt_js_events
 
-  let opened : open_ Js.t Dom_html.Event.typ = Dom_html.Event.make "snackbar:opened"
+  let open_ ?use_capture ?passive t = make_event ?use_capture ?passive Event.open_ t
+
+  let opens ?cancel_handler ?use_capture ?passive t =
+    seq_loop ?cancel_handler ?use_capture ?passive open_ t
+
+  let close ?use_capture ?passive t = make_event ?use_capture ?passive Event.close t
+
+  let closes ?cancel_handler ?use_capture ?passive t =
+    seq_loop ?cancel_handler ?use_capture ?passive close t
 end
 
 let announce ?(label_elt : Element.t option) (aria_elt : Element.t) =
@@ -111,7 +124,7 @@ let announce ?(label_elt : Element.t option) (aria_elt : Element.t) =
         by screen readers. *)
       let attr = Js.string "data-mdc-snackbar-label-text" in
       label_elt##setAttribute attr label_text;
-      Lwt_js.sleep Const.aria_live_delay_s
+      Js_of_ocaml_lwt.Lwt_js.sleep Const.aria_live_delay_s
       >>= fun () ->
       (* Allow screen readers to announce changes to the DOM again. *)
       aria_elt##setAttribute live_attr priority;
@@ -125,54 +138,47 @@ let announce ?(label_elt : Element.t option) (aria_elt : Element.t) =
 class t
   ?(auto_dismiss_timeout = Const.def_auto_dismiss_timeout_s)
   ?(close_on_escape = true)
-  (elt : #Dom_html.element Js.t)
+  elt
   () =
   object (self)
-    val mutable _animation_thread : unit Lwt.t option = None
+    val mutable animation_thread = Lwt.return_unit
 
-    val mutable _auto_dismiss_timer = None
+    val mutable auto_dismiss_timer = None
 
-    val mutable _auto_dismiss_timeout = auto_dismiss_timeout
+    val mutable auto_dismiss_timeout = auto_dismiss_timeout
 
-    val mutable _close_on_escape = close_on_escape
+    val mutable close_on_escape = close_on_escape
 
-    val mutable _keydown_handler = None
+    val mutable listeners = []
 
-    val mutable _surface_click_handler = None
+    val action_button : Element.t option = Element.query_selector elt Selector.action
 
-    val _action_button : Element.t option = Element.query_selector elt Selector.action
+    val label_element : Element.t = Element.query_selector_exn elt Selector.label
 
-    val _label_element : Element.t = Element.query_selector_exn elt Selector.label
-
-    val _surface_element : Element.t = Element.query_selector_exn elt Selector.surface
+    val surface_element : Element.t = Element.query_selector_exn elt Selector.surface
 
     inherit Widget.t elt () as super
 
     method! initial_sync_with_dom () : unit =
-      super#initial_sync_with_dom ();
       (* Attach event listeners *)
-      let (keydown_handler : unit Lwt.t) =
-        Lwt_js_events.keydowns super#root self#handle_keydown
-      in
-      _keydown_handler <- Some keydown_handler;
-      let (surface_click_handler : unit Lwt.t) =
-        Lwt_js_events.clicks _surface_element self#handle_surface_click
-      in
-      _surface_click_handler <- Some surface_click_handler
+      listeners <-
+        Js_of_ocaml_lwt.Lwt_js_events.(
+          [ keydowns super#root self#handle_keydown
+          ; clicks surface_element self#handle_surface_click ]
+          @ listeners);
+      super#initial_sync_with_dom ()
 
     method! destroy () : unit =
-      super#destroy ();
       (* Detach event listeners *)
-      Option.iter Lwt.cancel _keydown_handler;
-      _keydown_handler <- None;
-      Option.iter Lwt.cancel _surface_click_handler;
-      _surface_click_handler <- None
+      List.iter Lwt.cancel listeners;
+      listeners <- [];
+      super#destroy ()
 
-    method timeout : float = _auto_dismiss_timeout
+    method timeout : float = auto_dismiss_timeout
 
     method set_timeout (x : float) : unit =
       if x <= Const.max_auto_dismiss_timeout_s && x >= Const.min_auto_dismiss_timeout_s
-      then _auto_dismiss_timeout <- x
+      then auto_dismiss_timeout <- x
       else
         let s =
           Printf.sprintf
@@ -183,32 +189,32 @@ class t
         in
         failwith s
 
-    method close_on_escape : bool = _close_on_escape
+    method close_on_escape : bool = close_on_escape
 
-    method set_close_on_escape (x : bool) : unit = _close_on_escape <- x
+    method set_close_on_escape (x : bool) : unit = close_on_escape <- x
 
     method label_text : string =
-      Js.Opt.map _label_element##.textContent Js.to_string
+      Js.Opt.map label_element##.textContent Js.to_string
       |> fun x -> Js.Opt.get x (fun () -> "")
 
     method set_label_text (s : string) : unit =
-      _label_element##.textContent := Js.some @@ Js.string s
+      label_element##.textContent := Js.some @@ Js.string s
 
     method action_button_text : string option =
-      match _action_button with
+      match action_button with
       | None -> None
       | Some button -> Js.Opt.to_option @@ Js.Opt.map button##.textContent Js.to_string
 
     method set_action_button_text (s : string) : unit =
-      match _action_button with
+      match action_button with
       | None -> ()
       | Some button -> button##.textContent := Js.some @@ Js.string s
 
     method is_open : bool = super#has_class CSS.opening || super#has_class CSS.open_
 
     method open_ () : unit Lwt.t =
-      Option.iter Lwt.cancel _auto_dismiss_timer;
-      _auto_dismiss_timer <- None;
+      Option.iter Lwt.cancel auto_dismiss_timer;
+      auto_dismiss_timer <- None;
       self#notify_opening ();
       super#remove_class CSS.closing;
       super#add_class CSS.opening;
@@ -216,63 +222,58 @@ class t
       (* announce _label_element; *)
       (* Wait a frame once display is no longe "none",
        to establish basis for animation *)
-      Option.iter Lwt.cancel _animation_thread;
-      let t =
-        Lwt_js_events.request_animation_frame ()
-        >>= Lwt_js.yield
+      Lwt.cancel animation_thread;
+      animation_thread <-
+        (Js_of_ocaml_lwt.Lwt_js_events.request_animation_frame ()
+        >>= Js_of_ocaml_lwt.Lwt_js.yield
         >>= fun () ->
         super#add_class CSS.open_;
-        Lwt_js.sleep Const.animation_open_time_s
+        Js_of_ocaml_lwt.Lwt_js.sleep Const.animation_open_time_s
         >>= fun () ->
         super#remove_class CSS.opening;
         self#notify_opened ();
-        Lwt.return ()
-      in
+        Lwt.return ());
       let dismiss_timer =
-        t >>= fun () -> Lwt_js.sleep self#timeout >>= self#close ~reason:Timeout
+        animation_thread
+        >>= fun () ->
+        Js_of_ocaml_lwt.Lwt_js.sleep self#timeout >>= self#close ~reason:Timeout
       in
-      _animation_thread <- Some t;
-      _auto_dismiss_timer <- Some dismiss_timer;
-      Lwt.on_termination t (fun () -> _animation_thread <- None);
-      t
+      auto_dismiss_timer <- Some dismiss_timer;
+      animation_thread
 
     method open_await () : dismiss_reason Lwt.t =
       self#open_ ()
       >>= fun () ->
-      Lwt_js_events.make_event Event.closed super#root
+      Js_of_ocaml_lwt.Lwt_js_events.make_event Event.close super#root
       >>= fun e -> Lwt.return @@ Widget.event_detail e
 
     method close ?(reason = Dismiss) () : dismiss_reason Lwt.t =
       match self#is_open with
       | false -> Lwt.return reason
       | true ->
-          Option.iter Lwt.cancel _animation_thread;
+          Lwt.cancel animation_thread;
           self#clear_auto_dismiss_timer ();
           self#notify_closing reason;
           super#add_class CSS.closing;
           super#remove_class CSS.open_;
           super#remove_class CSS.opening;
-          let t =
-            Lwt_js.sleep Const.animation_close_time_s
+          animation_thread <-
+            (Js_of_ocaml_lwt.Lwt_js.sleep Const.animation_close_time_s
             >>= fun () ->
             super#remove_class CSS.closing;
             self#notify_closed reason;
-            Lwt.return ()
-          in
-          Lwt.on_termination t (fun () -> _animation_thread <- None);
-          _animation_thread <- Some t;
-          t >>= fun () -> Lwt.return reason
+            Lwt.return ());
+          animation_thread >>= fun () -> Lwt.return reason
 
-    (* Private methods *)
     method private notify_opening () : unit = super#emit Event.opening
 
-    method private notify_opened () : unit = super#emit Event.opened
+    method private notify_opened () : unit = super#emit Event.open_
 
     method private notify_closing (reason : dismiss_reason) : unit =
       super#emit ~detail:reason Event.closing
 
     method private notify_closed (reason : dismiss_reason) : unit =
-      super#emit ~detail:reason Event.closed
+      super#emit ~detail:reason Event.close
 
     method private handle_surface_click
         (e : #Dom_html.event Js.t)
@@ -301,48 +302,38 @@ class t
       self#close ~reason:Dismiss () >>= fun _ -> Lwt.return_unit
 
     method private clear_auto_dismiss_timer () =
-      Option.iter Lwt.cancel _auto_dismiss_timer;
-      _auto_dismiss_timer <- None
+      Option.iter Lwt.cancel auto_dismiss_timer;
+      auto_dismiss_timer <- None
   end
 
-type 'a action =
-  | Label of string
-  | Widget of (#Widget.t as 'a)
-
-type 'a dismiss =
-  | True
-  | Widget of (#Widget.t as 'a)
+let attach ?auto_dismiss_timeout ?close_on_escape (elt : #Dom_html.element Js.t) : t =
+  new t ?auto_dismiss_timeout ?close_on_escape (Element.coerce elt) ()
 
 let make
+    ?classes
+    ?attrs
     ?leading
     ?stacked
-    ?(action : 'a action option)
-    ?(dismiss : 'a dismiss option)
-    ~(label : string)
-    () : t =
-  let label = Markup.create_label label () in
-  let action =
-    match action with
-    | None -> None
-    | Some (Label s) -> Some (Markup.create_action s ())
-    | Some (Widget w) -> Some (Widget.to_markup w)
-  in
-  let dismiss =
-    match dismiss with
-    | None -> None
-    | Some True ->
-        let d = Components_tyxml.Svg_icons.close in
-        let icon = Icon.SVG.Markup_js.create_of_d d in
-        Some (Icon_button.Markup_js.create ~classes:[CSS.dismiss] ~ripple:false ~icon ())
-    | Some (Widget w) -> Some (Widget.to_markup w)
-  in
-  let actions =
-    match action, dismiss with
-    | None, None -> None
-    | _ -> Some (Markup.create_actions ?dismiss ?action ())
-  in
-  let surface = Markup.create_surface ?actions ~label () in
-  let elt = Tyxml_js.To_dom.of_element @@ Markup.create ?leading ?stacked ~surface () in
-  new t elt ()
-
-let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
+    ?dismiss
+    ?action
+    ?actions
+    ?label
+    ?surface
+    ?children
+    ?auto_dismiss_timeout
+    ?close_on_escape
+    () =
+  Markup_js.create
+    ?classes
+    ?attrs
+    ?leading
+    ?stacked
+    ?dismiss
+    ?action
+    ?actions
+    ?label
+    ?surface
+    ?children
+    ()
+  |> Tyxml_js.To_dom.of_div
+  |> attach ?auto_dismiss_timeout ?close_on_escape

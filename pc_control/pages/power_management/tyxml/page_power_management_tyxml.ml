@@ -19,7 +19,11 @@ struct
 
   let create ?(classes = []) ?attrs () =
     let classes = CSS.root :: classes in
-    create ~classes ?attrs [Shutdown_markup.create (); Reboot_markup.create ()]
+    create
+      ~classes
+      ?attrs
+      ~children:[Shutdown_markup.create (); Reboot_markup.create ()]
+      ()
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

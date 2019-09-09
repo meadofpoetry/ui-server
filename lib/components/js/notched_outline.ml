@@ -16,17 +16,17 @@ class t (elt : Dom_html.element Js.t) () =
     inherit Widget.t elt () as super
 
     method! initial_sync_with_dom () : unit =
-      super#initial_sync_with_dom ();
-      match Element.query_selector elt ("." ^ Floating_label.CSS.root) with
+      (match Element.query_selector elt ("." ^ Floating_label.CSS.root) with
       | None -> super#add_class CSS.no_label
       | Some label ->
           (Js.Unsafe.coerce label##.style)##.transitionDuration := Js.string "0s";
           super#add_class CSS.upgraded;
-          Js_of_ocaml_lwt.Lwt_js_events.request_animation_frame ()
-          >>= (fun () ->
-                (Js.Unsafe.coerce label##.style)##.transitionDuration := Js.string "";
-                Lwt.return_unit)
-          |> Lwt.ignore_result
+          Lwt.async (fun () ->
+              Js_of_ocaml_lwt.Lwt_js_events.request_animation_frame ()
+              >>= fun () ->
+              (Js.Unsafe.coerce label##.style)##.transitionDuration := Js.string "";
+              Lwt.return_unit));
+      super#initial_sync_with_dom ()
 
     method notch (notch_width : float) : unit =
       super#add_class CSS.notched;
@@ -51,10 +51,18 @@ class t (elt : Dom_html.element Js.t) () =
     (** Removes notched outline selector to close the notch in the outline *)
   end
 
-let make ?label () : t =
-  let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element @@ Markup_js.create ?label ()
-  in
-  new t elt ()
-
 let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
+
+let make ?classes ?attrs ?leading ?trailing ?notch ?label_for ?label ?children () : t =
+  Markup_js.create
+    ?classes
+    ?attrs
+    ?leading
+    ?trailing
+    ?notch
+    ?label_for
+    ?label
+    ?children
+    ()
+  |> Tyxml_js.To_dom.of_div
+  |> attach

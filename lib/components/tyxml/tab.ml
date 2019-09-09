@@ -40,6 +40,12 @@ struct
 
   let create_content ?(classes = []) ?(attrs = []) ?indicator ?icon ?text_label () =
     let classes = CSS.content :: classes in
+    let text_label =
+      match text_label with
+      | None -> None
+      | Some (`Text s) -> Some (create_text_label ~label:s ())
+      | Some (`Element e) -> Some e
+    in
     span ~a:([a_class classes] @ attrs) Utils.(icon ^:: text_label ^:: indicator ^:: [])
 
   let create_ripple ?(classes = []) ?(attrs = []) () =
@@ -59,12 +65,8 @@ struct
       ?text_label
       ?(ripple = create_ripple ())
       ?(indicator = Tab_indicator_markup.create ?icon:indicator_icon ())
-      ?(content =
-        create_content
-          ?indicator:(if indicator_span_content then Some indicator else None)
-          ?icon
-          ?text_label
-          ())
+      ?content
+      ?children
       () =
     let classes =
       classes
@@ -73,8 +75,23 @@ struct
       |> Utils.cons_if min_width CSS.min_width
       |> List.cons CSS.root
     in
+    let content =
+      match content with
+      | Some x -> x
+      | None ->
+          create_content
+            ?indicator:(if indicator_span_content then Some indicator else None)
+            ?icon
+            ?text_label
+            ()
+    in
     let children =
-      if indicator_span_content then [content; ripple] else [content; indicator; ripple]
+      match children with
+      | Some x -> x
+      | None ->
+          if indicator_span_content
+          then [content; ripple]
+          else [content; indicator; ripple]
     in
     button
       ~a:

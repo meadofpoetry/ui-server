@@ -17,17 +17,22 @@ let make_enabled () =
       ()
   in
   let form =
-    Form_field.make ~label:"Включить анализ T2-MI" ~align_end:true enabled
+    Form_field.make_of_widget
+      ~label:(`Text "Включить анализ T2-MI")
+      ~align_end:true
+      ~input:enabled
+      ()
   in
   form, event
 
 let make_pid () =
   let event, push = React.E.create () in
   let pid =
-    Textfield.make_textfield
+    Textfield.make
       ~required:true
-      ~label:"T2-MI PID"
-      (Integer (Some 0, Some 8192))
+      ~label:(`Text "T2-MI PID")
+      ~validation:(Integer (Some 0, Some 8192))
+      ()
   in
   let listener =
     Js_of_ocaml_lwt.Lwt_js_events.inputs pid#input_element (fun _ _ ->
@@ -40,10 +45,11 @@ let make_pid () =
 let make_sid () =
   let event, push = React.E.create () in
   let sid =
-    Textfield.make_textfield
+    Textfield.make
       ~required:true
-      ~label:"T2-MI Stream ID"
-      (Integer (Some 0, Some 7))
+      ~label:(`Text "T2-MI Stream ID")
+      ~validation:(Integer (Some 0, Some 7))
+      ()
   in
   let listener =
     Js_of_ocaml_lwt.Lwt_js_events.inputs sid#input_element (fun _ _ ->
@@ -75,7 +81,7 @@ let stream_select_validation =
 let make_stream_select_items streams =
   List.map
     (fun (s : Stream.t) ->
-      let open Select.Markup.Native in
+      let open Select.Markup_js.Native in
       create_option
         ~value:(stream_select_validation.to_string s)
         ~text:(stream_to_string s)
@@ -91,12 +97,17 @@ let make_stream_select (streams : Stream.t list) (mode : t2mi_mode) =
         if List.exists (fun x -> Stream.equal x s) streams then streams else s :: streams
   in
   let streams = List.sort Stream.compare streams in
+  let validation = Select.(Custom stream_select_validation) in
+  let options =
+    Select.native_options_of_values ~label:stream_to_string validation streams
+  in
   let select =
     Select.make_native
       ~on_change:(fun _ -> push ())
-      ~label:"Поток для анализа T2-MI"
-      ~items:(`Data (List.map (fun s -> s, Some (stream_to_string s)) streams))
-      (Custom stream_select_validation)
+      ~label:(`Text "Поток для анализа T2-MI")
+      ~options
+      ~validation
+      ()
   in
   select, event
 
@@ -119,8 +130,8 @@ class t
   let sid, e_sid = make_sid () in
   let stream_select, e_stream = make_stream_select streams mode in
   let submit = Button.make ~label:"Применить" () in
-  let buttons = Card.Markup_js.create_action_buttons [submit#markup] in
-  let actions = Card.Markup_js.create_actions [buttons] in
+  let buttons = Card.Markup_js.create_action_buttons ~children:[submit#markup] () in
+  let actions = Card.Markup_js.create_actions ~children:[buttons] () in
   object (self)
     val mutable _on_submit = None
 

@@ -1,12 +1,14 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Layout_grid
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( % ) f g x = f (g x)
 
 module Selector = struct
   let inner = Printf.sprintf ".%s" CSS.inner
+
+  let cell = Printf.sprintf ".%s" CSS.cell
 end
 
 let find_map f l =
@@ -53,15 +55,9 @@ module Cell = struct
       | _ -> None)
     | _ -> None
 
-  class t ?widgets (elt : Dom_html.element Js.t) () =
+  class t (elt : Dom_html.element Js.t) () =
     object
       inherit Widget.t elt () as super
-
-      method! layout () : unit =
-        (match widgets with
-        | None -> ()
-        | Some x -> List.iter Widget.layout x);
-        super#layout ()
 
       method span : int option =
         find_map
@@ -130,60 +126,52 @@ module Cell = struct
         Option.iter (super#add_class % CSS.cell_align) x
     end
 
+  let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
+
   let make
+      ?classes
+      ?attrs
+      ?align
+      ?order
       ?span
       ?span_phone
       ?span_tablet
       ?span_desktop
+      ?children
+      () =
+    Markup_js.create_cell
+      ?classes
+      ?attrs
       ?align
       ?order
-      (widgets : #Widget.t list) : t =
-    let (elt : Dom_html.element Js.t) =
-      Tyxml_js.To_dom.of_element
-      @@ Markup.create_cell
-           ?span
-           ?span_phone
-           ?span_tablet
-           ?span_desktop
-           ?align
-           ?order
-           (List.map Widget.to_markup widgets)
-           ()
-    in
-    new t ~widgets elt ()
-
-  let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
+      ?span
+      ?span_phone
+      ?span_tablet
+      ?span_desktop
+      ?children
+      ()
+    |> Tyxml_js.To_dom.of_div
+    |> attach
 end
 
 class t (elt : Dom_html.element Js.t) () =
-  let inner = Element.query_selector_exn elt Selector.inner in
-  let cells = List.map Cell.attach @@ Element.children inner in
   object
     inherit Widget.t elt () as super
 
-    val mutable _cells = cells
+    val inner = Element.query_selector_exn elt Selector.inner
 
-    method! layout () : unit =
-      List.iter Widget.layout _cells;
-      super#layout ()
-
-    method cells : Cell.t list = _cells
+    method cells : Dom_html.element Js.t list =
+      Element.query_selector_all inner Selector.cell
 
     method insert_cell_at_idx (i : int) (x : Cell.t) =
-      _cells <- add_nodup ~eq:Widget.equal x _cells;
       Element.insert_child_at_index inner i x#root
 
-    method append_cell (x : Cell.t) =
-      _cells <- add_nodup ~eq:Widget.equal x _cells;
-      Dom.appendChild inner x#root
+    method append_cell (x : Dom_html.element Js.t) = Dom.appendChild inner x
 
-    method remove_cell (x : Cell.t) =
-      _cells <- List.filter (fun cell -> not @@ Widget.equal cell x) _cells;
-      try Dom.removeChild inner x#root with _ -> ()
+    method remove_cell (x : Dom_html.element Js.t) =
+      try Dom.removeChild inner x with _ -> ()
 
-    method remove_cells () =
-      _cells <- [];
-      Element.remove_children inner
+    method remove_cells () = Element.remove_children inner
 
     method align : grid_align option =
       if super#has_class (CSS.align Left)
@@ -207,11 +195,9 @@ class t (elt : Dom_html.element Js.t) () =
       super#toggle_class ~force:x CSS.fixed_column_width
   end
 
-let make ?align ?fixed_column_width (cells : Cell.t list) : t =
-  let inner = Markup.create_inner ~cells:(List.map Widget.to_markup cells) () in
-  let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element @@ Markup.create ?align ?fixed_column_width ~inner ()
-  in
-  new t elt ()
-
 let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
+
+let make ?classes ?attrs ?align ?fixed_column_width ?cells ?children () : t =
+  Markup_js.create ?classes ?attrs ?align ?fixed_column_width ?cells ?children ()
+  |> Tyxml_js.To_dom.of_div
+  |> attach

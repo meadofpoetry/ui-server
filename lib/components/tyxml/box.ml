@@ -94,7 +94,8 @@ struct
       ?align_content
       ?wrap
       ?(vertical = false)
-      content : 'a elt =
+      ?(children = [])
+      () : 'a elt =
     let tag =
       match tag with
       | None -> div
@@ -109,7 +110,7 @@ struct
       |> Utils.map_cons_option CSS.align_content align_content
       |> List.cons CSS.root
     in
-    tag ~a:([a_class classes] @ attrs) content
+    tag ~a:([a_class classes] @ attrs) children
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

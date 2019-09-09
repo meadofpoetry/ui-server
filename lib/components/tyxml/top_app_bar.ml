@@ -62,12 +62,12 @@ module Make
 struct
   open Html
 
-  let create_title ?(classes = []) ?(attrs = []) ?title ?(content = []) () : 'a elt =
+  let create_title ?(classes = []) ?(attrs = []) ?title ?(children = []) () : 'a elt =
     span
       ~a:([a_class (CSS.title :: classes)] @ attrs)
-      (Utils.map_cons_option txt title content)
+      (Utils.map_cons_option txt title children)
 
-  let create_section ?(classes = []) ?(attrs = []) ?align ?(content = []) () : 'a elt =
+  let create_section ?(classes = []) ?(attrs = []) ?align ?(children = []) () : 'a elt =
     let align_class =
       match align with
       | None -> None
@@ -75,14 +75,35 @@ struct
       | Some `End -> Some CSS.section_align_end
     in
     let classes = classes |> Utils.cons_option align_class |> List.cons CSS.section in
-    section ~a:([a_class classes] @ attrs) content
+    section ~a:([a_class classes] @ attrs) children
 
   let create_row ?(classes = []) ?(attrs = []) ?(sections = []) () : 'a elt =
     let classes = CSS.row :: classes in
     div ~a:([a_class classes] @ attrs) sections
 
-  let create ?(classes = []) ?(attrs = []) ?(rows = []) () : 'a elt =
+  let create ?(classes = []) ?(attrs = []) ?leading ?title ?actions ?rows () =
     let classes = CSS.root :: classes in
+    let rows =
+      match rows with
+      | Some x -> x
+      | None ->
+          let title =
+            match title with
+            | None -> None
+            | Some (`Element x) -> Some x
+            | Some (`Text x) -> Some (create_title ~title:x ())
+          in
+          let start_section =
+            create_section ~align:`Start ~children:Utils.(leading ^:: title ^:: []) ()
+          in
+          let end_section =
+            match actions with
+            | None -> None
+            | Some x -> Some (create_section ~align:`End ~children:x ())
+          in
+          let sections = List.rev Utils.(end_section ^:: [start_section]) in
+          [create_row ~sections ()]
+    in
     header ~a:([a_class classes] @ attrs) rows
 end
 

@@ -123,7 +123,7 @@ let layout (x : #t) : unit = x#layout ()
 
 let destroy (x : #t) = x#destroy ()
 
-let to_markup (x : #t) = Tyxml_js.Of_dom.of_element x#root
+let markup (x : #t) = Tyxml_js.Of_dom.of_element x#root
 
 let create x = new t x ()
 

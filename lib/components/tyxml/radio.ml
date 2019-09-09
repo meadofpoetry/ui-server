@@ -19,29 +19,89 @@ module Make
 struct
   open Html
 
+  let create_outer_circle ?(classes = []) ?(attrs = []) ?(children = []) () =
+    let classes = CSS.outer_circle :: classes in
+    div ~a:([a_class classes] @ attrs) children
+
+  let create_inner_circle ?(classes = []) ?(attrs = []) ?(children = []) () =
+    let classes = CSS.inner_circle :: classes in
+    div ~a:([a_class classes] @ attrs) children
+
+  let create_background
+      ?(classes = [])
+      ?(attrs = [])
+      ?outer_circle
+      ?inner_circle
+      ?children
+      () =
+    let classes = CSS.background :: classes in
+    let children =
+      match children with
+      | Some x -> x
+      | None ->
+          let outer_circle =
+            match outer_circle with
+            | Some x -> x
+            | None -> create_outer_circle ()
+          in
+          let inner_circle =
+            match inner_circle with
+            | Some x -> x
+            | None -> create_inner_circle ()
+          in
+          [outer_circle; inner_circle]
+    in
+    div ~a:([a_class classes] @ attrs) children
+
+  let create_native_control
+      ?(classes = [])
+      ?(attrs = [])
+      ?(checked = false)
+      ?(disabled = false)
+      ?input_id
+      ?name
+      () =
+    let classes = CSS.native_control :: classes in
+    input
+      ~a:
+        ([a_class classes; a_input_type `Radio] @ attrs
+        |> Utils.map_cons_option a_name name
+        |> Utils.cons_if_lazy checked a_checked
+        |> Utils.cons_if_lazy disabled a_disabled
+        |> Utils.map_cons_option a_id input_id)
+      ()
+
   let create
       ?(classes = [])
       ?(attrs = [])
       ?input_id
-      ?(checked = false)
+      ?checked
       ?(disabled = false)
       ?name
+      ?outer_circle
+      ?inner_circle
+      ?background
+      ?native_control
+      ?children
       () : 'a elt =
     let classes = classes |> Utils.cons_if disabled CSS.disabled |> List.cons CSS.root in
-    let outer_circle = div ~a:[a_class [CSS.outer_circle]] [] in
-    let inner_circle = div ~a:[a_class [CSS.inner_circle]] [] in
-    let background = div ~a:[a_class [CSS.background]] [outer_circle; inner_circle] in
-    let input =
-      input
-        ~a:
-          ([a_class [CSS.native_control]; a_input_type `Radio]
-          |> Utils.map_cons_option a_name name
-          |> Utils.cons_if_lazy checked a_checked
-          |> Utils.cons_if_lazy disabled a_disabled
-          |> Utils.map_cons_option a_id input_id)
-        ()
+    let children =
+      match children with
+      | Some x -> x
+      | None ->
+          let background =
+            match background with
+            | Some x -> x
+            | None -> create_background ?outer_circle ?inner_circle ()
+          in
+          let native_control =
+            match native_control with
+            | Some x -> x
+            | None -> create_native_control ?input_id ?checked ?name ~disabled ()
+          in
+          [native_control; background]
     in
-    div ~a:([a_class classes] @ attrs) [input; background]
+    div ~a:([a_class classes] @ attrs) children
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

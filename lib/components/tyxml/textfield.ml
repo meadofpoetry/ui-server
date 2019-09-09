@@ -55,7 +55,7 @@ struct
         ?(persistent = false)
         ?(validation = false)
         ?text
-        ?(content = [])
+        ?(children = [])
         () : 'a elt =
       let classes =
         classes
@@ -67,7 +67,7 @@ struct
         ~a:
           ([a_class classes] @ attrs
           |> Utils.cons_if (not persistent) @@ a_aria "hidden" ["true"])
-        (Utils.map_cons_option txt text content)
+        (Utils.map_cons_option txt text children)
   end
 
   module Character_counter = struct

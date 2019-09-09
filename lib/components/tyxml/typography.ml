@@ -79,14 +79,14 @@ module Make
 struct
   open Html
 
-  let create ?(classes = []) ?(attrs = []) ?font ?text ?(content = []) () =
+  let create ?(classes = []) ?(attrs = []) ?font ?text ?(children = []) () =
     let font_class =
       match font with
       | None -> None
       | Some x -> Some (font_to_class x)
     in
     let classes = classes |> Utils.cons_option font_class |> List.cons CSS.root in
-    span ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt text content)
+    span ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt text children)
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

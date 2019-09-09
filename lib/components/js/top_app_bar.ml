@@ -1,5 +1,4 @@
 open Js_of_ocaml
-open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 include Components_tyxml.Top_app_bar
 module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
@@ -39,64 +38,6 @@ module Selector = struct
     Printf.sprintf ".%s:first-child .%s:last-child:not(:only-child)" CSS.row CSS.section
 end
 
-module Title = struct
-  type 'a content =
-    [ `Text of string
-    | `Widgets of (#Widget.t as 'a) list ]
-
-  class t (content : 'a content) () =
-    let content' =
-      match content with
-      | `Text x -> [Tyxml_js.Html.txt x]
-      | `Widgets x -> List.map Widget.to_markup x
-    in
-    let elt = Markup_js.create_title content' |> Tyxml_js.To_dom.of_element in
-    object
-      inherit Widget.t elt ()
-    end
-
-  let make (content : 'a content) : t = new t content ()
-end
-
-module Section = struct
-  class t ?(align : align option) ~(widgets : #Widget.t list) () =
-    let content = List.map Widget.to_markup widgets in
-    let elt : Dom_html.element Js.t =
-      Markup_js.create_section ?align content |> Tyxml_js.To_dom.of_element
-    in
-    object
-      val mutable align : align option = align
-
-      inherit Widget.t elt () as super
-
-      method align : align option = align
-
-      method set_align (x : align option) : unit =
-        if not @@ (Option.equal equal_align) align x
-        then (
-          Option.iter (super#remove_class % align_to_class) align;
-          Option.iter (super#add_class % align_to_class) x;
-          align <- x)
-    end
-
-  let make ?align ~widgets () : t = new t ?align ~widgets ()
-end
-
-module Row = struct
-  class t ~(sections : Section.t list) () =
-    let elt : Dom_html.element Js.t =
-      Markup_js.create_row ~sections:(List.map Widget.to_markup sections) ()
-      |> Tyxml_js.To_dom.of_element
-    in
-    object
-      inherit Widget.t elt () as super
-
-      method! init () : unit = super#init ()
-    end
-
-  let make ~sections () : t = new t ~sections ()
-end
-
 type tolerance =
   { up : int
   ; down : int }
@@ -114,17 +55,17 @@ class t
   ?(offset = 0)
   ?(tolerance = {up = 0; down = 0})
   ?(imply_leading = true)
-  (elt : #Dom_html.element Js.t)
+  elt
   () =
-  let scroll_target =
-    match scroll_target with
-    | None -> Window Dom_html.window
-    | Some x ->
-        if Js.Unsafe.coerce Dom_html.window == x
-        then Window (Js.Unsafe.coerce x)
-        else Element (Js.Unsafe.coerce x)
-  in
   object (self)
+    val scroll_target =
+      match scroll_target with
+      | None -> Window Dom_html.window
+      | Some x ->
+          if Js.Unsafe.coerce Dom_html.window == x
+          then Window (Js.Unsafe.coerce x)
+          else Element (Js.Unsafe.coerce x)
+
     val mutable ticking : bool = false
 
     val mutable offset : int = offset
@@ -133,28 +74,32 @@ class t
 
     val mutable tolerance : tolerance = tolerance
 
-    val mutable scroll_handler = None
+    val mutable listeners = []
 
     val mutable imply_leading : bool = imply_leading
 
     inherit Widget.t elt () as super
 
-    (* API *)
     method! init () : unit =
-      super#init ();
       last_scroll_y <- self#get_scroll_y ();
+      super#init ()
+
+    method! initial_sync_with_dom () : unit =
+      (* Attach event listeners *)
       let target =
         match scroll_target with
         | Window w -> (w :> Dom_html.eventTarget Js.t)
         | Element e -> (e :> Dom_html.eventTarget Js.t)
       in
-      let scroll = Lwt_js_events.scrolls target self#handle_scroll in
-      scroll_handler <- Some scroll
+      listeners <-
+        Js_of_ocaml_lwt.Lwt_js_events.([scrolls target self#handle_scroll] @ listeners);
+      super#initial_sync_with_dom ()
 
     method! destroy () : unit =
-      super#destroy ();
-      Option.iter Lwt.cancel scroll_handler;
-      scroll_handler <- None
+      (* Detach event listeners *)
+      List.iter Lwt.cancel listeners;
+      listeners <- [];
+      super#destroy ()
 
     method title : string =
       match Element.query_selector super#root Selector.title with
@@ -217,19 +162,18 @@ class t
     method set_imply_leading (x : bool) : unit = imply_leading <- x
 
     (* Private methods *)
-    method private handle_scroll (_ : Dom_html.event Js.t) (_ : unit Lwt.t) : unit Lwt.t
-        =
+    method private handle_scroll _ _ : unit Lwt.t =
       if (not !prevent_scroll) && not ticking
       then (
         ticking <- true;
-        Lwt_js_events.request_animation_frame ()
+        Js_of_ocaml_lwt.Lwt_js_events.request_animation_frame ()
         >>= fun () ->
         self#update ();
         ticking <- false;
         Lwt.return_unit)
       else if !prevent_scroll
       then (
-        Lwt_js.yield ()
+        Js_of_ocaml_lwt.Lwt_js.yield ()
         >>= fun () ->
         prevent_scroll := false;
         Lwt.return_unit)
@@ -331,52 +275,28 @@ class t
         last_scroll_y <- cur_scroll_y)
   end
 
-(** Create new top app bar from scratch *)
-let make'
-    ?(scroll_target : #Dom_html.eventTarget Js.t option)
-    ?offset
-    ?tolerance
-    ?imply_leading
-    ?(rows = [])
-    () : t =
-  let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element
-    @@ Markup_js.create ~rows:(List.map Widget.to_markup rows) ()
-  in
-  new t ?offset ?tolerance ?scroll_target ?imply_leading elt ()
-
-let make
+(** Attach top app bar widget to existing element *)
+let attach ?scroll_target ?offset ?tolerance ?imply_leading elt : t =
+  new t
     ?scroll_target
     ?offset
     ?tolerance
-    ?leading
     ?imply_leading
+    (elt :> Dom_html.element Js.t)
+    ()
+
+let make
+    ?classes
+    ?attrs
+    ?leading
     ?title
     ?actions
-    ?bottom
+    ?rows
+    ?scroll_target
+    ?offset
+    ?tolerance
+    ?imply_leading
     () =
-  ignore bottom;
-  let ( ^:: ) x l =
-    match x with
-    | None -> l
-    | Some x -> x :: l
-  in
-  let start_section =
-    Section.make ~align:`Start ~widgets:(leading ^:: title ^:: []) ()
-  in
-  let end_section =
-    match actions with
-    | None -> None
-    | Some widgets -> Some (Section.make ~align:`End ~widgets ())
-  in
-  let sections =
-    match end_section with
-    | None -> [start_section]
-    | Some s -> [start_section; s]
-  in
-  let upper_row = Row.make ~sections () in
-  make' ?scroll_target ?offset ?tolerance ?imply_leading ~rows:[upper_row] ()
-
-(** Attach top app bar widget to existing element *)
-let attach ?scroll_target ?offset ?tolerance (elt : Dom_html.element Js.t) : t =
-  new t ?scroll_target ?offset ?tolerance elt ()
+  Markup_js.create ?classes ?attrs ?leading ?title ?actions ?rows ()
+  |> Tyxml_js.To_dom.of_header
+  |> attach ?scroll_target ?offset ?tolerance ?imply_leading

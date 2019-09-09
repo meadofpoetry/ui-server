@@ -11,9 +11,17 @@ module Make
 struct
   open Html
 
-  let create ?(classes = []) ?(attrs = []) ?(inset = false) () : 'a elt =
+  let create
+      ?(classes = [])
+      ?(attrs = [])
+      ?(inset = false)
+      ~(tag : ?a:'a attrib list_wrap -> 'b) : 'b =
     let classes = classes |> Utils.cons_if inset CSS.inset |> List.cons CSS.root in
-    hr ~a:([a_class classes] @ attrs) ()
+    tag ~a:([a_class classes] @ attrs)
+
+  let create_hr = create ~tag:hr
+
+  let create_li ?classes ?attrs ?inset () = create ~tag:li ?classes ?attrs ?inset []
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

@@ -14,20 +14,22 @@ class t ?(ripple = true) ?on_click ?loader (elt : Dom_html.element Js.t) () =
 
     val mutable ripple_ : Ripple.t option = None
 
-    val mutable listeners_ : unit Lwt.t list = []
+    val mutable listeners : unit Lwt.t list = []
 
     inherit Widget.t elt () as super
 
     method! init () : unit =
-      super#init ();
-      if ripple then ripple_ <- Some (self#create_ripple ())
+      if ripple then ripple_ <- Some (self#create_ripple ());
+      super#init ()
 
     method! initial_sync_with_dom () : unit =
-      super#initial_sync_with_dom ();
-      match on_click with
+      (match on_click with
       | None -> ()
       | Some f ->
-          listeners_ <- Js_of_ocaml_lwt.Lwt_js_events.[clicks super#root (f (self :> t))]
+          listeners <-
+            Js_of_ocaml_lwt.Lwt_js_events.(
+              [clicks super#root (f (self :> t))] @ listeners));
+      super#initial_sync_with_dom ()
 
     method! layout () : unit =
       (* Layout internal components. *)
@@ -41,8 +43,8 @@ class t ?(ripple = true) ?on_click ?loader (elt : Dom_html.element Js.t) () =
       ripple_ <- None;
       Option.iter Widget.destroy loader_;
       loader_ <- None;
-      List.iter Lwt.cancel listeners_;
-      listeners_ <- [];
+      List.iter Lwt.cancel listeners;
+      listeners <- [];
       super#destroy ()
 
     method disabled : bool =
@@ -88,7 +90,7 @@ class t ?(ripple = true) ?on_click ?loader (elt : Dom_html.element Js.t) () =
               in
               let container =
                 Tyxml_js.To_dom.of_element
-                @@ Markup_js.create_loader_container (Widget.to_markup loader) ()
+                @@ Markup_js.create_loader_container (Widget.markup loader) ()
               in
               loader_container_ <- Some container;
               container
@@ -102,29 +104,46 @@ class t ?(ripple = true) ?on_click ?loader (elt : Dom_html.element Js.t) () =
     method private create_ripple () : Ripple.t = Ripple.attach super#root
   end
 
+let attach ?ripple ?loader ?on_click (elt : #Dom_html.element Js.t) : t =
+  let make elt = new t ?ripple ?loader ?on_click (Element.coerce elt) () in
+  Js.Opt.case
+    (Dom_html.CoerceTo.button elt)
+    (fun () ->
+      Js.Opt.case
+        (Dom_html.CoerceTo.a elt)
+        (fun () ->
+          failwith (CSS.root ^ ": root element should have `a` or `button` tag"))
+        make)
+    make
+
 let make
     ?classes
-    ?(tag = `Button)
-    ?typ
-    ?href
-    ?appearance
-    ?icon
-    ?dense
+    ?attrs
     ?ripple
-    ?label
     ?loader
     ?on_click
-    () : t =
-  Option.iter (fun x -> Element.add_class (Tyxml_js.To_dom.of_element x) CSS.icon) icon;
-  let markup =
-    match tag with
-    | `Button ->
-        Markup_js.create ?classes ?button_type:typ ?appearance ?dense ?icon ?label ()
-    | `Anchor ->
-        Markup_js.create_anchor ?classes ?appearance ?href ?dense ?icon ?label ()
-  in
-  let (elt : Dom_html.element Js.t) = Tyxml_js.To_dom.of_element markup in
-  new t ?ripple ?on_click ?loader elt ()
+    ?button_type
+    ?appearance
+    ?dense
+    ?icon
+    ?label
+    () =
+  Markup_js.create ?classes ?attrs ?button_type ?appearance ?dense ?icon ?label ()
+  |> Tyxml_js.To_dom.of_button
+  |> attach ?ripple ?loader ?on_click
 
-let attach ?ripple ?loader ?on_click (elt : #Dom_html.element Js.t) : t =
-  new t ?ripple ?loader ?on_click (Element.coerce elt) ()
+let make_anchor
+    ?classes
+    ?attrs
+    ?ripple
+    ?loader
+    ?on_click
+    ?appearance
+    ?href
+    ?dense
+    ?icon
+    ?label
+    () =
+  Markup_js.create_anchor ?classes ?attrs ?appearance ?href ?dense ?icon ?label ()
+  |> Tyxml_js.To_dom.of_a
+  |> attach ?ripple ?loader ?on_click

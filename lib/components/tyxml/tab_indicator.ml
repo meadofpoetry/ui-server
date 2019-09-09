@@ -29,13 +29,13 @@ struct
   open Html
 
   let create_content ?(classes = []) ?(attrs = []) ?icon () : 'a elt =
-    let content, content_class =
+    let children, content_class =
       match icon with
       | None -> [], CSS.content_underline
       | Some i -> [i], CSS.content_icon
     in
     let classes = CSS.content :: content_class :: classes in
-    span ~a:([a_class classes] @ attrs) content
+    span ~a:([a_class classes] @ attrs) children
 
   let create
       ?(classes = [])

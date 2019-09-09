@@ -1,7 +1,7 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Treeview
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( % ) f g x = f (g x)
 
@@ -9,37 +9,6 @@ let ( % ) f g x = f (g x)
    - fix initial selection
    - implement "update" method
    - implement make/attach functions - DONE *)
-
-type node =
-  { label : string
-  ; secondary_text : string option
-  ; graphic : Dom_html.element Js.t option
-  ; meta : Dom_html.element Js.t option
-  ; value : string option
-  ; checked : bool option
-  ; indeterminate : bool option
-  ; expanded : bool
-  ; children : node list }
-
-let make_node
-    ?secondary_text
-    ?value
-    ?graphic
-    ?meta
-    ?(children = [])
-    ?checked
-    ?indeterminate
-    ?(expanded = false)
-    label =
-  { label
-  ; secondary_text
-  ; value
-  ; children
-  ; graphic
-  ; checked
-  ; indeterminate
-  ; expanded
-  ; meta }
 
 let elements_key_allowed_in = ["input"; "button"; "textarea"; "select"]
 
@@ -81,7 +50,16 @@ end
 
 module Event = struct
   let (action : Dom_html.element Js.t Dom_html.customEvent Js.t Dom_html.Event.typ) =
-    Dom_html.Event.make "treeview:action"
+    Dom_html.Event.make (CSS.root ^ ":action")
+end
+
+module Lwt_js_events = struct
+  open Js_of_ocaml_lwt.Lwt_js_events
+
+  let action ?use_capture ?passive t = make_event ?use_capture ?passive Event.action t
+
+  let actions ?cancel_handler ?use_capture ?passive t =
+    seq_loop ?cancel_handler ?use_capture ?passive action t
 end
 
 let get_exn (i : int) (list : Dom_html.element Dom.nodeList Js.t) =
@@ -282,37 +260,37 @@ let compare_by_dom_position a b =
 
 class t elt () =
   object (self)
-    val mutable _aria_current_value = None
+    val mutable aria_current_value = None
 
-    val mutable _use_activated_class = false
+    val mutable use_activated_class = false
 
-    val mutable _focused_node = None
+    val mutable focused_node = None
 
-    val mutable _selected_items = []
+    val mutable selected_items = []
 
-    val mutable _is_single_selection = false
+    val mutable is_single_selection = false
 
-    val mutable _is_vertical = false
+    val mutable is_vertical = false
 
-    val mutable _listeners = []
+    val mutable listeners = []
 
     inherit Widget.t elt () as super
 
-    method! init () : unit = super#init ()
+    method! init () : unit =
+      self#layout ();
+      self#initialize_tree_type ();
+      super#init ()
 
     method! initial_sync_with_dom () : unit =
       (* TODO maybe search for children here and
          instantiate new objects? *)
-      super#initial_sync_with_dom ();
-      Js_of_ocaml_lwt.Lwt_js_events.(
-        let click = clicks super#root self#handle_click in
-        let keydown = keydowns super#root self#handle_keydown in
-        _listeners <- [click; keydown]);
-      self#layout ();
-      self#initialize_tree_type ()
+      listeners <-
+        Js_of_ocaml_lwt.Lwt_js_events.(
+          [clicks super#root self#handle_click; keydowns super#root self#handle_keydown]
+          @ listeners);
+      super#initial_sync_with_dom ()
 
     method! layout () : unit =
-      super#layout ();
       (match Element.get_attribute super#root Attr.aria_orientation with
       | Some "horizontal" -> self#set_vertical false
       | _ -> self#set_vertical true);
@@ -323,12 +301,13 @@ class t elt () =
       loop_nodes (fun _ item -> Element.set_attribute item "tabindex" "-1")
       @@ super#root##querySelectorAll (Js.string Selector.focusable_child_elements);
       let nodes = self#nodes_ in
-      Js.Opt.iter (nodes##item 0) (fun x -> Element.set_attribute x "tabindex" "0")
+      Js.Opt.iter (nodes##item 0) (fun x -> Element.set_attribute x "tabindex" "0");
+      super#layout ()
 
     method! destroy () : unit =
-      super#destroy ();
-      List.iter Lwt.cancel _listeners;
-      _listeners <- []
+      List.iter Lwt.cancel listeners;
+      listeners <- [];
+      super#destroy ()
 
     method initialize_tree_type () : unit =
       let single_selected_node =
@@ -337,19 +316,19 @@ class t elt () =
       let preselected_items =
         Element.query_selector_all super#root Selector.aria_checked
       in
-      _selected_items <- preselected_items;
+      selected_items <- preselected_items;
       if Js.Opt.test single_selected_node
       then (
         let item = Js.Opt.get single_selected_node (fun () -> assert false) in
         if Element.has_class item CSS.node_activated then self#set_use_activated true;
         self#set_single_selection true;
-        _selected_items <- [item])
+        selected_items <- [item])
 
-    method set_vertical (x : bool) : unit = _is_vertical <- x
+    method set_vertical (x : bool) : unit = is_vertical <- x
 
-    method set_use_activated (x : bool) : unit = _use_activated_class <- x
+    method set_use_activated (x : bool) : unit = use_activated_class <- x
 
-    method set_single_selection (x : bool) : unit = _is_single_selection <- x
+    method set_single_selection (x : bool) : unit = is_single_selection <- x
 
     method is_empty : bool =
       match Element.children super#root with
@@ -357,10 +336,10 @@ class t elt () =
       | _ -> false
 
     method selected_nodes : Dom_html.element Js.t list =
-      List.sort compare_by_dom_position _selected_items
+      List.sort compare_by_dom_position selected_items
 
     method selected_leafs : Dom_html.element Js.t list =
-      List.sort compare_by_dom_position @@ List.filter self#is_leaf _selected_items
+      List.sort compare_by_dom_position @@ List.filter self#is_leaf selected_items
 
     method node_value (node : Dom_html.element Js.t) : string option =
       Element.get_attribute node Attr.value
@@ -386,8 +365,6 @@ class t elt () =
 
     method root_nodes =
       List.filter (fun x -> not @@ Js.Opt.test @@ self#node_parent x) self#nodes
-
-    (* Private methods *)
 
     (* Returns all nodes of a treeview *)
     method private nodes_ : Dom_html.element Dom.nodeList Js.t =
@@ -433,7 +410,7 @@ class t elt () =
         | None -> Lwt.return_unit
         | Some active ->
             let next, stop =
-              match Dom_html.Keyboard_code.of_event e, _is_vertical with
+              match Dom_html.Keyboard_code.of_event e, is_vertical with
               | ArrowLeft, true | ArrowUp, false -> (
                   prevent_default_event e;
                   if self#node_expanded active
@@ -504,7 +481,7 @@ class t elt () =
               | None -> ()
               | Some next ->
                   set_tab_index ~prev:active nodes next;
-                  _focused_node <- Some next);
+                  focused_node <- Some next);
             Lwt.return_unit)
 
     method private handle_click
@@ -587,37 +564,14 @@ class t elt () =
           if origin then self#update_parent node;
           if checked
           then (
-            if not @@ List.exists (Element.equal node) _selected_items
-            then _selected_items <- node :: _selected_items)
-          else _selected_items <- List.filter (not % Element.equal node) _selected_items
+            if not @@ List.exists (Element.equal node) selected_items
+            then selected_items <- node :: selected_items)
+          else selected_items <- List.filter (not % Element.equal node) selected_items
   end
 
-let make ?classes ?attrs ?dense ?two_line (nodes : node list) : t =
-  let rec loop acc = function
-    | [] -> List.rev acc
-    | node :: tl ->
-        Option.iter
-          (fun x -> Element.add_class x Item_list.CSS.item_graphic)
-          node.graphic;
-        Option.iter (fun x -> Element.add_class x Item_list.CSS.item_meta) node.meta;
-        let node =
-          Markup.create_node
-            ?value:node.value
-            ?secondary_text:node.secondary_text
-            ?meta:(Option.map Tyxml_js.Of_dom.of_element node.meta)
-            ?graphic:(Option.map Tyxml_js.Of_dom.of_element node.graphic)
-            ?checked:node.checked
-            ?indeterminate:node.indeterminate
-            ~expanded:node.expanded
-            ~children:(loop [] node.children)
-            node.label
-        in
-        loop (node :: acc) tl
-  in
-  let elt =
-    Tyxml_js.To_dom.of_element
-    @@ Markup.create ?classes ?attrs ?dense ?two_line (loop [] nodes)
-  in
-  new t elt ()
-
 let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
+
+let make ?classes ?attrs ?multiselectable ?dense ?two_line ?children () =
+  Markup_js.create ?classes ?attrs ?multiselectable ?dense ?two_line ?children ()
+  |> Tyxml_js.To_dom.of_ul
+  |> attach

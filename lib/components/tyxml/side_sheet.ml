@@ -79,17 +79,17 @@ module Make
 struct
   open Html
 
-  let create_scrim ?(classes = []) ?(attrs = []) () : 'a elt =
+  let create_scrim ?(classes = []) ?(attrs = []) ?(children = []) () : 'a elt =
     let classes = CSS.scrim :: classes in
-    div ~a:([a_class classes] @ attrs) []
+    div ~a:([a_class classes] @ attrs) children
 
-  let create_content ?(classes = []) ?(attrs = []) ?(content = []) () : 'a elt =
+  let create_content ?(classes = []) ?(attrs = []) ?(children = []) () : 'a elt =
     let classes = CSS.content :: classes in
-    div ~a:([a_class classes] @ attrs) content
+    div ~a:([a_class classes] @ attrs) children
 
-  let create ?(classes = []) ?(attrs = []) ?(content = []) () : 'a elt =
+  let create ?(classes = []) ?(attrs = []) ?(children = []) () : 'a elt =
     let classes = CSS.root :: classes in
-    aside ~a:([a_class classes] @ attrs) content
+    aside ~a:([a_class classes] @ attrs) children
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

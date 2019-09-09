@@ -1,10 +1,7 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 include Components_tyxml.Form_field
-module Markup_js =
-  Components_tyxml.Form_field.Make
-    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
-    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
-    (Js_of_ocaml_tyxml.Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -29,41 +26,45 @@ module Selector = struct
   let input = Printf.sprintf ".%s > :not(label)" CSS.root
 end
 
-class ['a] t ~(input : #input_widget as 'a) (elt : Dom_html.element Js.t) () =
+class ['a] t
+  ~(input : [`Attach of Dom_html.element Js.t -> (#input_widget as 'a) | `Widget of 'a])
+  (elt : Dom_html.element Js.t)
+  () =
   object (self)
-    val label_elt : Dom_html.element Js.t option =
-      Element.query_selector elt Selector.label
+    val label : Dom_html.element Js.t option = Element.query_selector elt Selector.label
 
-    val mutable _click_listener = None
+    val input : #input_widget as 'a =
+      match input with
+      | `Attach f -> f (Element.query_selector_exn elt Selector.input)
+      | `Widget x -> x
+
+    val mutable listeners = []
 
     inherit Widget.t elt () as super
 
-    method! init () : unit =
-      super#init ();
-      match label_elt with
+    method! initial_sync_with_dom () : unit =
+      (match label with
       | None -> ()
       | Some label ->
-          let listener = Js_of_ocaml_lwt.Lwt_js_events.clicks label self#handle_click in
-          _click_listener <- Some listener
+          listeners <-
+            Js_of_ocaml_lwt.Lwt_js_events.([clicks label self#handle_click] @ listeners));
+      super#initial_sync_with_dom ()
 
     method! destroy () : unit =
-      super#destroy ();
-      match _click_listener with
-      | None -> ()
-      | Some x ->
-          Lwt.cancel x;
-          _click_listener <- None
+      List.iter Lwt.cancel listeners;
+      listeners <- [];
+      super#destroy ()
 
     method input : 'a = input
 
     method label : string =
-      match label_elt with
+      match label with
       | None -> ""
       | Some label ->
           Js.Opt.get (Js.Opt.map label##.textContent Js.to_string) (fun () -> "")
 
     method set_label (s : string) =
-      match label_elt with
+      match label with
       | None -> ()
       | Some label -> label##.textContent := Js.some @@ Js.string s
 
@@ -84,9 +85,17 @@ class ['a] t ~(input : #input_widget as 'a) (elt : Dom_html.element Js.t) () =
       | Some (r : Ripple.t) -> r#deactivate ()
   end
 
-let make ?align_end ~label (input : #input_widget as 'a) : 'a t =
+let attach f (elt : #Dom_html.element Js.t) : 'a t =
+  new t ~input:(`Attach f) (Element.coerce elt) ()
+
+let make ?classes ?attrs ?align_end ?label_for ~attach_input ~label ~input () =
+  Markup_js.create ?classes ?attrs ?align_end ?label_for ~input ~label ()
+  |> Tyxml_js.To_dom.of_div
+  |> fun elt -> new t ~input:(`Attach attach_input) elt ()
+
+let make_of_widget ?classes ?attrs ?align_end ~label ~(input : #input_widget) () =
   let id = Js.to_string @@ input#input_element##.id in
-  let for_id =
+  let label_for =
     match id with
     | "" ->
         let id = get_id () in
@@ -94,20 +103,6 @@ let make ?align_end ~label (input : #input_widget as 'a) : 'a t =
         id
     | id -> id
   in
-  let (elt : Dom_html.element Js.t) =
-    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-    @@ Markup_js.create
-         ?align_end
-         ~label:(Markup_js.create_label ~for_id ~label ())
-         ~input:(Widget.to_markup input)
-         ()
-  in
-  new t ~input elt ()
-
-let attach (f : #Dom_html.element Js.t -> 'a) (elt : #Dom_html.element Js.t) : 'a t =
-  let input =
-    match Element.query_selector elt Selector.input with
-    | None -> failwith "form_field: no input element found"
-    | Some x -> f x
-  in
-  new t ~input (Element.coerce elt) ()
+  Markup_js.create ?classes ?attrs ?align_end ~label_for ~input:input#markup ~label ()
+  |> Tyxml_js.To_dom.of_div
+  |> fun elt -> new t ~input:(`Widget input) elt ()

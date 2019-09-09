@@ -56,20 +56,32 @@ struct
     let icon =
       match icon with
       | Some x -> x
-      | None -> Icon_markup.SVG.create_of_d Svg_icons.close
+      | None -> Icon_markup.SVG.create ~d:Svg_icons.close ()
     in
     Icon_button_markup.create ~classes ?on_icon:None ?on:None ~icon
 
   let create_actions ?(classes = []) ?(attrs = []) ?action ?dismiss () : 'a elt =
     let classes = CSS.actions :: classes in
+    let action =
+      match action with
+      | None -> None
+      | Some (`Text s) -> Some (create_action ~label:s ())
+      | Some (`Element e) -> Some e
+    in
+    let dismiss =
+      match dismiss with
+      | None -> None
+      | Some `True -> Some (create_dismiss ())
+      | Some (`Element e) -> Some e
+    in
     let actions = Utils.(action ^:: dismiss ^:: []) in
     div ~a:([a_class classes] @ attrs) actions
 
-  let create_label ?(classes = []) ?(attrs = []) ?label ?(content = []) () : 'a elt =
+  let create_label ?(classes = []) ?(attrs = []) ?label ?(children = []) () : 'a elt =
     let classes = CSS.label :: classes in
     div
       ~a:([a_class classes; a_aria "live" ["polite"]; a_role ["status"]] @ attrs)
-      (Utils.map_cons_option txt label content)
+      (Utils.map_cons_option txt label children)
 
   let create_surface ?(classes = []) ?(attrs = []) ?action ?dismiss ?actions ?label () :
       'a elt =
@@ -91,7 +103,8 @@ struct
       ?action
       ?actions
       ?label
-      ?(surface = create_surface ?action ?dismiss ?actions ?label ())
+      ?surface
+      ?children
       () : 'a elt =
     let (classes : string list) =
       classes
@@ -99,7 +112,15 @@ struct
       |> Utils.cons_if stacked CSS.stacked
       |> List.cons CSS.root
     in
-    div ~a:([a_class classes] @ attrs) [surface]
+    let children =
+      match children with
+      | Some x -> x
+      | None -> (
+        match surface with
+        | Some x -> [x]
+        | None -> [create_surface ?action ?dismiss ?actions ?label ()])
+    in
+    div ~a:([a_class classes] @ attrs) children
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

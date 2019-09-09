@@ -24,7 +24,7 @@ struct
   open Html
   module Item_list_markup = Item_list.Make (Xml) (Svg) (Html)
 
-  let create_children ?(classes = []) ?(attrs = []) ?(nodes = []) () : 'a elt =
+  let create_children_wrapper ?(classes = []) ?(attrs = []) ?(nodes = []) () : 'a elt =
     let classes = CSS.node_children :: classes in
     ul ~a:([a_class classes; a_role ["group"]] @ attrs) nodes
 
@@ -41,23 +41,33 @@ struct
       ?primary_text
       ?secondary_text
       ?force_wrap
-      ?(content =
-        Item_list_markup.create_item_text ?force_wrap ?primary_text ?secondary_text ())
+      ?children
       () : 'a elt =
     let classes =
       classes |> List.cons Item_list.CSS.item |> List.cons CSS.node_content
     in
+    let children =
+      match children with
+      | Some x -> x
+      | None ->
+          let text =
+            Item_list_markup.create_item_text
+              ?force_wrap
+              ?primary_text
+              ?secondary_text
+              ()
+          in
+          Utils.(graphic ^:: (text :: (meta ^:: [])))
+    in
     span
       ~a:([a_class classes] @ attrs |> Utils.map_cons_option (fun x -> a_role [x]) role)
-      Utils.(graphic ^:: (content :: (meta ^:: [])))
+      children
 
   let create_node
       ?(classes = [])
       ?(attrs = [])
       ?value
       ?level
-      ?child_nodes
-      ?children
       ?(expanded = false)
       ?(tabindex = -1)
       ?(selected = false)
@@ -69,14 +79,16 @@ struct
       ?primary_text
       ?secondary_text
       ?force_wrap
-      ?content
+      ?node_content
+      ?child_nodes
+      ?children_wrapper
       () : 'a elt =
-    let content =
-      match content with
+    let node_content =
+      match node_content with
       | Some x -> x
       | None ->
           let meta =
-            match meta, children, child_nodes with
+            match meta, children_wrapper, child_nodes with
             | (Some _ as x), _, _ -> x
             | None, None, Some [] | None, None, None -> None
             | None, Some _, _ | None, _, Some _ -> Some (create_node_expander ())
@@ -93,13 +105,13 @@ struct
     let checked =
       if indeterminate then "mixed" else if checked then "true" else "false"
     in
-    let children =
-      match children with
+    let children_wrapper =
+      match children_wrapper with
       | Some _ as x -> x
       | None -> (
         match child_nodes with
         | None | Some [] -> None
-        | Some nodes -> Some (create_children ~nodes ()))
+        | Some nodes -> Some (create_children_wrapper ~nodes ()))
     in
     let classes = CSS.node :: classes in
     li
@@ -113,7 +125,7 @@ struct
          @ attrs
         |> Utils.map_cons_option (fun x -> a_aria "level" [string_of_int x]) level
         |> Utils.map_cons_option (a_user_data "value") value)
-      Utils.(content :: (children ^:: []))
+      Utils.(node_content :: (children_wrapper ^:: []))
 
   let create
       ?(classes = [])
@@ -121,7 +133,8 @@ struct
       ?multiselectable
       ?(dense = false)
       ?(two_line = false)
-      nodes =
+      ?(children = [])
+      () =
     let classes =
       classes
       |> Utils.cons_if dense Item_list.CSS.dense (* FIXME *)
@@ -136,5 +149,5 @@ struct
                let v = string_of_bool x in
                a_aria "multiselectable" [v])
              multiselectable)
-      nodes
+      children
 end

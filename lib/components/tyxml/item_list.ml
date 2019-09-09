@@ -98,14 +98,14 @@ struct
       ?(padded = false)
       ?(inset = false)
       ~(tag : ?a:'a attrib list -> 'b -> 'c elt)
-      (content : 'b) =
+      (children : 'b) =
     let (classes : string list) =
       classes
       |> Utils.cons_if inset CSS.divider_inset
       |> Utils.cons_if padded CSS.divider_padded
       |> List.cons CSS.divider
     in
-    tag ~a:([a_class classes; a_role ["separator"]] @ attrs) content
+    tag ~a:([a_class classes; a_role ["separator"]] @ attrs) children
 
   let create_divider_li ?classes ?attrs ?padded ?inset () =
     create_divider ?classes ?attrs ?padded ?inset ~tag:li []
@@ -113,14 +113,14 @@ struct
   let create_divider_hr ?classes ?attrs ?padded ?inset () =
     create_divider ?classes ?attrs ?padded ?inset ~tag:hr ()
 
-  let create_item_primary_text ?(classes = []) ?(attrs = []) ?label ?(content = []) () =
+  let create_item_primary_text ?(classes = []) ?(attrs = []) ?label ?(children = []) () =
     let classes = CSS.item_primary_text :: classes in
-    span ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt label content)
+    span ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt label children)
 
-  let create_item_secondary_text ?(classes = []) ?(attrs = []) ?label ?(content = []) ()
+  let create_item_secondary_text ?(classes = []) ?(attrs = []) ?label ?(children = []) ()
       =
     let classes = CSS.item_secondary_text :: classes in
-    span ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt label content)
+    span ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt label children)
 
   let create_item_text
       ?(classes = [])
@@ -139,13 +139,13 @@ struct
     if force_wrap
     then
       let classes = CSS.item_text :: classes in
-      let content =
+      let children =
         match secondary_text with
         | None -> [primary_text]
         | Some (`Text s) -> [primary_text; create_item_secondary_text ~label:s ()]
         | Some (`Element e) -> [primary_text; e]
       in
-      span ~a:([a_class classes] @ attrs) content
+      span ~a:([a_class classes] @ attrs) children
     else primary_text
 
   let create_item
@@ -161,8 +161,15 @@ struct
       ?primary_text
       ?secondary_text
       ?force_wrap
-      ?(content = create_item_text ?force_wrap ?primary_text ?secondary_text ())
+      ?children
       () : 'a elt =
+    let children =
+      match children with
+      | Some x -> x
+      | None ->
+          let text = create_item_text ?force_wrap ?primary_text ?secondary_text () in
+          Utils.(graphic ^:: (text :: (meta ^:: [])))
+    in
     let classes =
       classes
       |> Utils.cons_if activated CSS.item_activated
@@ -180,21 +187,21 @@ struct
         |> Utils.map_cons_option (fun b -> a_aria "selected" [string_of_bool b]) selected
         |> Utils.map_cons_option a_tabindex tabindex
         |> Utils.map_cons_option (fun x -> a_role [x]) role)
-      Utils.(graphic ^:: (content :: (meta ^:: [])))
+      children
 
   let create_group_subheader
       ?(classes = [])
       ?(attrs = [])
       ?(tag = h3)
       ?label
-      ?(content = [])
+      ?(children = [])
       () : 'a elt =
     let classes = CSS.group_subheader :: classes in
-    tag ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt label content)
+    tag ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt label children)
 
-  let create_group ?(classes = []) ?(attrs = []) ~content () =
+  let create_group ?(classes = []) ?(attrs = []) ~children () =
     let classes = CSS.group :: classes in
-    div ~a:([a_class classes] @ attrs) content
+    div ~a:([a_class classes] @ attrs) children
 
   let create
       ?(classes = [])
@@ -204,7 +211,7 @@ struct
       ?(two_line = false)
       ?(non_interactive = false)
       ?role
-      ?(items = [])
+      ?(children = [])
       () : 'a elt =
     let classes =
       classes
@@ -216,7 +223,7 @@ struct
     in
     ul
       ~a:([a_class classes] @ attrs |> Utils.map_cons_option (fun x -> a_role [x]) role)
-      items
+      children
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

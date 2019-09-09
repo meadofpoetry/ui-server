@@ -1,8 +1,7 @@
 open Js_of_ocaml
-open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 include Components_tyxml.Menu
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 (* TODO
    - selected item is indexed only between active (not disabled) items.
@@ -41,62 +40,61 @@ module Event = struct
       method item : Dom_html.element Js.t Js.readonly_prop
     end
 
-  let selected : selected Js.t Dom_html.customEvent Js.t Dom_html.Event.typ =
-    Dom_html.Event.make "menu:selected"
+  let select : selected Js.t Dom_html.customEvent Js.t Dom_html.Event.typ =
+    Dom_html.Event.make (CSS.root ^ ":select")
 end
 
-class t ?body ?viewport ?list ?(focus_on_open = true) (elt : Dom_html.element Js.t) () =
+module Lwt_js_events = struct
+  open Js_of_ocaml_lwt.Lwt_js_events
+  include Menu_surface.Lwt_js_events
+
+  let select ?use_capture ?passive t = make_event ?use_capture ?passive Event.select t
+
+  let selects ?cancel_handler ?use_capture ?passive t =
+    seq_loop ?cancel_handler ?use_capture ?passive select t
+end
+
+class t ?body ?viewport ?(focus_on_open = true) (elt : Dom_html.element Js.t) () =
   object (self)
-    val _list : Item_list.t option =
-      match list with
-      | Some x -> Some x
-      | None -> Option.map Item_list.attach @@ Element.query_selector elt Selector.list
+    val item_list : Item_list.t option =
+      Option.map Item_list.attach @@ Element.query_selector elt Selector.list
 
-    val mutable _default_focus_item_index : int option = None
-
-    val mutable _action_listener = None
+    val mutable default_focus_item_index : int option = None
 
     inherit Menu_surface.t ?body ?viewport elt () as super
 
-    method! initial_sync_with_dom () : unit =
-      super#initial_sync_with_dom ();
-      Option.iter (fun x -> x#set_wrap_focus true) _list;
-      let action =
-        Lwt_js_events.seq_loop
-          (Lwt_js_events.make_event Item_list.Event.action)
-          super#root
-          (fun e _ ->
-            match Js.Opt.to_option e##.detail with
-            | Some a -> self#handle_item_action a
-            | None -> Lwt.return ())
-      in
-      _action_listener <- Some action
+    method! init () : unit =
+      Option.iter (fun x -> x#set_wrap_focus true) item_list;
+      super#init ()
 
-    method! destroy () : unit =
-      super#destroy ();
-      (* Detach event listeners. *)
-      Option.iter Lwt.cancel _action_listener;
-      _action_listener <- None
+    method! initial_sync_with_dom () : unit =
+      listeners <-
+        [ Item_list.Lwt_js_events.actions super#root (fun e _ ->
+              match Js.Opt.to_option e##.detail with
+              | Some a -> self#handle_item_action a
+              | None -> Lwt.return ()) ]
+        @ listeners;
+      super#initial_sync_with_dom ()
 
     method wrap_focus : bool =
-      match _list with
+      match item_list with
       | None -> false
       | Some list -> list#wrap_focus
 
     method set_wrap_focus (x : bool) : unit =
-      match _list with
+      match item_list with
       | None -> ()
       | Some list -> list#set_wrap_focus x
 
-    method list : Item_list.t option = _list
+    method list : Item_list.t option = item_list
 
     method items : Dom_html.element Js.t list =
-      match _list with
+      match item_list with
       | None -> []
       | Some (list : Item_list.t) -> list#items
 
     method set_default_focus_item_index (i : int option) : unit =
-      _default_focus_item_index <- i
+      default_focus_item_index <- i
 
     (* Private methods *)
     method! private notify_open () : unit =
@@ -104,7 +102,7 @@ class t ?body ?viewport ?list ?(focus_on_open = true) (elt : Dom_html.element Js
       (* Focus some item when opened. *)
       if focus_on_open
       then
-        match _default_focus_item_index with
+        match default_focus_item_index with
         | None -> super#root##focus
         | Some i -> (
           match List.nth_opt self#items i with
@@ -125,7 +123,7 @@ class t ?body ?viewport ?list ?(focus_on_open = true) (elt : Dom_html.element Js
           val item = item
         end
       in
-      super#emit ~detail Event.selected
+      super#emit ~detail Event.select
 
     method! private handle_keydown
         (e : Dom_html.keyboardEvent Js.t)
@@ -156,7 +154,7 @@ class t ?body ?viewport ?list ?(focus_on_open = true) (elt : Dom_html.element Js
       self#notify_selected item;
       super#close ()
       >>= fun () ->
-      Lwt_js.sleep Menu_surface.Const.transition_close_duration_s
+      Js_of_ocaml_lwt.Lwt_js.sleep Menu_surface.Const.transition_close_duration_s
       >>= fun () ->
       let selection_group = self#get_selection_group item in
       Js.Opt.iter selection_group (self#handle_selection_group ~item);
@@ -189,14 +187,12 @@ class t ?body ?viewport ?list ?(focus_on_open = true) (elt : Dom_html.element Js
       aux (Element.get_parent item)
   end
 
-let make_of_item_list ?body ?viewport ?focus_on_open ?fixed ?open_ (list : Item_list.t) :
-    t =
-  let body = (body :> Dom_html.element Js.t option) in
-  let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element @@ Markup.create ?fixed ?open_ (Widget.to_markup list) ()
-  in
-  new t ?body ?viewport ?focus_on_open ~list elt ()
-
 let attach ?body ?viewport ?focus_on_open (elt : #Dom_html.element Js.t) : t =
   let body = (body :> Dom_html.element Js.t option) in
   new t ?body ?viewport ?focus_on_open (Element.coerce elt) ()
+
+let make ?classes ?attrs ?fixed ?open_ ?list_children ?list ?children ?body ?viewport ()
+    : t =
+  Markup_js.create ?classes ?attrs ?fixed ?open_ ?list_children ?list ?children ()
+  |> Tyxml_js.To_dom.of_div
+  |> attach ?body ?viewport

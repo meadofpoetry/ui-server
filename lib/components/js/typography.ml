@@ -54,16 +54,13 @@ module Text = struct
       method text : string = Js.to_string @@ (Js.Unsafe.coerce super#root)##.innerText
 
       method set_text (s : string) : unit =
-        Element.remove_children super#root;
-        List.iter (Dom.appendChild super#root % Tyxml_js.To_dom.of_element)
-        @@ Markup_js.create_inner s
+        super#root##.textContent := Js.some @@ Js.string s
     end
 
-  let make ?font (text : string) : t =
-    let (elt : Dom_html.element Js.t) =
-      Tyxml_js.To_dom.of_element @@ Markup_js.create ?font text
-    in
-    new t elt ()
-
   let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
+
+  let create ?classes ?attrs ?font ?text ?children () =
+    Markup_js.create ?classes ?attrs ?font ?text ?children ()
+    |> Tyxml_js.To_dom.of_element
+    |> attach
 end

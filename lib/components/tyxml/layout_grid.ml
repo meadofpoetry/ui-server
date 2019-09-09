@@ -114,7 +114,7 @@ struct
       ?span_phone
       ?span_tablet
       ?span_desktop
-      ?(content = [])
+      ?(children = [])
       () : 'a elt =
     let (classes : string list) =
       CSS.cell :: classes
@@ -125,7 +125,7 @@ struct
       |> Utils.map_cons_option CSS.cell_align align
       |> Utils.map_cons_option CSS.cell_order order
     in
-    div ~a:([a_class classes] @ attrs) content
+    div ~a:([a_class classes] @ attrs) children
 
   let create_inner ?(classes = []) ?(attrs = []) ?(cells = []) () : 'a elt =
     let classes = CSS.inner :: classes in
@@ -137,7 +137,7 @@ struct
       ?align
       ?(fixed_column_width = false)
       ?cells
-      ?(inner = create_inner ?cells ())
+      ?(children = [create_inner ?cells ()])
       () : 'a elt =
     let (classes : string list) =
       classes
@@ -145,7 +145,7 @@ struct
       |> Utils.cons_if fixed_column_width CSS.fixed_column_width
       |> List.cons CSS.root
     in
-    div ~a:([a_class classes] @ attrs) [inner]
+    div ~a:([a_class classes] @ attrs) children
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

@@ -50,11 +50,12 @@ struct
   let create
       ?(classes = [])
       ?(attrs = [])
-      ?(leading = create_leading ())
-      ?(trailing = create_trailing ())
+      ?leading
+      ?trailing
       ?notch
       ?label_for
       ?label
+      ?children
       () : 'a elt =
     let classes = CSS.root :: classes in
     let notch =
@@ -65,8 +66,23 @@ struct
         | None -> None
         | Some label -> Some (create_notch ?label_for ~label ()))
     in
-    let content = leading :: Utils.(notch ^:: [trailing]) in
-    div ~a:([a_class classes] @ attrs) content
+    let children =
+      match children with
+      | Some x -> x
+      | None ->
+          let leading =
+            match leading with
+            | Some x -> x
+            | None -> create_leading ()
+          in
+          let trailing =
+            match trailing with
+            | Some x -> x
+            | None -> create_trailing ()
+          in
+          leading :: Utils.(notch ^:: [trailing])
+    in
+    div ~a:([a_class classes] @ attrs) children
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

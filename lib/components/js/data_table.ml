@@ -1,8 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Data_table
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
-module Fmt = Markup.Fmt
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Fmt = Markup_js.Fmt
 
 module Selector = struct
   let row = Printf.sprintf ".%s" CSS.row

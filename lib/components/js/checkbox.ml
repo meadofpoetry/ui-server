@@ -39,68 +39,58 @@ class t ?on_change ?(indeterminate = false) (elt : Dom_html.element Js.t) () =
       let element = Element.query_selector_exn elt Selector.native_control in
       Js.Opt.get (Dom_html.CoerceTo.input element) (fun () -> assert false)
 
-    val mutable _ripple : Ripple.t option = None
+    val mutable ripple : Ripple.t option = None
 
-    val mutable _change_listener = None
+    val mutable listeners = []
 
-    val mutable _animationend_listener = None
+    val mutable cur_check_state : transition_state = Init
 
-    val mutable _cur_check_state : transition_state = Init
+    val mutable cur_animation_class : string option = None
 
-    val mutable _cur_animation_class : string option = None
+    val mutable enable_animationend_handler = false
 
-    val mutable _enable_animationend_handler = false
-
-    val mutable _anim_end_latch_timer = None
+    val mutable anim_end_latch_timer = None
 
     inherit Widget.t elt () as super
 
     method! init () : unit =
-      super#init ();
       self#install_property_change_hooks ();
       if indeterminate then self#set_indeterminate true;
-      _cur_check_state <- self#determine_check_state ();
+      cur_check_state <- self#determine_check_state ();
       self#update_aria_checked ();
       super#add_class CSS.upgraded;
-      _ripple <- Some (self#create_ripple ())
+      ripple <- Some (self#create_ripple ());
+      super#init ()
 
     method! initial_sync_with_dom () : unit =
-      super#initial_sync_with_dom ();
-      let change_listener =
-        Js_of_ocaml_lwt.Lwt_js_events.changes input_elt (fun _ _ ->
-            self#transition_check_state ();
-            self#notify_change ())
-      in
-      _change_listener <- Some change_listener;
-      let animationend_listener =
+      listeners <-
         Js_of_ocaml_lwt.Lwt_js_events.(
-          seq_loop
-            (make_event Dom_html.Event.animationend)
-            super#root
-            self#handle_animation_end)
-      in
-      _animationend_listener <- Some animationend_listener
+          [ changes input_elt (fun _ _ ->
+                self#transition_check_state ();
+                self#notify_change ())
+          ; seq_loop
+              (make_event Dom_html.Event.animationend)
+              super#root
+              self#handle_animation_end ]
+          @ listeners);
+      super#initial_sync_with_dom ()
 
     method! layout () : unit =
-      super#layout ();
-      match _ripple with
-      | None -> ()
-      | Some r -> Ripple.layout r
+      Option.iter Ripple.layout ripple;
+      super#layout ()
 
     method! destroy () : unit =
-      super#destroy ();
       (* Detach event listeners *)
-      Option.iter Lwt.cancel _change_listener;
-      _change_listener <- None;
-      Option.iter Lwt.cancel _animationend_listener;
-      _animationend_listener <- None;
+      List.iter Lwt.cancel listeners;
+      listeners <- [];
       (* Destroy internal components *)
-      Option.iter Ripple.destroy _ripple;
-      _ripple <- None;
+      Option.iter Ripple.destroy ripple;
+      ripple <- None;
       (* Clear internal timers *)
-      Option.iter Lwt.cancel _anim_end_latch_timer;
-      _anim_end_latch_timer <- None;
-      self#uninstall_property_change_hooks ()
+      Option.iter Lwt.cancel anim_end_latch_timer;
+      anim_end_latch_timer <- None;
+      self#uninstall_property_change_hooks ();
+      super#destroy ()
 
     method value : string = Js.to_string input_elt##.value
 
@@ -130,7 +120,7 @@ class t ?on_change ?(indeterminate = false) (elt : Dom_html.element Js.t) () =
 
     method input_element : Dom_html.inputElement Js.t = input_elt
 
-    method ripple : Ripple.t option = _ripple
+    method ripple : Ripple.t option = ripple
 
     method private notify_change () : unit Lwt.t =
       match on_change with
@@ -155,27 +145,27 @@ class t ?on_change ?(indeterminate = false) (elt : Dom_html.element Js.t) () =
         (_ : Dom_html.animationEvent Js.t)
         (_ : unit Lwt.t)
         : unit Lwt.t =
-      if _enable_animationend_handler
+      if enable_animationend_handler
       then (
         let t =
           Lwt.catch
             (fun () ->
               Js_of_ocaml_lwt.Lwt_js.sleep Const.anim_end_latch_s
               >>= fun () ->
-              Option.iter super#remove_class _cur_animation_class;
-              _enable_animationend_handler <- false;
+              Option.iter super#remove_class cur_animation_class;
+              enable_animationend_handler <- false;
               Lwt.return_unit)
             (function
               | Lwt.Canceled -> Lwt.return_unit
               | exn -> Lwt.fail exn)
         in
-        _anim_end_latch_timer <- Some t;
+        anim_end_latch_timer <- Some t;
         t)
       else Lwt.return_unit
     (** Handles the `animationend` event for the checkbox *)
 
     method private transition_check_state () : unit =
-      let prev = _cur_check_state in
+      let prev = cur_check_state in
       let cur = self#determine_check_state () in
       if not (equal_transition_state prev cur)
       then (
@@ -183,26 +173,26 @@ class t ?on_change ?(indeterminate = false) (elt : Dom_html.element Js.t) () =
         (* Check to ensure that there isn't a previously existing animation class,
            in case for example the user interacted with the checkbox before
            then animation has finished *)
-        (match _cur_animation_class with
+        (match cur_animation_class with
         | None -> ()
         | Some c ->
-            Option.iter Lwt.cancel _anim_end_latch_timer;
-            _anim_end_latch_timer <- None;
+            Option.iter Lwt.cancel anim_end_latch_timer;
+            anim_end_latch_timer <- None;
             self#force_layout ();
             super#remove_class c);
-        _cur_animation_class <- self#get_transition_animation_class ~prev cur;
-        _cur_check_state <- cur;
+        cur_animation_class <- self#get_transition_animation_class ~prev cur;
+        cur_check_state <- cur;
         (* Check for parentNode so that animations are only run when
            then element is attached to the DOM *)
         match
           ( Js.Opt.to_option super#root##.parentNode
           , Js.Opt.test super#root##.offsetParent
-          , _cur_animation_class )
+          , cur_animation_class )
         with
         | None, _, _ | _, false, _ | _, _, None -> ()
         | Some _, true, Some c ->
             super#add_class c;
-            _enable_animationend_handler <- true)
+            enable_animationend_handler <- true)
 
     method private determine_check_state () : transition_state =
       if self#indeterminate

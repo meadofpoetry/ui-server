@@ -1,8 +1,7 @@
 open Js_of_ocaml
-open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 include Components_tyxml.Tab
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -13,20 +12,18 @@ type dimensions =
   ; content_right : int }
 
 module Event = struct
-  class type interact =
-    object
-      inherit [Element.t] Dom_html.customEvent
-    end
+  let interact : Dom_html.element Js.t Dom_html.customEvent Js.t Dom_html.Event.typ =
+    Dom_html.Event.make (CSS.root ^ ":interact")
+end
 
-  module Typ = struct
-    let interact : interact Js.t Dom_html.Event.typ = Dom_html.Event.make "tab:interact"
-  end
+module Lwt_js_events = struct
+  open Js_of_ocaml_lwt.Lwt_js_events
 
   let interact ?use_capture ?passive x =
-    Lwt_js_events.make_event ?use_capture ?passive Typ.interact x
+    make_event ?use_capture ?passive Event.interact x
 
   let interacts ?cancel_handler ?use_capture ?passive x =
-    Lwt_js_events.seq_loop ?cancel_handler ?use_capture ?passive interact x
+    seq_loop ?cancel_handler ?use_capture ?passive interact x
 end
 
 module Selector = struct
@@ -50,36 +47,36 @@ class t (elt : Dom_html.buttonElement Js.t) () =
 
     inherit Widget.t elt () as super
 
-    val mutable _ripple : Ripple.t option = None
+    val mutable ripple_ : Ripple.t option = None
 
-    val mutable _click_listener = None
+    val mutable listeners = []
 
     method! init () : unit =
-      super#init ();
-      _ripple <- Some (self#create_ripple ())
+      ripple_ <- Some (self#create_ripple ());
+      super#init ()
 
     method! initial_sync_with_dom () : unit =
-      super#initial_sync_with_dom ();
       (* Attach event handlers *)
-      let click =
-        Lwt_js_events.clicks super#root (fun _ _ ->
-            super#emit ~should_bubble:true ~detail:super#root Event.Typ.interact;
-            Lwt.return_unit)
-      in
-      _click_listener <- Some click
+      listeners <-
+        Js_of_ocaml_lwt.Lwt_js_events.(
+          [ clicks super#root (fun _ _ ->
+                super#emit ~should_bubble:true ~detail:super#root Event.interact;
+                Lwt.return_unit) ]
+          @ listeners);
+      super#initial_sync_with_dom ()
 
     method! layout () : unit =
-      super#layout ();
-      Option.iter Ripple.layout _ripple
+      Option.iter Ripple.layout ripple_;
+      super#layout ()
 
     method! destroy () : unit =
-      super#destroy ();
       (* Destroy internal components *)
-      Option.iter Ripple.destroy _ripple;
-      _ripple <- None;
+      Option.iter Ripple.destroy ripple_;
+      ripple_ <- None;
       (* Detach event listeners *)
-      Option.iter Lwt.cancel _click_listener;
-      _click_listener <- None
+      List.iter Lwt.cancel listeners;
+      listeners <- [];
+      super#destroy ()
 
     method indicator : Tab_indicator.t = indicator
 
@@ -119,60 +116,51 @@ class t (elt : Dom_html.buttonElement Js.t) () =
 
     method left : int = super#root##.offsetLeft
 
-    method ripple : Ripple.t option = _ripple
+    method ripple : Ripple.t option = ripple_
 
-    (* Private methods *)
     method private create_ripple () : Ripple.t =
       let adapter = Ripple.make_default_adapter super#root in
       let adapter = {adapter with style_target = ripple_elt} in
       new Ripple.t adapter ()
   end
 
-let make
-    ?min_width
-    ?disabled
-    ?active
-    ?stacked
-    ?(icon : #Widget.t option)
-    ?(label : string option)
-    ?(indicator_span_content = false)
-    ?(indicator : Tab_indicator.t option)
-    () : t =
-  Option.iter (fun x -> x#add_class CSS.icon) icon;
-  let indicator =
-    match indicator with
-    | Some x -> x
-    | None -> Tab_indicator.make ()
-  in
-  let text_label =
-    match label with
-    | None -> None
-    | Some l -> Some (Markup.create_text_label l ())
-  in
-  let content =
-    Markup.create_content
-      ?indicator:
-        (if not indicator_span_content then None else Some (Widget.to_markup indicator))
-      ?icon:(Option.map Widget.to_markup icon)
-      ?text_label
-      ()
-  in
-  let (elt : Dom_html.buttonElement Js.t) =
-    Tyxml_js.To_dom.of_button
-    @@ Markup.create
-         ?min_width
-         ?disabled
-         ?active
-         ?stacked
-         ?indicator:
-           (if indicator_span_content then None else Some (Widget.to_markup indicator))
-         content
-         ()
-  in
-  new t elt ()
-
 let attach (elt : #Dom_html.element Js.t) : t =
   Js.Opt.case
     (Dom_html.CoerceTo.button elt)
-    (fun () -> failwith "tab: host element must have a `button` tag")
+    (fun () -> failwith (CSS.root ^ ": root element must have a `button` tag"))
     (fun btn -> new t btn ())
+
+let make
+    ?classes
+    ?attrs
+    ?active
+    ?stacked
+    ?disabled
+    ?min_width
+    ?indicator_span_content
+    ?indicator_icon
+    ?icon
+    ?text_label
+    ?ripple
+    ?indicator
+    ?content
+    ?children
+    () =
+  Markup_js.create
+    ?classes
+    ?attrs
+    ?active
+    ?stacked
+    ?disabled
+    ?min_width
+    ?indicator_span_content
+    ?indicator_icon
+    ?icon
+    ?text_label
+    ?ripple
+    ?indicator
+    ?content
+    ?children
+    ()
+  |> Tyxml_js.To_dom.of_button
+  |> attach

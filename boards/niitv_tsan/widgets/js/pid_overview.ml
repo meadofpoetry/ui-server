@@ -20,20 +20,20 @@ let make_pid_flags_element {has_pcr; scrambled} =
   let pcr =
     match has_pcr with
     | false -> None
-    | true -> Some Icon.SVG.(Markup_js.create_of_d Path.clock_outline)
+    | true -> Some Icon.SVG.(Markup_js.create ~d:Path.clock_outline ())
   in
   let scr =
     match scrambled with
     | false -> None
-    | true -> Some Icon.SVG.(Markup_js.create_of_d Path.lock)
+    | true -> Some Icon.SVG.(Markup_js.create ~d:Path.lock ())
   in
   let ( ^:: ) x l =
     match x with
     | None -> l
     | Some x -> x :: l
   in
-  let widgets = scr ^:: pcr ^:: [] in
-  Js_of_ocaml_tyxml.Tyxml_js.Html.toelt @@ Box.Markup_js.create widgets
+  let children = scr ^:: pcr ^:: [] in
+  Js_of_ocaml_tyxml.Tyxml_js.Html.toelt @@ Box.Markup_js.create ~children ()
 
 let pid_type_fmt : MPEG_TS.PID.Type.t Data_table.Fmt.custom =
   MPEG_TS.PID.Type.

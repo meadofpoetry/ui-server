@@ -7,52 +7,52 @@ let ( >>= ) = Lwt.bind
 
 class t ?on_click (elt : Dom_html.buttonElement Js.t) () =
   object (self)
-    val mutable _ripple : Ripple.t option = None
+    val mutable ripple : Ripple.t option = None
 
-    val mutable _click_listener = None
+    val mutable listeners = []
 
     inherit Widget.t elt () as super
 
     method! init () : unit =
       super#init ();
-      _ripple <- Some (self#create_ripple ())
+      ripple <- Some (self#create_ripple ())
 
     method! initial_sync_with_dom () : unit =
       super#initial_sync_with_dom ();
       match on_click with
       | None -> ()
       | Some f ->
-          let listener =
-            Js_of_ocaml_lwt.Lwt_js_events.clicks super#root (f (self :> t))
-          in
-          _click_listener <- Some listener
+          listeners <-
+            Js_of_ocaml_lwt.Lwt_js_events.(
+              [clicks super#root (f (self :> t))] @ listeners)
 
     method! layout () : unit =
-      super#layout ();
-      Option.iter Ripple.layout _ripple
+      Option.iter Ripple.layout ripple;
+      super#layout ()
 
     method! destroy () : unit =
-      super#destroy ();
+      (* Detach event listeners *)
+      List.iter Lwt.cancel listeners;
+      listeners <- [];
       (* Destroy internal components *)
-      Option.iter (fun r -> r#destroy ()) _ripple;
-      _ripple <- None
+      Option.iter (fun r -> r#destroy ()) ripple;
+      ripple <- None;
+      super#destroy ()
 
     method mini : bool = super#has_class CSS.mini
 
     method set_mini (x : bool) : unit = super#toggle_class ~force:x CSS.mini
 
-    (* Private methods *)
     method private create_ripple () : Ripple.t = Ripple.attach super#root
   end
-
-let make ?mini ?extended ?label ?icon ?on_click () : t =
-  let (elt : Dom_html.buttonElement Js.t) =
-    Tyxml_js.To_dom.of_button @@ Markup_js.create ?mini ?extended ?label ?icon ()
-  in
-  new t ?on_click elt ()
 
 let attach ?on_click (elt : #Dom_html.element Js.t) : t =
   Js.Opt.case
     (Dom_html.CoerceTo.button elt)
-    (fun () -> failwith "FAB: host element must have a `button` tag")
+    (fun () -> failwith (CSS.root ^ ": root element must have a `button` tag"))
     (fun elt -> new t ?on_click elt ())
+
+let make ?classes ?attrs ?mini ?extended ?label ?icon ?on_click () : t =
+  Markup_js.create ?classes ?attrs ?mini ?extended ?label ?icon ()
+  |> Tyxml_js.To_dom.of_button
+  |> attach ?on_click

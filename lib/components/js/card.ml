@@ -1,17 +1,11 @@
+open Js_of_ocaml
+open Js_of_ocaml_tyxml
 include Components_tyxml.Card
-module Markup_js =
-  Components_tyxml.Card.Make
-    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
-    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
-    (Js_of_ocaml_tyxml.Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
-let make ?classes ?attrs ?outlined ?tag content : Widget.t =
-  let elt =
-    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-    @@ Markup_js.create ?classes ?attrs ?outlined ?tag
-    @@ List.map Js_of_ocaml_tyxml.Tyxml_js.Of_dom.of_element content
-  in
-  Widget.create elt
+let attach (elt : #Dom_html.element Js.t) : Widget.t = Widget.create elt
 
-let attach (elt : #Js_of_ocaml.Dom_html.element Js_of_ocaml.Js.t) : Widget.t =
-  Widget.create elt
+let make ?tag ?classes ?attrs ?outlined ?children () =
+  Markup_js.create ?tag ?classes ?attrs ?outlined ?children ()
+  |> Tyxml_js.To_dom.of_element
+  |> attach

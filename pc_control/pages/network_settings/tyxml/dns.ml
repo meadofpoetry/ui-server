@@ -38,8 +38,10 @@ struct
       ?classes
       ~attrs:(a_id id :: attrs)
       ~header:(Common_markup.create_section_header ~title:"DNS серверы" [])
-      [ Card_markup.create_media [create_list v.dns; empty]
-      ; Card_markup.create_actions [Card_markup.create_action_buttons [add]] ]
+      ~children:
+        [ Card_markup.create_media [create_list v.dns; empty]
+        ; Card_markup.create_actions [Card_markup.create_action_buttons [add]] ]
+      ()
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

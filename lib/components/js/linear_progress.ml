@@ -1,7 +1,7 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Linear_progress
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 module Selector = struct
   let buffer = Printf.sprintf ".%s" CSS.buffer
@@ -13,7 +13,7 @@ class t (elt : Dom_html.element Js.t) () =
   object (self)
     inherit Widget.t elt () as super
 
-    val mutable _progress = 0.
+    val mutable progress = 0.
 
     val transform : Js.js_string Js.t =
       Js.string
@@ -31,10 +31,10 @@ class t (elt : Dom_html.element Js.t) () =
       then (
         self#set_scale 1. primary_bar;
         self#set_scale 1. buffer)
-      else self#set_scale _progress primary_bar
+      else self#set_scale progress primary_bar
 
     method set_progress x =
-      _progress <- x;
+      progress <- x;
       if not @@ self#indeterminate then self#set_scale x primary_bar
 
     method set_buffer x = if not @@ self#indeterminate then self#set_scale x buffer
@@ -67,11 +67,31 @@ class t (elt : Dom_html.element Js.t) () =
           (Js.Unsafe.coerce elt##.style)##setProperty transform scale
   end
 
-let make ?classes ?attrs ?indeterminate ?reversed ?closed () : t =
-  let elt =
-    Tyxml_js.To_dom.of_element
-    @@ Markup.create ?classes ?attrs ?indeterminate ?reversed ?closed ()
-  in
-  new t elt ()
-
 let attach (elt : #Dom_html.element Js.t) : t = new t (elt :> Dom_html.element Js.t) ()
+
+let make
+    ?classes
+    ?attrs
+    ?indeterminate
+    ?reversed
+    ?closed
+    ?buffering_dots
+    ?buffer
+    ?primary_bar
+    ?secondary_bar
+    ?children
+    () : t =
+  Markup_js.create
+    ?classes
+    ?attrs
+    ?indeterminate
+    ?reversed
+    ?closed
+    ?buffering_dots
+    ?buffer
+    ?primary_bar
+    ?secondary_bar
+    ?children
+    ()
+  |> Tyxml_js.To_dom.of_div
+  |> attach

@@ -29,12 +29,12 @@ struct
     let meta =
       span ~a:[a_class [Item_list.CSS.item_meta]] [txt (bitrate_to_string value)]
     in
-    let text = txt text in
-    Item_list_markup.create_item ~classes ?attrs ~meta text ()
+    let primary_text = `Text text in
+    Item_list_markup.create_item ~classes ?attrs ~meta ~primary_text ()
 
   let create ?(classes = []) ?attrs ?total ?effective ?items () =
     let classes = CSS.root :: classes in
-    let items =
+    let children =
       match items with
       | Some x -> x
       | None ->
@@ -52,7 +52,13 @@ struct
           in
           [total; effective]
     in
-    Item_list_markup.create ~classes ?attrs ~dense:true ~non_interactive:true ~items ()
+    Item_list_markup.create
+      ~classes
+      ?attrs
+      ~dense:true
+      ~non_interactive:true
+      ~children
+      ()
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

@@ -1,7 +1,7 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Tab_indicator
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 module Selector = struct
   let content = Printf.sprintf ".%s" CSS.content
@@ -24,7 +24,6 @@ class t (elt : Dom_html.element Js.t) () =
       then if self#fade then super#add_class CSS.active else self#activate_slide previous
       else super#remove_class CSS.active
 
-    (* Private methods *)
     method private activate_slide : t option -> unit =
       function
       | None -> super#add_class CSS.active
@@ -51,12 +50,9 @@ class t (elt : Dom_html.element Js.t) () =
           content##.style##.transform := Js.string ""
   end
 
-let make ?fade ?active ?icon () : t =
-  let icon = Option.map Widget.to_markup icon in
-  let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element
-    @@ Markup.create ?active ?fade (Markup.create_content ?icon ()) ()
-  in
-  new t elt ()
-
 let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
+
+let make ?classes ?attrs ?active ?fade ?icon ?content () =
+  Markup_js.create ?classes ?attrs ?active ?fade ?icon ?content ()
+  |> Tyxml_js.To_dom.of_span
+  |> attach

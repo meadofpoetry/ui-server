@@ -60,6 +60,8 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
+  module Notched_outline_markup = Notched_outline.Make (Xml) (Svg) (Html)
+  module Floating_label_markup = Floating_label.Make (Xml) (Svg) (Html)
 
   module Helper_text = struct
     let create
@@ -67,8 +69,8 @@ struct
         ?(attrs = [])
         ?(persistent = false)
         ?(validation = false)
-        ?label
-        ?(content = [])
+        ?text
+        ?(children = [])
         () : 'a elt =
       let classes =
         classes
@@ -80,7 +82,7 @@ struct
         ~a:
           ([a_class classes] @ attrs
           |> Utils.cons_if (not persistent) @@ a_aria "hidden" ["true"])
-        (Utils.map_cons_option txt label content)
+        (Utils.map_cons_option txt text children)
   end
 
   module Native = struct
@@ -117,6 +119,7 @@ struct
     let create_select
         ?(classes = [])
         ?(attrs = [])
+        ?id
         ?(disabled = false)
         ?(autofocus = false)
         ?(required = false)
@@ -129,6 +132,7 @@ struct
       select
         ~a:
           ([a_class classes] @ attrs
+          |> Utils.map_cons_option a_id id
           |> Utils.map_cons_option a_size size
           |> Utils.map_cons_option a_name name
           |> Utils.map_cons_option a_form form
@@ -141,8 +145,10 @@ struct
         ?(classes = [])
         ?(attrs = [])
         ?label
+        ?input_id
         ?line_ripple
         ?(disabled = false)
+        ?(outlined = false)
         ?outline
         ?icon
         ?required
@@ -151,24 +157,38 @@ struct
         ?form
         ?name
         ?options
-        ?(select = create_select ?required ?autofocus ?size ?form ?name ?options ())
+        ?(select =
+          create_select ?id:input_id ?required ?autofocus ?size ?form ?name ?options ())
         () : 'a elt =
-      let outlined =
-        match outline with
-        | None -> false
-        | Some _ -> true
+      let outline =
+        match outline, outlined with
+        | (Some _ as x), _ -> x
+        | None, false -> None
+        | None, true -> Some (Notched_outline_markup.create ?label ())
+      in
+      let floating_label =
+        match label, outline with
+        | None, _ -> None
+        | Some _, Some _ -> None
+        | Some x, None -> (
+          match x with
+          | `Text s -> Some (Floating_label_markup.create ?for_:input_id ~label:s ())
+          | `Element e -> Some e)
       in
       let classes =
         classes
         |> Utils.cons_if disabled CSS.disabled
-        |> Utils.cons_if outlined CSS.outlined
+        |> Utils.cons_if (Option.is_some outline) CSS.outlined
         |> List.cons CSS.root
       in
       let dropdown_icon = i ~a:[a_class [CSS.dropdown_icon]] [] in
       div
         ~a:([a_class classes] @ attrs)
         Utils.(
-          icon ^:: (dropdown_icon :: select :: (label ^:: line_ripple ^:: outline ^:: [])))
+          icon
+          ^:: (dropdown_icon
+              :: select
+              :: (floating_label ^:: line_ripple ^:: outline ^:: [])))
   end
 
   module Enhanced = struct

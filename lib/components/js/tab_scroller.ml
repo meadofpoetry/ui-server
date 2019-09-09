@@ -1,8 +1,7 @@
 open Js_of_ocaml
-open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 include Components_tyxml.Tab_scroller
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 (* TODO
    - add RTL support
@@ -29,42 +28,38 @@ module Selector = struct
   let scroll_area = Printf.sprintf ".%s" CSS.scroll_area
 end
 
-class t ?tabs (elt : Dom_html.element Js.t) () =
+class t (elt : Dom_html.element Js.t) () =
   object (self)
-    val _scroll_content = Element.query_selector_exn elt Selector.scroll_content
+    val scroll_content = Element.query_selector_exn elt Selector.scroll_content
 
-    val _scroll_area = Element.query_selector_exn elt Selector.scroll_area
+    val scroll_area = Element.query_selector_exn elt Selector.scroll_area
 
-    val mutable _hscroll_height = 0
+    val mutable hscroll_height = 0
 
-    val mutable _animating : bool = false
+    val mutable animating : bool = false
 
-    val mutable _listeners = []
+    val mutable listeners = []
 
-    val mutable _tabs =
-      match tabs with
-      | Some x -> x
-      | None ->
-          (* If we're attaching to an element, instantiate tabs *)
-          List.map Tab.attach
-          @@ Element.query_selector_all elt (Printf.sprintf ".%s" Tab.CSS.root)
+    val mutable tabs =
+      List.map Tab.attach
+      @@ Element.query_selector_all elt (Printf.sprintf ".%s" Tab.CSS.root)
 
     inherit Widget.t elt () as super
 
     method! init () : unit =
-      super#init ();
       (* Compute horizontal scrollbar height on scroller with overflow initially hidden,
        then update overflow to scroll and immediately adjust bottom margin to avoid
-       the scrollbar initially appearing before JS runs *)
-      (_scroll_area##.style##.marginBottom
-      :=
-      match compute_horizontal_scroll_height () with
-      | Some x -> Js.string (Printf.sprintf "-%dpx" x)
-      | None -> Js.string "");
-      Element.add_class _scroll_area CSS.scroll_area_scroll
+         the scrollbar initially appearing before JS runs *)
+      let margin_bottom =
+        match compute_horizontal_scroll_height () with
+        | Some x -> Js.string (Printf.sprintf "-%dpx" x)
+        | None -> Js.string ""
+      in
+      scroll_area##.style##.marginBottom := margin_bottom;
+      Element.add_class scroll_area CSS.scroll_area_scroll;
+      super#init ()
 
     method! initial_sync_with_dom () : unit =
-      super#initial_sync_with_dom ();
       (* Attach event listeners *)
       let handle_interaction _ _ =
         self#handle_interaction ();
@@ -74,8 +69,8 @@ class t ?tabs (elt : Dom_html.element Js.t) () =
         self#handle_transition_end e;
         Lwt.return_unit
       in
-      let listeners =
-        Lwt_js_events.
+      listeners <-
+        Js_of_ocaml_lwt.Lwt_js_events.(
           [ touchstarts super#root handle_interaction
           ; pointerdowns super#root handle_interaction
           ; mousedowns super#root handle_interaction
@@ -88,41 +83,41 @@ class t ?tabs (elt : Dom_html.element Js.t) () =
               (make_event @@ Dom_html.Event.make "transitionend")
               super#root
               handle_transitionend ]
-      in
-      _listeners <- listeners
+          @ listeners);
+      super#initial_sync_with_dom ()
 
     method! destroy () : unit =
-      super#destroy ();
       (* Detach event listeners *)
-      List.iter Lwt.cancel _listeners;
-      _listeners <- []
+      List.iter Lwt.cancel listeners;
+      listeners <- [];
+      super#destroy ()
 
     method! layout () : unit =
-      super#layout ();
-      List.iter Widget.layout _tabs
+      List.iter Widget.layout tabs;
+      super#layout ()
 
-    method tabs : Tab.t list = _tabs
+    method tabs : Tab.t list = tabs
 
     method remove_tab (tab : Tab.t) : unit =
-      _tabs <- List.filter (fun x -> not @@ Widget.equal tab x) _tabs;
+      tabs <- List.filter (fun x -> not @@ Widget.equal tab x) tabs;
       Element.remove_child_safe super#root tab#root;
       self#layout ()
 
     method append_tab (tab : Tab.t) : unit =
-      _tabs <- tab :: _tabs;
+      tabs <- tab :: tabs;
       Element.append_child super#root tab#root;
       self#layout ()
 
     method insert_tab_at_index (i : int) (tab : Tab.t) : unit =
-      _tabs <- tab :: _tabs;
+      tabs <- tab :: tabs;
       Element.insert_child_at_index super#root i tab#root;
       self#layout ()
 
     method get_tab_at_index (i : int) : Tab.t option =
-      List.find_opt (fun (tab : Tab.t) -> tab#index = i) _tabs
+      List.find_opt (fun (tab : Tab.t) -> tab#index = i) tabs
 
     method active_tab : Tab.t option =
-      List.find_opt (fun (tab : Tab.t) -> tab#active) _tabs
+      List.find_opt (fun (tab : Tab.t) -> tab#active) tabs
 
     method set_active_tab (tab : Tab.t) : unit =
       match self#active_tab with
@@ -150,12 +145,12 @@ class t ?tabs (elt : Dom_html.element Js.t) () =
       | Some End -> super#add_class CSS.align_end
       | Some Center -> super#add_class CSS.align_center
 
-    method content_width : int = _scroll_content##.offsetWidth
+    method content_width : int = scroll_content##.offsetWidth
 
     (* Computes the current visual scroll position *)
     method get_scroll_position () : int =
       let current_translate_x = self#get_current_translate_x () in
-      let scroll_left = _scroll_area##.scrollLeft in
+      let scroll_left = scroll_area##.scrollLeft in
       scroll_left - current_translate_x
 
     (* Scrolls to the given scrollX value *)
@@ -176,23 +171,21 @@ class t ?tabs (elt : Dom_html.element Js.t) () =
           let scroll_delta = safe_scroll_x - current_scroll_x in
           self#animate {scroll_delta; final_scroll_position = safe_scroll_x}
 
-    (* Private methods *)
-
     (* Handles interaction events that occur during transition *)
     method private handle_interaction () : unit =
-      if _animating then self#stop_scroll_animation ()
+      if animating then self#stop_scroll_animation ()
 
     (* Handles transitionend event *)
     method private handle_transition_end e : unit =
       Js.Opt.iter e##.target (fun (target : Dom_html.element Js.t) ->
-          if _animating && Element.matches target ("." ^ CSS.scroll_content)
+          if animating && Element.matches target ("." ^ CSS.scroll_content)
           then (
-            _animating <- false;
+            animating <- false;
             super#remove_class CSS.animating))
 
     method private calculate_scroll_edges () : int * int =
-      let content_width = _scroll_content##.offsetWidth in
-      let root_width = _scroll_area##.offsetWidth in
+      let content_width = scroll_content##.offsetWidth in
+      let root_width = scroll_area##.offsetWidth in
       (* left, right *)
       0, content_width - root_width
 
@@ -204,7 +197,7 @@ class t ?tabs (elt : Dom_html.element Js.t) () =
       min (max left v) right
 
     method private get_current_translate_x () =
-      let style = Dom_html.window##getComputedStyle _scroll_content in
+      let style = Dom_html.window##getComputedStyle scroll_content in
       let value = Js.to_string style##.transform in
       match value with
       | "none" -> 0
@@ -219,16 +212,16 @@ class t ?tabs (elt : Dom_html.element Js.t) () =
     (* Gets the current scroll position during animation *)
     method private get_animating_scroll_position () : int =
       let current_translate_x = self#get_current_translate_x () in
-      let scroll_left = _scroll_area##.scrollLeft in
+      let scroll_left = scroll_area##.scrollLeft in
       scroll_left - current_translate_x
 
     (* Stops scroll animation *)
     method private stop_scroll_animation () : unit =
-      _animating <- false;
+      animating <- false;
       let current_scroll_position = self#get_animating_scroll_position () in
       super#remove_class CSS.animating;
       super#root##.style##.transform := Js.string "translateX(0px)";
-      _scroll_area##.scrollLeft := current_scroll_position
+      scroll_area##.scrollLeft := current_scroll_position
 
     (* Animates the tab scrolling *)
     method private animate (a : animation) : unit Lwt.t =
@@ -238,25 +231,22 @@ class t ?tabs (elt : Dom_html.element Js.t) () =
       then Lwt.return_unit
       else (
         self#stop_scroll_animation ();
-        _scroll_area##.scrollLeft := a.final_scroll_position;
+        scroll_area##.scrollLeft := a.final_scroll_position;
         let translate_x = Printf.sprintf "translateX(%dpx)" a.scroll_delta in
-        _scroll_content##.style##.transform := Js.string translate_x;
+        scroll_content##.style##.transform := Js.string translate_x;
         (* Force repaint *)
-        ignore @@ _scroll_area##getBoundingClientRect;
-        _animating <- true;
-        Lwt_js_events.request_animation_frame ()
+        ignore @@ scroll_area##getBoundingClientRect;
+        animating <- true;
+        Js_of_ocaml_lwt.Lwt_js_events.request_animation_frame ()
         >>= fun () ->
         super#add_class CSS.animating;
-        _scroll_content##.style##.transform := Js.string "none";
+        scroll_content##.style##.transform := Js.string "none";
         Lwt.return_unit)
   end
 
-let make ?align (tabs : Tab.t list) : t =
-  let content = Markup.create_scroll_content (List.map Widget.to_markup tabs) () in
-  let scroll_area = Markup.create_scroll_area ~content () in
-  let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element @@ Markup.create ?align ~scroll_area ()
-  in
-  new t ~tabs elt ()
-
 let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
+
+let make ?classes ?attrs ?align ?tabs ?scroll_area () =
+  Markup_js.create ?classes ?attrs ?align ?tabs ?scroll_area ()
+  |> Tyxml_js.To_dom.of_div
+  |> attach

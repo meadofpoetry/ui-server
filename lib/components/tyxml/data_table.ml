@@ -223,3 +223,4 @@ struct
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module Fmt = Make_fmt (Tyxml.Xml)

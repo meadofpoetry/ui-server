@@ -1,19 +1,15 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Tab_bar
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 (* TODO
    - add rtl support
 *)
 
-let name = "tab-bar"
-
 let ( >>= ) = Lwt.( >>= )
 
 module Event = struct
-  open Js_of_ocaml_lwt
-
   class type detail =
     object
       method index : int Js.readonly_prop
@@ -21,80 +17,75 @@ module Event = struct
       method tab : Dom_html.element Js.t Js.readonly_prop
     end
 
-  module Typ = struct
-    let (change : detail Js.t Dom_html.customEvent Js.t Dom_html.Event.typ) =
-      Dom_html.Event.make @@ Printf.sprintf "%s:change" name
-  end
+  let (change : detail Js.t Dom_html.customEvent Js.t Dom_html.Event.typ) =
+    Dom_html.Event.make (CSS.root ^ ":change")
+end
 
-  let change ?use_capture ?passive x =
-    Lwt_js_events.make_event ?use_capture ?passive Typ.change x
+module Lwt_js_events = struct
+  open Js_of_ocaml_lwt.Lwt_js_events
+
+  let change ?use_capture ?passive x = make_event ?use_capture ?passive Event.change x
 
   let changes ?cancel_handler ?use_capture ?passive x =
-    Lwt_js_events.seq_loop ?use_capture ?passive ?cancel_handler change x
+    seq_loop ?use_capture ?passive ?cancel_handler change x
 end
 
 module Selector = struct
   let tab_scroller = Printf.sprintf ".%s" Tab_scroller.CSS.root
 end
 
-class t ?on_change ?scroller ?(auto_activation = false) (elt : Dom_html.element Js.t) ()
-  =
+class t ?on_change ?(auto_activation = false) elt () =
   object (self)
-    val _scroller =
-      match scroller with
-      | Some x -> x
-      | None ->
-          (* If we're attaching to an element, instantiate scroller *)
-          Tab_scroller.attach @@ Element.query_selector_exn elt Selector.tab_scroller
+    val scroller =
+      Tab_scroller.attach @@ Element.query_selector_exn elt Selector.tab_scroller
 
-    val mutable _auto_activation = auto_activation
+    val mutable auto_activation = auto_activation
 
-    val mutable _keydown_listener = None
-
-    val mutable _interaction_listener = None
+    val mutable listeners = []
 
     inherit Widget.t elt () as super
 
     method! init () : unit =
-      super#init ();
       (* Set active tab *)
-      (Lwt.ignore_result
-      @@
-      match _scroller#active_tab with
-      | Some (tab : Tab.t) -> self#scroll_into_view tab
-      | None -> (
-        match _scroller#get_tab_at_index 0 with
-        | None -> Lwt.return_unit
-        | Some x -> self#set_active_tab x));
+      Lwt.async (fun () ->
+          match scroller#active_tab with
+          | Some (tab : Tab.t) -> self#scroll_into_view tab
+          | None -> (
+            match scroller#get_tab_at_index 0 with
+            | None -> Lwt.return_unit
+            | Some x -> self#set_active_tab x));
+      super#init ()
+
+    method! initial_sync_with_dom () : unit =
       (* Attach event listeners *)
-      let interaction = Tab.Event.interacts super#root self#handle_tab_interaction in
-      _interaction_listener <- Some interaction;
-      let keydown =
-        Js_of_ocaml_lwt.Lwt_js_events.keydowns super#root self#handle_key_down
-      in
-      _keydown_listener <- Some keydown
+      listeners <-
+        Js_of_ocaml_lwt.Lwt_js_events.(
+          [ Tab.Lwt_js_events.interacts super#root self#handle_tab_interaction
+          ; keydowns super#root self#handle_key_down ]
+          @ listeners);
+      super#initial_sync_with_dom ()
 
-    method auto_activation : bool = _auto_activation
+    method auto_activation : bool = auto_activation
 
-    method set_auto_activation (x : bool) : unit = _auto_activation <- x
+    method set_auto_activation (x : bool) : unit = auto_activation <- x
 
-    method align : Tab_scroller.align option = _scroller#align
+    method align : Tab_scroller.align option = scroller#align
 
-    method set_align (x : Tab_scroller.align option) : unit = _scroller#set_align x
+    method set_align (x : Tab_scroller.align option) : unit = scroller#set_align x
 
     (* Misc tab actions *)
     method tabs : Tab.t list =
-      List.sort
+      List.sort_uniq
         (fun (a : Tab.t as 'a) (b : 'a) -> compare a#index b#index)
-        _scroller#tabs
+        scroller#tabs
 
-    method get_tab_at_index (i : int) : Tab.t option = _scroller#get_tab_at_index i
+    method get_tab_at_index (i : int) : Tab.t option = scroller#get_tab_at_index i
 
     (* Active tab actions *)
-    method active_tab : Tab.t option = _scroller#active_tab
+    method active_tab : Tab.t option = scroller#active_tab
 
     method active_tab_index : int option =
-      match _scroller#active_tab with
+      match scroller#active_tab with
       | None -> None
       | Some x -> Some x#index
 
@@ -102,10 +93,10 @@ class t ?on_change ?scroller ?(auto_activation = false) (elt : Dom_html.element 
       if not tab#active
       then
         let eq = Option.equal Widget.equal in
-        let previous = _scroller#active_tab in
+        let previous = scroller#active_tab in
         if not @@ eq (Some tab) previous
         then (
-          _scroller#set_active_tab tab;
+          scroller#set_active_tab tab;
           self#scroll_into_view tab
           >>= fun () ->
           self#notify_tab_activated tab;
@@ -116,13 +107,13 @@ class t ?on_change ?scroller ?(auto_activation = false) (elt : Dom_html.element 
       else Lwt.return_unit
 
     method set_active_tab_index (i : int) : unit Lwt.t =
-      match _scroller#get_tab_at_index i with
+      match scroller#get_tab_at_index i with
       | None -> Lwt.return_unit
       | Some tab -> self#set_active_tab tab
 
     (* Remove tab actions *)
     method remove_tab ?(destroy = true) ?(activate_other = true) (tab : Tab.t) : unit =
-      match List.find_opt (Widget.equal tab) _scroller#tabs with
+      match List.find_opt (Widget.equal tab) scroller#tabs with
       | None -> ()
       | Some tab ->
           let i = tab#index in
@@ -130,24 +121,24 @@ class t ?on_change ?scroller ?(auto_activation = false) (elt : Dom_html.element 
           then
             (* Look for previous tab *)
             let other =
-              match _scroller#get_tab_at_index (i - 1) with
-              | None -> _scroller#get_tab_at_index (i + 1) (* Try next tab *)
+              match scroller#get_tab_at_index (i - 1) with
+              | None -> scroller#get_tab_at_index (i + 1) (* Try next tab *)
               | Some x -> Some x
             in
             Option.iter (fun tab -> Lwt.async (fun () -> self#set_active_tab tab)) other);
-          _scroller#remove_tab tab;
+          scroller#remove_tab tab;
           if destroy then tab#destroy ()
 
     method remove_tab_at_idx ?destroy ?activate_other (i : int) : unit =
-      match _scroller#get_tab_at_index i with
+      match scroller#get_tab_at_index i with
       | None -> ()
       | Some tab -> self#remove_tab ?destroy ?activate_other tab
 
     (* Add tab actions *)
-    method append_tab (tab : Tab.t) : unit = _scroller#append_tab tab
+    method append_tab (tab : Tab.t) : unit = scroller#append_tab tab
 
     method insert_tab_at_index (i : int) (tab : Tab.t) : unit =
-      _scroller#insert_tab_at_index i tab
+      scroller#insert_tab_at_index i tab
 
     (* Private methods *)
     method private notify_tab_activated (tab : Tab.t) : unit =
@@ -158,10 +149,10 @@ class t ?on_change ?scroller ?(auto_activation = false) (elt : Dom_html.element 
           val tab = tab#root
         end
       in
-      super#emit ~detail Event.Typ.change
+      super#emit ~detail Event.change
 
     method private is_index_in_range (i : int) : bool =
-      i >= 0 && i < List.length _scroller#tabs
+      i >= 0 && i < List.length scroller#tabs
 
     method private find_adjacent_tab_index_closest_to_edge
         (i : int)
@@ -221,11 +212,10 @@ class t ?on_change ?scroller ?(auto_activation = false) (elt : Dom_html.element 
     method private scroll_into_view (tab : Tab.t) : unit Lwt.t =
       let i = tab#index in
       match i with
-      | 0 -> _scroller#scroll_to 0
-      | i when i = List.length self#tabs - 1 ->
-          _scroller#scroll_to _scroller#content_width
+      | 0 -> scroller#scroll_to 0
+      | i when i = List.length self#tabs - 1 -> scroller#scroll_to scroller#content_width
       | i ->
-          let scroll_position = _scroller#get_scroll_position () in
+          let scroll_position = scroller#get_scroll_position () in
           let bar_width = super#root##.offsetWidth in
           let tab_dimensions = tab#compute_dimensions () in
           let next_index =
@@ -241,7 +231,7 @@ class t ?on_change ?scroller ?(auto_activation = false) (elt : Dom_html.element 
             let scroll_increment =
               self#calculate_scroll_increment tab next_index scroll_position bar_width
             in
-            _scroller#increment_scroll scroll_increment
+            scroller#increment_scroll scroll_increment
 
     (* method for determining the index of the destination tab
      * based on what key was pressed
@@ -250,7 +240,7 @@ class t ?on_change ?scroller ?(auto_activation = false) (elt : Dom_html.element 
         (index : int)
         (event : Dom_html.Keyboard_code.t)
         : int option =
-      let max_index = List.length _scroller#tabs - 1 in
+      let max_index = List.length scroller#tabs - 1 in
       let index =
         match event with
         | End -> Some max_index
@@ -263,10 +253,7 @@ class t ?on_change ?scroller ?(auto_activation = false) (elt : Dom_html.element 
         (fun x -> if x < 0 then max_index else if x > max_index then 0 else x)
         index
 
-    method private handle_tab_interaction
-        (e : Tab.Event.interact Js.t)
-        (_ : unit Lwt.t)
-        : unit Lwt.t =
+    method private handle_tab_interaction e (_ : unit Lwt.t) : unit Lwt.t =
       match Js.Opt.to_option e##.detail with
       | None -> Lwt.return_unit
       | Some (elt : Element.t) -> (
@@ -289,7 +276,7 @@ class t ?on_change ?scroller ?(auto_activation = false) (elt : Dom_html.element 
             | None -> 0
             | Some i -> i
           in
-          if _auto_activation
+          if auto_activation
           then
             if self#is_activation_key key
             then Lwt.return_unit
@@ -309,7 +296,7 @@ class t ?on_change ?scroller ?(auto_activation = false) (elt : Dom_html.element 
                   match index with
                   | None -> Lwt.return_unit
                   | Some i -> (
-                    match _scroller#get_tab_at_index i with
+                    match scroller#get_tab_at_index i with
                     | None -> Lwt.return_unit
                     | Some tab ->
                         tab#root##focus;
@@ -328,20 +315,19 @@ class t ?on_change ?scroller ?(auto_activation = false) (elt : Dom_html.element 
       | Some a -> List.find_opt (fun x -> Element.equal x#root a) self#tabs
   end
 
-let make ?on_change ?auto_activation (scroller : Tab_scroller.t) : t =
-  let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element @@ Markup.create ~scroller:(Widget.to_markup scroller) ()
-  in
-  new t ?on_change ?auto_activation ~scroller elt ()
-
 let attach ?on_change ?auto_activation (elt : Dom_html.element Js.t) : t =
   new t ?on_change ?auto_activation (Element.coerce elt) ()
+
+let make ?classes ?attrs ?tabs ?align ?scroller ?on_change ?auto_activation () =
+  Markup_js.create ?classes ?attrs ?tabs ?align ?scroller ()
+  |> Tyxml_js.To_dom.of_div
+  |> attach ?on_change ?auto_activation
 
 type 'a page =
   [ `Fun of unit -> (#Widget.t as 'a)
   | `Widget of (#Widget.t as 'a) ]
 
-let make_bind ?body ?auto_activation ?align (tabs : ('a page * Tab.t) list) =
+let make_bind ?classes ?attrs ?body ?on_change ?auto_activation ?align ?(tabs = []) () =
   let previous_page = ref None in
   let hide w = w#root##.style##.display := Js.string "none" in
   let show w = w#root##.style##.display := Js.string "" in
@@ -350,7 +336,6 @@ let make_bind ?body ?auto_activation ?align (tabs : ('a page * Tab.t) list) =
     | Some x -> x
     | None -> Widget.create_div ()
   in
-  let scroller = Tab_scroller.make ?align (List.map snd tabs) in
   (* Initial setup *)
   List.iter
     (fun (page, _) ->
@@ -392,10 +377,16 @@ let make_bind ?body ?auto_activation ?align (tabs : ('a page * Tab.t) list) =
   in
   let bar =
     make
+      ?classes
+      ?attrs
       ?auto_activation
       ~on_change:(fun previous x ->
         on_tab_change previous x;
-        Lwt.return_unit)
-      scroller
+        match on_change with
+        | None -> Lwt.return_unit
+        | Some f -> f previous x)
+      ?align
+      ~tabs:(List.map snd tabs)
+      ()
   in
   bar, body

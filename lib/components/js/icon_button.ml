@@ -1,5 +1,4 @@
 open Js_of_ocaml
-open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 include Components_tyxml.Icon_button
 module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
@@ -13,7 +12,16 @@ end
 module Event = struct
   class type change = [bool] Dom_html.customEvent
 
-  let change : change Js.t Dom_html.Event.typ = Dom_html.Event.make "icon_button:change"
+  let change : change Js.t Dom_html.Event.typ = Dom_html.Event.make (CSS.root ^ ":change")
+end
+
+module Lwt_js_events = struct
+  open Js_of_ocaml_lwt.Lwt_js_events
+
+  let change ?use_capture ?passive t = make_event ?use_capture ?passive Event.change t
+
+  let changes ?cancel_handler ?use_capture ?passive t =
+    seq_loop change ?cancel_handler ?use_capture ?passive t
 end
 
 class t ?ripple ?loader ?on_change ?on_click (elt : Dom_html.element Js.t) () =
@@ -23,18 +31,19 @@ class t ?ripple ?loader ?on_change ?on_click (elt : Dom_html.element Js.t) () =
     inherit Button.t ?ripple ?loader elt () as super
 
     method! init () : unit =
-      super#init ();
-      super#set_attribute Attr.aria_pressed (string_of_bool self#on)
+      super#set_attribute Attr.aria_pressed (string_of_bool self#on);
+      super#init ()
 
     method! initial_sync_with_dom () : unit =
-      super#initial_sync_with_dom ();
-      listeners_ <-
-        Lwt_js_events.
+      listeners <-
+        Js_of_ocaml_lwt.Lwt_js_events.(
           [ clicks super#root (fun e t ->
                 if _has_on_icon then self#toggle ~notify:true ();
                 match on_click with
                 | Some f -> f e t
                 | None -> Lwt.return_unit) ]
+          @ listeners);
+      super#initial_sync_with_dom ()
 
     method toggle ?(notify = false) ?(force : bool option) () : unit =
       super#toggle_class ?force CSS.on;
@@ -51,35 +60,17 @@ class t ?ripple ?loader ?on_change ?on_click (elt : Dom_html.element Js.t) () =
     method! private create_ripple () : Ripple.t = Ripple.attach ~unbounded:true elt
   end
 
-(** Create new icon button widget from scratch *)
-let make
-    ?(tag = `Button)
-    ?classes
-    ?href
-    ?on
-    ?ripple
-    ?on_icon
-    ?disabled
-    ?on_change
-    ?on_click
-    ~icon
-    () : t =
-  Option.iter
-    (fun icon ->
-      let icon = Tyxml_js.To_dom.of_element icon in
-      Element.add_class icon CSS.icon;
-      Element.add_class icon CSS.icon_on)
-    on_icon;
-  Element.add_class (Tyxml_js.To_dom.of_element icon) CSS.icon;
-  let elt =
-    Tyxml_js.To_dom.of_element
-    @@
-    match tag with
-    | `Button -> Markup_js.create ?classes ?ripple ?on ?disabled ?on_icon ~icon ()
-    | `Anchor -> Markup_js.create_anchor ?classes ?ripple ?on ?href ?on_icon ~icon ()
-  in
-  new t ?on_change ?on_click elt ()
-
 (** Attach icon button widget to existing DOM element *)
 let attach ?on_change ?on_click (elt : #Dom_html.element Js.t) : t =
   new t ?on_change ?on_click (Element.coerce elt) ()
+
+let make ?classes ?attrs ?ripple ?on ?disabled ?on_icon ?on_change ?on_click ~icon () =
+  Markup_js.create ?classes ?attrs ?ripple ?on ?disabled ?on_icon ~icon ()
+  |> Tyxml_js.To_dom.of_button
+  |> attach ?on_change ?on_click
+
+let make_anchor ?classes ?attrs ?href ?ripple ?on ?on_icon ?on_change ?on_click ~icon ()
+    =
+  Markup_js.create_anchor ?classes ?attrs ?href ?ripple ?on ?on_icon ~icon ()
+  |> Tyxml_js.To_dom.of_a
+  |> attach ?on_change ?on_click

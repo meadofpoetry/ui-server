@@ -125,7 +125,7 @@ struct
 
   let create_placeholder ?classes ?attrs () =
     let path = state_to_svg_path default_state in
-    let widget = Icon_markup.SVG.create_of_d path in
+    let widget = Icon_markup.SVG.create ~d:path () in
     Placeholder_markup.create_simple
       ?classes
       ?attrs
@@ -138,15 +138,20 @@ struct
       ~attrs:([Html.a_id "remote-update"] @ attrs)
       ~header:
         (create_section_header
-           ~title:"Дистанционное обновление"
-           [])
-      [ Card_markup.create_media
-          [create_placeholder (); Progress_markup.create ~closed:true ()]
-      ; Card_markup.create_actions
-          [ Button_markup.create
-              ~appearance:Raised
-              ~label:(state_to_action_label ~auto_reboot default_state)
-              () ] ]
+           ~title:(`Text "Дистанционное обновление")
+           ())
+      ~children:
+        [ Card_markup.create_media
+            ~children:[create_placeholder (); Progress_markup.create ~closed:true ()]
+            ()
+        ; Card_markup.create_actions
+            ~children:
+              [ Button_markup.create
+                  ~appearance:Raised
+                  ~label:(state_to_action_label ~auto_reboot default_state)
+                  () ]
+            () ]
+      ()
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

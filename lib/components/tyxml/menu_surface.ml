@@ -22,7 +22,7 @@ struct
       ?(attrs = [])
       ?(fixed = false)
       ?(open_ = false)
-      ?(content = [])
+      ?(children = [])
       () : 'a Html.elt =
     let classes =
       classes
@@ -30,7 +30,7 @@ struct
       |> Utils.cons_if open_ CSS.open_
       |> List.cons CSS.root
     in
-    Html.div ~a:([Html.a_class classes] @ attrs) content
+    Html.div ~a:([Html.a_class classes] @ attrs) children
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

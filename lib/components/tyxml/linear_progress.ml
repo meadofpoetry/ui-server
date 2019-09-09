@@ -30,12 +30,45 @@ module Make
 struct
   open Html
 
+  let create_buffering_dots ?(classes = []) ?(attrs = []) ?(children = []) () =
+    let classes = CSS.buffering_dots :: classes in
+    div ~a:([a_class classes] @ attrs) children
+
+  let create_buffer ?(classes = []) ?(attrs = []) ?(children = []) () =
+    let classes = CSS.buffer :: classes in
+    div ~a:([a_class classes] @ attrs) children
+
+  let create_bar_inner ?(classes = []) ?(attrs = []) ?(children = []) () =
+    let classes = CSS.bar_inner :: classes in
+    span ~a:([a_class classes] @ attrs) children
+
+  let create_primary_bar
+      ?(classes = [])
+      ?(attrs = [])
+      ?(children = [create_bar_inner ()])
+      () =
+    let classes = CSS.bar :: CSS.primary_bar :: classes in
+    div ~a:([a_class classes] @ attrs) children
+
+  let create_secondary_bar
+      ?(classes = [])
+      ?(attrs = [])
+      ?(children = [create_bar_inner ()])
+      () =
+    let classes = CSS.bar :: CSS.secondary_bar :: classes in
+    div ~a:([a_class classes] @ attrs) children
+
   let create
       ?(classes = [])
       ?(attrs = [])
       ?(indeterminate = false)
       ?(reversed = false)
       ?(closed = false)
+      ?buffering_dots
+      ?buffer
+      ?primary_bar
+      ?secondary_bar
+      ?children
       () : 'a elt =
     let classes =
       classes
@@ -44,12 +77,19 @@ struct
       |> Utils.cons_if reversed CSS.reversed
       |> List.cons CSS.root
     in
-    div
-      ~a:([a_role ["progressbar"]; a_class classes] @ attrs)
-      [ div ~a:[a_class [CSS.buffering_dots]] []
-      ; div ~a:[a_class [CSS.buffer]] []
-      ; div ~a:[a_class [CSS.bar; CSS.primary_bar]] [span ~a:[a_class [CSS.bar_inner]] []]
-      ; div
-          ~a:[a_class [CSS.bar; CSS.secondary_bar]]
-          [span ~a:[a_class [CSS.bar_inner]] []] ]
+    let children =
+      match children with
+      | Some x -> x
+      | None ->
+          let opt_get_lazy ~default o =
+            match o with
+            | None -> default ()
+            | Some x -> x
+          in
+          [ opt_get_lazy ~default:create_buffering_dots buffering_dots
+          ; opt_get_lazy ~default:create_buffer buffer
+          ; opt_get_lazy ~default:create_primary_bar primary_bar
+          ; opt_get_lazy ~default:create_secondary_bar secondary_bar ]
+    in
+    div ~a:([a_role ["progressbar"]; a_class classes] @ attrs) children
 end

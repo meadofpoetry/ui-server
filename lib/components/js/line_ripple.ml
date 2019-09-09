@@ -1,13 +1,29 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Line_ripple
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 class t (elt : Dom_html.element Js.t) () =
   object (self)
-    val mutable _transitionend_listener = None
+    val mutable listeners = []
 
     inherit Widget.t elt () as super
+
+    method! init () : unit =
+      (* Attach event listeners *)
+      listeners <-
+        Js_of_ocaml_lwt.Lwt_js_events.(
+          [ seq_loop
+              (make_event @@ Dom_html.Event.make "transitionend")
+              super#root
+              (fun e _ -> Lwt.return @@ self#handle_transition_end e) ]
+          @ listeners);
+      super#init ()
+
+    method! destroy () : unit =
+      List.iter Lwt.cancel listeners;
+      listeners <- [];
+      super#destroy ()
 
     method activate () : unit =
       self#remove_class CSS.deactivating;
@@ -21,23 +37,6 @@ class t (elt : Dom_html.element Js.t) () =
       let value = Js.string @@ Printf.sprintf "%gpx center" x_coordinate in
       (Js.Unsafe.coerce super#root##.style)##.transformOrigin := value
     (** Sets the center of the ripple animation to the given X coordinate. *)
-
-    method! init () : unit =
-      super#init ();
-      (* Attach event listeners *)
-      let transitionend_listener =
-        Js_of_ocaml_lwt.Lwt_js_events.(
-          seq_loop
-            (make_event @@ Dom_html.Event.make "transitionend")
-            super#root
-            (fun e _ -> Lwt.return @@ self#handle_transition_end e))
-      in
-      _transitionend_listener <- Some transitionend_listener
-
-    method! destroy () : unit =
-      super#destroy ();
-      Option.iter Lwt.cancel _transitionend_listener;
-      _transitionend_listener <- None
 
     (* Private methods *)
     method private handle_transition_end (e : Dom_html.event Js.t) : unit =
@@ -58,8 +57,7 @@ let activate (x : t) = x#activate ()
 
 let deactivate (x : t) = x#deactivate ()
 
-let make () : t =
-  let (elt : Dom_html.element Js.t) = Tyxml_js.To_dom.of_element @@ Markup.create () in
-  new t elt ()
-
 let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
+
+let make ?classes ?attrs () : t =
+  Markup_js.create ?classes ?attrs () |> Tyxml_js.To_dom.of_div |> attach

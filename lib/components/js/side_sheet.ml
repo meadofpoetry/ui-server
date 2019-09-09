@@ -19,8 +19,6 @@ let equal_slide (a : slide) (b : slide) : bool =
 module type M = sig
   include Components_tyxml.Side_sheet.Common_css
 
-  val name : string
-
   val slide : slide
 end
 
@@ -29,28 +27,41 @@ module Make_parent (M : M) = struct
     class type change = [unit] Dom_html.customEvent
 
     let open_ : change Js.t Dom_html.Event.typ =
-      Dom_html.Event.make (Printf.sprintf "%s:open" M.name)
+      Dom_html.Event.make (Printf.sprintf "%s:open" M.root)
 
     let close : change Js.t Dom_html.Event.typ =
-      Dom_html.Event.make (Printf.sprintf "%s:close" M.name)
+      Dom_html.Event.make (Printf.sprintf "%s:close" M.root)
+  end
+
+  module Lwt_js_events = struct
+    open Js_of_ocaml_lwt.Lwt_js_events
+
+    let open_ ?use_capture ?passive t = make_event ?use_capture ?passive Event.open_ t
+
+    let opens ?cancel_handler ?use_capture ?passive t =
+      seq_loop ?cancel_handler ?use_capture ?passive open_ t
+
+    let close ?use_capture ?passive t = make_event ?use_capture ?passive Event.close t
+
+    let closes ?cancel_handler ?use_capture ?passive t =
+      seq_loop ?cancel_handler ?use_capture ?passive close t
   end
 
   class t (elt : Dom_html.element Js.t) () =
     object (self)
-      val mutable _previous_focus = None
+      val mutable previous_focus = None
 
-      val mutable _animation_thread = None
+      val mutable animation_thread = None
 
-      val mutable _keydown_listener = None
+      val mutable quick_open = false
 
-      val mutable _scrim_click_listener = None
+      val mutable keydown_listener = None
 
-      val mutable _quick_open = false
+      val mutable scrim_click_listener = None
 
       inherit Widget.t elt () as super
 
       method! init () : unit =
-        super#init ();
         let typ =
           if self#modal
           then Modal
@@ -62,28 +73,24 @@ module Make_parent (M : M) = struct
         | Modal -> self#set_modal ()
         | Permanent -> self#set_permanent ()
         | Dismissible -> self#set_dismissible ());
-        (* Connect event listeners *)
-        let keydown =
-          Js_of_ocaml_lwt.Lwt_js_events.keydowns super#root self#handle_keydown
-        in
-        _keydown_listener <- Some keydown
+        super#init ()
 
       method! destroy () : unit =
-        super#destroy ();
         (* Detach event listeners *)
-        Option.iter Lwt.cancel _keydown_listener;
-        _keydown_listener <- None;
-        Option.iter Lwt.cancel _scrim_click_listener;
-        _scrim_click_listener <- None;
+        Option.iter Lwt.cancel keydown_listener;
+        keydown_listener <- None;
+        Option.iter Lwt.cancel scrim_click_listener;
+        scrim_click_listener <- None;
         (* Clear animation *)
-        Option.iter Lwt.cancel _animation_thread;
-        _animation_thread <- None;
+        Option.iter Lwt.cancel animation_thread;
+        animation_thread <- None;
         (* Clear classes *)
         super#remove_class M.animate;
         super#remove_class M.closing;
-        super#remove_class M.opening
+        super#remove_class M.opening;
+        super#destroy ()
 
-      method set_quick_open x = _quick_open <- x
+      method set_quick_open x = quick_open <- x
 
       method permanent : bool =
         not (super#has_class M.modal || super#has_class M.dismissible)
@@ -94,20 +101,20 @@ module Make_parent (M : M) = struct
         super#remove_class M.animate;
         super#remove_class M.closing;
         super#remove_class M.opening;
-        Option.iter Lwt.cancel _keydown_listener;
-        _keydown_listener <- None;
-        Option.iter Lwt.cancel _scrim_click_listener;
-        _scrim_click_listener <- None
+        Option.iter Lwt.cancel keydown_listener;
+        keydown_listener <- None;
+        Option.iter Lwt.cancel scrim_click_listener;
+        scrim_click_listener <- None
 
       method dismissible : bool = super#has_class M.dismissible
 
       method set_dismissible () : unit =
         super#remove_class M.modal;
         super#add_class M.dismissible;
-        Option.iter Lwt.cancel _keydown_listener;
-        _keydown_listener <- None;
-        Option.iter Lwt.cancel _scrim_click_listener;
-        _scrim_click_listener <- None
+        Option.iter Lwt.cancel keydown_listener;
+        keydown_listener <- None;
+        Option.iter Lwt.cancel scrim_click_listener;
+        scrim_click_listener <- None
 
       method modal : bool = super#has_class M.modal
 
@@ -122,13 +129,13 @@ module Make_parent (M : M) = struct
             | None -> None
             | Some p -> Element.query_selector p ("." ^ M.scrim))
         in
-        match scrim with
-        | None -> ()
-        | Some scrim ->
-            let listener =
-              Js_of_ocaml_lwt.Lwt_js_events.clicks scrim self#handle_scrim_click
-            in
-            _scrim_click_listener <- Some listener
+        (* Attach event listeners *)
+        Js_of_ocaml_lwt.Lwt_js_events.(
+          keydown_listener <- Some (keydowns super#root self#handle_keydown);
+          Option.iter
+            (fun scrim ->
+              scrim_click_listener <- Some (clicks scrim self#handle_scrim_click))
+            scrim)
 
       method is_open : bool = super#has_class M.open_
       (** Returns [true] if drawer is in open state *)
@@ -153,10 +160,10 @@ module Make_parent (M : M) = struct
         then (
           super#add_class M.open_;
           self#save_focus ();
-          if not _quick_open
+          if not quick_open
           then (
             super#add_class M.animate;
-            Option.iter Lwt.cancel _animation_thread;
+            Option.iter Lwt.cancel animation_thread;
             Js_of_ocaml_lwt.Lwt_js_events.request_animation_frame ()
             >>= Js_of_ocaml_lwt.Lwt_js.yield
             >>= fun () ->
@@ -183,7 +190,7 @@ module Make_parent (M : M) = struct
            && (not self#is_opening)
            && not self#is_closing
         then
-          if not _quick_open
+          if not quick_open
           then (
             let waiter =
               Lwt.catch
@@ -209,10 +216,10 @@ module Make_parent (M : M) = struct
       method private handle_scrim_click _ _ : unit Lwt.t = self#hide ()
 
       method private save_focus () : unit =
-        _previous_focus <- Js.Opt.to_option Dom_html.document##.activeElement
+        previous_focus <- Js.Opt.to_option Dom_html.document##.activeElement
 
       method private restore_focus () : unit =
-        match _previous_focus with
+        match previous_focus with
         | None -> ()
         | Some elt ->
             if Js.to_bool @@ (Js.Unsafe.coerce self#root)##contains elt then elt##focus
@@ -275,24 +282,13 @@ end
 module Parent = Make_parent (struct
   include CSS
 
-  let name = "side_sheet"
-
   let slide = `Trailing
 end)
 
 include (Parent : module type of Parent)
 
-(** Creates new widget from scratch *)
-let make ?classes ?attrs content : t =
-  let elt =
-    Tyxml_js.To_dom.of_element
-    @@ Markup_js.create
-         ?classes
-         ?attrs
-         ~content:(List.map Tyxml_js.Of_dom.of_element content)
-         ()
-  in
-  new t elt ()
-
 (** Attach widget to existing element *)
 let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
+
+let make ?classes ?attrs ?children () =
+  Markup_js.create ?classes ?attrs ?children () |> Tyxml_js.To_dom.of_aside |> attach

@@ -20,40 +20,35 @@ module Make
 struct
   open Html
 
-  let create_scrim ?(classes = []) ?(attrs = []) () : 'a elt =
+  let create_scrim ?(classes = []) ?(attrs = []) ?(children = []) () : 'a elt =
     let classes = CSS.scrim :: classes in
-    div ~a:([a_class classes] @ attrs) []
+    div ~a:([a_class classes] @ attrs) children
 
-  let create_title ?(tag = h3) ?(classes = []) ?(attrs = []) ?title ?(content = []) () =
+  let create_title ?(tag = h3) ?(classes = []) ?(attrs = []) ?title ?(children = []) () =
     let classes = CSS.title :: classes in
-    tag ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt title content)
+    tag ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt title children)
 
   let create_subtitle
       ?(tag = h6)
       ?(classes = [])
       ?(attrs = [])
       ?subtitle
-      ?(content = [])
+      ?(children = [])
       () =
     let classes = CSS.subtitle :: classes in
-    tag ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt subtitle content)
+    tag ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt subtitle children)
 
-  let create_header ?(classes = []) ?(attrs = []) ?(content = []) () : 'a elt =
+  let create_header ?(classes = []) ?(attrs = []) ?(children = []) () : 'a elt =
     let classes = CSS.header :: classes in
-    div ~a:([a_class classes] @ attrs) content
+    div ~a:([a_class classes] @ attrs) children
 
-  let create_content ?(classes = []) ?(attrs = []) ?(content = []) () : 'a elt =
+  let create_content ?(classes = []) ?(attrs = []) ?(children = []) () : 'a elt =
     let classes = CSS.content :: classes in
-    div ~a:([a_class classes] @ attrs) content
+    div ~a:([a_class classes] @ attrs) children
 
-  let create
-      ?(classes = [])
-      ?(attrs = [])
-      ?content
-      ?(content_element = create_content ?content ())
-      () =
+  let create ?(classes = []) ?(attrs = []) ?(children = []) () =
     let classes = CSS.root :: classes in
-    aside ~a:([a_class classes] @ attrs) [content_element]
+    aside ~a:([a_class classes] @ attrs) children
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

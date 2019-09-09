@@ -28,9 +28,9 @@ module Make
 struct
   open Html
 
-  let create_track ?(classes = []) ?(attrs = []) () =
+  let create_track ?(classes = []) ?(attrs = []) ?(children = []) () =
     let classes = CSS.track :: classes in
-    div ~a:([a_class classes] @ attrs) []
+    div ~a:([a_class classes] @ attrs) children
 
   let create_native_control
       ?(classes = [])
@@ -87,3 +87,5 @@ struct
     in
     div ~a:([a_class classes] @ attrs) [track; thumb_underlay]
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

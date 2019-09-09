@@ -1,14 +1,14 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Circular_progress
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 module Attr = struct
-  let now = "aria-valuenow"
+  let aria_valuenow = "aria-valuenow"
 
-  let max = "aria-valuemax"
+  let aria_valuemax = "aria-valuemax"
 
-  let min = "aria-valuemin"
+  let aria_valuemin = "aria-valuemin"
 end
 
 module Selector = struct
@@ -35,14 +35,13 @@ class t (elt : #Dom_html.element Js.t) () =
     inherit Widget.t elt () as super
 
     method! initial_sync_with_dom () : unit =
-      super#initial_sync_with_dom ();
       let min' =
-        match get_float_attribute elt Attr.min with
+        match get_float_attribute elt Attr.aria_valuemin with
         | None -> _min
         | Some x -> x
       in
       let max' =
-        match get_float_attribute elt Attr.max with
+        match get_float_attribute elt Attr.aria_valuemax with
         | None -> _max
         | Some x -> x
       in
@@ -54,31 +53,32 @@ class t (elt : #Dom_html.element Js.t) () =
         self#set_min min';
         self#set_max max');
       let val' =
-        match get_float_attribute elt Attr.now with
+        match get_float_attribute elt Attr.aria_valuenow with
         | None -> _value
         | Some x -> x
       in
-      self#set_value val'
+      self#set_value val';
+      super#initial_sync_with_dom ()
 
     method min : float = _min
 
     method set_min (x : float) : unit =
       if x > self#max
-      then raise (Invalid_argument "Min cannot be greater than max")
+      then raise (Invalid_argument (CSS.root ^ ":min cannot be greater than max"))
       else (
         _min <- x;
         self#set_value_ ~force:true self#value;
-        super#set_attribute Attr.min (string_of_float x))
+        super#set_attribute Attr.aria_valuemin (string_of_float x))
 
     method max : float = _max
 
     method set_max (x : float) : unit =
       if x < self#min
-      then raise (Invalid_argument "Max cannot be less than min")
+      then raise (Invalid_argument (CSS.root ^ ":max cannot be less than min"))
       else (
         _max <- x;
         self#set_value_ ~force:true self#value;
-        super#set_attribute Attr.max (string_of_float x))
+        super#set_attribute Attr.aria_valuemax (string_of_float x))
 
     method value : float = _value
 
@@ -94,18 +94,17 @@ class t (elt : #Dom_html.element Js.t) () =
 
     method indeterminate : bool = super#has_class CSS.indeterminate
 
-    method show () : unit = super#root##.style##.display := Js.string ""
+    method open_ () : unit = super#root##.style##.display := Js.string ""
 
-    method hide () : unit = super#root##.style##.display := Js.string "none"
+    method close () : unit = super#root##.style##.display := Js.string "none"
 
-    (* Private methods *)
     method private set_value_ ?(force = false) (v : float) : unit =
       let min, max, prev = self#min, self#max, self#value in
       let v = clamp ~min ~max v in
       if force || v <> prev
       then (
         _value <- v;
-        super#set_attribute Attr.now (string_of_float v);
+        super#set_attribute Attr.aria_valuenow (string_of_float v);
         self#update_ui_for_value ())
 
     method private update_ui_for_value () : unit =
@@ -122,11 +121,9 @@ class t (elt : #Dom_html.element Js.t) () =
       (Js.Unsafe.coerce circle##.style)##.strokeDasharray := dash_array'
   end
 
-let make ?min ?max ?value ?indeterminate ?thickness ?size () : t =
-  let (elt : Element.t) =
-    Tyxml_js.To_dom.of_element
-    @@ Markup.create ?min ?max ?value ?indeterminate ?thickness ?size ()
-  in
-  new t elt ()
+let attach (elt : #Dom_html.element Js.t) : t = new t (elt :> Dom_html.element Js.t) ()
 
-let attach (elt : #Dom_html.element Js.t) : t = new t elt ()
+let make ?classes ?attrs ?min ?max ?value ?indeterminate ?thickness ?size () : t =
+  Markup_js.create ?classes ?attrs ?min ?max ?value ?indeterminate ?thickness ?size ()
+  |> Tyxml_js.To_dom.of_element
+  |> attach

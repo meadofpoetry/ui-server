@@ -67,44 +67,101 @@ module Make
 struct
   open Html
 
-  let create_media ?(classes = []) ?(attrs = []) ?(tag = div) children : 'a elt =
-    let classes = CSS.media :: classes in
+  let create_media_content ?(tag = div) ?(classes = []) ?(attrs = []) ?(children = []) ()
+      =
+    let classes = CSS.media_content :: classes in
     tag ~a:([a_class classes] @ attrs) children
 
-  let create_action_buttons ?(classes = []) ?(attrs = []) buttons : 'a elt =
+  let create_media
+      ?(tag = div)
+      ?(classes = [])
+      ?(attrs = [])
+      ?(square = false)
+      ?(letterbox = false)
+      ?(primary_action = false)
+      ?(children = [])
+      () =
+    let classes =
+      classes
+      |> Utils.cons_if square CSS.media_square
+      |> Utils.cons_if letterbox CSS.media_16_9
+      |> Utils.cons_if primary_action CSS.primary_action
+      |> List.cons CSS.media
+    in
+    tag ~a:([a_class classes] @ attrs) children
+
+  let create_action_buttons
+      ?(tag = div)
+      ?(classes = [])
+      ?(attrs = [])
+      ?(children = [])
+      () =
     let classes = CSS.action_buttons :: classes in
-    div ~a:([a_class classes] @ attrs) buttons
+    tag ~a:([a_class classes] @ attrs) children
 
-  let create_action_icons ?(classes = []) ?(attrs = []) icons : 'a elt =
+  let create_action_icons ?(tag = div) ?(classes = []) ?(attrs = []) ?(children = []) ()
+      =
     let classes = CSS.action_icons :: classes in
-    div ~a:([a_class classes] @ attrs) icons
+    tag ~a:([a_class classes] @ attrs) children
 
-  let create_actions ?(classes = []) ?(attrs = []) content : 'a elt =
-    let classes = CSS.actions :: classes in
-    section ~a:([a_class classes] @ attrs) content
+  let create_actions
+      ?(tag = section)
+      ?(classes = [])
+      ?(attrs = [])
+      ?(full_bleed = false)
+      ?(children = [])
+      () : 'a elt =
+    let classes =
+      classes |> Utils.cons_if full_bleed CSS.actions_full_bleed |> List.cons CSS.actions
+    in
+    tag ~a:([a_class classes] @ attrs) children
 
-  let create_overline ?(classes = []) ?(attrs = []) text : 'a elt =
+  let create_overline
+      ?(tag = h5)
+      ?(classes = [])
+      ?(attrs = [])
+      ?label
+      ?(children = [])
+      () =
     let classes = CSS.overline :: classes in
-    h5 ~a:([a_class classes] @ attrs) [txt text]
+    tag ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt label children)
 
-  let create_title ?(classes = []) ?(attrs = []) ?(large = false) text : 'a elt =
+  let create_title
+      ?(tag = h2)
+      ?(classes = [])
+      ?(attrs = [])
+      ?(large = false)
+      ?title
+      ?(children = [])
+      () =
     let classes =
       classes |> Utils.cons_if large CSS.title_large |> List.cons CSS.title
     in
-    h2 ~a:([a_class classes] @ attrs) [txt text]
+    tag ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt title children)
 
-  let create_subtitle ?(classes = []) ?(attrs = []) text : 'a elt =
+  let create_subtitle
+      ?(tag = h3)
+      ?(classes = [])
+      ?(attrs = [])
+      ?subtitle
+      ?(children = [])
+      () =
     let classes = CSS.subtitle :: classes in
-    h3 ~a:([a_class classes] @ attrs) [txt text]
+    tag ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt subtitle children)
 
-  let create_primary ?(classes = []) ?(attrs = []) content : 'a elt =
+  let create_primary ?(tag = section) ?(classes = []) ?(attrs = []) ?(children = []) () =
     let classes = CSS.primary :: classes in
-    section ~a:([a_class classes] @ attrs) content
+    tag ~a:([a_class classes] @ attrs) children
 
-  let create ?(classes = []) ?(attrs = []) ?(tag = div) ?(outlined = false) sections :
-      'a elt =
+  let create
+      ?(tag = div)
+      ?(classes = [])
+      ?(attrs = [])
+      ?(outlined = false)
+      ?(children = [])
+      () =
     let classes = classes |> Utils.cons_if outlined CSS.outlined |> List.cons CSS.root in
-    tag ~a:([a_class classes] @ attrs) sections
+    tag ~a:([a_class classes] @ attrs) children
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

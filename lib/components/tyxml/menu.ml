@@ -30,10 +30,29 @@ struct
     let create = create ~role:"menu"
   end
 
-  let create ?(classes = []) ?(attrs = []) ?fixed ?open_ list () : 'a Html.elt =
+  let create
+      ?(classes = [])
+      ?(attrs = [])
+      ?fixed
+      ?open_
+      ?list_children
+      ?list
+      ?children
+      () =
     let classes = CSS.root :: classes in
-    let attrs = attrs |> List.cons (Html.a_tabindex (-1)) in
-    Menu_surface_markup.create ~classes ~attrs ?fixed ?open_ ~content:[list] ()
+    let attrs = Html.a_tabindex (-1) :: attrs in
+    let children =
+      match children with
+      | Some _ as x -> x
+      | None -> (
+        match list with
+        | Some x -> Some [x]
+        | None -> (
+          match list_children with
+          | None -> None
+          | Some x -> Some [Item_list.create ~children:x ()]))
+    in
+    Menu_surface_markup.create ~classes ~attrs ?fixed ?open_ ?children ()
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

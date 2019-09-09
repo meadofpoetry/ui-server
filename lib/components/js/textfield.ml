@@ -1,8 +1,7 @@
 open Js_of_ocaml
-open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 include Components_tyxml.Textfield
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 (* TODO
    - add 'onchange' callback
@@ -10,29 +9,26 @@ module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 *)
 let ( % ) f g x = f (g x)
 
-let name = "text-field"
-
 module Id = struct
   let id_ref = ref (Unix.time () |> int_of_float)
 
   let get () =
     incr id_ref;
-    Printf.sprintf "%s-%d" name !id_ref
+    Printf.sprintf "%s-%d" CSS.root !id_ref
 end
 
 module Event = struct
-  class type icon = [unit] Dom_html.customEvent
+  let icon : unit Dom_html.customEvent Js.t Dom_html.Event.typ =
+    Dom_html.Event.make (CSS.root ^ ":icon")
+end
 
-  module Typ = struct
-    let icon : icon Js.t Dom_html.Event.typ =
-      Dom_html.Event.make @@ Printf.sprintf "%s:icon" name
-  end
+module Lwt_js_events = struct
+  open Js_of_ocaml_lwt.Lwt_js_events
 
-  let icon ?use_capture ?passive x =
-    Lwt_js_events.make_event ?use_capture ?passive Typ.icon x
+  let icon ?use_capture ?passive x = make_event ?use_capture ?passive Event.icon x
 
   let icons ?cancel_handler ?use_capture ?passive x =
-    Lwt_js_events.seq_loop ?cancel_handler ?use_capture ?passive icon x
+    seq_loop ?cancel_handler ?use_capture ?passive icon x
 end
 
 module Character_counter = struct
@@ -46,14 +42,12 @@ module Character_counter = struct
         super#root##.textContent := Js.some (Js.string s)
     end
 
-  let make ?current_length ?max_length () : t =
-    let (elt : Dom_html.divElement Js.t) =
-      Tyxml_js.To_dom.of_div
-      @@ Markup.Character_counter.create ?current_length ?max_length ()
-    in
-    new t elt ()
-
   let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
+
+  let make ?classes ?attrs ?current_length ?max_length () =
+    Markup_js.Character_counter.create ?classes ?attrs ?current_length ?max_length ()
+    |> Tyxml_js.To_dom.of_div
+    |> attach
 end
 
 module Icon = struct
@@ -66,39 +60,40 @@ module Icon = struct
   (* XXX Should be inherited from Icon? *)
   class t (elt : Dom_html.element Js.t) () =
     object (self)
-      val mutable _saved_tab_index = None
+      val mutable saved_tab_index = None
 
-      val mutable listeners_ = []
+      val mutable listeners = []
 
       val mutable ripple_ = None
 
       inherit Widget.t elt () as super
 
       method! init () : unit =
-        _saved_tab_index <- Element.get_attribute super#root "tabindex";
+        saved_tab_index <- Element.get_attribute super#root "tabindex";
         ripple_ <- Some (self#create_ripple ());
         super#init ()
 
       method! initial_sync_with_dom () : unit =
         (* Attach event listeners *)
-        listeners_ <-
-          Lwt_js_events.
-            [clicks super#root self#handle_click; keydowns super#root self#handle_keydown];
+        listeners <-
+          Js_of_ocaml_lwt.Lwt_js_events.(
+            [clicks super#root self#handle_click; keydowns super#root self#handle_keydown]
+            @ listeners);
         super#initial_sync_with_dom ()
 
       method! destroy () : unit =
         Option.iter Ripple.destroy ripple_;
         ripple_ <- None;
         (* Detach event listeners *)
-        List.iter Lwt.cancel listeners_;
-        listeners_ <- [];
+        List.iter Lwt.cancel listeners;
+        listeners <- [];
         super#destroy ()
 
       method set_aria_label (label : string) : unit =
         Element.set_attribute super#root Attr.aria_label label
 
       method set_disabled (x : bool) : unit =
-        match _saved_tab_index with
+        match saved_tab_index with
         | None -> ()
         | Some tabindex ->
             if x
@@ -109,9 +104,7 @@ module Icon = struct
               Element.set_attribute super#root "tabindex" tabindex;
               Element.set_attribute super#root "role" Attr.icon_role)
 
-      (* Private methods *)
-      method private notify_action () : unit =
-        super#emit ~should_bubble:true Event.Typ.icon
+      method private notify_action () : unit = super#emit ~should_bubble:true Event.icon
 
       method private handle_keydown e _ : unit Lwt.t =
         (match Dom_html.Keyboard_code.of_event e with
@@ -161,18 +154,22 @@ module Helper_text = struct
         else super#remove_attribute "role";
         if (not self#persistent) && not needs_display then self#hide ()
 
-      (* Private methods *)
       method private hide () : unit = super#set_attribute Attr.aria_hidden "true"
     end
 
-  let make ?persistent ?validation text : t =
-    let (elt : Dom_html.element Js.t) =
-      Tyxml_js.To_dom.of_div
-      @@ Markup.Helper_text.create ?persistent ?validation ~text ()
-    in
-    new t elt ()
-
   let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
+
+  let make ?classes ?attrs ?persistent ?validation ?text ?children () =
+    Markup_js.Helper_text.create
+      ?classes
+      ?attrs
+      ?persistent
+      ?validation
+      ?text
+      ?children
+      ()
+    |> Tyxml_js.To_dom.of_div
+    |> attach
 end
 
 module Const = struct
@@ -330,10 +327,6 @@ class ['a] t
   ?on_input
   ?(validate_on_blur = true)
   ?(helper_text : Helper_text.t option)
-  ?(character_counter : Character_counter.t option)
-  ?(line_ripple : Line_ripple.t option)
-  ?(floating_label : Floating_label.t option)
-  ?(notched_outline : Notched_outline.t option)
   ?(use_native_validation = true)
   ?(validation : 'a validation option)
   (elt : Dom_html.element Js.t)
@@ -347,28 +340,19 @@ class ['a] t
       Js.Opt.get (Dom_html.CoerceTo.input element) (fun () -> assert false)
 
     val line_ripple : Line_ripple.t option =
-      match line_ripple with
-      | Some x -> Some x
-      | None -> (
-        match Element.query_selector elt Selector.line_ripple with
-        | None -> None
-        | Some x -> Some (Line_ripple.attach x))
+      match Element.query_selector elt Selector.line_ripple with
+      | None -> None
+      | Some x -> Some (Line_ripple.attach x)
 
     val notched_outline : Notched_outline.t option =
-      match notched_outline with
-      | Some x -> Some x
-      | None -> (
-        match Element.query_selector elt Selector.notched_outline with
-        | None -> None
-        | Some x -> Some (Notched_outline.attach x))
+      match Element.query_selector elt Selector.notched_outline with
+      | None -> None
+      | Some x -> Some (Notched_outline.attach x)
 
     val floating_label : Floating_label.t option =
-      match floating_label with
-      | Some x -> Some x
-      | None -> (
-        match Element.query_selector elt Selector.floating_label with
-        | None -> None
-        | Some x -> Some (Floating_label.attach x))
+      match Element.query_selector elt Selector.floating_label with
+      | None -> None
+      | Some x -> Some (Floating_label.attach x)
 
     val helper_text =
       match helper_text with
@@ -381,21 +365,18 @@ class ['a] t
           | None -> None
           | Some ht -> Some (Helper_text.attach ht)))
 
-    val character_counter =
-      match character_counter with
-      | Some x -> Some x
+    val character_counter : Character_counter.t option =
+      (* Try to search for character counter at root *)
+      match Element.query_selector elt Selector.character_counter with
+      | Some cc -> Some (Character_counter.attach cc)
       | None -> (
-        (* Try to search for character counter at root *)
-        match Element.query_selector elt Selector.character_counter with
-        | Some cc -> Some (Character_counter.attach cc)
-        | None -> (
-          (* If character counter is not found in root, search in sibling element *)
-          match helper_line with
+        (* If character counter is not found in root, search in sibling element *)
+        match helper_line with
+        | None -> None
+        | Some helper_line -> (
+          match Element.query_selector helper_line Selector.character_counter with
           | None -> None
-          | Some helper_line -> (
-            match Element.query_selector helper_line Selector.character_counter with
-            | None -> None
-            | Some cc -> Some (Character_counter.attach cc))))
+          | Some cc -> Some (Character_counter.attach cc)))
 
     val leading_icon : Icon.t option =
       match icon_elements with
@@ -416,26 +397,25 @@ class ['a] t
       | _ :: x :: _ -> Some (Icon.attach x)
 
     (* Event listeners *)
-    val mutable _listeners = []
+    val mutable listeners = []
 
     (* Validation observer *)
-    val mutable _validation_observer = None
+    val mutable validation_observer = None
 
     (* Other variables *)
-    val mutable _ripple : Ripple.t option = None
+    val mutable ripple_ : Ripple.t option = None
 
-    val mutable _use_native_validation = use_native_validation
+    val mutable use_native_validation = use_native_validation
 
-    val mutable _received_user_input = false
+    val mutable received_user_input = false
 
-    val mutable _is_valid = true
+    val mutable is_valid = true
 
-    val mutable _is_focused = false
+    val mutable is_focused = false
 
     inherit Widget.t elt () as super
 
     method! init () : unit =
-      super#init ();
       (if self#focused
       then self#activate_focus ()
       else
@@ -444,9 +424,22 @@ class ['a] t
         | Some (label : Floating_label.t), true ->
             self#notch_outline true;
             label#float true);
+      custom_validation input_elt validation;
+      self#set_character_counter (String.length self#value_as_string);
+      (* Initialize ripple, if needed *)
+      if (not (super#has_class CSS.textarea)) && not (super#has_class CSS.outlined)
+      then ripple_ <- Some (self#create_ripple ());
+      (* Apply validation constraints *)
+      Option.iter self#apply_validation_constraints validation;
+      super#init ()
+
+    method! initial_sync_with_dom () : unit =
+      (* Attach mutation observer *)
+      validation_observer <-
+        Some (self#register_validation_handler self#handle_validation_attribute_change);
       (* Attach event listeners *)
-      _listeners <-
-        Lwt_js_events.
+      listeners <-
+        Js_of_ocaml_lwt.Lwt_js_events.(
           [ focuses input_elt (fun _ _ ->
                 self#activate_focus ();
                 Lwt.return_unit)
@@ -457,31 +450,20 @@ class ['a] t
           ; mousedowns input_elt self#set_transform_origin
           ; touchstarts input_elt self#set_transform_origin
           ; clicks input_elt self#handle_text_field_interaction
-          ; keydowns input_elt self#handle_text_field_interaction ];
-      custom_validation input_elt validation;
-      (* Attach mutation observer *)
-      let (observer : MutationObserver.mutationObserver Js.t) =
-        let handler = self#handle_validation_attribute_change in
-        self#register_validation_handler handler
-      in
-      _validation_observer <- Some observer;
-      self#set_character_counter (String.length self#value_as_string);
-      (* Initialize ripple, if needed *)
-      if (not (super#has_class CSS.textarea)) && not (super#has_class CSS.outlined)
-      then _ripple <- Some (self#create_ripple ());
-      (* Apply validation constraints *)
-      Option.iter self#apply_validation_constraints validation
+          ; keydowns input_elt self#handle_text_field_interaction ]
+          @ listeners);
+      super#initial_sync_with_dom ()
 
     method! destroy () : unit =
       super#destroy ();
       (* Detach event listeners *)
-      List.iter Lwt.cancel _listeners;
-      _listeners <- [];
+      List.iter Lwt.cancel listeners;
+      listeners <- [];
       (* Detach mutation observer *)
-      Option.iter (fun x -> x##disconnect) _validation_observer;
-      _validation_observer <- None;
+      Option.iter (fun x -> x##disconnect) validation_observer;
+      validation_observer <- None;
       (* Destroy internal components *)
-      Option.iter Ripple.destroy _ripple;
+      Option.iter Ripple.destroy ripple_;
       Option.iter Widget.destroy line_ripple;
       Option.iter Widget.destroy floating_label;
       Option.iter Widget.destroy notched_outline;
@@ -515,18 +497,17 @@ class ['a] t
       self#activate_focus ();
       input_elt##focus
 
-    method ripple : Ripple.t option = _ripple
+    method ripple : Ripple.t option = ripple_
 
-    (* Validation API *)
     method required : bool = Js.to_bool (Js.Unsafe.coerce input_elt)##.required
 
     method set_required (x : bool) : unit = input_elt##.required := Js.bool x
 
-    method use_native_validation : bool = _use_native_validation
+    method use_native_validation : bool = use_native_validation
 
     method set_use_native_validation (x : bool) : unit =
-      if x then _is_valid <- true;
-      _use_native_validation <- x
+      if x then is_valid <- true;
+      use_native_validation <- x
 
     method force_custom_validation () : unit =
       custom_validation self#input_element validation
@@ -538,10 +519,10 @@ class ['a] t
       (Js.Unsafe.coerce self#input_element)##.validity
 
     method valid : bool =
-      if _use_native_validation then self#is_native_input_valid () else _is_valid
+      if use_native_validation then self#is_native_input_valid () else is_valid
 
     method set_valid (x : bool) : unit =
-      if not _use_native_validation then _is_valid <- x;
+      if not use_native_validation then is_valid <- x;
       self#style_validity x;
       Option.iter (fun x -> x#shake self#should_shake) floating_label
 
@@ -606,7 +587,7 @@ class ['a] t
 
     method set_value (v : 'a) =
       match validation with
-      | None -> failwith (name ^ ": type validation is not set")
+      | None -> failwith (CSS.root ^ ": type validation is not set")
       | Some validation ->
           let v' = valid_to_string validation v in
           self#set_value_as_string v'
@@ -618,12 +599,12 @@ class ['a] t
 
     method private should_float : bool =
       self#should_always_float
-      || _is_focused
+      || is_focused
       || (not self#is_empty)
       || self#is_bad_input ()
 
     method private should_shake : bool =
-      (not _is_focused) && (not self#valid) && not self#is_empty
+      (not is_focused) && (not self#valid) && not self#is_empty
 
     method private focused : bool =
       let active = Dom_html.document##.activeElement in
@@ -642,7 +623,7 @@ class ['a] t
     method private handle_text_field_interaction
         : 'a. (#Dom_html.event as 'a) Js.t -> unit Lwt.t -> unit Lwt.t =
       fun _ _ ->
-        (if not (Js.to_bool input_elt##.disabled) then _received_user_input <- true;
+        (if not (Js.to_bool input_elt##.disabled) then received_user_input <- true;
          Lwt.return_unit
           : unit Lwt.t)
 
@@ -702,11 +683,11 @@ class ['a] t
           : unit Lwt.t)
 
     method private auto_complete_focus () : unit =
-      if not _received_user_input then self#activate_focus ()
+      if not received_user_input then self#activate_focus ()
 
     method private activate_focus () : unit =
-      _is_focused <- true;
-      self#style_focused _is_focused;
+      is_focused <- true;
+      self#style_focused is_focused;
       Option.iter
         (fun (line_ripple : Line_ripple.t) -> line_ripple#activate ())
         line_ripple;
@@ -719,31 +700,29 @@ class ['a] t
       Option.iter (fun (x : Helper_text.t) -> x#show_to_screen_reader ()) helper_text
 
     method private deactivate_focus () : unit =
-      _is_focused <- false;
+      is_focused <- false;
       Option.iter
         (fun (line_ripple : Line_ripple.t) -> line_ripple#deactivate ())
         line_ripple;
       custom_validation input_elt validation;
-      if validate_on_blur && not _use_native_validation
+      if validate_on_blur && not use_native_validation
       then ignore @@ self#check_validity ();
       self#style_validity self#valid;
-      self#style_focused _is_focused;
+      self#style_focused is_focused;
       Option.iter
         (fun (label : Floating_label.t) ->
           self#notch_outline self#should_float;
           label#float self#should_float;
           label#shake self#should_shake)
         floating_label;
-      if not self#should_float then _received_user_input <- false
+      if not self#should_float then received_user_input <- false
 
     method private set_character_counter (cur_length : int) : unit =
       Option.iter
         (fun (cc : Character_counter.t) ->
           let max_length = input_elt##.maxLength in
           if max_length = -1
-          then
-            failwith
-              (name ^ ": expected maxlength html property on text input or textarea");
+          then failwith (CSS.root ^ ": expected `maxlength` html property was set");
           cc#set_value ~max_length cur_length)
         character_counter
 
@@ -812,182 +791,10 @@ class ['a] t
       new Ripple.t adapter ()
   end
 
-let make_textfield
-    ?validate_on_blur
-    ?on_input
-    ?disabled
-    ?(fullwidth = false)
-    ?(outlined = false)
-    ?focused
-    ?input_id
-    ?pattern
-    ?min_length
-    ?max_length
-    ?step
-    ?input_mode
-    ?(value : 'a option)
-    ?placeholder
-    ?required
-    ?(helper_text : Helper_text.t option)
-    ?(character_counter : Character_counter.t option)
-    ?(leading_icon : #Widget.t option)
-    ?(trailing_icon : #Widget.t option)
-    ?(label : string option)
-    ?use_native_validation
-    (validation : 'a validation) : 'a t =
-  Option.iter (fun x -> x#add_class CSS.icon) leading_icon;
-  Option.iter (fun x -> x#add_class CSS.icon) trailing_icon;
-  let id =
-    match input_id with
-    | Some x -> x
-    | None -> Id.get ()
-  in
-  let typ = input_type_of_validation validation in
-  let floating_label, placeholder =
-    match fullwidth, label, placeholder with
-    | false, Some label, None -> Some (Floating_label.make ~for_:id label), None
-    | true, Some label, None -> None, Some label
-    | _ -> None, placeholder
-  in
-  let notched_outline =
-    match outlined with
-    | false -> None
-    | true -> Some (Notched_outline.make ?label:floating_label ())
-  in
-  let line_ripple =
-    match notched_outline with
-    | Some _ -> None
-    | None -> Some (Line_ripple.make ())
-  in
-  (* Should we include label to the core component? *)
-  let label =
-    match notched_outline with
-    | Some _ -> None (* If it is already included to the outline, no. *)
-    | None -> floating_label
-    (* Otherwise, yes. *)
-  in
-  (* Stringify value, if any. *)
-  let value =
-    match value with
-    | None -> None
-    | Some x -> Some (valid_to_string validation x)
-  in
-  (* Create HTML5 <input> element. *)
-  let input =
-    Markup.create_input
-      ?pattern
-      ?min_length
-      ?max_length
-      ?input_mode
-      ?step
-      ?value
-      ?placeholder
-      ?required
-      ?disabled
-      ~id
-      ~typ
-      ()
-  in
-  (* Create textfield element. *)
-  let (elt : Dom_html.divElement Js.t) =
-    Tyxml_js.To_dom.of_div
-    @@ Markup.create
-         ?disabled
-         ?focused
-         ~fullwidth
-         ?leading_icon:(Option.map Widget.to_markup leading_icon)
-         ?trailing_icon:(Option.map Widget.to_markup trailing_icon)
-         ?line_ripple:(Option.map Widget.to_markup line_ripple)
-         ?label:(Option.map Widget.to_markup label)
-         ?outline:(Option.map Widget.to_markup notched_outline)
-         ~no_label:(Option.is_none floating_label)
-         ~input
-         ()
-  in
-  (* Instantiate new Text Field object. *)
-  new t
-    ?validate_on_blur
-    ?on_input
-    ?helper_text
-    ?character_counter
-    ?line_ripple
-    ?notched_outline
-    ?floating_label
-    ?use_native_validation
-    ~validation
-    elt
-    ()
-
-let make_textarea
-    ?on_input
-    ?disabled
-    ?(fullwidth = false)
-    ?focused
-    ?input_id
-    ?min_length
-    ?max_length
-    ?rows
-    ?cols
-    ?(value : string option)
-    ?placeholder
-    ?required
-    ?(helper_text : Helper_text.t option)
-    ?(character_counter : Character_counter.t option)
-    ?(label : string option)
-    () : string t =
-  let id =
-    match input_id with
-    | Some x -> x
-    | None -> Id.get ()
-  in
-  let floating_label, placeholder =
-    match fullwidth, label, placeholder with
-    | false, Some label, None -> Some (Floating_label.make ~for_:id label), None
-    | true, Some label, None -> None, Some label
-    | _ -> None, placeholder
-  in
-  let notched_outline = Notched_outline.make ?label:floating_label () in
-  (* Create HTML5 <textarea> element. *)
-  let input =
-    Markup.Textarea.create_textarea
-      ?placeholder
-      ?value
-      ?required
-      ?min_length
-      ?max_length
-      ?rows
-      ?cols
-      ?disabled
-      ()
-  in
-  (* Create textfield element. *)
-  let (elt : Dom_html.divElement Js.t) =
-    Tyxml_js.To_dom.of_div
-    @@ Markup.Textarea.create
-         ?disabled
-         ?focused
-         ~fullwidth
-         ~outline:(Widget.to_markup notched_outline)
-         ?character_counter:(Option.map Widget.to_markup character_counter)
-         ~input
-         ()
-  in
-  (* Instantiate new Text Field object. *)
-  new t
-    ?on_input
-    ?helper_text
-    ?floating_label
-    ?character_counter
-    ~notched_outline
-    ~validation:Text
-    elt
-    ()
-
 let attach
     ?validate_on_blur
     ?on_input
     ?helper_text
-    ?character_counter
     ?use_native_validation
     ?(validation : 'a validation option)
     (elt : #Dom_html.element Js.t) : 'a t =
@@ -995,8 +802,144 @@ let attach
     ?validate_on_blur
     ?on_input
     ?helper_text
-    ?character_counter
     ?validation
     ?use_native_validation
     (Element.coerce elt)
     ()
+
+let make_textarea
+    ?classes
+    ?attrs
+    ?disabled
+    ?fullwidth
+    ?focused
+    ?show_character_counter
+    ?character_counter
+    ?input_id
+    ?label
+    ?outline
+    ?value
+    ?placeholder
+    ?required
+    ?min_length
+    ?max_length
+    ?rows
+    ?cols
+    ?input
+    ?validate_on_blur
+    ?on_input
+    ?helper_text
+    ?use_native_validation
+    () =
+  Markup_js.Textarea.create
+    ?classes
+    ?attrs
+    ?disabled
+    ?fullwidth
+    ?focused
+    ?show_character_counter
+    ?character_counter
+    ?input_id
+    ?label
+    ?outline
+    ?value
+    ?placeholder
+    ?required
+    ?min_length
+    ?max_length
+    ?rows
+    ?cols
+    ?input
+    ()
+  |> Tyxml_js.To_dom.of_div
+  |> attach
+       ?validate_on_blur
+       ?on_input
+       ?helper_text
+       ?use_native_validation
+       ~validation:Text
+
+let make
+    ?classes
+    ?attrs
+    ?disabled
+    ?leading_icon
+    ?trailing_icon
+    ?fullwidth
+    ?textarea
+    ?focused
+    ?label
+    ?outline
+    ?outlined
+    ?line_ripple
+    ?input_id
+    ?pattern
+    ?min_length
+    ?max_length
+    ?step
+    ?value
+    ?placeholder
+    ?required
+    ?typ
+    ?input_mode
+    ?input
+    ?validate_on_blur
+    ?on_input
+    ?helper_text
+    ?use_native_validation
+    ?validation
+    () =
+  Option.iter
+    (fun x -> Element.add_class (Tyxml_js.To_dom.of_element x) CSS.icon)
+    leading_icon;
+  Option.iter
+    (fun x -> Element.add_class (Tyxml_js.To_dom.of_element x) CSS.icon)
+    trailing_icon;
+  let input_id =
+    match input_id with
+    | Some _ as x -> x
+    | None -> (
+      match input with
+      | None -> Some (Id.get ())
+      | Some input -> (
+          let input = Tyxml_js.To_dom.of_element input in
+          let id = Js.to_string input##.id in
+          match id with
+          | "" -> None
+          | id -> Some id))
+  in
+  let typ =
+    match typ with
+    | Some _ as x -> x
+    | None -> (
+      match validation with
+      | Some v -> Some (input_type_of_validation v)
+      | None -> None)
+  in
+  Markup_js.create
+    ?classes
+    ?attrs
+    ?disabled
+    ?leading_icon
+    ?trailing_icon
+    ?fullwidth
+    ?textarea
+    ?focused
+    ?label
+    ?outline
+    ?outlined
+    ?line_ripple
+    ?input_id
+    ?pattern
+    ?min_length
+    ?max_length
+    ?step
+    ?value
+    ?placeholder
+    ?required
+    ?typ
+    ?input_mode
+    ?input
+    ()
+  |> Tyxml_js.To_dom.of_div
+  |> attach ?validate_on_blur ?on_input ?helper_text ?use_native_validation ?validation

@@ -24,7 +24,7 @@ struct
   let create_remove_button () =
     Icon_button_markup.create
       ~classes:[Item_list.CSS.item_meta]
-      ~icon:(Icon_markup.SVG.create_of_d Svg_icons.delete)
+      ~icon:(Icon_markup.SVG.create ~d:Svg_icons.delete ())
       ()
 
   let create_textfield ?value ~label ~id () : 'a elt =

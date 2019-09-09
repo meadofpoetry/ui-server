@@ -1,14 +1,11 @@
 open Js_of_ocaml
-open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 include Components_tyxml.Select
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
-
-let flip f x y = f y x
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( % ) f g x = f (g x)
 
-let ( >>= ) = Lwt.( >>= )
+let ( >>= ) = Lwt.bind
 
 type 'a custom_validation =
   { of_string : string -> ('a, string) result
@@ -100,11 +97,13 @@ module Event = struct
     end
 
   let icon : unit Dom_html.customEvent Js.t Dom_html.Event.typ =
-    Dom_html.Event.make "select:icon"
+    Dom_html.Event.make (CSS.root ^ ":icon")
 
   let change : change Js.t Dom_html.customEvent Js.t Dom_html.Event.typ =
-    Dom_html.Event.make "select:change"
+    Dom_html.Event.make (CSS.root ^ ":change")
 end
+
+module Lwt_js_events = struct end
 
 module Icon = struct
   module Attr = struct
@@ -116,36 +115,35 @@ module Icon = struct
   (* XXX Should be inherited from Icon? *)
   class t (elt : Dom_html.element Js.t) () =
     object (self)
-      val mutable _saved_tab_index = None
+      val mutable saved_tab_index = None
 
-      val mutable _click_listener = None
-
-      val mutable _keydown_listener = None
+      val mutable listeners = []
 
       inherit Widget.t elt () as super
 
       method! init () : unit =
-        super#init ();
-        _saved_tab_index <- Element.get_attribute super#root "tabindex";
+        saved_tab_index <- Element.get_attribute super#root "tabindex";
+        super#init ()
+
+      method! initial_sync_with_dom () : unit =
         (* Attach event listeners *)
-        let click = Lwt_js_events.clicks super#root self#handle_click in
-        let keydown = Lwt_js_events.keydowns super#root self#handle_keydown in
-        _click_listener <- Some click;
-        _keydown_listener <- Some keydown
+        listeners <-
+          Js_of_ocaml_lwt.Lwt_js_events.(
+            [clicks super#root self#handle_click; keydowns super#root self#handle_keydown]
+            @ listeners);
+        super#initial_sync_with_dom ()
 
       method! destroy () : unit =
-        super#destroy ();
         (* Detach event listeners *)
-        Option.iter Lwt.cancel _click_listener;
-        Option.iter Lwt.cancel _keydown_listener;
-        _click_listener <- None;
-        _keydown_listener <- None
+        List.iter Lwt.cancel listeners;
+        listeners <- [];
+        super#destroy ()
 
       method set_aria_label (label : string) : unit =
         Element.set_attribute super#root Attr.aria_label label
 
       method set_disabled (x : bool) : unit =
-        match _saved_tab_index with
+        match saved_tab_index with
         | None -> ()
         | Some tabindex ->
             if x
@@ -207,14 +205,14 @@ module Helper_text = struct
       method private hide () : unit = super#set_attribute Attr.aria_hidden "true"
     end
 
+  let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
+
   let make ?persistent ?validation text : t =
     let (elt : Dom_html.element Js.t) =
       Tyxml_js.To_dom.of_div
-      @@ Markup.Helper_text.create ?persistent ?validation ~text ()
+      @@ Markup_js.Helper_text.create ?persistent ?validation ~text ()
     in
     new t elt ()
-
-  let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
 end
 
 type target =
@@ -230,9 +228,6 @@ let target_element = function
 
 class ['a] t
   ?(on_change : ('a t -> unit) option)
-  ?(line_ripple : Line_ripple.t option)
-  ?(floating_label : Floating_label.t option)
-  ?(notched_outline : Notched_outline.t option)
   ?(helper_text : Helper_text.t option)
   ?(validation : 'a validation option)
   (elt : Dom_html.element Js.t)
@@ -289,24 +284,13 @@ class ['a] t
   in
   object (self)
     val line_ripple : Line_ripple.t option =
-      match line_ripple with
-      | Some x -> Some x
-      | None ->
-          Option.map Line_ripple.attach
-          @@ Element.query_selector elt Selector.line_ripple
+      Option.map Line_ripple.attach @@ Element.query_selector elt Selector.line_ripple
 
     val notched_outline : Notched_outline.t option =
-      match notched_outline with
-      | Some x -> Some x
-      | None ->
-          Option.map Notched_outline.attach
-          @@ Element.query_selector elt Selector.outline
+      Option.map Notched_outline.attach @@ Element.query_selector elt Selector.outline
 
     val floating_label : Floating_label.t option =
-      match floating_label with
-      | Some x -> Some x
-      | None ->
-          Option.map Floating_label.attach @@ Element.query_selector elt Selector.label
+      Option.map Floating_label.attach @@ Element.query_selector elt Selector.label
 
     val leading_icon =
       Option.map (fun x ->
@@ -325,113 +309,78 @@ class ['a] t
         | None -> None
         | Some id -> Option.map Helper_text.attach @@ Dom_html.getElementById_opt id)
 
-    (* Event listeners *)
-    val mutable _focus_listener = None
+    val mutable is_menu_open = false
 
-    val mutable _blur_listener = None
+    val mutable selected_index = None
 
-    val mutable _change_listener = None
+    val mutable validation_observer = None
 
-    val mutable _click_listener = None
+    val mutable listeners = []
 
-    val mutable _keydown_listener = None
-
-    val mutable _opened_listener = None
-
-    val mutable _closed_listener = None
-
-    val mutable _selected_listener = None
-
-    val mutable _is_menu_open = false
-
-    val mutable _selected_index = None
-
-    val mutable _validation_observer = None
-
-    val mutable _ripple : Ripple.t option = None
+    val mutable ripple_ : Ripple.t option = None
 
     inherit Widget.t elt () as super
 
     method! init () : unit =
-      super#init ();
-      if not @@ super#has_class CSS.outlined then _ripple <- Some (self#create_ripple ());
+      if not @@ super#has_class CSS.outlined then ripple_ <- Some (self#create_ripple ());
       (* The required state need to be sync'd before the mutation observer is added *)
       self#initial_sync_required_state ();
-      self#add_mutation_observer_for_required ()
+      self#add_mutation_observer_for_required ();
+      super#init ()
 
     method! initial_sync_with_dom () : unit =
-      super#initial_sync_with_dom ();
       (* Attach event listeners *)
-      let change =
-        Lwt_js_events.changes self#target_element (fun _ _ ->
-            self#handle_change ~did_change:true ();
-            Lwt.return_unit)
-      in
-      let focus = Lwt_js_events.focuses self#target_element self#handle_focus in
-      let blur = Lwt_js_events.blurs self#target_element self#handle_blur in
-      let click = Lwt_js_events.clicks self#target_element self#handle_click in
-      _change_listener <- Some change;
-      _focus_listener <- Some focus;
-      _blur_listener <- Some blur;
-      _click_listener <- Some click;
+      listeners <-
+        Js_of_ocaml_lwt.Lwt_js_events.(
+          [ changes self#target_element (fun _ _ ->
+                self#handle_change ~did_change:true ();
+                Lwt.return_unit)
+          ; focuses self#target_element self#handle_focus
+          ; blurs self#target_element self#handle_blur
+          ; clicks self#target_element self#handle_click ]
+          @ listeners);
       (match target with
       | Native _ -> ()
       | Enhanced {text; menu; hidden_input} -> (
-          let keydown = Lwt_js_events.keydowns text self#handle_keydown in
-          let closed =
-            Lwt_js_events.seq_loop
-              (Lwt_js_events.make_event Menu_surface.Event.closed)
-              menu#root
-              (fun e t ->
-                self#handle_menu_closed e t
-                >>= fun () ->
-                (* _is_menu_open is used to track the state of the menu opening
-                or closing since the menu#reveal function will return false
-                if the menu is still closing and this method listens to the
-                closed event which occurs after the menu is already closed. *)
-                _is_menu_open <- false;
-                Element.remove_attribute text Attr.aria_expanded;
-                if Dom_html.document##.activeElement != Js.some text
-                then self#handle_blur (e :> Dom_html.event Js.t) t
-                else Lwt.return_unit)
-          in
-          let opened =
-            Lwt_js_events.seq_loop
-              (Lwt_js_events.make_event Menu_surface.Event.opened)
-              menu#root
-              (fun e t ->
-                self#handle_menu_opened e t
-                >>= fun () ->
-                match menu#items with
-                | [] -> Lwt.return_unit
-                | items ->
-                    (* Menu should open to the last selected element, should open to
+          listeners <-
+            Js_of_ocaml_lwt.Lwt_js_events.(
+              [ keydowns text self#handle_keydown
+              ; Menu.Lwt_js_events.closes menu#root (fun e t ->
+                    self#handle_menu_closed e t
+                    >>= fun () ->
+                    (* _is_menu_open is used to track the state of the menu opening
+                       or closing since the menu#reveal function will return false
+                       if the menu is still closing and this method listens to the
+                       closed event which occurs after the menu is already closed. *)
+                    is_menu_open <- false;
+                    Element.remove_attribute text Attr.aria_expanded;
+                    if Dom_html.document##.activeElement != Js.some text
+                    then self#handle_blur (e :> Dom_html.event Js.t) t
+                    else Lwt.return_unit)
+              ; Menu.Lwt_js_events.opens menu#root (fun e t ->
+                    self#handle_menu_opened e t
+                    >>= fun () ->
+                    match menu#items with
+                    | [] -> Lwt.return_unit
+                    | items ->
+                        (* Menu should open to the last selected element, should open to
                       first menu item otherwise *)
-                    let focus_index =
-                      match _selected_index with
-                      | None -> 0
-                      | Some x when x < 0 -> 0
-                      | Some x -> x
-                    in
-                    (match List.nth_opt items focus_index with
+                        let focus_index =
+                          match selected_index with
+                          | None -> 0
+                          | Some x when x < 0 -> 0
+                          | Some x -> x
+                        in
+                        (match List.nth_opt items focus_index with
+                        | None -> ()
+                        | Some x -> x##focus);
+                        Lwt.return_unit)
+              ; Menu.Lwt_js_events.selects menu#root (fun e _ ->
+                    (match Js.Opt.to_option e##.detail with
                     | None -> ()
-                    | Some x -> x##focus);
-                    Lwt.return_unit)
-          in
-          let selected =
-            Lwt_js_events.seq_loop
-              (Lwt_js_events.make_event Menu.Event.selected)
-              menu#root
-              (fun e _ ->
-                (match Js.Opt.to_option e##.detail with
-                | None -> ()
-                | Some d -> _selected_index <- Some d##.index);
-                Lwt.return_unit)
-          in
-          _keydown_listener <- Some keydown;
-          _opened_listener <- Some opened;
-          _closed_listener <- Some closed;
-          _selected_listener <- Some selected;
+                    | Some d -> selected_index <- Some d##.index);
+                    Lwt.return_unit) ]
+              @ listeners);
           match
             ( hidden_input
             , Option.map (fun x -> Js.to_string x##.value) hidden_input
@@ -446,35 +395,22 @@ class ['a] t
           | _ -> ()));
       self#handle_change ~did_change:false ();
       (* Initially sync floating label *)
-      match super#has_class CSS.disabled, self#native_control with
+      (match super#has_class CSS.disabled, self#native_control with
       | true, _ -> self#set_disabled true
       | _, Some x when x##.disabled = Js._true -> self#set_disabled true
-      | _ -> ()
+      | _ -> ());
+      super#initial_sync_with_dom ()
 
     method! layout () : unit =
-      super#layout ();
-      self#handle_change ~did_change:false ()
+      self#handle_change ~did_change:false ();
+      super#layout ()
 
     method! destroy () : unit =
-      super#destroy ();
       (* Detach event listeners *)
-      Option.iter Lwt.cancel _change_listener;
-      Option.iter Lwt.cancel _focus_listener;
-      Option.iter Lwt.cancel _blur_listener;
-      Option.iter Lwt.cancel _keydown_listener;
-      Option.iter Lwt.cancel _click_listener;
-      Option.iter Lwt.cancel _closed_listener;
-      Option.iter Lwt.cancel _opened_listener;
-      Option.iter Lwt.cancel _selected_listener;
-      _focus_listener <- None;
-      _blur_listener <- None;
-      _change_listener <- None;
-      _click_listener <- None;
-      _closed_listener <- None;
-      _opened_listener <- None;
-      _selected_listener <- None;
+      List.iter Lwt.cancel listeners;
+      listeners <- [];
       (* Destroy internal components *)
-      Option.iter Ripple.destroy _ripple;
+      Option.iter Ripple.destroy ripple_;
       Option.iter Widget.destroy notched_outline;
       Option.iter Widget.destroy line_ripple;
       Option.iter Widget.destroy floating_label;
@@ -484,8 +420,9 @@ class ['a] t
       | Native _ -> ()
       | Enhanced {menu; _} -> menu#destroy ());
       (* Destroy other objects *)
-      Option.iter (fun x -> x##disconnect) _validation_observer;
-      _validation_observer <- None
+      Option.iter (fun x -> x##disconnect) validation_observer;
+      validation_observer <- None;
+      super#destroy ()
 
     method set_helper_text_content (s : string) : unit =
       Option.iter (fun x -> x#set_content s) helper_text
@@ -580,7 +517,7 @@ class ['a] t
       | Enhanced _ ->
           if super#has_class CSS.required && (not @@ super#has_class CSS.disabled)
           then
-            match _selected_index, self#value_as_string with
+            match selected_index, self#value_as_string with
             | None, _ -> false
             | Some x, "" when x > 0 -> false
             | _ -> true
@@ -628,7 +565,7 @@ class ['a] t
       let has_value = String.length value > 0 in
       self#notch_outline has_value;
       if not @@ super#has_class CSS.focused
-      then Option.iter (flip Floating_label.float has_value) floating_label;
+      then Option.iter (Fun.flip Floating_label.float has_value) floating_label;
       if did_change
       then (
         let detail =
@@ -648,7 +585,7 @@ class ['a] t
 
     method private handle_focus _ _ : unit Lwt.t =
       super#add_class CSS.focused;
-      Option.iter (flip Floating_label.float true) floating_label;
+      Option.iter (Fun.flip Floating_label.float true) floating_label;
       self#notch_outline true;
       Option.iter Line_ripple.activate line_ripple;
       Option.iter (fun x -> x#show_to_screen_reader ()) helper_text;
@@ -709,7 +646,7 @@ class ['a] t
       match target with
       | Native _ -> Lwt.return_unit
       | Enhanced {menu; text; _} ->
-          _is_menu_open <- true;
+          is_menu_open <- true;
           Element.set_attribute text Attr.aria_expanded "true";
           menu#reveal ()
 
@@ -825,14 +762,13 @@ class ['a] t
         @@ Array.to_list
         @@ Js.to_array mutations
       in
-      let observer =
-        MutationObserver.observe
-          ~node:self#target_element
-          ~attributes:true
-          ~f:(fun x _ -> handler @@ get_attributes_list x)
-          ()
-      in
-      _validation_observer <- Some observer
+      validation_observer <-
+        Some
+          (MutationObserver.observe
+             ~node:self#target_element
+             ~attributes:true
+             ~f:(fun x _ -> handler @@ get_attributes_list x)
+             ())
 
     method private set_ripple_center (x : float) =
       Option.iter
@@ -844,78 +780,6 @@ class ['a] t
       let adapter = {adapter with event_target = self#target_element} in
       new Ripple.t adapter ()
   end
-
-let make
-    ?on_change
-    ?disabled
-    ?label
-    ?(outlined = false)
-    ?(icon : #Widget.t option)
-    ?(helper_text : Helper_text.t option)
-    ?hidden_input
-    ?value
-    typ
-    validation : 'a t =
-  Option.iter (fun x -> x#add_class CSS.icon) icon;
-  let floating_label =
-    match label with
-    | None -> None
-    | Some label -> Some (Floating_label.make label)
-  in
-  let notched_outline =
-    match outlined with
-    | false -> None
-    | true -> Some (Notched_outline.make ?label:floating_label ())
-  in
-  let line_ripple =
-    match notched_outline with
-    | Some _ -> None
-    | None -> Some (Line_ripple.make ())
-  in
-  (* Should we include label to the core component? *)
-  let label =
-    match notched_outline with
-    | Some _ -> None
-    | None -> floating_label
-  in
-  let elt =
-    match typ with
-    | `Native items ->
-        let select = Markup.Native.create_select ?disabled ~items () in
-        Tyxml_js.To_dom.of_div
-        @@ Markup.Native.create
-             ?disabled
-             ?line_ripple:(Option.map Widget.to_markup line_ripple)
-             ?icon:(Option.map Widget.to_markup icon)
-             ?label:(Option.map Widget.to_markup label)
-             ?outline:(Option.map Widget.to_markup notched_outline)
-             ~select
-             ()
-    | `Enhanced menu ->
-        Tyxml_js.To_dom.of_div
-        @@ Markup.Enhanced.create
-             ?disabled
-             ?line_ripple:(Option.map Widget.to_markup line_ripple)
-             ?icon:(Option.map Widget.to_markup icon)
-             ?label:(Option.map Widget.to_markup label)
-             ?outline:(Option.map Widget.to_markup notched_outline)
-             ?hidden_input
-             ~menu
-             ()
-  in
-  let t =
-    new t
-      ?on_change
-      ?helper_text
-      ?line_ripple
-      ?notched_outline
-      ?floating_label
-      ~validation
-      elt
-      ()
-  in
-  Option.iter (fun x -> t#set_value x) value;
-  t
 
 let native_options_of_values
     (type a)
@@ -931,7 +795,7 @@ let native_options_of_values
   let options =
     List.map
       (fun (x : a) ->
-        Markup.Native.create_option
+        Markup_js.Native.create_option
           ~value:(valid_to_string validation x)
           ~text:(label x)
           ())
@@ -940,63 +804,78 @@ let native_options_of_values
   if not with_empty
   then options
   else
-    let empty = Markup.Native.create_option ~selected:true ~disabled:true ~text:"" () in
+    let empty =
+      Markup_js.Native.create_option ~selected:true ~disabled:true ~text:"" ()
+    in
     empty :: options
 
-type ('a, 'b) items =
-  [ `Markup of 'a Tyxml_js.Html.elt list
-  | `Data of ('b * string option) list ]
+let attach ?helper_text ?validation ?on_change (elt : #Dom_html.element Js.t) : 'a t =
+  new t ?helper_text ?validation ?on_change (Element.coerce elt) ()
 
 let make_native
-    ?on_change
-    ?disabled
+    ?classes
+    ?attrs
     ?label
-    ?outlined
-    ?(icon : #Widget.t option)
-    ?(helper_text : Helper_text.t option)
-    ?value
-    ~(items : ('b, 'a) items)
-    validation : 'a t =
-  let items =
-    match items with
-    | `Markup x -> `Native x
-    | `Data l ->
-        let items =
-          List.map
-            (fun (v, s) ->
-              let value = valid_to_string validation v in
-              let text =
-                match s with
-                | None -> value
-                | Some s -> s
-              in
-              Markup.Native.create_option ~text ~value ())
-            l
-        in
-        `Native items
-  in
-  make ?on_change ?disabled ?label ?outlined ?icon ?helper_text ?value items validation
+    ?line_ripple
+    ?disabled
+    ?outline
+    ?icon
+    ?required
+    ?autofocus
+    ?size
+    ?form
+    ?name
+    ?options
+    ?select
+    ?helper_text
+    ?validation
+    ?on_change
+    () =
+  Markup_js.Native.create
+    ?classes
+    ?attrs
+    ?label
+    ?line_ripple
+    ?disabled
+    ?outline
+    ?icon
+    ?required
+    ?autofocus
+    ?size
+    ?form
+    ?name
+    ?options
+    ?select
+    ()
+  |> Tyxml_js.To_dom.of_div
+  |> attach ?helper_text ?validation ?on_change
 
 let make_enhanced
-    ?on_change
-    ?disabled
+    ?classes
+    ?attrs
     ?label
-    ?outlined
-    ?(icon : #Widget.t option)
-    ?(helper_text : Helper_text.t option)
-    ?value
-    ~menu
-    validation : 'a t =
-  make
-    ?on_change
+    ?line_ripple
     ?disabled
-    ?label
-    ?outlined
+    ?selected_text
+    ?outline
     ?icon
+    ?hidden_input
     ?helper_text
-    ?value
-    (`Enhanced menu)
-    validation
-
-let attach ?helper_text ?validation (elt : #Dom_html.element Js.t) : 'a t =
-  new t ?helper_text ?validation (Element.coerce elt) ()
+    ?validation
+    ?on_change
+    ~menu
+    () =
+  Markup_js.Enhanced.create
+    ?classes
+    ?attrs
+    ?label
+    ?line_ripple
+    ?disabled
+    ?selected_text
+    ?outline
+    ?icon
+    ?hidden_input
+    ~menu
+    ()
+  |> Tyxml_js.To_dom.of_div
+  |> attach ?helper_text ?validation ?on_change

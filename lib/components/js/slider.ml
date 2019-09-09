@@ -1,7 +1,7 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Slider
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 (* TODO
    - fully implement and test vertical slider *)
@@ -41,15 +41,15 @@ let get_float_attribute (elt : Dom_html.element Js.t) (a : string) =
   | Some a -> float_of_string_opt a
 
 module Attr = struct
-  let min = "aria-valuemin"
+  let aria_valuemin = "aria-valuemin"
 
-  let max = "aria-valuemax"
+  let aria_valuemax = "aria-valuemax"
 
-  let now = "aria-valuenow"
+  let aria_valuenow = "aria-valuenow"
 
-  let disabled = "aria-disabled"
+  let aria_disabled = "aria-disabled"
 
-  let step = "data-step"
+  let data_step = "data-step"
 end
 
 module Selector = struct
@@ -154,12 +154,12 @@ class t (elt : Dom_html.element Js.t) () =
       super#initial_sync_with_dom ();
       _vertical <- super#has_class CSS.vertical;
       let min' =
-        match get_float_attribute super#root Attr.min with
+        match get_float_attribute super#root Attr.aria_valuemin with
         | None -> _min
         | Some x -> x
       in
       let max' =
-        match get_float_attribute super#root Attr.max with
+        match get_float_attribute super#root Attr.aria_valuemax with
         | None -> _max
         | Some x -> x
       in
@@ -171,13 +171,13 @@ class t (elt : Dom_html.element Js.t) () =
         self#set_min min';
         self#set_max max');
       _disabled <-
-        (match super#get_attribute Attr.disabled with
+        (match super#get_attribute Attr.aria_disabled with
         | Some "true" -> true
         | _ -> false);
-      (match get_float_attribute super#root Attr.step with
+      (match get_float_attribute super#root Attr.data_step with
       | None -> ()
       | Some x -> _step <- Some x);
-      (match get_float_attribute super#root Attr.now with
+      (match get_float_attribute super#root Attr.aria_valuenow with
       | None -> ()
       | Some x -> _value <- x);
       (match self#step, self#discrete with
@@ -213,10 +213,10 @@ class t (elt : Dom_html.element Js.t) () =
       if x
       then (
         _saved_tab_index <- Element.get_attribute super#root "tabindex";
-        super#set_attribute Attr.disabled "true";
+        super#set_attribute Attr.aria_disabled "true";
         super#remove_attribute "tabindex")
       else (
-        super#remove_attribute Attr.disabled;
+        super#remove_attribute Attr.aria_disabled;
         Option.iter (super#set_attribute "tabindex") _saved_tab_index)
 
     method vertical : bool = _vertical
@@ -229,7 +229,7 @@ class t (elt : Dom_html.element Js.t) () =
       else (
         _min <- v;
         self#set_value_ ~fire_input:false ~force:true self#value;
-        super#set_attribute Attr.min (string_of_float v);
+        super#set_attribute Attr.aria_valuemin (string_of_float v);
         self#setup_track_marker ())
 
     method max : float = _max
@@ -240,7 +240,7 @@ class t (elt : Dom_html.element Js.t) () =
       else (
         _max <- v;
         self#set_value_ ~fire_input:false ~force:true self#value;
-        super#set_attribute Attr.max (string_of_float v);
+        super#set_attribute Attr.aria_valuemax (string_of_float v);
         self#setup_track_marker ())
 
     method step : float option = _step
@@ -249,14 +249,14 @@ class t (elt : Dom_html.element Js.t) () =
       match v with
       | None ->
           _step <- None;
-          super#remove_attribute Attr.step;
+          super#remove_attribute Attr.data_step;
           self#set_value_ ~fire_input:false ~force:true self#value;
           self#setup_track_marker ()
       | Some v when v < 0. -> raise (Invalid_argument "Step cannot be negative")
       | Some v ->
           let v = if self#discrete && v < 1. then 1. else v in
           _step <- Some v;
-          super#set_attribute Attr.step (string_of_float v);
+          super#set_attribute Attr.data_step (string_of_float v);
           self#set_value_ ~fire_input:false ~force:true self#value;
           self#setup_track_marker ()
 
@@ -286,7 +286,6 @@ class t (elt : Dom_html.element Js.t) () =
       in
       self#set_value (self#value +. amount)
 
-    (* Private methods *)
     method private set_active_ (x : bool) : unit = super#toggle_class ~force:x CSS.active
 
     method private notify_input () : unit = super#emit ~detail:self#value Event.input
@@ -306,7 +305,7 @@ class t (elt : Dom_html.element Js.t) () =
           self#calculate_track_styles track_after (100. -. percent);
           self#calculate_thumb_styles percent;
           _value <- v;
-          super#set_attribute Attr.now (string_of_float v);
+          super#set_attribute Attr.aria_valuenow (string_of_float v);
           if fire_input
           then (
             self#notify_input ();
@@ -579,11 +578,14 @@ class t (elt : Dom_html.element Js.t) () =
           Lwt.return_unit
   end
 
+(** Attach slider widget to existing element *)
+let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
+
 (** Create new slider from scratch *)
 let make ?classes ?discrete ?markers ?disabled ?label ?step ?min ?max ?value () : t =
   let (elt : Element.t) =
     Tyxml_js.To_dom.of_element
-    @@ Markup.create
+    @@ Markup_js.create
          ?classes
          ?discrete
          ?markers
@@ -596,6 +598,3 @@ let make ?classes ?discrete ?markers ?disabled ?label ?step ?min ?max ?value () 
          ()
   in
   new t elt ()
-
-(** Attach slider widget to existing element *)
-let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()

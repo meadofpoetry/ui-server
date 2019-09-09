@@ -1,8 +1,7 @@
 open Js_of_ocaml
-open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 include Components_tyxml.Scaffold
-module Markup = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 (* TODO
    - breakpoints could be read from DOM as data attributes
@@ -118,7 +117,7 @@ class t
     method! init () : unit =
       super#init ();
       loaded <-
-        (Lwt_js_events.domContentLoaded ()
+        (Js_of_ocaml_lwt.Lwt_js_events.domContentLoaded ()
         >>= self#handle_content_loaded
         >>= fun () ->
         super#root##.style##.visibility := Js.string "";
@@ -225,7 +224,7 @@ class t
     (* TODO implement snackbar stacking *)
     method show_snackbar ?on_close (snackbar : Snackbar.t) =
       Dom.appendChild app_content_inner snackbar#root;
-      let closed = Lwt_js_events.make_event Snackbar.Event.closed snackbar#root in
+      let closed = Snackbar.Lwt_js_events.close snackbar#root in
       Lwt.on_success closed (fun e ->
           let detail = Widget.event_detail e in
           Option.iter (fun f -> f detail) on_close;
@@ -238,7 +237,7 @@ class t
       let leading =
         match app_bar#leading, drawer with
         | None, Some _ ->
-            let icon = Icon.SVG.(Markup_js.create_of_d Path.menu) in
+            let icon = Icon.SVG.(Markup_js.create ~d:Path.menu ()) in
             let w = Icon_button.make ~icon () in
             w#add_class Top_app_bar.CSS.navigation_icon;
             Some w#root
@@ -274,8 +273,8 @@ class t
         : unit =
       let create_scrim, scrim_class =
         if is_leading
-        then Drawer.Markup.create_scrim, Drawer.CSS.scrim
-        else Side_sheet.Markup.create_scrim, Side_sheet.CSS.scrim
+        then Drawer.Markup_js.create_scrim, Drawer.CSS.scrim
+        else Side_sheet.Markup_js.create_scrim, Side_sheet.CSS.scrim
       in
       (* Where to place drawer *)
       let parent =
@@ -390,13 +389,14 @@ class t
       in
       (* Handle window resize *)
       listeners <-
-        Lwt_js_events.
+        Js_of_ocaml_lwt.Lwt_js_events.
           [limited_onresizes ~elapsed_time:0.05 (fun _ _ -> self#handle_resize ())];
       (match leading with
       | None -> ()
       | Some leading ->
           listeners <-
-            Lwt_js_events.(clicks leading self#handle_navigation_icon_click :: listeners));
+            Js_of_ocaml_lwt.Lwt_js_events.(
+              clicks leading self#handle_navigation_icon_click :: listeners));
       Lwt.return_unit
 
     method private handle_navigation_icon_click _ _ : unit Lwt.t =
@@ -422,8 +422,14 @@ class t
       Lwt.join [drawer_lwt; side_sheet_lwt]
   end
 
+(** Attach scaffold widget to existing element *)
+let attach ?on_navigation_icon_click (elt : #Dom_html.element Js.t) : t =
+  new t ?on_navigation_icon_click (Element.coerce elt) ()
+
 (** Create new scaffold widget from scratch *)
 let make
+    ?classes
+    ?attrs
     ?drawer
     ?drawer_elevation
     ?drawer_breakpoints
@@ -436,18 +442,23 @@ let make
     () =
   let elt =
     Tyxml_js.To_dom.of_element
-    @@ Markup.(
+    @@ Markup_js.(
          create
-           [ create_drawer_frame
-               ~full_height:true
-               [ create_app_content
-                   ~outer:true
-                   [ create_drawer_frame
-                       ~clipped:true
-                       [create_app_content ~inner:true [] ()]
+           ?classes
+           ?attrs
+           ~children:
+             [ create_drawer_frame
+                 ~full_height:true
+                 ~children:
+                   [ create_app_content
+                       ~outer:true
+                       ~children:
+                         [ create_drawer_frame
+                             ~clipped:true
+                             ~children:[create_app_content ~inner:true ~children:[] ()]
+                             () ]
                        () ]
-                   () ]
-               () ]
+                 () ]
            ())
   in
   new t
@@ -462,7 +473,3 @@ let make
     ?on_navigation_icon_click
     elt
     ()
-
-(** Attach scaffold widget to existing element *)
-let attach ?on_navigation_icon_click (elt : #Dom_html.element Js.t) : t =
-  new t ?on_navigation_icon_click (Element.coerce elt) ()

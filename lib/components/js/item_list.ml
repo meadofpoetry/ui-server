@@ -1,14 +1,9 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 include Components_tyxml.Item_list
-module Markup_js =
-  Components_tyxml.Item_list.Make
-    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
-    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
-    (Js_of_ocaml_tyxml.Tyxml_js.Html)
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
-
-let name = "item-list"
 
 module Attr = struct
   let aria_checked = "aria-checked"
@@ -59,15 +54,16 @@ module Event = struct
     end
 
   let (action : detail Js.t Dom_html.customEvent Js.t Dom_html.Event.typ) =
-    Dom_html.Event.make (name ^ ":action")
+    Dom_html.Event.make (CSS.root ^ ":action")
 end
 
 module Lwt_js_events = struct
-  let action ?use_capture ?passive t =
-    Js_of_ocaml_lwt.Lwt_js_events.make_event ?use_capture ?passive Event.action t
+  open Js_of_ocaml_lwt.Lwt_js_events
+
+  let action ?use_capture ?passive t = make_event ?use_capture ?passive Event.action t
 
   let actions ?cancel_handler ?use_capture ?passive t =
-    Js_of_ocaml_lwt.Lwt_js_events.seq_loop ?cancel_handler ?use_capture ?passive action t
+    seq_loop ?cancel_handler ?use_capture ?passive action t
 end
 
 let elements_key_allowed_in = ["input"; "button"; "textarea"; "select"]
@@ -253,92 +249,99 @@ module Item = struct
 
   class t ?(ripple = false) (elt : Dom_html.element Js.t) () =
     object (self)
-      val _text : Dom_html.element Js.t =
+      val text : Dom_html.element Js.t =
         Element.query_selector_exn elt Selector.item_text
 
-      val _ripple : Ripple.t option =
+      val ripple_ : Ripple.t option =
         if not ripple then None else Some (Ripple.attach elt)
 
       inherit Widget.t elt () as super
 
       method! layout () : unit =
-        super#layout ();
-        match _ripple with
-        | None -> ()
-        | Some r -> Ripple.layout r
+        Option.iter Ripple.layout ripple_;
+        super#layout ()
 
       method secondary_text : string option =
-        match Element.query_selector _text ("." ^ CSS.item_secondary_text) with
+        match Element.query_selector text ("." ^ CSS.item_secondary_text) with
         | None -> None
         | Some elt -> Js.Opt.to_option @@ Js.Opt.map elt##.textContent Js.to_string
 
       method set_secondary_text (s : string) : unit =
-        match Element.query_selector _text ("." ^ CSS.item_secondary_text) with
+        match Element.query_selector text ("." ^ CSS.item_secondary_text) with
         | Some elt -> elt##.textContent := Js.some (Js.string s)
         | None ->
-            (match Element.query_selector _text ("." ^ CSS.item_primary_text) with
+            (match Element.query_selector text ("." ^ CSS.item_primary_text) with
             | Some _ -> ()
             | None ->
-                let text =
+                let primary_text =
                   match self#text with
                   | None -> ""
                   | Some s -> s
                 in
                 let x =
                   Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-                  @@ Markup_js.create_item_primary_text text ()
+                  @@ Markup_js.create_item_primary_text ~label:primary_text ()
                 in
-                Element.insert_child_at_index _text 0 x);
+                Element.insert_child_at_index text 0 x);
             let secondary =
               Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-              @@ Markup_js.create_item_secondary_text s ()
+              @@ Markup_js.create_item_secondary_text ~label:s ()
             in
-            Element.insert_child_at_index _text 1 secondary
+            Element.insert_child_at_index text 1 secondary
 
       method text : string option =
-        match Element.query_selector _text ("." ^ CSS.item_primary_text) with
-        | None -> Js.Opt.to_option @@ Js.Opt.map _text##.textContent Js.to_string
+        match Element.query_selector text ("." ^ CSS.item_primary_text) with
+        | None -> Js.Opt.to_option @@ Js.Opt.map text##.textContent Js.to_string
         | Some elt -> Js.Opt.to_option @@ Js.Opt.map elt##.textContent Js.to_string
 
       method set_text (s : string) : unit =
-        match Element.query_selector _text ("." ^ CSS.item_primary_text) with
-        | None -> _text##.textContent := Js.some (Js.string s)
+        match Element.query_selector text ("." ^ CSS.item_primary_text) with
+        | None -> text##.textContent := Js.some (Js.string s)
         | Some elt -> elt##.textContent := Js.some (Js.string s)
 
       method activated : bool = self#has_class CSS.item_activated
 
       method selected : bool = self#has_class CSS.item_selected
 
-      method ripple : Ripple.t option = _ripple
+      method ripple : Ripple.t option = ripple_
     end
-
-  let make ?ripple ?activated ?selected ?secondary_text ?graphic ?meta ?role text : t =
-    Option.iter
-      (fun x ->
-        Element.add_class
-          (Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element x)
-          CSS.item_graphic)
-      graphic;
-    Option.iter
-      (fun x ->
-        Element.add_class (Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element x) CSS.item_meta)
-      meta;
-    let text_elt =
-      match secondary_text with
-      | Some st ->
-          let primary = Markup_js.create_item_primary_text text () in
-          let secondary = Markup_js.create_item_secondary_text st () in
-          Markup_js.create_item_text [primary; secondary] ()
-      | None -> Markup_js.create_item_text [Js_of_ocaml_tyxml.Tyxml_js.Html.txt text] ()
-    in
-    let (elt : Dom_html.liElement Js.t) =
-      Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_li
-      @@ Markup_js.create_item ?graphic ?meta ?activated ?selected ?role text_elt ()
-    in
-    new t ?ripple elt ()
 
   let attach ?ripple (elt : #Dom_html.element Js.t) : t =
     new t ?ripple (Element.coerce elt) ()
+
+  let make
+      ?classes
+      ?attrs
+      ?graphic
+      ?meta
+      ?role
+      ?tabindex
+      ?activated
+      ?selected
+      ?checked
+      ?primary_text
+      ?secondary_text
+      ?force_wrap
+      ?children
+      ?ripple
+      () =
+    Markup_js.create_item
+      ?classes
+      ?attrs
+      ?graphic
+      ?meta
+      ?role
+      ?tabindex
+      ?activated
+      ?selected
+      ?checked
+      ?primary_text
+      ?secondary_text
+      ?force_wrap
+      ?children
+      ()
+    |> Tyxml_js.To_dom.of_li
+    |> attach ?ripple
 end
 
 class t (elt : Dom_html.element Js.t) () =
@@ -694,30 +697,41 @@ class t (elt : Dom_html.element Js.t) () =
       else _selected_items <- List.filter (fun x -> not @@ eq item x) _selected_items
   end
 
-let make ?avatar_list ?dense ?two_line ?non_interactive ?role (items : #Widget.t list) :
-    t =
+let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
+
+let make
+    ?classes
+    ?attrs
+    ?avatar_list
+    ?dense
+    ?two_line
+    ?non_interactive
+    ?role
+    ?children
+    () =
   let two_line =
-    match two_line with
-    | Some x -> x
-    | None ->
-        Option.is_some
+    match two_line, children with
+    | (Some _ as x), _ -> x
+    | None, None -> None
+    | None, Some children ->
+        Option.some
+        @@ Option.is_some
         @@ List.find_opt
              (fun i ->
+               let i = Tyxml_js.To_dom.of_element i in
                let selector = Js.string ("." ^ CSS.item_secondary_text) in
-               Js.Opt.test @@ i#root##querySelector selector)
-             items
+               Js.Opt.test @@ i##querySelector selector)
+             children
   in
-  let (elt : Dom_html.uListElement Js.t) =
-    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_ul
-    @@ Markup_js.create
-         ?role
-         ?avatar_list
-         ?dense
-         ~two_line
-         ?non_interactive
-         ~items:(List.map Widget.to_markup items)
-         ()
-  in
-  new t elt ()
-
-let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
+  Markup_js.create
+    ?classes
+    ?attrs
+    ?avatar_list
+    ?dense
+    ?two_line
+    ?non_interactive
+    ?role
+    ?children
+    ()
+  |> Tyxml_js.To_dom.of_ul
+  |> attach
