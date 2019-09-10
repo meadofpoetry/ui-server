@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Application_types
 open Board_niitv_tsan_types
 open Components
@@ -53,7 +54,7 @@ let hex_pid_fmt =
     ; compare
     ; is_numeric = true }
 
-let make_table_fmt ?(is_hex = false) () =
+let make_table_fmt ?(is_hex = false) () : _ Gadt_data_table.Fmt_js.format =
   let open Gadt_data_table in
   let br_fmt = Fmt_js.Option (Float, "-") in
   let pct_fmt = Fmt_js.Option (Float, "-") in
@@ -68,30 +69,37 @@ let make_table_fmt ?(is_hex = false) () =
     ; make_column ~sortable:true ~title:"Min, Мбит/с" br_fmt
     ; make_column ~sortable:true ~title:"Max, Мбит/с" br_fmt ]
 
-let add_row (_table : 'a Gadt_data_table.t) ((pid, info) : int * PID_info.t) =
+let add_row (table : 'a Gadt_data_table.t) ((pid, info) : int * PID_info.t) =
   let open Gadt_data_table in
   let flags = {has_pcr = info.has_pcr; scrambled = info.scrambled} in
   let (data : _ Fmt_js.data) =
     Fmt_js.[pid; info.typ; flags; info.service_name; None; None; None; None]
   in
-  (* let row = table#push data in *)
+  let (_ : Dom_html.tableRowElement Js.t) = table#insert_row (-1) data in
   (* Attr.set_bool row#root Attr.lost info.present; *)
-  data
+  ()
 
-(* let update_row row total br =
- *   let cur, per, min, max =
- *     let open Gadt_data_table in
- *     match row#cells with
- *     | _ :: _ :: _ :: _ :: a :: b :: c :: d :: _ -> a, b, c, d
- *   in
- *   let pct = 100. *. float_of_int br /. float_of_int total in
- *   let br = float_of_int br /. 1_000_000. in
- *   cur#set_value @@ Some br;
- *   per#set_value @@ Some pct;
- *   (match min#value with
- *   | None -> min#set_value (Some br)
- *   | Some v -> if br < v then min#set_value (Some br));
- *   (match max#value with
- *   | None -> max#set_value (Some br)
- *   | Some v -> if br > v then max#set_value (Some br));
- *   br, pct *)
+let update_row (table : 'a Gadt_data_table.t) row total br =
+  let pct = 100. *. float_of_int br /. float_of_int total in
+  let br = float_of_int br /. 1_000_000. in
+  let min, max =
+    Gadt_data_table.Fmt_js.(
+      match table#get_row_data_lazy row with
+      | [_; _; _; _; _; _; min; max] -> min, max)
+  in
+  let min =
+    match min () with
+    | None -> Some (Some br)
+    | Some v -> if br < v then Some (Some br) else None
+  in
+  let max =
+    match max () with
+    | None -> Some (Some br)
+    | Some v -> if br > v then Some (Some br) else None
+  in
+  let data =
+    Gadt_data_table.Fmt_js.
+      [None; None; None; None; Some (Some br); Some (Some pct); min; max]
+  in
+  table#set_row_data_some data row;
+  br, pct

@@ -75,7 +75,24 @@ class ['a] t ~(fmt : 'a Fmt_js.format) (elt : Dom_html.element Js.t) () =
         in the collection, a [DOMException] with the value [IndexSizeError]
         is raised. *)
 
-    method update_row (data : 'a Fmt_js.data) (row : Dom_html.tableRowElement Js.t) =
+    method set_row_data_some
+        (data : 'a Fmt_js.opt_data)
+        (row : Dom_html.tableRowElement Js.t) =
+      let cells = row##.cells in
+      let rec loop : type a. int -> a Fmt_js.format -> a Fmt_js.opt_data -> unit =
+       fun i format data ->
+        match format, data with
+        | [], [] -> ()
+        | fmt :: l1, value :: l2 ->
+            let cell = Js.Opt.get (cells##item i) (fun () -> assert false) in
+            (match value with
+            | None -> ()
+            | Some v -> set_cell_value fmt.format v cell);
+            loop (succ i) l1 l2
+      in
+      loop 0 fmt data
+
+    method set_row_data (data : 'a Fmt_js.data) (row : Dom_html.tableRowElement Js.t) =
       let cells = row##.cells in
       let rec loop : type a. int -> a Fmt_js.format -> a Fmt_js.data -> unit =
        fun i format data ->
@@ -88,23 +105,7 @@ class ['a] t ~(fmt : 'a Fmt_js.format) (elt : Dom_html.element Js.t) () =
       in
       loop 0 fmt data
 
-    method update_row_index (data : 'a Fmt_js.data) (i : int) =
-      let row =
-        Js.Opt.get
-          (super#rows_collection##item i)
-          (fun () -> invalid_arg (CSS.root ^ ": invalid row index"))
-      in
-      self#update_row data row
-
-    method dump_row_index (i : int) =
-      let row =
-        Js.Opt.get
-          (super#rows_collection##item i)
-          (fun () -> invalid_arg (CSS.root ^ ": invalid row index"))
-      in
-      self#dump_row row
-
-    method dump_row (row : Dom_html.tableRowElement Js.t) =
+    method get_row_data (row : Dom_html.tableRowElement Js.t) =
       let cells = row##.cells in
       let rec loop : type a. int -> a Fmt_js.format -> a Fmt_js.data =
        fun i format ->
@@ -117,9 +118,42 @@ class ['a] t ~(fmt : 'a Fmt_js.format) (elt : Dom_html.element Js.t) () =
       in
       loop 0 fmt
 
-    method dump : 'a Fmt_js.data list = List.map self#dump_row super#rows
+    method get_row_data_lazy (row : Dom_html.tableRowElement Js.t) =
+      let cells = row##.cells in
+      let rec loop : type a. int -> a Fmt_js.format -> a Fmt_js.data_lazy =
+       fun i format ->
+        match format with
+        | [] -> []
+        | column :: tl ->
+            let cell = Js.Opt.get (cells##item i) (fun () -> assert false) in
+            (fun () -> get_cell_value column.format cell) :: loop (succ i) tl
+      in
+      loop 0 fmt
+
+    method dump : 'a Fmt_js.data list = List.map self#get_row_data super#rows
     (** Return table formatted data. *)
   end
 
 let attach ~fmt (elt : #Dom_html.element Js.t) : 'a t =
   new t ~fmt (elt :> Dom_html.element Js.t) ()
+
+let make ?classes ?attrs ?dense ?(data = []) ~format () =
+  Markup_js.create_of_fmt ?classes ?attrs ?dense ~format ~data ()
+  |> Tyxml_js.To_dom.of_div
+  |> attach ~fmt:format
+
+(** Example using GADT format:
+
+   {[ let table =
+        let (fmt : _ Fmt_js.format) =
+          Fmt_js.
+            [ make_column ~title:"Title 1" Int
+            ; make_column ~title:"Title 2" Int
+            ; make_column ~title:"Title 3" Int ]
+        in
+        let (data : _ Fmt_js.data list) =
+          [[3; 3; 3]; [4; 5; 4]; [1; 2; 3]; [1; 1; 1]; [4; 3; 1]; [1; 6; 4]]
+        in
+        make ~format:fmt ~data ()
+   ]}
+*)

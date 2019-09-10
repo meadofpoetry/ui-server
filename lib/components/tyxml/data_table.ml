@@ -163,6 +163,14 @@ module Make_fmt (Xml : Xml_sigs.NoWrap) = struct
   type _ data =
     | [] : unit data
     | ( :: ) : 'a * 'b data -> ('a * 'b) data
+
+  type _ data_lazy =
+    | [] : unit data_lazy
+    | ( :: ) : (unit -> 'a) * 'b data_lazy -> ('a * 'b) data_lazy
+
+  type _ opt_data =
+    | [] : unit opt_data
+    | ( :: ) : 'a option * 'b opt_data -> ('a * 'b) opt_data
 end
 
 module Make
@@ -292,12 +300,12 @@ struct
     create_row ?classes ?attrs ~children:cells ()
 
   (* TODO how to provide custom classes, attrs to inner components? *)
-  let create_of_fmt ?classes ?attrs ~format ~data () =
+  let create_of_fmt ?classes ?attrs ?dense ~format ~data () =
     let rows = List.map (fun x -> create_row_of_fmt ~format ~data:x ()) data in
     let header = create_header_of_fmt ~format () in
     let body = create_body ~children:rows () in
     let table = create_table ~header ~children:[body] () in
-    create ?classes ?attrs ~children:[table] ()
+    create ?classes ?attrs ?dense ~children:[table] ()
 
   (** Example using GADT format:
 
