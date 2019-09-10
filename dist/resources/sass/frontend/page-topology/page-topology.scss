@@ -7,9 +7,9 @@
 @import "../application/application";
 // FIXME remove
 @import "../pipeline/widgets";
-@import "../boards/niitv-dvb4ch/niitv-dvb4ch";
-@import "../boards/niitv_tsan";
-@import "../boards/dektec_dtm3200";
+@import "../boards/board-niitv-dvb4ch/board-niitv-dvb4ch";
+@import "../boards/niitv-tsan";
+@import "../boards/dektec-dtm3200";
 
 $boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
 $error-surface: $material-color-red-200;

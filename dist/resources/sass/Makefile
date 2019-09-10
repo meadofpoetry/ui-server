@@ -1,30 +1,33 @@
-CC = sassc -t compressed
+SASS = sassc
+POSTCSS = postcss -u autoprefixer -r
 BUILD_DIR = ../css
+
+%.min.css : %.scss
+	$(SASS) -t compressed -I ./ $< $@
+	$(POSTCSS) $@
+	mv $@ $(BUILD_DIR)/$(@F)
 
 all: components main pages
 
-main:
-	$(CC) -I ./ ./main.scss ../css/main.min.css
+main: ./main.min.css
 
-components:
-	$(CC) -I ./ ./@material/components/components.scss $(BUILD_DIR)/components.min.css
-	$(CC) -I ./ ./@material-lab/components-lab/components-lab.scss $(BUILD_DIR)/components-lab.min.css
+components: ./@material/components/components.min.css \
+						./@material-lab/components-lab/components-lab.min.css
 
-pages:
-	$(CC) -I ./ ./frontend/input/input.scss $(BUILD_DIR)/page-input.min.css
-	$(CC) -I ./ ./frontend/mosaic-editor/mosaic-editor.scss $(BUILD_DIR)/page-mosaic-editor.min.css
-	$(CC) -I ./ ./frontend/mosaic-video/mosaic-video.scss $(BUILD_DIR)/page-mosaic-video.min.css
-	$(CC) -I ./ ./frontend/topology/topology.scss $(BUILD_DIR)/page-topology.min.css
-	$(CC) -I ./ ./frontend/network-settings/network-settings.scss $(BUILD_DIR)/page-network-settings.min.css
-	$(CC) -I ./ ./frontend/software-updates/software-updates.scss $(BUILD_DIR)/page-software-updates.min.css
-	$(CC) -I ./ ./frontend/power-management/power-management.scss $(BUILD_DIR)/page-power-management.min.css
-	$(CC) -I ./ ./frontend/server-settings/server-settings.scss $(BUILD_DIR)/page-server-settings.min.css
-	$(CC) -I ./ ./frontend/user-settings/user-settings.scss $(BUILD_DIR)/page-user-settings.min.css
-	$(CC) -I ./ ./frontend/error/error.scss $(BUILD_DIR)/page-error.min.css
-	$(CC) -I ./ ./frontend/logout/logout.scss $(BUILD_DIR)/page-logout.min.css
-	$(CC) -I ./ ./frontend/boards/niitv-dvb4ch/niitv-dvb4ch.scss $(BUILD_DIR)/board-niitv-dvb4ch.min.css
-	$(CC) -I ./ ./frontend/boards/niitv-dvb4ch/input/input.scss $(BUILD_DIR)/board-niitv-dvb4ch-page-input.min.css
-	$(CC) -I ./ ./frontend/boards/niitv-tsan/niitv-tsan.scss $(BUILD_DIR)/board-niitv-tsan.min.css
-	$(CC) -I ./ ./frontend/boards/niitv-tsan/input/input.scss $(BUILD_DIR)/board-niitv-tsan-page-input.min.css
+pages:  ./frontend/page-input/page-input.min.css \
+				./frontend/page-mosaic-editor/page-mosaic-editor.min.css \
+				./frontend/page-mosaic-video/page-mosaic-video.min.css \
+				./frontend/page-topology/page-topology.min.css \
+				./frontend/page-network-settings/page-network-settings.min.css \
+				./frontend/page-software-updates/page-software-updates.min.css \
+				./frontend/page-power-management/page-power-management.min.css \
+				./frontend/page-server-settings/page-server-settings.min.css \
+				./frontend/page-user-settings/page-user-settings.min.css \
+				./frontend/page-error/page-error.min.css \
+				./frontend/page-logout/page-logout.min.css \
+				./frontend/boards/board-niitv-dvb4ch/board-niitv-dvb4ch.min.css \
+				./frontend/boards/board-niitv-dvb4ch/page-input/board-niitv-dvb4ch-page-input.min.css \
+				./frontend/boards/board-niitv-tsan/board-niitv-tsan.min.css \
+				./frontend/boards/board-niitv-tsan/page-input/board-niitv-tsan-page-input.min.css
 
 .PHONY: all main components pages

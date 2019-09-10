@@ -27,7 +27,7 @@ class t (elt : Dom_html.element Js.t) =
     inherit Widget.t elt () as super
 
     method! init () : unit =
-      button#set_loader loader;
+      button#set_loader loader#root;
       super#init ()
 
     method! initial_sync_with_dom () : unit =

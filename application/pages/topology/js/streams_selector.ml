@@ -116,6 +116,7 @@ module Board = struct
     let text = Stream.Source.to_string stream.source.info in
     let checkbox =
       Checkbox.make
+        ~classes:[Item_list.CSS.item_meta]
         ~on_change:(fun w ->
           if w#checked then check.enable () else check.disable ();
           if w#checked then push @@ Some stream else push None;
@@ -202,10 +203,10 @@ module Board = struct
       method private check_empty items : unit =
         match items with
         | [] ->
-            Dom.removeChild body list#root;
+            Element.remove_child_safe body list#root;
             Dom.appendChild body empty#root
         | _ ->
-            Dom.removeChild body empty#root;
+            Element.remove_child_safe body empty#root;
             Dom.appendChild body list#root
     end
 
@@ -357,7 +358,9 @@ module Input = struct
     let make_board_stream_entry del_item del_stream (stream : Stream.t) =
       let text = Stream.Source.to_string stream.source.info in
       let icon = Icon.SVG.(Markup_js.create ~d:Path.delete ()) in
-      let del_button = Icon_button.make ~ripple:false ~icon () in
+      let del_button =
+        Icon_button.make ~classes:[Item_list.CSS.item_meta] ~ripple:false ~icon ()
+      in
       let item =
         Item_list.Item.make ~meta:del_button#markup ~primary_text:(`Text text) ()
       in
@@ -468,10 +471,10 @@ module Input = struct
       method private check_empty items : unit =
         match items with
         | [] ->
-            Dom.removeChild body list#root;
+            Element.remove_child_safe body list#root;
             Dom.appendChild body empty#root
         | _ ->
-            Dom.removeChild body empty#root;
+            Element.remove_child_safe body empty#root;
             Dom.appendChild body list#root
     end
 

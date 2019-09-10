@@ -129,13 +129,14 @@ struct
       ?primary_text
       ?secondary_text
       () : 'a elt =
+    let force_wrap = if Option.is_some secondary_text then true else force_wrap in
     let primary_text =
       match primary_text with
       | None -> create_item_primary_text ~label:"" ()
-      | Some (`Text s) -> create_item_primary_text ~label:s ()
+      | Some (`Text s) ->
+          if force_wrap then create_item_primary_text ~label:s () else txt s
       | Some (`Element e) -> e
     in
-    let force_wrap = if Option.is_some secondary_text then true else force_wrap in
     if force_wrap
     then
       let classes = CSS.item_text :: classes in

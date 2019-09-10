@@ -244,14 +244,15 @@ let set_tab_index_to_first_selected_item ~selected items : unit =
 
 module Item = struct
   module Selector = struct
-    let item_text = Printf.sprintf ".%s" CSS.item_text
+    let text = Printf.sprintf ".%s" CSS.item_text
+
+    let primary_text = "." ^ CSS.item_primary_text
+
+    let secondary_text = "." ^ CSS.item_secondary_text
   end
 
   class t ?(ripple = false) (elt : Dom_html.element Js.t) () =
     object (self)
-      val text : Dom_html.element Js.t =
-        Element.query_selector_exn elt Selector.item_text
-
       val ripple_ : Ripple.t option =
         if not ripple then None else Some (Ripple.attach elt)
 
@@ -260,44 +261,6 @@ module Item = struct
       method! layout () : unit =
         Option.iter Ripple.layout ripple_;
         super#layout ()
-
-      method secondary_text : string option =
-        match Element.query_selector text ("." ^ CSS.item_secondary_text) with
-        | None -> None
-        | Some elt -> Js.Opt.to_option @@ Js.Opt.map elt##.textContent Js.to_string
-
-      method set_secondary_text (s : string) : unit =
-        match Element.query_selector text ("." ^ CSS.item_secondary_text) with
-        | Some elt -> elt##.textContent := Js.some (Js.string s)
-        | None ->
-            (match Element.query_selector text ("." ^ CSS.item_primary_text) with
-            | Some _ -> ()
-            | None ->
-                let primary_text =
-                  match self#text with
-                  | None -> ""
-                  | Some s -> s
-                in
-                let x =
-                  Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-                  @@ Markup_js.create_item_primary_text ~label:primary_text ()
-                in
-                Element.insert_child_at_index text 0 x);
-            let secondary =
-              Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-              @@ Markup_js.create_item_secondary_text ~label:s ()
-            in
-            Element.insert_child_at_index text 1 secondary
-
-      method text : string option =
-        match Element.query_selector text ("." ^ CSS.item_primary_text) with
-        | None -> Js.Opt.to_option @@ Js.Opt.map text##.textContent Js.to_string
-        | Some elt -> Js.Opt.to_option @@ Js.Opt.map elt##.textContent Js.to_string
-
-      method set_text (s : string) : unit =
-        match Element.query_selector text ("." ^ CSS.item_primary_text) with
-        | None -> text##.textContent := Js.some (Js.string s)
-        | Some elt -> elt##.textContent := Js.some (Js.string s)
 
       method activated : bool = self#has_class CSS.item_activated
 

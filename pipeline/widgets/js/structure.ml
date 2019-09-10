@@ -73,7 +73,8 @@ let contains pattern value =
     let sub = String.sub pattern 0 len in
     String.uppercase_ascii sub = String.uppercase_ascii value
 
-let make_checkbox_spacer () = Tyxml_js.Html.(span ~a:[a_class [CSS.checkbox_spacer]] [])
+let make_checkbox_spacer () =
+  Tyxml_js.Html.(span ~a:[a_class [Item_list.CSS.item_graphic; CSS.checkbox_spacer]] [])
 
 let make_pid ((state : Structure.Annotated.state), (pid : Structure.pid)) =
   let text = Printf.sprintf "PID %d (0x%04X), %s" pid.pid pid.pid pid.stream_type_name in
@@ -87,7 +88,8 @@ let make_pid ((state : Structure.Annotated.state), (pid : Structure.pid)) =
         | `Avail -> false
       in
       (* FIXME do not instantiate checkbox js object *)
-      Some checked, (Checkbox.make ~checked ())#markup
+      ( Some checked
+      , (Checkbox.make ~classes:[Item_list.CSS.item_graphic] ~checked ())#markup )
     else None, make_checkbox_spacer ()
   in
   Treeview.Markup_js.create_node
@@ -116,7 +118,8 @@ let make_channel
     | [] -> make_checkbox_spacer ()
     | _ ->
         (* FIXME do not instantiate checkbox js object*)
-        (Checkbox.make ~checked ~indeterminate ())#markup
+        (Checkbox.make ~classes:[Item_list.CSS.item_graphic] ~checked ~indeterminate ())
+          #markup
   in
   Treeview.Markup_js.create_node
     ~value:(string_of_int ch.number)
@@ -138,7 +141,9 @@ let make_stream
   let child_nodes = List.map make_channel @@ List.sort compare channels in
   let checked, indeterminate = get_checked ~filter_empty:true child_nodes in
   (* FIXME do not instantiate checkbox js object*)
-  let checkbox = Checkbox.make ~checked ~indeterminate () in
+  let checkbox =
+    Checkbox.make ~classes:[Item_list.CSS.item_graphic] ~checked ~indeterminate ()
+  in
   Treeview.Markup_js.create_node
     ~value:(Stream.ID.to_string id)
     ~graphic:checkbox#markup
