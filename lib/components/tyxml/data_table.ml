@@ -148,6 +148,21 @@ module Make_fmt (Xml : Xml_sigs.NoWrap) = struct
     | Html (_, cmp) -> cmp
 
   let equal : type a. a t -> a -> a -> bool = fun t a b -> 0 = compare t a b
+
+  type 'a column =
+    { sortable : bool
+    ; title : string
+    ; format : 'a t }
+
+  let make_column ?(sortable = false) ~title format = {sortable; title; format}
+
+  type _ format =
+    | [] : unit format
+    | ( :: ) : 'a column * 'b format -> ('a * 'b) format
+
+  type _ data =
+    | [] : unit data
+    | ( :: ) : 'a * 'b data -> ('a * 'b) data
 end
 
 module Make
@@ -174,52 +189,131 @@ struct
     in
     tot @@ aux fmt v
 
-  let create_cell ?(classes = []) ?(attrs = []) ?colspan ?(numeric = false) content :
-      'a elt =
+  let create_cell
+      ?(classes = [])
+      ?(attrs = [])
+      ?colspan
+      ?(numeric = false)
+      ?(children = [])
+      () : 'a elt =
     let classes =
       classes |> Utils.cons_if numeric CSS.cell_numeric |> List.cons CSS.cell
     in
-    td ~a:([a_class classes] @ attrs |> Utils.map_cons_option a_colspan colspan) content
-
-  let cell_of_fmt ?classes ?attrs ?colspan fmt v =
-    let content = create_cell_content fmt v in
-    create_cell ?classes ?attrs ?colspan ~numeric:(Fmt.is_numeric fmt) [content]
+    td ~a:([a_class classes] @ attrs |> Utils.map_cons_option a_colspan colspan) children
 
   let create_header_cell
       ?(classes = [])
       ?(attrs = [])
       ?(numeric = false)
       ?(sortable = false)
-      content : 'a elt =
+      ?(children = [])
+      () : 'a elt =
     let classes =
       classes
       |> Utils.cons_if sortable CSS.header_cell_sortable
       |> Utils.cons_if numeric CSS.header_cell_numeric
       |> List.cons CSS.header_cell
     in
-    th ~a:([a_class classes] @ attrs) [content]
+    th ~a:([a_class classes; a_role ["columnheader"]] @ attrs) children
 
-  let create_row ?(classes = []) ?(attrs = []) cells : 'a elt =
+  let create_row ?(classes = []) ?(attrs = []) ?(children = []) () : 'a elt =
     let classes = CSS.row :: classes in
-    tr ~a:([a_class classes] @ attrs) cells
+    tr ~a:([a_class classes] @ attrs) children
 
-  let create_header ?(classes = []) ?(attrs = []) row : 'a elt =
-    thead ~a:([a_class classes] @ attrs) [row]
+  let create_header_row ?(classes = []) ?(attrs = []) ?(children = []) () : 'a elt =
+    let classes = CSS.header_row :: classes in
+    tr ~a:([a_class classes] @ attrs) children
 
-  let create_body ?(classes = []) ?(attrs = []) rows : 'a elt =
-    tbody ~a:([a_class classes] @ attrs) rows
+  let create_header ?(classes = []) ?(attrs = []) ?cells ?children () : 'a elt =
+    let children =
+      match children with
+      | Some x -> x
+      | None -> (
+        match cells with
+        | None -> []
+        | Some cells -> [create_header_row ~children:cells ()])
+    in
+    thead ~a:([a_class classes] @ attrs) children
 
-  let create_table ?(classes = []) ?(attrs = []) ?header ~body () : 'a elt =
-    let classes = CSS.table :: classes in
-    table ?thead:header ~a:([a_class classes] @ attrs) [body]
-
-  let create_content ?(classes = []) ?(attrs = []) ~table () : 'a elt =
+  let create_body ?(classes = []) ?(attrs = []) ?(children = []) () : 'a elt =
     let classes = CSS.content :: classes in
-    div ~a:([a_class classes] @ attrs) [table]
+    tbody ~a:([a_class classes] @ attrs) children
 
-  let create ?(classes = []) ?(attrs = []) ~content () : 'a elt =
-    let classes = CSS.root :: classes in
-    div ~a:([a_class classes] @ attrs) [content]
+  let create_table ?(classes = []) ?(attrs = []) ?header ?(children = []) () : 'a elt =
+    let classes = CSS.table :: classes in
+    tablex ?thead:header ~a:([a_class classes] @ attrs) children
+
+  let create ?(classes = []) ?(attrs = []) ?(dense = false) ?(children = []) () =
+    let classes = classes |> Utils.cons_if dense CSS.dense |> List.cons CSS.root in
+    div ~a:([a_class classes] @ attrs) children
+
+  (** GADT table *)
+
+  let create_cell_of_fmt ?classes ?attrs ?colspan ~fmt ~value () =
+    let content = create_cell_content fmt value in
+    create_cell
+      ?classes
+      ?attrs
+      ?colspan
+      ~numeric:(Fmt.is_numeric fmt)
+      ~children:[content]
+      ()
+
+  let create_header_cell_of_fmt ?classes ?attrs ~(column : _ Fmt.column) () =
+    create_header_cell
+      ?classes
+      ?attrs
+      ~sortable:column.sortable
+      ~numeric:(Fmt.is_numeric column.format)
+      ~children:[txt column.title]
+      ()
+
+  let rec create_header_cells_of_fmt : type a. a Fmt.format -> 'b Html.elt list =
+   fun format ->
+    match format with
+    | [] -> []
+    | column :: tl ->
+        let cell = create_header_cell_of_fmt ~column () in
+        cell :: create_header_cells_of_fmt tl
+
+  let create_header_of_fmt ?classes ?attrs ~format () =
+    create_header ?classes ?attrs ~cells:(create_header_cells_of_fmt format) ()
+
+  let rec create_cells_of_fmt : type a. a Fmt.format -> a Fmt.data -> 'b Html.elt list =
+   fun format data ->
+    match format, data with
+    | [], [] -> []
+    | col :: l1, v :: l2 ->
+        let cell = create_cell_of_fmt ~fmt:col.format ~value:v () in
+        cell :: create_cells_of_fmt l1 l2
+
+  let create_row_of_fmt ?classes ?attrs ~format ~data () =
+    let cells = create_cells_of_fmt format data in
+    create_row ?classes ?attrs ~children:cells ()
+
+  (* TODO how to provide custom classes, attrs to inner components? *)
+  let create_of_fmt ?classes ?attrs ~format ~data () =
+    let rows = List.map (fun x -> create_row_of_fmt ~format ~data:x ()) data in
+    let header = create_header_of_fmt ~format () in
+    let body = create_body ~children:rows () in
+    let table = create_table ~header ~children:[body] () in
+    create ?classes ?attrs ~children:[table] ()
+
+  (** Example using GADT format:
+
+      {[ let table =
+           let (fmt : _ Fmt.format) =
+             Fmt.
+               [ make_column ~title:"Title 1" Int
+               ; make_column ~title:"Title 2" Int
+               ; make_column ~title:"Title 3" Int ]
+           in
+           let (data : _ Fmt.data list) =
+             [[3; 3; 3]; [4; 5; 4]; [1; 2; 3]; [1; 1; 1]; [4; 3; 1]; [1; 6; 4]]
+           in
+           create_of_fmt ~format:fmt ~data ()
+      ]}
+  *)
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
