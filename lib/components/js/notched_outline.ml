@@ -9,6 +9,10 @@ module Const = struct
   let padding = 8
 end
 
+module Selector = struct
+  let floating_label = "." ^ Floating_label.CSS.root
+end
+
 class t (elt : Dom_html.element Js.t) () =
   object
     val notch_elt = Element.query_selector elt ("." ^ CSS.notch)
@@ -16,7 +20,7 @@ class t (elt : Dom_html.element Js.t) () =
     inherit Widget.t elt () as super
 
     method! initial_sync_with_dom () : unit =
-      (match Element.query_selector elt ("." ^ Floating_label.CSS.root) with
+      (match Element.query_selector elt Selector.floating_label with
       | None -> super#add_class CSS.no_label
       | Some label ->
           (Js.Unsafe.coerce label##.style)##.transitionDuration := Js.string "0s";

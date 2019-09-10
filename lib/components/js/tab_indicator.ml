@@ -32,7 +32,7 @@ class t (elt : Dom_html.element Js.t) () =
           let old = old_content##getBoundingClientRect in
           let cur = content##getBoundingClientRect in
           (* Calculate the dimensions based on the dimensions of the previous
-         indicator *)
+             indicator *)
           let width_delta =
             match Js.Optdef.to_option old##.width, Js.Optdef.to_option old##.width with
             | Some pw, Some cw -> pw /. cw
@@ -43,7 +43,7 @@ class t (elt : Dom_html.element Js.t) () =
           let s = Printf.sprintf "translateX(%gpx) scaleX(%g)" x_position width_delta in
           content##.style##.transform := Js.string s;
           (* Force repaint before updating classes and transform to ensure
-         the transform properly takes effect *)
+             the transform properly takes effect *)
           content##getBoundingClientRect |> ignore;
           super#remove_class CSS.no_transition;
           super#add_class CSS.active;

@@ -40,14 +40,13 @@ let make ?classes ?attrs ?error ?loading ?icon ?text () =
   |> Tyxml_js.To_dom.of_element
   |> attach
 
-let make_progress ?classes ?attrs ?(text = `Text "Загрузка") ?size ?progress () =
-  let progress =
-    match progress with
-    | None -> Widget.coerce @@ Circular_progress.make ?size ~indeterminate:true ()
-    | Some x -> Widget.coerce x
+let make_progress ?classes ?attrs ?(text = `Text "Загрузка") ?size ?icon () =
+  let icon =
+    match icon with
+    | None -> Circular_progress.Markup_js.create ?size ~indeterminate:true ()
+    | Some x -> x
   in
-  let x = make ?classes ?attrs ~loading:true ~icon:progress#markup ~text () in
-  x#set_on_destroy (fun () -> progress#destroy ());
+  let x = make ?classes ?attrs ~loading:true ~icon ~text () in
   x
 
 let make_error ?classes ?attrs ?icon ?text () =

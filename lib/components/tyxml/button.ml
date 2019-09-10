@@ -39,9 +39,9 @@ module Make
 struct
   open Html
 
-  let create_loader_container ?(classes = []) ?(attrs = []) loader () : 'a elt =
+  let create_loader_container ?(classes = []) ?(attrs = []) ?(children = []) () =
     let classes = CSS.loader_container :: classes in
-    div ~a:([a_class classes] @ attrs) [loader]
+    div ~a:([a_class classes] @ attrs) children
 
   let create_ ?(classes = []) ?appearance ?(dense = false) ?icon ?label () =
     let make_label (x : string) : _ elt = span ~a:[a_class [CSS.label]] [txt x] in
