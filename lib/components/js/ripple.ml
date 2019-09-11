@@ -176,10 +176,6 @@ type deactivation_event =
   | Pointerup of Dom_html.event Js.t
   | Mouseup of Dom_html.mouseEvent Js.t
 
-let (activation_event_types : Dom_html.event Js.t Dom_html.Event.typ list) =
-  Dom_html.Event.
-    [make "touchstart"; make "pointerdown"; make "mousedown"; make "keydown"]
-
 let (pointer_deactivation_event_types : Dom_html.event Js.t Dom_html.Event.typ list) =
   Dom_html.Event.[make "touchend"; make "pointerup"; make "mouseup"]
 
@@ -209,24 +205,10 @@ class t (adapter : adapter) () =
 
     val mutable _activated_targets = []
 
-    val mutable _root_listeners = []
-
-    val mutable _deactivation_listeners = []
-
     (* DOM Events *)
-    val mutable _on_resize = Lwt.return ()
+    val mutable listeners = []
 
-    val mutable _on_mousedown = Lwt.return ()
-
-    val mutable _on_pointerdown = Lwt.return ()
-
-    val mutable _on_touchstart = Lwt.return ()
-
-    val mutable _on_keydown = Lwt.return ()
-
-    val mutable _on_focus = Lwt.return ()
-
-    val mutable _on_blur = Lwt.return ()
+    val mutable deactivation_listeners = []
 
     method private add_class (c : string) : unit =
       Element.add_class adapter.style_target c
@@ -326,44 +308,40 @@ class t (adapter : adapter) () =
       let elt = adapter.event_target in
       Lwt_js_events.(
         if supports_press_ripple
-        then (
+        then
           let handler e _ = self#activate ~event:(e :> Dom_html.event Js.t) () in
-          _on_touchstart <- touchstarts ~passive:true elt handler;
-          _on_pointerdown <- pointerdowns elt handler;
-          _on_mousedown <- mousedowns elt handler;
-          _on_keydown <- keydowns elt handler
           (* ;
            * if adapter.is_unbounded () then (
-           *   _on_resize <- onresizes (fun _ _ -> self#layout (); Lwt.return_unit)) *));
-        _on_focus <- focuses elt self#handle_focus;
-        _on_blur <- blurs elt self#handle_blur)
+           *   _on_resize <- onresizes (fun _ _ -> self#layout (); Lwt.return_unit)) *)
+          listeners <-
+            [ touchstarts ~passive:true elt handler
+            ; pointerdowns elt handler
+            ; mousedowns elt handler
+            ; keydowns elt handler
+            ; focuses elt self#handle_focus
+            ; blurs elt self#handle_blur ]
+            @ listeners)
 
     method private deregister_root_handlers () : unit =
-      let unlisten l = if not @@ Lwt.is_sleeping l then Lwt.cancel l in
-      unlisten _on_touchstart;
-      unlisten _on_pointerdown;
-      unlisten _on_mousedown;
-      unlisten _on_keydown;
-      unlisten _on_resize;
-      unlisten _on_focus;
-      unlisten _on_blur
+      List.iter Lwt.cancel listeners;
+      listeners <- []
 
     method register_deactivation_handlers (event : Dom_html.event Js.t) =
       let handler _ _ = self#deactivate () in
       match Js.to_string event##._type with
       | "keydown" ->
           let listener = Lwt_js_events.keyups adapter.event_target handler in
-          _deactivation_listeners <- listener :: _deactivation_listeners
+          deactivation_listeners <- listener :: deactivation_listeners
       | _ ->
           pointer_deactivation_event_types
           |> List.map (fun x ->
                  let e = Lwt_js_events.make_event x in
                  Lwt_js_events.seq_loop e adapter.event_target handler)
-          |> fun l -> _deactivation_listeners <- _deactivation_listeners @ l
+          |> fun l -> deactivation_listeners <- deactivation_listeners @ l
 
     method private deregister_deactivation_handlers () : unit =
-      List.iter Lwt.cancel _deactivation_listeners;
-      _deactivation_listeners <- []
+      List.iter Lwt.cancel deactivation_listeners;
+      deactivation_listeners <- []
 
     method private remove_css_vars () : unit =
       List.iter (fun v -> self#update_css_var v None) CSS.Var.vars

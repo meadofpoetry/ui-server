@@ -1,5 +1,6 @@
 @import "@material/typography/mixins";
 @import "@material/theme/mixins";
+@import "./variables";
 
 // Bitrate pie chart
 
@@ -75,5 +76,34 @@
                 margin-right: 0;
             }
         }
+    }
+}
+
+// PID overview
+
+.board-niitv-tsan-pid-overview {
+    .mdc-data-table {
+        width: 100%;
+    }
+
+    .mdc-data-table__cell:nth-of-type(2) {
+        @include mdc-typography-overflow-ellipsis();
+        max-width: 200px;
+    }
+
+    .mdc-data-table__cell .mdc-icon {
+        @include mdc-theme-prop(color, text-icon-on-surface);
+    }
+
+    &__row--lost .mdc-data-table__cell {
+        @include mdc-theme-prop(color, error);
+        font-weight: 600;
+    }
+
+    &--no-sync, &--no-sync .mdc-data-table {
+        @include mdc-theme-prop(background-color, $error-surface, true);
+    }
+    &--no-response, &--no-response .mdc-data-table {
+        @include mdc-theme-prop(background-color, $error-surface, true);
     }
 }

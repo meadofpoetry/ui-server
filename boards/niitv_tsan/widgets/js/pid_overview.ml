@@ -1,85 +1,39 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 open Application_types
 open Board_niitv_tsan_types
 open Components
+include Board_niitv_tsan_widgets_tyxml.Pid_overview
+module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
-let name = "PID overview"
+type event =
+  [ `State of [Topology.state | `No_sync]
+  | `Bitrate of Bitrate.t option
+  | `PIDs of (int * PID_info.t) list ts ]
 
 module Attr = struct
-  let lost = "data-lost"
+  let data_lost = "data-lost"
 
   let set_bool elt attr = function
     | true -> Element.set_attribute elt attr ""
     | false -> Element.remove_attribute elt attr
 end
 
-type pid_flags =
-  { has_pcr : bool
-  ; scrambled : bool }
-[@@deriving ord]
+module Selector = struct
+  let table = "." ^ CSS.table
 
-let make_pid_flags_element {has_pcr; scrambled} =
-  let pcr =
-    match has_pcr with
-    | false -> None
-    | true -> Some Icon.SVG.(Markup_js.create ~d:Path.clock_outline ())
-  in
-  let scr =
-    match scrambled with
-    | false -> None
-    | true -> Some Icon.SVG.(Markup_js.create ~d:Path.lock ())
-  in
-  let ( ^:: ) x l =
-    match x with
-    | None -> l
-    | Some x -> x :: l
-  in
-  let children = scr ^:: pcr ^:: [] in
-  Js_of_ocaml_tyxml.Tyxml_js.Html.toelt @@ Box.Markup_js.create ~children ()
+  let placeholder = "." ^ Components_lab.Placeholder.CSS.root
+end
 
-let pid_type_fmt : MPEG_TS.PID.Type.t Gadt_data_table.Fmt_js.custom =
-  MPEG_TS.PID.Type.
-    {to_string; of_string = (fun _ -> assert false); compare; is_numeric = false}
+module Pid_info = struct
+  type t = int * PID_info.t
 
-let pid_flags_fmt : pid_flags Gadt_data_table.Fmt_js.custom_elt =
-  { to_elt = make_pid_flags_element
-  ; of_elt = (fun _ -> assert false)
-  ; compare = compare_pid_flags
-  ; is_numeric = false }
+  let compare (a : t) (b : t) : int = Int.compare (fst a) (fst b)
+end
 
-let hex_pid_fmt =
-  Gadt_data_table.Fmt_js.Custom
-    { to_string = Util.pid_to_hex_string
-    ; of_string = int_of_string
-    ; compare
-    ; is_numeric = true }
+module Set = Set.Make (Pid_info)
 
-let make_table_fmt ?(is_hex = false) () : _ Gadt_data_table.Fmt_js.format =
-  let open Gadt_data_table in
-  let br_fmt = Fmt_js.Option (Float, "-") in
-  let pct_fmt = Fmt_js.Option (Float, "-") in
-  let pid_fmt = if is_hex then hex_pid_fmt else Fmt_js.Int in
-  Fmt_js.
-    [ make_column ~sortable:true ~title:"PID" pid_fmt
-    ; make_column ~sortable:true ~title:"Тип" (Custom pid_type_fmt)
-    ; make_column ~title:"Доп. инфо" (Custom_elt pid_flags_fmt)
-    ; make_column ~sortable:true ~title:"Сервис" (Option (String, ""))
-    ; make_column ~sortable:true ~title:"Битрейт, Мбит/с" br_fmt
-    ; make_column ~sortable:true ~title:"%" pct_fmt
-    ; make_column ~sortable:true ~title:"Min, Мбит/с" br_fmt
-    ; make_column ~sortable:true ~title:"Max, Мбит/с" br_fmt ]
-
-let add_row (table : 'a Gadt_data_table.t) ((pid, info) : int * PID_info.t) =
-  let open Gadt_data_table in
-  let flags = {has_pcr = info.has_pcr; scrambled = info.scrambled} in
-  let (data : _ Fmt_js.data) =
-    Fmt_js.[pid; info.typ; flags; info.service_name; None; None; None; None]
-  in
-  let (_ : Dom_html.tableRowElement Js.t) = table#insert_row (-1) data in
-  (* Attr.set_bool row#root Attr.lost info.present; *)
-  ()
-
-let update_row (table : 'a Gadt_data_table.t) row total br =
+let update_row_bitrate (table : 'a Gadt_data_table.t) total br row =
   let pct = 100. *. float_of_int br /. float_of_int total in
   let br = float_of_int br /. 1_000_000. in
   let min, max =
@@ -101,5 +55,140 @@ let update_row (table : 'a Gadt_data_table.t) row total br =
     Gadt_data_table.Fmt_js.
       [None; None; None; None; Some (Some br); Some (Some pct); min; max]
   in
-  table#set_row_data_some data row;
-  br, pct
+  table#set_row_data_some data row
+
+let update_row_info (table : 'a Gadt_data_table.t) row pid (info : PID_info.t) =
+  let flags = {has_pcr = info.has_pcr; scrambled = info.scrambled} in
+  Element.toggle_class_unit ~force:(not info.present) row CSS.row_lost;
+  let data =
+    Gadt_data_table.Fmt_js.
+      [ Some pid
+      ; Some info.typ
+      ; Some flags
+      ; Some info.service_name
+      ; None
+      ; None
+      ; None
+      ; None ]
+  in
+  table#set_row_data_some data row
+
+let is_hex = Some true
+
+class t ?(init : (int * PID_info.t) list ts option) (elt : Dom_html.element Js.t) () =
+  object (self)
+    val placeholder =
+      match Element.query_selector elt Selector.placeholder with
+      | Some x -> x
+      | None -> Tyxml_js.To_dom.of_div @@ Markup_js.create_empty_placeholder ()
+
+    val table : _ Gadt_data_table.t =
+      Gadt_data_table.attach ~fmt:Markup_js.table_fmt
+      @@ Element.query_selector_exn elt Selector.table
+
+    val mutable data : Set.t =
+      Set.of_list
+        (match init with
+        | None -> []
+        | Some {data; _} -> data)
+
+    inherit Widget.t elt () as super
+
+    method! init () : unit =
+      self#update_empty_state ();
+      super#init ()
+
+    method! destroy () : unit =
+      table#destroy ();
+      super#destroy ()
+
+    method pids = Set.to_seq data
+
+    method notify : event -> unit =
+      function
+      | `State x -> self#set_state x
+      | `PIDs x -> self#set_pids x
+      | `Bitrate x -> self#set_bitrate x
+
+    method set_state state =
+      let no_sync, no_response =
+        match state with
+        | `Fine -> false, false
+        | `No_sync -> true, false
+        | `Detect | `Init | `No_response -> false, true
+      in
+      Element.toggle_class_unit ~force:no_sync super#root CSS.no_sync;
+      Element.toggle_class_unit ~force:no_response super#root CSS.no_response
+    (** Updates widget state *)
+
+    method set_bitrate : Bitrate.t option -> unit =
+      function
+      | None -> () (* FIXME do smth *)
+      | Some {total; pids; _} ->
+          List.iter
+            (fun (pid, br) ->
+              let row = self#find_row pid in
+              Option.iter (update_row_bitrate table total br) row)
+            pids
+    (** Updates bitrate values *)
+
+    method set_pids (pids : (int * PID_info.t) list ts) =
+      (* Manage found, lost and updated items *)
+      let old = data in
+      let cur = Set.of_list pids.data in
+      data <- Set.of_list pids.data;
+      (* Handle lost PIDs *)
+      Set.iter self#remove_pid @@ Set.diff old cur;
+      (* Handle found PIDs *)
+      Set.iter self#add_pid @@ Set.diff data old;
+      (* Update existing PIDs *)
+      Set.iter self#update_pid @@ Set.inter data old;
+      self#update_empty_state ()
+
+    method private update_pid (pid, info) =
+      match self#find_row pid with
+      | None -> ()
+      | Some row -> update_row_info table row pid info
+
+    method private remove_pid (pid, _) =
+      match self#find_row pid with
+      | None -> ()
+      | Some row -> table#table##deleteRow row##.rowIndex
+
+    method private add_pid (pid, info) =
+      let flags = {has_pcr = info.has_pcr; scrambled = info.scrambled} in
+      let (data : _ Markup_js.Fmt.data) =
+        Markup_js.Fmt.[pid; info.typ; flags; info.service_name; None; None; None; None]
+      in
+      let row = table#insert_row (-1) data in
+      Element.toggle_class_unit ~force:(not info.present) row CSS.row_lost
+
+    method private find_row (pid : int) =
+      let find row =
+        let pid' =
+          Gadt_data_table.Fmt_js.(
+            match table#get_row_data_lazy row with
+            | pid :: _ -> pid ())
+        in
+        pid = pid'
+      in
+      List.find_opt find table#rows
+
+    method private update_empty_state () =
+      if table#rows_collection##.length = 0
+      then Dom.appendChild super#root placeholder
+      else Element.remove placeholder
+    (* method private set_hex (x : bool) : unit =
+     *   let fmt = if x then hex_pid_fmt else dec_pid_fmt in
+     *   let iter = function
+     *     | Table.(pid :: _) -> pid#set_format fmt
+     *   in
+     *   List.iter (fun row -> iter row#cells) table#rows *)
+  end
+
+let attach ?init elt : t = new t ?init (elt : Dom_html.element Js.t) ()
+
+let make ?classes ?attrs ?dense ?init () =
+  Markup_js.create ?classes ?attrs ?dense ?init ()
+  |> Tyxml_js.To_dom.of_div
+  |> attach ?init

@@ -17,7 +17,8 @@ type state = < finalize : unit -> unit >
 
 type event =
   [ `Bitrate of (Stream.ID.t * Bitrate.t) list
-  | `PIDs of (Stream.ID.t * (int * PID_info.t) list ts) list ]
+  | `PIDs of (Stream.ID.t * (int * PID_info.t) list ts) list
+  | `State of Topology.state ]
 
 class type page =
   object
@@ -33,6 +34,8 @@ let on_visible (page : #page) state_ref control elt =
     Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
     >>=? fun socket ->
     Option.iter (fun (state : state) -> state#finalize ()) !state_ref;
+    Http_device.Event.get_state socket control
+    >>=? fun (_, state_ev) ->
     Http_monitoring.Event.get_bitrate socket control
     >>=? fun (_, bitrate_ev) ->
     Http_monitoring.Event.get_pids socket control
@@ -41,7 +44,9 @@ let on_visible (page : #page) state_ref control elt =
       E.merge
         (fun _ -> page#notify)
         ()
-        [E.map (fun x -> `Bitrate x) bitrate_ev; E.map (fun x -> `PIDs x) pids_ev]
+        [ E.map (fun x -> `Bitrate x) bitrate_ev
+        ; E.map (fun x -> `PIDs x) pids_ev
+        ; E.map (fun x -> `State x) state_ev ]
     in
     let state =
       object
@@ -97,6 +102,7 @@ let initialize id control =
   let pie = Pid_bitrate_pie_chart.make () in
   let rate = Bitrate_summary.make () in
   let pids = Pid_summary.make () in
+  let pids_overview = Pid_overview.make ~dense:true () in
   let pie_cell =
     Layout_grid.Cell.make ~span:4 ~span_tablet:8 ~children:[pie#markup] ()
   in
@@ -106,7 +112,10 @@ let initialize id control =
       ~children:[rate#markup; Divider.Markup_js.create_hr (); pids#markup]
       ()
   in
-  let cells = [pie_cell; rate_cell] in
+  let overview_cell =
+    Layout_grid.Cell.make ~span:12 ~children:[pids_overview#markup] ()
+  in
+  let cells = [pie_cell; rate_cell; overview_cell] in
   Element.add_class elt Layout_grid.CSS.inner;
   List.iter (fun x -> Dom.appendChild elt x#root) cells;
   let state_ref = ref None in
@@ -116,8 +125,13 @@ let initialize id control =
         function
         | `Bitrate ((_, x) :: _) ->
             rate#notify (`Bitrate (Some x));
-            pie#notify (`Bitrate (Some x))
-        | `PIDs ((_, x) :: _) -> pids#notify (`PIDs x)
+            pie#notify (`Bitrate (Some x));
+            pids_overview#notify (`Bitrate (Some x))
+        | `PIDs ((_, x) :: _) ->
+            pids#notify (`PIDs x);
+            pids_overview#notify (`PIDs x)
+        | `State (x : Topology.state) ->
+            pids_overview#notify (`State (x :> [Topology.state | `No_sync]))
         | _ -> ()
     end
   in

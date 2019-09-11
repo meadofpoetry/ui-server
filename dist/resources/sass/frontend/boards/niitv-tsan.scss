@@ -367,31 +367,6 @@ $on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #
     }
 }
 
-/* Pids overview widget */
-
-.qos-niit-pids-overview {
-    th:nth-of-type(2), td:nth-of-type(2) {
-        max-width: 200px;
-    }
-    td .mdc-icon {
-        // FIXME surface
-        @include mdc-theme-prop(color, text-icon-on-background);
-    }
-    &--no-sync, &--no-sync .mdc-data-table {
-        @include mdc-theme-prop(background-color, $error-surface, true);
-    }
-    &--no-response, &--no-response .mdc-data-table {
-        @include mdc-theme-prop(background-color, $error-surface, true);
-    }
-}
-
-.qos-niit-pids-overview__row--lost {
-    @include mdc-theme-prop(color, error);
-    td {
-        font-weight: 600;
-    }
-}
-
 // T2-MI sequence widget
 
 .qos-niit-t2mi-sequence {

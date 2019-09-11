@@ -64,7 +64,8 @@ class ['a] t ~(fmt : 'a Fmt_js.format) (elt : Dom_html.element Js.t) () =
 
     method insert_row i (data : 'a Fmt_js.data) : Dom_html.tableRowElement Js.t =
       let cells = Markup_js.create_cells_of_fmt fmt data in
-      let row = super#table##insertRow i in
+      let row = super#tbody##insertRow i in
+      Element.add_class row CSS.row;
       List.iter (Dom.appendChild row % Tyxml_js.To_dom.of_td) cells;
       row
     (** Returns an [tableRowElement] representing a new row of the table.

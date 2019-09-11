@@ -71,11 +71,12 @@ class t (elt : Dom_html.element Js.t) () =
       in
       listeners <-
         Js_of_ocaml_lwt.Lwt_js_events.(
-          [ touchstarts super#root handle_interaction
+          [ touchstarts ~passive:true super#root handle_interaction
           ; pointerdowns super#root handle_interaction
           ; mousedowns super#root handle_interaction
           ; keydowns super#root handle_interaction
           ; seq_loop
+              ~passive:true
               (make_event @@ Dom_html.Event.make "wheel")
               super#root
               handle_interaction

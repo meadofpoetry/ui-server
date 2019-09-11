@@ -159,7 +159,8 @@ class t (elt : Dom_html.element Js.t) () =
     (** List of row elements excluding the header row. *)
 
     method rows_collection : Dom_html.tableRowElement Dom_html.collection Js.t =
-      table##.rows
+      (* FIXME if support for multiple bodies is considered, this needs to be fixed *)
+      self#tbody##.rows
     (** Proxy to the [tableElement##.rows] property. *)
 
     method private notify_row_selection_changed ~row ~index ~selected () : unit =
