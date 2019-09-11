@@ -1,5 +1,4 @@
 module ETR290_error = struct
-
   type t =
     (* Measurements of the syntax of T2-MI packets *)
     | T2MI_packet_type_error_1
@@ -39,9 +38,9 @@ module ETR290_error = struct
     | T2MI_MIP_CRC_error -> "T2MI_MIP_CRC_error"
     | T2MI_bandwidth_consistency_error -> "T2MI_bandwidth_consistency_error"
     | T2MI_DVB_T2_timestamp_leap_second_error ->
-      "T2MI_DVB-T2_Timestamp_leap_second_error"
+        "T2MI_DVB-T2_Timestamp_leap_second_error"
     | T2MI_DVB_T2_signalling_inconsistency_error ->
-      "T2MI_DVB_T2_signalling_inconsistency_error"
+        "T2MI_DVB_T2_signalling_inconsistency_error"
 
   let number : t -> string = function
     | T2MI_packet_type_error_1 -> "11.2.2.1"
@@ -61,5 +60,4 @@ module ETR290_error = struct
     | T2MI_bandwidth_consistency_error -> "11.2.4.1"
     | T2MI_DVB_T2_timestamp_leap_second_error -> "11.2.4.2"
     | T2MI_DVB_T2_signalling_inconsistency_error -> "11.2.4.3"
-
 end
