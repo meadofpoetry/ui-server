@@ -1,4 +1,5 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 open Application_types
 open Board_niitv_tsan_types
 open Board_niitv_tsan_http_js
@@ -111,24 +112,22 @@ let initialize id control =
   let pids = Pid_summary.make () in
   let pid_overview = Pid_overview.make ~dense:true () in
   let service_overview = Service_overview.make ~dense:true () in
-  let pie_cell =
-    Layout_grid.Cell.make ~span:4 ~span_tablet:8 ~children:[pie#markup] ()
+  let service_sdt_info = Service_sdt_info.make () in
+  let service_general_info = Service_general_info.make () in
+  let cells =
+    Layout_grid.Markup_js.
+      [ create_cell ~span:4 ~span_tablet:8 ~children:[pie#markup] ()
+      ; create_cell
+          ~span:8
+          ~children:[rate#markup; Divider.Markup_js.create_hr (); pids#markup]
+          ()
+      ; create_cell ~span:12 ~children:[pid_overview#markup] ()
+      ; create_cell ~span:12 ~children:[service_overview#markup] ()
+      ; create_cell ~span:6 ~children:[service_sdt_info#markup] ()
+      ; create_cell ~span:6 ~children:[service_general_info#markup] () ]
   in
-  let rate_cell =
-    Layout_grid.Cell.make
-      ~span:8
-      ~children:[rate#markup; Divider.Markup_js.create_hr (); pids#markup]
-      ()
-  in
-  let overview_cell =
-    Layout_grid.Cell.make
-      ~span:12
-      ~children:[pid_overview#markup; service_overview#markup]
-      ()
-  in
-  let cells = [pie_cell; rate_cell; overview_cell] in
   Element.add_class elt Layout_grid.CSS.inner;
-  List.iter (fun x -> Dom.appendChild elt x#root) cells;
+  List.iter (Dom.appendChild elt % Tyxml_js.To_dom.of_element) cells;
   let state_ref = ref None in
   let page =
     object
