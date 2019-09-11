@@ -1,15 +1,15 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
+open Components
 open Application_types
 open Board_niitv_tsan_types
-open Components
-include Board_niitv_tsan_widgets_tyxml.Pid_overview
+include Board_niitv_tsan_widgets_tyxml.Service_overview
 module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 type event =
   [ `State of [Topology.state | `No_sync]
   | `Bitrate of Bitrate.t option
-  | `PIDs of (int * PID_info.t) list ts ]
+  | `Services of (int * Service_info.t) list ts ]
 
 module Selector = struct
   let table = "." ^ CSS.table
@@ -18,14 +18,46 @@ module Selector = struct
 end
 
 module Set = Set.Make (struct
-  type t = int * PID_info.t
+  type t = int * Service_info.t
 
-  let compare (a : t) (b : t) : int = Int.compare (fst a) (fst b)
+  let compare (a : t) (b : t) = compare (fst a) (fst b)
 end)
 
-let update_row_bitrate (table : 'a Gadt_data_table.t) total br row =
-  let pct = 100. *. float_of_int br /. float_of_int total in
-  let br = float_of_int br /. 1_000_000. in
+let get_service_bitrate (br : Bitrate.t) (info : Service_info.t) =
+  let elts =
+    List.fold_left
+      (fun acc pid ->
+        match List.assoc_opt pid br.pids with
+        | None -> acc
+        | Some b -> (pid, b) :: acc)
+      []
+      info.elements
+  in
+  let pmt =
+    match info.has_pmt with
+    | false -> None
+    | true ->
+        Some
+          (info.pmt_pid, Option.value ~default:0 @@ List.assoc_opt info.pmt_pid br.pids)
+  in
+  match pmt with
+  | None -> elts
+  | Some x -> x :: elts
+
+let sum_bitrate rate = List.fold_left (fun acc x -> acc + snd x) 0 rate
+
+let acc_bitrate total rate =
+  let bps = sum_bitrate rate in
+  let pct = Float.(100. *. (of_int bps /. of_int total)) in
+  let mbps = Float.(of_int bps /. 1_000_000.) in
+  bps, mbps, pct
+
+let update_row_bitrate
+    (table : 'a Gadt_data_table.t)
+    (info : Service_info.t)
+    (bitrate : Bitrate.t)
+    row =
+  let _, br, pct = acc_bitrate bitrate.total (get_service_bitrate bitrate info) in
   let min, max =
     Gadt_data_table.Fmt_js.(
       match table#get_row_data_lazy row with
@@ -47,15 +79,13 @@ let update_row_bitrate (table : 'a Gadt_data_table.t) total br row =
   in
   table#set_row_data_some data row
 
-let update_row_info (table : 'a Gadt_data_table.t) row pid (info : PID_info.t) =
-  let flags = {has_pcr = info.has_pcr; scrambled = info.scrambled} in
-  Element.toggle_class_unit ~force:(not info.present) row CSS.row_lost;
+let update_row_info (table : 'a Gadt_data_table.t) row id (info : Service_info.t) =
   let data =
     Gadt_data_table.Fmt_js.
-      [ Some pid
-      ; Some info.typ
-      ; Some flags
-      ; Some info.service_name
+      [ Some id
+      ; Some info.name
+      ; Some info.pmt_pid
+      ; Some info.pcr_pid
       ; None
       ; None
       ; None
@@ -63,9 +93,7 @@ let update_row_info (table : 'a Gadt_data_table.t) row pid (info : PID_info.t) =
   in
   table#set_row_data_some data row
 
-let is_hex = Some true
-
-class t ?(init : (int * PID_info.t) list ts option) (elt : Dom_html.element Js.t) () =
+class t ?(init : (int * Service_info.t) list ts option) elt () =
   object (self)
     val placeholder =
       match Element.query_selector elt Selector.placeholder with
@@ -97,7 +125,7 @@ class t ?(init : (int * PID_info.t) list ts option) (elt : Dom_html.element Js.t
     method notify : event -> unit =
       function
       | `State x -> self#set_state x
-      | `PIDs x -> self#set_pids x
+      | `Services x -> self#set_services x
       | `Bitrate x -> self#set_bitrate x
 
     method set_state state =
@@ -114,44 +142,49 @@ class t ?(init : (int * PID_info.t) list ts option) (elt : Dom_html.element Js.t
     method set_bitrate : Bitrate.t option -> unit =
       function
       | None -> () (* FIXME do smth *)
-      | Some {total; pids; _} ->
+      | Some bitrate ->
           List.iter
-            (fun (pid, br) ->
-              let row = self#find_row pid in
-              Option.iter (update_row_bitrate table total br) row)
-            pids
+            (fun row ->
+              let id =
+                match table#get_row_data_lazy row with
+                | f :: _ -> f ()
+              in
+              let info = List.assoc_opt id @@ Set.elements data in
+              match info with
+              | None ->
+                  print_endline @@ Printf.sprintf "id %d, info not found" id;
+                  ()
+              | Some info -> update_row_bitrate table info bitrate row)
+            table#rows
     (** Updates bitrate values *)
 
-    method set_pids (pids : (int * PID_info.t) list ts) =
+    method set_services (services : (int * Service_info.t) list ts) =
       (* Manage found, lost and updated items *)
       let old = data in
-      let cur = Set.of_list pids.data in
+      let cur = Set.of_list services.data in
       data <- cur;
       (* Handle lost PIDs *)
-      Set.iter self#remove_pid @@ Set.diff old cur;
+      Set.iter self#remove_service @@ Set.diff old cur;
       (* Handle found PIDs *)
-      Set.iter self#add_pid @@ Set.diff cur old;
+      Set.iter self#add_service @@ Set.diff cur old;
       (* Update existing PIDs *)
-      Set.iter self#update_pid @@ Set.inter cur old;
+      Set.iter self#update_service @@ Set.inter cur old;
       self#update_empty_state ()
 
-    method private update_pid (pid, info) =
-      match self#find_row pid with
+    method private update_service (id, info) =
+      match self#find_row id with
       | None -> ()
-      | Some row -> update_row_info table row pid info
+      | Some row -> update_row_info table row id info
 
-    method private remove_pid (pid, _) =
-      match self#find_row pid with
+    method private remove_service (id, _) =
+      match self#find_row id with
       | None -> ()
       | Some row -> table#table##deleteRow row##.rowIndex
 
-    method private add_pid (pid, info) =
-      let flags = {has_pcr = info.has_pcr; scrambled = info.scrambled} in
-      let (data : _ Markup_js.Fmt.data) =
-        Markup_js.Fmt.[pid; info.typ; flags; info.service_name; None; None; None; None]
-      in
+    method private add_service service =
+      let (data : _ Markup_js.Fmt.data) = Markup_js.data_of_service_info service in
       let row = table#insert_row (-1) data in
-      Element.toggle_class_unit ~force:(not info.present) row CSS.row_lost
+      ignore row
 
     method private find_row (pid : int) =
       let find row =
@@ -168,12 +201,6 @@ class t ?(init : (int * PID_info.t) list ts option) (elt : Dom_html.element Js.t
       if table#rows_collection##.length = 0
       then Dom.appendChild super#root placeholder
       else Element.remove placeholder
-    (* method private set_hex (x : bool) : unit =
-     *   let fmt = if x then hex_pid_fmt else dec_pid_fmt in
-     *   let iter = function
-     *     | Table.(pid :: _) -> pid#set_format fmt
-     *   in
-     *   List.iter (fun row -> iter row#cells) table#rows *)
   end
 
 let attach ?init elt : t = new t ?init (elt : Dom_html.element Js.t) ()

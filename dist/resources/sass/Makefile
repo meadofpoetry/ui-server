@@ -15,7 +15,7 @@ components: ./@material/components/components.min.css \
 						./@material-lab/components-lab/components-lab.min.css
 
 boards: ./frontend/boards/board-niitv-dvb4ch/board-niitv-dvb4ch.min.css \
-				./frontend/boards/board-niitv-tsan/board-niitv-tsan.min.css
+				./boards/board-niitv-tsan/board-niitv-tsan.min.css
 
 pages:  ./frontend/page-input/page-input.min.css \
 				./frontend/page-mosaic-editor/page-mosaic-editor.min.css \

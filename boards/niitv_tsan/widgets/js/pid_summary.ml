@@ -78,13 +78,11 @@ module Selector = struct
   let pid' pid = Printf.sprintf ".%s[data-pid=\"%d\"]" CSS.pid pid
 end
 
-module Pid_info = struct
+module Set = Set.Make (struct
   type t = int * PID_info.t
 
   let compare (a : t) (b : t) : int = Int.compare (fst a) (fst b)
-end
-
-module Set = Set.Make (Pid_info)
+end)
 
 class t (elt : Dom_html.element Js.t) =
   object (self)

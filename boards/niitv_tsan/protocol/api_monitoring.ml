@@ -34,6 +34,16 @@ module Event = struct
       |> E.fmap (Option.map to_yojson % filter_ids ids % get_pids)
     in
     Lwt.return event
+
+  let get_services (api : Protocol.api) ids _user =
+    let to_yojson = stream_assoc_list_to_yojson services_ts_to_yojson in
+    let get_pids = List.map (fun (id, x) -> id, Structure.services_ts x) in
+    let event =
+      api.notifs.structure
+      |> S.changes
+      |> E.fmap (Option.map to_yojson % filter_ids ids % get_pids)
+    in
+    Lwt.return event
 end
 
 let filter_errors f x =
@@ -130,9 +140,9 @@ let get_services (api : Protocol.api) force ids _user _body _env _state =
       check_state api.notifs.state
       >>= fun () -> Lwt.return_ok @@ React.S.value api.notifs.structure)
   >>=? return_value
-       % stream_assoc_list_to_yojson services_to_yojson
+       % stream_assoc_list_to_yojson services_ts_to_yojson
        % filter_ids ids
-       % List.map (fun (id, (s : Structure.t)) -> id, s.services)
+       % List.map (fun (id, (s : Structure.t)) -> id, Structure.services_ts s)
 
 let filter_t2mi_stream_id ids l =
   match ids with

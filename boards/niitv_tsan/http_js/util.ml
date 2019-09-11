@@ -28,5 +28,7 @@ let si_psi_tables_of_yojson =
 let services_of_yojson =
   Util_json.(List.of_yojson @@ Pair.of_yojson Int.of_yojson Service_info.of_yojson)
 
+let services_ts_of_yojson = ts_of_yojson services_of_yojson
+
 let t2mi_info_of_yojson =
   Util_json.(List.of_yojson @@ Pair.of_yojson Int.of_yojson T2mi_info.of_yojson)

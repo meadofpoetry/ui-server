@@ -18,6 +18,7 @@ type state = < finalize : unit -> unit >
 type event =
   [ `Bitrate of (Stream.ID.t * Bitrate.t) list
   | `PIDs of (Stream.ID.t * (int * PID_info.t) list ts) list
+  | `Services of (Stream.ID.t * (int * Service_info.t) list ts) list
   | `State of Topology.state ]
 
 class type page =
@@ -31,6 +32,9 @@ let on_visible (page : #page) state_ref control elt =
     Http_monitoring.get_pids control
     >>=? fun pids ->
     page#notify (`PIDs pids);
+    Http_monitoring.get_services control
+    >>=? fun services ->
+    page#notify (`Services services);
     Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
     >>=? fun socket ->
     Option.iter (fun (state : state) -> state#finalize ()) !state_ref;
@@ -40,13 +44,16 @@ let on_visible (page : #page) state_ref control elt =
     >>=? fun (_, bitrate_ev) ->
     Http_monitoring.Event.get_pids socket control
     >>=? fun (_, pids_ev) ->
+    Http_monitoring.Event.get_services socket control
+    >>=? fun (_, services_ev) ->
     let notif =
       E.merge
         (fun _ -> page#notify)
         ()
         [ E.map (fun x -> `Bitrate x) bitrate_ev
         ; E.map (fun x -> `PIDs x) pids_ev
-        ; E.map (fun x -> `State x) state_ev ]
+        ; E.map (fun x -> `State x) state_ev
+        ; E.map (fun x -> `Services x) services_ev ]
     in
     let state =
       object
@@ -102,7 +109,8 @@ let initialize id control =
   let pie = Pid_bitrate_pie_chart.make () in
   let rate = Bitrate_summary.make () in
   let pids = Pid_summary.make () in
-  let pids_overview = Pid_overview.make ~dense:true () in
+  let pid_overview = Pid_overview.make ~dense:true () in
+  let service_overview = Service_overview.make ~dense:true () in
   let pie_cell =
     Layout_grid.Cell.make ~span:4 ~span_tablet:8 ~children:[pie#markup] ()
   in
@@ -113,7 +121,10 @@ let initialize id control =
       ()
   in
   let overview_cell =
-    Layout_grid.Cell.make ~span:12 ~children:[pids_overview#markup] ()
+    Layout_grid.Cell.make
+      ~span:12
+      ~children:[pid_overview#markup; service_overview#markup]
+      ()
   in
   let cells = [pie_cell; rate_cell; overview_cell] in
   Element.add_class elt Layout_grid.CSS.inner;
@@ -126,12 +137,15 @@ let initialize id control =
         | `Bitrate ((_, x) :: _) ->
             rate#notify (`Bitrate (Some x));
             pie#notify (`Bitrate (Some x));
-            pids_overview#notify (`Bitrate (Some x))
+            pid_overview#notify (`Bitrate (Some x));
+            service_overview#notify (`Bitrate (Some x))
         | `PIDs ((_, x) :: _) ->
             pids#notify (`PIDs x);
-            pids_overview#notify (`PIDs x)
+            pid_overview#notify (`PIDs x)
         | `State (x : Topology.state) ->
-            pids_overview#notify (`State (x :> [Topology.state | `No_sync]))
+            pid_overview#notify (`State (x :> [Topology.state | `No_sync]));
+            service_overview#notify (`State (x :> [Topology.state | `No_sync]))
+        | `Services ((_, x) :: _) -> service_overview#notify (`Services x)
         | _ -> ()
     end
   in

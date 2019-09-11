@@ -30,14 +30,17 @@ module Make
 struct
   open Html
   module Box_markup = Box.Make (Xml) (Svg) (Html)
-  module Icon_markup = Icon.Make (Xml) (Svg) (Html)
   module Data_table_markup = Data_table.Make (Xml) (Svg) (Html)
-  module Placeholder_markup = Components_lab_tyxml.Placeholder.Make (Xml) (Svg) (Html)
   module Fmt = Data_table.Make_fmt (Xml)
+  module Icon_markup = Icon.Make (Xml) (Svg) (Html)
+  module Placeholder_markup = Components_lab_tyxml.Placeholder.Make (Xml) (Svg) (Html)
 
   let pid_type_fmt : MPEG_TS.PID.Type.t Fmt.custom =
     MPEG_TS.PID.Type.
-      {to_string; of_string = (fun _ -> assert false); compare; is_numeric = false}
+      { to_string
+      ; of_string = (fun _ -> failwith "Not implemented")
+      ; compare
+      ; is_numeric = false }
 
   let hex_pid_fmt =
     Fmt.Custom
@@ -67,11 +70,11 @@ struct
 
   let pid_flags_fmt : pid_flags Fmt.custom_elt =
     { to_elt = Utils.(Html.toelt % create_pid_flags)
-    ; of_elt = (fun _ -> assert false)
+    ; of_elt = (fun _ -> failwith "Not implemented")
     ; compare = compare_pid_flags
     ; is_numeric = false }
 
-  let create_table_fmt ?(is_hex = false) () : _ Data_table_markup.Fmt.format =
+  let create_table_format ?(is_hex = false) () : _ Data_table_markup.Fmt.format =
     let br_fmt = Fmt.Option (Float, "-") in
     let pct_fmt = Fmt.Option (Float, "-") in
     let pid_fmt = if is_hex then hex_pid_fmt else Fmt.Int in
@@ -89,7 +92,7 @@ struct
     let flags = {has_pcr = info.has_pcr; scrambled = info.scrambled} in
     Fmt.[pid; info.typ; flags; info.service_name; None; None; None; None]
 
-  let table_fmt = create_table_fmt ()
+  let table_fmt = create_table_format ()
 
   let create_empty_placeholder ?classes ?attrs () =
     Placeholder_markup.create
@@ -101,10 +104,10 @@ struct
 
   let create ?(classes = []) ?(attrs = []) ?dense ?init () =
     let classes = CSS.root :: classes in
-    let init =
+    let init, placeholder =
       match init with
-      | None -> []
-      | Some ({data; _} : _ Board_niitv_tsan_types.ts) -> data
+      | None -> [], Some (create_empty_placeholder ())
+      | Some ({data; _} : _ Board_niitv_tsan_types.ts) -> data, None
     in
     let table =
       Data_table_markup.create_of_fmt
@@ -114,7 +117,7 @@ struct
         ~data:(List.map data_of_pid_info init)
         ()
     in
-    div ~a:([a_class classes] @ attrs) [table]
+    div ~a:([a_class classes] @ attrs) Utils.(placeholder ^:: [table])
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

@@ -246,7 +246,12 @@ let ws (control : int) (api : Protocol.api) =
               ~doc:"PIDs socket"
               ~path:(Path.Format.of_string "pids")
               ~query:Query.["id", (module List (Stream.ID))]
-              (Api_monitoring.Event.get_pids api) ]
+              (Api_monitoring.Event.get_pids api)
+          ; event_node
+              ~doc:"Services socket"
+              ~path:(Path.Format.of_string "services")
+              ~query:Query.["id", (module List (Stream.ID))]
+              (Api_monitoring.Event.get_services api) ]
       ; make
           ~prefix:"streams"
           [ event_node
