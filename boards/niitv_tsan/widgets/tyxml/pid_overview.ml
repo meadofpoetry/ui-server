@@ -1,5 +1,6 @@
 open Components_tyxml
 open Application_types
+open Board_niitv_tsan_types
 
 module CSS = struct
   let root = Util.CSS.root ^ "-pid-overview"
@@ -74,9 +75,16 @@ struct
     ; compare = compare_pid_flags
     ; is_numeric = false }
 
+  let pct_fmt =
+    Fmt.Custom
+      { to_string = (fun x -> Printf.sprintf "%.2f" x)
+      ; of_string = float_of_string
+      ; compare
+      ; is_numeric = true }
+
   let create_table_format ?(is_hex = false) () : _ Data_table_markup.Fmt.format =
     let br_fmt = Fmt.Option (Float, "-") in
-    let pct_fmt = Fmt.Option (Float, "-") in
+    let pct_fmt = Fmt.Option (pct_fmt, "-") in
     let pid_fmt = if is_hex then hex_pid_fmt else Fmt.Int in
     Fmt.
       [ make_column ~sortable:true ~title:"PID" pid_fmt
@@ -88,7 +96,7 @@ struct
       ; make_column ~sortable:true ~title:"Min, Мбит/с" br_fmt
       ; make_column ~sortable:true ~title:"Max, Мбит/с" br_fmt ]
 
-  let data_of_pid_info (pid, (info : Board_niitv_tsan_types.PID_info.t)) : _ Fmt.data =
+  let data_of_pid_info (pid, (info : PID.t)) : _ Fmt.data =
     let flags = {has_pcr = info.has_pcr; scrambled = info.scrambled} in
     Fmt.[pid; info.typ; flags; info.service_name; None; None; None; None]
 
@@ -102,7 +110,7 @@ struct
       ~text:(`Text "Не найдено ни одного PID")
       ()
 
-  let create ?(classes = []) ?(attrs = []) ?dense ?init () =
+  let create ?(classes = []) ?(attrs = []) ?(dense = true) ?init () =
     let classes = CSS.root :: classes in
     let init, placeholder =
       match init with
@@ -111,13 +119,13 @@ struct
     in
     let table =
       Data_table_markup.create_of_fmt
-        ?dense
+        ~dense
         ~classes:[CSS.table]
         ~format:table_fmt
         ~data:(List.map data_of_pid_info init)
         ()
     in
-    div ~a:([a_class classes] @ attrs) Utils.(placeholder ^:: [table])
+    div ~a:([a_class classes] @ attrs) @@ List.rev Utils.(placeholder ^:: [table])
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

@@ -367,7 +367,7 @@ module Structure = struct
       (fun acc el ->
         let pid = el land 0x1FFF in
         let info =
-          { PID_info.has_pts = el land 0x8000 <> 0
+          { PID.has_pts = el land 0x8000 <> 0
           ; has_pcr = false (* Filled in later *)
           ; scrambled = el land 0x4000 <> 0
           ; typ = Private (* Filled in later *)
@@ -397,7 +397,7 @@ module Structure = struct
       | Ok s -> s
     in
     let info =
-      { Service_info.name
+      { Service.name
       ; provider_name
       ; pmt_pid = Message.get_services_struct_block_pmt_pid bdy
       ; pcr_pid = Message.get_services_struct_block_pcr_pid bdy
@@ -529,7 +529,7 @@ module Structure = struct
     let sid, sinfo = of_service_block slen acc.info in
     (sid, {sinfo with elements}), es @ ecm
 
-  let update_if_null (pid, (info : PID_info.t)) =
+  let update_if_null (pid, (info : PID.t)) =
     if pid <> 0x1FFF then None else Some (pid, {info with typ = Null})
 
   let find_in_elements ((pid : int), _) elements =
@@ -538,14 +538,14 @@ module Structure = struct
     | None -> None
     | Some (_, info) -> Some info
 
-  let update_if_in_services elements (pid, (info : PID_info.t)) =
+  let update_if_in_services elements (pid, (info : PID.t)) =
     let ( >>= ) o f =
       match o with
       | None -> None
       | Some x -> f x
     in
     Boards.Util.List.find_map
-      (fun ((sid, (sinfo : Service_info.t)), elts) ->
+      (fun ((sid, (sinfo : Service.t)), elts) ->
         match find_in_elements (pid, info) elts with
         | None -> None
         | Some t -> Some (sid, sinfo.name, sinfo.pcr_pid, t))
@@ -554,12 +554,12 @@ module Structure = struct
     let has_pcr = pid = pcr_pid in
     Some (pid, {info with service_id = Some id; service_name = Some name; typ; has_pcr})
 
-  let update_if_in_emm emm (pid, (info : PID_info.t)) =
+  let update_if_in_emm emm (pid, (info : PID.t)) =
     match find_in_elements (pid, info) emm with
     | None -> None
     | Some typ -> Some (pid, {info with typ})
 
-  let update_if_in_tables tables (pid, (info : PID_info.t)) =
+  let update_if_in_tables tables (pid, (info : PID.t)) =
     let ( >>= ) o f =
       match o with
       | None -> None
@@ -602,12 +602,11 @@ module Structure = struct
         let service = List.find_opt (fun (sid, _) -> sid = id.table_id_ext) services in
         match service with
         | None -> None
-        | Some (id, (info : Service_info.t)) -> Some (id, info.name))
+        | Some (id, (info : Service.t)) -> Some (id, info.name))
     | `PMT -> (
         let service =
           List.find_opt
-            (fun (_, (sinfo : Service_info.t)) ->
-              sinfo.has_pmt && sinfo.pmt_pid = info.pid)
+            (fun (_, (sinfo : Service.t)) -> sinfo.has_pmt && sinfo.pmt_pid = info.pid)
             services
         in
         match service with

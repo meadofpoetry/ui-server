@@ -1,0 +1,7 @@
+@import "@material/theme/mixins";
+
+.board-niitv-tsan-service-general-info {
+    .mdc-list-item__meta:not(.mdc-icon) {
+        @include mdc-theme-prop(color, text-primary-on-surface);
+    }
+}

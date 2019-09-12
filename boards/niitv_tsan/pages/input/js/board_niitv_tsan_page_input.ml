@@ -18,8 +18,8 @@ type state = < finalize : unit -> unit >
 
 type event =
   [ `Bitrate of (Stream.ID.t * Bitrate.t) list
-  | `PIDs of (Stream.ID.t * (int * PID_info.t) list ts) list
-  | `Services of (Stream.ID.t * (int * Service_info.t) list ts) list
+  | `PIDs of (Stream.ID.t * (int * PID.t) list ts) list
+  | `Services of (Stream.ID.t * (int * Service.t) list ts) list
   | `State of Topology.state ]
 
 class type page =
@@ -110,10 +110,9 @@ let initialize id control =
   let pie = Pid_bitrate_pie_chart.make () in
   let rate = Bitrate_summary.make () in
   let pids = Pid_summary.make () in
-  let pid_overview = Pid_overview.make ~dense:true () in
-  let service_overview = Service_overview.make ~dense:true () in
-  let service_sdt_info = Service_sdt_info.make () in
-  let service_general_info = Service_general_info.make () in
+  let pid_overview = Pid_overview.make () in
+  let service_overview = Service_overview.make () in
+  let service_info = Service_info.make () in
   let cells =
     Layout_grid.Markup_js.
       [ create_cell ~span:4 ~span_tablet:8 ~children:[pie#markup] ()
@@ -123,8 +122,7 @@ let initialize id control =
           ()
       ; create_cell ~span:12 ~children:[pid_overview#markup] ()
       ; create_cell ~span:12 ~children:[service_overview#markup] ()
-      ; create_cell ~span:6 ~children:[service_sdt_info#markup] ()
-      ; create_cell ~span:6 ~children:[service_general_info#markup] () ]
+      ; create_cell ~span:12 ~children:[service_info#markup] () ]
   in
   Element.add_class elt Layout_grid.CSS.inner;
   List.iter (Dom.appendChild elt % Tyxml_js.To_dom.of_element) cells;
@@ -137,14 +135,23 @@ let initialize id control =
             rate#notify (`Bitrate (Some x));
             pie#notify (`Bitrate (Some x));
             pid_overview#notify (`Bitrate (Some x));
-            service_overview#notify (`Bitrate (Some x))
+            service_overview#notify (`Bitrate (Some x));
+            service_info#notify (`Bitrate (Some x))
         | `PIDs ((_, x) :: _) ->
             pids#notify (`PIDs x);
-            pid_overview#notify (`PIDs x)
+            pid_overview#notify (`PIDs x);
+            service_info#notify (`PIDs x)
         | `State (x : Topology.state) ->
             pid_overview#notify (`State (x :> [Topology.state | `No_sync]));
             service_overview#notify (`State (x :> [Topology.state | `No_sync]))
-        | `Services ((_, x) :: _) -> service_overview#notify (`Services x)
+        | `Services ((_, x) :: _) ->
+            service_overview#notify (`Services x);
+            let service =
+              match x.data with
+              | [] -> None
+              | hd :: _ -> Some hd
+            in
+            service_info#notify (`Service service)
         | _ -> ()
     end
   in

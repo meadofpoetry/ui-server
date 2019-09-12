@@ -1,0 +1,18 @@
+@import "@material/animation/functions";
+
+.board-niitv-tsan-service-info {
+    overflow: hidden;
+
+    .mdc-tab-bar {
+        flex-basis: 33.3%;
+    }
+
+    &__slider {
+        display: flex;
+        transition: 350ms transform $mdc-animation-standard-curve-timing-function;
+
+        > * {
+            min-width: 100%;
+        }
+    }
+}

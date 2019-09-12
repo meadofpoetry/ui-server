@@ -55,7 +55,7 @@ let check_state (state : Application_types.Topology.state React.signal) =
   | `No_response | `Init | `Detect -> Lwt.return_error Request.Not_responding
 
 let pids_to_yojson =
-  Util_json.(List.to_yojson @@ Pair.to_yojson Int.to_yojson PID_info.to_yojson)
+  Util_json.(List.to_yojson @@ Pair.to_yojson Int.to_yojson PID.to_yojson)
 
 let pids_ts_to_yojson = ts_to_yojson pids_to_yojson
 
@@ -64,7 +64,7 @@ let si_psi_tables_to_yojson =
     List.to_yojson @@ Pair.to_yojson SI_PSI_table.id_to_yojson SI_PSI_table.to_yojson)
 
 let services_to_yojson =
-  Util_json.(List.to_yojson @@ Pair.to_yojson Int.to_yojson Service_info.to_yojson)
+  Util_json.(List.to_yojson @@ Pair.to_yojson Int.to_yojson Service.to_yojson)
 
 let services_ts_to_yojson = ts_to_yojson services_to_yojson
 

@@ -9,7 +9,7 @@ module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 type event =
   [ `State of [Topology.state | `No_sync]
   | `Bitrate of Bitrate.t option
-  | `Services of (int * Service_info.t) list ts ]
+  | `Services of (int * Service.t) list ts ]
 
 module Selector = struct
   let table = "." ^ CSS.table
@@ -18,46 +18,18 @@ module Selector = struct
 end
 
 module Set = Set.Make (struct
-  type t = int * Service_info.t
+  type t = int * Service.t
 
   let compare (a : t) (b : t) = compare (fst a) (fst b)
 end)
 
-let get_service_bitrate (br : Bitrate.t) (info : Service_info.t) =
-  let elts =
-    List.fold_left
-      (fun acc pid ->
-        match List.assoc_opt pid br.pids with
-        | None -> acc
-        | Some b -> (pid, b) :: acc)
-      []
-      info.elements
-  in
-  let pmt =
-    match info.has_pmt with
-    | false -> None
-    | true ->
-        Some
-          (info.pmt_pid, Option.value ~default:0 @@ List.assoc_opt info.pmt_pid br.pids)
-  in
-  match pmt with
-  | None -> elts
-  | Some x -> x :: elts
-
-let sum_bitrate rate = List.fold_left (fun acc x -> acc + snd x) 0 rate
-
-let acc_bitrate total rate =
-  let bps = sum_bitrate rate in
-  let pct = Float.(100. *. (of_int bps /. of_int total)) in
-  let mbps = Float.(of_int bps /. 1_000_000.) in
-  bps, mbps, pct
-
 let update_row_bitrate
     (table : 'a Gadt_data_table.t)
-    (info : Service_info.t)
+    (info : Service.t)
     (bitrate : Bitrate.t)
     row =
-  let _, br, pct = acc_bitrate bitrate.total (get_service_bitrate bitrate info) in
+  let bps = Util.total_bitrate_for_pids bitrate (Util.service_pids info) in
+  let pct = Float.(100. *. (of_int bps /. of_int bitrate.total)) in
   let min, max =
     Gadt_data_table.Fmt_js.(
       match table#get_row_data_lazy row with
@@ -65,21 +37,21 @@ let update_row_bitrate
   in
   let min =
     match min () with
-    | None -> Some (Some br)
-    | Some v -> if br < v then Some (Some br) else None
+    | None -> Some (Some bps)
+    | Some v -> if bps < v then Some (Some bps) else None
   in
   let max =
     match max () with
-    | None -> Some (Some br)
-    | Some v -> if br > v then Some (Some br) else None
+    | None -> Some (Some bps)
+    | Some v -> if bps > v then Some (Some bps) else None
   in
   let data =
     Gadt_data_table.Fmt_js.
-      [None; None; None; None; Some (Some br); Some (Some pct); min; max]
+      [None; None; None; None; Some (Some bps); Some (Some pct); min; max]
   in
   table#set_row_data_some data row
 
-let update_row_info (table : 'a Gadt_data_table.t) row id (info : Service_info.t) =
+let update_row_info (table : 'a Gadt_data_table.t) row id (info : Service.t) =
   let data =
     Gadt_data_table.Fmt_js.
       [ Some id
@@ -93,7 +65,7 @@ let update_row_info (table : 'a Gadt_data_table.t) row id (info : Service_info.t
   in
   table#set_row_data_some data row
 
-class t ?(init : (int * Service_info.t) list ts option) elt () =
+class t ?(init : (int * Service.t) list ts option) elt () =
   object (self)
     val placeholder =
       match Element.query_selector elt Selector.placeholder with
@@ -158,7 +130,7 @@ class t ?(init : (int * Service_info.t) list ts option) elt () =
             table#rows
     (** Updates bitrate values *)
 
-    method set_services (services : (int * Service_info.t) list ts) =
+    method set_services (services : (int * Service.t) list ts) =
       (* Manage found, lost and updated items *)
       let old = data in
       let cur = Set.of_list services.data in

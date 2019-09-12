@@ -9,7 +9,7 @@ module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 type event =
   [ `State of [Topology.state | `No_sync]
   | `Bitrate of Bitrate.t option
-  | `PIDs of (int * PID_info.t) list ts ]
+  | `PIDs of (int * PID.t) list ts ]
 
 module Selector = struct
   let table = "." ^ CSS.table
@@ -18,7 +18,7 @@ module Selector = struct
 end
 
 module Set = Set.Make (struct
-  type t = int * PID_info.t
+  type t = int * PID.t
 
   let compare (a : t) (b : t) : int = Int.compare (fst a) (fst b)
 end)
@@ -47,7 +47,7 @@ let update_row_bitrate (table : 'a Gadt_data_table.t) total br row =
   in
   table#set_row_data_some data row
 
-let update_row_info (table : 'a Gadt_data_table.t) row pid (info : PID_info.t) =
+let update_row_info (table : 'a Gadt_data_table.t) row pid (info : PID.t) =
   let flags = {has_pcr = info.has_pcr; scrambled = info.scrambled} in
   Element.toggle_class_unit ~force:(not info.present) row CSS.row_lost;
   let data =
@@ -65,7 +65,7 @@ let update_row_info (table : 'a Gadt_data_table.t) row pid (info : PID_info.t) =
 
 let is_hex = Some true
 
-class t ?(init : (int * PID_info.t) list ts option) (elt : Dom_html.element Js.t) () =
+class t ?(init : (int * PID.t) list ts option) (elt : Dom_html.element Js.t) () =
   object (self)
     val placeholder =
       match Element.query_selector elt Selector.placeholder with
@@ -122,7 +122,7 @@ class t ?(init : (int * PID_info.t) list ts option) (elt : Dom_html.element Js.t
             pids
     (** Updates bitrate values *)
 
-    method set_pids (pids : (int * PID_info.t) list ts) =
+    method set_pids (pids : (int * PID.t) list ts) =
       (* Manage found, lost and updated items *)
       let old = data in
       let cur = Set.of_list pids.data in

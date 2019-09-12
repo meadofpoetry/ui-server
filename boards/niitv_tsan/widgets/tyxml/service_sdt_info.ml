@@ -8,6 +8,8 @@ module CSS = struct
   let item = BEM.add_element root "item"
 end
 
+let not_available = "n/a"
+
 module Make
     (Xml : Xml_sigs.NoWrap)
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
@@ -21,9 +23,21 @@ struct
     let classes = Item_list.CSS.item_meta :: classes in
     span ~a:([a_class classes] @ attrs) [txt text]
 
-  let create_item_icon_meta ?(classes = []) ?attrs ~d () =
+  let create_item_icon_meta ?(classes = []) ?(attrs = []) ?(active = false) ?children ()
+      =
     let classes = Item_list.CSS.item_meta :: classes in
-    Icon_markup.SVG.create ~classes ?attrs ~d ()
+    let attrs =
+      if active then [Svg.Unsafe.string_attrib "data-active" ""] @ attrs else attrs
+    in
+    let children =
+      match children with
+      | Some x -> x
+      | None ->
+          Icon_markup.SVG.
+            [ create_path ~d:Svg_icons.check_circle ()
+            ; create_path ~d:Svg_icons.close_circle () ]
+    in
+    Icon_markup.SVG.create ~classes ~attrs ~children ()
 
   let create_item ?(classes = []) ?attrs ?meta ~primary_text () =
     let classes = CSS.item :: classes in
@@ -35,20 +49,20 @@ struct
     in
     Item_list_markup.create_item ~classes ?attrs ~primary_text ?meta ()
 
-  let create ?(classes = []) ?attrs ?(info : Service_info.t option) ?children () =
+  let create ?(classes = []) ?attrs ?(info : (int * Service.t) option) ?children () =
+    let classes = CSS.root :: classes in
     let children =
       match children with
       | Some x -> x
       | None ->
           let meta f =
-            match (info : Service_info.t option) with
-            | None -> `Text "-"
-            | Some info -> f info
+            match info with
+            | None -> `Text not_available
+            | Some (_, info) -> f info
           in
           let meta_icon f =
-            let ok_ = Option.fold ~none:false ~some:f info in
-            let d = Svg_icons.(if ok_ then check_circle else close_circle) in
-            `Element (create_item_icon_meta ~d ())
+            let active = Option.fold ~none:false ~some:(fun (_, x) -> f x) info in
+            `Element (create_item_icon_meta ~active ())
           in
           [ create_item
               ~attrs:[a_user_data "type" "name"]

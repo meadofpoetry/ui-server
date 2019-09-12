@@ -199,7 +199,7 @@ module TS_info = struct
   [@@deriving yojson, eq]
 end
 
-module PID_info = struct
+module PID = struct
   type t =
     { has_pts : bool
     ; has_pcr : bool
@@ -211,7 +211,7 @@ module PID_info = struct
   [@@deriving yojson, eq, show, ord]
 end
 
-module Service_info = struct
+module Service = struct
   type t =
     { name : string
     ; provider_name : string
@@ -300,9 +300,9 @@ end
 module Structure = struct
   type t =
     { info : TS_info.t
-    ; services : (int * Service_info.t) list
+    ; services : (int * Service.t) list
     ; tables : (SI_PSI_table.id * SI_PSI_table.t) list
-    ; pids : (int * PID_info.t) list
+    ; pids : (int * PID.t) list
     ; timestamp : Time.t }
   [@@deriving eq, yojson]
 
@@ -487,7 +487,7 @@ module Error = struct
 
   and t = int e [@@deriving yojson, eq, show]
 
-  and t_ext = (int * PID_info.t option) e
+  and t_ext = (int * PID.t option) e
 
   type compressed = percent tspan list
 

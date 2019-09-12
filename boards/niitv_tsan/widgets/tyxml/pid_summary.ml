@@ -18,17 +18,16 @@ module Make
 struct
   open Html
 
-  let create_pid_attrs
-      ({has_pts; has_pcr; scrambled; present; service_id; service_name; typ} :
-        PID_info.t) =
+  let create_pid_attrs (pid, (info : PID.t)) =
     let open Application_types.MPEG_TS.PID in
-    [a_user_data "type" (Yojson.Safe.to_string @@ Type.to_yojson typ)]
-    |> Utils.cons_if_lazy has_pts (fun () -> a_user_data "has-pts" "")
-    |> Utils.cons_if_lazy has_pcr (fun () -> a_user_data "has-pcr" "")
-    |> Utils.cons_if_lazy scrambled (fun () -> a_user_data "scrambled" "")
-    |> Utils.cons_if_lazy (not present) (fun () -> a_user_data "lost" "")
-    |> Utils.map_cons_option (a_user_data "service-id" % string_of_int) service_id
-    |> Utils.map_cons_option (a_user_data "service-name") service_name
+    [ a_user_data "type" (Yojson.Safe.to_string @@ Type.to_yojson info.typ)
+    ; a_user_data "pid" (string_of_int pid) ]
+    |> Utils.cons_if_lazy info.has_pts (fun () -> a_user_data "has-pts" "")
+    |> Utils.cons_if_lazy info.has_pcr (fun () -> a_user_data "has-pcr" "")
+    |> Utils.cons_if_lazy info.scrambled (fun () -> a_user_data "scrambled" "")
+    |> Utils.cons_if_lazy (not info.present) (fun () -> a_user_data "lost" "")
+    |> Utils.map_cons_option (a_user_data "service-id" % string_of_int) info.service_id
+    |> Utils.map_cons_option (a_user_data "service-name") info.service_name
 
   let create_title ?(classes = []) ?(attrs = []) ?total () =
     let text =
@@ -44,7 +43,7 @@ struct
     let text =
       if hex then Util.pid_to_hex_string (fst pid) else Util.pid_to_dec_string (fst pid)
     in
-    span ~a:([a_class classes] @ create_pid_attrs (snd pid) @ attrs) [txt text]
+    span ~a:([a_class classes] @ create_pid_attrs pid @ attrs) [txt text]
 
   let create_pids ?(classes = []) ?(attrs = []) ?hex pids =
     let pids =

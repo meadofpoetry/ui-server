@@ -7,6 +7,8 @@ module CSS = struct
   let item = BEM.add_element root "item"
 end
 
+let not_available = "n/a"
+
 module Make
     (Xml : Xml_sigs.NoWrap)
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
@@ -16,6 +18,7 @@ struct
   module Item_list_markup = Item_list.Make (Xml) (Svg) (Html)
 
   let create_item_meta ?(classes = []) ?(attrs = []) ~text () =
+    let classes = Item_list.CSS.item_meta :: classes in
     span ~a:([a_class classes] @ attrs) [txt text]
 
   let create_item ?(classes = []) ?attrs ?meta ~primary_text () =
@@ -28,9 +31,24 @@ struct
     in
     Item_list_markup.create_item ~classes ?attrs ~primary_text ?meta ()
 
-  let create ?(classes = []) ?attrs ?children ?info ?bitrate ?max_bitrate ?min_bitrate ()
-      =
+  let create
+      ?(classes = [])
+      ?(attrs = [])
+      ?children
+      ?(info : (int * Service.t) option)
+      ?bitrate
+      ?max_bitrate
+      ?min_bitrate
+      () =
     let classes = CSS.root :: classes in
+    let attrs =
+      match info with
+      | None | Some (_, {elements = []; _}) -> attrs
+      | Some (_, info) ->
+          let elements = Util.service_pids info in
+          a_user_data "elements" (String.concat "," @@ List.map string_of_int elements)
+          :: attrs
+    in
     let children =
       match children with
       | Some x -> x
@@ -38,7 +56,7 @@ struct
           let meta ?default f = function
             | None -> (
               match default with
-              | None -> `Text ""
+              | None -> `Text not_available
               | Some f -> f ())
             | Some x -> f x
           in
@@ -51,17 +69,13 @@ struct
               ~attrs:[a_user_data "type" "pmt-pid"]
               ~primary_text:(`Text "PMT PID")
               ~meta:
-                (meta
-                   (fun (_, (x : Service_info.t)) -> `Text (string_of_int x.pmt_pid))
-                   info)
+                (meta (fun (_, (x : Service.t)) -> `Text (string_of_int x.pmt_pid)) info)
               ()
           ; create_item
               ~attrs:[a_user_data "type" "pcr-pid"]
               ~primary_text:(`Text "PCR PID")
               ~meta:
-                (meta
-                   (fun (_, (x : Service_info.t)) -> `Text (string_of_int x.pcr_pid))
-                   info)
+                (meta (fun (_, (x : Service.t)) -> `Text (string_of_int x.pcr_pid)) info)
               ()
           ; create_item
               ~attrs:[a_user_data "type" "bitratenow"]
@@ -81,7 +95,7 @@ struct
     in
     Item_list_markup.create
       ~classes
-      ?attrs
+      ~attrs
       ~dense:true
       ~non_interactive:true
       ~children
