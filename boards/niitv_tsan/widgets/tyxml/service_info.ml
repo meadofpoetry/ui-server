@@ -36,8 +36,16 @@ struct
     in
     Tab_bar_markup.create ?classes ?attrs ~tabs ()
 
-  let create_glide ?classes ?attrs ?children ?info ?bitrate ?max_bitrate ?min_bitrate ()
-      =
+  let create_glide
+      ?classes
+      ?attrs
+      ?children
+      ?pids
+      ?info
+      ?bitrate
+      ?max_bitrate
+      ?min_bitrate
+      () =
     let slides =
       match children with
       | Some x -> x
@@ -53,16 +61,28 @@ struct
                       () ]
                 ()
             ; create_slide ~children:[Service_sdt_info_markup.create ?info ()] ()
-            ; create_slide ~children:[Pid_overview_markup.create ()] () ]
+            ; create_slide ~children:[Pid_overview_markup.create ?init:pids ()] () ]
     in
     Glide_markup.create ?classes ?attrs ~slides ()
 
-  let create ?(classes = []) ?(attrs = []) ?children () =
+  let create
+      ?(classes = [])
+      ?(attrs = [])
+      ?pids
+      ?info
+      ?bitrate
+      ?max_bitrate
+      ?min_bitrate
+      ?children
+      () =
     let classes = CSS.root :: classes in
     let children =
       match children with
       | Some x -> x
-      | None -> [create_tab_bar (); Divider_markup.create_hr (); create_glide ()]
+      | None ->
+          [ create_tab_bar ()
+          ; Divider_markup.create_hr ()
+          ; create_glide ?pids ?info ?bitrate ?max_bitrate ?min_bitrate () ]
     in
     div ~a:([a_class classes] @ attrs) children
 end

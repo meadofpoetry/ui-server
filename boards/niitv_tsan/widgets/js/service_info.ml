@@ -39,17 +39,23 @@ class t (elt : Dom_html.element Js.t) () =
     val pid_overview : Pid_overview.t =
       Pid_overview.attach @@ Element.query_selector_exn elt Selector.pid_overview
 
+    val mutable pids : (int * PID.t) list ts option = None
+
     val mutable listeners = []
 
     inherit Widget.t elt () as super
 
-    method! init () : unit = super#init ()
-
     method! initial_sync_with_dom () : unit =
-      listeners <- [Tab_bar.Lwt_js_events.changes tab_bar#root self#handle_tab_bar_change];
+      (* Attach event listeners *)
+      listeners <-
+        [Tab_bar.Lwt_js_events.changes tab_bar#root self#handle_tab_bar_change]
+        @ listeners;
       super#initial_sync_with_dom ()
 
     method! destroy () : unit =
+      (* Detach event listeners *)
+      List.iter Lwt.cancel listeners;
+      listeners <- [];
       tab_bar#destroy ();
       glide#destroy ();
       general_info#destroy ();
@@ -57,15 +63,37 @@ class t (elt : Dom_html.element Js.t) () =
       pid_overview#destroy ();
       super#destroy ()
 
+    method general_info = general_info
+
+    method sdt_info = sdt_info
+
+    method pid_overview = pid_overview
+
     method notify : event -> unit =
       function
-      | `PIDs _ as x -> pid_overview#notify x
+      | `PIDs x ->
+          pids <- Some x;
+          pid_overview#notify (`PIDs {x with data = self#filter_pids x.data})
       | `Service _ as x ->
           general_info#notify x;
-          sdt_info#notify x
-      | `Bitrate _ as x ->
+          sdt_info#notify x;
+          Option.iter
+            (fun (x : (int * PID.t) list ts) ->
+              pid_overview#notify (`PIDs {x with data = self#filter_pids x.data}))
+            pids
+      | `Bitrate rate as x ->
+          let rate =
+            Option.map
+              (fun x ->
+                let total = Util.total_bitrate_for_pids x general_info#elements in
+                {x with total})
+              rate
+          in
           general_info#notify x;
-          pid_overview#notify x
+          pid_overview#notify (`Bitrate rate)
+
+    method private filter_pids pids =
+      List.filter (fun (pid, _) -> List.mem pid general_info#elements) pids
 
     method private handle_tab_bar_change e _ : unit Lwt.t =
       let detail = Widget.event_detail e in
@@ -75,5 +103,16 @@ class t (elt : Dom_html.element Js.t) () =
 
 let attach elt = new t (elt :> Dom_html.element Js.t) ()
 
-let make ?classes ?attrs ?children () =
-  Markup_js.create ?classes ?attrs ?children () |> Tyxml_js.To_dom.of_div |> attach
+let make ?classes ?attrs ?pids ?info ?bitrate ?min_bitrate ?max_bitrate ?children () =
+  Markup_js.create
+    ?classes
+    ?attrs
+    ?pids
+    ?info
+    ?bitrate
+    ?min_bitrate
+    ?max_bitrate
+    ?children
+    ()
+  |> Tyxml_js.To_dom.of_div
+  |> attach

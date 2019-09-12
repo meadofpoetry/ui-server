@@ -7,3 +7,4 @@
 
 * Other
   [ ] Add HEX switch
+  [ ] Find a way to fetch initial value from DOM for all relevant widgets

@@ -6,12 +6,19 @@ open Board_niitv_tsan_types
 include Board_niitv_tsan_widgets_tyxml.Service_overview
 module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
+let ( >>= ) = Lwt.bind
+
 type event =
   [ `State of [Topology.state | `No_sync]
   | `Bitrate of Bitrate.t option
+  | `PIDs of (int * PID.t) list ts
   | `Services of (int * Service.t) list ts ]
 
 module Selector = struct
+  let row = "." ^ Data_table.CSS.row
+
+  let icon_button = "." ^ Icon_button.CSS.root
+
   let table = "." ^ CSS.table
 
   let placeholder = "." ^ Components_lab.Placeholder.CSS.root
@@ -72,15 +79,18 @@ class t ?(init : (int * Service.t) list ts option) elt () =
       | Some x -> x
       | None -> Tyxml_js.To_dom.of_div @@ Markup_js.create_empty_placeholder ()
 
+    val service_info = Service_info.make ()
+
     val table : _ Gadt_data_table.t =
       Gadt_data_table.attach ~fmt:Markup_js.table_fmt
       @@ Element.query_selector_exn elt Selector.table
 
-    val mutable data : Set.t =
-      Set.of_list
-        (match init with
-        | None -> []
-        | Some {data; _} -> data)
+    val mutable data =
+      match init with
+      | None -> []
+      | Some {data; _} -> data
+
+    val mutable listeners = []
 
     inherit Widget.t elt () as super
 
@@ -88,17 +98,27 @@ class t ?(init : (int * Service.t) list ts option) elt () =
       self#update_empty_state ();
       super#init ()
 
+    method! initial_sync_with_dom () : unit =
+      listeners <-
+        Js_of_ocaml_lwt.Lwt_js_events.(
+          [clicks table#tbody self#handle_table_body_click] @ listeners);
+      super#initial_sync_with_dom ()
+
     method! destroy () : unit =
       table#destroy ();
+      service_info#destroy ();
       super#destroy ()
 
-    method pids = Set.to_seq data
+    method services = data
 
     method notify : event -> unit =
       function
       | `State x -> self#set_state x
+      | `PIDs _ as x -> service_info#notify x
       | `Services x -> self#set_services x
-      | `Bitrate x -> self#set_bitrate x
+      | `Bitrate rate as x ->
+          service_info#notify x;
+          self#set_bitrate rate
 
     method set_state state =
       let no_sync, no_response =
@@ -121,20 +141,18 @@ class t ?(init : (int * Service.t) list ts option) elt () =
                 match table#get_row_data_lazy row with
                 | f :: _ -> f ()
               in
-              let info = List.assoc_opt id @@ Set.elements data in
+              let info = List.assoc_opt id data in
               match info with
-              | None ->
-                  print_endline @@ Printf.sprintf "id %d, info not found" id;
-                  ()
+              | None -> ()
               | Some info -> update_row_bitrate table info bitrate row)
             table#rows
     (** Updates bitrate values *)
 
     method set_services (services : (int * Service.t) list ts) =
       (* Manage found, lost and updated items *)
-      let old = data in
+      let old = Set.of_list data in
       let cur = Set.of_list services.data in
-      data <- cur;
+      data <- services.data;
       (* Handle lost PIDs *)
       Set.iter self#remove_service @@ Set.diff old cur;
       (* Handle found PIDs *)
@@ -173,6 +191,39 @@ class t ?(init : (int * Service.t) list ts option) elt () =
       if table#rows_collection##.length = 0
       then Dom.appendChild super#root placeholder
       else Element.remove placeholder
+
+    method private show_service_info (row : Dom_html.tableRowElement Js.t) =
+      let id, service_name =
+        match table#get_row_data_lazy row with
+        | id :: name :: _ -> id (), name ()
+      in
+      service_info#notify (`Service (List.find_opt (fun (id', _) -> id' = id) data));
+      let info_header =
+        Tyxml_js.To_dom.of_div @@ Markup_js.create_info_header ~service_name ()
+      in
+      let back =
+        Icon_button.attach @@ Element.query_selector_exn info_header Selector.icon_button
+      in
+      Element.remove_child_safe super#root table#root;
+      Dom.appendChild super#root info_header;
+      Dom.appendChild super#root service_info#root;
+      Js_of_ocaml_lwt.Lwt_js_events.click back#root
+      >>= fun _ ->
+      Js_of_ocaml_lwt.Lwt_js_events.request_animation_frame ()
+      >>= fun () ->
+      Dom.removeChild super#root info_header;
+      Dom.removeChild super#root service_info#root;
+      Dom.appendChild super#root table#root;
+      back#destroy ();
+      Lwt.return_unit
+
+    method private handle_table_body_click e _ : unit Lwt.t =
+      let target = Dom.eventTarget e in
+      let row =
+        Js.Opt.bind (Element.closest target Selector.row) (fun row ->
+            Dom_html.CoerceTo.tr row)
+      in
+      Js.Opt.case row Lwt.return self#show_service_info
   end
 
 let attach ?init elt : t = new t ?init (elt : Dom_html.element Js.t) ()

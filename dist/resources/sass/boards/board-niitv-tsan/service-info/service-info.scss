@@ -7,6 +7,12 @@
         flex-basis: 33.3%;
     }
 
+    .mdc-data-table {
+        &__cell:nth-child(4), &__header-cell:nth-child(4) {
+            display: none;
+        }
+    }
+
     &__slider {
         display: flex;
         transition: 350ms transform $mdc-animation-standard-curve-timing-function;

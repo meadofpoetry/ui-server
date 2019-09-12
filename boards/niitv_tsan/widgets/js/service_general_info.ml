@@ -63,6 +63,8 @@ class t (elt : Dom_html.element Js.t) () =
           List.map (fun x -> int_of_string (String.trim x)) pids
         with _ -> [])
 
+    method elements : int list = elements
+
     method hex : bool = false
 
     method notify : event -> unit =

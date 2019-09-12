@@ -92,7 +92,7 @@ class t ?(init : (int * PID.t) list ts option) (elt : Dom_html.element Js.t) () 
       table#destroy ();
       super#destroy ()
 
-    method pids = Set.to_seq data
+    method pids : (int * PID.t) list = List.of_seq @@ Set.to_seq data
 
     method notify : event -> unit =
       function

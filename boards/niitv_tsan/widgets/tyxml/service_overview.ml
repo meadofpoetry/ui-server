@@ -9,6 +9,10 @@ module CSS = struct
   let no_sync = BEM.add_modifier root "no-sync"
 
   let no_response = BEM.add_modifier root "no-response"
+
+  let info_header = BEM.add_element root "info-header"
+
+  let service_name = BEM.add_element root "service-name"
 end
 
 module Make
@@ -20,6 +24,7 @@ struct
   module Data_table_markup = Data_table.Make (Xml) (Svg) (Html)
   module Fmt = Data_table.Make_fmt (Xml)
   module Icon_markup = Icon.Make (Xml) (Svg) (Html)
+  module Icon_button_markup = Icon_button.Make (Xml) (Svg) (Html)
   module Placeholder_markup = Components_lab_tyxml.Placeholder.Make (Xml) (Svg) (Html)
 
   let hex_id_fmt =
@@ -69,6 +74,26 @@ struct
       ~icon:(Icon_markup.SVG.create ~d:Svg_icons.emoticon_sad ())
       ~text:(`Text "Не найдено ни одного сервиса")
       ()
+
+  let create_info_header ?(classes = []) ?(attrs = []) ?service_name ?children () =
+    let classes = CSS.info_header :: classes in
+    let children =
+      match children with
+      | Some x -> x
+      | None ->
+          let back =
+            Icon_button_markup.create
+              ~icon:(Icon_markup.SVG.create ~d:Svg_icons.arrow_left ())
+              ()
+          in
+          let title =
+            Option.map
+              (fun name -> span ~a:[a_class [CSS.service_name]] [txt name])
+              service_name
+          in
+          Utils.(back :: (title ^:: []))
+    in
+    div ~a:([a_class classes] @ attrs) children
 
   let create ?(classes = []) ?(attrs = []) ?(dense = true) ?init () =
     let classes = CSS.root :: classes in
