@@ -74,7 +74,7 @@ let update_config_with_env src (config : config) (b : Topology.topo_board) =
   | None -> config
   | Some t2mi_source -> {config with t2mi_source}
 
-let make_input_tab_template (b : Topology.topo_board) =
+let make_services_tab_template (b : Topology.topo_board) =
   object
     method stylesheets =
       [ "/css/Chart.min.css"
@@ -88,13 +88,42 @@ let make_input_tab_template (b : Topology.topo_board) =
 
     method post_scripts = [`Src "/js/board-niitv-tsan-page-input.js"]
 
-    method content = []
+    method content =
+      List.map
+        Tyxml.Html.toelt
+        [ Board_niitv_tsan_page_services_tyxml.Markup.create
+            ~control:b.control
+            ~children:[Tyxml.Html.txt "services"]
+            () ]
 
-    method title = "QoS"
+    method title = "Сервисы"
+
+    method path = Topology.make_board_path b.control
+  end
+
+let make_pids_tab_template (b : Topology.topo_board) =
+  object
+    method stylesheets =
+      [ "/css/Chart.min.css"
+      ; "/css/board-niitv-tsan.min.css"
+      ; "/css/board-niitv-tsan-page-input.min.css" ]
+
+    method pre_scripts =
+      [ `Src "/js/moment.min.js" (* TODO remove *)
+      ; `Src "/js/Chart.min.js"
+      ; `Src "/js/chartjs-plugin-datalabels.min.js" ]
+
+    method post_scripts = [`Src "/js/board-niitv-tsan-page-input.js"]
+
+    method content =
+      List.map
+        Tyxml.Html.toelt
+        [Board_niitv_tsan_page_pids_tyxml.Markup.create ~control:b.control ()]
+
+    method title = "PIDs"
 
     method path =
-      Netlib.Uri.Path.of_string
-      @@ Topology.make_board_path (Topology.board_id_of_topo_board b) b.control
+      Netlib.Uri.Path.(concat (Topology.make_board_path b.control) (of_string "pids"))
   end
 
 let board_id = Board_niitv_tsan_types.board_id
@@ -126,7 +155,8 @@ let create
     @@ React.E.map (fun (s : Parser.Status.t) -> s.input) api.notifs.status
   in
   let input_tabs =
-    List.map (fun x -> `Input x, [make_input_tab_template b])
+    List.map (fun x ->
+        `Input x, [make_services_tab_template b; make_pids_tab_template b])
     @@ Topology.topo_inputs_of_topo_board b
   in
   let board =

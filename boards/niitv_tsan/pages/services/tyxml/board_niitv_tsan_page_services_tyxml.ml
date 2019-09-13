@@ -1,9 +1,11 @@
-let id = Board_niitv_tsan_types.board_id
+open Application_types
+open Board_niitv_tsan_types
 
 module CSS = struct
-  let root =
-    Printf.sprintf "%s-input-page" (Application_types.Topology.make_dom_node_class id)
+  let root = Printf.sprintf "%s-page-services" (Topology.make_dom_node_class board_id)
 end
+
+let id control = Printf.sprintf "board-%d-services" control
 
 module Make
     (Xml : Xml_sigs.NoWrap)
@@ -14,5 +16,7 @@ struct
 
   let create ?(classes = []) ?(attrs = []) ?(children = []) ~control () =
     let classes = CSS.root :: classes in
-    div ~a:([a_id (Printf.sprintf "board-%d" control); a_class classes] @ attrs) children
+    div ~a:([a_id (id control); a_class classes] @ attrs) children
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

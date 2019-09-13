@@ -73,23 +73,24 @@ let make_template
   in
   let tabs = common_tabs () @ board_tabs @ tabs_of_cpu input cpu in
   let title = Topology.get_input_name input in
-  let tabs, slides, stylesheets, pre_scripts, post_scripts =
+  let tabs, children, stylesheets, pre_scripts, post_scripts =
     List.fold_left
       (fun (tabs, slides, css, pre_js, post_js) template ->
         let id =
-          String.map (function
-              | '/' -> '-'
-              | c -> c)
+          Printf.sprintf "%s-tabpanel"
+          @@ String.map (function
+                 | '/' -> '-'
+                 | c -> c)
           @@ Netlib.Uri.Path.to_string template#path
         in
-        let tab_id = id ^ "-tab" in
         let tab =
-          Page_input_tyxml.Markup.make_tab ~id:tab_id ~controls:id template#title
+          Page_input_tyxml.(
+            Components_tyxml.Tab.Markup.create
+              ~attrs:Tyxml.Html.[a_id (tab_id id); a_aria "controls" [id]]
+              ~text_label:(`Text template#title)
+              ())
         in
-        let slide =
-          Page_input_tyxml.Markup.make_tabpanel ~id ~labelledby:tab_id
-          @@ Html.totl template#content
-        in
+        let slide = id, Html.totl template#content in
         (* FIXME scripts order *)
         ( tabs @ [tab]
         , slides @ [slide]
@@ -103,8 +104,8 @@ let make_template
       , [`Src "/js/page-input.js"] )
       tabs
   in
-  let tab_bar = Page_input_tyxml.Markup.make_tab_bar tabs in
-  let slides = Page_input_tyxml.Markup.make_content slides in
+  let tab_bar = Components_tyxml.Tab_bar.Markup.create ~tabs () in
+  let slides = Page_input_tyxml.Markup.create ~children () in
   let eq a b =
     match a, b with
     | `Src a, `Src b | `Raw a, `Raw b -> String.equal a b

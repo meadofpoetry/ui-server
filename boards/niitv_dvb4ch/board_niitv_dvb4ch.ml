@@ -44,9 +44,7 @@ let make_input_tab_template (b : Topology.topo_board) =
 
     method title = "RF"
 
-    method path =
-      Netlib.Uri.Path.of_string
-      @@ Topology.make_board_path (Topology.board_id_of_topo_board b) b.control
+    method path = Topology.make_board_path b.control
   end
 
 let board_id = Board_niitv_dvb4ch_types.board_id

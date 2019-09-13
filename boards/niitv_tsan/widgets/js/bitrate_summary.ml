@@ -47,10 +47,9 @@ class t (elt : Dom_html.element Js.t) =
       effective##.textContent := Js.some @@ Js.string (bitrate_to_string x)
   end
 
-let make ?classes ?attrs ?total ?effective () =
-  let elt =
-    Tyxml_js.To_dom.of_element @@ Markup_js.create ?classes ?attrs ?total ?effective ()
-  in
-  new t elt
-
 let attach (elt : #Dom_html.element Js.t) : t = new t (elt :> Dom_html.element Js.t)
+
+let make ?classes ?attrs ?total ?effective ?children () =
+  Markup_js.create ?classes ?attrs ?total ?effective ?children ()
+  |> Tyxml_js.To_dom.of_ul
+  |> attach

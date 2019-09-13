@@ -38,32 +38,35 @@ struct
     let classes = CSS.title :: classes in
     span ~a:([a_class classes] @ attrs) [txt text]
 
-  let create_pid ?(classes = []) ?(attrs = []) ?(hex = false) pid =
+  let create_pid ?(classes = []) ?(attrs = []) ?(hex = false) ~pid () =
     let classes = CSS.pid :: classes in
     let text =
       if hex then Util.pid_to_hex_string (fst pid) else Util.pid_to_dec_string (fst pid)
     in
     span ~a:([a_class classes] @ create_pid_attrs pid @ attrs) [txt text]
 
-  let create_pids ?(classes = []) ?(attrs = []) ?hex pids =
-    let pids =
-      match pids with
-      | `Info x -> List.map (create_pid ?hex) x
-      | `Html x -> x
+  let create_pids ?(classes = []) ?(attrs = []) ?hex ?pids ?children () =
+    let children =
+      match children with
+      | Some x -> x
+      | None -> (
+        match pids with
+        | None -> []
+        | Some pids -> List.map (fun pid -> create_pid ?hex ~pid ()) pids)
     in
     let classes = CSS.pids :: classes in
-    div ~a:([a_class classes] @ attrs) pids
+    div ~a:([a_class classes] @ attrs) children
 
-  let create ?(classes = []) ?(attrs = []) ?hex ?content ?pids () =
-    let content =
-      match content with
+  let create ?(classes = []) ?(attrs = []) ?hex ?children ?pids () =
+    let children =
+      match children with
       | Some x -> x
       | None ->
           [ create_title ?total:(Option.map List.length pids) ()
-          ; create_pids ?hex (`Info (Option.value ~default:[] pids)) ]
+          ; create_pids ?hex ?pids () ]
     in
     let classes = CSS.root :: classes in
-    div ~a:([a_class classes] @ attrs) content
+    div ~a:([a_class classes] @ attrs) children
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

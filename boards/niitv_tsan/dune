@@ -3,4 +3,6 @@
   (libraries ts_error
              board_niitv_tsan_types
              board_niitv_tsan_protocol
-             board_niitv_tsan_http))
+             board_niitv_tsan_http
+             board_niitv_tsan_page_services_tyxml
+             board_niitv_tsan_page_pids_tyxml))

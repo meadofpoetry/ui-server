@@ -32,10 +32,10 @@ struct
     let primary_text = `Text text in
     Item_list_markup.create_item ~classes ?attrs ~meta ~primary_text ()
 
-  let create ?(classes = []) ?attrs ?total ?effective ?items () =
+  let create ?(classes = []) ?attrs ?total ?effective ?children () =
     let classes = CSS.root :: classes in
     let children =
-      match items with
+      match children with
       | Some x -> x
       | None ->
           let total =

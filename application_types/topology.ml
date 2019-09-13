@@ -266,12 +266,22 @@ type board_id =
   ; version : int }
 [@@deriving eq, ord, yojson]
 
-let make_board_path (b : board_id) (control : int) =
+let make_dom_node_id (b : board_id) (control : int) =
   Printf.sprintf
-    "board/%s/%s/%d"
+    "board-%s-%s-v%d-%d"
     (String.lowercase_ascii b.manufacturer)
     (String.lowercase_ascii b.model)
+    b.version
     control
+
+let make_dom_node_class (b : board_id) =
+  Printf.sprintf
+    "board-%s-%s"
+    (String.lowercase_ascii b.manufacturer)
+    (String.lowercase_ascii b.model)
+
+let make_board_path (control : int) =
+  Netlib.Uri.Path.of_string @@ Printf.sprintf "board/%d" control
 
 let board_id_of_topo_board ({model; manufacturer; version; _} : topo_board) =
   {manufacturer; model; version}

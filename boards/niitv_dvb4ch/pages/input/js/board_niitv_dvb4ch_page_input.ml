@@ -112,12 +112,13 @@ let observe charts state control records _observer =
           (fun () -> on_visible charts state control target)
           (fun _ -> on_hidden state)
 
-let initialize id control =
+let initialize control =
   let id =
     String.map (function
         | '/' -> '-'
         | c -> c)
-    @@ Topology.make_board_path id control
+    @@ Netlib.Uri.Path.to_string
+    @@ Topology.make_board_path control
   in
   let (_scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
   let state = ref None in
@@ -149,4 +150,4 @@ let () =
   | Ok boards -> (
     match List.find_opt (Topology.equal_board_id board_id % fst) boards with
     | None -> ()
-    | Some (id, controls) -> List.iter (initialize id) controls)
+    | Some (_, controls) -> List.iter initialize controls)

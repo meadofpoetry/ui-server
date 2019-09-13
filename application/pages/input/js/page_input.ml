@@ -5,8 +5,6 @@ let ( >>= ) = Lwt.bind
 
 module Attr = struct
   let hidden = "hidden"
-
-  let aria_hidden = "aria-hidden"
 end
 
 module Selector = struct
@@ -14,24 +12,12 @@ module Selector = struct
 
   let tabpanel = Printf.sprintf "div[role=\"tabpanel\"]"
 
-  let slider = ".slides"
+  let tabpanel_content = "." ^ Page_input_tyxml.CSS.tabpanel_content
+
+  let glide = "." ^ Components_lab.Glide.CSS.root
 end
 
-let update_tabpanels elt active =
-  let translate = Printf.sprintf "translate(%d%%, 0)" (-100 * active) in
-  elt##.style##.transform := Js.string translate;
-  List.iteri (fun i x ->
-      let hidden = i <> active in
-      Element.set_attribute x Attr.aria_hidden (string_of_bool hidden);
-      match Element.query_selector x Selector.tabpanel with
-      | None -> ()
-      | Some x ->
-          if hidden
-          then Element.set_attribute x Attr.hidden ""
-          else Element.remove_attribute x Attr.hidden)
-  @@ Element.children elt
-
-let set_active_page container (tab_bar : Tab_bar.t) =
+let set_active_page (tab_bar : Tab_bar.t) (glide : Components_lab.Glide.t) =
   let hash = Js.to_string Dom_html.window##.location##.hash in
   let active_tab_id =
     match String.split_on_char '#' hash with
@@ -57,7 +43,15 @@ let set_active_page container (tab_bar : Tab_bar.t) =
   match active with
   | None -> ()
   | Some tab ->
-      update_tabpanels container tab#index;
+      let active = tab#index in
+      List.iteri
+        (fun i item ->
+          let content = Element.query_selector_exn item Selector.tabpanel_content in
+          if i <> active
+          then Element.set_attribute content Attr.hidden ""
+          else Element.remove_attribute content Attr.hidden)
+        glide#items;
+      glide#set_active tab#index;
       if not tab#active then Lwt.async (fun () -> tab_bar#set_active_tab tab)
 
 let update_url_hash hash =
@@ -69,6 +63,11 @@ let attach_tab_bar () =
   match Element.query_selector Dom_html.document##.body Selector.tab_bar with
   | None -> failwith "tab bar element not found"
   | Some x -> Tab_bar.attach x
+
+let attach_glide elt =
+  match Element.query_selector elt Selector.glide with
+  | None -> failwith "glide element not found"
+  | Some x -> Components_lab.Glide.attach x
 
 let handle_tab_change body tab_bar e _ : unit Lwt.t =
   let tab = (Widget.event_detail e)##.tab in
@@ -86,13 +85,17 @@ let () =
   let thread =
     scaffold#loaded
     >>= get_body
-    >>= fun body ->
+    >>= fun _ ->
     let tab_bar = attach_tab_bar () in
+    let glide = attach_glide scaffold#app_content_inner in
     let changes =
-      Tab_bar.Lwt_js_events.changes tab_bar#root (handle_tab_change body tab_bar)
+      Tab_bar.Lwt_js_events.changes tab_bar#root (handle_tab_change tab_bar glide)
     in
-    tab_bar#set_on_destroy (fun () -> Lwt.cancel changes);
-    set_active_page body tab_bar;
+    tab_bar#set_on_destroy (fun () ->
+        tab_bar#destroy ();
+        glide#destroy ();
+        Lwt.cancel changes);
+    set_active_page tab_bar glide;
     Lwt.return_ok ()
   in
   let (_ : Dom_html.element Js.t) =

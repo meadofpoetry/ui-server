@@ -15,13 +15,45 @@ module Make
 struct
   open Html
 
-  let create_title ?(classes = []) ?(attrs = []) title =
+  let create_title ?(classes = []) ?(attrs = []) ?title ?(children = []) () =
     let classes = CSS.title :: classes in
-    span ~a:([a_class classes] @ attrs) [txt title]
+    span ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt title children)
 
-  let create ?(classes = []) ?(attrs = []) ~title ~canvas () =
+  let create_wrapper ?(classes = []) ?(attrs = []) ?canvas ?children () =
+    let classes = CSS.wrapper :: classes in
+    let children =
+      match children with
+      | Some x -> x
+      | None ->
+          let canvas =
+            match canvas with
+            | None -> Html.canvas []
+            | Some x -> x
+          in
+          [canvas]
+    in
+    div ~a:([a_class classes] @ attrs) children
+
+  let create ?(classes = []) ?(attrs = []) ?title ?wrapper ?children () =
     let classes = CSS.root :: classes in
-    div ~a:([a_class classes] @ attrs) [title; div ~a:[a_class [CSS.wrapper]] [canvas]]
+    let children =
+      match children with
+      | Some x -> x
+      | None ->
+          let title =
+            match title with
+            | None -> create_title ~title:"Битрейт" ()
+            | Some (`Text s) -> create_title ~title:s ()
+            | Some (`Element e) -> e
+          in
+          let wrapper =
+            match wrapper with
+            | None -> create_wrapper ()
+            | Some x -> x
+          in
+          [title; wrapper]
+    in
+    div ~a:([a_class classes] @ attrs) children
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

@@ -128,12 +128,11 @@ class t (elt : Dom_html.element Js.t) =
       | Some x -> Element.remove x
 
     method private add_pid pid =
-      let elt = Tyxml_js.To_dom.of_element @@ Markup_js.create_pid pid in
+      let elt = Tyxml_js.To_dom.of_element @@ Markup_js.create_pid ~pid () in
       Dom.appendChild pids elt
   end
 
-let make () : t =
-  let elt = Tyxml_js.To_dom.of_element @@ Markup_js.create () in
-  new t elt
-
 let attach (elt : #Dom_html.element Js.t) : t = new t (elt :> Dom_html.element Js.t)
+
+let make ?classes ?attrs ?hex ?pids () : t =
+  Markup_js.create ?classes ?attrs ?hex ?pids () |> Tyxml_js.To_dom.of_div |> attach

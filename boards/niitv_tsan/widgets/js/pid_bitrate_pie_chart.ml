@@ -233,12 +233,10 @@ class t ?(hex = false) ?rate (elt : Dom_html.element Js.t) =
       | _ -> pids @ [Js.string other]
   end
 
-let make ?hex ?rate () : t =
-  let title = Markup_js.create_title title in
-  let canvas = Tyxml_js.Html.canvas [] in
-  let elt = Tyxml_js.To_dom.of_element @@ Markup_js.create ~title ~canvas () in
-  let t = new t ?hex ?rate elt in
-  t
-
 let attach ?hex ?rate (elt : #Dom_html.element Js.t) : t =
   new t ?hex ?rate (elt :> Dom_html.element Js.t)
+
+let make ?classes ?attrs ?title ?wrapper ?children ?hex ?rate () : t =
+  Markup_js.create ?classes ?attrs ?title ?wrapper ?children ()
+  |> Tyxml_js.To_dom.of_div
+  |> attach ?hex ?rate

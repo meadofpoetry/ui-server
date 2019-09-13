@@ -108,67 +108,19 @@ let user_handlers (users : Application.User_api.t) =
           Lwt.return (`Instant rsp)) ]
 
 let input (app : Application.t) (input : Topology.topo_input) =
-  let topo = React.S.value app.topo in
   let open Api_template in
   let get_input_href (x : Topology.topo_input) =
     let name = Topology.input_to_string x.input in
     let id = string_of_int x.id in
     List.fold_left Filename.concat "" ["input"; name; id]
   in
-  let path =
-    Topology.get_paths topo
-    |> List.find_opt (fun (i, _, _) -> Topology.equal_topo_input i input)
-    |> function
-    | Some (_, p, c) -> Some (p, c)
-    | None -> None
-  in
-  match path with
-  | None -> failwith "input not found"
-  | Some (boards, cpu) ->
-      let title = Topology.get_input_name input in
-      let boards_json =
-        List.map Topology.board_id_of_topo_board boards
-        |> Util_json.List.to_yojson Topology.board_id_to_yojson
-        |> Yojson.Safe.to_string
-      in
-      let cpu_json =
-        cpu
-        |> Option.map (fun (x : Topology.topo_cpu) -> x.process)
-        |> Util_json.Option.to_yojson Topology.process_type_to_yojson
-        |> Yojson.Safe.to_string
-      in
-      let input_string = Topology.Show_topo_input.to_string input in
-      let input_page =
-        simple
-          ~priority:(`Index input.id)
-          ~title
-          ~icon:(Tyxml.Html.toelt @@ icon Components_tyxml.Svg_icons.arrow_right)
-          ~path:(Path.of_string @@ get_input_href input)
-          (Input_template.make_template input app.proc app.hw.boards)
-      in
-      let pre = "input/" ^ get_input_href input in
-      let stream_template =
-        make_template_props
-          ~title:("Входы / " ^ title)
-          ~pre_scripts:
-            [ `Raw
-                (Printf.sprintf
-                   "var input = \"%s\";var boards = %s;var cpu = %s;"
-                   input_string
-                   boards_json
-                   cpu_json)
-            ; `Src "/js/moment.min.js"
-            ; `Src "/js/Chart.min.js"
-            ; `Src "/js/chartjs-plugin-streaming.min.js"
-            ; `Src "/js/chartjs-plugin-datalabels.min.js" ]
-          ~post_scripts:[`Src "/js/stream.js"]
-          ()
-      in
-      let stream_page =
-        parametric ~path:Path.Format.(pre @/ Stream.ID.fmt ^/ empty) stream_template
-      in
-      (*`Index input.id,*)
-      input_page, stream_page
+  let title = Topology.get_input_name input in
+  simple
+    ~priority:(`Index input.id)
+    ~title
+    ~icon:(Tyxml.Html.toelt @@ icon Components_tyxml.Svg_icons.arrow_right)
+    ~path:(Path.of_string @@ get_input_href input)
+    (Input_template.make_template input app.proc app.hw.boards)
 
 let topo_page_path = "topology"
 
@@ -181,9 +133,7 @@ let application_pages (app : Application.t) =
       []
   in
   let topo = React.S.value app.topo in
-  let input_props, stream_templates =
-    List.split @@ List.map (input app) @@ Topology.get_inputs topo
-  in
+  let input_props = List.map (input app) @@ Topology.get_inputs topo in
   let topology_props =
     make_template_props
       ~title:"Конфигурация"
@@ -209,7 +159,6 @@ let application_pages (app : Application.t) =
       ~icon:(Tyxml.Html.toelt @@ icon Components_tyxml.Svg_icons.logout_variant)
       ~path:(Path.of_string "logout")
       (logout_page_props ())
-  @ List.flatten stream_templates
   @ hw_templates
 
 let application_handlers (app : Application.t) =
