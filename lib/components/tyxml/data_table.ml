@@ -168,9 +168,9 @@ module Make_fmt (Xml : Xml_sigs.NoWrap) = struct
     | [] : unit data_lazy
     | ( :: ) : (unit -> 'a) * 'b data_lazy -> ('a * 'b) data_lazy
 
-  type _ opt_data =
-    | [] : unit opt_data
-    | ( :: ) : 'a option * 'b opt_data -> ('a * 'b) opt_data
+  type _ data_opt =
+    | [] : unit data_opt
+    | ( :: ) : 'a option * 'b data_opt -> ('a * 'b) data_opt
 end
 
 module Make

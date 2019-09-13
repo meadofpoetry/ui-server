@@ -77,10 +77,10 @@ class ['a] t ~(fmt : 'a Fmt_js.format) (elt : Dom_html.element Js.t) () =
         is raised. *)
 
     method set_row_data_some
-        (data : 'a Fmt_js.opt_data)
+        (data : 'a Fmt_js.data_opt)
         (row : Dom_html.tableRowElement Js.t) =
       let cells = row##.cells in
-      let rec loop : type a. int -> a Fmt_js.format -> a Fmt_js.opt_data -> unit =
+      let rec loop : type a. int -> a Fmt_js.format -> a Fmt_js.data_opt -> unit =
        fun i format data ->
         match format, data with
         | [], [] -> ()
