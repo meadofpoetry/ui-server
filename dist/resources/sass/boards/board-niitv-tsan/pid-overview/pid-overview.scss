@@ -5,6 +5,33 @@
 .board-niitv-tsan-pid-overview {
     .mdc-data-table {
         width: 100%;
+        border: none;
+    }
+
+    &__title {
+        @include mdc-typography(headline6);
+        font-weight: 300;
+        margin: 0;
+        margin-left: 16px;
+    }
+
+    &__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px;
+        box-sizing: border-box;
+        min-height: 52px;
+
+        .mdc-icon-button {
+            @include mdc-theme-prop(color, text-secondary-on-surface);
+        }
+
+        .mdc-menu {
+            .mdc-list-item {
+                white-space: nowrap;
+            }
+        }
     }
 
     .mdc-data-table__cell:nth-of-type(2) {

@@ -160,6 +160,10 @@ module Make_fmt (Xml : Xml_sigs.NoWrap) = struct
     | [] : unit format
     | ( :: ) : 'a column * 'b format -> ('a * 'b) format
 
+  type _ data_format =
+    | [] : unit data_format
+    | ( :: ) : 'a t * 'b data_format -> ('a * 'b) data_format
+
   type _ data =
     | [] : unit data
     | ( :: ) : 'a * 'b data -> ('a * 'b) data

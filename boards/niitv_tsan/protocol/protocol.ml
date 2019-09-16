@@ -6,7 +6,8 @@ type notifs =
   ; devinfo : devinfo option React.signal
   ; status : Parser.Status.t React.event
   ; streams : Stream.t list React.signal
-  ; bitrate : (Stream.ID.t * Bitrate.t) list React.event
+  ; bitrate : (Stream.ID.t * Bitrate.cur) list React.event
+  ; bitrate_ext : (Stream.ID.t * Bitrate.ext) list React.event
   ; structure : (Stream.ID.t * Structure.t) list React.signal
   ; t2mi_info : (Stream.ID.t * (int * T2mi_info.t) list) list React.signal
   ; deverr : Deverr.t list React.event
@@ -15,6 +16,7 @@ type notifs =
 type api =
   { notifs : notifs
   ; kv : config Kv_v.rw
+  ; bitrate_queue : Bitrate_queue.t
   ; channel : 'a. 'a Request.t -> ('a, Request.error) Lwt_result.t
   ; loop : unit -> unit Lwt.t
   ; push_data : Cstruct.t -> unit }
@@ -140,10 +142,13 @@ let create
   let errors, set_errors = React.E.create () in
   let raw_streams, set_raw_streams = React.S.create [] in
   let structure, set_structure = React.E.create () in
+  let bitrate_queue = Bitrate_queue.create () in
   let bitrate, set_bitrate = React.E.create () in
+  let streams = streams_conv raw_streams in
+  let bitrate = map_stream_id streams bitrate in
+  let bitrate_ext = React.E.map (Bitrate_queue.map bitrate_queue) bitrate in
   let t2mi_info, set_t2mi_info = React.E.create () in
   let deverr, set_deverr = React.E.create () in
-  let streams = streams_conv raw_streams in
   let t2mi_mode_listener = change_t2mi_mode streams status kv in
   let notifs =
     { state
@@ -151,7 +156,8 @@ let create
     ; deverr
     ; status
     ; streams
-    ; bitrate = map_stream_id streams bitrate
+    ; bitrate
+    ; bitrate_ext
     ; errors = map_stream_id streams errors
     ; t2mi_info =
         Util_equal.(
@@ -229,4 +235,4 @@ let create
       set_t2mi_info
       set_deverr
   in
-  Lwt.return_ok {notifs; kv; channel; loop; push_data}
+  Lwt.return_ok {notifs; kv; channel; loop; push_data; bitrate_queue}

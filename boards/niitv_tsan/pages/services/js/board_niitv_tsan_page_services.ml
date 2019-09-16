@@ -15,7 +15,7 @@ module Selector = struct
 end
 
 type event =
-  [ `Bitrate of (Stream.ID.t * Bitrate.t) list
+  [ `Bitrate of (Stream.ID.t * int Bitrate.t) list
   | `PIDs of (Stream.ID.t * (int * PID.t) list ts) list
   | `Services of (Stream.ID.t * (int * Service.t) list ts) list
   | `State of Topology.state ]

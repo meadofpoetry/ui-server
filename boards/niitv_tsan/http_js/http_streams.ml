@@ -40,7 +40,9 @@ let get_stream id control =
     (ignore_env_bind (Lwt.return % map_err % of_yojson))
 
 let get_bitrate id control =
-  let of_yojson = Util_json.Option.of_yojson Bitrate.of_yojson in
+  let of_yojson =
+    Util_json.Option.of_yojson (Bitrate.of_yojson Util_json.Int.of_yojson)
+  in
   Api_http.perform
     ~meth:`GET
     ~path:

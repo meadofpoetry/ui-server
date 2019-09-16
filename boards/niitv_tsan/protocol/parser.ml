@@ -719,9 +719,15 @@ module Bitrate = struct
     let total_pids = Message.get_stream_bitrate_total_pids hdr in
     let total_tbls = Message.get_stream_bitrate_total_tables hdr in
     let pids, tbls = of_pids_bitrate total_pids br_per_pkt bdy in
-    let tables = of_tables_bitrate total_tbls br_per_pkt tbls in
     let stream = Message.get_stream_bitrate_stream_id hdr in
-    let data = {Bitrate.total; pids; tables; timestamp} in
+    let null = Option.value ~default:0 (List.assoc_opt 0x1FFF pids) in
+    let data =
+      { Bitrate.total
+      ; effective = total - null
+      ; pids
+      ; tables = of_tables_bitrate total_tbls br_per_pkt tbls
+      ; timestamp }
+    in
     let rsp = Stream.Multi_TS_ID.of_int32_pure stream, data in
     rsp, rest
 

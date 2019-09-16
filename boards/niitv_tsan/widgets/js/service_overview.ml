@@ -10,7 +10,7 @@ let ( >>= ) = Lwt.bind
 
 type event =
   [ `State of [Topology.state | `No_sync]
-  | `Bitrate of Bitrate.t option
+  | `Bitrate of int Bitrate.t option
   | `PIDs of (int * PID.t) list ts
   | `Services of (int * Service.t) list ts ]
 
@@ -33,7 +33,7 @@ end)
 let update_row_bitrate
     (table : 'a Gadt_data_table.t)
     (info : Service.t)
-    (bitrate : Bitrate.t)
+    (bitrate : int Bitrate.t)
     row =
   let bps = Util.total_bitrate_for_pids bitrate (Util.service_pids info) in
   let pct = Float.(100. *. (of_int bps /. of_int bitrate.total)) in
@@ -131,7 +131,7 @@ class t ?(init : (int * Service.t) list ts option) elt () =
       Element.toggle_class_unit ~force:no_response super#root CSS.no_response
     (** Updates widget state *)
 
-    method set_bitrate : Bitrate.t option -> unit =
+    method set_bitrate : int Bitrate.t option -> unit =
       function
       | None -> () (* FIXME do smth *)
       | Some bitrate ->

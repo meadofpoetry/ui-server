@@ -5,9 +5,19 @@ open Util
 
 module Event = struct
   let get_bitrate ?(ids = []) sock control =
-    let of_yojson = stream_assoc_list_of_yojson Bitrate.of_yojson in
+    let of_yojson = stream_assoc_list_of_yojson Bitrate.cur_of_yojson in
     Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("board" @/ Int ^/ "monitoring/bitrate" @/ empty)
+      ~query:Query.["id", (module List (Stream.ID))]
+      control
+      ids
+      of_yojson
+      sock
+
+  let get_bitrate_with_stats ?(ids = []) sock control =
+    let of_yojson = stream_assoc_list_of_yojson Bitrate.ext_of_yojson in
+    Api_js.Websocket.JSON.subscribe
+      ~path:Path.Format.("board" @/ Int ^/ "monitoring/bitrate/with-stats" @/ empty)
       ~query:Query.["id", (module List (Stream.ID))]
       control
       ids
@@ -56,7 +66,7 @@ let get_errors ?(ids = []) ?timeout ?(pids = []) ?(priority = []) control =
     (ignore_env_bind (Lwt.return % map_err % of_yojson))
 
 let get_bitrate ?(ids = []) ?timeout control =
-  let of_yojson = stream_assoc_list_of_yojson Bitrate.of_yojson in
+  let of_yojson = stream_assoc_list_of_yojson Bitrate.cur_of_yojson in
   Api_http.perform
     ~meth:`GET
     ~path:Path.Format.("api/board" @/ Int ^/ "monitoring/bitrate" @/ empty)
@@ -65,6 +75,26 @@ let get_bitrate ?(ids = []) ?timeout control =
     ids
     timeout
     (ignore_env_bind (Lwt.return % map_err % of_yojson))
+
+let get_bitrate_with_stats ?(ids = []) ?timeout control =
+  let of_yojson = stream_assoc_list_of_yojson Bitrate.ext_of_yojson in
+  Api_http.perform
+    ~meth:`GET
+    ~path:Path.Format.("api/board" @/ Int ^/ "monitoring/bitrate/with-stats" @/ empty)
+    ~query:Query.["id", (module List (Stream.ID)); "timeout", (module Option (Int))]
+    control
+    ids
+    timeout
+    (ignore_env_bind (Lwt.return % map_err % of_yojson))
+
+let reset_bitrate_stats ?(ids = []) control =
+  Api_http.perform_unit
+    ~meth:`POST
+    ~path:Path.Format.("api/board" @/ Int ^/ "monitoring/bitrate/reset-stats" @/ empty)
+    ~query:Query.["id", (module List (Stream.ID))]
+    control
+    ids
+    (fun _env res -> Lwt.return res)
 
 let get_ts_info ?force ?(ids = []) control =
   let of_yojson = stream_assoc_list_of_yojson TS_info.of_yojson in

@@ -11,8 +11,13 @@ module Event = struct
     | x -> Some x
 
   let get_bitrate (api : Protocol.api) ids _user =
-    let to_yojson = stream_assoc_list_to_yojson Bitrate.to_yojson in
+    let to_yojson = stream_assoc_list_to_yojson Bitrate.cur_to_yojson in
     let event = E.fmap (Option.map to_yojson % filter_ids ids) api.notifs.bitrate in
+    Lwt.return event
+
+  let get_bitrate_with_stats (api : Protocol.api) ids _user =
+    let to_yojson = stream_assoc_list_to_yojson Bitrate.ext_to_yojson in
+    let event = E.fmap (Option.map to_yojson % filter_ids ids) api.notifs.bitrate_ext in
     Lwt.return event
 
   let get_ts_info (api : Protocol.api) ids _user =
@@ -84,9 +89,33 @@ let get_bitrate (api : Protocol.api) ids timeout _user _body _env _state =
     ; Util_react.E.next api.notifs.bitrate >>= Lwt.return_ok
     ; (Lwt_unix.sleep timeout >>= fun () -> Lwt.return_ok []) ]
   >>=? fun bitrate ->
-  return_value @@ stream_assoc_list_to_yojson Bitrate.to_yojson @@ filter_ids ids bitrate
+  return_value
+  @@ stream_assoc_list_to_yojson Bitrate.cur_to_yojson
+  @@ filter_ids ids bitrate
 
-let ( >>= ) = Lwt_result.( >>= )
+let get_bitrate_with_stats (api : Protocol.api) ids timeout _user _body _env _state =
+  let timeout =
+    match timeout with
+    | None -> Fsm.status_timeout
+    | Some x -> int_ms_to_float_s x
+  in
+  Lwt.pick
+    [ Boards.Board.await_no_response api.notifs.state >>= not_responding
+    ; Util_react.E.next api.notifs.bitrate_ext >>= Lwt.return_ok
+    ; (Lwt_unix.sleep timeout >>= fun () -> Lwt.return_ok []) ]
+  >>=? fun bitrate ->
+  return_value
+  @@ stream_assoc_list_to_yojson Bitrate.ext_to_yojson
+  @@ filter_ids ids bitrate
+
+let reset_bitrate_stats (api : Protocol.api) ids _user _body _env _state =
+  print_endline "resetting bitrate stats";
+  (match ids with
+  | [] -> Bitrate_queue.clear api.bitrate_queue
+  | ids -> List.iter (Bitrate_queue.clear_stream api.bitrate_queue) ids);
+  Lwt.return `Unit
+
+let ( >>= ) = Lwt_result.bind
 
 let get_ts_info (api : Protocol.api) force ids _user _body _env _state =
   (match force with
@@ -94,9 +123,7 @@ let get_ts_info (api : Protocol.api) force ids _user _body _env _state =
       let request_id = Request_id.next () in
       api.channel (Get_structure {request_id; stream = `All})
       >>= Lwt.return_ok % map_stream_id (React.S.value api.notifs.streams)
-  | None | Some false ->
-      check_state api.notifs.state
-      >>= fun () -> Lwt.return_ok @@ React.S.value api.notifs.structure)
+  | None | Some false -> Lwt.return_ok @@ React.S.value api.notifs.structure)
   >>=? return_value
        % stream_assoc_list_to_yojson TS_info.to_yojson
        % filter_ids ids
@@ -108,9 +135,7 @@ let get_pids (api : Protocol.api) force ids _user _body _env _state =
       let request_id = Request_id.next () in
       api.channel (Get_structure {request_id; stream = `All})
       >>= Lwt.return_ok % map_stream_id (React.S.value api.notifs.streams)
-  | None | Some false ->
-      check_state api.notifs.state
-      >>= fun () -> Lwt.return_ok @@ React.S.value api.notifs.structure)
+  | None | Some false -> Lwt.return_ok @@ React.S.value api.notifs.structure)
   >>=? return_value
        % stream_assoc_list_to_yojson pids_ts_to_yojson
        % filter_ids ids
@@ -122,9 +147,7 @@ let get_si_psi_tables (api : Protocol.api) force ids _user _body _env _state =
       let request_id = Request_id.next () in
       api.channel (Get_structure {request_id; stream = `All})
       >>= Lwt.return_ok % map_stream_id (React.S.value api.notifs.streams)
-  | None | Some false ->
-      check_state api.notifs.state
-      >>= fun () -> Lwt.return_ok @@ React.S.value api.notifs.structure)
+  | None | Some false -> Lwt.return_ok @@ React.S.value api.notifs.structure)
   >>=? return_value
        % stream_assoc_list_to_yojson si_psi_tables_to_yojson
        % filter_ids ids
@@ -136,9 +159,7 @@ let get_services (api : Protocol.api) force ids _user _body _env _state =
       let request_id = Request_id.next () in
       api.channel (Get_structure {request_id; stream = `All})
       >>= Lwt.return_ok % map_stream_id (React.S.value api.notifs.streams)
-  | None | Some false ->
-      check_state api.notifs.state
-      >>= fun () -> Lwt.return_ok @@ React.S.value api.notifs.structure)
+  | None | Some false -> Lwt.return_ok @@ React.S.value api.notifs.structure)
   >>=? return_value
        % stream_assoc_list_to_yojson services_ts_to_yojson
        % filter_ids ids

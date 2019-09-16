@@ -6,7 +6,7 @@ include Board_niitv_tsan_widgets_tyxml.Service_info
 module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 type event =
-  [ `Bitrate of Bitrate.t option
+  [ `Bitrate of int Bitrate.t option
   | `Service of (int * Service.t) option
   | `PIDs of (int * PID.t) list ts ]
 
@@ -82,16 +82,16 @@ class t (elt : Dom_html.element Js.t) () =
               pid_overview#notify (`PIDs {x with data = self#filter_pids x.data}))
             pids
       | `Bitrate rate as x ->
-          let rate =
+          let _rate =
             Option.map
               (fun x ->
                 let total = Util.total_bitrate_for_pids x general_info#elements in
                 {x with total})
               rate
           in
-          general_info#notify x;
-          pid_overview#notify (`Bitrate rate)
+          general_info#notify x
 
+    (* pid_overview#notify (`Bitrate rate) *)
     method private filter_pids pids =
       List.filter (fun (pid, _) -> List.mem pid general_info#elements) pids
 

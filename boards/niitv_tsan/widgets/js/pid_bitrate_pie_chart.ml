@@ -9,7 +9,7 @@ module Selector = struct
   let canvas = "canvas"
 end
 
-type event = [`Bitrate of Bitrate.t option]
+type event = [`Bitrate of int Bitrate.t option]
 
 let ( % ) f g x = f (g x)
 
@@ -192,7 +192,7 @@ class t ?(hex = false) ?rate (elt : Dom_html.element Js.t) =
           pie##.data##.labels := self#make_labels pids oth;
           pie##update
 
-    method set_rate : Bitrate.t option -> unit =
+    method set_rate : int Bitrate.t option -> unit =
       function
       | None ->
           _rate <- None;

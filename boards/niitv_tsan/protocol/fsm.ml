@@ -24,7 +24,7 @@ type event =
   | `End_of_transmission ]
 
 type probe =
-  [ `Bitrate of (Stream.Multi_TS_ID.t * Bitrate.t) list
+  [ `Bitrate of (Stream.Multi_TS_ID.t * int Bitrate.t) list
   | `Structure of (Stream.Multi_TS_ID.t * Structure.t) list
   | `T2MI_info of (Stream.Multi_TS_ID.t * (int * T2mi_info.t) list) list
   | `Deverr of Deverr.t list ]
@@ -216,7 +216,7 @@ let start
     (set_errors : (Stream.Multi_TS_ID.t * Error.t list) list set)
     (set_streams : Stream.Raw.t list set)
     (set_structure : (Stream.Multi_TS_ID.t * Structure.t) list set)
-    (set_bitrate : (Stream.Multi_TS_ID.t * Bitrate.t) list set)
+    (set_bitrate : (Stream.Multi_TS_ID.t * int Bitrate.t) list set)
     (set_t2mi_info : (Stream.Multi_TS_ID.t * (int * T2mi_info.t) list) list set)
     (set_deverr : Deverr.t list set) =
   let (module Logs : Logs.LOG) = Logs.src_log src in

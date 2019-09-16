@@ -100,6 +100,19 @@ let handlers (control : int) (api : Protocol.api) =
                 Query.["id", (module List (Stream.ID)); "timeout", (module Option (Int))]
               (Api_monitoring.get_bitrate api)
           ; node
+              ~doc:"Returns current bitrate with additional statistics"
+              ~meth:`GET
+              ~path:(Path.Format.of_string "bitrate/with-stats")
+              ~query:
+                Query.["id", (module List (Stream.ID)); "timeout", (module Option (Int))]
+              (Api_monitoring.get_bitrate_with_stats api)
+          ; node
+              ~doc:"Resets bitrate stats"
+              ~meth:`POST
+              ~path:(Path.Format.of_string "bitrate/reset-stats")
+              ~query:Query.["id", (module List (Stream.ID))]
+              (Api_monitoring.reset_bitrate_stats api)
+          ; node
               ~doc:"Returns available services"
               ~meth:`GET
               ~path:(Path.Format.of_string "services")
@@ -242,6 +255,11 @@ let ws (control : int) (api : Protocol.api) =
               ~path:(Path.Format.of_string "bitrate")
               ~query:Query.["id", (module List (Stream.ID))]
               (Api_monitoring.Event.get_bitrate api)
+          ; event_node
+              ~doc:"Bitrate with additional statistics socket"
+              ~path:(Path.Format.of_string "bitrate/with-stats")
+              ~query:Query.["id", (module List (Stream.ID))]
+              (Api_monitoring.Event.get_bitrate_with_stats api)
           ; event_node
               ~doc:"PIDs socket"
               ~path:(Path.Format.of_string "pids")

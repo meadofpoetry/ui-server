@@ -233,7 +233,9 @@ type _ t =
       ; id_ext_2 : int option (* orig_nw_id for EIT *)
       ; section : int option }
       -> SI_PSI_section.Dump.t ts t
-  | Get_bitrate : {request_id : Uint16.t} -> (Stream.Multi_TS_ID.t * Bitrate.t) list t
+  | Get_bitrate :
+      {request_id : Uint16.t}
+      -> (Stream.Multi_TS_ID.t * int Bitrate.t) list t
   | Get_structure :
       { request_id : Uint16.t
       ; stream : [`All | `Single of Stream.Multi_TS_ID.t] }

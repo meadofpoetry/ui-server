@@ -15,7 +15,7 @@ let map_stream_id streams =
       | None -> None
       | Some s -> Some (s.id, v))
 
-let ( >>= ) = Lwt.( >>= )
+let ( >>= ) = Lwt.bind
 
 let ( >>=? ) x f =
   x

@@ -1,9 +1,20 @@
 open Components_tyxml
+open Components_lab_tyxml
 open Application_types
 open Board_niitv_tsan_types
 
 module CSS = struct
   let root = Util.CSS.root ^ "-pid-overview"
+
+  let header = BEM.add_element root "header"
+
+  let title = BEM.add_element root "title"
+
+  let hex_switch = BEM.add_element root "hex-switch"
+
+  let bitrate_reset = BEM.add_element root "bitrate-reset"
+
+  let menu_icon = BEM.add_element root "menu-icon"
 
   let table = BEM.add_element root "table"
 
@@ -32,9 +43,55 @@ struct
   open Html
   module Box_markup = Box.Make (Xml) (Svg) (Html)
   module Data_table_markup = Data_table.Make (Xml) (Svg) (Html)
+  module Divider_markup = Divider.Make (Xml) (Svg) (Html)
   module Fmt = Data_table.Make_fmt (Xml)
   module Icon_markup = Icon.Make (Xml) (Svg) (Html)
-  module Placeholder_markup = Components_lab_tyxml.Placeholder.Make (Xml) (Svg) (Html)
+  module Icon_button_markup = Icon_button.Make (Xml) (Svg) (Html)
+  module Placeholder_markup = Placeholder.Make (Xml) (Svg) (Html)
+  module Menu_markup = Menu.Make (Xml) (Svg) (Html)
+
+  let create_title ?(classes = []) ?(attrs = []) ?title ?(children = []) () =
+    let classes = CSS.title :: classes in
+    h3 ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt title children)
+
+  let create_menu ?classes ?attrs () =
+    Menu_markup.create
+      ?classes
+      ?attrs
+      ~list_children:
+        Menu_markup.Item_list.
+          [ create_item
+              ~classes:[CSS.hex_switch]
+              ~graphic:
+                (Icon_markup.SVG.create
+                   ~classes:[Item_list.CSS.item_graphic]
+                   ~d:Svg_icons.check
+                   ())
+              ~primary_text:(`Text "HEX ID")
+              ()
+          ; create_item
+              ~classes:[CSS.bitrate_reset]
+              ~graphic:(span ~a:[a_class [Item_list.CSS.item_graphic]] [])
+              ~primary_text:(`Text "Сброс битрейта")
+              () ]
+      ()
+
+  let create_header ?(classes = []) ?(attrs = []) ?children () =
+    let classes = CSS.header :: classes in
+    let children =
+      match children with
+      | Some x -> x
+      | None ->
+          [ create_title ~title:"Список PID" ()
+          ; div
+              ~a:[a_class [Menu_surface.CSS.anchor]]
+              [ Icon_button_markup.create
+                  ~classes:[CSS.menu_icon]
+                  ~icon:(Icon_markup.SVG.create ~d:Svg_icons.dots_vertical ())
+                  ()
+              ; create_menu () ] ]
+    in
+    header ~a:([a_class classes] @ attrs) children
 
   let pid_type_fmt : MPEG_TS.PID.Type.t Fmt.custom =
     MPEG_TS.PID.Type.
@@ -43,12 +100,16 @@ struct
       ; compare
       ; is_numeric = false }
 
+  let dec_pid_fmt = Fmt.Int
+
   let hex_pid_fmt =
     Fmt.Custom
       { to_string = Util.pid_to_hex_string
       ; of_string = int_of_string
       ; compare
       ; is_numeric = true }
+
+  let pid_fmt ~hex = if hex then hex_pid_fmt else dec_pid_fmt
 
   let create_pid_flags ?classes ?attrs {has_pcr; scrambled} =
     let pcr =
@@ -82,12 +143,11 @@ struct
       ; compare
       ; is_numeric = true }
 
-  let create_table_format ?(is_hex = false) () : _ Data_table_markup.Fmt.format =
+  let create_table_format ?(hex = false) () : _ Data_table_markup.Fmt.format =
     let br_fmt = Fmt.Option (Float, "-") in
     let pct_fmt = Fmt.Option (pct_fmt, "-") in
-    let pid_fmt = if is_hex then hex_pid_fmt else Fmt.Int in
     Fmt.
-      [ make_column ~sortable:true ~title:"PID" pid_fmt
+      [ make_column ~sortable:true ~title:"PID" (pid_fmt ~hex)
       ; make_column ~sortable:true ~title:"Тип" (Custom pid_type_fmt)
       ; make_column ~title:"Доп. инфо" (Custom_elt pid_flags_fmt)
       ; make_column ~sortable:true ~title:"Сервис" (Option (String, ""))
@@ -100,8 +160,6 @@ struct
     let flags = {has_pcr = info.has_pcr; scrambled = info.scrambled} in
     Fmt.[pid; info.typ; flags; info.service_name; None; None; None; None]
 
-  let table_fmt = create_table_format ()
-
   let create_empty_placeholder ?classes ?attrs () =
     Placeholder_markup.create
       ?classes
@@ -110,7 +168,7 @@ struct
       ~text:(`Text "Не найдено ни одного PID")
       ()
 
-  let create ?(classes = []) ?(attrs = []) ?(dense = true) ?init () =
+  let create ?(classes = []) ?(attrs = []) ?(dense = true) ?hex ?init () =
     let classes = CSS.root :: classes in
     let init, placeholder =
       match init with
@@ -121,11 +179,13 @@ struct
       Data_table_markup.create_of_fmt
         ~dense
         ~classes:[CSS.table]
-        ~format:table_fmt
+        ~format:(create_table_format ?hex ())
         ~data:(List.map data_of_pid_info init)
         ()
     in
-    div ~a:([a_class classes] @ attrs) @@ List.rev Utils.(placeholder ^:: [table])
+    div ~a:([a_class classes] @ attrs)
+    @@ Utils.(
+         [create_header (); Divider_markup.create_hr (); table] @ placeholder ^:: [])
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

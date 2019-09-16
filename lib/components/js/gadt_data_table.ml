@@ -76,6 +76,30 @@ class ['a] t ~(fmt : 'a Fmt_js.format) (elt : Dom_html.element Js.t) () =
         in the collection, a [DOMException] with the value [IndexSizeError]
         is raised. *)
 
+    method data_format =
+      let rec loop : type a. a Fmt_js.format -> a Fmt_js.data_format =
+       fun fmt ->
+        match fmt with
+        | [] -> []
+        | x :: tl -> x.format :: loop tl
+      in
+      loop fmt
+
+    method set_data_format ?(redraw = true) (x : 'a Fmt_js.data_format) =
+      let rec loop : type a. a Fmt_js.format -> a Fmt_js.data_format -> a Fmt_js.format =
+       fun fmt data_fmt ->
+        match fmt, data_fmt with
+        | [], [] -> []
+        | x :: xtl, y :: ytl -> {x with format = y} :: loop xtl ytl
+      in
+      let format = loop fmt x in
+      if redraw
+      then (
+        let data = List.map (fun row -> row, self#get_row_data row) super#rows in
+        fmt <- format;
+        List.iter (fun (row, data) -> self#set_row_data data row) data)
+      else fmt <- format
+
     method set_row_data_some
         (data : 'a Fmt_js.data_opt)
         (row : Dom_html.tableRowElement Js.t) =

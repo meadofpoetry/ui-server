@@ -7,7 +7,7 @@ module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 type event =
   [ `Service of (int * Service.t) option
-  | `Bitrate of Bitrate.t option ]
+  | `Bitrate of int Bitrate.t option ]
 
 module Attr = struct
   type typ =

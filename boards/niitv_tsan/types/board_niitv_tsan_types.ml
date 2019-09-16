@@ -168,22 +168,30 @@ module Deverr = struct
 end
 
 module Bitrate = struct
-  type table =
+  type value =
+    { min : int
+    ; max : int
+    ; cur : int }
+
+  and 'a table =
     { table_id : int
     ; table_id_ext : int
     ; id_ext_1 : int
     ; id_ext_2 : int
     ; fully_analyzed : bool
     ; section_syntax : bool
-    ; bitrate : int }
-  [@@deriving yojson, eq]
+    ; bitrate : 'a }
 
-  type t =
-    { total : int
-    ; tables : table list
-    ; pids : (int * int) list
+  and 'a t =
+    { total : 'a
+    ; effective : 'a
+    ; tables : 'a table list
+    ; pids : (int * 'a) list
     ; timestamp : Time.t }
-  [@@deriving yojson, eq]
+
+  and cur = int t
+
+  and ext = value t [@@deriving yojson, eq]
 end
 
 module TS_info = struct

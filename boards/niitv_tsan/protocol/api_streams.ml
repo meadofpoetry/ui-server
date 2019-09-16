@@ -74,7 +74,9 @@ let get_bitrate (api : Protocol.api) id _user _body _env _state =
     ; Util_react.E.next api.notifs.bitrate >>= Lwt.return_ok
     ; Fsm.sleep Fsm.status_timeout ]
   >>=? fun bitrate ->
-  return_value @@ Util_json.Option.to_yojson Bitrate.to_yojson @@ find_by_id id bitrate
+  return_value
+  @@ Util_json.Option.to_yojson (Bitrate.to_yojson Util_json.Int.to_yojson)
+  @@ find_by_id id bitrate
 
 let get_ts_info (api : Protocol.api) id force _user _body _env _state =
   match force with
