@@ -4,7 +4,7 @@ open Board_niitv_tsan_types
 open Components
 
 let () =
-  let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
+  let (_scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
   let boards =
     Topology.boards_of_yojson
     @@ Yojson.Safe.from_string
@@ -16,10 +16,13 @@ let () =
       let tsan_boards = List.assoc_opt board_id boards in
       Option.iter
         (fun controls ->
-          let pages =
-            List.filter_map
-              (fun control -> Board_niitv_tsan_page_pids.init control)
+          let _pages =
+            List.iter
+              (fun control ->
+                Board_niitv_tsan_page_pids.init control;
+                Board_niitv_tsan_page_services.init control)
               controls
           in
-          scaffold#set_on_destroy (fun () -> List.iter Widget.destroy pages))
+          ()
+          (* scaffold#set_on_destroy (fun () -> List.iter Widget.destroy pages) *))
         tsan_boards

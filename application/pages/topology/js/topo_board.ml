@@ -41,8 +41,7 @@ let port_setter (b : Topology.topo_board) port state =
   | "NIITV", "TSAN", _ ->
       let open Board_niitv_tsan_http_js in
       Http_device.set_port ~port state b.control
-      |> Lwt_result.map_err Api_js.Http.error_to_string
-  | _ -> Lwt_result.fail "Device has no switchable ports"
+  | _ -> Lwt_result.fail (`Msg "Device has no switchable ports")
 
 (* TODO replace with something more abstract.
    Maybe the device should define a CSS style (color) on its own *)
@@ -54,20 +53,20 @@ let get_board_type ({manufacturer; model; _} : Topology.topo_board) =
   | "NIITV", "DVB4CH" -> "DVB"
   | _ -> ""
 
-let ( >>= ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
+let ( >>=? ) = Lwt_result.bind
 
 let make_board_niitv_tsan_settings state socket control =
   let open React in
   let open Board_niitv_tsan_http_js in
   let open Board_niitv_tsan_widgets in
   Http_device.get_t2mi_mode control
-  >>= fun mode ->
+  >>=? fun mode ->
   Http_streams.get_streams ~incoming:true control
-  >>= fun streams ->
+  >>=? fun streams ->
   Http_device.Event.get_t2mi_mode socket control
-  >>= fun (mid, e_mode) ->
+  >>=? fun (mid, e_mode) ->
   Http_streams.Event.get_streams ~incoming:true socket control
-  >>= fun (sid, e_strm) ->
+  >>=? fun (sid, e_strm) ->
   let w = T2mi_settings.make (S.value state) mode streams control in
   let notif =
     E.merge
@@ -94,15 +93,15 @@ let make_board_niitv_dvb4ch_settings state socket control =
           Http_receivers.get_plp_list ~id control >>= fun x -> get_plps (x :: acc) tl)
   in
   Http_device.get_mode control
-  >>= fun mode ->
+  >>=? fun mode ->
   Http_device.get_receivers control
-  >>= fun receivers ->
+  >>=? fun receivers ->
   get_plps [] receivers
-  >>= fun plps ->
+  >>=? fun plps ->
   Http_device.Event.get_mode socket control
-  >>= fun (mode_id, e_mode) ->
+  >>=? fun (mode_id, e_mode) ->
   Http_receivers.Event.get_plp_list socket control
-  >>= fun (plps_id, e_plps) ->
+  >>=? fun (plps_id, e_plps) ->
   (* FIXME *)
   let w = Settings.make (S.value state) mode plps (Some receivers) control in
   let notif =
@@ -125,9 +124,9 @@ let make_board_dektec_dtm3200_settings state socket control =
   let open Board_dektec_dtm3200_http_js in
   let open Board_dektec_dtm3200_widgets_js in
   Http_device.get_config control
-  >>= fun {nw; ip_receive; _} ->
+  >>=? fun {nw; ip_receive; _} ->
   Http_device.Event.get_config socket control
-  >>= fun (id, event) ->
+  >>=? fun (id, event) ->
   let w = Widget_settings.make (S.value state) nw ip_receive control in
   let notif =
     E.merge
@@ -147,7 +146,7 @@ let make_board_page (signal : Topology.topo_board React.signal) socket =
   | "NIITV", "TSAN", _ -> make_board_niitv_tsan_settings state socket control
   | "NIITV", "DVB4CH", _ -> make_board_niitv_dvb4ch_settings state socket control
   | "DekTec", "DTM-3200", _ -> make_board_dektec_dtm3200_settings state socket control
-  | _ -> Lwt.return_error "No settings available for the device"
+  | _ -> Lwt.return_error (`Msg "No settings available for the device")
 
 module Header = struct
   class t (board : Topology.topo_board) () =

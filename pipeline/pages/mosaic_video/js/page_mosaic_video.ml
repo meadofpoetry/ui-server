@@ -14,6 +14,8 @@ end
 
 let ( >>= ) = Lwt.bind
 
+let ( >>=? ) = Lwt_result.bind
+
 module RTC = struct
   open Janus_js
 
@@ -234,8 +236,6 @@ let tie_menu_with_toggle (scaffold : Scaffold.t) (wizard_dialog, show_wizard) =
       menu#layout ();
       Some menu
 
-let ( >>=? ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
-
 let submit_wizard (scaffold : Scaffold.t) value =
   Pipeline_http_js.Http_wm.set_layout value
   >>= function
@@ -244,8 +244,8 @@ let submit_wizard (scaffold : Scaffold.t) value =
       let snackbar = Snackbar.make ~dismiss:`True ~label:(`Text label) () in
       snackbar#set_timeout 4.;
       scaffold#show_snackbar ~on_close:(fun _ -> snackbar#destroy ()) snackbar
-  | Error e ->
-      let label = Printf.sprintf "Ошибка. %s" @@ Api_js.Http.error_to_string e in
+  | Error (`Msg e) ->
+      let label = Printf.sprintf "Ошибка. %s" e in
       let snackbar = Snackbar.make ~label:(`Text label) () in
       scaffold#show_snackbar ~on_close:(fun _ -> snackbar#destroy ()) snackbar
 

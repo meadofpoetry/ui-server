@@ -57,7 +57,7 @@ let get_topology () =
       | Error e -> Lwt.return_error e
       | Ok x -> (
         match Topology.of_yojson x with
-        | Error e -> Lwt.return_error (`Conv_error e)
+        | Error e -> Lwt.return_error (`Msg e)
         | Ok x -> Lwt.return_ok x))
 
 let get_streams () =
@@ -69,7 +69,7 @@ let get_streams () =
       | Error e -> Lwt.return_error e
       | Ok x -> (
         match Stream.stream_table_of_yojson x with
-        | Error e -> Lwt.return_error (`Conv_error e)
+        | Error e -> Lwt.return_error (`Msg e)
         | Ok x -> Lwt.return_ok x))
 
 let get_all_streams ~input () =
@@ -81,7 +81,7 @@ let get_all_streams ~input () =
       | Error e -> Lwt.return_error e
       | Ok x -> (
         match Stream.stream_list_of_yojson x with
-        | Error e -> Lwt.return_error (`Conv_error e)
+        | Error e -> Lwt.return_error (`Msg e)
         | Ok x -> Lwt.return_ok x))
 
 let get_stream_source ~stream_id () =
@@ -93,7 +93,7 @@ let get_stream_source ~stream_id () =
       | Error e -> Lwt.return_error e
       | Ok x -> (
         match Stream.source_of_yojson x with
-        | Error e -> Lwt.return_error (`Conv_error e)
+        | Error e -> Lwt.return_error (`Msg e)
         | Ok x -> Lwt.return_ok x))
 
 let get_log
@@ -135,7 +135,7 @@ let get_log
               (fun _ -> Ok [])
           in
           match of_json x with
-          | Error e -> Lwt.return_error (`Conv_error e)
+          | Error e -> Lwt.return_error (`Msg e)
           | Ok x -> Lwt.return_ok x))
 
 let set_user_password (pass : User.pass_change) =

@@ -119,24 +119,24 @@ class t (elt : Dom_html.element Js.t) =
                     | Accept -> upgrade ~reboot:auto_reboot ())
               >>= function
               | Ok _ -> Lwt.return_ok ()
-              | Error err ->
+              | Error (`Msg err) ->
                   let msg =
                     Printf.sprintf
                       "Не удалось выполнить обновление. \n%s"
-                      (Api_js.Http.error_to_string err)
+                      err
                   in
                   Lwt.return_error msg)
           | `Unchecked | `Updates_not_avail -> (
               check_updates ()
               >>= function
               | Ok _ -> Lwt.return_ok ()
-              | Error err ->
+              | Error (`Msg err) ->
                   let msg =
                     Printf.sprintf
                       "Не удалось проверить наличие \
                        обновлений. \n\
                        %s"
-                      (Api_js.Http.error_to_string err)
+                      err
                   in
                   Lwt.return_error msg)
           | `Need_reboot -> (
@@ -148,12 +148,12 @@ class t (elt : Dom_html.element Js.t) =
                 Pc_control_http_js.Power.reboot ()
                 >>= function
                 | Ok _ as ok -> Lwt.return ok
-                | Error err ->
+                | Error (`Msg err) ->
                     let msg =
                       Printf.sprintf
                         "Не удалось перезагрузить прибор. \n\
                          %s"
-                        (Api_js.Http.error_to_string err)
+                        err
                     in
                     Lwt.return_error msg)
           | `Checking _ | `Upgrading _ -> Lwt.return_ok ()

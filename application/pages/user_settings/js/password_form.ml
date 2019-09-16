@@ -196,8 +196,7 @@ class t
             | Ok () ->
                 if User.equal user usr then Dom_html.window##.location##reload;
                 Lwt.return_ok ()
-            | Error e ->
-                let msg = Api_js.Http.error_to_string e in
+            | Error (`Msg msg as e) ->
                 old_password#set_helper_text_content msg;
                 old_password#set_use_native_validation false;
                 old_password#set_valid false;
@@ -212,9 +211,10 @@ class t
           let label =
             match x with
             | Ok () -> "Пароль успешно изменен"
-            | Error e ->
-                Printf.sprintf "Не удалось изменить пароль. %s"
-                @@ Api_js.Http.error_to_string e
+            | Error (`Msg msg) ->
+                Printf.sprintf
+                  "Не удалось изменить пароль. %s"
+                  msg
           in
           let snackbar = Snackbar.make ~label:(`Text label) () in
           set_snackbar snackbar

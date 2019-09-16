@@ -295,10 +295,10 @@ class t (structure : Structure.Annotated.t) () =
       Option.iter Lwt.cancel _on_submit;
       _on_submit <- None
 
-    method submit () : (unit, string) Lwt_result.t =
+    method submit () =
       let req = Pipeline_http_js.Http_structure.apply_structures self#value in
       submit#set_loading_lwt req;
-      Lwt_result.map_err Api_js.Http.error_to_string req
+      req
 
     method value : Structure.Many.t =
       let selected = _treeview#selected_leafs in

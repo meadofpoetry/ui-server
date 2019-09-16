@@ -1,12 +1,10 @@
 module Informational = struct
-
   type t =
     [ `Continue
     | `Switching_protocols
     | `Processing
     | `Checkpoint
-    | `Request_uri_too_long
-    ]
+    | `Request_uri_too_long ]
 
   let to_int : t -> int = function
     | `Continue -> 100
@@ -29,11 +27,9 @@ module Informational = struct
     | `Processing -> "Processing (WebDAV) (RFC 2518)"
     | `Checkpoint -> "Checkpoint"
     | `Request_uri_too_long -> "Request-URI too long"
-
 end
 
 module Success = struct
-
   type t =
     [ `OK
     | `Created
@@ -44,8 +40,7 @@ module Success = struct
     | `Partial_content
     | `Multi_status
     | `Already_reported
-    | `Im_used
-    ]
+    | `Im_used ]
 
   let to_int : t -> int = function
     | `OK -> 200
@@ -86,7 +81,6 @@ module Success = struct
 end
 
 module Redirection = struct
-
   type t =
     [ `Multiple_choices
     | `Moved_permanently
@@ -96,8 +90,7 @@ module Redirection = struct
     | `Use_proxy
     | `Switch_proxy
     | `Temporary_redirect
-    | `Resume_incomplete
-    ]
+    | `Resume_incomplete ]
 
   let to_int : t -> int = function
     | `Multiple_choices -> 300
@@ -132,11 +125,9 @@ module Redirection = struct
     | `Switch_proxy -> "Switch Proxy"
     | `Temporary_redirect -> "Temporary Redirect"
     | `Resume_incomplete -> "Resume Incomplete"
-
 end
 
 module Client_error = struct
-
   type t =
     [ `Bad_request
     | `Unauthorized
@@ -169,8 +160,7 @@ module Client_error = struct
     | `Retry_with
     | `Blocked_by_windows_parental_controls
     | `Wrong_exchange_server
-    | `Client_closed_request
-    ]
+    | `Client_closed_request ]
 
   let to_int : t -> int = function
     | `Bad_request -> 400
@@ -274,11 +264,9 @@ module Client_error = struct
     | `Blocked_by_windows_parental_controls -> "Blocked by Windows Parental Controls"
     | `Wrong_exchange_server -> "Wrong Exchange server"
     | `Client_closed_request -> "Client Closed Request"
-
 end
 
 module Server_error = struct
-
   type t =
     [ `Internal_server_error
     | `Not_implemented
@@ -293,8 +281,7 @@ module Server_error = struct
     | `Not_extended
     | `Network_authentication_required
     | `Network_read_timeout_error
-    | `Network_connect_timeout_error
-    ]
+    | `Network_connect_timeout_error ]
 
   let to_int : t -> int = function
     | `Internal_server_error -> 500
@@ -344,7 +331,6 @@ module Server_error = struct
     | `Network_authentication_required -> "Network Authentication Required"
     | `Network_read_timeout_error -> "Network read timeout error"
     | `Network_connect_timeout_error -> "Network connect timeout error"
-
 end
 
 type t =
@@ -353,33 +339,32 @@ type t =
   | Redirection.t
   | Client_error.t
   | Server_error.t
-  | `Code of int
-  ]
+  | `Code of int ]
 
 let to_int : t -> int = function
   | `Code x -> x
-  | (#Client_error.t as x) -> Client_error.to_int x
-  | (#Informational.t as x) -> Informational.to_int x
-  | (#Success.t as x) -> Success.to_int x
-  | (#Redirection.t as x) -> Redirection.to_int x
-  | (#Server_error.t as x) -> Server_error.to_int x
+  | #Client_error.t as x -> Client_error.to_int x
+  | #Informational.t as x -> Informational.to_int x
+  | #Success.t as x -> Success.to_int x
+  | #Redirection.t as x -> Redirection.to_int x
+  | #Server_error.t as x -> Server_error.to_int x
 
 let of_int (i : int) =
   (match i with
-   | x when x >= 100 && x < 200 -> (Informational.of_int x :> t option)
-   | x when x >= 200 && x < 300 -> (Success.of_int x :> t option)
-   | x when x >= 300 && x < 400 -> (Redirection.of_int x :> t option)
-   | x when x >= 400 && x < 500 -> (Client_error.of_int x :> t option)
-   | x when x >= 500 && x < 600 -> (Server_error.of_int x :> t option)
-   | _ -> None)
+  | x when x >= 100 && x < 200 -> (Informational.of_int x :> t option)
+  | x when x >= 200 && x < 300 -> (Success.of_int x :> t option)
+  | x when x >= 300 && x < 400 -> (Redirection.of_int x :> t option)
+  | x when x >= 400 && x < 500 -> (Client_error.of_int x :> t option)
+  | x when x >= 500 && x < 600 -> (Server_error.of_int x :> t option)
+  | _ -> None)
   |> function
   | None -> `Code i
   | Some x -> x
 
 let to_string : t -> string = function
   | `Code x -> Printf.sprintf "Unknown code (%d)" x
-  | (#Informational.t as x) -> Informational.to_string x
-  | (#Success.t as x) -> Success.to_string x
-  | (#Redirection.t as x) -> Redirection.to_string x
-  | (#Client_error.t as x) -> Client_error.to_string x
-  | (#Server_error.t as x) -> Server_error.to_string x
+  | #Informational.t as x -> Informational.to_string x
+  | #Success.t as x -> Success.to_string x
+  | #Redirection.t as x -> Redirection.to_string x
+  | #Client_error.t as x -> Client_error.to_string x
+  | #Server_error.t as x -> Server_error.to_string x

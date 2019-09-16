@@ -3,6 +3,7 @@
   (libraries  board_niitv_tsan_widgets
               components_lab
               page_input_tyxml
+              board_niitv_tsan_page_services
               board_niitv_tsan_page_pids)
   (preprocess (pps js_of_ocaml-ppx)))
 

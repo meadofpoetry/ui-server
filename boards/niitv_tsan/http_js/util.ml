@@ -2,7 +2,7 @@ open Application_types
 open Board_niitv_tsan_types
 
 let map_err = function
-  | Error e -> Error (`Conv_error e)
+  | Error e -> Error (`Msg e)
   | Ok _ as x -> x
 
 let ignore_env _ x = Lwt.return x

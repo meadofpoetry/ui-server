@@ -8,8 +8,6 @@ module CSS = struct
   let tabpanel_content = BEM.add_element tabpanel "content"
 end
 
-let tab_id s = s ^ "-tab"
-
 module Make
     (Xml : Xml_sigs.NoWrap)
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
@@ -36,7 +34,7 @@ struct
     let classes = CSS.tabpanel :: classes in
     Glide_markup.create_slide
       ~classes
-      ~attrs:([a_id id; a_role ["tabpanel"]; a_aria "labelledby" [tab_id id]] @ attrs)
+      ~attrs:([a_id id; a_role ["tabpanel"]; a_aria "labelledby" [id]] @ attrs)
       ?children
       ()
 

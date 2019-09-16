@@ -167,14 +167,11 @@ class t
       _e_change <- None;
       _on_submit <- None
 
-    method submit () : (unit, string) Lwt_result.t =
+    method submit () : (unit, [`Msg of string]) Lwt_result.t =
       match self#value with
-      | None -> Lwt.return_error "Please fill the settings form"
+      | None -> Lwt.return_error (`Msg "Please fill the settings form")
       | Some mode ->
-          let t =
-            Lwt_result.map_err Api_js.Http.error_to_string
-            @@ Http_device.set_t2mi_mode mode control
-          in
+          let t = Http_device.set_t2mi_mode mode control in
           submit#set_loading_lwt t;
           t
 

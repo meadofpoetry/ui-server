@@ -91,14 +91,13 @@ let make_services_tab_template (b : Topology.topo_board) =
     method content =
       List.map
         Tyxml.Html.toelt
-        [ Board_niitv_tsan_page_services_tyxml.Markup.create
-            ~control:b.control
-            ~children:[Tyxml.Html.txt "services"]
-            () ]
+        [Board_niitv_tsan_page_services_tyxml.Markup.create ~control:b.control ()]
 
     method title = "Сервисы"
 
-    method path = Topology.make_board_path b.control
+    method path =
+      Netlib.Uri.Path.(
+        concat (Topology.make_board_path b.control) (of_string "services"))
   end
 
 let make_pids_tab_template (b : Topology.topo_board) =

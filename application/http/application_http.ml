@@ -120,7 +120,7 @@ let input (app : Application.t) (input : Topology.topo_input) =
     ~title
     ~icon:(Tyxml.Html.toelt @@ icon Components_tyxml.Svg_icons.arrow_right)
     ~path:(Path.of_string @@ get_input_href input)
-    (Input_template.make_template input app.proc app.hw.boards)
+    (Input_template.make_template input app.proc app.hw.boards (React.S.value app.topo))
 
 let topo_page_path = "topology"
 

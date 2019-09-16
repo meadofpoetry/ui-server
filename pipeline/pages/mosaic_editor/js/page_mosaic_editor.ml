@@ -2,22 +2,22 @@ open Js_of_ocaml
 open Netlib
 open Pipeline_http_js
 
-let ( >>= ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
+let ( >>=? ) = Lwt_result.bind
 
 let () =
   let open React in
   let (scaffold : Components.Scaffold.t) = Js.Unsafe.global##.scaffold in
   let thread =
     Http_wm.get_layout ()
-    >>= fun wm ->
+    >>=? fun wm ->
     Http_structure.get_annotated ()
-    >>= fun streams ->
+    >>=? fun streams ->
     Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
-    >>= fun socket ->
+    >>=? fun socket ->
     Http_wm.Event.get socket
-    >>= fun (_, wm_event) ->
+    >>=? fun (_, wm_event) ->
     Http_structure.Event.get_annotated socket
-    >>= fun (_, streams_event) ->
+    >>=? fun (_, streams_event) ->
     let editor = Container_editor.make ~scaffold streams wm in
     let notif =
       E.merge

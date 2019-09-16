@@ -86,3 +86,5 @@ struct
     in
     div ~a:([a_class classes] @ attrs) children
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

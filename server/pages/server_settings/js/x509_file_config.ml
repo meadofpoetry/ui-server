@@ -291,22 +291,22 @@ class ['a] t
         (import#loader)#set_value v
       in
       let upload_file blob =
-        Lwt_result.map_err
-          Api_js.Http.error_to_string
-          (upload_file ~upload_progress name blob typ
-          >>=? fun () -> fetch_value typ >>=? Lwt.return_ok % self#set_value)
+        upload_file ~upload_progress name blob typ
+        >>=? fun () -> fetch_value typ >>=? Lwt.return_ok % self#set_value
       in
       let thread =
         Js.Opt.case
           (File.CoerceTo.string @@ (Dom.eventTarget e)##.result)
-          (fun () -> Lwt.return_error "Не удалось открыть файл")
+          (fun () ->
+            Lwt.return_error (`Msg "Не удалось открыть файл"))
           (fun data ->
             if size > max_file_size
             then
               Lwt.return_error
-              @@ Printf.sprintf
-                   "Превышен допустимый размер файла (%s)"
-              @@ file_size_to_string max_file_size
+                (`Msg
+                  (Printf.sprintf
+                     "Превышен допустимый размер файла (%s)"
+                  @@ file_size_to_string max_file_size))
             else
               let blob = File.blob_from_any [`js_string data] in
               match Storage.get_show_private_key_disclaimer (), disclaimer_dialog with
@@ -334,7 +334,7 @@ class ['a] t
               in
               let snackbar = Snackbar.make ~label:(`Text label) () in
               set_snackbar snackbar >>= fun _ -> Lwt.return @@ snackbar#destroy ()
-          | Error e ->
+          | Error (`Msg e) ->
               let snackbar = Snackbar.make ~label:(`Text e) () in
               set_snackbar snackbar >>= fun _ -> Lwt.return @@ snackbar#destroy ());
       Js._true
@@ -364,14 +364,11 @@ class ['a] t
         match dialog#content with
         | None -> Lwt.return_unit
         | Some content ->
-            let value =
-              match self#value with
-              | Some x -> Lwt.return_ok x
-              | None -> fetch_value typ
-            in
             let info =
               Components_lab.Loader.make_widget_loader
-                (Lwt_result.map_err Api_js.Http.error_to_string value
+                ((match self#value with
+                 | Some x -> Lwt.return_ok x
+                 | None -> fetch_value typ)
                 >>=? fun x ->
                 self#set_value x;
                 Lwt.return_ok @@ Widget.create @@ make_info typ x)
@@ -400,8 +397,7 @@ class ['a] t
               >>= fun () ->
               self#set_value v;
               Lwt.return @@ snackbar#destroy ()
-          | Error e ->
-              let label = Api_js.Http.error_to_string e in
-              let snackbar = Snackbar.make ~label:(`Text label) () in
+          | Error (`Msg e) ->
+              let snackbar = Snackbar.make ~label:(`Text e) () in
               set_snackbar snackbar >>= fun () -> Lwt.return @@ snackbar#destroy ())
   end

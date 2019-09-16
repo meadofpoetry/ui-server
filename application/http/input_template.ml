@@ -40,15 +40,26 @@ end)
 let make_template
     (input : Topology.topo_input)
     (cpu : Data_processor.t option)
-    (boards : Board.t Board.Map.t) =
+    (boards : Board.t Board.Map.t)
+    (_topology : Topology.t) =
+  let path = Option.value ~default:[] (Topology.board_list_for_input input _topology) in
+  let boards =
+    List.sort (fun (a, _) (b, _) -> compare a b)
+    @@ snd
+    @@ List.fold_left
+         (fun (i, acc) (topo_board : Topology.topo_board) ->
+           match Board.Map.find_opt topo_board.control boards with
+           | None -> succ i, acc
+           | Some x -> succ i, (i, x) :: acc)
+         (0, [])
+         path
+  in
   let board_tabs =
-    List.flatten
-    @@ List.map (fun (_, b) -> tabs_of_board input b)
-    @@ Board.Map.bindings boards
+    List.flatten @@ List.map (fun (_, b) -> tabs_of_board input b) boards
   in
   let boards_var =
-    Board.Map.fold
-      (fun control (board : Board.t) acc ->
+    List.fold_left
+      (fun acc (_, (board : Board.t)) ->
         let has_input =
           List.exists
             (function
@@ -61,12 +72,12 @@ let make_template
           Boards.update
             board.id
             (function
-              | None -> Some [control]
-              | Some acc -> Some (control :: acc))
+              | None -> Some [board.control]
+              | Some acc -> Some (board.control :: acc))
             acc
         else acc)
-      boards
       Boards.empty
+      boards
     |> Boards.bindings
     |> Topology.boards_to_yojson
     |> Yojson.Safe.pretty_to_string
@@ -77,20 +88,19 @@ let make_template
     List.fold_left
       (fun (tabs, slides, css, pre_js, post_js) template ->
         let id =
-          Printf.sprintf "%s-tabpanel"
-          @@ String.map (function
-                 | '/' -> '-'
-                 | c -> c)
+          String.map (function
+              | '/' -> '-'
+              | c -> c)
           @@ Netlib.Uri.Path.to_string template#path
         in
+        let tabpanel_id = id ^ "-tabpanel" in
         let tab =
-          Page_input_tyxml.(
-            Components_tyxml.Tab.Markup.create
-              ~attrs:Tyxml.Html.[a_id (tab_id id); a_aria "controls" [id]]
-              ~text_label:(`Text template#title)
-              ())
+          Components_tyxml.Tab.Markup.create
+            ~attrs:Tyxml.Html.[a_id id; a_aria "controls" [tabpanel_id]]
+            ~text_label:(`Text template#title)
+            ()
         in
-        let slide = id, Html.totl template#content in
+        let slide = tabpanel_id, Html.totl template#content in
         (* FIXME scripts order *)
         ( tabs @ [tab]
         , slides @ [slide]
@@ -105,7 +115,7 @@ let make_template
       tabs
   in
   let tab_bar = Components_tyxml.Tab_bar.Markup.create ~tabs () in
-  let slides = Page_input_tyxml.Markup.create ~children () in
+  let slides = Ui_templates_tyxml.Tabbed_page.Markup.create ~children () in
   let eq a b =
     match a, b with
     | `Src a, `Src b | `Raw a, `Raw b -> String.equal a b

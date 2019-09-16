@@ -1,74 +1,46 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
+open Components
 open Application_types
 open Board_niitv_tsan_types
-open Board_niitv_tsan_widgets
 open Board_niitv_tsan_http_js
-open Components
-include Board_niitv_tsan_page_pids_tyxml
+open Board_niitv_tsan_widgets
+include Board_niitv_tsan_page_services_tyxml
 module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>=? ) = Lwt_result.bind
 
 module Selector = struct
-  let pid_bitrate_pie_chart = "." ^ Pid_bitrate_pie_chart.CSS.root
-
-  let bitrate_summary = "." ^ Bitrate_summary.CSS.root
-
-  let pid_summary = "." ^ Pid_summary.CSS.root
-
-  let pid_overview = "." ^ Pid_overview.CSS.root
+  let service_overview = "." ^ Service_overview.CSS.root
 end
 
 type event =
   [ `Bitrate of (Stream.ID.t * Bitrate.t) list
   | `PIDs of (Stream.ID.t * (int * PID.t) list ts) list
+  | `Services of (Stream.ID.t * (int * Service.t) list ts) list
   | `State of Topology.state ]
 
 class t elt () =
   object
-    val pid_bitrate_pie_chart : Pid_bitrate_pie_chart.t =
-      Pid_bitrate_pie_chart.attach
-      @@ Element.query_selector_exn elt Selector.pid_bitrate_pie_chart
-
-    val bitrate_summary : Bitrate_summary.t =
-      Bitrate_summary.attach @@ Element.query_selector_exn elt Selector.bitrate_summary
-
-    val pid_summary : Pid_summary.t =
-      Pid_summary.attach @@ Element.query_selector_exn elt Selector.pid_summary
-
-    val pid_overview : Pid_overview.t =
-      Pid_overview.attach @@ Element.query_selector_exn elt Selector.pid_overview
+    val service_overview : Service_overview.t =
+      Service_overview.attach @@ Element.query_selector_exn elt Selector.service_overview
 
     inherit Widget.t elt () as super
 
     method! destroy () : unit =
-      pid_bitrate_pie_chart#destroy ();
-      bitrate_summary#destroy ();
-      pid_summary#destroy ();
-      pid_overview#destroy ();
+      service_overview#destroy ();
       super#destroy ()
 
     method notify : event -> unit =
       function
-      | `Bitrate ((_, x) :: _) ->
-          bitrate_summary#notify (`Bitrate (Some x));
-          pid_bitrate_pie_chart#notify (`Bitrate (Some x));
-          pid_overview#notify (`Bitrate (Some x))
-      | `PIDs ((_, x) :: _) ->
-          pid_summary#notify (`PIDs x);
-          pid_overview#notify (`PIDs x)
-      | `State (x : Topology.state) ->
-          pid_overview#notify (`State (x :> [Topology.state | `No_sync]))
+      | `Bitrate ((_, x) :: _) -> service_overview#notify (`Bitrate (Some x))
+      | `PIDs ((_, x) :: _) -> service_overview#notify (`PIDs x)
+      | `Services ((_, x) :: _) -> service_overview#notify (`Services x)
+      | `State x -> service_overview#notify (`State (x :> [Topology.state | `No_sync]))
       | _ -> ()
   end
 
 let attach elt : t = new t (elt :> Dom_html.element Js.t) ()
-
-let make ?classes ?attrs ?children ~control () : t =
-  Markup_js.create ?classes ?attrs ?children ~control ()
-  |> Tyxml_js.To_dom.of_div
-  |> attach
 
 type state =
   { mutable socket : Api_js.Websocket.JSON.t option
@@ -80,6 +52,9 @@ let on_visible (page : t) (state : state) control =
     Http_monitoring.get_pids control
     >>=? fun pids ->
     page#notify (`PIDs pids);
+    Http_monitoring.get_services control
+    >>=? fun services ->
+    page#notify (`Services services);
     Api_js.Websocket.JSON.open_socket ~path:(Netlib.Uri.Path.Format.of_string "ws") ()
     >>=? fun socket ->
     Option.iter Api_js.Websocket.close_socket state.socket;
@@ -90,17 +65,23 @@ let on_visible (page : t) (state : state) control =
     >>=? fun (_, bitrate_ev) ->
     Http_monitoring.Event.get_pids socket control
     >>=? fun (_, pids_ev) ->
+    Http_monitoring.Event.get_services socket control
+    >>=? fun (_, services_ev) ->
     let notif =
       E.merge
         (fun _ -> page#notify)
         ()
         [ E.map (fun x -> `Bitrate x) bitrate_ev
         ; E.map (fun x -> `PIDs x) pids_ev
+        ; E.map (fun x -> `Services x) services_ev
         ; E.map (fun x -> `State x) state_ev ]
     in
     state.finalize <-
       (fun () ->
         E.stop ~strong:true bitrate_ev;
+        E.stop ~strong:true state_ev;
+        E.stop ~strong:true pids_ev;
+        E.stop ~strong:true services_ev;
         E.stop ~strong:true notif);
     Lwt.return_ok state
   in

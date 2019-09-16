@@ -58,11 +58,11 @@ class t (elt : Dom_html.element Js.t) =
             Pc_control_http_js.Power.off ()
             >>= function
             | Ok () -> Lwt.return_unit
-            | Error err ->
+            | Error (`Msg err) ->
                 let msg =
                   Printf.sprintf
                     "Не удалось выключить прибор. %s"
-                  @@ Api_js.Http.error_to_string err
+                    err
                 in
                 let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
                 let snackbar =

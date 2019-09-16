@@ -519,10 +519,8 @@ class t
                 let snackbar = Snackbar.make ~dismiss:`True ~label:(`Text label) () in
                 snackbar#set_timeout 4.;
                 scaffold#show_snackbar ~on_close:(fun _ -> snackbar#destroy ()) snackbar
-            | Error e ->
-                let label =
-                  Printf.sprintf "Ошибка. %s" @@ Api_js.Http.error_to_string e
-                in
+            | Error (`Msg e) ->
+                let label = Printf.sprintf "Ошибка. %s" e in
                 let snackbar = Snackbar.make ~label:(`Text label) () in
                 scaffold#show_snackbar ~on_close:(fun _ -> snackbar#destroy ()) snackbar)
           ()

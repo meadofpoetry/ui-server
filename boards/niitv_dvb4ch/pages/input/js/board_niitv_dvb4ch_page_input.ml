@@ -9,7 +9,7 @@ let ( % ) f g x = f (g x)
 
 let ( >>= ) = Lwt.bind
 
-let ( >>=? ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
+let ( >>=? ) = Lwt_result.bind
 
 module Attr = struct
   let hidden = "hidden"
@@ -124,7 +124,7 @@ let initialize control =
   let state = ref None in
   let elt = Dom_html.getElementById id in
   let charts = make_charts [] in
-  Dom.appendChild elt charts#root;
+  (* Dom.appendChild elt charts#root; *)
   let _observer =
     MutationObserver.observe
       ~node:elt

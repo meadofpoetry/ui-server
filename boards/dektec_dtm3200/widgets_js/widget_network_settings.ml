@@ -94,9 +94,9 @@ class t (state : Topology.state) (mode : nw) (control : int) =
           Lwt.cancel x;
           _on_submit <- None
 
-    method submit () : (unit, string) Lwt_result.t =
+    method submit () : (unit, [`Msg of string]) Lwt_result.t =
       match self#value with
-      | None -> Lwt.return_error "Please fill the settings form"
+      | None -> Lwt.return_error (`Msg "Please fill the settings form")
       | Some mode ->
           let req =
             Http_network.(
@@ -115,7 +115,7 @@ class t (state : Topology.state) (mode : nw) (control : int) =
               else reboot control)
           in
           submit#set_loading_lwt req;
-          Lwt_result.map_err Api_js.Http.error_to_string req
+          req
 
     method value : nw option =
       let disabled = (dhcp#input)#disabled in

@@ -22,7 +22,7 @@ module Network = struct
         | Error _ as e -> Lwt.return e
         | Ok x -> (
           match Network_config.of_yojson x with
-          | Error e -> Lwt.return_error (`Conv_error e)
+          | Error e -> Lwt.return_error (`Msg e)
           | Ok _ as x -> Lwt.return x))
 
   let set_config conf =
@@ -55,7 +55,7 @@ module Updates = struct
         | Error _ as e -> Lwt.return e
         | Ok x -> (
           match Software_updates.state_of_yojson x with
-          | Error e -> Lwt.return_error (`Conv_error e)
+          | Error e -> Lwt.return_error (`Msg e)
           | Ok _ as x -> Lwt.return x))
 
   let check_updates () =
@@ -68,7 +68,7 @@ module Updates = struct
         | Error _ as e -> Lwt.return e
         | Ok x -> (
           match Util_json.Int.of_yojson x with
-          | Error e -> Lwt.return_error (`Conv_error e)
+          | Error e -> Lwt.return_error (`Msg e)
           | Ok _ as x -> Lwt.return x))
 
   let upgrade ?reboot () =

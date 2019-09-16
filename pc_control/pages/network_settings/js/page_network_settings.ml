@@ -9,7 +9,7 @@ module Markup_js =
 
 let ( >>= ) = Lwt.bind
 
-let ( >>=? ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
+let ( >>=? ) = Lwt_result.bind
 
 let make_dialog set =
   let title = Dialog.Markup_js.create_title ~title:"Внимание" () in
@@ -91,9 +91,8 @@ let () =
       thread
       >>= function
       | Ok () -> Lwt.return_unit
-      | Error e ->
-          let label = Api_js.Http.error_to_string e in
-          snackbar#set_label_text label;
+      | Error (`Msg e) ->
+          snackbar#set_label_text e;
           scaffold#show_snackbar snackbar
     in
     let confirmation_dialog, open_dialog = make_dialog set in

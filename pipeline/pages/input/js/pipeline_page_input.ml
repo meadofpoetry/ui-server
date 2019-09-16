@@ -7,7 +7,7 @@ open Pipeline_widgets.Parameter_chart
 
 let ( >>= ) = Lwt.bind
 
-let ( >>=? ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
+let ( >>=? ) = Lwt_result.bind
 
 let make_config typ : widget_config =
   {duration = Time.Period.of_int_s 60; typ; sources = []; settings = None}
@@ -80,7 +80,7 @@ let () =
   in
   let _loader =
     Components_lab.Loader.make_widget_loader
-      ~elt:(Dom_html.getElementById "pipeline")
+      (* ~elt:(Dom_html.getElementById "pipeline") *)
       thread
   in
   ()

@@ -28,7 +28,7 @@ let make_loader
     ?(on_error : (Dom_html.element Js.t -> string -> unit) option)
     ?(on_success : (Dom_html.element Js.t -> 'a -> unit) option)
     ?(elt = Dom_html.(createDiv document))
-    (t : ('a, string) Lwt_result.t) =
+    (t : ('a, [`Msg of string]) Lwt_result.t) =
   let progress = Placeholder.make_progress ?text () in
   let on_success (v : 'a) : unit Lwt.t =
     Element.remove_class elt CSS.root;
@@ -61,7 +61,7 @@ let make_loader
         Lwt.cancel sleep;
         Element.remove_child_safe elt progress#root;
         match r with
-        | Error e -> on_error e
+        | Error (`Msg e) -> on_error e
         | Ok x -> on_success x)
       (fun e ->
         Lwt.cancel sleep;
@@ -71,7 +71,11 @@ let make_loader
   Lwt.on_termination thread (fun () -> progress#destroy ());
   elt
 
-let make_widget_loader ?text ?error_icon ?elt (t : (#Widget.t, string) Lwt_result.t) =
+let make_widget_loader
+    ?text
+    ?error_icon
+    ?elt
+    (t : (#Widget.t, [`Msg of string]) Lwt_result.t) =
   make_loader
     ?text
     ?error_icon

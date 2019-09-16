@@ -10,7 +10,7 @@ module Markup_js =
 
 let ( >>= ) = Lwt.bind
 
-let ( >>=? ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
+let ( >>=? ) = Lwt_result.bind
 
 module Api_http = Api_js.Http.Make (Body)
 

@@ -20,7 +20,7 @@ let get_config () =
       | Error _ as e -> Lwt.return e
       | Ok x -> (
         match Server_types.settings_of_yojson x with
-        | Error e -> Lwt.return_error (`Conv_error e)
+        | Error e -> Lwt.return_error (`Msg e)
         | Ok _ as x -> Lwt.return x))
 
 let restart () =

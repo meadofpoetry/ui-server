@@ -141,9 +141,9 @@ class t (state : Topology.state) (mode : ip_receive) (control : int) =
 
     method! destroy () : unit = super#destroy ()
 
-    method submit () : (unit, string) Lwt_result.t =
+    method submit () : (unit, [`Msg of string]) Lwt_result.t =
       match self#value with
-      | None -> Lwt.return_error "Please fill the settings form"
+      | None -> Lwt.return_error (`Msg "Please fill the settings form")
       | Some mode ->
           let req =
             Http_receiver.(
@@ -164,7 +164,7 @@ class t (state : Topology.state) (mode : ip_receive) (control : int) =
               >>= fun _ -> Lwt.return_ok ())
           in
           submit#set_loading_lwt req;
-          Lwt_result.map_err Api_js.Http.error_to_string req
+          req
 
     method value : ip_receive option =
       let enable = (en#input)#checked in

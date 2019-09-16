@@ -13,6 +13,10 @@ module CSS = struct
   let non_interactive = BEM.add_modifier root "non-interactive"
 end
 
+let ( >>= ) = Lwt.( >>= )
+
+let ( >>=? ) = Lwt_result.bind
+
 let is_ts2ip_niitv (b : Topology.topo_board) =
   match b.manufacturer, b.model with
   | "NIITV", "TS2IP" -> true
@@ -273,10 +277,6 @@ let create (init : Topology.t) (socket : Api_js.Websocket.JSON.t) =
 
     method e_settings = e_settings
   end
-
-let ( >>= ) = Lwt.( >>= )
-
-let ( >>=? ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
 
 let on_settings
     (side_sheet : #Side_sheet.Parent.t)

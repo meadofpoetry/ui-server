@@ -15,6 +15,10 @@ module Event = struct
       method index : int Js.readonly_prop
 
       method tab : Dom_html.element Js.t Js.readonly_prop
+
+      method previousIndex : int Js.opt Js.readonly_prop
+
+      method previousTab : Dom_html.element Js.t Js.opt Js.readonly_prop
     end
 
   let (change : detail Js.t Dom_html.customEvent Js.t Dom_html.Event.typ) =
@@ -99,7 +103,7 @@ class t ?on_change ?(auto_activation = false) elt () =
           scroller#set_active_tab tab;
           self#scroll_into_view tab
           >>= fun () ->
-          self#notify_tab_activated tab;
+          self#notify_tab_activated previous tab;
           match on_change with
           | None -> Lwt.return_unit
           | Some f -> f previous (self :> t))
@@ -141,15 +145,19 @@ class t ?on_change ?(auto_activation = false) elt () =
       scroller#insert_tab_at_index i tab
 
     (* Private methods *)
-    method private notify_tab_activated (tab : Tab.t) : unit =
+    method private notify_tab_activated (previous : Tab.t option) (tab : Tab.t) : unit =
       let detail =
         object%js
           val index = tab#index
 
           val tab = tab#root
+
+          val previousIndex = Js.Opt.option @@ Option.map (fun x -> x#index) previous
+
+          val previousTab = Js.Opt.option @@ Option.map (fun x -> x#root) previous
         end
       in
-      super#emit ~detail Event.change
+      super#emit ~should_bubble:true ~detail Event.change
 
     method private is_index_in_range (i : int) : bool =
       i >= 0 && i < List.length scroller#tabs

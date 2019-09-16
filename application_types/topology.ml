@@ -229,9 +229,9 @@ let board_list_for_input input : t -> 'a =
       | None -> fmap_first f tl)
   in
   let rec traverse acc = function
-    | Input i when equal_topo_input i input -> Some (List.rev acc)
+    | Input i when equal_topo_input i input -> Some acc
     | Input _ -> None
-    | Board b -> b.ports |> fmap_first (fun port -> (traverse (b :: acc)) port.child)
+    | Board b -> fmap_first (fun port -> (traverse (b :: acc)) port.child) b.ports
   in
   function
   | `CPU c -> fmap_first (fun iface -> traverse [] iface.conn) c.ifaces
@@ -265,14 +265,6 @@ type board_id =
   ; model : string
   ; version : int }
 [@@deriving eq, ord, yojson]
-
-let make_dom_node_id (b : board_id) (control : int) =
-  Printf.sprintf
-    "board-%s-%s-v%d-%d"
-    (String.lowercase_ascii b.manufacturer)
-    (String.lowercase_ascii b.model)
-    b.version
-    control
 
 let make_dom_node_class (b : board_id) =
   Printf.sprintf

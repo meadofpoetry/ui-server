@@ -2,4 +2,5 @@
   (name      board_niitv_tsan_page_services_tyxml)
   (libraries components_tyxml
              application_types
-             board_niitv_tsan_types))
+             board_niitv_tsan_types
+             board_niitv_tsan_widgets_tyxml))

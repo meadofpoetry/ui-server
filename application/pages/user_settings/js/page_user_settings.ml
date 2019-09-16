@@ -8,13 +8,18 @@ module Markup_js =
     (Js_of_ocaml_tyxml.Tyxml_js.Svg)
     (Js_of_ocaml_tyxml.Tyxml_js.Html)
 
+let get_username () =
+  Js_of_ocaml.Js.Unsafe.global##.username
+  |> Js_of_ocaml.Js.to_string
+  |> Application_types.User.of_string
+  |> function
+  | Ok _ as x -> Lwt.return x
+  | Error s -> Lwt.return_error (`Msg s)
+
 let () =
   let (scaffold : Components.Scaffold.t) = Js_of_ocaml.Js.Unsafe.global##.scaffold in
   let thread =
-    Lwt.return
-    @@ Application_types.User.of_string
-    @@ Js_of_ocaml.Js.to_string
-    @@ Js_of_ocaml.Js.Unsafe.global##.username
+    get_username ()
     >>=? fun user ->
     scaffold#loaded
     >>= fun () ->

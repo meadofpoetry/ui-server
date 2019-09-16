@@ -112,3 +112,5 @@ struct
     in
     div ~a:([a_class classes] @ attrs) @@ List.rev Utils.(placeholder ^:: [table])
 end
+
+module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

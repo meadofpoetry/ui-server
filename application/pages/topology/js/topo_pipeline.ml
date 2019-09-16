@@ -2,14 +2,14 @@ open Application_types
 
 let base_class = "pipeline-settings"
 
-let ( >>= ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
+let ( >>=? ) = Lwt_result.bind
 
 let make_streams (cpu : Topology.topo_cpu) socket =
   let open Application_http_js in
   get_streams ()
-  >>= fun init ->
+  >>=? fun init ->
   Event.get_streams socket
-  >>= fun (id, event) ->
+  >>=? fun (id, event) ->
   let box = Streams_selector.make ~init ~event cpu () in
   box#set_on_destroy (fun () ->
       React.E.stop ~strong:true event;
@@ -19,9 +19,9 @@ let make_streams (cpu : Topology.topo_cpu) socket =
 let make_structure socket =
   let open Pipeline_http_js.Http_structure in
   get_annotated ()
-  >>= fun structure ->
+  >>=? fun structure ->
   Event.get_annotated socket
-  >>= fun (id, e) ->
+  >>=? fun (id, e) ->
   let w = Pipeline_widgets.Structure.make structure () in
   let notif =
     React.E.merge (fun _ -> w#notify) () [React.E.map (fun x -> `Structure x) e]
@@ -31,8 +31,7 @@ let make_structure socket =
       Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket id));
   Lwt.return_ok w#widget
 
-let make (cpu : Topology.topo_cpu) (socket : Api_js.Websocket.JSON.t) :
-    (#Components.Widget.t, string) Lwt_result.t =
+let make (cpu : Topology.topo_cpu) (socket : Api_js.Websocket.JSON.t) =
   let wrap f () =
     Components.Widget.create @@ Components_lab.Loader.make_widget_loader (f socket)
   in

@@ -9,7 +9,7 @@ module Markup_js =
 
 let ( >>= ) = Lwt.bind
 
-let ( >>=? ) x f = Lwt_result.(map_err Api_js.Http.error_to_string @@ x >>= f)
+let ( >>=? ) = Lwt_result.bind
 
 let on_loaded (scaffold : Scaffold.t) () =
   let thread =
