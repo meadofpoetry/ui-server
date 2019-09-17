@@ -154,10 +154,7 @@ class t ?body ?viewport ?(focus_on_open = true) (elt : Dom_html.element Js.t) ()
       self#notify_selected item;
       super#close ()
       >>= fun () ->
-      Js_of_ocaml_lwt.Lwt_js.sleep Menu_surface.Const.transition_close_duration_s
-      >>= fun () ->
-      let selection_group = self#get_selection_group item in
-      Js.Opt.iter selection_group (self#handle_selection_group ~item);
+      Js.Opt.iter (self#get_selection_group item) (self#handle_selection_group ~item);
       Lwt.return ()
 
     method private handle_selection_group

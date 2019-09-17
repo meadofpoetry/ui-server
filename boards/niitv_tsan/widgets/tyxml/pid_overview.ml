@@ -10,8 +10,6 @@ module CSS = struct
 
   let title = BEM.add_element root "title"
 
-  let hex_switch = BEM.add_element root "hex-switch"
-
   let bitrate_reset = BEM.add_element root "bitrate-reset"
 
   let menu_icon = BEM.add_element root "menu-icon"
@@ -54,29 +52,52 @@ struct
     let classes = CSS.title :: classes in
     h3 ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt title children)
 
-  let create_menu ?classes ?attrs () =
+  let create_menu_selection_icon ?(classes = []) ?attrs () =
+    Icon_markup.SVG.create
+      ~classes:([Item_list.CSS.item_graphic; Menu.CSS.selection_group_icon] @ classes)
+      ?attrs
+      ~d:Svg_icons.check
+      ()
+
+  let create_menu_mode_item ?(classes = []) ?(attrs = []) ?(selected = false) ~mode () =
+    let classes = if selected then Menu.CSS.item_selected :: classes else classes in
+    Menu_markup.Item_list.create_item
+      ~classes
+      ~attrs:
+        ([ a_user_data
+             "mode"
+             (match mode with
+             | `Hex -> "hex"
+             | `Dec -> "dec") ]
+         @ attrs
+        |> Utils.cons_if_lazy selected (fun () -> a_aria "selected" ["true"]))
+      ~graphic:(create_menu_selection_icon ())
+      ~primary_text:
+        (`Text
+          (match mode with
+          | `Hex -> "Hex ID"
+          | `Dec -> "Dec ID"))
+      ()
+
+  let create_menu ?classes ?attrs ?(hex = false) () =
     Menu_markup.create
       ?classes
       ?attrs
       ~list_children:
         Menu_markup.Item_list.
-          [ create_item
-              ~classes:[CSS.hex_switch]
-              ~graphic:
-                (Icon_markup.SVG.create
-                   ~classes:[Item_list.CSS.item_graphic]
-                   ~d:Svg_icons.check
-                   ())
-              ~primary_text:(`Text "HEX ID")
-              ()
+          [ li
+              [ ul
+                  ~a:[a_class [Menu.CSS.selection_group]]
+                  [ create_menu_mode_item ~selected:hex ~mode:`Hex ()
+                  ; create_menu_mode_item ~selected:(not hex) ~mode:`Dec () ] ]
+          ; Divider_markup.create_li ()
           ; create_item
               ~classes:[CSS.bitrate_reset]
-              ~graphic:(span ~a:[a_class [Item_list.CSS.item_graphic]] [])
               ~primary_text:(`Text "Сброс битрейта")
               () ]
       ()
 
-  let create_header ?(classes = []) ?(attrs = []) ?children () =
+  let create_header ?(classes = []) ?(attrs = []) ?hex ?children () =
     let classes = CSS.header :: classes in
     let children =
       match children with
@@ -89,7 +110,7 @@ struct
                   ~classes:[CSS.menu_icon]
                   ~icon:(Icon_markup.SVG.create ~d:Svg_icons.dots_vertical ())
                   ()
-              ; create_menu () ] ]
+              ; create_menu ?hex () ] ]
     in
     header ~a:([a_class classes] @ attrs) children
 
@@ -185,7 +206,7 @@ struct
     in
     div ~a:([a_class classes] @ attrs)
     @@ Utils.(
-         [create_header (); Divider_markup.create_hr (); table] @ placeholder ^:: [])
+         [create_header ?hex (); Divider_markup.create_hr (); table] @ placeholder ^:: [])
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

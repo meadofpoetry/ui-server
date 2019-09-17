@@ -1,11 +1,16 @@
 @import "@material/theme/mixins";
 @import "@material/typography/mixins";
+@import "@material/data-table/variables";
 @import "../variables";
 
 .board-niitv-tsan-pid-overview {
     .mdc-data-table {
         width: 100%;
         border: none;
+    }
+
+    > .mdc-placeholder {
+        border-top: $mdc-data-table-divider-size solid $mdc-data-table-divider-color;
     }
 
     &__title {

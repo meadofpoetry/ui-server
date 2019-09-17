@@ -11,6 +11,10 @@ type event =
   | `Bitrate of Bitrate.ext option
   | `PIDs of (int * PID.t) list ts ]
 
+module Attr = struct
+  let data_mode = "data-mode"
+end
+
 module Selector = struct
   let header = "." ^ CSS.header
 
@@ -107,12 +111,16 @@ class t ?(init : (int * PID.t) list ts option) (elt : Dom_html.element Js.t) () 
                   menu#reveal ())
             ; Menu.Lwt_js_events.selects menu#root (fun e _ ->
                   let detail = Widget.event_detail e in
-                  if Element.has_class detail##.item CSS.hex_switch
-                  then (
-                    hex <- not hex;
-                    self#set_hex hex)
-                  else if Element.has_class detail##.item CSS.bitrate_reset
-                  then ();
+                  let mode = Element.get_attribute detail##.item Attr.data_mode in
+                  (match mode with
+                  | None -> ()
+                  | Some "hex" ->
+                      hex <- true;
+                      self#set_hex hex
+                  | Some "dec" ->
+                      hex <- false;
+                      self#set_hex hex
+                  | Some _ -> ());
                   Lwt.return_unit) ]
         | _ -> [])
         @ listeners;
@@ -120,6 +128,9 @@ class t ?(init : (int * PID.t) list ts option) (elt : Dom_html.element Js.t) () 
 
     method! destroy () : unit =
       table#destroy ();
+      Option.iter Widget.destroy menu;
+      Option.iter Widget.destroy menu_icon;
+      List.iter Lwt.cancel listeners;
       super#destroy ()
 
     method pids : (int * PID.t) list = List.of_seq @@ Set.to_seq data
