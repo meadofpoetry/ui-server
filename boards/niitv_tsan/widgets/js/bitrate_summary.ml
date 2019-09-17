@@ -5,7 +5,7 @@ open Board_niitv_tsan_types
 include Board_niitv_tsan_widgets_tyxml.Bitrate_summary
 module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
-type event = [`Bitrate of int Bitrate.t option]
+type event = [`Bitrate of Bitrate.ext option]
 
 module Selector = struct
   let total =
@@ -32,9 +32,9 @@ class t (elt : Dom_html.element Js.t) =
       | None ->
           self#set_total None;
           self#set_effective None
-      | Some (x : int Bitrate.t) ->
-          let e = Float.(of_int x.effective /. 1_000_000.) in
-          let v = Float.(of_int x.total /. 1_000_000.) in
+      | Some (x : Bitrate.ext) ->
+          let e = Float.(of_int x.effective.cur /. 1_000_000.) in
+          let v = Float.(of_int x.total.cur /. 1_000_000.) in
           self#set_total (Some v);
           self#set_effective (Some e)
 

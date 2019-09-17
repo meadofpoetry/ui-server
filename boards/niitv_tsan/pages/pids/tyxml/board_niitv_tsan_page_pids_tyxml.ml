@@ -41,7 +41,8 @@ struct
                   ; Divider_markup.create_hr ()
                   ; Pid_summary_markup.create () ]
                 ()
-            ; create_cell ~span:12 ~children:[Pid_overview_markup.create ()] () ]
+            ; create_cell ~span:12 ~children:[Pid_overview_markup.create ~control ()] ()
+            ]
     in
     div ~a:([a_id (id control); a_class classes] @ attrs) children
 end

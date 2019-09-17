@@ -103,7 +103,17 @@ class t (elt : Dom_html.element Js.t) () =
 
 let attach elt = new t (elt :> Dom_html.element Js.t) ()
 
-let make ?classes ?attrs ?pids ?info ?bitrate ?min_bitrate ?max_bitrate ?children () =
+let make
+    ?classes
+    ?attrs
+    ?pids
+    ?info
+    ?bitrate
+    ?min_bitrate
+    ?max_bitrate
+    ?children
+    ~control
+    () =
   Markup_js.create
     ?classes
     ?attrs
@@ -113,6 +123,7 @@ let make ?classes ?attrs ?pids ?info ?bitrate ?min_bitrate ?max_bitrate ?childre
     ?min_bitrate
     ?max_bitrate
     ?children
+    ~control
     ()
   |> Tyxml_js.To_dom.of_div
   |> attach

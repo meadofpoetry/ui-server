@@ -45,6 +45,7 @@ struct
       ?bitrate
       ?max_bitrate
       ?min_bitrate
+      ~control
       () =
     let slides =
       match children with
@@ -61,7 +62,9 @@ struct
                       () ]
                 ()
             ; create_slide ~children:[Service_sdt_info_markup.create ?info ()] ()
-            ; create_slide ~children:[Pid_overview_markup.create ?init:pids ()] () ]
+            ; create_slide
+                ~children:[Pid_overview_markup.create ?init:pids ~control ()]
+                () ]
     in
     Glide_markup.create ?classes ?attrs ~slides ()
 
@@ -74,6 +77,7 @@ struct
       ?max_bitrate
       ?min_bitrate
       ?children
+      ~control
       () =
     let classes = CSS.root :: classes in
     let children =
@@ -82,7 +86,7 @@ struct
       | None ->
           [ create_tab_bar ()
           ; Divider_markup.create_hr ()
-          ; create_glide ?pids ?info ?bitrate ?max_bitrate ?min_bitrate () ]
+          ; create_glide ?pids ?info ?bitrate ?max_bitrate ?min_bitrate ~control () ]
     in
     div ~a:([a_class classes] @ attrs) children
 end

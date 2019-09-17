@@ -115,18 +115,18 @@ class t
     inherit Widget.t elt () as super
 
     method! init () : unit =
-      super#init ();
       loaded <-
         (Js_of_ocaml_lwt.Lwt_js_events.domContentLoaded ()
         >>= self#handle_content_loaded
         >>= fun () ->
         super#root##.style##.visibility := Js.string "";
-        Lwt.return_unit)
+        Lwt.return_unit);
+      super#init ()
 
     method! destroy () : unit =
-      super#destroy ();
       List.iter Lwt.cancel listeners;
-      listeners <- []
+      listeners <- [];
+      super#destroy ()
 
     method loaded : unit Lwt.t = loaded
 

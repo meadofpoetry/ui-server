@@ -189,7 +189,7 @@ struct
       ~text:(`Text "Не найдено ни одного PID")
       ()
 
-  let create ?(classes = []) ?(attrs = []) ?(dense = true) ?hex ?init () =
+  let create ?(classes = []) ?(attrs = []) ?(dense = true) ?hex ?init ~control () =
     let classes = CSS.root :: classes in
     let init, placeholder =
       match init with
@@ -204,7 +204,7 @@ struct
         ~data:(List.map data_of_pid_info init)
         ()
     in
-    div ~a:([a_class classes] @ attrs)
+    div ~a:([a_class classes; a_user_data "control" (string_of_int control)] @ attrs)
     @@ Utils.(
          [create_header ?hex (); Divider_markup.create_hr (); table] @ placeholder ^:: [])
 end

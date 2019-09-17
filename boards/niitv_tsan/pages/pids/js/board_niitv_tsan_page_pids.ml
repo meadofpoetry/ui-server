@@ -52,8 +52,8 @@ class t elt () =
     method notify : event -> unit =
       function
       | `Bitrate ((_, x) :: _) ->
-          (* bitrate_summary#notify (`Bitrate (Some x));
-           * pid_bitrate_pie_chart#notify (`Bitrate (Some x)); *)
+          bitrate_summary#notify (`Bitrate (Some x));
+          pid_bitrate_pie_chart#notify (`Bitrate (Some x));
           pid_overview#notify (`Bitrate (Some x))
       | `PIDs ((_, x) :: _) ->
           pid_summary#notify (`PIDs x);

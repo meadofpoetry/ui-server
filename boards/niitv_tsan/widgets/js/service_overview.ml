@@ -14,6 +14,10 @@ type event =
   | `PIDs of (int * PID.t) list ts
   | `Services of (int * Service.t) list ts ]
 
+module Attr = struct
+  let data_control = "data-control"
+end
+
 module Selector = struct
   let row = "." ^ Data_table.CSS.row
 
@@ -74,16 +78,26 @@ let update_row_info (table : 'a Gadt_data_table.t) row id (info : Service.t) =
 
 class t ?(init : (int * Service.t) list ts option) elt () =
   object (self)
+    val control : int =
+      match Element.get_attribute elt Attr.data_control with
+      | None ->
+          failwith
+            (Printf.sprintf
+               "%s: no `%s` attribute found on root element"
+               CSS.root
+               Attr.data_control)
+      | Some x -> int_of_string x
+
     val placeholder =
       match Element.query_selector elt Selector.placeholder with
       | Some x -> x
       | None -> Tyxml_js.To_dom.of_div @@ Markup_js.create_empty_placeholder ()
 
-    val service_info = Service_info.make ()
-
     val table : _ Gadt_data_table.t =
       Gadt_data_table.attach ~fmt:Markup_js.table_fmt
       @@ Element.query_selector_exn elt Selector.table
+
+    val mutable service_info = None
 
     val mutable data =
       match init with
@@ -96,6 +110,7 @@ class t ?(init : (int * Service.t) list ts option) elt () =
 
     method! init () : unit =
       self#update_empty_state ();
+      service_info <- Some (Service_info.make ~control ());
       super#init ()
 
     method! initial_sync_with_dom () : unit =
@@ -106,18 +121,20 @@ class t ?(init : (int * Service.t) list ts option) elt () =
 
     method! destroy () : unit =
       table#destroy ();
-      service_info#destroy ();
+      Option.iter Widget.destroy service_info;
       super#destroy ()
 
     method services = data
 
+    method service_info = Option.get service_info
+
     method notify : event -> unit =
       function
       | `State x -> self#set_state x
-      | `PIDs _ as x -> service_info#notify x
+      | `PIDs _ as x -> (self#service_info)#notify x
       | `Services x -> self#set_services x
       | `Bitrate rate as x ->
-          service_info#notify x;
+          (self#service_info)#notify x;
           self#set_bitrate rate
 
     method set_state state =
@@ -197,7 +214,8 @@ class t ?(init : (int * Service.t) list ts option) elt () =
         match table#get_row_data_lazy row with
         | id :: name :: _ -> id (), name ()
       in
-      service_info#notify (`Service (List.find_opt (fun (id', _) -> id' = id) data));
+      (self#service_info)#notify
+        (`Service (List.find_opt (fun (id', _) -> id' = id) data));
       let info_header =
         Tyxml_js.To_dom.of_div @@ Markup_js.create_info_header ~service_name ()
       in
@@ -206,13 +224,13 @@ class t ?(init : (int * Service.t) list ts option) elt () =
       in
       Element.remove_child_safe super#root table#root;
       Dom.appendChild super#root info_header;
-      Dom.appendChild super#root service_info#root;
+      Dom.appendChild super#root (self#service_info)#root;
       Js_of_ocaml_lwt.Lwt_js_events.click back#root
       >>= fun _ ->
       Js_of_ocaml_lwt.Lwt_js_events.request_animation_frame ()
       >>= fun () ->
       Dom.removeChild super#root info_header;
-      Dom.removeChild super#root service_info#root;
+      Dom.removeChild super#root (self#service_info)#root;
       Dom.appendChild super#root table#root;
       back#destroy ();
       Lwt.return_unit

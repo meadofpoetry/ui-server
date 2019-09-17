@@ -2,9 +2,12 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml
 open Application_types
 open Board_niitv_tsan_types
+open Board_niitv_tsan_http_js
 open Components
 include Board_niitv_tsan_widgets_tyxml.Pid_overview
 module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+
+let ( >>= ) = Lwt.bind
 
 type event =
   [ `State of [Topology.state | `No_sync]
@@ -13,6 +16,8 @@ type event =
 
 module Attr = struct
   let data_mode = "data-mode"
+
+  let data_control = "data-control"
 end
 
 module Selector = struct
@@ -71,6 +76,16 @@ let update_row_info (table : 'a Gadt_data_table.t) row pid (info : PID.t) =
 
 class t ?(init : (int * PID.t) list ts option) (elt : Dom_html.element Js.t) () =
   object (self)
+    val control : int =
+      match Element.get_attribute elt Attr.data_control with
+      | None ->
+          failwith
+            (Printf.sprintf
+               "%s: no `%s` attribute found on root element"
+               CSS.root
+               Attr.data_control)
+      | Some x -> int_of_string x
+
     val menu : Menu.t option =
       Option.map Menu.attach @@ Element.query_selector elt Selector.menu
 
@@ -109,19 +124,7 @@ class t ?(init : (int * PID.t) list ts option) (elt : Dom_html.element Js.t) () 
         | Some menu, Some menu_icon ->
             [ Js_of_ocaml_lwt.Lwt_js_events.clicks menu_icon#root (fun _ _ ->
                   menu#reveal ())
-            ; Menu.Lwt_js_events.selects menu#root (fun e _ ->
-                  let detail = Widget.event_detail e in
-                  let mode = Element.get_attribute detail##.item Attr.data_mode in
-                  (match mode with
-                  | None -> ()
-                  | Some "hex" ->
-                      hex <- true;
-                      self#set_hex hex
-                  | Some "dec" ->
-                      hex <- false;
-                      self#set_hex hex
-                  | Some _ -> ());
-                  Lwt.return_unit) ]
+            ; Menu.Lwt_js_events.selects menu#root self#handle_menu_selection_change ]
         | _ -> [])
         @ listeners;
       super#initial_sync_with_dom ()
@@ -225,11 +228,61 @@ class t ?(init : (int * PID.t) list ts option) (elt : Dom_html.element Js.t) () 
             (fun cell ->
               Gadt_data_table.(set_cell_value pid_fmt (get_cell_value pid_fmt cell) cell)))
         table#rows
+
+    method private reset_bitrate_stats () : unit Lwt.t =
+      let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
+      let rec aux () =
+        Http_monitoring.reset_bitrate_stats control
+        >>= function
+        | Ok () ->
+            let snackbar =
+              Snackbar.make
+                ~label:(`Text "Статистика битрейта сброшена")
+                ~dismiss:`True
+                ()
+            in
+            scaffold#show_snackbar ~on_close:(fun _ -> snackbar#destroy ()) snackbar
+        | Error (`Msg msg) ->
+            let snackbar =
+              Snackbar.make
+                ~label:
+                  (`Text
+                    (Printf.sprintf
+                       "Не удалось сбросить статистику \
+                        битрейта. %s"
+                       msg))
+                ~action:(`Text "Повторить")
+                ()
+            in
+            scaffold#show_snackbar
+              ~on_close:(fun reason ->
+                (match reason with
+                | Action -> Lwt.async aux
+                | _ -> ());
+                snackbar#destroy ())
+              snackbar
+      in
+      aux ()
+
+    method private handle_menu_selection_change e _ : unit Lwt.t =
+      let detail = Widget.event_detail e in
+      if Element.has_class detail##.item CSS.bitrate_reset
+      then self#reset_bitrate_stats ()
+      else (
+        (match Element.get_attribute detail##.item Attr.data_mode with
+        | Some "hex" ->
+            hex <- true;
+            self#set_hex hex
+        | Some "dec" ->
+            hex <- false;
+            self#set_hex hex
+        | _ -> ());
+        Lwt.return_unit)
   end
 
 let attach ?init elt : t = new t ?init (elt : Dom_html.element Js.t) ()
 
-let make ?classes ?attrs ?dense ?init () =
-  Markup_js.create ?classes ?attrs ?dense ?init ()
+let make ?classes ?attrs ?dense ?init ~control () =
+  Markup_js.create ?classes ?attrs ?dense ?init ~control ()
   |> Tyxml_js.To_dom.of_div
   |> attach ?init

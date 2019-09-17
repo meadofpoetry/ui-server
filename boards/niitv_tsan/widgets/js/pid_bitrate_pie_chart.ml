@@ -9,7 +9,7 @@ module Selector = struct
   let canvas = "canvas"
 end
 
-type event = [`Bitrate of int Bitrate.t option]
+type event = [`Bitrate of Bitrate.ext option]
 
 let ( % ) f g x = f (g x)
 
@@ -143,14 +143,14 @@ let name = "PID bitrate pie chart"
 
 let title = "Битрейт"
 
-let map_rate {Bitrate.total; pids; _} =
+let map_rate ({total; pids; _} : Bitrate.ext) =
   let pids = List.sort (fun a b -> compare (fst a) (fst b)) pids in
   let br =
     List.fold_left
-      (fun acc (pid, br) ->
+      (fun acc (pid, (br : Bitrate.value)) ->
         let open Float in
-        let pct = 100. *. of_int br /. of_int total in
-        let br = of_int br /. 1_000_000. in
+        let pct = 100. *. of_int br.cur /. of_int total.cur in
+        let br = of_int br.cur /. 1_000_000. in
         (pid, (br, pct)) :: acc)
       []
       pids
@@ -192,7 +192,7 @@ class t ?(hex = false) ?rate (elt : Dom_html.element Js.t) =
           pie##.data##.labels := self#make_labels pids oth;
           pie##update
 
-    method set_rate : int Bitrate.t option -> unit =
+    method set_rate : Bitrate.ext option -> unit =
       function
       | None ->
           _rate <- None;
