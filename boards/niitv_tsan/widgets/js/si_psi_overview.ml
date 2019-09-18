@@ -17,6 +17,9 @@ module Set = Set.Make (struct
   let compare (a : t) (b : t) : int = SI_PSI_table.compare_id (fst a) (fst b)
 end)
 
+let get_attribute elt attr =
+  Element.get_attribute (Tyxml_js.To_dom.of_element @@ Tyxml_js.Html.tot elt) attr
+
 let update_row_bitrate
     (table : 'a Gadt_data_table.t)
     (total : Bitrate.value)
@@ -72,8 +75,8 @@ class t ?(init : (SI_PSI_table.id * SI_PSI_table.t) list ts option) elt () =
         | Some {data; _} -> data)
 
     inherit
-      [SI_PSI_table.id] Table_overview.t
-        ~format:(Markup_js.create_table_format ())
+      [SI_PSI_table.id] Table_overview.with_details
+        ~create_table_format:(Markup_js.create_table_format ~get_attribute)
         elt () as super
 
     method notify : event -> unit =
@@ -81,6 +84,28 @@ class t ?(init : (SI_PSI_table.id * SI_PSI_table.t) list ts option) elt () =
       | `State x -> super#set_state x
       | `Tables x -> self#set_tables x
       | `Bitrate x -> self#set_bitrate x
+
+    method set_hex (hex : bool) : unit =
+      let id_ext_fmt = Markup_js.id_ext_fmt ~get_attribute ~hex () in
+      let pid_fmt = Markup_js.pid_fmt ~hex in
+      let (format : _ Markup_js.Fmt.data_format) =
+        match table#data_format with
+        | _ :: _ :: name :: _ :: tl -> pid_fmt :: pid_fmt :: name :: id_ext_fmt :: tl
+      in
+      table#set_data_format ~redraw:false format;
+      List.iter
+        (fun row ->
+          let cells = row##.cells in
+          let set_cell_value fmt n =
+            Js.Opt.iter
+              (cells##item n)
+              (fun cell ->
+                Gadt_data_table.(set_cell_value fmt (get_cell_value fmt cell) cell))
+          in
+          set_cell_value pid_fmt 0;
+          set_cell_value pid_fmt 1;
+          set_cell_value id_ext_fmt 3)
+        table#rows
 
     method set_bitrate : Bitrate.ext option -> unit =
       function
@@ -116,41 +141,6 @@ class t ?(init : (SI_PSI_table.id * SI_PSI_table.t) list ts option) elt () =
       let _row = table#insert_row (-1) data in
       ()
 
-    method private set_hex (hex : bool) : unit =
-      let id_ext_fmt =
-        Markup_js.id_ext_fmt
-          ~of_elt:(fun x ->
-            let x = Tyxml_js.(To_dom.of_element @@ Html.tot x) in
-            match Element.get_attribute x "data-id" with
-            | None -> failwith "no `data-id` attribute found"
-            | Some x -> (
-                let res = SI_PSI_table.id_of_yojson @@ Yojson.Safe.from_string x in
-                match res with
-                | Error e -> failwith e
-                | Ok x -> x))
-          ~hex
-          ()
-      in
-      let pid_fmt = Markup_js.pid_fmt ~hex in
-      let (format : _ Markup_js.Fmt.data_format) =
-        match table#data_format with
-        | _ :: _ :: name :: _ :: tl -> pid_fmt :: pid_fmt :: name :: id_ext_fmt :: tl
-      in
-      table#set_data_format ~redraw:false format;
-      List.iter
-        (fun row ->
-          let cells = row##.cells in
-          let set_cell_value fmt n =
-            Js.Opt.iter
-              (cells##item n)
-              (fun cell ->
-                Gadt_data_table.(set_cell_value fmt (get_cell_value fmt cell) cell))
-          in
-          set_cell_value pid_fmt 0;
-          set_cell_value pid_fmt 1;
-          set_cell_value id_ext_fmt 3)
-        table#rows
-
     method private find_row (id : SI_PSI_table.id) =
       let find row =
         let id' =
@@ -161,6 +151,10 @@ class t ?(init : (SI_PSI_table.id * SI_PSI_table.t) list ts option) elt () =
         id.table_id = id'
       in
       List.find_opt find table#rows
+
+    method private get_row_title _ = ""
+
+    method private handle_row_action _ = Lwt.return_unit
   end
 
 let attach elt : t = new t (elt :> Dom_html.element Js.t) ()

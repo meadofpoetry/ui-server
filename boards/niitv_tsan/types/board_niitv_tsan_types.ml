@@ -294,6 +294,22 @@ module Bitrate = struct
   and cur = int t
 
   and ext = value t [@@deriving yojson, eq]
+
+  let ext_to_cur (x : ext) : cur =
+    { total = x.total.cur
+    ; effective = x.effective.cur
+    ; tables = List.map (fun (id, x) -> id, x.cur) x.tables
+    ; pids = List.map (fun (id, x) -> id, x.cur) x.pids
+    ; timestamp = x.timestamp }
+
+  let value_of_int x = {min = x; max = x; cur = x}
+
+  let cur_to_ext (x : cur) : ext =
+    { total = value_of_int x.total
+    ; effective = value_of_int x.effective
+    ; tables = List.map (fun (id, x) -> id, value_of_int x) x.tables
+    ; pids = List.map (fun (id, x) -> id, value_of_int x) x.pids
+    ; timestamp = x.timestamp }
 end
 
 module Structure = struct

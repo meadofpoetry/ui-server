@@ -101,6 +101,7 @@ struct
       ~classes
       ?attrs
       ?dense
+      ?hex
       ~title:(`Text "Список PID")
       ~format:(create_table_format ?hex ())
       ~data

@@ -14,6 +14,8 @@ module CSS = struct
 
   let menu_icon = BEM.add_element root "menu-icon"
 
+  let back_action = BEM.add_element root "back-action"
+
   let table = BEM.add_element root "table"
 
   let no_sync = BEM.add_modifier root "no-sync"
@@ -24,7 +26,11 @@ module CSS = struct
 
   let row_lost = BEM.add_modifier row "lost"
 
+  let hex = BEM.add_modifier root "hex"
+
   let with_details = BEM.add_modifier root "with-details"
+
+  let details_view = BEM.add_modifier root "details-view"
 end
 
 type pid_flags =
@@ -99,7 +105,7 @@ struct
               () ]
       ()
 
-  let create_header ?(classes = []) ?(attrs = []) ?hex ?title ?children () =
+  let create_header ?(classes = []) ?(attrs = []) ?hex ?back ?title ?children () =
     let classes = CSS.header :: classes in
     let title =
       match title with
@@ -112,7 +118,8 @@ struct
       | Some x -> x
       | None ->
           Utils.(
-            title
+            back
+            ^:: title
             ^:: [ div
                     ~a:[a_class [Menu_surface.CSS.anchor]]
                     [ Icon_button_markup.create
@@ -132,11 +139,19 @@ struct
     let classes = CSS.placeholder :: classes in
     Placeholder_markup.create ~classes ?attrs ~icon ~text ()
 
+  let create_back_action ?(classes = []) ?attrs () =
+    let classes = CSS.back_action :: classes in
+    Icon_button_markup.create
+      ~classes
+      ?attrs
+      ~icon:(Icon_markup.SVG.create ~d:Svg_icons.arrow_left ())
+      ()
+
   let create
       ?(classes = [])
       ?(attrs = [])
       ?(dense = true)
-      ?hex
+      ?(hex = false)
       ?(with_details = false)
       ?(data = [])
       ?title
@@ -144,21 +159,23 @@ struct
       ~control
       () =
     let classes =
-      classes |> Utils.cons_if with_details CSS.with_details |> List.cons CSS.root
+      classes
+      |> Utils.cons_if hex CSS.hex
+      |> Utils.cons_if with_details CSS.with_details
+      |> List.cons CSS.root
     in
     let placeholder =
       match data with
       | [] -> Some (create_empty_placeholder ())
       | _ -> None
     in
+    let back = if with_details then Some (create_back_action ()) else None in
+    let header = create_header ~hex ?back ?title () in
     let table =
       Data_table_markup.create_of_fmt ~dense ~classes:[CSS.table] ~format ~data ()
     in
     div ~a:([a_class classes; a_user_data "control" (string_of_int control)] @ attrs)
-    @@ Utils.(
-         [create_header ?hex ?title (); Divider_markup.create_hr (); table]
-         @ placeholder
-         ^:: [])
+    @@ Utils.([header; table] @ placeholder ^:: [])
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

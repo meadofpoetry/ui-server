@@ -7,7 +7,7 @@ module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 type event =
   [ `Service of (int * Service.t) option
-  | `Bitrate of int Bitrate.t option ]
+  | `Bitrate of Bitrate.ext option ]
 
 module Attr = struct
   type typ =
@@ -43,6 +43,9 @@ module Selector = struct
   let meta = "." ^ Item_list.CSS.item_meta
 end
 
+let get_meta_text (meta : #Dom_html.element Js.t) =
+  Js.Opt.case meta##.textContent (fun () -> "") Js.to_string
+
 let set_meta_text meta text = meta##.textContent := Js.some @@ Js.string text
 
 let set_item_not_available item =
@@ -65,12 +68,22 @@ class t (elt : Dom_html.element Js.t) () =
 
     method elements : int list = elements
 
-    method hex : bool = false
-
     method notify : event -> unit =
       function
       | `Service info -> self#set_service_info info
       | `Bitrate rate -> self#set_bitrate rate
+
+    method hex : bool = false
+
+    method set_hex (hex : bool) =
+      List.iter (fun item ->
+          match Attr.get_type item with
+          | Some (`Service_id | `PMT_PID | `PCR_PID) ->
+              let meta = self#get_item_meta item in
+              let text = int_of_string @@ get_meta_text meta in
+              set_meta_text meta (Util.pid_to_string ~hex text)
+          | _ -> ())
+      @@ Element.query_selector_all super#root Selector.item
 
     method set_bitrate bitrate =
       let items = Element.query_selector_all super#root Selector.item in
@@ -87,9 +100,15 @@ class t (elt : Dom_html.element Js.t) () =
           List.iter
             (fun item ->
               match Attr.get_type item with
-              | Some (`Bitrate_now | `Bitrate_min | `Bitrate_max) ->
+              | Some ((`Bitrate_now | `Bitrate_min | `Bitrate_max) as attr) ->
+                  let rate =
+                    Util.sum_bitrates
+                      (match attr with
+                      | `Bitrate_now -> Util.cur_bitrate_for_pids bitrate elements
+                      | `Bitrate_min -> Util.min_bitrate_for_pids bitrate elements
+                      | `Bitrate_max -> Util.max_bitrate_for_pids bitrate elements)
+                  in
                   let meta = self#get_item_meta item in
-                  let rate = Util.total_bitrate_for_pids bitrate elements in
                   self#set_meta_bitrate meta rate
               | _ -> ())
             items

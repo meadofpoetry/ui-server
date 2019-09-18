@@ -15,12 +15,16 @@ struct
   open Html
   include Table_overview.Make (Xml) (Svg) (Html)
 
+  let dec_id_fmt = Fmt.Int
+
   let hex_id_fmt =
     Fmt.Custom
       { to_string = Util.pid_to_hex_string
       ; of_string = int_of_string
       ; compare
       ; is_numeric = true }
+
+  let id_fmt ~hex = if hex then hex_id_fmt else dec_id_fmt
 
   let br_fmt =
     Fmt.Custom
@@ -37,9 +41,9 @@ struct
       ; is_numeric = true }
 
   let create_table_format ?(hex = false) () : _ Fmt.format =
+    let id_fmt = id_fmt ~hex in
     let br_fmt = Fmt.Option (br_fmt, "-") in
     let pct_fmt = Fmt.Option (pct_fmt, "-") in
-    let id_fmt = if hex then hex_id_fmt else Fmt.Int in
     Fmt.
       [ make_column ~sortable:true ~title:"ID" id_fmt
       ; make_column ~sortable:true ~title:"Сервис" String
@@ -81,6 +85,7 @@ struct
       ~classes
       ?attrs
       ?dense
+      ?hex
       ~title:(`Text "Список сервисов")
       ~format:(create_table_format ?hex ())
       ~with_details:true

@@ -62,17 +62,26 @@ struct
            span [span ~a:[a_class [Typography.CSS.subtitle2]] [txt (s ^ ": ")]; txt v])
          specific)
 
-  let id_ext_fmt ?(of_elt = fun _ -> assert false) ~hex () =
+  let id_ext_fmt ?(get_attribute = fun _ -> assert false) ~hex () =
     Fmt.Custom_elt
       { is_numeric = false
       ; compare = SI_PSI_table.compare_id
       ; to_elt = toelt % create_table_id_ext ~hex
-      ; of_elt }
+      ; of_elt =
+          (fun elt ->
+            match get_attribute elt "data-id" with
+            | None -> failwith "no `data-id` attribute found"
+            | Some x -> (
+                let res = SI_PSI_table.id_of_yojson @@ Yojson.Safe.from_string x in
+                match res with
+                | Error e -> failwith e
+                | Ok x -> x)) }
 
-  let create_table_format ?(hex = false) () : _ Data_table_markup.Fmt.format =
+  let create_table_format ?get_attribute ?(hex = false) () :
+      _ Data_table_markup.Fmt.format =
     let br_fmt = Fmt.Option (Float, "-") in
     let pct_fmt = Fmt.Option (pct_fmt, "-") in
-    let id_ext_fmt = id_ext_fmt ~hex () in
+    let id_ext_fmt = id_ext_fmt ?get_attribute ~hex () in
     Fmt.
       [ make_column ~sortable:true ~title:"ID" (pid_fmt ~hex)
       ; make_column ~sortable:true ~title:"PID" (pid_fmt ~hex)
@@ -113,6 +122,7 @@ struct
       ~classes
       ?attrs
       ?dense
+      ?hex
       ~title:(`Text "Список таблиц SI/PSI")
       ~format:(create_table_format ?hex ())
       ~with_details:true

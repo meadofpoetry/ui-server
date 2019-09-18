@@ -14,16 +14,28 @@ module Attr = struct
 end
 
 module Selector = struct
-  let menu_icon = "." ^ CSS.menu_icon
+  let title = Printf.sprintf ".%s" CSS.title
+
+  let header = Printf.sprintf ".%s" CSS.header
+
+  let menu_icon = Printf.sprintf ".%s" CSS.menu_icon
 
   let placeholder = Printf.sprintf ".%s" Components_lab.Placeholder.CSS.root
 
   let table = Printf.sprintf ".%s" CSS.table
 
-  let menu = "." ^ Menu.CSS.root
+  let menu = Printf.sprintf ".%s" Menu.CSS.root
+
+  let row = Printf.sprintf ".%s" Data_table.CSS.row
+
+  let back_action = Printf.sprintf ".%s" CSS.back_action
 end
 
-class virtual ['a] t ~format elt () =
+class virtual ['a] t
+  ~(create_table_format : ?hex:bool -> unit -> _ Data_table.Markup_js.Fmt.format)
+  elt
+  () =
+  let hex = Element.has_class elt CSS.hex in
   object (self)
     val control : int =
       match Element.get_attribute elt Attr.data_control with
@@ -34,6 +46,10 @@ class virtual ['a] t ~format elt () =
                CSS.root
                Attr.data_control)
       | Some x -> int_of_string x
+
+    val title = Element.query_selector elt Selector.title
+
+    val header = Element.query_selector_exn elt Selector.header
 
     val menu : Menu.t option =
       Option.map Menu.attach @@ Element.query_selector elt Selector.menu
@@ -47,9 +63,10 @@ class virtual ['a] t ~format elt () =
       | None -> Tyxml_js.To_dom.of_div @@ Markup_js.create_empty_placeholder ()
 
     val table : _ Gadt_data_table.t =
-      Gadt_data_table.attach ~fmt:format @@ Element.query_selector_exn elt Selector.table
+      Gadt_data_table.attach ~fmt:(create_table_format ~hex ())
+      @@ Element.query_selector_exn elt Selector.table
 
-    val mutable hex = false
+    val mutable hex = hex
 
     val mutable listeners = []
 
@@ -64,9 +81,9 @@ class virtual ['a] t ~format elt () =
       listeners <-
         (match menu, menu_icon with
         | Some menu, Some menu_icon ->
-            [ Js_of_ocaml_lwt.Lwt_js_events.clicks menu_icon#root (fun _ _ ->
-                  menu#reveal ())
-            ; Menu.Lwt_js_events.selects menu#root self#handle_menu_selection_change ]
+            Js_of_ocaml_lwt.Lwt_js_events.
+              [ clicks menu_icon#root (fun _ _ -> menu#reveal ())
+              ; Menu.Lwt_js_events.selects menu#root self#handle_menu_selection_change ]
         | _ -> [])
         @ listeners;
       super#initial_sync_with_dom ()
@@ -89,7 +106,20 @@ class virtual ['a] t ~format elt () =
       Element.toggle_class_unit ~force:no_response super#root CSS.no_response
     (** Updates widget state *)
 
-    method virtual private set_hex : bool -> unit
+    method title : string =
+      match title with
+      | None -> ""
+      | Some x ->
+          Option.fold ~none:"" ~some:Js.to_string (Js.Opt.to_option x##.textContent)
+
+    method set_title (s : string) =
+      match title with
+      | Some x -> x##.textContent := Js.some (Js.string s)
+      | None ->
+          let title = Tyxml_js.To_dom.of_element @@ Markup_js.create_title ~title:s () in
+          Element.insert_child_at_index header 1 title
+
+    method virtual set_hex : bool -> unit
 
     method virtual private find_row : 'a -> Dom_html.tableRowElement Js.t option
 
@@ -141,9 +171,11 @@ class virtual ['a] t ~format elt () =
         (match Element.get_attribute detail##.item Attr.data_mode with
         | Some "hex" ->
             hex <- true;
+            super#add_class CSS.hex;
             self#set_hex hex
         | Some "dec" ->
             hex <- false;
+            super#remove_class CSS.hex;
             self#set_hex hex
         | _ -> ());
         Lwt.return_unit)
@@ -152,4 +184,46 @@ class virtual ['a] t ~format elt () =
       if table#rows_collection##.length = 0
       then Dom.appendChild super#root placeholder
       else Element.remove placeholder
+  end
+
+class virtual ['a] with_details ~create_table_format elt () =
+  object (self)
+    val back_action : Icon_button.t =
+      Icon_button.attach (Element.query_selector_exn elt Selector.back_action)
+
+    inherit ['a] t ~create_table_format elt () as super
+
+    method! initial_sync_with_dom () : unit =
+      listeners <-
+        Js_of_ocaml_lwt.Lwt_js_events.(
+          [clicks table#tbody self#handle_table_body_click] @ listeners);
+      super#initial_sync_with_dom ()
+
+    method! destroy () : unit =
+      back_action#destroy ();
+      super#destroy ()
+
+    method virtual private get_row_title : Dom_html.tableRowElement Js.t -> string
+
+    method virtual private handle_row_action
+        : Dom_html.tableRowElement Js.t -> unit Lwt.t
+
+    method private handle_table_body_click e _ =
+      if super#has_class CSS.with_details
+      then
+        let target = Dom.eventTarget e in
+        let row =
+          Js.Opt.bind (Element.closest target Selector.row) (fun row ->
+              Dom_html.CoerceTo.tr row)
+        in
+        Js.Opt.case row Lwt.return (fun row ->
+            let title = super#title in
+            super#set_title (self#get_row_title row);
+            super#add_class CSS.details_view;
+            self#handle_row_action row
+            >>= fun () ->
+            super#set_title title;
+            super#remove_class CSS.details_view;
+            Lwt.return_unit)
+      else Lwt.return_unit
   end

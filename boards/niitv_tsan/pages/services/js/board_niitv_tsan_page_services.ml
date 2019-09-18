@@ -15,7 +15,7 @@ module Selector = struct
 end
 
 type event =
-  [ `Bitrate of (Stream.ID.t * int Bitrate.t) list
+  [ `Bitrate of (Stream.ID.t * Bitrate.ext) list
   | `PIDs of (Stream.ID.t * (int * PID.t) list ts) list
   | `Services of (Stream.ID.t * (int * Service.t) list ts) list
   | `State of Topology.state ]
@@ -61,7 +61,7 @@ let on_visible (page : t) (state : state) control =
     state.socket <- Some socket;
     Http_device.Event.get_state socket control
     >>=? fun (_, state_ev) ->
-    Http_monitoring.Event.get_bitrate socket control
+    Http_monitoring.Event.get_bitrate_with_stats socket control
     >>=? fun (_, bitrate_ev) ->
     Http_monitoring.Event.get_pids socket control
     >>=? fun (_, pids_ev) ->

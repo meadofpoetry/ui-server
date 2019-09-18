@@ -62,7 +62,7 @@ class t ?(init : (int * PID.t) list ts option) (elt : Dom_html.element Js.t) () 
         | Some {data; _} -> data)
 
     inherit
-      [int] Table_overview.t ~format:(Markup_js.create_table_format ()) elt () as super
+      [int] Table_overview.t ~create_table_format:Markup_js.create_table_format elt () as super
 
     method pids : (int * PID.t) list = List.of_seq @@ Set.to_seq data
 
@@ -71,6 +71,22 @@ class t ?(init : (int * PID.t) list ts option) (elt : Dom_html.element Js.t) () 
       | `State x -> super#set_state x
       | `PIDs x -> self#set_pids x
       | `Bitrate x -> self#set_bitrate x
+
+    method set_hex (hex : bool) : unit =
+      let pid_fmt = Markup_js.pid_fmt ~hex in
+      let (format : _ Markup_js.Fmt.data_format) =
+        match table#data_format with
+        | _ :: tl -> pid_fmt :: tl
+      in
+      table#set_data_format ~redraw:false format;
+      List.iter
+        (fun row ->
+          let cells = row##.cells in
+          Js.Opt.iter
+            (cells##item 0)
+            (fun cell ->
+              Gadt_data_table.(set_cell_value pid_fmt (get_cell_value pid_fmt cell) cell)))
+        table#rows
 
     method set_bitrate : Bitrate.ext option -> unit =
       function
@@ -116,27 +132,11 @@ class t ?(init : (int * PID.t) list ts option) (elt : Dom_html.element Js.t) () 
         pid = pid'
       in
       List.find_opt find table#rows
-
-    method private set_hex (hex : bool) : unit =
-      let pid_fmt = Markup_js.pid_fmt ~hex in
-      let (format : _ Markup_js.Fmt.data_format) =
-        match table#data_format with
-        | _ :: tl -> pid_fmt :: tl
-      in
-      table#set_data_format ~redraw:false format;
-      List.iter
-        (fun row ->
-          let cells = row##.cells in
-          Js.Opt.iter
-            (cells##item 0)
-            (fun cell ->
-              Gadt_data_table.(set_cell_value pid_fmt (get_cell_value pid_fmt cell) cell)))
-        table#rows
   end
 
 let attach ?init elt : t = new t ?init (elt : Dom_html.element Js.t) ()
 
-let make ?classes ?attrs ?dense ?init ~control () =
-  Markup_js.create ?classes ?attrs ?dense ?init ~control ()
+let make ?classes ?attrs ?dense ?init ?hex ~control () =
+  Markup_js.create ?classes ?attrs ?dense ?init ?hex ~control ()
   |> Tyxml_js.To_dom.of_div
   |> attach ?init

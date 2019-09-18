@@ -10,18 +10,12 @@ let ( >>= ) = Lwt.bind
 
 type event =
   [ `State of [Topology.state | `No_sync]
-  | `Bitrate of int Bitrate.t option
+  | `Bitrate of Bitrate.ext option
   | `PIDs of (int * PID.t) list ts
   | `Services of (int * Service.t) list ts ]
 
 module Selector = struct
-  let row = "." ^ Data_table.CSS.row
-
   let icon_button = "." ^ Icon_button.CSS.root
-
-  let table = "." ^ CSS.table
-
-  let placeholder = "." ^ Components_lab.Placeholder.CSS.root
 end
 
 module Set = Set.Make (struct
@@ -33,10 +27,12 @@ end)
 let update_row_bitrate
     (table : 'a Gadt_data_table.t)
     (info : Service.t)
-    (bitrate : int Bitrate.t)
+    (bitrate : Bitrate.ext)
     row =
-  let bps = Util.total_bitrate_for_pids bitrate (Util.service_pids info) in
-  let pct = Float.(100. *. (of_int bps /. of_int bitrate.total)) in
+  let bps =
+    Util.(sum_bitrates @@ cur_bitrate_for_pids bitrate (Util.service_pids info))
+  in
+  let pct = Float.(100. *. (of_int bps /. of_int bitrate.total.cur)) in
   let min, max =
     Gadt_data_table.Fmt_js.(
       match table#get_row_data_lazy row with
@@ -81,21 +77,17 @@ class t ?(init : (int * Service.t) list ts option) elt () =
       | None -> []
       | Some {data; _} -> data
 
-    inherit [int] Table_overview.t ~format:Markup_js.table_fmt elt () as super
+    inherit
+      [int] Table_overview.with_details
+        ~create_table_format:Markup_js.create_table_format elt () as super
 
     method! init () : unit =
       service_info <- Some (Service_info.make ~control ());
       super#init ()
 
-    method! initial_sync_with_dom () : unit =
-      listeners <-
-        Js_of_ocaml_lwt.Lwt_js_events.(
-          [clicks table#tbody self#handle_table_body_click] @ listeners);
-      super#initial_sync_with_dom ()
-
     method services = data
 
-    method service_info = Option.get service_info
+    method service_info : Service_info.t = Option.get service_info
 
     method notify : event -> unit =
       function
@@ -106,7 +98,16 @@ class t ?(init : (int * Service.t) list ts option) elt () =
           (self#service_info)#notify x;
           self#set_bitrate rate
 
-    method set_bitrate : int Bitrate.t option -> unit =
+    method set_hex (hex : bool) =
+      let id_fmt = Markup_js.id_fmt ~hex in
+      let (format : _ Markup_js.Fmt.data_format) =
+        match table#data_format with
+        | _ :: name :: _ :: _ :: tl -> id_fmt :: name :: id_fmt :: id_fmt :: tl
+      in
+      table#set_data_format ~redraw:true format;
+      (self#service_info)#set_hex hex
+
+    method set_bitrate : Bitrate.ext option -> unit =
       function
       | None -> () (* FIXME do smth *)
       | Some bitrate ->
@@ -157,41 +158,26 @@ class t ?(init : (int * Service.t) list ts option) elt () =
       in
       List.find_opt find table#rows
 
-    method private show_service_info (row : Dom_html.tableRowElement Js.t) =
-      let id, service_name =
+    method private get_row_title (row : Dom_html.tableRowElement Js.t) =
+      match table#get_row_data_lazy row with
+      | _ :: name :: _ -> name ()
+
+    method private handle_row_action (row : Dom_html.tableRowElement Js.t) =
+      let id =
         match table#get_row_data_lazy row with
-        | id :: name :: _ -> id (), name ()
+        | id :: _ -> id ()
       in
       (self#service_info)#notify
         (`Service (List.find_opt (fun (id', _) -> id' = id) data));
-      let info_header =
-        Tyxml_js.To_dom.of_div @@ Markup_js.create_info_header ~service_name ()
-      in
-      let back =
-        Icon_button.attach @@ Element.query_selector_exn info_header Selector.icon_button
-      in
       Element.remove_child_safe super#root table#root;
-      Dom.appendChild super#root info_header;
       Dom.appendChild super#root (self#service_info)#root;
-      Js_of_ocaml_lwt.Lwt_js_events.click back#root
+      Js_of_ocaml_lwt.Lwt_js_events.click back_action#root
       >>= fun _ ->
       Js_of_ocaml_lwt.Lwt_js_events.request_animation_frame ()
       >>= fun () ->
-      Dom.removeChild super#root info_header;
       Dom.removeChild super#root (self#service_info)#root;
       Dom.appendChild super#root table#root;
-      back#destroy ();
       Lwt.return_unit
-
-    method private set_hex _ = ()
-
-    method private handle_table_body_click e _ : unit Lwt.t =
-      let target = Dom.eventTarget e in
-      let row =
-        Js.Opt.bind (Element.closest target Selector.row) (fun row ->
-            Dom_html.CoerceTo.tr row)
-      in
-      Js.Opt.case row Lwt.return self#show_service_info
   end
 
 let attach ?init elt : t = new t ?init (elt : Dom_html.element Js.t) ()
