@@ -1,56 +1,11 @@
 @import "@material/theme/mixins";
 @import "@material/typography/mixins";
-@import "@material/data-table/variables";
 @import "../variables";
 
-.board-niitv-tsan-pid-overview {
-    .mdc-data-table {
-        width: 100%;
-        border: none;
-    }
-
-    > .mdc-placeholder {
-        border-top: $mdc-data-table-divider-size solid $mdc-data-table-divider-color;
-    }
-
-    &__title {
-        @include mdc-typography(headline6);
-        font-weight: 300;
-        margin: 0;
-        margin-left: 16px;
-    }
-
-    &__header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 8px;
-        box-sizing: border-box;
-        min-height: 52px;
-
-        .mdc-icon-button {
-            @include mdc-theme-prop(color, text-secondary-on-surface);
-        }
-
-        .mdc-menu {
-            .mdc-list-item {
-                white-space: nowrap;
-            }
-        }
-    }
-
+.board-niitv-tsan-table-overview--pids {
     .mdc-data-table__cell:nth-of-type(2) {
         @include mdc-typography-overflow-ellipsis();
         max-width: 200px;
-    }
-
-    .mdc-data-table__cell .mdc-icon {
-        @include mdc-theme-prop(color, text-icon-on-surface);
-    }
-
-    &__row--lost .mdc-data-table__cell {
-        @include mdc-theme-prop(color, error);
-        font-weight: 600;
     }
 
     &--no-sync, &--no-sync .mdc-data-table {

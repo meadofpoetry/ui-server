@@ -125,6 +125,31 @@ let make_pids_tab_template (b : Topology.topo_board) =
       Netlib.Uri.Path.(concat (Topology.make_board_path b.control) (of_string "pids"))
   end
 
+let make_si_psi_tab_template (b : Topology.topo_board) =
+  object
+    method stylesheets =
+      [ "/css/Chart.min.css"
+      ; "/css/board-niitv-tsan.min.css"
+      ; "/css/board-niitv-tsan-page-input.min.css" ]
+
+    method pre_scripts =
+      [ `Src "/js/moment.min.js" (* TODO remove *)
+      ; `Src "/js/Chart.min.js"
+      ; `Src "/js/chartjs-plugin-datalabels.min.js" ]
+
+    method post_scripts = [`Src "/js/board-niitv-tsan-page-input.js"]
+
+    method content =
+      List.map
+        Tyxml.Html.toelt
+        [Board_niitv_tsan_page_si_psi_tyxml.Markup.create ~control:b.control ()]
+
+    method title = "SI/PSI"
+
+    method path =
+      Netlib.Uri.Path.(concat (Topology.make_board_path b.control) (of_string "si-psi"))
+  end
+
 let board_id = Board_niitv_tsan_types.board_id
 
 let create
@@ -155,7 +180,10 @@ let create
   in
   let input_tabs =
     List.map (fun x ->
-        `Input x, [make_services_tab_template b; make_pids_tab_template b])
+        ( `Input x
+        , [ make_services_tab_template b
+          ; make_pids_tab_template b
+          ; make_si_psi_tab_template b ] ))
     @@ Topology.topo_inputs_of_topo_board b
   in
   let board =

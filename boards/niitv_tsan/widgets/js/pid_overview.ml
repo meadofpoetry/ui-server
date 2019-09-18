@@ -2,35 +2,14 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml
 open Application_types
 open Board_niitv_tsan_types
-open Board_niitv_tsan_http_js
 open Components
 include Board_niitv_tsan_widgets_tyxml.Pid_overview
 module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
-
-let ( >>= ) = Lwt.bind
 
 type event =
   [ `State of [Topology.state | `No_sync]
   | `Bitrate of Bitrate.ext option
   | `PIDs of (int * PID.t) list ts ]
-
-module Attr = struct
-  let data_mode = "data-mode"
-
-  let data_control = "data-control"
-end
-
-module Selector = struct
-  let header = "." ^ CSS.header
-
-  let menu = "." ^ Menu.CSS.root
-
-  let menu_icon = "." ^ CSS.menu_icon
-
-  let table = "." ^ CSS.table
-
-  let placeholder = "." ^ Components_lab.Placeholder.CSS.root
-end
 
 module Set = Set.Make (struct
   type t = int * PID.t
@@ -76,84 +55,22 @@ let update_row_info (table : 'a Gadt_data_table.t) row pid (info : PID.t) =
 
 class t ?(init : (int * PID.t) list ts option) (elt : Dom_html.element Js.t) () =
   object (self)
-    val control : int =
-      match Element.get_attribute elt Attr.data_control with
-      | None ->
-          failwith
-            (Printf.sprintf
-               "%s: no `%s` attribute found on root element"
-               CSS.root
-               Attr.data_control)
-      | Some x -> int_of_string x
-
-    val menu : Menu.t option =
-      Option.map Menu.attach @@ Element.query_selector elt Selector.menu
-
-    val menu_icon : Icon_button.t option =
-      Option.map Icon_button.attach @@ Element.query_selector elt Selector.menu_icon
-
-    val placeholder =
-      match Element.query_selector elt Selector.placeholder with
-      | Some x -> x
-      | None -> Tyxml_js.To_dom.of_div @@ Markup_js.create_empty_placeholder ()
-
-    val table : _ Gadt_data_table.t =
-      Gadt_data_table.attach ~fmt:Markup_js.(create_table_format ~hex:false ())
-      @@ Element.query_selector_exn elt Selector.table
-
-    val mutable hex = false
-
-    val mutable listeners = []
-
     val mutable data : Set.t =
       Set.of_list
         (match init with
         | None -> []
         | Some {data; _} -> data)
 
-    inherit Widget.t elt () as super
-
-    method! init () : unit =
-      self#update_empty_state ();
-      Option.iter (fun menu -> menu#set_quick_open true) menu;
-      super#init ()
-
-    method! initial_sync_with_dom () : unit =
-      listeners <-
-        (match menu, menu_icon with
-        | Some menu, Some menu_icon ->
-            [ Js_of_ocaml_lwt.Lwt_js_events.clicks menu_icon#root (fun _ _ ->
-                  menu#reveal ())
-            ; Menu.Lwt_js_events.selects menu#root self#handle_menu_selection_change ]
-        | _ -> [])
-        @ listeners;
-      super#initial_sync_with_dom ()
-
-    method! destroy () : unit =
-      table#destroy ();
-      Option.iter Widget.destroy menu;
-      Option.iter Widget.destroy menu_icon;
-      List.iter Lwt.cancel listeners;
-      super#destroy ()
+    inherit
+      [int] Table_overview.t ~format:(Markup_js.create_table_format ()) elt () as super
 
     method pids : (int * PID.t) list = List.of_seq @@ Set.to_seq data
 
     method notify : event -> unit =
       function
-      | `State x -> self#set_state x
+      | `State x -> super#set_state x
       | `PIDs x -> self#set_pids x
       | `Bitrate x -> self#set_bitrate x
-
-    method set_state state =
-      let no_sync, no_response =
-        match state with
-        | `Fine -> false, false
-        | `No_sync -> true, false
-        | `Detect | `Init | `No_response -> false, true
-      in
-      Element.toggle_class_unit ~force:no_sync super#root CSS.no_sync;
-      Element.toggle_class_unit ~force:no_response super#root CSS.no_response
-    (** Updates widget state *)
 
     method set_bitrate : Bitrate.ext option -> unit =
       function
@@ -172,7 +89,7 @@ class t ?(init : (int * PID.t) list ts option) (elt : Dom_html.element Js.t) () 
       let cur = Set.of_list pids.data in
       data <- cur;
       (* Handle lost PIDs *)
-      Set.iter self#remove_pid @@ Set.diff old cur;
+      Set.iter (super#remove_row % fst) @@ Set.diff old cur;
       (* Handle found PIDs *)
       Set.iter self#add_pid @@ Set.diff cur old;
       (* Update existing PIDs *)
@@ -184,18 +101,10 @@ class t ?(init : (int * PID.t) list ts option) (elt : Dom_html.element Js.t) () 
       | None -> ()
       | Some row -> update_row_info table row pid info
 
-    method private remove_pid (pid, _) =
-      match self#find_row pid with
-      | None -> ()
-      | Some row -> table#table##deleteRow row##.rowIndex
-
-    method private add_pid (pid, info) =
-      let flags = {has_pcr = info.has_pcr; scrambled = info.scrambled} in
-      let (data : _ Markup_js.Fmt.data) =
-        Markup_js.Fmt.[pid; info.typ; flags; info.service_name; None; None; None; None]
-      in
+    method private add_pid x =
+      let (data : _ Markup_js.Fmt.data) = Markup_js.data_of_pid_info x in
       let row = table#insert_row (-1) data in
-      Element.toggle_class_unit ~force:(not info.present) row CSS.row_lost
+      Element.toggle_class_unit ~force:(not (snd x).present) row CSS.row_lost
 
     method private find_row (pid : int) =
       let find row =
@@ -207,11 +116,6 @@ class t ?(init : (int * PID.t) list ts option) (elt : Dom_html.element Js.t) () 
         pid = pid'
       in
       List.find_opt find table#rows
-
-    method private update_empty_state () =
-      if table#rows_collection##.length = 0
-      then Dom.appendChild super#root placeholder
-      else Element.remove placeholder
 
     method private set_hex (hex : bool) : unit =
       let pid_fmt = Markup_js.pid_fmt ~hex in
@@ -228,56 +132,6 @@ class t ?(init : (int * PID.t) list ts option) (elt : Dom_html.element Js.t) () 
             (fun cell ->
               Gadt_data_table.(set_cell_value pid_fmt (get_cell_value pid_fmt cell) cell)))
         table#rows
-
-    method private reset_bitrate_stats () : unit Lwt.t =
-      let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
-      let rec aux () =
-        Http_monitoring.reset_bitrate_stats control
-        >>= function
-        | Ok () ->
-            let snackbar =
-              Snackbar.make
-                ~label:(`Text "Статистика битрейта сброшена")
-                ~dismiss:`True
-                ()
-            in
-            scaffold#show_snackbar ~on_close:(fun _ -> snackbar#destroy ()) snackbar
-        | Error (`Msg msg) ->
-            let snackbar =
-              Snackbar.make
-                ~label:
-                  (`Text
-                    (Printf.sprintf
-                       "Не удалось сбросить статистику \
-                        битрейта. %s"
-                       msg))
-                ~action:(`Text "Повторить")
-                ()
-            in
-            scaffold#show_snackbar
-              ~on_close:(fun reason ->
-                (match reason with
-                | Action -> Lwt.async aux
-                | _ -> ());
-                snackbar#destroy ())
-              snackbar
-      in
-      aux ()
-
-    method private handle_menu_selection_change e _ : unit Lwt.t =
-      let detail = Widget.event_detail e in
-      if Element.has_class detail##.item CSS.bitrate_reset
-      then self#reset_bitrate_stats ()
-      else (
-        (match Element.get_attribute detail##.item Attr.data_mode with
-        | Some "hex" ->
-            hex <- true;
-            self#set_hex hex
-        | Some "dec" ->
-            hex <- false;
-            self#set_hex hex
-        | _ -> ());
-        Lwt.return_unit)
   end
 
 let attach ?init elt : t = new t ?init (elt : Dom_html.element Js.t) ()

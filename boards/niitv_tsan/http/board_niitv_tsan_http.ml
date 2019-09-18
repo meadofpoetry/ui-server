@@ -266,6 +266,11 @@ let ws (control : int) (api : Protocol.api) =
               ~query:Query.["id", (module List (Stream.ID))]
               (Api_monitoring.Event.get_pids api)
           ; event_node
+              ~doc:"SI/PSI tables socket"
+              ~path:(Path.Format.of_string "tables")
+              ~query:Query.["id", (module List (Stream.ID))]
+              (Api_monitoring.Event.get_si_psi_tables api)
+          ; event_node
               ~doc:"Services socket"
               ~path:(Path.Format.of_string "services")
               ~query:Query.["id", (module List (Stream.ID))]

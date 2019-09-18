@@ -471,14 +471,13 @@ module Structure = struct
     let pid = pid' land 0x1FFF in
     let last_section = Message.get_table_struct_block_lsn bdy in
     let section_syntax = pid' land 0x8000 > 0 in
-    let id = {SI_PSI_table.table_id; table_id_ext; id_ext_1; id_ext_2} in
+    let id = {SI_PSI_table.table_id; table_id_ext; id_ext_1; id_ext_2; section_syntax} in
     let info =
       { SI_PSI_table.version
       ; pid
       ; service_id = None (* Filled in later *)
       ; service_name = None
       ; last_section
-      ; section_syntax
       ; eit_segment_lsn
       ; eit_last_table_id
       ; sections }
@@ -696,13 +695,13 @@ module Bitrate = struct
           let id_ext_1 = Message.get_table_bitrate_id_ext_1 el in
           let id_ext_2 = Message.get_table_bitrate_id_ext_2 el in
           let rate = int_of_float @@ (br_per_pkt *. Int32.to_float packets) in
-          { Bitrate.table_id = Message.get_table_bitrate_table_id el
-          ; table_id_ext = Message.get_table_bitrate_table_id_ext el
-          ; id_ext_1
-          ; id_ext_2
-          ; fully_analyzed = flags land 2 > 0
-          ; section_syntax = flags land 1 > 0
-          ; bitrate = rate }
+          let _fully_analyzed = flags land 2 > 0 in
+          ( { SI_PSI_table.table_id = Message.get_table_bitrate_table_id el
+            ; table_id_ext = Message.get_table_bitrate_table_id_ext el
+            ; id_ext_1
+            ; id_ext_2
+            ; section_syntax = flags land 1 > 0 }
+          , rate )
           :: acc)
         iter
         []

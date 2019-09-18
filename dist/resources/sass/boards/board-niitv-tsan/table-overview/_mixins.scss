@@ -1,0 +1,118 @@
+@import "@material/theme/mixins";
+@import "@material/typography/mixins";
+@import "@material/feature-targeting/functions";
+@import "@material/feature-targeting/mixins";
+@import "./variables";
+
+@mixin table-overview-core-styles($query: mdc-feature-all()) {
+    $feat-structure: mdc-feature-create-target($query, structure);
+
+    .board-niitv-tsan-table-overview {
+        @include mdc-feature-targets($feat-structure) {
+
+        }
+    }
+
+    .board-niitv-tsan-table-overview__title {
+        @include table-overview__title($query);
+    }
+
+    .board-niitv-tsan-table-overview__header {
+        @include table-overview__header($query);
+    }
+
+    .board-niitv-tsan-table-overview__table {
+        @include table-overview__table($query);
+    }
+
+    .board-niitv-tsan-table-overview__placeholder {
+        @include table-overview__placeholder($query);
+    }
+
+    .board-niitv-tsan-table-overview--with-details {
+        .mdc-data-table__row {
+            cursor: pointer;
+        }
+    }
+}
+
+@mixin table-overview__title($query: mdc-feature-all()) {
+    $feat-structure: mdc-feature-create-target($query, structure);
+    $feat-typography: mdc-feature-create-target($query, typography);
+
+    @include mdc-typography(headline6, $query);
+
+    @include mdc-feature-targets($feat-structure) {
+        margin: 0;
+        margin-left: 16px;
+    }
+
+    @include mdc-feature-targets($feat-typography) {
+        font-weight: 300;
+    }
+}
+
+@mixin table-overview__header($query: mdc-feature-all()) {
+    $feat-structure: mdc-feature-create-target($query, structure);
+    $feat-color: mdc-feature-create-target($query, color);
+
+    @include mdc-feature-targets($feat-structure) {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px;
+        box-sizing: border-box;
+        min-height: 52px;
+
+        .mdc-menu-surface--anchor {
+            margin-left: auto;
+        }
+
+        .mdc-menu {
+            .mdc-list-item {
+                white-space: nowrap;
+            }
+        }
+    }
+
+    @include mdc-feature-targets($feat-color) {
+        .mdc-icon-button {
+            @include mdc-theme-prop(color, text-secondary-on-surface);
+        }
+    }
+}
+
+@mixin table-overview__table($query: mdc-feature-all()) {
+    $feat-structure: mdc-feature-create-target($query, structure);
+    $feat-color: mdc-feature-create-target($query, color);
+
+    @include mdc-feature-targets($feat-structure) {
+        width: 100%;
+        border: none;
+    }
+
+    @include mdc-feature-targets($feat-color) {
+        .mdc-data-table__cell .mdc-icon {
+            @include mdc-theme-prop(color, text-icon-on-surface);
+        }
+
+        &__row--lost .mdc-data-table__cell {
+            @include mdc-theme-prop(color, error);
+            font-weight: 600;
+        }
+    }
+}
+
+@mixin table-overview__placeholder($query: mdc-feature-all()) {
+    $feat-structure: mdc-feature-create-target($query, structure);
+    $feat-color: mdc-feature-create-target($query, color);
+
+    @include mdc-feature-targets($feat-structure) {
+        border-top-style: solid;
+        border-top-width: $table-overview-placeholder-border-width;
+    }
+
+    @include mdc-feature-targets($feat-color) {
+        @include mdc-theme-prop(border-top-color, $table-overview-placeholder-border-color);
+    }
+}

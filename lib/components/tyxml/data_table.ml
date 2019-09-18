@@ -304,7 +304,7 @@ struct
     create_row ?classes ?attrs ~children:cells ()
 
   (* TODO how to provide custom classes, attrs to inner components? *)
-  let create_of_fmt ?classes ?attrs ?dense ~format ~data () =
+  let create_of_fmt ?classes ?attrs ?dense ~format ?(data = []) () =
     let rows = List.map (fun x -> create_row_of_fmt ~format ~data:x ()) data in
     let header = create_header_of_fmt ~format () in
     let body = create_body ~children:rows () in

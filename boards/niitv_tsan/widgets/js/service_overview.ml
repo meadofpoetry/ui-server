@@ -14,10 +14,6 @@ type event =
   | `PIDs of (int * PID.t) list ts
   | `Services of (int * Service.t) list ts ]
 
-module Attr = struct
-  let data_control = "data-control"
-end
-
 module Selector = struct
   let row = "." ^ Data_table.CSS.row
 
@@ -78,25 +74,6 @@ let update_row_info (table : 'a Gadt_data_table.t) row id (info : Service.t) =
 
 class t ?(init : (int * Service.t) list ts option) elt () =
   object (self)
-    val control : int =
-      match Element.get_attribute elt Attr.data_control with
-      | None ->
-          failwith
-            (Printf.sprintf
-               "%s: no `%s` attribute found on root element"
-               CSS.root
-               Attr.data_control)
-      | Some x -> int_of_string x
-
-    val placeholder =
-      match Element.query_selector elt Selector.placeholder with
-      | Some x -> x
-      | None -> Tyxml_js.To_dom.of_div @@ Markup_js.create_empty_placeholder ()
-
-    val table : _ Gadt_data_table.t =
-      Gadt_data_table.attach ~fmt:Markup_js.table_fmt
-      @@ Element.query_selector_exn elt Selector.table
-
     val mutable service_info = None
 
     val mutable data =
@@ -104,12 +81,9 @@ class t ?(init : (int * Service.t) list ts option) elt () =
       | None -> []
       | Some {data; _} -> data
 
-    val mutable listeners = []
-
-    inherit Widget.t elt () as super
+    inherit [int] Table_overview.t ~format:Markup_js.table_fmt elt () as super
 
     method! init () : unit =
-      self#update_empty_state ();
       service_info <- Some (Service_info.make ~control ());
       super#init ()
 
@@ -119,34 +93,18 @@ class t ?(init : (int * Service.t) list ts option) elt () =
           [clicks table#tbody self#handle_table_body_click] @ listeners);
       super#initial_sync_with_dom ()
 
-    method! destroy () : unit =
-      table#destroy ();
-      Option.iter Widget.destroy service_info;
-      super#destroy ()
-
     method services = data
 
     method service_info = Option.get service_info
 
     method notify : event -> unit =
       function
-      | `State x -> self#set_state x
+      | `State x -> super#set_state x
       | `PIDs _ as x -> (self#service_info)#notify x
       | `Services x -> self#set_services x
       | `Bitrate rate as x ->
           (self#service_info)#notify x;
           self#set_bitrate rate
-
-    method set_state state =
-      let no_sync, no_response =
-        match state with
-        | `Fine -> false, false
-        | `No_sync -> true, false
-        | `Detect | `Init | `No_response -> false, true
-      in
-      Element.toggle_class_unit ~force:no_sync super#root CSS.no_sync;
-      Element.toggle_class_unit ~force:no_response super#root CSS.no_response
-    (** Updates widget state *)
 
     method set_bitrate : int Bitrate.t option -> unit =
       function
@@ -171,7 +129,7 @@ class t ?(init : (int * Service.t) list ts option) elt () =
       let cur = Set.of_list services.data in
       data <- services.data;
       (* Handle lost PIDs *)
-      Set.iter self#remove_service @@ Set.diff old cur;
+      Set.iter (super#remove_row % fst) @@ Set.diff old cur;
       (* Handle found PIDs *)
       Set.iter self#add_service @@ Set.diff cur old;
       (* Update existing PIDs *)
@@ -182,11 +140,6 @@ class t ?(init : (int * Service.t) list ts option) elt () =
       match self#find_row id with
       | None -> ()
       | Some row -> update_row_info table row id info
-
-    method private remove_service (id, _) =
-      match self#find_row id with
-      | None -> ()
-      | Some row -> table#table##deleteRow row##.rowIndex
 
     method private add_service service =
       let (data : _ Markup_js.Fmt.data) = Markup_js.data_of_service_info service in
@@ -203,11 +156,6 @@ class t ?(init : (int * Service.t) list ts option) elt () =
         pid = pid'
       in
       List.find_opt find table#rows
-
-    method private update_empty_state () =
-      if table#rows_collection##.length = 0
-      then Dom.appendChild super#root placeholder
-      else Element.remove placeholder
 
     method private show_service_info (row : Dom_html.tableRowElement Js.t) =
       let id, service_name =
@@ -235,6 +183,8 @@ class t ?(init : (int * Service.t) list ts option) elt () =
       back#destroy ();
       Lwt.return_unit
 
+    method private set_hex _ = ()
+
     method private handle_table_body_click e _ : unit Lwt.t =
       let target = Dom.eventTarget e in
       let row =
@@ -246,7 +196,7 @@ class t ?(init : (int * Service.t) list ts option) elt () =
 
 let attach ?init elt : t = new t ?init (elt : Dom_html.element Js.t) ()
 
-let make ?classes ?attrs ?dense ?init () =
-  Markup_js.create ?classes ?attrs ?dense ?init ()
+let make ?classes ?attrs ?dense ?init ~control () =
+  Markup_js.create ?classes ?attrs ?dense ?init ~control ()
   |> Tyxml_js.To_dom.of_div
   |> attach ?init

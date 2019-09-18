@@ -20,7 +20,8 @@ let () =
             List.iter
               (fun control ->
                 Board_niitv_tsan_page_pids.init control;
-                Board_niitv_tsan_page_services.init control)
+                Board_niitv_tsan_page_services.init control;
+                Board_niitv_tsan_page_si_psi.init control)
               controls
           in
           ()

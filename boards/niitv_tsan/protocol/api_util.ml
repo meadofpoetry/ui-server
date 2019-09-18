@@ -63,6 +63,8 @@ let si_psi_tables_to_yojson =
   Util_json.(
     List.to_yojson @@ Pair.to_yojson SI_PSI_table.id_to_yojson SI_PSI_table.to_yojson)
 
+let si_psi_tables_ts_to_yojson = ts_to_yojson si_psi_tables_to_yojson
+
 let services_to_yojson =
   Util_json.(List.to_yojson @@ Pair.to_yojson Int.to_yojson Service.to_yojson)
 

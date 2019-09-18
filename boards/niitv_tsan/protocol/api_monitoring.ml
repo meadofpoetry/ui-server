@@ -40,13 +40,23 @@ module Event = struct
     in
     Lwt.return event
 
-  let get_services (api : Protocol.api) ids _user =
-    let to_yojson = stream_assoc_list_to_yojson services_ts_to_yojson in
-    let get_pids = List.map (fun (id, x) -> id, Structure.services_ts x) in
+  let get_si_psi_tables (api : Protocol.api) ids _user =
+    let to_yojson = stream_assoc_list_to_yojson si_psi_tables_ts_to_yojson in
+    let get_si_psi_tables = List.map (fun (id, x) -> id, Structure.tables_ts x) in
     let event =
       api.notifs.structure
       |> S.changes
-      |> E.fmap (Option.map to_yojson % filter_ids ids % get_pids)
+      |> E.fmap (Option.map to_yojson % filter_ids ids % get_si_psi_tables)
+    in
+    Lwt.return event
+
+  let get_services (api : Protocol.api) ids _user =
+    let to_yojson = stream_assoc_list_to_yojson services_ts_to_yojson in
+    let get_services = List.map (fun (id, x) -> id, Structure.services_ts x) in
+    let event =
+      api.notifs.structure
+      |> S.changes
+      |> E.fmap (Option.map to_yojson % filter_ids ids % get_services)
     in
     Lwt.return event
 end
@@ -149,9 +159,9 @@ let get_si_psi_tables (api : Protocol.api) force ids _user _body _env _state =
       >>= Lwt.return_ok % map_stream_id (React.S.value api.notifs.streams)
   | None | Some false -> Lwt.return_ok @@ React.S.value api.notifs.structure)
   >>=? return_value
-       % stream_assoc_list_to_yojson si_psi_tables_to_yojson
+       % stream_assoc_list_to_yojson si_psi_tables_ts_to_yojson
        % filter_ids ids
-       % List.map (fun (id, (s : Structure.t)) -> id, s.tables)
+       % List.map (fun (id, (s : Structure.t)) -> id, Structure.tables_ts s)
 
 let get_services (api : Protocol.api) force ids _user _body _env _state =
   (match force with

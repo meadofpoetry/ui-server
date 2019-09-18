@@ -20,10 +20,7 @@ let map_bitrate (x : Bitrate.cur) : Bitrate.ext =
   { total = value_of_int x.total
   ; effective = value_of_int x.effective
   ; pids = List.map (fun (pid, v) -> pid, value_of_int v) x.pids
-  ; tables =
-      List.map
-        (fun (x : int Bitrate.table) -> {x with bitrate = value_of_int x.bitrate})
-        x.tables
+  ; tables = List.map (fun (id, v) -> id, value_of_int v) x.tables
   ; timestamp = x.timestamp }
 
 let clear_stream t stream =
@@ -50,9 +47,9 @@ let push_queue (period : Ptime.span) (queue : int Bitrate.t Queue.t) (v : int Bi
 
 let fold (queue : Bitrate.cur Queue.t) (v : Bitrate.cur) : Bitrate.ext =
   let acc_of_int x = {min = x; max = x; cur = x} in
-  let total, effective, pids, _tables =
+  let total, effective, pids, tables =
     Queue.fold
-      (fun (tot, eff, pid, _tbl) (x : int Bitrate.t) ->
+      (fun (tot, eff, pid, tbl) (x : int Bitrate.t) ->
         let total = update_acc tot x.total in
         let effective = update_acc eff x.effective in
         let pids =
@@ -63,17 +60,25 @@ let fold (queue : Bitrate.cur Queue.t) (v : Bitrate.cur) : Bitrate.ext =
               | Some v -> pid, update_acc acc v)
             pid
         in
-        total, effective, pids, [])
+        let tables =
+          List.map
+            (fun (id, acc) ->
+              match List.assoc_opt id x.tables with
+              | None -> id, acc
+              | Some v -> id, update_acc acc v)
+            tbl
+        in
+        total, effective, pids, tables)
       ( acc_of_int v.total
       , acc_of_int v.effective
       , List.map (fun (pid, v) -> pid, acc_of_int v) v.pids
-      , [] )
+      , List.map (fun (id, v) -> id, acc_of_int v) v.tables )
       queue
   in
   { total = value_of_acc total
   ; effective = value_of_acc effective
   ; pids = List.map (fun (pid, acc) -> pid, value_of_acc acc) pids
-  ; tables = []
+  ; tables = List.map (fun (id, acc) -> id, value_of_acc acc) tables
   ; timestamp = v.timestamp }
 
 let map (t : t) (bitrate : (Stream.ID.t * int Bitrate.t) list) =

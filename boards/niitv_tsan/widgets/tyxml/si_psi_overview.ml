@@ -3,13 +3,9 @@ open Application_types
 open Board_niitv_tsan_types
 
 module CSS = struct
-  let root = Util.CSS.root ^ "-si-psi-overview"
+  include Table_overview.CSS
 
-  let bitrate_reset = BEM.add_element root "bitrate-reset"
-
-  let table = BEM.add_element root "table"
-
-  let menu_icon = BEM.add_element root "menu-icon"
+  let si_psi = BEM.add_modifier root "si-psi"
 end
 
 module Make
@@ -18,12 +14,7 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  module Data_table_markup = Data_table.Make (Xml) (Svg) (Html)
-  module Divider_markup = Divider.Make (Xml) (Svg) (Html)
-  module Fmt = Data_table.Make_fmt (Xml)
-  module Icon_button_markup = Icon_button.Make (Xml) (Svg) (Html)
-  module Icon_markup = Icon.Make (Xml) (Svg) (Html)
-  module Placeholder_markup = Components_lab_tyxml.Placeholder.Make (Xml) (Svg) (Html)
+  include Table_overview.Make (Xml) (Svg) (Html)
 
   let dec_pid_fmt = Fmt.Int
 
@@ -71,16 +62,17 @@ struct
            span [span ~a:[a_class [Typography.CSS.subtitle2]] [txt (s ^ ": ")]; txt v])
          specific)
 
-  let id_ext_fmt ~hex =
+  let id_ext_fmt ?(of_elt = fun _ -> assert false) ~hex () =
     Fmt.Custom_elt
       { is_numeric = false
       ; compare = SI_PSI_table.compare_id
       ; to_elt = toelt % create_table_id_ext ~hex
-      ; of_elt = (fun _ -> assert false) }
+      ; of_elt }
 
   let create_table_format ?(hex = false) () : _ Data_table_markup.Fmt.format =
     let br_fmt = Fmt.Option (Float, "-") in
-    let id_ext_fmt = id_ext_fmt ~hex in
+    let pct_fmt = Fmt.Option (pct_fmt, "-") in
+    let id_ext_fmt = id_ext_fmt ~hex () in
     Fmt.
       [ make_column ~sortable:true ~title:"ID" (pid_fmt ~hex)
       ; make_column ~sortable:true ~title:"PID" (pid_fmt ~hex)
@@ -95,17 +87,38 @@ struct
       ; make_column ~title:"Min, Мбит/с" br_fmt
       ; make_column ~title:"Max, Мбит/с" br_fmt ]
 
-  let create_empty_placeholder ?classes ?attrs () =
-    Placeholder_markup.create
-      ?classes
-      ?attrs
-      ~icon:(Icon_markup.SVG.create ~d:Svg_icons.emoticon_sad ())
-      ~text:(`Text "Не найдено ни одного PID")
-      ()
+  let data_of_si_psi_info ((id, info) : SI_PSI_table.id * SI_PSI_table.t) : _ Fmt.data =
+    Fmt.
+      [ id.table_id
+      ; info.pid
+      ; ""
+      ; id
+      ; info.version
+      ; info.service_name
+      ; List.length info.sections
+      ; info.last_section
+      ; None
+      ; None
+      ; None
+      ; None ]
 
-  let create ?(classes = []) ?(attrs = []) () =
+  let create ?(classes = []) ?attrs ?dense ?hex ?init ~control () =
     let classes = CSS.root :: classes in
-    div ~a:([a_class classes] @ attrs) []
+    let data =
+      match init with
+      | None -> []
+      | Some ({data; _} : _ ts) -> List.map data_of_si_psi_info data
+    in
+    create
+      ~classes
+      ?attrs
+      ?dense
+      ~title:(`Text "Список таблиц SI/PSI")
+      ~format:(create_table_format ?hex ())
+      ~with_details:true
+      ~data
+      ~control
+      ()
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

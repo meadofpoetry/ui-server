@@ -68,7 +68,7 @@ let query_selector (elt : #Dom_html.element Js.t) (selector : string) : t option
 let query_selector_exn (elt : #Dom_html.element Js.t) (selector : string) : t =
   Js.Opt.get
     (elt##querySelector (Js.string selector))
-    (fun () -> failwith (Printf.sprintf "no element matches selector %s" selector))
+    (fun () -> failwith (Printf.sprintf "no element matches selector `%s`" selector))
 
 let query_selector_all (elt : #Dom_html.element Js.t) (selector : string) : t list =
   Dom.list_of_nodeList @@ elt##querySelectorAll (Js.string selector)

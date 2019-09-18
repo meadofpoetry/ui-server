@@ -3,8 +3,9 @@
   (libraries  board_niitv_tsan_widgets
               components_lab
               page_input_tyxml
-              board_niitv_tsan_page_services
-              board_niitv_tsan_page_pids)
+              board_niitv_tsan_page_pids
+              board_niitv_tsan_page_si_psi
+              board_niitv_tsan_page_services)
   (preprocess (pps js_of_ocaml-ppx)))
 
 (install

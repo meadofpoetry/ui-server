@@ -167,33 +167,6 @@ module Deverr = struct
   [@@deriving yojson]
 end
 
-module Bitrate = struct
-  type value =
-    { min : int
-    ; max : int
-    ; cur : int }
-
-  and 'a table =
-    { table_id : int
-    ; table_id_ext : int
-    ; id_ext_1 : int
-    ; id_ext_2 : int
-    ; fully_analyzed : bool
-    ; section_syntax : bool
-    ; bitrate : 'a }
-
-  and 'a t =
-    { total : 'a
-    ; effective : 'a
-    ; tables : 'a table list
-    ; pids : (int * 'a) list
-    ; timestamp : Time.t }
-
-  and cur = int t
-
-  and ext = value t [@@deriving yojson, eq]
-end
-
 module TS_info = struct
   type t =
     { complete : bool
@@ -245,6 +218,7 @@ module SI_PSI_section = struct
     ; table_id_ext : int
     ; id_ext_1 : int (* For SDT - orig nw id, for EIT - ts id *)
     ; id_ext_2 : int (* For EIT - orig nw id *)
+    ; section_syntax : bool
     ; section : int }
   [@@deriving yojson, show, eq, ord]
 
@@ -255,7 +229,6 @@ module SI_PSI_section = struct
     ; service_name : string option [@default None]
     ; eit_segment_lsn : int
     ; eit_last_table_id : int
-    ; section_syntax : bool
     ; last_section : int
     ; length : int }
   [@@deriving yojson, show, eq, ord]
@@ -284,7 +257,8 @@ module SI_PSI_table = struct
     { table_id : int
     ; table_id_ext : int
     ; id_ext_1 : int (* See SI_PSI_section.id *)
-    ; id_ext_2 : int (* See SI_PSI_section.id *) }
+    ; id_ext_2 : int (* See SI_PSI_section.id *)
+    ; section_syntax : bool }
   [@@deriving yojson, show, eq, ord]
 
   type section_info =
@@ -297,12 +271,29 @@ module SI_PSI_table = struct
     ; version : int
     ; service_id : int option
     ; service_name : string option [@default None]
-    ; section_syntax : bool
     ; last_section : int
     ; eit_segment_lsn : int
     ; eit_last_table_id : int
     ; sections : section_info list }
   [@@deriving yojson, show, eq, ord]
+end
+
+module Bitrate = struct
+  type value =
+    { min : int
+    ; max : int
+    ; cur : int }
+
+  and 'a t =
+    { total : 'a
+    ; effective : 'a
+    ; tables : (SI_PSI_table.id * 'a) list
+    ; pids : (int * 'a) list
+    ; timestamp : Time.t }
+
+  and cur = int t
+
+  and ext = value t [@@deriving yojson, eq]
 end
 
 module Structure = struct
