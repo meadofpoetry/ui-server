@@ -81,18 +81,18 @@ struct
     let classes = CSS.content :: classes in
     section ~a:([a_class classes] @ attrs) content
 
-  let create_action ?(classes = []) ?(attrs = []) ?(default = false) ?action =
+  let action ?(classes = []) ?(a = []) ?(default = false) ?action =
     let classes =
       classes |> Utils.cons_if default CSS.button_default |> List.cons CSS.button
     in
-    let attrs =
+    let a =
       match action with
-      | None -> attrs
+      | None -> a
       | Some action ->
           let attr = action_to_string action in
-          a_user_data "mdc-dialog-action" attr :: attrs
+          a_user_data "mdc-dialog-action" attr :: a
     in
-    Button_markup.create ~classes ~attrs
+    Button_markup.button ~classes ~a
 
   let create_actions ?(classes = []) ?(attrs = []) actions : 'a elt =
     let classes = CSS.actions :: classes in

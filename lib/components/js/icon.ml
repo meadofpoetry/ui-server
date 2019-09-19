@@ -1,10 +1,12 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Icon
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 module SVG = struct
-  module Markup_js = Markup_js.SVG
+  module D = D.SVG
+  module R = R.SVG
   module Path = Components_tyxml.Svg_icons
 
   (* paths variable is passed to avoid double allocation of paths objects *)
@@ -29,8 +31,8 @@ module SVG = struct
 
   let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
 
-  let make ?classes ?attrs ?size ?fill ?d ?children () : t =
-    Markup_js.create ?classes ?attrs ?size ?fill ?d ?children ()
+  let make ?classes ?a ?size ?fill ?d ?children () : t =
+    D.icon ?classes ?a ?size ?fill ?d ?children ()
     |> Tyxml_js.To_dom.of_element
     |> attach
 end

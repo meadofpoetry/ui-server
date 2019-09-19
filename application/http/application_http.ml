@@ -23,7 +23,7 @@ let logout_page_props () =
                [ icon Components_tyxml.Svg_icons.human_greeting
                ; div ~a:[a_class ["logout-page__goodbye"]] [txt goodbye]
                ; div ~a:[a_class ["logout-page__message"]] [txt message]
-               ; Components_tyxml.Button.Markup.create_anchor
+               ; Components_tyxml.Button.F.create_anchor
                    ~label:"Войти"
                    ~appearance:Raised
                    ~href:(uri_of_string "/")

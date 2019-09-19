@@ -169,7 +169,7 @@ let make_frequency ?(value : int option) (standard : standard option React.signa
       ~on_input:(fun _ input ->
         push ();
         handle_input menu input standard)
-      ~trailing_icon:(Typography.Markup_js.create ~text:"Гц" ())
+      ~trailing_icon:(Typography.D.create ~text:"Гц" ())
       ~label:(`Text "Частота")
       ~validation:(Integer (Some min_frequency, Some max_frequency))
       ()

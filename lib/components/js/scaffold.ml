@@ -237,7 +237,7 @@ class t
       let leading =
         match app_bar#leading, drawer with
         | None, Some _ ->
-            let icon = Icon.SVG.(Markup_js.create ~d:Path.menu ()) in
+            let icon = Icon.SVG.(D.icon ~d:Path.menu ()) in
             let w = Icon_button.make ~icon () in
             w#add_class Top_app_bar.CSS.navigation_icon;
             Some w#root

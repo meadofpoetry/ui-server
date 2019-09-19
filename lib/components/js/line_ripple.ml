@@ -1,7 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Line_ripple
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 class t (elt : Dom_html.element Js.t) () =
   object (self)
@@ -59,5 +60,8 @@ let deactivate (x : t) = x#deactivate ()
 
 let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
 
-let make ?classes ?attrs () : t =
-  Markup_js.create ?classes ?attrs () |> Tyxml_js.To_dom.of_div |> attach
+let make ?classes ?a ?children () : t =
+  D.create ?classes ?a ?children () |> Tyxml_js.To_dom.of_div |> attach
+
+let make_r ?classes ?a ?children () : t =
+  R.create ?classes ?a ?children () |> Tyxml_js.To_dom.of_div |> attach

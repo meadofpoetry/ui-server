@@ -15,45 +15,57 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
+  module CSS = CSS
 
-  let create
+  let ( ^:: ) x l =
+    match x with
+    | None -> l
+    | Some x -> Xml.W.cons x l
+
+  let icon_button
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?(ripple = true)
       ?(on = false)
       ?(disabled = false)
       ?on_icon
       ~icon
       () : 'a elt =
-    let classes = classes |> Utils.cons_if on CSS.on |> List.cons CSS.root in
+    let classes =
+      Xml.W.return (classes |> Utils.cons_if on CSS.on |> List.cons CSS.root)
+    in
     button
       ~a:
-        ([a_class classes] @ attrs
-        |> Utils.cons_if_lazy ripple (fun () -> a_user_data "ripple" "true")
+        (a_class classes :: a
+        |> Utils.cons_if_lazy ripple (fun () ->
+               a_user_data "ripple" (Xml.W.return "true"))
         |> Utils.cons_if_lazy disabled a_disabled)
-      Utils.(on_icon ^:: [icon])
+      (on_icon ^:: Xml.W.cons icon (Xml.W.nil ()))
 
-  let create_anchor
+  let icon_button_a
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?href
       ?(ripple = true)
       ?(on = false)
       ?on_icon
       ~icon
       () =
-    let classes = classes |> Utils.cons_if on CSS.on |> List.cons CSS.root in
-    a
+    let classes =
+      Xml.W.return (classes |> Utils.cons_if on CSS.on |> List.cons CSS.root)
+    in
+    Html.a
       ~a:
-        ([a_class classes] @ attrs
+        (a_class classes :: a
         |> Utils.map_cons_option a_href href
-        |> Utils.cons_if_lazy ripple (fun () -> a_user_data "ripple" "true"))
-      Utils.(on_icon ^:: [icon])
+        |> Utils.cons_if_lazy ripple (fun () ->
+               a_user_data "ripple" (Xml.W.return "true")))
+      (on_icon ^:: Xml.W.cons icon (Xml.W.nil ()))
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

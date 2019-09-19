@@ -128,7 +128,7 @@ struct
     Placeholder_markup.create
       ?classes
       ?attrs
-      ~icon:(Icon_markup.SVG.create ~d:path ())
+      ~icon:(Icon_markup.SVG.icon ~d:path ())
       ~text:(`Text (state_to_hint ~auto_reboot default_state))
       ()
 
@@ -146,7 +146,7 @@ struct
             ()
         ; Card_markup.create_actions
             ~children:
-              [ Button_markup.create
+              [ Button_markup.button
                   ~appearance:Raised
                   ~label:(state_to_action_label ~auto_reboot default_state)
                   () ]

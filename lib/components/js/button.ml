@@ -1,7 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Button
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -86,7 +87,7 @@ class t ?(ripple = true) ?on_click ?loader (elt : Dom_html.element Js.t) () =
               in
               let container =
                 Tyxml_js.To_dom.of_element
-                @@ Markup_js.create_loader_container ~children:[loader] ()
+                @@ D.button_loader_container ~children:[loader] ()
               in
               loader_container <- Some container;
               container
@@ -114,7 +115,7 @@ let attach ?ripple ?loader ?on_click (elt : #Dom_html.element Js.t) : t =
 
 let make
     ?classes
-    ?attrs
+    ?a
     ?ripple
     ?loader
     ?on_click
@@ -124,22 +125,12 @@ let make
     ?icon
     ?label
     () =
-  Markup_js.create ?classes ?attrs ?button_type ?appearance ?dense ?icon ?label ()
+  D.button ?classes ?a ?button_type ?appearance ?dense ?icon ?label ()
   |> Tyxml_js.To_dom.of_button
   |> attach ?ripple ?loader ?on_click
 
-let make_anchor
-    ?classes
-    ?attrs
-    ?ripple
-    ?loader
-    ?on_click
-    ?appearance
-    ?href
-    ?dense
-    ?icon
-    ?label
-    () =
-  Markup_js.create_anchor ?classes ?attrs ?appearance ?href ?dense ?icon ?label ()
+let make_a ?classes ?a ?ripple ?loader ?on_click ?appearance ?href ?dense ?icon ?label ()
+    =
+  D.button_a ?classes ?a ?appearance ?href ?dense ?icon ?label ()
   |> Tyxml_js.To_dom.of_a
   |> attach ?ripple ?loader ?on_click

@@ -1,11 +1,9 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 open Components
 include Components_lab_tyxml.Overflow_menu
-module Markup_js =
-  Components_lab_tyxml.Overflow_menu.Make
-    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
-    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
-    (Js_of_ocaml_tyxml.Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 module Selector = struct
   let actions = Printf.sprintf ".%s" CSS.actions

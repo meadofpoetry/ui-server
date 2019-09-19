@@ -1,7 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Icon_button
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -64,13 +65,12 @@ class t ?ripple ?loader ?on_change ?on_click (elt : Dom_html.element Js.t) () =
 let attach ?on_change ?on_click (elt : #Dom_html.element Js.t) : t =
   new t ?on_change ?on_click (Element.coerce elt) ()
 
-let make ?classes ?attrs ?ripple ?on ?disabled ?on_icon ?on_change ?on_click ~icon () =
-  Markup_js.create ?classes ?attrs ?ripple ?on ?disabled ?on_icon ~icon ()
+let make ?classes ?a ?ripple ?on ?disabled ?on_icon ?on_change ?on_click ~icon () =
+  D.icon_button ?classes ?a ?ripple ?on ?disabled ?on_icon ~icon ()
   |> Tyxml_js.To_dom.of_button
   |> attach ?on_change ?on_click
 
-let make_anchor ?classes ?attrs ?href ?ripple ?on ?on_icon ?on_change ?on_click ~icon ()
-    =
-  Markup_js.create_anchor ?classes ?attrs ?href ?ripple ?on ?on_icon ~icon ()
+let make_a ?classes ?a ?href ?ripple ?on ?on_icon ?on_change ?on_click ~icon () =
+  D.icon_button_a ?classes ?a ?href ?ripple ?on ?on_icon ~icon ()
   |> Tyxml_js.To_dom.of_a
   |> attach ?on_change ?on_click

@@ -7,8 +7,7 @@ module Api_websocket = Api_websocket.Make (User) (Body) (Body_ws)
 
 let ( / ) = Filename.concat
 
-let make_icon path =
-  Tyxml.Html.toelt @@ Components_tyxml.Icon.Markup.SVG.create ~d:path ()
+let make_icon path = Tyxml.Html.toelt @@ Components_tyxml.Icon.F.SVG.icon ~d:path ()
 
 let get_certificate_info (path : string) =
   Futil_lwt.File.read path

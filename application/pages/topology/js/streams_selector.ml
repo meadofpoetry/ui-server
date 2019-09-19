@@ -32,7 +32,8 @@ type stream_dialog =
   ; show : unit -> Dialog.action Lwt.t
   ; result : (Stream.t, string) result React.signal }
 
-let make_empty_placeholder () = Typography.Text.make ~text:"Нет потоков" ()
+let make_empty_placeholder () =
+  Typography.D.create ~classes:[empty_placeholder_class] ~text:"Нет потоков" ()
 
 class base
   ?actions
@@ -99,15 +100,15 @@ class base
     inherit Widget.t elt () as super
 
     method! init () : unit =
-      super#init ();
       super#add_class block_class;
-      match state with
+      (match state with
       | `Forbidden -> super#add_class forbidden_class
-      | _ -> ()
+      | _ -> ());
+      super#init ()
 
     method! destroy () : unit =
-      super#destroy ();
-      React.S.stop ~strong:true s
+      React.S.stop ~strong:true s;
+      super#destroy ()
   end
 
 module Board = struct
@@ -190,23 +191,22 @@ module Board = struct
         base ?left ~body:(Tyxml_js.Of_dom.of_element body) ~entry ~state () as super
 
       method! init () : unit =
-        super#init ();
-        empty#add_class empty_placeholder_class;
-        self#check_empty list#items
+        self#check_empty list#items;
+        super#init ()
 
       method! destroy () : unit =
-        super#destroy ();
         React.S.stop ~strong:true counter;
         React.S.stop ~strong:true settings;
-        Option.iter (React.S.stop ~strong:true) left
+        Option.iter (React.S.stop ~strong:true) left;
+        super#destroy ()
 
       method private check_empty items : unit =
         match items with
         | [] ->
             Element.remove_child_safe body list#root;
-            Dom.appendChild body empty#root
+            Dom.appendChild body (Tyxml_js.To_dom.of_element empty)
         | _ ->
-            Element.remove_child_safe body empty#root;
+            Element.remove_child_safe body (Tyxml_js.To_dom.of_element empty);
             Dom.appendChild body list#root
     end
 
@@ -454,17 +454,16 @@ module Input = struct
           ~actions:[buttons] ~entry:(Input topo_input) () as super
 
       method! init () : unit =
-        super#init ();
-        empty#add_class empty_placeholder_class;
         _s <- Some (React.S.map ~eq:( = ) self#check_empty streams);
-        Dom.appendChild Dom_html.document##.body (dialog.dialog)#root
+        Dom.appendChild Dom_html.document##.body (dialog.dialog)#root;
+        super#init ()
 
       method! destroy () : unit =
-        super#destroy ();
         Element.remove_child_safe Dom_html.document##.body (dialog.dialog)#root;
         React.S.stop ~strong:true settings;
         Option.iter (React.S.stop ~strong:true) _s;
-        _s <- None
+        _s <- None;
+        super#destroy ()
 
       method settings = settings
 
@@ -472,9 +471,9 @@ module Input = struct
         match items with
         | [] ->
             Element.remove_child_safe body list#root;
-            Dom.appendChild body empty#root
+            Dom.appendChild body (Tyxml_js.To_dom.of_element empty)
         | _ ->
-            Element.remove_child_safe body empty#root;
+            Element.remove_child_safe body (Tyxml_js.To_dom.of_element empty);
             Dom.appendChild body list#root
     end
 

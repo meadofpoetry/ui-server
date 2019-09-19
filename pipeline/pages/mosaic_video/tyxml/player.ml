@@ -88,10 +88,9 @@ struct
       [ `Start
       | `End ]
 
-    let create_action ?(classes = []) ?attrs ?ripple ?disabled ?on_icon ~icon () : 'a elt
-        =
+    let create_action ?(classes = []) ?a ?ripple ?disabled ?on_icon ~icon () : 'a elt =
       let classes = CSS.Controls.action :: classes in
-      Icon_button.create ?attrs ?ripple ?disabled ?on_icon ~classes ~icon ()
+      Icon_button.icon_button ?a ?ripple ?disabled ?on_icon ~classes ~icon ()
 
     let create_volume_panel ?(classes = []) ?(attrs = []) content () : 'a elt =
       let classes = CSS.Controls.volume_panel :: classes in
@@ -155,7 +154,7 @@ struct
       ~a:([a_class classes; a_style "display: none;"] @ attrs)
       [ div
           ~a:[a_class [CSS.state_overlay]]
-          [Icon.SVG.create ~classes:[CSS.state_overlay_icon] ~d:path ()] ]
+          [Icon.SVG.icon ~classes:[CSS.state_overlay_icon] ~d:path ()] ]
 
   let create_gradient ?(classes = []) ?(attrs = []) () : 'a elt =
     let classes = CSS.gradient :: classes in

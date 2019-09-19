@@ -9,35 +9,48 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
   module Icon = Icon.Make (Xml) (Svg) (Html)
   module Icon_button = Icon_button.Make (Xml) (Svg) (Html)
 
-  let create_overflow ?(classes = []) ?attrs ?icon () =
+  let ( ^:: ) x l =
+    match x with
+    | None -> l
+    | Some x -> Xml.W.cons x l
+
+  let overflow ?(classes = []) ?a ?icon () =
     let classes = Top_app_bar.CSS.action_item :: classes in
     let icon =
       match icon with
       | Some x -> x
-      | None -> Icon.SVG.(create ~d:Svg_icons.dots_vertical ())
+      | None ->
+          Xml.W.return @@ Icon.SVG.(icon ~d:(Xml.W.return Svg_icons.dots_vertical) ())
     in
-    Icon_button.create ~classes ?attrs ~icon ()
+    Icon_button.icon_button ~classes ?a ~icon ()
 
-  let create
+  let overflow_menu
       ?(classes = [])
-      ?(attrs = [])
-      ?(overflow = create_overflow ())
+      ?(a = [])
+      ?(overflow = Xml.W.return @@ overflow ())
       ?menu
       ~actions
       () : 'a elt =
-    let classes = CSS.root :: classes in
+    let classes = Xml.W.return (CSS.root :: classes) in
     div
-      ~a:([a_class classes] @ attrs)
-      [ div ~a:[a_class [CSS.actions]] actions
-      ; div ~a:[a_class [CSS.overflow]] Utils.(overflow :: (menu ^:: [])) ]
+      ~a:(a_class classes :: a)
+      Xml.W.(
+        cons
+          (return @@ div ~a:[a_class (return [CSS.actions])] actions)
+          (cons
+             (return
+             @@ div
+                  ~a:[a_class (return [CSS.overflow])]
+                  (cons overflow (menu ^:: nil ())))
+             (nil ())))
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

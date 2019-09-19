@@ -33,38 +33,51 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
 
-  let create_loader_container ?(classes = []) ?(attrs = []) ?(children = []) () =
-    let classes = CSS.loader_container :: classes in
-    div ~a:([a_class classes] @ attrs) children
+  let ( % ) f g x = f (g x)
 
-  let create_ ?(classes = []) ?appearance ?(dense = false) ?icon ?label () =
-    let make_label (x : string) : _ elt = span ~a:[a_class [CSS.label]] [txt x] in
-    let (classes : string list) =
-      classes
-      |> Utils.map_cons_option
-           (function
-             | Raised -> CSS.raised
-             | Outlined -> CSS.outlined
-             | Unelevated -> CSS.unelevated)
-           appearance
-      |> Utils.cons_if dense CSS.dense
-      |> List.cons CSS.root
+  let ( ^:: ) x l =
+    match x with
+    | None -> l
+    | Some x -> Xml.W.cons x l
+
+  let button_loader_container ?(classes = []) ?(a = []) ?(children = Xml.W.nil ()) () =
+    let classes = Xml.W.return (CSS.loader_container :: classes) in
+    div ~a:(a_class classes :: a) children
+
+  let button_ ?(classes = []) ?appearance ?(dense = false) ?icon ?label () =
+    let make_label x =
+      span
+        ~a:[a_class @@ Xml.W.return [CSS.label]]
+        (Xml.W.singleton (Xml.W.return (txt x)))
     in
-    Utils.cons_option icon @@ Utils.map_cons_option make_label label [], classes
+    let classes =
+      Xml.W.return
+        (classes
+        |> Utils.map_cons_option
+             (function
+               | Raised -> CSS.raised
+               | Outlined -> CSS.outlined
+               | Unelevated -> CSS.unelevated)
+             appearance
+        |> Utils.cons_if dense CSS.dense
+        |> List.cons CSS.root)
+    in
+    let label = Option.map (Xml.W.return % make_label) label in
+    icon ^:: label ^:: Xml.W.nil (), classes
 
-  let create_anchor ?classes ?(attrs = []) ?href ?appearance ?dense ?icon ?label () =
-    let children, classes = create_ ?classes ?appearance ?dense ?icon ?label () in
-    a ~a:([a_class classes] @ attrs |> Utils.map_cons_option a_href href) children
+  let button_a ?classes ?(a = []) ?href ?appearance ?dense ?icon ?label () =
+    let children, classes = button_ ?classes ?appearance ?dense ?icon ?label () in
+    Html.a ~a:([a_class classes] @ a |> Utils.map_cons_option a_href href) children
 
-  let create
+  let button
       ?classes
-      ?(attrs = [])
+      ?(a = [])
       ?button_type
       ?appearance
       ?(disabled = false)
@@ -72,13 +85,13 @@ struct
       ?icon
       ?label
       () =
-    let children, classes = create_ ?classes ?appearance ?dense ?icon ?label () in
+    let children, classes = button_ ?classes ?appearance ?dense ?icon ?label () in
     button
       ~a:
-        ([a_class classes] @ attrs
+        (a_class classes :: a
         |> Utils.map_cons_option a_button_type button_type
         |> Utils.cons_if disabled @@ a_disabled ())
       children
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

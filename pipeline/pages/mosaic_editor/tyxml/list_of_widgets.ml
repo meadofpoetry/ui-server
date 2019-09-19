@@ -17,12 +17,12 @@ module Make
 struct
   open Html
   module Widget_markup = Widget.Make (Xml) (Svg) (Html)
-  module Icon_markup = Icon.Make (Xml) (Svg) (Html)
+  module Icon = Icon.Make (Xml) (Svg) (Html)
 
   let create_item ?(classes = []) ?(attrs = []) ?id (widget : Wm.widget) : 'a elt =
     let classes = CSS.item :: Item_list.CSS.item :: classes in
     let path = Widget.widget_type_to_svg_path widget.type_ in
-    let graphic = Icon_markup.SVG.(create ~d:path ()) in
+    let graphic = Icon.SVG.(icon ~d:path ()) in
     let typ =
       match widget.type_, widget.aspect with
       | Wm.Video, None -> "Видео"

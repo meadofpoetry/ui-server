@@ -73,20 +73,32 @@ let font_to_class : font -> string = function
   | Overline -> CSS.overline
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
 
-  let create ?(classes = []) ?(attrs = []) ?font ?text ?(children = []) () =
+  let create
+      ?(classes = [])
+      ?(a = [])
+      ?(font : font option)
+      ?text
+      ?(children = Xml.W.nil ())
+      () =
     let font_class =
       match font with
       | None -> None
       | Some x -> Some (font_to_class x)
     in
-    let classes = classes |> Utils.cons_option font_class |> List.cons CSS.root in
-    span ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt text children)
+    let classes =
+      Xml.W.return (classes |> Utils.cons_option font_class |> List.cons CSS.root)
+    in
+    span
+      ~a:(a_class classes :: a)
+      (match text with
+      | None -> children
+      | Some text -> Xml.W.(cons (return (txt text)) children))
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
