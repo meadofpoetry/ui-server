@@ -1,7 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Item_list
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -274,7 +275,7 @@ module Item = struct
 
   let make
       ?classes
-      ?attrs
+      ?a
       ?graphic
       ?meta
       ?role
@@ -288,9 +289,9 @@ module Item = struct
       ?children
       ?ripple
       () =
-    Markup_js.create_item
+    D.list_item
       ?classes
-      ?attrs
+      ?a
       ?graphic
       ?meta
       ?role
@@ -662,16 +663,7 @@ class t (elt : Dom_html.element Js.t) () =
 
 let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
 
-let make
-    ?classes
-    ?attrs
-    ?avatar_list
-    ?dense
-    ?two_line
-    ?non_interactive
-    ?role
-    ?children
-    () =
+let make ?classes ?a ?avatar_list ?dense ?two_line ?non_interactive ?role ?children () =
   let two_line =
     match two_line, children with
     | (Some _ as x), _ -> x
@@ -686,15 +678,6 @@ let make
                Js.Opt.test @@ i##querySelector selector)
              children
   in
-  Markup_js.create
-    ?classes
-    ?attrs
-    ?avatar_list
-    ?dense
-    ?two_line
-    ?non_interactive
-    ?role
-    ?children
-    ()
+  D.list ?classes ?a ?avatar_list ?dense ?two_line ?non_interactive ?role ?children ()
   |> Tyxml_js.To_dom.of_ul
   |> attach

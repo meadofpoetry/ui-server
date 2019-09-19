@@ -9,7 +9,7 @@ struct
 
   open Ui_templates_tyxml.Settings_page.Make (Xml) (Svg) (Html)
 
-  module Button_markup = Button.Make (Xml) (Svg) (Html)
+  module Button = Button.Make (Xml) (Svg) (Html)
 
   let create ?classes ?(attrs = []) () =
     create_section
@@ -20,7 +20,7 @@ struct
            ~title:(`Text "Перезагрузка прибора")
            ())
       ~children:
-        [ Card_markup.create_media
+        [ Card.card_media
             ~children:
               [ div
                   [ txt
@@ -35,11 +35,11 @@ struct
                            прибором." ] ] ]
             ()
         ; hr ~a:[a_class [Divider.CSS.root]] ()
-        ; Card_markup.create_actions
+        ; Card.card_actions
             ~children:
-              [ Card_markup.create_action_buttons
+              [ Card.card_action_buttons
                   ~children:
-                    [ Button_markup.create
+                    [ Button.button
                         ~appearance:Raised
                         ~label:"Перезагрузить прибор"
                         () ]
@@ -48,4 +48,4 @@ struct
       ()
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

@@ -55,22 +55,26 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
-  module Notched_outline_markup = Notched_outline.Make (Xml) (Svg) (Html)
-  module Floating_label_markup = Floating_label.Make (Xml) (Svg) (Html)
+  module CSS = CSS
+  module Notched_outline = Notched_outline.Make (Xml) (Svg) (Html)
+  module Floating_label = Floating_label.Make (Xml) (Svg) (Html)
+
+  open Utils.Make (Xml)
 
   module Helper_text = struct
-    let create
+    let helper_text
         ?(classes = [])
-        ?(attrs = [])
+        ?(a = [])
         ?(persistent = false)
         ?(validation = false)
         ?text
-        ?(children = [])
+        ?(children = nil ())
         () : 'a elt =
       let classes =
         classes
@@ -78,17 +82,22 @@ struct
         |> Utils.cons_if persistent CSS.Helper_text.persistent
         |> List.cons CSS.Helper_text.root
       in
+      let children =
+        match text with
+        | None -> children
+        | Some x -> cons (return (txt x)) children
+      in
       div
         ~a:
-          ([a_class classes] @ attrs
-          |> Utils.cons_if (not persistent) @@ a_aria "hidden" ["true"])
-        (Utils.map_cons_option txt text children)
+          (a_class (return classes) :: a
+          |> Utils.cons_if (not persistent) @@ a_aria "hidden" (return ["true"]))
+        children
   end
 
   module Native = struct
-    let create_option
+    let option
         ?(classes = [])
-        ?(attrs = [])
+        ?(a = [])
         ?value
         ?label
         ?(disabled = false)
@@ -97,28 +106,28 @@ struct
         () : 'a elt =
       option
         ~a:
-          ([a_class classes] @ attrs
+          (a_class (return classes) :: a
           |> Utils.map_cons_option a_value value
           |> Utils.cons_if_lazy disabled a_disabled
           |> Utils.cons_if_lazy selected a_selected
           |> Utils.map_cons_option a_label label)
-        (txt text)
+        (return (txt text))
 
-    let create_optgroup
+    let optgroup
         ?(classes = [])
-        ?(attrs = [])
+        ?(a = [])
         ~label
         ?(disabled = false)
-        ?(options = [])
+        ?(options = nil ())
         () =
       optgroup
-        ~a:([a_class classes] @ attrs |> Utils.cons_if_lazy disabled a_disabled)
+        ~a:(a_class (return classes) :: a |> Utils.cons_if_lazy disabled a_disabled)
         ~label
         options
 
-    let create_select
+    let native_control
         ?(classes = [])
-        ?(attrs = [])
+        ?(a = [])
         ?id
         ?(disabled = false)
         ?(autofocus = false)
@@ -126,12 +135,12 @@ struct
         ?size (* Number of visible options in a drop-down list *)
         ?form (* Form the select field belongs to *)
         ?name (* Name of the drop-down list *)
-        ?(options = [])
+        ?(options = nil ())
         () =
       let classes = CSS.native_control :: classes in
       select
         ~a:
-          ([a_class classes] @ attrs
+          (a_class (return classes) :: a
           |> Utils.map_cons_option a_id id
           |> Utils.map_cons_option a_size size
           |> Utils.map_cons_option a_name name
@@ -141,9 +150,9 @@ struct
           |> Utils.cons_if_lazy disabled a_disabled)
         options
 
-    let create
+    let select
         ?(classes = [])
-        ?(attrs = [])
+        ?(a = [])
         ?label
         ?input_id
         ?line_ripple
@@ -157,23 +166,21 @@ struct
         ?form
         ?name
         ?options
-        ?(select =
-          create_select ?id:input_id ?required ?autofocus ?size ?form ?name ?options ())
+        ?(native_control =
+          native_control ?id:input_id ?required ?autofocus ?size ?form ?name ?options ())
         () : 'a elt =
       let outline =
         match outline, outlined with
-        | (Some _ as x), _ -> x
+        | Some x, _ -> Some (return x)
         | None, false -> None
-        | None, true -> Some (Notched_outline_markup.create ?label ())
+        | None, true -> Some (return @@ Notched_outline.notched_outline ?label ())
       in
       let floating_label =
         match label, outline with
         | None, _ -> None
         | Some _, Some _ -> None
-        | Some x, None -> (
-          match x with
-          | `Text s -> Some (Floating_label_markup.create ?for_:input_id ~label:s ())
-          | `Element e -> Some e)
+        | Some x, None ->
+            Some (return @@ Floating_label.floating_label ?for_:input_id ~label:x ())
       in
       let classes =
         classes
@@ -181,32 +188,33 @@ struct
         |> Utils.cons_if (Option.is_some outline) CSS.outlined
         |> List.cons CSS.root
       in
-      let dropdown_icon = i ~a:[a_class [CSS.dropdown_icon]] [] in
+      let dropdown_icon = i ~a:[a_class (return [CSS.dropdown_icon])] (nil ()) in
       div
-        ~a:([a_class classes] @ attrs)
-        Utils.(
-          icon
-          ^:: (dropdown_icon
-              :: select
-              :: (floating_label ^:: line_ripple ^:: outline ^:: [])))
+        ~a:(a_class (return classes) :: a)
+        (icon
+        ^:: return dropdown_icon
+        @:: return native_control
+        @:: floating_label
+        ^:: line_ripple
+        ^:: outline
+        ^:: nil ())
   end
 
   module Enhanced = struct
-    let create_hidden_input ?(classes = []) ?(attrs = []) ?(disabled = false) () : 'a elt
-        =
+    let hidden_input ?(classes = []) ?(a = []) ?(disabled = false) () : 'a elt =
       input
         ~a:
-          ([a_class classes; a_input_type `Hidden] @ attrs
+          (a_class (return classes) :: a_input_type (return `Hidden) :: a
           |> Utils.cons_if_lazy disabled a_disabled)
         ()
 
-    let create
+    let select
         ?(classes = [])
-        ?(attrs = [])
+        ?(a = [])
         ?label
         ?line_ripple
         ?(disabled = false)
-        ?(selected_text = "")
+        ?(selected_text = return "")
         ?outline
         ?icon
         ?hidden_input
@@ -229,18 +237,24 @@ struct
         |> Utils.cons_if disabled CSS.disabled
         |> List.cons CSS.root
       in
-      let dropdown_icon = i ~a:[a_class [CSS.dropdown_icon]] [] in
-      let selected_text = div ~a:[a_class [CSS.selected_text]] [txt selected_text] in
+      let dropdown_icon = i ~a:[a_class (return [CSS.dropdown_icon])] (nil ()) in
+      let selected_text =
+        div
+          ~a:[a_class (return [CSS.selected_text])]
+          (singleton (return (txt selected_text)))
+      in
       div
-        ~a:([a_class classes] @ attrs)
-        Utils.(
-          hidden_input
-          ^:: icon
-          ^:: (dropdown_icon
-              :: selected_text
-              :: menu
-              :: (label ^:: line_ripple ^:: outline ^:: [])))
+        ~a:(a_class (return classes) :: a)
+        (hidden_input
+        ^:: icon
+        ^:: return dropdown_icon
+        @:: return selected_text
+        @:: menu
+        @:: label
+        ^:: line_ripple
+        ^:: outline
+        ^:: nil ())
   end
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

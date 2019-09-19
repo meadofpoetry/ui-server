@@ -24,7 +24,7 @@ let make_accounts_info_dialog () =
     let title' = Format.asprintf "%a" Page_user_settings_tyxml.Util.pp_user_human user in
     let text = permissions ~pesonal_appeal:false user in
     let icon =
-      Icon.SVG.Markup_js.create ~d:(Page_user_settings_tyxml.Util.user_icon_path user) ()
+      Icon.D.SVG.icon ~d:(Page_user_settings_tyxml.Util.user_icon_path user) ()
     in
     Js_of_ocaml_tyxml.Tyxml_js.Html.(
       div
@@ -33,10 +33,10 @@ let make_accounts_info_dialog () =
         ; div ~a:[a_class [CSS.account_info_text]] [txt text] ])
   in
   let title = "Типы учётных записей" in
-  let content = [section `Guest; section `Operator; section `Root] in
-  let title = Dialog.Markup_js.create_title ~title () in
-  let content = Dialog.Markup_js.create_content content in
-  let actions = Dialog.Markup_js.[create_action ~label:"Ok" ~action:Close ()] in
+  let children = [section `Guest; section `Operator; section `Root] in
+  let title = Dialog.D.dialog_title ~title () in
+  let content = Dialog.D.dialog_content ~children () in
+  let actions = Dialog.D.[dialog_action ~label:"Ok" ~action:Close ()] in
   Dialog.make ~title ~content ~actions ()
 
 class t (elt : Dom_html.element Js.t) =

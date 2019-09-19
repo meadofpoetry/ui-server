@@ -26,19 +26,21 @@ module Selector = struct
 end
 
 let make_warning_dialog () =
-  let title = Dialog.Markup_js.create_title ~title:"Внимание!" () in
+  let title = Dialog.D.dialog_title ~title:"Внимание!" () in
   let content =
-    Dialog.Markup_js.create_content
-      [ Js_of_ocaml_tyxml.Tyxml_js.Html.txt
-          "После завершения обновления прибор будет \
-           автоматически перезагружен.\n\
-           Во время перезагрузки доступ к прибору \
-           будет недоступен.\n" ]
+    Dialog.D.dialog_content
+      ~children:
+        [ Js_of_ocaml_tyxml.Tyxml_js.Html.txt
+            "После завершения обновления прибор \
+             будет автоматически перезагружен.\n\
+             Во время перезагрузки доступ к прибору \
+             будет недоступен.\n" ]
+      ()
   in
   let actions =
-    Dialog.Markup_js.
-      [ create_action ~action:Close ~label:"Отмена" ()
-      ; create_action
+    Dialog.D.
+      [ dialog_action ~action:Close ~label:"Отмена" ()
+      ; dialog_action
           ~action:Accept
           ~label:"Продолжить обновление"
           () ]

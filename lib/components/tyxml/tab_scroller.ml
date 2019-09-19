@@ -33,31 +33,33 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
+  module CSS = CSS
 
-  let create_scroll_content ?(classes = []) ?(attrs = []) ?(tabs = []) () : 'a elt =
+  let tab_scroller_scroll_content ?(classes = []) ?(a = []) ?(tabs = nil ()) () =
     let classes = CSS.scroll_content :: classes in
-    div ~a:([a_class classes] @ attrs) tabs
+    div ~a:(a_class (return classes) :: a) tabs
 
-  let create_scroll_area
+  let tab_scroller_scroll_area
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?tabs
-      ?(scroll_content = create_scroll_content ?tabs ())
+      ?(scroll_content = tab_scroller_scroll_content ?tabs ())
       () : 'a elt =
     let classes = CSS.scroll_area :: classes in
-    div ~a:([a_class classes] @ attrs) [scroll_content]
+    div ~a:(a_class (return classes) :: a) (singleton (return scroll_content))
 
-  let create
+  let tab_scroller
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?align
       ?tabs
-      ?(scroll_area = create_scroll_area ?tabs ())
+      ?(scroll_area = tab_scroller_scroll_area ?tabs ())
       () : 'a elt =
     let align =
       match align with
@@ -67,7 +69,7 @@ struct
       | Some End -> Some CSS.align_end
     in
     let classes = CSS.root :: Utils.(align ^:: classes) in
-    div ~a:([a_class classes] @ attrs) [scroll_area]
+    div ~a:([a_class (return classes)] @ a) (singleton (return scroll_area))
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

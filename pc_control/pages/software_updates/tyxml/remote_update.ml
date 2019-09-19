@@ -116,19 +116,19 @@ module Make
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
-  module Progress_markup = Linear_progress.Make (Xml) (Svg) (Html)
-  module Button_markup = Button.Make (Xml) (Svg) (Html)
-  module Placeholder_markup = Placeholder.Make (Xml) (Svg) (Html)
-  module Icon_markup = Icon.Make (Xml) (Svg) (Html)
+  module Progress = Linear_progress.Make (Xml) (Svg) (Html)
+  module Button = Button.Make (Xml) (Svg) (Html)
+  module Placeholder = Placeholder.Make (Xml) (Svg) (Html)
+  module Icon = Icon.Make (Xml) (Svg) (Html)
 
   open Ui_templates_tyxml.Settings_page.Make (Xml) (Svg) (Html)
 
   let create_placeholder ?classes ?attrs () =
     let path = state_to_svg_path default_state in
-    Placeholder_markup.create
+    Placeholder.create
       ?classes
       ?attrs
-      ~icon:(Icon_markup.SVG.icon ~d:path ())
+      ~icon:(Icon.SVG.icon ~d:path ())
       ~text:(`Text (state_to_hint ~auto_reboot default_state))
       ()
 
@@ -141,12 +141,12 @@ struct
            ~title:(`Text "Дистанционное обновление")
            ())
       ~children:
-        [ Card_markup.create_media
-            ~children:[create_placeholder (); Progress_markup.create ~closed:true ()]
+        [ Card.card_media
+            ~children:[create_placeholder (); Progress.create ~closed:true ()]
             ()
-        ; Card_markup.create_actions
+        ; Card.card_actions
             ~children:
-              [ Button_markup.button
+              [ Button.button
                   ~appearance:Raised
                   ~label:(state_to_action_label ~auto_reboot default_state)
                   () ]

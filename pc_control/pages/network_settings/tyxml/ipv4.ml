@@ -17,8 +17,8 @@ module Make
 struct
   open Html
   module Common_markup = Common.Make (Xml) (Svg) (Html)
-  module Form_field_markup = Form_field.Make (Xml) (Svg) (Html)
-  module Switch_markup = Switch.Make (Xml) (Svg) (Html)
+  module Form_field = Form_field.Make (Xml) (Svg) (Html)
+  module Switch = Switch.Make (Xml) (Svg) (Html)
 
   let create ?classes ?(attrs = []) (v : Pc_control_types.Network_config.ipv4_conf) :
       'a elt =
@@ -38,8 +38,8 @@ struct
         | Auto -> true
       in
       let dhcp_input_id = dhcp_id ^ "-input" in
-      let switch = Switch_markup.create ~input_id:dhcp_input_id ~checked () in
-      Form_field_markup.create
+      let switch = Switch.create ~input_id:dhcp_input_id ~checked () in
+      Form_field.create
         ~attrs:[a_id dhcp_id]
         ~label_for:dhcp_input_id
         ~label:(`Text "DHCP")

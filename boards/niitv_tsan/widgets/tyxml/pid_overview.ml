@@ -23,17 +23,17 @@ module Make
 struct
   include Table_overview.Make (Xml) (Svg) (Html)
 
-  let pid_type_fmt : MPEG_TS.PID.Type.t Fmt.custom =
+  let pid_type_fmt : MPEG_TS.PID.Type.t Data_table.Fmt.custom =
     MPEG_TS.PID.Type.
       { to_string
       ; of_string = (fun _ -> failwith "Not implemented")
       ; compare
       ; is_numeric = false }
 
-  let dec_pid_fmt = Fmt.Int
+  let dec_pid_fmt = Data_table.Fmt.Int
 
   let hex_pid_fmt =
-    Fmt.Custom
+    Data_table.Fmt.Custom
       { to_string = Util.pid_to_hex_string
       ; of_string = int_of_string
       ; compare
@@ -45,12 +45,12 @@ struct
     let pcr =
       match has_pcr with
       | false -> None
-      | true -> Some (Icon_markup.SVG.create ~d:Svg_icons.clock_outline ())
+      | true -> Some (Icon.SVG.icon ~d:Svg_icons.clock_outline ())
     in
     let scr =
       match scrambled with
       | false -> None
-      | true -> Some (Icon_markup.SVG.create ~d:Svg_icons.lock ())
+      | true -> Some (Icon.SVG.icon ~d:Svg_icons.lock ())
     in
     let ( ^:: ) x l =
       match x with
@@ -58,7 +58,7 @@ struct
       | Some x -> x :: l
     in
     let children = scr ^:: pcr ^:: [] in
-    Box_markup.create ?classes ?attrs ~children ()
+    Box.box ?classes ?attrs ~children ()
 
   let pid_flags_fmt : pid_flags Fmt.custom_elt =
     { to_elt = Utils.(Html.toelt % create_pid_flags)

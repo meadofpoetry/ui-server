@@ -27,34 +27,43 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
-  module Tab_indicator_markup = Tab_indicator.Make (Xml) (Svg) (Html)
+  module CSS = CSS
+  module Tab_indicator = Tab_indicator.Make (Xml) (Svg) (Html)
 
-  let create_text_label ?(classes = []) ?(attrs = []) ?label ?(content = []) () =
+  open Utils.Make (Xml)
+
+  let tab_text_label ?(classes = []) ?(a = []) ?label ?(children = nil ()) () =
     let classes = CSS.text_label :: classes in
-    span ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt label content)
+    let children =
+      match label with
+      | None -> children
+      | Some x -> cons (return (txt x)) children
+    in
+    span ~a:(a_class (return classes) :: a) children
 
-  let create_content ?(classes = []) ?(attrs = []) ?indicator ?icon ?text_label () =
+  let tab_content ?(classes = []) ?(a = []) ?indicator ?icon ?text_label () =
     let classes = CSS.content :: classes in
     let text_label =
       match text_label with
       | None -> None
-      | Some (`Text s) -> Some (create_text_label ~label:s ())
-      | Some (`Element e) -> Some e
+      | Some (`Text s) -> Some (return @@ tab_text_label ~label:s ())
+      | Some (`Element e) -> Some (return e)
     in
-    span ~a:([a_class classes] @ attrs) Utils.(icon ^:: text_label ^:: indicator ^:: [])
+    span ~a:(a_class (return classes) :: a) (icon ^:: text_label ^:: indicator ^:: nil ())
 
-  let create_ripple ?(classes = []) ?(attrs = []) () =
+  let tab_ripple ?(classes = []) ?(a = []) ?(children = nil ()) () =
     let classes = CSS.ripple :: classes in
-    span ~a:([a_class classes] @ attrs) []
+    span ~a:(a_class (return classes) :: a) children
 
-  let create
+  let tab
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?(active = false)
       ?(stacked = false)
       ?(disabled = false)
@@ -63,8 +72,8 @@ struct
       ?indicator_icon
       ?icon
       ?text_label
-      ?(ripple = create_ripple ())
-      ?(indicator = Tab_indicator_markup.create ?icon:indicator_icon ())
+      ?(ripple = tab_ripple ())
+      ?(indicator = Tab_indicator.tab_indicator ?icon:indicator_icon ())
       ?content
       ?children
       () =
@@ -77,27 +86,29 @@ struct
     in
     let content =
       match content with
-      | Some x -> x
+      | Some x -> return x
       | None ->
-          create_content
-            ?indicator:(if indicator_span_content then Some indicator else None)
-            ?icon
-            ?text_label
-            ()
+          return
+          @@ tab_content
+               ?indicator:
+                 (if indicator_span_content then Some (return indicator) else None)
+               ?icon
+               ?text_label
+               ()
     in
     let children =
       match children with
       | Some x -> x
       | None ->
           if indicator_span_content
-          then [content; ripple]
-          else [content; indicator; ripple]
+          then content @:: return ripple @:: nil ()
+          else content @:: return indicator @:: return ripple @:: nil ()
     in
     button
       ~a:
-        ([a_class classes; a_role ["tab"]] @ attrs
+        (a_class (return classes) :: a_role (return ["tab"]) :: a
         |> Utils.cons_if_lazy disabled a_disabled)
       children
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

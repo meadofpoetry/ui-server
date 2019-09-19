@@ -1,7 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Circular_progress
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 module Attr = struct
   let aria_valuenow = "aria-valuenow"
@@ -110,7 +111,7 @@ class t (elt : #Dom_html.element Js.t) () =
     method private update_ui_for_value () : unit =
       let min, max, value = self#min, self#max, self#value in
       let rel_val = (value -. min) /. (max -. min) *. 100. in
-      let circumference = 2. *. Float.pi *. ((Markup.sz /. 2.) -. 5.) in
+      let circumference = 2. *. Float.pi *. ((sz /. 2.) -. 5.) in
       let dash_offset =
         Float.(round ((100. -. rel_val) /. 100. *. circumference *. 1000.) /. 1000.)
       in
@@ -123,7 +124,7 @@ class t (elt : #Dom_html.element Js.t) () =
 
 let attach (elt : #Dom_html.element Js.t) : t = new t (elt :> Dom_html.element Js.t) ()
 
-let make ?classes ?attrs ?min ?max ?value ?indeterminate ?thickness ?size () : t =
-  Markup_js.create ?classes ?attrs ?min ?max ?value ?indeterminate ?thickness ?size ()
+let make ?classes ?a ?min ?max ?value ?indeterminate ?thickness ?size () : t =
+  D.circular_progress ?classes ?a ?min ?max ?value ?indeterminate ?thickness ?size ()
   |> Tyxml_js.To_dom.of_element
   |> attach

@@ -36,7 +36,7 @@ module Make
 struct
   open Html
   module Widget_markup = Widget.Make (Xml) (Svg) (Html)
-  module Card_markup = Card.Make (Xml) (Svg) (Html)
+  module Card = Card.Make (Xml) (Svg) (Html)
 
   let create_widget
       ?(classes = [])
@@ -67,12 +67,10 @@ struct
     div ~a:([a_class classes] @ attrs) widgets
 
   let create ?(classes = []) ?attrs grid : 'a elt =
-    Card_markup.create
+    Card.card
       ~classes:(CSS.root :: classes)
       ?attrs
-      ~children:
-        [ Card_markup.create_media ~children:[grid] ()
-        ; Card_markup.create_actions ~children:[] () ]
+      ~children:[Card.card_media ~children:[grid] (); Card.card_actions ()]
       ()
 end
 

@@ -14,11 +14,12 @@ module Make
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
 
-  let create ?(classes = []) ?(a = []) ?(children = Xml.W.nil ()) () =
-    let classes = Xml.W.return (CSS.root :: classes) in
-    div ~a:(a_class classes :: a) children
+  let line_ripple ?(classes = []) ?(a = []) ?(children = nil ()) () =
+    let classes = CSS.root :: classes in
+    div ~a:(a_class (return classes) :: a) children
 end
 
 module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

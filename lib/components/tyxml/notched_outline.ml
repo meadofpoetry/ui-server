@@ -23,33 +23,48 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
-  module Floating_label_markup = Floating_label.Make (Xml) (Svg) (Html)
+  module CSS = CSS
+  module Floating_label = Floating_label.Make (Xml) (Svg) (Html)
 
-  let create_leading ?(classes = []) ?(attrs = []) () =
+  let ( ^:: ) x l =
+    match x with
+    | None -> l
+    | Some x -> cons x l
+
+  let notched_outline_leading ?(classes = []) ?(a = []) ?(children = nil ()) () =
     let classes = CSS.leading :: classes in
-    div ~a:([a_class classes] @ attrs) []
+    div ~a:(a_class (return classes) :: a) children
 
-  let create_trailing ?(classes = []) ?(attrs = []) () =
+  let notched_outline_trailing ?(classes = []) ?(a = []) ?(children = nil ()) () =
     let classes = CSS.trailing :: classes in
-    div ~a:([a_class classes] @ attrs) []
+    div ~a:(a_class (return classes) :: a) children
 
-  let create_notch ?(classes = []) ?(attrs = []) ?label_for ~label () =
-    let label =
+  let notched_outline_notch
+      ?(classes = [])
+      ?(a = [])
+      ?label_for
+      ?label
+      ?(children = nil ())
+      () =
+    let children =
       match label with
-      | `Text s -> Floating_label_markup.create ?for_:label_for ~label:s ()
-      | `Element e -> e
+      | None -> children
+      | Some x ->
+          let label = Floating_label.floating_label ?for_:label_for ~label:x () in
+          cons (return label) children
     in
     let classes = CSS.notch :: classes in
-    div ~a:([a_class classes] @ attrs) [label]
+    div ~a:(a_class (return classes) :: a) children
 
-  let create
+  let notched_outline
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?leading
       ?trailing
       ?notch
@@ -64,7 +79,7 @@ struct
       | None -> (
         match label with
         | None -> None
-        | Some label -> Some (create_notch ?label_for ~label ()))
+        | Some label -> Some (return @@ notched_outline_notch ?label_for ~label ()))
     in
     let children =
       match children with
@@ -73,16 +88,16 @@ struct
           let leading =
             match leading with
             | Some x -> x
-            | None -> create_leading ()
+            | None -> return @@ notched_outline_leading ()
           in
           let trailing =
             match trailing with
             | Some x -> x
-            | None -> create_trailing ()
+            | None -> return @@ notched_outline_trailing ()
           in
-          leading :: Utils.(notch ^:: [trailing])
+          cons leading (notch ^:: singleton trailing)
     in
-    div ~a:([a_class classes] @ attrs) children
+    div ~a:(a_class (return classes) :: a) children
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

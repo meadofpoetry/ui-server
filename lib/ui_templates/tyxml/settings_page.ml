@@ -15,7 +15,7 @@ module Make
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
-  module Card_markup = Components_tyxml.Card.Make (Xml) (Svg) (Html)
+  module Card = Components_tyxml.Card.Make (Xml) (Svg) (Html)
   open Html
 
   let create_section_title ?(classes = []) ?(attrs = []) ?title ?(children = []) () =
@@ -34,7 +34,7 @@ struct
 
   let create_section ?(classes = []) ?(attrs = []) ~header ?children () : 'a elt =
     let classes = CSS.section :: classes in
-    div ~a:([a_class classes] @ attrs) [header; Card_markup.create ?children ()]
+    div ~a:([a_class classes] @ attrs) [header; Card.card ?children ()]
 
   let create ?(classes = []) ?(attrs = []) ?(children = []) () : 'a elt =
     let classes = CSS.root :: Layout_grid.CSS.root :: classes in

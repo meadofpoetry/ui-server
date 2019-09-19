@@ -52,7 +52,7 @@ let make_progress ?classes ?attrs ?(text = `Text "Загрузка") ?size ?icon
 let make_error ?classes ?attrs ?icon ?text () =
   let icon =
     match icon with
-    | None -> Icon.SVG.Markup_js.create ~d:error_svg_path ()
+    | None -> Icon.D.SVG.icon ~d:error_svg_path ()
     | Some x -> x
   in
   make ?classes ?attrs ~error:true ~icon ?text ()

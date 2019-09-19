@@ -5,34 +5,45 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
+  module CSS = CSS
 
-  let create_label ?(classes = []) ?(attrs = []) ?for_ ?label ?(content = []) () =
+  open Utils.Make (Xml)
+
+  let form_field_label ?(classes = []) ?(a = []) ?for_ ?label ?(children = nil ()) () =
+    let children =
+      match label with
+      | None -> children
+      | Some x -> cons (return (txt x)) children
+    in
     Html.label
-      ~a:([a_class classes] @ attrs |> Utils.map_cons_option a_label_for for_)
-      (Utils.map_cons_option txt label content)
+      ~a:(a_class (return classes) :: a |> Utils.map_cons_option a_label_for for_)
+      children
 
-  let create
+  let form_field
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?(align_end = false)
       ?label_for
-      ~input
-      ~label
+      ?(children = nil ())
+      ?input
+      ?label
       () =
     let (classes : string list) =
       classes |> Utils.cons_if align_end CSS.align_end |> List.cons CSS.root
     in
     let label =
       match label with
-      | `Text s -> create_label ?for_:label_for ~label:s ()
-      | `Element e -> e
+      | None -> None
+      | Some x -> Some (return @@ form_field_label ?for_:label_for ~label:x ())
     in
-    div ~a:([a_class classes] @ attrs) [input; label]
+    let children = input ^:: label ^:: children in
+    div ~a:(a_class (return classes) :: a) children
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

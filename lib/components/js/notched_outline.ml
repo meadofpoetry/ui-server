@@ -1,7 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Notched_outline
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -57,16 +58,7 @@ class t (elt : Dom_html.element Js.t) () =
 
 let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
 
-let make ?classes ?attrs ?leading ?trailing ?notch ?label_for ?label ?children () : t =
-  Markup_js.create
-    ?classes
-    ?attrs
-    ?leading
-    ?trailing
-    ?notch
-    ?label_for
-    ?label
-    ?children
-    ()
+let make ?classes ?a ?leading ?trailing ?notch ?label_for ?label ?children () : t =
+  D.notched_outline ?classes ?a ?leading ?trailing ?notch ?label_for ?label ?children ()
   |> Tyxml_js.To_dom.of_div
   |> attach

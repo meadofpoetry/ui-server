@@ -8,18 +8,19 @@ module CSS = struct
   let indeterminate = BEM.add_modifier root "indeterminate"
 end
 
+let sz = 50.
+
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
+  module CSS = CSS
 
-  let sz = 50.
-
-  let create
+  let circular_progress
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?(min = 0.)
       ?(max = 1.)
       ?(value = 0.)
@@ -27,30 +28,36 @@ struct
       ?(thickness = 3.6)
       ?(size = 40)
       () : 'a elt =
+    let open Xml.W in
     let classes =
       classes |> Utils.cons_if indeterminate CSS.indeterminate |> List.cons CSS.root
     in
     let style = Printf.sprintf "width: %dpx; height: %dpx" size size in
+    let circle =
+      return
+      @@ Svg.circle
+           ~a:
+             [ Svg.a_class (return [CSS.circle])
+             ; Svg.a_cx (return (sz /. 2., None))
+             ; Svg.a_cy (return (sz /. 2., None))
+             ; Svg.a_fill (return `None)
+             ; Svg.a_stroke_width (return (thickness, None))
+             ; Svg.a_r (return ((sz /. 2.) -. 5., None)) ]
+           (nil ())
+    in
+    let svg =
+      return @@ svg ~a:[Svg.a_viewBox (return (0., 0., sz, sz))] (singleton circle)
+    in
     div
       ~a:
-        ([ a_class classes
-         ; a_style style
-         ; a_role ["progressbar"]
-         ; a_aria "valuenow" [string_of_float value]
-         ; a_aria "valuemin" [string_of_float min]
-         ; a_aria "valuemax" [string_of_float max] ]
-        @ attrs)
-      [ svg
-          ~a:[Svg.a_class []; Svg.a_viewBox (0., 0., sz, sz)]
-          [ Svg.circle
-              ~a:
-                [ Svg.a_class [CSS.circle]
-                ; Svg.a_cx (sz /. 2., None)
-                ; Svg.a_cy (sz /. 2., None)
-                ; Svg.a_fill `None
-                ; Svg.a_stroke_width (thickness, None)
-                ; Svg.a_r ((sz /. 2.) -. 5., None) ]
-              [] ] ]
+        ([ a_class (return classes)
+         ; a_style (return style)
+         ; a_role (return ["progressbar"])
+         ; a_aria "valuenow" (return [string_of_float value])
+         ; a_aria "valuemin" (return [string_of_float min])
+         ; a_aria "valuemax" (return [string_of_float max]) ]
+        @ a)
+      (singleton svg)
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

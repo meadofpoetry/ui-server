@@ -14,41 +14,53 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
+  module CSS = CSS
 
-  let create_scrim ?(classes = []) ?(attrs = []) ?(children = []) () : 'a elt =
+  let drawer_scrim ?(classes = []) ?(a = []) ?(children = nil ()) () : 'a elt =
     let classes = CSS.scrim :: classes in
-    div ~a:([a_class classes] @ attrs) children
+    div ~a:(a_class (return classes) :: a) children
 
-  let create_title ?(tag = h3) ?(classes = []) ?(attrs = []) ?title ?(children = []) () =
+  let drawer_title ?(tag = h3) ?(classes = []) ?(a = []) ?title ?(children = nil ()) () =
     let classes = CSS.title :: classes in
-    tag ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt title children)
+    let children =
+      match title with
+      | None -> children
+      | Some x -> cons (return (txt x)) children
+    in
+    tag ~a:(a_class (return classes) :: a) children
 
-  let create_subtitle
+  let drawer_subtitle
       ?(tag = h6)
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?subtitle
-      ?(children = [])
+      ?(children = nil ())
       () =
     let classes = CSS.subtitle :: classes in
-    tag ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt subtitle children)
+    let children =
+      match subtitle with
+      | None -> children
+      | Some x -> cons (return (txt x)) children
+    in
+    tag ~a:(a_class (return classes) :: a) children
 
-  let create_header ?(classes = []) ?(attrs = []) ?(children = []) () : 'a elt =
+  let drawer_header ?(classes = []) ?(a = []) ?(children = nil ()) () : 'a elt =
     let classes = CSS.header :: classes in
-    div ~a:([a_class classes] @ attrs) children
+    div ~a:(a_class (return classes) :: a) children
 
-  let create_content ?(classes = []) ?(attrs = []) ?(children = []) () : 'a elt =
+  let drawer_content ?(classes = []) ?(a = []) ?(children = nil ()) () : 'a elt =
     let classes = CSS.content :: classes in
-    div ~a:([a_class classes] @ attrs) children
+    div ~a:(a_class (return classes) :: a) children
 
-  let create ?(classes = []) ?(attrs = []) ?(children = []) () =
+  let drawer ?(classes = []) ?(a = []) ?(children = nil ()) () =
     let classes = CSS.root :: classes in
-    aside ~a:([a_class classes] @ attrs) children
+    aside ~a:(a_class (return classes) :: a) children
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

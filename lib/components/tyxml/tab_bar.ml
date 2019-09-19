@@ -4,22 +4,26 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
-  module Tab_scroller_markup = Tab_scroller.Make (Xml) (Svg) (Html)
+  module CSS = CSS
+  module Tab_scroller = Tab_scroller.Make (Xml) (Svg) (Html)
 
-  let create
+  let tab_bar
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?tabs
       ?align
-      ?(scroller = Tab_scroller_markup.create ?align ?tabs ())
-      () : 'a elt =
+      ?(scroller = Tab_scroller.tab_scroller ?align ?tabs ())
+      () =
     let classes = CSS.root :: classes in
-    div ~a:([a_class classes; a_role ["tablist"]] @ attrs) [scroller]
+    div
+      ~a:([a_class (return classes); a_role (return ["tablist"])] @ a)
+      (singleton (return scroller))
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

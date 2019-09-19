@@ -66,22 +66,27 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
-  module Button_markup = Button.Make (Xml) (Svg) (Html)
+  module CSS = CSS
+  module Button = Button.Make (Xml) (Svg) (Html)
 
-  let create_title ?(classes = []) ?(attrs = []) ?title ?(content = []) () : 'a elt =
-    let classes = CSS.title :: classes in
-    h2 ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt title content)
+  open Utils.Make (Xml)
 
-  let create_content ?(classes = []) ?(attrs = []) content : 'a elt =
-    let classes = CSS.content :: classes in
-    section ~a:([a_class classes] @ attrs) content
+  let dialog_title ?(classes = []) ?(a = []) ?title ?(children = nil ()) () =
+    let classes = return (CSS.title :: classes) in
+    let title = Option.map (fun x -> return @@ txt x) title in
+    h2 ~a:(a_class classes :: a) (title ^:: children)
 
-  let action ?(classes = []) ?(a = []) ?(default = false) ?action =
+  let dialog_content ?(classes = []) ?(a = []) ?(children = nil ()) () =
+    let classes = return (CSS.content :: classes) in
+    section ~a:(a_class classes :: a) children
+
+  let dialog_action ?(classes = []) ?(a = []) ?(default = false) ?action =
     let classes =
       classes |> Utils.cons_if default CSS.button_default |> List.cons CSS.button
     in
@@ -89,29 +94,29 @@ struct
       match action with
       | None -> a
       | Some action ->
-          let attr = action_to_string action in
+          let attr = return (action_to_string action) in
           a_user_data "mdc-dialog-action" attr :: a
     in
-    Button_markup.button ~classes ~a
+    Button.button ~classes ~a
 
-  let create_actions ?(classes = []) ?(attrs = []) actions : 'a elt =
-    let classes = CSS.actions :: classes in
-    footer ~a:([a_class classes] @ attrs) actions
+  let dialog_actions ?(classes = []) ?(a = []) ?(children = nil ()) () =
+    let classes = return (CSS.actions :: classes) in
+    footer ~a:(a_class classes :: a) children
 
-  let create_surface ?(classes = []) ?(attrs = []) ?title ?content ?actions () : 'a elt =
-    let classes = CSS.surface :: classes in
-    let content = Utils.(title ^:: content ^:: actions ^:: []) in
-    div ~a:([a_class classes] @ attrs) content
+  let dialog_surface ?(classes = []) ?(a = []) ?title ?content ?actions () : 'a elt =
+    let classes = return (CSS.surface :: classes) in
+    let children = title ^:: content ^:: actions ^:: nil () in
+    div ~a:(a_class classes :: a) children
 
-  let create_container ?(classes = []) ?(attrs = []) ~surface () : 'a elt =
-    let classes = CSS.container :: classes in
-    div ~a:([a_class classes] @ attrs) [surface]
+  let dialog_container ?(classes = []) ?(a = []) ~surface () : 'a elt =
+    let classes = return (CSS.container :: classes) in
+    div ~a:(a_class classes :: a) (cons surface (nil ()))
 
-  let create_scrim ?(classes = []) ?(attrs = []) () : 'a elt =
-    let classes = CSS.scrim :: classes in
-    div ~a:([a_class classes] @ attrs) []
+  let dialog_scrim ?(classes = []) ?(a = []) ?(children = nil ()) () : 'a elt =
+    let classes = return (CSS.scrim :: classes) in
+    div ~a:(a_class classes :: a) children
 
-  let create
+  let dialog
       ?(classes = [])
       ?(attrs = [])
       ?title_id
@@ -120,10 +125,10 @@ struct
       ?title
       ?content
       ?actions
-      ?(scrim = create_scrim ())
+      ?(scrim = return (dialog_scrim ()))
       ?container
       () : 'a elt =
-    let aria n v = a_aria n [v] in
+    let aria n v = a_aria n (return [v]) in
     let container =
       match container with
       | Some x -> x
@@ -131,20 +136,23 @@ struct
           let actions =
             match actions with
             | None -> None
-            | Some actions -> Some (create_actions actions)
+            | Some actions -> Some (return (dialog_actions ~children:actions ()))
           in
-          let surface = create_surface ?title ?content ?actions () in
-          create_container ~surface ()
+          let surface = return (dialog_surface ?title ?content ?actions ()) in
+          return (dialog_container ~surface ())
     in
     let classes =
-      classes |> Utils.cons_if scrollable CSS.scrollable |> List.cons CSS.root
+      return (classes |> Utils.cons_if scrollable CSS.scrollable |> List.cons CSS.root)
     in
     div
       ~a:
-        ([a_class classes; a_role ["alertdialog"]; a_aria "modal" ["true"]] @ attrs
+        ([ a_class classes
+         ; a_role (return ["alertdialog"])
+         ; a_aria "modal" (return ["true"]) ]
+         @ attrs
         |> Utils.map_cons_option (aria "labelledby") title_id
         |> Utils.map_cons_option (aria "describedby") content_id)
-      [container; scrim]
+      (container @:: scrim @:: nil ())
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

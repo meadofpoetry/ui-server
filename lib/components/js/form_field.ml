@@ -1,7 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Form_field
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -88,12 +89,12 @@ class ['a] t
 let attach f (elt : #Dom_html.element Js.t) : 'a t =
   new t ~input:(`Attach f) (Element.coerce elt) ()
 
-let make ?classes ?attrs ?align_end ?label_for ~attach_input ~label ~input () =
-  Markup_js.create ?classes ?attrs ?align_end ?label_for ~input ~label ()
+let make ?classes ?a ?align_end ?label_for ~attach_input ?label ~input () =
+  D.form_field ?classes ?a ?align_end ?label_for ~input ?label ()
   |> Tyxml_js.To_dom.of_div
   |> fun elt -> new t ~input:(`Attach attach_input) elt ()
 
-let make_of_widget ?classes ?attrs ?align_end ~label ~(input : #input_widget) () =
+let make_of_widget ?classes ?a ?align_end ~label ~(input : #input_widget) () =
   let id = Js.to_string @@ input#input_element##.id in
   let label_for =
     match id with
@@ -103,6 +104,6 @@ let make_of_widget ?classes ?attrs ?align_end ~label ~(input : #input_widget) ()
         id
     | id -> id
   in
-  Markup_js.create ?classes ?attrs ?align_end ~label_for ~input:input#markup ~label ()
+  D.form_field ?classes ?a ?align_end ~label_for ~input:input#markup ~label ()
   |> Tyxml_js.To_dom.of_div
   |> fun elt -> new t ~input:(`Widget input) elt ()

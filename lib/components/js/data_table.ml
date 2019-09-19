@@ -1,7 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Data_table
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 module Attr = struct
   let data_row_id = "data-row-id"
@@ -280,7 +281,5 @@ class t (elt : Dom_html.element Js.t) () =
 
 let attach (elt : #Dom_html.element Js.t) : t = new t (elt :> Dom_html.element Js.t) ()
 
-let make ?classes ?attrs ?dense ?children () =
-  Markup_js.create ?classes ?attrs ?dense ?children ()
-  |> Tyxml_js.To_dom.of_div
-  |> attach
+let make ?classes ?a ?dense ?children () =
+  D.data_table ?classes ?a ?dense ?children () |> Tyxml_js.To_dom.of_div |> attach

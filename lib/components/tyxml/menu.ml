@@ -20,7 +20,8 @@ module Make
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
-  module Menu_surface_markup = Menu_surface.Make (Xml) (Svg) (Html)
+  module CSS = CSS
+  module Menu_surface = Menu_surface.Make (Xml) (Svg) (Html)
 
   module Item_list = struct
     include Item_list.Make (Xml) (Svg) (Html)
@@ -52,7 +53,7 @@ struct
           | None -> None
           | Some x -> Some [Item_list.create ~children:x ()]))
     in
-    Menu_surface_markup.create ~classes ~attrs ?fixed ?open_ ?children ()
+    Menu_surface.create ~classes ~attrs ?fixed ?open_ ?children ()
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

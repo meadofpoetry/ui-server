@@ -1,7 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Switch
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -88,16 +89,7 @@ class t ?on_change (elt : #Dom_html.element Js.t) () =
 
 let attach ?on_change (elt : #Dom_html.element Js.t) : t = new t ?on_change elt ()
 
-let make
-    ?input_id
-    ?classes
-    ?attrs
-    ?checked
-    ?disabled
-    ?track
-    ?thumb_underlay
-    ?on_change
-    () =
-  Markup_js.create ?input_id ?classes ?attrs ?checked ?disabled ?track ?thumb_underlay ()
+let make ?input_id ?classes ?a ?checked ?disabled ?track ?thumb_underlay ?on_change () =
+  D.switch ?input_id ?classes ?a ?checked ?disabled ?track ?thumb_underlay ()
   |> Tyxml_js.To_dom.of_div
   |> attach ?on_change

@@ -1,7 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Fab
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -52,7 +53,7 @@ let attach ?on_click (elt : #Dom_html.element Js.t) : t =
     (fun () -> failwith (CSS.root ^ ": root element must have a `button` tag"))
     (fun elt -> new t ?on_click elt ())
 
-let make ?classes ?attrs ?mini ?extended ?label ?icon ?on_click () : t =
-  Markup_js.create ?classes ?attrs ?mini ?extended ?label ?icon ()
+let make ?classes ?a ?mini ?extended ?label ?icon ?on_click () : t =
+  D.fab ?classes ?a ?mini ?extended ?label ?icon ()
   |> Tyxml_js.To_dom.of_button
   |> attach ?on_click

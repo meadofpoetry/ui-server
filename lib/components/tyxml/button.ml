@@ -38,6 +38,7 @@ module Make
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
+  module CSS = CSS
 
   let ( % ) f g x = f (g x)
 

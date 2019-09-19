@@ -9,7 +9,7 @@ struct
 
   open Ui_templates_tyxml.Settings_page.Make (Xml) (Svg) (Html)
 
-  module Button_markup = Button.Make (Xml) (Svg) (Html)
+  module Button = Button.Make (Xml) (Svg) (Html)
 
   let create ?classes ?(attrs = []) () =
     create_section
@@ -18,7 +18,7 @@ struct
       ~header:
         (create_section_header ~title:(`Text "Выключение питания") ())
       ~children:
-        [ Card_markup.create_media
+        [ Card.card_media
             ~children:
               [ div
                   [ txt
@@ -36,11 +36,11 @@ struct
                       ] ] ]
             ()
         ; hr ~a:[a_class [Divider.CSS.root]] ()
-        ; Card_markup.create_actions
+        ; Card.card_actions
             ~children:
-              [ Card_markup.create_action_buttons
+              [ Card.card_action_buttons
                   ~children:
-                    [ Button_markup.create
+                    [ Button.button
                         ~appearance:Raised
                         ~label:"Выключить прибор"
                         () ]

@@ -260,8 +260,8 @@ let make_plp ?value (plps : int list React.signal) =
     Textfield.make
       ?value
       ~trailing_icon:
-        (Icon.Markup_js.SVG.create
-           ~attrs:[Tyxml_js.Svg.Unsafe.int_attrib "tabindex" 0]
+        (Icon.D.SVG.icon
+           ~a:[Tyxml_js.Svg.Unsafe.int_attrib "tabindex" 0]
            ~d:Icon.SVG.Path.menu_down
            ())
       ~on_input:(fun _ i ->

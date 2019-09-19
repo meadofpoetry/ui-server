@@ -1,7 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Select
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 let ( % ) f g x = f (g x)
 
@@ -210,7 +211,7 @@ module Helper_text = struct
   let make ?persistent ?validation text : t =
     let (elt : Dom_html.element Js.t) =
       Tyxml_js.To_dom.of_div
-      @@ Markup_js.Helper_text.create ?persistent ?validation ~text ()
+      @@ D.Helper_text.helper_text ?persistent ?validation ~text ()
     in
     new t elt ()
 end
@@ -800,18 +801,13 @@ let native_options_of_values
   let options =
     List.map
       (fun (x : a) ->
-        Markup_js.Native.create_option
-          ~value:(valid_to_string validation x)
-          ~text:(label x)
-          ())
+        D.Native.option ~value:(valid_to_string validation x) ~text:(label x) ())
       values
   in
   if not with_empty
   then options
   else
-    let empty =
-      Markup_js.Native.create_option ~selected:true ~disabled:true ~text:"" ()
-    in
+    let empty = D.Native.option ~selected:true ~disabled:true ~text:"" () in
     empty :: options
 
 let attach ?helper_text ?validation ?on_change ?value (elt : #Dom_html.element Js.t) =
@@ -819,7 +815,7 @@ let attach ?helper_text ?validation ?on_change ?value (elt : #Dom_html.element J
 
 let make_native
     ?classes
-    ?attrs
+    ?a
     ?label
     ?line_ripple
     ?disabled
@@ -831,15 +827,15 @@ let make_native
     ?form
     ?name
     ?options
-    ?select
+    ?native_control
     ?helper_text
     ?validation
     ?on_change
     ?value
     () =
-  Markup_js.Native.create
+  D.Native.select
     ?classes
-    ?attrs
+    ?a
     ?label
     ?line_ripple
     ?disabled
@@ -851,14 +847,14 @@ let make_native
     ?form
     ?name
     ?options
-    ?select
+    ?native_control
     ()
   |> Tyxml_js.To_dom.of_div
   |> attach ?helper_text ?validation ?on_change ?value
 
 let make_enhanced
     ?classes
-    ?attrs
+    ?a
     ?label
     ?line_ripple
     ?disabled
@@ -872,9 +868,9 @@ let make_enhanced
     ?value
     ~menu
     () =
-  Markup_js.Enhanced.create
+  D.Enhanced.select
     ?classes
-    ?attrs
+    ?a
     ?label
     ?line_ripple
     ?disabled

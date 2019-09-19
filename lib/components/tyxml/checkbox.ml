@@ -31,43 +31,60 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
+  module CSS = CSS
 
-  let create
+  open Utils.Make (Xml)
+
+  let checkbox
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?input_id
       ?(disabled = false)
       ?(checked = false)
-      () : 'a elt =
-    let (classes : string list) =
-      classes |> Utils.cons_if disabled CSS.disabled |> List.cons CSS.root
+      () =
+    let open Xml.W in
+    let classes =
+      return (classes |> Utils.cons_if disabled CSS.disabled |> List.cons CSS.root)
     in
-    div
-      ~a:([a_class classes] @ attrs)
-      [ input
-          ~a:
-            ([a_input_type `Checkbox; a_class [CSS.native_control]]
-            |> Utils.map_cons_option a_id input_id
-            |> Utils.cons_if disabled @@ a_disabled ()
-            |> Utils.cons_if checked @@ a_checked ())
-          ()
-      ; div
-          ~a:[a_class [CSS.background]]
-          [ svg
-              ~a:[Svg.a_class [CSS.checkmark]; Svg.a_viewBox (0.0, 0.0, 24.0, 24.0)]
-              [ Svg.path
-                  ~a:
-                    [ Svg.a_class [CSS.checkmark_path]
-                    ; Svg.a_fill `None
-                    ; Svg.a_stroke (`Color ("white", None))
-                    ; Svg.a_d "M1.73,12.91 8.1,19.28 22.79,4.59" ]
-                  [] ]
-          ; div ~a:[a_class [CSS.mixedmark]] [] ] ]
+    let input =
+      return
+      @@ input
+           ~a:
+             ([a_input_type (return `Checkbox); a_class (return [CSS.native_control])]
+             |> Utils.map_cons_option a_id input_id
+             |> Utils.cons_if disabled @@ a_disabled ()
+             |> Utils.cons_if checked @@ a_checked ())
+           ()
+    in
+    let checkmark_path =
+      return
+      @@ Svg.path
+           ~a:
+             [ Svg.a_class (return [CSS.checkmark_path])
+             ; Svg.a_fill (return `None)
+             ; Svg.a_stroke (return (`Color ("white", None)))
+             ; Svg.a_d (return "M1.73,12.91 8.1,19.28 22.79,4.59") ]
+           (nil ())
+    in
+    let checkmark =
+      return
+      @@ svg
+           ~a:
+             [ Svg.a_class (return [CSS.checkmark])
+             ; Svg.a_viewBox (return (0.0, 0.0, 24.0, 24.0)) ]
+           (singleton checkmark_path)
+    in
+    let mixedmark = return @@ div ~a:[a_class (return [CSS.mixedmark])] (nil ()) in
+    let background =
+      return
+      @@ div ~a:[a_class (return [CSS.background])] (checkmark @:: mixedmark @:: nil ())
+    in
+    div ~a:(a_class classes :: a) (input @:: background @:: nil ())
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

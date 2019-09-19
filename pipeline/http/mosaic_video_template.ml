@@ -13,11 +13,11 @@ module Player = struct
   include Page_mosaic_video_tyxml.Player.Make (Xml) (Svg) (Html)
 end
 
-let make_icon ?classes path = Icon.Markup.SVG.create ?classes ~d:path ()
+let make_icon ?classes path = Icon.F.SVG.icon ?classes ~d:path ()
 
-let make_icon_button ?classes path =
-  let icon = Icon.Markup.SVG.create ~d:path () in
-  Icon_button.Markup.create ?classes ~icon ()
+let make_icon_button ?classes d =
+  let icon = Icon.F.SVG.icon ~d () in
+  Icon_button.F.icon_button ?classes ~icon ()
 
 let make_slider () =
   let classes = [Player.CSS.Controls.volume] in

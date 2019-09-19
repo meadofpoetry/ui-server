@@ -80,7 +80,7 @@ class t ?(ripple = true) ?on_click ?loader (elt : Dom_html.element Js.t) () =
               let loader =
                 match loader with
                 | None ->
-                    let progress = Circular_progress.Markup_js.create ~size:25 () in
+                    let progress = Circular_progress.D.circular_progress ~size:25 () in
                     loader <- Some progress;
                     progress
                 | Some x -> x

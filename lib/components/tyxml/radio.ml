@@ -13,27 +13,24 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
+  module CSS = CSS
 
-  let create_outer_circle ?(classes = []) ?(attrs = []) ?(children = []) () =
+  let radio_outer_circle ?(classes = []) ?(a = []) ?(children = nil ()) () =
     let classes = CSS.outer_circle :: classes in
-    div ~a:([a_class classes] @ attrs) children
+    div ~a:(a_class (return classes) :: a) children
 
-  let create_inner_circle ?(classes = []) ?(attrs = []) ?(children = []) () =
+  let radio_inner_circle ?(classes = []) ?(a = []) ?(children = nil ()) () =
     let classes = CSS.inner_circle :: classes in
-    div ~a:([a_class classes] @ attrs) children
+    div ~a:(a_class (return classes) :: a) children
 
-  let create_background
-      ?(classes = [])
-      ?(attrs = [])
-      ?outer_circle
-      ?inner_circle
-      ?children
-      () =
+  let radio_background ?(classes = []) ?(a = []) ?outer_circle ?inner_circle ?children ()
+      =
     let classes = CSS.background :: classes in
     let children =
       match children with
@@ -42,20 +39,20 @@ struct
           let outer_circle =
             match outer_circle with
             | Some x -> x
-            | None -> create_outer_circle ()
+            | None -> radio_outer_circle ()
           in
           let inner_circle =
             match inner_circle with
             | Some x -> x
-            | None -> create_inner_circle ()
+            | None -> radio_inner_circle ()
           in
-          [outer_circle; inner_circle]
+          cons (return outer_circle) (singleton (return inner_circle))
     in
-    div ~a:([a_class classes] @ attrs) children
+    div ~a:(a_class (return classes) :: a) children
 
-  let create_native_control
+  let radio_native_control
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?(checked = false)
       ?(disabled = false)
       ?input_id
@@ -64,16 +61,16 @@ struct
     let classes = CSS.native_control :: classes in
     input
       ~a:
-        ([a_class classes; a_input_type `Radio] @ attrs
+        (a_class (return classes) :: a_input_type (return `Radio) :: a
         |> Utils.map_cons_option a_name name
         |> Utils.cons_if_lazy checked a_checked
         |> Utils.cons_if_lazy disabled a_disabled
         |> Utils.map_cons_option a_id input_id)
       ()
 
-  let create
+  let radio
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?input_id
       ?checked
       ?(disabled = false)
@@ -92,16 +89,16 @@ struct
           let background =
             match background with
             | Some x -> x
-            | None -> create_background ?outer_circle ?inner_circle ()
+            | None -> radio_background ?outer_circle ?inner_circle ()
           in
           let native_control =
             match native_control with
             | Some x -> x
-            | None -> create_native_control ?input_id ?checked ?name ~disabled ()
+            | None -> radio_native_control ?input_id ?checked ?name ~disabled ()
           in
-          [native_control; background]
+          cons (return native_control) (singleton (return background))
     in
-    div ~a:([a_class classes] @ attrs) children
+    div ~a:(a_class (return classes) :: a) children
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

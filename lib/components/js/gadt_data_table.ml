@@ -1,7 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Data_table
-module Fmt_js = Markup_js.Fmt
+module Fmt_d = D.Fmt
+module Fmt_r = R.Fmt
 
 let ( % ) f g x = f (g x)
 
@@ -11,7 +12,7 @@ module Selector = struct
   let cell = "." ^ CSS.cell
 end
 
-let get_cell_value : type a. a Fmt_js.t -> Dom_html.tableCellElement Js.t -> a =
+let get_cell_value : type a. a Fmt_d.t -> Dom_html.tableCellElement Js.t -> a =
  fun fmt cell ->
   match fmt with
   | Html _ -> (
@@ -25,10 +26,10 @@ let get_cell_value : type a. a Fmt_js.t -> Dom_html.tableCellElement Js.t -> a =
     | hd :: _ -> x.of_elt @@ Tyxml_js.Html.toelt @@ Tyxml_js.Of_dom.of_element hd)
   | fmt ->
       let s = Js.Opt.case cell##.textContent (fun () -> "") Js.to_string in
-      Fmt_js.of_string fmt s
+      Fmt_d.of_string fmt s
 
-let rec set_cell_value :
-    type a. a Fmt_js.t -> a -> Dom_html.tableCellElement Js.t -> unit =
+let rec set_cell_value : type a. a Fmt_d.t -> a -> Dom_html.tableCellElement Js.t -> unit
+    =
  fun fmt v cell ->
   match fmt with
   | Option (fmt, default) -> (
@@ -42,11 +43,11 @@ let rec set_cell_value :
       Element.remove_children cell;
       Dom.appendChild cell v
   | fmt ->
-      let value = Js.string @@ Fmt_js.to_string fmt v in
+      let value = Js.string @@ Fmt_d.to_string fmt v in
       cell##.textContent := Js.some value
 
 let compare_cells fmt (a : Dom_html.tableCellElement Js.t as 'a) (b : 'a) =
-  Fmt_js.compare fmt (get_cell_value fmt a) (get_cell_value fmt b)
+  Fmt_d.compare fmt (get_cell_value fmt a) (get_cell_value fmt b)
 
 let handle_sort (cell : Dom_html.element Js.t) =
   match Element.get_attribute cell "aria-sort" with
@@ -56,14 +57,14 @@ let handle_sort (cell : Dom_html.element Js.t) =
     | Some Dsc -> Asc
     | _ -> Dsc)
 
-class ['a] t ~(fmt : 'a Fmt_js.format) (elt : Dom_html.element Js.t) () =
+class ['a] t ~(fmt : 'a Fmt_d.format) (elt : Dom_html.element Js.t) () =
   object (self)
     inherit Data_table.t elt () as super
 
-    val mutable fmt : 'a Fmt_js.format = fmt
+    val mutable fmt : 'a Fmt_d.format = fmt
 
-    method insert_row i (data : 'a Fmt_js.data) : Dom_html.tableRowElement Js.t =
-      let cells = Markup_js.create_cells_of_fmt fmt data in
+    method insert_row i (data : 'a Fmt_d.data) : Dom_html.tableRowElement Js.t =
+      let cells = D.data_table_cells_of_fmt fmt data in
       let row = super#tbody##insertRow i in
       Element.add_class row CSS.row;
       List.iter (Dom.appendChild row % Tyxml_js.To_dom.of_td) cells;
@@ -77,7 +78,7 @@ class ['a] t ~(fmt : 'a Fmt_js.format) (elt : Dom_html.element Js.t) () =
         is raised. *)
 
     method data_format =
-      let rec loop : type a. a Fmt_js.format -> a Fmt_js.data_format =
+      let rec loop : type a. a Fmt_d.format -> a Fmt_d.data_format =
        fun fmt ->
         match fmt with
         | [] -> []
@@ -85,8 +86,8 @@ class ['a] t ~(fmt : 'a Fmt_js.format) (elt : Dom_html.element Js.t) () =
       in
       loop fmt
 
-    method set_data_format ?(redraw = true) (x : 'a Fmt_js.data_format) =
-      let rec loop : type a. a Fmt_js.format -> a Fmt_js.data_format -> a Fmt_js.format =
+    method set_data_format ?(redraw = true) (x : 'a Fmt_d.data_format) =
+      let rec loop : type a. a Fmt_d.format -> a Fmt_d.data_format -> a Fmt_d.format =
        fun fmt data_fmt ->
         match fmt, data_fmt with
         | [], [] -> []
@@ -101,10 +102,10 @@ class ['a] t ~(fmt : 'a Fmt_js.format) (elt : Dom_html.element Js.t) () =
       else fmt <- format
 
     method set_row_data_some
-        (data : 'a Fmt_js.data_opt)
+        (data : 'a Fmt_d.data_opt)
         (row : Dom_html.tableRowElement Js.t) =
       let cells = row##.cells in
-      let rec loop : type a. int -> a Fmt_js.format -> a Fmt_js.data_opt -> unit =
+      let rec loop : type a. int -> a Fmt_d.format -> a Fmt_d.data_opt -> unit =
        fun i format data ->
         match format, data with
         | [], [] -> ()
@@ -117,9 +118,9 @@ class ['a] t ~(fmt : 'a Fmt_js.format) (elt : Dom_html.element Js.t) () =
       in
       loop 0 fmt data
 
-    method set_row_data (data : 'a Fmt_js.data) (row : Dom_html.tableRowElement Js.t) =
+    method set_row_data (data : 'a Fmt_d.data) (row : Dom_html.tableRowElement Js.t) =
       let cells = row##.cells in
-      let rec loop : type a. int -> a Fmt_js.format -> a Fmt_js.data -> unit =
+      let rec loop : type a. int -> a Fmt_d.format -> a Fmt_d.data -> unit =
        fun i format data ->
         match format, data with
         | [], [] -> ()
@@ -132,7 +133,7 @@ class ['a] t ~(fmt : 'a Fmt_js.format) (elt : Dom_html.element Js.t) () =
 
     method get_row_data (row : Dom_html.tableRowElement Js.t) =
       let cells = row##.cells in
-      let rec loop : type a. int -> a Fmt_js.format -> a Fmt_js.data =
+      let rec loop : type a. int -> a Fmt_d.format -> a Fmt_d.data =
        fun i format ->
         match format with
         | [] -> []
@@ -145,7 +146,7 @@ class ['a] t ~(fmt : 'a Fmt_js.format) (elt : Dom_html.element Js.t) () =
 
     method get_row_data_lazy (row : Dom_html.tableRowElement Js.t) =
       let cells = row##.cells in
-      let rec loop : type a. int -> a Fmt_js.format -> a Fmt_js.data_lazy =
+      let rec loop : type a. int -> a Fmt_d.format -> a Fmt_d.data_lazy =
        fun i format ->
         match format with
         | [] -> []
@@ -155,28 +156,36 @@ class ['a] t ~(fmt : 'a Fmt_js.format) (elt : Dom_html.element Js.t) () =
       in
       loop 0 fmt
 
-    method dump : 'a Fmt_js.data list = List.map self#get_row_data super#rows
+    method dump : 'a Fmt_d.data list = List.map self#get_row_data super#rows
     (** Return table formatted data. *)
   end
 
 let attach ~fmt (elt : #Dom_html.element Js.t) : 'a t =
   new t ~fmt (elt :> Dom_html.element Js.t) ()
 
-let make ?classes ?attrs ?dense ?(data = []) ~format () =
-  Markup_js.create_of_fmt ?classes ?attrs ?dense ~format ~data ()
+let make ?classes ?a ?dense ?(data = []) ~format () =
+  let rows = List.map (fun x -> D.data_table_row_of_fmt ~format ~data:x ()) data in
+  D.data_table_of_fmt ?classes ?a ?dense ~format ~rows ()
   |> Tyxml_js.To_dom.of_div
   |> attach ~fmt:format
+
+(* let make_r ?classes ?a ?dense ?(data = ReactiveData.RList.empty) ~format () =
+ *   let open ReactiveData in
+ *   let rows = RList.map (fun x -> R.data_table_row_of_fmt ~format ~data:x ()) data in
+ *   R.data_table_of_fmt ?classes ?a ?dense ~format ~rows ()
+ *   |> Tyxml_js.To_dom.of_div
+ *   |> attach ~fmt:format *)
 
 (** Example using GADT format:
 
    {[ let table =
-        let (fmt : _ Fmt_js.format) =
-          Fmt_js.
+        let (fmt : _ Fmt_d.format) =
+          Fmt_d.
             [ make_column ~title:"Title 1" Int
             ; make_column ~title:"Title 2" Int
             ; make_column ~title:"Title 3" Int ]
         in
-        let (data : _ Fmt_js.data list) =
+        let (data : _ Fmt_d.data list) =
           [[3; 3; 3]; [4; 5; 4]; [1; 2; 3]; [1; 1; 1]; [4; 3; 1]; [1; 6; 4]]
         in
         make ~format:fmt ~data ()

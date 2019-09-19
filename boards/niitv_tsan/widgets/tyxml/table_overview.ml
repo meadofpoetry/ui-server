@@ -47,29 +47,28 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  module Box_markup = Box.Make (Xml) (Svg) (Html)
-  module Data_table_markup = Data_table.Make (Xml) (Svg) (Html)
-  module Divider_markup = Divider.Make (Xml) (Svg) (Html)
-  module Fmt = Data_table.Make_fmt (Xml)
-  module Icon_markup = Icon.Make (Xml) (Svg) (Html)
-  module Icon_button_markup = Icon_button.Make (Xml) (Svg) (Html)
-  module Placeholder_markup = Placeholder.Make (Xml) (Svg) (Html)
-  module Menu_markup = Menu.Make (Xml) (Svg) (Html)
+  module Box = Box.Make (Xml) (Svg) (Html)
+  module Data_table = Data_table.Make (Xml) (Svg) (Html)
+  module Divider = Divider.Make (Xml) (Svg) (Html)
+  module Icon = Icon.Make (Xml) (Svg) (Html)
+  module Icon_button = Icon_button.Make (Xml) (Svg) (Html)
+  module Placeholder = Placeholder.Make (Xml) (Svg) (Html)
+  module Menu = Menu.Make (Xml) (Svg) (Html)
 
   let create_title ?(classes = []) ?(attrs = []) ?title ?(children = []) () =
     let classes = CSS.title :: classes in
     h3 ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt title children)
 
-  let create_menu_selection_icon ?(classes = []) ?attrs () =
-    Icon_markup.SVG.create
+  let create_menu_selection_icon ?(classes = []) ?a () =
+    Icon.SVG.icon
       ~classes:([Item_list.CSS.item_graphic; Menu.CSS.selection_group_icon] @ classes)
-      ?attrs
+      ?a
       ~d:Svg_icons.check
       ()
 
   let create_menu_mode_item ?(classes = []) ?(attrs = []) ?(selected = false) ~mode () =
     let classes = if selected then Menu.CSS.item_selected :: classes else classes in
-    Menu_markup.Item_list.create_item
+    Menu.Item_list.create_item
       ~classes
       ~attrs:
         ([ a_user_data
@@ -88,17 +87,17 @@ struct
       ()
 
   let create_menu ?classes ?attrs ?(hex = false) () =
-    Menu_markup.create
+    Menu.create
       ?classes
       ?attrs
       ~list_children:
-        Menu_markup.Item_list.
+        Menu.Item_list.
           [ li
               [ ul
                   ~a:[a_class [Menu.CSS.selection_group]]
                   [ create_menu_mode_item ~selected:hex ~mode:`Hex ()
                   ; create_menu_mode_item ~selected:(not hex) ~mode:`Dec () ] ]
-          ; Divider_markup.create_li ()
+          ; Divider.create_li ()
           ; create_item
               ~classes:[CSS.bitrate_reset]
               ~primary_text:(`Text "Сброс битрейта")
@@ -122,9 +121,9 @@ struct
             ^:: title
             ^:: [ div
                     ~a:[a_class [Menu_surface.CSS.anchor]]
-                    [ Icon_button_markup.create
+                    [ Icon_button.icon_button
                         ~classes:[CSS.menu_icon]
-                        ~icon:(Icon_markup.SVG.create ~d:Svg_icons.dots_vertical ())
+                        ~icon:(Icon.SVG.icon ~d:Svg_icons.dots_vertical ())
                         ()
                     ; create_menu ?hex () ] ])
     in
@@ -133,18 +132,18 @@ struct
   let create_empty_placeholder
       ?(classes = [])
       ?attrs
-      ?(icon = Icon_markup.SVG.create ~d:Svg_icons.emoticon_sad ())
+      ?(icon = Icon.SVG.icon ~d:Svg_icons.emoticon_sad ())
       ?(text = `Text "Таблица пуста")
       () =
     let classes = CSS.placeholder :: classes in
-    Placeholder_markup.create ~classes ?attrs ~icon ~text ()
+    Placeholder.create ~classes ?attrs ~icon ~text ()
 
-  let create_back_action ?(classes = []) ?attrs () =
+  let create_back_action ?(classes = []) ?a () =
     let classes = CSS.back_action :: classes in
-    Icon_button_markup.create
+    Icon_button.icon_button
       ~classes
-      ?attrs
-      ~icon:(Icon_markup.SVG.create ~d:Svg_icons.arrow_left ())
+      ?a
+      ~icon:(Icon.SVG.icon ~d:Svg_icons.arrow_left ())
       ()
 
   let create
@@ -171,9 +170,7 @@ struct
     in
     let back = if with_details then Some (create_back_action ()) else None in
     let header = create_header ~hex ?back ?title () in
-    let table =
-      Data_table_markup.create_of_fmt ~dense ~classes:[CSS.table] ~format ~data ()
-    in
+    let table = Data_table.create_of_fmt ~dense ~classes:[CSS.table] ~format ~data () in
     div ~a:([a_class classes; a_user_data "control" (string_of_int control)] @ attrs)
     @@ Utils.([header; table] @ placeholder ^:: [])
 end

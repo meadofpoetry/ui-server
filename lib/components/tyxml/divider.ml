@@ -5,23 +5,22 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
+  module CSS = CSS
 
-  let create
-      ?(classes = [])
-      ?(attrs = [])
-      ?(inset = false)
-      ~(tag : ?a:'a attrib list_wrap -> 'b) : 'b =
+  let divider ?(classes = []) ?(a = []) ?(inset = false) ~(tag : ?a:'a attrib list -> 'b)
+      : 'b =
     let classes = classes |> Utils.cons_if inset CSS.inset |> List.cons CSS.root in
-    tag ~a:([a_class classes] @ attrs)
+    tag ~a:(a_class (Xml.W.return classes) :: a)
 
-  let create_hr = create ~tag:hr
+  let divider_hr = divider ~tag:hr
 
-  let create_li ?classes ?attrs ?inset () = create ~tag:li ?classes ?attrs ?inset []
+  let divider_li ?classes ?a ?inset () = divider ~tag:li ?classes ?a ?inset (nil ())
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

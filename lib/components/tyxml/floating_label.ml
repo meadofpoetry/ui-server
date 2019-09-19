@@ -10,26 +10,33 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
+  module CSS = CSS
 
-  let create
+  let floating_label
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?(float_above = false)
       ?for_
       ?label
-      ?(children = [])
+      ?(children = nil ())
       () : 'a elt =
     let classes =
       classes |> Utils.cons_if float_above CSS.float_above |> List.cons CSS.root
     in
+    let children =
+      match label with
+      | None -> children
+      | Some x -> cons (return (txt x)) children
+    in
     Html.label
-      ~a:([a_class classes] @ attrs |> Utils.map_cons_option a_label_for for_)
-      (Utils.map_cons_option txt label children)
+      ~a:(a_class (return classes) :: a |> Utils.map_cons_option a_label_for for_)
+      children
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

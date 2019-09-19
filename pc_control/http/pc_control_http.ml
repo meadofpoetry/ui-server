@@ -4,8 +4,8 @@ module Api_http = Api_cohttp.Make (User) (Body)
 module Api_template = Api_cohttp_template.Make (User)
 module Api_websocket = Api_websocket.Make (User) (Body) (Body_ws)
 
-let icon x =
-  let icon = Components_tyxml.Icon.Markup.SVG.create ~d:x () in
+let icon d =
+  let icon = Components_tyxml.Icon.F.SVG.icon ~d () in
   Tyxml.Html.toelt icon
 
 let network_handlers (network : Pc_control.Network.t) =

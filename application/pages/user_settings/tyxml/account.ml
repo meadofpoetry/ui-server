@@ -49,16 +49,15 @@ struct
 
   open Ui_templates_tyxml.Settings_page.Make (Xml) (Svg) (Html)
 
-  module Button_markup = Button.Make (Xml) (Svg) (Html)
-  module Card_markup = Card.Make (Xml) (Svg) (Html)
-  module Icon_markup = Icon.Make (Xml) (Svg) (Html)
+  module Button = Button.Make (Xml) (Svg) (Html)
+  module Icon = Icon.Make (Xml) (Svg) (Html)
 
   let id = "account"
 
   let create_greetings ?(classes = []) ?(attrs = []) user =
     let classes = CSS.greetings :: classes in
     let username_human = Format.asprintf "%a" Util.pp_user_human user in
-    let icon = Icon_markup.SVG.(create ~d:(Util.user_icon_path user) ()) in
+    let icon = Icon.SVG.icon ~d:(Util.user_icon_path user) () in
     let text = Printf.sprintf "Добро пожаловать, %s!" username_human in
     div ~a:([a_class classes] @ attrs) [icon; txt text]
 
@@ -75,7 +74,7 @@ struct
 
   let create ?(classes = []) ?(attrs = []) user =
     let _exit =
-      Button_markup.create_anchor
+      Button.button_a
         ~classes:[Card.CSS.action]
         ~appearance:Raised
         ~href:(uri_of_string "/logout")
@@ -87,15 +86,14 @@ struct
       ~attrs:(a_id id :: attrs)
       ~header:(create_section_header ~title:(`Text "Аккаунт") ())
       ~children:
-        [ Card_markup.create_media
+        [ Card.card_media
             ~children:
               [ create_greetings user
               ; create_permissions user
               ; create_accounts_info_link () ]
             ()
-        ; Card_markup.create_actions
-            ~children:[Card_markup.create_action_buttons ~children:[_exit] ()]
-            () ]
+        ; Card.card_actions ~children:[Card.card_action_buttons ~children:[_exit] ()] ()
+        ]
       ()
 end
 

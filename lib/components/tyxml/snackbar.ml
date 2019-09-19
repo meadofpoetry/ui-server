@@ -42,32 +42,33 @@ module Make
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
   module CSS = CSS
-  module Button_markup = Button.Make (Xml) (Svg) (Html)
-  module Icon_markup = Icon.Make (Xml) (Svg) (Html)
-  module Icon_button_markup = Icon_button.Make (Xml) (Svg) (Html)
+  module Button = Button.Make (Xml) (Svg) (Html)
+  module Icon = Icon.Make (Xml) (Svg) (Html)
+  module Icon_button = Icon_button.Make (Xml) (Svg) (Html)
 
   let ( ^:: ) x l =
     match x with
     | None -> l
-    | Some x -> Xml.W.cons x l
+    | Some x -> cons x l
 
   let snackbar_action ?(classes = []) =
     let classes = CSS.action :: classes in
-    Button_markup.button ~classes
+    Button.button ~classes
 
   let snackbar_dismiss ?(classes = []) ?icon =
     let classes = CSS.dismiss :: classes in
     let icon =
       match icon with
       | Some x -> x
-      | None -> Xml.W.return (Icon_markup.SVG.icon ~d:(Xml.W.return Svg_icons.close) ())
+      | None -> return (Icon.SVG.icon ~d:(return Svg_icons.close) ())
     in
-    Icon_button_markup.icon_button ~classes ?on_icon:None ?on:None ~icon
+    Icon_button.icon_button ~classes ?on_icon:None ?on:None ~icon
 
   let snackbar_actions ?(classes = []) ?(a = []) ?action ?dismiss ?children () : 'a elt =
-    let classes = Xml.W.return (CSS.actions :: classes) in
+    let classes = CSS.actions :: classes in
     let children =
       match children with
       | Some x -> x
@@ -75,44 +76,44 @@ struct
           let action =
             match action with
             | None -> None
-            | Some (`Text s) -> Some (Xml.W.return @@ snackbar_action ~label:s ())
+            | Some (`Text s) -> Some (return @@ snackbar_action ~label:s ())
             | Some (`Element e) -> Some e
           in
           let dismiss =
             match dismiss with
             | None -> None
-            | Some `True -> Some (Xml.W.return @@ snackbar_dismiss ())
+            | Some `True -> Some (return @@ snackbar_dismiss ())
             | Some (`Element e) -> Some e
           in
-          action ^:: dismiss ^:: Xml.W.nil ()
+          action ^:: dismiss ^:: nil ()
     in
-    div ~a:(a_class classes :: a) children
+    div ~a:(a_class (return classes) :: a) children
 
-  let snackbar_label ?(classes = []) ?(a = []) ?label ?(children = Xml.W.nil ()) () =
-    let classes = Xml.W.return (CSS.label :: classes) in
-    let label = Option.map (fun x -> Xml.W.return @@ txt x) label in
+  let snackbar_label ?(classes = []) ?(a = []) ?label ?(children = nil ()) () =
+    let classes = CSS.label :: classes in
+    let label = Option.map (fun x -> return @@ txt x) label in
     div
       ~a:
-        (a_class classes
-        :: a_aria "live" (Xml.W.return ["polite"])
-        :: a_role (Xml.W.return ["status"])
+        (a_class (return classes)
+        :: a_aria "live" (return ["polite"])
+        :: a_role (return ["status"])
         :: a)
       (label ^:: children)
 
   let snackbar_surface
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?label
       ?action
       ?dismiss
       ?actions
       ?children
       () =
-    let classes = Xml.W.return (CSS.surface :: classes) in
+    let classes = CSS.surface :: classes in
     let label =
       match label with
       | None -> None
-      | Some (`Text s) -> Some (Xml.W.return @@ snackbar_label ~label:s ())
+      | Some (`Text s) -> Some (return @@ snackbar_label ~label:s ())
       | Some (`Element e) -> Some e
     in
     let actions =
@@ -120,18 +121,18 @@ struct
       | (Some _ as x), _, _ -> x
       | None, None, None -> None
       | None, Some _, _ | None, _, Some _ ->
-          Some (Xml.W.return @@ snackbar_actions ?action ?dismiss ())
+          Some (return @@ snackbar_actions ?action ?dismiss ())
     in
     let children =
       match children with
       | Some x -> x
-      | None -> label ^:: actions ^:: Xml.W.nil ()
+      | None -> label ^:: actions ^:: nil ()
     in
-    div ~a:([a_class classes] @ attrs) children
+    div ~a:(a_class (return classes) :: a) children
 
   let snackbar
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?(leading = false)
       ?(stacked = false)
       ?dismiss
@@ -142,23 +143,21 @@ struct
       ?children
       () =
     let classes =
-      Xml.W.return
-        (classes
-        |> Utils.cons_if leading CSS.leading
-        |> Utils.cons_if stacked CSS.stacked
-        |> List.cons CSS.root)
+      classes
+      |> Utils.cons_if leading CSS.leading
+      |> Utils.cons_if stacked CSS.stacked
+      |> List.cons CSS.root
     in
     let children =
       match children with
       | Some x -> x
       | None -> (
         match surface with
-        | Some x -> Xml.W.singleton x
+        | Some x -> singleton x
         | None ->
-            Xml.W.(
-              singleton (return (snackbar_surface ?action ?dismiss ?actions ?label ()))))
+            singleton (return (snackbar_surface ?action ?dismiss ?actions ?label ())))
     in
-    div ~a:([a_class classes] @ attrs) children
+    div ~a:(a_class (return classes) :: a) children
 end
 
 module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

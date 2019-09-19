@@ -79,13 +79,14 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
+  module CSS = CSS
 
-  let create
+  let box
       ?(classes = [])
       ?(attrs = [])
       ?tag
@@ -94,7 +95,7 @@ struct
       ?align_content
       ?wrap
       ?(vertical = false)
-      ?(children = [])
+      ?(children = Xml.W.nil ())
       () : 'a elt =
     let tag =
       match tag with
@@ -102,15 +103,16 @@ struct
       | Some x -> x
     in
     let classes =
-      classes
-      |> Utils.cons_if vertical CSS.vertical
-      |> Utils.map_cons_option CSS.wrap wrap
-      |> Utils.map_cons_option CSS.justify_content justify_content
-      |> Utils.map_cons_option CSS.align_items align_items
-      |> Utils.map_cons_option CSS.align_content align_content
-      |> List.cons CSS.root
+      Xml.W.return
+        (classes
+        |> Utils.cons_if vertical CSS.vertical
+        |> Utils.map_cons_option CSS.wrap wrap
+        |> Utils.map_cons_option CSS.justify_content justify_content
+        |> Utils.map_cons_option CSS.align_items align_items
+        |> Utils.map_cons_option CSS.align_content align_content
+        |> List.cons CSS.root)
     in
     tag ~a:([a_class classes] @ attrs) children
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

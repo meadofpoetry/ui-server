@@ -86,15 +86,19 @@ module Role = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
+  module CSS = CSS
 
-  let create_divider
+  open Utils.Make (Xml)
+
+  let list_divider
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?(padded = false)
       ?(inset = false)
       ~(tag : ?a:'a attrib list -> 'b -> 'c elt)
@@ -105,36 +109,45 @@ struct
       |> Utils.cons_if padded CSS.divider_padded
       |> List.cons CSS.divider
     in
-    tag ~a:([a_class classes; a_role ["separator"]] @ attrs) children
+    tag ~a:(a_class (return classes) :: a_role (return ["separator"]) :: a) children
 
-  let create_divider_li ?classes ?attrs ?padded ?inset () =
-    create_divider ?classes ?attrs ?padded ?inset ~tag:li []
+  let list_divider_li ?classes ?a ?padded ?inset ?(children = nil ()) () =
+    list_divider ?classes ?a ?padded ?inset ~tag:li children
 
-  let create_divider_hr ?classes ?attrs ?padded ?inset () =
-    create_divider ?classes ?attrs ?padded ?inset ~tag:hr ()
+  let list_divider_hr ?classes ?a ?padded ?inset () =
+    list_divider ?classes ?a ?padded ?inset ~tag:hr ()
 
-  let create_item_primary_text ?(classes = []) ?(attrs = []) ?label ?(children = []) () =
+  let list_item_primary_text ?(classes = []) ?(a = []) ?label ?(children = nil ()) () =
     let classes = CSS.item_primary_text :: classes in
-    span ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt label children)
+    let children =
+      match label with
+      | None -> children
+      | Some x -> cons (return (txt x)) children
+    in
+    span ~a:(a_class (return classes) :: a) children
 
-  let create_item_secondary_text ?(classes = []) ?(attrs = []) ?label ?(children = []) ()
-      =
+  let list_item_secondary_text ?(classes = []) ?(a = []) ?label ?(children = nil ()) () =
     let classes = CSS.item_secondary_text :: classes in
-    span ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt label children)
+    let children =
+      match label with
+      | None -> children
+      | Some x -> cons (return (txt x)) children
+    in
+    span ~a:(a_class (return classes) :: a) children
 
-  let create_item_text
+  let list_item_text
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?(force_wrap = false)
       ?primary_text
       ?secondary_text
-      () : 'a elt =
+      () =
     let force_wrap = if Option.is_some secondary_text then true else force_wrap in
     let primary_text =
       match primary_text with
-      | None -> create_item_primary_text ~label:"" ()
+      | None -> list_item_primary_text ~label:(return "") ()
       | Some (`Text s) ->
-          if force_wrap then create_item_primary_text ~label:s () else txt s
+          if force_wrap then list_item_primary_text ~label:s () else txt s
       | Some (`Element e) -> e
     in
     if force_wrap
@@ -142,16 +155,19 @@ struct
       let classes = CSS.item_text :: classes in
       let children =
         match secondary_text with
-        | None -> [primary_text]
-        | Some (`Text s) -> [primary_text; create_item_secondary_text ~label:s ()]
-        | Some (`Element e) -> [primary_text; e]
+        | None -> singleton (return primary_text)
+        | Some (`Text s) ->
+            cons
+              (return primary_text)
+              (singleton @@ return (list_item_secondary_text ~label:s ()))
+        | Some (`Element e) -> cons (return primary_text) (singleton e)
       in
-      span ~a:([a_class classes] @ attrs) children
+      span ~a:(a_class (return classes) :: a) children
     else primary_text
 
-  let create_item
+  let list_item
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?graphic
       ?meta
       ?role
@@ -163,13 +179,13 @@ struct
       ?secondary_text
       ?force_wrap
       ?children
-      () : 'a elt =
+      () =
     let children =
       match children with
       | Some x -> x
       | None ->
-          let text = create_item_text ?force_wrap ?primary_text ?secondary_text () in
-          Utils.(graphic ^:: (text :: (meta ^:: [])))
+          let text = list_item_text ?force_wrap ?primary_text ?secondary_text () in
+          graphic ^:: return text @:: meta ^:: nil ()
     in
     let classes =
       classes
@@ -183,36 +199,45 @@ struct
     in
     li
       ~a:
-        ([a_class classes] @ attrs
-        |> Utils.map_cons_option (fun b -> a_aria "checked" [string_of_bool b]) checked
-        |> Utils.map_cons_option (fun b -> a_aria "selected" [string_of_bool b]) selected
+        (a_class (return classes) :: a
+        |> Utils.map_cons_option
+             (fun b -> a_aria "checked" (return [string_of_bool b]))
+             checked
+        |> Utils.map_cons_option
+             (fun b -> a_aria "selected" (return [string_of_bool b]))
+             selected
         |> Utils.map_cons_option a_tabindex tabindex
-        |> Utils.map_cons_option (fun x -> a_role [x]) role)
+        |> Utils.map_cons_option (fun x -> a_role (return [x])) role)
       children
 
-  let create_group_subheader
+  let list_group_subheader
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?(tag = h3)
       ?label
-      ?(children = [])
+      ?(children = nil ())
       () : 'a elt =
     let classes = CSS.group_subheader :: classes in
-    tag ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt label children)
+    let children =
+      match label with
+      | None -> children
+      | Some x -> cons (return (txt x)) children
+    in
+    tag ~a:(a_class (return classes) :: a) children
 
-  let create_group ?(classes = []) ?(attrs = []) ~children () =
+  let list_group ?(classes = []) ?(a = []) ~children () =
     let classes = CSS.group :: classes in
-    div ~a:([a_class classes] @ attrs) children
+    div ~a:(a_class (return classes) :: a) children
 
-  let create
+  let list
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?(avatar_list = false)
       ?(dense = false)
       ?(two_line = false)
       ?(non_interactive = false)
       ?role
-      ?(children = [])
+      ?(children = nil ())
       () : 'a elt =
     let classes =
       classes
@@ -223,7 +248,9 @@ struct
       |> List.cons CSS.root
     in
     ul
-      ~a:([a_class classes] @ attrs |> Utils.map_cons_option (fun x -> a_role [x]) role)
+      ~a:
+        (a_class (return classes) :: a
+        |> Utils.map_cons_option (fun x -> a_role (return [x])) role)
       children
 end
 

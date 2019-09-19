@@ -1,10 +1,7 @@
 open Js_of_ocaml
 open Components
-module Markup_js =
-  Page_power_management_tyxml.Reboot.Make
-    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
-    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
-    (Js_of_ocaml_tyxml.Tyxml_js.Html)
+module D =
+  Page_power_management_tyxml.Reboot.Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -84,10 +81,7 @@ class t (elt : Dom_html.element Js.t) =
       aux ()
   end
 
-let make ?classes ?attrs () =
-  let elt =
-    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ Markup_js.create ?classes ?attrs ()
-  in
-  new t elt
-
 let attach (elt : #Dom_html.element Js.t) : t = new t (elt :> Dom_html.element Js.t)
+
+let make ?classes ?attrs () =
+  D.create ?classes ?attrs () |> Tyxml_js.To_dom.of_element |> attach

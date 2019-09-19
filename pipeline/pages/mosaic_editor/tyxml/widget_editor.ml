@@ -24,19 +24,19 @@ struct
   module Icon_markup = Icon.Make (Xml) (Svg) (Html)
   module Card_markup = Card.Make (Xml) (Svg) (Html)
 
-  let create_ghost ?(classes = []) ?(attrs = []) () : 'a elt =
+  let create_ghost ?(classes = []) ?(a = []) () : 'a elt =
     let classes = CSS.ghost :: classes in
-    div ~a:([a_class classes] @ attrs) []
+    div ~a:(a_class classes :: a) []
 
-  let create_icon ?classes ?attrs (widget : Pipeline_types.Wm.widget) : 'a elt =
+  let create_icon ?classes ?a (widget : Pipeline_types.Wm.widget) : 'a elt =
     let path =
       match widget.type_ with
       | Video -> Svg_icons.video
       | Audio -> Svg_icons.music
     in
-    Icon_markup.SVG.(create ?classes ?attrs ~d:path ())
+    Icon_markup.SVG.(icon ?classes ?a ~d:path ())
 
-  let create_content ?(classes = []) ?(attrs = []) (widget : Pipeline_types.Wm.widget) :
+  let create_content ?(classes = []) ?(a = []) (widget : Pipeline_types.Wm.widget) :
       'a elt =
     let pid =
       match widget.pid with
@@ -53,24 +53,21 @@ struct
     let text = Text_markup.create ~text:widget.description () in
     let icon = create_icon widget in
     let classes = CSS.item_content :: classes in
-    div ~a:([a_class classes] @ attrs) (icon :: (pid ^:: [text]))
+    div ~a:(a_class classes :: a) (icon :: (pid ^:: [text]))
 
-  let create_item
-      ?(classes = [])
-      ?(attrs = [])
-      ?content
-      (widget : Pipeline_types.Wm.widget) : 'a elt =
+  let create_item ?(classes = []) ?(a = []) ?content (widget : Pipeline_types.Wm.widget)
+      =
     let classes = CSS.item :: classes in
     let content =
       match content with
       | None -> [create_content widget]
       | Some x -> x
     in
-    div ~a:([a_class classes] @ attrs) content
+    div ~a:(a_class classes :: a) content
 
-  let create ?(classes = []) ?(attrs = []) ?(content = []) () : 'a elt =
+  let create ?(classes = []) ?(a = []) ?(content = []) () : 'a elt =
     let classes = CSS.root :: classes in
-    div ~a:([a_class classes; a_role ["grid"]] @ attrs) content
+    div ~a:(a_class classes :: a_role ["grid"] :: a) content
 end
 
 module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

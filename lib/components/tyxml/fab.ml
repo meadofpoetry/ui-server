@@ -20,20 +20,17 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
+  module CSS = CSS
 
-  let create
-      ?(classes = [])
-      ?(attrs = [])
-      ?(mini = false)
-      ?(extended = false)
-      ?label
-      ?icon
-      () : 'a elt =
+  open Utils.Make (Xml)
+
+  let fab ?(classes = []) ?(a = []) ?(mini = false) ?(extended = false) ?label ?icon () =
     let (classes : string list) =
       classes
       |> Utils.cons_if mini CSS.mini
@@ -48,10 +45,13 @@ struct
     let label =
       match label with
       | None -> None
-      | Some x -> Some (span ~a:[a_class [CSS.label]] [txt x])
+      | Some x ->
+          Some
+            (return
+            @@ span ~a:[a_class (return [CSS.label])] (singleton (return (txt x))))
     in
-    let content = Utils.(icon ^:: label ^:: []) in
-    button ~a:([a_class classes] @ attrs) content
+    let content = icon ^:: label ^:: nil () in
+    button ~a:(a_class (return classes) :: a) content
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

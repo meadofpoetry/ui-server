@@ -35,7 +35,7 @@ struct
     let icon =
       div
         ~a:[a_class [Textfield.CSS.icon]; a_role ["button"]; a_tabindex 0]
-        [Components.Icon.SVG.create ~d:Svg_icons.eye_off ()]
+        [Components.Icon.SVG.icon ~d:Svg_icons.eye_off ()]
     in
     let input =
       Unsafe.coerce_elt
@@ -61,7 +61,7 @@ struct
     let create_tab ?active user =
       let icon =
         Components.Icon.SVG.(
-          create ~classes:[Tab.CSS.icon] ~d:(Util.user_icon_path user) ())
+          icon ~classes:[Tab.CSS.icon] ~d:(Util.user_icon_path user) ())
       in
       let username = Application_types.User.to_string user in
       let username_human = Format.asprintf "%a" Util.pp_user_human user in
@@ -129,7 +129,7 @@ struct
 
   let create ?(classes = []) ?(attrs = []) () =
     let submit =
-      Components.Button.create
+      Components.Button.button
         ~classes:[Card.CSS.action]
         ~appearance:Raised
         ~button_type:`Submit
@@ -144,14 +144,14 @@ struct
       ~children:
         [ create_user_tabs ()
         ; hr ()
-        ; Components.Card.create_media
+        ; Components.Card.card_media
             ~children:
               [ div
                   ~a:[a_class [CSS.slider]]
                   [create_form `Guest; create_form `Operator; create_form `Root] ]
             ()
-        ; Components.Card.create_actions
-            ~children:[Components.Card.create_action_buttons ~children:[submit] ()]
+        ; Components.Card.card_actions
+            ~children:[Components.Card.card_action_buttons ~children:[submit] ()]
             () ]
       ()
 end

@@ -77,7 +77,7 @@ let sort_of_string = function
   | "descending" -> Some Dsc
   | _ -> None
 
-module Make_fmt (Xml : Xml_sigs.NoWrap) = struct
+module Make_fmt (Xml : Xml_sigs.T) = struct
   type 'a custom_elt =
     { to_elt : 'a -> Xml.elt
     ; of_elt : Xml.elt -> 'a
@@ -151,7 +151,7 @@ module Make_fmt (Xml : Xml_sigs.NoWrap) = struct
 
   type 'a column =
     { sortable : bool
-    ; title : string
+    ; title : string Xml.wrap
     ; format : 'a t }
 
   let make_column ?(sortable = false) ~title format = {sortable; title; format}
@@ -178,14 +178,16 @@ module Make_fmt (Xml : Xml_sigs.NoWrap) = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
+  module CSS = CSS
   module Fmt = Make_fmt (Xml)
 
-  let create_cell_content fmt v : 'a elt =
+  let data_table_cell_content fmt v : 'a elt =
     let rec aux : type a. a Fmt.t -> a -> Xml.elt =
      fun fmt v ->
       match fmt with
@@ -195,30 +197,30 @@ struct
         | Some x -> aux fmt x)
       | Html _ -> v
       | Custom_elt x -> x.to_elt v
-      | _ ->
-          let elt = txt (Fmt.to_string fmt v) in
-          toelt elt
+      | _ -> toelt @@ txt (return (Fmt.to_string fmt v))
     in
     tot @@ aux fmt v
 
-  let create_cell
+  let data_table_cell
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?colspan
       ?(numeric = false)
-      ?(children = [])
+      ?(children = nil ())
       () : 'a elt =
     let classes =
       classes |> Utils.cons_if numeric CSS.cell_numeric |> List.cons CSS.cell
     in
-    td ~a:([a_class classes] @ attrs |> Utils.map_cons_option a_colspan colspan) children
+    td
+      ~a:(a_class (return classes) :: a |> Utils.map_cons_option a_colspan colspan)
+      children
 
-  let create_header_cell
+  let data_table_header_cell
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?(numeric = false)
       ?(sortable = false)
-      ?(children = [])
+      ?(children = nil ())
       () : 'a elt =
     let classes =
       classes
@@ -226,90 +228,84 @@ struct
       |> Utils.cons_if numeric CSS.header_cell_numeric
       |> List.cons CSS.header_cell
     in
-    th ~a:([a_class classes; a_role ["columnheader"]] @ attrs) children
+    th ~a:(a_class (return classes) :: a_role (return ["columnheader"]) :: a) children
 
-  let create_row ?(classes = []) ?(attrs = []) ?(children = []) () : 'a elt =
+  let data_table_row ?(classes = []) ?(a = []) ?(children = nil ()) () =
     let classes = CSS.row :: classes in
-    tr ~a:([a_class classes] @ attrs) children
+    tr ~a:(a_class (return classes) :: a) children
 
-  let create_header_row ?(classes = []) ?(attrs = []) ?(children = []) () : 'a elt =
+  let data_table_header_row ?(classes = []) ?(a = []) ?(children = nil ()) () =
     let classes = CSS.header_row :: classes in
-    tr ~a:([a_class classes] @ attrs) children
+    tr ~a:(a_class (return classes) :: a) children
 
-  let create_header ?(classes = []) ?(attrs = []) ?cells ?children () : 'a elt =
+  let data_table_header ?(classes = []) ?(a = []) ?cells ?children () =
     let children =
       match children with
       | Some x -> x
       | None -> (
         match cells with
-        | None -> []
-        | Some cells -> [create_header_row ~children:cells ()])
+        | None -> nil ()
+        | Some cells -> singleton (return (data_table_header_row ~children:cells ())))
     in
-    thead ~a:([a_class classes] @ attrs) children
+    thead ~a:(a_class (return classes) :: a) children
 
-  let create_body ?(classes = []) ?(attrs = []) ?(children = []) () : 'a elt =
+  let data_table_body ?(classes = []) ?(a = []) ?(children = nil ()) () : 'a elt =
     let classes = CSS.content :: classes in
-    tbody ~a:([a_class classes] @ attrs) children
+    tbody ~a:(a_class (return classes) :: a) children
 
-  let create_table ?(classes = []) ?(attrs = []) ?header ?(children = []) () : 'a elt =
+  let data_table_table ?(classes = []) ?(a = []) ?header ?(children = nil ()) () =
     let classes = CSS.table :: classes in
-    tablex ?thead:header ~a:([a_class classes] @ attrs) children
+    tablex ?thead:header ~a:(a_class (return classes) :: a) children
 
-  let create ?(classes = []) ?(attrs = []) ?(dense = false) ?(children = []) () =
+  let data_table ?(classes = []) ?(a = []) ?(dense = false) ?(children = nil ()) () =
     let classes = classes |> Utils.cons_if dense CSS.dense |> List.cons CSS.root in
-    div ~a:([a_class classes] @ attrs) children
+    div ~a:(a_class (return classes) :: a) children
 
   (** GADT table *)
 
-  let create_cell_of_fmt ?classes ?attrs ?colspan ~fmt ~value () =
-    let content = create_cell_content fmt value in
-    create_cell
-      ?classes
-      ?attrs
-      ?colspan
-      ~numeric:(Fmt.is_numeric fmt)
-      ~children:[content]
-      ()
+  let data_table_cell_of_fmt ?classes ?a ?colspan ~fmt ~value () =
+    let children = singleton (return (data_table_cell_content fmt value)) in
+    data_table_cell ?classes ?a ?colspan ~numeric:(Fmt.is_numeric fmt) ~children ()
 
-  let create_header_cell_of_fmt ?classes ?attrs ~(column : _ Fmt.column) () =
-    create_header_cell
+  let data_table_header_cell_of_fmt ?classes ?a ~(column : _ Fmt.column) () =
+    let children = singleton (return (txt column.title)) in
+    data_table_header_cell
       ?classes
-      ?attrs
+      ?a
       ~sortable:column.sortable
       ~numeric:(Fmt.is_numeric column.format)
-      ~children:[txt column.title]
+      ~children
       ()
 
-  let rec create_header_cells_of_fmt : type a. a Fmt.format -> 'b Html.elt list =
+  let rec data_table_header_cells_of_fmt : type a. a Fmt.format -> _ list_wrap =
    fun format ->
     match format with
-    | [] -> []
+    | [] -> nil ()
     | column :: tl ->
-        let cell = create_header_cell_of_fmt ~column () in
-        cell :: create_header_cells_of_fmt tl
+        let cell = return @@ data_table_header_cell_of_fmt ~column () in
+        cons cell (data_table_header_cells_of_fmt tl)
 
-  let create_header_of_fmt ?classes ?attrs ~format () =
-    create_header ?classes ?attrs ~cells:(create_header_cells_of_fmt format) ()
+  let data_table_header_of_fmt ?classes ?a ~format () =
+    data_table_header ?classes ?a ~cells:(data_table_header_cells_of_fmt format) ()
 
-  let rec create_cells_of_fmt : type a. a Fmt.format -> a Fmt.data -> 'b Html.elt list =
+  let rec data_table_cells_of_fmt : type a. a Fmt.format -> a Fmt.data -> _ list_wrap =
    fun format data ->
     match format, data with
-    | [], [] -> []
+    | [], [] -> nil ()
     | col :: l1, v :: l2 ->
-        let cell = create_cell_of_fmt ~fmt:col.format ~value:v () in
-        cell :: create_cells_of_fmt l1 l2
+        let cell = return (data_table_cell_of_fmt ~fmt:col.format ~value:v ()) in
+        cons cell (data_table_cells_of_fmt l1 l2)
 
-  let create_row_of_fmt ?classes ?attrs ~format ~data () =
-    let cells = create_cells_of_fmt format data in
-    create_row ?classes ?attrs ~children:cells ()
+  let data_table_row_of_fmt ?classes ?a ~format ~data () =
+    let cells = data_table_cells_of_fmt format data in
+    data_table_row ?classes ?a ~children:cells ()
 
-  (* TODO how to provide custom classes, attrs to inner components? *)
-  let create_of_fmt ?classes ?attrs ?dense ~format ?(data = []) () =
-    let rows = List.map (fun x -> create_row_of_fmt ~format ~data:x ()) data in
-    let header = create_header_of_fmt ~format () in
-    let body = create_body ~children:rows () in
-    let table = create_table ~header ~children:[body] () in
-    create ?classes ?attrs ?dense ~children:[table] ()
+  (* TODO how to provide custom classes, a to inner components? *)
+  let data_table_of_fmt ?classes ?a ?dense ~format ?(rows = nil ()) () =
+    let header = return @@ data_table_header_of_fmt ~format () in
+    let body = return @@ data_table_body ~children:rows () in
+    let table = return @@ data_table_table ~header ~children:(singleton body) () in
+    data_table ?classes ?a ?dense ~children:(singleton table) ()
 
   (** Example using GADT format:
 
@@ -323,10 +319,10 @@ struct
            let (data : _ Fmt.data list) =
              [[3; 3; 3]; [4; 5; 4]; [1; 2; 3]; [1; 1; 1]; [4; 3; 1]; [1; 6; 4]]
            in
-           create_of_fmt ~format:fmt ~data ()
+           data_table_of_fmt ~format:fmt ~data ()
       ]}
   *)
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
-module Fmt = Make_fmt (Tyxml.Xml)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module Fmt_f = Make_fmt (Tyxml.Xml)

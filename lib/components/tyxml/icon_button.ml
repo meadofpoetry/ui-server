@@ -19,13 +19,14 @@ module Make
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
   module CSS = CSS
 
   let ( ^:: ) x l =
     match x with
     | None -> l
-    | Some x -> Xml.W.cons x l
+    | Some x -> cons x l
 
   let icon_button
       ?(classes = [])
@@ -36,16 +37,13 @@ struct
       ?on_icon
       ~icon
       () : 'a elt =
-    let classes =
-      Xml.W.return (classes |> Utils.cons_if on CSS.on |> List.cons CSS.root)
-    in
+    let classes = return (classes |> Utils.cons_if on CSS.on |> List.cons CSS.root) in
     button
       ~a:
         (a_class classes :: a
-        |> Utils.cons_if_lazy ripple (fun () ->
-               a_user_data "ripple" (Xml.W.return "true"))
+        |> Utils.cons_if_lazy ripple (fun () -> a_user_data "ripple" (return "true"))
         |> Utils.cons_if_lazy disabled a_disabled)
-      (on_icon ^:: Xml.W.cons icon (Xml.W.nil ()))
+      (on_icon ^:: cons icon (nil ()))
 
   let icon_button_a
       ?(classes = [])
@@ -56,16 +54,13 @@ struct
       ?on_icon
       ~icon
       () =
-    let classes =
-      Xml.W.return (classes |> Utils.cons_if on CSS.on |> List.cons CSS.root)
-    in
+    let classes = classes |> Utils.cons_if on CSS.on |> List.cons CSS.root in
     Html.a
       ~a:
-        (a_class classes :: a
+        (a_class (return classes) :: a
         |> Utils.map_cons_option a_href href
-        |> Utils.cons_if_lazy ripple (fun () ->
-               a_user_data "ripple" (Xml.W.return "true")))
-      (on_icon ^:: Xml.W.cons icon (Xml.W.nil ()))
+        |> Utils.cons_if_lazy ripple (fun () -> a_user_data "ripple" (return "true")))
+      (on_icon ^:: cons icon (nil ()))
 end
 
 module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

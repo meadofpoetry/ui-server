@@ -44,87 +44,112 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
+  module CSS = CSS
 
-  let create_track_before ?(classes = []) ?(attrs = []) () =
+  open Utils.Make (Xml)
+
+  let slider_track_before ?(classes = []) ?(a = []) ?(children = nil ()) () =
     let classes = CSS.track :: CSS.track_before :: classes in
-    div ~a:([a_class classes] @ attrs) []
+    div ~a:(a_class (return classes) :: a) children
 
-  let create_track_after ?(classes = []) ?(attrs = []) () =
+  let slider_track_after ?(classes = []) ?(a = []) ?(children = nil ()) () =
     let classes = CSS.track :: CSS.track_after :: classes in
-    div ~a:([a_class classes] @ attrs) []
+    div ~a:(a_class (return classes) :: a) children
 
-  let create_pin_value_marker ?(classes = []) ?(attrs = []) () =
+  let slider_pin_value_marker ?(classes = []) ?(a = []) ?(children = nil ()) () =
     let classes = CSS.pin_value_marker :: classes in
-    span ~a:([a_class classes] @ attrs) []
+    span ~a:(a_class (return classes) :: a) children
 
-  let create_pin
+  let slider_pin
       ?(classes = [])
-      ?(attrs = [])
-      ?(pin_value_marker = create_pin_value_marker ())
+      ?(a = [])
+      ?(pin_value_marker = slider_pin_value_marker ())
       () =
     let classes = CSS.pin :: classes in
-    div ~a:([a_class classes] @ attrs) [pin_value_marker]
+    div ~a:(a_class (return classes) :: a) (singleton (return pin_value_marker))
 
-  let create_thumb ?(classes = []) ?(attrs = []) () =
+  let slider_thumb ?(classes = []) ?(a = []) () =
     let classes = CSS.thumb :: classes in
     svg
-      ~a:Svg.([a_class classes; a_width (12., None); a_height (12., None)] @ attrs)
-      Svg.[circle ~a:[a_cx (6., None); a_cy (6., None); a_r (6., None)] []]
+      ~a:
+        (Svg.
+           [ a_class (return classes)
+           ; a_width (return (12., None))
+           ; a_height (return (12., None)) ]
+        @ a)
+      Svg.(
+        singleton
+          (return
+             (circle
+                ~a:
+                  [ a_cx (return (6., None))
+                  ; a_cy (return (6., None))
+                  ; a_r (return (6., None)) ]
+                (nil ()))))
 
-  let create_focus_ring ?(classes = []) ?(attrs = []) () =
+  let slider_focus_ring ?(classes = []) ?(a = []) ?(children = nil ()) () =
     let classes = CSS.focus :: classes in
-    div ~a:([a_class classes] @ attrs) []
+    div ~a:(a_class (return classes) :: a) children
 
-  let create_thumb_container
+  let slider_thumb_container
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?(discrete = false)
       ?pin
-      ?(focus_ring = create_focus_ring ())
-      ?(thumb = create_thumb ())
+      ?(focus_ring = slider_focus_ring ())
+      ?(thumb = slider_thumb ())
       () =
     let classes = CSS.thumb_container :: classes in
     let pin =
       match pin with
-      | Some _ as x -> x
-      | None -> if discrete then Some (create_pin ()) else None
+      | Some x -> Some (return x)
+      | None -> if discrete then Some (return (slider_pin ())) else None
     in
-    div ~a:([a_class classes] @ attrs) (Utils.cons_option pin [thumb; focus_ring])
+    div
+      ~a:(a_class (return classes) :: a)
+      (pin ^:: return thumb @:: return focus_ring @:: nil ())
 
-  let create_track_marker_container ?(classes = []) ?(attrs = []) () =
+  let slider_track_marker_container ?(classes = []) ?(a = []) ?(children = nil ()) () =
     let classes = CSS.track_marker_container :: classes in
-    div ~a:([a_class classes] @ attrs) []
+    div ~a:(a_class (return classes) :: a) children
 
-  let create_container
+  let slider_container
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?(discrete = false)
       ?(markers = false)
-      ?(track_before = create_track_before ())
-      ?(track_after = create_track_after ())
-      ?(thumb_container = create_thumb_container ~discrete ())
+      ?(track_before = slider_track_before ())
+      ?(track_after = slider_track_after ())
+      ?(thumb_container = slider_thumb_container ~discrete ())
       ?track_marker_container
       () =
     let classes = CSS.container :: classes in
     let discrete = if markers then true else discrete in
     let track_marker_container =
       match track_marker_container with
-      | Some _ as x -> x
+      | Some x -> Some (return x)
       | None ->
-          if discrete && markers then Some (create_track_marker_container ()) else None
+          if discrete && markers
+          then Some (return @@ slider_track_marker_container ())
+          else None
     in
     div
-      ~a:([a_class classes] @ attrs)
-      ([track_before; thumb_container; track_after] @? track_marker_container)
+      ~a:(a_class (return classes) :: a)
+      (return track_before
+      @:: return thumb_container
+      @:: return track_after
+      @:: track_marker_container
+      ^:: nil ())
 
-  let create
+  let slider
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?(discrete = false)
       ?(markers = false)
       ?(disabled = false)
@@ -135,7 +160,7 @@ struct
       ?thumb_container
       ?track_marker_container
       ?(container =
-        create_container
+        slider_container
           ~discrete
           ~markers
           ?track_before
@@ -155,17 +180,17 @@ struct
     in
     div
       ~a:
-        ([ a_class classes
-         ; a_tabindex 0
-         ; a_role ["slider"]
-         ; a_aria "valuemin" [string_of_float min]
-         ; a_aria "valuemax" [string_of_float max]
-         ; a_aria "valuenow" [string_of_float value] ]
-         @ attrs
-        |> Utils.map_cons_option (fun x -> a_aria "label" [x]) label
-        |> Utils.(map_cons_option (a_user_data "step" % string_of_float) step)
-        |> Utils.cons_if disabled @@ a_aria "disabled" ["true"])
-      [container]
+        ([ a_class (return classes)
+         ; a_tabindex (return 0)
+         ; a_role (return ["slider"])
+         ; a_aria "valuemin" (return [string_of_float min])
+         ; a_aria "valuemax" (return [string_of_float max])
+         ; a_aria "valuenow" (return [string_of_float value]) ]
+         @ a
+        |> Utils.map_cons_option (fun x -> a_aria "label" (return [x])) label
+        |> Utils.(map_cons_option (a_user_data "step" % return % string_of_float) step)
+        |> Utils.cons_if disabled @@ a_aria "disabled" (return ["true"]))
+      (singleton (return container))
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

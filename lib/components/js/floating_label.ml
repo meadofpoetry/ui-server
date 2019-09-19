@@ -1,7 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Floating_label
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 class t (elt : Dom_html.element Js.t) () =
   object (self)
@@ -47,7 +48,7 @@ let shake (x : t) v = x#shake v
 
 let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
 
-let make ?classes ?attrs ?float_above ?for_ ?label ?children () =
-  Markup_js.create ?classes ?attrs ?float_above ?for_ ?label ?children ()
+let make ?classes ?a ?float_above ?for_ ?label ?children () =
+  D.create ?classes ?a ?float_above ?for_ ?label ?children ()
   |> Tyxml_js.To_dom.of_label
   |> attach

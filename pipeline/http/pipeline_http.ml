@@ -6,8 +6,8 @@ module Api_http = Api_cohttp.Make (User) (Body)
 module Api_template = Api_cohttp_template.Make (User)
 module Api_websocket = Api_websocket.Make (User) (Body) (Body_ws)
 
-let make_icon ?classes path =
-  let icon = Icon.Markup.SVG.create ?classes ~d:path () in
+let make_icon ?classes d =
+  let icon = Icon.F.SVG.icon ?classes ~d () in
   Tyxml.Html.toelt icon
 
 let make_overflow_menu actions =
@@ -21,14 +21,14 @@ let make_overflow_menu actions =
         in
         let icon_class = Components_tyxml.Icon_button.CSS.icon in
         let icon = Tyxml.Html.tot @@ make_icon ~classes:[icon_class] icon in
-        let attrs = Tyxml.Html.(Option.map a_id id ^:: [a_title name]) in
+        let a = Tyxml.Html.(Option.map a_id id ^:: [a_title name]) in
         let classes = [Components_tyxml.Top_app_bar.CSS.action_item] in
         match href with
-        | None -> Icon_button.Markup.create ~icon ~classes ~attrs ()
-        | Some href -> Icon_button.Markup.create_anchor ~href ~icon ~classes ~attrs ())
+        | None -> Icon_button.F.icon_button ~icon ~classes ~a ()
+        | Some href -> Icon_button.F.icon_button_a ~href ~icon ~classes ~a ())
       actions
   in
-  Overflow_menu.Markup.create ~actions ()
+  Overflow_menu.F.overflow_menu ~actions ()
 
 let make_top_app_bar_row () =
   Tyxml.Html.toelt @@ Top_app_bar.Markup.create_row ~sections:[] ()

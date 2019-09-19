@@ -1,10 +1,8 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 open Components
-module Markup_js =
-  Page_power_management_tyxml.Reboot.Make
-    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
-    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
-    (Js_of_ocaml_tyxml.Tyxml_js.Html)
+module D =
+  Page_power_management_tyxml.Reboot.Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -14,12 +12,12 @@ end
 
 let make_warning_dialog () =
   let title =
-    Dialog.Markup_js.create_title ~title:"Перезагрузить прибор?" ()
+    Dialog.D.dialog_title ~title:"Перезагрузить прибор?" ()
   in
   let actions =
-    Dialog.Markup_js.
-      [ create_action ~action:Close ~label:"Отмена" ()
-      ; create_action ~action:Accept ~label:"Перезагрузить" () ]
+    Dialog.D.
+      [ dialog_action ~action:Close ~label:"Отмена" ()
+      ; dialog_action ~action:Accept ~label:"Перезагрузить" () ]
   in
   Dialog.make ~title ~actions ()
 
@@ -84,10 +82,7 @@ class t (elt : Dom_html.element Js.t) =
       aux ()
   end
 
-let make ?classes ?attrs () =
-  let elt =
-    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ Markup_js.create ?classes ?attrs ()
-  in
-  new t elt
-
 let attach (elt : #Dom_html.element Js.t) : t = new t (elt :> Dom_html.element Js.t)
+
+let make ?classes ?attrs () =
+  D.create ?classes ?attrs () |> Tyxml_js.To_dom.of_element |> attach

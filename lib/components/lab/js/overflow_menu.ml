@@ -170,18 +170,10 @@ class t ?(resize_handler = true) (elt : Dom_html.element Js.t) () =
       else Lwt.return_unit
   end
 
-let make ?classes ?attrs ?resize_handler ?overflow ?menu ~actions () : t =
-  let (elt : Dom_html.element Js.t) =
-    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-    @@ Markup_js.create
-         ?classes
-         ?attrs
-         ?overflow
-         ?menu:(Option.map (fun x -> x#markup) menu)
-         ~actions
-         ()
-  in
-  new t ?resize_handler elt ()
-
 let attach ?resize_handler (elt : #Dom_html.element Js.t) : t =
   new t ?resize_handler (Element.coerce elt) ()
+
+let make ?classes ?a ?resize_handler ?overflow ?menu ~actions () : t =
+  D.overflow_menu ?classes ?a ?overflow ?menu ~actions ()
+  |> Tyxml_js.To_dom.of_element
+  |> attach ?resize_handler

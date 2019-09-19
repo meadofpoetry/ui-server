@@ -1,7 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Checkbox
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -267,7 +268,7 @@ class t ?on_change ?(indeterminate = false) (elt : Dom_html.element Js.t) () =
 let attach ?on_change ?indeterminate (elt : #Dom_html.element Js.t) : t =
   new t ?on_change ?indeterminate (elt :> Dom_html.element Js.t) ()
 
-let make ?classes ?attrs ?input_id ?checked ?indeterminate ?disabled ?on_change () =
-  Markup_js.create ?classes ?attrs ?input_id ?checked ?disabled ()
+let make ?classes ?a ?input_id ?checked ?indeterminate ?disabled ?on_change () =
+  D.checkbox ?classes ?a ?input_id ?checked ?disabled ()
   |> Tyxml_js.To_dom.of_div
   |> attach ?on_change ?indeterminate
