@@ -17,9 +17,9 @@ let compare_pid_flags (a : pid_flags as 'a) (b : 'a) =
   if res = 0 then compare a.scrambled b.scrambled else res
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
   include Table_overview.Make (Xml) (Svg) (Html)
   module Fmt = Data_table.Make_fmt (Xml)

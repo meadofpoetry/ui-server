@@ -4,6 +4,7 @@ open Components
 open Board_niitv_tsan_types
 include Board_niitv_tsan_widgets_tyxml.Service_general_info
 module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 type event =
   [ `Service of (int * Service.t) option
@@ -153,5 +154,12 @@ class t (elt : Dom_html.element Js.t) () =
 
 let attach elt = new t (elt :> Dom_html.element Js.t) ()
 
-let make ?classes ?a ?info ?children () =
-  D.create ?classes ?a ?info ?children () |> Tyxml_js.To_dom.of_ul |> attach
+let make ?a ?info ?min_bitrate ?max_bitrate ?bitrate ?children () =
+  D.create ?a ?info ?min_bitrate ?max_bitrate ?bitrate ?children ()
+  |> Tyxml_js.To_dom.of_ul
+  |> attach
+
+let make_r ?a ?info ?min_bitrate ?max_bitrate ?bitrate ?children () =
+  R.create ?a ?info ?min_bitrate ?max_bitrate ?bitrate ?children ()
+  |> Tyxml_js.To_dom.of_ul
+  |> attach
