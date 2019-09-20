@@ -392,7 +392,7 @@ let attach ?initial_focus_element (elt : #Dom_html.element Js.t) : t =
 
 let make
     ?classes
-    ?attrs
+    ?a
     ?scrollable
     ?title
     ?content
@@ -417,7 +417,7 @@ let make
   in
   D.dialog
     ?classes
-    ?attrs
+    ?a
     ?title_id
     ?content_id
     ?scrollable

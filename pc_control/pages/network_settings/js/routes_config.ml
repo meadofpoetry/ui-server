@@ -1,11 +1,8 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 open Components
 include Page_network_settings_tyxml.Routes
-module Markup_js =
-  Page_network_settings_tyxml.Routes.Make
-    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
-    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
-    (Js_of_ocaml_tyxml.Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( % ) f g x = f (g x)
 
@@ -14,10 +11,11 @@ let ( >>= ) = Lwt.bind
 let name = "Routes"
 
 let make_dialog () =
+  let open Dialog.D in
   let accept =
     Button.attach
     @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-    @@ Dialog.Markup_js.create_action ~action:Accept ~label:"Добавить" ()
+    @@ dialog_action ~action:Accept ~label:"Добавить" ()
   in
   let check_input address mask =
     (match address#value, mask#value with
@@ -26,13 +24,10 @@ let make_dialog () =
     Lwt.return_unit
   in
   let address =
-    Textfield.make ~label:(`Text "IP адрес") ~validation:Util.ipv4_validation ()
+    Textfield.make ~label:"IP адрес" ~validation:Util.ipv4_validation ()
   in
   let mask =
-    Textfield.make
-      ~label:(`Text "Маска подсети")
-      ~validation:Util.mask_validation
-      ()
+    Textfield.make ~label:"Маска подсети" ~validation:Util.mask_validation ()
   in
   let listeners =
     Js_of_ocaml_lwt.Lwt_js_events.
@@ -40,15 +35,12 @@ let make_dialog () =
       ; inputs mask#input_element (fun _ _ -> check_input address mask) ]
   in
   let title =
-    Dialog.Markup_js.create_title
+    dialog_title
       ~title:"Добавление статического маршрута"
       ()
   in
-  let content = Dialog.Markup_js.create_content [address#markup; mask#markup] in
-  let actions =
-    Dialog.Markup_js.
-      [create_action ~action:Close ~label:"Отмена" (); accept#markup]
-  in
+  let content = dialog_content ~children:[address#markup; mask#markup] () in
+  let actions = [dialog_action ~action:Close ~label:"Отмена" (); accept#markup] in
   let dialog =
     Dialog.make
       ~classes:[Page_network_settings_tyxml.CSS.dialog]
@@ -152,9 +144,7 @@ class t (elt : Dom_html.element Js.t) =
         routes_list#items
 
     method private append_route (x : Pc_control_types.Network_config.address) =
-      let item =
-        Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ Markup_js.create_item x
-      in
+      let item = Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ D.create_item x in
       Element.append_child routes_list#root item;
       _ripples <- (item, Ripple.attach item) :: _ripples;
       routes_list#layout ()
@@ -176,7 +166,5 @@ class t (elt : Dom_html.element Js.t) =
   end
 
 let make (init : Pc_control_types.Network_config.ipv4_conf) : t =
-  let (elt : Dom_html.element Js.t) =
-    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ Markup_js.create init
-  in
+  let (elt : Dom_html.element Js.t) = Tyxml_js.To_dom.of_element @@ D.create init in
   new t elt

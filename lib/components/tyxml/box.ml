@@ -79,40 +79,42 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.T)
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
-  module CSS = CSS
+
+  let ( % ) f g x = f (g x)
 
   let box
-      ?(classes = [])
-      ?(attrs = [])
+      ?(classes = return [])
+      ?(a = [])
       ?tag
       ?justify_content
       ?align_items
       ?align_content
       ?wrap
       ?(vertical = false)
-      ?(children = Xml.W.nil ())
-      () : 'a elt =
+      ?(children = nil ())
+      () =
     let tag =
       match tag with
       | None -> div
       | Some x -> x
     in
     let classes =
-      Xml.W.return
-        (classes
-        |> Utils.cons_if vertical CSS.vertical
-        |> Utils.map_cons_option CSS.wrap wrap
-        |> Utils.map_cons_option CSS.justify_content justify_content
-        |> Utils.map_cons_option CSS.align_items align_items
-        |> Utils.map_cons_option CSS.align_content align_content
-        |> List.cons CSS.root)
+      fmap
+        (Utils.cons_if vertical CSS.vertical
+        % Utils.map_cons_option CSS.wrap wrap
+        % Utils.map_cons_option CSS.justify_content justify_content
+        % Utils.map_cons_option CSS.align_items align_items
+        % Utils.map_cons_option CSS.align_content align_content
+        % List.cons CSS.root)
+        classes
     in
-    tag ~a:([a_class classes] @ attrs) children
+    tag ~a:(a_class classes :: a) children
 end
 
 module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

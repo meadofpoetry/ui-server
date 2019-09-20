@@ -1,12 +1,9 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 open Components
 open Pipeline_types
 include Page_mosaic_editor_tyxml.Container_editor
-module Markup_js =
-  Page_mosaic_editor_tyxml.Container_editor.Make
-    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
-    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
-    (Js_of_ocaml_tyxml.Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 module Attr = struct
   let title = "data-title"
@@ -74,8 +71,8 @@ let cell_position_to_wm_position ~cols ~rows {Grid.row; col; row_span; col_span}
      ; h = get_cell_size ~start:(pred row) ~len:row_span rows /. total_h }
 
 let content_of_container (container : Wm.Annotated.container) =
-  let widgets = List.map Markup_js.create_widget container.widgets in
-  [Markup_js.create_widget_wrapper widgets]
+  let widgets = List.map D.create_widget container.widgets in
+  [D.create_widget_wrapper widgets]
 
 type grid_properties =
   { rows : Grid.value list
@@ -141,7 +138,7 @@ module UI = struct
   let ( >>= ) = Lwt.bind
 
   let make_input ~label () : int Textfield.t =
-    Textfield.make ~label:(`Text label) ~validation:(Integer (Some 1, None)) ()
+    Textfield.make ~label ~validation:(Integer (Some 1, None)) ()
 
   let make_empty_placeholder
       wizard_dialog
@@ -159,7 +156,7 @@ module UI = struct
             | Some cols, Some rows ->
                 grid#reset ~cols:(`Repeat (cols, Fr 1.)) ~rows:(`Repeat (rows, Fr 1.)) ();
                 Lwt.return_unit))
-        ~icon:Icon.SVG.(Markup_js.create ~d:Path.table_plus ())
+        ~icon:Icon.SVG.(D.icon ~d:Path.table_plus ())
         ()
     in
     let wizard =
@@ -169,10 +166,10 @@ module UI = struct
           >>= function
           | Dialog.Close | Destroy | Custom _ -> Lwt.return_unit
           | Accept -> Lwt.return_unit)
-        ~icon:Icon.SVG.(Markup_js.create ~d:Path.table_plus ())
+        ~icon:Icon.SVG.(D.icon ~d:Path.table_plus ())
         ()
     in
-    let content = Box.Markup_js.create ~children:[wizard#markup; table#markup] () in
+    let content = Box.D.box ~children:[wizard#markup; table#markup] () in
     let placeholder =
       Components_lab.Placeholder.make
         ~icon:content
@@ -189,24 +186,23 @@ module UI = struct
     placeholder
 
   let add_table_dialog () =
+    let open Dialog.D in
     let cols = make_input ~label:"Число столбцов" () in
     let rows = make_input ~label:"Число строк" () in
-    let title =
-      Dialog.Markup_js.create_title ~title:"Добавление таблицы" ()
-    in
+    let title = dialog_title ~title:"Добавление таблицы" () in
     let content =
-      Dialog.Markup_js.create_content
+      dialog_content
         ~classes:[Box.CSS.root; Box.CSS.vertical]
-        [cols#markup; rows#markup]
+        ~children:[cols#markup; rows#markup]
+        ()
     in
     let submit =
       Button.attach
       @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-      @@ Dialog.Markup_js.create_action ~action:Accept ~label:"Применить" ()
+      @@ dialog_action ~action:Accept ~label:"Применить" ()
     in
     let actions =
-      Dialog.Markup_js.
-        [create_action ~action:Close ~label:"Отмена" (); submit#markup]
+      [dialog_action ~action:Close ~label:"Отмена" (); submit#markup]
     in
     let check_input () =
       match cols#value, rows#value with
@@ -237,46 +233,41 @@ module UI = struct
     dialog, fun () -> cols#value, rows#value
 
   let make_description_dialog () =
+    let open Dialog.D in
     let title = "Описание" in
     let helper_text = Textfield.Helper_text.make ~validation:true ~text:"" () in
     let textfield =
-      Textfield.make
-        ~label:(`Text "Наименование")
-        ~helper_text
-        ~validation:Text
-        ()
+      Textfield.make ~label:"Наименование" ~helper_text ~validation:Text ()
     in
-    let title = Dialog.Markup_js.create_title ~title () in
+    let title = dialog_title ~title () in
     let content =
-      Dialog.Markup_js.create_content
-        [ textfield#markup
-        ; Textfield.Markup_js.create_helper_line ~children:[helper_text#markup] () ]
+      dialog_content
+        ~children:
+          [ textfield#markup
+          ; Textfield.D.textfield_helper_line ~children:[helper_text#markup] () ]
+        ()
     in
     let accept =
       Button.attach
       @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-      @@ Dialog.Markup_js.create_action ~label:"OK" ~action:Accept ()
+      @@ dialog_action ~label:"OK" ~action:Accept ()
     in
     let actions =
-      Dialog.Markup_js.
-        [create_action ~label:"Отмена" ~action:Close (); accept#markup]
+      [dialog_action ~label:"Отмена" ~action:Close (); accept#markup]
     in
     let dialog = Dialog.make ~title ~content ~actions () in
     textfield, accept, dialog
 
   let make_wizard_dialog structure wm =
+    let open Dialog.D in
     let wizard = Pipeline_widgets.Wizard.make structure wm in
-    let title = Dialog.Markup_js.create_title ~title:Pipeline_widgets.Wizard.title () in
-    let content = Dialog.Markup_js.create_content [wizard#markup] in
+    let title = dialog_title ~title:Pipeline_widgets.Wizard.title () in
+    let content = dialog_content ~children:[wizard#markup] () in
     let actions =
-      Dialog.Markup_js.
-        [ create_action ~label:"Отмена" ~action:Close ()
-        ; create_action ~label:"Применить" ~action:Accept () ]
+      [ dialog_action ~label:"Отмена" ~action:Close ()
+      ; dialog_action ~label:"Применить" ~action:Accept () ]
     in
-    let dialog =
-      Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-      @@ Dialog.Markup_js.create ~title ~content ~actions ()
-    in
+    let dialog = Tyxml_js.To_dom.of_element @@ dialog ~title ~content ~actions () in
     object
       inherit Dialog.t dialog () as super
 

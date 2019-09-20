@@ -30,8 +30,7 @@ let make_overflow_menu actions =
   in
   Overflow_menu.F.overflow_menu ~actions ()
 
-let make_top_app_bar_row () =
-  Tyxml.Html.toelt @@ Top_app_bar.Markup.create_row ~sections:[] ()
+let make_top_app_bar_row () = Tyxml.Html.toelt @@ Top_app_bar.F.top_app_bar_row ()
 
 let pages () : Api_template.topmost Api_template.item list =
   let open Api_template in
@@ -49,7 +48,7 @@ let pages () : Api_template.topmost Api_template.item list =
       ~side_sheet:(make_side_sheet_props ~clipped:false ())
       ~top_app_bar_content:
         [ Tyxml.Html.toelt
-          @@ Top_app_bar.Markup.create_section
+          @@ Top_app_bar.F.top_app_bar_section
                ~align:`End
                ~children:[video_page_overflow_menu]
                () ]
@@ -65,7 +64,7 @@ let pages () : Api_template.topmost Api_template.item list =
       ~top_app_bar_content:
         (List.map
            Tyxml.Html.toelt
-           Top_app_bar.Markup.[create_section ~align:`End ~children:[] ()])
+           Top_app_bar.F.[top_app_bar_section ~align:`End ~children:[] ()])
       ~side_sheet:(make_side_sheet_props ~clipped:true ~typ:`Dismissible ())
       ~pre_scripts:[`Src "/js/ResizeObserver.js"]
       ~post_scripts:[`Src "/js/page-mosaic-editor.js"]

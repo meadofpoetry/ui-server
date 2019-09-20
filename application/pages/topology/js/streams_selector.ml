@@ -33,7 +33,10 @@ type stream_dialog =
   ; result : (Stream.t, string) result React.signal }
 
 let make_empty_placeholder () =
-  Typography.D.create ~classes:[empty_placeholder_class] ~text:"Нет потоков" ()
+  Typography.D.typography
+    ~classes:[empty_placeholder_class]
+    ~text:"Нет потоков"
+    ()
 
 class base
   ?actions
@@ -43,16 +46,22 @@ class base
   ~(entry : Topology.topo_entry)
   () =
   let title =
-    match entry with
-    | Topology.Input i -> "Вход " ^ Topology.get_input_name i
-    | Topology.Board b ->
-        Printf.sprintf "Плата %s %s v%d" b.manufacturer b.model b.version
+    Tyxml_js.Html.(
+      let text =
+        match entry with
+        | Topology.Input i -> "Вход " ^ Topology.get_input_name i
+        | Topology.Board b ->
+            Printf.sprintf "Плата %s %s v%d" b.manufacturer b.model b.version
+      in
+      div ~a:[a_class [BEM.add_element Card.CSS.root "title"]] [txt text])
   in
-  let title = Card.Markup_js.create_title ~title () in
   let subtitle =
     match left with
     | None -> None
-    | Some _ -> Some (Card.Markup_js.create_subtitle ~subtitle:"" ())
+    | Some _ ->
+        Some
+          Tyxml_js.Html.(
+            div ~a:[a_class [BEM.add_element Card.CSS.root "subtitle"]] [txt ""])
   in
   let primary_widgets =
     match subtitle with
@@ -62,13 +71,16 @@ class base
   let primary =
     match primary_widgets with
     | [] -> None
-    | widgets -> Some (Card.Markup_js.create_primary ~children:widgets ())
+    | widgets ->
+        Some
+          Tyxml_js.Html.(
+            div ~a:[a_class [BEM.add_element Card.CSS.root "primary"]] widgets)
   in
-  let media = Card.Markup_js.create_media ~children:[body] () in
+  let media = Card.D.card_media ~children:[body] () in
   let actions =
     match actions with
     | None -> None
-    | Some a -> Some (Card.Markup_js.create_actions ~children:a ())
+    | Some a -> Some (Card.D.card_actions ~children:a ())
   in
   let widgets =
     match primary, actions with
@@ -93,8 +105,7 @@ class base
           s
   in
   let elt =
-    Tyxml_js.To_dom.of_element
-    @@ Card.Markup_js.create ~outlined:true ~children:widgets ()
+    Tyxml_js.To_dom.of_element @@ Card.D.card ~outlined:true ~children:widgets ()
   in
   object
     inherit Widget.t elt () as super
@@ -297,14 +308,14 @@ module Input = struct
       let result = React.S.l2 ~eq (merge input) s_addr s_port in
       let addr =
         Textfield.make
-          ~label:(`Text "IP адрес")
+          ~label:"IP адрес"
           ~on_input:(fun _ i -> Lwt.return @@ push_addr i#value)
           ~validation:ipv4
           ()
       in
       let port =
         Textfield.make
-          ~label:(`Text "UDP порт")
+          ~label:"UDP порт"
           ~on_input:(fun _ i -> Lwt.return @@ push_port i#value)
           ~validation:(Integer (Some 0, Some 65535))
           ()
@@ -320,13 +331,9 @@ module Input = struct
             | Ok _ -> accept#set_disabled false)
           result
       in
-      let box =
-        Box.Markup_js.create ~vertical:true ~children:[addr#markup; port#markup] ()
-      in
-      let title =
-        Dialog.Markup_js.create_title ~title:"Добавление потока" ()
-      in
-      let content = Dialog.Markup_js.create_content [box] in
+      let box = Box.D.box ~vertical:true ~children:[addr#markup; port#markup] () in
+      let title = Dialog.D.dialog_title ~title:"Добавление потока" () in
+      let content = Dialog.D.dialog_content ~children:[box] () in
       let actions = [cancel#markup; accept#markup] in
       let dialog = Dialog.make ~title ~content ~actions () in
       dialog#add_class dialog_class;
@@ -357,7 +364,7 @@ module Input = struct
   let make_stream_list stream_list =
     let make_board_stream_entry del_item del_stream (stream : Stream.t) =
       let text = Stream.Source.to_string stream.source.info in
-      let icon = Icon.SVG.(Markup_js.create ~d:Path.delete ()) in
+      let icon = Icon.SVG.(D.icon ~d:Path.delete ()) in
       let del_button =
         Icon_button.make ~classes:[Item_list.CSS.item_meta] ~ripple:false ~icon ()
       in
@@ -441,7 +448,7 @@ module Input = struct
     let apply =
       Button.make ~on_click:(fun _ _ _ -> add ()) ~label:"Добавить поток" ()
     in
-    let buttons = Card.Markup_js.create_action_buttons ~children:[apply#markup] () in
+    let buttons = Card.D.card_action_buttons ~children:[apply#markup] () in
     let body = Tyxml_js.To_dom.of_element @@ Tyxml_js.Html.div [] in
     let empty = make_empty_placeholder () in
     object (self)
@@ -558,8 +565,8 @@ class t
             t)
       ()
   in
-  let buttons = Card.Markup_js.create_action_buttons ~children:[submit#markup] () in
-  let actions = Card.Markup_js.create_actions ~children:[buttons] () in
+  let buttons = Card.D.card_action_buttons ~children:[submit#markup] () in
+  let actions = Card.D.card_actions ~children:[buttons] () in
   object
     inherit Widget.t Dom_html.(createDiv document) () as super
 

@@ -1,7 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Tab_bar
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 (* TODO
    - add rtl support
@@ -326,8 +327,8 @@ class t ?on_change ?(auto_activation = false) elt () =
 let attach ?on_change ?auto_activation (elt : Dom_html.element Js.t) : t =
   new t ?on_change ?auto_activation (Element.coerce elt) ()
 
-let make ?classes ?attrs ?tabs ?align ?scroller ?on_change ?auto_activation () =
-  Markup_js.create ?classes ?attrs ?tabs ?align ?scroller ()
+let make ?classes ?a ?tabs ?align ?scroller ?on_change ?auto_activation () =
+  D.tab_bar ?classes ?a ?tabs ?align ?scroller ()
   |> Tyxml_js.To_dom.of_div
   |> attach ?on_change ?auto_activation
 
@@ -335,7 +336,7 @@ type 'a page =
   [ `Fun of unit -> (#Widget.t as 'a)
   | `Widget of (#Widget.t as 'a) ]
 
-let make_bind ?classes ?attrs ?body ?on_change ?auto_activation ?align ?(tabs = []) () =
+let make_bind ?classes ?a ?body ?on_change ?auto_activation ?align ?(tabs = []) () =
   let previous_page = ref None in
   let hide w = w#root##.style##.display := Js.string "none" in
   let show w = w#root##.style##.display := Js.string "" in
@@ -386,7 +387,7 @@ let make_bind ?classes ?attrs ?body ?on_change ?auto_activation ?align ?(tabs = 
   let bar =
     make
       ?classes
-      ?attrs
+      ?a
       ?auto_activation
       ~on_change:(fun previous x ->
         on_tab_change previous x;

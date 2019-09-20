@@ -33,44 +33,39 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.T)
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
-  module CSS = CSS
 
   let ( % ) f g x = f (g x)
 
-  let ( ^:: ) x l =
-    match x with
-    | None -> l
-    | Some x -> Xml.W.cons x l
+  let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
 
-  let button_loader_container ?(classes = []) ?(a = []) ?(children = Xml.W.nil ()) () =
-    let classes = Xml.W.return (CSS.loader_container :: classes) in
+  let button_loader_container ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+    let classes = fmap (List.cons CSS.loader_container) classes in
     div ~a:(a_class classes :: a) children
 
-  let button_ ?(classes = []) ?appearance ?(dense = false) ?icon ?label () =
+  let button_ ?(classes = return []) ?appearance ?(dense = false) ?icon ?label () =
     let make_label x =
-      span
-        ~a:[a_class @@ Xml.W.return [CSS.label]]
-        (Xml.W.singleton (Xml.W.return (txt x)))
+      span ~a:[a_class @@ return [CSS.label]] (singleton (return (txt x)))
     in
     let classes =
-      Xml.W.return
-        (classes
-        |> Utils.map_cons_option
-             (function
-               | Raised -> CSS.raised
-               | Outlined -> CSS.outlined
-               | Unelevated -> CSS.unelevated)
-             appearance
-        |> Utils.cons_if dense CSS.dense
-        |> List.cons CSS.root)
+      fmap
+        (Utils.map_cons_option
+           (function
+             | Raised -> CSS.raised
+             | Outlined -> CSS.outlined
+             | Unelevated -> CSS.unelevated)
+           appearance
+        % Utils.cons_if dense CSS.dense
+        % List.cons CSS.root)
+        classes
     in
-    let label = Option.map (Xml.W.return % make_label) label in
-    icon ^:: label ^:: Xml.W.nil (), classes
+    let label = Option.map (return % make_label) label in
+    icon ^:: label ^:: nil (), classes
 
   let button_a ?classes ?(a = []) ?href ?appearance ?dense ?icon ?label () =
     let children, classes = button_ ?classes ?appearance ?dense ?icon ?label () in

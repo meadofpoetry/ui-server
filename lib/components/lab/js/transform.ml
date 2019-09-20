@@ -3,7 +3,8 @@ open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 open Components
 include Components_lab_tyxml.Transform
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 let name = "transform"
 
@@ -419,6 +420,9 @@ class t ?(transformables = []) ?(move_threshold = 10.) (elt : Dom_html.element J
         Lwt.return_unit
   end
 
-let make ?transformables ?classes () : t =
-  let element = Tyxml_js.To_dom.of_element @@ Markup_js.create ?classes () in
-  new t ?transformables element ()
+let attach ?transformables elt = new t ?transformables (elt :> Dom_html.element Js.t) ()
+
+let make ?tabindex ?classes ?a ?transformables () : t =
+  D.transform ?tabindex ?classes ?a ()
+  |> Tyxml_js.To_dom.of_div
+  |> attach ?transformables

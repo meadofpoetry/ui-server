@@ -27,42 +27,45 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.T)
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
   open Xml.W
   open Html
-  module CSS = CSS
-  module Tab_indicator = Tab_indicator.Make (Xml) (Svg) (Html)
+  module Tab_indicator_markup = Tab_indicator.Make (Xml) (Svg) (Html)
 
-  open Utils.Make (Xml)
+  let ( % ) f g x = f (g x)
 
-  let tab_text_label ?(classes = []) ?(a = []) ?label ?(children = nil ()) () =
-    let classes = CSS.text_label :: classes in
+  let ( @:: ) = cons
+
+  let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
+
+  let tab_text_label ?(classes = return []) ?(a = []) ?label ?(children = nil ()) () =
+    let classes = fmap (fun x -> CSS.text_label :: x) classes in
     let children =
       match label with
       | None -> children
       | Some x -> cons (return (txt x)) children
     in
-    span ~a:(a_class (return classes) :: a) children
+    span ~a:(a_class classes :: a) children
 
-  let tab_content ?(classes = []) ?(a = []) ?indicator ?icon ?text_label () =
-    let classes = CSS.content :: classes in
+  let tab_content ?(classes = return []) ?(a = []) ?indicator ?icon ?text_label () =
+    let classes = fmap (fun x -> CSS.content :: x) classes in
     let text_label =
       match text_label with
       | None -> None
       | Some (`Text s) -> Some (return @@ tab_text_label ~label:s ())
       | Some (`Element e) -> Some (return e)
     in
-    span ~a:(a_class (return classes) :: a) (icon ^:: text_label ^:: indicator ^:: nil ())
+    span ~a:(a_class classes :: a) (icon ^:: text_label ^:: indicator ^:: nil ())
 
-  let tab_ripple ?(classes = []) ?(a = []) ?(children = nil ()) () =
-    let classes = CSS.ripple :: classes in
-    span ~a:(a_class (return classes) :: a) children
+  let tab_ripple ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+    let classes = fmap (fun x -> CSS.ripple :: x) classes in
+    span ~a:(a_class classes :: a) children
 
   let tab
-      ?(classes = [])
+      ?(classes = return [])
       ?(a = [])
       ?(active = false)
       ?(stacked = false)
@@ -73,16 +76,17 @@ struct
       ?icon
       ?text_label
       ?(ripple = tab_ripple ())
-      ?(indicator = Tab_indicator.tab_indicator ?icon:indicator_icon ())
+      ?(indicator = Tab_indicator_markup.tab_indicator ~active ?icon:indicator_icon ())
       ?content
       ?children
       () =
     let classes =
-      classes
-      |> Utils.cons_if active CSS.active
-      |> Utils.cons_if stacked CSS.stacked
-      |> Utils.cons_if min_width CSS.min_width
-      |> List.cons CSS.root
+      fmap
+        (Utils.cons_if active CSS.active
+        % Utils.cons_if stacked CSS.stacked
+        % Utils.cons_if min_width CSS.min_width
+        % List.cons CSS.root)
+        classes
     in
     let content =
       match content with
@@ -106,7 +110,7 @@ struct
     in
     button
       ~a:
-        (a_class (return classes) :: a_role (return ["tab"]) :: a
+        (a_class classes :: a_role (return ["tab"]) :: a
         |> Utils.cons_if_lazy disabled a_disabled)
       children
 end

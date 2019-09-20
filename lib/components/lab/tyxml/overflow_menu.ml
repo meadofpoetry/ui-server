@@ -9,28 +9,27 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.T)
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
-  module Icon = Icon.Make (Xml) (Svg) (Html)
-  module Icon_button = Icon_button.Make (Xml) (Svg) (Html)
+  module Icon_markup = Icon.Make (Xml) (Svg) (Html)
+  module Icon_button_markup = Icon_button.Make (Xml) (Svg) (Html)
 
-  let ( ^:: ) x l =
-    match x with
-    | None -> l
-    | Some x -> Xml.W.cons x l
+  let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
 
-  let overflow ?(classes = []) ?a ?icon () =
-    let classes = Top_app_bar.CSS.action_item :: classes in
+  let overflow ?(classes = return []) ?a ?icon () =
+    let classes = fmap (fun x -> Top_app_bar.CSS.action_item :: x) classes in
     let icon =
       match icon with
       | Some x -> x
       | None ->
-          Xml.W.return @@ Icon.SVG.(icon ~d:(Xml.W.return Svg_icons.dots_vertical) ())
+          Xml.W.return
+          @@ Icon_markup.SVG.(icon ~d:(Xml.W.return Svg_icons.dots_vertical) ())
     in
-    Icon_button.icon_button ~classes ?a ~icon ()
+    Icon_button_markup.icon_button ~classes ?a ~icon ()
 
   let overflow_menu
       ?(classes = [])

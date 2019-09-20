@@ -27,9 +27,7 @@ let multicast =
 let make_checkbox ~label checked =
   let event, push = React.E.create () in
   let en = Switch.make ~checked ~on_change:(fun _ -> Lwt.return @@ push ()) () in
-  let form =
-    Form_field.make_of_widget ~label:(`Text label) ~align_end:true ~input:en ()
-  in
+  let form = Form_field.make_of_widget ~label ~align_end:true ~input:en () in
   form, event
 
 let make_method multicast value =
@@ -63,7 +61,7 @@ let make_method multicast value =
   let select =
     Select.make_native
       ~value
-      ~label:(`Text "Метод")
+      ~label:"Метод"
       ~on_change:(fun x ->
         (match x#value with
         | None -> ()
@@ -81,7 +79,7 @@ let make_port value =
   let port =
     Textfield.make
       ~on_input:(fun _ _ -> Lwt.return @@ push ())
-      ~label:(`Text "UDP порт")
+      ~label:"UDP порт"
       ~value
       ~validation:(Integer (Some 0, Some 65535))
       ()
@@ -93,7 +91,7 @@ let make_multicast value =
   let mcast =
     Textfield.make
       ~on_input:(fun _ _ -> Lwt.return @@ push ())
-      ~label:(`Text "Multicast адрес")
+      ~label:"Multicast адрес"
       ~value
       ~validation:multicast
       ()
@@ -107,8 +105,8 @@ class t (state : Topology.state) (mode : ip_receive) (control : int) =
   let meth, e_meth = make_method mcast mode.addressing_method in
   let port, e_port = make_port mode.udp_port in
   let submit = Button.make ~label:"Применить" () in
-  let buttons = Card.Markup_js.create_action_buttons ~children:[submit#markup] () in
-  let actions = Card.Markup_js.create_actions ~children:[buttons] () in
+  let buttons = Card.D.card_action_buttons ~children:[submit#markup] () in
+  let actions = Card.D.card_actions ~children:[buttons] () in
   object (self)
     val mutable _e_change = None
 

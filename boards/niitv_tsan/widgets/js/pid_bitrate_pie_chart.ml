@@ -3,7 +3,7 @@ open Js_of_ocaml_tyxml
 open Components
 open Board_niitv_tsan_types
 include Board_niitv_tsan_widgets_tyxml.Pid_bitrate_pie_chart
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 module Selector = struct
   let canvas = "canvas"
@@ -236,7 +236,7 @@ class t ?(hex = false) ?rate (elt : Dom_html.element Js.t) =
 let attach ?hex ?rate (elt : #Dom_html.element Js.t) : t =
   new t ?hex ?rate (elt :> Dom_html.element Js.t)
 
-let make ?classes ?attrs ?title ?wrapper ?children ?hex ?rate () : t =
-  Markup_js.create ?classes ?attrs ?title ?wrapper ?children ()
+let make ?classes ?a ?title ?wrapper ?children ?hex ?rate () : t =
+  D.create ?classes ?a ?title ?wrapper ?children ()
   |> Tyxml_js.To_dom.of_div
   |> attach ?hex ?rate

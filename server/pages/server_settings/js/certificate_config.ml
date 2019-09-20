@@ -1,15 +1,10 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 open Components
 include Page_server_settings_tyxml.Certificate
-module Markup_js =
-  Page_server_settings_tyxml.Certificate.Make
-    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
-    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
-    (Js_of_ocaml_tyxml.Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
-
-let name = "Certificate"
 
 module Selector = struct
   let certificate = Printf.sprintf ".%s" CSS.certificate
@@ -24,7 +19,7 @@ class t
   object
     val certificate : _ X509_file_config.t =
       match Element.query_selector elt Selector.certificate with
-      | None -> failwith @@ name ^ ": no certificate settings block found"
+      | None -> failwith @@ CSS.root ^ ": no certificate settings block found"
       | Some x ->
           let value =
             match init with
@@ -35,7 +30,7 @@ class t
 
     val private_key : _ X509_file_config.t =
       match Element.query_selector elt Selector.private_key with
-      | None -> failwith @@ name ^ ": no private key settings block found"
+      | None -> failwith @@ CSS.root ^ ": no private key settings block found"
       | Some x ->
           let value =
             match init with
@@ -57,7 +52,5 @@ class t
   end
 
 let make ~set_snackbar (init : Server_types.settings) : t =
-  let (elt : Dom_html.element Js.t) =
-    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ Markup_js.create init
-  in
+  let (elt : Dom_html.element Js.t) = Tyxml_js.To_dom.of_element @@ D.create init in
   new t ~set_snackbar ~init elt

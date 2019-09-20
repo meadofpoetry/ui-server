@@ -36,20 +36,24 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  module Button_markup = Button.Make (Xml) (Svg) (Html)
-  module Card_markup = Card.Make (Xml) (Svg) (Html)
-  module Icon_markup = Icon.Make (Xml) (Svg) (Html)
-  module Icon_button_markup = Icon_button.Make (Xml) (Svg) (Html)
+
+  open Button.Make (Xml) (Svg) (Html)
+
+  open Card.Make (Xml) (Svg) (Html)
+
+  open Icon.Make (Xml) (Svg) (Html)
+
+  open Icon_button.Make (Xml) (Svg) (Html)
 
   open Ui_templates_tyxml.Settings_page.Make (Xml) (Svg) (Html)
 
-  let create_import_button ?(classes = []) ?(attrs = []) ~label () =
+  let create_import_button ?(classes = []) ?(a = []) ~label () =
     let classes = CSS.file_button :: classes in
     let input = input ~a:[a_input_type `File] () in
-    let button = Button_markup.create ~label () in
-    div ~a:([a_class classes] @ attrs) [input; button]
+    let button = button ~label () in
+    div ~a:([a_class classes] @ a) [input; button]
 
-  let create_row ?(classes = []) ?(attrs = []) ?name typ =
+  let create_row ?(classes = []) ?(a = []) ?name typ =
     let ( ^:: ) x l =
       match x with
       | None -> l
@@ -78,9 +82,9 @@ struct
         ()
     in
     let remove =
-      Icon_button_markup.create
+      icon_button
         ~classes:[CSS.action; CSS.action_remove]
-        ~icon:(Icon_markup.SVG.create ~d:Svg_icons.delete ())
+        ~icon:(SVG.icon ~d:Svg_icons.delete ())
         ()
     in
     let info =
@@ -88,24 +92,24 @@ struct
       | `Key -> None
       | `Crt ->
           Some
-            (Icon_button_markup.create
+            (icon_button
                ~classes:[CSS.action; CSS.action_info]
-               ~icon:(Icon_markup.SVG.create ~d:Svg_icons.information ())
+               ~icon:(SVG.icon ~d:Svg_icons.information ())
                ())
     in
     div
-      ~a:([a_class classes] @ attrs)
-      [ span [Icon_markup.SVG.create ~d:icon (); txt title]
+      ~a:([a_class classes] @ a)
+      [ span [SVG.icon ~d:icon (); txt title]
       ; span ~a:[a_class [CSS.filename]] [txt name]
       ; div ~a:[a_class [CSS.actions]] (import :: (info ^:: [remove])) ]
 
-  let create ?classes ?(attrs = []) (v : Server_types.settings) : 'a elt =
+  let create ?classes ?(a = []) (v : Server_types.settings) : 'a elt =
     create_section
       ?classes
-      ~attrs:(a_id id :: attrs)
+      ~a:(a_id id :: a)
       ~header:(create_section_header ~title:(`Text "Сертификат") ())
       ~children:
-        [ Card_markup.create_media
+        [ Card_markup.card_media
             ~classes:[CSS.root]
             ~children:
               [ create_row
@@ -119,4 +123,4 @@ struct
       ()
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

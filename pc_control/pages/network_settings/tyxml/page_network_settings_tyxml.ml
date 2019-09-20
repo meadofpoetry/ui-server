@@ -15,4 +15,4 @@ struct
   include Common.Make (Xml) (Svg) (Html)
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

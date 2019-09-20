@@ -49,7 +49,7 @@ let make_inner state mode plps receivers control =
           | Some (x : Plp_list.t ts) -> x.data.plps
         in
         ( `Widget (make {id} state mode plps control)
-        , Tab.Markup_js.create ~text_label:(`Text name) () ))
+        , Tab.D.tab ~text_label:(`Text name) () ))
     @@ List.sort compare receivers
   in
   let bar, body = Tab_bar.make_bind ~tabs () in

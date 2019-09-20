@@ -6,7 +6,7 @@ open Board_niitv_tsan_widgets
 open Board_niitv_tsan_http_js
 open Components
 include Board_niitv_tsan_page_pids_tyxml
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>=? ) = Lwt_result.bind
 
@@ -65,10 +65,8 @@ class t elt () =
 
 let attach elt : t = new t (elt :> Dom_html.element Js.t) ()
 
-let make ?classes ?attrs ?children ~control () : t =
-  Markup_js.create ?classes ?attrs ?children ~control ()
-  |> Tyxml_js.To_dom.of_div
-  |> attach
+let make ?classes ?a ?children ~control () : t =
+  D.create ?classes ?a ?children ~control () |> Tyxml_js.To_dom.of_div |> attach
 
 type state =
   { mutable socket : Api_js.Websocket.JSON.t option

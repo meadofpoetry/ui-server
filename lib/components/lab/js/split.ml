@@ -2,7 +2,8 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml
 open Components
 include Components_lab_tyxml.Split
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 (* TODO
    - test touch support *)
@@ -182,12 +183,9 @@ class t (elt : Dom_html.element Js.t) () =
         100. *. (float_of_int rel_x /. float_of_int width)
   end
 
-let make ?(vertical = false) (side1 : #Widget.t) (side2 : #Widget.t) : t =
-  let panel1 = Markup_js.create_panel [Widget.markup side1] in
-  let panel2 = Markup_js.create_panel [Widget.markup side2] in
-  let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element @@ Markup_js.create ~vertical panel1 panel2
-  in
-  new t elt ()
-
 let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
+
+let make ?classes ?a ?vertical ?splitter ~panel_a ~panel_b () =
+  D.split ?classes ?a ?vertical ?splitter ~panel_a ~panel_b ()
+  |> Tyxml_js.To_dom.of_div
+  |> attach

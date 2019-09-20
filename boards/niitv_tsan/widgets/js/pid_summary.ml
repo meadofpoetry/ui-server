@@ -3,9 +3,7 @@ open Js_of_ocaml_tyxml
 open Components
 open Board_niitv_tsan_types
 include Board_niitv_tsan_widgets_tyxml.Pid_summary
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
-
-let name = "PID summary"
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 type event = [`PIDs of (int * PID.t) list ts]
 
@@ -96,7 +94,7 @@ class t (elt : Dom_html.element Js.t) =
       List.map (fun x ->
           let text =
             Js.Opt.get x##.textContent (fun () ->
-                let msg = name ^ ": text content is not set for PID element" in
+                let msg = CSS.root ^ ": text content is not set for PID element" in
                 failwith msg)
           in
           int_of_string @@ Js.to_string text, Attr.pid_info_of_element x)
@@ -128,11 +126,11 @@ class t (elt : Dom_html.element Js.t) =
       | Some x -> Element.remove x
 
     method private add_pid pid =
-      let elt = Tyxml_js.To_dom.of_element @@ Markup_js.create_pid ~pid () in
+      let elt = Tyxml_js.To_dom.of_element @@ D.create_pid ~pid () in
       Dom.appendChild pids elt
   end
 
 let attach (elt : #Dom_html.element Js.t) : t = new t (elt :> Dom_html.element Js.t)
 
-let make ?classes ?attrs ?hex ?pids () : t =
-  Markup_js.create ?classes ?attrs ?hex ?pids () |> Tyxml_js.To_dom.of_div |> attach
+let make ?classes ?a ?hex ?pids () : t =
+  D.create ?classes ?a ?hex ?pids () |> Tyxml_js.To_dom.of_div |> attach

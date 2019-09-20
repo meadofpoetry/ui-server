@@ -1,7 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Menu_surface
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -586,7 +587,7 @@ let attach ?body ?viewport (elt : #Dom_html.element Js.t) : t =
   let body = (body :> Dom_html.element Js.t option) in
   new t ?body ?viewport (Element.coerce elt) ()
 
-let make ?classes ?attrs ?fixed ?open_ ?children ?body ?viewport () =
-  Markup_js.create ?classes ?attrs ?fixed ?open_ ?children ()
+let make ?classes ?a ?fixed ?open_ ?children ?body ?viewport () =
+  D.menu_surface ?classes ?a ?fixed ?open_ ?children ()
   |> Tyxml_js.To_dom.of_div
   |> attach ?body ?viewport

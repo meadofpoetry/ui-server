@@ -3,7 +3,7 @@ open Js_of_ocaml_tyxml
 open Components
 open Board_niitv_tsan_types
 include Board_niitv_tsan_widgets_tyxml.Service_general_info
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 type event =
   [ `Service of (int * Service.t) option
@@ -146,14 +146,12 @@ class t (elt : Dom_html.element Js.t) () =
       match Element.query_selector item Selector.meta with
       | Some x -> x
       | None ->
-          let meta =
-            Tyxml_js.To_dom.of_element @@ Markup_js.create_item_meta ~text:"" ()
-          in
+          let meta = Tyxml_js.To_dom.of_element @@ D.create_item_meta ~text:"" () in
           Dom.appendChild item meta;
           meta
   end
 
 let attach elt = new t (elt :> Dom_html.element Js.t) ()
 
-let make ?classes ?attrs ?info ?children () =
-  Markup_js.create ?classes ?attrs ?info ?children () |> Tyxml_js.To_dom.of_ul |> attach
+let make ?classes ?a ?info ?children () =
+  D.create ?classes ?a ?info ?children () |> Tyxml_js.To_dom.of_ul |> attach

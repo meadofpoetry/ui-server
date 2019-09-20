@@ -61,7 +61,7 @@ let deactivate (x : t) = x#deactivate ()
 let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
 
 let make ?classes ?a ?children () : t =
-  D.create ?classes ?a ?children () |> Tyxml_js.To_dom.of_div |> attach
+  D.line_ripple ?classes ?a ?children () |> Tyxml_js.To_dom.of_div |> attach
 
 let make_r ?classes ?a ?children () : t =
-  R.create ?classes ?a ?children () |> Tyxml_js.To_dom.of_div |> attach
+  R.line_ripple ?classes ?a ?children () |> Tyxml_js.To_dom.of_div |> attach

@@ -13,24 +13,30 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
-  let create
-      ?(classes = [])
-      ?(attrs = [])
+  open Xml.W
+  open Html
+
+  let ( % ) f g x = f (g x)
+
+  let menu_surface
+      ?(classes = return [])
+      ?(a = [])
       ?(fixed = false)
       ?(open_ = false)
-      ?(children = [])
-      () : 'a Html.elt =
+      ?(children = nil ())
+      () =
     let classes =
-      classes
-      |> Utils.cons_if fixed CSS.fixed
-      |> Utils.cons_if open_ CSS.open_
-      |> List.cons CSS.root
+      fmap
+        (Utils.cons_if fixed CSS.fixed
+        % Utils.cons_if open_ CSS.open_
+        % List.cons CSS.root)
+        classes
     in
-    Html.div ~a:([Html.a_class classes] @ attrs) children
+    div ~a:(Html.a_class classes :: a) children
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

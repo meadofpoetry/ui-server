@@ -4,7 +4,7 @@ open Components
 open Application_types
 open Board_niitv_tsan_types
 include Board_niitv_tsan_widgets_tyxml.Service_overview
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -34,7 +34,7 @@ let update_row_bitrate
   in
   let pct = Float.(100. *. (of_int bps /. of_int bitrate.total.cur)) in
   let min, max =
-    Gadt_data_table.Fmt_js.(
+    Gadt_data_table.Fmt_d.(
       match table#get_row_data_lazy row with
       | [_; _; _; _; _; _; min; max] -> min, max)
   in
@@ -49,14 +49,14 @@ let update_row_bitrate
     | Some v -> if bps > v then Some (Some bps) else None
   in
   let data =
-    Gadt_data_table.Fmt_js.
+    Gadt_data_table.Fmt_d.
       [None; None; None; None; Some (Some bps); Some (Some pct); min; max]
   in
   table#set_row_data_some data row
 
 let update_row_info (table : 'a Gadt_data_table.t) row id (info : Service.t) =
   let data =
-    Gadt_data_table.Fmt_js.
+    Gadt_data_table.Fmt_d.
       [ Some id
       ; Some info.name
       ; Some info.pmt_pid
@@ -78,8 +78,7 @@ class t ?(init : (int * Service.t) list ts option) elt () =
       | Some {data; _} -> data
 
     inherit
-      [int] Table_overview.with_details
-        ~create_table_format:Markup_js.create_table_format elt () as super
+      [int] Table_overview.with_details ~create_table_format:D.create_table_format elt () as super
 
     method! init () : unit =
       service_info <- Some (Service_info.make ~control ());
@@ -99,8 +98,8 @@ class t ?(init : (int * Service.t) list ts option) elt () =
           self#set_bitrate rate
 
     method set_hex (hex : bool) =
-      let id_fmt = Markup_js.id_fmt ~hex in
-      let (format : _ Markup_js.Fmt.data_format) =
+      let id_fmt = D.id_fmt ~hex in
+      let (format : _ D.Fmt.data_format) =
         match table#data_format with
         | _ :: name :: _ :: _ :: tl -> id_fmt :: name :: id_fmt :: id_fmt :: tl
       in
@@ -143,14 +142,14 @@ class t ?(init : (int * Service.t) list ts option) elt () =
       | Some row -> update_row_info table row id info
 
     method private add_service service =
-      let (data : _ Markup_js.Fmt.data) = Markup_js.data_of_service_info service in
+      let (data : _ D.Fmt.data) = D.data_of_service_info service in
       let row = table#insert_row (-1) data in
       ignore row
 
     method private find_row (pid : int) =
       let find row =
         let pid' =
-          Gadt_data_table.Fmt_js.(
+          Gadt_data_table.Fmt_d.(
             match table#get_row_data_lazy row with
             | pid :: _ -> pid ())
         in
@@ -182,7 +181,5 @@ class t ?(init : (int * Service.t) list ts option) elt () =
 
 let attach ?init elt : t = new t ?init (elt : Dom_html.element Js.t) ()
 
-let make ?classes ?attrs ?dense ?init ~control () =
-  Markup_js.create ?classes ?attrs ?dense ?init ~control ()
-  |> Tyxml_js.To_dom.of_div
-  |> attach ?init
+let make ?classes ?a ?dense ?init ~control () =
+  D.create ?classes ?a ?dense ?init ~control () |> Tyxml_js.To_dom.of_div |> attach ?init

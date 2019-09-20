@@ -36,11 +36,12 @@ module Make
 struct
   open Html
   module Widget_markup = Widget.Make (Xml) (Svg) (Html)
-  module Card = Card.Make (Xml) (Svg) (Html)
+
+  open Card.Make (Xml) (Svg) (Html)
 
   let create_widget
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ((id, _, widget) : string * Wm.Annotated.state * Wm.widget) : 'a elt =
     let position =
       match widget.position with
@@ -59,19 +60,19 @@ struct
       ~a:
         ([a_class classes; a_style style]
         @ Widget_markup.to_html_attributes ~id widget
-        @ attrs)
+        @ a)
       []
 
-  let create_widget_wrapper ?(classes = []) ?(attrs = []) widgets : 'a elt =
+  let create_widget_wrapper ?(classes = []) ?(a = []) widgets : 'a elt =
     let classes = CSS.widget_wrapper :: classes in
-    div ~a:([a_class classes] @ attrs) widgets
+    div ~a:(a_class classes :: a) widgets
 
-  let create ?(classes = []) ?attrs grid : 'a elt =
-    Card.card
+  let create ?(classes = []) ?a grid : 'a elt =
+    card
       ~classes:(CSS.root :: classes)
-      ?attrs
-      ~children:[Card.card_media ~children:[grid] (); Card.card_actions ()]
+      ?a
+      ~children:[card_media ~children:[grid] (); card_actions ()]
       ()
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

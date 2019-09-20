@@ -2,10 +2,6 @@ module CSS = struct
   include Ui_templates_tyxml.Settings_page.CSS
 end
 
-module Cert_viewer = Cert_viewer
-module Certificate = Certificate
-module Https = Https
-
 module Make
     (Xml : Xml_sigs.NoWrap)
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
@@ -14,4 +10,4 @@ struct
   include Ui_templates_tyxml.Settings_page.Make (Xml) (Svg) (Html)
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

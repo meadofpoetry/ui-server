@@ -22,59 +22,60 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.T)
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
   open Xml.W
   open Html
-  module CSS = CSS
 
-  let switch_track ?(classes = []) ?(a = []) ?(children = nil ()) () =
-    let classes = CSS.track :: classes in
-    div ~a:(a_class (return classes) :: a) children
+  let ( % ) f g x = f (g x)
+
+  let switch_track ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+    let classes = fmap (fun x -> CSS.track :: x) classes in
+    div ~a:(a_class classes :: a) children
 
   let switch_native_control
-      ?(classes = [])
+      ?(classes = return [])
       ?(a = [])
       ?id
       ?(checked = false)
       ?(disabled = false)
       () =
-    let classes = CSS.native_control :: classes in
+    let classes = fmap (fun x -> CSS.native_control :: x) classes in
     input
       ~a:
-        (a_input_type (return `Checkbox) :: a_class (return classes) :: a
+        (a_input_type (return `Checkbox) :: a_class classes :: a
         |> Utils.cons_if_lazy checked a_checked
         |> Utils.cons_if_lazy disabled a_disabled
         |> Utils.map_cons_option a_id id)
       ()
 
   let switch_thumb
-      ?(classes = [])
+      ?(classes = return [])
       ?(a = [])
       ?input_id
       ?checked
       ?disabled
       ?(native_control = switch_native_control ?id:input_id ?checked ?disabled ())
       () =
-    let classes = CSS.thumb :: classes in
-    div ~a:(a_class (return classes) :: a) (singleton (return native_control))
+    let classes = fmap (fun x -> CSS.thumb :: x) classes in
+    div ~a:(a_class classes :: a) (singleton (return native_control))
 
   let switch_thumb_underlay
-      ?(classes = [])
+      ?(classes = return [])
       ?(a = [])
       ?input_id
       ?checked
       ?disabled
       ?(thumb = switch_thumb ?input_id ?checked ?disabled ())
       () =
-    let classes = CSS.thumb_underlay :: classes in
-    div ~a:(a_class (return classes) :: a) (singleton (return thumb))
+    let classes = fmap (fun x -> CSS.thumb_underlay :: x) classes in
+    div ~a:(a_class classes :: a) (singleton (return thumb))
 
   let switch
       ?input_id
-      ?(classes = [])
+      ?(classes = return [])
       ?(a = [])
       ?(checked = false)
       ?(disabled = false)
@@ -82,13 +83,14 @@ struct
       ?(thumb_underlay = switch_thumb_underlay ?input_id ~checked ~disabled ())
       () : 'a elt =
     let classes =
-      classes
-      |> Utils.cons_if checked CSS.checked
-      |> Utils.cons_if disabled CSS.disabled
-      |> List.cons CSS.root
+      fmap
+        (Utils.cons_if checked CSS.checked
+        % Utils.cons_if disabled CSS.disabled
+        % List.cons CSS.root)
+        classes
     in
     div
-      ~a:(a_class (return classes) :: a)
+      ~a:(a_class classes :: a)
       (cons (return track) (cons (return thumb_underlay) (nil ())))
 end
 

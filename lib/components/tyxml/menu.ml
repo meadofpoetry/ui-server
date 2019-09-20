@@ -16,44 +16,45 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
-  module CSS = CSS
-  module Menu_surface = Menu_surface.Make (Xml) (Svg) (Html)
+  open Xml.W
+  open Html
+  module Menu_surface_markup = Menu_surface.Make (Xml) (Svg) (Html)
 
   module Item_list = struct
     include Item_list.Make (Xml) (Svg) (Html)
 
-    let create_item = create_item ~role:"menuitem"
+    let list_item = list_item ~role:"menuitem"
 
-    let create = create ~role:"menu"
+    let list = list ~role:"menu"
   end
 
-  let create
-      ?(classes = [])
-      ?(attrs = [])
+  let menu
+      ?(classes = return [])
+      ?(a = [])
       ?fixed
       ?open_
       ?list_children
       ?list
       ?children
       () =
-    let classes = CSS.root :: classes in
-    let attrs = Html.a_tabindex (-1) :: attrs in
+    let classes = fmap (fun x -> CSS.root :: x) classes in
+    let a = a_tabindex (return (-1)) :: a in
     let children =
       match children with
       | Some _ as x -> x
       | None -> (
         match list with
-        | Some x -> Some [x]
+        | Some x -> Some (singleton (return x))
         | None -> (
           match list_children with
           | None -> None
-          | Some x -> Some [Item_list.create ~children:x ()]))
+          | Some x -> Some (singleton (return (Item_list.list ~children:x ())))))
     in
-    Menu_surface.create ~classes ~attrs ?fixed ?open_ ?children ()
+    Menu_surface_markup.menu_surface ~classes ~a ?fixed ?open_ ?children ()
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

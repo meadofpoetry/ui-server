@@ -1,11 +1,8 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 open Components
 open Netlib.Uri
-module Markup_js =
-  Page_software_updates_tyxml.Make
-    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
-    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
-    (Js_of_ocaml_tyxml.Tyxml_js.Html)
+module D = Page_software_updates_tyxml.Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -30,7 +27,7 @@ let on_loaded (scaffold : Scaffold.t) () =
     let page =
       Widget.create
       @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-      @@ Markup_js.create ~children:[remote_updates#markup] ()
+      @@ D.create ~children:[remote_updates#markup] ()
     in
     page#set_on_destroy (fun () ->
         remote_updates#destroy ();

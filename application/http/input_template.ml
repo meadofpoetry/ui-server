@@ -95,8 +95,8 @@ let make_template
         in
         let tabpanel_id = id ^ "-tabpanel" in
         let tab =
-          Components_tyxml.Tab.Markup.create
-            ~attrs:Tyxml.Html.[a_id id; a_aria "controls" [tabpanel_id]]
+          Components_tyxml.Tab.F.tab
+            ~a:Tyxml.Html.[a_id id; a_aria "controls" [tabpanel_id]]
             ~text_label:(`Text template#title)
             ()
         in
@@ -114,8 +114,8 @@ let make_template
       , [`Src "/js/page-input.js"] )
       tabs
   in
-  let tab_bar = Components_tyxml.Tab_bar.Markup.create ~tabs () in
-  let slides = Ui_templates_tyxml.Tabbed_page.Markup.create ~children () in
+  let tab_bar = Components_tyxml.Tab_bar.F.tab_bar ~tabs () in
+  let slides = Ui_templates_tyxml.Tabbed_page.F.create ~children () in
   let eq a b =
     match a, b with
     | `Src a, `Src b | `Raw a, `Raw b -> String.equal a b

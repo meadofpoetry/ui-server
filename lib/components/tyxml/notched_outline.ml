@@ -23,30 +23,26 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.T)
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
   open Xml.W
   open Html
-  module CSS = CSS
-  module Floating_label = Floating_label.Make (Xml) (Svg) (Html)
+  module Floating_label_markup = Floating_label.Make (Xml) (Svg) (Html)
 
-  let ( ^:: ) x l =
-    match x with
-    | None -> l
-    | Some x -> cons x l
+  let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
 
-  let notched_outline_leading ?(classes = []) ?(a = []) ?(children = nil ()) () =
-    let classes = CSS.leading :: classes in
-    div ~a:(a_class (return classes) :: a) children
+  let notched_outline_leading ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+    let classes = fmap (List.cons CSS.leading) classes in
+    div ~a:(a_class classes :: a) children
 
-  let notched_outline_trailing ?(classes = []) ?(a = []) ?(children = nil ()) () =
-    let classes = CSS.trailing :: classes in
-    div ~a:(a_class (return classes) :: a) children
+  let notched_outline_trailing ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+    let classes = fmap (List.cons CSS.trailing) classes in
+    div ~a:(a_class classes :: a) children
 
   let notched_outline_notch
-      ?(classes = [])
+      ?(classes = return [])
       ?(a = [])
       ?label_for
       ?label
@@ -56,14 +52,14 @@ struct
       match label with
       | None -> children
       | Some x ->
-          let label = Floating_label.floating_label ?for_:label_for ~label:x () in
+          let label = Floating_label_markup.floating_label ?for_:label_for ~label:x () in
           cons (return label) children
     in
-    let classes = CSS.notch :: classes in
-    div ~a:(a_class (return classes) :: a) children
+    let classes = fmap (List.cons CSS.notch) classes in
+    div ~a:(a_class classes :: a) children
 
   let notched_outline
-      ?(classes = [])
+      ?(classes = return [])
       ?(a = [])
       ?leading
       ?trailing
@@ -71,8 +67,8 @@ struct
       ?label_for
       ?label
       ?children
-      () : 'a elt =
-    let classes = CSS.root :: classes in
+      () =
+    let classes = fmap (List.cons CSS.root) classes in
     let notch =
       match notch with
       | Some _ as x -> x
@@ -97,7 +93,7 @@ struct
           in
           cons leading (notch ^:: singleton trailing)
     in
-    div ~a:(a_class (return classes) :: a) children
+    div ~a:(a_class classes :: a) children
 end
 
 module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

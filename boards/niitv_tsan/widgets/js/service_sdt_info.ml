@@ -4,7 +4,7 @@ open Components
 open Application_types
 open Board_niitv_tsan_types
 include Board_niitv_tsan_widgets_tyxml.Service_sdt_info
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 type event = [`Service of (int * Service.t) option]
 
@@ -101,10 +101,9 @@ class t (elt : Dom_html.element Js.t) () =
             let meta =
               Tyxml_js.To_dom.of_element
                 (match typ with
-                | `Eit_schedule | `Eit_pf | `Scrambling ->
-                    Markup_js.create_item_icon_meta ()
+                | `Eit_schedule | `Eit_pf | `Scrambling -> D.create_item_icon_meta ()
                 | `Name | `Provider | `Service_type | `Running_status ->
-                    Markup_js.create_item_meta ~text:"" ())
+                    D.create_item_meta ~text:"" ())
             in
             Dom.appendChild item meta;
             meta
@@ -114,5 +113,5 @@ class t (elt : Dom_html.element Js.t) () =
 
 let attach elt = new t (elt :> Dom_html.element Js.t) ()
 
-let make ?classes ?attrs ?info ?children () =
-  Markup_js.create ?classes ?attrs ?info ?children () |> Tyxml_js.To_dom.of_ul |> attach
+let make ?classes ?a ?info ?children () =
+  D.create ?classes ?a ?info ?children () |> Tyxml_js.To_dom.of_ul |> attach

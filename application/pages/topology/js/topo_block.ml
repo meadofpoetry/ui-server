@@ -21,6 +21,12 @@ module CSS = struct
   let init = BEM.add_modifier root "init"
 
   let fail = BEM.add_modifier root "fail"
+
+  let card_title = BEM.add_element Card.CSS.root "title"
+
+  let card_subtitle = BEM.add_element Card.CSS.root "subtitle"
+
+  let card_primary = BEM.add_element Card.CSS.root "primary"
 end
 
 let ( % ) f g x = f (g x)
@@ -30,20 +36,22 @@ let cons_maybe x l =
   | None -> l
   | Some x -> x :: l
 
+let div ?(classes = []) children = Tyxml_js.Html.(div ~a:[a_class classes] children)
+
+let text_div ?classes text = div ?classes Tyxml_js.Html.[txt text]
+
 module Header = struct
   class t ?action ?subtitle ~title () =
-    let title_w = Card.Markup_js.create_title ~title () in
-    let subtitle_w =
-      Option.map (fun subtitle -> Card.Markup_js.create_subtitle ~subtitle ()) subtitle
-    in
+    let title_w = text_div ~classes:[CSS.card_title] title in
+    let subtitle_w = Option.map (text_div ~classes:[CSS.card_subtitle]) subtitle in
     let box =
-      Box.Markup_js.create
+      Box.D.box
         ~vertical:true
         ~children:([] |> cons_maybe subtitle_w |> List.cons title_w)
         ()
     in
     let children = [] |> cons_maybe action |> List.cons box in
-    let elt = Tyxml_js.To_dom.of_element @@ Card.Markup_js.create_primary ~children () in
+    let elt = Tyxml_js.To_dom.of_element @@ div ~classes:[CSS.card_primary] children in
     object (self)
       inherit Widget.t elt () as super
 
@@ -84,7 +92,7 @@ class virtual t
       Topo_node.parent
         ~port_setter ~node ~connections ~body:body#root
         (Tyxml_js.To_dom.of_element
-        @@ Card.Markup_js.create ~children:[header#markup; body#markup] ())
+        @@ Card.D.card ~children:[header#markup; body#markup] ())
         () as super
 
     method! init () : unit =

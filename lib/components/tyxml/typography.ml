@@ -73,32 +73,33 @@ let font_to_class : font -> string = function
   | Overline -> CSS.overline
 
 module Make
-    (Xml : Xml_sigs.T)
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
 
-  let create
-      ?(classes = [])
+  let ( % ) f g x = f (g x)
+
+  let typography
+      ?(classes = return [])
       ?(a = [])
       ?(font : font option)
       ?text
-      ?(children = Xml.W.nil ())
+      ?(children = nil ())
       () =
     let font_class =
       match font with
       | None -> None
       | Some x -> Some (font_to_class x)
     in
-    let classes =
-      Xml.W.return (classes |> Utils.cons_option font_class |> List.cons CSS.root)
-    in
+    let classes = fmap (Utils.cons_option font_class % List.cons CSS.root) classes in
     span
       ~a:(a_class classes :: a)
       (match text with
       | None -> children
-      | Some text -> Xml.W.(cons (return (txt text)) children))
+      | Some text -> cons (return (txt text)) children)
 end
 
 module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

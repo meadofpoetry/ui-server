@@ -6,7 +6,7 @@ open Board_niitv_tsan_types
 open Board_niitv_tsan_http_js
 open Board_niitv_tsan_widgets
 include Board_niitv_tsan_page_si_psi_tyxml
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>=? ) = Lwt_result.bind
 

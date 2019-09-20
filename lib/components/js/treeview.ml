@@ -1,7 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Treeview
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 let ( % ) f g x = f (g x)
 
@@ -571,7 +572,7 @@ class t elt () =
 
 let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
 
-let make ?classes ?attrs ?multiselectable ?dense ?two_line ?children () =
-  Markup_js.create ?classes ?attrs ?multiselectable ?dense ?two_line ?children ()
+let make ?classes ?a ?multiselectable ?dense ?two_line ?children () =
+  D.treeview ?classes ?a ?multiselectable ?dense ?two_line ?children ()
   |> Tyxml_js.To_dom.of_ul
   |> attach

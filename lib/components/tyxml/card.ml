@@ -61,85 +61,86 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.T)
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
-  module CSS = CSS
+
+  let ( % ) f g x = f (g x)
 
   let card_media_content
       ?(tag = div)
-      ?(classes = [])
+      ?(classes = return [])
       ?(a = [])
-      ?(children = Xml.W.nil ())
+      ?(children = nil ())
       () =
-    let classes = Xml.W.return (CSS.media_content :: classes) in
+    let classes = fmap (List.cons CSS.media_content) classes in
     tag ~a:(a_class classes :: a) children
 
   let card_media
       ?(tag = div)
-      ?(classes = [])
-      ?(attrs = [])
+      ?(classes = return [])
+      ?(a = [])
       ?(square = false)
       ?(letterbox = false)
       ?(primary_action = false)
-      ?(children = Xml.W.nil ())
+      ?(children = nil ())
       () =
     let classes =
-      Xml.W.return
-        (classes
-        |> Utils.cons_if square CSS.media_square
-        |> Utils.cons_if letterbox CSS.media_16_9
-        |> Utils.cons_if primary_action CSS.primary_action
-        |> List.cons CSS.media)
+      fmap
+        (Utils.cons_if square CSS.media_square
+        % Utils.cons_if letterbox CSS.media_16_9
+        % Utils.cons_if primary_action CSS.primary_action
+        % List.cons CSS.media)
+        classes
     in
-    tag ~a:([a_class classes] @ attrs) children
+    tag ~a:([a_class classes] @ a) children
 
   let card_action_buttons
       ?(tag = div)
-      ?(classes = [])
+      ?(classes = return [])
       ?(a = [])
-      ?(children = Xml.W.nil ())
+      ?(children = nil ())
       () =
-    let classes = Xml.W.return (CSS.action_buttons :: classes) in
+    let classes = fmap (List.cons CSS.action_buttons) classes in
     tag ~a:(a_class classes :: a) children
 
   let card_action_icons
       ?(tag = div)
-      ?(classes = [])
+      ?(classes = return [])
       ?(a = [])
-      ?(children = Xml.W.nil ())
+      ?(children = nil ())
       () =
-    let classes = Xml.W.return (CSS.action_icons :: classes) in
+    let classes = fmap (List.cons CSS.action_icons) classes in
     tag ~a:(a_class classes :: a) children
 
   let card_actions
       ?(tag = section)
-      ?(classes = [])
+      ?(classes = return [])
       ?(a = [])
       ?(full_bleed = false)
-      ?(children = Xml.W.nil ())
+      ?(children = nil ())
       () : 'a elt =
     let classes =
-      Xml.W.return
-        (classes
-        |> Utils.cons_if full_bleed CSS.actions_full_bleed
-        |> List.cons CSS.actions)
+      fmap
+        (Utils.cons_if full_bleed CSS.actions_full_bleed % List.cons CSS.actions)
+        classes
     in
     tag ~a:(a_class classes :: a) children
 
   let card
       ?(tag = div)
-      ?(classes = [])
-      ?(attrs = [])
+      ?(classes = return [])
+      ?(a = [])
       ?(outlined = false)
-      ?(children = Xml.W.nil ())
+      ?(children = nil ())
       () =
     let classes =
-      Xml.W.return (classes |> Utils.cons_if outlined CSS.outlined |> List.cons CSS.root)
+      fmap (Utils.cons_if outlined CSS.outlined % List.cons CSS.root) classes
     in
-    tag ~a:([a_class classes] @ attrs) children
+    tag ~a:(a_class classes :: a) children
 end
 
 module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

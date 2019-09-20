@@ -41,38 +41,43 @@ let direction_of_string s =
   | _ -> None
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
 
-  let content_of_direction = function
-    | N | E | S | W -> []
-    | NW | NE | SW | SE -> [div ~a:[a_class [CSS.circle]] []]
+  let ( @:: ) = cons
 
-  let create_resizer ?(classes = []) ?(attrs = []) direction : 'a elt =
-    let classes = CSS.resizer :: classes in
+  let content_of_direction = function
+    | N | E | S | W -> nil ()
+    | NW | NE | SW | SE ->
+        singleton (return (div ~a:[a_class (return [CSS.circle])] (nil ())))
+
+  let transform_resizer ?(classes = return []) ?(a = []) direction =
+    let classes = fmap (fun x -> CSS.resizer :: x) classes in
     div
       ~a:
-        ([ a_class classes
-         ; a_role ["slider"]
-         ; a_user_data "direction" (direction_to_string direction) ]
-        @ attrs)
+        (a_class classes
+        :: a_role (return ["slider"])
+        :: a_user_data "direction" (return (direction_to_string direction))
+        :: a)
       (content_of_direction direction)
 
-  let create ?(tabindex = -1) ?(classes = []) ?(attrs = []) () : 'a elt =
-    let classes = CSS.root :: classes in
+  let transform ?(tabindex = return (-1)) ?(classes = return []) ?(a = []) () : 'a elt =
+    let classes = fmap (fun x -> CSS.root :: x) classes in
     div
-      ~a:([a_class classes; a_tabindex tabindex; a_role ["slider"]] @ attrs)
-      [ create_resizer N
-      ; create_resizer E
-      ; create_resizer S
-      ; create_resizer W
-      ; create_resizer NW
-      ; create_resizer NE
-      ; create_resizer SW
-      ; create_resizer SE ]
+      ~a:(a_class classes :: a_tabindex tabindex :: a_role (return ["slider"]) :: a)
+      (return (transform_resizer N)
+      @:: return (transform_resizer E)
+      @:: return (transform_resizer S)
+      @:: return (transform_resizer W)
+      @:: return (transform_resizer NW)
+      @:: return (transform_resizer NE)
+      @:: return (transform_resizer SW)
+      @:: return (transform_resizer SE)
+      @:: nil ())
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

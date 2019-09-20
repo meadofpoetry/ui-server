@@ -17,13 +17,9 @@ struct
 
   open Ui_templates_tyxml.Settings_page.Make (Xml) (Svg) (Html)
 
-  let create ?(classes = []) ?attrs () =
+  let create ?(classes = []) ?a () =
     let classes = CSS.root :: classes in
-    create
-      ~classes
-      ?attrs
-      ~children:[Shutdown_markup.create (); Reboot_markup.create ()]
-      ()
+    create ~classes ?a ~children:[Shutdown_markup.create (); Reboot_markup.create ()] ()
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

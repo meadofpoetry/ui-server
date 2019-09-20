@@ -24,15 +24,15 @@ struct
   open Html
   module Item_list_markup = Item_list.Make (Xml) (Svg) (Html)
 
-  let create_value ?(classes = []) ?attrs ?value text =
+  let create_value ?(classes = []) ?a ?value text =
     let classes = CSS.value :: classes in
     let meta =
       span ~a:[a_class [Item_list.CSS.item_meta]] [txt (bitrate_to_string value)]
     in
     let primary_text = `Text text in
-    Item_list_markup.create_item ~classes ?attrs ~meta ~primary_text ()
+    Item_list_markup.list_item ~classes ?a ~meta ~primary_text ()
 
-  let create ?(classes = []) ?attrs ?total ?effective ?children () =
+  let create ?(classes = []) ?a ?total ?effective ?children () =
     let classes = CSS.root :: classes in
     let children =
       match children with
@@ -52,13 +52,7 @@ struct
           in
           [total; effective]
     in
-    Item_list_markup.create
-      ~classes
-      ?attrs
-      ~dense:true
-      ~non_interactive:true
-      ~children
-      ()
+    Item_list_markup.list ~classes ?a ~dense:true ~non_interactive:true ~children ()
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

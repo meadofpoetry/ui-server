@@ -9,18 +9,18 @@ struct
 
   open Ui_templates_tyxml.Settings_page.Make (Xml) (Svg) (Html)
 
-  module Button = Button.Make (Xml) (Svg) (Html)
+  open Button.Make (Xml) (Svg) (Html)
 
-  let create ?classes ?(attrs = []) () =
+  let create ?classes ?(a = []) () =
     create_section
       ?classes
-      ~attrs:([Html.a_id "reboot"] @ attrs)
+      ~a:(Html.a_id "reboot" :: a)
       ~header:
         (create_section_header
            ~title:(`Text "Перезагрузка прибора")
            ())
       ~children:
-        [ Card.card_media
+        [ Card_markup.card_media
             ~children:
               [ div
                   [ txt
@@ -35,11 +35,11 @@ struct
                            прибором." ] ] ]
             ()
         ; hr ~a:[a_class [Divider.CSS.root]] ()
-        ; Card.card_actions
+        ; Card_markup.card_actions
             ~children:
-              [ Card.card_action_buttons
+              [ Card_markup.card_action_buttons
                   ~children:
-                    [ Button.button
+                    [ button
                         ~appearance:Raised
                         ~label:"Перезагрузить прибор"
                         () ]

@@ -22,29 +22,31 @@ struct
   module Pid_overview_markup = Pid_overview.Make (Xml) (Svg) (Html)
   module Divider_markup = Divider.Make (Xml) (Svg) (Html)
 
-  let create ?(classes = []) ?(attrs = []) ?children ~control () =
+  let create ?(classes = []) ?(a = []) ?children ~control () =
     let classes = CSS.root :: Layout_grid.CSS.inner :: classes in
     let children =
       match children with
       | Some x -> x
       | None ->
           Layout_grid_markup.
-            [ create_cell
+            [ layout_grid_cell
                 ~span:4
                 ~span_tablet:8
                 ~children:[Pid_bitrate_pie_chart_markup.create ()]
                 ()
-            ; create_cell
+            ; layout_grid_cell
                 ~span:8
                 ~children:
                   [ Bitrate_summary_markup.create ()
-                  ; Divider_markup.create_hr ()
+                  ; Divider_markup.divider_hr ()
                   ; Pid_summary_markup.create () ]
                 ()
-            ; create_cell ~span:12 ~children:[Pid_overview_markup.create ~control ()] ()
-            ]
+            ; layout_grid_cell
+                ~span:12
+                ~children:[Pid_overview_markup.create ~control ()]
+                () ]
     in
-    div ~a:([a_id (id control); a_class classes] @ attrs) children
+    div ~a:(a_id (id control) :: a_class classes :: a) children
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

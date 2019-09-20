@@ -17,24 +17,34 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
   module Item_list_markup = Item_list.Make (Xml) (Svg) (Html)
 
-  let create_children_wrapper ?(classes = []) ?(attrs = []) ?(nodes = []) () : 'a elt =
-    let classes = CSS.node_children :: classes in
-    ul ~a:([a_class classes; a_role ["group"]] @ attrs) nodes
+  let ( % ) f g x = f (g x)
 
-  let create_node_expander ?(classes = []) ?(attrs = []) () =
-    let classes = CSS.node_expander :: Item_list.CSS.item_meta :: classes in
-    span ~a:([a_class classes] @ attrs) []
+  let ( @:: ) = cons
 
-  let create_node_content
-      ?(classes = [])
-      ?(attrs = [])
+  let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
+
+  let treeview_children_wrapper ?(classes = return []) ?(a = []) ?(children = nil ()) ()
+      =
+    let classes = fmap (fun x -> CSS.node_children :: x) classes in
+    ul ~a:(a_class classes :: a_role (return ["group"]) :: a) children
+
+  let treeview_node_expander ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+    let classes =
+      fmap (fun x -> CSS.node_expander :: Item_list.CSS.item_meta :: x) classes
+    in
+    span ~a:(a_class classes :: a) children
+
+  let treeview_node_content
+      ?(classes = return [])
+      ?(a = [])
       ?graphic
       ?meta
       ?role
@@ -42,30 +52,26 @@ struct
       ?secondary_text
       ?force_wrap
       ?children
-      () : 'a elt =
-    let classes =
-      classes |> List.cons Item_list.CSS.item |> List.cons CSS.node_content
-    in
+      () =
+    let classes = fmap (fun x -> Item_list.CSS.item :: CSS.node_content :: x) classes in
     let children =
       match children with
       | Some x -> x
       | None ->
           let text =
-            Item_list_markup.create_item_text
-              ?force_wrap
-              ?primary_text
-              ?secondary_text
-              ()
+            Item_list_markup.list_item_text ?force_wrap ?primary_text ?secondary_text ()
           in
-          Utils.(graphic ^:: (text :: (meta ^:: [])))
+          graphic ^:: return text @:: meta ^:: nil ()
     in
     span
-      ~a:([a_class classes] @ attrs |> Utils.map_cons_option (fun x -> a_role [x]) role)
+      ~a:
+        (a_class classes :: a
+        |> Utils.map_cons_option (fun x -> a_role (return [x])) role)
       children
 
-  let create_node
-      ?(classes = [])
-      ?(attrs = [])
+  let treeview_node
+      ?(classes = return [])
+      ?(a = [])
       ?value
       ?level
       ?(expanded = false)
@@ -85,69 +91,74 @@ struct
       () : 'a elt =
     let node_content =
       match node_content with
-      | Some x -> x
+      | Some x -> return x
       | None ->
           let meta =
             match meta, children_wrapper, child_nodes with
-            | (Some _ as x), _, _ -> x
-            | None, None, Some [] | None, None, None -> None
-            | None, Some _, _ | None, _, Some _ -> Some (create_node_expander ())
+            | Some x, _, _ -> Some (return x)
+            | None, None, None -> None
+            | None, Some _, _ | None, _, Some _ ->
+                Some (return (treeview_node_expander ()))
           in
-          create_node_content
-            ?graphic
-            ?meta
-            ?role
-            ?primary_text
-            ?secondary_text
-            ?force_wrap
-            ()
+          return
+            (treeview_node_content
+               ?graphic
+               ?meta
+               ?role
+               ?primary_text
+               ?secondary_text
+               ?force_wrap
+               ())
     in
     let checked =
       if indeterminate then "mixed" else if checked then "true" else "false"
     in
     let children_wrapper =
       match children_wrapper with
-      | Some _ as x -> x
+      | Some x -> Some (return x)
       | None -> (
         match child_nodes with
-        | None | Some [] -> None
-        | Some nodes -> Some (create_children_wrapper ~nodes ()))
+        | None -> None
+        | Some nodes -> Some (return (treeview_children_wrapper ~children:nodes ())))
     in
-    let classes = CSS.node :: classes in
+    let classes = fmap (fun x -> CSS.node :: x) classes in
     li
       ~a:
-        ([ a_class classes
-         ; a_role ["treeitem"]
-         ; a_aria "selected" [string_of_bool selected]
-         ; a_aria "checked" [checked]
-         ; a_aria "expanded" [string_of_bool expanded]
-         ; a_tabindex tabindex ]
-         @ attrs
-        |> Utils.map_cons_option (fun x -> a_aria "level" [string_of_int x]) level
+        (a_class classes
+         :: a_role (return ["treeitem"])
+         :: a_aria "selected" (return [string_of_bool selected])
+         :: a_aria "checked" (return [checked])
+         :: a_aria "expanded" (return [string_of_bool expanded])
+         :: a_tabindex (return tabindex)
+         :: a
+        |> Utils.map_cons_option
+             (fun x -> a_aria "level" (return [string_of_int x]))
+             level
         |> Utils.map_cons_option (a_user_data "value") value)
-      Utils.(node_content :: (children_wrapper ^:: []))
+      (node_content @:: children_wrapper ^:: nil ())
 
-  let create
-      ?(classes = [])
-      ?(attrs = [])
+  let treeview
+      ?(classes = return [])
+      ?(a = [])
       ?multiselectable
       ?(dense = false)
       ?(two_line = false)
-      ?(children = [])
+      ?(children = nil ())
       () =
     let classes =
-      classes
-      |> Utils.cons_if dense Item_list.CSS.dense (* FIXME *)
-      |> Utils.cons_if two_line Item_list.CSS.two_line (* FIXME *)
-      |> List.cons CSS.root
+      fmap
+        (Utils.cons_if dense Item_list.CSS.dense (* FIXME *)
+        % Utils.cons_if two_line Item_list.CSS.two_line (* FIXME *)
+        % List.cons CSS.root)
+        classes
     in
     ul
       ~a:
-        ([a_class classes; a_role ["tree"]] @ attrs
+        (a_class classes :: a_role (return ["tree"]) :: a
         |> Utils.map_cons_option
              (fun x ->
                let v = string_of_bool x in
-               a_aria "multiselectable" [v])
+               a_aria "multiselectable" (return [v]))
              multiselectable)
       children
 end

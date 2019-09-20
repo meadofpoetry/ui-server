@@ -1,7 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Textfield
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 (* TODO
    - add 'onchange' callback
@@ -44,8 +45,8 @@ module Character_counter = struct
 
   let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
 
-  let make ?classes ?attrs ?current_length ?max_length () =
-    Markup_js.Character_counter.create ?classes ?attrs ?current_length ?max_length ()
+  let make ?classes ?a ?current_length ?max_length () =
+    D.Character_counter.character_counter ?classes ?a ?current_length ?max_length ()
     |> Tyxml_js.To_dom.of_div
     |> attach
 end
@@ -159,15 +160,8 @@ module Helper_text = struct
 
   let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
 
-  let make ?classes ?attrs ?persistent ?validation ?text ?children () =
-    Markup_js.Helper_text.create
-      ?classes
-      ?attrs
-      ?persistent
-      ?validation
-      ?text
-      ?children
-      ()
+  let make ?classes ?a ?persistent ?validation ?text ?children () =
+    D.Helper_text.helper_text ?classes ?a ?persistent ?validation ?text ?children ()
     |> Tyxml_js.To_dom.of_div
     |> attach
 end
@@ -809,7 +803,7 @@ let attach
 
 let make_textarea
     ?classes
-    ?attrs
+    ?a
     ?disabled
     ?fullwidth
     ?focused
@@ -831,9 +825,9 @@ let make_textarea
     ?helper_text
     ?use_native_validation
     () =
-  Markup_js.Textarea.create
+  D.Textarea.textarea
     ?classes
-    ?attrs
+    ?a
     ?disabled
     ?fullwidth
     ?focused
@@ -861,7 +855,7 @@ let make_textarea
 
 let make
     ?classes
-    ?attrs
+    ?a
     ?disabled
     ?leading_icon
     ?trailing_icon
@@ -925,9 +919,9 @@ let make
       | None -> None
       | Some validation -> Some (valid_to_string validation x))
   in
-  Markup_js.create
+  D.textfield
     ?classes
-    ?attrs
+    ?a
     ?disabled
     ?leading_icon
     ?trailing_icon

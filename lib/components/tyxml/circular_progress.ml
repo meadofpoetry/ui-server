@@ -11,28 +11,30 @@ end
 let sz = 50.
 
 module Make
-    (Xml : Xml_sigs.T)
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
-  module CSS = CSS
+
+  let ( % ) f g x = f (g x)
 
   let circular_progress
-      ?(classes = [])
+      ?(classes = return [])
       ?(a = [])
-      ?(min = 0.)
-      ?(max = 1.)
-      ?(value = 0.)
+      ?(min = return 0.)
+      ?(max = return 1.)
+      ?(value = return 0.)
       ?(indeterminate = true)
-      ?(thickness = 3.6)
-      ?(size = 40)
+      ?(thickness = return 3.6)
+      ?(size = return 40)
       () : 'a elt =
     let open Xml.W in
     let classes =
-      classes |> Utils.cons_if indeterminate CSS.indeterminate |> List.cons CSS.root
+      fmap (Utils.cons_if indeterminate CSS.indeterminate % List.cons CSS.root) classes
     in
-    let style = Printf.sprintf "width: %dpx; height: %dpx" size size in
+    let style = fmap (fun x -> Printf.sprintf "width: %dpx; height: %dpx" x x) size in
     let circle =
       return
       @@ Svg.circle
@@ -41,7 +43,7 @@ struct
              ; Svg.a_cx (return (sz /. 2., None))
              ; Svg.a_cy (return (sz /. 2., None))
              ; Svg.a_fill (return `None)
-             ; Svg.a_stroke_width (return (thickness, None))
+             ; Svg.a_stroke_width (fmap (fun x -> x, None) thickness)
              ; Svg.a_r (return ((sz /. 2.) -. 5., None)) ]
            (nil ())
     in
@@ -50,13 +52,13 @@ struct
     in
     div
       ~a:
-        ([ a_class (return classes)
-         ; a_style (return style)
-         ; a_role (return ["progressbar"])
-         ; a_aria "valuenow" (return [string_of_float value])
-         ; a_aria "valuemin" (return [string_of_float min])
-         ; a_aria "valuemax" (return [string_of_float max]) ]
-        @ a)
+        (a_class classes
+        :: a_style style
+        :: a_role (return ["progressbar"])
+        :: a_aria "valuenow" (fmap (fun x -> [string_of_float x]) value)
+        :: a_aria "valuemin" (fmap (fun x -> [string_of_float x]) min)
+        :: a_aria "valuemax" (fmap (fun x -> [string_of_float x]) max)
+        :: a)
       (singleton svg)
 end
 

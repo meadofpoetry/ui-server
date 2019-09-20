@@ -15,35 +15,35 @@ module Make
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
-  module Components = Bundle.Make (Xml) (Svg) (Html)
+  module Tab_bar_markup = Tab_bar.Make (Xml) (Svg) (Html)
+  module Tab_scroller_markup = Tab_scroller.Make (Xml) (Svg) (Html)
   module Glide_markup = Components_lab_tyxml.Glide.Make (Xml) (Svg) (Html)
   open Html
-  open Components
 
-  let create_tab_bar ?classes ?attrs ?(tabs = []) () =
+  let create_tab_bar ?classes ?a ?(tabs = []) () =
     let scroll_content =
-      Tab_scroller.create_scroll_content ~attrs:[a_role ["tablist"]] ~tabs ()
+      Tab_scroller_markup.tab_scroller_scroll_content ~a:[a_role ["tablist"]] ~tabs ()
     in
-    let scroll_area = Tab_scroller.create_scroll_area ~scroll_content () in
-    let scroller = Tab_scroller.create ~scroll_area () in
-    Tab_bar.create ?classes ?attrs ~scroller ()
+    let scroll_area = Tab_scroller_markup.tab_scroller_scroll_area ~scroll_content () in
+    let scroller = Tab_scroller_markup.tab_scroller ~scroll_area () in
+    Tab_bar_markup.tab_bar ?classes ?a ~scroller ()
 
-  let create_tabpanel_content ?(classes = []) ?(attrs = []) ?(children = []) () =
+  let create_tabpanel_content ?(classes = []) ?(a = []) ?(children = []) () =
     let classes = CSS.tabpanel_content :: Layout_grid.CSS.root :: classes in
-    div ~a:([a_class classes] @ attrs) children
+    div ~a:(a_class classes :: a) children
 
-  let create_tabpanel ?(classes = []) ?(attrs = []) ~id ?children () =
+  let create_tabpanel ?(classes = []) ?(a = []) ~id ?children () =
     let classes = CSS.tabpanel :: classes in
-    Glide_markup.create_slide
+    Glide_markup.glide_slide
       ~classes
-      ~attrs:([a_id id; a_role ["tabpanel"]; a_aria "labelledby" [tab_id id]] @ attrs)
+      ~a:(a_id id :: a_role ["tabpanel"] :: a_aria "labelledby" [tab_id id] :: a)
       ?children
       ()
 
-  let create ?(classes = []) ?(attrs = []) ?(children = []) () =
+  let create ?(classes = []) ?(a = []) ?(children = []) () =
     let classes = CSS.root :: classes in
-    Glide_markup.create
-      ~attrs:([a_class classes] @ attrs)
+    Glide_markup.glide
+      ~a:(a_class classes :: a)
       ~slides:
         (List.map
            (fun (id, x) ->
@@ -52,4 +52,4 @@ struct
       ()
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

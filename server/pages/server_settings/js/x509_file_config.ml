@@ -1,10 +1,8 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 open Components
-module Certificate_viewer_markup_js =
-  Page_server_settings_tyxml.Cert_viewer.Make
-    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
-    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
-    (Js_of_ocaml_tyxml.Tyxml_js.Html)
+include Page_server_settings_tyxml.Cert_viewer
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( % ) f g x = f (g x)
 
@@ -63,9 +61,7 @@ let make_info (type a) : a typ -> a -> Dom_html.element Js.t =
   | Crt -> (
     match v with
     | None -> Dom_html.(createDiv document) (* TODO *)
-    | Some (_, v) ->
-        Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-        @@ Certificate_viewer_markup_js.of_certificate v)
+    | Some (_, v) -> Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ D.of_certificate v)
 
 let update_row_state (type a) : a -> Dom_html.element Js.t -> a typ -> unit =
  fun v row typ ->
@@ -95,6 +91,7 @@ class type dialog =
   end
 
 let make_disclaimer_dialog () =
+  let open Dialog.D in
   let title = "Сохранить приватный ключ?" in
   let message =
     "Сохранение приватного ключа требует \
@@ -107,26 +104,20 @@ let make_disclaimer_dialog () =
   in
   let do_not_show =
     Form_field.make_of_widget
-      ~label:(`Text "Больше не показывать это сообщение")
+      ~label:"Больше не показывать это сообщение"
       ~input:(Checkbox.make ())
       ()
   in
   let content =
-    Dialog.Markup_js.create_content
-      [Js_of_ocaml_tyxml.Tyxml_js.Html.txt message; do_not_show#markup]
+    dialog_content ~children:[Tyxml_js.Html.txt message; do_not_show#markup] ()
   in
   let actions =
-    Dialog.Markup_js.
-      [ create_action ~action:Close ~label:"Отмена" ()
-      ; create_action ~action:Accept ~label:"Сохранить" () ]
+    [ dialog_action ~action:Close ~label:"Отмена" ()
+    ; dialog_action ~action:Accept ~label:"Сохранить" () ]
   in
   let elt =
-    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-    @@ Dialog.Markup_js.create
-         ~title:(Dialog.Markup_js.create_title ~title ())
-         ~content
-         ~actions
-         ()
+    Tyxml_js.To_dom.of_element
+    @@ dialog ~title:(dialog_title ~title ()) ~content ~actions ()
   in
   object
     inherit Dialog.t elt ()
@@ -137,6 +128,7 @@ let make_disclaimer_dialog () =
   end
 
 let make_warning_dialog (type a) (typ : a typ) =
+  let open Dialog.D in
   let title, file =
     match typ with
     | Key ->
@@ -153,19 +145,19 @@ let make_warning_dialog (type a) (typ : a typ) =
           перезапуске прибора."
          file)
   in
-  let title = Dialog.Markup_js.create_title ~title () in
-  let content = Dialog.Markup_js.create_content [content] in
+  let title = dialog_title ~title () in
+  let content = dialog_content ~children:[content] () in
   let actions =
-    Dialog.Markup_js.
-      [ create_action ~action:Close ~label:"Отмена" ()
-      ; create_action ~action:Accept ~label:"Удалить" () ]
+    [ dialog_action ~action:Close ~label:"Отмена" ()
+    ; dialog_action ~action:Accept ~label:"Удалить" () ]
   in
   Dialog.make ~title ~content ~actions ()
 
 let make_certificate_dialog () =
-  let title = Dialog.Markup_js.create_title ~title:"Сертификат" () in
-  let content = Dialog.Markup_js.create_content [] in
-  let actions = Dialog.Markup_js.[create_action ~action:Close ~label:"ОК" ()] in
+  let open Dialog.D in
+  let title = dialog_title ~title:"Сертификат" () in
+  let content = dialog_content () in
+  let actions = [dialog_action ~action:Close ~label:"ОК" ()] in
   Dialog.make ~title ~content ~actions ()
 
 module Selector = struct

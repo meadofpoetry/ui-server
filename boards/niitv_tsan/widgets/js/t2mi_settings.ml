@@ -18,7 +18,7 @@ let make_enabled () =
   in
   let form =
     Form_field.make_of_widget
-      ~label:(`Text "Включить анализ T2-MI")
+      ~label:"Включить анализ T2-MI"
       ~align_end:true
       ~input:enabled
       ()
@@ -30,7 +30,7 @@ let make_pid () =
   let pid =
     Textfield.make
       ~required:true
-      ~label:(`Text "T2-MI PID")
+      ~label:"T2-MI PID"
       ~validation:(Integer (Some 0, Some 8192))
       ()
   in
@@ -47,7 +47,7 @@ let make_sid () =
   let sid =
     Textfield.make
       ~required:true
-      ~label:(`Text "T2-MI Stream ID")
+      ~label:"T2-MI Stream ID"
       ~validation:(Integer (Some 0, Some 7))
       ()
   in
@@ -81,11 +81,8 @@ let stream_select_validation =
 let make_stream_select_items streams =
   List.map
     (fun (s : Stream.t) ->
-      let open Select.Markup_js.Native in
-      create_option
-        ~value:(stream_select_validation.to_string s)
-        ~text:(stream_to_string s)
-        ())
+      let open Select.D.Native in
+      option ~value:(stream_select_validation.to_string s) ~text:(stream_to_string s) ())
     streams
 
 let make_stream_select (streams : Stream.t list) (mode : t2mi_mode) =
@@ -104,7 +101,7 @@ let make_stream_select (streams : Stream.t list) (mode : t2mi_mode) =
   let select =
     Select.make_native
       ~on_change:(fun _ -> push ())
-      ~label:(`Text "Поток для анализа T2-MI")
+      ~label:"Поток для анализа T2-MI"
       ~options
       ~validation
       ()
@@ -130,8 +127,8 @@ class t
   let sid, e_sid = make_sid () in
   let stream_select, e_stream = make_stream_select streams mode in
   let submit = Button.make ~label:"Применить" () in
-  let buttons = Card.Markup_js.create_action_buttons ~children:[submit#markup] () in
-  let actions = Card.Markup_js.create_actions ~children:[buttons] () in
+  let buttons = Card.D.card_action_buttons ~children:[submit#markup] () in
+  let actions = Card.D.card_actions ~children:[buttons] () in
   object (self)
     val mutable _on_submit = None
 

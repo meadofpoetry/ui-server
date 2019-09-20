@@ -63,11 +63,15 @@ module Make
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
-  module Icon = Icon.Make (Xml) (Svg) (Html)
-  module Checkbox = Checkbox.Make (Xml) (Svg) (Html)
-  module Treeview = Treeview.Make (Xml) (Svg) (Html)
-  module Dialog = Dialog.Make (Xml) (Svg) (Html)
-  module Placeholder = Components_lab_tyxml.Placeholder.Make (Xml) (Svg) (Html)
+  open Html
+
+  open Icon.Make (Xml) (Svg) (Html)
+
+  open Checkbox.Make (Xml) (Svg) (Html)
+
+  open Treeview.Make (Xml) (Svg) (Html)
+
+  open Components_lab_tyxml.Placeholder.Make (Xml) (Svg) (Html)
 
   let create_widget_node
       (channel_struct : Structure.Annotated.channel)
@@ -75,20 +79,17 @@ struct
     let widget, _channel = widget in
     let typ = (snd widget).type_ in
     let text = Parse_struct.widget typ (snd widget).pid channel_struct in
-    let checkbox = Checkbox.create () in
+    let checkbox = checkbox () in
     let data =
       { widget
       ; service_name = channel_struct.service_name
       ; provider_name = channel_struct.provider_name }
     in
-    let node =
-      Treeview.create_node
-        ~graphic:(Html.Unsafe.coerce_elt checkbox)
-        ~value:(Yojson.Safe.to_string @@ data_to_yojson data)
-        ~primary_text:(`Text text)
-        ()
-    in
-    node
+    treeview_node
+      ~graphic:(Html.Unsafe.coerce_elt checkbox)
+      ~value:(Yojson.Safe.to_string @@ data_to_yojson data)
+      ~primary_text:(`Text text)
+      ()
 
   let create_channel_nodes
       (widgets : ((string * Wm.widget) * channel) list)
@@ -116,9 +117,9 @@ struct
                       widgets
                in
                let child_nodes = List.map (create_widget_node channel_struct) widgets in
-               let checkbox = Checkbox.create () in
+               let checkbox = checkbox () in
                let node =
-                 Treeview.create_node
+                 treeview_node
                    ~value:text
                    ~graphic:(Html.Unsafe.coerce_elt checkbox)
                    ~child_nodes
@@ -162,9 +163,9 @@ struct
           | None -> acc
           | Some (text, packed) ->
               let child_nodes = create_channel_nodes wds packed in
-              let checkbox = Checkbox.create () in
+              let checkbox = checkbox () in
               let stream_node =
-                Treeview.create_node
+                treeview_node
                   ~graphic:(Html.Unsafe.coerce_elt checkbox)
                   ~child_nodes
                   ~value:(Stream.ID.to_string stream)
@@ -175,7 +176,7 @@ struct
         []
         streams_of_widgets
     in
-    Treeview.create ~dense:true ~children:nodes ()
+    treeview ~dense:true ~children:nodes ()
 
   let create_treeview (streams : Structure.Annotated.t) (wm : Wm.Annotated.t) =
     let widgets =
@@ -189,20 +190,22 @@ struct
     in
     create_stream_nodes widgets streams
 
-  let create_empty_placeholder ?classes ?attrs () =
-    Placeholder.create
+  let create_empty_placeholder ?classes ?a () =
+    placeholder
       ?classes
-      ?attrs
-      ~icon:Icon.SVG.(icon ~d:Svg_icons.information ())
+      ?a
+      ~icon:(SVG.icon ~d:Svg_icons.information ())
       ~text:(`Text "Нет доступных виджетов")
       ()
 
   let create
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?(placeholder = create_empty_placeholder ())
       ~treeview
       () =
     let classes = CSS.root :: classes in
-    Html.(div ~a:([a_class classes] @ attrs) [treeview; placeholder])
+    div ~a:(a_class classes :: a) [treeview; placeholder]
 end
+
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

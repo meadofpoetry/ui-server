@@ -3,7 +3,7 @@ open Js_of_ocaml_tyxml
 open Pipeline_types
 open Components
 include Page_mosaic_editor_tyxml.Widget_editor
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 type event = [`Container of Wm.Annotated.state * Wm.Annotated.container]
 
@@ -47,7 +47,7 @@ let set_tab_index
   set 0 item
 
 let make_item ((id, widget) : string * Wm.widget) =
-  let item = Tyxml_js.To_dom.of_element @@ Markup_js.create_item widget in
+  let item = Tyxml_js.To_dom.of_element @@ D.create_item widget in
   Widget_utils.set_attributes ~id item widget;
   Widget_utils.Z_index.set widget.layer item;
   item
@@ -559,7 +559,7 @@ let make
         List.map
           (fun (x : Dom_html.element Js.t) ->
             let _, widget = Widget_utils.widget_of_element x in
-            let item = Tyxml_js.To_dom.of_element @@ Markup_js.create_item widget in
+            let item = Tyxml_js.To_dom.of_element @@ D.create_item widget in
             Widget_utils.copy_attributes x item;
             Widget_utils.Z_index.set widget.layer item;
             (match Widget_utils.Attr.get_position item with
@@ -570,9 +570,9 @@ let make
     | `Data x -> List.map make_item x
   in
   let content =
-    Grid_overlay.Markup_js.create ~size:10 ()
-    :: Markup_js.create_ghost ()
+    Grid_overlay.D.create ~size:10 ()
+    :: D.create_ghost ()
     :: List.map Tyxml_js.Of_dom.of_element items
   in
-  let elt = Tyxml_js.To_dom.of_element @@ Markup_js.create ~content () in
+  let elt = Tyxml_js.To_dom.of_element @@ D.create ~content () in
   new t ~list_of_widgets ~resolution ~position scaffold elt

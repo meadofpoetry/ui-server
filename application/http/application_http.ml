@@ -4,7 +4,7 @@ module Api_http = Api_cohttp.Make (User) (Body)
 module Api_template = Api_cohttp_template.Make (User)
 module Api_websocket = Api_websocket.Make (User) (Body) (Body_ws)
 
-let icon x = Components_tyxml.Icon.Markup.SVG.create ~d:x ()
+let icon d = Components_tyxml.Icon.F.SVG.icon ~d ()
 
 let logout_page_props () =
   let goodbye = "До новых встреч!" in
@@ -23,7 +23,7 @@ let logout_page_props () =
                [ icon Components_tyxml.Svg_icons.human_greeting
                ; div ~a:[a_class ["logout-page__goodbye"]] [txt goodbye]
                ; div ~a:[a_class ["logout-page__message"]] [txt message]
-               ; Components_tyxml.Button.F.create_anchor
+               ; Components_tyxml.Button.F.button_a
                    ~label:"Войти"
                    ~appearance:Raised
                    ~href:(uri_of_string "/")

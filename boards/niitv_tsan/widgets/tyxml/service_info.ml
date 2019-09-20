@@ -20,25 +20,25 @@ struct
   module Tab_bar_markup = Tab_bar.Make (Xml) (Svg) (Html)
   module Glide_markup = Components_lab_tyxml.Glide.Make (Xml) (Svg) (Html)
 
-  let create_description ?(classes = []) ?(attrs = []) () =
+  let create_description ?(classes = []) ?(a = []) () =
     let classes = CSS.description :: classes in
-    div ~a:([a_class classes] @ attrs) []
+    div ~a:(a_class classes :: a) []
 
-  let create_tab_bar ?classes ?attrs ?tabs () =
+  let create_tab_bar ?classes ?a ?tabs () =
     let tabs =
       match tabs with
       | Some x -> x
       | None ->
           Tab_markup.
-            [ create ~text_label:(`Text "Общее описание") ()
-            ; create ~text_label:(`Text "SDT") ()
-            ; create ~text_label:(`Text "PIDs") () ]
+            [ tab ~text_label:(`Text "Общее описание") ()
+            ; tab ~text_label:(`Text "SDT") ()
+            ; tab ~text_label:(`Text "PIDs") () ]
     in
-    Tab_bar_markup.create ?classes ?attrs ~tabs ()
+    Tab_bar_markup.tab_bar ?classes ?a ~tabs ()
 
   let create_glide
       ?classes
-      ?attrs
+      ?a
       ?children
       ?pids
       ?info
@@ -52,7 +52,7 @@ struct
       | Some x -> x
       | None ->
           Glide_markup.
-            [ create_slide
+            [ glide_slide
                 ~children:
                   [ Service_general_info_markup.create
                       ?info
@@ -61,16 +61,16 @@ struct
                       ?min_bitrate
                       () ]
                 ()
-            ; create_slide ~children:[Service_sdt_info_markup.create ?info ()] ()
-            ; create_slide
+            ; glide_slide ~children:[Service_sdt_info_markup.create ?info ()] ()
+            ; glide_slide
                 ~children:[Pid_overview_markup.create ?init:pids ~control ()]
                 () ]
     in
-    Glide_markup.create ?classes ?attrs ~slides ()
+    Glide_markup.glide ?classes ?a ~slides ()
 
   let create
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?pids
       ?info
       ?bitrate
@@ -85,10 +85,10 @@ struct
       | Some x -> x
       | None ->
           [ create_tab_bar ()
-          ; Divider_markup.create_hr ()
+          ; Divider_markup.divider_hr ()
           ; create_glide ?pids ?info ?bitrate ?max_bitrate ?min_bitrate ~control () ]
     in
-    div ~a:([a_class classes] @ attrs) children
+    div ~a:(a_class classes :: a) children
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

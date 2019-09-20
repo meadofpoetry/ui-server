@@ -143,56 +143,51 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  open Utils
 
-  let create_line_number ?(classes = []) ?(attrs = []) n () : 'a elt =
-    span ~a:([a_class classes] @ attrs) [txt @@ line_number_to_string n]
+  let hexdump_line_number ?(classes = []) ?(a = []) n () =
+    span ~a:(a_class classes :: a) [txt @@ line_number_to_string n]
 
-  let create_char_empty ?(classes = []) ?(attrs = []) () : 'a elt =
+  let hexdump_char_empty ?(classes = []) ?(a = []) () =
     let classes = CSS.item :: classes in
-    span
-      ~a:([a_class classes; a_user_data "empty" "true"] @ attrs)
-      [txt (String.make 2 ' ')]
+    span ~a:(a_class classes :: a_user_data "empty" "true" :: a) [txt (String.make 2 ' ')]
 
-  let create_char
+  let hexdump_char
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?(selected = false)
       ~(id : int)
       (chr : char)
-      () : 'a elt =
-    let classes = classes |> cons_if selected CSS.item_selected |> List.cons CSS.item in
+      () =
+    let classes =
+      classes |> Utils.cons_if selected CSS.item_selected |> List.cons CSS.item
+    in
     let chr = map_char_printable chr in
     span
-      ~a:([a_class classes; a_user_data "id" (string_of_int id)] @ attrs)
+      ~a:([a_class classes; a_user_data "id" (string_of_int id)] @ a)
       [txt (String.make 1 chr)]
 
-  let create_hex_empty
-      ?(classes = [])
-      ?(attrs = [])
-      ?(grouping = 1)
-      ~(base : base)
-      ~id
-      () : 'a elt =
+  let hexdump_hex_empty ?(classes = []) ?(a = []) ?(grouping = 1) ~(base : base) ~id () =
     let classes = CSS.item :: classes in
     let text = String.make (get_padding base) '.' in
     span
-      ~a:([a_class classes; a_user_data "empty" "true"] @ attrs)
+      ~a:(a_class classes :: a_user_data "empty" "true" :: a)
       [txt (if should_insert_space ~grouping id then text ^ " " else text)]
 
-  let create_hex
+  let hexdump_hex
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?(grouping = 1)
       ?(selected = false)
       ~(base : base)
       ~(id : int)
       (hex : int)
       () : 'a elt =
-    let classes = classes |> cons_if selected CSS.item_selected |> List.cons CSS.item in
+    let classes =
+      classes |> Utils.cons_if selected CSS.item_selected |> List.cons CSS.item
+    in
     let text = pad (get_padding base) '0' @@ to_base_string base hex in
     span
-      ~a:([a_class classes; a_user_data "id" (string_of_int id)] @ attrs)
+      ~a:(a_class classes :: a_user_data "id" (string_of_int id) :: a)
       [txt (if should_insert_space ~grouping id then text ^ " " else text)]
 
   let append_empty base ~width ~grouping i acc =
@@ -201,25 +196,25 @@ struct
       | rest ->
           let hex, chr = acc in
           (* Insert space if this item is not last in a row *)
-          let hex = create_hex_empty ~base ~grouping ~id:i () :: hex in
-          let chr = create_char_empty () :: chr in
+          let hex = hexdump_hex_empty ~base ~grouping ~id:i () :: hex in
+          let chr = hexdump_char_empty () :: chr in
           aux (succ i) (hex, chr) (pred rest)
     in
     aux i acc (width - i)
 
-  let create_row ?(from_id = 0) ~width ~grouping (base : base) (data : char list) =
+  let hexdump_row ?(from_id = 0) ~width ~grouping (base : base) (data : char list) =
     let rec aux id acc = function
       | [] -> append_empty base ~grouping ~width (id - from_id) acc
       | (hd : char) :: tl ->
           let hex, chr = acc in
           let code = Char.code hd in
-          let hex = create_hex ~base ~grouping ~id code () :: hex in
-          let chr = create_char ~id hd () :: chr in
+          let hex = hexdump_hex ~base ~grouping ~id code () :: hex in
+          let chr = hexdump_char ~id hd () :: chr in
           aux (succ id) (hex, chr) tl
     in
     aux from_id ([], []) data
 
-  let create_rows ~width ~grouping ~base (data : string) =
+  let hexdump_rows ~width ~grouping ~base (data : string) =
     let rec aux acc bytes =
       match take_drop width bytes with
       | l, [] -> List.rev (l :: acc)
@@ -229,8 +224,8 @@ struct
     let _, num, hex, chr =
       List.fold_left
         (fun (id, num, hex, chr) (x : char list) ->
-          let num' = create_line_number (id / width) () in
-          let hex', chr' = create_row ~from_id:id ~width ~grouping base x in
+          let num' = hexdump_line_number (id / width) () in
+          let hex', chr' = hexdump_row ~from_id:id ~width ~grouping base x in
           ( id + List.length x
           , br () :: num' :: num
           , (br () :: hex') @ hex
@@ -240,7 +235,7 @@ struct
     in
     List.rev num, List.rev hex, List.rev chr
 
-  let create_block ?(classes = []) ?(attrs = []) ~typ cells () : 'a elt =
+  let hexdump_block ?(classes = []) ?(a = []) ~typ cells () : 'a elt =
     let typ_class =
       match typ with
       | Num -> CSS.block_line_numbers
@@ -248,11 +243,11 @@ struct
       | Chr -> CSS.block_chars
     in
     let classes = CSS.block :: typ_class :: classes in
-    div ~a:([a_class classes] @ attrs) cells
+    div ~a:(a_class classes :: a) cells
 
-  let create
+  let hexdump
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?(no_line_numbers = false)
       ?(non_interactive = false)
       ~width
@@ -262,42 +257,42 @@ struct
       () : 'a elt =
     let classes =
       classes
-      |> cons_if no_line_numbers CSS.no_line_numbers
-      |> cons_if non_interactive CSS.non_interactive
+      |> Utils.cons_if no_line_numbers CSS.no_line_numbers
+      |> Utils.cons_if non_interactive CSS.non_interactive
       |> List.cons CSS.root
     in
     div
       ~a:
-        ([ a_class classes
-         ; a_user_data "width" (string_of_int width)
-         ; a_user_data "grouping" (string_of_int grouping)
-         ; a_user_data "base" (base_to_string base) ]
-        @ attrs)
+        (a_class classes
+        :: a_user_data "width" (string_of_int width)
+        :: a_user_data "grouping" (string_of_int grouping)
+        :: a_user_data "base" (base_to_string base)
+        :: a)
       blocks
 
   let of_bytes
       ?classes
-      ?attrs
+      ?a
       ?(width = 16)
       ?(grouping = 1)
       ?no_line_numbers
       ?non_interactive
       ?(base = Hex)
       (bytes : string) : 'a elt =
-    let num, hex, chr = create_rows ~width ~grouping ~base bytes in
-    create
+    let num, hex, chr = hexdump_rows ~width ~grouping ~base bytes in
+    hexdump
       ?classes
-      ?attrs
+      ?a
       ~width
       ~grouping
       ?no_line_numbers
       ?non_interactive
       ~base
       ~blocks:
-        [ create_block ~typ:Num num ()
-        ; create_block ~typ:Hex hex ()
-        ; create_block ~typ:Chr chr () ]
+        [ hexdump_block ~typ:Num num ()
+        ; hexdump_block ~typ:Hex hex ()
+        ; hexdump_block ~typ:Chr chr () ]
       ()
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

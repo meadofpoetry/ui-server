@@ -1,4 +1,5 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 open Components
 module D =
   Page_power_management_tyxml.Reboot.Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
@@ -10,13 +11,11 @@ module Selector = struct
 end
 
 let make_warning_dialog () =
-  let title =
-    Dialog.Markup_js.create_title ~title:"Выключить прибор?" ()
-  in
+  let open Dialog.D in
+  let title = dialog_title ~title:"Выключить прибор?" () in
   let actions =
-    Dialog.Markup_js.
-      [ create_action ~action:Close ~label:"Отмена" ()
-      ; create_action ~action:Accept ~label:"Выключить" () ]
+    [ dialog_action ~action:Close ~label:"Отмена" ()
+    ; dialog_action ~action:Accept ~label:"Выключить" () ]
   in
   Dialog.make ~title ~actions ()
 
@@ -83,5 +82,4 @@ class t (elt : Dom_html.element Js.t) =
 
 let attach (elt : #Dom_html.element Js.t) : t = new t (elt :> Dom_html.element Js.t)
 
-let make ?classes ?attrs () =
-  D.create ?classes ?attrs () |> Tyxml_js.To_dom.of_element |> attach
+let make ?classes ?a () = D.create ?classes ?a () |> Tyxml_js.To_dom.of_element |> attach

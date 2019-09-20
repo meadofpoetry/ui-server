@@ -56,55 +56,72 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
 
-  let create_title ?(classes = []) ?(attrs = []) ?title ?(children = []) () : 'a elt =
-    span
-      ~a:([a_class (CSS.title :: classes)] @ attrs)
-      (Utils.map_cons_option txt title children)
+  let ( % ) f g x = f (g x)
 
-  let create_section ?(classes = []) ?(attrs = []) ?align ?(children = []) () : 'a elt =
+  let ( @:: ) = cons
+
+  let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
+
+  let top_app_bar_title ?(classes = return []) ?(a = []) ?title ?(children = nil ()) () =
+    let classes = fmap (fun x -> CSS.title :: x) classes in
+    let children =
+      match title with
+      | None -> children
+      | Some x -> cons (return (txt x)) children
+    in
+    span ~a:(a_class classes :: a) children
+
+  let top_app_bar_section ?(classes = return []) ?(a = []) ?align ?(children = nil ()) ()
+      =
     let align_class =
       match align with
       | None -> None
       | Some `Start -> Some CSS.section_align_start
       | Some `End -> Some CSS.section_align_end
     in
-    let classes = classes |> Utils.cons_option align_class |> List.cons CSS.section in
-    section ~a:([a_class classes] @ attrs) children
+    let classes = fmap (Utils.cons_option align_class % List.cons CSS.section) classes in
+    section ~a:(a_class classes :: a) children
 
-  let create_row ?(classes = []) ?(attrs = []) ?(sections = []) () : 'a elt =
-    let classes = CSS.row :: classes in
-    div ~a:([a_class classes] @ attrs) sections
+  let top_app_bar_row ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+    let classes = fmap (fun x -> CSS.row :: x) classes in
+    div ~a:(a_class classes :: a) children
 
-  let create ?(classes = []) ?(attrs = []) ?leading ?title ?actions ?rows () =
-    let classes = CSS.root :: classes in
-    let rows =
-      match rows with
+  let top_app_bar ?(classes = return []) ?(a = []) ?leading ?title ?actions ?children ()
+      =
+    let classes = fmap (fun x -> CSS.root :: x) classes in
+    let children =
+      match children with
       | Some x -> x
       | None ->
           let title =
             match title with
             | None -> None
-            | Some (`Element x) -> Some x
-            | Some (`Text x) -> Some (create_title ~title:x ())
+            | Some (`Element x) -> Some (return x)
+            | Some (`Text x) -> Some (return (top_app_bar_title ~title:x ()))
           in
           let start_section =
-            create_section ~align:`Start ~children:Utils.(leading ^:: title ^:: []) ()
+            return
+              (top_app_bar_section
+                 ~align:`Start
+                 ~children:(leading ^:: title ^:: nil ())
+                 ())
           in
           let end_section =
             match actions with
             | None -> None
-            | Some x -> Some (create_section ~align:`End ~children:x ())
+            | Some x -> Some (return (top_app_bar_section ~align:`End ~children:x ()))
           in
-          let sections = List.rev Utils.(end_section ^:: [start_section]) in
-          [create_row ~sections ()]
+          let sections = start_section @:: end_section ^:: nil () in
+          singleton (return (top_app_bar_row ~children:sections ()))
     in
-    header ~a:([a_class classes] @ attrs) rows
+    header ~a:(a_class classes :: a) children
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

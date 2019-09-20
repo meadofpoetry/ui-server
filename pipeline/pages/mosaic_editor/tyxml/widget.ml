@@ -34,6 +34,8 @@ module Make
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
+  let ( % ) f g x = f (g x)
+
   let domain_attrs = function
     | Wm.Nihil -> []
     | Chan x ->
@@ -68,4 +70,4 @@ struct
       |> map_cons_option (a_user_data "pid" % string_of_int) widget.pid)
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

@@ -30,7 +30,7 @@ let attach (elt : #Dom_html.element Js.t) : t = new t (elt :> Dom_html.element J
 
 let make
     ?classes
-    ?attrs
+    ?a
     ?tag
     ?justify_content
     ?align_items
@@ -41,7 +41,7 @@ let make
     () =
   D.box
     ?classes
-    ?attrs
+    ?a
     ?tag
     ?justify_content
     ?align_items

@@ -1,11 +1,8 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 open Components
 include Page_network_settings_tyxml.Dns
-module Markup_js =
-  Page_network_settings_tyxml.Dns.Make
-    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
-    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
-    (Js_of_ocaml_tyxml.Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( % ) f g x = f (g x)
 
@@ -14,10 +11,11 @@ let ( >>= ) = Lwt.bind
 let name = "DNS"
 
 let make_dialog () =
+  let open Dialog.D in
   let accept =
     Button.attach
     @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-    @@ Dialog.Markup_js.create_action ~action:Accept ~label:"Добавить" ()
+    @@ dialog_action ~action:Accept ~label:"Добавить" ()
   in
   let check_input input =
     match input#value with
@@ -29,17 +27,14 @@ let make_dialog () =
       ~on_input:(fun _ x ->
         check_input x;
         Lwt.return_unit)
-      ~label:(`Text "IP адрес")
+      ~label:"IP адрес"
       ~validation:Util.ipv4_validation
       ()
   in
   let title = "Добавление DNS сервера" in
-  let title = Dialog.Markup_js.create_title ~title () in
-  let content = Dialog.Markup_js.create_content [address#markup] in
-  let actions =
-    Dialog.Markup_js.
-      [create_action ~action:Close ~label:"Отмена" (); accept#markup]
-  in
+  let title = dialog_title ~title () in
+  let content = dialog_content ~children:[address#markup] () in
+  let actions = [dialog_action ~action:Close ~label:"Отмена" (); accept#markup] in
   let dialog = Dialog.make ~title ~content ~actions () in
   dialog#set_on_destroy (fun () ->
       accept#destroy ();
@@ -139,9 +134,7 @@ class t (elt : Dom_html.element Js.t) =
         dns_list#items
 
     method private append_address (x : Ipaddr.V4.t) =
-      let item =
-        Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ Markup_js.create_item x
-      in
+      let item = Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ D.create_item x in
       Element.append_child dns_list#root item;
       _ripples <- (item, Ripple.attach item) :: _ripples;
       dns_list#layout ()
@@ -163,7 +156,5 @@ class t (elt : Dom_html.element Js.t) =
   end
 
 let make (init : Pc_control_types.Network_config.ipv4_conf) : t =
-  let (elt : Dom_html.element Js.t) =
-    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ Markup_js.create init
-  in
+  let (elt : Dom_html.element Js.t) = Tyxml_js.To_dom.of_element @@ D.create init in
   new t elt

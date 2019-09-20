@@ -4,7 +4,7 @@ open Components
 open Application_types
 open Pipeline_types
 include Pipeline_widgets_tyxml.Wizard
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -278,7 +278,7 @@ class t ~treeview ~layout ~structure (elt : Dom_html.element Js.t) () =
           let cur =
             Treeview.attach
             @@ Tyxml_js.To_dom.of_element
-            @@ Markup_js.create_treeview structure layout
+            @@ D.create_treeview structure layout
           in
           let focus_target = merge_trees ~old ~cur in
           Element.remove_child_safe super#root old#root;
@@ -293,11 +293,9 @@ class t ~treeview ~layout ~structure (elt : Dom_html.element Js.t) () =
 
 let make (structure : Structure.Annotated.t) (wm : Wm.Annotated.t) =
   let treeview =
-    Treeview.attach
-    @@ Tyxml_js.To_dom.of_element
-    @@ Markup_js.create_treeview structure wm
+    Treeview.attach @@ Tyxml_js.To_dom.of_element @@ D.create_treeview structure wm
   in
   let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element @@ Markup_js.create ~treeview:treeview#markup ()
+    Tyxml_js.To_dom.of_element @@ D.create ~treeview:treeview#markup ()
   in
   new t ~layout:wm ~structure ~treeview elt ()

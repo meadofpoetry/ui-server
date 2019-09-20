@@ -164,8 +164,7 @@ let attach ~fmt (elt : #Dom_html.element Js.t) : 'a t =
   new t ~fmt (elt :> Dom_html.element Js.t) ()
 
 let make ?classes ?a ?dense ?(data = []) ~format () =
-  let rows = List.map (fun x -> D.data_table_row_of_fmt ~format ~data:x ()) data in
-  D.data_table_of_fmt ?classes ?a ?dense ~format ~rows ()
+  D.data_table_of_fmt ?classes ?a ?dense ~format ~data ()
   |> Tyxml_js.To_dom.of_div
   |> attach ~fmt:format
 

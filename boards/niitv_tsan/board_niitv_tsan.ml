@@ -91,7 +91,7 @@ let make_services_tab_template (b : Topology.topo_board) =
     method content =
       List.map
         Tyxml.Html.toelt
-        [Board_niitv_tsan_page_services_tyxml.Markup.create ~control:b.control ()]
+        [Board_niitv_tsan_page_services_tyxml.F.create ~control:b.control ()]
 
     method title = "Сервисы"
 
@@ -117,7 +117,7 @@ let make_pids_tab_template (b : Topology.topo_board) =
     method content =
       List.map
         Tyxml.Html.toelt
-        [Board_niitv_tsan_page_pids_tyxml.Markup.create ~control:b.control ()]
+        [Board_niitv_tsan_page_pids_tyxml.F.create ~control:b.control ()]
 
     method title = "PIDs"
 
@@ -142,7 +142,7 @@ let make_si_psi_tab_template (b : Topology.topo_board) =
     method content =
       List.map
         Tyxml.Html.toelt
-        [Board_niitv_tsan_page_si_psi_tyxml.Markup.create ~control:b.control ()]
+        [Board_niitv_tsan_page_si_psi_tyxml.F.create ~control:b.control ()]
 
     method title = "SI/PSI"
 

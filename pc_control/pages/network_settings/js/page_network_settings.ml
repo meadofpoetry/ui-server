@@ -1,29 +1,27 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 open Components
 open Pc_control_types.Network_config
-module Markup_js =
-  Page_network_settings_tyxml.Make
-    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
-    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
-    (Js_of_ocaml_tyxml.Tyxml_js.Html)
+module D = Page_network_settings_tyxml.Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
 let ( >>=? ) = Lwt_result.bind
 
 let make_dialog set =
-  let title = Dialog.Markup_js.create_title ~title:"Внимание" () in
+  let open Dialog.D in
+  let title = dialog_title ~title:"Внимание" () in
   let content =
-    Dialog.Markup_js.create_content
-      [ Js_of_ocaml_tyxml.Tyxml_js.Html.txt
-          "Применение настроек может привести к \
-           разрыву соединения. Хотите продолжить?" ]
+    dialog_content
+      ~children:
+        [ Tyxml_js.Html.txt
+            "Применение настроек может привести к \
+             разрыву соединения. Хотите продолжить?" ]
+      ()
   in
   let actions =
-    Dialog.Markup_js.
-      [ create_action ~action:Close ~label:"Отмена" ()
-      ; create_action ~appearance:Raised ~action:Accept ~label:"Продолжить" ()
-      ]
+    [ dialog_action ~action:Close ~label:"Отмена" ()
+    ; dialog_action ~appearance:Raised ~action:Accept ~label:"Продолжить" () ]
   in
   let dialog = Dialog.make ~title ~content ~actions () in
   ( dialog
@@ -101,7 +99,7 @@ let () =
     let page =
       Widget.create
       @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-      @@ Markup_js.create
+      @@ D.create
            ~children:
              [ethernet#markup; ipv4#markup; dns#markup; routes#markup; submit#markup]
            ()

@@ -5,18 +5,22 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.T)
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
   open Xml.W
   open Html
-  module CSS = CSS
 
-  let divider ?(classes = []) ?(a = []) ?(inset = false) ~(tag : ?a:'a attrib list -> 'b)
-      : 'b =
-    let classes = classes |> Utils.cons_if inset CSS.inset |> List.cons CSS.root in
-    tag ~a:(a_class (Xml.W.return classes) :: a)
+  let ( % ) f g x = f (g x)
+
+  let divider
+      ?(classes = return [])
+      ?(a = [])
+      ?(inset = false)
+      ~(tag : ?a:'a attrib list -> 'b) : 'b =
+    let classes = fmap (Utils.cons_if inset CSS.inset % List.cons CSS.root) classes in
+    tag ~a:(a_class classes :: a)
 
   let divider_hr = divider ~tag:hr
 

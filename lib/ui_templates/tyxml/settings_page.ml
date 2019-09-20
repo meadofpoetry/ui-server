@@ -15,14 +15,14 @@ module Make
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
-  module Card = Components_tyxml.Card.Make (Xml) (Svg) (Html)
+  module Card_markup = Components_tyxml.Card.Make (Xml) (Svg) (Html)
   open Html
 
-  let create_section_title ?(classes = []) ?(attrs = []) ?title ?(children = []) () =
+  let create_section_title ?(classes = []) ?(a = []) ?title ?(children = []) () =
     let classes = CSS.section_title :: classes in
-    h2 ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt title children)
+    h2 ~a:(a_class classes :: a) (Utils.map_cons_option txt title children)
 
-  let create_section_header ?(classes = []) ?(attrs = []) ?title ?(children = []) () =
+  let create_section_header ?(classes = []) ?(a = []) ?title ?(children = []) () =
     let classes = CSS.section_header :: classes in
     let title =
       match title with
@@ -30,15 +30,15 @@ struct
       | Some (`Text s) -> Some (create_section_title ~title:s ())
       | Some (`Element e) -> Some e
     in
-    div ~a:([a_class classes] @ attrs) Utils.(title ^:: children)
+    div ~a:(a_class classes :: a) Utils.(title ^:: children)
 
-  let create_section ?(classes = []) ?(attrs = []) ~header ?children () : 'a elt =
+  let create_section ?(classes = []) ?(a = []) ~header ?children () : 'a elt =
     let classes = CSS.section :: classes in
-    div ~a:([a_class classes] @ attrs) [header; Card.card ?children ()]
+    div ~a:(a_class classes :: a) [header; Card_markup.card ?children ()]
 
-  let create ?(classes = []) ?(attrs = []) ?(children = []) () : 'a elt =
+  let create ?(classes = []) ?(a = []) ?(children = []) () : 'a elt =
     let classes = CSS.root :: Layout_grid.CSS.root :: classes in
-    div ~a:([a_class classes] @ attrs) children
+    div ~a:(a_class classes :: a) children
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

@@ -23,20 +23,20 @@ module Make
 struct
   open Html
 
-  let create_group_record ?(classes = []) ?(attrs = []) ~attribute ~value () =
+  let create_group_record ?(classes = []) ?(a = []) ~attribute ~value () =
     let classes = CSS.row :: classes in
     div
-      ~a:([a_class classes] @ attrs)
+      ~a:(a_class classes :: a)
       [ div ~a:[a_class [CSS.attribute]] [txt attribute]
       ; div ~a:[a_class [CSS.value]] [txt value] ]
 
-  let create_group_title ?(classes = []) ?(attrs = []) title =
+  let create_group_title ?(classes = []) ?(a = []) title =
     let classes = CSS.row :: CSS.group_title :: classes in
-    div ~a:([a_class classes] @ attrs) [h3 [txt title]]
+    div ~a:([a_class classes] @ a) [h3 [txt title]]
 
-  let create_groups ?(classes = []) ?(attrs = []) content =
+  let create_groups ?(classes = []) ?(a = []) content =
     let classes = CSS.groups :: classes in
-    div ~a:([a_class classes] @ attrs) content
+    div ~a:(a_class classes :: a) content
 
   let serial ({serial; _} : Server_types.certificate) =
     let sprintf = Printf.sprintf in
@@ -122,15 +122,15 @@ struct
   let of_certificate
       ?tz_offset_s
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       (cert : Server_types.certificate) =
     let classes = CSS.root :: classes in
     div
-      ~a:([a_class classes] @ attrs)
+      ~a:(a_class classes :: a)
       [ create_groups (serial cert)
       ; create_groups
           (issuer cert @ subject cert @ validity ?tz_offset_s cert @ fingerprints cert)
       ]
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

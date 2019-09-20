@@ -23,7 +23,7 @@ let ipv4 =
 
 let make_ip ~id ~label value =
   let event, push = React.E.create () in
-  let ip = Textfield.make ~input_id:id ~label:(`Text label) ~value ~validation:ipv4 () in
+  let ip = Textfield.make ~input_id:id ~label ~value ~validation:ipv4 () in
   let listener =
     Js_of_ocaml_lwt.Lwt_js_events.inputs ip#input_element (fun _ _ ->
         push ();
@@ -43,9 +43,7 @@ let make_dhcp checked (inputs : 'a #Textfield.t list) =
         Lwt.return_unit)
       ()
   in
-  let form =
-    Form_field.make_of_widget ~label:(`Text "DHCP") ~align_end:true ~input:dhcp ()
-  in
+  let form = Form_field.make_of_widget ~label:"DHCP" ~align_end:true ~input:dhcp () in
   form, event
 
 class t (state : Topology.state) (mode : nw) (control : int) =
@@ -54,8 +52,8 @@ class t (state : Topology.state) (mode : nw) (control : int) =
   let gw, e_gw = make_ip ~id:"gw" ~label:"Шлюз" mode.gateway in
   let dhcp, e_dhcp = make_dhcp mode.dhcp [ip; mask; gw] in
   let submit = Button.make ~label:"Применить" () in
-  let buttons = Card.Markup_js.create_action_buttons ~children:[submit#markup] () in
-  let actions = Card.Markup_js.create_actions ~children:[buttons] () in
+  let buttons = Card.D.card_action_buttons ~children:[submit#markup] () in
+  let actions = Card.D.card_actions ~children:[buttons] () in
   object (self)
     val mutable _on_submit = None
 

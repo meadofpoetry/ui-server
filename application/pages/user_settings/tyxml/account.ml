@@ -54,25 +54,25 @@ struct
 
   let id = "account"
 
-  let create_greetings ?(classes = []) ?(attrs = []) user =
+  let create_greetings ?(classes = []) ?(a = []) user =
     let classes = CSS.greetings :: classes in
     let username_human = Format.asprintf "%a" Util.pp_user_human user in
     let icon = Icon.SVG.icon ~d:(Util.user_icon_path user) () in
     let text = Printf.sprintf "Добро пожаловать, %s!" username_human in
-    div ~a:([a_class classes] @ attrs) [icon; txt text]
+    div ~a:(a_class classes :: a) [icon; txt text]
 
-  let create_permissions ?(classes = []) ?(attrs = []) user =
+  let create_permissions ?(classes = []) ?(a = []) user =
     let classes = CSS.permissions :: classes in
     let text = permissions user in
-    div ~a:([a_class classes] @ attrs) [txt text]
+    div ~a:(a_class classes :: a) [txt text]
 
-  let create_accounts_info_link ?(classes = []) ?(attrs = []) () =
+  let create_accounts_info_link ?(classes = []) ?(a = []) () =
     let classes = CSS.accounts_info_link :: classes in
     span
-      ~a:([a_class classes] @ attrs)
+      ~a:(a_class classes :: a)
       [txt "Узнать больше об учётных записях"]
 
-  let create ?(classes = []) ?(attrs = []) user =
+  let create ?(classes = []) ?(a = []) user =
     let _exit =
       Button.button_a
         ~classes:[Card.CSS.action]
@@ -83,18 +83,19 @@ struct
     in
     create_section
       ~classes
-      ~attrs:(a_id id :: attrs)
+      ~a:(a_id id :: a)
       ~header:(create_section_header ~title:(`Text "Аккаунт") ())
       ~children:
-        [ Card.card_media
+        [ Card_markup.card_media
             ~children:
               [ create_greetings user
               ; create_permissions user
               ; create_accounts_info_link () ]
             ()
-        ; Card.card_actions ~children:[Card.card_action_buttons ~children:[_exit] ()] ()
-        ]
+        ; Card_markup.card_actions
+            ~children:[Card_markup.card_action_buttons ~children:[_exit] ()]
+            () ]
       ()
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

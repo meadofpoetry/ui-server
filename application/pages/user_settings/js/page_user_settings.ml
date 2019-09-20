@@ -1,12 +1,11 @@
+open Js_of_ocaml_tyxml
+
 let ( >>= ) = Lwt.bind
 
 let ( >>=? ) = Lwt_result.bind
 
-module Markup_js =
-  Page_user_settings_tyxml.Make
-    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
-    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
-    (Js_of_ocaml_tyxml.Tyxml_js.Html)
+include Page_user_settings_tyxml.Page
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let get_username () =
   Js_of_ocaml.Js.Unsafe.global##.username
@@ -34,7 +33,7 @@ let () =
     let page =
       Components.Widget.create
       @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-      @@ Markup_js.create ~children:(account#markup :: content) ()
+      @@ D.create ~children:(account#markup :: content) ()
     in
     Lwt.return_ok page
   in

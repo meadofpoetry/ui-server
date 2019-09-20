@@ -22,38 +22,40 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.T)
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
   open Xml.W
   open Html
-  module CSS = CSS
 
-  let tab_indicator_content ?(classes = []) ?(a = []) ?icon () : 'a elt =
+  let ( % ) f g x = f (g x)
+
+  let tab_indicator_content ?(classes = return []) ?(a = []) ?icon () : 'a elt =
     let children, content_class =
       match icon with
       | None -> nil (), CSS.content_underline
       | Some i -> singleton (return i), CSS.content_icon
     in
-    let classes = CSS.content :: content_class :: classes in
-    span ~a:(a_class (return classes) :: a) children
+    let classes = fmap (fun x -> CSS.content :: content_class :: x) classes in
+    span ~a:(a_class classes :: a) children
 
   let tab_indicator
-      ?(classes = [])
+      ?(classes = return [])
       ?(a = [])
       ?(active = false)
       ?(fade = false)
       ?icon
       ?(content = tab_indicator_content ?icon ())
       () =
-    let (classes : string list) =
-      classes
-      |> Utils.cons_if fade CSS.fade
-      |> Utils.cons_if active CSS.active
-      |> List.cons CSS.root
+    let classes =
+      fmap
+        (Utils.cons_if fade CSS.fade
+        % Utils.cons_if active CSS.active
+        % List.cons CSS.root)
+        classes
     in
-    span ~a:(a_class (return classes) :: a) (singleton (return content))
+    span ~a:(a_class classes :: a) (singleton (return content))
 end
 
 module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

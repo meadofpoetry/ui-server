@@ -1,12 +1,10 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 open Components
 open Application_types
 open Netlib.Uri
-module Markup_js =
-  Page_server_settings_tyxml.Make
-    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
-    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
-    (Js_of_ocaml_tyxml.Tyxml_js.Html)
+include Page_server_settings_tyxml.Page
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -41,7 +39,7 @@ let () =
     let page =
       Widget.create
       @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-      @@ Markup_js.create ~children:[disclaimer; https#markup; certificate#markup] ()
+      @@ D.create ~children:[disclaimer; https#markup; certificate#markup] ()
     in
     let event' =
       React.E.map

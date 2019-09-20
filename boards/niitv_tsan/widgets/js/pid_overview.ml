@@ -4,7 +4,7 @@ open Application_types
 open Board_niitv_tsan_types
 open Components
 include Board_niitv_tsan_widgets_tyxml.Pid_overview
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 type event =
   [ `State of [Topology.state | `No_sync]
@@ -25,7 +25,7 @@ let update_row_bitrate
   let pct = 100. *. float_of_int br.cur /. float_of_int total.cur in
   let mbps = float_of_int br.cur /. 1_000_000. in
   let data =
-    Gadt_data_table.Fmt_js.
+    Gadt_data_table.Fmt_d.
       [ None
       ; None
       ; None
@@ -41,7 +41,7 @@ let update_row_info (table : 'a Gadt_data_table.t) row pid (info : PID.t) =
   let flags = {has_pcr = info.has_pcr; scrambled = info.scrambled} in
   Element.toggle_class_unit ~force:(not info.present) row CSS.row_lost;
   let data =
-    Gadt_data_table.Fmt_js.
+    Gadt_data_table.Fmt_d.
       [ Some pid
       ; Some info.typ
       ; Some flags
@@ -62,7 +62,7 @@ class t ?(init : (int * PID.t) list ts option) (elt : Dom_html.element Js.t) () 
         | Some {data; _} -> data)
 
     inherit
-      [int] Table_overview.t ~create_table_format:Markup_js.create_table_format elt () as super
+      [int] Table_overview.t ~create_table_format:D.create_table_format elt () as super
 
     method pids : (int * PID.t) list = List.of_seq @@ Set.to_seq data
 
@@ -73,8 +73,8 @@ class t ?(init : (int * PID.t) list ts option) (elt : Dom_html.element Js.t) () 
       | `Bitrate x -> self#set_bitrate x
 
     method set_hex (hex : bool) : unit =
-      let pid_fmt = Markup_js.pid_fmt ~hex in
-      let (format : _ Markup_js.Fmt.data_format) =
+      let pid_fmt = D.pid_fmt ~hex in
+      let (format : _ D.Fmt.data_format) =
         match table#data_format with
         | _ :: tl -> pid_fmt :: tl
       in
@@ -118,14 +118,14 @@ class t ?(init : (int * PID.t) list ts option) (elt : Dom_html.element Js.t) () 
       | Some row -> update_row_info table row pid info
 
     method private add_pid x =
-      let (data : _ Markup_js.Fmt.data) = Markup_js.data_of_pid_info x in
+      let (data : _ D.Fmt.data) = D.data_of_pid_info x in
       let row = table#insert_row (-1) data in
       Element.toggle_class_unit ~force:(not (snd x).present) row CSS.row_lost
 
     method private find_row (pid : int) =
       let find row =
         let pid' =
-          Gadt_data_table.Fmt_js.(
+          Gadt_data_table.Fmt_d.(
             match table#get_row_data_lazy row with
             | pid :: _ -> pid ())
         in
@@ -136,7 +136,7 @@ class t ?(init : (int * PID.t) list ts option) (elt : Dom_html.element Js.t) () 
 
 let attach ?init elt : t = new t ?init (elt : Dom_html.element Js.t) ()
 
-let make ?classes ?attrs ?dense ?init ?hex ~control () =
-  Markup_js.create ?classes ?attrs ?dense ?init ?hex ~control ()
+let make ?classes ?a ?dense ?init ?hex ~control () =
+  D.create ?classes ?a ?dense ?init ?hex ~control ()
   |> Tyxml_js.To_dom.of_div
   |> attach ?init

@@ -1,7 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Scaffold
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 (* TODO
    - breakpoints could be read from DOM as data attributes
@@ -273,8 +274,8 @@ class t
         : unit =
       let create_scrim, scrim_class =
         if is_leading
-        then Drawer.Markup_js.create_scrim, Drawer.CSS.scrim
-        else Side_sheet.Markup_js.create_scrim, Side_sheet.CSS.scrim
+        then Drawer.D.drawer_scrim, Drawer.CSS.scrim
+        else Side_sheet.D.side_sheet_scrim, Side_sheet.CSS.scrim
       in
       (* Where to place drawer *)
       let parent =
@@ -429,7 +430,7 @@ let attach ?on_navigation_icon_click (elt : #Dom_html.element Js.t) : t =
 (** Create new scaffold widget from scratch *)
 let make
     ?classes
-    ?attrs
+    ?a
     ?drawer
     ?drawer_elevation
     ?drawer_breakpoints
@@ -442,20 +443,20 @@ let make
     () =
   let elt =
     Tyxml_js.To_dom.of_element
-    @@ Markup_js.(
-         create
+    @@ D.(
+         scaffold
            ?classes
-           ?attrs
+           ?a
            ~children:
-             [ create_drawer_frame
+             [ scaffold_drawer_frame
                  ~full_height:true
                  ~children:
-                   [ create_app_content
+                   [ scaffold_app_content
                        ~outer:true
                        ~children:
-                         [ create_drawer_frame
+                         [ scaffold_drawer_frame
                              ~clipped:true
-                             ~children:[create_app_content ~inner:true ~children:[] ()]
+                             ~children:[scaffold_app_content ~inner:true ~children:[] ()]
                              () ]
                        () ]
                  () ]

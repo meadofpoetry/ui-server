@@ -312,7 +312,7 @@ let attach ?auto_dismiss_timeout ?close_on_escape (elt : #Dom_html.element Js.t)
 
 let make
     ?classes
-    ?attrs
+    ?a
     ?leading
     ?stacked
     ?dismiss
@@ -326,7 +326,7 @@ let make
     () =
   D.snackbar
     ?classes
-    ?attrs
+    ?a
     ?leading
     ?stacked
     ?dismiss

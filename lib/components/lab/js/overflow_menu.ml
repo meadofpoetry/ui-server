@@ -34,7 +34,7 @@ let fail_no_element ?base name =
 let menu_of_actions actions =
   Menu.make
     ~list:
-      (Item_list.Markup_js.create
+      (Item_list.D.list
          ~children:
            (List.map
               (fun x ->
@@ -61,10 +61,7 @@ let menu_of_actions actions =
                         in
                         failwith err)
                 in
-                Menu.Markup_js.Item_list.create_item
-                  ?graphic:icon
-                  ~primary_text:(`Text name)
-                  ())
+                Menu.D.Item_list.list_item ?graphic:icon ~primary_text:(`Text name) ())
               actions)
          ())
     ()

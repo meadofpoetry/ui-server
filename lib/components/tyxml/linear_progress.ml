@@ -24,43 +24,53 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
 
-  let create_buffering_dots ?(classes = []) ?(attrs = []) ?(children = []) () =
-    let classes = CSS.buffering_dots :: classes in
-    div ~a:([a_class classes] @ attrs) children
+  let ( % ) f g x = f (g x)
 
-  let create_buffer ?(classes = []) ?(attrs = []) ?(children = []) () =
-    let classes = CSS.buffer :: classes in
-    div ~a:([a_class classes] @ attrs) children
+  let ( @:: ) = cons
 
-  let create_bar_inner ?(classes = []) ?(attrs = []) ?(children = []) () =
-    let classes = CSS.bar_inner :: classes in
-    span ~a:([a_class classes] @ attrs) children
-
-  let create_primary_bar
-      ?(classes = [])
-      ?(attrs = [])
-      ?(children = [create_bar_inner ()])
+  let linear_progress_buffering_dots
+      ?(classes = return [])
+      ?(a = [])
+      ?(children = nil ())
       () =
-    let classes = CSS.bar :: CSS.primary_bar :: classes in
-    div ~a:([a_class classes] @ attrs) children
+    let classes = fmap (List.cons CSS.buffering_dots) classes in
+    div ~a:(a_class classes :: a) children
 
-  let create_secondary_bar
-      ?(classes = [])
-      ?(attrs = [])
-      ?(children = [create_bar_inner ()])
+  let linear_progress_buffer ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+    let classes = fmap (List.cons CSS.buffer) classes in
+    div ~a:(a_class classes :: a) children
+
+  let linear_progress_bar_inner ?(classes = return []) ?(a = []) ?(children = nil ()) ()
+      =
+    let classes = fmap (List.cons CSS.bar_inner) classes in
+    span ~a:(a_class classes :: a) children
+
+  let linear_progress_primary_bar
+      ?(classes = return [])
+      ?(a = [])
+      ?(children = singleton (return (linear_progress_bar_inner ())))
       () =
-    let classes = CSS.bar :: CSS.secondary_bar :: classes in
-    div ~a:([a_class classes] @ attrs) children
+    let classes = fmap (fun x -> CSS.bar :: CSS.primary_bar :: x) classes in
+    div ~a:(a_class classes :: a) children
 
-  let create
-      ?(classes = [])
-      ?(attrs = [])
+  let linear_progress_secondary_bar
+      ?(classes = return [])
+      ?(a = [])
+      ?(children = singleton (return (linear_progress_bar_inner ())))
+      () =
+    let classes = fmap (fun x -> CSS.bar :: CSS.secondary_bar :: x) classes in
+    div ~a:(a_class classes :: a) children
+
+  let linear_progress
+      ?(classes = return [])
+      ?(a = [])
       ?(indeterminate = false)
       ?(reversed = false)
       ?(closed = false)
@@ -71,11 +81,12 @@ struct
       ?children
       () : 'a elt =
     let classes =
-      classes
-      |> Utils.cons_if closed CSS.closed
-      |> Utils.cons_if indeterminate CSS.indeterminate
-      |> Utils.cons_if reversed CSS.reversed
-      |> List.cons CSS.root
+      fmap
+        (Utils.cons_if closed CSS.closed
+        % Utils.cons_if indeterminate CSS.indeterminate
+        % Utils.cons_if reversed CSS.reversed
+        % List.cons CSS.root)
+        classes
     in
     let children =
       match children with
@@ -83,13 +94,14 @@ struct
       | None ->
           let opt_get_lazy ~default o =
             match o with
-            | None -> default ()
-            | Some x -> x
+            | None -> return (default ())
+            | Some x -> return x
           in
-          [ opt_get_lazy ~default:create_buffering_dots buffering_dots
-          ; opt_get_lazy ~default:create_buffer buffer
-          ; opt_get_lazy ~default:create_primary_bar primary_bar
-          ; opt_get_lazy ~default:create_secondary_bar secondary_bar ]
+          opt_get_lazy ~default:linear_progress_buffering_dots buffering_dots
+          @:: opt_get_lazy ~default:linear_progress_buffer buffer
+          @:: opt_get_lazy ~default:linear_progress_primary_bar primary_bar
+          @:: opt_get_lazy ~default:linear_progress_secondary_bar secondary_bar
+          @:: nil ()
     in
-    div ~a:([a_role ["progressbar"]; a_class classes] @ attrs) children
+    div ~a:(a_role (return ["progressbar"]) :: a_class classes :: a) children
 end

@@ -66,29 +66,32 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.T)
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
   open Xml.W
   open Html
-  module CSS = CSS
-  module Button = Button.Make (Xml) (Svg) (Html)
+  module Button_markup = Button.Make (Xml) (Svg) (Html)
 
-  open Utils.Make (Xml)
+  let ( % ) f g x = f (g x)
 
-  let dialog_title ?(classes = []) ?(a = []) ?title ?(children = nil ()) () =
-    let classes = return (CSS.title :: classes) in
+  let ( @:: ) = cons
+
+  let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
+
+  let dialog_title ?(classes = return []) ?(a = []) ?title ?(children = nil ()) () =
+    let classes = fmap (List.cons CSS.title) classes in
     let title = Option.map (fun x -> return @@ txt x) title in
     h2 ~a:(a_class classes :: a) (title ^:: children)
 
-  let dialog_content ?(classes = []) ?(a = []) ?(children = nil ()) () =
-    let classes = return (CSS.content :: classes) in
+  let dialog_content ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+    let classes = fmap (List.cons CSS.content) classes in
     section ~a:(a_class classes :: a) children
 
-  let dialog_action ?(classes = []) ?(a = []) ?(default = false) ?action =
+  let dialog_action ?(classes = return []) ?(a = []) ?(default = false) ?action =
     let classes =
-      classes |> Utils.cons_if default CSS.button_default |> List.cons CSS.button
+      fmap (Utils.cons_if default CSS.button_default % List.cons CSS.button) classes
     in
     let a =
       match action with
@@ -97,28 +100,28 @@ struct
           let attr = return (action_to_string action) in
           a_user_data "mdc-dialog-action" attr :: a
     in
-    Button.button ~classes ~a
+    Button_markup.button ~classes ~a
 
-  let dialog_actions ?(classes = []) ?(a = []) ?(children = nil ()) () =
-    let classes = return (CSS.actions :: classes) in
+  let dialog_actions ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+    let classes = fmap (List.cons CSS.actions) classes in
     footer ~a:(a_class classes :: a) children
 
-  let dialog_surface ?(classes = []) ?(a = []) ?title ?content ?actions () : 'a elt =
-    let classes = return (CSS.surface :: classes) in
+  let dialog_surface ?(classes = return []) ?(a = []) ?title ?content ?actions () =
+    let classes = fmap (List.cons CSS.surface) classes in
     let children = title ^:: content ^:: actions ^:: nil () in
     div ~a:(a_class classes :: a) children
 
-  let dialog_container ?(classes = []) ?(a = []) ~surface () : 'a elt =
-    let classes = return (CSS.container :: classes) in
+  let dialog_container ?(classes = return []) ?(a = []) ~surface () : 'a elt =
+    let classes = fmap (List.cons CSS.container) classes in
     div ~a:(a_class classes :: a) (cons surface (nil ()))
 
-  let dialog_scrim ?(classes = []) ?(a = []) ?(children = nil ()) () : 'a elt =
-    let classes = return (CSS.scrim :: classes) in
+  let dialog_scrim ?(classes = return []) ?(a = []) ?(children = nil ()) () : 'a elt =
+    let classes = fmap (List.cons CSS.scrim) classes in
     div ~a:(a_class classes :: a) children
 
   let dialog
-      ?(classes = [])
-      ?(attrs = [])
+      ?(classes = return [])
+      ?(a = [])
       ?title_id
       ?content_id
       ?(scrollable = false)
@@ -142,14 +145,14 @@ struct
           return (dialog_container ~surface ())
     in
     let classes =
-      return (classes |> Utils.cons_if scrollable CSS.scrollable |> List.cons CSS.root)
+      fmap (Utils.cons_if scrollable CSS.scrollable % List.cons CSS.root) classes
     in
     div
       ~a:
-        ([ a_class classes
-         ; a_role (return ["alertdialog"])
-         ; a_aria "modal" (return ["true"]) ]
-         @ attrs
+        (a_class classes
+         :: a_role (return ["alertdialog"])
+         :: a_aria "modal" (return ["true"])
+         :: a
         |> Utils.map_cons_option (aria "labelledby") title_id
         |> Utils.map_cons_option (aria "describedby") content_id)
       (container @:: scrim @:: nil ())

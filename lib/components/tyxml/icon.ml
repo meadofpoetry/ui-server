@@ -3,41 +3,39 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.T)
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
   open Xml.W
   open Html
-  module CSS = CSS
 
   module SVG = struct
-    let icon_path ?(classes = []) ?(a = []) ?fill ~d ?(children = Xml.W.nil ()) () =
+    let icon_path ?(classes = return []) ?(a = []) ?fill ~d ?(children = nil ()) () =
       Svg.path
         ~a:
-          (Svg.a_class (return classes) :: Svg.a_d d :: a
-          |> Utils.map_cons_option Svg.a_fill fill)
+          (Svg.a_class classes :: Svg.a_d d :: a |> Utils.map_cons_option Svg.a_fill fill)
         children
 
     let icon
-        ?(classes = [])
+        ?(classes = return [])
         ?(a = [])
-        ?(size = 24)
+        ?(size = return 24)
         ?fill
         ?d
-        ?(children = Xml.W.nil ())
+        ?(children = nil ())
         () =
-      let sz = float_of_int size in
-      let classes = CSS.root :: classes in
+      let sz = fmap (fun x -> float_of_int x, None) size in
+      let viewbox = fmap (fun x -> 0., 0., float_of_int x, float_of_int x) size in
+      let classes = fmap (List.cons CSS.root) classes in
       let path = Option.map (fun d -> return @@ icon_path ?fill ~d ()) d in
       svg
         ~a:
-          (Svg.
-             [ a_class (return classes)
-             ; a_width (return (sz, None))
-             ; a_height (return (sz, None))
-             ; a_viewBox (return (0., 0., sz, sz)) ]
-          @ a)
+          (Svg.a_class classes
+          :: Svg.a_width sz
+          :: Svg.a_height sz
+          :: Svg.a_viewBox viewbox
+          :: a)
         (match path with
         | None -> children
         | Some x -> cons x children)

@@ -1,7 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Top_app_bar
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 (* TODO
    - add 'attach' function for all subcomponents
@@ -287,16 +288,16 @@ let attach ?scroll_target ?offset ?tolerance ?imply_leading elt : t =
 
 let make
     ?classes
-    ?attrs
+    ?a
     ?leading
     ?title
     ?actions
-    ?rows
+    ?children
     ?scroll_target
     ?offset
     ?tolerance
     ?imply_leading
     () =
-  Markup_js.create ?classes ?attrs ?leading ?title ?actions ?rows ()
+  D.top_app_bar ?classes ?a ?leading ?title ?actions ?children ()
   |> Tyxml_js.To_dom.of_header
   |> attach ?scroll_target ?offset ?tolerance ?imply_leading

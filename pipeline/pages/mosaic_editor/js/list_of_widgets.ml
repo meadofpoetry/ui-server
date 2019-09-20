@@ -4,7 +4,7 @@ open Js_of_ocaml_tyxml
 open Components
 open Pipeline_types
 include Page_mosaic_editor_tyxml.List_of_widgets
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let domain_to_string : Wm.domain -> string = function
   | Wm.Nihil -> "Без группы"
@@ -55,7 +55,7 @@ class t (scaffold : Scaffold.t) (elt : Dom_html.element Js.t) =
 
     val placeholder =
       Components_lab.Placeholder.make
-        ~icon:Icon.SVG.(Markup_js.create ~d:Path.information ())
+        ~icon:Icon.SVG.(D.icon ~d:Path.information ())
         ~text:(`Text "Нет доступных виджетов")
         ()
 
@@ -108,7 +108,7 @@ class t (scaffold : Scaffold.t) (elt : Dom_html.element Js.t) =
     method append_item ((id, w) : string * Wm.widget) =
       (* Hide the empty placeholder *)
       placeholder#add_class CSS.placeholder_hidden;
-      let elt = Tyxml_js.To_dom.of_element @@ Markup_js.create_item ~id w in
+      let elt = Tyxml_js.To_dom.of_element @@ D.create_item ~id w in
       (* TODO insert to DOM according to sorting? *)
       match Element.query_selector super#root (Selector.list w.domain) with
       (* If a list for the corresponding domain already present, just
@@ -116,15 +116,13 @@ class t (scaffold : Scaffold.t) (elt : Dom_html.element Js.t) =
       | Some l -> Dom.appendChild l elt
       (* If no corresponding list was found, create one. *)
       | None ->
-          let items = [Markup_js.create_item ~id w] in
+          let items = [D.create_item ~id w] in
           let subheader =
             Tyxml_js.To_dom.of_element
-            @@ Markup_js.create_subheader w.domain
+            @@ D.create_subheader w.domain
             @@ domain_to_string w.domain
           in
-          let list =
-            Tyxml_js.To_dom.of_element @@ Markup_js.create_list w.domain items
-          in
+          let list = Tyxml_js.To_dom.of_element @@ D.create_list w.domain items in
           Dom.appendChild super#root subheader;
           Dom.appendChild super#root list
 
@@ -210,17 +208,13 @@ let group_by_domain (widgets : (string * Wm.widget) list) =
 
 let make (scaffold : Scaffold.t) (widgets : (string * Wm.widget) list) : t =
   let grouped = group_by_domain widgets in
-  let items =
-    Domains.map (List.map (fun (id, x) -> Markup_js.create_item ~id x)) grouped
-  in
+  let items = Domains.map (List.map (fun (id, x) -> D.create_item ~id x)) grouped in
   let content =
     List.concat
     @@ List.map (fun (domain, items) ->
-           Markup_js.
-             [create_subheader domain (domain_to_string domain); create_list domain items])
+           let subheader = domain_to_string domain in
+           D.[create_subheader domain subheader; create_list domain items])
     @@ Domains.bindings items
   in
-  let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element @@ Markup_js.create content
-  in
+  let (elt : Dom_html.element Js.t) = Tyxml_js.To_dom.of_element @@ D.create content in
   new t scaffold elt

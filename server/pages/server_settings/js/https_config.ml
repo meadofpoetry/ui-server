@@ -1,11 +1,8 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 open Components
 include Page_server_settings_tyxml.Https
-module Markup_js =
-  Page_server_settings_tyxml.Https.Make
-    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
-    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
-    (Js_of_ocaml_tyxml.Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -66,7 +63,5 @@ class t ~set_snackbar (elt : Dom_html.element Js.t) =
   end
 
 let make ~set_snackbar (init : Server_types.settings) : t =
-  let (elt : Dom_html.element Js.t) =
-    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ Markup_js.create init
-  in
+  let (elt : Dom_html.element Js.t) = Tyxml_js.To_dom.of_element @@ D.create init in
   new t ~set_snackbar elt

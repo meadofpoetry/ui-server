@@ -8,7 +8,7 @@ let markup (input : Topology.topo_input) =
       ~a:[a_class ["mdc-chip"; "topology__input"]]
       [ div ~a:[a_class ["mdc-chip__text"]] [txt name]
       ; Components.Icon.SVG.(
-          Markup_js.create
+          D.icon
             ~size:24
             ~classes:["mdc-chip__icon"; "mdc-chip__icon--trailing"]
             ~d:Path.arrow_right

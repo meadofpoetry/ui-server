@@ -48,7 +48,7 @@ let make_standard ?value () =
     Select.make_native
       ?value
       ~on_change:(fun s -> push s#value)
-      ~label:(`Text "Стандарт")
+      ~label:"Стандарт"
       ~options
       ~validation:standard
       ()
@@ -63,7 +63,7 @@ let make_bw ?value () =
     Select.make_native
       ?value
       ~on_change:(fun _ -> push ())
-      ~label:(`Text "Полоса пропускания")
+      ~label:"Полоса пропускания"
       ~options
       ~validation:bw
       ()
@@ -145,8 +145,8 @@ let handle_input
           List.iter
             (fun (c : Channel.t) ->
               let item =
-                Item_list.Markup_js.create_item
-                  ~attrs:Tyxml_js.Html.[a_user_data "value" (string_of_int c.freq)]
+                Item_list.D.list_item
+                  ~a:Tyxml_js.Html.[a_user_data "value" (string_of_int c.freq)]
                   ~primary_text:(`Text c.name)
                   ()
               in
@@ -159,7 +159,7 @@ let handle_input
 
 let make_frequency ?(value : int option) (standard : standard option React.signal) =
   let event, push = React.E.create () in
-  let menu = Menu.make ~focus_on_open:false ~list:(Item_list.Markup_js.create ()) () in
+  let menu = Menu.make ~focus_on_open:false ~list:(Item_list.D.list ()) () in
   let input =
     Textfield.make
       ?value
@@ -169,8 +169,8 @@ let make_frequency ?(value : int option) (standard : standard option React.signa
       ~on_input:(fun _ input ->
         push ();
         handle_input menu input standard)
-      ~trailing_icon:(Typography.D.create ~text:"Гц" ())
-      ~label:(`Text "Частота")
+      ~trailing_icon:(Typography.D.typography ~text:"Гц" ())
+      ~label:"Частота"
       ~validation:(Integer (Some min_frequency, Some max_frequency))
       ()
   in
@@ -255,7 +255,7 @@ let make_frequency ?(value : int option) (standard : standard option React.signa
 
 let make_plp ?value (plps : int list React.signal) =
   let event, push = React.S.create None in
-  let menu = Menu.make ~focus_on_open:false ~list:(Item_list.Markup_js.create ()) () in
+  let menu = Menu.make ~focus_on_open:false ~list:(Item_list.D.list ()) () in
   let input =
     Textfield.make
       ?value
@@ -267,7 +267,7 @@ let make_plp ?value (plps : int list React.signal) =
       ~on_input:(fun _ i ->
         push i#value;
         Lwt.return_unit)
-      ~label:(`Text "PLP ID")
+      ~label:"PLP ID"
       ~required:true
       ~validation:(Integer (Some 0, Some 255))
       ()
@@ -294,8 +294,8 @@ let make_plp ?value (plps : int list React.signal) =
               List.map
                 (fun x ->
                   Tyxml_js.To_dom.of_li
-                  @@ Item_list.Markup_js.create_item
-                       ~attrs:Tyxml_js.Html.[a_user_data "value" (string_of_int x)]
+                  @@ Item_list.D.list_item
+                       ~a:Tyxml_js.Html.[a_user_data "value" (string_of_int x)]
                        ~primary_text:(`Text (string_of_int x))
                        ())
                 plps
@@ -410,8 +410,8 @@ class t config state mode plps control =
       ~label:"Применить"
       ()
   in
-  let buttons = Card.Markup_js.create_action_buttons ~children:[submit#markup] () in
-  let actions = Card.Markup_js.create_actions ~children:[buttons] () in
+  let buttons = Card.D.card_action_buttons ~children:[submit#markup] () in
+  let actions = Card.D.card_actions ~children:[buttons] () in
   object
     inherit Widget.t Dom_html.(createDiv document) () as super
 

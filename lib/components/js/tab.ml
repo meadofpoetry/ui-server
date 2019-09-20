@@ -1,7 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Tab
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -132,7 +133,7 @@ let attach (elt : #Dom_html.element Js.t) : t =
 
 let make
     ?classes
-    ?attrs
+    ?a
     ?active
     ?stacked
     ?disabled
@@ -146,9 +147,9 @@ let make
     ?content
     ?children
     () =
-  Markup_js.create
+  D.tab
     ?classes
-    ?attrs
+    ?a
     ?active
     ?stacked
     ?disabled

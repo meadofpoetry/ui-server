@@ -3,7 +3,7 @@ open Components
 let base_class = "topology__drawer"
 
 let make_header ~title () =
-  let icon = Icon.SVG.(Markup_js.create ~d:Path.close ()) in
+  let icon = Icon.SVG.(D.icon ~d:Path.close ()) in
   let close = Icon_button.make ~classes:[BEM.add_element base_class "close"] ~icon () in
   let title =
     Typography.Text.make
@@ -25,9 +25,9 @@ let make_header ~title () =
 
 let make ?(anchor = `Right) ~title () =
   let header, close, set_title = make_header ~title () in
-  let divider = Divider.Markup_js.create_hr () in
+  let divider = Divider.D.divider_hr () in
   let box =
-    Box.Markup_js.create
+    Box.D.box
       ~classes:[BEM.add_element base_class "body"]
       ~vertical:
         (match anchor with

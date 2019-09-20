@@ -1,7 +1,7 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Page_mosaic_editor_tyxml.Grid_overlay
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 module Attr = struct
   let size = "data-size"
@@ -168,8 +168,8 @@ class t
       self#draw_dividers ~color ~cols ~rows
   end
 
-let make ?classes ?attrs ?show_grid_lines ?show_snap_lines ?size () =
-  let canvas = Tyxml_js.To_dom.of_canvas @@ Markup_js.create ?classes ?attrs ?size () in
+let make ?classes ?a ?show_grid_lines ?show_snap_lines ?size () =
+  let canvas = Tyxml_js.To_dom.of_canvas @@ D.create ?classes ?a ?size () in
   new t ?show_grid_lines ?show_snap_lines canvas ()
 
 let attach

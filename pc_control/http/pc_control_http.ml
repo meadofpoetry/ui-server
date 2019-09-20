@@ -129,7 +129,7 @@ let power_handlers =
 let power_pages : 'a. unit -> 'a Api_template.item list =
  fun () ->
   let open Api_template in
-  let markup = Tyxml.Html.toelt @@ Page_power_management_tyxml.Markup.create () in
+  let markup = Tyxml.Html.toelt @@ Page_power_management_tyxml.F.create () in
   let props =
     make_template_props
       ~title:"Управление питанием"

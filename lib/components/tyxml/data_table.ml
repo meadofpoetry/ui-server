@@ -178,16 +178,17 @@ module Make_fmt (Xml : Xml_sigs.T) = struct
 end
 
 module Make
-    (Xml : Xml_sigs.T)
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
   open Xml.W
   open Html
-  module CSS = CSS
   module Fmt = Make_fmt (Xml)
 
-  let data_table_cell_content fmt v : 'a elt =
+  let ( % ) f g x = f (g x)
+
+  let data_table_cell_content fmt v =
     let rec aux : type a. a Fmt.t -> a -> Xml.elt =
      fun fmt v ->
       match fmt with
@@ -202,43 +203,42 @@ struct
     tot @@ aux fmt v
 
   let data_table_cell
-      ?(classes = [])
+      ?(classes = return [])
       ?(a = [])
       ?colspan
       ?(numeric = false)
       ?(children = nil ())
-      () : 'a elt =
+      () =
     let classes =
-      classes |> Utils.cons_if numeric CSS.cell_numeric |> List.cons CSS.cell
+      Xml.W.fmap (Utils.cons_if numeric CSS.cell_numeric % List.cons CSS.cell) classes
     in
-    td
-      ~a:(a_class (return classes) :: a |> Utils.map_cons_option a_colspan colspan)
-      children
+    td ~a:(a_class classes :: a |> Utils.map_cons_option a_colspan colspan) children
 
   let data_table_header_cell
-      ?(classes = [])
+      ?(classes = return [])
       ?(a = [])
       ?(numeric = false)
       ?(sortable = false)
       ?(children = nil ())
-      () : 'a elt =
+      () =
     let classes =
-      classes
-      |> Utils.cons_if sortable CSS.header_cell_sortable
-      |> Utils.cons_if numeric CSS.header_cell_numeric
-      |> List.cons CSS.header_cell
+      fmap
+        (Utils.cons_if sortable CSS.header_cell_sortable
+        % Utils.cons_if numeric CSS.header_cell_numeric
+        % List.cons CSS.header_cell)
+        classes
     in
-    th ~a:(a_class (return classes) :: a_role (return ["columnheader"]) :: a) children
+    th ~a:(a_class classes :: a_role (return ["columnheader"]) :: a) children
 
-  let data_table_row ?(classes = []) ?(a = []) ?(children = nil ()) () =
-    let classes = CSS.row :: classes in
-    tr ~a:(a_class (return classes) :: a) children
+  let data_table_row ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+    let classes = fmap (List.cons CSS.row) classes in
+    tr ~a:(a_class classes :: a) children
 
-  let data_table_header_row ?(classes = []) ?(a = []) ?(children = nil ()) () =
-    let classes = CSS.header_row :: classes in
-    tr ~a:(a_class (return classes) :: a) children
+  let data_table_header_row ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+    let classes = fmap (List.cons CSS.header_row) classes in
+    tr ~a:(a_class classes :: a) children
 
-  let data_table_header ?(classes = []) ?(a = []) ?cells ?children () =
+  let data_table_header ?(classes = return []) ?(a = []) ?cells ?children () =
     let children =
       match children with
       | Some x -> x
@@ -247,19 +247,24 @@ struct
         | None -> nil ()
         | Some cells -> singleton (return (data_table_header_row ~children:cells ())))
     in
-    thead ~a:(a_class (return classes) :: a) children
+    thead ~a:(a_class classes :: a) children
 
-  let data_table_body ?(classes = []) ?(a = []) ?(children = nil ()) () : 'a elt =
-    let classes = CSS.content :: classes in
-    tbody ~a:(a_class (return classes) :: a) children
+  let data_table_body ?(classes = return []) ?(a = []) ?(children = nil ()) () : 'a elt =
+    let classes = fmap (List.cons CSS.content) classes in
+    tbody ~a:(a_class classes :: a) children
 
-  let data_table_table ?(classes = []) ?(a = []) ?header ?(children = nil ()) () =
-    let classes = CSS.table :: classes in
-    tablex ?thead:header ~a:(a_class (return classes) :: a) children
+  let data_table_table ?(classes = return []) ?(a = []) ?header ?(children = nil ()) () =
+    let classes = fmap (List.cons CSS.table) classes in
+    tablex ?thead:header ~a:(a_class classes :: a) children
 
-  let data_table ?(classes = []) ?(a = []) ?(dense = false) ?(children = nil ()) () =
-    let classes = classes |> Utils.cons_if dense CSS.dense |> List.cons CSS.root in
-    div ~a:(a_class (return classes) :: a) children
+  let data_table
+      ?(classes = return [])
+      ?(a = [])
+      ?(dense = false)
+      ?(children = nil ())
+      () =
+    let classes = fmap (Utils.cons_if dense CSS.dense % List.cons CSS.root) classes in
+    div ~a:(a_class classes :: a) children
 
   (** GADT table *)
 
@@ -301,7 +306,8 @@ struct
     data_table_row ?classes ?a ~children:cells ()
 
   (* TODO how to provide custom classes, a to inner components? *)
-  let data_table_of_fmt ?classes ?a ?dense ~format ?(rows = nil ()) () =
+  let data_table_of_fmt ?classes ?a ?dense ~format ?(data = nil ()) () =
+    let rows = Xml.W.map (fun data -> data_table_row_of_fmt ~format ~data ()) data in
     let header = return @@ data_table_header_of_fmt ~format () in
     let body = return @@ data_table_body ~children:rows () in
     let table = return @@ data_table_table ~header ~children:(singleton body) () in

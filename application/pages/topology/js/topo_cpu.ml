@@ -34,7 +34,7 @@ module Header = struct
           let button =
             Icon_button.make
               ~classes:[Topo_block.CSS.header_action_settings]
-              ~icon:Icon.SVG.(Markup_js.create ~d:Path.settings ())
+              ~icon:Icon.SVG.(D.icon ~d:Path.settings ())
               ()
           in
           Some button
@@ -123,7 +123,7 @@ class t
       | None ->
           let ph =
             Components_lab.Placeholder.make
-              ~icon:Icon.SVG.(Markup_js.create ~d:Path.stop ())
+              ~icon:Icon.SVG.(D.icon ~d:Path.stop ())
               ~text:
                 (`Text "Нет доступных настроек для модуля")
               ()

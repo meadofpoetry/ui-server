@@ -84,5 +84,4 @@ class t (elt : Dom_html.element Js.t) =
 
 let attach (elt : #Dom_html.element Js.t) : t = new t (elt :> Dom_html.element Js.t)
 
-let make ?classes ?attrs () =
-  D.create ?classes ?attrs () |> Tyxml_js.To_dom.of_element |> attach
+let make ?classes ?a () = D.create ?classes ?a () |> Tyxml_js.To_dom.of_element |> attach

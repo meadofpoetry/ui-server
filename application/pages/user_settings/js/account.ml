@@ -1,11 +1,8 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 open Components
 include Page_user_settings_tyxml.Account
-module Markup_js =
-  Page_user_settings_tyxml.Account.Make
-    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
-    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
-    (Js_of_ocaml_tyxml.Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let name = "account"
 
@@ -75,7 +72,5 @@ class t (elt : Dom_html.element Js.t) =
   end
 
 let make user : t =
-  let (elt : Dom_html.element Js.t) =
-    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ Markup_js.create user
-  in
+  let (elt : Dom_html.element Js.t) = Tyxml_js.To_dom.of_element @@ D.create user in
   new t elt

@@ -10,15 +10,14 @@ struct
 
   let mac_input_id = "mac-address"
 
-  let create ?classes ?(attrs = []) (v : Pc_control_types.Network_config.ethernet_conf) :
-      'a elt =
+  let create ?classes ?(a = []) (v : Pc_control_types.Network_config.ethernet_conf) =
     let value = Macaddr.to_string v.mac_address in
     let mac =
       Common_markup.create_textfield ~value ~label:"MAC адрес" ~id:mac_input_id ()
     in
     Common_markup.create_section
       ?classes
-      ~attrs:(a_id id :: attrs)
+      ~a:(a_id id :: a)
       ~header:
         (Common_markup.create_section_header
            ~title:(`Text "Настройки Ethernet")
@@ -27,4 +26,4 @@ struct
       ()
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

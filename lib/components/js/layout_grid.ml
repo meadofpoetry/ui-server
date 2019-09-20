@@ -1,7 +1,8 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 include Components_tyxml.Layout_grid
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 let ( % ) f g x = f (g x)
 
@@ -130,7 +131,7 @@ module Cell = struct
 
   let make
       ?classes
-      ?attrs
+      ?a
       ?align
       ?order
       ?span
@@ -139,9 +140,9 @@ module Cell = struct
       ?span_desktop
       ?children
       () =
-    Markup_js.create_cell
+    D.layout_grid_cell
       ?classes
-      ?attrs
+      ?a
       ?align
       ?order
       ?span
@@ -197,7 +198,7 @@ class t (elt : Dom_html.element Js.t) () =
 
 let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
 
-let make ?classes ?attrs ?align ?fixed_column_width ?cells ?children () : t =
-  Markup_js.create ?classes ?attrs ?align ?fixed_column_width ?cells ?children ()
+let make ?classes ?a ?align ?fixed_column_width ?cells ?children () : t =
+  D.layout_grid ?classes ?a ?align ?fixed_column_width ?cells ?children ()
   |> Tyxml_js.To_dom.of_div
   |> attach

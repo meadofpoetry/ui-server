@@ -80,8 +80,10 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  module Icon = Icon.Make (Xml) (Svg) (Html)
-  module Icon_button = Icon_button.Make (Xml) (Svg) (Html)
+
+  open Icon.Make (Xml) (Svg) (Html)
+
+  open Icon_button.Make (Xml) (Svg) (Html)
 
   module Controls = struct
     type align =
@@ -90,13 +92,13 @@ struct
 
     let create_action ?(classes = []) ?a ?ripple ?disabled ?on_icon ~icon () : 'a elt =
       let classes = CSS.Controls.action :: classes in
-      Icon_button.icon_button ?a ?ripple ?disabled ?on_icon ~classes ~icon ()
+      icon_button ?a ?ripple ?disabled ?on_icon ~classes ~icon ()
 
-    let create_volume_panel ?(classes = []) ?(attrs = []) content () : 'a elt =
+    let create_volume_panel ?(classes = []) ?(a = []) content () : 'a elt =
       let classes = CSS.Controls.volume_panel :: classes in
-      div ~a:([a_class classes] @ attrs) content
+      div ~a:(a_class classes :: a) content
 
-    let create_section ?(classes = []) ?(attrs = []) ?(align : align option) content () :
+    let create_section ?(classes = []) ?(a = []) ?(align : align option) content () :
         'a elt =
       let classes =
         classes
@@ -107,16 +109,16 @@ struct
              align
         |> List.cons CSS.Controls.section
       in
-      div ~a:([a_class classes] @ attrs) content
+      div ~a:(a_class classes :: a) content
 
-    let create ?(classes = []) ?(attrs = []) sections () : 'a elt =
+    let create ?(classes = []) ?(a = []) sections () : 'a elt =
       let classes = CSS.Controls.root :: classes in
-      div ~a:([a_class classes] @ attrs) sections
+      div ~a:(a_class classes :: a) sections
   end
 
   let create_audio
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?(controls = true)
       ?(autoplay = false)
       ?(playsinline = false)
@@ -124,7 +126,7 @@ struct
     let classes = CSS.audio :: classes in
     audio
       ~a:
-        ([a_class classes; Unsafe.string_attrib "preload" "auto"] @ attrs
+        ([a_class classes; Unsafe.string_attrib "preload" "auto"] @ a
         |> Utils.cons_if_lazy controls a_controls
         |> Utils.cons_if_lazy autoplay a_autoplay
         |> Utils.cons_if_lazy playsinline (fun () ->
@@ -133,7 +135,7 @@ struct
 
   let create_video
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?(autoplay = false)
       ?(playsinline = false)
       ?(controls = true)
@@ -141,28 +143,28 @@ struct
     let classes = CSS.video :: classes in
     video
       ~a:
-        ([a_class classes; Unsafe.string_attrib "preload" "auto"] @ attrs
+        ([a_class classes; Unsafe.string_attrib "preload" "auto"] @ a
         |> Utils.cons_if_lazy controls a_controls
         |> Utils.cons_if_lazy autoplay a_autoplay
         |> Utils.cons_if_lazy playsinline (fun () ->
                Unsafe.string_attrib "playsinline" "true"))
       []
 
-  let create_state_overlay ?(classes = []) ?(attrs = []) path () : 'a elt =
+  let create_state_overlay ?(classes = []) ?(a = []) path () : 'a elt =
     let classes = CSS.state_overlay_wrapper :: classes in
     div
-      ~a:([a_class classes; a_style "display: none;"] @ attrs)
+      ~a:([a_class classes; a_style "display: none;"] @ a)
       [ div
           ~a:[a_class [CSS.state_overlay]]
-          [Icon.SVG.icon ~classes:[CSS.state_overlay_icon] ~d:path ()] ]
+          [SVG.icon ~classes:[CSS.state_overlay_icon] ~d:path ()] ]
 
-  let create_gradient ?(classes = []) ?(attrs = []) () : 'a elt =
+  let create_gradient ?(classes = []) ?(a = []) () : 'a elt =
     let classes = CSS.gradient :: classes in
-    div ~a:([a_class classes] @ attrs) []
+    div ~a:(a_class classes :: a) []
 
   let create
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?controls
       ?gradient
       ?state_overlay
@@ -171,6 +173,8 @@ struct
       () : 'a elt =
     let classes = CSS.root :: classes in
     div
-      ~a:([a_class classes; a_tabindex (-1)] @ attrs)
+      ~a:([a_class classes; a_tabindex (-1)] @ a)
       Utils.(video :: (audio ^:: state_overlay ^:: gradient ^:: controls ^:: []))
 end
+
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

@@ -9,16 +9,16 @@ struct
 
   open Ui_templates_tyxml.Settings_page.Make (Xml) (Svg) (Html)
 
-  module Button = Button.Make (Xml) (Svg) (Html)
+  open Button.Make (Xml) (Svg) (Html)
 
-  let create ?classes ?(attrs = []) () =
+  let create ?classes ?(a = []) () =
     create_section
       ?classes
-      ~attrs:([Html.a_id "shutdown"] @ attrs)
+      ~a:(Html.a_id "shutdown" :: a)
       ~header:
         (create_section_header ~title:(`Text "Выключение питания") ())
       ~children:
-        [ Card.card_media
+        [ Card_markup.card_media
             ~children:
               [ div
                   [ txt
@@ -36,11 +36,11 @@ struct
                       ] ] ]
             ()
         ; hr ~a:[a_class [Divider.CSS.root]] ()
-        ; Card.card_actions
+        ; Card_markup.card_actions
             ~children:
-              [ Card.card_action_buttons
+              [ Card_markup.card_action_buttons
                   ~children:
-                    [ Button.button
+                    [ button
                         ~appearance:Raised
                         ~label:"Выключить прибор"
                         () ]
@@ -49,4 +49,4 @@ struct
       ()
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

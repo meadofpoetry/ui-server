@@ -103,20 +103,20 @@ module Make
 struct
   open Html
 
-  let create_cell ?(classes = []) ?(attrs = []) ?(content = []) position : 'a elt =
+  let create_cell ?(classes = []) ?(a = []) ?(content = []) position : 'a elt =
     let classes = CSS.cell :: classes in
     let style = Printf.sprintf "grid-area: %s;" (cell_position_to_string position) in
     div
       ~a:
-        ([ a_class classes
-         ; a_draggable true
-         ; a_style style
-         ; a_aria "colindex" [string_of_int position.col]
-         ; a_aria "rowindex" [string_of_int position.row]
-         ; a_aria "colspan" [string_of_int position.col_span]
-         ; a_aria "rowspan" [string_of_int position.row_span]
-         ; a_role ["gridcell"] ]
-        @ attrs)
+        (a_class classes
+        :: a_draggable true
+        :: a_style style
+        :: a_aria "colindex" [string_of_int position.col]
+        :: a_aria "rowindex" [string_of_int position.row]
+        :: a_aria "colspan" [string_of_int position.col_span]
+        :: a_aria "rowspan" [string_of_int position.row_span]
+        :: a_role ["gridcell"]
+        :: a)
       ([ div ~a:[a_class [CSS.row_handle]] []
        ; div ~a:[a_class [CSS.col_handle]] []
        ; div ~a:[a_class [CSS.mul_handle]] [] ]
@@ -124,7 +124,7 @@ struct
 
   let create
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?(rows : property option)
       ?(cols : property option)
       ?(content = [])
@@ -145,10 +145,8 @@ struct
                (property_to_string cols))
     in
     div
-      ~a:
-        ([a_class classes; a_role ["grid"]] @ attrs
-        |> Utils.map_cons_option a_style style)
+      ~a:(a_class classes :: a_role ["grid"] :: a |> Utils.map_cons_option a_style style)
       content
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

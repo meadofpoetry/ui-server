@@ -15,13 +15,14 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
-  module Item_list_markup = Item_list.Make (Xml) (Svg) (Html)
 
-  let create_item_meta ?(classes = []) ?(attrs = []) ~text () =
+  open Item_list.Make (Xml) (Svg) (Html)
+
+  let create_item_meta ?(classes = []) ?(a = []) ~text () =
     let classes = Item_list.CSS.item_meta :: classes in
-    span ~a:([a_class classes] @ attrs) [txt text]
+    span ~a:(a_class classes :: a) [txt text]
 
-  let create_item ?(classes = []) ?attrs ?meta ~primary_text () =
+  let create_item ?(classes = []) ?a ?meta ~primary_text () =
     let classes = CSS.item :: classes in
     let meta =
       match meta with
@@ -29,11 +30,11 @@ struct
       | Some (`Element e) -> Some e
       | Some (`Text s) -> Some (create_item_meta ~text:s ())
     in
-    Item_list_markup.create_item ~classes ?attrs ~primary_text ?meta ()
+    list_item ~classes ?a ~primary_text ?meta ()
 
   let create
       ?(classes = [])
-      ?(attrs = [])
+      ?(a = [])
       ?children
       ?(info : (int * Service.t) option)
       ?bitrate
@@ -41,13 +42,13 @@ struct
       ?min_bitrate
       () =
     let classes = CSS.root :: classes in
-    let attrs =
+    let a =
       match info with
-      | None | Some (_, {elements = []; _}) -> attrs
+      | None | Some (_, {elements = []; _}) -> a
       | Some (_, info) ->
           let elements = Util.service_pids info in
           a_user_data "elements" (String.concat "," @@ List.map string_of_int elements)
-          :: attrs
+          :: a
     in
     let children =
       match children with
@@ -61,45 +62,39 @@ struct
             | Some x -> f x
           in
           [ create_item
-              ~attrs:[a_user_data "type" "service-id"]
+              ~a:[a_user_data "type" "service-id"]
               ~primary_text:(`Text "Service ID")
               ~meta:(meta (fun (x, _) -> `Text (string_of_int x)) info)
               ()
           ; create_item
-              ~attrs:[a_user_data "type" "pmt-pid"]
+              ~a:[a_user_data "type" "pmt-pid"]
               ~primary_text:(`Text "PMT PID")
               ~meta:
                 (meta (fun (_, (x : Service.t)) -> `Text (string_of_int x.pmt_pid)) info)
               ()
           ; create_item
-              ~attrs:[a_user_data "type" "pcr-pid"]
+              ~a:[a_user_data "type" "pcr-pid"]
               ~primary_text:(`Text "PCR PID")
               ~meta:
                 (meta (fun (_, (x : Service.t)) -> `Text (string_of_int x.pcr_pid)) info)
               ()
           ; create_item
-              ~attrs:[a_user_data "type" "bitratenow"]
+              ~a:[a_user_data "type" "bitratenow"]
               ~primary_text:(`Text "Битрейт")
               ~meta:(meta (fun x -> `Text (string_of_int x)) bitrate)
               ()
           ; create_item
-              ~attrs:[a_user_data "type" "bitratemin"]
+              ~a:[a_user_data "type" "bitratemin"]
               ~primary_text:(`Text "Min")
               ~meta:(meta (fun x -> `Text (string_of_int x)) min_bitrate)
               ()
           ; create_item
-              ~attrs:[a_user_data "type" "bitratemax"]
+              ~a:[a_user_data "type" "bitratemax"]
               ~primary_text:(`Text "Max")
               ~meta:(meta (fun x -> `Text (string_of_int x)) max_bitrate)
               () ]
     in
-    Item_list_markup.create
-      ~classes
-      ~attrs
-      ~dense:true
-      ~non_interactive:true
-      ~children
-      ()
+    list ~classes ~a ~dense:true ~non_interactive:true ~children ()
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

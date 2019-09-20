@@ -15,10 +15,13 @@ module Make
     (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
 struct
   open Html
+  module Button_markup = Button.Make (Xml) (Svg) (Html)
+  module Tab_bar_markup = Tab_bar.Make (Xml) (Svg) (Html)
+  module Tab_markup = Tab.Make (Xml) (Svg) (Html)
+  module Icon_markup = Icon.Make (Xml) (Svg) (Html)
+  module Textfield_markup = Textfield.Make (Xml) (Svg) (Html)
 
   open Ui_templates_tyxml.Settings_page.Make (Xml) (Svg) (Html)
-
-  module Components = Bundle.Make (Xml) (Svg) (Html)
 
   let id = "password-config"
 
@@ -35,13 +38,13 @@ struct
     let icon =
       div
         ~a:[a_class [Textfield.CSS.icon]; a_role ["button"]; a_tabindex 0]
-        [Components.Icon.SVG.icon ~d:Svg_icons.eye_off ()]
+        [Icon_markup.SVG.icon ~d:Svg_icons.eye_off ()]
     in
     let input =
       Unsafe.coerce_elt
-      @@ Components.Textfield.create_input
+      @@ Textfield_markup.textfield_input
            ~id:id'
-           ~attrs:
+           ~a:
              [ Unsafe.string_attrib "autocomplete" autocomplete
              ; Unsafe.string_attrib "spellcheck" "false"
              ; a_name name ]
@@ -49,30 +52,29 @@ struct
            ?value
            ()
     in
-    Components.Textfield.create
-      ~attrs:[a_id id]
+    Textfield_markup.textfield
+      ~a:[a_id id]
       ~trailing_icon:icon
       ~input_id:id'
       ~input
-      ~label:(`Text label)
+      ~label
       ()
 
   let create_user_tabs () =
     let create_tab ?active user =
       let icon =
-        Components.Icon.SVG.(
-          icon ~classes:[Tab.CSS.icon] ~d:(Util.user_icon_path user) ())
+        Icon_markup.SVG.(icon ~classes:[Tab.CSS.icon] ~d:(Util.user_icon_path user) ())
       in
       let username = Application_types.User.to_string user in
       let username_human = Format.asprintf "%a" Util.pp_user_human user in
-      Components.Tab.create
+      Tab_markup.tab
         ?active
         ~icon
         ~text_label:(`Text username_human)
-        ~attrs:[a_user_data "username" username]
+        ~a:[a_user_data "username" username]
         ()
     in
-    Components.Tab_bar.create
+    Tab_bar_markup.tab_bar
       ~tabs:[create_tab ~active:true `Guest; create_tab `Operator; create_tab `Root]
       ()
 
@@ -88,9 +90,9 @@ struct
          ()
 
   let create_helper_text ?(persistent = true) text =
-    Components.Textfield.(
-      create_helper_line
-        ~children:[Helper_text.create ~validation:true ~persistent ~text ()]
+    Textfield_markup.(
+      textfield_helper_line
+        ~children:[Helper_text.helper_text ~validation:true ~persistent ~text ()]
         ())
 
   let create_form user =
@@ -127,9 +129,9 @@ struct
           ; create_helper_text ~persistent:false "" ]
       ; input ~a:[a_input_type `Submit] () ]
 
-  let create ?(classes = []) ?(attrs = []) () =
+  let create ?(classes = []) ?(a = []) () =
     let submit =
-      Components.Button.button
+      Button_markup.button
         ~classes:[Card.CSS.action]
         ~appearance:Raised
         ~button_type:`Submit
@@ -139,21 +141,21 @@ struct
     let classes = CSS.root :: classes in
     create_section
       ~classes
-      ~attrs:(a_id id :: attrs)
+      ~a:(a_id id :: a)
       ~header:(create_section_header ~title:(`Text "Пароли") ())
       ~children:
         [ create_user_tabs ()
         ; hr ()
-        ; Components.Card.card_media
+        ; Card_markup.card_media
             ~children:
               [ div
                   ~a:[a_class [CSS.slider]]
                   [create_form `Guest; create_form `Operator; create_form `Root] ]
             ()
-        ; Components.Card.card_actions
-            ~children:[Components.Card.card_action_buttons ~children:[submit] ()]
+        ; Card_markup.card_actions
+            ~children:[Card_markup.card_action_buttons ~children:[submit] ()]
             () ]
       ()
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

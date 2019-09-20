@@ -15,11 +15,11 @@ module Make
 struct
   open Html
 
-  let create_title ?(classes = []) ?(attrs = []) ?title ?(children = []) () =
+  let create_title ?(classes = []) ?(a = []) ?title ?(children = []) () =
     let classes = CSS.title :: classes in
-    span ~a:([a_class classes] @ attrs) (Utils.map_cons_option txt title children)
+    span ~a:(a_class classes :: a) (Utils.map_cons_option txt title children)
 
-  let create_wrapper ?(classes = []) ?(attrs = []) ?canvas ?children () =
+  let create_wrapper ?(classes = []) ?(a = []) ?canvas ?children () =
     let classes = CSS.wrapper :: classes in
     let children =
       match children with
@@ -32,9 +32,9 @@ struct
           in
           [canvas]
     in
-    div ~a:([a_class classes] @ attrs) children
+    div ~a:(a_class classes :: a) children
 
-  let create ?(classes = []) ?(attrs = []) ?title ?wrapper ?children () =
+  let create ?(classes = []) ?(a = []) ?title ?wrapper ?children () =
     let classes = CSS.root :: classes in
     let children =
       match children with
@@ -53,7 +53,7 @@ struct
           in
           [title; wrapper]
     in
-    div ~a:([a_class classes] @ attrs) children
+    div ~a:(a_class classes :: a) children
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

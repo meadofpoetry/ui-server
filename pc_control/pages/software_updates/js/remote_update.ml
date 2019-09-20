@@ -1,13 +1,10 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 open Components
 open Pc_control_http_js.Updates
 open Pc_control_types.Software_updates
 include Page_software_updates_tyxml.Remote_update
-module Markup_js =
-  Page_software_updates_tyxml.Remote_update.Make
-    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
-    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
-    (Js_of_ocaml_tyxml.Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 type event = [`State of state]
 
@@ -26,9 +23,10 @@ module Selector = struct
 end
 
 let make_warning_dialog () =
-  let title = Dialog.D.dialog_title ~title:"Внимание!" () in
+  let open Dialog.D in
+  let title = dialog_title ~title:"Внимание!" () in
   let content =
-    Dialog.D.dialog_content
+    dialog_content
       ~children:
         [ Js_of_ocaml_tyxml.Tyxml_js.Html.txt
             "После завершения обновления прибор \
@@ -38,12 +36,9 @@ let make_warning_dialog () =
       ()
   in
   let actions =
-    Dialog.D.
-      [ dialog_action ~action:Close ~label:"Отмена" ()
-      ; dialog_action
-          ~action:Accept
-          ~label:"Продолжить обновление"
-          () ]
+    [ dialog_action ~action:Close ~label:"Отмена" ()
+    ; dialog_action ~action:Accept ~label:"Продолжить обновление" ()
+    ]
   in
   Dialog.make ~title ~content ~actions ()
 
@@ -205,10 +200,8 @@ class t (elt : Dom_html.element Js.t) =
       | Some x -> x##.textContent := Js.some @@ Js.string label
   end
 
-let make ?classes ?attrs () =
-  let elt =
-    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ Markup_js.create ?classes ?attrs ()
-  in
+let make ?classes ?a () =
+  let elt = Tyxml_js.To_dom.of_element @@ D.create ?classes ?a () in
   new t elt
 
 let attach (elt : #Dom_html.element Js.t) = new t (elt :> Dom_html.element Js.t)

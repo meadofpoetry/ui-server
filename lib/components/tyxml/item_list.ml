@@ -86,30 +86,34 @@ module Role = struct
 end
 
 module Make
-    (Xml : Xml_sigs.T)
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
   open Xml.W
   open Html
-  module CSS = CSS
 
-  open Utils.Make (Xml)
+  let ( % ) f g x = f (g x)
+
+  let ( @:: ) = cons
+
+  let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
 
   let list_divider
-      ?(classes = [])
+      ?(classes = return [])
       ?(a = [])
       ?(padded = false)
       ?(inset = false)
       ~(tag : ?a:'a attrib list -> 'b -> 'c elt)
       (children : 'b) =
-    let (classes : string list) =
-      classes
-      |> Utils.cons_if inset CSS.divider_inset
-      |> Utils.cons_if padded CSS.divider_padded
-      |> List.cons CSS.divider
+    let classes =
+      fmap
+        (Utils.cons_if inset CSS.divider_inset
+        % Utils.cons_if padded CSS.divider_padded
+        % List.cons CSS.divider)
+        classes
     in
-    tag ~a:(a_class (return classes) :: a_role (return ["separator"]) :: a) children
+    tag ~a:(a_class classes :: a_role (return ["separator"]) :: a) children
 
   let list_divider_li ?classes ?a ?padded ?inset ?(children = nil ()) () =
     list_divider ?classes ?a ?padded ?inset ~tag:li children
@@ -117,26 +121,36 @@ struct
   let list_divider_hr ?classes ?a ?padded ?inset () =
     list_divider ?classes ?a ?padded ?inset ~tag:hr ()
 
-  let list_item_primary_text ?(classes = []) ?(a = []) ?label ?(children = nil ()) () =
-    let classes = CSS.item_primary_text :: classes in
+  let list_item_primary_text
+      ?(classes = return [])
+      ?(a = [])
+      ?label
+      ?(children = nil ())
+      () =
+    let classes = fmap (List.cons CSS.item_primary_text) classes in
     let children =
       match label with
       | None -> children
-      | Some x -> cons (return (txt x)) children
+      | Some x -> return (txt x) @:: children
     in
-    span ~a:(a_class (return classes) :: a) children
+    span ~a:(a_class classes :: a) children
 
-  let list_item_secondary_text ?(classes = []) ?(a = []) ?label ?(children = nil ()) () =
-    let classes = CSS.item_secondary_text :: classes in
+  let list_item_secondary_text
+      ?(classes = return [])
+      ?(a = [])
+      ?label
+      ?(children = nil ())
+      () =
+    let classes = fmap (List.cons CSS.item_secondary_text) classes in
     let children =
       match label with
       | None -> children
-      | Some x -> cons (return (txt x)) children
+      | Some x -> return (txt x) @:: children
     in
-    span ~a:(a_class (return classes) :: a) children
+    span ~a:(a_class classes :: a) children
 
   let list_item_text
-      ?(classes = [])
+      ?(classes = return [])
       ?(a = [])
       ?(force_wrap = false)
       ?primary_text
@@ -152,7 +166,7 @@ struct
     in
     if force_wrap
     then
-      let classes = CSS.item_text :: classes in
+      let classes = fmap (List.cons CSS.item_text) classes in
       let children =
         match secondary_text with
         | None -> singleton (return primary_text)
@@ -160,13 +174,13 @@ struct
             cons
               (return primary_text)
               (singleton @@ return (list_item_secondary_text ~label:s ()))
-        | Some (`Element e) -> cons (return primary_text) (singleton e)
+        | Some (`Element e) -> return primary_text @:: singleton e
       in
-      span ~a:(a_class (return classes) :: a) children
+      span ~a:(a_class classes :: a) children
     else primary_text
 
   let list_item
-      ?(classes = [])
+      ?(classes = return [])
       ?(a = [])
       ?graphic
       ?meta
@@ -188,20 +202,21 @@ struct
           graphic ^:: return text @:: meta ^:: nil ()
     in
     let classes =
-      classes
-      |> Utils.cons_if activated CSS.item_activated
-      |> Utils.cons_if
-           (match selected with
-           | None -> false
-           | Some x -> x)
-           (if activated then CSS.item_activated else CSS.item_selected)
-      |> List.cons CSS.item
+      fmap
+        (Utils.cons_if activated CSS.item_activated
+        % Utils.cons_if
+            (match selected with
+            | None -> false
+            | Some x -> x)
+            (if activated then CSS.item_activated else CSS.item_selected)
+        % List.cons CSS.item)
+        classes
     in
     li
       ~a:
-        (a_class (return classes) :: a
+        (a_class classes :: a
         |> Utils.map_cons_option
-             (fun b -> a_aria "checked" (return [string_of_bool b]))
+             (fun b -> a_aria "checked" (fmap (fun x -> [string_of_bool x]) b))
              checked
         |> Utils.map_cons_option
              (fun b -> a_aria "selected" (return [string_of_bool b]))
@@ -211,26 +226,26 @@ struct
       children
 
   let list_group_subheader
-      ?(classes = [])
+      ?(classes = return [])
       ?(a = [])
       ?(tag = h3)
       ?label
       ?(children = nil ())
-      () : 'a elt =
-    let classes = CSS.group_subheader :: classes in
+      () =
+    let classes = fmap (List.cons CSS.group_subheader) classes in
     let children =
       match label with
       | None -> children
-      | Some x -> cons (return (txt x)) children
+      | Some x -> return (txt x) @:: children
     in
-    tag ~a:(a_class (return classes) :: a) children
+    tag ~a:(a_class classes :: a) children
 
-  let list_group ?(classes = []) ?(a = []) ~children () =
-    let classes = CSS.group :: classes in
-    div ~a:(a_class (return classes) :: a) children
+  let list_group ?(classes = return []) ?(a = []) ~children () =
+    let classes = fmap (List.cons CSS.group) classes in
+    div ~a:(a_class classes :: a) children
 
   let list
-      ?(classes = [])
+      ?(classes = return [])
       ?(a = [])
       ?(avatar_list = false)
       ?(dense = false)
@@ -240,18 +255,19 @@ struct
       ?(children = nil ())
       () : 'a elt =
     let classes =
-      classes
-      |> Utils.cons_if dense CSS.dense
-      |> Utils.cons_if two_line CSS.two_line
-      |> Utils.cons_if avatar_list CSS.avatar_list
-      |> Utils.cons_if non_interactive CSS.non_interactive
-      |> List.cons CSS.root
+      fmap
+        (Utils.cons_if dense CSS.dense
+        % Utils.cons_if two_line CSS.two_line
+        % Utils.cons_if avatar_list CSS.avatar_list
+        % Utils.cons_if non_interactive CSS.non_interactive
+        % List.cons CSS.root)
+        classes
     in
     ul
       ~a:
-        (a_class (return classes) :: a
+        (a_class classes :: a
         |> Utils.map_cons_option (fun x -> a_role (return [x])) role)
       children
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

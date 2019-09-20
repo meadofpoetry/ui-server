@@ -20,6 +20,31 @@ $side-sheet-width: 500px;
     @include topology-board-type(nth($boards,$i));
 }
 
+.mdc-card__primary {
+    margin: 0;
+    padding: 1rem;
+}
+
+.mdc-card__title {
+    margin: 0;
+    @include mdc-typography(body1);
+
+    margin: -.063rem 0;
+
+    &--large {
+        @include mdc-typography(headline6);
+
+        margin: 0;
+    }
+}
+
+.mdc-card__subtitle {
+    @include mdc-typography(subtitle2);
+    @include mdc-theme-prop(color, text-secondary-on-background);
+
+    margin: -.063rem 0;
+}
+
 .mdc-side-sheet {
     @include mdc-side-sheet-width($side-sheet-width);
 }

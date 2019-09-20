@@ -17,11 +17,12 @@ module Make
 struct
   open Html
   module Common_markup = Common.Make (Xml) (Svg) (Html)
-  module Form_field = Form_field.Make (Xml) (Svg) (Html)
-  module Switch = Switch.Make (Xml) (Svg) (Html)
 
-  let create ?classes ?(attrs = []) (v : Pc_control_types.Network_config.ipv4_conf) :
-      'a elt =
+  open Form_field.Make (Xml) (Svg) (Html)
+
+  open Switch.Make (Xml) (Svg) (Html)
+
+  let create ?classes ?(a = []) (v : Pc_control_types.Network_config.ipv4_conf) =
     let ip_value = Ipaddr.V4.to_string (fst v.address) in
     let mask_value =
       Ipaddr.V4.to_string @@ Ipaddr.V4.Prefix.mask @@ Int32.to_int @@ snd v.address
@@ -38,11 +39,11 @@ struct
         | Auto -> true
       in
       let dhcp_input_id = dhcp_id ^ "-input" in
-      let switch = Switch.create ~input_id:dhcp_input_id ~checked () in
-      Form_field.create
-        ~attrs:[a_id dhcp_id]
+      let switch = switch ~input_id:dhcp_input_id ~checked () in
+      form_field
+        ~a:[a_id dhcp_id]
         ~label_for:dhcp_input_id
-        ~label:(`Text "DHCP")
+        ~label:"DHCP"
         ~align_end:true
         ~input:switch
         ()
@@ -70,11 +71,11 @@ struct
     in
     Common_markup.create_section
       ?classes
-      ~attrs:(a_id id :: attrs)
+      ~a:(a_id id :: a)
       ~header:
         (Common_markup.create_section_header ~title:(`Text "Настройки IP") ())
       ~children:[dhcp; ip_address; subnet_mask; gateway]
       ()
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

@@ -11,28 +11,31 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
 
-  let create_slide ?(classes = []) ?(attrs = []) ?(children = []) () =
-    let classes = CSS.slide :: classes in
-    li ~a:([a_class classes] @ attrs) children
+  let glide_slide ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+    let classes = fmap (fun x -> CSS.slide :: x) classes in
+    li ~a:(a_class classes :: a) children
 
-  let create_track ?(classes = []) ?(attrs = []) ?(children = []) () =
-    let classes = CSS.track :: classes in
-    ul ~a:([a_class classes] @ attrs) children
+  let glide_track ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+    let classes = fmap (fun x -> CSS.track :: x) classes in
+    ul ~a:(a_class classes :: a) children
 
-  let create ?(classes = []) ?(attrs = []) ?slides ?children () =
-    let classes = CSS.root :: classes in
+  let glide ?(classes = return []) ?(a = []) ?slides ?children () =
+    let classes = fmap (fun x -> CSS.root :: x) classes in
     let children =
       match children with
       | Some x -> x
       | None ->
-          let slides = Option.value ~default:[] slides in
-          [create_track ~children:slides ()]
+          let slides = Option.value ~default:(nil ()) slides in
+          singleton (return (glide_track ~children:slides ()))
     in
-    div ~a:([a_class classes] @ attrs) children
+    div ~a:(a_class classes :: a) children
 end
+
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

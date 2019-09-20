@@ -61,8 +61,8 @@ module Text = struct
   let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
 
   let make ?classes ?a ?font ?text () =
-    D.create ?classes ?a ?font ?text () |> Tyxml_js.To_dom.of_element |> attach
+    D.typography ?classes ?a ?font ?text () |> Tyxml_js.To_dom.of_element |> attach
 
   let make_r ?classes ?a ?font ?text () =
-    R.create ?classes ?a ?font ?text () |> Tyxml_js.To_dom.of_element |> attach
+    R.typography ?classes ?a ?font ?text () |> Tyxml_js.To_dom.of_element |> attach
 end

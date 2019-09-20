@@ -18,4 +18,4 @@ struct
   include Ui_templates_tyxml.Settings_page.Make (Xml) (Svg) (Html)
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

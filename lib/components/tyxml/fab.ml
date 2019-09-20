@@ -20,22 +20,31 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.T)
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
   open Xml.W
   open Html
-  module CSS = CSS
 
-  open Utils.Make (Xml)
+  let ( % ) f g x = f (g x)
 
-  let fab ?(classes = []) ?(a = []) ?(mini = false) ?(extended = false) ?label ?icon () =
-    let (classes : string list) =
-      classes
-      |> Utils.cons_if mini CSS.mini
-      |> Utils.cons_if extended CSS.extended
-      |> List.cons CSS.root
+  let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
+
+  let fab
+      ?(classes = return [])
+      ?(a = [])
+      ?(mini = false)
+      ?(extended = false)
+      ?label
+      ?icon
+      () =
+    let classes =
+      fmap
+        (Utils.cons_if mini CSS.mini
+        % Utils.cons_if extended CSS.extended
+        % List.cons CSS.root)
+        classes
     in
     let label =
       match extended with
@@ -51,7 +60,7 @@ struct
             @@ span ~a:[a_class (return [CSS.label])] (singleton (return (txt x))))
     in
     let content = icon ^:: label ^:: nil () in
-    button ~a:(a_class (return classes) :: a) content
+    button ~a:(a_class classes :: a) content
 end
 
 module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

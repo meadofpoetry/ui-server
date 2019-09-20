@@ -2,7 +2,8 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml
 open Components
 include Components_lab_tyxml.Glide
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 module Selector = struct
   let slide = "." ^ CSS.slide
@@ -79,7 +80,5 @@ class t (elt : Dom_html.element Js.t) () =
 
 let attach elt = new t (elt :> Dom_html.element Js.t) ()
 
-let make ?classes ?attrs ?slides ?children () =
-  Markup_js.create ?classes ?attrs ?slides ?children ()
-  |> Tyxml_js.To_dom.of_div
-  |> attach
+let make ?classes ?a ?slides ?children () =
+  D.glide ?classes ?a ?slides ?children () |> Tyxml_js.To_dom.of_div |> attach

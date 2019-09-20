@@ -1,19 +1,16 @@
 open Js_of_ocaml
+open Js_of_ocaml_tyxml
 open Js_of_ocaml_lwt
 open Components
 include Page_user_settings_tyxml.Password
-module Markup_js =
-  Page_user_settings_tyxml.Password.Make
-    (Js_of_ocaml_tyxml.Tyxml_js.Xml)
-    (Js_of_ocaml_tyxml.Tyxml_js.Svg)
-    (Js_of_ocaml_tyxml.Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
 module Selector = struct
   open Printf
 
-  let form user = sprintf "#%s" @@ Markup_js.form_id user
+  let form user = sprintf "#%s" @@ D.form_id user
 
   let user_tabs = sprintf ".%s" Tab_bar.CSS.root
 
@@ -89,7 +86,5 @@ class t ~set_snackbar (user : Application_types.User.t) (elt : Dom_html.element 
   end
 
 let make ~set_snackbar user : t =
-  let (elt : Dom_html.element Js.t) =
-    Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ Markup_js.create ()
-  in
+  let (elt : Dom_html.element Js.t) = Tyxml_js.To_dom.of_element @@ D.create () in
   new t ~set_snackbar user elt

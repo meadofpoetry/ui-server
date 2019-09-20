@@ -29,23 +29,23 @@ struct
     |> Utils.map_cons_option (a_user_data "service-id" % string_of_int) info.service_id
     |> Utils.map_cons_option (a_user_data "service-name") info.service_name
 
-  let create_title ?(classes = []) ?(attrs = []) ?total () =
+  let create_title ?(classes = []) ?(a = []) ?total () =
     let text =
       match total with
       | None -> "PIDs"
       | Some x -> Printf.sprintf "PIDs (%d)" x
     in
     let classes = CSS.title :: classes in
-    span ~a:([a_class classes] @ attrs) [txt text]
+    span ~a:(a_class classes :: a) [txt text]
 
-  let create_pid ?(classes = []) ?(attrs = []) ?(hex = false) ~pid () =
+  let create_pid ?(classes = []) ?(a = []) ?(hex = false) ~pid () =
     let classes = CSS.pid :: classes in
     let text =
       if hex then Util.pid_to_hex_string (fst pid) else Util.pid_to_dec_string (fst pid)
     in
-    span ~a:([a_class classes] @ create_pid_attrs pid @ attrs) [txt text]
+    span ~a:((a_class classes :: create_pid_attrs pid) @ a) [txt text]
 
-  let create_pids ?(classes = []) ?(attrs = []) ?hex ?pids ?children () =
+  let create_pids ?(classes = []) ?(a = []) ?hex ?pids ?children () =
     let children =
       match children with
       | Some x -> x
@@ -55,9 +55,9 @@ struct
         | Some pids -> List.map (fun pid -> create_pid ?hex ~pid ()) pids)
     in
     let classes = CSS.pids :: classes in
-    div ~a:([a_class classes] @ attrs) children
+    div ~a:(a_class classes :: a) children
 
-  let create ?(classes = []) ?(attrs = []) ?hex ?children ?pids () =
+  let create ?(classes = []) ?(a = []) ?hex ?children ?pids () =
     let children =
       match children with
       | Some x -> x
@@ -66,7 +66,7 @@ struct
           ; create_pids ?hex ?pids () ]
     in
     let classes = CSS.root :: classes in
-    div ~a:([a_class classes] @ attrs) children
+    div ~a:(a_class classes :: a) children
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

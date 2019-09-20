@@ -22,32 +22,47 @@ type appearance =
   | `Error ]
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
   module Typography = Typography.Make (Xml) (Svg) (Html)
 
-  let create_dots ?(classes = []) ?(attrs = []) () =
-    let classes = CSS.dots :: classes in
-    span ~a:([a_class classes] @ attrs) [span [txt "."]; span [txt "."]; span [txt "."]]
+  let ( % ) f g x = f (g x)
 
-  let create_text ?(classes = []) ?(attrs = []) ?(loading = false) ?text () =
+  let ( @:: ) = cons
+
+  let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
+
+  let placeholder_dots ?(classes = return []) ?(a = []) () =
+    let classes = fmap (fun x -> CSS.dots :: x) classes in
+    let dot () = return (span (singleton (return (txt (return "."))))) in
+    span ~a:(a_class classes :: a) (dot () @:: dot () @:: dot () @:: nil ())
+
+  let placeholder_text ?(classes = return []) ?(a = []) ?(loading = false) ?text () =
     let classes =
-      classes |> Utils.cons_if loading CSS.text_loading |> List.cons CSS.text
+      fmap (Utils.cons_if loading CSS.text_loading % List.cons CSS.text) classes
     in
-    let content = if loading then [create_dots ()] else [] in
+    let content = if loading then singleton (return (placeholder_dots ())) else nil () in
     let text =
       match text with
       | None -> None
-      | Some (`Text s) -> Some (txt s)
-      | Some (`Element e) -> Some e
+      | Some (`Text s) -> Some (return (txt s))
+      | Some (`Element e) -> Some (return e)
     in
-    span ~a:([a_class classes] @ attrs) Utils.(text ^:: content)
+    span ~a:(a_class classes :: a) (text ^:: content)
 
-  let create_content ?(classes = []) ?(attrs = []) ?loading ?icon ?text ?children () =
-    let classes = CSS.content :: classes in
+  let placeholder_content
+      ?(classes = return [])
+      ?(a = [])
+      ?loading
+      ?icon
+      ?text
+      ?children
+      () =
+    let classes = fmap (fun x -> CSS.content :: x) classes in
     let children =
       match children with
       | Some x -> x
@@ -55,29 +70,30 @@ struct
           let text =
             match text with
             | None -> None
-            | Some (`Text s) -> Some (create_text ?loading ~text:(`Text s) ())
-            | Some (`Element e) -> Some e
+            | Some (`Text s) ->
+                Some (return (placeholder_text ?loading ~text:(`Text s) ()))
+            | Some (`Element e) -> Some (return e)
           in
-          Utils.(icon ^:: text ^:: [])
+          icon ^:: text ^:: nil ()
     in
-    div ~a:([a_class classes] @ attrs) children
+    div ~a:(a_class classes :: a) children
 
-  let create
-      ?(classes = [])
-      ?(attrs = [])
+  let placeholder
+      ?(classes = return [])
+      ?(a = [])
       ?(error = false)
       ?loading
       ?icon
       ?text
       ?children
       () =
-    let classes = classes |> Utils.cons_if error CSS.error |> List.cons CSS.root in
+    let classes = fmap (Utils.cons_if error CSS.error % List.cons CSS.root) classes in
     let children =
       match children with
       | Some x -> x
-      | None -> [create_content ?loading ?icon ?text ()]
+      | None -> singleton (return (placeholder_content ?loading ?icon ?text ()))
     in
-    div ~a:([a_class classes] @ attrs) children
+    div ~a:(a_class classes :: a) children
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

@@ -39,53 +39,65 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.T)
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
   open Xml.W
   open Html
-  module Notched_outline = Notched_outline.Make (Xml) (Svg) (Html)
-  module Floating_label = Floating_label.Make (Xml) (Svg) (Html)
-  module Line_ripple = Line_ripple.Make (Xml) (Svg) (Html)
+  module Notched_outline_markup = Notched_outline.Make (Xml) (Svg) (Html)
+  module Floating_label_markup = Floating_label.Make (Xml) (Svg) (Html)
+  module Line_ripple_markup = Line_ripple.Make (Xml) (Svg) (Html)
+
+  let ( % ) f g x = f (g x)
+
+  let ( @:: ) = cons
+
+  let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
 
   module Helper_text = struct
     let helper_text
-        ?(classes = [])
+        ?(classes = return [])
         ?(a = [])
         ?(persistent = false)
         ?(validation = false)
         ?text
-        ?(children = [])
-        () : 'a elt =
+        ?(children = nil ())
+        () =
       let classes =
-        classes
-        |> Utils.cons_if validation CSS.Helper_text.validation_msg
-        |> Utils.cons_if persistent CSS.Helper_text.persistent
-        |> List.cons CSS.Helper_text.root
+        fmap
+          (Utils.cons_if validation CSS.Helper_text.validation_msg
+          % Utils.cons_if persistent CSS.Helper_text.persistent
+          % List.cons CSS.Helper_text.root)
+          classes
+      in
+      let children =
+        match text with
+        | None -> children
+        | Some x -> cons (return (txt x)) children
       in
       div
         ~a:
-          (a_class (return classes) :: a
+          (a_class classes :: a
           |> Utils.cons_if (not persistent) @@ a_aria "hidden" (return ["true"]))
-        (Utils.map_cons_option txt text children)
+        children
   end
 
   module Character_counter = struct
     let character_counter
-        ?(classes = [])
+        ?(classes = return [])
         ?(a = [])
         ?(current_length = 0)
         ?(max_length = 0)
         () =
-      let classes = CSS.Character_counter.root :: classes in
+      let classes = fmap (fun x -> CSS.Character_counter.root :: x) classes in
       let text = return @@ Printf.sprintf "%d / %d" current_length max_length in
-      div ~a:(a_class (return classes) :: a) (singleton (return (txt text)))
+      div ~a:(a_class classes :: a) (singleton (return (txt text)))
   end
 
   module Textarea = struct
-    let create_textarea
-        ?(classes = [])
+    let textarea_input
+        ?(classes = return [])
         ?(a = [])
         ?id
         ?(value = return "")
@@ -96,24 +108,24 @@ struct
         ?rows
         ?cols
         ?(disabled = false)
-        () : 'a elt =
-      let classes = CSS.input :: classes in
+        () =
+      let classes = fmap (fun x -> CSS.input :: x) classes in
       textarea
         ~a:
           Utils.(
-            a_class (return classes) :: a
+            a_class classes :: a
             |> map_cons_option a_id id
             |> cons_if_lazy disabled a_disabled
             |> cons_if_lazy required a_required
             |> map_cons_option a_placeholder placeholder
-            |> map_cons_option a_minlength min_length
-            |> map_cons_option a_maxlength max_length
+            |> map_cons_option (a_minlength % return) min_length
+            |> map_cons_option (a_maxlength % return) max_length
             |> map_cons_option a_rows rows
             |> map_cons_option a_cols cols)
         (return (txt value))
 
-    let create
-        ?(classes = [])
+    let textarea
+        ?(classes = return [])
         ?(a = [])
         ?(disabled = false)
         ?(fullwidth = false)
@@ -122,7 +134,7 @@ struct
         ?character_counter
         ?input_id
         ?label
-        ?(outline = Notched_outline.notched_outline ?label_for:input_id ?label ())
+        ?outline
         ?value
         ?placeholder
         ?required
@@ -130,39 +142,54 @@ struct
         ?max_length
         ?rows
         ?cols
-        ?(input =
-          create_textarea
-            ?id:input_id
-            ?value
-            ?placeholder
-            ?required
-            ?min_length
-            ?max_length
-            ?rows
-            ?cols
-            ())
+        ?input
         () : 'a elt =
+      let classes =
+        fmap
+          Utils.(
+            cons_if (Option.is_none label) CSS.no_label
+            % cons_if fullwidth CSS.fullwidth
+            % cons_if disabled CSS.disabled
+            % cons_if focused CSS.focused
+            % List.cons CSS.textarea
+            % List.cons CSS.root)
+          classes
+      in
       let cc =
         match character_counter, show_character_counter with
         | None, false -> None
         | (Some _ as x), _ -> x
-        | None, true -> Some (Character_counter.character_counter ?max_length ())
+        | None, true ->
+            Some (return @@ Character_counter.character_counter ?max_length ())
       in
-      let classes =
-        Utils.(
-          classes
-          |> cons_if (Option.is_none label) CSS.no_label
-          |> cons_if fullwidth CSS.fullwidth
-          |> cons_if disabled CSS.disabled
-          |> cons_if focused CSS.focused
-          |> List.cons CSS.textarea
-          |> List.cons CSS.root)
+      let outline =
+        match outline with
+        | Some x -> return x
+        | None ->
+            return
+            @@ Notched_outline_markup.notched_outline ?label_for:input_id ?label ()
       in
-      div ~a:(a_class (return classes) :: a) Utils.(cc ^:: [input; outline])
+      let input =
+        match input with
+        | Some x -> return x
+        | None ->
+            return
+            @@ textarea_input
+                 ?id:input_id
+                 ?value
+                 ?placeholder
+                 ?required
+                 ?min_length
+                 ?max_length
+                 ?rows
+                 ?cols
+                 ()
+      in
+      div ~a:(a_class classes :: a) (cc ^:: input @:: outline @:: nil ())
   end
 
   let textfield_input
-      ?(classes = [])
+      ?(classes = return [])
       ?(a = [])
       ?id
       ?pattern
@@ -175,12 +202,12 @@ struct
       ?(disabled = false)
       ?(typ = `Text)
       ?input_mode
-      () : 'a elt =
-    let classes = CSS.input :: classes in
+      () =
+    let classes = fmap (fun x -> CSS.input :: x) classes in
     input
       ~a:
         Utils.(
-          a_class (return classes) :: a_input_type (return typ) :: a
+          a_class classes :: a_input_type (return typ) :: a
           |> map_cons_option a_inputmode input_mode
           |> cons_if_lazy disabled a_disabled
           |> map_cons_option a_id id
@@ -193,12 +220,12 @@ struct
           |> map_cons_option a_value value)
       ()
 
-  let textfield_helper_line ?(classes = []) ?(a = []) ?(children = nil ()) () : 'a elt =
-    let classes = CSS.helper_line :: classes in
-    div ~a:(a_class (return classes) :: a) children
+  let textfield_helper_line ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+    let classes = fmap (fun x -> CSS.helper_line :: x) classes in
+    div ~a:(a_class classes :: a) children
 
   let textfield
-      ?(classes = [])
+      ?(classes = return [])
       ?(a = [])
       ?(disabled = false)
       ?leading_icon
@@ -238,44 +265,46 @@ struct
       match outline, outlined with
       | (Some _ as x), _ -> x
       | None, false -> None
-      | None, true -> Some (Notched_outline.notched_outline ?label ())
+      | None, true -> Some (return @@ Notched_outline_markup.notched_outline ?label ())
     in
     let line_ripple =
       match line_ripple, outline with
       | (Some _ as x), _ -> x
       | None, Some _ -> None
-      | None, None -> Some (Line_ripple.line_ripple ())
+      | None, None -> Some (return @@ Line_ripple_markup.line_ripple ())
     in
     let floating_label =
       match label, outline with
       | None, _ -> None
       | Some _, Some _ -> None
-      | Some x, None -> (
-        match x with
-        | `Text s -> Some (Floating_label.floating_label ?for_:input_id ~label:s ())
-        | `Element e -> Some e)
+      | Some x, None ->
+          Some (return @@ Floating_label_markup.floating_label ?for_:input_id ~label:x ())
     in
     let with_leading_icon = Option.is_some leading_icon in
     let with_trailing_icon = Option.is_some trailing_icon in
     let classes =
-      Utils.(
+      fmap
+        Utils.(
+          cons_if (Option.is_none label) CSS.no_label
+          % cons_if textarea CSS.textarea
+          % cons_if fullwidth CSS.fullwidth
+          % cons_if disabled CSS.disabled
+          % cons_if (Option.is_some outline) CSS.outlined
+          % cons_if focused CSS.focused
+          % cons_if with_leading_icon CSS.with_leading_icon
+          % cons_if with_trailing_icon CSS.with_trailing_icon
+          % List.cons CSS.root)
         classes
-        |> cons_if (Option.is_none label) CSS.no_label
-        |> cons_if textarea CSS.textarea
-        |> cons_if fullwidth CSS.fullwidth
-        |> cons_if disabled CSS.disabled
-        |> cons_if (Option.is_some outline) CSS.outlined
-        |> cons_if focused CSS.focused
-        |> cons_if with_leading_icon CSS.with_leading_icon
-        |> cons_if with_trailing_icon CSS.with_trailing_icon
-        |> List.cons CSS.root)
     in
     div
-      ~a:(a_class (return classes) :: a)
-      Utils.(
-        leading_icon
-        ^:: (input
-            :: (floating_label ^:: trailing_icon ^:: outline ^:: line_ripple ^:: [])))
+      ~a:(a_class classes :: a)
+      (leading_icon
+      ^:: return input
+      @:: floating_label
+      ^:: trailing_icon
+      ^:: outline
+      ^:: line_ripple
+      ^:: nil ())
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

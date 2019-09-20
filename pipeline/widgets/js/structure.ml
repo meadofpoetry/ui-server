@@ -92,7 +92,7 @@ let make_pid ((state : Structure.Annotated.state), (pid : Structure.pid)) =
       , (Checkbox.make ~classes:[Item_list.CSS.item_graphic] ~checked ())#markup )
     else None, make_checkbox_spacer ()
   in
-  Treeview.Markup_js.create_node
+  Treeview.D.treeview_node
     ~value:(string_of_int pid.pid)
     ~graphic
     ?checked
@@ -121,7 +121,7 @@ let make_channel
         (Checkbox.make ~classes:[Item_list.CSS.item_graphic] ~checked ~indeterminate ())
           #markup
   in
-  Treeview.Markup_js.create_node
+  Treeview.D.treeview_node
     ~value:(string_of_int ch.number)
     ~graphic
     ~checked
@@ -144,7 +144,7 @@ let make_stream
   let checkbox =
     Checkbox.make ~classes:[Item_list.CSS.item_graphic] ~checked ~indeterminate ()
   in
-  Treeview.Markup_js.create_node
+  Treeview.D.treeview_node
     ~value:(Stream.ID.to_string id)
     ~graphic:checkbox#markup
     ~checked
@@ -257,12 +257,12 @@ let merge_trees ~(old : Treeview.t) ~(cur : Treeview.t) =
 
 class t (structure : Structure.Annotated.t) () =
   let submit = Button.make ~label:"Применить" () in
-  let buttons = Card.Markup_js.create_action_buttons ~children:[submit#markup] () in
-  let actions = Card.Markup_js.create_actions ~children:[buttons] () in
+  let buttons = Card.D.card_action_buttons ~children:[submit#markup] () in
+  let actions = Card.D.card_actions ~children:[buttons] () in
   object (self)
     val placeholder =
       Components_lab.Placeholder.make
-        ~icon:Icon.SVG.(Markup_js.create ~d:Path.information ())
+        ~icon:Icon.SVG.(D.icon ~d:Path.information ())
         ~text:(`Text "Потоки не обнаружены")
         ()
 

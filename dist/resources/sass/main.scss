@@ -108,36 +108,6 @@ html, body {
     }
 }
 
-.mdc-card__primary {
-    margin: 0;
-    padding: 1rem;
-}
-
-.mdc-card__overline {
-    margin: 0;
-    @include mdc-typography(overline);
-}
-
-.mdc-card__title {
-    margin: 0;
-    @include mdc-typography(body1);
-
-    margin: -.063rem 0;
-
-    &--large {
-        @include mdc-typography(headline6);
-
-        margin: 0;
-    }
-}
-
-.mdc-card__subtitle {
-    @include mdc-typography(subtitle2);
-    @include mdc-theme-prop(color, text-secondary-on-background);
-
-    margin: -.063rem 0;
-}
-
 *:focus {outline:none !important}
 
 button:-moz-focusring,

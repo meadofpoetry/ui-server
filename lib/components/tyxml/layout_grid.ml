@@ -99,53 +99,59 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
 
-  let create_cell
-      ?(classes = [])
-      ?(attrs = [])
+  let ( % ) f g x = f (g x)
+
+  let layout_grid_cell
+      ?(classes = return [])
+      ?(a = [])
       ?align
       ?order
       ?span
       ?span_phone
       ?span_tablet
       ?span_desktop
-      ?(children = [])
-      () : 'a elt =
-    let (classes : string list) =
-      CSS.cell :: classes
-      |> Utils.map_cons_option CSS.cell_span span
-      |> Utils.map_cons_option (CSS.cell_span ~device:Phone) span_phone
-      |> Utils.map_cons_option (CSS.cell_span ~device:Tablet) span_tablet
-      |> Utils.map_cons_option (CSS.cell_span ~device:Desktop) span_desktop
-      |> Utils.map_cons_option CSS.cell_align align
-      |> Utils.map_cons_option CSS.cell_order order
+      ?(children = nil ())
+      () =
+    let classes =
+      fmap
+        (Utils.map_cons_option CSS.cell_span span
+        % Utils.map_cons_option (CSS.cell_span ~device:Phone) span_phone
+        % Utils.map_cons_option (CSS.cell_span ~device:Tablet) span_tablet
+        % Utils.map_cons_option (CSS.cell_span ~device:Desktop) span_desktop
+        % Utils.map_cons_option CSS.cell_align align
+        % Utils.map_cons_option CSS.cell_order order
+        % List.cons CSS.cell)
+        classes
     in
-    div ~a:([a_class classes] @ attrs) children
+    div ~a:(a_class classes :: a) children
 
-  let create_inner ?(classes = []) ?(attrs = []) ?(cells = []) () : 'a elt =
-    let classes = CSS.inner :: classes in
-    div ~a:([a_class classes] @ attrs) cells
+  let layout_grid_inner ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+    let classes = fmap (List.cons CSS.inner) classes in
+    div ~a:(a_class classes :: a) children
 
-  let create
-      ?(classes = [])
-      ?(attrs = [])
+  let layout_grid
+      ?(classes = return [])
+      ?(a = [])
       ?align
       ?(fixed_column_width = false)
       ?cells
-      ?(children = [create_inner ?cells ()])
-      () : 'a elt =
-    let (classes : string list) =
-      classes
-      |> Utils.map_cons_option CSS.align align
-      |> Utils.cons_if fixed_column_width CSS.fixed_column_width
-      |> List.cons CSS.root
+      ?(children = singleton (return (layout_grid_inner ?children:cells ())))
+      () =
+    let classes =
+      fmap
+        (Utils.map_cons_option CSS.align align
+        % Utils.cons_if fixed_column_width CSS.fixed_column_width
+        % List.cons CSS.root)
+        classes
     in
-    div ~a:([a_class classes] @ attrs) children
+    div ~a:(a_class classes :: a) children
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

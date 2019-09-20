@@ -19,9 +19,9 @@ module Make
 struct
   open Html
 
-  let create ?(classes = []) ?(attrs = []) ?(size = 10) () : 'a elt =
+  let create ?(classes = []) ?(a = []) ?(size = 10) () : 'a elt =
     let classes = CSS.root :: classes in
-    canvas ~a:([a_class classes; a_user_data "size" (string_of_int size)] @ attrs) []
+    canvas ~a:(a_class classes :: a_user_data "size" (string_of_int size) :: a) []
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

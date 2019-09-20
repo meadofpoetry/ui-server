@@ -147,10 +147,9 @@ class t
     val s_state = React.S.create []
 
     val close_icon : Dom_html.element Js.t =
-      Tyxml_js.To_dom.of_element @@ Icon.SVG.(Markup_js.create ~d:Path.close ())
+      Tyxml_js.To_dom.of_element @@ Icon.SVG.(D.icon ~d:Path.close ())
 
-    val back_icon =
-      Tyxml_js.To_dom.of_element @@ Icon.SVG.(Markup_js.create ~d:Path.arrow_left ())
+    val back_icon = Tyxml_js.To_dom.of_element @@ Icon.SVG.(D.icon ~d:Path.arrow_left ())
 
     val grid : Grid.t =
       match Element.query_selector elt Selector.grid with
@@ -318,8 +317,8 @@ class t
             List.map
               (fun (id, ((container : Wm.Annotated.container), pos)) ->
                 Tyxml_js.To_dom.of_element
-                @@ Grid.Markup_js.create_cell
-                     ~attrs:Tyxml_js.Html.[a_user_data "title" id]
+                @@ Grid.D.create_cell
+                     ~a:Tyxml_js.Html.[a_user_data "title" id]
                      ~content:(content_of_container container)
                      pos)
               grid_props.cells
@@ -526,7 +525,7 @@ class t
           ()
       in
       [ Tyxml_js.To_dom.of_element
-        @@ Card.Markup_js.create_action_buttons ~children:[submit#markup] () ]
+        @@ Card.D.card_action_buttons ~children:[submit#markup] () ]
 
     method private update_widget_elements
         (widgets : Dom_html.element Js.t list)
@@ -535,7 +534,7 @@ class t
       let wrapper =
         match Element.query_selector cell Selector.widget_wrapper with
         | None ->
-            let elt = Tyxml_js.To_dom.of_element @@ Markup_js.create_widget_wrapper [] in
+            let elt = Tyxml_js.To_dom.of_element @@ D.create_widget_wrapper [] in
             Dom.appendChild cell elt;
             elt
         | Some x ->
@@ -560,24 +559,18 @@ let make_grid (props : grid_properties) =
   let cells =
     List.map
       (fun (id, ((container : Wm.Annotated.container), pos)) ->
-        Grid.Markup_js.create_cell
-          ~attrs:Tyxml_js.Html.[a_user_data "title" id]
+        Grid.D.create_cell
+          ~a:Tyxml_js.Html.[a_user_data "title" id]
           ~content:(content_of_container container)
           pos)
       props.cells
   in
-  Grid.Markup_js.create
-    ~rows:(`Value props.rows)
-    ~cols:(`Value props.cols)
-    ~content:cells
-    ()
+  Grid.D.create ~rows:(`Value props.rows) ~cols:(`Value props.cols) ~content:cells ()
 
 let make
     ~(scaffold : Scaffold.t)
     (structure : Structure.Annotated.t)
     (wm : Wm.Annotated.t) =
   let grid = make_grid @@ grid_properties_of_layout wm in
-  let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element @@ Markup_js.create grid
-  in
+  let (elt : Dom_html.element Js.t) = Tyxml_js.To_dom.of_element @@ D.create grid in
   new t ~scaffold structure wm elt

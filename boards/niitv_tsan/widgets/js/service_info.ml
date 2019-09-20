@@ -3,7 +3,7 @@ open Js_of_ocaml_tyxml
 open Components
 open Board_niitv_tsan_types
 include Board_niitv_tsan_widgets_tyxml.Service_info
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 type event =
   [ `Bitrate of Bitrate.ext option
@@ -110,20 +110,11 @@ class t (elt : Dom_html.element Js.t) () =
 
 let attach elt = new t (elt :> Dom_html.element Js.t) ()
 
-let make
+let make ?classes ?a ?pids ?info ?bitrate ?min_bitrate ?max_bitrate ?children ~control ()
+    =
+  D.create
     ?classes
-    ?attrs
-    ?pids
-    ?info
-    ?bitrate
-    ?min_bitrate
-    ?max_bitrate
-    ?children
-    ~control
-    () =
-  Markup_js.create
-    ?classes
-    ?attrs
+    ?a
     ?pids
     ?info
     ?bitrate

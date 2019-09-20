@@ -1,9 +1,9 @@
 open Js_of_ocaml
-open Js_of_ocaml_tyxml.Tyxml_js
+open Js_of_ocaml_tyxml
 open Js_of_ocaml_lwt
 open Components
 include Page_mosaic_video_tyxml.Player
-module Markup = Make (Xml) (Svg) (Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.( >>= )
 
@@ -122,7 +122,7 @@ end
 let make_big_button () =
   let ph =
     Components_lab.Placeholder.make
-      ~icon:Icon.SVG.(Markup_js.create ~d:Path.play ())
+      ~icon:Icon.SVG.(D.icon ~d:Path.play ())
       ~text:(`Text "")
       ()
   in

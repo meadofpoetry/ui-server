@@ -3,7 +3,7 @@ open Js_of_ocaml_tyxml
 open Components
 open Board_niitv_tsan_http_js
 include Board_niitv_tsan_widgets_tyxml.Table_overview
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -32,7 +32,7 @@ module Selector = struct
 end
 
 class virtual ['a] t
-  ~(create_table_format : ?hex:bool -> unit -> _ Data_table.Markup_js.Fmt.format)
+  ~(create_table_format : ?hex:bool -> unit -> _ Data_table.D.Fmt.format)
   elt
   () =
   let hex = Element.has_class elt CSS.hex in
@@ -60,7 +60,7 @@ class virtual ['a] t
     val placeholder =
       match Element.query_selector elt Selector.placeholder with
       | Some x -> x
-      | None -> Tyxml_js.To_dom.of_div @@ Markup_js.create_empty_placeholder ()
+      | None -> Tyxml_js.To_dom.of_div @@ D.create_empty_placeholder ()
 
     val table : _ Gadt_data_table.t =
       Gadt_data_table.attach ~fmt:(create_table_format ~hex ())
@@ -116,7 +116,7 @@ class virtual ['a] t
       match title with
       | Some x -> x##.textContent := Js.some (Js.string s)
       | None ->
-          let title = Tyxml_js.To_dom.of_element @@ Markup_js.create_title ~title:s () in
+          let title = Tyxml_js.To_dom.of_element @@ D.create_title ~title:s () in
           Element.insert_child_at_index header 1 title
 
     method virtual set_hex : bool -> unit

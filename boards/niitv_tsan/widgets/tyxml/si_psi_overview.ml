@@ -15,6 +15,7 @@ module Make
 struct
   open Html
   include Table_overview.Make (Xml) (Svg) (Html)
+  module Fmt = Data_table.Make_fmt (Xml)
 
   let dec_pid_fmt = Fmt.Int
 
@@ -111,7 +112,7 @@ struct
       ; None
       ; None ]
 
-  let create ?(classes = []) ?attrs ?dense ?hex ?init ~control () =
+  let create ?(classes = []) ?a ?dense ?hex ?init ~control () =
     let classes = CSS.root :: classes in
     let data =
       match init with
@@ -120,7 +121,7 @@ struct
     in
     create
       ~classes
-      ?attrs
+      ?a
       ?dense
       ?hex
       ~title:(`Text "Список таблиц SI/PSI")
@@ -131,4 +132,4 @@ struct
       ()
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

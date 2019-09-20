@@ -11,11 +11,11 @@ type 'a t =
   ; callback : ('a -> Dom_html.event Js.t -> unit Lwt.t -> unit Lwt.t) option }
 
 let make_icon_button ?href ~icon name =
-  let icon = Icon.SVG.Markup_js.create ~d:icon () in
+  let icon = Icon.SVG.D.icon ~d:icon () in
   let classes = [Top_app_bar.CSS.action_item] in
   let icon_button =
     if Option.is_some href
-    then Icon_button.make_anchor ?href ~classes ~icon ()
+    then Icon_button.make_a ?href ~classes ~icon ()
     else Icon_button.make ~classes ~icon ()
   in
   icon_button#set_attribute "title" name;
@@ -27,7 +27,7 @@ let make ?active ?href ?callback ~name ~icon () =
 let make_overflow_menu (state : 'a React.signal) (actions : 'a t list) =
   let elt =
     Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-    @@ Components_lab.Overflow_menu.Markup_js.create
+    @@ Components_lab.Overflow_menu.D.overflow_menu
          ~actions:(List.map (fun x -> (x.icon)#markup) actions)
          ()
   in
@@ -173,8 +173,8 @@ module Containers = struct
                 (fun (id, (container, pos)) ->
                   Js_of_ocaml_tyxml.Tyxml_js.(
                     To_dom.of_element
-                    @@ Grid.Markup_js.create_cell
-                         ~attrs:Html.[a_user_data "title" id]
+                    @@ Grid.D.create_cell
+                         ~a:Html.[a_user_data "title" id]
                          ~content:(Container_utils.content_of_container container)
                          pos))
                 grid_props.cells

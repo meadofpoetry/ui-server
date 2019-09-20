@@ -13,19 +13,4 @@ let map_cons_option (f : 'a -> 'b) (opt : 'a option) (l : 'b list) : 'b list =
   | None -> l
   | Some x -> f x :: l
 
-let is_some : 'a option -> bool = function
-  | None -> false
-  | Some _ -> true
-
 let ( ^:: ) = cons_option
-
-let ( % ) f g x = f (g x)
-
-module Make (Xml : Xml_sigs.T) = struct
-  let ( @:: ) x l = Xml.W.cons x l
-
-  let ( ^:: ) x l =
-    match x with
-    | None -> l
-    | Some x -> Xml.W.cons x l
-end

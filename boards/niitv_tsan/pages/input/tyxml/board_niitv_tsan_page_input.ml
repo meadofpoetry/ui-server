@@ -12,7 +12,9 @@ module Make
 struct
   open Html
 
-  let create ?(classes = []) ?(attrs = []) ?(children = []) ~control () =
+  let create ?(classes = []) ?(a = []) ?(children = []) ~control () =
     let classes = CSS.root :: classes in
-    div ~a:([a_id (Printf.sprintf "board-%d" control); a_class classes] @ attrs) children
+    div ~a:(a_id (Printf.sprintf "board-%d" control) :: a_class classes :: a) children
 end
+
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

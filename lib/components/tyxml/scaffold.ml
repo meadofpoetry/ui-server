@@ -15,47 +15,50 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.T)
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
   open Xml.W
   open Html
-  module CSS = CSS
+
+  let ( % ) f g x = f (g x)
 
   let scaffold_app_content
-      ?(classes = [])
+      ?(classes = return [])
       ?(a = [])
       ?(inner = false)
       ?(outer = false)
       ?(children = nil ())
-      () : 'a elt =
+      () =
     let classes =
-      classes
-      |> Utils.cons_if inner CSS.app_content_inner
-      |> Utils.cons_if outer CSS.app_content_outer
-      |> List.cons CSS.app_content
+      fmap
+        (Utils.cons_if inner CSS.app_content_inner
+        % Utils.cons_if outer CSS.app_content_outer
+        % List.cons CSS.app_content)
+        classes
     in
-    div ~a:(a_class (return classes) :: a) children
+    div ~a:(a_class classes :: a) children
 
   let scaffold_drawer_frame
-      ?(classes = [])
+      ?(classes = return [])
       ?(a = [])
       ?(full_height = false)
       ?(clipped = false)
       ?(children = nil ())
-      () : 'a elt =
+      () =
     let classes =
-      classes
-      |> Utils.cons_if full_height CSS.drawer_frame_full_height
-      |> Utils.cons_if clipped CSS.drawer_frame_clipped
-      |> List.cons CSS.drawer_frame
+      fmap
+        (Utils.cons_if full_height CSS.drawer_frame_full_height
+        % Utils.cons_if clipped CSS.drawer_frame_clipped
+        % List.cons CSS.drawer_frame)
+        classes
     in
-    div ~a:(a_class (return classes) :: a) children
+    div ~a:(a_class classes :: a) children
 
-  let scaffold ?(classes = []) ?(a = []) ?(children = nil ()) () : 'a elt =
-    let classes = CSS.root :: classes in
-    div ~a:(a_class (return classes) :: a) children
+  let scaffold ?(classes = return []) ?(a = []) ?(children = nil ()) () : 'a elt =
+    let classes = fmap (List.cons CSS.root) classes in
+    div ~a:(a_class classes :: a) children
 end
 
-module Markup = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

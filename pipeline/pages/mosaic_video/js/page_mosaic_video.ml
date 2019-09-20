@@ -1,10 +1,9 @@
 open Js_of_ocaml
-open Js_of_ocaml_tyxml.Tyxml_js
+open Js_of_ocaml_tyxml
 open Components
 open Pipeline_http_js
-module CSS = Page_mosaic_video_tyxml.CSS
-module Markup = Page_mosaic_video_tyxml.Make (Xml) (Svg) (Html)
-module Hotkeys = Page_mosaic_video_tyxml.Hotkeys.Make (Xml) (Svg) (Html)
+include Page_mosaic_video_tyxml.Page
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 module Selector = struct
   let overflow_menu = "." ^ Components_lab.Overflow_menu.CSS.root
@@ -208,10 +207,11 @@ let tie_side_sheet_with_toggle (scaffold : Scaffold.t) =
   | _ -> ()
 
 let make_hotkeys_dialog () =
-  let hotkeys = Widget.create @@ To_dom.of_element @@ Markup.create_hotkeys () in
-  let title = Dialog.Markup_js.create_title ~title:"Горячие клавиши" () in
-  let cancel = Dialog.Markup_js.create_action ~label:"Закрыть" ~action:Close () in
-  let content = Dialog.Markup_js.create_content [hotkeys#markup] in
+  let open Dialog.D in
+  let hotkeys = Widget.create @@ Tyxml_js.To_dom.of_element @@ D.create_hotkeys () in
+  let title = dialog_title ~title:"Горячие клавиши" () in
+  let cancel = dialog_action ~label:"Закрыть" ~action:Close () in
+  let content = dialog_content ~children:[hotkeys#markup] () in
   Dialog.make ~title ~content ~actions:[cancel] ()
 
 let tie_menu_with_toggle (scaffold : Scaffold.t) (wizard_dialog, show_wizard) =
@@ -276,14 +276,16 @@ let make_wizard (scaffold : Scaffold.t) =
         Api_js.Websocket.close_socket socket);
     Lwt.return_ok wizard
   in
-  let title = Dialog.Markup_js.create_title ~title:Pipeline_widgets.Wizard.title () in
+  let title = Dialog.D.dialog_title ~title:Pipeline_widgets.Wizard.title () in
   let loader = Components_lab.Loader.make_widget_loader thread in
-  let content = Dialog.Markup_js.create_content [Of_dom.of_element loader] in
-  let cancel = Dialog.Markup_js.create_action ~action:Close ~label:"Отмена" () in
+  let content =
+    Dialog.D.dialog_content ~children:[Tyxml_js.Of_dom.of_element loader] ()
+  in
+  let cancel = Dialog.D.dialog_action ~action:Close ~label:"Отмена" () in
   let accept =
     Button.attach
-    @@ To_dom.of_element
-    @@ Dialog.Markup_js.create_action
+    @@ Tyxml_js.To_dom.of_element
+    @@ Dialog.D.dialog_action
          ~disabled:true
          ~action:Accept
          ~label:"Применить"

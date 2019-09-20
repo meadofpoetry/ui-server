@@ -4,7 +4,7 @@ open Application_types
 open Components
 open Board_niitv_tsan_types
 include Board_niitv_tsan_widgets_tyxml.Si_psi_overview
-module Markup_js = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 type event =
   [ `State of [Topology.state | `No_sync]
@@ -28,7 +28,7 @@ let update_row_bitrate
   let pct = 100. *. float_of_int br.cur /. float_of_int total.cur in
   let mbps = float_of_int br.cur /. 1_000_000. in
   let data =
-    Gadt_data_table.Fmt_js.
+    Gadt_data_table.Fmt_d.
       [ None
       ; None
       ; None
@@ -50,7 +50,7 @@ let update_row_info
     (id : SI_PSI_table.id)
     (info : SI_PSI_table.t) =
   let data =
-    Gadt_data_table.Fmt_js.
+    Gadt_data_table.Fmt_d.
       [ Some id.table_id
       ; Some info.pid
       ; Some ""
@@ -76,7 +76,7 @@ class t ?(init : (SI_PSI_table.id * SI_PSI_table.t) list ts option) elt () =
 
     inherit
       [SI_PSI_table.id] Table_overview.with_details
-        ~create_table_format:(Markup_js.create_table_format ~get_attribute)
+        ~create_table_format:(D.create_table_format ~get_attribute)
         elt () as super
 
     method notify : event -> unit =
@@ -86,9 +86,9 @@ class t ?(init : (SI_PSI_table.id * SI_PSI_table.t) list ts option) elt () =
       | `Bitrate x -> self#set_bitrate x
 
     method set_hex (hex : bool) : unit =
-      let id_ext_fmt = Markup_js.id_ext_fmt ~get_attribute ~hex () in
-      let pid_fmt = Markup_js.pid_fmt ~hex in
-      let (format : _ Markup_js.Fmt.data_format) =
+      let id_ext_fmt = D.id_ext_fmt ~get_attribute ~hex () in
+      let pid_fmt = D.pid_fmt ~hex in
+      let (format : _ D.Fmt.data_format) =
         match table#data_format with
         | _ :: _ :: name :: _ :: tl -> pid_fmt :: pid_fmt :: name :: id_ext_fmt :: tl
       in
@@ -137,14 +137,14 @@ class t ?(init : (SI_PSI_table.id * SI_PSI_table.t) list ts option) elt () =
       | Some row -> update_row_info table row id info
 
     method private add_table x =
-      let (data : _ Markup_js.Fmt.data) = Markup_js.data_of_si_psi_info x in
+      let (data : _ D.Fmt.data) = D.data_of_si_psi_info x in
       let _row = table#insert_row (-1) data in
       ()
 
     method private find_row (id : SI_PSI_table.id) =
       let find row =
         let id' =
-          Gadt_data_table.Fmt_js.(
+          Gadt_data_table.Fmt_d.(
             match table#get_row_data_lazy row with
             | id :: _ -> id ())
         in
