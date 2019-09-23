@@ -29,14 +29,6 @@ class t elt () =
     method! destroy () : unit =
       si_psi_overview#destroy ();
       super#destroy ()
-
-    method notify : event -> unit =
-      function
-      | `Bitrate ((_, x) :: _) -> si_psi_overview#notify (`Bitrate (Some x))
-      | `Tables ((_, x) :: _) -> si_psi_overview#notify (`Tables x)
-      | `State (x : Topology.state) ->
-          si_psi_overview#notify (`State (x :> [Topology.state | `No_sync]))
-      | _ -> ()
   end
 
 let attach elt : t = new t (elt :> Dom_html.element Js.t) ()
@@ -49,8 +41,7 @@ let on_visible (page : t) (state : state) control =
   let open React in
   let thread =
     Http_monitoring.get_si_psi_tables control
-    >>=? fun tables ->
-    page#notify (`Tables tables);
+    >>=? fun _tables ->
     Api_js.Websocket.JSON.open_socket ~path:(Netlib.Uri.Path.Format.of_string "ws") ()
     >>=? fun socket ->
     Option.iter Api_js.Websocket.close_socket state.socket;
@@ -63,7 +54,7 @@ let on_visible (page : t) (state : state) control =
     >>=? fun (_, tables_ev) ->
     let notif =
       E.merge
-        (fun _ -> page#notify)
+        (fun _ _ -> ())
         ()
         [ E.map (fun x -> `Bitrate x) bitrate_ev
         ; E.map (fun x -> `Tables x) tables_ev

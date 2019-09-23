@@ -725,6 +725,7 @@ module Bitrate = struct
       ; effective = total - null
       ; pids
       ; tables = of_tables_bitrate total_tbls br_per_pkt tbls
+      ; services = []
       ; timestamp }
     in
     let rsp = Stream.Multi_TS_ID.of_int32_pure stream, data in

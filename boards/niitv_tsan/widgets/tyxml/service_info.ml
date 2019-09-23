@@ -7,7 +7,7 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Xml : Intf.Xml)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
@@ -60,4 +60,4 @@ struct
     div ~a:(a_class (return [CSS.root]) :: a) children
 end
 
-module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Impl.Xml) (Impl.Svg) (Impl.Html)

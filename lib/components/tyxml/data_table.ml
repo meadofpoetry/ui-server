@@ -78,7 +78,7 @@ let sort_of_string = function
   | _ -> None
 
 module Make_fmt
-    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Xml : Intf.Xml)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
@@ -153,7 +153,7 @@ struct
   type 'a column =
     { sortable : bool
     ; title : string Xml.wrap
-    ; format : 'a t }
+    ; format : 'a t Xml.wrap }
 
   let make_column ?(sortable = false) ~title format = {sortable; title; format}
 
@@ -179,7 +179,7 @@ struct
 end
 
 module Make
-    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Xml : Intf.Xml)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
@@ -189,7 +189,7 @@ struct
 
   let ( % ) f g x = f (g x)
 
-  let data_table_cell_content_nowrap fmt v =
+  let data_table_cell_content fmt v =
     let rec aux : type a. a Fmt.t -> a -> Html_types.td_content_fun elt =
      fun fmt v ->
       match fmt with
@@ -203,17 +203,8 @@ struct
     aux fmt v
 
   let data_table_cell_content fmt v =
-    let aux : type a. a Fmt.t -> a wrap -> Html_types.td_content_fun elt wrap =
-     fun fmt v ->
-      match fmt with
-      | Option (fmt, e) ->
-          fmap
-            (function
-              | None -> data_table_cell_content_nowrap String e
-              | Some x -> data_table_cell_content_nowrap fmt x)
-            v
-      | Custom_elt x -> fmap x.to_elt v
-      | _ -> return @@ txt (fmap (fun x -> Fmt.to_string fmt x) v)
+    let aux : type a. a Fmt.t wrap -> a wrap -> Html_types.td_content_fun elt wrap =
+     fun fmt v -> Xml.Wutils.l2 data_table_cell_content fmt v
     in
     aux fmt v
 
@@ -221,26 +212,33 @@ struct
       ?(classes = return [])
       ?(a = [])
       ?colspan
-      ?(numeric = false)
+      ?(numeric = return false)
       ?(children = nil ())
       () =
     let classes =
-      Xml.W.fmap (Utils.cons_if numeric CSS.cell_numeric % List.cons CSS.cell) classes
+      Xml.Wutils.l2
+        (fun numeric classes ->
+          classes |> Utils.cons_if numeric CSS.cell_numeric |> List.cons CSS.cell)
+        numeric
+        classes
     in
     td ~a:(a_class classes :: a |> Utils.map_cons_option a_colspan colspan) children
 
   let data_table_header_cell
       ?(classes = return [])
       ?(a = [])
-      ?(numeric = false)
+      ?(numeric = return false)
       ?(sortable = false)
       ?(children = nil ())
       () =
     let classes =
-      fmap
-        (Utils.cons_if sortable CSS.header_cell_sortable
-        % Utils.cons_if numeric CSS.header_cell_numeric
-        % List.cons CSS.header_cell)
+      Xml.Wutils.l2
+        (fun numeric classes ->
+          classes
+          |> Utils.cons_if sortable CSS.header_cell_sortable
+          |> Utils.cons_if numeric CSS.header_cell_numeric
+          |> List.cons CSS.header_cell)
+        numeric
         classes
     in
     th ~a:(a_class classes :: a_role (return ["columnheader"]) :: a) children
@@ -285,7 +283,7 @@ struct
 
   let data_table_cell_of_fmt ?classes ?a ?colspan ~fmt ~value () =
     let children = singleton (data_table_cell_content fmt value) in
-    data_table_cell ?classes ?a ?colspan ~numeric:(Fmt.is_numeric fmt) ~children ()
+    data_table_cell ?classes ?a ?colspan ~numeric:(fmap Fmt.is_numeric fmt) ~children ()
 
   let data_table_header_cell_of_fmt ?classes ?a ~(column : _ Fmt.column) () =
     let children = singleton (return (txt column.title)) in
@@ -293,7 +291,7 @@ struct
       ?classes
       ?a
       ~sortable:column.sortable
-      ~numeric:(Fmt.is_numeric column.format)
+      ~numeric:(fmap Fmt.is_numeric column.format)
       ~children
       ()
 
@@ -321,8 +319,36 @@ struct
     data_table_row ?classes ?a ~children:cells ()
 
   (* TODO how to provide custom classes, a to inner components? *)
-  let data_table_of_fmt ?classes ?a ?dense ~format ?(data = nil ()) () =
-    let rows = Xml.W.map (fun data -> data_table_row_of_fmt ~format ~data ()) data in
+  let data_table_of_fmt
+      ?classes
+      ?a
+      ?dense
+      ~format
+      ?row_a
+      ?row_classes
+      ?rows
+      ?(data = nil ())
+      () =
+    let rows =
+      match rows with
+      | Some x -> x
+      | None ->
+          Xml.W.map
+            (fun data ->
+              data_table_row_of_fmt
+                ?a:
+                  (match row_a with
+                  | None -> None
+                  | Some f -> Some (f data))
+                ?classes:
+                  (match row_classes with
+                  | None -> None
+                  | Some f -> Some (f data))
+                ~format
+                ~data
+                ())
+            data
+    in
     let header = return @@ data_table_header_of_fmt ~format () in
     let body = return @@ data_table_body ~children:rows () in
     let table = return @@ data_table_table ~header ~children:(singleton body) () in
@@ -345,5 +371,5 @@ struct
   *)
 end
 
-module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
-module Fmt_f = Make_fmt (Tyxml.Xml)
+module F = Make (Impl.Xml) (Impl.Svg) (Impl.Html)
+module Fmt_f = Make_fmt (Impl.Xml)

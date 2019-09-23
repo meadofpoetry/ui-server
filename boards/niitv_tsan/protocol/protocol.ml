@@ -141,9 +141,40 @@ let create
   let status, set_status = React.E.create () in
   let errors, set_errors = React.E.create () in
   let raw_streams, set_raw_streams = React.S.create [] in
-  let structure, set_structure = React.E.create () in
+  let structure, set_structure = React.S.create [] in
   let bitrate_queue = Bitrate_queue.create () in
   let bitrate, set_bitrate = React.E.create () in
+  let bitrate =
+    React.S.sample
+      (fun bitrate structure ->
+        List.map
+          (fun (id, (rate : int Bitrate.t)) ->
+            match List.assoc_opt id structure with
+            | None -> id, rate
+            | Some ({services; _} : Structure.t) ->
+                let services =
+                  List.map
+                    (fun (id, (x : Service.t)) ->
+                      let elements =
+                        if x.has_pmt then x.pmt_pid :: x.elements else x.elements
+                      in
+                      let rate =
+                        List.fold_left
+                          (fun acc x ->
+                            match List.assoc_opt x rate.pids with
+                            | None -> acc
+                            | Some x -> x + acc)
+                          0
+                          elements
+                      in
+                      id, rate)
+                    services
+                in
+                id, {rate with services})
+          bitrate)
+      bitrate
+      structure
+  in
   let streams = streams_conv raw_streams in
   let bitrate = map_stream_id streams bitrate in
   let bitrate_ext = React.E.map (Bitrate_queue.map bitrate_queue) bitrate in
@@ -167,7 +198,7 @@ let create
     ; structure =
         Util_equal.(
           let eq = List.equal @@ Pair.equal Stream.ID.equal Structure.equal in
-          React.S.hold ~eq [] @@ map_stream_id streams structure) }
+          React.S.hold ~eq [] @@ map_stream_id streams (React.S.changes structure)) }
   in
   let sender = {Fsm.send = (fun req -> sender @@ Serializer.serialize req)} in
   let (pending : Fsm.pending ref) = ref [] in

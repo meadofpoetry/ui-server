@@ -6,19 +6,7 @@
         @include mdc-theme-prop(color, text-primary-on-surface);
     }
 
-    .mdc-list-item__meta.mdc-icon {
-        path:nth-child(1) {
-            display: none;
-        }
-    }
-
-    .mdc-list-item__meta.mdc-icon[data-active] {
+    .mdc-list-item__meta--active {
         @include mdc-theme-prop(color, $material-color-green-500);
-        path:nth-child(1) {
-            display: block;
-        }
-        path:nth-child(2) {
-            display: none;
-        }
     }
 }

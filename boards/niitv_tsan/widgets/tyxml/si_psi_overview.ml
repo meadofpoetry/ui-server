@@ -9,10 +9,11 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Intf.Xml)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
   include Table_overview.Make (Xml) (Svg) (Html)
   module Fmt = Data_table.Make_fmt (Xml) (Svg) (Html)
@@ -55,13 +56,20 @@ struct
     let data = Yojson.Safe.to_string (SI_PSI_table.id_to_yojson id) in
     let length = List.length specific in
     span
-      ~a:[a_user_data "id" data]
-      (List.mapi
-         (fun i (s, v) ->
-           let v = to_id_string v in
-           let v = if i = pred length then v else v ^ ", " in
-           span [span ~a:[a_class [Typography.CSS.subtitle2]] [txt (s ^ ": ")]; txt v])
-         specific)
+      ~a:[a_user_data "id" (return data)]
+      Xml.Wutils.(
+        const
+          (List.mapi
+             (fun i (s, v) ->
+               let v = to_id_string v in
+               let v = if i = pred length then v else v ^ ", " in
+               span
+                 (const
+                    [ span
+                        ~a:[a_class (return [Typography.CSS.subtitle2])]
+                        (const [txt (return (s ^ ": "))])
+                    ; txt (return v) ]))
+             specific))
 
   let id_ext_fmt ?(get_attribute = fun _ -> assert false) ~hex () =
     Fmt.Custom_elt
@@ -78,58 +86,109 @@ struct
                 | Error e -> failwith e
                 | Ok x -> x)) }
 
-  let create_table_format ?get_attribute ?(hex = false) () :
-      _ Data_table_markup.Fmt.format =
-    let br_fmt = Fmt.Option (Float, "-") in
-    let pct_fmt = Fmt.Option (pct_fmt, "-") in
-    let id_ext_fmt = id_ext_fmt ?get_attribute ~hex () in
-    Fmt.
-      [ make_column ~sortable:true ~title:"ID" (pid_fmt ~hex)
-      ; make_column ~sortable:true ~title:"PID" (pid_fmt ~hex)
-      ; make_column ~sortable:true ~title:"Имя" String
-      ; make_column ~title:"Доп. инфо" id_ext_fmt
-      ; make_column ~sortable:true ~title:"Версия" Int
-      ; make_column ~sortable:true ~title:"Сервис" (Option (String, ""))
-      ; make_column ~title:"Кол-во секций" Int
-      ; make_column ~title:"LSN" Int
-      ; make_column ~title:"Битрейт, Мбит/с" br_fmt
-      ; make_column ~title:"%" pct_fmt
-      ; make_column ~title:"Min, Мбит/с" br_fmt
-      ; make_column ~title:"Max, Мбит/с" br_fmt ]
+  let br_fmt =
+    Fmt.Custom
+      { to_string = (fun x -> Printf.sprintf "%f" (float_of_int x /. 1_000_000.))
+      ; of_string = (fun x -> int_of_float (float_of_string x *. 1_000_000.))
+      ; compare
+      ; is_numeric = true }
 
-  let data_of_si_psi_info ((id, info) : SI_PSI_table.id * SI_PSI_table.t) : _ Fmt.data =
+  let create_table_format ?get_attribute ?(hex = return false) () : _ Fmt.format =
+    let pid_fmt = fmap (fun hex -> pid_fmt ~hex) hex in
+    let pct_fmt = return (Fmt.Option (pct_fmt, "-")) in
+    let br_fmt = return (Fmt.Option (br_fmt, "-")) in
+    let id_ext_fmt = fmap (fun hex -> id_ext_fmt ?get_attribute ~hex ()) hex in
     Fmt.
-      [ id.table_id
-      ; info.pid
-      ; ""
-      ; id
-      ; info.version
-      ; info.service_name
-      ; List.length info.sections
-      ; info.last_section
-      ; None
-      ; None
-      ; None
-      ; None ]
+      [ make_column ~sortable:true ~title:(return "ID") pid_fmt
+      ; make_column ~sortable:true ~title:(return "PID") pid_fmt
+      ; make_column ~sortable:true ~title:(return "Имя") (return String)
+      ; make_column ~title:(return "Доп. инфо") id_ext_fmt
+      ; make_column ~sortable:true ~title:(return "Версия") (return Int)
+      ; make_column
+          ~sortable:true
+          ~title:(return "Сервис")
+          (return (Option (String, "")))
+      ; make_column ~title:(return "Кол-во секций") (return Int)
+      ; make_column ~title:(return "LSN") (return Int)
+      ; make_column ~title:(return "Битрейт, Мбит/с") br_fmt
+      ; make_column ~title:(return "%") pct_fmt
+      ; make_column ~title:(return "Min, Мбит/с") br_fmt
+      ; make_column ~title:(return "Max, Мбит/с") br_fmt ]
 
-  let create ?(classes = []) ?a ?dense ?hex ?init ~control () =
-    let classes = CSS.root :: classes in
-    let data =
-      match init with
-      | None -> []
-      | Some ({data; _} : _ ts) -> List.map data_of_si_psi_info data
+  let data_of_si_psi_info
+      ?(bitrate = return None)
+      ((id, info) : SI_PSI_table.id * SI_PSI_table.t) : _ Fmt.data =
+    Fmt.
+      [ return id.table_id
+      ; return info.pid
+      ; return ""
+      ; return id
+      ; return info.version
+      ; return info.service_name
+      ; return (List.length info.sections)
+      ; return info.last_section
+      ; fmap
+          (function
+            | None -> None
+            | Some (_, {Bitrate.cur; _}) -> Some cur)
+          bitrate
+      ; fmap
+          (function
+            | None -> None
+            | Some ({Bitrate.cur = tot; _}, {Bitrate.cur; _}) ->
+                Some (100. *. float_of_int cur /. float_of_int tot))
+          bitrate
+      ; fmap
+          (function
+            | None -> None
+            | Some (_, {Bitrate.cur; _}) -> Some cur)
+          bitrate
+      ; fmap
+          (function
+            | None -> None
+            | Some (_, {Bitrate.cur; _}) -> Some cur)
+          bitrate ]
+
+  let row_of_si_psi_info ?bitrate ~format (id, (info : SI_PSI_table.t)) =
+    let data = data_of_si_psi_info ?bitrate (id, info) in
+    let cells = Data_table_markup.data_table_cells_of_fmt format data in
+    let value = Yojson.Safe.to_string (SI_PSI_table.to_yojson info) in
+    Data_table_markup.data_table_row
+      ~a:
+        [ Html.a_user_data "value" (return value)
+        ; Html.a_user_data
+            "id"
+            (return (Yojson.Safe.to_string @@ SI_PSI_table.id_to_yojson id)) ]
+      ~children:cells
+      ()
+
+  let create ?a ?dense ?hex ?(bitrate = return None) ?(init = nil ()) ~control =
+    let format = create_table_format ?hex () in
+    let rows =
+      Xml.W.map
+        (fun ((id, _) as x) ->
+          let bitrate =
+            fmap
+              (function
+                | None -> None
+                | Some (rate : Bitrate.ext) -> (
+                  match List.assoc_opt id rate.tables with
+                  | None -> None
+                  | Some x -> Some (rate.total, x)))
+              bitrate
+          in
+          row_of_si_psi_info ~bitrate ~format x)
+        init
     in
     create
-      ~classes
+      ~classes:(return [CSS.si_psi])
       ?a
       ?dense
       ?hex
-      ~title:"Список таблиц SI/PSI"
-      ~format:(create_table_format ?hex ())
-      ~with_details:true
-      ~data
+      ~title:(return "Список таблиц SI/PSI")
+      ~format:(create_table_format ())
+      ~rows
       ~control
-      ()
 end
 
-module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Impl.Xml) (Impl.Svg) (Impl.Html)

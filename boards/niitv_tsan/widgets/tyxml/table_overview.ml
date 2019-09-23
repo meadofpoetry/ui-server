@@ -40,7 +40,7 @@ let compare_pid_flags (a : pid_flags as 'a) (b : 'a) =
   if res = 0 then compare a.scrambled b.scrambled else res
 
 module Make
-    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Xml : Intf.Xml)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
@@ -79,7 +79,7 @@ struct
       ~classes
       ~a:
         (a_user_data
-           "mode"
+           "id-mode"
            (match mode with
            | `Hex -> return "hex"
            | `Dec -> return "dec")
@@ -164,27 +164,58 @@ struct
       ?(a = [])
       ?(dense = true)
       ?(hex = return false)
-      ?(with_details = false)
-      ?(data = nil ())
+      ?details
+      ?data
+      ?rows
       ?title
+      ?row_a
+      ?row_classes
       ~format
       ~control
       () =
+    let ( @:: ) x l = cons x l in
     let classes =
       fmap
-        (fun x -> CSS.root :: x |> Utils.cons_if with_details CSS.with_details)
+        (fun x ->
+          CSS.root :: x |> Utils.cons_if (Option.is_some details) CSS.with_details)
         classes
     in
-    let placeholder = create_empty_placeholder () in
-    let back = if with_details then Some (create_back_action ()) else None in
+    let placeholder =
+      match rows with
+      | None -> nil ()
+      | Some rows ->
+          Xml.Wutils.totlist
+            (fmap (function
+                 | [] -> [create_empty_placeholder ()]
+                 | _ -> [])
+            @@ Xml.Wutils.tot rows)
+    in
+    let back =
+      match details with
+      | None -> None
+      | Some _ -> Some (create_back_action ())
+    in
     let header = create_header ~hex ?back ?title () in
     let table =
       Data_table_markup.data_table_of_fmt
+        ?row_a
+        ?row_classes
+        ?rows
         ~dense
         ~classes:(return [CSS.table])
         ~format
-        ~data
+        ?data
         ()
+    in
+    let body =
+      match details with
+      | None -> return table
+      | Some details ->
+          fmap
+            (function
+              | None -> table
+              | Some x -> x)
+            details
     in
     div
       ~a:
@@ -192,7 +223,7 @@ struct
         :: a_user_data "id-mode" (fmap (fun x -> if x then "hex" else "dec") hex)
         :: a_user_data "control" (return (string_of_int control))
         :: a)
-      (header @:: table @:: placeholder @:: nil ())
+      (return header @:: body @:: placeholder)
 end
 
-module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Impl.Xml) (Impl.Svg) (Impl.Html)

@@ -289,6 +289,7 @@ module Bitrate = struct
     ; effective : 'a
     ; tables : (SI_PSI_table.id * 'a) list
     ; pids : (int * 'a) list
+    ; services : (int * 'a) list
     ; timestamp : Time.t }
 
   and cur = int t
@@ -296,19 +297,23 @@ module Bitrate = struct
   and ext = value t [@@deriving yojson, eq]
 
   let ext_to_cur (x : ext) : cur =
+    let f l = List.map (fun (id, x) -> id, x.cur) l in
     { total = x.total.cur
     ; effective = x.effective.cur
-    ; tables = List.map (fun (id, x) -> id, x.cur) x.tables
-    ; pids = List.map (fun (id, x) -> id, x.cur) x.pids
+    ; tables = f x.tables
+    ; pids = f x.pids
+    ; services = f x.services
     ; timestamp = x.timestamp }
 
   let value_of_int x = {min = x; max = x; cur = x}
 
   let cur_to_ext (x : cur) : ext =
+    let f l = List.map (fun (id, x) -> id, value_of_int x) l in
     { total = value_of_int x.total
     ; effective = value_of_int x.effective
-    ; tables = List.map (fun (id, x) -> id, value_of_int x) x.tables
-    ; pids = List.map (fun (id, x) -> id, value_of_int x) x.pids
+    ; tables = f x.tables
+    ; pids = f x.pids
+    ; services = f x.services
     ; timestamp = x.timestamp }
 end
 

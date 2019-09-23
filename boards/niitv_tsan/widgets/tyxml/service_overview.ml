@@ -8,7 +8,7 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Xml : Intf.Xml)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
@@ -41,13 +41,13 @@ struct
       ; compare
       ; is_numeric = true }
 
-  let create_table_format ?(hex = false) () : _ Fmt.format =
-    let id_fmt = id_fmt ~hex in
-    let br_fmt = Fmt.Option (br_fmt, "-") in
-    let pct_fmt = Fmt.Option (pct_fmt, "-") in
+  let create_table_format ?(hex = return false) () : _ Fmt.format =
+    let id_fmt = fmap (fun hex -> id_fmt ~hex) hex in
+    let br_fmt = return (Fmt.Option (br_fmt, "-")) in
+    let pct_fmt = return (Fmt.Option (pct_fmt, "-")) in
     Fmt.
       [ make_column ~sortable:true ~title:(return "ID") id_fmt
-      ; make_column ~sortable:true ~title:(return "Сервис") String
+      ; make_column ~sortable:true ~title:(return "Сервис") (return String)
       ; make_column ~sortable:true ~title:(return "PMT PID") id_fmt
       ; make_column ~sortable:true ~title:(return "PCR PID") id_fmt
       ; make_column ~sortable:true ~title:(return "Битрейт, Мбит/с") br_fmt
@@ -55,32 +55,85 @@ struct
       ; make_column ~sortable:true ~title:(return "Min, Мбит/с") br_fmt
       ; make_column ~sortable:true ~title:(return "Max, Мбит/с") br_fmt ]
 
-  let data_of_service_info (id, (info : Service.t)) : _ Fmt.data =
+  let data_of_service_info ?(bitrate = return None) (id, (info : Service.t)) : _ Fmt.data
+      =
     Fmt.
       [ return id
       ; return info.name
       ; return info.pmt_pid
       ; return info.pcr_pid
-      ; return None
-      ; return None
-      ; return None
-      ; return None ]
+      ; fmap
+          (function
+            | None -> None
+            | Some (_, {Bitrate.cur; _}) -> Some cur)
+          bitrate
+      ; fmap
+          (function
+            | None -> None
+            | Some ({Bitrate.cur = tot; _}, {Bitrate.cur; _}) ->
+                Some (100. *. float_of_int cur /. float_of_int tot))
+          bitrate
+      ; fmap
+          (function
+            | None -> None
+            | Some (_, {Bitrate.min; _}) -> Some min)
+          bitrate
+      ; fmap
+          (function
+            | None -> None
+            | Some (_, {Bitrate.max; _}) -> Some max)
+          bitrate ]
+
+  let row_of_service_info ?bitrate ~format (id, (info : Service.t)) =
+    let data = data_of_service_info ?bitrate (id, info) in
+    let cells = Data_table_markup.data_table_cells_of_fmt format data in
+    let value = Yojson.Safe.to_string (Service.to_yojson info) in
+    Data_table_markup.data_table_row
+      ~a:
+        [ Html.a_user_data "value" (return value)
+        ; Html.a_user_data "id" (return (string_of_int id)) ]
+      ~children:cells
+      ()
 
   let table_fmt = create_table_format ()
 
-  let create ?a ?dense ?hex ?(init = nil ()) ~control () =
-    let data = Xml.W.map data_of_service_info init in
-    create
-      ~classes:(return [CSS.services])
+  let create
       ?a
       ?dense
-      ?hex
-      ~title:(return "Список сервисов")
-      ~format:(create_table_format ())
-      ~with_details:true
-      ~data
+      ?(hex = false)
+      ?(bitrate = return None)
+      ?(init = nil ())
       ~control
-      ()
+      () =
+    let hex, set_hex = Xml.Wutils.create hex in
+    let format = create_table_format ~hex () in
+    let rows =
+      Xml.W.map
+        (fun ((id, _) as x) ->
+          let bitrate =
+            fmap
+              (function
+                | None -> None
+                | Some (rate : Bitrate.ext) -> (
+                  match List.assoc_opt id rate.services with
+                  | None -> None
+                  | Some x -> Some (rate.total, x)))
+              bitrate
+          in
+          row_of_service_info ~bitrate ~format x)
+        init
+    in
+    ( create
+        ~classes:(return [CSS.services])
+        ?a
+        ?dense
+        ~hex
+        ~title:(return "Список сервисов")
+        ~format
+        ~rows
+        ~control
+        ()
+    , set_hex )
 end
 
-module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Impl.Xml) (Impl.Svg) (Impl.Html)

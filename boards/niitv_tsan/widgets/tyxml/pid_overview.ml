@@ -17,7 +17,7 @@ let compare_pid_flags (a : pid_flags as 'a) (b : 'a) =
   if res = 0 then compare a.scrambled b.scrambled else res
 
 module Make
-    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Xml : Intf.Xml)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
@@ -74,14 +74,23 @@ struct
       ; compare
       ; is_numeric = true }
 
-  let create_table_format ?(hex = false) () : _ Fmt.format =
-    let br_fmt = Fmt.Option (Float, "-") in
-    let pct_fmt = Fmt.Option (pct_fmt, "-") in
+  let create_table_format ?(hex = return false) () : _ Fmt.format =
+    let pid_fmt = fmap (fun hex -> pid_fmt ~hex) hex in
+    let br_fmt = return (Fmt.Option (Float, "-")) in
+    let pct_fmt = return (Fmt.Option (pct_fmt, "-")) in
     Fmt.
-      [ make_column ~sortable:true ~title:(return "PID") (pid_fmt ~hex)
-      ; make_column ~sortable:true ~title:(return "Тип") (Custom pid_type_fmt)
-      ; make_column ~title:(return "Доп. инфо") (Custom_elt pid_flags_fmt)
-      ; make_column ~sortable:true ~title:(return "Сервис") (Option (String, ""))
+      [ make_column ~sortable:true ~title:(return "PID") pid_fmt
+      ; make_column
+          ~sortable:true
+          ~title:(return "Тип")
+          (return (Custom pid_type_fmt))
+      ; make_column
+          ~title:(return "Доп. инфо")
+          (return (Custom_elt pid_flags_fmt))
+      ; make_column
+          ~sortable:true
+          ~title:(return "Сервис")
+          (return (Option (String, "")))
       ; make_column ~sortable:true ~title:(return "Битрейт, Мбит/с") br_fmt
       ; make_column ~sortable:true ~title:(return "%") pct_fmt
       ; make_column ~sortable:true ~title:(return "Min, Мбит/с") br_fmt
@@ -116,8 +125,20 @@ struct
             | Some (_, {Bitrate.max; _}) -> Some (float_of_int max /. 1_000_000.))
           bitrate ]
 
+  let row_of_pid_info ?bitrate ~format (pid, (info : PID.t)) =
+    let data = data_of_pid_info ?bitrate (pid, info) in
+    let cells = Data_table_markup.data_table_cells_of_fmt format data in
+    let value = Yojson.Safe.to_string (PID.to_yojson info) in
+    Data_table_markup.data_table_row
+      ~a:
+        [ Html.a_user_data "value" (return value)
+        ; Html.a_user_data "pid" (return (string_of_int pid)) ]
+      ~children:cells
+      ()
+
   let create ?a ?dense ?hex ?(bitrate = return None) ?(init = nil ()) ~control () =
-    let data =
+    let format = create_table_format ?hex () in
+    let rows =
       Xml.W.map
         (fun ((pid, _) as x) ->
           let bitrate =
@@ -130,7 +151,7 @@ struct
                   | Some x -> Some (rate.total, x)))
               bitrate
           in
-          data_of_pid_info ~bitrate x)
+          row_of_pid_info ~bitrate ~format x)
         init
     in
     create
@@ -139,10 +160,10 @@ struct
       ?dense
       ?hex
       ~title:(return "Список PID")
-      ~format:(create_table_format ())
-      ~data
+      ~format
+      ~rows
       ~control
       ()
 end
 
-module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Impl.Xml) (Impl.Svg) (Impl.Html)

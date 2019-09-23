@@ -76,6 +76,7 @@ struct
       ?(a = [])
       ?button_type
       ?appearance
+      ?on_click
       ?(disabled = false)
       ?dense
       ?icon
@@ -85,6 +86,7 @@ struct
     button
       ~a:
         (a_class classes :: a
+        |> Utils.map_cons_option a_onclick on_click
         |> Utils.map_cons_option a_button_type button_type
         |> Utils.cons_if disabled @@ a_disabled ())
       children

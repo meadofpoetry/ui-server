@@ -3,7 +3,8 @@ open Js_of_ocaml_tyxml
 open Components
 open Board_niitv_tsan_types
 include Board_niitv_tsan_widgets_tyxml.Service_info
-module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Impl.Xml) (Impl.Svg) (Impl.Html)
+module R = Make (Impl.R.Xml) (Impl.R.Svg) (Impl.R.Html)
 
 type event =
   [ `Bitrate of Bitrate.ext option
@@ -72,31 +73,30 @@ class t (elt : Dom_html.element Js.t) () =
     method notify : event -> unit =
       function
       | `PIDs x ->
-          pids <- Some x;
-          pid_overview#notify (`PIDs {x with data = self#filter_pids x.data})
+          pids <- Some x
+          (* ;
+           * pid_overview#notify (`PIDs {x with data = self#filter_pids x.data}) *)
       | `Service _ as x ->
           general_info#notify x;
-          sdt_info#notify x;
-          Option.iter
-            (fun (x : (int * PID.t) list ts) ->
-              pid_overview#notify (`PIDs {x with data = self#filter_pids x.data}))
-            pids
-      | `Bitrate rate as x ->
-          let rate =
-            Option.map
-              (fun x ->
-                let total =
-                  Util.(sum_bitrates @@ cur_bitrate_for_pids x general_info#elements)
-                in
-                {x with total = {x.total with cur = total}})
-              rate
-          in
-          general_info#notify x;
-          pid_overview#notify (`Bitrate rate)
+          sdt_info#notify x
+          (* Option.iter
+           *   (fun (x : (int * PID.t) list ts) ->
+           *     pid_overview#notify (`PIDs {x with data = self#filter_pids x.data}))
+           *   pids *)
+      | `Bitrate _rate as x ->
+          (* let rate =
+           *   Option.map
+           *     (fun x ->
+           *       let total =
+           *         Util.(sum_bitrates @@ cur_bitrate_for_pids x general_info#elements)
+           *       in
+           *       {x with total = {x.total with cur = total}})
+           *     rate
+           * in *)
+          general_info#notify x
 
-    method set_hex (hex : bool) : unit =
-      general_info#set_hex hex;
-      pid_overview#set_hex hex
+    (* pid_overview#notify (`Bitrate rate) *)
+    method set_hex (hex : bool) : unit = general_info#set_hex hex
 
     (* pid_overview#notify (`Bitrate rate) *)
     method private filter_pids pids =

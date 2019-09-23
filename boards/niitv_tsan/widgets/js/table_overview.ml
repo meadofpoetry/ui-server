@@ -3,7 +3,7 @@ open Js_of_ocaml_tyxml
 open Components
 open Board_niitv_tsan_http_js
 include Board_niitv_tsan_widgets_tyxml.Table_overview
-module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Impl.Xml) (Impl.Svg) (Impl.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -31,10 +31,7 @@ module Selector = struct
   let back_action = Printf.sprintf ".%s" CSS.back_action
 end
 
-class virtual ['a] t
-  ~(create_table_format : ?hex:bool -> unit -> _ Data_table.D.Fmt.format)
-  elt
-  () =
+class virtual ['a] t ?set_hex elt () =
   let hex =
     match Element.get_attribute elt Attr.data_id_mode with
     | Some "dec" -> false
@@ -67,10 +64,6 @@ class virtual ['a] t
       | Some x -> x
       | None -> Tyxml_js.To_dom.of_div @@ D.create_empty_placeholder ()
 
-    val table : _ Gadt_data_table.t =
-      Gadt_data_table.attach ~fmt:(create_table_format ~hex ())
-      @@ Element.query_selector_exn elt Selector.table
-
     val mutable hex = hex
 
     val mutable listeners = []
@@ -78,7 +71,6 @@ class virtual ['a] t
     inherit Widget.t elt () as super
 
     method! init () : unit =
-      self#update_empty_state ();
       Option.iter (fun menu -> menu#set_quick_open true) menu;
       super#init ()
 
@@ -94,7 +86,6 @@ class virtual ['a] t
       super#initial_sync_with_dom ()
 
     method! destroy () : unit =
-      table#destroy ();
       Option.iter Widget.destroy menu;
       Option.iter Widget.destroy menu_icon;
       List.iter Lwt.cancel listeners;
@@ -123,15 +114,6 @@ class virtual ['a] t
       | None ->
           let title = Tyxml_js.To_dom.of_element @@ D.create_title ~title:s () in
           Element.insert_child_at_index header 1 title
-
-    method virtual set_hex : bool -> unit
-
-    method virtual private find_row : 'a -> Dom_html.tableRowElement Js.t option
-
-    method private remove_row (id : 'a) =
-      match self#find_row id with
-      | None -> ()
-      | Some row -> table#table##deleteRow row##.rowIndex
 
     method private reset_bitrate_stats () : unit Lwt.t =
       let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
@@ -174,34 +156,27 @@ class virtual ['a] t
       then self#reset_bitrate_stats ()
       else (
         (match Element.get_attribute detail##.item Attr.data_id_mode with
-        | Some ("hex" as x) ->
-            hex <- true;
-            super#set_attribute Attr.data_id_mode x;
-            self#set_hex hex
-        | Some ("dec" as x) ->
-            hex <- false;
-            super#set_attribute Attr.data_id_mode x;
-            self#set_hex hex
+        | Some "hex" ->
+            Option.iter (fun f -> f true) set_hex;
+            hex <- true
+        | Some "dec" ->
+            Option.iter (fun f -> f false) set_hex;
+            hex <- false
         | _ -> ());
         Lwt.return_unit)
-
-    method private update_empty_state () =
-      if table#rows_collection##.length = 0
-      then Dom.appendChild super#root placeholder
-      else Element.remove placeholder
   end
 
-class virtual ['a] with_details ~create_table_format elt () =
+class virtual ['a] with_details ?set_hex elt () =
   object (self)
     val back_action : Icon_button.t =
       Icon_button.attach (Element.query_selector_exn elt Selector.back_action)
 
-    inherit ['a] t ~create_table_format elt () as super
+    inherit ['a] t ?set_hex elt () as super
 
     method! initial_sync_with_dom () : unit =
-      listeners <-
-        Js_of_ocaml_lwt.Lwt_js_events.(
-          [clicks table#tbody self#handle_table_body_click] @ listeners);
+      (* listeners <-
+       *   Js_of_ocaml_lwt.Lwt_js_events.(
+       *     [clicks table#tbody self#handle_table_body_click] @ listeners); *)
       super#initial_sync_with_dom ()
 
     method! destroy () : unit =

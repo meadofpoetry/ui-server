@@ -43,6 +43,13 @@ let fold (queue : Bitrate.cur Queue.t) (v : Bitrate.cur) : Bitrate.ext =
               | None -> pid, acc
               | Some v -> pid, update_acc acc v)
             acc.pids
+      ; services =
+          List.map
+            (fun (id, acc) ->
+              match List.assoc_opt id x.services with
+              | None -> id, acc
+              | Some v -> id, update_acc acc v)
+            acc.services
       ; tables =
           List.map
             (fun (id, acc) ->

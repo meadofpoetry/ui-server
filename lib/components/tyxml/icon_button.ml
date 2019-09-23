@@ -31,6 +31,7 @@ struct
   let icon_button
       ?(classes = return [])
       ?(a = [])
+      ?on_click
       ?(ripple = true)
       ?(on = false)
       ?(disabled = false)
@@ -41,6 +42,7 @@ struct
     button
       ~a:
         (a_class classes :: a
+        |> Utils.map_cons_option a_onclick on_click
         |> Utils.cons_if_lazy ripple (fun () -> a_user_data "ripple" (return "true"))
         |> Utils.cons_if_lazy disabled a_disabled)
       (on_icon ^:: icon @:: nil ())

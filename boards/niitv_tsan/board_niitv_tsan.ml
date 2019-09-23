@@ -115,9 +115,7 @@ let make_pids_tab_template (b : Topology.topo_board) =
     method post_scripts = [`Src "/js/board-niitv-tsan-page-input.js"]
 
     method content =
-      List.map
-        Tyxml.Html.toelt
-        [Board_niitv_tsan_page_pids_tyxml.F.create ~control:b.control ()]
+      List.map Tyxml.Html.toelt [Board_niitv_tsan_page_pids_tyxml.F.create ()]
 
     method title = "PIDs"
 

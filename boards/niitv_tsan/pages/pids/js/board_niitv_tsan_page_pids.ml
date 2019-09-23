@@ -11,13 +11,13 @@ module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 let ( >>=? ) = Lwt_result.bind
 
 module Selector = struct
+  let root = Printf.sprintf ".%s" CSS.root
+
   let pid_bitrate_pie_chart = "." ^ Pid_bitrate_pie_chart.CSS.root
 
   let bitrate_summary = "." ^ Bitrate_summary.CSS.root
 
   let pid_summary = "." ^ Pid_summary.CSS.root
-
-  let pid_overview = "." ^ Pid_overview.CSS.root
 end
 
 type event =
@@ -37,100 +37,43 @@ class t elt () =
     val pid_summary : Pid_summary.t =
       Pid_summary.attach @@ Element.query_selector_exn elt Selector.pid_summary
 
-    val pid_overview : Pid_overview.t =
-      Pid_overview.attach @@ Element.query_selector_exn elt Selector.pid_overview
-
     inherit Widget.t elt () as super
 
-    method! init () : unit =
-      let ( >>= ) = Lwt.bind in
-      let n = 50 in
-      let make_pid x =
-        { PID.has_pts = true
-        ; has_pcr = true
-        ; scrambled = x mod 2 = 0
-        ; present = true
-        ; service_id = None
-        ; service_name = Some "BBC"
-        ; typ = SEC [0] }
-      in
-      let pids = List.init n (fun x -> x, make_pid x) in
-      let s =
-        React.S.hold []
-        @@ Lwt_react.E.from (fun () ->
-               Js_of_ocaml_lwt.Lwt_js.sleep 1.
-               >>= fun () ->
-               let pid = Random.int 10 in
-               let hd = pid, make_pid pid in
-               let pids =
-                 match pids with
-                 | x :: _ :: tl -> x :: hd :: tl
-                 | x -> x
-               in
-               Lwt.return pids)
-      in
-      let bitrate =
-        React.S.hold None
-        @@ Lwt_react.E.from (fun () ->
-               Js_of_ocaml_lwt.Lwt_js.sleep 1.
-               >>= fun () ->
-               Lwt.return
-                 (Some
-                    ({ total = {cur = 20_000_000; min = 0; max = 0}
-                     ; effective = {cur = 0; min = 0; max = 0}
-                     ; tables = []
-                     ; timestamp = Ptime.epoch
-                     ; pids =
-                         List.init n (fun x ->
-                             ( x
-                             , { Bitrate.cur = Random.int 12_000_000
-                               ; min = Random.int 10_000_000
-                               ; max = Random.int 13_000_000 } )) }
-                      : Bitrate.ext)))
-      in
-      let init = ReactiveData.RList.from_signal s in
-      let pid_overview_r =
-        Tyxml_js.To_dom.of_element @@ Pid_overview.R.create ~bitrate ~init ~control:0 ()
-      in
-      Dom.appendChild super#root pid_overview_r;
-      super#init ()
+    method! init () : unit = super#init ()
 
     method! destroy () : unit =
       pid_bitrate_pie_chart#destroy ();
       bitrate_summary#destroy ();
       pid_summary#destroy ();
-      pid_overview#destroy ();
       super#destroy ()
 
     method notify : event -> unit =
       function
       | `Bitrate ((_, x) :: _) ->
           bitrate_summary#notify (`Bitrate (Some x));
-          pid_bitrate_pie_chart#notify (`Bitrate (Some x));
-          pid_overview#notify (`Bitrate (Some x))
-      | `PIDs ((_, x) :: _) ->
-          pid_summary#notify (`PIDs x);
-          pid_overview#notify (`PIDs x)
-      | `State (x : Topology.state) ->
-          pid_overview#notify (`State (x :> [Topology.state | `No_sync]))
+          pid_bitrate_pie_chart#notify (`Bitrate (Some x))
+      | `PIDs ((_, x) :: _) -> pid_summary#notify (`PIDs x)
       | _ -> ()
   end
 
 let attach elt : t = new t (elt :> Dom_html.element Js.t) ()
 
-let make ?classes ?a ?children ~control () : t =
-  D.create ?classes ?a ?children ~control () |> Tyxml_js.To_dom.of_div |> attach
+let make ?classes ?a ?children () : t =
+  D.create ?classes ?a ?children () |> Tyxml_js.To_dom.of_div |> attach
 
 type state =
   { mutable socket : Api_js.Websocket.JSON.t option
   ; mutable finalize : unit -> unit }
 
-let on_visible (page : t) (state : state) control =
+let on_visible (elt : Dom_html.element Js.t) (state : state) control =
   let open React in
+  let page = Element.query_selector_exn elt Selector.root in
+  let stream =
+    React.S.const (Option.get (Uuidm.of_string "d6db41ba-ec76-5666-a7d9-3fe4a3f39efb"))
+  in
   let thread =
     Http_monitoring.get_pids control
     >>=? fun pids ->
-    page#notify (`PIDs pids);
     Api_js.Websocket.JSON.open_socket ~path:(Netlib.Uri.Path.Format.of_string "ws") ()
     >>=? fun socket ->
     Option.iter Api_js.Websocket.close_socket state.socket;
@@ -141,9 +84,43 @@ let on_visible (page : t) (state : state) control =
     >>=? fun (_, bitrate_ev) ->
     Http_monitoring.Event.get_pids socket control
     >>=? fun (_, pids_ev) ->
+    let init =
+      match List.assoc_opt (React.S.value stream) pids with
+      | None -> []
+      | Some (x : _ ts) -> x.data
+    in
+    let signal =
+      ReactiveData.RList.from_signal
+      @@ React.S.hold init
+      @@ React.S.sample
+           (fun pids stream ->
+             match List.assoc_opt stream pids with
+             | None -> []
+             | Some (x : _ ts) -> x.data)
+           pids_ev
+           stream
+    in
+    let bitrate =
+      React.S.hold None
+      @@ React.S.sample
+           (fun bitrate stream -> List.assoc_opt stream bitrate)
+           bitrate_ev
+           stream
+    in
+    let pid_overview =
+      Pid_overview.attach
+      @@ Tyxml_js.To_dom.of_element
+      @@ Pid_overview.R.create ~init:signal ~bitrate ~control ()
+    in
+    let cell =
+      Tyxml_js.To_dom.of_element
+      @@ Layout_grid.D.layout_grid_cell ~span:12 ~children:[pid_overview#markup] ()
+    in
+    Dom.appendChild page cell;
+    let obj = attach elt in
     let notif =
       E.merge
-        (fun _ -> page#notify)
+        (fun _ -> obj#notify)
         ()
         [ E.map (fun x -> `Bitrate x) bitrate_ev
         ; E.map (fun x -> `PIDs x) pids_ev
@@ -151,11 +128,14 @@ let on_visible (page : t) (state : state) control =
     in
     state.finalize <-
       (fun () ->
+        pid_overview#destroy ();
+        Dom.removeChild page cell;
+        obj#destroy ();
         E.stop ~strong:true bitrate_ev;
         E.stop ~strong:true notif);
     Lwt.return_ok state
   in
-  let _loader = Components_lab.Loader.make_loader ~elt:page#root thread in
+  let _loader = Components_lab.Loader.make_loader ~elt thread in
   ()
 
 let on_hidden state =
@@ -165,14 +145,12 @@ let on_hidden state =
 
 let init control =
   let state = {socket = None; finalize = (fun () -> ())} in
-  let result =
+  let _result =
     Ui_templates.Tabbed_page.Tabpanel.init_map
       ~id:(id control)
       ~on_visible:(fun tabpanel -> on_visible tabpanel state control)
       ~on_hidden:(fun _tabpanel -> on_hidden state)
-      ~f:attach
+      ~f:(fun x -> x)
       ()
   in
-  match result with
-  | Ok (page, finalize) -> page#set_on_destroy (fun () -> finalize ())
-  | Error (`Msg _msg) -> ()
+  ()
