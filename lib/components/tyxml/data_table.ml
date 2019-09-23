@@ -77,10 +77,14 @@ let sort_of_string = function
   | "descending" -> Some Dsc
   | _ -> None
 
-module Make_fmt (Xml : Xml_sigs.T) = struct
+module Make_fmt
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
+struct
   type 'a custom_elt =
-    { to_elt : 'a -> Xml.elt
-    ; of_elt : Xml.elt -> 'a
+    { to_elt : 'a -> Html_types.td_content_fun Html.elt
+    ; of_elt : Html_types.td_content_fun Html.elt -> 'a
     ; compare : 'a -> 'a -> int
     ; is_numeric : bool }
 
@@ -97,7 +101,6 @@ module Make_fmt (Xml : Xml_sigs.T) = struct
     | Int64 : int64 t
     | Float : float t
     | Option : ('a t * string) -> 'a option t
-    | Html : (bool * (Xml.elt -> Xml.elt -> int)) -> Xml.elt t
     | Custom : 'a custom -> 'a t
     | Custom_elt : 'a custom_elt -> 'a t
 
@@ -113,7 +116,7 @@ module Make_fmt (Xml : Xml_sigs.T) = struct
         | Some v -> (to_string t) v)
     | Custom x -> x.to_string
     (* Not allowed *)
-    | Html _ | Custom_elt _ -> assert false
+    | Custom_elt _ -> assert false
 
   let rec of_string : type a. a t -> string -> a =
    fun fmt s ->
@@ -126,7 +129,7 @@ module Make_fmt (Xml : Xml_sigs.T) = struct
     | Option (fmt, default) ->
         if String.equal default s then None else Some (of_string fmt s)
     | Custom x -> x.of_string s
-    | Html _ | Custom_elt _ -> assert false
+    | Custom_elt _ -> assert false
 
   let rec is_numeric : type a. a t -> bool = function
     | Int | Int32 | Int64 | Float -> true
@@ -134,7 +137,6 @@ module Make_fmt (Xml : Xml_sigs.T) = struct
     | Option (t, _) -> is_numeric t
     | Custom x -> x.is_numeric
     | Custom_elt x -> x.is_numeric
-    | Html (numeric, _) -> numeric
 
   let rec compare : type a. a t -> a -> a -> int = function
     | Int -> Stdlib.compare
@@ -145,7 +147,6 @@ module Make_fmt (Xml : Xml_sigs.T) = struct
     | Option (t, _) -> Option.compare (compare t)
     | Custom x -> x.compare
     | Custom_elt x -> x.compare
-    | Html (_, cmp) -> cmp
 
   let equal : type a. a t -> a -> a -> bool = fun t a b -> 0 = compare t a b
 
@@ -166,7 +167,7 @@ module Make_fmt (Xml : Xml_sigs.T) = struct
 
   type _ data =
     | [] : unit data
-    | ( :: ) : 'a * 'b data -> ('a * 'b) data
+    | ( :: ) : 'a Xml.wrap * 'b data -> ('a * 'b) data
 
   type _ data_lazy =
     | [] : unit data_lazy
@@ -184,23 +185,37 @@ module Make
 struct
   open Xml.W
   open Html
-  module Fmt = Make_fmt (Xml)
+  module Fmt = Make_fmt (Xml) (Svg) (Html)
 
   let ( % ) f g x = f (g x)
 
-  let data_table_cell_content fmt v =
-    let rec aux : type a. a Fmt.t -> a -> Xml.elt =
+  let data_table_cell_content_nowrap fmt v =
+    let rec aux : type a. a Fmt.t -> a -> Html_types.td_content_fun elt =
      fun fmt v ->
       match fmt with
       | Option (fmt, e) -> (
         match v with
         | None -> aux String e
         | Some x -> aux fmt x)
-      | Html _ -> v
       | Custom_elt x -> x.to_elt v
-      | _ -> toelt @@ txt (return (Fmt.to_string fmt v))
+      | _ -> txt (return (Fmt.to_string fmt v))
     in
-    tot @@ aux fmt v
+    aux fmt v
+
+  let data_table_cell_content fmt v =
+    let aux : type a. a Fmt.t -> a wrap -> Html_types.td_content_fun elt wrap =
+     fun fmt v ->
+      match fmt with
+      | Option (fmt, e) ->
+          fmap
+            (function
+              | None -> data_table_cell_content_nowrap String e
+              | Some x -> data_table_cell_content_nowrap fmt x)
+            v
+      | Custom_elt x -> fmap x.to_elt v
+      | _ -> return @@ txt (fmap (fun x -> Fmt.to_string fmt x) v)
+    in
+    aux fmt v
 
   let data_table_cell
       ?(classes = return [])
@@ -269,7 +284,7 @@ struct
   (** GADT table *)
 
   let data_table_cell_of_fmt ?classes ?a ?colspan ~fmt ~value () =
-    let children = singleton (return (data_table_cell_content fmt value)) in
+    let children = singleton (data_table_cell_content fmt value) in
     data_table_cell ?classes ?a ?colspan ~numeric:(Fmt.is_numeric fmt) ~children ()
 
   let data_table_header_cell_of_fmt ?classes ?a ~(column : _ Fmt.column) () =

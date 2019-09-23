@@ -42,6 +42,59 @@ class t elt () =
 
     inherit Widget.t elt () as super
 
+    method! init () : unit =
+      let ( >>= ) = Lwt.bind in
+      let n = 50 in
+      let make_pid x =
+        { PID.has_pts = true
+        ; has_pcr = true
+        ; scrambled = x mod 2 = 0
+        ; present = true
+        ; service_id = None
+        ; service_name = Some "BBC"
+        ; typ = SEC [0] }
+      in
+      let pids = List.init n (fun x -> x, make_pid x) in
+      let s =
+        React.S.hold []
+        @@ Lwt_react.E.from (fun () ->
+               Js_of_ocaml_lwt.Lwt_js.sleep 1.
+               >>= fun () ->
+               let pid = Random.int 10 in
+               let hd = pid, make_pid pid in
+               let pids =
+                 match pids with
+                 | x :: _ :: tl -> x :: hd :: tl
+                 | x -> x
+               in
+               Lwt.return pids)
+      in
+      let bitrate =
+        React.S.hold None
+        @@ Lwt_react.E.from (fun () ->
+               Js_of_ocaml_lwt.Lwt_js.sleep 1.
+               >>= fun () ->
+               Lwt.return
+                 (Some
+                    ({ total = {cur = 20_000_000; min = 0; max = 0}
+                     ; effective = {cur = 0; min = 0; max = 0}
+                     ; tables = []
+                     ; timestamp = Ptime.epoch
+                     ; pids =
+                         List.init n (fun x ->
+                             ( x
+                             , { Bitrate.cur = Random.int 12_000_000
+                               ; min = Random.int 10_000_000
+                               ; max = Random.int 13_000_000 } )) }
+                      : Bitrate.ext)))
+      in
+      let init = ReactiveData.RList.from_signal s in
+      let pid_overview_r =
+        Tyxml_js.To_dom.of_element @@ Pid_overview.R.create ~bitrate ~init ~control:0 ()
+      in
+      Dom.appendChild super#root pid_overview_r;
+      super#init ()
+
     method! destroy () : unit =
       pid_bitrate_pie_chart#destroy ();
       bitrate_summary#destroy ();

@@ -50,15 +50,27 @@ struct
     in
     span ~a:(a_class classes :: a) children
 
-  let tab_content ?(classes = return []) ?(a = []) ?indicator ?icon ?text_label () =
+  let tab_content
+      ?(classes = return [])
+      ?(a = [])
+      ?indicator
+      ?icon
+      ?text_label
+      ?children
+      () =
     let classes = fmap (fun x -> CSS.content :: x) classes in
-    let text_label =
-      match text_label with
-      | None -> None
-      | Some (`Text s) -> Some (return @@ tab_text_label ~label:s ())
-      | Some (`Element e) -> Some (return e)
+    let children =
+      match children with
+      | Some x -> x
+      | None ->
+          let text_label =
+            match text_label with
+            | None -> None
+            | Some s -> Some (return @@ tab_text_label ~label:s ())
+          in
+          icon ^:: text_label ^:: indicator ^:: nil ()
     in
-    span ~a:(a_class classes :: a) (icon ^:: text_label ^:: indicator ^:: nil ())
+    span ~a:(a_class classes :: a) children
 
   let tab_ripple ?(classes = return []) ?(a = []) ?(children = nil ()) () =
     let classes = fmap (fun x -> CSS.ripple :: x) classes in

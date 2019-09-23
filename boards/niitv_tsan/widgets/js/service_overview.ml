@@ -5,6 +5,7 @@ open Application_types
 open Board_niitv_tsan_types
 include Board_niitv_tsan_widgets_tyxml.Service_overview
 module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -68,14 +69,11 @@ let update_row_info (table : 'a Gadt_data_table.t) row id (info : Service.t) =
   in
   table#set_row_data_some data row
 
-class t ?(init : (int * Service.t) list ts option) elt () =
+class t ?(init : (int * Service.t) list = []) elt () =
   object (self)
     val mutable service_info = None
 
-    val mutable data =
-      match init with
-      | None -> []
-      | Some {data; _} -> data
+    val mutable data = init
 
     inherit
       [int] Table_overview.with_details ~create_table_format:D.create_table_format elt () as super
@@ -181,5 +179,5 @@ class t ?(init : (int * Service.t) list ts option) elt () =
 
 let attach ?init elt : t = new t ?init (elt : Dom_html.element Js.t) ()
 
-let make ?classes ?a ?dense ?init ~control () =
-  D.create ?classes ?a ?dense ?init ~control () |> Tyxml_js.To_dom.of_div |> attach ?init
+let make ?a ?dense ?init ~control () =
+  D.create ?a ?dense ?init ~control () |> Tyxml_js.To_dom.of_div |> attach ?init

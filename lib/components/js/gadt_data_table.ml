@@ -15,15 +15,11 @@ end
 let get_cell_value : type a. a Fmt_d.t -> Dom_html.tableCellElement Js.t -> a =
  fun fmt cell ->
   match fmt with
-  | Html _ -> (
-    match Element.children cell with
-    | [] -> failwith (CSS.root ^ ": failed getting `HTML` cell value - cell is empty")
-    | hd :: _ -> Tyxml_js.Html.toelt (Tyxml_js.Of_dom.of_element hd))
   | Custom_elt x -> (
     match Element.children cell with
     | [] ->
         failwith (CSS.root ^ ": failed getting `Custom_elt` cell value - cell is empty")
-    | hd :: _ -> x.of_elt @@ Tyxml_js.Html.toelt @@ Tyxml_js.Of_dom.of_element hd)
+    | hd :: _ -> x.of_elt @@ Tyxml_js.Of_dom.of_element hd)
   | fmt ->
       let s = Js.Opt.case cell##.textContent (fun () -> "") Js.to_string in
       Fmt_d.of_string fmt s
@@ -38,10 +34,7 @@ let rec set_cell_value : type a. a Fmt_d.t -> a -> Dom_html.tableCellElement Js.
     | Some x -> set_cell_value fmt x cell)
   | Custom_elt x ->
       Element.remove_children cell;
-      Dom.appendChild cell (x.to_elt v)
-  | Html _ ->
-      Element.remove_children cell;
-      Dom.appendChild cell v
+      Dom.appendChild cell (Tyxml_js.To_dom.of_element (x.to_elt v))
   | fmt ->
       let value = Js.string @@ Fmt_d.to_string fmt v in
       cell##.textContent := Js.some value

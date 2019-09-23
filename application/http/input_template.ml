@@ -97,7 +97,7 @@ let make_template
         let tab =
           Components_tyxml.Tab.F.tab
             ~a:Tyxml.Html.[a_id id; a_aria "controls" [tabpanel_id]]
-            ~text_label:(`Text template#title)
+            ~text_label:template#title
             ()
         in
         let slide = tabpanel_id, Html.totl template#content in

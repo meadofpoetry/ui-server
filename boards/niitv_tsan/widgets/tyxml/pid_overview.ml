@@ -21,8 +21,13 @@ module Make
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   include Table_overview.Make (Xml) (Svg) (Html)
-  module Fmt = Data_table.Make_fmt (Xml)
+  module Fmt = Data_table.Make_fmt (Xml) (Svg) (Html)
+
+  let ( @:: ) x l = cons (return x) l
+
+  let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> x @:: l) x
 
   let pid_type_fmt : MPEG_TS.PID.Type.t Fmt.custom =
     MPEG_TS.PID.Type.
@@ -42,27 +47,22 @@ struct
 
   let pid_fmt ~hex = if hex then hex_pid_fmt else dec_pid_fmt
 
-  let create_pid_flags ?classes ?a {has_pcr; scrambled} =
+  let create_pid_flags ?a {has_pcr; scrambled} =
     let pcr =
       match has_pcr with
       | false -> None
-      | true -> Some (Icon_markup.SVG.icon ~d:Svg_icons.clock_outline ())
+      | true -> Some (Icon_markup.SVG.icon ~d:(return Svg_icons.clock_outline) ())
     in
     let scr =
       match scrambled with
       | false -> None
-      | true -> Some (Icon_markup.SVG.icon ~d:Svg_icons.lock ())
+      | true -> Some (Icon_markup.SVG.icon ~d:(return Svg_icons.lock) ())
     in
-    let ( ^:: ) x l =
-      match x with
-      | None -> l
-      | Some x -> x :: l
-    in
-    let children = scr ^:: pcr ^:: [] in
-    Box_markup.box ?classes ?a ~children ()
+    let children = scr ^:: pcr ^:: nil () in
+    Box_markup.box ?a ~children ()
 
   let pid_flags_fmt : pid_flags Fmt.custom_elt =
-    { to_elt = Html.toelt % create_pid_flags
+    { to_elt = create_pid_flags
     ; of_elt = (fun _ -> failwith "Not implemented")
     ; compare = compare_pid_flags
     ; is_numeric = false }
@@ -78,33 +78,68 @@ struct
     let br_fmt = Fmt.Option (Float, "-") in
     let pct_fmt = Fmt.Option (pct_fmt, "-") in
     Fmt.
-      [ make_column ~sortable:true ~title:"PID" (pid_fmt ~hex)
-      ; make_column ~sortable:true ~title:"Тип" (Custom pid_type_fmt)
-      ; make_column ~title:"Доп. инфо" (Custom_elt pid_flags_fmt)
-      ; make_column ~sortable:true ~title:"Сервис" (Option (String, ""))
-      ; make_column ~sortable:true ~title:"Битрейт, Мбит/с" br_fmt
-      ; make_column ~sortable:true ~title:"%" pct_fmt
-      ; make_column ~sortable:true ~title:"Min, Мбит/с" br_fmt
-      ; make_column ~sortable:true ~title:"Max, Мбит/с" br_fmt ]
+      [ make_column ~sortable:true ~title:(return "PID") (pid_fmt ~hex)
+      ; make_column ~sortable:true ~title:(return "Тип") (Custom pid_type_fmt)
+      ; make_column ~title:(return "Доп. инфо") (Custom_elt pid_flags_fmt)
+      ; make_column ~sortable:true ~title:(return "Сервис") (Option (String, ""))
+      ; make_column ~sortable:true ~title:(return "Битрейт, Мбит/с") br_fmt
+      ; make_column ~sortable:true ~title:(return "%") pct_fmt
+      ; make_column ~sortable:true ~title:(return "Min, Мбит/с") br_fmt
+      ; make_column ~sortable:true ~title:(return "Max, Мбит/с") br_fmt ]
 
-  let data_of_pid_info (pid, (info : PID.t)) : _ Fmt.data =
+  let data_of_pid_info ?(bitrate = return None) (pid, (info : PID.t)) : _ Fmt.data =
     let flags = {has_pcr = info.has_pcr; scrambled = info.scrambled} in
-    Fmt.[pid; info.typ; flags; info.service_name; None; None; None; None]
+    Fmt.
+      [ return pid
+      ; return info.typ
+      ; return flags
+      ; return info.service_name
+      ; fmap
+          (function
+            | None -> None
+            | Some (_, {Bitrate.cur; _}) -> Some (float_of_int cur /. 1_000_000.))
+          bitrate
+      ; fmap
+          (function
+            | None -> None
+            | Some ({Bitrate.cur = tot; _}, {Bitrate.cur; _}) ->
+                Some (100. *. float_of_int cur /. float_of_int tot))
+          bitrate
+      ; fmap
+          (function
+            | None -> None
+            | Some (_, {Bitrate.min; _}) -> Some (float_of_int min /. 1_000_000.))
+          bitrate
+      ; fmap
+          (function
+            | None -> None
+            | Some (_, {Bitrate.max; _}) -> Some (float_of_int max /. 1_000_000.))
+          bitrate ]
 
-  let create ?(classes = []) ?a ?dense ?hex ?init ~control () =
-    let classes = CSS.pids :: classes in
+  let create ?a ?dense ?hex ?(bitrate = return None) ?(init = nil ()) ~control () =
     let data =
-      match init with
-      | None -> []
-      | Some ({data; _} : _ ts) -> List.map data_of_pid_info data
+      Xml.W.map
+        (fun ((pid, _) as x) ->
+          let bitrate =
+            fmap
+              (function
+                | None -> None
+                | Some (rate : Bitrate.ext) -> (
+                  match List.assoc_opt pid rate.pids with
+                  | None -> None
+                  | Some x -> Some (rate.total, x)))
+              bitrate
+          in
+          data_of_pid_info ~bitrate x)
+        init
     in
     create
-      ~classes
+      ~classes:(return [CSS.pids])
       ?a
       ?dense
       ?hex
-      ~title:(`Text "Список PID")
-      ~format:(create_table_format ?hex ())
+      ~title:(return "Список PID")
+      ~format:(create_table_format ())
       ~data
       ~control
       ()

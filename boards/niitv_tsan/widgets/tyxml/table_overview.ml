@@ -26,8 +26,6 @@ module CSS = struct
 
   let row_lost = BEM.add_modifier row "lost"
 
-  let hex = BEM.add_modifier root "hex"
-
   let with_details = BEM.add_modifier root "with-details"
 
   let details_view = BEM.add_modifier root "details-view"
@@ -120,8 +118,7 @@ struct
     let title =
       match title with
       | None -> None
-      | Some (`Text s) -> Some (create_title ~title:s ())
-      | Some (`Element e) -> Some e
+      | Some s -> Some (create_title ~title:s ())
     in
     let children =
       match children with
@@ -163,6 +160,7 @@ struct
       ()
 
   let create
+      ?(classes = return [])
       ?(a = [])
       ?(dense = true)
       ?(hex = return false)
@@ -172,8 +170,11 @@ struct
       ~format
       ~control
       () =
-    let classes = Utils.cons_if with_details CSS.with_details [CSS.root] in
-    let classes = fmap (fun x -> Utils.cons_if x CSS.hex classes) hex in
+    let classes =
+      fmap
+        (fun x -> CSS.root :: x |> Utils.cons_if with_details CSS.with_details)
+        classes
+    in
     let placeholder = create_empty_placeholder () in
     let back = if with_details then Some (create_back_action ()) else None in
     let header = create_header ~hex ?back ?title () in
@@ -186,7 +187,11 @@ struct
         ()
     in
     div
-      ~a:(a_class classes :: a_user_data "control" (return (string_of_int control)) :: a)
+      ~a:
+        (a_class classes
+        :: a_user_data "id-mode" (fmap (fun x -> if x then "hex" else "dec") hex)
+        :: a_user_data "control" (return (string_of_int control))
+        :: a)
       (header @:: table @:: placeholder @:: nil ())
 end
 

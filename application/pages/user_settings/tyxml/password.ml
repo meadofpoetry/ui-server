@@ -70,7 +70,7 @@ struct
       Tab_markup.tab
         ?active
         ~icon
-        ~text_label:(`Text username_human)
+        ~text_label:username_human
         ~a:[a_user_data "username" username]
         ()
     in

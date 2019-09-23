@@ -10,7 +10,7 @@ let ( >>= ) = Lwt.bind
 module Attr = struct
   let data_control = "data-control"
 
-  let data_mode = "data-mode"
+  let data_id_mode = "data-id-mode"
 end
 
 module Selector = struct
@@ -35,7 +35,12 @@ class virtual ['a] t
   ~(create_table_format : ?hex:bool -> unit -> _ Data_table.D.Fmt.format)
   elt
   () =
-  let hex = Element.has_class elt CSS.hex in
+  let hex =
+    match Element.get_attribute elt Attr.data_id_mode with
+    | Some "dec" -> false
+    | Some "hex" -> true
+    | _ -> false
+  in
   object (self)
     val control : int =
       match Element.get_attribute elt Attr.data_control with
@@ -168,14 +173,14 @@ class virtual ['a] t
       if Element.has_class detail##.item CSS.bitrate_reset
       then self#reset_bitrate_stats ()
       else (
-        (match Element.get_attribute detail##.item Attr.data_mode with
-        | Some "hex" ->
+        (match Element.get_attribute detail##.item Attr.data_id_mode with
+        | Some ("hex" as x) ->
             hex <- true;
-            super#add_class CSS.hex;
+            super#set_attribute Attr.data_id_mode x;
             self#set_hex hex
-        | Some "dec" ->
+        | Some ("dec" as x) ->
             hex <- false;
-            super#remove_class CSS.hex;
+            super#set_attribute Attr.data_id_mode x;
             self#set_hex hex
         | _ -> ());
         Lwt.return_unit)

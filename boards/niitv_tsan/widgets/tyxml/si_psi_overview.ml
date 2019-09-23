@@ -15,7 +15,7 @@ module Make
 struct
   open Html
   include Table_overview.Make (Xml) (Svg) (Html)
-  module Fmt = Data_table.Make_fmt (Xml)
+  module Fmt = Data_table.Make_fmt (Xml) (Svg) (Html)
 
   let dec_pid_fmt = Fmt.Int
 
@@ -67,7 +67,7 @@ struct
     Fmt.Custom_elt
       { is_numeric = false
       ; compare = SI_PSI_table.compare_id
-      ; to_elt = toelt % create_table_id_ext ~hex
+      ; to_elt = create_table_id_ext ~hex
       ; of_elt =
           (fun elt ->
             match get_attribute elt "data-id" with
@@ -124,7 +124,7 @@ struct
       ?a
       ?dense
       ?hex
-      ~title:(`Text "Список таблиц SI/PSI")
+      ~title:"Список таблиц SI/PSI"
       ~format:(create_table_format ?hex ())
       ~with_details:true
       ~data

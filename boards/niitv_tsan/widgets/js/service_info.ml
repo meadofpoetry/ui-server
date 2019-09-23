@@ -110,18 +110,7 @@ class t (elt : Dom_html.element Js.t) () =
 
 let attach elt = new t (elt :> Dom_html.element Js.t) ()
 
-let make ?classes ?a ?pids ?info ?bitrate ?min_bitrate ?max_bitrate ?children ~control ()
-    =
-  D.create
-    ?classes
-    ?a
-    ?pids
-    ?info
-    ?bitrate
-    ?min_bitrate
-    ?max_bitrate
-    ?children
-    ~control
-    ()
+let make ?a ?pids ?info ?bitrate ?min_bitrate ?max_bitrate ~control () =
+  D.create ?a ?pids ?info ?bitrate ?min_bitrate ?max_bitrate ~control ()
   |> Tyxml_js.To_dom.of_div
   |> attach

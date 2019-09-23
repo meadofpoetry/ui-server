@@ -17,8 +17,7 @@ module Set = Set.Make (struct
   let compare (a : t) (b : t) : int = SI_PSI_table.compare_id (fst a) (fst b)
 end)
 
-let get_attribute elt attr =
-  Element.get_attribute (Tyxml_js.To_dom.of_element @@ Tyxml_js.Html.tot elt) attr
+let get_attribute elt attr = Element.get_attribute (Tyxml_js.To_dom.of_element elt) attr
 
 let update_row_bitrate
     (table : 'a Gadt_data_table.t)
