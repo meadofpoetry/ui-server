@@ -6,36 +6,32 @@ open Board_niitv_tsan_widgets
 open Board_niitv_tsan_http_js
 open Components
 include Board_niitv_tsan_page_pids_tyxml
-module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Impl.Xml) (Impl.Svg) (Impl.Html)
+module R = Make (Impl.R.Xml) (Impl.R.Svg) (Impl.R.Html)
 
 let ( >>=? ) = Lwt_result.bind
 
 module Selector = struct
-  let root = Printf.sprintf ".%s" CSS.root
+  let pid_bitrate_pie_chart = Printf.sprintf ".%s" Pid_bitrate_pie_chart.CSS.root
 
-  let pid_bitrate_pie_chart = "." ^ Pid_bitrate_pie_chart.CSS.root
+  let pid_summary = Printf.sprintf ".%s" Pid_summary.CSS.root
 
-  let bitrate_summary = "." ^ Bitrate_summary.CSS.root
-
-  let pid_summary = "." ^ Pid_summary.CSS.root
+  let pid_overview = Printf.sprintf ".%s" Pid_overview.CSS.root
 end
 
 type event =
   [ `Bitrate of (Stream.ID.t * Bitrate.ext) list
-  | `PIDs of (Stream.ID.t * (int * PID.t) list ts) list
-  | `State of Topology.state ]
+  | `PIDs of (Stream.ID.t * (int * PID.t) list ts) list ]
 
-class t elt () =
+class t ~set_hex elt () =
   object
     val pid_bitrate_pie_chart : Pid_bitrate_pie_chart.t =
       Pid_bitrate_pie_chart.attach
       @@ Element.query_selector_exn elt Selector.pid_bitrate_pie_chart
 
-    val bitrate_summary : Bitrate_summary.t =
-      Bitrate_summary.attach @@ Element.query_selector_exn elt Selector.bitrate_summary
-
-    val pid_summary : Pid_summary.t =
-      Pid_summary.attach @@ Element.query_selector_exn elt Selector.pid_summary
+    val pid_overview : Pid_overview.t =
+      Pid_overview.attach ~set_hex
+      @@ Element.query_selector_exn elt Selector.pid_overview
 
     inherit Widget.t elt () as super
 
@@ -43,23 +39,16 @@ class t elt () =
 
     method! destroy () : unit =
       pid_bitrate_pie_chart#destroy ();
-      bitrate_summary#destroy ();
-      pid_summary#destroy ();
+      pid_overview#destroy ();
       super#destroy ()
 
     method notify : event -> unit =
       function
-      | `Bitrate ((_, x) :: _) ->
-          bitrate_summary#notify (`Bitrate (Some x));
-          pid_bitrate_pie_chart#notify (`Bitrate (Some x))
-      | `PIDs ((_, x) :: _) -> pid_summary#notify (`PIDs x)
+      | `Bitrate ((_, x) :: _) -> pid_bitrate_pie_chart#notify (`Bitrate (Some x))
       | _ -> ()
   end
 
-let attach elt : t = new t (elt :> Dom_html.element Js.t) ()
-
-let make ?classes ?a ?children () : t =
-  D.create ?classes ?a ?children () |> Tyxml_js.To_dom.of_div |> attach
+let attach ~set_hex elt : t = new t ~set_hex (elt :> Dom_html.element Js.t) ()
 
 type state =
   { mutable socket : Api_js.Websocket.JSON.t option
@@ -67,11 +56,12 @@ type state =
 
 let on_visible (elt : Dom_html.element Js.t) (state : state) control =
   let open React in
-  let page = Element.query_selector_exn elt Selector.root in
   let stream =
     React.S.const (Option.get (Uuidm.of_string "d6db41ba-ec76-5666-a7d9-3fe4a3f39efb"))
   in
   let thread =
+    Http_streams.get_streams control
+    >>=? fun streams ->
     Http_monitoring.get_pids control
     >>=? fun pids ->
     Api_js.Websocket.JSON.open_socket ~path:(Netlib.Uri.Path.Format.of_string "ws") ()
@@ -79,20 +69,28 @@ let on_visible (elt : Dom_html.element Js.t) (state : state) control =
     Option.iter Api_js.Websocket.close_socket state.socket;
     state.socket <- Some socket;
     Http_device.Event.get_state socket control
-    >>=? fun (_, state_ev) ->
+    >>=? fun (_, _state_ev) ->
     Http_monitoring.Event.get_bitrate_with_stats socket control
     >>=? fun (_, bitrate_ev) ->
     Http_monitoring.Event.get_pids socket control
     >>=? fun (_, pids_ev) ->
+    Http_streams.Event.get_streams socket control
+    >>=? fun (_, streams_ev) ->
+    let streams_signal = S.hold streams streams_ev in
+    let _ =
+      S.map
+        (List.iter (print_endline % Yojson.Safe.to_string % Stream.to_yojson))
+        streams_signal
+    in
     let init =
-      match List.assoc_opt (React.S.value stream) pids with
+      match List.assoc_opt (S.value stream) pids with
       | None -> []
       | Some (x : _ ts) -> x.data
     in
     let signal =
       ReactiveData.RList.from_signal
-      @@ React.S.hold init
-      @@ React.S.sample
+      @@ S.hold init
+      @@ S.sample
            (fun pids stream ->
              match List.assoc_opt stream pids with
              | None -> []
@@ -107,30 +105,26 @@ let on_visible (elt : Dom_html.element Js.t) (state : state) control =
            bitrate_ev
            stream
     in
-    let pid_overview =
-      Pid_overview.attach
-      @@ Tyxml_js.To_dom.of_element
-      @@ Pid_overview.R.create ~init:signal ~bitrate ~control ()
+    let hex, set_hex = S.create false in
+    let bitrate_summary = Bitrate_summary.R.create ~bitrate () in
+    let pid_summary = Pid_summary.R.create ~hex ~pids:signal () in
+    let pid_overview = Pid_overview.R.create ~hex ~init:signal ~bitrate ~control () in
+    let page =
+      attach ~set_hex
+      @@ Tyxml_js.To_dom.of_div
+      @@ D.create ~pid_overview ~bitrate_summary ~pid_summary ()
     in
-    let cell =
-      Tyxml_js.To_dom.of_element
-      @@ Layout_grid.D.layout_grid_cell ~span:12 ~children:[pid_overview#markup] ()
-    in
-    Dom.appendChild page cell;
-    let obj = attach elt in
+    Dom.appendChild elt page#root;
     let notif =
       E.merge
-        (fun _ -> obj#notify)
+        (fun _ -> page#notify)
         ()
-        [ E.map (fun x -> `Bitrate x) bitrate_ev
-        ; E.map (fun x -> `PIDs x) pids_ev
-        ; E.map (fun x -> `State x) state_ev ]
+        [E.map (fun x -> `Bitrate x) bitrate_ev; E.map (fun x -> `PIDs x) pids_ev]
     in
     state.finalize <-
       (fun () ->
-        pid_overview#destroy ();
-        Dom.removeChild page cell;
-        obj#destroy ();
+        Dom.removeChild elt page#root;
+        page#destroy ();
         E.stop ~strong:true bitrate_ev;
         E.stop ~strong:true notif);
     Lwt.return_ok state

@@ -17,6 +17,7 @@ module Selector = struct
   let parent = Printf.sprintf ".%s" Card.CSS.media
 end
 
+(** Greatest common divisor *)
 let rec gcd a b =
   if a = 0 || b = 0
   then a + b
@@ -24,6 +25,7 @@ let rec gcd a b =
     let a, b = if a > b then a mod b, b else a, b mod a in
     gcd a b
 
+(** Calculates aspect ratio from the given resolution. *)
 let resolution_to_aspect (w, h) =
   let d = gcd w h in
   w / d, h / d
@@ -39,8 +41,8 @@ let set_tab_index
   | Some prev -> if not @@ Element.equal item prev then set (-1) prev
   | None -> (
     (* If no list item was selected, set first list item's tabindex to -1.
-        Generally, tabindex is set to 0 on first list item of list that has
-        no preselected items *)
+       Generally, tabindex is set to 0 on first list item of list that has
+       no preselected items *)
     match Lazy.force items with
     | first :: _ -> if not @@ Element.equal first item then set (-1) first
     | _ -> ()));
@@ -61,20 +63,24 @@ module Selection = struct
 
   let boundaries = [Query Selector.parent]
 
+  (** Called before user started selecting items. *)
   let before_start _ {original_event = e; _} =
     Js.Opt.case
       (Dom_html.CoerceTo.mouseEvent e)
       (fun () -> true)
       (fun e -> e##.button = 0)
 
+  (** Called once when user started selecting items. *)
   let on_start (selection : t) _ =
     List.iter (fun x -> Element.remove_class x class_) selection#selected;
     selection#clear_selection ()
 
+  (** Called repeatedly while user is selecting items. *)
   let on_move _ {selected; removed; _} =
     List.iter (fun x -> Element.add_class x class_) selected;
     List.iter (fun x -> Element.remove_class x class_) removed
 
+  (** Called once when user stops selection process. *)
   let on_stop handle_selected selection _ =
     selection#keep_selection ();
     handle_selected selection#selected
@@ -96,6 +102,8 @@ module Selection = struct
 end
 
 module Storage = struct
+  (** Helper functions for working with browser local storage. *)
+
   module Local = Browser_storage.Make_local (Application_types.User)
 
   let show_grid_lines = "show-grid-lines"
@@ -121,11 +129,11 @@ class t
   ~(resolution : int * int)
   ~(position : Position.Normalized.t)
   (scaffold : Scaffold.t)
-  elt =
+  (elt : Dom_html.element Js.t) =
   object (self)
     inherit Drop_target.t elt () as super
 
-    val s_state = React.S.create []
+    val s_state = React.S.create ~eq:(Util_equal.List.equal Element.equal) []
 
     val aspect =
       let w, h = float_of_int (fst resolution), float_of_int (snd resolution) in
@@ -139,11 +147,16 @@ class t
           let show_grid_lines = Storage.(get_bool ~default:true show_grid_lines) in
           let show_snap_lines = Storage.(get_bool ~default:true show_snap_lines) in
           Grid_overlay.attach ~show_grid_lines ~show_snap_lines x
+    (** Element to display the grid of horizontal and vertical lines
+        over the workspace. *)
 
     val ghost =
       match Element.query_selector elt Selector.grid_ghost with
       | None -> failwith "widget-editor: grid ghost element not found"
       | Some x -> x
+    (** Ghost element used to show the position where newly added widget
+        will be placed in the editor. It is visible only when user is
+        adding a widget to the editor by dragging it over the workspace. *)
 
     val transform =
       Components_lab.Transform.make
@@ -151,12 +164,15 @@ class t
         ()
 
     val undo_manager = Undo_manager.create ()
+    (** Undo manager instance for widget editor. *)
 
     val mutable format = List_of_widgets.format
 
     val mutable listeners = []
+    (** DOM event listeners storage. *)
 
     val mutable focused_item = None
+    (** Currently focused item. *)
 
     val mutable top_app_bar_context = None
 
@@ -249,6 +265,8 @@ class t
              | true, false -> if b.z_index > upper_selected_z then -1 else 1
              | true, true | false, false -> compare a.z_index b.z_index)
       @@ Z_index.make_item_list ~selected self#items
+    (** Brings selected items to front on the z-scale,
+        increasing their z-index. *)
 
     method send_to_back (selected : Dom_html.element Js.t list) : unit =
       let open Widget_utils in
@@ -260,6 +278,8 @@ class t
              | true, false -> if b.z_index < first_selected_z then 1 else -1
              | true, true | false, false -> compare a.z_index b.z_index)
       @@ Z_index.make_item_list ~selected self#items
+    (** Sends selected items to back on the z-scale,
+        decreasing their z-index. *)
 
     method remove items =
       self#clear_selection ();
@@ -269,15 +289,18 @@ class t
         { undo = (fun () -> List.iter self#add_item_ items)
         ; redo = (fun () -> List.iter self#remove_item_ items) }
 
-    (* Private methods *)
     method private set_state state = (snd s_state) state
+    (** Updates selected items (widgets) signal. *)
 
     method private size : float * float =
-      float_of_int elt##.offsetWidth, float_of_int elt##.offsetHeight
+      float_of_int super#root##.offsetWidth, float_of_int super#root##.offsetHeight
+    (** Returns width and height of widget editor window in pixels. *)
 
     method private add_item_ item =
       list_of_widgets#remove_by_id (Widget_utils.Attr.get_id item);
       Dom.appendChild super#root item
+    (** Appends item to widget editor.
+        Also removes this item from the list of available widgets. *)
 
     method private add_item ((_, {position; _}) as x : string * Wm.widget) =
       let item = make_item x in
@@ -352,6 +375,8 @@ class t
               | _ -> ())
           | _ -> ());
       Lwt.return_unit
+    (** Handles user's key press.
+        FIXME not implemented *)
 
     method private restore_top_app_bar_context () : unit =
       match top_app_bar_context with
@@ -413,7 +438,7 @@ class t
       let siblings =
         List.filter_map
           (fun x ->
-            if List.mem x self#selected
+            if List.exists (Element.equal x) self#selected
             then None
             else Some (Position.Absolute.of_element x))
           self#items
@@ -440,7 +465,6 @@ class t
         | true, (Some _ as x) -> x
         | true, None ->
             let rect = detail##.originalRect in
-            Js.Unsafe.global##.console##log detail##.rect |> ignore;
             let width =
               Js.Optdef.get rect##.width (fun () -> rect##.right -. rect##.left)
             in
@@ -483,11 +507,15 @@ class t
         target;
       grid_overlay#set_snap_lines lines;
       Lwt.return_unit
+    (** Called repeatedly when user is transforming a widget
+        (changing its size or position). *)
 
     method private handle_transform_change _ _ =
       original_rects <- [];
       grid_overlay#set_snap_lines [];
       Lwt.return_unit
+    (** Called once when user finished transforming a widget
+        (changing its size or position). *)
 
     method private handle_dropped_json (json : Yojson.Safe.t) : unit Lwt.t =
       let of_yojson = function

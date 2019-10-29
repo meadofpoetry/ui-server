@@ -12,61 +12,52 @@ module CSS = struct
 end
 
 module Make
-    (Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+    (Xml : Intf.Xml)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
+  open Xml.W
   open Html
 
   let create_pid_attrs (pid, (info : PID.t)) =
     let open Application_types.MPEG_TS.PID in
-    [ a_user_data "type" (Yojson.Safe.to_string @@ Type.to_yojson info.typ)
-    ; a_user_data "pid" (string_of_int pid) ]
-    |> Utils.cons_if_lazy info.has_pts (fun () -> a_user_data "has-pts" "")
-    |> Utils.cons_if_lazy info.has_pcr (fun () -> a_user_data "has-pcr" "")
-    |> Utils.cons_if_lazy info.scrambled (fun () -> a_user_data "scrambled" "")
-    |> Utils.cons_if_lazy (not info.present) (fun () -> a_user_data "lost" "")
-    |> Utils.map_cons_option (a_user_data "service-id" % string_of_int) info.service_id
-    |> Utils.map_cons_option (a_user_data "service-name") info.service_name
+    [ a_user_data "type" (return (Yojson.Safe.to_string @@ Type.to_yojson info.typ))
+    ; a_user_data "pid" (return (string_of_int pid)) ]
+    |> Utils.cons_if_lazy info.has_pts (fun () -> a_user_data "has-pts" (return ""))
+    |> Utils.cons_if_lazy info.has_pcr (fun () -> a_user_data "has-pcr" (return ""))
+    |> Utils.cons_if_lazy info.scrambled (fun () -> a_user_data "scrambled" (return ""))
+    |> Utils.cons_if_lazy (not info.present) (fun () -> a_user_data "lost" (return ""))
+    |> Utils.map_cons_option
+         (a_user_data "service-id" % return % string_of_int)
+         info.service_id
+    |> Utils.map_cons_option (a_user_data "service-name" % return) info.service_name
 
-  let create_title ?(classes = []) ?(a = []) ?total () =
+  let create_title ?(classes = return []) ?(a = []) ~total () =
+    let text = fmap (Printf.sprintf "PIDs (%d)") total in
+    let classes = fmap (fun x -> CSS.title :: x) classes in
+    span ~a:(a_class classes :: a) (singleton (return (txt text)))
+
+  let create_pid ?(a = []) ?(hex = return false) ~pid () =
     let text =
-      match total with
-      | None -> "PIDs"
-      | Some x -> Printf.sprintf "PIDs (%d)" x
+      fmap
+        (fun hex ->
+          if hex
+          then Util.pid_to_hex_string (fst pid)
+          else Util.pid_to_dec_string (fst pid))
+        hex
     in
-    let classes = CSS.title :: classes in
-    span ~a:(a_class classes :: a) [txt text]
+    span
+      ~a:((a_class (return [CSS.pid]) :: create_pid_attrs pid) @ a)
+      (singleton (return (txt text)))
 
-  let create_pid ?(classes = []) ?(a = []) ?(hex = false) ~pid () =
-    let classes = CSS.pid :: classes in
-    let text =
-      if hex then Util.pid_to_hex_string (fst pid) else Util.pid_to_dec_string (fst pid)
-    in
-    span ~a:((a_class classes :: create_pid_attrs pid) @ a) [txt text]
-
-  let create_pids ?(classes = []) ?(a = []) ?hex ?pids ?children () =
+  let create ?(classes = return []) ?(a = []) ?hex ?(pids = nil ()) () =
+    let pid_elts = Xml.W.map (fun pid -> create_pid ?hex ~pid ()) pids in
     let children =
-      match children with
-      | Some x -> x
-      | None -> (
-        match pids with
-        | None -> []
-        | Some pids -> List.map (fun pid -> create_pid ?hex ~pid ()) pids)
+      [ create_title ~total:(fmap List.length (Xml.Wutils.tot pids)) ()
+      ; div ~a:[a_class (return [CSS.pids])] pid_elts ]
     in
-    let classes = CSS.pids :: classes in
-    div ~a:(a_class classes :: a) children
-
-  let create ?(classes = []) ?(a = []) ?hex ?children ?pids () =
-    let children =
-      match children with
-      | Some x -> x
-      | None ->
-          [ create_title ?total:(Option.map List.length pids) ()
-          ; create_pids ?hex ?pids () ]
-    in
-    let classes = CSS.root :: classes in
-    div ~a:(a_class classes :: a) children
+    let classes = fmap (fun x -> CSS.root :: x) classes in
+    div ~a:(a_class classes :: a) (Xml.Wutils.const children)
 end
 
-module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Impl.Xml) (Impl.Svg) (Impl.Html)

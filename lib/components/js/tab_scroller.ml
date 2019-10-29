@@ -73,7 +73,8 @@ class t (elt : Dom_html.element Js.t) () =
       listeners <-
         Js_of_ocaml_lwt.Lwt_js_events.(
           [ touchstarts ~passive:true super#root handle_interaction
-          ; pointerdowns super#root handle_interaction
+            (* FIXME return when jsoo pointer events PR accepted *)
+            (* ; pointerdowns super#root handle_interaction *)
           ; mousedowns super#root handle_interaction
           ; keydowns super#root handle_interaction
           ; seq_loop

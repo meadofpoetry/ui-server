@@ -61,7 +61,7 @@ struct
     let rows =
       List.map
         (fun (k, value) ->
-          let attribute = Server_types.Distinguished_name.k_to_string k in
+          let attribute = Server_types.Distinguished_name.attribute_to_string k in
           create_group_record ~attribute ~value ())
         issuer
     in
@@ -71,7 +71,7 @@ struct
     let rows =
       List.map
         (fun (k, value) ->
-          let attribute = Server_types.Distinguished_name.k_to_string k in
+          let attribute = Server_types.Distinguished_name.attribute_to_string k in
           create_group_record ~attribute ~value ())
         subject
     in

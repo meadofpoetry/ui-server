@@ -9,7 +9,8 @@
                pipeline_types
                pipeline_http_js
                pipeline_widgets
-               page_mosaic_editor_tyxml)
+               page_mosaic_editor_tyxml
+               util_equal)
   (preprocess  (pps js_of_ocaml-ppx
                     ppx_deriving_yojson
                     ppx_deriving.eq

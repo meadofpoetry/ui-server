@@ -315,7 +315,8 @@ class t (adapter : adapter) () =
            *   _on_resize <- onresizes (fun _ _ -> self#layout (); Lwt.return_unit)) *)
           listeners <-
             [ touchstarts ~passive:true elt handler
-            ; pointerdowns elt handler
+              (* FIXME return when jsoo pointer events PR accepted *)
+              (* ; pointerdowns elt handler *)
             ; mousedowns elt handler
             ; keydowns elt handler
             ; focuses elt self#handle_focus

@@ -1,10 +1,10 @@
 module Distinguished_name = struct
-  type k =
+  type attribute =
     | CN
     | Serialnumber
     | C
     | L
-    | SP
+    | ST
     | O
     | OU
     | T
@@ -16,15 +16,17 @@ module Distinguished_name = struct
     | Initials
     | Pseudonym
     | Generation
+    | Street
+    | Userid
     | Other of string
   [@@deriving yojson]
 
-  let k_to_string = function
+  let attribute_to_string = function
     | CN -> "Common Name (CN)"
     | Serialnumber -> "Serial Number"
     | C -> "Country Name (C)"
     | L -> "Locality Name (L)"
-    | SP -> "State or Province (SP)"
+    | ST -> "State or Province (SP)"
     | O -> "Organization (O)"
     | OU -> "Organization Unit (ON)"
     | T -> "Title (T)"
@@ -36,9 +38,11 @@ module Distinguished_name = struct
     | Initials -> "Initials"
     | Pseudonym -> "Pseudonym"
     | Generation -> "Generation"
+    | Street -> "Street"
+    | Userid -> "User ID"
     | Other oid -> oid
 
-  type t = (k * string) list [@@deriving yojson]
+  type t = (attribute * string) list [@@deriving yojson]
 end
 
 module Show_cstruct = struct

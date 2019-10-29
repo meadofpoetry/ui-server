@@ -1,29 +1,31 @@
 module DN = struct
-  let of_k_v (type a) :
-      a X509.Distinguished_name.k -> a -> Server_types.Distinguished_name.k * string =
-   fun k v ->
-    match k with
-    | CN -> CN, v
-    | Serialnumber -> Serialnumber, v
-    | C -> C, v
-    | L -> L, v
-    | SP -> SP, v
-    | O -> O, v
-    | OU -> OU, v
-    | T -> T, v
-    | DNQ -> DNQ, v
-    | Mail -> Mail, v
-    | DC -> DC, v
-    | Given_name -> Given_name, v
-    | Surname -> Surname, v
-    | Initials -> Initials, v
-    | Pseudonym -> Pseudonym, v
-    | Generation -> Generation, v
-    | Other oid -> Other (Format.asprintf "%a" Asn.OID.pp oid), v
+  let of_attribute :
+         X509.Distinguished_name.attribute
+      -> Server_types.Distinguished_name.attribute * string = function
+    | CN v -> CN, v
+    | Serialnumber v -> Serialnumber, v
+    | C v -> C, v
+    | L v -> L, v
+    | ST v -> ST, v
+    | O v -> O, v
+    | OU v -> OU, v
+    | T v -> T, v
+    | DNQ v -> DNQ, v
+    | Mail v -> Mail, v
+    | DC v -> DC, v
+    | Given_name v -> Given_name, v
+    | Surname v -> Surname, v
+    | Initials v -> Initials, v
+    | Pseudonym v -> Pseudonym, v
+    | Generation v -> Generation, v
+    | Street v -> Street, v
+    | Userid v -> Userid, v
+    | Other (oid, v) -> Other (Format.asprintf "%a" Asn.OID.pp oid), v
 
   let of_distinguished_name (t : X509.Distinguished_name.t) =
-    List.map (function X509.Distinguished_name.B (k, v) -> of_k_v k v)
-    @@ X509.Distinguished_name.bindings t
+    List.map of_attribute
+    @@ List.flatten
+    @@ List.map X509.Distinguished_name.Relative_distinguished_name.elements t
 end
 
 let of_x509 (file : string) =

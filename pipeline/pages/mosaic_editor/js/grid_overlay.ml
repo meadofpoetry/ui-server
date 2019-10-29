@@ -7,8 +7,6 @@ module Attr = struct
   let size = "data-size"
 end
 
-let name = "grid-overlay"
-
 let color_from_css elt = (Dom_html.window##getComputedStyle elt)##.color
 
 let color_from_css_class class_ =
@@ -97,7 +95,6 @@ class t
       show_snap_lines <- x;
       self#layout ()
 
-    (* Private methods *)
     method private draw_snap_line
         ~width
         ~height
@@ -179,6 +176,6 @@ let attach
     (elt : #Dom_html.element Js.t) : t =
   Js.Opt.case
     (Dom_html.CoerceTo.canvas elt)
-    (fun () -> failwith @@ name ^ ": host element must have a `canvas` tag")
+    (fun () -> failwith (CSS.root ^ ": host element must have a `canvas` tag"))
     (fun (canvas : Dom_html.canvasElement Js.t) ->
       new t ?show_grid_lines ?show_snap_lines ?divider_period canvas ())

@@ -136,8 +136,15 @@ struct
       ~children:cells
       ()
 
-  let create ?a ?dense ?hex ?(bitrate = return None) ?(init = nil ()) ~control () =
-    let format = create_table_format ?hex () in
+  let create
+      ?a
+      ?dense
+      ?(hex = return false)
+      ?(bitrate = return None)
+      ?(init = nil ())
+      ~control
+      () =
+    let format = create_table_format ~hex () in
     let rows =
       Xml.W.map
         (fun ((pid, _) as x) ->
@@ -158,7 +165,7 @@ struct
       ~classes:(return [CSS.pids])
       ?a
       ?dense
-      ?hex
+      ~hex
       ~title:(return "Список PID")
       ~format
       ~rows

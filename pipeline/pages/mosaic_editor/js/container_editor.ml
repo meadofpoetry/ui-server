@@ -7,8 +7,6 @@ open Container_utils
 
 let name = "container-editor"
 
-let failwith s = failwith @@ Printf.sprintf "%s: %s" name s
-
 type event =
   [ `Layout of Wm.Annotated.t
   | `Wizard of Wm.t
@@ -144,7 +142,7 @@ class t
   (wm : Wm.Annotated.t)
   (elt : Dom_html.element Js.t) =
   object (self)
-    val s_state = React.S.create []
+    val s_state = React.S.create ~eq:(Util_equal.List.equal Element.equal) []
 
     val close_icon : Dom_html.element Js.t =
       Tyxml_js.To_dom.of_element @@ Icon.SVG.(D.icon ~d:Path.close ())
@@ -153,7 +151,7 @@ class t
 
     val grid : Grid.t =
       match Element.query_selector elt Selector.grid with
-      | None -> failwith "grid element not found"
+      | None -> failwith (name ^ ": grid element not found")
       | Some x -> Grid.attach ~on_cell_insert ~drag_interval:(Fr 0.05) x
 
     val table_dialog = UI.add_table_dialog ()
@@ -162,12 +160,12 @@ class t
 
     val content =
       match Element.query_selector elt Selector.content with
-      | None -> failwith "content element not found"
+      | None -> failwith (name ^ ": content element not found")
       | Some x -> x
 
     val actions =
       match Element.query_selector elt Selector.actions with
-      | None -> failwith "actions element not found"
+      | None -> failwith (name ^ ": actions element not found")
       | Some x -> x
 
     val body = Dom_html.document##.body

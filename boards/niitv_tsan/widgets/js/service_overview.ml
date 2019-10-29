@@ -31,8 +31,6 @@ class t ?set_hex elt () =
 
     method private get_row_title (_row : Dom_html.tableRowElement Js.t) = ""
 
-    (* match table#get_row_data_lazy row with
-     * | _ :: name :: _ -> name () *)
     method private handle_row_action (row : Dom_html.tableRowElement Js.t) =
       let id = Option.bind (Element.get_attribute row Attr.data_id) int_of_string_opt in
       let info =
