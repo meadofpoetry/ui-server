@@ -141,40 +141,40 @@ let typ_to_unit_string : typ -> string = function
   | `Shortt | `Moment -> "LUFS"
 
 let make_x_axis ?(id = "x-axis") (config : widget_config)
-  : Chartjs.timeCartesianAxis Js.t =
+  : Chartjs.timeAxis Js.t =
   let open Chartjs in
   let duration =
     int_of_float
     @@ Ptime.Span.to_float_s config.duration *. 1000. in
-  let scale_label = create_scale_label () in
+  let scale_label = empty_scale_label () in
   scale_label##.display := Js._true;
   scale_label##.labelString := Js.string "Время";
   let time_format = "HH:mm:ss" in
-  let display_formats = create_time_display_formats () in
+  let display_formats = empty_time_display_formats () in
   display_formats##.second := Js.string time_format;
   display_formats##.minute := Js.string time_format;
   display_formats##.hour := Js.string time_format;
-  let time_options = create_time_cartesian_options () in
+  let time_options = empty_time_options () in
   time_options##.isoWeekday := Js._true;
   time_options##.displayFormats := display_formats;
   time_options##.tooltipFormat := Js.string "ll HH:mm:ss";
-  let ticks = create_time_cartesian_ticks () in
+  let ticks = empty_time_ticks () in
   ticks##.autoSkipPadding := 2;
-  let axis = create_time_cartesian_axis () in
+  let axis = empty_time_axis () in
   axis##.id := Js.string id;
   axis##.scaleLabel := scale_label;
   axis##.ticks := ticks;
   axis##.time := time_options;
   axis##.position := Position.bottom;
   axis##._type := Js.string "realtime";
-  let streaming = Chartjs_streaming.create () in
+  let streaming = Chartjs_streaming.empty_streaming_config () in
   streaming##.delay := 2000;
   streaming##.duration := duration;
-  Chartjs_streaming.set_per_axis axis streaming;
+  Chartjs_streaming.set_to_axis axis streaming;
   axis
 
 let make_y_axis ?(id = "y-axis") (config : widget_config)
-  : Chartjs.linearCartesianAxis Js.t =
+  : Chartjs.linearAxis Js.t =
   let open Chartjs in
   let (min, max) = get_suggested_range config.typ in
   let unit = typ_to_unit_string config.typ in
@@ -182,13 +182,13 @@ let make_y_axis ?(id = "y-axis") (config : widget_config)
   let label = match unit with
     | "" -> typ
     | unit -> typ ^ ", " ^ unit in
-  let scale_label = create_scale_label () in
+  let scale_label = empty_scale_label () in
   scale_label##.display := Js._true;
   scale_label##.labelString := Js.string label;
-  let ticks = create_linear_cartesian_ticks () in
+  let ticks = empty_linear_ticks () in
   ticks##.suggestedMin := Js.def min;
   ticks##.suggestedMax := Js.def max;
-  let axis = create_linear_cartesian_axis () in
+  let axis = empty_linear_axis () in
   axis##.id := Js.string id;
   axis##.ticks := ticks;
   axis##.scaleLabel := scale_label;
@@ -197,11 +197,11 @@ let make_y_axis ?(id = "y-axis") (config : widget_config)
 
 let make_options ~x_axes ~y_axes =
   let open Chartjs in
-  let tooltips = create_tooltip () in
-  let scales = create_line_scales () in
-  let animation = create_animation () in
-  let hover = create_hover () in
-  let options = create_line_options () in
+  let tooltips = empty_tooltip () in
+  let scales = empty_line_scales () in
+  let animation = empty_animation () in
+  let hover = empty_hover () in
+  let options = empty_line_options () in
   let plugins = Js.Unsafe.obj [||] in
   plugins##.datalabels := Js._false;
   animation##.duration := 0;
@@ -225,7 +225,7 @@ let make_dataset id src structures data =
   let color = Color.to_hexstring @@ Color.of_rgb r g b in
   (* TODO implement label update on structure update *)
   let label = data_source_to_string structures src in
-  let ds = Chartjs.create_line_dataset () in
+  let ds = Chartjs.empty_line_dataset () in
   ds##.data := Js.array data;
   ds##.fill := Chartjs.Line_fill._false;
   ds##.label := Js.string label;
@@ -266,7 +266,7 @@ class t
     let x_axis = make_x_axis config in
     let y_axis = make_y_axis config in
     let options = make_options ~x_axes:[x_axis] ~y_axes:[y_axis] in
-    let data = Chartjs.create_data () in
+    let data = Chartjs.empty_data () in
     data##.datasets := Js.array @@ Array.of_list @@ List.map snd datasets;
     chart <- Some (Chartjs.chart_from_canvas Chartjs.Chart.line data options canvas);
     super#init ()
@@ -305,7 +305,7 @@ class t
                 float_of_int @@ compare a##.x b##.x in
               let data = ds##.data##sort (Js.wrap_callback sort) in
               ds##.data := data) data;
-        let config = Chartjs_streaming.create_update_config () in
+        let config = Chartjs_streaming.empty_update_config () in
         config##.preservation := Js._true;
         self#chart##update_withConfig config
 

@@ -143,20 +143,20 @@ let make_y_axis ?(id = "y-axis") (config : widget_config) =
   let range = get_suggested_range config.typ in
   let axis = match config.typ with
     | `Ber ->
-      let axis = create_logarithmic_cartesian_axis () in
+      let axis = empty_logarithmic_axis () in
       axis##.afterBuildTicks := Js.wrap_callback (fun _ ticks ->
           ticks##map (Js.wrap_callback (fun v _ _ ->
               let number = Js.number_of_float v in
               Js.parseFloat @@ number##toFixed 6)));
       coerce_cartesian_axis axis
     | _ ->
-      let ticks = create_linear_cartesian_ticks () in
-      let axis = create_linear_cartesian_axis () in
+      let ticks = empty_linear_ticks () in
+      let axis = empty_linear_axis () in
       ticks##.suggestedMin := Js.def @@ fst range;
       ticks##.suggestedMax := Js.def @@ snd range;
       axis##.ticks := ticks;
       coerce_cartesian_axis axis in
-  let scale_label = create_scale_label () in
+  let scale_label = empty_scale_label () in
   scale_label##.display := Js._true;
   scale_label##.labelString := Js.string @@ Util.measure_type_to_unit config.typ;
   axis##.id := Js.string id;
@@ -167,23 +167,23 @@ let make_y_axis ?(id = "y-axis") (config : widget_config) =
 let make_x_axis ?(id = "x-axis") (config : widget_config) =
   let open Chartjs in
   let format = Js.string "HH:mm:ss" in
-  let scale_label = create_scale_label () in
+  let scale_label = empty_scale_label () in
   scale_label##.display := Js._true;
   scale_label##.labelString := Js.string "Время";
-  let display_formats = create_time_display_formats () in
+  let display_formats = empty_time_display_formats () in
   display_formats##.second := format;
   display_formats##.minute := format;
   display_formats##.hour := format;
-  let time = create_time_cartesian_options () in
+  let time = empty_time_options () in
   time##.isoWeekday := Js._true;
   time##.tooltipFormat := Js.string "ll HH:mm:ss";
   time##.displayFormats := display_formats;
-  let ticks = create_time_cartesian_ticks () in
+  let ticks = empty_time_ticks () in
   ticks##.autoSkipPadding := 2;
   let axis_type = match config.settings.period with
     | `Realtime _ -> Js.string "realtime"
     | `Archive _ -> Js.string "time" in
-  let axis = create_time_cartesian_axis () in
+  let axis = empty_time_axis () in
   axis##.id := Js.string id;
   axis##.time := time;
   axis##.ticks := ticks;
@@ -303,7 +303,7 @@ let make_streaming generate_legend period =
     int_of_float
     @@ Float.mul 1000.
     @@ Ptime.Span.to_float_s period in
-  let streaming = Chartjs_streaming.create () in
+  let streaming = Chartjs_streaming.empty_streaming_config () in
   let delay = 3000 in
   (* streaming##.frameRate := 1.; *)
   streaming##.ttl := Js.def (3000 + delay + duration);
@@ -319,7 +319,7 @@ let make_streaming generate_legend period =
       chart##.data##.datasets := datasets';
       if datasets##.length <> datasets'##.length
       then (
-        let conf = Chartjs_streaming.create_update_config () in
+        let conf = Chartjs_streaming.empty_update_config () in
         conf##.preservation := Js._true;
         chart##update_withConfig conf;
         generate_legend ()));
@@ -344,16 +344,16 @@ let tooltip_callback config = fun _
 
 let make_options ~x_axes ~y_axes generate_legend (config : widget_config) =
   let open Chartjs in
-  let legend = create_legend () in
+  let legend = empty_legend () in
   legend##.display := Js._false;
-  let callbacks = create_tooltip_callbacks () in
+  let callbacks = empty_tooltip_callbacks () in
   callbacks##.label := Js.def @@ Js.wrap_meth_callback (tooltip_callback config);
-  let tooltips = create_tooltip () in
+  let tooltips = empty_tooltip () in
   tooltips##.callbacks := callbacks;
   tooltips##.mode := Interaction_mode.nearest;
   (Js.Unsafe.coerce tooltips)##.axis := Js.string "x";
   tooltips##.intersect := Js._false;
-  let scales = create_line_scales () in
+  let scales = empty_line_scales () in
   scales##.xAxes := Js.array @@ Array.of_list x_axes;
   scales##.yAxes := Js.array @@ Array.of_list y_axes;
   let plugins = Js.Unsafe.obj [||] in
@@ -363,7 +363,7 @@ let make_options ~x_axes ~y_axes generate_legend (config : widget_config) =
      plugins##.streaming := make_streaming generate_legend period
    | `Archive _ ->
      plugins##.streaming := Js._false);
-  let options = create_line_options () in
+  let options = empty_line_options () in
   options##.scales := scales;
   options##.plugins := plugins;
   options##.legend := legend;
@@ -378,7 +378,7 @@ let make_dataset src data (mode : Device.mode) =
   let open Chartjs in
   let order = 0 in
   let color = colors.(src).(order) in
-  let dataset = create_line_dataset () in
+  let dataset = empty_line_dataset () in
   set_dataset_id dataset src;
   set_dataset_order dataset order;
   dataset##.data := Js.array @@ Array.of_list data;
@@ -447,7 +447,7 @@ class t ~init
         ~y_axes:[y_axis]
         self#generate_legend
         config in
-    let data = Chartjs.create_data () in
+    let data = Chartjs.empty_data () in
     let datasets = make_datasets config.typ init mode config.sources in
     data##.datasets := Js.array @@ Array.of_list datasets;
     chart <- Some (Chartjs.chart_from_canvas
@@ -566,7 +566,7 @@ class t ~init
       Lwt.return_unit
 
   method private update_chart () : unit =
-    let config = Chartjs_streaming.create_update_config () in
+    let config = Chartjs_streaming.empty_update_config () in
     config##.preservation := Js._true;
     self#chart##update_withConfig config
 

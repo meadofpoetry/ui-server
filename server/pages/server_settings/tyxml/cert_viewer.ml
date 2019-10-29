@@ -47,17 +47,15 @@ module Make(Xml : Xml_sigs.NoWrap)
 
   let issuer ({ issuer; _ } : Server_types.certificate) =
     let rows =
-      List.map (fun (k, value) ->
-          let attribute = Server_types.Distinguished_name.k_to_string k in
-          make_group_record ~attribute ~value ())
+      List.map (fun (k, v) ->
+          make_group_record ~attribute:k ~value:v ())
         issuer in
     make_group_title "Issuer" :: rows
 
   let subject ({ subject; _ } : Server_types.certificate) =
     let rows =
-      List.map (fun (k, value) ->
-          let attribute = Server_types.Distinguished_name.k_to_string k in
-          make_group_record ~attribute ~value ())
+      List.map (fun (k, v) ->
+          make_group_record ~attribute:k ~value:v ())
         subject in
     make_group_title "Subject" :: rows
 
