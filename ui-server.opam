@@ -13,9 +13,10 @@ depends: [
   "bitstring"
   "caqti-driver-postgresql"
   "caqti-lwt"
-  "chartjs"
-  "chartjs-datalabels"
-  "chartjs-streaming"
+  "chartjs" {>= "0.2.2"}
+  "chartjs-annotation" {>= "0.2.2"}
+  "chartjs-datalabels" {>= "0.2.2"}
+  "chartjs-streaming" {>= "0.2.2"}
   "cohttp-lwt-unix"
   "color"
   "conf-libev"
@@ -51,6 +52,6 @@ depends: [
   "uri"
   "uuidm"
   "websocket-lwt-unix"
-  "x509" {>= "0.7.0"}
+  "x509" {>= "0.8.1"}
   "yojson" {>= "1.7.0"}
 ]
