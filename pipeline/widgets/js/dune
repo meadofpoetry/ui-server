@@ -7,7 +7,8 @@
               pipeline_http_js
               chartjs
               chartjs-streaming
-              pipeline_widgets_tyxml)
+              pipeline_widgets_tyxml
+              ptime.clock.jsoo)
   (preprocess (pps js_of_ocaml-ppx
                    ppx_deriving_yojson
                    ppx_deriving.eq)))

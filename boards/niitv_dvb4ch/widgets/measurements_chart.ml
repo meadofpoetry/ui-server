@@ -487,6 +487,7 @@ class t ~init ~mode (config : widget_config) (elt : Dom_html.element Js.t) =
     val mutable listeners = []
 
     val mutable delay = None
+    (** Estmated delay between device and client time in milliseconds . *)
 
     inherit Widget.t elt () as super
 
@@ -566,8 +567,8 @@ class t ~init ~mode (config : widget_config) (elt : Dom_html.element Js.t) =
       self#generate_legend ();
       self#update_chart ()
 
-    method private handle_new_data data =
-      (match delay, config.settings.period with
+    method private update_delay data =
+      match delay, config.settings.period with
       | Some _, _ | _, `Archive _ -> ()
       | None, `Realtime period ->
           Js.Optdef.iter
@@ -584,7 +585,10 @@ class t ~init ~mode (config : widget_config) (elt : Dom_html.element Js.t) =
                   in
                   delay <- Some delay_ms;
                   streaming##.ttl := Js.def ttl;
-                  streaming##.delay := delay_ms));
+                  streaming##.delay := delay_ms)
+
+    method private handle_new_data data =
+      self#update_delay data;
       let data = List.map (fun (src, x) -> src, convert_data config.typ x) data in
       let datasets = Array.to_list @@ Js.to_array self#chart##.data##.datasets in
       List.iter
