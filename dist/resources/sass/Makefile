@@ -1,4 +1,5 @@
 CC = sassc -t compressed
+POSTCSS = postcss -u autoprefixer -r
 BUILD_DIR = ../css
 
 all: components main pages
@@ -8,7 +9,9 @@ main:
 
 components:
 	$(CC) -I ./ ./@material/components/components.scss $(BUILD_DIR)/components.min.css
+	$(POSTCSS) $(BUILD_DIR)/components.min.css
 	$(CC) -I ./ ./@material-lab/components-lab/components-lab.scss $(BUILD_DIR)/components-lab.min.css
+	$(POSTCSS) $(BUILD_DIR)/components-lab.min.css
 
 pages:
 	$(CC) -I ./ ./frontend/input/input.scss $(BUILD_DIR)/page-input.min.css

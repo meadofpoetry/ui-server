@@ -62,9 +62,9 @@ let make_pie_datalabels () =
       (fun labels ->
         Js.Optdef.get (Js.array_get labels context##.dataIndex)
           (fun () -> Js.string "")) in
-  let font = create_font () in
+  let font = empty_font () in
   font##.weight := Js.string "bold";
-  let datalabels = create () in
+  let datalabels = empty_datalabels_config () in
   datalabels##.font := Chartjs.Scriptable_indexable.of_single font;
   datalabels##.offset := Chartjs.Scriptable_indexable.of_single (-50.);
   datalabels##.clip := Chartjs.Scriptable_indexable.of_single Js._true;
@@ -95,21 +95,21 @@ let label_callback = fun _tooltip item (data : Chartjs.data Js.t) ->
 
 let make_pie_options () =
   let open Chartjs in
-  let hover = create_hover () in
+  let hover = empty_hover () in
   hover##.animationDuration := 0;
-  let tooltip_callbacks = create_tooltip_callbacks () in
-  let tooltips = create_tooltip () in
+  let tooltip_callbacks = empty_tooltip_callbacks () in
+  let tooltips = empty_tooltip () in
   tooltip_callbacks##.label := Js.def @@ Js.wrap_meth_callback label_callback;
   tooltips##.callbacks := tooltip_callbacks;
-  let legend = create_legend () in
+  let legend = empty_legend () in
   legend##.position := Position.left;
   legend##.display := Js._false;
-  let animation = create_pie_animation () in
+  let animation = empty_pie_animation () in
   animation##.animateRotate := Js._false;
   let plugins = Js.Unsafe.obj [||] in
   let datalabels = make_pie_datalabels () in
   plugins##.datalabels := datalabels;
-  let options = create_pie_options () in
+  let options = empty_pie_options () in
   options##.responsive := Js._true;
   options##.maintainAspectRatio := Js._true;
   options##.aspectRatio := 1.;
@@ -126,7 +126,7 @@ let make_pie_dataset () =
     @@ Array.map (Chartjs.Color.of_string
                   % Color.to_css_rgba
                   % Material_color_palette.make) colors in
-  let dataset = Chartjs.create_pie_dataset () in
+  let dataset = Chartjs.empty_pie_dataset () in
   dataset##.backgroundColor := background_color;
   dataset##.borderColor := background_color;
   dataset
@@ -134,7 +134,7 @@ let make_pie_dataset () =
 let make_pie ?(canvas = Dom_html.(createCanvas document)) () =
   let dataset = make_pie_dataset () in
   let options = make_pie_options () in
-  let data = Chartjs.create_data () in
+  let data = Chartjs.empty_data () in
   data##.datasets := Js.array [|dataset|];
   Chartjs.chart_from_canvas Chartjs.Chart.pie data options canvas
 
