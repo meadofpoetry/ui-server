@@ -180,7 +180,7 @@ let create
         ( `Input x
         , [ make_services_tab_template b
           ; make_pids_tab_template b
-          ; make_si_psi_tab_template b ] ))
+            (* ; make_si_psi_tab_template b *) ] ))
     @@ Topology.topo_inputs_of_topo_board b
   in
   let board =
