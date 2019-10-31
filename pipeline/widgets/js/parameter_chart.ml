@@ -7,6 +7,12 @@ module CSS = struct
   let root = "pipeline-chart"
 end
 
+module Const = struct
+  let delay = 2000
+
+  let ttl = 3000
+end
+
 type widget_config =
   { duration : Time.Period.t
   ; typ : typ
@@ -54,6 +60,13 @@ let filter_data typ (data : (data_source * kind) list) =
       | _ -> None)
     data
 
+let sort_data (data : (data_source * Qoe_errors.point array) list) =
+  List.map
+    (fun (id, x) ->
+      Array.sort (fun (a : Qoe_errors.point) b -> Ptime.compare a.time b.time) x;
+      id, x)
+    data
+
 let colors =
   Random.init 255;
   Array.init 100 (fun _ -> Random.int 255, Random.int 255, Random.int 255)
@@ -84,7 +97,6 @@ let convert_data
     (data : (data_source * Qoe_errors.point array) list) =
   List.filter_map
     (fun (src, points) ->
-      Array.sort (fun (a : Qoe_errors.point) b -> Ptime.compare a.time b.time) points;
       match Array.length points with
       | 0 -> None
       | length ->
@@ -140,9 +152,25 @@ let typ_to_unit_string : typ -> string = function
   | `Luma | `Diff -> ""
   | `Shortt | `Moment -> "LUFS"
 
-let make_x_axis ?(id = "x-axis") (config : widget_config) : Chartjs.timeAxis Js.t =
+let get_duration_ms config =
+  int_of_float @@ (Ptime.Span.to_float_s config.duration *. 1000.)
+
+let ttl_of_delay ~duration delay = Const.ttl + delay + duration
+
+let get_timestamp (data : (data_source * Qoe_errors.point array) list) =
+  let rec aux = function
+    | [] -> None
+    | (_, hd) :: tl ->
+        if Array.length hd = 0
+        then aux tl
+        else
+          let (point : Qoe_errors.point) = hd.(0) in
+          Some point.time
+  in
+  aux data
+
+let make_x_axis ?(id = "x-axis") () : Chartjs.timeAxis Js.t =
   let open Chartjs in
-  let duration = int_of_float @@ (Ptime.Span.to_float_s config.duration *. 1000.) in
   let scale_label = empty_scale_label () in
   scale_label##.display := Js._true;
   scale_label##.labelString := Js.string "Время";
@@ -164,10 +192,6 @@ let make_x_axis ?(id = "x-axis") (config : widget_config) : Chartjs.timeAxis Js.
   axis##.time := time_options;
   axis##.position := Position.bottom;
   axis##._type := Js.string "realtime";
-  let streaming = Chartjs_streaming.empty_streaming_config () in
-  streaming##.delay := 2000;
-  streaming##.duration := duration;
-  Chartjs_streaming.set_to_axis axis streaming;
   axis
 
 let make_y_axis ?(id = "y-axis") (config : widget_config) : Chartjs.linearAxis Js.t =
@@ -193,7 +217,15 @@ let make_y_axis ?(id = "y-axis") (config : widget_config) : Chartjs.linearAxis J
   axis##.position := Position.left;
   axis
 
-let make_options ~x_axes ~y_axes =
+let make_streaming config =
+  let duration = get_duration_ms config in
+  let streaming = Chartjs_streaming.empty_streaming_config () in
+  streaming##.delay := Const.delay;
+  (* streaming##.ttl := Js.def (ttl_of_delay ~duration Const.delay); *)
+  streaming##.duration := duration;
+  streaming
+
+let make_options ~x_axes ~y_axes config =
   let open Chartjs in
   let tooltips = empty_tooltip () in
   let scales = empty_line_scales () in
@@ -201,6 +233,7 @@ let make_options ~x_axes ~y_axes =
   let hover = empty_hover () in
   let options = empty_line_options () in
   let plugins = Js.Unsafe.obj [||] in
+  plugins##.streaming := make_streaming config;
   plugins##.datalabels := Js._false;
   animation##.duration := 0;
   tooltips##.mode := Interaction_mode.index;
@@ -256,17 +289,23 @@ class t
       Js.Unsafe.coerce @@ Element.query_selector_exn elt "canvas"
 
     val mutable datasets =
-      let data = convert_data config init in
+      let sorted = sort_data init in
+      let data = convert_data config sorted in
       make_datasets data config.sources structures
+    (** Chart datasets. *)
 
     val mutable chart = None
+    (** Chartjs instance. *)
+
+    val mutable delay = None
+    (** Estimated delay between device and client time in milliseconds. *)
 
     inherit Widget.t elt () as super
 
     method! init () : unit =
-      let x_axis = make_x_axis config in
+      let x_axis = make_x_axis () in
       let y_axis = make_y_axis config in
-      let options = make_options ~x_axes:[x_axis] ~y_axes:[y_axis] in
+      let options = make_options ~x_axes:[x_axis] ~y_axes:[y_axis] config in
       let data = Chartjs.empty_data () in
       data##.datasets := Js.array @@ Array.of_list @@ List.map snd datasets;
       chart <- Some (Chartjs.chart_from_canvas Chartjs.Chart.line data options canvas);
@@ -276,52 +315,68 @@ class t
       Option.iter (fun x -> x##destroy) chart;
       super#destroy ()
 
-    method chart : Chartjs.lineChart Js.t =
-      match chart with
-      | None -> raise Not_found
-      | Some x -> x
+    method chart : Chartjs.lineChart Js.t = Option.get chart
 
     method notify : event -> unit =
       function
       (* TODO add structures and state update *)
-      | `Data data -> (
-        match convert_data config (filter_data config.typ data) with
-        | [] -> ()
-        | data ->
-            List.iter
-              (fun (src, data) ->
-                match List.find_opt (fun (x, _) -> equal_data_source src x) datasets with
-                | None -> (
-                  match config.sources with
-                  | [] ->
-                      let id = List.length datasets in
-                      let ds = make_dataset id src structures data in
-                      datasets <- ds :: datasets;
-                      let (_ : int) =
-                        self#chart##.data##.datasets##push
-                          (Chartjs.coerce_dataset @@ snd ds)
-                      in
-                      ()
-                  | _ -> ())
-                | Some (_, (ds : _ Chartjs.lineDataset Js.t)) ->
-                    Array.iter (fun x -> ignore @@ ds##.data##push x) data;
-                    let sort (a : _ Chartjs.dataPoint Js.t as 'c) (b : 'c) =
-                      float_of_int @@ compare a##.x b##.x
-                    in
-                    let data = ds##.data##sort (Js.wrap_callback sort) in
-                    ds##.data := data)
-              data;
-            let config = Chartjs_streaming.empty_update_config () in
-            config##.preservation := Js._true;
-            self#chart##update_withConfig config)
+      | `Data data -> self#handle_new_data data
 
-    (* Private methods *)
     method private update_structures (structures : Structure.Annotated.t) : unit =
       List.iter
         (fun (src, (ds : _ Chartjs.lineDataset Js.t)) ->
           let label = data_source_to_string structures src in
           ds##.label := Js.string label)
         datasets
+
+    method private update_delay data =
+      match delay with
+      | Some _ -> ()
+      | None ->
+          Js.Optdef.iter
+            (Chartjs_streaming.of_chart_options self#chart##.options)
+            (fun streaming ->
+              match get_timestamp data with
+              | None -> ()
+              | Some timestamp ->
+                  let now = Ptime_clock.now () in
+                  let delay_s = Ptime.Span.to_float_s (Ptime.diff now timestamp) in
+                  let delay_ms = Const.delay + int_of_float (1000. *. delay_s) in
+                  delay <- Some delay_ms;
+                  streaming##.delay := delay_ms)
+
+    method private handle_new_data (data : (data_source * kind) list) =
+      let sorted = filter_data config.typ data |> sort_data in
+      self#update_delay sorted;
+      let converted = convert_data config sorted in
+      List.iter
+        (fun (src, data) ->
+          match List.find_opt (fun (x, _) -> equal_data_source src x) datasets with
+          | None -> (
+            match config.sources with
+            | [] ->
+                let id = List.length datasets in
+                let ds = make_dataset id src structures data in
+                datasets <- ds :: datasets;
+                let (_ : int) =
+                  self#chart##.data##.datasets##push (Chartjs.coerce_dataset @@ snd ds)
+                in
+                ()
+            | _ -> ())
+          | Some (_, (ds : _ Chartjs.lineDataset Js.t)) ->
+              Array.iter (fun x -> ignore @@ ds##.data##push x) data;
+              let sort (a : _ Chartjs.dataPoint Js.t as 'c) (b : 'c) =
+                float_of_int @@ compare a##.x b##.x
+              in
+              let data = ds##.data##sort (Js.wrap_callback sort) in
+              ds##.data := data)
+        converted;
+      self#update_chart ()
+
+    method private update_chart () : unit =
+      let config = Chartjs_streaming.empty_update_config () in
+      config##.preservation := Js._true;
+      self#chart##update_withConfig config
   end
 
 let make init structures config =

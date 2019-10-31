@@ -11,6 +11,12 @@ module Attr = struct
   let order = "data-order"
 end
 
+module Const = struct
+  let delay = 2000
+
+  let ttl = 3000
+end
+
 module CSS = struct
   let root = "niitv-dvb4ch-measurements-chart"
 
@@ -93,10 +99,6 @@ let set_dataset_order (ds : _ Chartjs.lineDataset Js.t) (x : int) : unit =
   ds##.borderColor := Chartjs.Color.of_string color;
   (Js.Unsafe.coerce ds)##.order := x
 
-let duration_of_period : period -> Time.Period.t = function
-  | `Realtime x -> x
-  | `Archive (_, x) -> x
-
 let get_suggested_range = function
   | `Power -> -70.0, 0.0
   | `Mer -> 0.0, 45.0
@@ -128,6 +130,11 @@ let format_config {Device.standard; channel = {bw; freq; plp}} =
     | _ -> ""
   in
   Printf.sprintf "%s, %s, %s%s" std frq bw plp
+
+let duration_of_period period =
+  int_of_float @@ Float.mul 1000. @@ Ptime.Span.to_float_s period
+
+let ttl_of_delay ~duration delay = Const.ttl + delay + duration
 
 let make_y_axis ?(id = "y-axis") (config : widget_config) =
   let open Chartjs in
@@ -177,10 +184,11 @@ let make_x_axis ?(id = "x-axis") (config : widget_config) =
   ticks##.autoSkipPadding := 2;
   let axis_type =
     match config.settings.period with
-    | `Realtime _ -> Chartjs_streaming.Axis.realtime
-    | `Archive _ -> Axis.cartesian_time
+    | `Realtime _ -> Js.string "realtime"
+    | `Archive _ -> Js.string "time"
   in
-  let axis = create_axis axis_type in
+  let axis = empty_time_axis () in
+  axis##._type := axis_type;
   axis##.id := Js.string id;
   axis##.time := time;
   axis##.ticks := ticks;
@@ -312,11 +320,11 @@ let legend_callback (chart : Chartjs.chart Js.t) =
 
 let make_streaming generate_legend period =
   let open Chartjs in
-  let duration = int_of_float @@ Float.mul 1000. @@ Ptime.Span.to_float_s period in
+  let duration = duration_of_period period in
   let streaming = Chartjs_streaming.empty_streaming_config () in
-  let delay = 3000 in
+  let delay = Const.delay in
   (* streaming##.frameRate := 1.; *)
-  streaming##.ttl := Js.def (3000 + delay + duration);
+  streaming##.ttl := Js.def (ttl_of_delay ~duration delay);
   streaming##.delay := delay;
   streaming##.duration := duration;
   streaming##.onRefresh :=
@@ -436,6 +444,16 @@ let convert_data (typ : Util.measure_type) (data : Measure.t ts list) =
         ~y)
   @@ List.sort (fun a b -> Ptime.compare a.timestamp b.timestamp) data
 
+let get_timestamp data =
+  let rec aux = function
+    | [] -> None
+    | (_, hd) :: tl -> (
+      match hd with
+      | [] -> aux tl
+      | {timestamp; _} :: _ -> Some timestamp)
+  in
+  aux data
+
 let make_datasets
     typ
     (init : data)
@@ -468,6 +486,9 @@ class t ~init ~mode (config : widget_config) (elt : Dom_html.element Js.t) =
 
     val mutable listeners = []
 
+    val mutable delay = None
+    (** Estmated delay between device and client time in milliseconds . *)
+
     inherit Widget.t elt () as super
 
     method! init () : unit =
@@ -496,7 +517,8 @@ class t ~init ~mode (config : widget_config) (elt : Dom_html.element Js.t) =
     method notify : event -> unit =
       function
       | `State _state ->
-          (* TODO the idea is to insert `null` value after device state changed. *)
+          (* TODO the idea is to insert `NaN` value after device state changed
+             to add break in the line. *)
           ()
       | `Mode mode -> self#handle_new_mode mode
       | `Data data -> self#handle_new_data data
@@ -504,8 +526,6 @@ class t ~init ~mode (config : widget_config) (elt : Dom_html.element Js.t) =
     method clear () : unit =
       let datasets = Array.to_list @@ Js.to_array self#chart##.data##.datasets in
       List.iter (fun ds -> ds##.data := Js.array [||]) datasets
-
-    method print s = if config.typ = `Power then print_endline s
 
     method private handle_new_mode mode =
       let rec aux mode acc = function
@@ -547,7 +567,28 @@ class t ~init ~mode (config : widget_config) (elt : Dom_html.element Js.t) =
       self#generate_legend ();
       self#update_chart ()
 
+    method private update_delay data =
+      match delay, config.settings.period with
+      | Some _, _ | _, `Archive _ -> ()
+      | None, `Realtime period ->
+          Js.Optdef.iter
+            (Chartjs_streaming.of_chart_options self#chart##.options)
+            (fun streaming ->
+              match get_timestamp data with
+              | None -> ()
+              | Some timestamp ->
+                  let now = Ptime_clock.now () in
+                  let delay_s = Ptime.Span.to_float_s (Ptime.diff now timestamp) in
+                  let delay_ms = Const.delay + int_of_float (1000. *. delay_s) in
+                  let ttl =
+                    ttl_of_delay ~duration:(duration_of_period period) delay_ms
+                  in
+                  delay <- Some delay_ms;
+                  streaming##.ttl := Js.def ttl;
+                  streaming##.delay := delay_ms)
+
     method private handle_new_data data =
+      self#update_delay data;
       let data = List.map (fun (src, x) -> src, convert_data config.typ x) data in
       let datasets = Array.to_list @@ Js.to_array self#chart##.data##.datasets in
       List.iter

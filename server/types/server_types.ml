@@ -1,50 +1,3 @@
-module Distinguished_name = struct
-  type attribute =
-    | CN
-    | Serialnumber
-    | C
-    | L
-    | ST
-    | O
-    | OU
-    | T
-    | DNQ
-    | Mail
-    | DC
-    | Given_name
-    | Surname
-    | Initials
-    | Pseudonym
-    | Generation
-    | Street
-    | Userid
-    | Other of string
-  [@@deriving yojson]
-
-  let attribute_to_string = function
-    | CN -> "Common Name (CN)"
-    | Serialnumber -> "Serial Number"
-    | C -> "Country Name (C)"
-    | L -> "Locality Name (L)"
-    | ST -> "State or Province (SP)"
-    | O -> "Organization (O)"
-    | OU -> "Organization Unit (ON)"
-    | T -> "Title (T)"
-    | DNQ -> "Distinguished Name Qualifier (DNQ)"
-    | Mail -> "Email address"
-    | DC -> "Domain Component (DC)"
-    | Given_name -> "Given Name"
-    | Surname -> "Surname"
-    | Initials -> "Initials"
-    | Pseudonym -> "Pseudonym"
-    | Generation -> "Generation"
-    | Street -> "Street"
-    | Userid -> "User ID"
-    | Other oid -> oid
-
-  type t = (attribute * string) list [@@deriving yojson]
-end
-
 module Show_cstruct = struct
   type t = Cstruct.t
 
@@ -64,9 +17,9 @@ type settings =
 
 and certificate =
   { serial : Show_cstruct.t
-  ; issuer : Distinguished_name.t
+  ; issuer : (string * string) list
   ; validity : Time.t * Time.t
-  ; subject : Distinguished_name.t
+  ; subject : (string * string) list
   ; public_key : public_key
   ; fingerprints : (hash * Show_cstruct.t) list }
 

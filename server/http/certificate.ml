@@ -1,31 +1,24 @@
 module DN = struct
-  let of_attribute :
-         X509.Distinguished_name.attribute
-      -> Server_types.Distinguished_name.attribute * string = function
-    | CN v -> CN, v
-    | Serialnumber v -> Serialnumber, v
-    | C v -> C, v
-    | L v -> L, v
-    | ST v -> ST, v
-    | O v -> O, v
-    | OU v -> OU, v
-    | T v -> T, v
-    | DNQ v -> DNQ, v
-    | Mail v -> Mail, v
-    | DC v -> DC, v
-    | Given_name v -> Given_name, v
-    | Surname v -> Surname, v
-    | Initials v -> Initials, v
-    | Pseudonym v -> Pseudonym, v
-    | Generation v -> Generation, v
-    | Street v -> Street, v
-    | Userid v -> Userid, v
-    | Other (oid, v) -> Other (Format.asprintf "%a" Asn.OID.pp oid), v
-
-  let of_distinguished_name (t : X509.Distinguished_name.t) =
-    List.map of_attribute
-    @@ List.flatten
-    @@ List.map X509.Distinguished_name.Relative_distinguished_name.elements t
+  let attribute_to_kv : X509.Distinguished_name.attribute -> string * string = function
+    | CN v -> "Common Name (CN)", v
+    | Serialnumber v -> "Serial Number", v
+    | C v -> "Country Name (C)", v
+    | L v -> "Locality Name (L)", v
+    | ST v -> "State or Province (SP)", v
+    | O v -> "Organization (O)", v
+    | OU v -> "Organization Unit (ON)", v
+    | T v -> "Title (T)", v
+    | DNQ v -> "Distinguished Name Qualifier (DNQ)", v
+    | Mail v -> "Email address", v
+    | DC v -> "Domain Component (DC)", v
+    | Given_name v -> "Given Name", v
+    | Surname v -> "Surname", v
+    | Initials v -> "Initials", v
+    | Pseudonym v -> "Pseudonym", v
+    | Generation v -> "Generation", v
+    | Street v -> "Street", v
+    | Userid v -> "User ID", v
+    | Other (oid, v) -> Format.asprintf "OID: %a" Asn.OID.pp oid, v
 end
 
 let of_x509 (file : string) =
@@ -36,9 +29,17 @@ let of_x509 (file : string) =
       let pk = Certificate.public_key x in
       Ok
         { Server_types.serial = Cstruct.of_string @@ Z.to_bits @@ Certificate.serial x
-        ; issuer = DN.of_distinguished_name @@ Certificate.issuer x
+        ; issuer =
+            List.map DN.attribute_to_kv
+            @@ List.flatten
+            @@ List.map Distinguished_name.Relative_distinguished_name.elements
+            @@ Certificate.issuer x
         ; validity = Certificate.validity x
-        ; subject = DN.of_distinguished_name @@ Certificate.subject x
+        ; subject =
+            List.map DN.attribute_to_kv
+            @@ List.flatten
+            @@ List.map Distinguished_name.Relative_distinguished_name.elements
+            @@ Certificate.subject x
         ; public_key =
             {typ = `RSA; fingerprint = [`SHA1, Public_key.fingerprint ~hash:`SHA1 pk]}
         ; fingerprints =

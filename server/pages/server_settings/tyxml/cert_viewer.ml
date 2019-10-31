@@ -59,21 +59,13 @@ struct
 
   let issuer ({issuer; _} : Server_types.certificate) =
     let rows =
-      List.map
-        (fun (k, value) ->
-          let attribute = Server_types.Distinguished_name.attribute_to_string k in
-          create_group_record ~attribute ~value ())
-        issuer
+      List.map (fun (k, v) -> create_group_record ~attribute:k ~value:v ()) issuer
     in
     create_group_title "Issuer" :: rows
 
   let subject ({subject; _} : Server_types.certificate) =
     let rows =
-      List.map
-        (fun (k, value) ->
-          let attribute = Server_types.Distinguished_name.attribute_to_string k in
-          create_group_record ~attribute ~value ())
-        subject
+      List.map (fun (k, v) -> create_group_record ~attribute:k ~value:v ()) subject
     in
     create_group_title "Subject" :: rows
 
