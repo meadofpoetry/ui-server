@@ -201,6 +201,91 @@ let request
 
 type 'a set = ?step:React.step -> 'a -> unit
 
+(* TODO state machine should not depend on the result of this request,
+     if it fails - ok, if it returns value after some amount of time - also ok *)
+let get_deverr request has_errors probes =
+  if not has_errors
+  then Lwt.return_ok probes
+  else
+    let request_id = Request_id.next () in
+    let req = Request.Get_deverr {request_id; timeout = None} in
+    request req
+    >>= function
+    | Error _ as e -> Lwt.return e
+    | Ok x -> Lwt.return_ok (`Deverr x :: probes)
+
+let get_structures
+    ~(old : Parser.Status.versions option)
+    ~(cur : Parser.Status.versions)
+    request
+    (probes : probe list) =
+  let fetch =
+    match old with
+    | None -> true
+    | Some {ts_common; _} -> ts_common <> cur.ts_common
+  in
+  if not fetch
+  then Lwt.return_ok probes
+  else
+    let request_id = Request_id.next () in
+    let req = Request.Get_structure {request_id; stream = `All} in
+    request req
+    >>= function
+    | Error _ as e -> Lwt.return e
+    | Ok x -> Lwt.return_ok (`Structure x :: probes)
+
+let get_bitrate request has_sync probes =
+  if not has_sync
+  then Lwt.return_ok (`Bitrate [] :: probes)
+  else
+    let request_id = Request_id.next () in
+    let req = Request.Get_bitrate {request_id} in
+    request req
+    >>= function
+    | Error _ as e -> Lwt.return e
+    | Ok x -> Lwt.return_ok (`Bitrate x :: probes)
+
+let get_t2mi_info
+    request
+    (old : Parser.Status.versions option)
+    (cur : Parser.Status.t)
+    (probes : probe list) =
+  let ids =
+    match cur.t2mi_sync, old with
+    | [], _ -> []
+    | sync, None -> sync
+    | sync, Some prev ->
+        List.fold_left
+          (fun acc i ->
+            match List.assoc_opt i cur.versions.t2mi, List.assoc_opt i prev.t2mi with
+            | None, _ | _, None -> acc
+            | Some c, Some o -> if c <> o then i :: acc else acc)
+          []
+          sync
+  in
+  match ids with
+  | [] -> Lwt.return_ok probes
+  | ids ->
+      let rec request_loop probes = function
+        | [] -> Lwt.return_ok probes
+        | t2mi_stream_id :: tl -> (
+            let request_id = Request_id.next () in
+            let req = Request.Get_t2mi_info {request_id; t2mi_stream_id} in
+            request req
+            >>= function
+            | Ok x -> request_loop (x :: probes) tl
+            | Error e -> Lwt.return_error e)
+      in
+      Lwt_result.Infix.(
+        request_loop [] ids
+        >>= fun x ->
+        let stream =
+          match cur.t2mi_mode.stream with
+          | ID x -> x
+          | Full s -> Stream.to_multi_id s
+        in
+        Lwt.return_ok (`T2MI_info [stream, x] :: probes))
+
 let start
     (src : Logs.src)
     (sender : sender)
@@ -475,91 +560,13 @@ let start
         Logs.err (fun m ->
             m "Error while waiting for EOT event: %s" @@ Request.error_to_string e);
         Lwt.return_error e
-  and get_structures
-      ~(old : Parser.Status.versions option)
-      ~(cur : Parser.Status.versions)
-      (probes : probe list) =
-    let fetch =
-      match old with
-      | None -> true
-      | Some {ts_common; _} -> ts_common <> cur.ts_common
-    in
-    if not fetch
-    then Lwt.return_ok probes
-    else
-      let request_id = Request_id.next () in
-      let req = Request.Get_structure {request_id; stream = `All} in
-      request src rsp_event evt_queue sender req
-      >>= function
-      | Error _ as e -> Lwt.return e
-      | Ok x -> Lwt.return_ok (`Structure x :: probes)
-  and get_bitrate has_sync probes =
-    if not has_sync
-    then Lwt.return_ok (`Bitrate [] :: probes)
-    else
-      let request_id = Request_id.next () in
-      let req = Request.Get_bitrate {request_id} in
-      request src rsp_event evt_queue sender req
-      >>= function
-      | Error _ as e -> Lwt.return e
-      | Ok x -> Lwt.return_ok (`Bitrate x :: probes)
-  and get_t2mi_info
-      (old : Parser.Status.versions option)
-      (cur : Parser.Status.t)
-      (probes : probe list) =
-    let ids =
-      match cur.t2mi_sync, old with
-      | [], _ -> []
-      | sync, None -> sync
-      | sync, Some prev ->
-          List.fold_left
-            (fun acc i ->
-              match List.assoc_opt i cur.versions.t2mi, List.assoc_opt i prev.t2mi with
-              | None, _ | _, None -> acc
-              | Some c, Some o -> if c <> o then i :: acc else acc)
-            []
-            sync
-    in
-    match ids with
-    | [] -> Lwt.return_ok probes
-    | ids ->
-        let rec request_loop probes = function
-          | [] -> Lwt.return_ok probes
-          | t2mi_stream_id :: tl -> (
-              let request_id = Request_id.next () in
-              let req = Request.Get_t2mi_info {request_id; t2mi_stream_id} in
-              request src rsp_event evt_queue sender req
-              >>= function
-              | Ok x -> request_loop (x :: probes) tl
-              | Error e -> Lwt.return_error e)
-        in
-        Lwt_result.Infix.(
-          request_loop [] ids
-          >>= fun x ->
-          let stream =
-            match cur.t2mi_mode.stream with
-            | ID x -> x
-            | Full s -> Stream.to_multi_id s
-          in
-          Lwt.return_ok (`T2MI_info [stream, x] :: probes))
-  (* TODO state machine should not depend on the result of this request,
-     if it fails - ok, if it returns value after some amount of time - also ok *)
-  and get_deverr has_errors probes =
-    if not has_errors
-    then Lwt.return_ok probes
-    else
-      let request_id = Request_id.next () in
-      let req = Request.Get_deverr {request_id; timeout = None} in
-      request src rsp_event evt_queue sender req
-      >>= function
-      | Error _ as e -> Lwt.return e
-      | Ok x -> Lwt.return_ok (`Deverr x :: probes)
   and get_probes {prev; status; _} =
+    let request req = request src rsp_event evt_queue sender req in
     Lwt_result.Infix.(
-      get_deverr status.errors []
-      >>= get_structures ~old:prev ~cur:status.versions
-      >>= get_bitrate status.basic.has_sync
-      >>= get_t2mi_info prev status)
+      get_deverr request status.errors []
+      >>= get_structures ~old:prev ~cur:status.versions request
+      >>= get_bitrate request status.basic.has_sync
+      >>= get_t2mi_info request prev status)
   and finalize_events ({status; streams; errors; _} as acc) =
     let rec wait_status () =
       Lwt_stream.next evt_queue
