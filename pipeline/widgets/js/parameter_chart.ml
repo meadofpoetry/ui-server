@@ -13,22 +13,25 @@ module Const = struct
   let ttl = 3000
 end
 
-type widget_config =
-  { duration : Time.Period.t
-  ; typ : typ
-  ; sources : data_source list
-  ; settings : widget_settings option }
+type widget_config = {
+  duration : Time.Period.t;
+  typ : typ;
+  sources : data_source list;
+  settings : widget_settings option;
+}
 
-and widget_settings = {range : (float * float) option}
+and widget_settings = { range : (float * float) option }
 
-and service_filter =
-  { service_id : int
-  ; pids : int list }
+and service_filter = {
+  service_id : int;
+  pids : int list;
+}
 
-and data_source =
-  { stream : Stream.ID.t
-  ; service : int
-  ; pid : int }
+and data_source = {
+  stream : Stream.ID.t;
+  service : int;
+  pid : int;
+}
 [@@deriving eq, yojson]
 
 and typ =
@@ -38,13 +41,15 @@ and typ =
   | `Diff
   | `Blocky
   | `Shortt
-  | `Moment ]
+  | `Moment
+  ]
 
-type event = [`Data of (data_source * kind) list]
+type event = [ `Data of (data_source * kind) list ]
 
 and kind =
   [ `Video of Qoe_errors.Video_data.data
-  | `Audio of Qoe_errors.Audio_data.data ]
+  | `Audio of Qoe_errors.Audio_data.data
+  ]
 
 let filter_data typ (data : (data_source * kind) list) =
   List.filter_map
@@ -107,7 +112,7 @@ let convert_data
             @@ Ptime.truncate ~frac_s:0
             @@ points.(length - 1).time
           in
-          Some (src, [|Chartjs.create_data_point ~x ~y|]))
+          Some (src, [| Chartjs.create_data_point ~x ~y |]))
     data
 
 let data_source_to_string (structures : Structure.Annotated.t) (src : data_source) :
@@ -119,22 +124,24 @@ let data_source_to_string (structures : Structure.Annotated.t) (src : data_sourc
       structures
   with
   | None -> ""
-  | Some (_, {channels; _}) -> (
-    match
-      List.find_opt (fun (_, (x : Annotated.channel)) -> src.service = x.number) channels
-    with
-    | None -> ""
-    | Some (_, channel) -> (
-      match List.find_opt (fun (_, (x : pid)) -> x.pid = src.pid) channel.pids with
+  | Some (_, { channels; _ }) -> (
+      match
+        List.find_opt
+          (fun (_, (x : Annotated.channel)) -> src.service = x.number)
+          channels
+      with
       | None -> ""
-      | Some (_, pid) ->
-          Printf.sprintf
-            "%s. PID %d (%s)"
-            channel.service_name
-            pid.pid
-            pid.stream_type_name))
+      | Some (_, channel) -> (
+          match List.find_opt (fun (_, (x : pid)) -> x.pid = src.pid) channel.pids with
+          | None -> ""
+          | Some (_, pid) ->
+              Printf.sprintf
+                "%s. PID %d (%s)"
+                channel.service_name
+                pid.pid
+                pid.stream_type_name))
 
-let typ_to_content : typ -> [`Video | `Audio] = function
+let typ_to_content : typ -> [ `Video | `Audio ] = function
   | `Black | `Luma | `Freeze | `Diff | `Blocky -> `Video
   | `Shortt | `Moment -> `Audio
 
@@ -266,12 +273,10 @@ let make_dataset id src structures data =
   ds##.borderColor := Chartjs.Color.of_string color;
   src, ds
 
-let make_datasets init (sources : data_source list) (structures : Structure.Annotated.t)
-    =
+let make_datasets init (sources : data_source list) (structures : Structure.Annotated.t) =
   let map id (src : data_source) =
     let data =
-      List.find_opt (fun (src', _) -> equal_data_source src src') init
-      |> function
+      List.find_opt (fun (src', _) -> equal_data_source src src') init |> function
       | None -> [||]
       | Some (_, x) -> x
     in
@@ -305,7 +310,7 @@ class t
     method! init () : unit =
       let x_axis = make_x_axis () in
       let y_axis = make_y_axis config in
-      let options = make_options ~x_axes:[x_axis] ~y_axes:[y_axis] config in
+      let options = make_options ~x_axes:[ x_axis ] ~y_axes:[ y_axis ] config in
       let data = Chartjs.empty_data () in
       data##.datasets := Js.array @@ Array.of_list @@ List.map snd datasets;
       chart <- Some (Chartjs.chart_from_canvas Chartjs.Chart.line data options canvas);
@@ -321,6 +326,10 @@ class t
       function
       (* TODO add structures and state update *)
       | `Data data -> self#handle_new_data data
+
+    method clear () : unit =
+      let datasets = Array.to_list @@ Js.to_array self#chart##.data##.datasets in
+      List.iter (fun ds -> ds##.data := Js.array [||]) datasets
 
     method private update_structures (structures : Structure.Annotated.t) : unit =
       List.iter
@@ -353,16 +362,16 @@ class t
         (fun (src, data) ->
           match List.find_opt (fun (x, _) -> equal_data_source src x) datasets with
           | None -> (
-            match config.sources with
-            | [] ->
-                let id = List.length datasets in
-                let ds = make_dataset id src structures data in
-                datasets <- ds :: datasets;
-                let (_ : int) =
-                  self#chart##.data##.datasets##push (Chartjs.coerce_dataset @@ snd ds)
-                in
-                ()
-            | _ -> ())
+              match config.sources with
+              | [] ->
+                  let id = List.length datasets in
+                  let ds = make_dataset id src structures data in
+                  datasets <- ds :: datasets;
+                  let (_ : int) =
+                    self#chart##.data##.datasets##push (Chartjs.coerce_dataset @@ snd ds)
+                  in
+                  ()
+              | _ -> ())
           | Some (_, (ds : _ Chartjs.lineDataset Js.t)) ->
               Array.iter (fun x -> ignore @@ ds##.data##push x) data;
               let sort (a : _ Chartjs.dataPoint Js.t as 'c) (b : 'c) =
@@ -383,6 +392,6 @@ let make init structures config =
   let elt =
     Js_of_ocaml_tyxml.Tyxml_js.Html.(
       Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-      @@ div ~a:[a_class [CSS.root]] [canvas []])
+      @@ div ~a:[ a_class [ CSS.root ] ] [ canvas [] ])
   in
   new t init structures config elt

@@ -8,6 +8,7 @@ let ( >>=? ) = Lwt_result.( >>= )
 
 let ( >>= ) = Lwt.( >>= )
 
+module Api_template = Api_cohttp_template.Make (User)
 module Config = Kv_v.RW (Board_settings)
 
 let ports_sync
@@ -46,106 +47,90 @@ let get_input_source_from_env src (b : Topology.topo_board) =
   match Topology.Env.find_opt "input_source" b.env with
   | None -> None
   | Some s -> (
-    match int_of_string_opt s with
-    | Some x -> Some x
-    | None ->
-        Logs.warn ~src (fun m ->
-            m "Failed to parse input source value from environment: %s" s);
-        None)
+      match int_of_string_opt s with
+      | Some x -> Some x
+      | None ->
+          Logs.warn ~src (fun m ->
+              m "Failed to parse input source value from environment: %s" s);
+          None)
 
 let get_t2mi_source_from_env src (b : Topology.topo_board) =
   match Topology.Env.find_opt "t2mi_source" b.env with
   | None -> None
   | Some s -> (
-    match int_of_string_opt s with
-    | Some x -> Some x
-    | None ->
-        Logs.warn ~src (fun m ->
-            m "Failed to parse T2-MI source value from environment: %s" s);
-        None)
+      match int_of_string_opt s with
+      | Some x -> Some x
+      | None ->
+          Logs.warn ~src (fun m ->
+              m "Failed to parse T2-MI source value from environment: %s" s);
+          None)
 
 let update_config_with_env src (config : config) (b : Topology.topo_board) =
   let config =
     match get_input_source_from_env src b with
     | None -> config
-    | Some input_source -> {config with input_source}
+    | Some input_source -> { config with input_source }
   in
   match get_t2mi_source_from_env src b with
   | None -> config
-  | Some t2mi_source -> {config with t2mi_source}
+  | Some t2mi_source -> { config with t2mi_source }
 
 let make_services_tab_template (b : Topology.topo_board) =
-  object
-    method stylesheets =
-      [ "/css/Chart.min.css"
-      ; "/css/board-niitv-tsan.min.css"
-      ; "/css/board-niitv-tsan-page-input.min.css" ]
-
-    method pre_scripts =
-      [ `Src "/js/moment.min.js" (* TODO remove *)
-      ; `Src "/js/Chart.min.js"
-      ; `Src "/js/chartjs-plugin-datalabels.min.js" ]
-
-    method post_scripts = [`Src "/js/board-niitv-tsan-page-input.js"]
-
-    method content =
-      List.map
-        Tyxml.Html.toelt
-        [Board_niitv_tsan_page_services_tyxml.F.create ~control:b.control ()]
-
-    method title = "Сервисы"
-
-    method path =
-      Netlib.Uri.Path.(
-        concat (Topology.make_board_path b.control) (of_string "services"))
-  end
+  ( Netlib.Uri.Path.(concat (Topology.make_board_path b.control) (of_string "services")),
+    Api_template.make_template_props
+      ~title:"Сервисы"
+      ~stylesheets:
+        [ "/css/board-niitv-tsan.min.css"; "/css/board-niitv-tsan-page-input.min.css" ]
+      ~pre_scripts:
+        [
+          `Src "/js/moment.min.js" (* TODO remove *);
+          `Src "/js/Chart.min.js";
+          `Src "/js/chartjs-plugin-datalabels.min.js";
+        ]
+      ~post_scripts:[ `Src "/js/board-niitv-tsan-page-input.js" ]
+      ~content:
+        (List.map
+           Tyxml.Html.toelt
+           [ Board_niitv_tsan_page_services_tyxml.F.create ~control:b.control () ])
+      () )
 
 let make_pids_tab_template (b : Topology.topo_board) =
-  object
-    method stylesheets =
-      [ "/css/Chart.min.css"
-      ; "/css/board-niitv-tsan.min.css"
-      ; "/css/board-niitv-tsan-page-input.min.css" ]
-
-    method pre_scripts =
-      [ `Src "/js/moment.min.js" (* TODO remove *)
-      ; `Src "/js/Chart.min.js"
-      ; `Src "/js/chartjs-plugin-datalabels.min.js" ]
-
-    method post_scripts = [`Src "/js/board-niitv-tsan-page-input.js"]
-
-    method content = []
-
-    method title = "PIDs"
-
-    method path =
-      Netlib.Uri.Path.(concat (Topology.make_board_path b.control) (of_string "pids"))
-  end
+  ( Netlib.Uri.Path.(concat (Topology.make_board_path b.control) (of_string "pids")),
+    Api_template.make_template_props
+      ~title:"PIDs"
+      ~stylesheets:
+        [ "/css/board-niitv-tsan.min.css"; "/css/board-niitv-tsan-page-input.min.css" ]
+      ~pre_scripts:
+        [
+          `Src "/js/moment.min.js" (* TODO remove *);
+          `Src "/js/Chart.min.js";
+          `Src "/js/chartjs-plugin-datalabels.min.js";
+        ]
+      ~post_scripts:[ `Src "/js/board-niitv-tsan-page-input.js" ]
+      () )
 
 let make_si_psi_tab_template (b : Topology.topo_board) =
-  object
-    method stylesheets =
-      [ "/css/Chart.min.css"
-      ; "/css/board-niitv-tsan.min.css"
-      ; "/css/board-niitv-tsan-page-input.min.css" ]
-
-    method pre_scripts =
-      [ `Src "/js/moment.min.js" (* TODO remove *)
-      ; `Src "/js/Chart.min.js"
-      ; `Src "/js/chartjs-plugin-datalabels.min.js" ]
-
-    method post_scripts = [`Src "/js/board-niitv-tsan-page-input.js"]
-
-    method content =
-      List.map
-        Tyxml.Html.toelt
-        [Board_niitv_tsan_page_si_psi_tyxml.F.create ~control:b.control ()]
-
-    method title = "SI/PSI"
-
-    method path =
-      Netlib.Uri.Path.(concat (Topology.make_board_path b.control) (of_string "si-psi"))
-  end
+  ( Netlib.Uri.Path.(concat (Topology.make_board_path b.control) (of_string "si-psi")),
+    Api_template.make_template_props
+      ~title:"SI/PSI"
+      ~stylesheets:
+        [
+          "/css/Chart.min.css";
+          "/css/board-niitv-tsan.min.css";
+          "/css/board-niitv-tsan-page-input.min.css";
+        ]
+      ~pre_scripts:
+        [
+          `Src "/js/moment.min.js" (* TODO remove *);
+          `Src "/js/Chart.min.js";
+          `Src "/js/chartjs-plugin-datalabels.min.js";
+        ]
+      ~post_scripts:[ `Src "/js/board-niitv-tsan-page-input.js" ]
+      ~content:
+        (List.map
+           Tyxml.Html.toelt
+           [ Board_niitv_tsan_page_si_psi_tyxml.F.create ~control:b.control () ])
+      () )
 
 let board_id = Board_niitv_tsan_types.board_id
 
@@ -156,16 +141,13 @@ let create
       Topology.topo_board -> Stream.Raw.t list React.signal -> Stream.t list React.signal)
     (send : Cstruct.t -> unit Lwt.t)
     (_db : Db.t)
-    (kv : Kv.RW.t) : (Board.t, [> Board.error]) Lwt_result.t =
-  Lwt.return @@ Boards.Board.create_log_src b
-  >>=? fun (src : Logs.src) ->
+    (kv : Kv.RW.t) : (Board.t, [> Board.error ]) Lwt_result.t =
+  Lwt.return @@ Boards.Board.create_log_src b >>=? fun (src : Logs.src) ->
   let default = update_config_with_env src Board_settings.default b in
-  Config.create ~default kv ["board"; string_of_int b.control]
+  Config.create ~default kv [ "board"; string_of_int b.control ]
   >>=? fun (kv : config Kv_v.rw) ->
-  Protocol.create src send (convert_streams b) kv
-  >>=? fun (api : Protocol.api) ->
-  kv#get
-  >>= fun config ->
+  Protocol.create src send (convert_streams b) kv >>=? fun (api : Protocol.api) ->
+  kv#get >>= fun config ->
   let state =
     object
       method finalize () = Lwt.return ()
@@ -177,27 +159,31 @@ let create
   in
   let input_tabs =
     List.map (fun x ->
-        ( `Input x
-        , [ make_services_tab_template b
-          ; make_pids_tab_template b
-            (* ; make_si_psi_tab_template b *) ] ))
+        ( `Input x,
+          [
+            make_services_tab_template b;
+            make_pids_tab_template b;
+            make_si_psi_tab_template b;
+          ] ))
     @@ Topology.topo_inputs_of_topo_board b
   in
   let board =
-    { Board.http = Board_niitv_tsan_http.handlers b.control api
-    ; ws = Board_niitv_tsan_http.ws b.control api
-    ; templates = []
-    ; control = b.control
-    ; id = Topology.board_id_of_topo_board b
-    ; streams_signal = api.notifs.streams
-    ; log_source = (fun src -> Board_logger.create b.control api src)
-    ; loop = api.loop
-    ; push_data = api.push_data
-    ; connection = api.notifs.state
-    ; ports_sync = ports_sync src b input api.notifs.streams
-    ; ports_active = ports_active src b input
-    ; stream_handler = None
-    ; state = (state :> < finalize : unit -> unit Lwt.t >)
-    ; gui_tabs = input_tabs }
+    {
+      Board.http = Board_niitv_tsan_http.handlers b.control api;
+      ws = Board_niitv_tsan_http.ws b.control api;
+      templates = [];
+      control = b.control;
+      id = Topology.board_id_of_topo_board b;
+      streams_signal = api.notifs.streams;
+      log_source = (fun src -> Board_logger.create b.control api src);
+      loop = api.loop;
+      push_data = api.push_data;
+      connection = api.notifs.state;
+      ports_sync = ports_sync src b input api.notifs.streams;
+      ports_active = ports_active src b input;
+      stream_handler = None;
+      state = (state :> < finalize : unit -> unit Lwt.t >);
+      gui_tabs = input_tabs;
+    }
   in
   Lwt.return_ok board

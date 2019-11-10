@@ -14,6 +14,7 @@ module Make
 struct
   open Xml.W
   include Table_overview.Make (Xml) (Svg) (Html)
+  module Service_info_markup = Service_info.Make (Xml) (Svg) (Html)
   module Fmt = Data_table.Make_fmt (Xml) (Svg) (Html)
 
   let dec_id_fmt = Fmt.Int
@@ -23,7 +24,8 @@ struct
       { to_string = Util.pid_to_hex_string
       ; of_string = int_of_string
       ; compare
-      ; is_numeric = true }
+      ; is_numeric = true
+      }
 
   let id_fmt ~hex = if hex then hex_id_fmt else dec_id_fmt
 
@@ -32,14 +34,16 @@ struct
       { to_string = (fun x -> Printf.sprintf "%f" (float_of_int x /. 1_000_000.))
       ; of_string = (fun x -> int_of_float (float_of_string x *. 1_000_000.))
       ; compare
-      ; is_numeric = true }
+      ; is_numeric = true
+      }
 
   let pct_fmt =
     Fmt.Custom
       { to_string = (fun x -> Printf.sprintf "%.2f" x)
       ; of_string = float_of_string
       ; compare
-      ; is_numeric = true }
+      ; is_numeric = true
+      }
 
   let create_table_format ?(hex = return false) () : _ Fmt.format =
     let id_fmt = fmap (fun hex -> id_fmt ~hex) hex in
@@ -53,7 +57,8 @@ struct
       ; make_column ~sortable:true ~title:(return "Битрейт, Мбит/с") br_fmt
       ; make_column ~sortable:true ~title:(return "%") pct_fmt
       ; make_column ~sortable:true ~title:(return "Min, Мбит/с") br_fmt
-      ; make_column ~sortable:true ~title:(return "Max, Мбит/с") br_fmt ]
+      ; make_column ~sortable:true ~title:(return "Max, Мбит/с") br_fmt
+      ]
 
   let data_of_service_info ?(bitrate = return None) (id, (info : Service.t)) : _ Fmt.data
       =
@@ -65,24 +70,25 @@ struct
       ; fmap
           (function
             | None -> None
-            | Some (_, {Bitrate.cur; _}) -> Some cur)
+            | Some (_, { Bitrate.cur; _ }) -> Some cur)
           bitrate
       ; fmap
           (function
             | None -> None
-            | Some ({Bitrate.cur = tot; _}, {Bitrate.cur; _}) ->
+            | Some ({ Bitrate.cur = tot; _ }, { Bitrate.cur; _ }) ->
                 Some (100. *. float_of_int cur /. float_of_int tot))
           bitrate
       ; fmap
           (function
             | None -> None
-            | Some (_, {Bitrate.min; _}) -> Some min)
+            | Some (_, { Bitrate.min; _ }) -> Some min)
           bitrate
       ; fmap
           (function
             | None -> None
-            | Some (_, {Bitrate.max; _}) -> Some max)
-          bitrate ]
+            | Some (_, { Bitrate.max; _ }) -> Some max)
+          bitrate
+      ]
 
   let row_of_service_info ?bitrate ~format (id, (info : Service.t)) =
     let data = data_of_service_info ?bitrate (id, info) in
@@ -91,7 +97,8 @@ struct
     Data_table_markup.data_table_row
       ~a:
         [ Html.a_user_data "value" (return value)
-        ; Html.a_user_data "id" (return (string_of_int id)) ]
+        ; Html.a_user_data "id" (return (string_of_int id))
+        ]
       ~children:cells
       ()
 
@@ -100,13 +107,39 @@ struct
   let create
       ?a
       ?dense
-      ?(hex = false)
+      ?(hex = return false)
       ?(bitrate = return None)
       ?(init = nil ())
+      ?(selected = return None)
       ~control
       () =
-    let hex, set_hex = Xml.Wutils.create hex in
     let format = create_table_format ~hex () in
+    let title =
+      fmap
+        (function
+          | None -> "Список сервисов"
+          | Some (_, (x : Board_niitv_tsan_types.Service.t)) -> x.name)
+        selected
+    in
+    let selected_bitrate =
+      Xml.Wutils.l2
+        (fun selected rate ->
+          match selected, rate with
+          | None, _ | _, None -> None
+          | Some (id, _), Some (rate : Bitrate.ext) -> List.assoc_opt id rate.services)
+        selected
+        bitrate
+    in
+    let service_info =
+      Service_info_markup.create ~info:selected ~bitrate:selected_bitrate ~control ()
+    in
+    let details =
+      fmap
+        (function
+          | None -> None
+          | Some x -> Some service_info)
+        selected
+    in
     let rows =
       Xml.W.map
         (fun ((id, _) as x) ->
@@ -115,25 +148,25 @@ struct
               (function
                 | None -> None
                 | Some (rate : Bitrate.ext) -> (
-                  match List.assoc_opt id rate.services with
-                  | None -> None
-                  | Some x -> Some (rate.total, x)))
+                    match List.assoc_opt id rate.services with
+                    | None -> None
+                    | Some x -> Some (rate.total, x)))
               bitrate
           in
           row_of_service_info ~bitrate ~format x)
         init
     in
-    ( create
-        ~classes:(return [CSS.services])
-        ?a
-        ?dense
-        ~hex
-        ~title:(return "Список сервисов")
-        ~format
-        ~rows
-        ~control
-        ()
-    , set_hex )
+    create
+      ~classes:(return [ CSS.services ])
+      ?a
+      ?dense
+      ~details
+      ~hex
+      ~title
+      ~format
+      ~rows
+      ~control
+      ()
 end
 
 module F = Make (Impl.Xml) (Impl.Svg) (Impl.Html)

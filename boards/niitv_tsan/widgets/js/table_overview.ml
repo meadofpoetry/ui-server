@@ -80,7 +80,8 @@ class virtual ['a] t ?set_hex elt () =
         | Some menu, Some menu_icon ->
             Js_of_ocaml_lwt.Lwt_js_events.
               [ clicks menu_icon#root (fun _ _ -> menu#reveal ())
-              ; Menu.Lwt_js_events.selects menu#root self#handle_menu_selection_change ]
+              ; Menu.Lwt_js_events.selects menu#root self#handle_menu_selection_change
+              ]
         | _ -> [])
         @ listeners;
       super#initial_sync_with_dom ()
@@ -91,7 +92,7 @@ class virtual ['a] t ?set_hex elt () =
       List.iter Lwt.cancel listeners;
       super#destroy ()
 
-    method set_state (state : [Application_types.Topology.state | `No_sync]) =
+    method set_state (state : [ Application_types.Topology.state | `No_sync ]) =
       let no_sync, no_response =
         match state with
         | `Fine -> false, false
@@ -166,27 +167,24 @@ class virtual ['a] t ?set_hex elt () =
         Lwt.return_unit)
   end
 
-class virtual ['a] with_details ?set_hex elt () =
+class virtual ['a] with_details ?set_hex (elt : Dom_html.element Js.t) () =
   object (self)
     val back_action : Icon_button.t =
-      Icon_button.attach (Element.query_selector_exn elt Selector.back_action)
+      Icon_button.attach @@ Element.query_selector_exn elt Selector.back_action
 
     inherit ['a] t ?set_hex elt () as super
 
     method! initial_sync_with_dom () : unit =
-      (* listeners <-
-       *   Js_of_ocaml_lwt.Lwt_js_events.(
-       *     [clicks table#tbody self#handle_table_body_click] @ listeners); *)
+      listeners <-
+        Js_of_ocaml_lwt.Lwt_js_events.(
+          [ clicks super#root self#handle_table_body_click ] @ listeners);
       super#initial_sync_with_dom ()
 
     method! destroy () : unit =
       back_action#destroy ();
       super#destroy ()
 
-    method virtual private get_row_title : Dom_html.tableRowElement Js.t -> string
-
-    method virtual private handle_row_action
-        : Dom_html.tableRowElement Js.t -> unit Lwt.t
+    method virtual private handle_row_action : Dom_html.tableRowElement Js.t -> unit Lwt.t
 
     method private handle_table_body_click e _ =
       if super#has_class CSS.with_details
@@ -197,12 +195,9 @@ class virtual ['a] with_details ?set_hex elt () =
               Dom_html.CoerceTo.tr row)
         in
         Js.Opt.case row Lwt.return (fun row ->
-            let title = super#title in
-            super#set_title (self#get_row_title row);
             super#add_class CSS.details_view;
             self#handle_row_action row
             >>= fun () ->
-            super#set_title title;
             super#remove_class CSS.details_view;
             Lwt.return_unit)
       else Lwt.return_unit

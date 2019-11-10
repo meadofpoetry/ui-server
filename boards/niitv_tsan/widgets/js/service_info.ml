@@ -9,7 +9,8 @@ module R = Make (Impl.R.Xml) (Impl.R.Svg) (Impl.R.Html)
 type event =
   [ `Bitrate of Bitrate.ext option
   | `Service of (int * Service.t) option
-  | `PIDs of (int * PID.t) list ts ]
+  | `PIDs of (int * PID.t) list ts
+  ]
 
 module Selector = struct
   let glide = "." ^ Components_lab.Glide.CSS.root
@@ -49,7 +50,7 @@ class t (elt : Dom_html.element Js.t) () =
     method! initial_sync_with_dom () : unit =
       (* Attach event listeners *)
       listeners <-
-        [Tab_bar.Lwt_js_events.changes tab_bar#root self#handle_tab_bar_change]
+        [ Tab_bar.Lwt_js_events.changes tab_bar#root self#handle_tab_bar_change ]
         @ listeners;
       super#initial_sync_with_dom ()
 
@@ -110,7 +111,5 @@ class t (elt : Dom_html.element Js.t) () =
 
 let attach elt = new t (elt :> Dom_html.element Js.t) ()
 
-let make ?a ?pids ?info ?bitrate ?min_bitrate ?max_bitrate ~control () =
-  D.create ?a ?pids ?info ?bitrate ?min_bitrate ?max_bitrate ~control ()
-  |> Tyxml_js.To_dom.of_div
-  |> attach
+let make ?a ?pids ?info ?bitrate ~control () =
+  D.create ?a ?pids ?info ?bitrate ~control () |> Tyxml_js.To_dom.of_div |> attach

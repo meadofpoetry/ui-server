@@ -24,7 +24,7 @@ struct
   let ( @:: ) x l = cons (return x) l
 
   let create_description ?(a = []) () =
-    let classes = return [CSS.description] in
+    let classes = return [ CSS.description ] in
     div ~a:(a_class classes :: a) (nil ())
 
   let create_tab_bar ?a () =
@@ -36,10 +36,8 @@ struct
     in
     Tab_bar_markup.tab_bar ?a ~tabs ()
 
-  let create_glide ?a ?pids ?info ?bitrate ?max_bitrate ?min_bitrate ~control () =
-    let general_info =
-      Service_general_info_markup.create ?info ?bitrate ?max_bitrate ?min_bitrate ()
-    in
+  let create_glide ?a ?pids ?info ?bitrate ~control () =
+    let general_info = Service_general_info_markup.create ?info ?bitrate () in
     let sdt_info = Service_sdt_info_markup.create ?info () in
     let pid_overview = Pid_overview_markup.create ?init:pids ~control () in
     let slides =
@@ -50,14 +48,15 @@ struct
     in
     Glide_markup.glide ?a ~slides ()
 
-  let create ?(a = []) ?pids ?info ?bitrate ?max_bitrate ?min_bitrate ~control () =
+  let create ?(classes = return []) ?(a = []) ?pids ?info ?bitrate ~control () =
+    let classes = fmap (fun x -> CSS.root :: x) classes in
     let children =
       create_tab_bar ()
       @:: Divider_markup.divider_hr ()
-      @:: create_glide ?pids ?info ?bitrate ?max_bitrate ?min_bitrate ~control ()
+      @:: create_glide ?pids ?info ?bitrate ~control ()
       @:: nil ()
     in
-    div ~a:(a_class (return [CSS.root]) :: a) children
+    div ~a:(a_class classes :: a) children
 end
 
 module F = Make (Impl.Xml) (Impl.Svg) (Impl.Html)

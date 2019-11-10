@@ -48,35 +48,37 @@ module Tabpanel = struct
                   state#finalize ();
                   state_ref := None)
 
-  let init_map ?on_visible ?on_hidden ~id ~f () =
-    let tabpanel_id = id ^ "-tabpanel" in
+  let init ?on_visible ?on_hidden ~id () =
+    let tab_id = Ui_templates_tyxml.Tabbed_page.tab_id id in
+    let tabpanel_id = Ui_templates_tyxml.Tabbed_page.tabpanel_id id in
     let body = Dom_html.document##.body in
     match Dom_html.getElementById_opt tabpanel_id with
     | None -> Error (`Msg (Printf.sprintf "tabpanel with id `%s` not found" tabpanel_id))
-    | Some tabpanel ->
-        let content = Element.query_selector_exn tabpanel Selector.tabpanel_content in
-        let mapped = f content in
-        let listeners =
-          match Element.query_selector body Selector.tab_bar with
-          | None -> []
-          | Some tab_bar ->
-              [ Tab_bar.Lwt_js_events.changes tab_bar (fun e _ ->
-                    let detail = Widget.event_detail e in
-                    let previous = Js.Opt.map detail##.previousTab (fun x -> x##.id) in
-                    if detail##.tab##.id == Js.string id
-                    then Option.iter (fun f -> f mapped) on_visible
-                    else if previous == Js.some (Js.string id)
-                    then Option.iter (fun f -> f mapped) on_hidden;
-                    Lwt.return_unit) ]
-        in
-        Ok (mapped, fun () -> List.iter Lwt.cancel listeners)
+    | Some tabpanel -> (
+        match Element.query_selector tabpanel Selector.tabpanel_content with
+        | None -> Error (`Msg (Printf.sprintf "tabpanel content element not found"))
+        | Some content ->
+            let listener =
+              Option.map
+                (fun tab_bar ->
+                  Tab_bar.Lwt_js_events.changes tab_bar (fun e _ ->
+                      let detail = Widget.event_detail e in
+                      let previous = Js.Opt.map detail##.previousTab (fun x -> x##.id) in
+                      if detail##.tab##.id == Js.string tab_id
+                      then Option.iter (fun f -> f content) on_visible
+                      else if previous == Js.some (Js.string tab_id)
+                      then Option.iter (fun f -> f content) on_hidden;
+                      Lwt.return_unit))
+                (Element.query_selector body Selector.tab_bar)
+            in
+            Ok (content, fun () -> Option.iter Lwt.cancel listener))
 end
 
 let get_active_tab (tab_bar : Tab_bar.t) =
   let hash = Js.to_string Dom_html.window##.location##.hash in
   let tab_id =
     match String.split_on_char '#' @@ hash with
-    | [_; id] -> Some id
+    | [ _; id ] -> Some id
     | _ -> None
   in
   let active_by_hash =
@@ -88,9 +90,9 @@ let get_active_tab (tab_bar : Tab_bar.t) =
   match active_by_hash with
   | Some _ as x -> x
   | None -> (
-    match tab_bar#tabs with
-    | [] -> None
-    | hd :: _ -> Some hd)
+      match tab_bar#tabs with
+      | [] -> None
+      | hd :: _ -> Some hd)
 
 let set_active_page (glide : Components_lab.Glide.t) (tab : Tab_bar.Event.detail Js.t) =
   let active = tab##.index in
@@ -119,31 +121,25 @@ let query_selector_lwt elt selector =
   with Failure x -> Lwt.return_error (`Msg x)
 
 let init () =
-  Js_of_ocaml_lwt.Lwt_js_events.onload ()
-  >>= fun _ ->
+  Js_of_ocaml_lwt.Lwt_js_events.onload () >>= fun _ ->
   let body = Dom_html.document##.body in
-  query_selector_lwt body Selector.tab_bar
-  >>=? fun tab_bar_elt ->
-  query_selector_lwt body Selector.glide
-  >>=? fun glide_elt ->
+  query_selector_lwt body Selector.tab_bar >>=? fun tab_bar_elt ->
+  query_selector_lwt body Selector.glide >>=? fun glide_elt ->
   let tab_bar = Tab_bar.attach tab_bar_elt in
   let glide = Glide.attach glide_elt in
-  let listeners =
-    [Tab_bar.Lwt_js_events.changes tab_bar_elt (handle_tab_change glide)]
-  in
+  let listener = Tab_bar.Lwt_js_events.changes tab_bar_elt (handle_tab_change glide) in
   let thread =
     match get_active_tab tab_bar with
     | None -> Lwt.return ()
     | Some x -> tab_bar#set_active_tab x
   in
-  thread
-  >>= fun () ->
+  thread >>= fun () ->
   let fin =
     object
       method finalize () =
         tab_bar#destroy ();
         glide#destroy ();
-        List.iter Lwt.cancel listeners
+        Lwt.cancel listener
     end
   in
   Lwt.return_ok fin

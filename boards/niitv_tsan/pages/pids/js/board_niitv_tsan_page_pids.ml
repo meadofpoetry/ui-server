@@ -21,7 +21,8 @@ end
 
 type event =
   [ `Bitrate of (Stream.ID.t * Bitrate.ext) list
-  | `PIDs of (Stream.ID.t * (int * PID.t) list ts) list ]
+  | `PIDs of (Stream.ID.t * (int * PID.t) list ts) list
+  ]
 
 class t ~set_hex elt () =
   object
@@ -30,8 +31,7 @@ class t ~set_hex elt () =
       @@ Element.query_selector_exn elt Selector.pid_bitrate_pie_chart
 
     val pid_overview : Pid_overview.t =
-      Pid_overview.attach ~set_hex
-      @@ Element.query_selector_exn elt Selector.pid_overview
+      Pid_overview.attach ~set_hex @@ Element.query_selector_exn elt Selector.pid_overview
 
     inherit Widget.t elt () as super
 
@@ -50,32 +50,28 @@ class t ~set_hex elt () =
 
 let attach ~set_hex elt : t = new t ~set_hex (elt :> Dom_html.element Js.t) ()
 
-type state =
-  { mutable socket : Api_js.Websocket.JSON.t option
-  ; mutable finalize : unit -> unit }
+type state = {
+  mutable socket : Api_js.Websocket.JSON.t option;
+  mutable finalize : unit -> unit;
+}
 
 let on_visible (elt : Dom_html.element Js.t) (state : state) control =
   let open React in
   let stream =
-    React.S.const (Option.get (Uuidm.of_string "d6db41ba-ec76-5666-a7d9-3fe4a3f39efb"))
+    S.const (Option.get (Uuidm.of_string "d6db41ba-ec76-5666-a7d9-3fe4a3f39efb"))
   in
   let thread =
-    Http_streams.get_streams control
-    >>=? fun streams ->
-    Http_monitoring.get_pids control
-    >>=? fun pids ->
+    Http_streams.get_streams control >>=? fun streams ->
+    Http_monitoring.get_pids control >>=? fun pids ->
     Api_js.Websocket.JSON.open_socket ~path:(Netlib.Uri.Path.Format.of_string "ws") ()
     >>=? fun socket ->
     Option.iter Api_js.Websocket.close_socket state.socket;
     state.socket <- Some socket;
-    Http_device.Event.get_state socket control
-    >>=? fun (_, _state_ev) ->
+    Http_device.Event.get_state socket control >>=? fun (_, _state_ev) ->
     Http_monitoring.Event.get_bitrate_with_stats socket control
     >>=? fun (_, bitrate_ev) ->
-    Http_monitoring.Event.get_pids socket control
-    >>=? fun (_, pids_ev) ->
-    Http_streams.Event.get_streams socket control
-    >>=? fun (_, streams_ev) ->
+    Http_monitoring.Event.get_pids socket control >>=? fun (_, pids_ev) ->
+    Http_streams.Event.get_streams socket control >>=? fun (_, streams_ev) ->
     let streams_signal = S.hold streams streams_ev in
     let _ =
       S.map
@@ -99,11 +95,8 @@ let on_visible (elt : Dom_html.element Js.t) (state : state) control =
            stream
     in
     let bitrate =
-      React.S.hold None
-      @@ React.S.sample
-           (fun bitrate stream -> List.assoc_opt stream bitrate)
-           bitrate_ev
-           stream
+      S.hold None
+      @@ S.sample (fun bitrate stream -> List.assoc_opt stream bitrate) bitrate_ev stream
     in
     let hex, set_hex = S.create false in
     let bitrate_summary = Bitrate_summary.R.create ~bitrate () in
@@ -119,7 +112,7 @@ let on_visible (elt : Dom_html.element Js.t) (state : state) control =
       E.merge
         (fun _ -> page#notify)
         ()
-        [E.map (fun x -> `Bitrate x) bitrate_ev; E.map (fun x -> `PIDs x) pids_ev]
+        [ E.map (fun x -> `Bitrate x) bitrate_ev; E.map (fun x -> `PIDs x) pids_ev ]
     in
     state.finalize <-
       (fun () ->
@@ -138,13 +131,12 @@ let on_hidden state =
   state.finalize ()
 
 let init control =
-  let state = {socket = None; finalize = (fun () -> ())} in
+  let state = { socket = None; finalize = (fun () -> ()) } in
   let _result =
-    Ui_templates.Tabbed_page.Tabpanel.init_map
+    Ui_templates.Tabbed_page.Tabpanel.init
       ~id:(id control)
       ~on_visible:(fun tabpanel -> on_visible tabpanel state control)
       ~on_hidden:(fun _tabpanel -> on_hidden state)
-      ~f:(fun x -> x)
       ()
   in
   ()

@@ -5,7 +5,8 @@ module Api_template = Api_cohttp_template.Make (User)
 
 let ( % ) f g x = f (g x)
 
-let common_tabs () = []
+let common_tabs () =
+  [ Netlib.Uri.Path.of_string "log", Api_template.make_template_props ~title:"Лог" () ]
 
 let tabs_of_cpu input = function
   | None -> []
@@ -22,8 +23,7 @@ let tabs_of_board input (board : Boards.Board.t) =
   List.flatten
   @@ List.filter_map
        (function
-         | `Input i, tabs ->
-             if Topology.equal_topo_input i input then Some tabs else None
+         | `Input i, tabs -> if Topology.equal_topo_input i input then Some tabs else None
          | _ -> None)
        board.gui_tabs
 
@@ -72,7 +72,7 @@ let make_template
           Boards.update
             board.id
             (function
-              | None -> Some [board.control]
+              | None -> Some [ board.control ]
               | Some acc -> Some (board.control :: acc))
             acc
         else acc)
@@ -82,40 +82,37 @@ let make_template
     |> Topology.boards_to_yojson
     |> Yojson.Safe.pretty_to_string
   in
-  let tabs = common_tabs () @ board_tabs @ tabs_of_cpu input cpu in
+  let tabs = board_tabs @ tabs_of_cpu input cpu @ common_tabs () in
   let title = Topology.get_input_name input in
-  let tabs, children, stylesheets, pre_scripts, post_scripts =
+  let children, stylesheets, pre_scripts, post_scripts =
     List.fold_left
-      (fun (tabs, slides, css, pre_js, post_js) template ->
+      (fun (tabs, css, pre_js, post_js)
+           ((path, template) : Netlib.Uri.Path.t * Api_template.template_props) ->
         let id =
           String.map (function
               | '/' -> '-'
               | c -> c)
-          @@ Netlib.Uri.Path.to_string template#path
+          @@ Netlib.Uri.Path.to_string path
         in
-        let tabpanel_id = id ^ "-tabpanel" in
         let tab =
-          Components_tyxml.Tab.F.tab
-            ~a:Tyxml.Html.[a_id id; a_aria "controls" [tabpanel_id]]
-            ~text_label:template#title
-            ()
+          {
+            Ui_templates_tyxml.Tabbed_page.F.id;
+            name = Option.value ~default:"" template.title;
+            children = template.content;
+          }
         in
-        let slide = tabpanel_id, Html.totl template#content in
         (* FIXME scripts order *)
-        ( tabs @ [tab]
-        , slides @ [slide]
-        , css @ template#stylesheets
-        , pre_js @ template#pre_scripts
-        , post_js @ template#post_scripts ))
-      ( []
-      , []
-      , ["/css/page-input.min.css"]
-      , [`Raw (Printf.sprintf "var boards = `%s`;" boards_var)]
-      , [`Src "/js/page-input.js"] )
+        ( tabs @ [ tab ],
+          css @ template.stylesheets,
+          pre_js @ template.pre_scripts,
+          post_js @ template.post_scripts ))
+      ( [],
+        [ "/css/page-input.min.css" ],
+        [ `Raw (Printf.sprintf "var boards = `%s`;" boards_var) ],
+        [ `Src "/js/page-input.js" ] )
       tabs
   in
-  let tab_bar = Components_tyxml.Tab_bar.F.tab_bar ~tabs () in
-  let slides = Ui_templates_tyxml.Tabbed_page.F.create ~children () in
+  let tab_bar, slides = Ui_templates_tyxml.Tabbed_page.F.create ~children () in
   let eq a b =
     match a, b with
     | `Src a, `Src b | `Raw a, `Raw b -> String.equal a b
@@ -127,5 +124,5 @@ let make_template
     ~pre_scripts:(dedup ~eq pre_scripts)
     ~post_scripts:(dedup ~eq post_scripts)
     ~top_app_bar_bottom:(Tyxml.Html.toelt tab_bar)
-    ~content:[Tyxml.Html.toelt slides]
+    ~content:[ Tyxml.Html.toelt slides ]
     ()

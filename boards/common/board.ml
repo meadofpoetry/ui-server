@@ -19,7 +19,8 @@ type error =
   [ Kv_v.error
   | Db.conn_error
   | `Unknown_log_level of string
-  | `Board_error of string ]
+  | `Board_error of string
+  ]
 
 let pp_error ppf : error -> unit = function
   | `Board_error e -> Fmt.fmt "Board error %s" ppf e
@@ -27,43 +28,41 @@ let pp_error ppf : error -> unit = function
   | `Db_connection_error _ as e -> Db.pp_conn_error ppf e
   | `No_value _ as e -> Kv_v.pp_error ppf e
 
-type constraints =
-  { range : Netlib.Ipaddr.V4.range list
-  ; state : Stream.Table.source_state React.signal }
+type constraints = {
+  range : Netlib.Ipaddr.V4.range list;
+  state : Stream.Table.source_state React.signal;
+}
 
 type stream_handler =
   < streams : Stream.Table.stream list React.signal
   ; set : Stream.Table.setting list -> (unit, Stream.Table.set_error) Lwt_result.t
   ; constraints : constraints >
 
-type tab =
-  < stylesheets : string list
-  ; pre_scripts : Api_template.script list
-  ; post_scripts : Api_template.script list
-  ; content : Tyxml.Xml.elt list
-  ; title : string
-  ; path : Netlib.Uri.Path.t >
+type tab = Netlib.Uri.Path.t * Api_template.template_props
 
 type tab_tag =
   [ `Input of Topology.topo_input
-  | `Stream ]
+  | `Stream
+  ]
 
-type t =
-  { http : Api_http.t list
-  ; ws : Api_events.t list
-  ; templates : Api_template.topmost Api_template.item list
-  ; gui_tabs : (tab_tag * tab list) list
-  ; control : int
-  ; id : Topology.board_id
-  ; streams_signal : Stream.t list React.signal
-  ; log_source : Stream.Log_message.source
-  ; loop : unit -> unit Lwt.t (* TODO return Lwt here *)
-  ; push_data : Cstruct.t -> unit
-  ; connection : Topology.state React.signal
-  ; ports_active : bool React.signal Ports.t
-  ; ports_sync : bool React.signal Ports.t
-  ; stream_handler : stream_handler option
-  ; state : < finalize : unit -> unit Lwt.t >  }
+type t = {
+  http : Api_http.t list;
+  ws : Api_events.t list;
+  templates : Api_template.topmost Api_template.item list;
+  gui_tabs : (tab_tag * tab list) list;
+  control : int;
+  id : Topology.board_id;
+  streams_signal : Stream.t list React.signal;
+  log_source : Stream.Log_message.source;
+  loop : unit -> unit Lwt.t;
+  (* TODO return Lwt here *)
+  push_data : Cstruct.t -> unit;
+  connection : Topology.state React.signal;
+  ports_active : bool React.signal Ports.t;
+  ports_sync : bool React.signal Ports.t;
+  stream_handler : stream_handler option;
+  state : < finalize : unit -> unit Lwt.t >; 
+}
 
 module type BOARD = sig
   open React
@@ -71,13 +70,13 @@ module type BOARD = sig
   val board_id : Topology.board_id
 
   val create :
-       Topology.topo_board
-    -> Stream.t list signal
-    -> (Topology.topo_board -> Stream.Raw.t list signal -> Stream.t list signal)
-    -> (Cstruct.t -> unit Lwt.t)
-    -> Db.t
-    -> Kv.RW.t
-    -> (t, [> error]) Lwt_result.t
+    Topology.topo_board ->
+    Stream.t list signal ->
+    (Topology.topo_board -> Stream.Raw.t list signal -> Stream.t list signal) ->
+    (Cstruct.t -> unit Lwt.t) ->
+    Db.t ->
+    Kv.RW.t ->
+    (t, [> error ]) Lwt_result.t
 end
 
 let log_name (b : Topology.topo_board) =
@@ -89,11 +88,11 @@ let create_log_src (b : Topology.topo_board) =
   match b.logs with
   | None -> Ok log_src
   | Some x -> (
-    match Logs.level_of_string x with
-    | Ok x ->
-        Logs.Src.set_level log_src x;
-        Ok log_src
-    | Error _ -> Error (`Unknown_log_level x))
+      match Logs.level_of_string x with
+      | Ok x ->
+          Logs.Src.set_level log_src x;
+          Ok log_src
+      | Error _ -> Error (`Unknown_log_level x))
 
 let invalid_port (src : Logs.src) port =
   let s = Logs.Src.name src ^ ": invalid port " ^ string_of_int port in
@@ -117,14 +116,14 @@ let get_streams (boards : t Map.t) (topo : Topology.topo_board) :
   let rec get_streams' acc = function
     | [] -> acc
     | (h : Topology.topo_port) :: tl -> (
-      match h.child with
-      | Topology.Input _ -> get_streams' acc tl
-      | Topology.Board b -> (
-        try
-          let b = Map.find b.control boards in
-          let eq = Util_equal.List.equal Stream.equal in
-          get_streams' (React.S.l2 ~eq ( @ ) b.streams_signal acc) tl
-        with _ -> get_streams' acc tl))
+        match h.child with
+        | Topology.Input _ -> get_streams' acc tl
+        | Topology.Board b -> (
+            try
+              let b = Map.find b.control boards in
+              let eq = Util_equal.List.equal Stream.equal in
+              get_streams' (React.S.l2 ~eq ( @ ) b.streams_signal acc) tl
+            with _ -> get_streams' acc tl))
   in
   get_streams' (React.S.const []) topo.ports
 
@@ -141,23 +140,23 @@ let merge_streams
         match port.child with
         | Input i -> Map.add port.port (`Input i) m
         | Board b -> (
-          try
-            let b = Map.find b.control boards in
-            Map.add port.port (`Streams b.streams_signal) m
-          with _ -> m))
+            try
+              let b = Map.find b.control boards in
+              Map.add port.port (`Streams b.streams_signal) m
+            with _ -> m))
       Map.empty
       topo.ports
   in
   (* When a board itself generated the stream *)
   let create_board_stream (s : Raw.t) =
-    let source = {node = Entry (Board topo); info = s.source.info} in
-    let stream = {source; typ = s.typ; orig_id = s.id; id = make_id source} in
+    let source = { node = Entry (Board topo); info = s.source.info } in
+    let stream = { source; typ = s.typ; orig_id = s.id; id = make_id source } in
     `Done (React.S.const (Some stream))
   in
   (* When board is connected directly to input *)
   let create_in_stream (s : Raw.t) (i : topo_input) =
-    let source = {node = Entry (Input i); info = s.source.info} in
-    let stream = {source; typ = s.typ; orig_id = s.id; id = make_id source} in
+    let source = { node = Entry (Input i); info = s.source.info } in
+    let stream = { source; typ = s.typ; orig_id = s.id; id = make_id source } in
     `Done (React.S.const (Some stream))
   in
   (* When a board is connected to another board *)
@@ -165,17 +164,17 @@ let merge_streams
     (* use S.fmap `None*)
     let map prev =
       match prev.orig_id, s.id with
-      | TS_raw, (TS_multi _ as id) -> Some {prev with orig_id = id; typ = s.typ}
+      | TS_raw, (TS_multi _ as id) -> Some { prev with orig_id = id; typ = s.typ }
       | id, sid ->
-          if equal_container_id id sid then Some {prev with typ = s.typ} else None
+          if equal_container_id id sid then Some { prev with typ = s.typ } else None
     in
     let eq = Util_equal.Option.equal Stream.equal in
     let rec find_map = function
       | [] -> None
       | x :: l' -> (
-        match map x with
-        | Some _ as res -> res
-        | None -> find_map l')
+          match map x with
+          | Some _ as res -> res
+          | None -> find_map l')
     in
     `Done (React.S.map ~eq find_map lst)
   in
@@ -191,9 +190,9 @@ let merge_streams
           (function
             | None -> None
             | Some p ->
-                let source = {node = Stream p; info = s.source.info} in
+                let source = { node = Stream p; info = s.source.info } in
                 let stream =
-                  {source; id = make_id source; typ = s.typ; orig_id = s.id}
+                  { source; id = make_id source; typ = s.typ; orig_id = s.id }
                 in
                 Some stream)
           v
@@ -202,46 +201,46 @@ let merge_streams
   let transform acc (s : Raw.t) =
     match s.source.node with
     | Port i -> (
-      try
-        match Map.find i ports with
-        | `Input i -> create_in_stream s i
-        | `Streams lst -> find_cor_stream s lst
-      with _ -> `Error (Printf.sprintf "merge_streams: port %d is not connected" i))
+        try
+          match Map.find i ports with
+          | `Input i -> create_in_stream s i
+          | `Streams lst -> find_cor_stream s lst
+        with _ -> `Error (Printf.sprintf "merge_streams: port %d is not connected" i))
     | Stream id -> compose_hier s id acc
     | Board -> create_board_stream s
   in
   let rec lookup acc await = function
     | [] -> cleanup acc await
     | x :: tl -> (
-      match transform acc x with
-      | `Done s -> lookup ((x, s) :: acc) await tl
-      | `Await s -> lookup acc (s :: await) tl
-      | `None -> lookup acc await tl
-      | `Error e ->
-          print_endline e;
-          failwith e)
+        match transform acc x with
+        | `Done s -> lookup ((x, s) :: acc) await tl
+        | `Await s -> lookup acc (s :: await) tl
+        | `None -> lookup acc await tl
+        | `Error e ->
+            print_endline e;
+            failwith e)
   and cleanup acc = function
     | [] -> acc
     | x :: tl -> (
-      match transform acc x with
-      | `Done s -> cleanup ((x, s) :: acc) tl
-      | `None -> cleanup acc tl
-      | `Error e ->
-          print_endline e;
-          failwith e
-      | `Await s -> (
-        try
-          (* XXX What is this case for? *)
-          List.find
-            (fun (p : Raw.t) ->
-              match s.source.node with
-              | Stream s -> equal_container_id p.id s
-              | _ -> false)
-            tl
-          |> ignore;
-          (* parent exists TODO: check it more thoroughly *)
-          cleanup acc (tl @ [s])
-        with _ -> cleanup acc tl))
+        match transform acc x with
+        | `Done s -> cleanup ((x, s) :: acc) tl
+        | `None -> cleanup acc tl
+        | `Error e ->
+            print_endline e;
+            failwith e
+        | `Await s -> (
+            try
+              (* XXX What is this case for? *)
+              List.find
+                (fun (p : Raw.t) ->
+                  match s.source.node with
+                  | Stream s -> equal_container_id p.id s
+                  | _ -> false)
+                tl
+              |> ignore;
+              (* parent exists TODO: check it more thoroughly *)
+              cleanup acc (tl @ [ s ])
+            with _ -> cleanup acc tl))
   in
   let eq_lst = Util_equal.List.equal Stream.equal in
   let eq_opt = Util_equal.Option.equal Stream.equal in

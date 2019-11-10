@@ -2,7 +2,6 @@
   (name       board_niitv_tsan_page_input)
   (libraries  board_niitv_tsan_widgets
               components_lab
-              page_input_tyxml
               board_niitv_tsan_page_pids
               board_niitv_tsan_page_si_psi
               board_niitv_tsan_page_services)

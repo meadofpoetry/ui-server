@@ -8,7 +8,8 @@ module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 type event =
   [ `Service of (int * Service.t) option
-  | `Bitrate of Bitrate.ext option ]
+  | `Bitrate of Bitrate.ext option
+  ]
 
 module Attr = struct
   type typ =
@@ -17,7 +18,8 @@ module Attr = struct
     | `PCR_PID
     | `Bitrate_now
     | `Bitrate_min
-    | `Bitrate_max ]
+    | `Bitrate_max
+    ]
 
   let data_elements = "data-elements"
 
@@ -62,10 +64,10 @@ class t (elt : Dom_html.element Js.t) () =
       match Element.get_attribute elt Attr.data_elements with
       | None -> []
       | Some s -> (
-        try
-          let pids = String.split_on_char ',' s in
-          List.map (fun x -> int_of_string (String.trim x)) pids
-        with _ -> [])
+          try
+            let pids = String.split_on_char ',' s in
+            List.map (fun x -> int_of_string (String.trim x)) pids
+          with _ -> [])
 
     method elements : int list = elements
 
@@ -154,12 +156,8 @@ class t (elt : Dom_html.element Js.t) () =
 
 let attach elt = new t (elt :> Dom_html.element Js.t) ()
 
-let make ?a ?info ?min_bitrate ?max_bitrate ?bitrate ?children () =
-  D.create ?a ?info ?min_bitrate ?max_bitrate ?bitrate ?children ()
-  |> Tyxml_js.To_dom.of_ul
-  |> attach
+let make ?a ?info ?bitrate ?children () =
+  D.create ?a ?info ?bitrate ?children () |> Tyxml_js.To_dom.of_ul |> attach
 
-let make_r ?a ?info ?min_bitrate ?max_bitrate ?bitrate ?children () =
-  R.create ?a ?info ?min_bitrate ?max_bitrate ?bitrate ?children ()
-  |> Tyxml_js.To_dom.of_ul
-  |> attach
+let make_r ?a ?info ?bitrate ?children () =
+  R.create ?a ?info ?bitrate ?children () |> Tyxml_js.To_dom.of_ul |> attach

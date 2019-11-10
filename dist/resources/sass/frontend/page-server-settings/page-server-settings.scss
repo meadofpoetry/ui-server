@@ -1,7 +1,6 @@
 @import "@material/theme/mixins";
 @import "@material/typography/mixins";
 @import "@material/card/mixins";
-@import "ui-templates/settings-page/settings-page";
 
 .disclaimer {
     @include mdc-theme-prop(color, text-hint-on-background);

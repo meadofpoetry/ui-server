@@ -11,8 +11,9 @@ all: components main boards pages
 
 main: ./main.min.css
 
-components: ./@material/components/components.min.css \
-						./@material-lab/components-lab/components-lab.min.css
+components: ./@material/components/components.min.css
+
+ui-templates: ./ui-templates/ui-templates.min.css
 
 boards: ./frontend/boards/board-niitv-dvb4ch/board-niitv-dvb4ch.min.css \
 				./boards/board-niitv-tsan/board-niitv-tsan.min.css
@@ -31,4 +32,4 @@ pages:  ./frontend/page-input/page-input.min.css \
 				./frontend/boards/board-niitv-dvb4ch/page-input/board-niitv-dvb4ch-page-input.min.css \
 				./frontend/boards/board-niitv-tsan/page-input/board-niitv-tsan-page-input.min.css
 
-.PHONY: all main components pages
+.PHONY: all main components ui-templates pages

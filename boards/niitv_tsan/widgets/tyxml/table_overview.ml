@@ -18,6 +18,8 @@ module CSS = struct
 
   let table = BEM.add_element root "table"
 
+  let details = BEM.add_element root "details"
+
   let no_sync = BEM.add_modifier root "no-sync"
 
   let no_response = BEM.add_modifier root "no-response"
@@ -33,7 +35,8 @@ end
 
 type pid_flags =
   { has_pcr : bool
-  ; scrambled : bool }
+  ; scrambled : bool
+  }
 
 let compare_pid_flags (a : pid_flags as 'a) (b : 'a) =
   let res = compare a.has_pcr b.has_pcr in
@@ -64,17 +67,17 @@ struct
       | None -> children
       | Some x -> txt x @:: children
     in
-    h3 ~a:(a_class (return [CSS.title]) :: a) children
+    h3 ~a:(a_class (return [ CSS.title ]) :: a) children
 
   let create_menu_selection_icon ?a () =
     Icon_markup.SVG.icon
-      ~classes:(return [Item_list.CSS.item_graphic; Menu.CSS.selection_group_icon])
+      ~classes:(return [ Item_list.CSS.item_graphic; Menu.CSS.selection_group_icon ])
       ?a
       ~d:(return Svg_icons.check)
       ()
 
   let create_menu_mode_item ?(a = []) ?(selected = return false) ~mode () =
-    let classes = fmap (fun x -> if x then [Menu.CSS.item_selected] else []) selected in
+    let classes = fmap (fun x -> if x then [ Menu.CSS.item_selected ] else []) selected in
     Menu_markup.Item_list.list_item
       ~classes
       ~a:
@@ -83,7 +86,7 @@ struct
            (match mode with
            | `Hex -> return "hex"
            | `Dec -> return "dec")
-        :: a_aria "selected" (fmap (fun x -> [string_of_bool x]) selected)
+        :: a_aria "selected" (fmap (fun x -> [ string_of_bool x ]) selected)
         :: a)
       ~graphic:(return @@ create_menu_selection_icon ())
       ~primary_text:
@@ -102,13 +105,13 @@ struct
            (singleton
               (return
                  (ul
-                    ~a:[a_class (return [Menu.CSS.selection_group])]
+                    ~a:[ a_class (return [ Menu.CSS.selection_group ]) ]
                     (create_menu_mode_item ~selected:hex ~mode:`Hex ()
                     @:: create_menu_mode_item ~selected:(fmap not hex) ~mode:`Dec ()
                     @:: nil ()))))
         @:: Divider_markup.divider_li ()
         @:: Menu_markup.Item_list.list_item
-              ~classes:(return [CSS.bitrate_reset])
+              ~classes:(return [ CSS.bitrate_reset ])
               ~primary_text:(`Text (return "Сброс битрейта"))
               ()
         @:: nil ())
@@ -127,9 +130,9 @@ struct
           back
           ^:: title
           ^:: div
-                ~a:[a_class (return [Menu_surface.CSS.anchor])]
+                ~a:[ a_class (return [ Menu_surface.CSS.anchor ]) ]
                 (Icon_button_markup.icon_button
-                   ~classes:(return [CSS.menu_icon])
+                   ~classes:(return [ CSS.menu_icon ])
                    ~icon:
                      (return
                      @@ Icon_markup.SVG.icon ~d:(return Svg_icons.dots_vertical) ())
@@ -138,23 +141,14 @@ struct
                 @:: nil ())
           @:: nil ()
     in
-    header ~a:(a_class (return [CSS.header]) :: a) children
+    header ~a:(a_class (return [ CSS.header ]) :: a) children
 
-  let create_empty_placeholder
-      ?a
-      ?(icon = Icon_markup.SVG.icon ~d:(return Svg_icons.emoticon_sad) ())
-      ?(text = `Text (return "Таблица пуста"))
-      () =
-    Placeholder_markup.placeholder
-      ~classes:(return [CSS.placeholder])
-      ?a
-      ~icon:(return icon)
-      ~text
-      ()
+  let create_empty_placeholder ?(text = `Text (return "Таблица пуста")) =
+    Placeholder_markup.placeholder ~classes:(return [ CSS.placeholder ]) ~text
 
   let create_back_action ?a () =
     Icon_button_markup.icon_button
-      ~classes:(return [CSS.back_action])
+      ~classes:(return [ CSS.back_action ])
       ?a
       ~icon:(return (Icon_markup.SVG.icon ~d:(return Svg_icons.arrow_left) ()))
       ()
@@ -186,7 +180,7 @@ struct
       | Some rows ->
           Xml.Wutils.totlist
             (fmap (function
-                 | [] -> [create_empty_placeholder ()]
+                 | [] -> [ create_empty_placeholder () ]
                  | _ -> [])
             @@ Xml.Wutils.tot rows)
     in
@@ -202,7 +196,7 @@ struct
         ?row_classes
         ?rows
         ~dense
-        ~classes:(return [CSS.table])
+        ~classes:(return [ CSS.table ])
         ~format
         ?data
         ()
