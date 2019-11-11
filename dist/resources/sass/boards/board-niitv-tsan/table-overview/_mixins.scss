@@ -43,7 +43,6 @@
 
     .board-niitv-tsan-table-overview--details-view {
         @include table-overview__header-details-view($query);
-        @include table-overview__table-details-view($query);
     }
 }
 
@@ -135,16 +134,6 @@
         &__row--lost .mdc-data-table__cell {
             @include mdc-theme-prop(color, error);
             font-weight: 600;
-        }
-    }
-}
-
-@mixin table-overview__table-details-view($query: mdc-feature-all()) {
-    $feat-structure: mdc-feature-create-target($query, structure);
-
-    @include mdc-feature-targets($feat-structure) {
-        .board-niitv-tsan-table-overview__table {
-            display: none;
         }
     }
 }

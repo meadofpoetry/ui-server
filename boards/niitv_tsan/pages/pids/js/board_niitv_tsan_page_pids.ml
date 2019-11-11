@@ -9,7 +9,13 @@ include Board_niitv_tsan_page_pids_tyxml
 module D = Make (Impl.Xml) (Impl.Svg) (Impl.Html)
 module R = Make (Impl.R.Xml) (Impl.R.Svg) (Impl.R.Html)
 
-let ( >>=? ) = Lwt_result.bind
+let ( >>= ) = Lwt_result.bind
+
+type state =
+  { mutable socket : Api_js.Websocket.JSON.t option
+  ; mutable finalize : unit -> unit
+  }
+(** Tab state. *)
 
 module Selector = struct
   let pid_bitrate_pie_chart = Printf.sprintf ".%s" Pid_bitrate_pie_chart.CSS.root
@@ -23,6 +29,37 @@ type event =
   [ `Bitrate of (Stream.ID.t * Bitrate.ext) list
   | `PIDs of (Stream.ID.t * (int * PID.t) list ts) list
   ]
+
+(** Make necessary HTTP and Websocket requests to the server. *)
+let do_requests state control =
+  Http_streams.get_streams control
+  >>= fun streams_init ->
+  Http_monitoring.get_pids control
+  >>= fun pids_init ->
+  Api_js.Websocket.JSON.open_socket ~path:(Netlib.Uri.Path.Format.of_string "ws") ()
+  >>= fun socket ->
+  Option.iter Api_js.Websocket.close_socket state.socket;
+  state.socket <- Some socket;
+  Http_streams.Event.get_streams socket control
+  >>= fun (_, streams_ev) ->
+  Http_device.Event.get_state socket control
+  >>= fun (_, state_ev) ->
+  Http_monitoring.Event.get_bitrate_with_stats socket control
+  >>= fun (_, bitrate_ev) ->
+  Http_monitoring.Event.get_pids socket control
+  >>= fun (_, pids_ev) ->
+  let streams = React.S.hold streams_init streams_ev in
+  let pids = React.S.hold pids_init pids_ev in
+  let fin () =
+    React.(
+      S.stop ~strong:true streams;
+      S.stop ~strong:true pids;
+      E.stop ~strong:true state_ev;
+      E.stop ~strong:true bitrate_ev;
+      E.stop ~strong:true pids_ev;
+      E.stop ~strong:true streams_ev)
+  in
+  Lwt.return_ok (streams, pids, state_ev, bitrate_ev, fin)
 
 class t ~set_hex elt () =
   object
@@ -50,53 +87,38 @@ class t ~set_hex elt () =
 
 let attach ~set_hex elt : t = new t ~set_hex (elt :> Dom_html.element Js.t) ()
 
-type state = {
-  mutable socket : Api_js.Websocket.JSON.t option;
-  mutable finalize : unit -> unit;
-}
+(** Extract needed data from the association list by the provided stream. *)
+let get_data v = function
+  | None -> []
+  | Some s -> (
+      match List.assoc_opt s v with
+      | None -> []
+      | Some (x : _ Board_niitv_tsan_types.ts) -> x.data)
 
+(** Called when this tab becomes active. *)
 let on_visible (elt : Dom_html.element Js.t) (state : state) control =
   let open React in
-  let stream =
-    S.const (Option.get (Uuidm.of_string "d6db41ba-ec76-5666-a7d9-3fe4a3f39efb"))
-  in
+  let open ReactiveData in
   let thread =
-    Http_streams.get_streams control >>=? fun streams ->
-    Http_monitoring.get_pids control >>=? fun pids ->
-    Api_js.Websocket.JSON.open_socket ~path:(Netlib.Uri.Path.Format.of_string "ws") ()
-    >>=? fun socket ->
-    Option.iter Api_js.Websocket.close_socket state.socket;
-    state.socket <- Some socket;
-    Http_device.Event.get_state socket control >>=? fun (_, _state_ev) ->
-    Http_monitoring.Event.get_bitrate_with_stats socket control
-    >>=? fun (_, bitrate_ev) ->
-    Http_monitoring.Event.get_pids socket control >>=? fun (_, pids_ev) ->
-    Http_streams.Event.get_streams socket control >>=? fun (_, streams_ev) ->
-    let streams_signal = S.hold streams streams_ev in
-    let _ =
+    do_requests state control
+    >>= fun (streams, pids, state_ev, bitrate_ev, fin) ->
+    let stream =
       S.map
-        (List.iter (print_endline % Yojson.Safe.to_string % Stream.to_yojson))
-        streams_signal
+        (function
+          | [] -> None
+          | (x : Application_types.Stream.t) :: _ -> Some x.id)
+        streams
     in
-    let init =
-      match List.assoc_opt (S.value stream) pids with
-      | None -> []
-      | Some (x : _ ts) -> x.data
-    in
-    let signal =
-      ReactiveData.RList.from_signal
-      @@ S.hold init
-      @@ S.sample
-           (fun pids stream ->
-             match List.assoc_opt stream pids with
-             | None -> []
-             | Some (x : _ ts) -> x.data)
-           pids_ev
-           stream
-    in
+    let s_data = S.l2 get_data pids stream in
+    let signal = RList.from_signal s_data in
     let bitrate =
       S.hold None
-      @@ S.sample (fun bitrate stream -> List.assoc_opt stream bitrate) bitrate_ev stream
+      @@ S.sample
+           (fun bitrate -> function
+             | None -> None
+             | Some stream -> List.assoc_opt stream bitrate)
+           bitrate_ev
+           stream
     in
     let hex, set_hex = S.create false in
     let bitrate_summary = Bitrate_summary.R.create ~bitrate () in
@@ -112,7 +134,9 @@ let on_visible (elt : Dom_html.element Js.t) (state : state) control =
       E.merge
         (fun _ -> page#notify)
         ()
-        [ E.map (fun x -> `Bitrate x) bitrate_ev; E.map (fun x -> `PIDs x) pids_ev ]
+        [ E.map (fun x -> `Bitrate x) bitrate_ev
+        ; S.changes @@ S.map (fun x -> `PIDs x) pids
+        ]
     in
     state.finalize <-
       (fun () ->
@@ -125,11 +149,13 @@ let on_visible (elt : Dom_html.element Js.t) (state : state) control =
   let _loader = Components_lab.Loader.make_loader ~elt thread in
   ()
 
+(** Called when this tab becomes inactive. *)
 let on_hidden state =
   Option.iter Api_js.Websocket.close_socket state.socket;
   state.socket <- None;
   state.finalize ()
 
+(** Called on page initialization. *)
 let init control =
   let state = { socket = None; finalize = (fun () -> ()) } in
   let _result =

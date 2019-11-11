@@ -3,8 +3,8 @@ open Js_of_ocaml_tyxml
 open Components
 open Board_niitv_tsan_types
 include Board_niitv_tsan_widgets_tyxml.Service_general_info
-module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
-module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
+module D = Make (Impl.Xml) (Impl.Svg) (Impl.Html)
+module R = Make (Impl.R.Xml) (Impl.R.Svg) (Impl.R.Html)
 
 type event =
   [ `Service of (int * Service.t) option

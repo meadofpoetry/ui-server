@@ -13,7 +13,7 @@ let format_bitrate (rate : int) =
   Printf.sprintf "%g Мбит/с" (float_of_int rate /. 1_000_000.)
 
 module Make
-    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Xml : Intf.Xml)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
@@ -40,6 +40,7 @@ struct
 
   let create
       ?(a = [])
+      ?(hex = return false)
       ?children
       ?(bitrate = return None)
       ?(info : (int * Service.t) option wrap = return None)
@@ -59,41 +60,48 @@ struct
       | Some x -> x
       | None ->
           let meta f info =
-            fmap
-              (function
+            Xml.Wutils.l2
+              (fun hex -> function
                 | None -> not_available
-                | Some x -> f x)
+                | Some x -> f hex x)
+              hex
               info
           in
           create_item
             ~a:[ a_user_data "type" (return "service-id") ]
             ~primary_text:(`Text (return "Service ID"))
-            ~meta:(meta (fun (x, _) -> string_of_int x) info)
+            ~meta:(meta (fun hex (x, _) -> Util.pid_to_string ~hex x) info)
             ()
           @:: create_item
                 ~a:[ a_user_data "type" (return "pmt-pid") ]
                 ~primary_text:(`Text (return "PMT PID"))
-                ~meta:(meta (fun (_, (x : Service.t)) -> string_of_int x.pmt_pid) info)
+                ~meta:
+                  (meta
+                     (fun hex (_, (x : Service.t)) -> Util.pid_to_string ~hex x.pmt_pid)
+                     info)
                 ()
           @:: create_item
                 ~a:[ a_user_data "type" (return "pcr-pid") ]
                 ~primary_text:(`Text (return "PCR PID"))
-                ~meta:(meta (fun (_, (x : Service.t)) -> string_of_int x.pcr_pid) info)
+                ~meta:
+                  (meta
+                     (fun hex (_, (x : Service.t)) -> Util.pid_to_string ~hex x.pcr_pid)
+                     info)
                 ()
           @:: create_item
                 ~a:[ a_user_data "type" (return "bitratenow") ]
                 ~primary_text:(`Text (return "Битрейт"))
-                ~meta:(meta (fun (x : Bitrate.value) -> format_bitrate x.cur) bitrate)
+                ~meta:(meta (fun _ (x : Bitrate.value) -> format_bitrate x.cur) bitrate)
                 ()
           @:: create_item
                 ~a:[ a_user_data "type" (return "bitratemin") ]
                 ~primary_text:(`Text (return "Min"))
-                ~meta:(meta (fun (x : Bitrate.value) -> format_bitrate x.min) bitrate)
+                ~meta:(meta (fun _ (x : Bitrate.value) -> format_bitrate x.min) bitrate)
                 ()
           @:: create_item
                 ~a:[ a_user_data "type" (return "bitratemax") ]
                 ~primary_text:(`Text (return "Max"))
-                ~meta:(meta (fun (x : Bitrate.value) -> format_bitrate x.max) bitrate)
+                ~meta:(meta (fun _ (x : Bitrate.value) -> format_bitrate x.max) bitrate)
                 ()
           @:: nil ()
     in
@@ -106,4 +114,4 @@ struct
       ()
 end
 
-module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)
+module F = Make (Impl.Xml) (Impl.Svg) (Impl.Html)

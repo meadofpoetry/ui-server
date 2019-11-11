@@ -110,6 +110,7 @@ struct
       ?(hex = return false)
       ?(bitrate = return None)
       ?(init = nil ())
+      ?pids
       ?(selected = return None)
       ~control
       () =
@@ -121,17 +122,8 @@ struct
           | Some (_, (x : Board_niitv_tsan_types.Service.t)) -> x.name)
         selected
     in
-    let selected_bitrate =
-      Xml.Wutils.l2
-        (fun selected rate ->
-          match selected, rate with
-          | None, _ | _, None -> None
-          | Some (id, _), Some (rate : Bitrate.ext) -> List.assoc_opt id rate.services)
-        selected
-        bitrate
-    in
     let service_info =
-      Service_info_markup.create ~info:selected ~bitrate:selected_bitrate ~control ()
+      Service_info_markup.create ?pids ~hex ~info:selected ~bitrate ~control ()
     in
     let details =
       fmap
