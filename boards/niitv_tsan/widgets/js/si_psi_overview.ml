@@ -14,19 +14,19 @@ end)
 
 let get_attribute elt attr = Element.get_attribute (Tyxml_js.To_dom.of_element elt) attr
 
-class t ?(init : (SI_PSI_table.id * SI_PSI_table.t) list ts option) elt () =
+class t ?set_hex ?(init : (SI_PSI_table.id * SI_PSI_table.t) list ts option) elt () =
   object
     val mutable data : Set.t =
       Set.of_list
         (match init with
         | None -> []
-        | Some {data; _} -> data)
+        | Some { data; _ } -> data)
 
-    inherit [SI_PSI_table.id] Table_overview.with_details elt ()
+    inherit [SI_PSI_table.id] Table_overview.t ?set_hex elt ()
 
     method private get_row_title _ = ""
 
     method private handle_row_action _ = Lwt.return_unit
   end
 
-let attach elt : t = new t (elt :> Dom_html.element Js.t) ()
+let attach ?set_hex elt : t = new t ?set_hex (elt :> Dom_html.element Js.t) ()

@@ -112,8 +112,7 @@ struct
       ?(init = nil ())
       ?pids
       ?(selected = return None)
-      ~control
-      () =
+      ~control =
     let format = create_table_format ~hex () in
     let title =
       fmap
@@ -158,7 +157,6 @@ struct
       ~format
       ~rows
       ~control
-      ()
 end
 
 module F = Make (Impl.Xml) (Impl.Svg) (Impl.Html)

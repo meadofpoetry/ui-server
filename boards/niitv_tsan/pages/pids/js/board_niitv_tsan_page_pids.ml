@@ -25,10 +25,7 @@ module Selector = struct
   let pid_overview = Printf.sprintf ".%s" Pid_overview.CSS.root
 end
 
-type event =
-  [ `Bitrate of (Stream.ID.t * Bitrate.ext) list
-  | `PIDs of (Stream.ID.t * (int * PID.t) list ts) list
-  ]
+type event = [ `Bitrate of (Stream.ID.t * Bitrate.ext) list ]
 
 (** Make necessary HTTP and Websocket requests to the server. *)
 let do_requests state control =
@@ -131,12 +128,7 @@ let on_visible (elt : Dom_html.element Js.t) (state : state) control =
     in
     Dom.appendChild elt page#root;
     let notif =
-      E.merge
-        (fun _ -> page#notify)
-        ()
-        [ E.map (fun x -> `Bitrate x) bitrate_ev
-        ; S.changes @@ S.map (fun x -> `PIDs x) pids
-        ]
+      E.merge (fun _ -> page#notify) () [ E.map (fun x -> `Bitrate x) bitrate_ev ]
     in
     state.finalize <-
       (fun () ->

@@ -25,7 +25,8 @@ struct
       { to_string = Util.pid_to_hex_string
       ; of_string = int_of_string
       ; compare
-      ; is_numeric = true }
+      ; is_numeric = true
+      }
 
   let pid_fmt ~hex = if hex then hex_pid_fmt else dec_pid_fmt
 
@@ -34,7 +35,8 @@ struct
       { to_string = (fun x -> Printf.sprintf "%.2f" x)
       ; of_string = float_of_string
       ; compare
-      ; is_numeric = true }
+      ; is_numeric = true
+      }
 
   (** Returns HTML element to insert into 'Extra' table column *)
   let create_table_id_ext ?(hex = false) (id : SI_PSI_table.id) =
@@ -45,18 +47,18 @@ struct
     in
     let specific =
       match MPEG_TS.SI_PSI.of_table_id id.table_id with
-      | `PAT -> ["tsid", id.table_id_ext]
-      | `PMT -> ["program", id.table_id_ext]
-      | `NIT _ -> ["network_id", id.table_id_ext]
-      | `SDT _ -> ["tsid", id.table_id_ext; "onid", id.id_ext_1]
-      | `BAT -> ["bid", id.table_id_ext]
-      | `EIT _ -> ["onid", id.id_ext_1; "tsid", id.id_ext_2; "sid", id.table_id_ext]
+      | `PAT -> [ "tsid", id.table_id_ext ]
+      | `PMT -> [ "program", id.table_id_ext ]
+      | `NIT _ -> [ "network_id", id.table_id_ext ]
+      | `SDT _ -> [ "tsid", id.table_id_ext; "onid", id.id_ext_1 ]
+      | `BAT -> [ "bid", id.table_id_ext ]
+      | `EIT _ -> [ "onid", id.id_ext_1; "tsid", id.id_ext_2; "sid", id.table_id_ext ]
       | _ -> []
     in
     let data = Yojson.Safe.to_string (SI_PSI_table.id_to_yojson id) in
     let length = List.length specific in
     span
-      ~a:[a_user_data "id" (return data)]
+      ~a:[ a_user_data "id" (return data) ]
       Xml.Wutils.(
         const
           (List.mapi
@@ -66,9 +68,10 @@ struct
                span
                  (const
                     [ span
-                        ~a:[a_class (return [Typography.CSS.subtitle2])]
-                        (const [txt (return (s ^ ": "))])
-                    ; txt (return v) ]))
+                        ~a:[ a_class (return [ Typography.CSS.subtitle2 ]) ]
+                        (const [ txt (return (s ^ ": ")) ])
+                    ; txt (return v)
+                    ]))
              specific))
 
   let id_ext_fmt ?(get_attribute = fun _ -> assert false) ~hex () =
@@ -84,14 +87,16 @@ struct
                 let res = SI_PSI_table.id_of_yojson @@ Yojson.Safe.from_string x in
                 match res with
                 | Error e -> failwith e
-                | Ok x -> x)) }
+                | Ok x -> x))
+      }
 
   let br_fmt =
     Fmt.Custom
       { to_string = (fun x -> Printf.sprintf "%f" (float_of_int x /. 1_000_000.))
       ; of_string = (fun x -> int_of_float (float_of_string x *. 1_000_000.))
       ; compare
-      ; is_numeric = true }
+      ; is_numeric = true
+      }
 
   let create_table_format ?get_attribute ?(hex = return false) () : _ Fmt.format =
     let pid_fmt = fmap (fun hex -> pid_fmt ~hex) hex in
@@ -113,7 +118,8 @@ struct
       ; make_column ~title:(return "Битрейт, Мбит/с") br_fmt
       ; make_column ~title:(return "%") pct_fmt
       ; make_column ~title:(return "Min, Мбит/с") br_fmt
-      ; make_column ~title:(return "Max, Мбит/с") br_fmt ]
+      ; make_column ~title:(return "Max, Мбит/с") br_fmt
+      ]
 
   let data_of_si_psi_info
       ?(bitrate = return None)
@@ -130,24 +136,25 @@ struct
       ; fmap
           (function
             | None -> None
-            | Some (_, {Bitrate.cur; _}) -> Some cur)
+            | Some (_, { Bitrate.cur; _ }) -> Some cur)
           bitrate
       ; fmap
           (function
             | None -> None
-            | Some ({Bitrate.cur = tot; _}, {Bitrate.cur; _}) ->
+            | Some ({ Bitrate.cur = tot; _ }, { Bitrate.cur; _ }) ->
                 Some (100. *. float_of_int cur /. float_of_int tot))
           bitrate
       ; fmap
           (function
             | None -> None
-            | Some (_, {Bitrate.cur; _}) -> Some cur)
+            | Some (_, { Bitrate.cur; _ }) -> Some cur)
           bitrate
       ; fmap
           (function
             | None -> None
-            | Some (_, {Bitrate.cur; _}) -> Some cur)
-          bitrate ]
+            | Some (_, { Bitrate.cur; _ }) -> Some cur)
+          bitrate
+      ]
 
   let row_of_si_psi_info ?bitrate ~format (id, (info : SI_PSI_table.t)) =
     let data = data_of_si_psi_info ?bitrate (id, info) in
@@ -158,12 +165,19 @@ struct
         [ Html.a_user_data "value" (return value)
         ; Html.a_user_data
             "id"
-            (return (Yojson.Safe.to_string @@ SI_PSI_table.id_to_yojson id)) ]
+            (return (Yojson.Safe.to_string @@ SI_PSI_table.id_to_yojson id))
+        ]
       ~children:cells
       ()
 
-  let create ?a ?dense ?hex ?(bitrate = return None) ?(init = nil ()) ~control =
-    let format = create_table_format ?hex () in
+  let create
+      ?a
+      ?dense
+      ?(hex = return false)
+      ?(bitrate = return None)
+      ?(init = nil ())
+      ~control =
+    let format = create_table_format ~hex () in
     let rows =
       Xml.W.map
         (fun ((id, _) as x) ->
@@ -172,19 +186,19 @@ struct
               (function
                 | None -> None
                 | Some (rate : Bitrate.ext) -> (
-                  match List.assoc_opt id rate.tables with
-                  | None -> None
-                  | Some x -> Some (rate.total, x)))
+                    match List.assoc_opt id rate.tables with
+                    | None -> None
+                    | Some x -> Some (rate.total, x)))
               bitrate
           in
           row_of_si_psi_info ~bitrate ~format x)
         init
     in
     create
-      ~classes:(return [CSS.si_psi])
+      ~classes:(return [ CSS.si_psi ])
       ?a
       ?dense
-      ?hex
+      ~hex
       ~title:(return "Список таблиц SI/PSI")
       ~format:(create_table_format ())
       ~rows
