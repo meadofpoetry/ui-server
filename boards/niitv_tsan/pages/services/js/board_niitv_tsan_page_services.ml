@@ -134,6 +134,7 @@ let get_data v = function
 let on_visible (elt : Dom_html.element Js.t) (state : state) control =
   let open React in
   let open ReactiveData in
+  let section = Element.query_selector_exn elt Selector.root in
   let thread =
     do_requests state control
     >>= fun (streams, pids, services, state_ev, bitrate_ev, fin) ->
@@ -166,6 +167,7 @@ let on_visible (elt : Dom_html.element Js.t) (state : state) control =
            stream
     in
     let hex, set_hex = S.create false in
+    let stream_select = Stream_select.R.create () in
     let service_overview =
       Service_overview.attach ~set_hex ~on_row_action:set_selected
       @@ Tyxml_js.To_dom.of_element
@@ -178,14 +180,20 @@ let on_visible (elt : Dom_html.element Js.t) (state : state) control =
            ~control
            ()
     in
-    let cell =
+    let stream_cell =
+      Tyxml_js.To_dom.of_element
+      @@ Layout_grid.D.layout_grid_cell ~span:12 ~children:[ stream_select ] ()
+    in
+    let content_cell =
       Tyxml_js.To_dom.of_element
       @@ Layout_grid.D.layout_grid_cell ~span:12 ~children:[ service_overview#markup ] ()
     in
-    Dom.appendChild elt cell;
+    Dom.appendChild section stream_cell;
+    Dom.appendChild section content_cell;
     state.finalize <-
       (fun () ->
-        Dom.removeChild elt cell;
+        Dom.removeChild section stream_cell;
+        Dom.removeChild section content_cell;
         service_overview#destroy ();
         fin ());
     Lwt.return_ok state
