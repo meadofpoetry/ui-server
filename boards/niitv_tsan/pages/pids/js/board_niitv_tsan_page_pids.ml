@@ -18,6 +18,8 @@ type state =
 (** Tab state. *)
 
 module Selector = struct
+  let stream_select = Printf.sprintf ".%s" Stream_select.CSS.root
+
   let pid_bitrate_pie_chart = Printf.sprintf ".%s" Pid_bitrate_pie_chart.CSS.root
 
   let pid_summary = Printf.sprintf ".%s" Pid_summary.CSS.root
@@ -58,8 +60,18 @@ let do_requests state control =
   in
   Lwt.return_ok (streams, pids, state_ev, bitrate_ev, fin)
 
-class t ~set_hex elt () =
+class t ~set_stream ~set_hex elt () =
   object
+    val stream_select : Stream_select.t =
+      Stream_select.attach ~on_change:(fun x ->
+          let id =
+            match x#value with
+            | None -> None
+            | Some (x : Stream.t) -> Some x.id
+          in
+          set_stream id)
+      @@ Element.query_selector_exn elt Selector.stream_select
+
     val pid_bitrate_pie_chart : Pid_bitrate_pie_chart.t =
       Pid_bitrate_pie_chart.attach
       @@ Element.query_selector_exn elt Selector.pid_bitrate_pie_chart
@@ -69,9 +81,8 @@ class t ~set_hex elt () =
 
     inherit Widget.t elt () as super
 
-    method! init () : unit = super#init ()
-
     method! destroy () : unit =
+      stream_select#destroy ();
       pid_bitrate_pie_chart#destroy ();
       pid_overview#destroy ();
       super#destroy ()
@@ -82,7 +93,8 @@ class t ~set_hex elt () =
       | _ -> ()
   end
 
-let attach ~set_hex elt : t = new t ~set_hex (elt :> Dom_html.element Js.t) ()
+let attach ~set_stream ~set_hex elt : t =
+  new t ~set_stream ~set_hex (elt :> Dom_html.element Js.t) ()
 
 (** Extract needed data from the association list by the provided stream. *)
 let get_data v = function
@@ -99,12 +111,11 @@ let on_visible (elt : Dom_html.element Js.t) (state : state) control =
   let thread =
     do_requests state control
     >>= fun (streams, pids, state_ev, bitrate_ev, fin) ->
-    let stream =
-      S.map
-        (function
-          | [] -> None
-          | (x : Application_types.Stream.t) :: _ -> Some x.id)
-        streams
+    let stream, set_stream =
+      S.create
+        (match S.value streams with
+        | [] -> None
+        | x :: _ -> Some x.id)
     in
     let s_data = S.l2 get_data pids stream in
     let signal = RList.from_signal s_data in
@@ -118,24 +129,26 @@ let on_visible (elt : Dom_html.element Js.t) (state : state) control =
            stream
     in
     let hex, set_hex = S.create false in
+    let stream_select = Stream_select.R.create ~streams () in
     let bitrate_summary = Bitrate_summary.R.create ~bitrate () in
     let pid_summary = Pid_summary.R.create ~hex ~pids:signal () in
     let pid_overview = Pid_overview.R.create ~hex ~init:signal ~bitrate ~control () in
     let page =
-      attach ~set_hex
+      attach ~set_stream ~set_hex
       @@ Tyxml_js.To_dom.of_div
-      @@ D.create ~pid_overview ~bitrate_summary ~pid_summary ()
+      @@ D.create ~stream_select ~pid_overview ~bitrate_summary ~pid_summary ()
     in
-    Dom.appendChild elt page#root;
     let notif =
       E.merge (fun _ -> page#notify) () [ E.map (fun x -> `Bitrate x) bitrate_ev ]
     in
+    Dom.appendChild elt page#root;
     state.finalize <-
       (fun () ->
         Dom.removeChild elt page#root;
         page#destroy ();
-        E.stop ~strong:true bitrate_ev;
-        E.stop ~strong:true notif);
+        S.stop ~strong:true stream;
+        E.stop ~strong:true notif;
+        fin ());
     Lwt.return_ok state
   in
   let _loader = Components_lab.Loader.make_loader ~elt thread in

@@ -24,6 +24,7 @@ struct
   let create
       ?(classes = return [])
       ?(a = [])
+      ~stream_select
       ~bitrate_summary
       ~pid_summary
       ~pid_overview
@@ -31,17 +32,19 @@ struct
     let classes = fmap (fun x -> CSS.root :: Layout_grid.CSS.inner :: x) classes in
     let children =
       Layout_grid_markup.
-        [ layout_grid_cell
+        [ layout_grid_cell ~span:12 ~children:(const [ stream_select ]) ()
+        ; layout_grid_cell
             ~span:4
             ~span_tablet:8
-            ~children:(const [Pid_bitrate_pie_chart_markup.create ()])
+            ~children:(const [ Pid_bitrate_pie_chart_markup.create () ])
             ()
         ; layout_grid_cell
             ~span:8
             ~children:
-              (const [bitrate_summary; Divider_markup.divider_hr (); pid_summary])
+              (const [ bitrate_summary; Divider_markup.divider_hr (); pid_summary ])
             ()
-        ; layout_grid_cell ~span:12 ~children:(const [pid_overview]) () ]
+        ; layout_grid_cell ~span:12 ~children:(const [ pid_overview ]) ()
+        ]
     in
     div ~a:(a_class classes :: a) (const children)
 end

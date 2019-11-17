@@ -6,7 +6,8 @@ open Board_niitv_tsan_types
 open Board_niitv_tsan_http_js
 open Board_niitv_tsan_widgets
 include Board_niitv_tsan_page_si_psi_tyxml
-module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module D = Make (Impl.Xml) (Impl.Svg) (Impl.Html)
+module R = Make (Impl.R.Xml) (Impl.R.Svg) (Impl.R.Html)
 
 let ( >>= ) = Lwt_result.bind
 
@@ -16,6 +17,8 @@ type state =
   }
 
 module Selector = struct
+  let stream_select = Printf.sprintf ".%s" Stream_select.CSS.root
+
   let si_psi_overview = Printf.sprintf ".%s" Si_psi_overview.CSS.root
 end
 
@@ -25,19 +28,32 @@ type event =
   | `State of Topology.state
   ]
 
-class t elt () =
+class t ~set_stream ~set_hex elt () =
   object
+    val stream_select : Stream_select.t =
+      Stream_select.attach ~on_change:(fun x ->
+          let id =
+            match x#value with
+            | None -> None
+            | Some (x : Stream.t) -> Some x.id
+          in
+          set_stream id)
+      @@ Element.query_selector_exn elt Selector.stream_select
+
     val si_psi_overview : Si_psi_overview.t =
-      Si_psi_overview.attach @@ Element.query_selector_exn elt Selector.si_psi_overview
+      Si_psi_overview.attach ~set_hex
+      @@ Element.query_selector_exn elt Selector.si_psi_overview
 
     inherit Widget.t elt () as super
 
     method! destroy () : unit =
+      stream_select#destroy ();
       si_psi_overview#destroy ();
       super#destroy ()
   end
 
-let attach elt : t = new t (elt :> Dom_html.element Js.t) ()
+let attach ~set_stream ~set_hex elt : t =
+  new t ~set_stream ~set_hex (elt :> Dom_html.element Js.t) ()
 
 (** Make necessary HTTP and Websocket requests to the server. *)
 let do_requests state control =
@@ -85,12 +101,11 @@ let on_visible (elt : Dom_html.element Js.t) (state : state) control =
   let thread =
     do_requests state control
     >>= fun (streams, tables, state_ev, bitrate_ev, fin) ->
-    let stream =
-      S.map
-        (function
-          | [] -> None
-          | (x : Application_types.Stream.t) :: _ -> Some x.id)
-        streams
+    let stream, set_stream =
+      S.create
+        (match S.value streams with
+        | [] -> None
+        | x :: _ -> Some x.id)
     in
     let s_data = S.l2 get_data tables stream in
     let bitrate =
@@ -103,25 +118,21 @@ let on_visible (elt : Dom_html.element Js.t) (state : state) control =
            stream
     in
     let hex, set_hex = S.create false in
+    let stream_select = Stream_select.R.create ~streams () in
     let si_psi_overview =
-      Si_psi_overview.attach ~set_hex
-      @@ Tyxml_js.To_dom.of_element
-      @@ Si_psi_overview.R.create
-           ~hex
-           ~init:(RList.from_signal s_data)
-           ~bitrate
-           ~control
-           ()
+      Si_psi_overview.R.create ~hex ~init:(RList.from_signal s_data) ~bitrate ~control ()
     in
-    let cell =
-      Tyxml_js.To_dom.of_element
-      @@ Layout_grid.D.layout_grid_cell ~span:12 ~children:[ si_psi_overview#markup ] ()
+    let page =
+      attach ~set_stream ~set_hex
+      @@ Tyxml_js.To_dom.of_div
+      @@ D.create ~stream_select ~si_psi_overview ()
     in
-    Dom.appendChild elt cell;
+    Dom.appendChild elt page#root;
     state.finalize <-
       (fun () ->
-        Dom.removeChild elt cell;
-        si_psi_overview#destroy ();
+        Dom.removeChild elt page#root;
+        page#destroy ();
+        S.stop ~strong:true stream;
         fin ());
     Lwt.return_ok state
   in
