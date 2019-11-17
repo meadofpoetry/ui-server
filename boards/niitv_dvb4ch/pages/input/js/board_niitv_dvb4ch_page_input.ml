@@ -16,10 +16,10 @@ module Attr = struct
   let hidden = "hidden"
 end
 
-type state = {
-  mutable socket : Api_js.Websocket.JSON.t option;
-  mutable finalize : unit -> unit;
-}
+type state =
+  { mutable socket : Api_js.Websocket.JSON.t option
+  ; mutable finalize : unit -> unit
+  }
 
 let make_charts mode =
   let open Board_niitv_dvb4ch_widgets.Measurements_chart in
@@ -38,6 +38,14 @@ let make_charts mode =
       List.iter super#append_child charts;
       super#init ()
 
+    method! layout () : unit =
+      pwr#layout ();
+      mer#layout ();
+      ber#layout ();
+      frq#layout ();
+      btr#layout ();
+      super#layout ()
+
     method notify data = List.iter (fun x -> x#notify data) charts
   end
 
@@ -45,25 +53,28 @@ let on_visible (elt : Dom_html.element Js.t) charts (state : state) control =
   let open React in
   List.iter (fun x -> x#clear ()) charts#charts;
   let thread =
-    Http_device.get_mode control >>=? fun mode ->
+    Http_device.get_mode control
+    >>=? fun mode ->
     charts#notify (`Mode mode);
     Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
     >>=? fun socket ->
     Option.iter Api_js.Websocket.close_socket state.socket;
     state.socket <- Some socket;
-    Http_receivers.Event.get_measurements socket control >>=? fun (_, meas_ev) ->
-    Http_device.Event.get_mode socket control >>=? fun (_, mode_ev) ->
+    Http_receivers.Event.get_measurements socket control
+    >>=? fun (_, meas_ev) ->
+    Http_device.Event.get_mode socket control
+    >>=? fun (_, mode_ev) ->
     let _ev =
       Lwt_react.E.from (fun () ->
-          Js_of_ocaml_lwt.Lwt_js.sleep 1. >>= fun () ->
+          Js_of_ocaml_lwt.Lwt_js.sleep 1.
+          >>= fun () ->
           let data =
-            {
-              Measure.power = Some (Random.float @@ -50.);
-              ber = Some (Random.float 0.00001);
-              mer = Some (Random.float 40.);
-              freq = Some (Random.int 5);
-              bitrate = Some (Random.int 50000000);
-              lock = true;
+            { Measure.power = Some (Random.float @@ -50.)
+            ; ber = Some (Random.float 0.00001)
+            ; mer = Some (Random.float 40.)
+            ; freq = Some (Random.int 5)
+            ; bitrate = Some (Random.int 50000000)
+            ; lock = true
             }
           in
           Lwt.return [ 0, [ { data; timestamp = Ptime_clock.now () } ] ])
@@ -72,12 +83,12 @@ let on_visible (elt : Dom_html.element Js.t) charts (state : state) control =
       E.merge
         (fun _ x -> charts#notify x)
         ()
-        [
-          E.map (fun x -> `Data (List.map (fun (id, x) -> id, [ x ]) x)) meas_ev;
-          E.map (fun x -> `Mode x) mode_ev;
+        [ E.map (fun x -> `Data (List.map (fun (id, x) -> id, [ x ]) x)) meas_ev
+        ; E.map (fun x -> `Mode x) mode_ev
           (* ; E.map (fun x -> `Data x) _ev *)
         ]
     in
+    charts#layout ();
     state.finalize <-
       (fun () ->
         E.stop ~strong:true mode_ev;
