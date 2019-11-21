@@ -26,11 +26,11 @@ module Event = struct
       Dom_html.Event.make "tab:interact"
   end
 
-  let interact ?use_capture x =
-    Lwt_js_events.make_event ?use_capture Typ.interact x
+  let interact ?use_capture ?passive x =
+    Lwt_js_events.make_event ?use_capture ?passive Typ.interact x
 
-  let interacts ?cancel_handler ?use_capture x =
-    Lwt_js_events.seq_loop ?cancel_handler ?use_capture interact x
+  let interacts ?cancel_handler ?use_capture ?passive x =
+    Lwt_js_events.seq_loop ?cancel_handler ?use_capture ?passive interact x
 end
 
 class t (elt : Dom_html.buttonElement Js.t) () = object(self)

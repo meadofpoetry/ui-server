@@ -25,11 +25,11 @@ module Event = struct
       Dom_html.Event.make @@ Printf.sprintf "%s:change" name
   end
 
-  let change ?use_capture x =
-    Lwt_js_events.make_event ?use_capture Typ.change x
+  let change ?use_capture ?passive x =
+    Lwt_js_events.make_event ?use_capture ?passive Typ.change x
 
-  let changes ?cancel_handler ?use_capture x =
-    Lwt_js_events.seq_loop ?use_capture ?cancel_handler change x
+  let changes ?cancel_handler ?use_capture ?passive x =
+    Lwt_js_events.seq_loop ?use_capture ?cancel_handler ?passive change x
 end
 
 class t ?on_change ?scroller ?(auto_activation = false)

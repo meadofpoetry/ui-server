@@ -29,11 +29,11 @@ module Event = struct
       Dom_html.Event.make @@ Printf.sprintf "%s:icon" name
   end
 
-  let icon ?use_capture x =
-    Lwt_js_events.make_event ?use_capture Typ.icon x
+  let icon ?use_capture ?passive x =
+    Lwt_js_events.make_event ?use_capture ?passive Typ.icon x
 
-  let icons ?cancel_handler ?use_capture x =
-    Lwt_js_events.seq_loop ?cancel_handler ?use_capture icon x
+  let icons ?cancel_handler ?use_capture ?passive x =
+    Lwt_js_events.seq_loop ?cancel_handler ?use_capture ?passive icon x
 end
 
 module Character_counter = struct
