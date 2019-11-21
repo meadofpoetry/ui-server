@@ -46,6 +46,11 @@ class t ~set_stream ~set_hex elt () =
 
     inherit Widget.t elt () as super
 
+    method! layout () : unit =
+      stream_select#layout ();
+      si_psi_overview#layout ();
+      super#layout ()
+
     method! destroy () : unit =
       stream_select#destroy ();
       si_psi_overview#destroy ();

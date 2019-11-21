@@ -81,6 +81,12 @@ class t ~set_stream ~set_hex elt () =
 
     inherit Widget.t elt () as super
 
+    method! layout () : unit =
+      stream_select#layout ();
+      pid_bitrate_pie_chart#layout ();
+      pid_overview#layout ();
+      super#layout ()
+
     method! destroy () : unit =
       stream_select#destroy ();
       pid_bitrate_pie_chart#destroy ();
