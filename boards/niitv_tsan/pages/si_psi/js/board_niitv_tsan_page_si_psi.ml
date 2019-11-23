@@ -143,6 +143,7 @@ let on_visible ~input (elt : Dom_html.element Js.t) (state : state) control =
     Lwt.return_ok state
   in
   let _loader = Components_lab.Loader.make_loader ~elt thread in
+  state.finalize <- (fun () -> Lwt.cancel thread);
   ()
 
 (** Called when this tab becomes inactive. *)
