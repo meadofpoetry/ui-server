@@ -6,6 +6,10 @@ module CSS = struct
   let title = BEM.add_element root "title"
 
   let wrapper = BEM.add_element root "wrapper"
+
+  let empty_placeholder = BEM.add_element root "empty-placeholder"
+
+  let empty = BEM.add_modifier root "empty"
 end
 
 module Make
@@ -15,20 +19,30 @@ module Make
 struct
   open Xml.W
   open Html
+  module Placeholder_markup = Components_lab_tyxml.Placeholder.Make (Xml) (Svg) (Html)
 
   let create_title ?(classes = return []) ?(a = []) ~title () =
     let classes = fmap (fun x -> CSS.title :: x) classes in
     span ~a:(a_class classes :: a) (singleton (return (txt (return title))))
 
+  let create_empty_placeholder ?(classes = return []) ?a () =
+    let classes = fmap (fun x -> CSS.empty_placeholder :: x) classes in
+    Placeholder_markup.placeholder
+      ?a
+      ~classes
+      ~text:(`Text (return "Нет данных"))
+      ()
+
   let create_wrapper ?(classes = return []) ?(a = []) ?canvas () =
     let classes = fmap (fun x -> CSS.wrapper :: x) classes in
     let children =
+      let placeholder = create_empty_placeholder () in
       let canvas =
         match canvas with
         | None -> Html.canvas (nil ())
         | Some x -> x
       in
-      singleton (return canvas)
+      cons (return placeholder) (cons (return canvas) (nil ()))
     in
     div ~a:(a_class classes :: a) children
 
@@ -46,7 +60,7 @@ struct
         | None -> create_wrapper ()
         | Some x -> x
       in
-      [title; wrapper]
+      [ title; wrapper ]
     in
     div ~a:(a_class classes :: a) (Xml.Wutils.const children)
 end

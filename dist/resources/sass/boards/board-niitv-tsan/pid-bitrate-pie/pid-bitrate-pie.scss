@@ -12,7 +12,15 @@
         padding-bottom: 1rem;
     }
 
+    &__empty-placeholder {
+        position: absolute;
+    }
+
     &__wrapper {
         position: relative;
+    }
+
+    &:not(&--empty) &__empty-placeholder {
+        display: none;
     }
 }

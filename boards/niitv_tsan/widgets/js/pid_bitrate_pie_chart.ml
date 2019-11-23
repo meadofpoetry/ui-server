@@ -10,7 +10,7 @@ module Selector = struct
   let canvas = "canvas"
 end
 
-type event = [`Bitrate of Bitrate.ext option]
+type event = [ `Bitrate of Bitrate.ext option ]
 
 let ( % ) f g x = f (g x)
 
@@ -31,7 +31,8 @@ let colors =
    ; Deep_orange C500
    ; Indigo C500
    ; Amber C500
-   ; Light_blue C500 |]
+   ; Light_blue C500
+  |]
 
 let make_pie_datalabels () =
   let open Chartjs_datalabels in
@@ -137,14 +138,14 @@ let make_pie ?(canvas = Dom_html.(createCanvas document)) () =
   let dataset = make_pie_dataset () in
   let options = make_pie_options () in
   let data = Chartjs.empty_data () in
-  data##.datasets := Js.array [|dataset|];
+  data##.datasets := Js.array [| dataset |];
   Chartjs.chart_from_canvas Chartjs.Chart.pie data options canvas
 
 let name = "PID bitrate pie chart"
 
 let title = "Битрейт"
 
-let map_rate ({total; pids; _} : Bitrate.ext) =
+let map_rate (total : Bitrate.value) pids =
   let pids = List.sort (fun a b -> compare (fst a) (fst b)) pids in
   let br =
     List.fold_left
@@ -195,19 +196,21 @@ class t ?(hex = false) ?rate (elt : Dom_html.element Js.t) =
 
     method set_rate : Bitrate.ext option -> unit =
       function
-      | None ->
+      | None | Some { pids = []; _ } ->
           _rate <- None;
+          super#add_class CSS.empty;
           self#dataset##.hidden := Js._true;
           pie##update
-      | Some rate ->
-          let pids, oth = map_rate rate in
+      | Some { total; pids; _ } ->
+          super#remove_class CSS.empty;
+          let pids, oth = map_rate total pids in
           self#dataset##.hidden := Js._false;
           _rate <- Some (pids, oth);
           let data =
             let pids = List.map snd pids in
             match oth with
             | [] -> pids
-            | l -> pids @ [List.fold_left ( +. ) 0. l]
+            | l -> pids @ [ List.fold_left ( +. ) 0. l ]
           in
           pie##.data##.labels := self#make_labels pids oth;
           self#dataset##.data := Js.array @@ Array.of_list data;
@@ -228,10 +231,9 @@ class t ?(hex = false) ?rate (elt : Dom_html.element Js.t) =
       let pids = List.map (Js.string % to_string % fst) pids in
       Js.array
       @@ Array.of_list
-      @@
-      match oth with
-      | [] -> pids
-      | _ -> pids @ [Js.string other]
+           (match oth with
+           | [] -> pids
+           | _ -> pids @ [ Js.string other ])
   end
 
 let attach ?hex ?rate (elt : #Dom_html.element Js.t) : t =
