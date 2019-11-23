@@ -24,93 +24,6 @@ type state =
   }
 (** Tab state. *)
 
-(* XXX for testing *)
-(* 
- * let stream : Stream.t =
- *   { id = Option.get (Uuidm.of_string "d6db41ba-ec76-5666-a7d9-3fe4a3f39efb")
- *   ; source =
- *       { node = Entry (Input { input = ASI; id = 1 })
- *       ; info =
- *           IPV4 { scheme = "udp"; addr = Ipaddr.V4.of_string_exn "224.1.2.2"; port = 1234 }
- *       }
- *   ; typ = TS
- *   ; orig_id = TS_raw
- *   }
- * 
- * let aux_stream : Stream.t =
- *   { id = Option.get (Uuidm.of_string "d6db41ba-ec76-5666-a7d9-3fe4a3f39efa")
- *   ; source =
- *       { node = Entry (Input { input = ASI; id = 2 })
- *       ; info =
- *           IPV4 { scheme = "udp"; addr = Ipaddr.V4.of_string_exn "224.1.2.3"; port = 1234 }
- *       }
- *   ; typ = TS
- *   ; orig_id = TS_raw
- *   }
- * 
- * let streams = [ stream; aux_stream ]
- * 
- * let services =
- *   [ ( stream.id
- *     , ({ data =
- *            [ ( 100
- *              , { Board_niitv_tsan_types.Service.name = "Первый канал"
- *                ; provider_name = "RTRS"
- *                ; pmt_pid = 1000
- *                ; pcr_pid = 4096
- *                ; has_pmt = true
- *                ; has_sdt = true
- *                ; dscr = true
- *                ; dscr_list = true
- *                ; eit_schedule = true
- *                ; eit_pf = true
- *                ; free_ca_mode = true
- *                ; running_status = 1
- *                ; service_type = 27
- *                ; service_type_list = 27
- *                ; elements = [ 1001; 1002 ]
- *                } )
- *            ; ( 101
- *              , { Board_niitv_tsan_types.Service.name = "Россия 1"
- *                ; provider_name = "RTRS"
- *                ; pmt_pid = 1001
- *                ; pcr_pid = 4097
- *                ; has_pmt = true
- *                ; has_sdt = true
- *                ; dscr = true
- *                ; dscr_list = true
- *                ; eit_schedule = true
- *                ; eit_pf = true
- *                ; free_ca_mode = true
- *                ; running_status = 1
- *                ; service_type = 27
- *                ; service_type_list = 27
- *                ; elements = [ 1003; 1004 ]
- *                } )
- *            ]
- *        ; timestamp = Ptime_clock.now ()
- *        }
- *         : _ Board_niitv_tsan_types.ts) )
- *   ]
- * 
- * let bitrate_ev =
- *   Lwt_react.(
- *     E.from (fun () ->
- *         Lwt.(
- *           Js_of_ocaml_lwt.Lwt_js.sleep 1.0
- *           >>= fun () ->
- *           Lwt.return
- *             [ ( stream.id
- *               , Board_niitv_tsan_types.Bitrate.cur_to_ext
- *                   { Board_niitv_tsan_types.Bitrate.total = 1000000
- *                   ; effective = 9_000_000
- *                   ; tables = []
- *                   ; pids = [ 1001, Random.int 5_000_000; 1002, Random.int 2_000_000 ]
- *                   ; services = [ 100, Random.int 7_000_000 ]
- *                   ; timestamp = Ptime_clock.now ()
- *                   } )
- *             ]))) *)
-
 (** Make necessary HTTP and Websocket requests to the server. *)
 let do_requests state control =
   Http_streams.get_streams control
@@ -134,12 +47,8 @@ let do_requests state control =
   Http_monitoring.Event.get_services socket control
   >>= fun (_, services_ev) ->
   let streams = React.S.hold streams_init streams_ev in
-  (* XXX For testing *)
-  (* let streams = React.S.const streams in *)
   let pids = React.S.hold pids_init pids_ev in
   let services = React.S.hold services_init services_ev in
-  (* XXX For testing *)
-  (* let services = React.S.const services in *)
   let fin () =
     React.(
       S.stop ~strong:true streams;
@@ -246,6 +155,7 @@ let on_visible (elt : Dom_html.element Js.t) (state : state) control =
       @@ D.create ~stream_select ~service_overview ()
     in
     Dom.appendChild elt page#root;
+    page#layout ();
     state.finalize <-
       (fun () ->
         Dom.removeChild elt page#root;

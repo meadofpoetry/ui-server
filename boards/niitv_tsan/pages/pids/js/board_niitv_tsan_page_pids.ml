@@ -27,7 +27,7 @@ module Selector = struct
   let pid_overview = Printf.sprintf ".%s" Pid_overview.CSS.root
 end
 
-type event = [ `Bitrate of (Stream.ID.t * Bitrate.ext) list ]
+type event = [ `Bitrate of Bitrate.ext option ]
 
 (** Make necessary HTTP and Websocket requests to the server. *)
 let do_requests state control =
@@ -95,8 +95,7 @@ class t ~set_stream ~set_hex elt () =
 
     method notify : event -> unit =
       function
-      | `Bitrate ((_, x) :: _) -> pid_bitrate_pie_chart#notify (`Bitrate (Some x))
-      | _ -> ()
+      | `Bitrate x -> pid_bitrate_pie_chart#notify (`Bitrate x)
   end
 
 let attach ~set_stream ~set_hex elt : t =
@@ -125,15 +124,15 @@ let on_visible (elt : Dom_html.element Js.t) (state : state) control =
     in
     let s_data = S.l2 get_data pids stream in
     let signal = RList.from_signal s_data in
-    let bitrate =
-      S.hold None
-      @@ S.sample
-           (fun bitrate -> function
-             | None -> None
-             | Some stream -> List.assoc_opt stream bitrate)
-           bitrate_ev
-           stream
+    let bitrate_ev_for_stream =
+      S.sample
+        (fun bitrate -> function
+          | None -> None
+          | Some stream -> List.assoc_opt stream bitrate)
+        bitrate_ev
+        stream
     in
+    let bitrate = S.hold None bitrate_ev_for_stream in
     let hex, set_hex = S.create false in
     let stream_select = Stream_select.R.create ~streams () in
     let bitrate_summary = Bitrate_summary.R.create ~bitrate () in
@@ -145,9 +144,13 @@ let on_visible (elt : Dom_html.element Js.t) (state : state) control =
       @@ D.create ~stream_select ~pid_overview ~bitrate_summary ~pid_summary ()
     in
     let notif =
-      E.merge (fun _ -> page#notify) () [ E.map (fun x -> `Bitrate x) bitrate_ev ]
+      E.merge
+        (fun _ -> page#notify)
+        ()
+        [ E.map (fun x -> `Bitrate x) bitrate_ev_for_stream ]
     in
     Dom.appendChild elt page#root;
+    page#layout ();
     state.finalize <-
       (fun () ->
         Dom.removeChild elt page#root;

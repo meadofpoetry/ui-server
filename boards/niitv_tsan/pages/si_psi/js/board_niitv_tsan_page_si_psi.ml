@@ -133,6 +133,7 @@ let on_visible (elt : Dom_html.element Js.t) (state : state) control =
       @@ D.create ~stream_select ~si_psi_overview ()
     in
     Dom.appendChild elt page#root;
+    page#layout ();
     state.finalize <-
       (fun () ->
         Dom.removeChild elt page#root;
