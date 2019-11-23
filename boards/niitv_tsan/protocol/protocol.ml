@@ -11,7 +11,8 @@ type notifs =
   ; structure : (Stream.ID.t * Structure.t) list React.signal
   ; t2mi_info : (Stream.ID.t * (int * T2mi_info.t) list) list React.signal
   ; deverr : Deverr.t list React.event
-  ; errors : (Stream.ID.t * Error.t list) list React.event }
+  ; errors : (Stream.ID.t * Error.t list) list React.event
+  }
 
 type api =
   { notifs : notifs
@@ -19,7 +20,8 @@ type api =
   ; bitrate_queue : Bitrate_queue.t
   ; channel : 'a. 'a Request.t -> ('a, Request.error) Lwt_result.t
   ; loop : unit -> unit Lwt.t
-  ; push_data : Cstruct.t -> unit }
+  ; push_data : Cstruct.t -> unit
+  }
 
 let msg_queue_size = 20
 
@@ -49,27 +51,28 @@ let send
           in
           Lwt.pick
             [ Boards.Board.await_no_response state >>= Api_util.not_responding
-            ; (push (Request.to_enum req, send) >>= fun () -> t) ])
+            ; (push (Request.to_enum req, send) >>= fun () -> t)
+            ])
         (function
           | Lwt.Canceled -> Lwt.return_error Request.Not_responding
           | Queue_lwt.Full -> Lwt.return_error Request.Queue_overflow
           | exn -> Lwt.fail exn)
 
-let rec map_response prev ({data; timestamp} as rsp : Request.rsp ts) =
+let rec map_response prev ({ data; timestamp } as rsp : Request.rsp ts) =
   match data with
   | `Complex _ -> `R rsp
-  | `Simple ({tag = `Status; _} as data) -> `E {data; timestamp}
-  | `Simple ({tag = `Streams; _} as data) -> `E {data; timestamp}
-  | `Simple ({tag = `Ts_errors; _} as data) -> `E {data; timestamp}
-  | `Simple ({tag = `T2mi_errors; _} as data) -> `E {data; timestamp}
-  | `Simple ({tag = `End_of_errors; _} as data) -> `E {data; timestamp}
-  | `Simple ({tag = `End_of_transmission; _} as data) -> (
-    match prev with
-    | None -> `R rsp
-    | Some prev -> (
-      match map_response None prev with
-      | `R _ -> `R rsp
-      | `E _ -> `E {data; timestamp}))
+  | `Simple ({ tag = `Status; _ } as data) -> `E { data; timestamp }
+  | `Simple ({ tag = `Streams; _ } as data) -> `E { data; timestamp }
+  | `Simple ({ tag = `Ts_errors; _ } as data) -> `E { data; timestamp }
+  | `Simple ({ tag = `T2mi_errors; _ } as data) -> `E { data; timestamp }
+  | `Simple ({ tag = `End_of_errors; _ } as data) -> `E { data; timestamp }
+  | `Simple ({ tag = `End_of_transmission; _ } as data) -> (
+      match prev with
+      | None -> `R rsp
+      | Some prev -> (
+          match map_response None prev with
+          | `R _ -> `R rsp
+          | `E _ -> `E { data; timestamp }))
   | _r -> `R rsp
 
 let map_stream_id
@@ -86,16 +89,47 @@ let map_stream_id
     event
     streams
 
+let map_bitrate bitrate structure =
+  React.S.sample
+    (fun bitrate structure ->
+      List.map
+        (fun (id, (rate : int Bitrate.t)) ->
+          match List.assoc_opt id structure with
+          | None -> id, rate
+          | Some ({ services; _ } : Structure.t) ->
+              let services =
+                List.map
+                  (fun (id, (x : Service.t)) ->
+                    let elements =
+                      if x.has_pmt then x.pmt_pid :: x.elements else x.elements
+                    in
+                    let rate =
+                      List.fold_left
+                        (fun acc x ->
+                          match List.assoc_opt x rate.pids with
+                          | None -> acc
+                          | Some x -> x + acc)
+                        0
+                        elements
+                    in
+                    id, rate)
+                  services
+              in
+              id, { rate with services })
+        bitrate)
+    bitrate
+    structure
+
 let map_errors (errors : ('a * Error.t list) list) (structures : ('a * Structure.t) list)
     : ('a * Error.t_ext list) list =
   List.map
     (fun (id, errors) ->
       match List.assoc_opt id structures with
-      | None -> id, List.map (fun (e : Error.t) -> {e with pid = e.pid, None}) errors
-      | Some {pids; _} ->
+      | None -> id, List.map (fun (e : Error.t) -> { e with pid = e.pid, None }) errors
+      | Some { pids; _ } ->
           let errors =
             List.map
-              (fun (e : Error.t) -> {e with pid = e.pid, List.assoc_opt e.pid pids})
+              (fun (e : Error.t) -> { e with pid = e.pid, List.assoc_opt e.pid pids })
               errors
           in
           id, errors)
@@ -110,17 +144,17 @@ let change_t2mi_mode
   @@ React.S.sample
        (fun status (streams, config) ->
          let mode = Parser.Status.(status.t2mi_mode) in
-         let {enabled; stream; _} = config.t2mi_mode in
+         let { enabled; stream; _ } = config.t2mi_mode in
          match stream with
          | ID _ -> ()
          | Full s -> (
              let mode' =
                match Stream.find_by_id s.id streams with
-               | None -> Some {mode with enabled = false}
-               | Some {orig_id; _} ->
+               | None -> Some { mode with enabled = false }
+               | Some { orig_id; _ } ->
                    if Stream.equal_container_id orig_id s.orig_id
-                   then Some {mode with enabled}
-                   else Some {mode with enabled = false}
+                   then Some { mode with enabled }
+                   else Some { mode with enabled = false }
              in
              match mode' with
              | None -> ()
@@ -144,37 +178,7 @@ let create
   let structure, set_structure = React.S.create [] in
   let bitrate_queue = Bitrate_queue.create () in
   let bitrate, set_bitrate = React.E.create () in
-  let bitrate =
-    React.S.sample
-      (fun bitrate structure ->
-        List.map
-          (fun (id, (rate : int Bitrate.t)) ->
-            match List.assoc_opt id structure with
-            | None -> id, rate
-            | Some ({services; _} : Structure.t) ->
-                let services =
-                  List.map
-                    (fun (id, (x : Service.t)) ->
-                      let elements =
-                        if x.has_pmt then x.pmt_pid :: x.elements else x.elements
-                      in
-                      let rate =
-                        List.fold_left
-                          (fun acc x ->
-                            match List.assoc_opt x rate.pids with
-                            | None -> acc
-                            | Some x -> x + acc)
-                          0
-                          elements
-                      in
-                      id, rate)
-                    services
-                in
-                id, {rate with services})
-          bitrate)
-      bitrate
-      structure
-  in
+  let bitrate = map_bitrate bitrate structure in
   let streams = streams_conv raw_streams in
   let bitrate = map_stream_id streams bitrate in
   let bitrate_ext = React.E.map (Bitrate_queue.map bitrate_queue) bitrate in
@@ -198,9 +202,10 @@ let create
     ; structure =
         Util_equal.(
           let eq = List.equal @@ Pair.equal Stream.ID.equal Structure.equal in
-          React.S.hold ~eq [] @@ map_stream_id streams (React.S.changes structure)) }
+          React.S.hold ~eq [] @@ map_stream_id streams (React.S.changes structure))
+    }
   in
-  let sender = {Fsm.send = (fun req -> sender @@ Serializer.serialize req)} in
+  let sender = { Fsm.send = (fun req -> sender @@ Serializer.serialize req) } in
   let (pending : Fsm.pending ref) = ref [] in
   let pred (id, _) = not @@ List.mem_assoc id !pending in
   let req_queue, push_req_queue = Queue_lwt.create msg_queue_size pred in
@@ -266,4 +271,4 @@ let create
       set_t2mi_info
       set_deverr
   in
-  Lwt.return_ok {notifs; kv; channel; loop; push_data; bitrate_queue}
+  Lwt.return_ok { notifs; kv; channel; loop; push_data; bitrate_queue }
