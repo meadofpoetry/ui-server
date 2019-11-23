@@ -37,6 +37,34 @@ module Boards = Map.Make (struct
   let compare = Topology.compare_board_id
 end)
 
+let input_to_json_string input =
+  Yojson.Safe.to_string (Topology.topo_input_to_yojson input)
+
+let boards_to_json_string input boards =
+  List.fold_left
+    (fun acc (_, (board : Board.t)) ->
+      let has_input =
+        List.exists
+          (function
+            | `Input i, _ -> Topology.equal_topo_input input i
+            | _ -> false)
+          board.gui_tabs
+      in
+      if has_input
+      then
+        Boards.update
+          board.id
+          (function
+            | None -> Some [ board.control ]
+            | Some acc -> Some (board.control :: acc))
+          acc
+      else acc)
+    Boards.empty
+    boards
+  |> Boards.bindings
+  |> Topology.boards_to_yojson
+  |> Yojson.Safe.pretty_to_string
+
 let make_template
     (input : Topology.topo_input)
     (cpu : Data_processor.t option)
@@ -57,30 +85,11 @@ let make_template
   let board_tabs =
     List.flatten @@ List.map (fun (_, b) -> tabs_of_board input b) boards
   in
-  let boards_var =
-    List.fold_left
-      (fun acc (_, (board : Board.t)) ->
-        let has_input =
-          List.exists
-            (function
-              | `Input i, _ -> Topology.equal_topo_input input i
-              | _ -> false)
-            board.gui_tabs
-        in
-        if has_input
-        then
-          Boards.update
-            board.id
-            (function
-              | None -> Some [ board.control ]
-              | Some acc -> Some (board.control :: acc))
-            acc
-        else acc)
-      Boards.empty
-      boards
-    |> Boards.bindings
-    |> Topology.boards_to_yojson
-    |> Yojson.Safe.pretty_to_string
+  let variables =
+    Printf.sprintf
+      "var input = `%s`; var boards = `%s`;"
+      (input_to_json_string input)
+      (boards_to_json_string input boards)
   in
   let tabs = board_tabs @ tabs_of_cpu input cpu @ common_tabs () in
   let title = Topology.get_input_name input in
@@ -95,21 +104,17 @@ let make_template
           @@ Netlib.Uri.Path.to_string path
         in
         let tab =
-          {
-            Ui_templates_tyxml.Tabbed_page.F.id;
-            name = Option.value ~default:"" template.title;
-            children = template.content;
+          { Ui_templates_tyxml.Tabbed_page.F.id
+          ; name = Option.value ~default:"" template.title
+          ; children = template.content
           }
         in
         (* FIXME scripts order *)
-        ( tabs @ [ tab ],
-          css @ template.stylesheets,
-          pre_js @ template.pre_scripts,
-          post_js @ template.post_scripts ))
-      ( [],
-        [ "/css/page-input.min.css" ],
-        [ `Raw (Printf.sprintf "var boards = `%s`;" boards_var) ],
-        [ `Src "/js/page-input.js" ] )
+        ( tabs @ [ tab ]
+        , css @ template.stylesheets
+        , pre_js @ template.pre_scripts
+        , post_js @ template.post_scripts ))
+      ([], [ "/css/page-input.min.css" ], [ `Raw variables ], [ `Src "/js/page-input.js" ])
       tabs
   in
   let tab_bar, slides = Ui_templates_tyxml.Tabbed_page.F.create ~children () in
