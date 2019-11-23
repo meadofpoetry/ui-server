@@ -6,27 +6,39 @@ open Util
 module Event = struct
   let ( >>= ) = Lwt_result.( >>= )
 
-  let get_streams ?incoming ?(ids = []) sock control =
+  let get_streams ?incoming ?(ids = []) ?(inputs = []) sock control =
     let of_yojson = Util_json.List.of_yojson Stream.of_yojson in
     Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("board" @/ Int ^/ "streams" @/ empty)
-      ~query:Query.["incoming", (module Option (Bool)); "id", (module List (Stream.ID))]
+      ~query:
+        Query.
+          [ "incoming", (module Option (Bool))
+          ; "id", (module List (Stream.ID))
+          ; "input", (module List (Topology.Show_topo_input))
+          ]
       control
       incoming
       ids
+      inputs
       of_yojson
       sock
 end
 
-let get_streams ?(ids = []) ?incoming control =
+let get_streams ?(ids = []) ?(inputs = []) ?incoming control =
   let of_yojson = Util_json.List.of_yojson Stream.of_yojson in
   Api_http.perform
     ~meth:`GET
     ~path:Path.Format.("api/board" @/ Int ^/ "streams" @/ empty)
-    ~query:Query.["id", (module List (Stream.ID)); "incoming", (module Option (Bool))]
+    ~query:
+      Query.
+        [ "id", (module List (Stream.ID))
+        ; "incoming", (module Option (Bool))
+        ; "input", (module List (Topology.Show_topo_input))
+        ]
     control
     ids
     incoming
+    inputs
     (ignore_env_bind (Lwt.return % map_err % of_yojson))
 
 let get_stream id control =
@@ -46,8 +58,7 @@ let get_bitrate id control =
   Api_http.perform
     ~meth:`GET
     ~path:
-      Path.Format.(
-        "api/board" @/ Int ^/ "streams" @/ Stream.ID.fmt ^/ "bitrate" @/ empty)
+      Path.Format.("api/board" @/ Int ^/ "streams" @/ Stream.ID.fmt ^/ "bitrate" @/ empty)
     ~query:Query.empty
     control
     id
@@ -57,9 +68,8 @@ let get_ts_info ?force id control =
   Api_http.perform
     ~meth:`GET
     ~path:
-      Path.Format.(
-        "api/board" @/ Int ^/ "streams" @/ Stream.ID.fmt ^/ "ts-info" @/ empty)
-    ~query:Query.["force", (module Option (Bool))]
+      Path.Format.("api/board" @/ Int ^/ "streams" @/ Stream.ID.fmt ^/ "ts-info" @/ empty)
+    ~query:Query.[ "force", (module Option (Bool)) ]
     control
     id
     force
@@ -70,7 +80,7 @@ let get_pids ?force id control =
     ~meth:`GET
     ~path:
       Path.Format.("api/board" @/ Int ^/ "streams" @/ Stream.ID.fmt ^/ "pids" @/ empty)
-    ~query:Query.["force", (module Option (Bool))]
+    ~query:Query.[ "force", (module Option (Bool)) ]
     control
     id
     force
@@ -81,7 +91,7 @@ let get_si_psi_tables ?force id control =
     ~meth:`GET
     ~path:
       Path.Format.("api/board" @/ Int ^/ "streams" @/ Stream.ID.fmt ^/ "tables" @/ empty)
-    ~query:Query.["force", (module Option (Bool))]
+    ~query:Query.[ "force", (module Option (Bool)) ]
     control
     id
     force
@@ -93,7 +103,7 @@ let get_services ?force id control =
     ~path:
       Path.Format.(
         "api/board" @/ Int ^/ "streams" @/ Stream.ID.fmt ^/ "services" @/ empty)
-    ~query:Query.["force", (module Option (Bool))]
+    ~query:Query.[ "force", (module Option (Bool)) ]
     control
     id
     force
@@ -105,7 +115,7 @@ let get_t2mi_info ?force id control =
     ~path:
       Path.Format.(
         "api/board" @/ Int ^/ "streams" @/ Stream.ID.fmt ^/ "t2mi-info" @/ empty)
-    ~query:Query.["force", (module Option (Bool))]
+    ~query:Query.[ "force", (module Option (Bool)) ]
     control
     id
     force
@@ -118,7 +128,7 @@ let get_t2mi_sequence ?duration ?(t2mi_stream_id = []) id control =
       Path.Format.(
         "api/board" @/ Int ^/ "streams" @/ Stream.ID.fmt ^/ "t2mi-sequence" @/ empty)
     ~query:
-      Query.["duration", (module Option (Int)); "t2mi-stream-id", (module List (Int))]
+      Query.[ "duration", (module Option (Int)); "t2mi-stream-id", (module List (Int)) ]
     control
     id
     duration
@@ -136,7 +146,8 @@ let get_section ?section ?table_id_ext ?id_ext_1 ?id_ext_2 ~table id control =
         [ "section", (module Option (Int))
         ; "table-id-ext", (module Option (Int))
         ; "id-ext-1", (module Option (Int))
-        ; "id-ext-2", (module Option (Int)) ]
+        ; "id-ext-2", (module Option (Int))
+        ]
     control
     id
     table

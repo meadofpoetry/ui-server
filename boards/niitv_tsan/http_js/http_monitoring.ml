@@ -8,7 +8,7 @@ module Event = struct
     let of_yojson = stream_assoc_list_of_yojson Bitrate.cur_of_yojson in
     Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("board" @/ Int ^/ "monitoring/bitrate" @/ empty)
-      ~query:Query.["id", (module List (Stream.ID))]
+      ~query:Query.[ "id", (module List (Stream.ID)) ]
       control
       ids
       of_yojson
@@ -18,7 +18,7 @@ module Event = struct
     let of_yojson = stream_assoc_list_of_yojson Bitrate.ext_of_yojson in
     Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("board" @/ Int ^/ "monitoring/bitrate/with-stats" @/ empty)
-      ~query:Query.["id", (module List (Stream.ID))]
+      ~query:Query.[ "id", (module List (Stream.ID)) ]
       control
       ids
       of_yojson
@@ -28,7 +28,7 @@ module Event = struct
     let of_yojson = stream_assoc_list_of_yojson pids_ts_of_yojson in
     Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("board" @/ Int ^/ "monitoring/pids" @/ empty)
-      ~query:Query.["id", (module List (Stream.ID))]
+      ~query:Query.[ "id", (module List (Stream.ID)) ]
       control
       ids
       of_yojson
@@ -38,7 +38,7 @@ module Event = struct
     let of_yojson = stream_assoc_list_of_yojson si_psi_tables_ts_of_yojson in
     Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("board" @/ Int ^/ "monitoring/tables" @/ empty)
-      ~query:Query.["id", (module List (Stream.ID))]
+      ~query:Query.[ "id", (module List (Stream.ID)) ]
       control
       ids
       of_yojson
@@ -48,7 +48,7 @@ module Event = struct
     let of_yojson = stream_assoc_list_of_yojson services_ts_of_yojson in
     Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("board" @/ Int ^/ "monitoring/services" @/ empty)
-      ~query:Query.["id", (module List (Stream.ID))]
+      ~query:Query.[ "id", (module List (Stream.ID)) ]
       control
       ids
       of_yojson
@@ -67,7 +67,8 @@ let get_errors ?(ids = []) ?timeout ?(pids = []) ?(priority = []) control =
         [ "id", (module List (Stream.ID))
         ; "timeout", (module Option (Int))
         ; "pid", (module List (Int))
-        ; "priority", (module List (Int)) ]
+        ; "priority", (module List (Int))
+        ]
     control
     ids
     timeout
@@ -80,7 +81,7 @@ let get_bitrate ?(ids = []) ?timeout control =
   Api_http.perform
     ~meth:`GET
     ~path:Path.Format.("api/board" @/ Int ^/ "monitoring/bitrate" @/ empty)
-    ~query:Query.["id", (module List (Stream.ID)); "timeout", (module Option (Int))]
+    ~query:Query.[ "id", (module List (Stream.ID)); "timeout", (module Option (Int)) ]
     control
     ids
     timeout
@@ -91,7 +92,7 @@ let get_bitrate_with_stats ?(ids = []) ?timeout control =
   Api_http.perform
     ~meth:`GET
     ~path:Path.Format.("api/board" @/ Int ^/ "monitoring/bitrate/with-stats" @/ empty)
-    ~query:Query.["id", (module List (Stream.ID)); "timeout", (module Option (Int))]
+    ~query:Query.[ "id", (module List (Stream.ID)); "timeout", (module Option (Int)) ]
     control
     ids
     timeout
@@ -101,7 +102,7 @@ let reset_bitrate_stats ?(ids = []) control =
   Api_http.perform_unit
     ~meth:`POST
     ~path:Path.Format.("api/board" @/ Int ^/ "monitoring/bitrate/reset-stats" @/ empty)
-    ~query:Query.["id", (module List (Stream.ID))]
+    ~query:Query.[ "id", (module List (Stream.ID)) ]
     control
     ids
     (fun _env res -> Lwt.return res)
@@ -111,7 +112,7 @@ let get_ts_info ?force ?(ids = []) control =
   Api_http.perform
     ~meth:`GET
     ~path:Path.Format.("api/board" @/ Int ^/ "monitoring/ts-info" @/ empty)
-    ~query:Query.["id", (module List (Stream.ID)); "force", (module Option (Bool))]
+    ~query:Query.[ "id", (module List (Stream.ID)); "force", (module Option (Bool)) ]
     control
     ids
     force
@@ -122,7 +123,7 @@ let get_pids ?force ?(ids = []) control =
   Api_http.perform
     ~meth:`GET
     ~path:Path.Format.("api/board" @/ Int ^/ "monitoring/pids" @/ empty)
-    ~query:Query.["id", (module List (Stream.ID)); "force", (module Option (Bool))]
+    ~query:Query.[ "id", (module List (Stream.ID)); "force", (module Option (Bool)) ]
     control
     ids
     force
@@ -133,7 +134,7 @@ let get_si_psi_tables ?force ?(ids = []) control =
   Api_http.perform
     ~meth:`GET
     ~path:Path.Format.("api/board" @/ Int ^/ "monitoring/tables" @/ empty)
-    ~query:Query.["id", (module List (Stream.ID)); "force", (module Option (Bool))]
+    ~query:Query.[ "id", (module List (Stream.ID)); "force", (module Option (Bool)) ]
     control
     ids
     force
@@ -144,7 +145,7 @@ let get_services ?force ?(ids = []) control =
   Api_http.perform
     ~meth:`GET
     ~path:Path.Format.("api/board" @/ Int ^/ "monitoring/services" @/ empty)
-    ~query:Query.["id", (module List (Stream.ID)); "force", (module Option (Bool))]
+    ~query:Query.[ "id", (module List (Stream.ID)); "force", (module Option (Bool)) ]
     control
     ids
     force
@@ -159,7 +160,8 @@ let get_t2mi_info ?force ?(ids = []) ?(t2mi_stream_ids = []) control =
       Query.
         [ "id", (module List (Stream.ID))
         ; "t2mi-stream-id", (module List (Int))
-        ; "force", (module Option (Bool)) ]
+        ; "force", (module Option (Bool))
+        ]
     control
     ids
     t2mi_stream_ids

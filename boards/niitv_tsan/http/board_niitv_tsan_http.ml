@@ -43,14 +43,15 @@ let handlers (control : int) (api : Protocol.api) =
               ~doc:"Returns device description"
               ~meth:`GET
               ~path:(Path.Format.of_string "info")
-              ~query:Query.["force", (module Option (Bool))]
+              ~query:Query.[ "force", (module Option (Bool)) ]
               (Api_device.get_info api)
           ; node
               ~doc:"Returns device errors, if any"
               ~meth:`GET
               ~path:(Path.Format.of_string "errors")
               ~query:
-                Query.["timeout", (module Option (Int)); "force", (module Option (Bool))]
+                Query.
+                  [ "timeout", (module Option (Int)); "force", (module Option (Bool)) ]
               (Api_device.get_errors api)
           ; node
               ~doc:"Returns status of the device"
@@ -68,14 +69,15 @@ let handlers (control : int) (api : Protocol.api) =
               ~doc:"Returns current T2-MI monitoring mode"
               ~meth:`GET
               ~path:(Path.Format.of_string "mode/t2mi")
-              ~query:Query.["force", (module Option (Bool))]
+              ~query:Query.[ "force", (module Option (Bool)) ]
               (Api_device.get_t2mi_mode api)
           ; node
               ~doc:"Returns current PCR jitter monitoring mode"
               ~meth:`GET
               ~path:(Path.Format.of_string "mode/jitter")
-              ~query:Query.["force", (module Option (Bool))]
-              (Api_device.get_jitter_mode api) ]
+              ~query:Query.[ "force", (module Option (Bool)) ]
+              (Api_device.get_jitter_mode api)
+          ]
       ; make
           ~prefix:"monitoring"
           [ node
@@ -83,55 +85,58 @@ let handlers (control : int) (api : Protocol.api) =
               ~meth:`GET
               ~path:(Path.Format.of_string "errors")
               ~query:
-                Query.["id", (module List (Stream.ID)); "timeout", (module Option (Int))]
+                Query.
+                  [ "id", (module List (Stream.ID)); "timeout", (module Option (Int)) ]
               (Api_monitoring.get_errors api)
           ; node
               ~doc:"Returns list of available TS info"
               ~meth:`GET
               ~path:(Path.Format.of_string "ts-info")
               ~query:
-                Query.["force", (module Option (Bool)); "id", (module List (Stream.ID))]
+                Query.[ "force", (module Option (Bool)); "id", (module List (Stream.ID)) ]
               (Api_monitoring.get_ts_info api)
           ; node
               ~doc:"Returns current bitrate"
               ~meth:`GET
               ~path:(Path.Format.of_string "bitrate")
               ~query:
-                Query.["id", (module List (Stream.ID)); "timeout", (module Option (Int))]
+                Query.
+                  [ "id", (module List (Stream.ID)); "timeout", (module Option (Int)) ]
               (Api_monitoring.get_bitrate api)
           ; node
               ~doc:"Returns current bitrate with additional statistics"
               ~meth:`GET
               ~path:(Path.Format.of_string "bitrate/with-stats")
               ~query:
-                Query.["id", (module List (Stream.ID)); "timeout", (module Option (Int))]
+                Query.
+                  [ "id", (module List (Stream.ID)); "timeout", (module Option (Int)) ]
               (Api_monitoring.get_bitrate_with_stats api)
           ; node
               ~doc:"Resets bitrate stats"
               ~meth:`POST
               ~path:(Path.Format.of_string "bitrate/reset-stats")
-              ~query:Query.["id", (module List (Stream.ID))]
+              ~query:Query.[ "id", (module List (Stream.ID)) ]
               (Api_monitoring.reset_bitrate_stats api)
           ; node
               ~doc:"Returns available services"
               ~meth:`GET
               ~path:(Path.Format.of_string "services")
               ~query:
-                Query.["force", (module Option (Bool)); "id", (module List (Stream.ID))]
+                Query.[ "force", (module Option (Bool)); "id", (module List (Stream.ID)) ]
               (Api_monitoring.get_services api)
           ; node
               ~doc:"Returns available PIDs"
               ~meth:`GET
               ~path:(Path.Format.of_string "pids")
               ~query:
-                Query.["force", (module Option (Bool)); "id", (module List (Stream.ID))]
+                Query.[ "force", (module Option (Bool)); "id", (module List (Stream.ID)) ]
               (Api_monitoring.get_pids api)
           ; node
               ~doc:"Returns available SI/PSI tables"
               ~meth:`GET
               ~path:(Path.Format.of_string "tables")
               ~query:
-                Query.["force", (module Option (Bool)); "id", (module List (Stream.ID))]
+                Query.[ "force", (module Option (Bool)); "id", (module List (Stream.ID)) ]
               (Api_monitoring.get_si_psi_tables api)
           ; node
               ~doc:"Returns available T2-MI info"
@@ -141,8 +146,10 @@ let handlers (control : int) (api : Protocol.api) =
                 Query.
                   [ "force", (module Option (Bool))
                   ; "id", (module List (Stream.ID))
-                  ; "t2mi-stream-id", (module List (Int)) ]
-              (Api_monitoring.get_t2mi_info api) ]
+                  ; "t2mi-stream-id", (module List (Int))
+                  ]
+              (Api_monitoring.get_t2mi_info api)
+          ]
       ; make
           ~prefix:"streams"
           [ node
@@ -151,7 +158,10 @@ let handlers (control : int) (api : Protocol.api) =
               ~path:Path.Format.empty
               ~query:
                 Query.
-                  ["incoming", (module Option (Bool)); "id", (module List (Stream.ID))]
+                  [ "incoming", (module Option (Bool))
+                  ; "id", (module List (Stream.ID))
+                  ; "input", (module List (Topology.Show_topo_input))
+                  ]
               (Api_streams.get_streams api)
           ; node
               ~doc:"Returns stream details"
@@ -169,13 +179,13 @@ let handlers (control : int) (api : Protocol.api) =
               ~doc:"Returns TS details"
               ~meth:`GET
               ~path:Path.Format.(Stream.ID.fmt ^/ "ts-info" @/ empty)
-              ~query:Query.["force", (module Option (Bool))]
+              ~query:Query.[ "force", (module Option (Bool)) ]
               (Api_streams.get_ts_info api)
           ; node
               ~doc:"Returns PID list"
               ~meth:`GET
               ~path:Path.Format.(Stream.ID.fmt ^/ "pids" @/ empty)
-              ~query:Query.["force", (module Option (Bool))]
+              ~query:Query.[ "force", (module Option (Bool)) ]
               (Api_streams.get_pids api)
           ; node
               ~doc:"Returns available SI/PSI tables"
@@ -202,7 +212,8 @@ let handlers (control : int) (api : Protocol.api) =
               ~query:
                 Query.
                   [ "duration", (module Option (Int))
-                  ; "t2mi-stream-id", (module List (Int)) ]
+                  ; "t2mi-stream-id", (module List (Int))
+                  ]
               (Api_streams.get_t2mi_sequence api)
           ; node
               ~doc:"Returns SI/PSI section"
@@ -213,8 +224,12 @@ let handlers (control : int) (api : Protocol.api) =
                   [ "section", (module Option (Int))
                   ; "table-id-ext", (module Option (Int))
                   ; "id-ext-1", (module Option (Int))
-                  ; "id-ext-2", (module Option (Int)) ]
-              (Api_streams.get_section api) ] ] ]
+                  ; "id-ext-2", (module Option (Int))
+                  ]
+              (Api_streams.get_section api)
+          ]
+      ]
+  ]
 
 let ws (control : int) (api : Protocol.api) =
   let open Api_events in
@@ -247,34 +262,36 @@ let ws (control : int) (api : Protocol.api) =
               ~doc:"T2-MI mode socket"
               ~path:(Path.Format.of_string "mode/t2mi")
               ~query:Query.empty
-              (Api_device.Event.get_t2mi_mode api) ]
+              (Api_device.Event.get_t2mi_mode api)
+          ]
       ; make
           ~prefix:"monitoring"
           [ event_node
               ~doc:"Bitrate socket"
               ~path:(Path.Format.of_string "bitrate")
-              ~query:Query.["id", (module List (Stream.ID))]
+              ~query:Query.[ "id", (module List (Stream.ID)) ]
               (Api_monitoring.Event.get_bitrate api)
           ; event_node
               ~doc:"Bitrate with additional statistics socket"
               ~path:(Path.Format.of_string "bitrate/with-stats")
-              ~query:Query.["id", (module List (Stream.ID))]
+              ~query:Query.[ "id", (module List (Stream.ID)) ]
               (Api_monitoring.Event.get_bitrate_with_stats api)
           ; event_node
               ~doc:"PIDs socket"
               ~path:(Path.Format.of_string "pids")
-              ~query:Query.["id", (module List (Stream.ID))]
+              ~query:Query.[ "id", (module List (Stream.ID)) ]
               (Api_monitoring.Event.get_pids api)
           ; event_node
               ~doc:"SI/PSI tables socket"
               ~path:(Path.Format.of_string "tables")
-              ~query:Query.["id", (module List (Stream.ID))]
+              ~query:Query.[ "id", (module List (Stream.ID)) ]
               (Api_monitoring.Event.get_si_psi_tables api)
           ; event_node
               ~doc:"Services socket"
               ~path:(Path.Format.of_string "services")
-              ~query:Query.["id", (module List (Stream.ID))]
-              (Api_monitoring.Event.get_services api) ]
+              ~query:Query.[ "id", (module List (Stream.ID)) ]
+              (Api_monitoring.Event.get_services api)
+          ]
       ; make
           ~prefix:"streams"
           [ event_node
@@ -282,5 +299,11 @@ let ws (control : int) (api : Protocol.api) =
               ~path:Path.Format.empty
               ~query:
                 Query.
-                  ["incoming", (module Option (Bool)); "id", (module List (Stream.ID))]
-              (Api_streams.Event.get_streams api) ] ] ]
+                  [ "incoming", (module Option (Bool))
+                  ; "id", (module List (Stream.ID))
+                  ; "input", (module List (Topology.Show_topo_input))
+                  ]
+              (Api_streams.Event.get_streams api)
+          ]
+      ]
+  ]
