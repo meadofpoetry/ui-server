@@ -43,6 +43,17 @@ let ports_active (src : Logs.src) (board : Topology.topo_board) (input : input s
     Boards.Board.Ports.empty
     board.ports
 
+let get_is_demo_from_env src (b : Topology.topo_board) =
+  match Topology.Env.find_opt "demo" b.env with
+  | None -> false
+  | Some s -> (
+      match bool_of_string_opt s with
+      | Some x -> x
+      | None ->
+          Logs.warn ~src (fun m ->
+              m "Failed to parse demo mode value from environment: %s" s);
+          false)
+
 let get_input_source_from_env src (b : Topology.topo_board) =
   match Topology.Env.find_opt "input_source" b.env with
   | None -> None
@@ -135,7 +146,9 @@ let create
   let default = update_config_with_env src Board_settings.default b in
   Config.create ~default kv [ "board"; string_of_int b.control ]
   >>=? fun (kv : config Kv_v.rw) ->
-  Protocol.create src send (convert_streams b) kv
+  (if get_is_demo_from_env src b
+  then Demo_protocol.create src send (convert_streams b) kv
+  else Protocol.create src send (convert_streams b) kv)
   >>=? fun (api : Protocol.api) ->
   kv#get
   >>= fun config ->
