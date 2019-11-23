@@ -30,8 +30,8 @@ end
 type event = [ `Bitrate of Bitrate.ext option ]
 
 (** Make necessary HTTP and Websocket requests to the server. *)
-let do_requests state control =
-  Http_streams.get_streams control
+let do_requests ~input state control =
+  Http_streams.get_streams ~inputs:[ input ] control
   >>= fun streams_init ->
   Http_monitoring.get_pids control
   >>= fun pids_init ->
@@ -39,7 +39,7 @@ let do_requests state control =
   >>= fun socket ->
   Option.iter Api_js.Websocket.close_socket state.socket;
   state.socket <- Some socket;
-  Http_streams.Event.get_streams socket control
+  Http_streams.Event.get_streams ~inputs:[ input ] socket control
   >>= fun (_, streams_ev) ->
   Http_device.Event.get_state socket control
   >>= fun (_, state_ev) ->
@@ -110,11 +110,11 @@ let get_data v = function
       | Some (x : _ Board_niitv_tsan_types.ts) -> x.data)
 
 (** Called when this tab becomes active. *)
-let on_visible (elt : Dom_html.element Js.t) (state : state) control =
+let on_visible ~input (elt : Dom_html.element Js.t) (state : state) control =
   let open React in
   let open ReactiveData in
   let thread =
-    do_requests state control
+    do_requests ~input state control
     >>= fun (streams, pids, state_ev, bitrate_ev, fin) ->
     let stream, set_stream =
       S.create
@@ -170,12 +170,12 @@ let on_hidden state =
   state.finalize ()
 
 (** Called on page initialization. *)
-let init control =
+let init ~input control =
   let state = { socket = None; finalize = (fun () -> ()) } in
   let _result =
     Ui_templates.Tabbed_page.Tabpanel.init
       ~id:(id control)
-      ~on_visible:(fun tabpanel -> on_visible tabpanel state control)
+      ~on_visible:(fun tabpanel -> on_visible ~input tabpanel state control)
       ~on_hidden:(fun _tabpanel -> on_hidden state)
       ()
   in
