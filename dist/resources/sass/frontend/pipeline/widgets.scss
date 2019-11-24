@@ -1,5 +1,6 @@
 @import "@material/theme/_mixins";
 @import "./wizard";
+@import "./parameter-chart/parameter-chart";
 
 .pipeline-settings {
     .mdc-tab-bar {
@@ -22,14 +23,4 @@
     &__checkbox-spacer {
         padding: 11px;
     }
-}
-
-// FIXME remove absolute positioning - this is a quick dirty hack!
-.pipeline-chart {
-    padding: 1rem;
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    right: 0;
 }

@@ -2,36 +2,41 @@ open Js_of_ocaml
 open Components
 open Application_types
 open Pipeline_types
+include Pipeline_widgets_tyxml.Parameter_chart
 
-module CSS = struct
-  let root = "pipeline-chart"
+module Attr = struct
+  let data_typ = "data-type"
+
+  let data_duration = "data-duration"
 end
 
 module Const = struct
+  include Const
+
   let delay = 2000
 
   let ttl = 3000
 end
 
-type widget_config = {
-  duration : Time.Period.t;
-  typ : typ;
-  sources : data_source list;
-  settings : widget_settings option;
-}
+type widget_config =
+  { duration : Time.Period.t
+  ; typ : typ
+  ; sources : data_source list
+  ; settings : widget_settings option
+  }
 
 and widget_settings = { range : (float * float) option }
 
-and service_filter = {
-  service_id : int;
-  pids : int list;
-}
+and service_filter =
+  { service_id : int
+  ; pids : int list
+  }
 
-and data_source = {
-  stream : Stream.ID.t;
-  service : int;
-  pid : int;
-}
+and data_source =
+  { stream : Stream.ID.t
+  ; service : int
+  ; pid : int
+  }
 [@@deriving eq, yojson]
 
 and typ =
@@ -44,7 +49,10 @@ and typ =
   | `Moment
   ]
 
-type event = [ `Data of (data_source * kind) list ]
+type event =
+  [ `Data of (data_source * kind) list
+  | `Structures of Structure.Annotated.t
+  ]
 
 and kind =
   [ `Video of Qoe_errors.Video_data.data
@@ -145,15 +153,6 @@ let typ_to_content : typ -> [ `Video | `Audio ] = function
   | `Black | `Luma | `Freeze | `Diff | `Blocky -> `Video
   | `Shortt | `Moment -> `Audio
 
-let typ_to_string : typ -> string = function
-  | `Black -> "Чёрный кадр"
-  | `Luma -> "Средняя яркость"
-  | `Freeze -> "Заморозка видео"
-  | `Diff -> "Средняя разность"
-  | `Blocky -> "Блочность"
-  | `Shortt -> "Громкость (short term)"
-  | `Moment -> "Громкость (momentary)"
-
 let typ_to_unit_string : typ -> string = function
   | `Black | `Freeze | `Blocky -> "%"
   | `Luma | `Diff -> ""
@@ -205,15 +204,9 @@ let make_y_axis ?(id = "y-axis") (config : widget_config) : Chartjs.linearAxis J
   let open Chartjs in
   let min, max = get_suggested_range config.typ in
   let unit = typ_to_unit_string config.typ in
-  let typ = typ_to_string config.typ in
-  let label =
-    match unit with
-    | "" -> typ
-    | unit -> typ ^ ", " ^ unit
-  in
   let scale_label = empty_scale_label () in
   scale_label##.display := Js._true;
-  scale_label##.labelString := Js.string label;
+  scale_label##.labelString := Js.string unit;
   let ticks = empty_linear_ticks () in
   ticks##.suggestedMin := Js.def min;
   ticks##.suggestedMax := Js.def max;
@@ -231,6 +224,38 @@ let make_streaming config =
   (* streaming##.ttl := Js.def (ttl_of_delay ~duration Const.delay); *)
   streaming##.duration := duration;
   streaming
+
+(* let legend_callback (chart : Chartjs.chart Js.t) =
+ *   let (datasets_js : _ Chartjs.lineDataset Js.t Js.js_array Js.t) =
+ *     chart##.data##.datasets
+ *   in
+ *   let modules =
+ *     Modules.bindings
+ *     @@ List.fold_left
+ *          (fun acc dataset ->
+ *            Modules.update
+ *              (id_of_dataset dataset)
+ *              (function
+ *                | None -> Some [ dataset ]
+ *                | Some datasets -> Some (dataset :: datasets))
+ *              acc)
+ *          Modules.empty
+ *     @@ Array.to_list
+ *     @@ Js.to_array datasets_js
+ *   in
+ *   let items =
+ *     List.map
+ *       (fun (id, datasets) ->
+ *         let datasets =
+ *           List.sort
+ *             (fun a b -> Int.neg @@ compare (order_of_dataset a) (order_of_dataset b))
+ *             datasets
+ *         in
+ *         make_modules_row chart id datasets datasets_js)
+ *       modules
+ *   in
+ *   let s = Format.asprintf "%a" (Tyxml.Html.pp_elt ()) (make_legend_items items) in
+ *   Js.string s *)
 
 let make_options ~x_axes ~y_axes config =
   let open Chartjs in
@@ -276,7 +301,8 @@ let make_dataset id src structures data =
 let make_datasets init (sources : data_source list) (structures : Structure.Annotated.t) =
   let map id (src : data_source) =
     let data =
-      List.find_opt (fun (src', _) -> equal_data_source src src') init |> function
+      List.find_opt (fun (src', _) -> equal_data_source src src') init
+      |> function
       | None -> [||]
       | Some (_, x) -> x
     in
@@ -325,6 +351,7 @@ class t
     method notify : event -> unit =
       function
       (* TODO add structures and state update *)
+      | `Structures structures -> self#update_structures structures
       | `Data data -> self#handle_new_data data
 
     method clear () : unit =
@@ -394,4 +421,24 @@ let make init structures config =
       Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
       @@ div ~a:[ a_class [ CSS.root ] ] [ canvas [] ])
   in
+  new t init structures config elt
+
+let attach ?duration ?typ ~init ~structures (elt : Dom_html.element Js.t) : t =
+  let duration =
+    match duration with
+    | Some x -> x
+    | None ->
+        Option.value ~default:Const.default_duration
+        @@ Option.bind (Element.get_attribute elt Attr.data_duration) duration_of_string
+  in
+  let typ =
+    match typ with
+    | Some x -> x
+    | None ->
+        Option.value ~default:`Black
+        @@ Option.bind
+             (Element.get_attribute elt Attr.data_typ)
+             Util.measure_typ_of_string
+  in
+  let config = { duration; typ; sources = []; settings = None } in
   new t init structures config elt
