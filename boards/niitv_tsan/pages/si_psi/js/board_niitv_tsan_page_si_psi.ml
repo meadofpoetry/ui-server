@@ -1,6 +1,7 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
 open Application_types
+open Ui_templates
 open Components
 open Board_niitv_tsan_types
 open Board_niitv_tsan_http_js

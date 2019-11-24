@@ -7,7 +7,7 @@ BUILD_DIR = ../css
 	$(POSTCSS) $@
 	mv $@ $(BUILD_DIR)/$(@F)
 
-all: components main boards pages
+all: components main boards pages ui-templates
 
 main: ./main.min.css
 
@@ -17,6 +17,8 @@ ui-templates: ./ui-templates/ui-templates.min.css
 
 boards: ./frontend/boards/board-niitv-dvb4ch/board-niitv-dvb4ch.min.css \
 				./boards/board-niitv-tsan/board-niitv-tsan.min.css
+
+pipeline: ./frontend/pipeline/pipeline.min.css
 
 pages:  ./frontend/page-input/page-input.min.css \
 				./frontend/page-mosaic-editor/page-mosaic-editor.min.css \

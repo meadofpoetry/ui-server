@@ -18,6 +18,7 @@
          (board-niitv-dvb4ch.min.css as css/board-niitv-dvb4ch.min.css)
          (board-niitv-dvb4ch-page-input.min.css as css/board-niitv-dvb4ch-page-input.min.css)
          (board-niitv-tsan.min.css as css/board-niitv-tsan.min.css)
-         (board-niitv-tsan-page-input.min.css as css/board-niitv-tsan-page-input.min.css))
+         (board-niitv-tsan-page-input.min.css as css/board-niitv-tsan-page-input.min.css)
+         (pipeline.min.css as css/pipeline.min.css))
   (section share)
   (package ui-server))

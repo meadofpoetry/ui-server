@@ -2,7 +2,7 @@ open Application_types
 open Components_tyxml
 
 module CSS = struct
-  let root = Util.CSS.root ^ "-stream-select"
+  let root = "stream-select"
 
   let label = BEM.add_element root "label"
 

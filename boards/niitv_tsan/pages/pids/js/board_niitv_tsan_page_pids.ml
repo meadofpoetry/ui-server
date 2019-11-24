@@ -5,6 +5,7 @@ open Board_niitv_tsan_types
 open Board_niitv_tsan_widgets
 open Board_niitv_tsan_http_js
 open Components
+open Ui_templates
 include Board_niitv_tsan_page_pids_tyxml
 module D = Make (Impl.Xml) (Impl.Svg) (Impl.Html)
 module R = Make (Impl.R.Xml) (Impl.R.Svg) (Impl.R.Html)
@@ -155,6 +156,7 @@ let on_visible ~input (elt : Dom_html.element Js.t) (state : state) control =
       (fun () ->
         Dom.removeChild elt page#root;
         page#destroy ();
+        S.stop ~strong:true hex;
         S.stop ~strong:true stream;
         E.stop ~strong:true notif;
         fin ());
