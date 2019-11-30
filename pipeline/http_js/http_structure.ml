@@ -23,6 +23,30 @@ module Event = struct
       sock
 end
 
+let get_streams  ?(inputs = []) ?(ids = []) () =
+  Api_http.perform
+    ~meth:`GET
+    ~path:Path.Format.("api/pipeline/streams" @/ empty)
+    ~query:
+      Query.
+        [ "id", (module List (Application_types.Stream.ID))
+        ; "input", (module List (Application_types.Topology.Show_topo_input)) ]
+    ids
+    inputs
+    (fun _env -> function
+      | Error e -> Lwt.return_error e
+      | Ok x -> (
+        let res =
+          x 
+          |> Util_json.(List.of_yojson
+                          (Pair.of_yojson
+                             Netlib.Uri.of_yojson
+                             Application_types.Stream.of_yojson))
+        in
+        match res with
+        | Error e -> Lwt.return_error (`Msg e)
+        | Ok x -> Lwt.return_ok x))
+
 let get_annotated () =
   Api_http.perform
     ~meth:`GET

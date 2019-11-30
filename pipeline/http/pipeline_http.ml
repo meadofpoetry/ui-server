@@ -92,7 +92,17 @@ let handlers (state : Pipeline_protocol.Protocol.state) =
   [ merge
       ~prefix:"pipeline"
       [ make
-          ~prefix:"structures"
+          ~prefix:"streams"
+          [ node
+              ~doc:"List of streams"
+              ~meth:`GET
+              ~path:Path.Format.empty
+              ~query:Query.[ "id", (module List (Stream.ID))
+                           ; "input", (module List (Topology.Show_topo_input))
+            ]
+              (Pipeline_api.get_streams state)
+          ]
+      ; make ~prefix:"structures"
           [ node
               ~doc:"Annotated structures"
               ~meth:`GET
