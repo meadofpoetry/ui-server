@@ -2,6 +2,8 @@
 @import "@material/layout-grid/variables";
 @import "@material/top-app-bar/variables";
 @import "@material/tab/variables";
+@import "@material/elevation/mixins";
+@import "@material/card/mixins";
 
 $screen-width-desktop: map-get($mdc-layout-grid-breakpoints, desktop);
 
@@ -29,4 +31,11 @@ $screen-width-desktop: map-get($mdc-layout-grid-breakpoints, desktop);
 
 main.mdc-scaffold__app-content--inner {
     overflow-x: hidden;
+}
+
+.mdc-tabbed-page__content > .mdc-layout-grid__inner > .mdc-layout-grid__cell {
+    @include mdc-theme-prop(background-color, surface);
+    @include mdc-card-shape-radius(medium);
+    @include mdc-card-fill-color(surface);
+    @include mdc-elevation(1);
 }

@@ -11,10 +11,3 @@
 .board-niitv-tsan-pid-summary {
     margin: 1rem;
 }
-
-.mdc-layout-grid__cell {
-    @include mdc-theme-prop(background-color, surface);
-    @include mdc-card-shape-radius(medium);
-    @include mdc-card-fill-color(surface);
-    @include mdc-elevation(1);
-}

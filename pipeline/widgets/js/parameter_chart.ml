@@ -20,7 +20,7 @@ end
 
 type widget_config =
   { duration : Time.Period.t
-  ; typ : typ
+  ; typ : Util.measure_typ
   ; sources : data_source list
   ; settings : widget_settings option
   }
@@ -34,44 +34,15 @@ and service_filter =
 
 and data_source =
   { stream : Stream.ID.t
-  ; service : int
+  ; channel : int
   ; pid : int
   }
 [@@deriving eq, yojson]
 
-and typ =
-  [ `Black
-  | `Luma
-  | `Freeze
-  | `Diff
-  | `Blocky
-  | `Shortt
-  | `Moment
-  ]
-
 type event =
-  [ `Data of (data_source * kind) list
+  [ `Data of (data_source * Qoe_errors.point array) list
   | `Structures of Structure.Annotated.t
   ]
-
-and kind =
-  [ `Video of Qoe_errors.Video_data.data
-  | `Audio of Qoe_errors.Audio_data.data
-  ]
-
-let filter_data typ (data : (data_source * kind) list) =
-  List.filter_map
-    (fun (src, kind) ->
-      match typ, (kind : kind) with
-      | `Black, `Video x -> Some (src, x.black)
-      | `Luma, `Video x -> Some (src, x.luma)
-      | `Freeze, `Video x -> Some (src, x.freeze)
-      | `Diff, `Video x -> Some (src, x.diff)
-      | `Blocky, `Video x -> Some (src, x.blocky)
-      | `Shortt, `Audio x -> Some (src, x.shortt)
-      | `Moment, `Audio x -> Some (src, x.moment)
-      | _ -> None)
-    data
 
 let sort_data (data : (data_source * Qoe_errors.point array) list) =
   List.map
@@ -84,7 +55,7 @@ let colors =
   Random.init 255;
   Array.init 100 (fun _ -> Random.int 255, Random.int 255, Random.int 255)
 
-let get_suggested_range : typ -> float * float = function
+let get_suggested_range : Util.measure_typ -> float * float = function
   | `Black -> 0.0, 100.0
   | `Luma -> 16.0, 235.0
   | `Freeze -> 0.0, 100.0
@@ -92,7 +63,7 @@ let get_suggested_range : typ -> float * float = function
   | `Blocky -> 0.0, 100.0
   | `Shortt | `Moment -> -40., 0.
 
-let interpolate : typ -> Qoe_errors.point array -> float =
+let interpolate : Util.measure_typ -> Qoe_errors.point array -> float =
  fun typ arr ->
   let f =
     match typ with
@@ -135,7 +106,7 @@ let data_source_to_string (structures : Structure.Annotated.t) (src : data_sourc
   | Some (_, { channels; _ }) -> (
       match
         List.find_opt
-          (fun (_, (x : Annotated.channel)) -> src.service = x.number)
+          (fun (_, (x : Annotated.channel)) -> src.channel = x.number)
           channels
       with
       | None -> ""
@@ -148,15 +119,6 @@ let data_source_to_string (structures : Structure.Annotated.t) (src : data_sourc
                 channel.service_name
                 pid.pid
                 pid.stream_type_name))
-
-let typ_to_content : typ -> [ `Video | `Audio ] = function
-  | `Black | `Luma | `Freeze | `Diff | `Blocky -> `Video
-  | `Shortt | `Moment -> `Audio
-
-let typ_to_unit_string : typ -> string = function
-  | `Black | `Freeze | `Blocky -> "%"
-  | `Luma | `Diff -> ""
-  | `Shortt | `Moment -> "LUFS"
 
 let get_duration_ms config =
   int_of_float @@ (Ptime.Span.to_float_s config.duration *. 1000.)
@@ -203,7 +165,7 @@ let make_x_axis ?(id = "x-axis") () : Chartjs.timeAxis Js.t =
 let make_y_axis ?(id = "y-axis") (config : widget_config) : Chartjs.linearAxis Js.t =
   let open Chartjs in
   let min, max = get_suggested_range config.typ in
-  let unit = typ_to_unit_string config.typ in
+  let unit = Util.measure_typ_to_unit_string config.typ in
   let scale_label = empty_scale_label () in
   scale_label##.display := Js._true;
   scale_label##.labelString := Js.string unit;
@@ -221,6 +183,7 @@ let make_streaming config =
   let duration = get_duration_ms config in
   let streaming = Chartjs_streaming.empty_streaming_config () in
   streaming##.delay := Const.delay;
+  streaming##.frameRate := 1.;
   (* streaming##.ttl := Js.def (ttl_of_delay ~duration Const.delay); *)
   streaming##.duration := duration;
   streaming
@@ -257,8 +220,46 @@ let make_streaming config =
  *   let s = Format.asprintf "%a" (Tyxml.Html.pp_elt ()) (make_legend_items items) in
  *   Js.string s *)
 
+let strip str = Str.replace_first (Str.regexp "0+$") "" str
+
+let format_float ?(decimals = 3) ?(strip_zero = false) (v : float) =
+  match String.split_on_char '.' (Printf.sprintf "%.*f" decimals v) with
+  | [ s ] -> s
+  | [ left; right ] -> (
+      let right = if strip_zero then strip right else right in
+      match right with
+      | "" -> left
+      | _ -> left ^ "." ^ right)
+  | _ -> assert false
+
+let format_value (v : float) (config : widget_config) : string =
+  let unit = Util.measure_typ_to_unit_string config.typ in
+  Printf.sprintf "%s %s" (format_float v) unit
+
+let tooltip_callback config _ (item : Chartjs.tooltipItem Js.t) (data : Chartjs.data Js.t)
+    =
+  let ds_index = item##.datasetIndex in
+  let dataset = Js.array_get data##.datasets ds_index in
+  let text =
+    Js.Optdef.case
+      dataset
+      (fun () -> "")
+      (fun dataset ->
+        let (dataset : _ Chartjs.lineDataset Js.t) = Js.Unsafe.coerce dataset in
+        Js.Optdef.case
+          (Js.array_get dataset##.data item##.index)
+          (fun () -> "")
+          (fun v ->
+            Printf.sprintf
+              "%s: %s"
+              (Js.to_string dataset##.label)
+              (format_value v##.y config)))
+  in
+  Chartjs.Indexable.of_single @@ Js.string text
+
 let make_options ~x_axes ~y_axes config =
   let open Chartjs in
+  let callbacks = empty_tooltip_callbacks () in
   let tooltips = empty_tooltip () in
   let scales = empty_line_scales () in
   let animation = empty_animation () in
@@ -268,6 +269,8 @@ let make_options ~x_axes ~y_axes config =
   plugins##.streaming := make_streaming config;
   plugins##.datalabels := Js._false;
   animation##.duration := 0;
+  callbacks##.label := Js.def @@ Js.wrap_meth_callback (tooltip_callback config);
+  tooltips##.callbacks := callbacks;
   tooltips##.mode := Interaction_mode.index;
   tooltips##.intersect := Js._false;
   scales##.xAxes := Js.array @@ Array.of_list x_axes;
@@ -348,6 +351,8 @@ class t
 
     method chart : Chartjs.lineChart Js.t = Option.get chart
 
+    method typ : Util.measure_typ = config.typ
+
     method notify : event -> unit =
       function
       (* TODO add structures and state update *)
@@ -355,8 +360,9 @@ class t
       | `Data data -> self#handle_new_data data
 
     method clear () : unit =
-      let datasets = Array.to_list @@ Js.to_array self#chart##.data##.datasets in
-      List.iter (fun ds -> ds##.data := Js.array [||]) datasets
+      self#chart##.data##.datasets := Js.array [||];
+      datasets <- [];
+      self#update_chart ()
 
     method private update_structures (structures : Structure.Annotated.t) : unit =
       List.iter
@@ -381,8 +387,8 @@ class t
                   delay <- Some delay_ms;
                   streaming##.delay := delay_ms)
 
-    method private handle_new_data (data : (data_source * kind) list) =
-      let sorted = filter_data config.typ data |> sort_data in
+    method private handle_new_data (data : (data_source * Qoe_errors.point array) list) =
+      let sorted = sort_data data in
       self#update_delay sorted;
       let converted = convert_data config sorted in
       List.iter

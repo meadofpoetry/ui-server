@@ -7,6 +7,18 @@ type measure_typ =
   | `Shortt
   | `Moment
   ]
+[@@deriving yojson]
+
+let equal_measure_typ a b =
+  match a, b with
+  | `Black, `Black -> true
+  | `Luma, `Luma -> true
+  | `Freeze, `Freeze -> true
+  | `Diff, `Diff -> true
+  | `Blocky, `Blocky -> true
+  | `Shortt, `Shortt -> true
+  | `Moment, `Moment -> true
+  | _ -> false
 
 let measure_typ_to_string : measure_typ -> string = function
   | `Black -> "black"
@@ -35,3 +47,8 @@ let measure_typ_to_human_string : measure_typ -> string = function
   | `Blocky -> "Блочность"
   | `Shortt -> "Громкость (short term)"
   | `Moment -> "Громкость (momentary)"
+
+let measure_typ_to_unit_string : measure_typ -> string = function
+  | `Black | `Freeze | `Blocky -> "%"
+  | `Luma | `Diff -> ""
+  | `Shortt | `Moment -> "LUFS"
