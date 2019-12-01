@@ -110,6 +110,24 @@ module Demo = struct
         } )
     ]
 
+  let tables : (SI_PSI_table.id * SI_PSI_table.t) list =
+    [ ( { table_id = 10
+        ; table_id_ext = 10
+        ; id_ext_1 = 0
+        ; id_ext_2 = 0
+        ; section_syntax = true
+        }
+      , { pid = 1234
+        ; version = 20
+        ; service_id = None
+        ; service_name = None
+        ; last_section = 2
+        ; eit_segment_lsn = 0
+        ; eit_last_table_id = 0
+        ; sections = []
+        } )
+    ]
+
   let structure : Structure.t =
     { info =
         { complete = true
@@ -122,7 +140,7 @@ module Demo = struct
         ; bouquet_name = "bar"
         }
     ; services
-    ; tables = []
+    ; tables
     ; pids
     ; timestamp = Ptime_clock.now ()
     }

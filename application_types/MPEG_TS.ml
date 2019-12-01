@@ -112,11 +112,11 @@ module ETR290_error = struct
 
   let priority : t -> int = function
     | Sync_loss | Sync_byte_error | PAT_error | CC_error | PMT_error | PID_error -> 1
-    | Transport_error | CRC_error | PCR_error | PCR_accuracy_error | PTS_error
-     |CAT_error ->
+    | Transport_error | CRC_error | PCR_error | PCR_accuracy_error | PTS_error | CAT_error
+      ->
         2
     | NIT_error | SI_repetition_error | Unreferenced_pid | SDT_error | EIT_error
-     |RST_error | TDT_error ->
+    | RST_error | TDT_error ->
         3
 
   let name : t -> string = function
@@ -178,15 +178,18 @@ module SI_PSI = struct
     | `TOT
     | `DIT
     | `SIT
-    | `Unknown of int ]
+    | `Unknown of int
+    ]
 
   and ao =
     [ `Actual
-    | `Other ]
+    | `Other
+    ]
 
   and ps =
     [ `Present
-    | `Schedule ]
+    | `Schedule
+    ]
 
   let of_table_id : int -> t = function
     | 0x00 -> `PAT
@@ -222,7 +225,7 @@ module SI_PSI = struct
     | `TOT -> "TOT"
     | `DIT -> "DIT"
     | `SIT -> "SIT"
-    | `Unknown x -> Printf.sprintf "Unknown (0x%02X)" x
+    | `Unknown _ -> "Unknown"
     | `NIT x -> (
         if short
         then "NIT"
@@ -258,13 +261,14 @@ module PID = struct
       | Private
       | Null
 
-    and emm = {ca_sys_id : int}
+    and emm = { ca_sys_id : int }
 
     and ecm = emm
 
     and pes =
       { stream_type : int
-      ; stream_id : int }
+      ; stream_id : int
+      }
     [@@deriving yojson, eq, show, ord]
 
     let to_string : t -> string = function

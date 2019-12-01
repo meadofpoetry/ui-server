@@ -74,11 +74,11 @@ struct
                     ]))
              specific))
 
-  let id_ext_fmt ?(get_attribute = fun _ -> assert false) ~hex () =
+  let id_ext_fmt ?(get_attribute = fun _ _ -> None) ~hex () =
     Fmt.Custom_elt
       { is_numeric = false
       ; compare = SI_PSI_table.compare_id
-      ; to_elt = create_table_id_ext ~hex
+      ; to_elt = (fun x -> create_table_id_ext ~hex x)
       ; of_elt =
           (fun elt ->
             match get_attribute elt "data-id" with
@@ -102,12 +102,13 @@ struct
     let pid_fmt = fmap (fun hex -> pid_fmt ~hex) hex in
     let pct_fmt = return (Fmt.Option (pct_fmt, "-")) in
     let br_fmt = return (Fmt.Option (br_fmt, "-")) in
-    let id_ext_fmt = fmap (fun hex -> id_ext_fmt ?get_attribute ~hex ()) hex in
+    (* FIXME here react fails with `compare: functional value` *)
+    (* let id_ext_fmt = fmap (fun hex -> id_ext_fmt ?get_attribute ~hex ()) hex in *)
     Fmt.
       [ make_column ~sortable:true ~title:(return "ID") pid_fmt
       ; make_column ~sortable:true ~title:(return "PID") pid_fmt
       ; make_column ~sortable:true ~title:(return "Имя") (return String)
-      ; make_column ~title:(return "Доп. инфо") id_ext_fmt
+        (* ; make_column ~title:(return "Доп. инфо") id_ext_fmt *)
       ; make_column ~sortable:true ~title:(return "Версия") (return Int)
       ; make_column
           ~sortable:true
@@ -127,8 +128,7 @@ struct
     Fmt.
       [ return id.table_id
       ; return info.pid
-      ; return ""
-      ; return id
+      ; return MPEG_TS.SI_PSI.(name (of_table_id id.table_id)) (* ; return id *)
       ; return info.version
       ; return info.service_name
       ; return (List.length info.sections)
@@ -173,11 +173,12 @@ struct
   let create
       ?a
       ?dense
+      ?get_attribute
       ?(hex = return false)
       ?(bitrate = return None)
       ?(init = nil ())
       ~control =
-    let format = create_table_format ~hex () in
+    let format = create_table_format ?get_attribute ~hex () in
     let rows =
       Xml.W.map
         (fun ((id, _) as x) ->
@@ -200,7 +201,7 @@ struct
       ?dense
       ~hex
       ~title:(return "Список таблиц SI/PSI")
-      ~format:(create_table_format ())
+      ~format
       ~rows
       ~control
 end

@@ -126,7 +126,14 @@ let on_visible ~input (elt : Dom_html.element Js.t) (state : state) control =
     let hex, set_hex = S.create false in
     let stream_select = Stream_select.R.create ~streams () in
     let si_psi_overview =
-      Si_psi_overview.R.create ~hex ~init:(RList.from_signal s_data) ~bitrate ~control ()
+      Si_psi_overview.R.create
+        ~get_attribute:(fun elt attr ->
+          Element.get_attribute (Tyxml_js.To_dom.of_element elt) attr)
+        ~hex
+        ~init:(RList.from_signal s_data)
+        ~bitrate
+        ~control
+        ()
     in
     let page =
       attach ~set_stream ~set_hex
