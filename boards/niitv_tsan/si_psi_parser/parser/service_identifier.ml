@@ -2,5 +2,4 @@
 
 let name = "service_identifier_descriptor"
 
-let parse bs off =
-  Bytes.parse ~offset:off bs "textual_service_identifier_bytes"
+let parse bs off = Bytes.parse ~offset:off bs "textual_service_identifier_bytes"

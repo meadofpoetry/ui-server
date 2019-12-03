@@ -44,25 +44,28 @@ type data = (int * Measure.t ts list) list
 type event =
   [ `Data of data
   | `Mode of (int * Device.mode) list
-  | `State of Topology.state ]
+  | `State of Topology.state
+  ]
 
 type widget_config =
   { sources : int list
   ; typ : Util.measure_type
-  ; settings : widget_settings }
+  ; settings : widget_settings
+  }
 
 and widget_settings =
   { range : (float * float) option
-  ; period : period }
+  ; period : period
+  }
 
 and period =
   [ `Realtime of Time.Period.t
-  | `Archive of Time.Range.t ]
+  | `Archive of Time.Range.t
+  ]
 [@@deriving yojson, eq]
 
-let make_config ?(sources = []) ?range ?(period = `Realtime (Time.Span.of_int_s 60)) typ
-    =
-  {sources; typ; settings = {range; period}}
+let make_config ?(sources = []) ?range ?(period = `Realtime (Time.Span.of_int_s 60)) typ =
+  { sources; typ; settings = { range; period } }
 
 let reds =
   [| "#b10c1d"
@@ -72,15 +75,16 @@ let reds =
    ; "#e35745"
    ; "#f57667"
    ; "#f89a90"
-   ; "#eac0bd" |]
+   ; "#eac0bd"
+  |]
 
-let blues = [|"#2171b5"; "#4292c6"; "#6baed6"; "#9ecae1"; "#c6dbef"|]
+let blues = [| "#2171b5"; "#4292c6"; "#6baed6"; "#9ecae1"; "#c6dbef" |]
 
-let greens = [|"#1a7232"; "#27823b"; "#339444"; "#69a761"; "#94bb83"; "#bccfb4"|]
+let greens = [| "#1a7232"; "#27823b"; "#339444"; "#69a761"; "#94bb83"; "#bccfb4" |]
 
-let purples = [|"#6a51a3"; "#807dba"; "#9e9ac8"; "#bcbddc"; "#dadaeb"|]
+let purples = [| "#6a51a3"; "#807dba"; "#9e9ac8"; "#bcbddc"; "#dadaeb" |]
 
-let colors = [|reds; blues; greens; purples|]
+let colors = [| reds; blues; greens; purples |]
 
 let id_of_dataset (ds : _ Chartjs.lineDataset Js.t) : int = (Js.Unsafe.coerce ds)##.id
 
@@ -120,7 +124,7 @@ let format_value (v : float) (config : widget_config) : string =
 
 let format_module id = Printf.sprintf "Модуль %d" @@ succ id
 
-let format_config {Device.standard; channel = {bw; freq; plp}} =
+let format_config { Device.standard; channel = { bw; freq; plp } } =
   let std = Device.standard_to_string ~full:true standard in
   let frq = Util.freq_to_string freq in
   let bw = Util.bw_to_string bw in
@@ -188,12 +192,12 @@ let make_x_axis ?(id = "x-axis") (config : widget_config) =
     | `Archive _ -> Js.string "time"
   in
   let axis = empty_time_axis () in
+  axis##._type := axis_type;
   axis##.id := Js.string id;
   axis##.time := time;
   axis##.ticks := ticks;
   axis##.scaleLabel := scale_label;
   axis##.position := Position.bottom;
-  axis##._type := axis_type;
   axis
 
 module Modules = Map.Make (Int)
@@ -229,8 +233,9 @@ let make_module_elt
   let classes = CSS.legend_module :: classes in
   td
     [ span
-        ~a:([a_class classes; a_user_data "datasets" datasets] @ attrs)
-        [txt @@ format_module id] ]
+        ~a:([ a_class classes; a_user_data "datasets" datasets ] @ attrs)
+        [ txt @@ format_module id ]
+    ]
 
 let make_dataset_elt
     ?(classes = [])
@@ -265,10 +270,12 @@ let make_dataset_elt
     ~a:
       ([ a_class classes
        ; a_user_data "datasets" @@ string_of_int (id_of_dataset dataset)
-       ; a_user_data "order" (string_of_int order) ]
+       ; a_user_data "order" (string_of_int order)
+       ]
       @ attrs)
-    [ span ~a:[a_class [CSS.legend_color]; a_style color_style] []
-    ; txt (Js.to_string dataset##.label) ]
+    [ span ~a:[ a_class [ CSS.legend_color ]; a_style color_style ] []
+    ; txt (Js.to_string dataset##.label)
+    ]
 
 let make_modules_row chart id datasets datasets_js =
   let open Tyxml.Html in
@@ -279,12 +286,13 @@ let make_modules_row chart id datasets datasets_js =
            (fun dataset ->
              let index = (Js.Unsafe.coerce datasets_js)##indexOf dataset in
              make_dataset_elt chart index dataset)
-           datasets) ]
+           datasets)
+    ]
 
 let make_legend_items ?(classes = []) ?(attrs = []) rows =
   let open Tyxml.Html in
   let classes = CSS.legend :: classes in
-  table ~a:([a_class classes] @ attrs) rows
+  table ~a:([ a_class classes ] @ attrs) rows
 
 let legend_callback (chart : Chartjs.chart Js.t) =
   let (datasets_js : _ Chartjs.lineDataset Js.t Js.js_array Js.t) =
@@ -297,7 +305,7 @@ let legend_callback (chart : Chartjs.chart Js.t) =
            Modules.update
              (id_of_dataset dataset)
              (function
-               | None -> Some [dataset]
+               | None -> Some [ dataset ]
                | Some datasets -> Some (dataset :: datasets))
              acc)
          Modules.empty
@@ -349,11 +357,8 @@ let make_streaming generate_legend period =
              generate_legend ()));
   streaming
 
-let tooltip_callback
-    config
-    _
-    (item : Chartjs.tooltipItem Js.t)
-    (data : Chartjs.data Js.t) =
+let tooltip_callback config _ (item : Chartjs.tooltipItem Js.t) (data : Chartjs.data Js.t)
+    =
   let ds_index = item##.datasetIndex in
   let dataset = Js.array_get data##.datasets ds_index in
   let text =
@@ -421,7 +426,7 @@ let make_dataset src data (mode : Device.mode) =
   dataset
 
 let convert_data (typ : Util.measure_type) (data : Measure.t ts list) =
-  List.map (fun ({data; timestamp} : Measure.t ts) ->
+  List.map (fun ({ data; timestamp } : Measure.t ts) ->
       let float_of_option = function
         | Some x -> x
         | None -> nan
@@ -448,17 +453,14 @@ let get_timestamp data =
   let rec aux = function
     | [] -> None
     | (_, hd) :: tl -> (
-      match hd with
-      | [] -> aux tl
-      | {timestamp; _} :: _ -> Some timestamp)
+        match hd with
+        | [] -> aux tl
+        | { timestamp; _ } :: _ -> Some timestamp)
   in
   aux data
 
-let make_datasets
-    typ
-    (init : data)
-    (mode : (int * Device.mode) list)
-    (sources : int list) =
+let make_datasets typ (init : data) (mode : (int * Device.mode) list) (sources : int list)
+    =
   let sources =
     match sources with
     | [] -> mode
@@ -495,7 +497,7 @@ class t ~init ~mode (config : widget_config) (elt : Dom_html.element Js.t) =
       let x_axis = make_x_axis config in
       let y_axis = make_y_axis config in
       let options =
-        make_options ~x_axes:[x_axis] ~y_axes:[y_axis] self#generate_legend config
+        make_options ~x_axes:[ x_axis ] ~y_axes:[ y_axis ] self#generate_legend config
       in
       let data = Chartjs.empty_data () in
       let datasets = make_datasets config.typ init mode config.sources in
@@ -505,8 +507,13 @@ class t ~init ~mode (config : widget_config) (elt : Dom_html.element Js.t) =
       super#init ()
 
     method! initial_sync_with_dom () : unit =
-      listeners <- Js_of_ocaml_lwt.Lwt_js_events.[clicks legend self#handle_legend_click];
+      listeners <-
+        Js_of_ocaml_lwt.Lwt_js_events.[ clicks legend self#handle_legend_click ];
       super#initial_sync_with_dom ()
+
+    method! layout () : unit =
+      self#chart##render;
+      super#layout ()
 
     method! destroy () : unit =
       Option.iter (fun x -> x##destroy) chart;
@@ -557,7 +564,7 @@ class t ~init ~mode (config : widget_config) (elt : Dom_html.element Js.t) =
         @@ List.map
              (fun (src, mode) ->
                match List.find_all (fun ds -> id_of_dataset ds = src) datasets with
-               | [] -> [make_dataset src [] mode]
+               | [] -> [ make_dataset src [] mode ]
                | datasets ->
                    let created = aux mode false datasets in
                    if created then datasets else make_dataset src [] mode :: datasets)
@@ -580,9 +587,7 @@ class t ~init ~mode (config : widget_config) (elt : Dom_html.element Js.t) =
                   let now = Ptime_clock.now () in
                   let delay_s = Ptime.Span.to_float_s (Ptime.diff now timestamp) in
                   let delay_ms = Const.delay + int_of_float (1000. *. delay_s) in
-                  let ttl =
-                    ttl_of_delay ~duration:(duration_of_period period) delay_ms
-                  in
+                  let ttl = ttl_of_delay ~duration:(duration_of_period period) delay_ms in
                   delay <- Some delay_ms;
                   streaming##.ttl := Js.def ttl;
                   streaming##.delay := delay_ms)
@@ -653,9 +658,12 @@ let make
     Js_of_ocaml_tyxml.Tyxml_js.Html.(
       Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
       @@ div
-           ~a:[a_class [CSS.root]]
-           [ div ~a:[a_class [CSS.title]] [txt (Util.measure_type_to_string config.typ)]
-           ; div ~a:[a_class [CSS.legend_wrapper]] []
-           ; div ~a:[a_class [CSS.chart_wrapper]] [canvas []] ])
+           ~a:[ a_class [ CSS.root ] ]
+           [ div
+               ~a:[ a_class [ CSS.title ] ]
+               [ txt (Util.measure_type_to_string config.typ) ]
+           ; div ~a:[ a_class [ CSS.legend_wrapper ] ] []
+           ; div ~a:[ a_class [ CSS.chart_wrapper ] ] [ canvas [] ]
+           ])
   in
   new t ~init ~mode config elt

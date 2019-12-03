@@ -1,4 +1,5 @@
 type t = dvb_t2
+
 and dvb_t2 =
   { lock : bool
   ; fft : int
@@ -28,5 +29,5 @@ and dvb_t2 =
   ; rotation : bool
   ; fec_sz : int
   ; fec_block_num : int
-  ; in_band_flag : bool
-  } [@@deriving yojson, eq, show]
+  ; in_band_flag : bool }
+[@@deriving yojson, eq, show]

@@ -10,11 +10,13 @@ module Event = struct
 end
 
 let get_status (api : Protocol.api) timeout _user _body _env _state =
-  let timeout = match timeout with
+  let timeout =
+    match timeout with
     | None -> 3. *. Fsm.status_interval
-    | Some x -> (float_of_int x) /. 1000. in
+    | Some x -> float_of_int x /. 1000.
+  in
   Lwt.pick
-    [ (Boards.Board.await_no_response api.notifs.state >>= not_responding)
-    ; (Util_react.E.next api.notifs.status >>= Lwt.return_ok)
+    [ Boards.Board.await_no_response api.notifs.state >>= not_responding
+    ; Util_react.E.next api.notifs.status >>= Lwt.return_ok
     ; (Lwt_unix.sleep timeout >>= fun () -> Lwt.return_error Request.Timeout) ]
   >>=? return_value % status_to_yojson

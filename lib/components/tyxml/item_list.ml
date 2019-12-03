@@ -72,109 +72,202 @@ end
 module Role = struct
   module Item = struct
     let option = "option"
+
     let radio = "radio"
+
     let checkbox = "checkbox"
   end
+
   let listbox = "listbox"
+
   let radiogroup = "radiogroup"
+
   let group = "group"
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap
-     with module Xml := Xml
-      and module Svg := Svg) = struct
+module Make
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
+struct
+  open Xml.W
   open Html
-  open Utils
 
-  let create_divider ?(classes = []) ?(attrs = [])
-      ?(padded = false) ?(inset = false) ~tag () : 'a elt =
-    let (classes : string list) =
-      classes
-      |> cons_if inset CSS.divider_inset
-      |> cons_if padded CSS.divider_padded
-      |> List.cons CSS.divider in
-    tag ~a:([ a_class classes
-            ; a_role ["separator"]
-            ]
-            @ attrs) []
+  let ( % ) f g x = f (g x)
 
-  let create_item_primary_text ?(classes = []) ?(attrs = []) text () : 'a elt =
-    let classes = CSS.item_primary_text :: classes in
-    span ~a:([a_class classes] @ attrs) [txt text]
+  let ( @:: ) = cons
 
-  let create_item_secondary_text ?(classes = []) ?(attrs = []) text () : 'a elt =
-    let classes = CSS.item_secondary_text :: classes in
-    span ~a:([a_class classes] @ attrs) [txt text]
+  let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
 
-  let create_item_text ?(classes = []) ?(attrs = []) content () : 'a elt =
-    let classes = CSS.item_text :: classes in
-    span ~a:([a_class classes] @ attrs) content
-
-  let create_item ?(classes = []) ?(attrs = []) ?graphic ?meta ?role
-      ?tabindex ?(activated = false) ?selected ?checked
-      text () : 'a elt =
+  let list_divider
+      ?(classes = return [])
+      ?(a = [])
+      ?(padded = false)
+      ?(inset = false)
+      ~(tag : ?a:'a attrib list -> 'b -> 'c elt)
+      (children : 'b) =
     let classes =
-      classes
-      |> cons_if activated CSS.item_activated
-      |> cons_if (match selected with None -> false | Some x -> x)
-        (if activated then CSS.item_activated else CSS.item_selected)
-      |> List.cons CSS.item in
-    li ~a:([a_class classes]
-           @ attrs
-           |> map_cons_option (fun b -> a_aria "checked" [string_of_bool b]) checked
-           |> map_cons_option (fun b -> a_aria "selected" [string_of_bool b]) selected
-           |> map_cons_option a_tabindex tabindex
-           |> map_cons_option (fun x -> a_role [x]) role)
-      (graphic ^:: (text :: (meta ^:: [])))
+      fmap
+        (Utils.cons_if inset CSS.divider_inset
+        % Utils.cons_if padded CSS.divider_padded
+        % List.cons CSS.divider)
+        classes
+    in
+    tag ~a:(a_class classes :: a_role (return ["separator"]) :: a) children
 
-  let create_item' ?(classes = [])
-      ?(attrs = [])
-      ?graphic ?meta ?role
-      ?tabindex ?(activated = false) ?selected ?checked
-      ~text
-      (tag : ?a:'b Html.attrib list -> 'c list -> 'a Html.elt) : 'a elt =
+  let list_divider_li ?classes ?a ?padded ?inset ?(children = nil ()) () =
+    list_divider ?classes ?a ?padded ?inset ~tag:li children
+
+  let list_divider_hr ?classes ?a ?padded ?inset () =
+    list_divider ?classes ?a ?padded ?inset ~tag:hr ()
+
+  let list_item_primary_text
+      ?(classes = return [])
+      ?(a = [])
+      ?label
+      ?(children = nil ())
+      () =
+    let classes = fmap (List.cons CSS.item_primary_text) classes in
+    let children =
+      match label with
+      | None -> children
+      | Some x -> return (txt x) @:: children
+    in
+    span ~a:(a_class classes :: a) children
+
+  let list_item_secondary_text
+      ?(classes = return [])
+      ?(a = [])
+      ?label
+      ?(children = nil ())
+      () =
+    let classes = fmap (List.cons CSS.item_secondary_text) classes in
+    let children =
+      match label with
+      | None -> children
+      | Some x -> return (txt x) @:: children
+    in
+    span ~a:(a_class classes :: a) children
+
+  let list_item_text
+      ?(classes = return [])
+      ?(a = [])
+      ?(force_wrap = false)
+      ?primary_text
+      ?secondary_text
+      () =
+    let force_wrap = if Option.is_some secondary_text then true else force_wrap in
+    let primary_text =
+      match primary_text with
+      | None -> list_item_primary_text ~label:(return "") ()
+      | Some (`Text s) ->
+          if force_wrap then list_item_primary_text ~label:s () else txt s
+      | Some (`Element e) -> e
+    in
+    if force_wrap
+    then
+      let classes = fmap (List.cons CSS.item_text) classes in
+      let children =
+        match secondary_text with
+        | None -> singleton (return primary_text)
+        | Some (`Text s) ->
+            cons
+              (return primary_text)
+              (singleton @@ return (list_item_secondary_text ~label:s ()))
+        | Some (`Element e) -> return primary_text @:: singleton e
+      in
+      span ~a:(a_class classes :: a) children
+    else primary_text
+
+  let list_item
+      ?(classes = return [])
+      ?(a = [])
+      ?graphic
+      ?meta
+      ?role
+      ?tabindex
+      ?(activated = false)
+      ?selected
+      ?checked
+      ?primary_text
+      ?secondary_text
+      ?force_wrap
+      ?children
+      () =
+    let children =
+      match children with
+      | Some x -> x
+      | None ->
+          let text = list_item_text ?force_wrap ?primary_text ?secondary_text () in
+          graphic ^:: return text @:: meta ^:: nil ()
+    in
     let classes =
-      classes
-      |> cons_if activated CSS.item_activated
-      |> cons_if (match selected with None -> false | Some x -> x)
-        (if activated
-         then CSS.item_activated
-         else CSS.item_selected)
-      |> List.cons CSS.item in
-    tag ~a:([a_class classes]
-            @ attrs
-            |> map_cons_option (fun b -> a_aria "checked" [string_of_bool b]) checked
-            |> map_cons_option (fun b -> a_aria "selected" [string_of_bool b]) selected
-            |> map_cons_option a_tabindex tabindex
-            |> map_cons_option (fun x -> a_role [x]) role)
-      (graphic ^:: (text :: (meta ^:: [])))
+      fmap
+        (Utils.cons_if activated CSS.item_activated
+        % Utils.cons_if
+            (match selected with
+            | None -> false
+            | Some x -> x)
+            (if activated then CSS.item_activated else CSS.item_selected)
+        % List.cons CSS.item)
+        classes
+    in
+    li
+      ~a:
+        (a_class classes :: a
+        |> Utils.map_cons_option
+             (fun b -> a_aria "checked" (fmap (fun x -> [string_of_bool x]) b))
+             checked
+        |> Utils.map_cons_option
+             (fun b -> a_aria "selected" (return [string_of_bool b]))
+             selected
+        |> Utils.map_cons_option a_tabindex tabindex
+        |> Utils.map_cons_option (fun x -> a_role (return [x])) role)
+      children
 
-  let create_group_subheader ?(classes = []) ?(attrs = []) ?(tag = h3)
-      ~text () : 'a elt =
-    let classes = CSS.group_subheader :: classes in
-    tag ~a:([a_class classes] @ attrs) [txt text]
+  let list_group_subheader
+      ?(classes = return [])
+      ?(a = [])
+      ?(tag = h3)
+      ?label
+      ?(children = nil ())
+      () =
+    let classes = fmap (List.cons CSS.group_subheader) classes in
+    let children =
+      match label with
+      | None -> children
+      | Some x -> return (txt x) @:: children
+    in
+    tag ~a:(a_class classes :: a) children
 
-  let create_group ?(classes = []) ?(attrs = []) ~content () =
-    let classes = CSS.group :: classes in
-    div ~a:([a_class classes] @ attrs) content
+  let list_group ?(classes = return []) ?(a = []) ~children () =
+    let classes = fmap (List.cons CSS.group) classes in
+    div ~a:(a_class classes :: a) children
 
-  let create ?(classes = []) ?(attrs = [])
+  let list
+      ?(classes = return [])
+      ?(a = [])
       ?(avatar_list = false)
       ?(dense = false)
       ?(two_line = false)
       ?(non_interactive = false)
       ?role
-      ~items () : 'a elt =
+      ?(children = nil ())
+      () : 'a elt =
     let classes =
-      classes
-      |> cons_if dense CSS.dense
-      |> cons_if two_line CSS.two_line
-      |> cons_if avatar_list CSS.avatar_list
-      |> cons_if non_interactive CSS.non_interactive
-      |> List.cons CSS.root in
-    ul ~a:([a_class classes]
-           @ attrs
-           |> map_cons_option (fun x -> a_role [x]) role) items
+      fmap
+        (Utils.cons_if dense CSS.dense
+        % Utils.cons_if two_line CSS.two_line
+        % Utils.cons_if avatar_list CSS.avatar_list
+        % Utils.cons_if non_interactive CSS.non_interactive
+        % List.cons CSS.root)
+        classes
+    in
+    ul
+      ~a:
+        (a_class classes :: a
+        |> Utils.map_cons_option (fun x -> a_role (return [x])) role)
+      children
 end
+
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

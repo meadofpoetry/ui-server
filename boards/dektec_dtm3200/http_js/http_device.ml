@@ -4,27 +4,31 @@ open Netlib.Uri
 open Util
 
 module Event = struct
-
   let ( >>= ) = Lwt_result.( >>= )
 
   let get_state sock control =
     Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("board" @/ Int ^/ "device/state" @/ empty)
       ~query:Query.empty
-      control Topology.state_of_yojson sock
+      control
+      Topology.state_of_yojson
+      sock
 
   let get_info sock control =
     Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("board" @/ Int ^/ "device/info" @/ empty)
       ~query:Query.empty
-      control devinfo_of_yojson sock
+      control
+      devinfo_of_yojson
+      sock
 
   let get_config sock control =
     Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("board" @/ Int ^/ "device/config" @/ empty)
       ~query:Query.empty
-      control config_of_yojson sock
-
+      control
+      config_of_yojson
+      sock
 end
 
 let get_state control =

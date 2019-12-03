@@ -1,90 +1,95 @@
 open Js_of_ocaml
 open Js_of_ocaml_tyxml
-
 include Components_tyxml.Switch
-module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 let ( >>= ) = Lwt.bind
 
-class t ?on_change (elt : #Dom_html.element Js.t) () =
-object(self)
-  val input_elt : Dom_html.inputElement Js.t =
-    Utils.find_element_by_class_exn elt CSS.native_control
-  val mutable _ripple : Ripple.t option = None
-  val mutable _change_listener = None
-
-  inherit Widget.t elt () as super
-
-  method! init () : unit =
-    super#init ();
-    _ripple <- Some (self#create_ripple ())
-
-  method! initial_sync_with_dom () : unit =
-    super#initial_sync_with_dom ();
-    let change_listener =
-      Events.changes input_elt (fun _ _ ->
-          super#toggle_class ~force:self#checked CSS.checked;
-          self#notify_change ()) in
-    _change_listener <- Some change_listener;
-    input_elt##.checked := input_elt##.checked
-
-  method! layout () : unit =
-    super#layout ();
-    match _ripple with
-    | None -> ()
-    | Some r -> Ripple.layout r
-
-  method! destroy () : unit =
-    super#destroy ();
-    (* Destroy internal components *)
-    Option.iter Ripple.destroy _ripple;
-    _ripple <- None;
-    (* Detach event listeners *)
-    Option.iter Lwt.cancel _change_listener;
-    _change_listener <- None
-
-  method disabled : bool =
-    Js.to_bool input_elt##.disabled
-
-  method set_disabled (x : bool) : unit =
-    input_elt##.disabled := Js.bool x;
-    super#toggle_class ~force:x CSS.disabled
-
-  method checked : bool =
-    Js.to_bool input_elt##.checked
-
-  method toggle ?(notify = false) ?(force : bool option) () : unit =
-    let v = match force with None -> not self#checked | Some x -> x in
-    input_elt##.checked := Js.bool v;
-    super#toggle_class ~force:v CSS.checked;
-    if notify then Lwt.async self#notify_change
-
-  method input_element : Dom_html.inputElement Js.t =
-    input_elt
-
-  method ripple : Ripple.t option =
-    _ripple
-
-  (* Private methods *)
-
-  method private notify_change () : unit Lwt.t =
-    match on_change with
-    | None -> Lwt.return_unit
-    | Some f -> f (self :> t)
-
-  method private create_ripple () : Ripple.t =
-    let selector = "." ^ CSS.thumb_underlay in
-    let (surface : Dom_html.element Js.t) =
-      Js.Opt.get (elt##querySelector (Js.string selector))
-        (fun () -> failwith "no ripple surface element found")in
-    Ripple.attach ~unbounded:true surface
+module Selector = struct
+  let native_control = Printf.sprintf "input.%s" CSS.native_control
 end
 
-let make ?input_id ?checked ?disabled ?on_change () : t =
-  let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element
-    @@ Markup.create ?input_id ?checked ?disabled () in
-  new t ?on_change elt ()
+class t ?on_change (elt : #Dom_html.element Js.t) () =
+  object (self)
+    val input_elt : Dom_html.inputElement Js.t =
+      let element = Element.query_selector_exn elt Selector.native_control in
+      Js.Opt.get (Dom_html.CoerceTo.input element) (fun () -> assert false)
 
-let attach ?on_change (elt : #Dom_html.element Js.t) : t =
-  new t ?on_change elt ()
+    val mutable ripple_ : Ripple.t option = None
+
+    val mutable listeners = []
+
+    inherit Widget.t elt () as super
+
+    method! init () : unit =
+      ripple_ <- Some (self#create_ripple ());
+      super#init ()
+
+    method! initial_sync_with_dom () : unit =
+      listeners <-
+        Js_of_ocaml_lwt.Lwt_js_events.(
+          [ changes input_elt (fun _ _ ->
+                super#toggle_class ~force:self#checked CSS.checked;
+                self#notify_change ()) ]
+          @ listeners);
+      input_elt##.checked := input_elt##.checked;
+      super#initial_sync_with_dom ()
+
+    method! layout () : unit =
+      Option.iter Ripple.layout ripple_;
+      super#layout ()
+
+    method! destroy () : unit =
+      (* Destroy internal components *)
+      Option.iter Ripple.destroy ripple_;
+      ripple_ <- None;
+      (* Detach event listeners *)
+      List.iter Lwt.cancel listeners;
+      listeners <- [];
+      super#destroy ()
+
+    method disabled : bool = Js.to_bool input_elt##.disabled
+
+    method set_disabled (x : bool) : unit =
+      input_elt##.disabled := Js.bool x;
+      super#toggle_class ~force:x CSS.disabled
+
+    method checked : bool = Js.to_bool input_elt##.checked
+
+    method toggle ?(notify = false) ?(force : bool option) () : unit =
+      let v =
+        match force with
+        | None -> not self#checked
+        | Some x -> x
+      in
+      input_elt##.checked := Js.bool v;
+      super#toggle_class ~force:v CSS.checked;
+      if notify then Lwt.async self#notify_change
+
+    method input_element : Dom_html.inputElement Js.t = input_elt
+
+    method ripple : Ripple.t option = ripple_
+
+    (* Private methods *)
+    method private notify_change () : unit Lwt.t =
+      match on_change with
+      | None -> Lwt.return_unit
+      | Some f -> f (self :> t)
+
+    method private create_ripple () : Ripple.t =
+      let selector = "." ^ CSS.thumb_underlay in
+      let (surface : Dom_html.element Js.t) =
+        Js.Opt.get
+          (elt##querySelector (Js.string selector))
+          (fun () -> failwith (CSS.root ^ ": no ripple surface element found"))
+      in
+      Ripple.attach ~unbounded:true surface
+  end
+
+let attach ?on_change (elt : #Dom_html.element Js.t) : t = new t ?on_change elt ()
+
+let make ?input_id ?classes ?a ?checked ?disabled ?track ?thumb_underlay ?on_change () =
+  D.switch ?input_id ?classes ?a ?checked ?disabled ?track ?thumb_underlay ()
+  |> Tyxml_js.To_dom.of_div
+  |> attach ?on_change

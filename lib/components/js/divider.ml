@@ -1,25 +1,12 @@
-open Js_of_ocaml
 open Js_of_ocaml_tyxml
-
 include Components_tyxml.Divider
-module Markup = Make(Tyxml_js.Xml)(Tyxml_js.Svg)(Tyxml_js.Html)
+module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
-class t (elt : Dom_html.element Js.t) () =
-object
-  inherit Widget.t elt () as super
+let attach = Widget.create
 
-  method inset : bool =
-    super#has_class CSS.inset
+let make_hr ?classes ?a ?inset () =
+  D.divider_hr ?classes ?a ?inset () |> Tyxml_js.To_dom.of_hr |> attach
 
-  method set_inset (x : bool) : unit =
-    super#toggle_class ~force:x CSS.inset
-end
-
-let make ?inset () : t =
-  let (elt : Dom_html.element Js.t) =
-    Tyxml_js.To_dom.of_element
-    @@ Markup.create ?inset () in
-  new t elt ()
-
-let attach (elt : #Dom_html.element Js.t) : t =
-  new t (Element.coerce elt) ()
+let make_li ?classes ?a ?inset () =
+  D.divider_li ?classes ?a ?inset () |> Tyxml_js.To_dom.of_li |> attach

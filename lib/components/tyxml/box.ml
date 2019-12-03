@@ -28,69 +28,93 @@ type wrap =
 
 module CSS = struct
   let root = "mdc-box"
+
   let vertical = BEM.add_modifier root "vertical"
+
   let horizontal = BEM.add_modifier root "horizontal"
 
   let wrap (x : wrap) : string =
-    BEM.add_modifier root
-      (match x with
-       | `Nowrap -> "nowrap"
-       | `Wrap -> "wrap"
-       | `Wrap_reverse -> "wrap-reverse")
+    let modifier =
+      match x with
+      | `Nowrap -> "nowrap"
+      | `Wrap -> "wrap"
+      | `Wrap_reverse -> "wrap-reverse"
+    in
+    BEM.add_modifier root modifier
 
   let justify_content (x : justify_content) : string =
-    (BEM.add_modifier root "justify-content-")
-    ^ (match x with
-       | `Start -> "start"
-       | `End -> "end"
-       | `Center -> "center"
-       | `Space_between -> "space-between"
-       | `Space_around -> "space-around"
-       | `Space_evenly -> "space-evenly")
+    let suffix =
+      match x with
+      | `Start -> "start"
+      | `End -> "end"
+      | `Center -> "center"
+      | `Space_between -> "space-between"
+      | `Space_around -> "space-around"
+      | `Space_evenly -> "space-evenly"
+    in
+    BEM.add_modifier root "justify-content-" ^ suffix
 
   let align_items (x : align_items) : string =
-    (BEM.add_modifier root "align-items-")
-    ^ (match x with
-       | `Start -> "start"
-       | `End -> "end"
-       | `Center -> "center"
-       | `Stretch -> "stretch"
-       | `Baseline -> "baseline")
+    let suffix =
+      match x with
+      | `Start -> "start"
+      | `End -> "end"
+      | `Center -> "center"
+      | `Stretch -> "stretch"
+      | `Baseline -> "baseline"
+    in
+    BEM.add_modifier root "align-items-" ^ suffix
 
   let align_content (x : align_content) : string =
-    (BEM.add_modifier root "align-content-")
-    ^ (match x with
-       | `Start -> "start"
-       | `End -> "end"
-       | `Center -> "center"
-       | `Stretch -> "stretch"
-       | `Space_between -> "space-between"
-       | `Space_around -> "space-around")
-
+    let suffix =
+      match x with
+      | `Start -> "start"
+      | `End -> "end"
+      | `Center -> "center"
+      | `Stretch -> "stretch"
+      | `Space_between -> "space-between"
+      | `Space_around -> "space-around"
+    in
+    BEM.add_modifier root "align-content-" ^ suffix
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-           and module Svg := Svg) = struct
+module Make
+    (Xml : Intf.Xml)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
+struct
+  open Xml.W
   open Html
-  open Utils
 
-  let create ?(classes = []) ?(attrs = []) ?tag
-        ?justify_content ?align_items ?align_content ?wrap
-        ?(vertical = false) ~content () : 'a elt =
-    let tag = match tag with
+  let ( % ) f g x = f (g x)
+
+  let box
+      ?(classes = return [])
+      ?(a = [])
+      ?tag
+      ?justify_content
+      ?align_items
+      ?align_content
+      ?wrap
+      ?(vertical = false)
+      ?(children = nil ())
+      () =
+    let tag =
+      match tag with
       | None -> div
-      | Some x -> x in
+      | Some x -> x
+    in
     let classes =
-      classes
-      |> cons_if vertical CSS.vertical
-      |> map_cons_option CSS.wrap wrap
-      |> map_cons_option CSS.justify_content justify_content
-      |> map_cons_option CSS.align_items align_items
-      |> map_cons_option CSS.align_content align_content
-      |> List.cons CSS.root in
-    tag ~a:([a_class classes] @ attrs) content
-
+      fmap
+        (Utils.cons_if vertical CSS.vertical
+        % Utils.map_cons_option CSS.wrap wrap
+        % Utils.map_cons_option CSS.justify_content justify_content
+        % Utils.map_cons_option CSS.align_items align_items
+        % Utils.map_cons_option CSS.align_content align_content
+        % List.cons CSS.root)
+        classes
+    in
+    tag ~a:(a_class classes :: a) children
 end
+
+module F = Make (Impl.Xml) (Impl.Svg) (Impl.Html)

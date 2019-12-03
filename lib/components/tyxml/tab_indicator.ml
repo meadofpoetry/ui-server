@@ -22,28 +22,40 @@ module CSS = struct
 end
 
 module Make
-         (Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-           and module Svg := Svg) = struct
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
+struct
+  open Xml.W
   open Html
-  open Utils
 
-  let create_content ?(classes = []) ?(attrs = []) ?icon () : 'a elt =
-    let content, content_class = match icon with
-      | None -> [], CSS.content_underline
-      | Some i -> [i], CSS.content_icon in
-    let classes = CSS.content :: content_class :: classes in
-    span ~a:([a_class classes] @ attrs) content
+  let ( % ) f g x = f (g x)
 
-  let create ?(classes = []) ?(attrs = []) ?(active = false)
-        ?(fade = false) content () : 'a elt =
-    let (classes : string list) =
-      classes
-      |> cons_if fade CSS.fade
-      |> cons_if active CSS.active
-      |> List.cons CSS.root in
-    span ~a:([a_class classes] @ attrs) [content]
+  let tab_indicator_content ?(classes = return []) ?(a = []) ?icon () : 'a elt =
+    let children, content_class =
+      match icon with
+      | None -> nil (), CSS.content_underline
+      | Some i -> singleton (return i), CSS.content_icon
+    in
+    let classes = fmap (fun x -> CSS.content :: content_class :: x) classes in
+    span ~a:(a_class classes :: a) children
 
+  let tab_indicator
+      ?(classes = return [])
+      ?(a = [])
+      ?(active = false)
+      ?(fade = false)
+      ?icon
+      ?(content = tab_indicator_content ?icon ())
+      () =
+    let classes =
+      fmap
+        (Utils.cons_if fade CSS.fade
+        % Utils.cons_if active CSS.active
+        % List.cons CSS.root)
+        classes
+    in
+    span ~a:(a_class classes :: a) (singleton (return content))
 end
+
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

@@ -11,59 +11,53 @@ module CSS = struct
   let pid = BEM.add_element root "pid"
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml
-                              and module Svg := Svg) = struct
+module Make
+    (Xml : Intf.Xml)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
+struct
+  open Xml.W
   open Html
 
-  let make_pid_attrs ({ has_pts
-                      ; has_pcr
-                      ; scrambled
-                      ; present
-                      ; service_id
-                      ; service_name
-                      ; typ
-                      } : PID_info.t) =
+  let create_pid_attrs (pid, (info : PID.t)) =
     let open Application_types.MPEG_TS.PID in
-    [a_user_data "type" (Yojson.Safe.to_string @@ Type.to_yojson typ)]
-    |> Utils.cons_if_lazy has_pts (fun () -> a_user_data "has-pts" "")
-    |> Utils.cons_if_lazy has_pcr (fun () -> a_user_data "has-pcr" "")
-    |> Utils.cons_if_lazy scrambled (fun () -> a_user_data "scrambled" "")
-    |> Utils.cons_if_lazy (not present) (fun () -> a_user_data "lost" "")
-    |> Utils.map_cons_option (a_user_data "service-id" % string_of_int) service_id
-    |> Utils.map_cons_option (a_user_data "service-name") service_name
+    [ a_user_data "type" (return (Yojson.Safe.to_string @@ Type.to_yojson info.typ))
+    ; a_user_data "pid" (return (string_of_int pid)) ]
+    |> Utils.cons_if_lazy info.has_pts (fun () -> a_user_data "has-pts" (return ""))
+    |> Utils.cons_if_lazy info.has_pcr (fun () -> a_user_data "has-pcr" (return ""))
+    |> Utils.cons_if_lazy info.scrambled (fun () -> a_user_data "scrambled" (return ""))
+    |> Utils.cons_if_lazy (not info.present) (fun () -> a_user_data "lost" (return ""))
+    |> Utils.map_cons_option
+         (a_user_data "service-id" % return % string_of_int)
+         info.service_id
+    |> Utils.map_cons_option (a_user_data "service-name" % return) info.service_name
 
-  let make_title ?(classes = []) ?(attrs = []) ?total () =
-    let text = match total with
-      | None -> "PIDs"
-      | Some x -> Printf.sprintf "PIDs (%d)" x in
-    let classes = CSS.title :: classes in
-    span ~a:([a_class classes] @ attrs) [txt text]
+  let create_title ?(classes = return []) ?(a = []) ~total () =
+    let text = fmap (Printf.sprintf "PIDs (%d)") total in
+    let classes = fmap (fun x -> CSS.title :: x) classes in
+    span ~a:(a_class classes :: a) (singleton (return (txt text)))
 
-  let make_pid ?(classes = []) ?(attrs = [])
-      ?(hex = false) pid =
-    let classes = CSS.pid :: classes in
+  let create_pid ?(a = []) ?(hex = return false) ~pid () =
     let text =
-      if hex then Util.pid_to_hex_string (fst pid)
-      else Util.pid_to_dec_string (fst pid) in
-    span ~a:([a_class classes] @ make_pid_attrs (snd pid) @ attrs)
-      [txt text]
+      fmap
+        (fun hex ->
+          if hex
+          then Util.pid_to_hex_string (fst pid)
+          else Util.pid_to_dec_string (fst pid))
+        hex
+    in
+    span
+      ~a:((a_class (return [CSS.pid]) :: create_pid_attrs pid) @ a)
+      (singleton (return (txt text)))
 
-  let make_pids ?(classes = []) ?(attrs = []) ?hex pids =
-    let pids = match pids with
-      | `Info x -> List.map (make_pid ?hex) x
-      | `Html x -> x in
-    let classes = CSS.pids :: classes in
-    div ~a:([a_class classes] @ attrs) pids
-
-  let make ?(classes = []) ?(attrs = []) ?hex ?content ?pids () =
-    let content = match content with
-      | Some x -> x
-      | None ->
-        [ make_title ?total:(Option.map List.length pids) ()
-        ; make_pids ?hex (`Info (Option.value ~default:[] pids))
-        ] in
-    let classes = CSS.root :: classes in
-    div ~a:([a_class classes] @ attrs) content
+  let create ?(classes = return []) ?(a = []) ?hex ?(pids = nil ()) () =
+    let pid_elts = Xml.W.map (fun pid -> create_pid ?hex ~pid ()) pids in
+    let children =
+      [ create_title ~total:(fmap List.length (Xml.Wutils.tot pids)) ()
+      ; div ~a:[a_class (return [CSS.pids])] pid_elts ]
+    in
+    let classes = fmap (fun x -> CSS.root :: x) classes in
+    div ~a:(a_class classes :: a) (Xml.Wutils.const children)
 end
+
+module F = Make (Impl.Xml) (Impl.Svg) (Impl.Html)

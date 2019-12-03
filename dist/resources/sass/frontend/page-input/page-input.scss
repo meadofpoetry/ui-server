@@ -1,0 +1,41 @@
+@import "@material/animation/functions";
+@import "@material/layout-grid/variables";
+@import "@material/top-app-bar/variables";
+@import "@material/tab/variables";
+@import "@material/elevation/mixins";
+@import "@material/card/mixins";
+
+$screen-width-desktop: map-get($mdc-layout-grid-breakpoints, desktop);
+
+.mdc-top-app-bar {
+    .mdc-tab {
+        flex: 0 1 auto;
+    }
+
+    @media (max-width: $screen-width-desktop) {
+        .mdc-tab {
+            flex: 1 1 auto;
+        }
+    }
+}
+
+.mdc-top-app-bar--fixed-adjust {
+    padding-top: $mdc-tab-height + $mdc-top-app-bar-row-height;
+
+    @media (max-width: $mdc-top-app-bar-mobile-breakpoint) {
+        .mdc-top-app-bar--fixed-adjust {
+            padding-top: $mdc-tab-height + $mdc-top-app-bar-mobile-row-height;
+        }
+    }
+}
+
+main.mdc-scaffold__app-content--inner {
+    overflow-x: hidden;
+}
+
+.mdc-tabbed-page__content > .mdc-layout-grid__inner > .mdc-layout-grid__cell {
+    @include mdc-theme-prop(background-color, surface);
+    @include mdc-card-shape-radius(medium);
+    @include mdc-card-fill-color(surface);
+    @include mdc-elevation(1);
+}

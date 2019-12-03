@@ -1,4 +1,5 @@
 let name = "MPEG-4_text_descriptor"
+
 (* FIXME *)
 (* defined in ITU-T Rec.H.220.0 *)
 (* and refers to ISO/IEC 14496-17 TextConfig 5.3 page 3 *)
@@ -6,12 +7,12 @@ let name = "MPEG-4_text_descriptor"
 
 let parse_base_format = function
   | 0x10 -> "Timed Text as specified in 3GPP TS 26.245"
-  | x when x >= 0x00 && x <= 0x0F || x >= 0x11 && x <= 0xFF -> "Reserved"
+  | x when (x >= 0x00 && x <= 0x0F) || (x >= 0x11 && x <= 0xFF) -> "Reserved"
   | _ -> assert false
 
 let parse_profile_level = function
   | 0x10 -> "Base profile, base level"
-  | x when x >= 0x00 && x <= 0x0F || x >= 0x11 && x <= 0xFF -> "Reserved"
+  | x when (x >= 0x00 && x <= 0x0F) || (x >= 0x11 && x <= 0xFF) -> "Reserved"
   | _ -> assert false
 
 let parse_descr_flags = function
@@ -19,7 +20,7 @@ let parse_descr_flags = function
   | 0x01 -> "No in-band, out-of band only"
   | 0x10 -> "In-band onlym no out-of band"
   | 0x11 -> "Both in-band and out-of band"
-  | _    -> assert false
+  | _ -> assert false
 
 let parse_text_format = function
   | 0x00 | 0xFF -> "Reserved"
@@ -59,9 +60,13 @@ let parse bs off =
   | {| text_format : 8
      ; length      : 16 : save_offset_to (off_1)
      ; _           : length * 8 : save_offset_to (off_2), bitstring
-     |} ->
-    (*   let specific = decode_specific_text_config specific (off + off_2) in*)
-    [ Node.make ~offset:off 8 "text_format" (String (parse_text_format text_format))
-    ; Node.make ~offset:(off + off_1) 16 "text_config_length" (Dec (Uint length))
-    ; Node.make ~offset:(off + off_2) (length * 8) "format_specific_text_config" (List [])
-    ]
+     |}
+    ->
+      (*   let specific = decode_specific_text_config specific (off + off_2) in*)
+      [ Node.make ~offset:off 8 "text_format" (String (parse_text_format text_format))
+      ; Node.make ~offset:(off + off_1) 16 "text_config_length" (Dec (Uint length))
+      ; Node.make
+          ~offset:(off + off_2)
+          (length * 8)
+          "format_specific_text_config"
+          (List []) ]

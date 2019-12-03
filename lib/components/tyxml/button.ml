@@ -4,7 +4,6 @@ type appearance =
   | Unelevated
 
 module CSS = struct
-
   (** Mandatory. Defaults to a text button that in flush with the surface. *)
   let root = "mdc-button"
 
@@ -31,49 +30,66 @@ module CSS = struct
 
   (** Optional. Styles a button to show loading indicator. *)
   let loading = BEM.add_modifier root "loading"
-
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap
-     with module Xml := Xml
-      and module Svg := Svg) = struct
+module Make
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
+struct
+  open Xml.W
   open Html
-  open Utils
 
-  let create_loader_container ?(classes = []) ?(attrs = []) loader () : 'a elt =
-    let classes = CSS.loader_container :: classes in
-    div ~a:([a_class classes] @ attrs) [loader]
+  let ( % ) f g x = f (g x)
 
-  let create_ ?(classes = []) ?appearance
-      ?(dense = false) ?icon ?label () =
-    let make_label (x : string) : _ elt =
-      span ~a:[a_class [CSS.label]] [txt x] in
-    let (classes : string list) =
-      classes
-      |> map_cons_option (function
-          | Raised -> CSS.raised
-          | Outlined -> CSS.outlined
-          | Unelevated -> CSS.unelevated) appearance
-      |> cons_if dense CSS.dense
-      |> List.cons CSS.root in
-    cons_option icon @@ map_cons_option make_label label [],
-    classes
+  let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
 
-  let create_anchor ?classes ?(attrs = []) ?href ?appearance
-      ?dense ?icon ?label () =
-    let children, classes =
-      create_ ?classes ?appearance ?dense ?icon ?label () in
-    a ~a:([a_class classes] @ attrs
-          |> map_cons_option a_href href) children
+  let button_loader_container ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+    let classes = fmap (List.cons CSS.loader_container) classes in
+    div ~a:(a_class classes :: a) children
 
-  let create ?classes ?(attrs = []) ?button_type ?appearance
-      ?(disabled = false) ?dense ?icon ?label () =
-    let children, classes =
-      create_ ?classes ?appearance ?dense ?icon ?label () in
-    button ~a:([a_class classes] @ attrs
-               |> map_cons_option a_button_type button_type
-               |> cons_if disabled @@ a_disabled ())
+  let button_ ?(classes = return []) ?appearance ?(dense = false) ?icon ?label () =
+    let make_label x =
+      span ~a:[a_class @@ return [CSS.label]] (singleton (return (txt x)))
+    in
+    let classes =
+      fmap
+        (Utils.map_cons_option
+           (function
+             | Raised -> CSS.raised
+             | Outlined -> CSS.outlined
+             | Unelevated -> CSS.unelevated)
+           appearance
+        % Utils.cons_if dense CSS.dense
+        % List.cons CSS.root)
+        classes
+    in
+    let label = Option.map (return % make_label) label in
+    icon ^:: label ^:: nil (), classes
+
+  let button_a ?classes ?(a = []) ?href ?appearance ?dense ?icon ?label () =
+    let children, classes = button_ ?classes ?appearance ?dense ?icon ?label () in
+    Html.a ~a:([a_class classes] @ a |> Utils.map_cons_option a_href href) children
+
+  let button
+      ?classes
+      ?(a = [])
+      ?button_type
+      ?appearance
+      ?on_click
+      ?(disabled = false)
+      ?dense
+      ?icon
+      ?label
+      () =
+    let children, classes = button_ ?classes ?appearance ?dense ?icon ?label () in
+    button
+      ~a:
+        (a_class classes :: a
+        |> Utils.map_cons_option a_onclick on_click
+        |> Utils.map_cons_option a_button_type button_type
+        |> Utils.cons_if disabled @@ a_disabled ())
       children
 end
+
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

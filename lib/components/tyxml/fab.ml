@@ -19,28 +19,48 @@ module CSS = struct
   let extended = BEM.add_modifier root "extended"
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-           and module Svg := Svg) = struct
-
+module Make
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
+struct
+  open Xml.W
   open Html
-  open Utils
 
-  let create ?(classes = []) ?(attrs = []) ?(mini = false) ?(extended = false)
-        ?label ?icon () : 'a elt =
-    let (classes : string list) =
-      classes
-      |> cons_if mini CSS.mini
-      |> cons_if extended CSS.extended
-      |> List.cons CSS.root in
-    let label = match extended with
+  let ( % ) f g x = f (g x)
+
+  let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
+
+  let fab
+      ?(classes = return [])
+      ?(a = [])
+      ?(mini = false)
+      ?(extended = false)
+      ?label
+      ?icon
+      () =
+    let classes =
+      fmap
+        (Utils.cons_if mini CSS.mini
+        % Utils.cons_if extended CSS.extended
+        % List.cons CSS.root)
+        classes
+    in
+    let label =
+      match extended with
       | false -> None
-      | true -> label in
-    let label = match label with
+      | true -> label
+    in
+    let label =
+      match label with
       | None -> None
-      | Some x -> Some (span ~a:[a_class [CSS.label]] [txt x]) in
-    let content = icon ^:: label ^:: [] in
-    button ~a:([a_class classes] @ attrs) content
+      | Some x ->
+          Some
+            (return
+            @@ span ~a:[a_class (return [CSS.label])] (singleton (return (txt x))))
+    in
+    let content = icon ^:: label ^:: nil () in
+    button ~a:(a_class classes :: a) content
 end
+
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

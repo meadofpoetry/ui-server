@@ -14,22 +14,19 @@ module CSS = struct
 
   (** Class used to style the content below the prominent top app bar
       to prevent the top app bar from covering it. *)
-  let prominent_fixed_adjust =
-    BEM.add_modifier root "prominent-fixed-adjust"
+  let prominent_fixed_adjust = BEM.add_modifier root "prominent-fixed-adjust"
 
   (** Class used to style the top app bar as a dense top app bar. *)
   let dense = BEM.add_modifier root "dense"
 
   (** Class used to style the content below the dense top app bar
       to prevent the top app bar from covering it. *)
-  let dense_fixed_adjust =
-    BEM.add_modifier root "dense-fixed-adjust"
+  let dense_fixed_adjust = BEM.add_modifier root "dense-fixed-adjust"
 
   (** Class used to style the content below the top app bar when
       styled as both prominent and dense, to prevent the top app bar
       from covering it. *)
-  let dense_prominent_fixed_adjust =
-    BEM.add_modifier root "dense-prominent-fixed-adjust"
+  let dense_prominent_fixed_adjust = BEM.add_modifier root "dense-prominent-fixed-adjust"
 
   (** Class used to style the top app bar as a short top app bar. *)
   let short = BEM.add_modifier root "short"
@@ -39,8 +36,7 @@ module CSS = struct
 
   (** Class used to style the content below the short top app bar
       to prevent the top app bar from covering it. *)
-  let short_fixed_adjust =
-    BEM.add_modifier root "short-fixed-adjust"
+  let short_fixed_adjust = BEM.add_modifier root "short-fixed-adjust"
 
   let fixed_scrolled = fixed ^ "-scrolled"
 
@@ -59,27 +55,73 @@ module CSS = struct
   let title = BEM.add_element root "title"
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-           and module Svg := Svg) = struct
+module Make
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
+struct
+  open Xml.W
   open Html
 
-  let create_title ?(classes = []) ?(attrs = []) ~content () : 'a elt =
-    span ~a:([a_class (CSS.title :: classes)] @ attrs) content
+  let ( % ) f g x = f (g x)
 
-  let create_section ?(classes = []) ?(attrs = []) ?align ~content () : 'a elt =
-    let classes = match align with
-      | None -> classes
-      | Some `Start -> CSS.section_align_start :: classes
-      | Some `End -> CSS.section_align_end :: classes in
-    section ~a:([a_class (CSS.section :: classes)] @ attrs) content
+  let ( @:: ) = cons
 
-  let create_row ?(classes = []) ?(attrs = []) ~sections () : 'a elt =
-    div ~a:([a_class (CSS.row :: classes)] @ attrs) sections
+  let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
 
-  let create ?(classes = []) ?(attrs = []) ~rows () : 'a elt =
-    header ~a:([a_class (CSS.root :: classes)] @ attrs) rows
+  let top_app_bar_title ?(classes = return []) ?(a = []) ?title ?(children = nil ()) () =
+    let classes = fmap (fun x -> CSS.title :: x) classes in
+    let children =
+      match title with
+      | None -> children
+      | Some x -> cons (return (txt x)) children
+    in
+    span ~a:(a_class classes :: a) children
+
+  let top_app_bar_section ?(classes = return []) ?(a = []) ?align ?(children = nil ()) ()
+      =
+    let align_class =
+      match align with
+      | None -> None
+      | Some `Start -> Some CSS.section_align_start
+      | Some `End -> Some CSS.section_align_end
+    in
+    let classes = fmap (Utils.cons_option align_class % List.cons CSS.section) classes in
+    section ~a:(a_class classes :: a) children
+
+  let top_app_bar_row ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+    let classes = fmap (fun x -> CSS.row :: x) classes in
+    div ~a:(a_class classes :: a) children
+
+  let top_app_bar ?(classes = return []) ?(a = []) ?leading ?title ?actions ?children ()
+      =
+    let classes = fmap (fun x -> CSS.root :: x) classes in
+    let children =
+      match children with
+      | Some x -> x
+      | None ->
+          let title =
+            match title with
+            | None -> None
+            | Some (`Element x) -> Some (return x)
+            | Some (`Text x) -> Some (return (top_app_bar_title ~title:x ()))
+          in
+          let start_section =
+            return
+              (top_app_bar_section
+                 ~align:`Start
+                 ~children:(leading ^:: title ^:: nil ())
+                 ())
+          in
+          let end_section =
+            match actions with
+            | None -> None
+            | Some x -> Some (return (top_app_bar_section ~align:`End ~children:x ()))
+          in
+          let sections = start_section @:: end_section ^:: nil () in
+          singleton (return (top_app_bar_row ~children:sections ()))
+    in
+    header ~a:(a_class classes :: a) children
 end
 
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

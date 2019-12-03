@@ -1,6 +1,8 @@
 (executable
   (name       pipeline_page_input)
-  (libraries  pipeline_widgets)
+  (libraries  pipeline_widgets
+              pipeline_page_input_tyxml
+              ui_templates)
   (preprocess (pps js_of_ocaml-ppx)))
 
 (install

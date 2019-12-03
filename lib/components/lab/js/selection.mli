@@ -2,7 +2,10 @@
 
 open Js_of_ocaml
 
-type mode = Touch | Center | Cover
+type mode =
+  | Touch
+  | Center
+  | Cover
 
 type elt =
   | Query of string
@@ -13,42 +16,42 @@ type event =
   ; original_event : Dom_html.event Js.t
   ; selected : Dom_html.element Js.t list
   ; removed : Dom_html.element Js.t list
-  ; added : Dom_html.element Js.t list
-  }
+  ; added : Dom_html.element Js.t list }
 
-class type t = object
-  inherit Components.Widget.t
+class type t =
+  object
+    inherit Components.Widget.t
 
-  method set_single_click : bool -> unit
+    method set_single_click : bool -> unit
 
-  method set_multiple : bool -> unit
+    method set_multiple : bool -> unit
 
-  method set_mode : mode -> unit
+    method set_mode : mode -> unit
 
-  method set_disabled : bool -> unit
+    method set_disabled : bool -> unit
 
-  method selected : Dom_html.element Js.t list
+    method selected : Dom_html.element Js.t list
 
-  method remove_from_selection : Dom_html.element Js.t -> unit
+    method remove_from_selection : Dom_html.element Js.t -> unit
 
-  method clear_selection : ?store:bool -> unit -> unit
-  (** Clear the elements which were saved by 'keep_selection'. *)
+    (** Clear the elements which were saved by 'keep_selection'. *)
+    method clear_selection : ?store:bool -> unit -> unit
 
-  method resolve_selectables : unit -> unit
-  (** Can be used if during a selection elements have been added.
+    (** Can be used if during a selection elements have been added.
       Will update everything which can be selected. *)
+    method resolve_selectables : unit -> unit
 
-  method keep_selection : unit -> unit
-  (** Saves the current selection for the next selection.
+    (** Saves the current selection for the next selection.
       Allowes multiple selections. *)
+    method keep_selection : unit -> unit
 
-  method select : Dom_html.element Js.t list -> unit
+    method select : Dom_html.element Js.t list -> unit
 
-  method select_query : string list -> unit
-end
+    method select_query : string list -> unit
+  end
 
 val make :
-  ?multiple:bool
+     ?multiple:bool
   -> ?single_click:bool
   -> ?start_threshold:int
   -> ?scroll_speed_divider:float

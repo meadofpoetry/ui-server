@@ -1,3 +1,0 @@
-(library
-  (name      page_input)
-  (libraries components_tyxml))

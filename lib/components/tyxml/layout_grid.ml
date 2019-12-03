@@ -53,8 +53,7 @@ let grid_align_of_string : string -> grid_align option = function
 let max_columns = 12
 
 let check_columns_number_exn n =
-  if n > max_columns || n < 0
-  then failwith "Layout grid: bad columns number"
+  if n > max_columns || n < 0 then failwith "Layout grid: bad columns number"
 
 module CSS = struct
   (** Mandatory, for the layout grid element. *)
@@ -99,37 +98,60 @@ module CSS = struct
   let fixed_column_width = BEM.add_modifier root "fixed-column-width"
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-           and module Svg := Svg) = struct
+module Make
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
+struct
+  open Xml.W
   open Html
-  open Utils
 
-  let create_cell ?(classes = []) ?(attrs = []) ?align ?order
-        ?span ?span_phone ?span_tablet ?span_desktop
-        content () : 'a elt =
-    let (classes : string list) =
-      CSS.cell :: classes
-      |> map_cons_option CSS.cell_span span
-      |> map_cons_option (CSS.cell_span ~device:Phone) span_phone
-      |> map_cons_option (CSS.cell_span ~device:Tablet) span_tablet
-      |> map_cons_option (CSS.cell_span ~device:Desktop) span_desktop
-      |> map_cons_option CSS.cell_align align
-      |> map_cons_option CSS.cell_order order in
-    div ~a:([a_class classes] @ attrs) content
+  let ( % ) f g x = f (g x)
 
-  let create_inner ?(classes = []) ?(attrs = []) ~cells () : 'a elt =
-    let classes = CSS.inner :: classes in
-    div ~a:([a_class classes] @ attrs) cells
+  let layout_grid_cell
+      ?(classes = return [])
+      ?(a = [])
+      ?align
+      ?order
+      ?span
+      ?span_phone
+      ?span_tablet
+      ?span_desktop
+      ?(children = nil ())
+      () =
+    let classes =
+      fmap
+        (Utils.map_cons_option CSS.cell_span span
+        % Utils.map_cons_option (CSS.cell_span ~device:Phone) span_phone
+        % Utils.map_cons_option (CSS.cell_span ~device:Tablet) span_tablet
+        % Utils.map_cons_option (CSS.cell_span ~device:Desktop) span_desktop
+        % Utils.map_cons_option CSS.cell_align align
+        % Utils.map_cons_option CSS.cell_order order
+        % List.cons CSS.cell)
+        classes
+    in
+    div ~a:(a_class classes :: a) children
 
-  let create ?(classes = []) ?(attrs = []) ?align
-        ?(fixed_column_width = false) ~inner () : 'a elt =
-    let (classes : string list) =
-      classes
-      |> map_cons_option CSS.align align
-      |> cons_if fixed_column_width CSS.fixed_column_width
-      |> List.cons CSS.root in
-    div ~a:([a_class classes] @ attrs) [inner]
+  let layout_grid_inner ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+    let classes = fmap (List.cons CSS.inner) classes in
+    div ~a:(a_class classes :: a) children
+
+  let layout_grid
+      ?(classes = return [])
+      ?(a = [])
+      ?align
+      ?(fixed_column_width = false)
+      ?cells
+      ?(children = singleton (return (layout_grid_inner ?children:cells ())))
+      () =
+    let classes =
+      fmap
+        (Utils.map_cons_option CSS.align align
+        % Utils.cons_if fixed_column_width CSS.fixed_column_width
+        % List.cons CSS.root)
+        classes
+    in
+    div ~a:(a_class classes :: a) children
 end
+
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

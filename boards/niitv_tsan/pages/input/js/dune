@@ -1,6 +1,10 @@
 (executable
   (name       board_niitv_tsan_page_input)
-  (libraries  board_niitv_tsan_widgets components_lab)
+  (libraries  board_niitv_tsan_widgets
+              components_lab
+              board_niitv_tsan_page_pids
+              board_niitv_tsan_page_si_psi
+              board_niitv_tsan_page_services)
   (preprocess (pps js_of_ocaml-ppx)))
 
 (install

@@ -7,7 +7,7 @@
                util_equal
                ts_error
                api_js
-               components
+               components_lab
                chartjs
                chartjs-datalabels
                ptime.clock.jsoo)

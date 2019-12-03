@@ -54,100 +54,214 @@ module CSS = struct
   end
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-           and module Svg := Svg) = struct
+module Make
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
+struct
+  open Xml.W
   open Html
-  open Utils
+  module Notched_outline_markup = Notched_outline.Make (Xml) (Svg) (Html)
+  module Floating_label_makrup = Floating_label.Make (Xml) (Svg) (Html)
+
+  let ( % ) f g x = f (g x)
+
+  let ( @:: ) = cons
+
+  let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
 
   module Helper_text = struct
-    let create ?(classes = []) ?(attrs = [])
-        ?(persistent = false) ?(validation = false) ?text () : 'a elt =
+    let helper_text
+        ?(classes = return [])
+        ?(a = [])
+        ?(persistent = false)
+        ?(validation = false)
+        ?text
+        ?(children = nil ())
+        () =
       let classes =
-        classes
-        |> cons_if validation CSS.Helper_text.validation_msg
-        |> cons_if persistent CSS.Helper_text.persistent
-        |> List.cons CSS.Helper_text.root in
-      let text = match text with
-        | None -> ""
-        | Some s -> s in
-      div ~a:([a_class classes]
-              @ attrs
-              |> cons_if (not persistent) @@ a_aria "hidden" ["true"])
-        [txt text]
+        fmap
+          (Utils.cons_if validation CSS.Helper_text.validation_msg
+          % Utils.cons_if persistent CSS.Helper_text.persistent
+          % List.cons CSS.Helper_text.root)
+          classes
+      in
+      let children =
+        match text with
+        | None -> children
+        | Some x -> return (txt x) @:: children
+      in
+      div
+        ~a:
+          (a_class classes :: a
+          |> Utils.cons_if (not persistent) @@ a_aria "hidden" (return ["true"]))
+        children
   end
 
   module Native = struct
+    let option
+        ?(classes = return [])
+        ?(a = [])
+        ?value
+        ?label
+        ?(disabled = false)
+        ?(selected = false)
+        ~text
+        () =
+      option
+        ~a:
+          (a_class classes :: a
+          |> Utils.map_cons_option a_value value
+          |> Utils.cons_if_lazy disabled a_disabled
+          |> Utils.cons_if_lazy selected a_selected
+          |> Utils.map_cons_option a_label label)
+        (return (txt text))
 
-    let create_option ?(classes = []) ?(attrs = []) ?value ?(disabled = false)
-          ?(selected = false) ~text () : 'a elt =
-      option ~a:([a_class classes]
-                 @ attrs
-                 |> map_cons_option a_value value
-                 |> cons_if_lazy disabled a_disabled
-                 |> cons_if_lazy selected a_selected)
-        (txt text)
+    let optgroup
+        ?(classes = return [])
+        ?(a = [])
+        ~label
+        ?(disabled = false)
+        ?(options = nil ())
+        () =
+      optgroup
+        ~a:(a_class classes :: a |> Utils.cons_if_lazy disabled a_disabled)
+        ~label
+        options
 
-    let create_optgroup ?(classes = []) ?(attrs = []) ~label ~items () : 'a elt =
-      optgroup ~a:([a_class classes] @ attrs) ~label items
+    let native_control
+        ?(classes = return [])
+        ?(a = [])
+        ?id
+        ?(disabled = false)
+        ?(autofocus = false)
+        ?(required = false)
+        ?size (* Number of visible options in a drop-down list *)
+        ?form (* Form the select field belongs to *)
+        ?name (* Name of the drop-down list *)
+        ?(options = nil ())
+        () =
+      let classes = fmap (List.cons CSS.native_control) classes in
+      select
+        ~a:
+          (a_class classes :: a
+          |> Utils.map_cons_option a_id id
+          |> Utils.map_cons_option a_size size
+          |> Utils.map_cons_option a_name name
+          |> Utils.map_cons_option a_form form
+          |> Utils.cons_if_lazy required a_required
+          |> Utils.cons_if_lazy autofocus a_autofocus
+          |> Utils.cons_if_lazy disabled a_disabled)
+        options
 
-    let create_select ?(classes = []) ?(attrs = [])
-        ?(disabled = false) ~items () : 'a elt =
-      let classes = CSS.native_control :: classes in
-      select ~a:([a_class classes]
-                 @ attrs
-                 |> cons_if_lazy disabled a_disabled) items
-
-    let create ?(classes = []) ?(attrs = []) ?label ?line_ripple ?(disabled = false)
-        ?outline ?icon ~select () : 'a elt =
-      let outlined = match outline with
-        | None -> false
-        | Some _ -> true in
+    let select
+        ?(classes = return [])
+        ?(a = [])
+        ?label
+        ?input_id
+        ?line_ripple
+        ?(disabled = false)
+        ?(outlined = false)
+        ?outline
+        ?icon
+        ?required
+        ?autofocus
+        ?size
+        ?form
+        ?name
+        ?options
+        ?(native_control =
+          native_control ?id:input_id ?required ?autofocus ?size ?form ?name ?options ())
+        () : 'a elt =
+      let outline =
+        match outline, outlined with
+        | Some x, _ -> Some (return x)
+        | None, false -> None
+        | None, true -> Some (return @@ Notched_outline_markup.notched_outline ?label ())
+      in
+      let floating_label =
+        match label, outline with
+        | None, _ -> None
+        | Some _, Some _ -> None
+        | Some x, None ->
+            Some
+              (return @@ Floating_label_makrup.floating_label ?for_:input_id ~label:x ())
+      in
       let classes =
-        classes
-        |> cons_if disabled CSS.disabled
-        |> cons_if outlined CSS.outlined
-        |> List.cons CSS.root in
-      let dropdown_icon = i ~a:[a_class [CSS.dropdown_icon]] [] in
-      div ~a:([a_class classes] @ attrs)
-        (icon ^:: (dropdown_icon :: select
-                   :: (label ^:: line_ripple ^:: outline ^:: [])))
+        fmap
+          (Utils.cons_if disabled CSS.disabled
+          % Utils.cons_if (Option.is_some outline) CSS.outlined
+          % List.cons CSS.root)
+          classes
+      in
+      let dropdown_icon = i ~a:[a_class (return [CSS.dropdown_icon])] (nil ()) in
+      div
+        ~a:(a_class classes :: a)
+        (icon
+        ^:: return dropdown_icon
+        @:: return native_control
+        @:: floating_label
+        ^:: line_ripple
+        ^:: outline
+        ^:: nil ())
   end
 
   module Enhanced = struct
+    let hidden_input ?(classes = return []) ?(a = []) ?(disabled = false) () : 'a elt =
+      input
+        ~a:
+          (a_class classes :: a_input_type (return `Hidden) :: a
+          |> Utils.cons_if_lazy disabled a_disabled)
+        ()
 
-    let create_hidden_input ?(classes = []) ?(attrs = []) ?(disabled = false)
+    let select
+        ?(classes = return [])
+        ?(a = [])
+        ?label
+        ?line_ripple
+        ?(disabled = false)
+        ?(selected_text = return "")
+        ?outline
+        ?icon
+        ?hidden_input
+        ~menu
         () : 'a elt =
-      input ~a:([ a_class classes
-                ; a_input_type `Hidden ] @ attrs
-                |> cons_if_lazy disabled a_disabled) ()
-
-    let create ?(classes = []) ?(attrs = []) ?label ?line_ripple
-          ?(disabled = false) ?(selected_text = "") ?outline
-          ?icon ?hidden_input ~menu () : 'a elt =
-      let with_leading_icon = match icon with
+      let with_leading_icon =
+        match icon with
         | None -> false
-        | Some _ -> true in
-      let outlined = match outline with
+        | Some _ -> true
+      in
+      let outlined =
+        match outline with
         | None -> false
-        | Some _ -> true in
+        | Some _ -> true
+      in
       let classes =
-        classes
-        |> cons_if with_leading_icon CSS.with_leading_icon
-        |> cons_if outlined CSS.outlined
-        |> cons_if disabled CSS.disabled
-        |> List.cons CSS.root in
-      let dropdown_icon = i ~a:[a_class [CSS.dropdown_icon]] [] in
+        fmap
+          (Utils.cons_if with_leading_icon CSS.with_leading_icon
+          % Utils.cons_if outlined CSS.outlined
+          % Utils.cons_if disabled CSS.disabled
+          % List.cons CSS.root)
+          classes
+      in
+      let dropdown_icon = i ~a:[a_class (return [CSS.dropdown_icon])] (nil ()) in
       let selected_text =
-        div ~a:[a_class [CSS.selected_text]]
-          [txt selected_text] in
-      div ~a:([a_class classes] @ attrs)
+        div
+          ~a:[a_class (return [CSS.selected_text])]
+          (singleton (return (txt selected_text)))
+      in
+      div
+        ~a:(a_class classes :: a)
         (hidden_input
-         ^:: icon
-         ^:: (dropdown_icon :: selected_text :: menu
-              :: (label ^:: line_ripple ^:: outline ^:: [])))
-
+        ^:: icon
+        ^:: return dropdown_icon
+        @:: return selected_text
+        @:: menu
+        @:: label
+        ^:: line_ripple
+        ^:: outline
+        ^:: nil ())
   end
 end
+
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

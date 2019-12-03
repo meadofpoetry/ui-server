@@ -4,16 +4,17 @@ open Board_niitv_dvb4ch_types
 open Components
 
 let name = "Настройки"
+
 let settings = None
 
 let base_class = "dvb-niit-settings"
+
 let body_class = Components_tyxml.BEM.add_element base_class "body"
 
 type event =
   [ `Mode of (int * Device.mode) list
   | `State of Topology.state
-  | `PLPs of (int * (Plp_list.t ts)) list
-  ]
+  | `PLPs of (int * Plp_list.t ts) list ]
 
 (*
 
@@ -42,35 +43,43 @@ let make_inner state mode plps receivers control =
         let open Module_settings in
         let name = Printf.sprintf "%s %d" Util.module_name (succ id) in
         let mode = List.assoc_opt id mode in
-        let plps = match List.assoc_opt id plps with
+        let plps =
+          match List.assoc_opt id plps with
           | None -> []
-          | Some (x : Plp_list.t ts) -> x.data.plps in
-        `Widget (make {id} state mode plps control),
-        Tab.make ~label:name ())
-    @@ List.sort compare receivers in
-  let bar, body = Tab_bar.make_bind tabs in
+          | Some (x : Plp_list.t ts) -> x.data.plps
+        in
+        `Widget (make {id} state mode plps control), Tab.D.tab ~text_label:name ())
+    @@ List.sort compare receivers
+  in
+  let bar, body = Tab_bar.make_bind ~tabs () in
   body#add_class body_class;
-  List.filter_map (function `Widget x, _ -> Some x | _ -> None) tabs,
-  object
-    inherit Widget.t Dom_html.(createDiv document) () as super
+  ( List.filter_map
+      (function
+        | `Widget x, _ -> Some x
+        | _ -> None)
+      tabs
+  , object
+      inherit Widget.t Dom_html.(createDiv document) () as super
 
-    method! init () : unit =
-      super#append_child bar;
-      super#append_child body;
-      super#init ()
+      method! init () : unit =
+        super#append_child bar;
+        super#append_child body;
+        super#init ()
 
-    method! destroy () : unit =
-      bar#destroy ();
-      body#destroy ();
-      super#destroy ()
-  end
+      method! destroy () : unit =
+        bar#destroy ();
+        body#destroy ();
+        super#destroy ()
+    end )
 
 class t state mode plps receivers control =
-  let modules, inner = match receivers with
+  let modules, inner =
+    match receivers with
     | None -> [], None
     | Some x ->
-      let x, y = make_inner state mode plps x control in
-      x, Some y in
+        let x, y = make_inner state mode plps x control in
+        x, Some y
+  in
   object
     inherit Widget.t (Dom_html.createDiv Dom_html.document) () as super
 
@@ -83,16 +92,17 @@ class t state mode plps receivers control =
       List.iter Widget.destroy modules;
       super#destroy ()
 
-    method notify : event -> unit = function
+    method notify : event -> unit =
+      function
       | `Mode _x -> ()
       | `PLPs x ->
-        List.iter (fun (id, ({ data; _ } : Plp_list.t ts)) ->
-            match List.find_opt (fun w -> w#id = id) modules with
-            | None -> ()
-            | Some m -> m#notify (`PLPs data.plps)) x
+          List.iter
+            (fun (id, ({data; _} : Plp_list.t ts)) ->
+              match List.find_opt (fun w -> w#id = id) modules with
+              | None -> ()
+              | Some m -> m#notify (`PLPs data.plps))
+            x
       | `State _ -> ()
-
   end
 
-let make state mode plps receivers control =
-  new t state mode plps receivers control
+let make state mode plps receivers control = new t state mode plps receivers control

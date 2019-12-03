@@ -10,7 +10,7 @@ let parse_bandwith bandwith =
 
 let parse_priority priority =
   match priority with
-  | true  -> "HP (high priority)"
+  | true -> "HP (high priority)"
   | false -> "LP (low priority)"
 
 let parse_constellation const =
@@ -74,31 +74,65 @@ let parse bs off =
      ; transmission_mode : 2  : save_offset_to (off_11)
      ; other_freq_flag   : 1  : save_offset_to (off_12)
      ; rfu_2             : 32 : save_offset_to (off_13)
-     |} ->
-    let trans = parse_transmission transmission_mode in
-    let guard = parse_guard_interval guard_interval in
-    let hp_cr = parse_code_rate code_rate_hp_str in
-    let lp_cr = parse_code_rate code_rate_lp_str in
-    let hier  = parse_hierarchy hierarchy_info in
-    let const = parse_constellation constellation in
-    let prior = parse_priority priority in
-    let bandw = parse_bandwith bandwith in
-    [ Node.make ~offset:off 32 "centre_frequency" (Dec (Int32 centre_frequency))
-    ; Node.make ~parsed:bandw ~offset:(off + off_1)  3  "bandwith" (Dec (Int bandwith))
-    ; Node.make ~parsed:prior ~offset:(off + off_2)  1  "priority" (Bits (Bool priority))
-    ; Node.make ~offset:(off + off_3) 1 "Time_slicing_indicator" (Bits (Bool time_slicing_ind))
-    ; Node.make ~offset:(off + off_4) 1 "MPE-FEC-indicator" (Bits (Bool mpe_fec_ind))
-    ; Node.make ~offset:(off + off_5) 2 "reserved_future_use" (Bits (Int rfu_1))
-    ; Node.make ~parsed:const ~offset:(off + off_6)  2  "constellation" (Bits (Int rfu_1))
-    ; Node.make ~parsed:hier  ~offset:(off + off_7)  3
-        "hierarchy_information" (Hex (Int hierarchy_info))
-    ; Node.make ~parsed:hp_cr ~offset:(off + off_8)  3
-        "code_rate-HP_stream" (Dec (Int code_rate_hp_str))
-    ; Node.make ~parsed:lp_cr ~offset:(off + off_9)  3
-        "code_rate-LP_stream" (Dec (Int code_rate_lp_str))
-    ; Node.make ~parsed:guard ~offset:(off + off_10) 2
-        "guard_interval" (Dec (Int guard_interval))
-    ; Node.make ~parsed:trans ~offset:(off + off_11) 2
-        "transmission_mode" (Dec (Int transmission_mode))
-    ; Node.make ~offset:(off + off_12) 1  "other_frequency_flag" (Bits (Bool other_freq_flag))
-    ; Node.make ~offset:(off + off_13) 32 "reserved_future_use" (Bits (Int32 rfu_2)) ]
+     |}
+    ->
+      let trans = parse_transmission transmission_mode in
+      let guard = parse_guard_interval guard_interval in
+      let hp_cr = parse_code_rate code_rate_hp_str in
+      let lp_cr = parse_code_rate code_rate_lp_str in
+      let hier = parse_hierarchy hierarchy_info in
+      let const = parse_constellation constellation in
+      let prior = parse_priority priority in
+      let bandw = parse_bandwith bandwith in
+      [ Node.make ~offset:off 32 "centre_frequency" (Dec (Int32 centre_frequency))
+      ; Node.make ~parsed:bandw ~offset:(off + off_1) 3 "bandwith" (Dec (Int bandwith))
+      ; Node.make ~parsed:prior ~offset:(off + off_2) 1 "priority" (Bits (Bool priority))
+      ; Node.make
+          ~offset:(off + off_3)
+          1
+          "Time_slicing_indicator"
+          (Bits (Bool time_slicing_ind))
+      ; Node.make ~offset:(off + off_4) 1 "MPE-FEC-indicator" (Bits (Bool mpe_fec_ind))
+      ; Node.make ~offset:(off + off_5) 2 "reserved_future_use" (Bits (Int rfu_1))
+      ; Node.make
+          ~parsed:const
+          ~offset:(off + off_6)
+          2
+          "constellation"
+          (Bits (Int rfu_1))
+      ; Node.make
+          ~parsed:hier
+          ~offset:(off + off_7)
+          3
+          "hierarchy_information"
+          (Hex (Int hierarchy_info))
+      ; Node.make
+          ~parsed:hp_cr
+          ~offset:(off + off_8)
+          3
+          "code_rate-HP_stream"
+          (Dec (Int code_rate_hp_str))
+      ; Node.make
+          ~parsed:lp_cr
+          ~offset:(off + off_9)
+          3
+          "code_rate-LP_stream"
+          (Dec (Int code_rate_lp_str))
+      ; Node.make
+          ~parsed:guard
+          ~offset:(off + off_10)
+          2
+          "guard_interval"
+          (Dec (Int guard_interval))
+      ; Node.make
+          ~parsed:trans
+          ~offset:(off + off_11)
+          2
+          "transmission_mode"
+          (Dec (Int transmission_mode))
+      ; Node.make
+          ~offset:(off + off_12)
+          1
+          "other_frequency_flag"
+          (Bits (Bool other_freq_flag))
+      ; Node.make ~offset:(off + off_13) 32 "reserved_future_use" (Bits (Int32 rfu_2)) ]

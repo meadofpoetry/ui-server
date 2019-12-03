@@ -5,8 +5,8 @@ type t =
   ; mer : float option
   ; ber : float option
   ; freq : int option
-  ; bitrate : int option
-  } [@@deriving yojson, eq]
+  ; bitrate : int option }
+[@@deriving yojson, eq]
 
 let power_to_string = function
   | None -> "-"
@@ -29,12 +29,8 @@ let bitrate_to_string = function
   | Some x -> Printf.sprintf "%d Mbit/s" x
 
 let to_string (x : t) =
-  Printf.sprintf "lock: %b, \
-                  power: %s, \
-                  MER: %s, \
-                  BER: %s, \
-                  frequency: %s, \
-                  bitrate: %s"
+  Printf.sprintf
+    "lock: %b, power: %s, MER: %s, BER: %s, frequency: %s, bitrate: %s"
     x.lock
     (power_to_string x.power)
     (mer_to_string x.mer)

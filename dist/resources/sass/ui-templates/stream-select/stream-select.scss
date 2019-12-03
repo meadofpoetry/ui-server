@@ -1,0 +1,15 @@
+.stream-select {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 20px;
+
+    &__label {
+        flex-grow: 2;
+    }
+
+    &__select {
+        flex-grow: 1;
+    }
+}

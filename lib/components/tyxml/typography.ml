@@ -72,29 +72,34 @@ let font_to_class : font -> string = function
   | Caption -> CSS.caption
   | Overline -> CSS.overline
 
-module Make(Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap
-     with module Xml := Xml
-      and module Svg := Svg) = struct
+module Make
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
+struct
+  open Xml.W
   open Html
-  open Utils
 
-  let make_inner text =
-    let rec aux acc = function
-      | [] -> List.rev acc
-      | [x] -> List.rev ((txt x) :: acc)
-      | x :: tl -> aux (br () :: txt x :: acc) tl in
-    aux [] (String.split_on_char '\n' text)
+  let ( % ) f g x = f (g x)
 
-  let make ?(classes = []) ?(attrs = []) ?font text =
-    let font_class = match font with
+  let typography
+      ?(classes = return [])
+      ?(a = [])
+      ?(font : font option)
+      ?text
+      ?(children = nil ())
+      () =
+    let font_class =
+      match font with
       | None -> None
-      | Some x -> Some (font_to_class x) in
-    let classes =
-      classes
-      |> cons_option font_class
-      |> List.cons CSS.root in
-    span ~a:([a_class classes] @ attrs) (make_inner text)
-
+      | Some x -> Some (font_to_class x)
+    in
+    let classes = fmap (Utils.cons_option font_class % List.cons CSS.root) classes in
+    span
+      ~a:(a_class classes :: a)
+      (match text with
+      | None -> children
+      | Some text -> cons (return (txt text)) children)
 end
+
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

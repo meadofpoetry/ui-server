@@ -27,35 +27,104 @@ module CSS = struct
 end
 
 module Make
-         (Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-           and module Svg := Svg) = struct
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
+struct
+  open Xml.W
   open Html
-  open Utils
+  module Tab_indicator_markup = Tab_indicator.Make (Xml) (Svg) (Html)
 
-  let create_text_label ?(classes = []) ?(attrs = []) text () : 'a elt =
-    let classes = CSS.text_label :: classes in
-    span ~a:([a_class classes] @ attrs) [txt text]
+  let ( % ) f g x = f (g x)
 
-  let create_content ?(classes = []) ?(attrs = [])
-        ?indicator ?icon ?text_label () : 'a elt =
-    let classes = CSS.content :: classes in
-    span ~a:([a_class classes] @ attrs)
-      (icon ^:: text_label ^:: indicator ^:: [])
+  let ( @:: ) = cons
 
-  let create ?(classes = []) ?(attrs = []) ?(active = false) ?(stacked = false)
-        ?(disabled = false) ?(min_width = false) ?indicator content () : 'a elt =
+  let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
+
+  let tab_text_label ?(classes = return []) ?(a = []) ?label ?(children = nil ()) () =
+    let classes = fmap (fun x -> CSS.text_label :: x) classes in
+    let children =
+      match label with
+      | None -> children
+      | Some x -> cons (return (txt x)) children
+    in
+    span ~a:(a_class classes :: a) children
+
+  let tab_content
+      ?(classes = return [])
+      ?(a = [])
+      ?indicator
+      ?icon
+      ?text_label
+      ?children
+      () =
+    let classes = fmap (fun x -> CSS.content :: x) classes in
+    let children =
+      match children with
+      | Some x -> x
+      | None ->
+          let text_label =
+            match text_label with
+            | None -> None
+            | Some s -> Some (return @@ tab_text_label ~label:s ())
+          in
+          icon ^:: text_label ^:: indicator ^:: nil ()
+    in
+    span ~a:(a_class classes :: a) children
+
+  let tab_ripple ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+    let classes = fmap (fun x -> CSS.ripple :: x) classes in
+    span ~a:(a_class classes :: a) children
+
+  let tab
+      ?(classes = return [])
+      ?(a = [])
+      ?(active = false)
+      ?(stacked = false)
+      ?(disabled = false)
+      ?(min_width = false)
+      ?(indicator_span_content = false)
+      ?indicator_icon
+      ?icon
+      ?text_label
+      ?(ripple = tab_ripple ())
+      ?(indicator = Tab_indicator_markup.tab_indicator ~active ?icon:indicator_icon ())
+      ?content
+      ?children
+      () =
     let classes =
-      classes
-      |> cons_if active CSS.active
-      |> cons_if stacked CSS.stacked
-      |> cons_if min_width CSS.min_width
-      |> List.cons CSS.root in
-    button ~a:([ a_class classes
-               ; a_role ["tab"] ]
-               @ attrs
-               |> cons_if_lazy disabled a_disabled)
-      (content :: (indicator ^:: (span ~a:[a_class [CSS.ripple]] [] :: [])))
+      fmap
+        (Utils.cons_if active CSS.active
+        % Utils.cons_if stacked CSS.stacked
+        % Utils.cons_if min_width CSS.min_width
+        % List.cons CSS.root)
+        classes
+    in
+    let content =
+      match content with
+      | Some x -> return x
+      | None ->
+          return
+          @@ tab_content
+               ?indicator:
+                 (if indicator_span_content then Some (return indicator) else None)
+               ?icon
+               ?text_label
+               ()
+    in
+    let children =
+      match children with
+      | Some x -> x
+      | None ->
+          if indicator_span_content
+          then content @:: return ripple @:: nil ()
+          else content @:: return indicator @:: return ripple @:: nil ()
+    in
+    button
+      ~a:
+        (a_class classes :: a_role (return ["tab"]) :: a
+        |> Utils.cons_if_lazy disabled a_disabled)
+      children
 end
+
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

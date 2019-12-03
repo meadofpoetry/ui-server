@@ -7,4 +7,4 @@
              api_cohttp_template
              api_websocket
              components_tyxml
-             page_input))
+             ui_templates_tyxml))

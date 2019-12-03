@@ -17,12 +17,8 @@ let to_suffix ~(crc : int) : Cstruct.t =
 
 let calc_crc ~(pfx : Cstruct.t) (bdy : Cstruct.t) =
   let tag = get_prefix_msg_code pfx in
-  let iter =
-    Cstruct.iter
-      (fun _ -> Some 1)
-      (fun x -> Cstruct.get_uint8 x 0) bdy
-  in
-  tag lxor (Cstruct.fold ( lxor ) iter 0)
+  let iter = Cstruct.iter (fun _ -> Some 1) (fun x -> Cstruct.get_uint8 x 0) bdy in
+  tag lxor Cstruct.fold ( lxor ) iter 0
 
 (** Arbitrary message constructor. *)
 let serialize (type a) (request : a Request.t) : Cstruct.t =

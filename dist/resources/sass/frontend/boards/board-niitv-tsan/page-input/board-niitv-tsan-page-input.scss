@@ -1,0 +1,13 @@
+@import "@material/card/mixins";
+
+.board-niitv-tsan-pid-bitrate-pie {
+    canvas {
+        max-width: 300px;
+        max-height: 300px;
+        margin: 0 auto;
+    }
+}
+
+.board-niitv-tsan-pid-summary {
+    margin: 1rem;
+}

@@ -1,5 +1,4 @@
 module Bitstring = struct
-
   include Bitstring
 
   let ( % ) f g x = f (g x)
@@ -11,5 +10,4 @@ module Bitstring = struct
   let to_cstruct = Cstruct.of_string % string_of_bitstring
 
   let length = bitstring_length
-
 end

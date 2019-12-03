@@ -8,26 +8,36 @@
 
 open Js_of_ocaml
 open Js_of_ocaml_lwt
-open Components
-
 include Components_lab_tyxml.Clusterize
 
 type row = Dom_html.element Js.t
 
 let ( >>= ) = Lwt.bind
 
+let cons_maybe x l =
+  match x with
+  | None -> l
+  | Some x -> x :: l
+
+let rec equal_list ~eq l1 l2 =
+  match l1, l2 with
+  | [], [] -> true
+  | [], _ | _, [] -> false
+  | x1 :: l1', x2 :: l2' -> eq x1 x2 && equal_list ~eq l1' l2'
+
+let px_js x = Js.string @@ Printf.sprintf "%dpx" x
+
 let window_scroll_y () =
-  Js.Optdef.get (Js.Unsafe.coerce Dom_html.window)##.pageYOffset
+  Js.Optdef.get
+    (Js.Unsafe.coerce Dom_html.window)##.pageYOffset
     (fun () -> Dom_html.document##.documentElement##.scrollTop)
 
 module Scroll_target = struct
-
   type t =
     { scroll_top : unit -> int
     ; set_scroll_top : int -> unit
     ; top : unit -> int
-    ; target : Dom_html.eventTarget Js.t
-    }
+    ; target : Dom_html.eventTarget Js.t }
 
   let window =
     let w = Dom_html.window in
@@ -35,16 +45,13 @@ module Scroll_target = struct
     { scroll_top = (fun () -> doc_elt##.scrollTop)
     ; set_scroll_top = (fun x -> doc_elt##.scrollTop := x)
     ; top = (fun () -> 0)
-    ; target = (w :> Dom_html.eventTarget Js.t)
-    }
+    ; target = (w :> Dom_html.eventTarget Js.t) }
 
   let element (elt : Dom_html.element Js.t) =
     { scroll_top = (fun () -> elt##.scrollTop)
     ; set_scroll_top = (fun x -> elt##.scrollTop := x)
     ; top = (fun () -> int_of_float elt##getBoundingClientRect##.top)
-    ; target = (elt :> Dom_html.eventTarget Js.t)
-    }
-
+    ; target = (elt :> Dom_html.eventTarget Js.t) }
 end
 
 type options =
@@ -53,15 +60,13 @@ type options =
   ; scroll_target : Scroll_target.t
   ; content_element : Dom_html.element Js.t
   ; make_empty_row : (unit -> row) option
-  ; make_extra_row : (unit -> row)
-  ; keep_parity : bool
-  }
+  ; make_extra_row : unit -> row
+  ; keep_parity : bool }
 
 type cache =
   { mutable top : int
   ; mutable bottom : int
-  ; mutable data : row list
-  }
+  ; mutable data : row list }
 
 type t =
   { mutable rows_in_cluster : int
@@ -76,25 +81,24 @@ type t =
   ; mutable resize_listener : Dom_events.listener option
   ; mutable offset_top : int
   ; cache : cache
-  ; options : options
-  }
+  ; options : options }
 
 type cluster =
   { top_offset : int
   ; bottom_offset : int
   ; rows_above : int
-  ; rows : row list
-  }
+  ; rows : row list }
 
 let get_child_nodes (t : t) : row list =
-  let nodes = t.options.content_element##.childNodes in
+  let nodes = (t.options.content_element)##.childNodes in
   let rec aux acc = function
     | 0 -> acc
     | i ->
-       let (node : row) =
-         Js.Opt.get (nodes##item i) (fun () -> raise Not_found)
-         |> Js.Unsafe.coerce in
-       aux (node :: acc) (pred i) in
+        let (node : row) =
+          Js.Opt.get (nodes##item i) (fun () -> raise Not_found) |> Js.Unsafe.coerce
+        in
+        aux (node :: acc) (pred i)
+  in
   aux [] nodes##.length
 
 let fetch_markup (t : t) : unit =
@@ -103,28 +107,29 @@ let fetch_markup (t : t) : unit =
 
 let get_rows_height (t : t) : bool =
   let prev_item_height = t.item_height in
-  let nodes = t.options.content_element##.childNodes in
+  let nodes = (t.options.content_element)##.childNodes in
   (* XXX is this optimal? *)
   let scroll_top = window_scroll_y () in
   let content_top =
-    int_of_float t.options.content_element##getBoundingClientRect##.top in
+    int_of_float (t.options.content_element)##getBoundingClientRect##.top
+  in
   let scroller_top = t.options.scroll_target.top () in
-  let offset_top = (content_top + scroll_top) - scroller_top in
+  let offset_top = content_top + scroll_top - scroller_top in
   t.offset_top <- offset_top;
   match t.rows, nodes##.length with
   | [], _ | _, 0 ->
-     t.cluster_height <- 0;
-     false
+      t.cluster_height <- 0;
+      false
   | _, nodes_length ->
-     let index = nodes_length / 2 in
-     let (node : Dom_html.element Js.t) =
-       Js.Unsafe.coerce
-       @@ Js.Opt.get (nodes##item index) (fun () -> raise Not_found) in
-     t.item_height <- node##.offsetHeight;
-     (* TODO Consider margins and border spacing *)
-     t.block_height <- t.item_height * t.options.rows_in_block;
-     t.cluster_height <- t.options.blocks_in_cluster * t.block_height;
-     prev_item_height <> t.item_height
+      let index = nodes_length / 2 in
+      let (node : Dom_html.element Js.t) =
+        Js.Unsafe.coerce @@ Js.Opt.get (nodes##item index) (fun () -> raise Not_found)
+      in
+      t.item_height <- node##.offsetHeight;
+      (* TODO Consider margins and border spacing *)
+      t.block_height <- t.item_height * t.options.rows_in_block;
+      t.cluster_height <- t.options.blocks_in_cluster * t.block_height;
+      prev_item_height <> t.item_height
 
 let explore_environment (t : t) : unit =
   match t.rows with
@@ -135,9 +140,7 @@ let explore_environment (t : t) : unit =
 let get_cluster_num (t : t) : int =
   t.scroll_top <- t.options.scroll_target.scroll_top () - t.offset_top;
   let diff = t.cluster_height - t.block_height in
-  floor ((float_of_int t.scroll_top) /. (float_of_int diff))
-  |> int_of_float
-  |> max 0
+  floor (float_of_int t.scroll_top /. float_of_int diff) |> int_of_float |> max 0
 
 (** Generate empty row if no data provided *)
 let generate_empty_row (t : t) : row list =
@@ -151,18 +154,14 @@ let generate (t : t) (cluster_num : int) : cluster =
   let rows_len = List.length t.rows in
   if rows_len < opts.rows_in_block
   then
-    let rows = match t.rows with
+    let rows =
+      match t.rows with
       | [] -> generate_empty_row t
-      | l -> l in
-    { top_offset = 0
-    ; bottom_offset = 0
-    ; rows_above = 0
-    ; rows
-    }
+      | l -> l
+    in
+    {top_offset = 0; bottom_offset = 0; rows_above = 0; rows}
   else
-    let items_start =
-      (t.rows_in_cluster - opts.rows_in_block) * cluster_num
-      |> max 0 in
+    let items_start = (t.rows_in_cluster - opts.rows_in_block) * cluster_num |> max 0 in
     let items_end = items_start + t.rows_in_cluster in
     let items_end = min rows_len items_end in
     let top_offset = max 0 (items_start * t.item_height) in
@@ -170,39 +169,35 @@ let generate (t : t) (cluster_num : int) : cluster =
     let rows_above = if top_offset < 1 then items_start + 1 else items_start in
     let len = items_end - items_start in
     let rows =
-      Array.of_list t.rows
-      |> (fun a -> Array.sub a items_start len)
-      |> Array.to_list in
-    { top_offset
-    ; bottom_offset
-    ; rows_above
-    ; rows
-    }
+      Array.of_list t.rows |> (fun a -> Array.sub a items_start len) |> Array.to_list
+    in
+    {top_offset; bottom_offset; rows_above; rows}
 
 let check_changes typ (cache : cache) : bool =
-  let changed = match typ with
+  let changed =
+    match typ with
     | `Top x -> cache.top <> x
     | `Bottom x -> cache.bottom <> x
-    | `Data x -> not (Utils.List.equal ~eq:(==) x cache.data) in
+    | `Data x -> not (equal_list ~eq:( == ) x cache.data)
+  in
   let set = function
     | `Top x -> cache.top <- x
     | `Bottom x -> cache.bottom <- x
-    | `Data x -> cache.data <- x in
+    | `Data x -> cache.data <- x
+  in
   if changed then set typ;
   changed
 
-let render_extra_row ?height  (t : t) (modifier_class : string) : row =
+let render_extra_row ?height (t : t) (modifier_class : string) : row =
   let row = t.options.make_extra_row () in
-  List.iter (fun c -> row##.classList##add (Js.string c))
-    [CSS.extra_row; modifier_class];
-  Option.iter (fun height ->
-      row##.style##.height := Utils.px_js height) height;
+  List.iter (fun c -> row##.classList##add (Js.string c)) [CSS.extra_row; modifier_class];
+  Option.iter (fun height -> row##.style##.height := px_js height) height;
   row
 
 let html (t : t) (rows : row list) : unit =
   let elt = t.options.content_element in
   while Js.Opt.test elt##.firstChild do
-    Js.Opt.iter elt##.firstChild (Dom.removeChild elt);
+    Js.Opt.iter elt##.firstChild (Dom.removeChild elt)
   done;
   let fragment = Dom_html.document##createDocumentFragment in
   List.iter (Dom.appendChild fragment) rows;
@@ -211,48 +206,43 @@ let html (t : t) (rows : row list) : unit =
 let insert_to_dom (t : t) : unit =
   if t.cluster_height = 0 then explore_environment t;
   let data = generate t (get_cluster_num t) in
-  let this_cluster_content_changed =
-    check_changes (`Data data.rows) t.cache in
-  let top_offset_changed =
-    check_changes (`Top data.top_offset) t.cache in
-  let only_bottom_offset_changed =
-    check_changes (`Bottom data.bottom_offset) t.cache in
+  let this_cluster_content_changed = check_changes (`Data data.rows) t.cache in
+  let top_offset_changed = check_changes (`Top data.top_offset) t.cache in
+  let only_bottom_offset_changed = check_changes (`Bottom data.bottom_offset) t.cache in
   if (not this_cluster_content_changed) && top_offset_changed
   then
-    let first = t.options.content_element##.firstChild in
-    begin match Option.map Js.Unsafe.coerce @@ Js.Opt.to_option first with
+    let first = (t.options.content_element)##.firstChild in
+    match Option.map Js.Unsafe.coerce @@ Js.Opt.to_option first with
     | None -> ()
     | Some (first : Dom_html.element Js.t) ->
-       first##.style##.height := Utils.px_js data.top_offset
-    end
+        first##.style##.height := px_js data.top_offset
   else if this_cluster_content_changed || top_offset_changed
-  then
+  then (
     let parity =
-      if not t.options.keep_parity then None else
-        Some (render_extra_row t "keep-parity") in
+      if not t.options.keep_parity then None else Some (render_extra_row t "keep-parity")
+    in
     let top = render_extra_row ~height:data.top_offset t CSS.top_space in
     let bot = render_extra_row ~height:data.bottom_offset t CSS.bottom_space in
-    let layout = (Utils.List.cons_maybe parity (top :: data.rows)) @ [bot] in
+    let layout = cons_maybe parity (top :: data.rows) @ [bot] in
     (* TODO Call 'cluster will change' here *)
     html t layout;
     (* TODO Call 'cluster changed' here *)
-    ()
+    ())
   else if only_bottom_offset_changed
   then
-    let last = t.options.content_element##.lastChild in
-    begin match Option.map Js.Unsafe.coerce @@ Js.Opt.to_option last with
+    let last = (t.options.content_element)##.lastChild in
+    match Option.map Js.Unsafe.coerce @@ Js.Opt.to_option last with
     | None -> ()
     | Some (last : Dom_html.element Js.t) ->
-       last##.style##.height := Utils.px_js data.bottom_offset
-    end
+        last##.style##.height := px_js data.bottom_offset
 
 let add (t : t) = function
   | `Prepend rows ->
-     t.rows <- (rows @ t.rows);
-     insert_to_dom t
+      t.rows <- rows @ t.rows;
+      insert_to_dom t
   | `Append rows ->
-     t.rows <- (t.rows @ rows);
-     insert_to_dom t
+      t.rows <- t.rows @ rows;
+      insert_to_dom t
 
 let update (t : t) (rows : row list) : unit =
   let scroll_top = t.options.scroll_target.scroll_top () in
@@ -268,59 +258,64 @@ let refresh ?(force = false) (t : t) : unit =
   if force || get_rows_height t then update t t.rows
 
 let add_listeners (t : t) : unit =
-  let scroll_ev = fun _ _ ->
+  let scroll_ev _ _ =
     (* TODO add mac scrolling fix *)
     let cluster = get_cluster_num t in
-    if t.last_cluster <> cluster
-    then insert_to_dom t;
+    if t.last_cluster <> cluster then insert_to_dom t;
     t.last_cluster <- cluster;
     (* TODO Call 'scrolling progress' here *)
-    true in
-  let resize_ev = fun _ _ ->
+    true
+  in
+  let resize_ev _ _ =
     Option.iter Lwt.cancel t.resize_debounce;
-    let timer = Lwt_js.sleep 0.1 >>= fun () -> refresh t; Lwt.return_unit in
+    let timer =
+      Lwt_js.sleep 0.1
+      >>= fun () ->
+      refresh t;
+      Lwt.return_unit
+    in
     t.resize_debounce <- Some timer;
-    true in
-  Dom_events.(listen t.options.scroll_target.target Typ.scroll scroll_ev)
-  |> (fun l -> t.scroll_listener <- Some l);
+    true
+  in
+  (Dom_events.(listen t.options.scroll_target.target Typ.scroll scroll_ev)
+  |> fun l -> t.scroll_listener <- Some l);
   Dom_events.(listen Dom_html.window Typ.resize resize_ev)
-  |> (fun l -> t.resize_listener <- Some l)
+  |> fun l -> t.resize_listener <- Some l
 
 let destroy ?(clean = true) (t : t) : unit =
   Option.iter Dom_events.stop_listen t.scroll_listener;
   t.scroll_listener <- None;
   Option.iter Dom_events.stop_listen t.resize_listener;
   t.resize_listener <- None;
-  let layout = match clean with
+  let layout =
+    match clean with
     | false -> t.rows
-    | true -> generate_empty_row t in
+    | true -> generate_empty_row t
+  in
   html t layout
 
-let clear (t : t) : unit =
-  update t []
+let clear (t : t) : unit = update t []
 
-let get_rows_amount (t : t) : int =
-  List.length t.rows
+let get_rows_amount (t : t) : int = List.length t.rows
 
 let get_scroll_progress (t : t) : float =
   let st = float_of_int t.scroll_top in
-  st /. (float_of_int ((get_rows_amount t) * t.item_height)) *. 100.
+  st /. float_of_int (get_rows_amount t * t.item_height) *. 100.
 
-let append (t : t) (rows : row list) : unit =
-  add t (`Append rows)
+let append (t : t) (rows : row list) : unit = add t (`Append rows)
 
-let prepend (t : t) (rows : row list) : unit =
-  add t (`Prepend rows)
+let prepend (t : t) (rows : row list) : unit = add t (`Prepend rows)
 
-let make ?(rows_in_block = 50)
-      ?(blocks_in_cluster = 4)
-      ?rows
-      ?(keep_parity = true)
-      ~scroll_target
-      ~content_element
-      ?make_empty_row
-      ~make_extra_row
-      () : t =
+let make
+    ?(rows_in_block = 50)
+    ?(blocks_in_cluster = 4)
+    ?rows
+    ?(keep_parity = true)
+    ~scroll_target
+    ~content_element
+    ?make_empty_row
+    ~make_extra_row
+    () : t =
   let options =
     { rows_in_block
     ; blocks_in_cluster
@@ -328,13 +323,9 @@ let make ?(rows_in_block = 50)
     ; scroll_target
     ; content_element
     ; make_empty_row
-    ; make_extra_row
-    } in
-  let cache =
-    { data = []
-    ; top = 0
-    ; bottom = 0
-    } in
+    ; make_extra_row }
+  in
+  let cache = {data = []; top = 0; bottom = 0} in
   let t =
     { rows_in_cluster = blocks_in_cluster * rows_in_block
     ; item_height = 0
@@ -348,11 +339,11 @@ let make ?(rows_in_block = 50)
     ; offset_top = 0
     ; options
     ; cache
-    ; rows = []
-    } in
-  begin match rows with
-  | None | Some [] -> fetch_markup t | Some l -> t.rows <- l
-  end;
+    ; rows = [] }
+  in
+  (match rows with
+  | None | Some [] -> fetch_markup t
+  | Some l -> t.rows <- l);
   (* tabindex forces the browser to keep focus on the scrolling list *)
   let tabindex = Js.string "tabindex" in
   if Js.to_bool @@ content_element##hasAttribute tabindex

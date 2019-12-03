@@ -1,13 +1,12 @@
 include module type of Position_intf
 
-module Make : functor(Pos : S) -> Position with type t = Pos.t
+module Make (Pos : S) : Position with type t = Pos.t
 
 type absolute =
   { x : float
   ; y : float
   ; w : float
-  ; h : float
-  }
+  ; h : float }
 
 module Normalized : sig
   include Position with type t = Pipeline_types.Wm.position
@@ -19,7 +18,6 @@ module Normalized : sig
   val apply_to_element : t -> Js_of_ocaml.Dom_html.element Js_of_ocaml.Js.t -> unit
 
   val of_element : #Js_of_ocaml.Dom_html.element Js_of_ocaml.Js.t -> t
-
 end
 
 module Absolute : sig
@@ -32,7 +30,7 @@ module Absolute : sig
   val of_client_rect : Js_of_ocaml.Dom_html.clientRect Js_of_ocaml.Js.t -> t
 
   val adjust :
-    ?aspect_ratio:int * int
+       ?aspect_ratio:int * int
     -> ?snap_lines:bool
     -> ?min_width:float
     -> ?min_height:float

@@ -1,0 +1,251 @@
+@import '@material/theme/_mixins';
+@import '@material/theme/_color-palette';
+@import '@material/typography/_mixins';
+@import '@material/side-sheet/mixins';
+@import './_mixins';
+
+@import "../application/application";
+// FIXME remove
+@import "../pipeline/widgets";
+@import "../boards/board-niitv-dvb4ch/board-niitv-dvb4ch";
+@import "../boards/niitv-tsan";
+@import "../boards/dektec-dtm3200";
+
+$boards: ('TS', 'TS2IP', 'IP2TS', 'DVB');
+$error-surface: $material-color-red-200;
+$on-error-surface: if(mdc-theme-contrast-tone($error-surface) == "dark", #000, #fff) !default;
+$side-sheet-width: 500px;
+
+@for $i from 1 through length($boards) {
+    @include topology-board-type(nth($boards,$i));
+}
+
+.mdc-card__primary {
+    margin: 0;
+    padding: 1rem;
+}
+
+.mdc-card__title {
+    margin: 0;
+    @include mdc-typography(body1);
+
+    margin: -.063rem 0;
+
+    &--large {
+        @include mdc-typography(headline6);
+
+        margin: 0;
+    }
+}
+
+.mdc-card__subtitle {
+    @include mdc-typography(subtitle2);
+    @include mdc-theme-prop(color, text-secondary-on-background);
+
+    margin: -.063rem 0;
+}
+
+.mdc-side-sheet {
+    @include mdc-side-sheet-width($side-sheet-width);
+}
+
+.topology {
+    height: 100%;
+}
+
+.topology .mdc-layout-grid__inner {
+    position: relative;
+    height: 100%;
+    grid-template-columns: 1fr auto auto;
+
+    svg {
+        overflow: visible;
+        z-index: 1;
+    }
+}
+
+.topology--non-interactive {
+    .topology__switch {
+        display: none;
+    }
+    .topology-block__header__action--settings {
+        visibility: hidden;
+    }
+}
+
+.topology__switch {
+    position: absolute;
+    z-index: 3;
+}
+
+.topology__drawer {
+    min-width: $side-sheet-width;
+    max-width: 100vw;
+    @media screen and (max-width: 599px) {
+        width: 100vw;
+        min-width: initial;
+    }
+    &__header {
+        padding: 0 20px;
+        min-height: 64px;
+        justify-content: space-between;
+        align-items: center;
+        @media screen and (max-width: 599px) {
+            min-height: 56px;
+        }
+    }
+    .mdc-simple-tabs {
+        &__tabs {
+            .mdc-tab-bar-scroller__indicator {
+                display: none;
+            }
+            .mdc-tab {
+                min-width: 70px;
+                flex-grow: 1;
+            }
+        }
+        &__body {
+            margin: 20px;
+        }
+    }
+    &__close {
+        margin-left: 20px;
+    }
+    &__body {
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+}
+
+.topology__node-wrapper {
+    display: flex;
+    align-items: center;
+}
+
+.topology__paths {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+}
+
+.topology__path {
+    stroke: black;
+    z-index: 1;
+
+    vector-effect: non-scaling-stroke;
+    stroke-width: 3px;
+    animation-name: marching-ants;
+    animation-duration: 4s;
+    animation-iteration-count: infinite;
+    animation-play-state: paused;
+    animation-timing-function: linear;
+
+    @keyframes marching-ants {
+        from {
+            stroke-dashoffset: 100px;
+        }
+
+        to {
+            stroke-dashoffset: 0;
+        }
+    }
+    &--active {
+        stroke: $material-color-green-500;
+    }
+    &--muted {
+        stroke: $material-color-grey-500;
+    }
+    &--no-sync {
+        stroke: $material-color-red-300;
+    }
+    &--sync {
+        stroke: $material-color-green-500;
+        stroke-dasharray: 5px;
+        stroke-dashoffset: 0;
+        animation-play-state: running;
+    }
+}
+
+.topology__input {
+    user-select: none;
+    cursor: initial;
+    align-items: center;
+    margin: 24px 0;
+    @include mdc-theme-prop(background-color, surface);
+    // FIXME surface
+    @include mdc-theme-prop(color, text-primary-on-background);
+    &::before { opacity: 0 !important };
+    &::after { opacity: 0 !important };
+    .mdc-chip__text {
+        flex-grow: 2;
+        font-size: 0.95rem;
+        white-space: nowrap;
+    }
+    .mdc-chip__icon {
+        // FIXME surface
+        @include mdc-theme-prop(color, text-icon-on-background);
+    }
+}
+
+.topology-block {
+    margin: 20px;
+    max-width: 300px;
+    z-index: 1;
+
+    &--fail {
+        .topology-block__body {
+            @include mdc-theme-prop(background-color, $error-surface);
+            @include mdc-theme-prop(color, $on-error-surface);
+        }
+    }
+
+    &--init {
+        .topology-block__body {
+            background-color: $material-color-grey-400;
+            @include mdc-theme-prop(color, text-secondary-on-light);
+        }
+    }
+
+    &--fine {
+        .topology-block__body {
+            background-color: transparent;
+        }
+    }
+
+    &__header {
+        height: 41px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        .mdc-card__title {
+            white-space: nowrap;
+        }
+        &__action {
+            z-index: 2;
+            margin-left: 10px;
+        }
+    }
+    &__body {
+        padding: 0 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: space-around;
+        justify-content: space-around;
+    }
+}
+
+.topology-cpu {
+    &__header {
+        $bg-color: $material-color-teal-500;
+        $tone: mdc-theme-tone($bg-color);
+        .mdc-card__title, .mdc-icon {
+            @if ($tone == 'light') {
+                @include mdc-theme-prop(color, text-primary-on-light)
+            }
+            @else {
+                @include mdc-theme-prop(color, text-primary-on-dark)
+            }
+        }
+        background-color: $bg-color;
+    }
+}

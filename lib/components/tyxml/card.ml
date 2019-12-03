@@ -50,60 +50,97 @@ module CSS = struct
   let action_icon = BEM.add_modifier action "icon"
 
   let primary = BEM.add_element root "primary"
+
   let title = BEM.add_element root "title"
+
   let subtitle = BEM.add_element root "subtitle"
+
   let overline = BEM.add_element root "overline"
+
   let title_large = BEM.add_modifier title "large"
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-           and module Svg := Svg) = struct
+module Make
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
+struct
+  open Xml.W
   open Html
-  open Utils
 
-  let create_media ?(classes = []) ?(attrs = []) ?(tag = div) children () : 'a elt =
-    let classes = CSS.media :: classes in
-    tag ~a:([a_class classes] @ attrs) children
+  let ( % ) f g x = f (g x)
 
-  let create_action_buttons ?(classes = []) ?(attrs = []) buttons () : 'a elt =
-    let classes = CSS.action_buttons :: classes in
-    div ~a:([a_class classes] @ attrs) buttons
+  let card_media_content
+      ?(tag = div)
+      ?(classes = return [])
+      ?(a = [])
+      ?(children = nil ())
+      () =
+    let classes = fmap (List.cons CSS.media_content) classes in
+    tag ~a:(a_class classes :: a) children
 
-  let create_action_icons ?(classes = []) ?(attrs = []) icons () : 'a elt =
-    let classes = CSS.action_icons :: classes in
-    div ~a:([a_class classes] @ attrs) icons
-
-  let create_actions ?(classes = []) ?(attrs = []) content () : 'a elt =
-    let classes = CSS.actions :: classes in
-    section ~a:([a_class classes] @ attrs) content
-
-  let create_overline ?(classes = []) ?(attrs = []) text () : 'a elt =
-    let classes = CSS.overline :: classes in
-    h5 ~a:([a_class classes] @ attrs) [txt text]
-
-  let create_title ?(classes = []) ?(attrs = []) ?(large = false) text () : 'a elt =
+  let card_media
+      ?(tag = div)
+      ?(classes = return [])
+      ?(a = [])
+      ?(square = false)
+      ?(letterbox = false)
+      ?(primary_action = false)
+      ?(children = nil ())
+      () =
     let classes =
-      classes
-      |> cons_if large CSS.title_large
-      |> List.cons CSS.title in
-    h2 ~a:([a_class classes] @ attrs) [txt text]
+      fmap
+        (Utils.cons_if square CSS.media_square
+        % Utils.cons_if letterbox CSS.media_16_9
+        % Utils.cons_if primary_action CSS.primary_action
+        % List.cons CSS.media)
+        classes
+    in
+    tag ~a:([a_class classes] @ a) children
 
-  let create_subtitle ?(classes = []) ?(attrs = []) text () : 'a elt =
-    let classes = CSS.subtitle :: classes in
-    h3 ~a:([a_class classes] @ attrs) [txt text]
+  let card_action_buttons
+      ?(tag = div)
+      ?(classes = return [])
+      ?(a = [])
+      ?(children = nil ())
+      () =
+    let classes = fmap (List.cons CSS.action_buttons) classes in
+    tag ~a:(a_class classes :: a) children
 
-  let create_primary ?(classes = []) ?(attrs = []) content () : 'a elt =
-    let classes = CSS.primary :: classes in
-    section ~a:([a_class classes] @ attrs) content
+  let card_action_icons
+      ?(tag = div)
+      ?(classes = return [])
+      ?(a = [])
+      ?(children = nil ())
+      () =
+    let classes = fmap (List.cons CSS.action_icons) classes in
+    tag ~a:(a_class classes :: a) children
 
-  let create ?(classes=[]) ?(attrs = []) ?(tag = div) ?(outlined = false)
-      sections : 'a elt =
+  let card_actions
+      ?(tag = section)
+      ?(classes = return [])
+      ?(a = [])
+      ?(full_bleed = false)
+      ?(children = nil ())
+      () : 'a elt =
     let classes =
-      classes
-      |> cons_if outlined CSS.outlined
-      |> List.cons CSS.root in
-    tag ~a:([a_class classes] @ attrs) sections
+      fmap
+        (Utils.cons_if full_bleed CSS.actions_full_bleed % List.cons CSS.actions)
+        classes
+    in
+    tag ~a:(a_class classes :: a) children
+
+  let card
+      ?(tag = div)
+      ?(classes = return [])
+      ?(a = [])
+      ?(outlined = false)
+      ?(children = nil ())
+      () =
+    let classes =
+      fmap (Utils.cons_if outlined CSS.outlined % List.cons CSS.root) classes
+    in
+    tag ~a:(a_class classes :: a) children
 end
+
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

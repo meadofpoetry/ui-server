@@ -1,0 +1,27 @@
+@import "@material/animation/functions";
+
+.mdc-glide {
+    overflow-x: hidden;
+    box-sizing: inherit;
+}
+
+.mdc-glide__track {
+    margin: 0;
+    position: relative;
+    list-style: none;
+    backface-visibility: hidden;
+    transform-style: preserve-3d;
+    touch-action: pan-Y;
+    padding: 0;
+    white-space: nowrap;
+    display: flex;
+    flex-wrap: nowrap;
+    will-change: transform;
+    transition: 350ms transform $mdc-animation-standard-curve-timing-function;
+}
+
+.mdc-glide__slide {
+    flex-shrink: 0;
+    white-space: normal;
+    position: relative;
+}

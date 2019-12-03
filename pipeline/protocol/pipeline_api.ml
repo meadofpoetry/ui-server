@@ -120,7 +120,19 @@ let set body conv apply =
      apply x
      >>= function Ok () -> Lwt.return `Unit
                 | Error (`Qoe_backend e) -> Lwt.return (`Error e) (* TODO respond result *)
-
+                                          
+let get_streams (state : Protocol.state) ids inputs _user _body _env _state =
+  let open Application_types.Stream in
+  let streams =
+    state.sources
+    |> filter_by_stream_id ids
+    |> filter_by_input inputs
+  in
+  let json = Util_json.List.to_yojson
+               (Util_json.Pair.to_yojson Netlib.Uri.to_yojson Stream.to_yojson)
+               streams
+  in Lwt.return (`Value json)
+                                          
 let get_annotated (state : Protocol.state) _user _body _env _state =
   match state.backend with
   | None -> Lwt.return (`Error "not ready")

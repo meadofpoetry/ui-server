@@ -12,18 +12,31 @@ module CSS = struct
   let fixed = BEM.add_modifier root "fixed"
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml and module Svg := Svg) = struct
-  open Utils
+module Make
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
+struct
+  open Xml.W
+  open Html
 
-  let create ?(classes = []) ?(attrs = []) ?(fixed = false) ?(open_ = false)
-        content () : 'a Html.elt =
+  let ( % ) f g x = f (g x)
+
+  let menu_surface
+      ?(classes = return [])
+      ?(a = [])
+      ?(fixed = false)
+      ?(open_ = false)
+      ?(children = nil ())
+      () =
     let classes =
-      classes
-      |> cons_if fixed CSS.fixed
-      |> cons_if open_ CSS.open_
-      |> List.cons CSS.root in
-    Html.div ~a:([Html.a_class classes] @ attrs) content
+      fmap
+        (Utils.cons_if fixed CSS.fixed
+        % Utils.cons_if open_ CSS.open_
+        % List.cons CSS.root)
+        classes
+    in
+    div ~a:(Html.a_class classes :: a) children
 end
+
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

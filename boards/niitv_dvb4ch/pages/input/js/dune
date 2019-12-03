@@ -1,6 +1,9 @@
 (executable
   (name       board_niitv_dvb4ch_page_input)
-  (libraries  board_niitv_dvb4ch_widgets components_lab)
+  (libraries  board_niitv_dvb4ch_widgets
+              board_niitv_dvb4ch_page_input_tyxml
+              components_lab
+              ui_templates)
   (preprocess (pps js_of_ocaml-ppx)))
 
 (install

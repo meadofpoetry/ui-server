@@ -33,29 +33,42 @@ module CSS = struct
 end
 
 module Make
-         (Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-           and module Svg := Svg) = struct
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
+struct
+  open Xml.W
   open Html
-  open Utils
 
-  let create_scroll_content ?(classes = []) ?(attrs = []) tabs () : 'a elt =
-    let classes = CSS.scroll_content :: classes in
-    div ~a:([a_class classes] @ attrs) tabs
+  let tab_scroller_scroll_content ?(classes = return []) ?(a = []) ?(tabs = nil ()) () =
+    let classes = fmap (fun x -> CSS.scroll_content :: x) classes in
+    div ~a:(a_class classes :: a) tabs
 
-  let create_scroll_area ?(classes = []) ?(attrs = []) ~content () : 'a elt =
-    let classes = CSS.scroll_area :: classes in
-    div ~a:([a_class classes] @ attrs) [content]
+  let tab_scroller_scroll_area
+      ?(classes = return [])
+      ?(a = [])
+      ?tabs
+      ?(scroll_content = tab_scroller_scroll_content ?tabs ())
+      () =
+    let classes = fmap (fun x -> CSS.scroll_area :: x) classes in
+    div ~a:(a_class classes :: a) (singleton (return scroll_content))
 
-  let create ?(classes = []) ?(attrs = []) ?align ~scroll_area () : 'a elt =
-    let align = match align with
+  let tab_scroller
+      ?(classes = return [])
+      ?(a = [])
+      ?align
+      ?tabs
+      ?(scroll_area = tab_scroller_scroll_area ?tabs ())
+      () =
+    let align =
+      match align with
       | None -> None
       | Some Start -> Some CSS.align_start
       | Some Center -> Some CSS.align_center
-      | Some End -> Some CSS.align_end in
-    let classes = CSS.root :: (align ^:: classes) in
-    div ~a:([a_class classes] @ attrs) [scroll_area]
-
+      | Some End -> Some CSS.align_end
+    in
+    let classes = fmap (fun x -> CSS.root :: Utils.(align ^:: x)) classes in
+    div ~a:(a_class classes :: a) (singleton (return scroll_area))
 end
+
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

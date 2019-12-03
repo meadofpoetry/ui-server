@@ -10,7 +10,9 @@ module Event = struct
     Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("board" @/ Int ^/ "receiver/config" @/ empty)
       ~query:Query.empty
-      control ip_receive_of_yojson sock
+      control
+      ip_receive_of_yojson
+      sock
 end
 
 let get_config control =

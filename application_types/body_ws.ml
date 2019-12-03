@@ -1,16 +1,15 @@
 type t = Yojson.Safe.t
 
-
 let parse = function
-  | `List (`Int code :: `Int id :: tl) ->
-    (match code, tl with
-     | 8, [`String s] -> Some (id, `Error s)
-     | 32, [`String uri] -> Some (id, `Subscribe uri)
-     | 33, [`Int subid] -> Some (id, `Subscribed subid)
-     | 34, [`Int subid] -> Some (id, `Unsubscribe subid)
-     | 35, [] -> Some (id, `Unsubscribed)
-     | 36, [data] -> Some (id, `Event data)
-     | _ -> None)
+  | `List (`Int code :: `Int id :: tl) -> (
+    match code, tl with
+    | 8, [`String s] -> Some (id, `Error s)
+    | 32, [`String uri] -> Some (id, `Subscribe uri)
+    | 33, [`Int subid] -> Some (id, `Subscribed subid)
+    | 34, [`Int subid] -> Some (id, `Unsubscribe subid)
+    | 35, [] -> Some (id, `Unsubscribed)
+    | 36, [data] -> Some (id, `Event data)
+    | _ -> None)
   | _ -> None
 
 let compose id = function

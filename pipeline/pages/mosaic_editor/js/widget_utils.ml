@@ -26,18 +26,7 @@ module Attr = struct
   let top = "data-top"
 
   let attributes =
-    [ id
-    ; typ
-    ; pid
-    ; stream
-    ; channel
-    ; aspect
-    ; description
-    ; width
-    ; height
-    ; left
-    ; top
-    ]
+    [id; typ; pid; stream; channel; aspect; description; width; height; left; top]
 
   let invalid_value a v =
     failwith @@ Printf.sprintf "invalid `%s` attribute value (%s)" a v
@@ -45,10 +34,10 @@ module Attr = struct
   let get_float_attribute (elt : #Dom_html.element Js.t) attr : float =
     match Element.get_attribute elt attr with
     | None -> 0.
-    | Some x ->
+    | Some x -> (
       match float_of_string_opt x with
       | None -> 0.
-      | Some x -> x
+      | Some x -> x)
 
   let get_id (elt : Dom_html.element Js.t) =
     match Element.get_attribute elt id with
@@ -59,12 +48,13 @@ module Attr = struct
     Element.set_attribute elt id id'
 
   let get_position (elt : Dom_html.element Js.t) : Wm.position option =
-    try Some (Position.Normalized.validate
-              @@ { x = get_float_attribute elt left
-                 ; y = get_float_attribute elt top
-                 ; w = get_float_attribute elt width
-                 ; h = get_float_attribute elt height
-                 })
+    try
+      Some
+        (Position.Normalized.validate
+        @@ { x = get_float_attribute elt left
+           ; y = get_float_attribute elt top
+           ; w = get_float_attribute elt width
+           ; h = get_float_attribute elt height })
     with _ -> None
 
   let string_of_float = Printf.sprintf "%g"
@@ -77,13 +67,14 @@ module Attr = struct
       set_attribute elt height (string_of_float pos.h))
 
   let get_typ (elt : Dom_html.element Js.t) =
-    Js.Opt.case (elt##getAttribute (Js.string typ))
+    Js.Opt.case
+      (elt##getAttribute (Js.string typ))
       (fun () -> failwith @@ Printf.sprintf "no `%s` attribute found" typ)
       (fun s ->
-         let s = Js.to_string s in
-         match Page_mosaic_editor_tyxml.Widget.widget_type_of_string s with
-         | Some x -> x
-         | None -> invalid_value typ s)
+        let s = Js.to_string s in
+        match Page_mosaic_editor_tyxml.Widget.widget_type_of_string s with
+        | Some x -> x
+        | None -> invalid_value typ s)
 
   let set_typ (elt : Dom_html.element Js.t) (t : Wm.widget_type) =
     let t = Page_mosaic_editor_tyxml.Widget.widget_type_to_string t in
@@ -93,22 +84,20 @@ module Attr = struct
     let stream = Element.get_attribute elt stream in
     let channel = Element.get_attribute elt channel in
     match stream, channel with
-    | None, _ | _, None ->
-      Nihil
+    | None, _ | _, None -> Nihil
     | Some s, Some c ->
-      Chan { stream = Application_types.Stream.ID.of_string s
-           ; channel = int_of_string c
-           }
+        Chan {stream = Application_types.Stream.ID.of_string s; channel = int_of_string c}
 
   let set_domain (elt : Dom_html.element Js.t) = function
     | Wm.Nihil -> ()
     | Chan x ->
-      Page_mosaic_editor_tyxml.Widget.(
-        Element.set_attribute elt stream (stream_attr_value x.stream);
-        Element.set_attribute elt channel (channel_attr_value x.channel))
+        Page_mosaic_editor_tyxml.Widget.(
+          Element.set_attribute elt stream (stream_attr_value x.stream);
+          Element.set_attribute elt channel (channel_attr_value x.channel))
 
   let get_pid (elt : Dom_html.element Js.t) =
-    Js.Opt.case (elt##getAttribute (Js.string pid))
+    Js.Opt.case
+      (elt##getAttribute (Js.string pid))
       (fun () -> None)
       (fun x -> Some (Js.parseInt x))
 
@@ -117,24 +106,23 @@ module Attr = struct
     | Some x -> Element.set_attribute elt pid (string_of_int x)
 
   let get_aspect (elt : Dom_html.element Js.t) =
-    Js.Opt.case (elt##getAttribute (Js.string aspect))
+    Js.Opt.case
+      (elt##getAttribute (Js.string aspect))
       (fun () -> None)
       (fun s ->
-         let s = Js.to_string s in
-         match String.split_on_char 'x' s with
-         | [w; h] -> Some (int_of_string w, int_of_string h)
-         | _ -> invalid_value aspect s)
+        let s = Js.to_string s in
+        match String.split_on_char 'x' s with
+        | [w; h] -> Some (int_of_string w, int_of_string h)
+        | _ -> invalid_value aspect s)
 
   let set_aspect (elt : Dom_html.element Js.t) = function
     | None -> ()
     | Some x ->
-      Element.set_attribute elt aspect
-      @@ Page_mosaic_editor_tyxml.Widget.aspect_attr_value x
+        Element.set_attribute elt aspect
+        @@ Page_mosaic_editor_tyxml.Widget.aspect_attr_value x
 
   let get_description (elt : Dom_html.element Js.t) =
-    Js.Opt.case (elt##getAttribute (Js.string description))
-      (fun () -> "")
-      Js.to_string
+    Js.Opt.case (elt##getAttribute (Js.string description)) (fun () -> "") Js.to_string
 
   let set_description (elt : Dom_html.element Js.t) v =
     Element.set_attribute elt description v
@@ -144,17 +132,14 @@ module Z_index : sig
   type item =
     { item : Dom_html.element Js.t
     ; z_index : int
-    ; selected : bool
-    }
+    ; selected : bool }
 
   val get : Dom_html.element Js.t -> int
 
   val set : int -> Dom_html.element Js.t -> unit
 
   val make_item_list :
-    selected:Dom_html.element Js.t list
-    -> Dom_html.element Js.t list
-    -> item list
+    selected:Dom_html.element Js.t list -> Dom_html.element Js.t list -> item list
 
   val pack : item list -> unit
 
@@ -167,25 +152,21 @@ end = struct
   type item =
     { item : Dom_html.element Js.t
     ; z_index : int
-    ; selected : bool
-    }
+    ; selected : bool }
 
   let get (elt : Dom_html.element Js.t) : int =
-    try Js.parseInt @@ (Dom_html.window##getComputedStyle elt)##.zIndex
-    with _ -> 0
+    try Js.parseInt @@ (Dom_html.window##getComputedStyle elt)##.zIndex with _ -> 0
 
   let set (z : int) (elt : Dom_html.element Js.t) : unit =
     elt##.style##.zIndex := Js.string (string_of_int z)
 
   let make_item_list ~(selected : Dom_html.element Js.t list) items =
-    List.map (fun x ->
-        { item = x
-        ; z_index = get x
-        ; selected = List.exists (Element.equal x) selected
-        }) items
+    List.map
+      (fun x ->
+        {item = x; z_index = get x; selected = List.exists (Element.equal x) selected})
+      items
 
-  let pack (zib_items : item list) =
-    List.iteri (fun cnt x -> set cnt x.item) zib_items
+  let pack (zib_items : item list) = List.iteri (fun cnt x -> set cnt x.item) zib_items
 
   let max_selected = function
     | [] -> 0
@@ -196,20 +177,22 @@ end = struct
     | x :: tl -> List.fold_left (fun acc x -> min acc (get x)) (get x) tl
 
   let partition (items : Dom_html.element Js.t list) =
-    List.partition (fun (v : Dom_html.element Js.t) ->
-        List.exists (fun (x : Dom_html.element Js.t) ->
-            not (Element.equal x v)
+    List.partition
+      (fun (v : Dom_html.element Js.t) ->
+        List.exists
+          (fun (x : Dom_html.element Js.t) ->
+            (not (Element.equal x v))
             && Position.Normalized.(collides (of_element x) (of_element v)))
-          items) items
+          items)
+      items
 
-  let dedup ?(eq = (=)) l =
+  let dedup ?(eq = ( = )) l =
     let rec aux acc = function
       | [] -> (* List.rev *) acc
       | hd :: tl ->
-        let acc =
-          if List.exists (eq hd) acc
-          then acc else hd :: acc in
-        aux acc tl in
+          let acc = if List.exists (eq hd) acc then acc else hd :: acc in
+          aux acc tl
+    in
     aux [] l
 
   let get_group_for_item
@@ -217,82 +200,81 @@ end = struct
       (items : Dom_html.element Js.t list) =
     let rec aux search_group acc = function
       | [] -> dedup ~eq:Element.equal acc
-      | (_ :: tl) as items ->
-        let siblings = List.filter
-            (fun (i : Dom_html.element Js.t) ->
-               let ipos = Position.Normalized.of_element i in
-               List.exists (fun s ->
-                   Position.Normalized.collides ipos
-                     (Position.Normalized.of_element s))
-                 search_group)
-            items in
-        let search_group_new =
-          dedup ~eq:Element.equal (siblings @ search_group) in
-        let acc = siblings @ acc in
-        let items =
-          if List.compare_lengths search_group_new search_group > 0
-          then items else tl in
-        aux search_group_new acc items in
+      | _ :: tl as items ->
+          let siblings =
+            List.filter
+              (fun (i : Dom_html.element Js.t) ->
+                let ipos = Position.Normalized.of_element i in
+                List.exists
+                  (fun s ->
+                    Position.Normalized.collides ipos (Position.Normalized.of_element s))
+                  search_group)
+              items
+          in
+          let search_group_new = dedup ~eq:Element.equal (siblings @ search_group) in
+          let acc = siblings @ acc in
+          let items =
+            if List.compare_lengths search_group_new search_group > 0 then items else tl
+          in
+          aux search_group_new acc items
+    in
     aux search_group [] items
 
   let get_all_groups (items : Dom_html.element Js.t list) =
     let rec aux acc = function
       | [] -> acc
       | hd :: tl ->
-        let siblings = get_group_for_item [hd] items in
-        let items = List.filter (fun v ->
-            not @@ List.exists (Element.equal v) siblings) tl in
-        let siblings = List.sort (fun a b ->
-            compare (get a) (get b))
-            siblings in
-        aux (siblings :: acc) items in
+          let siblings = get_group_for_item [hd] items in
+          let items =
+            List.filter (fun v -> not @@ List.exists (Element.equal v) siblings) tl
+          in
+          let siblings = List.sort (fun a b -> compare (get a) (get b)) siblings in
+          aux (siblings :: acc) items
+    in
     aux [] items
 
   let validate (items : Dom_html.element Js.t list) : unit =
-    let (list_intersect, list_non_intersect) = partition items in
+    let list_intersect, list_non_intersect = partition items in
     List.iter (fun x -> set 0 x) list_non_intersect;
     List.iter (List.iteri set) @@ get_all_groups list_intersect
 end
 
 let title (w : Wm.widget) : string =
-  let typ = match w.type_ with
+  let typ =
+    match w.type_ with
     | Wm.Video -> "Видео"
-    | Audio -> "Аудио" in
+    | Audio -> "Аудио"
+  in
   match w.pid with
   | None -> typ
   | Some pid -> Printf.sprintf "%s. PID %d" typ pid
 
 let widget_of_element (elt : Dom_html.element Js.t) : string * Wm.widget =
-  Attr.get_id elt,
-  { type_ = Attr.get_typ elt
-  ; domain = Attr.get_domain elt
-  ; pid = Attr.get_pid elt
-  ; position = Attr.get_position elt
-  ; layer = Z_index.get elt
-  ; aspect = Attr.get_aspect elt
-  ; description = Attr.get_description elt
-  }
+  ( Attr.get_id elt
+  , { type_ = Attr.get_typ elt
+    ; domain = Attr.get_domain elt
+    ; pid = Attr.get_pid elt
+    ; position = Attr.get_position elt
+    ; layer = Z_index.get elt
+    ; aspect = Attr.get_aspect elt
+    ; description = Attr.get_description elt } )
 
-let copy_attributes
-    (from : Dom_html.element Js.t)
-    (to_ : Dom_html.element Js.t) =
+let copy_attributes (from : Dom_html.element Js.t) (to_ : Dom_html.element Js.t) =
   let copy attr =
     let attr = Js.string attr in
-    Js.Opt.iter (from##getAttribute attr)
-      (fun x -> to_##setAttribute attr x) in
+    Js.Opt.iter (from##getAttribute attr) (fun x -> to_##setAttribute attr x)
+  in
   List.iter copy Attr.attributes
 
-let set_attributes ?id
-    (elt : Dom_html.element Js.t)
-    (widget : Wm.widget) : unit =
+let set_attributes ?id (elt : Dom_html.element Js.t) (widget : Wm.widget) : unit =
   Attr.set_typ elt widget.type_;
   Attr.set_domain elt widget.domain;
   Attr.set_pid elt widget.pid;
   Attr.set_aspect elt widget.aspect;
   Attr.set_description elt widget.description;
   (match widget.position with
-   | None -> ()
-   | Some position -> Attr.set_position position elt);
+  | None -> ()
+  | Some position -> Attr.set_position position elt);
   elt##.style##.zIndex := Js.string (string_of_int widget.layer);
   match id with
   | None -> ()
@@ -300,10 +282,9 @@ let set_attributes ?id
 
 let elements (elt : Dom_html.element Js.t) =
   let selector =
-    Printf.sprintf ".%s"
-    @@ Page_mosaic_editor_tyxml.Container_editor.CSS.widget in
-  Dom.list_of_nodeList
-  @@ elt##querySelectorAll (Js.string selector)
+    Printf.sprintf ".%s" @@ Page_mosaic_editor_tyxml.Container_editor.CSS.widget
+  in
+  Dom.list_of_nodeList @@ elt##querySelectorAll (Js.string selector)
 
 let widgets_of_container (cell : Dom_html.element Js.t) : (string * Wm.widget) list =
   List.map widget_of_element @@ elements cell

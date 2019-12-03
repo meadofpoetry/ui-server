@@ -14,26 +14,40 @@ module CSS = struct
   let splitter_icon = BEM.add_element root "splitter-icon"
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
-         (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-         (Html : Html_sigs.NoWrap
-          with module Xml := Xml
-           and module Svg := Svg) = struct
+module Make
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
+struct
+  open Xml.W
   open Html
 
-  let create_panel ?(classes = []) ?(attrs = []) content () : 'a elt =
-    let classes = CSS.panel :: classes in
-    div ~a:([a_class classes] @ attrs) content
+  let ( @:: ) = cons
 
-  let create_splitter ?(classes = []) ?(attrs = []) () : 'a elt =
-    let classes = CSS.splitter :: classes in
-    div ~a:([a_class classes] @ attrs)
-      [div ~a:[a_class [CSS.splitter_icon]] [div []; div []]]
+  let split_panel ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+    let classes = fmap (fun x -> CSS.panel :: x) classes in
+    div ~a:(a_class classes :: a) children
 
-  let create ?(classes = []) ?(attrs = []) ?(vertical = false)
-        ?(splitter = create_splitter ()) panel1 panel2 () : 'a elt =
+  let split_splitter ?(classes = return []) ?(a = []) () =
+    let classes = fmap (fun x -> CSS.splitter :: x) classes in
+    let icon =
+      div
+        ~a:[a_class (return [CSS.splitter_icon])]
+        (return (div (nil ())) @:: return (div (nil ())) @:: nil ())
+    in
+    div ~a:(a_class classes :: a) (singleton (return icon))
+
+  let split
+      ?(classes = return [])
+      ?(a = [])
+      ?(vertical = false)
+      ?(splitter = split_splitter ())
+      ~panel_a
+      ~panel_b
+      () =
     let dir_class = if vertical then CSS.vertical else CSS.horizontal in
-    let classes = CSS.root :: dir_class :: classes in
-    div ~a:([a_class classes] @ attrs)
-      [panel1; splitter; panel2]
+    let classes = fmap (fun x -> CSS.root :: dir_class :: x) classes in
+    div ~a:(a_class classes :: a) (panel_a @:: return splitter @:: panel_b @:: nil ())
 end
+
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

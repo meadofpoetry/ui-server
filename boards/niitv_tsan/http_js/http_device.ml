@@ -10,13 +10,17 @@ module Event = struct
     Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("board" @/ Int ^/ "device/state" @/ empty)
       ~query:Query.empty
-      control Topology.state_of_yojson sock
+      control
+      Topology.state_of_yojson
+      sock
 
   let get_t2mi_mode sock control =
     Api_js.Websocket.JSON.subscribe
       ~path:Path.Format.("board" @/ Int ^/ "device/mode/t2mi" @/ empty)
       ~query:Query.empty
-      control t2mi_mode_of_yojson sock
+      control
+      t2mi_mode_of_yojson
+      sock
 end
 
 let reset control =
@@ -51,7 +55,8 @@ let set_port ~port state control =
     ~body:(Util_json.Bool.to_yojson state)
     ~path:Path.Format.("api/board" @/ Int ^/ "device/mode/port" @/ Int ^/ empty)
     ~query:Query.empty
-    control port
+    control
+    port
     ignore_env
 
 let set_jitter_mode mode control =
@@ -75,8 +80,9 @@ let get_info ?force control =
   Api_http.perform
     ~meth:`GET
     ~path:Path.Format.("api/board" @/ Int ^/ "device/info" @/ empty)
-    ~query:Query.["force", (module Option(Bool))]
-    control force
+    ~query:Query.["force", (module Option (Bool))]
+    control
+    force
     (ignore_env_bind (Lwt.return % map_err % devinfo_of_yojson))
 
 let get_errors ?force ?timeout control =
@@ -84,15 +90,16 @@ let get_errors ?force ?timeout control =
   Api_http.perform
     ~meth:`GET
     ~path:Path.Format.("api/board" @/ Int ^/ "device/errors" @/ empty)
-    ~query:Query.[ "force", (module Option(Bool))
-                 ; "timeout", (module Option(Int)) ]
-    control force timeout
+    ~query:Query.["force", (module Option (Bool)); "timeout", (module Option (Int))]
+    control
+    force
+    timeout
     (ignore_env_bind (Lwt.return % map_err % of_yojson))
 
 let get_status control =
   Api_http.perform
     ~meth:`GET
-    ~path:Path.Format.("api/board" @/ Int ^/ "device/status" @/empty)
+    ~path:Path.Format.("api/board" @/ Int ^/ "device/status" @/ empty)
     ~query:Query.empty
     control
     (ignore_env_bind (Lwt.return % map_err % status_of_yojson))
@@ -109,14 +116,16 @@ let get_t2mi_mode ?force control =
   Api_http.perform
     ~meth:`GET
     ~path:Path.Format.("api/board" @/ Int ^/ "device/mode/t2mi" @/ empty)
-    ~query:Query.["force", (module Option(Bool))]
-    control force
+    ~query:Query.["force", (module Option (Bool))]
+    control
+    force
     (ignore_env_bind (Lwt.return % map_err % t2mi_mode_of_yojson))
 
 let get_jitter_mode ?force control =
   Api_http.perform
     ~meth:`GET
     ~path:Path.Format.("api/board" @/ Int ^/ "device/mode/jitter" @/ empty)
-    ~query:Query.["force", (module Option(Bool))]
-    control force
+    ~query:Query.["force", (module Option (Bool))]
+    control
+    force
     (ignore_env_bind (Lwt.return % map_err % jitter_mode_of_yojson))

@@ -1,0 +1,34 @@
+@import "@material/theme/mixins";
+@import "@material/typography/mixins";
+
+.board-niitv-tsan-pid-summary {
+    &__title {
+        @include mdc-typography(caption);
+        padding-bottom: 1rem;
+    }
+
+    &__pids {
+        padding: 1rem;
+        font-size: 13px;
+        align-self: stretch;
+        display: flex;
+        align-items: flex-start;
+        align-content: flex-start;
+        flex-wrap: wrap;
+    }
+
+    &__pids:empty {
+        visibility: hidden;
+    }
+
+    &__pid {
+        width: 56px;
+        line-height: 2rem;
+        text-align: center;
+    }
+
+    &__pid[data-lost] {
+        @include mdc-theme-prop(color, error);
+        font-weight: 600;
+    }
+}

@@ -27,48 +27,52 @@ module CSS = struct
   let top_app_bar_contextual = BEM.add_modifier Top_app_bar.CSS.root "contextual"
 end
 
-let aspect_attr_value (w, h : int * int) =
-  Printf.sprintf "%dx%d" w h
+let aspect_attr_value ((w, h) : int * int) = Printf.sprintf "%dx%d" w h
 
-module Make(Xml : Xml_sigs.NoWrap)
+module Make
+    (Xml : Xml_sigs.NoWrap)
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml
-                              and module Svg := Svg) = struct
+    (Html : Html_sigs.NoWrap with module Xml := Xml and module Svg := Svg) =
+struct
   open Html
+  module Widget_markup = Widget.Make (Xml) (Svg) (Html)
 
-  module Widget' = Widget.Make(Xml)(Svg)(Html)
+  open Card.Make (Xml) (Svg) (Html)
 
-  module Card' = Card.Make(Xml)(Svg)(Html)
-
-  let create_widget ?(classes = []) ?(attrs = [])
-      (id, _, widget : string * Wm.Annotated.state * Wm.widget) : 'a elt =
-    let position = match widget.position with
+  let create_widget
+      ?(classes = [])
+      ?(a = [])
+      ((id, _, widget) : string * Wm.Annotated.state * Wm.widget) : 'a elt =
+    let position =
+      match widget.position with
       | None -> ""
       | Some pos ->
-        Printf.sprintf "left: %g%%;\
-                        top: %g%%;\
-                        width: %g%%;\
-                        height: %g%%;"
-          (pos.x *. 100.)
-          (pos.y *. 100.)
-          (pos.w *. 100.)
-          (pos.h *. 100.) in
+          Printf.sprintf
+            "left: %g%%;top: %g%%;width: %g%%;height: %g%%;"
+            (pos.x *. 100.)
+            (pos.y *. 100.)
+            (pos.w *. 100.)
+            (pos.h *. 100.)
+    in
     let style = Printf.sprintf "%sz-index: %d" position widget.layer in
     let classes = CSS.widget :: classes in
-    div ~a:([ a_class classes
-            ; a_style style ]
-            @ Widget'.to_html_attributes ~id widget
-            @ attrs)
+    div
+      ~a:
+        ([a_class classes; a_style style]
+        @ Widget_markup.to_html_attributes ~id widget
+        @ a)
       []
 
-  let create_widget_wrapper ?(classes = []) ?(attrs = []) widgets : 'a elt =
+  let create_widget_wrapper ?(classes = []) ?(a = []) widgets : 'a elt =
     let classes = CSS.widget_wrapper :: classes in
-    div ~a:([a_class classes] @ attrs) widgets
+    div ~a:(a_class classes :: a) widgets
 
-  let create ?(classes = []) ?attrs grid : 'a elt =
-    Card'.create ~classes:(CSS.root :: classes) ?attrs
-      [ Card'.create_media [grid] ()
-      ; Card'.create_actions [] ()
-      ]
-
+  let create ?(classes = []) ?a grid : 'a elt =
+    card
+      ~classes:(CSS.root :: classes)
+      ?a
+      ~children:[card_media ~children:[grid] (); card_actions ()]
+      ()
 end
+
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

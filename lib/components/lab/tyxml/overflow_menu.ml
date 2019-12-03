@@ -2,33 +2,54 @@ open Components_tyxml
 
 module CSS = struct
   let root = "mdc-overflow-menu"
+
   let actions = BEM.add_element root "actions"
+
   let overflow = BEM.add_element root "overflow"
 end
 
-module Make(Xml : Xml_sigs.NoWrap)
-    (Svg : Svg_sigs.NoWrap with module Xml := Xml)
-    (Html : Html_sigs.NoWrap with module Xml := Xml
-                              and module Svg := Svg) = struct
+module Make
+    (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
+    (Svg : Svg_sigs.T with module Xml := Xml)
+    (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
+struct
+  open Xml.W
   open Html
+  module Icon_markup = Icon.Make (Xml) (Svg) (Html)
+  module Icon_button_markup = Icon_button.Make (Xml) (Svg) (Html)
 
-  module Icon = Icon.Make(Xml)(Svg)(Html)
+  let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
 
-  module Icon_button = Icon_button.Make(Xml)(Svg)(Html)
-
-  let create_overflow ?(classes = []) ?attrs ?icon () =
-    let classes = Top_app_bar.CSS.action_item :: classes in
-    let icon = match icon with
+  let overflow ?(classes = return []) ?a ?icon () =
+    let classes = fmap (fun x -> Top_app_bar.CSS.action_item :: x) classes in
+    let icon =
+      match icon with
       | Some x -> x
-      | None -> Icon.SVG.(create [create_path Svg_icons.dots_vertical ()] ()) in
-    Icon_button.create ~classes ?attrs ~icon ()
+      | None ->
+          Xml.W.return
+          @@ Icon_markup.SVG.(icon ~d:(Xml.W.return Svg_icons.dots_vertical) ())
+    in
+    Icon_button_markup.icon_button ~classes ?a ~icon ()
 
-  let create ?(classes = []) ?(attrs = [])
-      ?(overflow = create_overflow ()) ?menu
-      ~actions () : 'a elt =
-    let classes = CSS.root :: classes in
-    div ~a:([a_class classes] @ attrs)
-      [ div ~a:[a_class [CSS.actions]] actions
-      ; div ~a:[a_class [CSS.overflow]] Utils.(overflow :: (menu ^:: []))
-      ]
+  let overflow_menu
+      ?(classes = [])
+      ?(a = [])
+      ?(overflow = Xml.W.return @@ overflow ())
+      ?menu
+      ~actions
+      () : 'a elt =
+    let classes = Xml.W.return (CSS.root :: classes) in
+    div
+      ~a:(a_class classes :: a)
+      Xml.W.(
+        cons
+          (return @@ div ~a:[a_class (return [CSS.actions])] actions)
+          (cons
+             (return
+             @@ div
+                  ~a:[a_class (return [CSS.overflow])]
+                  (cons overflow (menu ^:: nil ())))
+             (nil ())))
 end
+
+module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

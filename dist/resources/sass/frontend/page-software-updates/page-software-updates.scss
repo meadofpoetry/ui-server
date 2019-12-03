@@ -1,0 +1,22 @@
+.settings-section#remote-update {
+    .mdc-placeholder {
+        &__text {
+            height: 2rem;
+        }
+    }
+
+    .mdc-card__media {
+        padding: 1rem 1rem 0;
+    }
+
+    .mdc-card__actions {
+        padding: 1rem;
+        display: flex;
+        justify-content: center;
+
+        .mdc-button {
+            align-self: center;
+            flex-grow: 0;
+        }
+    }
+}

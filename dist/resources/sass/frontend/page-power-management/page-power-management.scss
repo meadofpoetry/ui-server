@@ -1,0 +1,9 @@
+@import "@material/typography/mixins";
+@import "@material/theme/mixins";
+
+.settings-section#reboot, .settings-section#shutdown {
+    .mdc-card__media {
+        @include mdc-typography(body2);
+        padding: 1rem;
+    }
+}

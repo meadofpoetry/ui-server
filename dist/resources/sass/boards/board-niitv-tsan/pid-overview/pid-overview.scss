@@ -1,0 +1,17 @@
+@import "@material/theme/mixins";
+@import "@material/typography/mixins";
+@import "../variables";
+
+.board-niitv-tsan-table-overview--pids {
+    .mdc-data-table__cell:nth-of-type(2) {
+        @include mdc-typography-overflow-ellipsis();
+        max-width: 200px;
+    }
+
+    &--no-sync, &--no-sync .mdc-data-table {
+        @include mdc-theme-prop(background-color, $error-surface, true);
+    }
+    &--no-response, &--no-response .mdc-data-table {
+        @include mdc-theme-prop(background-color, $error-surface, true);
+    }
+}
