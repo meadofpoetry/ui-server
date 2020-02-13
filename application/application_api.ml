@@ -65,13 +65,24 @@ let get_log
     from
     till
     duration
+    order
     _user
     _body
     _env
     _state =
   match Interval.make ?from ?till ?duration () with
   | Ok (`Range (from, till)) ->
-      Database.Log.select app.db ~boards ~cpu ~inputs ~streams ?limit ~from ~till ()
+      Database.Log.select
+        app.db
+        ~boards
+        ~cpu
+        ~inputs
+        ~streams
+        ?limit
+        ?order
+        ~from
+        ~till
+        ()
       |> Lwt.map
            (Api.rows_to_yojson
               (Util_json.List.to_yojson Stream.Log_message.to_yojson)

@@ -33,7 +33,8 @@ module Event = struct
       ~query:
         Query.
           [ "input", (module List (Topology.Show_topo_input))
-          ; "id", (module List (Stream.ID)) ]
+          ; "id", (module List (Stream.ID))
+          ]
       inputs
       streams
       of_yojson
@@ -56,9 +57,9 @@ let get_topology () =
     (fun _env -> function
       | Error e -> Lwt.return_error e
       | Ok x -> (
-        match Topology.of_yojson x with
-        | Error e -> Lwt.return_error (`Msg e)
-        | Ok x -> Lwt.return_ok x))
+          match Topology.of_yojson x with
+          | Error e -> Lwt.return_error (`Msg e)
+          | Ok x -> Lwt.return_ok x))
 
 let get_streams () =
   Api_http.perform
@@ -68,33 +69,33 @@ let get_streams () =
     (fun _env -> function
       | Error e -> Lwt.return_error e
       | Ok x -> (
-        match Stream.stream_table_of_yojson x with
-        | Error e -> Lwt.return_error (`Msg e)
-        | Ok x -> Lwt.return_ok x))
+          match Stream.stream_table_of_yojson x with
+          | Error e -> Lwt.return_error (`Msg e)
+          | Ok x -> Lwt.return_ok x))
 
 let get_all_streams ~input () =
   Api_http.perform
     ~path:Path.Format.("api/application/streams" @/ empty)
-    ~query:Query.["input", (module Single (Topology.Show_topo_input))]
+    ~query:Query.[ "input", (module Single (Topology.Show_topo_input)) ]
     input
     (fun _env -> function
       | Error e -> Lwt.return_error e
       | Ok x -> (
-        match Stream.stream_list_of_yojson x with
-        | Error e -> Lwt.return_error (`Msg e)
-        | Ok x -> Lwt.return_ok x))
+          match Stream.stream_list_of_yojson x with
+          | Error e -> Lwt.return_error (`Msg e)
+          | Ok x -> Lwt.return_ok x))
 
 let get_stream_source ~stream_id () =
   Api_http.perform
     ~path:Path.Format.("api/application/stream-source" @/ empty)
-    ~query:Query.["id", (module Single (Stream.ID))]
+    ~query:Query.[ "id", (module Single (Stream.ID)) ]
     stream_id
     (fun _env -> function
       | Error e -> Lwt.return_error e
       | Ok x -> (
-        match Stream.source_of_yojson x with
-        | Error e -> Lwt.return_error (`Msg e)
-        | Ok x -> Lwt.return_ok x))
+          match Stream.source_of_yojson x with
+          | Error e -> Lwt.return_error (`Msg e)
+          | Ok x -> Lwt.return_ok x))
 
 let get_log
     ?(boards = [])
@@ -105,6 +106,7 @@ let get_log
     ?from
     ?till
     ?duration
+    ?order
     () =
   Api_http.perform
     ~path:Path.Format.("api/application/log" @/ empty)
@@ -117,7 +119,9 @@ let get_log
         ; "limit", (module Option (Int))
         ; "from", (module Option (Time_uri.Show))
         ; "to", (module Option (Time_uri.Show))
-        ; "duration", (module Option (Time_uri.Show_relative)) ]
+        ; "duration", (module Option (Time_uri.Show_relative))
+        ; "order", (module Option (Api.Show_order))
+        ]
     boards
     cpu
     inputs
@@ -126,6 +130,7 @@ let get_log
     from
     till
     duration
+    order
     (fun _env -> function
       | Error e -> Lwt.return_error e
       | Ok x -> (

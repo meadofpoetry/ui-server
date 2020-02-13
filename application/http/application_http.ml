@@ -12,22 +12,24 @@ let logout_page_props () =
   Api_template.make_template_props
     ~has_navigation_drawer:false
     ~has_top_app_bar:false
-    ~stylesheets:["/css/page-logout.min.css"]
-    ~post_scripts:[`Raw "logout();"]
+    ~stylesheets:[ "/css/page-logout.min.css" ]
+    ~post_scripts:[ `Raw "logout();" ]
     ~content:
       (List.map
          Tyxml.Html.toelt
          Tyxml.Html.
            [ div
-               ~a:[a_class ["logout-page"]]
+               ~a:[ a_class [ "logout-page" ] ]
                [ icon Components_tyxml.Svg_icons.human_greeting
-               ; div ~a:[a_class ["logout-page__goodbye"]] [txt goodbye]
-               ; div ~a:[a_class ["logout-page__message"]] [txt message]
+               ; div ~a:[ a_class [ "logout-page__goodbye" ] ] [ txt goodbye ]
+               ; div ~a:[ a_class [ "logout-page__message" ] ] [ txt message ]
                ; Components_tyxml.Button.F.button_a
                    ~label:"Войти"
                    ~appearance:Raised
                    ~href:(uri_of_string "/")
-                   () ] ])
+                   ()
+               ]
+           ])
     ()
 
 let error_page_props error =
@@ -46,22 +48,26 @@ let error_page_props error =
   in
   Api_template.make_template_props
     ~title:"Что-то пошло не так..."
-    ~stylesheets:["/css/page-error.min.css"]
+    ~stylesheets:[ "/css/page-error.min.css" ]
     ~content:
       (List.map
          Tyxml.Html.toelt
          Tyxml.Html.
            [ div
-               ~a:[a_class ["error-page"]]
-               [ div ~a:[a_class ["error-page__code"]] [txt error_code]
-               ; div ~a:[a_class ["error-page__status"]] [txt status]
-               ; div ~a:[a_class ["error-page__message"]] [txt message]
+               ~a:[ a_class [ "error-page" ] ]
+               [ div ~a:[ a_class [ "error-page__code" ] ] [ txt error_code ]
+               ; div ~a:[ a_class [ "error-page__status" ] ] [ txt status ]
+               ; div ~a:[ a_class [ "error-page__message" ] ] [ txt message ]
                ; ul
-                   ~a:[a_class ["error-page__links"]]
+                   ~a:[ a_class [ "error-page__links" ] ]
                    [ li
                        [ a
-                           ~a:[a_href @@ uri_of_string "/"]
-                           [txt "домашнюю страницу."] ] ] ] ])
+                           ~a:[ a_href @@ uri_of_string "/" ]
+                           [ txt "домашнюю страницу." ]
+                       ]
+                   ]
+               ]
+           ])
     ()
 
 let user_pages : 'a. unit -> 'a Api_template.item list =
@@ -70,8 +76,8 @@ let user_pages : 'a. unit -> 'a Api_template.item list =
   let props =
     make_template_props
       ~title:"Настройки пользователей"
-      ~post_scripts:[`Src "/js/page-user-settings.js"]
-      ~stylesheets:["/css/page-user-settings.min.css"]
+      ~post_scripts:[ `Src "/js/page-user-settings.js" ]
+      ~stylesheets:[ "/css/page-user-settings.min.css" ]
       ()
   in
   simple
@@ -87,7 +93,7 @@ let user_handlers (users : Application.User_api.t) =
     ~prefix:"user"
     [ node
         ~doc:"Changes user password"
-        ~restrict:[`Guest; `Operator]
+        ~restrict:[ `Guest; `Operator ]
         ~meth:`POST
         ~path:Path.Format.("password" @/ empty)
         ~query:Query.empty
@@ -99,20 +105,21 @@ let user_handlers (users : Application.User_api.t) =
         ~query:Query.empty
         (fun _ _ _ _ ->
           let status = `Unauthorized in
-          let headers = Cohttp.Header.of_list ["www-authenticate", "xBasic "] in
+          let headers = Cohttp.Header.of_list [ "www-authenticate", "xBasic " ] in
           let rsp =
             Lwt.Infix.(
               Cohttp_lwt_unix.Server.respond ~body:`Empty ~headers ~status ()
               >>= fun x -> Lwt.return (`Response x))
           in
-          Lwt.return (`Instant rsp)) ]
+          Lwt.return (`Instant rsp))
+    ]
 
 let input (app : Application.t) (input : Topology.topo_input) =
   let open Api_template in
   let get_input_href (x : Topology.topo_input) =
     let name = Topology.input_to_string x.input in
     let id = string_of_int x.id in
-    List.fold_left Filename.concat "" ["input"; name; id]
+    List.fold_left Filename.concat "" [ "input"; name; id ]
   in
   let title = Topology.get_input_name input in
   simple
@@ -137,9 +144,9 @@ let application_pages (app : Application.t) =
   let topology_props =
     make_template_props
       ~title:"Конфигурация"
-      ~pre_scripts:[`Src "/js/ResizeObserver.js"]
-      ~post_scripts:[`Src "/js/page-topology.js"]
-      ~stylesheets:["/css/page-topology.min.css"]
+      ~pre_scripts:[ `Src "/js/ResizeObserver.js" ]
+      ~post_scripts:[ `Src "/js/page-topology.js" ]
+      ~stylesheets:[ "/css/page-topology.min.css" ]
       ()
   in
   subtree
@@ -167,7 +174,7 @@ let application_handlers (app : Application.t) =
     ~prefix:"application"
     [ node
         ~doc:"Sets streams that are received by PC process"
-        ~restrict:[`Guest]
+        ~restrict:[ `Guest ]
         ~meth:`POST
         ~path:Path.Format.("stream-table" @/ empty)
         ~query:Query.empty
@@ -188,13 +195,13 @@ let application_handlers (app : Application.t) =
         ~doc:"Returns all streams"
         ~meth:`GET
         ~path:Path.Format.("streams" @/ empty)
-        ~query:Query.["input", (module Single (Topology.Show_topo_input))]
+        ~query:Query.[ "input", (module Single (Topology.Show_topo_input)) ]
         (Application_api.get_all_streams app)
     ; node
         ~doc:"Returns the source of a last suitable stream"
         ~meth:`GET
         ~path:Path.Format.("stream-source" @/ empty)
-        ~query:Query.["id", (module Single (Stream.ID))]
+        ~query:Query.[ "id", (module Single (Stream.ID)) ]
         (Application_api.get_stream_source app)
     ; node
         ~doc:"Log for input (and stream)"
@@ -209,8 +216,11 @@ let application_handlers (app : Application.t) =
             ; "limit", (module Option (Int))
             ; "from", (module Option (Time_uri.Show))
             ; "to", (module Option (Time_uri.Show))
-            ; "duration", (module Option (Time_uri.Show_relative)) ]
-        (Application_api.get_log app) ]
+            ; "duration", (module Option (Time_uri.Show_relative))
+            ; "order", (module Option (Api.Show_order))
+            ]
+        (Application_api.get_log app)
+    ]
 
 let application_ws (app : Application.t) =
   let open Api_websocket in
@@ -234,8 +244,10 @@ let application_ws (app : Application.t) =
         ~query:
           Query.
             [ "input", (module List (Topology.Show_topo_input))
-            ; "id", (module List (Stream.ID)) ]
-        (Application_api.Event.get_log app) ]
+            ; "id", (module List (Stream.ID))
+            ]
+        (Application_api.Event.get_log app)
+    ]
 
 let tick ?(timeout = 1.) () =
   let ( >>= ) = Lwt.bind in
@@ -252,7 +264,8 @@ type t =
   { ping_loop : unit Lwt.t
   ; routes : Api_http.t
   ; not_found : User.t -> string
-  ; forbidden : User.t -> string }
+  ; forbidden : User.t -> string
+  }
 
 let make_error_page ~template templates status user =
   let template_props = error_page_props status in
@@ -260,7 +273,7 @@ let make_error_page ~template templates status user =
 
 let create templates (app : Application.t) foreign_pages foreing_handlers foreign_ws =
   let ( >>= ) = Lwt_result.bind in
-  Kv.RO.read templates ["base.html"]
+  Kv.RO.read templates [ "base.html" ]
   >>= fun template ->
   let proc_pages =
     match app.proc with
@@ -287,7 +300,6 @@ let create templates (app : Application.t) foreign_pages foreing_handlers foreig
     | None -> []
     | Some proc -> proc#http
   in
-  let application_ws = application_ws app in
   let board_ws =
     Boards.Board.Map.fold (fun _ x acc -> x.Boards.Board.ws @ acc) app.hw.boards []
     |> Api_websocket.merge ~prefix:"board"
@@ -328,12 +340,13 @@ let create templates (app : Application.t) foreign_pages foreing_handlers foreig
          (foreign_ws
          :: Pc_control_http.network_ws app.network
          :: Pc_control_http.software_updates_ws app.updates
-         :: application_ws
+         :: application_ws app
          :: board_ws
          :: proc_ws_list)
   in
   Lwt.return_ok
     { ping_loop = loop
-    ; routes = Api_http.merge [api; ws; pages]
+    ; routes = Api_http.merge [ api; ws; pages ]
     ; not_found = make_error_page ~template templates `Not_found
-    ; forbidden = make_error_page ~template templates `Forbidden }
+    ; forbidden = make_error_page ~template templates `Forbidden
+    }

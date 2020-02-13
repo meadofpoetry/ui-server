@@ -10,4 +10,4 @@ class t ?set_hex (elt : Dom_html.element Js.t) () =
     inherit [int] Table_overview.t ?set_hex elt ()
   end
 
-let attach ?set_hex elt : t = new t ?set_hex (elt : Dom_html.element Js.t) ()
+let attach ?set_hex elt : t = new t ?set_hex (elt :> Dom_html.element Js.t) ()

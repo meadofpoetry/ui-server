@@ -1,7 +1,8 @@
 type 'a raw =
   { data : 'a
   ; has_more : bool
-  ; order : [`Asc | `Desc] }
+  ; order : [ `Asc | `Desc ]
+  }
 [@@deriving yojson]
 
 type ('a, 'b) rows =
@@ -9,24 +10,44 @@ type ('a, 'b) rows =
   | Raw of 'a raw
 [@@deriving yojson]
 
+module Show_order = struct
+  type t =
+    [ `Asc
+    | `Desc
+    ]
+
+  let typ = "asc | desc"
+
+  let to_string = function
+    | `Asc -> "asc"
+    | `Desc -> "desc"
+
+  let of_string = function
+    | "asc" -> `Asc
+    | "desc" -> `Desc
+    | _ -> failwith "bad order string"
+end
+
 type _ key =
   | Key : string -> string key
   | Auth : (string * string) key
 
-type env = {env : 'a. 'a key -> 'a option}
+type env = { env : 'a. 'a key -> 'a option }
 
 (* TODO elaborate this *)
 type 'a response =
   [ `Value of 'a
   | `Unit
   | `Error of string
-  | `Not_implemented ]
+  | `Not_implemented
+  ]
 
 module Authorize = struct
   type error =
     [ `Need_auth
     | `Wrong_password
-    | `Unknown of string ]
+    | `Unknown of string
+    ]
 
   let auth validate env =
     env.env Auth
@@ -71,7 +92,7 @@ module type BODY = sig
 
   val to_string : t -> string
 
-  val of_string : string -> (t, [> `Msg of string]) result
+  val of_string : string -> (t, [> `Msg of string ]) result
 
   val content_type : string
 end
@@ -82,7 +103,8 @@ type 'a ws_message =
   | `Unsubscribe of int
   | `Unsubscribed
   | `Event of 'a
-  | `Error of string ]
+  | `Error of string
+  ]
 
 module type WS_BODY = sig
   type t

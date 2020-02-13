@@ -1,0 +1,5 @@
+(library
+  (name       application_widgets)
+  (libraries  application_widgets_tyxml components)
+  (preprocess (pps ppx_deriving_yojson
+                   js_of_ocaml-ppx)))

@@ -16,10 +16,10 @@ let get_cell_value : type a. a Fmt_d.t -> Dom_html.tableCellElement Js.t -> a =
  fun fmt cell ->
   match fmt with
   | Custom_elt x -> (
-    match Element.children cell with
-    | [] ->
-        failwith (CSS.root ^ ": failed getting `Custom_elt` cell value - cell is empty")
-    | hd :: _ -> x.of_elt @@ Tyxml_js.Of_dom.of_element hd)
+      match Element.children cell with
+      | [] ->
+          failwith (CSS.root ^ ": failed getting `Custom_elt` cell value - cell is empty")
+      | hd :: _ -> x.of_elt @@ Tyxml_js.Of_dom.of_element hd)
   | fmt ->
       let s = Js.Opt.case cell##.textContent (fun () -> "") Js.to_string in
       Fmt_d.of_string fmt s
@@ -29,9 +29,9 @@ let rec set_cell_value : type a. a Fmt_d.t -> a -> Dom_html.tableCellElement Js.
  fun fmt v cell ->
   match fmt with
   | Option (fmt, default) -> (
-    match v with
-    | None -> set_cell_value String default cell
-    | Some x -> set_cell_value fmt x cell)
+      match v with
+      | None -> set_cell_value String default cell
+      | Some x -> set_cell_value fmt x cell)
   | Custom_elt x ->
       Element.remove_children cell;
       Dom.appendChild cell (Tyxml_js.To_dom.of_element (x.to_elt v))
@@ -46,9 +46,9 @@ let handle_sort (cell : Dom_html.element Js.t) =
   match Element.get_attribute cell "aria-sort" with
   | None -> Dsc
   | Some order -> (
-    match sort_of_string order with
-    | Some Dsc -> Asc
-    | _ -> Dsc)
+      match sort_of_string order with
+      | Some Dsc -> Asc
+      | _ -> Dsc)
 
 class ['a] t ~(fmt : 'a Fmt_d.format) (elt : Dom_html.element Js.t) () =
   object (self)
@@ -84,7 +84,7 @@ class ['a] t ~(fmt : 'a Fmt_d.format) (elt : Dom_html.element Js.t) () =
        fun fmt data_fmt ->
         match fmt, data_fmt with
         | [], [] -> []
-        | x :: xtl, y :: ytl -> {x with format = y} :: loop xtl ytl
+        | x :: xtl, y :: ytl -> { x with format = y } :: loop xtl ytl
       in
       let format = loop fmt x in
       if redraw

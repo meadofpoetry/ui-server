@@ -50,7 +50,7 @@ struct
 
   let button_ ?(classes = return []) ?appearance ?(dense = false) ?icon ?label () =
     let make_label x =
-      span ~a:[a_class @@ return [CSS.label]] (singleton (return (txt x)))
+      span ~a:[ a_class @@ return [ CSS.label ] ] (singleton (return (txt x)))
     in
     let classes =
       fmap
@@ -69,7 +69,7 @@ struct
 
   let button_a ?classes ?(a = []) ?href ?appearance ?dense ?icon ?label () =
     let children, classes = button_ ?classes ?appearance ?dense ?icon ?label () in
-    Html.a ~a:([a_class classes] @ a |> Utils.map_cons_option a_href href) children
+    Html.a ~a:([ a_class classes ] @ a |> Utils.map_cons_option a_href href) children
 
   let button
       ?classes
