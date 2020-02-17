@@ -1,6 +1,7 @@
 open Application_types
 open Components
 open Topo_types
+open Lwt.Infix
 
 module CSS = struct
   let root = "topology-board"
@@ -78,8 +79,16 @@ let make_board_niitv_tsan_settings state socket control =
   in
   w#set_on_destroy (fun () ->
       E.stop ~strong:true notif;
-      Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket mid);
-      Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket sid));
+      Lwt.async (fun () ->
+          Api_js.Websocket.JSON.unsubscribe socket mid
+          >>= function
+          | Error e -> Lwt.fail (Api_js.Websocket.Error e)
+          | Ok v -> Lwt.return v);
+      Lwt.async (fun () ->
+          Api_js.Websocket.JSON.unsubscribe socket sid
+          >>= function
+          | Error e -> Lwt.fail (Api_js.Websocket.Error e)
+          | Ok v -> Lwt.return v));
   Lwt.return_ok w#widget
 
 let make_board_niitv_dvb4ch_settings state socket control =
@@ -114,8 +123,16 @@ let make_board_niitv_dvb4ch_settings state socket control =
   in
   w#set_on_destroy (fun () ->
       React.E.stop ~strong:true notif;
-      Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket plps_id);
-      Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket mode_id));
+      Lwt.async (fun () ->
+          Api_js.Websocket.JSON.unsubscribe socket plps_id
+          >>= function
+          | Error e -> Lwt.fail (Api_js.Websocket.Error e)
+          | Ok v -> Lwt.return v);
+      Lwt.async (fun () ->
+          Api_js.Websocket.JSON.unsubscribe socket mode_id
+          >>= function
+          | Error e -> Lwt.fail (Api_js.Websocket.Error e)
+          | Ok v -> Lwt.return v));
   Lwt.return_ok w#widget
 
 let make_board_dektec_dtm3200_settings state socket control =
@@ -136,7 +153,11 @@ let make_board_dektec_dtm3200_settings state socket control =
   in
   w#set_on_destroy (fun () ->
       E.stop ~strong:true notif;
-      Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket id));
+      Lwt.async (fun () ->
+          Api_js.Websocket.JSON.unsubscribe socket id
+          >>= function
+          | Error e -> Lwt.fail (Api_js.Websocket.Error e)
+          | Ok v -> Lwt.return v));
   Lwt.return_ok w#widget
 
 let make_board_page (signal : Topology.topo_board React.signal) socket =

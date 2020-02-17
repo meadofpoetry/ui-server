@@ -110,10 +110,10 @@ module Make (Body : Api.BODY) (Msg : Api.WS_BODY with type t := Body.t) = struct
         React.E.fmap
           (fun x ->
             match _of x with
-            | Error e ->
+            | Result.Error e ->
                 print_endline e;
                 None
-            | Ok x -> Some x)
+            | Result.Ok x -> Some x)
           e
       in
       Lwt.return_ok (subid, e)

@@ -3,6 +3,7 @@ open Application_types
 let base_class = "pipeline-settings"
 
 let ( >>=? ) = Lwt_result.bind
+let ( >>= ) = Lwt.bind
 
 let make_streams (cpu : Topology.topo_cpu) socket =
   let open Application_http_js in
@@ -13,7 +14,11 @@ let make_streams (cpu : Topology.topo_cpu) socket =
   let box = Streams_selector.make ~init ~event cpu () in
   box#set_on_destroy (fun () ->
       React.E.stop ~strong:true event;
-      Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket id));
+      Lwt.async (fun () ->
+          Api_js.Websocket.JSON.unsubscribe socket id
+          >>= function
+          | Error e -> Lwt.fail (Api_js.Websocket.Error e)
+          | Ok v -> Lwt.return v));
   Lwt_result.return box#widget
 
 let make_structure socket =
@@ -28,7 +33,11 @@ let make_structure socket =
   in
   w#set_on_destroy (fun () ->
       React.E.stop ~strong:true notif;
-      Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket id));
+      Lwt.async (fun () ->
+          Api_js.Websocket.JSON.unsubscribe socket id
+          >>= function
+          | Error e -> Lwt.fail (Api_js.Websocket.Error e)
+          | Ok v -> Lwt.return v));
   Lwt.return_ok w#widget
 
 let make (cpu : Topology.topo_cpu) (socket : Api_js.Websocket.JSON.t) =
