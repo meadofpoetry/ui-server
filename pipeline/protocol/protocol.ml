@@ -267,7 +267,8 @@ let reset state (sources : (Netlib.Uri.t * Stream.t) list) =
   let wm =
     Util_react.S.hold ~eq:Wm.equal Wm.default events.wm
   in
-  
+
+  (*
   make_streams_with_restore_config
     ~apply_settings:(fun st -> Qoe_backend.Graph.apply_structure backend st)
     ~get_applied:(fun () -> Qoe_backend.Graph.get_structure backend)
@@ -280,7 +281,7 @@ let reset state (sources : (Netlib.Uri.t * Stream.t) list) =
     state.options.wm
     wm
   >>= fun wm_reset ->
-
+   *)
   let status = merge_status state.options.structures events.status in
 
   state.notifs <- { streams
@@ -292,8 +293,8 @@ let reset state (sources : (Netlib.Uri.t * Stream.t) list) =
                   ; adata = events.adata
                   (*  *)
                   ; settings_reset = React.S.const ()
-                  ; streams_reset
-                  ; wm_reset
+                  ; streams_reset = React.S.const ()
+                  ; wm_reset = React.S.const ()
                   };
 (*
   state.cleanup#call;
