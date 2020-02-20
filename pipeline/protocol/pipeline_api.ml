@@ -168,6 +168,8 @@ let apply_structures (state : Protocol.state) _user body _env _state =
      match state.backend with
      | None -> Lwt.return (`Error "not ready")
      | Some backend ->
+        Protocol.reset state state.sources
+        >>= fun _ ->
         Protocol.Qoe_backend.Graph.apply_structure backend x
         >>= function
         | Error (`Qoe_backend e) -> Lwt.return (`Error  e)
