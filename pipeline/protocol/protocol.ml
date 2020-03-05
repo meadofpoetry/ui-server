@@ -230,45 +230,49 @@ let create db kv =
     { backend; running; notifs; sources; options; model }
   in
   Lwt.return_ok (state)
-  
+
+let backend_lock = Lwt_mutex.create ()
+
 let reset state (sources : (Netlib.Uri.t * Stream.t) list) =
   let (>>=) = Lwt.bind in
   let (>>=?) = Lwt_result.bind in
-  
-  let args =
-    List.map (fun (uri, s) -> s.Stream.id, uri) sources
-    |> Array.of_list
-  in
 
-  begin match state.backend with
-  | None -> Lwt.return_unit
-  | Some backend ->
-     match state.running with
-     | None -> Lwt.return_unit
-     | Some t ->
-        Qoe_backend.destroy backend;
-        t
-  end
-  >>= fun () ->
+  Lwt_mutex.with_lock backend_lock (fun () ->
+      
+      let args =
+        List.map (fun (uri, s) -> s.Stream.id, uri) sources
+        |> Array.of_list
+      in
 
-  Qoe_backend.create args
-  >>=? fun (backend, events) ->
-  
-  state.backend <- Some backend;
+      begin match state.backend with
+      | None -> Lwt.return_unit
+      | Some backend ->
+         match state.running with
+         | None -> Lwt.return_unit
+         | Some t ->
+            Qoe_backend.destroy backend;
+            t
+      end
+      >>= fun () ->
 
-  let streams =
-    Util_react.S.hold ~eq:Structure.equal_many [] events.streams
-  in
+      Qoe_backend.create args
+      >>=? fun (backend, events) ->
+      
+      state.backend <- Some backend;
 
-  let applied_structs =
-    Util_react.S.hold ~eq:Structure.equal_many [] events.graph
-  in
+      let streams =
+        Util_react.S.hold ~eq:Structure.equal_many [] events.streams
+      in
 
-  let wm =
-    Util_react.S.hold ~eq:Wm.equal Wm.default events.wm
-  in
+      let applied_structs =
+        Util_react.S.hold ~eq:Structure.equal_many [] events.graph
+      in
 
-  (*
+      let wm =
+        Util_react.S.hold ~eq:Wm.equal Wm.default events.wm
+      in
+
+      (*
   make_streams_with_restore_config
     ~apply_settings:(fun st -> Qoe_backend.Graph.apply_structure backend st)
     ~get_applied:(fun () -> Qoe_backend.Graph.get_structure backend)
@@ -281,52 +285,55 @@ let reset state (sources : (Netlib.Uri.t * Stream.t) list) =
     state.options.wm
     wm
   >>= fun wm_reset ->
-   *)
-  let status = merge_status state.options.structures events.status in
+       *)
+      let status = merge_status state.options.structures events.status in
 
-  state.notifs <- { streams
-                  ; wm
-                  ; applied_structs
-                  ; status
-                  ; status_raw = events.status
-                  ; vdata = events.vdata
-                  ; adata = events.adata
-                  (*  *)
-                  ; settings_reset = React.S.const ()
-                  ; streams_reset = React.S.const ()
-                  ; wm_reset = React.S.const ()
-                  };
-(*
+      state.notifs <- { streams
+                      ; wm
+                      ; applied_structs
+                      ; status
+                      ; status_raw = events.status
+                      ; vdata = events.vdata
+                      ; adata = events.adata
+                      (*  *)
+                      ; settings_reset = React.S.const ()
+                      ; streams_reset = React.S.const ()
+                      ; wm_reset = React.S.const ()
+                      };
+      (*
   state.cleanup#call;
- *)
-  (* TODO add state updates if settings are avail *)
+       *)
+      (* TODO add state updates if settings are avail *)
 
-  Model.set_streams state.model (List.map snd sources);
+      Model.set_streams state.model (List.map snd sources);
 
-  state.running <- Some (Qoe_backend.run backend);
+      state.running <- Some (Qoe_backend.run backend);
 
-  state.sources <- sources;
+      state.sources <- sources;
 
-  Qoe_backend.Analysis_settings.apply_settings
-    backend
-    (React.S.value state.options.settings#s)
+      Qoe_backend.Analysis_settings.apply_settings
+        backend
+        (React.S.value state.options.settings#s))
 
 let finalize state =
   let (>>=) = Lwt.bind in
-  begin match state.backend with
-  | None -> Lwt.return_unit
-  | Some backend ->
-     match state.running with
-     | None -> Lwt.return_unit
-     | Some t ->
-        Qoe_backend.destroy backend;
-        t
-  end
-  >>= fun () ->
 
-  state.backend <- None;
-  state.running <- None;
-  state.notifs <- notifs_default;
-  (* state.cleanup#call; *)
-  Logs.debug (fun m -> m "(Pipeline) finalize");
-  Lwt.return_unit
+  Lwt_mutex.with_lock backend_lock (fun () ->
+      
+      begin match state.backend with
+      | None -> Lwt.return_unit
+      | Some backend ->
+         match state.running with
+         | None -> Lwt.return_unit
+         | Some t ->
+            Qoe_backend.destroy backend;
+            t
+      end
+      >>= fun () ->
+
+      state.backend <- None;
+      state.running <- None;
+      state.notifs <- notifs_default;
+      (* state.cleanup#call; *)
+      Logs.debug (fun m -> m "(Pipeline) finalize");
+      Lwt.return_unit)
