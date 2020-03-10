@@ -1160,7 +1160,8 @@ let deserialize ?(timestamp = Ptime_clock.now ()) src parts buf =
         | e ->
             (match e, error with
             | Bad_prefix _, Some (Bad_prefix _) -> ()
-            | _ -> Logs.warn ~src (fun m -> m "parser error: %s" @@ error_to_string e));
+            | _ -> Logs.warn ~src (fun m ->
+                       m "parser error: %s; Msg: %a" (error_to_string e) Cstruct.hexdump_pp buf));
             f ~error:e acc parts (Cstruct.shift buf 1))
   in
   let responses, parts, res = f [] parts buf in
