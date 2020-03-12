@@ -1,5 +1,5 @@
+(*
 open Js_of_ocaml
-open Containers
 open Components
 open Lwt_result
 open Common
@@ -113,3 +113,4 @@ let () =
         page#set_title title;
         Lwt_result.return ())
   |> Lwt.ignore_result
+ *)

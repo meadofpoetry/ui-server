@@ -1,5 +1,6 @@
 (executable
  (name page_input)
+ (modes js)
  (libraries components_lab ui_templates page_log)
  (preprocess
   (pps js_of_ocaml-ppx)))

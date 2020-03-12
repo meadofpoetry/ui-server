@@ -1,5 +1,6 @@
 (executable
  (name scaffold)
+ (modes js)
  (libraries components)
  (preprocess
   (pps js_of_ocaml-ppx)))

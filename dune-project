@@ -1,4 +1,5 @@
 (lang dune 2.0)
+(explicit_js_mode)
 
 (package
   (name ui-server)

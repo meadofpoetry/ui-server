@@ -1,4 +1,4 @@
-open Containers
+(*
 open Components
 
 let make_overview ?boards ?cpu ?inputs ?streams e_log =
@@ -35,3 +35,4 @@ let make ?boards ?cpu ?inputs ?streams () =
       React.E.stop ~strong:true e_log;
       socket##close);
   Lwt.return_ok box#widget
+ *)

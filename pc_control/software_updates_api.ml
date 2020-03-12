@@ -1,6 +1,6 @@
 open Util_react
 
-let (state : Pc_control_types.Software_updates.state S.t), push_state =
+let (state : Pc_control_types.Software_updates.state React.signal), push_state =
   S.create ~eq:Stdlib.( = ) `Unchecked
 
 let upg_lock = Lwt_mutex.create ()

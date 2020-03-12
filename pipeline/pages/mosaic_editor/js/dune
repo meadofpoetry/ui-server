@@ -1,5 +1,6 @@
 (executable
  (name page_mosaic_editor)
+ (modes js)
  (libraries components components_lab resize_observer browser_storage
    undo_manager application_types pipeline_types pipeline_http_js
    pipeline_widgets page_mosaic_editor_tyxml util_equal)
