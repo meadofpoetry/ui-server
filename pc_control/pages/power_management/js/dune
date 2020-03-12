@@ -1,5 +1,6 @@
 (executable
  (name page_power_management)
+ (modes js)
  (libraries page_power_management_tyxml pc_control_http_js components_lab)
  (preprocess
   (pps js_of_ocaml-ppx)))

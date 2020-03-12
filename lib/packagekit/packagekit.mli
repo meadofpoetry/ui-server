@@ -3,6 +3,7 @@ type transaction =
   ; error_code : (int32 * string) React.event Lwt.t
   ; finished : (int32 * int32) React.event Lwt.t
   ; get_updates : int64 -> unit Lwt.t
+  ; refresh_cache : unit Lwt.t
   ; package : (int32 * string * string) React.event Lwt.t
   ; percentage : int32 React.signal Lwt.t
   ; status : int32 React.signal Lwt.t

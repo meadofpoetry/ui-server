@@ -1,5 +1,5 @@
+(*
 open Js_of_ocaml
-open Containers
 open Components
 open Api_js.Api_types
 open Lwt_result.Infix
@@ -337,3 +337,4 @@ let make () =
   ignore @@ new Ui_templates.Page.t (`Static [ w ]) ()
 
 let () = make ()
+ *)

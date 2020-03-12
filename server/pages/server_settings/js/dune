@@ -1,5 +1,6 @@
 (executable
  (name page_server_settings)
+ (modes js)
  (libraries page_server_settings_tyxml components components_lab
    browser_storage application_types api_js server_http_js ptime.clock.jsoo)
  (preprocess

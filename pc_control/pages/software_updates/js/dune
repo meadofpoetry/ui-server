@@ -1,5 +1,6 @@
 (executable
  (name page_software_updates)
+ (modes js)
  (libraries page_software_updates_tyxml pc_control_http_js components_lab)
  (preprocess
   (pps js_of_ocaml-ppx)))

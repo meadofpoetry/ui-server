@@ -1,5 +1,6 @@
 (executable
  (name board_niitv_dvb4ch_page_input)
+ (modes js)
  (libraries board_niitv_dvb4ch_widgets board_niitv_dvb4ch_page_input_tyxml
    components_lab ui_templates)
  (preprocess

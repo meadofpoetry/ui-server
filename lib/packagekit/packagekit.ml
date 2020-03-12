@@ -23,6 +23,11 @@ class transaction obj =
         PK_trans_iface.Org_freedesktop_PackageKit_Transaction.m_UpdatePackages
         obj (0L, lst)
 
+    method refresh_cache =
+      OBus_method.call
+        PK_trans_iface.Org_freedesktop_PackageKit_Transaction.m_RefreshCache
+        obj true
+
     method package =
       OBus_signal.make
         PK_trans_iface.Org_freedesktop_PackageKit_Transaction.s_Package obj

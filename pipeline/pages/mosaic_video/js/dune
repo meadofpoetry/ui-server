@@ -1,5 +1,6 @@
 (executable
  (name page_mosaic_video)
+ (modes js)
  (libraries js_of_ocaml janus-js components components_lab pipeline_widgets
    page_mosaic_video_tyxml)
  (preprocess
