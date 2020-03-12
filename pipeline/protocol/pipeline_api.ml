@@ -165,7 +165,7 @@ let apply_structures (state : Protocol.state) _user body _env _state =
   match Structure.Many.of_yojson body with
   | Error e -> Lwt.return (`Error e)
   | Ok x ->
-     Protocol.reset state state.sources
+     Protocol.reset state state.sources (* TODO remove reset *)
      >>= function
      | Error (`Qoe_backend e) -> Lwt.return (`Error  e)
      | Ok () ->
