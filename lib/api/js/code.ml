@@ -261,7 +261,8 @@ module Client_error = struct
     | `Request_header_fields_too_large -> "Request Header Fields Too Large"
     | `No_response -> "No Response"
     | `Retry_with -> "Retry With"
-    | `Blocked_by_windows_parental_controls -> "Blocked by Windows Parental Controls"
+    | `Blocked_by_windows_parental_controls ->
+        "Blocked by Windows Parental Controls"
     | `Wrong_exchange_server -> "Wrong Exchange server"
     | `Client_closed_request -> "Client Closed Request"
 end
@@ -350,13 +351,13 @@ let to_int : t -> int = function
   | #Server_error.t as x -> Server_error.to_int x
 
 let of_int (i : int) =
-  (match i with
+  ( match i with
   | x when x >= 100 && x < 200 -> (Informational.of_int x :> t option)
   | x when x >= 200 && x < 300 -> (Success.of_int x :> t option)
   | x when x >= 300 && x < 400 -> (Redirection.of_int x :> t option)
   | x when x >= 400 && x < 500 -> (Client_error.of_int x :> t option)
   | x when x >= 500 && x < 600 -> (Server_error.of_int x :> t option)
-  | _ -> None)
+  | _ -> None )
   |> function
   | None -> `Code i
   | Some x -> x

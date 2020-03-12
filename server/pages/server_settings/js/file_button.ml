@@ -33,9 +33,11 @@ class t (elt : Dom_html.element Js.t) =
     method! initial_sync_with_dom () : unit =
       listeners_ <-
         Js_of_ocaml_lwt.Lwt_js_events.
-          [ clicks super#root (fun _ _ ->
+          [
+            clicks super#root (fun _ _ ->
                 file_input##click;
-                Lwt.return_unit) ];
+                Lwt.return_unit);
+          ];
       super#initial_sync_with_dom ()
 
     method! destroy () : unit =

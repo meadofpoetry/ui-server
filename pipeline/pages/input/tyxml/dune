@@ -1,5 +1,3 @@
 (library
-  (name      pipeline_page_input_tyxml)
-  (libraries components_tyxml
-             application_types
-             pipeline_widgets_tyxml))
+ (name pipeline_page_input_tyxml)
+ (libraries components_tyxml application_types pipeline_widgets_tyxml))

@@ -18,50 +18,42 @@ module Const = struct
   let ttl = 3000
 end
 
-type widget_config =
-  { duration : Time.Period.t
-  ; typ : Util.measure_typ
-  ; sources : data_source list
-  ; settings : widget_settings option
-  }
+type widget_config = {
+  duration : Time.Period.t;
+  typ : Util.measure_typ;
+  sources : data_source list;
+  settings : widget_settings option;
+}
 
 and widget_settings = { range : (float * float) option }
 
-and service_filter =
-  { service_id : int
-  ; pids : int list
-  }
+and service_filter = { service_id : int; pids : int list }
 
-and data_source =
-  { stream : Stream.ID.t
-  ; channel : int
-  ; pid : int
-  }
+and data_source = { stream : Stream.ID.t; channel : int; pid : int }
 [@@deriving eq, yojson]
 
 type event =
   [ `Data of (data_source * Qoe_errors.point array) list
-  | `Structures of Structure.Annotated.t
-  ]
+  | `Structures of Structure.Annotated.t ]
 
 let sort_data (data : (data_source * Qoe_errors.point array) list) =
   List.map
     (fun (id, x) ->
       Array.sort (fun (a : Qoe_errors.point) b -> Ptime.compare a.time b.time) x;
-      id, x)
+      (id, x))
     data
 
 let colors =
   Random.init 255;
-  Array.init 100 (fun _ -> Random.int 255, Random.int 255, Random.int 255)
+  Array.init 100 (fun _ -> (Random.int 255, Random.int 255, Random.int 255))
 
 let get_suggested_range : Util.measure_typ -> float * float = function
-  | `Black -> 0.0, 100.0
-  | `Luma -> 16.0, 235.0
-  | `Freeze -> 0.0, 100.0
-  | `Diff -> 0.0, 216.0
-  | `Blocky -> 0.0, 100.0
-  | `Shortt | `Moment -> -40., 0.
+  | `Black -> (0.0, 100.0)
+  | `Luma -> (16.0, 235.0)
+  | `Freeze -> (0.0, 100.0)
+  | `Diff -> (0.0, 216.0)
+  | `Blocky -> (0.0, 100.0)
+  | `Shortt | `Moment -> (-40., 0.)
 
 let interpolate : Util.measure_typ -> Qoe_errors.point array -> float =
  fun typ arr ->
@@ -74,10 +66,11 @@ let interpolate : Util.measure_typ -> Qoe_errors.point array -> float =
     | `Blocky -> max
     | `Shortt | `Moment -> max
   in
-  Array.fold_left (fun acc (x : Qoe_errors.point) -> f acc x.data) arr.(0).data arr
+  Array.fold_left
+    (fun acc (x : Qoe_errors.point) -> f acc x.data)
+    arr.(0).data arr
 
-let convert_data
-    (config : widget_config)
+let convert_data (config : widget_config)
     (data : (data_source * Qoe_errors.point array) list) =
   List.filter_map
     (fun (src, points) ->
@@ -94,8 +87,8 @@ let convert_data
           Some (src, [| Chartjs.create_data_point ~x ~y |]))
     data
 
-let data_source_to_string (structures : Structure.Annotated.t) (src : data_source) :
-    string =
+let data_source_to_string (structures : Structure.Annotated.t)
+    (src : data_source) : string =
   let open Structure in
   match
     List.find_opt
@@ -111,14 +104,13 @@ let data_source_to_string (structures : Structure.Annotated.t) (src : data_sourc
       with
       | None -> ""
       | Some (_, channel) -> (
-          match List.find_opt (fun (_, (x : pid)) -> x.pid = src.pid) channel.pids with
+          match
+            List.find_opt (fun (_, (x : pid)) -> x.pid = src.pid) channel.pids
+          with
           | None -> ""
           | Some (_, pid) ->
-              Printf.sprintf
-                "%s. PID %d (%s)"
-                channel.service_name
-                pid.pid
-                pid.stream_type_name))
+              Printf.sprintf "%s. PID %d (%s)" channel.service_name pid.pid
+                pid.stream_type_name ) )
 
 let get_duration_ms config =
   int_of_float @@ (Ptime.Span.to_float_s config.duration *. 1000.)
@@ -129,8 +121,7 @@ let get_timestamp (data : (data_source * Qoe_errors.point array) list) =
   let rec aux = function
     | [] -> None
     | (_, hd) :: tl ->
-        if Array.length hd = 0
-        then aux tl
+        if Array.length hd = 0 then aux tl
         else
           let (point : Qoe_errors.point) = hd.(0) in
           Some point.time
@@ -162,7 +153,8 @@ let make_x_axis ?(id = "x-axis") () : Chartjs.timeAxis Js.t =
   axis##._type := Js.string "realtime";
   axis
 
-let make_y_axis ?(id = "y-axis") (config : widget_config) : Chartjs.linearAxis Js.t =
+let make_y_axis ?(id = "y-axis") (config : widget_config) :
+    Chartjs.linearAxis Js.t =
   let open Chartjs in
   let min, max = get_suggested_range config.typ in
   let unit = Util.measure_typ_to_unit_string config.typ in
@@ -227,22 +219,19 @@ let format_float ?(decimals = 3) ?(strip_zero = false) (v : float) =
   | [ s ] -> s
   | [ left; right ] -> (
       let right = if strip_zero then strip right else right in
-      match right with
-      | "" -> left
-      | _ -> left ^ "." ^ right)
+      match right with "" -> left | _ -> left ^ "." ^ right )
   | _ -> assert false
 
 let format_value (v : float) (config : widget_config) : string =
   let unit = Util.measure_typ_to_unit_string config.typ in
   Printf.sprintf "%s %s" (format_float v) unit
 
-let tooltip_callback config _ (item : Chartjs.tooltipItem Js.t) (data : Chartjs.data Js.t)
-    =
+let tooltip_callback config _ (item : Chartjs.tooltipItem Js.t)
+    (data : Chartjs.data Js.t) =
   let ds_index = item##.datasetIndex in
   let dataset = Js.array_get data##.datasets ds_index in
   let text =
-    Js.Optdef.case
-      dataset
+    Js.Optdef.case dataset
       (fun () -> "")
       (fun dataset ->
         let (dataset : _ Chartjs.lineDataset Js.t) = Js.Unsafe.coerce dataset in
@@ -250,8 +239,7 @@ let tooltip_callback config _ (item : Chartjs.tooltipItem Js.t) (data : Chartjs.
           (Js.array_get dataset##.data item##.index)
           (fun () -> "")
           (fun v ->
-            Printf.sprintf
-              "%s: %s"
+            Printf.sprintf "%s: %s"
               (Js.to_string dataset##.label)
               (format_value v##.y config)))
   in
@@ -299,9 +287,10 @@ let make_dataset id src structures data =
   ds##.pointRadius := Chartjs.Scriptable_indexable.of_single 2;
   ds##.backgroundColor := Chartjs.Color.of_string color;
   ds##.borderColor := Chartjs.Color.of_string color;
-  src, ds
+  (src, ds)
 
-let make_datasets init (sources : data_source list) (structures : Structure.Annotated.t) =
+let make_datasets init (sources : data_source list)
+    (structures : Structure.Annotated.t) =
   let map id (src : data_source) =
     let data =
       List.find_opt (fun (src', _) -> equal_data_source src src') init
@@ -313,11 +302,8 @@ let make_datasets init (sources : data_source list) (structures : Structure.Anno
   in
   List.mapi map sources
 
-class t
-  (init : 'a list)
-  (structures : Structure.Annotated.t)
-  (config : widget_config)
-  (elt : Dom_html.element Js.t) =
+class t (init : 'a list) (structures : Structure.Annotated.t)
+  (config : widget_config) (elt : Dom_html.element Js.t) =
   object (self)
     val canvas : Dom_html.canvasElement Js.t =
       Js.Unsafe.coerce @@ Element.query_selector_exn elt "canvas"
@@ -342,7 +328,8 @@ class t
       let options = make_options ~x_axes:[ x_axis ] ~y_axes:[ y_axis ] config in
       let data = Chartjs.empty_data () in
       data##.datasets := Js.array @@ Array.of_list @@ List.map snd datasets;
-      chart <- Some (Chartjs.chart_from_canvas Chartjs.Chart.line data options canvas);
+      chart <-
+        Some (Chartjs.chart_from_canvas Chartjs.Chart.line data options canvas);
       super#init ()
 
     method! destroy () : unit =
@@ -364,7 +351,8 @@ class t
       datasets <- [];
       self#update_chart ()
 
-    method private update_structures (structures : Structure.Annotated.t) : unit =
+    method private update_structures (structures : Structure.Annotated.t) : unit
+        =
       List.iter
         (fun (src, (ds : _ Chartjs.lineDataset Js.t)) ->
           let label = data_source_to_string structures src in
@@ -382,18 +370,25 @@ class t
               | None -> ()
               | Some timestamp ->
                   let now = Ptime_clock.now () in
-                  let delay_s = Ptime.Span.to_float_s (Ptime.diff now timestamp) in
-                  let delay_ms = Const.delay + int_of_float (1000. *. delay_s) in
+                  let delay_s =
+                    Ptime.Span.to_float_s (Ptime.diff now timestamp)
+                  in
+                  let delay_ms =
+                    Const.delay + int_of_float (1000. *. delay_s)
+                  in
                   delay <- Some delay_ms;
                   streaming##.delay := delay_ms)
 
-    method private handle_new_data (data : (data_source * Qoe_errors.point array) list) =
+    method private handle_new_data
+        (data : (data_source * Qoe_errors.point array) list) =
       let sorted = sort_data data in
       self#update_delay sorted;
       let converted = convert_data config sorted in
       List.iter
         (fun (src, data) ->
-          match List.find_opt (fun (x, _) -> equal_data_source src x) datasets with
+          match
+            List.find_opt (fun (x, _) -> equal_data_source src x) datasets
+          with
           | None -> (
               match config.sources with
               | [] ->
@@ -401,10 +396,11 @@ class t
                   let ds = make_dataset id src structures data in
                   datasets <- ds :: datasets;
                   let (_ : int) =
-                    self#chart##.data##.datasets##push (Chartjs.coerce_dataset @@ snd ds)
+                    self#chart##.data##.datasets##push
+                      (Chartjs.coerce_dataset @@ snd ds)
                   in
                   ()
-              | _ -> ())
+              | _ -> () )
           | Some (_, (ds : _ Chartjs.lineDataset Js.t)) ->
               Array.iter (fun x -> ignore @@ ds##.data##push x) data;
               let sort (a : _ Chartjs.dataPoint Js.t as 'c) (b : 'c) =
@@ -435,7 +431,9 @@ let attach ?duration ?typ ~init ~structures (elt : Dom_html.element Js.t) : t =
     | Some x -> x
     | None ->
         Option.value ~default:Const.default_duration
-        @@ Option.bind (Element.get_attribute elt Attr.data_duration) duration_of_string
+        @@ Option.bind
+             (Element.get_attribute elt Attr.data_duration)
+             duration_of_string
   in
   let typ =
     match typ with

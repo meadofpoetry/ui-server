@@ -1,27 +1,22 @@
 open Application_types
 open Application_types.Stream.Log_message
 open Pipeline_types
-   
+
 (* TODO remove 4.08 *)
 
-let (>>=) m f = match m with
-  | None -> None
-  | Some x -> f x
+let ( >>= ) m f = match m with None -> None | Some x -> f x
 
-let opt_map f m = match m with
-  | None -> None
-  | Some v -> Some (f v)
-   
+let opt_map f m = match m with None -> None | Some v -> Some (f v)
+
 (* TODO merge Audio and Video *)
-   
-let id_in id list =
-  List.exists (Stream.ID.equal id) list
-   
+
+let id_in id list = List.exists (Stream.ID.equal id) list
+
 module Video = struct
   (* open Qoe_errors.Video_data*)
 
   (* TODO *)
-         (*
+  (*
   let convert sources structures x =
     let (_, stream) = List.find
                         (fun (_,s) -> Stream.(ID.equal s.id x.stream))
@@ -106,13 +101,13 @@ module Video = struct
           *)
 
 end
-             
+
 module Audio = struct
   (*open Qoe_errors.Audio_data*)
 
   (* TODO *)
 
-         (*
+  (*
   let convert sources structures x =
     let (_, stream) = List.find
                         (fun (_,s) -> Stream.(ID.equal s.id x.stream))
@@ -184,36 +179,32 @@ module Status = struct
   open Qoe_status
 
   let convert sources structures x =
-    let (_, stream) = List.find
-                        (fun (_,s) -> Stream.(ID.equal s.id x.stream))
-                        sources
+    let _, stream =
+      List.find (fun (_, s) -> Stream.(ID.equal s.id x.stream)) sources
     in
-    let input     = Stream.get_input stream in
-    let stream    = Some x.stream in
-    let service   =
+    let input = Stream.get_input stream in
+    let stream = Some x.stream in
+    let service =
       let open Structure in
       React.S.value structures
       |> List.find_opt (fun s -> Stream.ID.equal s.id x.stream)
       >>= fun s ->
       List.find_opt (fun channel -> channel.number = x.channel) s.channels
-      >>= fun ch ->
-      Some ch.service_name
+      >>= fun ch -> Some ch.service_name
     in
-    let pid       = Some { typ = Some (Printf.sprintf "%d-PES" x.pid)
-                         ; id  = x.pid } in
-    let node      = Some (Cpu "pipeline") in
-    let info      = "" in
-    let time      = Ptime_clock.now () in
+    let pid = Some { typ = Some (Printf.sprintf "%d-PES" x.pid); id = x.pid } in
+    let node = Some (Cpu "pipeline") in
+    let info = "" in
+    let time = Ptime_clock.now () in
     let level, message =
-      if x.playing
-      then Info, "Поток обнаружен"
-      else Err, "Поток потерян"
-    in [ { time; input; stream; service; pid; node; level; info; message } ]
+      if x.playing then (Info, "Поток обнаружен")
+      else (Err, "Поток потерян")
+    in
+    [ { time; input; stream; service; pid; node; level; info; message } ]
 
   let to_log_messages sources structures filter x =
     match filter with
     | `All -> convert sources structures x
-    | `Id ids when id_in x.stream ids ->
-       convert sources structures x
+    | `Id ids when id_in x.stream ids -> convert sources structures x
     | _ -> []
 end

@@ -1,12 +1,12 @@
 (executable
-  (name       board_niitv_dvb4ch_page_input)
-  (libraries  board_niitv_dvb4ch_widgets
-              board_niitv_dvb4ch_page_input_tyxml
-              components_lab
-              ui_templates)
-  (preprocess (pps js_of_ocaml-ppx)))
+ (name board_niitv_dvb4ch_page_input)
+ (libraries board_niitv_dvb4ch_widgets board_niitv_dvb4ch_page_input_tyxml
+   components_lab ui_templates)
+ (preprocess
+  (pps js_of_ocaml-ppx)))
 
 (install
-  (files (board_niitv_dvb4ch_page_input.bc.js as js/board-niitv-dvb4ch-page-input.js))
-  (section share)
-  (package ui-server))
+ (files
+  (board_niitv_dvb4ch_page_input.bc.js as js/board-niitv-dvb4ch-page-input.js))
+ (section share)
+ (package ui-server))

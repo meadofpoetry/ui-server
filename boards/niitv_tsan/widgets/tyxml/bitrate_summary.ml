@@ -31,8 +31,8 @@ struct
     let meta =
       return
         (span
-           ~a:[a_class (return [Item_list.CSS.item_meta])]
-           (const [txt (fmap bitrate_to_string value)]))
+           ~a:[ a_class (return [ Item_list.CSS.item_meta ]) ]
+           (const [ txt (fmap bitrate_to_string value) ]))
     in
     let primary_text = `Text text in
     Item_list_markup.list_item ~classes ?a ~meta ~primary_text ()
@@ -43,12 +43,10 @@ struct
     let children =
       let total =
         create_value
-          ~classes:(return [CSS.value_total])
+          ~classes:(return [ CSS.value_total ])
           ~value:
             (fmap
-               (function
-                 | None -> None
-                 | Some {total; _} -> Some total.cur)
+               (function None -> None | Some { total; _ } -> Some total.cur)
                bitrate)
           (return "Общий битрейт:")
       in
@@ -57,15 +55,15 @@ struct
           ~value:
             (fmap
                (function
-                 | None -> None
-                 | Some {effective; _} -> Some effective.cur)
+                 | None -> None | Some { effective; _ } -> Some effective.cur)
                bitrate)
-          ~classes:(return [CSS.value_effective])
+          ~classes:(return [ CSS.value_effective ])
           (return "Полезный битрейт:")
       in
-      const [total; effective]
+      const [ total; effective ]
     in
-    Item_list_markup.list ~classes ?a ~dense:true ~non_interactive:true ~children ()
+    Item_list_markup.list ~classes ?a ~dense:true ~non_interactive:true
+      ~children ()
 end
 
 module F = Make (Impl.Xml) (Impl.Svg) (Impl.Html)

@@ -19,17 +19,17 @@ let eq_board (b1 : Topology.topo_board) (b2 : Topology.topo_board) =
   && b1.control = b2.control
 
 let eq_node_entry (e1 : Topo_node.node_entry) (e2 : Topo_node.node_entry) =
-  match e1, e2 with
+  match (e1, e2) with
   | `CPU c1, `CPU c2 -> Topology.equal_topo_cpu c1 c2
   | `Entry e1, `Entry e2 -> (
-    match e1, e2 with
-    | Board b1, Board b2 -> eq_board b1 b2
-    | Input i1, Input i2 -> Topology.equal_topo_input i1 i2
-    | _ -> false)
+      match (e1, e2) with
+      | Board b1, Board b2 -> eq_board b1 b2
+      | Input i1, Input i2 -> Topology.equal_topo_input i1 i2
+      | _ -> false )
   | _ -> false
 
-let get_board_name ({manufacturer; model; _} : Topology.topo_board) =
-  match manufacturer, model with
+let get_board_name ({ manufacturer; model; _ } : Topology.topo_board) =
+  match (manufacturer, model) with
   | "DekTec", "DTM-3200" -> "Приёмник TSoIP"
   | "NIITV", "TS2IP" -> "Передатчик TSoIP"
   | "NIITV", "TSAN" -> "Анализатор TS"
@@ -38,7 +38,7 @@ let get_board_name ({manufacturer; model; _} : Topology.topo_board) =
 
 (* TODO add UI notification when the request has failed. *)
 let port_setter (b : Topology.topo_board) port state =
-  match b.manufacturer, b.model, b.version with
+  match (b.manufacturer, b.model, b.version) with
   | "NIITV", "TSAN", _ ->
       let open Board_niitv_tsan_http_js in
       Http_device.set_port ~port state b.control
@@ -46,8 +46,8 @@ let port_setter (b : Topology.topo_board) port state =
 
 (* TODO replace with something more abstract.
    Maybe the device should define a CSS style (color) on its own *)
-let get_board_type ({manufacturer; model; _} : Topology.topo_board) =
-  match manufacturer, model with
+let get_board_type ({ manufacturer; model; _ } : Topology.topo_board) =
+  match (manufacturer, model) with
   | "DekTec", "DTM-3200" -> "IP2TS"
   | "NIITV", "TS2IP" -> "TS2IP"
   | "NIITV", "TSAN" -> "TS"
@@ -60,12 +60,9 @@ let make_board_niitv_tsan_settings state socket control =
   let open React in
   let open Board_niitv_tsan_http_js in
   let open Board_niitv_tsan_widgets in
-  Http_device.get_t2mi_mode control
-  >>=? fun mode ->
-  Http_streams.get_streams ~incoming:true control
-  >>=? fun streams ->
-  Http_device.Event.get_t2mi_mode socket control
-  >>=? fun (mid, e_mode) ->
+  Http_device.get_t2mi_mode control >>=? fun mode ->
+  Http_streams.get_streams ~incoming:true control >>=? fun streams ->
+  Http_device.Event.get_t2mi_mode socket control >>=? fun (mid, e_mode) ->
   Http_streams.Event.get_streams ~incoming:true socket control
   >>=? fun (sid, e_strm) ->
   let w = T2mi_settings.make (S.value state) mode streams control in
@@ -73,20 +70,20 @@ let make_board_niitv_tsan_settings state socket control =
     E.merge
       (fun _ -> w#notify)
       ()
-      [ E.map (fun x -> `Mode x) e_mode
-      ; E.map (fun x -> `Incoming_streams x) e_strm
-      ; E.map (fun x -> `State x) @@ S.changes state ]
+      [
+        E.map (fun x -> `Mode x) e_mode;
+        E.map (fun x -> `Incoming_streams x) e_strm;
+        E.map (fun x -> `State x) @@ S.changes state;
+      ]
   in
   w#set_on_destroy (fun () ->
       E.stop ~strong:true notif;
       Lwt.async (fun () ->
-          Api_js.Websocket.JSON.unsubscribe socket mid
-          >>= function
+          Api_js.Websocket.JSON.unsubscribe socket mid >>= function
           | Error e -> Lwt.fail (Api_js.Websocket.Error e)
           | Ok v -> Lwt.return v);
       Lwt.async (fun () ->
-          Api_js.Websocket.JSON.unsubscribe socket sid
-          >>= function
+          Api_js.Websocket.JSON.unsubscribe socket sid >>= function
           | Error e -> Lwt.fail (Api_js.Websocket.Error e)
           | Ok v -> Lwt.return v));
   Lwt.return_ok w#widget
@@ -99,38 +96,34 @@ let make_board_niitv_dvb4ch_settings state socket control =
     | [] -> Lwt.return_ok acc
     | id :: tl ->
         Lwt_result.(
-          Http_receivers.get_plp_list ~id control >>= fun x -> get_plps (x :: acc) tl)
+          Http_receivers.get_plp_list ~id control >>= fun x ->
+          get_plps (x :: acc) tl)
   in
-  Http_device.get_mode control
-  >>=? fun mode ->
-  Http_device.get_receivers control
-  >>=? fun receivers ->
-  get_plps [] receivers
-  >>=? fun plps ->
-  Http_device.Event.get_mode socket control
-  >>=? fun (mode_id, e_mode) ->
-  Http_receivers.Event.get_plp_list socket control
-  >>=? fun (plps_id, e_plps) ->
+  Http_device.get_mode control >>=? fun mode ->
+  Http_device.get_receivers control >>=? fun receivers ->
+  get_plps [] receivers >>=? fun plps ->
+  Http_device.Event.get_mode socket control >>=? fun (mode_id, e_mode) ->
+  Http_receivers.Event.get_plp_list socket control >>=? fun (plps_id, e_plps) ->
   (* FIXME *)
   let w = Settings.make (S.value state) mode plps (Some receivers) control in
   let notif =
     E.merge
       (fun _ -> w#notify)
       ()
-      [ E.map (fun x -> `Mode x) e_mode
-      ; E.map (fun x -> `PLPs x) e_plps
-      ; E.map (fun x -> `State x) @@ S.changes state ]
+      [
+        E.map (fun x -> `Mode x) e_mode;
+        E.map (fun x -> `PLPs x) e_plps;
+        E.map (fun x -> `State x) @@ S.changes state;
+      ]
   in
   w#set_on_destroy (fun () ->
       React.E.stop ~strong:true notif;
       Lwt.async (fun () ->
-          Api_js.Websocket.JSON.unsubscribe socket plps_id
-          >>= function
+          Api_js.Websocket.JSON.unsubscribe socket plps_id >>= function
           | Error e -> Lwt.fail (Api_js.Websocket.Error e)
           | Ok v -> Lwt.return v);
       Lwt.async (fun () ->
-          Api_js.Websocket.JSON.unsubscribe socket mode_id
-          >>= function
+          Api_js.Websocket.JSON.unsubscribe socket mode_id >>= function
           | Error e -> Lwt.fail (Api_js.Websocket.Error e)
           | Ok v -> Lwt.return v));
   Lwt.return_ok w#widget
@@ -140,33 +133,39 @@ let make_board_dektec_dtm3200_settings state socket control =
   let open Board_dektec_dtm3200_types in
   let open Board_dektec_dtm3200_http_js in
   let open Board_dektec_dtm3200_widgets_js in
-  Http_device.get_config control
-  >>=? fun {nw; ip_receive; _} ->
-  Http_device.Event.get_config socket control
-  >>=? fun (id, event) ->
+  Http_device.get_config control >>=? fun { nw; ip_receive; _ } ->
+  Http_device.Event.get_config socket control >>=? fun (id, event) ->
   let w = Widget_settings.make (S.value state) nw ip_receive control in
   let notif =
     E.merge
       (fun _ -> w#notify)
       ()
-      [E.map (fun x -> `Config x) event; E.map (fun x -> `State x) @@ S.changes state]
+      [
+        E.map (fun x -> `Config x) event;
+        E.map (fun x -> `State x) @@ S.changes state;
+      ]
   in
   w#set_on_destroy (fun () ->
       E.stop ~strong:true notif;
       Lwt.async (fun () ->
-          Api_js.Websocket.JSON.unsubscribe socket id
-          >>= function
+          Api_js.Websocket.JSON.unsubscribe socket id >>= function
           | Error e -> Lwt.fail (Api_js.Websocket.Error e)
           | Ok v -> Lwt.return v));
   Lwt.return_ok w#widget
 
 let make_board_page (signal : Topology.topo_board React.signal) socket =
-  let {Topology.manufacturer; model; version; control; _} = React.S.value signal in
-  let state = React.S.map (fun (x : Topology.topo_board) -> x.connection) signal in
-  match manufacturer, model, version with
+  let { Topology.manufacturer; model; version; control; _ } =
+    React.S.value signal
+  in
+  let state =
+    React.S.map (fun (x : Topology.topo_board) -> x.connection) signal
+  in
+  match (manufacturer, model, version) with
   | "NIITV", "TSAN", _ -> make_board_niitv_tsan_settings state socket control
-  | "NIITV", "DVB4CH", _ -> make_board_niitv_dvb4ch_settings state socket control
-  | "DekTec", "DTM-3200", _ -> make_board_dektec_dtm3200_settings state socket control
+  | "NIITV", "DVB4CH", _ ->
+      make_board_niitv_dvb4ch_settings state socket control
+  | "DekTec", "DTM-3200", _ ->
+      make_board_dektec_dtm3200_settings state socket control
   | _ -> Lwt.return_error (`Msg "No settings available for the device")
 
 module Header = struct
@@ -178,7 +177,7 @@ module Header = struct
       | _ ->
           let button =
             Icon_button.make
-              ~classes:[Topo_block.CSS.header_action_settings]
+              ~classes:[ Topo_block.CSS.header_action_settings ]
               ~icon:Icon.SVG.(D.icon ~d:Path.settings ())
               ()
           in
@@ -186,7 +185,9 @@ module Header = struct
     in
     object
       inherit
-        Topo_block.Header.t ?action:(Option.map Widget.markup settings) ~title () as super
+        Topo_block.Header.t
+          ?action:(Option.map Widget.markup settings)
+          ~title () as super
 
       method! init () : unit =
         super#add_class CSS.header;
@@ -219,12 +220,10 @@ module Body = struct
   let create (board : Topology.topo_board) : t = new t board ()
 end
 
-type event = [`State of Topology.topo_board]
+type event = [ `State of Topology.topo_board ]
 
-class t
-  ~(connections : (#Topo_node.t * connection_point) list)
-  (socket : Api_js.Websocket.JSON.t)
-  (board : Topology.topo_board) =
+class t ~(connections : (#Topo_node.t * connection_point) list)
+  (socket : Api_js.Websocket.JSON.t) (board : Topology.topo_board) =
   let e_settings, push_settings = React.E.create () in
   let header = Header.create board in
   let body = Body.create board in
@@ -234,8 +233,8 @@ class t
 
     inherit
       Topo_block.t
-        ~port_setter:(port_setter board) ~node:(`Entry (Board board)) ~connections
-          ~header ~body () as super
+        ~port_setter:(port_setter board) ~node:(`Entry (Board board))
+          ~connections ~header ~body () as super
 
     method! init () : unit =
       super#init ();
@@ -274,7 +273,7 @@ class t
           super#set_state x.connection;
           match x.connection with
           | `Fine -> self#set_ports x.ports
-          | _ -> List.iter (fun p -> p#set_state `Unavailable) self#paths)
+          | _ -> List.iter (fun p -> p#set_state `Unavailable) self#paths )
 
     (* Private methods *)
     method private make_settings_widget () : Widget.t =
@@ -292,7 +291,7 @@ class t
           | None -> ()
           | Some path ->
               let state =
-                match x.has_sync, x.listening with
+                match (x.has_sync, x.listening) with
                 | true, true -> `Sync
                 | false, true -> `Sync_lost
                 | _, _ -> `Muted
@@ -301,6 +300,6 @@ class t
         l
   end
 
-let create ~connections (socket : Api_js.Websocket.JSON.t) (board : Topology.topo_board)
-    =
+let create ~connections (socket : Api_js.Websocket.JSON.t)
+    (board : Topology.topo_board) =
   new t ~connections socket board

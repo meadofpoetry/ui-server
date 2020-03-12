@@ -12,9 +12,7 @@ module Selector = struct
   let private_key = Printf.sprintf ".%s" CSS.private_key
 end
 
-class t
-  ?(init : Server_types.settings option)
-  ~set_snackbar
+class t ?(init : Server_types.settings option) ~set_snackbar
   (elt : Dom_html.element Js.t) =
   object
     val certificate : _ X509_file_config.t =
@@ -22,9 +20,7 @@ class t
       | None -> failwith @@ CSS.root ^ ": no certificate settings block found"
       | Some x ->
           let value =
-            match init with
-            | None -> None
-            | Some x -> Some x.tls_cert
+            match init with None -> None | Some x -> Some x.tls_cert
           in
           new X509_file_config.t ?value ~set_snackbar ~typ:Crt x
 
@@ -33,9 +29,7 @@ class t
       | None -> failwith @@ CSS.root ^ ": no private key settings block found"
       | Some x ->
           let value =
-            match init with
-            | None -> None
-            | Some x -> Some x.tls_key
+            match init with None -> None | Some x -> Some x.tls_key
           in
           new X509_file_config.t ?value ~set_snackbar ~typ:Key x
 
@@ -52,5 +46,7 @@ class t
   end
 
 let make ~set_snackbar (init : Server_types.settings) : t =
-  let (elt : Dom_html.element Js.t) = Tyxml_js.To_dom.of_element @@ D.create init in
+  let (elt : Dom_html.element Js.t) =
+    Tyxml_js.To_dom.of_element @@ D.create init
+  in
   new t ~set_snackbar ~init elt

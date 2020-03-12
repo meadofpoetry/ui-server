@@ -6,12 +6,10 @@ open Board_niitv_dvb4ch_types.Device
 open Board_niitv_dvb4ch_http_js
 open Components
 
-type widget_config = {id : int} [@@deriving yojson]
+type widget_config = { id : int } [@@deriving yojson]
 
 type event =
-  [ `Mode of mode option
-  | `State of Topology.state
-  | `PLPs of int list ]
+  [ `Mode of mode option | `State of Topology.state | `PLPs of int list ]
 
 let ( >>= ) = Lwt.bind
 
@@ -20,12 +18,14 @@ let base_class = "dvb-niit-module-settings"
 let standard =
   Select.(
     Custom
-      { to_string = standard_to_string ~full:true
-      ; of_string =
+      {
+        to_string = standard_to_string ~full:true;
+        of_string =
           (fun x ->
             match standard_of_string x with
             | None -> Error "Bad standard value"
-            | Some x -> Ok x) })
+            | Some x -> Ok x);
+      })
 
 let bw =
   let to_string = function
@@ -39,41 +39,36 @@ let bw =
     | "6 МГц" -> Ok Bw6
     | _ -> Error "Bad bw value"
   in
-  Select.Custom {to_string; of_string}
+  Select.Custom { to_string; of_string }
 
 let make_standard ?value () =
   let signal, push = React.S.create None in
-  let options = Select.native_options_of_values ~with_empty:true standard [T2; T; C] in
+  let options =
+    Select.native_options_of_values ~with_empty:true standard [ T2; T; C ]
+  in
   let select =
-    Select.make_native
-      ?value
+    Select.make_native ?value
       ~on_change:(fun s -> push s#value)
-      ~label:"Стандарт"
-      ~options
-      ~validation:standard
-      ()
+      ~label:"Стандарт" ~options ~validation:standard ()
   in
   select#add_class @@ BEM.add_element base_class "mode";
-  select, signal
+  (select, signal)
 
 let make_bw ?value () =
   let event, push = React.E.create () in
-  let options = Select.native_options_of_values ~with_empty:true bw [Bw6; Bw7; Bw8] in
-  let bw =
-    Select.make_native
-      ?value
-      ~on_change:(fun _ -> push ())
-      ~label:"Полоса пропускания"
-      ~options
-      ~validation:bw
-      ()
+  let options =
+    Select.native_options_of_values ~with_empty:true bw [ Bw6; Bw7; Bw8 ]
   in
-  bw, event
+  let bw =
+    Select.make_native ?value
+      ~on_change:(fun _ -> push ())
+      ~label:"Полоса пропускания" ~options ~validation:bw ()
+  in
+  (bw, event)
 
 let contains pattern value =
   let len = String.length value in
-  if len > String.length pattern
-  then false
+  if len > String.length pattern then false
   else
     let sub = String.sub pattern 0 len in
     String.uppercase_ascii sub = String.uppercase_ascii value
@@ -115,9 +110,7 @@ let min_frequency = 50_000_000
  *            ; input_type = `Text
  *            }) *)
 
-let handle_input
-    (menu : Menu.t)
-    (input : int Textfield.t)
+let handle_input (menu : Menu.t) (input : int Textfield.t)
     (standard : standard option React.signal) =
   (* let v = match frequency_of_js_string input#input_element##.value with
    *   | None -> 0
@@ -146,26 +139,23 @@ let handle_input
             (fun (c : Channel.t) ->
               let item =
                 Item_list.D.list_item
-                  ~a:Tyxml_js.Html.[a_user_data "value" (string_of_int c.freq)]
-                  ~primary_text:(`Text c.name)
-                  ()
+                  ~a:
+                    Tyxml_js.Html.[ a_user_data "value" (string_of_int c.freq) ]
+                  ~primary_text:(`Text c.name) ()
               in
               Option.iter
                 (fun (x : Item_list.t) ->
                   Dom.appendChild x#root (Tyxml_js.To_dom.of_element item))
                 menu#list)
             x;
-          menu#reveal ())
+          menu#reveal () )
 
-let make_frequency ?(value : int option) (standard : standard option React.signal) =
+let make_frequency ?(value : int option)
+    (standard : standard option React.signal) =
   let event, push = React.E.create () in
   let menu = Menu.make ~focus_on_open:false ~list:(Item_list.D.list ()) () in
   let input =
-    Textfield.make
-      ?value
-      ~required:true
-      ~input_mode:`Numeric
-      ~max_length:11
+    Textfield.make ?value ~required:true ~input_mode:`Numeric ~max_length:11
       ~on_input:(fun _ input ->
         push ();
         handle_input menu input standard)
@@ -187,7 +177,7 @@ let make_frequency ?(value : int option) (standard : standard option React.signa
     List.find_opt (fun x -> Element.has_class x active_class) items
   in
   let next dir e =
-    match menu#is_open, menu#items with
+    match (menu#is_open, menu#items) with
     | false, _ | _, [] -> Lwt.return_unit
     | true, items ->
         Dom.preventDefault e;
@@ -198,10 +188,11 @@ let make_frequency ?(value : int option) (standard : standard option React.signa
               Element.remove_class x active_class;
               let x = Js.Unsafe.coerce x in
               match dir with
-              | `Down -> Js.Opt.get x##.nextElementSibling (fun () -> List.hd items)
+              | `Down ->
+                  Js.Opt.get x##.nextElementSibling (fun () -> List.hd items)
               | `Up ->
                   Js.Opt.get x##.previousElementSibling (fun () ->
-                      List.hd @@ List.rev items))
+                      List.hd @@ List.rev items) )
         in
         next##scrollIntoView Js._false;
         Element.add_class next active_class;
@@ -217,11 +208,11 @@ let make_frequency ?(value : int option) (standard : standard option React.signa
         | ArrowDown -> next `Down e
         | ArrowUp -> next `Up e
         | Enter -> (
-          match menu#is_open, get_selected menu#items with
-          | true, Some item ->
-              Dom.preventDefault e;
-              apply_selected item
-          | _ -> Lwt.return_unit)
+            match (menu#is_open, get_selected menu#items) with
+            | true, Some item ->
+                Dom.preventDefault e;
+                apply_selected item
+            | _ -> Lwt.return_unit )
         | _ -> Lwt.return_unit)
   in
   let open_ =
@@ -231,12 +222,13 @@ let make_frequency ?(value : int option) (standard : standard option React.signa
         input#set_use_native_validation false;
         let t =
           Lwt.pick
-            [ (select >>= fun e -> Lwt.return @@ `Selected e)
-            ; (closed >>= fun _ -> Lwt.return `Closed) ]
+            [
+              (select >>= fun e -> Lwt.return @@ `Selected e);
+              (closed >>= fun _ -> Lwt.return `Closed);
+            ]
         in
         Lwt.on_termination t (fun () -> input#set_use_native_validation true);
-        t
-        >>= function
+        t >>= function
         | `Closed -> Lwt.return_unit
         | `Selected e ->
             input#set_valid input#valid;
@@ -248,27 +240,24 @@ let make_frequency ?(value : int option) (standard : standard option React.signa
   menu#set_width_as_anchor true;
   menu#hoist_menu_to_body ();
   input#set_on_destroy (fun () ->
-      List.iter Lwt.cancel [open_; keydown];
+      List.iter Lwt.cancel [ open_; keydown ];
       Element.remove_child_safe Dom_html.document##.body menu#root;
       menu#destroy ());
-  input, event
+  (input, event)
 
 let make_plp ?value (plps : int list React.signal) =
   let event, push = React.S.create None in
   let menu = Menu.make ~focus_on_open:false ~list:(Item_list.D.list ()) () in
   let input =
-    Textfield.make
-      ?value
+    Textfield.make ?value
       ~trailing_icon:
         (Icon.D.SVG.icon
-           ~a:[Tyxml_js.Svg.Unsafe.int_attrib "tabindex" 0]
-           ~d:Icon.SVG.Path.menu_down
-           ())
+           ~a:[ Tyxml_js.Svg.Unsafe.int_attrib "tabindex" 0 ]
+           ~d:Icon.SVG.Path.menu_down ())
       ~on_input:(fun _ i ->
         push i#value;
         Lwt.return_unit)
-      ~label:"PLP ID"
-      ~required:true
+      ~label:"PLP ID" ~required:true
       ~validation:(Integer (Some 0, Some 255))
       ()
   in
@@ -295,21 +284,24 @@ let make_plp ?value (plps : int list React.signal) =
                 (fun x ->
                   Tyxml_js.To_dom.of_li
                   @@ Item_list.D.list_item
-                       ~a:Tyxml_js.Html.[a_user_data "value" (string_of_int x)]
+                       ~a:
+                         Tyxml_js.Html.[ a_user_data "value" (string_of_int x) ]
                        ~primary_text:(`Text (string_of_int x))
                        ())
                 plps
             in
             set_menu_toggle_disabled false;
             List.iter
-              (fun x -> Option.iter (fun list -> Dom.appendChild list#root x) menu#list)
+              (fun x ->
+                Option.iter (fun list -> Dom.appendChild list#root x) menu#list)
               items)
       plps
   in
   let selected =
     Menu.Lwt_js_events.selects menu#root (fun e _ ->
         let item = (Widget.event_detail e)##.item in
-        Option.iter input#set_value_as_string @@ Element.get_attribute item "value";
+        Option.iter input#set_value_as_string
+        @@ Element.get_attribute item "value";
         Lwt.return_unit)
   in
   let icon_click =
@@ -321,16 +313,21 @@ let make_plp ?value (plps : int list React.signal) =
       Lwt.cancel icon_click;
       Element.remove_child_safe Dom_html.document##.body menu#root;
       menu#destroy ());
-  input, event
+  (input, event)
 
-let make_mode_box ~(id : int) (state : Topology.state) (mode : mode option) plps =
+let make_mode_box ~(id : int) (state : Topology.state) (mode : mode option) plps
+    =
   let plps, push_plps = React.S.create plps in
-  let std, s_std = make_standard ?value:(Option.map (fun x -> x.standard) mode) () in
+  let std, s_std =
+    make_standard ?value:(Option.map (fun x -> x.standard) mode) ()
+  in
   let freq, _e_freq =
     make_frequency ?value:(Option.map (fun x -> x.channel.freq) mode) s_std
   in
   let bw, _e_bw = make_bw ?value:(Option.map (fun x -> x.channel.bw) mode) () in
-  let plp, _e_plp = make_plp ?value:(Option.map (fun x -> x.channel.plp) mode) plps in
+  let plp, _e_plp =
+    make_plp ?value:(Option.map (fun x -> x.channel.plp) mode) plps
+  in
   object (self)
     val mutable _state = state
 
@@ -354,37 +351,33 @@ let make_mode_box ~(id : int) (state : Topology.state) (mode : mode option) plps
       plp#destroy ()
 
     method value : (int * mode) option =
-      match _state, std#value, freq#value, bw#value, plp#value with
+      match (_state, std#value, freq#value, bw#value, plp#value) with
       | `Fine, Some T2, Some freq, Some bw, Some plp ->
-          Some (id, {standard = T2; channel = {freq; bw; plp}})
+          Some (id, { standard = T2; channel = { freq; bw; plp } })
       | `Fine, Some T, Some freq, Some bw, _ ->
-          Some (id, {standard = T; channel = {freq; bw; plp = 0}})
+          Some (id, { standard = T; channel = { freq; bw; plp = 0 } })
       | `Fine, Some C, Some freq, Some bw, _ ->
-          Some (id, {standard = C; channel = {freq; bw; plp = 0}})
+          Some (id, { standard = C; channel = { freq; bw; plp = 0 } })
       | _ -> None
 
     method notify : event -> unit =
       function
       | `PLPs x -> push_plps x
       | `Mode mode -> (
-        match mode with
-        | None ->
-            std#set_selected_index 0;
-            bw#set_selected_index 0;
-            freq#clear ();
-            plp#clear ()
-        | Some mode ->
-            std#set_value mode.standard;
-            bw#set_value mode.channel.bw;
-            freq#set_value mode.channel.freq;
-            plp#set_value mode.channel.plp)
+          match mode with
+          | None ->
+              std#set_selected_index 0;
+              bw#set_selected_index 0;
+              freq#clear ();
+              plp#clear ()
+          | Some mode ->
+              std#set_value mode.standard;
+              bw#set_value mode.channel.bw;
+              freq#set_value mode.channel.freq;
+              plp#set_value mode.channel.plp )
       | `State s ->
           _state <- s;
-          let is_disabled =
-            match s with
-            | `Fine -> false
-            | _ -> true
-          in
+          let is_disabled = match s with `Fine -> false | _ -> true in
           std#set_disabled is_disabled;
           freq#set_disabled is_disabled;
           bw#set_disabled is_disabled;
@@ -403,15 +396,15 @@ class t config state mode plps control =
         | None -> Lwt.return_unit
         | Some (id, mode) ->
             let t =
-              Http_receivers.set_mode ~id mode control >>= fun _ -> Lwt.return_unit
+              Http_receivers.set_mode ~id mode control >>= fun _ ->
+              Lwt.return_unit
             in
             btn#set_loading_lwt t;
             t)
-      ~label:"Применить"
-      ()
+      ~label:"Применить" ()
   in
-  let buttons = Card.D.card_action_buttons ~children:[submit#markup] () in
-  let actions = Card.D.card_actions ~children:[buttons] () in
+  let buttons = Card.D.card_action_buttons ~children:[ submit#markup ] () in
+  let actions = Card.D.card_actions ~children:[ buttons ] () in
   object
     inherit Widget.t Dom_html.(createDiv document) () as super
 

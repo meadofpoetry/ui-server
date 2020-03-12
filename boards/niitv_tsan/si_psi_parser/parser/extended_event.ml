@@ -1,8 +1,7 @@
 let name = "extended_event_descriptor"
 
 let rec decode_items bs off =
-  if Bitstring.bitstring_length bs = 0
-  then []
+  if Bitstring.bitstring_length bs = 0 then []
   else
     match%bitstring bs with
     | {| item_descr_length : 8
@@ -23,18 +22,16 @@ let rec decode_items bs off =
           | Error _ -> "Failed to decode"
         in
         let nodes =
-          [ Node.make
-              ~offset:off
-              8
-              "item_description_length"
-              (Dec (Int item_descr_length))
-          ; Node.make
-              ~offset:(off + off_1)
-              (item_descr_length * 8)
-              "item_description"
-              (String item_descr)
-          ; Node.make ~offset:(off + off_2) 8 "item_length" (Dec (Int item_length))
-          ; Node.make ~offset:(off + off_3) (item_length * 8) "item" (String item) ]
+          [
+            Node.make ~offset:off 8 "item_description_length"
+              (Dec (Int item_descr_length));
+            Node.make ~offset:(off + off_1) (item_descr_length * 8)
+              "item_description" (String item_descr);
+            Node.make ~offset:(off + off_2) 8 "item_length"
+              (Dec (Int item_length));
+            Node.make ~offset:(off + off_3) (item_length * 8) "item"
+              (String item);
+          ]
         in
         let real_len = 16 + (item_descr_length * 8) + (item_length * 8) in
         let node = Node.make ~offset:off real_len item (List nodes) in
@@ -58,15 +55,15 @@ let parse bs off =
         | Error _ -> "Failed to decode"
       in
       let parsed_code, lang_code = Language_code.parse lang_code in
-      [ Node.make ~offset:off 4 "descriptor_number" (Dec (Int desc_num))
-      ; Node.make ~offset:(off + off_1) 4 "last_desc_num" (Dec (Int last_desc_num))
-      ; Node.make
-          ~parsed:parsed_code
-          ~offset:(off + off_2)
-          24
-          "ISO_639_language_code"
-          (Bits (Int lang_code))
-      ; Node.make ~offset:(off + off_3) 8 "items_length" (Dec (Int items_length))
-      ; Node.make ~offset:(off + off_4) (items_length * 8) "items" (List items)
-      ; Node.make ~offset:(off + off_5) 8 "text_length" (Dec (Int text_length))
-      ; Node.make ~offset:(off + off_6) (text_length * 8) "text" (String text) ]
+      [
+        Node.make ~offset:off 4 "descriptor_number" (Dec (Int desc_num));
+        Node.make ~offset:(off + off_1) 4 "last_desc_num"
+          (Dec (Int last_desc_num));
+        Node.make ~parsed:parsed_code ~offset:(off + off_2) 24
+          "ISO_639_language_code" (Bits (Int lang_code));
+        Node.make ~offset:(off + off_3) 8 "items_length"
+          (Dec (Int items_length));
+        Node.make ~offset:(off + off_4) (items_length * 8) "items" (List items);
+        Node.make ~offset:(off + off_5) 8 "text_length" (Dec (Int text_length));
+        Node.make ~offset:(off + off_6) (text_length * 8) "text" (String text);
+      ]

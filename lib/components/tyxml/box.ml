@@ -1,30 +1,12 @@
 type justify_content =
-  [ `Start
-  | `End
-  | `Center
-  | `Space_between
-  | `Space_around
-  | `Space_evenly ]
+  [ `Start | `End | `Center | `Space_between | `Space_around | `Space_evenly ]
 
-type align_items =
-  [ `Start
-  | `End
-  | `Center
-  | `Stretch
-  | `Baseline ]
+type align_items = [ `Start | `End | `Center | `Stretch | `Baseline ]
 
 type align_content =
-  [ `Start
-  | `End
-  | `Center
-  | `Stretch
-  | `Space_between
-  | `Space_around ]
+  [ `Start | `End | `Center | `Stretch | `Space_between | `Space_around ]
 
-type wrap =
-  [ `Nowrap
-  | `Wrap
-  | `Wrap_reverse ]
+type wrap = [ `Nowrap | `Wrap | `Wrap_reverse ]
 
 module CSS = struct
   let root = "mdc-box"
@@ -88,30 +70,17 @@ struct
 
   let ( % ) f g x = f (g x)
 
-  let box
-      ?(classes = return [])
-      ?(a = [])
-      ?tag
-      ?justify_content
-      ?align_items
-      ?align_content
-      ?wrap
-      ?(vertical = false)
-      ?(children = nil ())
-      () =
-    let tag =
-      match tag with
-      | None -> div
-      | Some x -> x
-    in
+  let box ?(classes = return []) ?(a = []) ?tag ?justify_content ?align_items
+      ?align_content ?wrap ?(vertical = false) ?(children = nil ()) () =
+    let tag = match tag with None -> div | Some x -> x in
     let classes =
       fmap
-        (Utils.cons_if vertical CSS.vertical
+        ( Utils.cons_if vertical CSS.vertical
         % Utils.map_cons_option CSS.wrap wrap
         % Utils.map_cons_option CSS.justify_content justify_content
         % Utils.map_cons_option CSS.align_items align_items
         % Utils.map_cons_option CSS.align_content align_content
-        % List.cons CSS.root)
+        % List.cons CSS.root )
         classes
     in
     tag ~a:(a_class classes :: a) children

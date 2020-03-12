@@ -10,9 +10,9 @@ let ( >>= ) = Lwt_result.bind
 let rec has_sync = function
   | [] -> false
   | (_, ({ data; _ } : Measure.t ts)) :: tl -> (
-      match data.lock, data.bitrate with
+      match (data.lock, data.bitrate) with
       | true, Some x when x > 0 -> true
-      | _ -> has_sync tl)
+      | _ -> has_sync tl )
 
 let get_source_from_env src (b : Topology.topo_board) =
   match Topology.Env.find_opt "source" b.env with
@@ -23,12 +23,11 @@ let get_source_from_env src (b : Topology.topo_board) =
       | None ->
           Logs.warn ~src (fun m ->
               m "Failed to parse source ID value from environment: %s" s);
-          None)
+          None )
 
 let make_input_tab_template (b : Topology.topo_board) =
   ( Topology.make_board_path b.control,
-    Api_template.make_template_props
-      ~title:"RF"
+    Api_template.make_template_props ~title:"RF"
       ~stylesheets:
         [
           "/css/Chart.min.css";
@@ -48,13 +47,11 @@ let make_input_tab_template (b : Topology.topo_board) =
 
 let board_id = Board_niitv_dvb4ch_types.board_id
 
-let create
-    (b : Topology.topo_board)
-    (_ : Stream.t list React.signal)
+let create (b : Topology.topo_board) (_ : Stream.t list React.signal)
     (convert_streams :
-      Topology.topo_board -> Stream.Raw.t list React.signal -> Stream.t list React.signal)
-    (send : Cstruct.t -> unit Lwt.t)
-    (db : Db.t)
+      Topology.topo_board ->
+      Stream.Raw.t list React.signal ->
+      Stream.t list React.signal) (send : Cstruct.t -> unit Lwt.t) (db : Db.t)
     (kv : Kv.RW.t) : (Board.t, [> Board.error ]) Lwt_result.t =
   Lwt.return @@ Boards.Board.create_log_src b >>= fun (src : Logs.src) ->
   let default =
@@ -72,7 +69,7 @@ let create
     end
   in
   let input_tabs =
-    List.map (fun x -> `Input x, [ make_input_tab_template b ])
+    List.map (fun x -> (`Input x, [ make_input_tab_template b ]))
     @@ Topology.topo_inputs_of_topo_board b
   in
   let (board : Board.t) =
@@ -90,22 +87,21 @@ let create
       ports_sync =
         List.fold_left
           (fun acc (p : Topology.topo_port) ->
-            (match p.port with
+            ( match p.port with
             | 0 ->
-                React.E.map has_sync api.notifs.measures |> React.S.hold ~eq:( = ) false
-            | x -> Boards.Board.invalid_port src x)
+                React.E.map has_sync api.notifs.measures
+                |> React.S.hold ~eq:( = ) false
+            | x -> Boards.Board.invalid_port src x )
             |> fun x -> Board.Ports.add p.port x acc)
-          Board.Ports.empty
-          b.ports;
+          Board.Ports.empty b.ports;
       ports_active =
         List.fold_left
           (fun acc (p : Topology.topo_port) ->
-            (match p.port with
+            ( match p.port with
             | 0 -> React.S.const true
-            | x -> Boards.Board.invalid_port src x)
+            | x -> Boards.Board.invalid_port src x )
             |> fun x -> Board.Ports.add p.port x acc)
-          Board.Ports.empty
-          b.ports;
+          Board.Ports.empty b.ports;
       stream_handler = None;
       state = (state :> < finalize : unit -> unit Lwt.t >);
       gui_tabs = input_tabs;

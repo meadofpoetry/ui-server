@@ -1,6 +1,6 @@
 (library
-  (name        process)
-  ;(public_name process)
-  (modes       native)
-  (wrapped     false)
-  (libraries   lwt lwt.unix))
+ (name process)
+ ;(public_name process)
+ (modes native)
+ (wrapped false)
+ (libraries lwt lwt.unix))

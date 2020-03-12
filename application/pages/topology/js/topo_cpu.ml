@@ -33,7 +33,7 @@ module Header = struct
       | true ->
           let button =
             Icon_button.make
-              ~classes:[Topo_block.CSS.header_action_settings]
+              ~classes:[ Topo_block.CSS.header_action_settings ]
               ~icon:Icon.SVG.(D.icon ~d:Path.settings ())
               ()
           in
@@ -41,7 +41,9 @@ module Header = struct
     in
     object
       inherit
-        Topo_block.Header.t ?action:(Option.map Widget.markup settings) ~title () as super
+        Topo_block.Header.t
+          ?action:(Option.map Widget.markup settings)
+          ~title () as super
 
       method settings_icon = settings
 
@@ -71,10 +73,8 @@ module Body = struct
   let create (cpu : Topology.topo_cpu) = new t cpu ()
 end
 
-class t
-  ~(connections : (#Topo_node.t * connection_point) list)
-  (socket : Api_js.Websocket.JSON.t)
-  (cpu : Topology.topo_cpu) =
+class t ~(connections : (#Topo_node.t * connection_point) list)
+  (socket : Api_js.Websocket.JSON.t) (cpu : Topology.topo_cpu) =
   let e_settings, push_settings = React.E.create () in
   let make_settings = make_cpu_page socket cpu in
   let header = Header.create (Option.is_some make_settings) cpu in
@@ -125,10 +125,12 @@ class t
             Components_lab.Placeholder.make
               ~icon:Icon.SVG.(D.icon ~d:Path.stop ())
               ~text:
-                (`Text "Нет доступных настроек для модуля")
-              ()
+                (`Text
+                  "Нет доступных настроек для \
+                   модуля") ()
           in
           ph#widget
   end
 
-let create ~connections socket (cpu : Topology.topo_cpu) = new t ~connections socket cpu
+let create ~connections socket (cpu : Topology.topo_cpu) =
+  new t ~connections socket cpu

@@ -1,5 +1,3 @@
-
-
 let off _user _body _env _state =
   let ( let* ) = Lwt.bind in
   let* () = Power.off () in

@@ -12,8 +12,8 @@ class t (elt : #Dom_html.element Js.t) () =
     method init () : unit = ()
 
     method initial_sync_with_dom () : unit = ()
-    (** Initial synchronization with host DOM element,
-        e.g. reading element's properties or attributes *)
+    (** Initial synchronization with host DOM element, e.g. reading element's
+        properties or attributes *)
 
     method destroy () : unit =
       if not destroyed then Lwt.wakeup_later (snd destroy_lwt) ();
@@ -28,35 +28,42 @@ class t (elt : #Dom_html.element Js.t) () =
     (** Layout widget in DOM *)
 
     method in_dom : bool =
-      Js.to_bool @@ (Js.Unsafe.coerce Dom_html.document##.body)##contains self#root
+      Js.to_bool
+      @@ (Js.Unsafe.coerce Dom_html.document##.body)##contains self#root
     (** Returns [true] if a widget is in DOM, [false] otherwise *)
 
     method root : Dom_html.element Js.t = (elt :> Dom_html.element Js.t)
 
     method node : Dom.node Js.t = (elt :> Dom.node Js.t)
 
-    method markup : 'a. 'a Tyxml_js.Html.elt = Tyxml_js.Of_dom.of_element self#root
+    method markup : 'a. 'a Tyxml_js.Html.elt =
+      Tyxml_js.Of_dom.of_element self#root
 
     method widget : t = (self :> t)
 
     method append_child
-        : 'a.    (< node : Dom.node Js.t ; widget : t ; layout : unit -> unit ; .. > as 'a)
-          -> unit =
+        : 'a.
+          (< node : Dom.node Js.t ; widget : t ; layout : unit -> unit ; .. >
+           as
+           'a) -> unit =
       fun x ->
         Dom.appendChild self#root x#node;
         if self#in_dom then self#layout ()
 
     method insert_child_at_idx
-        : 'a.    int
-          -> (< root : Dom_html.element Js.t ; widget : t ; layout : unit -> unit ; .. >
-              as
-              'a) -> unit =
+        : 'a. int ->
+          (< root : Dom_html.element Js.t
+           ; widget : t
+           ; layout : unit -> unit
+           ; .. >
+           as
+           'a) -> unit =
       fun index x ->
         Element.insert_child_at_index self#root index x#root;
         if self#in_dom then self#layout ()
 
-    method remove_child : 'a. (< node : Dom.node Js.t ; widget : t ; .. > as 'a) -> unit
-        =
+    method remove_child
+        : 'a. (< node : Dom.node Js.t ; widget : t ; .. > as 'a) -> unit =
       fun x ->
         try
           Dom.removeChild self#root x#node;
@@ -72,12 +79,14 @@ class t (elt : #Dom_html.element Js.t) () =
     method get_child_element_by_id x =
       self#root##querySelector (Js.string ("#" ^ x)) |> Js.Opt.to_option
 
-    method get_attribute (a : string) : string option = Element.get_attribute self#root a
+    method get_attribute (a : string) : string option =
+      Element.get_attribute self#root a
 
     method set_attribute (a : string) (v : string) : unit =
       Element.set_attribute self#root a v
 
-    method remove_attribute (a : string) : unit = Element.remove_attribute self#root a
+    method remove_attribute (a : string) : unit =
+      Element.remove_attribute self#root a
 
     method has_attribute (a : string) : bool =
       Js.to_bool @@ self#root##hasAttribute (Js.string a)
@@ -85,9 +94,11 @@ class t (elt : #Dom_html.element Js.t) () =
     method classes : string list =
       String.split_on_char ' ' @@ Js.to_string @@ self#root##.className
 
-    method add_class (_class : string) : unit = Element.add_class self#root _class
+    method add_class (_class : string) : unit =
+      Element.add_class self#root _class
 
-    method remove_class (_class : string) : unit = Element.remove_class self#root _class
+    method remove_class (_class : string) : unit =
+      Element.remove_class self#root _class
 
     method toggle_class' ?(force : bool option) (_class : string) : bool =
       Element.toggle_class ?force self#root _class
@@ -95,7 +106,8 @@ class t (elt : #Dom_html.element Js.t) () =
     method toggle_class ?(force : bool option) (_class : string) : unit =
       ignore @@ self#toggle_class' ?force _class
 
-    method has_class (_class : string) : bool = Element.has_class self#root _class
+    method has_class (_class : string) : bool =
+      Element.has_class self#root _class
 
     method is_rtl () : bool =
       let style = Dom_html.window##getComputedStyle self#root in
@@ -103,8 +115,8 @@ class t (elt : #Dom_html.element Js.t) () =
       String.equal dir "rtl"
 
     method emit
-        : 'a 'e.    ?should_bubble:bool -> ?detail:'a
-          -> ('a #Dom_html.customEvent as 'e) Js.t Dom_html.Event.typ -> unit =
+        : 'a 'e. ?should_bubble:bool -> ?detail:'a ->
+          ('a #Dom_html.customEvent as 'e) Js.t Dom_html.Event.typ -> unit =
       fun ?should_bubble ?detail evt_type ->
         ignore @@ Element.emit ?should_bubble ?detail evt_type self#root
 

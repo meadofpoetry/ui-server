@@ -25,26 +25,27 @@ module Model = struct
 
   type init = int
 
-  type names = {measurements : string}
+  type names = { measurements : string }
 
   let name = "dvb_niit"
 
   let keys_measurements =
-    Db.make_keys
-      ~time_key:"date"
-      [ "tuner", key ~primary:true "INTEGER"
-      ; "lock", key "BOOL"
-      ; "power", key "REAL"
-      ; "mer", key "REAL"
-      ; "ber", key "REAL"
-      ; "freq", key "INTEGER"
-      ; "bitrate", key "INTEGER"
-      ; "date", key ~primary:true "TIMESTAMP" ]
+    Db.make_keys ~time_key:"date"
+      [
+        ("tuner", key ~primary:true "INTEGER");
+        ("lock", key "BOOL");
+        ("power", key "REAL");
+        ("mer", key "REAL");
+        ("ber", key "REAL");
+        ("freq", key "INTEGER");
+        ("bitrate", key "INTEGER");
+        ("date", key ~primary:true "TIMESTAMP");
+      ]
 
   let tables id =
     let id = string_of_int id in
-    let names = {measurements = "niitv_dvb4ch_meas_" ^ id} in
-    names, [names.measurements, keys_measurements, None]
+    let names = { measurements = "niitv_dvb4ch_meas_" ^ id } in
+    (names, [ (names.measurements, keys_measurements, None) ])
 end
 
 module Conn = Db.Make (Model)
@@ -52,9 +53,7 @@ module Conn = Db.Make (Model)
 let is_in field to_string = function
   | [] -> ""
   | lst ->
-      Printf.sprintf
-        " %s IN (%s) AND "
-        field
+      Printf.sprintf " %s IN (%s) AND " field
         (String.concat "," @@ List.map to_string lst)
 
 module Measurements = struct
@@ -71,52 +70,42 @@ module Measurements = struct
         & option int
         & ptime)
       ~encode:
-        (fun ( id
-             , ({data = {lock; power; mer; ber; freq; bitrate}; timestamp} :
+        (fun ( id,
+               ({ data = { lock; power; mer; ber; freq; bitrate }; timestamp } :
                  Measure.t ts) ) ->
         Ok (id, (lock, (power, (mer, (ber, (freq, (bitrate, timestamp))))))))
       ~decode:
-        (fun (tuner, (lock, (power, (mer, (ber, (freq, (bitrate, timestamp))))))) ->
-        let (data : Measure.t) = {lock; power; mer; ber; freq; bitrate} in
-        Ok (tuner, {data; timestamp}))
+        (fun (tuner, (lock, (power, (mer, (ber, (freq, (bitrate, timestamp)))))))
+             ->
+        let (data : Measure.t) = { lock; power; mer; ber; freq; bitrate } in
+        Ok (tuner, { data; timestamp }))
 
   let insert db meas =
     let open Printf in
     let table = (Conn.names db).measurements in
     let insert =
-      R.exec
-        typ
+      R.exec typ
         (sprintf
            {|INSERT INTO %s(tuner,lock,power,mer,ber,freq,bitrate,date)
                   VALUES (?,?,?,?,?,?,?,?)|}
            table)
     in
-    Conn.request
-      db
+    Conn.request db
       Db.Request.(
         with_trans
-          (List.fold_left (fun acc x -> acc >>= fun () -> exec insert x) (return ()) meas))
+          (List.fold_left
+             (fun acc x -> acc >>= fun () -> exec insert x)
+             (return ()) meas))
 
-  let select
-      db
-      ?(streams = [])
-      ?(tuners = [])
-      ?(limit = 500)
-      ?(order = `Desc)
-      ~from
-      ~till
-      () =
+  let select db ?(streams = []) ?(tuners = []) ?(limit = 500) ?(order = `Desc)
+      ~from ~till () =
     ignore streams;
     (* FIXME *)
     let open Printf in
     let table = (Conn.names db).measurements in
     (* let streams = is_in "stream" SID.to_value_string streams in *)
     let tuners = is_in "tuner" string_of_int tuners in
-    let ord =
-      match order with
-      | `Desc -> "DESC"
-      | `Asc -> "ASC"
-    in
+    let ord = match order with `Desc -> "DESC" | `Asc -> "ASC" in
     let select =
       R.collect
         Caqti_type.(tup3 ptime ptime int)
@@ -126,31 +115,29 @@ module Measurements = struct
                   WHERE %s date >= $1 AND date <= $2
                   ORDER BY date %s
                   LIMIT $3|}
-           table
-           (* streams *) tuners
-           ord)
+           table (* streams *) tuners ord)
     in
-    Conn.request
-      db
+    Conn.request db
       Db.Request.(
-        list select (from, till, limit)
-        >>= fun data ->
+        list select (from, till, limit) >>= fun data ->
         try
           let rec aux acc = function
             | [] -> acc
             | (id, m) :: tl ->
                 let acc =
-                  Boards.Util.List.Assoc.update
-                    ~eq:( = )
-                    (function
-                      | None -> Some [m]
-                      | Some l -> Some (m :: l))
-                    id
-                    acc
+                  Boards.Util.List.Assoc.update ~eq:( = )
+                    (function None -> Some [ m ] | Some l -> Some (m :: l))
+                    id acc
                 in
                 aux acc tl
           in
           return
-            (Ok (Raw {data = aux [] data; has_more = List.length data >= limit; order}))
+            (Ok
+               (Raw
+                  {
+                    data = aux [] data;
+                    has_more = List.length data >= limit;
+                    order;
+                  }))
         with Failure e -> return (Error e))
 end

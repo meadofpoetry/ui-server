@@ -12,7 +12,7 @@ let validation =
       | Ok _ as v -> v
       | Error (`Msg m) -> Error m
     in
-    Custom {of_string; to_string = Macaddr.to_string; input_type = `Text})
+    Custom { of_string; to_string = Macaddr.to_string; input_type = `Text })
 
 module Selector = struct
   let mac = Printf.sprintf "#%s" D.mac_input_id
@@ -33,7 +33,7 @@ class t (elt : Dom_html.element Js.t) =
     method value : Network_config.ethernet_conf option =
       match mac#value with
       | None -> None
-      | Some mac_address -> Some {Network_config.mac_address}
+      | Some mac_address -> Some { Network_config.mac_address }
   end
 
 let make (init : Network_config.ethernet_conf) : t =

@@ -11,9 +11,9 @@ let parse bs off =
         | Ok s -> s
         | Error _ -> "Unable to decode"
       in
-      [ Node.make ~offset:off 32 "format_identifier" (Hex (Int32 format_id))
-      ; Node.make
-          ~offset:(off + off_1)
+      [
+        Node.make ~offset:off 32 "format_identifier" (Hex (Int32 format_id));
+        Node.make ~offset:(off + off_1)
           (Bitstring.bitstring_length rest)
-          "additional_identification_info"
-          (String info) ]
+          "additional_identification_info" (String info);
+      ]

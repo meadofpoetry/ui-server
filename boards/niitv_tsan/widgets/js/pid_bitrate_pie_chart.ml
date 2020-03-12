@@ -18,20 +18,21 @@ let other = "Другие"
 
 let colors =
   let open Material_color_palette in
-  [| Red C500
-   ; Orange C500
-   ; Green C500
-   ; Blue C500
-   ; Purple C500
-   ; Grey C500
-   ; Brown C500
-   ; Pink C500
-   ; Blue_grey C500
-   ; Deep_purple C500
-   ; Deep_orange C500
-   ; Indigo C500
-   ; Amber C500
-   ; Light_blue C500
+  [|
+    Red C500;
+    Orange C500;
+    Green C500;
+    Blue C500;
+    Purple C500;
+    Grey C500;
+    Brown C500;
+    Pink C500;
+    Blue_grey C500;
+    Deep_purple C500;
+    Deep_orange C500;
+    Indigo C500;
+    Amber C500;
+    Light_blue C500;
   |]
 
 let make_pie_datalabels () =
@@ -43,12 +44,13 @@ let make_pie_datalabels () =
     @@ Material_color_palette.make colors.(context##.dataIndex)
   in
   let display (context : optionContext Js.t) =
-    let (dataset : float Chartjs.pieDataset Js.t) = Js.Unsafe.coerce context##.dataset in
+    let (dataset : float Chartjs.pieDataset Js.t) =
+      Js.Unsafe.coerce context##.dataset
+    in
     let callback = Js.wrap_callback (fun acc x _ _ -> acc +. x) in
     let sum = dataset##.data##reduce callback in
     let v = Js.array_get dataset##.data context##.dataIndex in
-    Js.Optdef.case
-      v
+    Js.Optdef.case v
       (fun () -> Visibility.of_bool false)
       (fun v ->
         let pct = v *. 100. /. sum in
@@ -56,11 +58,12 @@ let make_pie_datalabels () =
   in
   let formatter _ (context : optionContext Js.t) =
     let data = context##.chart##.data in
-    Js.Optdef.case
-      data##.labels
+    Js.Optdef.case data##.labels
       (fun () -> Js.string "")
       (fun labels ->
-        Js.Optdef.get (Js.array_get labels context##.dataIndex) (fun () -> Js.string ""))
+        Js.Optdef.get
+          (Js.array_get labels context##.dataIndex)
+          (fun () -> Js.string ""))
   in
   let font = empty_font () in
   font##.weight := Js.string "bold";
@@ -80,13 +83,15 @@ let label_callback _tooltip item (data : Chartjs.data Js.t) =
     (fun dataset ->
       let (ds : float Chartjs.pieDataset Js.t) = Js.Unsafe.coerce dataset in
       let value =
-        Js.Optdef.get (Js.array_get ds##.data item##.index) (fun () -> assert false)
+        Js.Optdef.get
+          (Js.array_get ds##.data item##.index)
+          (fun () -> assert false)
       in
       let label =
         Js.Optdef.(
-          bind data##.labels (fun x -> Js.array_get x item##.index)
-          |> (fun x -> map x Js.to_string)
-          |> (fun x -> Js.Optdef.get x (fun () -> assert false))
+          ( ( bind data##.labels (fun x -> Js.array_get x item##.index)
+            |> fun x -> map x Js.to_string )
+          |> fun x -> Js.Optdef.get x (fun () -> assert false) )
           |> function
           | s when String.equal s other -> s
           | s -> Printf.sprintf "PID %s" s)
@@ -126,7 +131,9 @@ let make_pie_dataset () =
   let background_color =
     Chartjs.Scriptable_indexable.of_array
     @@ Array.map
-         (Chartjs.Color.of_string % Color.to_css_rgba % Material_color_palette.make)
+         ( Chartjs.Color.of_string
+         % Color.to_css_rgba
+         % Material_color_palette.make )
          colors
   in
   let dataset = Chartjs.empty_pie_dataset () in
@@ -154,14 +161,12 @@ let map_rate (total : Bitrate.value) pids =
         let pct = 100. *. of_int br.cur /. of_int total.cur in
         let br = of_int br.cur /. 1_000_000. in
         (pid, (br, pct)) :: acc)
-      []
-      pids
+      [] pids
   in
   List.fold_left
     (fun (pids, oth) (pid, (br, pct)) ->
-      if pct > 1. then (pid, br) :: pids, oth else pids, br :: oth)
-    ([], [])
-    br
+      if pct > 1. then ((pid, br) :: pids, oth) else (pids, br :: oth))
+    ([], []) br
 
 class t ?(hex = false) ?rate (elt : Dom_html.element Js.t) =
   object (self)
@@ -171,7 +176,8 @@ class t ?(hex = false) ?rate (elt : Dom_html.element Js.t) =
 
     val pie =
       Js.Opt.case
-        (Dom_html.CoerceTo.canvas (Element.query_selector_exn elt Selector.canvas))
+        (Dom_html.CoerceTo.canvas
+           (Element.query_selector_exn elt Selector.canvas))
         (fun () -> failwith (name ^ ": `canvas` element not found"))
         (fun canvas -> make_pie ~canvas ())
 
@@ -216,28 +222,29 @@ class t ?(hex = false) ?rate (elt : Dom_html.element Js.t) =
           self#dataset##.data := Js.array @@ Array.of_list data;
           pie##update
 
-    method notify : event -> unit =
-      function
-      | `Bitrate x -> self#set_rate x
+    method notify : event -> unit = function `Bitrate x -> self#set_rate x
 
     (* Private methods *)
     method private dataset : float Chartjs.pieDataset Js.t =
-      Js.array_get pie##.data##.datasets 0
-      |> (fun x -> Js.Optdef.map x Js.Unsafe.coerce)
-      |> fun x -> Js.Optdef.get x (fun () -> failwith (name ^ ": dataset not found"))
+      ( Js.array_get pie##.data##.datasets 0 |> fun x ->
+        Js.Optdef.map x Js.Unsafe.coerce )
+      |> fun x ->
+      Js.Optdef.get x (fun () -> failwith (name ^ ": dataset not found"))
 
     method private make_labels pids oth : Js.js_string Js.t Js.js_array Js.t =
-      let to_string = if _hex then Util.pid_to_hex_string else Util.pid_to_dec_string in
+      let to_string =
+        if _hex then Util.pid_to_hex_string else Util.pid_to_dec_string
+      in
       let pids = List.map (Js.string % to_string % fst) pids in
       Js.array
       @@ Array.of_list
-           (match oth with
-           | [] -> pids
-           | _ -> pids @ [ Js.string other ])
+           (match oth with [] -> pids | _ -> pids @ [ Js.string other ])
   end
 
 let attach ?hex ?rate (elt : #Dom_html.element Js.t) : t =
   new t ?hex ?rate (elt :> Dom_html.element Js.t)
 
 let make ?classes ?a ?title ?wrapper ?hex ?rate () : t =
-  D.create ?classes ?a ?title ?wrapper () |> Tyxml_js.To_dom.of_div |> attach ?hex ?rate
+  D.create ?classes ?a ?title ?wrapper ()
+  |> Tyxml_js.To_dom.of_div
+  |> attach ?hex ?rate

@@ -3,8 +3,7 @@
 let name = "content_identifier_descriptor"
 
 let rec parse bs off =
-  if Bitstring.bitstring_length bs = 0
-  then []
+  if Bitstring.bitstring_length bs = 0 then []
   else
     match%bitstring bs with
     | {| crid_type   : 6
@@ -20,10 +19,14 @@ let rec parse bs off =
           | Error _ -> "Unable to decode"
         in
         let nodes =
-          [ Node.make ~offset:off 6 "crid_type" (Dec (Int crid_type))
-          ; Node.make ~offset:(off + off_1) 2 "crid_location" (Bits (Int 00))
-          ; Node.make ~offset:(off + off_2) 8 "crid_length" (Dec (Int crid_length))
-          ; Node.make ~offset:(off + off_3) (crid_length * 8) "crid" (String crid) ]
+          [
+            Node.make ~offset:off 6 "crid_type" (Dec (Int crid_type));
+            Node.make ~offset:(off + off_1) 2 "crid_location" (Bits (Int 00));
+            Node.make ~offset:(off + off_2) 8 "crid_length"
+              (Dec (Int crid_length));
+            Node.make ~offset:(off + off_3) (crid_length * 8) "crid"
+              (String crid);
+          ]
         in
         let real_length = 16 + (crid_length * 8) in
         let node = Node.make ~offset:off real_length crid (List nodes) in
@@ -35,9 +38,11 @@ let rec parse bs off =
        |}
       ->
         let nodes =
-          [ Node.make ~offset:off 6 "crid_type" (Dec (Int crid_type))
-          ; Node.make ~offset:(off + off_1) 2 "crid_location" (Bits (Int 00))
-          ; Node.make ~offset:(off + off_2) 16 "crid_ref" (Dec (Int crid_ref)) ]
+          [
+            Node.make ~offset:off 6 "crid_type" (Dec (Int crid_type));
+            Node.make ~offset:(off + off_1) 2 "crid_location" (Bits (Int 00));
+            Node.make ~offset:(off + off_2) 16 "crid_ref" (Dec (Int crid_ref));
+          ]
         in
         let node = Node.make ~offset:off 24 "identifier" (List nodes) in
         node :: parse rest (off + off_3)
@@ -47,8 +52,10 @@ let rec parse bs off =
        |}
       ->
         let nodes =
-          [ Node.make ~offset:off 6 "crid_type" (Dec (Int crid_type))
-          ; Node.make ~offset:(off + off_1) 2 "crid_location" (Bits (Int crid_location))
+          [
+            Node.make ~offset:off 6 "crid_type" (Dec (Int crid_type));
+            Node.make ~offset:(off + off_1) 2 "crid_location"
+              (Bits (Int crid_location));
           ]
         in
         let node = Node.make ~offset:off 8 "identifier" (List nodes) in

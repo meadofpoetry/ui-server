@@ -18,11 +18,13 @@ struct
   module Card_markup = Components_tyxml.Card.Make (Xml) (Svg) (Html)
   open Html
 
-  let create_section_title ?(classes = []) ?(a = []) ?title ?(children = []) () =
+  let create_section_title ?(classes = []) ?(a = []) ?title ?(children = []) ()
+      =
     let classes = CSS.section_title :: classes in
     h2 ~a:(a_class classes :: a) (Utils.map_cons_option txt title children)
 
-  let create_section_header ?(classes = []) ?(a = []) ?title ?(children = []) () =
+  let create_section_header ?(classes = []) ?(a = []) ?title ?(children = []) ()
+      =
     let classes = CSS.section_header :: classes in
     let title =
       match title with
@@ -34,7 +36,7 @@ struct
 
   let create_section ?(classes = []) ?(a = []) ~header ?children () : 'a elt =
     let classes = CSS.section :: classes in
-    div ~a:(a_class classes :: a) [header; Card_markup.card ?children ()]
+    div ~a:(a_class classes :: a) [ header; Card_markup.card ?children () ]
 
   let create ?(classes = []) ?(a = []) ?(children = []) () : 'a elt =
     let classes = CSS.root :: Layout_grid.CSS.root :: classes in

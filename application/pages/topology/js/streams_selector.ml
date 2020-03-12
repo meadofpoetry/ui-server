@@ -22,38 +22,35 @@ let dialog_class = BEM.add_element base_class "dialog"
 
 let empty_placeholder_class = BEM.add_element base_class "empty-placeholder"
 
-type check =
-  { avail : bool React.signal
-  ; enable : unit -> unit
-  ; disable : unit -> unit }
+type check = {
+  avail : bool React.signal;
+  enable : unit -> unit;
+  disable : unit -> unit;
+}
 
-type stream_dialog =
-  { dialog : Dialog.t
-  ; show : unit -> Dialog.action Lwt.t
-  ; result : (Stream.t, string) result React.signal }
+type stream_dialog = {
+  dialog : Dialog.t;
+  show : unit -> Dialog.action Lwt.t;
+  result : (Stream.t, string) result React.signal;
+}
 
 let make_empty_placeholder () =
   Typography.D.typography
-    ~classes:[empty_placeholder_class]
-    ~text:"Нет потоков"
-    ()
+    ~classes:[ empty_placeholder_class ]
+    ~text:"Нет потоков" ()
 
-class base
-  ?actions
-  ~body
-  ?(left : int React.signal option)
-  ~(state : Stream.Table.source_state)
-  ~(entry : Topology.topo_entry)
-  () =
+class base ?actions ~body ?(left : int React.signal option)
+  ~(state : Stream.Table.source_state) ~(entry : Topology.topo_entry) () =
   let title =
     Tyxml_js.Html.(
       let text =
         match entry with
         | Topology.Input i -> "Вход " ^ Topology.get_input_name i
         | Topology.Board b ->
-            Printf.sprintf "Плата %s %s v%d" b.manufacturer b.model b.version
+            Printf.sprintf "Плата %s %s v%d" b.manufacturer b.model
+              b.version
       in
-      div ~a:[a_class [BEM.add_element Card.CSS.root "title"]] [txt text])
+      div ~a:[ a_class [ BEM.add_element Card.CSS.root "title" ] ] [ txt text ])
   in
   let subtitle =
     match left with
@@ -61,12 +58,12 @@ class base
     | Some _ ->
         Some
           Tyxml_js.Html.(
-            div ~a:[a_class [BEM.add_element Card.CSS.root "subtitle"]] [txt ""])
+            div
+              ~a:[ a_class [ BEM.add_element Card.CSS.root "subtitle" ] ]
+              [ txt "" ])
   in
   let primary_widgets =
-    match subtitle with
-    | None -> [title]
-    | Some st -> [title; st]
+    match subtitle with None -> [ title ] | Some st -> [ title; st ]
   in
   let primary =
     match primary_widgets with
@@ -74,27 +71,28 @@ class base
     | widgets ->
         Some
           Tyxml_js.Html.(
-            div ~a:[a_class [BEM.add_element Card.CSS.root "primary"]] widgets)
+            div
+              ~a:[ a_class [ BEM.add_element Card.CSS.root "primary" ] ]
+              widgets)
   in
-  let media = Card.D.card_media ~children:[body] () in
+  let media = Card.D.card_media ~children:[ body ] () in
   let actions =
     match actions with
     | None -> None
     | Some a -> Some (Card.D.card_actions ~children:a ())
   in
   let widgets =
-    match primary, actions with
-    | None, None -> [media]
-    | Some p, None -> [p; media]
-    | None, Some a -> [media; a]
-    | Some p, Some a -> [p; media; a]
+    match (primary, actions) with
+    | None, None -> [ media ]
+    | Some p, None -> [ p; media ]
+    | None, Some a -> [ media; a ]
+    | Some p, Some a -> [ p; media; a ]
   in
   let s =
     match left with
     | None -> React.S.const ()
     | Some s ->
-        React.S.map
-          ~eq:( = )
+        React.S.map ~eq:( = )
           (fun n ->
             let s = Printf.sprintf "Лимит: %d" n in
             Option.iter
@@ -105,16 +103,17 @@ class base
           s
   in
   let elt =
-    Tyxml_js.To_dom.of_element @@ Card.D.card ~outlined:true ~children:widgets ()
+    Tyxml_js.To_dom.of_element
+    @@ Card.D.card ~outlined:true ~children:widgets ()
   in
   object
     inherit Widget.t elt () as super
 
     method! init () : unit =
       super#add_class block_class;
-      (match state with
+      ( match state with
       | `Forbidden -> super#add_class forbidden_class
-      | _ -> ());
+      | _ -> () );
       super#init ()
 
     method! destroy () : unit =
@@ -123,12 +122,15 @@ class base
   end
 
 module Board = struct
-  let make_item ?(url = None) ~(check : check) ~(present : bool) (stream : Stream.t) =
-    let signal, push = React.S.create ~eq:(Util_equal.Option.equal Stream.equal) None in
+  let make_item ?(url = None) ~(check : check) ~(present : bool)
+      (stream : Stream.t) =
+    let signal, push =
+      React.S.create ~eq:(Util_equal.Option.equal Stream.equal) None
+    in
     let text = Stream.Source.to_string stream.source.info in
     let checkbox =
       Checkbox.make
-        ~classes:[Item_list.CSS.item_meta]
+        ~classes:[ Item_list.CSS.item_meta ]
         ~on_change:(fun w ->
           if w#checked then check.enable () else check.disable ();
           if w#checked then push @@ Some stream else push None;
@@ -139,15 +141,18 @@ module Board = struct
     let _s =
       React.S.map ~eq:( = ) (fun v -> checkbox#set_disabled (not v)) check.avail
     in
-    let item = Item_list.Item.make ~meta:checkbox#markup ~primary_text:(`Text text) () in
+    let item =
+      Item_list.Item.make ~meta:checkbox#markup ~primary_text:(`Text text) ()
+    in
     item#add_class stream_class;
     if not present then item#add_class lost_class;
     item#set_on_destroy (fun () ->
         checkbox#destroy ();
         React.S.stop ~strong:true _s);
-    item, signal
+    (item, signal)
 
-  let make_list state counter counter_push (stream_list : Stream.Table.stream list) =
+  let make_list state counter counter_push
+      (stream_list : Stream.Table.stream list) =
     let open Stream.Table in
     let available =
       match state with
@@ -157,14 +162,16 @@ module Board = struct
           React.S.map ~eq:( = ) (fun counter -> not (counter > lim)) counter
     in
     let check =
-      { avail = available
-      ; enable = (fun () -> counter_push @@ succ @@ React.S.value counter)
-      ; disable = (fun () -> counter_push @@ pred @@ React.S.value counter) }
+      {
+        avail = available;
+        enable = (fun () -> counter_push @@ succ @@ React.S.value counter);
+        disable = (fun () -> counter_push @@ pred @@ React.S.value counter);
+      }
     in
     let items, stream_signals =
       List.split
       @@ List.map
-           (fun ({url; stream; present} : stream) ->
+           (fun ({ url; stream; present } : stream) ->
              make_item ~check ~url ~present stream)
            stream_list
     in
@@ -173,28 +180,20 @@ module Board = struct
       React.S.merge
         ~eq:Util_equal.(List.equal (Option.equal Stream.equal))
         (fun acc v -> v :: acc)
-        []
-        stream_signals
+        [] stream_signals
       |> React.S.map ~eq (List.filter_map (fun x -> x))
     in
-    let non_interactive =
-      match state with
-      | `Forbidden -> true
-      | _ -> false
-    in
+    let non_interactive = match state with `Forbidden -> true | _ -> false in
     let list =
-      Item_list.make ~non_interactive ~dense ~children:(List.map Widget.markup items) ()
+      Item_list.make ~non_interactive ~dense
+        ~children:(List.map Widget.markup items)
+        ()
     in
-    list, settings
+    (list, settings)
 
-  class t
-    (state : Stream.Table.source_state)
-    (list : Item_list.t)
-    (settings : Stream.t list React.signal)
-    (counter : int React.signal)
-    (left : int React.signal option)
-    (entry : Topology.topo_entry)
-    () =
+  class t (state : Stream.Table.source_state) (list : Item_list.t)
+    (settings : Stream.t list React.signal) (counter : int React.signal)
+    (left : int React.signal option) (entry : Topology.topo_entry) () =
     let empty = make_empty_placeholder () in
     let body = Tyxml_js.To_dom.of_element @@ Tyxml_js.Html.div [] in
     object (self)
@@ -224,24 +223,23 @@ module Board = struct
   let make_entry state counter counter_push left stream_list input =
     let list, settings = make_list state counter counter_push stream_list in
     let w = new t state list settings counter left (Topology.Input input) () in
-    w#widget, settings
+    (w#widget, settings)
 
-  let make
-      (board : Topology.topo_board option)
+  let make (board : Topology.topo_board option)
       ((marker, state, stream_list) : Stream.stream_table_row) =
     let open Stream.Table in
     let open Topology in
     let inputs =
       match board with
       | None -> []
-      | Some b -> Topology.get_inputs (`Boards [b])
+      | Some b -> Topology.get_inputs (`Boards [ b ])
     in
     let counter, counter_push =
       let init_list =
         List.filter_map
           (function
-            | ({url = Some _; stream; _} : stream) -> Some stream
-            | {url = None; _} -> None)
+            | ({ url = Some _; stream; _ } : stream) -> Some stream
+            | { url = None; _ } -> None)
           stream_list
       in
       React.S.create ~eq:( = ) (List.length init_list)
@@ -269,53 +267,58 @@ module Board = struct
     let eq_l = Util_equal.List.equal Stream.equal in
     let eq = Util_equal.Pair.equal Stream.equal_marker eq_l in
     let settings =
-      React.S.merge ~eq:eq_l ( @ ) [] settings |> React.S.map ~eq (fun x -> marker, x)
+      React.S.merge ~eq:eq_l ( @ ) [] settings
+      |> React.S.map ~eq (fun x -> (marker, x))
     in
-    w, settings
+    (w, settings)
 end
 
 module Input = struct
   module Stream_dialog = struct
     let merge input addr port =
       let open Stream in
-      match addr, port with
+      match (addr, port) with
       | Some (addr : Netlib.Ipaddr.V4.t), Some (port : int) ->
           let source =
-            {info = IPV4 {scheme = "udp"; addr; port}; node = Entry (Input input)}
+            {
+              info = IPV4 { scheme = "udp"; addr; port };
+              node = Entry (Input input);
+            }
           in
           Ok
-            { id = make_id source
-            ; orig_id = TSoIP {scheme = "udp"; addr; port}
-            ; typ = TS
-            ; source }
+            {
+              id = make_id source;
+              orig_id = TSoIP { scheme = "udp"; addr; port };
+              typ = TS;
+              source;
+            }
       | _ -> Error "no data provided"
 
     let make (input : Topology.topo_input) =
       let open Stream in
       let ipv4 =
         Textfield.Custom
-          { input_type = `Text
-          ; to_string = Ipaddr.V4.to_string
-          ; of_string =
+          {
+            input_type = `Text;
+            to_string = Ipaddr.V4.to_string;
+            of_string =
               (fun x ->
                 match Ipaddr.V4.of_string x with
                 | Error (`Msg s) -> Error s
-                | Ok _ as x -> x) }
+                | Ok _ as x -> x);
+          }
       in
       let s_addr, push_addr = React.S.create None in
       let s_port, push_port = React.S.create None in
       let eq = Util_equal.Result.equal ~error:String.equal ~ok:equal in
       let result = React.S.l2 ~eq (merge input) s_addr s_port in
       let addr =
-        Textfield.make
-          ~label:"IP адрес"
+        Textfield.make ~label:"IP адрес"
           ~on_input:(fun _ i -> Lwt.return @@ push_addr i#value)
-          ~validation:ipv4
-          ()
+          ~validation:ipv4 ()
       in
       let port =
-        Textfield.make
-          ~label:"UDP порт"
+        Textfield.make ~label:"UDP порт"
           ~on_input:(fun _ i -> Lwt.return @@ push_port i#value)
           ~validation:(Integer (Some 0, Some 65535))
           ()
@@ -331,10 +334,14 @@ module Input = struct
             | Ok _ -> accept#set_disabled false)
           result
       in
-      let box = Box.D.box ~vertical:true ~children:[addr#markup; port#markup] () in
-      let title = Dialog.D.dialog_title ~title:"Добавление потока" () in
-      let content = Dialog.D.dialog_content ~children:[box] () in
-      let actions = [cancel#markup; accept#markup] in
+      let box =
+        Box.D.box ~vertical:true ~children:[ addr#markup; port#markup ] ()
+      in
+      let title =
+        Dialog.D.dialog_title ~title:"Добавление потока" ()
+      in
+      let content = Dialog.D.dialog_content ~children:[ box ] () in
+      let actions = [ cancel#markup; accept#markup ] in
       let dialog = Dialog.make ~title ~content ~actions () in
       dialog#add_class dialog_class;
       dialog#set_on_destroy (fun () ->
@@ -345,20 +352,18 @@ module Input = struct
           React.S.stop ~strong:true s_addr;
           React.S.stop ~strong:true s_port);
       let show () = dialog#open_await () in
-      {dialog; show; result}
+      { dialog; show; result }
 
     let show dialog streams =
-      dialog.show ()
-      >>= function
+      dialog.show () >>= function
       | Close | Destroy | Custom _ -> Lwt.return_error "dialog was canceled"
       | Accept -> (
-          React.S.value dialog.result
-          |> function
+          React.S.value dialog.result |> function
           | Error e -> Lwt.return_error e
           | Ok s ->
-              if List.exists (Stream.equal s) (React.S.value streams)
-              then Lwt.return_error "streams exists"
-              else Lwt.return_ok s)
+              if List.exists (Stream.equal s) (React.S.value streams) then
+                Lwt.return_error "streams exists"
+              else Lwt.return_ok s )
   end
 
   let make_stream_list stream_list =
@@ -366,10 +371,13 @@ module Input = struct
       let text = Stream.Source.to_string stream.source.info in
       let icon = Icon.SVG.(D.icon ~d:Path.delete ()) in
       let del_button =
-        Icon_button.make ~classes:[Item_list.CSS.item_meta] ~ripple:false ~icon ()
+        Icon_button.make
+          ~classes:[ Item_list.CSS.item_meta ]
+          ~ripple:false ~icon ()
       in
       let item =
-        Item_list.Item.make ~meta:del_button#markup ~primary_text:(`Text text) ()
+        Item_list.Item.make ~meta:del_button#markup ~primary_text:(`Text text)
+          ()
       in
       let click =
         Js_of_ocaml_lwt.Lwt_js_events.clicks del_button#root (fun _ _ ->
@@ -394,7 +402,9 @@ module Input = struct
       let slst = React.S.value signal in
       push @@ List.filter (fun x -> not @@ Stream.equal s x) slst
     in
-    let items = List.map (make_board_stream_entry del_item del_stream) stream_list in
+    let items =
+      List.map (make_board_stream_entry del_item del_stream) stream_list
+    in
     List.iter list#append_child items;
     list#layout ();
     let add stream =
@@ -406,21 +416,21 @@ module Input = struct
       list#layout ();
       push (stream :: slst)
     in
-    signal, list, add
+    (signal, list, add)
 
   class t ((iid, state, stream_list) : Stream.stream_table_row) () =
     let open Stream.Table in
     let input, id =
       match iid with
-      | `Input (inp, id) -> inp, id
+      | `Input (inp, id) -> (inp, id)
       | _ -> failwith "impossible"
     in
-    let topo_input : Topology.topo_input = {input; id} in
+    let topo_input : Topology.topo_input = { input; id } in
     let init_list =
       List.filter_map
         (function
-          | ({url = Some _; stream; _} : stream) -> Some stream
-          | {url = None; _} -> None)
+          | ({ url = Some _; stream; _ } : stream) -> Some stream
+          | { url = None; _ } -> None)
         stream_list
     in
     let dialog = Stream_dialog.make topo_input in
@@ -429,26 +439,27 @@ module Input = struct
       React.S.map
         ~eq:(fun (x1, s1) (x2, s2) ->
           let eq_x =
-            match x1, x2 with
+            match (x1, x2) with
             | `Input (ip1, i1), `Input (ip2, i2) ->
                 Topology.equal_input ip1 ip2 && i1 = i2
             | _ -> false
           in
           let eq_s = (Util_equal.List.equal Stream.equal) s1 s2 in
           eq_x && eq_s)
-        (fun slst -> iid, slst)
+        (fun slst -> (iid, slst))
         streams
     in
     let add () =
-      Stream_dialog.show dialog streams
-      >>= function
+      Stream_dialog.show dialog streams >>= function
       | Error e -> Lwt.return @@ print_endline e
       | Ok s -> Lwt.return @@ add s
     in
     let apply =
-      Button.make ~on_click:(fun _ _ _ -> add ()) ~label:"Добавить поток" ()
+      Button.make
+        ~on_click:(fun _ _ _ -> add ())
+        ~label:"Добавить поток" ()
     in
-    let buttons = Card.D.card_action_buttons ~children:[apply#markup] () in
+    let buttons = Card.D.card_action_buttons ~children:[ apply#markup ] () in
     let body = Tyxml_js.To_dom.of_element @@ Tyxml_js.Html.div [] in
     let empty = make_empty_placeholder () in
     object (self)
@@ -458,15 +469,15 @@ module Input = struct
         base
           ~state
           ~body:(Tyxml_js.Of_dom.of_element body)
-          ~actions:[buttons] ~entry:(Input topo_input) () as super
+          ~actions:[ buttons ] ~entry:(Input topo_input) () as super
 
       method! init () : unit =
         _s <- Some (React.S.map ~eq:( = ) self#check_empty streams);
-        Dom.appendChild Dom_html.document##.body (dialog.dialog)#root;
+        Dom.appendChild Dom_html.document##.body dialog.dialog#root;
         super#init ()
 
       method! destroy () : unit =
-        Element.remove_child_safe Dom_html.document##.body (dialog.dialog)#root;
+        Element.remove_child_safe Dom_html.document##.body dialog.dialog#root;
         React.S.stop ~strong:true settings;
         Option.iter (React.S.stop ~strong:true) _s;
         _s <- None;
@@ -486,19 +497,21 @@ module Input = struct
 
   let make (row : Stream.stream_table_row) =
     let w = new t row () in
-    [w#widget], w#settings
+    ([ w#widget ], w#settings)
 end
 
 let make_entry :
-       Topology.topo_cpu
-    -> Stream.stream_table_row
-    -> Widget.t list * (Stream.marker * Stream.t list) React.signal =
+    Topology.topo_cpu ->
+    Stream.stream_table_row ->
+    Widget.t list * (Stream.marker * Stream.t list) React.signal =
  fun cpu st ->
   let marker, b, sl = st in
   let sl =
-    List.sort (fun (a : Stream.Table.stream) b -> Stream.compare a.stream b.stream) sl
+    List.sort
+      (fun (a : Stream.Table.stream) b -> Stream.compare a.stream b.stream)
+      sl
   in
-  let st = marker, b, sl in
+  let st = (marker, b, sl) in
   match marker with
   | `Input _ -> Input.make st
   | `Board id ->
@@ -511,18 +524,18 @@ let make_entry :
 let make_table cpu (table : Stream.stream_table) =
   let widgets, signals = List.split @@ List.map (make_entry cpu) table in
   let widgets = List.concat widgets in
-  let list = Box.make ~vertical:true ~children:(List.map Widget.markup widgets) () in
+  let list =
+    Box.make ~vertical:true ~children:(List.map Widget.markup widgets) ()
+  in
   list#set_on_destroy (fun () -> List.iter (fun w -> w#destroy ()) widgets);
   let eq = Stream.equal_stream_setting in
-  ( list
-  , React.S.map
+  ( list,
+    React.S.map
       ~eq:(Util_equal.Option.equal eq)
       (fun x -> Some x)
       (React.S.merge ~eq (fun acc v -> v :: acc) [] signals) )
 
-class t
-  ~(init : Stream.stream_table)
-  ~(event : Stream.stream_table React.event)
+class t ~(init : Stream.stream_table) ~(event : Stream.stream_table React.event)
   (cpu : Topology.topo_cpu) =
   let id = "settings-place" in
   let post = Application_http_js.set_streams in
@@ -531,10 +544,12 @@ class t
     let dis, s = make_table cpu table in
     let place = dis in
     place#root##.id := Js.string id;
-    place, s
+    (place, s)
   in
   let eq_w = Widget.equal in
-  let eq_ss = React.S.equal ~eq:(Util_equal.Option.equal Stream.equal_stream_setting) in
+  let eq_ss =
+    React.S.equal ~eq:(Util_equal.Option.equal Stream.equal_stream_setting)
+  in
   let s_div =
     React.S.map ~eq:(Util_equal.Pair.equal eq_w eq_ss) (fun s -> make s) s_in
   in
@@ -542,10 +557,8 @@ class t
   let div = Widget.create_div () in
   let s =
     let eq = Util_equal.Option.equal Stream.equal_stream_setting in
-    React.S.switch
-      ~eq
-      (React.S.map
-         ~eq:(React.S.equal ~eq)
+    React.S.switch ~eq
+      (React.S.map ~eq:(React.S.equal ~eq)
          (fun n ->
            div#remove_children ();
            let w, n_s = n in
@@ -554,8 +567,7 @@ class t
          s_div)
   in
   let submit =
-    Button.make
-      ~label:"Применить"
+    Button.make ~label:"Применить"
       ~on_click:(fun w _ _ ->
         match React.S.value s with
         | None -> Lwt.return_unit
@@ -565,8 +577,8 @@ class t
             t)
       ()
   in
-  let buttons = Card.D.card_action_buttons ~children:[submit#markup] () in
-  let actions = Card.D.card_actions ~children:[buttons] () in
+  let buttons = Card.D.card_action_buttons ~children:[ submit#markup ] () in
+  let actions = Card.D.card_actions ~children:[ buttons ] () in
   object
     inherit Widget.t Dom_html.(createDiv document) () as super
 

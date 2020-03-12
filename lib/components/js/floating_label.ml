@@ -13,10 +13,11 @@ class t (elt : Dom_html.element Js.t) () =
     method! initial_sync_with_dom () : unit =
       listeners <-
         Js_of_ocaml_lwt.Lwt_js_events.(
-          [ seq_loop
+          [
+            seq_loop
               (make_event Dom_html.Event.animationend)
-              super#root
-              self#handle_shake_animation_end ]
+              super#root self#handle_shake_animation_end;
+          ]
           @ listeners);
       super#initial_sync_with_dom ()
 
@@ -29,11 +30,10 @@ class t (elt : Dom_html.element Js.t) () =
       super#toggle_class ~force:should_shake CSS.shake
 
     method float (should_float : bool) : unit =
-      if should_float
-      then super#add_class CSS.float_above
+      if should_float then super#add_class CSS.float_above
       else (
         super#remove_class CSS.float_above;
-        super#remove_class CSS.shake)
+        super#remove_class CSS.shake )
 
     method width : int = super#root##.scrollWidth
 

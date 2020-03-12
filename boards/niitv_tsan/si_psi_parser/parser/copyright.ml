@@ -11,9 +11,10 @@ let parse bs off =
         | Ok s -> s
         | Error _ -> "Unable to decode"
       in
-      [ Node.make ~offset:off 32 "copyright_identifier" (Hex (Int32 copyright_id))
-      ; Node.make
-          ~offset:(off + off_1)
+      [
+        Node.make ~offset:off 32 "copyright_identifier"
+          (Hex (Int32 copyright_id));
+        Node.make ~offset:(off + off_1)
           (Bitstring.bitstring_length rest)
-          "additional copyright info"
-          (String info) ]
+          "additional copyright info" (String info);
+      ]

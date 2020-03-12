@@ -17,7 +17,8 @@ let error_to_string : error -> string = function
   | Bad_tag_start x -> Printf.sprintf "incorrect start tag: 0x%x" x
   | Bad_msg_code x -> Printf.sprintf "incorrect msg code: 0x%x" x
   | Bad_tag_stop x -> Printf.sprintf "incorrect stop tag: 0x%x" x
-  | Bad_crc (x, y) -> Printf.sprintf "incorrect crc: expected 0x%x, got 0x%x" x y
+  | Bad_crc (x, y) ->
+      Printf.sprintf "incorrect crc: expected 0x%x, got 0x%x" x y
 
 let max_uint16 = Unsigned.(UInt16.to_int UInt16.max_int)
 
@@ -36,10 +37,9 @@ let parse_devinfo (buf : Cstruct.t) : (Device.info, Request.error) result =
         (fun acc x ->
           let x' = float_of_int x in
           if hw_cfg land int_of_float (2. ** x') > 0 then x :: acc else acc)
-        []
-        [3; 2; 1; 0]
+        [] [ 3; 2; 1; 0 ]
     in
-    Ok {serial; hw_ver; fpga_ver; fw_ver; asi; receivers}
+    Ok { serial; hw_ver; fpga_ver; fw_ver; asi; receivers }
   with Invalid_argument _ -> Error Invalid_length
 
 let parse_source_id (buf : Cstruct.t) =
@@ -48,27 +48,22 @@ let parse_source_id (buf : Cstruct.t) =
 
 let parse_mode (buf : Cstruct.t) =
   try
-    let ( >>= ) o f =
-      match o with
-      | Some x -> f x
-      | None -> None
-    in
+    let ( >>= ) o f = match o with Some x -> f x | None -> None in
     let rsp =
-      bool_of_int @@ get_mode_lock buf
-      >>= fun lock ->
-      bool_of_int @@ get_mode_hw_present buf
-      >>= fun hw_present ->
-      Device.standard_of_enum (get_mode_standard buf)
-      >>= fun standard ->
-      Device.bw_of_enum (get_mode_bw buf)
-      >>= fun bw ->
+      bool_of_int @@ get_mode_lock buf >>= fun lock ->
+      bool_of_int @@ get_mode_hw_present buf >>= fun hw_present ->
+      Device.standard_of_enum (get_mode_standard buf) >>= fun standard ->
+      Device.bw_of_enum (get_mode_bw buf) >>= fun bw ->
       let freq = Int32.to_int @@ get_mode_freq buf in
       let plp = get_mode_plp buf in
-      Some {Device.lock; hw_present; mode = {standard; channel = {bw; freq; plp}}}
+      Some
+        {
+          Device.lock;
+          hw_present;
+          mode = { standard; channel = { bw; freq; plp } };
+        }
     in
-    match rsp with
-    | None -> Error Request.Invalid_payload
-    | Some x -> Ok x
+    match rsp with None -> Error Request.Invalid_payload | Some x -> Ok x
   with Invalid_argument _ -> Error Invalid_length
 
 let parse_measures ?(timestamp = Ptime_clock.now ()) (buf : Cstruct.t) =
@@ -103,8 +98,8 @@ let parse_measures ?(timestamp = Ptime_clock.now ()) (buf : Cstruct.t) =
           | None -> None
           | Some x -> Some (Int32.to_int x)
         in
-        let data = {Measure.lock; power; mer; ber; freq; bitrate} in
-        Ok {data; timestamp}
+        let data = { Measure.lock; power; mer; ber; freq; bitrate } in
+        Ok { data; timestamp }
   with Invalid_argument _ -> Error Invalid_length
 
 let parse_params (buf : Cstruct.t) =
@@ -113,37 +108,39 @@ let parse_params (buf : Cstruct.t) =
     | None -> Error Request.Invalid_payload
     | Some lock ->
         let data =
-          { Params.lock
-          ; fft = get_rsp_params_fft buf
-          ; gi = get_rsp_params_gi buf
-          ; bw_ext = get_rsp_params_bw_ext buf > 0
-          ; papr = get_rsp_params_papr buf
-          ; l1_rep = get_rsp_params_l1_rep buf > 0
-          ; l1_mod = get_rsp_params_l1_mod buf
-          ; freq = Int32.to_int @@ get_rsp_params_freq buf
-          ; l1_post_sz = get_rsp_params_l1_post_sz buf
-          ; l1_post_info_sz = get_rsp_params_l1_post_info_sz buf
-          ; tr_fmt = get_rsp_params_tr_fmt buf
-          ; sys_id = get_rsp_params_sys_id buf
-          ; net_id = get_rsp_params_net_id buf
-          ; cell_id = get_rsp_params_cell_id buf
-          ; t2_frames = get_rsp_params_t2_frames buf
-          ; ofdm_syms = get_rsp_params_ofdm_syms buf
-          ; pp = get_rsp_params_pp buf
-          ; plp_num = get_rsp_params_plp_num buf
-          ; tx_id_avail = get_rsp_params_tx_id_avail buf
-          ; num_rf = get_rsp_params_num_rf buf
-          ; cur_rf_id = get_rsp_params_cur_rf_id buf
-          ; cur_plp_id = get_rsp_params_cur_plp_id buf
-          ; plp_type = get_rsp_params_plp_type buf
-          ; cr = get_rsp_params_cr buf
-          ; plp_mod = get_rsp_params_plp_mod buf
-          ; rotation = get_rsp_params_rotation buf > 0
-          ; fec_sz = get_rsp_params_fec_size buf
-          ; fec_block_num = get_rsp_params_fec_block_num buf
-          ; in_band_flag = get_rsp_params_in_band_flag buf > 0 }
+          {
+            Params.lock;
+            fft = get_rsp_params_fft buf;
+            gi = get_rsp_params_gi buf;
+            bw_ext = get_rsp_params_bw_ext buf > 0;
+            papr = get_rsp_params_papr buf;
+            l1_rep = get_rsp_params_l1_rep buf > 0;
+            l1_mod = get_rsp_params_l1_mod buf;
+            freq = Int32.to_int @@ get_rsp_params_freq buf;
+            l1_post_sz = get_rsp_params_l1_post_sz buf;
+            l1_post_info_sz = get_rsp_params_l1_post_info_sz buf;
+            tr_fmt = get_rsp_params_tr_fmt buf;
+            sys_id = get_rsp_params_sys_id buf;
+            net_id = get_rsp_params_net_id buf;
+            cell_id = get_rsp_params_cell_id buf;
+            t2_frames = get_rsp_params_t2_frames buf;
+            ofdm_syms = get_rsp_params_ofdm_syms buf;
+            pp = get_rsp_params_pp buf;
+            plp_num = get_rsp_params_plp_num buf;
+            tx_id_avail = get_rsp_params_tx_id_avail buf;
+            num_rf = get_rsp_params_num_rf buf;
+            cur_rf_id = get_rsp_params_cur_rf_id buf;
+            cur_plp_id = get_rsp_params_cur_plp_id buf;
+            plp_type = get_rsp_params_plp_type buf;
+            cr = get_rsp_params_cr buf;
+            plp_mod = get_rsp_params_plp_mod buf;
+            rotation = get_rsp_params_rotation buf > 0;
+            fec_sz = get_rsp_params_fec_size buf;
+            fec_block_num = get_rsp_params_fec_block_num buf;
+            in_band_flag = get_rsp_params_in_band_flag buf > 0;
+          }
         in
-        Ok {data; timestamp = Ptime_clock.now ()}
+        Ok { data; timestamp = Ptime_clock.now () }
   with Invalid_argument _ -> Error Invalid_length
 
 let parse_plp_list (buf : Cstruct.t) =
@@ -162,10 +159,11 @@ let parse_plp_list (buf : Cstruct.t) =
                   (fun buf -> Cstruct.get_uint8 buf 0)
                   (fst @@ Cstruct.split plps n)
               in
-              List.sort compare @@ Cstruct.fold (fun acc el -> el :: acc) iter []
+              List.sort compare
+              @@ Cstruct.fold (fun acc el -> el :: acc) iter []
         in
-        let data = {Plp_list.lock; plps} in
-        Ok {data; timestamp = Ptime_clock.now ()}
+        let data = { Plp_list.lock; plps } in
+        Ok { data; timestamp = Ptime_clock.now () }
   with Invalid_argument _ -> Error Invalid_length
 
 let check_tag_start buf =
@@ -190,56 +188,45 @@ let check_crc (tag, buf) =
     let pfx, msg' = Cstruct.split msg sizeof_prefix in
     let bdy, sfx = Cstruct.split msg' length in
     let stop = get_suffix_tag_stop sfx in
-    if stop <> tag_stop
-    then Error (Bad_tag_stop stop)
+    if stop <> tag_stop then Error (Bad_tag_stop stop)
     else
       let crc = Serializer.calc_crc ~pfx bdy in
       let crc' = get_suffix_crc sfx in
-      if crc <> crc'
-      then Error (Bad_crc (crc, crc'))
-      else Ok ({Request.tag; data = bdy}, rest)
+      if crc <> crc' then Error (Bad_crc (crc, crc'))
+      else Ok ({ Request.tag; data = bdy }, rest)
   with Invalid_argument _ -> Error (Insufficient_payload buf)
 
 let check_msg msg =
-  let ( >>= ) r f =
-    match r with
-    | Ok x -> f x
-    | Error e -> Error e
-  in
+  let ( >>= ) r f = match r with Ok x -> f x | Error e -> Error e in
   check_tag_start msg >>= check_tag >>= check_crc
 
 let deserialize (src : Logs.src) buf =
   let rec aux responses b =
-    if Cstruct.len b < sizeof_prefix + 1 + sizeof_suffix
-    then responses, b
+    if Cstruct.len b < sizeof_prefix + 1 + sizeof_suffix then (responses, b)
     else
       match check_msg b with
       | Ok (x, rest) -> aux (x :: responses) rest
       | Error e -> (
-        match e with
-        | Insufficient_payload _ -> responses, b
-        | e ->
-            Logs.err ~src (fun m -> m "parser error: %s" @@ error_to_string e);
-            aux responses (Cstruct.shift b 1))
+          match e with
+          | Insufficient_payload _ -> (responses, b)
+          | e ->
+              Logs.err ~src (fun m -> m "parser error: %s" @@ error_to_string e);
+              aux responses (Cstruct.shift b 1) )
   in
   let responses, rest = aux [] buf in
-  List.rev responses, if Cstruct.len rest > 0 then Some rest else None
+  (List.rev responses, if Cstruct.len rest > 0 then Some rest else None)
 
 let is_response (type a) ?timestamp (req : a Request.t) (msg : Request.msg) :
     (a, Request.error) result option =
-  let ( >>= ) r f =
-    match r with
-    | Ok x -> f x
-    | Error e -> Error e
-  in
-  if not Request.(equal_tag msg.tag (to_tag req))
-  then None
+  let ( >>= ) r f = match r with Ok x -> f x | Error e -> Error e in
+  if not Request.(equal_tag msg.tag (to_tag req)) then None
   else
     match req with
     | Reset -> Some (parse_devinfo msg.data)
     | Set_src_id _ -> Some (parse_source_id msg.data)
     | Get_devinfo -> Some (parse_devinfo msg.data)
     | Set_mode (id, _) -> Some (parse_mode msg.data >>= fun x -> Ok (id, x))
-    | Get_measure id -> Some (parse_measures ?timestamp msg.data >>= fun x -> Ok (id, x))
+    | Get_measure id ->
+        Some (parse_measures ?timestamp msg.data >>= fun x -> Ok (id, x))
     | Get_params id -> Some (parse_params msg.data >>= fun x -> Ok (id, x))
     | Get_plp_list id -> Some (parse_plp_list msg.data >>= fun x -> Ok (id, x))

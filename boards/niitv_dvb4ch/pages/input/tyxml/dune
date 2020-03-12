@@ -1,4 +1,3 @@
 (library
-  (name      board_niitv_dvb4ch_page_input_tyxml)
-  (libraries components_tyxml
-             application_types))
+ (name board_niitv_dvb4ch_page_input_tyxml)
+ (libraries components_tyxml application_types))

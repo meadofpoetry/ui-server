@@ -12,39 +12,48 @@ struct
   open Button.Make (Xml) (Svg) (Html)
 
   let create ?classes ?(a = []) () =
-    create_section
-      ?classes
-      ~a:(Html.a_id "reboot" :: a)
+    create_section ?classes ~a:(Html.a_id "reboot" :: a)
       ~header:
         (create_section_header
-           ~title:(`Text "Перезагрузка прибора")
-           ())
+           ~title:(`Text "Перезагрузка прибора") ())
       ~children:
-        [ Card_markup.card_media
+        [
+          Card_markup.card_media
             ~children:
-              [ div
-                  [ txt
+              [
+                div
+                  [
+                    txt
                       "Нажмите эту кнопку, чтобы \
-                       перезагрузить прибор." ]
-              ; div
-                  [ span
-                      [ strong [txt "Внимание! "]
-                      ; txt
+                       перезагрузить прибор.";
+                  ];
+                div
+                  [
+                    span
+                      [
+                        strong [ txt "Внимание! " ];
+                        txt
                           "Перезагрузка приведет к \
                            временной потере связи с \
-                           прибором." ] ] ]
-            ()
-        ; hr ~a:[a_class [Divider.CSS.root]] ()
-        ; Card_markup.card_actions
+                           прибором.";
+                      ];
+                  ];
+              ]
+            ();
+          hr ~a:[ a_class [ Divider.CSS.root ] ] ();
+          Card_markup.card_actions
             ~children:
-              [ Card_markup.card_action_buttons
+              [
+                Card_markup.card_action_buttons
                   ~children:
-                    [ button
-                        ~appearance:Raised
-                        ~label:"Перезагрузить прибор"
-                        () ]
-                  () ]
-            () ]
+                    [
+                      button ~appearance:Raised
+                        ~label:"Перезагрузить прибор" ();
+                    ]
+                  ();
+              ]
+            ();
+        ]
       ()
 end
 

@@ -7,8 +7,7 @@ let parse_country country =
   | _ -> "reserved"
 
 let rec parse bs off =
-  if Bitstring.bitstring_length bs = 0
-  then []
+  if Bitstring.bitstring_length bs = 0 then []
   else
     match%bitstring bs with
     | {| country_code     : 24 : bitstring
@@ -27,39 +26,35 @@ let rec parse bs off =
           | Some x -> Node.Time x
           | None -> (
               match%bitstring time_of_change with
-              | {| i : 40 |} -> Node.Dec (Uint64 i))
+              | {| i : 40 |} -> Node.Dec (Uint64 i) )
         in
         let local_offset =
           match Date_time.parse_timestamp offset with
           | Some x -> Node.Time x
           | None -> (
               match%bitstring time_of_change with
-              | {| i : 40 |} -> Node.Dec (Uint64 i))
+              | {| i : 40 |} -> Node.Dec (Uint64 i) )
         in
         let nt_offset =
           match Date_time.parse_timestamp next_time_offset with
           | Some x -> Node.Time x
           | None -> (
               match%bitstring time_of_change with
-              | {| i : 40 |} -> Node.Dec (Uint64 i))
+              | {| i : 40 |} -> Node.Dec (Uint64 i) )
         in
         let nodes =
-          [ Node.make
-              ~parsed:p_code
-              ~offset:off
-              24
-              "country_code"
-              (Bits (Int country_code))
-          ; Node.make ~offset:(off + off_1) 6 "country_reg_id" (Hex (Int country_reg_id))
-          ; Node.make ~offset:(off + off_2) 1 "reserved" (Bits (Bool reserved))
-          ; Node.make
-              ~offset:(off + off_3)
-              1
-              "local_time_offset_polarity"
-              (Bits (Bool offset_pol))
-          ; Node.make ~offset:(off + off_4) 16 "local_time_offset" local_offset
-          ; Node.make ~offset:(off + off_5) 40 "time_of_change" time_ch
-          ; Node.make ~offset:(off + off_6) 16 "next_time_offset" nt_offset ]
+          [
+            Node.make ~parsed:p_code ~offset:off 24 "country_code"
+              (Bits (Int country_code));
+            Node.make ~offset:(off + off_1) 6 "country_reg_id"
+              (Hex (Int country_reg_id));
+            Node.make ~offset:(off + off_2) 1 "reserved" (Bits (Bool reserved));
+            Node.make ~offset:(off + off_3) 1 "local_time_offset_polarity"
+              (Bits (Bool offset_pol));
+            Node.make ~offset:(off + off_4) 16 "local_time_offset" local_offset;
+            Node.make ~offset:(off + off_5) 40 "time_of_change" time_ch;
+            Node.make ~offset:(off + off_6) 16 "next_time_offset" nt_offset;
+          ]
         in
         let node = Node.make ~offset:off 104 p_code (List nodes) in
         node :: parse rest (off + off_7)

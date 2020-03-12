@@ -17,4 +17,5 @@ let get_physical_port (api : Protocol.api) _user _body _env _state =
   >>=? return_value % Util_json.Int.to_yojson
 
 let get_bitrate (api : Protocol.api) _user _body _env _state =
-  api.channel Request.(ASI_output Bitrate) >>=? return_value % Util_json.Int.to_yojson
+  api.channel Request.(ASI_output Bitrate)
+  >>=? return_value % Util_json.Int.to_yojson

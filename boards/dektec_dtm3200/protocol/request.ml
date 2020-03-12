@@ -14,24 +14,15 @@ let error_to_string = function
   | Error_response -> "device responsed with error"
   | Invalid_payload s -> Printf.sprintf "got invalid payload in response (%s)" s
   | Queue_overflow -> "message queue overflow"
-  | Not_set (name, got) -> Printf.sprintf "request \"%s\" not applied: got %s" name got
+  | Not_set (name, got) ->
+      Printf.sprintf "request \"%s\" not applied: got %s" name got
   | Not_responding -> Printf.sprintf "device is not responding"
 
-type 'a rw =
-  [ `R
-  | `W of 'a ]
+type 'a rw = [ `R | `W of 'a ]
 
-type data =
-  [ `B of bool
-  | `I8 of int
-  | `I16 of int
-  | `I32 of int32 ]
+type data = [ `B of bool | `I8 of int | `I16 of int | `I32 of int32 ]
 
-type access =
-  | R
-  | W
-  | E
-[@@deriving eq]
+type access = R | W | E [@@deriving eq]
 
 type category =
   [ `Device[@value 0x01]
@@ -41,21 +32,13 @@ type category =
   | `ASI_output[@value 0x84] ]
 [@@deriving eq, enum]
 
-type 'a cmd =
-  { category : category
-  ; setting : int
-  ; data : 'a
-  ; rw : access }
+type 'a cmd = { category : category; setting : int; data : 'a; rw : access }
 
-let make_cmd ?data ~category ~setting ~rw () = {category; setting; rw; data}
+let make_cmd ?data ~category ~setting ~rw () = { category; setting; rw; data }
 
-let access_of_rw = function
-  | `R -> R
-  | `W _ -> W
+let access_of_rw = function `R -> R | `W _ -> W
 
-let data_of_rw f = function
-  | `R -> None
-  | `W x -> Some (f x)
+let data_of_rw f = function `R -> None | `W x -> Some (f x)
 
 let rw_to_string f = function
   | `R -> "read"
@@ -69,32 +52,27 @@ let category_to_string = function
   | `ASI_output -> "ASI output"
 
 let show_request ?rw name =
-  match rw with
-  | None -> name
-  | Some rw -> Printf.sprintf "%s -> %s" name rw
+  match rw with None -> name | Some rw -> Printf.sprintf "%s -> %s" name rw
 
 let take n s = if n < String.length s then String.sub s 0 n else s
 
-let drop n s = if n < String.length s then String.sub s n (String.length s - n) else ""
+let drop n s =
+  if n < String.length s then String.sub s n (String.length s - n) else ""
 
-let take_drop n s = take n s, drop n s
+let take_drop n s = (take n s, drop n s)
 
-let check_cmd
-    (eq : 'a -> 'a -> bool)
-    (_of : int -> 'a option)
-    (x : Cstruct.t cmd)
-    (r : 'b rw)
-    (setting : 'a)
-    (f : Cstruct.t -> 'c option) : ('c, error) result option =
-  match x.rw, _of x.setting with
+let check_cmd (eq : 'a -> 'a -> bool) (_of : int -> 'a option)
+    (x : Cstruct.t cmd) (r : 'b rw) (setting : 'a) (f : Cstruct.t -> 'c option)
+    : ('c, error) result option =
+  match (x.rw, _of x.setting) with
   | E, _ -> Some (Error Error_response)
   | _, None -> None
   | a, Some s when equal_access a (access_of_rw r) && eq s setting -> (
-    match f x.data with
-    | Some x -> Some (Ok x)
-    | None ->
-        let data = Format.asprintf "%a" Cstruct.hexdump_pp x.data in
-        Some (Error (Invalid_payload data)))
+      match f x.data with
+      | Some x -> Some (Ok x)
+      | None ->
+          let data = Format.asprintf "%a" Cstruct.hexdump_pp x.data in
+          Some (Error (Invalid_payload data)) )
   | _ -> None
 
 module Device = struct
@@ -137,11 +115,11 @@ module Device = struct
    fun x ->
     let set, rw, data =
       match x with
-      | FPGA_version -> `FPGA_version, R, None
-      | Hardware_version -> `Hardware_version, R, None
-      | Firmware_version -> `Firmware_version, R, None
-      | Serial_number -> `Serial_number, R, None
-      | Type -> `Type, R, None
+      | FPGA_version -> (`FPGA_version, R, None)
+      | Hardware_version -> (`Hardware_version, R, None)
+      | Firmware_version -> (`Firmware_version, R, None)
+      | Serial_number -> (`Serial_number, R, None)
+      | Type -> (`Type, R, None)
     in
     let setting = setting_to_enum set in
     make_cmd ?data ~category:`Device ~setting ~rw ()
@@ -151,20 +129,17 @@ module Device = struct
     let get r s f = check_cmd equal_setting setting_of_enum x r s f in
     match x.category with
     | `Device -> (
-      match req with
-      | FPGA_version -> get `R `FPGA_version Ascii.Int.get
-      | Hardware_version -> get `R `Hardware_version Ascii.Int.get
-      | Firmware_version -> get `R `Firmware_version Ascii.Int.get
-      | Serial_number -> get `R `Serial_number Ascii.Int.get
-      | Type -> get `R `Type Ascii.Int.get)
+        match req with
+        | FPGA_version -> get `R `FPGA_version Ascii.Int.get
+        | Hardware_version -> get `R `Hardware_version Ascii.Int.get
+        | Firmware_version -> get `R `Firmware_version Ascii.Int.get
+        | Serial_number -> get `R `Serial_number Ascii.Int.get
+        | Type -> get `R `Type Ascii.Int.get )
     | _ -> None
 end
 
 module Configuration = struct
-  type setting =
-    [ `Mode[@value 0x01]
-    | `Application
-    | `Volatile_storage ]
+  type setting = [ `Mode[@value 0x01] | `Application | `Volatile_storage ]
   [@@deriving eq, enum]
 
   type _ t =
@@ -193,33 +168,32 @@ module Configuration = struct
    fun x ->
     let set, rw, data =
       match x with
-      | Mode x -> `Mode, access_of_rw x, data_of_rw (fun x -> `I8 (mode_to_enum x)) x
+      | Mode x ->
+          (`Mode, access_of_rw x, data_of_rw (fun x -> `I8 (mode_to_enum x)) x)
       | Application x ->
-          ( `Application
-          , access_of_rw x
-          , data_of_rw (fun x -> `I8 (application_to_enum x)) x )
+          ( `Application,
+            access_of_rw x,
+            data_of_rw (fun x -> `I8 (application_to_enum x)) x )
       | Volatile_storage x ->
-          ( `Volatile_storage
-          , access_of_rw x
-          , data_of_rw (fun x -> `I8 (storage_to_enum x)) x )
+          ( `Volatile_storage,
+            access_of_rw x,
+            data_of_rw (fun x -> `I8 (storage_to_enum x)) x )
     in
     let setting = setting_to_enum set in
     make_cmd ?data ~category:`Configuration ~setting ~rw ()
 
   let of_cmd : type a. a t -> Cstruct.t cmd -> (a, error) result option =
    fun req x ->
-    let ( % ) f g x =
-      match g x with
-      | None -> None
-      | Some x -> f x
-    in
+    let ( % ) f g x = match g x with None -> None | Some x -> f x in
     let get r s f = check_cmd equal_setting setting_of_enum x r s f in
     match x.category with
     | `Configuration -> (
-      match req with
-      | Mode r -> get r `Mode (mode_of_enum % Ascii.Int.get)
-      | Application r -> get r `Application (application_of_enum % Ascii.Int.get)
-      | Volatile_storage r -> get r `Volatile_storage (storage_of_enum % Ascii.Int.get))
+        match req with
+        | Mode r -> get r `Mode (mode_of_enum % Ascii.Int.get)
+        | Application r ->
+            get r `Application (application_of_enum % Ascii.Int.get)
+        | Volatile_storage r ->
+            get r `Volatile_storage (storage_of_enum % Ascii.Int.get) )
     | _ -> None
 end
 
@@ -243,10 +217,12 @@ module Network = struct
 
   let to_string (type a) (t : a t) =
     match t with
-    | IP_address x -> show_request ~rw:(rw_to_string Ipaddr.V4.to_string x) "IP address"
+    | IP_address x ->
+        show_request ~rw:(rw_to_string Ipaddr.V4.to_string x) "IP address"
     | Subnet_mask x ->
         show_request ~rw:(rw_to_string Ipaddr.V4.to_string x) "subnet mask"
-    | Gateway x -> show_request ~rw:(rw_to_string Ipaddr.V4.to_string x) "gateway"
+    | Gateway x ->
+        show_request ~rw:(rw_to_string Ipaddr.V4.to_string x) "gateway"
     | DHCP x -> show_request ~rw:(rw_to_string string_of_bool x) "DHCP"
     | Reboot -> show_request "reboot"
     | MAC_address -> show_request "MAC address"
@@ -271,18 +247,20 @@ module Network = struct
     let set, rw, data =
       match x with
       | IP_address x ->
-          ( `IP_address
-          , access_of_rw x
-          , data_of_rw (fun x -> `I32 (Ipaddr.V4.to_int32 x)) x )
+          ( `IP_address,
+            access_of_rw x,
+            data_of_rw (fun x -> `I32 (Ipaddr.V4.to_int32 x)) x )
       | Subnet_mask x ->
-          ( `Subnet_mask
-          , access_of_rw x
-          , data_of_rw (fun x -> `I32 (Ipaddr.V4.to_int32 x)) x )
+          ( `Subnet_mask,
+            access_of_rw x,
+            data_of_rw (fun x -> `I32 (Ipaddr.V4.to_int32 x)) x )
       | Gateway x ->
-          `Gateway, access_of_rw x, data_of_rw (fun x -> `I32 (Ipaddr.V4.to_int32 x)) x
-      | DHCP x -> `DHCP, access_of_rw x, data_of_rw (fun x -> `B x) x
-      | Reboot -> `Reboot, W, Some (`B true)
-      | MAC_address -> `MAC_address, R, None
+          ( `Gateway,
+            access_of_rw x,
+            data_of_rw (fun x -> `I32 (Ipaddr.V4.to_int32 x)) x )
+      | DHCP x -> (`DHCP, access_of_rw x, data_of_rw (fun x -> `B x) x)
+      | Reboot -> (`Reboot, W, Some (`B true))
+      | MAC_address -> (`MAC_address, R, None)
     in
     let setting = setting_to_enum set in
     make_cmd ?data ~category:`Network ~setting ~rw ()
@@ -292,26 +270,24 @@ module Network = struct
     let get r s f = check_cmd equal_setting setting_of_enum x r s f in
     match x.category with
     | `Network -> (
-      match req with
-      | IP_address r -> get r `IP_address Ascii.Ipaddr.get
-      | Subnet_mask r -> get r `Subnet_mask Ascii.Ipaddr.get
-      | Gateway r -> get r `Gateway Ascii.Ipaddr.get
-      | DHCP r -> get r `DHCP Ascii.Bool.get
-      | Reboot -> get (`W ()) `Reboot (fun _ -> Some ())
-      | MAC_address ->
-          let rec conv acc s =
-            match take_drop 2 s with
-            | x, "" -> acc ^ x
-            | x, res -> conv (acc ^ x ^ ":") res
-          in
-          let f x =
-            conv "" (Cstruct.to_string x)
-            |> Macaddr.of_string
-            |> function
-            | Ok x -> Some x
-            | Error _ -> None
-          in
-          get `R `MAC_address f)
+        match req with
+        | IP_address r -> get r `IP_address Ascii.Ipaddr.get
+        | Subnet_mask r -> get r `Subnet_mask Ascii.Ipaddr.get
+        | Gateway r -> get r `Gateway Ascii.Ipaddr.get
+        | DHCP r -> get r `DHCP Ascii.Bool.get
+        | Reboot -> get (`W ()) `Reboot (fun _ -> Some ())
+        | MAC_address ->
+            let rec conv acc s =
+              match take_drop 2 s with
+              | x, "" -> acc ^ x
+              | x, res -> conv (acc ^ x ^ ":") res
+            in
+            let f x =
+              conv "" (Cstruct.to_string x) |> Macaddr.of_string |> function
+              | Ok x -> Some x
+              | Error _ -> None
+            in
+            get `R `MAC_address f )
     | _ -> None
 end
 
@@ -377,7 +353,8 @@ module Ip_receive = struct
         show_request ~rw:(rw_to_string meth_to_string x) "addressing method"
     | Enable x -> show_request ~rw:(rw_to_string string_of_bool x) "enable"
     | FEC_delay -> show_request "FEC delay"
-    | FEC_enable x -> show_request ~rw:(rw_to_string string_of_bool x) "FEC enable"
+    | FEC_enable x ->
+        show_request ~rw:(rw_to_string string_of_bool x) "FEC enable"
     | FEC_columns -> show_request "FEC columns"
     | FEC_rows -> show_request "FEC rows"
     | IP_jitter_tolerance -> show_request "IP jitter tolerance"
@@ -387,7 +364,9 @@ module Ip_receive = struct
     | IP_to_output_delay x ->
         show_request ~rw:(rw_to_string string_of_int x) "IP-to-output delay"
     | Multicast_address x ->
-        show_request ~rw:(rw_to_string Ipaddr.V4.to_string x) "multicast address"
+        show_request
+          ~rw:(rw_to_string Ipaddr.V4.to_string x)
+          "multicast address"
     | TP_per_IP -> show_request "TP per IP"
     | Status -> show_request "status"
     | Protocol -> show_request "protocol"
@@ -398,7 +377,9 @@ module Ip_receive = struct
     | PCR_present -> show_request "PCR present"
     | Rate_change_counter -> show_request "rate change counter"
     | Rate_estimation_mode x ->
-        show_request ~rw:(rw_to_string rate_mode_to_string x) "rate estimation mode"
+        show_request
+          ~rw:(rw_to_string rate_mode_to_string x)
+          "rate estimation mode"
     | Jitter_error_counter -> show_request "jitter error counter"
     | Lock_error_counter -> show_request "lock error counter"
     | Delay_factor -> show_request "delay factor"
@@ -463,89 +444,84 @@ module Ip_receive = struct
     let set, rw, data =
       match x with
       | Addressing_method x ->
-          ( `Addressing_method
-          , access_of_rw x
-          , data_of_rw (fun x -> `I8 (meth_to_enum x)) x )
-      | Enable x -> `Enable, access_of_rw x, data_of_rw (fun x -> `B x) x
-      | FEC_delay -> `FEC_delay, R, None
-      | FEC_enable x -> `FEC_enable, access_of_rw x, data_of_rw (fun x -> `B x) x
-      | FEC_columns -> `FEC_columns, R, None
-      | FEC_rows -> `FEC_rows, R, None
-      | IP_jitter_tolerance -> `IP_jitter_tolerance, R, None
-      | IP_lost_after_FEC -> `IP_lost_after_FEC, R, None
-      | IP_lost_before_FEC -> `IP_lost_before_FEC, R, None
-      | UDP_port x -> `UDP_port, access_of_rw x, data_of_rw (fun x -> `I16 x) x
+          ( `Addressing_method,
+            access_of_rw x,
+            data_of_rw (fun x -> `I8 (meth_to_enum x)) x )
+      | Enable x -> (`Enable, access_of_rw x, data_of_rw (fun x -> `B x) x)
+      | FEC_delay -> (`FEC_delay, R, None)
+      | FEC_enable x ->
+          (`FEC_enable, access_of_rw x, data_of_rw (fun x -> `B x) x)
+      | FEC_columns -> (`FEC_columns, R, None)
+      | FEC_rows -> (`FEC_rows, R, None)
+      | IP_jitter_tolerance -> (`IP_jitter_tolerance, R, None)
+      | IP_lost_after_FEC -> (`IP_lost_after_FEC, R, None)
+      | IP_lost_before_FEC -> (`IP_lost_before_FEC, R, None)
+      | UDP_port x -> (`UDP_port, access_of_rw x, data_of_rw (fun x -> `I16 x) x)
       | IP_to_output_delay x ->
-          `IP_to_output_delay, access_of_rw x, data_of_rw (fun x -> `I16 x) x
+          (`IP_to_output_delay, access_of_rw x, data_of_rw (fun x -> `I16 x) x)
       | Multicast_address x ->
-          ( `Multicast_address
-          , access_of_rw x
-          , data_of_rw (fun x -> `I32 (Ipaddr.V4.to_int32 x)) x )
-      | TP_per_IP -> `TP_per_IP, R, None
-      | Status -> `Status, R, None
-      | Protocol -> `Protocol, R, None
-      | Index -> `Index, R, None
-      | Output_type -> `Output_type, R, None
-      | Packet_size -> `Packet_size, R, None
-      | Bitrate -> `Bitrate, R, None
-      | PCR_present -> `PCR_present, R, None
-      | Rate_change_counter -> `Rate_change_counter, R, None
+          ( `Multicast_address,
+            access_of_rw x,
+            data_of_rw (fun x -> `I32 (Ipaddr.V4.to_int32 x)) x )
+      | TP_per_IP -> (`TP_per_IP, R, None)
+      | Status -> (`Status, R, None)
+      | Protocol -> (`Protocol, R, None)
+      | Index -> (`Index, R, None)
+      | Output_type -> (`Output_type, R, None)
+      | Packet_size -> (`Packet_size, R, None)
+      | Bitrate -> (`Bitrate, R, None)
+      | PCR_present -> (`PCR_present, R, None)
+      | Rate_change_counter -> (`Rate_change_counter, R, None)
       | Rate_estimation_mode x ->
-          ( `Rate_estimation_mode
-          , access_of_rw x
-          , data_of_rw (fun x -> `I8 (rate_mode_to_enum x)) x )
-      | Jitter_error_counter -> `Jitter_error_counter, R, None
-      | Lock_error_counter -> `Lock_error_counter, R, None
-      | Delay_factor -> `Delay_factor, R, None
+          ( `Rate_estimation_mode,
+            access_of_rw x,
+            data_of_rw (fun x -> `I8 (rate_mode_to_enum x)) x )
+      | Jitter_error_counter -> (`Jitter_error_counter, R, None)
+      | Lock_error_counter -> (`Lock_error_counter, R, None)
+      | Delay_factor -> (`Delay_factor, R, None)
     in
     let setting = setting_to_enum set in
     make_cmd ?data ~category:`IP_receive ~setting ~rw ()
 
   let of_cmd : type a. a t -> Cstruct.t cmd -> (a, error) result option =
    fun req x ->
-    let ( % ) f g x =
-      match g x with
-      | None -> None
-      | Some x -> f x
-    in
+    let ( % ) f g x = match g x with None -> None | Some x -> f x in
     let get r s f = check_cmd equal_setting setting_of_enum x r s f in
     match x.category with
     | `IP_receive -> (
-      match req with
-      | Addressing_method r -> get r `Addressing_method (meth_of_enum % Ascii.Int.get)
-      | Enable r -> get r `Enable Ascii.Bool.get
-      | FEC_delay -> get `R `FEC_delay Ascii.Int.get
-      | FEC_enable r -> get r `FEC_enable Ascii.Bool.get
-      | FEC_columns -> get `R `FEC_columns Ascii.Int.get
-      | FEC_rows -> get `R `FEC_rows Ascii.Int.get
-      | IP_jitter_tolerance -> get `R `IP_jitter_tolerance Ascii.Int.get
-      | IP_lost_after_FEC -> get `R `IP_lost_after_FEC Ascii.Int64.get
-      | IP_lost_before_FEC -> get `R `IP_lost_before_FEC Ascii.Int64.get
-      | UDP_port r -> get r `UDP_port Ascii.Int.get
-      | IP_to_output_delay r -> get r `IP_to_output_delay Ascii.Int.get
-      | Multicast_address r -> get r `Multicast_address Ascii.Ipaddr.get
-      | TP_per_IP -> get `R `TP_per_IP Ascii.Int.get
-      | Status -> get `R `Status (state_of_enum % Ascii.Int.get)
-      | Protocol -> get `R `Protocol (protocol_of_enum % Ascii.Int.get)
-      | Index -> get `R `Index Ascii.Int32.get
-      | Output_type -> get `R `Output_type (output_of_enum % Ascii.Int.get)
-      | Packet_size -> get `R `Packet_size (packet_sz_of_enum % Ascii.Int.get)
-      | Bitrate -> get `R `Bitrate Ascii.Int.get
-      | PCR_present -> get `R `PCR_present Ascii.Bool.get
-      | Rate_change_counter -> get `R `Rate_change_counter Ascii.Int32.get
-      | Rate_estimation_mode r ->
-          get r `Rate_estimation_mode (rate_mode_of_enum % Ascii.Int.get)
-      | Jitter_error_counter -> get `R `Jitter_error_counter Ascii.Int32.get
-      | Lock_error_counter -> get `R `Lock_error_counter Ascii.Int32.get
-      | Delay_factor -> get `R `Delay_factor Ascii.Int32.get)
+        match req with
+        | Addressing_method r ->
+            get r `Addressing_method (meth_of_enum % Ascii.Int.get)
+        | Enable r -> get r `Enable Ascii.Bool.get
+        | FEC_delay -> get `R `FEC_delay Ascii.Int.get
+        | FEC_enable r -> get r `FEC_enable Ascii.Bool.get
+        | FEC_columns -> get `R `FEC_columns Ascii.Int.get
+        | FEC_rows -> get `R `FEC_rows Ascii.Int.get
+        | IP_jitter_tolerance -> get `R `IP_jitter_tolerance Ascii.Int.get
+        | IP_lost_after_FEC -> get `R `IP_lost_after_FEC Ascii.Int64.get
+        | IP_lost_before_FEC -> get `R `IP_lost_before_FEC Ascii.Int64.get
+        | UDP_port r -> get r `UDP_port Ascii.Int.get
+        | IP_to_output_delay r -> get r `IP_to_output_delay Ascii.Int.get
+        | Multicast_address r -> get r `Multicast_address Ascii.Ipaddr.get
+        | TP_per_IP -> get `R `TP_per_IP Ascii.Int.get
+        | Status -> get `R `Status (state_of_enum % Ascii.Int.get)
+        | Protocol -> get `R `Protocol (protocol_of_enum % Ascii.Int.get)
+        | Index -> get `R `Index Ascii.Int32.get
+        | Output_type -> get `R `Output_type (output_of_enum % Ascii.Int.get)
+        | Packet_size -> get `R `Packet_size (packet_sz_of_enum % Ascii.Int.get)
+        | Bitrate -> get `R `Bitrate Ascii.Int.get
+        | PCR_present -> get `R `PCR_present Ascii.Bool.get
+        | Rate_change_counter -> get `R `Rate_change_counter Ascii.Int32.get
+        | Rate_estimation_mode r ->
+            get r `Rate_estimation_mode (rate_mode_of_enum % Ascii.Int.get)
+        | Jitter_error_counter -> get `R `Jitter_error_counter Ascii.Int32.get
+        | Lock_error_counter -> get `R `Lock_error_counter Ascii.Int32.get
+        | Delay_factor -> get `R `Delay_factor Ascii.Int32.get )
     | _ -> None
 end
 
 module Asi_output = struct
-  type setting =
-    [ `Packet_size[@value 0x01]
-    | `Physical_port
-    | `Bitrate ]
+  type setting = [ `Packet_size[@value 0x01] | `Physical_port | `Bitrate ]
   [@@deriving eq, enum]
 
   type _ t =
@@ -574,29 +550,26 @@ module Asi_output = struct
     let set, rw, data =
       match (x : a t) with
       | Packet_size x ->
-          ( `Packet_size
-          , access_of_rw x
-          , data_of_rw (fun x -> `I8 (asi_packet_sz_to_int x)) x )
-      | Physical_port -> `Physical_port, R, None
-      | Bitrate -> `Bitrate, R, None
+          ( `Packet_size,
+            access_of_rw x,
+            data_of_rw (fun x -> `I8 (asi_packet_sz_to_int x)) x )
+      | Physical_port -> (`Physical_port, R, None)
+      | Bitrate -> (`Bitrate, R, None)
     in
     let setting = setting_to_enum set in
     make_cmd ?data ~category:`ASI_output ~setting ~rw ()
 
   let of_cmd : type a. a t -> Cstruct.t cmd -> (a, error) result option =
    fun req x ->
-    let ( % ) f g x =
-      match g x with
-      | None -> None
-      | Some x -> f x
-    in
+    let ( % ) f g x = match g x with None -> None | Some x -> f x in
     let get r s f = check_cmd equal_setting setting_of_enum x r s f in
     match x.category with
     | `ASI_output -> (
-      match req with
-      | Packet_size r -> get r `Packet_size (asi_packet_sz_of_int % Ascii.Int.get)
-      | Physical_port -> get `R `Physical_port Ascii.Int.get
-      | Bitrate -> get `R `Bitrate Ascii.Int.get)
+        match req with
+        | Packet_size r ->
+            get r `Packet_size (asi_packet_sz_of_int % Ascii.Int.get)
+        | Physical_port -> get `R `Physical_port Ascii.Int.get
+        | Bitrate -> get `R `Bitrate Ascii.Int.get )
     | _ -> None
 end
 
@@ -607,8 +580,7 @@ type _ t =
   | IP_receive : 'a Ip_receive.t -> 'a t
   | ASI_output : 'a Asi_output.t -> 'a t
 
-let timeout (type a) : a t -> float = function
-  | _ -> 3.
+let timeout (type a) : a t -> float = function _ -> 3.
 
 let to_string (type a) (t : a t) =
   match t with
@@ -627,9 +599,7 @@ let value_to_string (type a) (t : a t) : a -> string =
   | ASI_output req -> Asi_output.value_to_string req
 
 let equal_access a b =
-  match a, b with
-  | R, R | W, W | E, E -> true
-  | _, _ -> false
+  match (a, b) with R, R | W, W | E, E -> true | _, _ -> false
 
 let access_to_int = function
   | R -> int_of_char 'R'
@@ -652,22 +622,22 @@ let to_cmd : type a. a t -> data option cmd = function
 
 let response_data_size = function
   | `Device, x -> (
-    match Device.setting_of_enum x with
-    | None -> None
-    | Some x -> Some (Device.response_data_size x))
+      match Device.setting_of_enum x with
+      | None -> None
+      | Some x -> Some (Device.response_data_size x) )
   | `Configuration, x -> (
-    match Configuration.setting_of_enum x with
-    | None -> None
-    | Some x -> Some (Configuration.response_data_size x))
+      match Configuration.setting_of_enum x with
+      | None -> None
+      | Some x -> Some (Configuration.response_data_size x) )
   | `Network, x -> (
-    match Network.setting_of_enum x with
-    | None -> None
-    | Some x -> Some (Network.response_data_size x))
+      match Network.setting_of_enum x with
+      | None -> None
+      | Some x -> Some (Network.response_data_size x) )
   | `IP_receive, x -> (
-    match Ip_receive.setting_of_enum x with
-    | None -> None
-    | Some x -> Some (Ip_receive.response_data_size x))
+      match Ip_receive.setting_of_enum x with
+      | None -> None
+      | Some x -> Some (Ip_receive.response_data_size x) )
   | `ASI_output, x -> (
-    match Asi_output.setting_of_enum x with
-    | None -> None
-    | Some x -> Some (Asi_output.response_data_size x))
+      match Asi_output.setting_of_enum x with
+      | None -> None
+      | Some x -> Some (Asi_output.response_data_size x) )

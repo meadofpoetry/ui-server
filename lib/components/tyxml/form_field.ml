@@ -16,13 +16,8 @@ struct
 
   let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
 
-  let form_field_label
-      ?(classes = return [])
-      ?(a = [])
-      ?for_
-      ?label
-      ?(children = nil ())
-      () =
+  let form_field_label ?(classes = return []) ?(a = []) ?for_ ?label
+      ?(children = nil ()) () =
     let children =
       match label with
       | None -> children
@@ -32,15 +27,8 @@ struct
       ~a:(a_class classes :: a |> Utils.map_cons_option a_label_for for_)
       children
 
-  let form_field
-      ?(classes = return [])
-      ?(a = [])
-      ?(align_end = false)
-      ?label_for
-      ?(children = nil ())
-      ?input
-      ?label
-      () =
+  let form_field ?(classes = return []) ?(a = []) ?(align_end = false)
+      ?label_for ?(children = nil ()) ?input ?label () =
     let classes =
       fmap (Utils.cons_if align_end CSS.align_end % List.cons CSS.root) classes
     in

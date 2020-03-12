@@ -1,3 +1,3 @@
 (library
-  (name board_niitv_tsan_widgets_tyxml)
-  (libraries board_niitv_tsan_types components_lab_tyxml))
+ (name board_niitv_tsan_widgets_tyxml)
+ (libraries board_niitv_tsan_types components_lab_tyxml))

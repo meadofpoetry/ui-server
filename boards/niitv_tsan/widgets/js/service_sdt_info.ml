@@ -7,7 +7,7 @@ include Board_niitv_tsan_widgets_tyxml.Service_sdt_info
 module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
-type event = [`Service of (int * Service.t) option]
+type event = [ `Service of (int * Service.t) option ]
 
 module Attr = struct
   type typ =
@@ -48,16 +48,14 @@ end
 let set_meta_text meta text = meta##.textContent := Js.some @@ Js.string text
 
 let set_meta_active meta active =
-  if active
-  then Element.set_attribute meta Attr.data_active ""
+  if active then Element.set_attribute meta Attr.data_active ""
   else Element.remove_attribute meta Attr.data_active
 
 let set_item_not_available item =
   Js.Opt.iter
     (item##querySelector (Js.string Selector.meta))
     (fun meta ->
-      if Element.has_class meta Icon.CSS.root
-      then set_meta_active meta false
+      if Element.has_class meta Icon.CSS.root then set_meta_active meta false
       else set_meta_text meta not_available)
 
 class t (elt : Dom_html.element Js.t) () =
@@ -65,8 +63,7 @@ class t (elt : Dom_html.element Js.t) () =
     inherit Widget.t elt () as super
 
     method notify : event -> unit =
-      function
-      | `Service info -> self#set_service_info info
+      function `Service info -> self#set_service_info info
 
     method set_service_info info =
       let items = Element.query_selector_all super#root Selector.item in
@@ -101,10 +98,11 @@ class t (elt : Dom_html.element Js.t) () =
         | None ->
             let meta =
               Tyxml_js.To_dom.of_element
-                (match typ with
-                | `Eit_schedule | `Eit_pf | `Scrambling -> D.create_item_icon_meta ()
+                ( match typ with
+                | `Eit_schedule | `Eit_pf | `Scrambling ->
+                    D.create_item_icon_meta ()
                 | `Name | `Provider | `Service_type | `Running_status ->
-                    D.create_item_meta ~text:"" ())
+                    D.create_item_meta ~text:"" () )
             in
             Dom.appendChild item meta;
             meta

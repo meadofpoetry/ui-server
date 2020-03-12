@@ -19,7 +19,8 @@ module Selector = struct
   let slider = sprintf ".%s" CSS.slider
 end
 
-class t ~set_snackbar (user : Application_types.User.t) (elt : Dom_html.element Js.t) =
+class t ~set_snackbar (user : Application_types.User.t)
+  (elt : Dom_html.element Js.t) =
   object (self)
     val slider : Dom_html.element Js.t =
       match Element.query_selector elt Selector.slider with
@@ -47,10 +48,7 @@ class t ~set_snackbar (user : Application_types.User.t) (elt : Dom_html.element 
         List.mapi (fun i form ->
             let form =
               new Password_form.t
-                ~set_snackbar
-                user
-                submit_button
-                (Js.Unsafe.coerce form)
+                ~set_snackbar user submit_button (Js.Unsafe.coerce form)
             in
             form#set_disabled (i <> 0);
             form)
@@ -60,8 +58,10 @@ class t ~set_snackbar (user : Application_types.User.t) (elt : Dom_html.element 
     method! initial_sync_with_dom () : unit =
       listeners <-
         Lwt_js_events.
-          [ clicks submit_button#root self#handle_submit_click
-          ; Tab_bar.Lwt_js_events.changes user_tabs#root self#handle_user_change ];
+          [
+            clicks submit_button#root self#handle_submit_click;
+            Tab_bar.Lwt_js_events.changes user_tabs#root self#handle_user_change;
+          ];
       super#initial_sync_with_dom ()
 
     method! destroy () : unit =
@@ -86,5 +86,7 @@ class t ~set_snackbar (user : Application_types.User.t) (elt : Dom_html.element 
   end
 
 let make ~set_snackbar user : t =
-  let (elt : Dom_html.element Js.t) = Tyxml_js.To_dom.of_element @@ D.create () in
+  let (elt : Dom_html.element Js.t) =
+    Tyxml_js.To_dom.of_element @@ D.create ()
+  in
   new t ~set_snackbar user elt

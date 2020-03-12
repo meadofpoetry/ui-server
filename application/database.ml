@@ -44,49 +44,43 @@ let log_entry =
       let input_typ =
         Option.map (fun (i : topo_input) -> input_to_enum i.input) l.input
       in
-      let board =
-        match l.node with
-        | Some (Board x) -> Some x
-        | _ -> None
-      in
-      let cpu =
-        match l.node with
-        | Some (Cpu x) -> Some x
-        | _ -> None
-      in
+      let board = match l.node with Some (Board x) -> Some x | _ -> None in
+      let cpu = match l.node with Some (Cpu x) -> Some x | _ -> None in
       let pid = Option.map (fun (x : pid) -> x.id) l.pid in
       let pid_typ = Option.(join @@ map (fun (x : pid) -> x.typ) l.pid) in
       Ok
-        ( l.time
-        , ( level
-          , ( l.message
-            , ( l.info
-              , ( board
-                , (cpu, (input_id, (input_typ, (l.stream, (pid, (pid_typ, l.service))))))
+        ( l.time,
+          ( level,
+            ( l.message,
+              ( l.info,
+                ( board,
+                  ( cpu,
+                    ( input_id,
+                      (input_typ, (l.stream, (pid, (pid_typ, l.service)))) ) )
                 ) ) ) ) ))
     ~decode:
-      (fun ( time
-           , ( level
-             , ( message
-               , ( info
-                 , ( board
-                   , (cpu, (input_id, (input_typ, (stream, (pid, (pid_typ, service))))))
-                   ) ) ) ) ) ->
+      (fun ( time,
+             ( level,
+               ( message,
+                 ( info,
+                   ( board,
+                     ( cpu,
+                       ( input_id,
+                         (input_typ, (stream, (pid, (pid_typ, service)))) ) ) )
+                 ) ) ) ) ->
       let level = Option.get (Log_message.level_of_enum level) in
       let pid =
-        match pid with
-        | None -> None
-        | Some id -> Some { id; typ = pid_typ }
+        match pid with None -> None | Some id -> Some { id; typ = pid_typ }
       in
       let node =
-        match board, cpu with
+        match (board, cpu) with
         | None, None -> None
         | Some x, None -> Some (Log_message.Board x)
         | None, Some x -> Some (Cpu x)
         | Some _, Some _ -> assert false
       in
       let input =
-        match Option.bind input_typ input_of_enum, input_id with
+        match (Option.bind input_typ input_of_enum, input_id) with
         | Some input, Some id -> Some { input; id }
         | _ -> None
       in
@@ -102,25 +96,25 @@ module Model = struct
   let name = "application"
 
   let log_keys =
-    Db.make_keys
-      ~time_key:"date"
-      [ "date", key "TIMESTAMP"
-      ; "level", key "INTEGER"
-      ; "message", key "VARCHAR(80)"
-      ; "info", key "VARCHAR(400)"
-      ; "board", key "INTEGER"
-      ; "cpu", key "VARCHAR(20)"
-      ; "input_id", key "INTEGER"
-      ; "input_type", key "INTEGER"
-      ; "stream", key SID.db_type
-      ; "pid", key "INTEGER"
-      ; "pid_type", key "VARCHAR(256)" (* FIXME length *)
-      ; "service", key "VARCHAR(256)" (* TODO define length *)
+    Db.make_keys ~time_key:"date"
+      [
+        ("date", key "TIMESTAMP");
+        ("level", key "INTEGER");
+        ("message", key "VARCHAR(80)");
+        ("info", key "VARCHAR(400)");
+        ("board", key "INTEGER");
+        ("cpu", key "VARCHAR(20)");
+        ("input_id", key "INTEGER");
+        ("input_type", key "INTEGER");
+        ("stream", key SID.db_type);
+        ("pid", key "INTEGER");
+        ("pid_type", key "VARCHAR(256)") (* FIXME length *);
+        ("service", key "VARCHAR(256)") (* TODO define length *);
       ]
 
   let tables () =
     let names = { log = "log" } in
-    names, [ names.log, log_keys, None ]
+    (names, [ (names.log, log_keys, None) ])
 end
 
 module Conn = Db.Make (Model)
@@ -129,15 +123,13 @@ module R = Db.Request.Build
 let is_in field to_string = function
   | [] -> ""
   | lst ->
-      Printf.sprintf " %s IN (%s) AND " field (String.concat "," @@ List.map to_string lst)
+      Printf.sprintf " %s IN (%s) AND " field
+        (String.concat "," @@ List.map to_string lst)
 
 let is_null_or_in field to_string = function
   | [] -> ""
   | lst ->
-      Printf.sprintf
-        " (%s IS null OR %s IN (%s)) AND "
-        field
-        field
+      Printf.sprintf " (%s IS null OR %s IN (%s)) AND " field field
         (String.concat "," @@ List.map to_string lst)
 
 module Log = struct
@@ -145,42 +137,28 @@ module Log = struct
     let open Printf in
     let table = (Conn.names db).log in
     let insert_row =
-      R.exec
-        log_entry
+      R.exec log_entry
         (sprintf
            "INSERT INTO %s\n\
            \                  (date,level,message,info,board,cpu,\n\
            \                  input_id,input_type,stream,pid,\n\
            \                  pid_type,service)\n\
-           \                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?)"
-           table)
+           \                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?)" table)
     in
-    Conn.request
-      db
+    Conn.request db
       Db.Request.(
         with_trans
-          (entries
+          ( entries
           |> List.fold_left
                (fun acc entry -> acc >>= fun () -> exec insert_row entry)
-               (return ())))
+               (return ()) ))
 
   let max_limit = 500
 
-  let order_to_string = function
-    | `Desc -> "DESC"
-    | `Asc -> "ASC"
+  let order_to_string = function `Desc -> "DESC" | `Asc -> "ASC"
 
-  let select
-      db
-      ?(boards = [])
-      ?(cpu = [])
-      ?(inputs = [])
-      ?(streams = [])
-      ?limit
-      ?(order = `Desc)
-      ~from
-      ~till
-      () =
+  let select db ?(boards = []) ?(cpu = []) ?(inputs = []) ?(streams = []) ?limit
+      ?(order = `Desc) ~from ~till () =
     let open Printf in
     let open Application_types.Topology in
     let table = (Conn.names db).log in
@@ -208,17 +186,10 @@ module Log = struct
                   input_id,input_type,stream,pid,pid_type,service
                   FROM %s WHERE %s %s %s %s date >= $1 AND date <= $2
                   ORDER BY date %s LIMIT $3|}
-           table
-           boards
-           cpu
-           inputs
-           streams
-           (order_to_string order))
+           table boards cpu inputs streams (order_to_string order))
     in
-    Conn.request
-      db
+    Conn.request db
       Db.Request.(
-        list select' (from, till, limit)
-        >>= fun data ->
+        list select' (from, till, limit) >>= fun data ->
         return (Api.Raw { data; has_more = List.length data >= limit; order }))
 end

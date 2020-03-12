@@ -33,23 +33,27 @@ let status_to_string = function
   | Repackaging -> "Перепаковка"
   | Loading_cache -> "Загрузка кэша"
   | Scan_applications -> "Сканирование приложений"
-  | Generate_package_list -> "Формирование списка пакетов"
+  | Generate_package_list ->
+      "Формирование списка пакетов"
   | Waiting_for_lock -> "Ожидание"
   | Waiting_for_auth -> "Ожидание авторизации"
-  | Scan_process_list -> "Сканирование списка процессов"
-  | Check_executable_files -> "Проверка исполняемых файлов"
+  | Scan_process_list ->
+      "Сканирование списка процессов"
+  | Check_executable_files ->
+      "Проверка исполняемых файлов"
   | Check_libraries -> "Проверка библиотек"
   | Copy_files -> "Копирование файлов"
   | Run_hook -> "Запуск скритов"
 
-let action_label_check_updates = "Проверить наличие обновлений"
+let action_label_check_updates =
+  "Проверить наличие обновлений"
 
 let action_label_update = "Обновить"
 
 let action_label_reboot = "Перезагрузить"
 
 let equal_state (a : state) (b : state) =
-  match a, b with
+  match (a, b) with
   | `Updates_avail, `Updates_avail -> true
   | `Updates_not_avail, `Updates_not_avail -> true
   | `Unchecked, `Unchecked -> true
@@ -69,8 +73,7 @@ let state_to_action_label ~auto_reboot = function
   | `Checking _ | `Upgrading _ -> "Загрузка..."
   | `Updates_avail -> "Обновить"
   | `Need_reboot ->
-      if auto_reboot
-      then "Обновить страницу"
+      if auto_reboot then "Обновить страницу"
       else "Перезагрузить прибор"
   | `Unchecked | `Updates_not_avail ->
       "Проверить наличие обновлений"
@@ -85,27 +88,26 @@ let state_to_hint ~auto_reboot = function
         "Идёт проверка наличия обновлений.\n%s"
         (status_to_string status)
   | `Upgrading (status, _) ->
-      Printf.sprintf "Идёт обновление.\n%s" (status_to_string status)
-  | `Updates_avail -> "Обнаружены доступные обновления."
+      Printf.sprintf "Идёт обновление.\n%s"
+        (status_to_string status)
+  | `Updates_avail ->
+      "Обнаружены доступные обновления."
   | `Need_reboot ->
       let suffix =
-        if auto_reboot
-        then
-          "Прибор перезагружен, обновите страницу \
-           для продолжения работы."
+        if auto_reboot then
+          "Прибор перезагружен, обновите \
+           страницу для продолжения работы."
         else "Требуется перезагрузка прибора."
       in
       Printf.sprintf
-        "Обновления успешно установлены.\n%s"
-        suffix
-  | `Unchecked -> "Нет данных о доступных обновлениях."
+        "Обновления успешно установлены.\n%s" suffix
+  | `Unchecked ->
+      "Нет данных о доступных обновлениях."
   | `Updates_not_avail ->
       "На приборе установлены все доступные \
        обновления."
 
-let is_loading = function
-  | `Checking _ | `Upgrading _ -> true
-  | _ -> false
+let is_loading = function `Checking _ | `Upgrading _ -> true | _ -> false
 
 let auto_reboot = true
 
@@ -128,32 +130,30 @@ struct
 
   let create_placeholder ?classes ?a () =
     let path = state_to_svg_path default_state in
-    placeholder
-      ?classes
-      ?a
-      ~icon:(SVG.icon ~d:path ())
+    placeholder ?classes ?a ~icon:(SVG.icon ~d:path ())
       ~text:(`Text (state_to_hint ~auto_reboot default_state))
       ()
 
   let create ?classes ?(a = []) () =
-    create_section
-      ?classes
+    create_section ?classes
       ~a:(Html.a_id "remote-update" :: a)
       ~header:
         (create_section_header
-           ~title:(`Text "Дистанционное обновление")
-           ())
+           ~title:(`Text "Дистанционное обновление") ())
       ~children:
-        [ Card_markup.card_media
-            ~children:[create_placeholder (); linear_progress ~closed:true ()]
-            ()
-        ; Card_markup.card_actions
+        [
+          Card_markup.card_media
+            ~children:[ create_placeholder (); linear_progress ~closed:true () ]
+            ();
+          Card_markup.card_actions
             ~children:
-              [ button
-                  ~appearance:Raised
+              [
+                button ~appearance:Raised
                   ~label:(state_to_action_label ~auto_reboot default_state)
-                  () ]
-            () ]
+                  ();
+              ]
+            ();
+        ]
       ()
 end
 

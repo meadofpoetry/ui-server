@@ -3,545 +3,668 @@ open OBus_value
 open OBus_value.C
 open OBus_member
 open OBus_object
-module Org_freedesktop_PackageKit_Transaction =
-struct
+
+module Org_freedesktop_PackageKit_Transaction = struct
   let interface = "org.freedesktop.PackageKit.Transaction"
-  let m_AcceptEula = {
-    Method.interface = interface;
-    Method.member = "AcceptEula";
-    Method.i_args = (arg1
-                       (Some "eula_id", basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_Cancel = {
-    Method.interface = interface;
-    Method.member = "Cancel";
-    Method.i_args = (arg0);
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_DependsOn = {
-    Method.interface = interface;
-    Method.member = "DependsOn";
-    Method.i_args = (arg3
-                       (Some "filter", basic_uint64)
-                       (Some "package_ids", array basic_string)
-                       (Some "recursive", basic_boolean));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_DownloadPackages = {
-    Method.interface = interface;
-    Method.member = "DownloadPackages";
-    Method.i_args = (arg2
-                       (Some "store_in_cache", basic_boolean)
-                       (Some "package_ids", array basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_GetCategories = {
-    Method.interface = interface;
-    Method.member = "GetCategories";
-    Method.i_args = (arg0);
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_GetDetails = {
-    Method.interface = interface;
-    Method.member = "GetDetails";
-    Method.i_args = (arg1
-                       (Some "package_ids", array basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_GetDetailsLocal = {
-    Method.interface = interface;
-    Method.member = "GetDetailsLocal";
-    Method.i_args = (arg1
-                       (Some "files", array basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_GetDistroUpgrades = {
-    Method.interface = interface;
-    Method.member = "GetDistroUpgrades";
-    Method.i_args = (arg0);
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_GetFiles = {
-    Method.interface = interface;
-    Method.member = "GetFiles";
-    Method.i_args = (arg1
-                       (Some "package_ids", array basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_GetFilesLocal = {
-    Method.interface = interface;
-    Method.member = "GetFilesLocal";
-    Method.i_args = (arg1
-                       (Some "files", array basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_GetOldTransactions = {
-    Method.interface = interface;
-    Method.member = "GetOldTransactions";
-    Method.i_args = (arg1
-                       (Some "number", basic_uint32));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_GetPackages = {
-    Method.interface = interface;
-    Method.member = "GetPackages";
-    Method.i_args = (arg1
-                       (Some "filter", basic_uint64));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_GetRepoList = {
-    Method.interface = interface;
-    Method.member = "GetRepoList";
-    Method.i_args = (arg1
-                       (Some "filter", basic_uint64));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_GetUpdateDetail = {
-    Method.interface = interface;
-    Method.member = "GetUpdateDetail";
-    Method.i_args = (arg1
-                       (Some "package_ids", array basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_GetUpdates = {
-    Method.interface = interface;
-    Method.member = "GetUpdates";
-    Method.i_args = (arg1
-                       (Some "filter", basic_uint64));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_InstallFiles = {
-    Method.interface = interface;
-    Method.member = "InstallFiles";
-    Method.i_args = (arg2
-                       (Some "transaction_flags", basic_uint64)
-                       (Some "full_paths", array basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_InstallPackages = {
-    Method.interface = interface;
-    Method.member = "InstallPackages";
-    Method.i_args = (arg2
-                       (Some "transaction_flags", basic_uint64)
-                       (Some "package_ids", array basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_InstallSignature = {
-    Method.interface = interface;
-    Method.member = "InstallSignature";
-    Method.i_args = (arg3
-                       (Some "sig_type", basic_uint32)
-                       (Some "key_id", basic_string)
-                       (Some "package_id", basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_RefreshCache = {
-    Method.interface = interface;
-    Method.member = "RefreshCache";
-    Method.i_args = (arg1
-                       (Some "force", basic_boolean));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_RemovePackages = {
-    Method.interface = interface;
-    Method.member = "RemovePackages";
-    Method.i_args = (arg4
-                       (Some "transaction_flags", basic_uint64)
-                       (Some "package_ids", array basic_string)
-                       (Some "allow_deps", basic_boolean)
-                       (Some "autoremove", basic_boolean));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_RepairSystem = {
-    Method.interface = interface;
-    Method.member = "RepairSystem";
-    Method.i_args = (arg1
-                       (Some "transaction_flags", basic_uint64));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_RepoEnable = {
-    Method.interface = interface;
-    Method.member = "RepoEnable";
-    Method.i_args = (arg2
-                       (Some "repo_id", basic_string)
-                       (Some "enabled", basic_boolean));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_RepoRemove = {
-    Method.interface = interface;
-    Method.member = "RepoRemove";
-    Method.i_args = (arg3
-                       (Some "transaction_flags", basic_uint64)
-                       (Some "repo_id", basic_string)
-                       (Some "autoremove", basic_boolean));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_RepoSetData = {
-    Method.interface = interface;
-    Method.member = "RepoSetData";
-    Method.i_args = (arg3
-                       (Some "repo_id", basic_string)
-                       (Some "parameter", basic_string)
-                       (Some "value", basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_RequiredBy = {
-    Method.interface = interface;
-    Method.member = "RequiredBy";
-    Method.i_args = (arg3
-                       (Some "filter", basic_uint64)
-                       (Some "package_ids", array basic_string)
-                       (Some "recursive", basic_boolean));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_Resolve = {
-    Method.interface = interface;
-    Method.member = "Resolve";
-    Method.i_args = (arg2
-                       (Some "filter", basic_uint64)
-                       (Some "packages", array basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_SearchDetails = {
-    Method.interface = interface;
-    Method.member = "SearchDetails";
-    Method.i_args = (arg2
-                       (Some "filter", basic_uint64)
-                       (Some "values", array basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_SearchFiles = {
-    Method.interface = interface;
-    Method.member = "SearchFiles";
-    Method.i_args = (arg2
-                       (Some "filter", basic_uint64)
-                       (Some "values", array basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_SearchGroups = {
-    Method.interface = interface;
-    Method.member = "SearchGroups";
-    Method.i_args = (arg2
-                       (Some "filter", basic_uint64)
-                       (Some "values", array basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_SearchNames = {
-    Method.interface = interface;
-    Method.member = "SearchNames";
-    Method.i_args = (arg2
-                       (Some "filter", basic_uint64)
-                       (Some "values", array basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_SetHints = {
-    Method.interface = interface;
-    Method.member = "SetHints";
-    Method.i_args = (arg1
-                       (Some "hints", array basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_UpdatePackages = {
-    Method.interface = interface;
-    Method.member = "UpdatePackages";
-    Method.i_args = (arg2
-                       (Some "transaction_flags", basic_uint64)
-                       (Some "package_ids", array basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_UpgradeSystem = {
-    Method.interface = interface;
-    Method.member = "UpgradeSystem";
-    Method.i_args = (arg3
-                       (Some "transaction_flags", basic_uint64)
-                       (Some "distro_id", basic_string)
-                       (Some "upgrade_kind", basic_uint32));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let m_WhatProvides = {
-    Method.interface = interface;
-    Method.member = "WhatProvides";
-    Method.i_args = (arg2
-                       (Some "filter", basic_uint64)
-                       (Some "values", array basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.DBus.GLib.Async", "")];
-  }
-  let s_Category = {
-    Signal.interface = interface;
-    Signal.member = "Category";
-    Signal.args = (arg5
-                       (Some "parent_id", basic_string)
-                       (Some "cat_id", basic_string)
-                       (Some "name", basic_string)
-                       (Some "summary", basic_string)
-                       (Some "icon", basic_string));
-    Signal.annotations = [];
-  }
-  let s_Destroy = {
-    Signal.interface = interface;
-    Signal.member = "Destroy";
-    Signal.args = (arg0);
-    Signal.annotations = [];
-  }
-  let s_Details = {
-    Signal.interface = interface;
-    Signal.member = "Details";
-    Signal.args = (arg1
-                       (Some "data", dict string variant));
-    Signal.annotations = [("org.qtproject.QtDBus.QtTypeName.Out0", "QVariantMap")];
-  }
-  let s_DistroUpgrade = {
-    Signal.interface = interface;
-    Signal.member = "DistroUpgrade";
-    Signal.args = (arg3
-                       (Some "type", basic_uint32)
-                       (Some "name", basic_string)
-                       (Some "summary", basic_string));
-    Signal.annotations = [];
-  }
-  let s_ErrorCode = {
-    Signal.interface = interface;
-    Signal.member = "ErrorCode";
-    Signal.args = (arg2
-                       (Some "code", basic_uint32)
-                       (Some "details", basic_string));
-    Signal.annotations = [];
-  }
-  let s_EulaRequired = {
-    Signal.interface = interface;
-    Signal.member = "EulaRequired";
-    Signal.args = (arg4
-                       (Some "eula_id", basic_string)
-                       (Some "package_id", basic_string)
-                       (Some "vendor_name", basic_string)
-                       (Some "license_agreement", basic_string));
-    Signal.annotations = [];
-  }
-  let s_Files = {
-    Signal.interface = interface;
-    Signal.member = "Files";
-    Signal.args = (arg2
-                       (Some "package_id", basic_string)
-                       (Some "file_list", array basic_string));
-    Signal.annotations = [];
-  }
-  let s_Finished = {
-    Signal.interface = interface;
-    Signal.member = "Finished";
-    Signal.args = (arg2
-                       (Some "exit", basic_uint32)
-                       (Some "runtime", basic_uint32));
-    Signal.annotations = [];
-  }
-  let s_ItemProgress = {
-    Signal.interface = interface;
-    Signal.member = "ItemProgress";
-    Signal.args = (arg3
-                       (Some "id", basic_string)
-                       (Some "status", basic_uint32)
-                       (Some "percentage", basic_uint32));
-    Signal.annotations = [];
-  }
-  let s_MediaChangeRequired = {
-    Signal.interface = interface;
-    Signal.member = "MediaChangeRequired";
-    Signal.args = (arg3
-                       (Some "media_type", basic_uint32)
-                       (Some "media_id", basic_string)
-                       (Some "media_text", basic_string));
-    Signal.annotations = [];
-  }
-  let s_Package = {
-    Signal.interface = interface;
-    Signal.member = "Package";
-    Signal.args = (arg3
-                       (Some "info", basic_uint32)
-                       (Some "package_id", basic_string)
-                       (Some "summary", basic_string));
-    Signal.annotations = [];
-  }
-  let s_RepoDetail = {
-    Signal.interface = interface;
-    Signal.member = "RepoDetail";
-    Signal.args = (arg3
-                       (Some "repo_id", basic_string)
-                       (Some "description", basic_string)
-                       (Some "enabled", basic_boolean));
-    Signal.annotations = [];
-  }
-  let s_RepoSignatureRequired = {
-    Signal.interface = interface;
-    Signal.member = "RepoSignatureRequired";
-    Signal.args = (arg8
-                       (Some "package_id", basic_string)
-                       (Some "repository_name", basic_string)
-                       (Some "key_url", basic_string)
-                       (Some "key_userid", basic_string)
-                       (Some "key_id", basic_string)
-                       (Some "key_fingerprint", basic_string)
-                       (Some "key_timestamp", basic_string)
-                       (Some "type", basic_uint32));
-    Signal.annotations = [];
-  }
-  let s_RequireRestart = {
-    Signal.interface = interface;
-    Signal.member = "RequireRestart";
-    Signal.args = (arg2
-                       (Some "type", basic_uint32)
-                       (Some "package_id", basic_string));
-    Signal.annotations = [];
-  }
-  let s_Transaction = {
-    Signal.interface = interface;
-    Signal.member = "Transaction";
-    Signal.args = (arg8
-                       (Some "object_path", basic_object_path)
-                       (Some "timespec", basic_string)
-                       (Some "succeeded", basic_boolean)
-                       (Some "role", basic_uint32)
-                       (Some "duration", basic_uint32)
-                       (Some "data", basic_string)
-                       (Some "uid", basic_uint32)
-                       (Some "cmdline", basic_string));
-    Signal.annotations = [];
-  }
-  let s_UpdateDetail = {
-    Signal.interface = interface;
-    Signal.member = "UpdateDetail";
-    Signal.args = (arg12
-                       (Some "package_id", basic_string)
-                       (Some "updates", array basic_string)
-                       (Some "obsoletes", array basic_string)
-                       (Some "vendor_urls", array basic_string)
-                       (Some "bugzilla_urls", array basic_string)
-                       (Some "cve_urls", array basic_string)
-                       (Some "restart", basic_uint32)
-                       (Some "update_text", basic_string)
-                       (Some "changelog", basic_string)
-                       (Some "state", basic_uint32)
-                       (Some "issued", basic_string)
-                       (Some "updated", basic_string));
-    Signal.annotations = [];
-  }
-  let p_AllowCancel = {
-    Property.interface = interface;
-    Property.member = "AllowCancel";
-    Property.typ = basic_boolean;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_CallerActive = {
-    Property.interface = interface;
-    Property.member = "CallerActive";
-    Property.typ = basic_boolean;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_DownloadSizeRemaining = {
-    Property.interface = interface;
-    Property.member = "DownloadSizeRemaining";
-    Property.typ = basic_uint64;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_ElapsedTime = {
-    Property.interface = interface;
-    Property.member = "ElapsedTime";
-    Property.typ = basic_uint32;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_LastPackage = {
-    Property.interface = interface;
-    Property.member = "LastPackage";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Percentage = {
-    Property.interface = interface;
-    Property.member = "Percentage";
-    Property.typ = basic_uint32;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_RemainingTime = {
-    Property.interface = interface;
-    Property.member = "RemainingTime";
-    Property.typ = basic_uint32;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Role = {
-    Property.interface = interface;
-    Property.member = "Role";
-    Property.typ = basic_uint32;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Speed = {
-    Property.interface = interface;
-    Property.member = "Speed";
-    Property.typ = basic_uint32;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Status = {
-    Property.interface = interface;
-    Property.member = "Status";
-    Property.typ = basic_uint32;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_TransactionFlags = {
-    Property.interface = interface;
-    Property.member = "TransactionFlags";
-    Property.typ = basic_uint64;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Uid = {
-    Property.interface = interface;
-    Property.member = "Uid";
-    Property.typ = basic_uint32;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
+
+  let m_AcceptEula =
+    {
+      Method.interface;
+      Method.member = "AcceptEula";
+      Method.i_args = arg1 (Some "eula_id", basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_Cancel =
+    {
+      Method.interface;
+      Method.member = "Cancel";
+      Method.i_args = arg0;
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_DependsOn =
+    {
+      Method.interface;
+      Method.member = "DependsOn";
+      Method.i_args =
+        arg3
+          (Some "filter", basic_uint64)
+          (Some "package_ids", array basic_string)
+          (Some "recursive", basic_boolean);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_DownloadPackages =
+    {
+      Method.interface;
+      Method.member = "DownloadPackages";
+      Method.i_args =
+        arg2
+          (Some "store_in_cache", basic_boolean)
+          (Some "package_ids", array basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_GetCategories =
+    {
+      Method.interface;
+      Method.member = "GetCategories";
+      Method.i_args = arg0;
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_GetDetails =
+    {
+      Method.interface;
+      Method.member = "GetDetails";
+      Method.i_args = arg1 (Some "package_ids", array basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_GetDetailsLocal =
+    {
+      Method.interface;
+      Method.member = "GetDetailsLocal";
+      Method.i_args = arg1 (Some "files", array basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_GetDistroUpgrades =
+    {
+      Method.interface;
+      Method.member = "GetDistroUpgrades";
+      Method.i_args = arg0;
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_GetFiles =
+    {
+      Method.interface;
+      Method.member = "GetFiles";
+      Method.i_args = arg1 (Some "package_ids", array basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_GetFilesLocal =
+    {
+      Method.interface;
+      Method.member = "GetFilesLocal";
+      Method.i_args = arg1 (Some "files", array basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_GetOldTransactions =
+    {
+      Method.interface;
+      Method.member = "GetOldTransactions";
+      Method.i_args = arg1 (Some "number", basic_uint32);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_GetPackages =
+    {
+      Method.interface;
+      Method.member = "GetPackages";
+      Method.i_args = arg1 (Some "filter", basic_uint64);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_GetRepoList =
+    {
+      Method.interface;
+      Method.member = "GetRepoList";
+      Method.i_args = arg1 (Some "filter", basic_uint64);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_GetUpdateDetail =
+    {
+      Method.interface;
+      Method.member = "GetUpdateDetail";
+      Method.i_args = arg1 (Some "package_ids", array basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_GetUpdates =
+    {
+      Method.interface;
+      Method.member = "GetUpdates";
+      Method.i_args = arg1 (Some "filter", basic_uint64);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_InstallFiles =
+    {
+      Method.interface;
+      Method.member = "InstallFiles";
+      Method.i_args =
+        arg2
+          (Some "transaction_flags", basic_uint64)
+          (Some "full_paths", array basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_InstallPackages =
+    {
+      Method.interface;
+      Method.member = "InstallPackages";
+      Method.i_args =
+        arg2
+          (Some "transaction_flags", basic_uint64)
+          (Some "package_ids", array basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_InstallSignature =
+    {
+      Method.interface;
+      Method.member = "InstallSignature";
+      Method.i_args =
+        arg3
+          (Some "sig_type", basic_uint32)
+          (Some "key_id", basic_string)
+          (Some "package_id", basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_RefreshCache =
+    {
+      Method.interface;
+      Method.member = "RefreshCache";
+      Method.i_args = arg1 (Some "force", basic_boolean);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_RemovePackages =
+    {
+      Method.interface;
+      Method.member = "RemovePackages";
+      Method.i_args =
+        arg4
+          (Some "transaction_flags", basic_uint64)
+          (Some "package_ids", array basic_string)
+          (Some "allow_deps", basic_boolean)
+          (Some "autoremove", basic_boolean);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_RepairSystem =
+    {
+      Method.interface;
+      Method.member = "RepairSystem";
+      Method.i_args = arg1 (Some "transaction_flags", basic_uint64);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_RepoEnable =
+    {
+      Method.interface;
+      Method.member = "RepoEnable";
+      Method.i_args =
+        arg2 (Some "repo_id", basic_string) (Some "enabled", basic_boolean);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_RepoRemove =
+    {
+      Method.interface;
+      Method.member = "RepoRemove";
+      Method.i_args =
+        arg3
+          (Some "transaction_flags", basic_uint64)
+          (Some "repo_id", basic_string)
+          (Some "autoremove", basic_boolean);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_RepoSetData =
+    {
+      Method.interface;
+      Method.member = "RepoSetData";
+      Method.i_args =
+        arg3
+          (Some "repo_id", basic_string)
+          (Some "parameter", basic_string)
+          (Some "value", basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_RequiredBy =
+    {
+      Method.interface;
+      Method.member = "RequiredBy";
+      Method.i_args =
+        arg3
+          (Some "filter", basic_uint64)
+          (Some "package_ids", array basic_string)
+          (Some "recursive", basic_boolean);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_Resolve =
+    {
+      Method.interface;
+      Method.member = "Resolve";
+      Method.i_args =
+        arg2 (Some "filter", basic_uint64) (Some "packages", array basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_SearchDetails =
+    {
+      Method.interface;
+      Method.member = "SearchDetails";
+      Method.i_args =
+        arg2 (Some "filter", basic_uint64) (Some "values", array basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_SearchFiles =
+    {
+      Method.interface;
+      Method.member = "SearchFiles";
+      Method.i_args =
+        arg2 (Some "filter", basic_uint64) (Some "values", array basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_SearchGroups =
+    {
+      Method.interface;
+      Method.member = "SearchGroups";
+      Method.i_args =
+        arg2 (Some "filter", basic_uint64) (Some "values", array basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_SearchNames =
+    {
+      Method.interface;
+      Method.member = "SearchNames";
+      Method.i_args =
+        arg2 (Some "filter", basic_uint64) (Some "values", array basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_SetHints =
+    {
+      Method.interface;
+      Method.member = "SetHints";
+      Method.i_args = arg1 (Some "hints", array basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_UpdatePackages =
+    {
+      Method.interface;
+      Method.member = "UpdatePackages";
+      Method.i_args =
+        arg2
+          (Some "transaction_flags", basic_uint64)
+          (Some "package_ids", array basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_UpgradeSystem =
+    {
+      Method.interface;
+      Method.member = "UpgradeSystem";
+      Method.i_args =
+        arg3
+          (Some "transaction_flags", basic_uint64)
+          (Some "distro_id", basic_string)
+          (Some "upgrade_kind", basic_uint32);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let m_WhatProvides =
+    {
+      Method.interface;
+      Method.member = "WhatProvides";
+      Method.i_args =
+        arg2 (Some "filter", basic_uint64) (Some "values", array basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.DBus.GLib.Async", "") ];
+    }
+
+  let s_Category =
+    {
+      Signal.interface;
+      Signal.member = "Category";
+      Signal.args =
+        arg5
+          (Some "parent_id", basic_string)
+          (Some "cat_id", basic_string)
+          (Some "name", basic_string)
+          (Some "summary", basic_string)
+          (Some "icon", basic_string);
+      Signal.annotations = [];
+    }
+
+  let s_Destroy =
+    {
+      Signal.interface;
+      Signal.member = "Destroy";
+      Signal.args = arg0;
+      Signal.annotations = [];
+    }
+
+  let s_Details =
+    {
+      Signal.interface;
+      Signal.member = "Details";
+      Signal.args = arg1 (Some "data", dict string variant);
+      Signal.annotations =
+        [ ("org.qtproject.QtDBus.QtTypeName.Out0", "QVariantMap") ];
+    }
+
+  let s_DistroUpgrade =
+    {
+      Signal.interface;
+      Signal.member = "DistroUpgrade";
+      Signal.args =
+        arg3
+          (Some "type", basic_uint32)
+          (Some "name", basic_string)
+          (Some "summary", basic_string);
+      Signal.annotations = [];
+    }
+
+  let s_ErrorCode =
+    {
+      Signal.interface;
+      Signal.member = "ErrorCode";
+      Signal.args =
+        arg2 (Some "code", basic_uint32) (Some "details", basic_string);
+      Signal.annotations = [];
+    }
+
+  let s_EulaRequired =
+    {
+      Signal.interface;
+      Signal.member = "EulaRequired";
+      Signal.args =
+        arg4
+          (Some "eula_id", basic_string)
+          (Some "package_id", basic_string)
+          (Some "vendor_name", basic_string)
+          (Some "license_agreement", basic_string);
+      Signal.annotations = [];
+    }
+
+  let s_Files =
+    {
+      Signal.interface;
+      Signal.member = "Files";
+      Signal.args =
+        arg2
+          (Some "package_id", basic_string)
+          (Some "file_list", array basic_string);
+      Signal.annotations = [];
+    }
+
+  let s_Finished =
+    {
+      Signal.interface;
+      Signal.member = "Finished";
+      Signal.args =
+        arg2 (Some "exit", basic_uint32) (Some "runtime", basic_uint32);
+      Signal.annotations = [];
+    }
+
+  let s_ItemProgress =
+    {
+      Signal.interface;
+      Signal.member = "ItemProgress";
+      Signal.args =
+        arg3 (Some "id", basic_string)
+          (Some "status", basic_uint32)
+          (Some "percentage", basic_uint32);
+      Signal.annotations = [];
+    }
+
+  let s_MediaChangeRequired =
+    {
+      Signal.interface;
+      Signal.member = "MediaChangeRequired";
+      Signal.args =
+        arg3
+          (Some "media_type", basic_uint32)
+          (Some "media_id", basic_string)
+          (Some "media_text", basic_string);
+      Signal.annotations = [];
+    }
+
+  let s_Package =
+    {
+      Signal.interface;
+      Signal.member = "Package";
+      Signal.args =
+        arg3
+          (Some "info", basic_uint32)
+          (Some "package_id", basic_string)
+          (Some "summary", basic_string);
+      Signal.annotations = [];
+    }
+
+  let s_RepoDetail =
+    {
+      Signal.interface;
+      Signal.member = "RepoDetail";
+      Signal.args =
+        arg3
+          (Some "repo_id", basic_string)
+          (Some "description", basic_string)
+          (Some "enabled", basic_boolean);
+      Signal.annotations = [];
+    }
+
+  let s_RepoSignatureRequired =
+    {
+      Signal.interface;
+      Signal.member = "RepoSignatureRequired";
+      Signal.args =
+        arg8
+          (Some "package_id", basic_string)
+          (Some "repository_name", basic_string)
+          (Some "key_url", basic_string)
+          (Some "key_userid", basic_string)
+          (Some "key_id", basic_string)
+          (Some "key_fingerprint", basic_string)
+          (Some "key_timestamp", basic_string)
+          (Some "type", basic_uint32);
+      Signal.annotations = [];
+    }
+
+  let s_RequireRestart =
+    {
+      Signal.interface;
+      Signal.member = "RequireRestart";
+      Signal.args =
+        arg2 (Some "type", basic_uint32) (Some "package_id", basic_string);
+      Signal.annotations = [];
+    }
+
+  let s_Transaction =
+    {
+      Signal.interface;
+      Signal.member = "Transaction";
+      Signal.args =
+        arg8
+          (Some "object_path", basic_object_path)
+          (Some "timespec", basic_string)
+          (Some "succeeded", basic_boolean)
+          (Some "role", basic_uint32)
+          (Some "duration", basic_uint32)
+          (Some "data", basic_string)
+          (Some "uid", basic_uint32)
+          (Some "cmdline", basic_string);
+      Signal.annotations = [];
+    }
+
+  let s_UpdateDetail =
+    {
+      Signal.interface;
+      Signal.member = "UpdateDetail";
+      Signal.args =
+        arg12
+          (Some "package_id", basic_string)
+          (Some "updates", array basic_string)
+          (Some "obsoletes", array basic_string)
+          (Some "vendor_urls", array basic_string)
+          (Some "bugzilla_urls", array basic_string)
+          (Some "cve_urls", array basic_string)
+          (Some "restart", basic_uint32)
+          (Some "update_text", basic_string)
+          (Some "changelog", basic_string)
+          (Some "state", basic_uint32)
+          (Some "issued", basic_string)
+          (Some "updated", basic_string);
+      Signal.annotations = [];
+    }
+
+  let p_AllowCancel =
+    {
+      Property.interface;
+      Property.member = "AllowCancel";
+      Property.typ = basic_boolean;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_CallerActive =
+    {
+      Property.interface;
+      Property.member = "CallerActive";
+      Property.typ = basic_boolean;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_DownloadSizeRemaining =
+    {
+      Property.interface;
+      Property.member = "DownloadSizeRemaining";
+      Property.typ = basic_uint64;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_ElapsedTime =
+    {
+      Property.interface;
+      Property.member = "ElapsedTime";
+      Property.typ = basic_uint32;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_LastPackage =
+    {
+      Property.interface;
+      Property.member = "LastPackage";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Percentage =
+    {
+      Property.interface;
+      Property.member = "Percentage";
+      Property.typ = basic_uint32;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_RemainingTime =
+    {
+      Property.interface;
+      Property.member = "RemainingTime";
+      Property.typ = basic_uint32;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Role =
+    {
+      Property.interface;
+      Property.member = "Role";
+      Property.typ = basic_uint32;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Speed =
+    {
+      Property.interface;
+      Property.member = "Speed";
+      Property.typ = basic_uint32;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Status =
+    {
+      Property.interface;
+      Property.member = "Status";
+      Property.typ = basic_uint32;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_TransactionFlags =
+    {
+      Property.interface;
+      Property.member = "TransactionFlags";
+      Property.typ = basic_uint64;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Uid =
+    {
+      Property.interface;
+      Property.member = "Uid";
+      Property.typ = basic_uint32;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
   type 'a members = {
     m_AcceptEula : 'a OBus_object.t -> string -> unit Lwt.t;
     m_Cancel : 'a OBus_object.t -> unit -> unit Lwt.t;
@@ -560,9 +683,11 @@ struct
     m_GetUpdates : 'a OBus_object.t -> int64 -> unit Lwt.t;
     m_InstallFiles : 'a OBus_object.t -> int64 * string list -> unit Lwt.t;
     m_InstallPackages : 'a OBus_object.t -> int64 * string list -> unit Lwt.t;
-    m_InstallSignature : 'a OBus_object.t -> int32 * string * string -> unit Lwt.t;
+    m_InstallSignature :
+      'a OBus_object.t -> int32 * string * string -> unit Lwt.t;
     m_RefreshCache : 'a OBus_object.t -> bool -> unit Lwt.t;
-    m_RemovePackages : 'a OBus_object.t -> int64 * string list * bool * bool -> unit Lwt.t;
+    m_RemovePackages :
+      'a OBus_object.t -> int64 * string list * bool * bool -> unit Lwt.t;
     m_RepairSystem : 'a OBus_object.t -> int64 -> unit Lwt.t;
     m_RepoEnable : 'a OBus_object.t -> string * bool -> unit Lwt.t;
     m_RepoRemove : 'a OBus_object.t -> int64 * string * bool -> unit Lwt.t;
@@ -590,10 +715,9 @@ struct
     p_TransactionFlags : 'a OBus_object.t -> int64 React.signal;
     p_Uid : 'a OBus_object.t -> int32 React.signal;
   }
+
   let make members =
-    OBus_object.make_interface_unsafe interface
-      [
-      ]
+    OBus_object.make_interface_unsafe interface []
       [|
         method_info m_AcceptEula members.m_AcceptEula;
         method_info m_Cancel members.m_Cancel;

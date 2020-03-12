@@ -36,8 +36,8 @@ struct
     in
     Icon_markup.SVG.(icon ?classes ?a ~d:path ())
 
-  let create_content ?(classes = []) ?(a = []) (widget : Pipeline_types.Wm.widget) :
-      'a elt =
+  let create_content ?(classes = []) ?(a = [])
+      (widget : Pipeline_types.Wm.widget) : 'a elt =
     let pid =
       match widget.pid with
       | None -> None
@@ -45,29 +45,23 @@ struct
           let text = Printf.sprintf "PID: %d" pid in
           Some (Text_markup.typography ~text ())
     in
-    let ( ^:: ) x l =
-      match x with
-      | None -> l
-      | Some x -> x :: l
-    in
+    let ( ^:: ) x l = match x with None -> l | Some x -> x :: l in
     let text = Text_markup.typography ~text:widget.description () in
     let icon = create_icon widget in
     let classes = CSS.item_content :: classes in
-    div ~a:(a_class classes :: a) (icon :: (pid ^:: [text]))
+    div ~a:(a_class classes :: a) (icon :: (pid ^:: [ text ]))
 
-  let create_item ?(classes = []) ?(a = []) ?content (widget : Pipeline_types.Wm.widget)
-      =
+  let create_item ?(classes = []) ?(a = []) ?content
+      (widget : Pipeline_types.Wm.widget) =
     let classes = CSS.item :: classes in
     let content =
-      match content with
-      | None -> [create_content widget]
-      | Some x -> x
+      match content with None -> [ create_content widget ] | Some x -> x
     in
     div ~a:(a_class classes :: a) content
 
   let create ?(classes = []) ?(a = []) ?(content = []) () : 'a elt =
     let classes = CSS.root :: classes in
-    div ~a:(a_class classes :: a_role ["grid"] :: a) content
+    div ~a:(a_class classes :: a_role [ "grid" ] :: a) content
 end
 
 module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

@@ -12,7 +12,8 @@ module CSS = struct
 
     let fg_translate_end = "--mdc-ripple-fg-translate-end"
 
-    let vars = [left; top; fg_size; fg_scale; fg_translate_start; fg_translate_end]
+    let vars =
+      [ left; top; fg_size; fg_scale; fg_translate_start; fg_translate_end ]
   end
 
   let root = "mdc-ripple-upgraded"
@@ -31,7 +32,8 @@ module Make
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
 struct
-  let unbounded_attr = Html.a_user_data "mdc-ripple-is-unbounded" (Xml.W.return "")
+  let unbounded_attr =
+    Html.a_user_data "mdc-ripple-is-unbounded" (Xml.W.return "")
 end
 
 module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

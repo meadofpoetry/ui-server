@@ -19,7 +19,9 @@ struct
 
   let create ?(classes = []) ?a () =
     let classes = CSS.root :: classes in
-    create ~classes ?a ~children:[Shutdown_markup.create (); Reboot_markup.create ()] ()
+    create ~classes ?a
+      ~children:[ Shutdown_markup.create (); Reboot_markup.create () ]
+      ()
 end
 
 module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

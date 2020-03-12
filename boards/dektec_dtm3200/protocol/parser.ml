@@ -25,11 +25,8 @@ let err_to_string error =
     | Bad_address x -> sprintf "incorrect address: %d" x
     | Bad_category x -> sprintf "incorrect category: %d" x
     | Bad_setting (x, y) ->
-        sprintf
-          "incorrect setting: %d, in category %s(0x%02X)"
-          y
-          (category_to_string x)
-          (category_to_enum x)
+        sprintf "incorrect setting: %d, in category %s(0x%02X)" y
+          (category_to_string x) (category_to_enum x)
     | Bad_rw x -> sprintf "incorrect rw: %d" x
     | Bad_crc (x, y) -> sprintf "incorrect crc, expected %d, got %d" x y
     | Bad_value x -> sprintf "incorrect value: %s" (Cstruct.to_string x)
@@ -58,9 +55,9 @@ let check_category buf =
     match Ascii.Int.get cat with
     | None -> Error (Bad_value cat)
     | Some x -> (
-      match category_of_enum x with
-      | None -> Error (Bad_category x)
-      | Some c -> Ok (c, buf))
+        match category_of_enum x with
+        | None -> Error (Bad_category x)
+        | Some c -> Ok (c, buf) )
   with Invalid_argument _ -> Error (Insufficient_payload buf)
 
 let check_setting (cat, buf) =
@@ -69,9 +66,9 @@ let check_setting (cat, buf) =
     match Ascii.Int.get set with
     | None -> Error (Bad_value set)
     | Some x -> (
-      match response_data_size (cat, x) with
-      | None -> Error (Bad_setting (cat, x))
-      | Some length -> Ok (cat, x, length, buf))
+        match response_data_size (cat, x) with
+        | None -> Error (Bad_setting (cat, x))
+        | Some length -> Ok (cat, x, length, buf) )
   with Invalid_argument _ -> Error (Insufficient_payload buf)
 
 let check_rw (cat, set, length, buf) =
@@ -83,18 +80,14 @@ let check_rw (cat, set, length, buf) =
   with Invalid_argument _ -> Error (Insufficient_payload buf)
 
 let check_rest (category, setting, length, rw, buf) =
-  let length =
-    match rw with
-    | E -> 0
-    | _ -> length
-  in
+  let length = match rw with E -> 0 | _ -> length in
   let pfx_len =
     match category with
     | `Device | `Configuration | `Network -> sizeof_prefix
     | `IP_receive | `ASI_output -> sizeof_prefix + sizeof_setting16
   in
-  if Cstruct.len buf < pfx_len + length + sizeof_suffix
-  then Error (Insufficient_payload buf)
+  if Cstruct.len buf < pfx_len + length + sizeof_suffix then
+    Error (Insufficient_payload buf)
   else
     let pfx, msg' = Cstruct.split buf pfx_len in
     let bdy, rst' = Cstruct.split msg' length in
@@ -106,18 +99,12 @@ let check_rest (category, setting, length, rw, buf) =
     | Some crc' ->
         let etx' = get_suffix_etx sfx in
         let crc = Serializer.calc_crc ~pfx ~bdy in
-        if crc' <> crc
-        then Error (Bad_crc (crc, crc'))
-        else if etx' <> etx
-        then Error (Bad_etx etx')
-        else Ok ({category; setting; rw; data = bdy}, rest)
+        if crc' <> crc then Error (Bad_crc (crc, crc'))
+        else if etx' <> etx then Error (Bad_etx etx')
+        else Ok ({ category; setting; rw; data = bdy }, rest)
 
 let get_msg ~address buf =
-  let ( >>= ) r f =
-    match r with
-    | Error e -> Error e
-    | Ok x -> f x
-  in
+  let ( >>= ) r f = match r with Error e -> Error e | Ok x -> f x in
   check_stx buf
   >>= check_address ~address
   >>= check_category
@@ -130,17 +117,18 @@ let deserialize ~address src buf =
     match Cstruct.len buf with
     | x when x < sizeof_prefix + sizeof_suffix -> acc
     | _ -> (
-      match get_msg ~address buf with
-      | Ok (x, rest) -> aux (x :: responses, rest)
-      | Error e -> (
-        match e with
-        | Insufficient_payload x -> responses, x
-        | e ->
-            Logs.warn ~src (fun m -> m "parser error: %s" @@ err_to_string e);
-            aux (responses, Cstruct.shift buf 1)))
+        match get_msg ~address buf with
+        | Ok (x, rest) -> aux (x :: responses, rest)
+        | Error e -> (
+            match e with
+            | Insufficient_payload x -> (responses, x)
+            | e ->
+                Logs.warn ~src (fun m ->
+                    m "parser error: %s" @@ err_to_string e);
+                aux (responses, Cstruct.shift buf 1) ) )
   in
   let responses, rest = aux ([], buf) in
-  List.rev responses, if Cstruct.len rest > 0 then Some rest else None
+  (List.rev responses, if Cstruct.len rest > 0 then Some rest else None)
 
 let is_response (type a) (req : a Request.t) (m : Cstruct.t cmd) :
     (a, error) result option =

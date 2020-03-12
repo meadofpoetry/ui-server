@@ -19,34 +19,30 @@ module Selector = struct
   let service_overview = Printf.sprintf ".%s" Service_overview.CSS.root
 end
 
-type state =
-  { mutable socket : Api_js.Websocket.JSON.t option
-  ; mutable finalize : unit -> unit
-  }
+type state = {
+  mutable socket : Api_js.Websocket.JSON.t option;
+  mutable finalize : unit -> unit;
+}
 (** Tab state. *)
 
 (** Make necessary HTTP and Websocket requests to the server. *)
 let do_requests ~input state control =
-  Http_streams.get_streams ~inputs:[ input ] control
-  >>= fun streams_init ->
-  Http_monitoring.get_pids control
-  >>= fun pids_init ->
-  Http_monitoring.get_services control
-  >>= fun services_init ->
-  Api_js.Websocket.JSON.open_socket ~path:(Netlib.Uri.Path.Format.of_string "ws") ()
+  Http_streams.get_streams ~inputs:[ input ] control >>= fun streams_init ->
+  Http_monitoring.get_pids control >>= fun pids_init ->
+  Http_monitoring.get_services control >>= fun services_init ->
+  Api_js.Websocket.JSON.open_socket
+    ~path:(Netlib.Uri.Path.Format.of_string "ws")
+    ()
   >>= fun socket ->
   Option.iter Api_js.Websocket.close_socket state.socket;
   state.socket <- Some socket;
   Http_streams.Event.get_streams ~inputs:[ input ] socket control
   >>= fun (_, streams_ev) ->
-  Http_device.Event.get_state socket control
-  >>= fun (_, state_ev) ->
+  Http_device.Event.get_state socket control >>= fun (_, state_ev) ->
   Http_monitoring.Event.get_bitrate_with_stats socket control
   >>= fun (_, bitrate_ev) ->
-  Http_monitoring.Event.get_pids socket control
-  >>= fun (_, pids_ev) ->
-  Http_monitoring.Event.get_services socket control
-  >>= fun (_, services_ev) ->
+  Http_monitoring.Event.get_pids socket control >>= fun (_, pids_ev) ->
+  Http_monitoring.Event.get_services socket control >>= fun (_, services_ev) ->
   let streams = React.S.hold streams_init streams_ev in
   let pids = React.S.hold pids_init pids_ev in
   let services = React.S.hold services_init services_ev in
@@ -69,9 +65,7 @@ class t ~set_stream ~set_selected ~set_hex elt () =
     val stream_select : Stream_select.t =
       Stream_select.attach ~on_change:(fun x ->
           let id =
-            match x#value with
-            | None -> None
-            | Some (x : Stream.t) -> Some x.id
+            match x#value with None -> None | Some (x : Stream.t) -> Some x.id
           in
           set_stream id)
       @@ Element.query_selector_exn elt Selector.stream_select
@@ -102,7 +96,7 @@ let get_data v = function
   | Some s -> (
       match List.assoc_opt s v with
       | None -> []
-      | Some (x : _ Board_niitv_tsan_types.ts) -> x.data)
+      | Some (x : _ Board_niitv_tsan_types.ts) -> x.data )
 
 (** Called when this tab becomes active. *)
 let on_visible ~input (elt : Dom_html.element Js.t) (state : state) control =
@@ -112,10 +106,7 @@ let on_visible ~input (elt : Dom_html.element Js.t) (state : state) control =
     do_requests ~input state control
     >>= fun (streams, pids, services, state_ev, bitrate_ev, fin) ->
     let stream, set_stream =
-      S.create
-        (match S.value streams with
-        | [] -> None
-        | x :: _ -> Some x.id)
+      S.create (match S.value streams with [] -> None | x :: _ -> Some x.id)
     in
     let selected, set_selected = S.create None in
     let s_pids = S.l2 get_data pids stream in
@@ -125,30 +116,21 @@ let on_visible ~input (elt : Dom_html.element Js.t) (state : state) control =
         (fun id data ->
           match id with
           | None -> None
-          | Some id -> Option.map (fun x -> id, x) (List.assoc_opt id data))
-        selected
-        s_data
+          | Some id -> Option.map (fun x -> (id, x)) (List.assoc_opt id data))
+        selected s_data
     in
     let bitrate =
       S.hold None
       @@ S.sample
-           (fun bitrate -> function
-             | None -> None
+           (fun bitrate -> function None -> None
              | Some stream -> List.assoc_opt stream bitrate)
-           bitrate_ev
-           stream
+           bitrate_ev stream
     in
     let hex, set_hex = S.create false in
     let stream_select = Stream_select.R.create ~streams () in
     let service_overview =
-      Service_overview.R.create
-        ~pids:s_pids
-        ~selected:s_service
-        ~hex
-        ~init:(RList.from_signal s_data)
-        ~bitrate
-        ~control
-        ()
+      Service_overview.R.create ~pids:s_pids ~selected:s_service ~hex
+        ~init:(RList.from_signal s_data) ~bitrate ~control ()
     in
     let page =
       attach ~set_stream ~set_selected ~set_hex
@@ -179,8 +161,7 @@ let on_hidden state =
 let init ~input control =
   let state = { socket = None; finalize = (fun () -> ()) } in
   let _result =
-    Ui_templates.Tabbed_page.Tabpanel.init
-      ~id:(id control)
+    Ui_templates.Tabbed_page.Tabpanel.init ~id:(id control)
       ~on_visible:(fun tabpanel -> on_visible ~input tabpanel state control)
       ~on_hidden:(fun _tabpanel -> on_hidden state)
       ()

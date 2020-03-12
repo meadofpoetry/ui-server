@@ -1,12 +1,12 @@
 (executable
-  (name       page_user_settings)
-  (libraries  components
-              components_lab
-              application_http_js
-              page_user_settings_tyxml)
-  (preprocess (pps js_of_ocaml-ppx)))
+ (name page_user_settings)
+ (libraries components components_lab application_http_js
+   page_user_settings_tyxml)
+ (preprocess
+  (pps js_of_ocaml-ppx)))
 
 (install
-  (files (page_user_settings.bc.js as js/page-user-settings.js))
-  (section share)
-  (package ui-server))
+ (files
+  (page_user_settings.bc.js as js/page-user-settings.js))
+ (section share)
+ (package ui-server))

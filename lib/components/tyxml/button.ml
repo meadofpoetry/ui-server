@@ -1,7 +1,4 @@
-type appearance =
-  | Raised
-  | Outlined
-  | Unelevated
+type appearance = Raised | Outlined | Unelevated
 
 module CSS = struct
   (** Mandatory. Defaults to a text button that in flush with the surface. *)
@@ -44,51 +41,50 @@ struct
 
   let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
 
-  let button_loader_container ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+  let button_loader_container ?(classes = return []) ?(a = [])
+      ?(children = nil ()) () =
     let classes = fmap (List.cons CSS.loader_container) classes in
     div ~a:(a_class classes :: a) children
 
-  let button_ ?(classes = return []) ?appearance ?(dense = false) ?icon ?label () =
+  let button_ ?(classes = return []) ?appearance ?(dense = false) ?icon ?label
+      () =
     let make_label x =
       span ~a:[ a_class @@ return [ CSS.label ] ] (singleton (return (txt x)))
     in
     let classes =
       fmap
-        (Utils.map_cons_option
-           (function
-             | Raised -> CSS.raised
-             | Outlined -> CSS.outlined
-             | Unelevated -> CSS.unelevated)
-           appearance
+        ( Utils.map_cons_option
+            (function
+              | Raised -> CSS.raised
+              | Outlined -> CSS.outlined
+              | Unelevated -> CSS.unelevated)
+            appearance
         % Utils.cons_if dense CSS.dense
-        % List.cons CSS.root)
+        % List.cons CSS.root )
         classes
     in
     let label = Option.map (return % make_label) label in
-    icon ^:: label ^:: nil (), classes
+    (icon ^:: label ^:: nil (), classes)
 
   let button_a ?classes ?(a = []) ?href ?appearance ?dense ?icon ?label () =
-    let children, classes = button_ ?classes ?appearance ?dense ?icon ?label () in
-    Html.a ~a:([ a_class classes ] @ a |> Utils.map_cons_option a_href href) children
+    let children, classes =
+      button_ ?classes ?appearance ?dense ?icon ?label ()
+    in
+    Html.a
+      ~a:([ a_class classes ] @ a |> Utils.map_cons_option a_href href)
+      children
 
-  let button
-      ?classes
-      ?(a = [])
-      ?button_type
-      ?appearance
-      ?on_click
-      ?(disabled = false)
-      ?dense
-      ?icon
-      ?label
-      () =
-    let children, classes = button_ ?classes ?appearance ?dense ?icon ?label () in
+  let button ?classes ?(a = []) ?button_type ?appearance ?on_click
+      ?(disabled = false) ?dense ?icon ?label () =
+    let children, classes =
+      button_ ?classes ?appearance ?dense ?icon ?label ()
+    in
     button
       ~a:
-        (a_class classes :: a
+        ( a_class classes :: a
         |> Utils.map_cons_option a_onclick on_click
         |> Utils.map_cons_option a_button_type button_type
-        |> Utils.cons_if disabled @@ a_disabled ())
+        |> Utils.cons_if disabled @@ a_disabled () )
       children
 end
 

@@ -35,57 +35,40 @@ struct
 
   let ( @:: ) = cons
 
-  let linear_progress_buffering_dots
-      ?(classes = return [])
-      ?(a = [])
-      ?(children = nil ())
-      () =
+  let linear_progress_buffering_dots ?(classes = return []) ?(a = [])
+      ?(children = nil ()) () =
     let classes = fmap (List.cons CSS.buffering_dots) classes in
     div ~a:(a_class classes :: a) children
 
-  let linear_progress_buffer ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+  let linear_progress_buffer ?(classes = return []) ?(a = [])
+      ?(children = nil ()) () =
     let classes = fmap (List.cons CSS.buffer) classes in
     div ~a:(a_class classes :: a) children
 
-  let linear_progress_bar_inner ?(classes = return []) ?(a = []) ?(children = nil ()) ()
-      =
+  let linear_progress_bar_inner ?(classes = return []) ?(a = [])
+      ?(children = nil ()) () =
     let classes = fmap (List.cons CSS.bar_inner) classes in
     span ~a:(a_class classes :: a) children
 
-  let linear_progress_primary_bar
-      ?(classes = return [])
-      ?(a = [])
-      ?(children = singleton (return (linear_progress_bar_inner ())))
-      () =
+  let linear_progress_primary_bar ?(classes = return []) ?(a = [])
+      ?(children = singleton (return (linear_progress_bar_inner ()))) () =
     let classes = fmap (fun x -> CSS.bar :: CSS.primary_bar :: x) classes in
     div ~a:(a_class classes :: a) children
 
-  let linear_progress_secondary_bar
-      ?(classes = return [])
-      ?(a = [])
-      ?(children = singleton (return (linear_progress_bar_inner ())))
-      () =
+  let linear_progress_secondary_bar ?(classes = return []) ?(a = [])
+      ?(children = singleton (return (linear_progress_bar_inner ()))) () =
     let classes = fmap (fun x -> CSS.bar :: CSS.secondary_bar :: x) classes in
     div ~a:(a_class classes :: a) children
 
-  let linear_progress
-      ?(classes = return [])
-      ?(a = [])
-      ?(indeterminate = false)
-      ?(reversed = false)
-      ?(closed = false)
-      ?buffering_dots
-      ?buffer
-      ?primary_bar
-      ?secondary_bar
-      ?children
-      () : 'a elt =
+  let linear_progress ?(classes = return []) ?(a = []) ?(indeterminate = false)
+      ?(reversed = false) ?(closed = false) ?buffering_dots ?buffer ?primary_bar
+      ?secondary_bar ?children () : 'a elt =
     let classes =
       fmap
-        (Utils.cons_if closed CSS.closed
+        ( Utils.cons_if closed CSS.closed
         % Utils.cons_if indeterminate CSS.indeterminate
         % Utils.cons_if reversed CSS.reversed
-        % List.cons CSS.root)
+        % List.cons CSS.root )
         classes
     in
     let children =
@@ -93,9 +76,7 @@ struct
       | Some x -> x
       | None ->
           let opt_get_lazy ~default o =
-            match o with
-            | None -> return (default ())
-            | Some x -> return x
+            match o with None -> return (default ()) | Some x -> return x
           in
           opt_get_lazy ~default:linear_progress_buffering_dots buffering_dots
           @:: opt_get_lazy ~default:linear_progress_buffer buffer
@@ -103,5 +84,5 @@ struct
           @:: opt_get_lazy ~default:linear_progress_secondary_bar secondary_bar
           @:: nil ()
     in
-    div ~a:(a_role (return ["progressbar"]) :: a_class classes :: a) children
+    div ~a:(a_role (return [ "progressbar" ]) :: a_class classes :: a) children
 end

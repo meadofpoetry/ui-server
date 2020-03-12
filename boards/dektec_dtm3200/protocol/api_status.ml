@@ -16,7 +16,9 @@ let get_status (api : Protocol.api) timeout _user _body _env _state =
     | Some x -> float_of_int x /. 1000.
   in
   Lwt.pick
-    [ Boards.Board.await_no_response api.notifs.state >>= not_responding
-    ; Util_react.E.next api.notifs.status >>= Lwt.return_ok
-    ; (Lwt_unix.sleep timeout >>= fun () -> Lwt.return_error Request.Timeout) ]
+    [
+      Boards.Board.await_no_response api.notifs.state >>= not_responding;
+      Util_react.E.next api.notifs.status >>= Lwt.return_ok;
+      (Lwt_unix.sleep timeout >>= fun () -> Lwt.return_error Request.Timeout);
+    ]
   >>=? return_value % status_to_yojson

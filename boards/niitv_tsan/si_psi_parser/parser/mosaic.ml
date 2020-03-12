@@ -40,9 +40,9 @@ let further ~cli ~offset _ x =
          ; rest       : -1 : save_offset_to (off_1), bitstring
          |}
         ->
-          ( [Node.make ~offset 16 "bouquet_id" (Hex (Int bouquet_id))]
-          , rest
-          , offset + off_1 ))
+          ( [ Node.make ~offset 16 "bouquet_id" (Hex (Int bouquet_id)) ],
+            rest,
+            offset + off_1 ) )
   | 0x02 | 0x03 -> (
       match%bitstring x with
       | {| on_id : 16
@@ -51,15 +51,15 @@ let further ~cli ~offset _ x =
          ; rest  : -1 : save_offset_to (off_3), bitstring
          |}
         ->
-          ( [ Node.make ~offset 16 "original_network_id" (Hex (Int on_id))
-            ; Node.make
-                ~offset:(offset + off_1)
-                16
-                "transport_stream_id"
-                (Hex (Int ts_id))
-            ; Node.make ~offset:(offset + off_2) 16 "service_id" (Hex (Int sv_id)) ]
-          , rest
-          , offset + off_3 ))
+          ( [
+              Node.make ~offset 16 "original_network_id" (Hex (Int on_id));
+              Node.make ~offset:(offset + off_1) 16 "transport_stream_id"
+                (Hex (Int ts_id));
+              Node.make ~offset:(offset + off_2) 16 "service_id"
+                (Hex (Int sv_id));
+            ],
+            rest,
+            offset + off_3 ) )
   | 0x04 -> (
       match%bitstring x with
       | {| on_id : 16
@@ -69,21 +69,20 @@ let further ~cli ~offset _ x =
          ; rest  : -1 : save_offset_to (off_4), bitstring
          |}
         ->
-          ( [ Node.make ~offset 16 "original_network_id" (Hex (Int on_id))
-            ; Node.make
-                ~offset:(offset + off_1)
-                16
-                "transport_stream_id"
-                (Hex (Int ts_id))
-            ; Node.make ~offset:(offset + off_2) 16 "service_id" (Hex (Int sv_id))
-            ; Node.make ~offset:(offset + off_3) 16 "event_id" (Hex (Int ev_id)) ]
-          , rest
-          , offset + off_4 ))
+          ( [
+              Node.make ~offset 16 "original_network_id" (Hex (Int on_id));
+              Node.make ~offset:(offset + off_1) 16 "transport_stream_id"
+                (Hex (Int ts_id));
+              Node.make ~offset:(offset + off_2) 16 "service_id"
+                (Hex (Int sv_id));
+              Node.make ~offset:(offset + off_3) 16 "event_id" (Hex (Int ev_id));
+            ],
+            rest,
+            offset + off_4 ) )
   | _ -> assert false
 
 let rec f_2 off x =
-  if Bitstring.bitstring_length x = 0
-  then []
+  if Bitstring.bitstring_length x = 0 then []
   else
     match%bitstring x with
     | {| rfu                : 2
@@ -92,18 +91,16 @@ let rec f_2 off x =
        |}
       ->
         let nodes =
-          [ Node.make ~offset:off 2 "reserved_future_use" (Bits (Int rfu))
-          ; Node.make
-              ~offset:(off + off_1)
-              6
-              "elementary_cell_id"
-              (Dec (Int elementary_cell_id)) ]
+          [
+            Node.make ~offset:off 2 "reserved_future_use" (Bits (Int rfu));
+            Node.make ~offset:(off + off_1) 6 "elementary_cell_id"
+              (Dec (Int elementary_cell_id));
+          ]
         in
         nodes @ f_2 (off + off_2) rest
 
 let rec f off x =
-  if Bitstring.bitstring_length x = 0
-  then []
+  if Bitstring.bitstring_length x = 0 then []
   else
     match%bitstring x with
     | {| logical_cell_id : 6
@@ -117,32 +114,29 @@ let rec f off x =
       ->
         let parsed = parse_present_info pr_info in
         let nodes =
-          [ Node.make ~offset:off 6 "logical_cell_id" (Hex (Int logical_cell_id))
-          ; Node.make ~offset:(off + off_1) 7 "reserved_future_use" (Bits (Int rfu))
-          ; Node.make
-              ~parsed
-              ~offset:(off + off_2)
-              3
-              "logical_cell_presentation_info"
-              (Bits (Int pr_info))
-          ; Node.make
-              ~offset:(off + off_3)
-              8
-              "elementary_cell_field_length"
-              (Dec (Int elem_len)) ]
+          [
+            Node.make ~offset:off 6 "logical_cell_id"
+              (Hex (Int logical_cell_id));
+            Node.make ~offset:(off + off_1) 7 "reserved_future_use"
+              (Bits (Int rfu));
+            Node.make ~parsed ~offset:(off + off_2) 3
+              "logical_cell_presentation_info" (Bits (Int pr_info));
+            Node.make ~offset:(off + off_3) 8 "elementary_cell_field_length"
+              (Dec (Int elem_len));
+          ]
         in
         let nodes = nodes @ f_2 (off + off_4) elem_cell_field in
         let cli_parsed = parse_cli cli in
         let cli_node =
-          [ Node.make
-              ~parsed:cli_parsed
-              ~offset:(off + off_5)
-              8
-              "cell_linkage_info"
-              (Hex (Int cli)) ]
+          [
+            Node.make ~parsed:cli_parsed ~offset:(off + off_5) 8
+              "cell_linkage_info" (Hex (Int cli));
+          ]
         in
         let nodes = nodes @ cli_node in
-        let nodes, rest, off_7 = further ~cli ~offset:(off + off_6) nodes rest in
+        let nodes, rest, off_7 =
+          further ~cli ~offset:(off + off_6) nodes rest
+        in
         nodes @ f (off + off_7) rest
 
 let parse bs off =
@@ -157,19 +151,15 @@ let parse bs off =
       let ver_cells = parse_cells ver in
       let hor_cells = parse_cells hor in
       let nodes =
-        [ Node.make ~offset:off 1 "mosaic_entry_point" (Bits (Bool mosaic_entry_point))
-        ; Node.make
-            ~parsed:hor_cells
-            ~offset:(off + off_1)
-            3
-            "number_of_horizontal_elementary_cells"
-            (Dec (Int hor))
-        ; Node.make ~offset:(off + off_2) 1 "reserved_future_use" (Bits (Bool rfu))
-        ; Node.make
-            ~parsed:ver_cells
-            ~offset:(off + off_3)
-            3
-            "number_of_vertical_elementary_cells"
-            (Dec (Int ver)) ]
+        [
+          Node.make ~offset:off 1 "mosaic_entry_point"
+            (Bits (Bool mosaic_entry_point));
+          Node.make ~parsed:hor_cells ~offset:(off + off_1) 3
+            "number_of_horizontal_elementary_cells" (Dec (Int hor));
+          Node.make ~offset:(off + off_2) 1 "reserved_future_use"
+            (Bits (Bool rfu));
+          Node.make ~parsed:ver_cells ~offset:(off + off_3) 3
+            "number_of_vertical_elementary_cells" (Dec (Int ver));
+        ]
       in
       nodes @ f (off + off_4) rest

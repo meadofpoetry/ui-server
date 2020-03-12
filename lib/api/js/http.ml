@@ -12,55 +12,28 @@ module type BODY = sig
   val accept : string
 end
 
-type meth =
-  [ `DELETE
-  | `GET
-  | `HEAD
-  | `OPTIONS
-  | `PATCH
-  | `POST
-  | `PUT ]
+type meth = [ `DELETE | `GET | `HEAD | `OPTIONS | `PATCH | `POST | `PUT ]
 
 type env = string -> string option
 
-type error = [`Msg of string]
+type error = [ `Msg of string ]
 
 let make_uri ?scheme ?host ?port ~f ~path ~query =
   let host =
-    match host with
-    | None -> Js_of_ocaml.Url.Current.host
-    | Some x -> x
+    match host with None -> Js_of_ocaml.Url.Current.host | Some x -> x
   in
   let port =
-    match port with
-    | None -> Js_of_ocaml.Url.Current.port
-    | Some x -> Some x
+    match port with None -> Js_of_ocaml.Url.Current.port | Some x -> Some x
   in
-  Uri.kconstruct ?scheme ~host ?port ~f:(f % Uri.pct_decode % Uri.to_string) ~path ~query
+  Uri.kconstruct ?scheme ~host ?port
+    ~f:(f % Uri.pct_decode % Uri.to_string)
+    ~path ~query
 
-let perform
-    ?headers
-    ?progress
-    ?upload_progress
-    ?contents
-    ?content_type
-    ?meth
-    ?with_credentials
-    ?scheme
-    ?host
-    ?port
-    ~path
-    ~query =
+let perform ?headers ?progress ?upload_progress ?contents ?content_type ?meth
+    ?with_credentials ?scheme ?host ?port ~path ~query =
   let f uri cb : 'a Lwt.t =
-    XmlHttpRequest.perform_raw_url
-      ?headers
-      ?progress
-      ?upload_progress
-      ?contents
-      ?content_type
-      ?override_method:meth
-      ?with_credentials
-      uri
+    XmlHttpRequest.perform_raw_url ?headers ?progress ?upload_progress ?contents
+      ?content_type ?override_method:meth ?with_credentials uri
     >>= fun (x : XmlHttpRequest.http_frame) ->
     let res =
       match Code.of_int x.code with
@@ -73,28 +46,12 @@ let perform
   in
   make_uri ?scheme ?host ?port ~f ~path ~query
 
-let perform_file
-    ?headers
-    ?progress
-    ?upload_progress
-    ~file
-    ?meth
-    ?with_credentials
-    ?scheme
-    ?host
-    ?port
-    ~path
-    ~query =
+let perform_file ?headers ?progress ?upload_progress ~file ?meth
+    ?with_credentials ?scheme ?host ?port ~path ~query =
   let f uri cb : 'a Lwt.t =
-    XmlHttpRequest.perform_raw_url
-      ?headers
-      ?progress
-      ?upload_progress
-      ~content_type:"application/octet-stream"
-      ~contents:(`Blob file)
-      ?override_method:meth
-      ?with_credentials
-      uri
+    XmlHttpRequest.perform_raw_url ?headers ?progress ?upload_progress
+      ~content_type:"application/octet-stream" ~contents:(`Blob file)
+      ?override_method:meth ?with_credentials uri
     >>= fun (x : XmlHttpRequest.http_frame) ->
     let res =
       match Code.of_int x.code with
@@ -109,50 +66,43 @@ let perform_file
 
 module Make (Body : BODY) : sig
   val perform :
-       ?headers:(string * string) list
-    -> ?progress:(int -> int -> unit)
-    -> ?upload_progress:(int -> int -> unit)
-    -> ?body:Body.t
-    -> ?meth:meth
-    -> ?with_credentials:bool
-    -> ?scheme:string
-    -> ?host:string
-    -> ?port:int
-    -> path:('b, 'c) Uri.Path.Format.t
-    -> query:
-         ('c, (env -> (Body.t, error) result -> 'a Lwt.t) -> 'a Lwt.t) Uri.Query.format
-    -> 'b
+    ?headers:(string * string) list ->
+    ?progress:(int -> int -> unit) ->
+    ?upload_progress:(int -> int -> unit) ->
+    ?body:Body.t ->
+    ?meth:meth ->
+    ?with_credentials:bool ->
+    ?scheme:string ->
+    ?host:string ->
+    ?port:int ->
+    path:('b, 'c) Uri.Path.Format.t ->
+    query:
+      ( 'c,
+        (env -> (Body.t, error) result -> 'a Lwt.t) -> 'a Lwt.t )
+      Uri.Query.format ->
+    'b
 
   val perform_unit :
-       ?headers:(string * string) list
-    -> ?progress:(int -> int -> unit)
-    -> ?upload_progress:(int -> int -> unit)
-    -> ?body:Body.t
-    -> ?meth:meth
-    -> ?with_credentials:bool
-    -> ?scheme:string
-    -> ?host:string
-    -> ?port:int
-    -> path:('b, 'c) Uri.Path.Format.t
-    -> query:('c, (env -> (unit, error) result -> 'a Lwt.t) -> 'a Lwt.t) Uri.Query.format
-    -> 'b
+    ?headers:(string * string) list ->
+    ?progress:(int -> int -> unit) ->
+    ?upload_progress:(int -> int -> unit) ->
+    ?body:Body.t ->
+    ?meth:meth ->
+    ?with_credentials:bool ->
+    ?scheme:string ->
+    ?host:string ->
+    ?port:int ->
+    path:('b, 'c) Uri.Path.Format.t ->
+    query:
+      ( 'c,
+        (env -> (unit, error) result -> 'a Lwt.t) -> 'a Lwt.t )
+      Uri.Query.format ->
+    'b
 end = struct
-  let perform
-      ?headers
-      ?progress
-      ?upload_progress
-      ?body
-      ?meth
-      ?with_credentials
-      ?scheme
-      ?host
-      ?port
-      ~path
-      ~query =
+  let perform ?headers ?progress ?upload_progress ?body ?meth ?with_credentials
+      ?scheme ?host ?port ~path ~query =
     let content_type =
-      match body with
-      | None -> None
-      | Some _ -> Some Body.content_type
+      match body with None -> None | Some _ -> Some Body.content_type
     in
     let contents =
       match body with
@@ -160,15 +110,8 @@ end = struct
       | Some x -> Some (`String (Body.to_string x))
     in
     let f uri cb : 'a Lwt.t =
-      XmlHttpRequest.perform_raw_url
-        ?headers
-        ?progress
-        ?upload_progress
-        ?content_type
-        ?contents
-        ?override_method:meth
-        ?with_credentials
-        uri
+      XmlHttpRequest.perform_raw_url ?headers ?progress ?upload_progress
+        ?content_type ?contents ?override_method:meth ?with_credentials uri
       >>= fun (x : XmlHttpRequest.http_frame) ->
       let res =
         match Code.of_int x.code with
@@ -181,22 +124,10 @@ end = struct
     in
     make_uri ?scheme ?host ?port ~f ~path ~query
 
-  let perform_unit
-      ?headers
-      ?progress
-      ?upload_progress
-      ?body
-      ?meth
-      ?with_credentials
-      ?scheme
-      ?host
-      ?port
-      ~path
-      ~query =
+  let perform_unit ?headers ?progress ?upload_progress ?body ?meth
+      ?with_credentials ?scheme ?host ?port ~path ~query =
     let content_type =
-      match body with
-      | None -> None
-      | Some _ -> Some Body.content_type
+      match body with None -> None | Some _ -> Some Body.content_type
     in
     let contents =
       match body with
@@ -204,15 +135,8 @@ end = struct
       | Some x -> Some (`String (Body.to_string x))
     in
     let f uri cb : 'a Lwt.t =
-      XmlHttpRequest.perform_raw_url
-        ?headers
-        ?progress
-        ?upload_progress
-        ?contents
-        ?content_type
-        ?override_method:meth
-        ?with_credentials
-        uri
+      XmlHttpRequest.perform_raw_url ?headers ?progress ?upload_progress
+        ?contents ?content_type ?override_method:meth ?with_credentials uri
       >>= fun (x : XmlHttpRequest.http_frame) ->
       let res =
         match Code.of_int x.code with

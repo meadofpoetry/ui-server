@@ -1,11 +1,14 @@
-include (Lwt_react : module type of struct include Lwt_react end
-                                    with module E := Lwt_react.E
-                                    with module S := Lwt_react.S)
+include (
+  Lwt_react :
+    module type of struct
+      include Lwt_react
+    end
+    with module E := Lwt_react.E
+    with module S := Lwt_react.S )
 
 type step = React.step
 
 module E = struct
-
   include Lwt_react.E
 
   let next ev =
@@ -14,33 +17,34 @@ module E = struct
     Lwt.on_cancel t (fun () -> stop ev);
     t
 
-  let changes ~(eq:'a -> 'a -> bool) (e : 'a event) : 'a event =
-    changes ~eq e
+  let changes ~(eq : 'a -> 'a -> bool) (e : 'a event) : 'a event = changes ~eq e
 
   let aggregate_merge ~merge t es =
     let merged = React.E.merge merge [] es in
     let tm = ref Lwt.return_unit in
     let result = ref [] in
     let event, epush = React.E.create () in
-    let iter = React.E.fmap (fun l ->
-                   if Lwt.is_sleeping !tm then begin
-                       result := l @ !result;
-                       None
-                     end else begin
-                       tm := t ();
-                       result := l @ !result;
-                       Lwt.on_success !tm (fun () -> epush !result; result := []);
-                       None
-                     end) merged
+    let iter =
+      React.E.fmap
+        (fun l ->
+          if Lwt.is_sleeping !tm then (
+            result := l @ !result;
+            None )
+          else (
+            tm := t ();
+            result := l @ !result;
+            Lwt.on_success !tm (fun () ->
+                epush !result;
+                result := []);
+            None ))
+        merged
     in
-    React.E.select [iter; event]
+    React.E.select [ iter; event ]
 
-  let aggregate t es = aggregate_merge ~merge:(fun acc x -> x::acc) t es
-
+  let aggregate t es = aggregate_merge ~merge:(fun acc x -> x :: acc) t es
 end
 
 module S = struct
-
   include Lwt_react.S
 
   let create ~eq = create ~eq
@@ -74,10 +78,15 @@ module S = struct
   let fix ~eq = fix ~eq
 
   let l1 ~eq f = l1 ~eq f
+
   let l2 ~eq f = l2 ~eq f
+
   let l3 ~eq f = l3 ~eq f
+
   let l4 ~eq f = l4 ~eq f
+
   let l5 ~eq f = l5 ~eq f
+
   let l6 ~eq f = l6 ~eq f
 
   (* Lwt react *)
@@ -103,12 +112,16 @@ module S = struct
   let merge_s ~eq = merge_s ~eq
 
   let l1_s ~eq = l1_s ~eq
+
   let l2_s ~eq = l2_s ~eq
+
   let l3_s ~eq = l3_s ~eq
+
   let l4_s ~eq = l4_s ~eq
+
   let l5_s ~eq = l5_s ~eq
+
   let l6_s ~eq = l6_s ~eq
 
   let run_s ~eq = run_s ~eq
-
 end

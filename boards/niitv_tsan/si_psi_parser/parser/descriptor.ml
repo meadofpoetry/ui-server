@@ -33,7 +33,8 @@ let parse bs offset =
         | 0x10 -> (module Smoothing_buffer)
         | 0x11 -> (module Std_descriptor)
         | 0x12 -> (module Ibp_descriptor)
-        | 0x13 | 0x14 | 0x15 | 0x16 | 0x17 | 0x18 | 0x19 | 0x1A -> (module Unknown)
+        | 0x13 | 0x14 | 0x15 | 0x16 | 0x17 | 0x18 | 0x19 | 0x1A ->
+            (module Unknown)
         | 0x1B -> (module Mpeg4_video)
         | 0x1C -> (module Mpeg4_audio)
         | 0x1D -> (module Iod)
@@ -134,6 +135,10 @@ let parse bs offset =
         | x when x > 0x7F && x < 0xFF -> (module User_defined)
         | _ -> (module Unknown)
       in
-      let name, content = Descriptor.name, Descriptor.parse body (offset + off_1) in
-      let node = Node.make ~offset:(offset + off_1) length name (List content) in
-      node, rest, offset + off_2
+      let name, content =
+        (Descriptor.name, Descriptor.parse body (offset + off_1))
+      in
+      let node =
+        Node.make ~offset:(offset + off_1) length name (List content)
+      in
+      (node, rest, offset + off_2)

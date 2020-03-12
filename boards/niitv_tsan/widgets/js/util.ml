@@ -7,8 +7,7 @@ let bitrate_for_pids_ ~get (br : 'a Bitrate.t) (pids : int list) =
       match List.assoc_opt pid br.pids with
       | None -> acc
       | Some b -> (pid, get b) :: acc)
-    []
-    pids
+    [] pids
 
 let sum_bitrates x = List.fold_left (fun acc x -> acc + snd x) 0 x
 

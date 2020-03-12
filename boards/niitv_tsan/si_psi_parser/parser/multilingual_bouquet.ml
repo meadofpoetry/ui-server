@@ -1,8 +1,7 @@
 let name = "multilingual_bouquet_name_descriptor"
 
 let rec parse bs off =
-  if Bitstring.bitstring_length bs = 0
-  then []
+  if Bitstring.bitstring_length bs = 0 then []
   else
     match%bitstring bs with
     | {| lang_code : 24 : bitstring
@@ -18,14 +17,16 @@ let rec parse bs off =
           | Error _ -> "Unable to decode"
         in
         let nodes =
-          [ Node.make
-              ~parsed
-              ~offset:off
-              24
-              "ISO_639_language_code"
-              (Bits (Int lang_code))
-          ; Node.make ~offset:(off + off_1) 8 "bouquet_name_length" (Dec (Int length))
-          ; Node.make ~offset:(off + off_2) (length * 8) "bouquet_name" (String name) ]
+          [
+            Node.make ~parsed ~offset:off 24 "ISO_639_language_code"
+              (Bits (Int lang_code));
+            Node.make ~offset:(off + off_1) 8 "bouquet_name_length"
+              (Dec (Int length));
+            Node.make ~offset:(off + off_2) (length * 8) "bouquet_name"
+              (String name);
+          ]
         in
-        let node = Node.make ~offset:off (32 + (length * 8)) parsed (List nodes) in
+        let node =
+          Node.make ~offset:off (32 + (length * 8)) parsed (List nodes)
+        in
         node :: parse rest (off + off_3)

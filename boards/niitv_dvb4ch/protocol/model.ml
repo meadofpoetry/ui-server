@@ -2,30 +2,26 @@ open Board_niitv_dvb4ch_types
 
 let ( >>= ) = Lwt.bind
 
-type t =
-  { db : Database.Conn.t
-  ; tick : unit React.event
-  ; loop : unit Lwt.t
-  ; measures : unit React.event }
+type t = {
+  db : Database.Conn.t;
+  tick : unit React.event;
+  loop : unit Lwt.t;
+  measures : unit React.event;
+}
 
 let tick () =
   let e, push = React.E.create () in
   let rec loop () =
-    Lwt_unix.sleep 5.
-    >>= fun () ->
+    Lwt_unix.sleep 5. >>= fun () ->
     push ();
     loop ()
   in
-  e, loop
+  (e, loop)
 
-let create
-    (log_src : Logs.src)
-    (control : int)
-    (measures : (int * Measure.t ts) list React.event)
-    (db : Db.state) =
+let create (log_src : Logs.src) (control : int)
+    (measures : (int * Measure.t ts) list React.event) (db : Db.state) =
   let ( >>= ) = Lwt_result.bind in
-  Database.Conn.create db control
-  >>= fun db ->
+  Database.Conn.create db control >>= fun db ->
   let tick, loop = tick () in
   let measures =
     Util_react.E.map_s
@@ -41,4 +37,4 @@ let create
                     m "measures db error: %s" s)))
       measures
   in
-  Lwt.return_ok {db; tick; loop = loop (); measures}
+  Lwt.return_ok { db; tick; loop = loop (); measures }

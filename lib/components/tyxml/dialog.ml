@@ -1,8 +1,4 @@
-type action =
-  | Close
-  | Accept
-  | Destroy
-  | Custom of string
+type action = Close | Accept | Destroy | Custom of string
 
 let action_of_string = function
   | "close" -> Close
@@ -43,23 +39,23 @@ module CSS = struct
 
   let button_default = BEM.add_modifier button "default"
 
-  (** Optional. Applied automatically when the dialog has overflowing content
-      to warrant scrolling. *)
+  (** Optional. Applied automatically when the dialog has overflowing content to
+      warrant scrolling. *)
   let scrollable = BEM.add_modifier root "scrollable"
 
   (** Optional. Indicates that the dialog is open and visible. *)
   let open_ = BEM.add_modifier root "open"
 
-  (** Optional. Applied automatically when the dialog is in the process
-      of animating open. *)
+  (** Optional. Applied automatically when the dialog is in the process of
+      animating open. *)
   let opening = BEM.add_modifier root "opening"
 
-  (** Optional. Applied automatically when the dialog is in the process
-      of animating closed. *)
+  (** Optional. Applied automatically when the dialog is in the process of
+      animating closed. *)
   let closing = BEM.add_modifier root "closing"
 
-  (** Optional. Applied automatically when the dialog's action buttons can't
-      fit on a single line and must be stacked. *)
+  (** Optional. Applied automatically when the dialog's action buttons can't fit
+      on a single line and must be stacked. *)
   let stacked = BEM.add_modifier root "stacked"
 
   let scroll_lock = "mdc-dialog-scroll-lock"
@@ -80,7 +76,8 @@ struct
 
   let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
 
-  let dialog_title ?(classes = return []) ?(a = []) ?title ?(children = nil ()) () =
+  let dialog_title ?(classes = return []) ?(a = []) ?title ?(children = nil ())
+      () =
     let classes = fmap (List.cons CSS.title) classes in
     let title = Option.map (fun x -> return @@ txt x) title in
     h2 ~a:(a_class classes :: a) (title ^:: children)
@@ -89,9 +86,12 @@ struct
     let classes = fmap (List.cons CSS.content) classes in
     section ~a:(a_class classes :: a) children
 
-  let dialog_action ?(classes = return []) ?(a = []) ?(default = false) ?action =
+  let dialog_action ?(classes = return []) ?(a = []) ?(default = false) ?action
+      =
     let classes =
-      fmap (Utils.cons_if default CSS.button_default % List.cons CSS.button) classes
+      fmap
+        (Utils.cons_if default CSS.button_default % List.cons CSS.button)
+        classes
     in
     let a =
       match action with
@@ -106,7 +106,8 @@ struct
     let classes = fmap (List.cons CSS.actions) classes in
     footer ~a:(a_class classes :: a) children
 
-  let dialog_surface ?(classes = return []) ?(a = []) ?title ?content ?actions () =
+  let dialog_surface ?(classes = return []) ?(a = []) ?title ?content ?actions
+      () =
     let classes = fmap (List.cons CSS.surface) classes in
     let children = title ^:: content ^:: actions ^:: nil () in
     div ~a:(a_class classes :: a) children
@@ -115,23 +116,15 @@ struct
     let classes = fmap (List.cons CSS.container) classes in
     div ~a:(a_class classes :: a) (cons surface (nil ()))
 
-  let dialog_scrim ?(classes = return []) ?(a = []) ?(children = nil ()) () : 'a elt =
+  let dialog_scrim ?(classes = return []) ?(a = []) ?(children = nil ()) () :
+      'a elt =
     let classes = fmap (List.cons CSS.scrim) classes in
     div ~a:(a_class classes :: a) children
 
-  let dialog
-      ?(classes = return [])
-      ?(a = [])
-      ?title_id
-      ?content_id
-      ?(scrollable = false)
-      ?title
-      ?content
-      ?actions
-      ?(scrim = return (dialog_scrim ()))
-      ?container
-      () : 'a elt =
-    let aria n v = a_aria n (return [v]) in
+  let dialog ?(classes = return []) ?(a = []) ?title_id ?content_id
+      ?(scrollable = false) ?title ?content ?actions
+      ?(scrim = return (dialog_scrim ())) ?container () : 'a elt =
+    let aria n v = a_aria n (return [ v ]) in
     let container =
       match container with
       | Some x -> x
@@ -139,22 +132,25 @@ struct
           let actions =
             match actions with
             | None -> None
-            | Some actions -> Some (return (dialog_actions ~children:actions ()))
+            | Some actions ->
+                Some (return (dialog_actions ~children:actions ()))
           in
           let surface = return (dialog_surface ?title ?content ?actions ()) in
           return (dialog_container ~surface ())
     in
     let classes =
-      fmap (Utils.cons_if scrollable CSS.scrollable % List.cons CSS.root) classes
+      fmap
+        (Utils.cons_if scrollable CSS.scrollable % List.cons CSS.root)
+        classes
     in
     div
       ~a:
-        (a_class classes
-         :: a_role (return ["alertdialog"])
-         :: a_aria "modal" (return ["true"])
-         :: a
+        ( a_class classes
+          :: a_role (return [ "alertdialog" ])
+          :: a_aria "modal" (return [ "true" ])
+          :: a
         |> Utils.map_cons_option (aria "labelledby") title_id
-        |> Utils.map_cons_option (aria "describedby") content_id)
+        |> Utils.map_cons_option (aria "describedby") content_id )
       (container @:: scrim @:: nil ())
 end
 

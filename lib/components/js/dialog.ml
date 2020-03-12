@@ -10,10 +10,11 @@ let are_tops_misaligned (elts : Dom_html.element Js.t list) : bool =
   List.map (fun (e : Dom_html.element Js.t) -> e##.offsetTop) elts
   |> List.sort_uniq compare
   |> function
-  | [] | [_] -> false
+  | [] | [ _ ] -> false
   | _ -> true
 
-let reverse_elements (elts : Dom_html.element Js.t list) : Dom_html.element Js.t list =
+let reverse_elements (elts : Dom_html.element Js.t list) :
+    Dom_html.element Js.t list =
   let lst = List.rev elts in
   List.iter
     (fun (elt : Dom_html.element Js.t) ->
@@ -38,38 +39,34 @@ end
 
 module Lwt_js_events = struct
   let opening ?use_capture ?passive t =
-    Js_of_ocaml_lwt.Lwt_js_events.make_event ?use_capture ?passive Event.opening t
+    Js_of_ocaml_lwt.Lwt_js_events.make_event ?use_capture ?passive Event.opening
+      t
 
   let openings ?cancel_handler ?use_capture ?passive t =
-    Js_of_ocaml_lwt.Lwt_js_events.seq_loop
-      ?cancel_handler
-      ?use_capture
-      ?passive
-      opening
-      t
+    Js_of_ocaml_lwt.Lwt_js_events.seq_loop ?cancel_handler ?use_capture ?passive
+      opening t
 
   let open_ ?use_capture ?passive t =
     Js_of_ocaml_lwt.Lwt_js_events.make_event ?use_capture ?passive Event.open_ t
 
   let opens ?cancel_handler ?use_capture ?passive t =
-    Js_of_ocaml_lwt.Lwt_js_events.seq_loop ?cancel_handler ?use_capture ?passive open_ t
+    Js_of_ocaml_lwt.Lwt_js_events.seq_loop ?cancel_handler ?use_capture ?passive
+      open_ t
 
   let closing ?use_capture ?passive t =
-    Js_of_ocaml_lwt.Lwt_js_events.make_event ?use_capture ?passive Event.closing t
+    Js_of_ocaml_lwt.Lwt_js_events.make_event ?use_capture ?passive Event.closing
+      t
 
   let closings ?cancel_handler ?use_capture ?passive t =
-    Js_of_ocaml_lwt.Lwt_js_events.seq_loop
-      ?cancel_handler
-      ?use_capture
-      ?passive
-      closing
-      t
+    Js_of_ocaml_lwt.Lwt_js_events.seq_loop ?cancel_handler ?use_capture ?passive
+      closing t
 
   let close ?use_capture ?passive t =
     Js_of_ocaml_lwt.Lwt_js_events.make_event ?use_capture ?passive Event.close t
 
   let closes ?cancel_handler ?use_capture ?passive t =
-    Js_of_ocaml_lwt.Lwt_js_events.seq_loop ?cancel_handler ?use_capture ?passive close t
+    Js_of_ocaml_lwt.Lwt_js_events.seq_loop ?cancel_handler ?use_capture ?passive
+      close t
 end
 
 module Const = struct
@@ -94,22 +91,23 @@ module Selector = struct
   let default_button = "." ^ CSS.button_default
 
   let suppress_default_press =
-    String.concat
-      ", "
-      ["textarea"; Printf.sprintf "%s %s" Menu.CSS.root Item_list.CSS.item]
+    String.concat ", "
+      [ "textarea"; Printf.sprintf "%s %s" Menu.CSS.root Item_list.CSS.item ]
 end
 
 let action_of_event (e : #Dom_html.event Js.t) : action option =
   match Js.Opt.to_option e##.target with
   | None -> None
   | Some target -> (
-      let closest = Element.closest target (Printf.sprintf "[%s]" Attr.action) in
+      let closest =
+        Element.closest target (Printf.sprintf "[%s]" Attr.action)
+      in
       match Js.Opt.to_option closest with
       | None -> None
       | Some e -> (
-        match Element.get_attribute e Attr.action with
-        | None -> None
-        | Some a -> Some (action_of_string a)))
+          match Element.get_attribute e Attr.action with
+          | None -> None
+          | Some a -> Some (action_of_string a) ) )
 
 class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
   object (self)
@@ -154,24 +152,23 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
     method! initial_sync_with_dom () : unit =
       focus_trap <-
         Some
-          (Focus_trap.make
-             ?initial_focus:initial_focus_element
-             ~click_outside_deactivates:true
-             ~escape_deactivates:false
+          (Focus_trap.make ?initial_focus:initial_focus_element
+             ~click_outside_deactivates:true ~escape_deactivates:false
              container);
       (* Attach event listeners. *)
       listeners <-
         Js_of_ocaml_lwt.Lwt_js_events.(
-          [ clicks super#root self#handle_interaction
-          ; keydowns super#root self#handle_interaction ]
+          [
+            clicks super#root self#handle_interaction;
+            keydowns super#root self#handle_interaction;
+          ]
           @ listeners);
       super#initial_sync_with_dom ()
 
     method! layout () : unit =
       Option.iter Lwt.cancel layout_thread;
       let thread =
-        Js_of_ocaml_lwt.Lwt_js_events.request_animation_frame ()
-        >>= fun () ->
+        Js_of_ocaml_lwt.Lwt_js_events.request_animation_frame () >>= fun () ->
         if auto_stack_buttons then self#detect_stacked_buttons ();
         self#detect_scrollable_content ();
         Lwt.return ()
@@ -183,17 +180,17 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
 
     method! destroy () : unit =
       if is_open then Lwt.ignore_result @@ self#close ~action:Destroy ();
-      (match animation_thread with
+      ( match animation_thread with
       | None -> ()
       | Some x ->
           Lwt.cancel x;
           self#handle_animation_timer_end ();
-          animation_thread <- None);
-      (match layout_thread with
+          animation_thread <- None );
+      ( match layout_thread with
       | None -> ()
       | Some x ->
           Lwt.cancel x;
-          layout_thread <- None);
+          layout_thread <- None );
       (* Detach event listeners. *)
       List.iter Lwt.cancel listeners;
       listeners <- [];
@@ -212,14 +209,11 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
       (* Wait a frame once display is no longer "none",
          to establish basis for animation. *)
       let thread =
-        Js_of_ocaml_lwt.Lwt_js_events.request_animation_frame ()
-        >>= fun () ->
-        Js_of_ocaml_lwt.Lwt_js.yield ()
-        >>= fun () ->
+        Js_of_ocaml_lwt.Lwt_js_events.request_animation_frame () >>= fun () ->
+        Js_of_ocaml_lwt.Lwt_js.yield () >>= fun () ->
         super#add_class CSS.open_;
         Element.add_class Dom_html.document##.body CSS.scroll_lock;
-        Js_of_ocaml_lwt.Lwt_js.sleep Const.animation_open_time_s
-        >>= fun () ->
+        Js_of_ocaml_lwt.Lwt_js.sleep Const.animation_open_time_s >>= fun () ->
         self#handle_animation_timer_end ();
         Option.iter Focus_trap.activate focus_trap;
         self#layout ();
@@ -230,10 +224,9 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
       thread
 
     method open_await () : action Lwt.t =
-      self#open_ ()
-      >>= fun () ->
-      Lwt_js_events.close super#root
-      >>= fun e -> Lwt.return @@ Js.Opt.get e##.detail (fun () -> Close)
+      self#open_ () >>= fun () ->
+      Lwt_js_events.close super#root >>= fun e ->
+      Lwt.return @@ Js.Opt.get e##.detail (fun () -> Close)
 
     method close ?(action = Close) () : action Lwt.t =
       match is_open with
@@ -265,7 +258,8 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
 
     method scrim_click_action : action option = scrim_click_action
 
-    method set_scrim_click_action (x : action option) : unit = scrim_click_action <- x
+    method set_scrim_click_action (x : action option) : unit =
+      scrim_click_action <- x
 
     method auto_stack_buttons : bool = auto_stack_buttons
 
@@ -289,13 +283,15 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
       self#handle_closing ();
       temp_listeners <-
         Js_of_ocaml_lwt.Lwt_js_events.
-          [ onresizes (fun _ _ ->
+          [
+            onresizes (fun _ _ ->
                 self#layout ();
-                Lwt.return_unit)
-          ; onorientationchanges (fun _ _ ->
+                Lwt.return_unit);
+            onorientationchanges (fun _ _ ->
                 self#layout ();
-                Lwt.return_unit)
-          ; keydowns Dom_html.document self#handle_document_keydown ]
+                Lwt.return_unit);
+            keydowns Dom_html.document self#handle_document_keydown;
+          ]
 
     method private notify_closing (action : action) : unit =
       super#emit ~detail:action Event.closing
@@ -313,9 +309,7 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
         let target = Dom.eventTarget e in
         let is_scrim = Element.matches target Selector.scrim in
         let is_click =
-          match Js.to_string e##._type with
-          | "click" -> true
-          | _ -> false
+          match Js.to_string e##._type with "click" -> true | _ -> false
         in
         let is_enter =
           Js.Opt.case
@@ -335,33 +329,32 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
               | Space -> true
               | _ -> false)
         in
-        match is_click, is_scrim, scrim_click_action with
-        | true, true, Some action -> self#close ~action () >>= fun _ -> Lwt.return ()
+        match (is_click, is_scrim, scrim_click_action) with
+        | true, true, Some action ->
+            self#close ~action () >>= fun _ -> Lwt.return ()
         | _ ->
-            if is_click || is_enter || is_space
-            then
+            if is_click || is_enter || is_space then
               match action_of_event e with
               | Some action -> self#close ~action () >>= fun _ -> Lwt.return ()
               | None ->
                   let is_default =
-                    not @@ Element.matches target Selector.suppress_default_press
+                    not
+                    @@ Element.matches target Selector.suppress_default_press
                   in
-                  if is_enter && is_default
-                  then
+                  if is_enter && is_default then
                     match default_button with
                     | None -> Lwt.return_unit
                     | Some x ->
-                        Js.Opt.case (Dom_html.CoerceTo.button x) Lwt.return (fun b ->
+                        Js.Opt.case (Dom_html.CoerceTo.button x) Lwt.return
+                          (fun b ->
                             b##click;
                             Lwt.return_unit)
                   else Lwt.return_unit
             else Lwt.return_unit
 
-    method private handle_document_keydown
-        (e : Dom_html.keyboardEvent Js.t)
-        (_ : unit Lwt.t)
-        : unit Lwt.t =
-      match Dom_html.Keyboard_code.of_event e, escape_key_action with
+    method private handle_document_keydown (e : Dom_html.keyboardEvent Js.t)
+        (_ : unit Lwt.t) : unit Lwt.t =
+      match (Dom_html.Keyboard_code.of_event e, escape_key_action) with
       | Escape, Some x -> self#close ~action:x () >>= fun _ -> Lwt.return ()
       | _ -> Lwt.return_unit
 
@@ -375,8 +368,8 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
       let prev_are_buttons_stacked = are_buttons_stacked in
       are_buttons_stacked <- are_tops_misaligned buttons;
       if are_buttons_stacked then super#add_class CSS.stacked;
-      if are_buttons_stacked <> prev_are_buttons_stacked
-      then buttons <- reverse_elements buttons
+      if are_buttons_stacked <> prev_are_buttons_stacked then
+        buttons <- reverse_elements buttons
 
     method private detect_scrollable_content () : unit =
       (* Remove the class first to let us measure the natural height of the content. *)
@@ -390,17 +383,8 @@ class t ?initial_focus_element (elt : Dom_html.element Js.t) () =
 let attach ?initial_focus_element (elt : #Dom_html.element Js.t) : t =
   new t ?initial_focus_element (Element.coerce elt) ()
 
-let make
-    ?classes
-    ?a
-    ?scrollable
-    ?title
-    ?content
-    ?actions
-    ?scrim
-    ?container
-    ?initial_focus_element
-    () =
+let make ?classes ?a ?scrollable ?title ?content ?actions ?scrim ?container
+    ?initial_focus_element () =
   let title_id =
     match title with
     | None -> None
@@ -415,17 +399,7 @@ let make
         let elt = Tyxml_js.To_dom.of_element x in
         Some (Js.to_string @@ elt##.id)
   in
-  D.dialog
-    ?classes
-    ?a
-    ?title_id
-    ?content_id
-    ?scrollable
-    ?title
-    ?content
-    ?actions
-    ?scrim
-    ?container
-    ()
+  D.dialog ?classes ?a ?title_id ?content_id ?scrollable ?title ?content
+    ?actions ?scrim ?container ()
   |> Tyxml_js.To_dom.of_element
   |> attach ?initial_focus_element

@@ -47,21 +47,28 @@ class t (elt : Dom_html.element Js.t) () =
 
     (* Config *)
     val mutable _base : base =
-      match Option.map base_of_string @@ Element.get_attribute elt "data-base" with
+      match
+        Option.map base_of_string @@ Element.get_attribute elt "data-base"
+      with
       | None -> Hex
       | Some x -> x
 
     val mutable _width : int =
-      match Option.map int_of_string @@ Element.get_attribute elt "data-width" with
+      match
+        Option.map int_of_string @@ Element.get_attribute elt "data-width"
+      with
       | None -> (* TODO we can count number of <span> elements in a row *) 16
       | Some x -> x
 
     val mutable _grouping : int =
-      match Option.map int_of_string @@ Element.get_attribute elt "data-grouping" with
+      match
+        Option.map int_of_string @@ Element.get_attribute elt "data-grouping"
+      with
       | None -> 1
       | Some x -> x
 
-    val mutable _no_line_numbers : bool = Element.has_class elt CSS.no_line_numbers
+    val mutable _no_line_numbers : bool =
+      Element.has_class elt CSS.no_line_numbers
 
     inherit Widget.t elt () as super
 
@@ -75,34 +82,30 @@ class t (elt : Dom_html.element Js.t) () =
     method base : base = _base
 
     method set_base (x : base) : unit =
-      if not (equal_base x _base)
-      then (
+      if not (equal_base x _base) then (
         _base <- x;
-        self#set_bytes _bytes)
+        self#set_bytes _bytes )
 
     method width : int = _width
 
     method set_width (x : int) : unit =
-      if not (x = _width)
-      then (
+      if not (x = _width) then (
         _width <- x;
-        self#set_bytes _bytes)
+        self#set_bytes _bytes )
 
     method grouping : int = _grouping
 
     method set_grouping (x : int) : unit =
-      if not (x = _grouping)
-      then (
+      if not (x = _grouping) then (
         _grouping <- x;
-        self#set_bytes _bytes)
+        self#set_bytes _bytes )
 
     method no_line_numbers : bool = _no_line_numbers
 
     method set_no_line_numbers (x : bool) : unit =
-      if not (Bool.equal x _no_line_numbers)
-      then (
+      if not (Bool.equal x _no_line_numbers) then (
         _no_line_numbers <- x;
-        super#toggle_class ~force:x CSS.no_line_numbers)
+        super#toggle_class ~force:x CSS.no_line_numbers )
 
     method set_bytes (bytes : string) : unit =
       _bytes <- bytes;
@@ -118,7 +121,7 @@ class t (elt : Dom_html.element Js.t) () =
 
     method set_non_interactive (x : bool) : unit =
       super#toggle_class ~force:x CSS.non_interactive;
-      match x, _click_listener with
+      match (x, _click_listener) with
       | false, None ->
           let listener =
             Js_of_ocaml_lwt.Lwt_js_events.clicks hex_block self#handle_click
@@ -134,17 +137,16 @@ class t (elt : Dom_html.element Js.t) () =
       match List.find_opt eq self#_hex_items with
       | None -> ()
       | Some elt -> (
-        match List.find_opt (Element.equal elt) _selected with
-        | Some _ -> () (* already selected *)
-        | None ->
-            if flush then List.iter self#_unselect _selected;
-            self#_select elt)
+          match List.find_opt (Element.equal elt) _selected with
+          | Some _ -> () (* already selected *)
+          | None ->
+              if flush then List.iter self#_unselect _selected;
+              self#_select elt )
 
     method select_range ?(flush = true) (from : int) (till : int) : unit =
-      if till < from || from < 0 || till < 0
-      then raise_notrace (Invalid_argument "bad range")
-      else if flush
-      then List.iter self#_unselect _selected;
+      if till < from || from < 0 || till < 0 then
+        raise_notrace (Invalid_argument "bad range")
+      else if flush then List.iter self#_unselect _selected;
       let rec aux t = function
         | i when i > t -> ()
         | i ->
@@ -159,45 +161,50 @@ class t (elt : Dom_html.element Js.t) () =
       |> List.filter (fun x ->
              (Option.is_some @@ Element.get_attribute x "data-id")
              && Element.has_class x CSS.item)
-      |> List.sort (fun e1 e2 -> compare (self#_get_item_id e1) (self#_get_item_id e2))
+      |> List.sort (fun e1 e2 ->
+             compare (self#_get_item_id e1) (self#_get_item_id e2))
 
     method private _char_items : Dom_html.element Js.t list =
       Element.children chr_block
       |> List.filter (fun x ->
              (Option.is_some @@ Element.get_attribute x "data-id")
              && Element.has_class x CSS.item)
-      |> List.sort (fun e1 e2 -> compare (self#_get_item_id e1) (self#_get_item_id e2))
+      |> List.sort (fun e1 e2 ->
+             compare (self#_get_item_id e1) (self#_get_item_id e2))
 
     method private _get_item_id (x : Dom_html.element Js.t) : int =
       match Element.get_attribute x "data-id" with
       | None -> failwith (name ^ ": data-id attribute not found")
       | Some x -> (
-        match int_of_string_opt x with
-        | None -> failwith (name ^ ": bad data-id attribute value")
-        | Some x -> x)
+          match int_of_string_opt x with
+          | None -> failwith (name ^ ": bad data-id attribute value")
+          | Some x -> x )
 
     method private _get_hex_char (x : Dom_html.element Js.t) =
       let f_conv s =
-        match _base with
-        | Hex -> "0x" ^ s
-        | Bin -> "0b" ^ s
-        | Dec -> s
+        match _base with Hex -> "0x" ^ s | Bin -> "0b" ^ s | Dec -> s
       in
       match Js.Opt.to_option x##.textContent with
       | None -> failwith (name ^ ": textContent not found")
       | Some x -> (
-        match int_of_string_opt @@ f_conv @@ String.trim @@ Js.to_string x with
-        | None -> failwith (name ^ ": bad char content")
-        | Some x -> Char.chr x)
+          match
+            int_of_string_opt @@ f_conv @@ String.trim @@ Js.to_string x
+          with
+          | None -> failwith (name ^ ": bad char content")
+          | Some x -> Char.chr x )
 
     method private _unselect x =
-      List.find_opt (( = ) (self#_get_item_id x) % self#_get_item_id) self#_char_items
+      List.find_opt
+        (( = ) (self#_get_item_id x) % self#_get_item_id)
+        self#_char_items
       |> Option.iter (fun x -> Element.remove_class x CSS.item_selected);
       _selected <- List.filter (not % Element.equal x) _selected;
       Element.remove_class x CSS.item_selected
 
     method private _select x =
-      List.find_opt (fun c -> self#_get_item_id c = self#_get_item_id x) self#_char_items
+      List.find_opt
+        (fun c -> self#_get_item_id c = self#_get_item_id x)
+        self#_char_items
       |> Option.iter (fun x -> Element.add_class x CSS.item_selected);
       Element.add_class x CSS.item_selected;
       _selected <- x :: _selected
@@ -215,26 +222,22 @@ class t (elt : Dom_html.element Js.t) () =
         | None -> false
         | Some x -> x
       in
-      (match target, is_span with
+      ( match (target, is_span) with
       | Some e, true -> (
-        match List.find_opt (Element.equal e) _selected with
-        | Some x ->
-            if not ctrl
-            then List.iter self#_unselect (List.filter (not % Element.equal x) _selected)
-            else self#_unselect x
-        | None ->
-            if not ctrl then List.iter self#_unselect _selected;
-            self#_select e)
-      | _ -> ());
+          match List.find_opt (Element.equal e) _selected with
+          | Some x ->
+              if not ctrl then
+                List.iter self#_unselect
+                  (List.filter (not % Element.equal x) _selected)
+              else self#_unselect x
+          | None ->
+              if not ctrl then List.iter self#_unselect _selected;
+              self#_select e )
+      | _ -> () );
       Lwt.return_unit
   end
 
-let make_of_bytes
-    ?width
-    ?grouping
-    ?no_line_numbers
-    ?non_interactive
-    ?base
+let make_of_bytes ?width ?grouping ?no_line_numbers ?non_interactive ?base
     (bytes : string) : t =
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element

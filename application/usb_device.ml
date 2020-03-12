@@ -1,9 +1,6 @@
 [@@@ocaml.warning "-32"]
 
-type%cstruct header =
-  { prefix : uint16_t
-  ; port : uint8_t
-  ; length : uint8_t }
+type%cstruct header = { prefix : uint16_t; port : uint8_t; length : uint8_t }
 [@@big_endian]
 
 [@@@ocaml.warning "+32"]
@@ -16,10 +13,11 @@ end
 
 module Int_map = Map.Make (Int)
 
-type t =
-  { subscribers : ((Cstruct.t -> unit) * unit Lwt.t) Int_map.t ref
-  ; send : int -> Cstruct.t -> unit Lwt.t
-  ; usb : Cyusb.t }
+type t = {
+  subscribers : ((Cstruct.t -> unit) * unit Lwt.t) Int_map.t ref;
+  send : int -> Cstruct.t -> unit Lwt.t;
+  usb : Cyusb.t;
+}
 
 let src = Logs.Src.create "USB parser" ~doc:"USB device module"
 
@@ -39,9 +37,8 @@ let serialize port data =
   set_header_prefix header prefix;
   set_header_port header ((if parity then 0x10 else 0) lor (port land 0xF));
   set_header_length header length;
-  if parity
-  then Cstruct.concat [header; data; Cstruct.create 1]
-  else Cstruct.concat [header; data]
+  if parity then Cstruct.concat [ header; data; Cstruct.create 1 ]
+  else Cstruct.concat [ header; data ]
 
 type error =
   | Bad_prefix of int
@@ -63,8 +60,7 @@ let check_length buf =
   let length = get_header_length header in
   let flags_port = get_header_port header in
   let port = flags_port land 0xF in
-  if length <= 0 || length > max_length
-  then Error (Bad_length length)
+  if length <= 0 || length > max_length then Error (Bad_length length)
   else
     let parity = (flags_port land 0x10) lsr 4 in
     let byte_length = length * 2 in
@@ -74,45 +70,34 @@ let check_length buf =
     with _ -> Error (Insufficient_payload buf)
 
 let get_msg buf =
-  let ( >>= ) x f =
-    match x with
-    | Error e -> Error e
-    | Ok x -> f x
-  in
+  let ( >>= ) x f = match x with Error e -> Error e | Ok x -> f x in
   check_prefix buf >>= check_length
 
 let deserialize acc buf =
-  let buf =
-    match acc with
-    | None -> buf
-    | Some acc -> Cstruct.append acc buf
-  in
+  let buf = match acc with None -> buf | Some acc -> Cstruct.append acc buf in
   let rec aux acc b =
-    if Cstruct.len b >= sizeof_header
-    then
+    if Cstruct.len b >= sizeof_header then
       match get_msg b with
       | Ok ((k, v), rest) ->
           let acc =
-            Int_map.update
-              k
-              (function
-                | Some l -> Some (v :: l)
-                | None -> Some [v])
+            Int_map.update k
+              (function Some l -> Some (v :: l) | None -> Some [ v ])
               acc
           in
           aux acc rest
       | Error e -> (
-        match e with
-        | Insufficient_payload b -> acc, b
-        | _e ->
-            Logs.warn (fun m -> m "%a" pp_error _e);
-            aux acc (Cstruct.shift b 1))
-    else acc, b
+          match e with
+          | Insufficient_payload b -> (acc, b)
+          | _e ->
+              Logs.warn (fun m -> m "%a" pp_error _e);
+              aux acc (Cstruct.shift b 1) )
+    else (acc, b)
   in
   let msgs, rest = aux Int_map.empty buf in
-  msgs, if Cstruct.len rest > 0 then Some rest else None
+  (msgs, if Cstruct.len rest > 0 then Some rest else None)
 
-let recv usb = Lwt_preemptive.detach (fun () -> Cstruct.of_bigarray @@ Cyusb.recv usb)
+let recv usb =
+  Lwt_preemptive.detach (fun () -> Cstruct.of_bigarray @@ Cyusb.recv usb)
 
 let send usb port data =
   Lwt_preemptive.detach
@@ -121,20 +106,18 @@ let send usb port data =
       Cyusb.send usb msg)
     ()
 
-let apply
-    (subscribers : ((Cstruct.t -> unit) * unit Lwt.t) Int_map.t)
+let apply (subscribers : ((Cstruct.t -> unit) * unit Lwt.t) Int_map.t)
     (msgs : Cstruct.t list Int_map.t) =
   Int_map.merge
     (fun _id sub msgs ->
-      match sub, msgs with
+      match (sub, msgs) with
       | None, _ -> None
       | Some sub, None -> Some sub
       | Some sub, Some msgs ->
           let msg = Cstruct.concat @@ List.rev msgs in
           (fst sub) msg;
           Some sub)
-    subscribers
-    msgs
+    subscribers msgs
 
 let create ?(sleep = 1.) () =
   let usb = Cyusb.create () in
@@ -142,16 +125,14 @@ let create ?(sleep = 1.) () =
   let recv = recv usb in
   let send = send usb in
   let rec loop acc () =
-    Lwt_unix.sleep sleep
-    >>= fun () ->
-    recv ()
-    >>= fun buf ->
+    Lwt_unix.sleep sleep >>= fun () ->
+    recv () >>= fun buf ->
     let msgs, rest = deserialize acc buf in
     subscribers := apply !subscribers msgs;
     loop rest ()
   in
-  recv () (* HACK read trash bytes *)
-  >>= fun _ -> Lwt.return ({usb; subscribers; send}, fun () -> loop None ())
+  recv () (* HACK read trash bytes *) >>= fun _ ->
+  Lwt.return ({ usb; subscribers; send }, fun () -> loop None ())
 
 let subscribe (t : t) id loop push =
   t.subscribers := Int_map.add id (push, loop ()) !(t.subscribers)

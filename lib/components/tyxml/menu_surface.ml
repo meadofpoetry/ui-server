@@ -22,18 +22,13 @@ struct
 
   let ( % ) f g x = f (g x)
 
-  let menu_surface
-      ?(classes = return [])
-      ?(a = [])
-      ?(fixed = false)
-      ?(open_ = false)
-      ?(children = nil ())
-      () =
+  let menu_surface ?(classes = return []) ?(a = []) ?(fixed = false)
+      ?(open_ = false) ?(children = nil ()) () =
     let classes =
       fmap
-        (Utils.cons_if fixed CSS.fixed
+        ( Utils.cons_if fixed CSS.fixed
         % Utils.cons_if open_ CSS.open_
-        % List.cons CSS.root)
+        % List.cons CSS.root )
         classes
     in
     div ~a:(Html.a_class classes :: a) children

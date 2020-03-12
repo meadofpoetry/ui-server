@@ -6,14 +6,16 @@ open Topo_types
 let ( >>= ) = Lwt.( >>= )
 
 let get_output_point (elt : #Dom_html.element Js.t) : point =
-  { x = elt##.offsetLeft + elt##.offsetWidth
-  ; y = elt##.offsetTop + (elt##.offsetHeight / 2) }
+  {
+    x = elt##.offsetLeft + elt##.offsetWidth;
+    y = elt##.offsetTop + (elt##.offsetHeight / 2);
+  }
 
 let get_input_point ~num i (elt : #Dom_html.element Js.t) : point =
   let h = elt##.offsetHeight / num in
   let x = elt##.offsetLeft in
   let y = elt##.offsetTop + (i * h) + (h / 2) in
-  {x; y}
+  { x; y }
 
 class switch (port : Topology.topo_port) setter () =
   let _class = "topology__switch" in
@@ -37,8 +39,7 @@ class switch (port : Topology.topo_port) setter () =
 
     method set_state (x : connection_state) : unit =
       _state <- x;
-      if not _changing
-      then
+      if not _changing then
         match x with
         | `Active | `Sync | `Sync_lost ->
             super#toggle ~notify:false ~force:true ();
@@ -50,15 +51,14 @@ class switch (port : Topology.topo_port) setter () =
 
     method set_forbidden x =
       _changing <- x;
-      match x, _state with
+      match (x, _state) with
       | true, _ -> super#set_disabled true
       | false, `Unavailable -> ()
       | false, _ -> self#set_disabled false
 
     method! private notify_change () =
       set_forbidden true;
-      setter port.port super#checked
-      >>= fun _ ->
+      setter port.port super#checked >>= fun _ ->
       set_forbidden false;
       Lwt.return_unit
     (** Called when a user clicks on a switch *)
@@ -74,22 +74,23 @@ let sync_class = Components.BEM.add_modifier _class "sync"
 
 let no_sync_class = Components.BEM.add_modifier _class "no-sync"
 
-class t
-  ~(left_node : node_entry)
-  ~(right_point : connection_point)
-  ~(f_lp : unit -> point)
-  ~(f_rp : unit -> point)
-  ~port_setter
-  () =
+class t ~(left_node : node_entry) ~(right_point : connection_point)
+  ~(f_lp : unit -> point) ~(f_rp : unit -> point) ~port_setter () =
   let switch =
     match right_point with
     | `Iface _ -> None
-    | `Port p -> if not p.switchable then None else Some (new switch p port_setter ())
+    | `Port p ->
+        if not p.switchable then None else Some (new switch p port_setter ())
   in
   let elt =
     Tyxml_js.Svg.(
       path
-        ~a:[a_fill `None; a_stroke (`Color ("white", None)); a_stroke_width (2., None)]
+        ~a:
+          [
+            a_fill `None;
+            a_stroke (`Color ("white", None));
+            a_stroke_width (2., None);
+          ]
         []
       |> toelt)
     |> Js.Unsafe.coerce
@@ -139,7 +140,8 @@ class t
       let left = f_lp () in
       let right = f_rp () in
       let top, height =
-        if left.y > right.y then left.y, left.y - right.y else right.y, right.y - left.y
+        if left.y > right.y then (left.y, left.y - right.y)
+        else (right.y, right.y - left.y)
       in
       Option.iter
         (fun sw ->
@@ -150,15 +152,10 @@ class t
         switch;
       let width = right.x - left.x in
       let path =
-        if abs (left.y - right.y) < 4
-        then Printf.sprintf "M %d %d L %d %d" left.x left.y right.x left.y
-        else if right.x - left.x < step
-        then
-          self#_make_straight_path
-            left.x
-            left.y
-            left.x
-            left.y
+        if abs (left.y - right.y) < 4 then
+          Printf.sprintf "M %d %d L %d %d" left.x left.y right.x left.y
+        else if right.x - left.x < step then
+          self#_make_straight_path left.x left.y left.x left.y
             (left.x + (width / 2))
             left.y
             (left.x + (width / 2))
@@ -166,17 +163,10 @@ class t
             (left.x + (width / 2))
             (top - (height / 2))
             (left.x + (width / 2))
-            right.y
-            right.x
-            right.y
+            right.y right.x right.y
         else
-          self#_make_curved_path
-            left.x
-            left.y
-            (right.x - step)
-            left.y
-            (right.x - step)
-            left.y
+          self#_make_curved_path left.x left.y (right.x - step) left.y
+            (right.x - step) left.y
             (right.x - (step / 2))
             left.y
             (right.x - (step / 2))
@@ -184,9 +174,7 @@ class t
             (right.x - (step / 2))
             (top - (height / 2))
             (right.x - (step / 2))
-            right.y
-            right.x
-            right.y
+            right.y right.x right.y
       in
       self#set_attribute "d" path
 

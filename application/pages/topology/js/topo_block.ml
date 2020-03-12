@@ -31,34 +31,36 @@ end
 
 let ( % ) f g x = f (g x)
 
-let cons_maybe x l =
-  match x with
-  | None -> l
-  | Some x -> x :: l
+let cons_maybe x l = match x with None -> l | Some x -> x :: l
 
-let div ?(classes = []) children = Tyxml_js.Html.(div ~a:[a_class classes] children)
+let div ?(classes = []) children =
+  Tyxml_js.Html.(div ~a:[ a_class classes ] children)
 
-let text_div ?classes text = div ?classes Tyxml_js.Html.[txt text]
+let text_div ?classes text = div ?classes Tyxml_js.Html.[ txt text ]
 
 module Header = struct
   class t ?action ?subtitle ~title () =
-    let title_w = text_div ~classes:[CSS.card_title] title in
-    let subtitle_w = Option.map (text_div ~classes:[CSS.card_subtitle]) subtitle in
+    let title_w = text_div ~classes:[ CSS.card_title ] title in
+    let subtitle_w =
+      Option.map (text_div ~classes:[ CSS.card_subtitle ]) subtitle
+    in
     let box =
-      Box.D.box
-        ~vertical:true
+      Box.D.box ~vertical:true
         ~children:([] |> cons_maybe subtitle_w |> List.cons title_w)
         ()
     in
     let children = [] |> cons_maybe action |> List.cons box in
-    let elt = Tyxml_js.To_dom.of_element @@ div ~classes:[CSS.card_primary] children in
+    let elt =
+      Tyxml_js.To_dom.of_element @@ div ~classes:[ CSS.card_primary ] children
+    in
     object (self)
       inherit Widget.t elt () as super
 
       method! init () : unit =
         super#init ();
         Option.iter
-          (fun a -> Element.add_class (Tyxml_js.To_dom.of_element a) CSS.header_action)
+          (fun a ->
+            Element.add_class (Tyxml_js.To_dom.of_element a) CSS.header_action)
           action;
         self#add_class CSS.header
     end
@@ -80,19 +82,15 @@ module Body = struct
     end
 end
 
-class virtual t
-  ~port_setter
+class virtual t ~port_setter
   ~(connections : (#Topo_node.t * connection_point) list)
-  ~(node : Topo_node.node_entry)
-  ~(header : #Header.t)
-  ~(body : #Body.t)
-  () =
+  ~(node : Topo_node.node_entry) ~(header : #Header.t) ~(body : #Body.t) () =
   object
     inherit
       Topo_node.parent
         ~port_setter ~node ~connections ~body:body#root
-        (Tyxml_js.To_dom.of_element
-        @@ Card.D.card ~children:[header#markup; body#markup] ())
+        ( Tyxml_js.To_dom.of_element
+        @@ Card.D.card ~children:[ header#markup; body#markup ] () )
         () as super
 
     method! init () : unit =

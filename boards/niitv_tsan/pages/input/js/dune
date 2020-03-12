@@ -1,13 +1,13 @@
 (executable
-  (name       board_niitv_tsan_page_input)
-  (libraries  board_niitv_tsan_widgets
-              components_lab
-              board_niitv_tsan_page_pids
-              board_niitv_tsan_page_si_psi
-              board_niitv_tsan_page_services)
-  (preprocess (pps js_of_ocaml-ppx)))
+ (name board_niitv_tsan_page_input)
+ (libraries board_niitv_tsan_widgets components_lab
+   board_niitv_tsan_page_pids board_niitv_tsan_page_si_psi
+   board_niitv_tsan_page_services)
+ (preprocess
+  (pps js_of_ocaml-ppx)))
 
 (install
-  (files (board_niitv_tsan_page_input.bc.js as js/board-niitv-tsan-page-input.js))
-  (section share)
-  (package ui-server))
+ (files
+  (board_niitv_tsan_page_input.bc.js as js/board-niitv-tsan-page-input.js))
+ (section share)
+ (package ui-server))

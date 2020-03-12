@@ -25,7 +25,7 @@ class t ?on_click (elt : Dom_html.buttonElement Js.t) () =
       | Some f ->
           listeners <-
             Js_of_ocaml_lwt.Lwt_js_events.(
-              [clicks super#root (f (self :> t))] @ listeners)
+              [ clicks super#root (f (self :> t)) ] @ listeners)
 
     method! layout () : unit =
       Option.iter Ripple.layout ripple;

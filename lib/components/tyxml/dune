@@ -1,4 +1,3 @@
 (library
-  (name      components_tyxml)
-  (libraries str tyxml color))
-
+ (name components_tyxml)
+ (libraries str tyxml color))

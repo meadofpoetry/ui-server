@@ -3,14 +3,14 @@ let name = "CA_identifier_descriptor"
 let parse_system_id = function
   | 0x0000 -> "Reserved"
   | x when x > 0x0000 && x < 0x0100 ->
-      "Reserved for registration to standardized systems through the DVB Project Office"
+      "Reserved for registration to standardized systems through the DVB \
+       Project Office"
   | x when x > 0x00FF && x <= 0xFFFF ->
       "Reserved for general registration through the DVB Project Office"
   | _ -> assert false
 
 let rec parse bs off =
-  if Bitstring.bitstring_length bs = 0
-  then []
+  if Bitstring.bitstring_length bs = 0 then []
   else
     match%bitstring bs with
     | {| ca_sys_id : 16

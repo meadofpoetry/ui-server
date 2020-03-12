@@ -30,10 +30,12 @@ module ETR290_error = struct
     | T2MI_plp_num_blocks_error -> "T2MI_plp_num_blocks_error"
     | T2MI_transmission_order_error -> "T2MI_transmission_order_error"
     | T2MI_DVB_T2_timestamp_error -> "T2MI_DVB-T2_Timestamp_error"
-    | T2MI_DVB_T2_timestamp_discontinuity -> "T2MI_DVB-T2_Timestamp_discontinuity"
+    | T2MI_DVB_T2_timestamp_discontinuity ->
+        "T2MI_DVB-T2_Timestamp_discontinuity"
     | T2MI_T2_frame_length_error -> "T2MI_T2_frame_length_error"
     | T2MI_MIP_timestamp_error -> "T2MI_MIP_timestamp_error"
-    | T2MI_MIP_individual_addressing_error -> "T2MI_MIP_individual_addressing_error"
+    | T2MI_MIP_individual_addressing_error ->
+        "T2MI_MIP_individual_addressing_error"
     | T2MI_MIP_continuity_error -> "T2MI_MIP_continuity_error"
     | T2MI_MIP_CRC_error -> "T2MI_MIP_CRC_error"
     | T2MI_bandwidth_consistency_error -> "T2MI_bandwidth_consistency_error"

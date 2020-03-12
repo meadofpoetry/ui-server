@@ -1,8 +1,7 @@
 let name = "FMC_descriptor"
 
 let rec parse bs off =
-  if Bitstring.bitstring_length bs = 0
-  then []
+  if Bitstring.bitstring_length bs = 0 then []
   else
     match%bitstring bs with
     | {| es_id       : 16
@@ -11,8 +10,11 @@ let rec parse bs off =
        |}
       ->
         let nodes =
-          [ Node.make ~offset:off 16 "ES_ID" (Hex (Int es_id))
-          ; Node.make ~offset:(off + off_1) 8 "FlexMuxChannel" (Hex (Int flex_mux_ch)) ]
+          [
+            Node.make ~offset:off 16 "ES_ID" (Hex (Int es_id));
+            Node.make ~offset:(off + off_1) 8 "FlexMuxChannel"
+              (Hex (Int flex_mux_ch));
+          ]
         in
         let id = Printf.sprintf "ES_ID %s" (string_of_int es_id) in
         let node = Node.make ~offset:off 24 id (List nodes) in

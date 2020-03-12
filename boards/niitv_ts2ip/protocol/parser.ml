@@ -18,7 +18,7 @@ let parse_devinfo (buf : Cstruct.t) =
     let ver = Message.get_rsp_devinfo_ver buf in
     let typ = Message.get_rsp_devinfo_typ buf in
     let packers_num = Message.get_rsp_devinfo_packers_num buf in
-    Ok {typ; ver; packers_num}
+    Ok { typ; ver; packers_num }
   with Invalid_argument _ -> Error Request.Invalid_payload
 
 let parse_udp_status (buf : Cstruct.t) =
@@ -35,9 +35,10 @@ let parse_udp_status (buf : Cstruct.t) =
   let overflow = flags land 0x20 > 0 in
   let enabled = Int32.(shift_right_logical strm 31 <> 0l) in
   let bitrate =
-    if not rdy then None else Some Int32.(to_int @@ mul 8l (logand rate 0x07_FF_FF_FFl))
+    if not rdy then None
+    else Some Int32.(to_int @@ mul 8l (logand rate 0x07_FF_FF_FFl))
   in
-  {overflow; enabled; sync; bitrate; stream}
+  { overflow; enabled; sync; bitrate; stream }
 
 let parse_status_data (buf : Cstruct.t) =
   let iter =
@@ -51,12 +52,9 @@ let parse_status (buf : Cstruct.t) =
     let phy = Message.get_status_phy buf in
     let input = Message.get_status_input buf in
     let speed =
-      if phy land 0x06 > 0
-      then Speed_1000
-      else if phy land 0x0A > 0
-      then Speed_100
-      else if phy land 0x12 > 0
-      then Speed_10
+      if phy land 0x06 > 0 then Speed_1000
+      else if phy land 0x0A > 0 then Speed_100
+      else if phy land 0x12 > 0 then Speed_10
       else Speed_failure
     in
     (* TODO sync can be encoded as 2 bits, as follows:
@@ -74,9 +72,9 @@ let parse_status (buf : Cstruct.t) =
     in
     let timestamp = Ptime_clock.now () in
     let device_status =
-      {phy = phy land 1 > 0; link = phy land 0x20 > 0; speed; sync; timestamp}
+      { phy = phy land 1 > 0; link = phy land 0x20 > 0; speed; sync; timestamp }
     in
-    let transmitter_status = {udp = parse_status_data data; timestamp} in
+    let transmitter_status = { udp = parse_status_data data; timestamp } in
     Ok (device_status, transmitter_status)
   with Invalid_argument _ -> Error Request.Invalid_payload
 
@@ -91,7 +89,8 @@ let check_msg_code (buf : Cstruct.t) =
     let pfx, rest = Cstruct.split buf Message.sizeof_prefix in
     let code = Message.get_prefix_msg_code pfx in
     match Request.tag_of_enum code with
-    | None | Some `Devinfo_req | Some `Mode | Some `MAC -> Error (Invalid_msg_code code)
+    | None | Some `Devinfo_req | Some `Mode | Some `MAC ->
+        Error (Invalid_msg_code code)
     | Some ((`Devinfo_rsp | `Status) as tag) ->
         let length =
           match tag with
@@ -99,43 +98,40 @@ let check_msg_code (buf : Cstruct.t) =
           | `Status -> Message.sizeof_status
         in
         let data, rest = Cstruct.split rest length in
-        Ok ({Request.tag; data}, rest)
+        Ok ({ Request.tag; data }, rest)
   with Invalid_argument _ -> Error (Insufficient_payload buf)
 
 let get_msg (buf : Cstruct.t) =
-  let ( >>= ) r f =
-    match r with
-    | Ok x -> f x
-    | Error e -> Error e
-  in
+  let ( >>= ) r f = match r with Ok x -> f x | Error e -> Error e in
   check_prefix buf >>= check_msg_code
 
 let deserialize (src : Logs.src) (buf : Cstruct.t) =
   let rec aux ?error responses (buf : Cstruct.t) =
-    if Cstruct.len buf >= Message.sizeof_prefix
-    then
+    if Cstruct.len buf >= Message.sizeof_prefix then
       match get_msg buf with
       | Ok (x, rest) -> aux (x :: responses) rest
       | Error e -> (
-        match e with
-        | Insufficient_payload x -> responses, x
-        | e ->
-            (match e, error with
-            | Invalid_start_tag _, Some (Invalid_start_tag _) -> ()
-            | _ -> Logs.warn ~src (fun m -> m "parser error: %s" @@ error_to_string e));
-            aux ~error:e responses (Cstruct.shift buf 1))
-    else responses, buf
+          match e with
+          | Insufficient_payload x -> (responses, x)
+          | e ->
+              ( match (e, error) with
+              | Invalid_start_tag _, Some (Invalid_start_tag _) -> ()
+              | _ ->
+                  Logs.warn ~src (fun m ->
+                      m "parser error: %s" @@ error_to_string e) );
+              aux ~error:e responses (Cstruct.shift buf 1) )
+    else (responses, buf)
   in
   let responses, rest = aux [] buf in
-  List.rev responses, if Cstruct.len rest > 0 then Some rest else None
+  (List.rev responses, if Cstruct.len rest > 0 then Some rest else None)
 
 let is_response (type a) (req : a Request.t) (msg : Request.msg) :
     (a, Request.error) result option =
   match req with
   | Get_devinfo -> (
-    match msg.tag with
-    | `Devinfo_rsp -> Some (parse_devinfo msg.data)
-    | _ -> None)
+      match msg.tag with
+      | `Devinfo_rsp -> Some (parse_devinfo msg.data)
+      | _ -> None )
   | Set_mode_main _ -> None
   | Set_mode_aux_1 _ -> None
   | Set_mode_aux_2 _ -> None

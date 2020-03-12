@@ -1,4 +1,5 @@
 (library
-  (name resize_observer)
-  (libraries js_of_ocaml)
-  (preprocess (pps js_of_ocaml-ppx)))
+ (name resize_observer)
+ (libraries js_of_ocaml)
+ (preprocess
+  (pps js_of_ocaml-ppx)))

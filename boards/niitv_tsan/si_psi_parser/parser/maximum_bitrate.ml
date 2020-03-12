@@ -6,6 +6,8 @@ let parse bs off =
      ; maximum_bitrate : 22 : save_offset_to (off_1)
      |}
     ->
-      [ Node.make ~offset:off 2 "reserved" (Bits (Int reserved))
-      ; Node.make ~offset:(off + off_1) 22 "maximum_bitrate" (Dec (Uint maximum_bitrate))
+      [
+        Node.make ~offset:off 2 "reserved" (Bits (Int reserved));
+        Node.make ~offset:(off + off_1) 22 "maximum_bitrate"
+          (Dec (Uint maximum_bitrate));
       ]

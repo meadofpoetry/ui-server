@@ -26,7 +26,8 @@ end
 module Lwt_js_events = struct
   open Js_of_ocaml_lwt.Lwt_js_events
 
-  let icon ?use_capture ?passive x = make_event ?use_capture ?passive Event.icon x
+  let icon ?use_capture ?passive x =
+    make_event ?use_capture ?passive Event.icon x
 
   let icons ?cancel_handler ?use_capture ?passive x =
     seq_loop ?cancel_handler ?use_capture ?passive icon x
@@ -46,7 +47,8 @@ module Character_counter = struct
   let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
 
   let make ?classes ?a ?current_length ?max_length () =
-    D.Character_counter.character_counter ?classes ?a ?current_length ?max_length ()
+    D.Character_counter.character_counter ?classes ?a ?current_length
+      ?max_length ()
     |> Tyxml_js.To_dom.of_div
     |> attach
 end
@@ -78,7 +80,10 @@ module Icon = struct
         (* Attach event listeners *)
         listeners <-
           Js_of_ocaml_lwt.Lwt_js_events.(
-            [clicks super#root self#handle_click; keydowns super#root self#handle_keydown]
+            [
+              clicks super#root self#handle_click;
+              keydowns super#root self#handle_keydown;
+            ]
             @ listeners);
         super#initial_sync_with_dom ()
 
@@ -97,20 +102,20 @@ module Icon = struct
         match saved_tab_index with
         | None -> ()
         | Some tabindex ->
-            if x
-            then (
+            if x then (
               Element.set_attribute super#root "tabindex" "-1";
-              Element.remove_attribute super#root "role")
+              Element.remove_attribute super#root "role" )
             else (
               Element.set_attribute super#root "tabindex" tabindex;
-              Element.set_attribute super#root "role" Attr.icon_role)
+              Element.set_attribute super#root "role" Attr.icon_role )
 
-      method private notify_action () : unit = super#emit ~should_bubble:true Event.icon
+      method private notify_action () : unit =
+        super#emit ~should_bubble:true Event.icon
 
       method private handle_keydown e _ : unit Lwt.t =
-        (match Dom_html.Keyboard_code.of_event e with
+        ( match Dom_html.Keyboard_code.of_event e with
         | Enter -> self#notify_action ()
-        | _ -> ());
+        | _ -> () );
         Lwt.return_unit
 
       method private handle_click _ _ : unit Lwt.t =
@@ -146,22 +151,24 @@ module Helper_text = struct
       method set_validation (x : bool) : unit =
         super#toggle_class ~force:x CSS.Helper_text.validation_msg
 
-      method show_to_screen_reader () : unit = super#remove_attribute Attr.aria_hidden
+      method show_to_screen_reader () : unit =
+        super#remove_attribute Attr.aria_hidden
 
       method set_validity (is_valid : bool) : unit =
         let needs_display = self#validation && not is_valid in
-        if needs_display
-        then super#set_attribute "role" "alert"
+        if needs_display then super#set_attribute "role" "alert"
         else super#remove_attribute "role";
         if (not self#persistent) && not needs_display then self#hide ()
 
-      method private hide () : unit = super#set_attribute Attr.aria_hidden "true"
+      method private hide () : unit =
+        super#set_attribute Attr.aria_hidden "true"
     end
 
   let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
 
   let make ?classes ?a ?persistent ?validation ?text ?children () =
-    D.Helper_text.helper_text ?classes ?a ?persistent ?validation ?text ?children ()
+    D.Helper_text.helper_text ?classes ?a ?persistent ?validation ?text
+      ?children ()
     |> Tyxml_js.To_dom.of_div
     |> attach
 end
@@ -170,10 +177,10 @@ module Const = struct
   let label_scale = 0.75
 
   let always_float_types =
-    ["color"; "date"; "datetime-local"; "month"; "range"; "time"; "week"]
+    [ "color"; "date"; "datetime-local"; "month"; "range"; "time"; "week" ]
 
   let validation_attr_whitelist =
-    ["pattern"; "min"; "max"; "required"; "step"; "minlength"; "maxlength"]
+    [ "pattern"; "min"; "max"; "required"; "step"; "minlength"; "maxlength" ]
 end
 
 module Selector = struct
@@ -225,12 +232,14 @@ type 'a validation =
   | Password : (string -> (unit, string) result) -> string validation
   | Custom : 'a custom_validation -> 'a validation
 
-and 'a custom_validation =
-  { input_type : Html_types.input_type
-  ; of_string : string -> ('a, string) result
-  ; to_string : 'a -> string }
+and 'a custom_validation = {
+  input_type : Html_types.input_type;
+  of_string : string -> ('a, string) result;
+  to_string : 'a -> string;
+}
 
-let input_type_of_validation : type a. a validation -> Html_types.input_type = function
+let input_type_of_validation : type a. a validation -> Html_types.input_type =
+  function
   | Text -> `Text
   | Email -> `Email
   | Float _ -> `Number
@@ -244,38 +253,32 @@ let parse_valid (type a) (v : a validation) (s : string) : a option =
   | Email -> Some s
   | Integer (None, None) -> int_of_string_opt s
   | Integer (Some min, None) -> (
-    match int_of_string_opt s with
-    | None -> None
-    | Some (v : int) -> if v >= min then Some v else None)
+      match int_of_string_opt s with
+      | None -> None
+      | Some (v : int) -> if v >= min then Some v else None )
   | Integer (None, Some max) -> (
-    match int_of_string_opt s with
-    | None -> None
-    | Some (v : int) -> if v <= max then Some v else None)
+      match int_of_string_opt s with
+      | None -> None
+      | Some (v : int) -> if v <= max then Some v else None )
   | Integer (Some min, Some max) -> (
-    match int_of_string_opt s with
-    | None -> None
-    | Some (v : int) -> if v <= max && v >= min then Some v else None)
+      match int_of_string_opt s with
+      | None -> None
+      | Some (v : int) -> if v <= max && v >= min then Some v else None )
   | Float (None, None) -> float_of_string_opt s
   | Float (Some min, None) -> (
-    match float_of_string_opt s with
-    | None -> None
-    | Some (v : float) -> if v >= min then Some v else None)
+      match float_of_string_opt s with
+      | None -> None
+      | Some (v : float) -> if v >= min then Some v else None )
   | Float (None, Some max) -> (
-    match float_of_string_opt s with
-    | None -> None
-    | Some (v : float) -> if v <= max then Some v else None)
+      match float_of_string_opt s with
+      | None -> None
+      | Some (v : float) -> if v <= max then Some v else None )
   | Float (Some min, Some max) -> (
-    match float_of_string_opt s with
-    | None -> None
-    | Some (v : float) -> if v <= max && v >= min then Some v else None)
-  | Password vf -> (
-    match vf s with
-    | Ok () -> Some s
-    | Error _ -> None)
-  | Custom c -> (
-    match c.of_string s with
-    | Ok v -> Some v
-    | Error _ -> None)
+      match float_of_string_opt s with
+      | None -> None
+      | Some (v : float) -> if v <= max && v >= min then Some v else None )
+  | Password vf -> ( match vf s with Ok () -> Some s | Error _ -> None )
+  | Custom c -> ( match c.of_string s with Ok v -> Some v | Error _ -> None )
 
 let last_char s = s.[String.length s - 1]
 
@@ -293,19 +296,20 @@ let valid_to_string (type a) (v : a validation) (e : a) : string =
 let get_helper_line (elt : Dom_html.element Js.t) =
   match Js.Opt.to_option @@ Element.get_next_sibling elt with
   | None -> None
-  | Some next -> if Element.has_class next CSS.helper_line then Some next else None
+  | Some next ->
+      if Element.has_class next CSS.helper_line then Some next else None
 
 let custom_validation (type a) input_elt (v : a validation option) =
   let set_custom_validity s : unit =
     (Js.Unsafe.coerce input_elt)##setCustomValidity (Js.string s)
   in
-  let validate : a validation option -> (string -> (unit, string) result) option =
-    function
+  let validate : a validation option -> (string -> (unit, string) result) option
+      = function
     | Some (Password validate) -> Some validate
-    | Some (Custom {of_string; _}) ->
+    | Some (Custom { of_string; _ }) ->
         Some
           (fun s ->
-            match s, of_string s with
+            match (s, of_string s) with
             | "", _ | _, Ok _ -> Ok ()
             | _, (Error _ as e) -> e)
     | _ -> None
@@ -313,18 +317,13 @@ let custom_validation (type a) input_elt (v : a validation option) =
   match validate v with
   | None -> ()
   | Some validate -> (
-    match validate @@ Js.to_string input_elt##.value with
-    | Ok () -> set_custom_validity ""
-    | Error e -> set_custom_validity e)
+      match validate @@ Js.to_string input_elt##.value with
+      | Ok () -> set_custom_validity ""
+      | Error e -> set_custom_validity e )
 
-class ['a] t
-  ?on_input
-  ?(validate_on_blur = true)
-  ?(helper_text : Helper_text.t option)
-  ?(use_native_validation = true)
-  ?(validation : 'a validation option)
-  (elt : Dom_html.element Js.t)
-  () =
+class ['a] t ?on_input ?(validate_on_blur = true)
+  ?(helper_text : Helper_text.t option) ?(use_native_validation = true)
+  ?(validation : 'a validation option) (elt : Dom_html.element Js.t) () =
   let helper_line = get_helper_line elt in
   let icon_elements = Element.query_selector_all elt Selector.icon in
   object (self)
@@ -352,41 +351,43 @@ class ['a] t
       match helper_text with
       | Some x -> Some x
       | None -> (
-        match helper_line with
-        | None -> None
-        | Some helper_line -> (
-          match Element.query_selector helper_line Selector.helper_text with
+          match helper_line with
           | None -> None
-          | Some ht -> Some (Helper_text.attach ht)))
+          | Some helper_line -> (
+              match Element.query_selector helper_line Selector.helper_text with
+              | None -> None
+              | Some ht -> Some (Helper_text.attach ht) ) )
 
     val character_counter : Character_counter.t option =
       (* Try to search for character counter at root *)
       match Element.query_selector elt Selector.character_counter with
       | Some cc -> Some (Character_counter.attach cc)
       | None -> (
-        (* If character counter is not found in root, search in sibling element *)
-        match helper_line with
-        | None -> None
-        | Some helper_line -> (
-          match Element.query_selector helper_line Selector.character_counter with
+          (* If character counter is not found in root, search in sibling element *)
+          match helper_line with
           | None -> None
-          | Some cc -> Some (Character_counter.attach cc)))
+          | Some helper_line -> (
+              match
+                Element.query_selector helper_line Selector.character_counter
+              with
+              | None -> None
+              | Some cc -> Some (Character_counter.attach cc) ) )
 
     val leading_icon : Icon.t option =
       match icon_elements with
       | [] -> None
-      | [x] ->
-          if Element.has_class elt CSS.with_leading_icon
-          then Some (Icon.attach x)
+      | [ x ] ->
+          if Element.has_class elt CSS.with_leading_icon then
+            Some (Icon.attach x)
           else None
       | x :: _ :: _ -> Some (Icon.attach x)
 
     val trailing_icon : Icon.t option =
       match icon_elements with
       | [] -> None
-      | [x] ->
-          if Element.has_class elt CSS.with_trailing_icon
-          then Some (Icon.attach x)
+      | [ x ] ->
+          if Element.has_class elt CSS.with_trailing_icon then
+            Some (Icon.attach x)
           else None
       | _ :: x :: _ -> Some (Icon.attach x)
 
@@ -410,18 +411,19 @@ class ['a] t
     inherit Widget.t elt () as super
 
     method! init () : unit =
-      (if self#focused
-      then self#activate_focus ()
+      ( if self#focused then self#activate_focus ()
       else
-        match floating_label, self#should_float with
+        match (floating_label, self#should_float) with
         | None, _ | Some _, false -> ()
         | Some (label : Floating_label.t), true ->
             self#notch_outline true;
-            label#float true);
+            label#float true );
       custom_validation input_elt validation;
       self#set_character_counter (String.length self#value_as_string);
       (* Initialize ripple, if needed *)
-      if (not (super#has_class CSS.textarea)) && not (super#has_class CSS.outlined)
+      if
+        (not (super#has_class CSS.textarea))
+        && not (super#has_class CSS.outlined)
       then ripple_ <- Some (self#create_ripple ());
       (* Apply validation constraints *)
       Option.iter self#apply_validation_constraints validation;
@@ -430,21 +432,25 @@ class ['a] t
     method! initial_sync_with_dom () : unit =
       (* Attach mutation observer *)
       validation_observer <-
-        Some (self#register_validation_handler self#handle_validation_attribute_change);
+        Some
+          (self#register_validation_handler
+             self#handle_validation_attribute_change);
       (* Attach event listeners *)
       listeners <-
         Js_of_ocaml_lwt.Lwt_js_events.(
-          [ focuses input_elt (fun _ _ ->
+          [
+            focuses input_elt (fun _ _ ->
                 self#activate_focus ();
-                Lwt.return_unit)
-          ; blurs input_elt (fun _ _ ->
+                Lwt.return_unit);
+            blurs input_elt (fun _ _ ->
                 self#deactivate_focus ();
-                Lwt.return_unit)
-          ; inputs input_elt self#handle_input
-          ; mousedowns input_elt self#set_transform_origin
-          ; touchstarts input_elt self#set_transform_origin
-          ; clicks input_elt self#handle_text_field_interaction
-          ; keydowns input_elt self#handle_text_field_interaction ]
+                Lwt.return_unit);
+            inputs input_elt self#handle_input;
+            mousedowns input_elt self#set_transform_origin;
+            touchstarts input_elt self#set_transform_origin;
+            clicks input_elt self#handle_text_field_interaction;
+            keydowns input_elt self#handle_text_field_interaction;
+          ]
           @ listeners);
       super#initial_sync_with_dom ()
 
@@ -520,7 +526,8 @@ class ['a] t
       self#style_validity x;
       Option.iter (fun x -> x#shake self#should_shake) floating_label
 
-    method pattern : string = Js.to_string (Js.Unsafe.coerce input_elt)##.pattern
+    method pattern : string =
+      Js.to_string (Js.Unsafe.coerce input_elt)##.pattern
 
     method set_pattern (pattern : string) : unit =
       (Js.Unsafe.coerce input_elt)##.pattern := Js.string pattern
@@ -536,9 +543,7 @@ class ['a] t
       | Some x -> (Js.Unsafe.coerce input_elt)##.minLength := x
 
     method max_length : int option =
-      match input_elt##.maxLength with
-      | x when x < 0 -> None
-      | x -> Some x
+      match input_elt##.maxLength with x when x < 0 -> None | x -> Some x
 
     method set_max_length : int option -> unit =
       function
@@ -550,9 +555,7 @@ class ['a] t
 
     (* Value API *)
     method is_empty : bool =
-      match self#value_as_string with
-      | "" -> true
-      | _ -> false
+      match self#value_as_string with "" -> true | _ -> false
 
     method clear () : unit = input_elt##.value := Js.string ""
 
@@ -566,11 +569,10 @@ class ['a] t
     method set_value_as_string (s : string) : unit =
       (* Prevent Safari from moving the caret to the end of the
          input when the value has not changed. *)
-      if not @@ String.equal self#value_as_string s
-      then (
+      if not @@ String.equal self#value_as_string s then (
         input_elt##.value := Js.string s;
         custom_validation input_elt validation;
-        self#set_character_counter (String.length s));
+        self#set_character_counter (String.length s) );
       self#style_validity self#valid;
       Option.iter
         (fun (label : Floating_label.t) ->
@@ -617,16 +619,18 @@ class ['a] t
     method private handle_text_field_interaction
         : 'a. (#Dom_html.event as 'a) Js.t -> unit Lwt.t -> unit Lwt.t =
       fun _ _ ->
-        (if not (Js.to_bool input_elt##.disabled) then received_user_input <- true;
-         Lwt.return_unit
-          : unit Lwt.t)
+        ( if not (Js.to_bool input_elt##.disabled) then
+            received_user_input <- true;
+          Lwt.return_unit
+          : unit Lwt.t )
 
-    method private handle_validation_attribute_change (attrs : string list) : unit =
+    method private handle_validation_attribute_change (attrs : string list)
+        : unit =
       let rec aux = function
         | [] -> ()
         | attr :: tl ->
-            if String.equal "maxlength" attr
-            then self#set_character_counter @@ String.length self#value_as_string;
+            if String.equal "maxlength" attr then
+              self#set_character_counter @@ String.length self#value_as_string;
             if List.exists (String.equal attr) Const.validation_attr_whitelist
             then self#style_validity true
             else aux tl
@@ -636,8 +640,7 @@ class ['a] t
     method private notch_outline (open_notch : bool) : unit =
       Option.iter
         (fun (outline : Notched_outline.t) ->
-          if not open_notch
-          then outline#close_notch ()
+          if not open_notch then outline#close_notch ()
           else
             let label_scale = Const.label_scale in
             let label_width =
@@ -651,30 +654,32 @@ class ['a] t
     method private set_transform_origin
         : 'a. (#Dom_html.event as 'a) Js.t -> unit Lwt.t -> unit Lwt.t =
       fun (event : #Dom_html.event Js.t) _ ->
-        (let target, client_x =
-           Js.Opt.case
-             (Dom_html.CoerceTo.mouseEvent event)
-             (fun () ->
-               let (event : Dom_html.touchEvent Js.t) = Js.Unsafe.coerce event in
-               let touch = Js.Optdef.to_option (event##.touches##item 0) in
-               match touch with
-               | None -> None, 0
-               | Some (touch : Dom_html.touch Js.t) ->
-                   Js.Optdef.to_option touch##.target, touch##.clientX)
-             (fun e -> Js.Opt.to_option e##.target, e##.clientX)
-         in
-         let left =
-           match target with
-           | None -> 0.
-           | Some x -> x##getBoundingClientRect##.left
-         in
-         let normalized_x = float_of_int client_x -. left in
-         Option.iter
-           (fun (line_ripple : Line_ripple.t) ->
-             line_ripple#set_ripple_center normalized_x)
-           line_ripple;
-         Lwt.return_unit
-          : unit Lwt.t)
+        ( let target, client_x =
+            Js.Opt.case
+              (Dom_html.CoerceTo.mouseEvent event)
+              (fun () ->
+                let (event : Dom_html.touchEvent Js.t) =
+                  Js.Unsafe.coerce event
+                in
+                let touch = Js.Optdef.to_option (event##.touches##item 0) in
+                match touch with
+                | None -> (None, 0)
+                | Some (touch : Dom_html.touch Js.t) ->
+                    (Js.Optdef.to_option touch##.target, touch##.clientX))
+              (fun e -> (Js.Opt.to_option e##.target, e##.clientX))
+          in
+          let left =
+            match target with
+            | None -> 0.
+            | Some x -> x##getBoundingClientRect##.left
+          in
+          let normalized_x = float_of_int client_x -. left in
+          Option.iter
+            (fun (line_ripple : Line_ripple.t) ->
+              line_ripple#set_ripple_center normalized_x)
+            line_ripple;
+          Lwt.return_unit
+          : unit Lwt.t )
 
     method private auto_complete_focus () : unit =
       if not received_user_input then self#activate_focus ()
@@ -691,7 +696,9 @@ class ['a] t
           label#float self#should_float;
           label#shake self#should_shake)
         floating_label;
-      Option.iter (fun (x : Helper_text.t) -> x#show_to_screen_reader ()) helper_text
+      Option.iter
+        (fun (x : Helper_text.t) -> x#show_to_screen_reader ())
+        helper_text
 
     method private deactivate_focus () : unit =
       is_focused <- false;
@@ -699,8 +706,8 @@ class ['a] t
         (fun (line_ripple : Line_ripple.t) -> line_ripple#deactivate ())
         line_ripple;
       custom_validation input_elt validation;
-      if validate_on_blur && not use_native_validation
-      then ignore @@ self#check_validity ();
+      if validate_on_blur && not use_native_validation then
+        ignore @@ self#check_validity ();
       self#style_validity self#valid;
       self#style_focused is_focused;
       Option.iter
@@ -715,18 +722,21 @@ class ['a] t
       Option.iter
         (fun (cc : Character_counter.t) ->
           let max_length = input_elt##.maxLength in
-          if max_length = -1
-          then failwith (CSS.root ^ ": expected `maxlength` html property was set");
+          if max_length = -1 then
+            failwith (CSS.root ^ ": expected `maxlength` html property was set");
           cc#set_value ~max_length cur_length)
         character_counter
 
     method private is_bad_input () : bool = Js.to_bool self#validity##.badInput
 
-    method private is_native_input_valid () : bool = Js.to_bool self#validity##.valid
+    method private is_native_input_valid () : bool =
+      Js.to_bool self#validity##.valid
 
     method private style_validity (is_valid : bool) : unit =
       super#toggle_class ~force:(not is_valid) CSS.invalid;
-      Option.iter (fun (x : Helper_text.t) -> x#set_validity is_valid) helper_text
+      Option.iter
+        (fun (x : Helper_text.t) -> x#set_validity is_valid)
+        helper_text
 
     method private style_focused (is_focused : bool) : unit =
       super#toggle_class ~force:is_focused CSS.focused
@@ -739,14 +749,11 @@ class ['a] t
 
     method private register_validation_handler handler =
       MutationObserver.(
-        observe
-          ~node:input_elt
-          ~attributes:true
+        observe ~node:input_elt ~attributes:true
           ~f:(fun (arr : mutationRecord Js.t Js.js_array Js.t) _ ->
             let cb acc (record : mutationRecord Js.t) _ _ =
               let attr = record##.attributeName in
-              if Js.Opt.test attr
-              then
+              if Js.Opt.test attr then
                 let (s : string) =
                   Js.to_string @@ Js.Opt.get attr (fun () -> assert false)
                 in
@@ -762,7 +769,8 @@ class ['a] t
     method private set_min_as_number (x : float) : unit =
       (Js.Unsafe.coerce input_elt)##.min := x
 
-    method private apply_validation_constraints (type a) (v : a validation) : unit =
+    method private apply_validation_constraints (type a) (v : a validation)
+        : unit =
       match v with
       | Float (min, max) ->
           Option.iter self#set_min_as_number min;
@@ -777,112 +785,38 @@ class ['a] t
       let is_surface_active () = Element.matches input_elt ":active" in
       let is_surface_disabled () = self#disabled in
       let adapter =
-        { adapter with
-          event_target = Element.coerce input_elt
-        ; is_surface_active
-        ; is_surface_disabled }
+        {
+          adapter with
+          event_target = Element.coerce input_elt;
+          is_surface_active;
+          is_surface_disabled;
+        }
       in
       new Ripple.t adapter ()
   end
 
-let attach
-    ?validate_on_blur
-    ?on_input
-    ?helper_text
-    ?use_native_validation
-    ?(validation : 'a validation option)
-    (elt : #Dom_html.element Js.t) : 'a t =
+let attach ?validate_on_blur ?on_input ?helper_text ?use_native_validation
+    ?(validation : 'a validation option) (elt : #Dom_html.element Js.t) : 'a t =
   new t
-    ?validate_on_blur
-    ?on_input
-    ?helper_text
-    ?validation
-    ?use_native_validation
-    (Element.coerce elt)
-    ()
+    ?validate_on_blur ?on_input ?helper_text ?validation ?use_native_validation
+    (Element.coerce elt) ()
 
-let make_textarea
-    ?classes
-    ?a
-    ?disabled
-    ?fullwidth
-    ?focused
-    ?show_character_counter
-    ?character_counter
-    ?input_id
-    ?label
-    ?outline
-    ?value
-    ?placeholder
-    ?required
-    ?min_length
-    ?max_length
-    ?rows
-    ?cols
-    ?input
-    ?validate_on_blur
-    ?on_input
-    ?helper_text
-    ?use_native_validation
-    () =
-  D.Textarea.textarea
-    ?classes
-    ?a
-    ?disabled
-    ?fullwidth
-    ?focused
-    ?show_character_counter
-    ?character_counter
-    ?input_id
-    ?label
-    ?outline
-    ?value
-    ?placeholder
-    ?required
-    ?min_length
-    ?max_length
-    ?rows
-    ?cols
-    ?input
-    ()
+let make_textarea ?classes ?a ?disabled ?fullwidth ?focused
+    ?show_character_counter ?character_counter ?input_id ?label ?outline ?value
+    ?placeholder ?required ?min_length ?max_length ?rows ?cols ?input
+    ?validate_on_blur ?on_input ?helper_text ?use_native_validation () =
+  D.Textarea.textarea ?classes ?a ?disabled ?fullwidth ?focused
+    ?show_character_counter ?character_counter ?input_id ?label ?outline ?value
+    ?placeholder ?required ?min_length ?max_length ?rows ?cols ?input ()
   |> Tyxml_js.To_dom.of_div
-  |> attach
-       ?validate_on_blur
-       ?on_input
-       ?helper_text
-       ?use_native_validation
+  |> attach ?validate_on_blur ?on_input ?helper_text ?use_native_validation
        ~validation:Text
 
-let make
-    ?classes
-    ?a
-    ?disabled
-    ?leading_icon
-    ?trailing_icon
-    ?fullwidth
-    ?textarea
-    ?focused
-    ?label
-    ?outline
-    ?outlined
-    ?line_ripple
-    ?input_id
-    ?pattern
-    ?min_length
-    ?max_length
-    ?step
-    ?value
-    ?placeholder
-    ?required
-    ?typ
-    ?input_mode
-    ?input
-    ?validate_on_blur
-    ?on_input
-    ?helper_text
-    ?use_native_validation
-    ?validation
-    () =
+let make ?classes ?a ?disabled ?leading_icon ?trailing_icon ?fullwidth ?textarea
+    ?focused ?label ?outline ?outlined ?line_ripple ?input_id ?pattern
+    ?min_length ?max_length ?step ?value ?placeholder ?required ?typ ?input_mode
+    ?input ?validate_on_blur ?on_input ?helper_text ?use_native_validation
+    ?validation () =
   Option.iter
     (fun x -> Element.add_class (Tyxml_js.To_dom.of_element x) CSS.icon)
     leading_icon;
@@ -893,56 +827,34 @@ let make
     match input_id with
     | Some _ as x -> x
     | None -> (
-      match input with
-      | None -> Some (Id.get ())
-      | Some input -> (
-          let input = Tyxml_js.To_dom.of_element input in
-          let id = Js.to_string input##.id in
-          match id with
-          | "" -> None
-          | id -> Some id))
+        match input with
+        | None -> Some (Id.get ())
+        | Some input -> (
+            let input = Tyxml_js.To_dom.of_element input in
+            let id = Js.to_string input##.id in
+            match id with "" -> None | id -> Some id ) )
   in
   let typ =
     match typ with
     | Some _ as x -> x
     | None -> (
-      match validation with
-      | Some v -> Some (input_type_of_validation v)
-      | None -> None)
+        match validation with
+        | Some v -> Some (input_type_of_validation v)
+        | None -> None )
   in
   (* Stringify value, if any *)
   let value =
     match value with
     | None -> None
     | Some x -> (
-      match validation with
-      | None -> None
-      | Some validation -> Some (valid_to_string validation x))
+        match validation with
+        | None -> None
+        | Some validation -> Some (valid_to_string validation x) )
   in
-  D.textfield
-    ?classes
-    ?a
-    ?disabled
-    ?leading_icon
-    ?trailing_icon
-    ?fullwidth
-    ?textarea
-    ?focused
-    ?label
-    ?outline
-    ?outlined
-    ?line_ripple
-    ?input_id
-    ?pattern
-    ?min_length
-    ?max_length
-    ?step
-    ?value
-    ?placeholder
-    ?required
-    ?typ
-    ?input_mode
-    ?input
-    ()
+  D.textfield ?classes ?a ?disabled ?leading_icon ?trailing_icon ?fullwidth
+    ?textarea ?focused ?label ?outline ?outlined ?line_ripple ?input_id ?pattern
+    ?min_length ?max_length ?step ?value ?placeholder ?required ?typ ?input_mode
+    ?input ()
   |> Tyxml_js.To_dom.of_div
-  |> attach ?validate_on_blur ?on_input ?helper_text ?use_native_validation ?validation
+  |> attach ?validate_on_blur ?on_input ?helper_text ?use_native_validation
+       ?validation

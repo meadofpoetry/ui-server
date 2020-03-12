@@ -9,8 +9,10 @@ let parse bs off =
      |}
     ->
       let nodes =
-        [ Node.make ~offset:off 16 "CA_system_id" (Hex (Int ca_system_id))
-        ; Node.make ~offset:(off_1 + off) 3 "reserved" (Bits (Int reserved))
-        ; Node.make ~offset:(off_2 + off) 13 "CA_PID" (Hex (Int ca_pid)) ]
+        [
+          Node.make ~offset:off 16 "CA_system_id" (Hex (Int ca_system_id));
+          Node.make ~offset:(off_1 + off) 3 "reserved" (Bits (Int reserved));
+          Node.make ~offset:(off_2 + off) 13 "CA_PID" (Hex (Int ca_pid));
+        ]
       in
       nodes @ Bytes.parse ~offset:(off + off_3) private_data "private_data_byte"

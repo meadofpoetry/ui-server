@@ -45,12 +45,7 @@ struct
     let text =
       match label with
       | None -> return default_text
-      | Some x ->
-          fmap
-            (function
-              | None -> default_text
-              | Some x -> x)
-            x
+      | Some x -> fmap (function None -> default_text | Some x -> x) x
     in
     let label = return (txt text) in
     span ~a:(a_class classes :: a) (label @:: nil ())
@@ -60,15 +55,11 @@ struct
     let options =
       match streams with
       | None -> nil ()
-      | Some streams -> map (fun x -> create_option ~stream:x ()) (totlist streams)
+      | Some streams ->
+          map (fun x -> create_option ~stream:x ()) (totlist streams)
     in
-    Select_markup.Native.select
-      ~a
-      ~classes
-      ~outlined:true
-      ~label:(return "Потоки")
-      ~options
-      ()
+    Select_markup.Native.select ~a ~classes ~outlined:true
+      ~label:(return "Потоки") ~options ()
 
   let create ?(classes = return []) ?(a = []) ?streams () =
     let classes = fmap (fun x -> CSS.root :: x) classes in

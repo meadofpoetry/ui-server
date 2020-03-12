@@ -13,14 +13,14 @@ type event =
 
 let page_factor = 10.
 
-let quantize ~(step : float) (v : float) : float = Js.math##round (v /. step) *. step
+let quantize ~(step : float) (v : float) : float =
+  Js.math##round (v /. step) *. step
 
 let unwrap x = Js.Optdef.get x (fun () -> assert false)
 
 let clamp ?(min = 0.) ?(max = 100.) v = Float.min (Float.max v min) max
 
-let listen_body_lwt
-    (typ : (#Dom_html.event as 'a) Js.t Dom_html.Event.typ)
+let listen_body_lwt (typ : (#Dom_html.event as 'a) Js.t Dom_html.Event.typ)
     (handler : 'a Js.t -> unit Lwt.t -> unit Lwt.t) : unit Lwt.t =
   Js_of_ocaml_lwt.Lwt_js_events.(
     seq_loop (make_event typ) Dom_html.document##.body handler)
@@ -28,8 +28,7 @@ let listen_body_lwt
 let get_touch_by_id (touches : Dom_html.touchList Js.t) (id : int) :
     Dom_html.touch Js.t option =
   let rec aux acc i =
-    if i >= touches##.length
-    then acc
+    if i >= touches##.length then acc
     else
       let touch = unwrap (touches##item i) in
       if touch##.identifier = id then Some touch else aux acc (succ i)
@@ -72,7 +71,8 @@ module Event = struct
 
   let input : event Js.t Dom_html.Event.typ = Dom_html.Event.make "slider:input"
 
-  let change : event Js.t Dom_html.Event.typ = Dom_html.Event.make "slider:change"
+  let change : event Js.t Dom_html.Event.typ =
+    Dom_html.Event.make "slider:change"
 end
 
 class t (elt : Dom_html.element Js.t) () =
@@ -83,7 +83,8 @@ class t (elt : Dom_html.element Js.t) () =
 
     val pin_value_marker = Element.query_selector elt Selector.pin_value_marker
 
-    val thumb_container = Element.query_selector_exn elt Selector.thumb_container
+    val thumb_container =
+      Element.query_selector_exn elt Selector.thumb_container
 
     val track_before = Element.query_selector_exn elt Selector.track_before
 
@@ -164,26 +165,25 @@ class t (elt : Dom_html.element Js.t) () =
         | None -> _max
         | Some x -> x
       in
-      if min' >= self#max
-      then (
+      if min' >= self#max then (
         self#set_max max';
-        self#set_min min')
+        self#set_min min' )
       else (
         self#set_min min';
-        self#set_max max');
+        self#set_max max' );
       _disabled <-
-        (match super#get_attribute Attr.aria_disabled with
+        ( match super#get_attribute Attr.aria_disabled with
         | Some "true" -> true
-        | _ -> false);
-      (match get_float_attribute super#root Attr.data_step with
+        | _ -> false );
+      ( match get_float_attribute super#root Attr.data_step with
       | None -> ()
-      | Some x -> _step <- Some x);
-      (match get_float_attribute super#root Attr.aria_valuenow with
+      | Some x -> _step <- Some x );
+      ( match get_float_attribute super#root Attr.aria_valuenow with
       | None -> ()
-      | Some x -> _value <- x);
-      (match self#step, self#discrete with
+      | Some x -> _value <- x );
+      ( match (self#step, self#discrete) with
       | None, true | Some 0., true -> _step <- Some 1.
-      | _ -> ());
+      | _ -> () );
       self#setup_track_marker ()
 
     method! destroy () : unit =
@@ -211,38 +211,37 @@ class t (elt : Dom_html.element Js.t) () =
     method set_disabled (x : bool) : unit =
       _disabled <- x;
       super#toggle_class ~force:x CSS.disabled;
-      if x
-      then (
+      if x then (
         _saved_tab_index <- Element.get_attribute super#root "tabindex";
         super#set_attribute Attr.aria_disabled "true";
-        super#remove_attribute "tabindex")
+        super#remove_attribute "tabindex" )
       else (
         super#remove_attribute Attr.aria_disabled;
-        Option.iter (super#set_attribute "tabindex") _saved_tab_index)
+        Option.iter (super#set_attribute "tabindex") _saved_tab_index )
 
     method vertical : bool = _vertical
 
     method min : float = _min
 
     method set_min (v : float) : unit =
-      if v > self#max
-      then raise (Invalid_argument "Min cannot be greater than max")
+      if v > self#max then
+        raise (Invalid_argument "Min cannot be greater than max")
       else (
         _min <- v;
         self#set_value_ ~fire_input:false ~force:true self#value;
         super#set_attribute Attr.aria_valuemin (string_of_float v);
-        self#setup_track_marker ())
+        self#setup_track_marker () )
 
     method max : float = _max
 
     method set_max (v : float) : unit =
-      if v < self#min
-      then raise (Invalid_argument "Max cannot be less than min")
+      if v < self#min then
+        raise (Invalid_argument "Max cannot be less than min")
       else (
         _max <- v;
         self#set_value_ ~fire_input:false ~force:true self#value;
         super#set_attribute Attr.aria_valuemax (string_of_float v);
-        self#setup_track_marker ())
+        self#setup_track_marker () )
 
     method step : float option = _step
 
@@ -269,10 +268,7 @@ class t (elt : Dom_html.element Js.t) () =
       let amount =
         match amount with
         | Some x -> x
-        | None -> (
-          match self#step with
-          | None -> 1.
-          | Some x -> x)
+        | None -> ( match self#step with None -> 1. | Some x -> x )
       in
       self#set_value (self#value +. amount)
 
@@ -280,18 +276,18 @@ class t (elt : Dom_html.element Js.t) () =
       let amount =
         match amount with
         | Some x -> x
-        | None -> (
-          match self#step with
-          | None -> 1.
-          | Some x -> x)
+        | None -> ( match self#step with None -> 1. | Some x -> x )
       in
       self#set_value (self#value +. amount)
 
-    method private set_active_ (x : bool) : unit = super#toggle_class ~force:x CSS.active
+    method private set_active_ (x : bool) : unit =
+      super#toggle_class ~force:x CSS.active
 
-    method private notify_input () : unit = super#emit ~detail:self#value Event.input
+    method private notify_input () : unit =
+      super#emit ~detail:self#value Event.input
 
-    method private notify_change () : unit = super#emit ~detail:self#value Event.change
+    method private notify_change () : unit =
+      super#emit ~detail:self#value Event.change
 
     method private set_value_ ?(force = false) ~fire_input (v : float) : unit =
       let prev = self#value in
@@ -300,54 +296,55 @@ class t (elt : Dom_html.element Js.t) () =
       | None -> ()
       | Some v when Float.equal prev v && not force -> ()
       | Some v ->
-          let min, max = self#min, self#max in
+          let min, max = (self#min, self#max) in
           let percent = clamp ((v -. min) *. 100. /. (max -. min)) in
           self#calculate_track_styles track_before percent;
           self#calculate_track_styles track_after (100. -. percent);
           self#calculate_thumb_styles percent;
           _value <- v;
           super#set_attribute Attr.aria_valuenow (string_of_float v);
-          if fire_input
-          then (
+          if fire_input then (
             self#notify_input ();
-            if self#discrete then self#set_marker_value v)
+            if self#discrete then self#set_marker_value v )
 
     method private percent_to_value (percent : float) : float =
-      let min, max = self#min, self#max in
+      let min, max = (self#min, self#max) in
       ((max -. min) *. percent /. 100.) +. min
 
     method private round_to_step ~(step : float) (value : float) : float =
       Float.round (value /. step) *. step
 
-    method private get_offset (rect : Dom_html.clientRect Js.t) : float * float =
-      let left, bottom = rect##.left, rect##.bottom in
+    method private get_offset (rect : Dom_html.clientRect Js.t) : float * float
+        =
+      let left, bottom = (rect##.left, rect##.bottom) in
       let window = Js.Unsafe.coerce Dom_html.window in
       let (page_y : float), (page_x : float) =
-        window##.pageYOffset, window##.pageXOffset
+        (window##.pageYOffset, window##.pageXOffset)
       in
-      bottom +. page_y, left +. page_x
+      (bottom +. page_y, left +. page_x)
 
     method private get_mouse_position : event -> float * float =
       function
       | Mouse e -> (
-        match Js.Optdef.(to_option e##.pageX, to_option e##.pageY) with
-        | Some page_x, Some page_y -> float_of_int page_x, float_of_int page_y
-        | _ -> failwith "no page coordinates in mouse event")
+          match Js.Optdef.(to_option e##.pageX, to_option e##.pageY) with
+          | Some page_x, Some page_y ->
+              (float_of_int page_x, float_of_int page_y)
+          | _ -> failwith "no page coordinates in mouse event" )
       | Touch e -> (
           let touches = e##.changedTouches in
           let rec aux acc i =
-            if i >= touches##.length
-            then acc
+            if i >= touches##.length then acc
             else
               let touch = unwrap (touches##item i) in
               match _touch_id with
               | None -> Some touch
               | Some id ->
-                  if touch##.identifier = id then Some touch else aux acc (succ i)
+                  if touch##.identifier = id then Some touch
+                  else aux acc (succ i)
           in
           match aux None 0 with
           | None -> failwith "no touch event found"
-          | Some t -> float_of_int t##.pageX, float_of_int t##.pageY)
+          | Some t -> (float_of_int t##.pageX, float_of_int t##.pageY) )
 
     method private calculate_thumb_styles (percent : float) : unit =
       let func = if self#vertical then "translateY" else "translateX" in
@@ -357,23 +354,17 @@ class t (elt : Dom_html.element Js.t) () =
       let style = Printf.sprintf "%s(%g%%)" func value in
       thumb_container##.style##.transform := Js.string style
 
-    method private calculate_track_styles
-        (track : Dom_html.element Js.t)
-        (percent : float)
-        : unit =
-      if self#disabled
-      then
+    method private calculate_track_styles (track : Dom_html.element Js.t)
+        (percent : float) : unit =
+      if self#disabled then
         let style = Printf.sprintf "calc(%g%% - 6px)" percent in
-        if self#vertical
-        then track##.style##.height := Js.string style
+        if self#vertical then track##.style##.height := Js.string style
         else track##.style##.width := Js.string style
       else
         let v = percent /. 100. in
         let style =
-          if self#vertical
-          then
-            Printf.sprintf
-              "translateX(%s50%%) scaleY(%g)"
+          if self#vertical then
+            Printf.sprintf "translateX(%s50%%) scaleY(%g)"
               (if super#is_rtl () then "" else "-")
               v
           else Printf.sprintf "translateY(-50%%) scaleX(%g)" v
@@ -409,39 +400,43 @@ class t (elt : Dom_html.element Js.t) () =
       match self#step with
       | None -> ()
       | Some step ->
-          if self#discrete && self#has_track_marker
-          then (
+          if self#discrete && self#has_track_marker then (
             let markers' = (self#max -. self#min) /. step in
             let markers = ceil markers' in
             self#remove_track_markers ();
             self#append_track_markers (int_of_float markers);
-            if markers' <> markers
-            then
+            if markers' <> markers then
               let last_step_ratio =
-                string_of_float @@ (((self#max -. (markers *. step)) /. step) +. 1.)
+                string_of_float
+                @@ (((self#max -. (markers *. step)) /. step) +. 1.)
               in
               let flex =
-                Animation.get_correct_property_name ~window:Dom_html.window "flex"
+                Animation.get_correct_property_name ~window:Dom_html.window
+                  "flex"
               in
               Element.query_selector super#root Selector.last_track_marker
-              |> Option.iter (fun e -> Element.set_style_property e flex last_step_ratio))
+              |> Option.iter (fun e ->
+                     Element.set_style_property e flex last_step_ratio) )
 
     method private calculate_percent (e : event) =
       let rect = super#root##getBoundingClientRect in
-      match Js.Optdef.to_option rect##.width, Js.Optdef.to_option rect##.height with
+      match
+        (Js.Optdef.to_option rect##.width, Js.Optdef.to_option rect##.height)
+      with
       | Some width, Some height ->
           let bottom, left = self#get_offset rect in
           let x, y = self#get_mouse_position e in
           let value = if self#vertical then bottom -. y else x -. left in
-          let one_percent = if self#vertical then height /. 100. else width /. 100. in
-          if super#is_rtl () && not self#vertical
-          then 100. -. clamp (value /. one_percent)
+          let one_percent =
+            if self#vertical then height /. 100. else width /. 100.
+          in
+          if super#is_rtl () && not self#vertical then
+            100. -. clamp (value /. one_percent)
           else clamp (value /. one_percent)
       | _ -> 0.
 
     method private reduce_value (raw_value : float) : float option =
-      if self#disabled
-      then None
+      if self#disabled then None
       else
         match self#step with
         | None -> Some raw_value
@@ -456,77 +451,78 @@ class t (elt : Dom_html.element Js.t) () =
       super#remove_class CSS.focus;
       Lwt.return_unit
 
-    method private handle_mouse_enter (e : Dom_html.mouseEvent Js.t) _ : unit Lwt.t =
+    method private handle_mouse_enter (e : Dom_html.mouseEvent Js.t) _
+        : unit Lwt.t =
       if (Js.Unsafe.coerce e)##.buttons = 0 then self#handle_drag_end ();
       Lwt.return_unit
 
-    method private handle_mouse_leave (e : Dom_html.mouseEvent Js.t) _ : unit Lwt.t =
+    method private handle_mouse_leave (e : Dom_html.mouseEvent Js.t) _
+        : unit Lwt.t =
       self#handle_mouse_move e Lwt.return_unit
 
-    method private handle_touch_start (e : Dom_html.touchEvent Js.t) _ : unit Lwt.t =
+    method private handle_touch_start (e : Dom_html.touchEvent Js.t) _
+        : unit Lwt.t =
       Dom.preventDefault e;
-      (match Js.Optdef.to_option (e##.changedTouches##item 0) with
+      ( match Js.Optdef.to_option (e##.changedTouches##item 0) with
       | None -> ()
-      | Some touch -> _touch_id <- Some touch##.identifier);
+      | Some touch -> _touch_id <- Some touch##.identifier );
       _prevent_focus_state <- true;
       self#set_active_ true;
-      _touchend <- Some (listen_body_lwt Dom_html.Event.touchend self#handle_touch_end);
+      _touchend <-
+        Some (listen_body_lwt Dom_html.Event.touchend self#handle_touch_end);
       Lwt.return_unit
 
-    method private handle_mouse_down
-        (e : Dom_html.mouseEvent Js.t)
-        (_ : unit Lwt.t)
-        : unit Lwt.t =
+    method private handle_mouse_down (e : Dom_html.mouseEvent Js.t)
+        (_ : unit Lwt.t) : unit Lwt.t =
       Dom.preventDefault e;
       _prevent_focus_state <- true;
       (* FIXME workaround, why we don't gain focus on click natively?? *)
       super#root##focus;
       self#set_active_ true;
       _mouseenter <-
-        Some (listen_body_lwt (Dom_html.Event.make "mouseenter") self#handle_mouse_enter);
+        Some
+          (listen_body_lwt
+             (Dom_html.Event.make "mouseenter")
+             self#handle_mouse_enter);
       _mouseleave <-
-        Some (listen_body_lwt (Dom_html.Event.make "mouseleave") self#handle_mouse_leave);
+        Some
+          (listen_body_lwt
+             (Dom_html.Event.make "mouseleave")
+             self#handle_mouse_leave);
       _mousemove <-
         Some (listen_body_lwt Dom_html.Event.mousemove self#handle_mouse_move);
-      _mouseup <- Some (listen_body_lwt Dom_html.Event.mouseup self#handle_mouse_up);
+      _mouseup <-
+        Some (listen_body_lwt Dom_html.Event.mouseup self#handle_mouse_up);
       self#handle_move (Mouse e)
 
-    method private handle_touch_end
-        (e : Dom_html.touchEvent Js.t)
-        (_ : unit Lwt.t)
-        : unit Lwt.t =
-      (match _touch_id with
+    method private handle_touch_end (e : Dom_html.touchEvent Js.t)
+        (_ : unit Lwt.t) : unit Lwt.t =
+      ( match _touch_id with
       | None -> self#handle_drag_end ()
       | Some id -> (
           let touches = e##.changedTouches in
           match get_touch_by_id touches id with
           | None -> ()
-          | Some _ -> self#handle_drag_end ()));
+          | Some _ -> self#handle_drag_end () ) );
       Lwt.return_unit
 
-    method private handle_mouse_up
-        (_ : Dom_html.mouseEvent Js.t)
-        (_ : unit Lwt.t)
-        : unit Lwt.t =
+    method private handle_mouse_up (_ : Dom_html.mouseEvent Js.t)
+        (_ : unit Lwt.t) : unit Lwt.t =
       self#handle_drag_end ();
       Lwt.return_unit
 
-    method private handle_touch_move
-        (e : Dom_html.touchEvent Js.t)
-        (_ : unit Lwt.t)
-        : unit Lwt.t =
+    method private handle_touch_move (e : Dom_html.touchEvent Js.t)
+        (_ : unit Lwt.t) : unit Lwt.t =
       match _touch_id with
       | None -> self#handle_move (Touch e)
       | Some id -> (
           let touches = e##.changedTouches in
           match get_touch_by_id touches id with
           | None -> Lwt.return_unit
-          | Some _ -> self#handle_move (Touch e))
+          | Some _ -> self#handle_move (Touch e) )
 
-    method private handle_mouse_move
-        (e : Dom_html.mouseEvent Js.t)
-        (_ : unit Lwt.t)
-        : unit Lwt.t =
+    method private handle_mouse_move (e : Dom_html.mouseEvent Js.t)
+        (_ : unit Lwt.t) : unit Lwt.t =
       self#handle_move ~fire_input:true (Mouse e)
 
     method private handle_move ?(fire_input = true) (e : event) : unit Lwt.t =
@@ -549,15 +545,12 @@ class t (elt : Dom_html.element Js.t) () =
       Option.iter Lwt.cancel _touchend;
       _touchend <- None
 
-    method private handle_keydown (e : Dom_html.keyboardEvent Js.t) _ : unit Lwt.t =
+    method private handle_keydown (e : Dom_html.keyboardEvent Js.t) _
+        : unit Lwt.t =
       let key = Dom_html.Keyboard_code.of_event e in
-      let min, max, value = self#min, self#max, self#value in
+      let min, max, value = (self#min, self#max, self#value) in
       let one_percent = Float.abs ((max -. min) /. 100.) in
-      let step =
-        match self#step with
-        | None -> one_percent
-        | Some x -> x
-      in
+      let step = match self#step with None -> one_percent | Some x -> x in
       let value =
         match key with
         | ArrowLeft | ArrowDown -> Some (value -. step)
@@ -583,39 +576,11 @@ class t (elt : Dom_html.element Js.t) () =
 let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
 
 (** Create new slider from scratch *)
-let make
-    ?classes
-    ?a
-    ?discrete
-    ?markers
-    ?disabled
-    ?label
-    ?step
-    ?track_before
-    ?track_after
-    ?thumb_container
-    ?track_marker_container
-    ?container
-    ?min
-    ?max
-    ?value
-    () : t =
-  D.slider
-    ?classes
-    ?a
-    ?discrete
-    ?markers
-    ?disabled
-    ?label
-    ?step
-    ?track_before
-    ?track_after
-    ?thumb_container
-    ?track_marker_container
-    ?container
-    ?min
-    ?max
-    ?value
-    ()
+let make ?classes ?a ?discrete ?markers ?disabled ?label ?step ?track_before
+    ?track_after ?thumb_container ?track_marker_container ?container ?min ?max
+    ?value () : t =
+  D.slider ?classes ?a ?discrete ?markers ?disabled ?label ?step ?track_before
+    ?track_after ?thumb_container ?track_marker_container ?container ?min ?max
+    ?value ()
   |> Tyxml_js.To_dom.of_element
   |> attach

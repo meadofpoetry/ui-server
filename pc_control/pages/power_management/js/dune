@@ -1,11 +1,11 @@
 (executable
-  (name      page_power_management)
-  (libraries page_power_management_tyxml
-             pc_control_http_js
-             components_lab)
-  (preprocess (pps js_of_ocaml-ppx)))
+ (name page_power_management)
+ (libraries page_power_management_tyxml pc_control_http_js components_lab)
+ (preprocess
+  (pps js_of_ocaml-ppx)))
 
 (install
-  (files (page_power_management.bc.js as js/page-power-management.js))
-  (section share)
-  (package ui-server))
+ (files
+  (page_power_management.bc.js as js/page-power-management.js))
+ (section share)
+ (package ui-server))

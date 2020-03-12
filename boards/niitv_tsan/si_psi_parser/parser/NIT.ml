@@ -22,26 +22,26 @@ let parse =
       let dscrs = parse_descriptors off_9 descriptors in
       let header = parse_header header in
       let nodes =
-        [ Node.make ~offset:off_1 16 "network_id" (Hex (Int network_id))
-        ; Node.make ~offset:off_2 2 "reserved" (Hex (Int reserved))
-        ; Node.make ~offset:off_3 5 "version_number" (Dec (Int version_number))
-        ; Node.make
-            ~offset:off_4
-            1
-            "current_next_indicator"
-            (Bits (Bool current_next_ind))
-        ; Node.make ~offset:off_5 8 "section_number" (Dec (Int section_number))
-        ; Node.make ~offset:off_6 8 "last_section_number" (Dec (Int last_section_number))
-        ; Node.make ~offset:off_7 4 "reserved_future_use" (Hex (Int rfu_1))
-        ; Node.make ~offset:off_8 12 "network_desc_length" (Hex (Int nw_desc_length))
-        ; Node.make ~offset:off_9 (nw_desc_length * 8) "descriptors" (List dscrs)
-        ; Node.make ~offset:off_10 4 "reserved_future_use" (Hex (Int rfu_2))
-        ; Node.make
-            ~offset:off_11
-            12
-            "transport_stream_loop_length"
-            (Dec (Int ts_loop_len))
-        ; Node.make ~offset:off_12 (ts_loop_len * 8) "transport_streams" (List ts)
-        ; Node.make ~offset:off_13 32 "CRC_32" (Hex (Uint32 crc32)) ]
+        [
+          Node.make ~offset:off_1 16 "network_id" (Hex (Int network_id));
+          Node.make ~offset:off_2 2 "reserved" (Hex (Int reserved));
+          Node.make ~offset:off_3 5 "version_number" (Dec (Int version_number));
+          Node.make ~offset:off_4 1 "current_next_indicator"
+            (Bits (Bool current_next_ind));
+          Node.make ~offset:off_5 8 "section_number" (Dec (Int section_number));
+          Node.make ~offset:off_6 8 "last_section_number"
+            (Dec (Int last_section_number));
+          Node.make ~offset:off_7 4 "reserved_future_use" (Hex (Int rfu_1));
+          Node.make ~offset:off_8 12 "network_desc_length"
+            (Hex (Int nw_desc_length));
+          Node.make ~offset:off_9 (nw_desc_length * 8) "descriptors"
+            (List dscrs);
+          Node.make ~offset:off_10 4 "reserved_future_use" (Hex (Int rfu_2));
+          Node.make ~offset:off_11 12 "transport_stream_loop_length"
+            (Dec (Int ts_loop_len));
+          Node.make ~offset:off_12 (ts_loop_len * 8) "transport_streams"
+            (List ts);
+          Node.make ~offset:off_13 32 "CRC_32" (Hex (Uint32 crc32));
+        ]
       in
       header @ nodes

@@ -1,3 +1,3 @@
 (library
-  (name      kv_v)
-  (libraries kv react)) 
+ (name kv_v)
+ (libraries kv react))

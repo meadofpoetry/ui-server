@@ -36,28 +36,28 @@ module type Position = sig
   val collides : t -> t -> bool
 
   val validate_left_top :
-       ?min_left:float
-    -> ?min_top:float
-    -> ?max_left:float
-    -> ?max_top:float
-    -> ?parent_width:float
-    -> ?parent_height:float
-    -> t
-    -> t
+    ?min_left:float ->
+    ?min_top:float ->
+    ?max_left:float ->
+    ?max_top:float ->
+    ?parent_width:float ->
+    ?parent_height:float ->
+    t ->
+    t
 
   val validate :
-       ?min_left:float
-    -> ?min_top:float
-    -> ?max_left:float
-    -> ?max_top:float
-    -> ?max_width:float
-    -> ?min_width:float
-    -> ?max_height:float
-    -> ?min_height:float
-    -> ?parent_width:float
-    -> ?parent_height:float
-    -> t
-    -> t
+    ?min_left:float ->
+    ?min_top:float ->
+    ?max_left:float ->
+    ?max_top:float ->
+    ?max_width:float ->
+    ?min_width:float ->
+    ?max_height:float ->
+    ?min_height:float ->
+    ?parent_width:float ->
+    ?parent_height:float ->
+    t ->
+    t
 
   val bounding_rect : t list -> t
 end

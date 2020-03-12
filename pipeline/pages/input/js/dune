@@ -1,11 +1,11 @@
 (executable
-  (name       pipeline_page_input)
-  (libraries  pipeline_widgets
-              pipeline_page_input_tyxml
-              ui_templates)
-  (preprocess (pps js_of_ocaml-ppx)))
+ (name pipeline_page_input)
+ (libraries pipeline_widgets pipeline_page_input_tyxml ui_templates)
+ (preprocess
+  (pps js_of_ocaml-ppx)))
 
 (install
-  (files (pipeline_page_input.bc.js as js/pipeline-page-input.js))
-  (section share)
-  (package ui-server))
+ (files
+  (pipeline_page_input.bc.js as js/pipeline-page-input.js))
+ (section share)
+ (package ui-server))

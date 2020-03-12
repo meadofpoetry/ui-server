@@ -14,10 +14,12 @@ class t (elt : Dom_html.element Js.t) () =
       (* Attach event listeners *)
       listeners <-
         Js_of_ocaml_lwt.Lwt_js_events.(
-          [ seq_loop
+          [
+            seq_loop
               (make_event @@ Dom_html.Event.make "transitionend")
               super#root
-              (fun e _ -> Lwt.return @@ self#handle_transition_end e) ]
+              (fun e _ -> Lwt.return @@ self#handle_transition_end e);
+          ]
           @ listeners);
       super#init ()
 
@@ -42,15 +44,13 @@ class t (elt : Dom_html.element Js.t) () =
     (* Private methods *)
     method private handle_transition_end (e : Dom_html.event Js.t) : unit =
       let prop = Js.to_string (Js.Unsafe.coerce e)##.propertyName in
-      if String.equal prop "opacity"
-      then
+      if String.equal prop "opacity" then
         (* Wait for the line ripple to be either transparent or opaque
-         before emitting the animation end event *)
+           before emitting the animation end event *)
         let is_deactivating = self#has_class CSS.deactivating in
-        if is_deactivating
-        then (
+        if is_deactivating then (
           self#remove_class CSS.active;
-          self#remove_class CSS.deactivating)
+          self#remove_class CSS.deactivating )
     (** Handles a transition end event *)
   end
 

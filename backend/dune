@@ -1,14 +1,9 @@
 (executable
-  (name        backend)
-  (public_name ui-server)
-  (package     ui-server)
-  (modes       native)
-  (libraries   xdg
-               kv_v
-               db
-               server_http
-               application_http
-               lwt.unix
-               logs.lwt
-               ptime.clock.os)
-  (preprocess  (pps ppx_deriving_yojson)))
+ (name backend)
+ (public_name ui-server)
+ (package ui-server)
+ (modes native)
+ (libraries xdg kv_v db server_http application_http lwt.unix logs.lwt
+   ptime.clock.os)
+ (preprocess
+  (pps ppx_deriving_yojson)))

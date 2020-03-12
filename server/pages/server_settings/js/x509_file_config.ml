@@ -18,7 +18,7 @@ let max_file_size = 500_000 (* bytes *)
 
 let file_size_to_string (x : int) =
   let threshold = 1000. in
-  let units = ["kB"; "MB"; "GB"; "TB"] in
+  let units = [ "kB"; "MB"; "GB"; "TB" ] in
   let rec aux acc = function
     | [] -> acc
     | unit :: tl ->
@@ -31,26 +31,24 @@ let typ_to_string (type a) : a typ -> string = function
   | Key -> "Приватный ключ"
   | Crt -> "Сертификат"
 
-let remove_file (type a) : a typ -> (unit, Api_js.Http.error) Lwt_result.t = function
+let remove_file (type a) : a typ -> (unit, Api_js.Http.error) Lwt_result.t =
+  function
   | Key -> Server_http_js.delete_tls_key ()
   | Crt -> Server_http_js.delete_tls_crt ()
 
 let upload_file (type a) :
-       ?upload_progress:(int -> int -> unit)
-    -> string
-    -> File.blob Js.t
-    -> a typ
-    -> (unit, Api_js.Http.error) Lwt_result.t =
+    ?upload_progress:(int -> int -> unit) ->
+    string ->
+    File.blob Js.t ->
+    a typ ->
+    (unit, Api_js.Http.error) Lwt_result.t =
  fun ?upload_progress name blob -> function
   | Key -> Server_http_js.set_tls_key ?upload_progress ~name blob
   | Crt -> Server_http_js.set_tls_crt ?upload_progress ~name blob
 
 let fetch_value (type a) typ =
   let value : a typ -> Server_types.settings -> a =
-   fun typ s ->
-    match typ with
-    | Key -> s.tls_key
-    | Crt -> s.tls_cert
+   fun typ s -> match typ with Key -> s.tls_key | Crt -> s.tls_cert
   in
   Server_http_js.get_config () >>=? Lwt.return_ok % value typ
 
@@ -59,27 +57,24 @@ let make_info (type a) : a typ -> a -> Dom_html.element Js.t =
   match typ with
   | Key -> Dom_html.(createDiv document) (* TODO *)
   | Crt -> (
-    match v with
-    | None -> Dom_html.(createDiv document) (* TODO *)
-    | Some (_, v) -> Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ D.of_certificate v)
+      match v with
+      | None -> Dom_html.(createDiv document) (* TODO *)
+      | Some (_, v) ->
+          Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element @@ D.of_certificate v )
 
 let update_row_state (type a) : a -> Dom_html.element Js.t -> a typ -> unit =
  fun v row typ ->
   let force =
-    match typ with
-    | Key -> Option.is_none v
-    | Crt -> Option.is_none v
+    match typ with Key -> Option.is_none v | Crt -> Option.is_none v
   in
   ignore
-  @@ Element.toggle_class ~force row Page_server_settings_tyxml.Certificate.CSS.empty
+  @@ Element.toggle_class ~force row
+       Page_server_settings_tyxml.Certificate.CSS.empty
 
 let filename_of_value (type a) : a -> a typ -> string option =
  fun v -> function
   | Key -> v
-  | Crt -> (
-    match v with
-    | None -> None
-    | Some (n, _) -> Some n)
+  | Crt -> ( match v with None -> None | Some (n, _) -> Some n )
 
 class type dialog =
   object
@@ -95,25 +90,29 @@ let make_disclaimer_dialog () =
   let title = "Сохранить приватный ключ?" in
   let message =
     "Сохранение приватного ключа требует \
-     отправки содержимого файла по сети. В случае, \
-     если передача приватного ключа \
-     осуществляется через публичную сеть или с \
-     использованием незащищенного канала связи, \
-     доступ к содержимому файла может быть \
-     получен третьми лицами."
+     отправки содержимого файла по сети. В \
+     случае, если передача приватного ключа \
+     осуществляется через публичную сеть \
+     или с использованием незащищенного \
+     канала связи, доступ к содержимому \
+     файла может быть получен третьми \
+     лицами."
   in
   let do_not_show =
     Form_field.make_of_widget
       ~label:"Больше не показывать это сообщение"
-      ~input:(Checkbox.make ())
-      ()
+      ~input:(Checkbox.make ()) ()
   in
   let content =
-    dialog_content ~children:[Tyxml_js.Html.txt message; do_not_show#markup] ()
+    dialog_content
+      ~children:[ Tyxml_js.Html.txt message; do_not_show#markup ]
+      ()
   in
   let actions =
-    [ dialog_action ~action:Close ~label:"Отмена" ()
-    ; dialog_action ~action:Accept ~label:"Сохранить" () ]
+    [
+      dialog_action ~action:Close ~label:"Отмена" ();
+      dialog_action ~action:Accept ~label:"Сохранить" ();
+    ]
   in
   let elt =
     Tyxml_js.To_dom.of_element
@@ -122,9 +121,9 @@ let make_disclaimer_dialog () =
   object
     inherit Dialog.t elt ()
 
-    method reset () : unit = (do_not_show#input)#toggle ~force:false ()
+    method reset () : unit = do_not_show#input#toggle ~force:false ()
 
-    method do_not_show : bool = (do_not_show#input)#checked
+    method do_not_show : bool = do_not_show#input#checked
   end
 
 let make_warning_dialog (type a) (typ : a typ) =
@@ -132,8 +131,9 @@ let make_warning_dialog (type a) (typ : a typ) =
   let title, file =
     match typ with
     | Key ->
-        "Удалить приватный ключ?", "приватного ключа"
-    | Crt -> "Удалить сертификат?", "сертификата"
+        ( "Удалить приватный ключ?",
+          "приватного ключа" )
+    | Crt -> ("Удалить сертификат?", "сертификата")
   in
   let content =
     Js_of_ocaml_tyxml.Tyxml_js.Html.txt
@@ -141,15 +141,17 @@ let make_warning_dialog (type a) (typ : a typ) =
          "Удаление %s приведет к невозможности \
           использования защищенного протокола \
           передачи данных HTTPS для доступа к \
-          анализатору. Изменения вступят в силу при \
-          перезапуске прибора."
+          анализатору. Изменения вступят в \
+          силу при перезапуске прибора."
          file)
   in
   let title = dialog_title ~title () in
-  let content = dialog_content ~children:[content] () in
+  let content = dialog_content ~children:[ content ] () in
   let actions =
-    [ dialog_action ~action:Close ~label:"Отмена" ()
-    ; dialog_action ~action:Accept ~label:"Удалить" () ]
+    [
+      dialog_action ~action:Close ~label:"Отмена" ();
+      dialog_action ~action:Accept ~label:"Удалить" ();
+    ]
   in
   Dialog.make ~title ~content ~actions ()
 
@@ -157,7 +159,7 @@ let make_certificate_dialog () =
   let open Dialog.D in
   let title = dialog_title ~title:"Сертификат" () in
   let content = dialog_content () in
-  let actions = [dialog_action ~action:Close ~label:"ОК" ()] in
+  let actions = [ dialog_action ~action:Close ~label:"ОК" () ] in
   Dialog.make ~title ~content ~actions ()
 
 module Selector = struct
@@ -172,10 +174,7 @@ module Selector = struct
   let action_import = Printf.sprintf ".%s" CSS.action_import
 end
 
-class ['a] t
-  ?value
-  ~(typ : 'a typ)
-  ~(set_snackbar : Snackbar.t -> unit Lwt.t)
+class ['a] t ?value ~(typ : 'a typ) ~(set_snackbar : Snackbar.t -> unit Lwt.t)
   (elt : Dom_html.element Js.t) =
   object (self)
     val filename : Dom_html.element Js.t =
@@ -221,31 +220,29 @@ class ['a] t
     inherit Widget.t elt () as super
 
     method! init () : unit =
-      (match info_dialog with
+      ( match info_dialog with
       | None -> ()
-      | Some dialog -> Dom.appendChild Dom_html.document##.body dialog#root);
-      (match disclaimer_dialog with
+      | Some dialog -> Dom.appendChild Dom_html.document##.body dialog#root );
+      ( match disclaimer_dialog with
       | None -> ()
-      | Some dialog -> Dom.appendChild Dom_html.document##.body dialog#root);
+      | Some dialog -> Dom.appendChild Dom_html.document##.body dialog#root );
       Dom.appendChild Dom_html.document##.body warning_dialog#root;
       super#init ()
 
     method! destroy () : unit =
-      (match info_dialog with
+      ( match info_dialog with
       | None -> ()
       | Some dialog ->
           dialog#destroy ();
-          Element.remove_child_safe Dom_html.document##.body dialog#root);
-      (match disclaimer_dialog with
+          Element.remove_child_safe Dom_html.document##.body dialog#root );
+      ( match disclaimer_dialog with
       | None -> ()
       | Some dialog ->
           dialog#destroy ();
-          Element.remove_child_safe Dom_html.document##.body dialog#root);
+          Element.remove_child_safe Dom_html.document##.body dialog#root );
       Element.remove_child_safe Dom_html.document##.body warning_dialog#root;
       warning_dialog#destroy ();
-      (match info with
-      | None -> ()
-      | Some x -> x#destroy ());
+      (match info with None -> () | Some x -> x#destroy ());
       remove#destroy ();
       import#destroy ();
       List.iter Lwt.cancel listeners_;
@@ -255,13 +252,16 @@ class ['a] t
     method! initial_sync_with_dom () : unit =
       listeners_ <-
         Js_of_ocaml_lwt.Lwt_js_events.
-          [ clicks remove#root self#handle_remove
-          ; changes import#file_input self#handle_files ];
-      (match info with
+          [
+            clicks remove#root self#handle_remove;
+            changes import#file_input self#handle_files;
+          ];
+      ( match info with
       | None -> ()
       | Some x ->
           listeners_ <-
-            Js_of_ocaml_lwt.Lwt_js_events.(clicks x#root self#handle_info) :: listeners_);
+            Js_of_ocaml_lwt.Lwt_js_events.(clicks x#root self#handle_info)
+            :: listeners_ );
       super#initial_sync_with_dom ()
 
     method set_value (v : 'a) : unit =
@@ -280,55 +280,60 @@ class ['a] t
     method private handle_file_loaded ~name ~size e =
       let upload_progress cur tot =
         let v = float_of_int cur /. float_of_int tot in
-        (import#loader)#set_value v
+        import#loader#set_value v
       in
       let upload_file blob =
-        upload_file ~upload_progress name blob typ
-        >>=? fun () -> fetch_value typ >>=? Lwt.return_ok % self#set_value
+        upload_file ~upload_progress name blob typ >>=? fun () ->
+        fetch_value typ >>=? Lwt.return_ok % self#set_value
       in
       let thread =
         Js.Opt.case
           (File.CoerceTo.string @@ (Dom.eventTarget e)##.result)
           (fun () ->
-            Lwt.return_error (`Msg "Не удалось открыть файл"))
+            Lwt.return_error
+              (`Msg "Не удалось открыть файл"))
           (fun data ->
-            if size > max_file_size
-            then
+            if size > max_file_size then
               Lwt.return_error
                 (`Msg
-                  (Printf.sprintf
-                     "Превышен допустимый размер файла (%s)"
-                  @@ file_size_to_string max_file_size))
+                  ( Printf.sprintf
+                      "Превышен допустимый размер \
+                       файла (%s)"
+                  @@ file_size_to_string max_file_size ))
             else
-              let blob = File.blob_from_any [`js_string data] in
-              match Storage.get_show_private_key_disclaimer (), disclaimer_dialog with
+              let blob = File.blob_from_any [ `js_string data ] in
+              match
+                (Storage.get_show_private_key_disclaimer (), disclaimer_dialog)
+              with
               | false, _ | _, None -> upload_file blob
               | true, Some dialog -> (
                   dialog#reset ();
-                  dialog#open_await ()
-                  >>= function
+                  dialog#open_await () >>= function
                   | Close | Destroy | Custom _ -> Lwt.return_ok ()
                   | Accept ->
-                      Storage.set_show_private_key_disclaimer @@ not dialog#do_not_show;
-                      upload_file blob))
+                      Storage.set_show_private_key_disclaimer
+                      @@ not dialog#do_not_show;
+                      upload_file blob ))
       in
-      (import#button)#set_loading_lwt thread;
-      Lwt.on_termination thread (fun () -> (import#loader)#set_value 0.);
+      import#button#set_loading_lwt thread;
+      Lwt.on_termination thread (fun () -> import#loader#set_value 0.);
       Lwt.async (fun () ->
-          thread
-          >>= function
+          thread >>= function
           | Ok () ->
               let label =
                 Printf.sprintf
-                  "%s применён. Настройки вступят в силу \
-                   после перезагрузки прибора."
+                  "%s применён. Настройки вступят в \
+                   силу после перезагрузки \
+                   прибора."
                   (typ_to_string typ)
               in
               let snackbar = Snackbar.make ~label:(`Text label) () in
-              set_snackbar snackbar >>= fun _ -> Lwt.return @@ snackbar#destroy ()
+              set_snackbar snackbar >>= fun _ ->
+              Lwt.return @@ snackbar#destroy ()
           | Error (`Msg e) ->
               let snackbar = Snackbar.make ~label:(`Text e) () in
-              set_snackbar snackbar >>= fun _ -> Lwt.return @@ snackbar#destroy ());
+              set_snackbar snackbar >>= fun _ ->
+              Lwt.return @@ snackbar#destroy ());
       Js._true
 
     method private handle_files _ _ : unit Lwt.t =
@@ -353,43 +358,41 @@ class ['a] t
       match info_dialog with
       | None -> Lwt.return_unit
       | Some dialog -> (
-        match dialog#content with
-        | None -> Lwt.return_unit
-        | Some content ->
-            let info =
-              Components_lab.Loader.make_widget_loader
-                ((match self#value with
-                 | Some x -> Lwt.return_ok x
-                 | None -> fetch_value typ)
-                >>=? fun x ->
-                self#set_value x;
-                Lwt.return_ok @@ Widget.create @@ make_info typ x)
-            in
-            Element.remove_children content;
-            Dom.appendChild content info;
-            dialog#open_await () >>= fun _ -> Lwt.return_unit)
+          match dialog#content with
+          | None -> Lwt.return_unit
+          | Some content ->
+              let info =
+                Components_lab.Loader.make_widget_loader
+                  ( ( match self#value with
+                    | Some x -> Lwt.return_ok x
+                    | None -> fetch_value typ )
+                  >>=? fun x ->
+                    self#set_value x;
+                    Lwt.return_ok @@ Widget.create @@ make_info typ x )
+              in
+              Element.remove_children content;
+              Dom.appendChild content info;
+              dialog#open_await () >>= fun _ -> Lwt.return_unit )
 
     method private handle_remove _ _ : unit Lwt.t =
-      warning_dialog#open_await ()
-      >>= function
+      warning_dialog#open_await () >>= function
       | Close | Destroy | Custom _ -> Lwt.return_unit
       | Accept -> (
-          remove_file typ
-          >>=? (fun () -> fetch_value typ)
-          >>= function
+          (remove_file typ >>=? fun () -> fetch_value typ) >>= function
           | Ok v ->
               let label =
                 Printf.sprintf
-                  "%s удалён. Настройки вступят в силу \
-                   после перезагрузки прибора."
+                  "%s удалён. Настройки вступят в \
+                   силу после перезагрузки \
+                   прибора."
                   (typ_to_string typ)
               in
               let snackbar = Snackbar.make ~label:(`Text label) () in
-              set_snackbar snackbar
-              >>= fun () ->
+              set_snackbar snackbar >>= fun () ->
               self#set_value v;
               Lwt.return @@ snackbar#destroy ()
           | Error (`Msg e) ->
               let snackbar = Snackbar.make ~label:(`Text e) () in
-              set_snackbar snackbar >>= fun () -> Lwt.return @@ snackbar#destroy ())
+              set_snackbar snackbar >>= fun () ->
+              Lwt.return @@ snackbar#destroy () )
   end

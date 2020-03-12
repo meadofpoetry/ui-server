@@ -24,7 +24,7 @@ struct
     let path = Widget.widget_type_to_svg_path widget.type_ in
     let graphic = Icon.SVG.(icon ~d:path ()) in
     let typ =
-      match widget.type_, widget.aspect with
+      match (widget.type_, widget.aspect) with
       | Wm.Video, None -> "Видео"
       | Video, Some (w, h) -> Printf.sprintf "Видео %dx%d" w h
       | Audio, _ -> "Аудио"
@@ -36,15 +36,23 @@ struct
     in
     li
       ~a:
-        ((a_class classes
-         :: a_draggable true
-         :: Widget_markup.to_html_attributes ?id widget)
-        @ a)
-      [ span ~a:[a_class [Item_list.CSS.item_graphic]] [graphic]
-      ; span
-          ~a:[a_class [Item_list.CSS.item_text]]
-          [ span ~a:[a_class [Item_list.CSS.item_primary_text]] [txt widget.description]
-          ; span ~a:[a_class [Item_list.CSS.item_secondary_text]] [txt secondary] ] ]
+        ( a_class classes
+          :: a_draggable true
+          :: Widget_markup.to_html_attributes ?id widget
+        @ a )
+      [
+        span ~a:[ a_class [ Item_list.CSS.item_graphic ] ] [ graphic ];
+        span
+          ~a:[ a_class [ Item_list.CSS.item_text ] ]
+          [
+            span
+              ~a:[ a_class [ Item_list.CSS.item_primary_text ] ]
+              [ txt widget.description ];
+            span
+              ~a:[ a_class [ Item_list.CSS.item_secondary_text ] ]
+              [ txt secondary ];
+          ];
+      ]
 
   let create_list ?(classes = []) ?(a = []) domain items : 'a elt =
     let classes = Item_list.CSS.root :: Item_list.CSS.two_line :: classes in
@@ -54,7 +62,7 @@ struct
   let create_subheader ?(classes = []) ?(a = []) domain title : 'a elt =
     let classes = Item_list.CSS.group_subheader :: classes in
     let domain_a = Widget_markup.domain_attrs domain in
-    h3 ~a:((a_class classes :: domain_a) @ a) [txt title]
+    h3 ~a:((a_class classes :: domain_a) @ a) [ txt title ]
 
   let create ?(classes = []) ?(a = []) content : 'a elt =
     let classes = CSS.root :: Item_list.CSS.group :: classes in

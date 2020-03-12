@@ -10,10 +10,10 @@ let ( % ) f g x = f (g x)
 
 let ( >>= ) = Lwt_result.bind
 
-type state =
-  { mutable socket : Api_js.Websocket.JSON.t option
-  ; mutable finalize : unit -> unit
-  }
+type state = {
+  mutable socket : Api_js.Websocket.JSON.t option;
+  mutable finalize : unit -> unit;
+}
 
 let make_charts mode =
   let open Board_niitv_dvb4ch_widgets.Measurements_chart in
@@ -47,39 +47,39 @@ let on_visible (elt : Dom_html.element Js.t) charts (state : state) control =
   let open React in
   List.iter (fun x -> x#clear ()) charts#charts;
   let thread =
-    Http_device.get_mode control
-    >>= fun mode ->
+    Http_device.get_mode control >>= fun mode ->
     charts#notify (`Mode mode);
     Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
     >>= fun socket ->
     Option.iter Api_js.Websocket.close_socket state.socket;
     state.socket <- Some socket;
-    Http_receivers.Event.get_measurements socket control
-    >>= fun (_, meas_ev) ->
-    Http_device.Event.get_mode socket control
-    >>= fun (_, mode_ev) ->
+    Http_receivers.Event.get_measurements socket control >>= fun (_, meas_ev) ->
+    Http_device.Event.get_mode socket control >>= fun (_, mode_ev) ->
     let _ev =
       Lwt.(
         Lwt_react.E.from (fun () ->
-            Js_of_ocaml_lwt.Lwt_js.sleep 1.
-            >>= fun () ->
+            Js_of_ocaml_lwt.Lwt_js.sleep 1. >>= fun () ->
             let data =
-              { Measure.power = Some (Random.float @@ -50.)
-              ; ber = Some (Random.float 0.00001)
-              ; mer = Some (Random.float 40.)
-              ; freq = Some (Random.int 5)
-              ; bitrate = Some (Random.int 50000000)
-              ; lock = true
+              {
+                Measure.power = Some (Random.float @@ -50.);
+                ber = Some (Random.float 0.00001);
+                mer = Some (Random.float 40.);
+                freq = Some (Random.int 5);
+                bitrate = Some (Random.int 50000000);
+                lock = true;
               }
             in
-            return [ 0, [ { data; timestamp = Ptime_clock.now () } ] ]))
+            return [ (0, [ { data; timestamp = Ptime_clock.now () } ]) ]))
     in
     let notif =
       E.merge
         (fun _ x -> charts#notify x)
         ()
-        [ E.map (fun x -> `Data (List.map (fun (id, x) -> id, [ x ]) x)) meas_ev
-        ; E.map (fun x -> `Mode x) mode_ev
+        [
+          E.map
+            (fun x -> `Data (List.map (fun (id, x) -> (id, [ x ])) x))
+            meas_ev;
+          E.map (fun x -> `Mode x) mode_ev;
           (* ; E.map (fun x -> `Data x) _ev *)
         ]
     in
@@ -104,8 +104,7 @@ let init control =
   let state = { socket = None; finalize = (fun () -> ()) } in
   let charts = make_charts [] in
   let result =
-    Ui_templates.Tabbed_page.Tabpanel.init
-      ~id:(id control)
+    Ui_templates.Tabbed_page.Tabpanel.init ~id:(id control)
       ~on_visible:(fun tabpanel -> on_visible tabpanel charts state control)
       ~on_hidden:(fun _tabpanel -> on_hidden state)
       ()
@@ -125,4 +124,4 @@ let () =
   | Ok boards -> (
       match List.find_opt (Topology.equal_board_id board_id % fst) boards with
       | None -> ()
-      | Some (_, controls) -> List.iter init controls)
+      | Some (_, controls) -> List.iter init controls )

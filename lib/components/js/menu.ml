@@ -15,9 +15,7 @@ let find_mapi f l =
   let rec aux f i = function
     | [] -> None
     | x :: l' -> (
-      match f i x with
-      | Some _ as res -> res
-      | None -> aux f (i + 1) l')
+        match f i x with Some _ as res -> res | None -> aux f (i + 1) l' )
   in
   aux f 0 l
 
@@ -49,13 +47,15 @@ module Lwt_js_events = struct
   open Js_of_ocaml_lwt.Lwt_js_events
   include Menu_surface.Lwt_js_events
 
-  let select ?use_capture ?passive t = make_event ?use_capture ?passive Event.select t
+  let select ?use_capture ?passive t =
+    make_event ?use_capture ?passive Event.select t
 
   let selects ?cancel_handler ?use_capture ?passive t =
     seq_loop ?cancel_handler ?use_capture ?passive select t
 end
 
-class t ?body ?viewport ?(focus_on_open = true) (elt : Dom_html.element Js.t) () =
+class t ?body ?viewport ?(focus_on_open = true) (elt : Dom_html.element Js.t) ()
+  =
   object (self)
     val item_list : Item_list.t option =
       Option.map Item_list.attach @@ Element.query_selector elt Selector.list
@@ -70,22 +70,20 @@ class t ?body ?viewport ?(focus_on_open = true) (elt : Dom_html.element Js.t) ()
 
     method! initial_sync_with_dom () : unit =
       listeners <-
-        [ Item_list.Lwt_js_events.actions super#root (fun e _ ->
+        [
+          Item_list.Lwt_js_events.actions super#root (fun e _ ->
               match Js.Opt.to_option e##.detail with
               | Some a -> self#handle_item_action a
-              | None -> Lwt.return ()) ]
+              | None -> Lwt.return ());
+        ]
         @ listeners;
       super#initial_sync_with_dom ()
 
     method wrap_focus : bool =
-      match item_list with
-      | None -> false
-      | Some list -> list#wrap_focus
+      match item_list with None -> false | Some list -> list#wrap_focus
 
     method set_wrap_focus (x : bool) : unit =
-      match item_list with
-      | None -> ()
-      | Some list -> list#set_wrap_focus x
+      match item_list with None -> () | Some list -> list#set_wrap_focus x
 
     method list : Item_list.t option = item_list
 
@@ -101,18 +99,19 @@ class t ?body ?viewport ?(focus_on_open = true) (elt : Dom_html.element Js.t) ()
     method! private notify_open () : unit =
       super#notify_open ();
       (* Focus some item when opened. *)
-      if focus_on_open
-      then
+      if focus_on_open then
         match default_focus_item_index with
         | None -> super#root##focus
         | Some i -> (
-          match List.nth_opt self#items i with
-          | None -> ()
-          | Some item -> item##focus)
+            match List.nth_opt self#items i with
+            | None -> ()
+            | Some item -> item##focus )
 
     method private notify_selected (item : Dom_html.element Js.t) : unit =
       let index =
-        find_mapi (fun i x -> if Element.equal x item then Some i else None) self#items
+        find_mapi
+          (fun i x -> if Element.equal x item then Some i else None)
+          self#items
         |> function
         | None -> raise Not_found
         | Some x -> x
@@ -126,42 +125,33 @@ class t ?body ?viewport ?(focus_on_open = true) (elt : Dom_html.element Js.t) ()
       in
       super#emit ~detail Event.select
 
-    method! private handle_keydown
-        (e : Dom_html.keyboardEvent Js.t)
-        (_ : unit Lwt.t)
-        : unit Lwt.t =
+    method! private handle_keydown (e : Dom_html.keyboardEvent Js.t)
+        (_ : unit Lwt.t) : unit Lwt.t =
       match Dom_html.Keyboard_code.of_event e with
       | Tab | Escape -> super#close ()
       | ArrowUp ->
-          if Element.is_focused super#root
-          then (
+          if Element.is_focused super#root then (
             Dom.preventDefault e;
-            match List.rev self#items with
-            | x :: _ -> x##focus
-            | _ -> ());
+            match List.rev self#items with x :: _ -> x##focus | _ -> () );
           Lwt.return ()
       | ArrowDown ->
-          if Element.is_focused super#root
-          then (
+          if Element.is_focused super#root then (
             Dom.preventDefault e;
-            match self#items with
-            | x :: _ -> x##focus
-            | _ -> ());
+            match self#items with x :: _ -> x##focus | _ -> () );
           Lwt.return ()
       | _ -> Lwt.return ()
 
     method private handle_item_action detail : unit Lwt.t =
       let item = detail##.item in
       self#notify_selected item;
-      super#close ()
-      >>= fun () ->
-      Js.Opt.iter (self#get_selection_group item) (self#handle_selection_group ~item);
+      super#close () >>= fun () ->
+      Js.Opt.iter
+        (self#get_selection_group item)
+        (self#handle_selection_group ~item);
       Lwt.return ()
 
-    method private handle_selection_group
-        ~(item : Dom_html.element Js.t)
-        (group : Dom_html.element Js.t)
-        : unit =
+    method private handle_selection_group ~(item : Dom_html.element Js.t)
+        (group : Dom_html.element Js.t) : unit =
       (* De-select the previous selection in this group. *)
       let selected = group##querySelector (Js.string Selector.selected_item) in
       Js.Opt.iter selected (fun (selected : Dom_html.element Js.t) ->
@@ -171,15 +161,12 @@ class t ?body ?viewport ?(focus_on_open = true) (elt : Dom_html.element Js.t) ()
       Element.set_attribute item Attr.aria_selected "true";
       Element.add_class item CSS.item_selected
 
-    method private get_selection_group
-        (item : Dom_html.element Js.t)
+    method private get_selection_group (item : Dom_html.element Js.t)
         : Dom_html.element Js.t Js.opt =
       let rec aux (elt : Dom_html.element Js.t Js.opt) =
         Js.Opt.bind elt (fun (parent : Dom_html.element Js.t) ->
-            if Element.has_class parent CSS.selection_group
-            then Js.some parent
-            else if Element.has_class parent CSS.root
-            then Js.null
+            if Element.has_class parent CSS.selection_group then Js.some parent
+            else if Element.has_class parent CSS.root then Js.null
             else aux (Element.get_parent parent))
       in
       aux (Element.get_parent item)
@@ -189,18 +176,8 @@ let attach ?body ?viewport ?focus_on_open (elt : #Dom_html.element Js.t) : t =
   let body = (body :> Dom_html.element Js.t option) in
   new t ?body ?viewport ?focus_on_open (Element.coerce elt) ()
 
-let make
-    ?classes
-    ?a
-    ?fixed
-    ?open_
-    ?list_children
-    ?list
-    ?children
-    ?body
-    ?viewport
-    ?focus_on_open
-    () : t =
+let make ?classes ?a ?fixed ?open_ ?list_children ?list ?children ?body
+    ?viewport ?focus_on_open () : t =
   D.menu ?classes ?a ?fixed ?open_ ?list_children ?list ?children ()
   |> Tyxml_js.To_dom.of_div
   |> attach ?body ?viewport ?focus_on_open

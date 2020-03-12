@@ -1,4 +1,5 @@
 (library
-  (name components_lab)
-  (libraries components components_lab_tyxml)
-  (preprocess (pps js_of_ocaml-ppx)))
+ (name components_lab)
+ (libraries components components_lab_tyxml)
+ (preprocess
+  (pps js_of_ocaml-ppx)))

@@ -5,23 +5,33 @@ type hotkeys_group = (string * string) list
 type hotkeys = (string * hotkeys_group) list
 
 let (volume_hotkeys : hotkeys_group) =
-  [ "Увеличить громкость звука", "▲"
-  ; "Уменьшить громкость звука", "▼"
-  ; "Включить или отключить звук", "m" ]
+  [
+    ("Увеличить громкость звука", "▲");
+    ("Уменьшить громкость звука", "▼");
+    ("Включить или отключить звук", "m");
+  ]
 
 let (playback_hotkeys : hotkeys_group) =
-  [ ( "Начать или приостановить воспроизведение"
-    , "Пробел" ) ]
+  [
+    ( "Начать или приостановить \
+       воспроизведение",
+      "Пробел" );
+  ]
 
 let (general_hotkeys : hotkeys_group) =
-  [ ( "Включить или выключить полноэкранный режим"
-    , "f" )
-  ; "Выключить полноэкранный режим", "Esc" ]
+  [
+    ( "Включить или выключить полноэкранный \
+       режим",
+      "f" );
+    ("Выключить полноэкранный режим", "Esc");
+  ]
 
 let (hotkeys : hotkeys) =
-  [ "Воспроизведение", playback_hotkeys
-  ; "Звук", volume_hotkeys
-  ; "Общие", general_hotkeys ]
+  [
+    ("Воспроизведение", playback_hotkeys);
+    ("Звук", volume_hotkeys);
+    ("Общие", general_hotkeys);
+  ]
 
 module CSS = struct
   let root = "mosaic"

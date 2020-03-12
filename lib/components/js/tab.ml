@@ -6,14 +6,16 @@ module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 let ( >>= ) = Lwt.bind
 
-type dimensions =
-  { root_left : int
-  ; root_right : int
-  ; content_left : int
-  ; content_right : int }
+type dimensions = {
+  root_left : int;
+  root_right : int;
+  content_left : int;
+  content_right : int;
+}
 
 module Event = struct
-  let interact : Dom_html.element Js.t Dom_html.customEvent Js.t Dom_html.Event.typ =
+  let interact :
+      Dom_html.element Js.t Dom_html.customEvent Js.t Dom_html.Event.typ =
     Dom_html.Event.make (CSS.root ^ ":interact")
 end
 
@@ -44,7 +46,8 @@ class t (elt : Dom_html.buttonElement Js.t) () =
       Element.query_selector_exn elt Selector.content
 
     val indicator : Tab_indicator.t =
-      Tab_indicator.attach @@ Element.query_selector_exn elt Selector.tab_indicator
+      Tab_indicator.attach
+      @@ Element.query_selector_exn elt Selector.tab_indicator
 
     inherit Widget.t elt () as super
 
@@ -60,9 +63,11 @@ class t (elt : Dom_html.buttonElement Js.t) () =
       (* Attach event handlers *)
       listeners <-
         Js_of_ocaml_lwt.Lwt_js_events.(
-          [ clicks super#root (fun _ _ ->
+          [
+            clicks super#root (fun _ _ ->
                 super#emit ~should_bubble:true ~detail:super#root Event.interact;
-                Lwt.return_unit) ]
+                Lwt.return_unit);
+          ]
           @ listeners);
       super#initial_sync_with_dom ()
 
@@ -100,10 +105,12 @@ class t (elt : Dom_html.buttonElement Js.t) () =
       let root_left = super#root##.offsetWidth in
       let content_width = content_elt##.offsetWidth in
       let content_left = content_elt##.offsetLeft in
-      { root_left
-      ; root_right = root_left + root_width
-      ; content_left = root_left + content_left
-      ; content_right = root_left + content_left + content_width }
+      {
+        root_left;
+        root_right = root_left + root_width;
+        content_left = root_left + content_left;
+        content_right = root_left + content_left + content_width;
+      }
 
     method index : int =
       let rec aux i node =
@@ -121,7 +128,7 @@ class t (elt : Dom_html.buttonElement Js.t) () =
 
     method private create_ripple () : Ripple.t =
       let adapter = Ripple.make_default_adapter super#root in
-      let adapter = {adapter with style_target = ripple_elt} in
+      let adapter = { adapter with style_target = ripple_elt } in
       new Ripple.t adapter ()
   end
 
@@ -131,37 +138,11 @@ let attach (elt : #Dom_html.element Js.t) : t =
     (fun () -> failwith (CSS.root ^ ": root element must have a `button` tag"))
     (fun btn -> new t btn ())
 
-let make
-    ?classes
-    ?a
-    ?active
-    ?stacked
-    ?disabled
-    ?min_width
-    ?indicator_span_content
-    ?indicator_icon
-    ?icon
-    ?text_label
-    ?ripple
-    ?indicator
-    ?content
-    ?children
-    () =
-  D.tab
-    ?classes
-    ?a
-    ?active
-    ?stacked
-    ?disabled
-    ?min_width
-    ?indicator_span_content
-    ?indicator_icon
-    ?icon
-    ?text_label
-    ?ripple
-    ?indicator
-    ?content
-    ?children
-    ()
+let make ?classes ?a ?active ?stacked ?disabled ?min_width
+    ?indicator_span_content ?indicator_icon ?icon ?text_label ?ripple ?indicator
+    ?content ?children () =
+  D.tab ?classes ?a ?active ?stacked ?disabled ?min_width
+    ?indicator_span_content ?indicator_icon ?icon ?text_label ?ripple ?indicator
+    ?content ?children ()
   |> Tyxml_js.To_dom.of_button
   |> attach

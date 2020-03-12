@@ -24,39 +24,30 @@ struct
 
   let ( % ) f g x = f (g x)
 
-  let scaffold_app_content
-      ?(classes = return [])
-      ?(a = [])
-      ?(inner = false)
-      ?(outer = false)
-      ?(children = nil ())
-      () =
+  let scaffold_app_content ?(classes = return []) ?(a = []) ?(inner = false)
+      ?(outer = false) ?(children = nil ()) () =
     let classes =
       fmap
-        (Utils.cons_if inner CSS.app_content_inner
+        ( Utils.cons_if inner CSS.app_content_inner
         % Utils.cons_if outer CSS.app_content_outer
-        % List.cons CSS.app_content)
+        % List.cons CSS.app_content )
         classes
     in
     div ~a:(a_class classes :: a) children
 
-  let scaffold_drawer_frame
-      ?(classes = return [])
-      ?(a = [])
-      ?(full_height = false)
-      ?(clipped = false)
-      ?(children = nil ())
-      () =
+  let scaffold_drawer_frame ?(classes = return []) ?(a = [])
+      ?(full_height = false) ?(clipped = false) ?(children = nil ()) () =
     let classes =
       fmap
-        (Utils.cons_if full_height CSS.drawer_frame_full_height
+        ( Utils.cons_if full_height CSS.drawer_frame_full_height
         % Utils.cons_if clipped CSS.drawer_frame_clipped
-        % List.cons CSS.drawer_frame)
+        % List.cons CSS.drawer_frame )
         classes
     in
     div ~a:(a_class classes :: a) children
 
-  let scaffold ?(classes = return []) ?(a = []) ?(children = nil ()) () : 'a elt =
+  let scaffold ?(classes = return []) ?(a = []) ?(children = nil ()) () : 'a elt
+      =
     let classes = fmap (List.cons CSS.root) classes in
     div ~a:(a_class classes :: a) children
 end

@@ -16,31 +16,29 @@ let find_receiver_by_stream_id id streams =
   match id with
   | None -> None
   | Some id -> (
-    try
-      let mid = Stream.to_multi_id id in
-      Some (Stream.Multi_TS_ID.stream_id mid)
-    with Failure _ -> None)
+      try
+        let mid = Stream.to_multi_id id in
+        Some (Stream.Multi_TS_ID.stream_id mid)
+      with Failure _ -> None )
 
 module Event = struct
   open Util_react
 
-  let list_to_option = function
-    | [] -> None
-    | l -> Some l
+  let list_to_option = function [] -> None | l -> Some l
 
   let mem id = List.exists (Stream.ID.equal id)
 
   let filter_if_needed ids event =
     match ids with
     | [] -> event
-    | ids -> E.fmap (list_to_option % List.filter (fun (id, _) -> mem id ids)) event
+    | ids ->
+        E.fmap (list_to_option % List.filter (fun (id, _) -> mem id ids)) event
 
   let to_json f (v : (Stream.ID.t * 'a ts) list) =
-    Util_json.(List.to_yojson (Pair.to_yojson Stream.ID.to_yojson (ts_to_yojson f)) v)
+    Util_json.(
+      List.to_yojson (Pair.to_yojson Stream.ID.to_yojson (ts_to_yojson f)) v)
 
-  let map_event
-      (source_id : int)
-      (streams : Stream.t list signal)
+  let map_event (source_id : int) (streams : Stream.t list signal)
       (event : (int * 'a) list event) =
     S.sample
       (fun (data : (int * 'a) list) (streams : Stream.t list) ->
@@ -50,21 +48,18 @@ module Event = struct
             | None -> None
             | Some s -> Some (s.id, x))
           data)
-      event
-      streams
+      event streams
     |> E.fmap list_to_option
 
   let get_measurements (api : Protocol.api) (ids : Stream.ID.t list) _user =
-    (api.kv)#get
-    >>= fun {source; _} ->
+    api.kv#get >>= fun { source; _ } ->
     map_event source api.notifs.streams api.notifs.measures
     |> filter_if_needed ids
     |> E.map (to_json Measure.to_yojson)
     |> Lwt.return
 
   let get_parameters (api : Protocol.api) (ids : Stream.ID.t list) _user =
-    (api.kv)#get
-    >>= fun {source; _} ->
+    api.kv#get >>= fun { source; _ } ->
     map_event source api.notifs.streams api.notifs.params
     |> filter_if_needed ids
     |> E.map (to_json Params.to_yojson)
@@ -80,7 +75,9 @@ module Event = struct
       | ids ->
           api.notifs.streams
           |> S.changes
-          |> E.fmap (list_to_option % List.filter (fun (s : Stream.t) -> mem s.id ids))
+          |> E.fmap
+               ( list_to_option
+               % List.filter (fun (s : Stream.t) -> mem s.id ids) )
           |> E.map Util_json.(List.to_yojson Stream.to_yojson)
     in
     Lwt.return event
@@ -89,17 +86,21 @@ end
 let to_json f (v : int * 'a ts) =
   Util_json.(Pair.to_yojson Int.to_yojson (ts_to_yojson f)) v
 
-let get_measurements (api : Protocol.api) (id : Stream.ID.t) _user _body _env _state =
+let get_measurements (api : Protocol.api) (id : Stream.ID.t) _user _body _env
+    _state =
   match find_receiver_by_stream_id id api.notifs.streams with
   | None -> Lwt.return stream_not_found
   | Some id ->
-      api.channel (Request.Get_measure id) >>=? return_value % to_json Measure.to_yojson
+      api.channel (Request.Get_measure id)
+      >>=? return_value % to_json Measure.to_yojson
 
-let get_parameters (api : Protocol.api) (id : Stream.ID.t) _user _body _env _state =
+let get_parameters (api : Protocol.api) (id : Stream.ID.t) _user _body _env
+    _state =
   match find_receiver_by_stream_id id api.notifs.streams with
   | None -> Lwt.return stream_not_found
   | Some id ->
-      api.channel (Request.Get_params id) >>=? return_value % to_json Params.to_yojson
+      api.channel (Request.Get_params id)
+      >>=? return_value % to_json Params.to_yojson
 
 let get_stream (api : Protocol.api) (id : Stream.ID.t) _user _body _env _state =
   let stream =
@@ -108,7 +109,8 @@ let get_stream (api : Protocol.api) (id : Stream.ID.t) _user _body _env _state =
   in
   return_value Util_json.(Option.to_yojson Stream.to_yojson stream)
 
-let get_streams (api : Protocol.api) (ids : Stream.ID.t list) _user _body _env _state =
+let get_streams (api : Protocol.api) (ids : Stream.ID.t list) _user _body _env
+    _state =
   let streams = React.S.value api.notifs.streams in
   let streams =
     match ids with

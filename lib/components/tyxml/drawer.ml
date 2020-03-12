@@ -21,17 +21,13 @@ struct
   open Xml.W
   open Html
 
-  let drawer_scrim ?(classes = return []) ?(a = []) ?(children = nil ()) () : 'a elt =
+  let drawer_scrim ?(classes = return []) ?(a = []) ?(children = nil ()) () :
+      'a elt =
     let classes = fmap (List.cons CSS.scrim) classes in
     div ~a:(a_class classes :: a) children
 
-  let drawer_title
-      ?(tag = h3)
-      ?(classes = return [])
-      ?(a = [])
-      ?title
-      ?(children = nil ())
-      () =
+  let drawer_title ?(tag = h3) ?(classes = return []) ?(a = []) ?title
+      ?(children = nil ()) () =
     let classes = fmap (List.cons CSS.title) classes in
     let children =
       match title with
@@ -40,13 +36,8 @@ struct
     in
     tag ~a:(a_class classes :: a) children
 
-  let drawer_subtitle
-      ?(tag = h6)
-      ?(classes = return [])
-      ?(a = [])
-      ?subtitle
-      ?(children = nil ())
-      () =
+  let drawer_subtitle ?(tag = h6) ?(classes = return []) ?(a = []) ?subtitle
+      ?(children = nil ()) () =
     let classes = fmap (List.cons CSS.subtitle) classes in
     let children =
       match subtitle with
@@ -55,11 +46,13 @@ struct
     in
     tag ~a:(a_class classes :: a) children
 
-  let drawer_header ?(classes = return []) ?(a = []) ?(children = nil ()) () : 'a elt =
+  let drawer_header ?(classes = return []) ?(a = []) ?(children = nil ()) () :
+      'a elt =
     let classes = fmap (List.cons CSS.header) classes in
     div ~a:(a_class classes :: a) children
 
-  let drawer_content ?(classes = return []) ?(a = []) ?(children = nil ()) () : 'a elt =
+  let drawer_content ?(classes = return []) ?(a = []) ?(children = nil ()) () :
+      'a elt =
     let classes = fmap (List.cons CSS.content) classes in
     div ~a:(a_class classes :: a) children
 

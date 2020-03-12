@@ -6,7 +6,7 @@ open Pc_control_types.Software_updates
 include Page_software_updates_tyxml.Remote_update
 module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
-type event = [`State of state]
+type event = [ `State of state ]
 
 let ( >>= ) = Lwt.bind
 
@@ -28,16 +28,20 @@ let make_warning_dialog () =
   let content =
     dialog_content
       ~children:
-        [ Js_of_ocaml_tyxml.Tyxml_js.Html.txt
+        [
+          Js_of_ocaml_tyxml.Tyxml_js.Html.txt
             "После завершения обновления прибор \
              будет автоматически перезагружен.\n\
-             Во время перезагрузки доступ к прибору \
-             будет недоступен.\n" ]
+             Во время перезагрузки доступ к \
+             прибору будет недоступен.\n";
+        ]
       ()
   in
   let actions =
-    [ dialog_action ~action:Close ~label:"Отмена" ()
-    ; dialog_action ~action:Accept ~label:"Продолжить обновление" ()
+    [
+      dialog_action ~action:Close ~label:"Отмена" ();
+      dialog_action ~action:Accept
+        ~label:"Продолжить обновление" ();
     ]
   in
   Dialog.make ~title ~content ~actions ()
@@ -68,7 +72,7 @@ class t (elt : Dom_html.element Js.t) =
     method! initial_sync_with_dom () : unit =
       listeners <-
         Js_of_ocaml_lwt.Lwt_js_events.(
-          [clicks action#root self#handle_action] @ listeners)
+          [ clicks action#root self#handle_action ] @ listeners)
 
     method! destroy () : unit =
       warning_dialog#remove_from_dom ();
@@ -79,8 +83,7 @@ class t (elt : Dom_html.element Js.t) =
       super#destroy ()
 
     method notify : event -> unit Lwt.t =
-      function
-      | `State state -> self#handle_state_change state
+      function `State state -> self#handle_state_change state
 
     method private handle_state_change (state : state) : unit Lwt.t =
       let loading = is_loading state in
@@ -110,22 +113,22 @@ class t (elt : Dom_html.element Js.t) =
         let thread =
           match _state with
           | `Updates_avail -> (
-              warning_dialog#open_await ()
-              >>= (function
-                    | Close | Destroy | Custom _ -> Lwt.return_ok ()
-                    | Accept -> upgrade ~reboot:auto_reboot ())
+              (warning_dialog#open_await () >>= function
+               | Close | Destroy | Custom _ -> Lwt.return_ok ()
+               | Accept -> upgrade ~reboot:auto_reboot ())
               >>= function
               | Ok _ -> Lwt.return_ok ()
               | Error (`Msg err) ->
                   let msg =
                     Printf.sprintf
-                      "Не удалось выполнить обновление. \n%s"
+                      "Не удалось выполнить \
+                       обновление. \n\
+                       %s"
                       err
                   in
-                  Lwt.return_error msg)
+                  Lwt.return_error msg )
           | `Unchecked | `Updates_not_avail -> (
-              check_updates ()
-              >>= function
+              check_updates () >>= function
               | Ok _ -> Lwt.return_ok ()
               | Error (`Msg err) ->
                   let msg =
@@ -135,53 +138,44 @@ class t (elt : Dom_html.element Js.t) =
                        %s"
                       err
                   in
-                  Lwt.return_error msg)
+                  Lwt.return_error msg )
           | `Need_reboot -> (
-              if auto_reboot
-              then (
+              if auto_reboot then (
                 Dom_html.window##.location##reload;
-                Lwt.return_ok ())
+                Lwt.return_ok () )
               else
-                Pc_control_http_js.Power.reboot ()
-                >>= function
+                Pc_control_http_js.Power.reboot () >>= function
                 | Ok _ as ok -> Lwt.return ok
                 | Error (`Msg err) ->
                     let msg =
                       Printf.sprintf
-                        "Не удалось перезагрузить прибор. \n\
+                        "Не удалось перезагрузить \
+                         прибор. \n\
                          %s"
                         err
                     in
-                    Lwt.return_error msg)
+                    Lwt.return_error msg )
           | `Checking _ | `Upgrading _ -> Lwt.return_ok ()
         in
         Lwt.on_termination thread (fun () -> action#set_disabled false);
-        thread
-        >>= function
+        thread >>= function
         | Ok () -> Lwt.return_unit
         | Error err ->
             let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
             let snackbar =
-              Snackbar.make
-                ~dismiss:`True
-                ~stacked:true
-                ~action:(`Text "Повторить")
-                ~label:(`Text err)
-                ()
+              Snackbar.make ~dismiss:`True ~stacked:true
+                ~action:(`Text "Повторить") ~label:(`Text err) ()
             in
             scaffold#show_snackbar
               ~on_close:(fun x ->
                 snackbar#destroy ();
-                match x with
-                | Action -> Lwt.async aux
-                | _ -> ())
+                match x with Action -> Lwt.async aux | _ -> ())
               snackbar
       in
       aux ()
 
     method private close_progress () =
-      progress#close ()
-      >>= fun () ->
+      progress#close () >>= fun () ->
       progress#set_progress 0.;
       progress#set_buffer 0.;
       Lwt.return_unit
@@ -190,9 +184,9 @@ class t (elt : Dom_html.element Js.t) =
       match placeholder#icon with
       | None -> ()
       | Some x -> (
-        match Element.query_selector x Selector.path with
-        | None -> ()
-        | Some x -> Element.set_attribute x "d" path)
+          match Element.query_selector x Selector.path with
+          | None -> ()
+          | Some x -> Element.set_attribute x "d" path )
 
     method private set_action_label label =
       match Element.query_selector action#root Selector.action_label with

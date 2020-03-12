@@ -1,6 +1,4 @@
 (library
-  (name       board_niitv_tsan_http)
-  (libraries  board_niitv_tsan_protocol
-              api_websocket
-              api_cohttp_template
-              time_uri))
+ (name board_niitv_tsan_http)
+ (libraries board_niitv_tsan_protocol api_websocket api_cohttp_template
+   time_uri))

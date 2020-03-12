@@ -14,7 +14,7 @@ module Xml : Intf.Xml = struct
 
     let l2 f x y = f x y
 
-    let create x = x, fun ?step _ -> ignore step
+    let create x = (x, fun ?step _ -> ignore step)
   end
 end
 

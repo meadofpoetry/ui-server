@@ -8,11 +8,12 @@ module R = Make (Impl.R.Xml) (Impl.R.Svg) (Impl.R.Html)
 
 let stream_select_validation =
   Select.
-    { to_string = Yojson.Safe.to_string % Stream.to_yojson
-    ; of_string =
+    {
+      to_string = Yojson.Safe.to_string % Stream.to_yojson;
+      of_string =
         (fun json ->
           try Stream.of_yojson @@ Yojson.Safe.from_string json
-          with Yojson.Json_error s -> Error s)
+          with Yojson.Json_error s -> Error s);
     }
 
 module Selector = struct

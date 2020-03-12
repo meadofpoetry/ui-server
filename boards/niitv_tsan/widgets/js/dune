@@ -1,18 +1,8 @@
 (library
-  (name        board_niitv_tsan_widgets)
-  (libraries   board_niitv_tsan_types
-               board_niitv_tsan_http_js
-               board_niitv_tsan_widgets_tyxml
-               application_types
-               util_equal
-               ts_error
-               api_js
-               components_lab
-               chartjs
-               chartjs-datalabels
-               ptime.clock.jsoo)
-  (preprocess  (pps ppx_deriving_yojson
-                    ppx_deriving.eq
-                    ppx_deriving.show
-                    ppx_deriving.ord
-                    js_of_ocaml-ppx)))
+ (name board_niitv_tsan_widgets)
+ (libraries board_niitv_tsan_types board_niitv_tsan_http_js
+   board_niitv_tsan_widgets_tyxml application_types util_equal ts_error
+   api_js components_lab chartjs chartjs-datalabels ptime.clock.jsoo)
+ (preprocess
+  (pps ppx_deriving_yojson ppx_deriving.eq ppx_deriving.show ppx_deriving.ord
+    js_of_ocaml-ppx)))

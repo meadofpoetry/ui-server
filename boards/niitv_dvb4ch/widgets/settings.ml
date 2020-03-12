@@ -48,17 +48,14 @@ let make_inner state mode plps receivers control =
           | None -> []
           | Some (x : Plp_list.t ts) -> x.data.plps
         in
-        `Widget (make {id} state mode plps control), Tab.D.tab ~text_label:name ())
+        ( `Widget (make { id } state mode plps control),
+          Tab.D.tab ~text_label:name () ))
     @@ List.sort compare receivers
   in
   let bar, body = Tab_bar.make_bind ~tabs () in
   body#add_class body_class;
-  ( List.filter_map
-      (function
-        | `Widget x, _ -> Some x
-        | _ -> None)
-      tabs
-  , object
+  ( List.filter_map (function `Widget x, _ -> Some x | _ -> None) tabs,
+    object
       inherit Widget.t Dom_html.(createDiv document) () as super
 
       method! init () : unit =
@@ -75,10 +72,10 @@ let make_inner state mode plps receivers control =
 class t state mode plps receivers control =
   let modules, inner =
     match receivers with
-    | None -> [], None
+    | None -> ([], None)
     | Some x ->
         let x, y = make_inner state mode plps x control in
-        x, Some y
+        (x, Some y)
   in
   object
     inherit Widget.t (Dom_html.createDiv Dom_html.document) () as super
@@ -97,7 +94,7 @@ class t state mode plps receivers control =
       | `Mode _x -> ()
       | `PLPs x ->
           List.iter
-            (fun (id, ({data; _} : Plp_list.t ts)) ->
+            (fun (id, ({ data; _ } : Plp_list.t ts)) ->
               match List.find_opt (fun w -> w#id = id) modules with
               | None -> ()
               | Some m -> m#notify (`PLPs data.plps))
@@ -105,4 +102,5 @@ class t state mode plps receivers control =
       | `State _ -> ()
   end
 
-let make state mode plps receivers control = new t state mode plps receivers control
+let make state mode plps receivers control =
+  new t state mode plps receivers control

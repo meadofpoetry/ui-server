@@ -43,10 +43,8 @@ class virtual ['a] t ?set_hex elt () =
       match Element.get_attribute elt Attr.data_control with
       | None ->
           failwith
-            (Printf.sprintf
-               "%s: no `%s` attribute found on root element"
-               CSS.root
-               Attr.data_control)
+            (Printf.sprintf "%s: no `%s` attribute found on root element"
+               CSS.root Attr.data_control)
       | Some x -> int_of_string x
 
     val title = Element.query_selector elt Selector.title
@@ -57,7 +55,8 @@ class virtual ['a] t ?set_hex elt () =
       Option.map Menu.attach @@ Element.query_selector elt Selector.menu
 
     val menu_icon : Icon_button.t option =
-      Option.map Icon_button.attach @@ Element.query_selector elt Selector.menu_icon
+      Option.map Icon_button.attach
+      @@ Element.query_selector elt Selector.menu_icon
 
     val placeholder =
       match Element.query_selector elt Selector.placeholder with
@@ -76,13 +75,15 @@ class virtual ['a] t ?set_hex elt () =
 
     method! initial_sync_with_dom () : unit =
       listeners <-
-        (match menu, menu_icon with
+        ( match (menu, menu_icon) with
         | Some menu, Some menu_icon ->
             Js_of_ocaml_lwt.Lwt_js_events.
-              [ clicks menu_icon#root (fun _ _ -> menu#reveal ())
-              ; Menu.Lwt_js_events.selects menu#root self#handle_menu_selection_change
+              [
+                clicks menu_icon#root (fun _ _ -> menu#reveal ());
+                Menu.Lwt_js_events.selects menu#root
+                  self#handle_menu_selection_change;
               ]
-        | _ -> [])
+        | _ -> [] )
         @ listeners;
       super#initial_sync_with_dom ()
 
@@ -95,9 +96,9 @@ class virtual ['a] t ?set_hex elt () =
     method set_state (state : [ Application_types.Topology.state | `No_sync ]) =
       let no_sync, no_response =
         match state with
-        | `Fine -> false, false
-        | `No_sync -> true, false
-        | `Detect | `Init | `No_response -> false, true
+        | `Fine -> (false, false)
+        | `No_sync -> (true, false)
+        | `Detect | `Init | `No_response -> (false, true)
       in
       Element.toggle_class_unit ~force:no_sync super#root CSS.no_sync;
       Element.toggle_class_unit ~force:no_response super#root CSS.no_response
@@ -107,45 +108,47 @@ class virtual ['a] t ?set_hex elt () =
       match title with
       | None -> ""
       | Some x ->
-          Option.fold ~none:"" ~some:Js.to_string (Js.Opt.to_option x##.textContent)
+          Option.fold ~none:"" ~some:Js.to_string
+            (Js.Opt.to_option x##.textContent)
 
     method set_title (s : string) =
       match title with
       | Some x -> x##.textContent := Js.some (Js.string s)
       | None ->
-          let title = Tyxml_js.To_dom.of_element @@ D.create_title ~title:s () in
+          let title =
+            Tyxml_js.To_dom.of_element @@ D.create_title ~title:s ()
+          in
           Element.insert_child_at_index header 1 title
 
     method private reset_bitrate_stats () : unit Lwt.t =
       let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
       let rec aux () =
-        Http_monitoring.reset_bitrate_stats control
-        >>= function
+        Http_monitoring.reset_bitrate_stats control >>= function
         | Ok () ->
             let snackbar =
               Snackbar.make
-                ~label:(`Text "Статистика битрейта сброшена")
-                ~dismiss:`True
-                ()
+                ~label:
+                  (`Text
+                    "Статистика битрейта сброшена")
+                ~dismiss:`True ()
             in
-            scaffold#show_snackbar ~on_close:(fun _ -> snackbar#destroy ()) snackbar
+            scaffold#show_snackbar
+              ~on_close:(fun _ -> snackbar#destroy ())
+              snackbar
         | Error (`Msg msg) ->
             let snackbar =
               Snackbar.make
                 ~label:
                   (`Text
                     (Printf.sprintf
-                       "Не удалось сбросить статистику \
-                        битрейта. %s"
+                       "Не удалось сбросить \
+                        статистику битрейта. %s"
                        msg))
-                ~action:(`Text "Повторить")
-                ()
+                ~action:(`Text "Повторить") ()
             in
             scaffold#show_snackbar
               ~on_close:(fun reason ->
-                (match reason with
-                | Action -> Lwt.async aux
-                | _ -> ());
+                (match reason with Action -> Lwt.async aux | _ -> ());
                 snackbar#destroy ())
               snackbar
       in
@@ -153,18 +156,18 @@ class virtual ['a] t ?set_hex elt () =
 
     method private handle_menu_selection_change e _ : unit Lwt.t =
       let detail = Widget.event_detail e in
-      if Element.has_class detail##.item CSS.bitrate_reset
-      then self#reset_bitrate_stats ()
+      if Element.has_class detail##.item CSS.bitrate_reset then
+        self#reset_bitrate_stats ()
       else (
-        (match Element.get_attribute detail##.item Attr.data_id_mode with
+        ( match Element.get_attribute detail##.item Attr.data_id_mode with
         | Some "hex" ->
             Option.iter (fun f -> f true) set_hex;
             hex <- true
         | Some "dec" ->
             Option.iter (fun f -> f false) set_hex;
             hex <- false
-        | _ -> ());
-        Lwt.return_unit)
+        | _ -> () );
+        Lwt.return_unit )
   end
 
 class virtual ['a] with_details ?set_hex (elt : Dom_html.element Js.t) () =
@@ -184,11 +187,11 @@ class virtual ['a] with_details ?set_hex (elt : Dom_html.element Js.t) () =
       back_action#destroy ();
       super#destroy ()
 
-    method virtual private handle_row_action : Dom_html.tableRowElement Js.t -> unit Lwt.t
+    method virtual private handle_row_action
+        : Dom_html.tableRowElement Js.t -> unit Lwt.t
 
     method private handle_table_body_click e _ =
-      if super#has_class CSS.with_details
-      then
+      if super#has_class CSS.with_details then
         let target = Dom.eventTarget e in
         let row =
           Js.Opt.bind (Element.closest target Selector.row) (fun row ->
@@ -196,8 +199,7 @@ class virtual ['a] with_details ?set_hex (elt : Dom_html.element Js.t) () =
         in
         Js.Opt.case row Lwt.return (fun row ->
             super#add_class CSS.details_view;
-            self#handle_row_action row
-            >>= fun () ->
+            self#handle_row_action row >>= fun () ->
             super#remove_class CSS.details_view;
             Lwt.return_unit)
       else Lwt.return_unit

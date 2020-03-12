@@ -1,8 +1,9 @@
-type t =
-  { offset : int
-  ; length : int
-  ; name : string
-  ; value : value * string option }
+type t = {
+  offset : int;
+  length : int;
+  name : string;
+  value : value * string option;
+}
 
 and integer =
   | Bool of bool
@@ -25,4 +26,4 @@ and value =
 [@@deriving yojson]
 
 let make ?parsed ~offset length name value : t =
-  {offset; length; name; value = value, parsed}
+  { offset; length; name; value = (value, parsed) }

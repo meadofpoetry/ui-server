@@ -34,13 +34,16 @@ end = struct
   (** Modal side-sheet variant class. *)
   let modal = BEM.add_modifier root "modal"
 
-  (** If present, indicates that the dismissible side-sheet is in the open position .*)
+  (** If present, indicates that the dismissible side-sheet is in the open
+      position .*)
   let open_ = BEM.add_modifier root "open"
 
-  (** Applied while the side-sheet is animating from the closed to the open position. *)
+  (** Applied while the side-sheet is animating from the closed to the open
+      position. *)
   let opening = BEM.add_modifier root "opening"
 
-  (** Applied while the side-sheet is animating from the open to the closed position. *)
+  (** Applied while the side-sheet is animating from the open to the closed
+      position. *)
   let closing = BEM.add_modifier root "closing"
 
   let animate = BEM.add_modifier root "animate"
@@ -52,10 +55,7 @@ end = struct
   let scrim = root ^ "-scrim"
 end
 
-type typ =
-  | Modal
-  | Dismissible
-  | Permanent
+type typ = Modal | Dismissible | Permanent
 
 let typ_to_string = function
   | Modal -> "modal"
@@ -80,11 +80,13 @@ struct
   open Xml.W
   open Html
 
-  let side_sheet_scrim ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+  let side_sheet_scrim ?(classes = return []) ?(a = []) ?(children = nil ()) ()
+      =
     let classes = fmap (List.cons CSS.scrim) classes in
     div ~a:(a_class classes :: a) children
 
-  let side_sheet_content ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+  let side_sheet_content ?(classes = return []) ?(a = []) ?(children = nil ())
+      () =
     let classes = fmap (List.cons CSS.content) classes in
     div ~a:(a_class classes :: a) children
 

@@ -19,7 +19,8 @@ module Make
 struct
   open Xml.W
   open Html
-  module Placeholder_markup = Components_lab_tyxml.Placeholder.Make (Xml) (Svg) (Html)
+  module Placeholder_markup =
+    Components_lab_tyxml.Placeholder.Make (Xml) (Svg) (Html)
 
   let create_title ?(classes = return []) ?(a = []) ~title () =
     let classes = fmap (fun x -> CSS.title :: x) classes in
@@ -27,9 +28,7 @@ struct
 
   let create_empty_placeholder ?(classes = return []) ?a () =
     let classes = fmap (fun x -> CSS.empty_placeholder :: x) classes in
-    Placeholder_markup.placeholder
-      ?a
-      ~classes
+    Placeholder_markup.placeholder ?a ~classes
       ~text:(`Text (return "Нет данных"))
       ()
 
@@ -38,9 +37,7 @@ struct
     let children =
       let placeholder = create_empty_placeholder () in
       let canvas =
-        match canvas with
-        | None -> Html.canvas (nil ())
-        | Some x -> x
+        match canvas with None -> Html.canvas (nil ()) | Some x -> x
       in
       cons (return placeholder) (cons (return canvas) (nil ()))
     in
@@ -56,9 +53,7 @@ struct
         | Some (`Element e) -> e
       in
       let wrapper =
-        match wrapper with
-        | None -> create_wrapper ()
-        | Some x -> x
+        match wrapper with None -> create_wrapper () | Some x -> x
       in
       [ title; wrapper ]
     in

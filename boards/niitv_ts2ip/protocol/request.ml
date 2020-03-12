@@ -14,17 +14,10 @@ let error_to_string = function
   | Invalid_length -> "invalid length"
   | Invalid_payload -> "invalid payload"
 
-type tag =
-  [ `Devinfo_req
-  | `Devinfo_rsp
-  | `MAC
-  | `Mode
-  | `Status ]
+type tag = [ `Devinfo_req | `Devinfo_rsp | `MAC | `Mode | `Status ]
 [@@deriving eq, show]
 
-type msg =
-  { tag : tag
-  ; data : Cstruct.t }
+type msg = { tag : tag; data : Cstruct.t }
 
 type _ t =
   (* Requests device info. *)
@@ -84,8 +77,8 @@ let to_tag (type a) : a t -> tag = function
 
 let take_drop (n : int) (l : 'a list) =
   let rec aux i acc = function
-    | [] -> List.rev acc, []
-    | l when i = 0 -> List.rev acc, l
+    | [] -> (List.rev acc, [])
+    | l when i = 0 -> (List.rev acc, l)
     | hd :: tl -> aux (pred i) (hd :: acc) tl
   in
   aux n [] l
@@ -93,4 +86,4 @@ let take_drop (n : int) (l : 'a list) =
 let split_mode (mode : mode) =
   let main_pkrs, aux = take_drop Message.n_udp_main mode.udp in
   let aux_1, aux_2 = take_drop Message.n_udp_aux aux in
-  {mode with udp = main_pkrs}, aux_1, aux_2
+  ({ mode with udp = main_pkrs }, aux_1, aux_2)

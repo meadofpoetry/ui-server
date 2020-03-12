@@ -29,9 +29,11 @@ class t ?on_change (elt : #Dom_html.element Js.t) () =
     method! initial_sync_with_dom () : unit =
       listeners <-
         Js_of_ocaml_lwt.Lwt_js_events.(
-          [ changes input_elt (fun _ _ ->
+          [
+            changes input_elt (fun _ _ ->
                 super#toggle_class ~force:self#checked CSS.checked;
-                self#notify_change ()) ]
+                self#notify_change ());
+          ]
           @ listeners);
       input_elt##.checked := input_elt##.checked;
       super#initial_sync_with_dom ()
@@ -58,11 +60,7 @@ class t ?on_change (elt : #Dom_html.element Js.t) () =
     method checked : bool = Js.to_bool input_elt##.checked
 
     method toggle ?(notify = false) ?(force : bool option) () : unit =
-      let v =
-        match force with
-        | None -> not self#checked
-        | Some x -> x
-      in
+      let v = match force with None -> not self#checked | Some x -> x in
       input_elt##.checked := Js.bool v;
       super#toggle_class ~force:v CSS.checked;
       if notify then Lwt.async self#notify_change
@@ -73,9 +71,7 @@ class t ?on_change (elt : #Dom_html.element Js.t) () =
 
     (* Private methods *)
     method private notify_change () : unit Lwt.t =
-      match on_change with
-      | None -> Lwt.return_unit
-      | Some f -> f (self :> t)
+      match on_change with None -> Lwt.return_unit | Some f -> f (self :> t)
 
     method private create_ripple () : Ripple.t =
       let selector = "." ^ CSS.thumb_underlay in
@@ -87,9 +83,11 @@ class t ?on_change (elt : #Dom_html.element Js.t) () =
       Ripple.attach ~unbounded:true surface
   end
 
-let attach ?on_change (elt : #Dom_html.element Js.t) : t = new t ?on_change elt ()
+let attach ?on_change (elt : #Dom_html.element Js.t) : t =
+  new t ?on_change elt ()
 
-let make ?input_id ?classes ?a ?checked ?disabled ?track ?thumb_underlay ?on_change () =
+let make ?input_id ?classes ?a ?checked ?disabled ?track ?thumb_underlay
+    ?on_change () =
   D.switch ?input_id ?classes ?a ?checked ?disabled ?track ?thumb_underlay ()
   |> Tyxml_js.To_dom.of_div
   |> attach ?on_change

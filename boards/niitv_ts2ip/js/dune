@@ -1,7 +1,5 @@
 (library
-  (name       board_niitv_ts2ip_js)
-  (libraries  api_js components)
-  (preprocess (pps ppx_deriving_yojson
-                   ppx_deriving.show
-                   js_of_ocaml-ppx
-                   ppx_deriving.eq)))
+ (name board_niitv_ts2ip_js)
+ (libraries api_js components)
+ (preprocess
+  (pps ppx_deriving_yojson ppx_deriving.show js_of_ocaml-ppx ppx_deriving.eq)))

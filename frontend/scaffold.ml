@@ -9,13 +9,16 @@ let is_firefox () =
 let logout' href =
   let open XmlHttpRequest in
   let req = create () in
-  req##_open (Js.string "GET") (* meth *) (Js.string "/api/user/logout") Js._true
+  req##_open (Js.string "GET")
+    (* meth *) (Js.string "/api/user/logout")
+    Js._true
   (* async *);
   req##.onreadystatechange :=
     Js.wrap_callback (fun _ ->
         match req##.readyState with
         | DONE ->
-            Js.Optdef.iter href (fun href -> Dom_html.window##.location##replace href)
+            Js.Optdef.iter href (fun href ->
+                Dom_html.window##.location##replace href)
         | _ -> ());
   req##send Js.null
 
@@ -28,15 +31,15 @@ let logout href =
   in
   req##_open_full
     (Js.string "GET") (* meth *)
-    location##.href (* url *)
-    Js._true (* async *)
+    location##.href (* url *) Js._true (* async *)
     (Js.some @@ Js.string "logout") (*username *)
     password;
   req##.onreadystatechange :=
     Js.wrap_callback (fun _ ->
         match req##.readyState with
         | DONE ->
-            Js.Optdef.iter href (fun href -> Dom_html.window##.location##replace href)
+            Js.Optdef.iter href (fun href ->
+                Dom_html.window##.location##replace href)
         | _ -> ());
   req##send Js.null
 

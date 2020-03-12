@@ -1,16 +1,12 @@
 (executable
-  (name       page_server_settings)
-  (libraries  page_server_settings_tyxml
-              components
-              components_lab
-              browser_storage
-              application_types
-              api_js
-              server_http_js
-              ptime.clock.jsoo)
-  (preprocess (pps js_of_ocaml-ppx)))
+ (name page_server_settings)
+ (libraries page_server_settings_tyxml components components_lab
+   browser_storage application_types api_js server_http_js ptime.clock.jsoo)
+ (preprocess
+  (pps js_of_ocaml-ppx)))
 
 (install
-  (files (page_server_settings.bc.js as js/page-server-settings.js))
-  (section share)
-  (package ui-server))
+ (files
+  (page_server_settings.bc.js as js/page-server-settings.js))
+ (section share)
+ (package ui-server))

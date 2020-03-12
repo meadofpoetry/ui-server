@@ -1,7 +1,5 @@
 (library
-  (name       components)
-  (libraries  js_of_ocaml
-              js_of_ocaml-lwt
-              js_of_ocaml-tyxml
-              components_tyxml)
-  (preprocess (pps js_of_ocaml-ppx)))
+ (name components)
+ (libraries js_of_ocaml js_of_ocaml-lwt js_of_ocaml-tyxml components_tyxml)
+ (preprocess
+  (pps js_of_ocaml-ppx)))

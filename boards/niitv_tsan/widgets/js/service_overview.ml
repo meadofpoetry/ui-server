@@ -37,17 +37,17 @@ class t ?set_hex ?on_row_action (elt : Dom_html.element Js.t) () =
       super#destroy ()
 
     method private handle_row_action (row : Dom_html.tableRowElement Js.t) =
-      let id = Option.bind (Element.get_attribute row Attr.data_id) int_of_string_opt in
+      let id =
+        Option.bind (Element.get_attribute row Attr.data_id) int_of_string_opt
+      in
       match id with
       | Some id ->
           Option.iter (fun f -> f (Some id)) on_row_action;
           (* This is needed to initialize service info widget if it is the first
              time it is added to the DOM. *)
           self#init_service_info ();
-          Js_of_ocaml_lwt.Lwt_js_events.click back_action#root
-          >>= fun _ ->
-          Js_of_ocaml_lwt.Lwt_js_events.request_animation_frame ()
-          >>= fun () ->
+          Js_of_ocaml_lwt.Lwt_js_events.click back_action#root >>= fun _ ->
+          Js_of_ocaml_lwt.Lwt_js_events.request_animation_frame () >>= fun () ->
           Option.iter (fun f -> f None) on_row_action;
           Lwt.return_unit
       | _ -> Lwt.return_unit
@@ -58,7 +58,7 @@ class t ?set_hex ?on_row_action (elt : Dom_html.element Js.t) () =
       | None -> (
           match Element.query_selector elt Selector.service_info with
           | None -> ()
-          | Some x -> service_info <- Some (Service_info.attach x))
+          | Some x -> service_info <- Some (Service_info.attach x) )
   end
 
 let attach ?set_hex ?on_row_action elt : t =

@@ -7,6 +7,7 @@ let parse bs off =
      |}
     ->
       let node =
-        Node.make ~offset:off 8 "transport_profile" (Hex (Int transport_profile))
+        Node.make ~offset:off 8 "transport_profile"
+          (Hex (Int transport_profile))
       in
       node :: Bytes.parse ~offset:(off + off_1) rest "private_data"

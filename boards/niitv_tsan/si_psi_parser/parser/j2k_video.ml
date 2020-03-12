@@ -17,32 +17,28 @@ let parse bs off =
      |}
     ->
       let nodes =
-        [ Node.make ~offset:off 16 "profile_and_level" (Hex (Int profile_and_level))
-        ; Node.make
-            ~offset:(off + off_1)
-            32
-            "horizontal_size"
-            (Dec (Int32 horizontal_size))
-        ; Node.make ~offset:(off + off_2) 32 "vertical_size" (Dec (Int32 vertical_size))
-        ; Node.make ~offset:(off + off_3) 32 "max_bit_rate" (Dec (Int32 max_bit_rate))
-        ; Node.make
-            ~offset:(off + off_4)
-            32
-            "max_buffer_size"
-            (Dec (Int32 max_buffer_size))
-        ; Node.make ~offset:(off + off_5) 16 "den_frame_rate" (Dec (Int den_frame_rate))
-        ; Node.make ~offset:(off + off_6) 16 "num_frame_rate" (Dec (Int num_frame_rate))
-        ; Node.make
-            ~offset:(off + off_7)
-            8
-            "color_specification"
-            (Hex (Int color_specification))
-        ; Node.make ~offset:(off + off_8) 1 "still_mode" (Bits (Bool still_mode))
-        ; Node.make
-            ~offset:(off + off_9)
-            1
-            "interlaced_video"
-            (Bits (Bool interlaced_video))
-        ; Node.make ~offset:(off + off_10) 6 "reserved" (Bits (Int reserved)) ]
+        [
+          Node.make ~offset:off 16 "profile_and_level"
+            (Hex (Int profile_and_level));
+          Node.make ~offset:(off + off_1) 32 "horizontal_size"
+            (Dec (Int32 horizontal_size));
+          Node.make ~offset:(off + off_2) 32 "vertical_size"
+            (Dec (Int32 vertical_size));
+          Node.make ~offset:(off + off_3) 32 "max_bit_rate"
+            (Dec (Int32 max_bit_rate));
+          Node.make ~offset:(off + off_4) 32 "max_buffer_size"
+            (Dec (Int32 max_buffer_size));
+          Node.make ~offset:(off + off_5) 16 "den_frame_rate"
+            (Dec (Int den_frame_rate));
+          Node.make ~offset:(off + off_6) 16 "num_frame_rate"
+            (Dec (Int num_frame_rate));
+          Node.make ~offset:(off + off_7) 8 "color_specification"
+            (Hex (Int color_specification));
+          Node.make ~offset:(off + off_8) 1 "still_mode"
+            (Bits (Bool still_mode));
+          Node.make ~offset:(off + off_9) 1 "interlaced_video"
+            (Bits (Bool interlaced_video));
+          Node.make ~offset:(off + off_10) 6 "reserved" (Bits (Int reserved));
+        ]
       in
       nodes @ Bytes.parse ~offset:(off + off_11) rest "private_data_byte"

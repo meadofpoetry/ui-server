@@ -1,16 +1,8 @@
-type cell_align =
-  | Top
-  | Middle
-  | Bottom
+type cell_align = Top | Middle | Bottom
 
-type grid_align =
-  | Left
-  | Right
+type grid_align = Left | Right
 
-type device =
-  | Desktop
-  | Phone
-  | Tablet
+type device = Desktop | Phone | Tablet
 
 let align_to_string : cell_align -> string = function
   | Top -> "top"
@@ -24,7 +16,7 @@ let align_of_string : string -> cell_align option = function
   | _ -> None
 
 let equal_device (a : device) (b : device) : bool =
-  match a, b with
+  match (a, b) with
   | Desktop, Desktop -> true
   | Phone, Phone -> true
   | Tablet, Tablet -> true
@@ -73,13 +65,14 @@ module CSS = struct
 
   let cell_span_prefix = BEM.add_modifier cell "span"
 
-  (** Optional, specifies the number of columns the cell spans on a type of device
-      (desktop, tablet, phone). *)
+  (** Optional, specifies the number of columns the cell spans on a type of
+      device (desktop, tablet, phone). *)
   let cell_span ?device (n : int) : string =
     check_columns_number_exn n;
     match device with
     | None -> Printf.sprintf "%s-%d" cell_span_prefix n
-    | Some d -> Printf.sprintf "%s-%d-%s" cell_span_prefix n (device_to_string d)
+    | Some d ->
+        Printf.sprintf "%s-%d-%s" cell_span_prefix n (device_to_string d)
 
   let cell_order_prefix = BEM.add_modifier cell "order"
 
@@ -108,47 +101,35 @@ struct
 
   let ( % ) f g x = f (g x)
 
-  let layout_grid_cell
-      ?(classes = return [])
-      ?(a = [])
-      ?align
-      ?order
-      ?span
-      ?span_phone
-      ?span_tablet
-      ?span_desktop
-      ?(children = nil ())
-      () =
+  let layout_grid_cell ?(classes = return []) ?(a = []) ?align ?order ?span
+      ?span_phone ?span_tablet ?span_desktop ?(children = nil ()) () =
     let classes =
       fmap
-        (Utils.map_cons_option CSS.cell_span span
+        ( Utils.map_cons_option CSS.cell_span span
         % Utils.map_cons_option (CSS.cell_span ~device:Phone) span_phone
         % Utils.map_cons_option (CSS.cell_span ~device:Tablet) span_tablet
         % Utils.map_cons_option (CSS.cell_span ~device:Desktop) span_desktop
         % Utils.map_cons_option CSS.cell_align align
         % Utils.map_cons_option CSS.cell_order order
-        % List.cons CSS.cell)
+        % List.cons CSS.cell )
         classes
     in
     div ~a:(a_class classes :: a) children
 
-  let layout_grid_inner ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+  let layout_grid_inner ?(classes = return []) ?(a = []) ?(children = nil ()) ()
+      =
     let classes = fmap (List.cons CSS.inner) classes in
     div ~a:(a_class classes :: a) children
 
-  let layout_grid
-      ?(classes = return [])
-      ?(a = [])
-      ?align
-      ?(fixed_column_width = false)
-      ?cells
-      ?(children = singleton (return (layout_grid_inner ?children:cells ())))
-      () =
+  let layout_grid ?(classes = return []) ?(a = []) ?align
+      ?(fixed_column_width = false) ?cells
+      ?(children = singleton (return (layout_grid_inner ?children:cells ()))) ()
+      =
     let classes =
       fmap
-        (Utils.map_cons_option CSS.align align
+        ( Utils.map_cons_option CSS.align align
         % Utils.cons_if fixed_column_width CSS.fixed_column_width
-        % List.cons CSS.root)
+        % List.cons CSS.root )
         classes
     in
     div ~a:(a_class classes :: a) children

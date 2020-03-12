@@ -1,11 +1,6 @@
 let rec parse ?bytes ~offset x str =
-  let bytes =
-    match bytes with
-    | Some x -> x
-    | None -> 1
-  in
-  if Bitstring.bitstring_length x = 0
-  then []
+  let bytes = match bytes with Some x -> x | None -> 1 in
+  if Bitstring.bitstring_length x = 0 then []
   else
     match%bitstring x with
     | {| smth : bytes * 8

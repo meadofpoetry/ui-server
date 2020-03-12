@@ -3,129 +3,162 @@ open OBus_value
 open OBus_value.C
 open OBus_member
 open OBus_object
-module Org_freedesktop_NetworkManager_Connection_Active =
-struct
+
+module Org_freedesktop_NetworkManager_Connection_Active = struct
   let interface = "org.freedesktop.NetworkManager.Connection.Active"
-  let s_PropertiesChanged = {
-    Signal.interface = interface;
-    Signal.member = "PropertiesChanged";
-    Signal.args = (arg1
-                       (Some "properties", dict string variant));
-    Signal.annotations = [];
-  }
-  let s_StateChanged = {
-    Signal.interface = interface;
-    Signal.member = "StateChanged";
-    Signal.args = (arg2
-                       (Some "state", basic_uint32)
-                       (Some "reason", basic_uint32));
-    Signal.annotations = [];
-  }
-  let p_Connection = {
-    Property.interface = interface;
-    Property.member = "Connection";
-    Property.typ = basic_object_path;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Default = {
-    Property.interface = interface;
-    Property.member = "Default";
-    Property.typ = basic_boolean;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Default6 = {
-    Property.interface = interface;
-    Property.member = "Default6";
-    Property.typ = basic_boolean;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Devices = {
-    Property.interface = interface;
-    Property.member = "Devices";
-    Property.typ = array basic_object_path;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Dhcp4Config = {
-    Property.interface = interface;
-    Property.member = "Dhcp4Config";
-    Property.typ = basic_object_path;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Dhcp6Config = {
-    Property.interface = interface;
-    Property.member = "Dhcp6Config";
-    Property.typ = basic_object_path;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Id = {
-    Property.interface = interface;
-    Property.member = "Id";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Ip4Config = {
-    Property.interface = interface;
-    Property.member = "Ip4Config";
-    Property.typ = basic_object_path;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Ip6Config = {
-    Property.interface = interface;
-    Property.member = "Ip6Config";
-    Property.typ = basic_object_path;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Master = {
-    Property.interface = interface;
-    Property.member = "Master";
-    Property.typ = basic_object_path;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_SpecificObject = {
-    Property.interface = interface;
-    Property.member = "SpecificObject";
-    Property.typ = basic_object_path;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_State = {
-    Property.interface = interface;
-    Property.member = "State";
-    Property.typ = basic_uint32;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Type = {
-    Property.interface = interface;
-    Property.member = "Type";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Uuid = {
-    Property.interface = interface;
-    Property.member = "Uuid";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Vpn = {
-    Property.interface = interface;
-    Property.member = "Vpn";
-    Property.typ = basic_boolean;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
+
+  let s_PropertiesChanged =
+    {
+      Signal.interface;
+      Signal.member = "PropertiesChanged";
+      Signal.args = arg1 (Some "properties", dict string variant);
+      Signal.annotations = [];
+    }
+
+  let s_StateChanged =
+    {
+      Signal.interface;
+      Signal.member = "StateChanged";
+      Signal.args =
+        arg2 (Some "state", basic_uint32) (Some "reason", basic_uint32);
+      Signal.annotations = [];
+    }
+
+  let p_Connection =
+    {
+      Property.interface;
+      Property.member = "Connection";
+      Property.typ = basic_object_path;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Default =
+    {
+      Property.interface;
+      Property.member = "Default";
+      Property.typ = basic_boolean;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Default6 =
+    {
+      Property.interface;
+      Property.member = "Default6";
+      Property.typ = basic_boolean;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Devices =
+    {
+      Property.interface;
+      Property.member = "Devices";
+      Property.typ = array basic_object_path;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Dhcp4Config =
+    {
+      Property.interface;
+      Property.member = "Dhcp4Config";
+      Property.typ = basic_object_path;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Dhcp6Config =
+    {
+      Property.interface;
+      Property.member = "Dhcp6Config";
+      Property.typ = basic_object_path;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Id =
+    {
+      Property.interface;
+      Property.member = "Id";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Ip4Config =
+    {
+      Property.interface;
+      Property.member = "Ip4Config";
+      Property.typ = basic_object_path;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Ip6Config =
+    {
+      Property.interface;
+      Property.member = "Ip6Config";
+      Property.typ = basic_object_path;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Master =
+    {
+      Property.interface;
+      Property.member = "Master";
+      Property.typ = basic_object_path;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_SpecificObject =
+    {
+      Property.interface;
+      Property.member = "SpecificObject";
+      Property.typ = basic_object_path;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_State =
+    {
+      Property.interface;
+      Property.member = "State";
+      Property.typ = basic_uint32;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Type =
+    {
+      Property.interface;
+      Property.member = "Type";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Uuid =
+    {
+      Property.interface;
+      Property.member = "Uuid";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Vpn =
+    {
+      Property.interface;
+      Property.member = "Vpn";
+      Property.typ = basic_boolean;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
   type 'a members = {
     p_Connection : 'a OBus_object.t -> OBus_path.t React.signal;
     p_Default : 'a OBus_object.t -> bool React.signal;
@@ -143,16 +176,10 @@ struct
     p_Uuid : 'a OBus_object.t -> string React.signal;
     p_Vpn : 'a OBus_object.t -> bool React.signal;
   }
+
   let make members =
-    OBus_object.make_interface_unsafe interface
-      [
-      ]
-      [|
-      |]
-      [|
-        signal_info s_PropertiesChanged;
-        signal_info s_StateChanged;
-      |]
+    OBus_object.make_interface_unsafe interface [] [||]
+      [| signal_info s_PropertiesChanged; signal_info s_StateChanged |]
       [|
         property_r_info p_Connection members.p_Connection;
         property_r_info p_Default members.p_Default;

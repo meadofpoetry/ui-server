@@ -18,22 +18,25 @@ let permissions ?(pesonal_appeal = true) = function
   | `Guest ->
       let title = if pesonal_appeal then "Вам" else "Гостю" in
       Printf.sprintf
-        "%s предоставлена возможность просмотра \
-         результатов измерений. Данная учётная \
-         запись не позволяет управлять параметрами \
-         мониторинга и настройками прибора."
+        "%s предоставлена возможность \
+         просмотра результатов измерений. \
+         Данная учётная запись не позволяет \
+         управлять параметрами мониторинга и \
+         настройками прибора."
         title
   | `Operator ->
       let title = if pesonal_appeal then "Вам" else "Оператору" in
       Printf.sprintf
-        "%s предоставлена возможность просмотра \
-         результатов измерений и конфигурации \
-         параметров мониторинга. Данная учётная \
-         запись не позволяет управлять настройками \
-         прибора."
+        "%s предоставлена возможность \
+         просмотра результатов измерений и \
+         конфигурации параметров мониторинга. \
+         Данная учётная запись не позволяет \
+         управлять настройками прибора."
         title
   | `Root ->
-      let title = if pesonal_appeal then "Вам" else "Администратору" in
+      let title =
+        if pesonal_appeal then "Вам" else "Администратору"
+      in
       Printf.sprintf
         "%s предоставлена возможность полного \
          контроля над всеми функциями и \
@@ -58,43 +61,42 @@ struct
     let classes = CSS.greetings :: classes in
     let username_human = Format.asprintf "%a" Util.pp_user_human user in
     let icon = Icon.SVG.icon ~d:(Util.user_icon_path user) () in
-    let text = Printf.sprintf "Добро пожаловать, %s!" username_human in
-    div ~a:(a_class classes :: a) [icon; txt text]
+    let text =
+      Printf.sprintf "Добро пожаловать, %s!" username_human
+    in
+    div ~a:(a_class classes :: a) [ icon; txt text ]
 
   let create_permissions ?(classes = []) ?(a = []) user =
     let classes = CSS.permissions :: classes in
     let text = permissions user in
-    div ~a:(a_class classes :: a) [txt text]
+    div ~a:(a_class classes :: a) [ txt text ]
 
   let create_accounts_info_link ?(classes = []) ?(a = []) () =
     let classes = CSS.accounts_info_link :: classes in
-    span
-      ~a:(a_class classes :: a)
-      [txt "Узнать больше об учётных записях"]
+    span ~a:(a_class classes :: a)
+      [ txt "Узнать больше об учётных записях" ]
 
   let create ?(classes = []) ?(a = []) user =
     let _exit =
-      Button.button_a
-        ~classes:[Card.CSS.action]
-        ~appearance:Raised
-        ~href:(uri_of_string "/logout")
-        ~label:"Выйти"
-        ()
+      Button.button_a ~classes:[ Card.CSS.action ] ~appearance:Raised
+        ~href:(uri_of_string "/logout") ~label:"Выйти" ()
     in
-    create_section
-      ~classes
-      ~a:(a_id id :: a)
+    create_section ~classes ~a:(a_id id :: a)
       ~header:(create_section_header ~title:(`Text "Аккаунт") ())
       ~children:
-        [ Card_markup.card_media
+        [
+          Card_markup.card_media
             ~children:
-              [ create_greetings user
-              ; create_permissions user
-              ; create_accounts_info_link () ]
-            ()
-        ; Card_markup.card_actions
-            ~children:[Card_markup.card_action_buttons ~children:[_exit] ()]
-            () ]
+              [
+                create_greetings user;
+                create_permissions user;
+                create_accounts_info_link ();
+              ]
+            ();
+          Card_markup.card_actions
+            ~children:[ Card_markup.card_action_buttons ~children:[ _exit ] () ]
+            ();
+        ]
       ()
 end
 

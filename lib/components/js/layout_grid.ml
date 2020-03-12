@@ -15,10 +15,7 @@ end
 let find_map f l =
   let rec aux f = function
     | [] -> None
-    | x :: l' -> (
-      match f x with
-      | Some _ as res -> res
-      | None -> aux f l')
+    | x :: l' -> ( match f x with Some _ as res -> res | None -> aux f l' )
   in
   aux f l
 
@@ -28,32 +25,32 @@ module Cell = struct
   let parse_align (c : string) =
     let pre = BEM.add_modifier CSS.cell "align" in
     match String.split_on_char '-' c with
-    | [prefix; align] when String.equal prefix pre -> align_of_string align
+    | [ prefix; align ] when String.equal prefix pre -> align_of_string align
     | _ -> None
 
   let parse_order (c : string) =
     let pre = BEM.add_modifier CSS.cell "order" in
     match String.split_on_char '-' c with
-    | [prefix; order] when String.equal prefix pre -> (
-      match int_of_string_opt order with
-      | Some x when x > 0 -> Some x
-      | _ -> None)
+    | [ prefix; order ] when String.equal prefix pre -> (
+        match int_of_string_opt order with
+        | Some x when x > 0 -> Some x
+        | _ -> None )
     | _ -> None
 
   let parse_span (c : string) : (int * device option) option =
     let pre = BEM.add_modifier CSS.cell "span" in
     match String.split_on_char '-' c with
-    | [prefix; span] when String.equal prefix pre -> (
-      match int_of_string_opt span with
-      | Some x when x > 0 && x <= max_columns -> Some (x, None)
-      | _ -> None)
-    | [prefix; span; device] when String.equal prefix pre -> (
-      match int_of_string_opt span with
-      | Some x when x > 0 && x <= max_columns -> (
-        match device_of_string device with
-        | None -> None
-        | Some dev -> Some (x, Some dev))
-      | _ -> None)
+    | [ prefix; span ] when String.equal prefix pre -> (
+        match int_of_string_opt span with
+        | Some x when x > 0 && x <= max_columns -> Some (x, None)
+        | _ -> None )
+    | [ prefix; span; device ] when String.equal prefix pre -> (
+        match int_of_string_opt span with
+        | Some x when x > 0 && x <= max_columns -> (
+            match device_of_string device with
+            | None -> None
+            | Some dev -> Some (x, Some dev) )
+        | _ -> None )
     | _ -> None
 
   class t (elt : Dom_html.element Js.t) () =
@@ -63,9 +60,7 @@ module Cell = struct
       method span : int option =
         find_map
           (fun (_class : string) ->
-            match parse_span _class with
-            | Some (x, None) -> Some x
-            | _ -> None)
+            match parse_span _class with Some (x, None) -> Some x | _ -> None)
           super#classes
 
       method span_phone : int option =
@@ -129,28 +124,10 @@ module Cell = struct
 
   let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
 
-  let make
-      ?classes
-      ?a
-      ?align
-      ?order
-      ?span
-      ?span_phone
-      ?span_tablet
-      ?span_desktop
-      ?children
-      () =
-    D.layout_grid_cell
-      ?classes
-      ?a
-      ?align
-      ?order
-      ?span
-      ?span_phone
-      ?span_tablet
-      ?span_desktop
-      ?children
-      ()
+  let make ?classes ?a ?align ?order ?span ?span_phone ?span_tablet
+      ?span_desktop ?children () =
+    D.layout_grid_cell ?classes ?a ?align ?order ?span ?span_phone ?span_tablet
+      ?span_desktop ?children ()
     |> Tyxml_js.To_dom.of_div
     |> attach
 end
@@ -175,17 +152,16 @@ class t (elt : Dom_html.element Js.t) () =
     method remove_cells () = Element.remove_children inner
 
     method align : grid_align option =
-      if super#has_class (CSS.align Left)
-      then Some Left
-      else if super#has_class (CSS.align Right)
-      then Some Right
+      if super#has_class (CSS.align Left) then Some Left
+      else if super#has_class (CSS.align Right) then Some Right
       else None
 
     method set_align (x : grid_align option) : unit =
       List.iter
         (fun (class' : string) ->
           match BEM.get_block class' with
-          | Some b when String.equal b CSS.align_prefix -> super#remove_class class'
+          | Some b when String.equal b CSS.align_prefix ->
+              super#remove_class class'
           | _ -> ())
         super#classes;
       Option.iter (super#add_class % CSS.align) x

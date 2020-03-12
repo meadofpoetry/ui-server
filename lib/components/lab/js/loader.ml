@@ -22,35 +22,28 @@ let exn_to_string : exn -> string = function
   | Division_by_zero -> "Division by zero"
   | e -> Printexc.to_string e
 
-let make_loader
-    ?text
-    ?error_icon
+let make_loader ?text ?error_icon
     ?(on_error : (Dom_html.element Js.t -> string -> unit) option)
     ?(on_success : (Dom_html.element Js.t -> 'a -> unit) option)
     ?(elt = Dom_html.(createDiv document))
-    (t : ('a, [`Msg of string]) Lwt_result.t) =
+    (t : ('a, [ `Msg of string ]) Lwt_result.t) =
   let progress = Placeholder.make_progress ?text () in
   let on_success (v : 'a) : unit Lwt.t =
     Element.remove_class elt CSS.root;
-    (match on_success with
-    | None -> ()
-    | Some f -> f elt v);
+    (match on_success with None -> () | Some f -> f elt v);
     Lwt.return_unit
   in
   let on_error text =
     let error = Placeholder.make_error ?icon:error_icon ~text:(`Text text) () in
     Element.append_child elt error#root;
-    (match on_error with
-    | None -> ()
-    | Some f -> f elt text);
+    (match on_error with None -> () | Some f -> f elt text);
     Lwt.return_unit
   in
   Element.add_class elt CSS.root;
   List.iter (Element.remove_child_safe elt)
   @@ Element.query_selector_all elt ("." ^ Placeholder.CSS.root);
   let sleep =
-    Lwt_js.sleep timeout
-    >>= fun () ->
+    Lwt_js.sleep timeout >>= fun () ->
     Element.append_child elt progress#root;
     Lwt.return_unit
   in
@@ -60,9 +53,7 @@ let make_loader
       (fun r ->
         Lwt.cancel sleep;
         Element.remove_child_safe elt progress#root;
-        match r with
-        | Error (`Msg e) -> on_error e
-        | Ok x -> on_success x)
+        match r with Error (`Msg e) -> on_error e | Ok x -> on_success x)
       (fun e ->
         Lwt.cancel sleep;
         Element.remove_child_safe elt progress#root;
@@ -71,15 +62,9 @@ let make_loader
   Lwt.on_termination thread (fun () -> progress#destroy ());
   elt
 
-let make_widget_loader
-    ?text
-    ?error_icon
-    ?elt
-    (t : (#Widget.t, [`Msg of string]) Lwt_result.t) =
-  make_loader
-    ?text
-    ?error_icon
-    ?elt
+let make_widget_loader ?text ?error_icon ?elt
+    (t : (#Widget.t, [ `Msg of string ]) Lwt_result.t) =
+  make_loader ?text ?error_icon ?elt
     ~on_success:(fun elt widget ->
       Dom.appendChild elt widget#root;
       widget#layout ())

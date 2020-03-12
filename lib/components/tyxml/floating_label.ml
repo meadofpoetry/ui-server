@@ -19,16 +19,12 @@ struct
 
   let ( % ) f g x = f (g x)
 
-  let floating_label
-      ?(classes = return [])
-      ?(a = [])
-      ?(float_above = false)
-      ?for_
-      ?label
-      ?(children = nil ())
-      () =
+  let floating_label ?(classes = return []) ?(a = []) ?(float_above = false)
+      ?for_ ?label ?(children = nil ()) () =
     let classes =
-      fmap (Utils.cons_if float_above CSS.float_above % List.cons CSS.root) classes
+      fmap
+        (Utils.cons_if float_above CSS.float_above % List.cons CSS.root)
+        classes
     in
     let children =
       match label with

@@ -4,12 +4,7 @@ open Application_types
 let ( % ) f g x = f (g x)
 
 (* Physical port on a board. *)
-type socket =
-  | SPI_1
-  | SPI_2
-  | SPI_3
-  | ASI_1
-  | ASI_2
+type socket = SPI_1 | SPI_2 | SPI_3 | ASI_1 | ASI_2
 [@@deriving show, eq, enum]
 
 let socket_to_string = function
@@ -25,9 +20,10 @@ let socket_of_yojson json =
   match Util_json.Int.of_yojson json with
   | Error _ as e -> e
   | Ok x -> (
-    match socket_of_enum x with
-    | Some x -> Ok x
-    | None -> Error (Printf.sprintf "socket_of_yojson: bad int value (%d)" x))
+      match socket_of_enum x with
+      | Some x -> Ok x
+      | None -> Error (Printf.sprintf "socket_of_yojson: bad int value (%d)" x)
+      )
 
 let stream_to_socket (ports : Topology.topo_port list) (stream : Stream.t) :
     socket option =
@@ -35,11 +31,7 @@ let stream_to_socket (ports : Topology.topo_port list) (stream : Stream.t) :
   | None -> None
   | Some p -> socket_of_enum p.port
 
-type speed =
-  | Speed_10
-  | Speed_100
-  | Speed_1000
-  | Speed_failure
+type speed = Speed_10 | Speed_100 | Speed_1000 | Speed_failure
 [@@deriving enum, show, eq]
 
 let speed_to_yojson = Util_json.Int.to_yojson % speed_to_enum
@@ -48,20 +40,14 @@ let speed_of_yojson json =
   match Util_json.Int.of_yojson json with
   | Error _ as e -> e
   | Ok x -> (
-    match speed_of_enum x with
-    | Some x -> Ok x
-    | None -> Error (Printf.sprintf "speed_of_yojson: bad int value (%d)" x))
+      match speed_of_enum x with
+      | Some x -> Ok x
+      | None -> Error (Printf.sprintf "speed_of_yojson: bad int value (%d)" x) )
 
-type devinfo =
-  { typ : int
-  ; ver : int
-  ; packers_num : int }
+type devinfo = { typ : int; ver : int; packers_num : int }
 [@@deriving yojson, eq]
 
-type stream =
-  | ID of Stream.Multi_TS_ID.t
-  | Full of Stream.t
-[@@deriving eq]
+type stream = ID of Stream.Multi_TS_ID.t | Full of Stream.t [@@deriving eq]
 
 let pp_stream ppf = function
   | ID x -> Stream.Multi_TS_ID.pp ppf x
@@ -77,63 +63,59 @@ let stream_of_yojson json =
   match Stream.Multi_TS_ID.of_yojson json with
   | Ok x -> Ok (ID x)
   | Error _ -> (
-    match Stream.of_yojson json with
-    | Ok x -> Ok (Full x)
-    | Error _ -> Error "stream_of_yojson: got neither Multi TS ID, nor stream")
+      match Stream.of_yojson json with
+      | Ok x -> Ok (Full x)
+      | Error _ -> Error "stream_of_yojson: got neither Multi TS ID, nor stream"
+      )
 
-type udp_mode =
-  { stream : stream
-  ; dst_ip : Ipaddr.V4.t
-  ; dst_port : int
-  ; self_port : int
-  ; enabled : bool
-  ; socket : socket }
+type udp_mode = {
+  stream : stream;
+  dst_ip : Ipaddr.V4.t;
+  dst_port : int;
+  self_port : int;
+  enabled : bool;
+  socket : socket;
+}
 [@@deriving yojson, show, eq]
 
-type network_mode =
-  { ip : Ipaddr.V4.t
-  ; mask : Ipaddr.V4.t
-  ; gateway : Ipaddr.V4.t }
+type network_mode = {
+  ip : Ipaddr.V4.t;
+  mask : Ipaddr.V4.t;
+  gateway : Ipaddr.V4.t;
+}
 [@@deriving yojson, show, eq]
 
-type mode =
-  { network : network_mode
-  ; udp : udp_mode list }
+type mode = { network : network_mode; udp : udp_mode list }
 [@@deriving yojson, show, eq]
 
-type device_status =
-  { phy : bool
-  ; link : bool
-  ; speed : speed
-  ; sync : socket list
-  ; timestamp : Time.t }
+type device_status = {
+  phy : bool;
+  link : bool;
+  speed : speed;
+  sync : socket list;
+  timestamp : Time.t;
+}
 [@@deriving yojson, show, eq]
 
-type udp_status =
-  { bitrate : int option
-  ; overflow : bool
-  ; enabled : bool
-  ; sync : bool
-  ; stream : Stream.container_id }
+type udp_status = {
+  bitrate : int option;
+  overflow : bool;
+  enabled : bool;
+  sync : bool;
+  stream : Stream.container_id;
+}
 [@@deriving yojson, show, eq]
 
-type transmitter_status =
-  { udp : udp_status list
-  ; timestamp : Time.t }
+type transmitter_status = { udp : udp_status list; timestamp : Time.t }
 [@@deriving yojson, show, eq]
 
-type config =
-  { mac : Macaddr.t
-  ; mode : mode }
-[@@deriving yojson, eq]
+type config = { mac : Macaddr.t; mode : mode } [@@deriving yojson, eq]
 
-type 'a ts =
-  { data : 'a
-  ; timestamp : Time.t }
-[@@deriving yojson, show, eq]
+type 'a ts = { data : 'a; timestamp : Time.t } [@@deriving yojson, show, eq]
 
 let devinfo_to_string (x : devinfo) =
-  Printf.sprintf "type: 0x%02X, version: %d, packers: %d" x.typ x.ver x.packers_num
+  Printf.sprintf "type: 0x%02X, version: %d, packers: %d" x.typ x.ver
+    x.packers_num
 
 let board_id : Application_types.Topology.board_id =
-  {manufacturer = "NIITV"; model = "TS2IP"; version = 2}
+  { manufacturer = "NIITV"; model = "TS2IP"; version = 2 }

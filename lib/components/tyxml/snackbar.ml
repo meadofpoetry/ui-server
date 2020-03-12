@@ -17,23 +17,23 @@ module CSS = struct
   (** Optional. The dismiss ("X") icon. *)
   let dismiss = BEM.add_element root "dismiss"
 
-  (** Optional. Applied automatically when the snackbar is in the process
-      of animating open. *)
+  (** Optional. Applied automatically when the snackbar is in the process of
+      animating open. *)
   let opening = BEM.add_modifier root "opening"
 
   (** Optional. Indicates that the snackbar is visible. *)
   let open_ = BEM.add_modifier root "open"
 
-  (** Optional. Applied automatically when the snackbar is in the process
-      of anumating closed. *)
+  (** Optional. Applied automatically when the snackbar is in the process of
+      anumating closed. *)
   let closing = BEM.add_modifier root "closing"
 
-  (** Optional. Positions the snackbar on the leading edge of the screen
-      (left in LTR, right in RTL) instead of centered. *)
+  (** Optional. Positions the snackbar on the leading edge of the screen (left
+      in LTR, right in RTL) instead of centered. *)
   let leading = BEM.add_modifier root "leading"
 
-  (** Optional. Positions the action button/icon below the label instead
-      of alongside it. *)
+  (** Optional. Positions the action button/icon below the label instead of
+      alongside it. *)
   let stacked = BEM.add_modifier root "stacked"
 end
 
@@ -65,7 +65,8 @@ struct
     in
     Icon_button_markup.icon_button ~classes ?on_icon:None ?on:None ~icon
 
-  let snackbar_actions ?(classes = return []) ?(a = []) ?action ?dismiss ?children () =
+  let snackbar_actions ?(classes = return []) ?(a = []) ?action ?dismiss
+      ?children () =
     let classes = fmap (fun x -> CSS.actions :: x) classes in
     let children =
       match children with
@@ -87,26 +88,20 @@ struct
     in
     div ~a:(a_class classes :: a) children
 
-  let snackbar_label ?(classes = return []) ?(a = []) ?label ?(children = nil ()) () =
+  let snackbar_label ?(classes = return []) ?(a = []) ?label
+      ?(children = nil ()) () =
     let classes = fmap (fun x -> CSS.label :: x) classes in
     let label = Option.map (fun x -> return @@ txt x) label in
     div
       ~a:
-        (a_class classes
-        :: a_aria "live" (return ["polite"])
-        :: a_role (return ["status"])
-        :: a)
+        ( a_class classes
+        :: a_aria "live" (return [ "polite" ])
+        :: a_role (return [ "status" ])
+        :: a )
       (label ^:: children)
 
-  let snackbar_surface
-      ?(classes = return [])
-      ?(a = [])
-      ?label
-      ?action
-      ?dismiss
-      ?actions
-      ?children
-      () =
+  let snackbar_surface ?(classes = return []) ?(a = []) ?label ?action ?dismiss
+      ?actions ?children () =
     let classes = fmap (fun x -> CSS.surface :: x) classes in
     let label =
       match label with
@@ -115,46 +110,37 @@ struct
       | Some (`Element e) -> Some e
     in
     let actions =
-      match actions, action, dismiss with
+      match (actions, action, dismiss) with
       | (Some _ as x), _, _ -> x
       | None, None, None -> None
       | None, Some _, _ | None, _, Some _ ->
           Some (return @@ snackbar_actions ?action ?dismiss ())
     in
     let children =
-      match children with
-      | Some x -> x
-      | None -> label ^:: actions ^:: nil ()
+      match children with Some x -> x | None -> label ^:: actions ^:: nil ()
     in
     div ~a:(a_class classes :: a) children
 
-  let snackbar
-      ?(classes = return [])
-      ?(a = [])
-      ?(leading = false)
-      ?(stacked = false)
-      ?dismiss
-      ?action
-      ?actions
-      ?label
-      ?surface
-      ?children
-      () =
+  let snackbar ?(classes = return []) ?(a = []) ?(leading = false)
+      ?(stacked = false) ?dismiss ?action ?actions ?label ?surface ?children ()
+      =
     let classes =
       fmap
-        (Utils.cons_if leading CSS.leading
+        ( Utils.cons_if leading CSS.leading
         % Utils.cons_if stacked CSS.stacked
-        % List.cons CSS.root)
+        % List.cons CSS.root )
         classes
     in
     let children =
       match children with
       | Some x -> x
       | None -> (
-        match surface with
-        | Some x -> singleton x
-        | None ->
-            singleton (return (snackbar_surface ?action ?dismiss ?actions ?label ())))
+          match surface with
+          | Some x -> singleton x
+          | None ->
+              singleton
+                (return (snackbar_surface ?action ?dismiss ?actions ?label ()))
+          )
     in
     div ~a:(a_class classes :: a) children
 end

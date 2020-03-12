@@ -9,13 +9,12 @@ class t (elt : Dom_html.element Js.t) () =
     inherit Widget.t elt () as super
 
     method set_vertical (x : bool) : unit =
-      if x
-      then (
+      if x then (
         super#remove_class CSS.vertical;
-        super#add_class CSS.horizontal)
+        super#add_class CSS.horizontal )
       else (
         super#remove_class CSS.horizontal;
-        super#add_class CSS.vertical)
+        super#add_class CSS.vertical )
 
     method set_wrap (x : wrap) : unit = super#add_class @@ CSS.wrap x
 
@@ -26,29 +25,12 @@ class t (elt : Dom_html.element Js.t) () =
     method set_align_content x = super#add_class @@ CSS.align_content x
   end
 
-let attach (elt : #Dom_html.element Js.t) : t = new t (elt :> Dom_html.element Js.t) ()
+let attach (elt : #Dom_html.element Js.t) : t =
+  new t (elt :> Dom_html.element Js.t) ()
 
-let make
-    ?classes
-    ?a
-    ?tag
-    ?justify_content
-    ?align_items
-    ?align_content
-    ?wrap
-    ?vertical
-    ?children
-    () =
-  D.box
-    ?classes
-    ?a
-    ?tag
-    ?justify_content
-    ?align_items
-    ?align_content
-    ?wrap
-    ?vertical
-    ?children
-    ()
+let make ?classes ?a ?tag ?justify_content ?align_items ?align_content ?wrap
+    ?vertical ?children () =
+  D.box ?classes ?a ?tag ?justify_content ?align_items ?align_content ?wrap
+    ?vertical ?children ()
   |> Tyxml_js.To_dom.of_element
   |> attach

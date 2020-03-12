@@ -12,25 +12,33 @@ let int_of_netmask (nm : Ipaddr.V4.t) =
 let ipv4_validation =
   Components.Textfield.(
     Custom
-      { input_type = `Text
-      ; to_string = Ipaddr.V4.to_string
-      ; of_string =
+      {
+        input_type = `Text;
+        to_string = Ipaddr.V4.to_string;
+        of_string =
           (fun x ->
             match Ipaddr.V4.of_string x with
-            | Error _ -> Error "Некорректный формат IP адрес"
-            | Ok _ as x -> x) })
+            | Error _ ->
+                Error "Некорректный формат IP адрес"
+            | Ok _ as x -> x);
+      })
 
 let mask_validation =
   Components.Textfield.(
     Custom
-      { input_type = `Text
-      ; to_string =
-          (fun x -> Ipaddr.V4.to_string @@ Ipaddr.V4.Prefix.mask @@ Int32.to_int x)
-      ; of_string =
+      {
+        input_type = `Text;
+        to_string =
+          (fun x ->
+            Ipaddr.V4.to_string @@ Ipaddr.V4.Prefix.mask @@ Int32.to_int x);
+        of_string =
           (fun x ->
             match Ipaddr.V4.of_string x with
-            | Error _ -> Error "Некорректный формат IP адреса"
+            | Error _ ->
+                Error "Некорректный формат IP адреса"
             | Ok x -> (
-              match int_of_netmask x with
-              | None -> Error "Некорректное значение маски"
-              | Some x -> Ok (Int32.of_int x))) })
+                match int_of_netmask x with
+                | None ->
+                    Error "Некорректное значение маски"
+                | Some x -> Ok (Int32.of_int x) ));
+      })

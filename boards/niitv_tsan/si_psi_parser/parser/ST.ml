@@ -10,7 +10,9 @@ let parse bs =
       in
       let int_list = List.map (fun x -> Char.code x) char_list in
       let bytes =
-        Node.make ~offset:24 (Bitstring.bitstring_length rest) "bytes" (Bytes int_list)
+        Node.make ~offset:24
+          (Bitstring.bitstring_length rest)
+          "bytes" (Bytes int_list)
       in
       let header = parse_header header in
-      header @ [bytes]
+      header @ [ bytes ]

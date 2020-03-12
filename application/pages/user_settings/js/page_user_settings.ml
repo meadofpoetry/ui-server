@@ -16,18 +16,20 @@ let get_username () =
   | Error s -> Lwt.return_error (`Msg s)
 
 let () =
-  let (scaffold : Components.Scaffold.t) = Js_of_ocaml.Js.Unsafe.global##.scaffold in
+  let (scaffold : Components.Scaffold.t) =
+    Js_of_ocaml.Js.Unsafe.global##.scaffold
+  in
   let thread =
-    get_username ()
-    >>=? fun user ->
-    scaffold#loaded
-    >>= fun () ->
+    get_username () >>=? fun user ->
+    scaffold#loaded >>= fun () ->
     let account = Account.make user in
     let content =
       match user with
       | `Root ->
-          let password = Password.make ~set_snackbar:scaffold#show_snackbar_await user in
-          [password#markup]
+          let password =
+            Password.make ~set_snackbar:scaffold#show_snackbar_await user
+          in
+          [ password#markup ]
       | `Guest | `Operator -> []
     in
     let page =

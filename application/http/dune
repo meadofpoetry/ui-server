@@ -1,10 +1,4 @@
 (library
-  (name      application_http)
-  (libraries application
-             pc_control_http
-             time_uri
-             api_cohttp
-             api_cohttp_template
-             api_websocket
-             components_tyxml
-             ui_templates_tyxml))
+ (name application_http)
+ (libraries application pc_control_http time_uri api_cohttp
+   api_cohttp_template api_websocket components_tyxml ui_templates_tyxml))
