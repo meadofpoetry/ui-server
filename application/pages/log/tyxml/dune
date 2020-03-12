@@ -1,0 +1,5 @@
+(library
+  (name       page_log_tyxml)
+  (libraries  components_tyxml
+              application_types
+              application_widgets_tyxml))

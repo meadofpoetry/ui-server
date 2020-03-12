@@ -147,10 +147,14 @@ module Conv64 (M : sig val second : int64 end) = struct
 
   let of_int64 (x : int64) : t =
     let s = (Int64.to_float x) /. (Int64.to_float M.second) in
-    Option.get
-    @@ Ptime.of_span
-    @@ Option.get
-    @@ Ptime.Span.of_float_s s
+    try
+      Option.get
+      @@ Ptime.of_span
+      @@ Option.get
+      @@ Ptime.Span.of_float_s s
+    with e ->
+          Printf.printf "Can't convert a num %Ld\n" x;
+          raise e
 
   let to_int64 (x : t) : int64 =
     Ptime.Span.to_float_s @@ Ptime.to_span x

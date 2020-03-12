@@ -1,0 +1,9 @@
+(library
+  (name       page_log)
+  (libraries  components_lab
+              ui_templates
+              application_http_js
+              api_js
+              page_log_tyxml
+              application_widgets)
+  (preprocess (pps js_of_ocaml-ppx)))

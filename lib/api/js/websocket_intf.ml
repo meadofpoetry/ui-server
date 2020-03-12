@@ -1,5 +1,7 @@
 type error = [`Msg of string]
 
+exception Error of error
+
 module type WS = sig
   open Netlib
 

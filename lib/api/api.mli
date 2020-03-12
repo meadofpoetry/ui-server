@@ -1,11 +1,25 @@
 type 'a raw =
   { data : 'a
   ; has_more : bool
-  ; order : [`Asc | `Desc] }
+  ; order : [ `Asc | `Desc ]
+  }
 
 type ('a, 'b) rows =
   | Compressed of 'b
   | Raw of 'a raw
+
+module Show_order : sig
+  type t =
+    [ `Asc
+    | `Desc
+    ]
+
+  val typ : string
+
+  val to_string : t -> string
+
+  val of_string : string -> t
+end
 
 val raw_to_yojson : ('a -> Yojson.Safe.t) -> 'a raw -> Yojson.Safe.t
 
@@ -25,23 +39,25 @@ type _ key =
   | Key : string -> string key
   | Auth : (string * string) key
 
-type env = {env : 'a. 'a key -> 'a option}
+type env = { env : 'a. 'a key -> 'a option }
 
 (* TODO elaborate this *)
 type 'a response =
   [ `Value of 'a
   | `Unit
   | `Error of string
-  | `Not_implemented ]
+  | `Not_implemented
+  ]
 
 module Authorize : sig
   type error =
     [ `Need_auth
     | `Wrong_password
-    | `Unknown of string ]
+    | `Unknown of string
+    ]
 
   val auth :
-       (name:string -> pass:string -> ('id, ([> error] as 'b)) Lwt_result.t)
+       (name:string -> pass:string -> ('id, ([> error ] as 'b)) Lwt_result.t)
     -> env
     -> ('id, 'b) Lwt_result.t
 end
@@ -69,7 +85,7 @@ module type BODY = sig
 
   val to_string : t -> string
 
-  val of_string : string -> (t, [> `Msg of string]) result
+  val of_string : string -> (t, [> `Msg of string ]) result
 
   val content_type : string
 end
@@ -80,7 +96,8 @@ type 'a ws_message =
   | `Unsubscribe of int
   | `Unsubscribed
   | `Event of 'a
-  | `Error of string ]
+  | `Error of string
+  ]
 
 module type WS_BODY = sig
   type t

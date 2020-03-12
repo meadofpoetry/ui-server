@@ -86,13 +86,15 @@ struct
     { to_elt : 'a -> Html_types.td_content_fun Html.elt
     ; of_elt : Html_types.td_content_fun Html.elt -> 'a
     ; compare : 'a -> 'a -> int
-    ; is_numeric : bool }
+    ; is_numeric : bool
+    }
 
   type 'a custom =
     { to_string : 'a -> string
     ; of_string : string -> 'a
     ; compare : 'a -> 'a -> int
-    ; is_numeric : bool }
+    ; is_numeric : bool
+    }
 
   type _ t =
     | String : string t
@@ -153,9 +155,10 @@ struct
   type 'a column =
     { sortable : bool
     ; title : string Xml.wrap
-    ; format : 'a t Xml.wrap }
+    ; format : 'a t Xml.wrap
+    }
 
-  let make_column ?(sortable = false) ~title format = {sortable; title; format}
+  let make_column ?(sortable = false) ~title format = { sortable; title; format }
 
   type _ format =
     | [] : unit format
@@ -194,9 +197,9 @@ struct
      fun fmt v ->
       match fmt with
       | Option (fmt, e) -> (
-        match v with
-        | None -> aux String e
-        | Some x -> aux fmt x)
+          match v with
+          | None -> aux String e
+          | Some x -> aux fmt x)
       | Custom_elt x -> x.to_elt v
       | _ -> txt (return (Fmt.to_string fmt v))
     in
@@ -241,7 +244,7 @@ struct
         numeric
         classes
     in
-    th ~a:(a_class classes :: a_role (return ["columnheader"]) :: a) children
+    th ~a:(a_class classes :: a_role (return [ "columnheader" ]) :: a) children
 
   let data_table_row ?(classes = return []) ?(a = []) ?(children = nil ()) () =
     let classes = fmap (List.cons CSS.row) classes in
@@ -256,9 +259,9 @@ struct
       match children with
       | Some x -> x
       | None -> (
-        match cells with
-        | None -> nil ()
-        | Some cells -> singleton (return (data_table_header_row ~children:cells ())))
+          match cells with
+          | None -> nil ()
+          | Some cells -> singleton (return (data_table_header_row ~children:cells ())))
     in
     thead ~a:(a_class classes :: a) children
 
@@ -270,12 +273,8 @@ struct
     let classes = fmap (List.cons CSS.table) classes in
     tablex ?thead:header ~a:(a_class classes :: a) children
 
-  let data_table
-      ?(classes = return [])
-      ?(a = [])
-      ?(dense = false)
-      ?(children = nil ())
-      () =
+  let data_table ?(classes = return []) ?(a = []) ?(dense = false) ?(children = nil ()) ()
+      =
     let classes = fmap (Utils.cons_if dense CSS.dense % List.cons CSS.root) classes in
     div ~a:(a_class classes :: a) children
 
@@ -328,6 +327,7 @@ struct
       ?row_classes
       ?rows
       ?(data = nil ())
+      ?footer
       () =
     let rows =
       match rows with
@@ -351,8 +351,13 @@ struct
     in
     let header = return @@ data_table_header_of_fmt ~format () in
     let body = return @@ data_table_body ~children:rows () in
-    let table = return @@ data_table_table ~header ~children:(singleton body) () in
-    data_table ?classes ?a ?dense ~children:(singleton table) ()
+    let table = data_table_table ~header ~children:(singleton body) () in
+    let children =
+      match footer with
+      | None -> singleton (return table)
+      | Some footer -> Xml.Wutils.const [ table; footer ]
+    in
+    data_table ?classes ?a ?dense ~children ()
 
   (** Example using GADT format:
 

@@ -7,6 +7,8 @@
 @import "@material/elevation/mixins";
 @import "@material/drawer/mixins";
 
+@import "./frontend/application/application";
+
 :root.mdc-theme-dark {
     --mdc-theme-background: #121212;
     --mdc-theme-primary: #212121;

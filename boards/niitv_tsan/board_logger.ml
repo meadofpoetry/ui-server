@@ -4,8 +4,61 @@ open Board_niitv_tsan_protocol
 
 let ( % ) f g x = f (g x)
 
-let log_of_errors event source : Stream.Log_message.t list React.event =
+let error_to_log_entry id (error : Error.t) =
   let open Stream.Log_message in
+  let message =
+    if error.is_t2mi
+    then ""
+    else
+      match Ts_error.etr290_error_of_code error.err_code with
+      | None -> "Unknown MPEG-TS error"
+      | Some e ->
+          Printf.sprintf
+            "%s %s"
+            (MPEG_TS.ETR290_error.number e)
+            (MPEG_TS.ETR290_error.name e)
+  in
+  let pid = { typ = None; id = error.pid } in
+  make
+    ~time:error.timestamp
+    ~level:Err
+    ~message
+    ~info:(Ts_error.Info.of_error error)
+    ~stream:id
+    ~pid
+    ()
+
+let extended_error_to_log_entry id (error : Error.t_ext) =
+  let open Stream.Log_message in
+  let message =
+    if error.is_t2mi
+    then ""
+    else
+      match Ts_error.etr290_error_of_code error.err_code with
+      | None -> "Unknown MPEG-TS error"
+      | Some e ->
+          Printf.sprintf
+            "%s %s"
+            (MPEG_TS.ETR290_error.number e)
+            (MPEG_TS.ETR290_error.name e)
+  in
+  let service, typ =
+    match snd error.pid with
+    | None -> None, None
+    | Some pid -> pid.service_name, Some (MPEG_TS.PID.Type.to_string pid.typ)
+  in
+  let pid = { typ; id = fst error.pid } in
+  make
+    ?service
+    ~time:error.timestamp
+    ~level:Warn
+    ~message
+    ~info:(Ts_error.Info.of_error error)
+    ~stream:id
+    ~pid
+    ()
+
+let log_of_errors event source : Stream.Log_message.t list React.event =
   let filter l =
     List.filter
       (fun (id, _) ->
@@ -14,37 +67,8 @@ let log_of_errors event source : Stream.Log_message.t list React.event =
         | `Id ids -> List.exists (Stream.ID.equal id) ids)
       l
   in
-  let map ((id : Stream.ID.t), (errors : Error.t_ext list)) =
-    List.map
-      (fun (error : Error.t_ext) ->
-        let message =
-          if error.is_t2mi
-          then ""
-          else
-            match Ts_error.etr290_error_of_code error.err_code with
-            | None -> "Unknown MPEG-TS error"
-            | Some e ->
-                Printf.sprintf
-                  "%s %s"
-                  (MPEG_TS.ETR290_error.number e)
-                  (MPEG_TS.ETR290_error.name e)
-        in
-        let service, typ =
-          match snd error.pid with
-          | None -> None, None
-          | Some pid -> pid.service_name, Some (MPEG_TS.PID.Type.to_string pid.typ)
-        in
-        let pid = {typ; id = fst error.pid} in
-        make
-          ?service
-          ~time:error.timestamp
-          ~level:Warn
-          ~message
-          ~info:(Ts_error.Info.of_error error)
-          ~stream:id
-          ~pid
-          ())
-      errors
+  let map ((id : Stream.ID.t), (errors : Error.t list)) =
+    List.map (error_to_log_entry id) errors
   in
   React.E.map (List.concat % List.map map % filter) event
 
@@ -54,6 +78,15 @@ let log_of_device (control : int) errors state =
   let state =
     React.E.fmap (function
         | `No_response | `Init -> None
+        | `Detect ->
+            Some
+              [ make
+                  ~time:(Ptime_clock.now ())
+                  ~level:Info
+                  ~message:"Пытаюсь обнаружить плату"
+                  ~info:""
+                  ()
+              ]
         | `Fine ->
             let msg =
               make
@@ -65,7 +98,7 @@ let log_of_device (control : int) errors state =
                 ~info:""
                 ()
             in
-            Some [msg])
+            Some [ msg ])
     @@ React.S.changes state
   in
   let errors =
@@ -78,9 +111,7 @@ let log_of_device (control : int) errors state =
               | Hardware -> "Hardware error"
               | Protocol -> "Protocol error"
             in
-            let info =
-              Printf.sprintf "%s: code = %d, count = %d" prefix e.code e.count
-            in
+            let info = Printf.sprintf "%s: code = %d, count = %d" prefix e.code e.count in
             let info =
               match e.param with
               | None -> info
@@ -95,7 +126,7 @@ let log_of_device (control : int) errors state =
           x)
       errors
   in
-  React.E.merge ( @ ) [] [state; errors]
+  React.E.merge ( @ ) [] [ state; errors ]
 
 let log_of_streams (control : int) event source =
   let s =
@@ -143,7 +174,7 @@ let log_of_streams (control : int) event source =
     s
 
 let create (control : int) (api : Protocol.api) source =
-  let errors = log_of_errors React.E.never source in
-  (* let device = log_of_device control events.device in *)
+  let errors = log_of_errors api.notifs.errors source in
+  let device = log_of_device control api.notifs.deverr api.notifs.state in
   let streams = log_of_streams control api.notifs.streams source in
-  React.E.merge ( @ ) [] [errors; (* device; *) streams]
+  React.E.merge ( @ ) [] [ errors; device; streams ]

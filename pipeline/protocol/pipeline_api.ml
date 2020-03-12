@@ -165,16 +165,20 @@ let apply_structures (state : Protocol.state) _user body _env _state =
   match Structure.Many.of_yojson body with
   | Error e -> Lwt.return (`Error e)
   | Ok x ->
-     match state.backend with
-     | None -> Lwt.return (`Error "not ready")
-     | Some backend ->
-        Protocol.Qoe_backend.Graph.apply_structure backend x
-        >>= function
-        | Error (`Qoe_backend e) -> Lwt.return (`Error  e)
-        | Ok () ->
-           state.options.structures#set x
-           >>= fun () ->
-           Lwt.return `Unit
+     Protocol.reset state state.sources (* TODO remove reset *)
+     >>= function
+     | Error (`Qoe_backend e) -> Lwt.return (`Error  e)
+     | Ok () ->
+        match state.backend with
+        | None -> Lwt.return (`Error "not ready")
+        | Some backend ->
+           Protocol.Qoe_backend.Graph.apply_structure backend x
+           >>= function
+           | Error (`Qoe_backend e) -> Lwt.return (`Error  e)
+           | Ok () ->
+              state.options.structures#set x
+              >>= fun () ->
+              Lwt.return `Unit
 
 let apply_settings (state : Protocol.state) _user body _env _state =
   let (>>=) = Lwt_result.bind in

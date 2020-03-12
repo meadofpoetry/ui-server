@@ -192,6 +192,28 @@ module Demo = struct
                   ; timestamp = Ptime.epoch
                   } )
               ])))
+
+  let error_ev =
+    Lwt_react.(
+      E.from (fun () ->
+          Lwt.(
+            Lwt_unix.sleep 1.0
+            >>= fun () ->
+            Lwt.return
+              [ ( stream.id
+                , [ { Board_niitv_tsan_types.Error.count = 1
+                    ; err_code = 0x16
+                    ; err_ext = 2
+                    ; is_t2mi = false
+                    ; multi_pid = false
+                    ; pid = Random.int 200
+                    ; packet = 0l
+                    ; param_1 = 0l
+                    ; param_2 = 0l
+                    ; timestamp = Ptime_clock.now ()
+                    }
+                  ] )
+              ])))
 end
 
 let create
@@ -215,7 +237,7 @@ let create
     ; streams
     ; bitrate
     ; bitrate_ext
-    ; errors = React.E.never
+    ; errors = Demo.error_ev
     ; t2mi_info = React.S.const []
     ; structure
     }

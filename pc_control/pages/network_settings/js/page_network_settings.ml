@@ -111,7 +111,11 @@ let () =
         confirmation_dialog#destroy ();
         React.E.stop ~strong:true event';
         React.E.stop ~strong:true event;
-        Lwt.async (fun () -> Api_js.Websocket.JSON.unsubscribe socket event_id);
+        Lwt.async (fun () ->
+            Api_js.Websocket.JSON.unsubscribe socket event_id
+            >>= function
+            | Error e -> Lwt.fail (Api_js.Websocket.Error e)
+            | Ok v -> Lwt.return v);
         Api_js.Websocket.close_socket socket);
     Lwt.return_ok page
   in

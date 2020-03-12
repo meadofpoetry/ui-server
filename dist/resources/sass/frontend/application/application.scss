@@ -1,5 +1,7 @@
 @import "@material/theme/_mixins";
 @import "@material/typography/_mixins";
+@import "@material/theme/color-palette";
+@import "@material/data-table/variables";
 
 .application-stream-selector {
 }
@@ -52,11 +54,76 @@
 
 // Log
 
-.application-log {
-    th:nth-of-type(2), td:nth-of-type(2) {
-        max-width: 300px;
+#log-tabpanel .mdc-tabbed-page__content {
+    min-height: 100%;
+    height: 100%;
+    display: flex;
+}
+
+.page-log {
+    height: 100%;
+    width: 100%;
+
+    &__cell {
+        overflow: hidden;
+        position: relative;
     }
-    th:nth-of-type(3), td:nth-of-type(3) {
-        max-width: 250px;
+}
+
+.application-log {
+    min-height: 100%;
+    max-height: 100%;
+    overflow: auto;
+    position: relative;
+    display: flex;
+
+    &__table {
+        width: 100%;
+        max-height: 100%;
+        height: auto;
+        border: none;
+
+        table {
+            position: relative;
+        }
+
+        th {
+            @include mdc-theme-prop(background-color, surface);
+            position: sticky;
+            top: 0;
+        }
+    }
+
+    &__footer {
+        @include mdc-theme-prop(border-top-color, $mdc-data-table-divider-color);
+        border-top-width: $mdc-data-table-divider-size;
+        border-top-style: solid;
+        margin-top: auto;
+    }
+
+    &__entry {
+        &--info {
+            td:nth-of-type(2) {
+                background-color: $material-color-light-green-500;
+            }
+        }
+
+        &--warn {
+            td:nth-of-type(2) {
+                background-color: $material-color-yellow-500;
+            }
+        }
+
+        &--err {
+            td:nth-of-type(2) {
+                background-color: $material-color-orange-500;
+            }
+        }
+
+        &--fatal {
+            td:nth-of-type(2) {
+                background-color: $material-color-red-900;
+            }
+        }
     }
 }
